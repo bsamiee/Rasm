@@ -22,25 +22,21 @@ The page composes settled law without re-derivation: `SectionProfile.CircleHollo
 - Boundary: `Attestation` qualifies the TRANSCRIPTION, `EvidenceGrade` the PRODUCER — a value lands standards-published yet single-posted, and the two axes cross the seam as independent bag rows so a downstream reader never mistakes a primary-single cell for a corroborated one.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
-using System.Globalization;             // the invariant designation-tag format
+using System.Globalization;
 using LanguageExt;
-using LanguageExt.Common;               // Error — the Validation fault carrier the coherence census accumulates
-using Rasm.Domain;                      // Op, Context
-using Rasm.Element.Composition;         // MaterialId, PropertyBag
-using Rasm.Element.Properties;          // EvidenceGrade, DetailSchema, PropertyCategory, PropertyName, PropertyValue, Dimension
+using LanguageExt.Common;
+using Rasm.Domain;
+using Rasm.Element.Composition;
+using Rasm.Element.Properties;
 using Thinktecture;
-using Dimension = Rasm.Element.Properties.Dimension;   // the SI-dimension axis the detail-bag mints ride
+using Dimension = Rasm.Element.Properties.Dimension;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Component;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The SEED_ROW_LAW source-count axis BESIDE EvidenceGrade: the grade names WHO produced a value, Attestation states
-// whether a second INDEPENDENT posting corroborates the transcription. A primary-single column crosses the seam
-// flagged rather than dressed as two-sourced — the ductwork gauge schedules and the soil XH service are the standing
-// consumers. And combines cell attestations onto one bag row: any primary-single contributor rules the row.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Attestation {
@@ -50,59 +46,37 @@ public sealed partial class Attestation {
     public Attestation And(Attestation other) => Independent && other.Independent ? Corroborated : PrimarySingle;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// One SIZED rung: the nominal designation, the inch nominal the tag derives from, the admitted OD/wall pair, and the
-// two typed-absent product cells (a psi rating where the system declares one, a hub envelope where the service
-// publishes one). It is the delegate's return, so a system's ladder is data its own row produces.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PipeSize(
     string Nominal, double NominalIn, double OdMm, double WallMm, Option<double> RatedPsi, Option<double> HubMm);
 
-// The seed row: the policy row and the rung it produced. The roster is the flattened product of the two, so ~150
-// components come from 55 published roster rows with no hand mint.
 public readonly record struct PipeRow(PipeSystem System, PipeSize Size) {
     public string Designation =>
         $"pipework.{System.Key}-{(Size.NominalIn * 1000.0).ToString("00000", CultureInfo.InvariantCulture)}";
 }
 
-// ASTM B88 / F876 copper-tube-size row: the CTS rule OD = nominal + 1/8 in is the standard's own correspondence, so
-// only the nominal and the three published wall columns store; None = the type is not furnished at that size. The
-// F876 SDR9 wall is OD/9 under the 0.070 in floor — the formula reproduces every printed F876 cell, so PEX carries
-// EvidenceGrade.Defined and no wall column of its own.
 public readonly record struct CtsRow(string Nominal, double NominalIn, Option<double> KWallIn, Option<double> LWallIn, Option<double> MWallIn, bool Pex) {
     public double OdIn => NominalIn + 0.125;
     public double OdMm => OdIn * ThreadRow.InchToMm;
     public double PexWallMm => Math.Max(OdIn / 9.0, 0.070) * ThreadRow.InchToMm;
 }
 
-// ASME B36.10 iron-pipe-size row shared by steel A53/A106, PVC D1785, and CPVC F441 — one OD ladder, two schedule
-// walls, and the D1785/F441 73 °F water working-pressure pair (CPVC prints the same psi cells as PVC at 73 °F; the
-// temperature derating that separates them is Rasm.Compute's). Sch 40 = STD through NPS 10, Sch 80 = XS through NPS 8.
 public readonly record struct IpsRow(string Nps, double NpsIn, double OdIn, double Sch40In, double Sch80In, double Rated80Psi, double Rated40Psi) {
     public double OdMm => OdIn * ThreadRow.InchToMm;
 }
 
-// ASTM A74 hub-and-spigot soil-pipe row: both services on one row, wall DERIVED from the published barrel OD/ID pair
-// so the two printed columns stay the authority. The hub ID is the joint envelope a fit check reads, kept per service.
 public readonly record struct SoilRow(string Size, double SizeIn, double SvHubIn, double SvOdIn, double SvIdIn, double XhHubIn, double XhOdIn, double XhIdIn) {
     public double SvWallIn => (SvOdIn - SvIdIn) / 2.0;
     public double XhWallIn => (XhOdIn - XhIdIn) / 2.0;
 }
 
-// AWWA C151/A21.51 ductile row: the OD ladder and the five-class roster are corroborated; the wall matrix CONFLICTS
-// between secondary sources cell-for-cell, so WallIn is typed-absent on every row and the system mints nothing.
 public readonly record struct DuctileRow(string Size, double OdIn, Option<double> WallIn);
 
-// --- [TABLES] ------------------------------------------------------------------------------
-// The pipework policy axis: one row per minting material system. Schedule is the PipeSchedule bag token; Joint the
-// system's default modality over the widened Realization allowed-set (a per-connection override is realization
-// detail, never a type edit); Flexible selects the IfcPipeSegment predefined token; Dims/Rated the attestation of the
-// dimension and rating columns (steel carries Rated None — the pack scope is dimensions only, and its sizing
-// delegate therefore stamps no psi cell); Sizes the system's OWN ladder, deferred so the axis never races the table
-// statics. PEX appearance rides plastic.pvc — the one smooth-polymer render row the library publishes.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PipeSystem {
-    public const double PexRatedPsi = 160.0;   // F876 standard rating at 73 °F; the 100 psi/180 °F and 80 psi/200 °F rungs are Compute-side temperature derating
+    public const double PexRatedPsi = 160.0;
 
     public static readonly PipeSystem CopperK    = new("copper-k",    schedule: "type-k", joint: "Brazed",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "copper.c12200", appearanceId: "metal.copper",  sizes: static () => CopperSizes(static r => r.KWallIn));
     public static readonly PipeSystem CopperL    = new("copper-l",    schedule: "type-l", joint: "Brazed",      flexible: false, source: EvidenceGrade.Catalogue, dims: Attestation.Corroborated,  rated: None,                            substanceId: "copper.c12200", appearanceId: "metal.copper",  sizes: static () => CopperSizes(static r => r.LWallIn));
@@ -131,10 +105,6 @@ public sealed partial class PipeSystem {
     public MaterialId Appearance => MaterialId.Of(AppearanceId);
 
     // --- [LADDERS]
-    // One generator per published roster; the per-system variation is the SELECTOR each row hands its own generator,
-    // so a wall column, a rating column, or a service triple is the whole difference between two systems. The rating
-    // selector is an Option rather than a flag: a system whose pack scope excludes ratings passes None and its rungs
-    // carry no psi cell at all, which the seed coherence then proves against the Rated attestation column.
     static readonly Option<Func<IpsRow, double>> Rated40 = Some<Func<IpsRow, double>>(static r => r.Rated40Psi);
     static readonly Option<Func<IpsRow, double>> Rated80 = Some<Func<IpsRow, double>>(static r => r.Rated80Psi);
 
@@ -159,7 +129,6 @@ public sealed partial class PipeSystem {
         });
 }
 
-// ASTM B88 Table: 16 sizes, walls in the inches the standard prints. Type M is not furnished at 1/4 and 5/8.
 public static class Cts {
     public static readonly ImmutableArray<CtsRow> Rows = [
         new("1/4",   0.25,  0.035, 0.030, None,  Pex: false),
@@ -180,9 +149,6 @@ public static class Cts {
         new("8",     8.0,   0.271, 0.200, 0.170, Pex: false)];
 }
 
-// ASME B36.10 ladder NPS 1/2–12 with the D1785/F441 73 °F psi pair. The Sch 40 rating column is PRIMARY-SINGLE
-// (one direct D1785 posting; the second support is the same-geometry F441 schedule) — the PvcSch40/CpvcSch40 system
-// rows carry that flag, so the cells stamp flagged rather than falsely two-sourced.
 public static class Ips {
     public static readonly ImmutableArray<IpsRow> Rows = [
         new("1/2",   0.5,   0.840,  0.109, 0.147, 850.0, 600.0),
@@ -200,8 +166,6 @@ public static class Ips {
         new("12",    12.0,  12.750, 0.406, 0.687, 230.0, 130.0)];
 }
 
-// ASTM A74 hub-and-spigot: SV columns corroborated; the XH service is PRIMARY-SINGLE (the SoilXh system row carries
-// the flag). Hubless soil pipe is CISPI 301 — a different standard, never a row here.
 public static class Soil {
     public static readonly ImmutableArray<SoilRow> Rows = [
         new("2",  2.0,  2.94,  2.30,  1.96,  3.06,  2.38,  2.00),
@@ -214,11 +178,8 @@ public static class Soil {
         new("12", 12.0, 13.50, 12.50, 11.94, 13.75, 12.75, 12.00)];
 }
 
-// AWWA C151 OD ladder (18 sizes) + the five pressure classes, both corroborated; every WallIn is typed-absent under
-// the cross-source wall-matrix conflict. The roster is the admission domain a future wall landing mints from —
-// substance iron.ductile and the PressureClass tokens are already bound the moment a row's wall proves.
 public static class Ductile {
-    public static readonly ImmutableArray<int> Classes = [150, 200, 250, 300, 350];   // psi rated working pressure incl. surge allowance
+    public static readonly ImmutableArray<int> Classes = [150, 200, 250, 300, 350];
     public static readonly ImmutableArray<DuctileRow> Rows = [
         new("3", 3.96, None),   new("4", 4.80, None),   new("6", 6.90, None),   new("8", 9.05, None),
         new("10", 11.10, None), new("12", 13.20, None), new("14", 15.30, None), new("16", 17.40, None),
@@ -238,11 +199,7 @@ public static class Ductile {
 - Boundary: `SegmentRows` mints through the owner-blessed `PropertyCategory.Materials` scope, so the wall, working-pressure, and attestation rows are one vocabulary across pipework, ductwork, and electrical — a per-page `PropertyName.Create` respelling is the fork this owner closes. `PipeworkSeed.Capacity` is the typed refusal — a pipe run's hydraulic verdict rides `Rasm.Compute`, and the refusal names that route.
 
 ```csharp signature
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// The shared Materials-scoped trade rows: WallThickness the admitted wall SI value, WorkingPressure the rated
-// pressure, Attested the source-count token beside every fluid-trade bag's Sourced row. Ductwork and electrical
-// compose these rows; the seam DetailSchema statics stay the canonical names where one exists (NominalDiameter,
-// PipeSchedule, NominalBore) and this class mints only the rows the seam does not name.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SegmentRows {
     public static readonly PropertyName WallThickness   = PropertyCategory.Materials.Row("WallThickness");
     public static readonly PropertyName WorkingPressure = PropertyCategory.Materials.Row("WorkingPressure");
@@ -250,11 +207,9 @@ public static class SegmentRows {
         (PropertyCategory.Materials.Row(nameof(Attestation)), new PropertyValue.Text(attestation.Key));
 }
 
-// --- [TABLES] ------------------------------------------------------------------------------
-// The ComponentFamily.Pipework roster and policy: every system's own ladder flattened once. The designation tag is
-// the nominal in decimal mils ("1/2" -> 00500), derived so the tag can never name a size the row does not carry.
+// --- [TABLES] --------------------------------------------------------------------------
 public static class PipeworkSeed {
-    public const double PsiPa = 6_894.757;   // the one psi→Pa basis every stamped rating converts on
+    public const double PsiPa = 6_894.757;
     static readonly ComponentStandard UsAstm =
         new(ComponentAuthority.Astm.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Astm);
     static readonly PropertyName Hub = PropertyCategory.Materials.Row("HubDiameter");
@@ -274,10 +229,6 @@ public static class PipeworkSeed {
         appearance: static r => r.System.Appearance,
         ifc: static r => r.System.Ifc);
 
-    // The row census, ACCUMULATING — two INDEPENDENT proofs. The rating correspondence is what lets the bag read the
-    // declared attestation column directly: a rung carrying a psi cell its system never declared, or a declaring
-    // system whose ladder produced none, is the state that would make the attestation fold lie. The annulus proof
-    // names the offending designation where the geometry rail alone would report a bare dimensional fault.
     static Validation<Error, Unit> Coherence(PipeRow r, Op key) =>
         (guard(r.Size.RatedPsi.IsSome == r.System.Rated.IsSome,
              new KernelFault.InvalidValue(nameof(r.Size.RatedPsi), "presence matching the pipe-system rating", Some(key))).ToValidation(),
@@ -286,9 +237,6 @@ public static class PipeworkSeed {
              new KernelFault.InvalidValue(nameof(r.Size), "a positive finite annulus", Some(key))).ToValidation())
             .Apply(static (_, _) => unit).As();
 
-    // The DetailLane.Product bag: schedule and bore tokens, the joint modality through the schema's closed
-    // allowed-set, evidence and attestation, and the measured OD/wall pair; the rating and hub rows ride only where
-    // the system publishes them, absent otherwise — never a zero.
     static Fin<PropertyBag> Detail(PipeRow r, SectionProfile profile, Op key) =>
         from joint in ComponentDetail.Joint(r.System.Joint, key)
         from od in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, r.Size.OdMm * 1e-3)
@@ -308,9 +256,6 @@ public static class PipeworkSeed {
     static Fin<Option<(PropertyName, PropertyValue)>> Optional(Option<double> value, Func<double, Fin<(PropertyName, PropertyValue)>> mint) =>
         value.Match(Some: v => mint(v).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None));
 
-    // The ComponentFamily.Pipework CAPACITY producer: an explicit typed refusal — a pipe segment's governing verdict
-    // is hydraulic (flow, pressure drop, surge), owned by the Rasm.Compute fluid route, and pricing it off a section
-    // integral here would certify a structural answer to a hydraulic question.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
         new ComponentFault.CapacityUnavailable(key, component.Designation);
 }

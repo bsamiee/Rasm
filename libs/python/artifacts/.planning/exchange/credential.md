@@ -76,8 +76,6 @@ class Intent(StrEnum):
     UPDATE = "update"
 
 
-# full IPTC digital-source vocabulary `C2paDigitalSourceType` carries (EMPTY is the no-source
-# default the `_author` kernel supplies); member NAMES align with the c2pa enum so the row derives.
 class DigitalSource(StrEnum):
     ALGORITHMICALLY_ENHANCED = "algorithmically_enhanced"
     ALGORITHMIC_MEDIA = "algorithmic_media"
@@ -99,8 +97,6 @@ class DigitalSource(StrEnum):
     VIRTUAL_RECORDING = "virtual_recording"
 
 
-# C2PA manifest/action/ingredient authoring JSON the SDK consumes; typed `ReadOnly`
-# `extra_items` payloads, dicts at runtime so the foreign API accepts them unchanged.
 class ManifestDefinition(TypedDict, extra_items=object):
     claim_generator: NotRequired[ReadOnly[str]]
     claim_generator_info: NotRequired[ReadOnly[list[object]]]
@@ -127,15 +123,11 @@ class IngredientDefinition(TypedDict, extra_items=object):
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# signable MIME set the `Sign` preflight gates on, the network-transient C2PA fault subset the stamina
-# weave re-attempts, and the `c2pa.actions` label whose `data` the evidence walk decodes the action history from.
 _SIGNABLE: Final[frozenset[str]] = frozenset(Builder.get_supported_mime_types())
 _TRANSIENT: Final[tuple[type[C2paError], ...]] = (C2paError.RemoteManifest, C2paError.Io)
 _ACTIONS_LABEL: Final[str] = "c2pa.actions"
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# each row derives from the StrEnum-name <-> c2pa-enum-name correspondence; a new alg/intent/source
-# is one StrEnum member, the c2pa member resolved by name — never a hand-enumerated mapping.
 _SIGNING_ALG: Final[Map[SigningAlg, C2paSigningAlg]] = Map.of_seq((a, C2paSigningAlg[a.name]) for a in SigningAlg)
 _INTENT: Final[Map[Intent, C2paBuilderIntent]] = Map.of_seq((i, C2paBuilderIntent[i.name]) for i in Intent)
 _DIGITAL_SOURCE: Final[Map[DigitalSource, C2paDigitalSourceType]] = Map.of_seq((s, C2paDigitalSourceType[s.name]) for s in DigitalSource)
@@ -174,8 +166,6 @@ class Manifest(Struct, frozen=True):
         return structs.replace(self, ingredients=(*self.ingredients, ingredient))
 
     def with_parents(self, *parents: tuple[ContentKey, str, bytes]) -> Self:
-        # plan-derived lineage: each `ArtifactWork.parents` key lands as a `parentOf` ingredient carrying the
-        # content identity the pipeline dedups on, so a derived artifact attests its sources by key.
         rows = tuple(
             Ingredient.Stream(
                 IngredientDefinition(relationship="parentOf", document_id=f"xmp.did:{key.hex}", instance_id=f"xmp.iid:{key.hex}"),
@@ -190,7 +180,6 @@ class Manifest(Struct, frozen=True):
         return structs.replace(self, resources=(*self.resources, resource))
 
     def _author(self, context: Context, /, *, remote_url: str | None = None) -> Builder:
-        # Exemption: c2pa's `Builder` authoring methods mutate one native handle and return `None`.
         builder = Builder.from_json(self.definition, context=context)
         if self.intent is not None:
             intent, origin = self.intent
@@ -259,8 +248,6 @@ class CallbackSigner(Struct, frozen=True):
 
     @classmethod
     def ed25519(cls, certs: str, private_key: str, /, *, ta_url: str | None = None) -> Self:
-        # in-process Ed25519 no-HSM digest-signer: `ed25519_sign` binds the PEM `private_key` as the raw
-        # COSE-signature callback, so the ED25519 arm signs self-contained without an external keyring/HSM.
         return cls(alg=SigningAlg.ED25519, certs=certs, sign=partial(ed25519_sign, private_key=private_key), ta_url=ta_url)
 
 
@@ -293,9 +280,6 @@ class SignerSpec:
                 assert_never(unreachable)
 
 
-# typed projection of the `Reader.json()` STORE, admitted once through one `msgspec.json.Decoder`;
-# unknown keys fall away and every field defaults. The active-manifest LABEL is the store's `active_manifest`
-# KEY (NOT a field inside the manifest dict), so `manifests[active_manifest]` is the content the walk reads.
 class _SignatureInfo(Struct, frozen=True, gc=False):
     alg: str = ""
     issuer: str = ""
@@ -308,15 +292,11 @@ class _ValidationCheck(Struct, frozen=True, gc=False):
     code: str = ""
 
 
-# structured `claim_generator_info` row (name+version per signing tool) the modern manifest
-# carries beside the legacy flat `claim_generator` string; one value object serves decode and receipt.
 class GeneratorRef(Struct, frozen=True, gc=False):
     name: str = ""
     version: str = ""
 
 
-# one declared `c2pa.actions` entry: the edit/creation verb plus its per-action `digitalSourceType`
-# AI-origin token, read back symmetrically rather than collapsed to an assertion-label count.
 class ActionRef(Struct, frozen=True, gc=False, rename={"source_type": "digitalSourceType"}):
     action: str = ""
     source_type: str = ""
@@ -326,25 +306,16 @@ class _ActionData(Struct, frozen=True, gc=False):
     actions: tuple[ActionRef, ...] = ()
 
 
-# every assertion's `data` is held opaque as `msgspec.Raw` (the assertion-data shapes are
-# heterogeneous), decoded to `_ActionData` only for the `c2pa.actions` label; `label` feeds the label
-# tuple, `data` the decoded action history.
 class _Assertion(Struct, frozen=True, gc=False):
     label: str = ""
     data: Raw = Raw(b"{}")
 
 
-# `_ResourceRef` is the decode leaf every thumbnail/resource reference in the store JSON carries — the
-# `format` MIME plus the `identifier` JUMBF URI `Reader.resource_to_stream` resolves to the bound bytes.
 class _ResourceRef(Struct, frozen=True, gc=False):
     format: str = ""
     identifier: str = ""
 
 
-# per-ingredient lineage edge: the decode element `_Manifest.ingredients` admits AND the public
-# lineage value `CredentialEvidence` carries, so one value object serves the read and the receipt —
-# carrying the cross-asset `document_id`, the bound `thumbnail` `ResourceRef`, and the ingredient's own
-# `validation_status` codes.
 class IngredientRef(Struct, frozen=True, gc=False):
     relationship: str = ""
     title: str = ""
@@ -424,8 +395,6 @@ class CredentialEvidence(Struct, frozen=True, gc=False):
     generators: tuple[GeneratorRef, ...] = ()
     actions: tuple[ActionRef, ...] = ()
     ingredient_lineage: tuple[IngredientRef, ...] = ()
-    # bound thumbnails extracted through `resource_to_stream`, keyed by JUMBF identifier; dropped at the
-    # four-scalar receipt projection so the raw bytes never reach the wire.
     resources: frozendict[str, bytes] = frozendict()
 
     @classmethod
@@ -474,10 +443,10 @@ class CredentialEvidence(Struct, frozen=True, gc=False):
 # --- [SERVICES] -------------------------------------------------------------------------
 class CredentialSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="RASM_CREDENTIAL_", frozen=True, extra="forbid")
-    trust_anchors: Path | None = None  # PEM trust-anchor bundle the verify chains against
-    trust_config: Path | None = None  # the allowed-EKU / signing-config the verify enforces
-    allowed_list: Path | None = None  # explicit end-entity allow-list
-    ta_url: str = ""  # default RFC-3161 TSA the campaign signer stamps against
+    trust_anchors: Path | None = None
+    trust_config: Path | None = None
+    allowed_list: Path | None = None
+    ta_url: str = ""
     verify_trust: bool = True
     verify_timestamp_trust: bool = True
     remote_manifest_fetch: bool = True
@@ -500,15 +469,12 @@ class CredentialSettings(BaseSettings):
 _POLICY: Final[CredentialPolicy] = CredentialSettings().policy()
 
 
-# per-case request payloads carry the canonical trust policy, never a package-native `Context` handle.
 class SignSpec(Struct, frozen=True):
     manifest: Manifest
     fmt: str
     signer: SignerSpec
     remote_url: str | None = None
     policy: CredentialPolicy = _POLICY
-    # the plan DATA-edge keys `Sign(..., parents=)` stamped beside the manifest fold — non-identity (the manifest's
-    # own `parentOf` ingredient rows already ride `_canon`), read only by `emit`'s `ArtifactWork.parents` projection.
     lineage: tuple[ContentKey, ...] = ()
 
 
@@ -529,16 +495,12 @@ class EmbedSpec(Struct, frozen=True):
     policy: CredentialPolicy = _POLICY
 
 
-# Processed-ingredient mint: `definition` carries the `instance_id`/label `write_ingredient_archive` keys on,
-# so the archive blob `Ingredient.Archive` rehydrates is minted in-system, never hand-carried from a foreign tool.
 class ArchiveSpec(Struct, frozen=True):
     definition: IngredientDefinition
     fmt: str
     policy: CredentialPolicy = _POLICY
 
 
-# `Provenance` IS the closed union: dispatch, async entry, and every case body on one owner, each case a
-# `(bytes, Spec)` pair whose asset bytes lead and whose typed spec carries the rest.
 @tagged_union(frozen=True)
 class Provenance:
     tag: Literal["sign", "read", "read_fragment", "embed", "archive_ingredient"] = tag()
@@ -550,10 +512,6 @@ class Provenance:
 
     @classmethod
     def Sign(cls, asset: bytes, spec: SignSpec, /, *, parents: tuple[tuple[ContentKey, str, bytes], ...] = ()) -> Self:
-        # lineage is SIGN-CASE PAYLOAD, seated at construction: the parent triples fold into the manifest's
-        # `parentOf` ingredient rows and their keys stamp `SignSpec.lineage`, so the signed rows and the plan's
-        # DATA edges derive from ONE `(key, fmt, bytes)` source — and a parented non-sign operation is
-        # UNSPELLABLE rather than guarded, since no other constructor admits the parameter.
         lined = (
             spec
             if not parents
@@ -578,17 +536,11 @@ class Provenance:
         return cls(archive_ingredient=(source, spec))
 
     def emit(self, lane: LanePolicy, /) -> ArtifactWork:
-        # the plan's DATA edges project off the sign payload's own `lineage` column — seated by `Sign(parents=)`
-        # beside the manifest fold, so no emit-level knob exists for a case that carries no lineage and the
-        # parented-non-sign refusal the old guard spelled is now unspellable at construction.
         lineage = self.sign[1].lineage if self.tag == "sign" else ()
         return ArtifactWork(key=self._key, work=partial(self._emit, lane), parents=lineage, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT minted PRE-RUN so `keyed` admission elides a duplicate; signer key material and the
-        # verify policy are non-identity (secret/environment) — every other spec member rides the arm's canon,
-        # ingredients and resources included, so two signs differing only in lineage never dedup-elide.
         return ContentIdentity.key(f"credential.{self.tag}", msgpack.encode(self._canon()))
 
     def _canon(self) -> tuple[object, ...]:
@@ -599,8 +551,6 @@ class Provenance:
                 intent = (manifest.intent[0].value, manifest.intent[1].value if manifest.intent[1] is not None else "") if manifest.intent else ()
                 lineage = tuple(ingredient.stream if ingredient.tag == "stream" else ingredient.archive for ingredient in manifest.ingredients)
                 bound = tuple((resource.uri, resource.source) for resource in manifest.resources)
-                # PUBLIC signer identity — algorithm plus certificate-chain bytes/PEM, never private-key material —
-                # so signer-distinct signs never share a keyed admission identity.
                 signer = (
                     (spec.signer.alg.value, spec.signer.cert_key.sign_cert)
                     if spec.signer.tag == "cert_key"
@@ -619,16 +569,10 @@ class Provenance:
                 assert_never(unreachable)
 
     async def close(self, lane: LanePolicy, /) -> RuntimeRail[tuple[ContentKey, bytes, CredentialEvidence]]:
-        # GIL-releasing c2pa core and the TSA/remote-manifest transport cross the THREAD lane; the
-        # produced bytes key by their own content so the manifest and the key co-identify one artifact.
         railed = await lane.offload(Kernel.of(self._run, KernelTrait.RELEASING))
         return railed.map(lambda pair: (ContentIdentity.key(f"credential.{self.tag}", pair[0]), pair[0], pair[1]))
 
     async def _emit(self, lane: LanePolicy, /) -> RuntimeRail[ArtifactReceipt]:
-        # a content credential is a provenance ASSERTION about who signed what — `REGULATORY` durable evidence whose
-        # diff names the manifest id, the signer, the assertion count, and the validation state, so a later challenge
-        # to an asset's origin reads the claim this process actually made. Recording suspends, so the seat is this
-        # awaitable fold and the rail binds into the emit's verdict.
         settled = (await self.close(lane)).map(
             lambda kbe: ArtifactReceipt.Credential(kbe[0], kbe[2].manifest_id, kbe[2].signer, kbe[2].assertions, kbe[2].validation_state)
         )
@@ -640,7 +584,6 @@ class Provenance:
 
     @stamina.retry(on=_TRANSIENT, attempts=3)
     def _run(self) -> tuple[bytes, CredentialEvidence]:
-        # Exemption: each c2pa native handle closes inside the operation that consumes it.
         match self:
             case Provenance(tag="sign", sign=(asset, spec)):
                 with spec.policy.context() as context:
@@ -668,10 +611,6 @@ class Provenance:
         if spec.fmt not in _SIGNABLE:
             raise C2paError.NotSupported(f"credential.sign: {spec.fmt} is read-only here; route pdf/arw/nef to exchange/conformance")
         sink = BytesIO()
-        # `sign` returns the detached manifest bytes AND writes the asset into `sink`; the sidecar path
-        # (a `set_no_embed` asset carries no embedded manifest, its remote store unpublished at sign time)
-        # reads its evidence through `manifest_data=detached` where an embedded-style read would yield
-        # `unsigned`, while the embedded path passes `manifest_data=None` — one `try_create` either way.
         with spec.manifest._author(context, remote_url=spec.remote_url) as builder, spec.signer._cose(spec.policy) as signer:
             detached = builder.sign(signer, spec.fmt, BytesIO(asset), sink)
         signed = sink.getvalue()
@@ -681,8 +620,6 @@ class Provenance:
         return signed, self._evidence(reader, spec.signer.alg)
 
     def _embedded(self, asset: bytes, spec: EmbedSpec, context: Context, /) -> tuple[bytes, CredentialEvidence]:
-        # rewrap a captured detached/remote-store manifest into the embeddable JUMBF block; this owner produces the
-        # block a downstream writer splices, reading evidence through the sidecar `manifest_data` path.
         if spec.fmt not in _SIGNABLE:
             raise C2paError.NotSupported(f"credential.embed: {spec.fmt} has no embeddable manifest form; route pdf/arw/nef to exchange/conformance")
         _size, block = format_embeddable(spec.fmt, spec.manifest)
@@ -690,8 +627,6 @@ class Provenance:
         return block, self._evidence(reader, "")
 
     def _archived(self, source: bytes, spec: ArchiveSpec, context: Context, /) -> tuple[bytes, CredentialEvidence]:
-        # mint the processed-ingredient archive `Ingredient.Archive` rehydrates: one throwaway builder ingests the
-        # source and `write_ingredient_archive` serializes it keyed by the definition's `instance_id`/label.
         sink = BytesIO()
         with Builder.from_json({}, context=context) as builder:
             builder.add_ingredient_from_stream(spec.definition, spec.fmt, BytesIO(source))
@@ -700,7 +635,6 @@ class Provenance:
 
     @staticmethod
     def _opened(make: Callable[[], Reader | None], /) -> Option[Reader]:
-        # `try_create` maps a credential-free asset to `None`; a fragment read raises `ManifestNotFound` instead — both project to `unsigned`.
         try:
             return Option.of_optional(make())
         except C2paError.ManifestNotFound:
@@ -721,8 +655,6 @@ class Provenance:
 
     @staticmethod
     def _drawn(live: Reader, store: _Store, /) -> frozendict[str, bytes]:
-        # best-effort forensic capture of the bound thumbnails through `resource_to_stream` on the same
-        # live-reader borrow; a missing/broken resource skips via the `catch`-narrowed `Option`, never faulting.
         active = store.manifests.get(store.active_manifest, _Manifest())
         refs = (active.thumbnail, *(ingredient.thumbnail for ingredient in active.ingredients))
 
@@ -732,7 +664,7 @@ class Provenance:
 
         return frozendict({ref.identifier: got.value for ref in refs if ref.identifier and (got := drawn(ref.identifier)).is_some()})
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = (
     "ActionDefinition",

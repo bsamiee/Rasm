@@ -47,8 +47,6 @@ from rasm.cad.faults import MEASURE_DEGENERATE, CadRail
 
 
 class Dimension(IntEnum):
-    # Ordinal IS the topological dimension, and `_LADDER` descends it: a solid outranks its faces, faces outrank their
-    # edges. Reading the rank off the member removes the separate precedence literal a sibling table drifts against.
     SOLID = 3
     FACE = 2
     EDGE = 1
@@ -58,8 +56,6 @@ class Dimension(IntEnum):
 
 
 class _Rung(Struct, frozen=True):
-    # One rung per measurable dimension. `extent` reads the census column that proves the rung applies, and `measure`
-    # fills mass and centroid at that dimension carrying its own finite refusal, so no caller re-checks the pair.
     dimension: Dimension
     extent: Callable[[TopologyCensus], int]
     measure: Callable[[TopoDS_Shape], CadRail[tuple[float, gp_Pnt]]]
@@ -73,15 +69,11 @@ def _admitted(shape: TopoDS_Shape, /) -> CadRail[TopoDS_Shape]:
 
 
 def _finite(value: float, coordinate: str, /) -> CadRail[float]:
-    # One gate over every scalar this owner publishes. Each generated field carries a `finite` wire constraint, so a
-    # non-finite read refuses at its own coordinate rather than surfacing later as an opaque encode rejection.
     return Ok(value) if isfinite(value) else Error(MEASURE_DEGENERATE.at(f"{coordinate}.non-finite"))
 
 
 def _topology(shape: TopoDS_Shape, /) -> TopologyCensus:
     def extent(kind: TopAbs_ShapeEnum, /) -> int:
-        # `MapShapes_s` indexes each distinct sub-shape once; `TopExp_Explorer` re-visits one shared shape per parent
-        # and inflates the census it fills, which is why the map, never the explorer, is the counting surface.
         carrier = TopTools_IndexedMapOfShape()
         TopExp.MapShapes_s(shape, kind, carrier)
         return carrier.Extent()
@@ -117,8 +109,6 @@ def _solid_properties(shape: TopoDS_Shape, /) -> CadRail[tuple[float, gp_Pnt]]:
 
 
 def _massless(fill: Callable[[TopoDS_Shape, GProp_GProps], None], coordinate: str, /) -> Callable[[TopoDS_Shape], CadRail[tuple[float, gp_Pnt]]]:
-    # Below solid dimension no volume exists, and `0.0` here is measured rather than defaulted: the elected rung already
-    # proved the dimension carries no enclosed body. `fill` is the one axis separating the surface and linear rungs.
     def measured(shape: TopoDS_Shape, /) -> CadRail[tuple[float, gp_Pnt]]:
         properties = GProp_GProps()
         fill(shape, properties)
@@ -134,8 +124,6 @@ def _massless(fill: Callable[[TopoDS_Shape, GProp_GProps], None], coordinate: st
 
 # --- [POLICIES] -------------------------------------------------------------------------
 
-# Descending dimension, and the descent IS the election rule the deleted `elif` ladder spelled three times. `_measured`
-# reads the first applicable rung and nothing else decides precedence; exhaustion is vertex-only topology, never a zero.
 _LADDER: Final[tuple[_Rung, ...]] = (
     _Rung(dimension=Dimension.SOLID, extent=lambda census: census.solids, measure=_solid_properties),
     _Rung(dimension=Dimension.FACE, extent=lambda census: census.faces, measure=_massless(BRepGProp.SurfaceProperties_s, "face")),
@@ -181,8 +169,6 @@ from rasm.cad.faults import MEASURE_DEGENERATE, CadFault
 
 @tagged_union(frozen=True)
 class Closure:
-    # Arm for arm the `BrepKernelReceipt` CEL rule `has(volume_delta_m3) == (has(watertight) && this.watertight)`:
-    # `unmeasured` publishes neither field, `open` publishes `watertight` false alone, `closed` publishes both.
     tag: Literal["unmeasured", "open", "closed"] = tag()
     unmeasured: None = case()
     open: None = case()
@@ -195,8 +181,6 @@ OPEN: Final[Closure] = Closure(open=None)
 
 # --- [POLICIES] -------------------------------------------------------------------------
 
-# One row per arm minting BOTH presence-coupled wire fields together. Two tables keyed on one tag, or a delta computed
-# beside a separately decided flag, drift the instant an arm changes on one side alone.
 _PRESENCE: Final[frozendict[str, Callable[[float, Closure], tuple[bool | None, float | None]]]] = frozendict({
     "unmeasured": lambda _exact, _closure: (None, None),
     "open": lambda _exact, _closure: (False, None),
@@ -209,8 +193,6 @@ _PRESENCE: Final[frozendict[str, Callable[[float, Closure], tuple[bool | None, f
 
 @effect.result[BrepKernelReceipt, CadFault]()
 def receipt(shape: TopoDS_Shape, closure: Closure = UNMEASURED, provenance: Option[BooleanProvenance] = Nothing, /):
-    # Do-notation, never `pipeline`: the census feeds both the election and the mint, and the elected volume feeds the
-    # presence row, so two intermediates outlive their successor step and the kleisli chain cannot name them.
     held = yield from _admitted(shape)
     census = _topology(held)
     volume_m3, center = yield from _measured(held, census)

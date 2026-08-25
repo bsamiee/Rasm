@@ -40,12 +40,6 @@ declare module "./hook.ts" {
   }
 }
 
-// Deployment shape arrives as data AND admits before it bounds anything: `samples` caps every window this floor
-// folds, so a zero cap empties every projection while a fractional or negative one hands `takeRight` a bound no
-// window honours — both read downstream as a quiet browser rather than a mis-supplied composition. `interaction` is
-// the estate floor `runtime:otel/vital` also hands its registrars, which the browser reads as a non-negative
-// millisecond threshold. Both refinements BRAND, so a bare object literal has no path into `observe` or
-// `committed`, and the composing root decodes ONCE at the seam instead of every window re-checking a raw number.
 const _Policy = Schema.Struct({
   interaction: Schema.Number.pipe(Schema.nonNegative(), Schema.brand("VitalInteraction")),
   samples: Schema.Int.pipe(Schema.positive(), Schema.brand("VitalSamples")),
@@ -58,7 +52,6 @@ declare namespace Vital {
   type Measures = Record.ReadonlyRecord<string, Vital.Measure>
 }
 
-// the grade axis is the telemetry owner's; the tone column is a KEY onto the token roster and never a color
 const _tone = {
   good: { tone: "success" },
   "needs-improvement": { tone: "caution" },
@@ -69,12 +62,8 @@ const _vitalHook: Hook.Row<"rasm.ui.vital.row"> = { modality: "replay", depth: 1
 
 type _Publish = (row: Row) => void
 
-// scope-owned publisher: FiberSet.makeRuntime binds every callback-forked publish to the composing
-// lifecycle — scope close interrupts in-flight publishes and a post-close call interrupts on arrival,
-// so no callback publication outlives or retains its registry composition
 const _publisher = (registry: Hook.Registry): Effect.Effect<_Publish, never, Scope.Scope> =>
   Effect.map(FiberSet.makeRuntime<never>(), (fork) => (row) => {
-    // BOUNDARY ADAPTER: browser and Profiler callbacks re-enter the Effect rail at the one point publisher
     void fork(Effect.asVoid(Hook.publish(registry, "rasm.ui.vital.row", row)))
   })
 
@@ -83,14 +72,11 @@ const _deliver = (publish: _Publish, report: (row: Row) => void, row: Row): void
   report(row)
 }
 
-// the ONE bounded-window measure algebra: a lane declares WHAT it measures as a table and HOW to read one sample,
-// and the window bound, the single accumulating pass, and the projection are this floor's for every evidence surface
 const _projections = ["sum", "mean", "peak", "latest"] as const
 
 type _Held = { readonly total: number; readonly peak: number; readonly latest: number }
 type _Window = { readonly count: number; readonly parts: Readonly<Record<string, _Held>> }
 
-// every accumulator rides one fixed triple, so a measure adds a statistic without re-shaping the seed or the fold
 const _PROJECT: { readonly [K in Vital.Projection]: (held: _Held, count: number) => number } = {
   sum: (held) => held.total,
   mean: (held, count) => held.total / count,
@@ -107,13 +93,12 @@ const _fold = <A>(trace: Chunk.Chunk<A>, read: (sample: A) => Readonly<Record<st
   Chunk.reduce(trace, _SEED, (acc, sample) =>
     pipe(read(sample), (taken) => ({
       count: acc.count + 1,
-      // raw associative accumulators only: every statistic projects at read, so partial windows stay fusable
       parts: Record.union(
         acc.parts,
         Record.map(taken, (value): _Held => ({ total: value, peak: value, latest: value })),
         (prior, next): _Held => ({
           total: prior.total + next.total,
-          peak: Number.max(prior.peak, next.peak), // the worst sample windows as its peak, never a mean
+          peak: Number.max(prior.peak, next.peak),
           latest: next.latest,
         }),
       ),
@@ -121,12 +106,11 @@ const _fold = <A>(trace: Chunk.Chunk<A>, read: (sample: A) => Readonly<Record<st
 
 const _rows = (label: string, measures: Vital.Measures, window: _Window): ReadonlyArray<Row> =>
   window.count === 0
-    ? [] // an empty window carries no rows — a zero-sample mean is fabricated evidence
+    ? []
     : [
         { label: `${label}-count`, value: window.count, unit: "1" },
         ...Array.flatMap(Record.toEntries(measures), ([name, measure]) =>
           Array.filterMap(measure.projects, (project) =>
-            // a measure the window never saw emits nothing rather than a zero no sample produced
             Option.map(Record.get(window.parts, name), (held) => ({
               label: `${label}-${name}-${project}`,
               value: _PROJECT[project](held, window.count),
@@ -163,13 +147,11 @@ const _ENTRY = {
     floored: false,
     label: "loaf",
     read: (entry: PerformanceLongAnimationFrameTiming): _Parts => ({
-      blocking: entry.blockingDuration, // the LoAF jank fact the bare longtask entry cannot carry
+      blocking: entry.blockingDuration,
       frame: entry.duration,
-      // renderStart reads 0 on a frame the browser never re-rendered: that whole span was task work and no render prologue exists
       ...(entry.renderStart > 0
         ? { render: Number.max(0, entry.styleAndLayoutStart - entry.renderStart), task: entry.renderStart - entry.startTime }
         : { render: 0, task: entry.duration }),
-      // one pass over the frame's own script rows: three sums, never three traversals
       ...entry.scripts.reduce(
         (held, script) => ({
           forced: held.forced + script.forcedStyleAndLayoutDuration,
@@ -185,7 +167,7 @@ const _ENTRY = {
     label: "event",
     read: (entry: PerformanceEventTiming): _Parts => ({
       input: entry.processingStart - entry.startTime,
-      latency: entry.duration, // the whole interaction span beyond the INP headline runtime owns
+      latency: entry.duration,
       presentation: entry.startTime + entry.duration - entry.processingEnd,
       processing: entry.processingEnd - entry.processingStart,
     }),
@@ -196,12 +178,10 @@ declare namespace Vital {
   type Entry = keyof typeof _ENTRY
 }
 
-// BOUNDARY ADAPTER: the per-key typed table erases once into the observer's dispatch index, so no fold below narrows an entry again
 const _READ = _ENTRY as Readonly<
   Record<Vital.Entry, { readonly floored: boolean; readonly label: string; readonly read: (entry: PerformanceEntry) => _Parts }>
 >
 
-// long-animation-frame and event timing both ship Chromium-first: the roster is the platform's answer, never a registration guess
 const _supported = (): ReadonlyArray<Vital.Entry> =>
   Array.filter(Record.keys(_ENTRY), (type) => PerformanceObserver.supportedEntryTypes.includes(type))
 
@@ -217,7 +197,6 @@ const _observe = (
           const observed = _supported()
           let windows = HashMap.empty<Vital.Entry, Chunk.Chunk<PerformanceEntry>>()
           const observer = new PerformanceObserver((list) =>
-            // BOUNDARY ADAPTER: one observer serves every registered family, so each folds its own window out of the shared batch
             Array.forEach(observed, (type) =>
               Array.match(Array.filter(list.getEntries(), (entry) => entry.entryType === type), {
                 onEmpty: () => undefined,
@@ -237,11 +216,9 @@ const _observe = (
         }),
         ({ observer }) => Effect.sync(() => observer.disconnect()),
       ),
-      ({ observed }) => observed, // the roster IS the exposed state: an empty one says the platform served neither family
+      ({ observed }) => observed,
     ))
 
-// every raw entry part is a duration a board reads as its window mean beside its worst sample, so the family's
-// measure table derives from its own reader keys rather than restating eleven identical rows by hand
 const _durations = (names: Array.NonEmptyReadonlyArray<string>): Vital.Measures =>
   Record.fromEntries(Array.map(names, (name) => [name, { projects: ["mean", "peak"], unit: "ms" }] as const))
 
@@ -250,7 +227,6 @@ const _ENTRY_MEASURES: Readonly<Record<Vital.Entry, Vital.Measures>> = {
   event: _durations(["input", "latency", "presentation", "processing"]),
 }
 
-// this lane's whole contribution is a measure table and a sample reader; the window, the pass, and the rows are [02]'s
 const _entryRows = (kind: Vital.Entry, trace: Chunk.Chunk<PerformanceEntry>): ReadonlyArray<Row> =>
   _rows(_READ[kind].label, _ENTRY_MEASURES[kind], _fold(trace, _READ[kind].read))
 ```
@@ -277,7 +253,6 @@ type _Commit = {
   readonly commit: number
 }
 
-// three durations and three phase counters on ONE table: a phase is a measure whose sample reads 1, never a second concept
 const _COMMIT_MEASURES: Vital.Measures = {
   actual: { projects: ["mean", "peak"], unit: "ms" },
   base: { projects: ["mean"], unit: "ms" },
@@ -290,7 +265,7 @@ const _COMMIT_MEASURES: Vital.Measures = {
 const _commitRead = (commit: _Commit): Readonly<Record<string, number>> => ({
   actual: commit.actual,
   base: commit.base,
-  lag: commit.commit - commit.start, // start-to-commit latency: scheduling pressure beyond the render cost itself
+  lag: commit.commit - commit.start,
   mount: commit.phase === "mount" ? 1 : 0,
   update: commit.phase === "update" ? 1 : 0,
   nested: commit.phase === "nested-update" ? 1 : 0,
@@ -304,7 +279,6 @@ const _committed = (
   Effect.map(_publisher(registry), (publish) => {
     let held = HashMap.empty<string, Chunk.Chunk<_Commit>>()
     return (id, phase, actualDuration, baseDuration, startTime, commitTime) => {
-      // BOUNDARY ADAPTER: Profiler supplies the complete commit tuple at this callback seam
       const commit = { id, phase, actual: actualDuration, base: baseDuration, start: startTime, commit: commitTime }
       const trace = _window(Option.getOrElse(HashMap.get(held, id), () => Chunk.empty<_Commit>()), [commit], policy.samples)
       held = HashMap.set(held, id, trace)
@@ -330,7 +304,6 @@ const _commitRows = (id: string, trace: Chunk.Chunk<_Commit>): ReadonlyArray<Row
 import { type LoggerEvent, type PluginOptions, runBabelPluginReactCompiler } from "babel-plugin-react-compiler"
 
 const _compiled = (text: string, file: string): ReadonlyArray<Row> => {
-  // BOUNDARY ADAPTER: the logger sink is the plugin's callback contract — the census detaches immutable
   const events: Array<LoggerEvent> = []
   const options: PluginOptions = {
     target: "19",
@@ -350,7 +323,7 @@ const _compiled = (text: string, file: string): ReadonlyArray<Row> => {
 
 declare namespace Vital {
   type Held = _Held
-  type Reading = Readonly<Record<string, number>> // what a lane's sample reader answers: one number per declared measure
+  type Reading = Readonly<Record<string, number>>
   type Window = _Window
   type Shape = {
     readonly entry: typeof _ENTRY
@@ -387,7 +360,7 @@ const Vital: Vital.Shape = {
   compiled: _compiled,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Vital }
 ```

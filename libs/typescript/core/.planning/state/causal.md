@@ -28,10 +28,6 @@ const _ORDERINGS = ["before", "after", "equal", "concurrent"] as const
 const _Replica = Schema.NonEmptyString.pipe(Schema.brand("ReplicaId"))
 const _Counter = Schema.Int.pipe(Schema.nonNegative())
 
-// Encode sorts by replica id and decode does not re-sort: `HashMap.toEntries` yields bucket order and a JS object
-// preserves insertion order, so an unsorted encode gives ONE causal position a different byte string per insertion
-// history — and every digest taken over an encoded vector (an operation key, a commit preimage, a CRDT write context)
-// then disagrees with the peer runtimes that sort. Sorting on decode instead would hide a producer that stopped.
 const _Clocks = Schema.transform(
   Shape.Record(_Replica, _Counter),
   Schema.HashMapFromSelf({ key: Schema.typeSchema(_Replica), value: Schema.typeSchema(_Counter) }),
@@ -290,7 +286,7 @@ const Causal: Causal.Shape = {
   tracker: _tracker,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Causal }
 ```

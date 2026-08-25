@@ -48,39 +48,23 @@ from rasm.runtime.lanes import Admit, LanePolicy
 from rasm.runtime.metrics import Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
-# faults-owned scope stamp: `scoped` binds the version and semconv triple, so no page re-spells the pin.
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.tabular.materialize")
 
-# per-format change vocabulary: the discriminant COLUMN and the post-state survivor set a recompute keeps.
-# `update_preimage` carries the OLD image beside its postimage twin and a delete carries no surviving row, so only
-# only rowed change types feed a recompute — a kept preimage doubles every updated row. A format the lakehouse arms
-# but this table does not row refuses TYPED, because filtering an unknown discriminant yields zero rows and
-# publishes a silently empty recompute over a real feed; a second CDF format is one row carrying its own spelling.
 _CHANGE_STATE: Final[Map[TableFormat, tuple[str, tuple[str, ...]]]] = Map.of_seq([
     (TableFormat.DELTA, ("_change_type", ("insert", "update_postimage"))),
-    # DuckLake spells the discriminant `change_type` without the Delta underscore and emits the same four states, so
-    # survivors stay the POST-state pair here too: `update_preimage` and `delete` describe rows LEAVING the partition,
-    # which a recompute reads off the survivors it keeps rather than off the records that left.
     (TableFormat.DUCKLAKE, ("change_type", ("insert", "update_postimage"))),
 ])
 
 
-# the metric segment this owner's series, its lifted evidence columns, and its metered surface all derive from,
-# spelled once so a rename cannot strand a series under one name and a durable row under another.
 DOMAIN: Final[str] = "materialize"
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
 def _refresh_raises() -> Catch:
-    # the refresh fence spans the whole materialization: the CDF read and the per-partition recompute both run
-    # beneath composed owners that already fence their own providers, so what reaches here is the Arrow slicing and
-    # sorting over the fed frame plus the lane's own cancellation surface.
     return (pa.ArrowException, OSError)
 
 
-# this module's whole raise roster. The empty partition set and the unrowed change format are TERMINAL admission
-# defects a re-issue reproduces; the refresh fence is TRANSIENT, since a CDF read and a recompute may clear.
 SNAPSHOT_PARTITION: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.MATERIALIZE, point="admit", arm="config", defect="partition-by-required", retriability=TERMINAL
 )
@@ -99,12 +83,6 @@ class PartitionBundle(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> Iterable[Receipt]:
-        # merge-side metric: recomputed row volume lands on the metric spine under domain="materialize"; the partition
-        # id stays receipt-only — unbounded cardinality never becomes a metric dimension. The metric rides the
-        # generator's own advance, exactly as every sibling `contribute` emits, so a receipt built and discarded
-        # records nothing and a drained one records once. `domain`/`kind`/`key` are the lifted evidence contract the
-        # `tabular/lakehouse#LAKEHOUSE` residence reads — the SAME pair handed `Metrics.record` beside the minted
-        # key — so a stored row rejoins the series its live twin emitted and a cost slot reconstructs from it.
         Metrics.record({"rasm.materialize.rows": float(self.rows)}, domain=DOMAIN, kind="cdc")
         yield Receipt.of(
             "derived-snapshot",
@@ -113,32 +91,18 @@ class PartitionBundle(Struct, frozen=True):
 
 
 def _metered(bundles: "Block[PartitionBundle]") -> "Block[MeterFact]":
-    # ONE `RECORD` fact per refresh over the rows this drain actually recomputed: a fact per partition keys the
-    # composite id — unbounded cardinality — onto `surface`, which is exactly the slot the receipt already keeps
-    # partition-free. A refresh whose feed touched nothing recomputes zero rows and meters nothing, so an idle
-    # cadence lands no row rather than one zero row per tick on a plane that never sheds.
     recomputed = sum(bundle.rows for bundle in bundles)
     return Block.of_seq((MeterFact(resource=Resource.RECORD, quantity=recomputed, surface=DOMAIN),) if recomputed else ())
 
 
-# late-attach replay edge: every recomputed bundle fires the REPLAY row inside its composition scope.
-# the retained DEPTH rides the retaining arm alone: `Modality(replay=64)` is one case payload where the retired
-# `Modality.REPLAY, buffer=64` pair was two coordinated fields a non-retaining row could also spell.
 REFRESH_POINT: Final[HookPoint[PartitionBundle]] = HookPoint(
     id=DataHook.MATERIALIZE_REFRESH, payload=PartitionBundle, modality=Modality(replay=64)
 )
 
-# this package deposits its install receipt under this ledger key; a support-bundle capsule reads an ABSENT row as the
-# diagnosis that the data leg never ran, so one constant carries the name rather than a literal at the deposit site.
 OWNER: Final[str] = "data.tabular"
 
 
 class DataInstall(Struct, frozen=True, gc=False):
-    # composition-time proof this package's WHOLE point roster landed in the caller's composition — the ids now
-    # deliverable there, flat native scalars alone so the capsule renders the row through `structs.asdict` with no
-    # nested mapping to breach its depth-walking redaction. Handing the registry's own `HookPoint` rows back instead
-    # leaks a `type[Struct]` field no receipt projection renders and names the registry's product rather than this
-    # package's admission.
     points: tuple[str, ...]
 
 
@@ -154,11 +118,6 @@ DATA_HOOK_POINTS: Final[Block[HookPoint[Struct]]] = Block.of_seq([
 
 
 def register_data_hooks(scope: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[DataInstall]":
-    # ONE gated transition claims the whole roster: `Hooks.register` swaps the point table only past its last admitted
-    # row and reports every breach together, so a duplicate or malformed id leaves custody exactly as it stood. The
-    # short-circuiting fold this replaces stopped at the FIRST breach with every prior point already mounted and no
-    # accumulated diagnosis — a half-mount no retire verb is owed against, and the exact alternative the registry's
-    # roster arm exists to delete. The deposit passes its receipt through, so the install IS the rail's terminal.
     return Hooks.register(DATA_HOOK_POINTS, scope=scope).map(
         lambda points: Hooks.installed(OWNER, DataInstall(points=tuple(point.id for point in points)), scope=scope)
     )
@@ -167,12 +126,7 @@ def register_data_hooks(scope: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[DataIns
 class DerivedSnapshot(Struct, frozen=True):
     partition_by: tuple[str, ...]
     transform: QuerySpec
-    # `generation` binds the recompute's `QueryEngine` to one admitted backend contract, arriving at the
-    # composition root exactly as `lane` does: a per-partition engine minted without one carries no contract
-    # generation, and merged bundles share a version only when every recompute reads the same one.
     generation: BackendGeneration
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner,
-    # and a consumer hands `refresh` only operation inputs while capacity, deadline, and cancellation ride this binding.
     lane: LanePolicy
     scope: ScopeKey = DEFAULT_SCOPE
 
@@ -187,9 +141,6 @@ class DerivedSnapshot(Struct, frozen=True):
         *,
         scope: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[DerivedSnapshot]":
-        # an empty partition column set has no partition identity to key or slice on, so admission refuses it on
-        # exactly the rail every sibling owner admits through: a construction-time `raise` crosses the one
-        # boundary this branch fences nowhere, since composition roots build the owner outside every fence.
         if not partition_by:
             return Error(SNAPSHOT_PARTITION.raised())
         return Ok(cls(partition_by=partition_by, transform=transform, generation=generation, lane=lane, scope=scope))
@@ -198,9 +149,6 @@ class DerivedSnapshot(Struct, frozen=True):
     async def refresh(
         self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...]
     ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
-        # `QueryEngine.run` is a coroutine, so the fence is `async_boundary`; `.bind(lambda rail: rail)` self-flattens the
-        # nested rail the wrapped thunk returns, never a second fault fence. The refresh span parents every per-partition
-        # recompute's query span — in-process composition correlates parent-child, so no add_link rides the receipts.
         with _TRACER.start_as_current_span("derived.refresh", attributes={"rasm.materialize.partitions": len(prior)}):
             railed = await async_boundary(REFRESH_RUN, lambda: self._materialize(source, start, end, prior), catch=_refresh_raises())
             return railed.bind(lambda rail: rail)
@@ -226,10 +174,6 @@ class DerivedSnapshot(Struct, frozen=True):
     async def _fed(
         self, source: Lakehouse, start: int, end: int | None, prior: tuple[PartitionBundle, ...], vocabulary: tuple[str, tuple[str, ...]]
     ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
-        # `LakeOp.ChangeFeed` is the LAKEHOUSE owner's op: composing `run_async` reads its reach matrix, its commit span,
-        # its band hop, and its receipt payload, where re-opening `DeltaTable` here forks a second CDF reader behind
-        # an owner that already holds one, and strands every non-Delta feed that owner arms. A rowed format's
-        # changefeed arm always carries the frame, so the payload is total over the vocabularies this table admits.
         fed = await source.run_async(LakeOp.ChangeFeed(starting_version=start, ending_version=end))
         match fed:
             case Result(tag="error", error=fault):
@@ -242,11 +186,6 @@ class DerivedSnapshot(Struct, frozen=True):
     async def _split(
         self, cdf: pa.Table, prior: tuple[PartitionBundle, ...], vocabulary: tuple[str, tuple[str, ...]]
     ) -> "RuntimeRail[tuple[PartitionBundle, ...]]":
-        # ONE key-sorted pass splits the feed over EVERY CDF record — deletes included, so a delete-only partition
-        # still reaches recomputation — adjacent runs over the sorted key tuples bound each partition and every delta
-        # is a zero-copy slice, never a fresh full-table filter per partition; each slice then keeps only its rowed
-        # survivor states, so a fully-deleted partition recomputes over an empty input and overrides its stale
-        # prior bundle instead of carrying it forever.
         column, survivors = vocabulary
         ordered = cdf.sort_by([(col, "ascending") for col in self.partition_by])
         tuples = list(zip(*(ordered.column(col).to_pylist() for col in self.partition_by), strict=True))
@@ -256,34 +195,19 @@ class DerivedSnapshot(Struct, frozen=True):
             (ordered.slice(offset, count).filter(pc.field(column).isin(survivors)), self._key_id(key))
             for (key, count), offset in zip(runs, offsets, strict=True)
         )
-        # independent recomputes drain as bare units under the owner's lane — capacity, deadline, cancellation, and the
-        # drain receipt arrive from the crossing instead of a page-local task-group rig; any casualty fails the refresh
-        # closed with the combined aggregate, because a snapshot that merges survivors over stale priors is mixed-version.
         receipt = await self.lane.drain(Block.of_seq([Admit(bare=partial(self._recompute, delta, partition)) for delta, partition in deltas]))
         if not receipt.faults.is_empty():
             return Error(receipt.faults.reduce(BoundaryFault.combine))
-        # durable evidence for the refresh, seated where the recomputed set is whole and the merge has not yet folded
-        # prior bundles back in: metering `_merge`'s output would charge every unchanged partition again on every
-        # drain. ONE `RECORD` fact carries the refresh's own recomputed rows — a fact per partition keys a composite
-        # of unbounded cardinality onto `surface`, exactly what the receipt already refuses for the metric — and a
-        # refresh that recomputed nothing meters nothing rather than a zero row per empty feed.
         return (await Journal.record(_metered(receipt.values), scope=self.scope)).map(lambda _landed: self._merge(prior, receipt.values))
 
     def _key_id(self, key: tuple[object, ...]) -> str:
-        # canonical JSON of the component tuple keeps the composite id injective on BOTH ambiguity axes — separator
-        # (("a/b", "c") vs ("a", "b/c")) and component type ((1, "2") vs ("1", 2)) — one codec, no hand-rolled scheme.
         return msgspec.json.encode(key).decode()
 
     def _merge(self, prior: tuple[PartitionBundle, ...], bundles: "Block[PartitionBundle]") -> tuple[PartitionBundle, ...]:
-        # recomputed bundles override prior; unchanged prior carries its `ContentKey` by reference; the emit sorts by partition.
         merged = {b.partition: b for b in prior} | {b.partition: b for b in bundles}
         return tuple(merged[partition] for partition in sorted(merged))
 
     async def _recompute(self, delta: pa.Table, partition: str) -> "RuntimeRail[PartitionBundle]":
-        # a query fault PROPAGATES — keying the raw delta in place of the transform's output lands untransformed
-        # rows under a materialized identity; `arrow_bytes` is the imported `interop` folder fold, never a re-spelled
-        # serialization. The engine binds the owner's admitted `generation` beside the named delta frame, so every
-        # partition of one refresh reads one contract generation.
         railed = await QueryEngine.of(self.generation, {"delta": delta}).run(self.transform)
         return railed.bind(
             lambda result: ContentIdentity.of("partition", arrow_bytes(result)).map(
@@ -293,7 +217,6 @@ class DerivedSnapshot(Struct, frozen=True):
 
 
 def snapshot_key(bundles: tuple[PartitionBundle, ...]) -> "RuntimeRail[ContentKey]":
-    # children hash in partition-sorted order, so identical content yields one key regardless of completion order.
     ordered = sorted(bundles, key=lambda b: b.partition)
     return ContentIdentity.of("derived-snapshot", tuple(b.content_key for b in ordered))
 ```

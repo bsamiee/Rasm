@@ -21,7 +21,7 @@
 - Boundary: `ArcOp` never wraps `ArcProjection`, so each concern has one entrypoint. Both ingress families carry tolerance, plane, requested error, and policy values in their admitted input, and every probe re-enters the forest's context — a loop proves tolerance and plane through `Compatible`, a query point proves coplanarity — so no cross-context value answers a forest question.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,7 +45,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Geometry2D;
 
-// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class MaterialSide {
     public static readonly MaterialSide Outside = new("outside", 1.0, RotationSense.Counterclockwise);
@@ -56,8 +56,6 @@ public sealed partial class MaterialSide {
     internal double Signed(double distance) => Scale * distance;
 }
 
-// The row carries the traversal WINDING alone: the emitted order is what a cut sense decides, and the rotation
-// sense that stood beside it re-stated the same fact in a second vocabulary no reader consumed.
 [SmartEnum<string>]
 public sealed partial class CutSense {
     public static readonly CutSense Climb = new("climb", Sign.Positive);
@@ -66,8 +64,6 @@ public sealed partial class CutSense {
     internal Sign Winding { get; }
 }
 
-// One scalar-admission axis. The row carries the predicate, so a caller names the bound it needs and a family of
-// near-identical `Positive`/`NonNegative`/`Finite` spellings collapses to three rows and two projections.
 [SmartEnum<string>]
 public sealed partial class ArcBound {
     public static readonly ArcBound Positive = new("positive", static value => double.IsFinite(value) && value > 0.0);
@@ -84,10 +80,6 @@ public sealed partial class LeadRole {
 
     private bool Departs { get; }
 
-    // Entry rapids to the outboard point then cuts inward; exit resumes at the cut point and sweeps outward, so a
-    // reversed arc lead traverses its centre the opposite way — the sense flips with the sweep sign, never alone,
-    // because `Move.Circular.Of` refuses a sweep whose sign disagrees with `ArcCenter.Sense` and a lead that flipped
-    // only one of the pair would refuse at admission.
     internal Fin<Seq<Move>> Emit(Point3d outboard, Point3d cut, double feed, Option<(ArcCenter Centre, double Sweep)> arc) =>
         Departs
             ? Cut(outboard, feed, arc.Map(static row =>
@@ -119,8 +111,6 @@ public sealed partial class ArcRelation {
     private BooleanResultInfo BooleanCode { get; }
     private PlineContainsResult? ContainsCode { get; }
 
-    // Items-derived indexes forced once. A Boolean pass resolves one verdict per pair and a containment sweep one
-    // per probe, so a linear roster scan at each is measured waste against a build the roster pays for once.
     private static readonly Lazy<FrozenDictionary<BooleanResultInfo, ArcRelation>> ByBoolean = new(
         static () => Items.ToFrozenDictionary(static row => row.BooleanCode));
 
@@ -136,10 +126,7 @@ public sealed partial class ArcRelation {
         ByContains.Value.TryGetValue(relation, out ArcRelation? row) ? row : InvalidInput;
 }
 
-// --- [OWNERS] -------------------------------------------------------------------------------------------------------------------------------------
-// Members are DECLARED, never positional: a positional record emits a public primary constructor with the same
-// parameter list as the generated private one and a record equality pair beside the generated value equality, so
-// the owner both collides with itself and admits a value that never met `Validate`.
+// --- [OWNERS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ArcForest {
     public Seq<Loop> Loops { get; }
@@ -227,7 +214,7 @@ public abstract partial record ArcOp {
 - Growth: new provider evidence enriches the existing receipts rather than minting a parallel one.
 
 ```csharp signature
-// --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [EVIDENCE] ------------------------------------------------------------------------
 public readonly record struct ArcLoopEvidence(Loop Output, int Parent, Sign Winding, int IndexItems, int OutputSegments);
 
 public readonly record struct ArcPairEvidence(
@@ -304,10 +291,6 @@ public abstract partial record ArcTrace {
     public sealed record Densified(DensifyEvidence Evidence) : ArcTrace;
     public sealed record Recovered(RecoverEvidence Evidence) : ArcTrace;
 
-    // Both projection reads seat at the family they discriminate and stay TOTAL in either direction. The `Option`
-    // half-projection this replaces served the lowering direction alone, so every recovery consumer re-spelled
-    // `trace is ArcTrace.Recovered` at its own call site — a partial test that answers false on a widened family
-    // and lets the miss read as a legitimate absence. The refusal rides in, so each lane keeps its own locus.
     public Fin<DensifyEvidence> Lowering(FabricationFault refusal) => Switch(
         state: refusal,
         forest: static (fault, _) => Fin.Fail<DensifyEvidence>(fault),
@@ -340,7 +323,7 @@ public abstract partial record ArcTrace {
 - Boundary: mutable lists and indexed native loops exist only while materializing provider input and output. Every provider result re-enters through `Loop.Admit` or `ArcForest.Admit`; no provider enum, shape, index, result, or biarc object crosses the owner. Arc space references NO line-space engine: the chord lowering answers a `Polyline<double>` this owner admits directly, and `FromPline` is the one admission the sibling line-space owner composes for the two hygiene rules the atom's provider answers.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArcAlgebra {
     public static Fin<ArcTrace> Apply(ArcOp operation) => operation.Switch(
         offset: static request => request.Source.Switch(
@@ -383,8 +366,6 @@ public static class ArcAlgebra {
                 .Traverse(pline => FromPline(pline, path.Tolerance, path.Plane))
                 .As()
         let loops = paths.ToSeq()
-        // Each result loop's OWN held view answers the index census, so the pass carries the index every later
-        // query on that loop reuses rather than building one to read its count and discarding it.
         select (ArcTrace)new ArcTrace.Paths(loops, new ArcReceipt.Offset(Census(loops)));
 
     private static Fin<ArcTrace> Boolean(ArcForest subject, ArcForest clip, BoolKind kind) =>
@@ -415,11 +396,6 @@ public static class ArcAlgebra {
                     .Map(rebuilt => rebuilt.ToSeq() + subject.Loops + clip.Loops)
                     .Bind(candidates => candidates
                         .Traverse(candidate => Boundary(candidate, subject.Loops, clip.Loops, kind)).As())
-                    // `Loop.Canonical` is the ONE orientation-and-rotation normal form — the quantization belongs to
-                    // `Loop.CanonicalBytes`, the package's one preimage — so two candidates describing the same
-                    // closed region under different origins and windings compare equal here and the dedup is a hash
-                    // fold rather than a fuzzy comparison of every survivor against every other. Exact vertex
-                    // equality is the right relation: both candidates left the SAME boolean at the same tolerance.
                     .Map(static classified => toSeq(classified
                         .Bind(static candidate => candidate.ToSeq())
                         .DistinctBy(static loop => loop.Canonical())))
@@ -429,12 +405,8 @@ public static class ArcAlgebra {
                         loops => new ArcReceipt.Boolean(loops, evidence)));
         });
 
-    // A candidate survives when the requested truth function disagrees across its own boundary, and the surviving
-    // side decides traversal. Exemption: the probe is a measured numeric body.
     private static Fin<Option<Loop>> Boundary(Loop candidate, Seq<Loop> subjects, Seq<Loop> clips, BoolKind kind) {
         Polyline<double> native = candidate.View.Pline;
-        // `Loop.Admit` floors a closed loop at three vertices and an open one at two, so span zero exists by
-        // admission and the two vertex reads carry no guard of their own.
         PlineVertex<double> first = native.Get(0);
         PlineVertex<double> second = native.Get(1);
         Vector2<double> point = PlineSeg.SegMidpoint(first, second);
@@ -444,9 +416,6 @@ public static class ArcAlgebra {
         if (!double.IsFinite(length) || length <= epsilon)
             return Fin.Fail<Option<Loop>>(
                 new GeometryFault.DegenerateInput(Kind.Curve, None, "arc-boolean:boundary"));
-        // The probe steps off the midpoint by a quarter of that span's OWN arc length, floored at one tolerance: a
-        // fixed multiple of the context overshoots its own neighbours on any span shorter than four tolerances and
-        // reads the material of the wrong region, while a step under one tolerance is below what the context resolves.
         double step = Math.Max(epsilon, PlineSeg.SegLength(first, second) * 0.25);
         Vector2<double> normal = new(-tangent.Y / length, tangent.X / length);
         Vector2<double> left = new(point.X + (normal.X * step), point.Y + (normal.Y * step));
@@ -458,9 +427,6 @@ public static class ArcAlgebra {
             : Fin.Succ(Some(candidate));
     }
 
-    // ONE forest winding fold. The material probe reads its SIGN-FREE verdict and the point inspection publishes the
-    // number itself, so the two answers come from one walk rather than two spellings that can drift on the day a
-    // loop's held view changes.
     private static int Winding(Seq<Loop> loops, Vector2<double> point) =>
         loops.Fold(0, static (winding, loop) => winding + loop.View.Pline.WindingNumber(point));
 
@@ -489,8 +455,6 @@ public static class ArcAlgebra {
                    .Apply(static (radius, engagement, stepOver, feed) =>
                        (Radius: radius, Engagement: engagement, StepOver: stepOver, Feed: feed))
                    .As().ToFin()
-               // The binding radial step is the tighter of the requested engagement and the requested stepover;
-               // either above the cutter diameter describes a cut the cutter cannot take.
                from radial in admitted.Engagement <= admitted.Radius * 2.0
                    && admitted.StepOver <= admitted.Radius * 2.0
                    ? Fin.Succ(double.Min(admitted.StepOver, admitted.Engagement))
@@ -516,13 +480,6 @@ public static class ArcAlgebra {
                        family.DepthMm)))
                select trace);
 
-    // The inward offset family, walked until the STOCK exhausts it: each level is one shape offset at the binding
-    // radial step, and the first level the material cannot admit ends the walk — so `Levels` and `DepthMm` are what
-    // the stock gave rather than a heuristic re-deriving a clearance the caller already bound. The structural
-    // ceiling is the stock's own bounding diagonal over the step, because no bounded region survives an inward
-    // offset deeper than that. One traversal stack and ONE census fold serve every level, so the raw collision
-    // sweep reuses its descent state and the pipeline runs exactly once.
-    // Exemption: the level walk is a measured numeric body.
     private static (Seq<Polyline<double>> Rings, int Levels, RawCensus Census, double DepthMm) Family(
         ArcForest stock,
         double radius,
@@ -548,9 +505,6 @@ public static class ArcAlgebra {
         return (rings, level, census, depth);
     }
 
-    // Morphed-spiral walks consume the untrimmed raw offset, so validity decides per candidate vertex rather than
-    // by trimming the whole polyline: the provider's own arc-space collision test answers it exactly against the
-    // index the loop already carries, where a distance test against the source only approximates it.
     private static RawCensus Raw(Loop source, double distance, List<int> scratch) {
         double epsilon = source.Tolerance.Absolute.Value;
         Polyline<double> raw = PlineOffset.CreateRawOffsetPolyline<Polyline<double>, double>(
@@ -572,8 +526,6 @@ public static class ArcAlgebra {
             ReachableVertices + level.ReachableVertices);
     }
 
-    // Every probe re-enters the forest's own context: a loop or point from another tolerance or
-    // plane is admitted material elsewhere, never here.
     private static Fin<ArcTrace> Inspect(ArcForest forest, ArcProbe probe) => probe.Switch(
         point: request => Coplanar(request.Point, forest, "arc-inspect:point")
             .Map(query => Winding(forest.Loops, query))
@@ -590,8 +542,6 @@ public static class ArcAlgebra {
             : Fin.Succ<ArcTrace>(new ArcTrace.Inspection(new ArcInspection.Bounds(Bounds(forest)))),
         self: () => Self(forest));
 
-    // Arc-exact area and length are the admitted loop's own reads over the held view, so the measure composes the
-    // atoms owner rather than re-materializing what the loop already carries.
     private static ArcInspection Measured(ArcForest forest) {
         (double Area, double Length) total = forest.Loops.Fold(
             (Area: 0.0, Length: 0.0),
@@ -648,27 +598,15 @@ public static class ArcAlgebra {
         .Bind(rows => ArcForest.Admit(rows.ToSeq(), forest.Tolerance, forest.Plane))
         .Map<ArcTrace>(clean => new ArcTrace.Forest(clean, new ArcReceipt.Clean(Census(clean.Loops))));
 
-    // Both hygiene passes answer null for "nothing removed", so the receiver IS the result there; chaining them
-    // bare reads that null as a polyline and faults on the next call.
     private static Polyline<double> Reduced(Loop loop) {
         double epsilon = loop.Tolerance.Absolute.Value;
         Polyline<double> deduplicated = loop.View.Pline.RemoveRepeatPos(epsilon) ?? loop.View.Pline;
         return deduplicated.RemoveRedundant(epsilon) ?? deduplicated;
     }
 
-    // The CENSUS read, for the inspection lane that publishes a count.
     private static int SelfIntersects(Loop loop) => PlineIntersects.AllSelfIntersectsAsBasic(
         loop.View.Pline, loop.View.Index, true, loop.Tolerance.Absolute.Value).Count;
 
-    // The PREDICATE read, for the hygiene lane that only asks WHETHER one exists. `AllSelfIntersectsAsBasic` is the
-    // collecting composition of these same two walks over one accumulating visitor, so a clean loop paid a full
-    // index descent and a self-intersecting one materialized every hit past the first to answer a boolean. The
-    // visitor's own `false` stops the descent inside the tree — `VisitGlobalSelfIntersects` propagates it out of
-    // `VisitQueryWithStack` and returns `false` — so a first hit costs the walk up to that hit and nothing after.
-    // BOTH walks run: the local one alone answers adjacent-span pairs and a closed two-vertex loop's opposed
-    // bulges, and the global one skips exactly those, so a predicate on either alone reads a self-intersecting
-    // loop as clean. The visitor slot is INTERFACE-typed, so this seats as a sealed class rather than a struct;
-    // the boxing a struct visitor would take here costs more than the one allocation per hygiene call.
     private sealed class FirstIntersect : IPlineIntersectVisitor<double> {
         public bool VisitBasicIntr(PlineBasicIntersect<double> intr) => false;
         public bool VisitOverlappingIntr(PlineOverlappingIntersect<double> intr) => false;
@@ -681,10 +619,6 @@ public static class ArcAlgebra {
             || !PlineIntersects.VisitGlobalSelfIntersects(loop.View.Pline, loop.View.Index, probe, epsilon);
     }
 
-    // `ArcsToApproxLines` already answers a `Polyline<double>` carrying the source closure and none of its bulge, so
-    // so the chord result re-enters through THIS owner's own one-hop admission. Materializing a `Clipper2` `PathD`
-    // reach the sibling owner's `PathD` admission crossed a third carrier to describe a value the provider had
-    // already handed back in the shape this page admits — and it was the only reason arc space referenced `Clipper2`.
     private static Fin<DensifyEvidence> Lower(Loop loop, double error) =>
         Admits(error, ArcBound.Positive, "arc-densify:error").Bind(bound =>
             FromPline(loop.View.Pline.ArcsToApproxLines(bound), loop.Tolerance, loop.Plane)
@@ -708,9 +642,6 @@ public static class ArcAlgebra {
                     spans.Count(static span => span.Bulge == 0.0),
                     result.Bound()))));
 
-    // Every split strictly consumes at least one interior node, so a CONVERGING fit can never need more splits
-    // than the chord loop has vertices; that census is the depth budget, and exhausting it names a request whose
-    // requested error the chord set cannot reach rather than a deeper geometry.
     private static Fin<Seq<RecoveredSpan>> FitPath(Loop chords, double error, int probeFloor) {
         Arr<Point3d> nodes = chords.Closed
             ? chords.Vertices.ToSeq().Add(chords.At(0)).ToArr()
@@ -733,7 +664,6 @@ public static class ArcAlgebra {
         from loop in Loop.Admit(vertices.ToArr(), source.Closed, bulges.ToArr(), source.Tolerance)
         select loop;
 
-    // Exemption: residual sampling and the split recursion are the measured numeric kernel.
     private static Fin<Seq<RecoveredSpan>> Fit(
         Arr<Point3d> nodes,
         int first,
@@ -812,8 +742,6 @@ public static class ArcAlgebra {
         return native.Map(static row => row.IndexedPline.Polyline)
             .Traverse(pline => FromPline(pline, source.Tolerance, source.Plane)).As()
             .Bind(loops => ArcForest.Admit(loops.ToSeq(), source.Tolerance, source.Plane))
-            // The provider's own parent lineage and index census travel with the loop they describe, so a caller
-            // reading nesting off the receipt never re-derives a containment forest the shape already built.
             .Map<ArcTrace>(forest => new ArcTrace.Forest(forest, receipt(
                 native.Zip(forest.Loops).Map(static pair => new ArcLoopEvidence(
                     pair.Second,
@@ -823,8 +751,6 @@ public static class ArcAlgebra {
                     pair.First.IndexedPline.Polyline.SegmentCount())))));
     }
 
-    // A loop emitted by this owner carries its own held view, so the census reads that ONE index and ONE polyline
-    // and the parent ordinal is the emission order where the provider states no lineage of its own.
     private static Seq<ArcLoopEvidence> Census(Seq<Loop> loops) => loops.Map(static (loop, index) =>
         new ArcLoopEvidence(loop, index, loop.Winding(), loop.View.Index.Count, loop.View.Pline.SegmentCount()));
 
@@ -873,9 +799,6 @@ public static class ArcAlgebra {
             .Apply(static (value, angle) => (Radius: value, Sweep: angle)).As().ToFin()
         let center = frame.Point + (Unit(frame.Normal) * side.Signed(admitted.Radius))
         let radial = Rotated(frame.Point - center, -side.Signed(admitted.Sweep))
-        // The lead traverses `Sweep` about its own centre, signed by the material side the rotation already
-        // encodes — the same magnitude the radial rotation just consumed, so geometry and receipt agree by
-        // construction rather than by a caller re-deriving the arc from three points.
         from path in role.Emit(
             center + radial,
             frame.Point,
@@ -883,7 +806,6 @@ public static class ArcAlgebra {
             Some((new ArcCenter(center, side.Rotation), side.Signed(admitted.Sweep))))
         select path;
 
-    // A loop lead closes on its own start, so both roles traverse the same two arcs; only entry rapids in.
     private static Fin<Seq<Move>> LoopLead(
         (Point3d Point, Vector3d Normal) frame,
         double radius,
@@ -893,8 +815,6 @@ public static class ArcAlgebra {
         from value in Admits(radius, ArcBound.Positive, "arc-lead:radius")
         let center = frame.Point + (Unit(frame.Normal) * side.Signed(value))
         let arc = new ArcCenter(center, side.Rotation)
-        // Each half of the orbit is exactly a half turn about the lead centre, so the sweep is π signed by the
-        // traversal rotation — no sampling and no re-derivation from the emitted endpoints.
         let half = side.Rotation == RotationSense.Counterclockwise ? Math.PI : -Math.PI
         from far in Move.Circular.Of(center + (center - frame.Point), feed, arc, half)
         from back in Move.Circular.Of(frame.Point, feed, arc, half)
@@ -911,9 +831,6 @@ public static class ArcAlgebra {
         from approach in Move.Rapid.Of(oriented.At(0))
         select Seq(approach) + spans.ToSeq();
 
-    // Bulge IS the exact sweep — `tan(sweep / 4)` — so the span states its included angle rather than having a
-    // consumer re-solve it from three points. Its SIGN is the span's own sense, not the loop's: a CCW-wound profile
-    // still carries clockwise arcs at every concave corner, and reading the traversal rotation here inverts them all.
     private static Fin<Move> Span(Polyline<double> source, int index, double plane, double feed) {
         PlineVertex<double> start = source.Get(index);
         PlineVertex<double> end = source.Get(source.NextWrappingIndex(index));
@@ -930,15 +847,11 @@ public static class ArcAlgebra {
             sweep);
     }
 
-    // Cut sense is the traversal law, not a label: a path whose winding disagrees reverses before emission, on a
-    // DETACHED copy so the source loop's held polyline still answers every later query in its admitted direction.
     private static Fin<Loop> Oriented(Loop loop, CutSense sense) =>
         !loop.Closed || loop.Winding() == sense.Winding
             ? Fin.Succ(loop)
             : FromPline(Inverted(loop.View.Pline), loop.Tolerance, loop.Plane);
 
-    // `Polyline<double>` is the MUTABLE owner and `InvertDirection` rewrites its receiver, so a reversal that runs
-    // on the held view re-winds every later query on the loop that holds it.
     private static Polyline<double> Inverted(Polyline<double> source) {
         Polyline<double> detached = new(source.IterVertexes(), source.IsClosed);
         detached.InvertDirection();
@@ -969,8 +882,6 @@ public static class ArcAlgebra {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Curve, None, $"{field}:mixed-context"));
 
-    // K-kinded gates fan independent fields into one tuple Apply and report together; the Fin projection
-    // short-circuits single-gate sites. Both read the SAME `ArcBound` row, so no second predicate exists.
     private static K<Validation<Error>, double> Gate(double value, ArcBound bound, string field) =>
         bound.Holds(value)
             ? Validation<Error, double>.Success(value)
@@ -979,8 +890,6 @@ public static class ArcAlgebra {
     private static Fin<double> Admits(double value, ArcBound bound, string field) =>
         Gate(value, bound, field).As().ToFin();
 
-    // Every offset threads the loop's own once-built index and admits self-intersecting profiles; a kerf or
-    // clearing pass over a re-entrant loop is ordinary input, never a rejected one.
     private static PlineOffsetOptions<double> OffsetOptions(Loop source) => new() {
         AabbIndex = source.View.Index,
         HandleSelfIntersects = true,
@@ -989,9 +898,6 @@ public static class ArcAlgebra {
         SliceJoinEps = source.Tolerance.Absolute.Value,
     };
 
-    // `ShapeOffsetOptions<T>(T posEqualEps, T offsetDistEps, T sliceJoinEps)` names its three epsilons in that
-    // order, and `Shape<T>.ParallelOffset(T, ShapeOffsetOptions<T>)` answers a `Shape<T>` whose CCW and CW loop
-    // sets carry the winding partition the offset preserved.
     private static ShapeOffsetOptions<double> ShapeOptions(Context context) => new(
         posEqualEps: context.Absolute.Value,
         offsetDistEps: context.Absolute.Value,
@@ -1028,9 +934,6 @@ public static class ArcAlgebra {
 
     private static Point3d ToRhino(Vector2d point, double plane) => new(point.x, point.y, plane);
 
-    // Package-internal, not private: this IS the one `Polyline`-to-`Loop` admission in the namespace, and the sibling
-    // line-space owner composes it for the two hygiene rules the atom's own provider answers rather than restating
-    // restating the vertex-and-bulge map.
     internal static Fin<Loop> FromPline(IPlineSource<double> pline, Context tolerance, double plane) {
         Seq<PlineVertex<double>> vertices = toSeq(Enumerable.Range(0, pline.VertexCount)).Map(pline.Get);
         return Loop.Admit(

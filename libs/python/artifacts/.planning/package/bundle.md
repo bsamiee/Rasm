@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from rasm.artifacts.core.plan import ArtifactWork
     from rasm.runtime.faults import RuntimeRail
 
-lazy import detools  # reifies only inside FirmwareLayout.of_elf
+lazy import detools
 lazy import lz4.frame
 lazy import zstandard
 
@@ -59,7 +59,7 @@ type DeltaAlgorithm = Literal["bsdiff", "hdiffpatch", "match-blocks"]
 type DeltaCompression = Literal["bz2", "crle", "lzma", "zstd", "lz4", "heatshrink", "none"]
 type DeltaSuffixArray = Literal["divsufsort", "sais"]
 type DataFormat = Literal["arm-cortex-m4", "aarch64", "xtensa-lx106"]
-type MemberTriple = tuple[str, int, bytes]  # (name, size, xxh3_128 digest) — the uniform recovery row
+type MemberTriple = tuple[str, int, bytes]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -86,8 +86,8 @@ class ZstdKnobs(Struct, frozen=True, gc=False):
     write_checksum: bool = True
     dict_data: bytes | None = None
     dict_mode: ZstdDictMode = "auto"
-    strategy: ZstdStrategy = "auto"  # "auto" lets from_level derive the matcher; STRATEGY_* has no zero member
-    hash_log: int = 0  # 0 is the from_level auto-sentinel: unset -> level-derived
+    strategy: ZstdStrategy = "auto"
+    hash_log: int = 0
     chain_log: int = 0
     target_length: int = 0
 
@@ -110,8 +110,8 @@ class BrotliKnobs(Struct, frozen=True, gc=False):
 class GzipKnobs(Struct, frozen=True, gc=False):
     level: int = 9
     mtime: int = 0
-    threads: int = -1  # gzip_ng_threaded block-fan workers; -1 = all logical cores
-    block_size: int = 1 << 20  # per-block queue the threaded writer fans across workers
+    threads: int = -1
+    block_size: int = 1 << 20
 
 
 class SevenZKnobs(Struct, frozen=True):
@@ -134,8 +134,6 @@ class ZipStreamKnobs(Struct, frozen=True):
 class InPlaceSegments(Struct, frozen=True):
     memory_size: int
     segment_size: int
-    # `minimum_shift_size` defaults to 2 * segment_size and must divide by segment_size, like memory_size; the patch header
-    # echoes the COMPUTED slide max(memory - segment * ceil(from/segment), minimum), never this knob verbatim.
     minimum_shift_size: int | None = None
 
     def kwargs(self) -> dict[str, int | None]:
@@ -225,10 +223,6 @@ class CodecProfile:
 
     @property
     def keyable(self) -> Struct:
-        # spec-key material: the active knob struct; the delta arm folds `from_image` DOWN to its xxh3_128 digest
-        # (so a changed base image flips the bundle key even under one parent_key — KEY-OVER-INPUT holds over the
-        # patch-generation input) and nulls `parent_key`, whose identity rides the parents merkle fold (patterns
-        # row [06]: derived); msgpack encodes a Struct natively so a live u128 `ContentKey.value` overflows u64.
         match self:
             case CodecProfile(tag="delta", delta=k):
                 return structs.replace(k, from_image=xxhash.xxh3_128_digest(k.from_image), parent_key=_SPEC_PARENT)
@@ -302,8 +296,6 @@ class Bundle(Struct, frozen=True):
 
     @property
     def key(self) -> ContentKey:
-        # KEY-OVER-INPUT: one msgpack spec (tag, keyable knobs, per-member xxh3_128 digests) minted alone, then the
-        # runtime's order-sensitive parent merkle fold over (spec_key, *parents) — never a hex concat.
         spec = _SPEC.encode((self.profile.tag, self.profile.keyable, tuple(xxhash.xxh3_128_digest(p) for p in self.payloads)))
         minted = ContentIdentity.key(f"bundle-{self.algo}", spec)
         return minted if not self.parents else ContentIdentity.key(f"bundle-{self.algo}", (minted, *self.parents))
@@ -425,13 +417,6 @@ DELTA_MATRIX: Final[frozenset[tuple[DeltaAlgorithm, DeltaPatchType]]] = frozense
 _SEVEN_Z_CODECS: Final[frozenset[SevenZFilter]] = frozenset({"lzma", "lzma2", "bzip2", "ppmd", "zstd", "brotli", "deflate", "copy"})
 _SEVEN_Z_PREPROCESSORS: Final[frozenset[SevenZFilter]] = frozenset({"delta", "x86", "arm", "armthumb", "powerpc", "sparc", "ia64"})
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form. Pair one: `CodecProfile.algo` indexes `ALGO_OF` by tag on every dispatch, key, and manifest label, so an
-# algorithm whose tag carries no row is a runtime `KeyError` at the discriminant the whole plane reads. Pair two is
-# the PARTITION `Bundle.of`'s chain guard folds over — a `SevenZFilter` token in neither set can never pass the
-# terminal-codec/preprocessor test, so it is admitted nowhere and the vocabulary refuses the dead token at import.
-# `DEFAULT_PROFILE` carves `DELTA` BY DECLARATION (a patch binds its parent image, so the delta profile is always
-# explicit) and takes no pair: its `try_find` already answers absence with the loud `_profile_required` refusal.
 _COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = (
     (frozenset(value for _tag, value in ALGO_OF.to_seq()), frozenset(CompressionAlgo)),
     (_SEVEN_Z_CODECS | _SEVEN_Z_PREPROCESSORS, frozenset(get_args(SevenZFilter))),
@@ -440,12 +425,6 @@ if any(rows != vocabulary for rows, vocabulary in _COVERED):
     raise RuntimeError("bundle tables do not cover their vocabularies")
 
 
-# every knob leaf is msgpack-native once `keyable` nulls the delta parent key: a live u128 `ContentKey.value` cannot
-# ride msgpack's u64 integer ceiling, and the parent's identity already rides the parents merkle fold, so the spec
-# preimage needs a fixed BLANK in that slot rather than an address. It is not a key of anything — nothing was hashed
-# and nothing measured — so it goes through `ContentKey.decoded`: the retired `byte_length=0` filled a measurement
-# slot with a number no producer took, and an evidence reader summing bundle extents took the blank for a
-# zero-weight parent instead of an unmeasured non-address.
 _SPEC: Final[msgpack.Encoder] = msgpack.Encoder()
 _SPEC_PARENT: Final[ContentKey] = ContentKey.decoded(value=0, fmt="spec-parent")
 
@@ -455,12 +434,6 @@ def _delta_admitted(knobs: DeltaKnobs, target_size: int, /) -> DeltaKnobs:
         raise ValueError(f"<delta-matrix:{knobs.algorithm}x{knobs.patch_type}>")
     if (knobs.in_place is not None) != (knobs.patch_type == "in-place"):
         raise ValueError("<delta-band:in-place>")
-    # in-place layout floor: the from- and to-image SHARE one region (the sum-of-images bound is sequential
-    # patching's, and demanding it here would defeat the mode), but the region must hold the to-image AND the
-    # shift-displaced from-image — detools shifts from-data forward by at least the effective minimum shift
-    # (2 * segment_size when the knob is omitted, detools' own default) before the to-segments write, so
-    # `from + effective-shift` is the true occupancy the bare max(from, to) under-admits; one shift binding
-    # serves the occupancy floor and the positivity/alignment checks for default and explicit values alike.
     if knobs.in_place is not None and (
         knobs.in_place.segment_size <= 0
         or (
@@ -478,9 +451,6 @@ def _delta_admitted(knobs: DeltaKnobs, target_size: int, /) -> DeltaKnobs:
 
 
 def unsafe_member(name: str, /) -> bool:
-    # ONE relative-POSIX member-name law, pack and unpack alike: empty, backslash, NUL, absolute, and `..`
-    # traversal forms refuse — `Bundle.of` guards authored names and the archive drains guard decoded hostile
-    # names through this same predicate, so the two seams can never drift.
     return not name or "\\" in name or "\0" in name or PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts
 
 
@@ -492,8 +462,6 @@ def _profile_required(algo: CompressionAlgo) -> CodecProfile:
 
 
 class PackWorker(Protocol):
-    # both faces of one packer: module-picklable kernels the THREAD/PROCESS offload carries by qualified name,
-    # and the uniform producer surface a composite consumer holds as one shape.
     def pack(self, payloads: tuple[bytes, ...], profile: CodecProfile, /) -> tuple[bytes, BundleEvidence]: ...
     def recover(self, blob: bytes, profile: CodecProfile, /) -> tuple[MemberTriple, ...]: ...
     def emit(self, /) -> "ArtifactWork": ...

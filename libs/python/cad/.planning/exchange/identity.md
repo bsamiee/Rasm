@@ -36,9 +36,6 @@ from rasm.cad.faults import STEP_WRITE, CadRail
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# `write.step.schema=5` selects AP242 DIS in OCCT and `EMITTED` is the same choice on the wire; `exchange/step`
-# compares a readback against `EMITTED`, so the two spellings cannot drift apart unobserved. `service/lane#REGIME`
-# imports `UNIT` and `SCHEMA` into its pin rows, so the executed values ARE these declarations.
 UNIT: Final[str] = "M"
 SCHEMA: Final[int] = 5
 EMITTED: Final[StepProtocol] = StepProtocol.AP242
@@ -62,8 +59,6 @@ EMITTED: Final[StepProtocol] = StepProtocol.AP242
 ```python signature
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Fixed file name, epoch timestamp, fixed authorship and authorisation, fixed toolchain identity, and one fixed
-# product identity: together these replace every label OCCT derives from the emitting run, clock, or kernel build.
 NAME: Final[str] = "rasm-cad"
 TIMESTAMP: Final[str] = "1970-01-01T00:00:00"
 AUTHOR: Final[str] = "rasm"
@@ -78,9 +73,6 @@ PRODUCT_DESCRIPTION: Final[str] = "Canonical B-rep exchange"
 
 # --- [POLICIES] -------------------------------------------------------------------------
 
-# One row per canonicalized FILE_NAME slot, carrying its value beside the setter that seats it. Author and
-# organization are STEP aggregates, so their rows spell the indexed setter and its entry-one arity in place; a
-# slot left off this table keeps an OCCT default, and every default here is build-varying or run-varying.
 _HEADER: Final[frozendict[str, tuple[str, Callable[[APIHeaderSection_MakeHeader, TCollection_HAsciiString], None]]]] = frozendict({
     "name": (NAME, lambda header, value: header.SetName(value)),
     "time_stamp": (TIMESTAMP, lambda header, value: header.SetTimeStamp(value)),
@@ -96,7 +88,6 @@ _HEADER: Final[frozendict[str, tuple[str, Callable[[APIHeaderSection_MakeHeader,
 
 
 def _identified(entity: object, /) -> int:
-    # answers 1 for a stamped product and 0 otherwise, so the caller's fold counts identity rather than entities
     if not isinstance(entity, StepBasic_Product):
         return 0
     entity.SetId(TCollection_HAsciiString(PRODUCT_ID))
@@ -106,15 +97,11 @@ def _identified(entity: object, /) -> int:
 
 
 def _stamped(header: APIHeaderSection_MakeHeader, /) -> None:
-    # `SetAuthorValue`/`SetOrganizationValue` write into an aggregate entry rather than growing one; `Transfer`
-    # sizes that aggregate to entry one, which is why the caller proves `HasFn()` before this walk runs.
     for value, write in _HEADER.values():
         write(header, TCollection_HAsciiString(value))
 
 
 def canonical(model: StepData_StepModel, /) -> CadRail[StepData_StepModel]:
-    # `HasFn()` is the ORDERING PROOF: before `Transfer` populates FILE_NAME every setter below returns cleanly and
-    # stores nothing, so an unguarded pre-transfer call emits a fully defaulted file and reports total success.
     header = APIHeaderSection_MakeHeader(model)
     if not header.HasFn():
         return Error(STEP_WRITE.at("file-name.unsized"))

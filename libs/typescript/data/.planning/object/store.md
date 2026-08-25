@@ -38,10 +38,6 @@ import { Config, Data, Duration, Effect, Match, Redacted, Schema, Struct } from 
 import { InvalidObjectState, S3Client, S3ServiceException } from "@aws-sdk/client-s3"
 import { Fault } from "@rasm/core"
 
-// Three columns, each a verdict a boot reads: `conditional` is the admission gate, `posture` names who operates the
-// engine, and `archive` names the deepest storage tier it honours so the lifecycle generator filters its transition
-// rungs rather than emitting rules an API accepts and never applies. Refused rows stay as data with their verdict
-// spelled, so the argument is settled at the table instead of re-had at each deployment.
 const _engines = {
   s3: { conditional: "yes", posture: "managed", archive: "frozen" },
   r2: { conditional: "yes", posture: "managed", archive: "cool" },
@@ -67,17 +63,6 @@ declare namespace ObjectStore {
   > = T
 }
 
-// Every reason on this plane refuses about ONE coordinate and carries the evidence its own raise site held, so the
-// subject is one declared record six rows share and each row renders the sentence its reason means — a free-string
-// `detail` beside a closed `reason` would re-open the axis the reason already closes. Retryability, blame, and
-// quarantine remain the core Fault.Class row table's, so the shielded retry gate reads that lattice and no local
-// retry column exists to disagree with it. `archived` classifies `denied` on the axes rather than the word: no
-// re-drive changes an object's storage class, and the recovery is a verb the CALLER issues, which is exactly
-// non-retryable and caller-blamed. `owner` shares that class on the same axes — a refused ingress coordinate is the
-// caller's to respell, and no re-drive earns it. `engine` is the boot-gate refusal: a non-conforming engine is
-// CONFIGURATION, so the class is `invalid` — an `io` grading hands a refusal no retry changes to every budget that
-// reads `unavailable` as re-drivable. Legs partition by the surface that DECIDES the reason, so a census reads which
-// seam refused without re-deriving it from the coordinate.
 const _Subject = Schema.Struct({ key: Schema.String, detail: Schema.String })
 
 const _family = Fault.Class.family(["missing", "archived", "owner", "integrity", "engine", "io"] as const, {
@@ -133,8 +118,6 @@ class ObjectFault extends Schema.TaggedError<ObjectFault>()("ObjectFault", {
 class _Replay extends Data.TaggedError("ObjectReplay")<{ readonly key: string }> {}
 
 const _Setting = Config.unwrap({
-  // Config admits the engine, so a boot READS the conformance table: the literal closes against the roster and the
-  // construction gate below refuses a non-conforming row before a client exists.
   engine: Config.literal(...Struct.keys(_engines))("OBJECT_ENGINE").pipe(Config.withDefault("s3" as const)),
   endpoint: Config.string("OBJECT_ENDPOINT"),
   region: Config.string("OBJECT_REGION").pipe(Config.withDefault("auto")),
@@ -151,15 +134,8 @@ const _Setting = Config.unwrap({
   settleSeconds: Config.integer("OBJECT_SETTLE_SECONDS").pipe(Config.withDefault(30)),
 })
 
-// Infrastructure ops ride the `lease` row whole, so this page spells no curve: the compiled schedule carries jitter, the
-// reset, the attempt bound, and the elapsed ceiling, and its gate defaults to `Fault.Class.retryable` — the exact
-// predicate a hand-passed argument restates, which is why no gate argument appears. Owning the curve whole is
-// also why the client below pins `maxAttempts: 1`: a provider schedule inside each attempt here multiplies.
 const _RETRY = Fault.Budget.schedule("lease")
 
-// Both budgets the row names, in the geometry the rails layering law fixes: `attempt` below the retry bounds one try,
-// `total` above it bounds the whole call, so a stalled engine releases the fiber on the call budget rather than on the
-// per-try budget multiplied by every attempt the curve admits.
 const _shielded = (gate: Effect.Semaphore) =>
   (key: string) =>
     <A, E extends ObjectFault | _Replay>(op: Effect.Effect<A, E>): Effect.Effect<A, E | ObjectFault> =>
@@ -177,9 +153,6 @@ const _shielded = (gate: Effect.Semaphore) =>
         ),
       )
 
-// Tagged classes are read BEFORE transport status, because a status is the coarsest evidence the reply carries and the
-// SDK already discriminated the ones that matter. `InvalidObjectState` is neither 404 nor 412: read by status alone it
-// lands on the `io` arm, whose class re-drives a jittered budget against a condition no retry can change.
 const _folded = (key: string) => (caught: unknown): ObjectFault | _Replay =>
   Match.value(caught).pipe(
     Match.when(Match.instanceOf(InvalidObjectState), (fault) =>
@@ -228,20 +201,15 @@ import { Upload } from "@aws-sdk/lib-storage"
 import { Digest } from "@rasm/core"
 
 class _Stat extends Schema.Class<_Stat>("ObjectStore.Stat")({
-  // encodable option fields: the batch engine's durable band persists this row through its own schema, so OptionFromSelf has no spelling here
   key: Digest.Key.content,
   bytes: Schema.NonNegativeInt,
   etag: Schema.OptionFromNullOr(Schema.String),
   contentType: Schema.OptionFromNullOr(Schema.String),
   modified: Schema.OptionFromNullOr(Schema.DateTimeUtc),
-  // Archive evidence rides the same probe the presence read already pays for: the storage class the object sits in, the
-  // archive verdict where the engine states one, and the raw `Restore` header a caller polls a retrieval through.
   storage: Schema.OptionFromNullOr(Schema.String),
   archive: Schema.OptionFromNullOr(Schema.String),
   restore: Schema.OptionFromNullOr(Schema.String),
 }) {
-  // `Restore` reads `ongoing-request="true"` while a retrieval runs and `ongoing-request="false", expiry-date=…` once the
-  // copy is readable, so the deferral's own state answers off the probe rather than off a second command.
   get restoring(): boolean {
     return Option.match(this.restore, { onNone: () => false, onSome: (held) => held.includes(`ongoing-request="true"`) })
   }
@@ -250,8 +218,6 @@ class _Stat extends Schema.Class<_Stat>("ObjectStore.Stat")({
 declare namespace ObjectStore {
   type Receipt = { readonly key: Digest.Key<"content">; readonly bytes: number; readonly written: boolean }
   type Stat = _Stat
-  // Retrieval urgency is the caller's, because a DSAR deadline and a batch rehydration price the same bytes
-  // differently; the shipped tier vocabulary is capitalized-word, never the screaming case the class roster uses.
   type RestorePolicy = { readonly days: number; readonly tier: "Bulk" | "Expedited" | "Standard" }
 }
 
@@ -309,8 +275,6 @@ const _putMultipart = (client: S3Client, bucket: string, key: Digest.Key<"conten
               }), { abortSignal: signal }),
             catch: _foldedRead(key),
           }),
-          // Each part's digest crosses into the completion so the engine re-verifies the assembled object; the
-          // `CompletedPart` slot exists for exactly this, and omitting it settles a multipart with parts nobody checked.
           (reply) => ({ ETag: reply.ETag, PartNumber: index + 1, ChecksumSHA256: reply.ChecksumSHA256 }),
         ), { concurrency: partFlight })
       yield* Effect.tryPromise({
@@ -333,10 +297,6 @@ const _putStreaming = (client: S3Client, bucket: string, key: Digest.Key<"conten
   Effect.matchEffect(
     Effect.tryPromise({
       try: (signal) => {
-        // `Upload` mints its own controller when none arrives, and `abort()` only trips that controller — its
-        // `AbortMultipartUpload` and every rejection it raises ride `done()`, which the fold below already owns.
-        // Injecting one controller keeps this listener void-returning, so no promise crosses out of the fiber onto
-        // Node's unhandled channel, where `Effect.promise` would grade it a class-less defect the retry gate pins.
         const abortController = new AbortController()
         signal.addEventListener("abort", () => abortController.abort(), { once: true })
         const upload = new Upload({
@@ -423,7 +383,6 @@ const _headed = (client: S3Client, bucket: string, key: Digest.Key<"content">) =
       catch: _foldedRead(key),
     }),
     (reply) =>
-      // absence is Option, never a sentinel: a headless reply is the io fault, not a zero-byte forgery
       reply.ContentLength === undefined
         ? Effect.fail(new ObjectFault({ case: { reason: "io", key, detail: "<headless>" } }))
         : Effect.succeed(new _Stat({
@@ -488,13 +447,8 @@ import { Tenancy, Tenant } from "../lane/tenant.ts"
 import { Journal } from "../journal/append.ts"
 import { Retain } from "../journal/retain.ts"
 
-// One value serves both arms — the reap's age floor and the engine rule's day granularity read it, so process and engine
-// close the same window rather than two windows a reader has to reconcile.
 const _REAP_FLOOR = Duration.days(1)
 
-// One row per producer prefix. `grammar` is the coordinate the mint joins, `role` is what the LEDGER executes on the
-// row — the cascade release, the DSAR-and-hold join, or plain attribution — and `coined` names the page that spends the
-// mint. The union below derives from these keys, so refusing to seat a row refuses the producer outright.
 const _OWNERS = {
   derivative: { grammar: "derivative:<sourceKey>", role: "cascade", coined: "object/file#FANOUT" },
   disk: { grammar: "disk:<path>", role: "custody", coined: "object/file#FILE_PLANE" },
@@ -509,9 +463,6 @@ const _OWNERS = {
   readonly role: "cascade" | "custody" | "dsar"
 }>
 
-// `_SEGMENT` spells the mint's own alphabet: `encodeURIComponent` leaves the unreserved set whole and percent-escapes
-// every separator, so what the pattern admits is exactly what the encoder can produce and a hand-built owner carrying
-// a raw `:` or `://` refuses here rather than re-splitting into a sibling producer's coordinate.
 const _SEGMENT = "[A-Za-z0-9\\-_.!~*'()%]+"
 
 const _Owner = Schema.TemplateLiteral(Schema.Literal(...Struct.keys(_OWNERS)), ":", Schema.String).pipe(
@@ -519,17 +470,11 @@ const _Owner = Schema.TemplateLiteral(Schema.Literal(...Struct.keys(_OWNERS)), "
   Schema.brand("ObjectOwner"),
 )
 
-// `_MINTED` reads the seats a caller may never declare off the ROLE column, so a second lower-stratum mint refuses by
-// seating its own row rather than by editing an arm here.
 const _MINTED = Array.filterMap(
   Record.toEntries(_OWNERS),
   ([prefix, row]) => row.role === "dsar" ? Option.some(`${prefix}:`) : Option.none(),
 )
 
-// The cascade reads its seat off the same ROLE column: `seat` is the prefix the reach concatenates and `offset` the
-// 1-based position the orphan census decodes a source key from, both moving with the `_OWNERS` row rather than with a
-// hand-counted literal. Absence is the one state where a derivative debt cannot exist, so it answers no statement at
-// all instead of a guarded no-op.
 const _CASCADE = Option.map(
   Array.head(Array.filterMap(
     Record.toEntries(_OWNERS),
@@ -538,15 +483,9 @@ const _CASCADE = Option.map(
   (prefix) => ({ seat: `${prefix}:`, offset: prefix.length + 2 }) as const,
 )
 
-// The reach walks to CONVERGENCE and says so as a value. The fixpoint arm is the whole TYPE here, so no ceiling is
-// spellable and the recursive term below carries no hop predicate: the `derivative:` graph is content-addressed, a
-// product's owner naming the digest of bytes that existed before the product's own, so every edge points strictly
-// backward in mint order. An adjacency without that proof takes `Shape.Bound.finite` and refuses on exhaustion.
 const _CASCADE_BOUND: Shape.BoundFixpoint<"hops"> = Shape.Bound.fixpoint("hops")
 
 declare namespace ObjectStore {
-  // A released derivative carries the hop it sat at, so the sweep's census is evidence a whole chain fell rather than a
-  // claim, and a consumer wanting the bare key set maps one column away.
   type Cascaded = { readonly key: Digest.Key<"content">; readonly hops: number }
   type Owner = typeof _Owner.Type
   type Prefix = keyof typeof _OWNERS
@@ -560,9 +499,6 @@ declare namespace ObjectStore {
   > = T
 }
 
-// `_owner` is the ONE mint. Internal coordinates prove at their call sites — a path, a content key, a staging band, an
-// origin triple, a catalog — so `make` refuses an empty segment as the construction defect it is; untrusted material
-// never reaches this line, it reaches `_admitted`.
 const _owner = <P extends ObjectStore.Prefix>(prefix: P, ...coordinate: Array.NonEmptyReadonlyArray<string>): ObjectStore.Owner =>
   _Owner.make(`${prefix}:${Array.join(Array.map(coordinate, encodeURIComponent), ":")}`)
 
@@ -610,30 +546,19 @@ const _sweepDelete = (client: S3Client, bucket: string, settleSeconds: number, k
 
 const _byWindow: Order.Order<Retain.Class> = Order.mapInput(Duration.Order, (clazz: Retain.Class) => Retain.Policy[clazz].lifetime.bound)
 
-// Retention names a depth and the engine answers it in its own vocabulary: the map is total over the retention roster,
-// so a new depth breaks at this declaration rather than emitting a class the API accepts and ignores, and the shipped
-// `TransitionStorageClass` union — a strict six-value subset of `StorageClass` — is what the rule field actually takes.
 const _STORAGE: { readonly [D in Retain.Depth]: TransitionStorageClass } = {
   cool: "STANDARD_IA",
   cold: "GLACIER_IR",
   frozen: "DEEP_ARCHIVE",
 }
 
-// Depth POSITION is the whole filter: an engine honouring `frozen` honours every rung, one honouring `cool` honours the
-// first alone, and `none` finds no index at all — so a conformance cell narrows the ladder with no per-engine roster
-// and no cast, the absent index being exactly the "this engine archives nothing" answer.
 const _honours = (engine: ObjectStore.Engine) => {
-  // `cell` resolves ONCE per rule fold rather than once per rung: the ladder position is a property of the engine, so
-  // re-scanning `Retain.depths` inside the predicate re-derives one fact per row it filters.
   const cell: ObjectStore.Archive = _engines[engine].archive
   const ceiling = Array.findFirstIndex(Retain.depths, (depth) => depth === cell)
   return (rung: Retain.Rung): boolean =>
     Option.match(ceiling, { onNone: () => false, onSome: (at) => Retain.depths.indexOf(rung.depth) <= at })
 }
 
-// `_HELD` seats the one store-plane tag posture beside the retention roster: no `_lifecycle` rule filters on this
-// value, so an object carrying it transitions nowhere and expires never for as long as the matter lives. It is a TAG
-// and not a `Retain.Class` because a suspension has no clock, and a class row must price a window it cannot name.
 const _HELD = "held" as const
 
 const _classify = (client: S3Client, bucket: string) =>
@@ -651,18 +576,12 @@ const _retag = (client: S3Client, bucket: string) =>
   (key: Digest.Key<"content">) =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient
-      // The ledger-and-hold read runs in its OWN maintenance-plane transaction: `Retain.holding` joins FORCE-registered
-      // custody relations that answer an unpinned session zero holds and a pinned session one tenant's slice, and the
-      // engine tagging call stays OUTSIDE the transaction so no network wait holds a database session open.
       const evidence = yield* Tenancy.sweep(sql)(Effect.gen(function* () {
         const rows = yield* SqlSchema.findAll({
           Request: Schema.String,
           Result: Schema.Struct({ retention: Retain.Class }),
           execute: (who) => sql`SELECT DISTINCT retention FROM object_ref WHERE key = ${who} AND released_at IS NULL`,
         })(key)
-        // Hold dominance reads the retain-owned predicate, so the sweep gate, the scheduled text, and this fold spell
-        // one suspension; the count decodes through the number-or-string codec because a pg count(*) is a BIGINT the
-        // spine driver hands across as text, exactly as the sweep's own live-count fold already reads it.
         const held = yield* SqlSchema.single({
           Request: Schema.String,
           Result: Schema.Struct({ held: Journal.Version }),
@@ -672,8 +591,6 @@ const _retag = (client: S3Client, bucket: string) =>
         })(key)
         return { rows, held }
       }))
-      // Live holds take the tag whole: `held` freezes the object at its current depth, where `permanent` runs its own
-      // ladder to `frozen` and puts the evidence a matter depends on hours behind a restore verb.
       yield* (Array.isNonEmptyReadonlyArray(evidence.rows)
         ? _classify(client, bucket)(key, evidence.held.held > 0 ? _HELD : Array.max(Array.map(evidence.rows, (row) => row.retention), _byWindow))
         : Effect.void)
@@ -681,9 +598,6 @@ const _retag = (client: S3Client, bucket: string) =>
 
 const _days = (span: Duration.Duration): number => Math.max(1, Math.trunc(Duration.toDays(span)))
 
-// One rule per retention class carrying BOTH halves the row prices — the transition ladder its engine honours and the
-// expiry its window names — plus one unconditional rule the class filters never reach. A `permanent` row emits its
-// ladder and no expiry, so the rule survives with transitions alone rather than dropping out with its window.
 const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine, policy: typeof Retain.Policy) =>
   Effect.asVoid(Effect.tryPromise({
     try: (signal) =>
@@ -696,7 +610,7 @@ const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine
                 Array.filter(row.transitions, _honours(engine)),
                 (rungs) =>
                   rungs.length === 0 && !Duration.isFinite(row.lifetime.bound)
-                    ? Option.none() // a permanent class on a single-tier engine prices nothing: no rule to write
+                    ? Option.none()
                     : Option.some({
                         ID: `retain-${clazz}`,
                         Status: "Enabled" as const,
@@ -711,8 +625,6 @@ const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine
                       }),
               )),
             {
-              // S3 enforces the reap's other half here, under no tag filter, because an abandoned upload carries no
-              // object to tag, and it holds through a runtime that never boots again.
               ID: "abort-incomplete",
               Status: "Enabled" as const,
               Filter: { Prefix: "" },
@@ -724,10 +636,6 @@ const _lifecycle = (client: S3Client, bucket: string, engine: ObjectStore.Engine
     catch: _foldedRead(bucket),
   }))
 
-// `_references` publishes the reference-read contract: the one implementation of `journal/retain.md`'s `RefRead` port,
-// and the maintenance seam's hold-lift walk — a pure relational read, so no S3 client and no service state enters it.
-// Handed owner crosses UP from the journal stratum as text, so it admits here through the same schema every producer
-// mints against, on the channel the port already declares.
 const _references: Retain.RefRead = (owner) =>
   Effect.flatMap(Schema.decodeUnknown(_Owner)(owner), (custodian) =>
     Effect.flatMap(SqlClient.SqlClient, (sql) =>
@@ -746,29 +654,15 @@ const _release = (key: Digest.Key<"content">, owner: ObjectStore.Owner) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     sql`UPDATE object_ref SET released_at = ${Journal.now(sql)} WHERE key = ${key} AND owner = ${owner}`)
 
-// `_cascade` executes the `cascade` role over the WHOLE closure, never one hop: the recursive term follows a reclaimed
-// key's `derivative:` edge as far as it reaches, counting `hops` in the engine, and the release spends that answer under
-// the same per-row `released_at IS NULL` guard so a reference another writer released or re-armed between the sweep's
-// probe and this write settles on its own value rather than on a frozen read. A one-hop release stranded every
-// grandchild on a parent it had already released, and the census below then paid that debt one pass at a time.
-//
-// The pair rides ONE transaction rather than one statement because folding the release into a data-modifying CTE is
-// Postgres-only and this ledger carries a sqlite arm — the engine still walks once, and the client re-walks nothing.
-// `UNION` dedups the frontier; the recursive term needs no cycle guard because the fixpoint bound's own law proves the
-// graph acyclic, and the walk carries every hop — the seed included — so the release matches the owner of each level.
 const _cascade = (sql: SqlClient.SqlClient, key: string, bound: Shape.BoundFixpoint<"hops">) =>
   Option.match(_CASCADE, {
     onNone: () => Effect.succeed<ReadonlyArray<ObjectStore.Cascaded>>([]),
     onSome: ({ seat }) =>
       sql.withTransaction(Effect.gen(function* () {
-        // The root crosses as the listing's own string and every REACHED key decodes through the content-key schema, so
-        // the walk proves identity on the rows it answers rather than on the argument a bucket page handed it.
         const reach = yield* SqlSchema.findAll({
           Request: Schema.String,
           Result: Schema.Struct({ key: Digest.Key.content, hops: Schema.Int.pipe(Schema.nonNegative()) }),
           execute: (root) =>
-            // The anchor row's key CASTS because a bare parameter in a recursive term's first branch leaves the column
-            // untyped on the pg spine, and `CAST(… AS TEXT)` is the one spelling both engines compile.
             sql`WITH RECURSIVE reach(key, hops) AS (
                   SELECT CAST(${root} AS TEXT), 0
                   UNION
@@ -777,8 +671,6 @@ const _cascade = (sql: SqlClient.SqlClient, key: string, bound: Shape.BoundFixpo
                 )
                 SELECT key, min(hops) AS hops FROM reach GROUP BY key`,
         })(key)
-        // `RETURNING` is what makes the census exact: a row a sibling released between the walk and this write is in the
-        // reach and not in the answer, so `cascaded` counts what this pass actually dropped.
         const released = yield* Array.match(reach, {
           onEmpty: () => Effect.succeed<ReadonlyArray<{ readonly key: Digest.Key<"content"> }>>([]),
           onNonEmpty: (rows) =>
@@ -791,8 +683,6 @@ const _cascade = (sql: SqlClient.SqlClient, key: string, bound: Shape.BoundFixpo
                     RETURNING key`,
             })(undefined),
         })
-        // The distance join is a lookup over the engine's OWN answer, never a second walk: a released row's key is the
-        // level the recursive term already reached it at, and `bound` names why that level has no ceiling to compare.
         const depth = HashMap.fromIterable(Array.map(reach, (row) => [row.key, row.hops] as const))
         return Array.filterMap(released, (row) =>
           Option.map(HashMap.get(depth, row.key), (hops): ObjectStore.Cascaded => ({ key: row.key, hops })))
@@ -848,14 +738,6 @@ const _reap = (client: S3Client, bucket: string) =>
       ).pipe(Effect.withSpan("data.reap", { attributes: { bucket } }))
     })
 
-// `_healed` closes the cascade's crash window: a death between the settled CAS delete and `_cascade` strands live
-// `derivative:` references on a source key no bucket listing ever revisits, so recovery reads the LEDGER — live
-// derivative rows whose source holds no live reference of its own — and re-probes each candidate source at the
-// engine. Absent re-runs the cascade; present keeps its derivatives, because that source is either awaiting its own
-// sweep or was re-minted and re-referred. The census stays ONE hop because the re-run is transitive: a grandchild's
-// own source is still live at census time, so naming the orphan ROOTS is enough and the walk closes what hangs beneath
-// each of them in the same pass. Seat and offset read off `_CASCADE`, so neither the prefix nor the decode position is
-// spelled twice.
 const _healed = (client: S3Client, bucket: string, sql: SqlClient.SqlClient) =>
   Option.match(_CASCADE, {
     onNone: () => Effect.void,
@@ -894,10 +776,6 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
         paginateListObjectsV2({ client }, { Bucket: bucket }),
         (cause) => new ObjectFault({ case: { reason: "io", key: bucket, detail: String(cause) } }),
       ),
-      // `reclaimed` is the BYTE census beside the key census: the listing entry already carries `Size` at this fold,
-      // so the byte-coded reclaim instrument reads a byte total and the key count stays the span's own evidence.
-      // `cascaded` is the reference census beneath it — the rows the transitive reach released under the swept keys,
-      // which is what makes "a multi-deep chain fell whole" readable rather than asserted.
       { probed: 0, swept: 0, cascaded: 0, reclaimed: 0, retained: 0 },
       (mark, page) =>
         Effect.reduce(page.Contents ?? [], mark, (held, entry) =>
@@ -908,15 +786,13 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
                 ? Effect.succeed({ ...held, probed: held.probed + 1, retained: held.retained + 1 })
                 : Effect.zipRight(
                     _sweepDelete(client, bucket, settleSeconds, entry.Key, entry.ETag),
-                    // The reach rides the reclaim, never a later pass: a derivative outliving its source by one sweep
-                    // window is a live reference row whose join no scan reaches, and the walk takes the whole chain
                     _cascade(sql, entry.Key, _CASCADE_BOUND),
                   ).pipe(
                     Effect.map((released) => ({
                       probed: held.probed + 1,
                       swept: held.swept + 1,
                       cascaded: held.cascaded + released.length,
-                      reclaimed: held.reclaimed + (entry.Size ?? 0), // an entry the listing sized without bytes reclaims none
+                      reclaimed: held.reclaimed + (entry.Size ?? 0),
                       retained: held.retained,
                     })),
                     Effect.catchTag("ObjectReplay", () =>
@@ -924,15 +800,11 @@ const _sweep = (client: S3Client, bucket: string, settleSeconds: number) =>
                   ),
           )),
     ).pipe(
-      Effect.tap(() => _healed(client, bucket, sql)), // the orphan census closes every pass: crash debt never outlives one sweep
+      Effect.tap(() => _healed(client, bucket, sql)),
       Effect.withSpan("data.sweep", { attributes: { bucket } }),
     )
   })
 
-// Restore is a typed DEFERRAL, never a blocking read: the command arms the retrieval and answers immediately, so the
-// verb returns the poll coordinate a caller re-probes rather than a byte stream it waits on. `head`'s own `Restore`
-// header and `ArchiveStatus` are that coordinate — `ongoing-request="true"` while the retrieval runs — and the tier
-// rides the caller's own urgency because a DSAR deadline and a batch rehydration price retrieval differently.
 const _restore = (client: S3Client, bucket: string) =>
   (key: Digest.Key<"content">, policy: ObjectStore.RestorePolicy) =>
     Effect.asVoid(Effect.tryPromise({
@@ -965,7 +837,7 @@ const _written = Convention.mount(Convention.metric.objectWritten)
 const _measured = (receipt: ObjectStore.Receipt): Effect.Effect<void> =>
   Effect.zipRight(
     Metric.increment(Metric.tagged(_written, Convention.rasm.objectOutcome, receipt.written ? "written" : "dedup")),
-    receipt.written ? Metric.incrementBy(_weight, receipt.bytes) : Effect.void, // a 412 noop moved no bytes
+    receipt.written ? Metric.incrementBy(_weight, receipt.bytes) : Effect.void,
   )
 ```
 
@@ -1017,8 +889,6 @@ const _grant = (client: S3Client, presignTtl: Duration.Duration) =>
 class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
   scoped: Effect.gen(function* () {
     const setting = yield* _Setting
-    // Boot executes the admission gate the conformance law states: a non-conforming engine refuses BEFORE a client
-    // exists, so a plane unable to keep concurrent writers of one content key idempotent never reaches its first put.
     yield* Effect.filterOrFail(
       Effect.succeed(setting.engine),
       (engine) => _engines[engine].conditional === "yes",
@@ -1031,8 +901,6 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
           endpoint: setting.endpoint,
           region: setting.region,
           forcePathStyle: setting.forcePathStyle,
-          // ONE attempt at the provider, always: `Fault.Budget` owns the curve above, so a nested SDK schedule would
-          // multiply into it and make the attempt bound this page states unmeasurable.
           maxAttempts: 1,
           requestChecksumCalculation: setting.checksums,
           responseChecksumValidation: setting.checksums,
@@ -1079,16 +947,13 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
         shield(target)(_rekey(client, setting.bucket, source, target)).pipe(Effect.tap(_measured)),
       settled: (key: Digest.Key<"content">) => _settled(client, setting.bucket, key, setting.settleSeconds),
       sweep: _sweep(client, setting.bucket, setting.settleSeconds).pipe(
-        Effect.tap((mark) => Metric.incrementBy(_reclaimed, mark.reclaimed)), // the BYTE census: the row's own `By` code reads a byte total
+        Effect.tap((mark) => Metric.incrementBy(_reclaimed, mark.reclaimed)),
       ),
       reap: _reap(client, setting.bucket),
       restore: (key: Digest.Key<"content">, policy: ObjectStore.RestorePolicy) => shield(key)(_restore(client, setting.bucket)(key, policy)),
       grant: (key: Digest.Key<"content">, command: ObjectStore.Command, policy?: ObjectStore.GrantPolicy) =>
         shield(key)(_grant(client, setting.presignTtl)(key, command, policy)),
       lifecycle: _lifecycle(client, setting.bucket, setting.engine, Retain.Policy),
-      // Ledger truth drives the tag: both reference verbs re-derive retention from surviving references — on the
-      // post-commit drain, because the re-derivation opens its own plane transaction, which a savepoint cannot host
-      // and an uncommitted reference cannot feed; `afterCommit`'s requirement makes "inside a unit of work" structural.
       refer: (key: Digest.Key<"content">, owner: ObjectStore.Owner, retention: Retain.Class) =>
         Effect.zipRight(
           _refer(key, owner, retention),
@@ -1100,19 +965,19 @@ class ObjectStore extends Effect.Service<ObjectStore>()("data/ObjectStore", {
           Effect.flatMap(Tenant, (tenant) => tenant.afterCommit(Effect.ignoreLogged(retag(key)))),
         ),
       references: _references,
-      retag, // the hold-lift re-derivation entry: it re-derives from the ledger and the hold join, never asserts a tag
-      custody: _custody, // the compose-side custody half: Source row + capability rows for Backend.compose
-      observed: _observed(client, setting.bucket, setting.engine), // realized-state membership for the one Backend.Reading
+      retag,
+      custody: _custody,
+      observed: _observed(client, setting.bucket, setting.engine),
     }
   }),
 }) {
   static readonly Owner = _Owner
   static readonly Stat = _Stat
-  static readonly admit = _admitted // untrusted ingress: decode plus the minted-below refusal
-  static readonly owner = _owner // the closed-vocabulary mint every producer spends
+  static readonly admit = _admitted
+  static readonly owner = _owner
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { ObjectFault, ObjectStore }
 ```
@@ -1246,7 +1111,7 @@ class Dataref extends Context.Tag("data/Dataref")<Dataref, Dataref.Shape>() {
     )
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Dataref, DatarefFault }
 ```
@@ -1282,20 +1147,11 @@ import type { Backend } from "../lane/capability.ts"
 const _CUSTODY_KEY = "object/custody"
 
 declare namespace ObjectStore {
-  // SSE MODE alone: a key id is an operator coordinate, so the vocabulary carries the three postures a descriptor can
-  // demand and nothing that identifies a key. `aws:kms:dsse` and the backup and fsx modes the SDK enum also spells
-  // stay unspellable here — an observed algorithm outside this set answers the grant false rather than folding in.
   type Sse = "none" | "AES256" | "aws:kms"
 }
 
-// `_SSE` declares the encryption demand. Moving a deployment onto KMS moves this one value; the key that mode resolves
-// to never appears, which is exactly why the descriptor survives a rotation without re-keying.
 const _SSE: ObjectStore.Sse = "AES256"
 
-// `_DEEPEST` derives the archive demand from the deepest rung any retention ladder names, read POSITIONALLY off
-// `Retain.depths` so a ladder edit at the retention owner moves the demand with zero edits here; the coordinate is
-// Option-shaped because a roster naming no rung demands nothing, and a max fold seeded with a floor would demand a
-// depth no ladder ever asked for.
 const _DEEPEST = Array.last(
   Array.filter(Retain.depths, (depth) =>
     Array.some(Record.values(Retain.Policy), (row) => Array.some(row.transitions, (rung) => rung.depth === depth))),
@@ -1317,7 +1173,6 @@ const _capability = (
 })
 
 const _CUSTODY_CAPABILITIES: ReadonlyArray<Backend.Capability> = [
-  // repairing a refused conditional means re-pointing the store: restart; the lifecycle push is a runtime verb: session
   _capability("object.conditional", "conditional-put", "if-none-match-*", FailureRank.REQUIRED, RestartClass.RESTART),
   _capability(
     "object.archive",
@@ -1326,19 +1181,14 @@ const _CUSTODY_CAPABILITIES: ReadonlyArray<Backend.Capability> = [
     FailureRank.DEGRADABLE,
     RestartClass.RESTART,
   ),
-  // a bucket's default encryption is provisioned state, so repairing a short mode re-points the store: restart
   _capability("object.encryption", "sse-mode", _SSE, FailureRank.DEGRADABLE, RestartClass.RESTART),
   _capability("object.lifecycle", "lifecycle-rules", "retain-classes", FailureRank.DEGRADABLE, RestartClass.SESSION),
 ]
 
-// DECLARED custody alone: settled tables in, stable content out, sorted by class so the encode reads a published
-// order. No operator coordinate can reach this preimage by construction.
 const _descriptor = () => ({
   conditional: "if-none-match-*",
   versioning: "unversioned",
   encryption: _SSE,
-  // Object Lock reads its posture off a versioned bucket alone, and the row above refuses versioning, so the cell
-  // states the refusal the way an engine row states `archive: "none"` — data, not an argument re-had per deployment.
   lock: "refused",
   reapDays: _days(_REAP_FLOOR),
   lifecycle: Array.map(
@@ -1365,16 +1215,12 @@ const _custody = (): {
   capabilities: _CUSTODY_CAPABILITIES,
 })
 
-// Realized state, read from the live bucket: membership the composition root unions into its one Backend.Reading.
-// `_observed` counts the custody artifact only where the bucket holds the declared unversioned posture, because a
-// versioned bucket forks the write-once identity law however its rules read.
 const _observed = (client: S3Client, bucket: string, engine: ObjectStore.Engine) =>
   Effect.gen(function* () {
     const versioning = yield* Effect.tryPromise({
       try: (signal) => client.send(new GetBucketVersioningCommand({ Bucket: bucket }), { abortSignal: signal }),
       catch: _foldedRead(bucket),
     })
-    // 404 on a rule-less bucket IS the unrealized state this read reports; every other fault stays on the rail
     const rules = yield* Effect.tryPromise({
       try: (signal) => client.send(new GetBucketLifecycleConfigurationCommand({ Bucket: bucket }), { abortSignal: signal }),
       catch: _foldedRead(bucket),
@@ -1382,9 +1228,6 @@ const _observed = (client: S3Client, bucket: string, engine: ObjectStore.Engine)
       Effect.map((reply) => reply.Rules ?? []),
       Effect.catchAll((fault) => fault.reason === "missing" ? Effect.succeed([]) : Effect.fail(fault)),
     )
-    // Same 404 shape, same fold: a bucket carrying no default encryption answers absence, and `Option.none` IS that
-    // posture rather than a mode invented for it. `KMSMasterKeyID` and `BucketKeyEnabled` ride this same reply and
-    // stay on the observation side alone, because a key coordinate is the operator's and the descriptor demands a mode.
     const encryption = yield* Effect.tryPromise({
       try: (signal) => client.send(new GetBucketEncryptionCommand({ Bucket: bucket }), { abortSignal: signal }),
       catch: _foldedRead(bucket),
@@ -1408,12 +1251,10 @@ const _observed = (client: S3Client, bucket: string, engine: ObjectStore.Engine)
     const cell = Array.findFirstIndex(Retain.depths, (depth) => depth === _engines[engine].archive)
     const holds: ReadonlyArray<readonly [key: string, held: boolean]> = [
       ["object.conditional", _engines[engine].conditional === "yes"],
-      // no ladder names a rung ⇒ nothing is demanded and every engine covers it; a live demand is a positional compare
       ["object.archive", Option.match(_DEEPEST, {
         onNone: () => true,
         onSome: (deepest) => Option.match(cell, { onNone: () => false, onSome: (at) => at >= Retain.depths.indexOf(deepest) }),
       })],
-      // `_SSE`'s DECLARED mode is the comparand: an algorithm outside this vocabulary answers false rather than narrowing
       ["object.encryption", Option.match(encryption, { onNone: () => _SSE === "none", onSome: (held) => held === _SSE })],
       ["object.lifecycle", Array.every(expected, (id) => HashSet.has(ids, id))],
     ]

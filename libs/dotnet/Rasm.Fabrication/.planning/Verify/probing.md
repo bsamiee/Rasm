@@ -24,7 +24,7 @@
 - Growth: a feature sub-kind is one `ProbeFeature` case, one `ContactSource` arm, and one `FeatureSpec` row; no feature-specific inspection entrypoint and no generator body survives beside it.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
@@ -47,7 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Verify;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ProbeCycle {
     public static readonly ProbeCycle G31 = new("g31", GCommand.Probe, requiresHit: false, towardSurface: true);
@@ -73,9 +73,6 @@ public sealed partial class ProbeSense {
     public Vector3d Orient(Vector3d normal) => normal * Sign;
 }
 
-// Which contacts feed the substitute fit. A cylinder is fitted from WALL contacts, so cap contacts are excluded by
-// perpendicularity; a one-face plane is fitted from contacts ALIGNED with that face's normal, so the opposite face
-// is excluded by alignment. Both tests run against the admitted context tolerance, never a machine-epsilon literal.
 [SmartEnum<string>]
 public sealed partial class FitFilter {
     public static readonly FitFilter All = new("all", static (_, _, _) => true);
@@ -88,10 +85,6 @@ public sealed partial class FitFilter {
     public partial bool Admits(Vector3d contactNormal, Vector3d axis, double tolerance);
 }
 
-// Parameter draws over the unit square. `Lattice` spreads a near-square grid where both chart axes carry
-// independent extent; `Equidistributed` reads the kernel `Deterministic.Hammersley` pair, which strides one axis
-// uniformly and digit-reverses the second — the owner states that equidistribution is its own member family and
-// never a consumer-page kernel, so a page-local golden-angle constant is the deleted form.
 [SmartEnum<string>]
 internal sealed partial class ContactSampler {
     public static readonly ContactSampler Lattice = new("lattice", Grid);
@@ -112,9 +105,7 @@ internal sealed partial class ContactSampler {
         toSeq(Enumerable.Range(0, count)).Map(index => Deterministic.Hammersley(index, count));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// One parametric contact surface: a chart over the unit square, the sampler that draws its parameters, its own
-// measure for a composite's area share, and the contact floor its substitute fit demands.
+// --- [MODELS] --------------------------------------------------------------------------
 internal readonly record struct ContactChart(
     ContactSampler Sampler,
     double Measure,
@@ -127,15 +118,12 @@ internal readonly record struct ContactChart(
         new(ContactSampler.Lattice, from.DistanceTo(to), Floor: 1,
             (u, _) => new FeatureSample(from + ((to - from) * u), Probe.Unit(normal)));
 
-    // A rectangle centred on its frame origin: `u` runs the frame X extent and `v` the frame Y extent.
     public static ContactChart Rectangle(Plane frame, double width, double height, Vector3d normal, int floor) =>
         new(ContactSampler.Lattice, width * height, floor,
             (u, v) => new FeatureSample(
                 frame.Origin + (frame.XAxis * ((u - 0.5) * width)) + (frame.YAxis * ((v - 0.5) * height)),
                 Probe.Unit(normal)));
 
-    // A wall of revolution: `u` runs the axial fraction, `v` the sweep. `radiusAt` carries the taper, so a
-    // cylinder and a cone are one chart under two radius laws, and a ring is the zero-height degenerate case.
     public static ContactChart Wall(
         Plane frame,
         double height,
@@ -152,7 +140,6 @@ internal readonly record struct ContactChart(
                     sense.Orient(normalAt(radial)));
             });
 
-    // A disc at an axial offset: `u` is the radial fraction under an equal-area square root, `v` the sweep.
     public static ContactChart Disc(Plane frame, double radius, double atHeight, Vector3d normal, int floor) =>
         new(ContactSampler.Equidistributed, Math.PI * radius * radius, floor,
             (u, v) => {
@@ -163,7 +150,6 @@ internal readonly record struct ContactChart(
                     Probe.Unit(normal));
             });
 
-    // A sphere: `u` is the equal-area height fraction and `v` the azimuth.
     public static ContactChart Ball(Point3d centre, double radius, int floor) =>
         new(ContactSampler.Equidistributed, 2.0 * Math.Tau * radius * radius, floor,
             (u, v) => {
@@ -174,7 +160,6 @@ internal readonly record struct ContactChart(
                 return new FeatureSample(centre + (normal * radius), normal);
             });
 
-    // A torus: `u` sweeps the major circle and `v` the tube.
     public static ContactChart Tube(Plane frame, double major, double minor, ProbeSense sense, int floor) =>
         new(ContactSampler.Equidistributed, Math.Tau * major * Math.Tau * minor, floor,
             (u, v) => {
@@ -185,7 +170,6 @@ internal readonly record struct ContactChart(
                 return new FeatureSample(frame.Origin + (radial * major) + (normal * minor), sense.Orient(normal));
             });
 
-    // An arc-length reparameterization of a measured polyline: `u` is the normalized distance along it.
     public static ContactChart Polyline(Seq<FeatureSample> samples) {
         Seq<(FeatureSample From, FeatureSample To, double Length)> spans = toSeq(samples.AsIterable()
             .Zip(samples.AsIterable().Skip(1), static (from, to) => (from, to, from.Nominal.DistanceTo(to.Nominal))));
@@ -205,11 +189,6 @@ internal readonly record struct ContactChart(
         new(from.Nominal + ((to.Nominal - from.Nominal) * fraction),
             Probe.Unit(from.SurfaceNormal + ((to.SurfaceNormal - from.SurfaceNormal) * fraction)));
 
-    // The ONE contact-budget rule every composite reads: each chart takes its declared floor first, the remainder
-    // distributes by measure share, and the largest share absorbs the rounding residue, so a composite spends its
-    // budget exactly and a fit-bearing chart never falls below its solver's minimal set. Integer allocation with
-    // floors and a residue has no expression form that spends the budget exactly, so the body is the declared
-    // statement kernel; a per-feature clamp beside it is the deleted form.
     internal static Fin<Seq<(ContactChart Chart, int Count)>> Allocate(Seq<ContactChart> charts, int count) {
         if (charts.Count == 1) return Fin.Succ(Seq((charts[0], count)));
         int floors = charts.Sum(static chart => chart.Floor);
@@ -232,9 +211,6 @@ internal readonly record struct ContactChart(
     }
 }
 
-// Contact generation has exactly two shapes and the feature declares which it is: a CHARTED feature draws from
-// its own chart set, and an EXTRACTED one delegates to the admitted sampler over its domain. One per-case table
-// names the shape and its data, so a new feature is one arm and never a new generator body.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record ContactSource {
     private ContactSource() { }
@@ -262,29 +238,16 @@ public abstract partial record ProbeFeature {
     public sealed record Profile(Seq<FeatureSample> Samples) : ProbeFeature;
     public sealed record Surface(ExtractionDomain Domain, SampleKind Sampling, Vector3d Normal) : ProbeFeature;
 
-    // Contact cardinality, the substitute-fit kind, and the filter naming which contacts feed it are one row per
-    // case, so a new feature declares its whole metrology contract in one arm and every consumer derives. Floors
-    // read the solver's own `MinimalSamples` rather than restating an integer; an absent ceiling is `None`, never
-    // a sentinel, because only a point feature has a real upper bound on its contact count.
     internal FeatureSpec Spec => Switch(
         point: static _ => new FeatureSpec(1, Some(1), None, FitFilter.All, None),
         line: static _ => new FeatureSpec(FitKind.Line.MinimalSamples, None, Some(FitKind.Line), FitFilter.All, None),
         plane: static _ => new FeatureSpec(FitKind.Plane.MinimalSamples, None, Some(FitKind.Plane), FitFilter.All, None),
-        // The rim's coplanar contacts determine plane, centre, and radius through the kernel circle row — the
-        // six-parameter cylinder those contacts would leave rank-deficient is nobody's substitute.
         circle: static _ => new FeatureSpec(FitKind.Circle.MinimalSamples, None, Some(FitKind.Circle), FitFilter.All, None),
         bore: static row => new FeatureSpec(
             FitKind.Cylinder.MinimalSamples + 1, None, Some(FitKind.Cylinder), FitFilter.PerpendicularTo, Some(row.Frame.ZAxis)),
         boss: static row => new FeatureSpec(
             FitKind.Cylinder.MinimalSamples + 1, None, Some(FitKind.Cylinder), FitFilter.PerpendicularTo, Some(row.Frame.ZAxis)),
-        // Two end arcs and two parallel flanks sharing one width: a constrained composite over a circle pair and
-        // a line pair, which the one-kind fit column cannot carry — its composite fit is a downstream consumer
-        // fold over `Fit.Apply`, so the slot answers per-contact residuals here and a page-local composite fit
-        // would be a second fitting owner.
         slot: static _ => new FeatureSpec(5, None, None, FitFilter.All, None),
-        // A plane fitted across both antiparallel faces returns the mid-plane, which is no measured face, so the
-        // fit takes the contacts aligned with one face alone: that face's minimal set plus one contact proving
-        // the opposite face was reached.
         web: static row => new FeatureSpec(
             FitKind.Plane.MinimalSamples + 1, None, Some(FitKind.Plane), FitFilter.AlignedWith, Some(row.Frame.ZAxis)),
         sphere: static _ => new FeatureSpec(FitKind.Sphere.MinimalSamples, None, Some(FitKind.Sphere), FitFilter.All, None),
@@ -292,11 +255,8 @@ public abstract partial record ProbeFeature {
         cone: static _ => new FeatureSpec(FitKind.Cone.MinimalSamples, None, Some(FitKind.Cone), FitFilter.All, None),
         torus: static _ => new FeatureSpec(FitKind.Torus.MinimalSamples, None, Some(FitKind.Torus), FitFilter.All, None),
         profile: static row => new FeatureSpec(Math.Min(row.Samples.Count, 2), None, None, FitFilter.All, None),
-        // A free-form surface is measured as deviation to its NOMINAL geometry, so no primitive substitutes for
-        // it and the absent fit is the feature's own nature rather than a gap.
         surface: static _ => new FeatureSpec(3, None, None, FitFilter.All, None));
 
-    // The per-case contact declaration: chart data, never a generator body.
     internal ContactSource Source => Switch(
         point: static row => (ContactSource)new ContactSource.Charted(Seq(ContactChart.Constant(row.Nominal, row.Normal))),
         line: static row => new ContactSource.Charted(Seq(ContactChart.Span(row.Nominal.From, row.Nominal.To, row.Normal))),
@@ -324,7 +284,6 @@ public abstract partial record ProbeFeature {
         cylinder: static row => new ContactSource.Charted(Seq(
             ContactChart.Wall(row.Frame, row.HeightMm, row.Sense, _ => row.RadiusMm, static radial => radial,
                 FitKind.Cylinder.MinimalSamples))),
-        // A cone's surface normal tilts off the radial by the half-angle the base radius and height define.
         cone: static row => new ContactSource.Charted(Seq(
             ContactChart.Wall(row.Frame, row.HeightMm, row.Sense,
                 fraction => row.BaseRadiusMm * (1.0 - fraction),
@@ -342,9 +301,6 @@ public abstract partial record ProbeFeature {
         .Map(axis => Spec.Filter.Admits(Probe.Unit(contactNormal), axis, tolerance))
         .IfNone(true);
 
-    // Geometric admissibility reads the kernel claim algebra: `Direction` is the finite-and-non-zero vector claim
-    // every consumer used to spell as a unitize probe, and `Positive` the finite-and-above-zero scalar claim, so
-    // this owner states WHICH facts a case demands and nothing about how a claim is decided.
     internal bool Valid => Switch(
         point: static row => ValidityClaim.All(
             ValidityClaim.Finite(row.Nominal), ValidityClaim.Direction(row.Normal)),
@@ -387,8 +343,6 @@ public abstract partial record ProbeFeature {
         extracted: static (state, row) => row.Sampling.Project<Seq<Point3d>>(row.Domain, state.Context)
             .Map(points => points.Take(state.Count).Map(point => new FeatureSample(point, Probe.Unit(row.Normal))).ToSeq()));
 
-    // A slot is four walls and a floor. Each wall carries its own frame so one rectangle chart serves every face,
-    // and the inward normal is the direction the stylus pushes against that wall.
     private static Seq<ContactChart> SlotCharts(Rhino.Geometry.Plane frame, double length, double width, double depth) =>
         Seq(
             ContactChart.Rectangle(WallFrame(frame, frame.YAxis * (-width * 0.5), frame.XAxis, frame.ZAxis, depth),
@@ -424,8 +378,6 @@ public sealed partial class ProbeTargetKey {
     public int Feature { get; }
     public int Sample { get; }
 
-    // One spelling serves posting, telemetry correlation, residual rows, and egress identity; a caller
-    // re-joining the three parts at its own call site forks the wire token.
     public string Text => $"{Cycle.Key}:{Feature}:{Sample}";
 
     [BoundaryAdapter]
@@ -460,10 +412,6 @@ public sealed partial class ProbeAddress {
         Validate(target, attempt, out ProbeAddress address).Admitted(address);
 }
 
-// Identity and tolerance band are inspection demands, not geometry: two plans may probe the same nominal
-// circle under different bands, so the key and the band ride the plan and the feature stays pure geometry.
-// `Approach` rides the kernel APPROACH lane in the lane's own carrier for the same reason — the value is a
-// per-plan demand a context default cannot state, and naming the lane keeps the band vocabulary one.
 [ComplexValueObject]
 public sealed partial class ProbePlan {
     public Dimension Key { get; }
@@ -490,9 +438,6 @@ public sealed partial class ProbePlan {
         ref double clearanceMm,
         ref PositiveMagnitude travelLimitMm,
         ref Tolerance approach) {
-        // Each carrier proved its own range, so this body states only what no carrier can see: the feature's own
-        // geometry, its contact cardinality, a positive attempt budget, a clearance that starts off the surface,
-        // and a travel limit that actually reaches past it.
         if (!ValidityClaim.All(
             feature.Valid, feature.Admits(count.Value),
             ValidityClaim.CountAtLeast(attempts.Value, floor: 1),
@@ -557,8 +502,6 @@ public sealed partial class ProbeObservation {
             .Admitted(observation);
 }
 
-// Ingress modality is a ROW, not a case family: the three lanes carried a byte-identical window/rows/evidence
-// triple, every fold arm returned the same value, and no consumer read the discriminant.
 [SmartEnum<string>]
 public sealed partial class MeasurementKind {
     public static readonly MeasurementKind Telemetry = new("telemetry");
@@ -596,13 +539,8 @@ public sealed partial class StylusCalibration {
     public UInt128 Key { get; }
     public PositiveMagnitude RadiusMm { get; }
 
-    // Pre-travel, the two thermal coefficients, and the calibration uncertainty stay bare doubles: a zero
-    // pre-travel and a zero uncertainty are real measurements and a thermal coefficient is signed, so no carrier
-    // band matches their admissible range and one would add an unwrap at every read without deleting a clause.
     public double PreTravelMm { get; }
 
-    // The frame the lobing map was MEASURED in: its Z axis is the stylus axis and its X axis the zero-phase
-    // reference. Without it a harmonic phase names no direction and the map degenerates to a constant.
     public Rhino.Geometry.Plane ProbeFrame { get; }
 
     public double ThermalExpansionPerC { get; }
@@ -630,8 +568,6 @@ public sealed partial class StylusCalibration {
             ValidityClaim.Nonnegative(preTravelMm), ValidityClaim.Nonnegative(calibrationUncertaintyMm),
             ValidityClaim.Finite(thermalExpansionPerC), ValidityClaim.Finite(referenceTemperatureC),
             validity.HasStart && validity.HasEnd && validity.End > validity.Start,
-            // A harmonic map admits one amplitude per order: two rows on the same harmonic sum into a phase the
-            // calibration never measured, so the roster is keyed rather than merely finite.
             lobes.ForAll(static row => ValidityClaim.All(
                 ValidityClaim.CountAtLeast(row.Harmonic, floor: 1),
                 ValidityClaim.Finite(row.AmplitudeMm), ValidityClaim.Finite(row.PhaseRadians))),
@@ -654,10 +590,6 @@ public sealed partial class StylusCalibration {
             thermalReference, calibrationUncertaintyMm, validity, lobes, out StylusCalibration calibration)
             .Admitted(calibration);
 
-    // The deflection azimuth in the probe's own frame. A deflection parallel to the stylus axis leaves no planar
-    // component, so it carries no azimuth and the lobing map contributes a measured zero. The floor deciding
-    // "no planar component" is the model's NEGLECT lane, because a bare numeric anchor bypasses the vocabulary
-    // that lets a project move the gate and prices a micron-scale probe against a metre-scale model.
     public double LobeMm(Vector3d approach, Context model) {
         Vector3d planar = approach - (ProbeFrame.ZAxis * (approach * ProbeFrame.ZAxis));
         if (planar.Length <= model.For(ToleranceLane.Neglect).Value) return 0.0;
@@ -666,10 +598,6 @@ public sealed partial class StylusCalibration {
     }
 }
 
-// The repeat regime is a named COLUMN BLOCK of the inspection demand, not a policy of its own: its only consumer
-// is `InspectPolicy`, and every member arrives in a carrier that owns its range — a non-negative count, a positive
-// robust multiple, and the uncertainty floor on the kernel deviation lane — so the four-clause body it used to run
-// has nothing left to prove and a second admission entrypoint would only re-state its carriers' own bands.
 public readonly record struct RepeatBands(
     Dimension MinimumAccepted,
     PositiveMagnitude OutlierSigma,
@@ -693,8 +621,6 @@ file sealed record ProbeTarget(
         None);
 }
 
-// Every rejection row carries the fault a target raises when no attempt survives, so a new rejection mode
-// is one row and no call site re-derives which failure it names.
 [SmartEnum<string>]
 internal sealed partial class ProbeRejection {
     public static readonly ProbeRejection Overtravel = new("overtravel",
@@ -712,8 +638,6 @@ internal sealed partial class ProbeRejection {
 
 file readonly record struct CompensatedContact(Point3d Point, double ThermalUncertaintyMm, Instant At);
 
-// Verdict, observation, and contact are one discriminant: a hit always has both, a miss has neither, and a
-// rejection always retains the observation plus the measure that rejected it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 file abstract partial record ProbeOutcome {
     private ProbeOutcome() { }
@@ -733,8 +657,6 @@ file abstract partial record ProbeOutcome {
         rejected: static row => Some(row.Reason.Fault(row.Observation.BallCenter, row.LimitMm)));
 }
 
-// One attempt against one target: the touch and what it settled into. It carries no content key, no evidence
-// band, and no stamp, so it is not a settled receipt and takes no `*Receipt` name.
 file sealed record ProbeTouch(ProbeTarget Target, ProbeOutcome Outcome);
 
 file sealed record UnregisteredFeature(
@@ -774,8 +696,6 @@ public abstract partial record DatumPolicy {
         FitPolicy FitPolicy,
         AlignKind Registration,
         AlignmentPolicy Alignment) : DatumPolicy;
-    // `Replay` carries the memoized fit's MEASURED residual and lever radius, so the anisotropic budget
-    // survives replay — `Setup`'s absent spread states an unmeasured registration, never a replayed one.
     public sealed record Replay(DatumLineage Datum, Transform Registration, double DeltaMm, double RadiusMm) : DatumPolicy;
 
     public DatumLineage Receipt => Switch(
@@ -785,16 +705,6 @@ public abstract partial record DatumPolicy {
         replay: static row => row.Datum);
 }
 
-// `ProbeMemo.Key` folds every fit-shifting input through ONE streaming pass at the S0 facade — count-framed
-// measured and nominal pairs in admitted order, the kind row key, every policy column, the context regime — and
-// `FabricationCanon.Ordered` IS that close, opening the streaming writer and answering its digest, so no lane
-// mints a codec or retains bytes it only hashes. Cache keys spell `icp:{Key:x32}` — the prefix the Persistence
-// solver-memo band dispatches on — and the lane composes at the cache-owning boundary: a hit replays as
-// `DatumPolicy.Replay` carrying the memoized transform, residual, and radius, a miss runs `BestFit` and
-// publishes; the sync statement kernel inside `Align` stays memo-free.
-//
-// The port is the point PAIRS the preimage frames, not this page's own feature carrier: a cache boundary outside
-// this file holds the pairs and has neither the file-scoped carrier nor a reason to construct one.
 public static class ProbeMemo {
     public static UInt128 Key(
         Seq<(Point3d Measured, Point3d Nominal)> pairs, AlignKind kind, AlignmentPolicy policy, Context context) =>
@@ -802,19 +712,13 @@ public static class ProbeMemo {
             .Rows(pairs, static (row, pair) => row.Coords(pair.Measured).Coords(pair.Nominal))
             .String(kind.Key)
             .I64(policy.MaxIterations.Value)
-            // The alignment bands are LANES, so the preimage carries the lane KEYS the policy selected rather than
-            // the scalars a context resolves them to — a project override moves the number, not the fit identity.
             .String(policy.Convergence.Key).String(policy.Residual.Key)
             .String(policy.Step.Key).String(policy.Ridge.Key)
             .Double(policy.RobustScale.Value)
             .I64(policy.OptimizerBudget.Value)
-            // The scale decision is the Procrustes closing row, so the preimage frames that row and no separate
-            // estimate-scale flag stands beside it stating the same fact.
             .String(policy.Fit.Key.ToString())
             .Maybe(policy.TrimFraction.Map(static trim => trim.Value), static (row, trim) => row.Double(trim))
             .I64(policy.CoarseLevels.Value)
-            // A model unit IS its length regime: the metres-per-unit scale is what changes a measured coordinate's
-            // meaning, and a provider unit ordinal in a preimage re-keys every memo the day the host reorders it.
             .Double(context.Relative.Value).Double(context.Angle.Value).Double(context.Unit.MetersPerUnit));
 }
 
@@ -857,8 +761,6 @@ public sealed partial class InspectPolicy {
             .Admitted(policy);
 }
 
-// The measured feature keeps BOTH deviations: the signed normal deviation is the metrology fact an operator acts
-// on, and the census residual carries its magnitude because the kernel conformance metrics rank unsigned.
 public sealed record MeasuredFeature(
     ProbeTargetKey Key,
     ProbePlan Plan,
@@ -872,8 +774,6 @@ public sealed record MeasuredFeature(
     Instant At,
     Option<FitReceipt> Fit);
 
-// The registration budget as measured, not as assumed: `DeltaMm` is the alignment's own point residual and
-// `RadiusMm` the characteristic lever arm of the cloud it was solved over.
 file readonly record struct RegistrationSpread(double DeltaMm, double RadiusMm) {
     public double At(double leverArmMm) =>
         Math.Sqrt(Squared(DeltaMm) + Squared(DeltaMm * leverArmMm / RadiusMm));
@@ -899,10 +799,8 @@ file sealed record ProbeReport(
     Option<CapabilityReport> Capability,
     Instant At);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Probe {
-    // The normal-consistency scaling that turns a median absolute deviation into a standard-deviation estimate,
-    // which is the axis `RepeatBands.OutlierSigma` is stated in.
     private const double MadConsistency = 1.4826;
 
     internal static readonly Op ProbeOp = Op.Of(name: "fabrication:probe");
@@ -964,9 +862,6 @@ public static class Probe {
             .As()
             .Map(static rows => rows.Bind(identity));
 
-    // Correlation is keyed, never scanned: a linear filter per target makes ingress, aggregation, and
-    // grouping quadratic in contact count, which a production inspection run reaches immediately. The index
-    // serves LOOKUP alone — every fold that must emit rows reads its own declared order, never this one.
     private static HashMap<TKey, Seq<TRow>> Index<TKey, TRow>(Seq<TRow> rows, Func<TRow, TKey> key) =>
         rows.Fold(
             HashMap<TKey, Seq<TRow>>(),
@@ -1007,9 +902,6 @@ public static class Probe {
         substitute: static row => !row.Kinds.IsEmpty && row.Kinds.Distinct().Count == row.Kinds.Count,
         replay: static row => row.Registration.IsValid && row.DeltaMm >= 0.0 && row.RadiusMm > 0.0);
 
-    // One contact leaving its admitted path is per-contact evidence, never a program verdict: aborting here
-    // would destroy every other feature's measurement over a single rejected touch, so the reason rides the
-    // outcome and the repeat fold decides whether the target still has enough contacts to stand.
     private static Seq<ProbeTouch> Evaluate(
         ProbeTarget target,
         HashMap<ProbeTargetKey, Seq<ProbeObservation>> observed,
@@ -1050,9 +942,6 @@ public static class Probe {
         ProbeObservation observation,
         StylusCalibration calibration,
         Context model) {
-        // Pre-travel is lost motion AFTER contact: the reported ball centre sits that far past the true touch
-        // along the approach, so it subtracts where the stylus radius and its lobing term add. The lobing term
-        // resolves in the calibrated probe frame off the APPROACH direction, which is what the stylus deflects along.
         Point3d surface = observation.BallCenter
             + (target.Direction
                 * (calibration.RadiusMm.Value - calibration.PreTravelMm + calibration.LobeMm(target.Direction, model)));
@@ -1067,9 +956,6 @@ public static class Probe {
             : new ProbeOutcome.Rejected(observation, ProbeRejection.ThermalScale, scale, 0.0);
     }
 
-    // Robust aggregation composes the statistics owner: the median centre, the median absolute deviation, and the
-    // accepted-set RMS repeatability are library rows, and the ONE thing this fold owns is the acceptance band.
-    // Every statistics member answers NaN on an empty population, so the absence arm exits before any read.
     private static Fin<Option<UnregisteredFeature>> Aggregate(
         ProbeTarget target,
         HashMap<ProbeTargetKey, Seq<ProbeTouch>> contacted,
@@ -1083,9 +969,6 @@ public static class Probe {
         Seq<double> distances = rows.Map(row => row.Point.DistanceTo(centre));
         double median = Statistics.Median(distances);
         double deviation = Statistics.Median(distances.Map(value => Math.Abs(value - median)));
-        // A repeat set with no measurable spread must not collapse the acceptance band to zero and reject every
-        // contact but the median. The floor is the model's NEGLECT lane — a distance below it is no distance —
-        // rather than a numeric anchor that means one thing on a micron part and another on a bridge.
         double band = policy.Repeat.OutlierSigma.Value
             * Math.Max(deviation * MadConsistency, model.For(ToleranceLane.Neglect).Value);
         Seq<CompensatedContact> accepted = rows.Filter(row => row.Point.DistanceTo(centre) <= median + band);
@@ -1132,8 +1015,6 @@ public static class Probe {
         Seq<UnregisteredFeature> features,
         Context context) => policy.Switch(
         state: (Features: features, Context: context),
-        // An assigned transform carries no alignment residual, so the registration budget is ABSENT rather than
-        // zero: a caller reading a zero would price an unmeasured registration as a perfect one.
         setup: static (state, row) => row.Registration.IsValid
             ? Fin.Succ(new ProbeDatum(
                 row.Datum, row.Registration, Centroid(state.Features), None, None, None))
@@ -1151,32 +1032,20 @@ public static class Probe {
                     row.FitPolicy),
                 state.Context,
                 ProbeOp)
-            // `FitReceipt.Inliers` IS the admitted index roster, so the consensus set is READ off it directly;
-            // pairing every feature with its ordinal to filter by membership scans the whole census to recover a
-            // roster the receipt already hands over.
             let inliers = fit.Inliers.ToSeq().Map(index => state.Features[index])
             from aligned in Align(inliers, state.Context, row.Registration, row.Alignment)
             select Seated(row.Datum, aligned, inliers, Some(fit), state.Context),
-        // Replay seats the memoized fit with its measured spread: no solve, no receipt, and the same
-        // degenerate-radius gate `Seated` applies, so a replayed budget is never priced from a dead radius.
         replay: static (state, row) => row.Registration.IsValid
             ? Fin.Succ(new ProbeDatum(
                 row.Datum, row.Registration, Centroid(state.Features),
                 Spread(row.DeltaMm, row.RadiusMm, state.Context), None, None))
             : Fin.Fail<ProbeDatum>(FabricationFault.Inadmissible(FabConcern.Verify, "probe:replay-transform")));
 
-    // A cloud whose RMS lever arm sits under the model's NEGLECT lane bounds no residual rotation, so the
-    // anisotropic budget is ABSENT rather than a division by a dead radius. The gate is the lane and not a numeric
-    // anchor: the arm is a model-space distance, so the floor deciding "no arm" scales with the model the same way.
     private static Option<RegistrationSpread> Spread(double deltaMm, double radiusMm, Context model) =>
         radiusMm > model.For(ToleranceLane.Neglect).Value
             ? Some(new RegistrationSpread(deltaMm, radiusMm))
             : None;
 
-    // A rigid registration's residual rotation acts about the CENTROID of the cloud it was solved over, and that
-    // cloud's RMS lever arm is what turns a point residual into a bound on the rotation. `DatumLineage` carries
-    // transfer and correction magnitudes rather than a frame, so both the origin and the radius derive from the
-    // registered set itself. A degenerate cloud bounds no rotation, so the spread is absent rather than infinite.
     private static ProbeDatum Seated(
         DatumLineage datum,
         (Transform Transform, AlignmentReceipt Receipt) aligned,
@@ -1197,8 +1066,6 @@ public static class Probe {
     private static Point3d Centroid(Seq<UnregisteredFeature> features) =>
         MeanPoint(features.Map(static row => row.Measured));
 
-    // Both clouds acquire and release inside ONE region. A compensating dispose inside a failure lambda is a
-    // second custody path, and it leaks the moment a third resource joins the fold.
     private static Fin<(Transform Transform, AlignmentReceipt Receipt)> Align(
         Seq<UnregisteredFeature> features,
         Context context,
@@ -1235,8 +1102,6 @@ public static class Probe {
                 measured,
                 row.Target.SurfaceNormal,
                 signed,
-                // The census residual carries the MAGNITUDE: the kernel conformance metrics rank unsigned, so a
-                // signed value in this slot makes the worst sample the most positive one.
                 new ResidualSample(index, row.Target.Nominal, Math.Abs(signed), row.Target.Plan.Band.Millimeters),
                 uncertainty,
                 row.RepeatabilityMm,
@@ -1244,29 +1109,17 @@ public static class Probe {
                 None);
         });
 
-    // Residual statistics ride the kernel conformance rows, never a local fold: the measured arity of
-    // `AnalysisQuery.Conformance` takes the tranche the probe already holds, so the admission oracle, the band the
-    // samples were measured against, and the worst-sample ranking stay the kernel's single owner. Both reaches
-    // carry no scope because the band derives from each sample; a plan whose features disagree on tolerance
-    // refuses at the kernel rather than summarizing two populations under one verdict.
     private static Fin<(Distribution Spread, ResidualSample Worst)> Census(Seq<ResidualSample> residuals) =>
         from spread in Measured<Distribution>(ConformanceMetric.Distribution, residuals)
         from worst in Measured<ResidualSample>(ConformanceMetric.Maximum, residuals)
         select (spread, worst);
 
-    // `Conformance` ADMITS: it answers on the rail because a percentile list handed to a non-distribution metric is
-    // a refusal at the kernel rather than an argument the query silently drops, so the census binds that rail
-    // before it runs and never measures a population under a query the owner rejected.
     private static Fin<TOut> Measured<TOut>(ConformanceMetric metric, Seq<ResidualSample> residuals) where TOut : notnull =>
         AnalysisQuery.Conformance(metric)
             .Bind(query => Analyze.Run<ResidualSample, TOut>(query, residuals.ToArray()).ToFin())
             .Bind(values => values.Head.ToFin(
                 FabricationFault.Inadmissible(FabConcern.Verify, "probe:residual-census")));
 
-    // The fit receipt is computed ONCE per plan key over a keyed index and then read back onto the features in
-    // their own admitted order, so nothing downstream inherits index iteration order. The traverse orders on the
-    // declared plan key so even the refusal that reports first is fixed. Wall-contact filtering can starve a
-    // group below the kind's own minimal set, and the group then carries no fit rather than a fabricated one.
     private static Fin<Seq<MeasuredFeature>> Fits(Seq<MeasuredFeature> features, FitPolicy policy, Context context) =>
         toSeq(Index(features, static feature => feature.Plan.Key))
             .OrderBy(static entry => entry.Key.Value)
@@ -1296,9 +1149,6 @@ public static class Probe {
                     .As();
             });
 
-    // Probe facts mint beside the frozen result because `ProbeReport` is file-scoped. The worst deviation reads
-    // the census's OWN ranked sample, so the instrument, the receipt, and the kernel ranking are one quantity and
-    // no seeded fold stands beside them fabricating an extremum for a population the census already refused.
     private static Fin<FabricationResult> ToResult(ProbeReport report, Seq<ContentKey> subjects, FabricationTap tap) =>
         report.Features.TraverseM(ToAtom).As()
             .Map(atoms => {
@@ -1341,11 +1191,6 @@ public static class Probe {
     }
 }
 
-// The icp-probe-fit measuring case for the FabricationBenchClaims.IcpProbeFit no-regression claim: workload
-// admission proves the datum lane is the ICP best-fit registration over a non-trivial feature census, and
-// the measured fold is `Probe.Inspect` — the narrowest public seam reaching the two-cloud alignment, which
-// is why the claim's lane columns spell it. Policy and input arrive admitted through their own factories;
-// measurement stays the bench edge's under the AppHost claim-field map.
 public static class ProbeBench {
     public const int FeatureFloor = 64;
 

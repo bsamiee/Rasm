@@ -23,7 +23,7 @@
 - Boundary: the clearance vocabulary is `offset.md`'s ONE family — `Radius` means distance-to-boundary on BOTH pages and the probe returns `r(foot) − |probe − foot|`. The probe answers over ONE primitive roster, arcs where arcs exist and isolated nodes as degenerate segments otherwise, so the fully-merged-shell branch and its `-1` witness sentinel are gone and every answer names a real primitive; `Reach` is offset's `ClearanceProbe` composed verbatim — this page mints no probe of its own and interpolates only the per-endpoint radius the clearance vocabulary defines. Contraction composes the landed owners and re-derives none: `Cotangent.OfEdges` is the one cotangent arithmetic, `SparseMatrix.FromTriplets`/`CholeskySparse` the one sparse rail, while the per-round re-assembly is skeleton's OWN loop because the substrate `Laplacian(Cotangent)` row quality-gates exactly the degenerate regime the contraction inhabits and `IntrinsicDelaunay` re-triangulates away the connectivity the surgery must own — the composed-primitive/authored-loop split is the design. `geodesics.md`'s memoized MCF arm stays the SCALAR-FIELD owner (fixed connectivity, one factor, displacement magnitudes) and the two MCF forms share no interior. QuikGraph stays transient in-computation state with the frozen SoA columns the complete contract. Arena state stays single-writer with the surgery's adjacency scratch kernel-local, and the ORIGINAL mesh is never mutated — the arena copies at admission and radius provenance reads the snapshot. `Apply` is total over the `Fin` rail, so a thrown exception on a stalled contraction or an open shell is forbidden.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,16 +44,13 @@ using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
 using EdgeKeySet = System.Collections.Generic.HashSet<(int, int)>;
 using IndexSet = System.Collections.Generic.HashSet<int>;
 using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Meshing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Each row OWNS its terminal: a schedule that runs out with no verdict takes Stalled with the budget as
-// its round, so an unconverged contraction can never fall through success-shaped.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 internal sealed partial class ContractStop {
     public static readonly ContractStop Settled = new(static (_, _) => Fin.Succ(unit));
@@ -73,23 +70,13 @@ public sealed partial class BranchFinish {
     internal partial CurveSkeleton Resample(CurveSkeleton skeleton);
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------------
-// Au policy row: w_L0 = LaplaceSeed·sqrt(mean face area) scaled ContractionScale/round, W_H,i = Attraction·sqrt(A0_i/A_i), CotangentCeiling clamps near-degenerate cot weights.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record SkeletonPolicy(
     PositiveMagnitude LaplaceSeed, PositiveMagnitude ContractionScale, PositiveMagnitude Attraction,
     PositiveMagnitude CotangentCeiling, Dimension MaxIterations, Tolerance CollapseAreaRatio,
     Tolerance StallBand, double SamplingWeight, BranchFinish Finish, Dimension ParallelFloor,
-    // Box-ordered candidate ceiling the probe query opens at; the fold's own lower-bound break decides the answer,
-    // so this column buys how few primitives the common probe measures and never what it measures them against.
     Dimension ProbeCeiling,
-    // Consumer-assigned radius measure — the seam the geodesic-distance radius rides: None keeps the Euclidean
-    // witness distance; a higher-stratum consumer binds the geodesics distance arm at ITS stratum, so this S1
-    // owner re-routes the provenance measure without referencing S2.
     Option<Func<Point3d, Point3d, Fin<double>>> RadiusMeasure = default) : IValidityEvidence {
-    // Both convergence bands are RATIOS — the exact shape a Ratio-band lane owns — so both read off the run's
-    // own `Context` and a project that tightens either moves this policy with no factory edit. `LaplaceSeed`
-    // scales a length and `CotangentCeiling` clamps a cotangent; no lane owns either, so both are REQUIRED
-    // arguments a caller states rather than literals a static pins where nothing can reach them.
     public static SkeletonPolicy Of(Context context, PositiveMagnitude laplaceSeed, PositiveMagnitude cotangentCeiling) => new(
         LaplaceSeed: laplaceSeed, ContractionScale: PositiveMagnitude.Create(value: 2.0),
         Attraction: PositiveMagnitude.Create(value: 1.0), CotangentCeiling: cotangentCeiling,
@@ -98,20 +85,14 @@ public sealed record SkeletonPolicy(
         Finish: BranchFinish.Smoothed, ParallelFloor: Dimension.Create(value: 4_096),
         ProbeCeiling: Dimension.Create(value: 16));
 
-    // One claim no band holds: λ mixes a length against a length SUM, so zero is meaningful and the
-    // upper end is unbounded; the two admitted lane reads carry their own bands' evidence.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Nonnegative(value: SamplingWeight),
         ValidityClaim.Evidence(CollapseAreaRatio), ValidityClaim.Evidence(StallBand));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SkeletonOp(MeshSpace Mesh, SkeletonPolicy Policy);
 
-// Columns publish as `Arr<T>`, the indexed FROZEN carrier: a `double[]` a decoder holds is writable, so the
-// wire's frozen claim was a comment and every reader owed a defensive copy. `Reach` is `offset.md`'s
-// `ClearanceProbe` composed verbatim — the same mint-and-compose split `ClearanceNode` already rides — carried
-// on the wire so the `Rasm.Fabrication` toolpath seam builds the index once instead of scanning per sample.
 public sealed record CurveSkeleton(
     Arr<double> NodeX, Arr<double> NodeY, Arr<double> NodeZ, Arr<double> Radius, Arr<double> SectionA,
     Arr<double> SectionB, Arr<int> Witness, Arr<int> ArcFrom, Arr<int> ArcTo, Arr<int> ArcOrigin, Arr<int> Component,
@@ -125,14 +106,8 @@ public sealed record CurveSkeleton(
         toSeq(Enumerable.Range(0, NodeCount).Select(n => new ClearanceNode(NodeAt(n), Radius[n], Witness[n]))),
         toSeq(Enumerable.Range(0, ArcCount).Select(a => new SkeletonArc(ArcFrom[a], ArcTo[a], ArcOrigin[a]))));
 
-    // A clearance primitive is an ARC where arcs exist and a lone NODE as a degenerate segment otherwise, so the
-    // fully-merged-shell branch and the `-1` witness sentinel it returned both die into ONE roster. The census
-    // is `Reach.Count`, so no second count column re-derives what the probe already publishes.
     internal (int From, int To) Ends(int primitive) => ArcCount > 0 ? (ArcFrom[primitive], ArcTo[primitive]) : (primitive, primitive);
 
-    // ONE probe body over ONE roster: the composed owner answers the nearest primitive, its ordinal, and the
-    // foot PARAMETER, and this page's only remaining work is interpolating its own per-endpoint radius across
-    // that parameter — the measure the clearance vocabulary defines and the index has no business deciding.
     public ClearanceNode Clearance(Point3d probe) {
         (double distance, int primitive, double t) = Reach.Nearest(probe);
         (int from, int to) = Ends(primitive);
@@ -140,7 +115,7 @@ public sealed record CurveSkeleton(
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Skeletonize {
     [BoundaryAdapter]
     public static Fin<CurveSkeleton> Apply(SkeletonOp op, Op? key = null) {
@@ -157,8 +132,6 @@ public static class Skeletonize {
         op.Mesh.Native.Faces.Count == 0 ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "empty mesh"))
         : !op.Policy.IsValid ? Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Mesh, None, "negative sampling weight"))
         : MeshKernel.TopologyDetailed(op.Mesh).Bind(static topology => {
-            // `Require` refuses the trait half at the capability owner's door and hands the detail WHICH trait this
-            // mesh lacks; `BoundaryComponents` refuses the scalar half into that same fault's own count slot.
             Error Unwatertight(string cause) => new GeometryFault.DegenerateInput(
                 Kind.Mesh, topology.BoundaryComponents, $"skeletonization requires a watertight oriented manifold; {cause}");
             return topology.Traits
@@ -169,12 +142,6 @@ public static class Skeletonize {
                     : Fin.Fail<Unit>(Unwatertight($"open shell across {topology.BoundaryComponents} boundary components")));
         });
 
-    // Contraction state: live arena, frozen originals (radius provenance + W_H anchors + pre-surgery face triples),
-    // and the merge partition. The partition is QuikGraph's `ForestDisjointSet<int>` — union by rank with path
-    // compression, `Union` answering true only on a real merge, `SetCount` the live class census — so the hand
-    // parent array and its path-compressing read both die. `Live` names WHICH member of a class the surgery kept,
-    // the fact the hand array smuggled into its pointer DIRECTION: rank-based union elects its own representative,
-    // so the class's surviving geometry has to be stated rather than inferred from the root.
     sealed record ContractState(MeshEdit Arena, Point3d[] Original, (int A, int B, int C)[] OriginalFaces,
         ForestDisjointSet<int> Merged, int[] Live) {
         internal int Survivor(int original) => Live[Merged.FindSet(original)];
@@ -183,12 +150,8 @@ public static class Skeletonize {
         }
     }
 
-    // Arena mutates in place, so the round carries only the scalars and its own verdict.
     sealed record ContractRound(int Round, double Wl, double Ratio, Option<ContractStop> Stop);
 
-    // `areaFloor` is the arena's own `ToleranceLane.Area` read — a squared model length, the dimension a one-ring
-    // area actually carries. The denormal minimum this denominator once floored on admits every representable
-    // area, so the guard it wrote could never fire and a collapsing ring divided by its own vanishing measure.
     readonly struct AttractionAction(double[] ringArea, double[] originalRingArea, double attraction, double areaFloor, double[] wh) : IAction {
         public void Invoke(int v) =>
             wh[v] = attraction * Math.Sqrt(originalRingArea[v] / Math.Max(ringArea[v], areaFloor));
@@ -245,10 +208,6 @@ public static class Skeletonize {
                         : None);
             });
 
-    // Stencil is `Meshing/dec`'s ONE triplet accumulator: the four transcribed appends per corner become the
-    // named cotangent stencil, and the boxed capacity-free list dies with them. The degeneracy gate reads the
-    // arena's `ToleranceLane.Area` band, the dimension a twice-area carries — a denormal floor admitted every
-    // representable area, so the clamp downstream absorbed a cotangent nothing had rejected.
     static Fin<SparseMatrix> Assemble(MeshEdit arena, double wl, double[] wh, double ceiling, Op key) {
         using TripletStencil stencil = new();
         double areaFloor = arena.Tolerance.For(lane: ToleranceLane.Area).Value;
@@ -268,9 +227,6 @@ public static class Skeletonize {
         return stencil.Freeze(rowCount: Dimension.Create(arena.VertexCount), colCount: Dimension.Create(arena.VertexCount), key: key);
     }
 
-    // Backward-Euler solve per round: rhs_axis = W_H ⊙ x_axis, three axes through one factor via TraverseM.
-    // RECEIPT is read, never projected away — an unusable stop refuses here rather than writing a
-    // laundered position back onto the arena.
     static Fin<Unit> SolveAxes(MeshEdit arena, CholeskySparse factor, double[] wh, int round, Op key) {
         int n = arena.VertexCount;
         double[][] rhs = [new double[n], new double[n], new double[n]];
@@ -312,15 +268,6 @@ public static class Skeletonize {
     }
 
     // --- [SURGERY]
-    // cost = length + λ·(length × adjacent-sum), centering AND evenly sampling the 1D remnant. The BCL
-    // PriorityQueue is the named exemption — the order is a COST schedule the dequeue re-validates
-    // against live adjacency, and QuikGraph's frontier containers serve vertex relaxation this fold never runs.
-    // Adjacency is ONE `UndirectedGraph` under the edge comparer, so the get-or-add closure spelled twice per
-    // call and re-spelled at every rewire collapses into `AddVerticesAndEdge`, the stale-row probe reads
-    // `ContainsEdge`, the neighbour walk `AdjacentEdges`, and the victim's whole teardown is `RemoveVertex` —
-    // one call where the hand tables removed the vertex from each neighbour's set and then from the map. The
-    // `facesOf` INCIDENCE half keeps a dictionary (a graph would model faces as vertices and re-key the whole
-    // fold) and its three get-or-add spellings collapse to one ref-slot read.
     static Fin<ContractState> Surgery(ContractState state, SkeletonPolicy policy) {
         MeshEdit arena = state.Arena;
         UndirectedGraph<int, SEdge<int>> adjacency = new(allowParallelEdges: false);
@@ -343,9 +290,9 @@ public static class Skeletonize {
                 return Fin.Fail<ContractState>(new GeometryFault.SkeletonStalled(liveFaces));
             }
             (int u, int v) = row;
-            if (!adjacency.ContainsEdge(int.Min(u, v), int.Max(u, v))) { continue; }  // stale row
+            if (!adjacency.ContainsEdge(int.Min(u, v), int.Max(u, v))) { continue; }
             if (!(facesOf.TryGetValue(u, out IndexSet? uFaces) && uFaces.Any(f => arena.Alive(f) && Holds(arena.Face(f), v)))) {
-                continue;  // face-less edge — the emerging 1D skeleton, never collapsed
+                continue;
             }
             rounds++;
             foreach (int f in uFaces.ToArray()) {
@@ -366,13 +313,11 @@ public static class Skeletonize {
                 Link(adjacency, v, w);
                 queue.Enqueue((int.Min(v, w), int.Max(v, w)), Cost(arena, adjacency, v, w, policy.SamplingWeight));
             }
-            adjacency.RemoveVertex(u);   // drops every remaining incident edge with it
+            adjacency.RemoveVertex(u);
             state.Collapse(victim: u, survivor: v);
         }
         return Fin.Succ(state);
 
-        // `SEdge<int>` carries value identity, so ordering the pair canonicalizes the undirected key and the
-        // container's own comparer refuses the duplicate a second `Link` would otherwise store.
         static void Link(UndirectedGraph<int, SEdge<int>> graph, int u, int v) =>
             graph.AddVerticesAndEdge(new SEdge<int>(int.Min(u, v), int.Max(u, v)));
 
@@ -402,9 +347,6 @@ public static class Skeletonize {
         Dictionary<int, int> dense = survivors.Index().ToDictionary(static row => row.Item, static row => row.Index);
         UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
         graph.AddVertexRange(Enumerable.Range(0, survivors.Length));
-        // The container's own edge comparer refuses the duplicate, so the hand key set that used to gate the add
-        // deletes with it — the graph IS the seen set. Extraction's vertex space is the DENSE survivor roster,
-        // not surgery's live arena indices, so the two containers stay separate: sharing would cost a full relabel.
         foreach ((int a, int b, int c) in state.OriginalFaces) {
             foreach ((int u, int v) in (ReadOnlySpan<(int, int)>)[(a, b), (b, c), (c, a)]) {
                 (int hu, int hv) = (dense[state.Survivor(u)], dense[state.Survivor(v)]);
@@ -417,10 +359,6 @@ public static class Skeletonize {
         graph.ConnectedComponents(components);
 
         int nodes = survivors.Length;
-        // Payload columns stay heap arrays — they ARE what the frozen `Arr` wire wraps, so pooling them would
-        // rent a buffer only to copy it out. The provenance SCRATCH rents: one pooled int plane carrying the
-        // merge census beside the seed original, one pooled double plane the witness distances, both released
-        // at the mint below.
         (double[] nx, double[] ny, double[] nz, double[] radius, int[] witness) =
             (new double[nodes], new double[nodes], new double[nodes], new double[nodes], new int[nodes]);
         using MemoryOwner<int> census = MemoryOwner<int>.Allocate(size: 2 * nodes, mode: AllocationMode.Clear);
@@ -459,14 +397,6 @@ public static class Skeletonize {
             ArcOrigin: new Arr<int>(arcOrigin), Component: new Arr<int>(arcComponent),
             Reach: ReachOf(nx, ny, nz, arcFrom, arcTo, policy.ProbeCeiling));
 
-        // Section ellipse needs the witness the radius pass elects, so the merge set is walked a second time:
-        // first to fix each node's centre, mean clearance, and witness, then to project the set into that node's
-        // arc-normal plane. Tangent per node is the sign-aligned sum of its incident tree directions, so a degree-2
-        // interior node takes its chain direction and a leaf its single arc's. Semiaxes are sqrt(2*lambda) over the
-        // in-plane second moment, so an isotropic ring at distance r answers (r, r) and SectionB meets Radius; the
-        // eigenvalues are frame-invariant, so the witness pins the basis without deciding the measure. The frame
-        // and moment planes are pure scratch, so both rent as ONE pooled plane apiece and die with this fold; the
-        // fold takes its operands EXPLICITLY because a span cannot cross a capturing closure.
         static (double[] Major, double[] Minor) Section(ContractState state, Dictionary<int, int> dense, SEdge<int>[] tree,
             int[] arcFrom, int[] arcTo, double[] nx, double[] ny, double[] nz, int[] witness, ReadOnlySpan<int> count) {
             int nodes = nx.Length;
@@ -516,9 +446,6 @@ public static class Skeletonize {
         }
     }
 
-    // The composed probe over the clearance primitives — arc segments where arcs exist, isolated nodes as
-    // degenerate segments otherwise. It takes the COLUMNS rather than the finished record, so the skeleton is
-    // built once with its probe already seated and `Smooth` re-mints it against the positions it just displaced.
     internal static ClearanceProbe ReachOf(double[] nx, double[] ny, double[] nz, int[] arcFrom, int[] arcTo, Dimension ceiling) {
         int primitives = arcFrom.Length > 0 ? arcFrom.Length : nx.Length;
         (Point3d[] from, Point3d[] to) = (new Point3d[primitives], new Point3d[primitives]);
@@ -529,10 +456,6 @@ public static class Skeletonize {
         return ClearanceProbe.Of(from: new Arr<Point3d>(from), to: new Arr<Point3d>(to), ceiling: ceiling);
     }
 
-    // Chord-length parameterization per chain; junctions and endpoints stay pinned, interiors re-sample. The
-    // arc roster enters ONE `UndirectedGraph` through `GraphExtensions.ToUndirectedGraph`, so the hand adjacency
-    // map, its twice-spelled get-or-add, and the hand degree tally all read off the container instead. Node
-    // positions move, so `Reach` is re-minted rather than carried stale over geometry the smoothing displaced.
     internal static CurveSkeleton Smooth(CurveSkeleton skeleton) {
         UndirectedGraph<int, SEdge<int>> graph = Enumerable.Range(0, skeleton.ArcCount)
             .Select(a => new SEdge<int>(skeleton.ArcFrom[a], skeleton.ArcTo[a]))
@@ -556,10 +479,6 @@ public static class Skeletonize {
         };
     }
 
-    // Degree and neighbours read off the container; `AdjacentDegree` is the tally the hand array kept. The chain
-    // DESCENT keeps its half-edge key set as the named traversal exemption: the product wanted is each maximal
-    // degree-2 chain's ORDER, which no observer publishes — `EdgeRecorderObserver` hands visit order over the
-    // whole walk and recovering per-chain sequence from it is this same descent spelled twice.
     static IEnumerable<int[]> Branches(CurveSkeleton skeleton, UndirectedGraph<int, SEdge<int>> graph) {
         EdgeKeySet visited = [];
         foreach (int anchor in graph.Vertices.Where(n => graph.AdjacentDegree(n) != 2)) {

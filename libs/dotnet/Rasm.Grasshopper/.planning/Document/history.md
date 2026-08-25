@@ -24,7 +24,7 @@ Every undo verb is a case of one `HistoryOp` union settled by one `Commit` gate 
 - Growth: a new undo verb is one `HistoryOp` case breaking the gate's total `Switch` loudly; a new object-scoped verb is one `ObjectUndoVerb` case; a new direction semantics is one `LedgerStride` row carrying both columns — zero new entrypoints.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Undo;
 using Rasm.Domain;
@@ -35,7 +35,7 @@ using UndoAction = Grasshopper2.Undo.Action;
 
 namespace Rasm.Grasshopper.Document;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class LedgerStride {
     public static readonly LedgerStride Back = new(
@@ -50,8 +50,6 @@ public sealed partial class LedgerStride {
     [UseDelegateFromConstructor] internal partial Unit Replay(Record record, HostDocument document);
 }
 
-// Two object-scoped verbs share one subject custody — the verb is the discriminant, so they are cases
-// of one vocabulary, never sibling top-level commands.
 [Union]
 public abstract partial record ObjectUndoVerb {
     private ObjectUndoVerb() { }
@@ -70,12 +68,9 @@ public abstract partial record HistoryOp {
     public sealed record SubjectCase(IDocumentObject Subject, ObjectUndoVerb Verb) : HistoryOp;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static partial class HistoryLedger {
-    // Seal is a seam, not a gate — the CALLING gate owns the receipt, its span, and its timeline, so this
-    // spelling answers only whether the ledger accepted the record; a second receipt minted here was evidence
-    // every caller discarded.
     public static Fin<Unit> Seal(History ledger, ActionList actions, VerbNoun label, Op key) =>
         from live in Optional(ledger).ToFin(key.MissingContext())
         from filled in Optional(actions).ToFin(key.InvalidInput())
@@ -147,14 +142,14 @@ public static partial class HistoryLedger {
 - Growth: a new tree read is one projection member beside `Crown` returning its own evidence value; the reconciliation shape never widens.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Undo;
 using Rasm.Domain;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Document;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly partial record struct BranchPath(
@@ -172,15 +167,13 @@ public readonly partial record struct BranchCrown(
     public bool IsValid => Primary.IsSome || Secondary.IsEmpty;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class HistoryLedger {
     public static Fin<BranchPath> Reconcile(Node from, Node to, Op? key = null) {
         Op active = key.OrDefault();
         return from head in Optional(from).ToFin(active.InvalidInput())
                from tail in Optional(to).ToFin(active.InvalidInput())
                from path in UiThread.Run(new UiDispatch<BranchPath>.Blocking(() => active.Catch(body: () => {
-                   // Depth-aligned two-pointer LCA over the parent-linked tree; the loops are the named
-                   // statement kernel for a walk whose step count is the tree depth.
                    Node a = head;
                    Node b = tail;
                    for (; a.Depth > b.Depth; a = a.Parent) { }
@@ -192,7 +185,6 @@ public static partial class HistoryLedger {
                })), DispatchLane.Interactive, active)
                select path;
 
-        // Climb is an anamorphism — seed at the tip, emit until the ancestor lands, close the seed.
         static Seq<Node> Climb(Node tip, Node ancestor) => toSeq(List.unfold(Some(tip), held => held.Map(node =>
             (node, ReferenceEquals(node, ancestor) ? Option<Node>.None : Some(node.Parent)))));
     }

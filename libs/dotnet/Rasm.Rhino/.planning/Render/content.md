@@ -22,7 +22,7 @@
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent`, `RenderContentKind`, `RenderContentStyles`, `ProxyTypes`, `RenderContent.ChangeContexts`, `BeginChange`/`EndChange`, `IRenderContentTable<T>.Add`/`Remove`, `RenderMaterialTable.BeginChange`/`EndChange`/`GetEnumerator`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Acquire`/`Use`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -32,7 +32,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ContentKind {
     public static readonly ContentKind Material = new(
@@ -84,8 +84,6 @@ public sealed partial class ContentKind {
     internal Fin<Unit> Detach(RhinoDoc document, RenderContent content, Op key) =>
         key.Catch(() => key.Confirm(success: Removed(document: document, content: content)));
 
-    // Table writes ride the kind's own window on the same custody rail as `ChangeScope`: a hand-written open/body/close
-    // aggregation at the caller is the deleted form, and the close refusal folds into the body's fault here.
     internal Fin<TOut> Table<TOut>(RhinoDoc document, ChangeReason reason, Func<RhinoDoc, Fin<TOut>> body, Op key) =>
         Lease<TableScope>.Acquire(mint: () => new TableScope(kind: this, document: document, reason: reason), key: key)
             .Bind(scope => scope.Use(body: _ => body(arg: document), key: key));
@@ -120,9 +118,6 @@ public sealed partial class ChangeReason {
         key.Row<RenderContent.ChangeContexts, ChangeReason>(native, static value => (int)value);
 }
 
-// Native styles arrive as a FLAG WORD, so the vocabulary realizes `ICapability` and the whole decode is the kernel
-// `CapabilitySet.OfMask` arm: the rostered-bit fold, the unrostered-bit refusal, and the membership read all live
-// once at the kernel owner. A local known-bit cell beside it re-spells the fold the kernel already performs.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ContentStyle : ICapability<ContentStyle> {
@@ -155,7 +150,7 @@ public sealed partial class ProxyKind {
         key.Row<ProxyTypes, ProxyKind>(native, static value => (int)value);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class ChangeScope : IDisposable {
     private readonly RenderContent content;
 
@@ -183,19 +178,13 @@ internal sealed class TableScope : IDisposable {
     public void Dispose() => kind.Closed(document: document);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Seam {
-    // Column-keyed row read for a vocabulary whose SmartEnum key is NOT the host column it translates. The kernel
-    // `Op.Row` column arity binds the column type to the row's own key type, so a `string`-keyed row answering a
-    // host enum has no kernel arity yet; every site whose key IS the host ordinal takes `Op.Row` directly.
     internal static Fin<TRow> Row<TRow, TNative>(this Op key, IEnumerable<TRow> rows, TNative native, Func<TRow, TNative> project)
         where TRow : class where TNative : notnull =>
         Optional(rows.FirstOrDefault(row => EqualityComparer<TNative>.Default.Equals(project(row), native)))
             .ToFin(Fail: key.InvalidResult(detail: native.ToString() ?? string.Empty));
 
-    // RDK factories mint by ANSWERING NULL, never by throwing, so the null refusal and the custody wrap are one step:
-    // `Lease.Acquire` funnels a throwing mint and would seat a null inside `Owned`, and a bare `Owned` mint at each
-    // call site re-spells the refusal seven times.
     internal static Fin<Lease<RenderContent>> Minted(Func<RenderContent?> mint, Op key) =>
         key.Catch(() => Optional(mint()).ToFin(Fail: key.InvalidResult()))
             .Map(static value => (Lease<RenderContent>)new Lease<RenderContent>.Owned(Value: value));
@@ -212,7 +201,7 @@ internal static class Seam {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromId`, `FindChild`); kernel `Domain/rails` (`Op.OrDefault`, `Op.AcceptText`, `Op.MissingContext`); LanguageExt.Core (`Fin`, `Seq`, `guard`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentRef {
     private ContentRef() { }
@@ -261,7 +250,7 @@ public abstract partial record ContentRef {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderHash`, `RenderHashExclude` both arities, `Styles`, `ProxyType`, `ModelUnits`, `TopLevel`/`Hidden`/`Private`/`IsLocked`/`CanBeEdited`/`IsDefaultInstance`/`IsHiddenByAutoDelete`, `IsReference`, `UseCount`, `DocumentOwner`/`DocumentAssoc`, `FirstChild`/`NextSibling`/`ChildSlotName`/`ChildSlotDisplayName`, `ChildSlotOn`/`ChildSlotAmount`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/context` (`ModelUnit.Of(LengthUnit, Op)`), `Domain/validation` (`ICapability`, `CapabilitySet.Of`/`OfMask`/`Mask`/`Wire`); LanguageExt.Core (`List.unfold`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ContentTrait : ICapability<ContentTrait> {
@@ -277,16 +266,10 @@ public sealed partial class ContentTrait : ICapability<ContentTrait> {
     [UseDelegateFromConstructor]
     private partial bool Holds(RenderContent content);
 
-    // Eight INDEPENDENT native reads carry no host-documented implication among them, so this vocabulary states no
-    // `CapabilityLaw`: `Legal` enumerates 256 corners and `Barred` bars by CONTAINMENT, which cannot express a
-    // one-way implication. A future host guarantee earns its corner gate as one law value.
     internal static CapabilitySet<ContentTrait> Of(RenderContent content) =>
         CapabilitySet<ContentTrait>.Of(Items.Where(row => row.Holds(content: content)).ToArray());
 }
 
-// Host flags publish `ForSimulation` as an ALIAS of `ExcludeLinearWorkflow` and `ExcludeDocumentEffects` as a
-// COMPOSITE over three bits, so only the atoms enter as rows and both named postures derive as sets. Its own third
-// bit reads off the host constant rather than transcribed, so a host revision moves one derivation.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HashAxis : ICapability<HashAxis> {
@@ -311,7 +294,7 @@ public sealed partial class HashScope {
     internal static HashScope Of(bool documented) => documented ? Documented : Free;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SlotState(string Name, string DisplayName, Guid Child, bool On, double Amount);
 
 public readonly record struct HashWitness(
@@ -337,8 +320,6 @@ public sealed record HashProbe {
             .Map(excluded => new HashProbe(axes: axes, excludedParameters: excluded.Distinct()));
     }
 
-    // Three host routes, one read: the cached hash answers only the untouched probe, and the workflow overload is
-    // selected by the argument the caller resolved — so the witness records the route that ran, never a stored wish.
     internal Fin<HashWitness> Read(RenderContent content, Option<LinearWorkflow> workflow, Op key) {
         HashProbe self = this;
         return key.Catch(() => Fin.Succ(value: new HashWitness(
@@ -407,9 +388,6 @@ public sealed record ContentSnapshot(
                 Slots: SlotsOf(parent: active),
                 UseCount: active.UseCount())));
 
-    // Children arrive as a `FirstChild`/`NextSibling` cursor, so the walk is the kernel-admitted
-    // `List.unfold` over that cursor; the generated sequence reads live host state, so the projection strictifies
-    // inside the same demand window rather than escaping as a lazy enumerable.
     private static Seq<SlotState> SlotsOf(RenderContent parent) =>
         toSeq(List.unfold(
                 Optional(parent.FirstChild),
@@ -433,7 +411,7 @@ public sealed record ContentSnapshot(
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.FromXml`, `RenderContent.LoadFromFile`); kernel `Domain/rails` (`Lease<T>.Owned`, `Op.AcceptText`, `Op.OrDefault`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentIo {
     private ContentIo() { }

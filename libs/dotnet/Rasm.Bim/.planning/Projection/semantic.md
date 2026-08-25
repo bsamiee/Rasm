@@ -21,7 +21,7 @@ Element identity is established HERE — the IFC is the source of element identi
 - Boundary: the projector is the ONE GeometryGym-to-seam lowering — the retired `BimModel.Project` produced a second stored `BimElement` keyed by `GlobalId`, and any owner re-storing the element off the seam graph is the deleted form; `Ingest` reads the LIVE `db.Project.Extract<T>()` entity graph, never the `Exchange/import#IMPORT_RAIL` decoded rows, because those carry mesh geometry alone and projecting them drops the whole relationship roster, the `OwnerHistory`, and the `StepHeader`; GeometryGym is captured INTERNALLY and an `IfcProduct`/`IfcRel*`/`DatabaseIfc` type crossing `IElementProjection.Project` is the named seam violation; the rooted `NodeId` is a neutral kernel-minted id and the IFC GUID never becomes node identity [H6]; the value narrowing is `Projection/value#PROPERTY_LOWERING`'s because an `IfcValue` or dataType string crossing a seam signature is the deleted form; the unit regime is the seam `UnitScheme` built ONCE per projection at `Projection/value#UNIT_INGRESS` and threaded from the fold head — a per-entity rebuild re-reads one project regime per row and falls to SI on a null database; geometry is referenced by `RepresentationContentHash` only [M2] and an inline `Vector3`/`BoundaryPolygon`/`Axis` member is the deleted §4-RT-M2 violation, `Rasm.Compute` resolving the analytical axis and footprint one-hop by content key; ingress class lookup is PERMISSIVE so one unknown entity never aborts an import, class validity deferred to the `Emit` egress gate [PREDEFINED_TOKEN_RULING][H8]; `Emit` is Bim-INTERNAL, NOT an `IElementProjection` member, because IFC egress is one runtime's wire concern and the seam owns only ingress projection.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using Rasm.Bim.Projection;
 global using Rasm.Bim.Semantics;
 
@@ -49,20 +49,12 @@ using static LanguageExt.Prelude;
 using Op = Rasm.Domain.Op;
 using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 using ModelView = Rasm.Element.Graph.ModelView;
-// The IFC-text codec leg (Project/Emit/Sniff) is the ONLY GeometryGym currency, and the alias keeps it from ever
-// reaching the seam Header the unqualified names resolve to.
 using GGRelease = GeometryGym.Ifc.ReleaseVersion;
 using GGView = GeometryGym.Ifc.ModelView;
 
 namespace Rasm.Bim.Projection;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Reconciler signatures carry the three facts an IFC material actually DECLARES. Standard and Grade
-// are the RESOLUTION's own output axes, not its input: GeometryGym publishes neither on IfcMaterial (its whole
-// surface is the (DatabaseIfc, name) mint plus Name/Category/HasProperties), so the columns were unfillable at the
-// one producer and unread at every consumer — the catalogue resolves them, and asking a resolver to be handed what
-// it exists to answer is the shape a column no producer can fill takes. PsetKey survives because HasProperties IS
-// readable: a material declaring Pset_MaterialSteel names the buildingSMART family a catalogue keys on.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct IfcMaterialSignature(
     string Name,
     string Category,
@@ -82,25 +74,13 @@ public readonly record struct IfcTypeSignature(
     Option<IfcMaterialSignature> Material,
     Option<IfcProfileSignature> Profile);
 
-// The four columns one GG entity read yields that the seam Object cannot match by name — everything else crosses
-// through the mapper below.
 public readonly record struct IfcSeat(NodeId Id, ObjectKind Kind, Classification Classification, SchemaSpan Span);
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// The port is Bim-DECLARED and app-PROVIDED: the [WIRE] arrow on both architecture maps is a composition-root
-// adapter folding IfcTypeSignature onto the Rasm.Materials ComponentResolution/ComponentCatalogue one-hop and
-// re-shaping the hit as the canonical seam Type Object — Materials never references Bim and Bim never references
-// Materials. A resolver miss keeps the imported/ad-hoc path.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IIfcTypeReconciler {
     Fin<Option<Node.Object>> Resolve(IfcTypeSignature signature, Op key);
 }
 
-// The content-addressed STEP-fragment store: the profile pair is the ProfileRef-keyed view the Materials seam reads
-// and the fragment pair the general lane — one Preserve overload per input shape (MODAL_ARITY), the profile overload
-// deriving its ContentKey through the same fragment write. The fragment lane carries EVERY preserved
-// IfcConnectionGeometry — geometry the inline prohibition keeps off edge attrs [M2] — so the mandatory
-// IfcRelConnectsWithEccentricity ConnectionConstraint and the optional element-connection and space-boundary
-// interface surfaces all content-key at ingest and reconstitute at egress instead of degrading to a bare binding.
 public interface IIfcProfileStore {
     Option<IfcProfileDef> Find(ProfileRef profile);
     Option<T> Find<T>(UInt128 contentKey) where T : BaseClassIfc;
@@ -108,9 +88,7 @@ public interface IIfcProfileStore {
     UInt128 Preserve(BaseClassIfc fragment, Op key);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The node and edge halves ARE the seam GraphDelta — its own Put/Link Merge accumulates them, so the only column
-// this carrier adds is the GlobalId->NodeId table the seam has no slot for.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct IfcIngest(GraphDelta Delta, Map<string, NodeId> Rooted) {
     public static IfcIngest Empty(Header header, Map<string, NodeId> rooted) =>
         new(GraphDelta.Empty.Reheader(header), rooted);
@@ -123,27 +101,18 @@ public readonly record struct IfcIngest(GraphDelta Delta, Map<string, NodeId> Ro
                     None: () => Delta.Put(node)),
             Rooted.AddOrUpdate(globalId, node.Id));
 
-    // Class-root [Union] Node cases generate no `with` — the content re-stamp is the seam Node.Relabel over the
-    // node's own canonical bytes, deterministic so MaterialEdges re-derives the identical id with no shared table.
     internal static Node.PropertySet Bag(PropertyBag bag, double tolerance) {
         var seed = new Node.PropertySet(NodeId.Of(new NodeSeed.Placement()), bag);
         return (Node.PropertySet)seed.Relabel(NodeId.Of(new NodeSeed.Content(seed, tolerance)));
     }
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// The ONE GG entity -> seam Object correspondence. Four hand field-by-field constructions over one shape collapsed
-// here: the occurrence and the imported type differ only by the seat they carry, and a canonical hit crosses whole
-// with its Kind re-stamped. Every converter is PER-TYPE — a generic T? Map<T>(Option<T>) draws RMG001 and is
-// refused — and the whole-source readers below suppress source-side RMG020, so the ignore roster is authored
-// inventory rather than compiler proof.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper]
 [MapperIgnoreSource(nameof(IfcObjectDefinition.Description))]
 [MapperIgnoreSource(nameof(IfcObjectDefinition.IsDecomposedBy))]
 [MapperIgnoreSource(nameof(IfcObjectDefinition.Decomposes))]
 internal static partial class IfcSeamMapper {
-    // A class-root [Union] case generates no `with`, so this arm IS the one positional reconstruction of a
-    // resolver hit and no column is retyped by hand.
     [MapValue(nameof(Node.Object.Kind), ObjectKind.Type)]
     public static partial Node.Object Canonical(Node.Object resolved);
 
@@ -165,29 +134,18 @@ internal static partial class IfcSeamMapper {
 
     [UserMapping] static string Label(string? name) => PropertyLowering.Stated(name).IfNone("");
 
-    // Only IfcElement carries a Tag; every other definition family answers the seam's empty column.
     [UserMapping] static string TagOf(IfcObjectDefinition definition) =>
         PropertyLowering.Stated((definition as IfcElement)?.Tag).IfNone("");
 
-    // The USERDEFINED designation, read off whichever slot the entity family owns — IfcObject.ObjectType for an
-    // occurrence, IfcElementType.ElementType for a type — onto the ONE seam column the egress StampPredefined
-    // re-stamps through the SAME two-arm dispatch. A Name substitution at egress collapsed two same-named entities
-    // carrying distinct labels onto one, the defect this column closes at both ends [PREDEFINED_TOKEN_RULING].
     [UserMapping] static Option<string> UserLabel(IfcObjectDefinition definition) => definition switch {
         IfcObject occurrence  => PropertyLowering.Stated(occurrence.ObjectType),
         IfcElementType type   => PropertyLowering.Stated(type.ElementType),
         _                     => None,
     };
 
-    // The ONE polymorphic representation content-keyer maps every RepresentationIdentifier — Axis/Body/Box/FootPrint
-    // — to its content hash [M2]; nothing is inlined on the node.
     [UserMapping] static RepresentationContentHash Representations(IfcObjectDefinition definition) =>
         IfcRepresentation.Keys(definition);
 
-    // IfcOwnerHistory -> seam OwnerHistory [H9]. OwningUser reads IfcPersonAndOrganization.Name (the
-    // decompile-verified TheOrganization.Name + ThePerson.Name composition) because a GG entity ToString() emits its
-    // STEP record line, the serialization leak this owner refuses. Absent history yields None so a headerless model
-    // still projects; Emit re-derives ChangeAction.
     [UserMapping] internal static Option<OwnerHistory> OwnerStamp(IfcOwnerHistory? history) =>
         Optional(history).Map(static h => new OwnerHistory(
             OwningUser:        PropertyLowering.Stated(h.OwningUser?.Name).IfNone(""),
@@ -199,10 +157,6 @@ internal static partial class IfcSeamMapper {
             ChangeAction:      h.ChangeAction.ToString(),
             State:             h.State.ToString()));
 
-    // The predefined token is a strongly-typed per-class enum member (IfcWall.PredefinedType is IfcWallTypeEnum), so
-    // a live occurrence carries it on a reflected property, NOT on the class-name split. The property handle
-    // resolves ONCE per GG entity type at type init — the per-entity GetProperty call it replaces ran the reflection
-    // walk on every node of every import.
     [UserMapping] internal static PredefinedType Predefined(IfcObjectDefinition definition) =>
         (PredefinedReads.Value.TryGetValue(definition.GetType(), out Func<IfcObjectDefinition, Option<string>>? read)
             ? read(definition)
@@ -222,55 +176,34 @@ internal static partial class IfcSeamMapper {
         definition => PropertyLowering.Stated(property.GetValue(definition)?.ToString());
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// The one GeometryGym->seam lowering. Every fault lifts BARE off ctx.Key (the band IS the Expected Code; no
-// .ToError() hop) per Model/faults#FAULT_BAND.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed partial class SemanticProjector(
     DatabaseIfc db, IIfcTypeReconciler typeReconciler, IIfcProfileStore profiles, Option<TemplateScope> scope = default,
     Option<EurocodePolicy> eurocode = default, Option<BsddPins> pins = default) : IElementProjection {
-    // Capture-promotion: primary-ctor params scope to the DECLARING part only, so the store is promoted to a field
-    // the egress partial (Projection/egress ReauthorMaterials) reads — never a re-passed Emit parameter.
     readonly IIfcProfileStore profiles = profiles;
 
-    // Composition-supplied because only the composition knows the project's national annex and elected design
-    // situation, so ONE value threads down every StructuralProjection.Attrs call site. None emits the IFC-declared
-    // attributes alone.
     readonly Option<EurocodePolicy> eurocode = eurocode;
 
-    // The hosted dictionary stem and shape BOTH classification legs read, so an ingest Classify and its own egress
-    // ReauthorClassifications can never name different hosted versions.
     readonly BsddPins pins = pins.IfNone(BsddPins.Default);
 
-    // The definition set the ingest bag classifier resolves inheritance under: a COBie-handover ingest stamps its
-    // bags off the handover catalogue while an unstated exchange takes the buildingSMART standard set.
     readonly TemplateScope templates = scope.IfNone(TemplateScope.Standard);
 
     // --- [ENTRY]
 
     public Fin<GraphDelta> Project(ProjectionContext ctx) => Ingest(ctx).Map(static run => run.Delta);
 
-    // The Bim-internal ingress: the delta AND the run's whole ledger as ONE returned value. The seam signature holds
-    // only Fin<GraphDelta>, so a caller wanting the ledger takes this entry rather than reading an instance field a
-    // second run half-overwrites.
     public Fin<(GraphDelta Delta, FidelityLog Fidelity)> Ingest(ProjectionContext ctx) {
         Op key = ctx.Key;
         return Optional(db.Project).ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "ifc-project-root-miss" }))).Bind(project => {
-            // The GlobalId->NodeId table: one neutral rooted mint per IfcRoot, the IFC GlobalId held as the node
-            // ExternalId so re-ingest matches on the stored GlobalId (the Persistence diff/merge key) and Emit
-            // reverses the 1:1 projection. IfcMaterial/IfcProfileDef are non-rooted (content-keyed below).
             Map<string, NodeId> rooted = project.Extract<IfcRoot>().AsIterable()
                 .Fold(Map<string, NodeId>(), static (map, root) => map.AddOrUpdate(root.GlobalId, NodeId.Of(new NodeSeed.Placement())));
             UnitScheme scheme = IfcUnits.SchemeOf(db);
-            // The geometric Tolerance is itself a native-unit magnitude: an uncoerced mm tolerance mis-grids every
-            // content-hash quantization against the SI measures beside it.
             double tolerance = scheme.Coerce(db.Tolerance, QuantityType.Length, Dimension.LengthDim);
             return
                 from geo in GeoReferenceProjector.Project(project, scheme, key)
                 from schema in ReleaseLower(db.Release, key)
                 let header = new Header(schema, ViewLower(db.ModelView), geo, tolerance, ctx.At, StepHeaderOf(db)) { Units = scheme }
                 from objects in Objects(project, header, rooted, tolerance, scheme, key)
-                // The four legs are independent once the rooted map exists, so they ACCUMULATE: a malformed Pset,
-                // a malformed material, a dangling edge, and a broken connection detail all report from one run.
                 from run in (
                     ConnectionProjection.All(project, objects.Rooted, tolerance, scheme, key).ToValidation(),
                     Fidelity.Run(Bags(project, objects.Rooted, scheme, key)).ToValidation(),
@@ -291,13 +224,8 @@ public sealed partial class SemanticProjector(
 
     // --- [NODE_LOWERING]
 
-    // Every NON-TYPE IfcObjectDefinition -> Object.Occurrence and each admitted IfcTypeObject -> Object.Type through
-    // IfcIngest.Capture, whose Rooted rebinding happens BEFORE Classify/Bags/EdgeProjection read
-    // relationships so DefinesByType edges point at the same canonical/imported Type node this fold emitted.
     Fin<IfcIngest> Objects(IfcProject project, Header header, Map<string, NodeId> rooted, double tolerance, UnitScheme scheme, Op key) {
         Map<string, IfcMaterialSelect> materials = MaterialIndex(project);
-        // Entity reads are INDEPENDENT, so both sweeps accumulate: an import carrying three malformed structural
-        // bags names all three, where the first-fail rail named one and hid the rest behind a re-run.
         return (
             project.Extract<IfcObjectDefinition>().AsIterable()
                 .Filter(static definition => definition is not IfcTypeObject)
@@ -315,14 +243,6 @@ public sealed partial class SemanticProjector(
                 ingest.Capture(row.GlobalId, row.Node, row.Source, tolerance)));
     }
 
-    // The permissive class read, ONE site for both the occurrence and the imported-type paths: the generated roster
-    // carries the retired *StandardCase/*ElementedCase subtypes as committed rows (their closed SchemaSpan is the
-    // SOURCE entity's own window), so the raw-name TryGet resolves a 2x3 IfcWallStandardCase to its own row.
-    // BuildingElementProxy supplies only the ROW behaviour (kind/span vocabulary) for a genuinely unrostered leaf
-    // while the classification code RETAINS the ORIGINAL entity name, so the deferred egress class gate evaluates
-    // the identity the file carried and a foreign class can never silently export as a proxy — a genuine
-    // IfcBuildingElementProxy stamps its own rostered key and stays distinguishable from a permissive import.
-    // IfcClass.Proxy binds the REAL schema-retired IfcProxy entity, never the fallback.
     static Fin<IfcSeat> SeatOf(IfcObjectDefinition definition, Map<string, NodeId> rooted, ObjectKind kind, Op key) {
         string entity = ParserIfc.IdentifyIfcClass(definition.GetType().Name, out _);
         Option<IfcClass> row = IfcClass.TryGet(entity);
@@ -334,8 +254,6 @@ public sealed partial class SemanticProjector(
                 Span:           row.IfNone(IfcClass.BuildingElementProxy).Span));
     }
 
-    // A resolver hit REUSES the Materials Type Object identity whole; a miss preserves the IFC type and stamps its
-    // signature bag under EvidenceGrade.Import.
     Fin<(string GlobalId, Node.Object Node, Option<PropertyBag> Source)> AdmitType(
         IfcTypeObject definition, Map<string, IfcMaterialSelect> materials, Map<string, NodeId> rooted, Op key) {
         IfcTypeSignature signature = TypeSignatureOf(definition, materials, key);
@@ -347,9 +265,6 @@ public sealed partial class SemanticProjector(
                  Some(ImportedSource(signature))))));
     }
 
-    // The relating-material index built ONCE per projection: object GlobalId -> the IfcMaterialSelect its
-    // IfcRelAssociatesMaterial binds (the typed select, never a BaseClassIfc upcast) — the per-type FirstOrDefault
-    // scan over every material relation was O(types x relations), the deleted quadratic form.
     static Map<string, IfcMaterialSelect> MaterialIndex(IfcProject project) =>
         project.Extract<IfcRelAssociatesMaterial>().AsIterable()
             .Fold(Map<string, IfcMaterialSelect>(), static (map, rel) =>
@@ -357,14 +272,6 @@ public sealed partial class SemanticProjector(
                     Some: material => toSeq(rel.RelatedObjects.OfType<IfcRoot>()).Fold(map, (acc, root) => acc.AddOrUpdate(root.GlobalId, material)),
                     None: () => map));
 
-    // IFC permits MULTIPLE IfcRelAssociatesClassification per object (Uniclass + OmniClass co-applied), so each
-    // relation's IfcClassificationReference resolves through Semantics/classification#CLASSIFICATION_AXIS
-    // ClassificationSystem.Ingest and ACCUMULATES onto every related rooted node's Classifications set — the
-    // ("ifc", classKey) entity-class pair stays the PRIMARY Classification and the standard refs ride the set. An
-    // unrostered source resolves Succ(None) and rides the relation-edge Generic passthrough, never a wrong lowering,
-    // while a reference the seam's own blank gates REFUSE accumulates with every other malformed reference rather
-    // than being collapsed into that foreign-system absence.
-    // RelatingClassification (IfcClassificationSelect) + RelatedObjects (SET<IfcDefinitionSelect>) decompile-verified.
     Fin<GraphDelta> Classify(IfcProject project, Map<string, NodeId> rooted, GraphDelta delta) =>
         project.Extract<IfcRelAssociatesClassification>().AsIterable().ToSeq()
             .Traverse(rel => Optional(rel.RelatingClassification as IfcClassificationReference).Match(
@@ -376,9 +283,6 @@ public sealed partial class SemanticProjector(
             .As().ToFin()
             .Map(rows => rows.Somes().Fold(Map<NodeId, Seq<Classification>>(), static (map, row) =>
                 row.Related.Fold(map, (acc, id) => acc.AddOrUpdate(id, existing => existing.Add(row.Value), () => Seq(row.Value)))))
-            // Only the CLASSIFIED nodes re-put — the seam Put merges by id, so the pass touches the relation's own
-            // endpoints instead of remapping every node in the delta. A class-root [Union] Node case has NO
-            // compiler-generated `with`, so the stamp RECONSTRUCTS the Object through its public positional ctor.
             .Map(byNode => delta.AddedNodes.Fold(delta, (acc, node) =>
                 node is Node.Object o && byNode.Find(o.Id).Case is Seq<Classification> refs
                     ? acc.Put(new Node.Object(o.Id, o.Kind, o.ExternalId, o.Classification, o.PredefinedType, o.ObjectType, o.Name, o.Tag, o.Representations, o.History, o.Span, refs))
@@ -386,9 +290,6 @@ public sealed partial class SemanticProjector(
 
     // --- [TYPE_SIGNATURE]
 
-    // The sub-kind slot carries the EFFECTIVE type token: for a USERDEFINED type the IFC convention puts the real
-    // token in ElementType, so the signature folds that label in — the reconciler matches the user vocabulary
-    // ("PARTY-WALL"), never the unspecific "USERDEFINED" marker, and the label survives in the Import source bag.
     IfcTypeSignature TypeSignatureOf(IfcTypeObject definition, Map<string, IfcMaterialSelect> materials, Op key) {
         Option<IfcMaterialSelect> relatingMaterial = materials.Find(definition.GlobalId);
         string token = IfcSeamMapper.Predefined(definition).Token;
@@ -401,9 +302,6 @@ public sealed partial class SemanticProjector(
             ProfileSignatureOf(relatingMaterial, key));
     }
 
-    // PsetKey reads the material's OWN declared property sets: the buildingSMART material-family set is the token a
-    // catalogue reconciles a substance by, so the first Pset_Material* name answers and a material declaring only
-    // vendor sets answers None rather than handing the resolver a set name that keys nothing.
     const string MaterialFamilyPrefix = "Pset_Material";
 
     static Option<IfcMaterialSignature> MaterialSignatureOf(Option<IfcMaterialSelect> relatingMaterial) =>
@@ -443,27 +341,16 @@ public sealed partial class SemanticProjector(
 
     // --- [SOURCE_BAGS]
 
-    // The projector-minted signature bag's well-known set name — the egress AuthorBag skips it by THIS symbol, so
-    // reconciliation bookkeeping never exports as a phantom IfcPropertySet the source file never carried.
     internal static readonly string TypeSignatureSet = "IfcTypeSignature";
 
-    // Egress skips all four beside TypeSignatureSet: the port, structural, and project-context attributes re-author
-    // on the entity at Emit, and the positioning rows are ingest-landed station evidence whose IfcLinearPlacement
-    // re-author is the named bounded drop the fidelity receipt counts.
     internal static readonly string PortAttributeSet = "IfcDistributionPort";
     internal static readonly string StructuralDefinitionSet = "IfcStructuralDefinition";
     internal static readonly string PositioningAttributeSet = "IfcLinearPositioning";
     internal static readonly string ProjectAttributeSet = "IfcProjectContext";
 
-    // The port flow pair composes the Element-declared PortRows statics (Element declares, this ingest stamps, the
-    // Model/systems trace reads), while the context root's Phase/LongName header labels the egress restamps stay
-    // this page's own Seam.Row mints — one producer, one reader, both HERE.
     internal static readonly PropertyName Phase = PropertyCategory.Seam.Row("Phase");
     internal static readonly PropertyName LongName = PropertyCategory.Seam.Row("LongName");
 
-    // The type-signature bookkeeping rows the Exchange/import reconcile reads back BY NAME, so each is ONE
-    // PropertyName static under the same Seam.Row mint — a literal at either end is the key-space fork the branch
-    // row-name custody ruling deletes.
     public static class SignatureRows {
         public static readonly PropertyName GlobalId = PropertyCategory.Seam.Row("GlobalId");
         public static readonly PropertyName IfcEntity = PropertyCategory.Seam.Row("IfcEntity");
@@ -479,14 +366,8 @@ public sealed partial class SemanticProjector(
         public static readonly PropertyName ProfileStepKey = PropertyCategory.Seam.Row("ProfileStepKey");
     }
 
-    // Entity-borne facts with no IfcPropertySet carrier land as synthesized Import bags through the SAME Capture
-    // path the type-signature bag rides. The USERDEFINED label is NOT here: it rides the seam Object node's own
-    // ObjectType column, so no bag row and no PropertyDefinition edge stand between the two ends of that round-trip.
-    // An entity matching no arm, or an empty structural read, yields None — no empty-bag node.
     Fin<Option<PropertyBag>> SourceBag(IfcObjectDefinition definition, UnitScheme scheme, Op key) =>
         definition switch {
-            // An unsurfaced FlowDirection reads NOTDEFINED and degrades every Model/systems#SYSTEM_TRACE walk to
-            // undirected reachability.
             IfcDistributionPort port => Fin.Succ(Some(new PropertyBag(
                 PortAttributeSet,
                 Map(
@@ -502,9 +383,6 @@ public sealed partial class SemanticProjector(
                 PositioningProjection.Attrs(definition, scheme, key).Map(attrs => attrs.IsEmpty
                     ? Option<PropertyBag>.None
                     : Some(new PropertyBag(PositioningAttributeSet, attrs, InheritanceMode.OccurrenceWins, EvidenceGrade.Import))),
-            // The free-text Phase lifecycle label (the Planning/schedule#SCHEDULE StageLabels admission interprets
-            // it; this lane carries it verbatim) and the LongName display title, both blank yielding no bag node so
-            // the empty-string GG default never mints a phantom row.
             IfcContext context => Fin.Succ(
                 Seq((Row: Phase, Value: PropertyLowering.Stated(context.Phase)),
                     (Row: LongName, Value: PropertyLowering.Stated(context.LongName)))
@@ -517,8 +395,6 @@ public sealed partial class SemanticProjector(
             _ => Fin.Succ(Option<PropertyBag>.None),
         };
 
-    // An absent signature axis is an ABSENT KEY — the bag carries only present facts, so a consumer probes
-    // membership rather than unwrapping a Present/Value ceremony (the deleted Complex-encoded Option wrapper).
     static PropertyBag ImportedSource(IfcTypeSignature signature) =>
         new PropertyBag(
             TypeSignatureSet,
@@ -544,12 +420,6 @@ public sealed partial class SemanticProjector(
 
     // --- [BAG_LOWERING]
 
-    // EVERY rooted IfcPropertySetDefinition mints a node: the IfcPreDefinedPropertySet family (the 2x3/4.0
-    // door/window lining+panel records, retired at 4.3) is IfcRoot, so the DefinesProperties fold already lands its
-    // Assign edge — a node-less predefined pset was a DANGLING endpoint that faulted the seam structural Link law on
-    // any door/window model, not a tolerable drop. An IfcPhysicalComplexQuantity flattens its children under the
-    // dot-path {Complex.Name}.{child} key while its Discrimination/Quality/Usage identity lands as one seam
-    // GroupIdentity row keyed on that prefix, so the whole complex quantity — values AND grouping — round-trips.
     WriterT<FidelityLog, Fin, Seq<Node>> Bags(IfcProject project, Map<string, NodeId> rooted, UnitScheme scheme, Op key) =>
         from properties in project.Extract<IfcPropertySet>().AsIterable().ToSeq().Traverse(ps =>
             ps.HasProperties.Values.AsIterable().ToSeq()
@@ -566,9 +436,6 @@ public sealed partial class SemanticProjector(
                     EvidenceGrade.Import, flat.Groups)))).As())
         select properties + predefined + quantities;
 
-    // The ONE property-bag node construction: a Pset whose DefinesType inverse is non-empty is type-bound (the IFC
-    // type-driven signal), and PropertyInheritance.ModeOf classifies the set name onto the seam InheritanceMode
-    // under the projector's own TemplateScope.
     Node BagNode(NodeId id, string? name, Seq<(PropertyName Name, PropertyValue Value)> rows, TypeBinding binding) {
         string label = PropertyLowering.Stated(name).IfNone("");
         return new Node.PropertySet(id, new PropertyBag(
@@ -578,14 +445,9 @@ public sealed partial class SemanticProjector(
             EvidenceGrade.Import));
     }
 
-    // Read off the GeometryGym SET<IfcTypeObject> inverse, never the unrelated IsDefinedBy (the
-    // IfcRelDefinesByTemplate set).
     static TypeBinding Binding(IfcPropertySetDefinition set) =>
         set.DefinesType.Any() ? TypeBinding.TypeBound : TypeBinding.Occurrence;
 
-    // Both halves on one rail: a simple child lands at its dot-path key, a nested IfcPhysicalComplexQuantity stamps
-    // its grouping identity under the prefix it extends and RECURSES — so the values are lossless, the nesting is
-    // recoverable from the prefix tree, and the identity strings survive as seam data instead of a key spelling.
     static Fin<(Map<PropertyName, MeasureValue> Values, Map<string, GroupIdentity> Groups)> FlattenQuantities(
         IEnumerable<IfcPhysicalQuantity> quantities, string prefix, UnitScheme scheme,
         (Map<PropertyName, MeasureValue> Values, Map<string, GroupIdentity> Groups) bag, Op key) =>
@@ -602,23 +464,13 @@ public sealed partial class SemanticProjector(
             _ => Fin.Fail<(Map<PropertyName, MeasureValue>, Map<string, GroupIdentity>)>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "quantity-kind-unmapped", quantity.GetType().Name }))),
         }));
 
-    // Discrimination is schema-mandatory and Quality/Usage optional, but GeometryGym backs all three with an
-    // EMPTY-STRING default rather than a null, so the unset state reads blank and lifts to None — carrying "" would
-    // re-author a qualifier the source file never wrote.
     static GroupIdentity GroupOf(IfcPhysicalComplexQuantity complex) =>
         new(PropertyLowering.Stated(complex.Discrimination),
             PropertyLowering.Stated(complex.Quality),
             PropertyLowering.Stated(complex.Usage));
 
-    // The predefined-pset typed rows, PUBLIC-surface-true per subtype (decompile-verified) and keyed by the
-    // concrete that publishes them: the window-panel and permeable-covering reads were byte-identical, so one row
-    // answers both. IfcDoorLiningProperties keeps its scalars on INTERNAL fields with no public getter (the
-    // mNominalDiameter package-watch precedent) and IfcReinforcementDefinitionProperties' section definitions are
-    // cross-section geometry the inline prohibition keeps off the bag [M2] — each mints its node so the Assign edge
-    // resolves, the bag empty, and the opacity COUNTED.
     static readonly FrozenDictionary<Type, Func<IfcPreDefinedPropertySet, UnitScheme, Op, Seq<(string Key, Fin<PropertyValue> Value)>>> PreDefinedReads =
         new Dictionary<Type, Func<IfcPreDefinedPropertySet, UnitScheme, Op, Seq<(string Key, Fin<PropertyValue> Value)>>> {
-            // The row key selects the delegate, so each cast is proved by the lookup that reached it.
             [typeof(IfcDoorPanelProperties)] = static (set, scheme, key) => DoorPanel((IfcDoorPanelProperties)set, scheme, key),
             [typeof(IfcWindowPanelProperties)] = static (set, scheme, key) => ((IfcWindowPanelProperties)set) switch {
                 var p => Frame(p.FrameDepth, p.FrameThickness, p.OperationType.ToString(), p.PanelPosition.ToString(), scheme, key),
@@ -635,13 +487,11 @@ public sealed partial class SemanticProjector(
             Token("PanelOperation", p.OperationType.ToString()),
             Token("PanelPosition", p.PanelPosition.ToString()));
 
-    // The window-panel and permeable-covering reads were byte-identical, so one shape answers both.
     static Seq<(string Key, Fin<PropertyValue> Value)> Frame(double depth, double thickness, string operation, string position, UnitScheme scheme, Op key) =>
         Seq(Scalar("FrameDepth", depth, Dimension.LengthDim, scheme, key),
             Scalar("FrameThickness", thickness, Dimension.LengthDim, scheme, key),
             Token("OperationType", operation), Token("PanelPosition", position));
 
-    // The lining offsets are IfcNormalisedRatioMeasure — dimensionless by schema, not by omission.
     static Seq<(string Key, Fin<PropertyValue> Value)> WindowLining(IfcWindowLiningProperties p, UnitScheme scheme, Op key) =>
         Seq("LiningDepth", "LiningThickness", "TransomThickness", "MullionThickness")
             .Zip(Seq(p.LiningDepth, p.LiningThickness, p.TransomThickness, p.MullionThickness))
@@ -650,8 +500,6 @@ public sealed partial class SemanticProjector(
             .Zip(Seq(p.FirstTransomOffset, p.SecondTransomOffset, p.FirstMullionOffset, p.SecondMullionOffset))
             .Map(row => Scalar(row.Item1, row.Item2, Dimension.Dimensionless, scheme, key));
 
-    // The NaN default of every unset GG scalar drops at the finite filter and blank tokens at the length filter, so
-    // the bag carries only what the file states.
     static WriterT<FidelityLog, Fin, Seq<(PropertyName Name, PropertyValue Value)>> PreDefinedRows(IfcPreDefinedPropertySet set, UnitScheme scheme, Op key) =>
         (PreDefinedReads.TryGetValue(set.GetType(), out Func<IfcPreDefinedPropertySet, UnitScheme, Op, Seq<(string Key, Fin<PropertyValue> Value)>>? read)
             ? Fidelity.Clean(read(set, scheme, key))
@@ -663,8 +511,6 @@ public sealed partial class SemanticProjector(
             .Map(static row => (PropertyCategory.Seam.Row(row.Key), row.value))
             .ToSeq());
 
-    // ONE row-driven scalar mint: the DIMENSION is the whole difference between the length and ratio minters the
-    // three-member family had, and the coercion is the seam entry every other magnitude takes.
     static (string, Fin<PropertyValue>) Scalar(string name, double native, Dimension dimension, UnitScheme scheme, Op key) =>
         (name, double.IsFinite(native)
             ? MeasureValue.OfSi(dimension, scheme.Coerce(native, QuantityType.OfDimension(dimension), dimension), key)
@@ -675,11 +521,6 @@ public sealed partial class SemanticProjector(
 
     // --- [MATERIAL_LOWERING]
 
-    // Non-rooted material nodes are content-keyed (kernel seed-zero XxHash128 over ToCanonicalBytes [H7]) by
-    // MaterialProjection.Project, never GlobalId-rooted. Each DISTINCT IfcMaterialDefinition additionally lands its
-    // imported HasProperties Psets as content-minted bag nodes — an IfcMaterialProperties is NOT IfcRoot, so the bag
-    // node id is the same deterministic content mint MaterialEdges re-derives to bind its Assign edge without a
-    // shared table. Only the imported-Pset arm can drop; the composition fold contributes none.
     WriterT<FidelityLog, Fin, Seq<Node>> Materials(IfcProject project, Map<string, NodeId> rooted, double tolerance, UnitScheme scheme, Op key) {
         var relating = project.Extract<IfcRelAssociatesMaterial>().AsIterable()
             .Choose(static rel => Optional(rel.RelatingMaterial));
@@ -694,7 +535,6 @@ public sealed partial class SemanticProjector(
                 .DistinctBy(static node => node.Id));
     }
 
-    // MaterialEdges composes this SAME unwrap, so both ends walk identical IfcMaterialDefinition instances.
     internal static Option<IfcMaterialDefinition> DefinitionOf(IfcMaterialSelect select) => select switch {
         IfcMaterialLayerSetUsage usage   => Optional((IfcMaterialDefinition?)usage.ForLayerSet),
         IfcMaterialProfileSetUsage usage => Optional((IfcMaterialDefinition?)usage.ForProfileSet),
@@ -705,8 +545,6 @@ public sealed partial class SemanticProjector(
 
     // --- [HEADER_LOWERING]
 
-    // STEPFileInformation -> seam StepHeader [H9]: FILE_DESCRIPTION/FILE_NAME/FILE_SCHEMA. A separate axis from the
-    // Marten provenance; the IFC owner history is NOT substituted by the persistence stamp.
     static StepHeader StepHeaderOf(DatabaseIfc database) =>
         database.OriginatingFileInformation is { } info
             ? new StepHeader(
@@ -720,19 +558,11 @@ public sealed partial class SemanticProjector(
                 Schema:        Seq(database.Release.ToString()))
             : StepHeader.Empty with { Schema = Seq(database.Release.ToString()) };
 
-    // The two currency leaks meet at this projector and nowhere else, RAILED through the ONE frozen
-    // Model/elements#IFC_CLASS ReleaseMap both legs read (the egress half reads ReleaseMap.Raise, the
-    // identity-name-derived inverse, so the two directions can never drift): an out-of-map GGRelease (IFC4X4_DRAFT,
-    // excluded by law) rails BARE — the prior `?? Ifc4X3Add2` coercion silently rewrote an unknown schema and is the
-    // deleted masked-error form.
     internal static Fin<ReleaseVersion> ReleaseLower(GGRelease release, Op key) =>
         ReleaseMap.Lower.TryGetValue(release, out ReleaseVersion? lowered) && lowered is { } seam
             ? Fin.Succ(seam)
             : Fin.Fail<ReleaseVersion>(new BimFault.Refused(key, BimScope.Model, BimReason.Codec, string.Join(':', new object?[] { "release-unmapped", release })));
 
-    // EXPLICIT member arms over the decompile-verified 11-member GG ModelView; the final arm is the DELIBERATE
-    // policy row folding Ifc2x3Coordination and the whole *NotAssigned family onto Coordination (an unassigned MVD
-    // is the coordination-view default), never a Contains() heuristic over enum names.
     static ModelView ViewLower(GGView view) => view switch {
         GGView.Ifc4Reference or GGView.IFC4X3Reference => ModelView.Ifc4Reference,
         GGView.Ifc4DesignTransfer                      => ModelView.DesignTransfer,
@@ -753,7 +583,7 @@ public sealed partial class SemanticProjector(
 - Boundary: `IfcLegality` decides IFC RELATIONSHIP legality ONLY — re-checking the seam's structural invariants here is the deleted form [M3] and class/token validity is the egress `Emit` gate whole [PREDEFINED_TOKEN_RULING]; the rules read the generic `Classification` branch and the `ObjectKind` through the query algebra, never an `IfcProduct` runtime type and never a second matcher, because GeometryGym stays captured in the projector; each `BimFault.Refused` lifts bare, `Error.Many` retains every member, and consumers discriminate the typed `Reason` payload rather than testing the shared leaf type twice.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Bim.Model;
@@ -766,22 +596,14 @@ using Rasm.Element.Query;
 using Rasm.Element.Relations;
 using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
-using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;   // closed-generic alias: the bare name collides with the global-using System.Predicate<T>
+using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
 
 namespace Rasm.Bim.Projection;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class IfcLegality : IGraphConstraint {
     static readonly Op Gate = Op.Of(name: nameof(IfcLegality));
 
-    // Each endpoint rule is a Model/query#ELEMENT_SET BimTerm the ONE query evaluator decides — the rules ARE
-    // selection questions ("is this whole a spatial container", "is this definition a Type"), so the page that owns
-    // the algebra owns their answer and the two stored Func slots the gate used to carry are gone with the twin
-    // matcher behind them. The two roster gates lower onto the seam ByClassification branch closure: the
-    // containment-whole branch is the DISJOINT partition of the two sibling spatial vocabularies (a private
-    // re-listed spatial set forks the vocabulary and silently under-covers the next facility row) and the
-    // subtraction branch both IfcFeatureElementSubtraction concretes (an IfcOpeningElement-only check rejected
-    // legal 4.3 voiding features). The Of rail drains structurally — every roster key is a non-blank class token.
     static readonly BimTerm SpatialWhole = BimLeaf.Classified(
         (toSeq(SpatialClass.Items).Filter(static s => s.IsContainer).Map(static s => s.Key)
          + toSeq(BimZoneKind.Items).Filter(static z => z.IsSpatial).Map(static z => z.Key))
@@ -794,7 +616,6 @@ public sealed class IfcLegality : IGraphConstraint {
     static readonly BimTerm OccurrenceWhole = BimLeaf.Of(new ElementLeaf.ByKind(ObjectKind.Occurrence));
     static readonly BimTerm TypeDefinition = BimLeaf.Of(new ElementLeaf.ByKind(ObjectKind.Type));
 
-    // The endpoint domain: added wins because the delta is the newer authority for a re-put node.
     readonly record struct Endpoints(Map<NodeId, Node.Object> Added, ElementGraph Graph) {
         public static Endpoints Of(GraphDelta delta, ElementGraph graph) =>
             new(delta.AddedNodes.Fold(Map<NodeId, Node.Object>(), static (map, node) =>
@@ -804,17 +625,12 @@ public sealed class IfcLegality : IGraphConstraint {
             Added.Find(id) is { IsSome: true } added ? added : Graph.Find<Node.Object>(id);
     }
 
-    // Nodes carry no arm here: token validity is the egress Emit gate whole, so this fold reads the added nodes only
-    // as the edge endpoints they resolve.
     public Validation<Error, Unit> Validate(GraphDelta delta, ElementGraph graph) {
-        Endpoints endpoints = Endpoints.Of(delta, graph);   // built ONCE per delta — a per-edge rebuild is quadratic
+        Endpoints endpoints = Endpoints.Of(delta, graph);
         return delta.AddedEdges.Map(edge => Rule(edge, endpoints))
             .Fold(Success<Error, Unit>(unit), static (acc, rule) => (acc, rule).Apply(static (_, _) => unit).As());
     }
 
-    // The closed rule set dispatched on the seam's NEUTRAL case + sub-kind. The Void axis dispatches its SUB-KIND
-    // because the ingest is orientation-preserving: a Voids edge lands relating=host/related=feature, a Fills edge
-    // relating=OPENING/related=filler — so Fill checks Host, never Feature.
     static Validation<Error, Unit> Rule(Relationship edge, Endpoints endpoints) => edge switch {
         Relationship.Compose c when c.SubKind == ComposeKind.Contain =>
             (Require(c.Whole, endpoints, SpatialWhole, "containment-whole-not-spatial", c.Whole.Value),
@@ -831,10 +647,6 @@ public sealed class IfcLegality : IGraphConstraint {
         _ => Success<Error, Unit>(unit),
     };
 
-    // The parent->child spatial rank law (SpatialClass.CanContain): when BOTH endpoints resolve SpatialClass rows the
-    // nesting runs downward (equal-rank facility parts legal, no child root); an element endpoint passes because the
-    // whole-side gate owns it, and an UNRESOLVED endpoint is that gate's Refused/BimReason.DanglingReference rather than a second
-    // dangling report from here.
     static Validation<Error, Unit> SpatialRank(NodeId whole, NodeId part, Endpoints endpoints) =>
         SpatialOf(whole, endpoints)
             .Bind(w => SpatialOf(part, endpoints).Map(p => (Whole: w, Part: p)))
@@ -847,11 +659,6 @@ public sealed class IfcLegality : IGraphConstraint {
     static Option<SpatialClass> SpatialOf(NodeId id, Endpoints endpoints) =>
         endpoints.Find(id).Bind(static o => SpatialClass.TryGet(o.Classification.Code));
 
-    // ONE endpoint gate: the resolved node decides the caller's rule TERM through the one query evaluator. THREE
-    // outcomes stay distinct — an unresolvable id means the MERGE is malformed, a faulted verdict means the rule
-    // met a broken model structure and carries its own evidence, and a clean non-match means the MODEL breaks the
-    // rule under the caller-supplied detail evidence. A stored Func predicate here was a second matcher over the same
-    // question the selection algebra already answers, and it could carry no evidence at all.
     static Validation<Error, Unit> Require(NodeId id, Endpoints endpoints, BimTerm rule, string detail, string subject) =>
         endpoints.Find(id).Match(
             None: () => Fail<Error, Unit>(new BimFault.Refused(Gate, BimScope.Projection, BimReason.DanglingReference, string.Join(':', new object?[] { "endpoint-unresolved", id.Value }))),

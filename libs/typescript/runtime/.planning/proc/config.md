@@ -67,7 +67,6 @@ const _built = (stage: Provider.Stage): Effect.Effect<Option.Option<ConfigProvid
         DotEnv: ({ path }) =>
             PlatformConfigProvider.fromDotEnv(path).pipe(
                 Effect.map(Option.some),
-                // only proven absence skips: every other PlatformError stays on the chain's typed channel
                 Effect.catchIf(
                     (fault) => fault._tag === 'SystemError' && fault.reason === 'NotFound',
                     () => Effect.succeedNone,
@@ -307,8 +306,6 @@ const _backend = Config.unwrap({
 });
 
 class Setting extends Effect.Service<Setting>()('runtime/Setting', {
-    // Config is a subtype of Effect, so the axis gate rides the SAME construction the record resolves
-    // in: a refused axis value and a malformed variable both fail the Default layer at one boot line.
     effect: Effect.flatMap(
         Config.unwrap({
             runtime: Config.nested(
@@ -352,8 +349,6 @@ const _topologies = ['in-host', 'sidecar', 'companion', 'service', 'edge', 'cli'
 const _lifecycles = ['caller-owned', 'package-owned'] as const;
 const _isolations = ['in-proc', 'thread', 'process', 'wasm', 'remote'] as const;
 const _capabilities = ['host-document', 'local-spawn', 'remote-compute', 'store-read', 'store-write', 'telemetry-export'] as const;
-// Who ends what a descriptor row admitted. Both families share the roster because a reader comparing a host row
-// against a provider row compares one coordinate, and a second spelling forks it.
 const _ends = ['package', 'host', 'deploy'] as const;
 
 declare namespace Consumption {
@@ -369,17 +364,8 @@ declare namespace Consumption {
     type Refused = InstanceType<typeof ProfileRefused>;
 }
 
-// DECLARED durability window: how much data a restore may lose, and how long it may take. It rides the profile row
-// as supplied data, so a package grades against the target its deployment set rather than one it invented.
-// `data`'s `Backend.Objective` is this same pair one stratum below, and the two unify STRUCTURALLY rather than by
-// import, because an S2 folder cannot reach an S3 schema — the grader takes the resolved value with no adapter.
 const _Objective = Schema.Struct({ rpo: Schema.Duration, rto: Schema.Duration });
 
-// Deployment CLASS decides the window, so six topology values answer as three: a desktop shape holds one operator's
-// own store, an attached shape trails a service it does not own, and a fleet shape carries the estate's data. The
-// mapped type is the enforcement — a domain key added to `_topologies` breaks this literal at compile time,
-// exactly as `_crossing` breaks. This table is the branch's ONE durability source: `iac/program/spec` reads it through
-// `Profile.recoveryOf` so the deploy plane and the process it deploys grade against one window.
 const _TOPOLOGY_RECOVERY: { readonly [K in Consumption.Topology]: Consumption.Objective } = {
     'in-host': { rpo: Duration.minutes(15), rto: Duration.minutes(60) },
     sidecar: { rpo: Duration.minutes(5), rto: Duration.minutes(30) },
@@ -389,27 +375,18 @@ const _TOPOLOGY_RECOVERY: { readonly [K in Consumption.Topology]: Consumption.Ob
     cli: { rpo: Duration.minutes(15), rto: Duration.minutes(60) },
 };
 
-// `document` is the foreclosure cell stated as data on every row: a host carrying no document says so here rather
-// than omitting the field, so the fold reading a host row beside its siblings reads one shape.
 const _Host = Schema.Struct({
     key: Schema.NonEmptyString,
     surface: Schema.Literal('embedded', 'windowed', 'offscreen', 'none'),
     lanes: _Extent,
     document: Schema.Boolean,
     fits: Schema.NonEmptyString,
-    // Where the branch's work lands inside this host — a plug-in command, a page script, a process entry — and how
-    // long it stays there under the owner that ends it.
     admit: Schema.NonEmptyString,
     lifetime: Schema.Struct({ bound: Schema.NonEmptyString, owner: Schema.Literal(..._ends) }),
-    // Durability answers at the integration, which decides where the store lands — a plug-in host writes one
-    // operator's local disk, a served root writes the estate's cluster. Every row states its window even where it
-    // agrees with its topology, spelling `_TOPOLOGY_RECOVERY[<topology>]`, so no row answers by omission.
     recovery: _Objective,
     degrade: Schema.NonEmptyString,
 });
 
-// `supplies` decides every isolation value this row crosses through `_crossing`, so the crossing verdict is read
-// once at admission and the row carries the forfeit alone.
 const _Provider = Schema.Struct({
     key: Schema.NonEmptyString,
     supplies: Schema.Literal(..._capabilities),
@@ -419,8 +396,6 @@ const _Provider = Schema.Struct({
     degrade: Schema.NonEmptyString,
 });
 
-// Mapped over the isolation union, so adding a key to `_isolations` breaks this literal at compile
-// time: 'served' runs unconditionally, 'unserved' refuses always, a capability gates on a bound row.
 const _crossing: { readonly [K in Consumption.Isolation]: Consumption.Capability | 'served' | 'unserved' } = {
     'in-proc': 'served',
     thread: 'served',
@@ -435,10 +410,6 @@ const _Topology = Schema.Literal(..._topologies);
 
 const _LEG = 'profile';
 
-// A free-string reason is unroutable and unfoldable, so the refusal grammar closes here: `reason` is the discriminant
-// a caller dispatches on, and each row declares its OWN coordinates rather than sharing one free `value` beside an
-// optional note — the gated crossing carries the capability it needed as a rostered word, and the unserved arm
-// carries none because there is none to name. `class` projects the roster through one core family mint.
 const _refusal = Fault.Class.family(['missing', 'uncrossed', 'unserved'] as const, {
     missing: Fault.Class.row({
         class: 'absent',
@@ -461,15 +432,8 @@ const _refusal = Fault.Class.family(['missing', 'uncrossed', 'unserved'] as cons
     }),
 });
 
-// Both axes are admitted INDEPENDENTLY — a topology missing its host row decides nothing about an isolation value's
-// crossing — so the carrier is the family's own census and every offender rides one refusal. A first-failure ladder
-// reported the host gap and hid the crossing behind it, which cost one boot per axis to discover a profile that was
-// wrong on both, and `class`, `leg`, and `message` all elect off the rank lattice with nothing declared here.
 const ProfileRefused = _refusal.census('ProfileRefused');
 
-// One column per admitted axis, each answering its own offender against the supplied row and nothing about its
-// sibling. The crossing column orders its arms so the capability narrows on its own discriminant — the cast that
-// re-asserted what `_crossing` already stated is gone with the ladder that needed it.
 const _COLUMNS: { readonly [Axis in 'host' | 'isolation']: (row: Profile) => Option.Option<Consumption.Issue> } = {
     host: (row) =>
         row.topology === 'in-host' && Option.isNone(row.host)
@@ -493,23 +457,16 @@ class Profile extends Schema.Class<Profile>('runtime/Profile')({
     isolation: Schema.optionalWith(_Isolation, { default: () => 'thread' as const }),
     providers: Schema.optionalWith(Schema.Array(_Provider), { default: () => [] }),
 }) {
-    // Peers spread this roster into their own literals instead of re-declaring the axis, so the branch
-    // carries one topology spelling and a new value breaks every consumer at compile time.
     static readonly topologies: Consumption.Topologies = _topologies;
 
     get grants(): ReadonlySet<Consumption.Capability> {
         return new Set(this.providers.map((row) => row.supplies));
     }
 
-    // Host rows override their topology's window and an unhosted row reads the table, so one resolution serves both
-    // this boot line and the deploy plane, and no runner grades a measured window against a target this process
-    // never carried. Runtime recovery policy does not enter the parity wire.
     get recovery(): Consumption.Objective {
         return Option.match(this.host, { onNone: () => _TOPOLOGY_RECOVERY[this.topology], onSome: (row) => row.recovery });
     }
 
-    // Peers resolve a topology's declared window without re-declaring the table, the same spread that keeps one
-    // topology spelling branch-wide.
     static readonly recoveryOf = (topology: Consumption.Topology): Consumption.Objective => _TOPOLOGY_RECOVERY[topology];
 
     static readonly admit = (row: Profile): Effect.Effect<Profile, Consumption.Refused> =>
@@ -531,7 +488,7 @@ const _profile = Config.nested(
 ```
 
 ```typescript signature
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { type Consumption, Profile, ProfileRefused, Provider, Setting };
 ```

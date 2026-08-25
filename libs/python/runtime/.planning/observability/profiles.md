@@ -74,8 +74,6 @@ from rasm.runtime.telemetry import NAMESPACE, SignalProfile, Telemetry
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-# INSTALLED started the process push agent; SILENT kept the gate closed; REENTRANT is a same-scope re-install;
-# ADOPTED is a later composition riding the standing agent with its own receipt.
 class ProfilesOutcome(StrEnum):
     INSTALLED = "installed"
     SILENT = "silent"
@@ -90,16 +88,14 @@ class ProfilesReceipt(Struct, frozen=True):
     outcome: ProfilesOutcome
     application: str
     endpoint: str
-    linked: bool  # True when PyroscopeSpanProcessor attached to the registered SDK provider
-    tenant: str | None = None  # org routing the push carried; None on a single-tenant store
+    linked: bool
+    tenant: str | None = None
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
 class Profiles:
-    # two-tier custody: per-composition receipts key by ScopeKey; `latched` guards the one process push agent,
-    # pyroscope.configure being process-global — the first emitting install owns the push pipeline.
     _receipts: ClassVar[Map[ScopeKey, ProfilesReceipt]] = Map.empty()
     _process: ClassVar[ProfilesReceipt | None] = None
     _gate = RLock()
@@ -108,11 +104,9 @@ class Profiles:
     @latched(lambda: Profiles._process, lambda r: setattr(Profiles, "_process", r), lambda prior: replace(prior, outcome=ProfilesOutcome.ADOPTED))
     def _pushed(cls, endpoint: str, tags: Mapping[str, str], tenant: str | None) -> ProfilesReceipt:
         application = SCOPES[Scope.PROFILES]
-        # tenant_id carries the store's org routing when a multi-tenant store fronts the push — the profile-store
-        # half of the folder's tenant dimension, matching the rasm.tenant fold on every measurement.
         pyroscope.configure(application_name=application, server_address=endpoint, tags=dict(tags), tenant_id=tenant, oncpu=True, gil_only=False)
         match trace.get_tracer_provider():
-            case TracerProvider() as sdk_provider:  # registered by Telemetry.install; the API no-op provider matches no arm
+            case TracerProvider() as sdk_provider:
                 sdk_provider.add_span_processor(PyroscopeSpanProcessor())
                 return ProfilesReceipt(ProfilesOutcome.INSTALLED, application, endpoint, linked=True, tenant=tenant)
             case _:
@@ -128,8 +122,6 @@ class Profiles:
         *,
         scope: ScopeKey = DEFAULT_SCOPE,
     ) -> ProfilesReceipt:
-        # `ctx.policy.emit_otel` folds off the bound telemetry-export provider, so the push gate reads the same
-        # axis value the telemetry install reads and the preset name never discriminates here.
         with cls._gate:
             match cls._receipts.try_find(scope):
                 case Option(tag="some", some=prior):
@@ -145,26 +137,17 @@ class Profiles:
 
     @staticmethod
     def phase(tags: Mapping[str, str]) -> AbstractContextManager[None]:
-        # bounded-window sample tagging: a recipe stage or worker kernel window scopes its flame samples, and the
-        # wrapper restores the prior thread tags on exit — never a hand-paired add/remove_thread_tag ladder. With no
-        # process agent the window is a nullcontext, so an uninstalled worker floor and a silent profile compose the
-        # same call shape at zero cost.
         with Profiles._gate:
             installed = Profiles._process is not None
         return pyroscope.tag_wrapper(dict(tags)) if installed else nullcontext()
 
     @classmethod
     def receipt(cls) -> Option[ProfilesReceipt]:
-        # process-custody read: Some only while the push agent runs — the workers boot capture and the bundle capsule
-        # read the standing endpoint and tenant as data, never the private latch.
         with cls._gate:
             return Option.of_optional(cls._process)
 
     @classmethod
     def shutdown(cls, scope: ScopeKey = DEFAULT_SCOPE) -> None:
-        # custody law: only the scope holding the INSTALLED receipt stops the push thread, clearing every scope receipt
-        # (an ADOPTED receipt over a stopped agent is stale) and re-arming a clean re-install; any other scope retires
-        # its own receipt alone.
         with cls._gate:
             match cls._receipts.try_find(scope).map(lambda r: r.outcome is ProfilesOutcome.INSTALLED).default_value(False):
                 case True:
@@ -195,13 +178,9 @@ class Profiles:
 
 ```python signature
 type BenchKernel = Callable[[], object]
-# the verdict counter's whole value axis as one literal, so silence is a SPELLED outcome rather than a
-# roster-minus-graded subtraction a board performs against two series it must keep aligned.
 type BenchOutcome = Literal["passed", "regressed", "unprovisioned"]
 
 
-# graded-bar policy carried as EVIDENCE on the receipt, never a second measurement contract: one uniform per-round
-# wall-clock stream serves both, so a mode selects which bar a consumer's grade reads and alters no measured fact.
 class BenchMode(StrEnum):
     LATENCY = "latency"
     THROUGHPUT = "throughput"
@@ -217,8 +196,6 @@ class BenchmarkReceipt(Struct, frozen=True):
     p95_ms: float
     high_ms: float
     throughput_hz: float
-    # `refused` names the round that CLOSED the window early; absent, the window ran whole. The slot exists so a
-    # partial window stays evidence carrying its own truncation rather than a full window a reader cannot tell apart.
     refused: BoundaryFault | None = None
 
     @classmethod
@@ -248,32 +225,21 @@ class BenchmarkReceipt(Struct, frozen=True):
 
 
 class BenchThreshold(Struct, frozen=True, gc=False):
-    # the regression bar as a POLICY row an operator tunes without code: a ceiling every mode reads and a rate floor
-    # only a throughput row arms, vacuous at its zero default so one uniform conjunction grades both modes.
     p95_ceiling_ms: float
     floor_hz: float = 0.0
 
 
 class ToolRow(Struct, frozen=True, gc=False):
-    # one external tool the estate spawns, keyed in `TOOLS` by its ROSTER id. The id is logical and `binary` is the
-    # executable that id resolves to, so a tool shipping under a second name is one row edit rather than a literal
-    # hunt across every call site; `probe` is the discovery body over the resolved-or-bare name, answering the
-    # resolved path or `None`, so a tool whose presence is not a bare lookup grows its own body and nothing else.
     binary: str
     probe: Callable[[str], str | None]
 
 
 class BenchSubject(Struct, frozen=True, gc=False):
-    # the graded roster row, carrying only what the GRADER reads: the subject id (also the `domain="bench"` metric
-    # kind), a free `kind` label the owning folder fills with its own vocabulary, the mode, the bar, the host floor,
-    # and the round economy. It holds no deterministic-input edge — a feed binds a folder's own signal and plane
-    # values, so carrying one here would drag those planes into this tier and invert the strata; each folder resolves
-    # its feed to a bound `BenchKernel` before handing the roster over.
     subject: str
     kind: str
     mode: BenchMode
     threshold: BenchThreshold
-    floor: tuple[str, ...] = ()  # the `TOOLS` ids this subject's floor leg spawns; empty demands none, two demand both
+    floor: tuple[str, ...] = ()
     rounds: int = 32
     warmup: int = 4
 
@@ -286,10 +252,6 @@ class BenchVerdict(Struct, frozen=True, gc=False):
     ceiling_ms: float
     throughput_hz: float
     floor_hz: float
-    # RESOLVED floor binaries anchor this grade beside the kernel and the input: a threshold history compares only
-    # across runs whose floor resolved to the same executables, since a different binary behind one id is a
-    # different encoder graded on the first one's bar. That resolved store path IS the identity, because a build
-    # reporting `GIT-NOTFOUND` for `--version` proves nothing about the encoder behind it.
     floor: tuple[str, ...] = ()
 
     @classmethod
@@ -308,31 +270,15 @@ class BenchVerdict(Struct, frozen=True, gc=False):
 
 
 class ToolSettings(BaseSettings):
-    # ONE deployment field covering every rostered tool — `RASM_TOOL_PATHS={"ktx": "/opt/ktx/bin/ktx"}` — so a new
-    # tool needs no settings edit and a host holding a binary off PATH states it once. The env is admitted here and
-    # projected to an immutable table at module scope, never a raw `os.environ` read per lookup and never a
-    # per-tool constant re-resolving its own ladder in a second grammar.
     model_config = SettingsConfigDict(env_prefix="RASM_TOOL_", frozen=True, extra="forbid")
     paths: dict[str, str] = {}
 
 
 _TOOL_PATHS: Final[frozendict[str, str]] = frozendict(ToolSettings().paths)
 
-# the rostered tool IDS, so a `floor` names a symbol and never a literal a second surface re-spells. The id is this
-# roster's own, distinct from whatever constant a spawning folder holds for the executable it launches — one is the
-# provision key, the other the command spelling, and conflating them makes every consumer a candidate owner of both.
 KTX_TOOL: Final[str] = "ktx"
 EXIFTOOL_TOOL: Final[str] = "exiftool"
 
-# THE estate tool-provision roster: one row per external binary any folder spawns, keyed by the id a `floor` names.
-# It seats HERE rather than at a producer folder because every stratum reaches this tier and none reaches a peer's —
-# a producer plane could never read a conductor-owned roster, so the three grammars that grew instead (an inline
-# `which` per call site, a name-to-body map at one folder, an env-to-constant ladder at another) left a host
-# provisioned for one tool and not another with no owner able to say so. One probe body serves every tool a bare PATH
-# lookup answers and a tool needing more grows its own; the probe asserts PRESENCE and returns the resolved path,
-# because a version string proves nothing about the binary behind it and the resolved store path is the identity a
-# verdict anchors to. Provisioning put `ktx` on the bare PATH beside `ktx2check`/`toktx`, and `exiftool` rides the
-# same bare PATH — its spawning driver takes the resolved path at construction, so the roster stays the one answer.
 TOOLS: Final[Map[str, ToolRow]] = Map.of_seq([
     (KTX_TOOL, ToolRow(binary=KTX_TOOL, probe=which)),
     (EXIFTOOL_TOOL, ToolRow(binary=EXIFTOOL_TOOL, probe=which)),
@@ -340,47 +286,24 @@ TOOLS: Final[Map[str, ToolRow]] = Map.of_seq([
 
 
 def resolved(name: str, /) -> Option[str]:
-    # THE discovery entry for every external tool: the settings override first, so a host holding a binary off PATH
-    # is provisioned exactly where it says, then the row's own probe body over that path or the bare name. A lookup
-    # answers an absolute path only when it is EXECUTABLE, so a named override that does not resolve reads ABSENT
-    # rather than being trusted on its spelling. A name no `TOOLS` row keys reads absent too, and `Bench.graded`
-    # refuses that roster defect by name at admission rather than retiring the subject on every machine.
     return TOOLS.try_find(name).bind(lambda row: Option.of_optional(row.probe(_TOOL_PATHS.get(name, row.binary))))
 
 
 def _provisioned(row: BenchSubject, /) -> Option[tuple[str, ...]]:
-    # ONE resolution pass answering both questions the roster asks of a host: is this subject provisioned, and WHICH
-    # binaries answered. Every declared floor id must resolve or the subject leaves the graded set whole. The resolved
-    # paths ride the verdict, so a grade compares only against a run whose floor resolved identically — the same
-    # un-anchoring a swapped kernel forbids, arriving through the host. An in-process acceleration leg that happens to
-    # import never substitutes: it is a different encoder, so grading it on that floor's history un-anchors it.
     found = Block.of_seq(row.floor).choose(resolved)
     return Some(tuple(found)) if len(found) == len(row.floor) else Nothing
 
 
 def _verdicted(subject: str, outcome: BenchOutcome, /) -> None:
-    # THE recording site for the row-level bar: two sites under one measure double a series and strand its
-    # aggregation on the next emission edit. A grade living only in the returned value leaves the board with nothing
-    # to trend and the alert plane with nothing to fire on — the timing ladder shows a regression's shape where this
-    # counter shows whether the row's own bar was crossed. Kind stays the subject id every `domain="bench"` write
-    # carries, so the three outcomes read as one series a share expression divides.
     Metrics.record({"rasm.bench.verdicts": 1.0}, domain="bench", kind=subject, dimensions={Dimension.OUTCOME: outcome})
 
 
 class Bench:
     @staticmethod
     def graded(roster: Block[BenchSubject], kernels: Map[str, BenchKernel], /) -> RuntimeRail[Block[BenchVerdict]]:
-        # measurement AND grading in one tier, so every folder that benches can grade: the caller hands ALREADY-BOUND
-        # kernels — the `Callable[[], object]` shape `run` already accepts — which is what keeps a folder's own feed,
-        # plane, and signal vocabularies at its own stratum while the bar, the host floor, and the verdict counter
-        # live here beside the measurement they grade. Four refusals close BEFORE any counter writes, because a
-        # counter rising on a configuration the caller never got past reports a state off a run that measured none:
-        # a doubled subject id, a floor naming a tool no `TOOLS` row keys, a provisioned subject no kernel covers, and
-        # a host on which not one subject is provisioned. Regressions are VERDICTS, never faults — a slow subject is
-        # evidence a board trends, and railing it would make one regression hide every other subject's grade.
         collided = Block.of_seq(subject for subject, count in _tally(roster).items() if count > 1)
         unrostered = frozenset(roster.collect(lambda row: Block.of_seq(row.floor)).filter(lambda tool: tool not in TOOLS))
-        probed = roster.map(lambda row: (row, _provisioned(row)))  # ONE probe pass: a second filter re-runs every lookup per row
+        probed = roster.map(lambda row: (row, _provisioned(row)))
         live = probed.choose(lambda pair: pair[1].map(lambda found: (pair[0], found)))
         quiet = probed.choose(lambda pair: Nothing if pair[1].is_some() else Some(pair[0]))
         uncovered = live.map(lambda pair: pair[0].subject).filter(lambda subject: kernels.try_find(subject).is_none())
@@ -392,24 +315,17 @@ class Bench:
                 _verdicted(row.subject, "passed" if verdict.passed else "regressed")
                 return verdict
 
-            # `run` rails: a window truncated by a raising round still grades off the samples it measured, and a
-            # window measuring nothing refuses by name into this row's own accumulate fold rather than grading a fiction.
             return Bench.run(row.subject, kernels[row.subject], mode=row.mode, rounds=row.rounds, warmup=row.warmup).map(scored)
 
         if not collided.is_empty():
             return Error(BENCH_DOUBLED.raised(",".join(sorted(collided))))
         if unrostered:
-            # a floor naming a tool no `TOOLS` row keys is a ROSTER defect, not a quiet host: reading it as absence
-            # would retire the subject on every machine and read as an uninstalled binary nobody can install.
             return Error(BENCH_TOOL.raised(",".join(sorted(unrostered))))
         if not uncovered.is_empty():
             return Error(BENCH_KERNEL.raised(",".join(sorted(uncovered))))
         if live.is_empty():
-            # a run that graded nothing is a host misconfiguration, never a pass — the quiet roster names what to install
             return Error(BENCH_QUIET.raised(",".join(sorted(row.subject for row in quiet))))
         for row in quiet:
-            # Third outcome writes only once the run is ADMITTED. Quiet rows MEASURED NOTHING and reach no verdict — a
-            # passed or regressed grade there is a reading no run took — so the outcome axis carries silence itself.
             _verdicted(row.subject, "unprovisioned")
         return traversed(live.map(lambda pair: one(*pair)), by=Disposition.ACCUMULATE)
 
@@ -417,10 +333,6 @@ class Bench:
     def run(
         subject: str, op: BenchKernel, *, mode: BenchMode = BenchMode.LATENCY, rounds: int = 32, warmup: int = 4
     ) -> RuntimeRail[BenchmarkReceipt]:
-        # Every round runs behind its own fence because a measured window IS the evidence: the first refusal closes
-        # this window, its fault rides the receipt beside every sample already taken, and later rounds never run. An
-        # unfenced fold discards the whole window on its last round — precisely the loss this tier exists to prevent —
-        # and only a window holding no sample rails at all, quantile derivation needing one.
         def timed() -> float:
             start = perf_counter()
             op()
@@ -430,30 +342,22 @@ class Bench:
             samples, refused = held
             if refused is not None:
                 return held
-            # samples accumulate by `cons`, order-free: every derived statistic sorts or sums, so no round index survives.
             return boundary(BENCH_ROUND, timed, catch=Exception).map(lambda ms: (samples.cons(ms), None)).default_with(lambda fault: (samples, fault))
 
         if rounds < 1 or warmup < 0:
             return Error(BENCH_ROUNDS.raised(subject, str(rounds), str(warmup)))
-        # the graded body is a CALLER kernel whose raise surface no runtime rosters, so the two timing fences keep the
-        # plane's one catch-all: a benchmark that lets an unclassified raise escape loses every sample it already took.
         return boundary(BENCH_WARMUP, lambda: Block.range(warmup).fold(lambda _, __: timed(), 0.0), catch=Exception).bind(
             lambda _warmed: _windowed(subject, mode, warmup, Block.range(rounds).fold(rounded, (Block.empty(), None)))
         )
 
 
 def _tally(roster: Block[BenchSubject]) -> Map[str, int]:
-    # the duplicate-subject census as a fold, so the collision refusal names EVERY doubled id at once: two rows under
-    # one subject double the timing ladder and the verdict counter alike, and a first-miss scan would name one.
     return roster.fold(lambda held, row: held.add(row.subject, held.try_find(row.subject).default_value(0) + 1), Map.empty())
 
 
 def _windowed(
     subject: str, mode: BenchMode, warmup: int, window: tuple[Block[float], BoundaryFault | None]
 ) -> RuntimeRail[BenchmarkReceipt]:
-    # one window terminal: a window holding samples yields its receipt whether or not a round closed it early, and a
-    # window holding none rails on the fault that stopped it — a receipt with no sample would claim quantiles it never
-    # measured. `default_with` supplies the fault for a zero-round window no refusal produced.
     samples, refused = window
     return (
         Ok(BenchmarkReceipt.of(subject, mode, warmup, tuple(samples), refused))
@@ -471,14 +375,12 @@ def _windowed(
 - Boundary: the envelope threads one admitted `RuntimeContext` into `Telemetry.install`/`shutdown` beside `LogPipeline.configure` and `Metrics.install` and constructs no provider, processor, or chain row of its own, so the job lane gates emission on the axis value every daemon path reads; long-lived daemons keep the profile-keyed `SIGNAL_PROFILE` rows and never ride this envelope.
 
 ```python signature
-# high interval = the timer is the safety net; the boundary force_flush is the real egress for a short-lived process.
 JOB_SIGNAL_PROFILE: Final[SignalProfile] = SignalProfile(
     export_interval_ms=60000, schedule_delay_ms=5000, max_queue_size=2048, max_export_batch_size=512, compression=Compression.Gzip
 )
 
 
 def job_resource(job_id: str, run_id: str) -> Resource:
-    # hand-built: no detector carries job semantics, and a per-run instance id keys two runs of one binary distinctly.
     return Resource.create(
         {SERVICE_NAMESPACE: NAMESPACE, SERVICE_NAME: SCOPES[Scope.SERVICE], SERVICE_INSTANCE_ID: uuid4().hex, "job.id": job_id, "run.id": run_id},
         schema_url=SCHEMA_URL,
@@ -490,19 +392,11 @@ class JobRun:
     def bounded[T](
         ctx: RuntimeContext, endpoint: str, job_id: str, run_id: str, body: Callable[[], T], *, ship: LogShip = LogShip.OTLP_CONSOLE
     ) -> RuntimeRail[T]:
-        # ONE `ship` value arms both halves of the log egress and the envelope threads it to both: the chain half seats
-        # its wire rows here and the provider half registers the `LoggerProvider` the drain below flushes. Installing
-        # the provider alone stands up a batch processor no row ever projects onto, so a job would export a whole
-        # trace and metric plane beside a log plane carrying not one record — the one signal a failed job is read
-        # from. Configuring FIRST is what makes the envelope's own install and body faults reach that plane.
         LogPipeline.configure(ship=ship)
-        # Install receipts carry the EFFECTIVE geometry, so the budget threads off the receipt rather than off the
-        # requested row: a scope adopting a standing pipeline enrolls against the ceiling that pipeline fixed, and an
-        # unthreaded `install()` silently discards every non-default `cardinality_budget` a profile carries.
         installed = Telemetry.install(ctx, endpoint, resource=job_resource(job_id, run_id), signal_profile=JOB_SIGNAL_PROFILE, ship=ship)
         Metrics.install(budget=installed.signal_profile.cardinality_budget)
         outcome = boundary(PROFILES_JOB, body, catch=Exception)
-        drained = Telemetry.shutdown()  # flush-then-shutdown per provider, ACCUMULATE — runs on the fault arm too
+        drained = Telemetry.shutdown()
         return outcome.bind(lambda value: drained.map(lambda _flushed: value))
 ```
 

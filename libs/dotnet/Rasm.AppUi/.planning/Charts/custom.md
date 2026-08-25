@@ -37,12 +37,8 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
   - Deleted patterns: a fork of `ChartSeriesKind` for these kinds, a hand-rolled diagram control, a second Skia-surface owner, a page-local gamut roster, and a layout-local meter.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// `[NOT]` a viewport CRS projection: every row maps lon-lat onto the raster extent of ONE `SKImageInfo` and
-// answers pixels, so it carries no coordinate system, no datum, no resolution, and no camera.
-// `basemap#NTS_OVERLAY` rules Mapsui `SphericalMercator` the sole owner on the map-viewport CRS plane, and
-// reaching it from here would answer EPSG:3857 metres where a layout fold needs pixels of the extent it holds.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -62,9 +58,6 @@ public sealed partial class GeoProjection {
     }
 }
 
-// The DRAW PLANE a fold names at every emission. Ink alone put every full-ink mark last, so shading, rulers,
-// and the data-date rule drew over the bars they were emitted under; the band walk sorts on this ordinal first
-// and a fold that promises an emission order the record then re-sorts has no spelling.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -78,10 +71,6 @@ public sealed partial class StrokePlane {
     public int Order { get; }
 }
 
-// The mark geometry vocabulary — the reason an open contour renders. Each row carries the whole paint geometry
-// its mark needs: paint style, the `MetricFamily.Stroke` STEP its width resolves from, the dash intervals in
-// stroke-width multiples, and the cap and join a contour of that shape needs. `Fill` keeps a closed area mark
-// on the fill path with no width read at all.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -103,30 +92,19 @@ public sealed partial class StrokeStyle {
 
     public SKStrokeJoin Join { get; }
 
-    // The dash pattern at a RESOLVED width, so a consumer outside this plane cites one spelling: `ChromeInk`'s
-    // dashed restyle takes exactly this array as its `DashEffect(float[], float)`, and a comparison ghost on a
-    // chart therefore dashes identically to the same series drawn here.
     public float[] Intervals(float width) => Dash.Map(interval => interval * width).ToArray();
 
-    // The ONE geometry write of a band, returning the dash effect the band owns so the pack disposes it on the
-    // same scope as the paint. A style with no dash answers `None` and clears the slot, because a `PathEffect`
-    // left set from the previous band would dash a solid mark.
     public Option<SKPathEffect> Write(SKPaint paint, float width) {
         paint.Style = Paint;
         paint.StrokeWidth = Paint is SKPaintStyle.Fill ? 0f : width;
         paint.StrokeCap = Cap;
         paint.StrokeJoin = Join;
         Option<SKPathEffect> effect = Dash.IsEmpty ? None : Some(SKPathEffect.CreateDash(Intervals(width), 0f));
-        // The absent arm writes a null slot, which the framework's own contract takes as "no effect"; the probe
-        // carries its own `IsSome` proof rather than an unguarded `Case` peek.
         paint.PathEffect = effect is { IsSome: true, Case: SKPathEffect dash } ? dash : null;
         return effect;
     }
 }
 
-// Where one label anchors against the point its fold emitted. A fold answers the geometric anchor it knows and
-// the placement row owns the offset from it; columns are (dx, dy) in MULTIPLES of the measured label box, so an
-// offset is resolution-free at every type size the density ladder resolves.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -149,10 +127,6 @@ public sealed partial class LabelPlacement {
     }
 }
 
-// What a box crossing the raster edge becomes, as a row carrying its own admission: the nudge clamps INSIDE the
-// extent on both axes rather than clipping ink, because a caption sheared by the raster edge reads as a
-// different word. A box wider than the extent stays pinned to the leading edge, where the placement contest
-// then decides whether it survives.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -174,8 +148,6 @@ public sealed partial class ClipPosture {
     }
 }
 
-// Whether a kind's pigment SAMPLES the family ramp or rides its payload. The catalog row knows this, so the
-// style mint reads a column instead of taking a `Option<int> rampSteps` knob whose presence re-stated the fact.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -184,7 +156,6 @@ public sealed partial class InkAxis {
     public static readonly InkAxis Carried = new("carried");
 }
 
-// An open trace differs from a closed ring by ONE column, so the polyline writer takes a row rather than a bool.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -196,8 +167,6 @@ public sealed partial class Closure {
     public partial void Seal(SKPath path);
 }
 
-// A waterfall step is a delta bridging the running cursor or a TOTAL bridging the axis zero to the cursor it
-// then resets — two behaviours, so the row carries the bridge as delegate data and the column fold holds no arm.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -211,8 +180,6 @@ public sealed partial class StepKind {
     public partial (double From, double To, double Measure, double Next) Bridge(double cursor, double delta, double peak);
 }
 
-// The legend dock's consequence, not a second decision: the flow decides both the swatch box and the caption
-// walk, so the fold reads one row instead of branching twice on the same fact.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -228,8 +195,6 @@ public sealed partial class LegendFlow {
     public partial SKRect Swatch(int index, int count, LayoutFrame frame);
 }
 
-// The squarify lay axis, derived from the open box rather than authored: the row owns both the cell rectangle
-// and the remainder, so the two ternaries that had to agree about which axis was open are one row read.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -255,9 +220,6 @@ public sealed partial class PackAxis {
     public partial float Origin(SKRect box);
 }
 
-// The per-element ink modality — the ONE mint's third argument, and what retired five arity twins whose
-// discriminant was their parameter count. `Measured` quotient-clamps because dividing two admitted finite
-// magnitudes can round a hair past one; `Carried` is the legend's case, a mark whose colour is DATA.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StrokeInk {
     private StrokeInk() { }
@@ -280,10 +242,7 @@ public abstract partial record StrokeInk {
         carried: static row => Some(row.Pigment));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// The payload row vocabulary. Every column a fold destructures is a NAMED member on a `[Equatable]` row rather
-// than a positional tuple slot, so a reordered pair is a compile break instead of a silently transposed axis
-// and a payload compares structurally where a cache or a diff needs it to.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable] public sealed partial record FlowEdge(int From, int To, double Weight);
 [Equatable] public sealed partial record WeightNode(string Label, double Value);
 [Equatable] public sealed partial record StepRow(string Label, double Delta, StepKind Kind);
@@ -299,9 +258,6 @@ public abstract partial record StrokeInk {
 [Equatable] public sealed partial record TripLeg(Seq<TripNode> Path, double Weight);
 [Equatable] public sealed partial record TerrainSample(double Lon, double Lat, double Height);
 
-// SHAPE_BUDGET: the payload is a closed union — each case carries exactly the axes its kinds consume, so an
-// invalid cross-kind combination is unrepresentable. `Case` is the ONE total projection of case identity: the
-// mismatch fault names it instead of a reflected type name, and a seventeenth case breaks this fold loudly.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record VisualPayload {
     private VisualPayload() { }
@@ -310,10 +266,6 @@ public abstract partial record VisualPayload {
     public sealed record Step(Seq<StepRow> Steps) : VisualPayload;
     public sealed record Axes(Seq<SeriesRow> Series) : VisualPayload;
     public sealed record Network(Seq<NetEdge> Edges, Seq<NetVertex> Vertices) : VisualPayload;
-    // The planner-grade lane payload `[03]-[PLAN_GRAMMAR]` owns whole: tasks with baselines and progress,
-    // dependency links with lag, the data date, non-working spans, and the tier rulers. The four-column
-    // `(Label, Start, End, Track)` span roster it replaced could not spell a dependency, a baseline, a progress
-    // fraction, or a non-working day, so every planner reading of a lane was a caption over a bar.
     public sealed record Plan(
         Seq<PlanTask> Tasks,
         Seq<PlanLink> Links,
@@ -322,18 +274,11 @@ public abstract partial record VisualPayload {
         Seq<TimescaleTier> Tiers,
         ResolvedLocale Locale) : VisualPayload;
     public sealed record Wedge(Seq<WedgeNode> Wedges) : VisualPayload;
-    // Entries carry the pigment the CHART painted rather than a value this plane would re-sample, because a key
-    // whose swatch disagrees with its plot explains nothing; `At` is the domain position ALREADY SPELLED by the
-    // legend owner's printed-value projection, and `Stats` the per-entry reduction roster a table legend prints.
-    // A `Weighted` payload cannot carry this: it holds label and value alone.
     public sealed record Legend(Seq<LegendEntry> Entries, LegendFlow Flow) : VisualPayload;
     public sealed record GeoPoint(GeoProjection Projection, Seq<GeoSample> Points) : VisualPayload;
     public sealed record GeoArcs(GeoProjection Projection, Seq<ArcSample> Arcs) : VisualPayload;
     public sealed record GeoTrips(GeoProjection Projection, Instant Cursor, Seq<TripLeg> Trips) : VisualPayload;
     public sealed record Terrain(GeoProjection Projection, int Columns, int Rows, Seq<TerrainSample> Samples) : VisualPayload;
-    // The four climate arms. Their field types, folds, and admission law live at `climate.md`, which declares
-    // `CustomVisuals` partial exactly as `[03]-[PLAN_GRAMMAR]` does. Their point-run column shapes are that
-    // page's READ SURFACE and move with it, which is why they stay spelled here as it spells them.
     public sealed record Rose(Seq<RoseSector> Sectors, Option<double> Pinned, string LabelStem) : VisualPayload;
     public sealed record SunPath(
         Seq<(string Label, Seq<(double Az, double Alt)> Points)> Arcs,
@@ -358,32 +303,18 @@ public abstract partial record VisualPayload {
 
 public sealed record CustomVisualData(string Key, VisualPayload Payload, CustomVisualStyle Style);
 
-// One resolved nesting span in UNIT FRACTIONS of the root, carrying the node index it came from. Every reading
-// of a nested value tree scales these into its own coordinate, so the nesting arithmetic exists once.
 public readonly record struct WedgeSpan(int Index, double Start, double Span, int Depth);
 
-// One label a fold emits. Priority is the element's OWN significance — a sankey node's throughput, a plan
-// task's duration, a treemap cell's weight — so a field too dense to caption whole drops the least significant
-// rather than whichever the emission order reached last.
 public readonly record struct LabelMark(string Text, SKPoint At, LabelPlacement Placement, double Priority) {
     public static LabelMark Of(string text, SKPoint at, LabelPlacement placement, double priority) =>
         new(text, at, placement, priority);
 }
 
-// The state the declutter fold threads. A `Writer` is REFUSED here: the fold carries two collections beside the
-// count, so the log monoid would have to be this product anyway — the named record IS that product without the
-// transformer, and the count reads off it as a column rather than out of a run.
 public readonly record struct Placement(Seq<(LabelMark Mark, SKPoint At)> Placed, Seq<SKRect> Taken, int Suppressed);
 
-// The declutter posture. `Padding` is the clear band a placed box claims beyond its own extent, `Clip` is the
-// row that owns what an out-of-extent box becomes, and `Ceiling` bounds how many captions one pack draws at all
-// — a diagram with ten thousand elements has no readable label field at any placement.
 public sealed record LabelPolicy(float Padding, ClipPosture Clip, int Ceiling) {
     public static readonly LabelPolicy Dense = new(Padding: 2f, ClipPosture.Nudge, Ceiling: 96);
 
-    // Sorting is load-bearing: the survivor set must not depend on emission order, so the highest-priority
-    // caption wins every contest it enters. The ordering leaves the carrier, so the priority-ordered run
-    // re-enters through `toSeq` before the fold reads it.
     public Placement Place(Seq<(LabelMark Mark, SKSize Measured)> marks, SKRect extent) =>
         toSeq(marks.OrderByDescending(static row => row.Mark.Priority))
             .Fold(new Placement(Seq<(LabelMark, SKPoint)>(), Seq<SKRect>(), 0), (state, row) => {
@@ -400,9 +331,6 @@ public sealed record LabelPolicy(float Padding, ClipPosture Clip, int Ceiling) {
             });
 }
 
-// The composition-bound shaping inputs: ONE record carrying every input `ShapingSurface.Shape` consumes, so the
-// style factory takes one typography argument instead of a six-parameter tail. The cabinet elects a covering
-// face per segment and the cache owns every shaped blob, so a chart label needs no face handle of its own.
 public sealed record LabelRail(
     RunSpec Spec,
     FaceCabinet Cabinet,
@@ -411,21 +339,12 @@ public sealed record LabelRail(
     PalettePosture Palette,
     SKPaint Ink);
 
-// MEASURE-THEN-DRAW because placement needs the box before the ink exists. Both legs shape through the same
-// `ShapedCache` lease under one key and both return `Fin`, so a shaping refusal aborts the pack before it seals.
 public sealed record LabelChannel(
     Func<string, Fin<SKSize>> Measure,
     Func<SKCanvas, string, SKPoint, Fin<Unit>> Draw);
 
-// Every layout geometry a fold used to spell as a body literal, resolved ONCE off the theme's own metric
-// generation — so a density flip moves the ruler band, the caption floor, the swatch, the node radius, and the
-// corner radius together and no fold carries a number. The hexbin lattice pitch is deliberately ABSENT: it is a
-// declared aggregation choice the catalog row owns, not a layout metric a density flip may move.
 public readonly record struct VisualMetrics(
     float Ruler, float Caption, float Swatch, float LegendRow, float Node, float Column, float Corner) {
-    // The relief a normalized terrain height lifts a cell corner by, as a FRACTION of the raster height: the
-    // grid is a plan projection with a shading cue, not an elevation view, so this is a ratio rather than a
-    // metric step and stays a named constant the metric ladder has no rung for.
     public const double TerrainLift = 0.2d;
 
     public static Fin<VisualMetrics> Of(ResolvedTheme theme) =>
@@ -442,16 +361,8 @@ public readonly record struct VisualMetrics(
             None: () => Validation<Error, float>.Fail((Error)new ChartFault.PaintUnresolved($"{family.Key}-{step}")));
 }
 
-// What a layout or label fold is HANDED: the raster extent and the theme-resolved geometry travel as one value,
-// so a new layout input is one field here rather than a signature edit at every fold and every catalog column.
-// The folds cannot reach the style — they are pure delegate columns on the row — so the frame is how a density
-// flip reaches a diagram's geometry at all; a fold spelling a pixel literal is the deleted form it replaces.
 public readonly record struct LayoutFrame(SKImageInfo Info, VisualMetrics Metrics);
 
-// The token-resolved pigment-and-label policy, minted for ONE catalog row against ONE encode row. Carrying the
-// encode row is what makes the float law provable rather than asserted: fill, label ink, and every ramp stop
-// resolve INTO that row's working space at mint, so `SetColor` writes values the space actually holds instead
-// of sRGB bytes relabelled at the paint. A style minted before its gamut was known is the deleted form.
 public sealed record CustomVisualStyle(
     CustomVisual Kind,
     PaintFamily Family,
@@ -465,11 +376,6 @@ public sealed record CustomVisualStyle(
     LabelPolicy Labels,
     int RecordCeiling,
     LabelChannel Label) {
-    // The ONE composed default. Every key is TYPED — the catalog row names the ink axis, the family names both
-    // the anchor role the fill resolves from and the colormap the stop table projects, the chrome row names the
-    // label's rung and alpha, the role names the shaped text style, and the encode row names the working space
-    // — so a family, chrome row, role, or gamut that does not exist is unspellable. Admission ACCUMULATES: a
-    // caller handing a bad ceiling and a bad step count learns both, where the `Bind` ladder reported one.
     public static Fin<CustomVisualStyle> Of(
         CustomVisual kind,
         PaintFamily family,
@@ -497,21 +403,13 @@ public sealed record CustomVisualStyle(
                     kind, family, labelChrome, labelRole, encode, fill, stops, widths, metrics, labels, recordCeiling,
                     Bound(TextStyleRow.Resolve(labelRole, chain), chain, rail, ink)));
 
-    // A stroke's unit ink index-clamp-samples the resolved stop table; a `Carried` kind takes Fill at every ink,
-    // because its own pigment already rode the mark and the band key carried it to the paint.
     public SKColorF Pigment(UnitInterval ink) =>
         Ramp.Match(
             Some: stops => stops[Math.Clamp((int)Math.Round(ink.Value * (stops.Length - 1)), 0, stops.Length - 1)],
             None: () => Fill);
 
-    // Totality is the point: `Steps` builds the map over the whole generated stroke family at mint, so a style
-    // that resolved refuses no width at draw time and no band arm carries a fallback literal.
     public float Width(StrokeStyle style) => Widths[style.Step];
 
-    // Two crossings, ONE law: the theme token admits into the kernel `PerceptualColor` through the folder's own
-    // admission edge, alpha rides the admitted colour rather than a paint-level opacity, and the egress names
-    // both its transfer and its reproducibility domain through the policy row. A page-local byte-to-float lift
-    // is the deleted form — it labelled a quantized sRGB shadow with whatever gamut the pack later declared.
     static Fin<SKColorF> Pigment(
         VisualCodec.ColorPolicy policy, ResolvedTheme theme, PaintRole role, int rung, UnitInterval alpha) =>
         theme.Paint(role, rung)
@@ -521,9 +419,6 @@ public sealed record CustomVisualStyle(
             .Bind(policy.Resolve)
             .MapFail(_ => (Error)new ChartFault.PaintUnresolved($"{role.Key}+{rung}@{policy.Key}"));
 
-    // The stop table is the family colormap's own published ramp projected through the SAME egress the fill
-    // took, never a second sampling: `HeatMap`'s `Color` projection would quantize each stop back to bytes
-    // before this row's space ever saw it.
     static Fin<Option<SKColorF[]>> Stops(
         CustomVisual kind, PaintFamily family, VisualCodec.EncodeRow encode, Dimension rampSteps) =>
         ReferenceEquals(kind.Axis, InkAxis.Carried)
@@ -544,10 +439,6 @@ public sealed record CustomVisualStyle(
         holds ? Validation<Error, Unit>.Success(unit)
               : Validation<Error, Unit>.Fail((Error)new ChartFault.VisualDegenerate($"custom-visual style: {detail}"));
 
-    // The label channel bound once: the itemizer elects a covering face per segment out of the cabinet, the
-    // shaped text is a cache LEASE neither leg disposes, and a shaping or draw refusal returns on the typography
-    // rail so `Record` aborts before `EndRecording` seals a picture no arm owns. The measured box is the shaped
-    // ADVANCE beside the style's line box, and the draw takes the box's baseline.
     static LabelChannel Bound(TextStyleRow style, FontChain chain, LabelRail rail, SKColorF ink) {
         Fin<ShapedText> Shape(string text) =>
             ShapingSurface.Shape(text, style, rail.Spec,
@@ -562,15 +453,9 @@ public sealed record CustomVisualStyle(
     }
 }
 
-// The band identity the record walk groups on. Structural equality over the whole coordinate is the
-// discriminant, so `Option<SKColorF>` participating is a decision rather than an accident of tuple equality:
-// two legend swatches at one ink are two bands exactly because their carried pigments differ.
 [Equatable]
 public sealed partial record BandKey(StrokePlane Plane, UnitInterval Ink, StrokeStyle Style, Option<SKColorF> Pigment);
 
-// ONE per-element draw, ONE mint. The plane is named at every emission because the record sorts on it, the ink
-// modality is a value because arity twins made the parameter count the discriminant, and fresh-path
-// construction inside the contour call is the mint's platform-forced statement seam.
 public readonly record struct VisualStroke(SKPath Path, StrokePlane Plane, UnitInterval Ink, StrokeStyle Style, Option<SKColorF> Pigment) {
     public static readonly UnitInterval Full = UnitInterval.Create(1d);
 
@@ -583,16 +468,8 @@ public readonly record struct VisualStroke(SKPath Path, StrokePlane Plane, UnitI
     public BandKey Band => new(Plane, Ink, Style, Pigment);
 }
 
-// The sealed record's vector half: one mark per stroke carrying the SVG path text, the pigment its ink
-// resolved, and the stroke row its geometry needs, so the drafting and export codecs reproduce dash, width,
-// cap, and join rather than flattening every line mark to a hairline.
 public readonly record struct VectorMark(string Data, SKColorF Pigment, StrokeStyle Style);
 
-// The ONE identity-and-address owner for a sealed pack. Three composed strings — the record key, the blob
-// destination, and the proof lane's cell — each spelled their own concatenation at their own call site; the
-// preimage is now framed by the kernel canonical writer, so the key survives a field's addition rather than
-// silently colliding on a separator, and the extension DERIVES from the encode row instead of a `.png` literal
-// beside a row that may not be PNG.
 public readonly record struct RecordRoute(UInt128 Digest, VisualCodec.EncodeRow Encode) {
     public static RecordRoute Of(CustomVisual kind, CustomVisualData data, VisualCodec.EncodeRow encode) =>
         new(ContentHash.Of(
@@ -604,25 +481,11 @@ public readonly record struct RecordRoute(UInt128 Digest, VisualCodec.EncodeRow 
 
     public string Blob => $"{CustomVisuals.Kind}/{Key}{Encode.Extension}";
 
-    // The proof cell is the route KEY plus the theme coordinate the twin replays under, so scale, gamut, and
-    // posture stay `RenderHashLane`'s own columns and this owner appends none of them.
     public string Cell(ThemeVariantRow variant, DensityRow density) => $"{Key}@{variant.Key}-{density.Key}";
 }
 
-// Accountability, not narration. The seal proves every emitted stroke drew and every emitted label either
-// placed or suppressed, so a silently skipped mark and a silently dropped caption are refusals rather than a
-// diagram that renders short. NAMED ABSENCE: there is no `Culled` column — this plane culls nothing, the
-// recorder's own R-tree culls at replay, and a permanently zero column is decorative accounting.
 public readonly record struct PackTally(int Bytes, int Ops, int Marks, int Drawn, int Labels, int Placed, int Suppressed);
 
-// One sealed pack per route. Layout fold, per-band pigment and geometry resolves, label placement, and the
-// label channel run ONCE; the live materialize replays the record onto the owned surface, the render twin
-// replays the SAME record onto the proof grab's surface, and the drafting export reads the `Vector` marks THIS
-// pass captured. CullRect bounds the record to the raster extent so replay clips without re-admitting, and
-// `Bytes` is the WHOLE retained cost — the picture's native bytes plus the retained vector characters at two
-// bytes each — because a twin held in UTF-16 strings beside the picture is memory the picture's own accounting
-// never sees. The route carries the working space the pigments were resolved INTO, so a twin grabbing a P3
-// frame off an sRGB-baked record is unrepresentable rather than a rasterizer divergence nobody can attribute.
 public sealed record VisualRecord(
     RecordRoute Route,
     SKPicture Picture,
@@ -632,9 +495,7 @@ public sealed record VisualRecord(
     public void Dispose() => Picture.Dispose();
 }
 
-// --- [CATALOG] --------------------------------------------------------------------------
-// DERIVED_LOGIC collapse: every kind shares one generative structure — a wire key, a payload case, a layout
-// fold, a label fold, an ink axis — so the family is ONE frozen row catalog with the folds as delegate columns.
+// --- [CATALOG] -------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -645,31 +506,20 @@ public sealed partial class CustomVisual {
     public static readonly CustomVisual Funnel = new("funnel", CustomVisuals.Funnel, CustomVisuals.WeightedLabels, InkAxis.Ramped);
     public static readonly CustomVisual ParallelCoordinates = new("parallel-coordinates", CustomVisuals.ParallelCoordinates, CustomVisuals.AxesLabels, InkAxis.Ramped);
     public static readonly CustomVisual Network = new("network", CustomVisuals.Network, CustomVisuals.NoLabels, InkAxis.Ramped);
-    // Both plan rows read ONE `VisualPayload.Plan`: the gantt row draws the planner reading and the timeline row
-    // the state reading, which merges equal consecutive states per track and preserves the gaps between them.
-    // Two readings of one plan are two rows only because the FOLDS differ.
     public static readonly CustomVisual Gantt = new("gantt", CustomVisuals.Plan, CustomVisuals.PlanLabels, InkAxis.Ramped);
     public static readonly CustomVisual Timeline = new("timeline", CustomVisuals.Timeline, CustomVisuals.TimelineLabels, InkAxis.Ramped);
     public static readonly CustomVisual Legend = new("legend", CustomVisuals.Legend, CustomVisuals.LegendLabels, InkAxis.Carried);
     public static readonly CustomVisual Sunburst = new("sunburst", CustomVisuals.Sunburst, CustomVisuals.NoLabels, InkAxis.Ramped);
     public static readonly CustomVisual Flame = new("flame", CustomVisuals.Flame, CustomVisuals.FlameLabels, InkAxis.Ramped);
-    // The lattice pitch is a DECLARED aggregation choice — it decides how many source points collapse into one
-    // cell, which is the whole analytical content of a hexbin — so it rides the row rather than the theme's
-    // metric ladder, where a density flip would silently re-aggregate the data.
     public static readonly CustomVisual Hexbin = new("hexbin",
         static (payload, frame) => CustomVisuals.Hexbin(payload, frame, CustomVisuals.HexPitchPx), CustomVisuals.NoLabels, InkAxis.Ramped);
     public static readonly CustomVisual GeoArc = new("geo-arc", CustomVisuals.GeoArc, CustomVisuals.NoLabels, InkAxis.Ramped);
     public static readonly CustomVisual Trip = new("trip", CustomVisuals.Trip, CustomVisuals.NoLabels, InkAxis.Ramped);
     public static readonly CustomVisual Extrusion = new("extrusion", CustomVisuals.Extrusion, CustomVisuals.NoLabels, InkAxis.Ramped);
     public static readonly CustomVisual Terrain = new("terrain", CustomVisuals.Terrain, CustomVisuals.NoLabels, InkAxis.Ramped);
-    // The climate family, whose folds `climate.md` owns. Each pair reads ONE payload at two readings; `Comfort`
-    // is deliberately ONE row where a naive roster would carry two, because psychrometric and adaptive comfort
-    // differ in frame, zones, and curves — all payload data — and in nothing a fold does.
     public static readonly CustomVisual WindRose = new("wind-rose", CustomVisuals.WindRose, CustomVisuals.RoseLabels, InkAxis.Ramped);
     public static readonly CustomVisual RadiationRose = new("radiation-rose", CustomVisuals.RadiationRose, CustomVisuals.RoseLabels, InkAxis.Ramped);
     public static readonly CustomVisual SunPath = new("sun-path", CustomVisuals.SunPathDome, CustomVisuals.SunPathLabels, InkAxis.Ramped);
-    // The chart row binds its OWN cartesian label fold — the dome fold seats hour captions through the DOME
-    // projection, so sharing it drew every caption in a frame the chart's marks were not in.
     public static readonly CustomVisual SunPathChart = new("sun-path-chart", CustomVisuals.SunPathChart, CustomVisuals.SunChartLabels, InkAxis.Ramped);
     public static readonly CustomVisual SkyDome = new("sky-dome", CustomVisuals.SkyDome, CustomVisuals.NoLabels, InkAxis.Ramped);
     public static readonly CustomVisual Comfort = new("comfort", CustomVisuals.Comfort, CustomVisuals.ComfortLabels, InkAxis.Ramped);
@@ -684,12 +534,6 @@ public sealed partial class CustomVisual {
 
     public InkAxis Axis { get; }
 
-    // Pack runs ONCE: admit, lay out, then walk the stroke seq by DISTINCT band in `(Plane, Ink)` order — one
-    // pigment resolve and one geometry write per band onto the one scratch paint — then place and draw the
-    // labels into the recorder's canvas, which the recorder owns and this fold never disposes. Banding by the
-    // whole key is what lets one kind mix a filled area with a dashed outline in one emission; the dash effect
-    // is band-scoped because a `PathEffect` left on the paint dashes the next band's marks; and one sweep
-    // captures each stroke's SVG twin and releases its path whether the label channel succeeded or refused.
     public Fin<VisualRecord> Record(CustomVisualData data, SKImageInfo info) =>
         Admit(data, info).Bind(_ => Layout(data.Payload, new LayoutFrame(info, data.Style.Metrics))).Bind(strokes => {
             VisualCodec.EncodeRow encode = data.Style.Encode;
@@ -699,9 +543,6 @@ public sealed partial class CustomVisual {
             SKCanvas canvas = recorder.BeginRecording(cull, useRTree: true);
             using SKPaint paint = new() { IsAntialias = true };
             using SKColorSpace working = encode.Color.Working.Space();
-            // Grouping and ordering both leave the carrier, so the banded run and each band's own members
-            // re-enter through `toSeq` before the effecting walk reads them; the walk TALLIES rather than
-            // iterating blind, because the seal's claim is that every emitted stroke reached the canvas.
             int drawn = toSeq(strokes
                     .GroupBy(static stroke => stroke.Band)
                     .OrderBy(static band => band.Key.Plane.Order)
@@ -722,9 +563,6 @@ public sealed partial class CustomVisual {
                 return new VectorMark(scoped.ToSvgPathData(),
                     stroke.Pigment.IfNone(() => data.Style.Pigment(stroke.Ink)), stroke.Style);
             }).Strict();
-            // Labels resolve BEFORE the seal: sealing first and refusing after orphans an SKPicture no arm owns,
-            // because the recorder is disposed at scope exit while the sealed list is not. Measurement precedes
-            // placement because a box the shaper did not produce cannot be decluttered honestly.
             Seq<LabelMark> labels = Labels(data.Payload, frame);
             return labels
                 .Traverse(mark => data.Style.Label.Measure(mark.Text).Map(box => (Mark: mark, Measured: box)))
@@ -738,12 +576,6 @@ public sealed partial class CustomVisual {
                     vector, strokes.Count, drawn, labels.Count, placed));
         });
 
-    // Layout duration is measured around Record — the ONE pack — so the instrument reads the fold cost and the
-    // replay costs nothing beyond a canvas walk. Materialize HANDS THE RECORD BACK: the twin replays the same
-    // sealed pack, so releasing it here would make a live-plus-twin pair record twice. It owns the rasterized
-    // image alone and releases it on every arm, and a failure after the seal releases the record it can no
-    // longer hand to anyone. A `Gauged` bracket is REFUSED: this page declares no `IGaugeLane` any consumer
-    // reads, and a lane roster whose bound nothing reads is decorative density.
     public IO<Fin<(RenderReceipt Receipt, VisualRecord Record)>> Materialize(
         VisualRuntime runtime, CustomVisualData data, SKImageInfo info) =>
         from gauged in IO.lift<Fin<(VisualRecord Record, Duration Layout)>>(() => Gauged(runtime.Line, data, info))
@@ -769,8 +601,6 @@ public sealed partial class CustomVisual {
             Fail: error => IO.pure(Fin.Fail<(RenderReceipt, VisualRecord)>(error)))
         select receipt;
 
-    // Timing and packing are one settled value so a failed close/elapsed read releases a record already minted.
-    // The caller receives the record only after the measure sink and replay have both accepted it.
     Fin<(VisualRecord Record, Duration Layout)> Gauged(
         MonotonicTimeline line, CustomVisualData data, SKImageInfo info) =>
         line.Capture(PackOp).Bind(opened => Record(data, info).Bind(record =>
@@ -779,10 +609,6 @@ public sealed partial class CustomVisual {
              select (Record: record, Layout: Duration.FromTimeSpan(elapsed)))
             .MapFail(error => (fun(record.Dispose)(), error).Item2))));
 
-    // RenderTwin re-keys the proof lane to the record's OWN route cell and gamut and BUILDS its grab from the
-    // sealed picture, so the caller supplies no arrow at all: everything a grab needed was already in the
-    // record. The posture column is inert on this lane by construction — shaping ran at pack time and the
-    // captions are ops inside the picture — so a golden here proves rasterization, never text policy.
     public Fin<CaptureRow> RenderTwin(
         VisualRecord record, (ThemeVariantRow Variant, DensityRow Density) cell, RenderHashLane lane) =>
         (lane with { Key = record.Route.Cell(cell.Variant, cell.Density), Gamut = record.Route.Encode.Color })
@@ -792,20 +618,12 @@ public sealed partial class CustomVisual {
                     (int)Math.Round(record.Cull.Width * scale), (int)Math.Round(record.Cull.Height * scale))))
                 select (image, Some(record.Picture)));
 
-    // The ONE replay both the live materialize and the proof twin cross: the sealed picture onto an owned
-    // surface in the policy's own working space and pixel format, so a twin cannot raster under a space the
-    // record never held.
     static Fin<SKImage> Replay(VisualRecord record, VisualCodec.ColorPolicy policy, SKImageInfo info) {
         using SKColorSpace working = policy.Working.Space();
         return new DrawSource.Owned(info.WithColorType(policy.Surface).WithColorSpace(working))
             .Materialize(canvas => { record.Picture.Playback(canvas); return Fin.Succ(unit); });
     }
 
-    // The seal admits the WHOLE pack: every emitted stroke drew, every emitted label placed or suppressed, and
-    // the retained cost — picture bytes plus retained vector characters — sits under the ceiling. The picture
-    // disposes at any refusal because no arm downstream can own it. The style's ramp arity is NOT re-checked
-    // here: `Of` refused a short ramp and `Ramp` is immutable on a resolved style, so the second gate could
-    // never fire, and the gate that WAS missing is the style-to-kind agreement `Admit` now proves.
     static Fin<VisualRecord> Seal(
         RecordRoute route, SKPicture picture, CustomVisualData data, SKRect cull, Seq<VectorMark> vector,
         int marks, int drawn, int labels, Placement placed) {
@@ -827,8 +645,6 @@ public sealed partial class CustomVisual {
                 Fail: error => (fun(picture.Dispose)(), Fin.Fail<VisualRecord>(error)).Item2);
     }
 
-    // The style's vocabulary is typed and its width table total, so admission reads what remains caller-supplied
-    // — and it ACCUMULATES, because a caller handing a blank key against a zero extent learns both.
     Fin<Unit> Admit(CustomVisualData data, SKImageInfo info) =>
         (Claim(!string.IsNullOrWhiteSpace(data.Key), "data key must be non-empty"),
          Claim(info.Width > 0 && info.Height > 0, $"raster extent {info.Width}x{info.Height} must be positive"),
@@ -841,32 +657,17 @@ public sealed partial class CustomVisual {
               : Validation<Error, Unit>.Fail((Error)new ChartFault.VisualDegenerate($"custom-visual: {detail}"));
 }
 
-// --- [FOLD_TABLE] -----------------------------------------------------------------------
-// Partial because `[03]-[PLAN_GRAMMAR]` carries the plan folds in the cluster that owns the plan vocabulary and
-// `climate.md` carries the rose, sky, and comfort folds in the clusters that own theirs: the fold table stays
-// ONE owner while each cluster declares the folds its own rows read.
+// --- [FOLD_TABLE] ----------------------------------------------------------------------
 public static partial class CustomVisuals {
-    // The artifact address every custom-visual receipt carries. `ArtifactKind` is OPEN by proof and names this
-    // page's row at its own declaration, so the kind is a typed value here and the evidence fan's route table
-    // reads it through the generated key conversion rather than through a second string const.
     public static readonly ArtifactKind Kind = ArtifactKind.Create("custom-visual");
 
-    // Wedge nesting and the wedge ink axis both measure against this angular whole.
     internal const double FullTurn = 360d;
 
-    // The hexbin lattice pitch — an aggregation choice, not a layout metric (`CustomVisual.Hexbin` states why).
     internal const float HexPitchPx = 18f;
 
-    // The corner count IS the lattice's own geometry, so the ring walks the same six vertices the pitch pair
-    // derives its steps from. Six iterations need no span kernel and claim no exemption.
     internal const int HexCorners = 6;
 
-    // --- [CONSTANTS] ------------------------------------------------------------------------
-    // Rendered counts ride the evidence fan's render arm on the Kind slot; layout duration records direct around
-    // the pack, where the measured fold value is in hand. NAMED DELETION: the labels-suppressed instrument is
-    // gone — `VisualRuntime` publishes a duration-shaped `Measure` alone, so no arm on this page's own boundary
-    // row could ever write a count, and the suppressed tally reads off `VisualRecord.Tally` instead. A declared
-    // row nothing writes is a series that stays permanently empty.
+    // --- [CONSTANTS] -------------------------------------------------------------------
     public static readonly InstrumentSpec Rendered = InstrumentSpec.Create(
         "rasm.appui.customvisual.rendered", InstrumentKind.Count, MeasureForm.Whole, "{render}",
         "custom-visual tiles rendered", Seq<string>(), None, None, None);
@@ -875,30 +676,20 @@ public static partial class CustomVisuals {
         "rasm.appui.customvisual.layout.elapsed", InstrumentKind.Distribution, MeasureForm.Real, "s",
         "custom-visual layout-fold duration", Seq<string>(), Some(Buckets.InteractionSeconds), None, None);
 
-    // --- [SERVICES] -------------------------------------------------------------------------
+    // --- [SERVICES] --------------------------------------------------------------------
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Rendered, Layout);
 
-    // --- [OPERATIONS] -----------------------------------------------------------------------
-    // One payload gate serves every fold: each narrows to its own case or rejects with the typed mismatch fault
-    // naming the payload's own total `Case` projection, so the kind vocabulary stays the sole owner of payload
-    // discrimination and a reflected type name never reaches a fault message.
+    // --- [OPERATIONS] ------------------------------------------------------------------
     internal static Fin<TCase> Expect<TCase>(VisualPayload payload, string kind) where TCase : VisualPayload =>
         payload is TCase expected
             ? Fin.Succ(expected)
             : Fin.Fail<TCase>(new ChartFault.PayloadMismatch(kind, payload.Case));
 
-    // The label folds narrow through the SAME gate and drop to an empty roster on a mismatch, because `Layout`
-    // already rejected that payload with the typed fault and a second refusal on one fact reports it twice.
     internal static Seq<LabelMark> Marks<TCase>(VisualPayload payload, string kind, Func<TCase, Seq<LabelMark>> fold)
         where TCase : VisualPayload =>
         Expect<TCase>(payload, kind).Match(Succ: fold, Fail: static _ => Seq<LabelMark>());
 
-    // The ONE polyline writer every point-run fold on this plane crosses, so an open trace and a closed ring
-    // differ by one column rather than by eight hand-spelled head-versus-tail ladders. The indexed walk takes
-    // the INDEX FIRST, which is the opposite of the indexed projection's own `(value, index)` arity: every copy
-    // of the ladder that spelled the projection's order bound the tuple to the ordinal and failed at the member
-    // read, so one writer is also what retires that whole class of mis-binding.
     internal static void Polyline(SKPath path, Seq<(float X, float Y)> points, Closure closure) {
         points.Iter((index, point) => {
             if (index == 0) { path.MoveTo(point.X, point.Y); } else { path.LineTo(point.X, point.Y); }
@@ -907,9 +698,6 @@ public static partial class CustomVisuals {
     }
 
     // --- [LAYOUT_FOLDS]
-    // Each emits ONE stroke per element, names its plane, and inks that stroke from the element's own measure
-    // against the maximum the fold already holds; every seq strictifies because the mint allocates a native path
-    // per element and a lazy re-enumeration would mint a second set.
 
     internal static Fin<Seq<VisualStroke>> Sankey(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Flow>(payload, "sankey").Bind(flow =>
@@ -921,9 +709,6 @@ public static partial class CustomVisuals {
                     ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualDegenerate("sankey: node identity and flow weight must be admitted"))
                     : Fin.Succ(RibbonStrokes(flow, frame.Info)));
 
-    // Thickness is the edge's own FRACTION of the peak flow the fold already holds, so the widest ribbon is half
-    // a lane and an unbounded raw weight cannot overrun the canvas; one measure drives both the geometry and the
-    // ink, so a ribbon's width and its pigment can never disagree. An all-zero flow set scales against one.
     private static Seq<VisualStroke> RibbonStrokes(VisualPayload.Flow flow, SKImageInfo info) {
         double maximum = flow.Flows.Max(static edge => edge.Weight);
         double scale = maximum > 0d ? maximum : 1d;
@@ -956,12 +741,6 @@ public static partial class CustomVisuals {
                 ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualDegenerate("waterfall: steps must be nonempty and finite"))
                 : Fin.Succ(ColumnStrokes(step, frame.Info)));
 
-    // Two passes over one measure. The first folds each step into its (from, to) endpoint pair in CUMULATIVE
-    // VALUE space through the row's own `StepKind` bridge, and the second projects those endpoints through the
-    // EXTENT of the whole bridge (the zero line always admitted, so an all-positive run still anchors at the
-    // baseline). Dividing the cursor by the step COUNT was a cardinality standing in for the cumulative range:
-    // four +100 steps drove a hundred canvases of travel. The span floor is the kernel degeneracy tolerance —
-    // `double.Epsilon` is a denormal, so a guard against it divided by a value whose quotient answers infinity.
     private static Seq<VisualStroke> ColumnStrokes(VisualPayload.Step step, SKImageInfo info) {
         double maximum = step.Steps.Max(static row => Math.Abs(row.Delta));
         float width = info.Width / (float)step.Steps.Count;
@@ -984,8 +763,6 @@ public static partial class CustomVisuals {
         }).Strict();
     }
 
-    // Cumulative value to canvas y, origin top-left: the one projection both bridge endpoints cross, so a
-    // column's top and bottom can never read two different scales.
     static float Rise(double value, double lo, double span, int height) =>
         (float)(height - ((value - lo) / span * height));
 
@@ -1015,10 +792,6 @@ public static partial class CustomVisuals {
         }).Strict();
     }
 
-    // Every series is one OPEN polyline, so the stroke names its mark row: a fill of an unclosed path is a
-    // zero-area region and rendered nothing at all. There is no polar sibling beside this fold — an angular
-    // reading of the same axes is `ChartSeriesKind.PolarLine` on the chart rail, which ships the axes, the hit
-    // testing, the tooltip, and the animation a hand-rolled trigonometric path could never carry.
     internal static Fin<Seq<VisualStroke>> ParallelCoordinates(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Axes>(payload, "parcoords").Bind(axes =>
             AdmitAxes(axes, "parcoords").Map(normalized => axes.Series.Map(row => VisualStroke.Of(path => {
@@ -1038,11 +811,6 @@ public static partial class CustomVisuals {
                     ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualDegenerate("network: edge endpoint or weight is invalid"))
                     : Fin.Succ(EdgeStrokes(net, frame)));
 
-    // Edges carry the weight axis one stroke each and each is an OPEN line — the pinned fill path drew none of
-    // them — while the node marks carry no weight, so every vertex circle rides ONE uniform filled stroke on the
-    // LINK plane above them rather than shattering a weightless mark set into per-node pigment bands. Two mark
-    // geometries on two planes in one emission are exactly what the band key exists to carry. Peak folds rather
-    // than reduces, so a vertex-only graph inks its marks with no empty-max probe.
     private static Seq<VisualStroke> EdgeStrokes(VisualPayload.Network net, LayoutFrame frame) {
         double maximum = net.Edges.Fold(0d, static (peak, edge) => Math.Max(peak, edge.Weight));
         SKImageInfo info = frame.Info;
@@ -1064,9 +832,6 @@ public static partial class CustomVisuals {
                 ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualEmpty("sunburst: no wedges"))
                 : AdmitWedges(rings.Wedges, "sunburst").Map(nesting => WedgeStrokes(nesting, frame.Info)));
 
-    // Wedges ink by their own angular share of the full turn — each arc already carries that measure, so nesting
-    // hands no second weight and a leaf reads lighter than the ring enclosing it. Ring width resolves once off
-    // the deepest wedge instead of per arc.
     private static Seq<VisualStroke> WedgeStrokes(WedgeNesting nesting, SKImageInfo info) {
         float cx = info.Width * 0.5f, cy = info.Height * 0.5f;
         float ringWidth = Math.Min(cx, cy) / (nesting.Depth + 1);
@@ -1080,18 +845,12 @@ public static partial class CustomVisuals {
             }, StrokePlane.Mark, StrokeStyle.Fill, new StrokeInk.Measured(arc.Sweep, FullTurn))).Strict();
     }
 
-    // The RECTANGULAR reading of the same nesting the ring reads radially. A flame graph and a sunburst differ
-    // in fold, not in data: both ask what share of its parent a nested value holds, and only the coordinate the
-    // share is spelled in changes, so a second payload case for call-stack spans is the deleted form.
     internal static Fin<Seq<VisualStroke>> Flame(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Wedge>(payload, "flame").Bind(tree =>
             tree.Wedges.IsEmpty
                 ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualEmpty("flame: no spans"))
                 : AdmitWedges(tree.Wedges, "flame").Map(nesting => FlameStrokes(nesting, frame.Info)));
 
-    // Depth grows DOWNWARD from the top edge so the root reads as the widest bar and a deep stack reads as a
-    // descending staircase — the orientation a profile is read in. Row height resolves once off the deepest
-    // span, and each bar inks by its own share of the root so a hot leaf reads heavier than its frames.
     private static Seq<VisualStroke> FlameStrokes(WedgeNesting nesting, SKImageInfo info) {
         float rowHeight = info.Height / (nesting.Depth + 1);
         return nesting.Spans.Map(span => VisualStroke.Of(path =>
@@ -1114,9 +873,6 @@ public static partial class CustomVisuals {
                         ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualDegenerate("hexbin: lattice pitch must be positive"))
                         : Fin.Succ(HexbinStrokes(Bin(geo.Points, geo.Projection, frame.Info, radiusPx)));
 
-    // Binned weight drives BOTH a cell's hexagon radius and its ink, so a dense cell reads dense on the size
-    // axis and the pigment axis at once. The ring crosses the one polyline writer, so a hexagon closes exactly
-    // as a terrain cell and a comfort zone do.
     private static Seq<VisualStroke> HexbinStrokes(Seq<HexCell> cells) {
         double maximum = cells.Max(static cell => cell.Weight);
         return cells.Map(cell => VisualStroke.Of(path => {
@@ -1138,8 +894,6 @@ public static partial class CustomVisuals {
                     ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualDegenerate("geoarc: coordinates and weights must be finite and positive"))
                     : Fin.Succ(GeoArcStrokes(geo, frame.Info)));
 
-    // Each arc is an open quadratic and names its stroke row: a great-circle flight line has no interior to
-    // fill, so the pinned fill path rendered an empty geo-arc layer at every weight.
     private static Seq<VisualStroke> GeoArcStrokes(VisualPayload.GeoArcs geo, SKImageInfo info) {
         double maximum = geo.Arcs.Max(static arc => arc.Weight);
         return geo.Arcs.Map(arc => VisualStroke.Of(path => {
@@ -1151,8 +905,6 @@ public static partial class CustomVisuals {
         }, StrokePlane.Mark, StrokeStyle.Solid, new StrokeInk.Measured(arc.Weight, maximum))).Strict();
     }
 
-    // Time-ordered by law: each leg retains samples at or before Cursor, orders by At, and stamps its head at
-    // that visible prefix's arc-length end, so future samples cannot appear before their time.
     internal static Fin<Seq<VisualStroke>> Trip(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.GeoTrips>(payload, "trip").Bind(geo =>
             geo.Trips.IsEmpty
@@ -1162,18 +914,11 @@ public static partial class CustomVisuals {
                     ? Fin.Fail<Seq<VisualStroke>>(new ChartFault.VisualDegenerate("trip: every trajectory needs finite coordinates and a positive weight"))
                     : Fin.Succ(TripStrokes(geo, frame)));
 
-    // Leg and head are two strokes at ONE ink on two planes, so the trajectory and its moving head share exactly
-    // one pigment while each takes the mark geometry it needs — the leg an open stroked polyline, the head a
-    // filled dot that draws over it. Packing both into one path forced one geometry on both and drew the head as
-    // a hollow ring the moment the leg became strokeable. The head radius is a BAND around the theme's node
-    // metric rather than two pixel literals, so a density flip moves the head with every other mark.
     private static Seq<VisualStroke> TripStrokes(VisualPayload.GeoTrips geo, LayoutFrame frame) {
         double maximum = geo.Trips.Max(static trip => trip.Weight);
         SKImageInfo info = frame.Info;
         float floor = frame.Metrics.Node * 0.5f, ceiling = frame.Metrics.Node * 3f;
         return geo.Trips.Bind(trip => {
-            // The ordering leaves the carrier, so the time-ordered prefix re-enters through `toSeq` before the
-            // emptiness read and the projection walk consume it.
             Seq<TripNode> visible = toSeq(trip.Path.Filter(node => node.At <= geo.Cursor).OrderBy(static node => node.At));
             if (visible.IsEmpty) { return Seq<VisualStroke>(); }
             VisualStroke leg = VisualStroke.Of(
@@ -1189,8 +934,6 @@ public static partial class CustomVisuals {
         }).Strict();
     }
 
-    // Column shaft and sheared top face merge through `SKPath.Op(Union)` into ONE clean silhouette per column,
-    // so overlapping subpaths never double-fill or cancel under the fill winding rule.
     internal static Fin<Seq<VisualStroke>> Extrusion(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.GeoPoint>(payload, "extrusion").Bind(geo =>
             geo.Points.IsEmpty
@@ -1220,8 +963,6 @@ public static partial class CustomVisuals {
             }, StrokePlane.Mark, StrokeStyle.Fill, new StrokeInk.Measured(column.Weight, maximum))).Strict());
     }
 
-    // Explicit grid admission: dimensions own topology and sequence order never guesses a square grid. Each cell
-    // inks by its OWN mean elevation over the grid span, so a ridge cell reads darker than the valley beside it.
     internal static Fin<Seq<VisualStroke>> Terrain(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Terrain>(payload, "terrain").Bind(terrain =>
             terrain.Samples.IsEmpty
@@ -1246,11 +987,6 @@ public static partial class CustomVisuals {
             new StrokeInk.Measured((cell.Sum(static sample => sample.Height) / cell.Count) - lo, span))).Strict());
     }
 
-    // The grid walk is a `Span2D` window, so the `(row, column) -> origin` arithmetic the hand double loop
-    // re-derived per cell is stated ONCE by the plane's own addressing and the four-corner gather is a windowed
-    // read. `Span2D<T>` is a ref struct barred from lambda capture, so the gather and the mint are two phases by
-    // language constraint, not by taste — the cells materialize here and the native path mint runs outside.
-    // `TensorPrimitives` is REFUSED: there is no elementwise numeric reduction here, only a corner gather.
     static Seq<Seq<TerrainSample>> Cells(VisualPayload.Terrain terrain) {
         ReadOnlySpan2D<TerrainSample> grid = terrain.Samples.ToArray().AsMemory().AsMemory2D(terrain.Rows, terrain.Columns).Span;
         Seq<Seq<TerrainSample>> cells = Seq<Seq<TerrainSample>>();
@@ -1264,8 +1000,6 @@ public static partial class CustomVisuals {
     }
 
     // --- [LEGEND]
-    // Swatches at the entry's OWN pigment, laid down the extent or across it by the payload's own flow row.
-    // Nothing here reduces, samples, or orders: the legend owner already resolved every entry.
 
     internal static Fin<Seq<VisualStroke>> Legend(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Legend>(payload, "legend").Bind(legend =>
@@ -1278,9 +1012,6 @@ public static partial class CustomVisuals {
                     StrokePlane.Mark, StrokeStyle.Fill, new StrokeInk.Carried(entry.Swatch))).Strict()));
 
     // --- [LABEL_FOLDS]
-    // Pure anchor-placement-and-priority projections the record's declutter fold consumes. Every fold hands the
-    // element's OWN significance as the priority — a node's value, a step's magnitude, a series' level — so a
-    // field too dense to caption whole drops the least significant rather than whichever came last.
 
     internal static Seq<LabelMark> NoLabels(VisualPayload payload, LayoutFrame frame) => Seq<LabelMark>();
 
@@ -1303,11 +1034,6 @@ public static partial class CustomVisuals {
         Marks<VisualPayload.Axes>(payload, "parcoords", axes => axes.Series.Map((row, index) => LabelMark.Of(
             row.Series, new SKPoint(4f, 12f * (index + 1)), LabelPlacement.Start, axes.Series.Count - index)));
 
-    // A caption rides a span only where its own bar can hold one, so a dense stack keeps the wide frames legible
-    // and drops the slivers instead of stacking unreadable glyphs. The floor is the theme's caption metric — a
-    // fold-local pixel constant could not move with the density the tile mounts at — and it is stated HERE
-    // rather than at the placement fold so the suppression tally counts decluttering decisions rather than marks
-    // that were never renderable.
     internal static Seq<LabelMark> FlameLabels(VisualPayload payload, LayoutFrame frame) =>
         Marks<VisualPayload.Wedge>(payload, "flame", tree =>
             AdmitWedges(tree.Wedges, "flame").Match(
@@ -1323,9 +1049,6 @@ public static partial class CustomVisuals {
                 },
                 Fail: static _ => Seq<LabelMark>()));
 
-    // The label field a legend carries: the entry name beside its swatch, its printed domain position where it
-    // has one, and one caption per statistics column. Priority descends with the entry's own order, and the
-    // statistics captions rank below every name so a cramped legend loses its columns before its keys.
     internal static Seq<LabelMark> LegendLabels(VisualPayload payload, LayoutFrame frame) =>
         Marks<VisualPayload.Legend>(payload, "legend", legend => legend.Entries.Map((entry, index) => {
             SKRect swatch = legend.Flow.Swatch(index, legend.Entries.Count, frame);
@@ -1340,9 +1063,6 @@ public static partial class CustomVisuals {
 
     // --- [AXIS_NORMALIZATION]
 
-    // One axes admission the axis kinds share: arity equality and value totality ACCUMULATE, so a caller whose
-    // series disagree in arity AND carry a non-finite reading learns both, and the fold hands back the per-axis
-    // normalizer so no consumer re-derives the column bounds.
     static Fin<Func<int, double, double>> AdmitAxes(VisualPayload.Axes axes, string kind) =>
         axes.Series.IsEmpty || axes.Series[0].Values.IsEmpty
             ? Fin.Fail<Func<int, double, double>>(new ChartFault.VisualEmpty($"{kind}: no series axes"))
@@ -1353,17 +1073,12 @@ public static partial class CustomVisuals {
                 .Apply((_, _) => NormalizeAxes(axes.Series))
                 .ToFin();
 
-    // Series ink is the mean normalized position across a row's own axes, so a high-reading row inks darker than
-    // a low one. The total is an explicit fold rather than an unseeded reduction, because a bare `Sum` over the
-    // carrier resolves ambiguously between the foldable read and the enumerable one and reaches neither.
     static double SeriesLevel(Seq<double> values, Func<int, double, double> normalized) =>
         values.Map((value, axis) => normalized(axis, value)).Fold(0d, static (total, level) => total + level)
             / values.Count;
 
     static Func<int, double, double> NormalizeAxes(Seq<SeriesRow> series) {
         int axisCount = series[0].Values.Count;
-        // Each column's bounds fold from the INFINITE identities, so the pair is total over an empty column and
-        // the degenerate-bound arm below answers the midpoint rather than dividing by nothing.
         (double Lo, double Hi)[] bounds = Enumerable.Range(0, axisCount)
             .Select(axis => {
                 Seq<double> column = series.Map(row => row.Values[axis]);
@@ -1378,28 +1093,13 @@ public static partial class CustomVisuals {
 
     // --- [WEDGE_NESTING]
 
-    // One binned lattice cell: a named row rather than a four-slot tuple, because the projection and the ink
-    // both read its members by name and a transposed centroid pair is a silent lattice shear.
     internal readonly record struct HexCell(float Cx, float Cy, float Radius, double Weight);
 
-    // The admitted nesting: the node roster the spans index back into, the spans themselves, and the deepest
-    // level both readings size their ring or row off. One admission answers all three, so the ring, the bar, and
-    // the caption fold cannot disagree about which tree they are drawing.
     internal sealed record WedgeNesting(Seq<WedgeNode> Nodes, Seq<WedgeSpan> Spans, int Depth);
 
-    // The parent-share nesting the sunburst ring, the flame row, and the `Diagnostics/devloop#LOOP_SURFACES`
-    // hit-test all read, answered in UNIT FRACTIONS of the root span so every reading scales it into its own
-    // coordinate. The node INDEX rides each span so a reading reaches back to the label and weight its producer
-    // threaded — an arc triple carrying geometry alone forced every consumer to re-walk the tree.
     internal static Seq<WedgeSpan> WedgeSpans(Seq<WedgeNode> nodes) =>
         AdmitWedges(nodes, "wedge").Match(Succ: static nesting => nesting.Spans, Fail: static _ => Seq<WedgeSpan>());
 
-    // Tree admission ACCUMULATES every violated claim, then folds the parent pointers into ONE QuikGraph
-    // container whose `OutEdges` ARE the child reads — the hand `Filter(parent == …)` per level walked the whole
-    // roster once per node. Out-edge order is the insertion order this fold builds in, which is declaration
-    // order, and the cursor that lays sibling spans depends on it. `IsDirectedAcyclicGraph` is REFUSED here: the
-    // depth ladder below is the STRONGER claim, because a DAG check admits a parent at any depth while the
-    // ladder proves every edge descends exactly one level, which is what makes the walk terminate.
     static Fin<WedgeNesting> AdmitWedges(Seq<WedgeNode> nodes, string kind) =>
         (Claim(nodes.ForAll(static node => double.IsFinite(node.Value) && node.Value > 0d),
                $"{kind}: every wedge value must be finite and positive"),
@@ -1423,9 +1123,6 @@ public static partial class CustomVisuals {
             nodes.Max(static node => node.Depth));
     }
 
-    // Parent-share nesting: a child sweeps inside its PARENT's span from the parent's start — the share is the
-    // value over the parent's child total — so depth rings nest structurally and a flat root-share ring across
-    // every depth is the deleted form.
     static Seq<WedgeSpan> Nested(
         Seq<WedgeNode> nodes, BidirectionalGraph<int, SEdge<int>> tree, int parent, double start, double span) {
         Seq<int> children = tree.ContainsVertex(parent)
@@ -1448,8 +1145,6 @@ public static partial class CustomVisuals {
     // --- [HEX_LATTICE]
 
     static Seq<HexCell> Bin(Seq<GeoSample> points, GeoProjection projection, SKImageInfo info, float radiusPx) {
-        // The lattice pitch pair IS the hexagon's own geometry — 3/2 the circumradius across, root-three down —
-        // so the vertical step derives rather than carrying a transcribed 1.732 nobody could re-derive.
         float dx = radiusPx * 1.5f, dy = radiusPx * MathF.Sqrt(3f);
         return toSeq(points
             .Map(point => {
@@ -1466,15 +1161,10 @@ public static partial class CustomVisuals {
             .Map(cell => cell with { Radius = radiusPx });
     }
 
-    // The accumulator the centroid fold threads, named because a four-slot tuple in an `Aggregate` seed is where
-    // a transposed pair reads as a plausible lattice.
     readonly record struct Centroid(float X, float Y, int N, double Weight);
 
     // --- [SQUARIFY]
 
-    // Squarified packing threads each node's VALUE beside its scaled area, so a cell inks by its own weight
-    // rather than by its rank in the descending order the algorithm needs internally. The descending order
-    // leaves the carrier, so it re-enters through `toSeq` before the scaling projection reads it.
     static Fin<Seq<(SKRect Rect, double Value)>> Squarify(Seq<WeightNode> nodes, SKRect bounds) {
         double total = nodes.Sum(static node => node.Value);
         if (total <= 0d) { return Fin.Fail<Seq<(SKRect, double)>>(new ChartFault.VisualEmpty("treemap: node weights sum to zero")); }
@@ -1484,8 +1174,6 @@ public static partial class CustomVisuals {
         return Pack(scaled, bounds);
     }
 
-    // The aspect penalty of a candidate row. The three reductions are explicit folds and seeded extremes because
-    // an unseeded `Sum`/`Max`/`Min` over the carrier reaches neither the foldable read nor the enumerable one.
     static double Worst(Seq<double> row, double side, double withCandidate) {
         Seq<double> trial = withCandidate <= 0d ? row : row.Add(withCandidate);
         if (trial.IsEmpty) { return double.PositiveInfinity; }
@@ -1495,21 +1183,12 @@ public static partial class CustomVisuals {
         return Math.Max(w2 * max / s2, s2 / (w2 * min));
     }
 
-    // The packing state as a named value: a four-slot tuple threaded through three signatures made every
-    // position a spelling every arm had to agree about.
     readonly record struct PackState(
         Seq<(double Area, double Value)> Remaining,
         Seq<(double Area, double Value)> Row,
         SKRect Box,
         Seq<(SKRect Rect, double Value)> Placed);
 
-    // Packing is a BOUNDED FIXPOINT rather than a recursion. Every step either moves one cell into the open row
-    // or lays that row and re-opens on the remainder, so a node costs at most one take plus one lay and the walk
-    // settles inside two steps per node plus the closing lay — exactly the ceiling the fold carries. The
-    // recursive spelling was tail-shaped against a runtime that guarantees no tail call, so a ten-thousand-node
-    // treemap killed the process. Past settlement the step is the IDENTITY, so a ceiling wider than the walk
-    // needs costs nothing; a ceiling reached with cells STILL UNPLACED refuses by name, because a
-    // success-shaped fall-through certifies a truncated packing as a complete one.
     static Fin<Seq<(SKRect Rect, double Value)>> Pack(Seq<(double Area, double Value)> scaled, SKRect bounds) =>
         Range(0, (scaled.Count * 2) + 1)
             .Fold(new PackState(scaled, Seq<(double, double)>(), bounds, Seq<(SKRect, double)>()),
@@ -1522,8 +1201,6 @@ public static partial class CustomVisuals {
     static PackState Step(PackState state) {
         float side = Math.Min(state.Box.Width, state.Box.Height);
         Seq<double> areas = state.Row.Map(static cell => cell.Area);
-        // `Seq.Head` answers `Option`, so the head reads through the option and the absent arm IS the terminal:
-        // an exhausted remainder lays whatever row is still open and then holds still.
         return state.Remaining.Head.Match(
             Some: head => state.Row.IsEmpty || Worst(areas, side, 0d) >= Worst(areas, side, head.Area)
                 ? state with { Remaining = state.Remaining.Tail, Row = state.Row.Add(head) }
@@ -1540,10 +1217,6 @@ public static partial class CustomVisuals {
             },
         };
 
-    // The box left over is `Remainder`, never `Rest`: `Rest` is the eighth-slot field name every tuple reserves,
-    // so a tuple element spelled that way is refused at any position. The lay AXIS is a row derived from the
-    // open box, so the cell rectangle and the remainder read one decision instead of two ternaries that had to
-    // agree about which side was still open.
     static (Seq<(SKRect Rect, double Value)> Rects, SKRect Remainder) LayoutRow(
         Seq<(double Area, double Value)> row, SKRect box, float side) {
         double rowSum = row.Sum(static cell => cell.Area);
@@ -1640,11 +1313,8 @@ Every row emits one stroke per element; the plane column is the draw ordinal the
   - `PlanMap` is the ONE seam and it is READER-FREE: every `PlanTask` column comes from exactly one `ConstructionTask` member or one `PlanCell` member, so `RMG020` keeps source-side force and the ignore roster is the planner's own solve inputs a render never reads. `EnabledConversions` excludes `ExplicitCast` because LanguageExt carriers cross this seam and the default binds `Option<T>`'s throwing cast in preference to a registered converter. A hand positional projection beside it is the deleted form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The critical verdict as a row carrying its own INK ELECTION: a critical task inks at the longest content on
-// the board so the chain reads as pigment, a floated task inks by its own working content. The verdict is one
-// bool on the CPM receipt and two behaviours here, so the row owns the second and the bar fold holds no branch.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1659,10 +1329,6 @@ public sealed partial class CriticalPosture {
     public partial double Measure(double content, double longest);
 }
 
-// The ruler grain. `Floor` snaps an instant down to the tier's own boundary in the payload zone and `Step`
-// advances one cell, so the ruler walk is two column reads rather than a per-tier arm; `PatternText` is the
-// NodaTime pattern the payload's own culture binds. The rows are declared coarse to fine, which IS the band
-// order a multi-tier ruler stacks in.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1684,26 +1350,15 @@ public sealed partial class TimescaleTier {
 
     public string PatternText { get; }
 
-    // One pattern per tier per fold rather than per cell: the ruler walk formats every boundary in a tier
-    // through this one value, so a hundred-cell day ruler parses its pattern once.
     public LocalDatePattern Pattern(CultureInfo culture) => LocalDatePattern.Create(PatternText, culture);
 
-    // The tier's own boundary walk over a window, floored to the tier and advanced by its step — the ONE place a
-    // calendar cell sequence exists, so year, quarter, month, week, and day rulers share one walk. Advancing by
-    // `Period` rather than by a fixed duration is what makes a month cell a month rather than thirty days.
     public Seq<LocalDate> Cells(LocalDate from, LocalDate to) =>
         toSeq(List.unfold(Floor(from), cursor =>
             cursor > to ? Option<(LocalDate, LocalDate)>.None : Some((cursor, cursor + Step))));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One planned activity. `Scheduled` is the planner's effective window, `Baseline` what it said when the
-// baseline was taken — the two live side by side because a report whose only reading is the current plan cannot
-// show slip at all. `Content` is the task's own WORKING content on its OWN calendar, which is what a bar inks
-// by; `Grain` is the planning owner's row, so a milestone carries zero duration by construction; `Posture` is
-// the CPM's critical verdict carrying its ink election; `State` is the planning owner's own status row, so a
-// timeline merges on a rostered value rather than on a free string this page would have to compare.
 public sealed record PlanTask(
     string Key,
     string Label,
@@ -1716,29 +1371,15 @@ public sealed record PlanTask(
     CriticalPosture Posture,
     Rasm.Bim.Planning.TaskStatus State);
 
-// The dependency edge over the planning owner's OWN modality roster. A page-local twin with identical keys and
-// identical anchor columns forced `PlanFeed` to round-trip every edge through a string lookup between two
-// rosters that could only ever agree — and to refuse a modality the planner had already resolved.
 public readonly record struct PlanLink(string From, string To, Rasm.Bim.Planning.SequenceKind Kind, Period Lag);
 
-// The exogenous per-task columns the seam folds: a track ordinal, the baseline election, the working content on
-// the task's own calendar, and the CPM verdict. They ride ONE value so the mapper stays reader-free — every
-// target column reads exactly one source member of exactly one of its two arguments.
 public readonly record struct PlanCell(
     int Track, Option<Interval> Baseline, Duration Content, CriticalPosture Posture);
 
-// The one instant-to-pixel projection every plan emitter crosses. The window floors to the COARSEST tier so the
-// leading ruler cell is whole rather than clipped mid-label, and the scale carries the track band height so a
-// bar, its baseline, and its link elbow land on one track geometry. Five emitters each deriving their own scale
-// drifted the moment the window changed. Admission ACCUMULATES: a degenerate window and a negative track are
-// two facts a caller fixes in one pass.
 public readonly record struct PlanScale(Interval Window, DateTimeZone Zone, float Width, float TrackHeight) {
     public static Fin<PlanScale> Of(VisualPayload.Plan plan, SKImageInfo info) {
         if (plan.Tasks.IsEmpty) { return Fin.Fail<PlanScale>(new ChartFault.VisualEmpty("plan: no tasks")); }
         DateTimeZone zone = plan.Locale.Zone;
-        // Both extremes fold from the clock's own identity bounds: an unseeded reduction over the carrier
-        // reaches neither the foldable read nor the enumerable one, and the emptiness gate above already proves
-        // a real task set stands above each seed.
         Instant from = plan.Tasks.Map(static task => task.Baseline.Match(
             Some: baseline => Instant.Min(task.Scheduled.Start, baseline.Start), None: () => task.Scheduled.Start))
             .Min(Instant.MaxValue);
@@ -1761,8 +1402,6 @@ public readonly record struct PlanScale(Interval Window, DateTimeZone Zone, floa
     public float X(Instant at) =>
         (float)((at - Window.Start).TotalTicks / (double)Window.Duration.TotalTicks * Width);
 
-    // Every band a plan draws sits inside its track with the same inset, so bars, baselines, and shading align
-    // across tracks and no emitter picks its own margin.
     public SKRect Band(int track, float top, float height) {
         float origin = track * TrackHeight;
         return new SKRect(0f, origin + (TrackHeight * top), Width, origin + (TrackHeight * (top + height)));
@@ -1773,9 +1412,6 @@ public readonly record struct PlanScale(Interval Window, DateTimeZone Zone, floa
               : Validation<Error, Unit>.Fail((Error)new ChartFault.VisualDegenerate(detail));
 }
 
-// The two bar-end reads a render needs, seated on the planning owner's own modality row rather than re-declared
-// beside it: the lag shifts the TAIL alone, because a lag delays when the successor may begin and never when
-// the predecessor ended.
 public static class PlanAnchors {
     extension(Rasm.Bim.Planning.SequenceKind kind) {
         public Instant Tail(PlanTask from) => kind.FromFinish ? from.Scheduled.End : from.Scheduled.Start;
@@ -1784,13 +1420,9 @@ public static class PlanAnchors {
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class CustomVisuals {
-    // The planner fold. Each emitter NAMES ITS PLANE, so the record's band walk reproduces this layering from
-    // the column: shading under everything, rulers above it, bars and progress on the mark plane, links and
-    // milestones over them, and the data date last because it must read over the whole board. The prior fold
-    // stated that order in a comment and then handed the record an ink-sorted seq that inverted it.
     internal static Fin<Seq<VisualStroke>> Plan(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Plan>(payload, "plan").Bind(plan =>
             PlanScale.Of(plan, frame.Info).Map(scale => {
@@ -1803,9 +1435,6 @@ public static partial class CustomVisuals {
                     + DataDate(plan, scale);
             }));
 
-    // Non-working time is a rendered FACT the calendar already computed, drawn as one full-height band per span
-    // on the GROUND plane; a weekend rule applied here would disagree with the calendar the CPM advanced through
-    // the moment a project declared an exception window.
     static Seq<VisualStroke> Shading(VisualPayload.Plan plan, PlanScale scale) =>
         plan.NonWorking
             .Filter(span => span.End > scale.Window.Start && span.Start < scale.Window.End)
@@ -1815,8 +1444,6 @@ public static partial class CustomVisuals {
                 SKPathDirection.Clockwise), StrokePlane.Ground, StrokeStyle.Fill, StrokeInk.Full))
             .Strict();
 
-    // One tick per cell boundary per tier, each tier one band lower — the walk is `TimescaleTier.Cells`, so a
-    // year ruler and a day ruler are one code path at two column values.
     static Seq<VisualStroke> Rulers(VisualPayload.Plan plan, PlanScale scale, VisualMetrics metrics) =>
         plan.Tiers.Map(static (tier, band) => (Tier: tier, Band: band)).Bind(row => row.Tier
             .Cells(scale.Window.Start.InZone(scale.Zone).Date, scale.Window.End.InZone(scale.Zone).Date)
@@ -1826,9 +1453,6 @@ public static partial class CustomVisuals {
                 path.LineTo(x, (row.Band + 1) * metrics.Ruler);
             }, StrokePlane.Rule, StrokeStyle.Hairline, StrokeInk.Full))).Strict();
 
-    // The grain row DISPATCHES: a milestone is a rotated square on the link plane and an activity is baseline,
-    // bar, and progress on the mark plane. The generated total `Switch` is the point — a third planning grain
-    // breaks this fold at compile time instead of silently drawing every event as a bar.
     static Seq<VisualStroke> Bars(PlanTask task, PlanScale scale, double longest, VisualMetrics metrics) {
         StrokeInk ink = new StrokeInk.Measured(task.Posture.Measure(task.Content.TotalTicks, longest), longest);
         return task.Grain.Switch(
@@ -1871,12 +1495,6 @@ public static partial class CustomVisuals {
             Math.Max(scale.X(window.End), scale.X(window.Start) + 1f), band.Bottom);
     }
 
-    // The dependency elbow: tail off the predecessor end the modality's own column names, lag applied as a
-    // CALENDAR offset in the payload zone (a months-or-years lag resolved by fixed duration mis-prices every
-    // long-lag edge), then a three-segment orthogonal run into the successor end. Both endpoint reads join
-    // through the option applicative, so a link naming a task the payload never declared drops as one absence
-    // rather than through a tuple-pattern ladder whose catch-all arm hid which end was missing — the drop stays
-    // silent by design, because the network's own dangling-reference rejection is the planning owner's.
     static Seq<VisualStroke> Elbow(PlanLink link, Map<string, PlanTask> byKey, PlanScale scale) =>
         (byKey.Find(link.From), byKey.Find(link.To))
             .Apply((from, to) => VisualStroke.Of(path => {
@@ -1892,8 +1510,6 @@ public static partial class CustomVisuals {
             }, StrokePlane.Link, StrokeStyle.Hairline, StrokeInk.Full))
             .ToSeq();
 
-    // The data date is one full-height dashed rule on the CUE plane — the board's "as of" line, the single
-    // most-read mark on a construction plan, and the reason a bar left of it reading incomplete is a slip.
     static Seq<VisualStroke> DataDate(VisualPayload.Plan plan, PlanScale scale) =>
         plan.DataDate
             .Filter(at => scale.Window.Contains(at))
@@ -1904,10 +1520,6 @@ public static partial class CustomVisuals {
             }, StrokePlane.Cue, StrokeStyle.DashDot, StrokeInk.Full))
             .ToSeq();
 
-    // The status reading of the same payload: per track, in start order, consecutive tasks sharing a status row
-    // and touching at the edge collapse into ONE band, and every uncovered stretch stays blank. Merging is what
-    // makes an uptime strip readable — an unmerged strip draws one band per sample and its edges read as state
-    // changes that never happened — and preserving the gaps keeps a blank stretch honest.
     internal static Fin<Seq<VisualStroke>> Timeline(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Plan>(payload, "timeline").Bind(plan =>
             PlanScale.Of(plan, frame.Info).Map(scale => {
@@ -1921,14 +1533,8 @@ public static partial class CustomVisuals {
                         new StrokeInk.Measured(band.Window.Duration.TotalTicks, longest))).Strict();
             }));
 
-    // One merged status run: a named row rather than a three-slot tuple, because the fold pattern-matches its
-    // open band and a positional match over a tuple binds by ordinal.
     internal readonly record struct PlanBand(int Track, Interval Window, Rasm.Bim.Planning.TaskStatus State);
 
-    // The merge is one fold per track over the start-ordered tasks: a task whose status equals the open band's
-    // AND whose start meets that band's end extends it; anything else seals the open band and opens a new one,
-    // which is exactly how a gap survives. Grouping and ordering both leave the carrier, so each re-enters
-    // through `toSeq` before the fold and the `Option`-answering tail read consume it.
     static Seq<PlanBand> Merged(Seq<PlanTask> tasks) =>
         toSeq(tasks.GroupBy(static task => task.Track)).Bind(track =>
             toSeq(track.OrderBy(static task => task.Scheduled.Start))
@@ -1941,8 +1547,6 @@ public static partial class CustomVisuals {
                 _ => bands.Add(new PlanBand(task.Track, task.Scheduled, task.State)),
             }));
 
-    // Plan captions: one per bar at its own start edge, priority the task's own WORKING CONTENT so a long run
-    // survives a dense board and a sliver drops, plus one per coarsest-tier ruler cell at its midpoint.
     internal static Seq<LabelMark> PlanLabels(VisualPayload payload, LayoutFrame frame) =>
         Marks<VisualPayload.Plan>(payload, "plan", plan =>
             PlanScale.Of(plan, frame.Info).Match(
@@ -1952,8 +1556,6 @@ public static partial class CustomVisuals {
                     + RulerLabels(plan, scale, frame.Metrics),
                 Fail: static _ => Seq<LabelMark>()));
 
-    // A band whose status is the planning owner's own NOTDEFINED row carries no caption: printing the sentinel
-    // would assert an observation the feed never made, which is the same reason the merge preserves gaps.
     internal static Seq<LabelMark> TimelineLabels(VisualPayload payload, LayoutFrame frame) =>
         Marks<VisualPayload.Plan>(payload, "timeline", plan =>
             PlanScale.Of(plan, frame.Info).Match(
@@ -1966,9 +1568,6 @@ public static partial class CustomVisuals {
                     + RulerLabels(plan, scale, frame.Metrics),
                 Fail: static _ => Seq<LabelMark>()));
 
-    // Ruler captions cross the payload's own locale — the pattern binds that viewer's culture, so a month cell
-    // reads in the reader's language rather than the authoring machine's — and the priority is the constant
-    // ceiling so a ruler never loses its orientation to a dense bar field.
     static Seq<LabelMark> RulerLabels(VisualPayload.Plan plan, PlanScale scale, VisualMetrics metrics) =>
         plan.Tiers.Head.Match(
             Some: tier => {
@@ -1981,14 +1580,8 @@ public static partial class CustomVisuals {
             None: static () => Seq<LabelMark>());
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The ONE seam from the planning receipts onto the render payload, generated rather than transcribed: nine
-// positional columns hand-copied across a nested root is exactly the projection this generator owns. Every
-// mapping is READER-FREE — each target column reads one member of one argument — so `RMG020` keeps source-side
-// force and the ignore roster below is authored inventory the compiler still checks for existence. The excluded
-// `ExplicitCast` conversion is the load-bearing guard against LanguageExt's throwing `Option<T>` cast, which the
-// default set would otherwise prefer over the registered converter.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -2002,10 +1595,6 @@ public static partial class PlanMap {
     [MapProperty(nameof(PlanCell.Baseline), nameof(PlanTask.Baseline))]
     [MapProperty(nameof(PlanCell.Content), nameof(PlanTask.Content))]
     [MapProperty(nameof(PlanCell.Posture), nameof(PlanTask.Posture))]
-    // The planner's own solve inputs a render never reads: the 4D playback modality, the controlling schedule
-    // kind (already spent electing the baseline on the cell), the lifecycle stage, the calendar assignment
-    // (already spent computing the cell's working content), the authored duration, the pre-actuals window, and
-    // the actuals window (already folded into `Effective`).
     [MapperIgnoreSource(nameof(ConstructionTask.Kind))]
     [MapperIgnoreSource(nameof(ConstructionTask.ScheduleKind))]
     [MapperIgnoreSource(nameof(ConstructionTask.Stage))]
@@ -2019,18 +1608,11 @@ public static partial class PlanMap {
     [MapProperty(nameof(SequenceRel.SuccessorGlobalId), nameof(PlanLink.To))]
     public static partial PlanLink Link(SequenceRel edge);
 
-    // A per-TYPE non-generic converter: the authored completion is a PERCENT the earned-value join already
-    // reads, and the render carries a unit fraction. A generic carrier body would draw RMG001 outright.
     [UserMapping]
     static UnitInterval Completion(Option<double> percent) =>
         UnitInterval.Create(Math.Clamp(percent.IfNone(0d) / 100d, 0d, 1d));
 }
 
-// The network fold that drives the seam. Every column is a READ: the effective interval the planning owner
-// already resolved against actuals, the working content on the task's OWN elected calendar, the planner's own
-// critical verdict, and the default calendar's non-working spans for the board-wide shading. Nothing here
-// solves — a page-local CPM pass, float derivation, or working-time walk beside `Rasm.Bim` `Planning/schedule`
-// is the cross-package drift defect that owner's boundary names.
 public static class PlanFeed {
     public static Fin<VisualPayload.Plan> Of(
         ScheduleNetwork network,
@@ -2044,16 +1626,12 @@ public static class PlanFeed {
                 Tasks: network.Tasks.Map((task, track) => PlanMap.Task(task, Cell(network, path, task, track))),
                 Links: network.Dependencies.Map(PlanMap.Link),
                 DataDate: dataDate,
-                // The board-wide band is the network DEFAULT calendar's own complement, the only calendar a
-                // whole-board shading can honestly claim once the per-task election exists.
                 NonWorking: network.DefaultCalendar.NonWorking(
                     network.Tasks.Map(static task => task.Effective.Start).Min(Instant.MaxValue),
                     network.Tasks.Map(static task => task.Effective.End).Max(Instant.MinValue)),
                 Tiers: tiers,
                 Locale: locale));
 
-    // A baseline row IS the baseline, so it carries none of its own; every other row's authored `Scheduled`
-    // window is the baseline its `Effective` window is measured against, which is what a slip reading compares.
     static PlanCell Cell(
         ScheduleNetwork network, Map<string, CriticalPath> path, ConstructionTask task, int track) =>
         new(Track: track,

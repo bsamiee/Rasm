@@ -21,7 +21,7 @@
 
 ```python signature
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
-import logging  # the ONE sanctioned stdlib-logging call site: the console handler, the root floor, and the foreign bridge
+import logging
 import sys
 import threading
 import warnings
@@ -47,14 +47,8 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, ENCODE, LEVEL_METHOD, OPEN, RED
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# structlog's own mutable event dict, distinct from the receipts-owned `EventDict` projection shape: a processor
-# parameter narrowed to that owner's `dict[str, object]` refuses the `MutableMapping` structlog hands every row.
 type ChainEvent = structlog.typing.EventDict
 
-# per-door payload projection: each interpreter hook spells its own arity — three positionals, one thread-args record,
-# one unraisable record, one warning sextet — and folds onto the pair one shared emitter takes, so that emitter never
-# grows a hook branch. The pair's first half is the RAISED object where the door reports one and `None` where it
-# reports an event that never raised, so the SDK's exception derivation runs on exactly the doors that carry one.
 type Uncaught = Callable[..., tuple[BaseException | None, EventDict]]
 
 
@@ -63,7 +57,6 @@ class LogShip(StrEnum):
     OTLP_CONSOLE = "otlp-console"
 
 
-# CONFIGURED folded a new or changed request into the posture; REENTRANT restamps an identical same-scope request.
 class LogOutcome(StrEnum):
     CONFIGURED = "configured"
     REENTRANT = "reentrant"
@@ -71,20 +64,10 @@ class LogOutcome(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# log-signal instrumentation scope: the faults-owned row names the emitting library, and the receipts-owned `scoped`
-# stamp versions it and pins the semconv url, so the logger coordinate bumps with the meter's and the tracer's.
 LOG_SCOPE: Final[str] = SCOPES[Scope.LOGGER]
 
-# one frame roster the callsite adder, the rendered stack, and the stdlib logger-name deduction all skip, so a line
-# names its producing owner instead of the emit machinery that carried it. `faults` earns its row on one member:
-# `faulted` writes the carried-fault line through that tier's own module-scope logger, so without the row every fault
-# a producer's rail arm reports resolves the fence's own file as both its callsite and its logger name.
 IGNORED_FRAMES: Final[list[str]] = ["rasm.runtime.faults", "rasm.runtime.logging", "rasm.runtime.receipts"]
 
-# callsite roster narrowed off the adder's eleven-parameter default, which spends four keys on one source location
-# (`pathname` beside `filename`, `module`, `qual_module`), two on process identity the resource plane already carries,
-# and one integer `thread` colliding with a producer's own thread fact. These four localize a line and repeat nothing;
-# every default row past them is width charged against the attribute cap on every record the process ever writes.
 CALLSITE: Final[frozenset[structlog.processors.CallsiteParameter]] = frozenset({
     structlog.processors.CallsiteParameter.PATHNAME,
     structlog.processors.CallsiteParameter.LINENO,
@@ -92,37 +75,16 @@ CALLSITE: Final[frozenset[structlog.processors.CallsiteParameter]] = frozenset({
     structlog.processors.CallsiteParameter.THREAD_NAME,
 })
 
-# rows the CHAIN writes downstream of a producer's own fields — the emitting logger's name, the structured traceback,
-# the rendered stack, and the four callsite keys. Chain insertion order alone drops exactly those first under a flooded
-# line, a producer's own fields and the ambient contextvars both merging ahead of them, so the projection ranks this
-# roster first and the count cap truncates a producer's tail rather than the diagnosis every incident is reconstructed
-# from. `logger` leads it: a bridged record's name is the one key that says WHICH library spoke, and every signal of
-# this process shares one instrumentation scope, so nothing else on the wire carries that fact.
 DIAGNOSTIC: Final[tuple[str, ...]] = ("logger", "exception", "stack", *sorted(parameter.value for parameter in CALLSITE))
 
-# slot the fault row resolves and the wire row consumes: `emit` derives the whole semantic exception triple from the
-# live object, so no constant here spells an exception attribute name and no package admission gates one.
 RAISED: Final[str] = "_raised"
 
-# values the chain reads by TYPE rather than by content — structlog's stdlib-bridge pair, the resolved exception, and
-# the emit-bound policy — so the bound passes them through uncoerced; a converted copy would leave the severity row
-# without a record, the wire row without an exception, and the redaction row without a policy. `remove_processors_meta`
-# strips the bridge pair before the console render, `redact` strips its own key, `shipped` strips the exception slot.
 OPAQUE: Final[frozenset[str]] = frozenset({"_record", "_from_structlog", RAISED, REDACTION_KEY})
 
-# the three keys `ProcessorFormatter` seeds onto a foreign event BEFORE its pre-chain runs — the message body and the
-# origin pair the severity, clock, and event-name rows each discriminate on — and the only chain-owned keys no later
-# row rewrites unconditionally. `ExtraAdder` merges a record's whole `extra` mapping over them, so the merge hands
-# these three back and a library binding `event` in its own `extra` cannot replace the message the wire ships.
 SEEDED: Final[frozenset[str]] = frozenset({"event", "_record", "_from_structlog"})
 
-# correlation roster `trace_context` writes whole or strips whole; the record resolves the identical trace, span, and
-# flags from the ambient context at construction, so an attribute copy renders one fact twice on the wire.
 CORRELATION: Final[frozenset[str]] = frozenset({"trace_id", "span_id", "trace_flags"})
 
-# keys the log record carries in its own slots — correlation, the body, the severity token, and the record's own stamp —
-# derived from the two rosters above so a new opaque or correlation key reaches both the bound and the wire from one edit;
-# every remaining key becomes an attribute.
 RECORD_SLOTS: Final[frozenset[str]] = OPAQUE | CORRELATION | frozenset({"event", "level", "timestamp"})
 
 NANOS: Final[int] = 1_000_000_000
@@ -131,11 +93,6 @@ NANOS: Final[int] = 1_000_000_000
 
 
 class LogLimits(Struct, frozen=True):
-    # payload caps applied in the chain, mirroring the four-column `LogRecordLimits` shape and its record-specific-over-
-    # global precedence. Reifying that SDK type here would import the cold `sdk._logs` tier into every composition root,
-    # so this owner spells the shape and the SDK's env-resolved instance stands behind the wire. The last three columns
-    # have no SDK twin: the record cleaner truncates strings alone, so nesting depth, collection width, and byte length
-    # are bounds only this floor carries — and a producer structure is caller-shaped, so each is a real hostile axis.
     max_attributes: int = 64
     max_attribute_length: int = 4096
     max_log_record_attributes: int | None = None
@@ -152,8 +109,6 @@ class LogLimits(Struct, frozen=True):
 
     @staticmethod
     def met(left: "LogLimits", right: "LogLimits") -> "LogLimits":
-        # limits-meet instance: two compositions in one process render under the tighter of every resolved cap, and the
-        # meet lands on the record columns because that resolved pair is what the projection reads.
         (left_count, left_length), (right_count, right_length) = left.bounds(), right.bounds()
         return LogLimits(
             max_attributes=min(left.max_attributes, right.max_attributes),
@@ -167,8 +122,6 @@ class LogLimits(Struct, frozen=True):
 
 
 class LogReceipt(Struct, frozen=True):
-    # the requested triple is this composition's ask; the folded triple is the posture every event in the process
-    # actually renders under, so a support bundle answers what floor, what egress, and what caps stood at capture.
     outcome: LogOutcome
     scope: ScopeKey
     floor: LogLevel
@@ -182,24 +135,15 @@ class LogReceipt(Struct, frozen=True):
 
 LOG_LIMITS: Final[LogLimits] = LogLimits()
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _merged(adder: structlog.stdlib.ExtraAdder, logger: logging.Logger, name: str, event: ChainEvent) -> ChainEvent:
-    # foreign leg's head: the untrusted merge runs WHOLE — the adder's capability stays composed rather than
-    # re-implemented as a deny-listed copy, its `allow` collection serving a known producer set this chain never has —
-    # and the `SEEDED` trio wins it back afterwards. Every other chain-owned key is written unconditionally by a row
-    # downstream of the merge; these three are written by the formatter UPSTREAM of it and by nothing after, so
-    # without the reseat a producer's `extra` decides the body the wire ships and the origin every record-keyed row
-    # reads. `dict()` narrows structlog's mapping at the one crossing that merges over it.
     seeded = {key: event[key] for key in SEEDED if key in event}
     return dict(adder(logger, name, event)) | seeded
 
 
 def trace_context(_: object, __: str, event: ChainEvent) -> ChainEvent:
-    # sole writer AND sole eraser of the correlation roster: the foreign pre-chain's `ExtraAdder` merges a stdlib record's
-    # whole `extra` mapping, so a library binding its own `trace_id` would otherwise render a correlation this process is
-    # not inside — dropping the roster whenever the ambient span context is invalid makes the field mean one thing.
     ctx = trace.get_current_span().get_span_context()
     kept = {key: value for key, value in event.items() if key not in CORRELATION}
     correlated = (
@@ -211,14 +155,6 @@ def trace_context(_: object, __: str, event: ChainEvent) -> ChainEvent:
 
 
 def faulted(_: object, __: str, event: ChainEvent) -> ChainEvent:
-    # egress-armed row seated ahead of the renderer that POPS the slot: it resolves structlog's three documented
-    # `exc_info` spellings — a bare exception, an `(type, value, traceback)` triple, and ANY truthy flag falling back
-    # to the handled exception — down to the one live object, so the console's structured frames and the wire's
-    # semantic triple report one exception rather than two independent reads of a consumed slot. The flag arm is
-    # truthiness rather than the `True` literal because the renderer's own resolution is, and a `case True` pattern
-    # compares by IDENTITY: the ubiquitous `exc_info=1` would otherwise render frames on the console while the wire
-    # shipped an error carrying no exception at all. Writing the resolved object back leaves the renderer its own
-    # input shape, and `sys.exception()` answers `None` off an empty handler exactly as that resolution does.
     match event.get("exc_info"):
         case BaseException() as raised:
             pass
@@ -230,44 +166,20 @@ def faulted(_: object, __: str, event: ChainEvent) -> ChainEvent:
 
 
 def redact(_: object, __: str, event: ChainEvent) -> ChainEvent:
-    # last mutator before the wire row: it scrubs the fully-assembled line — receipt facts, contextvars fields, callsite
-    # rows, the rendered traceback, the timestamp — so no injector lands a classified value downstream of the policy.
-    # A line with no bound policy (a foreign bridge record) folds keep-all. `dict()` narrows structlog's mapping onto
-    # the receipts-owned event shape at the one crossing, and `apply` returns its own dict either way.
     bound = event.get(REDACTION_KEY)
     return (bound if isinstance(bound, Redaction) else OPEN).apply(dict(event))
 
 
 def _homogeneous(members: list[object]) -> list[object] | dict[str, object]:
-    # the record cleaner types a collection off its first non-null element and DROPS THE WHOLE VALUE on the first element
-    # of another type — `bool` beside `int` clears that bar — so a mixed collection would reach the wire as null while
-    # the console rendered it whole. Projecting onto an index-keyed mapping keeps every element's own type and its
-    # position, mappings carrying no homogeneity rule, and both renders read this one already-projected shape.
     kinds = {type(member) for member in members if member is not None}
     return members if len(kinds) < 2 else {str(index): member for index, member in enumerate(members)}
 
 
 def _wire(value: object, length: int, items: int, depth: int) -> object:
-    # Log-record attributes take the SDK's EXTENDED shape — null, scalars, byte strings, and nested collection and
-    # mapping values all survive the record cleaner, unlike a span's flat primitive rule — so this coercion preserves
-    # structure rather than flattening it. Every unbounded axis a producer controls closes here: depth ends the descent
-    # before the interpreter's frame limit does (a self-referential mapping is one caller mistake away), width bounds a
-    # long collection, and length bounds text and byte strings alike — the record cleaner truncates neither bytes nor
-    # nesting. Text and every buffer shape are themselves Sequences, so their arms precede the collection folds; the depth guard
-    # rides the descending arms alone, so a leaf keeps its own type at every level and only a container past the bound
-    # degrades. A `Struct` opens SHALLOW and spends no level of its own — the mapping its projection lands on charges the
-    # descent, and each field re-enters this guard rather than riding a whole-tree conversion. Every remaining value
-    # rides `to_builtins` under the receipt encoder's own deterministic order and `repr` hook, so an enum, timestamp,
-    # UUID, decimal, or dataclass lands as the value that encoder already writes instead of as repr text both renders
-    # then carry; that call owns leaf conversion alone, every self-referential CONTAINER having degraded above it.
     match value:
         case str() as text:
             return text[:length]
         case bytes() | bytearray() | memoryview() as raw:
-            # every buffer shape rides ONE arm and lands as the `bytes` the record cleaner keeps whole: a `bytearray`
-            # and a `memoryview` are both Sequences, so the collection fold below would otherwise expand a caller's
-            # buffer into a list of integers — width-charged against the item cap, type-shifted, and unreadable as
-            # the bytes it is — on the console line and the wire attribute alike.
             return bytes(raw[:length])
         case None | bool() | int() | float():
             return value
@@ -276,7 +188,6 @@ def _wire(value: object, length: int, items: int, depth: int) -> object:
         case Mapping() as mapping if depth > 0:
             return {str(key): _wire(item, length, items, depth - 1) for key, item in islice(mapping.items(), items)}
         case Set() as members if depth > 0:
-            # an unordered collection sorts before it narrows, so one membership renders under one order on both sides.
             return _homogeneous([_wire(item, length, items, depth - 1) for item in islice(sorted(members, key=repr), items)])
         case Sequence() as sequence if depth > 0:
             return _homogeneous([_wire(item, length, items, depth - 1) for item in islice(sequence, items)])
@@ -287,10 +198,6 @@ def _wire(value: object, length: int, items: int, depth: int) -> object:
 
 
 def bounded(limits: LogLimits, _: object, __: str, event: ChainEvent) -> ChainEvent:
-    # one value coercion the whole chain shares, bound to its limits row through `partial` and seated upstream of BOTH
-    # renders: console serializer and wire projection read identical already-narrowed values, so neither re-derives the
-    # degrade and neither walks a structure the other survived. Seating it upstream of `redact` is what lets that row's
-    # `hash` class digest a closed value, and `OPAQUE` rides through untouched because those keys are read by type.
     _, length = limits.bounds()
     return {
         key: value if key in OPAQUE else _wire(value, length, limits.max_value_items, limits.max_value_depth) for key, value in event.items()
@@ -298,17 +205,11 @@ def bounded(limits: LogLimits, _: object, __: str, event: ChainEvent) -> ChainEv
 
 
 def _attributed(event: ChainEvent, count: int) -> dict[str, object]:
-    # the count cap truncates a TAIL, so what ranks decides what an operator still reads off a flooded line. Chain
-    # insertion order alone ranks the diagnosis LAST — the traceback, the stack, and the callsite are written after a
-    # producer's own fields and after the ambient contextvars merged ahead of them — so the `DIAGNOSTIC` roster is
-    # projected first and everything else follows in its own insertion order, the merge keeping each key's bounded
-    # value and the left operand's position. Values arrive already narrowed from the chain row.
     kept = {key: value for key, value in event.items() if key not in RECORD_SLOTS}
     return dict(islice(({key: kept[key] for key in DIAGNOSTIC if key in kept} | kept).items(), count))
 
 
 def _raised(event: ChainEvent) -> BaseException | None:
-    # typed read of the fault slot: the wire row hands `emit` an exception or nothing, never the untyped slot value.
     match event.get(RAISED):
         case BaseException() as fault:
             return fault
@@ -317,13 +218,6 @@ def _raised(event: ChainEvent) -> BaseException | None:
 
 
 def _severity(event: ChainEvent) -> tuple[SeverityNumber, str]:
-    # OTel severity bands are four wide and decade-aligned to stdlib numbering, so the band derives and no second level
-    # table stands beside LEVEL_METHOD. A foreign record carries its exact numeric level — a library-registered level
-    # name resolves through no map here — and a native event keys the receipts-owned row, every structlog method name
-    # folding onto that closed literal before the row is read. Number and TEXT resolve together because the two answer
-    # different questions: the band is what a backend filters and orders on, while `severity_text` is the source's own
-    # spelling by specification, so a library's `NOTICE`, `TRACE`, or `AUDIT` reaches the wire as itself rather than
-    # collapsing onto whichever band it landed in and leaving the operator no name to search the producer's docs for.
     match event.get("_record"):
         case logging.LogRecord() as record:
             numeric, text = record.levelno, record.levelname
@@ -333,10 +227,6 @@ def _severity(event: ChainEvent) -> tuple[SeverityNumber, str]:
 
 
 def _stamped(event: ChainEvent) -> int:
-    # event time, never observation time. A bridged record's own `created` is the moment its producer logged, while this
-    # row runs at the handler's format call — a queue handler, a memory handler, or a slow sink between them is real
-    # drift — and `emit` leaves the record's `timestamp` unset when a producer passes none, so the wire would otherwise
-    # carry the SDK's observation as the record's only clock and every foreign line would date from its render.
     match event.get("_record"):
         case logging.LogRecord() as record:
             return int(record.created * NANOS)
@@ -346,25 +236,10 @@ def _stamped(event: ChainEvent) -> int:
 
 @cache
 def _logger(registered: LoggerProvider) -> Logger:
-    # the mint is the receipts-owned coordinate — never a hand-built `get_logger` whose unversioned, schema-free scope
-    # a backend cannot join against its siblings. The globally registered provider is the memo KEY, not an argument:
-    # the SDK caches no Logger, so a per-emit mint allocates on the hot path, while the pre-install no-op provider is a
-    # distinct object from the installed one, so the handle upgrades at install with no invalidation.
     return scoped(get_logger, LOG_SCOPE)
 
 
 def shipped(count: int, _: object, __: str, event: ChainEvent) -> ChainEvent:
-    # terminal row of an armed chain and the one wire projection: body carries the event name, every remaining key
-    # becomes an attribute under the count cap the builder already resolved, and the raised object hands the SDK the
-    # whole semantic exception triple — module-qualified type, message, and stack under the specification's own names —
-    # so this page spells none of them and the structured frame list stays queryable beside them. `event_name` takes the
-    # bounded producer slot native events carry and stays unset for a foreign record whose message is free-form. The
-    # dict passes on with the fault slot dropped, so the console renders exactly the scrubbed line the wire took.
-    # The projection is FENCED because it is the one row that reaches outside the process: a wedged exporter queue, a
-    # provider the composition root already shut down, or a record-cleaner refusal would otherwise raise straight out
-    # of the caller's own `log.info` on the native leg, where structlog fences no processor — taking the console
-    # residue and the producer's next statement with a line neither was asked to carry. The rail is discarded by the
-    # law the process doors state: the one sink that would report it is the plane this fence just caught refusing.
     number, text = _severity(event)
     boundary(
         LOGGING_SHIP,
@@ -377,36 +252,20 @@ def shipped(count: int, _: object, __: str, event: ChainEvent) -> ChainEvent:
             attributes=_attributed(event, count),
             exception=_raised(event),
         ),
-        catch=Exception,  # the ONE row reaching outside the process: a wedged queue or a shut-down provider must never surface in `log.info`
+        catch=Exception,
     )
     return {key: value for key, value in event.items() if key != RAISED}
 
 
 def _shown(value: object) -> str:
-    # every door projection renders a producer-owned object, and `__repr__` is producer code: a hostile or
-    # half-constructed object raises inside the one hook whose whole job is reporting a failure the interpreter has
-    # already given up on. The fence renders the type alone when the repr refuses, so the door still emits its line
-    # rather than losing the crash to the render of one field.
     return boundary(LOGGING_SHOWN, lambda: repr(value), catch=Exception).default_with(lambda _refused: f"<{type(value).__name__}>")
 
 
 def _reported(door: str, level: LogLevel, fold: tuple[BaseException | None, EventDict]) -> None:
-    # the door's own line: projection and render reach the chain as ONE call, so the fence above wraps both and
-    # neither can strand the predecessor hook behind it. Severity is the ROW's, resolved through the receipts-owned
-    # binding, so no door names a level verb and a deprecation never reports at the severity a crash earns.
     LEVEL_METHOD[level][1](structlog.get_logger())(door, exc_info=fold[0], **fold[1])
 
 
 def _uncaught(door: str, level: LogLevel, project: Uncaught, prior: Callable[..., object], *payload: object) -> None:
-    # one emitter every door shares: its row projects that hook's own payload, the line crosses the whole chain so the
-    # crash reaches the wire carrying its semantic exception triple, and the captured predecessor STILL runs — leaving
-    # an embedding host's own hook and the interpreter's stderr traceback exactly as they stood. Projection and chain
-    # are both producer-reachable code, so a raise escaping this door replaces the interpreter's own report with
-    # itself, and this door is the surface that just failed. The fence folds every ingress class the branch converts
-    # and never widens past `Exception` by the faults owner's law, so the predecessor rides `finally` rather than the
-    # fence: a `KeyboardInterrupt` landing on the render — precisely what a human does while a crash report writes —
-    # would otherwise skip a host's own hook on its way out. The rail is discarded by law: the one sink that would
-    # carry it is the plane this fence caught refusing.
     try:
         boundary(LOGGING_DOOR, lambda: _reported(door, level, project(*payload)), catch=Exception)
     finally:
@@ -414,9 +273,6 @@ def _uncaught(door: str, level: LogLevel, project: Uncaught, prior: Callable[...
 
 
 def _posture(receipts: Map[ScopeKey, LogReceipt]) -> tuple[LogLevel, bool, LogLimits]:
-    # strictest live reading per column: the finest floor and the tightest caps, with the wire arming as a union — a
-    # sink is a destination a composition adds, never one it takes from a host. The caller seeds its own row first,
-    # so the fold never reads an empty registry.
     rows = Block.of_seq(receipts.values())
     return (
         rows.fold(lambda held, row: row.floor if LEVEL_METHOD[row.floor][0] < LEVEL_METHOD[held][0] else held, rows[0].floor),
@@ -427,27 +283,10 @@ def _posture(receipts: Map[ScopeKey, LogReceipt]) -> tuple[LogLevel, bool, LogLi
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# one egress dispatch row per ship member — telemetry's LOG provider gate reads this same row, so the provider half and
-# the chain half of the egress cannot diverge on an identity comparison neither side owns.
 SHIP_OTLP: Final[Map[LogShip, bool]] = Map.of_seq([(LogShip.CONSOLE, False), (LogShip.OTLP_CONSOLE, True)])
 
-# every interpreter door whose default writes past the whole handler roster to stderr, outside every chain: a dead
-# thread, an uncaught main-thread raise, a finalizer's unraisable, and a raised warning are among the lines an operator
-# most needs on the wire and the ones this owner would otherwise never see. A row names the module slot it wraps, the
-# severity its class of event reports at, and the projection folding that hook's own payload onto the shared emitter;
-# a new door is one row. Every row CHAINS — `setattr` captures whatever hook stood before it and the emitter runs that
-# predecessor after the line — so an embedding host keeps its own hook and the interpreter keeps its stderr report,
-# and the warning leg rides that one arming path and one payload grammar exactly as its terminal siblings do.
-# A row rendering a producer-owned object reaches it through `_shown` rather than a bare `repr`: the object whose
-# finalizer just died is precisely the one whose `__repr__` refuses, and its raise would take the whole crash report
-# with it. A row projects only what its hook knows that the chain does not, so `origin` names the dead finalizer's own
-# object and the warning's own source line — a warning is raised at a site no callsite row can reach, that row
-# resolving the door's own frame — while the dying thread already reaches every line as the callsite row's
-# `thread_name`, each hook running ON the thread it reports, and a second key for that fact would fork one name.
 DOORS: Final[Block[tuple[ModuleType, str, LogLevel, Uncaught]]] = Block.of_seq([
     (sys, "excepthook", "critical", lambda _kind, raised, _traceback: (raised, {})),
-    # `err_msg` is `str | None` off a foreign hook, so absence OMITS its key rather than publishing the empty string a
-    # reader cannot tell from a message the interpreter actually left blank — the branch's standing optional-key law.
     (
         sys,
         "unraisablehook",
@@ -456,8 +295,6 @@ DOORS: Final[Block[tuple[ModuleType, str, LogLevel, Uncaught]]] = Block.of_seq([
     ),
     (threading, "excepthook", "critical", lambda args: (args.exc_value, {})),
     (
-        # Warning objects ride `detail` rather than the raised slot: one carries no traceback, so handing it to the
-        # SDK's exception derivation would stamp a semantic exception triple whose stack every reader then hunts for.
         warnings,
         "showwarning",
         "warning",
@@ -469,18 +306,6 @@ DOORS: Final[Block[tuple[ModuleType, str, LogLevel, Uncaught]]] = Block.of_seq([
 ])
 
 
-# one processor table both render paths read, built once per configure so its limits-parameterized rows carry the folded
-# caps as policy rather than a literal; a new concern is one row here. Order is law: every injector runs before `bounded`
-# so nothing lands unnarrowed, `bounded` before `redact` so the policy classifies closed values, `redact` last among the
-# mutators so it scrubs everything the injectors added, and `shipped` closes the table so the wire reads exactly the
-# scrubbed line the console then renders. Egress arming decides MEMBERSHIP rather than a per-event branch: `faulted`
-# seats ahead of the renderer that consumes the fault slot and `shipped` at the tail, so an unarmed chain carries
-# neither row, spends nothing per line, and leaves no private slot for the console render to find. The traceback row is
-# spelled explicitly rather than through `dict_tracebacks`: that preconfigured row carries `show_locals=True`, dumping
-# every frame local into the line and onto the wire, and a `Redaction` classifies the key NAMES its table holds at
-# whatever depth they sit — a frame local named by the producer's own binding is a name no policy ever rowed, so the
-# locals reach the wire unscrubbed however deep the fold descends. The same row also carries `use_rich=True`, which
-# reaches for a package this branch never admitted.
 def shared_chain(limits: LogLimits, otlp: bool) -> tuple[structlog.typing.Processor, ...]:
     count, _ = limits.bounds()
     resolve: tuple[structlog.typing.Processor, ...] = (faulted,) if otlp else ()
@@ -488,11 +313,6 @@ def shared_chain(limits: LogLimits, otlp: bool) -> tuple[structlog.typing.Proces
     return (
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
-        # `logger` reads the SAME `_record` discriminant the severity and clock rows read: a bridged record answers its
-        # producer's own logger name, a native event the name `LoggerFactory` deduced past `IGNORED_FRAMES`. Seated
-        # downstream of the foreign merge, so a library binding `logger` in its own `extra` cannot claim another
-        # producer's identity, and it is the only key naming which library spoke — the instrumentation scope names this
-        # process, and `pathname` names a file whose distribution a reader would have to resolve back to a package.
         structlog.stdlib.add_logger_name,
         trace_context,
         structlog.processors.CallsiteParameterAdder(parameters=CALLSITE, additional_ignores=IGNORED_FRAMES),
@@ -512,11 +332,6 @@ def shared_chain(limits: LogLimits, otlp: bool) -> tuple[structlog.typing.Proces
 
 
 class LogPipeline:
-    # scope-keyed custody over one process pipeline: `_receipts` holds each composition's evidence, `_process` the
-    # folded posture the bundle capsule reads, and `_console` the identity-stable handler a re-configure re-formats in
-    # place — doubling as the first-configure witness the process doors arm behind. The stdlib root handler roster is
-    # process-global, so the posture is folded rather than partitioned — an embedded composition self-identifies
-    # through the `composition` field its bound logger carries.
     _receipts: ClassVar[Map[ScopeKey, LogReceipt]] = Map.empty()
     _process: ClassVar[LogReceipt | None] = None
     _console: ClassVar[logging.Handler | None] = None
@@ -533,8 +348,6 @@ class LogPipeline:
     ) -> LogReceipt:
         with cls._gate:
             match cls._receipts.try_find(scope):
-                # every stored row carries the LIVE folded columns, restamped below on each admitted change, so an
-                # unchanged request restamps its own row and never hands back a posture a sibling composition moved.
                 case Option(tag="some", some=prior) if (prior.floor, prior.ship, prior.limits) == (floor, ship, limits):
                     return replace(prior, outcome=LogOutcome.REENTRANT)
                 case _:
@@ -549,32 +362,19 @@ class LogPipeline:
             )
             effective, otlp, bounds = _posture(seeded)
             compositions = tuple(sorted(seeded.keys()))
-            # the fold reads only the requested columns, so restamping every row is total and idempotent — the registry
-            # holds one posture, and `receipt()` answers the same floor, egress arm, and caps whichever row a reader takes.
             stamped = seeded.map(lambda _key, row: replace(row, effective=effective, otlp=otlp, bounds=bounds, compositions=compositions))
             receipt = stamped[scope]
 
-            # the native tail hands the assembled dict to the console handler's formatter, so one writer owns stdout and
-            # the foreign leg's pre-chain is the same table — never a second renderer racing the stream at byte grain.
             chain = shared_chain(bounds, otlp)
             structlog.configure(
                 processors=[*chain, structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
                 wrapper_class=structlog.make_filtering_bound_logger(LEVEL_METHOD[effective][0]),
                 logger_factory=structlog.stdlib.LoggerFactory(ignore_frame_names=IGNORED_FRAMES),
-                # spelled rather than defaulted: `configure` is a PARTIAL update leaving every omitted slot at
-                # whatever stands, so a host that cached loggers before this composition root ran would freeze every
-                # held handle at its first posture and the whole re-configure fold would answer a floor no line uses.
                 cache_logger_on_first_use=False,
             )
-            # constructed on the first configure, never at import: a host that reopens or captures stdout before the
-            # composition root runs binds its live stream rather than the one this module saw at load.
             handler = cls._console if cls._console is not None else logging.StreamHandler(stream=sys.stdout)
             handler.setFormatter(
                 structlog.stdlib.ProcessorFormatter(
-                    # the reseated ExtraAdder rides the foreign path alone — native events never populate stdlib
-                    # `extra` — and precedes the shared rows, so correlation, the payload bound, redaction, and the
-                    # wire projection each govern the fields it merges rather than admitting a foreign record's whole
-                    # `extra` mapping unread, while `SEEDED` holds back the three keys no shared row rewrites.
                     foreign_pre_chain=[partial(_merged, structlog.stdlib.ExtraAdder()), *chain],
                     processors=[
                         structlog.stdlib.ProcessorFormatter.remove_processors_meta,
@@ -589,9 +389,6 @@ class LogPipeline:
             root.setLevel(LEVEL_METHOD[effective][0])
 
             if cls._console is None:
-                # process doors arm once with the first composition and never disarm — arming is additive exactly as the
-                # egress union is, each door wrapping whatever hook stood before it, so a second composition finds them
-                # standing and an embedding host keeps its own.
                 for host, slot, level, project in DOORS:
                     setattr(host, slot, partial(_uncaught, f"{host.__name__}.{slot}", level, project, getattr(host, slot)))
 
@@ -602,9 +399,6 @@ class LogPipeline:
 
     @classmethod
     def receipt(cls) -> Option[LogReceipt]:
-        # process-custody read matching every sibling install owner: Some once a composition has configured, carrying
-        # the folded floor, egress arm, caps, and composition roster the bundle capsule reads as data. The read takes
-        # no gate — a single reference load needs none.
         return Option.of_optional(cls._process)
 ```
 

@@ -73,7 +73,7 @@ class ArrowStream(Protocol):
 
 
 type FrameSource = pl.DataFrame | ArrowStream
-type RenderedGt = object  # an upstream-styled great_tables.GT crossing opaque (the data-plane QualityProfile wire); `rendered` is its one egress
+type RenderedGt = object
 
 
 class TableFormat(StrEnum):
@@ -285,14 +285,11 @@ type StyleSpec = tuple[Literal["text", "fill", "borders", "css"], TextStyleKwds 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _FAULTS: tuple[type[Exception], ...] = (PolarsError, ValueError, TypeError, KeyError, IndexError, NotImplementedError, OSError)
 _CANON = json.Encoder(order="deterministic")
-_PDF_LOAD_TIMEOUT: float = 30.0  # driver-owned page-load bound; the render deadline never joins the content preimage
+_PDF_LOAD_TIMEOUT: float = 30.0
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 def _frozen(value: object) -> object:
-    # storage-side freeze every constructor runs over a caller payload: lists and sets become tuples, dict bands
-    # become frozendict rows, and tuples re-freeze member-wise so a list nested inside one cannot ride through —
-    # the freeze is transitive; scalars and callables pass through untouched.
     match value:
         case dict() as mapping:
             return frozendict({key: _frozen(item) for key, item in mapping.items()})
@@ -342,9 +339,6 @@ class Theme(Struct, frozen=True):
 
 
 class NanoSpec(Struct, frozen=True):
-    # every payload is immutable at rest — tuple sequences and a frozen options band — so a caller-held reference
-    # mutated after emit() can shift neither the scheduled content key nor the rendered plot; `fold` thaws to the
-    # provider's list shapes at the one call boundary.
     plot_type: Literal["line", "bar"] = "line"
     plot_height: str = "2em"
     missing_vals: Literal["marker", "gap", "zero", "remove"] = "gap"
@@ -501,9 +495,9 @@ class TableOp:
     reorder: tuple[str, ...] = case()
     move: tuple[Cols, str] = case()
     move_ends: tuple[Cols, Literal["start", "end"]] = case()
-    spanner: tuple[str, Cols, frozendict[str, object]] = case()  # the SpannerKwds roster proves at the Spanner boundary; storage is frozen evidence
+    spanner: tuple[str, Cols, frozendict[str, object]] = case()
     spanner_delim: tuple[str, Cols, Literal["first", "last"], int, bool] = case()
-    fmt: tuple[FmtKind, Cols, Rows, frozendict[str, object]] = case()  # the FmtOptions roster proves at the Fmt boundary; storage is frozen evidence
+    fmt: tuple[FmtKind, Cols, Rows, frozendict[str, object]] = case()
     nanoplot: tuple[str | None, Rows, "NanoSpec"] = case()
     merge_range: tuple[str, str, str | None, Rows, bool] = case()
     merge_uncert: tuple[str, str, str, Rows, bool] = case()
@@ -522,7 +516,7 @@ class TableOp:
     grand_summary: tuple[frozendict[str, SummaryFn], FmtFn | None, Literal["bottom", "top"], str] = case()
     row_group_order: tuple[str, ...] = case()
     style: tuple[Place, tuple[StyleSpec, ...]] = case()
-    color: tuple[Cols, Rows, frozendict[str, object]] = case()  # the DataColorKwds roster proves at the Color boundary; storage is frozen evidence
+    color: tuple[Cols, Rows, frozendict[str, object]] = case()
     css: str = case()
     pipe: Callable[[GT], GT] = case()
 
@@ -604,8 +598,6 @@ class TableOp:
         gather: bool = True,
         replace: bool = False,
     ) -> "TableOp":
-        # the SpannerKwds mint proves the static key roster, `_frozen` then seals it — a list-valued `nest` lands as
-        # a tuple inside a frozendict row, so a caller can never mutate a scheduled op or its content key.
         return TableOp(spanner=(label, columns, _frozen(SpannerKwds(spanners=nest, level=level, id=spanner_id, gather=gather, replace=replace))))
 
     @staticmethod
@@ -752,7 +744,6 @@ class TablePlan(Struct, frozen=True):
     frame: pl.DataFrame
     ops: tuple[TableOp, ...]
     fmt: TableFormat
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     shape: tuple[Reshape, ...] = ()
     theme: Theme = Theme()
@@ -762,9 +753,6 @@ class TablePlan(Struct, frozen=True):
     auto_align: bool = True
     table_id: str | None = None
     config: frozendict[str, object] = frozendict()
-    # `as_raw_html(inline_css=True)` imports `css_inline`, a distribution this estate does not admit, so the knob
-    # defaults OFF and a caller arming it owes that admission; the default scoped `<style>` block already travels
-    # inside the emitted div, which is what every embedding consumer actually needs.
     inline_css: bool = False
     make_page: bool = False
     all_important: bool = False
@@ -801,9 +789,6 @@ class TablePlan(Struct, frozen=True):
         )
 
     def emit(self, /) -> ArtifactWork:
-        # ONE mint per node, threaded to the receipt AND into `build`: `_seed` hashes the WHOLE frame
-        # (`hash_rows` over every row) and `_key` opens a `content.derive` span, so an unthreaded key pays both
-        # three times — once here, once at the receipt, and once more inside the render itself for the table id.
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
@@ -825,7 +810,6 @@ class TablePlan(Struct, frozen=True):
             self.tbl_pos,
             self.pdf_scale,
         ))
-        # RAW semantic fields — the framing is `IdentitySource.parts`' own, never re-spelled here.
         return (
             _sealed(tuple(self.frame.schema.items())),
             self.frame.hash_rows(seed=0).to_numpy().tobytes(),
@@ -836,15 +820,9 @@ class TablePlan(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with no
-        # delimiter — correct for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
         return ContentIdentity.key(f"table-{self.fmt}", IdentitySource(parts=self._seed))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        # The durable seat is HERE and not inside `_railed`: that fold runs in a worker process where nothing can
-        # suspend and no composition bound journal custody, so a record there folds to the unarmed no-op and sheds
-        # exactly the fact it claims to land. A rendered table is `OPERATIONAL` under the case's own retention row,
-        # its diff naming the format and its byte volume charging `STORAGE`.
         match (await self.lane.offload(Kernel.of(partial(self._railed, key), KernelTrait.RELEASING))).bind(lambda inner: inner):
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -852,7 +830,6 @@ class TablePlan(Struct, frozen=True):
                 return Error(refused.error)
 
     def _railed(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        # WebDriverException's tree joins the catch set only on the gated PDF arm, so the lazy selenium import stays cold elsewhere
         return boundary(
             f"table.{self.fmt}", partial(self._rendered, key), catch=(*_FAULTS, WebDriverException) if self.fmt is TableFormat.PDF else _FAULTS
         )
@@ -867,12 +844,9 @@ class TablePlan(Struct, frozen=True):
 
     @property
     def _bridged(self) -> bool:
-        # great-tables' group resolver faults on a polars frame (IndexError), so a group-scoped summary forces the pandas bridge.
         return any(op.tag == "summary" for op in self.ops)
 
     def build(self, key: ContentKey | None = None, /) -> bytes:
-        # the node path threads its already-minted key; a standalone caller passes none and pays the one derivation
-        # here rather than re-hashing the frame a second time inside a render the plan already keyed.
         with pl.Config(**self.config):
             shaped = reduce(_shape, self.shape, self.frame)
             ident = self.table_id if self.table_id is not None else f"gt{(key if key is not None else self._key).value:032x}"
@@ -905,9 +879,6 @@ class TablePlan(Struct, frozen=True):
 
     @staticmethod
     def rendered(gt: RenderedGt, fmt: TableFormat = TableFormat.HTML, /) -> bytes:
-        # upstream-styled GT egress: the data-plane `QualityProfile` report crosses as an opaque already-built
-        # `great_tables.GT` this tier alone renders — never re-shaped through `of` (a GT is no `FrameSource`) and
-        # never rendered on the data side, which imports no great_tables.
         match fmt:
             case TableFormat.HTML:
                 return gt.as_raw_html().encode()
@@ -985,16 +956,10 @@ VALS_TABLE: frozendict[FmtKind, Callable[[pl.Series, frozendict[str, object]], l
 
 
 def _framed(chunk: bytes, /) -> bytes:
-    # `_sealed`'s OWN recursive byte framing, not the preimage framing `IdentitySource.parts` owns: `_sealed`
-    # returns BYTES a parent case concatenates into a larger canonical projection, where `parts` folds a field
-    # tuple straight to a digest. Two different concerns that happen to share an expression — the key preimage
-    # rides `parts` at the one owner, and this stays the nested-projection delimiter.
     return len(chunk).to_bytes(8, "little") + chunk
 
 
 def _global_facet(target: object) -> object:
-    # one-hop projection of a referenced module global: a module pins by name, a callable by its own code identity
-    # (cycle-free — mutual recursion never re-enters `_sealed`), and plain data seals whole.
     match target:
         case ModuleType():
             return f"mod:{target.__name__}"
@@ -1007,7 +972,6 @@ def _global_facet(target: object) -> object:
 
 
 def _sealed(value: object) -> bytes:
-    # Canonicalization reads each case tag without dispatching behavior and length-frames every recursive projection.
     match value:
         case pl.Expr():
             return b"expr:" + value.meta.serialize(format="binary")
@@ -1021,10 +985,6 @@ def _sealed(value: object) -> bytes:
         case dict() | frozendict():
             return b"map:" + b"".join(_framed(_sealed((key, value[key]))) for key in sorted(value, key=repr))
         case _ if callable(value):
-            # content identity must determine the table bytes: code + defaults + closure + bound-instance state +
-            # the one-hop facet of every referenced module global. A C callable carries no code but is runtime-
-            # pinned by qualname; a stateful `__call__` instance is opaque and refuses (TypeError rides `_FAULTS`)
-            # rather than aliasing distinct behaviors onto one key.
             code = getattr(value, "__code__", None)
             if code is None:
                 if isinstance(value, BuiltinFunctionType | MethodDescriptorType | WrapperDescriptorType):
@@ -1049,10 +1009,6 @@ def _sealed(value: object) -> bytes:
 
 
 def _pdf_bytes(gt: RenderedGt, scale: float = 1.0, load_timeout: float = _PDF_LOAD_TIMEOUT, /) -> bytes:
-    # host-coupled boundary law: a worker-level Enforcement.TERMINAL kill would orphan chromedriver, so the DRIVER
-    # owns the wedge bound over BOTH of its lanes — page-load bounds navigation and script bounds the print/snapshot
-    # CDP leg gt.save drives after it — each raising into the boundary rail with the context exit quitting the
-    # browser; the offload stays a cooperative RELEASING crossing whose lane deadline abandons the settle loop-side.
     options = ChromeOptions()
     options.add_argument("--headless=new")
     with TemporaryDirectory() as directory, Chrome(options=options) as driver:
@@ -1114,7 +1070,6 @@ def _cell(spec: StyleSpec) -> CellStyle:
 
 
 def _shape(frame: pl.DataFrame, op: Reshape) -> pl.DataFrame:
-    # `maintain_order=True` and `sort_columns=True` fix display order without a process-global category cache.
     match op:
         case Reshape(tag="select", select=columns):
             return frame.select(*columns)

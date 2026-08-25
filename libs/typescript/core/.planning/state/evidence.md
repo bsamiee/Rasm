@@ -41,8 +41,6 @@ const _Applied = Schema.TaggedStruct("Applied", {
 const _EvidenceValue = Schema.Union(Schema.String, Schema.Number.pipe(Schema.finite()), Schema.Boolean)
 const _Evidence = Schema.HashMap({ key: Schema.NonEmptyString, value: _EvidenceValue })
 
-// Retriability is DERIVED from the class column, never stored beside it: a producer writing its own bit could contradict
-// the recovery band the class already decides, and the two would diverge silently the first time the row table moved.
 const _Refused = Schema.TaggedStruct("Refused", {
   fault: Fault.Class.schema,
   evidence: _Evidence,
@@ -316,11 +314,6 @@ const _Progress: Progress.Shape = {
 [AVAILABILITY_LATTICE]:
 
 ```typescript signature
-// Levels ARE the corpus's `DegradationLevel` enum — the roster derives from the generated members and this page
-// mints no token — while `rank` and `admits` are this end's legality columns: write capability retained admits every
-// command, store-read alone admits reads, and the row retaining neither withholds. `UNSPECIFIED` is excluded at the
-// type: protovalidate's `defined_only` refuses it at the frame, and the exclusion is what lets a row index by a decoded
-// member with no guard.
 type _Level = Exclude<control.DegradationLevel, UnknownEnum | typeof control.DegradationLevel.UNSPECIFIED>
 const _LEVELS = [
   control.DegradationLevel.FULL,
@@ -342,7 +335,6 @@ type _Rows<T extends Record<(typeof _LEVELS)[number], unknown> = typeof _ROWS> =
 
 const _LevelSchema = Schema.Literal(..._LEVELS)
 const _levelOf = Schema.is(_LevelSchema)
-// the producer's own spelling of a level is its enum name, so a verdict reason carrying a level carries that word
 const _word = (level: _Level): string => enumToJson(control.DegradationLevelSchema, level)
 const _Command = Schema.NonEmptyString.pipe(Schema.brand("CommandName"))
 
@@ -407,9 +399,6 @@ const _Posture = Shape.vocabulary(_POSTURES, {
   none: (level) => _Withheld.make({ level, reason: _word(level) }),
 } satisfies Record<(typeof _POSTURES)[number], (level: _Level) => Schema.Schema.Type<typeof _Verdict>>)
 
-// The READING is what crosses: level, the deviating command verdicts, and the producer's instant — exactly the
-// generated `CommandAvailability`. Tenant rides the receipt envelope that carried the document, so the snapshot
-// seats it from the carrier at `of`, never from a column the wire does not declare.
 class _Reading extends Schema.Class<_Reading>("Evidence.Availability.Reading")({
   level: _LevelSchema,
   commands: _Commands,
@@ -422,8 +411,6 @@ const _Wire: Schema.Schema<MessageShape<typeof availability.CommandAvailabilityS
   { identifier: availability.CommandAvailabilitySchema.typeName },
 )
 
-// A Timestamp lands on the tick axis through the clock owner's one scaling member; the logical half of a producer
-// instant is the genesis zero, since a wall-clock stamp carries no causal counter.
 const _stampOf = (stamp: MessageShape<typeof TimestampSchema>): Clock.Hlc =>
   new Clock.Hlc({
     physical: Clock.Hlc.physicalOf(DateTime.unsafeMake(timestampMs(stamp))),
@@ -457,9 +444,6 @@ const _verdictWire = (verdict: Schema.Schema.Type<typeof _Verdict>): availabilit
     }),
   })
 
-// The crossing is total both ways over the generated message: every field rule is protovalidate's at the frame, so
-// this transform carries only the lifts no rule states — the enum narrowing, the verdict oneof onto the branch union,
-// the command brand, and the instant onto the tick axis.
 const _FromWire: Schema.Schema<_Reading, MessageShape<typeof availability.CommandAvailabilitySchema>> = Schema.transformOrFail(
   _Wire,
   _Reading,
@@ -485,7 +469,6 @@ const _FromWire: Schema.Schema<_Reading, MessageShape<typeof availability.Comman
       Either.right(create(availability.CommandAvailabilitySchema, {
         level: reading.level,
         commands: Record.fromEntries(Array.map(HashMap.toEntries(reading.commands), ([name, verdict]) => [name, _verdictWire(verdict)] as const)),
-        // the inverse of `physicalOf`: ticks back onto the millisecond axis the well-known stamp counts in
         since: timestampFromMs(Number(reading.since.physical / _TICKS_PER_MILLI)),
       })),
   },
@@ -499,8 +482,6 @@ class _Availability extends Schema.Class<_Availability>("Evidence.Availability")
   static readonly Verdict: typeof _Verdict = _Verdict
   static readonly levels: typeof _LEVELS = _LEVELS
   static readonly worst: Merge.Instance<Availability.State> = _fieldwise
-  // The one seat of tenancy: foreign bytes decode once through the registry, then the generated message crosses
-  // once into the branch reading before it meets the carrier's tenant. No wire column is asserted.
   static readonly of = (
     octets: Uint8Array,
     tenant: Identity.Tenant,
@@ -582,7 +563,7 @@ namespace Evidence {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Evidence }
 ```

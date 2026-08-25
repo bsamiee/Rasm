@@ -19,7 +19,7 @@
 - Packages: QuikGraph (`GraphExtensions.ToDelegateVertexAndEdgeListGraph`, `BreadthFirstSearchAlgorithm`, `EdgeRecorderObserver`, `SEdge`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
@@ -36,7 +36,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Spatial;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class NodeVerdict {
     public static readonly NodeVerdict Prune = new(key: 0, offersChildren: false, visits: false);
@@ -47,11 +47,9 @@ public sealed partial class NodeVerdict {
     internal bool Visits { get; }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class NodeWalk {
     internal static Seq<int> Reach(NodeStore store, Func<int, NodeVerdict> verdict) {
-        // `NodeVerdict` is a class, so the array's own default IS the unfilled slot — a parallel `bool[]` re-derived
-        // a fact the memo already carried, at two allocations and two writes where one suffices.
         NodeVerdict?[] seen = new NodeVerdict?[store.Count];
         NodeVerdict Decide(int node) => seen[node] ??= verdict(node);
         bool OutEdges(int node, out IEnumerable<SEdge<int>> edges) {
@@ -97,7 +95,7 @@ internal static class NodeWalk {
 - Boundary: every failure routes the one `Fin` rail — `GeometryFault` on the geometry channel, `key.InvalidInput()` on the admission channel; point k-NN and radius over a bare point set route `neighbors.md`. `NodeLinkProjection` is the producer of the clash node-link branch golden `tests/dotnet/README.md` `[09]-[SNAPSHOTS]` registers — producer and every decoder are C#, so the wire binds no peer runtime and earns no `libs/contracts/manifest.json` seat.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -106,8 +104,6 @@ public sealed partial class SpatialKind {
     public static readonly SpatialKind Octree = new("octree", SpatialIndex.BuildOctree);
     public static readonly SpatialKind Agglomerative = new("agglomerative", SpatialIndex.BuildAgglomerative);
 
-    // The builder returns the RAIL: an arena that runs out of nodes is a typed refusal the entry already carries,
-    // never an unguarded span write past the rented capacity.
     [UseDelegateFromConstructor]
     public partial Fin<SpatialIndex> Build(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy);
 }
@@ -125,22 +121,17 @@ public sealed partial class QueryKind {
     public static readonly QueryKind Slab = new("slab");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BuildPolicy {
     private BuildPolicy(Dimension leafSize, Dimension maxDepth, Dimension sahBuckets, PositiveMagnitude refitGrowth, Dimension parallelFloor) =>
         (LeafSize, MaxDepth, SahBuckets, RefitGrowth, ParallelFloor) = (leafSize, maxDepth, sahBuckets, refitGrowth, parallelFloor);
 
-    // The shift IS the wire layout, and the ceiling DERIVES from it — a hand-asserted copy of the same width let a
-    // moved shift leave the ceiling silently wrong, admitting nodes whose leaf count then overflowed the child
-    // field. Neither is a tuning bound and no `Band` row owns either; `NodeLinkProjection` reads both from here.
     public const int ChildShift = 21;
     public const int PackedCountMax = (1 << ChildShift) - 1;
 
     public Dimension LeafSize { get; }
     public Dimension MaxDepth { get; }
     public Dimension SahBuckets { get; }
-    // Working figures pending measurement: RefitGrowth 0.6 calibrates at the refit-vs-rebuild query crossover on a
-    // deforming scene; ParallelFloor 4096 at the partitioned-refit break-even under `ParallelHelper.For`.
     public PositiveMagnitude RefitGrowth { get; }
     public Dimension ParallelFloor { get; }
     public double RefitDegradationLimit => 1.0 + RefitGrowth.Value;
@@ -153,19 +144,10 @@ public sealed record BuildPolicy {
                from buckets in op.AcceptValidated<Dimension>(candidate: sahBuckets)
                from growth in op.AcceptValidated<PositiveMagnitude>(candidate: refitGrowth)
                from floor in op.AcceptValidated<Dimension>(candidate: parallelFloor)
-               // Single buckets admit no split plane at all, and a leaf wider than the packed field cannot be wired.
                from _ in guard(leaf.Value <= PackedCountMax && buckets.Value > 1, op.InvalidInput()).ToFin()
                select new BuildPolicy(leafSize: leaf, maxDepth: depth, sahBuckets: buckets, refitGrowth: growth, parallelFloor: floor);
     }
 
-    // Canonical row literals are constants inside every band, so the generated `Create` is total here; `Of` is the
-    // ONE runtime admission and the only path a caller-supplied number takes. Each figure carries its provenance,
-    // because the bands authorize the RANGE and never the value:
-    //   leafSize    4 — PBRT 3e §4.3 maxPrimsInNode, the leaf width past which SAH traversal stops paying.
-    //   maxDepth   32 — the conventional BVH ceiling; independent of MortonDepth, which caps the octree alone.
-    //   sahBuckets 12 — PBRT 3e §4.3.2 nBuckets, the bucket count the SAH sweep is published against.
-    //   refitGrowth/parallelFloor — UNMEASURED working defaults (a 60% SAH degradation before rebuild, a 4096-node
-    //   partition floor), owed the measurement tracked at `[04]-[RESEARCH]` `[REFIT_BAND]`/`[PARALLEL_FLOOR]`.
     public static readonly BuildPolicy Canonical = new(
         leafSize: Dimension.Create(value: 4), maxDepth: Dimension.Create(value: 32), sahBuckets: Dimension.Create(value: 12),
         refitGrowth: PositiveMagnitude.Create(value: 0.6), parallelFloor: Dimension.Create(value: 4096));
@@ -180,8 +162,6 @@ public sealed record NodeStore(
     int[] LeafStart,
     int[] LeafCount,
     int[] Order) {
-    // The bound arrays are ONE `(Count, 3)` plane each, so every read addresses a row and the `3 * node + axis`
-    // arithmetic the substrate supplies never appears by hand.
     internal Span2D<float> Lower => BoundsMin.AsSpan2D(height: Count, width: 3);
     internal Span2D<float> Upper => BoundsMax.AsSpan2D(height: Count, width: 3);
 
@@ -214,14 +194,8 @@ public abstract partial record SpatialQuery {
     public sealed record Ray(Ray3d Probe, double MaxT) : SpatialQuery;
     public sealed record Nearest(Point3d Query, int K) : SpatialQuery;
     public sealed record Overlap(SpatialIndex Other, double Tolerance) : SpatialQuery;
-    // Unordered-pair enumeration within ONE index — the clash broad phase over a single model; the dual walk's
-    // self filter emits each pair once, so a downstream interference union never re-keys a second registry.
     public sealed record SelfOverlap(double Tolerance) : SpatialQuery;
-    // The soup is a TRIANGLE roster, not a flat point array with an implicit 3x stride held together by prose: the
-    // arity claim becomes a count comparison, the six stride expressions delete, and `BetaSquared` derives from the
-    // magnitude the caller actually states rather than admitting a pre-squared number no band guards.
     public sealed record Winding(Arr<Point3d> Queries, Arr<(Point3d A, Point3d B, Point3d C)> Triangles, PositiveMagnitude Beta) : SpatialQuery;
-    // Rank-2 lattice instances ARE the plane slab the slice fold defers to; the rank-3 instance serves voxel sweeps.
     public sealed record Slab(CellLattice Grid, int Layer) : SpatialQuery;
 
     public QueryKind Kind =>
@@ -254,7 +228,7 @@ public abstract partial record SpatialAnswer {
     public sealed record Wire(float[] Bounds, long[] Nodes) : SpatialAnswer;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SpatialIndex : IValidityEvidence {
     private SpatialIndex() { }
@@ -262,12 +236,9 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     public sealed record Bvh(NodeStore Store, BoundingBox[] Primitives, double BuildCost, BuildPolicy Policy, SpatialKind Builder) : SpatialIndex;
     public sealed record LinearOctree(NodeStore Store, BoundingBox[] Primitives, BuildPolicy Policy, SpatialKind Builder) : SpatialIndex;
 
-    // Positional case synthesis overrides these abstract get/init columns; a same-name-param base Switch suppresses that synthesis and self-recurses.
     public abstract NodeStore Store { get; init; }
     public abstract BoundingBox[] Primitives { get; init; }
     public abstract BuildPolicy Policy { get; init; }
-    // `Builder` is DATA on both cases, so a rebuild reads the row that built it rather than a hand-asserted constant
-    // one case carried and the other re-stated — the assertion diverges the first time an octree variant lands.
     public abstract SpatialKind Builder { get; init; }
 
     public bool IsValid => ValidityClaim.All(
@@ -279,7 +250,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         Links(Store));
 
     // --- [ADMISSION]
-    // Clone detaches the admitted set, so a frozen index never aliases a caller-mutable array.
     internal static Fin<BoundingBox[]> Admit(BoundingBox[] primitives) {
         if (primitives.Length == 0)
             return Fin.Fail<BoundingBox[]>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.BoundingBox, None, "empty"));
@@ -293,9 +263,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         Array.ConvertAll(boxes, static box => 0.5 * (box.Min + box.Max));
 
     // --- [BUILD]
-    // The build rents ONE pooled scratch per fold — bucket counts, bucket bounds, and the partition buffer — and
-    // threads spans into `BestSah` and `StablePartition`, so three arrays per internal node and one per partition
-    // call leave the hottest path in the page. A refused arena write lifts onto the `Fin` rail the entry holds.
     internal static Fin<SpatialIndex> BuildBvh(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
         int buckets = policy.SahBuckets.Value;
         using Arena arena = Arena.Rent(boxes.Length, depthCeiling: 2);
@@ -333,7 +300,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     internal static Fin<SpatialIndex> BuildOctree(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
         BoundingBox root = Union(boxes);
         (uint[] codes, int[] order) = MortonOrder(boxes.Length, centroids, root);
-        // The depth ceiling this kernel honours IS the arena's capacity derivation, so the two cannot drift.
         int ceiling = Math.Min(policy.MaxDepth.Value, MortonDepth);
         using Arena arena = Arena.Rent(boxes.Length, depthCeiling: ceiling);
         int next = 1;
@@ -360,11 +326,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return Fin.Succ((SpatialIndex)new LinearOctree(arena.Freeze(next, order), boxes, policy, SpatialKind.Octree));
     }
 
-    // Agglomerative PLOC as PLOC: one parallel nearest sweep per ROUND, then EVERY mutually-nearest pair merges in
-    // one linear pass into a fresh survivor array — O(n x window) per round over O(log n) rounds. The quadratic form
-    // re-scanned the whole window per candidate, merged the FIRST mutual pair it found, and paid an O(n) list
-    // removal per merge; its `j < 0` fallback additionally merged two arbitrary nodes with no evidence recorded,
-    // where a round that merges nothing is now a typed refusal.
     internal static Fin<SpatialIndex> BuildAgglomerative(BoundingBox[] boxes, Point3d[] centroids, BuildPolicy policy) {
         int n = boxes.Length;
         BoundingBox rootBound = Union(boxes);
@@ -386,7 +347,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             for (int k = 0; k < live.Length; k++) {
                 int partner = nearest[k];
                 bool mutual = partner >= 0 && nearest[partner] == k;
-                if (mutual && k > partner) { continue; }                                  // the partner emits the merge
+                if (mutual && k > partner) { continue; }
                 if (!mutual) { survivors[kept++] = live[k]; continue; }
                 BoundingBox merged = live[k].Bound; merged.Union(live[partner].Bound);
                 int parent = next++;
@@ -402,8 +363,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return Fin.Succ((SpatialIndex)new Bvh(store, boxes, AggregateSahCost(store), policy, SpatialKind.Agglomerative));
     }
 
-    // The page's own `IAction` idiom: one struct carrying the round's roster, its window, and its destination, so
-    // the sweep allocates nothing and the merge pass reads a filled array rather than re-scanning per candidate.
     readonly struct NearestSweep((int Node, BoundingBox Bound)[] live, int window, int[] nearest) : IAction {
         public void Invoke(int i) {
             int best = -1;
@@ -421,7 +380,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     static Fin<SpatialIndex> Overflowed() =>
         Fin.Fail<SpatialIndex>(new GeometryFault.DegenerateInput(Rasm.Domain.Kind.BoundingBox, None, "node-capacity"));
 
-    // BFS visit order gives each internal node's children CONSECUTIVE slots, satisfying the contiguous child-range and parent-before-child laws.
     static NodeStore Compact(int root, int total, int[] childA, int[] childB, BoundingBox[] bound, int[] leafSlot, int[] order) {
         int[] visit = new int[total];
         int[] map = new int[total];
@@ -433,7 +391,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             (map[childA[old]], visit[count]) = (count, childA[old]); count++;
             (map[childB[old]], visit[count]) = (count, childB[old]); count++;
         }
-        // Capacity is EXACT here — the arena is sized by the visited census — so no write can refuse.
         using Arena arena = new(count);
         for (int node = 0; node < count; node++) {
             int old = visit[node];
@@ -453,15 +410,12 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return (codes, order);
     }
 
-    // AggregateSahCost scores the whole tree root-normalized; BestSah scores one candidate split against its leaf cost — distinct metrics over the same area.
     static double AggregateSahCost(NodeStore store) {
         int count = store.Count;
         using SpanOwner<float> extent = SpanOwner<float>.Allocate(3 * count);
         using SpanOwner<float> area = SpanOwner<float>.Allocate(count);
         using SpanOwner<float> weight = SpanOwner<float>.Allocate(count);
         TensorPrimitives.Subtract<float>(store.BoundsMax.AsSpan(0, 3 * count), store.BoundsMin.AsSpan(0, 3 * count), extent.Span);
-        // The extent is a `(count, 3)` plane, so the surface-area fold reads ROWS and the `3 * node + axis`
-        // arithmetic never appears in the one member that scores the whole tree.
         Span2D<float> spans = extent.Span.AsSpan2D(height: count, width: 3);
         Span<float> sa = area.Span, w = weight.Span;
         for (int node = 0; node < count; node++) {
@@ -472,9 +426,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return TensorPrimitives.Dot<float>(w, sa) / Math.Max(sa[0], (float)EpsilonPolicy.ZeroTolerance);
     }
 
-    // Both scratch spans arrive RENTED from the build fold and are re-sliced per axis, so the three arrays a
-    // per-node mint paid for are gone; the two `Enumerable.Range` sequences bought nothing over the loops they
-    // replaced and this body sits inside the build kernel the `[03]` Exemption names.
     static (int Axis, double Cost, int Bucket) BestSah(BoundingBox[] boxes, Point3d[] centroids, int[] order, int lo, int hi,
         BoundingBox bound, BoundingBox centroidBound, int buckets, Span<int> counts, Span<BoundingBox> bins) {
         (int bestAxis, double bestCost, int bestBucket) = (0, double.MaxValue, 0);
@@ -514,8 +465,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             range: static (s, q) =>
                 guard(q.Box.IsValid && q.Ball.Match(static ball => ball.IsValid, static () => true), s.Key.InvalidInput()).ToFin()
                     .Map(_ => (QueryResult)new QueryResult.Hits(RangeHits(s.Self.Store, s.Self.Primitives, q))),
-            // The probe UNITIZES at admission, so `MaxT` is a length and the slab's parallel-axis floor compares a
-            // direction component against the page's one degeneracy anchor on a scale it actually shares.
             ray: static (s, q) =>
                 guard(q.Probe.Direction.Length > 0.0 && double.IsFinite(q.MaxT) && q.MaxT > 0.0, s.Key.InvalidInput()).ToFin()
                     .Map(_ => (QueryResult)RayNearest(s.Self.Store, s.Self.Primitives,
@@ -523,16 +472,12 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             nearest: static (s, q) =>
                 guard(q.K > 0, s.Key.InvalidInput()).ToFin()
                     .Map(_ => (QueryResult)new QueryResult.Nearest(KNearest(s.Self.Store, s.Self.Primitives, q))),
-            // The self arm passes its OWN filter rather than letting the pair walk re-derive the modality from store
-            // reference identity: a legitimate cross query against the same instance was silently self-filtered.
             overlap: static (s, q) =>
                 guard(double.IsFinite(q.Tolerance) && q.Tolerance >= 0.0, s.Key.InvalidInput()).ToFin()
                     .Map(_ => (QueryResult)new QueryResult.Pairs(OverlapPairs(s.Self, q.Other, q.Tolerance, static (_, _) => true))),
             selfOverlap: static (s, q) =>
                 guard(double.IsFinite(q.Tolerance) && q.Tolerance >= 0.0, s.Key.InvalidInput()).ToFin()
                     .Map(_ => (QueryResult)new QueryResult.Pairs(OverlapPairs(s.Self, s.Self, q.Tolerance, static (a, b) => a < b))),
-            // A COUNT defect reports as a count fault: the soup's triangle roster and the index's primitive roster
-            // are one arity, and a kind mismatch named the wrong axis entirely.
             winding: static (s, q) =>
                 q.Triangles.Count != s.Self.Primitives.Length
                     ? Fin.Fail<QueryResult>(new GeometryFault.IndexMismatch(EntityKind.Face, s.Self.Primitives.Length, q.Triangles.Count))
@@ -543,9 +488,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
                     .Map(_ => (QueryResult)new QueryResult.Hits(SlabHits(s.Self.Store, s.Self.Primitives, q))));
     }
 
-    // Plane-slab broad phase: a box crosses layer L iff the box's LOCAL Z range under the lattice inverse affine
-    // crosses [L, L+1] — exact for a rotated or sheared lattice, because local Z is affine in the corner and an
-    // AABB's extremal value of an affine functional is centre ± Σ|coefficient|·halfExtent, allocation-free.
     static Seq<int> SlabHits(NodeStore store, BoundingBox[] primitives, SpatialQuery.Slab slab) =>
         LeafHits(store: store, verdict: node => CrossesLayer(store.Bound(node), slab.Grid, slab.Layer) ? NodeVerdict.Descend : NodeVerdict.Prune,
             admit: prim => CrossesLayer(primitives[prim], slab.Grid, slab.Layer));
@@ -564,14 +506,11 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             admit: prim => Intersects(primitives[prim], range.Box)
                 && range.Ball.Match(ball => SphereHits(primitives[prim], ball), static () => true));
 
-    // Shared monotone shape runs one `Reach` walk, then the admitted leaves' primitives filtered by the caller's
-    // own per-primitive test. Both hit queries differ ONLY in those two predicates.
     static Seq<int> LeafHits(NodeStore store, Func<int, NodeVerdict> verdict, Func<int, bool> admit) =>
         NodeWalk.Reach(store: store, verdict: verdict)
             .Filter(store.Leaf)
             .Bind(node => toSeq(store.Primitives(node).Where(admit)));
 
-    // Reverse index order is child-before-parent: one bottom-up moment pass per evaluation feeds every query point.
     static double[] Winding(NodeStore store, SpatialQuery.Winding query) {
         (Vector3d[] dipole, Point3d[] weighted, double[] area) = Moments(store, query.Triangles);
         double betaSquared = query.Beta.Value * query.Beta.Value;
@@ -602,9 +541,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return (dipole, weighted, area);
     }
 
-    // Span-kernel arm: the multipole verdict is a function of the QUERY POINT, so the graph `Reach` would colour is a
-    // fresh whole-store graph per point — the refused operator is named here, and the same NodeVerdict rows drive
-    // this descent, `Absorb` naming exactly the far node whose subtree collapses into one dipole term.
     static double WindingAt(NodeStore store, SpatialQuery.Winding query, double betaSquared, Vector3d[] dipole, Point3d[] weighted, double[] area, Point3d point) =>
         NodeWalk.Descend(root: 0, seed: 0.0, step: (total, node, frontier) => {
             NodeVerdict verdict = Multipole(store, betaSquared, node, point);
@@ -642,10 +578,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return 2.0 * Math.Atan2(numerator, denominator);
     }
 
-    // Span-kernel arm: `best` tightens as the walk proceeds, so the admission is not a pure function of the node and
-    // no `BreadthFirstSearchAlgorithm` frontier carries it — the refused operator is named here, not elsewhere.
-    // The incumbent rides an OPTION through the whole descent — a `-1` seed threaded to the exit and lifted only at
-    // the boundary spelled absence as a sentinel every intermediate read had to remember to test.
     static QueryResult.RayHit RayNearest(NodeStore store, BoundingBox[] primitives, SpatialQuery.Ray ray) {
         (double best, Option<int> hit) = NodeWalk.Descend(root: 0, seed: (Best: ray.MaxT, Hit: Option<int>.None), step: (state, node, frontier) => {
             if (!Slab(store.Bound(node), ray.Probe, state.Best, out _)) { return state; }
@@ -661,12 +593,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return new QueryResult.RayHit(hit, hit.IsSome ? best : ray.MaxT);
     }
 
-    // Span-kernel arm. Leaf distance is the exact DOUBLE primitive-box distance (0 inside); a centroid metric
-    // bounds nothing. QuikGraph carries no event queue and `IQueue<int>` selects a frontier without reading the
-    // incumbent worst, so a Dijkstra over a nearest-neighbour heap is a fiction and stands refused. The bounded
-    // selection is the `Rasm.Domain` `Ranked` cell under `ExtremumDirection.Minimum` — its `Bound` IS the pruning
-    // threshold, an `Option` where the local heap's `Worst()` spelled absence as a `double.MaxValue` sentinel —
-    // and `Drain` answers ascending distance, so the page holds no heap and no final sort of its own.
     static Seq<int> KNearest(NodeStore store, BoundingBox[] primitives, SpatialQuery.Nearest knn) {
         Ranked<int, double> nearest = new(knn.K, ExtremumDirection.Minimum);
         _ = NodeWalk.Descend(root: 0, seed: unit, step: (state, node, frontier) => {
@@ -684,10 +610,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return nearest.Drain();
     }
 
-    // THE point-triangle closest refinement behind every BVH candidate prune, Ericson's Voronoi-region ladder: three
-    // vertex regions, three edge regions, then the barycentric interior. Foot and distance leave TOGETHER because the
-    // distance IS query.DistanceTo(foot) — publishing one alone forced each consumer to re-derive the other, which is
-    // exactly how two transcriptions of this ladder came to sit beside two copies of this same broad phase.
     public static (Point3d Foot, double Distance) ClosestOnTriangle(Point3d query, Point3d a, Point3d b, Point3d c) {
         Vector3d ab = b - a, ac = c - a, ap = query - a;
         double d1 = ab * ap, d2 = ac * ap;
@@ -710,10 +632,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         static (Point3d Foot, double Distance) Foot(Point3d query, Point3d at) => (at, query.DistanceTo(at));
     }
 
-    // Span-kernel arm: the cursor is a node PAIR over two stores, so the vertex set is the |L|x|R| product a
-    // `ToDelegateVertexAndEdgeListGraph` would colour whole at `Initialize`. The modality arrives as `admit` from
-    // the QUERY case that already carries it — reference identity re-derived a discriminant the union holds, and a
-    // legitimate cross query against one instance got a self filter the caller never asked for.
     static Seq<(int Left, int Right)> OverlapPairs(SpatialIndex left, SpatialIndex right, double tolerance, Func<int, int, bool> admit) {
         (NodeStore ls, BoundingBox[] lp) = (left.Store, left.Primitives);
         (NodeStore rs, BoundingBox[] rp) = (right.Store, right.Primitives);
@@ -737,7 +655,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     // --- [REFIT]
-    // Refit is persistent: fresh bound arrays over the shared topology, so a published index is never mutated.
     internal Fin<SpatialIndex> Refit(BoundingBox[] revised) =>
         revised.Length != Primitives.Length
             ? Fin.Fail<SpatialIndex>(new GeometryFault.IndexMismatch(EntityKind.Face, Primitives.Length, revised.Length))
@@ -748,8 +665,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         (float[] min, float[] max) = (new float[3 * store.Count], new float[3 * store.Count]);
         LeafRefit leaves = new(store, updated, min, max);
         ParallelHelper.For(0, store.Count, in leaves, Policy.ParallelFloor.Value);
-        // Reverse index order is child-before-parent; both planes address by ROW, so the bottom-up union reads a
-        // child's three lanes contiguously and no site re-derives an offset.
         Span2D<float> lower = min.AsSpan2D(height: store.Count, width: 3), upper = max.AsSpan2D(height: store.Count, width: 3);
         for (int node = store.Count - 1; node >= 0; node--) {
             if (store.Leaf(node)) { continue; }
@@ -764,8 +679,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
             }
         }
         NodeStore refitted = store with { BoundsMin = min, BoundsMax = max };
-        // ONE arm now, because both cases carry the row that built them: a degraded tree rebuilds through its own
-        // `Builder` whatever the kernel, and the `Bvh`-only rebuild the missing column forced is gone.
         double cost = AggregateSahCost(refitted);
         return Switch<Fin<SpatialIndex>>(
             bvh: b => cost > b.Policy.RefitDegradationLimit * b.BuildCost
@@ -786,17 +699,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 
     // --- [WIRE]
-    // Leaf descriptors pack a TAIL-RELATIVE LeafStart'; bounds copy the store's already-outward-rounded floats, so no second rounding site exists.
-    // Framing law: the tuple concatenates Bounds THEN Nodes little-endian — 6*Count float32, then Count + Order.Length int64. Decoders recover the
-    // split by bounds.Length / 6, so any harness that flattens the tuple to one stream owes this order and nothing else reconstructs it.
-    // Branch golden [NODE_LINK_GOLDEN] over eight BoundingBox primitives — (0,0,0)->(1,1,1), (0.5,0,0)->(1.5,1,1), (2,0,0)->(3,1,1),
-    // (2.5,0,0)->(3.5,1,1), (10,0,0)->(11,1,1), (10.5,0,0)->(11.5,1,1), (12,0,0)->(13,1,1), (12.5,0,0)->(13.5,1,1) — built through
-    // Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, primitives, BuildPolicy.Canonical)) and projected through SpatialOp.Wire:
-    //   Store.Count == 3; Order is the identity permutation; Nodes[0] = 2097154, Nodes[1] = -5, Nodes[2] = -8388613; tail [0,1,2,3,4,5,6,7];
-    //   stream length 160 bytes (18 float32 = 72, 11 int64 = 88), little-endian, Bounds THEN Nodes:
-    //   bounds 010000800100008001000080010058410100803F0100803F010000800100008001000080010060400100803F0100803FFFFF1F410100008001000080010058410100803F0100803F
-    //   nodes  0200200000000000FBFFFFFFFFFFFFFFFBFF7FFFFFFFFFFF00000000000000000100000000000000020000000000000003000000000000000400000000000000050000000000000006000000000000000700000000000000
-    // Regenerate when the node-link layout, BuildPolicy.Canonical, or the pinned 8-box input changes.
     internal static Fin<(float[] Bounds, long[] Nodes)> NodeLinkProjection(NodeStore store, Op key) {
         for (int node = 0; node < store.Count; node++)
             if (store.LeafCount[node] > BuildPolicy.PackedCountMax || store.ChildCount[node] > BuildPolicy.PackedCountMax)
@@ -821,12 +723,10 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return Fin.Succ((bounds, nodes));
     }
 
-    // Expand10 spreads TEN bits per axis, so a deeper octree walk would read shift bits the code never wrote.
     const int MortonDepth = 10;
     const double FourPiInverse = 0.25 / Math.PI;
 
     // --- [KERNELS]
-    // Bounds narrow OUTWARD at this one write seam; Freeze copies the used prefix and the pooled memory dies with the build.
     sealed class Arena(int capacity) : IDisposable {
         readonly MemoryOwner<float> mins = MemoryOwner<float>.Allocate(3 * capacity);
         readonly MemoryOwner<float> maxs = MemoryOwner<float>.Allocate(3 * capacity);
@@ -835,13 +735,8 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         readonly MemoryOwner<int> leafStart = MemoryOwner<int>.Allocate(capacity);
         readonly MemoryOwner<int> leafCount = MemoryOwner<int>.Allocate(capacity);
 
-        // Capacity DERIVES from the depth ceiling the caller's kernel actually honours: a degenerate chain under a
-        // ceiling of d costs at most (d + 2)n nodes, so the octree passes min(MaxDepth, MortonDepth) and the binary
-        // build passes 2 for its 2n-1 bound. A hand `12x` factor was the octree's ceiling asserted as a literal.
         internal static Arena Rent(int primitives, int depthCeiling) => new(Math.Max(1, ((depthCeiling + 2) * primitives) + 1));
 
-        // A refused write is EVIDENCE the build lifts onto its `Fin` rail, never an unguarded span store past the
-        // rented capacity — `BuildOctree` grows its node count by the run census with no ceiling of its own.
         internal bool Write(int node, BoundingBox box, int first, int children, int start, int count) {
             if (node >= capacity) { return false; }
             Span2D<float> lower = mins.Span.AsSpan2D(height: capacity, width: 3), upper = maxs.Span.AsSpan2D(height: capacity, width: 3);
@@ -863,7 +758,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         }
     }
 
-    // Down(v) <= v <= Up(v) for finite double, so a float node bound never falsely prunes and leaf tests re-read the double boxes.
     static float Down(double value) => float.BitDecrement((float)value);
     static float Up(double value) => float.BitIncrement((float)value);
 
@@ -900,7 +794,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
         return box;
     }
 
-    // Host Inflate mutates in place; the by-value copy makes this the pure form.
     static BoundingBox Inflate(BoundingBox box, double tolerance) {
         box.Inflate(tolerance);
         return box;
@@ -909,8 +802,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     static double Axis(Point3d p, int axis) => axis == 0 ? p.X : axis == 1 ? p.Y : p.Z;
     static double Axis(Vector3d v, int axis) => axis == 0 ? v.X : axis == 1 ? v.Y : v.Z;
 
-    // Host `Unitize` mutates in place; the by-value copy makes this the pure form, and the admission gate already
-    // proved the length positive so the return is total.
     static Vector3d UnitDirection(Vector3d direction) {
         _ = direction.Unitize();
         return direction;
@@ -955,8 +846,6 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     static uint Normalize(double value, double min, double span) =>
         span <= EpsilonPolicy.ZeroTolerance ? 0u : (uint)Math.Clamp((int)(1023.0 * (value - min) / span), 0, 1023);
 
-    // The right-side buffer is the build's ONE rented scratch, sliced per call, so a partition no longer mints an
-    // array per internal node on the hottest path in the page.
     static int StablePartition(int[] order, int lo, int hi, Span<int> scratch, Func<int, bool> onLeft) {
         Span<int> buffer = scratch[..(hi - lo)];
         int write = lo, b = 0;
@@ -966,7 +855,7 @@ public abstract partial record SpatialIndex : IValidityEvidence {
     }
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class Spatial {
     [BoundaryAdapter]
     public static Fin<SpatialAnswer> Apply(SpatialOp op, Op? key = null) {

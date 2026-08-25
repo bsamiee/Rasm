@@ -27,9 +27,6 @@ type LeaseGrant = Awaited<ReturnType<DopplerSDK["dynamicSecrets"]["issueLease"]>
 type LeaseHandle = Parameters<DopplerSDK["dynamicSecrets"]["revokeLease"]>[0]
 
 const _renewals = ["rolling", "bounded"] as const
-// The TTL crosses the wire as whole seconds (ttl_sec), so second alignment is admission: a
-// sub-second duration would silently floor at the seconds boundary and desynchronize the remote
-// lease, the cache expiry, the renewal cadence, and the bounded clear from the declared value.
 const _LeaseTtl = Schema.DurationFromMillis.pipe(
   Schema.filter((ttl) => Duration.toMillis(ttl) >= 1000 && Duration.toMillis(ttl) % 1000 === 0, { identifier: "WholeSecondLeaseTtl" }),
 )
@@ -45,10 +42,6 @@ const LeaseSpec = Schema.Struct({
 
 type LeaseSpec = typeof LeaseSpec.Type
 
-// Every custody refusal names the COORDINATE it failed on beside its cause, because that pair is what an operator
-// acts on — a project/config/scope path and, on the name-grained arms, the secret under it. One shared subject is
-// what lets the status fold mint a payload for whichever reason `_reasonOf` elects without a per-status raise site;
-// each row still renders its own sentence, so `absent` and `exhausted` never read as one prose line.
 const _family = Fault.Class.family(["credential", "missing", "rateLimit", "transient", "lease"] as const, {
   credential: Fault.Class.row({
     class: "denied",
@@ -137,9 +130,6 @@ const _set = (coordinate: string) => (raw: unknown): Effect.Effect<SecretSet, Se
 ```typescript
 const _rotation = Convention.mount(Convention.metric.securitySecretRotation)
 
-// The custody coordinates as one typed contract: each row names its env key beside its proven injection source, so
-// the custodian's reads and the deploy plane's stamps derive from one owner — `doppler run` injects the project and
-// config coordinates into the wrapped process, and only the token rides a workload secret mount.
 const Coordinate = {
   token: { key: "DOPPLER_TOKEN", source: "mounted" },
   project: { key: "DOPPLER_PROJECT", source: "injected" },
@@ -151,11 +141,8 @@ declare namespace Coordinate {
   type _Rows<T extends Record<string, { readonly key: string; readonly source: "mounted" | "injected" }> = typeof Coordinate> = T
 }
 
-// The one DOPPLER_/SECURITY_LEASE_SPEC decode site: every custody row resolves at the boot line as one described record.
 const _custody = Config.unwrap({
   leaseSpec: Schema.Config("SECURITY_LEASE_SPEC", Schema.parseJson(LeaseSpec)).pipe(
-    // `Schema.Config` admits only a string-encoded schema, and the cell carries JSON — the same `parseJson(LeaseSpec)`
-    // codec the deploy plane encodes with, so both ends of the wire share one serializer by construction.
     Config.withDescription("encoded LeaseSpec the app root supplies; scope, allowlist, ttl, renewal posture, epoch"),
   ),
   token: Config.redacted(Coordinate.token.key).pipe(
@@ -176,17 +163,10 @@ const _custody = Config.unwrap({
 class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
   scoped: Effect.gen(function* () {
     const { config, deadline, leaseSpec, project, token } = yield* _custody
-    const ttl = Duration.toSeconds(leaseSpec.ttl) // exact by admission: LeaseSpec.ttl is second-aligned, so no flooring exists to drift
+    const ttl = Duration.toSeconds(leaseSpec.ttl)
     const sdk = new DopplerSDK({ accessToken: Redacted.value(token) })
     const leases = yield* Ref.make<ReadonlyArray<LeaseHandle>>([])
-    // One custody coordinate, minted once: the rotation fact, every transport refusal, and the name-grained arms
-    // that suffix it all read this value, so a cell's identity is spelled at a single site.
     const coordinate = `${project}/${config}/${leaseSpec.scope}`
-    // BOUNDARY ADAPTER: tryPromise wires fiber interruption into the AbortSignal handed to run.
-    // The Doppler transport is signal-blind — the SDK owns its own node client and takes no per-call
-    // signal — so the deadline bounds the CALLER: a hung call types as transient while the orphaned
-    // read settles harmlessly in the background; the one state-mutating call (issueLease) rides its
-    // own shielded window below so no landed grant escapes custody.
     const _lift = <A>(run: (signal: AbortSignal) => Promise<A>, reason?: SecretFault.Reason): Effect.Effect<A, SecretFault> =>
       Effect.tryPromise({
         try: run,
@@ -234,10 +214,6 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
           fetch.pipe(
             Effect.retry(Fault.Budget.schedule("lease")),
             Effect.flatMap((set) => _publish(() => set)),
-            // Discrimination runs INTERRUPT-FIRST: a scope teardown ends this loop cleanly while an exhausted
-            // retry is custody that stopped refreshing, and a bare swallow reports the two identically — so a
-            // permanently dead refresh reads exactly like a clean shutdown and every later `get` serves the
-            // last set nothing renewed. The tick still survives its own failure; only the silence goes.
             Effect.tapErrorCause((cause) =>
               Cause.isInterruptedOnly(cause) ? Effect.void : Effect.logError("secret refresh exhausted", cause)),
             Effect.ignore,
@@ -266,27 +242,17 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
             Effect.tap((value) => _publish(HashMap.set(name, value))),
           )
         : Effect.fail(new SecretFault({ case: { reason: "missing", coordinate: `${coordinate}/${name}`, cause: "outside the lease allowlist" } }))
-    // Census answers membership AND value for the WHOLE allowlist in one read, so its answer IS custody rather
-    // than a delta over it: publication REPLACES, and a name Doppler stopped serving stops resolving through
-    // `get` instead of surviving as a value nothing refreshes and no rotation event mentions. `_publish`'s
-    // equality fold still suppresses the rotation event where nothing changed. `includeDynamicSecrets` stays
-    // OFF: an inline lease surfaces no handle, so a census issuing one could never revoke it, and the dynamic
-    // lifecycle keeps its explicit `lease` seam.
     const census = (): Effect.Effect<SecretSet, SecretFault> =>
       _lift(() => sdk.secrets.list(project, config, {
         includeDynamicSecrets: false,
         includeManagedSecrets: false,
         secrets: leaseSpec.keys.join(","),
       })).pipe(
-        // Codegen fixed four example key names onto this response type, so its real name-keyed map decodes here
-        // exactly as every other read on this page decodes rather than off a shape the SDK only claims
         Effect.flatMap((response) =>
           Schema.decodeUnknown(Schema.Struct({
             secrets: Schema.Record({ key: Schema.String, value: Schema.Struct({ raw: Schema.String }) }),
           }))(response).pipe(
             Effect.mapError((cause) => new SecretFault({ case: { reason: "missing", coordinate, cause: String(cause) } })))),
-        // `leaseSpec.keys` is the one positive admission boundary on BOTH faces — `probe` and `lease` already
-        // refuse an unlisted name, so a response row beyond it never enters the set custody serves.
         Effect.map((decoded) =>
           Record.reduce(decoded.secrets, HashMap.empty<string, Redacted.Redacted<string>>(), (held, row, name) =>
             leaseSpec.keys.includes(name) ? HashMap.set(held, name, Redacted.make(row.raw)) : held)),
@@ -306,9 +272,6 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
             catch: (cause) => new SecretFault({ case: { reason: "lease", coordinate: `${coordinate}/${name}`, cause: String(cause) } }),
           }).pipe(
             Effect.tap((grant) => Ref.update(leases, (held) => [...held, handle(grant)])),
-            // Grant-and-register is ONE shielded window severed onto its own fiber: the deadline
-            // settles the caller on time while a late-landing grant still registers into the leases
-            // cell, so the scope finalizer revokes it and no orphaned lease escapes custody.
             Effect.uninterruptible,
             Effect.disconnect,
             Effect.timeoutFail({
@@ -359,7 +322,7 @@ const credential = (
     })
   })
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Coordinate, credential, LeaseSpec, Secret, SecretFault }
 export type { LeaseGrant, LeaseHandle, SecretSet }

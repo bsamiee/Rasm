@@ -24,7 +24,7 @@ This page founds nothing: every silhouette, crossing, seed, section, crease, fil
 - Boundary: the projection owner is the ONE polymorphic `ViewOp` `[Union]` folded by one `Apply`, and a `SilhouetteExtractor`/`HiddenLineRemover`/`Sectioner`/`OutlineProjector` sibling-class family is the named density defect — as is a per-part solve loop at any consumer, which the roster payload exists to foreclose. Visibility is EXACT ANALYTIC: the silhouette locus composes `Predicate.Orient3D` (an epsilon-tolerant float dot test is the non-determinism defect), every crossing/delta/seed is an exact sign through the intersect and predicate owners, candidate-component labeling composes QuikGraph `ConnectedComponents` (a page-local union-find is deleted), the `Section` cut composes `IntersectOp.PlaneMesh` (an inline plane-mesh test or a host `Make2D` round-trip is deleted), the inter-part seam composes `IntersectOp.MeshMesh` (a page-local mesh-mesh march is deleted), the crease composes the `FeatureReceipt` dihedral (a local re-derivation is the deleted double owner), region fill composes `ArrangementOp.PlanarOverlay` (a local filler is deleted), the soup is `MeshEdit.Of` with poses applied through `Kernels.Apply` (a page-local `Soup`/`BuildNative` pair is the deleted third carrier), and `ToPolylines` walks successor links per visibility set (a `GroupBy(kind)` concat merging visible with hidden is the deleted lie). Coplanar face-to-face contact between parts is where `Orient3D` reads `Sign.Zero` and QI deltas silently stop transitioning, so contact takes an admission POSTURE rather than per-predicate guards: `Weld` accepts the joint — coincident surfaces change no visibility, the contact records on the receipt, and the parts' own locus edges draw the seam — while `Refuse` faults typed naming the pair; an unstated posture is the foreclosed silent form. Occlusion masks are a `HashMap<int, PartRole>` KEYED on the part ordinal resolved ONCE into the assembly's `Occludes`/`Draws` columns, so one part cannot carry two contradicting rows and no default-minted slot can ghost a role — a ghosted-context boolean per call site is the killed knob pair and the ordered row array the killed ambiguity. `Apply` is total over the `Fin` rail — a thrown exception on a degenerate camera or empty locus is forbidden, admission refusals ride the `Op` channel and geometry defects ride `GeometryFault` family, neither family absorbing the other. Screen coordinates operate on raw `double` only inside the projection kernels; a bare `double` crossing the public surface outside `Point3d`/`Plane`/`Polyline`/`Line`/`Transform` is the seam violation. Hidden runs classify and RETAIN under `ViewTrait.Retains`, never discarded to satisfy a budget; the emission keys its run sets and head maps on `Visibility`, so a third visibility class is one row rather than a fourth pair of parallel structures. `ViewConvention` seats at THIS drawing tier as drafting-presentation policy — a geometry-rail seat or a host-folder recipe catalog with inline multipliers is the killed form; the host viewport rail consumes `ViewPose` while this page's exact drawing consumes `ToCamera`, and annotation seams (GD&T datum targets, basic dimensions) consume `Camera.ScreenBasis` rather than re-deriving a basis.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,12 +39,11 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
 using EdgeKeySet = System.Collections.Generic.HashSet<long>;
 
 namespace Rasm.Drawing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ViewTrait : ICapability<ViewTrait> {
     public static readonly ViewTrait Resolves = new("resolves", rank: 0);
@@ -53,8 +52,6 @@ public sealed partial class ViewTrait : ICapability<ViewTrait> {
 
     public int Rank { get; }
 
-    // Retains needs Resolves — a hidden run has no classification without an invisibility count. Seams is
-    // independent: the section cut reads the contact ROSTER alone, so the seam demand rides the kind row.
     public static readonly CapabilityLaw<ViewTrait> Law = new(Legal: Seq(
         CapabilitySet<ViewTrait>.None,
         CapabilitySet<ViewTrait>.Of(Seams),
@@ -76,7 +73,6 @@ public sealed partial class ViewKind {
     public CapabilitySet<ViewTrait> Traits { get; }
 }
 
-// ProjectionFault(EdgeKind, int) composes these rows — consumed corpus-wide; renumbering breaks the payload.
 [SmartEnum<int>]
 public sealed partial class EdgeKind {
     public static readonly EdgeKind Silhouette   = new(0);
@@ -85,14 +81,12 @@ public sealed partial class EdgeKind {
     public static readonly EdgeKind Intersection = new(3);
 }
 
-// Derived from the Appel count (visible = 0).
 [SmartEnum<int>]
 public sealed partial class Visibility {
     public static readonly Visibility Visible = new(0);
     public static readonly Visibility Hidden  = new(1);
 }
 
-// DrawnNotOccluding is ghosted context; OccludingNotDrawn is clipping context; an unmasked part does both.
 [SmartEnum<int>]
 public sealed partial class PartRole {
     public static readonly PartRole DrawnNotOccluding = new(0);
@@ -111,16 +105,11 @@ public sealed partial class ContactKind {
     public static readonly ContactKind Tangent     = new(1);
 }
 
-// Host-agnostic projection vocabulary: Perspective drives camera derivation and Rectify the screen-basis
-// correction each intent owes, so no two rows differ by nothing but a key.
 [SmartEnum<int>]
 public sealed partial class ViewProjectionIntent {
     public static readonly ViewProjectionIntent Parallel = new(key: 0, perspective: false, rectify: None);
     public static readonly ViewProjectionIntent Perspective = new(key: 1, perspective: true, rectify: None);
-    // Two-point rectification holds world Z vertical on screen, which is a function of the CAMERA basis and not
-    // a constant: this column carries no transform for it and ToCamera hands back the uncorrected basis.
     public static readonly ViewProjectionIntent TwoPoint = new(key: 2, perspective: true, rectify: None);
-    // Reflected ceiling mirrors handedness about world ZX — the plan reads as seen from below.
     public static readonly ViewProjectionIntent ParallelReflected = new(key: 3, perspective: false,
         rectify: Some(Transform.Mirror(Plane.WorldZX)));
 
@@ -128,14 +117,12 @@ public sealed partial class ViewProjectionIntent {
     public Option<Transform> Rectify { get; }
 }
 
-// Placement is COLUMN DATA folded through one Pose body; elevation and azimuth are signed spherical radians.
 [SmartEnum<int>]
 public sealed partial class ViewConvention {
     public static readonly ViewConvention TwoPointElevation = new(key: 0, projection: ViewProjectionIntent.TwoPoint,
         elevation: 0.0, azimuth: 0.0, distanceFactor: PositiveMagnitude.Create(value: 1.5), lens: PositiveMagnitude.Create(value: 35.0));
     public static readonly ViewConvention ParallelPlan = new(key: 1, projection: ViewProjectionIntent.Parallel,
         elevation: double.DegreesToRadians(90), azimuth: 0.0, distanceFactor: PositiveMagnitude.Create(value: 1.5), lens: PositiveMagnitude.Create(value: 50.0));
-    // atan(1/√2) IS the isometric elevation — the derivation is the specification.
     public static readonly ViewConvention Axonometric = new(key: 2, projection: ViewProjectionIntent.Parallel,
         elevation: Math.Atan(1.0 / Math.Sqrt(2.0)), azimuth: double.DegreesToRadians(45), distanceFactor: PositiveMagnitude.Create(value: 2.0), lens: PositiveMagnitude.Create(value: 50.0));
     public static readonly ViewConvention TopPerspective = new(key: 3, projection: ViewProjectionIntent.Perspective,
@@ -151,7 +138,6 @@ public sealed partial class ViewConvention {
     public PositiveMagnitude DistanceFactor { get; }
     public PositiveMagnitude Lens { get; }
 
-    // ONE derived body over the columns — zero per-row recipes.
     public Fin<ViewPose> Pose(BoundingBox subject, Option<Direction> facing, Context context, Op key) {
         ViewConvention row = this;
         return from _ in guard(subject.IsValid && subject.Diagonal.Length > context.For(ToleranceLane.Length).Value, key.InvalidInput()).ToFin()
@@ -173,10 +159,7 @@ public sealed partial class ViewConvention {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Admission seats at INTAKE so every constructed subject carries an admitted space; `default(ViewSubject)` is a
-// C# fact no factory erases, so the union fold keeps exactly ONE ghost gate for it and none of the per-part
-// probes the un-gated shape used to owe.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ViewSubject {
     private ViewSubject(MeshSpace mesh, Option<Transform> pose) {
         Mesh = mesh;
@@ -193,7 +176,6 @@ public readonly record struct ViewSubject {
     }
 }
 
-// Offsetting makes a cross-part weld unrepresentable in the edge-incidence fold.
 public readonly record struct PartSpan(int VertexStart, int VertexCount, int FaceStart, int FaceCount) {
     public bool HoldsFace(int face) => face >= FaceStart && face < FaceStart + FaceCount;
 }
@@ -201,10 +183,6 @@ public readonly record struct PartSpan(int VertexStart, int VertexCount, int Fac
 public sealed record PartContact(int A, int B, ContactKind Kind, int Chains);
 
 public readonly record struct ViewPose(VectorFrame Frame, Point3d Eye, Point3d Target, BoundingBox Subject, ViewProjectionIntent Projection, PositiveMagnitude Lens) {
-    // Perspective cameras admit only a WHOLLY-IN-FRONT subject: every Subject corner strictly ahead of the eye
-    // plane, or the pose refuses on the Op channel. The gate is the ONE seat that keeps Camera.Depth divide-safe —
-    // a behind-eye point once clamped to double.Epsilon and projected to a finite astronomically-scaled screen
-    // coordinate that no downstream probe caught. Parallel projection has no eye side, so the gate is perspective-only.
     [BoundaryAdapter]
     public Fin<Camera> ToCamera(Context tolerance, Op? key = null) {
         Op op = key.OrDefault();
@@ -218,16 +196,12 @@ public readonly record struct ViewPose(VectorFrame Frame, Point3d Eye, Point3d T
                    perspective: self.Projection.Perspective, tolerance: tolerance);
     }
 
-    // Rectification applies to the SCREEN basis alone — eye, look direction, and depth cue stay world-side, so a
-    // reflected plan flips its (u, v) handedness without moving the camera or re-signing Depth.
     static Plane Rectified(Plane screen, ViewProjectionIntent intent) =>
         intent.Rectify.Match(
             Some: turn => { Plane rectified = screen; _ = rectified.Transform(turn); return rectified; },
             None: () => screen);
 }
 
-// Admission is ToCamera's ALONE — the wholly-in-front gate is what keeps Depth divide-safe, so a public ctor
-// would seat every ViewOp on a camera that gate never walked.
 public sealed record Camera {
     private Camera(Point3d eye, Vector3d direction, Plane screen, bool perspective, Context tolerance) {
         Eye = eye;
@@ -252,17 +226,10 @@ public sealed record Camera {
         return new Point3d(u / depth, v / depth, 0.0);
     }
 
-    // RAW signed axial distance — positive by ToCamera's perspective admission over the subject, and an honest
-    // signed fade cue under parallel projection where nothing sits "behind" a directional eye. The prior
-    // `d <= 0 ? double.Epsilon : d` clamp forged both.
     public double Depth(Point3d world) => (world - Eye) * Direction;
 
-    // Exact view-side verdict — Orient3D of the eye against the face's supporting plane.
     public Sign SideOf(Point3d a, Point3d b, Point3d c) => Predicate.Orient3D(a, b, c, Eye);
 
-    // World coordinates re-expressed in the screen frame — the (u, v) Project computes, with z the
-    // Target-plane-relative depth. An affine answer exists only without the perspective divide, so a
-    // perspective camera REFUSES rather than handing a transform that disagrees with Project.
     [BoundaryAdapter]
     public Fin<Transform> ScreenBasis(Op? key = null) =>
         Perspective
@@ -270,10 +237,6 @@ public sealed record Camera {
             : Fin.Succ(Transform.ChangeBasis(plane0: Plane.WorldXY, plane1: Screen));
 }
 
-// Absence rides the carrier across the sheet seam: Next absent ENDS the chain, SourceA/SourceB absent mark an
-// interior split, Part absent an out-of-roster row, SourceFace absent a seam or section row. The packed int
-// sentinels the emission scratch runs on stop at Emit's close. An inter-part seam carries the pair's lower
-// DRAWN ordinal, the pair identity riding Contacts.
 public sealed record ProjectedSegment(
     Point3d ScreenA, Point3d ScreenB, EdgeKind Edge, int Invisibility, Option<int> Next,
     Option<int> SourceA, Option<int> SourceB, (double A, double B) Depth, Option<int> Part, Option<int> SourceFace) {
@@ -284,7 +247,6 @@ public sealed record EdgeHistogram(int Silhouette, int Crease, int Boundary, int
     public static readonly EdgeHistogram Empty = new(0, 0, 0, 0, 0, 0);
 
     public EdgeHistogram Add(ProjectedSegment s) {
-        // Stateless smart-enum Switch takes parameterless arms — the receiver already names the row.
         EdgeHistogram tally = s.Edge.Switch(
             silhouette:   () => this with { Silhouette = Silhouette + 1 },
             crease:       () => this with { Crease = Crease + 1 },
@@ -301,25 +263,17 @@ public sealed record DrawingProjection(Seq<ProjectedSegment> Visible, Seq<Projec
 
     public Seq<Line> ToSegments() => (Visible + Hidden).Map(static s => new Line(s.ScreenA, s.ScreenB));
 
-    // Union is the ONE overlay this fill can mean: the second operand is empty, so Intersection answers nothing
-    // and Difference is the identity — the op is pinned at the site rather than offered as three answers with one.
     [BoundaryAdapter]
     public Fin<ArrangementResult> Fill(ArrangementPolicy policy, Op? key = null) =>
         Arrangement.Apply(new ArrangementOp.PlanarOverlay(
             A: Chains(Visible).Filter(static loop => loop.IsClosed), B: Seq<Polyline>(), Op: BooleanOp.Union, Plane: Axis.Z, Policy: policy), key);
 
-    // Chain walk is SuccessorChain's; this carrier only says how an index chain becomes a polyline.
     static Seq<Polyline> Chains(Seq<ProjectedSegment> set) =>
         SuccessorChain.Walk(set, static s => s.Next)
             .Map(chain => new Polyline(set[chain[0]].ScreenA.Cons(chain.Map(i => set[i].ScreenB))));
 }
 
-// ONE successor walk over both Drawing carriers — DrawingProjection links visible and hidden runs, HatchResult
-// course runs and motif rings, under the same ordinal contract; the carriers differ only in how a chain of
-// indices becomes geometry, which is why the algebra seats here and not once per result type.
 public static class SuccessorChain {
-    // Unlinked heads open every chain; leftover linked-only rows are closed RINGS, walked once, never dropped.
-    // The visited bitmap is this walk's own scratch and the fold order is what makes the partition deterministic.
     public static Seq<Seq<int>> Walk<T>(Seq<T> rows, Func<T, Option<int>> next) {
         Set<int> linked = toSet(rows.Map(next).Somes());
         bool[] visited = new bool[rows.Count];
@@ -329,8 +283,6 @@ public static class SuccessorChain {
             visited[head] ? chains : chains.Add(Trail(rows, next, head, visited)));
     }
 
-    // Cursor GENERATION, never a while-loop accumulator: unfold halts the step a successor is absent or already
-    // seen, so a ring closes on its own head exactly once and a self-link cannot spin.
     static Seq<int> Trail<T>(Seq<T> rows, Func<T, Option<int>> next, int head, bool[] visited) {
         visited[head] = true;
         return head.Cons(toSeq(List.unfold(head, cursor => next(rows[cursor])
@@ -339,18 +291,11 @@ public static class SuccessorChain {
     }
 }
 
-// --- [POLICIES] ---------------------------------------------------------------------------
-// Tolerance rides the policy so every gate on this page reads ONE Context: the pose lowers it into the camera
-// and the solve reads it back, rather than two owners each carrying a copy that can disagree.
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record ViewPolicy(
     VectorAngle CreaseDihedral, PositiveMagnitude Beta, IntersectPolicy Narrow, BuildPolicy Broad,
     ContactPosture Contact, HashMap<int, PartRole> Masks, Context Tolerance) {
 
-    // The crease gate is a BEARING threshold, so it derives from the Torsal angle lane rather than a Canonical
-    // static pinning a literal off-lane; a drafting convention wanting the published crease angle names it.
-    // Beta is the Barill-Jacobson fast-winding accuracy parameter (Fast Winding Numbers for Soups and Clouds,
-    // SIGGRAPH 2018, §4.1 error bound), an ALGORITHM constant with no tolerance lane to derive from; it rides
-    // UNSQUARED because the squaring is the multipole criterion's own and belongs at the kernel that applies it.
     [BoundaryAdapter]
     public static Fin<ViewPolicy> Of(
         Context context, Option<VectorAngle> creaseDihedral = default, Option<PositiveMagnitude> beta = default,
@@ -360,8 +305,6 @@ public sealed record ViewPolicy(
         return from dihedral in creaseDihedral.Match(
                    Some: static row => Fin.Succ(row),
                    None: () => op.AcceptValidated<VectorAngle>(candidate: context.For(ToleranceLane.Torsal).Value))
-               // The paper's default accuracy is beta = 2; the kernel squares it at the multipole test, so this
-               // column carries the published figure rather than its square.
                from admitted in beta.Match(
                    Some: static row => Fin.Succ(row),
                    None: () => op.AcceptValidated<PositiveMagnitude>(candidate: 2.0))
@@ -370,9 +313,7 @@ public sealed record ViewPolicy(
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The POSE is the payload, never the camera: ToCamera's wholly-in-front admission is the one seat that keeps
-// Camera.Depth divide-safe, so Apply derives the camera once behind it and no case can carry an unadmitted one.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ViewOp {
     private ViewOp(Seq<ViewSubject> parts, ViewPose pose, ViewPolicy policy) {
@@ -414,10 +355,6 @@ public static class View {
         if (op.Parts.IsEmpty || op.Policy.Masks.Keys.Exists(part => part < 0 || part >= op.Parts.Count)) {
             return Fin.Fail<DrawingProjection>(k.InvalidInput());
         }
-        // Camera derives ONCE behind ToCamera's admission; Admit folds the roster and its mask roles in one pass;
-        // the contact pass states its seam demand off the kind's trait set instead of paying it on every path.
-        // Generated total Switch, never a `_` tail: a fifth view case breaks the build HERE, and the three
-        // non-section kinds share one body rather than one arm swallowing the others.
         return op.Pose.ToCamera(op.Policy.Tolerance, k).Bind(camera =>
             Admit(op.Parts, op.Policy.Masks, k).Bind(assembly =>
                 Contacts(assembly, op.Policy, op.Kind.Traits, k).Bind(contact => op.Switch(
@@ -428,28 +365,20 @@ public static class View {
                     outline:    static (s, view) => Trace(s.Assembly, s.Contact, view, s.Camera, s.Key)))));
     }
 
-    // Shared non-section body: silhouette walk, then the QI solve when the kind's trait set admits it. The
-    // non-resolving arm emits under the EMPTY trait set — a retained hidden run has no count to classify by.
     static Fin<DrawingProjection> Trace(Assembly assembly, ContactSet contact, ViewOp op, Camera camera, Op key) =>
         Silhouettes(assembly, contact.SeamEdges, camera, op.Policy, key).Bind(locus =>
             op.Kind.Traits.Admits(ViewTrait.Resolves)
                 ? Resolve(assembly, locus, contact.Roster, camera, op.Policy, op.Kind.Traits, key)
-                // locus.V, never assembly.V — seam edges index the grown vertex array on this path too.
                 : Fin.Succ(Emit(assembly, locus.Edges, EmptyLattice(locus.Edges.Count), new int[locus.Edges.Count],
                     contact.Roster, camera, CapabilitySet<ViewTrait>.None, locus.V)));
 
     // --- [ADMISSION]
-    // FaceOwner is the face→part column projected once from the span roster, so PartOfFace is the O(1) read the
-    // hot face loops pay per face; -1 answers the out-of-soup ordinals seam and section segments carry. Occludes
-    // and Draws are the mask table resolved ONCE at admission — the batteries, the occluder set, the crossing
-    // filter, the emission gate, and the section filter read the columns and none re-folds the table.
     internal readonly record struct Assembly(
         MeshSpace[] Posed, Point3d[] V, (int A, int B, int C)[] F, PartSpan[] Spans, int[] FaceOwner,
         bool[] Occludes, bool[] Draws) {
         public int PartOfFace(int face) => face >= 0 && face < FaceOwner.Length ? FaceOwner[face] : -1;
     }
 
-    // Per-part lift result: union offsets are Freeze's alone, so a part never knows its seat in the soup.
     readonly record struct PartMesh(MeshSpace Posed, Point3d[] V, (int A, int B, int C)[] F);
 
     static Fin<Assembly> Admit(Seq<ViewSubject> parts, HashMap<int, PartRole> masks, Op key) =>
@@ -458,17 +387,11 @@ public static class View {
             .As()
             .Map(seated => Freeze(seated, masks));
 
-    // ONE fallible step per part — ghost gate, pose, arena freeze, emptiness, vertex finiteness — so the roster
-    // fold is a traversal rather than an imperative early-return ladder over three cross-part accumulators.
     static Fin<PartMesh> Seat(ViewSubject subject, int ordinal, Op key) {
-        // The one seat a struct's default still reaches: `ViewSubject.Of` admits every other construction, and a
-        // default slot carries a Native-less MeshSpace MeshEdit.Of would throw on instead of routing typed.
         if (subject.Mesh?.Native is null) {
             return Fin.Fail<PartMesh>(new GeometryFault.DegenerateInput(Kind.Mesh, ordinal, "default subject"));
         }
         return subject.Pose.Match(
-            // Kernels.Apply mutates the single-writer arena in place — the arena lease dies here, so one using
-            // scopes both the adapter and the transform before the freeze escapes as value.
             Some: pose => {
                 using MeshEdit arena = MeshEdit.Of(subject.Mesh);
                 return Kernels.Apply(arena, pose).ToSpace(key);
@@ -483,16 +406,11 @@ public static class View {
             return Fin.Fail<PartMesh>(new GeometryFault.DegenerateInput(Kind.Mesh, ordinal, "empty part"));
         }
         Point3d[] points = [.. Enumerable.Range(0, edit.VertexCount).Select(edit.Position)];
-        // ValidityClaim.Finite is the kernel's ONE host-witness finiteness arm; a Point3d.IsValid probe beside it
-        // is the upper re-mint the closure deletes.
         return Array.Exists(points, static at => !ValidityClaim.Finite(value: at).Holds)
             ? Fin.Fail<PartMesh>(new GeometryFault.DegenerateInput(Kind.Mesh, ordinal, "non-finite vertex"))
             : Fin.Succ(new PartMesh(posed, points, [.. Enumerable.Range(0, edit.FaceCount).Select(edit.Face)]));
     }
 
-    // ONE pass welds the per-part lifts into the offset union soup and projects every derived column — spans, face
-    // owner, and the two mask roles — so no later member re-walks the roster or re-folds the mask table. Occlude
-    // and draw default TRUE and the total row Switch breaks on a third PartRole rather than falling to else.
     static Assembly Freeze(Seq<PartMesh> parts, HashMap<int, PartRole> masks) {
         MeshSpace[] posed = new MeshSpace[parts.Count];
         PartSpan[] spans = new PartSpan[parts.Count];
@@ -521,9 +439,6 @@ public static class View {
     }
 
     // --- [CONTACT]
-    // Refuse fires on ANY coplanar rows: a pair that both penetrates and touches face-to-face still carries the
-    // Sign.Zero patch the posture adjudicates. Seam edges materialize only where the kind's traits admit them —
-    // the section cut reads the ROSTER and would otherwise carry a seam set nothing on that path projects.
     internal readonly record struct ContactSet(Seq<PartContact> Roster, Seq<(Point3d A, Point3d B, int Part)> SeamEdges);
 
     static Fin<ContactSet> Contacts(Assembly assembly, ViewPolicy policy, CapabilitySet<ViewTrait> traits, Op key) {
@@ -542,8 +457,6 @@ public static class View {
                     .Map(static rows => new ContactSet(rows.Map(static row => row.Item1), rows.Bind(static row => row.Item2)))));
     }
 
-    // Seam-carried ordinals seat on a DRAWN part where one exists, so a clipper-against-drawn seam still
-    // draws and only a both-undrawn seam skips at emission.
     static Fin<Option<(PartContact, Seq<(Point3d A, Point3d B, int Part)>)>> Contact(int a, int b, IntersectResult.Chains chains, ContactPosture posture, bool[] draws, CapabilitySet<ViewTrait> traits, Op key) {
         bool penetrating = chains.Lattice.Segments.Length > 0;
         bool coplanar = chains.Lattice.Coplanar.Length > 0;
@@ -562,9 +475,6 @@ public static class View {
     }
 
     // --- [SILHOUETTE]
-    // Apex = occluding FRONT face's third vertex on silhouette/boundary rows (-1 on crease/inter-part rows) — the
-    // Delta sign anchor; Part and Face carry provenance from the incidence fold, seam edges appending with their
-    // synthetic vertices after it.
     readonly record struct Locus(Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> Edges, Sign[] Side, Point3d[] V);
 
     static Fin<Locus> Silhouettes(Assembly assembly, Seq<(Point3d A, Point3d B, int Part)> seams, Camera camera, ViewPolicy policy, Op key) =>
@@ -572,8 +482,6 @@ public static class View {
             (Point3d[] V, (int A, int B, int C)[] F) soup = (assembly.V, assembly.F);
             Sign[] side = new Sign[soup.F.Length];
             for (int f = 0; f < soup.F.Length; f++) side[f] = camera.SideOf(soup.V[soup.F[f].A], soup.V[soup.F[f].B], soup.V[soup.F[f].C]);
-            // Incidence map, its per-edge face lists, and the edge accumulator are this fold's own scratch: the
-            // walk mutates them once per face and nothing outside the fold ever observes them.
             Dictionary<(int, int), List<int>> incident = [];
             for (int f = 0; f < soup.F.Length; f++) {
                 (int a, int b, int c) = soup.F[f];
@@ -596,8 +504,6 @@ public static class View {
                     edges.Add((edge.u, edge.v, EdgeKind.Crease, -1, assembly.PartOfFace(lower), lower));
                 }
             }
-            // Inter-part seams enter as candidate-only intersection edges: synthetic vertices append past every
-            // span, so no incidence row and no occluder apex — the union solve counts them like any candidate.
             Point3d[] grown = soup.V;
             if (!seams.IsEmpty) {
                 List<Point3d> extended = [.. soup.V];
@@ -613,12 +519,9 @@ public static class View {
                 : Fin.Succ(new Locus(toSeq(edges), side, grown));
         });
 
-    // Exact sign-change locus — opposite nonzero eye-side signs.
     static bool FacesOppose(Sign[] side, int f0, int f1) =>
         side[f0] != side[f1] && side[f0] != Sign.Zero && side[f1] != Sign.Zero;
 
-    // Per-part crease lift over the POSED space, keys offset onto union indices; failure PROPAGATES — never
-    // degrades to an empty crease set. The union set is the traversal's own fold accumulator.
     static Fin<EdgeKeySet> CreaseEdges(Assembly assembly, Camera camera, ViewPolicy policy, Op key) =>
         toSeq(Enumerable.Range(0, assembly.Posed.Length))
             .TraverseM(p => Creases(assembly, p, camera, policy, key))
@@ -655,14 +558,10 @@ public static class View {
                     Emit(assembly, locus.Edges, lattice, PropagateSeeds(component, locus.Edges, seeds), contacts, camera, traits, locus.V))));
     }
 
-    // ONE tandem Overlap → exact SegmentSegment per pair; each row carries T along the candidate and the ±1 Delta.
-    // Candidates are DRAWN parts' edges, occluders the apex-carrying edges of OCCLUDING parts.
     static Fin<Seq<(double T, int Delta)>[]> Crossings(Assembly assembly, Locus locus, Camera camera, ViewPolicy policy, Op key) {
         (Line[] candidate2d, Line[] occluder2d, int[] occluderEdge) = ScreenSegments(locus.Edges, locus.V, camera, assembly.Occludes);
         return Broad(SegmentBounds(candidate2d), policy.Broad, key).Bind(cand =>
             Broad(SegmentBounds(occluder2d), policy.Broad, key).Bind(occ =>
-                // ONE broad-phase inflation source across the folder: the crossing prune and the contact prune
-                // both read the mesh-intersection lane, so two gates on one page cannot drift apart.
                 Pairs(cand, occ, camera.Tolerance.For(ToleranceLane.MeshIntersection).Value, key).Bind(pairs =>
                     pairs.Filter(pair => pair.Left != occluderEdge[pair.Right] && assembly.Draws[locus.Edges[pair.Left].Part])
                         .TraverseM(pair => Intersection
@@ -675,8 +574,6 @@ public static class View {
                         .Map(rows => Bucket(rows.Bind(identity), locus.Edges.Count)))));
     }
 
-    // Candidate endpoints read against the eye–silhouette plane; matching the front-face apex means occluded.
-    // Endpoint reversal flips every sign together, preserving the transition.
     static int Delta(Locus locus, int candidate, int occluderEdge, Camera camera) {
         (int candA, int candB, _, _, _, _) = locus.Edges[candidate];
         (int silA, int silB, _, int apex, _, _) = locus.Edges[occluderEdge];
@@ -685,7 +582,6 @@ public static class View {
         Sign nearSide = Predicate.Orient3D(camera.Eye, locus.V[silA], locus.V[silB], locus.V[candA]);
         Sign farSide = Predicate.Orient3D(camera.Eye, locus.V[silA], locus.V[silB], locus.V[candB]);
         if (apexSide == Sign.Zero || nearSide == Sign.Zero || farSide == Sign.Zero) return 0;
-        // Bool-pair switch over four corners, not a family dispatch: the two same-side corners net zero.
         return (nearSide == apexSide, farSide == apexSide) switch {
             (false, true) => 1,
             (true, false) => -1,
@@ -693,11 +589,6 @@ public static class View {
         };
     }
 
-    // Probe nudge rides Direction.Of, the kernel's typed unitization owner: a raw Unitize returns a bool this
-    // fold discarded, so a seed coincident with the eye left the vector unchanged and the probe silently became
-    // the seed. The fast winding is then a CULL and nothing more — a component the field places strictly outside
-    // pays no battery and every other component pays the exact SegmentTriangle count, because rounding a float
-    // winding into the seed certified a 0.9 field as one shell and the battery never ran.
     static Fin<int[]> Seeds(Assembly assembly, Locus locus, int[] component, Camera camera, SpatialIndex world, int[] worldFace, Point3d[] triangles, ViewPolicy policy, Op key) {
         Point3d[] seed = ComponentSeeds(locus.Edges, component, locus.V, camera);
         return toSeq(Enumerable.Range(0, seed.Length))
@@ -714,8 +605,6 @@ public static class View {
                 .Map(static counts => counts.ToArray()));
     }
 
-    // Stab count IS the QI; the world index already holds occluding faces alone, worldFace mapping its
-    // ordinals back to soup faces.
     static Fin<int> StabCount(Assembly assembly, Sign[] side, Point3d seed, Camera camera, SpatialIndex world, int[] worldFace, ViewPolicy policy, Op key) =>
         Query(world, new SpatialQuery.Range(new BoundingBox([seed, camera.Eye]), Option<Sphere>.None), key)
             .Bind(result => result is QueryResult.Hits hits ? Fin.Succ(hits.Ids) : Fin.Fail<Seq<int>>(key.InvalidResult()))
@@ -728,9 +617,6 @@ public static class View {
                 .As()
                 .Map(static counts => counts.Fold(0, static (total, count) => total + count)));
 
-    // Endpoints project ONCE — the one rounding seam. Run lists and head maps key on the Visibility row the page
-    // already owns, so a third visibility class is one row rather than four declarations and a bool select at
-    // every use. The lattice arrives sorted from Bucket, so no sort allocates inside this loop.
     static DrawingProjection Emit(Assembly assembly, Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> edges, Seq<(double T, int Delta)>[] lattice, int[] edgeSeed, Seq<PartContact> contacts, Camera camera, CapabilitySet<ViewTrait> traits, Point3d[] vertices) {
         bool retains = traits.Admits(ViewTrait.Retains);
         Dictionary<Visibility, List<ProjectedSegment>> sets = Visibility.Items.ToDictionary(static row => row, static _ => new List<ProjectedSegment>());
@@ -774,8 +660,6 @@ public static class View {
                 count += delta;
             }
         }
-        // Edge-terminal runs chain to the same-set head at their terminal vertex; a self-link is refused — the
-        // successor walk closes rings by traversal.
         foreach ((Visibility state, int run, int endVertex) in terminals) {
             List<ProjectedSegment> set = sets[state];
             if (set[run].Next.IsNone && heads.TryGetValue((state, endVertex), out int next) && next != run) {
@@ -786,7 +670,6 @@ public static class View {
     }
 
     // --- [SECTION]
-    // Closed AND open chains project as EdgeKind.Intersection; an open chain is a row, never silently closed.
     static Fin<DrawingProjection> Cut(Assembly assembly, Seq<PartContact> contacts, Plane plane, Camera camera, ViewPolicy policy, Op key) =>
         toSeq(Enumerable.Range(0, assembly.Posed.Length))
             .Filter(p => assembly.Draws[p])
@@ -824,8 +707,6 @@ public static class View {
     }
 
     // --- [PRIMITIVES]
-    // Each read refuses a spatial answer of the wrong shape on the Op admission channel: the sibling union is
-    // foreign, so the refusal names the seam rather than enumerating the sibling's growth surface here.
     static Fin<SpatialIndex> Broad(BoundingBox[] boxes, BuildPolicy policy, Op key) =>
         Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, policy), key)
             .Bind(answer => answer is SpatialAnswer.Index index ? Fin.Succ(index.Value) : Fin.Fail<SpatialIndex>(key.InvalidResult()));
@@ -842,8 +723,6 @@ public static class View {
         Query(world, new SpatialQuery.Winding(new Arr<Point3d>(probes), triangles, policy.Beta), key)
             .Bind(result => result is QueryResult.Field field ? Fin.Succ(field.Values) : Fin.Fail<double[]>(key.InvalidResult()));
 
-    // Occluding faces alone enter the world index: ONE walk projects the box roster, the flat triangle stream the
-    // winding field reads, and the ordinal map back to soup faces — three columns of one filter, never three walks.
     static (BoundingBox[] Boxes, Arr<(Point3d A, Point3d B, Point3d C)> Triangles, int[] Face) Occluders(Assembly assembly) {
         List<BoundingBox> boxes = [];
         List<(Point3d A, Point3d B, Point3d C)> triangles = [];
@@ -858,9 +737,6 @@ public static class View {
         return ([.. boxes], new Arr<(Point3d, Point3d, Point3d)>([.. triangles]), [.. map]);
     }
 
-    // Components label by shared mesh vertices through QuikGraph ConnectedComponents. Only locus endpoints
-    // participate, so the container is O(E_locus) rather than O(V_soup), and the edge comparer is explicit
-    // because a parallel-edge graph has none to fall back on; ids re-densify to edge-component ordinals.
     static int[] Components(Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> edges) {
         UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: true, EqualityComparer<SEdge<int>>.Default);
         graph.AddVertexRange(edges.Bind(static edge => Seq(edge.A, edge.B)).Distinct());
@@ -876,7 +752,6 @@ public static class View {
         return labels;
     }
 
-    // Each component's screen-lexicographic-extremal WORLD endpoint, indexed by component id; Seeds nudges these eye-ward.
     static Point3d[] ComponentSeeds(Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> edges, int[] component, Point3d[] vertices, Camera camera) {
         int count = component.Length == 0 ? 0 : component.Max() + 1;
         Point3d[] seeds = new Point3d[count];
@@ -900,8 +775,6 @@ public static class View {
         return perEdge;
     }
 
-    // Candidates = every locus edge projected; occluders = the apex-carrying subset of OCCLUDING parts,
-    // with the edge-ordinal map the crossing filter and Delta read.
     static (Line[] Candidate, Line[] Occluder, int[] OccluderEdge) ScreenSegments(Seq<(int A, int B, EdgeKind Kind, int Apex, int Part, int Face)> edges, Point3d[] vertices, Camera camera, bool[] occludes) {
         Line[] candidate = new Line[edges.Count];
         List<Line> occluder = [];
@@ -919,8 +792,6 @@ public static class View {
 
     static double ParameterAt(Line segment, Point3d crossing) => segment.ClosestParameter(crossing);
 
-    // Each bucket sorts ONCE where its rows materialize — a per-edge sort inside the emission loop allocated an
-    // ordering per hot iteration for a set already known here.
     static Seq<(double T, int Delta)>[] Bucket(Seq<(int Edge, (double T, int Delta) Row)> rows, int edgeCount) {
         List<(double T, int Delta)>[] buckets = [.. Enumerable.Range(0, edgeCount).Select(static _ => new List<(double T, int Delta)>())];
         rows.Iter(row => buckets[row.Edge].Add(row.Row));

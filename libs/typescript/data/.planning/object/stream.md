@@ -39,9 +39,6 @@ const _FORM = {
   maxFileSize: Option.some(_INGRESS.ceiling.bytes),
   maxParts: Option.some(_INGRESS.ceiling.frames),
   maxFieldSize: Math.min(64 * 1024, _INGRESS.ceiling.bytes),
-  // `maxTotalSize` is the one axis reaching the whole-body ceiling, and that reference defaults to absent: bounds on
-  // part count and per-file span still admit their PRODUCT, so the aggregate reads the same ingress byte ceiling one
-  // file may spend and a form cannot buy span by splitting itself across parts.
   maxTotalSize: Option.some(_INGRESS.ceiling.bytes),
 } satisfies Multipart.withLimits.Options
 
@@ -90,9 +87,6 @@ class Cutter extends Context.Tag("data/Cutter")<Cutter, {
 
 const _CUT = { min: 256 * 1024, avg: 1024 * 1024, max: 4 * 1024 * 1024 } as const satisfies Rail.CutPolicy
 
-// `R` rides through: the cutter itself lands there, and a byte source carries its own capability — a filesystem, a
-// staging store, a relational slice — so a pinned `never` fixes the fold to sources needing nothing and leaves
-// every other caller re-implementing it.
 const _chunked = <R>(bytes: Stream.Stream<Uint8Array, ObjectFault, R>, policy: Rail.CutPolicy) =>
   Stream.unwrap(
     Effect.map(Cutter, (cutter) =>
@@ -107,7 +101,7 @@ const _chunked = <R>(bytes: Stream.Stream<Uint8Array, ObjectFault, R>, policy: R
       )),
   )
 
-const _DOMAIN = { leaf: Uint8Array.of(0), node: Uint8Array.of(1) } as const // Framing byte is this page's domain separation and the core proof row's consumer obligation.
+const _DOMAIN = { leaf: Uint8Array.of(0), node: Uint8Array.of(1) } as const
 
 type _ProofNode = { readonly hash: Digest.Key<"proof">; readonly paths: ReadonlyArray<Rail.ProofPath> }
 
@@ -139,9 +133,6 @@ const _joinedWith = (left: _ProofNode, pair: Array.NonEmptyReadonlyArray<_ProofN
 const _joined = (pair: Array.NonEmptyReadonlyArray<_ProofNode>): Effect.Effect<_ProofNode, ObjectFault> =>
   _joinedWith(Array.headNonEmpty(pair), pair)
 
-// Folding answers the three facts a LEVEL determines — surviving root, climbed height, threaded paths — and never the
-// leaf census, which is a fact of the mark set the caller already holds; carrying it here bought one O(n) walk per
-// level whose every result the mint overwrote.
 const _fold = (
   nodes: Array.NonEmptyReadonlyArray<_ProofNode>,
   depth: number,
@@ -225,7 +216,7 @@ const _identityMachine = Machine.makeSerializable({ state: _Checkpoint, input: _
 const _identitySurface = (actor: Machine.SerializableActor<typeof _identityMachine>): Rail.IdentityActor => ({
   absorb: (chunk) => actor.send(new _Absorb({ chunk })),
   checkpoint: actor.get,
-  changes: actor.changes, // the actor is Subscribable, never itself the stream: `get` and `changes` are its two reads
+  changes: actor.changes,
   freeze: Effect.mapError(Machine.snapshot(actor), _proofFault("<identity-snapshot>")),
 })
 
@@ -345,7 +336,7 @@ declare namespace Rail {
 }
 
 const _STAGE = {
-  expiry: Duration.hours(24), // at the object plane's reap floor, never past it: the multipart reap and the engine's abort rule close any older upload band-blind, so a wider window promises a resume the reap already aborted
+  expiry: Duration.hours(24),
   lockDrain: Duration.seconds(10),
   pulse: Duration.seconds(5),
 } as const
@@ -356,10 +347,6 @@ const _staged = (staging: S3Store, id: string) =>
     catch: (caught) => new ObjectFault({ case: { reason: "io", key: id, detail: String(caught) } }),
   })
 
-// One row per fault class, total over the core lattice, so a widened rung fails at this declaration rather than
-// collapsing into the store's own opaque fallback. Refusals partition by BLAME the class already carries: caller-blamed
-// rungs answer their own 4xx and system-blamed rungs answer a retryable 5xx, which is what a resumable client needs to
-// decide between re-issuing the request and abandoning the upload.
 const _STATUS: { readonly [K in Fault.Class.Kind]: number } = {
   absent: 404,
   conflicted: 409,
@@ -373,15 +360,9 @@ const _STATUS: { readonly [K in Fault.Class.Kind]: number } = {
   defect: 500,
 }
 
-// `Fault.Class.of` reads a `Cause` and folds BOTH channels through one lattice — typed failures by their own `class`,
-// defects onto the `defect` rung — so a bridge that dies never escapes as an unclassified rejection.
 const _replied = (cause: unknown): { readonly status_code: number; readonly body: string } =>
   ((kind) => ({ status_code: _STATUS[kind], body: `${kind}\n` }))(Fault.Class.of(cause))
 
-// EVERY tus hook rides this one bridge. `Runtime.runPromise`'s own rejection carries a FiberFailure holding no `class`,
-// so a hook that merely rejected would classify every refusal `defect` and answer 500 to all of them; projecting the
-// Exit here and THROWING the shaped value takes the seam's documented path, where a thrown `{ status_code, body }`
-// becomes the reply verbatim.
 const _bridged = <A, E>(runtime: Runtime.Runtime<never>, work: Effect.Effect<A, E>): Promise<A> =>
   Runtime.runPromise(runtime)(Effect.exit(work)).then(
     Exit.match({
@@ -390,8 +371,6 @@ const _bridged = <A, E>(runtime: Runtime.Runtime<never>, work: Effect.Effect<A, 
     }),
   )
 
-// Same Exit projection as the bridge, answering a REPLY rather than throwing one: the receipt route is an ordinary GET
-// no tus error path reads, so its status has to land on the response itself.
 const _served = <A>(runtime: Runtime.Runtime<never>, work: Effect.Effect<A, ObjectFault>): Promise<Response> =>
   Runtime.runPromise(runtime)(Effect.exit(work)).then(
     Exit.match({
@@ -400,20 +379,14 @@ const _served = <A>(runtime: Runtime.Runtime<never>, work: Effect.Effect<A, Obje
     }),
   )
 
-// ONE custody landing, and the whole reason the finalize fold and the hold's preservation port cannot drift: two
-// bounded passes over a RE-RUNNABLE slice — the identity pass proves the key before any byte is addressed, the
-// streaming conditional lands it under the proven span, and the reference row commits before anything disposable is
-// touched. The slice re-runs its own source per consumption, which is what buys constant memory at any size.
 const _landed = <R>(
   store: ObjectStore,
   owner: ObjectStore.Owner,
   retention: Retain.Class,
   cut: Rail.CutPolicy,
-  slice: Stream.Stream<Uint8Array, ObjectFault, R>, // every byte source folds its own fault family onto ObjectFault BEFORE the landing: a wider channel here is a knob no caller can spend, since the chunk stage admits exactly this one
+  slice: Stream.Stream<Uint8Array, ObjectFault, R>,
 ) =>
   Effect.gen(function* () {
-    // `store` arrives as a HANDLE rather than off the Tag: the tus kernel below runs its hooks on a `never`-
-    // requirement runtime, so a landing acquiring its own service is unreachable from that bridge
     const identity = yield* _identity(_chunked(slice, cut))
     const landed = yield* store.putKeyed(
       identity.key,
@@ -424,10 +397,6 @@ const _landed = <R>(
     return { key: identity.key, bytes: identity.bytes, written: landed.written }
   })
 
-// `journal/retain`'s `Preserve` port, satisfied HERE because this page already owns the identity fold and the
-// conditional re-home the landing needs. The subject owner crosses up a stratum as text and admits at the object
-// boundary like any other string, and the reference row's own retag reads the hold the declaration just committed,
-// so the custody object takes the `held` posture with no second write on this road.
 const _preserved = (subject: SubjectKey, retention: Retain.Class) =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
@@ -447,14 +416,8 @@ const _preserved = (subject: SubjectKey, retention: Retain.Class) =>
     )
   })
 
-// ONE finalize fold, entered by the finish hook and by the receipt route alike. Handler code commits the written offset
-// to the store BEFORE this runs and rethrows whatever it refuses with, so a refusal leaves a staged upload at
-// `offset === size` that a resuming client reads as complete; idempotence makes the second entry free — the re-home
-// lands 412 on replay, the reference upsert re-arms, and staging removal stays last and best-effort.
 const _finalized = (spec: Rail.Spec, store: ObjectStore, staging: S3Store, upload: Upload) =>
   Effect.gen(function* () {
-    // `upload.metadata` crossed the staging store as text, so it re-admits here rather than riding a create-seam
-    // verdict a resumed leg never witnessed; the band's own row mints the fallback
     const owner = yield* Option.match(Option.fromNullable(upload.metadata?.owner), {
       onNone: () => Effect.succeed(ObjectStore.owner("tus", spec.staging)),
       onSome: ObjectStore.admit(upload.id),
@@ -470,12 +433,12 @@ const _finalized = (spec: Rail.Spec, store: ObjectStore, staging: S3Store, uploa
     yield* Effect.tryPromise({
       try: () => staging.remove(upload.id),
       catch: (caught) => new ObjectFault({ case: { reason: "io", key: upload.id, detail: String(caught) } }),
-    }).pipe(Effect.ignoreLogged) // staging cleanup is debt, never receipt truth: the durable object and its reference are committed, a failed delete logs, and groom's deleteExpired retires the orphaned staging body
-    yield* Effect.ignore(Metric.incrementBy(_streamed, receipt.bytes)) // signal refusal cannot reopen an irreversible completion
+    }).pipe(Effect.ignoreLogged)
+    yield* Effect.ignore(Metric.incrementBy(_streamed, receipt.bytes))
     yield* Effect.ignore(
       Hook.tapped("objectAdmit", { key: receipt.key, owner, bytes: Option.some(receipt.bytes) }),
-    ) // observe fan remains best-effort after the durable receipt is settled
-    return receipt // Reply projects the receipt only; staging owns checkpoints and frozen hash state.
+    )
+    return receipt
   })
 
 const _rail = (spec: Rail.Spec) =>
@@ -505,8 +468,6 @@ const _rail = (spec: Rail.Spec) =>
       locker: new MemoryLocker(),
       lockDrainTimeout: Duration.toMillis(_STAGE.lockDrain),
       postReceiveInterval: Duration.toMillis(_STAGE.pulse),
-      // Band prefixing makes the id slash-bearing while the mount route publishes only its last segment, so mint and
-      // extraction are ONE pair: the extractor re-attaches the band and owes the traversal refusal the built-in makes.
       namingFunction: () => `${spec.staging}/${crypto.randomUUID()}`,
       getFileIdFromRequest: (_req, lastPath) =>
         lastPath === undefined || lastPath.includes("/") || lastPath.includes("\\") || lastPath.includes("\0")
@@ -518,32 +479,21 @@ const _rail = (spec: Rail.Spec) =>
           const admitted = spec.admit === undefined
             ? {}
             : yield* spec.admit(req, { id: upload.id, metadata: supplied })
-          // Client metadata is UNTRUSTED here: a declared owner decodes through the namespace and the minted-below
-          // prefixes refuse, so an upload cannot stamp itself into a subject's DSAR export or hold join; an
-          // undeclared one takes the band's own row rather than a hand-built string.
           const owner = yield* Option.match(Option.fromNullable(admitted.owner ?? supplied.owner), {
             onNone: () => Effect.succeed(ObjectStore.owner("tus", spec.staging)),
             onSome: ObjectStore.admit(upload.id),
           })
-          // App-armed veto: its refusal carries a `denied` class the bridge answers 403, never the store's blanket 500.
           yield* Hook.gated("objectAdmit", { key: upload.id, owner, bytes: Option.fromNullable(upload.size) })
           return { metadata: { ...supplied, ...admitted, owner } }
         })),
       onIncomingRequest: async (req, uploadId) =>
         _bridged(runtime, spec.gate === undefined ? Effect.void : spec.gate(req, uploadId)),
-      // tus hands this seam EITHER the bridge's own already-shaped refusal OR a bare Error from its internals, and the
-      // parameter union is that discriminant: a shaped arrival passes through untouched, since re-projecting it reads
-      // a value no longer carrying the fault and overwrites the status the bridge already decided.
       onResponseError: (_req, error) => "status_code" in error ? error : _replied(error),
       onUploadFinish: async (_req, upload) => ({
         status_code: 201,
         body: JSON.stringify(await _bridged(runtime, _finalized(spec, store, staging, upload))),
       }),
     })
-    // `server.get` registers an EXACT pathname, so the staged id rides the query string: a path segment falls through
-    // to the GET handler's own staged-byte serve. A removed staging id answers `missing`, which is itself durability
-    // evidence — removal orders after `store.refer` — and the client already holds its own minted key from the
-    // isomorphic browser-side fold, so it probes the object plane rather than this route once staging is gone.
     server.get(`${spec.route}/receipt`, (req) =>
       _served(
         runtime,
@@ -620,11 +570,11 @@ const Rail = {
   restoreIdentity: _restoreIdentity,
   prove: _prove,
   of: _rail,
-  preserve: _preserved, // `journal/retain`'s Preserve port: the hold declaration's custody landing
+  preserve: _preserved,
   range: _range,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Cutter, Rail }
 ```

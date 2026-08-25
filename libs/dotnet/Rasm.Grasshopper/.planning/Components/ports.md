@@ -18,13 +18,13 @@
 - Boundary: `Side`, `Access`, and `Requirement` never travel past a binding delegate; interior code holds only the folder vocabulary.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -34,7 +34,6 @@ public sealed partial class PinSide : ICapability<PinSide> {
 
     public Side Host { get; }
 
-    // Open: the empty set is a lawful axis reading (the former `Neither` row).
     public static CapabilityLaw<PinSide> Law => CapabilityLaw<PinSide>.Open;
 
     public static Fin<PinSide> Of(Side host, Op? key = null) => host switch {
@@ -62,7 +61,6 @@ public sealed partial class PinPresence {
     public Requirement Host { get; }
 }
 
-// Axis names a policy DIMENSION a row consumes per side; its reading is CapabilitySet<PinSide> membership.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PortAxis {
@@ -98,8 +96,6 @@ public sealed partial class PortFamily {
     public partial bool Accepts(Type declared, Type candidate);
 }
 
-// ONE axis map (E-G42): a consumed axis is a ROW, an absent row reads as the empty set, and a new policy
-// dimension is one PortAxis row plus map entries — never a fifth parallel field.
 public sealed record PortAxes(
     HashMap<PortAxis, CapabilitySet<PinSide>> Rows,
     Option<(Type Type, CapabilitySet<PinSide> Sides)> Trim) {
@@ -131,7 +127,7 @@ public sealed record PortAxes(
 - Boundary: `AngleParameter.EnforceKind` is a raw host `int` with NO host enum behind it — the persisted `Integer32("EnforceKind")` and the base's own `== 1`/`== 2`/`== 3` toolbar reads ARE the protocol — so `AngleEnforcement` is the owner that types those four wire constants and its `int Host` column is the host's own value, not a hand-numbered stand-in for an enum ordinal.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Grasshopper2.Parameters;
@@ -142,7 +138,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [ValueObject<string>]
 [ValidationError]
@@ -153,8 +149,6 @@ public readonly partial struct PinKey {
     }
 }
 
-// Null replacement is ONE three-way posture: the both-true cell of the old (NullAsTrue, NullAsFalse) pair is
-// unrepresentable, so no IsValid clause re-refuses it.
 [SmartEnum<int>]
 public sealed partial class NullPosture {
     public static readonly NullPosture AsIs = new(key: 0, asTrue: false, asFalse: false);
@@ -164,8 +158,6 @@ public sealed partial class NullPosture {
     internal bool AsFalseHost { get; }
 }
 
-// Index policy is a SHAPE: a plain integer carries its optional hint, an index carries its modifier — the
-// AsIndex flag whose false-with-indexing cell needed a guard AND two roster cross-checks is unrepresentable.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IndexPosture {
     private IndexPosture() { }
@@ -173,8 +165,6 @@ public abstract partial record IndexPosture {
     public sealed record Indexed(IndexRow Indexing) : IndexPosture;
 }
 
-// Host-enum owner (the PressureRow form): a payload names a row, the raw IndexModifier never crosses a folder
-// signature, and the Enum.IsDefined guard dies — an unrostered host value is unconstructible here.
 [SmartEnum<int>]
 public sealed partial class IndexRow {
     public static readonly IndexRow Strict = new(key: 0, host: Grasshopper2.Parameters.Standard.IndexModifier.None);
@@ -218,15 +208,11 @@ public abstract partial record PinTrim {
         bool CleanWhitespace) : PinTrim;
     public sealed record TextPattern(TextPatternKind Kind, bool CaseSensitive) : PinTrim;
 
-    // Former boolean-pair and index-flag clauses are gone with their representations; what remains
-    // guards raw HOST enums and cross-field file policy the type cannot carry.
     public bool IsValid => Switch(
         vector: static _ => true,
         angle: static trim => trim.Enforce is not null,
         boolean: static _ => true,
         connection: static _ => true,
-        // IndexRow rows are the roster — an unrostered modifier is unconstructible; the surviving IsDefined
-        // guards below validate RAW host-enum case columns ONCE at this admission fold, the boundary's one seat.
         integer: static _ => true,
         number: static trim => trim.Hint is not null,
         numeric: static trim => (trim.Exotic & ~NumericFilter.All) == 0,
@@ -237,8 +223,6 @@ public abstract partial record PinTrim {
             (trim.Flavour == TextFlavour.File || trim.FileExtensions.IsEmpty && !trim.WatchFiles),
         textPattern: static trim => Enum.IsDefined(trim.Kind));
 
-    // Dispatch stays here (two-hierarchy pairing is a total switch); the WRITES are the generated TrimMap
-    // seam — a mismatched pairing refuses typed before any property is written.
     internal Fin<Unit> Apply(IParameter parameter, Op key) => (this, parameter) switch {
         (Vector trim, VectorParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
         (Angle trim, AngleParameter host) => HostCall.Run(() => TrimMap.Write(trim, host), key),
@@ -255,10 +239,7 @@ public abstract partial record PinTrim {
     };
 }
 
-// E-G43: the trim-to-parameter property correspondence as GENERATED data — one existing-target update per
-// pairing, renames stated as [MapProperty] rows, posture projections as named [MapPropertyFromSource] reads;
-// eleven hand assignment blocks delete, and a renamed host property breaks a mapping row, never a body.
-[Mapper] // conversions ride the assembly MapperDefaults (Canvas/canvas.md) — no per-seam re-spell
+[Mapper]
 internal static partial class TrimMap {
     [MapProperty(nameof(PinTrim.Vector.Unitise), nameof(VectorParameter.UnitiseVectors))]
     [MapProperty(nameof(PinTrim.Vector.Reverse), nameof(VectorParameter.ReverseVectors))]
@@ -276,7 +257,6 @@ internal static partial class TrimMap {
     [MapProperty(nameof(PinTrim.Connection.Collect), nameof(ConnectionParameter.DoCollect))]
     internal static partial void Write(PinTrim.Connection trim, ConnectionParameter host);
 
-    // Posture SHAPE writes all three host members coherently — IsIndex, Indexing, and the optional hint.
     internal static void Write(PinTrim.Integer trim, IntegerParameter host) => ignore(trim.Posture.Switch(
         state: host,
         plain: static (target, posture) => Op.Side(action: () => {
@@ -388,7 +368,7 @@ public sealed record PinPlan {
 - Boundary: a host `Add*` marked `[Obsolete]` is never suppressed — the row mints its parameter and attaches it through the public `InputAdder.Add(IParameter, Requirement)` seam, which is the same declaration with no diagnostic to silence.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Grasshopper2.Parameters;
@@ -396,7 +376,7 @@ using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PortBinding {
@@ -529,9 +509,6 @@ public sealed partial class PortRow {
         Both(static (a, p) => p.Mint(a.AddDateTime, a.AddHiddenDateTime), static (a, p) => p.Mint(a.AddDateTime, a.AddHiddenDateTime)));
     public static readonly PortRow TimeSpan = new("time-span", typeof(System.TimeSpan), PortFamily.Standard, PortAxes.Modular,
         Both(static (a, p) => p.Mint(a.AddTimeSpan, a.AddHiddenTimeSpan), static (a, p) => p.Mint(a.AddTimeSpan, a.AddHiddenTimeSpan)));
-    // InputAdder.AddLanguage alone carries an advisory [Obsolete]; the public Add(IParameter, Requirement)
-    // seam declares the identical LanguageParameter, so the input leg mints directly and the output leg keeps
-    // its non-obsolete adder. OutputAdder.AddLanguage and LanguageParameter itself carry no obsolescence.
     public static readonly PortRow Language = new("language", typeof(Grasshopper2.Types.Linguistic.Language), PortFamily.Standard, PortAxes.Regular,
         Both(
             static (a, p) => p.Mint((name, nick, info, access, presence) => {
@@ -610,8 +587,6 @@ public sealed partial class PortRow {
             _ => Fin.Succ(unit),
         };
 
-    // Posture SHAPE carries the index/plain split, so the Index row admits Indexed postures and the
-    // Integer row Plain ones — the two flag cross-checks the AsIndex bool forced are unrepresentable.
     private bool AdmitsTrim(PinTrim trim, PinSide side) =>
         trim is { IsValid: true } && Axes.Trim.Map(axis => axis.Sides.Admits(side) && axis.Type.IsInstanceOfType(trim)
             && (this != Index || trim is not PinTrim.Integer { Posture: IndexPosture.Plain })
@@ -636,14 +611,14 @@ public sealed partial class PortRow {
 - Boundary: a rejected policy never reaches the host; presets and assistants are observed through their get-only host contracts rather than projected as plan setters.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Parameters;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Ports {
     public static Validation<Error, Seq<IParameter>> Declare(ModularInputAdder adder, Seq<PinPlan> plans, Op? key = null) {

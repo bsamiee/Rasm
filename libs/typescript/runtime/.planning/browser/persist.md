@@ -48,17 +48,12 @@ const _domains = {
     returnTo: Schema.String,
     minted: Schema.DateTimeUtc,
   })),
-  route: Schema.String.pipe(Schema.startsWith("?")), // a last-good query is a non-empty search string; an empty query DROPS the key, so corrupted or vacuous rows refuse at decode
+  route: Schema.String.pipe(Schema.startsWith("?")),
   cache: Schema.Uint8ArrayFromSelf,
   mark: Schema.parseJson(Schema.Struct({ at: Schema.DateTimeUtc, note: Schema.String })),
-  // `persist` backs the persistence tree: values arrive ALREADY encoded by the tree's own result
-  // schema, so `Schema.Unknown` is the honest declaration and structured clone is the only shape law left. `expires`
-  // is the one column the other rows never needed, and it rides here rather than in a parallel expiry ledger.
   persist: Schema.Struct({ value: Schema.Unknown, expires: Schema.NullOr(Schema.Number) }),
 } as const
 
-// The store roster IS the fault's subject vocabulary: every lane refusal names the domain it was raised on, so the
-// column derives from `_domains` rather than widening to a string a second roster would have to close.
 const _Domain = Schema.Literal(...Record.keys(_domains))
 
 const _kvFamily = Fault.Class.family(["quota", "absent", "codec", "io"] as const, {
@@ -68,8 +63,6 @@ const _kvFamily = Fault.Class.family(["quota", "absent", "codec", "io"] as const
     detail: Schema.Struct({ domain: _Domain, limit: Schema.String }),
     render: ({ domain, limit }) => `${domain} store refused the write against its origin quota: ${limit}`,
   }),
-  // The probe is the whole fact — a host with no `indexedDB` cannot reach a transaction, so the rejection riding
-  // beside it names the call that never ran rather than the absence, and the row carries the domain alone.
   absent: Fault.Class.row({
     class: "absent",
     leg: "lane",
@@ -124,10 +117,6 @@ class KvFault extends Schema.TaggedError<KvFault>()("KvFault", {
   }
 }
 
-// Codec arms FIRST, because `mutate` runs its encode inside the library's own transaction callback: the library
-// catches the updater throw and rejects the transaction promise, so a `ParseError` reaches this fold as an opaque
-// rejection. Without the guard it stamped `io` — class `unavailable` — and every budget gate reading that class
-// re-drove a deterministic encode failure as a retryable transient, forever.
 const _faulted = (domain: Kv.Domain) => (cause: unknown): KvFault =>
   ParseResult.isParseError(cause)
     ? new KvFault({ case: { reason: "codec", domain, issue: String(cause) } })
@@ -169,8 +158,6 @@ const _lane = <A, I>(domain: Kv.Domain, schema: Schema.Schema<A, I>) => {
       : Effect.forEach(input[0], ([key, held]) =>
           Effect.map(Effect.mapError(encode(held), _decoded(domain)), (encoded) => [key, encoded] as [IDBValidKey, unknown]),
         ).pipe(Effect.flatMap((rows) => lift((use) => setMany([...rows], use))))
-  // `index` is the scan `size` already ran privately; publishing it lets a prefix-scoped consumer clear its OWN
-  // partition of a shared domain, which a bare `wipe` cannot express without evicting every other tenant of the row.
   const index: Effect.Effect<ReadonlyArray<string>, KvFault> = Effect.map(
     lift((use) => keys(use)),
     (held) => held.map(String),
@@ -215,7 +202,7 @@ const _service = (lanes: { readonly [D in Kv.Domain]: Kv.Lane<D> }) => {
   function read<D extends Kv.Domain>(domain: D, key: string): Effect.Effect<Option.Option<Kv.Value<D>>, KvFault>
   function read<D extends Kv.Domain>(domain: D, keys: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<Option.Option<Kv.Value<D>>>, KvFault>
   function read<D extends Kv.Domain>(domain: D, input: string | ReadonlyArray<string>) {
-    return Predicate.isString(input) ? lanes[domain].read(input) : lanes[domain].read(input) // the shape probe selects the lane overload; no cast crosses
+    return Predicate.isString(input) ? lanes[domain].read(input) : lanes[domain].read(input)
   }
   const write = <D extends Kv.Domain>(
     domain: D,
@@ -253,15 +240,9 @@ class Kv extends Effect.Service<Kv>()("runtime/browser/Kv", {
     }),
 }) {}
 
-// `BackingPersistence` is a Tag this owner SATISFIES rather than consumes: the package's own portable Layer routes
-// through `KeyValueStore`, whose browser bindings are Web-Storage alone, so `PersistedCache`, `PersistedQueue`, and
-// `RequestResolver.persisted` would each ride a synchronous string store beside the IndexedDB family already here.
-// One domain row plus this projection puts all three on the durable lane at their full published surface.
 const _backed = (kv: Kv, clock: Clock.Clock, storeId: string): Persistence.BackingPersistenceStore => {
   const at = (key: string): string => `${storeId}/${key}`
   const raise = (method: string) => (cause: KvFault) => Persistence.PersistenceBackingError.make(method, cause)
-  // Expiry is a READ verdict, never a sweep: a lapsed row answers absence and the next write overwrites it, so no
-  // timer, no eviction fiber, and no second pass over the store exist to drift from the value the row already carries.
   const live = (row: Option.Option<Kv.Value<"persist">>): Option.Option<unknown> =>
     Option.map(
       Option.filter(row, (held) => held.expires === null || held.expires > clock.unsafeCurrentTimeMillis()),
@@ -289,8 +270,6 @@ const _backed = (kv: Kv, clock: Clock.Clock, storeId: string): Persistence.Backi
         raise("setMany"),
       ),
     remove: (key) => Effect.mapError(kv.drop("persist", at(key)), raise("remove")),
-    // Prefix-scoped, because one domain row serves every store the tree mints: a bare `wipe` would evict a sibling
-    // store's rows on any one store's clear, which is the shared-row defect the published `index` exists to close.
     clear: Effect.mapError(
       Effect.flatMap(kv.index("persist"), (held) =>
         kv.drop("persist", Array.filter(held, (key) => key.startsWith(`${storeId}/`)))),
@@ -329,30 +308,15 @@ const KvBacking: Layer.Layer<Persistence.BackingPersistence, never, Kv> = Layer.
 - Packages: `effect` (`Array`, `Effect`, `Exit`, `Option`, `Predicate`, `Schema`, `Scope`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
-// Bands price DURABILITY ADMISSION, never a byte threshold alone. `ceiling` spans the usage fraction, `heavyLane`
-// answers whether a wasm engine may open its own store beneath the row, and `warmDepot` whether the byte depot may
-// add residency — the two decisions that lived in prose, so every consumer re-derived them from a bare number.
-// Pressure bands read a host's own accounting and grant admission, nothing further: consumption axes belong to
-// `Profile` and row lifetime belongs to the user agent, so neither is answered here and neither is a forfeit.
 const _BANDS = {
   ample: { ceiling: 0.5, heavyLane: true, warmDepot: true, degrade: "<none>" },
   tight: { ceiling: 0.85, heavyLane: true, warmDepot: false, degrade: "<depot-residency-refused>" },
   critical: { ceiling: 1, heavyLane: false, warmDepot: false, degrade: "<eviction-imminent-heavy-lanes-refused>" },
-  // Withheld numbers are a POSTURE, not a missing row: a privacy shield seats beside the measured bands carrying the
-  // critical row's admissions, so a consumer meeting one reads this table rather than carrying a second arm for it.
   opaque: { ceiling: Number.POSITIVE_INFINITY, heavyLane: false, warmDepot: false, degrade: "<numbers-withheld-critical-assumed>" },
 } as const
 
-// Ranking spans the MEASURED rows alone, so `opaque` seats in the table without entering the fraction ladder.
 const _MEASURED = ["ample", "tight", "critical"] as const
 
-// Backings describe every edge store this branch opens, each answering the descriptor floor whole. `Profile` at
-// `proc/config#ADMISSION_ROWS` owns the closed consumption axes and publishes them branch-wide, so a row SELECTS
-// under a profile and mints no axis vocabulary of its own; `tenancy` therefore carries the MECHANISM a row separates
-// by — the user agent's own scoping — never the `none|single|multi` roster that owner already spells. `lifetime`
-// answers BOTH halves in one cell, because a span with no ending party and a party with no span are each half a
-// coordinate; the user agent is that party on every row here and no cell pretends otherwise.
-// `degrade` closes with the residual alone — a forfeit `tenancy` or `lifetime` expresses never rides here twice.
 const _BACKINGS = {
   indexeddb: {
     fits: "durable structured values with transactional batches",
@@ -371,8 +335,6 @@ const _BACKINGS = {
   "session-storage": {
     fits: "per-tab values that must not outlive the tab",
     admit: "BrowserKeyValueStore.layerSessionStorage",
-    // Per-tab scoping is a REAL separation mechanism, so this row buys back the isolation its siblings above forfeit
-    // and its `degrade` carries no isolation residual at all.
     tenancy: "<by-origin-and-tab:-a-second-tab-of-one-tenant-reads-none-of-the-first's-rows>",
     lifetime: "<ends-at-tab-close;-the-user-agent-ends-it-and-no-restart-carries-a-row-across>",
     degrade: ["<strings-only>"],
@@ -409,18 +371,15 @@ type _StorageHost = Navigator & {
 const _storage = (): Option.Option<NonNullable<_StorageHost["storage"]>> =>
   Option.fromNullable((globalThis.navigator as _StorageHost).storage)
 
-// `absent` and `declined` carry NO subject and say so: the missing surface is one constant this owner already spells
-// and a refused grant is the user agent's whole answer, so an empty struct is the honest declaration rather than a
-// free string re-opening the axis `reason` closed. Only `io` has a foreign cause worth rendering.
 const _residencyFamily = Fault.Class.family(["absent", "declined", "io"] as const, {
   absent: Fault.Class.row({
-    class: "absent", // the host carries no `navigator.storage`, so no grant is reachable at all
+    class: "absent",
     leg: "residency",
     detail: Schema.Struct({}),
     render: () => "durable residency is unreachable: the host carries no navigator.storage",
   }),
   declined: Fault.Class.row({
-    class: "denied", // the user agent REFUSED the grant — a decision, never a transient to re-drive
+    class: "denied",
     leg: "residency",
     detail: Schema.Struct({}),
     render: () => "the user agent refused the durable-storage grant",
@@ -444,10 +403,6 @@ class ResidencyFault extends Schema.TaggedError<ResidencyFault>()("ResidencyFaul
   }
 }
 
-// `persist()` RESOLVING false is the user agent's own verdict and grades `declined`; the same call REJECTING is a
-// transient the caller re-drives. Folding both onto one boolean left no caller able to tell a settled refusal from a
-// blip, which is exactly the split the picker law binds one rung down. `tryPromise` keeps the rejection on the typed
-// rail — `promise` grades it `defect`, which every budget silently refuses.
 const _granted = (run: () => Promise<boolean>): Effect.Effect<void, ResidencyFault> =>
   Effect.flatMap(
     Effect.tryPromise({
@@ -480,9 +435,6 @@ class Opfs extends Effect.Service<Opfs>()("runtime/browser/Opfs", {
       onNone: () => Effect.succeed(false),
       onSome: (storage) => Effect.orElseSucceed(Effect.tryPromise(() => storage.persisted()), () => false),
     }),
-    // Hosts with no `navigator.storage` refuse `absent` rather than answering a `false` indistinguishable from a
-    // decision: the read members keep absence as data because a missing number is still a posture, while the GRANT
-    // is a verdict and its three outcomes stay three.
     retain: Option.match(_storage(), {
       onNone: () => Effect.fail(new ResidencyFault({ case: { reason: "absent" } })),
       onSome: (storage) => _granted(() => storage.persist()),
@@ -511,8 +463,6 @@ class Opfs extends Effect.Service<Opfs>()("runtime/browser/Opfs", {
   accessors: true,
 }) {}
 
-// the picker is absent from the pinned `lib.dom`, so the native is spelled once HERE: the refinement is this
-// owner's boundary declaration and the ui capability never names a browser API
 type _SaveWritable = WritableStream<Uint8Array> & {
   readonly write: (data: Uint8Array) => Promise<void>
   readonly close: () => Promise<void>
@@ -523,8 +473,6 @@ type _SaveHandle = {
   readonly createWritable: () => Promise<_SaveWritable>
 }
 
-// share is the second lib-absent-adjacent native this owner spells: `canShare` gates the payload before the sheet
-// opens, so an unsupported file answers `absent` as data rather than a thrown TypeError
 type _ShareHost = Navigator & {
   readonly share?: (data: { readonly files: ReadonlyArray<File>; readonly title?: string }) => Promise<void>
   readonly canShare?: (data: { readonly files: ReadonlyArray<File> }) => boolean
@@ -535,18 +483,15 @@ type _SavePicker = (options: {
   readonly types: ReadonlyArray<{ readonly description: string; readonly accept: Record<string, ReadonlyArray<string>> }>
 }) => Promise<_SaveHandle>
 
-// Every egress refusal names the FILE it refused, because one view can have several in flight and a bare cause names
-// none of them. `absent` takes name and mime together: a host with no share sheet at all and a sheet that declines
-// this payload's type are the same verdict read off different columns, and one row renders both.
 const _egressFamily = Fault.Class.family(["absent", "declined", "io"] as const, {
   absent: Fault.Class.row({
-    class: "absent", // no route: neither a picker nor a document to anchor against
+    class: "absent",
     leg: "egress",
     detail: Schema.Struct({ name: Schema.String, mime: Schema.String }),
     render: ({ name, mime }) => `no egress route carries ${name} (${mime})`,
   }),
   declined: Fault.Class.row({
-    class: "denied", // the user closed the dialog — a decision, never a transient to re-drive
+    class: "denied",
     leg: "egress",
     detail: Schema.Struct({ name: Schema.String }),
     render: ({ name }) => `the egress dialog closed before ${name} was written`,
@@ -574,7 +519,7 @@ declare namespace Egress {
   type Route = keyof typeof _ROUTES
   type _Rows<T extends Record<Route, { readonly streams: boolean; readonly degrade: string }> = typeof _ROUTES> = T
   type Carriage = {
-    readonly save: Route | "absent" // `absent` is the LADDER's exhaustion, never a row: no host carries it as a capability
+    readonly save: Route | "absent"
     readonly share: boolean
     readonly stream: boolean
   }
@@ -628,8 +573,6 @@ const _shared = (file: Egress.File): Effect.Effect<void, EgressFault> =>
     },
   })
 
-// the streaming arm: the writable is scope-owned — a completed pipe closed it already, so the success release
-// swallows the double close, and a failed or interrupted consumer aborts so no partial file survives the scope
 const _opened = (pick: _SavePicker, file: Egress.File): Effect.Effect<_SaveWritable, EgressFault, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.tryPromise({
@@ -651,8 +594,6 @@ const _opened = (pick: _SavePicker, file: Egress.File): Effect.Effect<_SaveWrita
 
 const _anchored = (file: Egress.File): Effect.Effect<void, EgressFault> =>
   Effect.tryPromise({
-    // BOUNDARY ADAPTER: the anchor route is a DOM ceremony with no expression form; the object URL revokes in the
-    // same frame the synchronous click consumed it, so no blob outlives this kernel
     try: async () => {
       const url = globalThis.URL.createObjectURL(new globalThis.Blob([file.octets], { type: file.mime }))
       const anchor = globalThis.document.createElement("a")
@@ -664,13 +605,6 @@ const _anchored = (file: Egress.File): Effect.Effect<void, EgressFault> =>
     catch: (cause) => new EgressFault({ case: { reason: "io", name: file.name, cause: String(cause) } }),
   })
 
-// Routes are ROWS and the ladder is their order: `available` probes the host, `perform` IS this family's admitting
-// member, `streams` states whether the row hands back a writable, and `degrade` names the forfeit. Both `route` and
-// `save` read this one table, so the affordance a view renders and the path a save takes cannot disagree — the two
-// hand ternaries this replaced were free to drift the moment either grew a rung. TENANCY and LIFETIME carry no
-// column because no row here decides either: egress carries bytes OUT and stores nothing, so its destination owns
-// what lands there and separates by whatever the host filesystem already does. Stating either per row states a
-// guess, and neither absence is a forfeit, so neither reaches `degrade`.
 const _ROUTES = {
   picker: {
     fits: "the user names a destination and octets stream to a real handle",
@@ -715,8 +649,6 @@ const Egress: {
       onNone: () => Effect.fail(new EgressFault({ case: { reason: "absent", name: file.name, mime: file.mime } })),
     }),
   share: _shared,
-  // Streaming reads the same `streams` column `route` publishes, so a host promised a writable always gets one
-  // and a host told otherwise never reaches the picker through a second, independently-spelled probe.
   open: (file) =>
     Option.match(Option.flatMap(Option.filter(_routed(), (row) => _ROUTES[row].streams), () => _picker()), {
       onSome: (pick) => _opened(pick, file),
@@ -768,7 +700,7 @@ const Overlay: {
   sync: (url) => EventLogRemote.layerWebSocketBrowser(url),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Egress, EgressFault, Kv, KvBacking, KvFault, Opfs, Overlay, ResidencyFault }
 ```

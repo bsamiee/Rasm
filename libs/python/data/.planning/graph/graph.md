@@ -73,8 +73,6 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.graph")
 type NodeId = int
 type RxGraph = rx.PyGraph | rx.PyDiGraph
 type NxGraph = nx.Graph | nx.DiGraph
-# the GPL igraph name binds `lazy`, so this alias resolves for a checker without linking the C
-# core, while the runtime carrier slot on `GraphPayload` stays the honest `Any` wire floor.
 type AnyGraph = "RxGraph | NxGraph | igraph.Graph"
 type GraphBackend = Literal["rustworkx", "networkx", "igraph"]
 type ScoreMap = tuple[tuple[NodeId, float], ...]
@@ -84,10 +82,7 @@ type WeightSelector = Callable[[Any], float]
 
 WEIGHT_IDENTITY: Final[WeightSelector] = float
 
-# leiden's objective is a real engine choice, not a call-site literal: under CPM the resolution is a DENSITY
-# threshold and under modularity a SCALE factor, so one number means two things and the row must say which.
 type LeidenObjective = Literal["CPM", "modularity"]
-# edge attribute `Graph.TupleList(weights=True)` writes, and the key every weighted community member reads back.
 _IG_WEIGHT: Final[str] = "weight"
 
 
@@ -105,10 +100,6 @@ class LayoutKind(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# rustworkx publishes NO exception root — every one of its twelve derives from `Exception` directly — so the kernel
-# set names them individually rather than resting on a base that does not exist. `TypeError` is the directed-only
-# misuse the `pagerank`/`hits` arms already state, and `_as_rx`'s coercion seam reaches networkx, whose whole taxonomy
-# does root at `NetworkXException`. The GPL row is NOT here by law: see `_kernel_raises`.
 _RX_RAISES: Final[Catch] = (
     rx.DAGHasCycle,
     rx.DAGWouldCycle,
@@ -128,11 +119,6 @@ _RX_RAISES: Final[Catch] = (
 )
 _ORG_RAISES: Final[Catch] = (*_RX_RAISES, TypeError, ValueError, CompilationError, EvaluationError, ValidationError)
 
-# this module's whole raise roster under its one `DataLeg` member. Every row is TERMINAL: a kernel run, a frame
-# lowering, and a codec are pure transforms over an admitted graph, so a re-issue over the same payload refuses
-# identically and no re-offer clears any of them. The two `config` rows are this owner's OWN refusals and carry
-# `slots`, so each names its coordinate through `raised`; the `boundary` rows are fence anchors alone and declare
-# none, since a converted provider raise fills its detail from the cause it carries.
 GRAPH_ANALYZE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GRAPH, point="analyze", arm="boundary", defect="kernel", retriability=TERMINAL
 )
@@ -213,10 +199,6 @@ class GraphAlgorithm:
         "louvain",
         "infomap",
     ] = tag()
-    # the three REACHABILITY rows carry `(source, bound)`: the walk that answers them measures a hop distance per
-    # node, so the bound is the runtime `Depth` every walk in the branch shares and the distance leaves as evidence
-    # on the `layered` result rather than being discarded. `Depth(fixpoint=None)` is the whole closure — what these
-    # rows answered before the bound existed — and a bounded value scopes the neighbourhood without a max-int spin.
     bfs: tuple[NodeId, Depth] = case()
     dfs: NodeId | None = case()
     topo_sort: None = case()
@@ -254,10 +236,6 @@ class GraphAlgorithm:
     transitivity: None = case()
     is_planar: None = case()
     layout: LayoutKind = case()
-    # community rows carry the branch `WeightSelector` exactly as every other weighted member does. Without it the
-    # three arms built their graph off a bare edge list, so a weighted network partitioned as if every edge were
-    # unit — the one input community detection exists to read — and neither the objective nor the refinement
-    # iteration count was reachable at all. Each row seats its selector at slot 1, so one projection feeds the build.
     leiden: "tuple[float, WeightSelector, LeidenObjective, int]" = case()
     louvain: tuple[float, WeightSelector] = case()
     infomap: tuple[int, WeightSelector] = case()
@@ -270,11 +248,6 @@ class GraphResult:
         "scalar", "flag", "flows",
     ] = tag()
     order: tuple[NodeId, ...] = case()
-    # (node, hop distance from the source) — the MEASURED reachability carrier. `order` stays the carrier for results
-    # whose sequence position is itself the fact (a topological rank, a path step); a reachability answer has no such
-    # position, so publishing it as `order` handed the frame's `rank` column a flatten index standing in for a
-    # distance nothing computed. `bfs_layers` computes that distance to build its layers, so carrying it is free and
-    # its absence is what a consumer could not recover.
     layered: tuple[tuple[NodeId, int], ...] = case()
     path: tuple[NodeId, ...] = case()
     paths: tuple[tuple[NodeId, ...], ...] = case()
@@ -287,12 +260,9 @@ class GraphResult:
     layout: tuple[tuple[NodeId, tuple[float, float]], ...] = case()
     scalar: float = case()
     flag: bool = case()
-    # edge-keyed flow assignment the `graph/network#NETWORK` owner mints: (source, target, flow) per edge.
     flows: tuple[tuple[NodeId, NodeId, float], ...] = case()
 
     def frame(self) -> "RuntimeRail[pa.Table]":
-        # the fence converts a PROVIDER raise; the non-keyed refusal is this owner's own and rides the rail out of
-        # `_frame`, so the two never mix and the self-flatten is what keeps one rail at the seam.
         return boundary(GRAPH_FRAME, lambda: _frame(self), catch=_arrow_raises()).bind(lambda railed: railed)
 
 
@@ -306,8 +276,6 @@ class GraphReceipt(Struct, frozen=True, gc=False):
     content_key: ContentKey
 
     def contribute(self) -> Iterable[Receipt]:
-        # receipts stay truth, instruments stay projections: every kernel run lands its structure sizes on the metric
-        # spine under domain="graph", keyed by algorithm tag — the no-scrape rustworkx kernel's only metric surface.
         Metrics.record(
             {"rasm.graph.nodes": float(self.node_count), "rasm.graph.edges": float(self.edge_count)}, domain="graph", kind=self.algorithm
         )
@@ -362,7 +330,6 @@ class GraphPayload(Struct, frozen=True, gc=False):
                 return self._one(lone)
 
     def _one(self, algo: "GraphAlgorithm") -> "RuntimeRail[GraphResult]":
-        # the kernel span is the run's trace surface; the boundary fence inside marks it ERROR + record_exception on a raise.
         with _TRACER.start_as_current_span(
             f"graph.analyze.{algo.tag}",
             attributes={"rasm.graph.algorithm": algo.tag, "rasm.graph.backend": self.backend, "rasm.graph.nodes": self.node_count},
@@ -388,7 +355,6 @@ class GraphPayload(Struct, frozen=True, gc=False):
 
 
 def _node_link(g: NxGraph) -> bytes:
-    # `node_link_data` is the canonical persisted graph document, encoded through the shared `msgspec` JSON rail.
     return msgspec.json.encode(nx.node_link_data(g, edges="edges"))
 
 
@@ -403,11 +369,6 @@ def _wire(graph: "AnyGraph", backend: GraphBackend) -> bytes:
 
 
 def _is_ig(graph: object) -> bool:
-    # STRUCTURAL GPL confinement: the probe reads `sys.modules` and never dereferences the
-    # module-scope `lazy` name — an igraph source can only exist in-process if the caller already
-    # linked the GPL core, so a run that never sees one never loads igraph. A module-top eager
-    # `import igraph` is the deleted form, and an `isinstance(graph, igraph.Graph)` written here
-    # is the same defect wearing the lazy dialect: it reifies the proxy on EVERY shape recovery.
     ig = sys.modules.get("igraph")
     return ig is not None and isinstance(graph, ig.Graph)
 
@@ -426,16 +387,10 @@ def _shape(graph: "AnyGraph") -> "tuple[GraphBackend, GraphKind, int, int, bytes
 
 
 def _arrow_raises() -> Catch:
-    # resolved at the CALL, never at module scope: a `Final[Catch]` naming `pa.ArrowException` would dereference the
-    # `lazy` binding at import and charge the Arrow load to the codec-only path this page deliberately keeps free of
-    # it. `.api/pyarrow.md` `[CORE_ERRORS]` names `ArrowException` as the root for a pure in-memory construction and
-    # `ArrowIOError` as the `OSError`-rooted leaf outside it, which no fold here reaches.
     return (pa.ArrowException, TypeError, ValueError)
 
 
-def _frame(result: GraphResult) -> "RuntimeRail[pa.Table]":  # ruff:ignore[too-many-return-statements]
-    # `pyarrow` binds module-scope `lazy`, so this fold is its first dereference and the
-    # codec-only path never pays the Arrow load.
+def _frame(result: GraphResult) -> "RuntimeRail[pa.Table]":
     match result:
         case GraphResult(tag="scores", scores=rows):
             return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "value": [v for _, v in rows]}))
@@ -447,29 +402,20 @@ def _frame(result: GraphResult) -> "RuntimeRail[pa.Table]":  # ruff:ignore[too-m
                 "component": [i for i, block in enumerate(blocks) for _ in block],
             }))
         case GraphResult(tag="order", order=nodes):
-            # `rank` is the sequence POSITION and is a fact only where the sequence is one: a topological order, a
-            # DFS visit order, a longest path. The reachability arms no longer land here — they carry a measured
-            # distance on `layered` — so this column no longer stands in for one.
             return Ok(pa.Table.from_pydict({"node": list(nodes), "rank": list(range(len(nodes)))}))
         case GraphResult(tag="layered", layered=rows):
-            # the MEASURED hop column the scan plane left-joins by `node` exactly as it joins every other enrichment.
             return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "depth": [d for _, d in rows]}))
         case GraphResult(tag="layout", layout=rows):
             return Ok(pa.Table.from_pydict({"node": [n for n, _ in rows], "x": [xy[0] for _, xy in rows], "y": [xy[1] for _, xy in rows]}))
         case GraphResult(tag="flows", flows=rows):
-            # EDGE-keyed frame: the join keys on the (source, target) pair rather than the lone `node` column.
             return Ok(pa.Table.from_pydict({
                 "source": [u for u, _, _ in rows],
                 "target": [v for _, v, _ in rows],
                 "flow": [f for _, _, f in rows],
             }))
         case GraphResult(tag="tree", tree=rows) | GraphResult(tag="matching", matching=rows):
-            # EDGE-keyed exactly as `flows` is: both carry the `(source, target)` pair every edge result joins on, so
-            # refusing them claimed an absent index row while holding the very index the flow arm frames.
             return Ok(pa.Table.from_pydict({"source": [u for u, _ in rows], "target": [v for _, v in rows]}))
         case _:
-            # a result carrying no index row is the CALLER's defect, not a provider raise, so it refuses on the rail
-            # under this owner's own row rather than as a converted exception the fence would re-key.
             return Error(GRAPH_UNFRAMED.raised(result.tag))
 
 
@@ -491,9 +437,6 @@ RX_LAYOUT: "Final[Map[LayoutKind, Callable[[RxGraph], rx.Pos2DMapping]]]" = Map.
 
 
 def _as_rx(graph: "AnyGraph") -> RxGraph:
-    # one analysis-coercion seam. `networkx_converter`'s `keep_attributes` default rides the original label as node
-    # payload so the rx index stays the stable join key; the nx->rx bridge is the only converter direction, so the igraph
-    # leg crosses networkx first (`to_networkx` then convert).
     match graph:
         case rx.PyGraph() | rx.PyDiGraph():
             return graph
@@ -504,8 +447,6 @@ def _as_rx(graph: "AnyGraph") -> RxGraph:
 
 
 def _upstream(g: RxGraph) -> RxGraph:
-    # ancestors walk the graph BACKWARD. `PyDiGraph.reverse` mutates in place, so the copy is what keeps the payload
-    # the owner carries untouched; an undirected `PyGraph` has no orientation to reverse and answers itself.
     if not isinstance(g, rx.PyDiGraph):
         return g
     upstream = g.copy()
@@ -514,10 +455,6 @@ def _upstream(g: RxGraph) -> RxGraph:
 
 
 def _reached(bound: Depth, hop: int) -> bool:
-    # the bound is a SCOPE, not a spent budget, so no exhaustion fault is owed here and none is minted:
-    # `Depth.exhausted` states a walk that could not FINISH, while a bounded neighbourhood is a COMPLETE answer to
-    # the question asked. What made the old form dishonest was silence about where it stopped — the `layered`
-    # result carries each node's true distance, so the frame's own `max(depth)` names the edge of the walk.
     match bound:
         case Depth(tag="fixpoint"):
             return True
@@ -528,10 +465,6 @@ def _reached(bound: Depth, hop: int) -> bool:
 
 
 def _layered(g: RxGraph, source: NodeId, bound: Depth, *, seeded: bool) -> GraphResult:
-    # `bfs_layers` IS the hop measurement (`.api/rustworkx.md:132`): the layer INDEX is the distance from the source,
-    # so the walk publishes the number it already computed rather than the flatten position the frame used to assert.
-    # `seeded` keeps layer zero for `bfs`, whose order began with the source, and drops it for the two closure arms,
-    # which by `ancestors`/`descendants` contract answer a set the source is not a member of.
     return GraphResult(layered=tuple(
         (node, hop)
         for hop, layer in enumerate(rx.bfs_layers(g, [source]))
@@ -540,7 +473,7 @@ def _layered(g: RxGraph, source: NodeId, bound: Depth, *, seeded: bool) -> Graph
     ))
 
 
-def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  # ruff:ignore[too-many-return-statements, complex-structure]
+def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:
     match algo:
         case GraphAlgorithm(tag="bfs", bfs=(source, bound)):
             return _layered(g, source, bound, seeded=True)
@@ -549,23 +482,16 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
         case GraphAlgorithm(tag="topo_sort"):
             return GraphResult(order=tuple(rx.topological_sort(g)))
         case GraphAlgorithm(tag="ancestors", ancestors=(source, bound)):
-            # the ancestor set is the descendant set of the REVERSED graph, so one layered walk answers both
-            # directions and `rx.ancestors`/`rx.descendants` — which return a membership set with the distance
-            # already thrown away — are the deleted reads.
             return _layered(_upstream(g), source, bound, seeded=False)
         case GraphAlgorithm(tag="descendants", descendants=(source, bound)):
             return _layered(g, source, bound, seeded=False)
         case GraphAlgorithm(tag="shortest_path", shortest_path=(src, dst, weight)):
-            # `PathMapping` is a `__contains__`/`__getitem__` view, not a `dict` — `.get` does not
-            # exist, so the membership-gated subscript reads the path or the empty unreachable path.
             paths = rx.dijkstra_shortest_paths(g, src, target=dst, weight_fn=weight)
             return GraphResult(path=tuple(paths[dst]) if dst in paths else ())
         case GraphAlgorithm(tag="bellman_ford", bellman_ford=(src, dst, weight)):
             paths = rx.bellman_ford_shortest_paths(g, src, target=dst, weight_fn=weight)
             return GraphResult(path=tuple(paths[dst]) if dst in paths else ())
         case GraphAlgorithm(tag="astar", astar=(src, dst, edge_cost, estimate)):
-            # carried selector pair: `edge_cost` reads the edge payload, `estimate` the node —
-            # admissible-heuristic policy is DATA on the case, never a hardcoded unit lambda.
             return GraphResult(path=tuple(rx.astar_shortest_path(g, src, lambda n: n == dst, edge_cost, estimate)))
         case GraphAlgorithm(tag="k_shortest", k_shortest=(src, k, weight)):
             return GraphResult(scores=tuple(rx.k_shortest_path_lengths(g, src, k, weight).items()))
@@ -578,7 +504,6 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
         case GraphAlgorithm(tag="longest_path"):
             return GraphResult(order=tuple(rx.dag_longest_path(g)))
         case GraphAlgorithm(tag="transitive_reduction"):
-            # `transitive_reduction` returns the `(reduced_graph, index_map)` pair, not a bare graph.
             return GraphResult(tree=tuple(rx.transitive_reduction(g)[0].edge_list()))
         case GraphAlgorithm(tag="dominators"):
             return GraphResult(scores=tuple((n, float(d)) for n, d in rx.immediate_dominators(g, algo.dominators).items()))
@@ -590,9 +515,6 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
         case GraphAlgorithm(tag="articulation"):
             return GraphResult(order=tuple(rx.articulation_points(g)))
         case GraphAlgorithm(tag="bridges"):
-            # `tree` is this union's EDGE-LIST carrier — the transitive reduction, the condensation, and both
-            # spanning trees all land there — so a bridge set lands there too. Reporting it as `matching` named the
-            # receipt's `result` for a pairing the algorithm never computes.
             return GraphResult(tree=tuple(rx.bridges(g)))
         case GraphAlgorithm(tag="cycle_basis"):
             return GraphResult(paths=tuple(tuple(c) for c in rx.cycle_basis(g, root=algo.cycle_basis)))
@@ -604,19 +526,13 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
             cut, _ = rx.stoer_wagner_min_cut(g, weight_fn=weight)
             return GraphResult(scalar=cut)
         case GraphAlgorithm(tag="betweenness" | "closeness" | "eigenvector" | "katz" | "pagerank" | "degree"):
-            # `pagerank` is rustworkx-directed-only — a `pagerank` run on an undirected `PyGraph`
-            # raises `TypeError`, which the enclosing `boundary` fence rails to a `BoundaryFault`
-            # rather than crashing; the other five centralities run on either graph kind.
             return GraphResult(scores=tuple(RX_CENTRALITY[algo.tag](g, algo).items()))
         case GraphAlgorithm(tag="hits"):
-            # `hits` is rustworkx-directed-only (the boundary fence rails an undirected misuse).
             hubs, _ = rx.hits(g, max_iter=algo.hits)
             return GraphResult(scores=tuple(hubs.items()))
         case GraphAlgorithm(tag="greedy_color"):
             return GraphResult(coloring=tuple(rx.graph_greedy_color(g, strategy=rx.ColoringStrategy.Saturation).items()))
         case GraphAlgorithm(tag="max_weight_matching", max_weight_matching=(max_cardinality, weight)):
-            # rustworkx matching demands an int weight — the carried float selector quantizes at the
-            # call head, so the policy stays one selector row rather than a parallel int selector kind.
             return GraphResult(matching=tuple(rx.max_weight_matching(g, max_cardinality=max_cardinality, weight_fn=lambda e: int(weight(e)))))
         case GraphAlgorithm(tag="spanning_tree", spanning_tree=weight):
             return GraphResult(tree=tuple(rx.minimum_spanning_tree(g, weight_fn=weight).edge_list()))
@@ -629,8 +545,6 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
         case GraphAlgorithm(tag="layout"):
             return GraphResult(layout=tuple((n, tuple(xy)) for n, xy in RX_LAYOUT[algo.layout](g).items()))
         case GraphAlgorithm(tag="leiden" | "louvain" | "infomap"):
-            # every community row seats its selector at slot 1, so the build reads ONE projection rather than three
-            # arms restating a lookup the case shape already fixes.
             return _run_ig(_ig_from(g, kind, getattr(algo, algo.tag)[1]), algo, kind)
         case unreachable:
             assert_never(unreachable)
@@ -638,9 +552,6 @@ def _run_rx(g: RxGraph, algo: GraphAlgorithm, kind: GraphKind) -> GraphResult:  
 
 # --- [IGRAPH_COMMUNITY] -----------------------------------------------------------------
 
-# community rows call methods ON the passed C-core graph, so no row dereferences the `lazy`
-# igraph name and the table itself links no GPL symbol — the one dereference site is `_ig_from`,
-# reached only from the `_run_rx` community arm.
 IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.VertexClustering]]]" = Map.of_seq([
     ("leiden", lambda g, a: g.community_leiden(objective_function=a.leiden[2], resolution=a.leiden[0], weights=_IG_WEIGHT, n_iterations=a.leiden[3])),
     ("louvain", lambda g, a: g.community_multilevel(resolution=a.louvain[0], weights=_IG_WEIGHT)),
@@ -649,39 +560,17 @@ IG_COMMUNITY: "Final[Map[str, Callable[[igraph.Graph, GraphAlgorithm], igraph.Ve
 
 
 def _kernel_raises(algo: GraphAlgorithm) -> Catch:
-    # the GPL row joins the catch ONLY for a community algorithm — the one family whose arm links the C core anyway
-    # through `_ig_from` — so a run that never partitions never reifies the `lazy` proxy and the module-scope
-    # confinement `_is_ig` holds is not undone by the fence that guards it. A `Final[Catch]` naming
-    # `igraph.InternalError` would link the core at IMPORT, on every run, which is the same defect the eager
-    # `import igraph` carries. Membership reads `IG_COMMUNITY`'s own keys, so the arm roster stays one authority.
     if algo.tag not in IG_COMMUNITY:
         return _RX_RAISES
     return (*_RX_RAISES, igraph.InternalError)
 
 
 def _egress_raises(backend: GraphBackend) -> Catch:
-    # the codec lane is backend-dispatched, so the igraph row joins only where the SOURCE is already an igraph graph
-    # and the core is therefore already linked; `OSError` is the `_graphml` scratch-path leg every backend crosses.
     codec: Catch = (rx.JSONSerializationError, nx.NetworkXException, TypeError, ValueError, OSError)
     return codec if backend != "igraph" else (*codec, igraph.InternalError)
 
 
 def _ig_from(g: RxGraph, kind: GraphKind, weight: WeightSelector) -> "igraph.Graph":
-    # ONE GPL dereference site by law — this leg is the only one that touches the module-scope
-    # `lazy igraph` name, so it alone reifies the proxy and links the C core, and the confinement
-    # is structural rather than prose. The leg builds
-    # C-core graph builds from the rustworkx edge list (`_as_rx` already coerced any networkx/igraph
-    # source to rustworkx, so the edge list is always rx integer indices). `Graph.TupleList`'s
-    # default `vertex_name_attr="name"` stores each rx endpoint index in the `name` vertex
-    # attribute, so the membership read recovers the rx index — robust to rx index gaps after node
-    # removal — rather than igraph's reindexed 0-based vertex. `TupleList` creates a vertex only
-    # per endpoint, so an ISOLATED rx node carries no edge and would vanish from the partition;
-    # `add_vertices` re-admits the edgeless rx indices as `name`-carrying singleton
-    # vertices so the community partition stays TOTAL over the node set.
-    # `weighted_edge_list` carries each edge PAYLOAD, which the branch selector lowers to the float igraph reads
-    # back off `_IG_WEIGHT` — `weights=True` is what makes `TupleList` write that attribute from the third slot.
-    # Building off a bare `edge_list()` discards that payload, so every weighted community run silently partitions a
-    # unit graph. The name set hoists out of the scan, which rebuilt it once per node.
     ig = igraph.Graph.TupleList(
         ((u, v, weight(payload)) for u, v, payload in g.weighted_edge_list()), directed=kind.directed, weights=True
     )
@@ -695,15 +584,9 @@ def _ig_from(g: RxGraph, kind: GraphKind, weight: WeightSelector) -> "igraph.Gra
 def _run_ig(g: "igraph.Graph", algo: GraphAlgorithm, _: GraphKind) -> GraphResult:
     match algo:
         case GraphAlgorithm(tag="leiden" | "louvain" | "infomap"):
-            # `VertexClustering` membership is keyed by igraph's reindexed 0-based vertex; `_ig_from`'s
-            # `TupleList`+`add_vertices` carries each rx index in the `name` attribute, so the partition
-            # lowers back onto the rx index the rest of the rail (and `GraphResult.frame`) joins on.
             names = g.vs["name"]
             return GraphResult(partition=tuple(tuple(names[v] for v in block) for block in IG_COMMUNITY[algo.tag](g, algo)))
         case off_lane:
-            # totality arm: `_run_rx` routes only the community tags here, so this fires only for a future DIRECT
-            # caller — a routing defect, never a provider fault, which is why `_kernel_raises` deliberately omits it
-            # and the raise propagates past the rail instead of arriving as a `BoundaryFault` a caller might handle.
             raise NotImplementedError(f"igraph backend owns only the community split, not {off_lane.tag}; route to rustworkx")
 
 
@@ -711,9 +594,6 @@ def _run_ig(g: "igraph.Graph", algo: GraphAlgorithm, _: GraphKind) -> GraphResul
 
 
 def _graphml(write: "Callable[[str], object]") -> bytes:
-    # GraphML is path-keyed on every backend (`rx.write_graphml(g, path)`, `nx.write_graphml(g, path)`);
-    # one helper reads the written document back through a scratch path rather than re-encoding
-    # through a foreign codec or an unconfirmed byte-streaming variant.
     with tempfile.NamedTemporaryFile(suffix=".graphml") as handle:
         write(handle.name)
         return Path(handle.name).read_bytes()
@@ -786,20 +666,17 @@ flowchart TD
 
 ```python signature
 class OrganizationIndex(Struct, frozen=True):
-    # one address-to-index map per key space the wire discriminates — never one merged map a foreign key can shadow.
     entities: Map[str, NodeId]
     members: Map[str, NodeId]
     views: Map[str, Block[tuple[str, bool]]]
     current: NodeId | None
 
 
-# edge payload literals: the containment vocabulary the organizational queries and the frame join read.
 NESTS: Final[str] = "nests"
 MEMBER: Final[str] = "member"
 
 
 def _address(key: bytes) -> str:
-    # wire keys cross as 16 big-endian bytes and this branch faces them lowercase, so the one lowering seats here.
     return key.hex()
 
 

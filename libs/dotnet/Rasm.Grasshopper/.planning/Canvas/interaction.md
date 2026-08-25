@@ -20,16 +20,14 @@ Every host-bound acquisition runs inside `GhSession.Run(ScopeTarget.CanvasHost, 
 - Growth: a new host precedence tier is one `VerdictSeam` row; a new boundary projection is one mapper row.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Keyed on the HOST ordinal, carrying the kernel verdict: both directions of one correspondence live on one row,
-// so a new host tier is a row and neither projection is a hand switch.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class VerdictSeam {
     public static readonly VerdictSeam Ignored = new(key: (int)Response.Ignored, verdict: InputVerdict.Ignored);
@@ -41,11 +39,8 @@ public sealed partial class VerdictSeam {
 
     public Response Host => (Response)Key;
 
-    // Total by LOAD-TIME proof: the type initializer refuses a kernel verdict with no row, so a kernel widening
-    // breaks at load instead of throwing into the Eto pump on first dispatch.
     public static Response ToHost(InputVerdict verdict) => Rows.Value[verdict].Host;
 
-    // Total by TYPED REFUSAL: an unrostered host answer is a boundary fact worth surfacing, never a silent Ignored.
     public static Fin<InputVerdict> Of(Response response, Op key) =>
         TryGet((int)response, out VerdictSeam? row)
             ? Fin.Succ(row.Verdict)
@@ -60,23 +55,15 @@ public sealed partial class VerdictSeam {
         });
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Two generated projections + ONE licensed hand arm: the kernel fact stays the target, and the pointer
-// admission is COMPOSED, never re-spelled.
-// Both-strategy is this seam's REAL delta; conversions ride the assembly MapperDefaults.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 internal static partial class InputMap {
-    // Hand arm (folder RULINGS [01] — named host demand): GH2 wraps the Eto args, so the kernel's ONE admission
-    // runs on the wrapped value; `Content` alone is then the host's own canvas projection, which no
-    // scroll-origin derivation reproduces.
     internal static Fin<PointerFact> Fact(ResponseMouseArgs args, Control source, Op key) =>
         PointerFact.Of(args: args.UnderlyingEtoEventArgs, source: source, key: key)
             .Map(fact => fact with { Content = args.ContentLocation });
 
     [MapProperty(nameof(PopulateContextMenuEventArgs.Control), nameof(MenuMoment.Surface))]
     [MapProperty(nameof(PopulateContextMenuEventArgs.MouseEvent), nameof(MenuMoment.Cause))]
-    // Named ignores, not roster spam: the live Menu is the seam's own fill TARGET, never moment data, and
-    // IsMenu is host redundancy — the raise site knows its own channel.
     [MapperIgnoreSource(nameof(PopulateContextMenuEventArgs.Menu))]
     [MapperIgnoreSource(nameof(PopulateContextMenuEventArgs.IsMenu))]
     internal static partial MenuMoment Moment(PopulateContextMenuEventArgs args);
@@ -101,7 +88,7 @@ internal static partial class InputMap {
 - Growth: a new host handler virtual is one adapter relay reading one kernel phase key; a new attachment modality reuses `Attachment` and `Mounted<TFacts>`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -109,9 +96,7 @@ using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Kernel spec beside the GH2 residue: the frame the adapter constructs under, the host's rectangular
-// boundary fast path, the rotation slot no kernel phase carries, and the host's transient-effect pull probe.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record GhResponder(
     ResponderSpec Spec,
     CoordinateSystem Frame,
@@ -123,9 +108,7 @@ public sealed record GhResponder(
         Boundary.ForAll(static frame => ValidityClaim.Finite(frame: frame).Holds));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// ONE host adapter: ten one-line relays into one phase-keyed fold; every arm ends in the base member, so
-// Host's own relay chain still runs wherever a key is absent or answers Ignored.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class SpecResponder : Responses, IResponsive {
     private readonly GhResponder responder;
     private readonly FlexControl surface;
@@ -144,8 +127,6 @@ internal sealed class SpecResponder : Responses, IResponsive {
         responder.Spec.Filter.Iter(filter => RegionFilter = point => Guarded(filter: filter, point: point));
     }
 
-    // HadEffect false downgrades this responder's Release to Ignored — the host's transient-gesture contract;
-    // a faulted probe parks and inherits the host's `true` so a governance fault never eats a context menu.
     public override bool HadEffect => responder.HadEffect.Match(
         Some: probe => operation.Catch(() => Fin.Succ(probe())).IfFail(cause => (Park(cause), true).Item2),
         None: () => base.HadEffect);
@@ -163,8 +144,6 @@ internal sealed class SpecResponder : Responses, IResponsive {
     public override Response TextInput(TextInputEventArgs e) => Slotted(responder.Spec.Text, e, () => base.TextInput(e));
     public override Response Rotation(ResponseRotationArgs e) => Slotted(responder.Rotation, e, () => base.Rotation(e));
 
-    // ONE fold serves the eight pointer relays: the phase row keys the slot map, the admitted kernel fact feeds
-    // Slot, a supplied rail fires the veto point on a slot-answered verdict, and the host edge projects once.
     private Response Answer(PointerPhase phase, ResponseMouseArgs e, Func<Response> inherited) => Settle(
         operation.Catch(() => responder.Spec.Pointer.Find(phase).Match(
             Some: handle => InputMap.Fact(args: e, source: surface, key: operation)
@@ -176,7 +155,6 @@ internal sealed class SpecResponder : Responses, IResponsive {
     private Response Slotted<TEvent>(Option<Func<TEvent, InputVerdict>> slot, TEvent e, Func<Response> inherited) where TEvent : class;
     private void Beside(PointerPhase phase, ResponseMouseArgs? args, Action relay);
 
-    // Interaction.verdict fire site: a governance veto downgrades to Ignored; an absent rail is ungoverned.
     private Fin<InputVerdict> Governed(InputVerdict verdict) => rail.Match(
         Some: live => live.Fire(
                 at: GrasshopperPoint.InteractionVerdict,
@@ -187,9 +165,6 @@ internal sealed class SpecResponder : Responses, IResponsive {
 
     private bool Guarded(Func<PointF, bool> filter, PointF point);
 
-    // Emit-then-park (the capture exemplar): the loss surfaces on the log channel FIRST, and the park's verdict
-    // is the cell's own accounting — Committed/Ceded holds evidence for the composition's gauge read, Refused
-    // counts onto `Lost`, both channels the telemetry root reads.
     private Unit Park(Error cause) {
         InteractionLog.ResponderFault(GhLog.For(category: nameof(SpecResponder)), cause.Message);
         return ignore(faults.Park(point: Rail, cause: cause));
@@ -203,7 +178,6 @@ internal sealed class SpecResponder : Responses, IResponsive {
 }
 
 internal static partial class InteractionLog {
-    // Const-beside-row (kernel S1-58): the pair proves equal at type init and drift throws at load.
     internal const int ResponderFaulted = 4714;
     static InteractionLog() => Op.SideWhen(
         condition: ResponderFaulted != FaultBand.GrasshopperLog.Code(offset: 14),
@@ -213,10 +187,7 @@ internal static partial class InteractionLog {
     internal static partial void ResponderFault(ILogger logger, [UserContent] string detail);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// ONE attach-verify-detach fold: attach, verify the host table took it, answer the marshalled release; a
-// failed verify rolls back with the rollback refusal AGGREGATED — five ReferenceEquals probes and three hand
-// spellings collapse here.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Attachment {
     internal static Fin<Func<Fin<Unit>>> Of(Action attach, Func<bool> verify, Action detach, Op key);
 }
@@ -227,7 +198,6 @@ public static class Dispatch {
         FlexControl surface, GhResponder responder,
         Option<HookRail<GrasshopperPoint, HookSignal, HookScope>> rail = default, Op? key = null);
 
-    // Refuses to claim an already-focused target; release pops only the NAMED target.
     public static Fin<Lease<Mounted<Unit>>> Hold(FlexControl surface, IResponsive target, Op? key = null);
 
     public static Fin<Seq<IResponsive>> Roster(IFlexControl surface, Op? key = null);
@@ -246,21 +216,20 @@ public static class Dispatch {
 - Growth: a new gesture capsule is one sealed owner over its host interaction class; evidence rows widen by field, never by sibling record.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Renamed from DragEvidence: the kernel input page owns that name for its threshold fact (zero shared columns).
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DragFacts(int Count, PointF Anchor) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Count > 0, ValidityClaim.Finite(point: Anchor));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed class DragSession : IDisposable {
     private readonly Lease<Mounted<Unit>> focus;
@@ -269,8 +238,6 @@ public sealed class DragSession : IDisposable {
 
     public static Fin<Lease<DragSession>> Begin(Document graph, PointF anchor, Op? key = null);
 
-    // Poll refuses on a RELEASED focus capsule — the latch is the liveness read, and a disposed session
-    // answering stale drag facts is the misuse this guard names.
     public Fin<DragFacts> Poll(Op key) =>
         from live in guard(!focus.Resource.IsReleased, key.InvalidInput(axis: nameof(focus))).ToFin()
         from facts in key.AcceptValue(value: InputMap.Facts(interaction: Interaction))
@@ -282,21 +249,16 @@ public sealed class DragSession : IDisposable {
 [BoundaryAdapter]
 public sealed class EdgeResize {
     private readonly ResizingFrame frame;
-    // Gesture state IS the grip: Begin seats it, Track requires it, End clears it — no int ladder.
     private readonly Atom<Option<EdgeGrip>> engaged = Atom(Option<EdgeGrip>.None);
 
-    // Eight labeled clauses through the applicative: an inverted bound AND a non-finite frame report together.
     public static Fin<EdgeResize> Of(
         RectangleF original, SizeF min, SizeF max,
         Option<SnappingConstraints> constraints = default, Option<SnappingSettings> settings = default, Op? key = null);
 
-    // Caller wanted the GRIP, not a bool: absence is a miss, a value is the engaged kernel case.
     public Fin<Option<EdgeGrip>> Begin(PointF mouse, Padding edges, Op key);
     public Fin<RectangleF> Track(PointF mouse, Op key);
     public Fin<Cursor> CursorAt(PointF mouse, Padding edges, Op key);
 
-    // Cell.Step witness for the gesture cell: an engaged grip commits to idle, a second End reads the
-    // step's typed decline — Begin seats through the same verb and Track requires the seated value.
     public Fin<Unit> End(Op? key = null) =>
         Cell.Step(cell: engaged, step: static held => held.Map(static _ => Option<EdgeGrip>.None),
             declined: key.OrDefault().InvalidContext()) switch {
@@ -306,7 +268,6 @@ public sealed class EdgeResize {
 
     public Option<EdgeGrip> Grip => engaged.Value;
 
-    // Host's four bools project ONCE onto the kernel family; the six meaningless mask corners have no arm.
     private static Option<EdgeGrip> Projected(ResizingFrame frame) =>
         (frame.ResizeTopEdge, frame.ResizeLeftEdge, frame.ResizeRightEdge, frame.ResizeBottomEdge) switch {
             (true, true, true, true) => Some<EdgeGrip>(new EdgeGrip.Whole()),
@@ -333,23 +294,22 @@ public sealed class EdgeResize {
 - Growth: a new synchronous host moment is one moment record with one mount; observation-shaped events stay `Shell/events.md` rows.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MenuMoment(IFlexControl Surface, MouseEventArgs Cause) : IValidityEvidence {
     public bool IsValid => Surface is not null && Cause is not null;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class MenuMount {
-    // Authoring is the kernel tree; this seam only projects it into the host-supplied live menu inside the raise.
     public static Fin<Lease<Mounted<Unit>>> Mount(
         Func<MenuMoment, Seq<MenuNode>> fill, IntentTable table, FaultCell faults, Op? key = null);
 }

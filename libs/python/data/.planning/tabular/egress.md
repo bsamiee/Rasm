@@ -66,14 +66,6 @@ class EgressUnit(StrEnum):
 
 @tagged_union(frozen=True)
 class RemoteIdentity:
-    # what the provider SAID about the object this operation touched, as a closed case rather than two strings whose
-    # emptiness two readers interpret differently. `e_tag: str = ""` fused three states the short-circuit depends on
-    # separating: a provider that answered NO metadata slot at all (every control-plane op), a provider that answered
-    # a slot carrying no e_tag (an upload the store never acknowledged), and a provider that answered an EMPTY e_tag.
-    # `_reuse` gated the by-reference skip on `not prior.e_tag` meaning "that upload was never acknowledged", so under
-    # the fused spelling a `head` receipt and an unacknowledged put were one value and a caller could settle a write
-    # against evidence of nothing. `version` rides `Option` inside the acknowledged arm alone: an unversioned bucket
-    # states no version while acknowledging the write, and that pairing is unrepresentable as two flat columns.
     tag: Literal["acknowledged", "unacknowledged", "unreported"] = tag()
     acknowledged: tuple[str, Option[str]] = case()
     unacknowledged: None = case()
@@ -81,8 +73,6 @@ class RemoteIdentity:
 
     @staticmethod
     def of(meta: Meta) -> "RemoteIdentity":
-        # ONE sentinel projection at the single read site that first sees the provider slot, per
-        # `docs/stacks/python/boundaries.md` `[SENTINEL_SITE]`; every consumer below reads the case.
         match meta:
             case None:
                 return RemoteIdentity(unreported=None)
@@ -98,13 +88,9 @@ class RemoteIdentity:
 
     @property
     def version(self) -> Option[str]:
-        # the CAS coordinate: a caller building an `UpdateVersion` precondition off a prior egress takes it from here,
-        # so the generation a conditional put compares against is a value the provider stated rather than a `""`.
         return self.acknowledged[1] if self.tag == "acknowledged" else Nothing
 
     def facts(self) -> dict[str, object]:
-        # the identity CASE always renders; the coordinates render only where the provider stated them, exactly as the
-        # sibling `key` entry omits rather than writing a null into the residence's rendered-value contract.
         match self:
             case RemoteIdentity(tag="acknowledged", acknowledged=(etag, version)):
                 return {"identity": self.tag, "etag": etag} | version.map(lambda held: {"version": held}).default_value({})
@@ -116,15 +102,9 @@ class RemoteIdentity:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# this owner's two names spelled once — the receipt owner label the audit actor also identifies as, and the metric
-# segment its key subjects, its facts, and its audit verbs all derive from — so a rename cannot strand a series, a
-# lifted evidence column, and a verb under three spellings of one owner.
 OWNER: Final[str] = "object-egress"
 DOMAIN: Final[str] = "egress"
 
-# the quantity vocabulary is THIS tier's judgment over the lane's op axis: the transport reports a number, and the
-# unit row is what makes that number legible to a cost fold. A settled by-reference no-op overrides to NONE at the
-# receipt, because it moved no bytes whatever its op would otherwise report.
 _UNIT: Final[Map[str, EgressUnit]] = Map.of_seq([
     ("put", EgressUnit.BYTES),
     ("get", EgressUnit.BYTES),
@@ -140,10 +120,6 @@ _UNIT: Final[Map[str, EgressUnit]] = Map.of_seq([
     ("sign", EgressUnit.PATHS),
 ])
 
-# retention class per MUTATION tag, and the roster of ops recording durable evidence at all: a put or copy is the
-# routine operational trail, a delete or rename the disposal evidence a regulator reads back years later, and
-# `writer` shares `put`'s class exactly as it shares `put`'s veto point. Every read tag is absent by design — an
-# audit plane recording each `get` prices the read path for rows no incident reconstruction ever reads.
 _AUDIT: Final[Map[str, Retain]] = Map.of_seq([
     ("put", Retain.OPERATIONAL),
     ("writer", Retain.OPERATIONAL),
@@ -157,7 +133,6 @@ _AUDIT: Final[Map[str, Retain]] = Map.of_seq([
 
 
 class EgressMutation(Struct, frozen=True):
-    # pre-flight mutation fact the veto edges fire — a receipt exists only after the provider call.
     operation: str
     path: str
     byte_length: int
@@ -168,9 +143,6 @@ DELETE_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id=DataHook.EGRESS_DE
 COPY_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id=DataHook.EGRESS_COPY, payload=EgressMutation, modality=Modality(veto=None))
 RENAME_POINT: Final[HookPoint[EgressMutation]] = HookPoint(id=DataHook.EGRESS_RENAME, payload=EgressMutation, modality=Modality(veto=None))
 
-# `writer` opens a multipart UPLOAD — the fifth mutation this owner's boundary names — so it fires the same
-# pre-flight point `put` does; a governance tap that vetoes a put and silently admits a streamed write of the same
-# bytes gates nothing. Every other tag passes untouched through the absent-row default.
 _VETO: Final[Map[str, HookPoint[EgressMutation]]] = Map.of_seq([
     ("put", PUT_POINT),
     ("writer", PUT_POINT),
@@ -186,17 +158,10 @@ class EgressReceipt(Struct, frozen=True):
     byte_length: int
     quantity: int
     unit: EgressUnit
-    # the provider's OWN word on this object, as a case: a control-plane op that reported nothing, an upload the store
-    # never acknowledged, and an acknowledged write with its optional version are three values, never one `""`.
     identity: RemoteIdentity
-    # `None` for a control-plane op: no content key minted — `head`'s `e_tag`/`version`/`size` ride the typed slots.
     content_key: ContentKey | None
     payload: Any = None
-    # by-reference evidence: the operation settled against a prior receipt and moved no bytes. It rides the
-    # receipt rather than an instrument because a skipped upload emits no throughput point to carry it.
     reused: bool = False
-    # the write's OWN output-affecting contract beyond its bytes, so a later by-reference put proves the object it
-    # stands in for carries the metadata this caller asks for. Empty on every op whose row writes no metadata.
     contract: str = ""
 
     @classmethod
@@ -226,14 +191,6 @@ class EgressReceipt(Struct, frozen=True):
         )
 
     def contribute(self) -> Iterable[Receipt]:
-        # `byte_length` rides as a native `int`: the receipts `Encoder(enc_hook=repr)` serializes
-        # scalars without a `str()` coerce. Byte-bearing ops project throughput onto the metric spine
-        # under domain="egress" keyed by operation; control-plane ops (byte_length 0) record nothing.
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence
-        # reads — the SAME pair handed `Metrics.record` — so a stored row rejoins the series its live twin emitted.
-        # Control-plane ops contribute NO `key` entry: every fact this map carries renders, so a null lands at the
-        # residence as the literal `"None"` unless every reader coerces it back. Absence spells "this op minted no
-        # content key" honestly, and the emitter owes that spelling rather than the readers downstream of it.
         if self.byte_length:
             Metrics.record({"rasm.egress.byte_volume": float(self.byte_length)}, domain=DOMAIN, kind=self.operation)
         yield Receipt.of(
@@ -259,19 +216,11 @@ class EgressReceipt(Struct, frozen=True):
 
 
 def _contract(op: StoreOp) -> str:
-    # the OUTPUT-affecting half of a write beyond its bytes: the metadata the stored object carries afterwards.
-    # Rendered from sorted pairs, so two writes declaring one contract render one token whatever order a caller
-    # built its maps in, and a later put reads it back off the prior receipt as the by-reference proof. `chunk_size`
-    # stays OUT — it selects single-part against multipart transfer and changes no stored byte or header, so folding
-    # it in would refuse a sound skip over a re-tuned threshold. Every other tag writes no metadata and renders empty.
     attributes, tags = (op.put[2], op.put[3]) if op.tag == "put" else (op.writer[1], op.writer[2]) if op.tag == "writer" else ({}, {})
     return repr((sorted((str(key), str(value)) for key, value in dict(attributes).items()), sorted(tags.items())))
 
 
 def _vetoed(op: StoreOp, target: str, scope: ScopeKey) -> "RuntimeRail[StoreOp]":
-    # the mutation rows fire their registered point before any provider mutation, reading the destination off the
-    # lane's own `store_path` fold so the path a tap sees and the path the receipt names cannot diverge; the
-    # streamed `writer` payload has no length yet, so its fact reports zero.
     return (
         _VETO.try_find(op.tag)
         .map(
@@ -286,16 +235,6 @@ def _vetoed(op: StoreOp, target: str, scope: ScopeKey) -> "RuntimeRail[StoreOp]"
 
 
 def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressReceipt | None") -> "RuntimeRail[StoreAdmission]":
-    # By-reference put no-op, and every half is load-bearing because a settled skip CLAIMS a write nobody made:
-    # the prior receipt names this operation and THIS destination, its `contract` renders the same object metadata
-    # this put carries, its `acknowledged` identity proves that upload landed rather than merely being attempted, and
-    # the fresh payload key equals its key so the BYTES are unchanged. A prior read off another path, another
-    # metadata contract, or another operation settles a write that never happened at all. Mode is the fifth half and
-    # refuses rather than compares: `create` and every `UpdateVersion` carry a REMOTE precondition only the provider
-    # can answer, so a conditional put dispatches and lets it. The settled outcome keeps the payload on its `source`
-    # slot and its prior `(e_tag, version)` on `meta`, so the receipt it folds carries the same content key AND the
-    # same remote identity a fresh `PutResult` would; a digest fault rides this one rail rather than falling through
-    # into an upload.
     if (
         prior is None
         or prior.content_key is None
@@ -307,9 +246,6 @@ def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressReceipt | None")
         or op.put[1] != "overwrite"
     ):
         return Ok(StoreAdmission(dispatch=op))
-    # the guard above settled the case, so the acknowledged coordinates destructure rather than folding a default that
-    # would re-mint the very `""` this owner deleted; `version` lowers to the provider's OWN nullable spelling because
-    # `Meta` is a provider-shaped slot the lane hands back, not a domain carrier.
     acknowledged, version = prior.identity.acknowledged
     settled = StoreOutcome(
         operation=op.tag,
@@ -319,29 +255,18 @@ def _reuse(op: StoreOp, target: str, scheme: str, prior: "EgressReceipt | None")
         source=op.put[0],
         settled=True,
     )
-    # the comparison subject is the RECEIPT's own subject verbatim, so the prior key and this probe address one
-    # identity namespace — a subject spelled short here would never match a key the scheme-scoped receipt minted.
     return ContentIdentity.of(f"{DOMAIN}.{op.tag}.{scheme}", op.put[0]).map(
         lambda key: StoreAdmission(settled=settled) if key == prior.content_key else StoreAdmission(dispatch=op)
     )
 
 
 def _evidence(receipt: EgressReceipt) -> Block[Fact]:
-    # the durable half of a mutation, minted off the SETTLED receipt so the disposition and the remote identity are
-    # both in hand — a fact built before the provider answered names a write the store may still refuse. The audit
-    # verb derives from the op tag under the runtime `<domain>.<operation>` grammar, so a new mutation reaches the
-    # journal with one `_AUDIT` row and no verb table. The meter rides the bytes this operation actually stored:
-    # a by-reference settle reports zero and lands its audit line alone, since a skip that prices storage charges a
-    # residence for an upload nobody made, and a control-plane tag never reaches this fold at all.
     def minted(retention: Retain) -> Block[Fact]:
         audited = AuditFact(
             action=f"{DOMAIN}.{receipt.operation}",
             actor=Party(kind=Actor.SERVICE, key=OWNER),
             target=Party(kind="object", key=receipt.path),
             retention=retention,
-            # a delete CLEARS the identity the prior write stated and every other mutation ASSIGNS the one this write
-            # earned; an unacknowledged or unreported identity has no e_tag to name, so the change set is empty rather
-            # than a `""` an auditor reads back as a real prior value.
             change=tuple(
                 receipt.identity.e_tag.map(
                     lambda held: Cleared(path="/e_tag", prior=held) if receipt.operation == "delete" else Assigned(path="/e_tag", next=held)
@@ -355,10 +280,6 @@ def _evidence(receipt: EgressReceipt) -> Block[Fact]:
 
 
 def _gate(scope: ScopeKey, scheme: str, prior: "EgressReceipt | None") -> StoreGate:
-    # ONE pre-flight policy value the lane's prologue fires after reach: veto first — a subscriber rejection returns
-    # on this rail and no provider call runs — then the admitted op consults the by-reference short-circuit, so a
-    # settled skip never stands in for a mutation a governance tap refused. Ordering is structural here rather than
-    # re-spelled at two entrypoints, because the lane reads exactly one gate.
     return lambda op, target: _vetoed(op, target, scope).bind(lambda admitted: _reuse(admitted, target, scheme, prior))
 
 
@@ -379,11 +300,6 @@ class ObjectEgress(Struct, frozen=True):
         retry_config: "RetryConfig | None" = None,
         scope: ScopeKey = DEFAULT_SCOPE,
     ) -> ObjectEgress:
-        # the lane mints both store handles once here and owns every transport carry; this owner forwards the three
-        # typed values and holds nothing a provider would recognize. The credential is NOT among them — it rides
-        # `ref.credentials`, so a caller egressing to a private residence hands the coordinate that already carries
-        # its provider rather than a field this owner would only forward; a `credential_provider=` beside the ref
-        # was a second credential resolution the lane's one store memo key cannot serve.
         return cls(
             lane=ObjectStoreLane.of(ref, config=config, client_options=client_options, retry_config=retry_config),
             scope=scope,
@@ -393,11 +309,6 @@ class ObjectEgress(Struct, frozen=True):
         return self.lane.run(op, path, gate=self._gated(prior)).bind(lambda outcome: self._receipt(op, outcome))
 
     async def run_async(self, op: StoreOp, path: str = "", prior: "EgressReceipt | None" = None) -> "RuntimeRail[EgressReceipt]":
-        # the AWAITABLE leg is where durable evidence lands, under the runtime producer-seam law: recording suspends
-        # on a full intake, so the synchronous `run` carries no producer leg and `contribute` stays the pure receipt
-        # projection its metric half already is. The record rail BINDS into this verdict — an armed evidence plane
-        # refusing a mutation fact is a governance failure this caller owns — while a composition that installed no
-        # plane folds to the lawful no-op, so this leg costs one empty block and never learns which it ran under.
         settled = (await self.lane.run_async(op, path, gate=self._gated(prior))).bind(lambda outcome: self._receipt(op, outcome))
         match settled:
             case Result(tag="ok", ok=receipt):
@@ -409,9 +320,6 @@ class ObjectEgress(Struct, frozen=True):
         return _gate(self.scope, self.lane.ref.scheme, prior)
 
     def _receipt(self, op: StoreOp, outcome: StoreOutcome) -> "RuntimeRail[EgressReceipt]":
-        # a settled outcome reports NONE whatever its op's row would say, because a by-reference skip moved no bytes;
-        # `source is None` (control-plane) mints NO key, else the one `ContentIdentity.of` classifies the operation
-        # bytes and rails the key, scheme-scoped through the lane's own ref.
         unit = EgressUnit.NONE if outcome.settled else _UNIT[outcome.operation]
 
         def receipt(key: ContentKey | None) -> EgressReceipt:

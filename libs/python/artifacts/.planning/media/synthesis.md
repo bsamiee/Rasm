@@ -39,7 +39,7 @@ from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.artifacts.core.hooks import ArtifactsLeg
 from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
-from rasm.artifacts.media.audio import Master, Pcm, _encode_audio  # float32 blocks admit through the audio _INGEST["flt"] row
+from rasm.artifacts.media.audio import Master, Pcm, _encode_audio
 from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, ContainerFormat, MediaFault, MediaProfile, Produced, _lapsed, _worker
 
 lazy from rasm.artifacts.media.container import _encode_video, _mux_av
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Partials = tuple[tuple[float, float], ...]  # (hz, amplitude) partial set for Additive
+type Partials = tuple[tuple[float, float], ...]
 type SynthTag = Literal[
     "oscillator", "pulse", "wavetable", "noise", "additive", "fm", "am", "sweep", "impulse",
     "bars", "ramp", "grid", "countdown", "checker", "pluge", "zone_plate",
@@ -59,8 +59,8 @@ type SynthTag = Literal[
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_BLOCK: int = 4096  # per-frame chunk; the audio encoder contract takes the eager tuple these slices fill
-_TONE_LEVEL: float = 0.1  # sync-tone amplitude, ~-20 dBFS
+_BLOCK: int = 4096
+_TONE_LEVEL: float = 0.1
 _GRID_PITCH: int = 64
 
 
@@ -79,16 +79,14 @@ class NoiseColor(StrEnum):
     VIOLET = "violet"
 
 
-# per-waveform recipe: (harmonic-index step, amplitude law, alternating sign); each sums to the Nyquist-safe count.
 type Harmonic = tuple[int, Literal["inverse", "inverse_square"], bool]
 _HARMONICS: frozendict[Waveform, Harmonic] = frozendict({
-    Waveform.SINE: (1, "inverse", False),  # fundamental only
-    Waveform.SAW: (1, "inverse", False),  # every harmonic, 1/k
-    Waveform.SQUARE: (2, "inverse", False),  # odd harmonics, 1/k
-    Waveform.TRIANGLE: (2, "inverse_square", True),  # odd harmonics, (-1)^m/k^2
+    Waveform.SINE: (1, "inverse", False),
+    Waveform.SAW: (1, "inverse", False),
+    Waveform.SQUARE: (2, "inverse", False),
+    Waveform.TRIANGLE: (2, "inverse_square", True),
 })
 
-# spectral exponent per noise color: rfft magnitude scaled by k^exponent — ONE shaping body, five rows.
 _TINT: frozendict[NoiseColor, float] = frozendict({
     NoiseColor.WHITE: 0.0,
     NoiseColor.PINK: -0.5,
@@ -97,18 +95,16 @@ _TINT: frozendict[NoiseColor, float] = frozendict({
     NoiseColor.VIOLET: 1.0,
 })
 
-# `75%` top-band palette, left to right; `_bars_frame` adds cross-color and PLUGE lower bands.
 _BARS75: tuple[tuple[int, int, int], ...] = ((191, 191, 191), (191, 191, 0), (0, 191, 191), (0, 191, 0), (191, 0, 191), (191, 0, 0), (0, 0, 191))
 
-# seven-segment digit table: normalized (x0, y0, x1, y1) boxes indexed a..g, digits as lit-segment sets.
 _SEG_BOX: tuple[tuple[float, float, float, float], ...] = (
-    (0.1, 0.0, 0.9, 0.12),   # a top
-    (0.78, 0.06, 0.9, 0.5),  # b upper right
-    (0.78, 0.5, 0.9, 0.94),  # c lower right
-    (0.1, 0.88, 0.9, 1.0),   # d bottom
-    (0.1, 0.5, 0.22, 0.94),  # e lower left
-    (0.1, 0.06, 0.22, 0.5),  # f upper left
-    (0.1, 0.44, 0.9, 0.56),  # g middle
+    (0.1, 0.0, 0.9, 0.12),
+    (0.78, 0.06, 0.9, 0.5),
+    (0.78, 0.5, 0.9, 0.94),
+    (0.1, 0.88, 0.9, 1.0),
+    (0.1, 0.5, 0.22, 0.94),
+    (0.1, 0.06, 0.22, 0.5),
+    (0.1, 0.44, 0.9, 0.56),
 )
 _SEVEN_SEG: frozendict[str, frozenset[int]] = frozendict({
     "0": frozenset({0, 1, 2, 3, 4, 5}),
@@ -123,11 +119,6 @@ _SEVEN_SEG: frozendict[str, frozenset[int]] = frozendict({
     "9": frozenset({0, 1, 2, 3, 5, 6}),
 })
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form: `_oscillator` indexes `_HARMONICS`, `_noise` indexes `_TINT`, and `_digit_mask` indexes `_SEVEN_SEG` by the
-# decimal digits `str(int)` yields — each an unruled-member `KeyError` inside a worker otherwise. The fourth pair is
-# the SEGMENT-INDEX bound: every lit index `_SEVEN_SEG` names must address a real `_SEG_BOX` row, so a typo'd
-# segment is a load-time refusal rather than an `IndexError` mid-paint on whichever digit first carries it.
 _COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
     (frozenset(_HARMONICS), frozenset(Waveform)),
     (frozenset(_TINT), frozenset(NoiseColor)),
@@ -139,9 +130,6 @@ if any(rows != vocabulary for rows, vocabulary in _COVERED):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
-# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
-# worker death and a codec refusal are defects a re-issue may clear.
 SYNTHESIS_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.SYNTHESIS, point="fold", arm="boundary", defect="synthesis-fold", retriability=TRANSIENT
 )
@@ -153,7 +141,7 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SYNTHESIS_
 class Adsr(Struct, frozen=True):
     attack: float = 0.01
     decay: float = 0.1
-    sustain: float = 0.7  # sustain level 0..1
+    sustain: float = 0.7
     release: float = 0.2
 
     def gain(self, samples: int, rate: int, /) -> "NDArray[np.float64]":
@@ -177,22 +165,22 @@ class SynthProfile(Struct, frozen=True):
 @tagged_union(frozen=True)
 class SynthOp:
     tag: SynthTag = tag()
-    oscillator: tuple[Waveform, float, float, float] = case()  # (waveform, hz, seconds, amplitude)
-    pulse: tuple[float, float, float, float] = case()  # (hz, duty 0..1, seconds, amplitude)
-    wavetable: tuple[tuple[float, ...], float, float, float] = case()  # (one-cycle table, hz, seconds, amplitude)
-    noise: tuple[NoiseColor, float, float] = case()  # (color, seconds, amplitude)
-    additive: tuple[Partials, float] = case()  # (partials, seconds)
-    fm: tuple[float, float, float, float] = case()  # (carrier_hz, ratio, index, seconds)
-    am: tuple[float, float, float, float] = case()  # (carrier_hz, rate_hz, depth, seconds)
-    sweep: tuple[float, float, float, bool] = case()  # (low_hz, high_hz, seconds, logarithmic)
-    impulse: float = case()  # seconds
-    bars: tuple[float, tuple[int, int], float] = case()  # (seconds, (width, height), tone_hz; 0 = silent bars)
-    ramp: tuple[float, tuple[int, int]] = case()  # grayscale calibration ramp
-    grid: tuple[float, tuple[int, int]] = case()  # alignment grid
-    countdown: tuple[float, tuple[int, int]] = case()  # leader: remaining-second number over a radial sweep
-    checker: tuple[float, tuple[int, int], int] = case()  # (seconds, size, cells per short axis)
-    pluge: tuple[float, tuple[int, int]] = case()  # black-level calibration pattern
-    zone_plate: tuple[float, tuple[int, int], float] = case()  # (seconds, size, radial cycles)
+    oscillator: tuple[Waveform, float, float, float] = case()
+    pulse: tuple[float, float, float, float] = case()
+    wavetable: tuple[tuple[float, ...], float, float, float] = case()
+    noise: tuple[NoiseColor, float, float] = case()
+    additive: tuple[Partials, float] = case()
+    fm: tuple[float, float, float, float] = case()
+    am: tuple[float, float, float, float] = case()
+    sweep: tuple[float, float, float, bool] = case()
+    impulse: float = case()
+    bars: tuple[float, tuple[int, int], float] = case()
+    ramp: tuple[float, tuple[int, int]] = case()
+    grid: tuple[float, tuple[int, int]] = case()
+    countdown: tuple[float, tuple[int, int]] = case()
+    checker: tuple[float, tuple[int, int], int] = case()
+    pluge: tuple[float, tuple[int, int]] = case()
+    zone_plate: tuple[float, tuple[int, int], float] = case()
 
     @staticmethod
     def Oscillator(waveform: Waveform, hz: float, seconds: float, amplitude: float = 0.8, /) -> "SynthOp":
@@ -285,7 +273,6 @@ class SynthOp:
 
 class Synthesis(Struct, frozen=True):
     op: SynthOp
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     profile: SynthProfile = SynthProfile()
 
@@ -294,7 +281,6 @@ class Synthesis(Struct, frozen=True):
         return Synthesis(op=op, lane=lane, profile=profile)
 
     def emit(self, /) -> ArtifactWork:
-        # a synthesis generates its source, so the node is a DAG root with no parents.
         return ArtifactWork(key=self._key, work=self._emit, parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
@@ -302,23 +288,17 @@ class Synthesis(Struct, frozen=True):
         return ContentIdentity.key(f"media.synthesis-{self.op.tag}", CANON.encode((self.op, _identity_policy(self.op, self.profile))))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
-        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
-        # to one string and left a consumer nothing to gate on.
         railed = await async_boundary(SYNTHESIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SYNTHESIS_FOLD.subject, fault)))
         )
 
     async def _folded(self, /) -> Result[ArtifactReceipt, MediaFault]:
-        # a segmented egress row writes a manifest and segment set through the container sink — a worker-death replay must
-        # never repeat it — so idempotency derives from the profile's own media rows, never a per-call convention.
         replayable = not any(row.container.segmented and row.segment is not None for row in (self.profile.media, self.profile.video))
         railed = await self.lane.offload(Kernel.of(_synthesize, KernelTrait.HOSTILE, idempotent=replayable), self.op, self.profile)
         return railed.map_error(_lapsed).bind(lambda inner: inner).map(self._keyed)
 
     def _keyed(self, produced: Produced, /) -> ArtifactReceipt:
-        # receipt.slot threads the PRE-RUN node key (the core/receipt elision law); the product address rides the band.
         blob, evidence = produced
         address = ContentIdentity.key(evidence.container.value, blob)
         return ArtifactReceipt.Media(
@@ -497,7 +477,6 @@ def _shaped(op: SynthOp, buffer: "NDArray[np.float64]", envelope: Adsr, rate: in
 
 
 def _blocks(buffer: "NDArray[np.float64]", /) -> tuple[Pcm, ...]:
-    # chunk the mono float32 buffer into (1, _BLOCK) frames; the audio _encode_audio contract takes this eager tuple.
     packed = buffer.astype(np.float32).reshape(1, -1)
     return tuple(packed[:, start : start + _BLOCK] for start in range(0, packed.shape[1], _BLOCK))
 
@@ -558,7 +537,6 @@ def _digit_mask(char: str, size: tuple[int, int], /) -> "NDArray[np.bool_]":
 
 
 def _countdown_frames(seconds: float, size: tuple[int, int], rate: int, /) -> "Frames":
-    # Remaining seconds over a radial sweep wedge, one frame per tick.
     w, h = size
     cx, cy = w / 2, h / 2
     theta = np.arctan2(np.arange(h)[:, None] - cy, np.arange(w)[None, :] - cx) + np.pi
@@ -568,8 +546,6 @@ def _countdown_frames(seconds: float, size: tuple[int, int], rate: int, /) -> "F
         frame[theta < ((index % rate) / rate) * 2.0 * np.pi] = 96
         digits = str(max(0, ceil(seconds - index / rate)))
         dw, dh = max(w // (4 * len(digits)), 1), h // 2
-        # _countdown_frames clamps the digit run to the frame width: dw floors at 1 and the [:, :w] slice caps mw at w,
-        # so a narrow frame under 4*len(digits) columns never mints a negative slice start wrapping paint onto the wrong edge.
         mask = np.concatenate(tuple(_digit_mask(digit, (dw, dh)) for digit in digits), axis=1)[:, :w]
         mw = mask.shape[1]
         frame[(h - dh) // 2 : (h + dh) // 2, (w - mw) // 2 : (w + mw) // 2][mask] = 255
@@ -579,7 +555,6 @@ def _countdown_frames(seconds: float, size: tuple[int, int], rate: int, /) -> "F
 
 
 def _patterned(op: SynthOp, rate: int, /) -> tuple["Frames", frozendict[str, float | str]]:
-    # video test-signal painters: one still tiled per tick, or the per-tick countdown paint.
     match op:
         case SynthOp(tag="bars", bars=(seconds, size, _)):
             frames, kind, parameters = (_bars_frame(size),) * int(seconds * rate), "bars", frozendict()
@@ -620,7 +595,6 @@ def _encoded(op: SynthOp, profile: SynthProfile, /) -> Result[Produced, MediaFau
 
 
 def _screened(op: SynthOp, profile: SynthProfile, /) -> Result[Produced, MediaFault]:
-    # a tone-carrying bars case muxes frames + sync tone (_mux_av); every other pattern encodes video-only.
     frames, band = _patterned(op, profile.video.rate)
     match op:
         case SynthOp(tag="bars", bars=(seconds, _, tone_hz)) if tone_hz > 0.0:
@@ -689,7 +663,6 @@ def _audio_band(op: SynthOp, profile: SynthProfile, /) -> frozendict[str, float 
 
 
 def _banded(pair: Produced, band: frozendict[str, float | str], /) -> Produced:
-    # fold the mode's generation parameters onto the spine's evidence band; the owner mints the receipt.
     blob, evidence = pair
     return blob, msgspec.structs.replace(evidence, facts=evidence.facts | band)
 ```

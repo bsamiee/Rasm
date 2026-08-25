@@ -33,7 +33,7 @@ Custom-object and grip authoring belongs to `Rasm.Rhino.Objects`. Host subclassi
 - Growth: a new host virtual is one program field with one forwarding line per adapter.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,7 +54,7 @@ using Rhino.Runtime;
 
 namespace Rasm.Rhino.Objects;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TightExtent(BoundingBox Current, bool Grow, Transform Motion, bool BaseAnswered);
 public readonly record struct PickCandidate(int Slot, PickCapture Capture);
 
@@ -76,10 +76,6 @@ public sealed partial class FaultSite {
     public static readonly FaultSite HostLog = new(key: 13);
 }
 
-// Classification VOCABULARY is the kernel `Sensitivity` roster (`Rasm/Domain/telemetry.md` [05]-[CONTRIBUTE]);
-// these four attribute classes are the boundary's ONE local addition — the `[LogProperties]` attach points the
-// host-boundary producer owns — and every value derives from the kernel rows, so a re-spelling cannot fork the
-// taxonomy and the `Classifications` column this boundary contributes can never disagree with what it attaches.
 public sealed class UserContentAttribute() : DataClassificationAttribute(
     new DataClassification(Sensitivity.Taxonomy, Sensitivity.UserContent.Key));
 
@@ -138,10 +134,8 @@ public sealed record ObjectProgram(
     public static readonly ObjectProgram Inert = new();
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static partial class ObjectsTelemetry {
-    // The event name is the partition's source column AND the generated attribute's `EventName`; one const feeds
-    // both, so a re-spelling cannot land on the log event and miss the instrument row that projects it.
     internal const string CallbackFaultedEvent = "ObjectCallbackFaulted";
     internal const string HostExceptionEvent = "HostExceptionReported";
     internal const string HostCloudLogEvent = "HostCloudLog";
@@ -195,12 +189,6 @@ public static partial class ObjectsTelemetry {
         [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] HostLogFact fact,
         [LogProperties(OmitReferenceName = true)] HostStaticFact host);
 
-    // The egress cannot carry a sink fault outward — every caller is a host callback returning `void` — so the
-    // fan PARKS it on the boundary's own evidence cell and reports the delivery split; `IfFail`-to-`unit` would
-    // make a broken sink undetectable at the one surface whose whole job is reporting faults. `Drain` is that
-    // cell's ONE reader and it is not decorative: `RhinoInstrumentPartition` names it as the source of the
-    // egress-fault instrument, so the app root's meter callback empties it on every collection and a parked fault
-    // becomes a counted one. A cell no declared row reads is a leak wearing a receipt.
     public static Seq<Error> Drain() => EgressFaults.Swap(static _ => Seq<Error>());
 
     internal static TelemetryFan Publish(FaultSite site, Error error) =>
@@ -227,7 +215,6 @@ public static partial class ObjectsTelemetry {
     internal static TelemetryFan Publish(HostLogFact fact, LogLevel level) =>
         Fan(sink => Streamed(sink, level: level, fact: fact, host: HostStaticEnricher.Current));
 
-    // Per-sink guard: one faulted sink never starves siblings; a logging failure never re-enters host callback flow.
     private static TelemetryFan Fan(Action<ILogger> emit) {
         Seq<ILogger> sinks = toSeq(Sinks.Value).Map(static row => row.Value);
         Seq<ILogger> live = sinks.IsEmpty ? Seq<ILogger>(NullLogger.Instance) : sinks;
@@ -244,7 +231,6 @@ public static partial class ObjectsTelemetry {
     }
 }
 
-// One delivery split per publish: the count a caller can act on beside the faults the cell parks.
 public readonly record struct TelemetryFan(int Sinks, Seq<Error> Faults) {
     internal static readonly TelemetryFan Empty = new(Sinks: 0, Faults: Seq<Error>());
 
@@ -273,8 +259,6 @@ public static class RhinoInstrumentPartition {
                 "{fault}",
                 ObjectsTelemetry.CallbackFaultedEvent,
                 Seq("site", "code")),
-            // The host-exception tap is the egress's second fault stream and it carried no row at all, so every
-            // reported host exception left the boundary annotated and reached no instrument.
             new InstrumentSlice(
                 "rasm.rhino.host.exceptions",
                 "{fault}",
@@ -297,9 +281,6 @@ public static class RhinoInstrumentPartition {
                 "{fact}",
                 nameof(StreamReceipt.PacedLoss),
                 Seq("watch", "lane", "loss"))),
-        // Display is S4, HostUi is a same-stratum peer: neither type is composable from S2, so these three rows
-        // carry TEXT and the app root proves them against its own contributed arm table. A `nameof` here would be
-        // the forbidden upward edge dressed as a safety measure.
         [PointerKind] = Seq(
             new InstrumentSlice("rasm.rhino.display.pointer.submitted", "{fact}", "PointerReceipt.Retired.Submitted", Seq<string>()),
             new InstrumentSlice("rasm.rhino.display.pointer.rejected", "{fact}", "PointerReceipt.Retired.Rejected", Seq<string>())),
@@ -377,7 +358,6 @@ public sealed class HostTap : IDisposable {
                select seat;
     }
 
-    // Delegates attach before the CAS commit; a lost race detaches its own pair and rides the winner's seat.
     private static Fin<IDisposable> Claim(PluginKey plugin, Op op) =>
         op.Catch(() => {
             HostUtils.ExceptionReportDelegate reported = static (source, ex) => ignore(ObjectsTelemetry.Publish(
@@ -410,9 +390,6 @@ public sealed class HostTap : IDisposable {
             return Fin.Succ<IDisposable>(new HostTap(plugin: plugin));
         });
 
-    // The host roster is CLOSED at five values and `unknown` is one of them, so there is no severity to guess:
-    // folding it — and any out-of-roster wire value — onto `Warning` published a fabricated level under a real
-    // event, which is worse than no event at all. The refusal routes to the egress's own fault seam instead.
     private static Option<LogLevel> Severity(HostUtils.LogMessageType kind) => kind switch {
         HostUtils.LogMessageType.information => Some(LogLevel.Information),
         HostUtils.LogMessageType.warning => Some(LogLevel.Warning),
@@ -421,12 +398,6 @@ public sealed class HostTap : IDisposable {
         _ => Option<LogLevel>.None,
     };
 
-    // `Atom.Swap` retries its body under contention, so writing the prior into an outer local publishes a LOSING
-    // attempt's read as if it had won — the departing holder then detaches delegates a rider still needs, or skips
-    // a detach nobody else will make. The body stays pure and the swap's own COMMITTED value carries the work:
-    // the last holder's departure commits `Retiring`, whose detach list is exactly what this caller must run, and
-    // the follow-up swap retires it only while it is still that transient, so a claim landing in the window keeps
-    // the seat it just won with its own freshly attached pair.
     public void Dispose() {
         if (Interlocked.CompareExchange(ref released, 1, 0) != 0) { return; }
         _ = Seat.Swap(Departed) is SeatState.Retiring retiring
@@ -436,7 +407,6 @@ public sealed class HostTap : IDisposable {
             : unit;
     }
 
-    // Owner departure hands the seat to the senior rider with the delegates still attached; the last holder retires it.
     private SeatState Departed(SeatState current) => current switch {
         SeatState.Held held when held.Owner == plugin => held.Riders.Head.Match<SeatState>(
             Some: next => held with { Owner = next, Riders = held.Riders.Tail },
@@ -509,7 +479,7 @@ public static class ObjectsHooks {
             key: op);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class HostForward {
     internal static Unit Reported(this Fin<Unit> outcome, FaultSite site) =>
         outcome.IfFail(error => ignore(ObjectsTelemetry.Publish(site: site, error: error)));
@@ -540,10 +510,6 @@ internal static class HostForward {
                 Fail: error => (ignore(ObjectsTelemetry.Publish(site: site, error: error)), inherited()).Item2),
             None: inherited);
 
-    // Every refining wire is the same three moves — read ONE program field, run it under a fresh key, fall back to
-    // the host's own answer on absence or fault — so the moves are declared once and each wire names its field,
-    // its site, and its body. The ten bespoke bodies restated the fold ten times, which is where a missing
-    // `Reported` or a mismatched `FaultSite` hides.
     private static T Refined<TValue, T>(
         Option<TValue> slot, FaultSite site, T inherited, Func<TValue, Func<Op, Fin<T>>> body) =>
         Fallback(attempted: slot.Map(value => Attempt(body(value))), site: site, inherited: inherited);
@@ -663,7 +629,7 @@ internal static class HostForward {
 - Law: adapters register nothing themselves — placement is `TableOp.Add` with the constructed instance as source, read-back is the state page's window, and the `ClassId` guid is what rehydrates the subclass when a document reopens.
 
 ```csharp signature
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public abstract class RasmBrepObject : CustomBrepObject {
     protected RasmBrepObject() { }
     protected RasmBrepObject(Brep brep) : base(brep) { }
@@ -780,7 +746,7 @@ public abstract class RasmPointObject : CustomPointObject {
 - Law: the grip draw hook runs before base — the base `OnDraw` draws the grips themselves, so a program draws dynamic elements first and the shim calls base after. Reset and mesh-update hooks augment the completed base operation; disposal notifies before base releases the carrier.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class GripSeed {
     public int Index { get; }
@@ -822,7 +788,7 @@ public sealed record GripProgram(
     Option<Func<Fin<Option<NurbsSurface>>>> Surface = default,
     Option<Func<bool, Fin<Unit>>> Disposing = default);
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RasmGrip : CustomGripObject {
     private double weight;
     private readonly Option<Func<int, Point3d, Fin<Unit>>> locationChanged;
@@ -834,7 +800,6 @@ public sealed class RasmGrip : CustomGripObject {
         this.locationChanged = locationChanged;
     }
 
-    // Base CustomGripObject.Weight is a sentinel getter and a no-op setter; the shim owns the real value.
     public override double Weight {
         get => weight;
         set => weight = value;
@@ -936,13 +901,8 @@ public abstract class RasmGrips : CustomObjectGrips {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GripRig {
-    // The registration is process-wide and the host publishes no unregister — re-registration on the type's own
-    // `[Guid]` REPLACES the prior enabler and is therefore the only removal it admits. Disposal takes exactly that
-    // route with an inert enabler, so the seat returns to the same shape the three sibling registrations hand back
-    // and no caller has to know the host's asymmetry. The enabler outlives this call, so it mints its OWN key per
-    // delivery: one captured key would stamp every later host callback with one stale provenance.
     public static Fin<IDisposable> Register<TGrips>(Func<RhinoObject, Option<TGrips>> mint)
         where TGrips : CustomObjectGrips {
         Op op = Op.Of(name: nameof(GripRig));
@@ -985,7 +945,7 @@ public static class GripRig {
 - Law: movement is immediate visual state under the host's drag machinery — `Move` and `UndoMove` mutate the grip, `Touch` opens no undo record, and the geometry consequence lands when the host drives the owner's grip pipeline; a program wanting transactional geometry replacement routes the regrown value through `TableOp.Replace`.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GripMove {
     private GripMove() { }
@@ -1027,7 +987,7 @@ public abstract partial record GripEdit {
                 select (GripEdit)new Move(Index: edit.Index, Motion: motion));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record GripCensus(Seq<(Guid Owner, Seq<GripFacts> Rows)> Rows) : IDetachedDocumentResult;
 
 public sealed record GripFacts(
@@ -1069,7 +1029,7 @@ public sealed record GripFacts(
         });
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Grips {
     public static Fin<GripCensus> Census(DocumentSession session, TableTarget target) {
         Op op = Op.Of();

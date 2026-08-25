@@ -28,7 +28,7 @@ Receipts are the kernel gauge composed: one `CanvasReceipt<TFacts>` over `Gauged
 - Growth: a new read is one result-typed factory; a new pick corner is one legal row on `CanvasPick.Law`; a new host drag grain is one `PickGrain` row keyed on its ordinal; a new raster layer is one `RasterLayer` row.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
@@ -40,9 +40,7 @@ using HostCanvas = Grasshopper2.UI.Canvas.Canvas;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Host publishes TWO surface pick kinds; a bool merged them and this row un-merges without minting a case pair
-// over one payload.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PickPlane {
     public static readonly PickPlane Foreground = new(key: (int)Pick.ForegroundObject);
@@ -71,7 +69,6 @@ public abstract partial record PickHit : IValidityEvidence {
 [SmartEnum<int>]
 public sealed partial class PickGrain {
     public static readonly PickGrain Deferred = new((int)DragPickingMode.Default,
-        // Host body reads shift alone; this row reproduces it, never a guessed law.
         resolve: static modifiers => modifiers.HasFlag(Keys.Shift) ? AllObjects : OneObject);
     public static readonly PickGrain SubObject = new((int)DragPickingMode.SubObject, resolve: static _ => SubObject);
     public static readonly PickGrain OneObject = new((int)DragPickingMode.OneObject, resolve: static _ => OneObject);
@@ -83,7 +80,6 @@ public sealed partial class PickGrain {
     public DragPickingMode Host => (DragPickingMode)Key;
 }
 
-// Chord rides the HOST modifier mask, so the resolved grain derives and the bool pair is unrepresentable.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DragChord(PickGrain Grain, Keys Modifiers) {
     public PickGrain Resolved => Grain.Resolve(modifiers: Modifiers);
@@ -96,7 +92,6 @@ public sealed partial class SelectAxis : ICapability<SelectAxis> {
     public static readonly SelectAxis Objects = new(key: "objects");
     public static readonly SelectAxis Wires = new(key: "wires");
     public static readonly SelectAxis Groups = new(key: "groups");
-    // Every corner is a real host state — any window-selection subset is settable on the live canvas.
     public static CapabilityLaw<SelectAxis> Law => CapabilityLaw<SelectAxis>.Open;
 }
 
@@ -117,9 +112,7 @@ public sealed partial class CanvasMode : ICapability<CanvasMode> {
     public static CapabilityLaw<CanvasMode> Law => CapabilityLaw<CanvasMode>.Open;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Folder's pick corner table: three legal corners of thirty-two, admitted at the query mint — without the law
-// any five-bit set is constructible and the kernel presets are documentation.
+// --- [MODELS] --------------------------------------------------------------------------
 public static class CanvasPick {
     public static CapabilityLaw<PickAxis> Law => Corners.Value;
     private static readonly Lazy<CapabilityLaw<PickAxis>> Corners =
@@ -136,8 +129,6 @@ public readonly record struct PickReceipt(
         SelectedObjects >= 0 && SelectedWires >= 0 && DeselectedObjects >= 0 && DeselectedWires >= 0);
 }
 
-// Action policy is ONE set — membership IS allowance — so the pair-seq's duplicate-key and completeness
-// guards are unrepresentable, and the write leg folds the total roster.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasPolicy(CapabilitySet<ActionGate> Allowed, WireFilters Filters) : IValidityEvidence {
     public bool IsValid => ValidityClaim.Evidence(evidence: Optional(Filters));
@@ -172,8 +163,6 @@ public readonly record struct CanvasState(
         ValidityClaim.UnitInterval(value: VariableParameterState),
         ValidityClaim.UnitInterval(value: WireDetailingState));
 
-    // Admission ACCUMULATES: an off-canvas origin and a null skin report as two labeled faults, not the first —
-    // each conjunct above lands as its own `KernelFault.InvalidValue` row through the applicative.
     internal Validation<Error, CanvasState> Admitted(Op key);
 }
 
@@ -202,7 +191,6 @@ public abstract partial record RasterPlan : IValidityEvidence {
         sizedCase: static plan => plan.Width.Value >= 1 && plan.Height.Value >= 1,
         pickMapCase: static _ => true);
 
-    // Absent layers resolve to the full set — the accessor-backed roster read, never an eager field.
     public static Fin<RasterPlan> Sized(int width, int height, Option<CapabilitySet<RasterLayer>> layers = default, Op? key = null) {
         Op op = key.OrDefault();
         return from admittedWidth in op.AcceptValidated<Dimension>(candidate: width)
@@ -213,9 +201,6 @@ public abstract partial record RasterPlan : IValidityEvidence {
     }
 }
 
-// RESULT TYPE rides the request: each factory admits its payload at the mint and captures the one host read
-// its answer shape names, so the query/projection pairing is a declaration and the ceremony ladders its consumers
-// paid (six identical `Unexpected` arms, four identical `None` arms) have no spelling.
 public sealed record CanvasQuery<TResult> {
     internal CanvasQuery(Func<HostCanvas, Op, Fin<TResult>> read) => Read = read;
     internal Func<HostCanvas, Op, Fin<TResult>> Read { get; }
@@ -225,7 +210,6 @@ public static class CanvasQuery {
     public static Fin<CanvasQuery<PointF>> MapPoint(PointF value, CoordinateSystem from, CoordinateSystem to, Op? key = null);
     public static Fin<CanvasQuery<RectangleF>> MapFrame(RectangleF value, CoordinateSystem from, CoordinateSystem to, Op? key = null);
 
-    // Corner law admitted at the MINT: a set outside `CanvasPick.Law` never reaches the marshal.
     public static Fin<CanvasQuery<PickReceipt>> Pick(
         PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -242,7 +226,6 @@ public static class CanvasQuery {
 
     public static Fin<CanvasQuery<Lease<Bitmap>>> Raster(RasterPlan plan, Op? key = null);
 
-    // Host may snap or round the resolved point, so the RESULT point is the evidence the receipt carries.
     private static Fin<PickReceipt> Picked(
         HostCanvas surface, PointF at, CapabilitySet<PickAxis> gates, Option<DragChord> chord, Op key) =>
         from result in key.Catch(() => Fin.Succ(surface.ResolvePick(
@@ -258,10 +241,7 @@ public static class CanvasQuery {
         select receipt;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// One generated projection seam: `[MapProperty]` renames carry the eighteen-column state copy, the pulse, and
-// Pick tallies; computed columns ride named source projections so no hand positional transcription survives.
-// Both-strategy is this seam's REAL delta; conversions ride the assembly MapperDefaults.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 internal static partial class CanvasMap {
     [MapProperty("Projection.Origin", nameof(CanvasState.Origin))]
@@ -289,7 +269,6 @@ internal static partial class CanvasMap {
     [MapProperty(nameof(HostCanvas.FullFrameDuration), nameof(FramePulse.FullFrame))]
     internal static partial FramePulse Pulse(HostCanvas surface);
 
-    // Additional parameters map to target members by name; the four tally renames are rows.
     [MapProperty(nameof(SelectionResult.SelectedObjectCount), nameof(PickReceipt.SelectedObjects))]
     [MapProperty(nameof(SelectionResult.SelectedWireCount), nameof(PickReceipt.SelectedWires))]
     [MapProperty(nameof(SelectionResult.DeselectedObjectCount), nameof(PickReceipt.DeselectedObjects))]
@@ -317,7 +296,7 @@ internal static partial class CanvasMap {
 - Growth: a command is one `CanvasOp` case; a public overlay is one `SparkleSpec` case; an action gate is one dual-column `ActionGate` row; a gauged concern is one `CanvasLane` row deriving its bound.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
@@ -329,9 +308,7 @@ using HostCanvas = Grasshopper2.UI.Canvas.Canvas;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Bounds DERIVE from the kernel dispatch lanes the crossings ride, so the canvas gauge owns no second
-// millisecond table and a seated pace change moves every row at once.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CanvasLane : IGaugeLane<CanvasLane> {
     public static readonly CanvasLane Command = new(key: 0, lane: static () => DispatchLane.Interactive);
@@ -362,8 +339,6 @@ public abstract partial record NavTarget : IValidityEvidence {
         ValidityClaim.Finite(value: minimum) && minimum > 0f && ValidityClaim.Finite(value: maximum) && minimum <= maximum;
 }
 
-// `Attached` is the BASE column the four mint cases shared identically; the bespoke case carries a live host
-// sparkle whose attachment is its own, and its base column is never read — the one inert seat, stated.
 [Union]
 public abstract partial record SparkleSpec : IValidityEvidence {
     private SparkleSpec(bool attached) => Attached = attached;
@@ -386,7 +361,6 @@ public abstract partial record SparkleSpec : IValidityEvidence {
     internal ISparkle Mint();
 }
 
-// Gate vocabulary realizes `ICapability`, so the policy is a SET and the pair-seq's guards die.
 [SmartEnum<int>]
 public sealed partial class ActionGate : ICapability<ActionGate> {
     public static readonly ActionGate Drag = new(key: 0, write: static (a, v) => a.AllowDrag = v, read: static a => a.AllowDrag);
@@ -433,7 +407,6 @@ public abstract partial record CanvasOp : IValidityEvidence {
         policyCase: static command => command.Filters.ForAll(static filters => filters.IsValid),
         editCase: static command => ValidityClaim.Evidence(evidence: Optional(command.Prompt)));
 
-    // Policy writes the TOTAL roster off the set; the two filter slots cross through the kernel host-slot owner.
     internal Fin<Op> Execute(HostCanvas surface, Op key) => Switch(
         state: (Surface: surface, Key: key),
         navigateCase: static (state, command) => command.Target.Steer(surface: state.Surface, key: state.Key)
@@ -469,7 +442,7 @@ public abstract partial record CanvasOp : IValidityEvidence {
                 Op.ToHostSlot(command.Prompt.Cancellation(key: state.Key)))))).Map(static _ => EditCase.SelfOp));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WireFilters(
     Option<Func<(IParameter Source, IParameter Target), bool>> Make,
     Option<Func<(IParameter Source, IParameter Target), bool>> Delete) : IValidityEvidence {
@@ -489,7 +462,6 @@ public sealed record InlinePrompt(
         Seed is not null && Parse is not null && Faults is not null,
         Cancel.ForAll(static callback => callback is not null));
 
-    // Parse fault becomes a failed host result — a raise cannot escape into the UI event that prompted it.
     internal IResult Apply(string text, Op key) => key.Catch(() =>
             key.Need(value: text).Bind(input => Optional(Parse(input)).ToFin(Fail: key.InvalidResult())))
         .Match(
@@ -502,8 +474,6 @@ public sealed record InlinePrompt(
             .IfFail(cause => ignore(Faults.Park(point: Rail, cause: cause)))));
 }
 
-// Fan's ONE receipt: the kernel gauge carries entry, settle, latency, and the breach verdict; the facts
-// column carries what the settlement measured — a stamp-pair re-spelling has no seat left.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CanvasReceipt<TFacts>(GaugedSpan<CanvasLane> Span, TFacts Facts) : IValidityEvidence {
     public Op Operation => Span.Work;
@@ -512,7 +482,7 @@ public readonly record struct CanvasReceipt<TFacts>(GaugedSpan<CanvasLane> Span,
     public bool IsValid => Span.IsValid;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class CanvasOperator {
     public static Fin<TResult> Read<TResult>(CanvasQuery<TResult> query, Op? key = null) {
@@ -525,7 +495,6 @@ public static class CanvasOperator {
                select output;
     }
 
-    // One gauged crossing: the span lands on a refused command too, and the receipt's facts carry the case identity.
     public static Fin<CanvasReceipt<Op>> Apply(CanvasOp op, MonotonicTimeline clock, Op? key = null) {
         Op active = key.OrDefault();
         return from valid in active.AcceptValue(value: op)

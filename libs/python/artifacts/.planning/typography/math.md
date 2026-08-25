@@ -41,7 +41,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
-lazy import latex2mathml.commands  # the operator registry ziamath.declareoperator appends to; snapshot/restore rides _laid
+lazy import latex2mathml.commands
 lazy import uharfbuzz as hb
 lazy import ziamath
 
@@ -95,15 +95,12 @@ class FormulaSpec:
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgpack.Encoder(order="deterministic")
 _CONFIG_LOCK: Final = RLock()
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: one fence spans every spec case, so the spec tag is request data the `MathFault`
-# case already separates rather than a coordinate the subject forks. TRANSIENT — a parse, font, or render refusal is
-# a defect a re-issue under repaired inputs may clear.
 MATH_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.MATH, point="render", arm="boundary", defect="math-refused", retriability=TRANSIENT
 )
@@ -217,7 +214,6 @@ class MathFault:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 class Formula(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     spec: FormulaSpec
     lane: LanePolicy
     font: str | None = None
@@ -231,15 +227,11 @@ class Formula(Struct, frozen=True):
         return crossed.map_error(lambda fault: MathFault(render=fault.tag)).bind(lambda outcome: outcome)
 
     def emit(self, /) -> ArtifactWork:
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         key = ContentIdentity.key("formula", _CANON.encode((self.spec, self.font, tuple(sorted(self.operators)))))
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=0.5)
 
     @property
     def _declared(self) -> tuple[bool, str]:
-        # total match, never a reflective `getattr(self.spec, self.spec.tag)`: the receipt spine rules reflective
-        # payload reads out because they erase the exhaustiveness witness the tail below carries. `mixed` numbers
-        # nothing — a multi-line block has no single equation label — and spells that as the empty fact.
         match self.spec:
             case FormulaSpec(tag="mathml", mathml=style) | FormulaSpec(tag="latex", latex=style):
                 return (style.svg2, style.number or "")
@@ -250,10 +242,6 @@ class Formula(Struct, frozen=True):
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         laid = await self.render()
-        # the product of this owner IS geometry, so the `product` band carries the laid extents beside the source
-        # grammar, the emitted SVG profile a host must match to embed, and the equation label a numbered formula
-        # ships under: byte volume alone attests an SVG string and answers nothing a `seat()` consumer places
-        # against, and three grammars folding onto one receipt case are otherwise indistinguishable in `_facts`.
         svg2, number = self._declared
         return laid.map(
             lambda frag: ArtifactReceipt.Document(
@@ -276,13 +264,6 @@ def _laid(spec: FormulaSpec, font: str | None, operators: frozenset[str], /) -> 
         previous_svg2 = ziamath.config.svg2
         previous_operators = latex2mathml.commands.FUNCTIONS
         try:
-            # per-render operator registry: `declareoperator` REBINDS `latex2mathml.commands.FUNCTIONS` — a
-            # process-global TUPLE — so the snapshot above holds the prior binding and the finally restores it. The
-            # baseline captured is whatever ziamath's own import-time declarations left, never a bare latex2mathml
-            # roster, which is why it is read per render rather than frozen once. One formula's vocabulary therefore
-            # never leaks into a sibling's parse (a leaked declare typesets an undeclared token as an operator and
-            # poisons the content-addressed cache), and repeat renders never grow the tuple unboundedly. Were this a
-            # list, `previous_operators` would alias the mutated object and the restore would be a silent no-op.
             for name in sorted(operators):
                 ziamath.declareoperator(name)
             match spec:

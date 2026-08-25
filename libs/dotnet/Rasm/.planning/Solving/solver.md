@@ -21,7 +21,7 @@ Solver geometry composes the settled `Point3d`/`Vector3d` vocabulary and routes 
 - Boundary: packed-upper `Linearize` is the functor's contract — `Lm.PackedIndex` mirrors `SymmetricMatrix.FlatIndex` so a model scatters the owner's own layout, and the adapter delegates to that one owner rather than spelling a fourth copy of the index arithmetic; `ILmModel.Norm` returns `ddouble` by contract, a model narrowing its objective to `double` re-introducing the summation cancellation the contract kills. Every Jacobian reaching the functor is EXACT from one of two sources — hand-coded closed form, or forward-mode duals, which differentiate rather than difference — and finite differencing halves the 106-bit objective, so it never mints a production Jacobian on this lane and stays the proof estate's differential oracle. `Dual<T>` closes that second source as a FIXPOINT of the generic-math floor — it satisfies precisely the six interfaces it constrains `T` by, so a kernel written once over that floor instantiates at `Dual<ddouble>` and a residual differentiates the body its forward evaluation reads, one transcription rather than a double-precision model beside a dual-arithmetic copy of it; `Dual<Dual<T>>` is second-order forward mode falling out of the same closure. `Dual<T>` carries its tangent as derivative PAYLOAD and never identity, so ordering, comparison, equality, and the hash read the value alone and two duals sharing a value are one number carrying two directions — the record's field-wise equality splits a number by which column seeded it and leaves `CompareTo` contradicting `==` at every tie. Finiteness reads BOTH channels because a finite value beside a dead tangent is a dead derivative: `IsNaN`/`IsInfinity`/`IsFinite` fold the pair, the directional infinities narrow by the value's own sign, and every other classification reads the value alone — so a poisoned partial fails the receipt at the dual instead of after the `double` cast that hides it. Conversion is asymmetric by construction: a scalar lifts in as a CONSTANT with zero tangent, which is what resolves a foreign kernel's `CreateChecked` anchors, while lowering out is defined only on the constant sub-algebra and a seeded dual refuses rather than discard the derivative its caller is mid-chain on. `DualModel` costs `rows × dof` row evaluations where a closed-form arm costs `rows`, so it serves the small-`dof` lane the island economy already bounds while a wide model keeps its analytic arm. Damping expresses on the normal diagonal, the damped matrix is always SPD (Cholesky without pivoting), and the packed-upper `SymmetricMatrix` carries it, so the normal-equations form is chosen over QR-on-`J`, the `√λ`-stacked thin-QR alternative activating only past a conditioning budget. Damped-diagonal assembly inside `Step` and the `Dual<T>` text boundary — the span writer and the backward cut its reader takes — are the named statement exemptions; every failure routes `Fin` over `GeometryFault` except at the generic-math boundary itself, where the interface fixes the throwing contract: the scalar owner's own `Parse` carries it unwrapped and the foreign-operand raise sits on an EXPLICIT `IComparable.CompareTo(object?)` body, so no `Dual<T>`-typed call site can reach it.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Globalization;
 using System.Linq;
@@ -37,10 +37,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Solving;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Three terminal rows because the iterate ends three ways and a caller consumes each differently: the residual
-// cleared its tolerance, the step died on the floor with the residual still above it, or the budget ran out with a
-// live descent direction. Folding the last two onto Converged is what certifies an unconverged vector as a solution.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SolveStatus {
     public static readonly SolveStatus Converged  = new(key: 0);
@@ -49,10 +46,6 @@ public sealed partial class SolveStatus {
 
 }
 
-// The branch's ONE objective-direction vocabulary: every kernel iterate MINIMIZES, so a maximizing consumer
-// folds `Sign * objective` through this row before the minimizing machinery reads it — Compute's optimizer rows
-// and Fabrication's orientation axes both compose these two cases, and a call-site `-1.0` literal or a
-// folder-local minimize/maximize roster is the deleted twin.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -63,15 +56,12 @@ public sealed partial class ObjectiveSense {
     public double Sign { get; }
 }
 
-// The KEY ordinal is the severity for every roster whose keys ARE their precedence — one authority, never a second
-// column mirroring it: an assembly of islands is only as settled as its least settled island, and a determinacy fold
-// obeys the same law. `IKeyedObject<int>.ToValue()` is the generated key read, so no roster copies this body.
 internal static class KeyedSeverity {
     internal static TSelf Worst<TSelf>(TSelf left, TSelf right) where TSelf : class, IKeyedObject<int> =>
         left.ToValue() >= right.ToValue() ? left : right;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SolvePolicy(
     double InitialLambda,
     double LambdaFloor,
@@ -81,15 +71,6 @@ public sealed record SolvePolicy(
     PositiveMagnitude ResidualTolerance,
     double StepFloor,
     Dimension MaxIterations) {
-    // Dimension's count band floors at ONE, so a zero-trial budget is unrepresentable rather than guarded.
-    // The five λ columns stay raw double because their law is CROSS-column — floor ≤ initial ≤ ceiling, both factors
-    // past one, and a ceiling the budget can climb — which no per-column value object can hold; Admit states it once.
-    // Every threshold this factory seats is LANE-DERIVED: the residual cap reads its own ResidualCap row against the
-    // caller's Context, the step floor reads ToleranceLane.Step, and the λ ladder derives off ToleranceLane.Convergence.
-    // Marquardt (1963) §4 fixes only the ladder's SHAPE — log-symmetric about λ=1 with the convergence floor as its
-    // unit, so the initial damping is the geometric mean of that floor and unity and the ceiling is its reciprocal —
-    // and ν = 10 is its published accept/reject factor, the one pair no lane derives and the only raw columns left.
-    // The budget floors at one full climb per descent, so Admit's log-ceiling gate can never refuse what Of mints.
     public static Fin<SolvePolicy> Of(Context context, Op key, Option<Dimension> budget = default) {
         double convergence = context.For(lane: ToleranceLane.Convergence).Value;
         double initial = Math.Sqrt(d: convergence);
@@ -108,7 +89,6 @@ public sealed record SolvePolicy(
             .Bind(policy => policy.Admit(key: key));
     }
 
-    // Marquardt's ν, the one published ladder constant: a raise undoes exactly one descent, so the ladder is reversible.
     const double LadderFactor = 10.0;
 
     internal Fin<SolvePolicy> Admit(Op key) {
@@ -129,14 +109,10 @@ public sealed record SolvePolicy(
     internal double Raise(double lambda) => lambda * LambdaUp;
 }
 
-// Normal carries the linearization a REJECTED trial reuses: raising λ changes the damped diagonal alone, so a rejected
-// pass re-solves without re-entering the model. It is None exactly when the parameters moved.
 readonly record struct LmNormal(double[] Packed, double[] Gradient);
 
 readonly record struct LmState(double[] Parameters, ddouble Norm, double Lambda, int Iterations, Option<LmNormal> Normal);
 
-// Continue-or-done: one pass either hands the fold a live state or names the terminal row, so the driver decides
-// nothing and the budget cannot be spelled twice.
 [Union]
 abstract partial record LmPass {
     private LmPass() { }
@@ -144,8 +120,6 @@ abstract partial record LmPass {
     public sealed record Settled(LmState State, SolveStatus Status) : LmPass;
 }
 
-// Parameters cross as `Arr<double>`: record equality then compares COORDINATES and a caller cannot mutate a
-// returned solution in place. `LmState` keeps `double[]` as run-local scratch the iterate never publishes.
 public sealed record LmResult(Arr<double> Parameters, double Norm, int Iterations, double Lambda, SolveStatus Status) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Parameters.AsSpan()),
@@ -157,18 +131,10 @@ public sealed record LmResult(Arr<double> Parameters, double Norm, int Iteration
         Status is not null);
 }
 
-// Forward-mode dual over generic math: `Value` carries the scalar and `Derivative` one seeded direction, so residual code
-// written once evaluates EXACT partials with no tape and no differencing. `ddouble` satisfies every constraint listed, which
-// is what keeps the 106-bit objective intact through differentiation — no admitted package ships a dual scalar.
-// The conformance set IS the constraint set: `Dual<T>` implements exactly the six interfaces it demands of `T`, so any
-// kernel written once over that floor INSTANTIATES at the dual and differentiates the very body it evaluates — a forward
-// model and its Jacobian are then ONE transcription rather than two that drift. The fixpoint is closed, so `Dual<Dual<T>>`
-// is second-order forward mode at zero new surface.
 public readonly record struct Dual<T>(T Value, T Derivative)
     : INumber<Dual<T>>, IRootFunctions<Dual<T>>, IPowerFunctions<Dual<T>>,
       IExponentialFunctions<Dual<T>>, ILogarithmicFunctions<Dual<T>>, ITrigonometricFunctions<Dual<T>>
     where T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T> {
-    // Chain-rule anchors materialize once per closed T at its own static init instead of at each slope read.
     static readonly T Two = T.CreateChecked(2);
     static readonly T Three = T.CreateChecked(3);
     static readonly T Ln2 = T.Log(Two);
@@ -179,8 +145,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static Dual<T> Seeded(T value) => new(Value: value, Derivative: T.One);
 
     // --- [IDENTITY]
-    // Every constant lifts with a ZERO tangent — a literal has no seeded direction, so `One`, the two algebraic
-    // identities, and the transcendental constants are the one `Of` lift and never a second construction.
     public static Dual<T> Zero => Of(T.Zero);
     public static Dual<T> One => Of(T.One);
     public static Dual<T> AdditiveIdentity => Zero;
@@ -199,26 +163,17 @@ public readonly record struct Dual<T>(T Value, T Derivative)
         new(left.Value * right.Value, (left.Value * right.Derivative) + (right.Value * left.Derivative));
     public static Dual<T> operator /(Dual<T> left, Dual<T> right) =>
         new(left.Value / right.Value, ((left.Derivative * right.Value) - (left.Value * right.Derivative)) / (right.Value * right.Value));
-    // The remainder's own quotient is TRUNCATED by the `%` contract, so trunc(x/y) recovers from the remainder itself
-    // and no IFloatingPoint-only rounding member enters the constraint set to state it.
     public static Dual<T> operator %(Dual<T> left, Dual<T> right) =>
         (left.Value % right.Value) switch {
             var rem => new(rem, left.Derivative - (right.Derivative * ((left.Value - rem) / right.Value))),
         };
-    // Stepping by one moves the value and leaves the direction: the increment is a constant, so its tangent is zero.
     public static Dual<T> operator ++(Dual<T> value) => value with { Value = value.Value + T.One };
     public static Dual<T> operator --(Dual<T> value) => value with { Value = value.Value - T.One };
 
     // --- [ORDER]
-    // IDENTITY LAW: the tangent is derivative payload and never identity, so ordering, comparison, equality, and the
-    // hash all read the PRIMAL alone. Two duals sharing a value are the same number carrying two directions — the
-    // record's field-wise equality would instead split one number by which column it was seeded on, and `CompareTo`
-    // would then contradict `==` for every generic algorithm that ties on a value.
     public bool Equals(Dual<T> other) => Value.Equals(other.Value);
     public override int GetHashCode() => Value.GetHashCode();
     public int CompareTo(Dual<T> other) => Value.CompareTo(other.Value);
-    // EXPLICIT: the raise is `IComparable`'s own documented argument contract for a foreign operand, not a domain
-    // rail, and the explicit body keeps it off this type's surface — no `Dual<T>`-typed call site can reach it.
     int IComparable.CompareTo(object? value) => value switch {
         null => 1,
         Dual<T> other => CompareTo(other),
@@ -230,8 +185,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static bool operator >(Dual<T> left, Dual<T> right) => left.Value > right.Value;
     public static bool operator >=(Dual<T> left, Dual<T> right) => left.Value >= right.Value;
 
-    // Magnitude selection returns the WINNING dual whole: the tangent belongs to the branch the comparison took, so
-    // one selector over the scalar owner's own four verdicts keeps NaN propagation and the tie rule single-sourced.
     static Dual<T> Pick(Dual<T> x, Dual<T> y, T chosen) => chosen.Equals(x.Value) ? x : y;
     public static Dual<T> MaxMagnitude(Dual<T> x, Dual<T> y) => Pick(x, y, T.MaxMagnitude(x.Value, y.Value));
     public static Dual<T> MaxMagnitudeNumber(Dual<T> x, Dual<T> y) => Pick(x, y, T.MaxMagnitudeNumber(x.Value, y.Value));
@@ -239,12 +192,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static Dual<T> MinMagnitudeNumber(Dual<T> x, Dual<T> y) => Pick(x, y, T.MinMagnitudeNumber(x.Value, y.Value));
 
     // --- [CLASSIFICATION]
-    // POISON LAW: finiteness reads BOTH channels. A finite value beside a dead tangent is a DEAD DERIVATIVE, and a
-    // caller's finiteness gate exists to catch precisely the quantity it is about to consume — so the functor's
-    // all-finite receipt rejects a poisoned partial at the dual rather than after the cast that hides it. The
-    // directional pair narrows `IsInfinity` by the value's own sign, so a tangent-only infinity is infinite without a
-    // direction. Every other classification reads the PRIMAL alone: it asks which number this is, and the tangent is
-    // not a number the question is about.
     public static bool IsFinite(Dual<T> value) => T.IsFinite(value.Value) && T.IsFinite(value.Derivative);
     public static bool IsNaN(Dual<T> value) => T.IsNaN(value.Value) || T.IsNaN(value.Derivative);
     public static bool IsInfinity(Dual<T> value) => !IsNaN(value) && (T.IsInfinity(value.Value) || T.IsInfinity(value.Derivative));
@@ -264,11 +211,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static bool IsZero(Dual<T> value) => T.IsZero(value.Value);
 
     // --- [CONVERSION]
-    // LIFT IN is total — a foreign scalar is a CONSTANT here, so it enters with a zero tangent and every generic
-    // kernel's `Dual<T>.CreateChecked` anchor resolves through this one rail. LOWER OUT is PARTIAL and says so: a
-    // scalar carries no tangent, so only the constant sub-algebra has an image and a seeded dual refuses rather than
-    // silently discarding the derivative its caller is mid-chain on. A static-abstract member is no method group on a
-    // type parameter, so each mode rides a lambda over the one body.
     static bool Lift<TOther>(TOther value, Func<TOther, T> mode, out Dual<T> result) {
         result = Of(mode(arg: value));
         return true;
@@ -288,10 +230,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     static bool INumberBase<Dual<T>>.TryConvertToTruncating<TOther>(Dual<T> value, out TOther result) => Lower(value, static v => TOther.CreateTruncating(v), out result);
 
     // --- [CHAIN_RULE]
-    // ONE chain-rule combinator: every elementary row below is its (value, slope) pair, so a new function is a row and
-    // never a re-derived arm. The slope reads the argument AND the value the row just computed, so a row whose
-    // derivative IS its own value — exp, tan, sqrt, cbrt — pays ONE transcendental evaluation rather than two. A
-    // static-abstract member is no method group on a type parameter, so each half stays a lambda.
     public Dual<T> Chain(Func<T, T> value, Func<T, T, T> slope) =>
         value(arg: Value) switch { var v => new Dual<T>(Value: v, Derivative: slope(arg1: Value, arg2: v) * Derivative) };
 
@@ -303,9 +241,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static Dual<T> Exp(Dual<T> x) => x.Chain(static v => T.Exp(v), static (_, e) => e);
     public static Dual<T> Exp2(Dual<T> x) => x.Chain(static v => T.Exp2(v), static (_, e) => Ln2 * e);
     public static Dual<T> Exp10(Dual<T> x) => x.Chain(static v => T.Exp10(v), static (_, e) => Ln10 * e);
-    // The *M1/*P1 rows compose the scalar owner's own near-zero-accurate members rather than the generic-math default
-    // that spells them as `Exp(x) − One`: the accuracy those variants exist for is exactly what a residual near its
-    // root reads, and the slope recovers the unshifted exponential from the shifted value at no second evaluation.
     public static Dual<T> ExpM1(Dual<T> x) => x.Chain(static v => T.ExpM1(v), static (_, e) => e + T.One);
     public static Dual<T> Exp2M1(Dual<T> x) => x.Chain(static v => T.Exp2M1(v), static (_, e) => Ln2 * (e + T.One));
     public static Dual<T> Exp10M1(Dual<T> x) => x.Chain(static v => T.Exp10M1(v), static (_, e) => Ln10 * (e + T.One));
@@ -323,7 +258,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static Dual<T> Asin(Dual<T> x) => x.Chain(static v => T.Asin(v), static (a, _) => T.One / T.Sqrt(T.One - (a * a)));
     public static Dual<T> Acos(Dual<T> x) => x.Chain(static v => T.Acos(v), static (a, _) => -T.One / T.Sqrt(T.One - (a * a)));
     public static Dual<T> Atan(Dual<T> x) => x.Chain(static v => T.Atan(v), static (a, _) => T.One / (T.One + (a * a)));
-    // A half-turn ARGUMENT scales the slope by π; a half-turn RESULT divides it.
     public static Dual<T> SinPi(Dual<T> x) => x.Chain(static v => T.SinPi(v), static (a, _) => T.Pi * T.CosPi(a));
     public static Dual<T> CosPi(Dual<T> x) => x.Chain(static v => T.CosPi(v), static (a, _) => -T.Pi * T.SinPi(a));
     public static Dual<T> TanPi(Dual<T> x) => x.Chain(static v => T.TanPi(v), static (_, t) => T.Pi * (T.One + (t * t)));
@@ -331,9 +265,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static Dual<T> AcosPi(Dual<T> x) => x.Chain(static v => T.AcosPi(v), static (a, _) => -T.One / (T.Pi * T.Sqrt(T.One - (a * a))));
     public static Dual<T> AtanPi(Dual<T> x) => x.Chain(static v => T.AtanPi(v), static (a, _) => T.One / (T.Pi * (T.One + (a * a))));
 
-    // The paired and two-argument rows fold their own value rather than riding `Chain`: each slope REUSES the value it
-    // just computed across both outputs or both operands, so a combinator here would re-evaluate one transcendental
-    // three times to state what one argument reduction already answers.
     public static (Dual<T> Sin, Dual<T> Cos) SinCos(Dual<T> x) =>
         T.SinCos(x.Value) switch { var (s, c) => (new(s, c * x.Derivative), new(c, -s * x.Derivative)) };
 
@@ -345,15 +276,12 @@ public readonly record struct Dual<T>(T Value, T Derivative)
             var h => new(h, ((x.Value * x.Derivative) + (y.Value * y.Derivative)) / h),
         };
 
-    // logᵦx = ln x / ln β differentiates on BOTH operands; the base's own partial is what a fitted base would ride.
     public static Dual<T> Log(Dual<T> x, Dual<T> newBase) =>
         T.Log(newBase.Value) switch {
             var lb => new(T.Log(x.Value) / lb,
                 (x.Derivative / (x.Value * lb)) - (T.Log(x.Value) * newBase.Derivative / (newBase.Value * lb * lb))),
         };
 
-    // x^y: the EXPONENT'S OWN tangent is what pulls ln x into the slope, so a constant exponent keeps the real power
-    // rule over a negative base where the general form would poison the whole row with a 0·NaN product.
     public static Dual<T> Pow(Dual<T> x, Dual<T> y) =>
         T.Pow(x.Value, y.Value) switch {
             var v => new(v, (y.Value * T.Pow(x.Value, y.Value - T.One) * x.Derivative)
@@ -361,9 +289,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
         };
 
     // --- [TEXT]
-    // ONE text grammar both directions — `<value>±<derivative>ε`, a bare scalar lifting with a zero tangent. The
-    // derivative's sign is always explicit so the reader's backward cut is unambiguous, and every remaining arity the
-    // roster fixes is a style or width spelling of this pair; the UTF-8 arities are the generic-math defaults over them.
     string TangentSign => T.IsNegative(Derivative) ? string.Empty : "+";
 
     public override string ToString() => ToString(format: null, provider: null);
@@ -384,8 +309,6 @@ public readonly record struct Dual<T>(T Value, T Derivative)
         return true;
     }
 
-    // The cut runs BACKWARD from the mark and skips a sign an exponent owns, so `1e-9-2e-3ε` splits at the derivative
-    // and never inside the mantissa's exponent; an absent mark reads a bare scalar and a leading mark a pure tangent.
     static int Cut(ReadOnlySpan<char> s) {
         if (s.IsEmpty || s[^1] != Mark) { return -1; }
         for (int i = s.Length - 2; i > 0; i--) {
@@ -421,8 +344,7 @@ public readonly record struct Dual<T>(T Value, T Derivative)
     public static bool TryParse(string? s, IFormatProvider? provider, out Dual<T> result) => TryParse(s.AsSpan(), provider, out result);
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// PackedNormal/Gradient use Lm.PackedIndex addressing; Norm is the 106-bit objective by contract.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface ILmModel {
     int Dof { get; }
     double[] Seed { get; }
@@ -430,9 +352,6 @@ public interface ILmModel {
     (double[] PackedNormal, double[] Gradient) Linearize(ReadOnlySpan<double> parameters);
 }
 
-// The residual-only floor beside it: a model states one row at a time in dual arithmetic and the adapter derives the
-// Jacobian. The scalar is Dual<ddouble> because ILmModel.Norm is, and the row-at-a-time read is what keeps the dense J off
-// this lane — a whole-vector read would hold rows x dof to accumulate one JᵀJ.
 public interface IDualResidual {
     int Dof { get; }
     int Rows { get; }
@@ -440,10 +359,8 @@ public interface IDualResidual {
     Dual<ddouble> Row(int index, ReadOnlySpan<Dual<ddouble>> parameters);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Lm {
-    // Packed-upper addressing delegates to the ONE SymmetricMatrix.FlatIndex owner — the formula lives there alone,
-    // so a layout change is one all-owner edit by construction rather than by ruling.
     internal static int PackedIndex(int n, int i, int j) => SymmetricMatrix.FlatIndex(n: n, i: i, j: j);
 
     [BoundaryAdapter]
@@ -466,13 +383,6 @@ public static class Lm {
             : Fin.Fail<(int Dof, double[] Seed)>(key.InvalidInput());
     });
 
-    // ONE budget authority: Schedule.recurs counts every pass — accepted and rejected alike — so a λ-ladder climb can
-    // no more outlive the budget than a descent can, and a fold still Running when the schedule stops IS the typed
-    // exhaustion. `recurs(n - 1)` because the lifted body IS the first pass, so the budget counts exactly MaxIterations
-    // trials — a count Dimension already floors at one.
-    // The iterate IS the fold's accumulator: `Pass` is pure, so `FoldUntil` threads the carrier through the folder
-    // and the schedule owns the budget alone — an Atom read as a mutable loop variable advertised a contention
-    // regime this single-threaded ladder has none of, and re-read its own cell twice per pass to reach the state.
     static Fin<LmResult> Iterate(ILmModel model, int dof, SolvePolicy policy, LmState seed, Op key) =>
         IO.pure(value: unit).FoldUntil(
                 schedule: Schedule.recurs(times: policy.MaxIterations.Value - 1),
@@ -488,8 +398,6 @@ public static class Lm {
                 running: static (op, live) => Result(live.State, SolveStatus.Exhausted, op),
                 settled: static (op, done) => Result(done.State, done.Status, op)));
 
-    // ONE damped trial per pass — the accept ladder and the reject ladder are the SAME fold, never a second private
-    // loop with its own budget accounting. The ceiling probe reads the undamped normal the pass just resolved.
     static Fin<LmPass> Pass(ILmModel model, int dof, SolvePolicy policy, LmState state, Op key) =>
         state.Norm < policy.ResidualTolerance.Value
             ? Fin.Succ<LmPass>(new LmPass.Settled(State: state, Status: SolveStatus.Converged))
@@ -505,8 +413,6 @@ public static class Lm {
 
     static Fin<LmPass> Trial(ILmModel model, int dof, SolvePolicy policy, LmState state, LmNormal normal, Op key) {
         double[] damped = (double[])normal.Packed.Clone();
-        // Zero-diagonal column (residual-untouched DOF) damps on bare λ — multiplicative damping never
-        // regularizes an exact zero, and its zero gradient holds the seed short of a false SingularSystem.
         for (int i = 0; i < dof; i++) {
             int di = PackedIndex(dof, i, i);
             damped[di] = normal.Packed[di] > 0.0 ? normal.Packed[di] * (1.0 + state.Lambda) : state.Lambda;
@@ -523,22 +429,16 @@ public static class Lm {
                 Fail: _ => Fin.Succ(Reject(policy: policy, state: state, normal: normal)));
     }
 
-    // ONE MathNet path, and its receipt is READ rather than projected away: SolveReceipt.IsValid folds the stop's
-    // usability, the sensed lengths, and the residual cap, so an indefinite non-throwing factor fails the gate and the
-    // ladder climbs instead of accepting a NaN step.
     static Fin<Arr<double>> Solved(Fin<SolveReceipt> solve, Op key) =>
         solve.Bind(receipt => receipt.IsValid ? Fin.Succ(receipt.Solution) : Fin.Fail<Arr<double>>(key.InvalidResult()));
 
     static Fin<LmPass> Accept(ILmModel model, SolvePolicy policy, LmState state, LmNormal normal, Arr<double> delta, Op key) =>
         from trial in Advance(parameters: state.Parameters, delta: delta, key: key)
         from trialNorm in Objective(model: model, parameters: trial, key: key)
-        // 106-bit accept test: the deciding digits of two nearly equal norms survive the comparison.
         select trialNorm < state.Norm
             ? Descend(policy: policy, state: state, trial: trial, trialNorm: trialNorm, stepNorm: TensorPrimitives.Norm<double>(delta.AsSpan()))
             : Reject(policy: policy, state: state, normal: normal);
 
-    // A descent dying on the step floor is a FIXPOINT, not a solution — it settles Converged only where the residual
-    // it reached clears the tolerance, and Stationary otherwise; an accepted λ carries down.
     static LmPass Descend(SolvePolicy policy, LmState state, double[] trial, ddouble trialNorm, double stepNorm) =>
         state with { Parameters = trial, Norm = trialNorm, Iterations = state.Iterations + 1, Normal = None } switch {
             var moved => stepNorm < policy.StepFloor
@@ -547,19 +447,13 @@ public static class Lm {
                 : new LmPass.Running(State: moved with { Lambda = policy.Lower(state.Lambda) }),
         };
 
-    // A rejected trial KEEPS its linearization — raising λ moves the damped diagonal alone, so the model is never
-    // re-entered for a step it already stated — and still spends its unit of the one shared budget.
     static LmPass Reject(SolvePolicy policy, LmState state, LmNormal normal) =>
         new LmPass.Running(State: state with { Lambda = policy.Raise(state.Lambda), Normal = Some(normal) });
 
-    // Past the ceiling the damped normal matrix is still rank-deficient: rank reads as the JᵀJ eigen-rank counted
-    // spectral-radius-relative, a functor-computable witness needing no dense J. A REFUSED spectrum measured no rank,
-    // so the decomposition's own typed error lowers unwrapped — a SingularSystem carrying rank 0 would be
-    // indistinguishable from a measured total collapse, publishing a count no producer took.
     static Fin<LmPass> Singular(LmNormal normal, int dof, Op key) =>
         SymmetricMatrix.Of(Dimension.Create(dof), new Arr<double>(normal.Packed), key)
             .Bind(matrix => matrix.DecomposeEigenDetailed(key))
-            .Map(static receipt => receipt.Pairs.Map(static p => Math.Abs(p.Eigenvalue)))   // order-independent: radius and count fold the whole spectrum
+            .Map(static receipt => receipt.Pairs.Map(static p => Math.Abs(p.Eigenvalue)))
             .Map(spectrum => spectrum.Fold(0.0, Math.Max) is var radius && radius <= 0.0
                 ? 0
                 : spectrum.Count(v => v > EpsilonPolicy.SqrtEpsilon * radius))
@@ -600,9 +494,6 @@ public static class Lm {
             : Fin.Fail<LmResult>(key.InvalidResult());
 }
 
-// The auto-Jacobian adapter: an ILmModel conformance, never a second functor. One seeded evaluation per (row, column) yields
-// an EXACT partial — forward-mode duals differentiate, they do not difference — and each row's partials accumulate straight
-// into the packed-upper JᵀJ + Jᵀr through Lm.PackedIndex, so the dense J never materializes and the layout stays the owner's.
 public sealed class DualModel(IDualResidual residual) : ILmModel {
     public int Dof => residual.Dof;
 
@@ -631,7 +522,7 @@ public sealed class DualModel(IDualResidual residual) : ILmModel {
                 Dual<ddouble> evaluated = residual.Row(index: index, parameters: seeded);
                 seeded[column] = Dual<ddouble>.Of(value: seeded[column].Value);
                 partials[column] = (double)evaluated.Derivative;
-                value = (double)evaluated.Value;  // seed-independent: the value channel reports the same row under every seed
+                value = (double)evaluated.Value;
             }
             for (int a = 0; a < n; a++) {
                 gradient[a] += partials[a] * value;
@@ -661,7 +552,7 @@ public sealed class DualModel(IDualResidual residual) : ILmModel {
 - Boundary: the relations differ only in residual expression and analytic partials, never in the iterate, so one `Constraint` `[Union]` with a generated-`Switch` fold owns them all — compile-exhaustive, a new case breaking `Residual`, `Touches`, and `RowCount` loudly while `WellFormed` derives off that pair and needs no arm; `Concentric` reuses the center-coincidence rows as sketch vocabulary over the one algebra. Every arm's Jacobian is EXACT and hand-coded closed form here, forward-mode duals being the functor's second exact source and a finite difference neither. Every `Numerics/matrix` call threads the caller's `Op` key, QuikGraph owns the partition and matching walks, and every graph verdict exits as a typed domain value. `ConstraintSystem` is immutable to its coordinates — `Arr<double>` carries the seed, so record equality reads the vector and no caller mutates one another reader folds — and the `ConstraintModel` scratch is the single-writer run-local exception that never escapes the model. Every failure lifts its direct `GeometryFault` case bare onto `Fin`, and the graph-assembly and scatter loops are the named span-kernel statement exemption.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -679,16 +570,12 @@ using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: Rhino.Geometry.Matrix/Dimension collide with the Rasm.Numerics owners under the dual usings.
 using Dimension = Rasm.Numerics.Dimension;
 using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Solving;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Every slice past the origin pair is a ROW column answering `Option`: a kind that carries no endpoint cannot be
-// asked for one, so a Circle reaching `EndOf` lands `None` instead of reading the NEXT entity's first parameters.
-// `WellFormed` then derives from those same absences rather than restating the kind roster per constraint arm.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SketchEntityKind {
     public static readonly SketchEntityKind Point = new(key: 0, arity: 2, carrier: Kind.Point,
@@ -705,9 +592,6 @@ public sealed partial class SketchEntityKind {
     [UseDelegateFromConstructor] public partial Option<double> RadiusOf(int offset, ReadOnlySpan<double> p);
 }
 
-// The determinacy verdict AND its own fold law: the KEY ordinal ranks the rows the way a many-island system settles —
-// any inconsistent deficiency makes the whole system over-determined however free the rest is — so the island fold is
-// one max over that ordinal and no consumer re-spells the ordering as a bool triple beside it.
 [SmartEnum<int>]
 public sealed partial class Determinacy {
     public static readonly Determinacy Well      = new(key: 0);
@@ -716,9 +600,6 @@ public sealed partial class Determinacy {
     public static readonly Determinacy Over      = new(key: 3);
 }
 
-// The rank ORACLE, and the whole difference between three sibling entrypoints that shared one concern: a row count,
-// a König matching, or a numeric witness. Only the witness separates a redundant-but-consistent island from an
-// inconsistent one, so a caller reading the cheap oracle can no longer mistake a subset roster for the whole verdict.
 [SmartEnum<string>]
 public sealed partial class DofOracle {
     public static readonly DofOracle RowCount = new(key: "row-count", adjudicate: ConstraintSolver.CountRank);
@@ -728,8 +609,6 @@ public sealed partial class DofOracle {
     [UseDelegateFromConstructor] public partial DofReport Adjudicate(ConstraintSystem system, Op key);
 }
 
-// A locked sketch axis names WHICH component the line holds constant, so the residual reads that component off the
-// endpoint slice by offset and no branch decides between two transcriptions of one difference.
 [SmartEnum<int>]
 public sealed partial class AxisLock {
     public static readonly AxisLock Horizontal = new(key: 0, component: 1);
@@ -738,11 +617,10 @@ public sealed partial class AxisLock {
     public int Component { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Entity(SketchEntityKind Kind, int Offset) {
     public int Arity => Kind.Arity;
 
-    // Origin is the ONE total read — every kind carries its first two parameters, so it needs no absence arm.
     public Point3d Origin(ReadOnlySpan<double> p) => new(p[Offset], p[Offset + 1], 0.0);
 
     public Option<Point3d> End(ReadOnlySpan<double> p) => Kind.EndOf(offset: Offset, p: p);
@@ -776,7 +654,6 @@ public abstract partial record Constraint {
     public sealed record Radius(Entity Circle, double Target) : Constraint;
     public sealed record OnCircle(Entity Point, Entity Circle) : Constraint;
 
-    // Compile-exhaustive residual fold: a new case breaks this dispatch and Touches loudly.
     public Seq<ResidualRow> Residual(double[] p) =>
         Switch(
             state: p,
@@ -796,8 +673,6 @@ public abstract partial record Constraint {
             radius:        static (p, r) => RadiusRow(r.Circle, r.Target, p).ToSeq(),
             onCircle:      static (p, o) => OnCircleRow(o.Point, o.Circle, p).ToSeq());
 
-    // Declared row arity per case, a compile-time constant on every arm: the structural verdict counts rows without
-    // EVALUATING one, so a determinacy read stops paying a full linearization with all its analytic partials.
     public int RowCount =>
         Switch(
             distance:      static _ => 1,
@@ -834,13 +709,9 @@ public abstract partial record Constraint {
             radius:        static r => Seq(r.Circle),
             onCircle:      static o => Seq(o.Point, o.Circle));
 
-    // Operand-kind law DERIVED, never restated: every slice a kind does not carry answers None and drops its row,
-    // so a constraint is well formed exactly where the fold produced the arity its own case declares. Callers pass a
-    // seed whose entities are already PLACED — a dangling reference reports on its own probe and never reaches here.
     public bool WellFormed(double[] p) => Residual(p).Count == RowCount;
 
     // --- [RESIDUAL_ROWS]
-    // Squared distance form: C¹ at coincident configurations where the √-form Jacobian is undefined.
     static ResidualRow DistanceRow(Entity a, Entity b, double target, ReadOnlySpan<double> p) {
         Point3d pa = a.Origin(p), pb = b.Origin(p);
         double dx = pa.X - pb.X, dy = pa.Y - pb.Y;
@@ -857,7 +728,6 @@ public abstract partial record Constraint {
         double denom = cross * cross + dot * dot;
         double inv = denom > EpsilonPolicy.ZeroTolerance * EpsilonPolicy.ZeroTolerance ? 1.0 / denom : 0.0;
         double r = Math.Atan2(cross, dot) - radians;
-        // ∂atan2(c,d)/∂θ = (d·∂c − c·∂d)·inv; the v-side cross terms carry the SAME minus sign as the u-side.
         double dAux = (v.Y * dot - v.X * cross) * inv, dAuy = (-v.X * dot - v.Y * cross) * inv;
         double dBvx = (-u.Y * dot - u.X * cross) * inv, dBvy = (u.X * dot - u.Y * cross) * inv;
         return new ResidualRow(r, Seq(
@@ -887,7 +757,6 @@ public abstract partial record Constraint {
             (b.Offset, -u.X), (b.Offset + 1, -u.Y), (b.Offset + 2, u.X), (b.Offset + 3, u.Y)))).As();
     }
 
-    // Squared tangency form: dist(center,line)² − radius², C¹ through the degenerate zero-length line.
     static Option<ResidualRow> TangentRow(Entity line, Entity circle, ReadOnlySpan<double> p) {
         Point3d s = line.Origin(p), c = circle.Origin(p);
         (Option<Point3d> endOf, Option<double> radiusOf) = (line.End(p), circle.Radius(p));
@@ -926,17 +795,12 @@ public abstract partial record Constraint {
             new ResidualRow(q.Y - (0.5 * (s.Y + e.Y)), Seq((point.Offset + 1, 1.0), (line.Offset + 1, -0.5), (line.Offset + 3, -0.5)))));
     }
 
-    // The locked component addresses the endpoint slice directly, so ONE row states both axes: a horizontal line
-    // holds Δy and a vertical one Δx, and neither is a second transcription of the other.
     static Option<ResidualRow> AxisRow(Entity line, AxisLock axis, ReadOnlySpan<double> p) {
         int start = line.Offset + axis.Component, end = line.Offset + 2 + axis.Component;
         double delta = p[end] - p[start];
-        // The endpoint read PROVES the second slice belongs to this entity before the component addresses it.
         return line.End(p).Map(_ => new ResidualRow(delta, Seq((start, -1.0), (end, 1.0))));
     }
 
-    // Equality reads whichever slice the PAIR carries — two radii or two directions — and the kind ladder is the
-    // accessors' own absence, so a Point operand yields no row rather than differencing a foreign parameter.
     static Option<ResidualRow> EqualRow(Entity a, Entity b, ReadOnlySpan<double> p) {
         (Option<double> ra, Option<double> rb) = (a.Radius(p), b.Radius(p));
         Option<ResidualRow> radii = (ra, rb).Apply((left, right) =>
@@ -957,8 +821,6 @@ public abstract partial record Constraint {
         double onAxis = ax * my - ay * mx;
         double chordX = pa.X - pb.X, chordY = pa.Y - pb.Y;
         double perp = chordX * ax + chordY * ay;
-        // onAxis = ax·my − ay·mx over m = ½(pa+pb) − s: ∂/∂pa.X = −½ay, ∂/∂pa.Y = ½ax (endpoints enter
-        // through the midpoint symmetrically); s couples through ax, ay, mx, my; e through ax, ay.
         return Seq(
             new ResidualRow(onAxis, Seq(
                 (a.Offset, -0.5 * ay), (a.Offset + 1, 0.5 * ax), (b.Offset, -0.5 * ay), (b.Offset + 1, 0.5 * ax),
@@ -969,7 +831,6 @@ public abstract partial record Constraint {
         });
     }
 
-    // Grounding pins the rigid-body gauge: an unanchored sketch reports its translation/rotation freedoms as honest under-constraint.
     static Seq<ResidualRow> GroundRows(Entity point, double x, double y, ReadOnlySpan<double> p) {
         Point3d q = point.Origin(p);
         return Seq(
@@ -980,7 +841,6 @@ public abstract partial record Constraint {
     static Option<ResidualRow> RadiusRow(Entity circle, double target, ReadOnlySpan<double> p) =>
         circle.Radius(p).Map(radius => new ResidualRow(radius - target, Seq((circle.Offset + 2, 1.0))));
 
-    // Squared membership |q − c|² − r²: C¹ at the center-coincident configuration.
     static Option<ResidualRow> OnCircleRow(Entity point, Entity circle, ReadOnlySpan<double> p) {
         Point3d q = point.Origin(p), c = circle.Origin(p);
         double dx = q.X - c.X, dy = q.Y - c.Y;
@@ -990,11 +850,8 @@ public abstract partial record Constraint {
     }
 }
 
-// Island = one weak component of the entity↔constraint incidence; ordinals index the owning system.
 public readonly record struct ConstraintIsland(Seq<int> Entities, Seq<int> Constraints);
 
-// How an island's rank was ADJUDICATED, carried per row: a witness verdict and a structural fallback read alike on
-// the verdict alone, so a decomposition refusal that degraded to a row count is invisible without this column.
 [SmartEnum<int>]
 public sealed partial class RankProvenance {
     public static readonly RankProvenance Witnessed = new(key: 0);
@@ -1006,7 +863,6 @@ public readonly record struct IslandVerdict(
     int Island, Determinacy Verdict, int FreeDof, int Deficiency, int Rank, RankProvenance Provenance);
 
 public sealed record DofReport(Determinacy Verdict, Seq<IslandVerdict> Islands) : IValidityEvidence {
-    // Both totals DERIVE off the roster they sit beside — a stored column mirroring a sum drifts the moment one row moves.
     public int StructuralRank => Islands.Sum(static row => row.Rank);
     public int MatchingDeficiency => Islands.Sum(static row => row.Deficiency);
 
@@ -1022,22 +878,14 @@ public sealed record ConstraintSystem(
     Seq<Constraint> Constraints,
     Arr<double> Seed,
     int ParameterCount) {
-    // The seed crosses as `Arr<double>`, so record equality compares COORDINATES and a caller holding a returned
-    // system cannot mutate the vector another reader is folding. `SeedVector` is the interior's one materialization —
-    // the residual algebra addresses a flat array, and paying that copy per fold is what the lazy forecloses.
     internal Lazy<double[]> SeedVector { get; } = new(() => Seed.ToArray());
 
-    // The decomposition the island economy rests on is paid ONCE per system: `Solve` reaches it twice (witness and
-    // fold) and `Analyze` again, where a per-call rebuild re-minted a FrozenDictionary, a disjoint set, and five arrays.
     internal Lazy<Seq<ConstraintIsland>> Islands { get; } = new(() => Decompose(Entities, Constraints));
 
-    // Row arity sums the cases' own declared counts, so a determinacy read never linearizes to learn its shape.
     internal Lazy<int> ResidualRows { get; } = new(() => Constraints.Sum(static constraint => constraint.RowCount));
-    // Accumulating admission: every defect reports in one verdict through the Validation traverse, never first-defect-only.
     [BoundaryAdapter]
     public static Fin<ConstraintSystem> Build(
         Seq<(SketchEntityKind Kind, double[] Initial)> entities, Seq<Constraint> constraints, Op? key = null) {
-        // Eager placement pass: a lazy Map over a mutable offset capture reads offset before it advances.
         List<Entity> placedList = new(entities.Count);
         int offset = 0;
         foreach ((SketchEntityKind Kind, double[] Initial) e in entities) { placedList.Add(new Entity(e.Kind, offset)); offset += e.Kind.Arity; }
@@ -1048,7 +896,6 @@ public sealed record ConstraintSystem(
             if (e.Initial.Length == e.Kind.Arity) e.Initial.CopyTo(seed, cursor);
             cursor += e.Kind.Arity;
         }
-        // Membership on the FULL Entity value (Kind + Offset): an offset-only probe admits a mis-kinded reference that reads a foreign slice.
         LanguageExt.HashSet<Entity> placedSet = toHashSet(placed);
         Seq<Validation<Error, Unit>> probes =
             (entities.IsEmpty
@@ -1074,16 +921,12 @@ public sealed record ConstraintSystem(
             .ToFin();
     }
 
-    // DR-planner decomposition over union-find: every entity is a singleton, every constraint unions the entities it touches,
-    // and one ascending pass groups the partition — a representative's first entity fixes the island ordinal, so the census
-    // costs one near-constant-time pass instead of a component-by-component rescan, and SetCount IS the island count.
     static Seq<ConstraintIsland> Decompose(Seq<Entity> entities, Seq<Constraint> constraints) {
         FrozenDictionary<int, int> byOffset = entities.Map(static (entity, ordinal) => (entity.Offset, Ordinal: ordinal))
             .ToDictionary(static row => row.Offset, static row => row.Ordinal)
             .ToFrozenDictionary();
         ForestDisjointSet<int> partition = new(capacity: entities.Count);
         for (int entity = 0; entity < entities.Count; entity++) partition.MakeSet(entity);
-        // Touches is non-empty on every case, so its head anchors the constraint and every other operand merges into it.
         int[] anchorOf = new int[constraints.Count];
         for (int constraint = 0; constraint < constraints.Count; constraint++) {
             Seq<Entity> touched = constraints[constraint].Touches;
@@ -1126,23 +969,17 @@ public sealed record ConstraintSolveReceipt(
         ValidityClaim.CountAtLeast(count: ResidualRows, floor: 0),
         ValidityClaim.CountAtLeast(count: Islands, floor: 1),
         ValidityClaim.Finite(TerminalLambda),
-        // The terminal λ is a MEASURED island reading, so it carries the same positivity `LmResult` demands — the two
-        // receipts agreeing on what a λ may be is what keeps an island-free fold from certifying an unmeasured zero.
         ValidityClaim.Positive(TerminalLambda));
 }
 
 public sealed record Solution(Arr<double> Parameters, ConstraintSolveReceipt Receipt);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// 106-bit ‖r‖₂ over a residual roster: two nearly equal norms near the OverConstrained gate differ in digits a
-// double running sum has already lost, and `DoubleDoubleEnumerableExpand.Sum` is the admitted accumulator — a hand
-// `Fold(ddouble.Zero, …)` beside it re-derives the recurrence once per call site and drifts.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ResidualFold {
     internal static ddouble Norm(this Seq<ResidualRow> rows) =>
         ddouble.Sqrt(rows.Map(static row => (ddouble)row.Value * row.Value).Sum());
 }
 
-// Island-scoped ILmModel over a single-writer scratch: islands are column-disjoint, so the scratch never races.
 internal sealed class ConstraintModel : ILmModel {
     readonly ConstraintSystem system;
     readonly Seq<int> constraints;
@@ -1159,9 +996,6 @@ internal sealed class ConstraintModel : ILmModel {
         Seed = [.. columns.Select(column => current[column])];
     }
 
-    // Column closure is provable ONCE, here: an island's constraints reach only its own entity slices by
-    // construction, and the probe states that rather than trusting it — a `-1` absence sentinel in a flat lookup
-    // let a foreign column index negatively at every Linearize instead of refusing at the one place it is knowable.
     internal static Fin<ConstraintModel> Of(ConstraintSystem system, ConstraintIsland island, double[] current, Op key) {
         int[] columns = [.. island.Entities.Bind(ordinal => {
             Entity entity = system.Entities[ordinal];
@@ -1187,7 +1021,6 @@ internal sealed class ConstraintModel : ILmModel {
         return constraints.Bind(ordinal => home.Constraints[ordinal].Residual(image)).Norm();
     }
 
-    // Packed-upper JᵀJ + Jᵀr from the analytic partials with global→local remap; sums ACCUMULATE because an arm can emit one column twice for a self-aliased entity.
     public (double[] PackedNormal, double[] Gradient) Linearize(ReadOnlySpan<double> parameters) {
         Scatter(parameters);
         int n = columns.Length;
@@ -1214,14 +1047,10 @@ internal sealed class ConstraintModel : ILmModel {
 }
 
 public static class ConstraintSolver {
-    // ONE determinacy entry over the oracle roster: the three analyses differed only in how rank was READ, and the
-    // row-count front could never answer `Redundant`, so it silently reported from a subset of the verdict roster.
     [BoundaryAdapter]
     public static DofReport Analyze(ConstraintSystem system, DofOracle oracle, Op? key = null) =>
         oracle.Adjudicate(system: system, key: key.OrDefault());
 
-    // Row-count grain, per island: rows against local arity. It cannot distinguish a redundant-but-consistent island
-    // from an inconsistent one — that separation needs a numeric witness — so every row it seats is `Counted`.
     internal static DofReport CountRank(ConstraintSystem system, Op key) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
             int rows = island.Constraints.Sum(ci => system.Constraints[ci].RowCount);
@@ -1237,7 +1066,6 @@ public static class ConstraintSolver {
         return new DofReport(islands.Map(static row => row.Verdict).Fold(Determinacy.Well, KeyedSeverity.Worst), islands);
     }
 
-    // Per-island König structural rank: matching deficiency localizes over-constraint, column surplus under-constraint — the locality a global row count averages away.
     internal static DofReport MatchRank(ConstraintSystem system, Op key) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
             Seq<Seq<int>> rowColumns = island.Constraints
@@ -1274,17 +1102,9 @@ public static class ConstraintSolver {
         return new DofReport(islands.Map(static row => row.Verdict).Fold(Determinacy.Well, KeyedSeverity.Worst), islands);
     }
 
-    // Witness core, PER ISLAND: J(seed) is block-diagonal under the island permutation (islands share no entity
-    // column and no constraint row), so its rank is the sum of island ranks and the left-null projection
-    // decomposes island-by-island — the per-island SVD is EQUAL to the global witness at Σ dof_island² cost
-    // instead of ParameterCount², preserving the island decomposition the solve fold exists for. Verdicts fold
-    // through KeyedSeverity.Worst — the row's key ordinal IS the global SVD's own precedence, since any inconsistent
-    // deficiency makes the system over-determined regardless of free DOF elsewhere, and `DofReport.MatchingDeficiency` sums the rows.
     internal static DofReport WitnessRank(ConstraintSystem system, Op key) {
         Seq<IslandVerdict> islands = system.Islands.Value.Map((island, ordinal) => {
             (int rows, double[] r, Option<Matrix> jacobian, int dofs) = LinearizeIsland(system, island, system.SeedVector.Value, key);
-            // Untouched island: every local DOF is free and no J block exists to witness it, so its rank is measured
-            // at zero rather than adjudicated — `Counted` says so, where a bare `Under` read as a witness verdict.
             return rows == 0
                 ? new IslandVerdict(ordinal, dofs > 0 ? Determinacy.Under : Determinacy.Well, dofs, 0, 0, RankProvenance.Counted)
                 : jacobian.ToFin(key.InvalidResult()).Bind(j => j.DecomposeSvd(key)).Match(
@@ -1293,22 +1113,16 @@ public static class ConstraintSolver {
                             dofs - svd.Rank, 0, svd.Rank, RankProvenance.Witnessed)
                         : new IslandVerdict(ordinal, ConsistentAtWitness(svd, r, rows) ? Determinacy.Redundant : Determinacy.Over,
                             Math.Max(val1: dofs - svd.Rank, val2: 0), rows - svd.Rank, svd.Rank, RankProvenance.Witnessed),
-                    // A REFUSED decomposition measured no rank: the row falls back to its structural reading and says
-                    // `Counted`, so a caller separates a witnessed verdict from one the SVD never adjudicated.
                     Fail: _ => new IslandVerdict(ordinal,
                         rows > dofs ? Determinacy.Over : rows < dofs ? Determinacy.Under : Determinacy.Well,
                         Math.Max(val1: dofs - rows, val2: 0), Math.Max(val1: rows - dofs, val2: 0),
                         Math.Min(val1: rows, val2: dofs), RankProvenance.Counted));
         }).Strict();
-        // A constraint-free sketch witnesses nothing, so every DOF is free however the per-island rows read.
         return islands.ForAll(static row => row.Rank == 0 && row.Deficiency == 0)
             ? new DofReport(Determinacy.Under, islands)
             : new DofReport(islands.Map(static row => row.Verdict).Fold(Determinacy.Well, KeyedSeverity.Worst), islands);
     }
 
-    // Island-grain dense linearization: local column remap over the island's own entity slices, so the SVD pays
-    // rows_island × dof_island, never rows × ParameterCount. Residual scatter ACCUMULATES for the same reason the
-    // LM lane's does — an arm can emit one column twice for a shared or self-aliased entity.
     static (int Rows, double[] Residual, Option<Matrix> Jacobian, int LocalDofs) LinearizeIsland(ConstraintSystem system, ConstraintIsland island, double[] parameters, Op key) {
         Dictionary<int, int> local = [];
         int dofs = 0;
@@ -1318,8 +1132,6 @@ public static class ConstraintSolver {
         }
         List<ResidualRow> allRows = [];
         foreach (int ordinal in island.Constraints) allRows.AddRange(system.Constraints[ordinal].Residual(parameters));
-        // An untouched island has no block to factor, which is ABSENCE — a fabricated fault in a success-shaped
-        // tuple is a value nothing reads and the caller's own `rows == 0` arm short-circuits ahead of it anyway.
         if (allRows.Count == 0) return (0, [], None, dofs);
         double[] r = new double[allRows.Count];
         double[] j = new double[allRows.Count * dofs];
@@ -1330,20 +1142,13 @@ public static class ConstraintSolver {
         return (allRows.Count, r, Matrix.Of(Dimension.Create(allRows.Count), Dimension.Create(dofs), new Arr<double>(j), key).ToOption(), dofs);
     }
 
-    // Left-null-space projection ‖U_tailᵀ·r‖: U columns past Rank span null(Jᵀ), and k ∈ [Rank, rows) is
-    // in-bounds BECAUSE SvdResult.U is the FULL rows×rows factor (matrix.md wraps MathNet full U) — a thin-U swap breaks this loop.
     static bool ConsistentAtWitness(SvdResult svd, double[] r, int rows) {
-        // `Matrix` is ROW-major, so the tail columns gather through ONE transpose and every projection then reads a
-        // contiguous row — a strided element walk refuses the vectorized dot and norm the fence already composes.
         ReadOnlySpan2D<double> tailRows = svd.U.Transpose().AsPlane();
         double[] tail = new double[rows - svd.Rank];
         for (int k = svd.Rank; k < rows; k++) tail[k - svd.Rank] = TensorPrimitives.Dot<double>(tailRows.GetRowSpan(k), r);
         return TensorPrimitives.Norm<double>(tail) <= EpsilonPolicy.SqrtEpsilon * Math.Max(TensorPrimitives.Norm<double>(r), 1.0);
     }
 
-    // Island fold: each component minimizes on its own small normal system through the ONE functor; sub-solutions
-    // scatter back into a fresh array per island. The λ and status accumulator rides `Option`, seeded None — a
-    // `(0.0, Converged)` seed certified an island-free system at a damping no trial ever measured.
     [BoundaryAdapter]
     public static Fin<Solution> Solve(ConstraintSystem system, SolvePolicy policy, Op? key = null) {
         Op op = key.OrDefault();

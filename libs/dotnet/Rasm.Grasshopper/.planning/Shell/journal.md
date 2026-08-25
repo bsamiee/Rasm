@@ -30,7 +30,7 @@ Consumption stays off the UI thread: one single-reader loop drains the kernel `E
 - Growth: a new export slice is one filter over the one fold; a new retention posture is one `JournalPolicy` field.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
@@ -39,7 +39,7 @@ using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record JournalFact {
     private JournalFact() { }
@@ -47,37 +47,29 @@ public abstract partial record JournalFact {
     public sealed record EvidenceCase(GhEvidence Evidence) : JournalFact;
 }
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-// DISTINCT from the kernel DrainPolicy by discriminant: channel admission drop versus partition head shed.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record JournalPolicy(int Capacity) {
     public static readonly JournalPolicy Default = new(Capacity: 2048);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct JournalRow(long Sequence, Option<Guid> Document, MonotonicStamp Stamp, JournalFact Fact) : IValidityEvidence {
-    // ONE evidence spelling: a REQUIRED member reads its own fold — `Append` already admitted the fact, so no
-    // null re-check survives past the gate.
     public bool IsValid => ValidityClaim.All(
         Sequence >= 0L,
         Stamp.IsValid);
 }
 
-// Whole ledger snapshot rides the export, so rows and tallies are ONE committed value a bundle serializes.
 [Equatable]
 public sealed partial record JournalExport(
     [property: OrderedEquality] Seq<JournalRow> Rows,
     JournalLedger Tallies,
     MonotonicStamp Captured) {
-    // Replay grounding: an export IS the captured signal window `Shell/hooks.md` replays, so capture and
-    // analytics are one record.
     public Seq<HookSignal> Signals => Rows.Map(static row => row.Fact.Switch<HookSignal>(
         eventCase: static fact => new HookSignal.EventCase(Fact: fact.Fact),
         evidenceCase: static fact => new HookSignal.EvidenceCase(Evidence: fact.Evidence)));
 }
 
-// Sequence lives INSIDE the fold: one committed value carries rows, ordinal, and tallies, so a contended
-// retry re-derives all four together and an export never reads three cells that tore.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Partitions, long Next, long Appended, long Shed) {
     public static readonly JournalLedger Empty = new(Partitions: HashMap<Guid, Seq<JournalRow>>(), Next: 0L, Appended: 0L, Shed: 0L);
@@ -94,10 +86,8 @@ public readonly record struct JournalLedger(HashMap<Guid, Seq<JournalRow>> Parti
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class JournalLog {
-    // Const-beside-row (kernel S1-58): the attribute needs a compile-time value and the registry row is the
-    // authority, so the pair is proved equal at type init and drift throws at load.
     internal const int ConsumerFault = 4711;
     static JournalLog() => Op.SideWhen(
         condition: ConsumerFault != FaultBand.GrasshopperLog.Code(offset: 11),
@@ -117,17 +107,11 @@ public sealed class SessionJournal : IDisposable {
     private Task consuming = Task.CompletedTask;
 
     public JournalLedger Tallies => ledger.Value;
-    // Journal-scoped parks alone — the injected cell is the composition's shared custody, so an unfiltered
-    // read would republish every owner's faults under this page's name.
     public Seq<IsolatedFault> Faults => faults.Parked.Filter(static fault => fault.Point == Rail);
 
-    // Clock is INJECTED — the folder's one timeline mints at the composition root alone.
     public static Fin<SessionJournal> Of(
         MonotonicTimeline clock, FaultCell faults, Option<JournalPolicy> policy = default, Op? key = null);
 
-    // Whole loop rides the kernel ASYNC catch arm: a cancelled drain keeps `KernelFault.Cancelled` and a host raise
-    // lands typed on the cell — no swallowing and no untyped catch is spellable on this shape. The reader is the
-    // kernel drain's single-reader contract; this consumer is its one structural reader.
     public static Fin<Lease<SessionJournal>> Mount(
         EvidenceDrain<GhFact> drain, MonotonicTimeline clock, FaultCell faults,
         Option<JournalPolicy> policy = default, Op? key = null) {
@@ -144,7 +128,6 @@ public sealed class SessionJournal : IDisposable {
                select (Lease<SessionJournal>)new Lease<SessionJournal>.Owned(Value: journal);
     }
 
-    // ONE committed transition settles row, sequence, and tallies; the verdict is read, never discarded.
     public Fin<JournalRow> Append(JournalFact fact, Option<Guid> document = default, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(fact)
@@ -174,11 +157,8 @@ public sealed class SessionJournal : IDisposable {
                select new JournalExport(Rows: rows.Strict(), Tallies: held, Captured: stamp);
     }
 
-    // Kernel one-shot: a second dispose reads the step's refusal and does nothing; cancel, join, release.
     public void Dispose();
 
-    // Emit-then-park (the capture exemplar): the consumer loss surfaces on the log channel FIRST, then the
-    // cell's own accounting carries the park verdict — Shed/Lost are the telemetry root's reads.
     private Unit Park(Error cause) {
         JournalLog.ConsumerFaulted(GhLog.For(category: nameof(SessionJournal)), cause.Message);
         return ignore(faults.Park(point: Rail, cause: cause));

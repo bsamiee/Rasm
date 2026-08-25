@@ -22,14 +22,12 @@ Wire visuals for the Grasshopper boundary fold through one owner set — route a
 - Growth: a new route geometry is one installed `WireShape` subclass — zero edits here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Admission alone: `Shape` is the proved host value and consumers read the host contract off it directly —
-// Rename-wrapper roster this capsule once carried is the deleted form its own law named.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct WireRoute {
     private WireRoute(WireShape shape) => Shape = shape;
@@ -41,7 +39,6 @@ public readonly record struct WireRoute {
         return op.Catch(() => Fin.Succ(new WireRoute(shape: WireShape.Create(source, target))));
     }
 
-    // Both pin admissions ACCUMULATE, so a detached source and a detached target report together.
     public static Fin<WireRoute> Of(IParameterAttributes source, IParameterAttributes target, Op? key = null) {
         Op op = key.OrDefault();
         return (op.Need(value: source).ToValidation(), op.Need(value: target).ToValidation())
@@ -54,18 +51,14 @@ public readonly record struct WireRoute {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TracedRoutes(Seq<(WireEnds Ends, WireRoute Route)> Routes, Seq<Error> Refused);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
-// PROCESS-GLOBAL custody, ONE authority: the host slot itself — Install runs inside the UI marshal at plugin
-// load, refuses a held slot (this plugin's or a sibling's), and Release clears only the candidate it still owns;
-// no shadow seat exists to disagree with the slot.
 public static class RouteStyle {
     public static Option<Type> Current => Optional(WireShape.ShapeType);
 
     public static Fin<Lease<Mounted<Unit>>> Install(Type routeType, FaultCell faults, Op? key = null) {
         Op op = key.OrDefault();
         return from candidate in op.Need(value: routeType)
-               // Three clauses, one applicative: a candidate failing two reads both refusals.
                from admitted in (
                        Clause(typeof(WireShape).IsAssignableFrom(candidate), "a WireShape-derived type", op),
                        Clause(!candidate.IsAbstract && !candidate.ContainsGenericParameters, "a closed concrete type", op),
@@ -93,8 +86,6 @@ public static class RouteStyle {
 
 [BoundaryAdapter]
 public static class Traced {
-    // Ruled posture: every row lands in one lane — accepted routes or typed refusals carrying their ends —
-    // through the one Partition fold; the caller parks the refusal lane on the composition's fault cell.
     public static TracedRoutes Of(Seq<(WireEnds Ends, IParameterAttributes Source, IParameterAttributes Target)> pins, Op key) {
         (Seq<Error> refused, Seq<(WireEnds, WireRoute)> routed) = pins
             .Map(row => WireRoute.Of(source: row.Source, target: row.Target, key: key)
@@ -113,17 +104,15 @@ public static class Traced {
 - Growth: a new pick modality is one method over an existing host read.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class WirePick {
-    // Result-typed end to end: the query answers the receipt, and the hit projects through the generated partial
-    // overload — one meaningful arm, one default, no ceremony ladder.
     public static Fin<Option<WireEnds>> At(PointF at, Op? key = null) {
         Op op = key.OrDefault();
         return from query in CanvasQuery.Pick(at: at, gates: PickGates.Wiring, key: op)
@@ -149,16 +138,14 @@ public static class WirePick {
 - Growth: a new wire treatment is a `Styled` derivation; a new pass policy is one plan parameter — the draw seam lives at the executor and never forks.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Host names all four corners — ResolveColours' two bools select among four palette outcomes — so the
-// correspondence is a keyed row set carrying the resolve, and the bool pair is unrepresentable past this seam.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class EndSelection {
     public static readonly EndSelection Neither = new(key: 0, source: false, target: false);
@@ -169,8 +156,6 @@ public sealed partial class EndSelection {
     internal bool SelectsSource { get; }
     internal bool SelectsTarget { get; }
 
-    // Out-pair lift and the colour admission in one row read: host colours enter the kernel owner HERE, and
-    // Eto quantization waits for the executor's pen stock.
     public Fin<WirePens> Pens(WireSkin skin, Op key) {
         skin.ResolveColours(SelectsSource, SelectsTarget, out Color source, out Color target);
         return from a in PaintColor.OfHost(host: source, key: key)
@@ -179,17 +164,14 @@ public sealed partial class EndSelection {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// PERCEPTUAL ends: equal ends draw solid, unequal ends draw the source-to-target gradient — derived at the
-// executor's pen mint, never stored as a mode.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct WirePens(
     PerceptualColor Source, PerceptualColor Target, EdgeDescription Outer, Option<EdgeDescription> Inner);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class WireSkinLens {
-    // ONE projection owner: the kernel host-slot member carries every Option onto the host's nullable fold.
     public static WireSkin Styled(
         WireSkin skin, Option<Color> normal = default, Option<Color> selected = default,
         Option<Color> selectedOpposite = default, Option<Color> selectedGlow = default,
@@ -205,9 +187,6 @@ public static class WireSkinLens {
 
 [BoundaryAdapter]
 public static class WirePass {
-    // PRODUCER, not a draw loop: ONE WireCase per wire — both present layers ride its Ink (the executor
-    // draws the outer edge always, the inner on presence); the executor culls, caches pens per palette corner,
-    // draws, and tallies — this fold owns none of that.
     public static Fin<GhPlan> Plan(
         WireSkin skin, Seq<(WireRoute Route, EndSelection Ends)> wires, float detailing, Op? key = null) {
         Op op = key.OrDefault();

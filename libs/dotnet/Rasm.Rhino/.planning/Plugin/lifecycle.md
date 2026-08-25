@@ -27,7 +27,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Side`, `Op.Text`, `Lease<T>`, `Cell`, `Transition`, `FaultBand`, `Retriability`, `ValidityClaim`, `Custody`), `Domain/hooks` (`Ring<T>`), `Domain/frame` (`PackageIdentity<TKey,THostFact>`), `Parametric/projections` (`MonotonicTimeline`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:53` — `LoadReturnCode`; `:81` — `OnLoad`/`OnShutdown`/`ResetMessageBoxes`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Parametric;
@@ -42,7 +42,7 @@ using Rhino.UI;
 
 namespace Rasm.Rhino.Plugin;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<LoadReturnCode>]
 public sealed partial class LoadVerdict {
     public static readonly LoadVerdict Loaded = new(key: LoadReturnCode.Success);
@@ -65,8 +65,6 @@ public abstract partial record PluginPhase {
     public sealed record ObjectPages(PageBasket Basket) : PluginPhase;
 }
 
-// A program contributing no pages at a page moment answers `Observed` — declining to contribute is a real
-// declaration, not an illegal corner — so the retain fold is total and owes no guard.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PhaseAnswer {
     private PhaseAnswer() { }
@@ -81,7 +79,7 @@ public abstract partial record RegistrarState {
     public sealed record Closed : RegistrarState;
 }
 
-// --- [ERRORS] -------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PluginFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostPlugin;
@@ -103,9 +101,7 @@ public abstract partial record PluginFault : Fault {
         seatTaken: static fault => $"Plugin seat '{fault.Seat}' is already taken for '{fault.Key}'.");
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The seat is the adapter's own protected `RegisterCommand` bound as a delegate; the registrar closes on the
-// override's return, so a program that stashes it registers nothing instead of corrupting the host's roster.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class CommandRegistrar {
     private readonly Atom<RegistrarState> state = Atom<RegistrarState>(new RegistrarState.Open());
     private readonly Func<Command, bool> seat;
@@ -144,9 +140,7 @@ public sealed class CommandRegistrar {
 - Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[ValidationError]`, `[IgnoreMember]`, `[BoundaryAdapter]`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`, `ValidityClaim`); `Persistence/settings` (`SettingKey`); `HostUi/shell` (`ShellMount`); `Plugin/census` (`PluginAct`); `Plugin/document` (`IParticipant`).
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The floor is INTERNAL and the row is generic: `GetPlugInObject`'s contract proof is the type parameter, so the
-// `Type` witness and the `IsInstanceOfType` probe that stood in for it have no spelling left.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal interface IPluginCapability {
     Type Contract { get; }
     Fin<object> Publish(Op key);
@@ -160,7 +154,7 @@ public sealed record PluginCapability<TContract>(Func<Op, Fin<TContract>> Publis
         key.Catch(() => Publish(arg: key)).Map(static published => (object)published);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class PluginBoot {
@@ -237,7 +231,7 @@ public sealed partial class PluginProgram {
 - Packages: LanguageExt.Core (`Fin`, `Seq`, `Traverse`); kernel `Domain/frame` (`PackageIdentity<TKey,THostFact>.Resolve`), `Domain/rails` (`Op`, `Lease<T>`), `Parametric/projections` (`MonotonicTimeline.Of`); `Document/events` (`RhinoInstruments.Telemetry`, `PluginKey`); `HostUi/shell` (`ShellCapsule.Open`, `ShellMount`, `HostFacts.Process`, `HostSnapshot`); `Persistence/settings` (`SettingPath`); `Plugin/census` (`PluginRegistry.Commit`, `PluginReceipt`); `Plugin/document` (`PluginSettings.Commit`, `SettingsBridge.Root`, `SettingsLoad`).
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PluginRoot(
     PackageIdentity<PluginKey, HostSnapshot> Identity,
     MonotonicTimeline Timeline,
@@ -261,7 +255,7 @@ public sealed record PluginRoot(
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Cell.Take`, `Cell.Seat`, `Transition`, `Lease<T>.Use`, `Custody.Release`), `Domain/hooks` (`Ring<T>`); `HostUi/pages` (`PageBasket`, `PageMountReceipt`); `Document/session` (`DocKey.Of`); `Plugin/document` (`Participation.Cross`, `ParticipationAsk`, `ParticipationAnswer`); RhinoCommon plug-ins (`Rasm.Rhino/.api/api-rhinocommon-plugins.md:81` — `OnLoad`, `OnShutdown`, `ResetMessageBoxes`; `:60` — `Id`, `Version`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public abstract partial class RasmPlugIn : PlugIn {
     private readonly Ring<Error> refusals = new(cap: PluginFaults.Retention);
     private readonly Atom<Option<LoadEvidence>> load = Atom(Option<LoadEvidence>.None);
@@ -279,8 +273,6 @@ public abstract partial class RasmPlugIn : PlugIn {
         Shed: refusals.Shed,
         Lost: refusals.Lost);
 
-    // `ref` forbids a lambda body, so the load arm is statement-shaped: run the boot fold, project the evidence,
-    // seat it, and write the host's message slot from the recorded evidence rather than from a second read of the rail.
     protected sealed override LoadReturnCode OnLoad(ref string errorMessage) {
         Op op = Op.Of(name: nameof(OnLoad));
         LoadEvidence evidence = Held(op).Bind(program => Boot(program: program, op: op)).Match(
@@ -294,9 +286,6 @@ public abstract partial class RasmPlugIn : PlugIn {
         return evidence.Verdict.Key;
     }
 
-    // The one moment inside `libs/` holding the plug-in assembly: identity, timeline, prerequisites, settings,
-    // capsule, and telemetry resolve once, and the resolved root reaches the program's own `Loading` case so a leaf
-    // binds what the root proved instead of re-deriving any of it.
     private Fin<PluginRoot> Boot(PluginProgram program, Op op) => Record(outcome:
         from identity in PackageIdentity<PluginKey, HostSnapshot>.Resolve(
             pluginRoot: GetType().Assembly,
@@ -419,8 +408,6 @@ public abstract partial class RasmPlugIn : PlugIn {
             op: op));
     }
 
-    // A leaf whose `Program` read answers null has no declaration to route, so every entry resolves it through
-    // one member and refuses identically.
     private Fin<PluginProgram> Held(Op op) =>
         Optional(Program).ToFin(Fail: new PluginFault.Unbound(Key: op, Member: nameof(Program)));
 
@@ -430,7 +417,6 @@ public abstract partial class RasmPlugIn : PlugIn {
         from _ in Retain(answer: answer)
         select answer);
 
-    // A total append, so the plain swap is the lawful spelling — no verdict exists to discard.
     private Fin<Unit> Retain(PhaseAnswer answer) => answer.Switch(
         state: mounts,
         observed: static (_, _) => Fin.Succ(value: unit),
@@ -441,8 +427,6 @@ public abstract partial class RasmPlugIn : PlugIn {
         from answer in Participation.Cross(ask: ask(arg: program), key: op)
         select answer);
 
-    // Shutdown drains the receipt roster through the take-and-clear transition, releases in reverse so a child
-    // registration frees before its parent, and folds the capsule's own disposal into the same aggregate.
     private Fin<Unit> Release(Op op) => Record(outcome:
         from held in Cell.Take(cell: mounts).Switch(
             state: op,
@@ -477,16 +461,12 @@ public abstract partial class RasmPlugIn : PlugIn {
 - Packages: kernel `Domain/hooks` (`Ring<T>`), `Numerics/atoms` (`Dimension`); LanguageExt.Core (`Seq`, `Option`, `Error`).
 
 ```csharp signature
-// --- [POLICIES] -----------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 public static class PluginFaults {
-    // The capacity is a POLICY ROW, not a literal inside a ledger body: 256 refusals of retained history, the same
-    // bound the command and events journals declare, and a reader tunes it here or nowhere.
     internal static readonly Rasm.Numerics.Dimension Retention = Rasm.Numerics.Dimension.Create(value: 256);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// `Message` is the exact text the host received in its `ref string` slot, so the recorded evidence and the user's
-// load dialog can never disagree; a success carries the empty string the host treats as "no message".
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LoadEvidence(LoadVerdict Verdict, string Message, Option<Error> Fault);
 
 public sealed record LoadReport(

@@ -25,10 +25,7 @@
 - Boundary: `Layer.PathSeparator`, `GetLeafName`, `GetParentName`, and `IsValidName` are the host path grammar; `LayerPath` composes them once, so no consumer re-derives separator arithmetic or name legality.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// No `using System.Drawing`: `Color` is a host simple name the branch also carries on the kernel colour rail, so
-// every colour on this page spells `System.Drawing.Color` in full. `Rasm.Drawing` enters for the standards estate —
-// its `LayerName` is the ONE standards-name owner, which is why the host leaf identity here is `LeafName`.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -38,10 +35,7 @@ using Rhino.DocObjects.Tables;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The HOST leaf rule alone: legal layer text with no separator and no field structure, because the host accepts
-// arbitrary user text. The standards grammar is the kernel's (`Rasm.Drawing.LayerName`) and crosses at
-// `StandardLayers` — this owner never grows a discipline column.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public readonly partial struct LeafName : IDetachedDocumentResult {
@@ -101,29 +95,18 @@ public readonly partial struct LayerPath : IDetachedDocumentResult {
         key.OrDefault().AcceptValidated<LayerPath>(candidate: value);
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// The standards crossing, both directions of ONE correspondence and zero local grammar: the kernel owns the
-// standards name, the host scheme row owns the projection, and this seam only pairs them with the host path
-// admission. A set issued under a standard creates and reads layers through these two members; a document
-// following no standard never enters here.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class StandardLayers {
-    // `Rasm.Drawing.LayerName` → the admitted host path: the scheme row spells the segments (discipline over
-    // major over minor), and the host leaf rule re-admits each — a standards field the host would refuse as a
-    // leaf surfaces typed here rather than as a table write failure.
     public static Fin<LayerPath> Path(Rasm.Drawing.LayerName name, Op? key = null) {
         Op op = key.OrDefault();
         return LayerPath.Of(value: HostLayerScheme.RhinoPath.Path(name: name), key: op);
     }
 
-    // Host path → the standards name under a DECLARED standard: parsing is explicit because a hyphenated raw
-    // string is ambiguous across the grammars, exactly the law the kernel owner states.
     public static Fin<Rasm.Drawing.LayerName> Name(LayerStandard standard, LayerPath path, Op? key = null) =>
         HostLayerScheme.RhinoPath.Unproject(standard: standard, path: path.Value, key: key);
 }
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The deleted-row resolution axis as ROWS: `ActiveOnly` is every ordinary address, `IncludeDeleted` the revive
-// path's — the boolean whose negation each resolve arm re-spelled reads as the row's own admission.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class Liveness {
     public static readonly Liveness ActiveOnly = new(key: false);
@@ -153,8 +136,6 @@ public abstract partial record LayerRef {
 
     public static LayerRef Current { get; } = new CurrentCase();
 
-    // The spine's index value object, not a bare `int`: the host's own miss sentinel for this table is `-1`, and a
-    // raw int carries it into every consumer that reads a resolved index as a live slot.
     internal Fin<ResourceIndex> Index(RhinoDoc document, Liveness liveness, Op key) =>
         Resolve(document: document, liveness: liveness, key: key)
             .Bind(row => ResourceIndex.Admit(value: row.LayerIndex, key: key));
@@ -175,7 +156,6 @@ public abstract partial record LayerRef {
                 from row in Optional(context.Document.Layers.FindIndex(index: address.Value.Value)).ToFin(Fail: context.Op.MissingContext())
                 from admitted in guard(context.Liveness.Admits(row: row), context.Op.MissingContext()).ToFin()
                 select row,
-            // A path address resolves under `ActiveOnly` whatever the caller's row: a dead branch has no live path.
             pathCase: static (context, address) =>
                 from index in context.Op.Catch(() => ResourceIndex.Admit(
                     value: context.Document.Layers.FindByFullPath(
@@ -189,12 +169,10 @@ public abstract partial record LayerRef {
                 .Filter(static row => !row.IsDeleted)
                 .ToFin(Fail: context.Op.InvalidResult()));
 
-    // The host's own not-found answer for this table, named once so no lookup re-spells it and `ResourceIndex`
-    // refuses it on the same line that reads it.
     private const int NoLayer = -1;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class LayerStamp : IDetachedDocumentResult {
@@ -236,12 +214,12 @@ public sealed partial class LayerStamp : IDetachedDocumentResult {
 - Boundary: the screen draw colour stays the host's own `System.Drawing.Color` evidence — a snapshot column, never a public payload crossing — and the PLOT product leaves only through the `PlotStyle` projection, where the colour admits into `PerceptualColor` once.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayerTrait : ICapability<LayerTrait> {
@@ -254,8 +232,6 @@ public sealed partial class LayerTrait : ICapability<LayerTrait> {
     public static readonly LayerTrait Deleted = new(key: "deleted");
     public static readonly LayerTrait Reference = new(key: "reference");
 
-    // The one corner no live table produces: a deleted current layer. `Reference ⊥ mutation` is the commit rail's
-    // admission over this set, because a law between a snapshot bit and a later operation is the rail's own fact.
     public static CapabilityLaw<LayerTrait> Law => law.Value;
     private static readonly Lazy<CapabilityLaw<LayerTrait>> law =
         new(static () => CapabilityLaw<LayerTrait>.Forbidden(Seq(CapabilitySet<LayerTrait>.Of(Deleted, Current))));
@@ -274,10 +250,6 @@ public sealed partial class LayerTrait : ICapability<LayerTrait> {
     }
 }
 
-// The host plot-weight axis with every state NAMED: the host spells "use the application default" as `0.0` and
-// "do not plot" as `-1.0` on one double (`Layer.PlotWeight`, api-rhinocommon-document.md), and a free positive
-// millimetre is an off-ladder width the ISO 128-24 ladder owns. `Pen` snaps through `LineWidth.For` — the ladder
-// is the authority and the snap is the drain — so no consumer compares a magic weight and no bare double crosses.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PrintPen {
     private PrintPen() { }
@@ -292,8 +264,6 @@ public abstract partial record PrintPen {
     public static Fin<PrintPen> Pen(Rasm.Drawing.LineWidth width, Op? key = null) =>
         key.OrDefault().Need(value: width).Map(static rung => (PrintPen)new PenCase(Width: rung));
 
-    // The ONE ingress off the host double: the two sentinels land their cases and a positive width snaps onto the
-    // ladder; anything else — negative-but-not-minus-one, non-finite — refuses typed.
     internal static Fin<PrintPen> OfHost(double weight, Op key) => weight switch {
         0.0 => Fin.Succ<PrintPen>(new HostDefaultCase()),
         -1.0 => Fin.Succ<PrintPen>(new NoPlotCase()),
@@ -303,14 +273,13 @@ public abstract partial record PrintPen {
         _ => Fin.Fail<PrintPen>(new KernelFault.OutOfRange(Label: nameof(PrintPen), Scalar: weight, Requirement: "0.0, -1.0, or a positive finite millimetre width", Key: Some(key))),
     };
 
-    // The ONE egress back onto the host double; the pen case writes its rung's own millimetres.
     internal double ToHost() => Switch(
         hostDefaultCase: static _ => 0.0,
         noPlotCase: static _ => -1.0,
         penCase: static pen => pen.Width.Width.Millimeters);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayerFace(
     System.Drawing.Color Color,
     System.Drawing.Color PrintColor,
@@ -327,10 +296,6 @@ public sealed record LayerFace(
             RenderMaterialIndex: layer.RenderMaterialIndex,
             SectionStyleIndex: layer.SectionStyleIndex));
 
-    // The CAD-egress projection: this layer's plot product as ONE kernel `PlotStyle` row under a caller-assigned
-    // ACI seat — width from the pen rung (the host-default posture reads the sheet's own line group at the caller),
-    // ink admitted into the kernel colour once, screening full. The DWG dial (`Exchange/options`) folds these rows
-    // into its `PlotStyleTable.Ctb`; a no-plot layer answers absence, because a pen table has no row for "never".
     public Fin<Option<Rasm.Drawing.PlotStyle>> PlotOf(Rasm.Drawing.AciIndex seat, Rasm.Drawing.LineWidth hostDefault, Op? key = null) {
         Op op = key.OrDefault();
         return Print.Switch(
@@ -397,10 +362,6 @@ public sealed record LayerNode(
     public Seq<LayerNode> Flatten() => this.Cons(Children.Bind(static child => child.Flatten()));
 }
 
-// Class, never record: the tree carries two derived caches — the flat projection and the id-keyed index — and a
-// record's synthesized equality would fold those `Lazy` fields in by reference, poisoning value comparison on the
-// one snapshot type consumers diff. The flat projection materializes ONCE per tree and every address probe reads
-// the index off it; the prior `Find` re-flattened the whole forest per call.
 public sealed class LayerTree : IDetachedDocumentResult {
     private readonly Lazy<Seq<LayerNode>> flat;
     private readonly Lazy<HashMap<Guid, LayerNode>> byId;
@@ -456,13 +417,6 @@ public sealed class LayerTree : IDetachedDocumentResult {
             Details: details.Somes(),
             Children: Seq<LayerNode>());
 
-    // `ParentLayerId` is a raw host id the table does not prove acyclic — a corrupt archive or a mid-edit read can
-    // present A parented to B parented to A, and a recursive descent over that graph exhausts the stack, an
-    // uncatchable death no rail reports. The proof is therefore the CONTAINER'S: the parent edges build a
-    // `BidirectionalGraph`, `IsDirectedAcyclicGraph` is the witness (a cycle refuses typed, naming a path on the
-    // cycle), an orphan parent refuses as a typed miss before any edge lands, and `SourceFirstTopologicalSort`
-    // orders parents first — the REVERSE of that order assembles every child before its parent in one fold, and
-    // the tree's `Depth` derives from the same walk instead of a per-node budgeted climb.
     private static Fin<(Seq<LayerNode> Roots, int Depth)> Assembled(Seq<LayerNode> nodes, Op key) {
         HashMap<Guid, LayerNode> byId = toHashMap(nodes.Map(static node => (node.Identity.Id, node)));
         Option<LayerNode> orphan = nodes.Find(node => node.Parent.Exists(parent => byId.Find(parent).IsNone));
@@ -506,8 +460,6 @@ public sealed class LayerTree : IDetachedDocumentResult {
         });
     }
 
-    // Sibling order is the host's own: sort index first, then name under the case-insensitive comparison the layer
-    // table itself uses. The ordering leaves the carrier, so it re-enters through `toSeq` at the one site.
     private static Seq<LayerNode> Sorted(Seq<LayerNode> rows) =>
         toSeq(rows
             .OrderBy(static node => node.SortIndex)
@@ -529,8 +481,7 @@ public sealed class LayerTree : IDetachedDocumentResult {
 - Packages: `RhinoCommon` per-viewport override family and staged-modify members (`Rasm.Rhino/.api/api-rhinocommon-document.md` — `SetPerViewport*`/`DeletePerViewport*`/`UnsetPerViewportPersistentVisibility`, `Layer.PlotWeight`, `Layers.Modify`); kernel `Rasm.Drawing.LineWidth` behind `PrintPen`; `Thinktecture.Runtime.Extensions` delegate-column rosters.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// One row per per-detail slot, the host SET/CLEAR pair as columns: the five former cases differed only here.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 internal sealed partial class DetailPaint {
     internal static readonly DetailPaint Color = new(
@@ -589,8 +540,6 @@ public abstract partial record LayerOverride {
     public static Fin<LayerOverride> PersistentVisibility(Guid viewport, Option<bool> value = default, Op? key = null) =>
         Addressed(viewport: viewport, key: key, mint: address => new ToggleCase(Viewport: address, Slot: DetailToggle.PersistentVisibility, Value: value));
 
-    // The typed pen at the write edge: a per-detail width is an admitted `PrintPen` — a ladder rung or a named
-    // host posture — never a raw millimetre, so the override edge and the snapshot edge read one axis.
     public static Fin<LayerOverride> Pen(Guid viewport, Option<PrintPen> value = default, Op? key = null) =>
         Addressed(viewport: viewport, key: key, mint: address => new PenCase(Viewport: address, Value: value));
 
@@ -618,7 +567,7 @@ public abstract partial record LayerOverride {
             purgeCase: static (context, edit) => LayerEdit.Write(op: context.Op, write: () => context.Target.DeletePerViewportSettings(viewportId: edit.Viewport)));
 }
 
-// --- [SUBSECTION] — staged-write rosters: each row carries its host write; floors and member pairs are row data.
+// --- [SUBSECTION]
 [SmartEnum<int>]
 internal sealed partial class PaintColumn {
     internal static readonly PaintColumn Color = new(key: 0, write: static (layer, value) => layer.Color = value);
@@ -628,8 +577,6 @@ internal sealed partial class PaintColumn {
     internal partial void Write(Layer layer, System.Drawing.Color value);
 }
 
-// Four indexed columns, one admission: the FLOOR is the row's own — linetype and IGES level at zero, render
-// material and section style admitting the host's `-1` "unassigned" slot.
 [SmartEnum<int>]
 internal sealed partial class SeatColumn {
     internal static readonly SeatColumn Linetype = new(key: 0, floor: 0, write: static (layer, value) => layer.LinetypeIndex = value);
@@ -691,8 +638,6 @@ public abstract partial record LayerEdit {
 
     public static LayerEdit PrintColor(System.Drawing.Color value) => new PaintCase(Column: PaintColumn.PrintColor, Value: value);
 
-    // The typed pen replaces the bare-double factory whole: a caller states a ladder rung, the host default, or
-    // no-plot — the three states D38 named — and no `>= -1.0` guard survives because no raw weight enters.
     public static Fin<LayerEdit> Pen(PrintPen value, Op? key = null) =>
         key.OrDefault().Need(value: value).Map(static pen => (LayerEdit)new PenCase(Value: pen));
 
@@ -720,8 +665,6 @@ public abstract partial record LayerEdit {
 
     public static LayerEdit PersistentLocking(Option<bool> value = default) => new PersistCase(Slot: PersistSlot.Locking, Value: value);
 
-    // `AcceptText` refuses blank, so the text factory could never express "clear the description"; clearing is its
-    // own construction and the case carries `Option` — absence writes the empty string the host stores for none.
     public static Fin<LayerEdit> Description(string value, Op? key = null) =>
         key.OrDefault().AcceptText(value: value)
             .Map(admitted => (LayerEdit)new DescriptionCase(Value: Some(admitted)));
@@ -780,22 +723,16 @@ public abstract partial record LayerEdit {
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `FactStream`, `UndoSerial`), `Document/commit.md` (`DocumentCommit.Sealed`/`Compensated`, `RedrawPolicy`, `HostInteraction`), `Document/session.md` (`SessionNeed.Mutation`, `UndoCustody`, `DraftFault`); `RhinoCommon` layer-table mutation members per the `.api` catalog.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// The folder receipt is the shared stream under this page's own name: two declarations and an extension block are
-// the whole join, per the facts page's conformance law.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using LayerReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Document.LayerSlot, Rasm.Rhino.Document.LayerBody>;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The sibling-sort direction as rows: the KEY is the host bool, so the mirror column deletes and the call site
-// reads a name instead of a bare `ascending:` literal.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class SortSense {
     public static readonly SortSense Ascending = new(key: true);
     public static readonly SortSense Descending = new(key: false);
 }
 
-// The duplicate copy scope: two independent host bools whose four corners are all real — layer alone, with
-// objects, with sublayers, whole subtree with residents — named as rows so no call site carries a bool pair.
 [SmartEnum<int>]
 public sealed partial class DuplicateScope {
     public static readonly DuplicateScope LayerOnly = new(key: 0, objects: false, sublayers: false);
@@ -922,8 +859,6 @@ public abstract partial record LayerOp {
     public static Fin<LayerOp> Arrange(LayerArrangement arrangement, Op? key = null) =>
         Optional(arrangement).ToFin(Fail: key.OrDefault().InvalidInput()).Map(order => (LayerOp)new ArrangeCase(Arrangement: order));
 
-    // The serial is the spine's own admitted scalar — zero is unrepresentable — so the `> 0u` guard the raw
-    // `Option<uint>` needed deletes by construction.
     public static Fin<LayerOp> Rollback(LayerRef target, Option<UndoSerial> serial = default, Op? key = null) =>
         Addressed(target: target, key: key, mint: address => new RollbackCase(Target: address, Serial: serial));
 
@@ -1106,9 +1041,6 @@ public abstract partial record LayerOp {
 
     private sealed record LayerMerge(int Relayered, Seq<Error> CleanupFaults);
 
-    // The merge IS a compensation fold, so it composes the slice's one compensation algebra: `Compensated` lands
-    // each element, rolls every landed key back on the first refusal, and the source-layer delete is exactly the
-    // RELEASE step — it runs once the whole fold has landed and its own refusal unwinds the landed prefix.
     private static Fin<LayerMerge> Merged(RhinoDoc document, int sourceIndex, int targetIndex, Op op) =>
         from moves in StagedMoves(document: document, sourceIndex: sourceIndex, op: op)
         from merged in DocumentCommit.Compensated(
@@ -1120,8 +1052,6 @@ public abstract partial record LayerOp {
                     op: op),
                 release: _ => op.Confirm(success: document.Layers.Delete(layerIndex: sourceIndex, quiet: true)))
             .BiBind(
-                // The retained originals free on BOTH exits and only after the fold has settled — a release that
-                // freed them before rollback would hand the restore a disposed attribute set.
                 Succ: landed => Fin.Succ(value: new LayerMerge(
                     Relayered: landed.Count,
                     CleanupFaults: Release(moves: moves, op: op))),
@@ -1129,10 +1059,6 @@ public abstract partial record LayerOp {
                     .Fold(primary, static (fault, cleanup) => fault + cleanup)))
         select merged;
 
-    // One duplicate per resident, retained as the restore payload. The census reads the residents through the
-    // spine's own query value — hidden and light residents ride the axis set — so the merge mints no second
-    // settings shape beside `QuerySpec`. RENAMED from the prior `Staged` twin: two privates of one name, two
-    // concerns.
     private static Fin<Seq<LayerMove>> StagedMoves(RhinoDoc document, int sourceIndex, Op op) =>
         from index in ResourceIndex.Admit(value: sourceIndex, key: op)
         from spec in QuerySpec.Of(
@@ -1179,9 +1105,7 @@ public abstract partial record LayerOp {
 ```
 
 ```csharp signature
-// --- [SUBSECTION] — the folder receipt: kind vocabulary, body family, kinded slot roster, and the alias.
-// The former hand receipt — a local five-case fact union, a hand fold, six hand projections, and a bespoke
-// record struct — deletes whole: the stream, the gate, the stamp, and the projections are `Document/facts.md`'s.
+// --- [SUBSECTION]
 [SmartEnum<int>]
 public sealed partial class LayerBodyKind : ICapability<LayerBodyKind> {
     public static readonly LayerBodyKind Node = new(key: 0);
@@ -1201,7 +1125,6 @@ public abstract partial record LayerBody : IFactBody<LayerBodyKind> {
     public sealed record Reclaimed(int Tally) : LayerBody;
     public sealed record UndoRecord(UndoSerial Serial) : LayerBody;
 
-    // The kind answer is one total fold — a new case cannot compile without naming its kind.
     public LayerBodyKind Kind => Switch(
         node: static _ => LayerBodyKind.Node,
         merged: static _ => LayerBodyKind.Merge,
@@ -1210,8 +1133,6 @@ public abstract partial record LayerBody : IFactBody<LayerBodyKind> {
         undoRecord: static _ => LayerBodyKind.Undo);
 }
 
-// One row per receipt slot; the `Bodies` column IS the admission gate — `Admits` derives on the interface, so a
-// slot cannot exist without declaring what it emits and joining the stream is exactly these two declarations.
 [SmartEnum<int>]
 public sealed partial class LayerSlot : IFactSlot<LayerBody, LayerBodyKind> {
     public static readonly LayerSlot Created = new(key: 0, bodies: CapabilitySet<LayerBodyKind>.Of(LayerBodyKind.Node));
@@ -1233,7 +1154,6 @@ public sealed partial class LayerSlot : IFactSlot<LayerBody, LayerBodyKind> {
     public CapabilitySet<LayerBodyKind> Bodies { get; }
 }
 
-// Folder-shaped mints and readers over the shared stream — extension members, no second stream type.
 public static class LayerFacts {
     public static Fin<LayerReceipt> Node(LayerSlot slot, LayerStamp stamp, Op key) =>
         LayerReceipt.Of(slot: slot, body: new LayerBody.Node(Stamp: stamp), key: key);
@@ -1250,8 +1170,6 @@ public static class LayerFacts {
     public static Fin<LayerReceipt> Reclaimed(int tally, Op key) =>
         LayerReceipt.Of(slot: LayerSlot.Reclaimed, body: new LayerBody.Reclaimed(Tally: tally), key: key);
 
-    // The undo stamp rides the stream's own projection: the typed serial is minted HERE, so a zero host serial
-    // never becomes a body — the shared scalar refuses it at admission.
     public static LayerReceipt Stamp(this LayerReceipt receipt, uint serial) =>
         receipt.Stamped(
             slot: LayerSlot.UndoRecord,
@@ -1269,8 +1187,7 @@ public static class LayerFacts {
     public static int Touched(this LayerReceipt receipt) => receipt.FactCount(slot: LayerSlot.Amended);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// One named program with its redraw posture: the commit envelope reads both, so a delta is the WHOLE ask.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayerDelta {
     private LayerDelta(Seq<LayerOp> operations, Option<string> recordName, RedrawPolicy redraw) {
         Operations = operations;
@@ -1290,10 +1207,8 @@ public sealed record LayerDelta {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Layers {
-    // The read window: the whole table as one immutable DAG-proved snapshot. The detail-viewport roster seats
-    // per-detail override probes on every node face; the trailing `Op?` is the caller's correlation key (E-R54).
     public static Fin<LayerTree> Ask(DocumentSession session, Option<Seq<Guid>> detailViewports = default, Op? key = null) {
         Op op = key.OrDefault();
         return session.Demand(
@@ -1302,8 +1217,6 @@ public static partial class Layers {
             needs: [SessionNeed.Read]);
     }
 
-    // The mutation rail: one demand, one sealed record, one receipt. Custody is the session's typed axis — a
-    // recorded commit is `UndoCustody.Recorded`, and the receipt's undo stamp rides the record's serial.
     public static Fin<LayerReceipt> Commit(DocumentSession session, LayerDelta delta, Op? key = null) {
         Op op = key.OrDefault();
         return session.Demand(
@@ -1343,21 +1256,14 @@ public static partial class Layers {
 - Growth: one appended entity field beside one domain column carries a new axis; every containment, member, and view relation stays nested under its owner.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// Framing left this boundary with the kernel drain: the preimage is `CanonicalWriter`'s, so no buffer writer, no
-// `Encoding`, and no frame helper survives here. `Rasm.Contracts.Organization` is the GENERATED namespace of the
-// corpus-homed source, reached by project reference rather than declared under this host package, because the family
-// it spells is host-free.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using Celly.Protovalidate;
 using Google.Protobuf;
 using Rasm.Contracts.Organization;
 using Riok.Mapperly.Abstractions;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `[03]`'s `CapabilitySet<LayerTrait>` stays the snapshot's evidence and collapses here onto exactly the pair the
-// wire declares: two RESOLVED columns, never a second trait set, so a peer reads two defined booleans rather than a
-// host set whose membership it cannot interpret.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record OrganizationEntity(
     UInt128 Key,
     LeafName Name,
@@ -1376,10 +1282,7 @@ public sealed record OrganizationFact(
     Seq<OrganizationEntity> Roots,
     Option<EntityPath> Current) : IDetachedDocumentResult;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Federation vocabulary this boundary cannot mint: host objects bind to graph entities inside the element
-// projection, which seats outside the host plane's reference set, so a composition root supplies the binding as
-// one declared port. An unbound port refuses at the entry — never a fabricated key and never a crash.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IOrganizationAuthority {
     string Name { get; }
     UInt128 Source { get; }
@@ -1387,7 +1290,7 @@ public interface IOrganizationAuthority {
     Option<string> ViewOf(Guid viewport);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Layers {
     public static Fin<OrganizationFact> Ask(
         DocumentSession session,
@@ -1412,8 +1315,6 @@ public static partial class Layers {
 
     private sealed record ProjectedNode(OrganizationEntity Entity, Option<EntityPath> Current);
 
-    // The host snapshot is already a tree. Projection preserves that recursive value directly and derives the
-    // current selection as sibling indexes during the same descent, so no detached edge set or free key is minted.
     private static Fin<OrganizationFact> Projected(
         RhinoDoc document,
         LayerTree tree,
@@ -1459,10 +1360,6 @@ public static partial class Layers {
             .As()
             .ToFin();
 
-    // ONE object census grouped by layer index, never a per-layer query: a thousand-entity document costs one
-    // sweep. Axis posture matches the merge arm's own census — hidden and light residents ride the set — so a layer
-    // merge and an organization read agree on what a layer holds. An attribute-less native row folds away rather
-    // than seeding a phantom index.
     private static Fin<HashMap<int, Seq<Guid>>> Residents(RhinoDoc document, Op op) =>
         from spec in QuerySpec.Of(
             axes: Some(QueryAxis.Baseline.With(QueryAxis.Hidden).With(QueryAxis.Lights)),
@@ -1515,9 +1412,6 @@ public static partial class Layers {
             Current: currentKey.Filter(candidate => candidate == key).Map(_ => new EntityPath(path))
                 .OrElse(children.Choose(static child => child.Current).Head));
 
-    // `CanonicalWriter` frames the organizational address: it count-frames the chain and length-frames every label,
-    // so `A::B` and `B::A` key apart and a label carrying the host path separator shifts no field split. The hand
-    // framer this replaces owned an `ArrayBufferWriter`, a big-endian `int32` frame helper, and its own key width.
     private static Fin<UInt128> Address(LayerPath path, Op op) =>
         from chain in path.Segments(key: op)
         from key in op.Catch(() => Fin.Succ(value: ContentHash.Of(
@@ -1565,10 +1459,7 @@ public static class OrganizationAdmit {
     }
 }
 
-// --- [COMPOSITION] ------------------------------------------------------------------------
-// ONE seam mapper: every member of every wire message transcribes from its own declared row, so a renamed column
-// breaks the build instead of silently reading garbage on a peer decoder. Target-side completeness is the proof —
-// a wire field nothing fills is a build error — and the single ignored target states its own reason.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class OrganizationCodec {
@@ -1586,8 +1477,6 @@ public static partial class OrganizationCodec {
                select bytes;
     }
 
-    // Message presence carries optional selection. The path itself maps recursively like every entity; this single
-    // presence write is the generated mapper's nullable-message seam, not a second selection model.
     private static Organization Sealed(OrganizationFact fact) {
         Organization wire = Wire(fact: fact);
         fact.Current.IfSome(current => wire.Current = Path(current));
@@ -1604,9 +1493,6 @@ public static partial class OrganizationCodec {
     private static partial Rasm.Contracts.Organization.EntityPath Path(EntityPath path);
     private static partial ViewOverride Override(ViewOverrideFact value);
 
-    // Content keys leave as 16 BIG-ENDIAN bytes while `XxHash128` fills its own buffer little-endian, so byte order
-    // normalizes exactly ONCE — here, at the encode — and every peer decodes what it received without reversing a
-    // second time. One user mapping serves every key-shaped column on every message.
     [UserMapping]
     private static ByteString Key(UInt128 value) {
         Span<byte> bytes = stackalloc byte[KeyWidth];
@@ -1614,7 +1500,6 @@ public static partial class OrganizationCodec {
         return ByteString.CopyFrom(bytes: bytes);
     }
 
-    // Content-key width the estate wires everywhere; named once so no span literal re-spells it.
     private const int KeyWidth = 16;
 }
 ```

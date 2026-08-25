@@ -42,13 +42,6 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-# the folder's ONE raise-leg roster, satisfying the `runtime/reliability/faults#FAULT` `Leg` contract: every artifacts
-# page anchors its `FaultRow` table on a member here, so a raise cannot spell a subject its package never declares and
-# the `rostered` census proves each member against a real module at import. It seats HERE because a roster is only
-# cycle-free where every raiser can reach it, and this page is the artifacts module importing no sibling — the same
-# floor argument the payload structs below already stand on. Member VALUE is the dotted module path beneath `rasm`;
-# the NAME is the module's own, sub-qualified only where two subfolders spell one module — `derive`, `export`, `spec`,
-# and `layout` alone.
 class ArtifactsLeg(StrEnum):
     COMPOSE = "artifacts.composition.compose"
     IMPOSITION = "artifacts.composition.imposition"
@@ -133,10 +126,6 @@ class ArtifactsLeg(StrEnum):
     TABLE = "artifacts.visualization.table"
 
 
-# the folder's per-lane STAGE roster: the LABEL this plane hands each front of `execution/lanes#LANE` `Fronts`, which
-# the drive carries onto its `StageMark` and onto its deadline refusal, so both name the wave they answered. One
-# member because one long fold lives here — the CPM front drive — and a member nothing labels is a law with no
-# producer; position inside the fold rides the mark's `done`/`total`, never a second member per wave.
 class ArtifactStage(StrEnum):
     DRAIN = "drain"
 
@@ -152,22 +141,14 @@ class ArtifactHook(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# issue-scope correlation key: core/issue binds it as baggage + log key, every payload carries it as `scope`.
 ISSUE_BAGGAGE: Final[str] = "rasm.artifacts.issue"
 
-# This plane deposits its install receipt under this ledger key; a capsule reads an ABSENT row as the diagnosis
-# that this leg never ran, so one constant carries the name rather than a literal re-spelled at the deposit.
 OWNER: Final[str] = "artifacts.production"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class ArtifactInstall(Struct, frozen=True, gc=False):
-    # composition-time proof this plane's WHOLE point roster landed in the caller's composition — the ids now
-    # deliverable there, flat native scalars alone so the support-bundle capsule renders the row through
-    # `structs.asdict` with no nested mapping to breach its depth-walking redaction. Handing the registry's own
-    # `HookPoint` rows back instead leaks a `type[Struct]` field no receipt projection renders and names the
-    # registry's product rather than this owner's admission.
     points: tuple[str, ...]
 
 
@@ -197,10 +178,6 @@ class ReceiptEmitted(Struct, frozen=True, gc=False):
 
 
 class TransmittalIssued(Struct, frozen=True, gc=False):
-    # ANNOUNCED fact: width is the announcement's, so every scalar a downstream system routes on rides here and
-    # its wire projection invents none. `key` renders the pre-run aggregate — operation identity, since the reuse
-    # fabric elides two runs over identical inputs onto one — `register` names the issued index a consumer
-    # resolves each row from, and `occurred` stamps the settled close instant aware by construction.
     key: str
     register: str
     container: str
@@ -234,10 +211,6 @@ ARTIFACT_POINTS: Final[Block[HookPoint[Struct]]] = Block.of_seq([
     HookPoint(id=ArtifactHook.ISSUE_ADMITTED, payload=IssueAdmitted, modality=Modality(veto=None)),
     HookPoint(id=ArtifactHook.ISSUE_PLANNED, payload=IssuePlanned, modality=Modality(observe=None)),
     HookPoint(id=ArtifactHook.ISSUE_REFUSED, payload=IssueRefused, modality=Modality(observe=None)),
-    # the ONE point this plane does not fire itself: `LanePolicy.driven` owns the front drive and fires this id as
-    # its gate, so the payload is the drive's own `StageMark` and no artifacts struct stands between them. The
-    # retained depth rides the replay ARM, the one case that has a window: sized to the deepest CPM front chain a
-    # sheet-set issue drains, so a late subscriber reads the whole last drain.
     HookPoint(id=ArtifactHook.FRONT_DRAINED, payload=StageMark, modality=Modality(replay=8)),
     HookPoint(id=ArtifactHook.RECEIPT_EMITTED, payload=ReceiptEmitted, modality=Modality(observe=None)),
     TRANSMITTAL_POINT,
@@ -255,26 +228,16 @@ def scoped(context: otel_context.Context, /) -> str:
 
 
 class Production:
-    # Locked scope-keyed one-shot: each composition registers once under concurrent first use.
     _lock: ClassVar[RLock] = RLock()
     _wired: ClassVar[Map[ScopeKey, RuntimeRail[ArtifactInstall]]] = Map.empty()
 
     @classmethod
     def registered(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[ArtifactInstall]:
-        # This mint deposits its OWN receipt, the same leg its two peer producer folders run: runtime imports no
-        # producer, so the scoped `Hooks` ledger is where this plane's admission reaches the support-bundle capsule
-        # at all, and a captured archive missing this row names a leg that never ran rather than leaving every
-        # unregistered-id refusal unexplained. Depositing passes the receipt through, so it IS the rail's terminal.
         with cls._lock:
             match cls._wired.try_find(scope):
                 case Option(tag="some", some=prior):
                     return prior
                 case _:
-                    # ONE roster claim: the registry's whole-set arm swaps the point table only past its last
-                    # admitted row and reports every breach together, so a refused claim leaves custody exactly as
-                    # it stood. A per-point traverse bought the same accumulating diagnosis by surrendering that
-                    # atomicity — it mounts each prior row before the breach and owes a retire verb this plane
-                    # cannot spell, and the install receipt below would then name a roster only partly standing.
                     rail = Hooks.register(ARTIFACT_POINTS, scope=scope).map(
                         lambda points: Hooks.installed(OWNER, ArtifactInstall(points=tuple(point.id for point in points)), scope=scope)
                     )
@@ -298,13 +261,10 @@ class Production:
     def subscribed[P: Struct](
         cls, point: ArtifactHook | Block[HookPoint[Struct]], tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[Attachment] | RuntimeRail[Block[Attachment]]:
-        # the registry's own grain passes through: one id attaches to that point and `ARTIFACT_POINTS` fans one tap
-        # across this plane's whole table, and either way the answer is the DETACHER the caller brackets. Narrowing
-        # to the single-point arm left an app fanning a roster tap by hand, and answering a count retired nothing.
         return cls.registered(scope=scope).bind(lambda _install: Hooks.subscribe(point, tap, scope=scope))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = (
     "ARTIFACT_POINTS",

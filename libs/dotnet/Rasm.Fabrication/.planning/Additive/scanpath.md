@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. `SliceStack`, `ProcessBudget.Powder`, and optional `Su
 - Boundary: scaling is dimensionless against the profile it multiplies except `FocusOffset`, which is an additive length because focus is measured from a datum and has no meaningful zero to scale.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -47,7 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Additive;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ExposureClass {
     public static readonly ExposureClass Core = new("core");
@@ -59,8 +59,6 @@ public sealed partial class ExposureClass {
     public static readonly ExposureClass Remelt = new("remelt");
 }
 
-// Cell traversal law. Serpentine walks the cell lattice boustrophedon so consecutive cells abut; locality walks the
-// Morton order `ScanPlane` owns; sequential preserves the tessellation's own emission order.
 [SmartEnum<string>]
 public sealed partial class CellOrder {
     public static readonly CellOrder Serpentine = new("serpentine");
@@ -68,9 +66,7 @@ public sealed partial class CellOrder {
     public static readonly CellOrder Sequential = new("sequential");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// Every factor a zone applies to the base profile, in one row. `FocusOffset` is additive because focus is datum-
-// relative; the rest are dimensionless multipliers.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ExposureScale(
     Ratio Power,
     Ratio Speed,
@@ -90,8 +86,6 @@ public readonly record struct ExposureScale(
         && ContourPasses >= 0 && RemeltPasses >= 0;
 }
 
-// The factor table is DATA a caller replaces whole. `Baseline` is the one named preset carrying the landed shop
-// values; an unnamed class answers `Unity`, so a table stating three rows scales exactly those three.
 public sealed record ExposureScaling(FrozenDictionary<ExposureClass, ExposureScale> Rows) {
     public static readonly ExposureScaling Baseline = new(new Dictionary<ExposureClass, ExposureScale> {
         [ExposureClass.Core] = ExposureScale.Unity,
@@ -176,8 +170,6 @@ public sealed partial class LaserSource {
         Validate(id, field, maximumPower, spotDiameter, stitchWidth, focusMinimum, focusMaximum, drift,
             calibration, out LaserSource source).Admitted(source);
 
-    // Drift derates the commanded power and the envelope clamps it, so a source never receives a command its
-    // calibration cannot hold and the derate is applied once, here, rather than at every emission arm.
     public Power Derated(Power commanded, Ratio scale) => Power.FromWatts(Math.Min(
         commanded.Watts * scale.DecimalFractions * (1.0 - Drift.DecimalFractions),
         MaximumPower.Watts));
@@ -202,8 +194,6 @@ public sealed partial class ExposureProfile {
     public Length SkywritingLead { get; }
     public Length SkywritingLag { get; }
 
-    // A continuous-wave source states both pulse halves as zero, so duty is unity by construction rather than by a
-    // divide guarded at every read.
     public Ratio Duty => PulseOn + PulseOff == Duration.Zero
         ? Ratio.FromDecimalFractions(1.0)
         : Ratio.FromDecimalFractions(PulseOn.Seconds / (PulseOn + PulseOff).Seconds);
@@ -266,8 +256,6 @@ public sealed partial class TileForm {
     public static readonly TileForm Square = new("square", TileLattice.Square);
     public static readonly TileForm Hexagon = new("hexagon", TileLattice.Hexagon);
 
-    // The delegate column IS the tessellation: a row carries its own lattice, so the partition arm dispatches
-    // without a second switch and a new polygon family adds no branch anywhere.
     public Func<BoundingBox, double, Context, Fin<Seq<Loop>>> Tessellate { get; }
 }
 
@@ -285,8 +273,6 @@ public abstract partial record HatchPartition {
         tiles: static row => row.Span > Length.Zero && double.IsFinite(row.Span.Millimeters));
 }
 
-// The whole strategy as columns. `CellIncrement` advances the bearing per CELL so an island lattice breaks the
-// long thermal runs a single bearing would leave; `LayerIncrement` advances it per LAYER over `Cycle` layers.
 public sealed record HatchLaw(
     Angle Bearing,
     HatchPartition Partition,
@@ -313,8 +299,6 @@ public sealed record HatchLaw(
         Partition.Admitted && Cycle > 0
         && Seq(Bearing.Radians, CellIncrement.Radians, LayerIncrement.Radians).ForAll(double.IsFinite);
 
-    // Layer rotation is the cycle-wrapped multiple, so a build taller than the cycle repeats its bearing set
-    // rather than drifting off a monotonically growing angle.
     public Angle At(int layer) => Bearing + Angle.FromDegrees((layer % Cycle) * LayerIncrement.Degrees);
 }
 
@@ -331,18 +315,11 @@ public abstract partial record HatchProgram {
             && double.IsFinite(row.Offset.Millimeters));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TileLattice {
-    // Both lattices tessellate the AXIS-ALIGNED bound; the caller rotates into the bearing frame first, so a
-    // rotated strategy stays a lattice and neither row carries a rotation of its own.
     public static Fin<Seq<Loop>> Square(BoundingBox bound, double span, Context tolerance) =>
         Steps(bound, span, span).Traverse(cell => Rectangle(cell, tolerance)).As();
 
-    // Flat-top hexagons: columns advance by three-quarters of the span and odd columns drop by half a row, which
-    // is the one offset that makes the six-neighbour packing exact — hex area equals the colPitch*rowPitch
-    // fundamental domain identically, and adjacent cells derive shared corners from the SAME world coordinate, so
-    // tolerance quantization moves both copies to one point and the region intersection sees closed shared edges,
-    // never a sliver; per-cell area drift stays under the perimeter-times-tolerance bound.
     public static Fin<Seq<Loop>> Hexagon(BoundingBox bound, double span, Context tolerance) {
         double radius = span * 0.5;
         double columnPitch = radius * 1.5;
@@ -390,9 +367,6 @@ public static class TileLattice {
 }
 
 public static class ScanGeometry {
-    // Cells arrive in the world frame already ordered: the lattice runs in the bearing frame, the order row walks
-    // it, and one inverse rotation seats the result. A `Whole` partition is the single-cell degenerate case, which
-    // is exactly what makes meander a setting rather than a generator.
     public static Fin<Seq<Loop>> Cells(HatchLaw law, BoundingBox bound, Angle bearing, Context tolerance) {
         Transform into = Transform.Rotation(-bearing.Radians, Vector3d.ZAxis, bound.Center);
         Transform back = Transform.Rotation(bearing.Radians, Vector3d.ZAxis, bound.Center);
@@ -406,8 +380,6 @@ public static class ScanGeometry {
             .Bind(cells => Ordered(cells, law.Order).Traverse(cell => Placed(cell, back)).As());
     }
 
-    // Alternate rays reverse, so consecutive rays inside one cell share an endpoint and the event fold has no
-    // discontinuity to jump. Clipping may still split a ray across a concavity — that IS a real discontinuity.
     public static Seq<Edge3> Rays(BoundingBox cell, Angle bearing, Length spacing) {
         Vector3d direction = new(Math.Cos(bearing.Radians), Math.Sin(bearing.Radians), 0.0);
         Vector3d normal = new(-direction.Y, direction.X, 0.0);
@@ -421,9 +393,6 @@ public static class ScanGeometry {
         });
     }
 
-    // The contour pass walks each ring from the vertex the phase selects and emits consecutive edges, so a ring
-    // stays continuous. Sorting a ring's EDGES by angle about the centroid scatters them and turns one closed
-    // contour into a jump per edge.
     public static Seq<Edge3> Ring(Loop loop, Angle phase) {
         Point3d centre = loop.Bound().Center;
         int start = toSeq(Enumerable.Range(0, loop.Count)).Fold(0, (best, index) =>
@@ -441,16 +410,12 @@ public static class ScanGeometry {
         state: cells,
         sequential: static rows => rows,
         locality: static rows => toSeq(rows.OrderBy(static cell => ScanPlane.Morton(cell.Bound().Center))),
-        // The lattice emits row-major, so reversing odd rows makes consecutive cells abut; the row is recovered
-        // from the cell centre's own Y band rather than from an index the ordering would have to carry.
         serpentine: static rows => toSeq(rows
             .Select((cell, index) => (Cell: cell, Index: index, Row: Band(rows, cell)))
             .OrderBy(static row => row.Row)
             .ThenBy(static row => row.Row % 2 == 0 ? row.Index : -row.Index)
             .Select(static row => row.Cell)));
 
-    // The lattice always emits at least one cell, so the extremum seeds from the head rather than from a bound
-    // that would have to stand in for an empty set this fold cannot receive.
     private static int Band(Seq<Loop> cells, Loop cell) {
         double floor = cells.Fold(cells.Head.Map(static row => row.Bound().Min.Y).IfNone(0.0),
             static (least, row) => Math.Min(least, row.Bound().Min.Y));
@@ -464,7 +429,6 @@ public static class ScanGeometry {
         return framed;
     }
 
-    // A band spans the region along the bearing, so the lattice degenerates to one column of full-width strips.
     private static BoundingBox Spanning(BoundingBox framed, double width) => new(
         framed.Min,
         new Point3d(framed.Min.X + Math.Max(framed.Diagonal.X, width), framed.Max.Y, framed.Min.Z));
@@ -488,7 +452,7 @@ public static class ScanGeometry {
 - Boundary: the contour class covers the whole region boundary rather than a subtracted area, because a boundary pass is a perimeter and carries no area to double-expose.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ExposureRegion(int Layer, Length Elevation, ExposureClass Class, SliceRegion Region, Ratio Density);
 
 public sealed record CandidateVector(int Layer, Length Elevation, ExposureClass Class, Edge3 Geometry);
@@ -520,7 +484,7 @@ public sealed record FieldCell(LaserId Source, Seq<Point2d> Boundary, Seq<LaserI
 
 public sealed record SourceAssignment(CandidateVector Vector, LaserSource Source, Seq<LaserSource> StitchPeers, double Score);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SourcePartition {
     public static Fin<Seq<FieldCell>> Build(SliceStack stack, SourcePolicy policy) =>
         stack.LayerCount == 0 || policy.Sources.IsEmpty
@@ -565,8 +529,6 @@ public static class SourcePartition {
             .Map((vector, row) => (Vector: vector, Index: row, Election: elected[row]))
             .Find(static row => row.Election.Source < 0)
             .Match(
-                // The refused vector's ordinal rides the fault's own index slot and the layer is a bounded
-                // ordinal; rendering an endpoint here stamps a culture-shaped coordinate into the locus grammar.
                 Some: row => Fin.Fail<Seq<SourceAssignment>>(new GeometryFault.DegenerateInput(
                     Kind.Mesh, row.Index, $"scan:source-field-miss:{row.Vector.Layer}")),
                 None: () => Fin.Succ(vectors.Map((vector, row) => {
@@ -603,8 +565,6 @@ public static class SourcePartition {
 
     internal static Point3d Midpoint(Edge3 edge) => 0.5 * (edge.A + edge.B);
 
-    // Exemption: the balance cell carries between elections, so the running assignment stays a span loop inside
-    // this one kernel; a rejected election lands as source -1 and the caller converts it on the rail.
     private static Arr<(int Source, double Score)> Elect(Span<double> plane, int rows, int width, double balanceWeight) {
         (int Source, double Score)[] elected = new (int, double)[rows];
         using SpanOwner<double> load = SpanOwner<double>.Allocate(width, AllocationMode.Clear);
@@ -614,8 +574,6 @@ public static class SourcePartition {
             TensorPrimitives.MultiplyAdd(load.Span, balanceWeight, score, balanced.Span);
             int index = TensorPrimitives.IndexOfMin(balanced.Span);
             bool admitted = index >= 0 && double.IsFinite(score[index]);
-            // Source `-1` IS the absence discriminant the caller converts on the rail, so the score slot beside it
-            // is never read and carries no sentinel of its own.
             elected[row] = admitted ? (index, score[index]) : (-1, 0.0);
             if (admitted)
                 load.Span[index]++;
@@ -625,9 +583,6 @@ public static class SourcePartition {
 
     private readonly struct ScoreAction(Memory<double> scores, int width, Arr<CandidateVector> vectors, Arr<LaserSource> sources)
         : IAction2D {
-        // A source whose envelope excludes the midpoint costs infinity: the plane is a `Span<double>` that carries
-        // no Option, so unreachability is the numeric identity that orders last under `IndexOfMin` and fails the
-        // finiteness test the election reads. A NaN here would poison the comparison instead of losing it.
         public void Invoke(int row, int column) {
             Point3d midpoint = Midpoint(vectors[row].Geometry);
             LaserSource source = sources[column];
@@ -673,8 +628,6 @@ public sealed record ScanPlane(Vector3d Gas, ThermalPolicy Thermal) {
     public double Bearing(SourceAssignment row) =>
         Vector3d.Multiply(row.Vector.Geometry.B - row.Vector.Geometry.A, Gas);
 
-    // The ONE Morton owner. Interleaving the zig-zag-mapped integer cell of a point yields a locality key whose
-    // sort is a space-filling walk, so a scan order asking for locality asks this and nothing re-derives it.
     public static ulong Morton(Point3d point) {
         long x = (long)Math.Floor(point.X);
         long y = (long)Math.Floor(point.Y);
@@ -720,8 +673,6 @@ public readonly record struct ScanSortKey(int Wave, int Source, double Bearing, 
 
 public readonly record struct ScheduledVector(SourceAssignment Assignment, int Wave);
 
-// The election's own outputs, named: the scheduled rows and the census of vectors no wave in the window could
-// separate. A count consumed and dropped here is exactly the evidence the plan gate needs.
 public sealed record WaveElection(Seq<ScheduledVector> Scheduled, int Unresolved);
 
 public static class ScanSort {
@@ -750,8 +701,6 @@ public abstract partial record DistortionCompensation {
 
     public sealed record None : DistortionCompensation;
     public sealed record Affine(Transform BuildToCommand, ContentKey Calibration) : DistortionCompensation;
-    // A vendor field-correction grid: row-major offsets over the field at one pitch, bilinearly sampled. The
-    // bytes ARE the calibration, so the content key covers the correction the machine actually applied.
     public sealed record Sampled(
         ContentKey Calibration,
         BoundingBox Field,
@@ -849,7 +798,7 @@ public sealed record TimingPolicy(
 - Boundary: `ScanEvidence.Exposures`, `.Jumps`, `.Remelts`, and `.Stitches` are the four columns `Process/telemetry#FACT_UNION` projects as `FabricationEngine.Scan` phases; renaming one silently strands its instrument, and the projection now reaches them through the carrier's `Evidence`.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ScanPolicy(
     AuditPolicy Audit,
     ExposureProfile Base,
@@ -867,16 +816,12 @@ public sealed record ScanPolicy(
 
 public sealed record SourceLoad(LaserId Source, int Vectors, Length Path, Duration Nominal, Energy Energy);
 
-// Absence is the carrier: a layer set with no inter-vector transition has no separation to report, and a zero
-// there reads as perfect locality to every consumer.
 public sealed record ThermalEvidence(
     Option<double> AverageSeparation,
     Option<double> StandardDeviation,
     Option<double> SumOfSquares,
     int Unresolved);
 
-// What the plan MEASURED. Plane, key, consumed ancestry, and stamp ride `Receipt<ScanEvidence>`, so the preflight
-// this plan stood on is one `Consumed` key rather than a nested receipt column.
 public sealed record ScanEvidence(
     Seq<SourceLoad> Sources,
     Seq<FieldCell> Fields,
@@ -892,7 +837,7 @@ public sealed record ScanEvidence(
 public sealed record ScanPlan(
     Seq<ScanLayer> Layers, ReadOnlyMemory<byte> Bytes, Receipt<ScanEvidence> Receipt);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Scan {
     public static Fin<ScanPlan> Plan(
         SliceStack stack,
@@ -948,7 +893,6 @@ public static class Scan {
             Evidence = evidence,
             Concern = FabConcern.Additive,
             Key = ContentKey.Of(EgressKind.ScanVectors, bytes.Span),
-            // Ancestry carries the preflight this plan stood on, never a nested column.
             Consumed = Seq(audit.Key),
             Stamped = policy.Audit.EvaluatedAt,
         }
@@ -975,8 +919,6 @@ public static class Scan {
                 .IfNone(Seq<SupportLayer>());
             return from down in Skin(region, slices, layer, -1, policy.DownSkinLayers)
                    from above in Skin(region, slices, layer, 1, policy.UpSkinLayers)
-                   // Zones are disjoint: up-skin yields to down-skin and core yields to both, so a wall thin
-                   // enough to be classified in both directions receives one exposure, not two.
                    from up in above.Difference(down)
                    from skin in down.Union(up)
                    from core in region.Difference(skin)
@@ -991,9 +933,6 @@ public static class Scan {
         }).As()
             .Map(static rows => rows.Bind(static row => row).Filter(static row => !row.Region.IsEmpty));
 
-    // A point uncovered at ANY depth within the skin count is within that many layers of a surface, so the zone
-    // is the UNION over the lookback range. A single difference against the Nth slice alone reports only the
-    // points uncovered at exactly that depth and misses every overhang shallower than it.
     private static Fin<SliceRegion> Skin(SliceRegion region, Seq<SliceRegion> slices, int layer, int direction, int depth) =>
         toSeq(Enumerable.Range(1, depth))
             .Traverse(step => At(slices, layer + (direction * step))
@@ -1017,8 +956,6 @@ public static class Scan {
     private static Fin<Seq<CandidateVector>> Candidates(ExposureRegion region, ScanPolicy policy, int remaining) {
         ExposureScale scale = policy.Scaling.For(region.Class);
         Length spacing = policy.Base.Spacing * scale.Spacing.DecimalFractions / region.Density.DecimalFractions;
-        // A contour zone always hatches as rings, whatever the plan's fill law is: the pass count and the ring
-        // step are the zone's own scaling columns, so a shop tunes both in the one table.
         HatchProgram program = region.Class == ExposureClass.Contour
             ? new HatchProgram.Contours(scale.ContourPasses, spacing)
             : policy.Hatch;
@@ -1032,9 +969,6 @@ public static class Scan {
                 .Map(edges => edges.Map(edge => new CandidateVector(region.Layer, region.Elevation, region.Class, edge)));
     }
 
-    // The one fill body every chartered strategy reaches: the law's partition supplies the cells, the law's cell
-    // increment advances the bearing per cell, and each cell clips its own rays. Meander, stripe, island, and
-    // hexagon differ ONLY in the partition and increment columns they carry.
     private static Fin<Seq<Edge3>> Filled(ExposureRegion region, HatchLaw law, Length spacing) {
         Angle bearing = law.At(region.Layer);
         return from tolerance in Context.Millimeters().ToFin()
@@ -1073,9 +1007,6 @@ public static class Scan {
             .As();
     }
 
-    // Contention is decided ONCE, by the kernel: one index over segment bounds inflated by half the separation,
-    // one `SelfOverlap` pass for every contending pair, and the exact gap predicate narrowing that broad phase.
-    // The greedy walk then colours the adjacency inside the bounded window.
     private static Fin<WaveElection> Waves(Seq<SourceAssignment> rows, ScanPlane plane) {
         double separation = plane.Thermal.Contention.Millimeters;
         BoundingBox[] boxes = rows.Map(row => Inflated(row.Vector.Geometry, separation * 0.5)).ToArray();
@@ -1093,8 +1024,6 @@ public static class Scan {
                select Coloured(rows, adjacency, plane.Thermal.Window);
     }
 
-    // Broad phase is box overlap; the narrow phase is the exact separation between the two segments, and only a
-    // pair from DIFFERENT sources contends — one source cannot fire two vectors at once.
     private static HashMap<int, Set<int>> Adjacency(Seq<SourceAssignment> rows, Seq<(int Left, int Right)> pairs, ScanPlane plane) =>
         pairs.Filter(pair => rows[pair.Left].Source.Id != rows[pair.Right].Source.Id
                 && rows[pair.Left].Vector.Geometry.Gap(
@@ -1104,9 +1033,6 @@ public static class Scan {
                 .AddOrUpdate(pair.Left, held => held.Add(pair.Right), Set(pair.Right))
                 .AddOrUpdate(pair.Right, held => held.Add(pair.Left), Set(pair.Left)));
 
-    // Wave identifiers stay inside the window. A vector whose whole window is blocked is UNRESOLVED — it keeps
-    // its locality seed, the census counts it, and the plan refuses. Growing the identifier past the window would
-    // schedule against a wave the machine's modal vocabulary has no barrier for.
     private static WaveElection Coloured(Seq<SourceAssignment> rows, HashMap<int, Set<int>> adjacency, int window) {
         (Seq<ScheduledVector> Scheduled, HashMap<int, int> Waves, int Unresolved) settled = rows.Fold(
             (Scheduled: Seq<ScheduledVector>(), Waves: HashMap<int, int>(), Unresolved: 0),
@@ -1139,8 +1065,6 @@ public static class Scan {
         elections.Filter(static election => !election.Scheduled.IsEmpty).Traverse(election => {
             Seq<ScheduledVector> rows = election.Scheduled;
             int layer = rows.Head.Map(static row => row.Assignment.Vector.Layer).IfNone(0);
-            // Compensation is total over admitted calibration, so the lane fold carries no rail: the only rail on
-            // this leg is the layer traverse, and a lane that cannot fail never widens it.
             Seq<SourceLane> lanes = toSeq(rows.GroupBy(static row => row.Assignment.Source.Id)).Map(source => {
                 Seq<ScheduledVector> lane = toSeq(source.OrderBy(static row => row.Wave));
                 Seq<ScanEvent> events = lane
@@ -1163,9 +1087,6 @@ public static class Scan {
                 global.Map(Compensated(policy.Compensation))));
         }).As();
 
-    // A jump costs dark travel, so it is emitted only where the beam actually travels dark. Serpentine emission
-    // makes consecutive rays inside a cell contiguous; a clip across a concavity and a cell boundary are the real
-    // discontinuities, and the `Jumps` counter therefore measures dark travel rather than the vector count.
     private static Seq<ScanEvent> Exposure(ScheduledVector row, ScanPolicy policy, Option<ScheduledVector> prior) {
         SourceAssignment assignment = row.Assignment;
         Point3d resume = prior
@@ -1200,7 +1121,6 @@ public static class Scan {
         }));
     }
 
-    // Compensation is a total point map over admitted calibration data, so it needs no rail and no exception trap.
     private static Func<ScanEvent, ScanEvent> Compensated(DistortionCompensation compensation) => scanEvent =>
         scanEvent.Switch(
             state: compensation,
@@ -1217,8 +1137,6 @@ public static class Scan {
             new Speed(budget.ScanSpeed, SpeedUnit.MillimeterPerSecond),
             Length.FromMillimeters(budget.HatchSpacing),
             policy.Base.Dwell,
-            // The seeded spot is the derived beam width the budget's own spacing implies; the shop's real spot
-            // rides the base profile, and the physics gate compares only the three columns the budget owns.
             Length.FromMillimeters(budget.HatchSpacing) * PowderSeed.SpotPerSpacing.DecimalFractions,
             policy.Base.Focus,
             policy.Base.PulseOn,
@@ -1265,8 +1183,6 @@ public static class Scan {
             bytes);
     }
 
-    // Skywriting lead and lag are commanded travel at exposure speed, so both the path and the nominal time
-    // include them; the machine's own scheduling of that travel belongs to the simulation clock.
     private static Length Travel(ScanEvent.Expose row) => Length.FromMillimeters(
         row.From.DistanceTo(row.To) + row.SkywritingLead.Millimeters + row.SkywritingLag.Millimeters);
 
@@ -1288,18 +1204,12 @@ public static class Scan {
 
 }
 
-// Powder seeding factors the physics gate reads. One named preset carries the landed shop values.
 public static class PowderSeed {
     public static readonly Ratio SpotPerSpacing = Ratio.FromDecimalFractions(0.5);
 }
 
-// --- [CANONICAL_EGRESS] -----------------------------------------------------------------------------------------------------------------------------
+// --- [CANONICAL_EGRESS] ----------------------------------------------------------------
 public static class ScanCodec {
-    // The whole output-driving policy enters the preimage, so two plans agreeing on geometry but disagreeing on
-    // exposure never share a key. Composition is `FabricationCanon` alone — no point, transform, optional, or
-    // row framing is respelled here.
-    // `Retaining` is the mint that HOLDS a buffer — the writer publishes no constructor — and `ToBytes` answers on
-    // the rail, so this lane carries the close's own refusal rather than discarding it into an empty payload.
     public static Fin<ReadOnlyMemory<byte>> Write(ScanPolicy policy, Seq<ScanLayer> layers, Op key) {
         CanonicalWriter writer = CanonicalWriter.Retaining(0.0);
         Identity(writer, policy);
@@ -1396,15 +1306,10 @@ public static class ScanCodec {
         .Double(value.Separation.Millimeters).Double(value.PlumeClearance.Millimeters)
         .Double(value.IntersectionTolerance.Millimeters).Ordinal(value.Window);
 
-    // The SHAPE columns alone: join and end type are fixed at the `SliceRegion.Grow` call rather than carried on the
-    // policy, and `TimeBudget`/`MaxEvents` abort the wavefront rather than moving it, so a budget in the preimage
-    // forks the keys of two runs that describe one geometry.
     private static CanonicalWriter Apply(this CanonicalWriter writer, OffsetPolicy value) => writer
         .Double(value.CollapseTolerance).Double(value.MiterLimit).Double(value.ArcTolerance)
         .Rows(toSeq(value.EdgeSpeed), static (row, speed) => row.Double(speed));
 
-    // The sampled grid enters as its own bytes, so the key covers the exact correction the machine received
-    // rather than the identifier of a table that may have been re-issued under one name.
     private static CanonicalWriter Apply(this CanonicalWriter writer, DistortionCompensation value) => value.Switch(
         state: writer,
         none: static (sink, _) => sink.Ordinal(1),

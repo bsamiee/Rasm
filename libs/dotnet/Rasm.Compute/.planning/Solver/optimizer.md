@@ -43,10 +43,6 @@ Settled arrivals: the `ComputeReceipt` rail, `WorkLane`/`Substrate`/`AllocationC
 - Boundary: parallel fitness evaluation binds under the governed budget — `Optimizer.Optimize` overwrites `OptimizerPolicy.Parallelism` from `CpuBudget.Workers`, and `ParallelTaskExecutor.MaxThreads` reads that sealed value. Admitted `TplPopulation(int, int, IChromosome)` takes the `Population` constructor whole and overrides `CreateInitialGeneration` alone, so every other population member reads unchanged; its `Parallel.For` genome mint exposes no `ParallelOptions` seat, so the initial generation is the ONE leg outside `CpuBudget.Workers` — a fan of `CreateNew` mints paid once at start rather than per generation, where the sealed budget binds the fitness evaluation the executor runs and a plain `Population` substituted to close that leg buys a serial start for nothing.
 
 ```csharp signature
-// What a search row NEEDS of the problem and policy handed to it, as a capability column rather than a pair of
-// bools nothing read. `population` demands a policy that can seat more than one individual, `gradient` demands a
-// design space carrying a differentiable tape, `exact` demands a lowered model. The kernel `ICapability` floor
-// derives `Rank` from declaration order, so the roster carries no ordinal of its own.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -71,31 +67,15 @@ public sealed partial class OptimizerKind {
     public static readonly OptimizerKind Milp = new("milp", lane: 9L, CapabilitySet<SearchTrait>.Of(SearchTrait.Exact));
     public static readonly OptimizerKind MultiStartGlobal = new("multi-start-global", lane: 10L, CapabilitySet<SearchTrait>.None);
     public static readonly OptimizerKind RobustMinimax = new("robust-minimax", lane: 11L, CapabilitySet<SearchTrait>.Of(SearchTrait.Population));
-    // Smooth local refinement over the MathNet minimizer family — box-bounded quasi-Newton where the design space
-    // carries bounds, limited-memory where the dimension is wide, and derivative-free simplex where the objective
-    // exposes no gradient at all. Nonlinear LEAST SQUARES is NOT a row here: `Tensor/blas#LEVENBERG_MARQUARDT` is the
-    // one damped Gauss-Newton owner in the package, and a second Levenberg-Marquardt bound to the library minimizer
-    // would be the twin that owner exists to foreclose.
     public static readonly OptimizerKind BfgsBox = new("bfgs-box", lane: 13L, CapabilitySet<SearchTrait>.Of(SearchTrait.Gradient));
     public static readonly OptimizerKind BfgsLimited = new("bfgs-limited", lane: 14L, CapabilitySet<SearchTrait>.Of(SearchTrait.Gradient));
     public static readonly OptimizerKind NelderMead = new("nelder-mead", lane: 15L, CapabilitySet<SearchTrait>.None);
-    // Vehicle routing over the OR-Tools ConstraintSolver rail — the third exact engine beside CP-SAT and the MILP
-    // backend, and the only one whose model is a graph rather than a coefficient matrix.
     public static readonly OptimizerKind Routing = new("routing", lane: 16L, CapabilitySet<SearchTrait>.Of(SearchTrait.Exact));
 
-    // Draw lane: every stochastic kernel keys the kernel `Deterministic` source on `(Lane, …)` so one policy seed
-    // yields independent streams per row, and a `multi-start-global` wrap re-entering its inner row never replays the
-    // outer row's draws. Each row declares the column rather than deriving it from the key string, so a row rename
-    // never silently re-keys a reproducible campaign.
     public long Lane { get; }
 
     public CapabilitySet<SearchTrait> Traits { get; }
 
-    // The ONE arm the trait column feeds, and the reason the column exists at all. A `population` row over a policy
-    // seating one individual is a swarm of one, which the per-kernel `Math.Max(2, Population)` floors used to widen
-    // silently into a search the caller never asked for; a `gradient` row over a design space whose tape carries no
-    // operator descends a zero direction and reports the start point as the optimum. Both refuse BY NAME here, and
-    // the refusal carries the missing rows through the kernel's own `Require` door.
     public Fin<Unit> Admits(DesignProblem problem, OptimizerPolicy policy) =>
         Held(problem, policy)
             .Require(Traits, missing => new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Input)))
@@ -108,11 +88,6 @@ public sealed partial class OptimizerKind {
             .. problem.Exact.IsSome || problem.Routing.IsSome ? Seq(SearchTrait.Exact) : Seq<SearchTrait>()]);
 }
 
-// Which MathNet minimizer a smooth-local row drives and whether it consumes the adjoint gradient. Each row owns
-// its own minimizer call, so the shared admission, objective construction, and exit-condition lift live once on
-// `Optimizer.Smooth` and a fourth minimizer is one row plus one delegate. The three convergence tolerances are the
-// POLICY'S — embedding them as constructor literals put three per-row thresholds where no caller and no receipt
-// could reach them, so a campaign tightening its budget could not tighten what the budget was spent against.
 public delegate MinimizationResult SmoothDescent(IObjectiveFunction objective, Vector<double> start, Vector<double> lower, Vector<double> upper, OptimizerPolicy policy);
 
 [SmartEnum<string>]
@@ -131,16 +106,11 @@ public sealed partial class SmoothMinimizer {
         static (objective, start, _, _, policy) =>
             NelderMeadSimplex.Minimum(objective, start, convergenceTolerance: policy.Tolerance, maximumIterations: Math.Max(1, policy.Generations)));
 
-    // Gradient-consuming rows build `ObjectiveFunction.Gradient` off the same `AdjointTape` dispatch the descent
-    // kernel reads; the derivative-free row builds `ObjectiveFunction.Value` and never touches the tape.
     public bool Gradient { get; }
 
     [UseDelegateFromConstructor]
     public partial MinimizationResult Minimize(IObjectiveFunction objective, Vector<double> start, Vector<double> lower, Vector<double> upper, OptimizerPolicy policy);
 
-    // The library's own terminal, read onto the branch verdict instead of discarded: `Converged` is the met
-    // criterion, an exhausted iteration budget is `Exhausted`, and a manual stop is a search that stopped moving.
-    // Collapsing all three into one success is what made a truncated refinement indistinguishable from a settled one.
     public static Convergence Verdict(MinimizationResult result, double residual) =>
         result.ReasonForExit switch {
             ExitCondition.Converged => new Convergence.Converged(residual),
@@ -246,9 +216,6 @@ public abstract partial record DesignVariable {
     public sealed record Continuous(string Name, double Lower, double Upper) : DesignVariable;
     public sealed record Integer(string Name, long Lower, long Upper) : DesignVariable;
 
-    // `Admissible` carries the ordinal SUBSET a design rule leaves reachable — a product family stocking sizes
-    // 2 and 4 but not 3 is one roster, not a range plus a caller-side filter. Empty means every ordinal, so a
-    // dense family stays a one-argument construction.
     public sealed record Categorical(string Name, Seq<string> Choices, Seq<int> Admissible) : DesignVariable {
         public Categorical(string name, Seq<string> choices) : this(name, choices, Seq<int>()) { }
 
@@ -258,17 +225,11 @@ public abstract partial record DesignVariable {
     public sealed record Density(string Name, long Cells) : DesignVariable;
     public sealed record Linked(string Name, int Source, double Scale, double Offset) : DesignVariable;
 
-    // Symbolic is the `Symbolic/lowering#SYMBOLIC_JACOBIAN` gradient source: a bounded continuous design symbol
-    // whose objective partial arrives on the problem's `AdjointTape.Symbolic` tape, never a parallel gradient path.
     public sealed record Symbolic(string Name, double Lower, double Upper) : DesignVariable;
 
     public string VariableName =>
         Switch(continuous: static c => c.Name, integer: static i => i.Name, categorical: static c => c.Name, density: static d => d.Name, linked: static l => l.Name, symbolic: static s => s.Name);
 
-    // How many COORDINATE SLOTS the variable occupies in a `DesignPoint`. A topology density field is `Cells` slots
-    // — one design freedom per element — and every other case is one. The point is the concatenation of these spans
-    // under `DesignProblem.Offsets`, so a density field is a first-class variable rather than a single coordinate
-    // every kernel then had to expand privately (and the SIMP update was alone in doing so).
     public int Width =>
         Switch(continuous: static _ => 1, integer: static _ => 1, categorical: static _ => 1, density: static d => (int)d.Cells, linked: static _ => 1, symbolic: static _ => 1);
 
@@ -277,8 +238,6 @@ public abstract partial record DesignVariable {
     public double Lower =>
         Switch(continuous: static c => c.Lower, integer: static i => (double)i.Lower, categorical: static _ => 0.0, density: static _ => 0.0, linked: static l => l.Offset, symbolic: static s => s.Lower);
 
-    // `Extent` is the per-slot BOX extent, distinct from `Width`: every slot of a density field spans `[0,1]`, an integer axis
-    // spans its range. `Lower + Extent` is the slot's upper bound wherever a kernel needs a box.
     public double Extent =>
         Switch(continuous: static c => c.Upper - c.Lower, integer: static i => (double)(i.Upper - i.Lower), categorical: static c => c.Choices.Count, density: static _ => 1.0, linked: static _ => 0.0, symbolic: static s => s.Upper - s.Lower);
 
@@ -301,12 +260,6 @@ public abstract partial record DesignVariable {
             linked: static _ => Option<TensorOpFamily>.None,
             symbolic: static _ => Option<TensorOpFamily>.None);
 
-    // Each variable declares its own admissible SET in the integer coordinate `q = round(1/IntegerStep)` fixes,
-    // expressed in the package's own `Domain` algebra rather than a bare `(lower, upper)` pair. A range is
-    // `Domain(lo, hi)`; a holed categorical family is `Domain.FromValues(codes)`; a linked axis is the singleton `{0}`
-    // because `DesignProblem.Resolve` writes its value from its source and the model must not search it. Every exact-lane
-    // lowering reads this ONE member, so a non-contiguous set is expressible and a per-case `NewIntVar(lo, hi)`
-    // ladder — which admits every value between its ends — has nowhere to reappear.
     public Domain Admissible(long q) =>
         Switch(
             state: q,
@@ -317,9 +270,6 @@ public abstract partial record DesignVariable {
             linked: static (_, _) => Domain.FromValues([0L]),
             symbolic: static (scale, s) => new Domain((long)Math.Round(s.Lower * scale), (long)Math.Round(s.Upper * scale)));
 
-    // Shape admission is the FAMILY's, read once by `DesignProblem.Validate` — the generated total dispatch, so a
-    // seventh case breaks the build here rather than falling to a `_` arm that reads every unhandled case as
-    // malformed and silently refuses a legal design space.
     public bool Malformed =>
         Switch(
             continuous: static c => !double.IsFinite(c.Lower) || !double.IsFinite(c.Upper) || c.Lower >= c.Upper,
@@ -332,9 +282,6 @@ public abstract partial record DesignVariable {
             symbolic: static s => !double.IsFinite(s.Lower) || !double.IsFinite(s.Upper) || s.Lower >= s.Upper);
 }
 
-// Closed adjoint carrier the `Symbolic/lowering#SYMBOLIC_JACOBIAN` boundary assigns to this consumer: the
-// Geometry case carries the composable DEC tape sequence, the Symbolic case one scalar SymbolicTape — each arm
-// keeps its honest arity under the one Adjoint dispatch.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AdjointTape {
     private AdjointTape() { }
@@ -360,7 +307,6 @@ public abstract partial record ActivationRule {
             whenBelow: static (coords, r) => r.Source < coords.Length && coords[r.Source] <= r.Threshold,
             whenChoice: static (coords, r) => r.Source < coords.Length && (int)Math.Round(coords[r.Source]) == r.Choice);
 
-    // Which axis the rule reads; `Always` reads none, so the exact lowering reifies nothing for it.
     public Option<int> Reads =>
         Switch(
             always: static _ => Option<int>.None,
@@ -368,10 +314,6 @@ public abstract partial record ActivationRule {
             whenBelow: static r => Some(r.Source),
             whenChoice: static r => Some(r.Source));
 
-    // Each conditional row spells its SOURCE axis's activating set in the same integer coordinate the variable domains
-    // use. `Active` answers the rule for a realized point; `Trigger` answers it for a whole search space, so the
-    // exact lane reifies one literal per conditional axis (`lit ⇔ source ∈ Trigger`) instead of optimizing over a range
-    // whose inactive states the oracle silently rewrites — the disagreement `DesignProblem.Resolve` would otherwise hide.
     public Option<Domain> Trigger(long q) =>
         Switch(
             state: q,
@@ -381,13 +323,6 @@ public abstract partial record ActivationRule {
             whenChoice: static (_, r) => Some(Domain.FromValues([(long)r.Choice])));
 }
 
-// One linear row: its own tracking NAME, the coefficient vector, and the admissible BAND SET its activity
-// occupies. `Bands` is primary because the package's `Domain` carries a union natively — a beam depth admissible
-// at 300-450 or 600-750 mm is two bands, and flattening them to the 300-750 hull admits the 500 mm section the
-// rule set forbids. `Lower`/`Upper` derive as that hull for the one backend whose constraint face is one interval.
-// `[Equatable]`: `ImmutableArray<double>` reference-compares under compiler record equality, so two rows carrying
-// identical coefficients read unequal — and the exact lane's own name-uniqueness gate, hint reuse, and model
-// comparison all rest on row identity. `Seq` members carry their element-wise equality already.
 [Equatable]
 public sealed partial record LinearRow(string Name, [property: OrderedEquality] ImmutableArray<double> Coefficients, Seq<(double Lower, double Upper)> Bands) {
     public static LinearRow Of(string name, ImmutableArray<double> coefficients, double lower, double upper) =>
@@ -399,15 +334,10 @@ public sealed partial record LinearRow(string Name, [property: OrderedEquality] 
 
     public bool Contiguous => Bands.Count is 1;
 
-    // Ascending flat-interval form `Domain.FromFlatIntervals` takes, scaled into the ONE integer coordinate `q`
-    // fixes — so a union crosses the exact seam without a second encoding or a per-band constraint copy.
     public long[] Flattened(long q) =>
         [.. Bands.OrderBy(static band => band.Lower)
             .Bind(band => Seq((long)Math.Round(band.Lower * q), (long)Math.Round(band.Upper * q)))];
 
-    // Bands admit ascending, finite, ordered, and DISJOINT: a touching or overlapping pair is one band written
-    // twice, and `Domain.FromFlatIntervals` reads an unsorted or overlapping array as a different set than the
-    // author wrote — so the shape gate runs here rather than surfacing as a silently wider feasible region.
     public bool Invalid(int width) =>
         string.IsNullOrWhiteSpace(Name) || Coefficients.Length != width || Bands.IsEmpty
         || Bands.Exists(static band => !double.IsFinite(band.Lower) || !double.IsFinite(band.Upper) || band.Lower > band.Upper)
@@ -420,11 +350,6 @@ public sealed partial record LinearRow(string Name, [property: OrderedEquality] 
 [Equatable]
 public sealed partial record LinearModel([property: OrderedEquality] ImmutableArray<double> Objective, Seq<LinearRow> Rows);
 
-// Structural VALUE identity is generated, bit-exact, and total over the three coordinate blocks:
-// `ImmutableArray<double>` reference-compares under compiler record equality, so the front-membership set, the
-// genome memo, and every `Seq<DesignPoint>` containment read would silently miss re-materialized rows — the
-// generated comparer is the one equality, and a tolerance never enters (a screening grid deliberately places
-// distinct points close together).
 [Equatable]
 public readonly partial record struct DesignPoint(
     [property: OrderedEquality] ImmutableArray<double> Coordinates,
@@ -443,9 +368,6 @@ public readonly partial record struct DesignPoint(
     public bool Feasible => Constraints.IsDefaultOrEmpty || Constraints.All(static c => c <= 0.0);
     public double Violation => Constraints.IsDefaultOrEmpty ? 0.0 : Constraints.Sum(static c => Math.Max(0.0, c));
 
-    // One indexed read serves the oracle's OUTPUT vector — objectives then constraints, the same concatenation the
-    // contract defines — so a surrogate fits every output the contract carries rather than the first objective and a
-    // count check no fit could ever satisfy.
     public int Outputs => (Objectives.IsDefaultOrEmpty ? 0 : Objectives.Length) + (Constraints.IsDefaultOrEmpty ? 0 : Constraints.Length);
 
     public double Response(int index) =>
@@ -469,8 +391,6 @@ public sealed record DesignProblem(
     public static DesignProblem Conditional(Seq<DesignVariable> variables, Seq<ActivationRule> activation, Seq<ObjectiveSense> objectives, int constraints, ConstraintHandling handling, Option<MeshAdjointSnapshot> designMesh = default, Option<SymbolicTape> symbolic = default, Option<LinearModel> exact = default) =>
         new(variables, activation, objectives, constraints, handling, designMesh, Lower(variables, designMesh, symbolic), exact);
 
-    // Symbolic tapes win the carrier when supplied (the SymbolicJacobian.Lower product for Symbolic variables);
-    // otherwise the free variables' DEC operators lower onto the Geometry case.
     static AdjointTape Lower(Seq<DesignVariable> variables, Option<MeshAdjointSnapshot> designMesh, Option<SymbolicTape> symbolic) =>
         symbolic.Match(
             Some: static tape => (AdjointTape)new AdjointTape.Symbolic(tape),
@@ -479,22 +399,14 @@ public sealed record DesignProblem(
                     .Bind(v => v.AdjointOperator.Match(Some: op => Seq(new GeometryTape(op, mesh)), None: () => Seq<GeometryTape>()))
                 : Seq<GeometryTape>()));
 
-    // This slot carries the routing model the `routing` row lowers, absent for every other row. It rides `init` beside the linear
-    // model rather than a ninth positional slot, because a routing campaign and a coefficient campaign declare
-    // disjoint halves of the same problem and neither should have to name the other's absence.
     public Option<RoutingProblem> Routing { get; init; } = None;
 
     public ImmutableArray<double> Senses => [.. Objectives.Map(static o => o.Sign)];
 
-    // One OFFSET TABLE builds once and every kernel indexes through it: `Offsets[axis]` is where a variable's span
-    // starts and `Offsets[^1]` is the point's dimension. A `DesignPoint` is the concatenation of the per-variable
-    // spans, so a `Density` field of 10⁴ cells is 10⁴ coordinates rather than one the SIMP kernel privately expanded
-    // while every other kernel searched a single scalar for the whole field.
     public ImmutableArray<int> Offsets { get; } = [.. Variables.Fold(Seq(0), static (acc, v) => acc.Add(acc.Last + v.Width))];
 
     public int Dimension => Offsets[^1];
 
-    // Slot → owning variable, resolved by the same table rather than a per-kernel scan.
     public int VariableAt(int slot) {
         int axis = Offsets.AsSpan().BinarySearch(slot);
         return axis >= 0 ? axis : ~axis - 1;
@@ -504,8 +416,6 @@ public sealed record DesignProblem(
     public ImmutableArray<double> UpperBounds => [.. Slots(static v => v.Lower + v.Extent)];
     public ImmutableArray<double> Centre => [.. Slots(static v => v.Clamp(v.Lower + 0.5 * v.Extent))];
 
-    // These per-slot projections feed every kernel start, box, and unit map — one fold over the offset table instead
-    // of the `Variables.Map((v, axis) => …)` shape that silently assumed one slot per variable.
     Seq<double> Slots(Func<DesignVariable, double> read) =>
         Variables.Bind(v => toSeq(Enumerable.Repeat(read(v), v.Width)));
 
@@ -517,7 +427,6 @@ public sealed record DesignProblem(
         return [.. clamped];
     }
 
-    // Unit hypercube → design coordinates, the one map every low-discrepancy start composes.
     public ImmutableArray<double> FromUnit(ReadOnlySpan<double> unit) {
         double[] coordinates = new double[Dimension];
         for (int slot = 0; slot < coordinates.Length; slot++) {
@@ -527,15 +436,8 @@ public sealed record DesignProblem(
         return [.. coordinates];
     }
 
-    // ONE integer coordinate serves the whole exact lane: variable domains, row bands, and hint values all scale
-    // by `q`, so the model a CP-SAT solve searches and the physical `LinearModel` an author wrote are the same
-    // program in two units, never two programs.
     public static long Scale(double integerStep) => Math.Max(1L, (long)Math.Round(1.0 / integerStep));
 
-    // Each axis publishes its admissible set as the exact lane searches it: its own domain, WIDENED by the inactive
-    // value the activation fold writes. `Resolve` zeroes a deactivated axis, so an axis whose own range excludes zero is
-    // reachable at zero and nowhere between — exactly the union a contiguous range cannot spell, and exactly the
-    // set whose absence lets an exact solve return an assignment the oracle then rewrites underneath it.
     public Domain Admissible(int slot, long q) {
         int axis = VariableAt(slot);
         return Activation[axis] is ActivationRule.Always
@@ -543,17 +445,11 @@ public sealed record DesignProblem(
             : Variables[axis].Admissible(q).UnionWith(Domain.FromValues([0L]));
     }
 
-    // A gradient row needs a tape that can ANSWER: an empty Geometry tape set and a degenerate symbolic tape both
-    // return a zero direction, which every descent reads as a converged optimum at the start point. The trait gate
-    // reads this column, so a gradient row over an underivable design space refuses before the first oracle call.
     public bool Differentiable =>
         AdjointTape.Switch(
             geometry: static tape => !tape.Tapes.IsEmpty,
             symbolic: static tape => !tape.Tape.IsDegenerate);
 
-    // Five INDEPENDENT structural laws, so they accumulate. The prior chain computed all five flags and then
-    // published one opaque `<optimizer-invalid-design-problem>`: it paid for full-defect evaluation and reported
-    // none of it, so a caller repairing a design space learned about exactly one defect per round trip.
     public Fin<Unit> Validate() =>
         Seq(
             Refusal.Unless(!Variables.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(Variables.Count, 1L))),
@@ -567,16 +463,11 @@ public sealed record DesignProblem(
                 whenChoice: r => r.Source < 0 || r.Source >= Variables.Count || r.Choice < 0)), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())),
             Refusal.Unless(!Objectives.IsEmpty, ComputeArea.Solver, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(Objectives.Count, 1L))),
             Refusal.Unless(Constraints >= 0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Value(Constraints))),
-            // Exact models state in SLOT coordinates, the same system the solver variables inhabit, so a density
-            // field contributes one coefficient per cell and never one coefficient standing in for the whole field.
             Refusal.Unless(!Exact.Exists(model => model.Objective.Length != Dimension
                 || model.Rows.Exists(row => row.Invalid(Dimension))
                 || model.Rows.Map(static row => row.Name).ToFrozenSet(StringComparer.Ordinal).Count != model.Rows.Count), ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
         .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
 
-    // Linking and activation are per-VARIABLE decisions applied across the variable's whole span: a linked field
-    // takes its source's leading slot and a deactivated field zeroes every one of its cells, so a conditional
-    // topology axis is on or off as a unit rather than cell by cell.
     public ImmutableArray<double> Resolve(ImmutableArray<double> raw) {
         double[] resolved = new double[Dimension];
         for (int slot = 0; slot < resolved.Length; slot++) { resolved[slot] = slot < raw.Length ? raw[slot] : 0.0; }
@@ -585,8 +476,6 @@ public sealed record DesignProblem(
             double source = resolved[Offsets[link.Source]];
             for (int slot = Offsets[axis]; slot < Offsets[axis + 1]; slot++) { resolved[slot] = link.Scale * source + link.Offset; }
         }
-        // Activation reads the LEADING slot of each source axis — the same coordinate the exact lane reifies its
-        // trigger literal over, so the two lanes agree about which state activates.
         double[] leading = [.. Enumerable.Range(0, Variables.Count).Select(axis => resolved[Offsets[axis]])];
         for (int axis = 0; axis < Variables.Count && axis < Activation.Count; axis++) {
             if (Activation[axis].Active(leading)) { continue; }
@@ -608,23 +497,10 @@ public sealed record OptimizerPolicy(
     double VolumeFraction,
     double PenaltyWeight,
     double TrustRadius,
-    // `StepLength` owns the descent STEP as its own policy: a mutation rate is a genetic-operator probability, and
-    // reading one as a gradient step length couples two unrelated axes — widening the mutation widens the descent.
     double StepLength,
-    // The two thresholds every bounded budget on this lane halts against. `Tolerance` is the residual inside which
-    // a search reports `Converged`; `StallFloor` is the step below which it stopped moving and reports `Stalled`.
-    // They are COLUMNS because the smooth-local rows used to carry them as constructor literals inside three
-    // minimizer delegates, where no campaign could tighten what its own budget was being spent against and no
-    // receipt could say which threshold the run actually met.
     double Tolerance,
     double StallFloor,
-    // The Monte-Carlo sample count the ≥3-objective hypervolume estimator spends. Every other budget on this page
-    // is a policy column; a literal here made the indicator's own precision the one quantity a campaign could not
-    // trade against its wall time.
     int HypervolumeSamples,
-    // `Reference` is the hypervolume reference point, ABSENT where the campaign declares none — the fold then derives it from the
-    // front's own worst objective per axis and the result marks it derived, so a hypervolume compared across two
-    // runs is never silently measured against two different boxes.
     Option<ImmutableArray<double>> Reference,
     Option<Surrogate> Surrogate,
     double SurrogateErrorBound,
@@ -653,11 +529,6 @@ public sealed record OptimizerPolicy(
     public static readonly OptimizerPolicy CanonicalMultiStart = CanonicalNsga with { Kind = OptimizerKind.MultiStartGlobal };
     public static readonly OptimizerPolicy CanonicalRobust = CanonicalNsga with { Kind = OptimizerKind.RobustMinimax };
 
-    // Twelve of the sixteen conditions were ONE constraint spelled twelve times, so the constraint states once and
-    // the columns it ranges over are DATA — a new bounded scalar joins its roster rather than growing the chain.
-    // Every clause ACCUMULATES: the prior `||` chain evaluated all sixteen and then published one opaque
-    // `<optimizer-invalid-policy>`, so a caller tuning a policy learned about exactly one defect per round trip and
-    // the fault text could not even name which column broke.
     Seq<(string Name, double Value)> PositiveColumns => Seq(
         (nameof(SimpPenalty), SimpPenalty), (nameof(PenaltyWeight), PenaltyWeight), (nameof(TrustRadius), TrustRadius),
         (nameof(StepLength), StepLength), (nameof(IntegerStep), IntegerStep), (nameof(SolveSeconds), SolveSeconds),
@@ -675,21 +546,15 @@ public sealed record OptimizerPolicy(
             + UnitColumns.Map(static row => Refusal.Unless(double.IsFinite(row.Value) && row.Value is >= 0.0 and <= 1.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(row.Value, 0.0, 1.0))))
             + CountColumns.Map(static row => Refusal.Unless(row.Value > 0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.Positive, new ScalarEvidence.Value(row.Value))))
             + Seq(
-                // The volume fraction is a HALF-OPEN unit: a topology run at zero fraction has no material to place.
                 Refusal.Unless(double.IsFinite(VolumeFraction) && VolumeFraction is > 0.0 and <= 1.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(VolumeFraction, 0.0, 1.0))),
                 Refusal.Unless(double.IsFinite(SurrogateErrorBound) && SurrogateErrorBound >= 0.0, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Value(SurrogateErrorBound))),
                 Refusal.Unless(double.IsFinite(ReliabilityTarget), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Value(ReliabilityTarget))),
                 Refusal.Unless(!Reference.Exists(static point => point.IsDefaultOrEmpty), ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Input)),
                 Refusal.Unless(!Reference.Exists(static point => !point.All(double.IsFinite)), ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Value, new ScalarEvidence.Sequence(Reference.Map(static point => point.Length).IfNone(0)))),
-                // A stall floor at or above the convergence tolerance calls every converged run stalled.
                 Refusal.Unless(StallFloor < Tolerance, ComputeArea.Solver, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Interval(StallFloor, 0.0, Tolerance)))))
         .Traverse(static claim => claim).As().Map(static _ => unit).ToFin();
 }
 
-// `[Equatable]`: the front crosses to Persistence content-keyed and re-materializes on the far side, so its
-// `ImmutableArray<double>` sense vector must compare by VALUE — under compiler record equality it reference-compares
-// and two identical fronts read unequal at every index membership test. `Seq<DesignPoint>` already carries its
-// element-wise equality and each element its own generated comparer, so only the array member needs the attribute.
 [Equatable]
 public sealed partial record ParetoFront(Seq<DesignPoint> Points, [property: OrderedEquality] ImmutableArray<double> Senses) {
     public ParetoFront Insert(DesignPoint candidate) =>
@@ -697,8 +562,6 @@ public sealed partial record ParetoFront(Seq<DesignPoint> Points, [property: Ord
             ? this
             : this with { Points = Points.Filter(p => !candidate.Dominates(p, Senses.AsSpan())).Add(candidate) };
 
-    // Estimator draws key the SAME `(Lane, Seed)` pair every other stochastic step on the page keys, so a
-    // hypervolume is reproducible from the run's own policy and never from a literal only this method knew.
     public double Hypervolume(ReadOnlySpan<double> reference, long lane, int seed, int samples) {
         if (Points.IsEmpty) { return 0.0; }
         int objectives = Points[0].Objectives.Length;
@@ -727,8 +590,6 @@ public sealed partial record ParetoFront(Seq<DesignPoint> Points, [property: Ord
         double boxVolume = 1.0;
         for (int axis = 0; axis < objectives; axis++) { boxVolume *= Math.Max(0.0, refCopy[axis] - low[axis]); }
         if (boxVolume <= 0.0) { return 0.0; }
-        // Estimator draw rides the kernel's ONE deterministic source under the RUN's own seed and row lane, so the
-        // same front measured in two processes reports the same indicator and no literal seed lives on this page.
         Random rng = Deterministic.Source(seed: seed, lanes: [lane, objectives]);
         int dominated = 0;
         double[] probe = new double[objectives];
@@ -748,12 +609,6 @@ public sealed partial record ParetoFront(Seq<DesignPoint> Points, [property: Ord
 
 }
 
-// One bounded budget's outcome: the state it advanced to, the `Solver/contract#SOLVE_REQUEST` `Convergence` verdict
-// it ended on, and the generations it actually SPENT. A spend seeded `Exhausted(0)` has settled nothing, every step
-// either settles it or re-marks it exhausted at the count so far, and the halt predicate reads that verdict — so the
-// fold stops at the FIRST settled state and a budget that runs out leaves `Exhausted(spent)` standing as the answer.
-// The prior shape had no discriminant at all: every kernel ran its full policy budget whatever the residual and then
-// reported that policy value as `Generations`, which published "ran to plan" as if it were "converged".
 public readonly record struct SearchSpend<TState>(TState State, Convergence Verdict, int Spent) {
     public static SearchSpend<TState> Seed(TState state) => new(state, new Convergence.Exhausted(Budget: 0), Spent: 0);
 
@@ -761,9 +616,6 @@ public readonly record struct SearchSpend<TState>(TState State, Convergence Verd
 }
 
 public sealed record KernelRun(ParetoFront Front, int Generations, Convergence Verdict, double TrustRadius, Seq<double> Violation, Option<ExactEvidence> Exact = default, Option<RoutingResult> Routing = default) {
-    // The projection every kernel ends on, so no kernel body re-derives the pair: the spend carries both the count
-    // and the verdict, and a caller reading `Generations` beside `Verdict` can tell a settled search from a
-    // truncated one without re-deriving either from the policy it was handed.
     public static KernelRun Of<TState>(SearchSpend<TState> spend, ParetoFront front, double trustRadius, Seq<double> violation) =>
         new(front, spend.Spent, spend.Verdict, trustRadius, violation);
 }
@@ -772,23 +624,15 @@ public sealed record OptimizationResult(
     OptimizerKind Kind,
     ParetoFront Front,
     int Generations,
-    // The verdict the search ENDED on, beside the count it spent reaching it. `ComputeReceipt.Optimization` declares
-    // six audit slots and no termination column, so the discriminant rides this carrier the same way `ExactEvidence`
-    // does rather than claiming a slot the receipt owner does not declare.
     Convergence Verdict,
     int Evaluations,
     int SurrogateHits,
     double Hypervolume,
-    // This pair carries the reference box the indicator measured against, and whether the fold derived it. A hypervolume without
-    // its box is not comparable across runs, and the `Runtime/receipts#RECEIPT_UNION` `Optimization` case declares
-    // six audit slots — so the box rides this carrier, the same way `ExactEvidence` does.
     ImmutableArray<double> Reference,
     bool ReferenceDerived,
     Seq<double> ViolationHistory,
     double TrustRadius,
     Option<ExactEvidence> Exact,
-    // Routing assignments are GRAPH answers, not design points, so they ride their own slot beside the exact
-    // evidence rather than being flattened onto a front whose objective vector they do not have.
     Option<RoutingResult> Routing,
     Instant At);
 
@@ -800,9 +644,6 @@ public sealed record GpModel(Cholesky<double> Factor, Vector<double> Alpha, Matr
         return (mean, Math.Max(0.0, variance));
     }
 
-    // The squared-exponential profile over the catalogued pair reduce: `Distance` is the Euclidean norm of the
-    // difference in one vectorized pass, where the hand loop paid a bounds check per axis on the hottest read in
-    // the posterior — this runs once per training row per query.
     public static double Kernel(Vector<double> a, ReadOnlySpan<double> b, double lengthScale, double signalVar) {
         double distance = TensorPrimitives.Distance<double>(a.AsArray(), b);
         return signalVar * Math.Exp(-0.5 * distance * distance / (lengthScale * lengthScale));
@@ -813,7 +654,6 @@ public sealed record RbfModel(RbfFit Fit, double LengthScale, double ResidualRms
     public (double Mean, double Bound) Posterior(ReadOnlySpan<double> query) {
         Vector<double> q = Vector<double>.Build.Dense(Fit.Centres.ColumnCount, i => i < query.Length ? query[i] : 0.0);
         double mean = Fit.Evaluate(Matrix<double>.Build.DenseOfRowVectors(q))[0, 0];
-        // Extrapolation distance is the nearest CENTRE: one vectorized pair reduce per centre, minimum over them.
         double[] reach = [.. Enumerable.Range(0, Fit.Centres.RowCount).Select(centre => TensorPrimitives.Distance<double>(Fit.Centres.Row(centre).AsArray(), q.AsArray()))];
         double nearest = reach.Length == 0 ? double.MaxValue : TensorPrimitives.Min<double>(reach);
         return (mean, ResidualRms * (1.0 + nearest / Math.Max(1e-9, LengthScale)));
@@ -828,8 +668,6 @@ public sealed record OutputModel(
     double ResidualRms,
     Option<GpModel> Gp,
     Option<RbfModel> Rbf) {
-    // One per-output posterior answers here: the fitted GP or RBF where one was fitted, the linear trend otherwise. One body
-    // serves every output, so the multi-output surrogate is a Seq of these rather than a parallel per-output family.
     public (double Mean, double Bound) Posterior(ReadOnlySpan<double> query) =>
         (Gp, Rbf) switch {
             ({ IsSome: true, Case: GpModel gp }, _) => gp.Posterior(query) switch { (double mean, double variance) => (mean, Math.Sqrt(variance)) },
@@ -837,8 +675,6 @@ public sealed record OutputModel(
             _ => LinearPosterior(query),
         };
 
-    // Both reads are catalogued pair reduces over the SHARED prefix the query and the fitted vector agree on — a
-    // query shorter than the fit is a caller error the gate above catches, never a silently truncated prediction.
     (double Mean, double Bound) LinearPosterior(ReadOnlySpan<double> query) {
         int width = Math.Min(Weights.Length, query.Length);
         double mean = Intercept + TensorPrimitives.Dot<double>(Weights.Span[..width], query[..width]);
@@ -848,17 +684,11 @@ public sealed record OutputModel(
     }
 }
 
-// MULTI-OUTPUT by construction: one `OutputModel` per contract output — objectives then constraints — so `Predict`
-// answers the SAME vector shape the full oracle answers and the gated surrogate's cardinality check is satisfiable.
-// Single-output surrogates never clear that check — every surrogate hit is then structurally unreachable and the
-// metered hit count stays zero.
 public sealed record Surrogate(
     SurrogateKind Kind,
     Seq<OutputModel> Outputs,
     Option<NeuralFieldModel> Field,
     Option<(InferenceSession Session, RunOptions Options, CancelScope Scope)> Lane) {
-    // Vector BOUNDs take the widest per-output bound: a surrogate is admissible only while every component
-    // it answers is inside the policy, and taking the mean admits a vector whose constraint row is far outside.
     public Fin<(Seq<double> Values, double Bound)> Predict(DesignPoint point) =>
         (Field, Lane) switch {
             ({ IsSome: true, Case: NeuralFieldModel field }, { IsSome: true, Case: (InferenceSession session, RunOptions options, CancelScope scope) }) =>
@@ -871,10 +701,6 @@ public sealed record Surrogate(
                         : acc)),
         };
 
-    // Fits ONE model per contract output over the shared history. The neural-field row REFUSES: its weights are
-    // trained outside this runtime and arrive by content key through the `Model/identity#MODEL_IDENTITY` admission,
-    // so `OfField` is its only mint and a delegation to the linear trend answers a fit nobody asked for under the
-    // neural-field name.
     public static Fin<Surrogate> Fit(SurrogateKind kind, Seq<DesignPoint> history, int outputs) =>
         kind == SurrogateKind.NeuralField
             ? Fin.Fail<Surrogate>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Unsupported(ComputeCapability.NeuralField)))
@@ -894,8 +720,6 @@ public sealed record Surrogate(
     static Fin<OutputModel> FitRadialBasis(Seq<DesignPoint> history, int output) {
         if (history.Count < 2) { return Fin.Succ(FitLinear(history, output)); }
         int n = history.Count, dim = history[0].Coordinates.Length;
-        // Median pairwise distance IS the radius the kernel profile takes; the prior inverse-shape spelling was a
-        // second parameterization of the same length, and the kernel row owns the profile's own convention.
         double lengthScale = MedianPairwise(history);
         Matrix<double> centres = Matrix<double>.Build.Dense(n, dim, (r, c) => history[r].Coordinates[c]);
         Matrix<double> response = Matrix<double>.Build.Dense(n, 1, (r, _) => history[r].Response(output));
@@ -925,13 +749,6 @@ public sealed record Surrogate(
             Some(new GpModel(chol, alpha, x, lengthScale, signalVar, noiseVar, logMarginal)), None);
     }
 
-    // A genuine MULTIVARIATE least-squares trend. The per-axis marginal regression this replaces divided each axis's
-    // covariance by that axis's OWN variance and ignored every cross-axis covariance — so under correlated design
-    // axes, which every coupled AEC design space has, the weights were systematically biased and the residual the
-    // surrogate gate admits on under-reported its own error. `Fit.MultiDim` solves the whole system, the intercept
-    // rides the leading coefficient, and the bound is the residual STANDARD error at the fit's own degrees of
-    // freedom: an exactly-determined or underdetermined history has none, so it reports a bound no gate can clear
-    // rather than the zero a root-mean-square over n observations would publish as a perfect surrogate.
     static OutputModel FitLinear(Seq<DesignPoint> history, int output) {
         if (history.IsEmpty) { return new(ReadOnlyMemory<double>.Empty, 0.0, ReadOnlyMemory<double>.Empty, 1.0, double.MaxValue, None, None); }
         int dim = history[0].Coordinates.Length, n = history.Count;
@@ -948,9 +765,6 @@ public sealed record Surrogate(
         return new(weights.AsMemory(), intercept, centroid.AsMemory(), Math.Max(1e-9, spread), bound, None, None);
     }
 
-    // The kernel profile's radius is the MEDIAN pairwise distance and `Statistics.Median` owns that order statistic:
-    // the hand fold took `distances[count / 2]`, which on an even count is the upper-middle element and not the
-    // median — a length scale biased long on every even-sized history, silently over-smoothing the posterior.
     static double MedianPairwise(Seq<DesignPoint> history) {
         double[] distances = [.. toSeq(Enumerable.Range(0, history.Count)).Bind(i =>
             toSeq(Enumerable.Range(i + 1, Math.Max(0, history.Count - i - 1)))
@@ -987,10 +801,6 @@ public sealed record NeuralFieldModel(
     }
 }
 
-// Runtime capabilities orthogonal to the design space: the cooperative stop every long native search registers
-// against, and the observation cell an admitted intent minted. They travel as ONE argument because both describe
-// HOW a search runs rather than WHICH search it is, so a third capability is one field and no kernel signature
-// grows a token tail. `Progress` is absent when the admitting intent requested no observation.
 public readonly record struct SearchContext(CancelScope Scope, Option<ProgressCell> Progress);
 
 public static class Optimizer {
@@ -1002,11 +812,6 @@ public static class Optimizer {
         from result in Run(problem, governed, evaluate, search, clock)
         select result;
 
-    // THE bounded-budget fold. Every search kernel on this lane spends its generations here, so the halt is one
-    // mechanism rather than twelve `Range(0, N).Fold(Fin.Succ(seed), (acc, _) => acc.Bind(step))` chains with no
-    // halt and no exhaustion fault between them. `foldWhileM` runs the step on the `Fin` rail and STOPS at the
-    // first settled state, so a converged search pays no further oracle call — the shape it replaces paid for the
-    // whole policy budget on every run and then reported that budget as the search it performed.
     static Fin<SearchSpend<TState>> Spend<TState>(TState seed, int budget, Func<TState, int, Fin<(TState State, Option<Convergence> Settled)>> step) =>
         Prelude.foldWhileM(
             (int generation) => (SearchSpend<TState> spend) =>
@@ -1018,20 +823,11 @@ public static class Optimizer {
             SearchSpend<TState>.Seed(seed),
             toSeq(Enumerable.Range(0, Math.Max(1, budget)))).As();
 
-    // The two settle tests every gradient-shaped kernel shares, stated once: a measure inside the tolerance is a
-    // met criterion and a step below the stall floor is a search that stopped moving. Absence means keep spending —
-    // the fold, not the kernel, owns what running out of budget means.
     static Option<Convergence> Settle(OptimizerPolicy policy, double measure, double motion) =>
         measure <= policy.Tolerance ? Some((Convergence)new Convergence.Converged(measure))
             : motion <= policy.StallFloor ? Some((Convergence)new Convergence.Stalled())
             : None;
 
-    // The ANALYTIC oracle: one `CompiledExpr` per contract output, bound to the design space by SYMBOL NAME and
-    // answered in the objectives-then-constraints order the contract already fixes. Binding by POSITION is the
-    // deleted form — an expression authored over `{depth, width}` against a space declaring `{width, depth}`
-    // evaluates every formula with the wrong variable in each slot and returns a finite number no reader can tell
-    // from a correct one. A symbol the space does not declare refuses BY NAME before the first evaluation, so the
-    // binding proves once at mint rather than per point.
     public static Fin<Func<DesignPoint, Fin<Seq<double>>>> Analytic(DesignProblem problem, Seq<CompiledExpr> objectives, Seq<CompiledExpr> constraints) {
         HashMap<string, int> slots = problem.Variables.Fold(
             (Held: HashMap<string, int>(), Axis: 0),
@@ -1044,8 +840,6 @@ public static class Optimizer {
                         .ToValidation<Error>(new ComputeFault.SymbolUndefined($"<analytic-unbound:{symbol.Value}>")))
                     .Map(bound => (Row: row, Bound: bound)))
                 .As().ToFin()
-                // Binding ACCUMULATES (a caller repairing a formula set wants every unbound symbol at once);
-                // evaluation ABORTS (one non-finite output makes the whole vector meaningless to the search).
                 .Map(bound => (Func<DesignPoint, Fin<Seq<double>>>)(point =>
                     bound.TraverseM(row => row.Row.Invoke([.. row.Bound.Map(slot => point.Coordinates[slot])])).As()));
     }
@@ -1064,20 +858,11 @@ public static class Optimizer {
             milp: static s => ExactLane.SolveMilp(s.Problem, s.Policy, s.Search, s.Oracle, s.Seed),
             multiStartGlobal: static s => MultiStart(s.Problem, s.Policy, s.Search, s.Oracle, s.Seed),
             robustMinimax: static s => RobustMinimax(s.Problem, s.Policy, s.Oracle, s.Seed),
-            // Smooth local refinement over the MathNet minimizer family: one `IObjectiveFunction` built from the
-            // same oracle, the row's own minimizer entry, and `ReasonForExit` lifted onto the fault rail. Bounds
-            // ride the typed variables, so the box-constrained row never re-derives them at the call site.
             bfgsBox: static s => Smooth(s.Problem, s.Policy, s.Oracle, s.Seed, SmoothMinimizer.BfgsBox),
             bfgsLimited: static s => Smooth(s.Problem, s.Policy, s.Oracle, s.Seed, SmoothMinimizer.BfgsLimited),
             nelderMead: static s => Smooth(s.Problem, s.Policy, s.Oracle, s.Seed, SmoothMinimizer.NelderMead),
-            // Vehicle routing lowers the typed `RoutingProblem` onto the OR-Tools ConstraintSolver rail; the design
-            // space carries no continuous coordinate, so the row refuses a problem with no routing model attached.
             routing: static s => RoutingSearch.Solve(s.Problem, s.Policy, s.Search, s.Seed));
 
-    // ONE smooth-local fold serves every MathNet minimizer row: the penalized oracle is the value face, the row's
-    // own `Gradient` column decides whether the `AdjointTape` supplies the derivative, typed variables supply the
-    // box, and the exit condition partitions terminals the way the numeric route already rules — a budget or
-    // progress stall keeps its iterate as a legitimate result, and only an invalid-value or never-ran exit faults.
     static Fin<KernelRun> Smooth(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed, SmoothMinimizer row) {
         ImmutableArray<double> start = seed.Points.IsEmpty ? problem.Centre : seed.Points[0].Coordinates;
         Vector<double> lower = Vector<double>.Build.DenseOfArray([.. problem.LowerBounds]);
@@ -1094,10 +879,6 @@ public static class Optimizer {
                 .Bind(result => result.ReasonForExit is ExitCondition.InvalidValues or ExitCondition.None
                     ? Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Converged, new ContractEvidence.Status((int)result.ReasonForExit))))
                     : Probe(problem, oracle, problem.Clamp(result.MinimizingPoint.AsArray()))
-                        // The library's own terminal reaches the verdict instead of dying here: this row is the ONE
-                        // arm on the page that always knew why it stopped and used to discard it, collapsing a met
-                        // criterion, a spent iteration budget, and a manual stop into one indistinguishable success.
-                        // The residual the verdict carries is the returned iterate's own feasibility violation.
                         .Map(point => {
                             ParetoFront front = seed.Insert(baseline).Insert(point);
                             return new KernelRun(front, result.Iterations, SmoothMinimizer.Verdict(result, point.Violation), policy.TrustRadius, Seq(Worst(front)));
@@ -1116,9 +897,6 @@ public static class Optimizer {
             });
     }
 
-    // `ReferenceDerived` is WRITTEN here and this is its one producer: the receipt owner declares the column with a
-    // cross-run comparability law, and a projection that set `Scope` alone published `false` on every emitted
-    // receipt as a measured fact while `Reference` genuinely derived the box on most runs.
     public static ComputeReceipt.Optimization Receipt(OptimizationResult result, CorrelationId correlation, Duration elapsed) =>
         new(result.Kind.Key, result.Generations, result.Evaluations, result.SurrogateHits, result.Front.Points.Count, result.Hypervolume) {
             ReferenceDerived = result.ReferenceDerived,
@@ -1160,29 +938,17 @@ public static class Optimizer {
 
     internal static double Worst(ParetoFront front) => front.Points.IsEmpty ? 0.0 : front.Points.Max(static p => p.Violation);
 
-    // A declared reference point wins; otherwise the fold derives one from the front's own worst objective per axis
-    // and says so. The distinction is load-bearing: a hypervolume against a derived box moves with the front, so two
-    // runs of the same campaign are comparable only when both declared the same reference — and the result carries
-    // the box it used so a reader never has to assume.
     static (ImmutableArray<double> Reference, bool Derived) Reference(OptimizerPolicy policy, ParetoFront front) =>
         policy.Reference.Case is ImmutableArray<double> declared && !declared.IsDefaultOrEmpty
             ? (declared, false)
             : front.Points.IsEmpty
-                // An empty front still has the problem's OBJECTIVE ARITY, so the degenerate box carries one unit per
-                // objective: the prior one-element box let every `Hypervolume` read index past its own reference on
-                // any multi-objective campaign that produced no point.
                 ? ([.. Enumerable.Repeat(1.0, Math.Max(1, front.Senses.Length))], true)
                 : ([.. toSeq(Enumerable.Range(0, front.Points[0].Objectives.Length))
                     .Map(axis => front.Points.Max(point => point.Objectives[axis] * front.Senses[axis]))
                     .Map(static worst => worst + 0.1 * Math.Abs(worst) + 0.1)], true);
 
-    // The acquisition settles when a whole generation of the best candidates stops improving the incumbent: the
-    // improvement IS the search's own residual, so a campaign whose GP has converged stops paying full oracle calls
-    // for candidates it already knows the answer to instead of spending every remaining generation on them.
     static Fin<KernelRun> AcquireBayesian(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
         Spend((History: seed.Points, Front: seed, Violation: Seq<double>(), Best: double.MaxValue), policy.Generations, (state, gen) =>
-                // The acquisition ranks the FIRST objective alone, so the surrogate fits one output — the third
-                // argument is an output COUNT, not an output index.
                 Surrogate.Fit(SurrogateKind.GaussianProcess, state.History, outputs: 1).Bind(gp =>
                     GeneticEngine.Candidates(problem, policy.Population, policy.Seed + gen).Bind(candidates => {
                         double best = state.History.IsEmpty ? 0.0 : state.History.Min(p => p.Objectives.IsDefaultOrEmpty ? double.MaxValue : p.Objectives[0] * problem.Senses[0]);
@@ -1202,9 +968,6 @@ public static class Optimizer {
 
     static Fin<KernelRun> DescendAdjoint(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) {
         ImmutableArray<double> start = seed.Points.IsEmpty ? problem.LowerBounds : seed.Points[0].Coordinates;
-        // The descent's settle test is its OWN two measures: a gradient norm inside the tolerance is a stationary
-        // point and a trust radius collapsed below the stall floor is a search that stopped moving. Spending every
-        // remaining generation past either is the fall-through this fold exists to delete.
         return Spend((Origin: start, Radius: policy.TrustRadius, Front: seed, Violation: Seq<double>()), policy.Generations, (state, _) =>
                 Adjoint(problem, state.Origin).Bind(gradient =>
                     Probe(problem, oracle, state.Origin).Bind(baseline =>
@@ -1213,9 +976,6 @@ public static class Optimizer {
                             double predicted = TensorPrimitives.SumOfSquares<double>([.. gradient]) * state.Radius;
                             return Probe(problem, oracle, stepped).Bind(probe => {
                                 double actual = objectiveAtOrigin - (probe.Objectives.IsDefaultOrEmpty ? objectiveAtOrigin : probe.Objectives[0]);
-                                // The base step is `OptimizerPolicy.StepLength`, the descent's OWN column: reading a
-                                // genetic mutation rate here coupled the step to an operator probability, so widening
-                                // the mutation silently lengthened every gradient step.
                                 (double step, double radius) = policy.LineSearch.Next(state.Radius, actual, predicted, policy.StepLength);
                                 return Stepped(problem, state.Origin, gradient, step).Map(next => {
                                     ParetoFront front = state.Front.Insert(baseline).Insert(probe);
@@ -1227,18 +987,11 @@ public static class Optimizer {
             .Map(spend => KernelRun.Of(spend, spend.State.Front, spend.State.Radius, spend.State.Violation));
     }
 
-    // A gradient SHORTER than the design point is not a partial gradient — it is a tape that answered a different
-    // problem, and padding the tail with zeros descends the leading coordinates while freezing the rest into a
-    // silently reduced search. The length mismatch is a typed refusal.
     static Fin<ImmutableArray<double>> Stepped(DesignProblem problem, ImmutableArray<double> origin, ImmutableArray<double> gradient, double scale) =>
         gradient.Length != problem.Dimension
             ? Fin.Fail<ImmutableArray<double>>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Dimensions, new ShapeEvidence.Count(gradient.Length, problem.Dimension))))
             : Fin.Succ(problem.Clamp([.. Enumerable.Range(0, problem.Dimension).Select(slot => origin[slot] - scale * gradient[slot])]));
 
-    // Objective-tied adjoint: the cotangent seed carries the selected objective's sense (maximize rows seed −1
-    // so every kernel descends the returned direction), the Geometry arm chains the DEC tapes, and the Symbolic
-    // arm re-points its tape at the CURRENT origin before the reverse sweep — two distinct design states produce
-    // distinct symbolic gradients, never one frozen direction.
     static Fin<ImmutableArray<double>> Adjoint(DesignProblem problem, ImmutableArray<double> origin) {
         float sense = problem.Objectives.Head.Map(static o => o == ObjectiveSense.Maximize ? -1f : 1f).IfNone(1f);
         return problem.AdjointTape.Switch(
@@ -1248,8 +1001,6 @@ public static class Optimizer {
             .Map(static gradient => (ImmutableArray<double>)[.. gradient.Span.ToArray().Select(static g => (double)g)]);
     }
 
-    // SIMP settles on its own design CHANGE: the largest per-cell density move inside the tolerance is the standard
-    // topology-optimization stopping criterion, and a field that stopped moving below the stall floor is stalled.
     static Fin<KernelRun> OptimalityCriteria(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
         Spend((Density: seed.Points.IsEmpty ? (ImmutableArray<double>)[.. Enumerable.Repeat(policy.VolumeFraction, problem.Dimension)] : seed.Points[0].Coordinates,
                 Front: seed, Violation: Seq<double>()), policy.Generations,
@@ -1266,9 +1017,6 @@ public static class Optimizer {
                     }))
             .Map(spend => KernelRun.Of(spend, spend.State.Front, policy.TrustRadius, spend.State.Violation));
 
-    // The optimality-criteria update iterates the density SPAN, one element per coordinate slot, because a topology
-    // field IS `Cells` design freedoms — the prior `Variables[e]` index read the slot as a variable ordinal and
-    // walked off the roster the moment a field carried more than one cell.
     static ImmutableArray<double> OcUpdate(DesignProblem problem, OptimizerPolicy policy, ImmutableArray<double> density, ImmutableArray<double> sensitivity) {
         double lower = 1e-9, upper = 1e9;
         const double move = 0.2, eta = 0.5;
@@ -1299,9 +1047,6 @@ public static class Optimizer {
                             Invoke(inner, problem, policy with { Kind = inner }, search, oracle, state.Front.Insert(seeded))
                                 .Map(run => (next, run.Front, state.Violation + run.Violation)));
                     }))
-                // Restarts are a BASIN budget, not a convergence budget: every restart is a fresh basin the wrap has
-                // no settle test over, so this row spends its whole roster and says `Exhausted` — the truth, and the
-                // reason the inner rows carry their own verdicts the caller can still read off each run.
                 .Map(state => new KernelRun(state.Front, policy.Restarts * Math.Max(1, policy.Generations),
                     new Convergence.Exhausted(Math.Max(1, policy.Restarts)), policy.TrustRadius, state.Violation)));
     }
@@ -1348,13 +1093,11 @@ public static class Optimizer {
             });
     }
 
-    // --- [CMA_ES] ------------------------------------------------------------------------------------------
+    // --- [CMA_ES] ----------------------------------------------------------------------
 
     sealed record CmaState(Vector<double> Mean, double Sigma, Matrix<double> Covariance, Vector<double> PathSigma, Vector<double> PathC, double[] Multipliers, ParetoFront Front, Seq<double> Violation);
 
     static Fin<KernelRun> EvolveCma(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) {
-        // The search space is the FREE SLOTS, not the free variables: a density field contributes one covariance
-        // dimension per cell, which is what makes a CMA run over a topology problem search the field at all.
         int[] free = [.. Enumerable.Range(0, problem.Dimension).Where(slot => problem.Variables[problem.VariableAt(slot)].Free)];
         int n = free.Length;
         if (n == 0) { return Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None()))); }
@@ -1369,9 +1112,6 @@ public static class Optimizer {
         double c1 = 2.0 / ((n + 1.3) * (n + 1.3) + muEff);
         double cMu = Math.Min(1.0 - c1, 2.0 * (muEff - 2.0 + 1.0 / muEff) / ((n + 2.0) * (n + 2.0) + muEff));
         double chiN = Math.Sqrt(n) * (1.0 - 1.0 / (4.0 * n) + 1.0 / (21.0 * n * n));
-        // Every stochastic kernel on this page draws from the kernel's ONE deterministic source, lane-keyed by the
-        // kernel it feeds so two rows under one policy seed never replay each other's stream; a bare
-        // `new Random(seed)` is the fork the owner exists to delete.
         Random rng = Deterministic.Source(seed: policy.Seed, lanes: [OptimizerKind.CmaEs.Lane, n]);
         CmaState initial = new(
             Vector<double>.Build.Dense(n, i => problem.Centre[free[i]]),
@@ -1379,13 +1119,8 @@ public static class Optimizer {
             Matrix<double>.Build.DenseIdentity(n),
             Vector<double>.Build.Dense(n), Vector<double>.Build.Dense(n),
             new double[problem.Constraints], seed, Seq<double>());
-        // CMA-ES settles on its OWN step size: `Sigma` collapsing below the stall floor is the algorithm's native
-        // termination criterion (the distribution has contracted onto a point), and a run that never contracts
-        // spends its budget and says so.
         return Spend(initial, policy.Generations, (state, gen) =>
                 CmaStep(problem, policy, oracle, free, state, gen, rng, n, lambda, mu, weights, muEff, cSigma, dSigma, cc, c1, cMu, chiN)
-                    // A contracted distribution is a STALL, never a met residual: CMA-ES has no residual to meet, so
-                    // the convergence arm stays unreachable here and the verdict never overclaims.
                     .Map(next => (next, Settle(policy, double.MaxValue, next.Sigma))))
             .Map(spend => KernelRun.Of(spend, spend.State.Front, spend.State.Sigma, spend.State.Violation));
     }
@@ -1425,7 +1160,6 @@ public static class Optimizer {
             });
     }
 
-    // Free-slot vector back into the full point: a non-free slot reads zero and `Resolve` writes its linked value.
     static ImmutableArray<double> Embed(DesignProblem problem, int[] free, Vector<double> mean, Vector<double> y, double sigma) {
         double[] full = new double[problem.Dimension];
         for (int g = 0; g < free.Length; g++) {
@@ -1434,7 +1168,7 @@ public static class Optimizer {
         return [.. full];
     }
 
-    // --- [PSO] ---------------------------------------------------------------------------------------------
+    // --- [PSO] -------------------------------------------------------------------------
 
     sealed record SwarmState(ImmutableArray<double>[] Position, double[][] Velocity, ImmutableArray<double>[] Best, double[] BestFitness, ImmutableArray<double> Global, double GlobalFitness, double[] Multipliers, ParetoFront Front, Seq<double> Violation);
 
@@ -1444,9 +1178,6 @@ public static class Optimizer {
         const double chi = 0.7298, phi = 2.05;
         Random rng = Deterministic.Source(seed: policy.Seed, lanes: [OptimizerKind.Pso.Lane, particles]);
         return InitSwarm(problem, policy, oracle, particles, seed)
-            // The swarm settles when its global best stops improving: the gain across one whole generation inside
-            // the stall floor is a swarm that has collapsed onto its incumbent, and paying every remaining
-            // generation of full oracle calls past that point is the fall-through this fold deletes.
             .Bind(init => Spend(init, policy.Generations, (state, _) =>
                     PsoStep(problem, policy, oracle, chi, phi, rng, state)
                         .Map(next => (next, Settle(policy, double.MaxValue, Math.Abs(state.GlobalFitness - next.GlobalFitness)))))
@@ -1499,7 +1230,7 @@ public static class Optimizer {
             }))
             .Map(s => s with { Violation = s.Violation.Add(Worst(s.Front)) });
 
-    // --- [SIMULATED_ANNEALING] -----------------------------------------------------------------------------
+    // --- [SIMULATED_ANNEALING] ---------------------------------------------------------
 
     static Fin<KernelRun> Anneal(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) {
         int chains = Math.Max(1, policy.Population), steps = Math.Max(1, policy.Generations);
@@ -1515,9 +1246,6 @@ public static class Optimizer {
                             AnnealChain(problem, policy, oracle, rng, cooling, steps, state.Front.Insert(startPoint), startPoint, Fitness(problem, policy, startPoint, state.Multipliers), state.Multipliers)
                                 .Map(chain => (next, chain.Front, chain.Multipliers, state.Violation.Add(Worst(chain.Front)))));
                     }))
-                // Annealing runs its COOLING SCHEDULE whole — the schedule is the algorithm, and stopping early
-                // would abandon the exploration the temperature ladder exists to buy — so every chain spends its
-                // full step budget and the row reports the honest `Exhausted` rather than a manufactured success.
                 .Map(state => new KernelRun(state.Front, chains * steps, new Convergence.Exhausted(steps), policy.TrustRadius, state.Violation)));
     }
 
@@ -1539,21 +1267,9 @@ public static class Optimizer {
 
 public static class GeneticEngine {
     public static Fin<KernelRun> Evolve(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, ParetoFront seed) {
-        // Provider assignment picks WHICH generator; `ResetSeed` pins WHAT it draws. Assigning alone leaves the
-        // package's `DateTime.Now.Millisecond` global feeding every worker thread, so `nsga2` — alone among the
-        // stochastic rows, all of which thread `OptimizerPolicy.Seed` — would publish a `ParetoFront` content-
-        // addressed onto the Persistence vector index keying a run nobody can re-derive from its own receipt.
-        // `ResetSeed` replaces the package's `ThreadLocal<FastRandom>` and every worker re-seeds from this ONE
-        // value, so a seeded parallel evaluation is reproducible and per-thread stream independence is not on
-        // offer here; the pair binds inside this capsule because the provider is process-global and a concurrent
-        // second search re-pinning it at composition would cut this run's stream mid-generation.
         RandomizationProvider.Current = new FastRandomRandomization();
         FastRandomRandomization.ResetSeed(policy.Seed);
         IChromosome adam = Genome(problem);
-        // `TplPopulation` inherits the `Population` constructor whole and overrides `CreateInitialGeneration`
-        // alone, so the parallel carrier costs one genome-minting fan at start — the package's own knobless
-        // `Parallel.For` over `CreateNew` — while every later generation, and every fitness evaluation on it,
-        // runs under the operator strategy and executor the policy already seals from `CpuBudget.Workers`.
         TplPopulation population = new(Math.Max(2, policy.Population), Math.Max(2, policy.Population), adam) { GenerationStrategy = new PerformanceGenerationStrategy(10) };
         NsgaFitness fitness = new(problem, policy, evaluate, seed);
         GeneticAlgorithm algorithm = new(population, fitness, Selection(policy), new TwoPointCrossover(), new UniformMutation(true)) {
@@ -1564,15 +1280,10 @@ public static class GeneticEngine {
             TaskExecutor = new ParallelTaskExecutor { MaxThreads = policy.Parallelism, Timeout = TimeSpan.FromSeconds(policy.SolveSeconds) },
             OperatorsStrategy = new TplOperatorsStrategy(),
         };
-        // The fitness reads the engine's own generation counter to know when its snapshot rotates; the engine takes
-        // the fitness at construction, so the counter binds after and before `Start`.
         fitness.Bind(() => algorithm.GenerationsNumber);
         algorithm.Start();
         return fitness.Fault.Match(
             Some: error => Fin.Fail<KernelRun>(error),
-            // The engine's OWN termination decides: an `OrTermination` that fired on fitness stagnation is a search
-            // that stopped moving, and one that fired on the generation ceiling spent its budget. Reading the
-            // generation count alone reported both as the same run.
             None: () => Fin.Succ(new KernelRun(fitness.Archive, algorithm.GenerationsNumber,
                 algorithm.GenerationsNumber < Math.Max(1, policy.Generations)
                     ? new Convergence.Stalled()
@@ -1588,8 +1299,6 @@ public static class GeneticEngine {
                     return (next, acc.Pool.Add(problem.FromUnit(u)));
                 }).Pool);
 
-    // One gene per FREE SLOT: a density field is `Cells` genes, so crossover and mutation act on the field itself
-    // rather than on one scalar the decode then had to broadcast.
     static IChromosome Genome(DesignProblem problem) {
         int[] free = FreeSlots(problem);
         return new FloatingPointChromosome(
@@ -1616,21 +1325,8 @@ public static class GeneticEngine {
         policy.Kind == OptimizerKind.Nsga2 ? new TournamentSelection(2, allowWinnerCompeteNextTournament: false) : new EliteSelection();
 }
 
-// --- [NSGA_II] -----------------------------------------------------------------------------------------
+// --- [NSGA_II] -------------------------------------------------------------------------
 
-// The custom multi-objective `IFitness` the `api-geneticsharp` rail names for this row: GeneticSharp owns the
-// population and operator machinery, and the crowded-comparison operator is this page's.
-//
-// SNAPSHOT fitness is the whole point. Ranking a genome against a LIVE archive makes its fitness depend on how many
-// peers happened to be scored before it — which under a `ParallelTaskExecutor` is thread interleaving — so one seed
-// produced a different search on every run and the `ParetoFront` content-addressed onto the Persistence vector index
-// keyed a campaign nobody could re-derive. The snapshot freezes for a whole generation: every genome of generation
-// `g` ranks against the SAME frozen population, evaluation order stops mattering, and reproducibility follows from
-// the seeded `RandomizationProvider` and this snapshot together.
-//
-// Deb 2002 verbatim: a fast non-dominated sort partitions the snapshot into ranked fronts and crowding distance
-// spreads each front; a genome scores `−rank + normalized crowding`, so a lower rank always outranks a higher one
-// and a SPARSE member outranks a crowded peer at equal rank — the crowded-comparison order the tournament needs.
 public sealed class NsgaFitness : IFitness {
     private readonly DesignProblem problem;
     private readonly OptimizerPolicy policy;
@@ -1642,8 +1338,6 @@ public sealed class NsgaFitness : IFitness {
     private readonly Atom<HashMap<DesignPoint, DesignPoint>> cache = Atom(HashMap<DesignPoint, DesignPoint>());
     private Func<int> generation = static () => 0;
 
-    // The frozen generation: its members, their fronts, and their crowding distances. `Number` is the generation the
-    // snapshot describes, so a rotation is one comparison rather than a subscription.
     private readonly record struct Ranked(int Number, Seq<DesignPoint> Members, ImmutableArray<int> Rank, ImmutableArray<double> Crowding);
 
     public NsgaFitness(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> evaluate, ParetoFront seed) {
@@ -1655,8 +1349,6 @@ public sealed class NsgaFitness : IFitness {
 
     public void Bind(Func<int> generations) => generation = generations;
 
-    // The archive survives as ARCHIVE ONLY — the non-dominated set the run publishes — and no longer feeds any
-    // fitness, which is what made it order-dependent.
     public ParetoFront Archive => archive.Value;
 
     public Option<Error> Fault => fault.Value;
@@ -1667,8 +1359,6 @@ public sealed class NsgaFitness : IFitness {
                 Ranked frozen = Rotate();
                 archive.Swap(front => front.Insert(point));
                 multipliers.Swap(values => problem.Handling.Advance(values, point.Constraints.AsSpan(), policy.PenaltyWeight));
-                // The genome's rank against the FROZEN population: the index of the first front no member of which
-                // dominates it. A point dominated by nothing lands at rank 0 whatever the evaluation order.
                 int rank = 0;
                 for (int i = 0; i < frozen.Members.Count; i++) {
                     if (problem.Handling.Dominates(frozen.Members[i], point, problem.Senses.AsSpan())) { rank = Math.Max(rank, frozen.Rank[i] + 1); }
@@ -1681,10 +1371,6 @@ public sealed class NsgaFitness : IFitness {
             },
             Fail: error => { fault.Swap(_ => Some(error)); return double.MinValue; });
 
-    // ONE oracle call per distinct genome per run: the memo keys on the coordinate-only `DesignPoint` — the exact
-    // value `Optimizer.Probe` constructs — under the generated structural equality, so a genome an elitist
-    // reinsertion carries forward is never re-solved and no hand-derived bucket key or hit-confirming re-compare
-    // exists. A full FE evaluation is the expensive thing here.
     Fin<DesignPoint> Probe(IChromosome chromosome) {
         DesignPoint probe = new(DecodeRaw(problem, chromosome), [], []);
         return cache.Value.Find(probe).Match(
@@ -1695,16 +1381,6 @@ public sealed class NsgaFitness : IFitness {
             }));
     }
 
-    // Rotation is EDGE-triggered on the engine's generation counter: the first genome scored in a new generation
-    // freezes the archive's current non-dominated set as that generation's reference population, and every later
-    // genome of the same generation reads it unchanged.
-    //
-    // A bare `Swap` whose body called `Rank` re-ran an O(N²) dominance sort inside the CAS on every contended
-    // retry, unbounded, and answered only the post-state — so a genome that LOST the race could not tell that it
-    // had. `Cell.Commit` snapshots, computes against that snapshot, commits by comparison under the kernel's own
-    // attempt budget, and returns the VERDICT beside the state: a retry re-reads a cell a peer already advanced to
-    // this generation, so the guard short-circuits and the sort runs at most twice however hot the contention.
-    // `Current` is the snapshot every genome of this generation then ranks against, whichever caller froze it.
     Ranked Rotate() {
         int number = generation();
         Ranked held = snapshot.Value;
@@ -1713,7 +1389,6 @@ public sealed class NsgaFitness : IFitness {
             : Cell.Commit(snapshot, state => state.Number == number ? state : Rank(archive.Value.Points, problem, number)).Current;
     }
 
-    // Fast non-dominated sort (Deb 2002): domination counts and dominated sets in one O(N²) pass, then peel fronts.
     static Ranked Rank(Seq<DesignPoint> members, DesignProblem problem, int number) {
         int n = members.Count;
         int[] rank = new int[n], dominatedBy = new int[n];
@@ -1738,9 +1413,6 @@ public sealed class NsgaFitness : IFitness {
         return new Ranked(number, members, [.. rank], Crowding(members, rank));
     }
 
-    // Crowding distance PER FRONT, Deb's boundary-infinite convention: each front sorts by every objective and each
-    // interior member accumulates its normalized neighbour gap. Computing it over the whole population instead of
-    // per front would let a rank-3 neighbour widen a rank-0 member's spread.
     static ImmutableArray<double> Crowding(Seq<DesignPoint> members, int[] rank) {
         int n = members.Count, objectives = n == 0 ? 0 : members[0].Objectives.Length;
         double[] distance = new double[n];
@@ -1759,9 +1431,6 @@ public sealed class NsgaFitness : IFitness {
         return [.. distance];
     }
 
-    // The candidate's own spread against its rank's front: the mean neighbour gap of that front, folded into `(0,1)`
-    // so it can never outweigh a whole rank step. A boundary member's infinite distance folds to the ceiling rather
-    // than to a non-finite fitness the engine would sort as NaN.
     static double Spread(Ranked frozen, DesignPoint point, int rank) {
         double[] peers = [.. Enumerable.Range(0, frozen.Members.Count)
             .Where(i => frozen.Rank[i] == rank && double.IsFinite(frozen.Crowding[i]))

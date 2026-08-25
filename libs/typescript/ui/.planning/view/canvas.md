@@ -50,7 +50,6 @@ declare namespace Canvas {
 
 const _seed: Canvas.Graph = { revision: 0, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } }
 
-// one writer: every arm folds through the engine's own pure fold and bumps the revision the solve lane keys on
 const _apply = (graph: Canvas.Graph, change: Canvas.Change): Canvas.Graph => {
   const revision = graph.revision + 1
   return Match.value(change).pipe(
@@ -63,8 +62,6 @@ const _apply = (graph: Canvas.Graph, change: Canvas.Change): Canvas.Graph => {
   )
 }
 
-// engine slice types are mutable arrays and records, so every leaf decodes mutable per the grid-parcel law; measured
-// dimensions and selection never enter — measurement re-derives at mount and selection is session state
 const _Persisted = Schema.Struct({
   nodes: Schema.mutable(Schema.Array(Schema.Struct({
     id: Schema.String,
@@ -83,8 +80,6 @@ const _Persisted = Schema.Struct({
   viewport: Schema.Struct({ x: Schema.Number, y: Schema.Number, zoom: Schema.Number }),
 })
 
-// `_GRAPH` mints once at the one store member and holds for this grain's life; a parcel-shape change bumps the
-// seal's generation, so yesterday's graph refuses on content and `discard` seats the seeded default
 const _GRAPH = Store.key({ domain: "canvas", grain: "graph" })
 const _sealed = Store.sealed(_Persisted, { generation: 1, residue: "discard" })
 
@@ -104,8 +99,6 @@ declare namespace Canvas {
   }
 }
 
-// reads project the cell and writes fold through the one writer — the engine binds on this prop edge and nowhere
-// else, so a `defaultNodes` seed or a second change handler beside it is the two-writer fork
 declare const _useEdge: (cell: Atom.Writable<Canvas.Graph, Canvas.Change>) => Canvas.EdgeProps
 ```
 
@@ -134,12 +127,10 @@ const _edgeKinds = ["flow", "reference"] as const
 declare namespace Canvas {
   type Kind = (typeof _kinds)[number]
   type EdgeKind = (typeof _edgeKinds)[number]
-  // this anchor-plane contract spells structurally field-for-field against view/presence#ANCHOR_PLANE's
-  // Anchor.Space<L, C>, so the registry admits the value unchanged and no view-lateral import exists
   type Locator = typeof _Locator.Type
   type Space = {
     readonly kind: "canvas"
-    readonly surface: string // the mounted instance: two canvases register two lanes sharing this one codec family
+    readonly surface: string
     readonly locator: typeof _Locator
     readonly resolve: (locator: Canvas.Locator) => Option.Option<{ readonly x: number; readonly y: number; readonly width: number; readonly height: number }>
     readonly carry: Option.Option<(locator: Canvas.Locator, change: Canvas.Graph) => Option.Option<Canvas.Locator>>
@@ -149,8 +140,6 @@ declare namespace Canvas {
 
 const _Locator = Schema.Struct({ node: Schema.String })
 
-// annotated with the mapped contract, never `satisfies`: the record IS the dispatch surface nodeTypes takes,
-// and the annotation keeps a missing kind a compile break at this declaration
 declare const _NODE_ARMS: { readonly [K in Canvas.Kind]: ComponentType<NodeProps> }
 declare const _EDGE_ARMS: { readonly [K in Canvas.EdgeKind]: ComponentType<EdgeProps> }
 
@@ -168,18 +157,12 @@ const _space = (
       const screen = project(node.position)
       return { x: screen.x, y: screen.y, width: node.width, height: node.height }
     }),
-  // node identity survives every mutation short of removal, so the carrier answers None exactly when the graph
-  // no longer holds the id and the anchor parks instead of pointing at a ghost
   carry: Option.some((locator, graph) =>
     graph.nodes.some((node) => node.id === locator.node) ? Option.some(locator) : Option.none()),
-  // any revision bump re-resolves this space's anchors; the cell's own value stream is the invalidation source
   epoch: Atom.toStream(cell),
 })
 
 declare namespace Canvas {
-  // this document-embedding contract spells structurally field-for-field against view/content#BLOCK_ROSTER's
-  // Node arm, so the roster gate admits the value unchanged: one parcel serves storage and embedding, so a
-  // doc-embedded canvas and a persisted canvas are one shape
   type Block = {
     readonly _tag: "Node"
     readonly kind: "canvas"
@@ -194,9 +177,6 @@ declare namespace Canvas {
   }
 }
 
-// steps stays decoded-only: collab never authors graph mutations through prose steps — graph editing is this
-// owner's, and an embedded canvas inside a live document renders read-only from its attrs parcel; the Live view
-// key names the nodeViews entry the editor host binds, and the portal constructor is that host's material
 const _block: Canvas.Block = {
   _tag: "Node",
   kind: "canvas",
@@ -254,9 +234,6 @@ declare namespace Canvas {
   }
 }
 
-// Three legs partition the layout plane and each reason renders its OWN subject. The engine name was a column
-// whose only value was the engine, so it moved into the renderers; the node the graph could not measure is what
-// actually varies, and it rides absence-shaped because the engine's own throw names no node at all.
 const _family = Fault.Class.family(["solver-lost", "solve-refused", "solve-overrun"] as const, {
   "solver-lost": Fault.Class.row({
     class: "unavailable",
@@ -301,13 +278,9 @@ class CanvasFault extends Schema.TaggedError<CanvasFault>()("CanvasFault", {
   }
 }
 
-// Nodes measure INDEPENDENTLY, so the capture censuses every unmeasured one in a single refusal: a freshly mounted
-// graph reports its whole gap on the first solve attempt rather than one node per round trip.
 const CanvasCensus = _family.census("CanvasCensus")
 type CanvasCensus = InstanceType<typeof CanvasCensus>
 
-// each row emits the option table as data — every elk value is a string at every key, and the layered
-// model-order group carries its `elk.layered.` prefix (the root spelling resolves to nothing)
 const _SOLVERS = {
   layered: { "elk.algorithm": "layered", "elk.direction": "RIGHT", "elk.edgeRouting": "ORTHOGONAL" },
   tree: { "elk.algorithm": "mrtree" },
@@ -317,8 +290,6 @@ const _SOLVERS = {
 
 class Solver extends Context.Tag("ui/CanvasSolver")<Solver, ELK>() {}
 
-// composition hands the worker mint down — the same bundler-resolved Worker(new URL(...)) form the estate's
-// other workers use; the constructor's own refusal without one is what pins the purity path
 const _client = (spawn: () => Worker): Layer.Layer<Solver, CanvasFault> =>
   Layer.scoped(
     Solver,
@@ -333,9 +304,6 @@ const _client = (spawn: () => Worker): Layer.Layer<Solver, CanvasFault> =>
 
 const _SOLVES = Convention.mount(Convention.metric.canvasSolve)
 
-// node.measured carries the measured box (the engine's post-mount write); a node the engine has not measured yet
-// REFUSES the whole request — a zero-size stand-in solves a layout no real node fits — and ONE pass over the graph
-// names every such node, where a short-circuiting walk surrendered the rest of the damage to the next attempt.
 type _Measured = {
   readonly id: string
   readonly parent: string | undefined
@@ -353,10 +321,6 @@ const _measured = (graph: Canvas.Graph): Either.Either<ReadonlyArray<_Measured>,
     : Either.right(present)
 }
 
-// capture builds the request FROM the cell: the proven box table and the id graph become the ElkNode tree —
-// compound children RECURSE to the graph's own depth, because a group inside a group is one more row of the same
-// parent fact and a two-level build drops its interior silently — and the captured revision rides the request
-// as the admission coordinate. The tree walk is total by construction: the gate above already proved every box.
 const _request = (
   graph: Canvas.Graph,
   solver: Canvas.Solver,
@@ -380,8 +344,6 @@ const _request = (
     }
   })
 
-// one solve is one bounded Effect on the scoped client: the worker structured-clones the request, the budget
-// bounds a runaway solve into the fault family, and the answer folds into the proposal the admission fold reads
 const _solve = (
   solving: Canvas.Solving,
   request: { readonly revision: number; readonly root: ElkNode },
@@ -397,8 +359,6 @@ const _solve = (
         onTimeout: () => new CanvasFault({ case: { reason: "solve-overrun", budget: solving.budget } }),
       }),
     )
-    // positions harvest to the tree's own depth — elk child coordinates are parent-relative, exactly the frame the
-    // engine's parentId nodes render in, so the walk carries no offset math
     const positions = (nodes: ReadonlyArray<ElkNode>): Array<NodeChange> =>
       nodes.flatMap((node) => [
         { type: "position" as const, id: node.id, position: { x: node.x ?? 0, y: node.y ?? 0 } },
@@ -414,10 +374,6 @@ const _solve = (
     }
   })
 
-// admission at revision equality alone: an equal proposal lands as TWO batches through the one writer — the node
-// positions and the routed bends (an edges replace batch stamping each routed edge's data, so the edge arms path
-// through BaseEdge off the same admission; a proposal whose bends never land would route arrows nowhere) — and an
-// unequal one drops counted; superseded is normal operation
 const _admit = (registry: Hook.Registry, canvas: string, solver: Canvas.Solver) =>
   (graph: Canvas.Graph, proposal: Canvas.Proposal): Effect.Effect<ReadonlyArray<Canvas.Change>> =>
     Effect.gen(function* () {
@@ -472,20 +428,13 @@ declare namespace Canvas {
 
 const _byLane = Order.mapInput(Order.number, (lane: Canvas.Lane) => lane.rank)
 
-// x must invert — a pointer maps back to an instant for drag and hit-test — so time is always x and the band
-// ladder always y; the band scale carries no invert and never takes the temporal axis
 const _scales = (window: Canvas.Window, lanes: ReadonlyArray<Canvas.Lane>, frame: { readonly width: number; readonly height: number }) => ({
   x: scaleUtc({ domain: [DateTime.toDate(window.from), DateTime.toDate(window.until)], range: [0, frame.width] }),
   y: scaleBand({ domain: lanes.map((lane) => lane.key), range: [0, frame.height], padding: 0.2 }),
 })
 
-// arrow routing is a policy row: direct elbows serve sparse graphs, and a congested set routes through the
-// [04] solve lane as bendPoints data under the same revision admission — a re-route racing a span edit drops superseded
 const _ARROWS = { direct: { solved: false }, solved: { solved: true } } as const
 
-// lane windowing: the virtualizer owns which bands mount, estimateSize reads the band scale's step, and a
-// thousand-lane schedule renders its viewport slice; span hit-testing stays inside the mounted window — the
-// `use` prefix is load-bearing: the member composes a hook, so rules-of-hooks and the compiler key on it
 const _useWindow = (lanes: ReadonlyArray<Canvas.Lane>, scroll: () => HTMLElement | null, step: number) =>
   useVirtualizer({ count: lanes.length, getScrollElement: scroll, estimateSize: () => step, overscan: 4 })
 
@@ -533,7 +482,7 @@ const Canvas: Canvas.Shape = {
   useWindow: _useWindow,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Canvas, CanvasCensus, CanvasFault }
 ```

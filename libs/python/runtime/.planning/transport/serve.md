@@ -92,26 +92,16 @@ from rasm.runtime.transport.body import AdmissionSide, BodyAdmission
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# the outbound dial a client credential row projects to: the `pyqwest` transport carrying TLS material, beside the
-# client interceptors a call-credential row contributes — `bearer` stamps its token per call on `ctx.request_headers`.
 type Dial = tuple[HTTPTransport, tuple[MetadataInterceptor, ...]]
 
 
 class Mounted(Protocol):
-    # what a generated `<Svc>ASGIApplication` IS to this host: an ASGI callable carrying its own mount `path`. The
-    # structural form admits every generated application whatever service it is generic over — `ConnectASGIApplication`
-    # is invariant in its service parameter, so a nominal `ConnectASGIApplication[object]` admits none of them.
     @property
     def path(self) -> str: ...
     async def __call__(self, scope: AsgiScope, receive: ASGIReceiveCallable, send: ASGISendCallable) -> None: ...
 
 
 class Application[S](Protocol):
-    # the generated `<Svc>ASGIApplication` CLASS as this host constructs it: one servicer beside the FULL keyword set the
-    # generated constructor declares — the interceptor tuple, the decompressed-body ceiling, the compression roster, and
-    # the codec roster — so every generated class satisfies this shape, the host can seat the whole `WirePolicy`, and no
-    # application reaches the dispatcher without the shared interceptor tuple. A narrower protocol is what left the
-    # body bound and the compression policy unspellable at the one site that mounts them.
     def __call__(
         self,
         service: S,
@@ -124,51 +114,28 @@ class Application[S](Protocol):
     ) -> Mounted: ...
 
 
-# one served service as DATA — the generated application class beside the servicer implementing its `<Svc>` protocol.
-# `mount` constructs the application, so the interceptor seat and the wire policy are the host's, never a caller's to forget.
 type Served[S] = tuple[Application[S], S]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the ONE span-attribute key this module owns; every fault key it stamps arrives from the fault owner's rostered
-# `FAULT_*` set, the same reason tenancy rides the metric owner's `TENANT_BAGGAGE` — one canonical spelling every
-# plane reads, where a per-site literal drifts one end of a join a backend can no longer make. The fault TAG stays
-# LOCAL and never a wire column — the compact `FaultDetail` transports the leg and its row ordinal as identity, so the
-# tag survives on this host's own span where a backend joins it, exactly where the contract wants it kept.
 _DESCRIPTOR_ATTR: Final[str] = "rasm.descriptor"
-# the encode-side raise surface of a generated class: protobuf-py validates at `to_binary`/`to_json` ALONE — construction
-# and assignment check nothing — raising `TypeError` on a wrong-typed slot, `OverflowError` on an out-of-range scalar,
-# and `ValueError` on a malformed oneof or value. Named once, because the client's terminal fence maps every
-# unclassified raise to UNAVAILABLE and a caller-repairable encode refusal must never read as a transient the WIRE row re-drives.
 _ENCODE_RAISES: Final[Catch] = (TypeError, ValueError, OverflowError)
-# the two compression rows both ends negotiate, ordered by preference: zstd first for the GLB, tensor, and splat bodies
-# this host serves, gzip for every peer that lacks it; identity always survives resolution.
 _ZSTD: Final[Compression] = ZstdCompression()
 _GZIP: Final[Compression] = GzipCompression()
-# the two provider planes every fence on this page names, spelled ONCE each because `catch` is REQUIRED on all three
-# lift shapes and a per-site tuple drifts one seam's raise surface from its sibling's. `ConnectError` is the one class
-# every Connect client raise and every handler refusal crosses as, and `OSError` is the socket half a dial or a bind
-# reaches; hypercorn's lifespan refusals ride `_HOST_RAISES`. Neither set widens past `Exception`: cancellation is
-# scope-owned flow control the faults owner forbids converting.
 _WIRE_RAISES: Final[Catch] = (ConnectError, OSError)
-_HOST_RAISES: Final[Catch] = (LifespanTimeoutError, LifespanFailureError, OSError)  # hypercorn's two lifespan refusals root at `Exception` directly
+_HOST_RAISES: Final[Catch] = (LifespanTimeoutError, LifespanFailureError, OSError)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
 class CredentialPolicy:
-    # one axis, two directions, each case constructible at exactly the end it serves: `insecure_loopback` carries the
-    # UDS serve leg where peer identity is the kernel-reported `(pid, uid)`, and the four outbound rows carry the PEM
-    # roots, the client cert/key pair, the call-credential token, and the fold that composes a transport credential with
-    # any number of call credentials. Both projections refuse the opposite direction by name, so a policy value can
-    # never mount at the end it was not minted for and the refusal names which end rejected it.
     tag: Literal["insecure_loopback", "tls", "mtls", "bearer", "composed"] = tag()
     insecure_loopback: bool = case()
-    tls: str = case()  # PEM root-certificate bundle the client verifies the server against
-    mtls: tuple[str, str, str] = case()  # (root bundle PEM, client certificate chain PEM, client private key PEM)
-    bearer: str = case()  # per-call access token; a client `MetadataInterceptor` stamps `authorization: Bearer <token>` on every rpc
-    composed: tuple["CredentialPolicy", ...] = case()  # one transport row folded with every call row beside it
+    tls: str = case()
+    mtls: tuple[str, str, str] = case()
+    bearer: str = case()
+    composed: tuple["CredentialPolicy", ...] = case()
 
     @classmethod
     def loopback(cls) -> Self:
@@ -179,11 +146,6 @@ class CredentialPolicy:
         return cls(composed=rows)
 
     def server_config(self, config: Config, bind: str) -> RuntimeRail[Config]:
-        # the inbound projection assigns onto the one hypercorn `Config`: the loopback row binds PLAINTEXT — h2c on a
-        # UNIX socket, the kernel peer credential its identity — on `bind` itself, because a `Config` holding no
-        # `certfile`/`keyfile` binds its `bind` roster plaintext and never opens `insecure_bind`; every outbound row
-        # refuses this seat by name through the ONE `SERVE_DIRECTION` row both projections raise through, so the
-        # mirrored refusals cannot drift into two spellings.
         match self:
             case CredentialPolicy(tag="insecure_loopback"):
                 config.bind = [bind]
@@ -194,11 +156,6 @@ class CredentialPolicy:
                 assert_never(unreachable)
 
     def client_transport(self) -> RuntimeRail[Dial]:
-        # the outbound mirror of `server_config`, and what makes the four client rows reachable: `tls`/`mtls` build the
-        # `HTTPTransport` carrying the roots and the client pair, `bearer` contributes the per-call interceptor over the
-        # ambient roots, and `composed` folds its rows through `_bundled`, whose contract takes ONE transport row
-        # followed by call rows — a bundle of pure call credentials with no transport row to anchor them refuses rather
-        # than dialing under whatever ambient roots the process happens to hold.
         match self:
             case CredentialPolicy(tag="tls", tls=roots):
                 return Ok((HTTPTransport(tls_ca_cert=roots.encode()), ()))
@@ -215,17 +172,11 @@ class CredentialPolicy:
 
 
 class WirePolicy(msgspec.Struct, frozen=True, gc=False):
-    # the mount policy as ONE value per profile: the decompressed-body ceiling `read_max_bytes` enforces at the server and
-    # the client alike — `RESOURCE_EXHAUSTED` past it, per envelope on a stream — and the compression roster both ends
-    # negotiate in preference order. Unset on the generated constructor, the server bounds NOTHING and offers gzip alone,
-    # which is the unbounded-body, gzip-only-over-GLB form this row exists to foreclose.
     read_max_bytes: int
     compressions: tuple[Compression, ...]
 
 
 class _Bearer(msgspec.Struct, frozen=True, gc=False):
-    # the call-credential half as a client `MetadataInterceptor`: `on_start` stamps the token on the outbound headers and
-    # `on_end` holds nothing, so a bearer row composes beside a transport row without touching the socket.
     token: str
 
     async def on_start(self, ctx: RequestContext[Message, Message]) -> None:
@@ -237,10 +188,6 @@ class _Bearer(msgspec.Struct, frozen=True, gc=False):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# TOTAL over `RuntimeProfile` by construction, read as a raw index: the sidecar serves tessellation sources and streams
-# GLB artifacts, so its ceiling admits a whole IFC model per request; the tool, package, and test profiles dial and
-# serve small control bodies and keep the tighter bound. Both compressions ride every row — a profile differs in the
-# ceiling alone, and a row offering gzip only would re-open the GLB-over-gzip cost on that profile.
 _WIRE_POLICY: Final[Map[RuntimeProfile, WirePolicy]] = Map.of_seq([
     (RuntimeProfile.TOOL, WirePolicy(read_max_bytes=64 << 20, compressions=(_ZSTD, _GZIP))),
     (RuntimeProfile.SIDECAR, WirePolicy(read_max_bytes=1 << 30, compressions=(_ZSTD, _GZIP))),
@@ -248,11 +195,6 @@ _WIRE_POLICY: Final[Map[RuntimeProfile, WirePolicy]] = Map.of_seq([
     (RuntimeProfile.TEST, WirePolicy(read_max_bytes=64 << 20, compressions=(_ZSTD, _GZIP))),
 ])
 
-# TOTAL over `FaultTag` by construction — one row per member of the closed vocabulary — which is what lets `settle`
-# read it as a raw index. A defaulted lookup here is a catch-all over an OWNED closure: a member carrying no row
-# would answer INTERNAL on the wire for the process's whole life and nothing anywhere would report the gap.
-# `domain` carries a SIBLING's own refusal token, which refuses the request's STATE rather than its shape, so it maps
-# FAILED_PRECONDITION beside `config` instead of joining `wire`/`boundary` on INVALID_ARGUMENT.
 _FAULT_STATUS: Final[Map[FaultTag, Code]] = Map.of_seq([
     ("config", Code.FAILED_PRECONDITION),
     ("resource", Code.UNAVAILABLE),
@@ -265,51 +207,25 @@ _FAULT_STATUS: Final[Map[FaultTag, Code]] = Map.of_seq([
     ("aggregate", Code.INTERNAL),
 ])
 
-# Fault classes THIS server's own refusal grades re-drivable, DERIVED from the status table above rather than
-# spelled beside it: a status a later attempt can clear names a class a later attempt can clear, so one authority
-# answers both columns and a new `_FAULT_STATUS` row joins or stays out by its own status. RESOURCE_EXHAUSTED
-# completes the peer client's transient trio and no row sends it — this host sheds through the breaker rather than
-# answering exhausted — so naming it here would seat a membership no producer reaches. This set is the FLOOR and
-# never the last word: `BoundaryFault.retriability` reads a rostered raise's own declared posture ahead of it.
 _REDRIVEN: Final[frozenset[FaultTag]] = frozenset(tag for tag, status in _FAULT_STATUS.items() if status in (Code.UNAVAILABLE, Code.DEADLINE_EXCEEDED))
 
-# the request-histogram outcome per terminal status, DERIVED from the two tables above: the interceptor sees the
-# `ConnectError` `settle` raised, never the fault, so the metric owner's `FaultTag` projection re-keys onto the status
-# that fault mapped to; every tag sharing one status shares one outcome by construction, and a status no tag reaches
-# — a handler defect crossing as UNKNOWN — folds `rejected` at the read.
 _CODE_OUTCOME: Final[Map[Code, DrainOutcome]] = Map.of_seq(
     (status, FAULT_OUTCOME.try_find(tag).default_value("rejected")) for tag, status in _FAULT_STATUS.items()
 )
-# `_sealed` reads these fact keys for the wire `message`, most specific first: one policy row, so a new evidence key
-# lands here and never as one more `or` arm at the fold.
 _MESSAGE_KEYS: Final[tuple[str, ...]] = ("detail", "cause", "case", "members", "subject")
 
-# serving-map bool onto the generated `ServingStatus` — ONE projection `check` and the index row share; the
-# two remaining members (`UNKNOWN`, `SERVICE_UNKNOWN`) are answers `_status` mints for a name the map never seated.
 _SERVING: Final[Map[bool, HealthCheckResponse.ServingStatus]] = Map.of_seq([
     (True, HealthCheckResponse.ServingStatus.SERVING),
     (False, HealthCheckResponse.ServingStatus.NOT_SERVING),
 ])
 
-# `_ADMITTED` holds the admitted context of the LIVE rpc: the interceptor binds it for the handler window and `admitted`
-# reads it, so a generated handler — whose signature Connect fixes as `(request, ctx)` — reaches the runtime context
-# with no second parameter and no ambient re-admission.
 _ADMITTED: Final[ContextVar[RuntimeContext]] = ContextVar("rasm.runtime.serve.admitted")
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
 class Admission:
-    # Metadata admission stays on the hook pair that spans every rpc shape: body access belongs to `BodyAdmission`, while
-    # deadline lift, contextvars, timing, and span enrichment remain per-call here. A refused admission raises the same
-    # `ConnectError` a mid-call fault raises, through the same `settle`, so no body reaches the handler before admission.
     async def on_start(self, ctx: RequestContext[Message, Message]) -> tuple[RuntimeContext, float, object]:
-        # one inbound map, three disjoint reads: the causal frame off the `SLOTS` headers, the deadline off the call,
-        # and the W3C context the admitted `Correlation` adopts — the middleware parents the ambient span off the same
-        # headers, so withholding the carrier here would root a fresh trace beside a remote-parented span. Both the
-        # W3C keys and the `SLOTS` slots are single-valued by their own contracts, so the last-wins collapse of
-        # `Headers.items()` settles nothing either reader disputes; the causal read answers `Option` and admission takes
-        # `Option`, so a call with no causal headers admits `Nothing` rather than a zero-stamp frame.
         carrier = dict(ctx.request_headers.items())
         budget = Option.of_optional(ctx.timeout_ms).map(lambda remaining: Deadline(timedelta(milliseconds=remaining)))
         context = ServerHost.settle(
@@ -322,10 +238,6 @@ class Admission:
         return context, perf_counter(), token
 
     async def on_end(self, token: tuple[RuntimeContext, float, object], ctx: RequestContext[Message, Message], error: Exception | None) -> None:
-        # the histogram settles with the rpc's terminal — a clean call `completed`, a `ConnectError` the status it
-        # mapped to through `_CODE_OUTCOME`, any other raise `rejected` — the span carries the admitted attributes
-        # beside the fault coordinates `settle` stamped, and the contextvars unwind WHOLE: a leaked bind stamps the next
-        # rpc with this one's identity.
         context, started, reset = token
         outcome: DrainOutcome = (
             "completed"
@@ -340,65 +252,40 @@ class Admission:
         _ADMITTED.reset(reset)
 
 
-# Connect applies the tuple as nested interceptors in declaration order. Admission wraps body validation, so its
-# duration, terminal outcome, context, and span cover validation refusals as well as the handler.
 _INTERCEPTORS: Final[tuple[Interceptor, ...]] = (Admission(), BodyAdmission(AdmissionSide.SERVER))
 
 
 class ServerHost(Health):
-    # the host implements the selected `grpc.health.v1.Health.Check` actor; upstream Watch remains generated support
-    # closure but has no runtime actor, so this surface does not invent a stream no client or manifest direction owns.
     def __init__(self, bind: str, credential: CredentialPolicy | None = None, grace: float = 5.0, *, profile: RuntimeProfile) -> None:
-        # `profile` selects the `WirePolicy` row every mounted application constructs under — the admitted context's own
-        # profile, so the body ceiling a daemon serves is the one its admission declared and never a per-mount literal.
         self._bind, self._credential, self._grace, self._policy = bind, credential or CredentialPolicy.loopback(), grace, _WIRE_POLICY[profile]
         self._applications: Block[Mounted] = Block.empty()
         self._serving: Map[str, bool] = Map.empty()
         self._shutdown = anyio.Event()
 
     def mount(self, served: Block[Served[Any]]) -> RuntimeRail[int]:
-        # the host CONSTRUCTS every application over the servicer a row carries, seating `_INTERCEPTORS` itself, so the
-        # admission and body boundary hold by construction rather than by every composition root remembering them; each
-        # application carries its own `path` and typed endpoints, so no codec pair, route row, or method name resolves here
-        # — `transport/shapes#BOOT_CENSUS` already proved every dialed row against its generated class at boot.
         self._applications = self._applications.append(served.map(lambda row: self._constructed(*row)))
         return Ok(len(served))
 
     def _constructed(self, application: Application[Any], servicer: Any) -> Mounted:
-        # ONE construction every served application and the host's own health application share: the interceptor tuple
-        # and the profile's `WirePolicy` seat here, so no mount — and no second composition root — can forget the body
-        # ceiling or offer gzip alone.
         return application(servicer, interceptors=_INTERCEPTORS, read_max_bytes=self._policy.read_max_bytes, compressions=self._policy.compressions)
 
     @staticmethod
     def admitted() -> RuntimeContext:
-        # the live rpc's admitted context, bound by `Admission.on_start` for exactly the handler window.
         return _ADMITTED.get()
 
     @staticmethod
     def enrich(context: RuntimeContext, descriptor: str, refused: Option[BoundaryFault] = Nothing) -> None:
-        # the server end spans what it HOLDS. Absence takes `Nothing` and stamps NO fault key: the retired `"ok"`
-        # literal filled a fault dimension on every clean call, which is the empty-value series the branch's optional
-        # -dimension law forbids. `owner` resolves the emitting leg off the census, so a fault whose subject no
-        # module seated omits that key too rather than naming a leg nothing declared.
         seat = refused.map(lambda fault: {FAULT_TAG: fault.tag} | fault.owner.map(lambda leg: {FAULT_OWNER: leg}).default_value({}))
         trace.get_current_span().set_attributes(context.attribute() | {_DESCRIPTOR_ATTR: descriptor} | seat.default_value({}))
 
     @staticmethod
     def settle[T](wired: RuntimeRail[T]) -> T:
-        # generic over the terminated payload, so one fold ends a unary reply, a streamed frame, and an admission
-        # refusal alike — the Error arm raises and returns nothing, so the payload type only ever names what the Ok
-        # arm hands back. The raise is the ONE `ConnectError` Connect carries intact with its `code`, `message`, and
-        # `details`: the generated `FaultDetail` rides `details` as the typed conflict, so the trailer this fold once
-        # packed by hand is the protocol's own error-detail channel, spelled identically on Connect, gRPC, and gRPC-Web.
         match wired:
             case Result(tag="ok", ok=payload):
                 return payload
             case Result(tag="error", error=fault):
                 context = _ADMITTED.get(RuntimeContext.admit(RuntimeProfile.SIDECAR))
                 ServerHost.enrich(context, "settle", Some(fault))
-                # raw index, never a defaulted lookup: the table declares one row per `FaultTag` member, so a member
-                # that gains no row must break the read rather than answer INTERNAL for the process's whole life.
                 status = _FAULT_STATUS[fault.tag]
                 raise ConnectError(status, "; ".join(f"{k}={v}" for k, v in fault.facts().items()), details=_details(fault, context))
             case _ as unreachable:
@@ -412,25 +299,17 @@ class ServerHost(Health):
                 return refused
             case Result(tag="ok", ok=config):
                 config.graceful_timeout = self._grace
-                # ONE dispatcher over every generated application keyed by its own `path`, the generated health application
-                # over this host beside them, and ONE tracing wrap outside it; `exclude_spans` keeps a streaming rpc from
-                # minting a span per frame.
                 health = self._constructed(HealthASGIApplication, self)
                 app = OpenTelemetryMiddleware(
                     DispatcherMiddleware({application.path: application for application in (*self._applications, health)}),
                     exclude_spans=["receive", "send"],
                     server_request_hook=_rpc_attributes,
                 )
-                # the listeners bind and LISTEN before readiness fires: `create_sockets` binds every `bind` row, and the
-                # backlog queues a caller's connection until the loop accepts it, so an sd-notify READY names a socket that
-                # answers rather than one the next statement would have opened; `worker_serve` adopts the bound set whole.
                 sockets = config.create_sockets()
-                for sock in (*sockets.insecure_sockets, *sockets.secure_sockets):  # Exemption: the platform listen seam ahead of READY
+                for sock in (*sockets.insecure_sockets, *sockets.secure_sockets):
                     sock.listen(config.backlog)
-                # the map seats every served application under its SERVICE NAME — the `WireService` text the supervisor
-                # flips and a dialer's `check(service)` names — never the slashed mount path, which no probe spells.
                 self._serving = Map.of_seq((_service(application), True) for application in self._applications)
-                if ready is not None:  # the readiness hook fires after the health flips, so an sd-notify READY never precedes a serving probe
+                if ready is not None:
                     await ready()
                 await worker_serve(wrap_app(app, config.wsgi_max_body_size, "asgi"), config, sockets=sockets, shutdown_trigger=self._shutdown.wait)
                 return Ok(None)
@@ -438,26 +317,18 @@ class ServerHost(Health):
                 assert_never(unreachable)
 
     async def status(self, service: str, serving: bool) -> None:
-        # supervisor's one flip surface, keyed on the `WireService` text the `execution/workers#SUPERVISION` charge
-        # subject spells; a drained host holds NOT_SERVING and this set is a no-op. The map is what `check` publishes
-        # through the generated `HealthASGIApplication` mounted over this host.
         self._serving = self._serving.add(service, serving) if not self._shutdown.is_set() else self._serving
 
     async def drain(self) -> None:
-        # NOT_SERVING races ahead of the stop: probes stop routing new work while hypercorn's `graceful_timeout`
-        # drains in-flight calls; the flip is permanent, so a late success cannot re-advertise.
         self._serving = Map.of_seq((service, False) for service in self._serving.keys())
         self._shutdown.set()
 
     @override
     async def check(self, request: HealthCheckRequest, ctx: RequestContext[HealthCheckRequest, HealthCheckResponse]) -> HealthCheckResponse:
-        # generated `Health.check`: one projection of the serving map, so a probe reads the same fact `drain` flips.
         _ = ctx
         return HealthCheckResponse(status=self._status(request.service))
 
     def _status(self, service: str) -> HealthCheckResponse.ServingStatus:
-        # `grpc.health.v1` name contract: an empty name answers the host whole, a served service name answers its row,
-        # and a name no application serves answers SERVICE_UNKNOWN rather than a forged NOT_SERVING.
         whole = not self._serving.is_empty() and all(self._serving.values())
         return (
             self._serving.try_find(service).map(_SERVING.__getitem__).default_value(HealthCheckResponse.ServingStatus.SERVICE_UNKNOWN)
@@ -469,25 +340,15 @@ class ServerHost(Health):
 
 
 def _service(application: Mounted) -> str:
-    # ONE derivation of the health key from the generated application: `path` is `/<package>.<Service>`, so the name
-    # is the path less its slash — exactly the `WireService` member text, which is why a supervisor flip, a dialer's
-    # probe, and this map can never hold two spellings of one service.
     return application.path.removeprefix("/")
 
 
 def _rpc_attributes(span: trace.Span, scope: dict[str, object]) -> None:
-    # the per-call rpc dimension off the ASGI path the generated application mounts at — `/<package>.<Service>/<Method>` —
-    # stamped natively by the one tracing middleware, so no handler names its own service or method.
     service, _, method = str(scope.get("path", "")).strip("/").rpartition("/")
     span.set_attributes({"rpc.system": "connect_rpc", "rpc.service": service, "rpc.method": method})
 
 
 def _bundled(rows: Block[CredentialPolicy]) -> RuntimeRail[Dial]:
-    # a bundle PROVES its arity rather than trusting a caller's ordering: `tls`/`mtls` are the transport half and
-    # `bearer` the call half. A bundle carrying no transport row would dial under whatever ambient roots the process
-    # happens to hold, two would silently drop one, and a nested `composed` or an `insecure_loopback` row belongs to
-    # neither half — each refuses by name here rather than at the socket, the roster row carrying the kinds actually
-    # offered as its own coordinate, which is strictly more evidence than the fixed sentence it replaces.
     anchors, tokens = rows.filter(lambda row: row.tag in ("tls", "mtls")), rows.filter(lambda row: row.tag == "bearer")
     return (
         Error(SERVE_BUNDLE.raised(",".join(sorted({row.tag for row in rows}))))
@@ -499,33 +360,11 @@ def _bundled(rows: Block[CredentialPolicy]) -> RuntimeRail[Dial]:
 
 
 def _details(fault: BoundaryFault, context: RuntimeContext) -> tuple[Message, ...]:
-    # Every refusal seats its compact estate cell; a measured throttle seats the standard advice detail generic
-    # Connect peers honor. That detail is this cell's OWN throttled arm read back through the correspondence owner —
-    # one `RetryInfo` in both places, never a second construction those two seats can drive apart — so this leg
-    # names neither that standard message nor a duration unit.
     sealed = _sealed(fault, context, fault.retriability(_REDRIVEN))
     return RecoveryCell.advice(sealed.recovery).map(lambda advice: (sealed, advice)).default_value((sealed,))
 
 
 def _sealed(fault: BoundaryFault, context: RuntimeContext, recovery: Recovery) -> FaultDetail:
-    # one total egress fold onto the COMPACT generated message the contract froze: `domain` is the EMITTING leg off the
-    # fault census and `case` that leg's closed row ordinal — the producing family's identity, never the Connect code the
-    # same refusal carries on `ConnectError.code` — so a peer keeps the pair opaque and the producer's tag, its detail
-    # string, and the whole `facts()` map stay LOCAL: the tag rides `FAULT_TAG` on this host's own span and the facts
-    # ride the structured log line the same fold writes, both joinable on the `correlation` this detail does carry. An
-    # unseated subject crosses under this host's own serving leg at the unspecified zero, since a foreign raise has no
-    # family ordinal to claim. `stamp` is the admitted causal cell where the call carried one and this host's own sample
-    # where it did not — the slot is required on the wire, and a zero stamp would sort before every real one.
-    # `violations` carry the row's NAMED coordinates as `BadRequest.FieldViolation` rows — the one place a field path
-    # crosses — so a peer repairs by coordinate under the row's defect token rather than parsing a message.
-    #
-    # `recovery` stamps THIS server's re-drive verdict rather than leaving a peer to infer one: a consumer reading
-    # INVALID_ARGUMENT cannot tell a malformed payload from a codec that decodes on the next build, and one guessing
-    # from the status substitutes its own band table for this classification. It grades through the faults owner's
-    # own `retriability` read — that tier's ONE declared precedence, a rostered raise's own row posture over the
-    # `FaultTag` derivation — so an `aggregate` folds its members through `Recovery.widest` and no second classifier
-    # restates the fault family here. `_details` seats this cell's own throttled arm as its standard advice detail,
-    # so compact cell and generic peer detail are ONE message and cannot disagree.
     reason = fault.defect.default_value(fault.tag)
     return FaultDetail(
         domain=fault.owner.default_value(RuntimeLeg.SERVE.value),
@@ -589,9 +428,6 @@ from rasm.runtime.resilience import RetryClass
 from rasm.runtime.shapes import RecoveryCell, WireService, remote_fault, wire_detail
 from rasm.runtime.transport.body import AdmissionSide, BodyAdmission
 
-# `_WIRE_RAISES`, `_ENCODE_RAISES`, `_ZSTD`, and `_WIRE_POLICY` are this module's [02]-[SERVE] planes and `CredentialPolicy` its
-# owner of this dial's two-directional credential axis. `Recovery` is the RUNTIME owner's re-offer family and `RecoveryCell` the correspondence carrying both
-# directions over the generated `FaultRecovery`, so this seam decodes a verdict and never mints a second vocabulary for one.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -603,8 +439,6 @@ type CommandTxnKind = Literal["committed", "rolled_back", "compensated", "refuse
 
 
 class WireDispatch(Protocol):
-    # generic over the reply class the caller names: `MethodInfo.output=into` makes the client decode INTO that class, so
-    # the rail carries `R` end to end and no coercion stands between the wire and the caller's value.
     async def __call__[R: Message](self, descriptor: str, request: Message, into: type[R], /) -> RuntimeRail[R]: ...
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -639,9 +473,6 @@ class CapabilityAdmission(Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# Outbound retry POLICY for this seam, read whole off `reliability/resilience#RESILIENCE`: attempts, timeout, backoff
-# curve, and the transience read this seam falls back to all arrive as that page's `RetryClass.WIRE` row, so nothing
-# here re-spells a schedule and a table edit lands on this dial with no consumer touch.
 _WIRE_ROW: Final = RetryClass.WIRE.policy
 
 _DESCRIPTOR_DOCUMENT: Final = msgspec.json.Decoder(tuple[_Descriptor, ...])
@@ -659,10 +490,6 @@ _TRACER: Final = scoped(trace.get_tracer, SCOPES[Scope.WIRE])
 
 
 class _Telemetry(msgspec.Struct, frozen=True, gc=False):
-    # the client `MetadataInterceptor`: ONE span per dial opened in `on_start`, the W3C context injected onto the outbound
-    # headers, the tenant and the rpc identity stamped off `ctx.method`, and the span closed in `on_end` off the terminal
-    # `ConnectError.code` — the client end spans only what it TRULY has, so `FAULT_CODE`/`FAULT_POSTURE`, which need the
-    # detail decode, stay with `remote_fault` where it happens, and a clean call OMITS the fault key.
     tenant: Tenant
 
     async def on_start(self, ctx: RequestContext[Message, Message]) -> Span:
@@ -750,13 +577,6 @@ class CapabilityInvoke:
         profile: RuntimeProfile,
         scope: ScopeKey = DEFAULT_SCOPE,
     ) -> RuntimeRail[Self]:
-        # the dial is CREDENTIALED by construction: the caller's policy projects to a transport or refuses on the rail
-        # before any socket exists, so a plaintext TCP transport appears on no path here and an unauthenticated outbound
-        # leg is unspellable rather than the silent default this seam used to carry. The refusal names which case
-        # rejected it — `insecure_loopback` is the inbound seat, and a malformed bundle names its own arity. `scope` is the
-        # composition this dial belongs to, and it is what the drain later reaches this client by. The `pyqwest`
-        # `HTTPTransport` owns the sockets and `ConnectClient.close` only flips a flag, so the transport this seam
-        # builds is the handle it holds and `aclose`s.
         match credential.client_transport():
             case Result(tag="error", error=refused):
                 return Error(refused)
@@ -813,17 +633,11 @@ class CapabilityInvoke:
             method = MethodInfo(name=descriptor_id, service_name=WireService.CAPABILITY, input=type(request), output=into, idempotency_level=IdempotencyLevel.UNKNOWN)
 
             async def called() -> RuntimeRail[R]:
-                # Exemption: the detail fence — the decoded `FaultDetail` lives only on the live `ConnectError.details`, so this one
-                # platform-forced except reclassifies the terminal raise AFTER the WIRE-row retry exhausts. The retry itself already
-                # read that same detail through `_redrive`, so a producer-terminal fault arrives here having spent one attempt.
                 try:
                     return Ok(await _WIRE_CALLER(client.execute_unary, request=request, method=method))
                 except ConnectError as terminal:
                     return Error(remote_fault(terminal))
 
-            # PRE-ENCODE under the `config` fence, AHEAD of the retried call: `to_binary` is where protobuf-py validates, and
-            # inside the client those raises fall through its terminal `except Exception` as UNAVAILABLE — the one status the
-            # WIRE row grades transient — so a caller-repairable refusal would spend every attempt before surfacing wrong.
             match boundary(SERVE_ENCODE, request.to_binary, catch=_ENCODE_RAISES):
                 case Result(tag="error", error=refused):
                     return Error(refused)
@@ -833,19 +647,15 @@ class CapabilityInvoke:
         return Ok(_enrolled(cls(rows, dispatch, transport, scope)))
 
     async def run[R: Message](self, descriptor_id: str, request: Message, into: type[R]) -> RuntimeRail[R]:
-        # the generated class IS the codec: Connect's proto binary codec serializes `request` and decodes `into`, so the
-        # catalog check is the only prologue and no registry row stands between the caller's value and the wire.
         match self._catalog.try_find(descriptor_id):
             case Option(tag="none"):
                 return Error(SERVE_CATALOG.raised(descriptor_id))
             case Option(tag="some"):
-                # the client already decoded INTO `into` off `MethodInfo.output`; a re-encode round trip here was a lossy twin.
                 return await self._dispatch(descriptor_id, request, into)
             case _ as unreachable:
                 assert_never(unreachable)
 
     async def aclose(self) -> None:
-        # runtime-lived transport's deterministic drain; a directly-injected dispatch carries no transport, a typed no-op.
         _retired(self)
         if self._transport is not None:
             await self._transport.aclose()
@@ -853,62 +663,31 @@ class CapabilityInvoke:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# every dialed invoke, PARTITIONED by the composition that dialed it. `connect` builds the transport, so this owner owes
-# its teardown exactly as the transport owner owes its pooled clients — but a process-wide set made one composition's
-# drain close a transport an embedding host was still serving calls over, so the registry keys on the branch's one
-# custody axis exactly as the hooks tables, the metrics state, and the install-receipt maps do. A directly-injected
-# dispatch never enters — it holds no transport and there is nothing to close.
 _LIVE_INVOKES: Final[dict[ScopeKey, set[CapabilityInvoke]]] = {}
 
 
 def _enrolled(invoke: CapabilityInvoke) -> CapabilityInvoke:
-    # Exemption: the process-lifetime dial registry is this owner's one mutating seam. The read defaults and the
-    # write replaces, so no `setdefault` runs its default expression ahead of the lookup and no partition is seated
-    # by anything but a dial — a drain then walks exactly the scopes that dialed.
     _LIVE_INVOKES[invoke.scope] = _LIVE_INVOKES.get(invoke.scope, set()) | {invoke}
     return invoke
 
 
 def _retired(invoke: CapabilityInvoke) -> None:
-    # Exemption: the registry's release half. A partition whose last dial retires leaves the map entirely rather than
-    # lingering as an empty set the drain would still walk — the same lifetime discipline the occupancy bands hold.
     held = _LIVE_INVOKES.pop(invoke.scope, set()) - {invoke}
     if held:
         _LIVE_INVOKES[invoke.scope] = held
 
 
 async def drained(*, scope: ScopeKey = DEFAULT_SCOPE) -> None:
-    # the capability-dial teardown the ordered drain fold names, mirroring the transport owner's own: close every
-    # transport THIS composition dialed, concurrently, and `aclose` retires its own row so a caller closing early never
-    # double-closes and a sibling composition's live transports are never reached.
     async with anyio.create_task_group() as tg:
         for invoke in tuple(_LIVE_INVOKES.get(scope, set())):
             tg.start_soon(invoke.aclose)
 
 
 def _stated(raised: Exception) -> Option[Recovery]:
-    # the PRODUCER's rung of the retriability precedence, read at the ONE seam that can read it: `reliability/faults`
-    # declares the two rungs it can see — a rostered raise's own row posture over the `FaultTag` derivation — and rules
-    # that a peer-stated posture outranks both and decodes HERE, where a live detail exists to read. `Nothing` is the
-    # honest third answer rather than a fourth case: an absent detail, a frame minted before the slot existed, and a
-    # window this producer spelled wrong all state NOTHING about re-driving, and each defers to the rung below instead
-    # of masquerading as a verdict. Both readers on this page compose it, so the posture a retry acts on is the posture a
-    # caller's fault carries.
     return wire_detail(raised).bind(lambda sealed: RecoveryCell.stated(sealed.recovery).default_value(Nothing))
 
 
 def _redrive(raised: Exception) -> bool | float:
-    # TWO AXES CROSS HERE: this producer's own verdict against the class's route, and no bool anywhere. Status is the
-    # only axis the `RetryClass.WIRE` row can read, so it retries the transient trio and refuses the rest; its detail
-    # carries the second axis — what the PRODUCER says about re-driving THIS fault — and reading it here is the only
-    # place it can be spent instead of an attempt, because `guarded(...)` and the terminal fence below both consume
-    # that raise after the budget is already gone. `terminal` refuses the re-drive even where the status sits in that
-    # trio, so a permanently-decommissioned UNAVAILABLE stops at attempt one. Stated windows ride back as the float
-    # `stamina` waits INSTEAD of its own curve, per the backoff-hook contract, so a server-negotiated wait is honored
-    # with no sleep on this page. `transient` and every unstated answer DEFER to the row's own transience read, so
-    # this overlay only ever narrows or re-times the curve and never widens what the class calls retriable.
-    # `None` is unspellable on purpose: `stamina` warns on it and refuses the retry, which would silently turn every
-    # raise carrying no verdict terminal.
     match _stated(raised):
         case Option(tag="some", some=Recovery(tag="terminal")):
             return False
@@ -920,10 +699,6 @@ def _redrive(raised: Exception) -> bool | float:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# Bound caller for this seam: ONE construction off the `RetryClass.WIRE` row, so its schedule stays the resilience
-# table's and only the RE-DRIVE VERDICT is this page's. `guard(cls)` stays the bare per-CLASS caller a consumer
-# holding no verdict binds — its `@cache` keys on the member alone — and a verdict read from a detail is per-SEAM by
-# construction: no policy tier can decode a `FaultDetail`, and this page owns that detail end to end.
 _WIRE_CALLER: Final[stamina.BoundAsyncRetryingCaller] = stamina.AsyncRetryingCaller(**_WIRE_ROW.schedule).on(_redrive)
 ```
 
@@ -979,7 +754,6 @@ from rasm.runtime.shapes import aligned
 from rasm.runtime.telemetry import Telemetry
 from rasm.runtime.workers import Charge, Supervisor, WorkerKind, WorkerPool
 
-# `ServerHost`/`Admission`/`CredentialPolicy`/`Served` are this module's [02]-[SERVE] owners — no cross-module import.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -1000,8 +774,6 @@ class LifecycleFact(msgspec.Struct, frozen=True, gc=False):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# daemon lifecycle points: OBSERVE facts at ready/stopping, the drain verdict on a one-slot REPLAY ring so a late
-# subscriber reads the last shutdown outcome; _booted registers the rows and attaches the receipts tap per point.
 _READY: Final[str] = "rasm.runtime.serve.ready"
 _STOPPING: Final[str] = "rasm.runtime.serve.stopping"
 _DRAINED: Final[str] = "rasm.runtime.serve.drained"
@@ -1015,7 +787,6 @@ LIFECYCLE_POINTS: Final[Block[HookPoint[LifecycleFact]]] = Block.of_seq([
 
 
 def _exit(outcome: RuntimeRail[object] | DrainReceipt[object]) -> int:
-    # one CLI exit fold both commands share; the traceback never escapes the CLI boundary.
     match outcome:
         case Result() as rail:
             return rail.map(lambda _value: 0).default_value(1)
@@ -1025,44 +796,19 @@ def _exit(outcome: RuntimeRail[object] | DrainReceipt[object]) -> int:
 
 @railed
 def _booted(bind: str, grace: float, served: Block[Served[Any]], ledger: Option[tuple[Ledger, Custody]]) -> Generator[Any, Any, ServerHost]:
-    # admit -> gate -> install -> bind as one railed bind chain: the first Error short-circuits, the composed host rides the
-    # Ok payload; an absent otel or pyroscope endpoint installs nothing — no literal. the settings model is pydantic's,
-    # so its refusal classes are pydantic's — naming them is what the required `catch` means, and `OSError` is the
-    # secrets-mount read the same construction performs.
     settings = yield from boundary(SERVE_SETTINGS, SettingsAdmission.mounted, catch=(SettingsError, ValidationError, OSError))
-    # one ship value crosses both halves of the log egress — the chain's wire row here, the LoggerProvider registration
-    # at the install — so the daemon can never render lines the provider half declines to export.
     ship = LogShip.OTLP_CONSOLE
     LogPipeline.configure(ship=ship)
-    # one admitted context serves both installs, so the telemetry and profile gates read the same axis row
-    # under one boot correlation; a second admit here would mint a second correlation for the same process.
     ctx = RuntimeContext.admit(RuntimeProfile.SIDECAR)
-    # STRUCTURE PROVES FIRST: both wire gates seat ahead of every install, because each install claims process
-    # custody — a set-once OTel global, a patched contrib train, a registered profiler, a hook-point table — and a
-    # boot that mounts them and then discovers a drifted mirror roster or a broken packed layout has already taken
-    # ownership of surfaces its refusal cannot hand back. Neither gate reads installed state, so nothing here owes
-    # them a provider.
     yield from aligned(Block.empty())
     yield from sealed()
-    # Install receipts BIND here, never vanish inside the map: an effective `signal_profile` carries the cardinality
-    # ceiling this enrollment enforces, and an absent endpoint installs no provider, so that arm enrolls no-op
-    # instruments under the standing default.
     installed = Option.of_optional(settings.otel_endpoint).map(lambda endpoint: Telemetry.install(ctx, str(endpoint), ship=ship))
     Metrics.install(budget=installed.map(lambda receipt: receipt.signal_profile.cardinality_budget).default_value(TENANT_BUDGET))
-    Instrumentation.install()  # contrib train patches under the same gate: no provider, no export cost
+    Instrumentation.install()
     Option.of_optional(settings.pyroscope_endpoint).map(lambda endpoint: Profiles.install(ctx, str(endpoint)))
     install(RetryMode.EMIT)
-    # the roster arm claims the whole lifecycle point table in ONE gated transition — a refusal leaves custody as it
-    # stood and reports every breach together, never the half-mounted table an accumulating per-point traverse leaves.
     yield from Hooks.register(LIFECYCLE_POINTS)
-    # the tap rides the SAME roster grain the claim does: one subscription over the whole table, unwound whole on a
-    # refusal, so a tap-policy change lands at the registry rather than at this caller's fold.
     yield from Hooks.subscribe(LIFECYCLE_POINTS, TapRow(receipts=SCOPES[Scope.SERVICE]))
-    # the durable evidence plane installs LAST among the observability owners and only where a composition bound one:
-    # `Journal` holds no process latch because a ledger is a value each root supplies, not an SDK singleton to adopt,
-    # so an unbound daemon runs with no journal rather than against a default the branch would have to invent. The
-    # bind BINDS onto this chain — a refused census, an unmet port, or a colliding point roster stops the boot here,
-    # where an unbound-but-recording plane would rail every `record` a producer makes for the process's whole life.
     yield from ledger.map(lambda bound: Journal.install(*bound)).default_value(Ok(None))
     host = ServerHost(bind, CredentialPolicy.loopback(), grace, profile=ctx.profile)
     yield from host.mount(served)
@@ -1070,11 +816,6 @@ def _booted(bind: str, grace: float, served: Block[Served[Any]], ledger: Option[
 
 
 async def _settled(at: FaultRow, stage: DrainStage) -> RuntimeRail[object]:
-    # stage() itself is fenced so a synchronous raise converts instead of escaping the drain fold; a rail-returning
-    # sync owner passes through, an async owner awaits under the same named fence. This is the daemon plane's ONE
-    # catch-all, and it earns that seat by the faults owner's own clause: the stages are caller-supplied owners whose
-    # raise surface this runtime cannot enumerate, and a shutdown that lets an unclassified raise cross the process
-    # boundary loses every stage queued behind it. Every other fence on this page names its provider classes.
     match boundary(at, stage, catch=Exception):
         case Result(tag="error") as refused:
             return refused
@@ -1088,15 +829,12 @@ async def _settled(at: FaultRow, stage: DrainStage) -> RuntimeRail[object]:
 
 async def _drained(stages: Block[tuple[FaultRow, DrainStage]]) -> RuntimeRail[Block[object]]:
     settled: Block[RuntimeRail[object]] = Block.empty()
-    for at, stage in stages:  # Exemption: the ordered drain — every stage runs even after an earlier fault; the rails accumulate below.
+    for at, stage in stages:
         settled = settled.append(Block.singleton(await _settled(at, stage)))
     return traversed(settled, by=Disposition.ACCUMULATE)
 
 
 async def _notify(state: NotifyState) -> None:
-    # sd-notify readiness as data: an absent NOTIFY_SOCKET folds to a no-op; an abstract-namespace @ path rewrites to the
-    # NUL form; a dead, refusing, or invalid manager socket is swallowed — notification is advisory, so a failed send
-    # never faults the heartbeat leg and never outranks the shielded drain the STOPPING notice precedes.
     match os.environ.get("NOTIFY_SOCKET"):
         case None:
             return
@@ -1104,38 +842,26 @@ async def _notify(state: NotifyState) -> None:
             try:
                 async with await anyio.create_unix_datagram_socket() as sock:
                     await sock.sendto(state.value.encode(), path.replace("@", "\0", 1) if path.startswith("@") else path)
-            except OSError:  # Exemption: the platform notify seam — an unreachable manager is ignored, never fatal.
+            except OSError:
                 return
 
 
 async def _launched() -> None:
-    # readiness is two facts in order: the manager datagram, then the ready-point fire the receipts tap projects.
     await _notify(NotifyState.READY)
     await Hooks.fire_async(_READY, LifecycleFact(subject=SCOPES[Scope.SERVICE]))
 
 
 async def _beating() -> None:
-    # systemd watchdog admission is total: WATCHDOG_USEC must parse to a POSITIVE period — "0" is the manager's
-    # disable spelling, not an interval, and would spin a zero-sleep ping storm — and WATCHDOG_PID, when set, must
-    # name this process, so a value inherited from a parent scope never arms a child heartbeat; the armed leg pings
-    # at half the period per the watchdog contract.
     match os.environ.get("WATCHDOG_USEC", ""), os.environ.get("WATCHDOG_PID", str(os.getpid())):
         case (usec, owner) if not usec.isdigit() or int(usec) == 0 or owner != str(os.getpid()):
             return
         case (usec, _):
-            while True:  # Exemption: the watchdog heartbeat is the daemon's standing keep-alive, cancelled by its owning group.
+            while True:
                 await _notify(NotifyState.WATCHDOG)
                 await anyio.sleep(int(usec) / 2_000_000)
 
 
 def _fleet(charges: Block[Charge]) -> Block[tuple[FaultRow, DrainStage]]:
-    # one pool-drain row per pooled charge — a DAEMON charge drains through the supervisor's stop escalation, never a pool;
-    # only a LIVE arm drains (an acquire here would spawn a pool solely to drain it), and the lookup carries the charge's
-    # full arm key — a REMOTE endpoint or GPU device placement key included, or the dialed channel outlives the drain.
-    # `pool.drain()` is the async graceful stage `_settled` awaits; its blocking joins already ride the worker band inside the pool owner.
-    # Every pooled arm fences under the ONE `WORKERS_POOL` anchor: a per-charge subject minted here would spell a raise
-    # coordinate the roster never declared, so which arm refused is read off the pool owner's own fault, which carries
-    # its placement key, while this row states only that a pooled drain stage refused.
     return charges.filter(lambda charge: charge.kind in (WorkerKind.PROCESS, WorkerKind.GPU, WorkerKind.REMOTE)).map(
         lambda charge: (
             WORKERS_POOL,
@@ -1152,38 +878,26 @@ async def _supervised(
     send, receive = anyio.create_memory_object_stream[RuntimeRail[object]](max_buffer_size=2)
 
     async def hosting(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
-        # serve leg is fenced: a platform raise lands on the rail instead of killing the group as an unconverted
-        # ExceptionGroup; the terminal group cancel below ALWAYS runs, so the standing signal, watchdog, and supervision
-        # rhythms end with the server and the daemon never hangs on a loop that will not stop.
         async with sink:
             await sink.send((await async_boundary(SERVE_HOST, lambda: host.serve(ready=_launched), catch=_WIRE_RAISES)).bind(lambda rail: rail))
         group.cancel_scope.cancel()
 
     async def tripped(sink: MemoryObjectSendStream[RuntimeRail[object]]) -> None:
-        # signal leg lives whole inside its sink so the hosting-side group cancel still closes the clone and the
-        # post-group drain reaches EndOfStream; on a real signal the drain verdict sends under a shield, and the
-        # finally's own group cancel makes signal-path termination unconditional — a drain refusal whose shutdown
-        # trigger never unblocks `serve` can no longer strand the daemon on the hosting leg's cancel alone.
         async with sink:
-            with anyio.open_signal_receiver(signal.SIGTERM, signal.SIGINT) as trips:  # Exemption: the platform signal seam.
+            with anyio.open_signal_receiver(signal.SIGTERM, signal.SIGINT) as trips:
                 async for _ in trips:
                     break
             await _notify(NotifyState.STOPPING)
             await Hooks.fire_async(_STOPPING, LifecycleFact(subject=SCOPES[Scope.SERVICE]))
             try:
                 with anyio.CancelScope(shield=True):
-                    # stage one of the drain order: health flip + shutdown trigger unblocks `serve` under hypercorn's graceful window.
                     await sink.send(await async_boundary(SERVE_DRAIN, host.drain, catch=_WIRE_RAISES))
             finally:
                 group.cancel_scope.cancel()
 
     supervisor = Supervisor(charges, host.status)
-    async with anyio.create_task_group() as group, send:  # Exemption: the daemon's one supervision group.
-        # the evidence drain starts FIRST and under `tg.start`, which blocks on its readiness signal, so no producer
-        # in any later leg can suspend into an intake nothing reads yet; its tally rides the child handle and the
-        # group's own close is what settles it. An unjournalled composition starts no drain — the plane it would
-        # consume was never installed, and a drain over an unbound scope refuses rather than idling.
-        if journalled:  # Exemption: the tg.start readiness handshake is a statement seam; the flag is the install verdict, not a knob.
+    async with anyio.create_task_group() as group, send:
+        if journalled:
             await group.start(Journal.drained)
         group.start_soon(hosting, send.clone())
         group.start_soon(tripped, send.clone())
@@ -1191,10 +905,6 @@ async def _supervised(
         supervisor.watch(group)
 
     settled = Block.of_seq([outcome async for outcome in receive])
-    # ORDER is the correctness: facts stop before the pools that produce them die, so the journal intake closes FIRST
-    # and its buffered window flushes losslessly through the drain still running behind it. Daemon children stop AFTER the
-    # pools drain — a child may still serve pooled work — the transport clients and the profiles push close next.
-    # Lifecycle evidence emits while telemetry is live; shutdown flushes it last.
     ordered = (
         Block.of_seq([(JOURNAL_DRAIN, Journal.closed)] if journalled else [])
         .append(drains)
@@ -1217,10 +927,6 @@ async def _supervised(
         ),
     )
     lifecycle = await Hooks.fire_async(_DRAINED, LifecycleFact(subject="drained", clean=pre_shutdown.is_ok()))
-    # hook custody retires AFTER the last fire and BEFORE telemetry stops: the drained fact is the final point this
-    # composition owns, and releasing whole is what keeps a re-admitting embedded runtime from colliding with its own
-    # ghost roster. `release` answers the retirement verdict carrying both accounting windows out — after the swap no
-    # read reaches them — so the shed and refused-sink counts leave with the value rather than dying with the tables.
     custody = await _settled(HOOKS_RELEASE, lambda: Hooks.release(scope=composition))
     telemetry = await _settled(TELEMETRY_STOP, Telemetry.shutdown)
     return traversed(
@@ -1263,13 +969,6 @@ def companion_app(
     ledger: Option[tuple[Ledger, Custody]] = Nothing,
     composition: ScopeKey = DEFAULT_SCOPE,
 ) -> App:
-    # `ledger` is the durable-evidence binding this root supplies as a PAIR: the port implementation and the KEK custody
-    # posture arrive together because a journal that lands rows it cannot shred is not a lawful plane, and `Nothing` is the
-    # honest unjournalled composition rather than a default ledger this branch would have to invent. S0 declares the
-    # port and imports no implementer, so a caller — `data`'s `FactJournal` the shipped one — hands the value in exactly
-    # as it hands in served rows, drain stages, and charges. `composition` is the custody key every scope-partitioned
-    # surface this root touches carries — the capsule's capture scope and the capability drain's partition — so an
-    # embedded daemon's evidence and dials never merge with the process root's.
     app = App(name=SCOPES[Scope.SERVICE], help="private companion daemon entry", result_action="return_int_as_exit_code_else_zero")
 
     @app.command
@@ -1278,9 +977,6 @@ def companion_app(
 
     @app.command
     async def recipe(selector: str, assignments: Path | None = None) -> int:
-        # one-shot local bind of the execution/recipe#RECIPE owner: a RecipeName member or an external recipe-folder path;
-        # boot pair mirrors the serve leg so the engine-gate retries ride RETRY_HOOKS. This leg registers no provider,
-        # so it takes the console ship and arms no wire row rather than projecting onto a no-op logger per line.
         LogPipeline.configure(ship=LogShip.CONSOLE)
         install(RetryMode.EMIT)
         loaded = (
@@ -1292,8 +988,6 @@ def companion_app(
                 catch=(msgspec.ValidationError, msgspec.DecodeError, OSError),
             )
         )
-        # a selector outside the member roster is an EXTERNAL recipe-folder path, not a defect, so the one class a
-        # `StrEnum` construction raises is named and its refusal folds to the path arm rather than to the CLI exit.
         spec = loaded.map(
             lambda inputs: RecipeSpec(
                 recipe=boundary(SERVE_SELECTOR, lambda: RecipeName(selector), catch=ValueError).default_value(selector), inputs=inputs
@@ -1303,11 +997,6 @@ def companion_app(
             case Result(tag="error") as refused:
                 return _exit(refused)
             case Result(tag="ok", ok=one):
-                # `LanePolicy.of` is the SCOPED constructor, so the lane is entered rather than constructed: binding
-                # its return value directly hands `RecipeExecution` an async context manager where a `LanePolicy`
-                # belongs, and the lane's whole lifetime contract — the pulse actor started, the occupancy probe
-                # registered, the conduit retired — never runs. One-shot execution owns exactly one lane, so the
-                # window brackets the run and closes with it.
                 async with LanePolicy.of(RuntimeContext.admit(RuntimeProfile.TOOL)) as lane:
                     return _exit(await RecipeExecution(lane=lane).execute(one))
             case _ as unreachable:

@@ -26,7 +26,7 @@
 - Boundary: `ChainRow.SheetIndex`, `Instances`, `SourceParts`, `Pierces`, `Members`, `Shared`, and `RapidPaths` form the posting seam, and `ContourCut.Path` is entry-rotated so a consumer leads at parameter zero without re-deriving the entry; mutable `QuikGraph` construction is the one statement-bearing seam, and the waste diagram is never minted here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
@@ -46,26 +46,14 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Nesting;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Two link edits a caller may enable, on the kernel `ICapability` floor, so enablement rides the ONE combinable
-// capability column every stratum instantiates rather than a bare `Set` this page compares by hand.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class LinkCapability : ICapability<LinkCapability> {
     public static readonly LinkCapability CommonLine = new("common-line");
     public static readonly LinkCapability Chain = new("chain");
 }
 
-// Both cut lanes ride PRESENCE, not a two-case union whose first case is absence: a `Disabled` arm and an absent
-// column are one fact answered twice, and the branch already settles that a cut lane routes on the presence of its
-// own policy. Each union carried exactly one payload case, so what survives is that payload and the `Option` around
-// it — six declared types collapse to two.
-// NAMED LOSS: the generated total `Switch` over `Disabled`/`Spaced` and `Disabled`/`Voronoi` goes, so a consumer no
-// longer breaks loudly when a THIRD modality lands. WITNESS: a third modality is a second payload, not a third
-// presence state — it lands as a union over `BridgeSpacing`, and the `Option` that routes enablement is untouched
-// by it, which is exactly the shape the deleted `Disabled` arm was preventing.
 public readonly record struct BridgeSpacing(Length Width, Length Spacing, Length EndClearance) {
-    // Bridges narrower than their own pitch are what make a run of them a run rather than one continuous uncut
-    // span, and end clearance is a setback, so zero is admissible there where the others refuse it.
     public bool Valid =>
         Width.Millimeters > 0.0 && double.IsFinite(Width.Millimeters)
         && Spacing.Millimeters > Width.Millimeters && double.IsFinite(Spacing.Millimeters)
@@ -81,8 +69,6 @@ public readonly record struct WasteVoronoi(
     Length MinEdge,
     Area MinReusable,
     int RapidProbeNodes) {
-    // Two sites are the floor a diagram exists at, a merge distance of zero is "no merge" rather than a defect,
-    // and one rapid probe is the minimum a detour search can be seeded from.
     public bool Valid =>
         SiteSpacing.Millimeters > 0.0 && double.IsFinite(SiteSpacing.Millimeters)
         && MaxSites >= 2 && Relaxations >= 0
@@ -102,11 +88,6 @@ public sealed partial class CutLinkObjective {
     public double Quality { get; }
     public double Remnant { get; }
 
-    // Six weights fan onto ONE comparable number, so every term reaches it DIMENSIONLESS: two counts, three
-    // lengths, and an area cannot be summed under weights a caller tunes by eye — a millimetre term and a square
-    // millimetre term differ by the sheet's own scale before any weight is read, so the same weights ranked
-    // differently on a small sheet and a large one. The basis rides the scoring INPUT, never `LinkEvidence`, which
-    // is the comparison's published receipt. Heat is already a ratio against the continuous-cut ceiling.
     public double Score(LinkEvidence evidence, LinkBasis basis) =>
         (evidence.Pierces / basis.Pierces * Pierce)
         + (evidence.RapidMm / basis.LengthMm * Rapid)
@@ -132,12 +113,6 @@ public sealed partial class CutLinkObjective {
     }
 }
 
-// Fifteen columns, eight of them bare doubles whose unit lived in a name suffix — a millimetre cut width, a
-// radian angular window, and a dimensionless miter limit sat adjacent as three `double`s a caller could transpose
-// in silence. Nothing here reaches a preimage, so the digested-scalar carve does not bind this policy and every
-// measure takes the carrier its own dimension names. The THREE tolerance columns leave entirely: `ToleranceLane`
-// owns every band it derives and the admitting `Context` is the READ, so a match, angular, and arc column beside
-// those lanes were three copies drifting from the loops the same context already admitted.
 [ComplexValueObject]
 public sealed partial class CutLinkPolicy {
     public CapabilitySet<LinkCapability> Enabled { get; }
@@ -145,8 +120,6 @@ public sealed partial class CutLinkPolicy {
     public Ratio ClearanceMiterLimit { get; }
     public Length MinSharedLength { get; }
 
-    // The longest segment a profile may carry: the candidate index inflates each midpoint by this span so the
-    // radius query cannot miss a pair whose midpoints sit apart while their bodies overlap.
     public Length MaxSegmentSpan { get; }
     public int MaxChainParts { get; }
     public Length ChainBand { get; }
@@ -157,8 +130,6 @@ public sealed partial class CutLinkPolicy {
     public Option<WasteVoronoi> Waste { get; }
     public CutLinkObjective Objective { get; }
 
-    // Three LANE READS, named once here rather than at each of the six arms that consume them, so a shop widening
-    // its model tolerance moves the pair window, the antiparallel cone, and the offset chord budget together.
     public double MatchToleranceMm => Tolerance.For(ToleranceLane.Match).Value;
     public double AngularToleranceRadians => Tolerance.For(ToleranceLane.Angle).Value;
     public double ArcToleranceMm => Tolerance.For(ToleranceLane.Arc).Value;
@@ -181,8 +152,6 @@ public sealed partial class CutLinkPolicy {
         ref CutLinkObjective objective) {
         double[] spans = [cutWidth.Millimeters, minSharedLength.Millimeters, maxSegmentSpan.Millimeters,
             chainBand.Millimeters, maxContinuousCut.Millimeters, clearanceMiterLimit.DecimalFractions];
-        // Antiparallel cones at or past a quarter turn admit perpendicular segments as a shared cut, and that is
-        // exactly the geometric relation this whole plane exists to exclude.
         validationError = spans.All(static value => double.IsFinite(value) && value > 0.0)
             && tolerance.IsValid
             && tolerance.For(ToleranceLane.Angle).Value < Math.PI / 2.0
@@ -231,15 +200,12 @@ public sealed partial class LinkRun {
         loop.Closed && loop.Count >= 3 && loop.Tolerance == tolerance && loop.Plane.Equals(plane);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SegmentWindow(double Start, double End) {
     public double Length(double span) => (End - Start) * span;
     public bool Overlaps(SegmentWindow other, double tolerance) => Math.Min(End, other.End) - Math.Max(Start, other.Start) > tolerance;
 }
 
-// Cut SEGMENT address — part instance, contour, and the segment ordinal inside that contour. Kernel
-// `Processing/decimate` `EdgeRef` is a quadric-collapse candidate carrying vertex versions, a target point, and a
-// cost, so the two share a word and nothing else; this one names what it addresses.
 public readonly record struct SegmentRef(PartInstance Part, int Contour, int Segment);
 public sealed record SharedEdge(
     int SheetIndex,
@@ -285,9 +251,6 @@ public abstract partial record LinkOp {
         double FragmentAreaMm2) : LinkOp;
 }
 
-// The scoring basis: the characteristic length every length term divides through, the sheet area the offcut term
-// does, and the pierce count the count terms do — every one derived from the admitted run, ONCE per plan, and
-// threaded into scoring rather than seated on the evidence the comparison publishes.
 public readonly record struct LinkBasis(double LengthMm, double AreaMm2, double Pierces) {
     public static LinkBasis Of(LinkRun run) {
         double area = Math.Max(run.StockBySheet.Values.Sum(static stock => stock.Facts.AreaMm2), double.Epsilon);
@@ -317,8 +280,6 @@ file sealed record PlacedPart(
     Seq<Loop> Region,
     PolygonMeasure Measure);
 
-// `Routed` is the row's own declaration of what it can answer, never an inference off an empty node map: an
-// UNROUTED row measures rapid DISTANCE and carries no detour graph, a ROUTED one owes a collision-free path.
 file sealed record WasteRow(
     int SheetIndex,
     Seq<Loop> Usable,
@@ -330,15 +291,12 @@ file sealed record WasteRow(
     Map<int, Point3d> Nodes,
     bool Routed);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Linking {
     public static Fin<LinkPlan> Plan(LinkRun run) =>
         from placed in Place(run)
         from candidates in Candidates(placed, run)
         from clear in candidates.Traverse(edge => Clears(edge, placed, run).Map(ok => (Edge: edge, Clear: ok)).ToValidation()).As().ToFin()
-        // Enablement is a capability READ, and the seam's posture is fold-out-for-absence — an unenabled lane
-        // measures its own baseline rather than refusing — so `Admits` is the arm and `Require` belongs at a
-        // seam that genuinely refuses.
         let selected = run.Policy.Enabled.Admits(LinkCapability.CommonLine)
             ? Match(clear.Filter(static row => row.Clear).Map(static row => row.Edge))
             : Seq<SharedEdge>()
@@ -348,8 +306,6 @@ public static class Linking {
         from optimized in run.Policy.Enabled.Admits(LinkCapability.Chain) || !selected.IsEmpty
             ? Chains(placed, selected, bridges, precedence, run.Policy.Enabled.Admits(LinkCapability.Chain), run.Policy)
             : Fin.Succ(baseline)
-        // Measurement baselines against the ABSENT waste policy, the same absence a caller who never asked for a
-        // cut-up presents — one fact, one spelling, no local disabled instance to construct.
         from safe in Waste(placed, run, None)
         from waste in Waste(placed, run, run.Policy.Waste)
         from baseRouted in Route(baseline, safe, run.Policy)
@@ -393,10 +349,6 @@ public static class Linking {
             .Bind(static trace => trace.Measure(
                 new KernelFault.InvalidValue("linking", "link:measure-trace")));
 
-    // A common line is a LOCAL relation: two segments pair only when their midpoints sit within the cut width plus
-    // the match tolerance, so the candidate frontier is a radius query over one spatial index of every segment
-    // midpoint rather than the parts-by-parts-by-contours-by-contours-by-segments-by-segments cross product the
-    // bounding-box prefilter still admitted inside each sheet.
     private static Fin<Seq<SharedEdge>> Candidates(Seq<PlacedPart> placed, LinkRun run) {
         Seq<SegmentSite> sites = placed.Bind(part => part.Region
             .Map((loop, contour) => (loop, contour))
@@ -440,15 +392,10 @@ public static class Linking {
 
     private readonly record struct SegmentSite(PlacedPart Part, Loop Loop, int Contour, int Segment, Point3d Midpoint);
 
-    // One primitive per midpoint, inflated by the pairing radius, so the index's own broad phase answers the
-    // proximity question and the ball narrows it exactly.
     private static BoundingBox Ball(Point3d at, double radius) => new(
         new Point3d(at.X - radius, at.Y - radius, at.Z - radius),
         new Point3d(at.X + radius, at.Y + radius, at.Z + radius));
 
-    // Cut pairing is the ONE `CommonLine.Share` kernel under this page's own budget — one cut width apart within
-    // the match tolerance — so the identity a cut plan needs is all this arm adds. The antiparallel gate the kernel
-    // already applies subsumes the lexicographic direction test that stood beside it.
     private static Option<SharedEdge> Pair(
         PlacedPart a,
         Loop left,
@@ -503,7 +450,6 @@ public static class Linking {
         from blocked in Paths(blockedTrace)
         select outside.IsEmpty && blocked.IsEmpty;
 
-    // The page's two trace reads, each seating ITS locus once over the owner's own total projection.
     private static Fin<Seq<Loop>> Paths(PolygonTrace trace) =>
         trace.Loops(new KernelFault.InvalidValue("linking", "link:path-trace"));
 
@@ -669,8 +615,6 @@ public static class Linking {
             rows.Sum(static row => row.CutLengthMm) - cuts.Sum(static cut => cut.Edge.SharedLengthMm) - gap);
     }
 
-    // Posting leads at loop parameter zero, so the emitted path is rotated to start at the chosen entry and every
-    // omitted span's segment index rotates with it; an entry is never placed on a span this contour does not cut.
     private static Fin<ContourCut> Cut(PartInstance part, int contour, Loop path, Seq<SharedCut> cuts, bool pierce) {
         Seq<OmittedSpan> omitted = cuts.Bind(cut => Omitted(part, contour, cut.Edge));
         Set<int> blocked = toSet(omitted.Map(static span => span.Segment));
@@ -705,7 +649,6 @@ public static class Linking {
             : edge.B.Part == part && edge.B.Contour == contour ? Seq(new OmittedSpan(edge.B.Segment, edge.WindowB))
             : Seq<OmittedSpan>();
 
-    // Absence IS the disabled lane, so no bridge policy means no bridges and the fold never runs.
     private static Seq<LinkOp.Bridge> Bridges(Seq<SharedEdge> shared, Option<BridgeSpacing> policy) =>
         policy.Map(row => shared.Bind(edge => {
             double width = row.Width.Millimeters, pitch = row.Spacing.Millimeters, setback = row.EndClearance.Millimeters;
@@ -785,9 +728,6 @@ public static class Linking {
         Seq<Loop> usable,
         Seq<Point3d> seeds,
         WasteVoronoi policy) {
-        // Waste diagrams belong to the algebra owner: one request carries the seed field, the usable outline as its
-        // clip ring, and the relaxation and merge rows this policy already declares. Every cell arrives closed and
-        // every adjacency arrives with its shared segment, so the cut candidates are a filter, not a re-derivation.
         return from outline in usable.Head.ToFin(
                    new GeometryFault.DegenerateInput(Kind.Polyline, None, "link:waste-outline"))
                let policyRow = SitePolicy.Create(
@@ -812,8 +752,6 @@ public static class Linking {
                    diagram.Tolerance.Absolute.Value);
     }
 
-    // Partitioning trades one large offcut for many cells: the cells that land under the reusable floor are the
-    // material the cut-up actually destroys, so the objective weighs them beside the kerf it spends.
     private static Fin<double> Fragmented(Seq<Loop> cells, Seq<Loop> usable, double floorMm2) =>
         cells.Traverse(cell => PolygonAlgebra.Apply(new PolygonOp.Boolean(
                     Seq(cell), usable, BooleanOp.Intersection, PolygonFill.NonZero))
@@ -828,10 +766,6 @@ public static class Linking {
             .As().ToFin()
             .Map(areas => areas.Filter(area => area > 0.0 && area < floorMm2).Fold(0.0, static (sum, area) => sum + area));
 
-    // Route nodes key on the QUANTIZED station, never the raw `Point3d`: two cut endpoints that meet within the
-    // admitted tolerance are one node, and exact-float keying silently forked them into two — every such fork
-    // disconnects the corridor at exactly the junctions a rapid must traverse. `Distinct()` over raw points had the
-    // same defect, so both the dedup and the index read the one quantized key.
     private static WasteRow RouteGraph(
         int sheet,
         Seq<Loop> usable,
@@ -892,11 +826,6 @@ public static class Linking {
                 select (routed.Cursor, Rows: state.Rows.Add(chain with { RapidPaths = routed.Paths })))
             .Map(static state => state.Rows);
 
-    // Legs that never leave the waste region are already optimal, so the partition detour and its per-node
-    // visibility clips only run when the direct leg would cross a cut part. An UNROUTED row — the absent-waste
-    // baseline the comparison measures against — owes no detour and takes the direct leg whole: the
-    // baseline is a DISTANCE reading, and refusing it whenever a leg is blocked kills exactly the runs linking
-    // exists to improve. Only a ROUTED row whose own visibility graph cannot carry a detour refuses.
     private static Fin<Seq<Point3d>> RapidPath(WasteRow partition, Point3d from, Point3d to, int probes) =>
         from direct in Visible(partition.Usable, from, to)
         from path in direct || !partition.Routed
@@ -959,9 +888,6 @@ public static class Linking {
             .Head.IfNone(0.0);
         double heat = continuous / run.Policy.MaxContinuousCut.Millimeters;
         double quality = shared.Sum(edge => run.Policy.MatchToleranceMm / edge.SharedLengthMm) + bridges.Count;
-        // Remnant loss lives entirely in the waste region: kerf swept by the partition cuts and the cells that
-        // fall under the reusable floor. Common-line and bridge spans run between parts, never through the offcut,
-        // so crediting them here would subtract part-side savings from an offcut-side cost and can read negative.
         double remnant = (partition * run.Policy.CutWidth.Millimeters) + partitions.Sum(static row => row.FragmentAreaMm2);
         return new LinkEvidence(chains.Sum(static chain => chain.Pierces.Count), rapid, cut,
             shared.Sum(static edge => edge.SharedLengthMm), bridge,
@@ -991,20 +917,8 @@ public static class Linking {
             static (state, point) => (point, state.Length + state.At.DistanceTo(point))).Length).IfNone(0.0);
 }
 
-// The ONE collinear-overlap owner in the package: one pair kernel, one disjointness fold, one measure over a
-// placed set. `Nesting/nfp` weighs the measure as an objective term and this page's own matching composes the same
-// kernel and the same fold, so a second collinearity walk or a second longest-first claim rule anywhere is the
-// deleted form. A shared edge is one pierce and one traverse a program never pays for, so the receipt carries the
-// overlap it found BESIDE the pierce census the placed set costs once those shares are taken — which is what makes
-// "fewer pierces at equal yield" a readable acceptance rather than an inference.
-// Census, not receipt: this carries no content key, no evidence band, and no stamp, so under the settled-receipt
-// law it takes no `*Receipt` name. What it counts is what it names.
 public readonly record struct CommonLineCensus(double OverlapMm, int Pairs, int Pierces);
 
-// What a caller demands of a pair, in the caller's own terms: the separation the two segments must hold, the
-// deviation admitted on it, the angular window for antiparallelism, and the shortest overlap worth a share. A
-// scoring measure asks for TOUCHING segments on the loops' own grid; a cut plan asks for segments one cut width
-// apart within the match tolerance. Those are two rows of one budget, never two walks.
 public readonly record struct CommonLineBudget(
     double SeparationMm,
     double ToleranceMm,
@@ -1017,8 +931,6 @@ public readonly record struct CommonLineBudget(
             Math.Max(left.Absolute.Value, right.Absolute.Value));
 }
 
-// The pair geometry one share carries: the parameter window each segment gives up, each segment's own span, the
-// mid-line cut between them, and the overlap length that ranks it.
 public readonly record struct CommonLineSpan(
     SegmentWindow WindowA,
     SegmentWindow WindowB,
@@ -1028,10 +940,6 @@ public readonly record struct CommonLineSpan(
     double OverlapMm);
 
 public static class CommonLine {
-    // Two segments share a cut when they run antiparallel within the angular budget, hold the demanded separation
-    // within the linear budget, and their projected windows overlap. Separation reads the `Geometry2D` owner's
-    // CLAMPED endpoint gap: the unclamped line distance this replaced admitted two segments whose infinite lines
-    // run the right distance apart while their bodies pass each other entirely.
     public static Option<CommonLineSpan> Share(
         Loop left,
         int leftSegment,
@@ -1064,9 +972,6 @@ public static class CommonLine {
             overlap));
     }
 
-    // One segment participates in at most ONE share: a segment claimed twice would be cut twice. The caller
-    // supplies the total order its own tie-breaks define and this fold owns the claim rule, so the scoring measure
-    // and the cut matching cannot disagree about which of two overlapping shares survives.
     public static Seq<T> Disjoint<T>(Seq<T> ordered, Func<T, T, bool> conflicts) =>
         ordered.Fold(
             Seq<T>(),

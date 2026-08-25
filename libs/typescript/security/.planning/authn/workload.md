@@ -36,13 +36,6 @@ import { Array, Config, Context, Data, DateTime, Duration, Effect, Match, Option
 import { AccessClaims, JwksLedger, JwksSnapshot, type SingleUse } from "../crypt/sign.ts"
 import { Reject } from "../crypt/verify.ts"
 
-// Six legs partition the machine-identity fold and each reason renders its OWN subject, because the operator act
-// differs per leg: a discovery refusal names the axis the issuer never advertised, a token refusal names the
-// issuer's own error code, a DPoP refusal names the challenge parameter, an introspection refusal names the client
-// the authority just disowned, and a lease refusal names which window closed. One free `detail` string spelled them
-// all as prose, so the two `expired` shapes — a device-flow approval window and a lapsed handoff slot — read the
-// same to every consumer. Issuer IDENTITY earns no reason here: this plane admits the issuer its spec names, gates
-// only what that issuer ADVERTISES, and copies `spec.issuer` onto the principal, so nothing on it can disagree.
 const _family = Fault.Class.family(
   ["transport", "grant", "nonce", "proof", "shape", "inactive", "unsupported", "expired"] as const,
   {
@@ -58,9 +51,6 @@ const _family = Fault.Class.family(
       detail: Schema.Struct({ code: Schema.String }),
       render: ({ code }) => `token endpoint denied the grant: ${code}`,
     }),
-    // `nonce` is deliberately NOT `unavailable`: the transport budget's class gate would re-drive a handshake the
-    // protocol settles in exactly one re-run, and the handle has already recorded the server's nonce by then. The
-    // refusal genuinely carries no subject — the demand IS the whole fact — so its row states an empty one.
     nonce: Fault.Class.row({
       class: "invalid",
       leg: "dpop",
@@ -121,12 +111,6 @@ class WorkloadFault extends Schema.TaggedError<WorkloadFault>()("WorkloadFault",
 
 const _NONCE = "use_dpop_nonce"
 
-// Which refusals a PRESENTED credential earns, stated per row so the credential denominator cannot drift: either
-// this token endpoint denied the grant, or a resource server rejected the proof carrying it. Everything else
-// belongs to this plane, to the network, or to the issuer — a capability never advertised, a leg that never
-// arrived, a response whose shape refused, an approval window that closed — and marking those on the credential
-// row inflates exactly the denominator this surface's ratio reads against, until a misconfigured spec reads as a
-// fleet under credential attack.
 const _PRESENTED = {
   expired: false,
   grant: true,
@@ -138,12 +122,6 @@ const _PRESENTED = {
   unsupported: false,
 } as const satisfies Record<WorkloadFault.Reason, boolean>
 
-// RFC 9449 demands a server-chosen nonce on TWO different channels and the certified client surfaces them as two
-// different classes: the authorization server answers the token endpoint with an ordinary error BODY carrying
-// `use_dpop_nonce`, while a resource server answers with a WWW-Authenticate CHALLENGE carrying the same code in a
-// parsed auth-param. Reading only the challenge leaves every grant leg — which is every leg that mints a principal —
-// with no nonce recovery at all, and reading the challenge class WHOLE re-runs a genuine `insufficient_scope`
-// refusal the issuer already decided. The code, not the class, is the discriminant.
 const _challenged = (cause: WWWAuthenticateChallengeError): Option.Option<string> =>
   Option.flatMap(Array.head(cause.cause), (challenge: WWWAuthenticateChallenge) => Option.fromNullable(challenge.parameters.error))
 
@@ -153,7 +131,7 @@ const _nonced = (cause: unknown): boolean =>
     : cause instanceof WWWAuthenticateChallengeError && Option.contains(_challenged(cause), _NONCE)
 
 const _faultOf: (cause: unknown) => WorkloadFault = Match.type<unknown>().pipe(
-  Match.when(_nonced, () => new WorkloadFault({ case: { reason: "nonce" } })), // the code arm leads: it spans BOTH classes below, so ordering is what keeps each class's own arm honest
+  Match.when(_nonced, () => new WorkloadFault({ case: { reason: "nonce" } })),
   Match.when(Match.instanceOf(ResponseBodyError), (error) => new WorkloadFault({ case: { reason: "grant", code: error.error } })),
   Match.when(
     Match.instanceOf(WWWAuthenticateChallengeError),
@@ -197,11 +175,6 @@ const _clientAuth: (authentication: Authentication) => ClientAuth = Authenticati
   Secret: ({ scheme, secret }) => _AUTH[scheme](secret),
 })
 
-// This projection's shape is read off the MEMBER that consumes it, never off a type name — the certified client
-// and jose each export one spelled `ExportedJWKSCache`, and the two count `uat` in different units: this client
-// compares against epoch SECONDS, jose against milliseconds. Importing the name here would carry one shape under
-// two meanings across a seam where the difference is a stored moment fifty thousand years out or one from 1970.
-// Ledger owns the instant; this renders the seconds form of it, sitting beside `JwksSnapshot.jose`.
 const _seed = (snapshot: JwksSnapshot): Parameters<typeof setJwksCache>[1] => ({
   jwks: { keys: snapshot.keys },
   uat: Math.floor(DateTime.toEpochMillis(snapshot.observedAt) / 1000),
@@ -236,9 +209,6 @@ const _TOKEN_TYPES = {
 
 const _EXCHANGE = "urn:ietf:params:oauth:grant-type:token-exchange"
 
-// The advertised roster is read at dispatch, not merely stored: one row per request case names the grant-type
-// identifier the issuer would have to advertise, so a spec pointed at an issuer that never offers device flow
-// refuses by name before a request leaves rather than surfacing as an opaque token-endpoint error.
 const _GRANT_TYPES = {
   Backchannel: "urn:openid:params:grant-type:ciba",
   Client: "client_credentials",
@@ -254,7 +224,7 @@ declare namespace TokenType {
 
 declare namespace GrantRequest {
   type Kind = GrantRequest["_tag"]
-  type _Rows<T extends Record<Kind, string> = typeof _GRANT_TYPES> = T // a case without its advertised identifier fails here, so the gate can never go blind on a new arm
+  type _Rows<T extends Record<Kind, string> = typeof _GRANT_TYPES> = T
 }
 
 type DeviceHandoff = { readonly userCode: string; readonly verificationUri: string; readonly expiresIn: number }
@@ -275,10 +245,6 @@ type GrantRequest = Data.TaggedEnum<{
 
 const GrantRequest = Data.taggedEnum<GrantRequest>()
 
-// Delegated scope, projected off whichever case minted the principal, so rotation asks for what the original
-// grant asked for. Sending a refresh without one is no neutral omission: the issuer answers it at its own default
-// scope, which silently narrows the workload and surfaces later as an authorization refusal nothing on this plane
-// explains. `Exchange` states no scope of its own — its breadth rides the requested token type.
 const _delegated: (request: GrantRequest) => Option.Option<string> = GrantRequest.$match({
   Backchannel: ({ scope }) => scope,
   Client: ({ scope }) => scope,
@@ -307,15 +273,12 @@ class MachinePrincipal extends Schema.Class<MachinePrincipal>("MachinePrincipal"
   refresh: Schema.optionalWith(Schema.Redacted(Schema.String), { as: "Option" }),
   jkt: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
 }) {
-  // The scheme the issuer chose IS the presentation prefix: a DPoP token presented as `Bearer` discards its binding.
   get credential(): Redacted.Redacted<string> {
     return Redacted.make(`${this.scheme === "dpop" ? "DPoP" : "Bearer"} ${Redacted.value(this.token)}`)
   }
   get lapsed(): Effect.Effect<boolean> {
     return Effect.map(DateTime.now, (now) => DateTime.greaterThanOrEqualTo(now, this.expiresAt))
   }
-  // One confirmation identity per principal: a first-party token this estate mints for the same workload binds to the
-  // very key the machine already proved, and a principal with no proof projects `cnf` absent rather than a placeholder.
   claims(sid: string): AccessClaims {
     return new AccessClaims({
       sub: this.clientId,
@@ -361,7 +324,6 @@ const _resolved = (bound: Bound, wire: GrantWire, floor: Duration.Duration): Eff
 ```typescript
 class IssuerStore extends Context.Tag("security/authn/IssuerStore")<IssuerStore, SingleUse<MachinePrincipal, WorkloadFault>>() {}
 
-// The one WORKLOAD_ decode site: both policy rows resolve at the boot line as one described record.
 const _policy = Config.unwrap({
   deadline: Config.duration("WORKLOAD_CALL_DEADLINE").pipe(
     Config.withDefault(Duration.seconds(10)),
@@ -383,8 +345,6 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
           Effect.timeoutFail({ duration: deadline, onTimeout: () => new WorkloadFault({ case: { reason: "transport", cause: `${spec.issuer} did not answer inside the deadline` } }) }),
           Effect.retry(Fault.Budget.schedule("lease")),
         )
-      // Exactly one re-run, and only for the nonce handshake: the handle recorded the server's nonce as the
-      // refusal landed, so the second attempt carries it. A genuine proof refusal keeps its single answer.
       const _proved = <A>(run: () => Promise<A>): Effect.Effect<A, WorkloadFault> =>
         _legged(run).pipe(Effect.catchIf((fault) => fault.case.reason === "nonce", () => _legged(run)))
       const config = yield* _legged(() =>
@@ -407,7 +367,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
               Effect.fail(new WorkloadFault({ case: { reason: "unsupported", axis: "dpop-alg", value: spec.proofAlg } })),
               () =>
                 Option.match(Option.fromNullable(metadata.dpop_signing_alg_values_supported), {
-                  onNone: () => true, // an issuer silent on the axis is not a refusal; the first proved leg is the real probe
+                  onNone: () => true,
                   onSome: (advertised) => Array.contains(advertised, spec.proofAlg),
                 }),
             )
@@ -420,13 +380,6 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
       const _options = Option.match(proof, { onNone: () => undefined, onSome: ({ handle }) => ({ DPoP: handle }) })
       const _scoped = (scope: Option.Option<string>): Record<string, string> =>
         Option.match(scope, { onNone: () => ({}), onSome: (value) => ({ scope: value }) })
-      // Polling is NOT a leg, and running it as one is why the two-leg law's `expired` settlement never fired:
-      // this per-leg issuer deadline aborted a device flow ten seconds into a window the end-user was still
-      // walking, and `lease` re-drove the whole poll from there, because `expired` grades retryable. Certified
-      // client bounds each poll with `AbortSignal.timeout(expires_in * 1000)` off its own start response wherever
-      // a caller hands no signal, so that advertised window IS the bound — this fiber's own signal carries it in,
-      // so an interrupt reaches the pending poll instead of orphaning it, and a closed window settles `expired`
-      // for real rather than by assumption.
       const _polled = (
         window: number,
         run: (signal: AbortSignal) => Promise<TokenEndpointResponse & TokenEndpointResponseHelpers>,
@@ -437,8 +390,6 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
             onTimeout: () => new WorkloadFault({ case: { reason: "expired", on: "approval", coordinate: `${window}s` } }),
           }),
         )
-      // Admission takes the bounded leg itself rather than a thunk, because a one-shot grant and a two-leg poll
-      // bound differently and share only their landing.
       const _landed = (
         legged: Effect.Effect<TokenEndpointResponse & TokenEndpointResponseHelpers, WorkloadFault>,
       ): Effect.Effect<MachinePrincipal, WorkloadFault> =>
@@ -448,9 +399,6 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
             _admitted(response).pipe(Effect.mapError((cause) => new WorkloadFault({ case: { reason: "shape", cause: String(cause) } })))),
           Effect.flatMap((wire) => _resolved(bound, wire, floor)),
         )
-      // An issuer silent on the axis is not a refusal — the same posture the DPoP algorithm gate takes — but an
-      // issuer that publishes a roster is taken at its word, so the capability check happens once, here, and no
-      // arm re-derives it.
       const _advertised = (request: GrantRequest): Effect.Effect<void, WorkloadFault> =>
         Effect.unless(
           Effect.fail(new WorkloadFault({ case: { reason: "unsupported", axis: "grant", value: _GRANT_TYPES[request._tag] } })),
@@ -475,8 +423,6 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
           Device: ({ present, scope }) =>
             Effect.gen(function* () {
               const started = yield* _legged(() => initiateDeviceAuthorization(config, _scoped(scope)))
-              // Whatever window `present` hands the user is the window ENFORCED: one `expires_in` bounds both, so
-              // this handoff cannot promise a deadline the plane fails to keep.
               yield* present({ userCode: started.user_code, verificationUri: started.verification_uri, expiresIn: started.expires_in })
               return yield* _landed(_polled(started.expires_in, (signal) =>
                 pollDeviceAuthorizationGrant(config, started, undefined, { ..._options, signal })))
@@ -484,9 +430,6 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
           Backchannel: ({ hint, scope }) =>
             Effect.gen(function* () {
               const started = yield* _legged(() => initiateBackchannelAuthentication(config, { login_hint: hint, ..._scoped(scope) }))
-              // CIBA's poll options extend the same `DPoPOptions` its device twin extends and carry the same
-              // `signal`, so ONE `_options` value plus one bound is total across both polls and no per-leg proof
-              // record or per-leg window exists to drift.
               return yield* _landed(_polled(started.expires_in, (signal) =>
                 pollBackchannelAuthenticationGrant(config, started, undefined, { ..._options, signal })))
             }),
@@ -499,16 +442,9 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
       return {
         bound,
         grant,
-        // The handoff pair is the ONLY reader of the single-use port, and it takes the store per call rather than at
-        // construction: a single-process composition never binds one and pays no requirement pressure for a crossing
-        // it does not make. The stash window is the principal's OWN remaining lifetime, so a slot can never outlive
-        // the credential inside it, and the claim re-checks that window because the hop itself takes time — a
-        // consumed-but-lapsed principal is refused rather than handed to a caller that would present a dead token.
         handoff: (key: string, principal: MachinePrincipal): Effect.Effect<void, WorkloadFault, IssuerStore> =>
           Effect.gen(function* () {
             const now = yield* DateTime.now
-            // `DateTime.distanceDuration` is ABSOLUTE — a lapsed principal reads as a positive window — so the signed
-            // millisecond distance keeps the `expired` arm reachable; positive means `expiresAt` is still ahead
             const remaining = DateTime.distance(now, principal.expiresAt)
             return yield* remaining > 0
               ? Effect.flatMap(IssuerStore, (store) => store.stash(key, principal, Duration.millis(remaining)))
@@ -522,9 +458,6 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
                 Effect.flatMap(principal.lapsed, (spent) =>
                   spent ? Effect.fail(new WorkloadFault({ case: { reason: "expired", on: "handoff", coordinate: key } })) : Effect.succeed(principal)),
             }))),
-        // Both arms rotate at the SAME breadth: the re-grant arm replays `origin` whole, so the refresh arm
-        // carries `origin`'s own scope rather than handing the issuer a scopeless refresh to answer at its
-        // default. A principal that quietly narrows on rotation is the shape this projection deletes.
         rotate: (principal: MachinePrincipal, origin: GrantRequest): Effect.Effect<MachinePrincipal, WorkloadFault> =>
           Option.match(principal.refresh, {
             onNone: () => grant(origin),
@@ -557,7 +490,7 @@ class Workload extends Effect.Service<Workload>()("security/authn/Workload", {
   accessors: true,
 }) {}
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Authentication, GrantRequest, IssuerStore, MachinePrincipal, Workload, WorkloadFault }
 export type { Bound, DeviceHandoff, IssuerSpec, TokenType }

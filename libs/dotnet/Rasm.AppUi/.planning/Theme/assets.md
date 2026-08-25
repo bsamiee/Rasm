@@ -24,7 +24,7 @@ Rasm.AppUi sources every icon, pointer, and bundled asset through the kernel `Ra
 - Boundary: ONE walk for both forms — the table fold produces the image, the request's `GlyphForm` projects it, so a pointer is the image rasterized through one `RenderTargetBitmap`. HOST-TYPED PAYLOADS ARE ROWS: a FluentIcons `Symbol`, a sized `Icon`, and a `SemiGlyph` ride `AssetRuntime.Bindings` under their own keys, their icon rows carrying `AssetOrigin.Vector(key)` alone — `Vector` reads the binding table first and falls to the avares SVG lane, two disjoint key sets walked as one lookup. Tint reads `ResolvedTheme.Paint(role, rung)` into `IconFilter.Tinted`; `Selected` REFUSES because selection is a token-ROLE election at `Theme/tokens`; `Disabled` folds to a coverage factor the one quantization crossing multiplies into alpha, rounded, never truncated. `AssetOrigin.Render` refuses: the kernel draw replays a `PaintProgram` onto an Eto target. `Raster` asks `RasterStack.Pixels` at the pose extent and uploads under the frame's own `AlphaLayout` straight from the kernel rows' span. `Stream` opens its factory EXACTLY ONCE per resolve. `Shipped` geometry builds once inside `Semi.Avalonia.Icons`, an unguarded replacement, so `AssetRuntime.Glyphs` is read on the UI thread alone. `Resolve` walks alternatives through `BindFail` — `operator |` evaluates both operands and decodes every lower row after the winner exists. Every known absence refuses on the rail by name; throwing native calls cross `Op.Catch` with exact exception evidence.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using Avalonia;
@@ -46,8 +46,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.AppUi.Theme;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Host glyph rows bind kernel vector keys to package-owned glyph vocabularies at this boundary.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record HostGlyph {
     private HostGlyph() { }
@@ -56,8 +55,6 @@ public abstract partial record HostGlyph {
     public sealed record Shipped(SemiGlyph Glyph) : HostGlyph;
 }
 
-// The shipped Semi geometry vocabulary: the row KEY is the `Semi.Avalonia.Icons` resource string the
-// materialize resolves against, declared once on the owning surface.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SemiGlyph {
@@ -78,11 +75,9 @@ public abstract partial record GlyphForm {
     public sealed record Pointer(UnitInterval HotX, UnitInterval HotY) : GlyphForm;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record IconRow(AssetOrigin Source, PaintRole Tint, Option<MirrorAxis> Mirror);
 
-// `AssetRequest` IS the cache key. `Filters` ORDER is the operation (kernel `IconRender`), so equality is declared
-// ordered rather than relied on; a `Custom` entry compares by delegate reference, the only identity a map carries.
 [Equatable]
 public sealed partial record AssetRequest(
     AssetKey Key, int Step, double Scale, FlowDirection Flow, GlyphForm Form, [property: OrderedEquality] Seq<IconFilter> Filters = default);
@@ -94,12 +89,8 @@ public abstract partial record AssetProduct {
     private AssetProduct(PixelSize extent, Option<IDisposable> native) => (Extent, Native) = (extent, native);
 
     public PixelSize Extent { get; }
-    // The release capability a case DECLARES at mint — a raster or Fluent image, a cursor handle — so no arm
-    // probes the framework interface at disposal; a vector product declares none.
     public Option<IDisposable> Native { get; }
 
-    // Device-pixel footprint at the kernel channel count: a vector product retains no buffer, yet the compositor
-    // rasterizes it at exactly this extent, so one rule covers every case and a budget cannot be gamed by source form.
     public long Bytes => AlphaLayout.Straight.Channels * (long)Extent.Width * Extent.Height;
 
     public Fin<IImage> Image => Switch(
@@ -116,7 +107,7 @@ public abstract partial record AssetProduct {
     public sealed record Pointer(Cursor Handle, PixelSize Extent) : AssetProduct(Extent, Some<IDisposable>(Handle));
 }
 
-// --- [ERRORS] -------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AssetFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Asset;
@@ -140,9 +131,7 @@ public abstract partial record AssetFault : Fault {
     public sealed partial record BudgetRejected(string Detail)      : AssetFault(Detail);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// `Glyphs` instantiates the shipped geometry dictionary once — `Semi.Avalonia.Icons` merges fill, stroked, and AI
-// sets, so shipped vocabulary is data rather than five hundred transcribed path strings.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record AssetRuntime(
     FrozenDictionary<AssetKey, ImmutableArray<IconRow>> Rows,
     FrozenDictionary<AssetKey, HostGlyph> Bindings,
@@ -152,23 +141,20 @@ public sealed record AssetRuntime(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IconSurface {
     static readonly Op Resolving = Op.Of(name: "appui.asset.resolve");
-    // Shipped Semi and Fluent disabled sets both land near this coverage.
     public static readonly UnitInterval DisabledCover = UnitInterval.Create(0.38d);
 
     public static Fin<AssetProduct> Resolve(AssetRuntime runtime, AssetRequest request, ResolvedTheme resolved) =>
         runtime.Cache.Take(request, () => Build(runtime, request, resolved));
 
-    // Step and scale are INDEPENDENT admissions and accumulate; the extent depends on both and sequences.
     static Fin<AssetProduct> Build(AssetRuntime runtime, AssetRequest request, ResolvedTheme resolved) =>
         from admitted in (
                 resolved.Metric(MetricFamily.Icon, request.Step).ToValidation<Error>(new AssetFault.SizeOffAxis($"{MetricFamily.Icon.Key}/{request.Step}")),
                 Resolving.AcceptValidated<PositiveMagnitude>(request.Scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{request.Scale}")).ToValidation())
             .Apply(static (dip, scale) => (Dip: dip, Scale: scale)).ToFin()
         from edge in Resolving.AcceptValidated<Dimension>((int)double.Round(admitted.Dip))
-        // The kernel ceiling refusal rides out as the `UiFault` it minted — re-spelling it twins the ceiling row.
         from extent in AssetExtent.Of(width: edge, height: edge, scale: admitted.Scale)
         let flipping = request.Flow is FlowDirection.RightToLeft
         from ranked in Rows(runtime.Rows, request.Key)
@@ -184,31 +170,23 @@ public static class IconSurface {
         from product in Formed(request.Form, picture, extent)
         select product;
 
-    // One dispatch over the KERNEL origin family; filters fold ONCE before the switch and every arm answers an
-    // `IImage` in device-independent units, byte-backed arms alone touching device pixels.
     public static Fin<IImage> Materialize(AssetRuntime runtime, IconRender render, AssetKey key) =>
         Folded(render.Filters).Bind(paint => render.Origin.Switch(
             state: (Runtime: runtime, Key: key, Pose: render.Pose, Paint: paint),
             resource: static (s, c) => Decoded(() => Optional(c.Anchor.Owner.GetManifestResourceStream(c.Anchor.ResourcePath)), s.Key).Map(image => Posed(image, s.Pose)),
             file: static (s, c) => Decoded(() => Some<System.IO.Stream>(System.IO.File.OpenRead((string)c.Location)), s.Key).Map(image => Posed(image, s.Pose)),
             stream: static (s, c) => Decoded(() => Optional(c.Open()), s.Key).Map(image => Posed(image, s.Pose)),
-            // The kernel selects the scale and refuses a set that cannot answer `Pixels`; a `Toolkit` or `Gdi` frame
-            // refuses TYPED rather than taking an imaging-stack conversion this boundary has no business owning.
             raster: static (s, c) => c.Resolve(extent: s.Pose.Extent, stack: RasterStack.Pixels)
                 .Bind(frame => frame is AssetRaster.Pixels rows
                     ? Uploaded(rows)
                     : Fin.Fail<IImage>(new AssetFault.MaterializeRejected($"{s.Key}/{frame.Stack.Key}")))
                 .Map(image => Posed(image, s.Pose)),
-            // Two DISJOINT key sets, one lookup: a bound key is a host glyph, an unbound key is an avares vector,
-            // and a key in neither is `UnknownKey`.
             vector: static (s, c) => s.Runtime.Bindings.TryGetValue(c.Key, out HostGlyph? bound)
                 ? Glyphed(s.Runtime, bound, s.Pose, s.Paint)
                 : Quantized(s.Paint).Bind(colour => s.Runtime.Svg.Image(c.Key, colour)).Map(image => Posed(image, s.Pose)),
             source: static (s, c) => Resolving.Catch(() => Fin.Succ((Geometry)StreamGeometry.Parse(c.Text))).Bind(geometry => Drawn(geometry, s.Paint, s.Pose)),
             render: static (s, _) => Fin.Fail<IImage>(new AssetFault.MaterializeRejected($"{s.Key}/{nameof(AssetOrigin.Render)}"))));
 
-    // A font binding selects its mirrored codepoint plane and takes no matrix; shipped geometry reflects and
-    // rotates like every other drawing — the mechanism reads off the resolved binding, never a second column.
     static Fin<IImage> Glyphed(AssetRuntime runtime, HostGlyph bound, IconPose pose, GlyphPaint paint) =>
         Quantized(paint).Bind(colour => bound.Switch(
             state: (Runtime: runtime, Pose: pose, Paint: paint, Brush: new SolidColorBrush(colour)),
@@ -224,8 +202,6 @@ public static class IconSurface {
                 .Map(image => Rotated(image, s.Pose)),
             shipped: static (s, c) => Shipped(s.Runtime.Glyphs, c.Glyph).Bind(geometry => Drawn(geometry, s.Paint, s.Pose))));
 
-    // Filters fold head to tail because ORDER IS THE OPERATION: greyscale-then-fade and fade-then-greyscale answer
-    // different colours.
     static Fin<GlyphPaint> Folded(Seq<IconFilter> chain) =>
         chain.Fold(
             PerceptualColor.Achromatic(lightness: 0d).Map(seed => new GlyphPaint(seed, UnitInterval.Create(1d))),
@@ -238,9 +214,6 @@ public static class IconSurface {
                 fading: static (s, c) => Fin.Succ(s with { Colour = s.Colour.Mix(c.Tint, c.Strength, BlendPath.Oklab) }),
                 custom: static (s, c) => Fin.Succ(s with { Colour = c.Map(s.Colour) }))));
 
-    // The package answers availability from its own bit tables, so the gate is a package read, never a transcribed
-    // roster. The ordered run re-enters the carrier: `OrderBy` answers `IOrderedEnumerable`, which carries no
-    // `Option`-shaped `Last`.
     public static Fin<IconSize> Elected(Icon glyph, IconVariant variant, double dip) =>
         toSeq(toSeq(IconSizeValues.Enumerable)
                 .Filter(size => size is not IconSize.Resizable && (int)size <= dip && glyph.IsAvailable(size, variant))
@@ -252,8 +225,6 @@ public static class IconSurface {
                     ? Fin.Succ(IconSize.Resizable)
                     : Fin.Fail<IconSize>(new AssetFault.GlyphUnavailable($"{glyph}/{variant}@{dip:F1}")));
 
-    // A pointer is the resolved image rendered once into a render target; the hotspot rides fractions of the
-    // product box and re-derives at every scale.
     static Fin<AssetProduct> Formed(GlyphForm form, IImage picture, AssetExtent extent) =>
         form.Switch(
             state: (Picture: picture, Extent: extent),
@@ -267,8 +238,6 @@ public static class IconSurface {
                 return Fin.Succ<AssetProduct>(new AssetProduct.Pointer(new Cursor(target, hot), Boxed(s.Extent)));
             }));
 
-    // A geometry with no drawable extent refuses by name — a transparent product would rank as a materialized
-    // winner and stop the walk on nothing.
     static Fin<IImage> Drawn(Geometry geometry, GlyphPaint paint, IconPose pose) =>
         geometry.Bounds is { Width: > 0d, Height: > 0d } bounds
             ? Quantized(paint).Map(colour => Framed(
@@ -277,21 +246,16 @@ public static class IconSurface {
                 pose))
             : Fin.Fail<IImage>(new AssetFault.MaterializeRejected("geometry has no drawable bounds"));
 
-    // The MATRIX mechanism for every arm but the font bindings: reflection AND rotation, applied only where the
-    // pose carries either.
     static IImage Posed(IImage picture, IconPose pose) =>
         pose.Mirror.IsSome || pose.Rotation.Value != 0d
             ? Framed(new ImageDrawing { ImageSource = picture, Rect = new Rect(0d, 0d, Width(pose), Height(pose)) }, Turned(pose), pose)
             : picture;
 
-    // Font bindings carry their own mirror plane; rotation still rides the matrix.
     static IImage Rotated(IImage picture, IconPose pose) =>
         pose.Rotation.Value != 0d
             ? Framed(new ImageDrawing { ImageSource = picture, Rect = new Rect(0d, 0d, Width(pose), Height(pose)) }, Spun(pose), pose)
             : picture;
 
-    // Each kernel axis names its own reflection about the product box; rotation composes about the box centre,
-    // so a rotated, mirrored pose is one factor rather than a second wrapping image.
     static Matrix Turned(IconPose pose) =>
         pose.Mirror.Match(
             Some: axis => axis.Switch(
@@ -305,8 +269,6 @@ public static class IconSurface {
             * Matrix.CreateRotation(pose.Rotation.Value)
             * Matrix.CreateTranslation(Width(pose) / 2d, Height(pose) / 2d);
 
-    // Shipped faces hold their mirrored glyphs at a fixed codepoint offset and select them from this property alone;
-    // a pose carrying no axis PINS left-to-right rather than inheriting the surface's direction.
     static FlowDirection Planed(IconPose pose) => pose.Mirror.IsSome ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
 
     static IImage Framed(Drawing content, Matrix transform, IconPose pose) =>
@@ -322,15 +284,12 @@ public static class IconSurface {
                 * Matrix.CreateTranslation((Width(pose) - (bounds.Width * fit)) / 2d, (Height(pose) - (bounds.Height * fit)) / 2d),
         };
 
-    // The ladder's base rung: the per-row rung column read 0 on every row and deleted (KNOB_TEST).
     const int BaseRung = 0;
 
     static Fin<PerceptualColor> Painted(IconRow row, ResolvedTheme resolved) =>
         resolved.Paint(row.Tint, BaseRung).ToFin(Fail: new AssetFault.TintUnresolved(row.Tint.Key))
             .Bind(static colour => PerceptualColor.OfArgb((int)colour.ToUInt32()));
 
-    // The ONE perceptual/host colour crossing for icon work; coverage folds into alpha HERE, rounded — a truncating
-    // cast reads `0.999` as 254 and every glyph one alpha step low. An out-of-display colour REFUSES at the egress.
     static Fin<Color> Quantized(GlyphPaint paint) =>
         paint.Colour.ToArgb().Map(packed => Color.FromUInt32((uint)packed) switch {
             var host => new Color((byte)double.Round(host.A * paint.Coverage.Value), host.R, host.G, host.B),
@@ -344,13 +303,10 @@ public static class IconSurface {
     static Fin<ImmutableArray<IconRow>> Rows(FrozenDictionary<AssetKey, ImmutableArray<IconRow>> table, AssetKey key) =>
         table.TryGetValue(key, out ImmutableArray<IconRow> rows) ? Fin.Succ(rows) : Fin.Fail<ImmutableArray<IconRow>>(new AssetFault.UnknownKey(key.ToString()));
 
-    // An origin answering no stream is a KNOWN absence and refuses on the rail; only the decode itself traps.
     static Fin<IImage> Decoded(Func<Option<System.IO.Stream>> open, AssetKey key) =>
         open().ToFin(Fail: new AssetFault.MaterializeRejected($"{key}: origin opened no stream"))
             .Bind(scoped => Custody.Bracket(() => Resolving.Catch(() => Fin.Succ((IImage)new Bitmap(scoped))), scoped));
 
-    // Kernel rows arrive tightly packed under a DECLARED coverage carriage: one switch answers the pixel and alpha
-    // formats together, and the copy reads the kernel span straight — the rows are already the caller's own.
     static Fin<IImage> Uploaded(AssetRaster.Pixels frame) =>
         Resolving.Catch(() => {
             (PixelFormat pixels, AlphaFormat alpha) = frame.Layout.Switch(
@@ -412,7 +368,7 @@ flowchart LR
 - Boundary: DISCRIMINANT AT THE SITE — the kernel `Rasm/Interaction/input.md` `CursorRow` is the SAME semantic vocabulary bound to Eto `Cursors` through a kernel-internal `Resolve`; Avalonia cannot reach that delegate, so this page keeps a semantic row bound to `StandardCursorType` under its own name and the kernel widening (semantic row + per-boundary binding table, the `HostGlyph` idiom) is a SEAT escalation, not a local re-spell. The Avalonia roster ships no grab pair; its corner rows ARE the diagonal resize affordance. Every consumer names a ROW — a `StandardCursorType` literal at a call site is the deleted form.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record PointerOrigin {
     private PointerOrigin() { }
@@ -438,16 +394,14 @@ public sealed partial class PointerRow {
     public static readonly PointerRow Working = new("working", new PointerOrigin.Platform(StandardCursorType.AppStarting));
     public static readonly PointerRow Guidance = new("guidance", new PointerOrigin.Platform(StandardCursorType.Help));
     public static readonly PointerRow Hidden = new("hidden", new PointerOrigin.Platform(StandardCursorType.None));
-    // Both grab states are product art: the platform drag rows carry a copy or link badge a pan must not assert.
     public static readonly PointerRow Grab = new("grab", new PointerOrigin.Drawn(AssetDeclaration.CursorGrab.Asset, UnitInterval.Create(0.5d), UnitInterval.Create(0.5d)));
     public static readonly PointerRow Grabbing = new("grabbing", new PointerOrigin.Drawn(AssetDeclaration.CursorGrabbing.Asset, UnitInterval.Create(0.5d), UnitInterval.Create(0.5d)));
 
     public PointerOrigin Origin { get; }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PointerCatalog {
-    // A pointer reads at one size across the estate: a fixed step on the icon scale, never a per-call size.
     public const int PointerStep = 2;
 
     public static Fin<Cursor> Resolve(AssetRuntime runtime, PointerRow row, double scale, ResolvedTheme resolved) =>
@@ -472,15 +426,12 @@ public static class PointerCatalog {
 - Boundary: this cache is the BOUNDARY's own custody per the kernel asset law — a kernel-side cache over a host handle outlives the surface that asked for it. `AssetCache` is the ONLY owner that disposes an `AssetProduct`; a caller holding a resolved image never releases it. Byte cost derives from the product's own extent, and a single product larger than the whole ceiling refuses as `BudgetRejected` rather than retiring the table to admit one cell. Release runs OUTSIDE the commit: the transition answers what it displaced and the caller releases that, so a re-run CAS body never disposes twice. Every edge that FILLS a lane also advances it; the two lanes stay apart because a staleness cohort's grace must span the swap's re-materialization roster while a pressure retiree's grace is the next eviction.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RetentionPosture {
     public static readonly RetentionPosture Generation = new("generation", reachable: static (cell, live) => cell >= live, releasable: static (_, _) => true);
     public static readonly RetentionPosture Holder = new("holder", reachable: static (_, _) => true, releasable: static (_, _) => true);
-    // Bound: reads reach every cell (the reuse a content key buys) and the hit re-stamp lifts the cell to the
-    // live generation, while pressure releases only cells still below it — the RULINGS device-cache law's
-    // generation floor as row data. Generation/Holder answer releasable unconditionally, so both stay inert.
     public static readonly RetentionPosture Bound = new("bound", reachable: static (_, _) => true, releasable: static (cell, live) => cell < live);
 
     [UseDelegateFromConstructor]
@@ -497,16 +448,14 @@ public sealed partial class CacheTrigger {
     public static readonly CacheTrigger ScaleFlip = new("scale-flip");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CacheSweep(long Generation, int Live, long Bytes, int Retired, int Released);
 
 public sealed record CacheReceipt(long Generation, int Live, long Bytes, int Retired, int Released, CacheTrigger Trigger, Instant At, CorrelationId Correlation);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnull {
     readonly record struct Slot(TValue Value, long Bytes, long Touch, long Generation);
-    // ONE state record: every column the retired hand mechanism spread over seven mutable slots, so byte total,
-    // touch order, lanes, and generation move as one committed value.
     readonly record struct Ledger(
         HashMap<TKey, Slot> Live, long Bytes, long Touch, long Generation,
         Seq<TValue> StaleLane, Seq<TValue> PressedLane, int Carried, int Drained);
@@ -535,8 +484,6 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
     public Fin<TValue> Take(TKey at, Func<Fin<TValue>> build) =>
         Hit(at).Match(Some: Fin.Succ, None: () => build().Bind(minted => Admit(at, minted)));
 
-    // The read refreshes touch order through the same commit path as every write, so a concurrent unlink cannot be
-    // resurrected by a stale copy; a CAS body re-runs, so the LAST invocation's capture is the verdict's.
     Option<TValue> Hit(TKey at) {
         Option<TValue> found = None;
         Transition<Ledger> moved = Cell.Commit(ledger, held => held.Live.Find(at)
@@ -545,18 +492,12 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
                 Some: slot => {
                     found = Some(slot.Value);
                     long touched = held.Touch + 1L;
-                    // The hit re-stamps the cell to the live generation — inert under Generation (already >=)
-                    // and Holder (generation-blind), load-bearing under Bound, whose floor tracks last use.
                     return held with { Touch = touched, Live = held.Live.SetItem(at, slot with { Touch = touched, Generation = held.Generation }) };
                 },
                 None: () => { found = None; return held; }), Cell.SwapBudget);
         return moved is Transition<Ledger>.Committed ? found : None;
     }
 
-    // Admission unlinks the predecessor FIRST, then retires least-touched cells until the product fits; both fills
-    // are the PRESSURE lane and rotate it, so the released roster is the lane the previous fill parked — one grace
-    // rotation per retiree. A CAS loser (a winner seated this key mid-build) releases its OWN mint and answers the
-    // winner, so no native handle is overwritten unreleased.
     Fin<TValue> Admit(TKey at, TValue minted) {
         long cost = bytes(minted);
         if (cost > ceiling) { release(minted); return Fin.Fail<TValue>(refuse(at, cost)); }
@@ -587,9 +528,6 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
         };
     }
 
-    // The cohort edge: retires every live cell the predicate names onto the STALE lane (releasing the lane the
-    // previous cohort parked — one grace rotation), raises the generation where the cause demands it, and drains
-    // the accumulated pressure counts into the answer, all in one commit.
     public CacheSweep Retire(Func<TKey, TValue, bool> stale, bool advance) {
         Seq<TValue> due = Seq<TValue>();
         int cohortCount = 0, carried = 0, drained = 0;
@@ -608,7 +546,6 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
         return new CacheSweep(Generation, Count, Bytes, 0, 0);
     }
 
-    // Count cells DRAIN at their own seal: pressure accrues between edges and the seal reports-and-zeroes it.
     public CacheSweep Seal() {
         int carried = 0, drained = 0;
         Transition<Ledger> moved = Cell.Commit(ledger, held => {
@@ -625,7 +562,6 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
             Some: slot => (held with { Live = held.Live.Remove(at), Bytes = held.Bytes - slot.Bytes }, Seq(slot.Value)),
             None: () => (held, Seq<TValue>()));
 
-    // Least-recently-touched first against the running total, so exactly the cells the incoming product needs unlink.
     (Ledger, Seq<TValue>) Pressed(Ledger held, long incoming) =>
         toSeq(held.Live.AsIterable()
                 .Where(pair => posture.Releasable(pair.Value.Generation, held.Generation))
@@ -644,8 +580,6 @@ public sealed class BudgetedCache<TKey, TValue> : IDisposable where TKey : notnu
     }
 }
 
-// The asset plane's instance: products and platform pointer handles ride the HOLDER posture, because no asset
-// cell backs a device handle a current draw dereferences and a released cell re-materializes from the catalogue.
 public sealed class AssetCache : IDisposable {
     static readonly Op Caching = Op.Of(name: "appui.asset.cache");
     readonly BudgetedCache<AssetRequest, AssetProduct> products;
@@ -668,13 +602,11 @@ public sealed class AssetCache : IDisposable {
 
     public Fin<Cursor> Platform(PointerRow row, Func<Fin<Cursor>> mint) => pointers.Take(row, mint);
 
-    // The theme-swap edge reacts to the one rebuild row naming a tinted asset and ignores every other class.
     public CacheReceipt Cycle(Seq<Rematerialize> rows, CorrelationId correlation) =>
         Sealed(rows.Exists(static row => row == Rematerialize.TintedAsset)
             ? products.Retire(static (_, _) => true, advance: true)
             : products.Seal(), CacheTrigger.ThemeSwap, correlation);
 
-    // A product built for another backing scale can never be read again; the next resolve re-elects its variant.
     public CacheReceipt Rescale(double scale, CorrelationId correlation) =>
         Sealed(products.Retire((request, _) => request.Scale != scale, advance: false), CacheTrigger.ScaleFlip, correlation);
 
@@ -696,8 +628,7 @@ public sealed class AssetCache : IDisposable {
 - Boundary: the kernel `Rasm/Interaction/paint.md` `ScenePolicy` is the draw-quality tier; this posture renamed away from that name because three pages compose both planes. `SvgPipeline` is a disposable capability constructed with the resolved `SKFontManager`; admission runs under `Custody.Bracket` over the payload stream, a losing duplicate parse disposes its own document, and an absent source document is a KNOWN absence refusing on the rail — only the parse traps. The shipped control names its filter column NEGATIVELY as `DisableFilters`; the trait states `Filters` and the mount inverts it once. `SvgLease` never exports `SKSvg`, every document operation locks `document.Sync`, and lease disposal detaches only its handler. Both scene-presence properties BUILD the graph on read, so scene-class capability is the ROW's trait, never a property probe. Hit testing is `Topmost`/`Hits` on the lease ALONE.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
+// --- [TYPES] ---------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -716,7 +647,6 @@ public sealed partial class SvgPosture {
     public static readonly SvgPosture PictureOnly = new("picture-only", CapabilitySet<SvgTrait>.Of(SvgTrait.Cache, SvgTrait.Filters));
     public static readonly SvgPosture RetainedScene = new("retained-scene", CapabilitySet<SvgTrait>.Of(SvgTrait.Scene, SvgTrait.Cache, SvgTrait.Filters));
     public static readonly SvgPosture Animated = new("animated", CapabilitySet<SvgTrait>.Of(SvgTrait.Scene, SvgTrait.Animate, SvgTrait.Filters));
-    // Wireframe through a blur or colour matrix shows the filter rather than the geometry it exists to expose.
     public static readonly SvgPosture Inspected = new("inspected", CapabilitySet<SvgTrait>.Of(SvgTrait.Scene, SvgTrait.Wireframe));
 
     public CapabilitySet<SvgTrait> Traits { get; }
@@ -725,13 +655,12 @@ public sealed partial class SvgPosture {
         (view.EnableCache = Traits.Admits(SvgTrait.Cache), view.DisableFilters = !Traits.Admits(SvgTrait.Filters), view.Wireframe = Traits.Admits(SvgTrait.Wireframe), unit).Item4;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class SvgLease(AssetKey key, SKSvg document, SvgPosture posture, Action detach) : IDisposable {
     static readonly Op SceneOp = Op.Of(name: "appui.asset.svg.scene");
     public AssetKey Key { get; } = key;
     public SvgPosture Posture { get; } = posture;
 
-    // The span materializes BEFORE the closure: a `ref struct` cannot be captured.
     public Fin<SvgSceneMutationResult> Mutate(string id, params ReadOnlySpan<string> changedAttributes) =>
         changedAttributes.ToArray() switch {
             var attributes => Scened(() => document.TryApplyRetainedSceneMutationByIdAndRender(id, attributes, out SvgSceneMutationResult? dirty)
@@ -755,7 +684,6 @@ public sealed class SvgLease(AssetKey key, SKSvg document, SvgPosture posture, A
 
     Fin<T> Scened<T>(Func<T> operation) => Held(SvgTrait.Scene, operation);
 
-    // Capability is the ROW's trait: a member refuses BY THE TRAIT its posture lacks.
     Fin<T> Held<T>(SvgTrait trait, Func<T> operation) =>
         Posture.Traits.Admits(trait)
             ? Locked(operation)
@@ -781,7 +709,6 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
     public Fin<IImage> Image(AssetKey asset, Color tint) =>
         Load(asset, SvgPosture.PictureOnly, None).Bind(_ => AdmitImage(asset, tint)).Map(static image => (IImage)image);
 
-    // Bracketed over the payload: the parse traps, the seat is a `Cell.Claim`, and a losing duplicate disposes itself.
     Fin<SKSvg> Admit(AssetKey key, System.IO.Stream payload) =>
         Custody.Bracket(() => Loading.Catch(() => {
             SKSvg document = new();
@@ -808,7 +735,6 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
                     var ceded => (candidate.Source?.Dispose(), ceded.Current[(key, tint)]).Item2,
                 }));
 
-    // `TryEnsureRetainedSceneGraph` is the build AND the presence read; `HasRetainedSceneGraph` runs that same build.
     static Fin<SKSvg> Ensure(SKSvg document, SvgPosture posture) =>
         !posture.Traits.Admits(SvgTrait.Scene)
             ? Fin.Succ(document)
@@ -825,8 +751,6 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
                 None: () => new SvgLease(key, document, posture, static () => { })));
         }});
 
-    // `Atom.Swap` answers the POST-state, so the drain captures the pre-state inside the swap body — the
-    // take-and-clear shape `Cell.Take` proves for `Seq` cells, spelled here for the two keyed cells.
     public void Dispose() {
         HashMap<(AssetKey, Color), SvgImage> tints = default;
         ignore(images.Swap(held => { tints = held; return HashMap<(AssetKey, Color), SvgImage>(); }));
@@ -847,10 +771,10 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
 - Boundary: a present `HttpClient` stays borrowed (`disposeHttpClient: false`) and its retry policy is the AppHost outbound owner's — this page runs no `Schedule` over a client it does not own; cache content lives under `ProfileRoots`; `AssetRow.Variants` carries an extensible scale table; variant election is pure over the row and one scale, so the `AssetCache` scale edge is the only re-election trigger — the loader hierarchy's own RAM cache holds decoded bytes and knows nothing of backing scale. The companion RAM loader, the storage lane, and the fallback-key bindings the earlier page claimed had no consumer on disk and are gone; a fallback binding lands with the `AdvancedImage` row that reads it.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record RasterRow(AssetKey Placeholder, AssetKey Error, string CacheFolder, double HiDpiThreshold);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RasterAssets : IDisposable {
     public static readonly RasterRow Policy = new(AssetDeclaration.IconPlaceholder.Asset, AssetDeclaration.IconError.Asset, "asset-cache", 1.5d);
 
@@ -863,7 +787,6 @@ public sealed class RasterAssets : IDisposable {
             Some: IAsyncImageLoader (http) => new DiskCachedWebImageLoader(http, disposeHttpClient: false, System.IO.Path.Join(roots.AppRoot, Policy.CacheFolder)),
             None: () => new DiskCachedWebImageLoader(System.IO.Path.Join(roots.AppRoot, Policy.CacheFolder))));
 
-    // `Seq.Last` answers `Option`, so an empty admitted variant set falls to the base source by the rail.
     public static (Uri Source, double Scale) Pick(AssetRow row, double scale) =>
         scale < Policy.HiDpiThreshold
             ? (row.Source, 1d)
@@ -887,7 +810,7 @@ public sealed class RasterAssets : IDisposable {
 - Boundary: avares content is the only Release-time asset origin; the key vocabulary crosses pages as `AssetDeclaration.X.Key` values. Declaration order inside `Icons` IS fallback order — font face first, shipped geometry second, bundled vector last. The mirror AXIS is decided once per glyph here; the MECHANISM nowhere here. `AssetKind.Glyph` rows carry no avares source and `Open` refuses them by name; every other kind carries one, so a binding key with no bytes and a byte key with no binding are two row shapes, never an accidental miss. The five history glyph keys carry the `history-` stem through one `History` mint and `Editing/history.md` `RevertKind` reads them — the derivation runs DOWNWARD because `Theme` is S0 vocabulary and may not import the S2 history owner.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -899,8 +822,6 @@ public sealed partial class AssetKind {
     public static readonly AssetKind Glyph = new("glyph");
 }
 
-// Boot cost partitions by what a surface class renders; `Depth` is the monotone rank a mount's election reads,
-// and `Export` is its own lane outside the rank.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -923,14 +844,12 @@ public sealed partial class PreloadPartition {
     static Seq<PreloadPartition> Ranked(int depth) => toSeq(Items).Filter(row => row.Depth <= depth).Strict();
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record AssetRow(AssetKey Key, AssetKind Kind, Uri Source, Seq<(double Scale, Uri Source)> Variants, Seq<PreloadPartition> Partitions);
 
 public sealed record AssetReceipt(AssetKey Key, AssetKind Kind, Uri Origin, double Scale, UInt128 ContentHash);
 
-// --- [TABLES] -------------------------------------------------------------------------------
-// ONE roster over one key set. A row carrying a host glyph binding (`Glyph` kind) ships no avares bytes; every
-// other row does; a row's `Icons` are its ordered alternatives for the icon walk.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -941,7 +860,7 @@ public sealed partial class AssetDeclaration {
     static IconRow Own(AssetDeclaration row, PaintRole tint, Option<MirrorAxis> mirror) => new(new AssetOrigin.Vector(row.Asset), tint, mirror);
     static IconRow Via(AssetDeclaration glyph, PaintRole tint, Option<MirrorAxis> mirror) => new(new AssetOrigin.Vector(glyph.Asset), tint, mirror);
 
-    // --- [GLYPH_BINDINGS] — host-typed payloads, no avares bytes.
+    // --- [GLYPH_BINDINGS]
     public static readonly AssetDeclaration FluentArrowLeft = new(nameof(FluentArrowLeft), AssetKind.Glyph, None, [], [], Some<HostGlyph>(new HostGlyph.Symbolic(Symbol.ArrowLeft, IconVariant.Regular)), static _ => []);
     public static readonly AssetDeclaration FluentArrowRight = new(nameof(FluentArrowRight), AssetKind.Glyph, None, [], [], Some<HostGlyph>(new HostGlyph.Symbolic(Symbol.ArrowRight, IconVariant.Regular)), static _ => []);
     public static readonly AssetDeclaration SemiArrowLeft = new(nameof(SemiArrowLeft), AssetKind.Glyph, None, [], [], Some<HostGlyph>(new HostGlyph.Shipped(SemiGlyph.ArrowLeft)), static _ => []);
@@ -953,7 +872,7 @@ public sealed partial class AssetDeclaration {
     public static readonly AssetDeclaration SemiCopyAdd = new(nameof(SemiCopyAdd), AssetKind.Glyph, None, [], [], Some<HostGlyph>(new HostGlyph.Shipped(SemiGlyph.CopyAdd)), static _ => []);
     public static readonly AssetDeclaration SemiDelete = new(nameof(SemiDelete), AssetKind.Glyph, None, [], [], Some<HostGlyph>(new HostGlyph.Shipped(SemiGlyph.Delete)), static _ => []);
 
-    // --- [SHIPPED_ASSETS] — avares bytes; `Icons` best-first by materialization cost, descending tint fidelity.
+    // --- [SHIPPED_ASSETS]
     public static readonly AssetDeclaration GeoWorld = new(nameof(GeoWorld), AssetKind.Geo, Avares("geo/world.geojson"), [], [PreloadPartition.Document], Option<HostGlyph>.None, static _ => []);
     public static readonly AssetDeclaration IconPlaceholder = new(nameof(IconPlaceholder), AssetKind.Raster, Avares("raster/placeholder.png"), [At2x("raster/placeholder@2x.png")], [PreloadPartition.Chrome], Option<HostGlyph>.None, static _ => [Via(SemiImage, PaintRole.TextFaint, Option<MirrorAxis>.None)]);
     public static readonly AssetDeclaration IconError = new(nameof(IconError), AssetKind.Raster, Avares("raster/error.png"), [At2x("raster/error@2x.png")], [PreloadPartition.Chrome], Option<HostGlyph>.None, static _ => [Via(SemiAlert, PaintRole.Error, Option<MirrorAxis>.None)]);
@@ -963,13 +882,10 @@ public sealed partial class AssetDeclaration {
         row => [Via(FluentArrowRight, PaintRole.Text, Some(MirrorAxis.Vertical)), Via(SemiArrowRight, PaintRole.Text, Some(MirrorAxis.Vertical)), Own(row, PaintRole.Text, Some(MirrorAxis.Vertical))]);
     public static readonly AssetDeclaration CursorGrab = new(nameof(CursorGrab), AssetKind.Vector, Avares("vector/cursor-grab.svg"), [], [PreloadPartition.Canvas], Option<HostGlyph>.None, row => [Own(row, PaintRole.Text, Option<MirrorAxis>.None)]);
     public static readonly AssetDeclaration CursorGrabbing = new(nameof(CursorGrabbing), AssetKind.Vector, Avares("vector/cursor-grabbing.svg"), [], [PreloadPartition.Canvas], Option<HostGlyph>.None, row => [Own(row, PaintRole.Text, Option<MirrorAxis>.None)]);
-    // The canvas edit quartet rides the CANVAS partition: its first read is a context menu over a live canvas.
     public static readonly AssetDeclaration EditorCut = new(nameof(EditorCut), AssetKind.Vector, Avares("vector/editor-cut.svg"), [], [PreloadPartition.Canvas], Option<HostGlyph>.None, row => [Via(SemiScissors, PaintRole.Text, Option<MirrorAxis>.None), Own(row, PaintRole.Text, Option<MirrorAxis>.None)]);
     public static readonly AssetDeclaration EditorCopy = new(nameof(EditorCopy), AssetKind.Vector, Avares("vector/editor-copy.svg"), [], [PreloadPartition.Canvas], Option<HostGlyph>.None, row => [Via(SemiCopy, PaintRole.Text, Option<MirrorAxis>.None), Own(row, PaintRole.Text, Option<MirrorAxis>.None)]);
     public static readonly AssetDeclaration EditorPaste = new(nameof(EditorPaste), AssetKind.Vector, Avares("vector/editor-paste.svg"), [], [PreloadPartition.Canvas], Option<HostGlyph>.None, row => [Via(SemiCopyAdd, PaintRole.Text, Option<MirrorAxis>.None), Own(row, PaintRole.Text, Option<MirrorAxis>.None)]);
     public static readonly AssetDeclaration EditorDelete = new(nameof(EditorDelete), AssetKind.Vector, Avares("vector/editor-delete.svg"), [], [PreloadPartition.Canvas], Option<HostGlyph>.None, row => [Via(SemiDelete, PaintRole.Error, Option<MirrorAxis>.None), Own(row, PaintRole.Error, Option<MirrorAxis>.None)]);
-    // The revert-kind glyphs: ONE mint carries the `history-` stem, and `Editing/history.md` `RevertKind` reads
-    // these keys. Move and composite are DIRECTIONAL and take the vertical reflection.
     public static readonly AssetDeclaration HistorySet = History("set", PaintRole.Text, Option<MirrorAxis>.None);
     public static readonly AssetDeclaration HistoryInsert = History("insert", PaintRole.Success, Option<MirrorAxis>.None);
     public static readonly AssetDeclaration HistoryRemove = History("remove", PaintRole.Error, Option<MirrorAxis>.None);
@@ -979,8 +895,6 @@ public sealed partial class AssetDeclaration {
     static AssetDeclaration History(string kind, PaintRole tint, Option<MirrorAxis> mirror) =>
         new($"history-{kind}", AssetKind.Vector, Avares($"vector/history-{kind}.svg"), [], [PreloadPartition.Chrome], Option<HostGlyph>.None, row => [Own(row, tint, mirror)]);
 
-    // ONE ctor: the generated string key doubles as the kernel key's text, minted once; `Icons` builds against
-    // the constructed row so an `Own` alternative reads its own admitted key.
     private AssetDeclaration(string key, AssetKind kind, Uri source, ImmutableArray<(double, Uri)> variants, ImmutableArray<PreloadPartition> partitions, Option<HostGlyph> binding, Func<AssetDeclaration, ImmutableArray<IconRow>> icons) {
         Asset = AssetKey.Create(key);
         Kind = kind; Source = source; Variants = variants; Partitions = partitions; Binding = binding; Icons = icons(this);
@@ -997,13 +911,12 @@ public sealed partial class AssetDeclaration {
     public AssetRow Row => new(Asset, Kind, Source, toSeq(Variants), toSeq(Partitions));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssetCatalog {
     static readonly Op Opening = Op.Of(name: "appui.asset.open");
 
     static readonly FrozenDictionary<AssetKey, AssetDeclaration> Table = toSeq(AssetDeclaration.Items).ToFrozenDictionary(static row => row.Asset);
 
-    // The runtime tables PROJECT off the roster: rows, bindings, and the shipped dictionary, one mint.
     public static AssetRuntime Runtime(SvgPipeline svg, AssetCache cache) =>
         new(
             Rows: toSeq(AssetDeclaration.Items).Filter(static row => !row.Icons.IsEmpty).ToFrozenDictionary(static row => row.Asset, static row => row.Icons),
@@ -1015,7 +928,6 @@ public static class AssetCatalog {
     public static Fin<AssetDeclaration> Declared(AssetKey key) =>
         Table.TryGetValue(key, out AssetDeclaration? row) ? Fin.Succ(row) : Fin.Fail<AssetDeclaration>(new AssetFault.UnknownKey(key.ToString()));
 
-    // Scale and key are INDEPENDENT admissions and accumulate; a glyph row ships no bytes and refuses by name.
     public static Fin<System.IO.Stream> Open(AssetKey key, double scale) =>
         from admitted in (
                 Opening.AcceptValidated<PositiveMagnitude>(scale).MapFail(static _ => (Error)new AssetFault.ScaleOffAxis($"{scale}")).ToValidation(),
@@ -1027,7 +939,6 @@ public static class AssetCatalog {
         from stream in Opening.Catch(() => Fin.Succ(AssetLoader.Open(RasterAssets.Pick(admitted.Declared.Row, admitted.Scale.Value).Source)))
         select stream;
 
-    // Every elected row admits INDEPENDENTLY, so a boot reports every refused asset rather than the first.
     public static Fin<Seq<AssetReceipt>> Preload(SurfaceMount mount, double scale) =>
         PreloadPartition.Elect(mount) switch {
             var elected => toSeq(AssetDeclaration.Items)
@@ -1036,7 +947,6 @@ public static class AssetCatalog {
                 .As().ToFin(),
         };
 
-    // The hash reads the opened stream directly under a bracket — no intermediate buffer copy.
     static Fin<AssetReceipt> Receipt(AssetDeclaration row, double scale) =>
         Open(row.Key, scale).Bind(payload => Custody.Bracket(
             () => Opening.Catch(() => Fin.Succ(ContentHash.Of(payload))), payload))

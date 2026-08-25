@@ -34,8 +34,6 @@ from msgspec import Struct
 from msgspec.structs import replace
 from numpy.typing import NDArray
 
-# the model arrives as a parameter, so the proxy reifies on the census read alone — and a caller holding an
-# `ifcopenshell.file` has already imported the package, so the deferral costs nothing and hides nothing.
 lazy import ifcopenshell
 lazy import sectionproperties.analysis as spa
 lazy import sectionproperties.pre as spp
@@ -67,7 +65,7 @@ from rasm.runtime.faults import (
 )
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class EnrichmentTier(IntEnum):
@@ -76,19 +74,9 @@ class EnrichmentTier(IntEnum):
     WARPING = 2
 
 
-# Four mirrored EXPRESS closures, each a `StrEnum` whose member VALUE IS the IFC class name, so the roster IS the
-# correspondence and no second table restates it. Declaration order is NARROWEST-FIRST, because `_family` elects the
-# first member the entity `is_a` — a subtype seated after its supertype would never win. Each roster admits the
-# provider's WHOLE member set per `docs/stacks/python/shapes.md` `[VOCABULARY]`, so a member this owner does not serve
-# refuses by name from its own arm rather than vanishing into a fall-through, and adding an upstream member breaks
-# every total `match` at type-check instead of silently reclassifying.
 
 
 class ProfileFamily(StrEnum):
-    # `IfcProfileDef`'s whole subtype closure. `ARBITRARY_OPEN` is rostered and unserved: an open path that is not a
-    # centreline declares no thickness, so it bounds no region — the ladder used to hand it to the parametric table
-    # and report a missing SUBTYPE, which named the wrong defect. `PARAMETERIZED` is the abstract head every
-    # `ParametricProfile` leaf answers, so one member covers the whole dimensioned family.
     ARBITRARY_VOIDS = "IfcArbitraryProfileDefWithVoids"
     ARBITRARY = "IfcArbitraryClosedProfileDef"
     CENTERLINE = "IfcCenterLineProfileDef"
@@ -100,9 +88,6 @@ class ProfileFamily(StrEnum):
 
 
 class ParametricProfile(StrEnum):
-    # the `IfcParameterizedProfileDef` leaves — the key `PROFILE_SAMPLERS` rows on and the census proves against the
-    # running schema. Hollow and rounded members precede the supertypes they specialize, and the asymmetric I precedes
-    # the symmetric one because IFC2X3 seats it as that subtype where IFC4 makes them siblings.
     RECTANGLE_HOLLOW = "IfcRectangleHollowProfileDef"
     ROUNDED_RECTANGLE = "IfcRoundedRectangleProfileDef"
     RECTANGLE = "IfcRectangleProfileDef"
@@ -120,11 +105,6 @@ class ParametricProfile(StrEnum):
 
 
 class MaterialProfileSource(StrEnum):
-    # the `IfcMaterialSelect` closure whole. The three profile-bearing laws — the set, the usage that points at one,
-    # and the profile itself — cover SIX members, and the exact-class ladder this replaces matched only two of them by
-    # `is_a()` STRING equality, so a tapering usage, an offset-carrying profile, and a bare `IfcMaterialProfile` each
-    # answered "no profile" on a member that declares one. The seven layer/constituent/list members carry no profile
-    # by schema and say so from their own arm.
     PROFILE_SET_USAGE_TAPERING = "IfcMaterialProfileSetUsageTapering"
     PROFILE_SET_USAGE = "IfcMaterialProfileSetUsage"
     LAYER_SET_USAGE = "IfcMaterialLayerSetUsage"
@@ -141,10 +121,6 @@ class MaterialProfileSource(StrEnum):
 
 
 class CurveForm(StrEnum):
-    # `IfcBoundedCurve`'s whole closure. The closed profile's `OuterCurve` slot is typed the WIDER `IfcCurve`, so an
-    # unbounded conic, line, or offset curve reaching it is unrostered and refuses at the election — which is the
-    # schema's own WHERE rule expressed where a consumer can act on it. `POLYLINE` and `INDEXED` are the two forms a
-    # polygonal boundary admits; the other seven are rostered and unserved.
     OUTER_BOUNDARY = "IfcOuterBoundaryCurve"
     BOUNDARY = "IfcBoundaryCurve"
     COMPOSITE_ON_SURFACE = "IfcCompositeCurveOnSurface"
@@ -157,54 +133,34 @@ class CurveForm(StrEnum):
 
 
 class SegmentKind(StrEnum):
-    # `IfcSegmentIndexSelect`'s two members: an `IfcIndexedPolyCurve` segment answers exactly one, so the run reader
-    # is a two-arm total match rather than an arc test with an implicit line default.
     ARC = "IfcArcIndex"
     LINE = "IfcLineIndex"
 
 
 type Ring = NDArray[np.float64]
 type RingTuple = tuple[Ring, tuple[Ring, ...]]
-type Affine = NDArray[np.float64]  # 3x2 row-vector transform: rows [U1, U2, origin]
+type Affine = NDArray[np.float64]
 type _Moment = Callable[[Ring, Ring, Ring, Ring], Ring]
 type _Sampler = Callable[[tuple[float, ...]], RingTuple]
-# one `PROFILE_SAMPLERS` cell: the dimension roster IN CONSTRUCTOR ORDER, the attributes the idealization deliberately
-# waives, and the ring constructor. Both rosters are census inputs, so neither can drift from the running schema unread.
 type _ProfileRow = tuple[tuple[str, ...], frozenset[str], _Sampler]
 
-# ring admission contract `_rings` proves with `is_bearable` over every ring of every body: ≥3 finite vertices. It is a
-# SHAPE proof only — three collinear points satisfy it — so the paired `_flaw` area probe carries the degeneracy the
-# refinement cannot express, and the two together are what make the centroid divide total.
 type ClosedRing = Annotated[Ring, Is[lambda r: r.ndim == 2 and r.shape[0] >= 3 and bool(np.isfinite(r).all())]]
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# SECTION_PROPERTY graduation member; an unlisted subject fails at the boundary under `ty`.
 STRUCTURAL_SUBJECT: Final[GeometrySubject] = GeometrySubject.SECTION_PROPERTY
 
-# this owner's one name, DERIVED off the leg roster member every raise on this page seats under, so the receipt
-# stream and the fault subject cannot drift apart and neither spells a dotted path the other re-transcribes.
 OWNER: Final[str] = f"{PACKAGE}.{GeometryLeg.STRUCTURAL.value}"
 
-# polyline fidelity of the curved parametric subtypes — the one tessellation policy a caller may sharpen. A rounded
-# corner takes a quarter of it, so the whole-turn budget and the corner budget stay one number.
 CIRCLE_SEGMENTS: Final[int] = 64
 
-# denormal floor for the section-modulus and residual denominators: a max(x, 1.0) clamp corrupts a
-# sub-unit section (a 0.3 m fibre reads as 1.0), so the floor guards the genuine zero alone.
 _EPS: Final[float] = 1e-12
 
-# IfcMirroredProfileDef's operator is a DERIVED attribute the schema fixes to a y-axis mirror, so the transform is
-# spelled here rather than read off a slot the wrapper need not surface; winding flips and `_rings` re-normalizes it.
 _MIRROR: Final[Affine] = np.array([(-1.0, 0.0), (0.0, 1.0), (0.0, 0.0)], dtype=np.float64)
 
-# --- [TABLES] --------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# Both catalogs below carry CALLABLE cells, so they seat here rather than among the dependency-free anchors above;
-# their constructors resolve at call time from `[OPERATIONS]`, which is why the lambda cells and not direct references.
 
-# Green's-theorem contour-moment table: each row maps a ring to one origin moment as
-# `sum(weight(x, y, xn, yn) * cross) / divisor` — six integrals as one data-driven projection.
 MOMENT_KERNELS: Final[tuple[tuple[str, _Moment, float], ...]] = (
     ("a", lambda x, y, xn, yn: np.ones_like(x), 2.0),
     ("qx", lambda x, y, xn, yn: y + yn, 6.0),
@@ -215,13 +171,6 @@ MOMENT_KERNELS: Final[tuple[tuple[str, _Moment, float], ...]] = (
 )
 
 def _seated(rows: tuple[tuple[ParametricProfile, _ProfileRow], ...]) -> "Map[ParametricProfile, _ProfileRow]":
-    # the sampler table's own admission, run at IMPORT in the runtime `FaultRow.seated` idiom, so a malformed roster
-    # kills the import rather than surfacing at a profile read that may never run. Three estate invariants, each
-    # naming its offending rows: every `ParametricProfile` member seats exactly one row, so the election can never
-    # elect a leaf this table cannot build and `_parametric` indexes it total; `Map.of_seq` SHADOWS a duplicate key
-    # silently, so a second row for one leaf would hand that subtype the other's constructor; and a name appearing in
-    # BOTH columns is the contradiction of a dimension consumed and waived at once. The waiver is therefore an
-    # executable column this proof READS, never the prose carve it replaces.
     seat = Map.of_seq(rows)
     unseated = tuple(leaf.value for leaf in ParametricProfile if leaf not in seat)
     tangled = tuple(f"{leaf.value}.{name}" for leaf, (names, excluded, _) in rows for name in sorted(frozenset(names) & excluded))
@@ -230,18 +179,6 @@ def _seated(rows: tuple[tuple[ParametricProfile, _ProfileRow], ...]) -> "Map[Par
     return seat
 
 
-# Parametric-subtype catalog over the WHOLE `IfcParameterizedProfileDef` family, keyed by its own roster so the class
-# name lives once, in `ParametricProfile`, and the election is `_family`'s rather than a scan of this table. Each cell
-# is `(dimensions, excluded, constructor)`: `dimensions` names the attributes the constructor consumes IN ORDER so
-# `_dimensioned` resolves them once, refuses a missing one BY NAME, and no constructor re-reads the entity;
-# `excluded` names the attributes the idealization deliberately WAIVES — fillet, edge, and slope radii a polygonal
-# boundary cannot carry, and reading one would imply a fidelity it lacks.
-#
-# Rows spell IFC4 attribute names; an attribute the running schema does not declare reads absent through the same
-# `getattr` gate rather than raising, so an IFC2X3 profile met under IFC4 spellings refuses by NAME at `_dimensioned`.
-# The family's two formally-optional dimensions — `IfcAsymmetricIShapeProfileDef.TopFlangeThickness` and
-# `IfcLShapeProfileDef.Width` — are optional for historic reasons alone and carry NO schema default, so an absent one
-# refuses by name exactly as a required dimension does.
 PROFILE_SAMPLERS: Final[Map[ParametricProfile, _ProfileRow]] = _seated((
     (ParametricProfile.RECTANGLE_HOLLOW, (("XDim", "YDim", "WallThickness"), frozenset({"InnerFilletRadius", "OuterFilletRadius"}), lambda d: _box(d[0], d[1], d[2]))),
     (ParametricProfile.ROUNDED_RECTANGLE, (("XDim", "YDim", "RoundingRadius"), frozenset(), lambda d: (_rect(d[0], d[1], d[2]), ()))),
@@ -289,10 +226,9 @@ PROFILE_SAMPLERS: Final[Map[ParametricProfile, _ProfileRow]] = _seated((
     (ParametricProfile.TRAPEZIUM, (("BottomXDim", "TopXDim", "YDim", "TopXOffset"), frozenset(), lambda d: (_trapezium(*d), ()))),
 ))
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
-# FE payload as one value object, carried only by Enrichment.warping.
 class WarpingEvidence(Struct, frozen=True, gc=False):
     fe_torsion_constant: float
     fe_area: float
@@ -302,7 +238,6 @@ class WarpingEvidence(Struct, frozen=True, gc=False):
     mesh_elements: int
 
 
-# tier discriminant and evidence shape are one union.
 @tagged_union(frozen=True)
 class Enrichment:
     tag: Literal["entity", "warping"] = tag()
@@ -320,27 +255,19 @@ class Enrichment:
 
 
 class ProfileBody(Struct, frozen=True, gc=False):
-    # one closed region: a CCW outer ring and its CW voids, both wound and proven at `_rings`, so every consumer
-    # reads the sign off the vertex order rather than a multiplier travelling beside the ring.
     outer: ClosedRing
     voids: tuple[ClosedRing, ...]
 
     @property
     def extent(self) -> float:
-        # net material area of THIS body — the FE mesh-size budget per region, derived off the one shoelace owner so a
-        # composite of very different bodies meshes each to its own scale rather than the whole section's.
         return abs(_shoelace(self.outer)) - sum(abs(_shoelace(void)) for void in self.voids)
 
 
 class ProfileRings(Struct, frozen=True, gc=False):
-    # a profile is a BODY SET: composite, derived, and mirrored IFC4 profiles all resolve to several disjoint regions,
-    # and the contour integral is ring-additive, so the widened owner absorbs them with no second engine.
     bodies: tuple[ProfileBody, ...]
 
     @property
     def rings(self) -> tuple[Ring, ...]:
-        # outers then voids — the facet order `CompoundGeometry.from_points` documents, and the order the contour
-        # fold is indifferent to, so one projection serves the integral and the FE boundary alike.
         return (*self.outers, *self.voids)
 
     @property
@@ -353,7 +280,6 @@ class ProfileRings(Struct, frozen=True, gc=False):
 
 
 class ProfileGroup(Struct, frozen=True, gc=False):
-    # one partition cell: the resolved profile entity and every GlobalId whose element resolves to it.
     profile: "ifcopenshell.entity_instance"
     subjects: tuple[str, ...]
 
@@ -361,8 +287,6 @@ class ProfileGroup(Struct, frozen=True, gc=False):
 class SectionReceipt(Struct, frozen=True, gc=False):
     tier: EnrichmentTier
     subjects: tuple[str, ...]
-    # run identity of THIS group — tier, admitted spec, and the resolved profile's class and step id — from which
-    # `graduates`/`framed` derive their own `ContentKey`, so no caller mints a key for evidence it did not produce.
     spec: str
     area: float
     centroid: tuple[float, float]
@@ -376,7 +300,6 @@ class SectionReceipt(Struct, frozen=True, gc=False):
 
     @property
     def measured(self) -> dict[str, float]:
-        # relative residuals, so the denominator floors at _EPS, never 1.0.
         ledger = {"ring-closure": abs(self.polar_moment - sum(self.principal_moments)) / max(abs(self.polar_moment), _EPS)}
         match self.enrichment:
             case Option(tag="some", some=Enrichment(tag="warping", warping=fe)):
@@ -386,8 +309,6 @@ class SectionReceipt(Struct, frozen=True, gc=False):
 
     @property
     def row(self) -> dict[str, object]:
-        # ONE column roster the receipt facts, the frame columns, and the tier residual ledger all read, so a new
-        # integral is one field reaching all three rather than three parallel projections drifting apart.
         return {
             "tier": self.tier.name,
             "subjects": len(self.subjects),
@@ -412,33 +333,18 @@ class SectionReceipt(Struct, frozen=True, gc=False):
         return Block.singleton(Receipt.of(OWNER, ("emitted", STRUCTURAL_SUBJECT, self.row)))
 
     def graduates(self, ceiling: dict[str, float]) -> GeometryHandoff:
-        # carrier's residual-over-ceiling `admitted` verdict gates; wire() is the compute crossing. The key derives
-        # from this receipt's own `spec` through the spine, so the crossing is content-addressed by what produced it.
         return GeometryHandoff.of(STRUCTURAL_SUBJECT, evidence_key(STRUCTURAL_SUBJECT, self.spec), self.measured, ceiling)
 
     @staticmethod
     def framed(receipts: "Block[SectionReceipt]") -> "RuntimeRail[EvidenceFrame]":
-        # ONE frame per run, one row per resolved profile group — the partition's real table, where a per-receipt
-        # frame publishes a single row and loses the section-to-section spread a board cuts on. Column order is the
-        # first row's roster; a group whose ledger keys differ (the WARPING `fe-area` residual on some bodies and not
-        # others) rails on the port's own width check, naming its offending COLUMNS at this producer. The run key
-        # folds every group's `spec` in the partition's deterministic order, so it addresses the run, not one section.
         names = tuple(receipts.head().row) if not receipts.is_empty() else ()
         table: dict[str, list[object]] = {name: [receipt.row[name] for receipt in receipts] for name in names}
         return EvidenceFrame.of(STRUCTURAL_SUBJECT, evidence_key(STRUCTURAL_SUBJECT, "|".join(receipt.spec for receipt in receipts)), table)
 
 
-# --- [ERRORS] --------------------------------------------------------------------------
+# --- [ERRORS] ---------------------------------------------------------------------------
 
 
-# Every refusal this module mints is an `IfcFault` CASE, so these rows spend ONE coordinate per raise POINT and no
-# fence spells a subject string — site discrimination is the family's job and `point` names only the seam a fault
-# crossed. `arm`/`defect` state the shape a raise that is NOT a band token takes at that point, which the FE fence
-# below actually reaches; `rostered` pushes both into the fault owner's ONE census at import, so `FaultRow.seated`
-# proves the leg against a real module and a `domain` crossing answers this module's leg and posture rather than the
-# tier default, which a module-local seat leaves unreachable from `retriability` and `facts`. Both postures are
-# TERMINAL: a section integral and a deterministic `cytriangle` mesh-and-solve refuse identically on every re-run,
-# so a re-offer clears nothing and a retry over either is the page's own named deleted form.
 SECTION_REFUSED: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.STRUCTURAL, point="section", arm="boundary", defect="section-refused", retriability=TERMINAL
 )
@@ -447,55 +353,30 @@ SECTION_WARPING: Final[FaultRow[GeometryLeg]] = FaultRow(
 )
 RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([SECTION_REFUSED, SECTION_WARPING]))
 
-# The FE band names no exception class of its own, so the fence catches the builtin set its own stack raises: a
-# control-point/facet arity `from_points` refuses, a degenerate triangulation, and a singular warping solve —
-# `numpy.linalg.LinAlgError` subclasses `ValueError`, so the matrix leg rides that row rather than a provider import
-# the `lazy` deferral exists to avoid. A bare `Exception` here would swallow the interpreter faults this page wants.
 _FE_RAISES: Final[Catch] = (IndexError, RuntimeError, TypeError, ValueError, ZeroDivisionError)
 
 
 def _domain(fault: IfcFault) -> BoundaryFault:
-    # ONE door for every refusal this module mints, and the ONE site binding the raise row, so eleven refusal sites
-    # spell the case alone. The band's typed token rides the runtime's own `domain` case WHOLE — `BoundaryFault.of`
-    # admits a `Tagged` token ahead of every `CLASSIFY` row — so the case and its coordinate tuple cross the funnel as
-    # structured evidence and `facts()` publishes them without a consumer re-parsing a rendered cause. This module
-    # RETURNS that carrier rather than raising it, at every site: `_dispatch` and `_composed` accumulate over
-    # `traversed(..., ACCUMULATE)`, and a raise unwinds those folds before they collect, turning one refusal that
-    # names every divergent profile into one run per defect. The rendered form the wire edge reads is
-    # `IfcFault.__str__`, spelled once at the family owner and never here.
     return BoundaryFault.of(SECTION_REFUSED, fault)
 
 
-# --- [BOUNDARIES] ----------------------------------------------------------------------
+# --- [BOUNDARIES] -----------------------------------------------------------------------
 
 
 def _family[E: StrEnum](entity: "ifcopenshell.entity_instance", vocabulary: type[E]) -> Option[E]:
-    # the ONE type-identity election on this page: every foreign class name lives as a roster member VALUE, so the
-    # narrowest-first declaration order IS the resolution order a conditional ladder used to encode positionally, and
-    # a class the roster does not carry answers `Nothing` — the admission refusal, where a fall-through arm or a
-    # `case _` used to absorb it under some neighbour's meaning. `is_a` tests the SUBTYPE relation, so one member
-    # covers its whole branch; `is_a()` string equality, which two sites here spelled, matched a supertype's name
-    # against a subtype instance and answered no.
     return Block.of_seq(vocabulary).choose(lambda member: Some(member) if entity.is_a(member.value) else Nothing).try_head()
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
-# Closed float64 rings in profile-local axes, centred on the bounding box per the IfcParameterizedProfileDef
-# convention and wound CCW, that the contour integral reads with no shape branch. Every constructor takes resolved
-# scalars — `_dimensioned` already proved them present — so none touches an `entity_instance`.
 
 
 def _shoelace(ring: Ring) -> float:
-    # signed contour area: the sign IS the winding, so `_rings` normalizes orientation off it and every downstream
-    # integral, extent, and residual reads that sign from the vertex order with no multiplier column beside the ring.
     x, y = ring[:, 0], ring[:, 1]
     return float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y)) / 2.0
 
 
 def _rect(xdim: float, ydim: float, radius: float) -> Ring:
-    # rectangle and rounded rectangle are one constructor: the radius clamps to the half-extents, and a sub-epsilon
-    # radius returns the sharp four-vertex loop rather than four coincident arc fans the triangulator rejects.
     hx, hy = xdim / 2.0, ydim / 2.0
     corner = min(radius, hx, hy)
     theta = np.linspace(0.0, np.pi / 2.0, max(CIRCLE_SEGMENTS // 4, 2))
@@ -515,20 +396,15 @@ def _rect(xdim: float, ydim: float, radius: float) -> Ring:
 
 
 def _ellipse(semi_x: float, semi_y: float) -> Ring:
-    # circle and ellipse are one constructor — a circle passes its radius twice, so the curved family costs one row.
     theta = np.linspace(0.0, 2.0 * np.pi, CIRCLE_SEGMENTS, endpoint=False)
     return np.stack([semi_x * np.cos(theta), semi_y * np.sin(theta)], axis=1).astype(np.float64)
 
 
 def _box(xdim: float, ydim: float, wall: float) -> RingTuple:
-    # a hollow rectangle whose wall the dimension gate proved present; a model omitting it refuses by name rather than
-    # degrading to a solid section, which would publish a section modulus several times the member's real one.
     return _rect(xdim, ydim, 0.0), (_rect(xdim - 2.0 * wall, ydim - 2.0 * wall, 0.0),)
 
 
 def _i_section(bottom_width: float, depth: float, web: float, bottom_flange: float, top_width: float, top_flange: float) -> Ring:
-    # I/H outline, both flanges centred on the y axis so the bounding-box origin holds for either row: the symmetric
-    # subtype feeds its one width and thickness twice, the asymmetric one its own four — one topology, two rows.
     hb, ht, hd, hw = bottom_width / 2.0, top_width / 2.0, depth / 2.0, web / 2.0
     yb, yt = -hd + bottom_flange, hd - top_flange
     return np.array(
@@ -545,7 +421,6 @@ def _l_section(depth: float, width: float, thickness: float) -> Ring:
 
 
 def _u_section(depth: float, flange_width: float, web: float, flange: float) -> Ring:
-    # channel opening +x: web on the left, both flanges reaching right, matching the IFC4 U-shape orientation.
     hb, hd = flange_width / 2.0, depth / 2.0
     return np.array(
         [
@@ -570,8 +445,6 @@ def _t_section(depth: float, flange_width: float, web: float, flange: float) -> 
 
 
 def _z_section(depth: float, flange_width: float, web: float, flange: float) -> Ring:
-    # FlangeWidth measures from the web centreline outward, so the bounding half-width is `b - web/2` and the bottom
-    # flange reaches -x while the top reaches +x.
     hd, hw = depth / 2.0, web / 2.0
     reach = flange_width - hw
     return np.array(
@@ -590,8 +463,6 @@ def _z_section(depth: float, flange_width: float, web: float, flange: float) -> 
 
 
 def _c_section(depth: float, width: float, wall: float, girth: float) -> Ring:
-    # cold-formed lipped channel opening +x: one closed thin-walled loop around the web, both flanges, and both lips,
-    # so the contour integral needs no centreline offset and the section is exact rather than thin-wall approximated.
     hb, hd = width / 2.0, depth / 2.0
     return np.array(
         [
@@ -613,15 +484,11 @@ def _c_section(depth: float, width: float, wall: float, girth: float) -> Ring:
 
 
 def _trapezium(bottom_x: float, top_x: float, ydim: float, top_offset: float) -> Ring:
-    # the schema builds the trapezium off a corner origin, so the loop re-centres on its own bounding box to hold the
-    # IfcParameterizedProfileDef convention every other row is constructed under.
     raw = np.array([(0.0, 0.0), (bottom_x, 0.0), (top_offset + top_x, ydim), (top_offset, ydim)], dtype=np.float64)
     return raw - (raw.min(axis=0) + raw.max(axis=0)) / 2.0
 
 
 def _operator(operator: "ifcopenshell.entity_instance") -> Affine:
-    # IfcCartesianTransformationOperator2D as one row-vector affine: `Axis1` seeds U1 (the schema default is +x), U2 is
-    # its left normal (the derived orthogonal complement), `Scale` defaults 1, and `LocalOrigin` translates.
     axis = np.asarray(operator.Axis1.DirectionRatios if operator.Axis1 else (1.0, 0.0), dtype=np.float64)
     unit = axis / max(float(np.linalg.norm(axis)), _EPS)
     scale = float(operator.Scale) if operator.Scale is not None else 1.0
@@ -629,26 +496,11 @@ def _operator(operator: "ifcopenshell.entity_instance") -> Affine:
 
 
 def _transformed(bodies: tuple[RingTuple, ...], affine: Affine) -> tuple[RingTuple, ...]:
-    # one affine over every ring of every body; a reflecting operator flips winding, which `_rings` re-normalizes, so
-    # no transform arm carries an orientation special case.
     placed: Callable[[Ring], Ring] = lambda ring: ring @ affine[:2] + affine[2]
     return tuple((placed(outer), tuple(placed(void) for void in voids)) for outer, voids in bodies)
 
 
 def _crossed(ring: Ring) -> bool:
-    # global simplicity probe, COMPLETE over the non-simple contact classes: one broadcast orientation matrix
-    # `side[i, k]` (vertex k against edge i's carrier line) serves both tests. A PROPER crossing is the mutual
-    # strict straddle `straddle & straddle.T` — edge j's endpoints strictly astride edge i's line and conversely —
-    # which shared endpoints never satisfy, so adjacent pairs need no mask there. Every OTHER intersection — an
-    # endpoint touch, a T-junction, a collinear overlap, a repeated or coincident vertex, an adjacent spike folding
-    # back over its neighbour — puts some VERTEX on some edge it does not bound: `side == 0` names the collinear
-    # incidence, the closed bounding box the on-segment half, and the incidence is lawful ONLY at an edge's own two
-    # endpoints (`k == i` and the roll-shared `k == i+1 mod n`, the first/last pair included), so the consecutive
-    # shared-endpoint contact alone survives and everything else refuses. Collinearity is exact zero by the
-    # literal-decoded-tolerance law — ring vertices decode from literal profile attributes, so an epsilon here
-    # would collapse a near-tangent contact the strict tests correctly split. Green's theorem over a non-simple
-    # loop cancels signed lobes into silently wrong moments and `_interior_point` holds only for a simple ring, so
-    # non-simplicity is an admission refusal, never a value that reaches the integral.
     count = len(ring)
     tail = np.roll(ring, -1, axis=0)
     span = tail - ring
@@ -658,17 +510,12 @@ def _crossed(ring: Ring) -> bool:
     lo, hi = np.minimum(ring, tail), np.maximum(ring, tail)
     within = np.all((ring[None, :, :] >= lo[:, None, :]) & (ring[None, :, :] <= hi[:, None, :]), axis=2)
     index = np.arange(count)
-    incident = index[None, :] == index[:, None]  # incident[i, k]: vertex k IS edge i's start
-    lawful = incident | np.roll(incident, 1, axis=1)  # ...or its end, k == i+1 mod n, the first/last pair included
+    incident = index[None, :] == index[:, None]
+    lawful = incident | np.roll(incident, 1, axis=1)
     return bool(np.any(straddle & straddle.T) or np.any((side == 0.0) & within & ~lawful))
 
 
 def _flaw(ring: Ring) -> "Option[CurveFlaw]":
-    # one probe, three named causes off the band's own `CurveFlaw` vocabulary: a shape the `ClosedRing` refinement
-    # rejects, a sub-epsilon signed area — the collinear or zero-extent loop the refinement admits and the centroid
-    # divide cannot survive — and a self-intersecting loop, whose crossed lobes the shoelace and every contour moment
-    # silently mis-sign. Absence is `Nothing`, so the pass signal is the carrier rather than an empty string member
-    # doubling as one — which is what let two consumers embed this answer in a larger string instead of matching it.
     return (
         Some(CurveFlaw.MALFORMED)
         if not is_bearable(ring, ClosedRing)
@@ -681,19 +528,10 @@ def _flaw(ring: Ring) -> "Option[CurveFlaw]":
 
 
 def _wound(ring: Ring, sign: float) -> Ring:
-    # winding normalization to the ring's role — outer CCW, void CW — re-materialized C-contiguous, because a reversed
-    # slice is a negative-stride view every downstream numpy reduction pays for.
     return np.ascontiguousarray(ring if _shoelace(ring) * sign > 0.0 else np.flip(ring, axis=0))
 
 
 def _interior_point(ring: Ring) -> tuple[float, float]:
-    # guaranteed-interior FE region or hole marker by horizontal-ray span scan. The ray sits strictly BETWEEN two
-    # adjacent vertex levels near mid-height, so every crossing is a clean edge interior and none degenerates on a
-    # vertex; sorting the crossings and taking the midpoint of the FIRST span returns a point inside the material for
-    # ANY simple ring, re-entrant included, and reduces to the obvious answer on a convex one. An extrema-midpoint
-    # rule lands in the notch of a U- or C-channel — outside the material — orphaning the region, so
-    # `sectionproperties` meshes nothing inside the boundary and the `fe-area` residual rails for the wrong reason.
-    # `_rings` proved a non-zero area, so at least two distinct vertex levels exist and the mid pair is well defined.
     levels = np.unique(ring[:, 1])
     height = float(levels[len(levels) // 2 - 1] + levels[len(levels) // 2]) / 2.0
     x, y = ring[:, 0], ring[:, 1]
@@ -714,19 +552,11 @@ def _facet_loop(
 
 
 def _distributed(receipts: "Block[SectionReceipt]", composition: ScopeKey) -> "Block[SectionReceipt]":
-    # charter projection PER GROUP, off the one `measured` ledger the receipt, the frame, and the graduation handoff
-    # already read — the `ring-closure` residual IS the `rasm.geometry.section.closure` measure, so the spelling
-    # derives from the charter row and a six-section partition records six samples where a head-only fold publishes
-    # one. The `WARPING` `fe-area` residual records nothing until a charter row claims it. Every tier runs
-    # caller-floor, so this is already the parent side.
     receipts.fold(lambda _, receipt: charter_record(STRUCTURAL_SUBJECT, receipt.measured, composition=composition), None)
     return receipts
 
 
 def _extreme_fibers(rings: ProfileRings, centroid: tuple[float, float]) -> tuple[float, float]:
-    # c is the centroid-to-extreme-fibre distance, NOT half the bounding-box span (exact only for a doubly-symmetric
-    # profile); take the larger centroid-relative reach per axis ACROSS EVERY BODY, so a built-up section measures to
-    # its outermost fibre rather than to one constituent's.
     cx, cy = centroid
     hull = np.concatenate(rings.outers)
     lo, hi = hull.min(axis=0), hull.max(axis=0)
@@ -734,23 +564,16 @@ def _extreme_fibers(rings: ProfileRings, centroid: tuple[float, float]) -> tuple
 
 
 def _deduped(ring: Ring) -> Ring:
-    # an explicit closing vertex repeating the first is the model's own closure statement; every ring here closes by
-    # roll, so the repeat would reach the contour fold and the facet loop as a zero-length edge — dropped at intake.
     return ring[:-1] if len(ring) > 1 and bool(np.all(np.abs(ring[-1] - ring[0]) <= _EPS)) else ring
 
 
 def _arc(points: Ring) -> Ring:
-    # three-point circular arc — start, mid, and end all ON the arc — tessellated through its circumcircle and sampled
-    # sweep-proportionally under the same whole-turn CIRCLE_SEGMENTS budget the curved samplers spend, floored at two
-    # chords. Degeneracy decides on the INPUT triangle's doubled signed area, never on a cancelling centre solve: a
-    # collinear triple lowers to its own chords rather than orbiting a centre the division sends to infinity.
     (ax, ay), (bx, by), (cx, cy) = points
     area2 = (bx - ax) * (cy - ay) - (cx - ax) * (by - ay)
 
     def swept(center: Ring) -> Ring:
         spokes = points - center
         angles = np.arctan2(spokes[:, 1], spokes[:, 0])
-        # the mid point picks the direction: it either lies inside the CCW turn or the arc sweeps the complementary CW one.
         turn, mid = np.mod(angles[[2, 1]] - angles[0], 2.0 * np.pi)
         sweep = float(turn if mid < turn else turn - 2.0 * np.pi)
         theta = angles[0] + sweep * np.linspace(0.0, 1.0, max(int(CIRCLE_SEGMENTS * abs(sweep) / (2.0 * np.pi)), 2) + 1)
@@ -761,11 +584,6 @@ def _arc(points: Ring) -> Ring:
 
 
 def _segmented(coords: Ring, segments: tuple["ifcopenshell.entity_instance", ...]) -> "RuntimeRail[Ring]":
-    # `Segments` IS the curve's own ordering: every member carries a 1-based index run into `CoordList` and answers its
-    # own kind, so a line run contributes its vertices in run order and an arc run its three-index circumcircle
-    # tessellation. Consecutive runs SHARE an endpoint by schema, so every run past the first drops its leading vertex.
-    # The kind is ELECTED off `SegmentKind`, so a member outside that two-way select refuses by name instead of
-    # lowering to a straight run whose chord silently replaces whatever the schema added.
     def run(segment: "ifcopenshell.entity_instance") -> "RuntimeRail[Ring]":
         vertices = coords[np.asarray(segment.wrappedValue, dtype=np.intp) - 1]
         match _family(segment, SegmentKind):
@@ -784,12 +602,6 @@ def _segmented(coords: Ring, segments: tuple["ifcopenshell.entity_instance", ...
 
 
 def _curve(curve: "ifcopenshell.entity_instance") -> "RuntimeRail[Ring]":
-    # two bounded-curve forms carry a profile boundary and they read differently: IfcPolyline as an IfcCartesianPoint
-    # list, IfcIndexedPolyCurve as a CartesianPointList `CoordList` whose `Segments` order and arc its runs — an absent
-    # `Segments` IS the contiguous-polyline default the raw CoordList already spells. Both forms canonicalize a closing
-    # repeat away at intake. The seven forms a polygonal boundary cannot carry are named ONE BY ONE rather than swept
-    # by a fall-through, so an upstream member added to `CurveForm` breaks this match at type-check instead of
-    # inheriting the unserved refusal; a class the roster does not carry at all refuses at the ELECTION.
     match _family(curve, CurveForm):
         case Option(tag="some", some=CurveForm.POLYLINE):
             return Ok(_deduped(np.ascontiguousarray([point.Coordinates for point in curve.Points], dtype=np.float64)))
@@ -816,15 +628,6 @@ def _curve(curve: "ifcopenshell.entity_instance") -> "RuntimeRail[Ring]":
 
 
 def _centerline(subject: str, path: Ring, thickness: float) -> "RuntimeRail[RingTuple]":
-    # offsets the OPEN centreline to a constant thickness: each vertex takes its miter normal — an interior vertex the
-    # angle bisector at length (t/2)/cos(θ/2) off the turning angle θ, each end its own segment normal — and the ring
-    # closes as the left offset forward followed by the right offset reversed, the squared end caps a constant-width
-    # section implies. Both degeneracies decide on the INPUT path: a reversal vertex (1 + cos θ at the epsilon floor)
-    # has no bounded miter, and an interior vertex whose inner retraction (t/2)·tan(θ/2) reaches the shorter adjacent
-    # span folds the offset through itself into a bowtie — each refuses BY VERTEX rather than emitting a crossed ring.
-    # Both gates are LOCAL predictions off the input path; the assembled ring still proves globally simple at
-    # `_rings`' admission fold, the terminal guarantee that also catches the non-adjacent fold-back — a gap narrower
-    # than the thickness, a spiralling path — no per-vertex miter test can see.
     poly = path[np.concatenate([[True], np.any(np.abs(np.diff(path, axis=0)) > _EPS, axis=1)])] if len(path) > 1 else path
     if len(poly) < 2:
         return Error(_domain(IfcFault(degenerate_measure=(subject, SectionMeasure.CENTRELINE_VERTICES, Some(float(len(poly)))))))
@@ -834,12 +637,9 @@ def _centerline(subject: str, path: Ring, thickness: float) -> "RuntimeRail[Ring
     normals = np.stack([-units[:, 1], units[:, 0]], axis=1)
     prior, following = normals[:-1], normals[1:]
     turned = 1.0 + np.sum(prior * following, axis=1)
-    # 1 + cos θ vanishes exactly at a reversal, which the gate below refuses; the floor only keeps the arithmetic total.
     spread = np.maximum(turned, _EPS)
     crosses = np.abs(units[:-1, 0] * units[1:, 1] - units[:-1, 1] * units[1:, 0])
     retraction = (thickness / 2.0) * crosses / spread
-    # each hit is a `CurveFlaw` member at its own vertex INDEX PATH, so the offending vertex survives as an integer a
-    # consumer indexes the path with — where the rendered `cause:vertex` pair it replaces had to be split twice.
     flawed = Block.of_seq(
         (flaw, (vertex + 1,))
         for flaw, hits in (
@@ -872,9 +672,6 @@ class IfcStructural:
     @staticmethod
     @railed
     def _dispatch(model: "ifcopenshell.file", tier: EnrichmentTier, spec: str) -> "Block[SectionReceipt]":
-        # each `yield from` binds a rail and short-circuits to its first Error — a malformed selector and an empty
-        # match leave here typed. The per-group fold ACCUMULATES, so one refusal names EVERY divergent profile in the
-        # match rather than costing one run per defect; a survivor/casualty partition is the named next disposition.
         selector, _, model_guid = spec.partition("#")
         selection = yield from IfcSelector.filter(model, selector)
         elements = yield from IfcStructural._matched(selector, selection.elements)
@@ -888,15 +685,11 @@ class IfcStructural:
 
     @staticmethod
     def _matched(subject: str, elements: tuple["ifcopenshell.entity_instance", ...]) -> "RuntimeRail[Block[ifcopenshell.entity_instance]]":
-        # empty-match gate ONLY: the head read is the partition's job, so a selector
-        # matching six sections integrates six rather than publishing the first under every matched GlobalId.
         matched = Block.of_seq(elements)
         return Ok(matched) if not matched.is_empty() else Error(_domain(IfcFault(empty_roster=(subject, IfcRoster.PROFILE_ELEMENT))))
 
     @staticmethod
     def _grouped(elements: "Block[ifcopenshell.entity_instance]") -> "Block[ProfileGroup]":
-        # partition by RESOLVED profile identity — the profile entity's own step id, which `Map` keeps in total order,
-        # so group order and every receipt, charter sample, and frame row derived from it are deterministic.
         def step(held: "Map[int, ProfileGroup]", element: "ifcopenshell.entity_instance") -> "Map[int, ProfileGroup]":
             profile = IfcStructural._profile(element)
             prior = held.try_find(profile.id()).map(lambda group: group.subjects).default_value(())
@@ -909,9 +702,6 @@ class IfcStructural:
     def _section(
         model: "ifcopenshell.file", tier: EnrichmentTier, validated: str, model_guid: str, group: ProfileGroup
     ) -> "SectionReceipt":
-        # one group, one section: the receipt's `spec` carries the tier, the CANONICAL selector the engine ran, and the
-        # resolved profile's class and step id, so the evidence key addresses THIS section rather than the whole match
-        # and two spellings of one query key alike.
         identity = f"{tier.name.lower()}|{validated}|{group.profile.is_a()}#{group.profile.id()}"
         rings = yield from IfcStructural._rings(group.profile)
         spine: SectionReceipt = yield from IfcStructural._integrate(rings, group, identity)
@@ -929,8 +719,6 @@ class IfcStructural:
 
     @staticmethod
     def _entity(model: "ifcopenshell.file", subject: str, model_guid: str) -> "RuntimeRail[Enrichment]":
-        # is_a("IfcRelAssignsToGroup") guards stop a non-grouping inverse raising on a missing
-        # RelatedObjects; an empty topology is a typed fault, not a silent ().
         model_node = model.by_guid(model_guid)
         members = Block.of_seq(
             member.GlobalId
@@ -943,14 +731,7 @@ class IfcStructural:
 
     @staticmethod
     def _warping(rings: ProfileRings) -> "RuntimeRail[Enrichment]":
-        # deterministic cytriangle mesh-and-solve owns no transiency; a mesh failure folds onto the rail through the
-        # fence, whose row carries the raise coordinate so this leg spells no per-group subject of its own.
         def solve() -> Enrichment:
-            # each ring folds its own closed facet loop with a per-ring index offset, so voids are meshed boundaries
-            # the triangulator carves out rather than unbounded hole markers in a solid mesh. `CompoundGeometry`
-            # is the arity-polymorphic surface — `Geometry.from_points` refuses anything but exactly one control
-            # point, so a composite section would need a second call shape; this one serves one body or many, and
-            # `create_mesh` takes the per-region area budget in the same control-point order.
             seed: tuple[Block[tuple[float, float]], Block[tuple[int, int]]] = (Block.empty(), Block.empty())
             points, facets = Block.of_seq(rings.rings).fold(_facet_loop, seed)
             holes = [_interior_point(void) for void in rings.voids]
@@ -968,7 +749,7 @@ class IfcStructural:
                     shear_center=tuple(section.get_sc()),
                     shear_areas=tuple(section.get_as()),
                     plastic_moduli=tuple(section.get_s()),
-                    mesh_elements=len(section.elements),  # Section carries `elements`; `num_elements` is a phantom
+                    mesh_elements=len(section.elements),
                 )
             )
 
@@ -976,19 +757,10 @@ class IfcStructural:
 
     @staticmethod
     def _rings(profile: "ifcopenshell.entity_instance") -> "RuntimeRail[ProfileRings]":
-        # sample then admit: one fold over EVERY ring of EVERY body proves the `ClosedRing` shape refinement, a
-        # non-degenerate signed area, AND global edge-pair simplicity, then winds each ring to its role. Each gate is
-        # load-bearing — the refinement alone admits three collinear points whose zero area divides the centroid, and
-        # a crossed loop passes both while its lobes mis-sign every contour moment — so `_integrate`'s divisor is
-        # non-zero and its loop simple BY ADMISSION rather than by assertion, for every producer alike: parametric
-        # row, arbitrary curve, transformed composite, and centreline offset. Every ring reaches the fold C-contiguous.
         return IfcStructural._sample(profile).bind(lambda bodies: IfcStructural._admitted(profile, bodies))
 
     @staticmethod
     def _admitted(profile: "ifcopenshell.entity_instance", bodies: tuple[RingTuple, ...]) -> "RuntimeRail[ProfileRings]":
-        # `_flaw` answers the carrier, so `choose` IS the census: each surviving cell pairs the defect member with the
-        # `(body, ring)` INDEX PATH that holds it, and a consumer opens the offending ring off two integers rather
-        # than splitting a doubly-nested cause string the fold used to build.
         flawed = (
             Block.of_seq(
                 (at, index, ring) for at, (outer, voids) in enumerate(bodies) for index, ring in enumerate((outer, *voids))
@@ -1003,13 +775,6 @@ class IfcStructural:
 
     @staticmethod
     def _sample(profile: "ifcopenshell.entity_instance") -> "RuntimeRail[tuple[RingTuple, ...]]":
-        # ONE election over `ProfileFamily`, then a total match: composite folds its children through this same entry
-        # so nesting FLATTENS to one body list, the two transform families apply an affine over the parent's rings, the
-        # centreline family offsets its OPEN path into a closed ring, the two arbitrary-closed members share one curve
-        # read carrying the ELECTED member so the void slot is subtype-gated by the election rather than a second
-        # probe, and the parameterized head reaches the sampler table. `ARBITRARY_OPEN` is rostered and UNSERVED: an
-        # open path that declares no thickness bounds no region, and the ladder this replaces handed it to the
-        # parametric table and reported a missing SUBTYPE — the wrong defect, at the wrong seam.
         match _family(profile, ProfileFamily):
             case Option(tag="some", some=ProfileFamily.COMPOSITE):
                 return IfcStructural._composed(profile)
@@ -1032,18 +797,12 @@ class IfcStructural:
 
     @staticmethod
     def _composed(profile: "ifcopenshell.entity_instance") -> "RuntimeRail[tuple[RingTuple, ...]]":
-        # a built-up section's children fold through the same entry, so the body list flattens whatever the nesting
-        # depth and the ring-additive integral needs no second engine; the FE tier meshes one region per body.
         return traversed(Block.of_seq(profile.Profiles or ()).map(IfcStructural._sample), by=Disposition.ACCUMULATE).map(
             lambda nested: tuple(body for bodies in nested for body in bodies)
         )
 
     @staticmethod
     def _centered(profile: "ifcopenshell.entity_instance") -> "RuntimeRail[tuple[RingTuple, ...]]":
-        # the one family whose boundary input is an OPEN path — `Curve` is the centreline, never closed here — offset
-        # to the constant `Thickness` the cold-formed sections it covers are drawn by. Both attributes are required, so
-        # an absent or non-positive thickness refuses BY NAME rather than degrading to a zero-width sliver whose
-        # section modulus reads as a hairline where the member carries a real one.
         raw = getattr(profile, "Thickness", None)
         declared = Some(float(raw)) if isinstance(raw, (int, float)) else Nothing
         width = declared.default_value(0.0)
@@ -1055,10 +814,6 @@ class IfcStructural:
 
     @staticmethod
     def _arbitrary(profile: "ifcopenshell.entity_instance", family: ProfileFamily) -> "RuntimeRail[tuple[RingTuple, ...]]":
-        # `InnerCurves` is IfcArbitraryProfileDefWithVoids' OWN attribute, never the closed supertype's, so the void
-        # read is gated on the member `_sample` already ELECTED — reading it off a plain IfcArbitraryClosedProfileDef
-        # raises, and a second `is_a` here would re-probe an identity this page settles exactly once. Outer and voids
-        # route through one curve reader, so neither boundary assumes a representation the other does not.
         voids = tuple(profile.InnerCurves or ()) if family is ProfileFamily.ARBITRARY_VOIDS else ()
         return traversed(Block.of_seq((profile.OuterCurve, *voids)).map(_curve), by=Disposition.ACCUMULATE).map(
             lambda rings: ((rings.head(), tuple(rings.tail())),)
@@ -1066,10 +821,6 @@ class IfcStructural:
 
     @staticmethod
     def _parametric(profile: "ifcopenshell.entity_instance") -> "RuntimeRail[tuple[RingTuple, ...]]":
-        # the leaf election is `_family`'s over `ParametricProfile`, so this table is a KEYED read rather than a scan
-        # and every class name lives once, in the roster. `_seated` proved at import that every member seats a row, so
-        # the index is total and a subtype the roster does not carry refuses at the ELECTION — the diagnosis a table
-        # miss reported as a missing subtype, and an `AttributeError` converted at a distant fence never carried.
         return (
             _family(profile, ParametricProfile)
             .to_result(_domain(IfcFault(unrostered=(ParametricProfile.__name__, profile.is_a()))))
@@ -1078,11 +829,6 @@ class IfcStructural:
 
     @staticmethod
     def _dimensioned(profile: "ifcopenshell.entity_instance", leaf: ParametricProfile, row: _ProfileRow) -> "RuntimeRail[tuple[RingTuple, ...]]":
-        # the row's roster IS the constructor's argument contract: `getattr(..., None)` collapses an attribute the
-        # model left unset and one the running schema never declares onto one absent reading, so an IFC2X3 profile
-        # under IFC4 row spellings refuses BY NAME instead of raising, and every constructor receives proven floats.
-        # The waiver column never reaches the read — a fillet the row excludes is an attribute this idealization does
-        # not resolve, so listing it as a dimension is the contradiction `_seated` refuses at import.
         names, _waived, build = row
         resolved = Block.of_seq(names).map(lambda name: (name, getattr(profile, name, None)))
         absent = resolved.choose(lambda pair: Some(pair[0]) if not isinstance(pair[1], (int, float)) else Nothing)
@@ -1094,8 +840,6 @@ class IfcStructural:
 
     @staticmethod
     def _profile(element: "ifcopenshell.entity_instance") -> "ifcopenshell.entity_instance":
-        # an element is its own profile when it is one; else the material-profile chain resolves
-        # through a total is_a() match, falling back to the element for the arbitrary-closed read.
         if element.is_a("IfcProfileDef"):
             return element
         return (
@@ -1109,13 +853,6 @@ class IfcStructural:
 
     @staticmethod
     def _profile_of_material(material: "ifcopenshell.entity_instance") -> "Option[ifcopenshell.entity_instance]":
-        # the `IfcMaterialSelect` closure as a total match over its WHOLE roster: three laws carry a profile — the set,
-        # the usage that points at one, and the profile itself — and the eight layer/constituent/list members carry
-        # none BY SCHEMA and say so from their own arm, where the exact-class ladder this replaces matched two members
-        # by `is_a()` STRING equality and answered "no profile" for a tapering usage, an offset-carrying profile, and a
-        # bare `IfcMaterialProfile` alike. `CompositeProfile` is the schema's OWN whole-section representation of a
-        # multi-profile set, so it wins over the head `MaterialProfiles` read — the schema's fallback for a set that
-        # declares no composite. The election answering `Nothing` is an association carrying no material select at all.
         match _family(material, MaterialProfileSource):
             case Option(tag="some", some=MaterialProfileSource.PROFILE_SET):
                 return Some(material.CompositeProfile or material.MaterialProfiles[0].Profile)
@@ -1145,9 +882,6 @@ class IfcStructural:
 
     @staticmethod
     def _moments(rings: ProfileRings) -> dict[str, float]:
-        # every ring is wound to its role, so its own cross term carries the sign and the fold needs no multiplier:
-        # each ring lowers once to its (x, y, xn, yn, cross) edge cell and the six integrals are one immutable dict
-        # comprehension over MOMENT_KERNELS, never a `moments[name] +=` accumulator.
         edges = tuple(
             (x, y, np.roll(x, -1), np.roll(y, -1), x * np.roll(y, -1) - np.roll(x, -1) * y)
             for ring in rings.rings
@@ -1161,16 +895,12 @@ class IfcStructural:
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def _integrate(rings: ProfileRings, group: ProfileGroup, spec: str) -> "RuntimeRail[SectionReceipt]":
-        # per-ring admission proved each loop non-degenerate; the NET area is the remaining degeneracy — voids that
-        # meet or exceed their outer — so it gates here and every derivation past the gate is total.
         moments = IfcStructural._moments(rings)
         a, qx, qy, ixx, iyy, ixy = (moments[key] for key in ("a", "qx", "qy", "ixx", "iyy", "ixy"))
 
         def assembled(area: float) -> SectionReceipt:
             cx, cy = qy / area, qx / area
             ixx_c, iyy_c, ixy_c = ixx - area * cy * cy, iyy - area * cx * cx, ixy - area * cx * cy
-            # eigh returns ascending eigenvalues with column-aligned eigenvectors; index the major axis
-            # so principal_moments[0] and principal_angle name the SAME axis rather than racing the eigh ordering.
             principal, vectors = np.linalg.eigh(np.array([[ixx_c, -ixy_c], [-ixy_c, iyy_c]], dtype=np.float64))
             major = int(np.argmax(principal))
             perimeter = sum(float(np.sum(np.linalg.norm(np.diff(np.vstack([r, r[:1]]), axis=0), axis=1))) for r in rings.rings)
@@ -1186,7 +916,7 @@ class IfcStructural:
                 principal_angle=float(np.arctan2(vectors[1, major], vectors[0, major])),
                 polar_moment=ixx_c + iyy_c,
                 torsion_constant=4.0 * area * area / max(perimeter, _EPS),
-                section_moduli=(ixx_c / max(cy_fibre, _EPS), iyy_c / max(cx_fibre, _EPS)),  # S = I / c over the centroid-to-extreme-fibre reach
+                section_moduli=(ixx_c / max(cy_fibre, _EPS), iyy_c / max(cx_fibre, _EPS)),
             )
 
         return (

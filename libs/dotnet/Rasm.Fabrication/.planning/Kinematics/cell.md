@@ -41,7 +41,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Kinematics;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CellMesh {
     public static readonly CellMesh Headless = new("headless", load: false);
@@ -139,10 +139,6 @@ public sealed partial class CellPlacementMetric {
             .Map(static pair => Distance.Manhattan(pair.Item1, pair.Item2));
 }
 
-// Providers decide what a program identifier is, so `Program.IsValidIdentifier` runs once at this value's own
-// boundary and every downstream reader holds a proved name. A bare `string` on the policy re-gated the same rule
-// at admission while the compile call handed the provider whatever survived, and a `nameof` default seeded that
-// column with an unadmitted literal.
 [ValueObject<string>]
 public sealed partial class CellProgramName {
     public static CellProgramName Canonical { get; } = Create(nameof(RobotProgram));
@@ -178,8 +174,6 @@ public abstract partial record CellTargetPlan : IValidityEvidence {
     public sealed record Generated(CellInterpolation Feed, Set<CellPosture> Posture, ToolAxisDemand Orientation) : CellTargetPlan;
     public sealed record Explicit(Seq<CellWaypoint> Rows) : CellTargetPlan;
 
-    // Generated defers its orientation claim to the machine owner's own fold, explicit states a cardinality claim,
-    // and surviving `&&` are null short-circuits `ValidityClaim.All` cannot carry.
     public bool IsValid => Switch(
         generated: static row => row.Feed is not null && row.Orientation is not null && ValidityClaim.All(
             row.Orientation.IsValid,
@@ -236,9 +230,6 @@ public abstract partial record CellLibrary {
     public sealed record Download(LibraryItem Item) : CellLibrary;
     public sealed record Remove(LibraryItem Item) : CellLibrary;
 
-    // Each arm differs ONLY in the effect it runs, and hands back the same read of the same store, so projection
-    // is stated once while the verb rides the answer. Three identical constructions left a caller holding a name
-    // roster that could not say whether a refresh, a download, or a removal produced it.
     public IO<CellCatalog> Run() =>
         IO.lift(() => Boundary.Catch(() => Fin.Succ(new OnlineLibrary()))).Bracket(
             Use: library => Switch(
@@ -274,7 +265,6 @@ public abstract partial record CellDrive {
     public sealed record Play : CellDrive;
     public sealed record Pause : CellDrive;
 
-    // Delivery custody preserves the posting-owned artifact key at the controller channel.
     public IO<CellDelivery> Run(RobotSystem system) =>
         IO.lift(() => Boundary.Catch(() => Fin.Succ(Optional(system).Bind(static host => Optional(host.Remote)))))
             .Bind(channel => channel.Match(
@@ -310,7 +300,7 @@ public abstract partial record CellDrive {
                     new KernelFault.InvalidValue("cell", "robot-cell:remote-absent"))));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class RobotCell {
     public CellSource Source { get; }
@@ -493,8 +483,6 @@ public sealed partial class CellClock {
     public CellTimebase Timebase { get; }
     public int Stations { get; }
 
-    // `CellClock` derives its span from the planned duration the compiled program already holds, so one lattice
-    // owner serves placement search and animation alike and no caller asserts a horizon the provider measured.
     internal Fin<Seq<double>> Sample(double durationSeconds) =>
         double.IsFinite(durationSeconds) && durationSeconds > 0.0
         && CellSampling.Validate(Timebase.Span(durationSeconds), Stations, out CellSampling? lattice) is null
@@ -520,10 +508,6 @@ public sealed partial class CellPlacementPolicy {
     public HashMap<CellPlacementMetric, double> References { get; }
     public int MaximumCandidates { get; }
 
-    // The metrics measure solver-error counts, radian joint travel, posture flips, and peak joint excursion: a bare
-    // weighted sum over them adds radians to counts. `References` carries each metric's own scale, so every column
-    // reaches the fold dimensionless and one weight means the same thing on every axis — the one ranking law
-    // `MachineMatch.Score` and `RouteScore.Total` also answer to, lower always better.
     internal double Burden(Seq<KinematicSolution> solutions) => CellPlacementMetric.Items.Sum(metric =>
         Weights.Find(metric).IfNone(0.0)
             * metric.Measure(solutions)
@@ -556,15 +540,8 @@ public sealed partial class CellPlacementPolicy {
     }
 }
 
-// Neither of these is a settled receipt — `Receipt<TEvidence>` makes key, concern, and stamp REQUIRED (`Process/owner`
-// law) — so both keep a page noun and state their own discriminant instead of borrowing the suffix.
-// Producing VERB rides as the union value itself, so this roster names which case reached the store while a download
-// or a removal carries the `LibraryItem` it acted on; a parallel verb roster beside the cases would be a mirror.
 public sealed record CellCatalog(CellLibrary Verb, Seq<string> Names);
 
-// Keys ride `Option<ContentKey>` by DOMAIN, not by omission: `Play` and `Pause` move no artifact, so only the upload
-// arm carries a transferred digest. That optionality is exactly what disqualifies this row as a settled receipt, and
-// `CellDriveKind` is the discriminant a consumer reads to know which arm answered.
 public sealed record CellDelivery(CellDriveKind Kind, Seq<string> Log, Option<ContentKey> Uploaded, Option<string> Controller);
 
 public sealed record CellStation(
@@ -574,10 +551,6 @@ public sealed record CellStation(
     Seq<RobotConfigurations> Configurations,
     Duration Duration);
 
-// The provider-free timing crossing this cell publishes. Station elapsed and cycle read the look-ahead planner's OWN
-// clock — per-target `DeltaTime` and `Program.Duration` — never a `MotionDynamics` re-derivation, which has no answer
-// for a serial chain. Rows key on the compiled station ordinal alone, so a consumer folds them under its own domain
-// key and no upper-plane vocabulary reaches this page.
 public sealed record CellSpanTiming(int Station, Duration Elapsed);
 
 public sealed record CellTiming(Seq<CellSpanTiming> Spans, Duration Cycle, Seq<RunWarning> Warnings);
@@ -603,9 +576,6 @@ public sealed record CellMotion(
         Warnings);
 }
 
-// `CellPosedStation` reports the cell resolved BETWEEN waypoints: flange plane per mechanical group, occupancy swept
-// by the posed display meshes, and the provider's own clock reading, so every column measures the animated pose rather
-// than re-deriving it from the waypoint trajectory the placement lane already reports.
 public sealed record CellPosedStation(
     int Station,
     int TargetIndex,
@@ -619,8 +589,6 @@ public sealed record CellPosedStation(
 
 public sealed record CellAnimation(Duration Cycle, Seq<CellPosedStation> Stations, Seq<RunWarning> Warnings);
 
-// `Score` is the normalized weighted burden `CellPlacementPolicy.Burden` folds: lower is better, the one polarity
-// `MachineMatch.Score` and `RouteScore.Total` carry.
 public sealed record CellPlacementCandidate(
     RobotCell Cell,
     Plane NormalizedBaseFrame,
@@ -631,7 +599,7 @@ public sealed record CellPlacementCandidate(
 
 public sealed record CellPlacement(CellPlacementCandidate Selected, Seq<CellPlacementCandidate> Ranked);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RobotProgram {
     public static Fin<CellProgramReceipt> Run(RobotCell cell, Seq<Move> moves, CellProgramRequest request) =>
         from admitted in Admit(cell, moves)
@@ -663,8 +631,6 @@ public static class RobotProgram {
             : Fin.Succ(unit)
         select (Cell: admittedCell, Moves: admittedMoves);
 
-    // One load-resolve-compile fold serves every non-placement modality; the placement lane keeps its own because it
-    // loads once for the whole lattice and rebases per candidate rather than compiling one program.
     private static Fin<(RobotSystem System, Seq<Target> Targets, Program Program)> Plan(
         (RobotCell Cell, Seq<Move> Moves) admitted,
         CellPolicy policy) =>
@@ -700,15 +666,9 @@ public static class RobotProgram {
             Stations: folded.Rows,
             Warnings: Warned(planned.Program)));
 
-    // Provider warning TEXT becomes typed evidence at the one boundary that reads it, so cell diagnostics partition on
-    // `rasm.fabrication.run.warnings` by raising plane like every other plane's warnings.
     private static Seq<RunWarning> Warned(Program program) =>
         toSeq(program.Warnings).Map(static text => new RunWarning(FabConcern.Kinematics, "robot-cell:program", text));
 
-    // Elapsed and travel read the PRIOR posed station rather than the requested instant, so both columns measure the
-    // pose the provider resolved; a station whose groups report solver errors carries them as diagnostics, never as a
-    // fabricated joint witness. `CurrentSimulationPose` hands back the LIVE cursor the next `Animate` mutates in
-    // place, so every column copies at the read and the census retains values rather than one aliased instance.
     private static Fin<CellPosedStation> Pose(
         RobotSystem system,
         Program program,
@@ -866,8 +826,6 @@ internal static class RobotBoundary {
 
     public static Point3d FromR3(R3::Rhino.Geometry.Point3d point) => new(point.X, point.Y, point.Z);
 
-    // Posed display meshes never cross the alias boundary; their vertex copy folds to one kernel occupancy box, so the
-    // animation census carries swept extent without handing a provider mesh to a RhinoCommon-typed consumer.
     public static BoundingBox Occupied(Seq<R3::Rhino.Geometry.Mesh> meshes) =>
         new(meshes.Bind(static mesh => toSeq(mesh.Vertices.ToPoint3dArray())).Map(FromR3));
 
@@ -888,11 +846,6 @@ internal static class RobotBoundary {
             RotationExternal = dynamics.OrientationToleranceRad,
         };
 
-    // The one sanctioned crossing also projects PROVIDER EVIDENCE into the atoms floor: a loaded cell becomes the
-    // provider-free `MachineIngress.Robot` rows `Process/family` admits, so no `Robots` type reaches that floor and
-    // the fleet resolves a real arm by key. `MechanicalGroups` lives on `IndustrialSystem`, so a cell without a
-    // group roster refuses typed rather than asserting one arm. One row per group keys off the cell key and the
-    // group ordinal, because a multi-arm cell registers as several machines.
     public static Fin<Seq<MachineIngress.Robot>> Ingress(
         RobotSystem system,
         string key,
@@ -914,12 +867,6 @@ internal static class RobotBoundary {
         : Fin.Fail<Seq<MachineIngress.Robot>>(
             new KernelFault.InvalidValue("cell", "robot-cell:mechanical-groups"));
 
-    // `MechanicalGroup.Joints` flattens the arm and every external mechanism while `Joint.Index` is per-mechanism —
-    // an arm's J1 and a track's first axis both read 0 — so the arm chain seats the leading block and every external
-    // mechanism (track, positioner) seats on the trailing rows at the published `Machine.RobotArmSeats` offset, so a
-    // cell carrying a track registers its full axis roster. A chain whose seats overrun that roster has no axis to
-    // register against and refuses HERE, naming the link and the seat it could not fill, rather than reaching the
-    // atoms floor as an ordinal that page then rejects without knowing which cell produced it.
     private static Fin<Arr<(int Ordinal, AxisTravel Travel)>> Seated(string key, MechanicalGroup group) {
         Seq<(int Ordinal, AxisTravel Travel)> seats =
             toSeq(group.Robot.Joints).Map(static (joint, seat) => (Ordinal: seat, Travel: TravelOf(joint)))
@@ -956,8 +903,6 @@ internal static class RobotBoundary {
             coolant,
             capacities);
 
-    // `Mechanism.InitJoints` converts a revolute link's range and speed to radians and radians per second off the
-    // cell XML while a prismatic link keeps millimetres, so each joint kind reads its own already-admitted unit.
     private static AxisTravel TravelOf(Joint joint) => joint is RevoluteJoint
         ? new AxisTravel.Rotary(
             UnitsNet.Angle.FromRadians(joint.Range.T0),
@@ -970,10 +915,6 @@ internal static class RobotBoundary {
 
 }
 
-// The vendor correspondence lives at the crossing, never on the atoms floor: each row carries the HOST ordinals it
-// answers for, so `Manufacturers` stays inside this page and admission is a containment read. The provider's `All`
-// wildcard is a FILTER token rather than a vendor, so it seats on `Unspecified` as a declared row — a discard arm
-// would have swallowed a vendor a provider release adds under the same answer.
 [SmartEnum<string>]
 public sealed partial class CellVendor {
     public static readonly CellVendor Abb = new("abb", RobotManufacturer.Abb, Set(Manufacturers.ABB));
@@ -990,8 +931,6 @@ public sealed partial class CellVendor {
     public RobotManufacturer Row { get; }
     internal Set<Manufacturers> Native { get; }
 
-    // The rows PARTITION the provider roster, so an ordinal a release adds resolves to `None` and refuses at the
-    // crossing rather than reading silently as an unspecified vendor the fleet then registers.
     internal static Fin<RobotManufacturer> Of(Manufacturers manufacturer) =>
         toSeq(Items).Find(row => row.Native.Contains(manufacturer))
             .Map(static row => row.Row)

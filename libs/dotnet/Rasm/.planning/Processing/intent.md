@@ -27,7 +27,7 @@ Every case admits through exactly one factory that internalizes `Domain/validati
 - Boundary: dispatch carries zero domain math; `Project<TOut>` is total over the `Fin` rail, an unsupported `TOut` returns the owner's typed `Unsupported` fault naming both the case and the requested type, and the generated `Switch` with no `_` arm is the exhaustiveness proof a new case cannot silently escape.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;
@@ -37,12 +37,11 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
 using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 [BoundaryAdapter]
 public abstract partial record VectorIntent {
@@ -69,8 +68,6 @@ public abstract partial record VectorIntent {
     public sealed record MirrorCase(Vector3d Value, Plane Across) : VectorIntent;
     public sealed record SurfaceCase : VectorIntent { internal SurfaceCase(SurfaceSpace source, Point2d uv, SurfaceProjection mode) { Source = source; Uv = uv; Mode = mode; } public SurfaceSpace Source { get; } public Point2d Uv { get; } public SurfaceProjection Mode { get; } }
     public sealed record PoseCase(Plane From, Plane To, UnitInterval Parameter, MotionInterpolation Mode) : VectorIntent;
-    // Host capture and kernel author are TWO capabilities, never one shadowing the other: the host lane echoes Rhino's
-    // LSCM/remesh parameters, the kernel lane folds the variational and quadric owners, and the case names which ran.
     public sealed record FlattenHostCase : VectorIntent { internal FlattenHostCase(MeshSpace space) => Space = space; public MeshSpace Space { get; } }
     public sealed record ParameterizeCase : VectorIntent { internal ParameterizeCase(ParamOp request) => Request = request; public ParamOp Request { get; } }
     public sealed record HullCase : VectorIntent { internal HullCase(VectorCloud source, CloudHullKind kind, CloudHullPolicy policy) { Source = source; Kind = kind; Policy = policy; } public VectorCloud Source { get; } public CloudHullKind Kind { get; } public CloudHullPolicy Policy { get; } }
@@ -88,7 +85,6 @@ public abstract partial record VectorIntent {
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace space, MeshSegmentation kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
     private VectorIntent() { }
 
-    // Ambient cardinal rank runs three signed axes unless a caller states the dimension its lattice publishes.
     private static readonly Dimension SpatialRank = Dimension.Create(value: 3);
 
     // --- [CONSTRUCTION]
@@ -163,8 +159,6 @@ public abstract partial record VectorIntent {
                from validIntegrator in FieldIntegrator.AdmitOrFixed(value: integrator, key: op)
                select (VectorIntent)new StreamlineCase(source: validField, seed: validSeed, initialStep: h, integrator: validIntegrator, termination: validStop);
     }
-    // Topology twin of Streamline rides the same field and stepper: FlowPartition and TopologyPolicy arrive
-    // admitted from their own Of, so this factory gates their presence and admits the raw step and integrator alone.
     public static Fin<VectorIntent> Atlas(VectorField field, FlowPartition partition, double initialStep, TopologyPolicy policy, Option<FieldIntegrator> integrator = default, Op? key = null) {
         Op op = key.OrDefault();
         return from validField in Admit.NotNull(value: field, key: op)
@@ -201,8 +195,6 @@ public abstract partial record VectorIntent {
     }
     public static Fin<VectorIntent> FlattenHost(MeshSpace space, Op? key = null) =>
         Admit.NotNull(value: space.Native, key: key.OrDefault()).Map(_ => (VectorIntent)new FlattenHostCase(space: space));
-    // ParamOp/RemeshOp/SimplifyOp each admit their chart, policy, and payload at their own owner, so these three gate
-    // presence alone — an admitted-by-construction request re-validated here would answer the same question twice.
     public static Fin<VectorIntent> Parameterize(ParamOp request, Op? key = null) =>
         Admit.NotNull(value: request, key: key.OrDefault()).Map(static admitted => (VectorIntent)new ParameterizeCase(request: admitted));
     public static Fin<VectorIntent> Rewrite(RemeshOp request, Op? key = null) =>
@@ -248,7 +240,6 @@ public abstract partial record VectorIntent {
                from activeKind in Admit.NotNull(value: kind, key: op)
                select (VectorIntent)new RemeshHostCase(space: space, kind: activeKind);
     }
-    // CloudTransportPolicy admits at its own .Of; this rail rejects only the default-struct sentinel.
     public static Fin<VectorIntent> Transport(VectorCloud source, VectorCloud target, CloudTransportPolicy policy, Op? key = null) {
         Op op = key.OrDefault();
         return from validSource in Admit.NotNull(value: source, key: op)
@@ -265,7 +256,6 @@ public abstract partial record VectorIntent {
     }
     public static Fin<VectorIntent> Descriptor(MeshSpace space, MeshDescriptor kind, int pairs, Op? key = null) {
         Op op = key.OrDefault();
-        // MeshDescriptor admits at its own factory, so the intent carries an already-proved descriptor.
         return from _ in Admit.NotNull(value: space.Native, key: op)
                from count in op.AcceptValidated<Dimension>(candidate: pairs)
                select (VectorIntent)new DescriptorCase(space: space, kind: kind, pairs: count);
@@ -349,12 +339,10 @@ public abstract partial record VectorIntent {
             from atlas in MorseAtlas.Of(source: intent.Source, partition: intent.Partition, initialStep: intent.InitialStep, integrator: intent.Integrator, policy: intent.Policy, context: state.Context, key: state.Key)
             from output in atlas.Project<TOut>(key: state.Key)
             select output,
-        // Lerp/projectOnto/mirror: ONE native affine/Transform expression each, admitted through Direction.Of.
         lerpCase: static (state, intent) =>
             from direction in Numerics.Direction.Of(value: ((1.0 - intent.Parameter.Value) * intent.A) + (intent.Parameter.Value * intent.B), context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)
             select output,
-        // THE one slerp site is projections.md's MotionInterpolation.Rotate; the antiparallel branch lives there.
         slerpCase: static (state, intent) =>
             from direction in MotionInterpolation.Slerp.Rotate(a: intent.A, b: intent.B, t: intent.Parameter, context: state.Context, key: state.Key)
             from output in direction.Project<TOut>(key: state.Key)

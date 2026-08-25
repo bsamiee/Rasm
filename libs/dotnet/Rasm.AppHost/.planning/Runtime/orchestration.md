@@ -23,12 +23,12 @@ The crash-durable workflow and persistent-job owner for the runtime spine: a `Wo
 - Boundary: the in-process re-drive LAW is the kernel's — `RedrivePolicy(Schedule Law, int Bound)` with `Redrive.Settle` answering `Deferred`/`Abandoned`/`Terminal` — so this page holds no attempt ceiling, no backoff arithmetic, and no `attempt < max` comparison; the step's durable `Attempt` ordinal is the only state, and the verdict reads it. NAMED LOSS: the retired `RetryPolicy(MaxAttempts, BaseBackoff)` multiplied a base by a clamped attempt, so its growth curve was linear and unstateable anywhere else; the policy's `Schedule` carries whatever curve it declares and the bound truncates it by derivation, which is why `StepRedrive` reads as a capped exponential rather than a multiplication. Jitter stays OFF this policy: `Schedule.jitter`/`decorrelate` draw ambient entropy unless seeded, `Runtime/determinism#DETERMINISM_KERNEL` names ambient entropy the deleted form for this folder, and a static policy value has no seed in scope — a de-correlated curve lands where the seed does or not at all.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -60,8 +60,6 @@ public sealed partial class WakeKind {
     public static readonly WakeKind SignalTimeout = new("signal-timeout");
 }
 
-// One author for every deferred-wake schedule key: the head and the body live here, so no arm interpolates a
-// registry key and a row minted for one wake reason can never collide with another's.
 [ValueObject<string>(KeyMemberName = "Value")]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WakeKey {
@@ -71,9 +69,6 @@ public sealed partial class WakeKey {
         Create($"{Head}{kind.Key}:{instanceId}:{index}:{attempt}");
 }
 
-// The five durable-step shapes: every executor arm dispatches one case. Activity and Compensation carry a
-// wire-stable CommandIntent (never a live Func), Timer an instant, Signal a channel+timeout, PersistentJob
-// a ScheduleEntry.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StepKind {
     private StepKind() { }
@@ -84,10 +79,6 @@ public abstract partial record StepKind {
     public sealed record PersistentJob(ScheduleEntry Entry) : StepKind;
 }
 
-// The step-refusal triage of the Compute assessment lifecycle: three AppHost-minted keys the registered
-// Assess delegate decodes off the refused step's CommandReceipt — the AssessmentWire receipt carries no
-// disposition field, so these keys never ride the wire — mapped onto StepStatus at the step boundary,
-// never a re-declared Element lattice and never a merged status ladder.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -99,7 +90,6 @@ public sealed partial class StepDisposition {
 
 
 
-// Numeric identity is generated from each direct leaf's `[FaultCase]`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OrchestrationFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Orchestration;
@@ -108,8 +98,6 @@ public abstract partial record OrchestrationFault : Fault {
     public sealed override string Message => Detail;
 
 
-    // A refused step IS the transient class by construction: a terminal or undecodable assessment compensates
-    // without ever reaching `Redrive.Settle`, so this override is what the verdict reads.
     [FaultCase(0)]
     public sealed partial record StepRejected : OrchestrationFault {
         public StepRejected(string detail) : base(detail) { }
@@ -129,7 +117,7 @@ public abstract partial record OrchestrationFault : Fault {
     public sealed partial record PlanInvalid : OrchestrationFault { public PlanInvalid(string clause) : base($"<plan-invalid:{clause}>") { } }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WorkflowStep(
     string StepId,
     int Index,
@@ -139,8 +127,6 @@ public sealed record WorkflowStep(
     ChainHash Hash,
     Option<CommandReceipt> Receipt);
 
-// The step plan is ordinal-addressed durable state, so its equality is ORDERED — a reordered plan is a
-// different workflow, and the generated comparer says so instead of a reference compare that never matches.
 [Equatable]
 public sealed partial record WorkflowInstance(
     string WorkflowId,
@@ -152,8 +138,6 @@ public sealed partial record WorkflowInstance(
     FencingToken Fence,
     TenantContext Tenant,
     Instant StartedAt) {
-    // The plan's four clauses are independent, so admission accumulates: a caller with a duplicate id AND a
-    // dangling compensation learns both at once rather than fixing one to discover the next.
     public static Fin<WorkflowInstance> Begin(
         string workflowId, Seq<WorkflowStep> plan, FencingToken fence, TenantContext tenant, Instant at) =>
         (Populated(plan), Ordered(plan), Distinct(plan), Compensable(plan))
@@ -167,8 +151,6 @@ public sealed partial record WorkflowInstance(
     static Validation<Error, Seq<WorkflowStep>> Populated(Seq<WorkflowStep> plan) =>
         plan.IsEmpty ? new OrchestrationFault.PlanInvalid("empty") : Validation<Error, Seq<WorkflowStep>>.Success(plan);
 
-    // Distinct ordinals inside `[0, Count)` are contiguous by counting, so the clause needs no sort and no
-    // range literal — the plan's own length is the bound.
     static Validation<Error, Unit> Ordered(Seq<WorkflowStep> plan) =>
         plan.ForAll(step => step.Index >= 0 && step.Index < plan.Count)
         && plan.Map(static step => step.Index).Distinct().Count == plan.Count
@@ -180,8 +162,6 @@ public sealed partial record WorkflowInstance(
             ? Validation<Error, Unit>.Success(unit)
             : new OrchestrationFault.PlanInvalid("step-ids");
 
-    // A compensation naming a step the plan never declares unwinds nothing, and the unwind fold would read
-    // that absence as "no undo" rather than as the authoring defect it is.
     static Validation<Error, Unit> Compensable(Seq<WorkflowStep> plan) =>
         plan.Choose(static step => step.Kind is StepKind.Compensation undo ? Some(undo.ForStep) : None)
             .ForAll(named => plan.Exists(step => step.StepId == named))
@@ -212,10 +192,8 @@ public sealed partial record WorkflowInstance(
 - Boundary: the park's correctness wake reads the re-drive policy's LAST admitted delay — the widest interval its own curve produces — so one policy value prices both the bounded re-drive and the assessment re-probe, and the declared `Bound` is positive precisely so that wake exists; a zero-bound policy would leave the park delivery-only, which the two-tier wake law forbids.
 
 ```csharp signature
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class Orchestrator {
-    // Capped exponential: the growth law is the schedule's and the ceiling is a transformer applied to it,
-    // so the bound truncates the stream by derivation rather than a stored attempt ceiling beside a base.
     public static readonly RedrivePolicy StepRedrive = RedrivePolicy.Of(
         law: Schedule.exponential(Duration.FromSeconds(10)) | Schedule.maxDelay(Duration.FromMinutes(2)),
         bound: 5);
@@ -237,9 +215,6 @@ public static class Orchestrator {
             signal:       k => Await(runtime, instance, step, k.Channel, k.Timeout),
             persistentJob: k => runtime.Schedule(k.Entry).Bind(_ => Commit(runtime, instance, step with { Status = StepStatus.Committed })));
 
-    // `Commit` seats the chain link `CommandDispatch.Run` just minted as the step's hash — read off the
-    // dispatch chain head, never re-derived. A second descriptor-only digest gave one command two content
-    // identities, so a step and its own log entry disagreed on what the step was.
     static IO<WorkflowInstance> Dispatch(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step, CommandIntent intent) =>
         from receipt in CommandDispatch.Run(runtime.Dispatch, intent)
         from settled in receipt.Txn is CommandTxn.Committed or CommandTxn.Compensated
@@ -247,8 +222,6 @@ public static class Orchestrator {
             : Disposed(runtime, instance, step, receipt)
         select settled;
 
-    // The Compute lifecycle mapped AT the boundary: the registered Assess delegate triages the refused
-    // step's CommandReceipt into a StepDisposition; StepStatus stays AppHost vocabulary.
     static IO<WorkflowInstance> Disposed(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step, CommandReceipt receipt) =>
         runtime.Assess(receipt).Match(
             Some: disposition => disposition.Switch(
@@ -257,9 +230,6 @@ public static class Orchestrator {
                 terminal: () => Compensate(runtime, instance, step with { Status = StepStatus.Failed, Receipt = Some(receipt) })),
             None: () => Compensate(runtime, instance, step with { Status = StepStatus.Failed, Receipt = Some(receipt) }));
 
-    // The kernel verdict owns the whole re-drive decision: the fault's own `Retriability` selects the arm, the
-    // policy's curve produces the delay, and exhaustion arrives as `Abandoned` rather than as a comparison
-    // this page would have to spell against a ceiling it would have to store.
     static IO<WorkflowInstance> Settled(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step, CommandReceipt receipt) =>
         Redrive.Settle(runtime.Redrive, new OrchestrationFault.StepRejected(step.StepId), step.Attempt).Switch(
             deferred: verdict => Deferred(
@@ -267,8 +237,6 @@ public static class Orchestrator {
             abandoned: _ => Compensate(runtime, instance, step with { Status = StepStatus.Failed, Receipt = Some(receipt) }),
             terminal: _ => Compensate(runtime, instance, step with { Status = StepStatus.Failed, Receipt = Some(receipt) }));
 
-    // One self-completing ScheduleEntry at the verdict's own delay; the attempt ordinal is durable so a crash
-    // mid-backoff resumes the count rather than resetting it.
     static IO<WorkflowInstance> Deferred(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step, Duration after) =>
         runtime.Schedule(new ScheduleEntry(
                 WakeKey.Of(WakeKind.Redrive, instance.InstanceId, step.Index, step.Attempt).Value,
@@ -278,9 +246,6 @@ public static class Orchestrator {
             .Bind(_ => Settle(runtime, instance with { Status = WorkflowStatus.Suspended,
                 Steps = instance.Steps.Map(s => s.Index == step.Index ? step : s) }));
 
-    // The Dispatchable park: the step waits on its assessment channel. Fast wake — the durable-drain delivery
-    // maps to Signal(instanceId, channel); correctness wake — the policy's widest admitted delay re-drives
-    // against Compute's lifecycle-aware cache.
     static IO<WorkflowInstance> Park(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step) =>
         step.Kind is StepKind.Activity activity
             ? Await(runtime, instance, step, $"assessment:{activity.Intent.Descriptor}",
@@ -301,9 +266,6 @@ public static class Orchestrator {
             : runtime.Schedule(TimerEntry(runtime, instance, step, fireAt))
                 .Bind(_ => Settle(runtime, instance with { Status = WorkflowStatus.Suspended }));
 
-    // A signal wait suspends to durable `waiting`; a present channel commits immediately. A bounded wait
-    // registers one SignalTimeout entry on the same SchedulePort the timer rides, so a signal that never
-    // arrives fails the step at the deadline rather than hanging.
     static IO<WorkflowInstance> Await(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step, string channel, Option<Duration> timeout) =>
         runtime.Store.SignalOf(instance.InstanceId, channel).Match(Succ: static found => found.IsSome, Fail: static _ => false)
             ? Commit(runtime, instance, step with { Status = StepStatus.Committed })
@@ -313,8 +275,6 @@ public static class Orchestrator {
                 .Bind(_ => Settle(runtime, instance with { Status = WorkflowStatus.Suspended,
                     Steps = instance.Steps.Map(s => s.Index == step.Index ? s with { Status = StepStatus.Waiting } : s) }));
 
-    // The absence check is the durable seam read — only a PROVEN-absent signal row faults; a read fault defers
-    // to the next wake, never a false timeout.
     static ScheduleEntry SignalTimeoutEntry(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step, string channel, Duration bound) =>
         new(WakeKey.Of(WakeKind.SignalTimeout, instance.InstanceId, step.Index, attempt: 0).Value,
             new OccurrenceSpec.Every(bound),
@@ -327,9 +287,6 @@ public static class Orchestrator {
                     : IO.pure(unit),
                 Fail: _ => IO.pure(unit)));
 
-    // The suspended instance loads FIRST so a signal arriving on a peer node reads the latest committed state
-    // AND its decoded fence generation; the payload then persists under that generation (a stale lease rejects
-    // store-side as LeaseFenced) and the re-drive runs from the suspended cursor.
     public static IO<WorkflowInstance> Signal(OrchestrationRuntime runtime, string instanceId, string channel, JsonElement payload) =>
         from loaded in IO.lift(() => runtime.Store.Load(instanceId))
         from resumed in loaded.Match(
@@ -340,9 +297,6 @@ public static class Orchestrator {
             Fail: _ => IO.fail<WorkflowInstance>(new OrchestrationFault.ResumeBroken(instanceId)))
         select resumed;
 
-    // Saga unwind: only Activity steps carry a CommandIntent to compensate, and each unwound step RETURNS its
-    // own charged vector through the one broker the forward leg debited. Refund rides the STEP's receipt
-    // because the charge was per command, and an absent receipt yields no unwind row rather than a forged zero.
     static IO<WorkflowInstance> Compensate(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep failed) =>
         instance.Steps.Filter(static s => s.Status == StepStatus.Committed && s.Kind is StepKind.Activity).Rev()
             .Choose(committed => committed.Kind is StepKind.Activity a
@@ -356,37 +310,29 @@ public static class Orchestrator {
             .Bind(_ => Settle(runtime, instance with { Status = WorkflowStatus.Faulted,
                 Steps = instance.Steps.Map(s => s.Index == failed.Index ? failed : s with { Status = s.Status == StepStatus.Committed ? StepStatus.Compensated : s.Status }) }));
 
-    // Total settle: an instance with no committed step persists its header row — absence is a projected
-    // header-only row, never an unreachable claim.
     static IO<WorkflowInstance> Settle(OrchestrationRuntime runtime, WorkflowInstance instance) =>
         runtime.Store.Commit(instance, instance.Steps.Last).Match(
             Succ: _ => Fan(runtime, instance),
             Fail: _ => IO.pure(instance with { Status = WorkflowStatus.Faulted }));
 
-    // The receipt payload is the SAME projection the durable seam writes, so the observable record and the
-    // stored one cannot disagree and no live record's serializer decides the wire shape.
     static IO<WorkflowInstance> Fan(OrchestrationRuntime runtime, WorkflowInstance instance) =>
         runtime.Sink.Send(Correlation.Mint(), instance.Tenant, TelemetrySource.AppHost, ReceiptKind.Orchestration.Key,
             JsonSerializer.SerializeToElement(
                 StepStateCodec.Project(instance, instance.Steps.Last), runtime.Dispatch.Command.Wire)).Map(_ => instance);
 
-    // The deferred timer is one ScheduleEntry whose occurrence re-drives the suspended instance once the fire
-    // instant passes; the re-drive's cursor check commits the timer step, so the entry is self-completing.
     static ScheduleEntry TimerEntry(OrchestrationRuntime runtime, WorkflowInstance instance, WorkflowStep step, Instant fireAt) =>
         new(WakeKey.Of(WakeKind.Timer, instance.InstanceId, step.Index, attempt: 0).Value,
             new OccurrenceSpec.Every(fireAt - runtime.Clocks.Now),
             DeadlineClass.HopTotal, None,
             () => Reloaded(runtime, instance.InstanceId));
 
-    // Every wake shares one re-entry: load the durable instance and drive it, and a load that refuses defers
-    // to the next occurrence rather than faulting an instance this fire cannot even read.
     static IO<Unit> Reloaded(OrchestrationRuntime runtime, string instanceId) =>
         runtime.Store.Load(instanceId).Match(
             Succ: loaded => Drive(runtime, loaded).Map(static _ => unit),
             Fail: _ => IO.pure(unit));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record OrchestrationRuntime(
     DispatchRuntime Dispatch,
     StepStateSeam Store,
@@ -423,9 +369,7 @@ stateDiagram-v2
 - Boundary: the adapter is decode-only per the Persistence `[V2]` law — requests cross as this projected row of primitives, results decode from Persistence-owned types, the op-union/token/receipt shapes are Persistence's and the store is token-VALIDATING; the store's own `WorkflowKey`/`StepKey`/`SignalKey` value objects stay on ITS side of the seam, which is exactly why these delegates take primitives; the durable CAS store is the branch `ONE_FENCED_LEASE_STORE` leg under the `TenantId` RLS predicate, and the workflow-step dispatch registers as one keyed `OutboundHop` consumer of the branch `ONE_OUTBOX_EGRESS_SPINE` op-log rather than a second egress table (`Wire/outbox#OUTBOX_FABRIC`); a per-process workflow table that bypasses the fenced store, an AppHost record pushed down through the seam, and a second recovery store are the rejected forms; the workflow step-state row and the outbox row commit under one tenant-scoped transaction so crash-durable step resumption and exactly-once-effective delivery share one durable boundary.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// The PROJECTED durable row: wire-stable primitives only. The store row is Persistence-owned; this
-// projection is the AppHost-side encode and StepStateCodec.Decode the read-back.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record StepStateRow(
     string InstanceId,
     string WorkflowId,
@@ -439,14 +383,10 @@ public sealed record StepStateRow(
     string ChainHead,
     long ChainSequence,
     ulong Fence,
-    // Wire-stable edge projection of the causal tenancy: `TenantContext.Entry` fixed-width text, so this row's
-    // partition and the store's RLS predicate compare the one kernel spelling and never two renders.
     string Tenant);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StepStateCodec {
-    // Header-only projection (StepIndex -1) carries the instance transition with no step commit —
-    // absence is a row shape, never an unreachable claim.
     public static StepStateRow Project(WorkflowInstance instance, Option<WorkflowStep> step) =>
         step.Match(
             Some: committed => Row(instance, committed.Index, committed.Status.Key, committed.Kind, committed.Attempt),
@@ -462,21 +402,14 @@ public static class StepStateCodec {
         new(instance.InstanceId, instance.WorkflowId, instance.Status.Key, instance.Cursor,
             index, stepStatus, KindKey(kind), Payload(kind), attempt,
             instance.Chain.Head.Hex, instance.Chain.Sequence, (ulong)instance.Fence, instance.Tenant.Entry);
-    // KindKey/Payload/DecodeStep/Rebuild: the total StepKind <-> (key, payload) codec — descriptor +
-    // serialized arguments | fire instant | channel + timeout | undo descriptor | schedule key.
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The decode-only PORT adapter: delegates bind the Persistence coordination op-union at the composition root.
-// The signal row rides the SAME seam as the step row, so the wake-or-fault decision after crash, resume, or
-// peer handoff reads durable state and a second signal store is the deleted form.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record StepStateSeam(
     Func<StepStateRow, Fin<Unit>> Persist,
     Func<string, Fin<Seq<StepStateRow>>> Rehydrate,
     Func<TenantContext, Fin<Seq<string>>> InFlight,
     Func<Instant, Fin<Seq<(string InstanceId, ulong LastFence)>>> Expired,
-    // Signal writes carry the instance-held FENCE GENERATION: the coordination SignalPut case is a
-    // token-required write whose store-side CAS refuses a stale lease.
     Func<string, string, ulong, JsonElement, Fin<Unit>> SignalPut,
     Func<string, string, Fin<Option<JsonElement>>> SignalOf) {
     public Fin<Unit> Commit(WorkflowInstance instance, Option<WorkflowStep> step) =>
@@ -500,9 +433,8 @@ public sealed record StepStateSeam(
 - Boundary: both entries are COMPOSITION-shaped and neither runs itself — `Resume` is a boot gate on the runtime module's post-generation fold and `Reclaim` is a maintenance-cadence `ScheduleEntry` gated on the reclaim-role lease, and `Runtime/modules#MODULE_LEDGER` seats both in the same pass; a recovery surface no boot reaches is prose, which is exactly the state this anchor was in.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CrashResume {
-    // Boot-time self-recovery: the tenant's in-flight scan re-drives each instance from its cursor.
     public static IO<Seq<WorkflowInstance>> Resume(OrchestrationRuntime runtime, TenantContext tenant) =>
         runtime.Store.InFlight(tenant).Match(
             Succ: ids => ids.TraverseM(id => runtime.Store.Load(id).Match(
@@ -511,9 +443,6 @@ public static class CrashResume {
                 .Map(static instances => instances.Somes().ToSeq()),
             Fail: _ => IO.pure(Seq<WorkflowInstance>()));
 
-    // The fenced orphan-instance reclaim — node DEATH, not just reboot: a serving node re-acquires each
-    // expired-lease instance under a FRESH store-issued token and re-drives from the committed cursor;
-    // the dead holder's late advance rejects store-side, and a contended acquire skips.
     public static IO<Seq<WorkflowInstance>> Reclaim(OrchestrationRuntime runtime, TenantContext tenant) =>
         IO.lift(() => runtime.Store.Expired(runtime.Clocks.Now)).Bind(expired => expired.Match(
             Succ: orphans => orphans.TraverseM(orphan =>

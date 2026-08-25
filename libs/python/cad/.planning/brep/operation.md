@@ -79,8 +79,6 @@ from rasm.cad.metrology.properties import UNMEASURED, receipt
 ```python signature
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# Every row is one arrow from the elected oneof, so the table needs no payload column and the spine no narrowing:
-# each row constructor closes over the class it admits and refuses a foreign one at its own coordinate.
 type Arm = Callable[[Oneof, frozendict[bytes, Path]], CadRail[Outcome]]
 
 
@@ -103,8 +101,6 @@ def sewn(shape: TopoDS_Shape, tolerance_m: float, /) -> CadRail[TopoDS_Shape]:
 
 
 def placed(shape: TopoDS_Shape, op: TransformOp, /) -> CadRail[TopoDS_Shape]:
-    # Copy is on and the mesh is dropped: the source body belongs to the decoded artifact and a carried triangulation
-    # would ride a stale placement into the seal.
     matrix = displaced(op.source_frame, op.target_frame, op.uniform_scale)
     return built(BRepBuilderAPI_Transform(shape, matrix, True, False), "transform")
 
@@ -135,8 +131,6 @@ def _rewritten[P: Message](
 
 # --- [ARMS] -----------------------------------------------------------------------------
 
-# One row per wire field. Rostered and algebraic fields spread from their owners' own rosters, so a new primitive or
-# a new operator lands at one owner and reaches the wire without editing a second table.
 _ARMS: Final[frozendict[str, Arm]] = frozendict({
     **{field: _rostered for field in PRIMITIVE},
     **{field: partial(_algebra, field) for field in BOOLEANS},
@@ -148,7 +142,6 @@ _ARMS: Final[frozendict[str, Arm]] = frozendict({
     "fillet": _rewritten(FilletOp, attrgetter("source"), lambda shape, op: featured("fillet", shape, op.edges, op.radius_m)),
     "chamfer": _rewritten(ChamferOp, attrgetter("source"), lambda shape, op: featured("chamfer", shape, op.edges, op.distance_m)),
     "sew": _rewritten(SewOp, attrgetter("source"), lambda shape, op: sewn(shape, op.tolerance_m)),
-    # NURBS conversion carries its source as its whole payload, so its reader is identity rather than a field read.
     "nurbs": _rewritten(SealedStep, lambda op: op, lambda shape, _op: built(BRepBuilderAPI_NurbsConvert(shape), "nurbs")),
     "transform": _rewritten(TransformOp, attrgetter("source"), placed),
 })

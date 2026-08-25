@@ -33,7 +33,7 @@ Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in
 - Boundary: a ceiling the equipment never published is `None` on both tool axes, never a sentinel maximum a clamp reads as a measurement; `ProcessRange` bounds resolve through one `Bound` fold and every ceiling through the one `Capped` cap inside it.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Globalization;
 using LanguageExt;
@@ -47,12 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Process;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Deposited cutting-edge chemistries are this package's OWN vocabulary — the tool trade publishes no rostered set —
-// and each row carries the three cutting responses a budget reads. DISTINCT BY DESIGN from the `Rasm.Materials`
-// `Coating` of the same name: that row is a glazing pane's optical film measured in emissivity, transmittance, and
-// reflectance; this one is a PVD or CVD tool layer measured in speed gain, wear factor, and interface-temperature
-// ceiling — one noun, no shared column, and no seam between them.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class Coating {
     public static readonly Coating Uncoated = new("uncoated", speedFactor: 1.00, wearFactor: 1.00, interfaceC: 550.0);
@@ -66,8 +61,6 @@ public sealed partial class Coating {
     public double SpeedFactor { get; }
     public double WearFactor { get; }
 
-    // The interface temperature the coating survives. A derived cutting-zone temperature above it is what the
-    // subtractive budget reports as its thermal margin, so the column is a limit the fold reads, not a datum sheet.
     public double InterfaceC { get; }
 }
 
@@ -102,9 +95,6 @@ public abstract partial record FeedLaw {
     public sealed record SurfaceRatio(double Fraction) : FeedLaw;
 }
 
-// Operation names, their feed laws, and their engagement fractions are this package's OWN machining vocabulary —
-// no published standard rosters them — so a shop's operation is a row here rather than a mounted registry entry,
-// and each row's family is what pairs it against an admitted tool form.
 [SmartEnum<string>]
 public sealed partial class Operation {
     public static readonly Operation Contour = new("contour", OperationFamily.Milling, new FeedLaw.Chip(0.05), engagement: 1.0, axial: 1.0);
@@ -136,9 +126,6 @@ public sealed partial class Operation {
     public double Axial { get; }
 }
 
-// Every ceiling column is a base positional argument, so a tool form declares no override body and a new form is
-// one case supplying its own three geometry answers. Both ceilings are `Option` because a process head bounds
-// neither: a sentinel maximum would read to every clamp as a measured limit the equipment never published.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Tool(string Key, Coating Surface, Option<double> SpindleCeiling, Option<double> DepthCeiling) {
     public sealed record Rotary(
@@ -153,13 +140,11 @@ public abstract partial record Tool(string Key, Coating Surface, Option<double> 
         double MaxDepthOfCut,
         double MaxRpm,
         double ShankModulusMpa) : Tool(Key, Coating, Some(MaxRpm), Some(MaxDepthOfCut)) {
-        // Slenderness cubed is the cantilever-stiffness term the chatter ceiling scales on.
         public double Slenderness => Stickout / Diameter;
     }
 
     public sealed record Wheel(string Key, double Diameter, double Width, int Grit, double MaxRpm)
         : Tool(Key, Coating.Uncoated, Some(MaxRpm), Some(Width)) {
-        // Finer grit removes less per grain, so specific energy rises with grit number.
         public double SpecificEnergyFactor => Math.Sqrt(Grit / 60.0);
     }
 
@@ -173,18 +158,12 @@ public abstract partial record Tool(string Key, Coating Surface, Option<double> 
         double ApproachAngleDeg,
         Coating Coating,
         double MaxDepthOfCut) : Tool(Key, Coating, None, Some(Math.Min(MaxDepthOfCut, CuttingEdgeLength * 0.75))) {
-        // ISO 3685 chip-thickness law: h = f * sin(kappa); the approach angle spreads feed across the edge.
         public double ChipThicknessRatio => Math.Sin(ApproachAngleDeg * Math.PI / 180.0);
     }
 
-    // A process head bounds neither spindle nor depth — its reach is the physics law's, not the tool's — so both
-    // ceilings are absent and the one `Capped` fold reads the derived value through unchanged.
     public sealed record Head(string Key, double Diameter, ToolClass Class)
         : Tool(Key, Coating.Uncoated, None, None);
 
-    // The ONE form-and-feed correspondence: an operation family names which tool form can answer it and the feed
-    // law names how. The subtractive fold reads this and dispatches on form alone, so no process-versus-tool
-    // ladder restates the pairing.
     public bool Admits(Operation operation) => Switch(
         state: operation,
         rotary: static (op, _) => op.Family == OperationFamily.Milling || op.Family == OperationFamily.Drilling,
@@ -268,7 +247,7 @@ public sealed record EquipmentEnvelope(
 - Packages: `MathNet.Numerics` `Interpolate.Linear`, `.CubicSplineMonotone`, `.CubicSplineRobust`.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ResponseAxis {
     public static readonly ResponseAxis Temperature = new("temperature", static state => state.TemperatureC);
@@ -325,9 +304,6 @@ public sealed partial class ResponseCurve {
     public Arr<double> Factors { get; }
     public ResponseInterpolation Interpolation { get; }
 
-    // One interpolant per curve, held on first read. A pass evaluating a law over hundreds of states rebuilt a
-    // spline per sample before this handle existed; the handle is DERIVED from the admitted knots, so it stays out
-    // of construction, equality, and every codec.
     [IgnoreMember]
     private IInterpolation? fit;
 
@@ -335,8 +311,6 @@ public sealed partial class ResponseCurve {
         (fit ??= Interpolation.Create(Inputs.ToArray(), Factors.ToArray()))
             .Interpolate(Math.Clamp(Axis.Select(state), Inputs[0], Inputs[^1]));
 
-    // The state fell outside the knots and the read saturated at an edge factor. A budget publishes this so a
-    // caller reading an edge value knows the preset never covered its state.
     public bool Saturates(ConstitutiveState state) =>
         Axis.Select(state) < Inputs[0] || Axis.Select(state) > Inputs[^1];
 
@@ -465,7 +439,7 @@ public abstract partial record ModalityPhysics(PhysicsKind Kind) {
 - Boundary: family identity, grade evidence, equipment variant, physics input, and budget remain distinct timing regimes.
 
 ```csharp signature
-// --- [MATERIAL_REGISTRY] --------------------------------------------------------------------------------------------------------------------------
+// --- [MATERIAL_REGISTRY] ---------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class MaterialClass {
     public static readonly MaterialClass LightMetal = new("light-metal",
@@ -487,9 +461,6 @@ public sealed partial class MaterialClass {
     public Set<PhysicsKind> Physics { get; }
 }
 
-// Material families are this page's OWN roster — published designations number GRADES (UNS, EN, AISI), never the
-// family grain a physics preset keys on — so a family is one row here, and what a family DOES under each physics
-// kind is a mounted `MaterialBaseline` rather than a constant this vocabulary carries.
 [SmartEnum<string>]
 public sealed partial class Material {
     public static readonly Material Aluminium = new("aluminium", MaterialClass.LightMetal);
@@ -515,8 +486,6 @@ public sealed partial class Material {
 
     public MaterialClass Class { get; }
 
-    // The process-material correspondence `RelationFault.ProcessMaterial` refuses on: a process names one physics
-    // kind, and the family's class names which kinds it can answer at all.
     public bool Admits(ProcessKind process) => Class.Physics.Contains(process.Physics);
 }
 
@@ -562,11 +531,9 @@ public sealed partial class MechanicalDatum {
 
     public double ShearModulusMpa => ElasticModulusMpa / (2.0 * (1.0 + PoissonRatio));
 
-    // Hollomon: sigma = K * eps^n at the evaluated plastic strain — the flow stress a forming budget prices work on.
     public double FlowStressMpa(double plasticStrain) =>
         StrengthCoefficientMpa * Math.Pow(Math.Max(plasticStrain, double.Epsilon), StrainHardeningExponent);
 
-    // Lankford anisotropy raises the attainable draw strain above uniaxial elongation; both columns bound it.
     public double LimitStrain => ElongationRatio * (1.0 + PlasticStrainRatio) * 0.5;
 
     [BoundaryAdapter]
@@ -605,16 +572,10 @@ public sealed partial class ThermalDatum {
     public double LatentHeatFusionJKg { get; }
     public double Emissivity { get; }
 
-    // Fourier diffusivity governs heat-affected width and interpass cooling; it is never admitted twice. The
-    // quotient is L2T-1, a dimension the UnitsNet registry names no family for and whose three operands compose
-    // through no cross-quantity operator, so the SI quotient stays bare; its mm2 egress still reads that scale
-    // off the Area family rather than transcribing one, so no factor drifts from the unit it converts.
     private static readonly double SquareMillimetersPerSquareMeter = Area.FromSquareMeters(1.0).SquareMillimeters;
 
     public double DiffusivityMm2S => ConductivityWMK / (DensityKgM3 * SpecificHeatJKgK) * SquareMillimetersPerSquareMeter;
 
-    // Volumetric heat capacity closes the cutting-zone temperature rise from specific cutting energy: the chip
-    // carries the work away, so the zone rise is energy per unit volume over this capacity.
     public double VolumetricHeatCapacityJMm3K => DensityKgM3 * SpecificHeatJKgK / 1e9;
 
     [BoundaryAdapter]
@@ -654,15 +615,12 @@ public sealed partial class GradeIdentity {
         ref Option<string> heatNumber,
         ref Option<string> lotNumber,
         ref Option<ContentKey> certificateKey) {
-        // A traceable certificate class is a promise the heat identity and its content key must both keep.
         if (!Witness.Keyed(grade) || !Witness.Keyed(designation)
             || (certificate.Traceable && (heatNumber.IsNone || certificateKey.IsNone)))
             validationError = new ValidationError("material-spec:grade");
     }
 }
 
-// The mounted preset for one family. `ModalityPhysics.Kind` keys the map, so a preset cannot declare one physics
-// family and carry another, and a class that does not admit a kind cannot mount a law for it.
 [ComplexValueObject]
 public sealed partial class MaterialBaseline {
     public Material Family { get; }
@@ -724,8 +682,6 @@ public sealed partial class MaterialSpec {
     }
 }
 
-// The shop's mounted catalog, admitted ONCE at composition. A lookup answers on the rail, so a caller asking for
-// an unmounted family or grade reads a typed refusal rather than a silently defaulted law.
 public sealed class MaterialRegistry {
     private MaterialRegistry(Map<Material, MaterialBaseline> baselines, Map<string, MaterialSpec> grades) =>
         (Baselines, Grades) = (baselines, grades);
@@ -764,7 +720,7 @@ public sealed class MaterialRegistry {
 - Receipt: `BudgetEvidence` records evaluated material state, power, energy closure, admitted grade, tool identity, every `RangeEvidence`, and the response axes that SATURATED at their preset edge.
 
 ```csharp signature
-// --- [BUDGET_SHAPE] -------------------------------------------------------------------------------------------------------------------------------
+// --- [BUDGET_SHAPE] --------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PhysicsRequest(
     ProcessKind Process,
@@ -817,7 +773,6 @@ public abstract partial record PhysicsRequest(
         ProcessKind Process, MaterialSpec Material, ConstitutiveState State, double ThicknessMm, double BendLengthMm)
         : PhysicsRequest(Process, Material, State, PhysicsKind.Forming, Seq(ThicknessMm, BendLengthMm), None);
 
-    // One admission owns common family and extent law plus each case's mounted payload.
     public static Fin<PhysicsRequest> Admit(PhysicsRequest candidate) =>
         candidate.Process.Physics != candidate.Kind
         || !candidate.Extents.ForAll(static value => double.IsFinite(value) && value > 0.0)
@@ -855,14 +810,10 @@ public abstract partial record PhysicsRequest(
 public abstract partial record BudgetEnergy {
     private BudgetEnergy() { }
 
-    // Work whose extent and rate are both known at plan time resolves to joules outright.
     public sealed record Resolved(double Joules, double Seconds) : BudgetEnergy;
 
-    // Constant-surface-speed turning cannot close its clock until the motion plane supplies the workpiece
-    // radius, so the case carries the evidence that resolution needs rather than an untyped absence.
     public sealed record RadiusDependent(double PowerW, double SurfaceSpeedMPerMin, double FeedPerRevolutionMm) : BudgetEnergy;
 
-    // Forming does work per stroke; there is no traversal clock to integrate.
     public sealed record PerStroke(double Joules) : BudgetEnergy;
 
     public Option<double> Joules => Switch(
@@ -887,8 +838,6 @@ public abstract partial record BudgetEnergy {
     private static bool NonNegative(double value) => double.IsFinite(value) && value >= 0.0;
 }
 
-// The mechanics only a cantilevered rotary cutter has. A wheel, a saw, and a turning insert publish NONE, so no
-// consumer reads a forged zero as a measured deflection or an unbounded stability limit.
 public sealed record CutterMechanics(
     double AxialForceN,
     double ChipThinningFactor,
@@ -908,8 +857,6 @@ public sealed partial class BudgetEvidence {
     public Option<UInt128> ToolIdentity { get; }
     public Arr<RangeEvidence> Ranges { get; }
 
-    // The response axes whose state fell outside the mounted preset's knots: the factor read is an EDGE value, so
-    // a caller pricing on it knows the preset never covered the state it asked about.
     public Arr<ResponseAxis> Extrapolated { get; }
 
     public Arr<EquipmentWitness> Clamped => Ranges.Bind(static range => range.Clamped);
@@ -988,7 +935,7 @@ public abstract partial record ProcessBudget {
 - Boundary: every parse runs under the invariant culture, so a shop locale never re-reads a stored dimension differently.
 
 ```csharp signature
-// --- [TEXT_ADMISSION] -----------------------------------------------------------------------------------------------------------------------------
+// --- [TEXT_ADMISSION] ------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class PhysicsQuantity {
     public static readonly PhysicsQuantity Feed = Of<Speed>(
@@ -1035,8 +982,6 @@ public abstract partial record PhysicsAdmission {
     public sealed record Keys(ProcessKind Process, Material Material, Operation Operation) : PhysicsAdmission;
     public sealed record Quantity(PhysicsQuantity Kind, double Canonical) : PhysicsAdmission;
 
-    // The one scalar projection: a keyed admission carries no magnitude, so it answers on the rail rather than a
-    // sentinel the arrow would have to sniff.
     public Fin<double> Canonical => Switch(
         keys: static _ => Fin.Fail<double>(FabricationFault.Equipment(new EquipmentWitness.Quantity("scalar", "keys"))),
         quantity: static row => Fin.Succ(row.Canonical));
@@ -1054,9 +999,7 @@ public abstract partial record PhysicsAdmission {
 - Boundary: `GeometryFault` covers degenerate geometry alone; equipment, quantity, and grade rejections mint through `FabricationFault.Equipment`, so the witness clears its own kind predicate before the fault exists.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The ONE cutting-speed pair. Both directions live together so an inverse can never drift from its forward, and
-// the diameter argument is always the CUTTING diameter — the shank never enters this relation.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SurfaceSpeed {
     public static double Rpm(double metersPerMinute, double cuttingDiameterMm) =>
         metersPerMinute * 1000.0 / (Math.PI * Math.Max(cuttingDiameterMm, double.Epsilon));
@@ -1066,9 +1009,6 @@ public static class SurfaceSpeed {
 }
 
 public static class ProcessPhysics {
-    // The REQUEST case dispatches and binds its own law: `Material.Physics` keys on each law's own `Kind` and
-    // `PhysicsRequest.Admit` proves the process agrees, so the pairing is total by construction and the arm needs
-    // no tuple pattern, no default case, and no cast that could throw.
     public static Fin<ProcessBudget> Budget(PhysicsRequest request) =>
         from admitted in PhysicsRequest.Admit(request)
         from physics in admitted.Material.Physics.Find(admitted.Kind)
@@ -1110,8 +1050,6 @@ public static class ProcessPhysics {
             ? Fin.Succ(head)
             : Fin.Fail<Tool.Head>(FabricationFault.Equipment(new EquipmentWitness.Geometry(envelope.Tool, nameof(Tool.Head))));
 
-    // The tool FORM alone selects the arm; `Tool.Admits(Operation)` already proved the operation family and its
-    // feed law belong to that form, so no process-versus-tool ladder repeats the correspondence here.
     private static Fin<ProcessBudget> Subtractive(PhysicsRequest.Subtractive input, ModalityPhysics.Subtractive law) =>
         !input.Assembly.Tool.Admits(input.Operation)
             ? Invalid(input.Operation, input.Assembly.Tool)
@@ -1123,8 +1061,6 @@ public static class ProcessPhysics {
                 turning: static (s, tool) => Turn(s.Input, s.Law, tool),
                 head: static (s, tool) => Invalid(s.Input.Operation, tool));
 
-    // Feed per tooth over any feed law a rotary form admits: a pitch spreads across the flute count, a chip load
-    // is already per tooth. The correspondence is proved upstream, so an unreachable law reads as zero engagement.
     private static double PerTooth(FeedLaw feed, int flutes) => feed switch {
         FeedLaw.Chip row => row.PerTooth,
         FeedLaw.Pitch row => row.MillimetersPerRevolution / Math.Max(flutes, 1),
@@ -1138,8 +1074,6 @@ public static class ProcessPhysics {
         double width = Math.Min(input.Operation.Engagement * tool.Diameter, tool.Diameter);
         double evacuation = input.Operation.Engagement >= 1.0 ? input.Delivery.Evacuation : 1.0;
         double depth = Capped(input.Operation.Axial * tool.Diameter, tool.DepthCeiling.Map(limit => limit * evacuation));
-        // Radial chip thinning: below half-diameter engagement the arc shortens the actual chip, so the
-        // programmed per-tooth load must rise to hold the intended chip thickness.
         double thinning = width < tool.Diameter * 0.5 && width > 0.0
             ? tool.Diameter / (2.0 * Math.Sqrt(width * (tool.Diameter - width)))
             : 1.0;
@@ -1225,7 +1159,6 @@ public static class ProcessPhysics {
         return
             from feedBound in Bound(PhysicsQuantity.Feed, input.Assembly.Feed, None, feedPerRev)
             let boundedFeed = feedBound.Resolved
-            // ISO 3685: the undeformed chip thickness is the feed resolved onto the approach angle.
             let chip = boundedFeed * tool.ChipThicknessRatio
             let tangential = law.SpecificCuttingForce.At(state) * depth * chip
             let power = tangential * surfaceSpeed / 60.0
@@ -1249,13 +1182,10 @@ public static class ProcessPhysics {
 
     private static Fin<ProcessBudget> Abrasive(PhysicsRequest.Abrasive input, Tool.Head head, ModalityPhysics.Abrasive law) {
         ConstitutiveState state = input.State;
-        // Mixing-tube bore sets the kerf; taper is the entry-to-exit width ratio the law carries, scaled by the
-        // grade's own fracture toughness — a tougher material resists jet divergence and tapers less.
         double kerf = head.Diameter * 1.15;
         double taper = law.TaperRatio.At(state) / Math.Sqrt(input.Material.Mechanical.FractureToughnessMpaM);
         return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.TraverseSpeed.At(state))
             .Map(bound => {
-                // SpecificEnergy is joules per square millimetre of cut face, so power follows the face rate.
                 double power = law.SpecificEnergy.At(state) * kerf * bound.Resolved / 60.0;
                 return (ProcessBudget)new ProcessBudget.Abrasive(
                     law.JetPressure.At(state), law.AbrasiveRate.At(state), bound.Resolved,
@@ -1292,7 +1222,6 @@ public static class ProcessPhysics {
         double power = current * voltage;
         return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.TravelSpeed.At(state))
             .Map(bound => {
-                // ISO/TR 18491 arc energy is kJ per millimetre of seam at the resolved travel speed.
                 double heatInput = power * efficiency * 60.0 / Math.Max(bound.Resolved, double.Epsilon) / 1000.0;
                 return (ProcessBudget)new ProcessBudget.Joining(
                     current, voltage, law.WireFeedRate.At(state), bound.Resolved,
@@ -1307,7 +1236,6 @@ public static class ProcessPhysics {
         double gap = law.GapVoltage.At(state);
         double pulseOn = law.PulseOn.At(state);
         double pulseOff = law.PulseOff.At(state);
-        // Discharge power is the gap voltage across the discharge current, gated by the pulse duty ratio.
         double power = gap * current * (pulseOn / (pulseOn + pulseOff));
         double overburn = law.OverburnRatio.At(state);
         return Bound(PhysicsQuantity.Feed, input.Head.Feed, None, law.WireFeed.At(state))
@@ -1331,10 +1259,7 @@ public static class ProcessPhysics {
         double speed = law.ScanSpeed.At(state);
         double hatch = law.HatchSpacing.At(state);
         double layer = law.LayerThickness.At(state);
-        // Volumetric energy density is the LPBF process window's governing scalar; scan speed is per second here.
         double density = power / Math.Max(speed / 60.0 * hatch * layer, double.Epsilon);
-        // The scan clock is the swept LENGTH over the scan rate: a layer's area divided by its hatch spacing IS
-        // that length, so the one traversal owner closes it with no second inline division.
         double seconds = Seconds(input.LayerAreaMm2 / Math.Max(hatch, double.Epsilon), speed);
         return new ProcessBudget.Powder(
             power, hatch, speed, layer, density,
@@ -1344,8 +1269,6 @@ public static class ProcessPhysics {
     private static ProcessBudget Formed(PhysicsRequest.Forming input, ModalityPhysics.Forming law) {
         ConstitutiveState state = input.State;
         MechanicalDatum datum = input.Material.Mechanical;
-        // The mounted flow-stress law scales the grade's own Hollomon response at the evaluated plastic strain,
-        // so the preset carries the family shape and the certificate carries the grade's K and n.
         double flow = law.FlowStress.At(state) * datum.FlowStressMpa(state.Strain) / datum.YieldStrengthMpa;
         double energy = flow * input.ThicknessMm * input.ThicknessMm * input.BendLengthMm / 1000.0;
         return new ProcessBudget.Formed(
@@ -1355,8 +1278,6 @@ public static class ProcessPhysics {
             Evidence(input, law, 0.0, new BudgetEnergy.PerStroke(energy), Arr<RangeEvidence>.Empty));
     }
 
-    // Taylor: VT^n = C, so life falls with the n-th root of the speed ratio against the law's own reference. The
-    // coating's wear factor and the coolant's life factor multiply the surviving minutes.
     private static double ToolLife(
         ModalityPhysics.Subtractive law,
         PhysicsRequest.Subtractive input,
@@ -1369,8 +1290,6 @@ public static class ProcessPhysics {
             * input.Delivery.LifeFactor;
     }
 
-    // Cutting-zone rise: the specific cutting energy per unit volume divided by the grade's volumetric heat
-    // capacity, seated on the evaluated state temperature. The coating's `InterfaceC` is what this is compared to.
     private static double ZoneTemperature(double specificForceNMm2, ThermalDatum thermal, ConstitutiveState state) =>
         state.TemperatureC + specificForceNMm2 / Math.Max(thermal.VolumetricHeatCapacityJMm3K, double.Epsilon) / 1000.0;
 
@@ -1381,10 +1300,6 @@ public static class ProcessPhysics {
         double derived) {
         double selected = range.Resolve(derived);
         double capped = Capped(selected, ceiling);
-        // A floor above the equipment ceiling is unsatisfiable, and the bound it breaches is the CEILING — naming
-        // `capped` instead reports a floor above a value the floor may legitimately sit below, which the witness's
-        // own predicate reads as a contradiction. The minimum binds through the probe, so no absent floor reaches
-        // the witness as a self-equal pair the gate would refuse.
         Option<(double Ceiling, double Floor)> unsatisfiable =
             (ceiling, range.Minimum).Apply(static (limit, floor) => (Ceiling: limit, Floor: floor))
                 .Filter(static pair => pair.Floor > pair.Ceiling);
@@ -1402,14 +1317,9 @@ public static class ProcessPhysics {
         return Fin.Succ(new RangeEvidence(bound, range, derived, bounded, witnesses));
     }
 
-    // The ONE ceiling fold. An absent ceiling is a bound the equipment never published, so the derived value passes
-    // through unchanged; every depth arm and the range bound read this rather than a sentinel maximum a `Math.Min`
-    // would silently treat as a measured limit.
     private static double Capped(double derived, Option<double> ceiling) =>
         ceiling.Map(limit => Math.Min(derived, limit)).IfNone(derived);
 
-    // The ONE traversal clock. Every extent-over-rate budget composes it; an inline division beside it is the
-    // deleted duplicate that lets one leg forget the minutes-to-seconds scale.
     private static double Seconds(double extentMm, double rateMmPerMin) =>
         extentMm / Math.Max(rateMmPerMin, double.Epsilon) * 60.0;
 
@@ -1428,8 +1338,6 @@ public static class ProcessPhysics {
         BudgetEvidence.Create(
             input.State, powerW, energy, input.Material, input.Equipment, ranges, Saturated(law, input.State));
 
-    // Which axes read an EDGE factor. The law's own curves answer, so the receipt names the preset's coverage gap
-    // rather than publishing a clamped factor as a measured one.
     private static Arr<ResponseAxis> Saturated(ModalityPhysics law, ConstitutiveState state) => law.Switch(
         state: state,
         subtractive: static (s, row) => Axes(s, row.SurfaceSpeed, row.SpecificCuttingForce, row.TaylorExponent),

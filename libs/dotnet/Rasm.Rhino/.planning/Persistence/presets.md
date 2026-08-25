@@ -21,13 +21,13 @@
 - Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [ERRORS] -------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PersistenceFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostPersistence;
@@ -60,7 +60,7 @@ public abstract partial record PersistenceFault : Fault {
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `ConstructionPlane.Plane`/`GridSpacing`/`SnapSpacing`/`GridLineCount`/`ThickLineFrequency`/`ShowGrid`/`ShowAxes`/`ShowZAxis`/`DepthBuffered`/`ThinLineColor`/`ThickLineColor`/`GridXColor`/`GridYColor`/`GridZColor`, each a plain auto property with no has-custom-colour flag); kernel `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core; `System.Drawing.Common` (`libs/dotnet/.api/api-system-drawing-common.md` — `Color`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Generator.Equals;
 using Rasm.Domain;
@@ -71,9 +71,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// One authority per host bit: the row owns BOTH directions, so the read fold and the write fold are the same
-// roster walked twice and a fifth visibility bit costs one row.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CPlaneTrait : ICapability<CPlaneTrait> {
@@ -103,7 +101,7 @@ public sealed partial class CPlaneTrait : ICapability<CPlaneTrait> {
         toSeq(Items).Fold(unit, (_, row) => row.Write(target: target, held: held.Admits(capability: row)));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial record CPlaneGrid(
@@ -191,8 +189,6 @@ public sealed partial record CPlanePalette(
             .ToFin());
     }
 
-    // Egress accumulates for the same reason ingress does: `ToDrawing` refuses an ink outside the reproducible
-    // domain, and a preset carrying two such inks reports both rather than the first one the write reached.
     internal Fin<Unit> Apply(ConstructionPlane target, Op key) {
         CPlanePalette self = this;
         return key.Need(value: target).Bind(plane => (
@@ -254,8 +250,6 @@ public sealed partial record CPlaneModel(
         from model in Of(name: name, plane: plane.Plane, grid: parts.Grid, palette: parts.Palette, key: key)
         select model;
 
-    // The host carrier is minted, filled, and handed to `Add` inside one window — it is a payload, never a handle
-    // this page retains, so no lease exists to leak.
     internal Fin<ConstructionPlane> Native(Op key) {
         CPlaneModel self = this;
         return from plane in key.Catch(() => Fin.Succ(value: new ConstructionPlane { Name = self.Name.Value, Plane = self.Plane }))
@@ -281,7 +275,7 @@ public sealed partial record CPlaneModel(
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `NamedConstructionPlaneTable.Add`/`Find`/`Delete`/indexer, `NamedPositionTable.Save`/`Restore`/`Update`/`Append`/`Rename`/`Delete`/`ObjectXform`/`ObjectIds`/`Ids`/`Names`/`Id`/`Name`, `NamedLayerStateTable.Save`/`Restore`/`Rename`/`Delete`/`Import`/`Names`, `[Flags] RestoreLayerProperties : uint`); `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`, `DocumentPath`); `Document/tables` (`ResourceId`); `Document/commit` (`RedrawPolicy`); kernel `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.IO;
 using Generator.Equals;
 using Rasm.Domain;
@@ -293,7 +287,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public readonly partial struct PresetName : IDisallowDefaultValue {
@@ -302,8 +296,6 @@ public readonly partial struct PresetName : IDisallowDefaultValue {
         string candidate = value ?? string.Empty;
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
                 (string.IsNullOrWhiteSpace(candidate), () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(PresetName) }))),
-                // The admitted name IS the host key, so a trim would address a row the table does not hold: the
-                // mutation would silently miss and the rail would report a refusal naming the wrong name.
                 (candidate.Length != candidate.Trim().Length,
                     () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(PresetName), "a name carrying no surrounding whitespace" })))));
     }
@@ -350,8 +342,6 @@ public abstract partial record LayerRestore {
                select (LayerRestore)new SelectedCase(Facets: admitted);
     }
 
-    // `All` is the host's own `uint.MaxValue` word, which names bits the enum never defined; the selected mask is
-    // the rostered word alone, so the two are different requests and the case is the discriminant.
     internal RestoreLayerProperties ToNative() => Switch<RestoreLayerProperties>(
         allCase: static _ => RestoreLayerProperties.All,
         selectedCase: static selected => (RestoreLayerProperties)selected.Facets.Mask(bit: static row => row.Bit));
@@ -375,8 +365,6 @@ public abstract partial record PositionRef {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PositionVerb {
-    // Restore MOVES geometry, so it repaints; update only rewrites the stored transforms from where the objects
-    // already are. The posture is the row's, not the interpreter's.
     public static readonly PositionVerb Restore = new(
         key: "restore",
         slot: PresetSlot.PositionRestored,
@@ -411,8 +399,6 @@ public sealed partial class PresetTable {
         order: 2,
         names: static document => document.NamedLayerStates.Names);
 
-    // The census order is the ROW's, so a snapshot, a receipt roster, and a digest over either read one authority
-    // rather than three call sites each choosing an ordering.
     internal int Order { get; }
 
     [UseDelegateFromConstructor] internal partial IEnumerable<string> Names(RhinoDoc document);
@@ -424,8 +410,6 @@ public sealed partial class PresetExecution {
     public static readonly PresetExecution Mutate = new(key: "mutate", rank: 0, redraw: RedrawPolicy.None);
     public static readonly PresetExecution Restore = new(key: "restore", rank: 1, redraw: RedrawPolicy.Continuous);
 
-    // A mixed program takes the STRONGEST posture: one commit envelope frames the whole batch, so the redraw
-    // policy and the granted needs are the maximum the program demands, never the first operation's.
     internal int Rank { get; }
 
     internal RedrawPolicy Redraw { get; }
@@ -436,7 +420,7 @@ public sealed partial class PresetExecution {
         postures.Fold(Mutate, static (held, row) => row.Rank > held.Rank ? row : held);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record PositionObject(ResourceId ObjectId, Transform Transform);
 
@@ -455,7 +439,7 @@ public sealed partial record PresetSnapshot(
     [property: OrderedEquality] Seq<PositionSnapshot> Positions,
     LayerStateSnapshot LayerStates);
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PresetQuery {
     private PresetQuery() { }
@@ -497,8 +481,6 @@ public abstract partial record PresetOperation {
     public static Fin<PresetOperation> DeleteCPlane(string name, Op? key = null) =>
         Named(name: name, key: key).Map<PresetOperation>(static admitted => new DeleteCPlaneCase(Name: admitted));
 
-    // The key mints at the entry on the two span-taking factories: an optional parameter after `params` forecloses
-    // the positional spread every caller of a roster factory wants.
     public static Fin<PresetOperation> SavePosition(string name, params ReadOnlySpan<Guid> objectIds) {
         Op op = Op.Of();
         return (Named(name: name, key: op).ToValidation(), Participants(ids: objectIds, key: op).ToValidation())
@@ -561,8 +543,6 @@ public abstract partial record PresetOperation {
     public static Fin<PresetOperation> DeleteLayerState(string name, Op? key = null) =>
         Named(name: name, key: key).Map<PresetOperation>(static admitted => new DeleteLayerStateCase(Name: admitted));
 
-    // The `.3dm` clause is the IMPORT's, not every document path's — `NamedLayerStateTable.Import` reads a Rhino
-    // archive alone, so the requirement rides here and `DocumentPath` keeps its one meaning.
     public static Fin<PresetOperation> ImportLayerStates(string path, Op? key = null) {
         Op op = key.OrDefault();
         return from admitted in DocumentPath.Of(value: path, key: op)
@@ -586,8 +566,6 @@ public abstract partial record PresetOperation {
         deleteLayerStateCase:   static _ => PresetExecution.Mutate,
         importLayerStatesCase:  static _ => PresetExecution.Mutate);
 
-    // Total, never optional: every mutation touches exactly one roster, so the census after a program sweeps the
-    // tables the program moved and no other. The read family carries no table because it moves none.
     internal PresetTable Table => Switch<PresetTable>(
         putCPlaneCase:          static _ => PresetTable.ConstructionPlanes,
         deleteCPlaneCase:       static _ => PresetTable.ConstructionPlanes,
@@ -630,14 +608,14 @@ public abstract partial record PresetOperation {
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PresetBodyKind : ICapability<PresetBodyKind> {
@@ -650,8 +628,6 @@ public sealed partial class PresetBodyKind : ICapability<PresetBodyKind> {
 
 [SmartEnum<int>]
 public sealed partial class PresetSlot : IFactSlot<PresetBody, PresetBodyKind> {
-    // Read-before-use: the row initializers consume these sets, so static construction order decides declaration
-    // order here rather than the public-before-private one.
     private static readonly CapabilitySet<PresetBodyKind> Titled = CapabilitySet<PresetBodyKind>.Of(PresetBodyKind.Named);
     private static readonly CapabilitySet<PresetBodyKind> Located = CapabilitySet<PresetBodyKind>.Of(PresetBodyKind.Addressed);
     private static readonly CapabilitySet<PresetBodyKind> Counted = CapabilitySet<PresetBodyKind>.Of(
@@ -679,7 +655,7 @@ public sealed partial class PresetSlot : IFactSlot<PresetBody, PresetBodyKind> {
     public CapabilitySet<PresetBodyKind> Bodies { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PresetBody : IFactBody<PresetBodyKind> {
     private PresetBody() { }
@@ -698,9 +674,7 @@ public abstract partial record PresetBody : IFactBody<PresetBodyKind> {
         record:     PresetBodyKind.Record);
 }
 
-// --- [EXPORTS] ------------------------------------------------------------------------------
-// The page's receipt IS the spine's stream closed over these two vocabularies; the aliases carry the domain names
-// call sites read. These are `.cs` `global using` rows in a namespace-scoped file of their own.
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using PresetFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Persistence.PresetSlot, Rasm.Rhino.Persistence.PresetBody>;
 global using PresetReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persistence.PresetSlot, Rasm.Rhino.Persistence.PresetBody>;
 ```
@@ -718,7 +692,7 @@ global using PresetReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persisten
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.NamedConstructionPlanes`/`NamedPositions`/`NamedLayerStates`, `NamedPositionTable.ObjectXform(Guid, Guid, ref Transform)`, `NamedConstructionPlaneTable.Add(ConstructionPlane)` answering `-1` on rejection); `Document/session` (`DocumentSession.Demand`, `SessionNeed`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`); `Document/facts` (`FactStream`, `UndoSerial`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Probe`); LanguageExt.Core (`Fin`, `Validation` applicative, `TraverseM`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -728,7 +702,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PresetAnswer : IDetachedDocumentResult {
     private PresetAnswer() { }
@@ -737,7 +711,7 @@ public abstract partial record PresetAnswer : IDetachedDocumentResult {
     public sealed record TransformCase(PositionObject Object) : PresetAnswer;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Presets {
     public static Fin<PresetAnswer> Read(DocumentSession session, PresetQuery query, Op? key = null) {
         Op op = key.OrDefault();
@@ -786,8 +760,6 @@ public static class Presets {
                select receipt;
     }
 
-    // The program folds MONADICALLY: each operation depends on the host state the prior one left, so a refusal
-    // stops the fold and the bracket rolls the whole program back.
     private static Fin<PresetReceipt> Run(RhinoDoc document, Seq<PresetOperation> program, Op key) =>
         from applied in program
             .TraverseM(operation => Apply(document: document, operation: operation, key: key))
@@ -976,8 +948,6 @@ public static class Presets {
             key: key)
         select new PositionSnapshot(Id: address, Name: name, Objects: objects);
 
-    // The host seeds a `ref` slot and answers whether it filled it; the kernel probe is the ONE lift of that
-    // idiom, and the validity re-check rides inside because `ObjectXform` leaves `Transform.Unset` on a miss.
     private static Fin<Transform> Stored(NamedPositionTable table, ResourceId id, ResourceId objectId, Op key) =>
         key.Catch(() => key.Probe(
             probe: () => {

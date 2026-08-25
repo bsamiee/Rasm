@@ -35,8 +35,6 @@ import { Logger as OtelLogger, Tracer as OtelBridge } from "@effect/opentelemetr
 import { Array, Context, Effect, Layer } from "effect"
 import { type Export, Hooks } from "./emit.ts"
 
-// Same published-capability split as the server node under this condition's own manager: the zone manager install is
-// process-global, so its teardown belongs to a Layer rather than to a bracket the registration shares.
 class _Ambient extends Context.Tag("runtime/Instrument/Ambient")<_Ambient, ContextManager>() {}
 
 const _ambient: Layer.Layer<_Ambient> = Layer.scoped(
@@ -51,9 +49,6 @@ const _ambient: Layer.Layer<_Ambient> = Layer.scoped(
   ),
 )
 
-// urlMatches compares a STRING entry to the whole request URL by equality, so a base never matches the /v1/<signal>
-// URL the exporter posts to — every self-egress origin anchors as its own pattern, the collector beside each
-// `policy.egress` row, so a second telemetry backend joins the exclusion without a second parse
 const _self = (policy: Export.Policy): ReadonlyArray<RegExp> =>
   Array.map(
     [policy.collector.baseUrl, ...policy.egress],
@@ -69,13 +64,10 @@ const _rows = (policy: Export.Policy): ReadonlyArray<Instrumentation> => [
   new DocumentLoadInstrumentation({ enabled: policy.browser.rows.document }),
   new FetchInstrumentation({ ..._request(policy), enabled: policy.browser.rows.fetch }),
   new UserInteractionInstrumentation({
-    // a kiosk build drops interaction spans through this column alone, where dropping the whole node would take
-    // document-load and both request surfaces with it
     enabled: policy.browser.rows.interaction,
     eventNames: [...policy.browser.interaction.events],
     shouldPreventSpanCreation: policy.browser.interaction.prevent,
   }),
-  // This legacy request surface under the identical self-exclusion and propagate rows as the fetch row
   new XMLHttpRequestInstrumentation({ ..._request(policy), enabled: policy.browser.rows.xhr }),
 ]
 
@@ -113,7 +105,7 @@ const Instrument: {
     ),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Instrument }
 ```

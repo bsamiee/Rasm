@@ -31,7 +31,7 @@ Bounded runtime resource lanes for the Rasm.AppHost spine: the HybridCache read-
 - Boundary: the L2 `IDistributedCache` registered under the lane's `Store` key and the `IHybridCacheSerializerFactory` arrive as the single Persistence contribution — `Register` admits that one factory through `AddSerializerFactory` on every builder it opens, keyed and default alike, never a per-type `AddSerializer<T>` scatter; `Register` composes one `AddKeyedHybridCache(lane.Key)` per lane row whose `Store` is set, binding `DistributedCacheServiceKey` to that store key and `MaximumPayloadBytes` from the lane's own column, and ONE `AddHybridCache` for the whole `Store`-less set under the widest ceiling in it — a fold that registered only the keyed half left every storeless lane resolving an unregistered service under the package's own 1 MiB default, so a 64 MiB artifact declared a guard nothing bound and every over-size blob missed uncached with nothing raised, which is the deleted form; one cache owner across both paths, never a second; the `InHost` capsule takes the default path for EVERY lane and binds no `DistributedCacheServiceKey` at all, so the plugin-ALC gate is a registration fact rather than a runtime branch, and `CacheLane.Capsuled` is its per-entry half — a cache row surviving a collectible load context is the defect both halves of that one decision close; registration composes after the DI `TimeProvider` registration so the test row's `FakeTimeProvider` drives creation stamps and tag cuts; the ceiling refusal is the lane's own and rides the byte-shaped write, so an over-size artifact is a typed fact and never a key that reads cold forever; this port deletes hand-rolled double-checked caches, `ICacheService` wrappers, and every second cache owner in the suite.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -52,36 +52,20 @@ public sealed partial class CacheLane {
 
     public HybridCacheEntryOptions Entry => new() { Expiration = Ttl.Allotted.ToTimeSpan(), LocalCacheExpiration = L1Ttl.Allotted.ToTimeSpan(), Flags = Flags };
 
-    // The capsule arm. An `InHost` topology runs inside a collectible plugin ALC, where an L2 entry is written
-    // by a serializer the unload disposes and read back by whichever context loads next, so the whole
-    // distributed leg gates OFF for every lane rather than per row — the same load-context law the durable OTLP
-    // queue holds to, and the reason `Register` opens no keyed builder under that topology. Both legs gate
-    // together because `DisableDistributedCacheWrite` alone leaves every miss probing a permanently empty L2.
     public HybridCacheEntryOptions Capsuled => new() {
         Expiration = Ttl.Allotted.ToTimeSpan(),
         LocalCacheExpiration = L1Ttl.Allotted.ToTimeSpan(),
         Flags = Flags | HybridCacheEntryFlags.DisableDistributedCache,
     };
 
-    // Tenant-partitioned by construction: every lane key folds the ambient tenant, so equal caller keys under
-    // distinct tenants never collide at L1 or L2 — the Persistence `Query/cache#L2_CONTRIBUTION` `CachePartition`
-    // digest reads this SAME `(lane, tenant, key)` identity, and a lane-plus-key-only derivation is the deleted
-    // cross-tenant collision form.
     public string Scoped(string key) => $"{Key}:{TenantContext.Current.Entry}:{key}";
 
-    // Tags MINT here, so the closed vocabulary is structural rather than declared: an owner tag frames under its
-    // own lane and a caller holds no spelling that reaches another lane's tag space or a bare free string, which
-    // is what makes `Invalidate` cut exactly what the vocabulary admits before any provider call runs.
     public string Tag(string owner) => $"{Key}/{owner}";
 }
 ```
 
 ```csharp signature
-// The composed cache posture, minted once at the composition root: the graph the lanes registered into and the
-// topology whose capsule arm gates the distributed leg. Resolution and entry policy BOTH read the one
-// discriminant here, so no call site threads a flag, no lane resolves a keyed service the capsule never opened,
-// and the lane is spelled once per operation rather than once to resolve and again to frame.
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CacheRuntime(IServiceProvider Services, DeploymentTopology Topology) {
     public bool Capsule => Topology == DeploymentTopology.InHost;
 
@@ -93,24 +77,15 @@ public sealed record CacheRuntime(IServiceProvider Services, DeploymentTopology 
     public HybridCacheEntryOptions Entry(CacheLane lane) => Capsule ? lane.Capsuled : lane.Entry;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CacheSurface {
     extension(CacheRuntime runtime) {
-        // Owner keys cross, never tags: the lane frames each one, so no caller spelling reaches the tag space and
-        // the bare lane key rides every write beside them.
         public ValueTask<T> Read<T, TState>(CacheLane lane, string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, Seq<string> owners = default, Option<HybridCacheEntryOptions> entry = default, CancellationToken token = default) =>
             runtime.Cache(lane).GetOrCreateAsync(lane.Scoped(key), state, factory, entry.IfNone(runtime.Entry(lane)), owners.Map(lane.Tag).Add(lane.Key), token);
 
-        // Writes take OWNER keys exactly as reads do, so no consumer spells a tag and a stored entry is cuttable
-        // by the same `Invalidate` the lane already publishes — a store outside the read-through path otherwise
-        // hand-frames its tags against the :18 mint law.
         public ValueTask Write<T>(CacheLane lane, string key, T value, Seq<string> owners = default, Option<HybridCacheEntryOptions> entry = default, CancellationToken token = default) =>
             runtime.Cache(lane).SetAsync(lane.Scoped(key), value, entry.IfNone(runtime.Entry(lane)), owners.Map(lane.Tag).Add(lane.Key), token);
 
-        // Byte-bearing payloads take the same name and discriminate on their own shape, because they are the
-        // one write whose size is known BEFORE the serializer runs. The package ceiling logs and returns
-        // uncached, so an over-quota artifact is indistinguishable from a permanently cold key; this entry
-        // refuses on the rail instead and the lane's own column is the bound it refuses against.
         public IO<Unit> Write(CacheLane lane, string key, ReadOnlyMemory<byte> payload, Seq<string> owners = default) =>
             payload.Length <= lane.MaxPayloadBytes
                 ? IO.liftAsync(async env => {
@@ -121,9 +96,6 @@ public static class CacheSurface {
                     Label: $"{lane.Key}:{payload.Length}",
                     Requirement: $"a payload at or under the lane's {lane.MaxPayloadBytes} bytes"));
 
-        // ONE cut entry over the whole vocabulary: an empty owner set cuts the lane whole through its bare key and
-        // a non-empty one cuts exactly those owner tags, so lane-wide and owner-scoped invalidation cannot drift
-        // apart and neither arm can name a tag the lane never minted.
         public ValueTask Invalidate(CacheLane lane, Seq<string> owners = default, CancellationToken token = default) =>
             owners.IsEmpty
                 ? runtime.Cache(lane).RemoveByTagAsync(lane.Key, token)
@@ -133,12 +105,6 @@ public static class CacheSurface {
             runtime.Cache(lane).RemoveAsync(lane.Scoped(key), token);
     }
 
-    // BOTH paths register, and the capsule takes neither keyed one. A stored lane opens its own keyed builder
-    // under its own ceiling; the `Store`-less set shares the ONE default service, so its ceiling folds to the
-    // widest column in the set — a per-lane callback there would leave the last registration governing lanes
-    // that never chose its bound. Under an `InHost` capsule every lane collapses onto that default service and
-    // no `DistributedCacheServiceKey` binds at all, so the load-context gate is structural and the `Capsuled`
-    // entry flags are the per-entry half of one decision rather than a second switch.
     public static IServiceCollection Register(IServiceCollection services, IHybridCacheSerializerFactory contributed, DeploymentTopology topology) =>
         Defaulted(
             topology == DeploymentTopology.InHost
@@ -177,12 +143,10 @@ public static class CacheSurface {
 - Boundary: pooled instances never carry request, document, or host state across returns; `ObjectPool.Create<T>` mints the default-bounded pool, `Bounded<T>` mints through `DefaultObjectPoolProvider` whose `MaximumRetained` overrides the twice-processor-count default, and the text pool rides the package's own `StringBuilderPooledObjectPolicy` with its `InitialCapacity` and `MaximumRetainedCapacity` knobs — the hand-rolled clear-on-return reset is the deleted form because the package policy owns the reset; `LeakTrackingObjectPoolProvider` wraps the provider on the test-host row only; this cluster deletes ad hoc static pools, per-site `StringBuilder` churn, and any wrapper re-deriving the package's `IResettable` contract.
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PoolPolicy<T> : PooledObjectPolicy<T> where T : class {
     readonly Func<T> create;
     readonly Func<T, bool> sane;
-    // One pool per row for the row's lifetime: a `??=` accessor under two first callers mints TWO pools and
-    // hands each its own retention set, so the row's declared bound governs half the traffic each.
     readonly Lazy<ObjectPool<T>> pool;
 
     public PoolPolicy(Func<T> create, Func<T, bool> sane) {
@@ -201,7 +165,7 @@ public sealed class PoolPolicy<T> : PooledObjectPolicy<T> where T : class {
     public override bool Return(T pooled) => (pooled is not IResettable resettable || resettable.TryReset()) && sane(pooled);
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class Pools {
     public static readonly ObjectPool<StringBuilder> Text =
         ObjectPool.Create(new StringBuilderPooledObjectPolicy { InitialCapacity = 100, MaximumRetainedCapacity = 4096 });
@@ -235,7 +199,7 @@ public static class Pools {
 - Boundary: `System.Threading.Tasks.Dataflow` resolves from the `net10.0` shared framework, so it carries no manifest row and no direct package reference, and every consumer reaches Dataflow through these builders — a manifest row minted for it is the deleted form; `DrainQueue` names process-level drainable queues while `WorkLane` stays the Compute solve-path name; the consumer sink lands here rather than at its caller because a subscription holding a public `ActionBlock<T>` field published a package handle whose capacity, degree, ordering, and completion no row stated — `Wire/topics#SUBSCRIPTION_FABRIC` opens `DrainSpec.SubscriptionSink.ActionSink(consume, token)` and holds the `DrainQueue<DomainEvent>` instead; `BroadcastBlock` fans the receipt stream to multiple sinks, `JoinBlock` correlates the watchdog heartbeat against the health snapshot, and `BatchedJoinBlock` coalesces the support artifact stream against the error stream — each is a `DrainSurface` builder over the same union, never a hand-rolled fan-out loop, correlation buffer, or dual-queue zip; a fan-out row accounts its loss by CONSERVATION at its two ends rather than by interception, so a hand-written receipting `ITargetBlock<T>` between head and sink is the deleted form — it re-implements the `consumeToAccept`, `ConsumeMessage`, and postponement protocol this owner declines to own, against an admission rail admitting blocks on four named capabilities and never on a hand-written target; every dispatch over the union is TOTAL — the arm projections return `Fin` with `DrainFault.TopologyMismatch` on the pipe arm and the builders bind their block graphs through total helpers, so a `throw new UnreachableException()` inside an expression fold is the deleted form; completion awaits land at the row's `DrainBand` under the conductor's cancellation scope — this family deletes per-lane queue classes and free-floating background loops.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class DrainKind {
     public static readonly DrainKind Pipe = new("pipe");
@@ -245,7 +209,7 @@ public sealed partial class DrainKind {
     public static readonly DrainKind DualCoalesce = new("dual-coalesce");
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DrainFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Drain;
@@ -259,10 +223,7 @@ public abstract partial record DrainFault : Fault {
     public sealed partial record TopologyMismatch : DrainFault { public TopologyMismatch(string queue, string expected) : base($"{queue}!={expected}") { } }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Fan-out loss is a SPAN of dense deliveries attributed to one sink, never a payload: this owner names the
-// row and the shape, and whoever owns the fan supplies the ordinal vocabulary its deliveries are dense in.
-// Both ends are INCLUSIVE, so one lost delivery reads First == Last.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FanMiss(string Queue, string Sink, ulong First, ulong Last);
 
 public sealed record DrainSpec(
@@ -289,13 +250,8 @@ public sealed record DrainSpec(
 
     public static readonly DrainSpec SupportCoalesce = new(nameof(SupportCoalesce), DrainKind.DualCoalesce, Capacity: 512, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Telemetry, Deadline: DeadlineClass.DrainCooperative, Batch: 32, Greedy: true, MaxGroups: -1);
 
-    // The live-wire subscribe lane: DropOldest is the ONLY full-mode an unbounded external producer admits, so
-    // this row's Open demands the onDrop receipt delegate and an unreceipted-loss lane refuses on the Fin rail.
     public static readonly DrainSpec WireInbound = new(nameof(WireInbound), DrainKind.Pipe, Capacity: 1024, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.DropOldest, Band: DrainBand.Interaction, Deadline: DeadlineClass.DrainCooperative);
 
-    // The per-subscription consumer sink `Wire/topics#SUBSCRIPTION_FABRIC` opens per hop: single-degree and
-    // ordered because a subscription's own seat accounting is dense in delivery ordinal, so parallel consumption
-    // would report gaps a reordering produced rather than losses the fan caused.
     public static readonly DrainSpec SubscriptionSink = new(nameof(SubscriptionSink), DrainKind.Network, Capacity: 512, MaxDegree: 1, Ordered: true, FullMode: BoundedChannelFullMode.Wait, Band: DrainBand.Interaction, Deadline: DeadlineClass.DrainCooperative);
 }
 
@@ -308,7 +264,7 @@ public abstract partial record DrainQueue<T> {
     public sealed record Network(DrainSpec Spec, ITargetBlock<T> Intake, IDataflowBlock Tail) : DrainQueue<T>;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DrainSurface {
     extension(DrainSpec spec) {
         public BoundedChannelOptions PipeOptions() => new(spec.Capacity) {
@@ -355,21 +311,14 @@ public static class DrainSurface {
         public DrainQueue<T> Open<T>(ITargetBlock<T> intake, IDataflowBlock tail) =>
             new DrainQueue<T>.Network(spec, intake, tail);
 
-        // The consumer end of the union: one block is both intake and tail, so `Drained` completes the sink and
-        // awaits the same handle and the caller holds a `DrainQueue<T>` rather than a package block.
         public DrainQueue<T> ActionSink<T>(Func<T, ValueTask> consume, CancellationToken token) =>
             Sinked(spec, new ActionBlock<T>(consume, spec.NetworkOptions(token)));
 
-        // Fan-out admits on its reporter exactly as a DropOldest pipe does, yet nothing wires that reporter
-        // into the block: BroadcastBlock overwrites per target and reports no decline, so whoever owns the row
-        // invokes it at its two conservation ends. Missing reporter means unaccounted loss, refused here.
         public Fin<DrainQueue<T>> Broadcast<T>(Func<T, T> clone, Seq<ITargetBlock<T>> sinks, Option<Action<FanMiss>> onMiss, CancellationToken token) =>
             onMiss.IsSome
                 ? Fin.Succ<DrainQueue<T>>(Fanned(spec, new BroadcastBlock<T>(clone, spec.BroadcastOptions(token)), sinks))
                 : Fin.Fail<DrainQueue<T>>(new DrainFault.UnreceiptedLoss(spec.Name));
 
-        // Total builders: the block binds, the links thread as tuple-sequenced effects, the Network case
-        // returns — no always-true pattern ternary and no throw fallback on the fold.
         public DrainQueue<Tuple<T1, T2>> Join<T1, T2>(ITargetBlock<Tuple<T1, T2>> sink, CancellationToken token) =>
             Tailed<Tuple<T1, T2>, JoinBlock<T1, T2>>(spec, new JoinBlock<T1, T2>(spec.GroupingOptions(token)), sink);
 
@@ -388,7 +337,6 @@ public static class DrainSurface {
         (tail.LinkTo(sink, spec.LinkOptions()), new DrainQueue<T>.Network(spec, DataflowBlock.NullTarget<T>(), tail)).Item2;
 
     extension<T1, T2>(DrainQueue<Tuple<T1, T2>> queue) {
-        // Total arm projection: the pipe arm and a foreign tail are typed rail failures, never throws.
         public Fin<(ITargetBlock<T1> First, ITargetBlock<T2> Second)> Arms => queue.Switch(
             pipe: static p => Fin.Fail<(ITargetBlock<T1>, ITargetBlock<T2>)>(new DrainFault.TopologyMismatch(p.Spec.Name, DrainKind.CorrelatedJoin.Key)),
             network: static n => n.Tail is JoinBlock<T1, T2> join
@@ -428,9 +376,7 @@ public static class DrainSurface {
 - Boundary: this is the suite's only duplicate-suppression primitive — the `Wire/outbound#DELIVERY_FANOUT` fan and the `Wire/topics#SUBSCRIPTION_FABRIC` consumer each hold one window value and neither declares a map of its own, so a per-consumer `Dictionary<string, DateTime>` with its own expiry rule and no ceiling is the deleted form that grew until the process did; the key is the consumer's own message identity and this owner never derives one, so a window never decides what "the same message" means; both bounds are mandatory because either alone fails — a TTL with no ceiling is unbounded under a burst and a ceiling with no TTL never forgets a key the wire will never resend; the window is process-local by construction and makes no cross-process claim, so a delivery deduplicated here and re-delivered to a peer is the at-least-once contract holding, never a defect of this owner — cross-process suppression is the durable store's fenced-write concern.
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The one at-least-once dedupe primitive, bounded on BOTH axes. Consumers compose the value; nobody re-derives
-// the expiry rule, the ceiling, or the race.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DedupeWindow {
     readonly Duration ttl;
     readonly int cap;
@@ -443,16 +389,11 @@ public sealed class DedupeWindow {
     public bool Admit(string key, Instant now) =>
         cell.Swap(held => Advanced(held.Seen.Filter(deadline => deadline > now), key, now + ttl)).Admitted;
 
-    // The verdict rides the TRANSITION rather than a read-then-write pair, so the decision and the record land
-    // in one compare-and-swap; the swap re-runs under contention, which is safe because the step is a pure
-    // function of the live map and the incoming key.
     Window Advanced(HashMap<string, Instant> live, string key, Instant deadline) =>
         live.ContainsKey(key)
             ? new Window(live, Admitted: false)
             : new Window(Bounded(live.Add(key, deadline)), Admitted: true);
 
-    // The TTL prune already ran, so anything evicted here is live and the eviction is a real capacity decision:
-    // the nearest-to-expiry rows leave first, which is the ordering that keeps the freshest keys suppressible.
     HashMap<string, Instant> Bounded(HashMap<string, Instant> live) =>
         live.Count <= cap
             ? live
@@ -476,7 +417,7 @@ public sealed class DedupeWindow {
 - Boundary: this is the suite's only ambient-scope primitive — the per-page `static readonly AsyncLocal<T?>` beside a hand-written `Scope : IDisposable` is the deleted form it replaces, and the three that existed disagreed on all three axes (one cleared the slot on dispose, one restored a prior, one had no restore at all). NAMED LOSS: a caller can no longer read the raw `AsyncLocal` to write it without a scope — writes are scope-shaped by construction, which is what makes the restore total; the kernel `TenantContext` slot stays the kernel's and this owner never reaches it, because tenancy admission is a boundary decision with its own adoption law rather than a nesting one. Disposal is LIFO by contract: the scope restores the frame it displaced, so an out-of-order disposal restores a frame the flow already left — a `using` scope is the only lawful spelling and a stored scope disposed later is the deleted form. The slot is process-flow local and makes no cross-thread claim: work handed to a pooled thread carries a CAPTURED frame value (the `Observability/telemetry#SIGNAL_GOVERNANCE` correlation capture is that capture) rather than reading a slot the pool never entered.
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class AmbientSlot<T> where T : class {
     readonly AsyncLocal<Frame?> cell = new();
     readonly string name;
@@ -486,8 +427,6 @@ public sealed class AmbientSlot<T> where T : class {
 
     public static AmbientSlot<T> Of(string name, int depth) => new(name, int.Max(depth, 1));
 
-    // The one-level case is a BOUND, not a second type: a session, a principal, and a reasoning turn are all
-    // one-level slots whose second entry is a defect, and stating that as a row keeps them one owner.
     public static AmbientSlot<T> One(string name) => Of(name, depth: 1);
 
     public Option<T> Current => Optional(cell.Value).Map(static frame => frame.Value);
@@ -500,8 +439,6 @@ public sealed class AmbientSlot<T> where T : class {
             : Fin.Fail<IDisposable>(new KernelFault.InvalidValue(
                 Label: name, Requirement: $"at most {bound} nested scope(s); held {Depth}"));
 
-    // Named exemption: seating an ambient frame and handing back its restore token is a write followed by a
-    // capture, which no expression form expresses without discarding one of the two.
     IDisposable Held(T value) {
         Frame? prior = cell.Value;
         cell.Value = new Frame(value, (prior?.Depth ?? 0) + 1, prior);
@@ -510,7 +447,6 @@ public sealed class AmbientSlot<T> where T : class {
 
     sealed record Frame(T Value, int Depth, Frame? Prior);
 
-    // Restores the DISPLACED frame rather than clearing: a nested scope leaving must not erase its parent.
     sealed class Scope(AmbientSlot<T> slot, Frame? prior) : IDisposable {
         public void Dispose() => slot.cell.Value = prior;
     }

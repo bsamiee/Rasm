@@ -20,7 +20,7 @@ One finite-element-and-grid field readout owner beside the FEM assemble and solv
 - Boundary: field evaluation, projection, and grid resample only — the assemble stays on `solvers/mesh#MESH_FIELD`, the solve on `solvers/quadrature#QUADRATURE`, and columnar/gridded aggregation of the evaluated field in the `data` branch, so this owner reports an in-memory extent and residual and never aggregates across a grid. Rejected: a hand-rolled interpolation loop where `basis.interpolate`/`basis.project`/`interpax.Interpolator` own the concern; a worker resample left on the JAX float32 default; a per-call `import interpax`/`import jax` where the frozen `FieldEngine` folds the modules once; a floor result published under the gated engine's requested method or readout; a `@receipted`-on-`_dispatch` shape swallowing the resample key-derive where `@railed` threads the `_key` rail and the weave harvests. Mesh shape aligns to the geometry-branch tessellation at the wire and never imports its interior.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -40,19 +40,15 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-# cold FEM dependency: the `lazy` bind defers the skfem stack to its first name load, and `_interpolate_receipt`
-# traps that reification `ImportError` alone to serve its nodal floor. `interpax`/`jax` are NOT here — they
-# ride the `FieldEngine` carrier behind its x64 config seam.
 lazy import skfem
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type FieldOp = Literal["interpolate", "project", "resample"]
 type FieldFn = Callable[[np.ndarray], np.ndarray]
 type ProjectSource = FieldFn | tuple[ElementKind, np.ndarray]
 type GridAxes = tuple[np.ndarray, ...]
-# bounded interpax kernel vocabulary — the resample method is never a free str.
 type ResampleMethod = Literal["nearest", "linear", "cubic", "cubic2", "catmull-rom", "monotonic", "monotonic-0"]
 
 
@@ -63,57 +59,38 @@ class ReadoutKind(StrEnum):
 
     @property
     def nodal(self) -> bool:
-        # a Lagrange DOF vector IS the nodal value field, so the numpy floor genuinely serves `VALUE` and genuinely
-        # serves NEITHER derivative — a gradient and a Hessian need the basis the absent package owns. The predicate
-        # is what makes the floor's refusal a selection-time verdict instead of a norm over the wrong quantity.
         return self is ReadoutKind.VALUE
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# family trait rows keyed by each route's own hazard: interpolate is a pure scikit-fem/NumPy readout on the
-# RELEASING thread band; project runs caller-supplied FieldFn callbacks GIL-held and resample is JAX-gated
-# (x64 is process-global), both HOSTILE. Isolation, band, and worker-death retry derive at the Kernel
-# crossing owner; numpy fallbacks run inside that same worker when a gated package is absent.
 _TRAIT: Final[Map[str, KernelTrait]] = Map.of_seq([
     ("interpolate", KernelTrait.RELEASING),
     ("project", KernelTrait.HOSTILE),
     ("resample", KernelTrait.HOSTILE),
 ])
 
-# ReadoutKind -> DiscreteField attribute (value, recovered-gradient flux, or Hessian) cataloged on DiscreteField.
 _READOUT: Map[ReadoutKind, str] = Map.of_seq([(ReadoutKind.VALUE, "value"), (ReadoutKind.GRAD, "grad"), (ReadoutKind.HESS, "hess")])
 
-# Per-op residual-floor tolerance; the resample row floors its extent verdict where no transfer residual exists.
 _TOL: Map[FieldOp, float] = Map.of_seq([("interpolate", 1e-6), ("project", 1e-6), ("resample", 1e-6)])
 
-# Coordinate arity -> `interpax.Interpolator{1,2,3}D` constructor name; the worker resolves it through
-# `getattr(self.interpax, _INTERPOLATOR[dim])`, never a `lambda ix: ix.*` per-row closure or body-local re-bind.
 _INTERPOLATOR: Map[int, str] = Map.of_seq([(1, "Interpolator1D"), (2, "Interpolator2D"), (3, "Interpolator3D")])
 
-# Per-op payload field names, `key` the leading slot and `status` the trailing slot; the factory packs by it,
-# `.status` reads the last slot, and `.facts` projects each named slot, so the table and case tuples cannot drift.
 _SLOTS: Map[FieldOp, tuple[str, ...]] = Map.of_seq([
     ("interpolate", ("key", "element", "readout", "dof_count", "components", "provider", "extent", "peak", "status")),
     ("project", ("key", "element", "dof_count", "extent", "residual", "status")),
-    # `method` is the REALIZED kernel, never the requested one: the floor runs linear whatever the caller asked for,
-    # so a receipt echoing the request would publish a `cubic` extent a cubic interpolant never produced.
     ("resample", ("key", "dim", "query_count", "method", "provider", "extent", "peak", "status")),
 ])
 
 
-# --- [TABLES] ------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# ONE parameterized row for the floor's whole refusal law: the numpy fallback serves what it can measure and refuses
-# the rest, and the two refusals differ only in WHICH request it cannot take. A per-arm row would fork one law into
-# two coordinates the shared census then seats twice, so the arm and the unservable request ride NAMED slots and the
-# subject stays this page's one floor point.
 FLOOR_UNSERVED: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.FIELD, point="floor", arm="config", defect="floor-unserved", retriability=TERMINAL, slots=("op", "request")
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([FLOOR_UNSERVED]))
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
@@ -184,10 +161,6 @@ class FieldReceipt:
         return self.status is SolveStatus.SUCCESS
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine: the result key, the provenance pair, the warning band, and the stamp are the
-        # runtime owner's columns, so `key` leaves the payload rather than publishing the coordinate twice. The band
-        # IS the non-convergence roster — an extent or residual over the op's floor names its own termination class —
-        # and provenance names the produced key alone, this owner minting the RESULT key and retaining no operand key.
         subject = self.element.value if self.element is not None else self.tag
         facts: dict[str, object] = {
             "operation": self.tag, "converged": self.converged, **{name: value for name, value in self.facts.items() if name != "key"}
@@ -223,35 +196,26 @@ class FieldQuery:
         return cls(resample=(axes, values, query, method))
 
     async def evaluate(self, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[FieldReceipt]:
-        # gated readouts cross the process lane as spec + operands; `_dispatch` resolves imports in the
-        # worker, where the x64 gate applies, and the weave owns span, fence, and receipt harvest under the
-        # caller's composition key, so an embedded composition's lifecycle facts key to it rather than the root's.
         async def dispatch() -> RuntimeRail[FieldReceipt]:
             return (await lane.offload(Kernel.of(_dispatch, _TRAIT[self.tag]), self)).bind(lambda rail: rail)
 
         return await evidence_run(EvidenceScope.FIELD, f"field.{self.tag}", dispatch, facts={"op": self.tag}, composition=composition)
 
 
-# --- [SERVICES] ----------------------------------------------------------------------------
+# --- [SERVICES] -------------------------------------------------------------------------
 
 
-# worker `interpax`/`jax` modules folded into ONE frozen value object; `worker()` imports once behind the
-# band and floats the rail to x64 before the interpolant is built (pure-`skfem` eval needs no x64). They stay
-# function-local against the module-scope `lazy` dialect on the compute RULINGS [04] x64 ruling: the config seam
-# must precede the first jax-dependent import, and the frozen carrier enforces that ordering structurally. `resample`
-# resolves the arity row through `getattr(self.interpax, _INTERPOLATOR[dim])`, builds the reusable interpolant
-# ONCE, and splits the `(N, dim)` query into `(dim, N)` columns via `reshape(-1, dim).T` for `dim>1` / raw for 1-D.
 @dataclass(frozen=True, slots=True)
 class FieldEngine:
     interpax: Any
 
     @classmethod
     def worker(cls) -> Self:
-        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax
 
-        jax.config.update("jax_enable_x64", True)  # interpax Interpolator pytrees default to float32; the differentiable grad/vjp assumes float64
+        jax.config.update("jax_enable_x64", True)
 
-        import interpax  # ruff:ignore[import-outside-top-level] — binds after the arm so no import-time interpax constant bakes float32
+        import interpax
 
         return cls(interpax=interpax)
 
@@ -263,12 +227,9 @@ class FieldEngine:
         return np.asarray(interpolant(*np.asarray(query).reshape(-1, dim).T))
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# EVERY arm `yield from`-binds `_key`'s rail so a canonical-encode fault rides the one rail and the receipt
-# key names the RESULT — the mesh-minted `field.content_key` enters as one labeled part beside the operand
-# cells, so two readouts over one field never share a key (an operand-keyed receipt is the deleted form).
 @railed
 def _dispatch(query: FieldQuery) -> FieldReceipt:
     match query:
@@ -290,8 +251,6 @@ def _dispatch(query: FieldQuery) -> FieldReceipt:
 
 
 def _source_parts(source: ProjectSource) -> tuple["bytes | np.ndarray", ...]:
-    # project-source identity cells: a cross-basis pair folds origin element + DOF bytes; a callable folds
-    # its qualified name (closure source is not byte-stable across runs).
     match source:
         case (ElementKind() as origin, np.ndarray() as origin_dofs):
             return (origin.value.encode(), origin_dofs)
@@ -304,30 +263,15 @@ def _extent(values: np.ndarray) -> tuple[float, float]:
     return (float(np.linalg.norm(values)), float(np.max(np.abs(values)))) if values.size else (0.0, 0.0)
 
 
-# reads the one `mesh.CTOR` element row the assemble reads and builds through the row's own recursive `built`, so a
-# scalar, vector, or composite element resolves identically over the node-major/element-major `mesh.p`/`mesh.t`
-# layout — never a second map and never a per-family construction arm.
 def _basis(field: MeshField, element: ElementKind, skfem: Any) -> Any:
     row = CTOR[element]
     mesh = getattr(skfem, row.mesh)(np.ascontiguousarray(field.points.T), np.ascontiguousarray(field.cells.T))
     return skfem.Basis(mesh, row.built(skfem))
 
 
-# `basis.split(dofs)` returns `list[tuple[ndarray, AbstractBasis]]` — one `(sub_dofs, sub_basis)` pair PER
-# COMPONENT, the sub-vector leading — and a scalar element yields a one-element list rather than an empty one, so the
-# split IS total over every element kind and no empty-case floor is owed. Destructuring it the other way round
-# reads a DOF array as a basis and raises on the first readout of every solve, scalar and mixed alike. Its floor
-# serves the NODAL readout alone and REFUSES the two it cannot take: a DOF vector carries the nodal values, so its
-# norm is the honest `VALUE` extent, while a gradient and a Hessian exist only through the basis the absent package
-# owns. Reporting a DOF norm under a `GRAD`/`HESS` readout publishes a quantity nothing computed, and a
-# `components=1` beside it asserts a split that never ran — the two facts the caller most needs are the two forged.
 @railed
 def _interpolate_receipt(key: ContentKey, field: MeshField, dofs: np.ndarray, readout: ReadoutKind) -> FieldReceipt:
     element = field.element
-    # one bare `skfem` NAME LOAD is all the `try` brackets — the module-scope `lazy` proxy reifies on that first
-    # LOAD_GLOBAL, so the `ImportError` this arm catches names exactly the absent FEM band; the basis build runs
-    # OUTSIDE it, so a constructor raise from an installed skfem propagates to the `@railed` boundary as the
-    # defect it is instead of masquerading as the floor.
     try:
         fem = skfem
     except ImportError:
@@ -343,8 +287,6 @@ def _interpolate_receipt(key: ContentKey, field: MeshField, dofs: np.ndarray, re
     return FieldReceipt.Interpolate(key, element, readout, int(basis.N), len(readouts), Provider.GATED, extent, peak)
 
 
-# residual is a source-space round trip; the callable path reads the projected DOFs back at the target
-# basis's physical coordinates (`global_coordinates`) against the source callable there — never finiteness.
 def _project_receipt(key: ContentKey, field: MeshField, target: ElementKind, source: ProjectSource) -> FieldReceipt:
     target_basis = _basis(field, target, skfem)
     match source:
@@ -353,7 +295,7 @@ def _project_receipt(key: ContentKey, field: MeshField, target: ElementKind, sou
             projected = np.asarray(target_basis.project(source_basis.interpolate(np.asarray(origin_dofs))))
             round_trip = np.asarray(source_basis.project(target_basis.interpolate(projected)))
             residual = float(np.linalg.norm(round_trip - np.asarray(origin_dofs)))
-        case Callable() as fn:  # ProjectSource callable arm; residual is the physical-point fidelity, never a sentinel.
+        case Callable() as fn:
             projected = np.asarray(target_basis.project(fn))
             coords = np.asarray(target_basis.global_coordinates())
             residual = float(np.linalg.norm(projected - np.asarray(fn(coords))))
@@ -363,19 +305,9 @@ def _project_receipt(key: ContentKey, field: MeshField, target: ElementKind, sou
     return FieldReceipt.Project(key, target, int(target_basis.N), extent, residual)
 
 
-# regular-grid resample over the interpax interpolant folded through `FieldEngine.worker()`. The resample has no
-# `MeshField`, so its content key is the `_key` rail `_dispatch` already bound, never re-derived.
-# `np.interp` is a 1-D kernel and numpy ships no multidimensional regular-grid interpolant, so the floor SERVES the
-# 1-D case under the realized `linear` method and REFUSES every higher arity. The deleted form returned the untouched
-# grid `values.ravel()` and framed its norm as the resample extent beside the caller's `query_count` and requested
-# `cubic` — three facts about a resample that never ran, and the one status the floor would then report reads as a
-# converged-or-stagnated verdict on a measurement no kernel took.
 @railed
 def _resample_receipt(key: ContentKey, axes: GridAxes, values: np.ndarray, query: np.ndarray, method: ResampleMethod) -> FieldReceipt:
     dim = len(axes)
-    # `worker()` alone sits inside the `try` — its body IS the jax/interpax import seam — so the floor fires only
-    # on an absent JAX band; an `ImportError` out of the interpolant build or evaluation on an installed band
-    # propagates to the `@railed` boundary as the defect it is.
     try:
         engine = FieldEngine.worker()
     except ImportError:
@@ -388,14 +320,6 @@ def _resample_receipt(key: ContentKey, axes: GridAxes, values: np.ndarray, query
     return FieldReceipt.Resample(key, dim, int(query.size), method, Provider.GATED, extent, peak)
 
 
-# field RESULT-identity mint every `_dispatch` arm binds. The framing is the identity owner's and NEVER this
-# page's: `IdentitySource(parts=...)` is its ONE spelling for N semantic parts, and the count-and-length frame runs
-# under `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` at that owner. The two hand-rolled `len(x).to_bytes(8, "big")`
-# layers this deleted chose a width and a byte order at a call site — the fork the framing law exists to foreclose,
-# since a width chosen here and a width chosen at a sibling page split the key namespace with no surface able to
-# report it. Raw value bytes alone stay the deleted keying form: dtype and shape are their own cells, so a reshaped
-# or re-typed operand re-keys. `ContentIdentity.of` returns `RuntimeRail[ContentKey]`, so `_key` `yield from`-binds
-# the key off the rail.
 @railed
 def _key(label: str, *parts: "bytes | np.ndarray") -> ContentKey:
     key: ContentKey = yield from ContentIdentity.of(label, IdentitySource(parts=tuple(chain.from_iterable(_cells(part) for part in parts))))
@@ -403,8 +327,6 @@ def _key(label: str, *parts: "bytes | np.ndarray") -> ContentKey:
 
 
 def _cells(part: "bytes | np.ndarray") -> tuple[bytes, ...]:
-    # one operand's SEMANTIC cells: raw bytes are one cell, an array is its dtype, its shape, and its C-ordered
-    # buffer as three, so every cell enters the owner's frame individually and no nested join can collide.
     if isinstance(part, bytes):
         return (part,)
     arr = np.ascontiguousarray(part)

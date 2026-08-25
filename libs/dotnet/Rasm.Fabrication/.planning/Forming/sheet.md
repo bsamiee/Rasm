@@ -26,7 +26,7 @@
 - Law: relief-corner clustering is a DISJOINT SET over the proximity relation. A first-match-wins fold is non-transitive, so three seats within probe distance in a chain landed as one cluster or two purely by arrival order, and a corner took either one relief or two overlapping cuts on the same geometry.
 - Law: `Nesting/nfp` `Nest.Rings` is the ONE `Chain`-to-`Loop` termination this page composes; the island walk already owns winding and once-counted edges, so a second termination here forks the admitted context.
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
@@ -49,13 +49,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Forming;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// The flat-pattern refusal vocabulary as ROWS: a rejection locus is a closed key a receipt partitions by and a
-// consumer matches on, so a bare slug at a raise site — invisible to every reader until it is read out of a fault
-// message — is the deleted form, and the generated-owner admission refusals key here too rather than forking a
-// second producer of one string. A row's key is a LITERAL: a row reading its own `Key` as its constructor argument
-// is a self-referential static initializer that faults at type init before any raise site runs.
-// `Forming/brake` carries the same shape for its own lane.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FlatRejection {
     public static readonly FlatRejection BandAdmit = new("sheet:band-admit");
@@ -105,10 +99,6 @@ public sealed partial class KSource {
     public static readonly KSource Coupon = new("coupon", static query => query.Coupon
         .ToFin(new KernelFault.InvalidValue("sheet", FlatRejection.KCoupon.Key))
         .Bind(coupon => coupon.Calibrate(query)));
-    // DIN 6935 fixes the correction factor at `k = 0.65 + 0.5·lg(r/s)`, held at 0.65 below `r/s = 0.65` and capped
-    // at 1.0 above. The floor is the standard's own lower BRANCH and binds at `r/s = 0.65`, not wherever the
-    // formula happens to reach 0.65 — a symmetric `Clamp` binds it at `r/s = 1.0` instead and raises the whole
-    // `0.65 ≤ r/s < 1` band, where the formula still applies, onto the constant it exists to fall back from.
     public static readonly KSource Din6935 = new("din-6935", static query =>
         query.RadiusMm / query.ThicknessMm switch {
             var ratio => Fin.Succ((ratio < 0.65
@@ -139,7 +129,6 @@ public sealed partial class ReliefKind {
     public double RadiusFactor { get; }
     public double DepthFactor { get; }
 
-    // Relief must clear the formed radius, so depth carries the bend's inside radius beside the thickness term.
     public double Width(double thicknessMm) => WidthFactor * thicknessMm;
     public double Depth(double thicknessMm, double insideRadiusMm) => (RadiusFactor * insideRadiusMm) + (DepthFactor * thicknessMm);
 
@@ -160,11 +149,6 @@ public abstract partial record SheetForm {
     public sealed record Emboss(Loop Footprint, Length Height, Angle Draft) : SheetForm;
     public sealed record Dimple(Loop Footprint, Length Depth, Length ToolRadius) : SheetForm;
 
-    // The branch's validity vocabulary is the kernel `IValidityEvidence`/`ValidityClaim` pair, so each arm FOLDS
-    // claim rows rather than chaining hand-spelled finiteness tests — `ValidityClaim.Finite<T> where T : IQuantity`
-    // is the one finiteness owner and a `Fin`-shaped validity predicate here would fork that vocabulary and break the
-    // `is { IsValid: true }` reads five sites take. Typed refusal lives where refusal happens: at the admitting
-    // boundary, under a `FlatRejection` locus.
     public bool IsValid => Switch(
         bend: static _ => true,
         hem: static row => ValidityClaim.All(
@@ -196,10 +180,6 @@ public abstract partial record SheetForm {
 
     public bool IsFeature => IsValid && !IsLine;
 
-    // The turn the punch actually EXECUTES, which is the bend angle only where the form is an ordinary turn: a
-    // teardrop or rolled hem sweeps past the flat and a curl sweeps its own declared arc, so `Forming/brake` gates
-    // punch reach on this rather than on `AngleDeg` — a hem gated at its nominal 180 admitted a punch that cannot
-    // reach the 270 the row commands, and the infeasibility surfaced as a collision or a scrapped part.
     public double Swept(double angleDeg) => Switch(
         state: Math.Abs(angleDeg),
         bend: static (angle, _) => angle,
@@ -211,8 +191,6 @@ public abstract partial record SheetForm {
         emboss: static (angle, _) => angle,
         dimple: static (angle, _) => angle);
 
-    // Line forms whose geometry demands dedicated tooling override the policy default at candidate admission;
-    // None defers to FormPolicy, so one part mixes hemmed, curled, and ordinary bends under one policy.
     public Option<(BendMethod Method, PunchKind Punch)> Tooling => Switch(
         bend: static _ => Option<(BendMethod, PunchKind)>.None,
         hem: static row => Some((row.Kind == HemKind.Closed ? BendMethod.Coin : BendMethod.Hem, PunchKind.Hemming)),
@@ -410,8 +388,6 @@ public abstract partial record SheetLink {
             Turn(link.AngleDeg), Radius(link.RadiusMm),
             link.Form is { IsValid: true, IsLine: true }));
 
-    // The two facts BOTH link modalities state about a bend, folded once: a turn is a finite non-zero half circle
-    // at most, and an overridden inside radius is finite and non-negative or genuinely absent.
     private static ValidityClaim Turn(double angleDeg) =>
         ValidityClaim.All(ValidityClaim.Finite(angleDeg), Math.Abs(angleDeg) is > 0.0 and <= 180.0);
 
@@ -486,9 +462,6 @@ public sealed partial class FormPolicy {
     public Option<GrainLaw> Grain { get; }
     public ReliefKind Relief { get; }
 
-    // The development policy carries `ToleranceLane.Deviation` and `ToleranceLane.Torsal` as kernel `Tolerance`
-    // rows, so the two bare-double budgets that stood beside it were a SECOND copy of the same two bands — the
-    // acceptance gate now reads the lanes the kernel actually developed against, and the pair cannot drift.
     public DevelopPolicy Development { get; }
     public double FeatureStrainLimit { get; }
 
@@ -525,18 +498,6 @@ public sealed partial class FormPolicy {
 
 }
 
-// The forming plane's production modalities as ONE closed source family, and the payload the `Process/owner`
-// `FabricationPolicy.Form` case carries. Each arm holds its own admitted run AND its own machine envelope, because
-// the envelope VARIES by source and cannot ride the case above it: a press brake states capacity, gauge travel,
-// open height, and bed length; a tube bender states a centreline-radius window and a die count; a section roll
-// states width, a thickness band, station count, and torque. One envelope column on the policy case would have
-// routed two of the three modalities through a station that cannot form them.
-// The
-// tube and roll arms carry their whole ADMITTED RUN rather than a bare policy, because `FabricationInput`
-// cannot yield what those runs need: it admits closed planar profiles and an optional mesh, so it carries no open
-// 3-D centreline, no wall thickness, no weld-seam angle, no `MaterialSpec`, no forming budget, and no
-// bend-radius or end-allowance columns. The sheet arm's `FormPolicy` reads the input's `Profiles` for the same
-// reason — geometry a run admits rides the input; geometry only one arm admits rides that arm.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FormSource {
     private FormSource() { }
@@ -545,9 +506,6 @@ public abstract partial record FormSource {
     public sealed record Tube(TubeRun Run, TubeFormKind Kind, ProcessEnvelope.Bender Envelope) : FormSource;
     public sealed record Roll(RollRun Run, ProcessEnvelope.Roll Envelope) : FormSource;
 
-    // Each arm produces exactly ONE artifact family, so the contract is a payload projection rather than one
-    // constant over three modalities that answer differently: an unfold lowers a flat pattern, and both a bend
-    // program and a roll schedule lower a bend program.
     public EgressContract Egress => Switch(
         sheet: static _ => new EgressContract(Set(EgressKind.FlatPattern), 1),
         tube: static _ => new EgressContract(Set(EgressKind.BendProgram), 1),
@@ -581,9 +539,6 @@ public sealed record ReliefSeat(
 public sealed record SheetFeatureEvidence(SheetForm Form, double DevelopedMm, double PeakStrain);
 public sealed record PanelRegion(int Panel, Loop Boundary);
 
-// The panel-descent closure the unfold walk computed, published as receipt data: `Forming/brake` reads it for
-// bend-sequence descent and this page for neutral-axis shift, so the tree is walked ONCE per unfold and the
-// reachable census is a column rather than a per-bend recursion in two pages.
 public sealed record PanelClosure(Map<int, Set<int>> Reachable) {
     public Set<int> Under(int panel) => Reachable.Find(panel).IfNone(Set<int>()).Add(panel);
     public int Size => Reachable.Values.Sum(static reached => reached.Count);
@@ -670,28 +625,15 @@ public sealed partial class UnfoldResult {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// --- [FORMING_CANON] The
-// folder's shared forming law. Neither sibling page sits below the other two by dependency — `Forming/brake`
-// consumes this page and `Forming/tube` consumes neither — so the shared law seats at the folder's substrate page
-// and reaches both through the one `Rasm.Fabrication.Forming` namespace. It declares only what a second page
-// would otherwise re-spell: everything a preimage frames composes the S0 `FabricationCanon` family and
-// `Loop.CanonicalBytes` instead.
+// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [FORMING_CANON]
 
-// Elastic recovery follows the LOADED radius, not the commanded angle. With the neutral-fibre arc conserved the
-// loaded radius falls as the command opens, so the recovered angle is `command * (4r^3 - 3r + 1)` over the
-// normalized elastic index `r`. That relation is cubic in a reciprocal of the command and has no closed inverse,
-// which is what puts the bracketed root find on the rail — the one genuinely transcendental inversion the folder
-// runs. Each caller supplies its own section geometry: a sheet bend's fibre is `k·t` over the punch working
-// radius, a tube's is `(k - 0.5)·wall` over the centreline radius with the extreme fibre at half the major.
 public readonly record struct ElasticLaw(double ArcMm, double FibreMm, double ElasticIndex) {
     public double Recovered(double commandDeg) {
         double index = ElasticIndex * ((ArcMm / Angle.FromDegrees(commandDeg).Radians) - FibreMm);
         return commandDeg * ((4.0 * index * index * index) - (3.0 * index) + 1.0);
     }
 
-    // Absence is the bracket refusing to straddle: the caller names what an unrecoverable command means on its
-    // own plane rather than inheriting a fault from a shared kernel.
     public Option<double> Commanded(double targetDeg, double maximumOverbendDeg, double accuracyDeg, int iterations) =>
         Brent.TryFindRoot(
             command => Recovered(command) - targetDeg,
@@ -704,13 +646,7 @@ public readonly record struct ElasticLaw(double ArcMm, double FibreMm, double El
                 : None;
 }
 
-// The Forming-local law alone: the material-state row every forming preimage frames. Both preimage CLOSES seat on
-// the S0 `FabricationCanon` — one facade over the one codec serves the package, and a Forming copy of either was a
-// second owner of one convention. The clip-trace projection is NOT here: `PolygonTrace.Regioned` lives on the family
-// it discriminates, so a Forming copy of it was a second total dispatch that a widened trace family would have to
-// break twice, and every forming region reader takes the owner's own member.
 public static class FormingCanon {
-    // The process-budget evidence row, framed once for every forming preimage that carries its material state.
     public static CanonicalWriter Budget(this CanonicalWriter writer, BudgetEvidence evidence) => writer
         .Double(evidence.State.TemperatureC).Double(evidence.State.Hardness)
         .Double(evidence.State.StrainRate).Double(evidence.State.Strain)
@@ -793,16 +729,10 @@ public static class FlatPattern {
 
     private static Fin<SheetAssembly> DevelopSurface(SheetSource.Surface source, FormPolicy policy, ProcessBudget.Formed forming) =>
         from development in Development.Apply(new DevelopOp.Unroll(source.Value, policy.Development))
-        // The generated TOTAL dispatch, not a single-case `is` probe: a strip decomposition reaching this arm is a
-        // caller defect the compiler names, where the partial test let a widened result family fall through.
         from unrolled in development.Switch(
             strips: static _ => Fin.Fail<DevelopmentResult.Unrolled>(
                 new KernelFault.InvalidValue("sheet", FlatRejection.SurfaceResult.Key)),
             unrolled: static value => Fin.Succ(value))
-        // Acceptance reads the kernel's own two SUMMARIES — `Band` derived off the per-strip isometry run and
-        // `Torsal` off the field's torsal residual — against the very `ToleranceLane` rows the development was run
-        // under. A bare maximum column beside either is the shape the kernel deleted, and a budget column beside the
-        // lanes is the copy that drifts from them.
         from _accepted in unrolled.Receipt.Band.Maximum.To() <= policy.Development.Isometry.Value
             && unrolled.Receipt.Torsal.Maximum.To() <= policy.Development.Torsal.Value
             ? Fin.Succ(unit)
@@ -952,9 +882,6 @@ public static class FlatPattern {
             .ToFin(new KernelFault.InvalidValue("sheet", FlatRejection.SurfaceParent.Key))
         from resolved in bends.Find(row => row.Child == link.Child)
             .ToFin(new KernelFault.InvalidValue("sheet", FlatRejection.SurfaceChild.Key))
-        // The flat gap between two untrimmed panel outlines is the bend DEDUCTION, not the allowance: the allowance
-        // is the developed length along the neutral axis, and seating the panels at that distance oversizes every
-        // developed flat by twice the setback per bend. `DeductionMm` is the signed gap the placement wants.
         from child in PlanarPlacement.Between(link.ChildEdge, parent.Apply(link.ParentEdge), resolved.Projection.DeductionMm)
         from loop in Transform(state.Panels[link.Child], child.Apply)
         select state with {
@@ -990,14 +917,6 @@ public static class FlatPattern {
             : Fin.Fail<Seq<PanelRegion>>(new GeometryFault.DegenerateInput(Kind.Line, None, FlatRejection.NeutralAxis.Key));
     }
 
-    // Panel descent is computed ONCE per unfold over the bend parent-to-child tree, threaded on `SheetAssembly`,
-    // and published on `UnfoldEvidence.Descendants` — the surface path resolved it a second time for its own
-    // neutral-axis shift and `Forming/brake` carried a byte-identical per-bend recursion over the same tree.
-    // ONE walk means one walk: a topological order visited in REVERSE has every child's set already settled, so
-    // each panel unions its children's sets once and the whole census costs one pass over vertices and edges.
-    // A search from every panel — the deleted `TreeBreadthFirstSearch` fold — paid that pass once per panel.
-    // The order is also the acyclicity proof the surface path never had: only the panel lane's `LinkOrder`
-    // established a tree, and a cyclic surface link set silently produced a closure naming every panel.
     internal static Fin<PanelClosure> ClosureOf(Seq<BendLine> bends) {
         AdjacencyGraph<int, SEdge<int>> tree = new(allowParallelEdges: false);
         tree.AddVerticesAndEdgeRange(bends.Map(static bend => new SEdge<int>(bend.Parent, bend.Child)));
@@ -1094,10 +1013,6 @@ public static class FlatPattern {
             .Map(seats => Corners(seats, probe));
     }
 
-    // Bend terminations sharing one point are one corner seat sized for the deepest meeting bend, so a corner
-    // takes a single relief instead of overlapping cuts and a lone bend against free boundary still seats alone.
-    // Clustering is a DISJOINT SET over the proximity relation: a first-match-wins fold is non-transitive, so three
-    // seats within probe distance in a chain landed as two clusters or one depending purely on arrival order.
     private static Seq<ReliefSeat> Corners(Seq<ReliefSeat> seats, double probeMm) {
         ForestDisjointSet<int> forest = new(seats.Count);
         toSeq(Enumerable.Range(0, seats.Count)).Iter(forest.MakeSet);
@@ -1122,7 +1037,6 @@ public static class FlatPattern {
             .Bind(static trace => trace.Regioned(Refusal(FlatRejection.ReliefTrace)))
             .Map(static regions => regions.Nodes.Map(static node => node.Boundary).ToArr());
 
-    // The page's one refusal mint: a `FlatRejection` row IS the locus, so no raise site interpolates a slug.
     internal static FabricationFault Refusal(FlatRejection locus) =>
         FabricationFault.Inadmissible(FabConcern.Forming, locus.Key);
 
@@ -1134,8 +1048,6 @@ public static class FlatPattern {
             center - (along * halfWidth) + (normal * halfDepth * 2.0),
         ], Arr<double>());
 
-    // Slots close with one semicircle across the far edge: `Bulges[i]` owns the span opening at `Vertices[i]`,
-    // so only index 2 — the returning width edge — carries the half turn.
     internal static Fin<Loop> Obround(ReliefSeat seat, Context tolerance) =>
         ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
             center - (along * halfWidth),
@@ -1152,8 +1064,6 @@ public static class FlatPattern {
             center - (along * halfWidth) + (normal * halfDepth),
         ], Arr(0.0, QuarterTurnBulge, QuarterTurnBulge, 0.0));
 
-    // Four cardinal points at one radius about a seated centre keep the cut circular at every width-to-depth
-    // ratio; sharing the width and depth half-extents as two radii would emit an ellipse under a bulge quarter turn.
     internal static Fin<Loop> Circular(ReliefSeat seat, Context tolerance) =>
         ReliefPolygon(seat, tolerance, static (center, along, normal, halfWidth, halfDepth) => [
             center + (normal * Math.Max(halfDepth, halfWidth)) - (along * halfWidth),
@@ -1197,11 +1107,6 @@ public static class FlatPattern {
 
     private static Point3d Planar(Point2d point) => new(point.X, point.Y, 0.0);
 
-    // Every preimage on this page composes the ONE `Rasm.Element` `CanonicalWriter` through the S0 `FabricationCanon`
-    // family and `Loop.CanonicalBytes`: a page-local point, loop, optional, or row framing is what let two artifacts
-    // with identical content mint different keys depending on which page keyed them, and the rotation-canonical loop
-    // preimage additionally folds two spellings of one closed region onto one key. Only `SheetForm` — this page's own
-    // vocabulary — declares a writer here.
     private static Fin<ContentKey> Canonical(UnfoldResult unfold, Seq<BendStep> bends) => FabricationCanon.Keyed(
         EgressKind.FlatPattern, unfold.Evidence.Topology.Tolerance, writer => Frame(unfold, bends, writer), Key);
 
@@ -1232,10 +1137,6 @@ public static class FlatPattern {
                 .Double(relief.WidthMm).Double(relief.DepthMm).Double(relief.InsideRadiusMm)
                 .Rows(toSeq(relief.Meeting.Order()), static (slot, bend) => slot.Ordinal(bend))
                 .Bool(relief.ExistingClearance))
-            // ONE-TIME RE-KEY: stored flat-pattern content keys re-baseline once. The kernel receipt publishes the
-            // per-strip isometry RUN beside two `Stat<Scalar>` summaries where three scalar peaks used to stand,
-            // so the preimage frames what the receipt actually carries — two developments with one peak and
-            // different spread are different artifacts and now key apart.
             .Maybe(unfold.Evidence.Isometry, static (target, receipt) => Write(Write(target
                         .Ordinal(receipt.Strips).Ordinal(receipt.Rulings)
                         .Rows(receipt.IsometryOf.ToSeq(), static (slot, value) => slot.Double(value)),
@@ -1245,8 +1146,6 @@ public static class FlatPattern {
             .Rows(unfold.Evidence.Panels, static (target, panel) =>
                 panel.Boundary.CanonicalBytes(target.Ordinal(panel.Panel)))
             .Rows(unfold.Evidence.NeutralAxis, static (target, row) => target.Ordinal(row.Bend).Double(row.ShiftMm))
-            // The kernel fill row keys on `int`, so its own declared key is the discriminant; the string framing
-            // `FabricationCanon.Discriminant` carries is for the string-keyed owners.
             .Ordinal(unfold.Evidence.Topology.Fill.Key)
             .Double(unfold.Evidence.Topology.Tolerance.Absolute.Value)
             .Double(unfold.Evidence.Topology.Plane)
@@ -1262,8 +1161,6 @@ public static class FlatPattern {
                 .Double(bend.KFactor).Double(bend.OverbendDeg).Double(bend.TonnageKn)
                 .Discriminant(bend.Orientation));
 
-    // A summarized band frames its FULL moment state, never a peak alone: the count, the rejection census, the
-    // mass, both extrema, and the four Welford moments are what distinguish two developments the kernel folded.
     private static CanonicalWriter Write(CanonicalWriter writer, Stat<Scalar> band) => writer
         .Ordinal(band.Count).Ordinal(band.Rejected).Double(band.Mass)
         .Double(band.Minimum.To()).Double(band.Maximum.To())
@@ -1313,9 +1210,6 @@ public static class FlatPattern {
             Vector3d to = target.A - target.B;
             if (!from.Unitize() || !to.Unitize())
                 return Fin.Fail<PlanarPlacement>(new GeometryFault.DegenerateInput(Kind.Line, None, FlatRejection.PanelEdge.Key));
-            // Both operands are already unitized, so the cosine IS the dot and the sine IS the cross z-component;
-            // dividing through their lengths again is arithmetic on two ones that reads as a normalization the
-            // vectors already carry.
             double cos = from * to;
             double sin = Vector3d.CrossProduct(from, to).Z;
             Vector3d normal = new(-to.Y, to.X, 0.0);

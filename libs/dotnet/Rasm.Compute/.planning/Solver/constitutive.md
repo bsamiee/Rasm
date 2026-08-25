@@ -32,14 +32,8 @@ The three page-level names carry their DISCIPLINE rather than the branch's share
 - Exemption: the twenty component loops across the energy bodies, the return map, and the gap projection are MEASURED span kernels over fixed small arities — a per-Gauss-point stress update is the `ref struct` fold the expression law exempts by name, and every one of them dies with the call that fills it.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// ONE constitutive surface, two evaluation modes. A yield surface or stored energy is written once against this
-// seam: `Real` evaluates it in doubles for the return-map verdict and the state evolution, `HyperDual` evaluates
-// the same body in hyper-duals so its gradient is stress and its Hessian is the exact algorithmic tangent.
-// Constants enter through `Like` because a hyper-dual constant must be seeded at the active vector's own arity,
-// and `Sqrt` rides the seam because a hand-iterated root reports convergence it never tested while both carriers
-// publish an exact one.
 public interface IScalar<T> where T : IScalar<T> {
     double Value { get; }
     T Like(double constant);
@@ -58,8 +52,6 @@ public interface IScalar<T> where T : IScalar<T> {
     static abstract T operator *(double left, T right);
 }
 
-// Single-field readonly struct over a `double`, so a whole strain vector reinterprets in place rather than
-// copying element by element on the hottest allocation path.
 public readonly record struct Real(double Value) : IScalar<Real> {
     public static ReadOnlySpan<Real> Of(ReadOnlySpan<double> values) => MemoryMarshal.Cast<double, Real>(values);
 
@@ -78,9 +70,6 @@ public readonly record struct Real(double Value) : IScalar<Real> {
     public static Real operator *(double left, Real right) => new(left * right.Value);
 }
 
-// The active arity travels ON the value: `DDScalar.Constant` needs it for every constant the surface forms, and
-// re-reading it off an exported gradient allocates one array per constant. The name carries the ORDER — the
-// kernel `Dual<T>` is first-order generic math and freezes, this is the second-order HyperJet arm.
 public readonly record struct HyperDual(DDScalar Inner, int Size) : IScalar<HyperDual> {
     public static HyperDual[] Variables(ReadOnlyMemory<double> values) {
         DDScalar[] active = DDScalar.Variables(values.ToArray(), order: 2);
@@ -105,9 +94,6 @@ public readonly record struct HyperDual(DDScalar Inner, int Size) : IScalar<Hype
     public static HyperDual operator *(double left, HyperDual right) => new(left * right.Inner, right.Size);
 }
 
-// Which components of a strain or stress vector are NORMAL and which are shear, and the factor engineering shear
-// carries. A bare `3` in four bodies makes a plane-strain or axisymmetric problem miscompute silently at every
-// one of them; a layout row makes it one value.
 public sealed record VoigtLayout(int NormalCount, int ShearCount) {
     public static readonly VoigtLayout Solid = new(NormalCount: 3, ShearCount: 3);
     public static readonly VoigtLayout PlaneStrain = new(NormalCount: 3, ShearCount: 1);
@@ -116,22 +102,15 @@ public sealed record VoigtLayout(int NormalCount, int ShearCount) {
     public int Components => NormalCount + ShearCount;
     public bool IsShear(int component) => component >= NormalCount;
 
-    // Engineering shear strain is twice the tensor component, so the shear quadratic takes a half — the one
-    // factor every energy body would otherwise spell as a literal beside its own component test.
     public double ShearFactor => 0.5;
 }
 
-// A DOMAIN smoothing radius, not a comparison epsilon: it rounds the elastic-plastic corner so the return map and
-// the tangent agree there. Admitted once, so the eleven signatures it threads carry a proof instead of a scalar.
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct Regularization {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = Band.Positive.Guard(label: nameof(Regularization), value: ref value);
 }
 
-// Critical-state data ALONE. Friction, dilation, and cohesion are material columns, because a rock or concrete row
-// is pressure-dependent without carrying a consolidation model, and gating that row on a soil record forced every
-// such material to fabricate columns nothing measured for it.
 [ComplexValueObject]
 public sealed partial class SoilParameters {
     public double CriticalStateSlope { get; }
@@ -150,15 +129,9 @@ public sealed partial class SoilParameters {
                 ? null
                 : new ValidationError("SoilParameters requires a finite pore pressure and a compression index above its swell index."));
 
-    // The consolidation stiffness the volumetric hardening exponent divides by; positive by admission, so the
-    // exponent needs no floor and the clamp below guards the EXPONENTIAL's domain alone.
     public double ConsolidationSpan => CompressionIndex - SwellIndex;
 }
 
-// Weights are seed data written exactly, so the linearity test is exact: every term that makes the surface move
-// with the plastic multiplier carries a weight, and a row with none of them closes its return map in one step.
-// `NeedsSoil` is the row's OWN statement of its consolidation reach, which retires the weight comparison the
-// admission gate used to re-derive.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -176,8 +149,6 @@ public sealed partial class PlasticPotential {
     public bool NeedsSoil => Cap > 0.0;
 }
 
-// `Yeoh` and `ArrudaBoyce` are truncated-series FITS rather than the models they name, and the row carries that
-// provenance because a receipt naming `arruda-boyce` otherwise claims a chain-statistics model nothing evaluated.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -194,11 +165,8 @@ public sealed partial class HyperelasticLaw {
     public string Provenance { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Fourteen INDEPENDENT invariants admitted at construction and accumulated: the single-expression predicate they
-// replaced collapsed all of them to one bit and one message naming none, so a caller with a negative cohesion and
-// an over-90-degree friction angle learned neither.
 [ComplexValueObject]
 public sealed partial class ConstitutiveParameters {
     public double YoungModulus { get; }
@@ -239,27 +207,17 @@ public sealed partial class ConstitutiveParameters {
         static Option<string> Claim(bool held, string column) => held ? None : Some(column);
     }
 
-    // The three elastic derivations belong to the parameter owner that carries their inputs, so a consumer reads
-    // `law.Shear` rather than reaching through the model union for a static over the same record.
     public double Shear => YoungModulus / (2.0 * (1.0 + PoissonRatio));
     public double Bulk => YoungModulus / (3.0 * (1.0 - 2.0 * PoissonRatio));
     public double Lame => YoungModulus * PoissonRatio / ((1.0 + PoissonRatio) * (1.0 - 2.0 * PoissonRatio));
 
-    // Consistency modulus `3μ + H + m·K·tan ψ`: the plastic multiplier's denominator, read by the return map's
-    // increment and by the energy's quadratic term, so one edit moves both. `μ > 0` holds for every admitted
-    // `(E, ν)`, so the modulus needs no floor.
     public double Consistency(PlasticPotential potential) =>
         3.0 * Shear + HardeningModulus + potential.Meridian * Bulk * Math.Tan(DilationAngle * Math.PI / 180.0);
 
-    // Pore pressure is state data, not a differentiated quantity: it enters the surface as the committed scalar
-    // the step carries, falling back to the soil row's initial value and to zero for a material with no soil row.
     public double PorePressure(ConstitutiveState state) =>
         state.PorePressure.IfNone(Soil.Map(static soil => soil.InitialPorePressure).IfNone(0.0));
 }
 
-// `[Equatable]`+`[OrderedEquality]`: the history columns are `ReadOnlyMemory<double>` and a `Seq` of them, which
-// synthesized record equality reference-compares, so two structurally identical states read unequal and every
-// content key folding one forks.
 [Equatable]
 public sealed partial record ConstitutiveState(
     [property: OrderedEquality] ReadOnlyMemory<double> PlasticStrain,
@@ -267,12 +225,8 @@ public sealed partial record ConstitutiveState(
     double Damage,
     [property: OrderedEquality] Seq<ReadOnlyMemory<double>> ViscoHistory,
     double VolumetricPlasticStrain,
-    // A genuinely zero pore pressure and an unset one are different facts, and a sentinel makes the fallback
-    // re-read the initial value on a state the step already advanced.
     Option<double> PreconsolidationPressure,
     Option<double> PorePressure,
-    // Committed maximum driving energy — the threshold the loading branch tests against, so unloading is a real
-    // branch rather than a monotone re-derivation from the current strain.
     double DamageDriving) {
     public static ConstitutiveState Pristine(int components) =>
         new(new double[components], 0.0, 0.0, Seq<ReadOnlyMemory<double>>(), 0.0, None, None, 0.0);
@@ -309,8 +263,6 @@ public abstract partial record ConstitutiveModel {
             viscoelastic: static (input, model) => ViscoelasticEnergy(input.Strain, input.State, input.Parameters, model.PronyTerms, model.TimeStep),
             damage: static (input, model) => DamageEnergy(input.Strain, input.State, input.Parameters, model.Exponent));
 
-    // Each arm states its OWN admission story on the `Fin` rail: the four-arm bool the gate once collapsed them
-    // into reported only the strain arity, so a bad Prony count and a negative regularization read identically.
     public Fin<Unit> Admits(ReadOnlyMemory<double> strain, ConstitutiveParameters parameters) =>
         Switch(
             state: (Strain: strain, Parameters: parameters),
@@ -352,8 +304,6 @@ public abstract partial record ConstitutiveModel {
     static Fin<Unit> Require(bool held, ComputeViolation evidence) =>
         held ? Fin.Succ(unit) : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 
-    // The double-mode reads the return map and the state evolution need, over the SAME generic bodies the tape
-    // differentiates — a second double-valued spelling of any of them is the drift this seam exists to foreclose.
     public static double YieldValue(ReadOnlyMemory<double> strain, ConstitutiveState state, ConstitutiveParameters parameters,
         PlasticPotential potential, Regularization smoothing) =>
         Yield(Elastic(Real.Of(strain.Span).ToArray(), state.PlasticStrain), state, parameters, potential, smoothing).Value;
@@ -364,10 +314,6 @@ public abstract partial record ConstitutiveModel {
     public static double DamageFraction(double driving, double threshold, double exponent) =>
         Damaged(new Real(driving), threshold, exponent).Value;
 
-    // Elastic strain is the SAME quantity every arm reads: total minus the committed inelastic part. An arm
-    // reading total strain adds the shed plastic offset back into the stored energy and reports a stress the
-    // material lost — the one law the equilibrium spring, every Maxwell branch, the yield surface, and the damage
-    // driving energy all depend on, stated here and nowhere else.
     static T[] Elastic<T>(T[] strain, ReadOnlyMemory<double> inelastic) where T : IScalar<T> {
         T[] elastic = new T[strain.Length];
         for (int component = 0; component < strain.Length; component++) {
@@ -387,9 +333,6 @@ public abstract partial record ConstitutiveModel {
         return 0.5 * parameters.Lame * (trace * trace) + mu * normal + layout.ShearFactor * mu * shear;
     }
 
-    // ONE yield surface. `q` is the regularized von-Mises equivalent, `lode` the third-invariant shape term, and
-    // the meridian and cap terms weight in by `PlasticPotential` alone. A soil-free row carries zero cap weight by
-    // admission and the absent arm returns the frictional surface exactly rather than a scaled share of it.
     static T Yield<T>(T[] elastic, ConstitutiveState state, ConstitutiveParameters parameters,
         PlasticPotential potential, Regularization smoothing) where T : IScalar<T> {
         VoigtLayout layout = parameters.Layout;
@@ -419,9 +362,6 @@ public abstract partial record ConstitutiveModel {
         return Root(Positive(ellipse, smoothing), smoothing);
     }
 
-    // The stored energy differentiates the SAME surface the return map measures: the regularized overstress and
-    // its consistency increment both form from `Yield`, so stress and tangent are the exact derivatives of the
-    // verdict rather than a second reading of it.
     static T PlasticEnergy<T>(T[] strain, ConstitutiveState state, ConstitutiveParameters parameters,
         PlasticPotential potential, Regularization smoothing) where T : IScalar<T> {
         T[] elastic = Elastic(strain, state.PlasticStrain);
@@ -431,7 +371,6 @@ public abstract partial record ConstitutiveModel {
         return ElasticEnergy(elastic, parameters) - overstress * increment + 0.5 * modulus * (increment * increment);
     }
 
-    // Arity is gated at admission, so the body carries no arity guard of its own.
     static T HyperelasticEnergy<T>(T[] deformation, ConstitutiveParameters parameters, HyperelasticLaw law) where T : IScalar<T> {
         T j = Determinant(deformation);
         T[] rightCauchyGreen = new T[9];
@@ -451,15 +390,11 @@ public abstract partial record ConstitutiveModel {
             + volume * volume * (0.5 * parameters.Lame * law.Bulk);
     }
 
-    // ONE 3×3 determinant over the seam, so the admission gate's double-valued check and the energy's
-    // differentiated Jacobian are the same twelve products rather than two spellings that can drift apart.
     internal static T Determinant<T>(ReadOnlySpan<T> f) where T : IScalar<T> =>
         f[0] * (f[4] * f[8] - f[5] * f[7]) - f[1] * (f[3] * f[8] - f[5] * f[6]) + f[2] * (f[3] * f[7] - f[4] * f[6]);
 
     static T Determinant<T>(T[] f) where T : IScalar<T> => Determinant<T>(f.AsSpan());
 
-    // Generalized Maxwell over the SAME elastic strain the equilibrium spring reads: the equilibrium branch is the
-    // stored energy over `ε_e` and each arm adds `½·E_k·(ε_e − decay·ε_e,prior)²` over that same `ε_e`.
     static T ViscoelasticEnergy<T>(T[] strain, ConstitutiveState state, ConstitutiveParameters parameters, int terms, double timeStep) where T : IScalar<T> {
         T[] elastic = Elastic(strain, state.PlasticStrain);
         T energy = ElasticEnergy(elastic, parameters);
@@ -474,9 +409,6 @@ public abstract partial record ConstitutiveModel {
         return energy;
     }
 
-    // Damage evolves ON the tape wherever the driving energy exceeds the committed threshold, so `D` is a function
-    // of `Ψ` and `(1−D)·Ψ` differentiates into the true SOFTENING tangent; at or below it the committed value
-    // enters as a constant and the branch is the secant elastic one — that asymmetry IS unloading.
     static T DamageEnergy<T>(T[] strain, ConstitutiveState state, ConstitutiveParameters parameters, double exponent) where T : IScalar<T> {
         T stored = ElasticEnergy(Elastic(strain, state.PlasticStrain), parameters);
         return stored.Value > Math.Max(parameters.DamageThreshold, state.DamageDriving)
@@ -484,28 +416,18 @@ public abstract partial record ConstitutiveModel {
             : (1.0 - state.Damage) * stored;
     }
 
-    // Saturating damage in the driving energy: `D = e·(Ψ−κ)/(e·(Ψ−κ) + κ)` is monotone, reaches one only in the
-    // limit, and needs no transcendental the hyper-dual scalar does not carry.
     static T Damaged<T>(T driving, double threshold, double exponent) where T : IScalar<T> {
         T excess = (driving - threshold) * exponent;
         return excess / (excess + threshold);
     }
 
-    // The smooth positive part every surface on the page shares, contact included — one regularized ramp, so the
-    // contact potential and the plastic overstress round the same corner the same way, and the return map's own
-    // overstress reads THIS body rather than a `double` re-spelling of it.
     public static T Positive<T>(T value, Regularization smoothing) where T : IScalar<T> =>
         0.5 * (value + Root(value * value, smoothing));
 
-    // ONE regularized root: the shift keeps the derivative finite at zero, which is exactly why the return map and
-    // the tangent agree at the elastic-plastic corner, and the root itself is the carrier's own exact member.
     public static T Root<T>(T value, Regularization smoothing) where T : IScalar<T> =>
         T.Sqrt(value + smoothing.Value * smoothing.Value);
 }
 
-// The two contact disciplines differ by ONE optional column, not by case: normal, base gap, and regularization
-// were realized identically by both arms, so the dispatch that chose between them decided nothing and its
-// pointwise arm returned a constant once per pair inside the gap loop.
 public sealed record ContactConstraint {
     private ContactConstraint(Vector3 normal, double baseGap, Regularization smoothing, Option<ReadOnlyMemory<double>> weights) =>
         (Normal, BaseGap, Smoothing, Weights) = (normal, baseGap, smoothing, weights);
@@ -513,13 +435,8 @@ public sealed record ContactConstraint {
     public Vector3 Normal { get; }
     public double BaseGap { get; }
     public Regularization Smoothing { get; }
-    // Absent weights ARE the pointwise discipline; present weights are the mortar segment integration, one per
-    // admitted pair.
     public Option<ReadOnlyMemory<double>> Weights { get; }
 
-    // A non-unit normal rescales the gap and every force derived from it, so the direction is ADMITTED rather than
-    // normalized in place — a caller whose normal drifted is reporting a geometry it has not resolved. Every weight
-    // claim the enforcement fold used to re-test lands here, so the interior reads proven evidence.
     public static Fin<ContactConstraint> Of(Vector3 normal, double baseGap, Regularization smoothing, Option<ReadOnlyMemory<double>> weights) =>
         Seq(
             Claim(Math.Abs(normal.LengthSquared() - 1.0) <= EpsilonPolicy.SqrtEpsilon,
@@ -537,8 +454,6 @@ public sealed record ContactConstraint {
 
     public double Weight(int pair) => Weights.Match(Some: held => held.Span[pair], None: static () => 1.0);
 
-    // The potential sums INDEPENDENT per-pair terms, so its Hessian is diagonal — which is what lets the solve
-    // contract project one entry per pair onto the normal instead of a dense gap-space block.
     public HyperDual Potential(HyperDual[] penetration, double penalty) {
         HyperDual energy = penetration[0].Like(0.0);
         foreach (HyperDual gap in penetration) {
@@ -552,7 +467,7 @@ public sealed record ContactConstraint {
         held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class StressUpdate {
     public static Fin<ConstitutiveResult> Stress(
@@ -568,8 +483,6 @@ public static class StressUpdate {
         })
         select result;
 
-    // Hyper-dual exports are plain arrays, so the row-major flatten IS the carrier shape both results publish and
-    // no dense-matrix lift stands between the tape and the receipt.
     internal static ReadOnlyMemory<double> RowMajor(double[,] hessian) {
         int size = hessian.GetLength(0);
         double[] flat = new double[size * size];
@@ -577,8 +490,6 @@ public static class StressUpdate {
         return flat.AsMemory();
     }
 
-    // Only what varies per CALL: the parameters admitted at construction and the model arms state their own
-    // stories, so this gate carries strain finiteness and state arity alone.
     static Fin<Unit> Validate(ConstitutiveModel model, ReadOnlyMemory<double> strain, ConstitutiveState state, ConstitutiveParameters parameters) =>
         strain.IsEmpty || !TensorPrimitives.IsFiniteAll<double>(strain.Span)
             ? Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.NonFinite(ComputeSubject.Input, new ScalarEvidence.Sequence(strain.Length))))
@@ -586,8 +497,6 @@ public static class StressUpdate {
                 ? Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(state.PlasticStrain.Length, strain.Length))))
                 : model.Admits(strain, parameters);
 
-    // An elastic step and a non-plastic model both report a converged map at zero iterations with a zero residual,
-    // which is the honest reading: nothing iterated and nothing failed to.
     static Fin<(int Iterations, double DGamma, double Residual)> ReturnMapVerdict(
         ConstitutiveModel model, ReadOnlyMemory<double> strain, ConstitutiveState state, ConstitutiveParameters parameters) =>
         model is ConstitutiveModel.Plastic plastic
@@ -602,11 +511,6 @@ public static class StressUpdate {
                 : Fin.Fail<(int, double, double)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Consistent, new ContractEvidence.None())))
             : Fin.Succ((0, 0.0, 0.0));
 
-    // A surface LINEAR in the plastic multiplier — J2 with linear hardening, every potential weight zero — closes
-    // in exactly one step and reports one. A pressure-dependent or capped surface moves with the volumetric part
-    // the flow rule advances, so it is nonlinear in that multiplier: the map iterates against the regularized
-    // residual over the state each increment implies, and running the cap out is `Exhausted`, never an increment
-    // the caller cannot distinguish from a converged one.
     const int ReturnMapCap = 25;
 
     static (int Iterations, double DGamma, Convergence Verdict) ReturnMap(
@@ -649,9 +553,6 @@ public static class StressUpdate {
             Hardening = state.Hardening + dGamma,
             VolumetricPlasticStrain = state.VolumetricPlasticStrain + volumetric,
         };
-        // Consolidation advances ONLY where the material carries a critical-state model. The exponent clamps at
-        // the domain `Math.Exp` answers finitely on — a volumetric step past it is a consolidation the model no
-        // longer describes, and the clamp states that bound rather than overflowing into infinity.
         return parameters.Soil.Match(
             Some: soil => advanced with {
                 PreconsolidationPressure = Some(state.PreconsolidationPressure.IfNone(soil.InitialPreconsolidationPressure)
@@ -661,12 +562,8 @@ public static class StressUpdate {
             None: () => advanced);
     }
 
-    // `Math.Exp` overflows a double past roughly 709 and underflows to zero below -745; the consolidation ratio is
-    // clamped far inside both because a pressure multiplier of e^20 already leaves the model's own validity.
     const double ExponentDomain = 20.0;
 
-    // The committed pair advances by the SAME law the tape differentiates, so the next step's branch test reads the
-    // energy this step actually reached; an unloading step commits neither column.
     static ConstitutiveState DamageEvolution(
         ConstitutiveState state, ReadOnlyMemory<double> strain, ConstitutiveParameters parameters, double exponent) {
         double driving = ConstitutiveModel.StoredEnergy(strain, state, parameters);
@@ -689,8 +586,6 @@ public static class StressUpdate {
         return next;
     }
 
-    // Flow direction is the normalized elastic strain, so a state with no elastic strain has no direction and
-    // accumulates the volumetric part alone — which the layout, not a bare three, tells it where to put.
     static ReadOnlyMemory<double> Accumulated(
         ReadOnlyMemory<double> plastic, ReadOnlyMemory<double> strain, VoigtLayout layout, double dGamma, double dilation) {
         double[] elastic = new double[Math.Max(plastic.Length, strain.Length)];
@@ -720,10 +615,6 @@ public static class ContactEnforcement {
         })
         select result;
 
-    // Four INDEPENDENT admissions accumulate: the ladder they replaced reported the first, so a caller with both a
-    // malformed pair roster and a mismatched multiplier arity fixed one to discover the other. Each pair names the
-    // BASE dof of a translational triple, because the gap projects onto the constraint normal — an index check on
-    // the base row alone reads the two rows past the end of the field.
     static Fin<Unit> Admit(
         ContactConstraint contact, ReadOnlyMemory<double> displacement, ReadOnlyMemory<double> multipliers,
         double penalty, Seq<(int Slave, int Master)> pairs) =>
@@ -744,9 +635,6 @@ public static class ContactEnforcement {
     static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
         held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 
-    // Gap is the relative displacement PROJECTED onto the constraint normal, less the base gap:
-    // `g = (u_s − u_m)·n − g₀` over each pair's dof triple. A scalar difference of two dof rows measures whichever
-    // axis those rows happen to be, so an inclined interface reports a penetration it never had.
     static double[] Gap(ContactConstraint contact, ReadOnlyMemory<double> displacement, Seq<(int Slave, int Master)> pairs) {
         double[] gap = new double[pairs.Count];
         ReadOnlySpan<double> field = displacement.Span;

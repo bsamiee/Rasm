@@ -39,9 +39,6 @@ public sealed partial class ResidencyKind {
     public bool ConeCullable { get; }
     public bool SplatBorne { get; }
 
-    // The streams a decode of this kind cannot do without. An absent mandatory stream used to allocate a
-    // zero-length destination, decode nothing, and report status `0` — so a payload MISSING its positions was
-    // indistinguishable from one carrying none, and the decode reported clean over fabricated emptiness.
     public FrozenSet<ResidencyStream> Required { get; }
 
     public Validation<Error, Unit> Complete(FrozenDictionary<ResidencyStream, StreamSpan> layout) =>
@@ -50,14 +47,10 @@ public sealed partial class ResidencyKind {
                 $"<residency-stream-absent:{Key}:{string.Join(',', absent.Map(static stream => stream.Key))}>"))
             : Validation<Error, Unit>.Success(unit);
 
-    // Row-owned encode arm: the kind IS the behavior, so the source dispatch stays one level deep and a repeated
-    // full-coverage kind Switch inside the Leaf arm never arises.
     [UseDelegateFromConstructor]
     public partial Fin<ResidencyPayload> LeafArm(ImportedGeometry leaf, ResidencyPolicy policy);
 }
 
-// Meshlet-builder axis over the three count-bearing meshopt builds: cone-weighted scan, variable-size flex
-// (min..max triangles under split_factor), spatial-locality fill — a build strategy is a row, never a fork.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -67,16 +60,10 @@ public sealed partial class ClusterBuild {
     public static readonly ClusterBuild Spatial = new("spatial", kernel: 2, cost: CostAxis.Locality);
     public static readonly ClusterBuild Bisect = new("bisect", kernel: Managed, cost: CostAxis.VertexCut);
 
-    // The managed build's ordinal, seated OUTSIDE the native span so the pinned kernel's dispatch is a closed
-    // switch over `0..2` rather than an identity ladder ending in a catch-all — a fifth row without its own
-    // ordinal fails to construct where it used to fall silently into the cone-weighted scan.
     public const int Managed = -1;
 
     public int Kernel { get; }
 
-    // Meshopt's three builders are greedy forward scans minimizing cone spread or spatial fill, paying whatever
-    // vertex duplication the scan order produces; `Bisect` minimizes the shared-vertex CUT instead, so the column
-    // states which cost a row optimizes and `ResidencyMeshlet.Cut` is the figure that makes them comparable.
     public CostAxis Cost { get; }
 }
 
@@ -89,9 +76,6 @@ public sealed partial class CostAxis {
     public static readonly CostAxis VertexCut = new("vertex-cut");
 }
 
-// Triangle-adjacency edge for the bisection build: the partition algebra constrains its edge to the ordered
-// undirected marker AND the double tag it reads as cut weight, so the shared-vertex COUNT rides the tag. The
-// setter exists because the interface declares one; the build mints every edge whole and never re-tags.
 public sealed class FaceAdjacency(int source, int target, double shared) : IUndirectedEdge<int>, ITagged<double> {
     public int Source { get; } = source;
     public int Target { get; } = target;
@@ -139,10 +123,6 @@ public sealed partial class StreamMode {
     public static readonly StreamMode Raw = new("RAW");
 }
 
-// Each case carries its OWN shape census, so a third modality cannot land without one — two `bool`-returning
-// validators sitting beside the union could be forgotten by a new case and each discarded WHICH of five
-// conditions failed, `Leaf` even returning `true` for a point kind as a shape verdict, conflating "valid" with
-// "no further checks apply".
 [Union]
 public abstract partial record ResidencySource {
     private ResidencySource() { }
@@ -150,9 +130,6 @@ public abstract partial record ResidencySource {
     public abstract Validation<Error, Unit> Check();
 
     public sealed record Leaf(ResidencyKind Kind, ImportedGeometry Geometry) : ResidencySource {
-        // Per-lane extent is the arena's own claim, so admission proves only the cross-shape census the arena
-        // cannot: declared element count and vertex count are one number, and a topological kind additionally
-        // owes whole triangles indexing inside its own vertex range at a width `uint` holds.
         public override Validation<Error, Unit> Check() =>
             Census("leaf-extent", Geometry.VertexCount > 0 && Geometry.Lanes.Count == Geometry.VertexCount)
             & (Kind == ResidencyKind.PointSplat || Kind.SplatBorne
@@ -162,7 +139,6 @@ public abstract partial record ResidencySource {
     }
 
     public sealed record Splat(SplatScan Scan) : ResidencySource {
-        // Wire law: `harmonic_degree` is the SH band 0-3, byte-mirrored from `GaussianSplatScan`.
         public override Validation<Error, Unit> Check() =>
             Census("splat-count", Scan.SplatCount is > 0 and <= int.MaxValue)
             & Census("splat-degree", Scan.HarmonicDegree is >= 0 and <= 3)
@@ -201,13 +177,6 @@ public sealed record ResidencyPolicy(
         ConeWeight: 0.25f, SplitFactor: 2.0f, FillWeight: 0.5f, QuantizationBits: 14,
         CodecLevel: 2, CodecVersion: 0, SimplifyTarget: 0.25, AttributeWeight: 0.5);
 
-    // EVERY output-affecting scalar in owner order, which `Runtime/codecs#CONTENT_ADDRESSING` legislates and the
-    // prior key vector broke: three of twelve columns folded, so two payloads built at different cluster budgets,
-    // codec levels, or attribute weights keyed IDENTICALLY and the Persistence dedup index served one for the
-    // other. The build ROW is a scalar here too — a cone-weighted and a cut-minimizing partition of one mesh emit
-    // different bytes — and it folds as its kernel ordinal so the roster's own order is the key's order. The carrier
-    // is memory-shaped by CAPTURE, never preference: `Runtime/codecs#CONTENT_ADDRESSING` folds the vector inside a
-    // static closure state, and no closure captures a span, so a span member here cannot reach the entry.
     public ReadOnlyMemory<double> Vector => new double[] {
         Cluster.Kernel, MaxVertices, MinTriangles, MaxTriangles,
         ConeWeight, SplitFactor, FillWeight, QuantizationBits,
@@ -215,21 +184,6 @@ public sealed record ResidencyPolicy(
     };
 }
 
-// Cluster-LOD chain columns: Error is object-space simplification error (level 0 = 0); a ROOT carries no parent
-// and no parent error, both `Option`-shaped, where `-1` and `+inf` were sentinels every consumer had to know to
-// exclude before comparing. A linked child's ParentError is raised to at least max(children) — MONOTONIC
-// (ParentError >= Error) — so a screen-space cut (finest level whose Error <= t < ParentError) is crack-free and
-// double-draw-free. AppUi reads these and never re-clusters.
-// Shell names the connected-component representative of the cluster's own triangles under the shared-vertex
-// relation, and a parent link searches WITHIN one shell — so a fine cluster never binds a coarse parent from a
-// disjoint piece of geometry whose sphere merely contains it, a cut that then draws two unrelated shells at once.
-// Curvature is the cluster's own MEASURED normal-variation bound in radians per object-space unit — the 1/R a
-// ray-cone footprint doubles into its spread — appended past the frozen columns so every mirror of this
-// descriptor widens by one row rather than re-ordering the four same-typed offset and count slots.
-// Cut is the REALIZED shared-boundary-vertex count: how many of this cluster's own vertices a sibling cluster in
-// the same level also holds, so the stream pays for them twice. It fills for every ClusterBuild row — that IS the
-// point, since the greedy native scans and the cut-minimizing bisection only become comparable on the one figure
-// that decides stream cost, and a build chosen on taste rather than this number is the choice this column ends.
 public readonly record struct ResidencyMeshlet(
     int VertexOffset,
     int TriangleOffset,
@@ -248,34 +202,18 @@ public readonly record struct ResidencyMeshlet(
     float Curvature,
     int Cut);
 
-// per-stream EXT_meshopt_compression bufferView: byte window, Count/ByteStride, decode Mode (attribute/triangle/
-// index codec, or Raw for un-encoded meshlet triangle bytes), inverse Filter — the set the AppUi manifest emits
 public readonly record struct StreamSpan(int Offset, int Length, int Count, int ByteStride, StreamMode Mode, StreamFilter Filter, int CodecVersion);
 
-// The `(kind, stream) -> form` correspondence as ONE table rather than four hand-written seven-tuples that each
-// re-derived mode, filter, stride, and codec version at their own construction site. `Positions` reads
-// `Filter.None` under the meshlet arm and `Filter.Exponential` under the other three — a divergence four literal
-// tuples could only agree on by inspection — and combinations the codec refuses (`Mode.Raw` under a filter, an
-// octahedral filter on a position lane) have no row to occupy. `Lazy` because the table reads `EncodingChannel`
-// arities at first touch and every consumer of it runs long after type init.
 public readonly record struct StreamForm(StreamMode Mode, StreamFilter Filter, int ByteStride, Func<ResidencyPolicy, int> CodecVersion);
 
-// The assembled stream: role, measured element count, and bytes. Mode, filter, stride, and version come from the
-// table, so an arm supplies only what it MEASURED and a seven-slot anonymous tuple stops standing as a parameter
-// type at one site and a construction shape at four.
 public readonly record struct StreamDraft(ResidencyStream Stream, int Count, ReadOnlyMemory<byte> Bytes);
 
-// exp-packed 3-component carrier (12 bytes) the meshopt exponent filter writes; never read back as floats here,
-// so the three words carry no domain meaning of their own and `Slots` is the one number any arm reads off it.
 [InlineArray(Slots)]
 public struct Packed12 {
     public const int Slots = 3;
     private uint word;
 }
 
-// Harmonics leads with the SH DC triple (the wire band width (degree+1)^2*3 counts it); Alphas carries the
-// sigmoid-activated per-splat opacity in [0,1] — the renderer's direct input — appended past the frozen columns
-// under the wire's additive-only law. The python companion composes both at its container fold.
 public sealed record SplatScan(
     string FormatKey,
     ReadOnlyMemory<float> Positions,
@@ -286,10 +224,6 @@ public sealed record SplatScan(
     long SplatCount,
     ReadOnlyMemory<float> Alphas);
 
-// The constructor is PRIVATE and `Assemble` the only mint, because every span in `Runs` slices the blob by a
-// `Layout` row: a public positional constructor let any caller mint a payload whose declared windows exceed its
-// own bytes, and the decode's unguarded slices were then a caller-reachable range fault rather than a refusal.
-// Span containment now holds by construction and the interior re-proves nothing.
 public sealed record ResidencyPayload {
     internal ResidencyPayload(
         ResidencyKind kind, UInt128 contentKey, ArtifactContent artifact, ReadOnlyMemory<byte> blob,
@@ -310,27 +244,15 @@ public sealed record ResidencyPayload {
     public float Radius { get; }
     public int HarmonicDegree { get; }
 
-    // The folder's ONE object-plane address grammar, composed rather than interpolated: three siblings
-    // spelled `$"{key:x32}:{kind}"` by hand and a separator or hex-width change had three sites to miss.
     public string ArtifactKey => InterchangeIdentity.Address(ContentKey, Kind.Key);
 
     public long EncodedBytes => Blob.Length;
 
-    // Per-LOD-level cut aggregate, indexed by level: the duplicated-vertex mass one level of the ladder pays,
-    // folded off the clusters that already measured it rather than stored as a column a re-encode could contradict.
-    // A consumer reads it beside the cluster count the `StreamSegment` receipt carries for the same `ArtifactKey`,
-    // so a build-strategy comparison runs on producer evidence with no re-derivation off the decoded runs.
     public Seq<int> LevelCuts =>
         toSeq(Clusters.GroupBy(static cluster => cluster.Level).OrderBy(static level => level.Key))
             .Map(static level => level.Sum(static cluster => cluster.Cut));
 }
 
-// The decoded per-vertex attribute runs a host consumer indexes per primitive — the data source behind the AppUi
-// SurfaceAttribution real arm. Positions/Normals/Uvs run in GLOBAL vertex order; MeshletVertices is the decoded
-// local-to-global vertex table and MeshletTriangles the raw local triangle bytes, so cluster-local triangle t
-// corner c reads global vertex MeshletVertices[cluster.VertexOffset + MeshletTriangles[cluster.TriangleOffset +
-// t*3 + c]]. An empty run is typed absence — a source with no normals or no unwrap decodes to empty, never a
-// fabricated constant a consumer cannot tell from data.
 public sealed record ResidencyRuns(
     ReadOnlyMemory<float> Positions,
     ReadOnlyMemory<float> Normals,
@@ -341,40 +263,19 @@ public sealed record ResidencyRuns(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Residency {
-    // Every component count and stride resolves off the channel descriptor's OWN arity: a literal here silently
-    // freezes a lane's width against a roster that grows, which is the per-column read the descriptor law deleted.
-    // These are the page's one spelling of each, so no arm carries a second.
     internal static readonly int PositionArity = EncodingChannel.Position.Arity;
     internal static readonly int NormalArity = EncodingChannel.Normal.Arity;
     static readonly int UvArity = EncodingChannel.Uv.Arity;
     static readonly int PositionStride = PositionArity * sizeof(float);
-    // The normal lane's own width, never borrowed from the position lane: the octahedral filter packs a normal
-    // into one `uint`, so the ENCODED stride is four bytes while the source arity stays the descriptor's, and a
-    // literal `PositionStride` on this lane froze a lane's width against a roster that grows.
     static readonly int NormalStride = sizeof(uint);
     static readonly int UvStride = UvArity * sizeof(float);
     const int OctBits = 8;
     const int IndexCodecVersion = 1;
-    // KL refinement passes per bisection: the algorithm seeds an arbitrary halving, so a single pass leaves
-    // obvious swaps unmade while the gain sequence flattens well before the part size the budget admits.
     const int BisectionPasses = 4;
-    // The meshopt meshlet ABI ceilings — a local vertex slot is one byte and the triangle budget is a
-    // quarter-aligned span the builders address as a triple. Admission clamps every policy against them AND the
-    // per-cluster curvature scratch sizes off them, so the cap is declared once and no second literal drifts.
     const int VertexCeiling = 255;
     const int TriangleCeiling = 512;
-    // A triangle whose twice-area falls under this fraction of its own squared extent carries a normal direction
-    // assembled from coordinate rounding alone; 2^-24 IS the single-precision significand, so the gate is
-    // scale-free and no model tunes it.
     const float SliverFloor = 1f / (1 << 24);
 
-    // EncodeIndexBuffer/EncodeIndexSequence carry NO per-call version arg (unlike EncodeVertexBufferLevel), so the
-    // meshlet vertex-table and triangle-index streams follow the process-global EncodeIndexVersion — the ONE fact
-    // this lane cannot carry per call, and therefore the only one pinned. `Mount` is an interlocked one-shot the
-    // composition root runs, matching the `Runtime/archive#HDF_ARCHIVE` `HdfArchive.Mount` precedent, because a
-    // static constructor is unordered against every other type's init and its "before the first Encode" claim
-    // holds only while nothing else touches the native encoder. The VERTEX version is policy-carried at every
-    // call, so pinning it globally "for symmetry" was two authorities for one fact and the pin deletes.
     public static Fin<Unit> Mount() =>
         Interlocked.Exchange(ref mounted, 1) is 0
             ? Fin.Succ(fun(() => Meshopt.EncodeIndexVersion(IndexCodecVersion))())
@@ -382,9 +283,6 @@ public static class Residency {
 
     static int mounted;
 
-    // The `(kind, stream) -> form` correspondence: one row per legal pair, so the four arms below supply what they
-    // MEASURED and re-derive no mode, filter, stride, or version. A pair with no row is a stream that kind does
-    // not emit, which `Assemble` refuses rather than encoding under a guessed form.
     static readonly Lazy<FrozenDictionary<(ResidencyKind Kind, ResidencyStream Stream), StreamForm>> Forms = new(static () => new[] {
         (ResidencyKind.MeshletCluster, ResidencyStream.Positions, new StreamForm(StreamMode.Attributes, StreamFilter.None, PositionStride, static p => p.CodecVersion)),
         (ResidencyKind.MeshletCluster, ResidencyStream.Indices, new StreamForm(StreamMode.Indices, StreamFilter.None, sizeof(uint), static _ => IndexCodecVersion)),
@@ -400,32 +298,20 @@ public static class Residency {
         (ResidencyKind.GaussianSplat, ResidencyStream.Scales, new StreamForm(StreamMode.Attributes, StreamFilter.Exponential, PositionStride, static p => p.CodecVersion)),
         (ResidencyKind.GaussianSplat, ResidencyStream.Rotations, new StreamForm(StreamMode.Attributes, StreamFilter.Quaternion, sizeof(ulong), static p => p.CodecVersion)),
         (ResidencyKind.GaussianSplat, ResidencyStream.Harmonics, new StreamForm(StreamMode.Attributes, StreamFilter.Exponential, sizeof(uint), static p => p.CodecVersion)),
-        // Opacity crosses raw: a [0,1] scalar gains nothing from the exponent filter's shared-component pass, and
-        // the renderer reads it verbatim beside the filtered attribute streams.
         (ResidencyKind.GaussianSplat, ResidencyStream.Alphas, new StreamForm(StreamMode.Attributes, StreamFilter.None, sizeof(float), static p => p.CodecVersion)),
     }.ToFrozenDictionary(static row => (row.Item1, row.Item2), static row => row.Item3));
 
-    // One dispatch level: the source Switch resolves modality, the Leaf arm reads the kind's row-owned LeafArm
-    // column — dispatch plus data retrieval, never a second full-coverage Switch nested in the arm.
     public static Fin<ResidencyPayload> Encode(ResidencySource source, ResidencyPolicy policy) =>
         Admit(source, policy).Bind(static admitted => admitted.Source.Switch(
             state: admitted.Policy,
             leaf: static (p, l) => l.Kind.LeafArm(l.Geometry, p),
             splat: static (p, s) => SplatEncode(s.Scan, p)));
 
-    // The ROUTED substrate arrives from the caller that ran the encode, never a constant: an encode routed onto a
-    // device stamps the device, so a receipt naming a substrate that never ran cannot be minted here at all.
     public static ComputeReceipt.StreamSegment Receipt(ResidencyPayload payload, CorrelationId correlation, WorkLane lane, Substrate substrate, Duration elapsed) =>
         new(payload.ArtifactKey, payload.Clusters.IsEmpty ? payload.Layout.Count : payload.Clusters.Count, payload.EncodedBytes) {
             Scope = new ReceiptScope.Execution(correlation, lane, substrate, AllocationClass.PooledMemory, elapsed),
         };
 
-    // The decode projection PAIRED with the meshlet encode — the one host-side attribute reader, so AppUi never
-    // grows a second stream decoder. Each stream decodes under its own Layout row: the vertex codec for
-    // attribute runs, the index-sequence codec for the meshlet vertex table, raw triangle bytes verbatim; the
-    // octahedral normal filter unpacks in place before the snorm8 lanes widen to unit floats. MESHLET-CLUSTER
-    // ONLY: the quantized/point/splat kinds ship exponent-filtered streams whose consumer is the web viewer's
-    // meshopt decoder, and a host read of those kinds is a routing defect this gate names rather than absorbs.
     public static Fin<ResidencyRuns> Runs(ResidencyPayload payload) {
         if (payload.Kind != ResidencyKind.MeshletCluster) {
             return Fin.Fail<ResidencyRuns>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Compatible, new ContractEvidence.Key(payload.Kind.Key))));
@@ -435,10 +321,6 @@ public static class Residency {
         uint[] packedNormals = new uint[Count(payload, ResidencyStream.Normals)];
         Vector2[] uvs = new Vector2[Count(payload, ResidencyStream.Uvs)];
         uint[] table = new uint[Count(payload, ResidencyStream.Indices)];
-        // Four INDEPENDENT decodes accumulate, so a payload whose normals and uvs both fail names both — a
-        // bitwise OR of four native statuses blurred them into one bit and one message naming no stream at all.
-        // Mandatory-stream presence accumulates beside them, so an absent positions stream refuses BY NAME rather
-        // than allocating a zero-length destination that decodes nothing and reports clean.
         Validation<Error, Unit> decoded =
             payload.Kind.Complete(payload.Layout)
             & Decoded(payload, ResidencyStream.Positions, positions, blob)
@@ -460,9 +342,6 @@ public static class Residency {
     static int Count(ResidencyPayload payload, ResidencyStream stream) =>
         payload.Layout.TryGetValue(stream, out StreamSpan span) ? span.Count : 0;
 
-    // One decode body, the stream's own Mode selecting the codec, and its verdict NAMES the stream. An absent
-    // OPTIONAL stream decodes nothing and succeeds — a source with no unwrap genuinely carries no uvs — while an
-    // absent mandatory one already refused at the completeness gate above.
     static Validation<Error, Unit> Decoded<T>(ResidencyPayload payload, ResidencyStream stream, Span<T> destination, ReadOnlySpan<byte> blob) where T : unmanaged =>
         destination.Length > 0 && payload.Layout.TryGetValue(stream, out StreamSpan span)
             ? (span.Mode == StreamMode.Indices
@@ -473,9 +352,6 @@ public static class Residency {
                 : Validation<Error, Unit>.Success(unit)
             : Validation<Error, Unit>.Success(unit);
 
-    // The OctBits=8 encode stores snorm8 lanes; the filter decode rehydrates them in place and this widening
-    // lifts the three component lanes to unit floats — the fourth lane is the filter's reconstruction slot,
-    // never data.
     static float[] UnpackSnorm(ReadOnlySpan<uint> packed) {
         float[] wide = new float[packed.Length * NormalArity];
         ReadOnlySpan<sbyte> lanes = MemoryMarshal.Cast<uint, sbyte>(packed);
@@ -486,11 +362,6 @@ public static class Residency {
         return wide;
     }
 
-    // Admission CARRIES its evidence: `AdmittedResidency` is the only value the arms take, so an interior arm
-    // cannot be handed a policy this fold never proved. The prior form returned its two inputs unchanged, which
-    // is an admission that admits nothing. Nine policy checks and the source's own shape census accumulate
-    // together, so a policy with three breaches and a malformed source names all four — the ternary that returned
-    // policy faults first DISCARDED every source fault whenever any policy check tripped.
     public sealed record AdmittedResidency {
         internal AdmittedResidency(ResidencySource source, ResidencyPolicy policy) => (Source, Policy) = (source, policy);
         public ResidencySource Source { get; }
@@ -530,9 +401,6 @@ public static class Residency {
         ShellCensus shells = Shells(optimized);
         int count = BuildClusters(optimized, positions, leaf.VertexCount, policy, meshlets, meshletVertices, meshletTriangles);
         if (count == 0) { return Fin.Fail<ResidencyPayload>(new ComputeFault.PayloadOverBounds($"<residency-meshlet-empty:{leaf.FormatKey}>")); }
-        // The census runs over the WHOLE level before any cluster projects, because a cut is a relation between
-        // clusters and no single cluster can measure it from its own table. The pooled plane releases at this
-        // scope's end — the projection reads it and nothing outlives the loop.
         using MemoryOwner<int> incidence = Incidence(meshlets, count, meshletVertices, leaf.VertexCount);
         List<ResidencyMeshlet> clusters = new(count);
         for (int m = 0; m < count; m++) {
@@ -558,12 +426,6 @@ public static class Residency {
         return Assemble(ResidencyKind.MeshletCluster, leaf.FormatKey, streams, chained.Clusters, leaf.VertexCount, SphereBounds(positions, leaf.VertexCount), 0, policy);
     }
 
-    // Each coarser level simplifies the prior level's index buffer through the Meshopt.Simplify ladder (result_error
-    // scaled to object space by SimplifyScale), re-clusters, and links each fine cluster to the coarse parent whose
-    // sphere CONTAINS it, falling back to nearest center. Monotonic guarantee at link time: a parent's Error rises to
-    // at least max(children) before children stamp ParentError, so a screen-space cut is crack-free and
-    // double-draw-free. Ladder terminates when a level stops shrinking or one meshlet remains; roots carry
-    // roots carry NO parent and NO parent error, both absent rather than sentinel-valued.
     static (Seq<ResidencyMeshlet> Clusters, uint[] Vertices, byte[] Triangles) LodChain(
         uint[] indices,
         ReadOnlySpan<float> positions,
@@ -582,9 +444,6 @@ public static class Residency {
         while (countOfLevel > shells.Count) {
             uint[] simplified = new uint[current.Length];
             nuint target = (nuint)Math.Max(3, (long)(current.Length * policy.SimplifyTarget) / 3 * 3);
-            // `LockBorder` freezes open edges, so a shell's boundary survives every ladder level identically and a
-            // parent link never inherits a border the simplifier moved — the crack the `Shell` column otherwise
-            // works around after the fact. `options: 0` was a bare int standing where a typed flag set belongs.
             nuint written = Meshopt.Simplify(simplified, current, positions, (nuint)vertexCount, PositionStride, target,
                 targetError: float.MaxValue, options: SimplificationOptions.SimplifyLockBorder, out float resultError);
             if (written >= (nuint)current.Length || written < 3) { break; }
@@ -599,13 +458,6 @@ public static class Residency {
         return (toSeq(all), vertices.ToArray(), triangles.ToArray());
     }
 
-    // Each fine cluster binds the nearest-center coarse cluster whose sphere CONTAINS it (d + fineRadius <=
-    // coarseRadius), else nearest center, so a child never binds outside its parent's coverage; the parent's Error
-    // raises to max(parent, children) and children re-stamp ParentError from the raised value.
-    // Absence is `Option`, never `-1` or `+inf`: a root carries NO parent and NO parent error, and both sentinels
-    // were values a consumer had to know to exclude before comparing. The parent search answers `Option<int>` for
-    // the same reason — `float.MaxValue` standing for "no candidate in this shell" is a distance a real cluster
-    // could in principle carry.
     static void Link(List<ResidencyMeshlet> all, int fineFirst, int fineCount, int coarseFirst, int coarseCount) {
         for (int f = fineFirst; f < fineFirst + fineCount; f++) {
             Option<int> best = Bound(all, f, coarseFirst, coarseCount);
@@ -614,18 +466,11 @@ public static class Residency {
                 all[f] = all[f] with { Parent = Some(parent) };
             });
         }
-        // The stamp runs as a SECOND pass by construction: a parent's error rises to at least the max of its
-        // children in the pass above, so a child stamping `ParentError` in that same pass would seal a value the
-        // next sibling was about to raise — the monotone guarantee (`ParentError >= Error`) is exactly what the
-        // split buys, and the two passes are one law rather than two.
         for (int f = fineFirst; f < fineFirst + fineCount; f++) {
             all[f] = all[f] with { ParentError = all[f].Parent.Map(parent => Math.Max(all[parent].Error, all[f].Error)) };
         }
     }
 
-    // The covering parent wins, the nearest center is the fallback, and both search WITHIN the fine cluster's own
-    // shell — a parent from a disjoint piece of geometry whose sphere merely contains it draws two unrelated
-    // shells at one cut.
     static Option<int> Bound(List<ResidencyMeshlet> all, int fine, int coarseFirst, int coarseCount) =>
         toSeq(Enumerable.Range(coarseFirst, coarseCount))
             .Filter(c => all[c].Shell == all[fine].Shell)
@@ -656,8 +501,6 @@ public static class Residency {
         uint[] remap = new uint[target];
         int kept = DecimatePoints(remap, positions, leaf.VertexCount,
             Lane(leaf.Lanes, EncodingChannel.Normal), policy.AttributeWeight, target);
-        // The decimator returns a REMAP over the source vertices, so the gather is a span copy per kept point —
-        // `float[]` carries no slice of its own and the array API would allocate one buffer per point.
         float[] gathered = new float[kept * PositionArity];
         for (int v = 0; v < kept; v++) { positions.AsSpan((int)remap[v] * PositionArity, PositionArity).CopyTo(gathered.AsSpan(v * PositionArity)); }
         return Assemble(ResidencyKind.PointSplat, leaf.FormatKey,
@@ -682,12 +525,6 @@ public static class Residency {
         return Assemble(ResidencyKind.GaussianSplat, scan.FormatKey, streams, Seq<ResidencyMeshlet>(), n, SphereBounds(scan.Positions.Span, n), scan.HarmonicDegree, policy);
     }
 
-    // The ONE payload mint. Each draft resolves its `(kind, stream)` form off the table, so an arm supplying a
-    // stream that kind does not emit refuses here instead of encoding under a guessed mode. The content key binds
-    // the landed `InterchangeIdentity.Key(string, ReadOnlyMemory<byte>, ReadOnlyMemory<double>)` declaration —
-    // three parameters, the policy vector the memory-shaped carrier that entry admits — and folds `policy.Vector`,
-    // every output-affecting column in owner order, where three loose scalars against that three-parameter member
-    // both mis-bound the arity and let two payloads at different cluster budgets key identically.
     static Fin<ResidencyPayload> Assemble(ResidencyKind kind, string formatKey, Seq<StreamDraft> streams,
         Seq<ResidencyMeshlet> clusters, int residentCount, (Vector3 Center, float Radius) bounds, int harmonicDegree, ResidencyPolicy policy) {
         Seq<StreamDraft> unformed = streams.Filter(draft => !Forms.Value.ContainsKey((kind, draft.Stream)));
@@ -711,8 +548,6 @@ public static class Residency {
                 residentCount, bounds.Center, bounds.Radius, harmonicDegree));
     }
 
-    // An optional lane contributes a draft or nothing: two `Has*` forwarders and two `if`-append statements per
-    // arm stated the same law four times, and the lane read now resolves BY DESCRIPTOR at one site.
     static Seq<StreamDraft> Optional(ImportedGeometry leaf, EncodingChannel channel, ResidencyStream stream, Func<float[], ReadOnlyMemory<byte>> encode) =>
         leaf.Lanes.Descriptors.Exists(descriptor => descriptor.Channel == channel)
             ? Seq(new StreamDraft(stream, leaf.VertexCount, encode(Lane(leaf.Lanes, channel))))
@@ -721,16 +556,12 @@ public static class Residency {
     static ReadOnlyMemory<byte> EncodeUvs(ReadOnlySpan<float> uvs, int count, ResidencyPolicy policy) =>
         EncodeStream(MemoryMarshal.Cast<float, Vector2>(uvs[..(count * UvArity)]), policy);
 
-    // `Packed12.Slots` is the carrier's OWN slot count, not a channel width: the exponent filter's
-    // shared-component mode packs exactly that many lanes per element, so every channel this arm serves is a
-    // three-component one by construction and the number lives on the type that defines it.
     static ReadOnlyMemory<byte> EncodeExp(ReadOnlySpan<float> floats, int count, ResidencyPolicy policy) {
         Packed12[] packed = new Packed12[count];
         Meshopt.EncodeFilterExp<Packed12>(packed, policy.QuantizationBits, floats[..(count * Packed12.Slots)], EncodeExpMode.EncodeExpSharedComponent);
         return EncodeStream<Packed12>(packed, policy);
     }
 
-    // The quad width is the octahedral filter's own element shape — three data lanes plus its reconstruction slot.
     static ReadOnlyMemory<byte> EncodeNormals(ReadOnlySpan<float> normals, int count, ResidencyPolicy policy) {
         float[] quad = new float[count * 4];
         for (int v = 0; v < count; v++) { normals.Slice(v * NormalArity, NormalArity).CopyTo(quad.AsSpan(v * 4)); }
@@ -739,8 +570,6 @@ public static class Residency {
         return EncodeStream<uint>(packed, policy);
     }
 
-    // Level and version travel WITH the policy that decides both, so no call site can pair one row's level with
-    // another's version — two loose ints at every encode site were exactly that pairing waiting to happen.
     static ReadOnlyMemory<byte> EncodeStream<T>(ReadOnlySpan<T> packed, ResidencyPolicy policy) where T : unmanaged {
         byte[] buffer = new byte[(int)Meshopt.EncodeVertexBufferBound((nuint)packed.Length, (nuint)Unsafe.SizeOf<T>())];
         return buffer.AsMemory(0, (int)Meshopt.EncodeVertexBufferLevel<T>(buffer, packed, policy.CodecLevel, policy.CodecVersion));
@@ -762,9 +591,6 @@ public static class Residency {
         return converted;
     }
 
-    // ONE descriptor-addressed lane reader serves every channel: the descriptor names the dtype, so a unorm8 colour
-    // and a float32 position lift through the same call and no arm carries a literal component stride. An absent
-    // channel answers the empty array — a MISSING DESCRIPTOR, never a zero-filled buffer a consumer length-probes.
     static float[] Lane(EncodedGeometry arena, EncodingChannel channel) {
         if (arena.Descriptors.Find(descriptor => descriptor.Channel == channel).Case is not EncodingChannelDescriptor found) { return []; }
         float[] raw = new float[found.Floats];
@@ -772,12 +598,6 @@ public static class Residency {
         return raw;
     }
 
-    // The ONE per-cluster descriptor projection every build row and every ladder level lands through: the native
-    // bounds kernel and the managed curvature measure read the same local vertex table, local triangle bytes, and
-    // global position stream, so a further measured column is one line here rather than a per-arm fill.
-    // The native `Bounds` is read BY NAME. A positional reinterpret over a foreign struct assumed a declaration
-    // order the binding's catalog never pinned — it enumerates the fields grouped by type — so a layout whose
-    // `cone_apex` preceded `radius` would have keyed every cluster radius wrong while every type checked.
     static ResidencyMeshlet Cluster(in Meshlet meshlet, ReadOnlySpan<uint> localVertices, ReadOnlySpan<byte> localTriangles,
         ReadOnlySpan<float> positions, int vertexCount, int level, float error, int shell, ReadOnlySpan<int> incidence) {
         Bounds bounds = ClusterBounds(localVertices, localTriangles, (int)meshlet.triangle_count, positions, vertexCount);
@@ -793,15 +613,6 @@ public static class Residency {
             Cut: Cut(localVertices, incidence));
     }
 
-    // Cluster-incidence census over ONE level: each build row emits a local-to-global vertex table in which a
-    // global corner appears at most once, so counting corners across the level's clusters counts CLUSTERS, and a
-    // corner seen more than once is a vertex the stream duplicates. The walk reads the per-cluster spans rather
-    // than the raw table because the managed bisection strides its cursor by the policy cap and leaves the slots
-    // between clusters unwritten — a span over the whole table would count that gap as geometry.
-    // The key space is DENSE and bounded — every global corner is below the leaf's own vertex count — so the
-    // census is a pooled counting PLANE indexed directly, not a hash map paying a bucket probe per corner across
-    // every cluster of every ladder level. The owner is disposable and the caller brackets it, which is what
-    // makes the rent a release rather than a leak.
     static MemoryOwner<int> Incidence(Meshlet[] meshlets, int count, uint[] meshletVertices, int vertexCount) {
         MemoryOwner<int> seen = MemoryOwner<int>.Allocate(vertexCount, AllocationMode.Clear);
         Span<int> plane = seen.Span;
@@ -815,9 +626,6 @@ public static class Residency {
         return seen;
     }
 
-    // This cluster's share of that census: the vertices it holds that a sibling in the same level also holds. A
-    // level of one cluster measures zero by construction, which is the honest floor — nothing is duplicated when
-    // nothing borders.
     static int Cut(ReadOnlySpan<uint> localVertices, ReadOnlySpan<int> incidence) {
         int shared = 0;
         foreach (uint global in localVertices) {
@@ -827,21 +635,8 @@ public static class Residency {
         return shared;
     }
 
-    // The cluster's own normal-variation BOUND: the largest turn between the face normals of two triangles that
-    // SHARE A VERTEX — this page's one triangle-adjacency relation, the same shared-vertex relation `FaceAdjacency`
-    // weights and `Shells` partitions on — over the distance their centroids span. The quotient is radians per
-    // object-space unit, so a cylinder facet pair reads 1/R and a ray-cone consumer doubles the column into its
-    // spread; `Atan2` against the cross length holds the near-planar precision `Acos` loses exactly where the
-    // measure decides between flat and barely curved. Edge-only adjacency is the rejected relation. A
-    // cluster whose triangles share no vertex admits no path from one facet to another, so every path across it is
-    // planar and zero is the MEASURED bound, never an unfilled slot; the same holds level by level, because each
-    // coarser level measures its own simplified triangles rather than inheriting a finer level's turn.
     static float Curvature(ReadOnlySpan<uint> localVertices, ReadOnlySpan<byte> localTriangles, int triangleCount, ReadOnlySpan<float> positions) {
         ReadOnlySpan<Vector3> points = MemoryMarshal.Cast<float, Vector3>(positions);
-        // ~19 KB of scratch per call (two 512-slot `Vector3` planes, a 1536-slot chain, a 255-slot head table) and
-        // the call runs once per cluster per ladder level, so the frames NEST — a `stackalloc` quartet at that
-        // depth is a stack budget no ABI ceiling declares. The pooled owners release on the same scope and the
-        // ceilings still size them, so the ABI cap stays the one number and the memory stops riding the stack.
         using SpanOwner<Vector3> normalScratch = SpanOwner<Vector3>.Allocate(TriangleCeiling);
         using SpanOwner<Vector3> centroidScratch = SpanOwner<Vector3>.Allocate(TriangleCeiling);
         using SpanOwner<int> incidentScratch = SpanOwner<int>.Allocate(VertexCeiling);
@@ -857,12 +652,8 @@ public static class Residency {
                 points[(int)localVertices[localTriangles[(t * 3) + 2]]]);
             Vector3 cross = Vector3.Cross(b - a, c - a);
             float extent = (b - a).LengthSquared() + (c - a).LengthSquared();
-            // Vector3.Zero is unspellable as a unit normal, so it IS the sliver sentinel the pair fold skips.
             normals[t] = cross.LengthSquared() > SliverFloor * SliverFloor * extent * extent ? Vector3.Normalize(cross) : Vector3.Zero;
             centroids[t] = (a + b + c) / 3f;
-            // Corner-keyed incidence chain: each corner visits the triangles already holding that local slot, then
-            // joins it — one linear walk over the cluster's corners reaches every vertex-adjacent pair, where a
-            // pairwise scan pays the square of the admitted triangle budget and a shared-EDGE map misses a corner.
             for (int corner = 0; corner < 3; corner++) {
                 int slot = localTriangles[(t * 3) + corner];
                 for (int entry = incident[slot]; entry >= 0; entry = chain[entry]) {
@@ -877,21 +668,11 @@ public static class Residency {
         return bound;
     }
 
-    // One adjacent pair's turn rate. A pair with no direction on either side, or with no travelled distance
-    // between its centroids, measures no rate and drops to the fold's identity rather than dividing through a
-    // degeneracy — an infinity here would swallow the whole cluster's bound.
     static float Rate(Vector3 first, Vector3 firstCentroid, Vector3 second, Vector3 secondCentroid) =>
         Vector3.Distance(firstCentroid, secondCentroid) is var distance && distance > 0f && first != Vector3.Zero && second != Vector3.Zero
             ? float.Atan2(Vector3.Cross(first, second).Length(), Vector3.Dot(first, second)) / distance
             : 0f;
 
-    // Shared-vertex connectivity over the index buffer through the admitted union-find forest: each triangle
-    // unions its three corners, so `FindSet` answers the component representative for any vertex and the cluster's
-    // first corner names its shell. `SetCount` is the shell census the ladder reads — one meshlet remaining per
-    // shell is the honest ladder terminal, where a global count-of-one never terminates a multi-shell mesh.
-    // The shell census is a VALUE, not an opaque `Func` a consumer cannot index: the ordinal table returns whole
-    // and `Of` answers `Option` for a vertex the walk never saw, where indexing the closure's captured dictionary
-    // threw `KeyNotFoundException` on the page's otherwise zero-throw surface.
     public readonly record struct ShellCensus(HashMap<uint, int> Ordinals, int Count) {
         public Option<int> Of(uint vertex) => Ordinals.Find(vertex);
     }
@@ -915,7 +696,6 @@ public static class Residency {
         return new ShellCensus(ordinals, forest.SetCount);
     }
 
-    // One coarser level clustered through the SAME BuildClusters kernel; returns (count, firstIndex).
     static (int Count, int First) ClusterLevel(
         uint[] simplified,
         ReadOnlySpan<float> positions,
@@ -952,11 +732,6 @@ public static class Residency {
         return (count, first);
     }
 
-    // Managed cut-minimizing build: the triangle-adjacency graph carries one vertex per triangle and one edge per
-    // shared-vertex pair TAGGED with the count of vertices that pair shares, so the Kernighan-Lin cut cost IS the
-    // duplicated-vertex count the stream pays. Recursive bisection descends while a part exceeds the triangle
-    // budget; a part at or under budget emits one meshlet through the same local-vertex table and raw local
-    // triangle bytes the native builds write, so every consumer downstream of `BuildClusters` reads one shape.
     static int BisectClusters(ReadOnlySpan<uint> indices, ResidencyPolicy policy,
         Meshlet[] meshlets, uint[] meshletVertices, byte[] meshletTriangles) {
         Seq<int> faces = toSeq(Enumerable.Range(0, indices.Length / 3));
@@ -969,9 +744,6 @@ public static class Residency {
         return cursor.Meshlets;
     }
 
-    // One bisection level: an over-budget part splits on the balanced minimum cut and recurses, a within-budget
-    // part is a leaf. `nbIterations` is the KL pass count — a single pass leaves obvious swaps unmade on a part
-    // whose initial halves the algorithm chose arbitrarily.
     static Seq<Seq<int>> Bisected(Seq<int> faces, uint[] corners, ResidencyPolicy policy) {
         if (faces.Count <= policy.MaxTriangles) { return Seq(faces); }
         UndirectedGraph<int, FaceAdjacency> adjacency = new(allowParallelEdges: false);
@@ -981,15 +753,11 @@ public static class Residency {
         partition.Compute();
         Seq<int> left = toSeq(partition.Partition.VertexSetA);
         Seq<int> right = toSeq(partition.Partition.VertexSetB);
-        // Recursion stops on a degenerate cut (one side empty) — the part is disconnected past the budget, so it
-        // splits on face order rather than looping on the same graph forever.
         return left.IsEmpty || right.IsEmpty
             ? Bisected(toSeq(faces.Take(faces.Count / 2)), corners, policy) + Bisected(toSeq(faces.Skip(faces.Count / 2)), corners, policy)
             : Bisected(left, corners, policy) + Bisected(right, corners, policy);
     }
 
-    // Tag carries the cut weight: two faces sharing two vertices cost twice a pair sharing one, so a minimized cut
-    // is a minimized duplicated-vertex count rather than a minimized face-pair count.
     static Seq<FaceAdjacency> Adjacencies(Seq<int> faces, uint[] corners) =>
         toSeq(faces
             .Bind(face => Seq(corners[face * 3], corners[(face * 3) + 1], corners[(face * 3) + 2]).Map(corner => (Corner: corner, Face: face)))
@@ -1003,9 +771,6 @@ public static class Residency {
             Some: head => faces.Tail.Map(other => (Low: Math.Min(head, other), High: Math.Max(head, other))) + Pairs(faces.Tail),
             None: () => Seq<(int, int)>());
 
-    // One leaf part becomes one meshlet in the native builders' own layout: a local-to-global vertex table with
-    // each global corner appearing once, and raw local triangle bytes indexing it. Writing the same three buffers
-    // is what lets the shared post-build fold, the bounds kernel, and the stream encode stay row-agnostic.
     static (int Meshlets, int Vertices, int Triangles) Emit(
         Seq<int> part, uint[] corners, ResidencyPolicy policy,
         Meshlet[] meshlets, uint[] meshletVertices, byte[] meshletTriangles,
@@ -1033,18 +798,9 @@ public static class Residency {
             vertex_count = (uint)local.Count,
             triangle_count = (uint)triangle,
         };
-        // The cursor advances by what this part WROTE, not by the policy cap. Striding by the cap left the slots
-        // between clusters unwritten, and `MeshletEncode` then sliced the whole table to the tail's extent and
-        // handed those gaps to `EncodeIndexSequence` — unwritten `uint` slots riding the encoded index stream as
-        // global vertex `0` a decode allocates and reads back as real geometry. Compacting also makes the claim
-        // one line above TRUE: this is now the native builders' own layout, not a strided approximation of it.
         return (cursor.Meshlets + 1, cursor.Vertices + local.Count, cursor.Triangles + (triangle * 3));
     }
 
-    // Safe span overloads pass element-span length as the semantic vertex/triangle/point count (wrong for
-    // interleaved-float positions and 3-byte triangles), so these four count-bearing builds pin and pass true
-    // counts; the ClusterBuild row resolves by identity INSIDE the fixed block because meshlet pointers cannot
-    // cross a generated-Switch lambda — the pinned kernel is the named exemption carrying this one row branch.
     static unsafe int BuildClusters(ReadOnlySpan<uint> indices, ReadOnlySpan<float> positions, int vertexCount, ResidencyPolicy policy,
         Meshlet[] meshlets, uint[] meshletVertices, byte[] meshletTriangles) {
         if (policy.Cluster.Kernel is ClusterBuild.Managed) { return BisectClusters(indices, policy, meshlets, meshletVertices, meshletTriangles); }
@@ -1053,9 +809,6 @@ public static class Residency {
         fixed (byte* triangles = meshletTriangles)
         fixed (uint* index = indices)
         fixed (float* position = positions) {
-            // CLOSED on the row's own ordinal, so a new `ClusterBuild` row without a kernel ordinal breaks the
-            // switch — the identity ladder it replaces ended in a catch-all that ran the cone-weighted scan for
-            // any row it did not name, turning a missing arm into a silent wrong build.
             return (int)(policy.Cluster.Kernel switch {
                 1 => Meshopt.BuildMeshletsFlex(meshlet, vertices, triangles, index, (nuint)indices.Length, position, (nuint)vertexCount,
                     (nuint)PositionStride, (nuint)policy.MaxVertices, (nuint)policy.MinTriangles, (nuint)policy.MaxTriangles, policy.ConeWeight, policy.SplitFactor),
@@ -1075,8 +828,6 @@ public static class Residency {
         }
     }
 
-    // tile bounding sphere over leaf/scan positions so ResidencyPayload is self-describing for the AppUi manifest
-    // (frustum cull + placement) — reads the center[3]+radius prefix of the native Bounds
     static unsafe (Vector3 Center, float Radius) SphereBounds(ReadOnlySpan<float> positions, int count) {
         fixed (float* position = positions) {
             Bounds bounds = Meshopt.ComputeSphereBounds(position, (nuint)count, (nuint)PositionStride, null, 0);

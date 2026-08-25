@@ -32,9 +32,6 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec import json as msgjson
 
-# the compiled IFC band defers as a module-scope proxy: no copyleft coupling to confine, unlike the honeybee and
-# ladybug names every boundary kernel below imports function-local, and the worker's own copy of this module defers
-# identically, so the HOSTILE crossing pays the native load once inside the process that runs the sweep.
 lazy import ifcopenshell
 lazy import ifcopenshell.geom
 
@@ -57,15 +54,14 @@ from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-if TYPE_CHECKING:  # AGPL band: annotations resolve here and never at runtime; every runtime use is a function-local or LateBound seam
+if TYPE_CHECKING:
     from honeybee.model import Model
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class ModelStage(StrEnum):
-    # this producer's one CLOSED mark position; `StageMark.stage` is erased at the point and closed HERE.
-    SPACE = "space"  # one beat per derived space in an unbounded per-space sweep
+    SPACE = "space"
 
 
 class StandardsKind(StrEnum):
@@ -79,8 +75,6 @@ class StandardsKind(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# each kind keys its honeybee_energy.lib loader through the climate owner's LateBound value — one late-binding grammar
-# across this folder's whole AGPL band, so a new standards kind is one row and never a second getattr fold.
 RESOLVERS: Final[Map[StandardsKind, LateBound]] = Map.of_seq([
     (StandardsKind.PROGRAM, LateBound("honeybee_energy.lib.programtypes", "program_type_by_identifier")),
     (StandardsKind.BUILDING_PROGRAM, LateBound("honeybee_energy.lib.programtypes", "building_program_type_by_identifier")),
@@ -90,10 +84,6 @@ RESOLVERS: Final[Map[StandardsKind, LateBound]] = Map.of_seq([
     (StandardsKind.WINDOW_CONSTRUCTION, LateBound("honeybee_energy.lib.constructions", "window_construction_by_identifier")),
 ])
 
-# canonical HBJSON bytes — the one wire derivation the content key folds, under the PRODUCER-BYTES law the .NET peer
-# legislates at its `EnergyDoc`: the key covers exactly the octets the minting end serialized and travels WITH them,
-# the peer re-hashes RECEIVED bytes, and a re-serialization mints a NEW document key — the `HoneybeeSchema` render
-# and this encoder lawfully never byte-match, so neither end ever re-derives the other's key from a re-encode.
 _ENCODER: Final = msgjson.Encoder(order="deterministic")
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -104,7 +94,7 @@ class BemPolicy(Struct, frozen=True):
     tolerance: float = 0.01
     angle_tolerance: float = 1.0
     wwr: float = 0.4
-    by_orientation: Map[int, float] = Map.empty()  # orientation-bin index -> ratio; the default fills unbinned walls
+    by_orientation: Map[int, float] = Map.empty()
     orientation_count: int = 4
     skylight_ratio: float = 0.0
     ground_depth: float = 0.0
@@ -123,7 +113,7 @@ class ModelSource:
 
 
 class HvacSpec(Struct, frozen=True):
-    template: str  # a HVAC_TYPES_DICT registry key (IdealAirSystem/VAV/PSZ/.../DetailedHVAC)
+    template: str
     equipment_type: Option[str] = Nothing
 
 
@@ -132,7 +122,7 @@ class EnergySpec(Struct, frozen=True):
     construction_set: Option[str] = Nothing
     hvac: Option[HvacSpec] = Nothing
     shw: Option[str] = Nothing
-    rooms: Option[tuple[str, ...]] = Nothing  # host identifiers; Nothing assigns model-wide
+    rooms: Option[tuple[str, ...]] = Nothing
 
 
 class ModelReceipt(Struct, frozen=True):
@@ -142,8 +132,8 @@ class ModelReceipt(Struct, frozen=True):
     apertures: int
     shades: int
     check_rows: int
-    check_census: Map[str, int]  # per-code roster, so a consumer reads WHICH validation classes failed, not a bare count
-    touched: int  # hosts the assignment fold actually reached; zero on an admission that assigned nothing
+    check_census: Map[str, int]
+    touched: int
     program: Option[str]
     construction_set: Option[str]
     hvac: Option[str]
@@ -168,14 +158,9 @@ class ModelReceipt(Struct, frozen=True):
         )
 
     def spec(self) -> bytes:
-        # the evidence subject IS the wire key beside the modality that produced it: one document, one key, one
-        # subject, so re-admitting identical bytes graduates onto the same evidence row.
         return b"|".join((self.content_key.memory, self.source.encode()))
 
     def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.MODEL_VALIDITY]) -> GeometryHandoff:
-        # measured admission evidence: the validation-error fraction over the element census, which is a real reading
-        # only because the census gate records rows instead of raising on them. The bar arrives as a CITED regime row
-        # rather than an anonymous float, so the admission verdict names the residual it graded.
         census = max(self.rooms + self.faces + self.apertures, 1)
         return GeometryHandoff.of(
             GeometrySubject.BUILDING_ENERGY,
@@ -200,12 +185,8 @@ class BuildingModel(Struct, frozen=True):
         async def admit() -> "RuntimeRail[tuple[Self, ModelReceipt]]":
             match source:
                 case ModelSource(tag="hbjson", hbjson=payload):
-                    # short pure decode: caller-floor by charter, no crossing earned.
                     return Ok(cls._gated(_decoded(payload), "hbjson", composition))
                 case ModelSource(tag="bim", bim=(spf, policy)):
-                    # create_shape sweep crosses HOSTILE with picklable args — SPF bytes and the conduit's pickled tap
-                    # in, the pure-Python honeybee Model graph pickled home — and the caller-side census re-proves it
-                    # before admission.
                     derived = await lane.offload(Kernel.of(_derived, KernelTrait.HOSTILE), spf, policy, lane.pulses.tap)
                     return derived.map(lambda model: cls._gated(model, "bim", composition))
                 case _ as unreachable:
@@ -217,9 +198,6 @@ class BuildingModel(Struct, frozen=True):
     def bench(
         cls, source: ModelSource, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[BenchmarkReceipt]":
-        # space-census-parameterized macro-bench over the WHOLE admission crossing — decode or offload, native sweep,
-        # adjacency solve, aperture mint, census — so a latency row compares like-for-like across model sizes; the
-        # census parse is the harness's own, paid once outside every measured round.
         return bench_seam(
             bench_subject(EvidenceScope.ENERGY_MODEL, source.tag, f"s{_census(source)}"),
             partial(cls.of, source, lane, composition=composition),
@@ -230,17 +208,11 @@ class BuildingModel(Struct, frozen=True):
 
     def assign(self, spec: EnergySpec) -> "RuntimeRail[tuple[Self, ModelReceipt]]":
         def fold() -> tuple[Self, ModelReceipt]:
-            # the shared fold reports the hosts it reached, so the successor's census carries the assignment extent
-            # rather than a caller's claim about it.
             return type(self)._gated(self.model, "assign", self.composition, spec=Some(spec), touched=assigned(self.model.rooms, spec))
 
         return evidence_run(EvidenceScope.ENERGY_MODEL, "assign", fold, composition=self.composition)
 
     def wire(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
-        # ONE derivation, minted at the census gate and re-projected here: the wire key is SEED-ZERO over the
-        # format-key-then-document chunk stream, reproducing the C# CanonicalWriter String(format.Key).Raw(bytes) fold
-        # under the `docs/laws/patterns.md` `[PREIMAGE_FRAMING]` law. The encoder is deterministic and `assign` re-keys its
-        # successor, so re-encoding here yields exactly the bytes the held key was minted over.
         return evidence_run(
             EvidenceScope.ENERGY_MODEL, "wire", lambda: (_document(self.model), self.content_key), composition=self.composition
         )
@@ -257,11 +229,8 @@ class BuildingModel(Struct, frozen=True):
     def _gated(
         cls, model: "Model", modality: str, composition: ScopeKey, spec: Option[EnergySpec] = Nothing, touched: int = 0
     ) -> tuple[Self, ModelReceipt]:
-        # detailed check rows fold to a per-code census the receipt carries and the ceiling grades; only structural
-        # emptiness refuses here, since a model with no rooms has nothing to simulate and no residual to measure.
         rows = model.check_all(raise_exception=False, detailed=True)
         if not model.rooms:
-            # structural emptiness carries its modality and its census as kwargs the fence lifts whole; converted once by evidence_run.
             raise EnergyFault(empty_model=(modality, len(rows)))
         census = Block.of_seq(rows).fold(lambda acc, row: acc.change(str(row.get("code", "?")), lambda n: Some(n.default_value(0) + 1)), Map.empty())
         document = _document(model)
@@ -286,17 +255,13 @@ class BuildingModel(Struct, frozen=True):
 
 
 def resolved(kind: StandardsKind, identifier: str) -> object:
-    # the ONE standards access path both energy tiers read: `energy/district` imports this fold rather than
-    # re-writing it, so a new registry kind lands once and neither page can lag the other.
     return RESOLVERS[kind].resolve()(identifier)
 
 
 def assigned(hosts: Iterable[object], spec: EnergySpec) -> int:
-    # host-agnostic assignment fold: any object carrying `.identifier` and `.properties.energy` — a honeybee `Room` or
-    # a dragonfly `Room2D` — so the model and district tiers share one body and a new `EnergySpec` slot is one edit.
-    import honeybee_energy  # ruff:ignore[unused-import, import-outside-top-level] — REGISTRATION seam, a second ban beside the band's: the import exists FOR `_extend_honeybee`, which registers `.properties.energy`, and has no dereference site at all, so a deferred binding would sit as an unreified proxy and the effect would never fire
-    from honeybee_energy.hvac import HVAC_TYPES_DICT  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from honeybee_energy.shw import SHWSystem  # ruff:ignore[import-outside-top-level] — AGPL isolation; the SHW template mint, no lib registry exists
+    import honeybee_energy
+    from honeybee_energy.hvac import HVAC_TYPES_DICT
+    from honeybee_energy.shw import SHWSystem
 
     program = spec.program.map(lambda ident: resolved(StandardsKind.PROGRAM, ident)).to_optional()
     constructions = spec.construction_set.map(lambda ident: resolved(StandardsKind.CONSTRUCTION_SET, ident)).to_optional()
@@ -308,7 +273,7 @@ def assigned(hosts: Iterable[object], spec: EnergySpec) -> int:
     shw = spec.shw.map(SHWSystem).to_optional()
     wanted = spec.rooms.map(frozenset).default_value(frozenset())
     touched = 0
-    for host in hosts:  # Exemption: honeybee and dragonfly hosts mutate in place; assignment is their owned imperative surface.
+    for host in hosts:
         if wanted and host.identifier not in wanted:
             continue
         energy = host.properties.energy
@@ -329,7 +294,7 @@ def _keyed(document: bytes) -> ContentKey:
 
 
 def _decoded(payload: "bytes | str | Path | Mapping[str, object]") -> "Model":
-    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+    from honeybee.model import Model
 
     match payload:
         case bytes() as raw:
@@ -341,8 +306,6 @@ def _decoded(payload: "bytes | str | Path | Mapping[str, object]") -> "Model":
 
 
 def _census(source: ModelSource) -> int:
-    # bench-subject extent: the space count admission will build, read off the source once so the subject keys the
-    # real model size rather than an opaque round number.
     match source:
         case ModelSource(tag="hbjson", hbjson=payload):
             return len(_decoded(payload).rooms)
@@ -353,16 +316,12 @@ def _census(source: ModelSource) -> int:
 
 
 def _derived(spf: bytes, policy: BemPolicy, tap: "Queue[PulseFact | None]") -> "Model":
-    # BIM-to-BEM: IfcSpace solids -> Face3D triangles -> Polyface3D -> Room -> adjacency -> apertures.
-    # module-level HOSTILE kernel: ships REFERENCE onto the warm process pool, so the worker resolves this module by
-    # name and its own `ifcopenshell` proxy reifies at the first touch here; the live ifcopenshell.file stays
-    # worker-local, and the trailing tap is the lane conduit's pickled proxy every space beat writes through.
-    from honeybee.model import Model  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
-    from honeybee.orientation import angles_from_num_orient, orient_index  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from honeybee.room import Room  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from ladybug_geometry.geometry3d.face import Face3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from ladybug_geometry.geometry3d.polyface import Polyface3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from honeybee.model import Model
+    from honeybee.orientation import angles_from_num_orient, orient_index
+    from honeybee.room import Room
+    from ladybug_geometry.geometry3d.face import Face3D
+    from ladybug_geometry.geometry3d.pointvector import Point3D
+    from ladybug_geometry.geometry3d.polyface import Polyface3D
 
     ifc = ifcopenshell.file.from_string(spf.decode())
     settings = ifcopenshell.geom.settings()
@@ -376,15 +335,13 @@ def _derived(spf: bytes, policy: BemPolicy, tap: "Queue[PulseFact | None]") -> "
         triangles = tuple(Face3D((points[faces[i]], points[faces[i + 1]], points[faces[i + 2]])) for i in range(0, len(faces), 3))
         polyface = Polyface3D.from_faces(triangles, policy.tolerance)
         name = getattr(space, "GlobalId", f"{policy.identifier}_space_{ordinal}")
-        # the sweep's only progress signal: one beat per shape so an unbounded per-space native phase reports
-        # monotonic extent through the parent-side conduit drain.
         pulsed(tap, GeometryPulse.BEM, StageMark(stage=ModelStage.SPACE.value, done=ordinal + 1, total=Some(len(spaces))))
         return Room.from_polyface3d(f"{policy.identifier}_{name}", polyface, policy.roof_angle, policy.floor_angle, policy.ground_depth)
 
     rooms = [room_of(space, ordinal) for ordinal, space in enumerate(spaces)]
     Room.solve_adjacency(rooms, policy.tolerance)
     angles = angles_from_num_orient(policy.orientation_count)
-    for room in rooms:  # Exemption: honeybee mutates faces in place; the aperture mint is its owned surface.
+    for room in rooms:
         for face in room.faces:
             if face.boundary_condition.name != "Outdoors" or face.type.name != "Wall":
                 continue
@@ -404,4 +361,3 @@ def _derived(spf: bytes, policy: BemPolicy, tap: "Queue[PulseFact | None]") -> "
 -->
 
 (none)
-

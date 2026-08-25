@@ -26,7 +26,7 @@
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderMaterial.FromMaterial`/`CreateBasicMaterial`/`CreateImportedMaterial`, `ToMaterial`, `ConvertToPhysicallyBased`, `GetTextureFromUsage`/`GetTextureOnFromUsage`/`GetTextureAmountFromUsage`/`TextureChildSlotName`, `RenderMaterial.StandardChildSlots`, `TextureTypeFromSlot`, `RenderTexture.TextureGeneration`, the `SmellsLike*`/`SmellsLikeTextured*` predicate pairs); `api-rhinocommon-objects.md` (`Material`, `PhysicallyBasedMaterial`, `TextureType`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw.Forbidden`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -41,7 +41,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class MaterialResidency {
     public static readonly MaterialResidency Local = new(key: false);
@@ -91,10 +91,6 @@ public abstract partial record MaterialMint {
         select minted;
 }
 
-// Both host predicates are INDEPENDENT native entry points (`Rdk_RenderMaterial_SmellsLike` against
-// `Rdk_RenderMaterial_SmellsLikeTextured`), so neither implies the other and no column short-circuits — a mark needs
-// both reads. The empty corner is the one illegal one: a scent holding neither form is not a classification, so the
-// law bars the empty set and the census cannot publish a row that says nothing.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ScentForm : ICapability<ScentForm> {
@@ -128,8 +124,6 @@ public sealed partial class MaterialScent {
     [UseDelegateFromConstructor]
     private partial bool Textured(RenderMaterial material);
 
-    // Both row reads fold into one held set, and the law's own refusal IS the filter: a mark holding neither
-    // form fails admission and drops, so no downstream predicate re-asks whether the mark carries anything.
     internal static ScentCensus CensusOf(RenderMaterial material, Seq<MaterialScent> wanted = default, Op? key = null) {
         Op op = key.OrDefault();
         return new ScentCensus(Rows: (wanted.IsEmpty ? toSeq(Items) : wanted.Distinct())
@@ -142,7 +136,7 @@ public sealed partial class MaterialScent {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ScentMark(MaterialScent Scent, CapabilitySet<ScentForm> Forms);
 
 public sealed record ScentCensus(Seq<ScentMark> Rows) : IDetachedDocumentResult;
@@ -153,7 +147,7 @@ public readonly record struct SlotUsage(
     Option<(Guid Texture, UsagePosture Posture, double Amount)> Grant,
     string SlotName) : IDetachedDocumentResult;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MaterialBridge {
     internal static Fin<TOut> Bake<TOut>(
         RenderMaterial material, RenderTexture.TextureGeneration generation, Func<Material, Fin<TOut>> borrow, Op key) =>
@@ -197,9 +191,7 @@ public static class MaterialBridge {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderTexture` get/set pairs for projection, wrap, repeat, offset, rotation, mapping channel, environment mode, graph info, preview and viewport flags; `PixelSize2`, `LocalMappingTransform`, `GetLocalMappingType`, `GetInternalEnvironmentMappingMode`, `IsHdrCapable`/`IsLinear`/`IsNormalMap`/`IsImageBased`, `NewBitmapTexture` both arities, `SaveAsImage`, `SimulatedTexture` writable axes, `SetMappingChannelAndProjectionMode`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Transform`); `api-rhinocommon-display.md` (`Color4f`); kernel `Domain/rails` (`Op.Catch`, `Op.Side`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `ISmartEnum`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `MapFail`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Five boolean texture axes ride ONE capability column. Each row's key IS its `TextureAxis` key, so a persisted or
-// wire toggle word resolves through the kernel `Admits(string)` boundary arm and no second correspondence exists.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TextureToggle : ICapability<TextureToggle> {
@@ -244,9 +236,6 @@ public sealed partial class FacsimileTrait : ICapability<FacsimileTrait> {
         CapabilitySet<FacsimileTrait>.Of(Items.Where(row => row.Holds(simulated: simulated)).ToArray());
 }
 
-// Each writable texture axis is one row over the whole state, so a mid-apply host refusal names the axis that refused
-// instead of vanishing into a straight-line setter run. `SetGraphInfo` takes no change context, so its row ignores the
-// reason column the rest of the roster consumes.
 [SmartEnum<string>]
 public sealed partial class TextureAxis {
     public static readonly TextureAxis Projection = new("projection",
@@ -280,8 +269,6 @@ public sealed partial class TextureAxis {
     internal partial Unit Write(RenderTexture texture, TextureConfig state, RenderContent.ChangeContexts reason);
 }
 
-// One axis is conditional: the host pairs `HasTransparentColor` with the colour and its sensitivity, so the option IS
-// its row predicate, and both writes ride inside it rather than an `if`/`else` outside the roster.
 [SmartEnum<string>]
 public sealed partial class FacsimileAxis {
     public static readonly FacsimileAxis Filename = new("filename",
@@ -311,9 +298,8 @@ public sealed partial class FacsimileAxis {
     internal partial Unit Write(SimulatedTexture simulated, TextureFacsimile state);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class AxisFold {
-    // This branch folds every write roster here and preserves the exact failure returned by the host boundary.
     internal static Fin<Unit> Apply<TRow, TTarget, TState>(TTarget target, TState state, Func<TRow, TTarget, TState, Unit> write, Op key)
         where TRow : class, ISmartEnum<string, TRow, ValidationError> =>
         toSeq(TRow.Items)
@@ -322,7 +308,7 @@ internal static class AxisFold {
             .Map(static _ => unit);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TextureConfig(
     TextureProjectionMode Projection,
     TextureWrapType Wrap,
@@ -359,10 +345,7 @@ public sealed record TextureConfig(
     }
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Host truth: an environment mapping is named through EITHER the texture projection mode or the simulated
-// projection posture. Eight projection modes carry it as a key column; `Emap` on the OTHER enum is the one row a key
-// column cannot hold, so it stays the named fallback here rather than an inline arm at the capture site.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<TextureProjectionModes>]
 public sealed partial class EnvironmentProjection {
     public static readonly EnvironmentProjection Box = new(
@@ -402,8 +385,6 @@ public abstract partial record SimulatedMapping {
         int Channel,
         SimulatedTexture.EnvironmentMappingModes Environment) : SimulatedMapping;
 
-    // Host truth: a simulated texture's mapping channel is zero-based and zero is the ordinary default, so this
-    // owner guards `>= 0` and never composes the positive-only `MappingChannel` the object-mapping rail admits.
     public static Fin<SimulatedMapping> Of(
         SimulatedTexture.ProjectionModes projection,
         int channel,
@@ -438,7 +419,7 @@ public abstract partial record SimulatedMapping {
                 target.SetMappingChannelAndProjectionMode(mapping.Projection, mapping.Channel, mapping.Environment)));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TextureTraits(
     Option<(int Width, int Height, int Depth)> Texels,
     Transform LocalTransform,
@@ -488,7 +469,7 @@ public sealed record TextureFacsimile(
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextureMint {
     private TextureMint() { }
@@ -534,14 +515,14 @@ public static class TextureExport {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderEnvironment.SimulateEnvironment`, `NewBasicEnvironment`, `SimulatedEnvironment.BackgroundColor`/`BackgroundImage`/`BackgroundProjection`, `SimulatedTexture.ConstPointer`); kernel `Numerics/atoms` (`PerceptualColor.OfHost`, `PerceptualColor.ToDrawing`), `Domain/rails` (`Lease<T>`, `Op.Catch`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class BakeScope {
     public static readonly BakeScope Full = new(key: false);
     public static readonly BakeScope DataOnly = new(key: true);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record EnvironmentState(
     PerceptualColor Background,
     SimulatedEnvironment.BackgroundProjections Projection,
@@ -550,9 +531,6 @@ public sealed record EnvironmentState(
         key.Catch(() => {
             using SimulatedEnvironment simulated = environment.SimulateEnvironment(isForDataOnly: scope.Key);
             return Optional(simulated).ToFin(Fail: key.InvalidResult()).Bind(active => {
-                // Host truth: `BackgroundImage` MINTS a parent-backed `SimulatedTexture` on every read and never answers
-                // null, so `Optional(image)` is always `Some`; the public `ConstPointer()` resolves through the parent and
-                // answers `IntPtr.Zero` when the environment holds no image, which is the only real absence discriminant.
                 using SimulatedTexture image = active.BackgroundImage;
                 Fin<Option<TextureFacsimile>> detached = image.ConstPointer() == IntPtr.Zero
                     ? Fin.Succ(Option<TextureFacsimile>.None)
@@ -612,7 +590,7 @@ public sealed record EnvironmentState(
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.SetChild`, `ChildSlotOn`/`SetChildSlotOn`, `GetEmbeddedFilesList`, `FilesToEmbed`, `RenderContentSerializer`); kernel `Interaction/asset` (`FileLocation`), `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.AcceptText`, `Op.Catch`), `Domain/validation` (`Op.AcceptValidated<TVO>`); `Display/render.md` (`RenderFault`); `Render/registry.md` (`ContentTransfer`, `ContentSerializer`, `SerializerProgram`, `ContentExtension`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[ComplexValueObject]`, `[ValidationError]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PhotometricDialect {
@@ -627,7 +605,7 @@ public sealed partial class PhotometricDialect {
             System.IO.Path.GetExtension(path.Value).ToLowerInvariant()));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class PhotometricFile : IDetachedDocumentResult {
@@ -652,8 +630,6 @@ public sealed partial class PhotometricFile : IDetachedDocumentResult {
                select admitted;
     }
 
-    // Custody rides the kernel lease for the whole attach: the release is `Use`'s own and its refusal aggregates
-    // into the attach fault, so no hand-written success/failure release pair survives.
     internal Fin<ContentRef> AttachTo(RenderContent parent, string childSlot, PhotometricPress press, ChangeReason reason, Op key) {
         PhotometricFile self = this;
         return from slot in key.AcceptText(value: childSlot)
@@ -675,8 +651,6 @@ public sealed partial class PhotometricFile : IDetachedDocumentResult {
                select address;
     }
 
-    // One compensating write: the slot was armed before the host call, so a refusal puts it back and the
-    // restore's own failure ACCUMULATES onto the primary rather than replacing it.
     private static Error Restored(
         RenderContent parent, string slot, bool prior, ChangeReason reason, Error primary, Op key) =>
         key.Catch(() => {
@@ -690,7 +664,7 @@ public sealed partial class PhotometricFile : IDetachedDocumentResult {
         toSeq(content.GetEmbeddedFilesList());
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record PhotometricPress(Func<PhotometricFile, RhinoDoc?, Fin<Lease<RenderContent>>> Reader) {
     internal Fin<Lease<RenderContent>> Materialize(PhotometricFile file, Op key, RhinoDoc? document = null) =>
         key.Catch(() => Reader(file, document));
@@ -728,16 +702,12 @@ public sealed record PhotometricPress(Func<PhotometricFile, RhinoDoc?, Fin<Lease
              return failure;
          });
 
-    // Borrowed leases refuse without a dispose call: the kernel's `Borrowed.Dispose()` is a documented no-op
-    // because the host still owns the value, so the refusal states the case and nothing else.
     private static Fin<Lease<RenderContent>.Owned> Held(Lease<RenderContent> lease, Op key) =>
         lease is Lease<RenderContent>.Owned owned
             ? Fin.Succ(value: owned)
             : Fin.Fail<Lease<RenderContent>.Owned>(
                 error: key.InvalidResult(detail: nameof(Lease<RenderContent>.Borrowed)));
 
-    // Host serializers TAKE the transfer, so this arm hands out the bare custody; the attach path keeps it on a
-    // lease because the window is its own.
     internal static Fin<ContentTransfer> Transfer(Lease<RenderContent> lease, Op key) =>
         Held(lease: lease, key: key).Bind(owned => key.Catch(() => Fin.Succ(value: new ContentTransfer(owned: owned))));
 

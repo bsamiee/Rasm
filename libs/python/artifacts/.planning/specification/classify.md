@@ -35,18 +35,18 @@ from msgspec import Struct, structs
 
 
 class ClassSystem(StrEnum):
-    MASTERFORMAT = "masterformat"  # CSI/CSC work-results — the specification-section number
-    UNIFORMAT = "uniformat"  # ASTM E1557 elemental — the building-element classification
-    OMNICLASS = "omniclass"  # OCCS faceted — ISO 12006-2 aligned
+    MASTERFORMAT = "masterformat"
+    UNIFORMAT = "uniformat"
+    OMNICLASS = "omniclass"
 
 
-class Subgroup(StrEnum):  # the MasterFormat 2020 subgroup a division belongs to
-    PROCUREMENT = "procurement"  # Division 00
-    GENERAL = "general"  # Division 01
-    CONSTRUCTION = "construction"  # Divisions 02-19
-    SERVICES = "services"  # Divisions 20-29
-    INFRASTRUCTURE = "infrastructure"  # Divisions 30-39
-    PROCESS = "process"  # Divisions 40-49
+class Subgroup(StrEnum):
+    PROCUREMENT = "procurement"
+    GENERAL = "general"
+    CONSTRUCTION = "construction"
+    SERVICES = "services"
+    INFRASTRUCTURE = "infrastructure"
+    PROCESS = "process"
 
 
 class ClassRelation(StrEnum):
@@ -62,20 +62,19 @@ type ClassPeer = tuple["ClassCode", ClassRelation]
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Division(Struct, frozen=True):  # one MasterFormat division row
+class Division(Struct, frozen=True):
     number: int
     title: str
     subgroup: Subgroup
 
 
-class Element(Struct, frozen=True):  # one UniFormat elemental row
+class Element(Struct, frozen=True):
     code: str
     title: str
     group: str
 
 
 class ClassCode(Struct, frozen=True):
-    # one per-system payload: numeric segments for MasterFormat/OmniClass, `(group, segments)` for UniFormat.
     system: ClassSystem
     payload: ClassPayload
 
@@ -85,7 +84,7 @@ class ClassCode(Struct, frozen=True):
             case ClassSystem.UNIFORMAT, (str(), tuple() as segments):
                 return segments
             case (ClassSystem.MASTERFORMAT | ClassSystem.OMNICLASS), tuple() as segments:
-                return segments  # type: ignore[return-value]
+                return segments
             case _:
                 return ()
 
@@ -98,8 +97,6 @@ class ClassCode(Struct, frozen=True):
                 return ""
 
     def __post_init__(self) -> None:
-        # construction invariant: every constructible value satisfies its system's shape, so a MasterFormat code
-        # with a UniFormat group or an out-of-band segment is unrepresentable; `parse` stays the only text seam.
         segments = self.segments
         band = all(isinstance(segment, int) and 0 <= segment <= 99 for segment in segments)
         match self.system:
@@ -123,15 +120,12 @@ class ClassCode(Struct, frozen=True):
                 segments = tuple(int(part) for part in found.groups() if part is not None)
                 if segments[0] in _DIVISIONS:
                     return Ok(cls(system, segments))
-                # a reserved slot is valid-but-unassigned, distinct from out-of-range: `_RESERVED` splits the faults.
                 return Error("<reserved-division>") if segments[0] in _RESERVED else Error("<unknown-division>")
             case ClassSystem.UNIFORMAT:
                 if (found := _UF_PATTERN.match(text)) is None:
                     return Error("<malformed-code>")
                 segments, group = _pairs(found["pairs"]), found["group"]
                 anchor = group + (f"{segments[0]:02d}" if segments else "")
-                # `(?:\d{2})*` tail is unbounded, so the hierarchy depth cap re-states at the text seam — an
-                # over-deep code returns the rail fault, never a `__post_init__` raise through `Ok`.
                 return (
                     Error("<malformed-code>")
                     if len(segments) > 3
@@ -153,7 +147,6 @@ class ClassCode(Struct, frozen=True):
     def render(self) -> str:
         match self.system:
             case ClassSystem.MASTERFORMAT:
-                # digit-pair triples space-join; a `.NN` level-4 suffix dot-joins so `03 30 53.13` round-trips `_MF_PATTERN`.
                 head = " ".join(f"{part:02d}" for part in self.segments[:3])
                 return head + "".join(f".{part:02d}" for part in self.segments[3:])
             case ClassSystem.UNIFORMAT:
@@ -170,7 +163,6 @@ class ClassCode(Struct, frozen=True):
             case ClassSystem.MASTERFORMAT:
                 return _DIVISIONS.try_find(self.segments[0]).map(lambda division: division.title) if self.segments else Nothing
             case ClassSystem.UNIFORMAT:
-                # deepest known anchor: the Level-2 element title, falling to the Level-1 group title.
                 return _ELEMENTS.try_find(self._uf_anchor).map(lambda element: element.title).or_else_with(lambda: _GROUP_TITLES.try_find(self._group))
             case ClassSystem.OMNICLASS:
                 return _OMNI_TABLES.try_find(self.segments[0]) if self.segments else Nothing
@@ -181,8 +173,6 @@ class ClassCode(Struct, frozen=True):
         return Some(self.segments[0]) if self.system is ClassSystem.MASTERFORMAT else Nothing
 
     def subgroup(self) -> Option[Subgroup]:
-        # MasterFormat 2020 subgroup read off the one `_DIVISIONS` row rather than a parallel map;
-        # `Nothing` for the non-MasterFormat systems and a reserved/out-of-range division.
         return (
             _DIVISIONS.try_find(self.segments[0]).map(lambda division: division.subgroup)
             if self.system is ClassSystem.MASTERFORMAT and self.segments
@@ -191,26 +181,17 @@ class ClassCode(Struct, frozen=True):
 
     @property
     def _uf_anchor(self) -> str:
-        # UniFormat Level-2 element anchor (group + first digit-pair) `parse` and `title` widen from, so
-        # admission and titling reach Level-3+ codes.
         return self._group + (f"{self.segments[0]:02d}" if self.segments else "")
 
     @property
     def _deepest(self) -> int:
-        # highest positional index carrying a non-zero segment — the trailing-zero-insensitive depth
-        # `level` and `parent` both derive from.
         return next((at for at in reversed(range(len(self.segments))) if self.segments[at]), 0)
 
     @property
     def level(self) -> int:
-        # hierarchy depth: the UniFormat group plus its appended pairs, or the deepest significant
-        # positional segment of the numeric systems — a division/table/group is `1`.
         return 1 + len(self.segments) if self.system is ClassSystem.UNIFORMAT else self._deepest + 1 if self.segments else 0
 
     def parent(self) -> Option[Self]:
-        # immediate hierarchy container: a MasterFormat `.NN` level-4 truncates to level-3, the numeric triple
-        # zeros the deepest significant level (`03 30 53` -> `03 30 00` -> `03 00 00`), UniFormat drops its last
-        # pair (`B1010` -> `B10` -> `B`), `Nothing` at the root.
         match self.system:
             case ClassSystem.UNIFORMAT:
                 return Some(structs.replace(self, payload=(self._group, self.segments[:-1]))) if self.segments else Nothing
@@ -223,10 +204,6 @@ class ClassCode(Struct, frozen=True):
                 return Some(structs.replace(self, payload=rolled)) if self._deepest else Nothing
 
     def descends_from(self, ancestor: "ClassCode", /) -> bool:
-        # a code descends from an ancestor when they share system and group, this code is at least as deep, and
-        # every SIGNIFICANT ancestor segment matches — a `0` ancestor segment is the unspecified-level wildcard
-        # (`03 00 00` contains `03 30 00`), where a flat prefix equality misses the trailing-zero heading.
-        # `>=` depth makes it REFLEXIVE, so a consumer never re-checks the exact match.
         if self.system is not ancestor.system:
             return False
         match self.system:
@@ -242,7 +219,6 @@ class ClassCode(Struct, frozen=True):
                 assert_never(unreachable)
 
     def crosswalk(self) -> "CrossReference":
-        # a code with no crosswalk edge yields an empty relation set.
         match self.system:
             case ClassSystem.MASTERFORMAT:
                 peers = _CROSSWALK.try_find(self.segments[0]).default_value(())
@@ -259,7 +235,6 @@ class ClassCode(Struct, frozen=True):
                 divisions = (
                     _ELEMENT_DIVISIONS.try_find(self._uf_anchor).default_value(())
                     if self.segments
-                    # a bare Level-1 group sweeps the union of its elements' divisions, first-seen order kept.
                     else tuple(
                         dict.fromkeys(
                             division
@@ -291,7 +266,6 @@ class ClassCode(Struct, frozen=True):
 
 
 class CrossReference(Struct, frozen=True):
-    # one source code folded onto relation-bearing peers by target system.
     source: ClassCode
     peers: frozendict[ClassSystem, tuple[ClassPeer, ...]] = frozendict()
 
@@ -307,7 +281,6 @@ _OC_PATTERN: Final[re.Pattern[str]] = re.compile(r"\A(?P<table>\d{2})(?:-(?P<tai
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# UniFormat Level-1 group titles feed construction admission and title fallback.
 _GROUP_TITLES: Final[Map[str, str]] = Map.of_seq([
     ("A", "Substructure"),
     ("B", "Shell"),
@@ -319,7 +292,6 @@ _GROUP_TITLES: Final[Map[str, str]] = Map.of_seq([
     ("Z", "General"),
 ])
 
-# MasterFormat 2020 ASSIGNED divisions; the reserved gaps are the `range(50)` complement, never a title.
 _DIVISIONS: Final[Map[int, Division]] = Map.of_seq([
     (0, Division(0, "Procurement and Contracting Requirements", Subgroup.PROCUREMENT)),
     (1, Division(1, "General Requirements", Subgroup.GENERAL)),
@@ -357,7 +329,6 @@ _DIVISIONS: Final[Map[int, Division]] = Map.of_seq([
     (46, Division(46, "Water and Wastewater Equipment", Subgroup.PROCESS)),
     (48, Division(48, "Electrical Power Generation", Subgroup.PROCESS)),
 ])
-# reserved MasterFormat slots `parse` maps to `<reserved-division>`, distinct from `<unknown-division>`.
 _RESERVED: Final[frozenset[int]] = frozenset(range(50)) - frozenset(_DIVISIONS.keys())
 
 _ELEMENTS: Final[Map[str, Element]] = Map.of_seq((
@@ -388,7 +359,6 @@ _ELEMENTS: Final[Map[str, Element]] = Map.of_seq((
     )
 ))
 
-# OmniClass tables (OCCS / ISO 12006-2), keyed by table number.
 _OMNI_TABLES: Final[Map[int, str]] = Map.of_seq([
     (11, "Construction Entities by Function"),
     (12, "Construction Entities by Form"),
@@ -407,9 +377,6 @@ _OMNI_TABLES: Final[Map[int, str]] = Map.of_seq([
     (49, "Properties"),
 ])
 
-# primary related correspondence: MasterFormat division -> associated UniFormat Level-2 elements.
-# `_ELEMENT_DIVISIONS` derives the inverse; OmniClass peers derive from the table-alignment invariant in
-# `crosswalk`, never a third map.
 _CROSSWALK: Final[Map[int, tuple[str, ...]]] = Map.of_seq([
     (2, ("F20", "G10")),
     (3, ("A10", "A20", "B10")),
@@ -440,14 +407,13 @@ _CROSSWALK: Final[Map[int, tuple[str, ...]]] = Map.of_seq([
 _ELEMENT_DIVISIONS: Final[Map[str, tuple[int, ...]]] = Map.of_seq((
     (element.code, tuple(division for division, peers in _CROSSWALK.items() if element.code in peers)) for element in _ELEMENTS.values()
 ))
-_OMNI_WORK_RESULTS: Final[int] = 22  # OmniClass Table 22 == MasterFormat (exact digit copy)
-_OMNI_ELEMENTS: Final[int] = 21  # OmniClass Table 21 == UniFormat (elemental alignment, notation-distinct)
+_OMNI_WORK_RESULTS: Final[int] = 22
+_OMNI_ELEMENTS: Final[int] = 21
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _pairs(digits: str, /) -> tuple[int, ...]:
-    # split a UniFormat digit tail into its Level-2+ pair segments ("1010" -> (10, 10)).
     return tuple(int(digits[at : at + 2]) for at in range(0, len(digits), 2))
 
 
@@ -478,13 +444,11 @@ from msgspec import Struct
 
 from rasm.artifacts.drawing.regime import Discipline
 
-# `ClassCode` is the co-located `[02]-[CODE]` owner above in this module — in scope directly.
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class SheetRef(Struct, frozen=True):
-    # a sheet number, an optional detail-bubble id, and the `Discipline` the `drawing/regime#REGIME` codec owns.
     sheet: str
     detail: Option[str] = Nothing
     discipline: Discipline = Discipline.ARCHITECTURAL
@@ -499,24 +463,20 @@ class SheetRef(Struct, frozen=True):
                 return
 
 
-class Reference(Struct, frozen=True):  # one keynote link: this section is detailed on this sheet
+class Reference(Struct, frozen=True):
     section: ClassCode
     sheet: SheetRef
 
 
 class Coordination(Struct, frozen=True):
-    # drawing<->spec reconciliation: the specified links, the sections specced but drawn nowhere, and the
-    # sheets keynoted against a section the manual never specifies.
     matched: tuple[Reference, ...] = ()
     orphan_sections: frozenset[ClassCode] = frozenset()
     orphan_details: tuple[SheetRef, ...] = ()
 
     def facts(self) -> frozendict[str, int]:
-        # native-int tally the composing producer folds into its own ArtifactReceipt (this owner mints none).
         return frozendict({"matched": len(self.matched), "orphan_sections": len(self.orphan_sections), "orphan_details": len(self.orphan_details)})
 
     def rows(self) -> tuple[frozendict[str, str], ...]:
-        # flat tabular egress — one row per matched link, one flagged row per orphan section and detail.
         linked = tuple(
             frozendict({
                 "section": ref.section.render(),
@@ -529,7 +489,7 @@ class Coordination(Struct, frozen=True):
         )
         gaps_spec = tuple(
             frozendict({"section": code.render(), "sheet": "", "detail": "", "discipline": "", "status": "unresolved-section"})
-            for code in sorted(self.orphan_sections, key=ClassCode.render)  # canonical-render order: set iteration never leaks into egress rows
+            for code in sorted(self.orphan_sections, key=ClassCode.render)
         )
         gaps_draw = tuple(
             frozendict({"section": "", "sheet": ref.sheet, "detail": ref.detail.default_value(""), "discipline": ref.discipline.value, "status": "unresolved-detail"})
@@ -539,7 +499,6 @@ class Coordination(Struct, frozen=True):
 
 
 class ReferenceIndex(Struct, frozen=True):
-    # references are primary; both query indexes derive together from that admitted set.
     references: tuple[Reference, ...] = ()
 
     @classmethod
@@ -551,8 +510,6 @@ class ReferenceIndex(Struct, frozen=True):
         return (sheet.sheet, sheet.detail.default_value(""), sheet.discipline.value)
 
     def _indexes(self) -> tuple[Map[ClassCode, tuple[SheetRef, ...]], Map[tuple[str, str, str], tuple[ClassCode, ...]]]:
-        # inverse direction keys the FULL SheetRef coordinate — sheet, detail bubble, discipline — so two
-        # references on one sheet but distinct details or disciplines resolve independently, honoring the query type.
         def threaded(
             pair: tuple[Map[ClassCode, tuple[SheetRef, ...]], Map[tuple[str, str, str], tuple[ClassCode, ...]]], ref: Reference, /
         ) -> tuple[Map[ClassCode, tuple[SheetRef, ...]], Map[tuple[str, str, str], tuple[ClassCode, ...]]]:
@@ -569,8 +526,6 @@ class ReferenceIndex(Struct, frozen=True):
     @overload
     def resolve(self, query: SheetRef, /) -> Block[ClassCode]: ...
     def resolve(self, query: ClassCode | SheetRef, /) -> Block[ClassCode] | Block[SheetRef]:
-        # discriminate on the query shape: a `ClassCode` gathers the detailing sheets (widened by
-        # `descends_from` so a division sweeps every descendant), a `SheetRef` the governing sections.
         match query:
             case ClassCode() as section:
                 forward, _ = self._indexes()
@@ -582,8 +537,6 @@ class ReferenceIndex(Struct, frozen=True):
                 assert_never(unreachable)
 
     def coordinate(self, specified: ClassCode | Iterable[ClassCode], /) -> Coordination:
-        # a reference matches when the manual specifies its section or an ancestor of it; `Block.partition`
-        # splits matched from orphan in one pass, membership a non-empty filtered block (`Block` has no `exists`).
         wanted, refs = _normalized(specified), Block.of_seq(self.references)
 
         def specifies(section: ClassCode, /) -> bool:
@@ -600,8 +553,6 @@ class ReferenceIndex(Struct, frozen=True):
 
 
 def _normalized[T](items: T | Iterable[T], /) -> Block[T]:
-    # one modal-arity head — a lone `Reference`/`ClassCode` the singleton, any container the multi case;
-    # never a `single`/`many` suffix pair.
     match items:
         case Iterable() as stream if not isinstance(stream, (str, bytes)):
             return Block.of_seq(stream)

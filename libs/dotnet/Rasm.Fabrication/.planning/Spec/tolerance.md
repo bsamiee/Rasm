@@ -25,7 +25,7 @@ The GD&T algebra is a DRAWING-STANDARD vocabulary, so its glyphs, datum letters,
 - Boundary: a row states legality alone — the frame that composes them, its datum system, and its settled projection live at `[03]`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;
@@ -39,7 +39,7 @@ using LanguageExt.Traits;
 using MathNet.Numerics.Distributions;
 using NodaTime;
 using Rasm.Domain;
-using Rasm.Drawing;                      // GeometricCharacteristic/DatumDesignator/DatumRegime/ZoneModifier/SymbolSet — the drawing-standard owners
+using Rasm.Drawing;
 using Rasm.Element.Projection;
 using Rasm.Fabrication.Process;
 using Thinktecture;
@@ -50,7 +50,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Spec;
 
-// --- [VOCABULARIES] -------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARIES] --------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FeatureClass {
     public static readonly FeatureClass Form = new("form");
@@ -68,13 +68,6 @@ public sealed partial class FeatureScope {
     public static readonly FeatureScope CenterPoint = new("center-point");
 }
 
-// The kind decides its own SECOND DIMENSION: whether the zone carries one beside its width, what that magnitude
-// must hold, and whether it is a projection height or a disposition offset. Both facts were a private kind SET and
-// a three-arm payload switch on the zone union, which let `Projected` be spelled with no height and caught it only
-// after construction; the row now refuses that pairing at admission and the union collapses to one shape.
-// The diameter and projected prefixes are the kernel `ZoneModifier` glyphs — a code point re-declared beside a name
-// is the fork the kernel roster exists to close; `S⌀` and `UZ` are ISO 1101 compound spellings the roster has no
-// single row for, so each derives from the kernel glyph rather than restating it.
 [SmartEnum<string>]
 public sealed partial class ToleranceZoneKind {
     public static readonly ToleranceZoneKind Bilateral = Plain("bilateral", string.Empty);
@@ -91,26 +84,17 @@ public sealed partial class ToleranceZoneKind {
 
     private static string Diametral => ZoneModifier.Diametral.Glyph.ToString(CultureInfo.InvariantCulture);
 
-    // A plain zone carries its width alone, so a second magnitude is not underspecified — it is inadmissible.
     private static ToleranceZoneKind Plain(string key, string prefix) =>
         new(key, prefix, projects: false, static (second, _) => second.IsNone);
 
     public string Prefix { get; }
 
-    // Which member the second magnitude answers: a projection height stands off the toleranced feature, while an
-    // unequal disposition displaces the zone inside its own width. One column names it, so no consumer re-derives
-    // the meaning of a magnitude from the kind it already holds.
     public bool Projects { get; }
 
     [UseDelegateFromConstructor]
     public partial bool AdmitsSecond(Option<double> secondMm, double widthMm);
 }
 
-// Each row NAMES its kernel `GeometricCharacteristic` and adds only what the specification plane owns: which
-// feature scopes the control applies to, which scopes admit a material condition, and which zone kinds it can be
-// written in. The glyph, the datum regime, and the row key itself are the kernel's — a second roster restating
-// them had already drifted on two rows (straightness and perpendicularity carried different code points here than
-// at the drawing owner), which is exactly what a hand-kept mirror of a published table does.
 [SmartEnum<string>]
 public sealed partial class FeatureCharacteristic {
     public static readonly FeatureCharacteristic Straightness = Row(GeometricCharacteristic.Straightness, FeatureClass.Form,
@@ -143,8 +127,6 @@ public sealed partial class FeatureCharacteristic {
     public static readonly FeatureCharacteristic CircularRunout = Runout(GeometricCharacteristic.CircularRunout);
     public static readonly FeatureCharacteristic TotalRunout = Runout(GeometricCharacteristic.TotalRunout);
 
-    // The kernel row's key IS this row's key, so the wire token and the drawing owner can never name one control
-    // under two spellings and a roster revision moves one string.
     private static FeatureCharacteristic Row(GeometricCharacteristic drawn, FeatureClass @class,
         Func<FeatureScope, bool> admitsScope, Func<FeatureScope, bool> admitsMaterial,
         Func<ToleranceZoneKind, bool> admitsZone) =>
@@ -164,14 +146,10 @@ public sealed partial class FeatureCharacteristic {
     private static FeatureCharacteristic Runout(GeometricCharacteristic drawn) =>
         Surface(drawn, FeatureClass.Runout, static zone => zone == ToleranceZoneKind.Bilateral);
 
-    // The drawing-standard row: glyph, datum regime, and standard admission all resolve through it.
     public GeometricCharacteristic Drawn { get; }
     public FeatureClass Class { get; }
     public string Symbol => Drawn.Glyph.ToString(CultureInfo.InvariantCulture);
 
-    // ISO 1101's OPTIONAL regime is precisely the profile-contextual class — the two rows carrying it are the two
-    // profile controls — so the marker derives from the kernel row rather than standing as a second declaration
-    // that a new optional-regime characteristic could contradict.
     public bool ProfileContextual => Drawn.Datums == DatumRegime.Optional;
 
     [UseDelegateFromConstructor]
@@ -181,9 +159,6 @@ public sealed partial class FeatureCharacteristic {
     [UseDelegateFromConstructor]
     public partial bool AdmitsZone(ToleranceZoneKind zone);
 
-    // ISO 1101 grades a profile control in THREE steps, not two: no datum controls FORM alone, a single datum adds
-    // ORIENTATION, and a full datum system adds LOCATION. Collapsing the last two makes a singly-referenced profile
-    // claim a located zone the drawing never constrained.
     public FeatureClass EffectiveClass(int datumCount) => !ProfileContextual
         ? Class
         : datumCount switch {
@@ -206,9 +181,6 @@ public sealed partial class FeatureGeometry {
     public partial double Boundary(double materialMm, double widthMm);
 }
 
-// The two printed marks are the kernel `ZoneModifier` rows the drawing owner publishes; the regardless-of-feature-size
-// mark is DECLARED here alone because ISO 2692 retired it and ASME Y14.5 makes it the unmarked default, so no current
-// standard prints a glyph the kernel roster could carry — a row there would be a symbol no drawing draws.
 [SmartEnum<string>]
 public sealed partial class MaterialCondition {
     public static readonly MaterialCondition Regardless = new("rfs", "Ⓢ",
@@ -234,9 +206,6 @@ public sealed partial class MaterialCondition {
     public partial Option<(double VirtualMm, double ResultantMm)> Boundaries(FeatureSize size, double widthMm);
 }
 
-// The ISO 1101 modifiers a feature-control FRAME carries, named for the frame rather than the zone: the kernel
-// `ZoneModifier` is the drawing owner's four-row compartment-glyph roster, and this roster is the fourteen-row
-// specification vocabulary that reads it. Free state is the one row both hold, so its glyph comes from there.
 [SmartEnum<string>]
 public sealed partial class FrameModifier {
     public static readonly FrameModifier TangentPlane = new("tangent-plane", "Ⓣ",
@@ -303,7 +272,7 @@ public sealed partial class QifKind {
 - Boundary: an achievable width enters as input-carried capability evidence and never as a reach into `Spec/capability`.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct ZoneWidth {
     [BoundaryAdapter]
@@ -311,18 +280,11 @@ public readonly partial struct ZoneWidth {
         validationError = double.IsFinite(value) && value > 0.0 ? null : ToleranceSpec.Validation("tolerance-zone-width");
 }
 
-// ONE zone shape. The kind row owns whether a second magnitude exists and what it must hold, so the three payload
-// cases — each of which could be constructed against a kind that contradicted it — collapse into the row's own
-// admission. NAMED LOSS: a consumer can no longer pattern-match `Projected` as a distinct case. WITNESS: both
-// readers of the retired `Dimensions` pair — the settled frame's two height and offset members and the wire's own
-// tail — immediately re-joined the two slots into one at-most-one stream, and the wire already states that the kind
-// token ahead of the width "fixes the width totally", so the kind was the discriminant on every reading path.
 [ComplexValueObject]
 public sealed partial class ToleranceZone {
     public ToleranceZoneKind Kind { get; }
     public ZoneWidth Width { get; }
 
-    // Present exactly where the kind names one: a projection height, or a signed or fractional disposition offset.
     public Option<double> SecondMm { get; }
     public Set<FrameModifier> Modifiers { get; }
 
@@ -331,7 +293,6 @@ public sealed partial class ToleranceZone {
         ref ZoneWidth width, ref Option<double> secondMm, ref Set<FrameModifier> modifiers) =>
         validationError = Legal(kind, width, secondMm) ? null : ToleranceSpec.Validation("tolerance-zone");
 
-    // The one predicate the generated hook and `FeatureControl`'s own accumulating gate both read.
     internal static bool Legal(ToleranceZoneKind kind, ZoneWidth width, Option<double> secondMm) =>
         double.IsFinite(width.ToValue()) && width.ToValue() > 0.0
         && kind.AdmitsSecond(secondMm, width.ToValue());
@@ -340,11 +301,6 @@ public sealed partial class ToleranceZone {
     public Option<double> UnequalOffsetMm => Kind.Projects ? None : SecondMm;
 }
 
-// The datum letter is the kernel `DatumDesignator` — the ISO 5459 class, its I/O/Q exclusion, and the common-datum
-// pair are the drawing owner's law, and a local letter set beside it is a second class the two can disagree on.
-// NAMED LOSS: the trim-and-upper normalization this owner ran over a raw label string. WITNESS: no site constructs
-// a reference from untrusted text — the encoder is egress-only and every mint here takes an already-admitted
-// designator — so the normalization guarded a boundary this page does not have.
 [ComplexValueObject]
 public sealed partial class DatumReference {
     public DatumDesignator Label { get; }
@@ -376,13 +332,10 @@ public sealed partial class DatumSystem {
     public Arr<DatumReference> References { get; }
     public QifKind Qif => QifKind.DatumSystem;
 
-    // The kernel `DatumRegime` asks for PRESENCE, and a precedence-ordered system's presence is its primary
-    // reference, so the characteristic's own regime row reads this projection and no count-shaped twin exists.
     public Option<DatumDesignator> Primary => References.HeadOrNone().Map(static row => row.Label);
 
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Arr<DatumReference> references) {
-        // Precedence ORDERS the system, so admission seats the references in it rather than trusting a caller's order.
         references = toSeq(references.OrderBy(static row => row.Precedence.Order)).ToArr();
         validationError = references.Count <= 3
             && references.Map(static row => row.Label).Distinct().Count == references.Count
@@ -439,7 +392,6 @@ public sealed partial class FrameExtension {
             && double.IsFinite(row.LengthMm) && row.LengthMm > 0.0
             && double.IsFinite(row.WidthMm) && row.WidthMm > 0.0);
 
-    // A target label carries its datum letter as a prefix, and a composite lower segment refines the upper datums.
     public bool Anchored(DatumSystem datums) =>
         Targets.ForAll(target => datums.References.Exists(row =>
             target.Label.StartsWith(row.Label.Text, StringComparison.Ordinal)))
@@ -478,15 +430,9 @@ public sealed partial class FeatureControl {
     public Option<FeatureSize> Size { get; }
     public Option<double> AchievableMm { get; }
 
-    // The publishing standard seats LAST so the wire's field order — which is this member order minus the columns
-    // no drawing consumer decodes — keeps every existing cell at its pinned offset. It does not cross: the reading
-    // standard owns glyph and presentation, so a producer stating its own would publish the reader's decision.
     public SheetStandard Standard { get; }
     public FeatureClass Class => Characteristic.EffectiveClass(Datums.References.Count);
 
-    // ONE legality predicate, two readers: the accumulating admission reports WHICH clauses a frame violated and
-    // the generated hook proves the same conjunction, so a direct `Create` can never seat a frame the admission
-    // would have refused and the two can never state different law.
     internal static bool Legal(
         FeatureCharacteristic characteristic,
         FeatureScope scope,
@@ -516,9 +462,6 @@ public sealed partial class FeatureControl {
             validationError = ToleranceSpec.Validation("feature-control");
     }
 
-    // ISO 1101 legality is NINE independent questions, so a refusal names every clause the frame violated rather
-    // than the first one a boolean ladder happened to reach: a caller repairing a datum count learns in the same
-    // verdict that its zone kind, its material condition, and its publishing standard are also inadmissible.
     public static Fin<FeatureControl> Admit(ToleranceRequest.Feature raw) =>
         from _clauses in (
             AdmissionSlots.Gate(ToleranceZone.Legal(raw.Zone.Kind, raw.Zone.Width, raw.Zone.SecondMm), FabConcern.Spec, "tolerance:feature-control:zone-payload", FabricationFault.Inadmissible),
@@ -549,8 +492,6 @@ public sealed partial class FeatureFrame {
     public FeatureScope Scope => Control.Scope;
     public ToleranceZoneKind Kind => Control.Zone.Kind;
     public double WidthMm => Control.Zone.Width.ToValue();
-    // Ordinal, never the default comparer: culture-sensitive ordering makes ONE frame two byte streams across hosts,
-    // and this order is what `FeatureControlWire` projects, so the domain and generated message read one sequence.
     public Arr<FrameModifier> Modifiers => toSeq(Control.Zone.Modifiers
         .OrderBy(static modifier => modifier.Key, StringComparer.Ordinal)).ToArr();
     public Arr<DatumReference> Datums => Control.Datums.References;
@@ -560,14 +501,8 @@ public sealed partial class FeatureFrame {
     public Option<double> UnequalOffsetMm => Control.Zone.UnequalOffsetMm;
     public FrameExtension Extension => Control.Extension;
     public Option<double> AchievableMm => Control.AchievableMm;
-    // The frame as LAYOUT-FREE ROWS, never a concatenated glyph run: a drafting consumer places compartments,
-    // stacks a composite segment, and sizes a datum box from the ROW STREAM, while a pre-joined string forces it to
-    // re-parse the very structure this owner already holds. Every row carries its compartment, its symbol text,
-    // and its ordinal, so the drawing plane composes a feature-control frame without re-opening the specification.
     public Seq<FrameSymbolRow> Annotation =>
         Seq(new FrameSymbolRow(FrameCompartment.Characteristic, Control.Characteristic.Symbol, 0))
-        // Shortest-round-trip rendering, never a fixed decimal mask: a three-place mask draws a 0.0001 mm zone as a
-        // bare zero, which reads on the drawing as an unachievable perfect form rather than as the zone specified.
         + Seq(new FrameSymbolRow(
             FrameCompartment.Zone,
             string.Concat(Control.Zone.Kind.Prefix, WidthMm.ToString(CultureInfo.InvariantCulture)),
@@ -583,8 +518,6 @@ public sealed partial class FeatureFrame {
         validationError = control is null ? ToleranceSpec.Validation("feature-frame") : null;
 }
 
-// The compartment a symbol row occupies in an ISO 1101 feature-control frame. The vocabulary is the FRAME's own
-// structure, so a drawing consumer partitions by row rather than by position in a joined string.
 [SmartEnum<string>]
 public sealed partial class FrameCompartment {
     public static readonly FrameCompartment Characteristic = new("characteristic");
@@ -594,8 +527,6 @@ public sealed partial class FrameCompartment {
     public static readonly FrameCompartment Datum = new("datum");
 }
 
-// One symbol row: what compartment it belongs to, the symbol text itself, and its ordinal inside that compartment.
-// No placement, no size, no font — layout is the drawing plane's, and this row carries only the specification.
 public readonly record struct FrameSymbolRow(FrameCompartment Compartment, string Symbol, int Ordinal);
 
 [ValueObject<UInt128>]
@@ -616,7 +547,7 @@ public readonly partial struct CharacteristicId {
 - Boundary: deviations are published in micrometres and sizes read in millimetres, so the conversion rides the quantity owner at the one derivation site rather than a bare divisor per call.
 
 ```csharp signature
-// --- [VOCABULARIES] -------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARIES] --------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FitMember {
     public static readonly FitMember Hole = new("hole");
@@ -642,18 +573,11 @@ public sealed partial class FitCharacter {
     public static readonly FitCharacter Transition = new("transition");
     public static readonly FitCharacter Interference = new("interference");
 
-    // The ONE pairing law. A never-negative minimum clears, a never-positive maximum interferes, and anything
-    // spanning zero transitions — stated once so the admitting fold and the receipt's own proof cannot disagree.
     public static FitCharacter Of(double minimumMm, double maximumMm) =>
         minimumMm >= 0.0 ? Clearance : maximumMm <= 0.0 ? Interference : Transition;
 }
 
 [SmartEnum<string>]
-// ISO 286-1 fundamental deviation as the CLOSED FORM the standard publishes, not a transcribed grid. Each row
-// carries the bound its letter governs and the micrometre formula over the diameter band's geometric mean, so a
-// band the standard adds is one `DiameterBand` row needing no deviation transcription at all. The genuinely
-// irregular rows — shaft j and hole J, the p step, and k outside grades 4 through 7 — ride `FitException`, which
-// is what a table on this page is now FOR.
 public sealed partial class FitLetter {
     public static readonly FitLetter A = Upper("a", static (d, _) => d <= 120.0 ? -(265.0 + (1.3 * d)) : -3.5 * d);
     public static readonly FitLetter B = Upper("b", static (d, _) => d <= 160.0 ? -(140.0 + (0.85 * d)) : -1.8 * d);
@@ -666,7 +590,6 @@ public sealed partial class FitLetter {
     public static readonly FitLetter Fg = Upper("fg", static (d, series) => -Blend("f", "g", d, series));
     public static readonly FitLetter G = Upper("g", static (d, _) => -2.5 * Math.Pow(d, 0.34));
     public static readonly FitLetter H = Upper("h", static (_, _) => 0.0);
-    // Js is symmetric about the nominal, so the grade alone sets both deviations and the fundamental term is zero.
     public static readonly FitLetter Js = new("js", FitBound.Symmetric, tabulates: false, static (_, _) => 0.0);
     public static readonly FitLetter J = new("j", FitBound.Upper, tabulates: true, static (_, _) => 0.0);
     public static readonly FitLetter K = Lower("k", static (d, _) => 0.6 * Math.Cbrt(d));
@@ -688,11 +611,8 @@ public sealed partial class FitLetter {
 
     public FitBound Bound { get; }
 
-    // A letter the standard tabulates rather than derives resolves ONLY through `FitException`; the formula path
-    // refuses it rather than returning the zero its unused delegate would hand back.
     public bool Tabulates { get; }
 
-    // Shaft deviation in micrometres. A hole mirrors it under the general rule, so one column serves both members.
     [UseDelegateFromConstructor]
     public partial double ShaftMicrometers(double geometricMeanMm, ItSeries series);
 
@@ -702,15 +622,11 @@ public sealed partial class FitLetter {
     private static FitLetter Lower(string key, Func<double, ItSeries, double> shaft) =>
         new(key, FitBound.Lower, tabulates: false, shaft);
 
-    // The composite letters are the GEOMETRIC MEAN of their neighbours' magnitudes, resolved at CALL time so a
-    // static field initializer never reads a sibling row the runtime has not seated yet.
     private static double Blend(string first, string second, double meanMm, ItSeries series) =>
         Math.Sqrt(Math.Abs(Get(first).ShaftMicrometers(meanMm, series))
             * Math.Abs(Get(second).ShaftMicrometers(meanMm, series)));
 }
 
-// The IT series indexed by grade NUMBER, so the m, p, s, t, u, v, x, y, z, za, zb, and zc formulas read the grade
-// terms `ItGradeName` already computes rather than carrying a per-band tabulation of the same values.
 public readonly record struct ItSeries(double GeometricMeanMm) {
     public double At(int grade) => ItGradeName.Of(grade).Map(row => row.Micrometers(GeometricMeanMm)).IfNone(0.0);
 }
@@ -750,8 +666,6 @@ public sealed partial class ItGradeName {
 
     public int Number { get; }
 
-    // Items-derived grade index, materialized on first read: every fundamental-deviation formula expressed in IT
-    // terms resolves its grade here rather than re-scanning the roster per evaluation.
     private static readonly Lazy<FrozenDictionary<int, ItGradeName>> ByNumber = new(
         static () => Items.ToFrozenDictionary(static row => row.Number),
         LazyThreadSafetyMode.ExecutionAndPublication);
@@ -791,7 +705,7 @@ public sealed partial class GeneralToleranceKind {
     public partial bool Admits(GeneralLimit limit);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct FinishingAllowanceFactor {
     [BoundaryAdapter]
@@ -805,9 +719,6 @@ public sealed partial class DiameterBand {
     public double LowerMm { get; }
     public double UpperMm { get; }
 
-    // ISO 286-1 evaluates every IT and deviation formula at the band's GEOMETRIC MEAN, and the first band's zero
-    // lower bound takes the standard's own 1 mm substitute. A caller-supplied reference is a second truth that can
-    // disagree with the formula the same standard publishes, so the band derives it.
     public double ReferenceMm => Math.Sqrt(Math.Max(LowerMm, 1.0) * UpperMm);
 
     [BoundaryAdapter]
@@ -835,9 +746,6 @@ public sealed partial class ItGrade {
             && name.Micrometers(diameter.ReferenceMm) > 0.0 ? null : ToleranceSpec.Validation("it-grade");
 }
 
-// An EXCEPTION, not a transcription: a row exists only where ISO 286-1 publishes a value its own formulas do not
-// generate — shaft j and hole J across grades 5 through 8, the p step, and k outside grades 4 through 7. A row
-// duplicating what `FitLetter` derives is the deleted form, because the two would then disagree silently.
 public readonly record struct FitException(
     FitMember Member,
     FitLetter Letter,
@@ -846,9 +754,6 @@ public readonly record struct FitException(
     FitBound Bound,
     double FundamentalMicrometers);
 
-// The GENERATIVE deviation owner. `Resolve` reads an exception where one exists and derives the value from the
-// letter's own closed form otherwise, so a standard revision that widens a band roster costs one `DiameterBand`
-// row and a revision that changes a formula costs one delegate — never a thousand transcribed micrometre cells.
 [ComplexValueObject]
 public sealed partial class FitStandard {
     public Arr<DiameterBand> Diameters { get; }
@@ -863,8 +768,6 @@ public sealed partial class FitStandard {
             && exceptions.Map(static row => (row.Member, row.Letter, row.Diameter, row.Grade)).Distinct().Count == exceptions.Count
                 ? null : ToleranceSpec.Validation("fit-standard");
 
-    // A grade-specific exception outranks the grade-agnostic row of the same member, letter, and band; absence of
-    // both hands the letter's own formula, and only a TABULATED letter with no exception refuses.
     public Fin<(FitBound Bound, double FundamentalMicrometers)> Resolve(
         FitMember member, FitLetter letter, ItGradeName grade, DiameterBand diameter) =>
         toSeq(Exceptions)
@@ -878,10 +781,6 @@ public sealed partial class FitStandard {
                     $"a tabulated exception for {member.ToValue()}{letter.ToValue()}{grade.ToValue()}"))
                 : Fin.Succ(Derived(member, letter, grade, diameter)));
 
-    // The general rule: the shaft deviation is the formula's own value, and the hole is its MIRROR — sign and
-    // bound both flip. The Δ correction ISO 286-1 applies to holes K through ZC at grades at or below 8 is the
-    // difference between that grade's tolerance and the next finer one, added back so a mirrored hole preserves
-    // the fit character its shaft partner was designed against.
     private static (FitBound Bound, double FundamentalMicrometers) Derived(
         FitMember member, FitLetter letter, ItGradeName grade, DiameterBand diameter) {
         ItSeries series = new(diameter.ReferenceMm);
@@ -922,8 +821,6 @@ public sealed partial class FitClass {
         ? string.Concat(Letter.ToValue().ToUpperInvariant(), Grade.Number.ToString(CultureInfo.InvariantCulture))
         : string.Concat(Letter.ToValue(), Grade.Number.ToString(CultureInfo.InvariantCulture));
 
-    // Deviations are published in micrometres and sizes read in millimetres, so the conversion rides the quantity
-    // owner: a bare divisor at each site is one more place the unit regime can be transposed silently.
     public (double LowerMm, double UpperMm) Sizes(double nominalMm) =>
         (nominalMm + Length.FromMicrometers(Limits.LowerUm).Millimeters,
          nominalMm + Length.FromMicrometers(Limits.UpperUm).Millimeters);
@@ -944,10 +841,6 @@ public sealed partial class FitLimits {
     public (double LowerMm, double UpperMm) ShaftSizes => Shaft.Sizes(NominalMm);
     public double MaxClearanceMm => HoleSizes.UpperMm - ShaftSizes.LowerMm;
     public double MinClearanceMm => HoleSizes.LowerMm - ShaftSizes.UpperMm;
-    // Shortest-round-trip, never a fixed decimal mask, and the diameter glyph is the drawing owner's row: a
-    // three-place mask draws a 10.0001 mm nominal as a bare `10`, which is the same defect the zone compartment
-    // already refuses a mask for, and this page cannot resolve a published precision because a specification
-    // carries no sheet scale — precision is the SHEET's fact, resolved where a scale exists to imply it.
     public string Designation => string.Concat(ZoneModifier.Diametral.Glyph,
         NominalMm.ToString(CultureInfo.InvariantCulture), " ", Hole.Designation, "/", Shaft.Designation);
 
@@ -977,8 +870,6 @@ public abstract partial record GeneralLimit : IValidityEvidence {
     public sealed record Linear(double Millimeters) : GeneralLimit;
     public sealed record Angular(double Degrees) : GeneralLimit;
 
-    // The kernel evidence floor, so the fold reads the same member every other carrier in the corpus answers on
-    // and the acceptance oracle reaches this union with no oracle edit; the claim rows state the predicate once.
     public bool IsValid => Switch(
         linear: static row => ValidityClaim.Positive(row.Millimeters),
         angular: static row => ValidityClaim.Positive(row.Degrees));
@@ -1033,7 +924,7 @@ public sealed partial class GeneralTolerance {
 - Growth: a surface parameter is one row naming its profile and its measure; a measure is one row carrying its unit and its admitted band.
 
 ```csharp signature
-// --- [VOCABULARIES] -------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARIES] --------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SurfaceProfile {
     public static readonly SurfaceProfile Roughness = new("roughness");
@@ -1041,9 +932,6 @@ public sealed partial class SurfaceProfile {
     public static readonly SurfaceProfile Primary = new("primary");
 }
 
-// The measure owns BOTH halves of what a limit means: the band it must hold and the unit it is read in. A
-// requirement case naming the unit in its own member name kept the second half where the vocabulary could not
-// see it.
 [SmartEnum<string>]
 public sealed partial class SurfaceMeasure {
     public static readonly SurfaceMeasure Amplitude = Positive("amplitude", LengthUnit.Micrometer);
@@ -1051,7 +939,6 @@ public sealed partial class SurfaceMeasure {
     public static readonly SurfaceMeasure Ratio = Percent("ratio");
     public static readonly SurfaceMeasure LevelRatio = Percent("level-ratio");
     public static readonly SurfaceMeasure Difference = Positive("difference", LengthUnit.Micrometer);
-    // A shape parameter is a dimensionless moment, so its limit reads as a bare decimal fraction.
     public static readonly SurfaceMeasure Shape = new("shape", RatioUnit.DecimalFraction,
         static limit => limit.Holds(static value => double.IsFinite(value)));
 
@@ -1125,9 +1012,6 @@ public abstract partial record SurfaceLimit {
     public sealed record Minimum(double Value) : SurfaceLimit;
     public sealed record Range(double Lower, double Upper) : SurfaceLimit;
 
-    // A PARAMETERIZED fold, not the evidence floor: the measure supplies the band its own unit admits, so this
-    // asks whether every magnitude the limit spells clears that band. `IsValid` is the corpus-wide unparameterized
-    // member, and one page spelling both under one name is the collision this name closes.
     internal bool Holds(Func<double, bool> admits) => Switch(
         exact: row => admits(row.Value),
         maximum: row => admits(row.Value),
@@ -1159,7 +1043,7 @@ public sealed partial class ProcessMark {
     public static readonly ProcessMark RemovalProhibited = new("removal-prohibited");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct ScallopFactor {
     [BoundaryAdapter]
@@ -1167,18 +1051,11 @@ public readonly partial struct ScallopFactor {
         validationError = double.IsFinite(value) && value > 0.0 ? null : ToleranceSpec.Validation("scallop-factor");
 }
 
-// The requirement is ONE shape: its parameter already names the measure, and the measure already owns the unit
-// its limit reads and the band that limit must hold. Six cases mirroring six measure rows were a shadow of the
-// vocabulary — a parameter and a case could disagree, and the admission existed only to catch a contradiction
-// the second family created. The two payload extras a measure genuinely needs ride as their own optional
-// columns, present exactly where their measure demands them.
 [ComplexValueObject]
 public sealed partial class SurfaceRequirement {
     public SurfaceParameter Parameter { get; }
     public SurfaceLimit Limit { get; }
 
-    // The evaluation level a bearing-ratio requirement is read at, and the two material-ratio depths a difference
-    // requirement spans: each present exactly when its own measure names it.
     public Option<double> LevelMicrometers { get; }
     public Option<(double FromPercent, double ToPercent)> MaterialBand { get; }
 
@@ -1247,7 +1124,6 @@ public sealed partial class RaTarget {
         validationError = double.IsFinite(micrometers) && micrometers > 0.0 && double.IsFinite(factor.ToValue())
             && factor.ToValue() > 0.0 ? null : ToleranceSpec.Validation("ra-target");
 
-    // SurfaceTexture amplitude rows drive the target; a parameter without a declared Ra ratio cannot.
     public static Fin<RaTarget> From(SurfaceTexture texture, SurfaceParameter source, ScallopFactor factor) =>
         from admittedTexture in Optional(texture).ToFin(ToleranceSpec.Invalid("surface-texture:raw"))
         from admittedSource in Optional(source).ToFin(ToleranceSpec.Invalid("surface-texture:source"))
@@ -1277,12 +1153,7 @@ public sealed partial class RaTarget {
 - Boundary: the chain declares terms and combines them; the shared-factor loadings, systematic offsets, and measured fits a simulation needs are `Spec/capability` contributors bound to these terms by key. The stamp is the REQUEST's, because `Receipt<TEvidence>` stamps where a receipt settles and a pure combination has no clock of its own to read.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// The quadrature weight is the standard deviation a term contributes PER UNIT half-range, so a root-sum-square
-// combines comparable variances. Every row states the closed form of that ratio for its own distribution: a
-// uniform half-range is sqrt(3) standard deviations wide, so its weight DIVIDES by sqrt(3) — multiplying inflates
-// the very distribution that spreads least. A skewed process is the beta family the shop actually observes, and
-// its weight is the beta standard deviation at the declared shape rather than a bare inflation factor.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ProcessDistribution {
     public static readonly ProcessDistribution Normal = new("normal", 1.0 / 3.0,
@@ -1291,8 +1162,6 @@ public sealed partial class ProcessDistribution {
         static source => new ContinuousUniform(-1.0, 1.0, source));
     public static readonly ProcessDistribution Triangular = new("triangular", 1.0 / Math.Sqrt(6.0),
         static source => new Triangular(-1.0, 1.0, 0.0, source));
-    // Beta(2, 4) over the half-range interval: mean displaced toward the lower limit, which is the tool-wear drift
-    // a single-sided process shows, and a REAL sampler the Monte-Carlo route draws from.
     public static readonly ProcessDistribution Skewed = new("skewed", Math.Sqrt(2.0 * 4.0 / (36.0 * 7.0)) * 2.0,
         static source => new Beta(2.0, 4.0, source));
 
@@ -1301,14 +1170,8 @@ public sealed partial class ProcessDistribution {
 
     public double QuadratureWeight { get; }
 
-    // The row's family SEEDED by the caller's own stream. A pre-built shared instance cannot serve a simulation
-    // whose receipt publishes a replay seed — every draw would come off a stream nobody can reproduce, and a
-    // parallel trial fold would race one generator. The caller holds the instance across its trial run.
-    // SmartEnum key equality already governs the type, so no member equality attribute has anything to exclude.
     public Func<Random, IContinuousDistribution> Seeded { get; }
 
-    // The STANDARDIZED deviate the term scales: each arm centres and normalizes its own support, so a draw is
-    // comparable across rows and the caller multiplies by whichever spread it is spending.
     public double Standardize(double sample) => Switch(
         state: sample,
         normal: static (value, _) => Math.Clamp(value * 3.0, -3.0, 3.0) / 3.0,
@@ -1320,11 +1183,6 @@ public sealed partial class ProcessDistribution {
 }
 
 [ComplexValueObject]
-// The signed deviation bounds are the TERM's own columns. They were a separately-constructible interval owner with
-// exactly one consumer and one mint, both here, so the ordering invariant moved onto this admission and the bound
-// pair stopped being expressible apart from the term it bounds. NAMED LOSS: a caller can no longer hold a bare
-// admitted bound pair. WITNESS: the only construction site was this owner's own `Of`, and the only reader was this
-// owner's own sensitivity projection — a corpus grep for the retired name returns nothing outside them.
 [ComplexValueObject]
 public sealed partial class ToleranceTerm {
     public string Key { get; }
@@ -1374,7 +1232,6 @@ public sealed partial class StackMethod {
     [UseDelegateFromConstructor]
     public partial double Combine(Seq<ToleranceTerm> terms);
 
-    // A term's share is its own combined magnitude under the same algebra, so the ranking never forks the law.
     public double Share(ToleranceTerm term, double totalHalfRangeMm) =>
         totalHalfRangeMm > 0.0 ? Combine(Seq(term)) / totalHalfRangeMm : 0.0;
 }
@@ -1393,14 +1250,8 @@ public sealed partial class ToleranceChain {
             && terms.Map(static row => row.Key).Distinct().Count == terms.Count
             && double.IsFinite(boundMm) && boundMm > 0.0 ? null : ToleranceSpec.Validation("tolerance-chain");
 
-    // The declared method is the default reading, and the overload evaluates the SAME terms under any method — so a
-    // consumer wanting the arithmetic bound beside the statistical one reads two rows of ONE algebra rather than
-    // re-spelling a worst-case fold of its own beside a simulation.
     public Receipt<ChainEvidence> Evaluate(Instant stamped) => Evaluate(Method, stamped);
 
-    // The spine columns are the carrier's: the specification's own content key IS this evaluation's identity, the
-    // plane is `Spec`, and the bound verdict rides `Verified` — the slot every settled receipt in the package
-    // already answers conformance on, so a consumer never learns a second name for one question.
     public Receipt<ChainEvidence> Evaluate(StackMethod method, Instant stamped) =>
         (Rows: toSeq(Terms), Total: method.Combine(toSeq(Terms))) switch {
             var chain => Settled(new ChainEvidence(method,
@@ -1421,8 +1272,6 @@ public sealed partial class ToleranceChain {
     };
 }
 
-// The per-evaluation payload: everything that varies when the SAME chain is read under a second method. The key,
-// the plane, the stamp, and the conformance verdict are the carrier's, so this record re-spells none of them.
 public sealed record ChainEvidence(StackMethod Method, double WorstLowerMm, double WorstUpperMm,
     double HalfRangeMm, Arr<(string Term, double Share)> Contributions, double BoundMm) {
     public double CentreMm => (WorstLowerMm + WorstUpperMm) * 0.5;
@@ -1431,8 +1280,6 @@ public sealed record ChainEvidence(StackMethod Method, double WorstLowerMm, doub
         ? toSeq(Contributions).Head
         : None;
 
-    // The one preimage frame a stackup evaluation rides, handed to the carrier's `CanonicalBytes` facade: method
-    // key, the interval, the combined half-range, the ranked term shares in their settled order, and the bound.
     public static CanonicalWriter Frame(ChainEvidence evidence, CanonicalWriter writer) => writer
         .Discriminant(evidence.Method)
         .Double(evidence.WorstLowerMm).Double(evidence.WorstUpperMm).Double(evidence.HalfRangeMm)
@@ -1460,7 +1307,7 @@ public sealed record ChainEvidence(StackMethod Method, double WorstLowerMm, doub
 - Boundary: frame-box facts cross while model-space geometry does not — datum targets and basic dimensions need a view transform this wire has no view to apply, so each rides the geometry seam.
 
 ```csharp signature
-// --- [VOCABULARIES] -------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARIES] --------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SpecAxis {
     public static readonly SpecAxis Length = new("length", UnitsNet.Length.Info, LengthUnit.Millimeter);
@@ -1477,7 +1324,7 @@ public sealed partial class SpecAxis {
     public double Canonical(IQuantity value) => value.As(CanonicalUnit);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class SpecQuantity {
     public SpecAxis Axis { get; }
@@ -1501,15 +1348,13 @@ public sealed partial class SpecQuantity {
                     $"{axis.Quantity.Name} parseable under the invariant culture"));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IToleranceEncoder {
     Fin<ReadOnlyMemory<byte>> Encode(ToleranceSpec value);
 }
 
-// --- [FEATURE_CONTROL_WIRE] --------------------------------------------------------------------------------------------------------
+// --- [FEATURE_CONTROL_WIRE] ------------------------------------------------------------
 
-// The generated message owns the wire grammar. This adapter lowers the admitted domain frame once, validates that
-// message from its descriptor, and delegates byte emission to Google.Protobuf.
 public sealed class FeatureControlWire : IToleranceEncoder {
     static readonly Validator Rules = new(Contract.FabricationReflection.Descriptor);
 
@@ -1530,8 +1375,6 @@ public sealed class FeatureControlWire : IToleranceEncoder {
             : row == MaterialCondition.Least ? Contract.Material.Least
             : throw new InvalidOperationException($"<feature-control-material-unmapped:{row.Key}>"));
 
-    // Construction is the composition boundary: force every correspondence and Celly program before an encoder
-    // can be published. Per-message data refusals still remain on `Encode`'s `Fin` rail.
     public FeatureControlWire() {
         _ = Characteristics.Value;
         _ = Scopes.Value;
@@ -1545,10 +1388,6 @@ public sealed class FeatureControlWire : IToleranceEncoder {
         _ = Rules.Validate(new Contract.FeatureControl());
     }
 
-    // `CorpusFrame` freezes the byte-deriving input the pin reads, derived from stated seeds rather than captured,
-    // so a schema or projection edit regenerates the vector from this page. Position on an axis at MMC over a
-    // three-datum system, ONE datum carrying its own material condition, beside a composite lower segment — the frame a wire
-    // collapsing per-datum modifiers, zone kind, or the lower segment re-encodes identically and cannot discriminate.
     public static readonly ToleranceRequest.Feature CorpusFrame = new(
         CharacteristicId.Create(ContentHash.Of("tolerance-frame:corpus-a:characteristic"u8)),
         ContentKey.Of(EgressKind.QualityRecord, "tolerance-frame:corpus-a"u8),
@@ -1567,12 +1406,8 @@ public sealed class FeatureControlWire : IToleranceEncoder {
                     DatumReference.Create(Letter('A'), DatumPrecedence.Primary, MaterialCondition.Regardless)))))),
         Some(FeatureSize.Create(FeatureGeometry.Internal, 9.9, 10.1)),
         Option<double>.None,
-        // The corpus frame publishes under ISO 1101, whose symbol set admits every characteristic; the standard is
-        // a producer-side admission column and crosses no protobuf field, so the pinned vector is unchanged by it.
         SheetStandard.Iso);
 
-    // The seed letters are kernel-admitted at the fixture, so the corpus cannot freeze a label the drawing owner
-    // would refuse; every one of them is an ISO 5459 letter, which is why the throwing mint is the right arity here.
     private static DatumDesignator Letter(char primary) => DatumDesignator.Create(primary, Option<char>.None);
 
     public Fin<ReadOnlyMemory<byte>> Encode(ToleranceSpec value) => value.Switch(
@@ -1660,7 +1495,7 @@ public sealed class FeatureControlWire : IToleranceEncoder {
             : throw new InvalidOperationException($"<feature-control-vocabulary-unmapped:{typeof(TEnum).Name}:{key}>");
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union]
 public abstract partial record ToleranceSpec {
     private ToleranceSpec() { }
@@ -1684,22 +1519,12 @@ public abstract partial record ToleranceSpec {
         texture: static _ => QifKind.SurfaceTexture, general: static _ => QifKind.GeneralTolerance,
         chain: static _ => QifKind.DimensionalTolerance);
 
-    // The REQUEST-INDEXED entry: the demand's own `ISpecDemand` seat names the receipt case its answer takes, so a
-    // caller binds `Fin<ToleranceReceipt.Scallop>` and the `is <Case>` probe that read a widened family as a
-    // legitimate refusal has no site left. Two narrows close here and nowhere else — an implementer that is not a
-    // request case, and an arm whose answer missed its seat — and both are the OWNER's fault under its own locus.
     public static Fin<TReceipt> Apply<TReceipt>(ISpecDemand<TReceipt> demand) where TReceipt : ToleranceReceipt =>
         from request in Optional(demand as ToleranceRequest).ToFin(Invalid("request"))
         from receipt in Dispatch(request)
         from answer in Optional(receipt as TReceipt).ToFin(Refusal($"correspondence:{typeof(TReceipt).Name}"))
         select answer;
 
-    // The one fold, and the correspondence read as a table: request case on the left, the arm answering it on the
-    // right under its receipt case's name — `Measured` alone diverges, because a member named `Quantity` shadows
-    // `UnitsNet.Quantity` for every later reader of this type, which is the trap the `ToleranceSpec` name itself
-    // exists to dodge. `Answer` is where `ISpecDemand` stops being a claim — the demand type
-    // fixes first, the arm's return type infers `TReceipt`, and an arm building a case its demand never seated fails
-    // the constraint HERE. The widened `Fin<ToleranceReceipt>` every arm used to return could fail nowhere at all.
     private static Fin<ToleranceReceipt> Dispatch(ToleranceRequest request) => request.Switch(
         feature: static demand => Answer(demand, Frame),
         fit: static demand => Answer(demand, Fitted),
@@ -1722,14 +1547,9 @@ public abstract partial record ToleranceSpec {
     internal static Error Range(string axis, double scalar, string requirement) => new KernelFault.OutOfRange(
         Label: axis, Scalar: scalar, Requirement: requirement, Key: Some(SpecOp));
 
-    // Generated owners retain the default validation currency; semantic gates below use the typed refusal mint.
     internal static FabricationFault Refusal(string locus) =>
         FabricationFault.Inadmissible(FabConcern.Spec, $"tolerance:{locus}");
 
-    // Every arm below returns the CONCRETE receipt case its request case seats, so the arm bodies carry no widening
-    // cast and the correspondence is legible in the signature rather than asserted in a comment. None re-reads the
-    // demand for null either: `Apply` refuses that once under `request`, and the generated switch hands an arm the
-    // very instance it proved — the `:raw` loci four arms spelled named a state no path through this fold reaches.
     private static Fin<ToleranceReceipt.Frame> Frame(ToleranceRequest.Feature demand) =>
         from control in FeatureControl.Admit(demand)
         from _ in control.AchievableMm.Filter(achievable => achievable > control.Zone.Width.ToValue()).Match(
@@ -1791,9 +1611,6 @@ public abstract partial record ToleranceSpec {
         from bytes in Op.Of(name: "tolerance:project:encode").Catch(() => demand.Encoder.Encode(demand.Value))
         select new ToleranceReceipt.Projected(demand.Value, bytes);
 
-    // Only a rotationally swept corner leaves a cusp, and the sweep radius is the family's own `CornerRule` — the
-    // same behavior column `CutterFamily.Fits` admits against. Dispatching the sixteen-row family arm by arm strands
-    // every row the roster gains; the four-row corner rule is total over all sixteen and stays total as they grow.
     private static Fin<ToleranceReceipt.Scallop> Scallop(ToleranceRequest.Scallop demand) =>
         from admittedTarget in Optional(demand.Target).ToFin(Invalid("scallop:target"))
         from admittedCutter in Optional(demand.Cutter).ToFin(Invalid("scallop:cutter"))
@@ -1813,13 +1630,8 @@ public abstract partial record ToleranceSpec {
         select new ToleranceReceipt.Scallop(2.0 * Math.Sqrt(radicand));
 }
 
-// The demand-to-receipt correspondence, declared once per request case and read back by `Apply` as its return type.
-// INVARIANT in `TReceipt`, never `out`: under covariance an arm widening its answer to `ToleranceReceipt` would still
-// satisfy the seat, dissolving the proof into the erased shape the seat exists to refuse.
 public interface ISpecDemand<TReceipt> where TReceipt : ToleranceReceipt { }
 
-// Each case names the ONE receipt case its answer takes, so the ten seats below ARE the fold's dispatch table stated
-// as types — a case gaining a seat no arm answers, or answering a case it never seated, is a compile break.
 [Union]
 public abstract partial record ToleranceRequest {
     private ToleranceRequest() { }
@@ -1834,8 +1646,6 @@ public abstract partial record ToleranceRequest {
         Option<string> Treatment) : ToleranceRequest, ISpecDemand<ToleranceReceipt.Textured>;
     public sealed record General(ContentKey Source, GeneralToleranceClass Class, GeneralToleranceKind Kind,
         double NominalMm, GeneralStandard Standard) : ToleranceRequest, ISpecDemand<ToleranceReceipt.Generalized>;
-    // The stamp is the REQUEST's: `Receipt<TEvidence>` stamps where a receipt settles, and a pure combination over
-    // declared terms owns no clock — a fold reaching for one would be an ambient effect inside an expression.
     public sealed record Chain(ContentKey Source, Arr<ToleranceTerm> Terms, double BoundMm,
         StackMethod Method, Instant Stamped) : ToleranceRequest, ISpecDemand<ToleranceReceipt.Stacked>;
     public sealed record Quantity(SpecAxis Axis, string Text)
@@ -1865,7 +1675,6 @@ public abstract partial record ToleranceReceipt {
     public sealed record Allowance(double Millimeters) : ToleranceReceipt;
     public sealed record Projected(ToleranceSpec Value, ReadOnlyMemory<byte> Bytes) : ToleranceReceipt;
 
-    // Every receipt that carries a specification exposes it once, so a consumer never re-matches the case set.
     public Option<ToleranceSpec> Specification() => Switch(
         frame: static row => Some<ToleranceSpec>(row.Value), fitted: static row => Some<ToleranceSpec>(row.Value),
         textured: static row => Some<ToleranceSpec>(row.Value), generalized: static row => Some<ToleranceSpec>(row.Value),

@@ -27,11 +27,6 @@ import { Convention, Fault } from "@rasm/core"
 import { Array, Config, Context, Data, DateTime, Duration, Effect, Either, Layer, Metric, Number, Option, Predicate, Record, Redacted, Schema, pipe } from "effect"
 import { Crypto, Probe, SignFault } from "./sign.ts"
 
-// Five legs partition the fold and each reason renders its OWN subject, because the operator questions differ per
-// leg: a header refusal names the header the dialect never sent, a compare refusal names how many candidates were
-// tried and failed, a freshness refusal names the stamp against the tolerance it missed, and a key refusal names
-// the `kid` whose registry entry no verifier could be built from. One free `detail` string answered all five with
-// prose an operator had to re-parse, and the mismatch arm in particular said nothing about candidate rotation.
 const _family = Fault.Class.family(["missing", "malformed", "mismatch", "stale", "unknownKey", "throttled"] as const, {
   missing: Fault.Class.row({
     class: "malformed",
@@ -90,8 +85,6 @@ class VerifyFault extends Schema.TaggedError<VerifyFault>()("VerifyFault", {
   }
 }
 
-// The re-spell keeps the dialect the primitive fault never carried, so a partner's unreadable material lands on the
-// same subject every other header refusal on that dialect lands on.
 const _respell = (dialect: Verify.Dialect) => (fault: SignFault): VerifyFault =>
   new VerifyFault({ case: { reason: "malformed", dialect, cause: fault.message } })
 ```
@@ -113,9 +106,6 @@ const _kinds = ["github", "stripe", "hmacHex", "hmacBase64", "ecdsaPkix", "ecdsa
 const _utf8 = new TextEncoder()
 const _EMPTY = new Uint8Array(0)
 
-// One entry per hash a partner can sign under, holding the WebCrypto algorithm name every asymmetric arm reads —
-// the ECDSA verify hash, the RSA import hash, and the PSS message-and-MGF1 hash are one spelling per row, so a
-// SHA-512 partner is a row rather than the three scattered SHA-256 literals a hardcoded fold once carried.
 const _DIGESTS = {
   sha256: { subtle: "SHA-256" },
   sha512: { subtle: "SHA-512" },
@@ -240,11 +230,6 @@ class PublicKeyStore extends Context.Tag("security/crypt/PublicKeyStore")<Public
 
 class CurrentVerified extends Context.Tag("security/crypt/CurrentVerified")<CurrentVerified, Verified>() {}
 
-// Route declaration, never header sniffing: `hmacHex`/`hmacBase64` both arrive on `x-signature` and
-// `rsaPss`/`rsaPkcs1` both on `x-signature-rsa`, so the header cannot key the table — a middleware inferring the
-// row from the header picks between two candidates on exactly the collisions a caller controls. The mounting
-// layer names the row, its tolerance, and its HMAC key for one ingress group, so an unbound group refuses at
-// composition instead of defaulting into another provider's grammar.
 class IntakeRoute extends Context.Tag("security/crypt/IntakeRoute")<IntakeRoute, {
   readonly dialect: Verify.Dialect
   readonly tolerance: Duration.Duration
@@ -258,21 +243,12 @@ class Intake extends HttpApiMiddleware.Tag<Intake>()("security/crypt/Intake", {
   provides: CurrentVerified,
 }) {}
 
-// WebCrypto names the curve on import and pins the coordinate width the P1363 signature pads to: a P-256 `r`/`s`
-// each ride 32 bytes, P-384 48, P-521 66. The width is the row's, never the signature's — a DER integer strips its
-// sign byte and shrinks, so reading length off the mark would let a short-`r` signature verify against a padding
-// nothing checked.
 const _CURVES = { p256: "P-256", p384: "P-384", p521: "P-521" } as const satisfies Record<PublicKey.Curve, string>
 const _COORD = { p256: 32, p384: 48, p521: 66 } as const satisfies Record<PublicKey.Curve, number>
 
-// DER length prefix in the short/one-byte/two-byte forms an RSA public key reaches; a modulus past 65535 bytes is
-// unreachable, so no four-byte form exists here.
 const _derLen = (length: number): ReadonlyArray<number> =>
   length < 0x80 ? [length] : length < 0x100 ? [0x81, length] : [0x82, length >>> 8, length & 0xff]
 
-// WebCrypto verifies only the IEEE-P1363 `r‖s` fixed-width form, so a partner's PKIX-DER ECDSA signature — the
-// ASN.1 `SEQUENCE { INTEGER r, INTEGER s }` — reads each INTEGER here, strips the ASN.1 sign-pad byte, and left-pads
-// to the curve's coordinate width. A `p1363` row already carries that form and never reaches here.
 const _derToP1363 = (der: Uint8Array, size: number): Uint8Array => {
   let offset = (der[1] & 0x80) === 0 ? 2 : 2 + (der[1] & 0x7f)
   const readInt = (position: number): readonly [Uint8Array, number] => {
@@ -294,9 +270,6 @@ const _derToP1363 = (der: Uint8Array, size: number): Uint8Array => {
   return p1363
 }
 
-// WebCrypto imports an RSA public key only as SubjectPublicKeyInfo; a `pkcs1` partner ships the bare
-// `RSAPublicKey`, so this wraps it in the fixed rsaEncryption AlgorithmIdentifier and the BIT STRING SPKI spells,
-// byte-identical to what a standards library exports. A `pkix` row already carries SPKI and skips the wrap.
 const _RSA_ALG_ID = [0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00] as const
 const _pkcs1ToSpki = (pkcs1: Uint8Array): Uint8Array => {
   const bitString = [0x03, ..._derLen(pkcs1.length + 1), 0x00, ...pkcs1]
@@ -323,12 +296,8 @@ const _fresh = (stamp: Option.Option<number>, tolerance: Duration.Duration): Eff
           : Effect.fail(new VerifyFault({ case: { reason: "stale", epoch, tolerance } }))),
   })
 
-// Which key family each asymmetric scheme demands, so a registry entry holding an RSA key under a `kid` an ECDSA
-// route resolves reads as the configuration refusal it is rather than as a signature that merely never matches.
 const _FAMILY = { ecdsa: "Ecdsa", "rsa-pkcs1": "Rsa", "rsa-pss": "Rsa" } as const satisfies Record<Exclude<Verify.Scheme, "hmac">, PublicKey["_tag"]>
 
-// Row grammar projected into exactly the parameters a WebCrypto verify reads, so the fold reads no row field
-// directly and a new axis lands as one more projection here.
 type _Asym = {
   readonly scheme: Exclude<Verify.Scheme, "hmac">
   readonly form: Verify.SigForm
@@ -341,13 +310,6 @@ const _asym = (row: (typeof _dialects)[Verify.Dialect]): Option.Option<_Asym> =>
     ? Option.none()
     : Option.some({ scheme: row.scheme, form: _sigForm(row), spec: _DIGESTS[_digest(row)], saltLen: _saltLen(row) })
 
-// One imported key backs a verifier closure: `subtle.verify` hashes the raw message itself, so no pre-digest exists and,
-// every asymmetric row carrying an empty prefix, the held octets cross untouched with no joined body copy. Import
-// lands ONCE ahead of the candidate loop and its failure is Rasm's own configuration — a key family the route
-// never resolves, a `sec1` point WebCrypto's raw import refuses because it is compressed rather than the `0x04`
-// uncompressed form, or a corrupt encoding — so it answers `unknownKey`, while a garbage presented signature stays
-// the ordinary per-candidate `mismatch`. Folding both to `false` once published one verdict for a misconfigured
-// partner and a genuine forgery, leaving the dialect's reject ratio no facet to separate them.
 type _Verifier = (sig: Uint8Array, message: Uint8Array) => Promise<boolean>
 
 const _imported = (asym: _Asym, key: PublicKey, kid: string): Effect.Effect<_Verifier, VerifyFault> =>
@@ -395,9 +357,6 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
         })
         yield* _fresh(parsed.stamp, tolerance)
         const keyId = Option.getOrElse(parsed.kid, () => dialect)
-        // Signed frame travels as its own value into both arms. Joining it onto the body materializes an
-        // intermediate array of the whole request per verify — at the `verify` row's 60-per-minute budget that is
-        // a memory amplifier any caller who can post reaches, and the octets must stay untouched regardless.
         const prefix = row.prefix(parsed.stamp)
         const matched = yield* curb.guard("verify", `${dialect}:${keyId}`, (cause) => new VerifyFault({ case: { reason: "throttled", scope: `${dialect}:${keyId}`, cause } }))(
           row.scheme === "hmac"
@@ -420,10 +379,6 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
                   onNone: () => Effect.fail(new VerifyFault({ case: { reason: "unknownKey", kid: keyId, cause: "no registry entry" } })),
                   onSome: Effect.succeed,
                 }))
-                // Key import lands once and loudly: its refusal is an operator's to fix, so it logs at error and
-                // carries its own reason facet, while each candidate's signature decode stays inside the loop where
-                // a structurally garbage mark verifies false and the set answers `mismatch`. The signed prefix is
-                // empty on every asymmetric row, so the held octets are the verified message with no joined copy.
                 const check = yield* Effect.matchEffect(_imported(asym, key, keyId), {
                   onFailure: (fault) => Effect.zipRight(Effect.logError("verify key import refused", fault), Effect.fail(fault)),
                   onSuccess: Effect.succeed,
@@ -437,7 +392,7 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
           : yield* Effect.fail(new VerifyFault({ case: { reason: "mismatch", dialect, candidates: parsed.marks.length } }))
       }).pipe(
         Effect.tapError((fault) => Reject.mark("verify", { dialect, reason: fault.case.reason })),
-        Reject.measured("verify", { dialect }), // the same kind carries the refusal and its denominator, so the ratio is a same-key join
+        Reject.measured("verify", { dialect }),
         Effect.withSpan("security.verify", { attributes: { dialect } }),
       )
     return { verify } as const
@@ -462,11 +417,6 @@ class Verify extends Effect.Service<Verify>()("security/crypt/Verify", {
 - Packages: `effect` (`Metric`, `Record`, `Array`, `Duration`); `@rasm/core` (`Convention`).
 
 ```typescript
-// `breach` is the column the ledger's own law demanded and never held: a breach kind is read ABSOLUTELY, its
-// denominator carried by the enclosing ceremony's kind, so it takes a `mark` and admits no twin. Spelling it here
-// makes `admit`/`measured` reject it at the type level instead of trusting six call sites to remember. `refresh`
-// is the rotation ceremony's own admission kind, so session refresh measures under a denominator of its own and
-// its `reuse` replay arm keeps marking absolutely.
 const _REJECTS = {
   bearer: { breach: false },
   ceremony: { breach: false },
@@ -479,11 +429,6 @@ const _REJECTS = {
   verify: { breach: false },
 } as const
 
-// ONE ceremony space anchors both planes the folder runs over it, each a stated projection rather than a second
-// hand-kept roster: `credential` marks a surface whose refusals tag the `credential` kind's `surface` facet,
-// `curbed` marks one holding a token-bucket budget row. The divergence is legible where it is decided —
-// `workload` presents a credential the ledger tags but throttles at its own issuer, while `refresh`, `verify`,
-// and `webauthn` carry their own ledger kinds and so never tag the credential facet.
 const _CEREMONIES = {
   apikey: { credential: true, curbed: true },
   otp: { credential: true, curbed: true },
@@ -502,15 +447,10 @@ const _FACETS = {
 
 declare namespace Reject {
   type Kind = keyof typeof _REJECTS
-  // Every kind whose refusals earn a denominator: the breach rows drop out, so `Reject.admit("clone")` and
-  // `Reject.measured("reuse")` are compile errors rather than a silently diluted breach rate.
   type Denominated = { [K in Kind]: (typeof _REJECTS)[K]["breach"] extends true ? never : K }[Kind]
   type Ceremony = keyof typeof _CEREMONIES
   type Surface = { [K in Ceremony]: (typeof _CEREMONIES)[K]["credential"] extends true ? K : never }[Ceremony]
   type Curbed = { [K in Ceremony]: (typeof _CEREMONIES)[K]["curbed"] extends true ? K : never }[Ceremony]
-  // Two of the three axes close at their own anchors; `reason` cannot, because every folder fault family that
-  // marks one sits at or above this stratum and no union reaches down here — its boundedness is the caller
-  // passing its own closed `Reason` literal, which is why no member ever builds a reason string.
   type Facet = {
     readonly dialect?: Verify.Dialect
     readonly reason?: string
@@ -525,8 +465,6 @@ const _rejects = Convention.mount(Convention.metric.securityRejects)
 const _admitted = Convention.mount(Convention.metric.securityAdmitted)
 const _ceremony = Convention.mount(Convention.metric.securityCeremony)
 
-// One tagging fold serves refusal, admission, and latency, so the three series carry byte-identical key sets and a
-// join across them can never silently miss on a facet one member applied and another skipped.
 const _tagged = <Type, In, Out>(
   metric: Metric.Metric<Type, In, Out>,
   kind: Reject.Kind,
@@ -546,9 +484,6 @@ const Reject = {
     Metric.increment(_tagged(_rejects, kind, facet)),
   admit: (kind: Reject.Denominated, facet: Reject.Facet = {}): Effect.Effect<void> =>
     Metric.increment(_tagged(_admitted, kind, facet)),
-  // One line at an entrypoint buys the wall span AND the denominator, so no arm lands the latency without its
-  // admission or the admission without its latency; the parameter is `Denominated`, so a breach kind cannot be
-  // handed a denominator that would read its absolute count as a rate.
   measured:
     (kind: Reject.Denominated, facet: Reject.Facet = {}) =>
     <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
@@ -572,8 +507,6 @@ const Reject = {
 
 ```typescript
 declare namespace Curb {
-  // Projected off the ledger's ceremony anchor, never re-listed: a throttled ceremony and its budget row cannot
-  // drift apart, and the `_CURB` guard below closes the projection against the table in the other direction.
   type Surface = Reject.Curbed
 }
 
@@ -589,8 +522,6 @@ const _budget = (surface: string, window: Duration.DurationInput, limit: number)
     ),
   })
 
-// One described record per namespace: every budget row resolves at this boot line, so an optional surface never
-// defers its proof and a malformed environment fails the layer, not the first guarded ceremony.
 const _CURB = Config.unwrap({
   apikey: _budget("APIKEY", "1 minute", 30),
   otp: _budget("OTP", "5 minutes", 5),
@@ -604,25 +535,17 @@ class Curb extends Effect.Service<Curb>()("security/crypt/Curb", {
   effect: Effect.gen(function* () {
     const rows = yield* _CURB
     const limit = yield* RateLimiter.makeWithRateLimiter
-    // Refusal is pinned at the one call site every row travels, so `onExceeded` has no per-row spelling to get
-    // wrong. Both experimental faults share the `"RateLimiterError"` tag and discriminate on `reason`, so the
-    // fold catches one tag and reads that field — a two-tag catch matches neither and lets a store outage escape
-    // this guard as an untyped defect. Each ceremony hands its own `throttled` constructor, so budget refusal and
-    // store fault collapse onto the caller's family without a per-page pair.
     const guard = <E>(surface: Curb.Surface, key: string, exhausted: (detail: string) => E) =>
       <A, R>(body: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
         limit({ algorithm: "token-bucket", onExceeded: "fail", window: rows[surface].window, limit: rows[surface].limit, key: `${surface}:${key}` })(body).pipe(
           Effect.catchTag("RateLimiterError", (error) => Effect.fail(exhausted(error.reason === "Exceeded" ? key : error.message))))
     return { guard } as const
   }),
-  // Store custody rides the type, not a prose promise: `RateLimiter.layer` satisfies the limiter this service
-  // reads and leaves `RateLimiterStore` standing in `Curb.Default`'s requirement channel, so every consumer
-  // inherits it and the app root binds `layerStoreMemory` on one node or the data wave's store on a fleet.
   dependencies: [RateLimiter.layer],
   accessors: true,
 }) {}
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Curb, CurrentVerified, Intake, IntakeRoute, PublicKey, PublicKeyStore, Reject, Verified, Verify, VerifyFault }
 export type { MacKey }

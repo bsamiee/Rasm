@@ -24,7 +24,7 @@
 - Packages: `Rasm.Drawing` (`RevisionIndex`), `Rasm.Element` (`AdmissionSlots`), `Rasm.Fabrication.Process` (`ContentKey`, `EgressKind`, `FabricationResult`, `InspectionFeature`, `PlannedStep`, `FabricationFault`, `Admission`), `Documentation/passport` (`SealedRecord`, `QualityReport.CanonicalJson`), `Documentation/report` (`Disposition`, `CharacteristicId`), `Joining/procedure` (`ProcedureReceipt`, `HoldPoint`, `HoldRelease`, `HoldPointKey`), `Spec` (`CapabilityReport`, `Receipt<DfmReport>`, `FeatureFrame`), `Fixturing/setups` (`SetupSchedule`), `Tooling/magazine` (`ToolChange`, `ToolAssembly`), `Posting/dialect` (`ProgramDelivery`, `PostDialect`), `Verify/estimation` (`CostEvidence` on the `Receipt<TEvidence>` spine), UnitsNet, NodaTime, Thinktecture, LanguageExt.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Text;
@@ -55,9 +55,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Documentation;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Rank orders the hierarchy of controls ascending by residual risk, so a safety fold reports the weakest admitted
-// control without re-deriving the ordering at each reader.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SafetyControlLevel {
     public static readonly SafetyControlLevel Elimination    = new("elimination", rank: 0);
@@ -69,24 +67,18 @@ public sealed partial class SafetyControlLevel {
     public int Rank { get; }
 }
 
-// The relation an edge of the planned route carries. A traveler orders work in sequence and transfers it between
-// fixtures; tagging the edge is what lets a witness report WHY two steps are ordered without a side map.
 [SmartEnum<string>]
 public sealed partial class TravelerRelation {
     public static readonly TravelerRelation Sequence = new("sequence");
     public static readonly TravelerRelation Fixture = new("fixture");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// FOUR text regimes, four admissions. An identifier is keyed on, a name is displayed, a note is read, and an actor
-// is a person the classification rail redacts — one wrapper over all four admits every transposition between them.
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct TravelerId {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim();
-        // An identifier is keyed on and printed on a label, so interior whitespace makes two rows that scan alike
-        // key apart; a name or a note carries no such constraint.
         if (!Witness.Keyed(value) || value.Any(char.IsWhiteSpace))
             validationError = Traveler.Validation("id");
     }
@@ -118,8 +110,6 @@ public readonly partial struct TravelerNote {
     public static Fin<TravelerNote> Admit(string value) => Admission.OfValue<TravelerNote, string>(value);
 }
 
-// The person a step names. Classification rides the TYPE, so every actor and authority column redacts without a
-// per-column attribute a new column can forget.
 [ValueObject<string>]
 [PersonalData]
 public readonly partial struct TravelerActor {
@@ -177,7 +167,6 @@ public readonly partial struct TravelerSetup {
     public static Fin<TravelerSetup> Admit(int value) => Admission.OfValue<TravelerSetup, int>(value);
 }
 
-// Lot and serialized dispositions remain separate; a count beside serials would force consumer sniffing.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Lot), "lot")]
@@ -242,9 +231,6 @@ public sealed partial class TravelerIdentity {
     public TravelerId WorkOrder { get; }
     public TravelerId PartNumber { get; }
 
-    // The revision a traveler is issued AGAINST is the drawing's own, and its sequence is published: the kernel
-    // `RevisionIndex` admits the ASME Y14.35 §4.3 letters and advances by that odometer, so a traveler printed
-    // against a superseded sheet compares admitted designators rather than two strings that both trimmed clean.
     public RevisionIndex Revision { get; }
     public TravelerQuantity Quantity { get; }
     public Option<TravelerId> HeatLot { get; }
@@ -259,8 +245,6 @@ public sealed partial class TravelerIdentity {
         ref TravelerQuantity quantity,
         ref Option<TravelerId> heatLot,
         ref Seq<TravelerId> serials) {
-        // A serialized run names every unit exactly once; an unserialized run names none. A partial roster is the
-        // state that makes a scrap disposition unable to say which units it consumed.
         if (serials.Distinct().Count != serials.Count
             || (!serials.IsEmpty && serials.Count != quantity.ToValue()))
             validationError = Traveler.Validation("identity");
@@ -306,11 +290,9 @@ public abstract partial record TravelerControl(TravelerLocus Locus) {
 
     public sealed record Approve(TravelerLocus Locus, TravelerName Role, TravelerActor Authority) : TravelerControl(Locus);
 
-    // Packaging is a whole-order act, so its locus is fixed rather than caller-supplied.
     public sealed record Package(TravelerName Label, TravelerName Method, TravelerName Destination)
         : TravelerControl(new TravelerLocus.Global());
 
-    // Only the DIMENSIONED and cross-field invariants the generated identities cannot state.
     public bool Valid => Switch(
         work: static _ => true,
         hold: static _ => true,
@@ -342,15 +324,10 @@ public sealed partial class TravelerReceiptCorpus {
         .Head;
     public Seq<TravelerInspectionLink> Inspections { get; }
 
-    // The as-run half of the procedure plane's hold points. The plan rides `ProcedureReceipt`, so the release is the
-    // one thing this corpus adds: a blocking hold advances against a party's attested release, never against an
-    // instruction a reader would have to interpret off a rendered sheet.
     public Seq<HoldRelease> Releases { get; }
     public Seq<TravelerControl> Controls { get; }
     public Seq<TravelerAmendment> Amendments { get; }
 
-    // Every blocking hold the carried procedures plan, unreleased by the carried attestations — read through the
-    // procedure plane's OWN satisfaction law, so this page states no second rule about what releases a hold.
     public Seq<HoldPoint> UnreleasedHolds => Procedures.Bind(receipt => receipt.Plan.Unreleased(Releases));
 
     [BoundaryAdapter]
@@ -374,8 +351,6 @@ public sealed partial class TravelerReceiptCorpus {
         bool inspectionsBound = inspections.Distinct().Count == inspections.Count
             && inspections.ForAll(link => records.Exists(record => record.Key == link.Record
                 && record.Records.Bind(static value => value.InspectionFeatures).Contains(link.Feature)));
-        // A release attests a hold point some carried procedure actually planned; one naming a hold nobody demanded
-        // is an attestation for a gate that never existed, which is exactly the row a forged sign-off looks like.
         Set<HoldPointKey> planned = toSet(procedures.Bind(static receipt => receipt.Plan.Holds)
             .Map(static hold => hold.Key));
         bool releasesBound = releases.ForAll(release => planned.Contains(release.Point));
@@ -400,7 +375,7 @@ public sealed partial class TravelerReceiptCorpus {
 - Growth: an amendment modality is one case with its own `Advance` arm; a section is one case; a reconciled mark row is one entry in the reconcilable roster.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Completed), "completed")]
@@ -465,8 +440,6 @@ public abstract partial record TravelerAmendment(
         TravelerActor Authority,
         Seq<ContentKey> Evidence) : TravelerAmendment(Previous, Step, Actor, At, Evidence);
 
-    // Release admission binds the handoff to ITS planned artifact: a verified transfer of the wrong program is
-    // refused here, before any step-state arrow can read it.
     public bool Valid => Switch(
         completed: static value => value.Started <= value.At
             && value.Actual >= Duration.Zero
@@ -477,11 +450,6 @@ public abstract partial record TravelerAmendment(
         deviated: static value => value.Units.Valid,
         scrapped: static value => value.Units.Valid);
 
-    // Total over the case family: a sixth amendment breaks this dispatch at the owner rather than falling through
-    // a catch-all into a refusal that reads like a legal transition.
-    // The whole arrow lives HERE, NOT-STARTED included: the first completion or hold on an untouched step opens it
-    // and lands, a release demands a held step, a deviation demands work already under way, and scrap ends any
-    // non-terminal step including one never started — material scrapped before its first operation is a real event.
     public Fin<TravelerStepState> Advance(TravelerStepState prior) => Switch(
         state: prior,
         completed: static (state, _) => state.Terminal || state == TravelerStepState.Held
@@ -503,8 +471,6 @@ public abstract partial record TravelerAmendment(
             : Fin.Succ(TravelerStepState.Scrapped));
 }
 
-// NOT-STARTED is a real state: a step no one has touched is not an open step, and the difference is what a
-// route-precedence gate reads when it refuses work opened out of order.
 [SmartEnum<int>]
 public sealed partial class TravelerStepState {
     public static readonly TravelerStepState NotStarted = new(0, terminal: false, started: false);
@@ -517,17 +483,11 @@ public sealed partial class TravelerStepState {
     public bool Started { get; }
 }
 
-// The sealed amendment's own payload: the amendment and the transport rendering that carried it. Plane, key,
-// ancestry, and stamp are the carrier's — `Receipt<TEvidence>` makes all three required — so a sealed link in the
-// chain cannot exist without the content key its successor's parent gate reads.
 public sealed record TravelerAmendmentEvidence(
     TravelerAmendment Amendment,
     TravelerArtifactDescriptor Descriptor,
     ReadOnlyMemory<byte> Rendering);
 
-// The route walk's own outputs, NAMED: the step count the sort ordered, the deepest chain it measured, the
-// release frontier its sinks and roots name, and the four dangling classes the binding gate counted. A consumer
-// reading route depth re-derives nothing, and a planner sees all four break classes in one verdict.
 public sealed record RouteWitness(
     int Steps,
     int Depth,
@@ -576,20 +536,12 @@ public abstract partial record TravelerSection {
         Seq<SealedRecord> Records,
         Seq<TravelerInspectionLink> Inspections,
         Seq<HoldRelease> Releases) : TravelerSection;
-    // Marks carry the drawing's own typed rows: Keyed holds the tag-name read a shop looks a part mark or heat
-    // number up by, and Free holds the text and paragraph runs a mark carries with no key. Reconciled names every
-    // keyed row whose value contradicts the caller-supplied identity, so a traveler printed against a superseded
-    // drawing states the divergence rather than quietly asserting the caller's part number over the sheet's.
     public sealed record Marks(
         Map<string, Arr<ProfileMarking>> Keyed,
         Seq<ProfileMarking> Free,
         Seq<MarkDivergence> Reconciled) : TravelerSection;
 }
 
-// The drawing attribute-tag vocabulary this package owns. The tag names a shop keys on are a SHOP vocabulary, not
-// a published drawing standard, so the kernel sheet owner declares none and this roster is the folder's — but the
-// rows carry their own reconcilability, so which tags a traveler checks against its identity is a column here and
-// never a hand pair list at the fold site.
 [SmartEnum<string>]
 public sealed partial class AttributeTag {
     public static readonly AttributeTag PartMark = new("PartMark", reconciled: true);
@@ -598,23 +550,14 @@ public sealed partial class AttributeTag {
     public static readonly AttributeTag Phase = new("Phase", reconciled: false);
     public static readonly AttributeTag Finish = new("Finish", reconciled: false);
 
-    // A reconciled row is one this traveler holds a declared identity for; every other tag rides through as
-    // authored, because a divergence against nothing declared is a comparison the drawing never invited.
     public bool Reconciled { get; }
 }
 
 public sealed record MarkDivergence(AttributeTag Row, string Drawing, string Declared);
 
-// Marking reads: the traveler resolves part identity against the drawing rather than re-parsing an entity sweep
-// it never receives. The reconcilable tags come off the roster's own column and pair with the identity half each
-// one names, so a new reconciled tag is one row plus one pairing arm and never a second const beside a fold.
 internal static class TravelerMarks {
     public static TravelerSection.Marks Of(FabricationInput input, TravelerIdentity identity) {
         Map<string, Arr<ProfileMarking>> keyed = input.Tags;
-        // Each reconcilable row carries its declared identity as the option the identity already holds, so an
-        // absent half yields no comparison at all: substituting the part number for a missing heat lot compares
-        // the sheet's heat row against a number that never named a heat, and prints that mismatch as a divergence
-        // the drawing never carried.
         return new TravelerSection.Marks(
             keyed,
             input.Markings.ToSeq().Filter(static marking => marking.Tag.IsNone),
@@ -624,8 +567,6 @@ internal static class TravelerMarks {
                 .Bind(row => Divergence(keyed, row.Tag, row.Declared)));
     }
 
-    // The identity half a reconciled tag names, total over the roster so a new reconciled row breaks HERE rather
-    // than silently reconciling against nothing.
     static Option<string> Declared(TravelerIdentity identity, AttributeTag tag) =>
         tag switch {
             _ when tag == AttributeTag.PartMark => Some(identity.PartNumber.ToValue()),
@@ -633,9 +574,6 @@ internal static class TravelerMarks {
             _ => None,
         };
 
-    // A row present with a different value is the contradiction a traveler prints. EVERY tagged mark under the row
-    // is read, so a sheet carrying two values for one key prints both: a head-only read hides every later mark
-    // behind whichever one the drawing happened to author first, which is exactly the mark a shop mis-keys on.
     static Seq<MarkDivergence> Divergence(
         Map<string, Arr<ProfileMarking>> keyed, AttributeTag row, string declared) =>
         keyed.Find(row.Key).ToSeq()
@@ -687,10 +625,7 @@ public sealed record TravelerArtifact(
 - Packages: QuikGraph (`BidirectionalGraph`, `STaggedEdge`, `IsDirectedAcyclicGraph`, `SourceFirstBidirectionalTopologicalSort`, `Sinks`, `Roots`, `InEdges`), `Rasm.Element` `CanonicalWriter` through `Process/owner#RUN_DISPATCH` `FabricationCanon`, `System.Text.Json` for the transport rendering.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The transport rendering: sorted ordinally, NFC-normalized, and array order preserved. The roster on each union
-// is what carries the case discriminator, so BOTH arms serialize through the two-argument call and neither reads
-// a runtime type — the erasure that let a statically-typed document arm write `{}` for its own sections.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class TravelerCanonicalCodec {
     static readonly TravelerArtifactDescriptor Descriptor = new(
         "rasm.fabrication.traveler", "application/json", "utf-8");
@@ -730,16 +665,9 @@ internal static class TravelerCanonicalCodec {
     }
 }
 
-// The IDENTITY key. Authored rows enter the preimage whole; composed receipts enter by their own keys and by the
-// ordinals this document authored over them.
 internal static class TravelerPreimage {
-    // The document authors no measured geometry — every dimensioned fact it carries belongs to a receipt that
-    // keyed it already — so the mint declares no quantization and its grid never rounds a composed key.
     const double ExactGrid = 0.0;
 
-    // `FabricationCanon.Keyed` is the ONE keyed mint: it opens the retaining writer, closes on the typed rail, and
-    // frames `EgressKind` ahead of the payload. This page never holds the preimage bytes — the transport rendering
-    // is the codec's, not the identity's — so a caller-held span would be a buffer nothing reads.
     public static Fin<ContentKey> Of(TravelerCanonicalSource source) =>
         FabricationCanon.Keyed(
             EgressKind.Traveler,
@@ -841,15 +769,10 @@ internal static class TravelerPreimage {
                 .Rows(value.Frames, static (inner, frame) => inner.U128(frame.Id.ToValue()).Key(frame.Control.Source))
                 .Rows(value.Capabilities, static (inner, report) => inner
                     .U128(report.Identity.Characteristic).Double(report.Verdict.Cpk).Moment(report.At))
-                // The producibility assessment is a SETTLED receipt now, so it enters by its own content key —
-                // the law this page states for every composed receipt — and the component key it transcribed
-                // stops being a second address for a fact the key already covers.
                 .Rows(value.Manufacturability, static (inner, report) => inner.Key(report.Key)),
             procedure: static (row, value) => row.Ordinal(4)
                 .Rows(value.Receipts, static (inner, receipt) => inner
                     .Text(receipt.WpsId.ToValue()).Ordinal(receipt.Revision).Bool(receipt.Qualified)),
-            // Every result contributes its OWN key census, so a case carrying subjects rather than artifacts is
-            // preimage-visible exactly as one carrying artifacts is.
             outputs: static (row, value) => row.Ordinal(5)
                 .Maybe(value.Dialect, static (inner, dialect) => inner.Discriminant(dialect))
                 .Rows(value.Results, static (inner, result) => inner
@@ -894,8 +817,6 @@ internal static class TravelerPreimage {
 }
 
 internal static class Traveler {
-    // The one operation key this page raises under: the keyed mint carries it so a preimage that could not be
-    // materialized answers a fault attributable to the traveler rather than to whatever default a bare close took.
     internal static readonly Op DocumentOp = Op.Of(name: "fabrication:traveler");
 
     internal static ValidationError Validation(string locus) => new($"traveler:{locus}");
@@ -906,8 +827,6 @@ internal static class Traveler {
     internal static Error Transition(TravelerStepState prior, string event_) =>
         Refusal($"transition:{prior.Key}:{event_}");
 
-    // The fact fires where the ARTIFACT settles — after the key mints and the amendment chain seals — so the
-    // amendment-depth measure the roster carries is the sealed chain rather than a draft the fold later extended.
     internal static Fin<FabricationResult> Assemble(
         FabricationPolicy.Document request,
         FabricationInput input,
@@ -975,8 +894,6 @@ internal static class Traveler {
         Seq<InspectionFeature> Inspections,
         Set<ContentKey> Programs);
 
-    // The route as the DAG the architecture charters: order-adjacency is the sequence relation and a setup change
-    // is the fixture relation, each tagged on its own edge so a witness reports WHY two steps are ordered.
     static BidirectionalGraph<int, STaggedEdge<int, TravelerRelation>> RouteGraph(Seq<PlannedStep> planned) {
         BidirectionalGraph<int, STaggedEdge<int, TravelerRelation>> route = new(allowParallelEdges: false);
         Seq<PlannedStep> ordered = toSeq(planned.OrderBy(static step => step.Order));
@@ -988,10 +905,6 @@ internal static class Traveler {
         return route;
     }
 
-    // Dangling controls, amendments, inspection links, and release programs are independent faults: a planner
-    // correcting one route must see the other three in the same verdict, so the four gates accumulate rather than
-    // short-circuit on whichever class happens to fail first. The acyclicity gate rails BEFORE the sort, so a
-    // forged precedence answers a typed fault instead of throwing inside a traversal.
     static Fin<RouteWitness> BindRoutes(
         TravelerReceiptCorpus corpus,
         Seq<PlannedStep> planned,
@@ -1010,9 +923,6 @@ internal static class Traveler {
                     Inspections: corpus.Inspections.Filter(link => !available.Inspections.Contains(link.Feature)),
                     Programs: corpus.Amendments.Filter(value => value is TravelerAmendment.Released released
                         && !available.Programs.Contains(released.Program)),
-                    // A blocking hold the procedure plane planned and nobody released gates the whole document: a
-                    // traveler that prints a hold point as an instruction and advances anyway is the rendered-text
-                    // reading this gate exists to refuse.
                     Holds: corpus.UnreleasedHolds)
                 from _bound in (
                     Bound(dangling.Controls, "control-route"),
@@ -1066,13 +976,8 @@ internal static class Traveler {
     static K<Validation<Error>, Unit> Bound<T>(Seq<T> unbound, string locus) =>
         AdmissionSlots.Gate(unbound.IsEmpty, unbound.Count, locus, Unbound);
 
-    // Every binding gate binds this minter as a method group: the unbound census and the locus ride the gate's two
-    // identity slots, so a bound roster composes no token at all.
     static FabricationFault Unbound(int count, string locus) => Refusal($"{locus}:{count}");
 
-    // The result family's OWN key census: every case contributes its subjects and its artifacts, so a motion or
-    // inspection result reaches document lineage exactly as a posted program does. The plan case additionally
-    // contributes the ROUTE, which is the one thing no key can carry.
     static (Seq<PlannedStep> Steps, Seq<ContentKey> Keys) Gather(
         (Seq<PlannedStep> Steps, Seq<ContentKey> Keys) state,
         FabricationResult result) =>
@@ -1080,9 +985,6 @@ internal static class Traveler {
          Keys: state.Keys + result.Keys
              + (result is FabricationResult.TravelerDocument prior ? prior.Consumed + prior.Produced : Seq<ContentKey>()));
 
-    // Route precedence is what a chain of amendments must obey: a step opens only once every predecessor the sort
-    // ordered before it reached a terminal state, so work recorded out of order refuses here rather than sealing
-    // a chain no route explains.
     static Fin<Seq<Receipt<TravelerAmendmentEvidence>>> SealAmendments(
         ContentKey root,
         TravelerDocument document,
@@ -1122,8 +1024,6 @@ internal static class Traveler {
                 .Map(static state => state.Receipts),
         };
 
-    // The predecessor closure the route section already proved: every step ordered before a step, read off the
-    // one sorted graph rather than re-walked per amendment.
     static Map<int, Seq<int>> Precedence(TravelerDocument document) =>
         document.Sections
             .Choose(static section => section is TravelerSection.Route route ? Some(route.Steps) : None)

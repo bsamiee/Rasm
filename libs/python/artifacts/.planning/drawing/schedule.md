@@ -49,16 +49,15 @@ from rasm.artifacts.graphic.vector.pattern import HatchFill, Motif
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
 from rasm.artifacts.visualization.table import FmtKind, FootnoteMarks, StubLoc, TableFormat, TableOp, TablePlan, Theme
 
-# drawsvg's swatch author reifies on first legend-arm use in the offloaded worker
 lazy import drawsvg
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type Swatch = str  # an inline SVG legend sample rendered through TableOp.Fmt(FmtKind.MARKDOWN)
+type Swatch = str
 type Align = Literal["left", "center", "right"]
-type Footnote = tuple[str, str]  # (source column, footnote text) — a column-label-anchored tab_footnote mark
+type Footnote = tuple[str, str]
 
 
-class ScheduleKind(StrEnum):  # NCS/AIA/CSI AEC schedule types — each keys one _TEMPLATE column layout
+class ScheduleKind(StrEnum):
     DOOR = "door"
     WINDOW = "window"
     ROOM_FINISH = "room-finish"
@@ -79,19 +78,19 @@ class ScheduleKind(StrEnum):  # NCS/AIA/CSI AEC schedule types — each keys one
     STRUCTURAL_COLUMN = "structural-column"
     STRUCTURAL_BEAM = "structural-beam"
     FURNITURE = "furniture"
-    REVISION = "revision"  # the set-wide issue log folded from composition/sheet Revision title-block rows
-    QUANTITY = "quantity"  # the BIM-derived quantity takeoff — count/length/area/volume/weight/cost, totalled
+    REVISION = "revision"
+    QUANTITY = "quantity"
 
 
-class LegendKind(StrEnum):  # ISO-drafting + authored legend types — the DERIVED trio reads drawing/regime
-    LINE_TYPE = "line-type"  # ISO 128 line-type samples (LineType.pattern)
-    HATCH_MATERIAL = "hatch-material"  # ISO 128-50 section indicators (regime HATCH_BIND HatchFill rows)
-    DISCIPLINE_LAYER = "discipline-layer"  # ISO 13567/AIA discipline pen colors (Standard.rgb)
-    SYMBOL = "symbol"  # authored drawing-symbol legend
-    ABBREVIATION = "abbreviation"  # authored abbreviations legend
-    KEYNOTE = "keynote"  # authored keynote legend (specification/classify codes)
-    MATERIAL_FINISH = "material-finish"  # authored material/finish legend
-    GENERAL_NOTE = "general-note"  # authored general notes
+class LegendKind(StrEnum):
+    LINE_TYPE = "line-type"
+    HATCH_MATERIAL = "hatch-material"
+    DISCIPLINE_LAYER = "discipline-layer"
+    SYMBOL = "symbol"
+    ABBREVIATION = "abbreviation"
+    KEYNOTE = "keynote"
+    MATERIAL_FINISH = "material-finish"
+    GENERAL_NOTE = "general-note"
 
 
 _REGIME_LEGENDS: frozenset[LegendKind] = frozenset({LegendKind.LINE_TYPE, LegendKind.HATCH_MATERIAL})
@@ -99,12 +98,8 @@ _DERIVED_LEGENDS: frozenset[LegendKind] = _REGIME_LEGENDS | {LegendKind.DISCIPLI
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# Real engine raise tuple the boundary narrows catch to — PolarsError base, great-tables ValueError/KeyError/
-# NotImplementedError, a table-miss KeyError, the gated-PDF OSError — so a non-engine raise crosses as a defect, never the Exception catch-all.
 _FAULTS: tuple[type[Exception], ...] = (PolarsError, ValueError, KeyError, NotImplementedError, OSError)
-_CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
-# AEC schedule publication identity — bordered grid, all-caps headers, ISO-drafting †/‡ footnote marks,
-# not the numeric default a legend reads as a callout.
+_CANON: Final = msgpack.Encoder(order="deterministic")
 _AEC_THEME: Theme = Theme(
     style=1, color="gray", all_caps=True, header_align="center", outline=("solid", "1px", "#333333"), footnote_marks=FootnoteMarks.STANDARD
 )
@@ -113,9 +108,6 @@ _AEC_THEME: Theme = Theme(
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's whole raise roster. TERMINAL and caller-repairable: reading the product before the fold landed it is
-# a call-order defect no re-offer clears, and the content case rides as the row's one NAMED coordinate rather than
-# forking the subject per case.
 SCHEDULE_UNBUILT: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.SCHEDULE, point="product", arm="config", defect="built-before-folded", retriability=TERMINAL, slots=("content",)
 )
@@ -126,7 +118,6 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SCHEDULE_U
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class ColumnSpec(Struct, frozen=True):
-    # one schedule column; FmtKind None = plain text, the unit folds into the header, decimals apply to a NUMBER column.
     source: str
     label: str
     fmt: FmtKind | None = None
@@ -144,7 +135,6 @@ class ColumnSpec(Struct, frozen=True):
 
 
 class SpannerSpec(Struct, frozen=True):
-    # one column-group header spanning its member source columns (a great-tables tab_spanner).
     label: str
     columns: tuple[str, ...]
 
@@ -154,17 +144,16 @@ class SpannerSpec(Struct, frozen=True):
 
 
 class ScheduleTemplate(Struct, frozen=True):
-    # Ordered AEC schedule layout — one row per ScheduleKind, the single edit site _schedule_ops folds.
     title: str
     key: str
     columns: tuple[ColumnSpec, ...]
     spanners: tuple[SpannerSpec, ...] = ()
     sort: tuple[str, ...] = ()
     colors: tuple[str, ...] = ()
-    totals: tuple[str, ...] = ()  # numeric columns the grand-summary SUMs (the QTO takeoff totals)
+    totals: tuple[str, ...] = ()
     notes: tuple[str, ...] = ()
-    rollup: tuple[str, ...] = ()  # group_by keys rolling the element frame to its BOQ display shape
-    footnotes: tuple[Footnote, ...] = ()  # column-anchored footnotes marked †/‡ by the theme
+    rollup: tuple[str, ...] = ()
+    footnotes: tuple[Footnote, ...] = ()
 
     def __post_init__(self) -> None:
         sources = tuple(column.source for column in self.columns)
@@ -187,7 +176,6 @@ class ScheduleTemplate(Struct, frozen=True):
 
 
 class LegendEntry(Struct, frozen=True):
-    # one authored legend row — the code/symbol, its meaning, and an optional inline-SVG swatch.
     code: str
     description: str
     swatch: Option[Swatch] = Nothing
@@ -205,9 +193,8 @@ class LegendEntry(Struct, frozen=True):
 # --- [VOCABULARY] -----------------------------------------------------------------------
 @tagged_union(frozen=True)
 class ScheduleContent:
-    # per-mode payloads — each case carries ONLY its own payload, never a shared bag with a dead field.
     tag: Literal["tabular", "regime_legend", "discipline_legend", "authored_legend"] = tag()
-    tabular: tuple[pl.DataFrame, ScheduleKind] = case()  # a settled QTO/schedule frame + its template
+    tabular: tuple[pl.DataFrame, ScheduleKind] = case()
     regime_legend: LegendKind = case()
     discipline_legend: Standard = case()
     authored_legend: tuple[LegendKind, tuple[LegendEntry, ...]] = case()
@@ -220,7 +207,7 @@ class Schedule(Struct, frozen=True):
     lane: LanePolicy
     fmt: TableFormat = TableFormat.HTML
     theme: Theme = _AEC_THEME
-    product: tuple[bytes, ArtifactReceipt] | None = None  # the folded() successor's ONE render fact both projections read
+    product: tuple[bytes, ArtifactReceipt] | None = None
 
     def __post_init__(self) -> None:
         match self.content:
@@ -267,22 +254,13 @@ class Schedule(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: minted PRE-RUN through the bare `ContentIdentity.key` (`of` returns the railed
-        # `RuntimeRail[ContentKey]`) over every bytes-producing input — palette included, the frame as its
-        # row-hash digest — never over rendered bytes.
         return ContentIdentity.key(f"drawing-schedule-{self.content.tag}", _CANON.encode((self._token(), self.palette, self.fmt, self.theme)))
 
     def _token(self) -> tuple[object, ...]:
-        # a DataFrame is not canonically encodable — it enters identity as its `hash_rows` digest plus column
-        # roster, so distinct data never shares a key and the key still mints on the loop.
         match self.content:
             case ScheduleContent(tag="tabular", tabular=(frame, kind)):
-                # Template row IS render policy — a label, ordering, total, styling, note, or rollup edit
-                # re-keys, so the canonical template rides the preimage beside the kind, schema, and row hash.
                 template = _TEMPLATE[kind]
                 owned = frame.select(tuple(column.source for column in template.columns if column.source in frame.columns))
-                # row hashes enter the preimage as Python integers `_CANON` encodes portably — a native-endian ndarray
-                # byte dump would fork the key across architectures.
                 return (kind.value, template, tuple((name, str(dtype)) for name, dtype in owned.schema.items()), tuple(owned.hash_rows(seed=0).to_list()))
             case ScheduleContent(tag="regime_legend", regime_legend=kind):
                 return (kind.value,)
@@ -294,18 +272,10 @@ class Schedule(Struct, frozen=True):
                 assert_never(unreachable)
 
     async def folded(self) -> RuntimeRail["Schedule"]:
-        # Async successor: ONE render lands on `product`, so a consumer requesting bytes AND evidence
-        # executes `TablePlan.build` once — never a per-projection re-render splitting bytes from receipt.
         return (await self._crossed()).map(lambda pair: structs.replace(self, product=pair))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # Receipt half of the ONE render fact: the landed product when `folded()` ran, else the one scheduled
-        # render — re-runs dedup at the pipeline's keyed admission, so the work executes once per content key.
         settled = Ok(self.product[1]) if self.product is not None else (await self._crossed()).map(lambda pair: pair[1])
-        # a published schedule or legend is production trail, so the fact is `OPERATIONAL` over the row and column
-        # cardinality, format, and byte volume the receipt declares, the volume charging `STORAGE`. Recording
-        # suspends, so the seat is this awaitable fold and never `contribute`; `built` hands the SAME landed render
-        # to a bytes consumer and records nothing, one render owing one durable fact however it is read.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -313,10 +283,6 @@ class Schedule(Struct, frozen=True):
                 return Error(refused.error)
 
     async def built(self) -> RuntimeRail[bytes]:
-        # Bytes half of the SAME render fact — the flat table handoff composition/compose#COMPOSE places. `built`
-        # reads ONLY the `folded()` successor, so bytes and receipt always come from one tuple and a concurrent
-        # bytes+evidence consumer cannot fork a second `TablePlan.build`; an un-landed read refuses typed instead
-        # of silently re-rendering.
         return (
             Ok(self.product[0])
             if self.product is not None
@@ -330,14 +296,12 @@ class Schedule(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _render(schedule: Schedule) -> tuple[bytes, ArtifactReceipt]:
-    # ONE builder: lower the content, render the ONE bytes fact, mint the receipt — bytes and receipt from the single build, never a second re-render (SINGLE-FACT).
     frame, ops, kind, rows, columns = _lower(schedule)
     data = TablePlan(frame=frame, ops=ops, fmt=schedule.fmt, theme=schedule.theme).build()
     return data, ArtifactReceipt.Schedule(schedule._key, kind, rows, columns, schedule.fmt.value, len(data))
 
 
 def _lower(schedule: Schedule) -> tuple[pl.DataFrame, tuple[TableOp, ...], str, int, int]:
-    # one total dispatch over the content, closed by assert_never.
     match schedule.content:
         case ScheduleContent(tag="tabular", tabular=(frame, kind)):
             template = _TEMPLATE[kind]
@@ -359,7 +323,6 @@ def _lower(schedule: Schedule) -> tuple[pl.DataFrame, tuple[TableOp, ...], str, 
 
 
 def _schedule_frame(frame: pl.DataFrame, template: ScheduleTemplate) -> pl.DataFrame:
-    # Boundary DISPLAY shaping selects owned columns, groups by the full price discriminant, sums measures, and sorts the result.
     present = tuple(column.source for column in template.columns if column.source in frame.columns)
     if template.key not in present:
         raise ValueError(f"schedule frame omits key column {template.key!r}")
@@ -375,12 +338,10 @@ def _schedule_frame(frame: pl.DataFrame, template: ScheduleTemplate) -> pl.DataF
 
 
 def _schedule_ops(template: ScheduleTemplate, palette: Palette, present: frozenset[str]) -> tuple[TableOp, ...]:
-    # derive the operation sequence from one template row and filter every projection to present columns.
     cols = tuple(column for column in template.columns if column.source in present)
     labels = {column.source: (f"{column.label} ({column.unit})" if column.unit else column.label) for column in cols}
     key_label = next((column.label for column in cols if column.source == template.key), template.key)
     stub = (TableOp.Stub(template.key), TableOp.Stubhead(key_label)) if template.key in present else ()
-    # Walrus narrows FmtKind|None -> FmtKind for the op; decimals ride only where fmt_number admits them.
     fmts = tuple(
         TableOp.Fmt(fmt, columns=[column.source], **({"decimals": column.decimals} if fmt is FmtKind.NUMBER else {}))
         for column in cols
@@ -393,8 +354,6 @@ def _schedule_ops(template: ScheduleTemplate, palette: Palette, present: frozens
         if any(c in present for c in spanner.columns)
     )
     colored = tuple(TableOp.Color(columns=[color], palette=list(hex_ramp(palette))) for color in template.colors if color in present)
-    # Grand total is ONE summed row — the multi-column selector fills every present measure on that row
-    # (the verified great-tables polars form); no totals -> the bare item count.
     present_totals = tuple(column for column in template.totals if column in present)
     grand_fns = {"TOTAL": pl.col(*present_totals).sum()} if present_totals else {"Count": pl.col(template.key).count()}
     summary = (TableOp.GrandSummary(grand_fns, missing_text=""),) if template.key in present else ()
@@ -441,7 +400,6 @@ def _discipline_legend_rows(standard: Standard, palette: Palette) -> tuple[tuple
 
 
 def _legend_ops(kind: LegendKind) -> tuple[TableOp, ...]:
-    # Legend TableOp sequence — the swatch column inline via fmt_markdown carrying the real ISO SVG sample.
     return (
         TableOp.Header(_LEGEND_TITLE[kind]),
         TableOp.Label({"symbol": "", "code": "SYMBOL", "description": "DESCRIPTION"}),
@@ -453,8 +411,6 @@ def _legend_ops(kind: LegendKind) -> tuple[TableOp, ...]:
 
 
 def _dash_swatch(pattern: tuple[float, ...], ink: str, /) -> Swatch:
-    # ISO 128 line-type sample — `Pattern[0]` is the ezdxf total pattern length, the tail the +dash/-gap/0.0-dot
-    # run; a dot draws as a 0.5 mm dash at swatch scale, CONTINUOUS (the empty pattern) draws solid.
     canvas = drawsvg.Drawing(64, 14, origin=(0, 0))
     dash = " ".join("0.5" if segment == 0.0 else f"{abs(segment):g}" for segment in pattern[1:])
     canvas.append(drawsvg.Line(2, 7, 62, 7, stroke=ink, stroke_width=1.2, **({"stroke_dasharray": dash} if dash else {})))
@@ -462,16 +418,12 @@ def _dash_swatch(pattern: tuple[float, ...], ink: str, /) -> Swatch:
 
 
 def _color_swatch(rgb: tuple[int, int, int], ink: str, /) -> Swatch:
-    # Discipline pen sample — a drawsvg Rectangle filled with the real Standard.rgb sRGB, outlined in the ramp ink.
     canvas = drawsvg.Drawing(28, 14, origin=(0, 0))
     canvas.append(drawsvg.Rectangle(1, 1, 26, 12, fill=_hex(rgb), stroke=ink, stroke_width=0.6))
     return canvas.as_svg()
 
 
 def _hatch_swatch(fill: HatchFill, ink: str, /) -> Swatch:
-    # ISO 128-50 section indicator off the regime HATCH_BIND row — total over the HatchFill union: the pattern
-    # case draws each StrokeFamily's angle/dash, the solid case fills with its resolved poché value, the gradient
-    # case stacks its stop rows; SHOWS the fill regime, never the full ezdxf render.
     canvas = drawsvg.Drawing(28, 14, origin=(0, 0))
     match fill:
         case HatchFill(tag="solid", solid=color):
@@ -492,19 +444,16 @@ def _hatch_swatch(fill: HatchFill, ink: str, /) -> Swatch:
 
 
 def _family_stroke(motif: Motif, offset: float, dx: float, dy: float, ink: str, /) -> "drawsvg.DrawingElement":
-    # each Motif case keeps its visible regime in the legend: a line motif carries its signed draw-gap dash, a loop
-    # motif (wavy insulation) draws the sampled wave its amplitude defines — never a straight solid stand-in that
-    # asserts a different regime from the canonical Pattern lowering.
     x0, y0, x1, y1 = offset - dx * 6, 7 - dy * 5, offset + dx * 6, 7 + dy * 5
     match motif:
         case Motif(tag="line", line=segments):
             dash = " ".join(f"{abs(segment):g}" for segment in segments if segment != 0.0)
             return drawsvg.Line(x0, y0, x1, y1, stroke=ink, stroke_width=0.5, **({"stroke_dasharray": dash} if dash else {}))
         case Motif(tag="loop", loop=(amplitude, _chord)):
-            span, (nx, ny) = max(min(amplitude, 3.0), 0.8), (-dy, dx)  # swatch-clamped half-wave height on the stroke normal
+            span, (nx, ny) = max(min(amplitude, 3.0), 0.8), (-dy, dx)
             path = drawsvg.Path(stroke=ink, stroke_width=0.5, fill="none")
             path.M(x0, y0)
-            for step in range(1, 7):  # six half-waves sample the loop rhythm across the swatch stroke
+            for step in range(1, 7):
                 t, side = step / 6.0, 1.0 if step % 2 else -1.0
                 path.Q(
                     x0 + (x1 - x0) * (t - 1 / 12) + nx * span * side,
@@ -523,7 +472,6 @@ def _hex(rgb: tuple[int, int, int]) -> str:
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# NCS/AIA schedule vocabulary -> its ordered ColumnSpec layout; the single edit site per schedule type.
 _TEMPLATE: frozendict[ScheduleKind, ScheduleTemplate] = frozendict({
     ScheduleKind.DOOR: ScheduleTemplate(
         "DOOR SCHEDULE",
@@ -959,8 +907,6 @@ _TEMPLATE: frozendict[ScheduleKind, ScheduleTemplate] = frozendict({
         (SpannerSpec("PRODUCT", ("manufacturer", "model")),),
         sort=("mark",),
     ),
-    # Set-wide revision history: every sheet's composition/sheet#SHEET Revision rows (mark/date/description/by
-    # plus the producer-added sheet column) folded into one issue-ordered log.
     ScheduleKind.REVISION: ScheduleTemplate(
         "REVISION HISTORY",
         "mark",
@@ -973,8 +919,6 @@ _TEMPLATE: frozendict[ScheduleKind, ScheduleTemplate] = frozendict({
         ),
         sort=("date", "mark"),
     ),
-    # Canonical Rasm.Bim QTO consumer: the takeoff ROLLED to its BOQ display shape (group_by division+item+material+unit,
-    # measures SUMmed, rate carried), division-sorted, cost-shaded, the rate/amount columns footnoted.
     ScheduleKind.QUANTITY: ScheduleTemplate(
         "QUANTITY TAKEOFF",
         "description",
@@ -1004,7 +948,6 @@ _TEMPLATE: frozendict[ScheduleKind, ScheduleTemplate] = frozendict({
     ),
 })
 
-# Legend kind -> its printed title; the single edit site per legend type.
 _LEGEND_TITLE: frozendict[LegendKind, str] = frozendict({
     LegendKind.LINE_TYPE: "LINE TYPE LEGEND",
     LegendKind.HATCH_MATERIAL: "MATERIAL HATCH LEGEND",
@@ -1016,8 +959,6 @@ _LEGEND_TITLE: frozendict[LegendKind, str] = frozendict({
     LegendKind.GENERAL_NOTE: "GENERAL NOTES",
 })
 
-# ISO 128 line-type -> its drafting meaning (beside the dash swatch); TOTAL over the LineType family so
-# `_derived_legend_rows` indexes every member, so regime growth cannot silently omit a line type.
 _LINE_MEANING: frozendict[LineType, str] = frozendict({
     LineType.CONTINUOUS: "Visible edges and outlines",
     LineType.DASHED: "Hidden edges",
@@ -1036,8 +977,6 @@ _LINE_MEANING: frozendict[LineType, str] = frozendict({
     LineType.DOUBLE_DASH_TRIPLE_DOT: "Boundaries of special requirements (alternate)",
 })
 
-# ISO 128-50 section material -> its meaning (the legend description beside the angled section indicator);
-# TOTAL over the HatchMaterial family so `_derived_legend_rows` indexes every member.
 _HATCH_MEANING: frozendict[HatchMaterial, str] = frozendict({
     HatchMaterial.STEEL: "Steel / metal in section",
     HatchMaterial.ALUMINIUM: "Aluminium / light alloy in section",
@@ -1054,7 +993,6 @@ _HATCH_MEANING: frozendict[HatchMaterial, str] = frozendict({
     HatchMaterial.GLASS: "Glass / glazing",
 })
 
-# ISO 13567/AIA discipline -> its name (the legend description beside the real discipline pen swatch).
 _DISCIPLINE_MEANING: frozendict[Discipline, str] = frozendict({
     Discipline.ARCHITECTURAL: "Architectural",
     Discipline.CIVIL: "Civil",

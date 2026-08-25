@@ -22,18 +22,12 @@ The command palette and the shortcut editor are presentation over the frozen dec
 - Boundary: the palette is the one federated query surface — every provider contributes typed `PaletteHit` rows into one merged rank fold, an element provider consumes element-selection receipt rows under the scope-qualified split (queries enter as receipts, never an AppUi query engine), and a provider-local result vocabulary beside `PaletteHit` is the rejected form; a provider that must run a query DRIVES it inside its own `Open`, so a leg cannot answer a window its query never filled; PROGRESS is a column of the slice rather than a second stream, because two streams would let a settled status arrive beside a stale row set; `ToObservableChangeSet` is the rejected lowering — it upserts every emitted item and removes NONE; activation is ONE fold over the kind row — a command hit invokes its own key and every other kind invokes its kind's reveal verb with the hit key as a `Single` payload, so a hit whose kind names an unbound reveal verb refuses on the same `UnknownIntent` rail a bad deep link does; label normalization is the frozen index owner's (`CommandExecution.Search` folds the query once), so equivalent queries differing only by case return identical keys and rank order; the merge comparer stays a hand `IComparer<PaletteHit>` with its refusal named — `MergeChangeSets` and the realized window demand an `IComparer`, a seam the kernel `Ranked.Top` bounded-K fold does not serve.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Each row carries the badge label a hit wears, the verb its activation raises, and its own scope prefix —
-// so a new searchable plane states attribution, routing, and narrowing in one row. The command row's reveal
-// is None because a command hit's key IS an intent key: it invokes itself; a kind whose act another plane
-// declares names THAT plane's constant, so one act keeps one key.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PaletteKind {
-    // Declared as constants because `DeckRows.Reveal` mints its rows off these names — a composed literal
-    // would name a verb the frozen deck never carries, and every hit of that kind would refuse.
     public const string DocumentRevealIntent = "document.reveal";
     public const string ElementRevealIntent = "element.reveal";
     public const string RouteRevealIntent = "nav.open";
@@ -57,13 +51,10 @@ public sealed partial class PaletteKind {
     public CommandPayload Payload(PaletteHit hit) =>
         Reveal.IsNone ? new CommandPayload.None() : new CommandPayload.Single(hit.Key);
 
-    // Longest prefix first, so a future two-character token cannot be shadowed by its own first character.
     public static Seq<PaletteKind> Prefixed =>
         toSeq(Items.OrderByDescending(static row => row.Prefix.Length).ThenBy(static row => row.Key, StringComparer.Ordinal));
 }
 
-// The narrowing is a value over the kind vocabulary: `All` admits every kind, `Only` exactly one, so a scope
-// roster mirroring the kind roster row-for-row has nothing left to declare.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PaletteScope {
     private PaletteScope() { }
@@ -80,10 +71,8 @@ public abstract partial record PaletteScope {
         only: static narrowed => narrowed.Kind.ScopeLabel);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Scope and terms separate ONCE at the surface edge, so no provider re-parses the raw text and a typed
-// prefix cannot survive into the terms a match engine searches for.
 public readonly record struct PaletteQuery(PaletteScope Scope, string Terms) {
     public static readonly PaletteQuery Open = new(new PaletteScope.All(), string.Empty);
 
@@ -97,8 +86,6 @@ public readonly record struct PaletteQuery(PaletteScope Scope, string Terms) {
     public bool Admits(PaletteKind kind) => Scope.Admits(kind);
 }
 
-// The presentation-complete hit: every column a result row RENDERS lives here, because a surface re-resolving
-// a label or badge from the key would re-open the plane the fold already answered.
 public sealed record PaletteHit(
     PaletteKind Kind,
     string Key,
@@ -110,22 +97,14 @@ public sealed record PaletteHit(
     Seq<KeyGesture> Gestures) {
     public AssetKey Glyph => Icon.IfNone(AssetDeclaration.IconPlaceholder.Asset);
 
-    // Grouping is DERIVED: a hit groups under its own sub-source where it has one and under its kind
-    // otherwise, so no provider fills a group column inconsistently.
     public string Group => Badge.IfNone(Kind.Key);
 
-    // The merge collision resolver AND the ordering snapshot are ONE comparer: `MergeChangeSets` keeps the
-    // value comparing LESS, so ascending rank means the better answer wins a shared key. A hand comparer
-    // survives here by refusal: the merge and the window demand `IComparer<T>`, which the kernel `Ranked.Top`
-    // bounded-K fold does not answer.
     public static readonly IComparer<PaletteHit> ByRank =
         Comparer<PaletteHit>.Create(static (left, right) => left.Rank != right.Rank
             ? left.Rank.CompareTo(right.Rank)
             : string.CompareOrdinal(left.Key, right.Key));
 }
 
-// Per-provider progress as a VALUE: an empty list under `Settled` is an honest empty, the same list under
-// `Pending` is loading, and a broken leg shows beside the answers instead of silently narrowing them.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PaletteStatus {
     private PaletteStatus() { }
@@ -137,10 +116,7 @@ public abstract partial record PaletteStatus {
     public bool Working => this is Pending or Streaming;
 }
 
-// One emission carries both facts — the rows a leg has and where that leg stands.
 public sealed record PaletteSlice(PaletteKind Kind, PaletteStatus Status, Seq<PaletteHit> Hits) {
-    // A leg the scope excluded is SETTLED with no rows, not pending: the federation asked it nothing, and a
-    // working status would hold the surface loading on a query never dispatched.
     public static PaletteSlice Idle(PaletteKind kind) => new(kind, new PaletteStatus.Settled(), Seq<PaletteHit>());
 }
 
@@ -152,12 +128,9 @@ public sealed record PaletteFeed(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class PaletteFederation {
-    // `completable: false` because the feed outlives any one leg — a provider whose stream completes must not
-    // complete the palette. A leg that throws refuses AS A VALUE on this band: `OnError` is terminal, so a
-    // propagated exception would dead-end the whole federation for the surface's lifetime.
     public static PaletteFeed Federate(
         Seq<PaletteProvider> providers, IObservable<PaletteQuery> queries, IScheduler scheduler) {
         Seq<IObservable<PaletteSlice>> legs = providers.Map(provider => queries
@@ -180,18 +153,12 @@ public static class PaletteFederation {
                 .RefCount());
     }
 
-    // The ONE activation: a command hit invokes its own key with the payload its row admits; every other kind
-    // invokes its kind's reveal verb with the hit key as a `Single`.
     extension(PaletteHit hit) {
         public IO<DeckReceipt> Activate(CommandDeck deck, CancellationToken cancel = default) =>
             deck.Raise(hit.Kind.Intent(hit), hit.Kind.Payload(hit), cancel);
     }
 
     extension(CommandDeck deck) {
-        // The command provider: the deck's span-ranked search projected onto the shared hit shape, answered in
-        // one settled slice because the frozen index is already resident. The label reads the index's OWN
-        // source so displayed text and rank basis are one value; the scope is the badge; the bound chord rides
-        // the hit as its keycap.
         public PaletteProvider Provider() =>
             new(PaletteKind.Command, query => Observable.Return(new PaletteSlice(
                 PaletteKind.Command,
@@ -206,8 +173,6 @@ public static class PaletteFederation {
                     Icon: Some(AssetKey.Create(found.Key)),
                     Gestures: row.Gesture.Map(deck.Composition.Chord).ToSeq()))))));
 
-        // The contextual actions a hit offers: every admitted row whose target set names the hit's kind, in
-        // the deck's own label order — a verb becomes contextual by carrying one more `Targets` key.
         public Seq<CommandRow> Actions(PaletteHit hit) =>
             toSeq(deck.Rows.Values
                 .Where(row => row.Acts(hit.Kind.Key) && row.Admits(deck.Composition.Snapshot()))
@@ -228,7 +193,7 @@ public static class PaletteFederation {
 - Boundary: the palette seats on the CANVAS stack as `Shell/dialogs#SESSION_ALGEBRA`'s `OverlayShape.Palette` row through the `DialogIntent.Layer` case, and the dialog raise site is the ONE naming of that seat; the surface owns NO ranking, NO scoping, and NO invocation — `Federate` ranks, `PaletteQuery.Parse` scopes, and `CommandExecution.Raise` invokes, so a surface-local score, filter, or command construction are the three deleted forms; a frame carries exactly what its render needs and nothing derivable — the arguments frame carries the schema it was opened with, so the frame and the submit admit against one value even if the deck re-freezes underneath a long-lived surface; a hit's action panel offers only verbs the deck's own availability admits at the moment it opens; the argument frame commits through `CommandRow.Compose`, so a partially-filled form cannot reach `Execute`; a verb with no argument schema never opens an argument frame, because `Choose` raises it in one step; shortcut assignment reaches the palette as an ordinary contextual verb (`ShortcutEditor.CaptureIntent` carries `command` in its targets), so the palette and the editor share one assignment path; the search field is the `Shell/controls#CONTROL_INTENT` `TextInput` row and every keycap, badge, and group header takes its appearance from `Theme/tokens#CONTROL_THEMES` rows, so the surface writes no paint; the session's cache and query subject dispose with the dialog teardown that raised it — the layer plane owns the bracket, so a session-local `IO.Bracket` would be a second custody over one lifetime.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PaletteFrame {
@@ -238,11 +203,9 @@ public abstract partial record PaletteFrame {
 
     public sealed record Actions(PaletteHit Subject) : PaletteFrame;
 
-    // The verb it collects for, the schema that describes the collection, and the state collected so far.
     public sealed record Arguments(PaletteHit Subject, string IntentKey, FormSchema Schema, FormState State) : PaletteFrame;
 }
 
-// One advance result: the surface either went somewhere or ran something; refusal rides the `Fin` rail.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PaletteStep {
     private PaletteStep() { }
@@ -250,13 +213,10 @@ public abstract partial record PaletteStep {
     public sealed record Ran(DeckReceipt Receipt) : PaletteStep;
 }
 
-// One section per `PaletteHit.Group`, ordered by the best row it holds.
 public sealed record PaletteGroup(string Key, Seq<PaletteHit> Rows) {
     public int Rank => Rows.Head.Match(Some: static hit => hit.Rank, None: static () => int.MaxValue);
 }
 
-// The three honest answers a result surface renders, and the one that carries a count so the footer states
-// coverage rather than restating the list.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PaletteVerdict {
     private PaletteVerdict() { }
@@ -266,11 +226,8 @@ public abstract partial record PaletteVerdict {
     public sealed record Populated(int Count) : PaletteVerdict;
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// The session OWNS its shared cache, because a change-set stream cannot be replayed to a late subscriber —
-// the merged federation materializes ONCE here and the window, the grouped sections, and the verdict are
-// three reads of that one cache rather than three merges.
 public sealed record PaletteSession(
     CommandDeck Deck,
     PaletteFeed Feed,
@@ -303,8 +260,6 @@ public sealed record PaletteSession(
     public PaletteFrame Top =>
         Frames.Value.Last.IfNone(() => new PaletteFrame.Results(PaletteQuery.Parse(Raw.Value)));
 
-    // The realized window under the ONE comparer the merge resolves collisions with, so the rows a viewport
-    // shows are ordered by exactly what ranked them.
     public IObservable<IChangeSet<RealizedItem<PaletteHit>, string>> Realize(IObservable<ViewportRange> viewport) =>
         Window.Realize(new OrderedChangeSet<PaletteHit, string>(Cache.Connect(), Observable.Return(PaletteHit.ByRank)), viewport);
 
@@ -315,14 +270,11 @@ public sealed record PaletteSession(
                 .OrderBy(static section => section.Rank)
                 .ThenBy(static section => section.Key, StringComparer.Ordinal)));
 
-    // Honest states as READS of one status map beside the realized count, so no surface flag can disagree.
     public IObservable<PaletteVerdict> Verdict =>
         Feed.Statuses.CombineLatest(Cache.CountChanged.StartWith(0), static (statuses, count) => Read(statuses, count));
 
     public Unit Query(string raw) => ignore(fun(() => Raw.OnNext(raw))());
 
-    // The pop is a kernel transition: a declined step IS the at-root answer, so the caller closes the layer
-    // exactly where the verdict says the stack bottomed out.
     public bool Retreat() =>
         Cell.Step(Frames, static stack => stack.Length > 1 ? Some(stack.Init) : None, declined: AtRoot)
             .Current.Length == 1;
@@ -347,29 +299,19 @@ public sealed record PaletteSession(
         };
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class PaletteAdvance {
     extension(PaletteSession session) {
-        // Choosing a HIT: resolve its row, then the one two-arm advance. The action panel is a separate
-        // gesture rather than an arm here, because a hit's primary answer must not depend on whether the deck
-        // happens to hold contextual verbs for its kind today.
         public IO<Fin<PaletteStep>> Choose(PaletteHit hit) =>
             session.Deck.Row(hit.Kind.Intent(hit)).Match(
                 Some: row => session.Advance(row, hit, hit.Kind.Payload(hit)),
                 None: () => IO.pure(Fin.Fail<PaletteStep>(new DeckFault.UnknownIntent(hit.Kind.Intent(hit)))));
 
-        // Choosing an ACTION against a subject hit — the same advance, so nesting an action panel inside an
-        // action panel needs no third rule and the recursion is the stack itself.
         public IO<Fin<PaletteStep>> Choose(CommandRow action, PaletteHit subject) =>
             session.Advance(action, subject,
                 action.Accepts.Contains("single") ? new CommandPayload.Single(subject.Key) : new CommandPayload.None());
 
-        // The ONE two-arm decision: collect first if the verb is parameterized, cross otherwise. The palette
-        // derives entirely on `CommandRow` — the row supplies the label, the chord chip, the target set, and
-        // the argument schema — and reaches WORK only through `Deck.Raise`, which mints the row's AppHost
-        // `CommandIntent` and crosses the suite's one `Run` door, so a palette activation is the same
-        // vetoed, mediated, metered, chained transaction an MCP tool call is.
         internal IO<Fin<PaletteStep>> Advance(CommandRow row, PaletteHit subject, CommandPayload payload) =>
             row.Arguments.Match(
                 Some: schema => IO.pure(session.Push(new PaletteFrame.Arguments(subject, row.Key, schema, FormState.Empty))),
@@ -378,13 +320,10 @@ public static class PaletteAdvance {
         public IO<Fin<PaletteStep>> Drill(PaletteHit hit) =>
             IO.pure(session.Push(new PaletteFrame.Actions(hit)));
 
-        // Editing one argument field: the schema admits the erased value at ITS boundary before the state
-        // write, so heterogeneous storage never becomes untyped admission.
         public Fin<PaletteFrame.Arguments> Edit(PaletteFrame.Arguments frame, string field, JsonElement value) =>
             frame.Schema.With(frame.State, field, value).ToFin()
                 .Map(next => frame with { State = next.Next });
 
-        // One accumulated admission, one lowered payload, one raise — nothing partially filled crosses `Run`.
         public IO<Fin<PaletteStep>> Submit(PaletteFrame.Arguments frame) =>
             session.Deck.Row(frame.IntentKey)
                 .ToFin(Fail: new DeckFault.UnknownIntent(frame.IntentKey))
@@ -394,8 +333,6 @@ public static class PaletteAdvance {
                         .Map(static receipt => Fin.Succ((PaletteStep)new PaletteStep.Ran(receipt))),
                     Fail: fault => IO.pure(Fin.Fail<PaletteStep>(fault)));
 
-        // The argument form's controls come from the ONE schema-to-intent fold, so a palette field and the
-        // same field in a full form dialog are the same materialized control under the same validation.
         public ControlIntent Fields(PaletteFrame.Arguments frame) =>
             frame.Schema.Layout($"palette-args:{frame.IntentKey}", frame.State);
     }
@@ -426,10 +363,8 @@ The presentation columns are a projection of the hit shape, so a result row rend
 - Boundary: the editor seats on the CANVAS stack as `Shell/dialogs#SESSION_ALGEBRA`'s `OverlayShape.Editor` row through the `DialogIntent.Layer` case; `Ursa.Controls.KeyGestureInput` is the ONE capture surface and a page-local boundary capsule, because a recording affordance whose value is a chord is not a screen field the control fold materializes; assignment reaches the table as ONE row — `CaptureIntent` carries `command` in its targets and a two-field argument schema, so the screen's chord chip, the palette's action panel, and a remote caller collect the same `intent` and `gesture` fields and end at the same `Capture` fold, which accumulates BOTH field refusals through `Validation` before the claimant read runs; the chord crosses that schema as its parse-round-trip text because the capture cell RECORDS a value the palette's field TYPES and only one spelling can serve both; conflict evidence is `CommandDeck.Claimants`, so this surface mints no second conflict fold; the cheat sheet groups by `CommandScope` because the scope IS the attach owner the binding table narrows to; the persisted section is `ShortcutPolicy` on the options rail, so a rejected write keeps prior bindings live as `ReloadOutcome.Rejected` and cross-process propagation rides the same op-log cursor; `KeycapCell.Mount` and `Find` are this page's producers for the shortcut screen's chord chips and search box (`Shell/screens#SETTINGS_SURFACE`) — the screen binds them or they have no consumer.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Provenance the editor renders: `default` binds the authored chord, `user` an overlay rebind, `unbound`
-// no chord at all. Derived at projection — the row is a projection and every column on it is derived.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -439,8 +374,6 @@ public sealed partial class BindingSource {
     public static readonly BindingSource Unbound = new("unbound");
 }
 
-// One search request, two admitted shapes, so a chord probe cannot be mistaken for a literal string of its
-// own text.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ShortcutProbe {
     private ShortcutProbe() { }
@@ -448,11 +381,8 @@ public abstract partial record ShortcutProbe {
     public sealed record Chord(KeyGesture Gesture) : ShortcutProbe;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Every column DERIVES from the deck and the overlay, so the surface holds no state that could disagree with
-// what the shell will bind; `Contested` is the live claimant list minus this row, which is what lets the
-// editor SHOW the conflict rather than merely refusing it.
 public sealed record ShortcutRow(
     string Key,
     string Label,
@@ -463,7 +393,7 @@ public sealed record ShortcutRow(
     public bool Conflicted => !Contested.IsEmpty;
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
     public const string CaptureIntent = "shortcuts.capture";
@@ -486,8 +416,6 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
             Seq(FormSection.Of(CaptureIntent, "shortcuts.section.capture", Seq(SubjectField, GestureField))))
             .ToOption();
 
-    // The verb row: the editor supplies the assignment fold and the persistence commit, the deck the
-    // reachability, and the row's own schema the two values the fold needs.
     public CommandRow Verb(Func<ShortcutPolicy, IO<Unit>> commit) =>
         new FamilyRow(CaptureIntent, CommandScope.Global, RowShape.Fielded, Arguments: Schema).Mint(
             (payload, _) => payload is CommandPayload.Fields collected
@@ -498,8 +426,6 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
             Targets = new[] { PaletteKind.Command.Key }.ToFrozenSet(StringComparer.Ordinal),
         };
 
-    // One collected admission: subject and chord ACCUMULATE their refusals, then the assignment survives the
-    // same claimant read the freeze takes — so the palette and the editor refuse identically and wholly.
     public Fin<ShortcutPolicy> Capture(CommandPayload.Fields collected) =>
         (Field(collected, SubjectField), Field(collected, GestureField).Bind(Chord))
             .Apply(static (key, chord) => (Key: key, Chord: chord)).As().ToFin()
@@ -514,14 +440,11 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
                 Some: Validation<Error, string>.Success,
                 None: () => Validation<Error, string>.Fail(new DeckFault.PayloadRejected($"shortcut/capture: {field} absent")));
 
-    // The ONE chord-grammar admission both the capture fold and the live field rule read.
     static Validation<Error, KeyGesture> Chord(string text) =>
         KeyGesture.TryParse(text, out KeyGesture? chord) && chord is not null
             ? Validation<Error, KeyGesture>.Success(chord)
             : Validation<Error, KeyGesture>.Fail(new DeckFault.PayloadRejected($"shortcut/capture: {text} is not a chord"));
 
-    // An unfilled field is not yet wrong — the section's own required rule states that — so the live rule
-    // admits absence and refuses only text the grammar rejects.
     static Validation<Error, Unit> Parses(FormState state) =>
         state.Values.Find(GestureField).Bind(static value => value.Uniform).Bind(static value => Optional(value.GetString())).Match(
             Some: text => Chord(text).Map(static _ => unit),
@@ -533,17 +456,12 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
             .OrderBy(static row => row.Scope.Key, StringComparer.Ordinal)
             .ThenBy(static row => row.Label, StringComparer.Ordinal));
 
-    // Text matches the deck's own normalized index — a command reachable through a user alias is findable by
-    // that alias — while a chord matches by `KeyGesture` value equality against the bound chord, the identical
-    // comparison the surface's key binding will make.
     public Seq<ShortcutRow> Find(ShortcutProbe probe) => probe.Switch(
         text: found => Deck.Search(found.Terms).Choose(hit => Deck.Row(hit.Key)).Map(Row),
         chord: found => toSeq(Deck.Rows.Values)
             .Filter(row => row.Gesture.Map(Deck.Composition.Chord).Filter(bound => bound.Equals(found.Gesture)).IsSome)
             .Map(Row));
 
-    // Assignment refuses ON the contest: the claimant read is the freeze's own, so a binding the editor
-    // accepts is a binding the next freeze accepts, and the refusal names the owners.
     public Fin<BindingOverlay> Assign(string key, KeyGesture gesture) =>
         Deck.Row(key)
             .ToFin(Fail: new DeckFault.UnknownIntent(key))
@@ -553,8 +471,6 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
                     new GestureContest(row.Scope, Deck.Composition.Chord(gesture).ToString(), held))),
             });
 
-    // An explicit unbind is a PRESENT entry carrying None, so a later default gaining a chord cannot resurrect
-    // a binding the user deliberately removed; a reset drops the entry and the authored chord returns.
     public Fin<BindingOverlay> Unbind(string key) =>
         Deck.Rows.ContainsKey(key)
             ? Fin.Succ(Overlay.With(key, None))
@@ -565,9 +481,6 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
     public ShortcutPolicy Commit(BindingOverlay overlay) =>
         Policy with { Sets = Policy.Sets.Map(row => row.SetKey == overlay.SetKey ? overlay : row) };
 
-    // The settings registration this policy owes the registry: ONE field — the active set — because every
-    // other shortcut fact is the editor's own surface and a settings pane duplicating the per-row binding
-    // table would be a second assignment path beside `Assign`.
     public Validation<Error, SettingsRow> Settings(
         Func<HashMap<string, SettingScope>> scopes,
         Func<ShortcutPolicy, IO<ReloadOutcome>> commit,
@@ -585,9 +498,6 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
                     new ReloadOutcome.Rejected(ShortcutPolicy.Section,
                         new ConfigError.BindRejected(ShortcutPolicy.Section, error))))));
 
-    // The picker's rows are the POLICY'S own sets, so a keymap the user imported appears the moment it lands.
-    // The name differs from the capture schema because the two describe different collections — a chord
-    // assignment and a keymap election.
     static Validation<Error, FormSchema> SetSchema(Seq<string> sets, double pickerExtent) =>
         FormSchema.Create(
             ShortcutPolicy.Section, ShortcutPolicy.Section, ShortcutPolicy.Section, FormGeometry.Inline,
@@ -609,15 +519,11 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
             .Bind(static value => Optional(value.GetString()))
             .Filter(static value => value.Length > 0);
 
-    // A whole keymap swaps by NAMING one set: the next freeze folds the named overlay and every derived
-    // surface moves together.
     public Fin<ShortcutPolicy> Swap(string setKey) =>
         Policy.Sets.Exists(row => string.Equals(row.SetKey, setKey, StringComparison.Ordinal))
             ? Fin.Succ(Policy with { ActiveSet = setKey })
             : Fin.Fail<ShortcutPolicy>(new DeckFault.UnknownSet(setKey));
 
-    // The SAME rows grouped by the scope that owns their attachment, so what the sheet prints under a heading
-    // is exactly what fires while that owner holds focus.
     public Seq<(CommandScope Scope, Seq<ShortcutRow> Rows)> Sheet() =>
         toSeq(toSeq(Rows().Filter(static row => row.Gesture.IsSome).GroupBy(static row => row.Scope))
             .Map(static group => (group.Key, toSeq(group)))
@@ -636,23 +542,14 @@ public sealed record ShortcutEditor(CommandDeck Deck, ShortcutPolicy Policy) {
 ```
 
 ```csharp signature
-// --- [BOUNDARIES] -----------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 
-// The capture capsule: the shipped control records a chord on its own `OnKeyDown` and publishes it on a
-// styled property whose default binding mode is one-way, so the cell binds the observable and reads the
-// value back through one subscription rather than mirroring it into local state.
 public static class KeycapCell {
-    // The six modifier keys and the two platform keys record as BARE-key gestures when pressed under only
-    // their own modifier, so an operator tapping Control alone would otherwise commit a chord no key binding
-    // can ever match; the refusal lives here because the control publishes the value either way.
     static readonly FrozenSet<Key> Modifiers = new[] {
         Key.LeftShift, Key.RightShift, Key.LeftCtrl, Key.RightCtrl,
         Key.LeftAlt, Key.RightAlt, Key.LWin, Key.RWin,
     }.ToFrozenSet();
 
-    // `ConsiderKeyModifiers` stays TRUE: the false posture writes the bare gesture and then FALLS THROUGH to
-    // the modifier switch and overwrites it — so false costs a dropped keystroke class and buys no stripping.
-    // `AcceptableKeys` stays unset so every key reaches the one refusal.
     public static KeyGestureInput Mount(Action<Fin<KeyGesture>> captured) {
         KeyGestureInput cell = new() { ConsiderKeyModifiers = true };
         ignore(cell.GetObservable(KeyGestureInput.GestureProperty)
@@ -666,8 +563,6 @@ public static class KeycapCell {
                 ? Fin.Fail<KeyGesture>(new DeckFault.PayloadRejected($"shortcut/capture: {gesture.Key} is a modifier, not a chord"))
                 : Fin.Succ(gesture));
 
-    // `Clear()` nulls the property and the control's own `:empty` pseudo-class states the cleared visual, so
-    // an unbound row and an empty capture cell are one fact.
     public static Unit Clear(KeyGestureInput cell) => ignore(fun(cell.Clear)());
 }
 ```

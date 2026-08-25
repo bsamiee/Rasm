@@ -52,24 +52,22 @@ if TYPE_CHECKING:
 
 
 class PdfCrop(StrEnum):
-    # `.value` is the IDML token `import_pdf(crop=)` writes verbatim. `PDF` is the canonical `PDFCrop` token (the
-    # initialism breaks the `Crop` prefix), NOT the rarer `CropPDF` spelling; `CONTENT` is the base `CropContent` member.
-    CONTENT = "CropContent"  # CROP_CONTENT — the content bounding box, layer-visibility-agnostic
-    CONTENT_VISIBLE = "CropContentVisibleLayers"  # CROP_CONTENT_VISIBLE_LAYERS — the `import_pdf` default
-    CONTENT_ALL = "CropContentAllLayers"  # CROP_CONTENT_ALL_LAYERS
-    ART = "CropArt"  # CROP_ART — the author-defined placeable artwork box
-    PDF = "PDFCrop"  # CROP_PDF — the Acrobat-displayed crop box
-    TRIM = "CropTrim"  # CROP_TRIM
-    BLEED = "CropBleed"  # CROP_BLEED
-    MEDIA = "CropMedia"  # CROP_MEDIA — the original physical paper size
+    CONTENT = "CropContent"
+    CONTENT_VISIBLE = "CropContentVisibleLayers"
+    CONTENT_ALL = "CropContentAllLayers"
+    ART = "CropArt"
+    PDF = "PDFCrop"
+    TRIM = "CropTrim"
+    BLEED = "CropBleed"
+    MEDIA = "CropMedia"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_KIND: Final = "idml"  # the `ContentIdentity.key` fmt tag for the PRE-RUN spec key
-_ROOT: Final = "/Root"  # the IDML tag-tree root, the default destination/source anchor
-_BASE_PREFIX: Final = "Base"  # the default base namespace prefix when the payload omits one
-_PREFIX: Final = re.compile(r"\A\w+\Z")  # the alphanumeric word-char constraint `IDMLPackage.prefix` enforces (its `re.match(r"^\w+$")`)
+_KIND: Final = "idml"
+_ROOT: Final = "/Root"
+_BASE_PREFIX: Final = "Base"
+_PREFIX: Final = re.compile(r"\A\w+\Z")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -77,12 +75,11 @@ _PREFIX: Final = re.compile(r"\A\w+\Z")  # the alphanumeric word-char constraint
 class IdmlSource(Struct, frozen=True):
     data: bytes
     prefix: str
-    at: str = _ROOT  # destination XPath anchor (where this source's content lands in the running package)
-    only: str = _ROOT  # source sub-tree selector; NEVER None — `insert_idml`/`add_pages_from_idml` require a resolvable xpath
+    at: str = _ROOT
+    only: str = _ROOT
 
 
 class StepFacts(Struct, frozen=True):
-    # one carrier so the admission gate reads one projection per step, not three parallel ones.
     sources: tuple[IdmlSource, ...] = ()
     blobs: tuple[bytes, ...] = ()
     batches: tuple[int, ...] = ()
@@ -93,8 +90,6 @@ class StepFacts(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class IdmlStep:
-    # constructed directly by keyword case — `IdmlStep(place_pdf=(pdf, at, PdfCrop.CONTENT_VISIBLE, 1))`; the one
-    # validated ingress is `Idml.of` over the `facts` projection, never a forwarding classmethod per case.
     tag: Literal[
         "insert",
         "add_pages",
@@ -112,25 +107,22 @@ class IdmlStep:
         "leaf_to_node",
     ] = tag()
     insert: IdmlSource = case()
-    add_pages: tuple[tuple[IdmlSource, int], ...] = case()  # (source, page_number) rows the batch `add_pages_from_idml` folds
-    import_xml: tuple[bytes, str] = case()  # (source xml, destination xpath)
-    place_pdf: tuple[bytes, str, PdfCrop, int] = case()  # (pdf bytes, destination xpath, crop mode, page number)
-    set_attributes: tuple[str, frozendict[str, str]] = case()  # (xpath, attrs); an `href` key relinks, an empty `href` removes
-    add_note: tuple[str, str, str] = case()  # (xpath, note, author)
-    merge_layers: str = case()  # merged layer name; "" keeps the active layer's name
-    remove_content: str = case()  # xpath whose tagged subtree clears
-    suffix_layers: str = case()  # designmap layer-id namespace suffix, the layer-level analogue of the base `prefix`
-    remove_layer: str = case()  # designmap layer `Self` id; drops the layer and its guides
-    remove_orphan_layers: None = case()  # niladic — strips every layer no spread references
-    remove_guides: str = case()  # layer id whose guides clear while the layer itself stays
-    add_story: tuple[str, str, str] = case()  # (story_id, xml_element_id, xml_element_tag) — a new story bound to an XML element
-    leaf_to_node: tuple[str, str] = case()  # (destination xpath anchor, xml content ref) — Rectangle leaf promoted to a TextFrame node
+    add_pages: tuple[tuple[IdmlSource, int], ...] = case()
+    import_xml: tuple[bytes, str] = case()
+    place_pdf: tuple[bytes, str, PdfCrop, int] = case()
+    set_attributes: tuple[str, frozendict[str, str]] = case()
+    add_note: tuple[str, str, str] = case()
+    merge_layers: str = case()
+    remove_content: str = case()
+    suffix_layers: str = case()
+    remove_layer: str = case()
+    remove_orphan_layers: None = case()
+    remove_guides: str = case()
+    add_story: tuple[str, str, str] = case()
+    leaf_to_node: tuple[str, str] = case()
 
     @property
     def facts(self) -> StepFacts:
-        # BOTH `at` and `only` ride `anchors` (each `_resolved` against its own tree; an empty `only` never reaches
-        # `insert_idml`'s `xpath(only)[0]`); layer/story/content ids ride `identifiers`, non-empty-checked WITHOUT
-        # `_resolved` because they key the designmap and story files, not the `xml_structure` tree an xpath resolves against.
         match self:
             case IdmlStep(tag="insert", insert=module):
                 return StepFacts(sources=(module,), anchors=(module.at, module.only))
@@ -181,22 +173,17 @@ class IdmlFact(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class IdmlFault:
-    # closed ADMISSION vocabulary `of` produces; a worker provider raise converts to the runtime
-    # `BoundaryFault` at the lane boundary, never this vocabulary. `aggregate` is the monoid carrier every
-    # admission casualty accumulates into, so one refusal names every offending index across all seven axes at
-    # once — a first-offender abort hides the sibling casualties one repair pass would otherwise re-discover
-    # seven times.
     tag: Literal[
         "payload", "empty_data", "empty_blob", "empty_batch", "invalid_page", "bad_prefix", "empty_anchor", "empty_ref", "aggregate"
     ] = tag()
-    payload: tuple[str, ...] = case()  # the rejected `IndesignPayload` key paths from the `TypeAdapter` miss
-    empty_data: int = case()  # source-row index carrying empty `.idml` payload bytes
-    empty_blob: int = case()  # XML/PDF body index carrying no bytes
-    empty_batch: int = case()  # plural page or attribute-step index carrying no rows
-    invalid_page: int = case()  # page-number index carrying a non-positive index
-    bad_prefix: int = case()  # source-row index whose prefix is empty or fails `\A\w+\Z`
-    empty_anchor: int = case()  # step-anchor index carrying an empty `at` destination or `only` source xpath
-    empty_ref: int = case()  # step-identifier index carrying an empty layer/story/content id
+    payload: tuple[str, ...] = case()
+    empty_data: int = case()
+    empty_blob: int = case()
+    empty_batch: int = case()
+    invalid_page: int = case()
+    bad_prefix: int = case()
+    empty_anchor: int = case()
+    empty_ref: int = case()
     aggregate: tuple["IdmlFault", ...] = case()
 
     @staticmethod
@@ -205,8 +192,6 @@ class IdmlFault:
 
     @staticmethod
     def combined(left: "IdmlFault", right: "IdmlFault", /) -> "IdmlFault":
-        # associative and flattening on both sides, so a reduce over any casualty ordering yields one flat
-        # aggregate rather than a nesting whose depth records the fold shape instead of the evidence.
         return IdmlFault(aggregate=(*IdmlFault._members(left), *IdmlFault._members(right)))
 
 
@@ -214,10 +199,8 @@ class IdmlFault:
 
 
 class IndesignPayload(TypedDict, closed=True):
-    template: Required[ReadOnly[bytes]]  # the untrusted InDesign-exported `.idml` the steps mutate
-    # prefix refined at the `TypeAdapter` to the `\A\w+\Z` pattern `IDMLPackage.prefix` enforces, so a
-    # non-alphanumeric ingress prefix is an `IdmlFault.payload` at admission, not a worker-time `BaseException`.
-    prefix: NotRequired[ReadOnly[Annotated[str, StringConstraints(pattern=r"\A\w+\Z")]]]  # default `_BASE_PREFIX`
+    template: Required[ReadOnly[bytes]]
+    prefix: NotRequired[ReadOnly[Annotated[str, StringConstraints(pattern=r"\A\w+\Z")]]]
 
 
 _PAYLOAD = TypeAdapter(IndesignPayload)
@@ -226,8 +209,6 @@ _PAYLOAD = TypeAdapter(IndesignPayload)
 
 
 class Idml(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner; the
-    # heavy per-step extract/repackage worker earns a small projected capacity.
     base: IdmlSource
     steps: tuple[IdmlStep, ...]
     lane: LanePolicy
@@ -246,9 +227,6 @@ class Idml(Struct, frozen=True):
         pages = tuple(page for facts in projected for page in facts.pages)
         anchors = tuple(anchor for facts in projected for anchor in facts.anchors)
         identifiers = tuple(ref for facts in projected for ref in facts.identifiers)
-        # every axis scanned WHOLE and every casualty kept: a template whose steps carry three empty anchors and a
-        # non-positive page reports all four coordinates on one refusal, so a caller repairs once instead of
-        # re-submitting per rejected index.
         casualties = Block.of_seq((
             *(IdmlFault(empty_data=index) for index, src in enumerate(sources) if not src.data),
             *(IdmlFault(empty_blob=index) for index, blob in enumerate(blobs) if not blob),
@@ -265,23 +243,14 @@ class Idml(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: the canonical frozen spec minted PRE-RUN — never a key over the produced package bytes;
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         return ContentIdentity.key(_KIND, _CANON.encode((self.base, self.steps)))
 
     @property
     def _diff(self) -> tuple[Change, ...]:
-        # durable diff finer than the receipt ledger: `finish.steps` is a COUNT, and a band leaf never enters an
-        # audit row at all, so nothing the receipt carries recovers the ordered mutation sequence — which template
-        # operations ran, in which order. One entry per step, positional.
         return tuple(Assigned(path=f"/steps/{index}", next=step.tag) for index, step in enumerate(self.steps))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # one lane crossing, one rail: the mutation crosses the IDML worker seam, only the picklable `IdmlFact`
-        # returns, and `.map` threads the PRE-RUN key onto the receipt (receipt.slot == node.key).
         crossed = await self.lane.offload(Kernel.of(_mutate, KernelTrait.HOSTILE), self)
-        # structural inventory SURVIVES the receipt boundary on the `finish.*` band — spreads, stories,
-        # pages, fonts, styles, layers, tags, nodes, steps are facts, never projected away.
         settled = crossed.map(
             lambda fact: ArtifactReceipt.Office(
                 self._key,
@@ -292,10 +261,6 @@ class Idml(Struct, frozen=True):
                 }),
             )
         )
-        # a mutated designer template is an editable deliverable somebody re-opens and re-issues, so the
-        # production lands `OPERATIONAL` durable evidence carrying the step sequence as its diff and the package
-        # volume as its `STORAGE` charge. The seat is this awaitable fold — recording suspends where the
-        # synchronous `contribute` projection cannot — and the rail binds into the emit's own verdict.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence(*self._diff))).map(lambda _landed: receipt)
@@ -307,8 +272,6 @@ class Idml(Struct, frozen=True):
 
 
 def _canonized(raw: object, /) -> object:
-    # msgpack enc_hook: an `IdmlStep` lowers to its (tag, payload) pair, a frozendict to its dict view under the
-    # deterministic key order; every other payload member (Struct/StrEnum/bytes) encodes natively.
     match raw:
         case IdmlStep() as step:
             return (step.tag, getattr(step, step.tag))
@@ -321,7 +284,7 @@ def _canonized(raw: object, /) -> object:
 _CANON: Final[Encoder] = Encoder(order="deterministic", enc_hook=_canonized)
 
 
-def _mutate(plan: Idml) -> IdmlFact:  # simple_idml -> lxml runs behind the worker boundary
+def _mutate(plan: Idml) -> IdmlFact:
     with ExitStack() as stack:
         def spill(data: bytes, suffix: str, /) -> Path:
             handle = stack.enter_context(NamedTemporaryFile(suffix=suffix, delete_on_close=False))
@@ -375,8 +338,6 @@ def _mutate(plan: Idml) -> IdmlFact:  # simple_idml -> lxml runs behind the work
                 case _ as unreachable:
                     assert_never(unreachable)
 
-        # `opened` registers before any prefix successor mints, so the base zip handle closes on every exit —
-        # a raise inside `.prefix()` included — and the already-prefixed package is reused directly.
         opened = stack.enter_context(idml.IDMLPackage(str(spill(plan.base.data, ".idml"))))
         initial = opened if opened.is_prefixed(plan.base.prefix) else stack.enter_context(opened.prefix(plan.base.prefix))
         package = Block.of_seq(plan.steps).fold(apply, initial)

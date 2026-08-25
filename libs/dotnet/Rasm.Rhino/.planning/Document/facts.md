@@ -21,31 +21,23 @@ The owners are RULED PLURAL by timing, not by accident, and the discriminant is 
 - Boundary: the `*Slot` SUFFIX claims nothing — conformance is claimed by the `IFactSlot` declaration alone, and a `*Slot` name outside a conformer names its own concern (`SlotPresence`/`NamedSlot` seat a named host-callback parameter; `PickSlot`, `AcceptSlot`, `PointSlot`, `ObjectSlot`, `ArchiveSlot`, `SwatchSlot`, and `PrinterSlot` each name an acquisition, archive, or output seat with no fact timing), so a reader tests the declaration, never the word.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The floor a mutation folder's slot vocabulary realizes. A `[SmartEnum<int>]` satisfies it with the generated key
-// and one admission column; the kinded refinement below is the preferred conformance, because its admission is a
-// readable set rather than an opaque predicate.
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IFactSlot<in TBody> where TBody : class {
     int Key { get; }
     bool Admits(TBody body);
 }
 
-// The body side of the kinded contract: a `[Union]` body family answers its kind through one total generated fold,
-// so no slot re-derives a body's kind by type test and a new body case breaks the fold loudly.
 public interface IFactBody<out TKind> where TKind : class, ICapability<TKind> {
     TKind Kind { get; }
 }
 
-// The readable kind gate: a slot DECLARES the body kinds it emits as a capability set and `Admits` DERIVES. The
-// fourteen opaque `Func<TBody, bool>` type-test predicates the boundary slot vocabularies carried delete into one
-// column per slot — printable through `Bodies.Wire`, greppable by row, and one authority per slot.
 public interface IFactSlot<in TBody, TKind> : IFactSlot<TBody>
     where TBody : class, IFactBody<TKind>
     where TKind : class, ICapability<TKind> {
@@ -54,10 +46,7 @@ public interface IFactSlot<in TBody, TKind> : IFactSlot<TBody>
     bool IFactSlot<TBody>.Admits(TBody body) => Bodies.Admits(capability: body.Kind);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The commit envelope's own scalar, seated beside the stream because the envelope mints it and EVERY folder
-// receipt carries it: `UndoBracket` answers `0u` for a program that opened no record, so the value object's
-// refusal of zero is what keeps "no record" out of a receipt as a fact claiming record zero.
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<uint>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct UndoSerial {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref uint value) =>
@@ -74,7 +63,7 @@ public readonly partial struct UndoSerial {
 - Law: a fact is DETACHED evidence — admitted values, runtime pairs, stamps — never a live host handle, because the stream outlives the commit window that minted it.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Fact<TSlot, TBody>(TSlot Slot, TBody Body)
     where TSlot : class, IFactSlot<TBody>
     where TBody : class;
@@ -91,10 +80,7 @@ public readonly record struct Fact<TSlot, TBody>(TSlot Slot, TBody Body)
 - Boundary: Modeling's `BuildReceipt<TSlot>`/`Built<TSlot>` is the build-product timing class and stays where it is; Exchange's `BatchProgram<TReceipt>` (`Exchange/operations#[04]-[BATCH_PROGRAM]`) is the FILE-scoped, envelope-spanning class that lawfully refuses `FactStream` — the page charter states the three-way timing discriminant once and each owner's card points here.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// `Admits` is THE gate, total in both directions; the refusal carries the slot's key. GROWTH: a folder joins by
-// declaring a `[SmartEnum<int>]` slot vocabulary (preferring the kinded contract) and a `[Union]` body family —
-// no receipt type, no fact type, no projection, no gate.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FactStream<TSlot, TBody> : IDetachedDocumentResult
     where TSlot : class, IFactSlot<TBody>
     where TBody : class {
@@ -124,8 +110,6 @@ public readonly record struct FactStream<TSlot, TBody> : IDetachedDocumentResult
             .ToFin()
             .Map(static streams => streams.Fold(Empty, static (state, next) => state + next));
 
-    // The commit envelope stamps EVERY sealed receipt, including a program that recorded no undo — that serial is
-    // `0u` and `UndoSerial.Maybe` refuses zero — so the stamp is a projection, not a rail, and the gate still runs.
     public FactStream<TSlot, TBody> Stamped(TSlot slot, Func<UndoSerial, TBody> record, uint serial) =>
         UndoSerial.Maybe(value: serial)
             .Map(record)

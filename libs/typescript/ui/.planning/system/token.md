@@ -35,7 +35,6 @@ ColorSpace.register(P3)
 ColorSpace.register(OKLCH)
 ColorSpace.register(OKLab)
 
-// every gated pair reads this tier ladder; `high` is the lifted tier a high-contrast projection raises every pair to
 const _APCA = { body: 75, large: 60, muted: 45, high: 90 } as const
 
 const _Plain = Schema.declare(
@@ -61,20 +60,15 @@ const _pair = (floor: keyof typeof _APCA) =>
   )
 
 const _linear = (color: Schema.Schema.Type<typeof _Color>): readonly [number, number, number] => {
-  // BOUNDARY ADAPTER
   const coords = to(color, "srgb-linear").coords as [number, number, number]
   return [coords[0], coords[1], coords[2]] as const
 }
 
-// every ramp derives from this perceptual read on the seed plane: lightness, chroma, hue off an admitted pigment
 const _oklch = (color: Schema.Schema.Type<typeof _Color>): readonly [number, number, number] => {
-  // BOUNDARY ADAPTER
   const coords = to(color, "oklch").coords as [number, number, number]
   return [coords[0], coords[1], coords[2]] as const
 }
 
-// emission scope rides a keyed row, so every override plane is a second fold of one table rather than a
-// hand-authored block; each selector matches the stamp seam's `@custom-variant` so custom properties inherit from :root
 const _HEADS = { theme: "@theme", dark: ':root[data-theme="dark"]', contrast: ':root[data-theme="contrast"]' } as const
 
 const _css = (rows: Record.ReadonlyRecord<string, string>, emit: Theme.Emit): string =>
@@ -109,9 +103,6 @@ const _tones = ["neutral", "accent", "success", "caution", "danger", "added", "r
 const _anchors = ["surface", "accent", "error", "warning", "success", "info"] as const
 const _postures = ["panel", "raised", "well", "overlay"] as const
 
-// Posture is the per-surface-class offset a depth plane requests: the tone shift moves the surface away from the
-// canvas, the chroma ceiling keeps it near-neutral under a tinted seed, and the coverage is the veil weight a
-// scrim over that posture takes.
 const _Posture = Schema.Struct({
   toneShift: Schema.Number.pipe(Schema.between(-1, 1)),
   chromaCeiling: Schema.Number.pipe(Schema.between(0, 1)),
@@ -120,8 +111,6 @@ const _Posture = Schema.Struct({
 
 const _Unit = Schema.Number.pipe(Schema.between(0, 1))
 
-// every pigment in this seed contract admits through `[02]`'s decode, so a malformed identity refuses where every
-// other colour in this folder refuses rather than reaching a ramp as text no parser admits.
 const _Seed = Schema.Struct({
   surface: _Color,
   accent: _Color,
@@ -135,9 +124,6 @@ const _Seed = Schema.Struct({
   }),
 })
 
-// this shipped floor is the reference identity — a near-neutral cool grey band and a restrained desaturated cool
-// accent, because a saturated brand accent spent on chrome leaves no headroom for the status inks that must
-// out-read it. A composed seed replaces it whole; nothing here is a per-value default a caller overrides.
 const _SEED: Schema.Schema.Encoded<typeof _Seed> = {
   surface: "#17191d",
   accent: "#3d7eaa",
@@ -156,8 +142,6 @@ const _SEED: Schema.Schema.Encoded<typeof _Seed> = {
   },
 }
 
-// each semantic names the seed anchor it derives from; the two structural anchors carry a direct pigment and every
-// status anchor reads its own row, exactly as the seed declares them
 const _TONES = {
   neutral: { anchor: "surface", hueShift: 0 },
   accent: { anchor: "accent", hueShift: 0 },
@@ -169,7 +153,6 @@ const _TONES = {
   changed: { anchor: "warning", hueShift: 20 },
 } as const satisfies Record<Theme.Tone, { readonly anchor: Theme.Anchor; readonly hueShift: number }>
 
-// each anchor carries its own ladder, exactly as the seed's ramp policy assigns it
 const _LADDERS = {
   surface: (ramp: Theme.Ramp) => ramp.surfaceTones,
   accent: (ramp: Theme.Ramp) => ramp.accentTones,
@@ -179,13 +162,9 @@ const _LADDERS = {
   info: (ramp: Theme.Ramp) => ramp.statusTones,
 } as const satisfies Record<Theme.Anchor, (ramp: Theme.Ramp) => Schema.Schema.Type<typeof _Seed>["ramp"]["surfaceTones"]>
 
-// this head's own perceptual resolution over the seed's envelope: the rung count and the chroma wash at the light
-// end are the generator's, the extremes are the seed's
 const _RUNGS = 9
 const _WASH = 0.12
 
-// each plane projects its variant as data — ladder direction, near-neutral chroma scale, and the floor every pair
-// lifts to on this plane
 const _PROJECTIONS = {
   theme: { ascending: true, chromaScale: 1, lift: Option.none<Theme.Floor>() },
   dark: { ascending: false, chromaScale: 1, lift: Option.none<Theme.Floor>() },
@@ -195,10 +174,8 @@ const _PROJECTIONS = {
   { readonly ascending: boolean; readonly chromaScale: number; readonly lift: Option.Option<Theme.Floor> }
 >
 
-// each slot reads one rank of the shared ladder; a plane reading descending takes the same ladder from the far end
 const _SLOTS = { on: 0, surface: 1, border: 3, solid: 5, text: 7 } as const
 
-// this closed pairing table generates and gates every pair a surface can read, leaving none to discipline
 const _PAIRS = [
   { bg: "solid", fg: "on", floor: "body" },
   { bg: "surface", fg: "text", floor: "body" },
@@ -218,8 +195,6 @@ const _ramp = (seed: Theme.Seed, plane: Theme.Plane, tone: Theme.Tone): Readonly
   const shifted = hue + row.hueShift
   return Array.map(
     steps(
-      // each reducer spells as a lambda: passing `Math.max` itself hands `reduce` the index and the array as
-      // extra arguments and the whole envelope collapses to NaN
       { space: OKLCH, coords: [tones.reduce((a, b) => Math.max(a, b)), scaled * _WASH, shifted], alpha: 1 },
       { space: OKLCH, coords: [tones.reduce((a, b) => Math.min(a, b)), scaled, shifted], alpha: 1 },
       { space: OKLCH, steps: _RUNGS },
@@ -231,8 +206,6 @@ const _ramp = (seed: Theme.Seed, plane: Theme.Plane, tone: Theme.Tone): Readonly
 const _rung = (plane: Theme.Plane, rank: number): number =>
   _PROJECTIONS[plane].ascending ? rank : _RUNGS - 1 - rank
 
-// each ladder projects onto the slot record in one pass; a rank the ladder cannot serve is a construction defect
-// between _RUNGS and _SLOTS that no consumer arm could act on, so the miss escalates rather than joining a channel
 const _slotted = (ladder: ReadonlyArray<string>, plane: Theme.Plane): Effect.Effect<Record.ReadonlyRecord<Theme.Slot, string>> =>
   Effect.orDie(
     Effect.map(
@@ -242,12 +215,9 @@ const _slotted = (ladder: ReadonlyArray<string>, plane: Theme.Plane): Effect.Eff
     ),
   )
 
-// a plane's lift wins over a row's authored floor, so raising contrast is one projection column rather than a
-// second pairing table
 const _floor = (plane: Theme.Plane, row: Theme.PairRow): Theme.Floor =>
   Option.getOrElse(_PROJECTIONS[plane].lift, () => row.floor)
 
-// this gate runs over the SERIALIZED rungs, so a generated pair re-enters through the same decode a token string does
 const _pairOf = (
   seed: Theme.Seed,
   plane: Theme.Plane,
@@ -265,8 +235,6 @@ const _toned = (seed: Theme.Seed, plane: Theme.Plane, tone: Theme.Tone): Effect.
     return Record.fromEntries(Record.collect(slots, (name, value) => [`${tone}-${name}`, value] as const))
   })
 
-// on the depth plane each posture shifts the neutral base by its own offset under its own chroma ceiling, and the
-// overlay posture's coverage is the one scrim weight the whole folder veils with
 const _postured = (seed: Theme.Seed, plane: Theme.Plane): Theme.Rows => {
   const [lightness, chroma, hue] = _oklch(_pigment(seed, "surface"))
   const direction = _PROJECTIONS[plane].ascending ? 1 : -1
@@ -315,7 +283,6 @@ const _Palette: {
     ),
 }
 
-// every emitted key is a custom color-scale value the one merge instance must know, so the group list DERIVES
 const _paletteKeys: ReadonlyArray<string> = [
   ...Array.flatMap(_tones, (tone) => Array.map(Record.keys(_SLOTS), (slot) => `${tone}-${slot}`)),
   ..._postures,
@@ -346,8 +313,6 @@ const _merge = extendTailwindMerge({
   extend: {
     theme: { color: _paletteKeys },
     classGroups: {
-      // one group for every animate-* trigger — enter/exit, every platform-sustained animation, the named component
-      // animations, and the guard: the reduced-motion guard can only win against a sibling in its own group
       "animate-trigger": [
         "animate-in",
         "animate-out",
@@ -366,7 +331,6 @@ const _merge = extendTailwindMerge({
       "motion-zoom": [_motion("zoom-in"), _motion("zoom-out")],
       "motion-spin": [_motion("spin-in"), _motion("spin-out")],
       "motion-blur": [_motion("blur-in"), _motion("blur-out")],
-      // dir-aware `start`/`end` edges join their physical siblings: one group, or an RTL row and an LTR row both survive
       "motion-slide": [
         _motion("slide-in-from-top"),
         _motion("slide-in-from-bottom"),
@@ -387,8 +351,6 @@ const _merge = extendTailwindMerge({
       "motion-direction": [{ direction: ["normal", "reverse", "alternate", "alternate-reverse"] }],
       "motion-fill": [{ "fill-mode": ["none", "forwards", "backwards", "both"] }],
       "motion-play": ["running", "paused", { "play-state": ["running", "paused"] }],
-      // ramp and accent are separate groups by the plugin's own contract: a neutral ramp writes every register while
-      // an accent rewrites the link register alone, so `prose-slate prose-sky` is a lawful pairing no group may erase
       "prose-size": ["prose-sm", "prose-base", "prose-lg", "prose-xl", "prose-2xl"],
       "prose-ramp": ["prose-slate", "prose-gray", "prose-zinc", "prose-neutral", "prose-stone"],
       "prose-accent": [
@@ -433,8 +395,6 @@ const cn = (...inputs: ReadonlyArray<ClassValue>): string => _merge(clsx(inputs)
 - Growth: a new axis is one interior anchor with one `_EMITTED` row — never a hand-written utility, a second emission call, or a component-local constant.
 
 ```typescript signature
-// this touch raise is the one density move: coarse pointers take a wider rhythm from one value, and every
-// spacing utility follows because the whole dimension plane multiplies through --spacing
 const _density = { comfortable: "0.25rem", touch: "0.3125rem" } as const
 
 const _spacing = _density.comfortable
@@ -469,7 +429,6 @@ const _z = { panel: "10", overlay: "40", sheet: "50", palette: "60", toast: "70"
 
 const _breakpoint = { sm: "40rem", md: "48rem", lg: "64rem", xl: "80rem" } as const
 
-// one row per Tailwind namespace: the paired type row merges into its own namespace rather than emitting it twice
 const _EMITTED = {
   spacing: { "": _spacing },
   text: {
@@ -519,8 +478,6 @@ import { Effect } from "effect"
 
 const _kinds = ["light", "dark", "contrast", "system"] as const
 
-// `system` resolves both host axes at stamp time, contrast outranking scheme because a stated contrast need is a
-// requirement where a scheme preference is a taste
 const _resolved = (kind: (typeof _kinds)[number]): Theme.Plane =>
   kind !== "system"
     ? kind === "light" ? "theme" : kind
@@ -530,8 +487,6 @@ const _resolved = (kind: (typeof _kinds)[number]): Theme.Plane =>
     ? "dark"
     : "theme"
 
-// this base plane carries no attribute: its rows live in the `@theme` block every override inherits from; density
-// rides the same stamp — coarse pointers elect the touch multiplier and the comfortable floor clears the attribute
 const _stamp = (kind: (typeof _kinds)[number]): Effect.Effect<void> =>
   Effect.sync(() => {
     const root = globalThis.document.documentElement
@@ -594,7 +549,7 @@ const Theme: Theme.Shape = {
   stamp: _stamp,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { cn, Theme }
 ```

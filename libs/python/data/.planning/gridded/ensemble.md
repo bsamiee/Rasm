@@ -47,34 +47,19 @@ type ReduceVerb = Literal["mean", "std", "min", "max", "median", "sum"]
 
 
 def _tree_raises() -> Catch:
-    # reified at the call rather than named at module scope, so the set never reifies the deferred `xarray` proxy:
-    # `InvalidTreeError` is the ONE tree refusal rooting at bare `Exception`, and every sibling — `NotFoundInTreeError`,
-    # `TreeIsomorphismError`, and the `AlignmentError`/`MergeError` pair a concat reaches — is a `ValueError`
-    # refinement the builtin ancestor already admits, so naming them adds a proxy dereference and no reach.
     return (xr.InvalidTreeError, KeyError, TypeError, ValueError)
 
 
 def _store_raises() -> Catch:
-    # the Zarr egress adds the store leg beneath the tree fold: `zarr.errors` roots at `ValueError` and its selection
-    # family at `IndexError`, so `OSError` is the one ancestor the tree set does not already carry for a directory or
-    # driver fault, and the local-path write reaches no object-store handle whose own root would need naming.
     return (*_tree_raises(), IndexError, OSError)
 
 
-# this module's whole raise roster, seated once: every fenced leg and the one explicit refusal on this page resolves
-# ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real module at
-# import. The in-memory folds declare TERMINAL — a re-run of one concat, one group-wise map, or one `from_dict` build
-# over the same leaves refuses identically — while the Zarr egress declares TRANSIENT, a store or driver fault a
-# re-issue may clear.
 TREE_BUILD: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.ENSEMBLE, point="build", arm="boundary", defect="tree-build", retriability=TERMINAL
 )
 TREE_APPLY: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.ENSEMBLE, point="apply", arm="boundary", defect="group-fold", retriability=TERMINAL
 )
-# the baseline refusal is CALLER-repairable — a leaf name the admitted roster never carried — so it rides `config`
-# and NAMES the scenario it could not find. The deleted `raise ValueError` crossed the same lift as a provider raise
-# and reached consumers as an unclassified `boundary` fault whose whole detail was a bracketed sentinel string.
 TREE_BASELINE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.ENSEMBLE, point="baseline", arm="config", defect="absent-baseline", retriability=TERMINAL, slots=("scenario",)
 )
@@ -85,7 +70,6 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([TREE_BUILD, TRE
 
 
 class ScenarioKind(StrEnum):
-    # closed family-kind vocabulary spelling the tree's first path segment.
     OPTION = "option"
     CLIMATE = "climate"
     BACKGROUND = "background"
@@ -127,12 +111,8 @@ class ScenarioTree(Struct, frozen=True):
             return boundary(TREE_APPLY, lambda: self._apply(op), catch=_tree_raises()).bind(lambda railed: railed)
 
     def _apply(self, op: TreeOp) -> "RuntimeRail[TreeResult]":
-        # the arms return the rail rather than the bare result so the ONE caller-repairable arm answers its roster
-        # row directly; the lift above binds the doubled rail away and a provider raise inside any arm still converts
-        # exactly once at that fence.
         match op:
             case TreeOp(tag="mapped", mapped=step):
-                # group nodes carry EMPTY datasets — the guard maps leaves alone and passes structure through.
                 mapped = self.tree.map_over_datasets(lambda ds: step(ds) if ds else ds)
                 return Ok(TreeResult(tree=ScenarioTree(tree=mapped, kind=self.kind, scenarios=self.scenarios)))
             case TreeOp(tag="reduced", reduced=verb):
@@ -152,13 +132,9 @@ class ScenarioTree(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _stacked(self) -> Any:
-        # ONE concat over the minted `scenario` dimension: leaf identity rides as a named coordinate, so the
-        # collapsed cube selects scenarios by name and a positional index never stands in for provenance.
         return xr.concat([node.dataset for node in self.tree.leaves], dim=pd.Index(self.scenarios, name="scenario"))
 
     def write(self, target: ResourceRef) -> "RuntimeRail[FieldReceipt]":
-        # the whole hierarchy lands as one Zarr store; the key folds the v3 `zarr.json` root-metadata bytes,
-        # exactly the field Zarr egress key law, and the receipt partitions under the `tree` tag.
         def emit() -> "RuntimeRail[FieldReceipt]":
             self.tree.to_zarr(str(target.path))
             source = (target.path / "zarr.json").read_bytes()

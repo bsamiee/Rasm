@@ -19,7 +19,7 @@ The carrier is LanguageExt `WriterT<FidelityLog, Fin, A>` — the evidence chann
 - Boundary: the ledger accumulates what merely HAPPENED and refuses nothing — a refusal is the `Fin` rail carrying a `Model/faults#FAULT_BAND` `BimFault`, and folding a drop into a fault payload (or a fault into the log) is the deleted form that made a recoverable narrowing indistinguishable from a malformed model; a drop row names a LAW, so an anchor-only fact with no row, or a row minted at a call site, is the deleted form; the log is read only through `Run` at the fold edge or `WriterT.listen` mid-fold, never through a struct field, because the carrier is delegate-backed; the `Fidelity` members PIN the three carrier type arguments a hundred call sites otherwise repeat, which is what separates them from a bare rename wrapper, and a second stored artifact beside `Facts` (the retired per-drop count record) is the mirror this derivation deletes.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Traits;
 using Thinktecture;
@@ -27,30 +27,27 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Projection;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FidelityDrop {
-    public static readonly FidelityDrop StringIdentity       = new("string-identity");        // IfcText/IfcIdentifier narrows to Text; re-emits IfcLabel
-    public static readonly FidelityDrop MeasureUnmapped      = new("measure-unmapped");       // off-table measure type preserved as Text
-    public static readonly FidelityDrop MeasureFlattened     = new("measure-flattened");      // egress raise fell to the bare IfcReal
-    public static readonly FidelityDrop ReferenceResource    = new("reference-resource");     // non-rooted IfcObjectReferenceSelect target not round-tripped
-    public static readonly FidelityDrop GroupFactor          = new("group-factor");           // IfcRelAssignsToGroupByFactor.Factor rider not carried
-    public static readonly FidelityDrop EccentricityDegraded = new("eccentricity-degraded");  // store-missed ConnectionConstraint re-authors the base binding
-    public static readonly FidelityDrop LinearPlacement      = new("linear-placement");       // station rows land, the IfcLinearPlacement entity re-anchors from content-keyed geometry
-    public static readonly FidelityDrop AssessmentSkipped    = new("assessment-skipped");     // Rasm-native Assign.Assessment deliberately not IFC-authored
-    public static readonly FidelityDrop PredefinedPsetOpaque = new("predefined-pset-opaque"); // internal-field predefined-pset scalars unreadable (bag mints empty)
-    public static readonly FidelityDrop StructuralResidue    = new("structural-residue");     // StructuralProjection.Author left the row unconsumed (line/planar/temperature action, trapezoid, displacement)
-    public static readonly FidelityDrop SafResidue           = new("saf-residue");            // SAF import carried no IFC counterpart (sealed payload, counterpartless relation, result table) or linearized a constraint
-    public static readonly FidelityDrop GeoLevelLowered      = new("geo-level-lowered");      // anisotropic map frame authored isotropically — a pre-IFC4X3_ADD2 target carries no IfcMapConversionScaled
+    public static readonly FidelityDrop StringIdentity       = new("string-identity");
+    public static readonly FidelityDrop MeasureUnmapped      = new("measure-unmapped");
+    public static readonly FidelityDrop MeasureFlattened     = new("measure-flattened");
+    public static readonly FidelityDrop ReferenceResource    = new("reference-resource");
+    public static readonly FidelityDrop GroupFactor          = new("group-factor");
+    public static readonly FidelityDrop EccentricityDegraded = new("eccentricity-degraded");
+    public static readonly FidelityDrop LinearPlacement      = new("linear-placement");
+    public static readonly FidelityDrop AssessmentSkipped    = new("assessment-skipped");
+    public static readonly FidelityDrop PredefinedPsetOpaque = new("predefined-pset-opaque");
+    public static readonly FidelityDrop StructuralResidue    = new("structural-residue");
+    public static readonly FidelityDrop SafResidue           = new("saf-residue");
+    public static readonly FidelityDrop GeoLevelLowered      = new("geo-level-lowered");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FidelityFact(FidelityDrop Drop, string Anchor);
 
-// Concatenation is ORDER-PRESERVING: the stream is the exchange chronology, so the monoid is associative and
-// deliberately non-commutative, and a set-shaped or count-only accumulator loses the sequence a federation
-// manager reads a partial exchange by.
 public readonly record struct FidelityLog(Seq<FidelityFact> Facts) : Monoid<FidelityLog> {
     public static FidelityLog Empty { get; } = new(Seq<FidelityFact>());
 
@@ -58,35 +55,24 @@ public readonly record struct FidelityLog(Seq<FidelityFact> Facts) : Monoid<Fide
 
     public FidelityLog Combine(FidelityLog rhs) => new(Facts.Concat(rhs.Facts));
 
-    // The infix twin the trait declares static-virtually: a concrete declaration is what lets a fold at a
-    // concrete site join two ledgers without a generic Monoid constraint.
     public static FidelityLog operator +(FidelityLog left, FidelityLog right) => left.Combine(right);
 
-    // "3 group-by-factor memberships lost their factor, 214 IfcText identities re-emit as IfcLabel, 0 geometry
-    // drops" — DERIVED, so the census and the stream can never disagree about one exchange.
     public Map<FidelityDrop, int> Counts =>
         Facts.Fold(Map<FidelityDrop, int>(), static (map, fact) => map.AddOrUpdate(fact.Drop, static n => n + 1, static () => 1));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The carrier vocabulary: the evidence channel stacked OVER the failure rail, so a narrowing accumulates and a
-// malformed entity refuses on two currencies that never mix. Every Fin<A> step admits through Lift and every
-// drop-capable step returns this carrier, so no caller re-threads a log and no arm leaves the fold.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Fidelity {
     public static WriterT<FidelityLog, Fin, A> Clean<A>(A value) => WriterT.pure<FidelityLog, Fin, A>(value);
 
     public static WriterT<FidelityLog, Fin, A> Drop<A>(FidelityDrop drop, string anchor, A value) =>
         Told(FidelityLog.Of(drop, anchor), value);
 
-    // The general tell Drop instantiates, and the ONE door a collaborator returning a bare ledger beside its value
-    // enters by: a page still holding the retired carrier hands its log here rather than at a second write site.
     public static WriterT<FidelityLog, Fin, A> Told<A>(FidelityLog log, A value) =>
         WriterT.write<FidelityLog, Fin, A>(value, log);
 
     public static WriterT<FidelityLog, Fin, A> Lift<A>(Fin<A> rail) => WriterT.lift<FidelityLog, Fin, A>(rail);
 
-    // The ONE egress, total over the carrier: the value and the whole run's ledger arrive together on the rail,
-    // so a partial run banks nothing a completed run would re-count.
     public static Fin<(A Value, FidelityLog Log)> Run<A>(WriterT<FidelityLog, Fin, A> writer) => writer.Run().As();
 }
 ```

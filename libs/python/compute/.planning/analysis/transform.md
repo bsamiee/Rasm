@@ -36,30 +36,27 @@ from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, roste
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-# cold scientific dependencies: the `lazy` binds defer both scipy trees to the first route build or kernel body.
 lazy import scipy.fft as fft
 lazy import scipy.signal as sig
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 if TYPE_CHECKING:
-    # `ModuleType` types the resolved `xp`/`fft`/`sig` module params; `Array` imports the canonical `numerics/array#PAYLOAD`
-    # backend union rather than redefining it, so the signature never drifts a member, and the gated backend symbols never import at runtime.
     from types import ModuleType
 
     from rasm.compute.numerics.array import Array
 
 type FourierRoute = tuple[
-    Callable[..., "Array"],  # forward transform over the lead axis or the `axes` tuple
-    Callable[..., "Array"],  # matching inverse over the held spectrum (takes the original `n`)
-    Callable[[int, float], "Array"],  # frequency grid for the lead-axis bin count
+    Callable[..., "Array"],
+    Callable[..., "Array"],
+    Callable[[int, float], "Array"],
 ]
 
 
 class FourierBasis(StrEnum):
-    COMPLEX = "complex"  # fft/ifft, lifted to fftn/ifftn over a non-empty `axes`
-    REAL = "real"  # rfft/irfft half-spectrum of real input
-    HERMITIAN = "hermitian"  # hfft/ihfft transform of a Hermitian-symmetric spectrum
+    COMPLEX = "complex"
+    REAL = "real"
+    HERMITIAN = "hermitian"
 
 
 class TrigKind(StrEnum):
@@ -68,25 +65,22 @@ class TrigKind(StrEnum):
 
 
 class PadPolicy(StrEnum):
-    EXACT = "exact"  # transform the operand verbatim
-    FAST = "fast"  # zero-pad each transformed axis to its own `next_fast_len` for the pocketfft radix
+    EXACT = "exact"
+    FAST = "fast"
 
 
 class Trip(StrEnum):
-    FORWARD = "forward"  # spectrum evidence off the forward transform
-    ROUNDTRIP = "roundtrip"  # forward-then-inverse, folding the reconstruction residual
+    FORWARD = "forward"
+    ROUNDTRIP = "roundtrip"
 
 
 class SpectralReadout(StrEnum):
-    PEAK = "peak"  # frequency at the maximum-magnitude bin
-    CENTROID = "centroid"  # magnitude-weighted mean frequency
-    BANDWIDTH = "bandwidth"  # magnitude-weighted spectral spread about the centroid
-    FLATNESS = "flatness"  # geometric-over-arithmetic mean (Wiener entropy)
+    PEAK = "peak"
+    CENTROID = "centroid"
+    BANDWIDTH = "bandwidth"
+    FLATNESS = "flatness"
 
     def fold(self, freqs: "Array", amplitude: "Array") -> float:
-        # spine is the LINEAR AMPLITUDE spectrum `|X(f)|`, never power — an owner holding a power/energy spine square-roots
-        # before the fold, while `FLATNESS` squares back to power internally (the librosa `power=2.0` convention). Every reduction
-        # is an Array API standard op, the namespace resolved off the amplitude operand.
         xp = array_namespace(amplitude)
         absf = xp.abs(freqs)
         weight = amplitude / (xp.sum(amplitude) + 1e-30)
@@ -112,12 +106,10 @@ class SpectralReadout(StrEnum):
 @tagged_union(frozen=True)
 class TransformEvidence:
     tag: Literal["spectrum", "compaction", "envelope", "roundtrip"] = tag()
-    spectrum: tuple[SpectralReadout, float, float] = case()  # (readout, band_hz, energy)
-    compaction: tuple[int, float, float] = case()  # (leading, concentration, energy)
-    # a single-sample trace has NO instantaneous frequency: the estimator needs a consecutive pair, so the central
-    # read is `Option` and the retired `0.0` published a DC claim over a track that was never measured.
-    envelope: tuple[float, Option[float], float] = case()  # (mean, inst_hz, band_hz)
-    roundtrip: tuple[float, float, float] = case()  # (band_hz, energy, residual)
+    spectrum: tuple[SpectralReadout, float, float] = case()
+    compaction: tuple[int, float, float] = case()
+    envelope: tuple[float, Option[float], float] = case()
+    roundtrip: tuple[float, float, float] = case()
 
     @staticmethod
     def Spectrum(readout: SpectralReadout, band_hz: float, energy: float) -> "TransformEvidence":
@@ -136,14 +128,12 @@ class TransformEvidence:
         return TransformEvidence(roundtrip=(band_hz, energy, residual))
 
     def facts(self) -> dict[str, object]:
-        # native scalars only — a `str()`/`f""` coerce erases comparability at the receipt layer; rendering is the export layer's.
         match self:
             case TransformEvidence(tag="spectrum", spectrum=(readout, band, energy)):
                 return {"readout": readout.value, "band_hz": band, "spectral_energy": energy}
             case TransformEvidence(tag="compaction", compaction=(leading, concentration, energy)):
                 return {"leading": leading, "energy_concentration": concentration, "spectral_energy": energy}
             case TransformEvidence(tag="envelope", envelope=(mean, inst, band)):
-                # an unmeasurable instantaneous frequency OMITS its key rather than reporting DC.
                 return {"mean_envelope": mean, "band_hz": band, **inst.map(lambda hz: {"instantaneous_hz": hz}).default_value({})}
             case TransformEvidence(tag="roundtrip", roundtrip=(band, energy, residual)):
                 return {"band_hz": band, "spectral_energy": energy, "reconstruction_residual": residual}
@@ -152,9 +142,6 @@ class TransformEvidence:
 
 
 class TransformReceipt(Struct, frozen=True):
-    # `lineage` carries the admitted operand key beside the result key as ONE value, because the spine reads exactly
-    # that pair: a receipt naming what it produced without naming what it consumed strands every downstream walk at
-    # one hop, and two loose key slots are what lets one drift past the other.
     op: str
     length: int
     lineage: Provenance
@@ -169,9 +156,6 @@ class TransformReceipt(Struct, frozen=True):
         return self.lineage.produced
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine: the result key IS the spine's `key` column and its `produced` provenance, so no
-        # payload slot re-spells the hex render the spine carries, and the admitted operand is the `consumed` roster.
-        # The evidence union stays on the payload — the spine owns its six columns and nothing else.
         facts = {"op": self.op, "length": self.length, **self.evidence.facts()}
         yield Receipt.of(
             EvidenceScope.TRANSFORM.value,
@@ -185,9 +169,9 @@ class TransformReceipt(Struct, frozen=True):
 class TransformOp:
     tag: Literal["fourier", "trigonometric", "analytic", "hankel"] = tag()
     fourier: tuple[FourierBasis, tuple[int, ...], SpectralReadout, PadPolicy, Trip] = case()
-    trigonometric: tuple[TrigKind, int, tuple[int, ...], float] = case()  # (kind, variant, axes, keep fraction)
+    trigonometric: tuple[TrigKind, int, tuple[int, ...], float] = case()
     analytic: SpectralReadout = case()
-    hankel: tuple[float, float, SpectralReadout, Trip] = case()  # (dln log-spacing, mu order, readout, trip)
+    hankel: tuple[float, float, SpectralReadout, Trip] = case()
 
     @staticmethod
     def Fourier(
@@ -201,7 +185,6 @@ class TransformOp:
 
     @staticmethod
     def Trigonometric(kind: TrigKind = TrigKind.COSINE, variant: int = 2, axes: tuple[int, ...] = (), keep: float = 0.1) -> "TransformOp":
-        # `keep` parameterizes the leading-coefficient window the compaction read measures, never a hardcoded top-decile in the body.
         return TransformOp(trigonometric=(kind, variant, axes, keep))
 
     @staticmethod
@@ -213,10 +196,6 @@ class TransformOp:
         return TransformOp(hankel=(dln, mu, readout, trip))
 
     def identity_parts(self, fs: float, operand_key: ContentKey) -> tuple[bytes, ...]:
-        # N SEMANTIC fields, handed to the identity owner AS fields: enum rows serialize by value and numeric rows as
-        # canonical float64 bytes, and the count-and-length framing that makes the preimage injective rides
-        # `IdentitySource(parts=...)` at its one owner. The retired form spelled a local `len(part).to_bytes(8, "big")`
-        # prefix here — a width chosen at a call site forks the key namespace with no surface able to report it.
         row: tuple[object, ...]
         match self:
             case TransformOp(tag="fourier", fourier=(basis, axes, readout, pad, trip)):
@@ -239,20 +218,12 @@ class TransformOp:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's raise-side roster under the hub `ComputeLeg` seat. ONE row spans every op and declares NO slots,
-# because nothing raises through it — it names a lift FENCE whose detail the classifier supplies. The retired
-# `f"transform.{op.tag}"` subject forked one refusal law into four coordinates no shared census read could seat; the op
-# discriminant rides the weave's own span facts, where a trace already filters on it.
 TRANSFORM_APPLY: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.TRANSFORM, point="apply", arm="boundary", defect="kernel-refused", retriability=TERMINAL
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([TRANSFORM_APPLY]))
 
 
-# one (forward, inverse, freq-grid) row per FourierBasis. The table builds inside a `@cache`d function rather than at
-# module scope BECAUSE its cells dereference the lazy `fft` proxy: a module-scope row would reify the whole scipy tree at
-# import and defeat the deferral, while the cached builder reifies once at first call. Every 1-D inverse accepts the
-# original `n`, so the round trip reconstructs to the source length under any PadPolicy.
 @cache
 def _fourier_routes() -> Map[FourierBasis, FourierRoute]:
     return Map.of_seq([
@@ -266,12 +237,6 @@ def _fourier_routes() -> Map[FourierBasis, FourierRoute]:
 
 
 def _transform_kernel(samples: object, fs: float, op: TransformOp, workers: int) -> "RuntimeRail[TransformReceipt]":
-    # module-level so REFERENCE shipping resolves it by import — a closure pays an eager cloudpickle round-trip
-    # no thread arm needs; `workers` arrives as the whole-lane grant width the pocketfft team binds to.
-    # `catch` names the scipy.fft / array-api raise surface this body reaches, probed against the installed band: a
-    # refused transform type, axes tuple, or worker team raises `ValueError`, an out-of-range axis and a 0-d
-    # `hilbert` operand raise `IndexError`, a non-numeric length or an unresolvable namespace raises `TypeError`, and
-    # `np.linalg.LinAlgError` leads as the narrower `ValueError` subclass so the classifier reads the precise type.
     return ArrayPayload.admit(ArraySource.Live(samples), (), FiniteGate.REJECT).bind(
         lambda payload: ContentIdentity.of(f"transform.{op.tag}", IdentitySource(parts=op.identity_parts(fs, payload.content_key))).bind(
             lambda result_key: boundary(
@@ -284,9 +249,7 @@ def _transform_kernel(samples: object, fs: float, op: TransformOp, workers: int)
 
 
 async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[TransformReceipt]":
-    # weave owns span, fence, and the fenced contributor harvest.
     async def dispatch() -> RuntimeRail[TransformReceipt]:
-        # One flatten from `RuntimeRail[RuntimeRail[TransformReceipt]]` to `RuntimeRail[TransformReceipt]`.
         return (
             await lane.whole(
                 lambda grant: lane.offload(
@@ -299,9 +262,6 @@ async def apply(samples: object, fs: float, op: TransformOp, lane: LanePolicy, *
 
 
 def _apply(samples: object, fs: float, op: TransformOp, lineage: Provenance, workers: int) -> TransformReceipt:
-    # `array_namespace` resolves the backend once and the Array-API-aware `scipy.fft` dispatches on the same `xp`. Admission already
-    # rejected non-finite operands, so `xpx.nan_to_num` inside the bodies guards only the all-zero-band log/ratio degeneracy — the
-    # Array-API sanitization owner, not a numpy-only `errstate` scope a jax/dask spine rejects.
     xp = array_namespace(samples)
     x = xp.asarray(samples)
     spacing = 1.0 / fs
@@ -334,29 +294,21 @@ def _fourier(
     lead = axes[0] if axes else (x.ndim - 1)
     fast = (lambda a, real: fft.next_fast_len(x.shape[a], real=real)) if pad is PadPolicy.FAST else (lambda a, real: x.shape[a])
     n = fast(lead, basis is FourierBasis.REAL)
-    # n-D path is the complex `fftn`/`ifftn` mirror (scipy catalogs no `rfftn`/`hfftn`): a non-empty `axes` runs the complex
-    # transform on the `fftfreq` grid regardless of `basis`, padding each transformed axis to its OWN fast length. `set_workers`
-    # binds the pocketfft team to the whole-lane grant width — `-1` creates an unbounded nested team.
     with fft.set_workers(workers):
         spectrum = fft.fftn(x, s=tuple(fast(a, False) for a in axes), axes=axes) if axes else forward(x, n=n, axis=lead)
     freqs = xp.asarray(fft.fftfreq(spectrum.shape[lead], spacing) if axes else grid(n, spacing))
     amplitude = xpx.nan_to_num(xp.abs(spectrum), xp=xp)
     energy = float(xp.sum(amplitude * amplitude))
-    # max-project the off-lead axes into the amplitude spine `readout.fold` consumes — a peak track per bin, never a summed blur.
     spine = amplitude if amplitude.ndim == 1 else xp.max(amplitude, axis=tuple(i for i in range(amplitude.ndim) if i != lead))
     band = readout.fold(freqs[: spine.shape[0]], spine)
     if trip is Trip.FORWARD:
         return TransformEvidence.Spectrum(readout, band, energy)
-    # inverse pins `s`/`n` to the SOURCE lengths so the residual against `x` is shape-correct under PadPolicy.FAST.
     rebuilt = fft.ifftn(spectrum, s=tuple(x.shape[a] for a in axes), axes=axes) if axes else inverse(spectrum, n=x.shape[lead], axis=lead)
-    # complex norm holds for all three bases — `ihfft` reconstructs a complex half-spectrum, and forcing `xp.real` truncates
-    # its imaginary part and inflates the residual.
     residual = float(xp.linalg.norm(xp.reshape(rebuilt - x, (-1,))) / (xp.linalg.norm(xp.reshape(x, (-1,))) + 1e-30))
     return TransformEvidence.Roundtrip(band, energy, residual)
 
 
 def _hankel(xp: "ModuleType", fft: "ModuleType", x: "Array", dln: float, mu: float, readout: SpectralReadout, trip: Trip) -> TransformEvidence:
-    # conjugate log-radial abscissa `exp(dln * (i - n/2))` gives the readout a real radial frequency, never a bare bin index.
     coeffs = xp.asarray(fft.fht(x, dln, mu))
     grid = xp.exp(dln * (xp.arange(coeffs.shape[-1], dtype=xpx.default_dtype(xp, "real floating")) - 0.5 * coeffs.shape[-1]))
     amplitude = xpx.nan_to_num(xp.abs(coeffs), xp=xp)
@@ -377,7 +329,6 @@ def _trigonometric(
     coeffs = xp.asarray(transform(x, type=variant, axes=axes, norm="ortho") if axes else transform(x, type=variant, norm="ortho"))
     energy = xpx.nan_to_num(xp.abs(coeffs) ** 2, xp=xp)
     total = float(xp.sum(energy)) + 1e-30
-    # `flip(sort(...))` gives the descending order without an `[::-1]` negative stride a jax/dask spine rejects.
     leading = max(1, int(round(keep * energy.size)))
     descending = xp.flip(xp.sort(xp.reshape(energy, (-1,))))
     concentration = float(xp.cumsum(descending)[leading - 1] / total)
@@ -385,15 +336,9 @@ def _trigonometric(
 
 
 def _analytic(sig: "ModuleType", x: "Array", fs: float, readout: SpectralReadout) -> TransformEvidence:
-    # numpy-resident: `hilbert` is jax-skipped (item-assignment), its Array-API support behind the experimental `SCIPY_ARRAY_API=1`
-    # gate. The instantaneous frequency rides the unwrap-free product estimator `angle(conj(z[i]) * z[i+1])`, so a raw `angle`
-    # track's branch cut never needs an `np.unwrap`/`np.diff` pass.
     xn = np.asarray(x)
     analytic = sig.hilbert(xn)
     envelope = np.abs(analytic)
-    # the estimator needs a CONSECUTIVE PAIR, so a single-sample trace yields no track at all: the retired
-    # `np.zeros(1)` fabricated a DC increment and the retired `else 0.0` then reported it as a measured central
-    # frequency, which every weighted mean downstream folded as a reading. `Option` states the absence instead.
     inst = np.angle(np.conj(analytic[:-1]) * analytic[1:]) * fs / (2.0 * np.pi) if analytic.size > 1 else np.empty(0)
     weight = envelope[1:] / (np.sum(envelope[1:]) + 1e-30)
     central = Some(float(np.sum(inst * weight))) if inst.size else Nothing

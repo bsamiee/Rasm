@@ -41,7 +41,6 @@ const _NATIVE = {
 const _held = new Map<string, Intl.PluralRules | Intl.RelativeTimeFormat>()
 
 const _native = <K extends keyof typeof _NATIVE>(kind: K, locale: string): ReturnType<(typeof _NATIVE)[K]> => {
-  // BOUNDARY ADAPTER
   const key = `${kind}:${locale}`
   const instance = _held.get(key) ?? _NATIVE[kind](locale)
   _held.set(key, instance)
@@ -151,9 +150,6 @@ const Format: Format.Shape = {
 - Growth: a locale is one catalog file; a message is one catalog row; a vocabulary case is one union member + one fold arm.
 
 ```typescript signature
-// `other` is the CLDR floor every locale supplies and the fold's own fallback, so it sits apart from the five a
-// locale may or may not distinguish — the split is what lets the forms struct derive its optional members from a
-// roster instead of transcribing six fields.
 const _sparse = ["zero", "one", "two", "few", "many"] as const
 const _categories = [..._sparse, "other"] as const
 
@@ -161,9 +157,6 @@ const _Text = Schema.TaggedStruct("Text", {
   value: Schema.NonEmptyString,
 })
 
-// Optional members DERIVE from the sparse roster, because a `Schema.Literal` index signature compiles to REQUIRED
-// fields: spelled that way the struct demanded all six categories of every catalog, made the sparse-forms law
-// false, and left the fold's own `?? other` fallback unreachable.
 const _forms = Schema.Struct({
   ...Record.fromEntries(Array.map(_sparse, (category) => [category, Schema.optional(Schema.NonEmptyString)] as const)),
   other: Schema.NonEmptyString,
@@ -174,10 +167,6 @@ const _Plural = Schema.TaggedStruct("Plural", {
   forms: _forms,
 })
 
-// REFINED record keys admit unvalidated by default: a member whose key fails `NonEmptyString` drops as an excess
-// property rather than refusing, so an empty-string case vanishes silently and the fold answers `other` for a
-// case the author did write. `Shape.Record` seats the refusal on the record node, so both refined-key
-// records below close wherever a catalog decodes rather than depending on the ingress caller passing an option.
 const _Select = Schema.TaggedStruct("Select", {
   arg: Schema.NonEmptyString,
   cases: Shape.Record(Schema.NonEmptyString, Schema.NonEmptyString),
@@ -263,7 +252,7 @@ const Message: Message.Shape = {
     }),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Format, Message }
 ```

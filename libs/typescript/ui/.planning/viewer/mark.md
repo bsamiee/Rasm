@@ -25,8 +25,6 @@ Selection owns one `HashSet<GlobalId>` written through `Replace`, `Add`, `Toggle
 import { Wire } from "@rasm/core"
 import { Data, HashSet, Option, Schema } from "effect"
 
-// the set's own element: a 22-character IFC GlobalId under the base64 alphabet the BCF schema fixes, branded ONCE
-// here where the set that holds it lives, and read by every surface that keys on it
 const _GlobalId = Schema.String.pipe(Schema.length(22), Schema.pattern(/^[0-9A-Za-z_$]{22}$/), Schema.brand("GlobalId"))
 type GlobalId = typeof _GlobalId.Type
 
@@ -85,7 +83,7 @@ const _MARQUEE = { cap: 4096 } as const
 
 declare namespace Selection {
   type Hit = Data.TaggedEnum<{
-    Row: { readonly row: unknown } // the foreign row crosses opaque: deck object, arrow proxy, lasso survivor, basemap feature
+    Row: { readonly row: unknown }
     Tiled: { readonly content: Tiles3DTileContent; readonly batch: number; readonly column: string }
     Grafted: { readonly key: string }
   }>
@@ -93,14 +91,12 @@ declare namespace Selection {
 
 declare namespace Mark {
   type Resident = { readonly tree: MeshBVH; readonly node: Object3D }
-  // pick plane consumes the graft ledger: one accelerated tree per resident key, one reverse read, and the
-  // stamp a rebuild or refit advances so a held descent never answers against a replaced hierarchy
   type Trees = {
     readonly stamp: number
     readonly held: HashMap.HashMap<string, Mark.Resident>
     readonly keyOf: (node: Object3D) => Option.Option<string>
   }
-  type Volume = { readonly box: Box3; readonly toWorld: Matrix4 } // the screen rect un-projected: an axis-aligned box plus its world placement
+  type Volume = { readonly box: Box3; readonly toWorld: Matrix4 }
   type Index<P extends GeoJsonProperties = GeoJsonProperties> = ReturnType<typeof geojsonRbush<Point, P>>
 }
 
@@ -127,7 +123,6 @@ const _resolved = (hit: Selection.Hit, resolver: RequestResolver.RequestResolver
       ),
     Tiled: ({ batch, column, content }) =>
       Effect.succeed(
-        // payload carries these four raw members; the accessor is constructed, never read off a field that does not exist
         _decode(
           new Tile3DBatchTable(
             content.batchTableJson,
@@ -136,7 +131,7 @@ const _resolved = (hit: Selection.Hit, resolver: RequestResolver.RequestResolver
           ).getProperty(batch, column),
         ),
       ),
-    Grafted: ({ key }) => Effect.request(new _ResolveId({ key }), resolver), // the only arm that costs a request; the window collapses every graft key in the sweep
+    Grafted: ({ key }) => Effect.request(new _ResolveId({ key }), resolver),
   })
 
 const _picked = (
@@ -150,21 +145,17 @@ const _marquee = (
   box: { readonly x: number; readonly y: number; readonly width: number; readonly height: number },
 ): Effect.Effect<ReadonlyArray<Selection.Hit>> =>
   Effect.map(
-    // deck answers through the WebGPU-safe async pair; the deprecated sync mirrors never appear
     Effect.promise(() => deck.pickObjectsAsync({ ...box, maxObjects: _MARQUEE.cap })),
     (hits) => Array.map(hits, (info: PickingInfo) => _Hit.Row({ row: info.object })),
   )
 
 const _marqueeScene = (trees: Mark.Trees, volume: Mark.Volume): ReadonlyArray<Selection.Hit> =>
   Array.filterMap(HashMap.toEntries(trees.held), ([key, resident]) =>
-    // one accelerated descent per graft under the same oriented volume, carried into each tree's own frame
     resident.tree.intersectsBox(volume.box, new Matrix4().copy(resident.node.matrixWorld).invert().multiply(volume.toWorld))
       ? Option.some(_Hit.Grafted({ key }))
       : Option.none())
 
 const _pointer = (camera: SceneCamera, ndc: Vector2): Raycaster => {
-  // BOUNDARY ADAPTER: the platform constructor-then-configure seam — firstHitOnly rides the three-mesh-bvh merge, so
-  // each patched mesh answers its nearest hit and stops descending
   const raycaster = new Raycaster()
   raycaster.firstHitOnly = true
   raycaster.setFromCamera(ndc, camera)
@@ -175,7 +166,6 @@ const _grafted = (trees: Mark.Trees, hits: ReadonlyArray<Intersection>): Readonl
   Array.filterMap(hits, (hit) => Option.map(trees.keyOf(hit.object), (key) => _Hit.Grafted({ key })))
 
 const _lasso = <P extends GeoJsonProperties>(index: Mark.Index<P>, polygon: Feature<Polygon>): ReadonlyArray<Selection.Hit> =>
-  // index prunes to the polygon's own extent before any exact test runs; the scan it removes is the O(n) defect
   Array.filterMap(index.search(bbox(polygon)).features, (centroid) =>
     booleanPointInPolygon(centroid, polygon) ? Option.some(_Hit.Row({ row: centroid })) : Option.none())
 ```
@@ -290,33 +280,25 @@ import type { ModelViewerElement } from "@google/model-viewer"
 import { Wire } from "@rasm/core"
 import { Option, pipe } from "effect"
 
-// element admits on the prefix alone — a child whose slot name does not start with it is never
-// registered — and `facing` is the suffix the element toggles back as `data-facing` on the slotted node
 const _HOTSPOT = { prefix: "hotspot", facing: "facing" } as const
 
 declare namespace Mark {
   type World = readonly [number, number, number]
-  // normal, surface, and model index exist only on a gesture-minted anchor: a decoded viewpoint carries none, so
-  // each rides an optional slot the element's own documented default fills, never a value no producer measured
   type Anchor = {
     readonly target: Mark.World
     readonly normal: Option.Option<Mark.World>
     readonly surface: Option.Option<string>
     readonly model: Option.Option<number>
   }
-  type Sited = { readonly guid: string; readonly anchor: Mark.Anchor } // exactly what the hotspot write and the projector read both key on
+  type Sited = { readonly guid: string; readonly anchor: Mark.Anchor }
   type Placed = { readonly at: readonly [number, number]; readonly facing: Option.Option<boolean> }
   type Project = (sited: Mark.Sited) => Option.Option<Mark.Placed>
   type Pin = Mark.Sited & {
     readonly title: string
-    // both keys arrive ADMITTED, never raw: `Mark.variant` joins them against `[7]`'s tables and the open wire
-    // priority has no row there, so the admission runs at the mint rather than at every styling read
     readonly status: Mark.Status
     readonly priority: Mark.Priority
     readonly placed: Option.Option<Mark.Placed>
   }
-  // payload derives off the one imported element type; a second specifier into the package's interior
-  // file layout, or a hand-declared twin beside it, is the parallel restatement this derivation deletes
   type Hotspot = Parameters<ModelViewerElement["updateHotspot"]>[0]
   type Mount = {
     readonly slot: string
@@ -331,12 +313,8 @@ declare namespace Mark {
 type _Camera = NonNullable<Wire.BcfViewpoint["camera"]>
 type _Vec = NonNullable<_Camera["position"]>
 
-// wire camera carries `position` as `Point3` and `direction` as `UnitDirection3` while every projector and camera intent reads a
-// tuple, so the one axis-ordered crossing lives here — an indexed read off the message takes `undefined` on all three
 const _axes = (vec: _Vec): Mark.World => [vec.x, vec.y, vec.z]
 
-// the two vectors a frame needs are message columns the corpus marks required, so the generated type still admits
-// their absence; ONE read folds both presences, and a camera carrying neither frames nothing rather than a NaN eye
 const _framed = (camera: _Camera): Option.Option<{ readonly eye: Mark.World; readonly target: Mark.World }> =>
   Option.map(
     Option.all({ position: Option.fromNullable(camera.position), direction: Option.fromNullable(camera.direction) }),
@@ -348,8 +326,6 @@ const _framed = (camera: _Camera): Option.Option<{ readonly eye: Mark.World; rea
 
 const _slot = (guid: string): string => `${_HOTSPOT.prefix}-${guid}`
 
-// element parses both attributes in its camera-target grammar and its own Vector3D.toString() emits exactly
-// this form, so one spelling serves the write and matches what a read hands back
 const _metres = (world: Mark.World): string => `${world[0]}m ${world[1]}m ${world[2]}m`
 
 const _hotspot = (sited: Mark.Sited): Mark.Hotspot => ({
@@ -360,8 +336,6 @@ const _hotspot = (sited: Mark.Sited): Mark.Hotspot => ({
   ...(Option.isSome(sited.anchor.model) && { modelIndex: sited.anchor.model.value }),
 })
 
-// mount record IS the pin's existence — the element creates a hotspot only from a slotted child and the move
-// below cannot conjure one; both projections read the same two spelling owners, so neither end can drift
 const _mounted = (sited: Mark.Sited): Mark.Mount => ({
   slot: _slot(sited.guid),
   "data-position": _metres(sited.anchor.target),
@@ -371,20 +345,14 @@ const _mounted = (sited: Mark.Sited): Mark.Mount => ({
   ...(Option.isSome(sited.anchor.model) && { "data-model-index": String(sited.anchor.model.value) }),
 })
 
-// BOUNDARY ADAPTER: the dataset attributes are unobserved, so a re-rendered child moves nothing and this is the one
-// write a viewpoint replacement reaches; an unmounted slot no-ops, which the mount record forecloses
 const _moved = (element: ModelViewerElement, sited: Mark.Sited): void => element.updateHotspot(_hotspot(sited))
 
-// element owns projection on this surface, so the screen point is a READ: null covers an unmounted slot and a
-// non-finite canvas position alike, and `facingCamera` is the back-face verdict nothing outside the slot can reach
 const _queried = (element: ModelViewerElement): Mark.Project => (sited) =>
   Option.map(Option.fromNullable(element.queryHotspot(_slot(sited.guid))), (held) => ({
     at: [held.canvasPosition.x, held.canvasPosition.y] as const,
     facing: Option.some(held.facingCamera),
   }))
 
-// authoring gesture pays a second descent to buy `surface`: the barycentric id keeps the anchor on its triangle
-// while a clip plays, where a fixed model-space point drifts off animated geometry
 const _ray = (element: ModelViewerElement, pixel: readonly [number, number]): Option.Option<Mark.Anchor> =>
   Option.map(Option.fromNullable(element.positionAndNormalFromPoint(pixel[0], pixel[1])), (hit) => ({
     target: [hit.position.x, hit.position.y, hit.position.z] as const,
@@ -395,7 +363,6 @@ const _ray = (element: ModelViewerElement, pixel: readonly [number, number]): Op
 
 const _pin = (topic: Wire.BcfTopic, viewpoint: Option.Option<Wire.BcfViewpoint>, project: Mark.Project): Option.Option<Mark.Pin> =>
   Option.flatMap(viewpoint, (held) =>
-    // a camera-less viewpoint anchors nothing spatial — it is a selection-only anchor and mints no pin
     Option.flatMap(Option.flatMap(Option.fromNullable(held.camera), _framed), (frame) =>
       Option.map(_keys(topic), (keys) =>
         pipe(
@@ -424,8 +391,6 @@ declare namespace Restore {
   }
 }
 
-// the wire's ids arrive as strings the corpus rule already proved 22-character base64; the brand decode is the
-// typed narrowing onto the set's own element, never a second check
 const _ids = (raw: ReadonlyArray<string>): ReadonlyArray<GlobalId> => Array.filterMap(raw, _decode)
 
 const _restore = (
@@ -442,7 +407,6 @@ const _restore = (
       pipe(
         Array.partition(_ids(admitted.selectedGlobalIds), (id) => HashSet.has(resident, id)),
         ([missing, resolved]) => ({
-          // the camera is an optional message: a camera-less viewpoint restores selection alone (review#ECHO_ROWS frames it)
           intent: Option.map(Option.flatMap(Option.fromNullable(admitted.camera), _framed), (frame) =>
             Camera.Intent.LookAt({ eye: frame.eye, target: frame.target, millis })),
           op: _Op.Replace({ ids: resolved }),
@@ -479,11 +443,6 @@ import { Format } from "../../src/system/intl.ts"
 import { Primitive } from "../../src/system/primitive.ts"
 import { Theme } from "../../src/system/token.ts"
 
-// ONE narrowing seat for every generated enum the ui reads: the corpus rule `defined_only` beside `not_in: [0]`
-// refused `UNSPECIFIED` and every foreign member at admission, and the generated TYPE still spells both, so this
-// owner derives the defined member roster off the `as const` object protoc-gen-es emits and publishes the guard that
-// carries the rule into the type. Every ui table keyed on an enum closes against `Mark.Defined<E>` and reads its
-// column by the generated member, never a string token this end would mint.
 type _Defined<E extends { readonly UNSPECIFIED: 0 }> = Exclude<E[keyof E], E["UNSPECIFIED"]>
 const _defined = <E extends { readonly UNSPECIFIED: 0 }>(members: E): {
   readonly members: ReadonlyArray<_Defined<E>>
@@ -493,8 +452,6 @@ const _defined = <E extends { readonly UNSPECIFIED: 0 }>(members: E): {
   return { members: defined, is: Schema.is(Schema.Literal(...defined)) }
 }
 
-// every wire instant crosses here and nowhere else: the shipped `timestampMs` bridge folds seconds and nanos, and
-// absence stays absence because the producer omits an unset stamp
 const _instant = (stamp: Timestamp | undefined): Option.Option<DateTime.Utc> =>
   Option.map(Option.fromNullable(stamp), (held) => DateTime.unsafeMake(timestampMs(held)))
 
@@ -509,8 +466,6 @@ const _statusRows = {
   [BcfStatus.REOPENED]: { icon: RotateCcw, tone: "danger", live: true },
 } as const satisfies { readonly [K in _Defined<typeof BcfStatus>]: Mark.StatusRow }
 
-// ring column is the recipe's second axis and carries no colour: the status row decides tone, this row decides
-// emphasis, so one element never resolves two competing palettes
 const _priorityRows = {
   low: { icon: SignalLow, rank: 0, escalated: false, ring: "ring-0" },
   normal: { icon: SignalMedium, rank: 1, escalated: false, ring: "ring-1" },
@@ -526,30 +481,19 @@ declare namespace Mark {
   type StatusRow = { readonly icon: LucideIcon; readonly tone: Theme.Tone; readonly live: boolean }
   type PriorityRow = { readonly icon: LucideIcon; readonly rank: number; readonly escalated: boolean; readonly ring: string }
   type Keys = { readonly status: Mark.Status; readonly priority: Mark.Priority }
-  // status closure runs BOTH directions: the table's `satisfies` refuses an excess row and this alias refuses a
-  // generated member without one — a one-way guard admits the vocabulary that silently loses a case
   type _StatusGap<K extends keyof typeof _statusRows = Mark.Status> = K
-  // priority carries no wire closure to prove against — `BcfTopic["priority"]` is an open string, so only the
-  // widening direction is checkable here and `_keys` below is what keeps an unlisted producer word off the tables
   type _Priorities<K extends Wire.BcfTopic["priority"] = Mark.Priority> = K
   type _PriorityRows<T extends Record.ReadonlyRecord<Priorities[number], PriorityRow> = typeof _priorityRows> = T
 }
 
-// BOUNDARY ADAPTER: open wire axis, closed presentation ladder — the predicate carries the narrowing so no call site
-// casts, and an unlisted producer priority folds to `normal` at this ONE seam rather than keying a table that has no row
 const _known = (raw: Wire.BcfTopic["priority"]): raw is Mark.Priority => Object.hasOwn(_priorityRows, raw)
 
-// the ONE admission of a topic's two axes: the status guard carries the corpus rule into the type — its `none` arm
-// is the member the rule already refused and no producer reaches — and the priority fold admits the open axis
 const _keys = (topic: Wire.BcfTopic): Option.Option<Mark.Keys> =>
   Option.map(Option.liftPredicate(topic.status, _status.is), (status) => ({
     status,
     priority: _known(topic.priority) ? topic.priority : "normal",
   }))
 
-// tone axis DERIVES from the token roster's own keyed table, so a semantic added there lands on this recipe with
-// zero edits, the class strings name only the generated slot utilities, and `VariantProps` keeps the literal tone
-// union a tuple fold would widen to `string`; this page holds no palette
 const _marker = cva("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 outline-none", {
   variants: {
     tone: Record.map(Theme.Palette.rows, (_row, tone) => `border-${tone}-border bg-${tone}-surface text-${tone}-text`),
@@ -558,8 +502,6 @@ const _marker = cva("inline-flex items-center gap-1 rounded-full border px-2 py-
   defaultVariants: { tone: "neutral", priority: "normal" },
 })
 
-// ONE join of the two axes lives here: every pin and every board row reads its variant pair, so no surface resolves a
-// tone off a priority or an emphasis off a status
 const _variant = (keys: Mark.Keys): {
   readonly tone: Theme.Tone
   readonly priority: Mark.Priority
@@ -568,8 +510,8 @@ const _variant = (keys: Mark.Keys): {
 declare namespace Mark {
   type Comment = {
     readonly author: string
-    readonly stamp: Option.Option<Date> // the one epoch crossing; the locale-bound render belongs to the consuming row
-    readonly age: Option.Option<Duration.Duration> // absent exactly where the producer omitted the comment's instant
+    readonly stamp: Option.Option<Date>
+    readonly age: Option.Option<Duration.Duration>
     readonly body: string
     readonly viewpoint: Option.Option<string>
   }
@@ -581,21 +523,19 @@ declare namespace Mark {
     readonly labels: Wire.BcfTopic["labels"]
     readonly assignee: Wire.BcfTopic["assignedTo"]
     readonly due: Option.Option<DateTime.Utc>
-    readonly remaining: Option.Option<Either.Either<Duration.Duration, Duration.Duration>> // left overdue by, right due in
+    readonly remaining: Option.Option<Either.Either<Duration.Duration, Duration.Duration>>
     readonly overdue: boolean
     readonly comments: ReadonlyArray<Mark.Comment>
-    readonly activity: Option.Option<Duration.Duration> // age of the newest comment; absent on an unanswered topic
+    readonly activity: Option.Option<Duration.Duration>
   }
   type Census = {
-    readonly statuses: HashMap.HashMap<Mark.Status, number> // enum members key a map, never a string-keyed record
+    readonly statuses: HashMap.HashMap<Mark.Status, number>
     readonly priorities: Record.ReadonlyRecord<Mark.Priority, number>
     readonly escalated: number
     readonly overdue: number
     readonly unassigned: number
     readonly comments: number
   }
-  // every key is the wire's OWN spelling under indexed access, so the authored surface cannot drift from the decoded
-  // owner; an omitted key is unchanged and `Option.none()` in a present key clears the field
   type Amendment = {
     readonly title?: Wire.BcfTopic["title"]
     readonly status?: Mark.Status
@@ -619,8 +559,8 @@ const _byInstant: Order.Order<Wire.BcfTopic["comments"][number]> = Order.mapInpu
 
 const _order: Order.Order<Mark.Row> = Order.combineAll([
   Order.mapInput(Order.reverse(Order.number), (row: Mark.Row) => _priorityRows[row.priority].rank),
-  Order.mapInput(Order.boolean, (row: Mark.Row) => Option.isNone(row.due)), // dated before undated: false sorts first
-  Order.mapInput(Option.getOrder(DateTime.Order), (row: Mark.Row) => row.due), // soonest first among the dated
+  Order.mapInput(Order.boolean, (row: Mark.Row) => Option.isNone(row.due)),
+  Order.mapInput(Option.getOrder(DateTime.Order), (row: Mark.Row) => row.due),
   Order.mapInput(Order.string, (row: Mark.Row) => row.guid),
 ])
 
@@ -630,12 +570,10 @@ const _thread = (topic: Wire.BcfTopic, now: DateTime.Utc): ReadonlyArray<Mark.Co
       author: note.author,
       stamp: Option.map(at, Format.instant),
       age: Option.map(at, (instant) => DateTime.distanceDuration(instant, now)),
-      body: Primitive.sanitize(note.text), // gated once at the fold: the row's body is the only spelling a DOM sink reaches
+      body: Primitive.sanitize(note.text),
       viewpoint: Option.fromNullable(note.viewpointGuid),
     })))
 
-// the keys admission is the one arm that can drop a topic, and it drops exactly the member the corpus rule refused
-// before this fold could see it — so the board is total over every document a producer emits
 const _board = (
   topics: ReadonlyArray<Uint8Array>,
   now: DateTime.Utc,
@@ -670,8 +608,6 @@ const _board = (
       ),
   )
 
-// seed derives from the vocabularies themselves, so a new status or priority row lands in the census with no
-// edit here and no key the header reads can go missing
 const _ZERO: Mark.Census = {
   statuses: HashMap.fromIterable(Array.map(_status.members, (status) => [status, 0] as const)),
   priorities: Record.map(_priorityRows, () => 0),
@@ -681,15 +617,13 @@ const _ZERO: Mark.Census = {
   comments: 0,
 }
 
-// one seeded pass answers every count the board header reads; a filter-and-length walk per column over the same row
-// set is the scatter this fold deletes, and each vocabulary row decides its own column exactly once
 const _census = (rows: ReadonlyArray<Mark.Row>): Mark.Census =>
   Array.reduce(rows, _ZERO, (census, row) => ({
     statuses: HashMap.modify(census.statuses, row.status, (held) => held + 1),
     priorities: { ...census.priorities, [row.priority]: census.priorities[row.priority] + 1 },
     escalated: census.escalated + (_priorityRows[row.priority].escalated ? 1 : 0),
     overdue: census.overdue + (row.overdue ? 1 : 0),
-    unassigned: census.unassigned + (row.assignee === "" ? 1 : 0), // the wire carries absence as the empty string, never an Option
+    unassigned: census.unassigned + (row.assignee === "" ? 1 : 0),
     comments: census.comments + row.comments.length,
   }))
 
@@ -745,7 +679,7 @@ const Mark: Mark.Shape = {
   census: _census,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Mark, Selection }
 ```

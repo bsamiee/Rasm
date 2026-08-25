@@ -42,7 +42,7 @@ from rasm.geometry.graduation import GeometryLeg
 from rasm.runtime.faults import FAULT_CONF, TERMINAL, Disposition, FaultRow, RuntimeRail, boundary, rostered, traversed
 from rasm.runtime.receipts import OPEN, Receipt, receipted
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class SelectorOperator(StrEnum):
@@ -55,13 +55,13 @@ class SelectorOperator(StrEnum):
 
 
 class IdentifyAxis(StrEnum):
-    INSTANCE = "instance"  # a 22-char IFC GlobalId
-    ENTITY = "entity"  # an `Ifc...` class name
+    INSTANCE = "instance"
+    ENTITY = "entity"
 
 
 class QualifyAxis(StrEnum):
-    PROPERTY = "property"  # `<pset>.<prop> <comparison>`
-    QUERY = "query"  # `query:<keys> <comparison>`
+    PROPERTY = "property"
+    QUERY = "query"
 
 
 class SelectorKeyword(StrEnum):
@@ -73,35 +73,22 @@ class SelectorKeyword(StrEnum):
     PARENT = "parent"
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# One vocabulary per axis, single-edit-site: the EBNF terminals below RENDER from these rows, so a new operator,
-# keyword, or special literal lands once and the grammar re-derives with it. `_TOKEN_DELIMS` is one set serving two
-# renders — the UNQUOTED negated class and the re-quote admission test — so `.` delimits (`Length="1.5"`,
-# `"Pset.Weird".Foo`), `/` and `+` stay bare, and `"` drops from the class because ESCAPED_STRING is its own terminal.
 _SPECIALS: Final[frozenset[str]] = frozenset({"NULL", "TRUE", "FALSE"})
 _WHITESPACE: Final[frozenset[str]] = frozenset(" \t\f\r\n")
 _QUOTE: Final[str] = '"'
 _TOKEN_DELIMS: Final[frozenset[str]] = frozenset(",.=><*!") | _WHITESPACE | frozenset(_QUOTE)
 
 
-# Read-before-use: these two renderers build the module constants beneath them, so they seat with the table they
-# derive rather than in `[OPERATIONS]` behind the value that calls them.
 def _alts(vocabulary: Iterable[str]) -> str:
-    # EBNF alternation over one Python vocabulary, longest literal first so `*=` wins the Earley terminal match over
-    # `=`; the `(-len, token)` key also FIXES the render, since a `frozenset` iterates in hash order and a
-    # hash-seeded grammar string would differ run to run. A `StrEnum` member renders as its value under the f-string.
     return " | ".join(f'"{token}"' for token in sorted(vocabulary, key=lambda token: (-len(token), str(token))))
 
 
 def _delim_class(delims: frozenset[str]) -> str:
-    # negated character class off the SAME delimiter set the re-quote test reads: whitespace collapses to `\s` so the
-    # class and the ignored WS terminal agree on one whitespace domain, and the quote drops to its own terminal.
     return rf"[^{re.escape(''.join(sorted(delims - _WHITESPACE - frozenset(_QUOTE))))}\s]+"
 
 
-# Faithful to `filter_elements_grammar` — `+` unions facet_list groups, `,` chains facets — with every closed-vocabulary
-# terminal a render of its Python row, so the string round-trips and no alternation restates a table.
 SELECTOR_GRAMMAR: Final[str] = rf"""
     start        : filter_group
     filter_group : facet_list ("+" facet_list)*
@@ -137,18 +124,13 @@ SELECTOR_GRAMMAR: Final[str] = rf"""
     %ignore WS
 """
 
-# The re-quote admission test IS the UNQUOTED terminal, compiled once from the one class render, so a token this owner
-# emits bare can never fall outside the class the parser re-accepts it under.
 _UNQUOTED: Final[re.Pattern[str]] = re.compile(_delim_class(_TOKEN_DELIMS))
 
-# keep-all redaction — no classified field on the selector facts.
 
-# --- [BOUNDARIES] ----------------------------------------------------------------------
+# --- [BOUNDARIES] -----------------------------------------------------------------------
 
 
 def _emit_token(text: str) -> str:
-    # SPECIAL and a `/.../` regex render verbatim; a token the UNQUOTED terminal accepts whole renders bare; every
-    # other token — empty, delimiter-bearing, quote-bearing — re-quotes as ESCAPED_STRING so the query round-trips.
     if text in _SPECIALS or (len(text) >= 2 and text[0] == "/" and text[-1] == "/"):
         return text
     return text if _UNQUOTED.fullmatch(text) else _QUOTE + text.replace(_QUOTE, "\\" + _QUOTE) + _QUOTE
@@ -157,54 +139,47 @@ def _emit_token(text: str) -> str:
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 # --- [REFUSAL_COORDINATES]
-# One closed vocabulary per refusal AXIS, seated with the family whose case slots carry them: a consumer reads the
-# defect off a member instead of re-parsing a rendered cause, and a new axis member is one row here. Every member
-# below names a refusal a band seam raises today; a member no seam mints is deleted, never diagrammed.
 
 
 class ParseStop(StrEnum):
-    CHARACTER = "character"  # UnexpectedCharacters — the lexer refused a character no terminal admits
-    TOKEN = "token"  # UnexpectedToken — the parser refused a matched terminal at its position
-    EXHAUSTED = "exhausted"  # UnexpectedEOF — input ended mid-rule, and lark spells its position `-1`
-    UNCLASSIFIED = "unclassified"  # an `UnexpectedInput` leaf `_STOPS` does not roster; its terminal roster reads empty
+    CHARACTER = "character"
+    TOKEN = "token"
+    EXHAUSTED = "exhausted"
+    UNCLASSIFIED = "unclassified"
 
 
 class IfcRoster(StrEnum):
-    PROFILE_ELEMENT = "profile-element"  # the selector's own match set, empty-gated before the profile partition
-    STRUCTURAL_MEMBER = "structural-member"  # the IfcRelAssignsToGroup members a structural group carries
-    EXPORT_COLUMN = "export-column"  # the trimmed column contract an EXPORT spec resolves to
+    PROFILE_ELEMENT = "profile-element"
+    STRUCTURAL_MEMBER = "structural-member"
+    EXPORT_COLUMN = "export-column"
 
 
 class SectionMeasure(StrEnum):
-    CENTRELINE_VERTICES = "centreline-vertices"  # distinct vertices surviving the centreline dedupe
-    PROFILE_THICKNESS = "profile-thickness"  # the constant offset width a centreline profile declares
-    SECTION_AREA = "section-area"  # the assembled contour area every moment divides through
+    CENTRELINE_VERTICES = "centreline-vertices"
+    PROFILE_THICKNESS = "profile-thickness"
+    SECTION_AREA = "section-area"
 
 
 class CurveFlaw(StrEnum):
-    MALFORMED = "malformed"  # the ClosedRing refinement rejects the shape outright
-    ZERO_AREA = "zero-area"  # sub-epsilon signed area — the collinear or zero-extent loop a centroid divide cannot survive
-    SELF_INTERSECTS = "self-intersects"  # crossed lobes the shoelace and every contour moment silently mis-sign
-    REVERSAL = "reversal"  # a centreline vertex whose turning angle leaves the miter unbounded
-    OFFSET_SELF_INTERSECTS = "offset-self-intersects"  # an inner retraction reaching past the shorter adjacent span
+    MALFORMED = "malformed"
+    ZERO_AREA = "zero-area"
+    SELF_INTERSECTS = "self-intersects"
+    REVERSAL = "reversal"
+    OFFSET_SELF_INTERSECTS = "offset-self-intersects"
 
 
 class ArgumentFlaw(StrEnum):
-    UNKNOWN = "unknown"  # an argument the usecase never declares
-    NOT_ENTITY = "not-entity"  # a literal bound where an entity parameter is wanted
-    UNSUPPLIED = "unsupplied"  # a required argument left unbound
-    ARITY = "arity"  # a scalar entity parameter bound to anything but one slot
+    UNKNOWN = "unknown"
+    NOT_ENTITY = "not-entity"
+    UNSUPPLIED = "unsupplied"
+    ARITY = "arity"
 
 
 class GeoDrop(StrEnum):
-    NON_UNIFORM_FACTORS = "non-uniform-factors"  # a factor triple one scale cannot carry across the eight wire fields
-    UNNAMED_CRS = "unnamed-crs"  # a coordinate operation whose target CRS names nothing a consumer resolves
+    NON_UNIFORM_FACTORS = "non-uniform-factors"
+    UNNAMED_CRS = "unnamed-crs"
 
 
-# One row per lark stop class, each naming the terminal-roster attribute ITS class spells — `UnexpectedCharacters`
-# publishes `allowed`, both parser stops publish `expected`, and all three answer plain terminal names. Row order is
-# free here, unlike the runtime `CLASSIFY` fold it mirrors: the three are DISJOINT leaves under `UnexpectedInput`,
-# none subclassing another, so a first-match fold cannot coalesce a lexer stop into a parser row.
 _STOPS: Final[Block[tuple[type[UnexpectedInput], ParseStop, str]]] = Block.of_seq([
     (UnexpectedCharacters, ParseStop.CHARACTER, "allowed"),
     (UnexpectedToken, ParseStop.TOKEN, "expected"),
@@ -214,44 +189,22 @@ _STOPS: Final[Block[tuple[type[UnexpectedInput], ParseStop, str]]] = Block.of_se
 
 @tagged_union(frozen=True)
 class IfcFault(Exception):
-    # The IFC band's ONE structured refusal, seated beside the grammar owner for the reachability the band already
-    # has: `analysis`, `costing`, and `structural` thread their query through `IfcSelector` already and this page
-    # imports no band sibling, so the floor costs `authoring` one intra-band import and no page a cycle. One case per
-    # refusal LAW, each carrying its own coordinate TUPLE — near-identical defects collapse onto one parameterized
-    # case taking its subject, so the roster tracks the laws the band holds rather than the sites that raise them.
-    # A case reaches the rail through the runtime's OWN door, never a local twin: `raise` inside a converting fence
-    # (`boundary`/`async_boundary` on a rail capsule, the `evidence_run` weave on a caller-floor fold), and
-    # `BoundaryFault.of(at, IfcFault(...))` on a pure helper reachable outside one, which is the same
-    # `runtime/reliability/faults#FAULTS` fold the fence calls. That owner admits a `Tagged()` token AHEAD of every
-    # `CLASSIFY` row, so this family crosses the door WHOLE on the `domain` case and the catch-all's `str(cause)` half
-    # NEVER renders it — consumers inside the band match the CASE, and the coordinate reaches a receipt as the
-    # `evidence` half of `facts()`, not as a string. A WORKER SEAM carries it whole too, which is the reason the
-    # crossing owner exists: a kwarg-only `@tagged_union` Exception pickles on NO arm — its empty `args` plus a
-    # `__dict__` carrying `_index` re-enter this union's own one-case guard — so `execution/workers#CROSSING` lowers
-    # the token onto `CrossedFault` DATA at `shipped` and re-mints this family's own case parent-side, and
-    # `ifc/costing#LIFECYCLE` drives `IfcSelector` worker-side under exactly that carriage while editing nothing.
-    # `__str__` therefore serves the LOG and HOST edge alone — a token surfacing in a worker traceback or a log line
-    # before the seam lowers it — where `Exception.__str__` answers the EMPTY string for a kwarg-only union.
     tag: Literal[
         "unrostered", "unserved", "empty_roster", "unresolved_slots", "degenerate_measure",
         "flawed_curve", "divergent_arguments", "unwirable_georeference", "unparsed_query",
     ] = tag()
-    unrostered: tuple[str, str] = case()  # (the closed vocabulary refusing, the foreign token it does not carry)
-    unserved: tuple[str, str] = case()  # (directional capability, the rostered member it serves in one direction only)
-    empty_roster: tuple[str, IfcRoster] = case()  # (subject, the roster a fold requires non-empty and resolved empty)
-    unresolved_slots: tuple[str, tuple[str, ...]] = case()  # (subject, the named slots it answers with nothing)
-    degenerate_measure: tuple[str, SectionMeasure, Option[float]] = case()  # (subject, measure, value — `Nothing` where the model declares none)
-    flawed_curve: tuple[str, tuple[tuple[CurveFlaw, tuple[int, ...]], ...]] = case()  # (subject, defect census at its index PATH)
-    divergent_arguments: tuple[str, tuple[tuple[ArgumentFlaw, str, Option[int]], ...]] = case()  # (usecase, per-keyword divergence census)
-    unwirable_georeference: tuple[tuple[GeoDrop, str], ...] = case()  # the drop census beside each offending spelling
-    unparsed_query: tuple[str, ParseStop, Option[int], tuple[str, ...]] = case()  # (query, stop, `pos_in_stream` offset, admissible terminals)
+    unrostered: tuple[str, str] = case()
+    unserved: tuple[str, str] = case()
+    empty_roster: tuple[str, IfcRoster] = case()
+    unresolved_slots: tuple[str, tuple[str, ...]] = case()
+    degenerate_measure: tuple[str, SectionMeasure, Option[float]] = case()
+    flawed_curve: tuple[str, tuple[tuple[CurveFlaw, tuple[int, ...]], ...]] = case()
+    divergent_arguments: tuple[str, tuple[tuple[ArgumentFlaw, str, Option[int]], ...]] = case()
+    unwirable_georeference: tuple[tuple[GeoDrop, str], ...] = case()
+    unparsed_query: tuple[str, ParseStop, Option[int], tuple[str, ...]] = case()
 
     @staticmethod
     def of_stop(text: str, stop: UnexpectedInput) -> "IfcFault":
-        # The two-tier constructor the branch rail law binds, so the interior never hand-builds this case and lark's
-        # two divergent terminal-roster spellings are named ONCE. An exhausted parse carries `pos_in_stream == -1`,
-        # a structural absence rather than an offset, so it rides `Nothing` instead of a `-1` a reader would index
-        # the query with. The roster dedupes and sorts because `UnexpectedEOF` repeats a terminal per pending rule.
         row = _STOPS.choose(lambda member: Some(member) if isinstance(stop, member[0]) else Nothing).try_head()
         admissible = row.map(lambda member: getattr(stop, member[2]) or ()).default_value(())
         return IfcFault(unparsed_query=(
@@ -262,7 +215,6 @@ class IfcFault(Exception):
         ))
 
     def __str__(self) -> str:
-        # the law half IS the tag, so no arm re-spells its own case name and a renamed case cannot drift from its render.
         return f"{self.tag}:{self._coordinate()}"
 
     def _coordinate(self) -> str:
@@ -291,21 +243,15 @@ class IfcFault(Exception):
                 assert_never(unreachable)
 
 
-# --- [TABLES] ----------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# this module's whole raise roster, seated beside the family it fences: the one parsing leg anchors one row, so the
-# fence spells no subject and `rostered` seats the coordinate on the branch census, proving `geometry.ifc.selector`
-# against a real module at import. The row carries no `slots` because it is a LIFT anchor — the offending query, the
-# stop kind, its offset, and the admissible-terminal roster all ride `IfcFault.unparsed_query`'s own coordinate
-# through `BoundaryFault.domain`, where a subject string would have carried one of the four and unbounded cardinality
-# besides. TERMINAL: a query the grammar refuses refuses identically on every re-issue.
 SELECTOR_PARSE: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.SELECTOR, point="parse", arm="boundary", defect="query-unparsed", retriability=TERMINAL
 )
 RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([SELECTOR_PARSE]))
 
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class SelectorComparison(Struct, frozen=True, gc=False):
@@ -320,10 +266,10 @@ class SelectorComparison(Struct, frozen=True, gc=False):
 @tagged_union(frozen=True)
 class Facet:
     tag: str = tag()
-    identified: tuple[IdentifyAxis, str, bool] = case()  # axis, GlobalId|IfcClass, negate
-    attribute: tuple[str, SelectorComparison] = case()  # capital-initial attribute name
-    keyed: tuple[SelectorKeyword, SelectorComparison] = case()  # type/material/classification/...
-    qualified: tuple[QualifyAxis, str, str | None, SelectorComparison] = case()  # property|query
+    identified: tuple[IdentifyAxis, str, bool] = case()
+    attribute: tuple[str, SelectorComparison] = case()
+    keyed: tuple[SelectorKeyword, SelectorComparison] = case()
+    qualified: tuple[QualifyAxis, str, str | None, SelectorComparison] = case()
 
     def render(self) -> str:
         match self:
@@ -375,19 +321,16 @@ class SelectorQuery(Struct, frozen=True, gc=False):
 
 
 class SelectorMatch(Struct, frozen=True, gc=False):
-    # the validated query travels WITH its match, so a consumer keys its evidence on the canonical `filter_string`
-    # the engine actually ran rather than the raw text it handed in, and none re-parses to recover that spelling.
     query: SelectorQuery
     elements: tuple["ifcopenshell.entity_instance", ...]
 
 
-# --- [SERVICES] ------------------------------------------------------------------------
+# --- [SERVICES] -------------------------------------------------------------------------
 
 
 @v_args(inline=True)
 class SelectorTransformer(Transformer_NonRecursive):
     def comparison(self, *parts: Token) -> SelectorComparison:
-        # `NOT? OP value` — the facet method threads the `value` in, so this node carries `(OP,)` or `(NOT, OP)`.
         return SelectorComparison(SelectorOperator(str(parts[-1])), "", len(parts) == 2)
 
     def name(self, token: Token) -> str:
@@ -433,14 +376,13 @@ class SelectorTransformer(Transformer_NonRecursive):
         return text[1:-1] if text.startswith('"') and text.endswith('"') else text
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 class IfcSelector:
     @staticmethod
     @cache
     def _engine() -> tuple[Lark, SelectorTransformer]:
-        # @cache compiles the EBNF once on first parse; `cache=` is omitted — `lark` rejects it for any parser but `lalr`.
         return Lark(SELECTOR_GRAMMAR, start="start", parser="earley"), SelectorTransformer()
 
     @overload
@@ -460,29 +402,16 @@ class IfcSelector:
 
     @staticmethod
     def filter(model: "ifcopenshell.file", text: str) -> "RuntimeRail[SelectorMatch]":
-        # one parse serves both products: the engine consumes the re-serialized `filter_string` and the caller
-        # receives that same validated query beside its match, so no consumer parses twice to name what it ran.
         return IfcSelector.parse(text).map(
             lambda query: SelectorMatch(query=query, elements=tuple(ifcopenshell.util.selector.filter_elements(model, query.filter_string)))
         )
 
     @staticmethod
     def _parse_one(text: str) -> "RuntimeRail[SelectorQuery]":
-        # the fence declares the two classes its thunk raises and nothing wider: `IfcFault` for the translated stop,
-        # which the faults owner admits AHEAD of every `CLASSIFY` row and carries whole onto `BoundaryFault.domain`
-        # with its query, offset, and terminal roster intact, and `VisitError` for a fold defect, which reaches the
-        # catch-all under lark's own wrapper class. The offending query therefore rides the typed coordinate rather
-        # than the subject, where an unbounded-cardinality string also resolved no census row and dropped the
-        # emitting leg from every log line the refusal reached.
         return boundary(SELECTOR_PARSE, lambda: IfcSelector._fold(text), catch=(IfcFault, VisitError)).map(IfcSelector._emit)
 
     @staticmethod
     def _fold(text: str) -> SelectorQuery:
-        # lark's stop TRANSLATES here, inside `boundary`'s own thunk, so the `pos_in_stream` offset and the
-        # admissible-terminal roster the exception carries reach the rail on a named case rather than dying at the
-        # `(subject, cause)` builder — which is why the position needs no faults-owner edit and no runtime-to-`lark`
-        # coupling. `transform` stays OUTSIDE the narrow catch: a `VisitError` is a fold defect, not a malformed
-        # query, and it reaches the runtime catch-all unrenamed through this fence's declared `catch` set — `boundary` publishes no default.
         parser, transformer = IfcSelector._engine()
         try:
             tree = parser.parse(text)
@@ -491,9 +420,8 @@ class IfcSelector:
         return transformer.transform(tree)
 
     @staticmethod
-    @receipted(OPEN)  # selector facts carry no secret field, so the runtime keep-all policy binds
+    @receipted(OPEN)
     def _emit(query: SelectorQuery) -> SelectorQuery:
-        # @receipted harvest point — the aspect emits `query.contribute()` on the Ok exit, so `parse` threads no emit.
         return query
 ```
 

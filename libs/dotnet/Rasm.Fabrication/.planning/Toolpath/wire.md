@@ -53,7 +53,7 @@
 - Boundary: sequential lower/upper `Move` rows cannot represent `WireBlock` and never cross this seam.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using CavalierContours.Core;
 using CavalierContours.Polyline;
@@ -73,7 +73,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
-// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class TaperCornerMode {
     public static readonly TaperCornerMode Conical = new("conical", translated: false, cornerRadiusShare: 0.0);
@@ -121,7 +121,7 @@ public abstract partial record WireRelease {
         atFinal: static (state, _) => state.pass >= state.finalPass);
 }
 
-// --- [ADMISSION] ----------------------------------------------------------------------------------------------------------------------------------
+// --- [ADMISSION] -----------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WirePass {
     public int Pass { get; }
@@ -141,7 +141,6 @@ public sealed partial class WirePass {
 
     public double Offset(double wireRadiusMm) => wireRadiusMm + SparkGapMm + OverburnMm + StockMm;
 
-    // Taut-string midspan bow under the distributed discharge and flush load across the guide span.
     public double LagMm(double thicknessMm, double wireRadiusMm) =>
         FlushPressure * FeedMmPerMin * SpeedScale * wireRadiusMm * thicknessMm * thicknessMm
         / (4000.0 * Tension);
@@ -355,8 +354,6 @@ public sealed partial class WireRecovery {
     }
 }
 
-// Occurrence evidence rides the BASE columns each case fills at construction, so a consumer reads one member where
-// six parallel eight-arm folds restated the same roster and a new case had to answer all six to compile.
 [Union]
 public abstract partial record WireCycle(
     double TaperDemand,
@@ -375,8 +372,6 @@ public abstract partial record WireCycle(
         : WireCycle(Math.Abs(TaperDeg), Seq<double>(), None, None);
     public sealed record Rotary(Point3d AxisOrigin, Vector3d Axis, double PitchMm)
         : WireCycle(0.0, Seq<double>(), None, Some(new RotaryFrame(AxisOrigin, Axis, PitchMm)));
-    // The seeded fold answers zero on an empty law rather than an infinity a structural gate would then have to
-    // recognize downstream; the empty law itself is refused where the law is admitted.
     public sealed record VariableTaper(Arr<TaperKnot> AngleLaw, TaperCornerMode Corners)
         : WireCycle(
             AngleLaw.Fold(0.0, static (peak, knot) => Math.Max(peak, Math.Abs(knot.AngleDeg))),
@@ -393,8 +388,6 @@ public readonly record struct RotaryFrame(Point3d Origin, Vector3d Axis, double 
     public double AngleAt(double cutLengthMm) => 360.0 * cutLengthMm / PitchMm;
 }
 
-// The admitted cutting law, independent of the profile it cuts. One admission serves every contour a run erodes,
-// and a CAM strategy routing an erosion boundary pass carries THIS rather than a re-transcribed raw column set.
 [ComplexValueObject]
 public sealed partial class WirePolicy {
     public WireCycle Cycle { get; }
@@ -405,10 +398,6 @@ public sealed partial class WirePolicy {
     public SlugRetention Retention { get; }
     public WireRecovery Recovery { get; }
 
-    // What reaches admission is already a DIMENSIONED quantity. The dimension TEXT a shop holds crosses at
-    // `Process/owner#RUN_DISPATCH` `QuantityArrow` in the CALLER's own hand, ahead of this gate; parsing two of the
-    // six magnitudes here while the other four arrived as bare scalars was one signature carrying two admission
-    // regimes, so a guide plane in inches and a wire radius in millimetres met inside the same trigonometry unremarked.
     public static Fin<WirePolicy> Admit(
         WireCycle cycle,
         Length wireRadius,
@@ -477,9 +466,6 @@ public sealed partial class WirePolicy {
             && row.HandoffStation >= 0.0 && row.HandoffStation <= 1.0);
 }
 
-// The demand is the admitted policy JOINED to what one contour adds: the ring and the budget it spends. A raw
-// eleven-column transcription between the policy a caller holds and the job an operation reads was one hop that
-// could only lose or corrupt facts already proven.
 public sealed record WireDemand(WirePolicy Policy, Loop Profile, ProcessBudget.Erosion Budget);
 
 [ComplexValueObject]
@@ -493,8 +479,6 @@ public sealed partial class WireJob {
         from admitted in Validate(raw.Policy, raw.Profile, raw.Budget, out WireJob job).Admitted(job)
         select admitted;
 
-    // Only what the PROFILE adds is proved here: the ring itself and the access relation that reads it. Every other
-    // column crossed `WirePolicy.Admit` already.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -515,7 +499,7 @@ public sealed partial class WireJob {
             && double.IsFinite(row.Station) && row.Station >= 0.0 && row.Station <= 1.0);
 }
 
-// --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [EVIDENCE] ------------------------------------------------------------------------
 public readonly record struct WireGuidePoint(Point3d Point, int Span, double Bulge, Vector3d Normal) {
     public Vector3d SpanNormal(Loop loop) {
         Vector3d tangent = loop.At(Span + 1) - loop.At(Span);
@@ -536,16 +520,12 @@ public abstract partial record WireAction {
     public sealed record Bridge(double FeedMmPerMin) : WireAction;
     public sealed record Handoff : WireAction;
 
-    // The S0 discriminant every case answers, so the specialized row carries a framed key rather than this plane's
-    // payload types and a fifth case breaks here at compile time instead of reaching a preimage unnamed.
     public WireActionKind Kind => Switch(
         access: static _ => WireActionKind.Access,
         cut: static _ => WireActionKind.Cut,
         bridge: static _ => WireActionKind.Bridge,
         handoff: static _ => WireActionKind.Handoff);
 
-    // Every feed reaching this fold crossed `WirePass` admission, so a zero-feed arm answers a state the rail has
-    // already refused; access and handoff carry no travel of their own.
     public double Duration(double distanceMm) => Switch(
         state: Math.Abs(distanceMm),
         access: static (_, _) => 0.0,
@@ -554,9 +534,6 @@ public abstract partial record WireAction {
         handoff: static (_, _) => 0.0);
 }
 
-// `Ring` is the offset LEVEL the block belongs to. A clearing cycle emits several concentric rings inside one pass,
-// so a span measured across a ring boundary is not travel at all — carrying the level is what lets the span read
-// zero at the boundary honestly instead of a negative delta clamped up to it.
 public readonly record struct WireBlock(
     int Pass,
     int Ring,
@@ -619,18 +596,13 @@ public sealed record WireProgram(
     public PostSource PostingSource => new PostSource.Specialized(Specialized);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The wire seam: every specialized column reads off a member the block already carries, so the guide-point
-// projection and the ten-column transcription generate instead of being spelled at the construction site. The
-// `[Mapper]` declaration is `Toolpath/motion`'s alone — one attribute per partial class.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class ToolpathRowMap {
     [MapProperty([nameof(WireBlock.Lower), nameof(WireGuidePoint.Point)], [nameof(SpecializedToolpathRow.Wire.Lower)])]
     [MapProperty([nameof(WireBlock.Upper), nameof(WireGuidePoint.Point)], [nameof(SpecializedToolpathRow.Wire.Upper)])]
-    // The action reaches the atom as its S0 discriminant: the union's own payloads are this plane's shapes and the
-    // preimage frames a generated key, so the row carries `WireActionKind` and never the case itself.
     [MapProperty([nameof(WireBlock.Action), nameof(WireAction.Kind)], [nameof(SpecializedToolpathRow.Wire.Action)])]
-    [MapperIgnoreSource(nameof(WireBlock.Ring))] // the offset level is span custody, not a machine word
-    [MapperIgnoreSource(nameof(WireBlock.Recovery))] // restart custody rides program evidence, not the block row
+    [MapperIgnoreSource(nameof(WireBlock.Ring))]
+    [MapperIgnoreSource(nameof(WireBlock.Recovery))]
     public static partial SpecializedToolpathRow.Wire ToRow(WireBlock block);
 }
 
@@ -642,10 +614,6 @@ public static class WireEdm {
         from projected in Op.Of().Catch(() => Fin.Succ(project(program)))
         select projected;
 
-    // The Cartesian half of a routed erosion pass. The LOWER guide is the path the machine's axes execute, and the
-    // upper guide, the process action, the wire bow, and the rotary state stay whole on the specialized envelope —
-    // so an erosion boundary pass reaches the CAM element stream without a flattened guide pair that would destroy
-    // the simultaneity this owner exists to preserve.
     public static Fin<(Seq<Move> Moves, MotionDirective Directive)> Lower(WireProgram program) =>
         program.Blocks
             .Map(static block => block.Action.Switch(
@@ -671,8 +639,6 @@ public static class WireEdm {
         rotary: static (admitted, row) => Boundary(admitted, static _ => 0.0, admitted.Policy.Guides.LowerZ.Millimeters, TaperCornerMode.ConstantLand)
             .Map(rows => rows.Map(pass => RotaryBlocks(pass, new RotaryFrame(row.AxisOrigin, row.Axis, row.PitchMm))))
             .Bind(rows => Program(admitted, rows)),
-        // The interpolant builds ONCE per dispatch: a per-station rebuild re-solved the same knot table for every
-        // mark on every pass.
         variableTaper: static (admitted, row) => Boundary(admitted, Taper(row), admitted.Policy.Guides.LowerZ.Millimeters, row.Corners)
             .Bind(rows => Program(admitted, rows)),
         cutoff: static (admitted, row) => Boundary(admitted, static _ => 0.0, admitted.Policy.Guides.LowerZ.Millimeters, TaperCornerMode.Reduced)
@@ -704,8 +670,6 @@ public static class WireEdm {
             from blocks in Emit(job, lower, upper, pass, ring: 0, static _ => 0.0, cycle.Registration, TaperCornerMode.Conical)
             select blocks).As();
 
-    // Every clearing level is its own RING, so a span never crosses a level boundary and the pass receipt measures
-    // real traversal instead of a clamped delta between two unrelated rings.
     private static Fin<Seq<Seq<WireBlock>>> Clearing(WireJob job, WireCycle.NoCorePocket cycle) =>
         from rough in toSeq(Enumerable.Range(0, cycle.MaxPasses)).TraverseM(level =>
                 ArcOffset.Family(
@@ -735,8 +699,6 @@ public static class WireEdm {
                     distance)))
             .Rows;
 
-    // The retained set is decided on PROGRESS, which is the order the program runs in; a station filter kept the
-    // wrong side of the seam whenever access started anywhere but the ring's own zero.
     private static Seq<Seq<WireBlock>> Cutoff(WireJob job, Seq<Seq<WireBlock>> rows, double handoffStation) {
         double start = job.Policy.Access.Start.IfNone(0.0);
         double handoff = handoffStation >= start ? handoffStation - start : 1.0 - start + handoffStation;
@@ -837,14 +799,11 @@ public static class WireEdm {
     private static Seq<(double Station, double TurnDeg)> VertexStations(Loop loop, Polyline<double> path, double perimeter) =>
         toSeq(Enumerable.Range(0, loop.Spans))
             .Map(index => SpanLength(loop, index))
-            // The seed keeps the running sum non-empty, so the prior cumulative reads off `Last` as an `Option`
-            // whose `None` arm can only be the seed's own zero.
             .Fold(Seq(0.0), static (rows, length) => rows.Add(rows.Last.IfNone(0.0) + length))
             .Take(loop.Closed ? loop.Spans : loop.Spans + 1)
             .ToSeq()
             .Map((cumulative, index) => (Station: cumulative / perimeter, TurnDeg: TurnDeg(path, loop, index)));
 
-    // Statement preamble binds the one native projection and perimeter every later clause measures against.
     private static Fin<(Polyline<double> Path, Seq<(double Station, double Progress, double SpeedScale, double TurnDeg)> Marks)> Stations(
         WireJob job,
         Loop loop,
@@ -857,9 +816,6 @@ public static class WireEdm {
         Seq<(double Station, double TurnDeg)> vertices = VertexStations(loop, path, perimeter);
         double start = job.Policy.Access.Start.IfNone(0.0);
         double window = pass.CornerSlowMm / perimeter;
-        // Vertices bucket at the corner-window width, so each mark reads the three buckets its window can reach
-        // instead of the whole vertex roster. A zero window admits no vertex at all, which is the same verdict the
-        // per-vertex scan reached and the reason the bucket key is only meaningful above it.
         HashMap<int, Seq<(double Station, double TurnDeg)>> corners = window > 0.0
             ? vertices.Fold(
                 HashMap<int, Seq<(double Station, double TurnDeg)>>.Empty,
@@ -873,22 +829,16 @@ public static class WireEdm {
                 .Concat(Seq(0.0, 1.0, start))
                 .Filter(static station => double.IsFinite(station) && station >= 0.0 && station <= 1.0)
                 .Map(station => loop.Closed ? station - Math.Floor(station) : station)
-                // Stations quantize to the loop's own tolerance before dedup, so two marks the geometry cannot
-                // distinguish never both survive as separate blocks.
                 .DistinctBy(station => Math.Round(station * perimeter / loop.Tolerance.Absolute.Value))
                 .Map(station => (
                     Station: station,
                     Progress: station >= start ? station - start : 1.0 - start + station,
-                    // The SHARPEST corner inside the window is the one the wire must survive, so the fold is a
-                    // maximum over the window and never the nearest vertex's own turn.
                     Turn: window <= 0.0
                         ? 0.0
                         : Range(-1, 3).ToSeq()
                             .Bind(shift => corners
                                 .Find((int)Math.Floor(station / window) + shift)
                                 .IfNone(Seq<(double Station, double TurnDeg)>()))
-                            // An open loop has no seam to wrap across, so its distance is the plain separation and
-                            // no stand-in maximum stands where the wrap term would be.
                             .Filter(vertex => (loop.Closed
                                 ? Math.Min(Math.Abs(vertex.Station - station), 1.0 - Math.Abs(vertex.Station - station))
                                 : Math.Abs(vertex.Station - station)) <= window)
@@ -896,8 +846,6 @@ public static class WireEdm {
                 .Map(row => (row.Station, row.Progress, SpeedScale: pass.CornerScale(row.Turn), TurnDeg: row.Turn))
                 .Filter(row => loop.Closed || row.Station >= start)
                 .OrderBy(static row => row.Progress));
-        // A closed loop returns to its own seam, so the wrap row repeats the FIRST mark's scale and turn; with no
-        // marks at all there is nothing to wrap and the ordered set stands as-is.
         return Fin.Succ((path, loop.Closed
             ? ordered.Head
                 .Map(first => ordered.Add((Station: start, Progress: 1.0, first.SpeedScale, first.TurnDeg)))

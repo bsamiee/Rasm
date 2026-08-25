@@ -23,8 +23,7 @@ Coordination rides the openBIM issue board: `Issue` composes the AppUi `Viewpoin
 - Boundary: the issue composes the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract at the package edge — a second BCF model or a direct `.bcfzip`/BCF-XML writer inside `Collab/` is the rejected form; `ToTopic` stays a HAND `with`-update by construction — the correspondence copies board-edited columns over a CARRIED immutable source row, which a generator constructs and cannot copy-with, so Mapperly's refusal is named here and the constructing correspondences ride `IssueMap` instead; the EXCHANGE line runs where a column means something to a foreign reader — assignment and labels cross because a CDE acts on them, while the attachment key, the comment editor peer, and the tile's last-editor ordinal stop at the board; `FromTopic` accumulates — its identity, status, comment-closure, and viewpoint-decode gates are INDEPENDENT, so a monadic chain reporting the first defect is the deleted form; the admitted identity IS the issue's own column and the exchange text parses ONCE at that gate, so the register level, the intent row, and every board verb take the typed value instead of re-parsing a string at each seam; `CommentEntry.Resolved` stays a bare bool — a measured thread fact with both states legal and no sibling flag sharing its regime.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Closing requires resolve authority; reopening is ordinary authoring.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class IssueStatus {
     public static readonly IssueStatus Open = new("open", bit: 0, bcf: Rasm.Contracts.Bcf.BcfStatus.Open, needs: CapabilitySet<SessionCapability>.Of(SessionCapability.Author));
@@ -47,7 +46,6 @@ public sealed partial class IssueStatus {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-// Each concrete case lifts directly onto Fin/Validation.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IssueFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.UiIssue;
@@ -62,9 +60,6 @@ public abstract partial record IssueFault : Fault {
     public sealed partial record ViewpointUnbound(string Detail) : IssueFault(Detail);
     [FaultCase(2)]
     public sealed partial record CommentConflict(string Detail)  : IssueFault(Detail);
-    // The redline refusal classes, each driving its own repair: Degenerate names geometry too thin to place
-    // or trace, Unwritten an encode that produced no destination, ToolRefused a tool-state admission, and
-    // RasterFailed a draw the capsule could not land. The detail keeps the `redline/…` stem grammar.
     [FaultCase(3)]
     public sealed partial record Degenerate(string Detail)       : IssueFault(Detail);
     [FaultCase(4)]
@@ -89,11 +84,6 @@ public sealed record CommentEntry(
     Option<string> ModifiedBy = default,
     Option<ulong> Editor = default);
 
-// Source is the consumed contract row kept once at the boundary: the widened BcfTopic columns the board
-// never edits ride it through ToTopic untouched, so the round-trip stays lossless. Attachment is board
-// state alone — it names a `Document/media#MEDIA_SURFACE` key no foreign BCF reader resolves. Guid is the
-// ADMITTED identity, not the exchange text: a source row returns its own untouched spelling through ToTopic
-// while the collaboration seam addresses the issue by the value the boundary already proved.
 public sealed record Issue(
     System.Guid Guid,
     string Title,
@@ -109,10 +99,6 @@ public sealed record Issue(
     Seq<string> Labels = default,
     Option<string> Attachment = default,
     Option<Rasm.Bim.Coordination.BcfTopic> Source = default) {
-    // Boundary admission on the ACCUMULATING carrier: identity, status, comment closure, and viewpoint
-    // decode are independent gates, so a malformed topic reports every violated invariant in one Fin.Fail.
-    // The admission instant is read ONCE per topic, because every bound viewpoint is decoded at one boundary
-    // crossing rather than at a clock read per camera.
     public static Fin<Issue> FromTopic(Rasm.Bim.Coordination.BcfTopic topic, Func<string, int> revision, IClock clock) =>
         Admitted(topic, revision, clock.GetCurrentInstant());
 
@@ -124,16 +110,12 @@ public sealed record Issue(
                 bindings,
                 topic.Comments.Map(IssueMap.ToEntry),
                 topic.Viewpoints.Find(static vp => vp.Snapshot.IsSome).Map(static vp => vp.Guid),
-                // The exchange record spells an absent assignment as the empty string; the Option collapses
-                // at THIS seam alone.
                 Optional(topic.AssignedTo).Filter(static who => who.Length > 0),
                 topic.Labels,
                 None,
                 Some(topic)))
             .As().ToFin();
 
-    // The gate ANSWERS the identity it proved: one parse serves the issue column, the register level key,
-    // and the intent row, so no downstream seam re-parses the exchange text to address the same issue.
     static Validation<Error, System.Guid> Identity(Rasm.Bim.Coordination.BcfTopic topic) =>
         System.Guid.TryParse(topic.Guid, out System.Guid identity) && !string.IsNullOrWhiteSpace(topic.Title)
             ? identity
@@ -148,11 +130,6 @@ public sealed record Issue(
                     : Fail<Error, Unit>(new IssueFault.ViewpointUnbound($"comment {c.Guid}: viewpoint {c.ViewpointGuid} absent from topic")))
             .As().Map(static _ => unit);
 
-    // Every bound viewpoint admits through the ONE codec, whose refusal names a camera-less BCF viewpoint
-    // rather than fabricating an origin view; the refusals ACCUMULATE beside the sibling gates, so a topic
-    // carrying two undecodable viewpoints reports both.
-    // BCF carries no revision of its own, so an inbound viewpoint takes the next reading THIS process mints for
-    // its key — a re-imported topic supersedes the binding it replaces instead of tying with it at the depot.
     static Validation<Error, Seq<IssueBinding>> Seated(
         Rasm.Bim.Coordination.BcfTopic topic, Func<string, int> revision, Instant at) =>
         topic.Viewpoints
@@ -160,10 +137,6 @@ public sealed record Issue(
                 .Map(view => new IssueBinding(vp.Guid, view)))
             .As();
 
-    // Board-edited columns land as a with-update on the carried source row; each viewpoint re-encodes over
-    // its guid-matched source row; StatusLabel clears only on a board status change. A generator constructs
-    // and cannot copy-with, so this correspondence stays hand-written by declaration. A board-authored topic
-    // has no source spelling to preserve, so its identity prints in the canonical exchange form.
     public Rasm.Bim.Coordination.BcfTopic ToTopic() {
         Seq<Rasm.Bim.Coordination.BcfViewpoint> viewpoints = Bindings.Map(binding => ViewpointCodec.ToBcf(
             binding.ViewpointGuid, binding.View,
@@ -183,9 +156,6 @@ public sealed record Issue(
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-// The generated member correspondences of the BCF seam: renames ride [MapProperty] rows, absence converters
-// are per-TYPE user mappings, and the seam declares Target completeness because a source row carries more
-// than its projection. ExplicitCast is excluded as the LanguageExt-carrier guard.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -202,8 +172,6 @@ public static partial class IssueMap {
     [MapProperty(nameof(CommentEntry.ModifiedBy), nameof(Rasm.Bim.Coordination.BcfComment.ModifiedAuthor))]
     public static partial Rasm.Bim.Coordination.BcfComment ToComment(CommentEntry entry);
 
-    // The attribution column is the LAST comment's registered editor — a reader, so it sits on its own row
-    // and never claims member-mapped completeness for the family.
     [MapPropertyFromSource(nameof(IssueTile.LastEditor), Use = nameof(LastEditor))]
     public static partial IssueTile ToTile(Issue issue);
 
@@ -211,8 +179,6 @@ public static partial class IssueMap {
     [UserMapping] private static string Absence(Option<string> value) => value.IfNone("");
     private static Option<ulong> NoEditor() => None;
 
-    // Bounded top-1 by date over the kernel selection owner — a whole-sequence sort to read one element is
-    // the deleted form.
     private static Option<ulong> LastEditor(Issue issue) =>
         Ranked.Top(issue.Comments, keep: 1, key: static entry => entry.Date, ExtremumDirection.Maximum)
             .Head.Bind(static entry => entry.Editor);
@@ -249,14 +215,9 @@ flowchart LR
 
 ```csharp signature
 public static class CommentLens {
-    // Reads compose the same `CollabRoot` row the IntentApply comment arms descend, and the absence fold is
-    // the document owner's own `Read` twin — the first comment on a topic reads before any arm has written.
     static Fin<A> Thread<A>(CollabDoc doc, ContainerKey topic, A absent, Func<LoroMap, Fin<A>> read) =>
         doc.Read(CollabPath.Root(CollabRoot.Comments).Key(topic), absent, read);
 
-    // ONE write verb: the merge authority's own row state discriminates add-versus-edit. FinT stacks the rail
-    // over IO; each local probe keeps its explicit `Fin<A>` thunk type so the two `IO.lift` overloads cannot
-    // both apply.
     public static IO<Fin<Unit>> Put(
         CollabDoc doc,
         IntentLedger ledger,
@@ -275,8 +236,6 @@ public static class CommentLens {
             ? new EditIntent.CommentEdit(doc.Key, id, topic, entry.Text, entry.Author, clock.GetCurrentInstant())
             : new EditIntent.CommentAdd(doc.Key, id, topic, entry.Text, entry.Author, entry.ViewpointGuid, clock.GetCurrentInstant());
 
-    // Resolve gates on row existence: a resolve of a GUID the thread never held would mint an orphan row
-    // replay cannot rehydrate.
     public static IO<Fin<Unit>> Resolve(CollabDoc doc, IntentLedger ledger, ContainerKey topic, string commentId, IClock clock) =>
         (from id in new FinT<IO, Guid>(IO.lift<Fin<Guid>>(() => CommentId(commentId)))
          from exists in new FinT<IO, bool>(IO.lift<Fin<bool>>(() => Has(doc, topic, id)))
@@ -292,8 +251,6 @@ public static class CommentLens {
     public static Seq<Rasm.Bim.Coordination.BcfComment> Materialize(Seq<CommentEntry> comments) =>
         toSeq(comments.OrderBy(static entry => entry.Date)).Map(IssueMap.ToComment);
 
-    // The probe crosses the SAME member-key mint the apply arm writes under, so an existence read and the
-    // row it discriminates can never disagree on a spelling.
     static Fin<bool> Has(CollabDoc doc, ContainerKey topic, Guid commentId) =>
         Thread(doc, topic, false, thread =>
             CollabDoc.Lift(() => thread.Keys().Contains(ContainerKey.Of(commentId).Value)));
@@ -312,10 +269,6 @@ public static class CommentLens {
     static Option<CommentEntry> Read(LoroMap thread, string key) =>
         thread.Level(key, live => EntryOf(thread, key, live));
 
-    // Read-side projection over the register the IntentApply arms write: the three required columns join
-    // applicatively so a half-written row reads absent whole; an absent `resolved` key reads open because
-    // absence policy is the CALLER's. GetLastEditor is the loro per-key provenance whose one reader is the
-    // `[04]` attribution column.
     static Option<CommentEntry> EntryOf(LoroMap thread, string key, LoroMap row) =>
         (row.Read(CollabColumn.Author, static leaf => leaf.Text),
          row.Read(CollabColumn.Body, static leaf => leaf.Text),
@@ -329,12 +282,8 @@ public static class CommentLens {
                 Optional(thread.GetLastEditor(key))));
 }
 
-// Inbox notice row — a comment fact addressed to a peer, read back out of that peer's own notification
-// level, so it carries no document column: the level it was read from already answered which document.
 public readonly record struct CommentNotice(Guid CommentId, string TopicId, Instant At);
 
-// The mention picker and the router read ONE roster: `Of` mints the resolver off the member register, so a
-// token the picker offered always resolves and a token it never offered never routes.
 public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
     public const char Sigil = '@';
 
@@ -345,7 +294,6 @@ public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
                 .Map(static row => row.Peer))
                 .Distinct())));
 
-    // Empty recipient sets are a no-op on the rail, never a durable row.
     public IO<Fin<Unit>> Route(CollabDoc doc, IntentLedger ledger, Guid comment, ContainerKey topic, string body, Instant at) =>
         (from peers in new FinT<IO, Seq<ulong>>(IO.lift<Fin<Seq<ulong>>>(() => Resolve(body).Map(static found => found.Distinct())))
          from routed in peers.IsEmpty
@@ -354,7 +302,6 @@ public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
                    doc, new EditIntent.CommentRoute(doc.Key, comment, topic, peers, at), IssueRegister.BoardOrigin))
          select routed).runFin.As();
 
-    // A row whose guid, topic, or stamp fails to admit drops rather than faulting the whole inbox.
     public Fin<Seq<CommentNotice>> Inbox(CollabDoc doc, ulong peer) =>
         doc.Read(
             CollabPath.Root(CollabRoot.Notifications).Key(ContainerKey.Of(peer)),
@@ -368,8 +315,6 @@ public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
                 .Apply((topic, at) => new CommentNotice(comment, topic, at)))
             : None;
 
-    // A mention is a handle, so the scan takes the maximal handle-shaped run after each sigil and never a
-    // whole word that merely contains one.
     static Seq<string> Tokens(string body) =>
         toSeq(body.Split(Sigil, StringSplitOptions.RemoveEmptyEntries).Skip(body.StartsWith(Sigil) ? 0 : 1))
             .Map(static run => new string(run.TakeWhile(static ch => char.IsLetterOrDigit(ch) || ch is '-' or '.' or '_').ToArray()))
@@ -396,8 +341,6 @@ public readonly record struct IssueFilter(uint StatusMask) {
     public bool Admits(IssueStatus status) => (StatusMask & (1u << status.Bit)) != 0u;
 }
 
-// The tile carries every axis the board FILTERS, GROUPS, or ORDERS on, so `[07]`'s schema reads one row
-// shape and a lane, a list, and a dashboard cell cannot answer a filter differently.
 public sealed record IssueTile(
     System.Guid Guid, string Title, IssueStatus Status, string Priority, string Author,
     Option<string> Assignee, Seq<string> Labels,
@@ -427,8 +370,6 @@ public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
         topics.Traverse(topic => Issue.FromTopic(topic, revision, clock)).As()
             .Map(issues => new TriageBoard("coordination", issues.ToSeq()));
 
-    // `ToTopic` is total over the carried source row, so the save is a pure projection — a `Fin` that cannot
-    // fail advertises a refusal no board can produce.
     public Seq<Rasm.Bim.Coordination.BcfTopic> Save() =>
         Issues.Map(static issue => issue.ToTopic());
 
@@ -439,14 +380,11 @@ public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
                 Some: key => issue.Bindings.Find(binding => binding.ViewpointGuid == key)
                     .Map(static binding => binding.View)
                     .ToFin(new IssueFault.ViewpointUnbound($"issue {guid}: viewpoint {key} is absent")),
-                // The sole-binding case is a LIST PATTERN, so the one binding arrives typed from the match.
                 None: () => issue.Bindings switch {
                     [var only] => Fin.Succ(only.View),
                     var set => Fin.Fail<Viewpoint>(new IssueFault.ViewpointUnbound($"issue {guid}: select one of {set.Count} viewpoints")),
                 }));
 
-    // Both legs read in ONE pass per issue, so a refreshed board observes one document state rather than two
-    // a concurrent merge can split.
     public Fin<TriageBoard> Synced(CollabDoc doc) =>
         Issues.Traverse(issue =>
             from comments in CommentLens.Project(doc, ContainerKey.Of(issue.Guid))
@@ -454,8 +392,6 @@ public sealed record TriageBoard(string Key, Seq<Issue> Issues) {
             select triage.Onto(issue with { Comments = comments })).As()
             .Map(issues => this with { Issues = issues.ToSeq() });
 
-    // The markup fold updates the GUID-bound source viewpoint the round-trip preserves; `[08]`'s one commit
-    // entry is its producing caller.
     public Fin<TriageBoard> Markup(System.Guid issueGuid, string viewpointGuid, Seq<ViewpointMarkup> markup) =>
         from issue in Issues.Find(row => row.Guid == issueGuid)
             .ToFin(new IssueFault.TopicMalformed($"issue {issueGuid} is absent"))
@@ -499,9 +435,6 @@ public abstract partial record IssueOp {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Every column is an Option because it is the evidence a WRITTEN column holds. Labels is an Option of a SET
-// because "no label level" and "every label removed" are different facts: the first falls back to the
-// archive's own labels and the second is a triage decision that must survive the fold.
 public readonly record struct IssueTriage(
     Option<IssueStatus> Status,
     Option<string> Assignee,
@@ -511,9 +444,6 @@ public readonly record struct IssueTriage(
     Option<Instant> At) {
     public static readonly IssueTriage Untouched = new(None, None, None, None, None, None);
 
-    // The merge authority wins PER COLUMN and only where it holds one: a whole-record replacement would
-    // revert every column the board never touched on the first triage edit. A per-column Option-fallback
-    // merge is a LAW, not a member mapping, so no generator owns it.
     public Issue Onto(Issue issue) => issue with {
         Status = Status.IfNone(issue.Status),
         Assignee = Assignee | issue.Assignee,
@@ -531,8 +461,6 @@ public static class IssueRegister {
     public static IO<Fin<Unit>> Commit(CollabDoc doc, IntentLedger ledger, System.Guid issueGuid, IssueOp op) =>
         ledger.Commit(doc, new EditIntent.IssueCommit(doc.Key, issueGuid, op), BoardOrigin);
 
-    // The transition arm grades the destination against the register's own prior through the Bim-owned
-    // lifecycle; a prior the register never held grades at the exchange edge instead.
     public static Fin<Unit> Apply(CollabDoc doc, System.Guid issueGuid, IssueOp op) => op.Switch(
         state: (Doc: doc, Guid: issueGuid),
         transition: static (ctx, t) => Legal(ctx.Doc, ctx.Guid, t.To).Bind(_ =>
@@ -540,16 +468,12 @@ public static class IssueRegister {
                 (CollabColumn.Status, LoroVal.Of(t.To.Key)),
                 (CollabColumn.Author, LoroVal.Of(t.By)),
                 (CollabColumn.At, LoroVal.Of(t.At))))),
-        // An unassignment ERASES: a blank would cross the exchange as a real, unfulfillable assignee.
         assign: static (ctx, a) => Row(ctx.Doc, ctx.Guid, row => a.To.Match(
             Some: who => row.Write(
                 (CollabColumn.Assignee, LoroVal.Of(who)),
                 (CollabColumn.Author, LoroVal.Of(a.By)),
                 (CollabColumn.At, LoroVal.Of(a.At))),
             None: () => row.Erase(ContainerKey.Create(CollabColumn.Assignee.Key)))),
-        // The label SET is its own keyed mergeable level, so two peers applying different labels converge.
-        // A label IS the member name inside that level, so it crosses as the total member-key mint rather
-        // than as a hand-spelled child name.
         labelApply: static (ctx, l) => Labelled(ctx.Doc, ctx.Guid, labels => labels.Write(ContainerKey.Create(l.Key), LoroVal.Of(true))),
         labelClear: static (ctx, l) => Labelled(ctx.Doc, ctx.Guid, labels => labels.Erase(ContainerKey.Create(l.Key))),
         rank: static (ctx, r) => Row(ctx.Doc, ctx.Guid, row => row.Write(
@@ -568,8 +492,6 @@ public static class IssueRegister {
     static Fin<Unit> Labelled(CollabDoc doc, System.Guid guid, Func<LoroMap, Fin<Unit>> edit) =>
         Row(doc, guid, row => CollabDoc.Nested(() => row.EnsureMergeableMap(CollabColumn.Labels.Key), edit));
 
-    // Absence folds through the document owner's own Read twin, so an issue no peer has triaged reads the
-    // untouched row rather than faulting.
     public static Fin<IssueTriage> Read(CollabDoc doc, System.Guid guid) =>
         doc.Read(CollabPath.Root(CollabRoot.Issues).Key(ContainerKey.Of(guid)), IssueTriage.Untouched, row => CollabDoc.Lift(() => Triage(row)));
 
@@ -577,8 +499,6 @@ public static class IssueRegister {
         doc.Use<LoroMap, Unit>(CollabAddress.Of(CollabRoot.Issues), issues =>
             CollabDoc.Nested(() => issues.EnsureMergeableMap(ContainerKey.Of(guid).Value), write));
 
-    // A stored status the vocabulary no longer spells reads None rather than blanking a triage row whose
-    // assignment, labels, and priority are all sound.
     static IssueTriage Triage(LoroMap row) => new(
         row.Read(CollabColumn.Status, static leaf => leaf.Text).Bind(static key =>
             IssueStatus.TryGet(key, out IssueStatus? held) ? Some(held) : None),
@@ -588,8 +508,6 @@ public static class IssueRegister {
         row.Read(CollabColumn.Attachment, static leaf => leaf.Text),
         row.Read(CollabColumn.At, static leaf => leaf.Stamp));
 
-    // The level's EXISTENCE is the answer, not its size: a present-but-empty level means every label was
-    // removed on the board, which must survive the fold.
     static Option<Set<string>> Labels(LoroMap row) =>
         row.Level(CollabColumn.Labels, static held => Some(toSet(held.Keys())));
 }
@@ -623,12 +541,8 @@ public sealed partial class BoardView {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// A lane per STATUS ROW, total over the vocabulary: an empty lane still renders, because a status with no
-// drop target is a transition a user cannot reach with the gesture the board advertises.
 public readonly record struct BoardLane(IssueStatus Status, Seq<IssueTile> Tiles);
 
-// Every member is a projection of a settled owner — the bound viewpoint, the merge authority's thread, the
-// roster the router resolves against, and the media key the grab verb minted.
 public sealed record IssueDetail(
     Issue Issue,
     Option<Viewpoint> Thumbnail,
@@ -638,9 +552,6 @@ public sealed record IssueDetail(
     Option<string> Attachment);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// The ONE property roster: filtering, ordering, and grouping all read it, so a board that filters can sort
-// and group by construction. Keys DERIVE from the tile member roster; domains are DECLARED, so a term naming
-// a status the vocabulary never spelled refuses at admission.
 public static class BoardSchema {
     public static readonly string StatusProperty = Key(nameof(IssueTile.Status));
     public static readonly string PriorityProperty = Key(nameof(IssueTile.Priority));
@@ -649,8 +560,6 @@ public static class BoardSchema {
     public static readonly string LabelProperty = Key(nameof(IssueTile.Labels));
     public static readonly string TitleProperty = Key(nameof(IssueTile.Title));
 
-    // The priority domain arrives in the archive's own most-urgent-first order, so the member-domain index
-    // is the rank and a lexical sort has no seat.
     public static Fin<FilterSchema<IssueTile>> Of(Seq<string> priorities) =>
         new FilterSchema<IssueTile>(Seq(
             Field(StatusProperty, FilterKind.Member, Members(toSeq(IssueStatus.Items).Map(static row => row.Key)),
@@ -675,8 +584,6 @@ public static class BoardSchema {
 }
 
 public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Schema, BoardView View) {
-    // Deck-row keys this surface RAISES — Shell/commands#INTENT_TABLE constants, never derivations of the
-    // verb family, so a verb rename cannot silently re-key a persisted binding.
     public const string DropIntent = "issue.transition";
     public const string AssignIntent = "issue.assign";
     public const string LabelIntent = "issue.label";
@@ -687,8 +594,6 @@ public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Sch
         Rows(filter, BoardView.Kanban.Seed(ViewState.Plain)).Map(static tiles =>
             toSeq(IssueStatus.Items).Map(status => new BoardLane(status, tiles.Filter(tile => tile.Status == status))));
 
-    // One filtered, ordered row set behind every view. The bitset stays All here because the compiled
-    // The seam closure already carries the status terms; the bitset plane is the dashboard lane mount's.
     public Fin<Seq<IssueTile>> Rows(Predicate<FilterTerm> filter, ViewState view) =>
         from admitted in View.Seed(view).Admit(Schema)
         from predicate in Schema.Compile(filter)
@@ -697,8 +602,6 @@ public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Sch
 
     public static Seq<FilterChip> Chips(Predicate<FilterTerm> filter) => filter.Chips();
 
-    // Drag-to-transition is the SETTLED intent and nothing moves locally: a refused drop leaves the board
-    // unchanged with no rollback path to get wrong.
     public static IO<Fin<Unit>> Drop(CollabDoc doc, IntentLedger ledger, System.Guid issueGuid, IssueStatus lane, string actor, IClock clock) =>
         IssueRegister.Commit(doc, ledger, issueGuid, new IssueOp.Transition(lane, actor, clock.GetCurrentInstant()));
 
@@ -714,8 +617,6 @@ public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Sch
     public static IO<Fin<Unit>> Attach(CollabDoc doc, IntentLedger ledger, System.Guid issueGuid, string mediaKey, string actor, IClock clock) =>
         IssueRegister.Commit(doc, ledger, issueGuid, new IssueOp.Attach(mediaKey, actor, clock.GetCurrentInstant()));
 
-    // The mention roster is the SAME register `MentionRouter.Of` resolves against, so the picker cannot
-    // offer a handle the route would drop.
     public Fin<IssueDetail> Detail(CollabDoc doc, System.Guid guid) =>
         from issue in Board.Issues.Find(row => row.Guid == guid)
             .ToFin(new IssueFault.TopicMalformed($"issue {guid} is absent"))
@@ -729,8 +630,6 @@ public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Sch
             Chipped(issue),
             issue.Attachment);
 
-    // Assignment and labels render as the ONE chip case: a removable chip per label, a static chip for the
-    // assignee, so a board chip and every other chip in the product are one materialization.
     static Seq<ControlIntent> Chipped(Issue issue) =>
         issue.Assignee.Map(who => (ControlIntent)new ControlIntent.Chip(
                 $"{AssignIntent}:{issue.Guid}", who, ChipPosture.Static,
@@ -754,11 +653,6 @@ public sealed record BoardSurface(TriageBoard Board, FilterSchema<IssueTile> Sch
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The tool-capability vocabulary and its corner law: the three behaviours are a boolean product with four
-// legal corners, so the law states what a bool triple cannot — a tool that is both pressured and captioned,
-// or erasing and anything else, refuses where its row mints. NAMED LOSS: per-flag compile exhaustiveness —
-// bought back by the closed five-row tool roster and the construction-time Admit.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -782,16 +676,13 @@ public sealed partial class RedlineTool {
         new("pen", CapabilitySet<ToolTrait>.Of(ToolTrait.Pressured), weight: 2d, static () => PaintRole.Error, static () => MarkupLeg.Line);
     public static readonly RedlineTool Highlighter =
         new("highlighter", CapabilitySet<ToolTrait>.Of(ToolTrait.Pressured), weight: 12d, static () => PaintRole.Warning, static () => MarkupLeg.Line);
-    // A dragged box is an EDGE, not a path a viewer can re-derive, so it crosses as a placed image.
     public static readonly RedlineTool Shape =
         new("shape", CapabilitySet<ToolTrait>.None, weight: 2d, static () => PaintRole.Accent, static () => MarkupLeg.Raster);
-    // A callout IS its glyphs and the exchange carries no text markup at all.
     public static readonly RedlineTool Text =
         new("text", CapabilitySet<ToolTrait>.Of(ToolTrait.Captioned), weight: 1d, static () => PaintRole.Text, static () => MarkupLeg.Raster);
     public static readonly RedlineTool Eraser =
         new("eraser", CapabilitySet<ToolTrait>.Of(ToolTrait.Erases), weight: 16d, static () => PaintRole.Separator, static () => MarkupLeg.Line);
 
-    // Construction guard: an illegal corner throws where the roster initializes, never at a capture.
     public CapabilitySet<ToolTrait> Traits { get; }
 
     public double Weight { get; }
@@ -808,8 +699,6 @@ public sealed partial class RedlineTool {
         traits = Law.Admit(traits).ThrowIfFail();
 }
 
-// The two shapes the openBIM viewpoint admits, each row carrying its OWN projection: the legs diverge at the
-// BOUNDARY they cross, not at the stroke they share, so the election is a tool-row read.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -820,8 +709,6 @@ public sealed partial class MarkupLeg {
     [UseDelegateFromConstructor]
     public partial IO<Fin<Seq<ViewpointMarkup>>> Project(RedlineStroke stroke, RedlinePlacement placement);
 
-    // The line leg is PURE — a point that hits nothing drops, and a stroke left with fewer than two hits is
-    // a degenerate mark rather than a line pinned to an arbitrary depth.
     static IO<Fin<Seq<ViewpointMarkup>>> Traced(RedlineStroke stroke, RedlinePlacement placement) =>
         IO.pure(stroke.Points.Choose(placement.Unproject) switch {
             var world => world.Count >= 2
@@ -830,9 +717,6 @@ public sealed partial class MarkupLeg {
                 : Fin.Fail<Seq<ViewpointMarkup>>(new IssueFault.Degenerate($"redline/degenerate-stroke:{world.Count}")),
         });
 
-    // The raster leg, whole: seat, raster through the ONE owned capsule, encode through the ONE codec row,
-    // and hand back the placed BcfBitmap beside the media row that HOLDS its payload — the media key mints
-    // inside the effect and IS the blob key the encode writes under.
     static IO<Fin<Seq<ViewpointMarkup>>> Placed(RedlineStroke stroke, RedlinePlacement placement) =>
         (from seat in FinT.lift<IO, RedlineSeat>(placement.Seat(stroke))
          from key in FinT.liftIO<IO, string>(IO.lift(static () => $"{RasterPrefix}{Guid.CreateVersion7():N}"))
@@ -846,33 +730,22 @@ public sealed partial class MarkupLeg {
                  receipt.Format, key, seat.Origin, placement.Facing, placement.Up, seat.Height),
              new MediaSurface.Image(key, source, Stretch.Uniform)))).runFin.As();
 
-    // The kind space is OPEN by proof at its owner, so this leg declares its own artifact row rather than
-    // handing the codec a bare literal the receipt cannot be attributed by.
     public static readonly ArtifactKind RasterKind = ArtifactKind.Create("redline");
 
     public const string RasterPrefix = "redline/raster/";
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Position plus its RESOLVED weight, so the projection legs consume one shape and neither re-derives
-// pressure from an axis the other already folded.
 public readonly record struct StrokePoint(double X, double Y, double Weight);
 
-// The stroke as one value both legs project. The caption rides here because the words were authored before
-// the mark was placed; the erase answer is the TOOL row's own trait, never a second column.
 public sealed record RedlineStroke(
     RedlineTool Tool, PaintRole Ink, Seq<StrokePoint> Points, Option<string> Caption,
-    // The merge authority's peer ordinal is a 64-bit magnitude with no bound, so it crosses as invariant
-    // decimal text under the package posture every unbounded column declares — a JSON number rounds past
-    // 2^53 and would silently re-attribute a stroke to a neighbouring peer.
     [property: JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     ulong Author,
     Instant At) {
     public bool Erases => Tool.Traits.Admits(ToolTrait.Erases);
 }
 
-// Where a placed mark SITS: its world origin and world height on the plane the camera faces, the screen box
-// it was drawn in, and the device scale its raster is minted at.
 public readonly record struct RedlineSeat(Vector3 Origin, double Height, SKRect Bounds, double Scale) {
     public int Width => (int)Math.Ceiling(Bounds.Width * Scale);
 
@@ -882,12 +755,10 @@ public readonly record struct RedlineSeat(Vector3 Origin, double Height, SKRect 
         new((float)((point.X - Bounds.Left) * Scale), (float)((point.Y - Bounds.Top) * Scale));
 }
 
-// The raster leg's WHOLE boundary as one value: seven arguments threaded through a projection would make
-// every call site restate an order no type checks.
 public sealed record RedlinePlacement(
     ViewCamera Camera,
-    Func<StrokePoint, Option<Vector3>> Unproject,  // composition-bound: viewport depth-surface picking
-    VisualRuntime Runtime,                         // composition-bound: the one encode rail and its blob write
+    Func<StrokePoint, Option<Vector3>> Unproject,
+    VisualRuntime Runtime,
     VisualCodec.EncodeRow Encode,
     PaintCatalog Paints,
     RunSpec Run,
@@ -898,15 +769,11 @@ public sealed record RedlinePlacement(
     double Scale) {
     static readonly Op RasterOp = Op.Of(name: "appui.redline.raster");
 
-    // The plane FACES the camera; both vectors come off the settled `CameraFrame` and this owner mints no camera of its own.
     public Vector3 Facing =>
         Vector3.Normalize(Camera.Frame.Eye - Camera.Frame.Target);
 
     public Vector3 Up => Camera.Frame.Up;
 
-    // The seat unprojects the mark's own screen box: origin is its lower-left corner, height the world
-    // distance to its upper-left — exactly the two numbers the exchange's bitmap columns carry. A corner
-    // that hits nothing refuses, because an arbitrary-depth placement re-renders at a seat nobody chose.
     public Fin<RedlineSeat> Seat(RedlineStroke stroke) =>
         Box(stroke) is { Width: > 0f, Height: > 0f } box
             ? (Unproject(new StrokePoint(box.Left, box.Bottom, 0d)),
@@ -915,8 +782,6 @@ public sealed record RedlinePlacement(
                 .ToFin(new IssueFault.Degenerate($"redline/unplaced-raster:{stroke.Points.Count}"))
             : Fin.Fail<RedlineSeat>(new IssueFault.Degenerate("redline/degenerate-placement"));
 
-    // The working colour space brackets over the WHOLE rail — acquire, project live, release on success and
-    // failure alike — so the refused-paint arm can no longer leak it.
     public Fin<SKImage> Raster(RedlineStroke stroke, RedlineSeat seat) =>
         Custody.Bracket(
             acquire: () => Encode.Color.Working(),
@@ -927,8 +792,6 @@ public sealed record RedlinePlacement(
 
     Fin<Unit> Painted(SKCanvas canvas, RedlineStroke stroke, RedlineSeat seat, SKPaint paint) =>
         RasterOp.Catch(() => {
-            // One contour from one span: `AddPoly` builds the whole open polyline. The path's whole contract
-            // is this lexical window, so the statement `using` is the composed release.
             using SKPath path = new();
             path.AddPoly([.. stroke.Points.Map(seat.Local)], close: false);
             canvas.DrawPath(path, paint);
@@ -938,7 +801,6 @@ public sealed record RedlinePlacement(
             Some: text => Lettered(canvas, text, paint),
             None: static () => Fin.Succ(unit)));
 
-    // The caption shapes through the settled HarfBuzz rail under the paged posture, so a callout's glyphs raster exactly as a tour caption's do.
     Fin<Unit> Lettered(SKCanvas canvas, string text, SKPaint paint) {
         TextStyleRow style = TextStyleRow.Resolve(TypographyRole.Body, Chain);
         return ShapingSurface
@@ -957,25 +819,19 @@ public sealed record RedlinePlacement(
     }
 }
 
-// The pending caption is the words the callout editor has taken so far; the tool row decides whether they
-// mean anything at all. Attribution posture needs no column here — `StrokeCapture.Attribution` reads
-// `PeerTint` unconditionally, so author ink and caret ink are one value.
 public sealed record RedlineToolState(RedlineTool Tool, double Weight, Option<string> Caption) {
     public static readonly RedlineToolState Ready = new(RedlineTool.Pen, RedlineTool.Pen.Weight, None);
 
     static readonly Op WeighOp = Op.Of(name: "appui.redline.weight");
 
-    // Selecting a tool takes that tool's OWN declared weight; the caption clears where the tool carries none.
     public RedlineToolState Select(RedlineTool tool) =>
         this with { Tool = tool, Weight = tool.Weight, Caption = tool.Traits.Admits(ToolTrait.Captioned) ? Caption : None };
 
-    // Weight admits through the kernel positive-magnitude gate; the refusal re-keys onto this band.
     public Fin<RedlineToolState> Weigh(double weight) =>
         WeighOp.AcceptValidated<PositiveMagnitude>(candidate: weight)
             .MapFail(_ => (Error)new IssueFault.ToolRefused($"redline/weight:{weight}"))
             .Map(admitted => this with { Weight = admitted.Value });
 
-    // A caption refuses on the tool that carries none rather than being silently dropped at capture.
     public Fin<RedlineToolState> Caption(string text) =>
         Tool.Traits.Admits(ToolTrait.Captioned) && !string.IsNullOrWhiteSpace(text)
             ? Fin.Succ(this with { Caption = Some(text) })
@@ -984,10 +840,6 @@ public sealed record RedlineToolState(RedlineTool Tool, double Weight, Option<st
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StrokeCapture {
-    // The whole coalesced burst is the stroke — the platform batches every sample between two frames, and
-    // the last point alone discards the pressure a stroke is drawn from. The eraser channel ROUTES: a stylus
-    // flipped to its eraser end has already stated the intent, so the selected tool cannot contradict it,
-    // and ANY eraser sample routes the whole stroke because a half-erasing stroke is a shape no undo can invert as one unit.
     public static Fin<RedlineStroke> Capture(RedlineToolState state, Seq<PenSample> samples, ulong author, IClock clock) {
         if (samples.IsEmpty) { return Fin.Fail<RedlineStroke>(new IssueFault.Degenerate("redline/empty-stroke")); }
         bool erasing = Erasing(samples);
@@ -1003,8 +855,6 @@ public static class StrokeCapture {
                 clock.GetCurrentInstant()));
     }
 
-    // A mouse reports a constant pressure the input owner already gates off, so an unpressured sample folds
-    // to the tool's declared weight rather than to a curve the device never measured.
     static StrokePoint Point(RedlineToolState state, RedlineTool tool, PenSample sample) =>
         new(sample.Position.X, sample.Position.Y,
             tool.Traits.Admits(ToolTrait.Pressured)
@@ -1014,25 +864,17 @@ public static class StrokeCapture {
     static bool Erasing(Seq<PenSample> samples) =>
         samples.Exists(static sample => sample.Level(PenAxis.Eraser).Exists(static level => level.Value > 0d));
 
-    // The ONE markup ingress: the stroke's own tool row elects the leg and the leg owns its projection, so
-    // this site never learns what a raster or a polyline is.
     public static IO<Fin<Seq<ViewpointMarkup>>> ToMarkup(RedlineStroke stroke, RedlinePlacement placement) =>
         stroke.Tool.Leg().Project(stroke, placement);
 
-    // The ONE committed entry: projection then board fold, so a captured stroke lands on the bound viewpoint
-    // through one path and the two review planes stay projections of one stroke.
     public static IO<Fin<TriageBoard>> Commit(
         TriageBoard board, System.Guid issueGuid, string viewpointGuid, RedlineStroke stroke, RedlinePlacement placement) =>
         ToMarkup(stroke, placement).Map(projected =>
             projected.Bind(markup => board.Markup(issueGuid, viewpointGuid, markup)));
 
-    // Attribution is the presence tint, so a redline's author colour and that author's caret colour are one
-    // value and a review pass never mints a second per-author palette.
     public static Fin<Color> Attribution(RedlineStroke stroke) => PeerTint.Of(stroke.Author);
 }
 
-// The bitmap case carries the media ROW that holds its payload beside the exchange record that references
-// it, so a placed mark whose reference nothing resolves cannot be constructed.
 [Union]
 public abstract partial record ViewpointMarkup {
     private ViewpointMarkup() { }

@@ -19,7 +19,7 @@ The round-trip is BIDIRECTIONAL across three entries: `Classify` lowers a valida
 - Boundary: the classification systems are ONE keyed axis (`ClassificationSystem` SmartEnum) and a per-system `UniclassClassifier`/`OmniClassClassifier` type is the deleted form; the classification VALUE is the seam `Classification` `[ComplexValueObject]` and a Bim `Classification`/`ClassificationCode`/`ClassificationRef` value-object is the deleted form — the seam owns the typed pair, this page owns the standard-systems roster and lowers onto it, so the type name `ClassificationSystem` never collides with the seam `Classification`; `Classification.Of` is the seam's ONE admission and every mint on this page composes it under the caller's `Op` — a throwing `Classification.Create`/`TryCreate`/`Validate` spelling is the deleted form, and so is a seam-side containment or crosswalk read (`Parent`, `Within`, `Ancestors`, `TranslateTo`), the authoritative hierarchy and the cross-standard equivalence both being `[03]-[BSDD_RESOLUTION]` evidence; the hosted VERSION tokens and the project-own system identity are composition-supplied `BsddPins` values, and a version literal or a client asset-code scheme frozen into a durable roster row is the deleted form — a token the registry re-publishes rots into a `404` the offline degrade then masks as unreachability, so it lives at the one overridable value whose defaults serve an unconfigured composition; the `Classify(BimElement element, …)` binding to a `BimElement.GlobalId` is GONE (the `BimElement`/`BimModel` are retired, the consumer element being the `Graph/element#ELEMENT_GRAPH` `Bake` fold) — a classification is the seam value on the `Object` node, never a `(GlobalId, system, code)` triple keyed to a second element record; classification is a VALUE on the `Object` node and NOT an edge (the seam `Associate` edge carries a `Material`/`Appearance` resource, never a classification), so the egress reads the node `Classification` value and a classification-association `Relationship` case is the deleted form; the code shape is the row's regex validated once at `Classify`, never a per-call regex at the call site; every comparison against a system key runs `OrdinalIgnoreCase` — the key space the row's own `[KeyMemberEqualityComparer]` declares — so a raw `!=`/`==` on a system token is the deleted form that reads `"IFC"` and `"ifc"` as different systems, and a bare `"ifc"` literal where `IfcSystem.Key` names the same token is the deleted form; the typed `BimFault` lifts BARE off the threaded `Op key` and a `.ToError()` hop or a single-string fault ctor is the named defect this owner closes (the band owns the generated `Code`); the bSDD dictionary is the authoritative live source for the class-to-property constraint surface resolved through the dictionary URI, never a hardcoded code-to-property table that duplicates and drifts from it; the per-system `CodeShape` regex is BOTH the cheap LOCAL shape gate `Classify` admits a raw authoring code through (no network round-trip) AND the offline degradation `BsddResolution.LocalShape` falls back to, never that drifting constraint table; the classification round-trips through the `IfcRelAssociatesClassification`/`IfcClassificationReference` entities owned at the GeometryGym surface (`.api/api-geometrygym-ifc`) consumed as settled vocabulary, the egress carrying `Identification` + `Location` (+ the `Name` concept title the seam `Classification.Title` round-trips) so the import `Ingest` reconstructs the seam value losslessly, never re-minting a classification mapping; the db-scoped dictionary memo composes the `Semantics/composition#EGRESS` `EmitMemo` owner and a second `ConditionalWeakTable` declared here is the deleted duplicate; the egress reads the seam `Object` node `Classification`, NOT a Materials `MaterialPropertyWire.Classification` carrier (retired), the material-wire classification half having moved to this element-classification egress.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Text.RegularExpressions;
 using GeometryGym.Ifc;
@@ -30,38 +30,25 @@ using Rasm.Bim.Projection;
 using Rasm.Element.Classification;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;                            // the kernel operation key each typed BimFault case carries
+using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim.Semantics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// ONE carrier rather than four row columns because the Custom row resolves every fact from composition data, so a
-// per-fact reader would multiply each row's shape by the number of facts a project system supplies. The Shape
-// initializer compiles ONCE per value (a record property initializer reads the primary-ctor parameter), so a policy
-// value built at composition carries a compiled NonBacktracking matcher rather than parsing per call.
+// --- [TYPES] ---------------------------------------------------------------------------
 public sealed record SystemIdentity(string Title, string Stem, string Version, string Pattern) {
-    public static readonly SystemIdentity Unclaimed = new("", "", "", @"^(?!)$");   // matches nothing: an unconfigured project system admits no code
+    public static readonly SystemIdentity Unclaimed = new("", "", "", @"^(?!)$");
 
     public Regex Shape { get; } = new(Pattern, RegexOptions.NonBacktracking | RegexOptions.CultureInvariant);
 }
 
-// The bSDD identifier scheme is {org}/{dictionary}/{version} and a versionless class URI does not resolve, so a
-// live-hosted row must pin a version — yet a version is a LIVE registry fact re-published on the registry's own
-// cadence, and a token frozen into a durable roster rots into a 404 the offline degrade then masks as plain
-// unreachability. Pinning them here keeps that rot at ONE overridable value whose defaults serve an unconfigured
-// composition. Unclaimed's shape admits nothing, so an unconfigured composition never silently classifies onto it.
 public sealed record BsddPins(string Ifc, string Etim, SystemIdentity Custom) {
     public static readonly BsddPins Default = new(Ifc: "4.3", Etim: "10.0", Custom: SystemIdentity.Unclaimed);
 }
 
-// The type name ClassificationSystem is distinct from the seam Classification so the seam value-object stays the one
-// canonical classification; this page owns only the roster and the bSDD lane.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ClassificationSystem {
-    // ifc/etim are hosted on the public bSDD; uniclass2015/omniclass/masterformat/uniformat are unhosted, so their
-    // blank version degrades the live leg to the local shape BY CONSTRUCTION and hosting later is one BsddPins column.
     public static readonly ClassificationSystem Uniclass2015 = Standard("uniclass2015", "Uniclass 2015", "https://identifier.buildingsmart.org/uri/uniclass2015", @"^[A-Z][A-Za-z]_\d{2}(_\d{2}){0,3}$");
     public static readonly ClassificationSystem OmniClass     = Standard("omniclass", "OmniClass", "https://identifier.buildingsmart.org/uri/omniclass", @"^\d{2}-\d{2}( \d{2}){2,3}$");
     public static readonly ClassificationSystem MasterFormat  = Standard("masterformat", "MasterFormat", "https://identifier.buildingsmart.org/uri/masterformat", @"^\d{2} \d{2} \d{2}(\.\d{2})?$");
@@ -72,13 +59,8 @@ public sealed partial class ClassificationSystem {
 
     public Func<BsddPins, SystemIdentity> Resolve { get; }
 
-    // The key-chaining ctor the [SmartEnum<string>] generator's this(key) overload completes (the corpus
-    // SmartEnum-with-fields shape the IfcRelKind roster also takes).
     private ClassificationSystem(string key, Func<BsddPins, SystemIdentity> resolve) : this(key) => Resolve = resolve;
 
-    // The reader closes over ONE SystemIdentity compiled at type init rather than per resolution. A Uniclass table
-    // prefix is two letters with the second upper OR lower (Ss/Pr/EF/SL/TE), so [A-Z][A-Za-z] admits every real
-    // prefix, and NonBacktracking exposes no backtracking surface to hostile input.
     static ClassificationSystem Standard(string key, string title, string stem, string pattern) {
         var identity = new SystemIdentity(title, stem, "", pattern);
         return new ClassificationSystem(key, _ => identity);
@@ -90,32 +72,18 @@ public sealed partial class ClassificationSystem {
 
     public Regex CodeShape(BsddPins pins) => Resolve(pins).Shape;
 
-    // The versioned request/egress identity: the live api/Class/v1 lane and the authored Location/Specification carry
-    // it; the version-free Stem stays the ingest prefix identity so the two never drift (one row value, one derivation).
     public string DictionaryUri(BsddPins pins) =>
         Resolve(pins) switch { { Version.Length: > 0 } hosted => $"{hosted.Stem}/{hosted.Version}", var bare => bare.Stem };
 
-    // A row whose live leg can resolve at all — the search scope default and the hosted-roster probe. Reading it off
-    // the version keeps "hosted" one fact rather than a second boolean column to keep in step.
     public bool Hosted(BsddPins pins) => Resolve(pins).Version.Length > 0;
 
-    // Two gates in series and neither is redundant: this row's regex judges the code SHAPE its own standard declares,
-    // and Classification.Of judges the blank tokens the seam freezes. Both paths are edition-UNSPECIFIED, because
-    // neither a raw code nor a dictionary class carries a publisher edition; that is an Ingest concern.
     public Fin<Classification> Classify(string code, Option<string> title, BsddPins pins, Op key) =>
         CodeShape(pins).IsMatch(code.Trim())
             ? Classification.Of(Key, code, key, title: title)
             : Fin.Fail<Classification>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", Key, code })));
 
-    // The dictionary class URI the bSDD resolution fetches AND the IfcClassificationReference.Location the egress writes:
-    // the dictionary URI plus the URI-escaped code, so an OmniClass/MasterFormat code carrying spaces (e.g. "23-13 35 00")
-    // produces a valid request/round-trip URI Ingest can unescape back to the code.
     public string ClassUri(string code, BsddPins pins) => $"{DictionaryUri(pins)}/class/{System.Uri.EscapeDataString(code.Trim())}";
 
-    // The roster resolver every URI-shaped read shares (Ingest Location, Search hit dictionary, federation Translate):
-    // prefix on the version-FREE Stem, LONGEST stem winning so a nested-stem row (one dictionary extending a sibling's
-    // URI space) resolves by specificity, never by declaration order — and version-free, so a pin the registry moves
-    // never breaks an ingest that already matched.
     internal static Option<ClassificationSystem> ByUri(string uri, BsddPins pins) =>
         uri is { Length: > 0 }
             ? Optional(Items.Select(row => (Row: row, Stem: row.Stem(pins)))
@@ -123,16 +91,8 @@ public sealed partial class ClassificationSystem {
                 .OrderByDescending(static row => row.Stem.Length).Select(static row => row.Row).FirstOrDefault())
             : None;
 
-    // The identifier-URI code authority: the trailing segment unescaped ({...}/class/{code} — the inverse of ClassUri).
     internal static string TailCode(string uri) => System.Uri.UnescapeDataString(uri[(uri.LastIndexOf('/') + 1)..]);
 
-    // Specification is the IFC4X3 rename of the retired dictionary-level Location and is the very URI Author stamps,
-    // so a re-export that strips per-reference Locations still self-resolves and a third-party export carrying only
-    // the dictionary-level URI resolves too. The EDITION-SCOPED bundle lowers off that SAME root
-    // (IfcClassification.Source/Edition/EditionDate decompile-confirmed, .api/api-geometrygym-ifc row 08), because
-    // Edition is IDENTITY on the seam (§EDITION_SCOPING) and this is the only ingest path that can populate it.
-    // The return is THREE-state: Succ(None) an unrostered source or a code-free reference, Fail the seam's own
-    // blank-token refusal — which a collapsed Succ(None) would have masked as "foreign system".
     public static Fin<Option<Classification>> Ingest(IfcClassificationReference reference, BsddPins pins, Op key) {
         IfcClassification? dictionary = RootSource(reference);
         return (Optional(Items.FirstOrDefault(row => row.Title(pins) is { Length: > 0 } title && string.Equals(title, PropertyLowering.Stated(dictionary?.Name).IfNone(""), StringComparison.OrdinalIgnoreCase)))
@@ -149,9 +109,6 @@ public sealed partial class ClassificationSystem {
                 None: static () => Fin.Succ(Option<Classification>.None));
     }
 
-    // A nested IfcClassificationReference (the IFC hierarchical-classification pattern) points its ReferencedSource at
-    // a PARENT reference, not the dictionary, so a flat `as IfcClassification` reads "" on a nested ref and silently
-    // misses the dictionary. The depth bound makes a malformed cyclic chain terminate rather than spin.
     static IfcClassification? RootSource(IfcClassificationReference reference) {
         IfcClassificationReferenceSelect? source = reference.ReferencedSource;
         for (int depth = 0; source is IfcClassificationReference parent && depth < 32; depth++) {
@@ -160,8 +117,6 @@ public sealed partial class ClassificationSystem {
         return source as IfcClassification;
     }
 
-    // The GeometryGym unset-date sentinel is DateTime.MinValue, so an undated dictionary must lower None rather than a
-    // spurious 0001-01-01.
     static Option<LocalDate> EditionDateOf(IfcClassification? dictionary) =>
         dictionary is { EditionDate: var date } && date > System.DateTime.MinValue
             ? Some(LocalDate.FromDateTime(date))
@@ -174,19 +129,11 @@ public sealed partial class ClassificationSystem {
         (PropertyLowering.Stated(reference.Identification)
             | PropertyLowering.Stated(reference.Location).Map(TailCode)).IfNone("");
 
-    // IfcClassificationReference.Name is the classified concept's resolved name (decompile-confirmed `public string
-    // Name` on the GeometryGym IfcExternalReference base — .api/api-geometrygym-ifc row 07), DISTINCT from the root
-    // dictionary Name; this is the only ingest path that can populate the seam Title at all.
     static Option<string> TitleOf(IfcClassificationReference reference) =>
         PropertyLowering.Stated(reference.Name).Map(static name => name.Trim());
 
-    // The key carries EDITION because an IfcClassification IS an edition-scoped dictionary and the seam Edition is
-    // IDENTITY: one shared entity strips the edition and forks every re-ingested content key. So N objects under one
-    // Uniclass edition author ONE dictionary entity, and a 2015- and a 2023-edition value author two.
     static readonly EmitMemo<(string System, string Edition), IfcClassification> Sources = new();
 
-    // The Edition/Source/EditionDate setters are decompile-confirmed, so Ingest reads back the SAME identity Author
-    // lowered; an edition-unspecified value authors the bare dictionary.
     static IfcClassification Source(DatabaseIfc db, ClassificationSystem row, Classification classification, BsddPins pins) =>
         Sources.Of(db, (row.Key, classification.Edition), _ => {
             var dictionary = new IfcClassification(db, row.Title(pins)) { Specification = row.DictionaryUri(pins), Edition = classification.Edition };
@@ -195,11 +142,6 @@ public sealed partial class ClassificationSystem {
             return dictionary;
         });
 
-    // The system compare runs OrdinalIgnoreCase because that IS the roster's declared key space — a raw != reads "IFC"
-    // and "ifc" as different systems and authors a duplicate entity-type reference. The IfcRelAssociatesClassification
-    // (IfcClassificationSelect, IfcDefinitionSelect) + IfcClassificationReference(db){ReferencedSource,Identification,
-    // Location,Name} + IfcClassification(db, name){Specification,Edition} ctor surface is decompile-confirmed
-    // (.api/api-geometrygym-ifc rows 07/08; every stamped member a settable attribute).
     public static Option<IfcRelAssociatesClassification> Author(DatabaseIfc db, IfcDefinitionSelect related, Classification classification, BsddPins pins) =>
         !string.Equals(classification.System, IfcSystem.Key, StringComparison.OrdinalIgnoreCase)
         && TryGet(classification.System, out ClassificationSystem? system) && system is { } row
@@ -228,18 +170,16 @@ public sealed partial class ClassificationSystem {
 - Boundary: the bSDD dictionary is the authoritative live source resolved through the dictionary URI — a second hardcoded code-shape table that drifts from the dictionary is the rejected form, the local code-shape policy being the unreached-endpoint degradation only; the port returns a THREE-state outcome (decoded body / unreached endpoint / undecodable body) and collapsing the last two into one failure is the deleted form that masks a contract drift as an offline miss and silently substitutes property-free local evidence for a class the registry answered for; the `BsddClass.Of` projection reads ONLY the fields the `.api/api-bsdd` catalog enumerates (the wire is `additionalProperties:false`, so an unexpected member signals contract drift, not a capability) and a field absent from the catalog is a phantom — the search wire publishes NO numeric relevance, so the hit's server-order ORDINAL is the rank column and a fabricated score is the deleted form; the SI exponent vector is the seam `Properties/quantity#DIMENSION` `Dimension` built through its own generated factory, and a page-local seven-int exponent record beside it is the deleted duplicate that forced every consumer to re-project one concept twice; the class-level constraint (`ClassProperty.AllowedValues`/`Min*`/`Max*`/`Pattern`) is read, never silently the property master, so a class that narrows an enumeration is honored; the cross-standard equivalence closure folds the `IsEqualTo`/`IsSynonymOf` relations through the shared `QuikGraph` substrate the folder admits — the relation is SYMMETRIC, so the container is undirected and the answer is `ConnectedComponents`, where a directed double-edge fold plus `ComputeTransitiveClosure` materialized the whole quadratic reachability edge set to recover a partition the linear pass yields directly; a hand-rolled BFS/union-find over a `Map<>` adjacency is the named rejected form (`libs/dotnet/.api/api-quikgraph.md`); the authoritative containment (`parentClassReference`/`hierarchy`) is read for a code that does NOT encode its parent (MasterFormat/Uniformat), and re-deriving containment from the code string where the dictionary states it is the rejected form; supersession gates authoring — `BsddClass.Admit` refuses a NEW code onto an `Inactive` class carrying the `ReplacedBy` code, and silently authoring a superseded class is the named defect; a `Certify` that resolves a class and then discards its code and concept title is the deleted form — the round-trip is paid, so the certified value carries the dictionary's own identity; the rail-free wire rows transcribe through the ONE `BsddWire` `[Mapper]` and a hand-written `RefOf`/`AllowedValue` projection beside it is the deleted form, while every crossing that carries a `Fin` admission (`ValueKindOf`/`StatusOf`/`RelationOf`/`BoundsOf`) stays hand-written by law — Mapperly transcribes shape, never a lane; that same mapper owns the ONE wire absence admission — `Text` for a nullable string, `Rows` for a nullable array — so a `?? ""` or `?? []` at any projection below it is the deleted duplicate, and `Rows` is registered `Default = false` because a GENERIC mapping Mapperly may choose is the RMG001 form the folder refuses; the live fetch rides the `Rasm.Compute/Runtime/channels#TRANSPORT_AXIS` transport injected as `BsddPort` (ONE generic `Fetch<TWire>` the page parameterizes by resource — a per-resource port member is the rejected form) and a transport minted here is the named seam violation; the port carries the caller's `CancellationToken` and the abort grain is DECLARED — one in-flight request boundary, a dispatched request running to its own completion — so a graph-scale fold that cannot be abandoned between round-trips is the deleted form and an unqualified cancellable claim over the request itself is the overclaim; `Rasm.Bim` is AEC-domain and depends strictly upward, so the memoization rides Compute's transport and a durable cache is the calling app-platform's concern at the seam, never a `Rasm.Persistence` reference; the enrichment fold groups on the QUERY axes ALONE and a group key carrying an axis the request never sends is the deleted form that multiplies one round-trip by the cardinality of a token the server never sees; a bare system-token literal where `IfcSystem.Key` names the same value is the deleted form, and every system comparison runs `OrdinalIgnoreCase` per the roster's declared key space; the resolution degrades to the local policy on an unreached endpoint so INGEST never blocks (faulting on unreachability itself is the named defect) while the degraded verdict IS the row's shape gate — a shape-rejected code faults `BimFault.Refused` with `BimReason.Unmapped`, never a fabricated `Active` evidence the dictionary did not answer — and `Search` is authoring-only, so an unreached endpoint faults `BimFault.Refused` with `BimReason.Codec` because no offline concept-to-code resolution exists; port failures retain the exact `Error` because the compact Bim boundary axis declares no bSDD wrapper.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
-using QuikGraph;                                      // the shared graph substrate the BsddFederation equivalence fold runs on (never a hand-rolled BFS)
+using QuikGraph;
 using QuikGraph.Algorithms;
 using Riok.Mapperly.Abstractions;
-using Rasm.Domain;                                    // RedrivePolicy/Redrive/Schedule — the kernel re-drive law the REST lane composes
-using Rasm.Element.Graph;                             // ElementGraph/NodeId/ObjectKind — the Suggest enrichment fold's graph read
-using Rasm.Element.Properties;                        // the seam Dimension the bSDD exponent columns build directly
+using Rasm.Domain;
+using Rasm.Element.Graph;
+using Rasm.Element.Properties;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The bSDD constraint vocabulary the dictionary supplies per property: the value kind selects the seam PropertyValue arm,
-// the status gates IDS admission. ClassPropertyContract.v1 constrains both (.api/api-bsdd rows 02/03).
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class BsddValueKind {
@@ -258,10 +198,6 @@ public sealed partial class BsddStatus {
     public static readonly BsddStatus Inactive = new("Inactive");
 }
 
-// Declared holds whenever a source answered at all and Required joins it when that source demanded the property, so
-// the EMPTY set is the third state: the offline buildingSMART floor states no requiredness column, and a `false` there
-// asserted "optional" on a silent source's behalf, which made a presence audit read every unstated property as
-// satisfied. A second declared axis lands as one row with no signature moving.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TemplateTrait : ICapability<TemplateTrait> {
@@ -273,8 +209,6 @@ public sealed partial class TemplateTrait : ICapability<TemplateTrait> {
     private TemplateTrait(string key, int rank) : this(key) => Rank = rank;
 }
 
-// The class-relation vocabulary (ClassRelationContract.v1.relationType, catalog order): the IsEqualTo/IsSynonymOf
-// pair feeds the BsddFederation equivalence closure; IsParentOf/IsChildOf/HasPart carry taxonomy and composition context.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class BsddRelationKind {
@@ -286,37 +220,19 @@ public sealed partial class BsddRelationKind {
     public static readonly BsddRelationKind HasPart = new("HasPart");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// A class-level bound may be STRICTER than the property master's (.api/api-bsdd min*/max*).
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BsddBounds(Option<double> MinInclusive, Option<double> MaxInclusive, Option<double> MinExclusive, Option<double> MaxExclusive);
 
-// A class-narrowed allowed value (the enumeration the IDS facet validates against and the seam Enumerated arm carries) —
-// .api/api-bsdd ClassPropertyValueContract.v1.
 public sealed record BsddAllowedValue(string Value, string Code, string Description, string Uri);
 
-// A typed class-relation row (.api/api-bsdd ClassRelationContract.v1: relationType + relatedClassUri required,
-// relatedClassName/fraction optional — Fraction the HasPart mixture share). Forward and reverse rows share this shape.
 public readonly record struct BsddRelation(BsddRelationKind Kind, string RelatedUri, string RelatedName, Option<double> Fraction);
 
-// A containment pointer (.api/api-bsdd ClassReferenceContract.v1 / HierarchyItemContract.v1): the parent, ancestry, and
-// child rows — the AUTHORITATIVE containment a MasterFormat/Uniformat code string does not encode.
 public readonly record struct BsddRef(string Uri, string Name, string Code);
 
-// Rank is the hit's ZERO-BASED position in the response's own classes[] array. The search wire publishes NO numeric
-// relevance column (the contract is additionalProperties:false and carries none), so the server's ORDER is the whole
-// relevance signal it expresses and a fabricated score would be a phantom the catalog refutes.
 public readonly record struct BsddHit(ClassificationSystem System, string Code, string Name, string Uri, Seq<string> RelatedIfcEntities, int Rank);
 
-// Each accepted candidate lowers through Certify, so the confirmation path IS the standing dictionary-certified
-// authoring lowering and never a second admission. Candidates stay in the server's Rank order.
 public readonly record struct ClassificationSuggestion(NodeId Element, ClassificationSystem System, Seq<BsddHit> Candidates);
 
-// SiDimension IS the seam Dimension, built from the wire's exponent columns, because the dictionary's seven integers
-// and the seam's dimension are ONE concept. Traits, ValueKind and Status are REQUIRED head members on two grounds: a
-// [SmartEnum] row is a static readonly field, not a constant, so it cannot be an optional-parameter default at all;
-// and a defaulted Active is exactly the fabricated evidence this owner's boundary refuses. The registry reorders the
-// collection members freely between reads, so each compares as a SET and an ordered comparison reports drift the
-// dictionary never made.
 [Equatable]
 public sealed partial record BsddProperty(
     string Code, string Name, string DataType, string PropertySet, string PredefinedValue,
@@ -329,9 +245,6 @@ public sealed partial record BsddProperty(
     Option<Dimension> SiDimension = default,
     [property: UnorderedEquality] Seq<string> Units = default);
 
-// Every server-ordered member compares as a MULTISET because the registry reorders them freely between reads and an
-// ordered comparison would report drift the dictionary never made — except Ancestry, which is ORDER-BEARING by
-// construction (the wire level sorts it root-first, so a reordered chain IS a different inheritance path).
 [Equatable]
 public sealed partial record BsddClass(
     string Code, string Name, string ClassType, string Definition, string Uri,
@@ -346,9 +259,6 @@ public sealed partial record BsddClass(
     [property: UnorderedEquality] Seq<string> Replaces = default,
     [property: UnorderedEquality] Seq<string> ReplacedBy = default,
     Option<string> Deprecation = default) {
-    // A live hit returning a class with no Code/Uri is INVALID published data, not an offline dictionary miss, so it
-    // faults rather than being masked as a LocalShape miss. The unreached-endpoint degradation is Resolve's concern;
-    // this projection judges payload shape alone.
     public static Fin<BsddClass> Of(BsddClassResponse response, Op key) =>
         string.IsNullOrWhiteSpace(response.Code) || string.IsNullOrWhiteSpace(response.Uri)
             ? Fin.Fail<BsddClass>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-class-malformed", response.Uri })))
@@ -366,16 +276,11 @@ public sealed partial record BsddClass(
                   BsddWire.Rows(response.ReplacingObjectCodes),
                   Optional(response.DeprecationExplanation).Filter(static s => s.Length > 0));
 
-    // The fault carries the replacing code so the caller re-authors onto the successor. Preview stays admissible here;
-    // the IDS facet owns the preview-acceptance policy on the evidence Status.
     public Fin<BsddClass> Admit(Op key) =>
         Status != BsddStatus.Inactive
             ? Fin.Succ(this)
             : Fin.Fail<BsddClass>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-superseded", Code, ReplacedBy.Head.IfNone("") })));
 
-    // bSDD carries NO bare `code` on a class-property — `name` is the only required member — so propertyCode is the
-    // code authority and the name is its fallback. The two Fin admissions are why this stays hand-written: a generated
-    // map cannot carry a lane.
     static Fin<BsddProperty> Property(BsddClassResponse.ClassProperty p, Op key) =>
         from kind in ValueKindOf(p.PropertyValueKind, key)
         from status in StatusOf(p.PropertyStatus, key)
@@ -385,9 +290,6 @@ public sealed partial record BsddClass(
             TraitsOf(p), kind, status, BsddWire.Rows(p.AllowedValues).Map(BsddWire.Allowed),
             Optional(p.Pattern).Filter(static s => s.Length > 0), BoundsOf(p), DimensionOf(p), BsddWire.Rows(p.Units));
 
-    // A dictionary that answered the class request STATED a verdict, so Declared always holds here and the EMPTY set
-    // stays reserved for a source that never spoke — the offline buildingSMART floor, whose PropertyDef publishes no
-    // requiredness column at all.
     static CapabilitySet<TemplateTrait> TraitsOf(BsddClassResponse.ClassProperty p) =>
         p.IsRequired
             ? CapabilitySet<TemplateTrait>.Of(TemplateTrait.Declared, TemplateTrait.Required)
@@ -398,8 +300,6 @@ public sealed partial record BsddClass(
             ? None
             : Some(new BsddBounds(Optional(p.MinInclusive), Optional(p.MaxInclusive), Optional(p.MinExclusive), Optional(p.MaxExclusive)));
 
-    // A dimensionless result (every exponent zero) IS the undimensioned property, so it lowers None and the seam
-    // MeasureValue coercion never fires on a plain count or label.
     static Option<Dimension> DimensionOf(BsddClassResponse.ClassProperty p) =>
         Dimension.Create(
             BsddWire.Exponent(p.DimensionLength), BsddWire.Exponent(p.DimensionMass), BsddWire.Exponent(p.DimensionTime),
@@ -407,8 +307,6 @@ public sealed partial record BsddClass(
             BsddWire.Exponent(p.DimensionAmountOfSubstance), BsddWire.Exponent(p.DimensionLuminousIntensity))
         is var dimension && dimension != Dimension.Dimensionless ? Some(dimension) : None;
 
-    // Each ClassRelationContract -> the typed row: an unparseable relationType or a blank relatedClassUri faults so the
-    // federation closure never sees an unaddressable edge.
     static Fin<BsddRelation> RelationOf(BsddClassResponse.ClassRelation relation, Op key) =>
         relation.RelatedClassUri is not { Length: > 0 }
             ? Fin.Fail<BsddRelation>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-relation-uri-missing" })))
@@ -427,15 +325,7 @@ public sealed partial record BsddClass(
             : Fin.Fail<BsddStatus>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-token-unmapped", "status", status })));
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// A containment pointer and an allowed value are pure column maps with no admission, no fault, and no lookup, which is
-// exactly the boundary Riok.Mapperly owns; the two Ref overloads discriminate on the wire shape (a ClassReference
-// carries its Uri required, a HierarchyItem optional). Everything carrying a Fin stays hand-written — Mapperly
-// transcribes shape, never a lane.
-// Text, Exponent and Rows are the ONE bSDD wire admission: the contract is additionalProperties:false and declares
-// every optional column nullable, so each absence crosses here exactly once and a `?? ""` or `?? []` below is the
-// deleted duplicate. Rows is registered Default = false because a GENERIC mapping Mapperly may choose is the RMG001
-// form the folder refuses, so the array crossings name it explicitly.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class BsddWire {
     public static partial BsddRef Ref(BsddClassResponse.ClassReference reference);
@@ -445,8 +335,6 @@ public static partial class BsddWire {
     [UserMapping]
     internal static string Text(string? value) => value ?? "";
 
-    // An unstated SI exponent IS zero by the signature's own algebra — the dictionary omits the column for a dimension
-    // the property does not carry, so the absence and the zero are one fact, not a substituted default.
     [UserMapping]
     internal static int Exponent(int? value) => value ?? 0;
 
@@ -454,15 +342,7 @@ public static partial class BsddWire {
     internal static Seq<TWire> Rows<TWire>(TWire[]? values) => values is null ? Seq<TWire>() : toSeq(values);
 }
 
-// Equivalence under a SYMMETRIC relation IS connected-component membership, so the linear label pass yields the
-// partition the quadratic ComputeTransitiveClosure edge set had to be re-grouped to recover, and the undirected
-// container makes the per-relation reverse edge unnecessary at the same time (.api/api-quikgraph — a hand-rolled
-// BFS/union-find is the named rejected form). Reverse rows still fold in: an inbound equivalence is declared by the
-// OTHER dictionary. The graph never escapes Of; the receipt carries data alone.
 public sealed record BsddFederation(Map<string, Seq<string>> Equivalence, Map<string, string> Names) {
-    // ONE pass yields BOTH receipt inputs — each class's forward+reverse rows are read once for its equivalence EDGE
-    // and its related-URI LABEL together — where the retired second fold re-walked the same concatenation for the
-    // names alone and the two passes could disagree about which rows they had seen.
     public static BsddFederation Of(Seq<BsddClass> classes) {
         var (edges, names) = classes.Fold(
             (Edges: Seq<SEquatableEdge<string>>(), Names: Map<string, string>()),
@@ -484,15 +364,11 @@ public sealed record BsddFederation(Map<string, Seq<string>> Equivalence, Map<st
             names);
     }
 
-    // The component IS the equivalence set, self included — a URI the closure never saw is its own singleton.
     public Seq<string> EquivalentSet(string classUri) => Equivalence.Find(classUri).IfNone(Seq(classUri));
 
     public bool Equivalent(string classUriA, string classUriB) =>
         string.Equals(classUriA, classUriB, StringComparison.OrdinalIgnoreCase) || EquivalentSet(classUriA).Contains(classUriB);
 
-    // An EMPTY sequence is the honest answer for an unrostered source system or a component holding no peer under the
-    // target stem, and never a wrong lowering; a peer URI whose tail segment is empty is the seam's OWN refusal, so
-    // the leg RAILS rather than folding a malformed code into that same emptiness.
     public Fin<Seq<Classification>> Translate(Classification classification, ClassificationSystem target, BsddPins pins, Op key) =>
         ClassificationSystem.TryGet(classification.System, out ClassificationSystem? system) && system is { } row
             && target.Stem(pins) is { Length: > 0 } stem
@@ -504,12 +380,7 @@ public sealed record BsddFederation(Map<string, Seq<string>> Equivalence, Map<st
             : Fin.Succ(Seq<Classification>());
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// The bSDD api/Class/v1 wire contract (.api/api-bsdd ClassContract.v1 and its four member contracts): the projection
-// reads ONLY these fields (additionalProperties:false), each PascalCase member binding the camelCase wire through the
-// transport's STJ naming policy, and every nullable member is an OPTIONAL wire field the BsddWire admission owns.
-// IsRequired stays a bare bool HERE because the contract declares it one; re-shaping a wire member to match the
-// domain's own CapabilitySet carrier forks the transcription.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record BsddClassResponse(
     string Code, string Name, string Uri, string? ClassType, string? Definition, string? Status,
     string[]? RelatedIfcEntityNames, ClassProperty[]? ClassProperties,
@@ -529,73 +400,43 @@ public sealed record BsddClassResponse(
     public sealed record HierarchyItem(int Level, string? Name, string? Code, string? Uri);
 }
 
-// The bSDD api/Class/Search/v1 wire contract (.api/api-bsdd ClassSearchResponseContract.v1, paged): the hit's
-// referenceCode is the code authority (the identifier-URI tail the omitted-code fallback) and the dictionaryUri
-// resolves the roster row. The contract publishes NO relevance column — the classes[] ORDER is the server's whole
-// expression of relevance, which is why the hit carries its ordinal rather than a score.
 public sealed record BsddSearchResponse(int TotalCount, int Offset, int Count, SearchClass[]? Classes) {
     public sealed record SearchClass(
         string? DictionaryUri, string? DictionaryName, string Name, string? ReferenceCode, string Uri,
         string? ClassType, string? Description, string? ParentClassName, string[]? RelatedIfcEntityNames);
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// The return is THREE-state and the page discriminates all three: Succ(Some) a reached endpoint whose body decoded,
-// Succ(None) an UNREACHED endpoint (the only genuine offline miss, the one state Resolve degrades on), Fail a reached
-// endpoint whose body did NOT decode. Collapsing the last two into one failure is what let a schema drift substitute
-// property-free local evidence for a class the registry answered for. The token rides the request, so the abort grain
-// is BETWEEN round-trips and an already-dispatched request runs to its own completion.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface BsddPort {
     Fin<Option<TWire>> Fetch<TWire>(string resource, CancellationToken token);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BsddResolution {
-    // Every hop is a public-registry round-trip that answers a 429 or a gateway blip as readily as a class, and the
-    // retired lane carried NO retry rail: one transient refusal degraded a REACHABLE dictionary to the offline shape
-    // gate. Cadence and bound are the only facts this page owns — Redrive.Settle reads the Expected case's OWN
-    // Retriability, so no predicate is spelled here.
     static readonly RedrivePolicy Registry = RedrivePolicy.Of(
         law: Schedule.exponential(Duration.FromMilliseconds(250)) | Schedule.maxDelay(Duration.FromSeconds(4)), bound: 3);
 
-    // The ONE round-trip every resource crosses, so the policy is declared once and no entry spells an attempt loop.
-    // The port's Fin lane lifts ONTO the IO rail before Redrive sees it, with the exact captured Error retained.
     static Fin<Option<TWire>> Fetch<TWire>(BsddPort port, string resource, CancellationToken token, Op key) =>
         key.Catch(() => Redrive.Run(
             policy: Registry,
             work: IO.lift(() => key.Catch(() => port.Fetch<TWire>(resource, token), token))).Run(), token);
 
-    // Three outcomes, kept distinct at the port rather than inferred from one collapsed failure: an UNREACHED endpoint
-    // degrades to the row's local code-shape policy — the gate applied, never a fault for unreachability itself — a
-    // reached-but-undecodable body surfaces Refused/BimReason.Codec, and a decoded body's own payload verdict is BsddClass.Of's.
     public static Fin<BsddClass> Resolve(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
         Fetch<BsddClassResponse>(port, ClassResource(system.ClassUri(code, pins)), token, key)
             .Bind(reached => reached.Match(
                 Some: response => BsddClass.Of(response, key),
                 None: () => LocalShape(system, code, pins, key)));
 
-    // The admitted class's OWN Code and Name ride onto the minted value: the round-trip is already paid, so discarding
-    // the registry's canonical casing and its concept title would leave a certified value indistinguishable from a
-    // bare local one. Offline the LocalShape degrade admits, so certification TIGHTENS when the dictionary answers and
-    // never blocks when it cannot.
     public static Fin<Classification> Certify(ClassificationSystem system, string code, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
         Resolve(system, code, port, pins, token, key)
             .Bind(cls => cls.Admit(key))
             .Bind(admitted => system.Classify(admitted.Code, Optional(admitted.Name).Filter(static n => n.Length > 0), pins, key));
 
-    // No offline concept index exists, so BOTH failure states FAULT typed — an unreached endpoint and an undecodable
-    // body alike land Refused/BimReason.Codec, never a LocalShape degrade. A hit whose dictionary is unrostered drops: the roster
-    // IS the admission, and an unrostered code cannot lower onto the seam.
     public static Fin<Seq<BsddHit>> Search(string text, Seq<ClassificationSystem> scope, Option<string> relatedIfcEntity, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
         Fetch<BsddSearchResponse>(port, SearchResource(text, scope, relatedIfcEntity, pins), token, key)
             .Bind(reached => reached.ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "bsdd-search-unreachable", text }))))
-            // The instance indexed Map is VALUE-FIRST (the Seq module's `map` transposes) — the ordinal is the rank.
             .Map(response => BsddWire.Rows(response.Classes).Map((hit, index) => HitOf(hit, index, pins)).Somes());
 
-    // Hierarchy and parentClassReference arrive by default, so the class request opts into the relation/children
-    // rollups alone. The search request REPEATS the DictionaryUris/RelatedIfcEntities keys per the bSDD
-    // array-parameter law, and an empty scope pins the HOSTED roster rows server-side so the page limit is never spent
-    // on unrostered dictionaries HitOf would drop anyway.
     static string ClassResource(string classUri) =>
         $"api/Class/v1?Uri={System.Uri.EscapeDataString(classUri)}&IncludeClassProperties=true&IncludeClassRelations=true&IncludeReverseRelations=true&IncludeChildClassReferences=true";
 
@@ -606,19 +447,10 @@ public static class BsddResolution {
                 .Fold("", (acc, row) => $"{acc}&DictionaryUris={System.Uri.EscapeDataString(row.DictionaryUri(pins))}"),
             relatedIfcEntity.Match(Some: static entity => $"&RelatedIfcEntities={System.Uri.EscapeDataString(entity)}", None: static () => ""));
 
-    // CLASS-FIRST, refining by name only where it must: one query per entity CLASS is the coarse pass (the entity code
-    // is both the search text and the RelatedIfcEntities scope), and a class whose coarse hit set DECIDES needs
-    // nothing more, which is the ordinary shape of a model whose walls all classify alike. Only an AMBIGUOUS class
-    // re-queries per distinct element NAME, spending the extra round-trips exactly where the name is the discriminant
-    // the class was not — keying every group on the name up front spent a round-trip per naming variant a model
-    // happens to carry, and the predefined token never reaches the wire at all, so keying on it split one query into
-    // as many identical round-trips as the model had tokens.
     public static Fin<Seq<ClassificationSuggestion>> Suggest(ElementGraph graph, Seq<ClassificationSystem> targets, BsddPort port, BsddPins pins, CancellationToken token, Op key) =>
         toSeq(graph.ObjectNodes
             .Filter(o => string.Equals(o.Classification.System, ClassificationSystem.IfcSystem.Key, StringComparison.OrdinalIgnoreCase)
                 && o.Kind == ObjectKind.Occurrence
-                // ANY unclassified target admits the occurrence — a ForAll gate drops a partially classified element
-                // whole, so the ordinary as-received model carrying Uniclass but no OmniClass gets suggested nothing.
                 && targets.Exists(target => !o.Classifications.Exists(c => string.Equals(c.System, target.Key, StringComparison.OrdinalIgnoreCase))))
             .GroupBy(static o => o.Classification.Code))
             .TraverseM(byClass => Search(byClass.Key, targets, Some(byClass.Key), port, pins, token, key)
@@ -632,22 +464,14 @@ public static class BsddResolution {
             .As()
             .Map(static rows => rows.Flatten().Filter(static row => !row.Candidates.IsEmpty).ToSeq());
 
-    // The coarse pass DECIDES when no target is left holding a choice: the class alone answered, so the name adds
-    // nothing and the refinement round-trips are not spent. A target with zero hits is decided too — the class simply
-    // has no peer there, and a name query cannot invent one under the same entity scope.
     static bool Decisive(Seq<BsddHit> coarse, Seq<ClassificationSystem> targets) =>
         targets.ForAll(target => coarse.Count(hit => hit.System == target) <= 1);
 
-    // One suggestion row per (element, still-unclassified target) over a resolved hit set — shared by both passes so
-    // the coarse and refined legs cannot drift on which targets an element still needs.
     static Seq<ClassificationSuggestion> Rows(Seq<Node.Object> elements, Seq<ClassificationSystem> targets, Seq<BsddHit> hits) =>
         elements.Bind(o => targets
             .Filter(target => !o.Classifications.Exists(c => string.Equals(c.System, target.Key, StringComparison.OrdinalIgnoreCase)))
             .Map(target => new ClassificationSuggestion(o.Id, target, hits.Filter(hit => hit.System == target))));
 
-    // The hit's code authority is the wire's own referenceCode (ClassSearchResponseClassContract.v1 carries it —
-    // .api/api-bsdd); the identifier-URI tail is the FALLBACK for a dictionary that omits it, never the primary read.
-    // The index is the response array position — the server's relevance order preserved as data.
     static Option<BsddHit> HitOf(BsddSearchResponse.SearchClass hit, int index, BsddPins pins) =>
         hit.Uri is { Length: > 0 }
             ? ClassificationSystem.ByUri(Optional(hit.DictionaryUri).Filter(static u => u.Length > 0).IfNone(hit.Uri), pins)
@@ -657,17 +481,8 @@ public static class BsddResolution {
                     hit.Name, hit.Uri, BsddWire.Rows(hit.RelatedIfcEntityNames), index))
             : None;
 
-    // A shape-reject faults the SAME Refused/BimReason.Unmapped detail Classify mints — one local policy, one fault — never a
-    // fabricated Active evidence for a garbage code the dictionary could not have answered for. The evidence Uri is
-    // stem-only because an unreached dictionary pins no version to build a class URI against. The construction stops
-    // at Status: every trailing member's DEFAULT IS its empty value, and spelling one out restates the language's own
-    // default while inviting a reader to infer the omitted slots mean something else.
     static Fin<BsddClass> LocalShape(ClassificationSystem system, string code, BsddPins pins, Op key) =>
         system.Resolve(pins) is var row && row.Shape.IsMatch(code.Trim())
-            // ClassType stays EMPTY: it is a four-token registry vocabulary (Class|Material|GroupOfProperties|
-            // AlternativeUse) and no dictionary answered, so a stamped "Class" is indistinguishable to a consumer
-            // branching on it from a resolved one. Status is stated explicitly — the degrade's own declared policy,
-            // never an assumed default.
             ? Fin.Succ(new BsddClass(code, $"{row.Title}:{code}", "", "", $"{row.Stem}/class/{System.Uri.EscapeDataString(code.Trim())}", Seq<BsddProperty>(), BsddStatus.Active))
             : Fin.Fail<BsddClass>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Unmapped, string.Join(':', new object?[] { "classification-code-reject", system.Key, code })));
 }

@@ -23,7 +23,7 @@
 - Boundary: this owner holds the EXACT-ISOMETRY tier — re-deriving a conformal or distortion-minimizing solve here, or claiming isometry without the `ddouble` witness, is the tier violation; the input is the `UvTessellation` TYPE and an unbound mesh cannot enter, so the provenance law is structural; rails are `GeodesicGrade.Exact` by law — a heat-grade rail is the drift defect, rail error becoming strip skew becoming witness noise; ruling normals read the surface BINDING at provenance UV — a mesh-normal approximation is the substitution defect; the unroll is rigid placement on exact edge lengths — a spring relaxation, an ARAP pass, or any distortion-minimizing solve here is the tier regression; the witness accumulates in `ddouble` and narrows ONLY at readout — a `double` running sum re-introduces the cancellation the fold exists to kill; QuikGraph containers are transient and the layout leaves as `Component`/`LayoutParent` columns — a stored graph field or leaked `IEdge` type is the lane violation; every failure routes `Strip` with the strip unit and the isometry or torsal measure, no exception crossing the surface.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using DoubleDouble;
@@ -39,7 +39,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Parametric;
 
-// --- [CONSTANTS] --------------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record DevelopPolicy(
     double StripWidth, Dimension RulingStations, Tolerance Torsal, Tolerance Isometry,
     Arr<Point2d> Seed) : IValidityEvidence {
@@ -55,17 +55,15 @@ public sealed record DevelopPolicy(
         ValidityClaim.CountAtLeast(count: RulingStations.Value, floor: 2));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record StripField(
     Arr<int> RailOffsets, Arr<Point2d> RailUv,
     Arr<int> RulingOffsets, Arr<Point2d> RulingA, Arr<Point2d> RulingB, Arr<double> TorsalResidual,
     Arr<int> Component, Arr<int> LayoutParent);
 
-// Fabrication acceptance reads ITS strip's defect off IsometryOf; Band is the ONE derivation off it, and
-// Torsal is the one derivation off the field's own TorsalResidual column — no bare maximum beside either.
 public sealed record DevelopmentReceipt(int Strips, int Rulings, Arr<double> IsometryOf, Stat<Scalar> Band, Stat<Scalar> Torsal, int Components);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DevelopOp {
     private DevelopOp() { }
@@ -101,17 +99,12 @@ public static class Development {
                     ? Rulings(source, policy, field, key)
                     : Fault<StripField>(witness: "empty strip field"));
 
-    static Arr<Point2d> SeedOf(SurfaceResult.UvTessellation source, DevelopPolicy policy);   // policy.Seed, or the u = 0 boundary isoline vertices
-    static Arr<double> LevelLadder(SurfaceResult.UvTessellation source, double stripWidth);  // k·StripWidth up to the field maximum
+    static Arr<Point2d> SeedOf(SurfaceResult.UvTessellation source, DevelopPolicy policy);
+    static Arr<double> LevelLadder(SurfaceResult.UvTessellation source, double stripWidth);
 
-    // Rulings kernel contract: per station s, torsal residual g(t) = (b(t)−a(s)) · (N(a(s)) × N(b(t))) roots through
-    // Brent.TryFindRoot on the monotone upper-rail window, normals Source.NormalAt at provenance UV; one key.Catch-funnelled
-    // Broyden.FindRoot couples the stations enforcing monotone t so rulings cannot cross, an unreached band → TorsalResidual.
     static Fin<StripField> Rulings(SurfaceResult.UvTessellation source, DevelopPolicy policy, SurfaceResult.GeodesicField rails, Op key);
 
     // --- [EXACT_UNROLL]
-    // Ruling quads split on the shorter diagonal; the chain seats at the origin (rail edge on +x) and each next third
-    // vertex lands by two-circle intersection on 3D lengths — no solve, no relaxation.
     static Fin<DevelopmentResult> UnrollOf(SurfaceResult.UvTessellation source, DevelopPolicy policy, StripField field, Op key) =>
         StripCount(field) switch {
             0 => Fault<DevelopmentResult>(witness: "no developable strips"),
@@ -128,18 +121,13 @@ public static class Development {
 
     static int StripCount(StripField field);
     static Fin<UnrolledStrip> Develop(SurfaceResult.UvTessellation source, StripField field, int strip);
-    // Develop = ruling-quad triangle chain, rigid placement, and the ddouble edge-defect fold. The witness is the
-    // RMS defect — a LENGTH, so the Isometry band gates the same dimension on a 40-edge and a 4000-edge strip:
-    //   (defect, edges) = chain.Fold((Defect: ddouble.Zero, Edges: 0L), (s, e) => { ddouble d = (ddouble)e.Len3d − e.Len2d; return (s.Defect + (d * d), s.Edges + 1L); })
-    //   witness = ddouble.Sqrt(defect / (ddouble)edges)   // edges ≥ 1 by the chain's own two-triangle seed
 
     // --- [LAYOUT_AND_ATLAS]
-    // Weight 1/(1+sharedRailLength) puts long shared rails first, minimizing accumulated placement error.
     static Fin<DevelopmentResult> Emit(SurfaceResult.UvTessellation source, StripField field, Seq<UnrolledStrip> strips, Op key) {
         UndirectedGraph<int, SEdge<int>> adjacency = new(allowParallelEdges: false);
         adjacency.AddVertexRange(Enumerable.Range(0, strips.Count));
         foreach ((int a, int b) in SharedRails(field)) { adjacency.AddEdge(new SEdge<int>(a, b)); }
-        Dictionary<int, int> components = new();   // the QuikGraph out-parameter, frozen below and never escaping Emit
+        Dictionary<int, int> components = new();
         int componentCount = adjacency.ConnectedComponents(components);
         Arr<int> componentOf = new([.. Enumerable.Range(0, strips.Count).Select(strip => components[strip])]);
         IEnumerable<SEdge<int>> order = adjacency.MinimumSpanningTreeKruskal(edge => 1.0 / (1.0 + SharedRailLength(field, edge.Source, edge.Target)));
@@ -148,18 +136,11 @@ public static class Development {
 
     static Seq<(int A, int B)> SharedRails(StripField field);
     static double SharedRailLength(StripField field, int a, int b);
-    // Components descending by planar extent, strips within a component in MST breadth order — ONE ordering
-    // projection off the same forest, so a nesting consumer re-derives no layout.
     internal static Arr<int> PlacementOrder(Seq<UnrolledStrip> strips, Arr<int> componentOf, Seq<SEdge<int>> forest);
-    // Atlas packs strips in PlacementOrder; UvIsland(ChartId.Create(strip), …, planar) per strip, RegionBoundary
-    // FeatureEdge rail Seams, FlipFreeBijective by exact Orient2D; the receipt Band is Stat<Scalar>.Of over the
-    // IsometryOf column, Torsal the same fold over field.TorsalResidual.AsSpan(), and the DistortionReceipt
-    // rides off the unroll Jacobians beside them.
     static Fin<DevelopmentResult> Atlas(
         SurfaceResult.UvTessellation source, StripField field, Seq<UnrolledStrip> strips,
         Arr<int> componentOf, Seq<SEdge<int>> forest, int componentCount, Op key);
 
-    // A whole-request refusal names NO strip: `unit` stays None rather than fabricating ordinal 0 as the offender.
     static Fin<T> Fault<T>(string witness, Option<int> unit = default, Option<double> measure = default) =>
         Fin.Fail<T>(new GeometryFault.DevelopmentFault(DevelopmentStage.Strip, unit, witness, measure));
 }

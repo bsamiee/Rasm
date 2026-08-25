@@ -41,10 +41,6 @@ import { Array, Context, Effect, Layer, pipe } from "effect"
 import type { RequestOptions } from "node:http"
 import { type Export, Hooks } from "./emit.ts"
 
-// `Instrument.live` requires this published manager, so registration provably follows the install at the type level
-// rather than by root composition order, and a native-lane root composes this Layer alone — it publishes a value and
-// requires nothing, which is exactly what makes `emit#LANES`'s `_tracerContext` non-inert on a lane that can never
-// compose the registration node.
 class _Ambient extends Context.Tag("runtime/Instrument/Ambient")<_Ambient, ContextManager>() {}
 
 const _ambient: Layer.Layer<_Ambient> = Layer.scoped(
@@ -59,8 +55,6 @@ const _ambient: Layer.Layer<_Ambient> = Layer.scoped(
   ),
 )
 
-// one parse per registration yields every coordinate the three hook families each receive, for EVERY self-egress the
-// process holds — the collector plus each `policy.egress` origin — so a second telemetry backend is a policy row
 const _egress = (policy: Export.Policy): ReadonlyArray<{ readonly host: string; readonly origin: string; readonly port: string }> =>
   Array.map([policy.collector.baseUrl, ...policy.egress], (raw) =>
     pipe(new URL(raw), (url) => ({
@@ -71,9 +65,6 @@ const _egress = (policy: Export.Policy): ReadonlyArray<{ readonly host: string; 
 
 type _Egress = ReturnType<typeof _egress>
 
-// RequestOptions never carries a scheme-qualified URL and fills only the authority fields its caller supplied — a
-// URL-built request (what the OTLP node transport issues) leaves `host` undefined entirely — so the pair normalizes
-// here under the package's own default-port fill; a bare `host` compare misses the exporter's own traffic outright
 const _authority = (request: RequestOptions): { readonly host: string; readonly port: string } =>
   pipe(request.host?.match(/^([^:/ ]+)(:\d{1,5})?/), (stated) => ({
     host: request.hostname ?? stated?.[1] ?? "localhost",
@@ -82,30 +73,28 @@ const _authority = (request: RequestOptions): { readonly host: string; readonly 
 
 const _rows = (policy: Export.Policy, egress: _Egress): ReadonlyArray<Instrumentation> => [
   new HttpInstrumentation({
-    enabled: policy.server.rows.http, // the zeroth column: a refused row never patches its module, where a tuned-off row still does
-    // inbound hooks receive a request path, so the ignore roster is paths and the collector fact has no spelling here
+    enabled: policy.server.rows.http,
     ignoreIncomingRequestHook: (request) => Array.some(policy.server.ignore, (row) => (request.url ?? "").includes(row)),
     ignoreOutgoingRequestHook: (request) =>
       pipe(_authority(request), (authority) => Array.some(egress, (row) => row.host === authority.host && row.port === authority.port)),
-    redactedQueryParams: [...policy.server.redact], // finer than the boundary seal: a deployment keeping url.full still masks its named params
+    redactedQueryParams: [...policy.server.redact],
     requireParentforOutgoingSpans: !policy.server.orphan,
   }),
   new UndiciInstrumentation({
     enabled: policy.server.rows.undici,
     ignoreRequestHook: (request) => pipe(new URL(request.origin).origin, (origin) => Array.some(egress, (row) => row.origin === origin)),
-    requireParentforSpans: !policy.server.orphan, // Effect's spans are primary: a client hop enriches the live tree, never roots a rival trace
+    requireParentforSpans: !policy.server.orphan,
   }),
   new PgInstrumentation({
-    addSqlCommenterCommentToQueries: policy.server.comment, // the comment rides the statement text pg_stat_statements normalizes
-    // an extra SET application_name round-trip per query: the session stamp is priced apart from the comment, never bundled with it
+    addSqlCommenterCommentToQueries: policy.server.comment,
     enableTraceContextPropagation: policy.server.session,
-    enabled: policy.server.rows.pg, // a deployment with no Postgres refuses the `pg` module patch outright
+    enabled: policy.server.rows.pg,
     enhancedDatabaseReporting: policy.server.statement,
     ignoreConnectSpans: !policy.server.connect,
     requireParentSpan: !policy.server.orphan,
   }),
   new RuntimeNodeInstrumentation({
-    captureUncaughtException: false, // crash#CAPTURE is the one process-fatal owner: a second listener mints a rival fatal record
+    captureUncaughtException: false,
     enabled: policy.server.rows.runtime,
     monitoringPrecision: policy.server.engine.precision,
   }),
@@ -123,10 +112,6 @@ const Instrument: {
   live: (policy) =>
     Layer.scopedDiscard(
       Effect.flatMap(
-        // `_Ambient` rides `R`: registration provably follows its install, and a raise here unwinds only this bracket
-        // because the manager's own Layer owns its teardown. `HostMetrics` publishes no stop seam — it registers
-        // observable callbacks on the meter provider handed in, so its lifetime is already that provider's and its
-        // rollback is that provider's own close.
         Effect.all([
           Effect.flatMap(Hooks, (hooks) => hooks.drained),
           Hooks.Meter,
@@ -137,7 +122,7 @@ const Instrument: {
         ([adds, raw, tracerProvider, loggerProvider]) =>
           Effect.acquireRelease(
             Effect.sync(() => {
-              const egress = _egress(policy) // one parse per registration, read by every hook the rows install
+              const egress = _egress(policy)
               new HostMetrics({
                 meterProvider: raw.provider,
                 metricGroups: [...policy.server.engine.groups],
@@ -145,7 +130,7 @@ const Instrument: {
               }).start()
               return registerInstrumentations({
                 instrumentations: [..._rows(policy, egress), ...adds.instruments],
-                loggerProvider, // every provider slot binds: an omitted one falls to the api global the facade never registers
+                loggerProvider,
                 meterProvider: raw.provider,
                 tracerProvider,
               })
@@ -156,7 +141,7 @@ const Instrument: {
     ),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Instrument }
 ```

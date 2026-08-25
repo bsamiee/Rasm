@@ -49,25 +49,13 @@ _ENCODER: Final = msgjson.Encoder(order="deterministic")
 
 
 def _solve_raises() -> Catch:
-    # resolved at the CALL: every provider on this page binds `lazy`, so a module-scope tuple naming their
-    # exception classes would import the compiled solver and Arrow at module load and undo that deferral.
-    # `bw2calc.errors.BW2CalcError` roots the solver family and `bw2data.errors.BW2Exception` the store's; a demand
-    # key or method tuple the project never held answers `KeyError`, and the score frame's build answers
-    # `pa.ArrowException` (`.api/pyarrow.md` `[CORE_ERRORS]`, the in-memory root).
     return (bc.errors.BW2CalcError, bd.errors.BW2Exception, pa.ArrowException, KeyError, TypeError, ValueError, OSError)
 
 
 def _mine_raises() -> Catch:
-    # `bw2analyzer` publishes no exception module of its own — probed against the installed distribution — so the
-    # mining set names the solver family it walks plus the stdlib rows an absent activity, a short top-N, or a
-    # mis-typed method tuple raise through it. `OSError` covers the recursive arm's own text sink.
     return (bc.errors.BW2CalcError, KeyError, IndexError, TypeError, ValueError, OSError)
 
 
-# this module's raise roster under its one `DataLeg` member. Every row is TERMINAL: a shared factorization and a
-# driver mine are deterministic solves over an already-mounted project, so a re-issue over the same demand and
-# method set refuses identically and no re-offer clears a missing method or an unbalanced demand. The unbounded-walk
-# row is this owner's OWN refusal and carries the mine it refused; the two fence anchors declare no `slots`.
 SOLVE_BATCH: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.SOLVE, point="batch", arm="boundary", defect="multilca", retriability=TERMINAL
 )
@@ -107,14 +95,11 @@ class SolveReceipt(Struct, frozen=True, gc=False):
 
 class LcaBatch(Struct, frozen=True):
     project: str
-    # the provider's own demand shape: name -> {activity id: amount}; names key the score frame's `unit` column.
     functional_units: "dict[str, dict[int, float]]"
     categories: tuple[tuple[str, ...], ...]
     iterations: int = 0
 
     async def solved(self) -> "RuntimeRail[tuple[pa.Table, SolveReceipt]]":
-        # ONE factorization serves every (unit, category) cell; the blocking sparse solve rides the band hop and
-        # the span is the embedded engine's whole observability surface.
         def run() -> "tuple[pa.Table, SolveReceipt]":
             bd.projects.set_current(self.project)
             config = {"impact_categories": [tuple(category) for category in self.categories]}
@@ -124,7 +109,6 @@ class LcaBatch(Struct, frozen=True):
             )
             lca.lci()
             lca.lcia()
-            # `scores` keys (category tuple, unit name) -> float; the frame carries both halves as columns.
             rows = tuple((unit, ":".join(category), float(score)) for (category, unit), score in lca.scores.items())
             table = pa.Table.from_pydict({
                 "unit": [unit for unit, _, _ in rows],
@@ -164,11 +148,6 @@ from rasm.runtime.faults import Depth
 lazy from bw2analyzer import ContributionAnalysis, print_recursive_calculation
 
 
-# the mine's two EVIDENCE KINDS, apart. The annotated tables answer measured `(score, supply, activity)` triples and
-# land on the carrier's own `ContributionRow`; the recursive walk answers indented provider text and computes no
-# score or supply at all. Fusing them forced the text arm to write `0.0` into both measures, so a walk line was
-# indistinguishable from a driver that genuinely contributes nothing — `docs/laws/scars.md` `[FORGED_ZERO]`, a
-# required slot with a zero default spelling no absence. Two cases make that spelling unrepresentable.
 @tagged_union(frozen=True)
 class Mined:
     tag: Literal["rows", "lines"] = tag()
@@ -179,12 +158,8 @@ class Mined:
 @tagged_union(frozen=True)
 class Contribution:
     tag: Literal["processes", "emissions", "recursive"] = tag()
-    processes: int = case()  # top-N limit
-    emissions: int = case()  # top-N limit
-    # (activity, lcia method, walk bound, cutoff). The ACTIVITY seats on the case that needs it rather than as a
-    # defaulted parameter every arm admitted: only the recursive walk takes one, and a defaulted `None` made a
-    # walk with no activity representable at every call site. The bound is the runtime `Depth` every walk in the
-    # branch shares, so a supply chain and a topology walk state their limit in one vocabulary.
+    processes: int = case()
+    emissions: int = case()
     recursive: "tuple[object, tuple[str, ...], Depth, float]" = case()
 
     def mined(self, lca: object) -> "RuntimeRail[Mined]":
@@ -197,9 +172,6 @@ class Contribution:
                     mined = ContributionAnalysis().annotated_top_emissions(lca, limit=limit)
                     return Ok(Mined(rows=_rows(mined)))
                 case Contribution(tag="recursive", recursive=(activity, method, bound, cutoff)):
-                    # `print_recursive_calculation` spells its limit as a REQUIRED level count, so it has no
-                    # convergence walk to offer: a `fixpoint` bound refuses by name here rather than being lowered
-                    # to some maximum the provider would silently truncate at.
                     match bound:
                         case Depth(tag="fixpoint"):
                             return Error(SOLVE_UNBOUNDED.raised("recursive"))
@@ -217,8 +189,6 @@ class Contribution:
 
 
 def _rows(mined: "Iterable[tuple[float, float, object]]") -> "tuple[ContributionRow, ...]":
-    # ONE projection both annotated arms share: the provider hands the same triple shape from either table, so a
-    # second per-arm comprehension restated a fold the case already fixed.
     return tuple(ContributionRow(score=float(score), supply=float(supply), activity=str(name)) for score, supply, name in mined)
 ```
 

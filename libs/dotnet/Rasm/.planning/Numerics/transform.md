@@ -20,7 +20,7 @@ Rebuilds compose the `Rasm.Domain` rails as the validity floor and `Numerics/ato
 - Boundary: framing is a COLUMN on the row and never a second roster — only four of the seventeen rows carry the periodic twin, and the shaped rows carry filter-design alone; `Rasm.Compute` `Stats/signal` `WindowKind` was the strata twin this roster absorbed — its `rectangular` spelling reads `Dirichlet` here and its default sigma and fraction stay Compute policy values handed in as `TaperShape`, never roster defaults.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using LanguageExt;
@@ -31,7 +31,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TaperFraming {
     public static readonly TaperFraming FilterDesign = new(key: 0);
@@ -43,13 +43,12 @@ public abstract partial record TaperShape {
     private TaperShape() { }
     public sealed record Spread(PositiveMagnitude Sigma) : TaperShape;
     public sealed record Tapered(UnitInterval Fraction) : TaperShape;
-    // Kaiser's shape parameter: the sidelobe-versus-mainlobe trade the Bessel argument scales.
     public sealed record Beta(PositiveMagnitude Value) : TaperShape;
 }
 
 internal delegate Fin<Arr<double>> TaperKernel(int width, Option<TaperShape> shape, TaperFraming framing, Op key);
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WindowTaper {
@@ -70,9 +69,6 @@ public sealed partial class WindowTaper {
         sample: Shaped(Window.Gauss, static shape => shape is TaperShape.Spread spread ? Some(spread.Sigma.Value) : None));
     public static readonly WindowTaper Tukey = new(key: "tukey",
         sample: Shaped(Window.Tukey, static shape => shape is TaperShape.Tapered tapered ? Some(tapered.Fraction.Value) : None));
-    // The two responses the package omits, carried here as branch-owned legs rather than pushed onto every
-    // consumer that would fork the same fold. Kaiser is Oppenheim-Schafer 3rd ed. eq. 7.60 over MathNet's own
-    // BesselI0; Bohman is the Harris 1978 window catalogue's closed form (Proc. IEEE 66(1), §4).
     public static readonly WindowTaper Kaiser = new(key: "kaiser",
         sample: Shaped(KaiserDesign, static shape => shape is TaperShape.Beta beta ? Some(beta.Value.Value) : None));
     public static readonly WindowTaper Bohman = new(key: "bohman", sample: Fixed(BohmanDesign, None));
@@ -88,15 +84,11 @@ public sealed partial class WindowTaper {
             : framing.Switch(
                 filterDesign: () => Fin.Succ(new Arr<double>(design(arg: width))),
                 fftFrame: () => framed.ToFin(key.InvalidInput()).Map(twin => new Arr<double>(twin(arg: width))));
-    // ONE shaped kernel: the row supplies its design and the accessor naming the ONE TaperShape case it consumes,
-    // so a shape the row does not admit answers None and refuses without a per-parameter kernel twin.
     private static TaperKernel Shaped(Func<int, double, double[]> design, Func<TaperShape, Option<double>> parameter) =>
         (width, shape, framing, key) => framing.Switch(
             filterDesign: () => shape.Bind(parameter).ToFin(key.InvalidInput()).Map(value => new Arr<double>(design(arg1: width, arg2: value))),
             fftFrame: () => Fin.Fail<Arr<double>>(key.InvalidInput()));
 
-    // Symmetric sampling over n in [0, width): x spans [-1, 1] at the endpoints, matching the package roster's
-    // own filter-design framing, so a caller mixing a Kaiser with a Hann reads one convention.
     private static double[] KaiserDesign(int width, double beta) {
         double norm = SpecialFunctions.BesselI0(x: beta), span = Math.Max(val1: 1, val2: width - 1);
         return [.. Enumerable.Range(start: 0, count: width).Select(n =>
@@ -122,7 +114,7 @@ public sealed partial class WindowTaper {
 - Boundary: `MathNet.Numerics.Interpolation` is one-dimensional whole, so a bicubic or scattered-surface reconstruction is the regression route's and never a factory here; the extension blocks are the ONLY reach to `Differentiate`/`Differentiate2`/`Integrate`, so a consumer holding an `Interpolant<Sampled>` cannot spell them.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -135,7 +127,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IInterpolantCapability { }
 public interface IDifferentiable : IInterpolantCapability { }
 public interface IIntegrable : IInterpolantCapability { }
@@ -144,7 +136,7 @@ public readonly struct Smooth : IDifferentiable, IIntegrable { }
 public readonly struct Differentiable : IDifferentiable { }
 public readonly struct Sampled : IInterpolantCapability { }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class Interpolant<TCap> where TCap : IInterpolantCapability {
     internal Interpolant(IInterpolation curve) => Curve = curve;
     internal IInterpolation Curve { get; }
@@ -153,7 +145,7 @@ public sealed class Interpolant<TCap> where TCap : IInterpolantCapability {
     public Fin<double> Value(double t, Op? key = null) => Interpolant.Finite(value: Curve.Interpolate(t: t), key: key.OrDefault());
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Interpolant {
     [BoundaryAdapter] public static Fin<Interpolant<Smooth>> CubicSpline(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.CubicSpline(p, v));
@@ -161,8 +153,6 @@ public static class Interpolant {
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.CubicSplineRobust(p, v));
     [BoundaryAdapter] public static Fin<Interpolant<Smooth>> CubicSplineMonotone(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Smooth>(points, values, key.OrDefault(), static (p, v) => Interpolate.CubicSplineMonotone(p, v));
-    // One scheme consumes prescribed slopes, so the slope series is a required argument here and rides no dead
-    // optional on the eleven factories that would ignore it.
     [BoundaryAdapter] public static Fin<Interpolant<Smooth>> Hermite(Arr<double> points, Arr<double> values, Arr<double> slopes, Op? key = null) {
         Op op = key.OrDefault();
         return slopes.Count == points.Count && TensorPrimitives.IsFiniteAll<double>(slopes.AsSpan())
@@ -186,12 +176,9 @@ public static class Interpolant {
     [BoundaryAdapter] public static Fin<Interpolant<Sampled>> PolynomialEquidistant(Arr<double> points, Arr<double> values, Op? key = null) =>
         Build<Sampled>(points, values, key.OrDefault(), static (p, v) => Interpolate.PolynomialEquidistant(p, v));
 
-    // N+1 ascending knots against N coefficient triples through the package CONSTRUCTOR — a coefficient admission, never a sample fit.
     [BoundaryAdapter]
     public static Fin<Interpolant<Smooth>> OfSegments(Arr<double> knots, Arr<double> constant, Arr<double> linear, Arr<double> quadratic, Op? key = null) {
         Op op = key.OrDefault();
-        // Four independent coefficient columns: a caller handed a short quadratic run and an unordered knot
-        // vector learns BOTH, where the AND-ladder reported whichever clause the author happened to list first.
         return Admit.Claims(op,
                 (knots.Count >= 2, "knots-extent"),
                 (constant.Count == knots.Count - 1, "constant-extent"),
@@ -228,8 +215,6 @@ public static class Interpolant {
         [BoundaryAdapter] public Fin<double> Curvature(double t, Op? key = null) => Finite(value: self.Curve.Differentiate2(t: t), key: key.OrDefault());
     }
     extension<TCap>(Interpolant<TCap> self) where TCap : IIntegrable {
-        // ONE definite integral: absent `from` anchors at the fit start, present `from` states the lower limit —
-        // the discriminant rides the value rather than the arity, which carried two different semantics.
         [BoundaryAdapter] public Fin<double> Area(double to, Option<double> from = default, Op? key = null) =>
             Finite(value: from.Match(Some: a => self.Curve.Integrate(a: a, b: to), None: () => self.Curve.Integrate(t: to)), key: key.OrDefault());
     }
@@ -247,7 +232,7 @@ public static class Interpolant {
 - Boundary: `Fourier.Forward2D`/`Inverse2D`/`ForwardMultiDim`/`InverseMultiDim` never spell in a fence — all four route to the multidim provider seam whose managed realization throws `NotSupportedException`, and the admitted native adapters ship no arm64 asset, so the managed-provider pin makes them unservable by construction. Every transform overwrites the caller's arena, so an immutable spectrum value is unrepresentable and the receipt names the arena the result lives in — the same instance for the three in-place cases, a fresh one for the Hartley case, the sole entrypoint that allocates its output. Separable convolution has NO package primitive — `System.Numerics.Tensors` carries no `Conv1D`, `Conv2D`, `Conv3D`, or `MatMul` — so this band owns BOTH routes of the one convolution correspondence itself: the pointwise spectral product between the transform legs (`SpectralReceipt.Modulate`) and the sample-domain tap fold (`TapSeries.Convolve`); a consumer composes one of the two and spells no fold of its own, while its tap GENERATION stays the consumer's domain policy. Zero-sum series are DIFFERENCE stencils and refuse at the mint: `Numerics/calculus#NABLA` owns those, so the two owners partition on the tap sum rather than overlapping. `CellLattice` is the addressing carrier for a lattice-backed plane and owns the per-axis `Extent`/`Stride`/`Spacing` read every separable walk takes, so the band mints no second linearization, no sibling 2D arena, and no strided-view owner beside it — the `Tensor<T>` plane stays refused on four structural grounds: array-only static entrypoints at the mint, `ref struct` span views that cannot cross the `Fin` rail, an allocating `PermuteDimensions` on every transpose, and this carrier's one-linearization law. Named statement-kernel exemption covers the separable axis gather-scatter and the tap-fold record walk — measured strided-line hot paths.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Numerics;
@@ -264,10 +249,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// FourierOptions and HartleyOptions spell the three conventions at the same ordinals, so one row governs both transform
-// owners; RoundTrip reads the CELL count, so a separable fold composes per axis and the rank-3 factor is the axis-length
-// product with no call-site arithmetic.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SpectralScaling {
     public static readonly SpectralScaling Symmetric = new(key: 0,
@@ -281,8 +263,6 @@ public sealed partial class SpectralScaling {
     [UseDelegateFromConstructor] public partial double RoundTrip(long cells);
 }
 
-// Packed pair refuses FourierOptions.InverseExponent outright; none of the three admitted convention rows sets it, so the
-// packed arm reaches the provider unconditionally.
 [SmartEnum<int>]
 public sealed partial class SpectralSense {
     public static readonly SpectralSense Forward = new(key: 0,
@@ -295,8 +275,6 @@ public sealed partial class SpectralSense {
     [UseDelegateFromConstructor] internal partial double[] RealValued(double[] samples, HartleyOptions options);
 }
 
-// Zero resolves to ABSENCE, which the fold drops from its weight sum — never a fabricated sample and never a
-// magic negative ordinal threaded out of a delegate column for a consumer to re-read as a sentinel.
 [SmartEnum<int>]
 public sealed partial class TapBorder {
     public static readonly TapBorder Clamp = new(key: 0, resolve: static (index, extent) => Some(Math.Clamp(value: index, min: 0, max: extent - 1)));
@@ -306,8 +284,6 @@ public sealed partial class TapBorder {
 
     [UseDelegateFromConstructor] internal partial Option<int> Resolve(int index, int extent);
 
-    // Reflection about the border sample — period (extent−1)·2 — so the edge never doubles the way a repeated
-    // border tap would brighten a rim under a weighting kernel.
     private static int Reflected(int index, int extent) {
         int period = Math.Max(val1: 1, val2: (extent - 1) * 2);
         int folded = ((index % period) + period) % period;
@@ -315,9 +291,7 @@ public sealed partial class TapBorder {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Logical axes carry Extent records, Stride scalars each, staged from record Origin, folding records [From, From+Run);
-// interleaved lanes RIDE the stride, so one call folds a lane-interleaved plane row or column whole.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TapWindow : IValidityEvidence {
     private TapWindow(int extent, int origin, int from, int run, int stride) =>
         (Extent, Origin, From, Run, Stride) = (extent, origin, from, run, stride);
@@ -327,8 +301,6 @@ public readonly record struct TapWindow : IValidityEvidence {
     public int Run { get; }
     public int Stride { get; }
 
-    // Gated like its sibling TapSeries: extent, run, and stride ride Dimension so a non-positive one is
-    // unrepresentable, and the two staging clauses accumulate so a caller learns both placements at once.
     [BoundaryAdapter]
     public static Fin<TapWindow> Of(Dimension extent, Dimension stride, int origin, int from, Dimension run, Op? key = null) {
         Op op = key.OrDefault();
@@ -339,7 +311,6 @@ public readonly record struct TapWindow : IValidityEvidence {
                 (from + run.Value <= extent.Value, "run-within-extent"))
             .Map(_ => new TapWindow(extent: extent.Value, origin: origin, from: from, run: run.Value, stride: stride.Value));
     }
-    // The whole-axis staging every separable fold takes; Dimension already proves the positivity Of would gate.
     internal static TapWindow Whole(Dimension extent, Dimension stride) =>
         new(extent: extent.Value, origin: 0, from: 0, run: extent.Value, stride: stride.Value);
     public bool IsValid => ValidityClaim.All(
@@ -351,8 +322,6 @@ public readonly record struct TapSeries : IValidityEvidence {
 
     public Arr<double> Taps { get; }
     public int Radius => Taps.Count / 2;
-    // Default-ghost read for the fold seams: an array- or default-minted TapSeries carries an empty tap roster no
-    // admission saw; Of proved the rest once, so no seam re-validates.
     public bool IsValid => ValidityClaim.All(Taps.Count >= 1);
 
     [BoundaryAdapter]
@@ -367,9 +336,6 @@ public readonly record struct TapSeries : IValidityEvidence {
         MatrixKernel.TapFold(series: this, source: source, folded: folded, window: window, border: border, key: key.OrDefault());
 }
 
-// The separable lattice fold seats on the ADDRESSING owner, because the lattice is its discriminant: a static
-// `TapSeries.Convolve` taking its own axis roster wore the instance member's name while ignoring `this`, so
-// `series.Convolve(values, lattice, axes, ...)` read as legal and did not compile.
 public static class LatticeConvolution {
     extension(CellLattice lattice) {
         [BoundaryAdapter]
@@ -378,9 +344,6 @@ public static class LatticeConvolution {
     }
 }
 
-// Each case carries exactly the extent its arm consumes: the interleaved case rides the CellLattice (Layers == 1 IS the
-// plane, so no sibling 2D arena exists) and the three one-dimensional cases carry their own sampling rate. The interleaved
-// buffer is int-indexed while a lattice census is long, so a census above the array bound refuses at the length gate.
 [Union]
 public abstract partial record SpectralArena : IValidityEvidence {
     private SpectralArena() { }
@@ -404,11 +367,6 @@ public abstract partial record SpectralArena : IValidityEvidence {
         split: static s => (long)s.Real.Length,
         halfSpectrum: static h => (long)h.Samples.Value,
         realValued: static r => (long)r.Samples.Count);
-    // The ONE per-ordinal spectral metric: bin count and sampling rate. Lattices read their own linearization
-    // owner, and the three one-dimensional cases answer only at ordinal zero, so an out-of-rank ordinal states
-    // ABSENCE here instead of four call sites each re-spelling the same range refusal. Lattices admit only an
-    // invertible affine, so no spacing is zero and the reciprocal needs no floor; a degenerate one divides to
-    // infinity and the axis gate refuses it as non-finite.
     internal Option<(int Count, double SampleRate)> Metric(int ordinal) => Switch(
         state: ordinal,
         interleaved: static (o, a) => o >= 0 && o < a.Lattice.Rank
@@ -417,13 +375,9 @@ public abstract partial record SpectralArena : IValidityEvidence {
         split: static (o, a) => o is 0 ? Some((Count: a.Real.Length, SampleRate: a.Rate.Value)) : Option<(int, double)>.None,
         halfSpectrum: static (o, a) => o is 0 ? Some((Count: a.Samples.Value, SampleRate: a.Rate.Value)) : Option<(int, double)>.None,
         realValued: static (o, a) => o is 0 ? Some((Count: a.Samples.Count, SampleRate: a.Rate.Value)) : Option<(int, double)>.None);
-    // Packed conjugate-even extent: N+2 doubles for even N, N+1 for odd, holding interleaved (real, imaginary) bin pairs
-    // — bin zero's imaginary slot included — which is exactly the layout the inverse packed transform unpacks.
     internal static int PackedLength(int samples) => int.IsEvenInteger(samples) ? samples + 2 : samples + 1;
 }
 
-// Rank, cell count, and the round-trip factor derive from the arena and the convention; Energy is the one MEASURED value — the
-// summed bin power, which under symmetric scaling is the Parseval-invariant a round trip must preserve.
 public readonly record struct SpectralReceipt(SpectralArena Arena, SpectralSense Sense, SpectralScaling Scaling, double Energy) : IValidityEvidence {
     public int Rank => Arena.Rank;
     public long Cells => Arena.Cells;
@@ -435,14 +389,13 @@ public readonly record struct SpectralReceipt(SpectralArena Arena, SpectralSense
         Cells >= 1L && Rank >= 1);
     [BoundaryAdapter] public Fin<Arr<double>> Power(Op? key = null) => MatrixKernel.SpectralPower(arena: Arena, key: key.OrDefault());
     [BoundaryAdapter] public Fin<Arr<double>> Axis(SignedAxis axis, Op? key = null) => MatrixKernel.SpectralAxis(arena: Arena, axis: axis, key: key.OrDefault());
-    // Pointwise spectral product re-mints the receipt because it moves the energy the previous one measured.
     [BoundaryAdapter] public Fin<SpectralReceipt> Modulate(ReadOnlySpan<Complex> symbol, Op? key = null) =>
         MatrixKernel.SpectralModulate(receipt: this, symbol: symbol, key: key.OrDefault());
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class MatrixKernel {
-    // --- [SPECTRAL] ------------------------------------------------------------------------------
+    // --- [SPECTRAL] --------------------------------------------------------------------
     internal static Fin<SpectralReceipt> SpectralTransform(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
         arena is null || sense is null || scaling is null || !arena.IsValid
             ? Fin.Fail<SpectralReceipt>(key.InvalidInput())
@@ -459,19 +412,13 @@ internal static partial class MatrixKernel {
                 s.Sense.Packed(arena: a.Values, samples: a.Samples.Value, options: s.Scaling.FourierConvention);
                 return (SpectralArena)a;
             },
-            // Hartley pair is the ONE arm that allocates, returning a fresh coefficient vector rather than overwriting its input.
             realValued: static (s, a) => new SpectralArena.RealValued(
                 Samples: new Arr<double>(s.Sense.RealValued(samples: [.. a.Samples.AsIterable()], options: s.Scaling.HartleyConvention)), Rate: a.Rate));
-    // Per axis, each line gathers at that axis's stride into one contiguous buffer, takes the 1D transform, and scatters
-    // back; the strides ARE the lattice's own linearization read as per-axis steps (1, Columns, Columns·Rows).
     private static SpectralArena FoldSeparable(SpectralArena.Interleaved arena, SpectralSense sense, FourierOptions options) {
         CellLattice lattice = arena.Lattice;
         int cells = arena.Values.Length;
         for (int axis = 0; axis < lattice.Rank; axis++) {
             int count = lattice.Extent(ordinal: axis).Value, stride = lattice.Stride(ordinal: axis);
-            // NOT pooled: the package entrypoint takes a `Complex[]` and transforms its WHOLE length, so a
-            // rental longer than the axis would silently change the transform size. One array per axis, at most
-            // three per call, is the exact-extent form the seam demands.
             Complex[] line = new Complex[count];
             for (int origin = 0; origin < cells; origin++) {
                 if (origin / stride % count != 0) { continue; }
@@ -482,8 +429,6 @@ internal static partial class MatrixKernel {
         }
         return arena;
     }
-    // One power fold serves both the receipt's measured energy and the consumer's per-bin read, so the spectrum is never
-    // walked twice.
     private static Fin<SpectralReceipt> SpectralReceiptOf(SpectralArena arena, SpectralSense sense, SpectralScaling scaling, Op key) =>
         SpectralPower(arena: arena, key: key).Bind(power => {
             SpectralReceipt receipt = new(Arena: arena, Sense: sense, Scaling: scaling, Energy: TensorPrimitives.Sum<double>(power.AsSpan()));
@@ -492,8 +437,6 @@ internal static partial class MatrixKernel {
     internal static Fin<Arr<double>> SpectralPower(SpectralArena arena, Op key) =>
         arena is null || !arena.IsValid
             ? Fin.Fail<Arr<double>>(key.InvalidInput())
-            // Interleaved Complex and packed conjugate-even doubles are the SAME (re, im) byte layout, so one
-            // pair fold serves both through the cast and no per-layout body survives.
             : key.Catch(() => Fin.Succ(arena.Switch(
                 interleaved: static a => PairPower(pairs: MemoryMarshal.Cast<Complex, double>(a.Values), bins: a.Values.Length),
                 split: static s => SplitPower(real: s.Real, imaginary: s.Imaginary),
@@ -505,8 +448,6 @@ internal static partial class MatrixKernel {
         TensorPrimitives.MultiplyAdd<double>(imaginary, imaginary, power, power);
         return new Arr<double>(power);
     }
-    // Squaring vectorizes over the whole interleaved run; only the adjacent-pair reduction is scalar, and that
-    // contiguous two-lane walk is the named statement-kernel exemption.
     private static Arr<double> PairPower(ReadOnlySpan<double> pairs, int bins) {
         using MemoryOwner<double> squares = MemoryOwner<double>.Allocate(size: bins * 2);
         TensorPrimitives.Multiply<double>(pairs[..(bins * 2)], pairs[..(bins * 2)], squares.Span);
@@ -514,9 +455,6 @@ internal static partial class MatrixKernel {
         for (int bin = 0; bin < bins; bin++) { power[bin] = squares.Span[2 * bin] + squares.Span[(2 * bin) + 1]; }
         return new Arr<double>(power);
     }
-    // Hartley spectra are real and their power pairs a bin with its reflection — |F(k)|² = (H(k)² + H(N−k)²)/2, bin zero
-    // pairing itself — so reading H(k)² alone would report the Fourier power of a symmetric spectrum only. The
-    // reflection is one reversed copy of the tail, so the pairing rides the span operators like every sibling.
     private static Arr<double> HartleyPower(Arr<double> samples) {
         int n = samples.Count;
         using MemoryOwner<double> reflected = MemoryOwner<double>.Allocate(size: n);
@@ -542,8 +480,6 @@ internal static partial class MatrixKernel {
                 return TensorPrimitives.IsFiniteAll<double>(bins.AsSpan()) ? Fin.Succ(bins) : Fin.Fail<Arr<double>>(key.InvalidResult());
             });
 
-    // Symbols address interleaved bins, so the packed and Hartley layouts refuse rather than have the band re-derive the
-    // package's own bin packing; the destination aliases its operand legally, so the product runs in place.
     internal static Fin<SpectralReceipt> SpectralModulate(SpectralReceipt receipt, ReadOnlySpan<Complex> symbol, Op key) =>
         receipt.Arena is SpectralArena.Interleaved plane && plane.Values.Length == symbol.Length && Admit.FiniteComplexSpan(symbol)
             ? Modulated(plane: plane, symbol: symbol, receipt: receipt, key: key)
@@ -553,10 +489,7 @@ internal static partial class MatrixKernel {
         return SpectralReceiptOf(arena: plane, sense: receipt.Sense, scaling: receipt.Scaling, key: key);
     }
 
-    // --- [TAP_FOLD] ------------------------------------------------------------------------------
-    // Admission proves the window's staging covers every in-extent tap the run reaches; the RESOLVING border rows —
-    // Clamp, Wrap, Mirror — demand the whole axis staged, because a wrapped or clamped index resolves anywhere on the
-    // axis, so a partial window rides TapBorder.Zero alone.
+    // --- [TAP_FOLD] --------------------------------------------------------------------
     internal static Fin<Unit> TapFold(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op key) {
         int stride = window.Stride, staged = stride >= 1 ? source.Length / stride : 0;
         bool whole = window.Origin == 0 && staged == window.Extent;
@@ -571,10 +504,7 @@ internal static partial class MatrixKernel {
                 (whole || border == TapBorder.Zero, "partial-window-border"))
             .Bind(_ => TapFoldCore(series: series, source: source, folded: folded, window: window, border: border, key: key));
     }
-    // In place over the caller's values, mirroring the transform's arena law; the identical per-axis walk FoldSeparable takes.
     internal static Fin<Unit> TapFoldLattice(Span<double> values, CellLattice lattice, Arr<TapSeries> axes, TapBorder border, Op key) {
-        // Axes arrive caller-shaped, so the default-ghost gate reads every series' key member before any lattice value
-        // moves — an array-minted default(TapSeries) otherwise reaches the core and throws off the rail.
         Fin<Unit> admitted = Admit.Claims(key,
             (border is not null, "border"),
             (axes.Count == lattice.Rank, "axis-arity"),
@@ -598,9 +528,6 @@ internal static partial class MatrixKernel {
         }
         return Fin.Succ(unit);
     }
-    // In-extent taps read their staged record directly; an out-of-extent tap routes through the border row's own address
-    // column, and a negative resolution drops the tap AND its weight. A resolved-weight sum the drops cancel below the
-    // epsilon floor refuses TYPED naming the record — a 0.0-scale fall-through would certify a fabricated zero sample.
     private static Fin<Unit> TapFoldCore(TapSeries series, ReadOnlySpan<double> source, Span<double> folded, TapWindow window, TapBorder border, Op key) {
         ReadOnlySpan<double> taps = series.Taps.AsSpan();
         int radius = series.Radius, stride = window.Stride;

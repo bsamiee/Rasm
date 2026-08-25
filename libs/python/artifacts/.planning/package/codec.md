@@ -59,11 +59,11 @@ lazy from zlib_ng import gzip_ng, gzip_ng_threaded, zlib_ng
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DECOMPRESS_CEILING: Final[int] = 1 << 31  # per-frame decompressed-output bomb ceiling
-_DECOMPRESS_WINDOW: Final[int] = 1 << 27  # zstd window bound: a huge-window-log frame never allocates before the size guard
-_DECOMPRESS_STEP: Final[int] = 1 << 26  # brotli per-call drain slice: peak single-call allocation, never the whole ceiling
-_GZIP_PARALLEL_THRESHOLD: Final[int] = 1 << 20  # at/above: gzip_ng_threaded block-fan; below: single-shot — a size disposition, not a flag
-_RECOVER_DEADLINE: Final[float] = 120.0  # untrusted-decode wall-clock: TERMINAL kills a malformed-input wedge here and reclaims the slot
+_DECOMPRESS_CEILING: Final[int] = 1 << 31
+_DECOMPRESS_WINDOW: Final[int] = 1 << 27
+_DECOMPRESS_STEP: Final[int] = 1 << 26
+_GZIP_PARALLEL_THRESHOLD: Final[int] = 1 << 20
+_RECOVER_DEADLINE: Final[float] = 120.0
 _SINGLE_BLOB: Final[frozenset[CompressionAlgo]] = frozenset(
     {CompressionAlgo.ZSTD, CompressionAlgo.LZ4, CompressionAlgo.BROTLI, CompressionAlgo.GZIP}
 )
@@ -74,7 +74,6 @@ _ZSTD_DICT: Final[Map[ZstdDictMode, int]] = Map.of_seq([
     ("fulldict", zstandard.DICT_TYPE_FULLDICT),
     ("rawcontent", zstandard.DICT_TYPE_RAWCONTENT),
 ])
-# DEFLATE-matcher strategies fast-to-densest; "auto" absent by design (it skips the from_level override)
 _ZSTD_STRATEGY: Final[Map[ZstdStrategy, int]] = Map.of_seq([
     ("fast", zstandard.STRATEGY_FAST),
     ("dfast", zstandard.STRATEGY_DFAST),
@@ -87,12 +86,6 @@ _ZSTD_STRATEGY: Final[Map[ZstdStrategy, int]] = Map.of_seq([
     ("btultra2", zstandard.STRATEGY_BTULTRA2),
 ])
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form: `pack` and `recover` index `_ZSTD_DICT[k.dict_mode]` and `pack` indexes `_ZSTD_STRATEGY[k.strategy]`, so an
-# unruled token is a runtime `KeyError` inside the worker — after the profile already passed `Bundle.of`'s range
-# admission, which proves VALUES and not table membership. `"auto"` is carved from the strategy pair BY DECLARATION
-# (it withholds the `from_level` override rather than naming a `STRATEGY_*` constant, and the arm tests
-# `k.strategy != "auto"` before the lookup), so the gate names the carve rather than hiding it.
 _COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = (
     (frozenset(mode for mode, _id in _ZSTD_DICT.to_seq()), frozenset(get_args(ZstdDictMode))),
     (frozenset(name for name, _id in _ZSTD_STRATEGY.to_seq()), frozenset(get_args(ZstdStrategy)) - {"auto"}),
@@ -104,7 +97,6 @@ if any(rows != vocabulary for rows, vocabulary in _COVERED):
 
 
 class Codec(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     bundle: Bundle
     lane: LanePolicy
 
@@ -112,7 +104,6 @@ class Codec(Struct, frozen=True):
     def of(
         selector: CompressionAlgo | CodecProfile, *payloads: bytes, lane: LanePolicy, parents: tuple[ContentKey, ...] = ()
     ) -> "Codec":
-        # lane selection rides the public factory — execution policy configurable without direct construction.
         built = Bundle.of(selector, *payloads, parents=parents)
         if built.algo not in _SINGLE_BLOB:
             raise ValueError(f"<non-codec-algo:{built.algo}>")
@@ -139,12 +130,6 @@ class Codec(Struct, frozen=True):
         return await self.lane.offload(Kernel.of(Codec.pack, self._trait), self.bundle.payloads, self.bundle.profile)
 
     async def _emit(self, /) -> RuntimeRail[ArtifactReceipt]:
-        # Journal custody seats at this awaitable fold and never `Codec.pack`, which runs in the offloaded worker where
-        # nothing suspends and no journal custody is bound. A produced bundle is `OPERATIONAL` under the case's own
-        # retention row, its diff naming the algorithm, level, dictionary, frame size, member and verified counts,
-        # and the achieved ratio a later repack is compared against. Each of the three package producers — codec,
-        # archive, delta — seats its own record through its own `_emit`, and all four codec rows ride this one;
-        # `BundleEvidence.receipt` is the shared half, minting the case once.
         match (await self.packed()).map(lambda pe: pe[1].receipt(self.bundle.key)):
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -152,8 +137,6 @@ class Codec(Struct, frozen=True):
                 return Error(refused.error)
 
     async def unpack(self, blob: bytes, /) -> RuntimeRail[BundleManifest]:
-        # recover decodes UNTRUSTED input — the one TERMINAL class: the deadline rides the pebble kill so a
-        # malformed-input wedge dies at wall-clock and reclaims its slot; pack stays cooperative on trusted payloads.
         kernel = Kernel.of(Codec.recover, self._trait, deadline=Some(_RECOVER_DEADLINE), enforcement=Enforcement.TERMINAL)
         rows = await self.lane.offload(kernel, blob, self.bundle.profile)
         return rows.map(lambda recovered: BundleManifest.of(self.bundle.algo, recovered))
@@ -164,7 +147,6 @@ class Codec(Struct, frozen=True):
 
     @property
     def _trait(self) -> KernelTrait:
-        # lz4/brotli hold the GIL through their native cores, so they earn the process pool; zstd/zlib-ng release it.
         return KernelTrait.HOSTILE if self.bundle.algo in (CompressionAlgo.LZ4, CompressionAlgo.BROTLI) else KernelTrait.RELEASING
 
     @staticmethod
@@ -172,9 +154,6 @@ class Codec(Struct, frozen=True):
         match profile:
             case CodecProfile(tag="zstd", zstd=ZstdKnobs() as k):
                 level = k.level
-                # a zero knob is WITHHELD, never forwarded: from_level substitutes an explicit kwarg for its level-derived
-                # cparam, and an explicit 0 resets that cparam to the context default (compressionLevel 3), silently
-                # downgrading the keyed level — live-proven on 0.25.0.
                 tuned = {"window_log": k.window_log, "hash_log": k.hash_log, "chain_log": k.chain_log, "target_length": k.target_length}
                 overrides = {knob: value for knob, value in tuned.items() if value} | (
                     {"strategy": _ZSTD_STRATEGY[k.strategy]} if k.strategy != "auto" else {}
@@ -184,7 +163,7 @@ class Codec(Struct, frozen=True):
                 )
                 trained = zstandard.ZstdCompressionDict(k.dict_data, dict_type=_ZSTD_DICT[k.dict_mode]) if k.dict_data is not None else None
                 if trained is not None:
-                    trained.precompute_compress(compression_params=params)  # cache the compress-side dict state for the corpus pass
+                    trained.precompute_compress(compression_params=params)
                 compressor = zstandard.ZstdCompressor(dict_data=trained, compression_params=params)
                 frames = (
                     tuple(bytes(segment) for segment in compressor.multi_compress_to_buffer(list(payloads), threads=k.threads))
@@ -205,7 +184,7 @@ class Codec(Struct, frozen=True):
                     ("max256kb", lz4.frame.BLOCKSIZE_MAX256KB),
                     ("max1mb", lz4.frame.BLOCKSIZE_MAX1MB),
                     ("max4mb", lz4.frame.BLOCKSIZE_MAX4MB),
-                ])  # arm-scope row: the lazy lz4 proxy reifies here, in the worker process, never at module load
+                ])
                 frames = tuple(
                     lz4.frame.compress(
                         payload,
@@ -253,12 +232,10 @@ class Codec(Struct, frozen=True):
 
 def _declared(frame: bytes, /) -> int:
     size = zstandard.frame_content_size(frame)
-    return size if size >= 0 else 0  # evidence fold only: CONTENTSIZE_UNKNOWN/CONTENTSIZE_ERROR never poison the sum
+    return size if size >= 0 else 0
 
 
 def _gzip_member(payload: bytes, k: GzipKnobs, /) -> bytes:
-    # threaded writer exposes no mtime knob, so its RFC 1952 mtime field (bytes [4:8]) is overwritten with the
-    # fixed stamp — both lanes byte-reproducible.
     if len(payload) < _GZIP_PARALLEL_THRESHOLD:
         return gzip_ng.compress(payload, compresslevel=k.level, mtime=k.mtime)
     sink = BytesIO()
@@ -280,7 +257,6 @@ def _walked(blob: bytes, decode: Callable[[bytes], tuple[bytes, bytes]], /) -> t
 
 
 def _zstd_frame(trained: "zstandard.ZstdCompressionDict | None", /) -> Callable[[bytes], tuple[bytes, bytes]]:
-    # ONE dict-aware decompressor reused across every frame; max_window_size is the second bomb gate the size guard alone cannot cover.
     decompressor = zstandard.ZstdDecompressor(dict_data=trained, max_window_size=_DECOMPRESS_WINDOW)
 
     def decode(frame: bytes, /) -> tuple[bytes, bytes]:
@@ -307,8 +283,6 @@ def _gzip_frame(frame: bytes, /) -> tuple[bytes, bytes]:
 
 
 def _lz4_frame(frame: bytes, /) -> tuple[bytes, bytes]:
-    # pre-eof `needs_input` splits the two non-eof states: True = truncated input, False = output capped mid-frame (bomb);
-    # `unused_data` is None until the frame completes with a tail, so the empty tail normalizes.
     decoder = lz4.frame.LZ4FrameDecompressor()
     payload = decoder.decompress(frame, max_length=_DECOMPRESS_CEILING)
     if not decoder.eof:

@@ -95,18 +95,15 @@ const _RENDERER_INFO = {
 const _METRICS = { ..._DECK_TIMERS, ..._DECK_COUNTERS, ..._DECK_MEMORY, ..._RENDERER_INFO } as const
 type _MetricKey = keyof typeof _METRICS
 
-// the floor owns the whole window algebra — window bound, accumulating pass, and finishers all arrive from
-// `system/vital`, so this page declares only WHAT it measures and HOW to read one sample
 const _observe = (trace: Probe.Trace, sample: Probe.Sample, policy: Vital.Policy): Probe.Trace =>
-  Vital.window(trace, [sample], policy.samples) // the branded floor cap, never a page literal
+  Vital.window(trace, [sample], policy.samples)
 
 const _rows = (trace: Probe.Trace): ReadonlyArray<Metric> =>
   pipe(Vital.fold(trace, (sample) => Record.map(_METRICS, (row) => row.read(sample))), (window) =>
     window.count === 0
-      ? [] // an empty window carries no rows — a zero-sample mean is fabricated evidence
+      ? []
       : Array.getSomes(
           Record.collect(_METRICS, (key, row) =>
-            // a measure the window never saw emits nothing rather than a zero no sample produced
             Option.map(Record.get(window.parts, key), (held) => ({
               label: row.label,
               value: Vital.project[row.projection](held, window.count),
@@ -117,7 +114,6 @@ const _aligned = (
   trace: Probe.Trace,
   series: Array.NonEmptyReadonlyArray<_MetricKey>,
 ): readonly [Float64Array, ...ReadonlyArray<Float64Array>] =>
-  // the caller names its series off the one measure key space; the leading column is the sample rank
   pipe(Chunk.toReadonlyArray(trace), (samples) => [
     Float64Array.from(samples, (_, rank) => rank),
     ...Array.map(series, (key) => Float64Array.from(samples, _METRICS[key].read)),
@@ -144,9 +140,6 @@ const _host = (
   pipe(
     Option.getOrElse(adapter, () => ({ vendor: "unreachable", architecture: "unreachable" })),
     (info) =>
-      // Browsers expose no operating-system name through a stable surface, so `os` takes the seam's one
-      // `unreachable` sentinel (frozen with the manifest `benchmark-claim/host-fingerprint` C# minter), and `stamps` stays empty here
-      // because every host fact this probe reaches already fills a column of its own.
       new Board.Claim.Host({
         print,
         machine: info.vendor,
@@ -226,9 +219,6 @@ import { Array, DateTime, Effect, Equal, Option, type ParseResult, Schema } from
 const _PIXEL_VERSION = "rgba8-srgb-straight-top-left-v2" as const
 const _CAPTURE = { width: 1024, height: 1024, version: _PIXEL_VERSION } as const
 
-// a timeline row's envelope carries its receipt packed as `Any`; the evidence receipt unpacks against the one
-// descriptor registry through the typed arm, so a row whose payload packs another family answers none here and
-// is never read as a render it is not
 type Receipt = Schema.Schema.Type<ReturnType<typeof Format.proto.message<typeof EvidenceReceiptWireSchema>>>
 type RenderEvidence = Extract<Receipt["kind"], { readonly case: "render" }>["value"]
 
@@ -265,14 +255,6 @@ const _packed = (capture: Probe.Pixels, width: number, height: number): Uint8Arr
   return packed
 }
 
-// FRAMING IS THE PRODUCER'S KERNEL LAW, hand-spelled at this ONE site. `Rasm/Domain/identity#CONTENT_KEY`'s
-// `CanonicalWriter` writes `String` as an int32-LE UTF-8 byte count followed by its bytes, `Ordinal` as one int32-LE
-// word, and `Raw` as a caller-canonical leaf carrying no frame; `Rasm.AppUi/Render/capture#ENCODE_IDENTITY` composes
-// `String(CanonicalVersion).Ordinal(width).Ordinal(height).Raw(plane)`. That composition IS what v2 keys — v1 wrote its
-// version bytes unframed, so one plane digests differently under the two versions. `docs/laws/patterns.md`
-// `[PREIMAGE_FRAMING]` owns the rule this length frame satisfies. `core/value/contentKey` publishes `Digest.mint` and
-// `Digest.Session` alone, so no `CanonicalWriter` peer exists here to compose; minting one for a single consumer is an
-// owner nothing else reaches, and a second framing helper anywhere forks this law.
 const _VERSION_BYTES = new TextEncoder().encode(_PIXEL_VERSION)
 
 const _ordinal = (value: number): Uint8Array => {
@@ -281,20 +263,14 @@ const _ordinal = (value: number): Uint8Array => {
   return word
 }
 
-// `Digest.mint` absorbs these segments through its `Iterable<Uint8Array>` arm, so the plane hashes exactly where
-// `Probe.packed` normalized it and never re-buffers into a whole-preimage copy.
 const _preimage = (capture: Probe.Pixels, width: number, height: number): ReadonlyArray<Uint8Array> => [
-  _ordinal(_VERSION_BYTES.length), // `String` — the length frame that keys v2 apart from v1's unframed version bytes
+  _ordinal(_VERSION_BYTES.length),
   _VERSION_BYTES,
-  _ordinal(width), // `Ordinal` — fixed-width words concatenate injectively and carry no frame
+  _ordinal(width),
   _ordinal(height),
-  _packed(capture, width, height), // `Raw` — the trailing leaf whose extent the two ordinals already recover
+  _packed(capture, width, height),
 ]
 
-// The search RETURNS the pixel identity it proved present, so the caller never re-reads the column and never
-// asserts it: a predicate that finds a receipt carrying pixels and hands back the receipt alone forces the one
-// unwrap the finder already did. The identity's hash crosses as the producer's sixteen bytes and lands through the
-// digest owner's own byte codec, so the compare below is brand against brand.
 const _rendered = (
   timeline: Wire.EvidenceTimeline,
   view: string,
@@ -395,7 +371,7 @@ const Probe: Probe.Shape = {
   line: _line,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Probe }
 ```

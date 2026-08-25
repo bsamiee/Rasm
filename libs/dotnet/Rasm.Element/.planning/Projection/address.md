@@ -21,7 +21,7 @@ Graph addressing folds the semantic `Header`, excludes provenance, sorts node an
 - Boundary: the WIRE face is the X32 hex string alone — a raw `UInt128` JSON number loses precision past 2^53 in a JS parse, so serializers render and admit through the `[ObjectFactory<string>]` factory. Admission is upper-case-strict: exactly the 32 characters `ToValue` emits. The generated `NodeWire.content_address`, `NodeId` render, and store columns read that one interior spelling.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.IO.Hashing;
 using LanguageExt;
@@ -35,10 +35,7 @@ using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Projection;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// INTERIOR X32 admission shared by both hex-keyed owners: exactly 32 UPPER-CASE hex digits — the one form
-// ToValue emits — so a lower/mixed-case alias refuses instead of silently re-spelling (the kernel ContentHash
-// x32 is the lower-case ENVELOPE face; the two faces never meet on one wire).
+// --- [TYPES] ---------------------------------------------------------------------------
 file static class Hex {
  internal static UInt128? Admit(string? value) =>
   value is { Length: 32 } candidate
@@ -47,27 +44,19 @@ file static class Hex {
    ? parsed : null;
 }
 
-// KeyMemberName/KeyMemberAccessModifier EXPLICIT: the UInt128 Value is read publicly across the seam, so the
-// public-key spelling is pinned at declaration rather than left to a generated default.
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.All)]
 public sealed partial class ContentAddress {
  public static ContentAddress Of(ReadOnlySpan<byte> canonicalBytes) => Create(ContentHash.Of(canonicalBytes));
 
- // Wrap a PRECOMPUTED content hash (a RepresentationContentHash body key, an Assessment.InputKey) without
- // re-hashing — the carrier over an already-derived UInt128, distinct from the hashing entries.
  public static ContentAddress Of(UInt128 contentHash) => Create(contentHash);
 
- // The folder's ONE tolerance-bound digest entry: a STREAMING kernel writer at the model grid, seed zero, no
- // byte materialization. The kernel ContentHash.Of<TState> pins ZeroTolerance, so the model-grid arity lives here.
  public static ContentAddress Of<TState>(TState state, double tolerance, Action<TState, CanonicalWriter> fold) {
   CanonicalWriter writer = CanonicalWriter.Streaming(tolerance: tolerance, accumulator: new XxHash128(seed: 0L));
   fold(state, writer);
   return Create(writer.Digest());
  }
 
- // Id-INCLUSIVE node addressing: the id ahead of the node's canonical fold keeps two identical-content
- // occurrences distinct by id.
  public static ContentAddress Of(Node node, double tolerance) =>
   Of(node, tolerance, static (n, w) => { w.String(n.Id.Value); n.CanonicalBytes(w); });
 
@@ -79,9 +68,6 @@ public sealed partial class ContentAddress {
           toSeq(graph.Nodes.Values).Map(node => Of(node, graph.Header.Tolerance).Value),
           graph.Edges.Map(edge => Of(edge, graph.Header.Tolerance).Value));
 
- // ONE private fold serves both ingresses. Kernel Sorted composes Rows, so each member run is count-framed and
- // the layout self-delimiting; default UInt128 ascending order is the canonical cross-runtime member order for
- // nodes and edges alike — one ordering discipline, digests on both axes.
  static ContentAddress OfGraph(Header header, Seq<UInt128> nodes, Seq<UInt128> edges) =>
   Of((header, nodes, edges), header.Tolerance, static (s, w) => {
    s.header.CanonicalBytes(w);
@@ -96,9 +82,6 @@ public sealed partial class ContentAddress {
 
  public string ToValue() => Value.ToString("X32", CultureInfo.InvariantCulture);
 
- // Verify re-mints by the regime that MINTED the id — the NodeSeed witness Node publishes — through the ONE
- // NodeId.Of(NodeSeed) entry; [VERIFY_REGIME] owns the arm law. Total generated Switch: a new seed regime
- // breaks this dispatch at compile time.
  public static Fin<Unit> Verify(Node node, double tolerance, Op key) =>
   node.Seed(tolerance).Switch<Fin<Unit>>(
    placement: static _ => Fin.Succ(unit),
@@ -111,8 +94,6 @@ public sealed partial class ContentAddress {
    ? Fin.Succ(unit)
    : new ElementFault.AddressUnstable(key, $"<node-id-mismatch:{stored.Value}>");
 
- // Snapshot rehydrate: independent per-node checks license ACCUMULATION — a corrupt snapshot reports every
- // drifted node at once; the caller collapses at the boundary so an unstable snapshot never enters the read path.
  public static Validation<Error, Unit> Verify(ElementGraph graph, Op key) =>
   toSeq(graph.Nodes.Values)
    .Traverse(n => Verify(n, graph.Header.Tolerance, key).ToValidation())
@@ -120,8 +101,6 @@ public sealed partial class ContentAddress {
    .Map(static _ => unit);
 }
 
-// By-reference payload key: same kernel seed-zero digest, RAW payload bytes, no writer frame. Never interchanged
-// with ContentAddress.
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.All)]
 public sealed partial class BlobKey {
@@ -150,10 +129,7 @@ public sealed partial class BlobKey {
 - Boundary: a tolerance-changing header returns `GraphMemberStep.Refold` as an ordinary outcome — the accumulator retains addresses, not payloads, so it cannot re-quantize. Malformed normal form and absent members remain failures on `Fin`; a caller may never hide them behind the refold. `Header.SameGrid` is the one bitwise grid law, and `Edges` retains multiplicity because a count-less set collapses legal parallel edges.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// Regridding is not a fault: the accumulator intentionally retains addresses rather than node payloads and cannot
-// re-quantize them. This outcome separates the lawful full-state refold from malformed deltas and missing members,
-// which remain on the Fin error rail and may never be swallowed by a fallback.
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record GraphMemberStep {
  private GraphMemberStep() { }
@@ -167,9 +143,6 @@ public abstract partial record GraphMemberStep {
   refold: static (rebuild, step) => rebuild(step.Header));
 }
 
-// Nodes is a MAP, never a bare address multiset, because GraphDelta.RemovedNodes is a Seq<NodeId> carrying NO
-// content and a removal applies only against a set keyed by id. Edges carries multiplicity per edge address —
-// the digest IS the retained member, so no byte run is held.
 public sealed record GraphMembers {
  private GraphMembers(Header header, HashMap<NodeId, ContentAddress> nodes, HashMap<ContentAddress, int> edges) =>
   (Header, Nodes, Edges) = (header, nodes, edges);
@@ -185,10 +158,6 @@ public sealed record GraphMembers {
        (held, node) => held.AddOrUpdate(node.Id, ContentAddress.Of(node, graph.Header.Tolerance))),
       graph.Edges.Fold(HashMap<ContentAddress, int>(), (held, edge) => Admit(held, edge, graph.Header.Tolerance)));
 
- // Normal-form gate FIRST (exact arithmetic; ReplayOnto's set semantics absorb what would double-count here) —
- // the delta's OWN accumulated conjunct tokens carry the refusal, so no local denormal token restates the law;
- // removals precede adds precede revisions — the ReplayOnto order — so the two folds agree on a delta that both
- // erases and re-Sets one id. Drop and Retire are independent and accumulate; the join is applicative.
  public Fin<GraphMemberStep> Advance(GraphDelta delta, Op key) =>
   delta.NormalForm(key).ToFin().Bind(_ =>
    delta.Header.Match(
@@ -197,13 +166,10 @@ public sealed record GraphMembers {
      ? Step(delta, next, key)
      : Regrid(delta, next, key)));
 
- // A regrid cannot derive new member addresses without payloads, but it still proves every removal against the
- // retained old-grid identities; Refold is therefore never an escape around NodeAbsent or DeltaConflict.
  Fin<GraphMemberStep> Regrid(GraphDelta delta, Header next, Op key) =>
   (Drop(Nodes, delta.RemovedNodes, key), Retire(Edges, delta.RemovedEdges, Header.Tolerance, key))
    .Apply((_, _) => (GraphMemberStep)new GraphMemberStep.Refold(next)).As().ToFin();
 
- // Same-grid member arithmetic alone reaches this branch. A regrid returned Refold before any address mutation.
  Fin<GraphMemberStep> Step(GraphDelta delta, Header header, Op key) =>
   (Drop(Nodes, delta.RemovedNodes, key), Retire(Edges, delta.RemovedEdges, header.Tolerance, key))
    .Apply((kept, edges) => (GraphMemberStep)new GraphMemberStep.Incremental(new GraphMembers(
@@ -219,8 +185,6 @@ public sealed record GraphMembers {
     : Fail<Error, Unit>(new ElementFault.NodeAbsent(key, $"<members-remove-absent:{id.Value}>"))))
    .Map(_ => removals.Fold(held, static (map, id) => map.Remove(id)));
 
- // Removals GROUP BY edge address first: per-slot arithmetic is order-sensitive, so each slot's demanded count
- // checks ONCE against its held count and the surviving map derives after every slot reported.
  static Validation<Error, HashMap<ContentAddress, int>> Retire(
   HashMap<ContentAddress, int> held, Seq<Relationship> removals, double tolerance, Op key) {
   HashMap<ContentAddress, int> demanded = removals.Fold(
@@ -240,11 +204,8 @@ public sealed record GraphMembers {
   held.AddOrUpdate(ContentAddress.Of(edge, tolerance), static count => count + 1, () => 1);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed partial class ContentAddress {
- // Re-enters the PRIVATE full-state fold — same header contribution, same sorted digest runs, same section
- // counts — so the two paths are one projection with two ingresses. Each multiset cell expands to its own count
- // of digest writes, because the full-state fold writes one per edge INSTANCE and a parallel edge contributes twice.
  public static ContentAddress OfGraph(GraphMembers members) =>
   OfGraph(members.Header,
           toSeq(members.Nodes.Values).Map(static address => address.Value),

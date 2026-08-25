@@ -26,7 +26,7 @@ Settled composition: `HookId`, `TraceScope`, `HookModality`, `IHookRoster<TSelf>
 - Boundary: decoration order is settled against Rasm/Domain/frame#RECEIPT_PORT — `Send` swaps the HLC cell, constructs the stamped envelope, THEN invokes `Emit`, so a `with { Emit = … }` decorator always observes the fully stamped value, and stacking decorators at one root preserves the one-mint law because record-`with` copies the same `Atom<(Instant, ulong)>` reference into every decorated instance.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Text.Json;
 using System.Threading;
@@ -34,15 +34,13 @@ using Thinktecture;
 
 namespace Rasm.AppHost.Observability;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AppHostPoint : IHookRoster<AppHostPoint> {
     private const string Head = "rasm.apphost.";
 
-    // One plane for the whole roster: `SpanBand` admits it off the contributor port's `Planes` column, so the
-    // rail brackets through the app's own band and this page mints no `ActivitySource` (branch RULINGS `[02]`).
     public static readonly TraceScope HookPlane = TraceScope.Create(value: "rasm.apphost.hooks");
 
     public static readonly AppHostPoint Receipt = new(
@@ -67,24 +65,18 @@ public sealed partial class AppHostPoint : IHookRoster<AppHostPoint> {
 
     public HookId Id => Ids.Value[this];
 
-    // `HookId.Create` is the trusted-text entry because the key is a closed roster's own segment and the head is a
-    // page const, so no caller text reaches the grammar guard.
     private static readonly Lazy<FrozenDictionary<AppHostPoint, HookId>> Ids = new(
         static () => Items.ToFrozenDictionary(static row => row, static row => HookId.Create(value: Head + row.Key)),
         LazyThreadSafetyMode.ExecutionAndPublication);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record AppHostFact : IHookFact<AppHostPoint> {
     private AppHostFact() { }
 
-    // The seat is PROJECTED, never stored: a `(point, fact)` pair spelled at the call site lets an emitter fire a
-    // delivery receipt at the command veto gate.
     public abstract AppHostPoint At { get; }
 
-    // Seating derives off the column above rather than restating it: every case seats at exactly one row, so the
-    // rail's entry gate and its veto-product gate both read the union's own `At` and the two cannot drift.
     public bool Seats(AppHostPoint at) => at == At;
 
     public sealed record Receipt(ReceiptEnvelope Envelope) : AppHostFact {
@@ -111,8 +103,6 @@ public abstract partial record AppHostFact : IHookFact<AppHostPoint> {
         public override AppHostPoint At => AppHostPoint.ProfileSample;
     }
 
-    // Two pages each fold a whole transition FAMILY onto one point, so their own closed signal unions carry the
-    // discrimination a row per receipt type would have spread across the roster.
     public sealed record Coordination(CoordinationSignal Settled) : AppHostFact {
         public override AppHostPoint At => AppHostPoint.Coordination;
     }
@@ -122,10 +112,7 @@ public abstract partial record AppHostFact : IHookFact<AppHostPoint> {
     }
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// One egress for a transition FAMILY: the durable receipt and the in-process rail point are two readers of one
-// fact, so a producer that reached only `ReceiptSinkPort` left every subscriber blind to the transition. The
-// seat is the union's own `At`, so a family's sink and its point cannot be paired wrongly at a call site.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record FactSink<TSignal>(
     ReceiptSinkPort Sink,
     HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail,
@@ -140,9 +127,6 @@ public sealed record FactSink<TSignal>(
 }
 
 public static class AppHostHooks {
-    // `Emit` closes over the UNDECORATED port, so stacking taps composes instead of recursing. The ORIGINAL
-    // envelope reaches egress because `Receipt` holds `Observe` alone: the kernel's veto gate refuses a
-    // non-vetoing row, so no subscriber can revise the value this bind forwards.
     public static ReceiptSinkPort Tap(
         ReceiptSinkPort sink, HookRail<AppHostPoint, AppHostFact, TelemetrySource> rail, Op key) =>
         sink with {

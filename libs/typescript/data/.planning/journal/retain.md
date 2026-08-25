@@ -50,28 +50,14 @@ import { Journal, StreamKey } from "./append.ts"
 
 const _classes = ["ephemeral", "operational", "regulatory", "permanent"] as const
 
-// Cost depth ascends with position, so an engine honouring a depth honours every shallower one and the ladder filter
-// is an index compare rather than a per-engine roster: `cool` is reduced-access at millisecond reads, `cold` an
-// archive class that still answers immediately, `frozen` a deep archive answering in hours behind a restore verb.
-// Retention owns the vocabulary because AGE selects it; the object plane owns the storage-class SPELLING.
 const _depths = ["cool", "cold", "frozen"] as const
 
-// Position carries the COST ordering; this table carries what a rung gives up, because access posture is not derivable
-// from depth order and every reader downstream needs it as data. `restore` names the rung whose bytes answer only
-// behind a restore verb measured in hours — a portability export, an incident read, and a rebuild all have to plan for
-// that latency, and a rung stating it only in prose leaves each of them to rediscover it from a timeout.
 const _DEPTHS = {
   cool: { restore: false },
   cold: { restore: false },
   frozen: { restore: true },
 } as const satisfies { readonly [D in Retain.Depth]: { readonly restore: boolean } }
 
-// Rows answer the descriptor coordinates a class decides. `fits` is the sentence a reader selects on, `degrade`
-// names the forfeit, and `lifetime` is the whole survival answer — how long the bound runs, and WHICH AUTHORITY
-// closes it. Admission and tenancy are NOT this family's to decide: writers stamp the class column, `_GROOMS` below
-// settles sweep tenancy, and a class answering either answers it by guess.
-// `lifetime.owner` carries the load-bearing half: a wall-clock sweep and a key destruction end a life under different
-// authorities, and `permanent` proves why naming it matters — nothing sweeps it, so only the shredder ever closes it.
 const _Policy = {
   ephemeral: {
     fits: "operational exhaust whose worth expires with the operation that produced it",
@@ -116,7 +102,7 @@ declare namespace Retain {
   type Depths = typeof _depths
   type Depth = Depths[number]
   type Dialect = keyof typeof _AGE
-  type Ender = "groom" | "shred" // the authority that closes a lifetime: a wall-clock sweep, or key destruction
+  type Ender = "groom" | "shred"
   type Rung = { readonly after: Duration.Duration; readonly depth: Depth }
   type Row = (typeof _Policy)[Class]
   type Subject = typeof _Subject.Type
@@ -126,7 +112,7 @@ declare namespace Retain {
     readonly lifetime: { readonly bound: Duration.Duration; readonly owner: Ender }
     readonly transitions: ReadonlyArray<Rung>
   }> = typeof _Policy> = T
-  type _Depths<D extends Depth = Row["transitions"][number]["depth"]> = D // every rung's depth is a rostered one, both directions
+  type _Depths<D extends Depth = Row["transitions"][number]["depth"]> = D
 }
 
 const _frontierDdl: Capability.Ensure = {
@@ -150,10 +136,6 @@ const _frontierDdl: Capability.Ensure = {
 
 const _floorJson = Schema.encode(Schema.parseJson(Schema.Unknown))
 
-// The frontier's monotone gate is the folder's ONE conditional-write owner instantiated on this relation, exactly as
-// the snapshot row instantiates it: `snapshotted` is the gate, `handed_at` the column the winning arm restamps, and
-// the domain column literally named `stamp` is ordinary payload the same assignment fold carries. Nothing here spells
-// a statement, so this ledger and the snapshot row cannot drift apart on which arm reports a loss.
 const _ADVANCE = Journal.advance({
   relation: "retain_frontier",
   columns: ["app", "tenant", "aggregate", "floor", "stamp", "snapshotted"],
@@ -180,24 +162,6 @@ const _handoff = (
     }, frontier.snapshotted)
   })
 
-// One row per relation that ages by wall clock, and the whole difference between them is data. `clazz` names where
-// a row's retention class comes from: `"row"` where the relation CARRIES a `retention` column and each class sweeps
-// under its own window, a class key where the relation's whole content belongs to one class. The distinction is
-// load-bearing rather than cosmetic — `idempotency_ledger`, `outbox`, and `projection_quarantine` declare no
-// `retention` column at all, so a class-keyed predicate against them names a column no DDL wrote. `live` is the
-// eligibility gate a relation states before age is even asked (an undelivered deliverable and an unreplayed
-// quarantine row are still owed, whatever their age), and it is sealed policy text, never a caller value.
-// `tenancy` states the isolation a sweep runs at under the ONE spelling every plane compares on, and it reads the
-// closed `Identity.tenancy` roster directly because this column selects an executable refusal rather than explaining
-// a row to a selecting profile — no descriptor cell of a mechanism substitutes for the axis a DELETE is gated on.
-// It stays a column rather than an assumption because these relations register RLS under FORCE: a DELETE carrying no
-// tenant predicate removes whatever the ambient session state leaves visible — zero rows unpinned, one tenant inside a
-// pin, the estate only under the maintenance-plane posture — with nothing in the result telling those apart. Every row
-// here reads `multi` and runs only under that posture; a future per-tenant relation states `single` and takes its pin
-// instead.
-// `held` names the relation's subject column where one exists, and the hold gate composes only there: a hold is a
-// subject-scoped suspension, so a relation carrying no subject column states `none` and grooms unconditionally —
-// which is the honest answer, never a gate against a column no DDL wrote.
 const _GROOMS = {
   facts: { clazz: "row", column: "recorded_at", held: Option.some("subject"), live: Option.none(), relation: "fact_journal", tenancy: "multi" },
   ledger: { clazz: "operational", column: "touched_at", held: Option.none(), live: Option.none(), relation: "idempotency_ledger", tenancy: "multi" },
@@ -231,19 +195,11 @@ declare namespace Retain {
   type Groom = (typeof _GROOMS)[Groomed]
 }
 
-// A class-carrying relation sweeps once per FINITE class and a fixed-class relation sweeps once, so `permanent`
-// folds out of both by the same `Duration.isFinite` read and neither road spells the exclusion twice.
 const _windows = (row: Retain.Groom): ReadonlyArray<Retain.Class> =>
   Array.filter(row.clazz === "row" ? _classes : [row.clazz], (clazz) => Duration.isFinite(_Policy[clazz].lifetime.bound))
 
-// Window seconds truncate ONCE for both renderings: a bound fragment rounding one way and a rendered statement the
-// other would sweep two different populations off one policy row, and the drift is invisible until a boundary case.
 const _seconds = (window: Duration.Duration): number => Math.trunc(Duration.toSeconds(window))
 
-// Age predicates carry the DIALECT axis on both roads. Text rendering that spells only the spine's `now()` and
-// `interval` emits statements the embedded engines never declared, so the scheduled maintenance row this roster feeds
-// dies on its first run everywhere the spine is absent — and the roster's whole claim is that neither rendering may
-// disagree with it. Only BINDING posture differs: sweeps bind values, the scheduled plane takes text.
 const _AGE = {
   pg: (column: string, seconds: number): string => `${column} < now() - interval '${seconds} seconds'`,
   sqlite: (column: string, seconds: number): string => `${column} < datetime('now', '-${seconds} seconds')`,
@@ -255,9 +211,6 @@ const _aged = (sql: SqlClient.SqlClient, row: Retain.Groom, window: Duration.Dur
     pg: () => sql`${sql(row.column)} < now() - make_interval(secs => ${_seconds(window)})`,
   })
 
-// ONE hold predicate serves every composer: the subject face gates a groomed relation's rows, the owner face gates
-// the object plane's retag fold. Both render as plain SQL over sealed roster values, so the bound sweep, the
-// scheduled text, and the store's join spell one suspension and none can honour a hold another missed.
 const _holding = {
   subject: (relation: string, column: string): string =>
     `NOT EXISTS (SELECT 1 FROM legal_hold h WHERE h.lifted_at IS NULL AND h.app = ${relation}.app AND h.tenant = ${relation}.tenant AND h.subject = ${relation}.${column})`,
@@ -279,9 +232,6 @@ const _groom = (key: Retain.Groomed) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.forEach(_windows(_GROOMS[key]), (clazz) => _swept(sql, _GROOMS[key], clazz), { concurrency: 1, discard: true }))
 
-// The scheduled plane registers statement TEXT — its extension's own contract — where the in-process road binds
-// values, so the row renders twice and the ROSTER is what neither rendering may disagree with. Every literal here
-// reads off `_Policy` and `_GROOMS`, so the interpolation surface is sealed by construction.
 const _groomText = (key: Retain.Groomed, dialect: Retain.Dialect): ReadonlyArray<string> =>
   pipe(_GROOMS[key], (row) =>
     Array.map(_windows(row), (clazz) =>
@@ -297,12 +247,6 @@ const _groomText = (key: Retain.Groomed, dialect: Retain.Dialect): ReadonlyArray
         )
       }`))
 
-// The scheduled drop renders as ONE pg DO block off the recorded ledger. The floor is `min(snapshotted)` gated on
-// TOTAL stream coverage — a journal stream with no frontier row zeroes the floor inside the same statement, so no
-// per-stream proof speaks for a sibling sharing the sequence spine. Children drop on their EXCLUSIVE end against
-// the floor, never on pg_partman's retention distance: that knob re-reads the live max at execution, so appends
-// landing after the frontier read move its boundary past the finalized frontier. `run_maintenance` stays
-// premake-only with `retention` NULL, and pg_partman's final-child floor rides through untouched.
 const _dropText = (parent: string): string => `DO $drop$
 DECLARE
   floor BIGINT;
@@ -347,8 +291,6 @@ const _holdDdl: Capability.Ensure = {
   CREATE INDEX IF NOT EXISTS legal_hold_owner ON legal_hold (owner) WHERE lifted_at IS NULL;`,
 }
 
-// Single-shape-classed like the version-conflict family: `denied` because no re-drive lifts a matter and the
-// recovery verb — `lift` — is the caller's, which is exactly non-retryable and caller-blamed.
 class RetainHold extends Schema.TaggedError<RetainHold>()("RetainHold", {
   subject: _Subject,
   matters: Schema.Array(Schema.String),
@@ -367,21 +309,11 @@ declare namespace Retain {
     readonly subjects: Array.NonEmptyReadonlyArray<SubjectKey>
     readonly declaredBy: string
   }
-  // The custody landing, declared here where the strata floor sits and satisfied by the object plane exactly as
-  // `RefRead` is. Its channels are parameters because a byte landing carries the object plane's own fault family and
-  // service, and naming either here would drag that plane down a stratum to be spelled.
   type Preserve<E, R> = (subject: SubjectKey, retention: Class) => Effect.Effect<void, E, R>
 }
 
-// Litigation evidence takes the class whose own `degrade` names the subject-scoped hold gate: while the matter lives
-// the object plane's tag reads `held` and nothing transitions or expires, and a lift returns the slice to this window
-// rather than to an infinity no sweep ever closes.
 const _PRESERVED: Retain.Class = "regulatory"
 
-// Re-declaring a lifted pair re-arms it: the ON CONFLICT arm clears `lifted_at` and refreshes the declarant, so a
-// matter re-opened against the same subject is one row's live state, never a second row a scan double-counts.
-// Declaration commits BEFORE the preservation landing inside one unit of work, so the reference row that landing
-// writes re-derives its tag against a hold already live and no window exists where a sweep reads the slice unheld.
 const _hold = <E, R>(declaration: Retain.Hold, preserve: Retain.Preserve<E, R>) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.zipRight(
@@ -391,7 +323,7 @@ const _hold = <E, R>(declaration: Retain.Hold, preserve: Retain.Preserve<E, R>) 
           tenant: key.tenant,
           matter: declaration.matter,
           subject: key.subject,
-          owner: key.owner, // minted once through the custody key's own projection: the join and the scan read one spelling
+          owner: key.owner,
           declared_by: declaration.declaredBy,
         })))
       } ON CONFLICT (app, tenant, matter, subject) DO UPDATE
@@ -399,8 +331,6 @@ const _hold = <E, R>(declaration: Retain.Hold, preserve: Retain.Preserve<E, R>) 
       Effect.forEach(declaration.subjects, (key) => preserve(key, _PRESERVED), { concurrency: 1, discard: true }),
     ))
 
-// Lifting answers the lifted OWNER roster as a value, because the object plane's retag fold runs above this
-// stratum: the maintenance seam walks each owner's keys through the store's reference read and re-derives tags.
 const _lift = (app: typeof StreamKey.fields.app.Type, tenant: typeof StreamKey.fields.tenant.Type, matter: string) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.map(
@@ -462,8 +392,6 @@ class SubjectKey extends Schema.Class<SubjectKey>("SubjectKey")({
   tenant: StreamKey.fields.tenant,
   subject: _Subject,
 }) {
-  // Every segment percent-encodes: a tenant or subject carrying `:` would otherwise re-split the coordinate the hold
-  // join and the custody scan both parse back, and this projection is the ONE place the triple becomes one string.
   get owner(): string {
     return `subject:${encodeURIComponent(this.app)}:${encodeURIComponent(this.tenant)}:${encodeURIComponent(this.subject)}`
   }
@@ -529,12 +457,6 @@ const _open = (shredder: Shredder, key: SubjectKey, envelope: SealedEnvelope) =>
   Effect.flatMap(_dataKey(shredder, key), (held) =>
     Effect.transposeOption(Option.map(held, (key) => shredder.open(key, envelope))))
 
-// The hold gate rides INSIDE the destroying statement — key destruction is the one closer no lift recovers, so the
-// refusal must be re-evaluated by the engine at the write, never a sibling SELECT frozen before it: a hold landing
-// between a pre-check and the UPDATE would otherwise fall to a race the pre-check reported clear. The miss path
-// disambiguates on key LIVENESS, not on matters — a guard refusal with a live key still standing is a hold verdict
-// even when the matters read races a lift to emptiness, and answering `none` there would forge an already-erased
-// state over a key that still opens envelopes.
 const _erase = (key: SubjectKey) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.map(
@@ -569,10 +491,10 @@ const _erase = (key: SubjectKey) =>
                     WHERE app = ${who.app} AND tenant = ${who.tenant} AND subject = ${who.subject} AND destroyed_at IS NULL`,
             })(key),
             Option.match({
-              onNone: () => Effect.succeed(Option.none<Retain.Tombstone>()), // no live key existed: nothing was destroyed, nothing fans
+              onNone: () => Effect.succeed(Option.none<Retain.Tombstone>()),
               onSome: () =>
                 Effect.flatMap(_heldMatters(key), (matters) =>
-                  Effect.fail(new RetainHold({ subject: key.subject, matters }))), // the guard refused a live key: a hold verdict, whatever the racing matters read now shows
+                  Effect.fail(new RetainHold({ subject: key.subject, matters }))),
             }),
           ),
       })),
@@ -603,11 +525,7 @@ declare namespace Retain {
     readonly event: A
     readonly recordedAt: string
   }
-  // The key admits as content identity, never as text: a DSAR consumer re-enters the store's own `get` with the value
-  // the leg answered, so a second decode at that call site has no spelling.
   type Ref = { readonly key: Digest.Key<"content">; readonly retention: Class }
-  // The object leg's port: declared here where the strata floor sits, satisfied by the store's published read,
-  // handed to `dsar` exactly as the event family is — so the reference relation has ONE reader surface.
   type RefRead = (
     owner: string,
   ) => Effect.Effect<ReadonlyArray<Ref>, SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>
@@ -635,7 +553,7 @@ const _subjectIndexDdl: Capability.Ensure = {
 }
 
 const _slot = <A>(subjects: (event: A) => ReadonlyArray<Retain.Subject>): Journal.Slot<A> => ({
-  keys: () => Live.merged([]), // no reactive reader subscribes the subject index: the empty coordinate stamps nothing
+  keys: () => Live.merged([]),
   project: (stream, events, receipt) =>
     Effect.flatMap(SqlClient.SqlClient, (sql) => {
       const rows = Array.flatMap(Array.zip(events, receipt.rows), ([event, row]) =>
@@ -643,7 +561,7 @@ const _slot = <A>(subjects: (event: A) => ReadonlyArray<Retain.Subject>): Journa
           app: stream.app,
           tenant: stream.tenant,
           subject,
-          sequence: row.sequence, // receipt rows align positionally with the batch: the landed global sequence indexes its event's subjects
+          sequence: row.sequence,
         })))
       return Array.isNonEmptyReadonlyArray(rows)
         ? Effect.asVoid(sql`INSERT INTO subject_journal ${sql.insert(rows)} ON CONFLICT DO NOTHING`)
@@ -665,9 +583,6 @@ const _FactRow = Schema.Struct({
 
 const _admitEntry = Schema.decodeUnknown(_EntryRow)
 
-// ONE subject-slice collection, read off the index rather than the log. Two renderings ride it for the same reason
-// the groom roster carries two: the export maps it through admission and the compiled family into live members, and
-// the preservation landing renders the SAME rows verbatim, so the two can never disagree about a subject's history.
 const _sliced = (subject: SubjectKey) =>
   Stream.unwrap(
     Effect.map(SqlClient.SqlClient, (sql) =>
@@ -677,11 +592,6 @@ const _sliced = (subject: SubjectKey) =>
           ORDER BY e.sequence`.stream),
   )
 
-// The preservation rendering: raw envelope rows as newline-delimited bytes, so the custody object holds what the log
-// held rather than what a plan decoded — the payload column is TEXT in every dialect by the append owner's byte-truth
-// law, so the stored spelling crosses verbatim on both engines instead of a driver-parsed respelling. The stream
-// re-runs its own query per consumption, which is what lets the landing prove identity in one pass and write in the
-// next without buffering a subject's whole history.
 const _utf8 = new TextEncoder()
 
 const _slice = (subject: SubjectKey) =>
@@ -692,27 +602,18 @@ const _dsar = <A, I>(subject: SubjectKey, family: Schema.Schema<A, I>, refs: Ret
   events: Stream.mapEffect(_sliced(subject), (raw) =>
     Effect.gen(function* () {
       const row = yield* _admitEntry(raw)
-      // The compiled family proves the landing; a malformed stored payload quarantines as ParseError on this stream
       const event = yield* Schema.decodeUnknown(Payload.json(family))(row.payload)
       return { event, recordedAt: row.recorded_at } satisfies Retain.Entry<A>
     })),
-  // Fact rows are the SECOND indexed plane a subject spans: their own `subject` column carries the same custody
-  // coordinate this key ledger keys on, so portability reads audit evidence off that partial index rather than crawling
-  // its log, and a sealed identifier exports through the consumer's own `open` exactly as a sealed event field does.
   facts: Effect.flatMap(SqlClient.SqlClient, (sql) =>
     SqlSchema.findAll({
       Request: SubjectKey,
       Result: _FactRow,
-      // `payload` is TEXT in every dialect by the append owner's byte-truth law, so only `recorded_at` still states
-      // its crossing. The band exports as the stored document verbatim — decoding it to the live fact family would
-      // import the fact owner this page already publishes `Retain` to.
       execute: (who) =>
         sql`SELECT stream, retention, payload, CAST(recorded_at AS TEXT) AS recorded_at FROM fact_journal
             WHERE app = ${who.app} AND tenant = ${who.tenant} AND subject = ${who.subject}
             ORDER BY sequence`,
     })(subject)),
-  // The owner coordinate projects off the DECODED class's own getter, so the handed contract receives a value the
-  // one mint spelled — the composition binding `refs` is `object/store.md`'s published reference read.
   objects: refs(subject.owner),
 })
 
@@ -721,18 +622,18 @@ const Retain = {
   Subject: _Subject,
   SubjectKey,
   Policy: _Policy,
-  depths: _depths, // ordered shallow-to-deep: the object plane's conformance filter reads position, never a roster
-  depthRows: _DEPTHS, // what each rung gives up, keyed by the same names the order above ranks
-  handoff: _handoff, // answers `Journal.Fence<number>`: the recorded floor, or the fresher one that displaced it
+  depths: _depths,
+  depthRows: _DEPTHS,
+  handoff: _handoff,
   grooms: _GROOMS,
   groom: _groom,
-  groomText: _groomText, // the scheduled plane's rendering of the same roster, dialect carried as a parameter
-  dropText: _dropText, // the frontier-exact partition drop the scheduled plane registers under the partition grant
-  holding: _holding, // the one hold predicate pair: subject face for groomed relations, owner face for the store's retag
+  groomText: _groomText,
+  dropText: _dropText,
+  holding: _holding,
   hold: _hold,
   lift: _lift,
   held: _heldMatters,
-  slice: _slice, // the preservation rendering of the export's own collection: the landing port consumes it
+  slice: _slice,
 
   seal: _seal,
   open: _open,
@@ -742,7 +643,7 @@ const Retain = {
   ddl: [_frontierDdl, _subjectDdl, _subjectIndexDdl, _holdDdl],
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Retain, RetainHold, SubjectKey }
 ```

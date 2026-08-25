@@ -28,7 +28,7 @@ Physics and policy seat here; geometry and the clock do not. `WeldRuleSet` state
 - Boundary: `WeldPolicy` holds no geometry and no clock. `IWeldAccess.Check` and `WeldDemandBinding.Facts` read the `WeldPass` roster `Joining/weld` `[03]-[PASS]` emits, because both are evaluated AFTER pass generation over the passes they judge — the seam is named at both ends and neither owner reaches the other's behaviour.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Runtime.InteropServices;
 using LanguageExt;
@@ -48,16 +48,13 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Joining;
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RoleFactor(double Area, double Travel, double Current);
 
 public readonly record struct PositionFactor(double Travel, double Cooling, double Deposition);
 
-// EN 1011-2 sheet-plane (F2) and volumetric (F3) heat-flow correction, keyed by preparation shape.
 public readonly record struct ShapeFactor(double Planar, double Spatial);
 
-// Standards-as-data: the derates a code publishes are ROWS a shop supplies, and `Shop` is the one named preset
-// carrying the landed defaults. A code revision moves rows; a second shop supplies its own table.
 [ComplexValueObject]
 public sealed partial class WeldFactorTable {
     public Map<PassRole, RoleFactor> Roles { get; }
@@ -74,8 +71,6 @@ public sealed partial class WeldFactorTable {
             validationError = new ValidationError("weld-factor-table");
     }
 
-    // Coverage and band accumulate per AXIS: a table short one uphill row AND carrying an over-unity fillet derate
-    // names both, so a shop repairs its whole table in one edit rather than one refusal per re-submission.
     public static Fin<WeldFactorTable> Admit(
         Map<PassRole, RoleFactor> roles,
         Map<WeldPosition, PositionFactor> positions,
@@ -93,7 +88,6 @@ public sealed partial class WeldFactorTable {
                         FabConcern.Joining, "weld-factor-table:positions:band", FabricationFault.Inadmissible),
                 AdmissionSlots.Gate(toSeq(PrepShape.Items).ForAll(shapes.ContainsKey),
                     FabConcern.Joining, "weld-factor-table:shapes:coverage", FabricationFault.Inadmissible),
-                // A heat-flow correction above unity would report a joint conducting less than the plate it is cut into.
                 AdmissionSlots.Gate(!shapes.Values.Exists(static row => !double.IsFinite(row.Planar) || row.Planar is <= 0.0 or > 1.0
                     || !double.IsFinite(row.Spatial) || row.Spatial is <= 0.0 or > 1.0),
                         FabConcern.Joining, "weld-factor-table:shapes:band", FabricationFault.Inadmissible))
@@ -109,7 +103,6 @@ public sealed partial class WeldFactorTable {
 
     public ShapeFactor Of(PrepShape shape) => Shapes[shape];
 
-    // The landed preset: every row admitted, so the preset itself proves the totality clause the admission demands.
     public static readonly Fin<WeldFactorTable> Shop = Admit(
         Map((PassRole.Tack, new RoleFactor(0.35, 0.45, 0.80)),
             (PassRole.Root, new RoleFactor(0.55, 0.70, 0.75)),
@@ -148,14 +141,8 @@ public sealed partial class WeldRuleSet {
     public double WorkAngleDeg { get; }
     public double TravelAngleDeg { get; }
 
-    // The band a transported frame may depart the demanded attitude by. The rule set DEMANDS an attitude and the
-    // transport hands the one the joint geometry allowed, so without a declared band the two facts never meet and a
-    // torch that cannot reach its own groove reports nothing.
     public double AttitudeToleranceDeg { get; }
 
-    // The deposited fraction at which a double-sided joint turns over to its second side. Symmetric preparations
-    // cross at the half, an unbalanced one earlier or later, and a bare literal in the fill fold decided a burn no
-    // shop could re-rate.
     public double SideCrossoverFraction { get; }
     public int PassCap { get; }
     public double AbsoluteVolumeToleranceMm3 { get; }
@@ -212,8 +199,6 @@ public sealed partial class WeldRuleSet {
             factors,
             out WeldRuleSet rules).Admitted(rules);
 
-    // The volume ledger closes on the wider of the two bands, so a short seam is not held to a relative tolerance its
-    // absolute demand cannot resolve and a long one is not held to an absolute figure its own scale swamps.
     public double VolumeToleranceMm3(double requiredMm3) =>
         Math.Max(AbsoluteVolumeToleranceMm3, requiredMm3 * RelativeVolumeTolerance);
 
@@ -269,8 +254,6 @@ public abstract partial record DepositionSource {
         volumetric: static value => value.CharacteristicWidthMm,
         autogenous: static value => Math.Sqrt(value.FusedAreaMm2));
 
-    // Powder, volumetric, and autogenous carriers consume no discrete filler length, so the consumption ledger
-    // reports absence rather than a zero a cost fold would read as a measured figure.
     public Option<double> FillerLength(double depositedMm3) => Switch(
         state: depositedMm3,
         solidWire: static (deposited, value) => Some(deposited
@@ -389,8 +372,6 @@ public sealed partial class TransferMode {
 
     private static bool Band(double low, double high) => ValidityClaim.All(ValidityClaim.Positive(low), double.IsFinite(high), low <= high);
 
-    // Every transfer gate binds this minter as a method group: the joint ordinal and the axis token ride the gate's
-    // two identity slots, so the locus composes on the failing arm alone.
     private static FabricationFault Refusal(int joint, string axis) =>
         FabricationFault.Inadmissible(FabConcern.Joining, $"transfer-mode:{axis}:{joint}");
 }
@@ -432,8 +413,6 @@ public abstract partial record Waveform {
     private Waveform() { }
 
     public sealed record Harmonic(Arr<HarmonicTerm> Terms) : Waveform;
-    // The knot spline is the ONE piecewise evaluator: one linear interpolant per waveform, built once and held, so a
-    // weave evaluated at every waypoint pays no per-sample knot scan.
     public sealed record Piecewise(Arr<WaveKnot> Knots) : Waveform {
         [IgnoreMember]
         private IInterpolation? spline;
@@ -470,8 +449,6 @@ public readonly partial struct WeavePattern {
     public double EdgeDwellS { get; }
     public int TogglesPerCycle { get; }
 
-    // ONE dwell fact at ONE precision. Seconds is what the preimage and the arc clock read; the millisecond word is
-    // an EGRESS projection the dialect spells, so a rounded value never enters a content key beside its own source.
     public int EdgeDwellMs => (int)Math.Round(EdgeDwellS * 1000.0);
 
     [BoundaryAdapter]
@@ -523,14 +500,11 @@ public abstract partial record PassLineage {
         repair: static value => ValidityClaim.All(value.ReplacesOrdinal >= 0, ValidityClaim.Positive(value.ExcavatedMm3)),
         temper: static value => value.ConditionsOrdinal >= 0);
 
-    // Excavated metal re-opens fill demand, so the coverage ledger balances against required plus every excavation.
     public double ExcavatedMm3 => Switch(
         planned: static _ => 0.0,
         repair: static value => value.ExcavatedMm3,
         temper: static _ => 0.0);
 
-    // A repair or temper pass names the ordinal it derives from, so the lineage graph edges child -> parent and a
-    // pass whose parent is absent is a broken chain rather than a silently rooted one.
     public Option<int> Parent => Switch(
         planned: static _ => Option<int>.None,
         repair: static value => Some(value.ReplacesOrdinal),
@@ -586,10 +560,6 @@ public sealed partial class BeadProgram {
             validationError = new ValidationError("bead-program");
     }
 
-    // The fill-band contract accumulates clause by clause: a programme whose bands leave a fraction gap AND whose
-    // overlay carries a depositing role names both, so one authoring pass repairs the lattice. Fill bands must
-    // advance the groove ledger, so a zero-contribution role rides the overlay and deposits once after closure;
-    // interleaving it into `Bands` would stall the fill fold against the pass cap.
     public static Fin<BeadProgram> Admit(
         Seq<RoleBand> bands,
         Seq<RoleBand> overlay,
@@ -619,14 +589,13 @@ public sealed partial class BeadProgram {
         .Find(row => fraction >= row.StartFraction && fraction < row.EndFraction)
         .IfNone(() => Bands[^1]);
 
-    // One layer carries as many overlapped beads as its section width admits; bead 0 sits at the left toe.
     public (int BeadsInLayer, double LateralOffsetMm) Lattice(double layerWidthMm, double beadWidthMm, int bead) {
         int count = Math.Max(1, (int)Math.Ceiling(layerWidthMm / (beadWidthMm * (1.0 - OverlapFraction))));
         return (count, (-0.5 * layerWidthMm) + ((Math.Min(bead, count - 1) + 0.5) * (layerWidthMm / count)));
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IWeldAccess {
     string Key { get; }
     K<Validation<Error>, Unit> Check(WeldJoint joint, Seq<WeldPass> passes);
@@ -651,8 +620,6 @@ internal sealed partial class WeldAccess : IWeldAccess {
             validationError = new ValidationError("weld-access");
     }
 
-    // A caller-supplied constraint is untrusted code on the planning rail, so its throw lands as this constraint's
-    // original captured error and the accumulation keeps every sibling verdict rather than losing the fold to an escape.
     public K<Validation<Error>, Unit> Check(WeldJoint joint, Seq<WeldPass> passes) =>
         Op.Of(name: Key).Catch(() => Fin.Succ(Constraint(joint, passes))).Match(
             Succ: static result => result,
@@ -716,8 +683,6 @@ public sealed partial class WeldPolicy {
     public WeldRuleSet Rules { get; }
     public BeadProgram Beads { get; }
 
-    // PRESENCE routes the circular-fit gate: a caller that never opted in emits linear chains with no extra branch,
-    // and a present policy is already admitted, so no interior read re-proves a disabled row's zero columns.
     public Option<ArcFitPolicy> ArcFit { get; }
 
     public Map<ProcessKind, WeldProcessLaw> Processes { get; }
@@ -763,9 +728,7 @@ public sealed partial class WeldPolicy {
 - Boundary: `ArcProgram.Lead` and `.Trail` take the `Joining/weld` `[03]-[PASS]` `TorchFrame` the transport produced — the arc program places moves ON a pose it never derives.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// `WeldPolicy.ArcFit` carries absence as `None`, so this admitted band never spells a disabled row whose tolerance,
-// frame minimum, and sweep floor are three zeros nothing may read.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ArcFitPolicy {
@@ -779,8 +742,6 @@ public readonly partial struct ArcFitPolicy {
         ref double toleranceMm,
         ref int minimumFrames,
         ref double minimumSweepRad) {
-        // Three origins are what a circumcircle needs, so the floor is a construction invariant rather than a clamp
-        // the fit re-applies against a caller's smaller figure.
         if (!ValidityClaim.Positive(toleranceMm).Holds || minimumFrames < 3
             || !double.IsFinite(minimumSweepRad) || minimumSweepRad is <= 0.0 or > Math.Tau)
             validationError = new ValidationError("arc-fit-policy");
@@ -794,9 +755,6 @@ public readonly partial struct ArcFitPolicy {
             out ArcFitPolicy policy).Admitted(policy);
 }
 
-// A circular deposit run is a MEASURED fact over the transported origins, never a caller assertion: the circumcircle
-// of first, middle, and last origin must hold every interior origin, the run must be planar in that circle's own
-// normal, and the accumulated sweep must clear the floor. Anything short keeps the linear chain.
 public readonly record struct ArcFit(Point3d Centre, double RadiusMm, RotationSense Sense, double SweepRadians) {
     public static Option<ArcFit> Of(Seq<Point3d> run, Vector3d surfaceNormal, ArcFitPolicy policy) {
         if (run.Count < policy.MinimumFrames) return None;
@@ -866,8 +824,6 @@ public readonly partial struct ArcProgram {
             runOut.As(LengthUnit.Millimeter),
             out ArcProgram program).Admitted(program);
 
-    // Approach, run-in, and backstep ride the pass path AHEAD of the deposit segments and run-out behind them, so
-    // the burning segments keep a station-monotone interval nothing prepends into.
     public Fin<Seq<Move>> Lead(TorchFrame first, double feedMmMin) =>
         (from approach in Move.Rapid.Of(first.Pose.Origin - (RunInMm * first.Pose.XAxis), first.Orientation)
          from lead in RunInMm > 0.0
@@ -884,7 +840,6 @@ public readonly partial struct ArcProgram {
         ? Move.Linear.Of(last.Pose.Origin + (RunOutMm * last.Pose.XAxis), feedMmMin, last.Orientation).Map(Seq1)
         : Fin.Succ(Seq<Move>());
 
-    // Crater fill is arc-on time with no travel, so it seeds the clock rather than riding a distance quotient.
     public double ArcTime(Seq<Move> path) => path.Zip(path.Tail).Fold(
         CraterFillS,
         static (seconds, pair) => pair.Item2.Switch(

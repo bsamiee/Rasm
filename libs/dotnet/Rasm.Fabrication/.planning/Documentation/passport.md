@@ -21,7 +21,7 @@ Every signed artifact is keyed and signed over a `CanonicalWriter` BINARY preima
 - Boundary: this page authors no measurement. Every quantity it carries arrived on a record its own owner already admitted, so the passport states provenance and period beside a value and re-derives nothing.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
@@ -45,7 +45,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Documentation;
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(EnergyUse), "energy-use")]
@@ -76,8 +76,6 @@ public abstract partial record SustainabilityEvidence {
     public sealed record Repairability(Ratio Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
     public sealed record Durability(NodaTime.Duration Value, EvidenceRef.Source Source, Interval Period) : SustainabilityEvidence;
 
-    // The declared row identity every projection and every preimage reads, so a new case costs one row here and
-    // no second correspondence at a consumer.
     public string Measure => Switch(
         energyUse: static _ => "energy-use",
         carbon: static _ => "carbon",
@@ -173,9 +171,6 @@ public sealed partial class PassportEvidence {
             validationError = QualityEvidence.Validation("passport-evidence");
     }
 
-    // `SEdge` carries VALUE identity, so two genealogy links naming one parent-child pair are one edge and the
-    // acyclicity gate reads the relation the evidence actually states. `Edge<T>` is reference-identity and admits
-    // the same pair twice, which inflates the closure a severed-lineage check walks.
     private static bool ValidGenealogy(EvidenceRef.Product product, Seq<GenealogyLink> genealogy) {
         AdjacencyGraph<EvidenceRef, SEdge<EvidenceRef>> graph = new(allowParallelEdges: false);
         genealogy.Iter(link => graph.AddVerticesAndEdge(new SEdge<EvidenceRef>(link.Parent, link.Child)));
@@ -218,7 +213,7 @@ public abstract partial record ReportScope {
 - Boundary: `TravelerReceiptCorpus.Records` consumes `Seq<SealedRecord>` and derives its singleton digital-product-passport projection from those records.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Role), "role")]
@@ -304,16 +299,10 @@ public sealed record SealedRecord(
     public Option<ContentKey> DigitalProductPassport => Passport.Map(static artifact => artifact.Key);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class QualityReport {
-    // Measured evidence under attestation is exact truth: the seal declares no quantization, and no column this
-    // page writes is a `Measure`, so the writer's grid never rounds a reading a signer distinguished.
     private const double ExactGrid = 0.0;
 
-    // The TRANSPORT rendering. A traveler document serializes through these options; identity and signature never
-    // do. The roster per union keeps a case's discriminator stable under a type rename, the LanguageExt factory
-    // repopulates `Seq` and `Option` members on read, and the Thinktecture factory skips owners whose generator
-    // already stamped a converter.
     internal static readonly JsonSerializerOptions CanonicalJson =
         new JsonSerializerOptions(JsonSerializerDefaults.General) {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -324,9 +313,6 @@ public static class QualityReport {
             },
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 
-    // The seal is where the passport receipt SETTLES, so the sustainability fact fires here and nowhere inside the
-    // evidence folds. A records-scoped seal fires nothing at all — an unsealed measure is absence, never a zero
-    // reading a board would then average.
     public static Fin<SealedRecord> Seal(QualityReportRequest request, FabricationTap? tap = null) =>
         from admitted in QualityEvidence.RecordOp.Need(request)
         from _request in (
@@ -390,8 +376,6 @@ public static class QualityReport {
         .Distinct()
         .ToSeq();
 
-    // The body's own writer is the algebra parameter, so one attestation fold serves every signed artifact class
-    // and no artifact reaches a serializer for its identity.
     private static Fin<Attested<TBody>> Attest<TBody>(
         TBody body,
         Func<CanonicalWriter, TBody, CanonicalWriter> write,
@@ -425,8 +409,6 @@ public static class QualityReport {
             bytes,
             signedAt);
 
-    // The signature preimage binds the body bytes to WHO signed, in WHAT role, under WHICH credential, and WHEN,
-    // so a valid signature transplanted onto another claim fails verification.
     internal static Fin<ReadOnlyMemory<byte>> Payload(AttestationPayload payload) => Preimage(sink => sink
         .Ordinal(payload.Body.Length)
         .Raw(payload.Body.Span)
@@ -435,15 +417,10 @@ public static class QualityReport {
         .Reference(payload.Credential)
         .Moment(payload.SignedAt));
 
-    // The ONE writer mint on this page: `Retaining` is the mint whose close hands bytes back, and `ToBytes` is that
-    // close's own typed rail, so a preimage that could not be materialized answers a refusal rather than an empty
-    // span a signer would sign.
     private static Fin<ReadOnlyMemory<byte>> Preimage(Func<CanonicalWriter, CanonicalWriter> frame) =>
         frame(CanonicalWriter.Retaining(tolerance: ExactGrid))
             .ToBytes(QualityEvidence.RecordOp);
 
-    // The page's OWN column writer over the shared codec: the record-plane columns live with the record plane at
-    // `Documentation/report`, and this arm is the one shape this page authors.
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Passport(PassportEvidence evidence) => sink
             .Reference(evidence.Product)

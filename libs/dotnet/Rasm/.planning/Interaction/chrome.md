@@ -32,13 +32,13 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Boundary: Rhino's `.rui` toolbar files, `RhinoApp.ToolbarFiles`, and `MenuLinks` live menu mutation are that host's OWN menu estate over its own persistence format — conflating them with this table is the sharpest trap in the boundary corpus, because the two answer different questions about different files.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Parametric;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -59,9 +59,6 @@ public readonly partial struct PlacementKey {
     }
 }
 
-// One naming space per concept, never a raw string per site: a radio group and a submenu are two identities the
-// page already models for its verbs and its surfaces, and three untyped spellings on one page is how a group head
-// bound a command from another group the first time two authors spelled one name differently.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -82,8 +79,6 @@ public readonly partial struct SubMenuKey {
     }
 }
 
-// The job's own identity, admitted once: a receipt re-checking blankness on a raw name guards an invalid state at
-// each use where every other identity on this page is unrepresentable when blank.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct JobName {
@@ -97,8 +92,6 @@ public readonly partial struct JobName {
 public sealed partial class CommandRole {
     public static readonly CommandRole Push = new(key: 0, mint: static (_, _) => new Command());
     public static readonly CommandRole Check = new(key: 1, mint: static (seed, _) => new CheckCommand { Checked = seed.IfNone(false) });
-    // The first row of a group becomes the controller and every later row wires to it, so a group head is a fold
-    // position rather than a column an author keeps consistent by hand.
     public static readonly CommandRole Radio = new(key: 2, mint: static (seed, head) => head.Match(
         Some: controller => new RadioCommand { Controller = controller, Checked = seed.IfNone(false) },
         None: () => new RadioCommand { Checked = seed.IfNone(false) }));
@@ -114,8 +107,6 @@ public abstract partial record CommandKind {
     public sealed record Toggle(Func<bool> Read, Action<bool> Write) : CommandKind;
     public sealed record Pick(GroupKey Group, Func<bool> Read, Action Choose) : CommandKind;
 
-    // Mint posture DERIVES from behaviour rather than riding a second author-supplied column: the two were
-    // independent vocabularies at the two boundaries, so a mint could disagree with the behaviour it hosted.
     internal CommandRole Role => Switch(
         act: static _ => CommandRole.Push,
         toggle: static _ => CommandRole.Check,
@@ -145,10 +136,7 @@ public abstract partial record CommandKind {
         pick: static (command, kind) => command is RadioCommand radio ? Op.Side(() => radio.Checked = kind.Read()) : unit);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Rank and group are ORDERED positions, not free integers: `Dimension` is the page's own count carrier and the
-// group is the same identity a radio head binds against, so a slot can no longer name a negative rank or a group
-// spelled one way here and another way on the command it sits beside.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PlacementSlot(PlacementKey Place, Dimension Rank, GroupKey Group, Option<SubMenuKey> SubMenu);
 
 public sealed record IntentRow(
@@ -162,8 +150,6 @@ public sealed record IntentRow(
     CommandKind Kind,
     Seq<PlacementSlot> Slots);
 
-// The FACT alone: the stamp and the ordinal ride the `UiEvent<IUiFact>` envelope the drain mints, because the
-// ordinal has ONE minter on this sub-domain and a second counter here would hand two events one order.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct IntentReceipt(
     IntentKey Key,
@@ -175,14 +161,10 @@ public readonly record struct IntentReceipt(
     public bool IsValid => Outcome.IsSucc;
 }
 
-// The resource roster carries the icon lease the row's `IconRender` resolved to, so a rebuilt table releases the
-// bitmap it minted rather than handing the next table a live host image with no owner.
 internal sealed record BoundIntent(
     IntentRow Row, Command Command, EventHandler<EventArgs> Executed, Seq<Lease<IDisposable>> Resources);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The deck IS a source row: every bound `Executed` handler and every programmatic `Invoke` publishes one fact
-// through the drain, so the raise a user made and the raise a script made carry one ordinal from one minter.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
     private readonly Seq<BoundIntent> bound;
     private readonly EvidenceDrain<IUiFact> drain;
@@ -194,42 +176,27 @@ public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
     public Op Key { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
 
-    // The one source identity this deck publishes under, so a consumer subscribing it through `UiEvents.Observe`
-    // and a consumer reading the drain directly read the same rows in the same order.
     string IUiSource<IUiFact>.Key => "intent.table";
 
-    // NO journal here: the drain is the bounded evidence owner and it accounts BOTH losses — a shed count for what
-    // its bound dropped and a refused count for an admission that failed — where an atom of receipts grew for
-    // process life and a palette ranking folding it was the leak.
     [BoundaryAdapter]
     public static Fin<Lease<IntentTable>> Materialize(
         Seq<IntentRow> rows, MonotonicTimeline clock, EvidenceDrain<IUiFact> drain, Op? key = null);
 
-    // The relay every raise reaches the drain through: `Attach` seats it and its disposal drops it, so the table
-    // publishes into the one minter rather than owning a counter of its own.
     public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<IUiFact>>> emit, Op key);
 
-    // `Verb`, not `Command`: a member spelled `Command` shadows the host type inside every signature in this body,
-    // and `Fin<Command>` then names the method rather than the widget.
     public Fin<Command> Verb(IntentKey key, Op? op = null);
 
     public Fin<Unit> Invoke(IntentKey key, Op? op = null);
     public Fin<Unit> RefreshAvailability(Op? key = null);
 
-    // A menu bar and a toolbar leave BARE because the window that takes them drains them; a popup leaves LEASED
-    // because nothing else will ever own it.
     public Fin<MenuBar> MenuOf(PlacementKey place, Op? key = null);
     public Fin<ToolBar> BarOf(PlacementKey place, Op? key = null);
     public Fin<Lease<ContextMenu>> PopupOf(PlacementKey place, Op? key = null);
 
     public Fin<Unit> Release();
-    // The release verdict PARKS on this mount's own ledger — a cleanup refusal never rides `ignore`, because a
-    // discard is the one posture that makes a stranded host command invisible.
     public void Dispose() => _ = Release();
 
     private static Fin<Unit> Distinct(Seq<IntentRow> rows, Op op);
-    // The head map THREADS through the fold: the first row of a radio group becomes its controller, so the
-    // accumulator rides out beside the entry rather than mutating a table the fold shares.
     private static Fin<(BoundIntent Entry, HashMap<GroupKey, RadioCommand> Heads)> Bind(
         IntentRow row, HashMap<GroupKey, RadioCommand> heads, Op op);
     private Seq<(PlacementSlot Slot, BoundIntent Entry)> Placed(PlacementKey place);
@@ -256,14 +223,14 @@ public sealed class IntentTable : IMount, IUiSource<IUiFact>, IDisposable {
 - Boundary: menu lifecycle observation — opening, closing, closed — is the input owner's fact algebra over the live popup inside the lease window, never a column on a node. The flat host's own screen-point argument and its call stay at that boundary: `Flatten` answers the roster and `Choose` reads the ordinal, and neither knows where the menu was shown.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoPointF = Eto.Drawing.PointF;
 using Rasm.Domain;
 using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MenuNode {
     private MenuNode() { }
@@ -273,8 +240,6 @@ public abstract partial record MenuNode {
     public sealed record Rule : MenuNode;
 }
 
-// Keyed by ORDINAL because the ordinal IS the array a flat host reads: the row carries the presentation and the
-// host takes the key, so no boundary maps three names onto three integers of its own.
 [SmartEnum<int>]
 public sealed partial class MenuMode {
     public static readonly MenuMode Active = new(key: 0);
@@ -282,14 +247,12 @@ public sealed partial class MenuMode {
     public static readonly MenuMode Divider = new(key: 2);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// One entry of the flat projection: the text a host draws, the presentation it draws it under, and the verb the
-// entry names — absent on a header or a divider, which is what makes an unpressable ordinal a typed refusal.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct MenuSlot(string Text, MenuMode Mode, Option<IntentKey> Verb);
 
 internal sealed record MenuBranch(MenuItem Root, Seq<Lease<MenuItem>> Owned);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class OwnedContextMenu : ContextMenu, IMount {
     private readonly Seq<MenuBranch> branches;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
@@ -301,37 +264,21 @@ public sealed class OwnedContextMenu : ContextMenu, IMount {
 
     internal OwnedContextMenu(Seq<MenuBranch> branches, Op key);
 
-    // Released-with-fault, never re-armed: the custody machine's `Closed()` transition is the ONE latch on this
-    // sub-domain, so a second pass reads `Released` and disposes nothing the first already returned to the
-    // platform — an interlocked int beside the machine is a second latch answering the same question.
     public Fin<Unit> Release();
 
-    // The host disposal seam — `Widget` publishes `protected virtual void Dispose(bool disposing)` and latches its
-    // own `IsDisposed` (`libs/dotnet/.api/api-eto-platform.md`). The verdict PARKS on the teardown ledger rather
-    // than riding `ignore`, because a discard here is how a detach refusal became a stranded native nobody named.
     protected override void Dispose(bool disposing);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The two declared menu bounds as ROWS, each naming what it derives from: the depth is the recursion ceiling the
-// build fold descends against — no rail below guards the runtime stack — and the roster is the flat host's own
-// entry ceiling, which is the array `Flatten` fills and `Choose` indexes back into. A magic literal beside the
-// fold names neither, so neither could be read, tuned, or refuted at its own site.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MenuBudget {
-    // Deeper than any authored menu on either boundary and shallower than the frame budget a build fold spends
-    // per level, so a hostile or generated tree refuses typed rather than overflowing the stack.
     public static readonly MenuBudget Depth = new(key: 0, bound: Dimension.Create(value: 16));
-    // The flat host takes one roster and answers one ordinal into it; past this the ordinal a user pressed and the
-    // row a projection meant stop being the same fact on every host that truncates its own roster.
     public static readonly MenuBudget Roster = new(key: 1, bound: Dimension.Create(value: 512));
 
     public Dimension Bound { get; }
 }
 
 public static class MenuForge {
-    // An absent depth reads `MenuBudget.Depth.Bound`, so a caller states a tighter ceiling and never a looser one
-    // it invented; the fold refuses typed at the bound rather than falling through as a truncated menu.
     [BoundaryAdapter]
     public static Fin<Lease<ContextMenu>> Context(
         Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default, Op? key = null);
@@ -342,17 +289,9 @@ public static class MenuForge {
     [BoundaryAdapter]
     public static Fin<Unit> Popup(Lease<ContextMenu> menu, Control anchor, EtoPointF at, Op? key = null);
 
-    // The flat projection for a host that takes a roster and answers an ordinal. A `Stub` emits its own text as a
-    // `Muted` header between dividers and then its children in order; an unavailable verb emits `Muted` rather than
-    // vanishing, because a dropped row renumbers every ordinal after it. No host object mints, so this gate does
-    // not marshal — only `Choose` reads the answer back. The roster is bounded by `MenuBudget.Roster.Bound` and
-    // refuses past it, because a host that truncates its own roster answers an ordinal into a different projection
-    // than the one this member handed it.
     public static Fin<Seq<MenuSlot>> Flatten(
         Seq<MenuNode> nodes, IntentTable table, Option<Dimension> depth = default, Op? key = null);
 
-    // Dismissal is ABSENCE — a host spells it as a negative ordinal — while an out-of-range ordinal and an ordinal
-    // naming a header or divider are typed refusals: the host answered a row it was told was unpressable.
     public static Fin<Option<IntentKey>> Choose(Seq<MenuSlot> slots, int index, Op? key = null);
 }
 ```
@@ -377,7 +316,7 @@ public static class MenuForge {
 - Boundary: window lifecycle facts — closing, closed, state changed, pixel size changed — are the input owner's source rows over the realized form; per-display placement math reads the platform owner's display facts; Grasshopper2's editor panes and slots, and Rhino's dockable panel registry, stay at their boundaries and hand this owner an anchor rather than a case.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoIcon = Eto.Drawing.Icon;
 using EtoPoint = Eto.Drawing.Point;
 using EtoSize = Eto.Drawing.Size;
@@ -386,7 +325,7 @@ using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ShellCapability : ICapability<ShellCapability> {
@@ -408,16 +347,12 @@ public sealed partial class WindowRole {
     [UseDelegateFromConstructor] internal partial Form Mint();
 }
 
-// Keyed on `int`, never `bool`: a two-row key space is exhausted at two rows, so the phase this sub-domain's own
-// growth clause admits — a mount already torn down, which the handler capsule reads for a disposed widget — had no
-// spelling until the key widened. `Closes` is the CONSEQUENCE every arm reads, so no consumer compares to `Open`.
 [SmartEnum<int>]
 public sealed partial class MountPhase {
     public static readonly MountPhase Open = new(key: 0, closes: false);
     public static readonly MountPhase Closing = new(key: 1, closes: true);
     public static readonly MountPhase Released = new(key: 2, closes: true);
 
-    // Refuses new entrants: a closing mount is draining the visits it has and a released one has none to drain.
     public bool Closes { get; }
 }
 
@@ -430,40 +365,25 @@ public abstract partial record WindowVerb {
     public sealed record Redress(WindowChrome Chrome) : WindowVerb;
 }
 
-// The custody FLOOR: a key and a release, which is everything an owner needs from something it adopted. A window
-// mount, a host page mount, and a panel mount all answer it, so the forest below is not pinned to one realization.
 public interface IMount {
     Op Key { get; }
     Fin<Unit> Release();
 }
 
-// The mount holds the lock and seats the returned state, so every transition has one exhaustive shape rather than
-// a type test per call site; a `Some` release payload is the child forest the caller must free. PUBLIC because it
-// is the machine every mount on this sub-domain composes — a table, a popup, a modal, and a presence each hold one
-// atom of it rather than an interlocked int latch and a discarded release beside it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MountCustody {
     private MountCustody() { }
 
-    // `Owner` is the other end of `Children`: a child released first reads it and drops itself from that forest,
-    // so no owner re-attempts a release over a mount that already ran one. `Active` is ABSENT rather than zero —
-    // the count carrier starts at one by construction, and absence is exactly "no visit in flight", which is what
-    // a zero was standing in for.
     public sealed record Live(
         Option<Dimension> Active, Seq<IMount> Children, Option<IMount> Owner, MountPhase Phase) : MountCustody;
     public sealed record Released : MountCustody;
 
-    // The six transitions are PUBLIC (E-B3-1): the machine is composed from the boundary assemblies (Rhino
-    // pages/panels, GH mounts) and no InternalsVisibleTo reaches them — every argument and answer was already
-    // public, so internal visibility only forced each boundary to re-spell the machine it may not reach.
     public Option<MountCustody> Entered() => Switch(
         live: static row => row.Phase.Closes
             ? Option<MountCustody>.None
             : Some<MountCustody>(row with { Active = Some(Dimension.Create(value: row.Active.Map(static held => held.Value).IfNone(0) + 1)) }),
         released: static _ => Option<MountCustody>.None);
 
-    // A leave with no matching enter REFUSES: the count can no longer run negative and reach a release nothing
-    // entered, and the caller reads which mount answered rather than inferring it from a later double-dispose.
     public Fin<(MountCustody Next, Option<Seq<IMount>> Release)> Left(Op key) => Switch(
         state: key,
         live: static (op, row) => row.Active.Match(
@@ -488,9 +408,6 @@ public abstract partial record MountCustody {
         live: static (held, row) => (MountCustody)(row with { Children = row.Children.Add(held) }),
         released: static (_, row) => row);
 
-    // The inverse arm the `Owner` slot exists for: keyed, because two mounts of one host type are two rows and the
-    // key is the identity every `IMount` publishes. No base accessor mirrors `Live.Owner` — a base member sharing a
-    // case's positional parameter name suppresses that case's property synthesis outright.
     public MountCustody Dropped(IMount child) => Switch(
         state: child,
         live: static (held, row) => (MountCustody)(row with {
@@ -509,10 +426,7 @@ public abstract partial record MountCustody {
             Reason: RejectReason.UnmatchedLeave));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// PRESENCE is the declaration: a styler slot beside a declared-bare row admits two decorative corners — a bare
-// window holding a styler nothing runs and a skinned window dressing nothing — and the option forecloses both.
-// A receipt that wants the declaration back reads `Styler.IsSome`, which is the same fact the row carried.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChromeStyler(Func<Control, Op, Fin<Unit>> Dress);
 
 public sealed record WindowChrome(
@@ -524,12 +438,8 @@ public sealed record WindowChrome(
     WindowStyle Style,
     Option<Lease<EtoIcon>> Badge,
     Option<Window> Owner) {
-    // Accessor-backed: the capability generator fills `Items` from its own static constructor, so an eager field
-    // folding over the roster freezes an empty one.
     public static WindowChrome Portable => Seed.Value;
 
-    // Every corner is legal — a fixed palette with no close box and a resizable taskbar shell are both real
-    // windows — so no illegal-corner refusal exists to state.
     public static CapabilityLaw<ShellCapability> Law => CapabilityLaw<ShellCapability>.Open;
 
     private static readonly Lazy<WindowChrome> Seed = new(static () => new(
@@ -546,17 +456,14 @@ public sealed record WindowSpec(
     WindowRole Role,
     WindowChrome Chrome,
     Option<ChromeStyler> Styler,
-    // The table is the RUNTIME's — `Realize` already receives it — so a spec names the surface it projects and
-    // never a second table the release-order law would then have two candidates to order against.
     Option<PlacementKey> Menu,
     Option<PlacementKey> Bar,
-    // One independent bit with no second axis to form a legal corner against: a window is shown activated or not.
     bool Activated) {
     [BoundaryAdapter] public Fin<Lease<WindowMount>> Realize(ElementRuntime runtime, Op? key = null);
     [BoundaryAdapter] public Fin<Lease<WindowMount>> Present(ElementRuntime runtime, Op? key = null);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class WindowMount : IMount, IDisposable {
     private readonly Lease<Form> surface;
     private readonly Lease<Control> content;
@@ -573,13 +480,9 @@ public sealed class WindowMount : IMount, IDisposable {
 
     [BoundaryAdapter] public Fin<Unit> Steer(WindowVerb verb, Op? key = null);
 
-    // Both ends in one transition: this mount's forest gains the child and the child's own custody names this
-    // mount as its owner, so a child that releases first drops its row rather than leaving one to re-release.
     public Fin<Unit> Adopt(IMount child, Op? key = null);
 
     public Fin<Unit> Release();
-    // The release verdict PARKS on this mount's own ledger: a cleanup refusal never rides `ignore`, and a discard
-    // is what made a stranded host window invisible to the surface that owned it.
     public void Dispose() => _ = Release();
 }
 ```
@@ -605,14 +508,14 @@ public sealed class WindowMount : IMount, IDisposable {
 - Boundary: Rhino's multi-value, document-scoped, and resource-scoped dialogs — layer, linetype, print-width, sun, and the property and check rosters — stay at that boundary as its own instances, because each is a `Rhino.UI` document surface with no host-neutral analogue.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoSize = Eto.Drawing.Size;
 using Rasm.Domain;
 using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RefusalPosture {
     public static readonly RefusalPosture Close = new(key: 0, holds: false);
@@ -621,8 +524,6 @@ public sealed partial class RefusalPosture {
     internal bool Holds { get; }
 }
 
-// Four independent presentation bits both hosts publish as flag words: every corner is legal, so they ride a
-// capability set over a named vocabulary rather than four bools nothing relates.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AskTrait : ICapability<AskTrait> {
@@ -640,8 +541,6 @@ public sealed partial class AskDelivery {
     public static readonly AskDelivery Desktop = new(key: 1, universal: false);
     public static readonly AskDelivery Service = new(key: 2, universal: false);
 
-    // The precondition a gate reads BEFORE the show: only the in-application target is platform-universal, so a
-    // host publishing no session routing refuses the row by name instead of delivering somewhere else.
     internal bool Universal { get; }
 }
 
@@ -652,9 +551,6 @@ public sealed partial class AskModality {
     public static readonly AskModality Task = new(key: 2);
 }
 
-// The four verdicts a message box settles into, each carrying the host value it projects: the picker family's own
-// law says a captured colour or face is the kernel's identity, and the verdict was the one case handing a raw host
-// enum straight out. `OfHost` is the ingress the show reads back through, so an unrostered host answer refuses.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AskVerdict {
@@ -668,30 +564,19 @@ public sealed partial class AskVerdict {
     public static Fin<AskVerdict> OfHost(DialogResult host, Op? key = null);
 }
 
-// The modal's settle as ONE carrier: the presenter crossing stacked three carriers over one outcome and unstacked
-// them again at the seam, where a chosen value, a refused admission, and a dismissal are three cases of one union.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PromptSettle<TResult> {
     private PromptSettle() { }
 
     public sealed record Chose(TResult Value) : PromptSettle<TResult>;
-    // The admission refusal a `KeepOpen` posture renders and a `Close` posture settles on — a fault, never a
-    // sentinel, so a retry ladder reads the same rail here it reads everywhere else.
     public sealed record Refused(Error Cause) : PromptSettle<TResult>;
-    // Dismissal has no result at all, which is why it is a case rather than an absent value: a caller recovers
-    // from a closed dialog differently than from a refused one.
     public sealed record Dismissed : PromptSettle<TResult>;
 }
 
-// Each case declares its OWN answer shape as a `Typed` demand: the pairing is the case's fact, so it is stated
-// where the case is and nowhere else, and no consumer switches over eight results to recover the one it asked for.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PickerSpec {
     private PickerSpec() { }
 
-    // One path type across the whole family, in and out: the sub-domain's admitted path value object is what a
-    // file origin already reads, so a home directory and an answered file are the same admitted shape on all
-    // three cases rather than a `Uri` on two of them and a raw string on the third.
     public sealed record Open(string Title, Option<FileLocation> Home, bool Multi, Seq<FilterPlan> Filters) : PickerSpec {
         public PickerDemand<Seq<FileLocation>> Typed => Demand<Seq<FileLocation>>(
             static answer => answer is PickerResult.Paths picked ? Some(picked.Values) : None);
@@ -707,10 +592,6 @@ public abstract partial record PickerSpec {
             static answer => answer is PickerResult.Path picked ? Some(picked.Value) : None);
     }
 
-    // Palette and live preview are host-published capability (E-B3-4: `Dialogs.ShowColorDialog` takes a named
-    // colour list AND an on-changed callback) — deleting onto a bare seed/alpha pair dropped both. `Preview`
-    // runs per host callback tick on the rail; its faults NEVER cancel the pick — they accumulate onto the
-    // result's `PreviewFaults`, because a broken live swatch is evidence, not a reason to lose the user's choice.
     public sealed record Shade(
         PerceptualColor Seed, AlphaMode Alpha,
         Option<Seq<PerceptualColor>> Palette = default, Option<Func<PerceptualColor, Fin<Unit>>> Preview = default) : PickerSpec {
@@ -723,28 +604,21 @@ public abstract partial record PickerSpec {
             static answer => answer is PickerResult.Glyph picked ? Some(picked.Value) : None);
     }
 
-    // The knob set is a POLICY: buttons, icon, default button, presentation traits, delivery target, and modality
-    // are one set both hosts publish, carrying the one admission a message prompt has.
     public sealed record Ask(string Text, string Caption, AskPolicy Policy) : PickerSpec {
         public PickerDemand<AskVerdict> Typed => Demand<AskVerdict>(
             static answer => answer is PickerResult.Verdict picked ? Some(picked.Value) : None);
     }
 
-    // One independent bit: an edit prompt is single-line or not, with no second axis to pair it against.
     public sealed record Edit(string Title, string Message, string Seed, bool Multiline) : PickerSpec {
         public PickerDemand<string> Typed => Demand<string>(
             static answer => answer is PickerResult.Text picked ? Some(picked.Value) : None);
     }
 
-    // Policy presence selects the host overload: a floor AND a ceiling take the bounded call, anything else the
-    // unbounded one, so two host members are one case rather than two.
     public sealed record Number(string Title, string Message, double Seed, NumberPolicy Policy) : PickerSpec {
         public PickerDemand<double> Typed => Demand<double>(
             static answer => answer is PickerResult.Number picked ? Some(picked.Value) : None);
     }
 
-    // The RAW settle: the closed family is what a host dialog lands in and what a journal stores, and the typed
-    // demand reads it over this same crossing rather than beside it.
     [BoundaryAdapter] public Fin<PickerResult> Present(Option<Control> anchor, Op? key = null);
 
     private PickerDemand<TResult> Demand<TResult>(Func<PickerResult, Option<TResult>> shape) =>
@@ -757,7 +631,7 @@ public abstract partial record PickerResult {
 
     public sealed record Paths(Seq<FileLocation> Values) : PickerResult;
     public sealed record Path(FileLocation Value) : PickerResult;
-    public sealed record Shade(PerceptualColor Value, Seq<Error> PreviewFaults = default) : PickerResult;   // E-B3-4: accumulated live-preview faults ride the answer
+    public sealed record Shade(PerceptualColor Value, Seq<Error> PreviewFaults = default) : PickerResult;
     public sealed record Glyph(TypeFace Value) : PickerResult;
     public sealed record Verdict(AskVerdict Value) : PickerResult;
     public sealed record Text(string Value) : PickerResult;
@@ -765,10 +639,7 @@ public abstract partial record PickerResult {
     public sealed record Dismissed : PickerResult;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The typed half of the pair: a spec beside the ONE shape probe its own case fixes. `Present` answers absence for a
-// dismissal — the page's own absence law — and refuses TYPED when the host settles a shape this demand did not ask
-// for, so the mismatch names both cases instead of surfacing as a silent `None`.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PickerDemand<TResult>(PickerSpec Spec, Func<PickerResult, Option<TResult>> Shape) {
     [BoundaryAdapter] public Fin<Option<TResult>> Present(Option<Control> anchor, Op? key = null);
 }
@@ -777,8 +648,6 @@ public sealed record FilterPlan(string Label, Seq<string> Extensions) {
     internal Fin<FileFilter> Resolve(Op key);
 }
 
-// Accessor-backed seed: a seed reading a generated roster row from an eager static field observes an `Items`
-// sequence its own static constructor has not filled yet.
 public sealed record AskPolicy(
     MessageBoxButtons Buttons,
     MessageBoxType Kind,
@@ -786,16 +655,10 @@ public sealed record AskPolicy(
     CapabilitySet<AskTrait> Traits,
     AskDelivery Delivery,
     AskModality Modality) {
-    // `Plain`, not `Default`: the default BUTTON is a column here, and a static member of that name is the same
-    // declaration twice.
     public static AskPolicy Plain => Seed.Value;
 
-    // Every presentation corner is legal — a topmost right-to-left foreground box is a real dialog — so no illegal
-    // corner exists to refuse.
     public static CapabilityLaw<AskTrait> Law => CapabilityLaw<AskTrait>.Open;
 
-    // The ONE admission, read by `Present` before any host object mints: a default naming a button the roster does
-    // not present is unpressable, so the host falls back to its own first button and the declared default is lost.
     internal Fin<Unit> Admit(Op key);
 
     private static readonly Lazy<AskPolicy> Seed = new(static () => new(
@@ -819,11 +682,6 @@ public sealed record Prompt<TResult>(
     Option<ChromeStyler> Styler,
     RefusalPosture Posture,
     FaultCell Faults) {
-    // ONE name, two arities discriminated by the PRESENTER the caller already hands — the same rule the marshal
-    // owner holds, where the crossing's own static type selects the arity rather than a member-name suffix. A host
-    // that shows modally passes the settling presenter; a host that shows asynchronously passes the awaiting one.
-    // The presenter takes and answers ONE carrier, because a three-deep stack over a single crossing is unstacked
-    // again at the seam that reads it and the caller pays for both spellings.
     [BoundaryAdapter]
     public Fin<TResult> Ask(
         ElementRuntime runtime,
@@ -840,7 +698,7 @@ public sealed record Prompt<TResult>(
     private Fin<Unit> Admit(Op op);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class PromptMount<TResult> : IMount, IDisposable {
     private readonly ElementReceipt body;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
@@ -854,8 +712,6 @@ internal sealed class PromptMount<TResult> : IMount, IDisposable {
 
     internal Unit Cancel();
 
-    // One union folded once: dismissal has no result and a refused admission has its own cause, so the two
-    // outcomes a single sentinel would merge stay two cases a caller recovers from differently.
     internal static Fin<TResult> Settle(PromptSettle<TResult> verdict, Op op);
 
     public Fin<Unit> Release();
@@ -880,9 +736,7 @@ internal sealed class PromptMount<TResult> : IMount, IDisposable {
 - Boundary: the page paints through the same paint program the on-screen surface mounts, so a printed page and a drawn frame are one program replayed under two scene policies rather than two render paths.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// `Range<T>` binds ambiguously here — the carrier library and the toolkit each publish one as a manifest global —
-// so the toolkit interval is aliased and named at the single `PrintSettings` write that takes it.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoRange = Eto.Forms.Range<int>;
 using EtoRectangleF = Eto.Drawing.RectangleF;
 using Rasm.Domain;
@@ -891,7 +745,7 @@ using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PrintRoute {
     private PrintRoute() { }
@@ -909,24 +763,14 @@ public abstract partial record PageFrame {
     public sealed record Printer(PageSettings Settings) : PageFrame;
     public sealed record Bounded(EtoRectangleF Bounds) : PageFrame;
 
-    // The declarable arm: a sheet extent and a margin are known before any printer is, so a layout composes its
-    // page geometry off the sheet roster and the printer's own printable area stays the `Printer` arm's fact.
-    // Margin is the KERNEL's `Drawing/sheet` owner — `SheetFrame.For(size.Standard).Margin(size, key)` hands the
-    // standard's binding-aware insets for that extent and a custom inset admits through `SheetMargin.Validate`;
-    // a chrome-local margin twin is the deleted form. Orientation is that same owner's ROW and never the host
-    // enum: the row owns the extent swap, and the host enum projects once at the single `PrintSettings` write.
     public sealed record Sheet(SheetSize Size, SheetMargin Margin, SheetOrientation Orientation) : PageFrame {
         internal Fin<EtoRectangleF> Inset(Op key) =>
             from points in ModelUnit.Of(value: UnitSystem.PrinterPoints, key: key)
-            // The ORIENTATION row owns the swap and `SheetSize` owns the unit projection, so the laid pair re-enters
-            // as a size rather than as a hand-swapped tuple: neither authority is re-derived here.
             let laid = Orientation.Extent(size: Size)
             from surface in SheetSize.Custom(
                 width: laid.Width, height: laid.Height, standard: Size.Standard, key: key)
             from extent in surface.In(unit: points, key: key)
             from margin in Margin.In(unit: points, key: key)
-            // The admission compares two MEASURED quantities against each other, so no threshold is minted at all:
-            // a projected float tested against a literal is an epsilon this page has no lane to derive.
             from admitted in margin.Left + margin.Right < extent.Width && margin.Top + margin.Bottom < extent.Height
                 ? Fin.Succ(new EtoRectangleF(
                     x: (float)margin.Left,
@@ -947,9 +791,6 @@ public abstract partial record PageFrame {
         sheet: static (held, frame) => frame.Inset(held.Key));
 }
 
-// The page interval as ONE owner, so the bound and the selection validate against each other rather than against a
-// ladder each reader spells for itself: `Band.Count` already forecloses the non-positive first page through
-// `Dimension`, and the ordering and the job ceiling are the two facts left for the pair to admit.
 [ComplexValueObject]
 public sealed partial class PageSpan {
     public Dimension First { get; }
@@ -960,10 +801,6 @@ public sealed partial class PageSpan {
             ? null
             : new ValidationError(message: "PageSpan requires a last page at or after its first.");
 
-    // The job ceiling is the caller's fact, so it is an ARGUMENT: one member admits the interval and its bound
-    // together, which is the whole reason a start-and-end pair is not two columns a consumer keeps consistent. A
-    // last page past the job's own count refuses `RejectReason.PageSpan`; the ordering rides the guard above and
-    // the non-positive first page rides `Dimension`, so the three clauses have one reader each.
     public static Fin<PageSpan> Of(Dimension first, Dimension last, Dimension pageCount, Op? key = null);
 }
 
@@ -973,8 +810,6 @@ public abstract partial record PrintScope {
 
     public sealed record All : PrintScope;
     public sealed record Selected(PageSpan Span) : PrintScope;
-    // The host's THIRD selection row: printing the host's own current selection is a spelling a caller had no way
-    // to ask for and `Apply` had no way to produce, so the two-case family could not express its own vocabulary.
     public sealed record HostSelection : PrintScope;
 
     internal Unit Apply(PrintSettings settings) => Switch(
@@ -982,7 +817,6 @@ public abstract partial record PrintScope {
         all: static (host, _) => Op.Side(() => host.PrintSelection = PrintSelection.AllPages),
         selected: static (host, scope) => Op.Side(() => {
             host.PrintSelection = PrintSelection.SelectedPages;
-            // The one site the aliased toolkit interval is named, and the only place the pair leaves the owner.
             host.SelectedPageRange = new EtoRange(start: scope.Span.First.Value, end: scope.Span.Last.Value);
         }),
         hostSelection: static (host, _) => Op.Side(() => host.PrintSelection = PrintSelection.Selection));
@@ -993,20 +827,14 @@ public abstract partial record PrintScope {
         selected: static (held, scope) =>
             PageSpan.Of(first: scope.Span.First, last: scope.Span.Last, pageCount: held.PageCount, key: held.Key)
                 .Map(static _ => unit),
-        // A host publishing no current selection cannot answer this scope, so the arm refuses BEFORE the job
-        // configures rather than printing the whole document under a scope nobody asked for.
         hostSelection: static (held, _) => Fin.Fail<Unit>(new UiFault.Rejected(
             Key: held.Key, Field: FieldTag.Create(value: nameof(PrintScope)), Reason: RejectReason.HostSelection)));
 
     internal static Dimension Expected(PrintSettings settings, Dimension pageCount);
 
-    // The host numbers a selected range from its own first page, so every attempted page normalizes to one
-    // zero-based source and one scope ordinal here and a fact index means the same thing under either scope.
     internal static Fin<PrintPageSeat> Seat(PrintSettings settings, int currentPage, Dimension pageCount, Op op);
 }
 
-// The PARTIAL projection overload is generated here because one consumer wants one case and a default: a type
-// test over a closed family reads the same today and stops matching silently the moment a third case lands.
 [Union(
     ConversionFromValue = ConversionOperatorsGeneration.None,
     MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -1020,17 +848,12 @@ public abstract partial record PrintPageFact : IValidityEvidence {
         rendered: static fact => fact.PageIndex,
         failed: static fact => fact.PageIndex);
 
-    // The generated total fold, never `this is Rendered`: the union already discriminates and a type test beside
-    // it is a second dispatch that no compile break reaches when the family grows.
     public bool IsValid => Switch(
         rendered: static _ => true,
         failed: static _ => false);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Two tri-valued classifiers, each carrying its own consequence: host default, or the choice the caller made. A
-// `bool?` strands the host-default case in `case null` at every reader, and the host's own `[DefaultValue]` means
-// the absent row must WRITE NOTHING rather than restate a value it would forge.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CollatePosture {
     public static readonly CollatePosture Host = new(key: 0, apply: static _ => unit);
@@ -1057,8 +880,6 @@ public sealed record PrintSpec(
     PrintScope Scope) {
     internal Fin<PrintSpec> Admit(Dimension pageCount, Op op) => Scope.Admit(pageCount: pageCount, op: op).Map(_ => this);
 
-    // The ONE host-enum projection on this page: the geometry carries the kernel row and the toolkit spelling is
-    // written once, here, where `PrintSettings` is the only reader that takes it.
     internal PrintSettings Configure(Dimension pageCount);
 }
 
@@ -1074,27 +895,18 @@ public sealed record PrintReceipt(
     Dimension Expected,
     bool HostCompleted,
     Seq<Error> Faults) : IValidityEvidence {
-    // The generated PARTIAL fold, never a type test: the union already owns its own discrimination, and an `as`
-    // probe over a closed family is the arm that silently stops matching when a case lands.
     public Seq<PrintPageFact.Failed> Failed => Pages.Choose(static fact => fact.Map(
         @default: static _ => Option<PrintPageFact.Failed>.None,
         failed: Some));
 
     public int Actual => Pages.Count;
 
-    // ONE pass over the facts: the count, the distinct-index set, the in-range flag, and the failure flag are four
-    // reductions over one walk, where four separate probes walked the same sequence four times and the distinctness
-    // probe grouped the whole run to compare a count against itself.
     private Tally Measured => Pages.Fold(state: Tally.Of(expected: Expected), f: static (tally, fact) => tally.With(fact));
 
-    // Derived, never stored: one in-range fact per expected page, distinct indices, host completion, no failure.
     public bool Completed => HostCompleted && Measured.Complete;
 
-    // The name is ADMITTED, so the receipt's evidence narrows to the two facts it actually measures.
     public bool IsValid => ValidityClaim.All(Completed, Faults.IsEmpty);
 
-    // The single-pass accumulator: seats and indices ride one walk, and a repeated index is a set membership
-    // rather than a grouping over the whole run.
     private readonly record struct Tally(Dimension Expected, int Count, Set<int> Indices, bool InRange, bool Failed) {
         internal static Tally Of(Dimension expected) =>
             new(Expected: expected, Count: 0, Indices: Set<int>(), InRange: true, Failed: false);
@@ -1110,12 +922,8 @@ public sealed record PrintReceipt(
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record PrintPlan(JobName Name, Seq<PrintPage> Pages, PrintSpec Spec, PrintRoute Route) {
-    // Deferral is what makes the single crossing right rather than a refusal: a caller composes the effect on any
-    // lane and only its EXECUTION is thread-bound, where realize would instead refuse off the marshal. ONE carrier:
-    // `IO` already carries failure, so the admission lifts through `IO.lift(Func<Fin<A>>)` at the boundary and a
-    // caller runs the effect once instead of running it and then matching a second rail for one outcome.
     [BoundaryAdapter] public IO<PrintReceipt> Run(Op? key = null);
 
     private Fin<Unit> Admit(Op op);
@@ -1140,14 +948,14 @@ public sealed record PrintPlan(JobName Name, Seq<PrintPage> Pages, PrintSpec Spe
 - Boundary: this owner reaches OS notification-center, tray, taskbar, and badge presence ALONE — a Rhino in-viewport toast, a Rhino status-bar meter, and a Grasshopper2 canvas notice are host surfaces over their own chrome, and the two never alias.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoImage = Eto.Drawing.Image;
 using Rasm.Domain;
 using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct ToastKey {
@@ -1167,7 +975,6 @@ public abstract partial record PulseState {
     public sealed record Paused(UnitInterval Progress) : PulseState;
     public sealed record Failed(UnitInterval Progress) : PulseState;
 
-    // The bounded carrier is what keeps the host member's own range refusal unreachable.
     internal (TaskbarProgressState State, float Progress) Project() => Switch(
         idle: static _ => (TaskbarProgressState.None, 0f),
         working: static state => (TaskbarProgressState.Progress, (float)state.Progress.Value),
@@ -1180,17 +987,11 @@ public abstract partial record PulseState {
 public abstract partial record PresenceOp {
     private PresenceOp() { }
 
-    // The anchor is BORROWED: a tray mount owns its indicator, and an alert that consumed it would release a
-    // surface the tray still shows.
     public sealed record Alert(Toast Card, Action<ToastKey> Activated, Option<PresenceMount> Anchor) : PresenceOp;
     public sealed record Tray(string Title, Lease<EtoImage> Icon, Option<Lease<ContextMenu>> Menu, Action Activated) : PresenceOp;
     public sealed record Pulse(PulseState State) : PresenceOp;
     public sealed record Badge(Option<string> Label) : PresenceOp;
 
-    // The precondition each case answers for itself, read before any host object mints. The tray arm demands the
-    // handler CONTRACT through the one capability gate, which is where a shell publishing no tray indicator — the
-    // Grasshopper-under-Rhino case both boundaries found — refuses by name. Alert, pulse, and badge demand nothing
-    // pre-mint, because their surfaces are platform-universal.
     internal Fin<Unit> Precondition(Op key) => Switch(
         state: key,
         alert: static (_, _) => Fin.Succ(unit),
@@ -1199,10 +1000,6 @@ public abstract partial record PresenceOp {
         pulse: static (_, _) => Fin.Succ(unit),
         badge: static (_, _) => Fin.Succ(unit));
 
-    // The alert's anchor admission is POST-MINT and says so: `RequiresTrayIndicator` is an instance read off the
-    // notification's own handler (`api-eto-runtime.md` `[NOTIFICATION_STATE]`), so the fact does not exist until
-    // the card is minted. The gate runs between the mint and the show, and a refusal releases the card exactly as
-    // any other failed acquisition does — this is the producer the page's own anchor law had none of.
     internal static Fin<Unit> Anchored(Alert alert, Notification card, Op key) =>
         alert.Anchor.IsSome || !card.RequiresTrayIndicator
             ? Fin.Succ(unit)
@@ -1210,8 +1007,6 @@ public abstract partial record PresenceOp {
                 Key: key, Field: FieldTag.Create(value: nameof(Alert)), Reason: RejectReason.TrayAnchor));
 }
 
-// The four holds the four cases mint, so a release reads WHAT it is holding rather than probing four independent
-// slots twelve of whose sixteen corners were unreachable — and the restore each case owes is one total fold.
 [Union(
     ConversionFromValue = ConversionOperatorsGeneration.None,
     MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -1219,25 +1014,19 @@ internal abstract partial record PresenceHold {
     private PresenceHold() { }
 
     internal sealed record AlertHold(Lease<Notification> Card) : PresenceHold;
-    // The anchor is BORROWED and the icon and menu are this mount's own, which is exactly the custody split the
-    // four-slot shape could not state: a tray hold owns its indicator and may own an image and a menu beside it.
     internal sealed record TrayHold(
         Lease<TrayIndicator> Indicator, Option<Lease<EtoImage>> Icon, Option<Lease<ContextMenu>> Menu) : PresenceHold;
-    // Restore is a WRITE-BACK, not a detach: the prior taskbar state and the prior badge label are the values the
-    // apply overwrote, so a job that ended without clearing no longer pins the dock at its last fraction.
     internal sealed record PulseHold(PulseState Prior) : PresenceHold;
     internal sealed record BadgeHold(Option<string> Prior) : PresenceHold;
 
     internal Fin<Unit> Restore(Op key);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record Toast(ToastKey Key, string Title, string Message, Option<Lease<EtoImage>> Content);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PresenceMount : IMount, IDisposable {
-    // ONE hold, discriminated by the case that minted it: four independent slots left twelve of sixteen corners
-    // representable and unreachable, and the release had to re-derive which case it was holding.
     private readonly PresenceHold hold;
     private readonly Atom<MountCustody> custody = Atom<MountCustody>(
         new MountCustody.Live(Active: None, Children: Seq<IMount>(), Owner: None, Phase: MountPhase.Open));
@@ -1247,14 +1036,8 @@ public sealed class PresenceMount : IMount, IDisposable {
     public PresenceOp Applied { get; }
     public Seq<Error> ReleaseFaults => teardown.Value;
 
-    // Steer re-points a LIVE mount without re-capturing Prior: the hold keeps its ORIGINAL restore target, so the
-    // final release still restores the pre-mount state — the WindowMount.Steer precedent; without it a stepping
-    // consumer releases and re-applies per step, landing the restored idle between every two frames. A verb whose
-    // case differs from the standing hold's refuses typed: a cross-case move is a release-then-apply, never a steer.
     [BoundaryAdapter] public Fin<Unit> Steer(PresenceOp operation, Op? key = null);
 
-    // The anchor an alert BORROWS: a tray mount owns its indicator and lends it, so no alert consumes a surface
-    // the tray still shows.
     internal Option<TrayIndicator> Indicator => hold.Map(
         @default: static _ => Option<TrayIndicator>.None,
         trayHold: static tray => Some(tray.Indicator.Resource));
@@ -1263,13 +1046,8 @@ public sealed class PresenceMount : IMount, IDisposable {
     public void Dispose() => _ = Release();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Presence {
-    // ONE entry, because the crossing case already answers what the second member was for: `UiDispatch<T>.Blocking`
-    // runs in-frame when the caller is already on the marshal and invokes otherwise, so a caller inside a UI-affine
-    // callback and a caller on a worker reach the same member and neither deadlocks against the thread it holds.
-    // NAMED LOSS: the in-frame twin, which was additionally `internal` — the boundary callers its own law named
-    // live in another assembly and could never reach it, so the sibling was unreachable as well as redundant.
     [BoundaryAdapter]
     public static Fin<Lease<PresenceMount>> Apply(PresenceOp operation, FaultCell faults, Op? key = null);
 }

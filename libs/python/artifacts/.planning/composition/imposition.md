@@ -64,21 +64,16 @@ if TYPE_CHECKING:
 type Box = tuple[float, float, float, float]
 type Dimensions = tuple[float, float]
 type Edge = Literal["left", "right", "top", "bottom"]
-type Lay = Literal["short", "long"]  # the press lay/gripper edge — feed direction, distinct from the binding edge
+type Lay = Literal["short", "long"]
 type Place = Callable[[int, "Geometry"], "Block[Placement]"]
 type ImposeFault = Literal["<no-route>", "<proof-route>", "<proof-dpi>", "<proof-sheet>"]
 
-# Geometry invariants the `partition`/`_folded_plan` arithmetic divides by: `Across`/`Leaves`/`Span` are the
-# DIRECT scalar parameters `_admit` deep-checks (msgspec ignores `Is` at construction, so the scalar seam is the
-# sole enforcement site). `Quarter` — the 0/90/180/270 the `show_pdf_page` `rotate` keyword admits — is sheet's owner, composed here.
 type Across = Annotated[int, Is[lambda n: n >= 1]]
 type Leaves = Annotated[int, Is[lambda n: n >= 1]]
-type Span = Annotated[float, Is[lambda v: v >= 0.0]]  # a non-negative gutter/trim/spine/bleed extent
+type Span = Annotated[float, Is[lambda v: v >= 0.0]]
 
 
 class Scheme(StrEnum):
-    # locally-placeable schemes carry a `PLANS` row; provider-native schemes carry a `_PDFIMPOSE_SCHEMAS` row
-    # ONLY — their fold geometry has no local show_pdf_page equivalent, `PERFECT_BIND` the inverse (local-only).
     NUP = "nup"
     BOOKLET = "booklet"
     SIGNATURE = "signature"
@@ -88,17 +83,17 @@ class Scheme(StrEnum):
     COME_AND_GO = "come-and-go"
     PERFECT_BIND = "perfect-bind"
     SHEETWISE = "sheetwise"
-    WIRE = "wire"  # provider-native: individual pages cut, stacked, wire/spiral-bound — the AEC drawing-set / spec-book bindery form (pdfimpose.schema.wire)
+    WIRE = "wire"
     HARDCOVER = (
-        "hardcover"  # provider-native: sewn folded-signature book, distinct from the local `_folded_plan` saddle block (pdfimpose.schema.hardcover)
+        "hardcover"
     )
-    CARDS = "cards"  # provider-native: front/back sample/swatch/keynote cards, `Geometry.back` orders the verso sources (pdfimpose.schema.cards)
-    ZINE = "zine"  # provider-native: single-sheet 8-page fold-zine, fixed 2x4 fold (pdfimpose.schema.onepagezine)
+    CARDS = "cards"
+    ZINE = "zine"
 
 
 class ImpositionEngine(StrEnum):
-    LOCAL = "local"  # local placement facts over pymupdf show_pdf_page
-    PDFIMPOSE = "pdfimpose"  # admitted pdfimpose schema wrapper, normalized back to local facts/receipts
+    LOCAL = "local"
+    PDFIMPOSE = "pdfimpose"
 
 
 class CreepMode(StrEnum):
@@ -106,43 +101,32 @@ class CreepMode(StrEnum):
     SHINGLE = "shingle"
 
 
-class ProofInk(StrEnum):  # the Proof colorspace axis — pymupdf `get_pixmap(colorspace=)` selects the ink model
-    RGB = "rgb"  # csRGB screen proof (default); pairs with a PNG/WEBP/AVIF raster
-    CMYK = "cmyk"  # csCMYK press-separations proof a bindery reads; pairs with a CMYK-capable JPEG/TIFF raster
-    GRAY = "gray"  # csGRAY single-ink density proof
+class ProofInk(StrEnum):
+    RGB = "rgb"
+    CMYK = "cmyk"
+    GRAY = "gray"
 
 
 class ProofRaster(StrEnum):
-    # Proof egress codec — native `Pixmap.tobytes` vs the `pil_tobytes` bridge; PSD is DELETED capability:
-    # MuPDF's native writer faults `cannot seek in buffer` on the in-memory tobytes path (file-only `Pixmap.save`)
-    # and Pillow reads PSD without writing it, so no in-memory route exists on either engine.
-    PNG = "png"  # native tobytes RGB/GRAY raster (default)
-    JPEG = "jpg"  # native tobytes CMYK-capable separations raster — the press-proof interchange codec
-    WEBP = "webp"  # pil_tobytes bridge — a format MuPDF's native tobytes lacks
-    AVIF = "avif"  # pil_tobytes bridge
-    TIFF = "tiff"  # pil_tobytes bridge — the lossless CMYK-capable container
+    PNG = "png"
+    JPEG = "jpg"
+    WEBP = "webp"
+    AVIF = "avif"
+    TIFF = "tiff"
 
 
-class PressMark(StrEnum):  # the local press-form printer's-mark set drawn at the imposed-cell/sheet boundaries
-    CROP = "crop"  # L-shaped trim ticks at each imposed-cell corner — the guillotine cut guides
-    FOLD = "fold"  # dashed fold lines down the inter-column gutters — the signature fold axes
-    REGISTRATION = "registration"  # concentric target + crosshair at each sheet-edge midpoint — multi-plate alignment
-    COLOR_BAR = "color-bar"  # a CMYK + gray control-patch row along the foot margin — the densitometer strip
+class PressMark(StrEnum):
+    CROP = "crop"
+    FOLD = "fold"
+    REGISTRATION = "registration"
+    COLOR_BAR = "color-bar"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# pymupdf raises `FileDataError`/`EmptyFileError` (both `RuntimeError`-derived) on a corrupt or
-# zero-page source, a `PLANS`/`_PDFIMPOSE_SCHEMAS` miss raises `KeyError`, a malformed `Rect(*cell)`
-# extent raises `ValueError`, an out-of-range `Proof` sheet index raises `IndexError`, the source
-# stream raises `OSError`, pdfimpose raises `PdfImposeUserError` (a direct `BaseException` subclass a
-# bare `except Exception` never catches), and `_GUARD` raises `BeartypeCallHintViolation` on a
-# non-positive grid count or off-axis verso rotation.
 _FAULTS: tuple[type[BaseException], ...] = (RuntimeError, ValueError, KeyError, IndexError, OSError, BeartypeCallHintViolation, PdfImposeUserError)
 
-_CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgpack.Encoder(order="deterministic")
 
-# Proof raster codecs MuPDF's native `Pixmap.tobytes` lacks — routed through the `Pixmap.pil_tobytes`
-# Pillow bridge; every other `ProofRaster` (PNG, JPEG) rides the native encoder.
 _PIL_RASTERS: Final[frozenset[ProofRaster]] = frozenset({ProofRaster.WEBP, ProofRaster.AVIF, ProofRaster.TIFF})
 
 _PROOF_RASTERS: Final[frozendict[ProofInk, frozenset[ProofRaster]]] = frozendict({
@@ -151,8 +135,6 @@ _PROOF_RASTERS: Final[frozendict[ProofInk, frozenset[ProofRaster]]] = frozendict
     ProofInk.GRAY: frozenset(ProofRaster),
 })
 
-# Colour control-bar patches (registration black, C, M, Y, K, quarter/half gray) as pymupdf RGB float-triple
-# `draw_rect` fills — the densitometer strip a press operator reads against a proof; a new patch is one row.
 _BAR_PATCHES: Final[tuple[tuple[float, float, float], ...]] = (
     (0.0, 0.0, 0.0),
     (0.0, 1.0, 1.0),
@@ -164,11 +146,6 @@ _BAR_PATCHES: Final[tuple[tuple[float, float, float], ...]] = (
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
-# `_admit` takes the grid counts, leaf count, and span extents as DIRECT `Is`-refined scalar parameters that
-# beartype deep-checks (a `Struct` field or a `Block`/`tuple` element is NOT deep-checked — only a direct
-# scalar is), raising `BeartypeCallHintViolation` before the divide; `Geometry.partition` calls it at the site.
-# The conf is the runtime's own `FAULT_CONF`, not a local re-mint: one owner declares the canonical violation
-# type, so the `_FAULTS` row above and the runtime `CLASSIFY` `api` row can never disagree.
 _GUARD = beartype(conf=FAULT_CONF)
 
 
@@ -176,12 +153,12 @@ _GUARD = beartype(conf=FAULT_CONF)
 def _admit(
     across: Across, down: Across, leaves: Leaves, gutter: Span, head_trim: Span, spine: Span, creep: Span, bleed: Span, omargin: Span, gripper: Span, /
 ) -> None:
-    return None  # the `@_GUARD` beartype contract IS the work — every `Is`-refined scalar is deep-checked on call
+    return None
 
 
 @_GUARD
 def _admit_rotation(rotate: Quarter, /) -> None:
-    return None  # `Placement.__post_init__` calls this on EVERY construction, so an off-axis rotate rails before `show_pdf_page` sees it
+    return None
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -191,19 +168,19 @@ class Geometry(Struct, frozen=True):
     engine: ImpositionEngine = ImpositionEngine.LOCAL
     across: Across = 2
     down: Across = 1
-    leaves: Leaves = 1  # signature leaf count — the fold depth a saddle/signature block reads
-    gutter: Span = 0.0  # inner binding-edge gutter (imargin) between facing cells
-    omargin: Span = 0.0  # outer/trim margin insetting the cell grid on every edge (pdfimpose `omargin`)
-    head_trim: Span = 0.0  # top/bottom finished-trim allowance
-    spine: Span = 0.0  # perfect-bind glue/spine allowance at the binding edge
-    creep: Span = 0.0  # per-fold creep compensating fold-thickness drift
-    bleed: Span = 0.0  # cell expansion past the trim box
+    leaves: Leaves = 1
+    gutter: Span = 0.0
+    omargin: Span = 0.0
+    head_trim: Span = 0.0
+    spine: Span = 0.0
+    creep: Span = 0.0
+    bleed: Span = 0.0
     binding: Edge = "left"
-    lay: Lay = "long"  # the press feed edge the grippers seize, reserving the `gripper` margin there
-    gripper: Span = 0.0  # the unprintable claw margin reserved on the `lay` feed edge
+    lay: Lay = "long"
+    gripper: Span = 0.0
     creep_mode: CreepMode = CreepMode.PUSH
-    last: int = 0  # trailing pages pinned to the document end (back-cover), blank-filled before them (pdfimpose `last`)
-    back: str = ""  # (CARDS only) the verso-source ordering token pdfimpose `cards.impose(back=)` reads
+    last: int = 0
+    back: str = ""
 
     @property
     def slots(self) -> int:
@@ -215,8 +192,6 @@ class Geometry(Struct, frozen=True):
 
     def partition(self, shift: float = 0.0) -> tuple[Box, ...]:
         _admit(self.across, self.down, self.leaves, self.gutter, self.head_trim, self.spine, self.creep, self.bleed, self.omargin, self.gripper)
-        # `shift` is the per-signature creep the fold passes and `shingle` flips its direction (push-out vs
-        # shingle-in); `omargin` insets the whole grid, `gripper` reserves the claw margin on the `lay` feed edge.
         width, height = self.oriented
         grip_x, grip_y = (self.gripper, 0.0) if self.lay == "short" else (0.0, self.gripper)
         cell_w = (width - 2.0 * self.omargin - (self.across + 1) * self.gutter - self.spine - grip_x) / self.across
@@ -239,9 +214,6 @@ class Geometry(Struct, frozen=True):
         )
 
     def boxes(self) -> tuple[Box, Box]:
-        # Derives the (TrimBox, BleedBox) pair off the base cell grid: trim is the finished-work union with the
-        # bleed expansion removed, bleed the raw cell union clamped to the sheet — the page-box pin a press tool
-        # and PDF/X preflight read off the imposed form.
         cells = self.partition()
         width, height = self.oriented
         x0, y0 = min(cell[0] for cell in cells), min(cell[1] for cell in cells)
@@ -254,40 +226,37 @@ class Placement(Struct, frozen=True):
     source: int
     sheet: int
     cell: Box
-    rotate: Quarter = 0  # verso head-to-head flip — the `show_pdf_page` `rotate` admits 0/90/180/270 only
+    rotate: Quarter = 0
     clip: Box | None = None
-    name: str = ""  # the SHARED signature-group label — one OCG per unique name, the OCMD nests each member (never N flat `sig-N` groups)
+    name: str = ""
     policy: PlacementPolicy = PlacementPolicy()
 
     def __post_init__(self) -> None:
-        # msgspec ignores `Is` at construction, so the public boundary re-enters the `_GUARD` scalar seam here —
-        # plan builders and foreign constructors alike rail an off-axis rotate at mint, never inside `_draw_one`.
         _admit_rotation(self.rotate)
 
 
 class Marks(Struct, frozen=True):
-    overlay: bool = False  # route a FIGURE-placement overlay SHAPE to composition/compose#COMPOSE, not the press-form cell grid
-    press: tuple[PressMark, ...] = ()  # the LOCAL crop/fold/registration/colour-bar marks the `overlay` seam never reaches
-    controls: tuple[str, ...] = ()  # print-control mark names the press info dict records
-    imposition_map: bool = False  # author a per-signature outline so a reader/press navigates each fold section
-    cut_list: tuple[tuple[str, bytes], ...] = ()  # cut-list / fold-map / job-ticket files embedded as PDF associated files
-    bake: bool = False  # flatten interactive annotations/widgets into content before press
+    overlay: bool = False
+    press: tuple[PressMark, ...] = ()
+    controls: tuple[str, ...] = ()
+    imposition_map: bool = False
+    cut_list: tuple[tuple[str, bytes], ...] = ()
+    bake: bool = False
     subset: bool = True
     recompress: bool = False
-    scrub: bool = False  # redaction-grade hidden-content/metadata removal before press
-    linearize: bool = True  # deterministic fast-web-view save (pymupdf `linear=`) with garbage collection and deflate
+    scrub: bool = False
+    linearize: bool = True
     info: tuple[tuple[str, str], ...] = ()
     xmp: str | None = None
 
     def finished(self, document: "Document", geometry: Geometry, sheets: int) -> None:
-        # Live-native-handle press-finish seam: a `for`/`if` mutation chain over the one document, never a fold.
-        if self.imposition_map:  # set_toc page numbers are 1-based
+        if self.imposition_map:
             document.set_toc([[1, f"Sheet {n + 1}", n + 1] for n in range(sheets)])
-        for name, payload in self.cut_list:  # cut-list/fold-map/job-ticket rides as a PDF associated file
+        for name, payload in self.cut_list:
             document.embfile_add(name, payload, filename=name, desc="imposition press file")
         if self.bake:
             document.bake(annots=True, widgets=True)
-        if self.scrub:  # strip hostile/hidden content but PRESERVE the press files just attached and the explicit info/XMP writes below
+        if self.scrub:
             document.scrub(
                 hidden_text=True,
                 javascript=True,
@@ -303,17 +272,12 @@ class Marks(Struct, frozen=True):
         if self.subset:
             document.subset_fonts(fallback=True)
         if self.info or self.controls or self.overlay:
-            # `overlay` route marker rides the press keywords so the downstream compose owner reading the
-            # imposed PDF knows the registration/crop/colour-bar overlay was requested for this lay.
             marks = (*self.controls, *(("overlay",) if self.overlay else ()), geometry.binding, geometry.lay)
             document.set_metadata({**dict(self.info), "keywords": ",".join(marks)})
         if self.xmp is not None:
             document.set_xml_metadata(self.xmp)
 
     def serialize(self, document: "Document") -> bytes:
-        # `no_new_id=True` suppresses the randomized `/ID` so the imposition is byte-identical run-to-run (one
-        # stable `ContentKey`); `linearize` selects pymupdf's DISTINCT `linear` fast-web-view save — object-stream
-        # compression (`use_objstms`) stays an independent storage concern, never relabeled as linearization.
         return (
             document.tobytes(garbage=4, deflate=True, linear=True, no_new_id=True)
             if self.linearize
@@ -323,69 +287,55 @@ class Marks(Struct, frozen=True):
 
 class ImposedPlan(Struct, frozen=True):
     scheme: Scheme
-    sheet: Dimensions  # the oriented imposed press-sheet size a press operator validates the plan against before committing the draw
-    sheets: int | None  # imposed press sheets the placement fold yields; None when only the provider owns the fold geometry
-    pages: int  # source pages read off the live document
-    leaves: int  # signature leaf count the fold depth reads
-    signatures: int | None  # bound folding units (ceil(pages / 4·leaves) for a folded scheme, sheets otherwise — None with them)
-    padded: int  # blank pages the fold pads the count to the next signature multiple
-    creep: float  # outward creep extent applied at the outermost signature
+    sheet: Dimensions
+    sheets: int | None
+    pages: int
+    leaves: int
+    signatures: int | None
+    padded: int
+    creep: float
     placements: tuple[Placement, ...]
     engine: ImpositionEngine = ImpositionEngine.LOCAL
 
 
 class ProofPolicy(Struct, frozen=True):
-    # one behavior-carrying policy value, never a flag tail the raster body re-derives; the RGB+PNG default is the
-    # screen proof, a CMYK separations proof the caller-stated `ink=CMYK` + `raster=JPEG`/`TIFF` pairing.
-    # ICC-managed soft-proofing and its out-of-gamut audit are graphic/color/managed#MANAGED's
-    # `ManageOp.Managed(..., transform=IccTransform(proof=...))`, chained downstream over these proof bytes — never a policy field here.
     ink: ProofInk = ProofInk.RGB
     raster: ProofRaster = ProofRaster.PNG
-    clip: Box | None = None  # proof only this trim/bleed sub-region — the `get_pixmap(clip=)` extent
-    tint: tuple[int, int] | None = None  # `Pixmap.tint_with(black, white)` registration-tint
-    gamma: float | None = None  # `Pixmap.gamma_with(gamma)` dot-gain / tone-curve finish
-    negative: bool = False  # `Pixmap.invert_irect()` film-negative proof
+    clip: Box | None = None
+    tint: tuple[int, int] | None = None
+    gamma: float | None = None
+    negative: bool = False
 
 
 class PdfImposeSchema(Struct, frozen=True):
-    # one provider schema row: an `impose` THUNK (a bare `pdf_saddle.impose` reference at module scope would
-    # reify the lazy proxy at import — the thunk body defers it to first call inside the offload worker) plus the
-    # `accepts` set of optional kwargs the verified signature honors, so `_pdfimpose_kwargs` filters the
-    # one candidate dict and drops a kwarg a schema rejects (onepagezine takes no `signature`/`imargin`,
-    # cards no `last`, wire no `bind`) rather than raising.
     impose: Callable[[], Callable[..., None]]
     accepts: frozenset[str]
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
-# spans every imposition case, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
-# TRANSIENT: a schema engine or a proof raster refusal is a defect a re-issue may clear.
 IMPOSE_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.IMPOSITION, point="fold", arm="boundary", defect="impose-fold", retriability=TRANSIENT
 )
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([IMPOSE_FOLD]))
 
-# Fold-scheme kwarg set the three creep-bearing schemas share (`hardcover` drops `creep`); each row's
-# `accepts` is the exact optional-kwarg set that schema's verified `impose(...)` honors.
 _FOLD_KW: Final[frozenset[str]] = frozenset({"signature", "imargin", "omargin", "mark", "bind", "creep", "group", "last"})
 
 _PDFIMPOSE_SCHEMAS: Final[Map[Scheme, PdfImposeSchema]] = Map.of_seq([
-    (Scheme.BOOKLET, PdfImposeSchema(lambda: pdf_saddle.impose, _FOLD_KW)),  # saddle, group=1 (single-leaf centerfold)
-    (Scheme.SIGNATURE, PdfImposeSchema(lambda: pdf_saddle.impose, _FOLD_KW)),  # saddle, group=leaves (multi-leaf signatures)
+    (Scheme.BOOKLET, PdfImposeSchema(lambda: pdf_saddle.impose, _FOLD_KW)),
+    (Scheme.SIGNATURE, PdfImposeSchema(lambda: pdf_saddle.impose, _FOLD_KW)),
     (Scheme.CUT_AND_STACK, PdfImposeSchema(lambda: pdf_cutstackfold.impose, _FOLD_KW)),
     (Scheme.COME_AND_GO, PdfImposeSchema(lambda: pdf_copycutfold.impose, _FOLD_KW)),
-    (Scheme.HARDCOVER, PdfImposeSchema(lambda: pdf_hardcover.impose, _FOLD_KW - {"creep"})),  # sewn signatures — no creep kwarg
+    (Scheme.HARDCOVER, PdfImposeSchema(lambda: pdf_hardcover.impose, _FOLD_KW - {"creep"})),
     (Scheme.WIRE, PdfImposeSchema(
         lambda: pdf_wire.impose, frozenset({"signature", "imargin", "omargin", "mark", "last"})
-    )),  # cards-derived — no bind/creep/group
+    )),
     (Scheme.CARDS, PdfImposeSchema(
         lambda: pdf_cards.impose, frozenset({"signature", "imargin", "omargin", "mark", "bind", "back"})
-    )),  # front/back — no creep/group/last
+    )),
     (Scheme.ZINE, PdfImposeSchema(
         lambda: pdf_onepagezine.impose, frozenset({"omargin", "mark", "bind", "last"})
-    )),  # fixed 2x4 fold — no signature/imargin
+    )),
 ])
 
 
@@ -395,8 +345,6 @@ def _sheet_count(placements: Block[Placement]) -> int:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _saddle(slots: int) -> tuple[int, ...]:
-    # Centerfold pairing (last, first, second, second-last, …) as one flat comprehension — at fold
-    # position `i` the outer leaf is `slots - 1 - i`, the inner `i`, alternating by parity, no mutable index.
     return tuple(leaf for i in range(slots // 2) for leaf in ((i, slots - 1 - i) if i % 2 == 0 else (slots - 1 - i, i)))
 
 
@@ -424,8 +372,6 @@ def _folded_plan(pages: int, geometry: Geometry) -> Block[Placement]:
 
 
 def _duplexed(on_across: bool, /) -> Place:
-    # one plate, both sides: the back side flips, so its cells mirror across the row (work-and-turn) or down the
-    # column (work-and-tumble) — one body carries both rows, the mirror axis the only difference.
     def place(pages: int, geometry: Geometry) -> Block[Placement]:
         slots, across, down, cells = geometry.slots, geometry.across, geometry.down, geometry.partition()
 
@@ -451,14 +397,10 @@ def _stacked(pages: int, geometry: Geometry) -> Block[Placement]:
 
 
 def _split(pages: int, geometry: Geometry) -> Block[Placement]:
-    # sheetwise: recto/verso pages stream to SEPARATE plates by parity, each packed n-up and printed
-    # independently, so no cell mirror — distinct from the mirrored `_duplexed` and the sequential `_grid`.
     slots, cells = geometry.slots, geometry.partition()
     return Block.of_seq(Placement(source=page, sheet=2 * (page // 2 // slots) + page % 2, cell=cells[page // 2 % slots]) for page in range(pages))
 
 
-# perfect-bind is `_grid` over a spine-carrying geometry — `Geometry.spine` already widens the bind-edge
-# origin in `partition`, so NUP and PERFECT_BIND differ by a field, never a parallel function.
 PLANS: Final[Map[Scheme, Place]] = Map.of_seq([
     (Scheme.NUP, _grid),
     (Scheme.BOOKLET, lambda pages, geo: _folded_plan(pages, structs.replace(geo, leaves=1))),
@@ -471,8 +413,6 @@ PLANS: Final[Map[Scheme, Place]] = Map.of_seq([
     (Scheme.SHEETWISE, _split),
 ])
 
-# ONE scheme-engine capability declaration, DERIVED from the two route tables so admission and execution
-# can never disagree: a pair outside its row is the `<no-route>` refusal at `ImposeOp.Impose`, before any render.
 _ENGINES: Final[frozendict[Scheme, frozenset[ImpositionEngine]]] = frozendict({
     scheme: frozenset(
         (
@@ -485,7 +425,7 @@ _ENGINES: Final[frozendict[Scheme, frozenset[ImpositionEngine]]] = frozendict({
 
 
 @tagged_union(frozen=True)
-class ImposeOp:  # the closed request vocabulary; route admission rides the `Impose` ingress, engine raises the boundary
+class ImposeOp:
     tag: Literal["impose", "proof"] = tag()
     impose: tuple[bytes, Scheme, Geometry, Marks] = case()
     proof: tuple[bytes, float, int | tuple[int, ...], ProofPolicy] = case()
@@ -494,8 +434,6 @@ class ImposeOp:  # the closed request vocabulary; route admission rides the `Imp
     def Impose(
         source: bytes, scheme: Scheme = Scheme.NUP, geometry: Geometry = Geometry(), marks: Marks = Marks()
     ) -> Result["ImposeOp", ImposeFault]:
-        # Validated ingress: the scheme-engine pair resolves against the derived `_ENGINES` route table, so
-        # an unroutable request (NUP under PDFIMPOSE, WIRE under LOCAL) refuses HERE, never a mid-render KeyError.
         return (
             Ok(ImposeOp(impose=(source, scheme, geometry, marks)))
             if geometry.engine in _ENGINES[scheme]
@@ -505,10 +443,7 @@ class ImposeOp:  # the closed request vocabulary; route admission rides the `Imp
     @staticmethod
     def Proof(
         source: bytes, dpi: float = 96.0, sheet: int | tuple[int, ...] = 0, policy: ProofPolicy = ProofPolicy()
-    ) -> Result["ImposeOp", ImposeFault]:  # an `int` proofs one imposed sheet, a tuple a contact strip (empty = every sheet)
-        # dpi refuses HERE on the EFFECTIVE rasterizer integer — the render truncates `int(dpi)`, so a finite
-        # positive 0.5 would reach `get_pixmap(dpi=0)` — and a negative selector, which would silently index
-        # from the sheet tail, refuses with it; only the count-dependent overrun stays the boundary's trapped `IndexError`.
+    ) -> Result["ImposeOp", ImposeFault]:
         indices = sheet if isinstance(sheet, tuple) else (sheet,)
         return (
             Error("<proof-dpi>")
@@ -523,43 +458,31 @@ class ImposeOp:  # the closed request vocabulary; route admission rides the `Imp
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 class Imposition(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     op: ImposeOp
     lane: LanePolicy
     composed: Option[Composed] = Nothing
 
     def emit(self, /) -> ArtifactWork:
-        # ONE mint per node, captured into the closure and threaded to the receipt: `_key` re-encodes the whole op
-        # payload — the source document included — and opens a `content.derive` span per read.
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical op payload minted PRE-RUN through the bare `ContentIdentity.key`
-        # (`of` returns the railed `RuntimeRail[ContentKey]`) — never a key over the imposed press-form bytes.
-        # `op` is immutable across `folded()`, so the standalone `contribute` port's own read answers the SAME key
-        # the plan node carries — the derivation is safe there where a closure cannot reach.
         return ContentIdentity.key(f"impose-{self.op.tag}", _CANON.encode(self.op))
 
     def folded(self) -> Self:
-        # Sync evidence successor: ONE `_composed` render lands on `composed`, and contribute/layers read
-        # it — never a per-projection re-render of the imposition fold.
         return structs.replace(self, composed=Some(_composed(self.op)))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
         return await async_boundary(IMPOSE_FOLD, partial(self._folded, key), catch=_FAULTS)
 
     async def _folded(self, key: ContentKey, /) -> ArtifactReceipt:
-        # Async execution: the `_composed` fold crosses as one HOSTILE process kernel — MuPDF mutation and the
-        # pdfimpose provider both hold the GIL — and the receipt derives from that one fold; the terminal
-        # threads the PRE-RUN key the closure captured.
         crossed = await self.lane.offload(Kernel.of(_composed, KernelTrait.HOSTILE), self.op)
         return self._receipt(key, crossed.default_with(_impose_raise))
 
     def _receipt(self, key: ContentKey, composed: Composed, /) -> ArtifactReceipt:
         match composed.kind:
-            case ComposedKind.PDF if composed.layers:  # the OCG-bearing imposed press form rides the minted-layer count on the Egress overlays slot
+            case ComposedKind.PDF if composed.layers:
                 return ArtifactReceipt.Egress(key, len(composed.data), composed.pages, 0, 0, composed.layers)
             case ComposedKind.PDF:
                 return ArtifactReceipt.Pdf(key, len(composed.data), composed.pages)
@@ -572,14 +495,12 @@ class Imposition(Struct, frozen=True):
         match self.op:
             case ImposeOp(tag="impose", impose=(source, scheme, geometry, _)):
                 return Some(_planned(source, scheme, geometry))
-            case ImposeOp(tag="proof"):  # a proof op imposes no sheets — its pre-flight plan is a non-failing absence
+            case ImposeOp(tag="proof"):
                 return Nothing
             case _ as unreachable:
                 assert_never(unreachable)
 
     def contribute(self) -> "Iterable[Receipt]":
-        # rows ride the folded successor alone; the un-folded owner contributes nothing, so absence stays
-        # distinct from evidence and no projection re-enters the render.
         yield from self.composed.map(lambda live: tuple(self._receipt(self._key, live).contribute())).default_value(())
 
     def layers(self, names: tuple[str, ...] = ()) -> tuple[Layer, ...]:
@@ -587,24 +508,21 @@ class Imposition(Struct, frozen=True):
 
 
 def _impose_raise(fault: object) -> Composed:
-    # terminal collapse at the press boundary: an offload fault reconstructs the raise _FAULTS folds.
     raise ValueError(str(fault))
 
 
-def _composed(op: ImposeOp) -> Composed:  # the one pure render fold — offloaded by the emission, landed by `folded()`
+def _composed(op: ImposeOp) -> Composed:
     match op:
         case ImposeOp(tag="impose", impose=(source, scheme, Geometry(engine=ImpositionEngine.PDFIMPOSE) as geometry, marks)):
             return _pdfimposed(source, scheme, geometry, marks)
         case ImposeOp(tag="impose", impose=(source, scheme, geometry, marks)):
             with pymupdf.open(
                 stream=source, filetype="pdf"
-            ) as src:  # the native source handle closes deterministically once the imposed bytes are folded
+            ) as src:
                 return _imposed(src, source, geometry, marks, PLANS[scheme](src.page_count, geometry))
         case ImposeOp(tag="proof", proof=(source, dpi, sheet, policy)):
-            with pymupdf.open(stream=source, filetype="pdf") as src:  # the native source handle closes once the proof pixmap bytes are read
+            with pymupdf.open(stream=source, filetype="pdf") as src:
                 pixmap = _contact(src, sheet, int(dpi), policy) if isinstance(sheet, tuple) else _rasterized(src[sheet], int(dpi), policy)
-                # Device raster in the EXACT ProofRaster codec; the ICC soft-proof/gamut audit chains
-                # outward through graphic/color/managed#MANAGED over these bytes, never re-encoded here.
                 return Composed(_encoded(pixmap, policy.raster), pages=1, kind=ComposedKind.PREVIEW, extent=(pixmap.width, pixmap.height))
         case _:
             assert_never(op)
@@ -615,16 +533,11 @@ def _pdfimposed(source: bytes, scheme: Scheme, geometry: Geometry, marks: Marks,
     sink = BytesIO()
     schema.impose()((BytesIO(source),), sink, **_pdfimpose_kwargs(schema, scheme, geometry, marks))
     with pymupdf.open(stream=sink.getvalue(), filetype="pdf") as out:
-        # provider-native render re-enters the ONE press-finish/serialize seam the local engine rides, so every
-        # Marks field the kwargs filter cannot express — imposition_map, cut_list, bake, scrub, recompress,
-        # subset, info, xmp, linearize — lands identically regardless of which engine imposed the sheets.
         marks.finished(out, geometry, out.page_count)
         return Composed(data=marks.serialize(out), pages=out.page_count)
 
 
 def _pdfimpose_kwargs(schema: PdfImposeSchema, scheme: Scheme, geometry: Geometry, marks: Marks, /) -> dict[str, object]:
-    # one candidate dict over `Geometry`/`Marks`, filtered to the kwargs `schema.accepts` honors so no schema
-    # sees a kwarg its `impose(...)` would reject.
     crop_marks = "crop" in marks.controls or marks.overlay
     candidate: dict[str, object] = {
         "signature": (geometry.across, geometry.down),
@@ -641,27 +554,25 @@ def _pdfimpose_kwargs(schema: PdfImposeSchema, scheme: Scheme, geometry: Geometr
 
 
 def _imposed(src: "Document", source: bytes, geometry: Geometry, marks: Marks, placements: Block[Placement], /) -> Composed:
-    # Live native document the engine grows in place is the platform-forced seam, `with`-bracketed so it
-    # closes on every exit; `partition`'s `_admit` guard has already railed a malformed grid count before here.
     sheets = _sheet_count(placements)
     width, height = geometry.oriented
     with pymupdf.open() as out:
         for _ in range(sheets):
             out.new_page(width=width, height=height)
-        groups = _mint_groups(out, placements)  # one shared OCG per unique signature-group name (dedupes the flat `sig-N` duplicates)
+        groups = _mint_groups(out, placements)
         boxes = placements.fold(
             lambda acc, p: acc.add(p.name, _union(acc.try_find(p.name).default_value(p.cell), p.cell)) if p.name else acc, Map.empty()
         )
         ordered = tuple(dict.fromkeys(p.name for p in placements if p.name))
         layer_rows = tuple(Layer(name, source, boxes[name]) for name in ordered)
         minted = placements.map(lambda p: _draw_one(out, src, p, groups)).choose(
-            lambda drawn: Some(drawn) if drawn[0] else Nothing  # keep only the rows that bound a real OCG group
-        )  # live handle; each placement OCMD-nested under its signature group
-        _configure_layers(out, minted)  # one ui-config write driving reader visibility/lock over the deduped shared groups
+            lambda drawn: Some(drawn) if drawn[0] else Nothing
+        )
+        _configure_layers(out, minted)
         marks.finished(out, geometry, sheets)
-        _press_marks(out, geometry, marks.press)  # draw the LOCAL crop/fold/registration/colour-bar marks at the imposed-cell/sheet boundaries
+        _press_marks(out, geometry, marks.press)
         trim, bleed_box = geometry.boxes()
-        for page in out:  # pin the derived TrimBox/BleedBox so the press form declares its finished-work area
+        for page in out:
             page.set_trimbox(pymupdf.Rect(*trim))
             if geometry.bleed:
                 page.set_bleedbox(pymupdf.Rect(*bleed_box))
@@ -669,20 +580,16 @@ def _imposed(src: "Document", source: bytes, geometry: Geometry, marks: Marks, p
 
 
 def _mint_groups(out: "Document", placements: Block[Placement], /) -> "frozendict[str, int]":
-    # ONE shared OCG per unique signature name, its N placements members via OCMD; a nameless (NUP/duplex)
-    # placement contributes no group, so the mint empties and the degenerate `Pdf` receipt form selects.
     names = tuple(dict.fromkeys(p.name for p in placements if p.name))
     return frozendict({name: out.add_ocg(name, on=True, intent="View", usage="Artwork") for name in names})
 
 
 def _draw_one(
     out: "Document", src: "Document", p: Placement, groups: "frozendict[str, int]"
-) -> tuple[int, bool, bool]:  # (shared group xref, visible, locked); 0 if unlayered
-    # each name-bearing placement binds to its shared signature-group OCG through `set_ocmd`, never N flat
-    # duplicate `sig-N` groups; the shared group xref rides `set_layer`.
+) -> tuple[int, bool, bool]:
     group = groups.get(p.name, 0) if p.name else 0
     oc = out.set_ocmd(ocgs=[group], policy=p.policy.membership.value) if group else 0
-    out[p.sheet].show_pdf_page(  # index the live doc; a held Page list outliving `out` faults on draw
+    out[p.sheet].show_pdf_page(
         pymupdf.Rect(*p.cell),
         src,
         pno=p.source,
@@ -696,24 +603,18 @@ def _draw_one(
 
 
 def _configure_layers(out: "Document", minted: Block[tuple[int, bool, bool]], /) -> None:
-    # one `set_layer` write over the DEDUPED shared groups — the reader toggles the signature `on`/`off` and
-    # honors `locked`; a group is off only when every member placement is hidden.
     if not minted.is_empty():
         groups = {xref for xref, _visible, _locked in minted}
         hidden = groups - {xref for xref, visible, _locked in minted if visible}
-        # config -1 IS the default OC configuration; 0 addresses an alternate /Configs entry and raises on a fresh document
         out.set_layer(-1, on=list(groups - hidden), off=list(hidden), locked=list({xref for xref, _visible, locked in minted if locked}))
 
 
 def _press_marks(out: "Document", geometry: Geometry, marks: tuple[PressMark, ...], /) -> None:
-    # LOCAL crop/fold/registration/colour-bar marks drawn at the imposed-cell rects and sheet margins,
-    # distinct from the `Marks.overlay` figure-overlay route to composition/compose#COMPOSE; `pdfimpose`
-    # honors only `mark=['crop']`, so a provider-native scheme stays crop-only.
     if not marks:
         return
     width, height = geometry.oriented
     cells = geometry.partition()
-    for page in out:  # each imposed sheet — the live native page the shape commits onto
+    for page in out:
         shape = page.new_shape()
         for mark in marks:
             match mark:
@@ -727,14 +628,13 @@ def _press_marks(out: "Document", geometry: Geometry, marks: tuple[PressMark, ..
                     _registration_marks(shape, width, height, geometry.omargin or 12.0)
                     shape.finish(color=(0.0, 0.0, 0.0), width=0.4)
                 case PressMark.COLOR_BAR:
-                    _color_bar(shape, height, geometry.omargin or 12.0)  # each patch its OWN fill finish inside — no outer finish
+                    _color_bar(shape, height, geometry.omargin or 12.0)
                 case _ as unreachable:
                     assert_never(unreachable)
         shape.commit()
 
 
 def _crop_marks(shape: "Shape", cells: tuple[Box, ...], /) -> None:
-    # L-shaped trim ticks just outside each imposed-cell corner — the bindery's guillotine cut guides.
     gap, tick = 3.0, 9.0
     for x0, y0, x1, y1 in cells:
         for cx, cy, sx, sy in ((x0, y0, -1.0, -1.0), (x1, y0, 1.0, -1.0), (x0, y1, -1.0, 1.0), (x1, y1, 1.0, 1.0)):
@@ -743,14 +643,12 @@ def _crop_marks(shape: "Shape", cells: tuple[Box, ...], /) -> None:
 
 
 def _fold_marks(shape: "Shape", cells: tuple[Box, ...], height: float, geometry: Geometry, /) -> None:
-    # dashed fold lines down the inter-column gutter midpoints — the sheet fold axes a signature folds along.
     for col in range(1, geometry.across):
         x = (cells[col - 1][2] + cells[col][0]) / 2.0
         shape.draw_line(pymupdf.Point(x, 0.0), pymupdf.Point(x, height))
 
 
 def _registration_marks(shape: "Shape", width: float, height: float, inset: float, /) -> None:
-    # concentric registration targets + crosshairs at the four sheet-edge midpoints — the multi-plate press alignment.
     radius, arm = 6.0, 9.0
     for cx, cy in ((width / 2.0, inset / 2.0), (width / 2.0, height - inset / 2.0), (inset / 2.0, height / 2.0), (width - inset / 2.0, height / 2.0)):
         shape.draw_circle(pymupdf.Point(cx, cy), radius)
@@ -760,8 +658,6 @@ def _registration_marks(shape: "Shape", width: float, height: float, inset: floa
 
 
 def _color_bar(shape: "Shape", height: float, inset: float, /) -> None:
-    # Densitometer control-patch row — each `_BAR_PATCHES` patch its OWN `draw_rect` + `finish(fill=)`, a
-    # shared finish cannot carry per-patch fills.
     size = 10.0
     for index, rgb in enumerate(_BAR_PATCHES):
         x = inset + index * size
@@ -770,8 +666,6 @@ def _color_bar(shape: "Shape", height: float, inset: float, /) -> None:
 
 
 def _colorspace(ink: ProofInk, /) -> "Colorspace":
-    # pymupdf's colorspace singleton resolves at call time, never a module-level table that would reify the
-    # native import early.
     match ink:
         case ProofInk.RGB:
             return pymupdf.csRGB
@@ -784,8 +678,6 @@ def _colorspace(ink: ProofInk, /) -> "Colorspace":
 
 
 def _rasterized(page: "Page", dpi: int, policy: ProofPolicy, /) -> "Pixmap":
-    # Press-faithful proof rasterizer in the `ProofPolicy` ink model, then the in-place tint/gamma/negative
-    # finish — gamma BEFORE the invert so the tone shift lands on the positive separations the negative mirrors.
     pixmap = page.get_pixmap(dpi=dpi, colorspace=_colorspace(policy.ink), clip=pymupdf.Rect(*policy.clip) if policy.clip is not None else None)
     if policy.tint is not None:
         pixmap.tint_with(policy.tint[0], policy.tint[1])
@@ -797,22 +689,16 @@ def _rasterized(page: "Page", dpi: int, policy: ProofPolicy, /) -> "Pixmap":
 
 
 def _encoded(pixmap: "Pixmap", raster: ProofRaster, /) -> bytes:
-    # native `tobytes` covers PNG (RGB/GRAY) and JPEG (the CMYK-capable separations codec); the `pil_tobytes`
-    # bridge covers the WEBP/AVIF/TIFF formats MuPDF's native encoder lacks — one codec split keyed by the
-    # member, and the emitted bytes ALWAYS honor the requested member.
     return pixmap.pil_tobytes(raster.value) if raster in _PIL_RASTERS else pixmap.tobytes(raster.value)
 
 
 def _contact(src: "Document", sheets: tuple[int, ...], dpi: int, policy: ProofPolicy, /) -> "Pixmap":
-    # Contact strip: lay each selected sheet (every sheet when empty) row-major into one montage page
-    # through the same `show_pdf_page` draw, then rasterize once through the same `_rasterized` press path;
-    # each cell is the LARGEST selected sheet rect, so a mixed-size gang run never mis-cells its members.
     pages = sheets or tuple(range(src.page_count))
     columns = math.isqrt(len(pages) - 1) + 1
     cell_w, cell_h = max(src[index].rect.width for index in pages), max(src[index].rect.height for index in pages)
-    with pymupdf.open() as montage:  # the montage handle closes once the strip pixmap is rendered off it
+    with pymupdf.open() as montage:
         montage.new_page(width=cell_w * columns, height=cell_h * -(-len(pages) // columns))
-        for slot, index in enumerate(pages):  # index the live montage page; a held Page outliving `montage` faults on draw
+        for slot, index in enumerate(pages):
             montage[0].show_pdf_page(
                 pymupdf.Rect(slot % columns * cell_w, slot // columns * cell_h, (slot % columns + 1) * cell_w, (slot // columns + 1) * cell_h),
                 src,
@@ -822,17 +708,13 @@ def _contact(src: "Document", sheets: tuple[int, ...], dpi: int, policy: ProofPo
 
 
 def _planned(source: bytes, scheme: Scheme, geometry: Geometry) -> ImposedPlan:
-    with pymupdf.open(stream=source, filetype="pdf") as src:  # only the page count is read off the source handle, which then closes
+    with pymupdf.open(stream=source, filetype="pdf") as src:
         pages = src.page_count
-    # RESOLVED engine keys the placement model: a PDFIMPOSE-engined request — a provider-only scheme OR a
-    # dual-routed one like BOOKLET — carries empty placements AND a None sheet count, because only pdfimpose owns
-    # that fold geometry; unavailable provider geometry is never published as a measured zero, while the folded
-    # signature arithmetic stays engine-free over the true page count.
     local = geometry.engine is ImpositionEngine.LOCAL
     placements = PLANS[scheme](pages, geometry) if local else Block.empty()
     sheets, folded = (_sheet_count(placements) if local else None), scheme in (Scheme.BOOKLET, Scheme.SIGNATURE)
-    leaves = 1 if scheme is Scheme.BOOKLET else geometry.leaves  # the booklet row forces leaves=1
-    fold = 4 * max(leaves, 1)  # the effective signature size the placement folded against
+    leaves = 1 if scheme is Scheme.BOOKLET else geometry.leaves
+    fold = 4 * max(leaves, 1)
     return ImposedPlan(
         scheme=scheme,
         sheet=geometry.oriented,
@@ -851,7 +733,7 @@ def _union(left: Box, right: Box) -> Box:
     return (min(left[0], right[0]), min(left[1], right[1]), max(left[2], right[2]), max(left[3], right[3]))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
     "CreepMode",
     "Geometry",

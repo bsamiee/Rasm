@@ -22,7 +22,7 @@ Composition arrives settled. Every admitted magnitude is a seam `Rasm.Element/Pr
 - Boundary: `SqlFile` decode stays `Rasm.Compute`'s under the standing simulation ruling — this owner consumes the typed receipt, and touching SQLite, a run directory, or an EnergyPlus output file here is the named strata violation, exactly as `Rasm.Compute` project references in either direction are; `rasm.bim` mints NO simulation context (`SimulationParameter`, run periods, conditioning policy, weather), which is `Energy/exchange#ENERGY_EXCHANGE`'s frozen boundary and Compute's to author. Second results stores beside the graph — a `ResultTable`, a per-run keyed side index, a `BimZone.Results` column — are the deleted form: the graph IS the store, so a result is queryable, diffable, versionable, and re-exportable by every owner that already reads a property bag, and a parallel store answers none of that. Producer-authored derived evidence does NOT route through the `Semantics/properties#PROPERTY_TEMPLATES` template authority: that owner is the buildingSMART oracle over AUTHORED model properties and its `TemplateAudit` fold reads resolved templates, so routing a computed result through it demands a template no catalogue declares and an applicable-class scope no analysis has — `Pset_Reconstruction` and `Pset_SiteContext` are the landed precedent, and a `PropertyKey.Resolve` hop here is the deleted form. Bag stamps are `EvidenceGrade.Derived` and `InheritanceMode.OccurrenceWins` because a result belongs to the occurrence it was computed for and no type bag overrides it; a `EvidenceGrade.Import` stamp — the site-context ingress form — ranks computed evidence beneath an authored value it must supersede. Scope targets resolve through the settled views — the `Model/spatial#SPATIAL_STRUCTURE` rank-0 row and the `Model/zones#ZONE_GRAPH` overlay — and a private entity-name set or a second grouping vocabulary here is the deleted form; the zone target is the grouping node the overlay already publishes, so per-zone results ride it with no zones-side edit. Unresolvable targets lift `BimFault.Refused` with `BimReason.DanglingReference` BARE, and a `.ToError()` lowering hop OR a hand-built `Error.New(2600, …)` bypassing the typed case is the named defect; a silently dropped row is doubly the deleted form, because a report cannot distinguish a zone with no cooling load from a zone whose cooling row never landed.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
 using Rasm.Bim.Model;
@@ -35,8 +35,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Zone keys on the authored grouping NAME carried into the run; Space keys on the IFC GlobalId, the one identity that survives the lowering.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ResultScope {
     private ResultScope() { }
@@ -48,10 +47,6 @@ public abstract partial record ResultScope {
     public static readonly ResultScope Whole = new Building();
 }
 
-// Fuel is the ENERGY SOURCE a simulation meters, so a whole-building total and a per-fuel breakdown are the same
-// kind of fact at two grains and `Total` is an ordinary member rather than a special case. The retired roster
-// spelled the PRODUCT (AnnualHeating, AnnualCooling, PeakHeating…), so it could express only the combinations
-// someone had already typed and a run publishing district-cooling fans had no row to reach.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -63,8 +58,6 @@ public sealed partial class ResultFuel {
     public static readonly ResultFuel DistrictCooling = new("DistrictCooling");
 }
 
-// End-use is the SERVICE the energy performed. `Whole` is the un-disaggregated reading, so an EUI and an unmet-
-// hours tally — which no end-use splits — are ordinary points rather than rows outside the axis.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -79,16 +72,6 @@ public sealed partial class ResultEndUse {
     public static readonly ResultEndUse WaterSystems = new("WaterSystems");
 }
 
-// Provenance is HOW each row's canonical unit resolves and the case IS the seam admission posture, so the mint
-// CONSUMES the column instead of declaring a token beside it. A registry-named type takes Derive — the seam refuses
-// a labeled mint on one, because a per-row token can never fork a registry quantity's unit — and EnergyUseIntensity
-// takes Label because it mints through the OPEN Create over a dimension the kernel roster carries no symbol for.
-// The retired `string Ucum` column was REPORTING units no admission read: it stamped `h` on a row whose own Admit
-// stores SI seconds, so the declared token contradicted the CanonicalUnit the same mint resolved and nothing
-// reconciled the two. An hours readout is `value.In(DurationUnit.Hour)` at the report edge, a live conversion.
-// Anchors declare BEFORE the rows: static initializers run in textual order, so a row reading an anchor declared
-// below it signs against a null dimension. EnergyUseIntensity mints through the OPEN Create — UnitsNet Irradiation
-// shares the signature under a radiometric name that false-reads as solar incidence on every QTO consumer.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -116,25 +99,16 @@ public sealed partial class ResultMeasure {
     public Fin<MeasureValue> Admit(double si, Op key) => MeasureValue.OfSi(Type, Dimension, si, Some(Provenance), key);
 }
 
-// The quantity IS the point: a measure read on one fuel for one end-use. Property naming folds the three tokens in
-// declaration order, so `AnnualElectricityCooling` is DERIVED rather than typed and a reader recovers the axes
-// from the row name by construction. `Of` is the one mint, so an unmeaningful point — a duration measured per fuel
-// — is expressible but never authored, exactly as the axis vocabulary intends.
 public readonly record struct ResultQuantity(ResultMeasure Measure, ResultFuel Fuel, ResultEndUse Use) {
     public static ResultQuantity Of(ResultMeasure measure, ResultFuel fuel, ResultEndUse use) => new(measure, fuel, use);
 
-    // Whole/Total members drop out of the rendered name, so the un-disaggregated reading keeps the short property
-    // name a report already prints and a per-fuel breakdown widens it rather than replacing it.
     public string Key =>
         $"{Measure.Key}{(Fuel == ResultFuel.Total ? "" : Fuel.Key)}{(Use == ResultEndUse.Whole ? "" : Use.Key)}";
 
     public Fin<MeasureValue> Admit(double si, Op key) => Measure.Admit(si, key);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// ArtifactKey is the Energy/exchange#ENERGY_EXCHANGE `{ContentKey:x32}:{Format.Key}` address the run consumed,
-// so a magnitude is never read against a model it was not produced from and the object-plane artifact index
-// joins a result set to its lowered model with no parse.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record EnergyResult(
     ArtifactKey Artifact, ResultScope Scope, ResultQuantity Quantity, MeasureValue Value, Instant At) {
 
@@ -142,18 +116,14 @@ public sealed record EnergyResult(
         quantity.Admit(si, key).Map(value => new EnergyResult(artifact, scope, quantity, value, at));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal readonly record struct ResultTargets(
     Option<NodeId> Context, Map<string, NodeId> Spaces, Map<string, NodeId> Zones) {
 
-    // Context root is the ONE rank-0 SpatialClass row, read through its own key so no entity-name literal lands here.
     public static ResultTargets Of(ElementGraph graph) =>
         new(graph.ObjectNodes
                 .Find(static o => StringComparer.OrdinalIgnoreCase.Equals(o.Classification.System, IfcClass.System) && o.Classification.Code == SpatialClass.Project.Key)
                 .Map(static o => o.Id),
-            // The space index is SPATIAL rows only: every occurrence carries an ExternalId, so an unfiltered fold
-            // seats a wall, a door, and a duct in the key space a Space scope resolves against, and a result
-            // addressed to a non-space subject then LANDS on whatever element shared the identity.
             graph.ObjectNodes
                 .Filter(static o => StringComparer.OrdinalIgnoreCase.Equals(o.Classification.System, IfcClass.System) && o.Classification.Code == SpatialClass.Space.Key)
                 .Fold(Map<string, NodeId>(), static (index, o) =>
@@ -166,7 +136,6 @@ internal readonly record struct ResultTargets(
         zone: z => Zones.Find(z.ZoneName).ToFin(Miss(key, "zone", z.ZoneName)),
         space: s => Spaces.Find(s.GlobalId).ToFin(Miss(key, "space", s.GlobalId)));
 
-    // One raising site carries the scope modality as typed evidence instead of forking three refusal cases.
     static BimFault Miss(Op key, string modality, string subject) =>
         new BimFault.Refused(key, BimScope.Energy, BimReason.DanglingReference, string.Join(':', new object?[] { "energy-result-target-miss", modality, subject }));
 }
@@ -174,10 +143,6 @@ internal readonly record struct ResultTargets(
 public static class EnergyResults {
     public const string SetName = "Pset_EnergyResults";
 
-    // Grouping rides a HashMap because tuple keys need equality alone; the ordered Map demands a comparer the seam
-    // NodeId does not publish. A run publishes ONE magnitude per (target, quantity), so a duplicate FAULTS: the
-    // retired AddOrUpdate collapsed it last-wins, landing two contradicting cooling loads for one zone as one
-    // number in a bag that was internally consistent. The group instant is the RUN first row, not the last read.
     public static Fin<GraphDelta> Admit(Seq<EnergyResult> results, ElementGraph graph, Op key) {
         ResultTargets targets = ResultTargets.Of(graph);
         return results
@@ -198,15 +163,9 @@ public static class EnergyResults {
             }));
     }
 
-    // The run-identity pair every results bag carries beside its quantity rows, each minted ONCE through the
-    // owner-blessed empty-prefix PropertyCategory.Seam.Row (the Properties/property#DETAIL_SCHEMA custody law) —
-    // ArtifactRow keys the run's content address so a review joins a bag back to its artifact, SimulatedAt the
-    // run instant as a typed Temporal stamp, never a formatted string the calendar cannot compare.
     static readonly PropertyName ArtifactRow = PropertyCategory.Seam.Row("EnergyArtifact");
     static readonly PropertyName SimulatedAt = PropertyCategory.Seam.Row("SimulatedAt");
 
-    // SmartEnum key IS the property name — the quantity roster is the single name authority, its key routed
-    // through the same Seam.Row mint — so no second name table exists.
     static Node.PropertySet Author(ArtifactKey run, Instant at, Seq<EnergyResult> rows, double tolerance) {
         PropertyBag bag = new(SetName,
             rows.Fold(

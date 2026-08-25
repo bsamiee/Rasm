@@ -52,8 +52,6 @@ def _lifted(basis: Basis, /) -> Lift[Point2]:
 
 
 def _knots(loop: PiecewiseLoop, /) -> Block[tuple[Oneof, Point2, Point2]]:
-    # Each knot owns the span from its own point to its successor and the last span closes on knot zero, so the
-    # pairing is cyclic and the wire needs no repeated terminal point to state closure.
     points = tuple(knot.point for knot in loop.knots)
     return Block.of_seq(
         (knot.outgoing, points[index], points[(index + 1) % len(points)]) for index, knot in enumerate(loop.knots)
@@ -88,8 +86,6 @@ def wire(loop: ProfileLoop, basis: Basis, /) -> CadRail[TopoDS_Wire]:
 
 ```python signature
 def _faced(outer: TopoDS_Wire, holes: Sequence[TopoDS_Wire], /) -> CadRail[TopoDS_Face]:
-    # Outer loops arrive as their own argument because the wire declares that field required; a sequence-shaped
-    # parameter readmits an empty state and forces a refusal row no caller can reach.
     builder = BRepBuilderAPI_MakeFace(outer, True)
     if not builder.IsDone():
         return Error(BREP_INPUT.at("profile.outer"))
@@ -100,8 +96,6 @@ def _faced(outer: TopoDS_Wire, holes: Sequence[TopoDS_Wire], /) -> CadRail[TopoD
         return Error(BREP_KERNEL.at("profile.holes"))
     fixer = ShapeFix_Face(builder.Face())
     fixer.FixOrientation()
-    # Invalid regions are caller material, never a kernel output defect, so the shared probe's `BREP_OUTPUT` verdict
-    # re-rows here; the probe stays single-sited and the row stays this arm's own decision.
     return admitted(fixer.Face(), "profile.invalid").map_error(lambda _graded: BREP_INPUT.at("profile.invalid"))
 
 
@@ -139,8 +133,6 @@ def edges(shape: TopoDS_Shape, /) -> TopTools_ListOfShape:
 
 
 def offset(base: TopoDS_Face, distance_m: float, /) -> CadRail[tuple[TopoDS_Face, ...]]:
-    # `SetApprox(False)` keeps the offset exact, so a line stays a line and an arc stays an arc; approximation would
-    # replace both with a spline and break the volume the receipt attests against the mesh.
     builder = BRepOffsetAPI_MakeOffset(base, GeomAbs_JoinType.GeomAbs_Arc, False)
     builder.SetApprox(False)
     builder.Perform(distance_m, 0.0)

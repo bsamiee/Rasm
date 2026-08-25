@@ -21,9 +21,7 @@ Generated `TessellateRequest` owns the companion job and `TilePolicy` owns only 
 - Boundary: the two-hop rail is the single IFC-to-geometry path — the Bim IFC object model carries no tessellation kernel, so a managed IFC BRep evaluator is the deleted form; the companion is the IfcOpenShell PyPI package in `libs/python/geometry`, never a NuGet pin, reached only over the existing `Runtime/channels#TRANSPORT_AXIS` UDS/InProcess companion rpc, so this page mints no transport, channel, or second wire vocabulary; a returned GLB re-enters the Bim glTF import rail as one `ImportedGeometry`, and the Bim IFC semantic graph and this hop's tessellated geometry are two projections of one content-keyed IFC artifact joined by the content key. GeoArrow conversion and IDS audit remain their local capability owners until a distinct corpus message and real peer pair can represent them; neither aliases onto Tessellate.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Local octree and manifest policy. Tessellation quality belongs to the generated request and its producing Bim
-// bridge; mixing those remote inputs into this row made local partition settings appear to alter companion output.
+// --- [TYPES] ---------------------------------------------------------------------------
 public sealed record TilePolicy(
     int TileMaxDepth,
     double TileGeometricErrorRoot,
@@ -31,26 +29,15 @@ public sealed record TilePolicy(
     int CommitWatermark) {
     public static readonly TilePolicy Canonical = new(
         TileMaxDepth: 16, TileGeometricErrorRoot: 512.0, TileSplitThreshold: 8192.0,
-        // Writer commit bound: an octree at the policy depth reaches six figures of nodes, so the emit commits
-        // each completed node once the writer's own pending count crosses this width, and the bound moves with
-        // the depth that forces it rather than standing as a `const` beside it.
         CommitWatermark: 64 * 1024);
 
-    // EVERY output-affecting scalar in owner order, per `Runtime/codecs#CONTENT_ADDRESSING` — the partition
-    // depth, root error, and split threshold each move node boundaries and therefore bytes. `CommitWatermark`
-    // is flush cadence alone: it changes when the writer commits, never what it writes, so it stays out or two
-    // identical exports built at different watermarks would key apart.
     public ReadOnlyMemory<double> Vector => new double[] { TileMaxDepth, TileGeometricErrorRoot, TileSplitThreshold };
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CompanionArtifact(TessellateResponse Receipt, ReadOnlyMemory<byte> Glb);
 
 public static class CompanionEdge {
-    // ONE `FinT<IO,_>` rail carries the hop: every step is already `Fin`- or `IO<Fin<_>>`-shaped, so `runFin`
-    // states the abort once and each source shape keeps its own ingress spelling. The nested `Succ`/`Fail` ladder
-    // this replaces re-spelled `IO.pure(Fin.Fail<CompanionArtifact>(error))` once per nesting depth — four
-    // hand-written copies of the short-circuit the transformer carries structurally.
     public static IO<Fin<CompanionArtifact>> Tessellate(
         WireServices services,
         CallSpine spine,
@@ -84,7 +71,7 @@ public static class CompanionEdge {
 - Boundary: the leaf-content URI grammar and content-key crossing key the `libs/contracts/manifest.json` `keyed-artifact`/`glb` row — `dotnet:Rasm.Bim/Exchange/export#EXPORT_RAIL` produces the bodies that row registers, while this page mints the keys and URIs the manifest names against them; the 3D-Tiles partition is the streamable-LOD octree over content-keyed geometry the compute lane owns — riding `InterchangeIdentity.Key` and the imported-geometry carrier — while the b3dm/glTF tile content encode is the Bim glTF codec the leaf emit composes; every geometry read here is CHANNEL-GENERIC over the seam carrier's one kernel arena — the descriptor set decides which lanes exist and at what storage width, and `Lane` is the single unpack; the metadata layer is one content-keyed schema column on the leaf-tile emit, never a parallel attribute store or second tiling owner, each `TileMetadata` carrying its own tile content key (independently addressable) while the leaf replay key composes that key with the carrier's causal stamp and leaf ordinal so a leaf tile is cache-replayable without rebuilding the octree; the IFC classification reads the `Rasm.Bim` IFC semantic graph at the shared content key (companion seam, never reaching into the Bim interior) and the per-element field values read the `Solver/field#DISCRETE_FIELD` `FieldSpace` achieved value (never a recomputed metric), so the IFC graph and the tessellated geometry stay two projections of one content-keyed IFC artifact joined at the tile boundary, a re-tessellation at a new deflection re-keying both together; the property-table BUFFER LAYOUT is NOT this page's — `api-sharpgltf-3dtiles#IMPLEMENTATION_LAW` scopes this lane's whole reach into that surface to `Tiles3DExtensions.RegisterExtensions()`, and `UseStructuralMetadata`/`AddMeshFeatureIds`/`PropertyTableProperty.SetValues<T>` own the buffer-view derivation at the Bim authoring fence, so the columns here are the declared SCHEMA a leaf emit lowers and a Compute-side packing of them is out of contract at both ends; a hand-authored `JsonSerializable` extension class over the raw registration is the form `Rasm.Bim` `Exchange/export` already deletes, and Core's name-only `RegisterExtension<TParent,TExt>(string)` overload is `[Obsolete]` in favour of the factory-taking one (the material-PBR surface being the separate string-keyed `MaterialChannel` API in Core and `KnownChannel` enum in Toolkit); meshoptimizer owns the leaf-tile `Meshopt.Simplify`/`OptimizeVertexCache` LOD, never a hand-rolled simplifier; the manifest emit rides the `Tensor/memory#STREAM_POOL` capsule the composition already owns — a growable `ArrayBufferWriter` reaches a policy-depth manifest by doubling through the large-object heap, `GetBuffer` is the contiguity cliff, and `ToArray` the migration copy the pool's own posture bans, so all three are the deleted forms and a manager constructed at this boundary is the second-pool defect that owner forecloses; the leaf-tile content body is NOT emitted here — `ExportTiles` yields one typed `LeafContent` per leaf (content key, replay key, `{contentKey:x32}.glb` URI, metadata-column count), the octree, metadata schema, and quantization-bit policy owned here while the b3dm/glTF body each URI names is the Bim tile-emit cross-package product against the Persistence index, a public leaf-body entry that can only decline the rejected honesty defect and a partition that re-derives the glTF body in-place or a metadata layer that re-reads the IFC parser the rejected form.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -102,11 +89,6 @@ public sealed partial class FeatureBand {
     }
 }
 
-// The DECLARED schema columns a leaf emit lowers onto `PropertyTableProperty.SetValues<T>` at the Bim authoring
-// fence. NAMED LOSS on the retired `ColumnBytes`/`ComponentType`/`Count` triple and `PropertyTable.Pack`: this
-// page no longer derives a buffer-view layout, and with it goes the NUL-joined STRING blob that was a second,
-// incompatible encoding of what `EXT_structural_metadata` spells with an explicit offset buffer. Nothing read
-// the derived views corpus-wide, and the catalog scopes this lane's reach to the extension registration alone.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MetadataProperty {
     private MetadataProperty() { }
@@ -124,12 +106,9 @@ public abstract partial record MetadataProperty {
         Switch(classification: static c => c.Name, scalar: static s => s.Name, banded: static b => b.Name);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PropertyTable(string Class, int FeatureCount, Seq<MetadataProperty> Columns);
 
-// `FeatureIds` is a `ReadOnlyMemory<int>`, which record equality compares BY REFERENCE — two byte-identical
-// metadata tables would read unequal and re-key a cache that should have hit. The generated comparer reads the
-// sequence, which is the value the content key already fixes.
 [Equatable]
 public sealed partial record TileMetadata(
     UInt128 ContentKey,
@@ -145,25 +124,13 @@ public sealed partial record TileMetadata(
     }
 }
 
-// The octree node and its ONE fold algebra. `Count`, `Leaves`, the manifest walk, and `Flatten` were four hand
-// recursions over this shape; each is now a fold, so a node column added below reaches every walk at once.
-// CARVE (kernel-sanctioned): `BoundingVolume` stays a `float[12]` — it is the 3D-Tiles `box` array VERBATIM,
-// twelve numbers in the spec's own centre-plus-three-half-axis order, and an `OrientedBox` owner over it was
-// REFUTED at the kernel because the value has no life outside this manifest slot. STRATA_TWIN, named here: the
-// `Rasm.Bim` `Exchange/export` `TileNode` is the IMPLICIT-TILING authoring coordinate (`Lod`/`X`/`Y`/`Z`
-// availability over a Morton subtree bitstream); this one is the EXPLICIT octree node carrying real geometry.
-// The two meet at the shared tile index and never at a shared type.
 public sealed record TileNode(int Depth, float[] BoundingVolume, double GeometricError, UInt128 ContentKey, Option<TileMetadata> Metadata, Seq<TileNode> Children) {
-    // Depth-first pre-order fold: the manifest emit's own order, so every census the receipt reads and the
-    // serialization the writer walks agree by construction rather than by inspection.
     public TState Fold<TState>(TState seed, Func<TState, TileNode, TState> step) =>
         Children.Fold(step(seed, this), (state, child) => child.Fold(state, step));
 
     public bool IsLeaf => Children.IsEmpty;
 }
 
-// The census the receipt reads, folded ONCE. Five columns spread across `TileSet` and `LeafContent` had zero
-// readers each because each demanded its own walk; one fold answers all of them.
 public readonly record struct TilesetCensus(int Nodes, int Leaves, int MaxDepth, double GeometricErrorRoot, int MetadataColumns) {
     public static TilesetCensus Of(TileNode root) =>
         root.Fold(new TilesetCensus(0, 0, 0, root.GeometricError, 0), static (census, node) => new TilesetCensus(
@@ -175,15 +142,6 @@ public readonly record struct TilesetCensus(int Nodes, int Leaves, int MaxDepth,
 }
 
 public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
-    // Census gate AT CONSTRUCTION: arena claim sets already prove descriptor tiling, per-lane recovery, and
-    // payload extent, so this gate re-validates none of it. What it holds is the CENSUS the two shapes disagree
-    // on — the carrier's vertex count against the arena's own element count, the index column against the
-    // triangle count, and every index inside the vertex range — seated here so EVERY door refuses a vertex-less
-    // mesh before `Bounds` mints float-sentinel volumes, never the export entry alone.
-    // Bake FIRST: the octant walk addresses world-space triangles, so an instanced carrier flattens through the
-    // one seam Bake owner and a non-instanced carrier passes through unchanged (its pool IS its scene). Bake
-    // re-mints an arena, so it rails — the whole partition rides that rail rather than swallowing a mint refusal.
-    // `At` is the carrier's own causal stamp, so the set's identity carries zero wall-clock.
     public static Fin<TileSet> Build(ImportedGeometry geometry, Func<UInt128, Option<TileMetadata>> metadata, TilePolicy policy, Op? key = null) {
         Op k = key.OrDefault();
         return geometry.VertexCount <= 0 || geometry.TriangleCount <= 0
@@ -215,10 +173,6 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
                 .Map(children => new TileNode(depth, bounds, error, contentKey, None, children));
     }
 
-    // ONE descriptor-addressed lane reader serves the whole partition: the descriptor names the dtype, so Unpack
-    // lifts a unorm8 colour and a float32 position through the same call and no arm re-spells a storage width.
-    // Absent channels answer the empty array — a MISSING DESCRIPTOR, never a zero-filled buffer a consumer
-    // length-probes — which is what keeps every reader below channel-generic and every roster growth free.
     static float[] Lane(EncodedGeometry arena, EncodingChannel channel) {
         if (arena.Descriptors.Find(d => d.Channel == channel).Case is not EncodingChannelDescriptor found) { return []; }
         float[] raw = new float[found.Floats];
@@ -226,10 +180,6 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
         return raw;
     }
 
-    // Strides on the Position row's OWN declared arity, and the reduction rides `Vector3` so the three literal
-    // component indexes the hand min/max ladder carried disappear. The returned twelve numbers are the 3D-Tiles
-    // `box` array in the spec's own order: centre, then three half-axis vectors.
-    // Exemption: a measured min/max reduction over a pre-sized span; the rail resumes at the returned node.
     static float[] Bounds(ReadOnlySpan<float> positions) {
         int arity = EncodingChannel.Position.Arity;
         (Vector3 low, Vector3 high) = (new Vector3(float.MaxValue), new Vector3(float.MinValue));
@@ -241,8 +191,6 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
         return [centre.X, centre.Y, centre.Z, half.X, 0, 0, 0, half.Y, 0, 0, 0, half.Z];
     }
 
-    // Triangle corners resolve through ImportedGeometry.Indices, so indexed shared-vertex meshes partition
-    // real corners; triangle-soup ordinal addressing mis-partitions non-identity index buffers.
     static Fin<Seq<ImportedGeometry>> Split(ImportedGeometry geometry, float[] positions, float[] bounds, Op key) {
         (float cx, float cy, float cz) = (bounds[0], bounds[1], bounds[2]);
         return toSeq(Range(0, geometry.TriangleCount)
@@ -251,19 +199,11 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
             .TraverseM(group => Tessellate(geometry, group, key)).As();
     }
 
-    // CONSTRAINT: octant assignment reads the FIRST corner alone, so a triangle straddling the split plane lands
-    // entirely in its first vertex's octant. The partition stays a covering (every triangle lands exactly once)
-    // and each node's own `Bounds` is measured from the triangles it received, so a straddler widens its node's
-    // box rather than leaking geometry out of it — the bound stays honest, the split stays unbalanced.
     static int Octant(ReadOnlySpan<float> positions, ReadOnlySpan<long> indices, int triangle, float cx, float cy, float cz) {
         int v = (int)indices[triangle * 3] * EncodingChannel.Position.Arity;
         return (positions[v] >= cx ? 1 : 0) | (positions[v + 1] >= cy ? 2 : 0) | (positions[v + 2] >= cz ? 4 : 0);
     }
 
-    // Channel-generic corner gather: every DECLARED lane unpacks once, gathers by its OWN arity, and the whole
-    // set re-mints through the one kernel raw-lane entry — so a new EncodingChannel row reaches a sliced leaf
-    // with zero edit here, where the retired per-column body grew one `if (!srcT.IsEmpty)` rung and one `with`
-    // slot per attribute. Descriptor presence IS the absence test; a buffer length probe is the deleted form.
     static Fin<ImportedGeometry> Tessellate(ImportedGeometry geometry, Seq<int> triangles, Op key) {
         ReadOnlySpan<long> srcI = geometry.Indices.AsSpan();
         int vertices = triangles.Count * 3;
@@ -271,7 +211,7 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
             (d.Channel, Lane(geometry.Lanes, d.Channel), new float[vertices * d.Channel.Arity]))];
         long[] indices = new long[vertices];
         int slot = 0;
-        foreach (int tri in triangles) {                                   // Exemption: a measured gather over pre-sized arenas; the rail resumes at the Encode.Of mint
+        foreach (int tri in triangles) {
             for (int corner = 0; corner < 3; corner++) {
                 int source = (int)srcI[(tri * 3) + corner];
                 foreach (var lane in lanes) {
@@ -282,8 +222,6 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
             (indices[slot * 3], indices[(slot * 3) + 1], indices[(slot * 3) + 2]) = (slot * 3, (slot * 3) + 1, (slot * 3) + 2);
             slot++;
         }
-        // Sliced leaves re-describe their pool honestly — one block spanning the leaf, one identity instance,
-        // holding the baked-carrier invariant every downstream flat read (payload arms, bounds, splits) reads.
         return Encode.Of(vertices, toSeq(lanes).Map(static lane => (lane.Channel, lane.Gathered)), key)
             .Map(arena => geometry with {
                 Lanes = arena, Indices = indices,
@@ -294,19 +232,11 @@ public sealed record TileSet(TileNode Root, TilesetCensus Census, Instant At) {
     }
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// Tileset EXPORT the partition owns: the real tileset.json Manifest (this page's product) and the LeafContent
-// reference set it names — the typed handoff to the Bim glTF leaf codec, resolved against the Persistence index,
-// never a body here. `ReplayKey` rides the leaf so the cache-replay law the Boundary legislates has its consumer.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record LeafContent(UInt128 ContentKey, UInt128 ReplayKey, string Uri, int MetadataColumns);
 
 public sealed record TilesetExport(ComputeArtifact Manifest, TilesetCensus Census, Seq<LeafContent> Leaves);
 
-// The per-node tileset.json member projection, GENERATED. `WriteNode` hand-wrote eleven members against this
-// shape, which is a pure owner→DTO rename the `[Mapper]` owns; the recursive `children` array stays a hand
-// `Utf8JsonWriter` walk because the manifest is a TREE with no fixed root type and the writer's `BytesPending`
-// commit bound is what keeps a policy-depth octree off the large-object heap. That split — generated member
-// projection, hand tree emit — is the converter-plus-mapper form the boundaries law names.
 public sealed record TileNodeWire(
     [property: JsonPropertyName("boundingVolume")] TileBoxWire BoundingVolume,
     [property: JsonPropertyName("geometricError")] double GeometricError,
@@ -327,8 +257,6 @@ public static partial class TileNodeMapper {
     [MapperIgnoreSource(nameof(TileNode.IsLeaf))]
     public static partial TileNodeWire Wire(TileNode node);
 
-    // The two members no source column supplies: `refine` is the manifest's own constant and `content` exists
-    // only on a leaf, so both fill after the generated projection rather than inside it.
     private static string Refine(TileNode node) => "REPLACE";
 
     private static TileContentWire? Content(TileNode node) =>
@@ -339,11 +267,8 @@ public static partial class TileNodeMapper {
 [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 public sealed partial class TilesetJsonContext : JsonSerializerContext;
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TilePartition {
-    // Composes the gated `TileSet.Build` — the census refusal lives at construction, so this entry adds no
-    // second predicate — and the `clock` reads ONCE, at the manifest emit, for the artifact's genuine emission
-    // timestamp; every identity below it is content- and causally-derived.
     public static Fin<TilesetExport> ExportTiles(
         StreamPool pool, CorrelationId correlation, ImportedGeometry geometry,
         Func<UInt128, Option<TileMetadata>> metadata, TilePolicy policy, IClock clock, Op? key = null) =>
@@ -351,22 +276,12 @@ public static class TilePartition {
             .Bind(tiles => Tileset(pool, correlation, tiles, policy, clock)
                 .Map(manifest => new TilesetExport(manifest, tiles.Census, Leaves(tiles.Root, tiles.At))));
 
-    // The ONE leaf-content URI grammar, so the manifest's `content.uri` and the enumerated reference cannot fork.
     internal static string Uri(UInt128 contentKey) => string.Create(CultureInfo.InvariantCulture, $"{contentKey:x32}.glb");
 
-    // tileset.json: refine REPLACE, box bounding volumes off each node's box, geometricError halving per level,
-    // leaf content URIs the AppUi/web consumer resolves against the Persistence index. The emit STREAMS through
-    // the composition's one `Tensor/memory#STREAM_POOL` capsule rather than an ArrayBufferWriter: a manifest at
-    // the policy depth is tens of megabytes, and a growable writer reaches it by doubling through the large-object
-    // heap while the pool holds chained blocks and never migrates. `GetBuffer` (the contiguity cliff) and
-    // `ToArray` (the migration copy the pool's own ThrowExceptionOnToArray posture bans) never appear — the
-    // sequence itself keys the artifact, and the carrier's own mint owns the one copy.
     static Fin<ComputeArtifact> Tileset(StreamPool pool, CorrelationId correlation, TileSet tiles, TilePolicy policy, IClock clock) =>
         pool.Get(correlation, new StreamGrant.Open())
             .Bind(staged => Op.Of(name: "tileset.emit").Catch(() => Fin.Succ(Manifested(staged, tiles.Root, policy, clock))));
 
-    // Exemption: the writer-and-stream disposal bracket is the platform-forced statement seam this codec boundary
-    // owns; the rail resumes on the returned carrier.
     static ComputeArtifact Manifested(RecyclableMemoryStream staged, TileNode root, TilePolicy policy, IClock clock) {
         using (staged) {
             using (Utf8JsonWriter writer = new(staged)) {
@@ -384,9 +299,6 @@ public static class TilePartition {
         }
     }
 
-    // The tree walk alone. Each node's OWN members come from the generated projection through the source-gen
-    // context, so a manifest member added on `TileNodeWire` reaches the emit with no edit here, and each node
-    // commits past the watermark so a deep subtree never accumulates in the writer ahead of the pooled stream.
     static void WriteNode(Utf8JsonWriter writer, TileNode node, int watermark) {
         JsonSerializer.Serialize(writer, TileNodeMapper.Wire(node), TilesetJsonContext.Default.TileNodeWire);
         if (!node.IsLeaf) {
@@ -397,13 +309,6 @@ public static class TilePartition {
         if (writer.BytesPending >= watermark) { writer.Flush(); }
     }
 
-    // One LeafContent per octree leaf — content key, replay key, `{contentKey:x32}.glb` URI, metadata-column
-    // count — the typed handoff to the Bim leaf-content producer, whose bodies land on the Persistence blob lane
-    // under these keys. ONE fold over the tree, where the census, the flatten, and the filter were three walks.
-    // EVERY leaf keys: the replay key composes the node's own content key with the carrier's causal stamp and
-    // the leaf's pre-order ordinal — both halves deterministic from the admitted content, so one octree exported
-    // twice replay-keys identically, and a metadata-less leaf never substitutes its content key into the replay
-    // key space (the substitution conflated the two spaces and defeated cache replay).
     static Seq<LeafContent> Leaves(TileNode root, Instant at) =>
         root.Fold(Seq<LeafContent>(), (leaves, node) => node.IsLeaf
             ? leaves.Add(new LeafContent(

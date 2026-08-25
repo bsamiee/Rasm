@@ -47,7 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Kinematics;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class JointMount {
     public static readonly JointMount ToolSide = new("tool-side", movesTool: true, coordinateSign: 1.0);
@@ -65,8 +65,6 @@ public sealed partial class TcpMode {
     public bool Compensate { get; }
 }
 
-// Rows carry the PERIOD and cyclicity is its presence, so the unwrap, the candidate width, and every consumer's
-// wrap arithmetic read one number rather than pairing a Boolean with a hand-spelled turn.
 [SmartEnum<string>]
 public sealed partial class AxisPeriodicity {
     public static readonly AxisPeriodicity Bounded = new("bounded", period: Option<double>.None);
@@ -76,8 +74,6 @@ public sealed partial class AxisPeriodicity {
 
     public bool Cyclic => Period.IsSome;
 
-    // How many candidates this axis contributes at a given span: the budget multiplies these and the unwrap
-    // generates exactly that many, so the proof and the generation cannot disagree.
     internal int Width(int span) => Period.Match(Some: static _ => (2 * span) + 1, None: static () => 1);
 
     internal Seq<double> Windings(double value, int span) => Period.Match(
@@ -231,8 +227,6 @@ public abstract partial record MachineJoint : IValidityEvidence {
         prismatic: static row => row.Limit,
         revolute: static row => row.Limit);
 
-    // Each arm claims a KIND agreement — a prismatic seat cannot hold a rotary axis, a revolute seat cannot hold a
-    // linear one — so payload guards short-circuit and the claim vocabulary carries nothing here.
     public bool IsValid => Switch(
         prismatic: static row => row.Limit is not null && row.Geometry is not null && !row.Limit.Axis.Rotary,
         revolute: static row => row.Limit is not null && row.Geometry is not null && row.Limit.Axis.Rotary);
@@ -311,9 +305,6 @@ public abstract partial record MachineChain : IValidityEvidence {
         delta: static row => row.Carriages,
         coordinated: static row => row.Primary.Limits.AddRange(row.Auxiliaries.Map(static schedule => schedule.Joint.Motion)));
 
-    // Every cardinality this family bounds is a `ValidityClaim` row, so the mechanism declares WHICH claims hold
-    // and lets the kernel decide each one; surviving `&&` are null short-circuits `ValidityClaim.All`, which
-    // evaluates its whole span, cannot carry.
     public bool IsValid => Switch(
         cartesian: static row => row.Joints.ForAll(static joint => joint is not null && joint.IsValid)
             && ValidityClaim.All(ValidityClaim.CountAtLeast(row.Joints.Count, 1), row.Joints.Count <= 3),
@@ -337,9 +328,6 @@ public abstract partial record ToolAxisDemand : IValidityEvidence {
     public sealed record Cone(VectorCone Domain, Vector3d Preferred, Context Context, Op Key) : ToolAxisDemand;
     public sealed record Indexed(Arr<Vector3d> Directions) : ToolAxisDemand;
 
-    // Finiteness reads the kernel host-coordinate arm, cardinality the count rows, and a nested `Direction` answers
-    // through its OWN fold; the sub-tolerance screen stays a bare claim because `ValidityClaim.Direction` refuses
-    // only an exactly zero vector and this demand refuses a tiny one.
     public bool IsValid => Switch(
         fixedCase: static row => ValidityClaim.All(ValidityClaim.Finite(row.Direction), !row.Direction.IsTiny()),
         intent: static row => row.Context is not null && ValidityClaim.CountAtLeast(row.Rows.Count, 1),
@@ -351,8 +339,6 @@ public abstract partial record ToolAxisDemand : IValidityEvidence {
             ValidityClaim.CountAtLeast(row.Directions.Count, 1),
             row.Directions.ForAll(static direction => ValidityClaim.Finite(direction) && !direction.IsTiny())));
 
-    // Projected cases were AUTHORED against this context, and `MachineKinematics` admission proves it equal to the
-    // one gate context, so a cone containment test and the orientation gate can never answer at two tolerances.
     internal Option<Context> Projection => Switch(
         fixedCase: static _ => Option<Context>.None,
         intent: static row => Some(row.Context),
@@ -393,11 +379,6 @@ public abstract partial record ToolAxisDemand : IValidityEvidence {
     }
 }
 
-// SEARCH BUDGETS, RANKING WEIGHTS, AND THE DIMENSIONLESS CONDITION CEILING. The deleted `RootTolerance` certified
-// five gates of three different
-// dimensions — a millimetre distance, a squared millimetre, and a dimensionless residual norm — and the deleted
-// `AxisOrthogonality` certified a sixth; each of those now names its own `ToleranceLane`, so a value can no longer
-// pass a gate whose dimension it was never admitted for.
 [ComplexValueObject]
 public sealed partial class InversePolicy {
     public int RootIterations { get; }
@@ -413,8 +394,6 @@ public sealed partial class InversePolicy {
         rootIterations: 100, windingSpan: 2, coneSamples: 24, maximumCandidates: 4_096,
         continuityWeight: 1.0, marginWeight: 0.15, orientationWeight: 10.0, maximumConditionNumber: 1e10);
 
-    // Widths arrive from the periodicity rows themselves, so a chain mixing bounded and continuous axes is bounded
-    // by what it generates rather than by a uniform width assumed of every axis.
     internal bool AdmitsWindings(Seq<int> widths) => widths
         .Fold(Some(1), (count, width) => count.Bind(total => width >= 1 && total <= MaximumCandidates / width
             ? Some(total * width)
@@ -443,12 +422,10 @@ public sealed partial class InversePolicy {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class MachineKinematics {
     public Machine Machine { get; }
-    // THE gate context. Every `Context.For(lane)` read beneath `MachineTool` answers from this bundle, so a project
-    // that publishes a lane moves every gate on this page at once.
     public Context Context { get; }
     public Plane MachineFrame { get; }
     public Plane ToolFrame { get; }
@@ -479,9 +456,6 @@ public sealed partial class MachineKinematics {
         Set<MachineAxis> modeled = toSet(limits.Map(static limit => limit.Axis));
         bool axisAgreement = machine is not null && limits.Count == modeled.Count
             && machine.Axes.IsSubsetOf(modeled) && modeled.IsSubsetOf(machine.Axes);
-        // Perpendicularity is an ANGLE, so it is proved against the `Orientation` lane rather than against a dot
-        // product compared to a dimensionless column: the deleted `AxisOrthogonality` admitted |cos θ| as though it
-        // were the deviation itself, and no consumer could publish that gate.
         bool cartesianBasis = !chainValid || chain is not MachineChain.Cartesian cartesian || context is not null
             && toSeq(cartesian.Joints).Map((joint, index) => cartesian.Joints.Skip(index + 1)
                 .ForAll(other => Math.Abs((Math.PI * 0.5)
@@ -490,8 +464,6 @@ public sealed partial class MachineKinematics {
                 .ForAll(identity);
         bool orientationAgreement = machine is not null && chain is not null && machine.Topology != KinematicClass.ArticulatedArm
             && (machine.Topology.OrientationDof == 0 || limits.Count(static limit => limit.Axis.Rotary) >= machine.Topology.OrientationDof);
-        // Admission requires the demand's own projection context to BE the gate context: two bundles on one solve
-        // let the cone containment test and the orientation gate answer at different tolerances.
         bool contextAgreement = context is not null && orientation is not null
             && orientation.Projection.ForAll(row => row == context);
         if (!chainValid || !axisAgreement || !cartesianBasis || !orientationAgreement || !contextAgreement
@@ -523,7 +495,7 @@ public sealed record MachineStation(
 
 public sealed record MachineSolution(FabricationResult.Motion Motion, Seq<MachineStation> Stations);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MachineTool {
     public static Fin<MachineSolution> Solve(MachineKinematics kinematics, Seq<Move> moves) =>
         from admitted in Admit(kinematics, moves)
@@ -534,9 +506,6 @@ public static class MachineTool {
         let realizedMoves = state.Stations.Map(static station => station.Move)
         let joints = state.Stations.Map(static station => station.Joints)
         let segmentDurations = state.Stations.Map(static station => NodaTime.Duration.FromSeconds(station.Duration))
-        // A non-robot solve emits no controller code and raises no warning of its own — every refusal on this page is
-        // a typed fault, never a survivable diagnostic — so both evidence columns are empty by construction and the
-        // warning column carries the atom's own `RunWarning` row type rather than provider text.
         from evidence in MotionEvidence.Admit(
             joints,
             segmentDurations,
@@ -599,8 +568,6 @@ public static class MachineTool {
         Arr<double> values) {
         if (values.Count != 3)
             return Fin.Fail<MachinePose>(FabricationFault.Inadmissible(FabConcern.Kinematics, "machine-tool:delta-home-rank"));
-        // Basis lengths and carriage clearance are DISTANCES; a rod-span residual is a SQUARED distance, so it
-        // reads the `Area` lane and no single scalar certifies both dimensions.
         double distance = kinematics.Context.For(ToleranceLane.Distance).Value;
         double span = kinematics.Context.For(ToleranceLane.Area).Value;
         Seq<Point3d> centers = toSeq(chain.Geometry.Towers).Map((tower, index) => new Point3d(
@@ -733,10 +700,6 @@ public static class MachineTool {
                     };
                 })));
 
-    // Orthogonality is the admitted invariant, so each axis coordinate is the target's projection onto that axis.
-    // The residual proof then runs through the ONE forward chain rather than a hand-summed direction fold: a second
-    // forward kinematics here would answer from its own arithmetic, so a joint-transform change could pass this
-    // subspace gate and fail every other reader on the page.
     private static Fin<Seq<MachineCandidate>> Cartesian(MachineKinematics kinematics, MachinePose pose, Arr<MachineJoint.Prismatic> joints) {
         Vector3d local = pose.Tcp - kinematics.MachineFrame.Origin;
         Arr<double> values = joints.Map(joint => joint.Geometry.Mount.CoordinateSign * (local * joint.Geometry.Direction));
@@ -784,18 +747,9 @@ public static class MachineTool {
 
     private const int TaskRank = 6;
 
-    // `AxisMotion.Margin` is `min(value - Min, Max - value) / (Max - Min)`, which peaks at mid-travel, so this is
-    // the quantity's own ceiling and every real axis can only lower it — a seed, never an absence sentinel.
     private const double MidTravelMargin = 0.5;
 
     // --- [FORWARD_CHAIN]
-    // One forward chain carries the kernel `Dual<T>` forward-mode scalar and answers both channels in one walk: the
-    // value channel is the residual and the derivative channel is that column's exact partial. `Dual<double>`
-    // instantiates it at the width this residual is judged on — a millimetre task error against the `Joint` lane,
-    // never the 106-bit objective the kernel functor contracts — so a wider scalar buys no digit the gate reads
-    // and pays software arithmetic inside the per-station solve. Rhino `Plane`/`Transform` cannot carry a dual, so the
-    // frame algebra is stated here in generic arithmetic ONCE and the double forward pose reads its value channel;
-    // a second double-only chain beside it is the twin this collapse deletes.
     private readonly record struct DualVector(Dual<double> X, Dual<double> Y, Dual<double> Z) {
         public static DualVector Of(Point3d point) => new(Dual<double>.Of(point.X), Dual<double>.Of(point.Y), Dual<double>.Of(point.Z));
         public static DualVector Of(Vector3d value) => new(Dual<double>.Of(value.X), Dual<double>.Of(value.Y), Dual<double>.Of(value.Z));
@@ -815,10 +769,6 @@ public static class MachineTool {
         public Vector3d Direction => new(X.Value, Y.Value, Z.Value);
     }
 
-    // Dual twin of the `(Plane Tool, Plane Part)` pair the fold used to carry: joint geometry — direction,
-    // pivot, mount — is CONSTANT and only the joint value carries a derivative, so a rotation is one Rodrigues
-    // pass and never a matrix assembly. All four columns ride both sides because the change of basis at the seat
-    // reads the part basis whole; splitting the tool side down to origin-and-axis forks one fold into two.
     private readonly record struct DualFrame(DualVector Origin, DualVector XAxis, DualVector YAxis, DualVector ZAxis) {
         public static DualFrame Of(Plane plane) =>
             new(DualVector.Of(plane.Origin), DualVector.Of(plane.XAxis), DualVector.Of(plane.YAxis), DualVector.Of(plane.ZAxis));
@@ -838,8 +788,6 @@ public static class MachineTool {
                 Turned(ZAxis, axis, cos, sin));
         }
 
-        // `Transform.PlaneToPlane(part, machineFrame)` in dual arithmetic: coordinates read off the moving part
-        // basis and re-anchor on the constant machine frame, the one crossing that makes the pose machine-relative.
         public DualFrame Relative(DualFrame part, Plane machineFrame) => new(
             DualVector.Of(machineFrame.Origin) + Anchored(Origin - part.Origin, part, machineFrame),
             Anchored(XAxis, part, machineFrame),
@@ -859,8 +807,6 @@ public static class MachineTool {
             + (value.Dot(part.ZAxis) * DualVector.Of(machineFrame.ZAxis));
     }
 
-    // ONE forward chain for every reader on this page — the inverse residual, each Jacobian column, the initial
-    // pose, and the auxiliary re-pose — so a joint-transform change lands in exactly one body.
     private static DualFrame Chain(MachineKinematics kinematics, Plane tool, Arr<(MachineJoint Joint, Dual<double> Value)> rows) {
         (DualFrame Tool, DualFrame Part) frames = rows.Fold(
             (Tool: DualFrame.Of(tool), Part: DualFrame.Of(kinematics.MachineFrame)),
@@ -868,8 +814,6 @@ public static class MachineTool {
         return frames.Tool.Relative(frames.Part, kinematics.MachineFrame);
     }
 
-    // Mount routing happens once and both joint cases hand ONE transformed frame back through the same seat,
-    // so tool-versus-part routing is stated once rather than per case.
     private static (DualFrame Tool, DualFrame Part) ApplyJoint(
         (DualFrame Tool, DualFrame Part) frames,
         MachineJoint joint,
@@ -915,17 +859,6 @@ public static class MachineTool {
             orientation.X.Value, orientation.Y.Value, orientation.Z.Value]);
     }
 
-    // Exact 6xN task Jacobian, one chain walk per seeded column, replacing the differenced Jacobian the
-    // derivative-free `NonlinearModel` overload assembled: differencing costs the base point PLUS one walk per
-    // column and answers only to its own step size, where a seeded walk answers to the geometry. That last part
-    // is the correctness half — the `Joint` lane re-proves the fitted residual after the minimizer returns, and a
-    // differenced column's floor is its own step size rather than the band, so an exact column retires a
-    // converged-but-refused `machine-tool:inverse-residual` outcome rather than only sharpening a solve that
-    // already passed; publishing the lane tightens the gate without touching this walk. Bound and
-    // scale vectors stay on the MathNet minimizer, which is why the residual keeps its own functor: the kernel
-    // `Lm.Minimize` ladder carries neither, and joint travel is a hard constraint on this fit.
-    // Column walk is the named statement seam: `Matrix<double>` is the shape the derivative delegate
-    // contracts, and exactly one parameter carries a seeded dual per walk.
     private static Matrix<double> Jacobian(MachineKinematics kinematics, Arr<MachineJoint> joints, Vector<double> values, MachinePose target) {
         double[] parameters = values.ToArray();
         Matrix<double> jacobian = CreateMatrix.Dense<double>(TaskRank, parameters.Length);
@@ -947,8 +880,6 @@ public static class MachineTool {
     private static MachinePose Forward(MachineKinematics kinematics, Arr<MachineJoint> joints, IReadOnlyList<double> values) =>
         Chain(kinematics, kinematics.ToolFrame, Frozen(joints, values)).Posed;
 
-    // A tower whose rod cannot span the effector joint has NO carriage height, so the projection answers `None` and
-    // the station refuses named rather than seeding a NaN a later finiteness sweep has to recognize as unreachable.
     private static Fin<Seq<MachineCandidate>> Delta(MachineKinematics kinematics, MachinePose pose, MachineChain.Delta chain) =>
         toSeq(chain.Geometry.Towers)
             .Map((tower, index) => (Tower: tower, Index: index))
@@ -1009,10 +940,6 @@ public static class MachineTool {
             .ToFin(FabricationFault.Inadmissible(FabConcern.Kinematics, $"machine-tool:unreachable:{station}"));
     }
 
-    // The block must start at its entry feed AND finish at its exit feed, so the BINDING boundary is the TIGHTER of
-    // the two. Taking their maximum discarded whichever boundary actually constrained the block, so a segment
-    // decelerating into a tight corner timed as though it had kept the looser feed. An ABSENT entry is a start from
-    // rest — no cap at all — which is why it arrives as `Option` rather than as a zero the fold has to sniff.
     private static Fin<double> Duration(
         MachineKinematics kinematics,
         Move move,
@@ -1098,8 +1025,6 @@ public static class MachineTool {
         return counterclockwise == cross >= 0.0 ? minor : 2.0 * Math.PI - minor;
     }
 
-    // Peak velocity resolves by numerical ROOT, so its accuracy is the `Convergence` lane and its budget the
-    // policy's iteration count — two facts a root find takes, never one column standing for both.
     private static Fin<double> SCurve(
         double distance,
         double velocity,

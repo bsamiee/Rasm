@@ -22,7 +22,7 @@ Multi-domain graduation HUB of the Python branch — the tier-0 page every evide
 - Boundary: no handoff record claims production readiness, a Python-only benchmark conclusion, or a C# source-shape claim absent from the .NET owner planning. No ledger, custody, or retention window is minted here — the plane arrives bound at the composition root and this owner declares a `Retain` class alone. Compute-emitted geometry subjects do not exist — a second graduation direction is geometry's own closed ruling, so a compute re-graduation on the geometry axis requires a named consumer and a compute-owned axis case, never the geometry case.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import re
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from enum import StrEnum
@@ -46,17 +46,12 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, Redaction,
 
 from rasm.runtime.hooks import HookId, StageMark
 
-lazy from rasm.compute.graduation.observability import ComputePoint, GraduationAdmitted, GraduationRejected, fired, ledgered, stage_point  # lazy breaks the hub<->observability stratum cycle; proxies reify at first dispatch
+lazy from rasm.compute.graduation.observability import ComputePoint, GraduationAdmitted, GraduationRejected, fired, ledgered, stage_point
 
-# --- [TYPES] --------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class EvidenceScope(StrEnum):
-    # scope seed table: one member per compute module leaf, value `rasm.compute.<leaf>`, owning BOTH the tracer scope and the
-    # receipt `source_package` spelling — producers compose `EvidenceScope.<X>.value`, never a bare literal, so a drifted
-    # spelling has no owner. The `rasm.`-rooted spelling is the branch grammar the runtime `SCOPES` vocabulary and the
-    # geometry peer's own scope enum hold, and it is the same root the observability point ids and instrument names carry, so
-    # a backend joining a compute span to its metric and its receipt reads one namespace rather than three.
     ARRAY = "rasm.compute.array"
     CODEGEN = "rasm.compute.codegen"
     CONVEX = "rasm.compute.convex"
@@ -86,13 +81,6 @@ class EvidenceScope(StrEnum):
 
 
 class ComputeLeg(StrEnum):
-    # the folder's ONE `Leg` roster under the `runtime/reliability/faults#FAULT` contract, one member per module in the
-    # `ARCHITECTURE.md` codemap and its value the DOTTED IMPORT PATH beneath `rasm` — never the flat `EvidenceScope`
-    # spelling, whose leaf-only value names no module `FaultRow.seated` could resolve. The two rosters are one
-    # correspondence read two ways and neither derives from the other: a scope names the instrumentation library a
-    # span and a receipt carry, a leg names the module a refusal seats in, and the sub-package segment only the leg
-    # carries is exactly what `find_spec` proves. Seated HERE because every compute page imports this hub downward and
-    # no compute page precedes it, so a roster at any producer would invert the folder's own strata.
     RECEIPT = "compute.solvers.receipt"
     LINEAR = "compute.solvers.linear"
     NONLINEAR = "compute.solvers.nonlinear"
@@ -122,8 +110,6 @@ class ComputeLeg(StrEnum):
     OBSERVABILITY = "compute.graduation.observability"
 
 
-# finiteness-only input refinement the `@beartype(conf=FAULT_CONF)` fence on `_admit` checks; sign
-# is unconstrained so a negated-floor deficit (`neg_min_ess_bulk = -min(ess)`) admits.
 type Ledger = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v in m.values())]]
 type Ceiling = Annotated[dict[str, float], Is[lambda m: all(isfinite(v) for v in m.values())]]
 type SpanFacts = Mapping[str, str | int | float | bool]
@@ -138,15 +124,13 @@ class HandoffAxis:
     array_layout: str = case()
     unit_law: str = case()
     uncertainty_law: str = case()
-    geometry: str = case()  # decoded wire data typed against the inherited GEOMETRY_SUBJECTS block
+    geometry: str = case()
     convex_program: str = case()
     artifact: str = case()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# INHERITED CONTRACT BLOCK — the frozen geometry-owned union `rasm.geometry.graduation.GeometrySubject` pins (its `SUBJECTS`
-# export). Decode-only data: compute declares no type and imports no geometry symbol; a union change lands here as one row.
 GEOMETRY_SUBJECTS: Final[frozenset[str]] = frozenset((
     "registration-transform",
     "scan-deviation",
@@ -163,32 +147,18 @@ GEOMETRY_SUBJECTS: Final[frozenset[str]] = frozenset((
     "thermal-comfort",
 ))
 
-# shared trace-join spelling both ends stamp on `rasm.link.kind`; geometry exports its own `LINK_KIND` and
-# `mirror_aligned` proves the two byte-equal at boot.
 LINK_KIND: Final[str] = "geometry-graduation"
 
-# fence-pinned SELF-DESCRIBING fact floor of every `planned` receipt — the C# graduation gate's
-# decode vocabulary; the cleared residual ledger rides beside the floor under `residual.`-prefixed
-# keys, so a metric name can never collide with a floor slot, and `phase` rides the triple.
 FACT_FLOOR: Final[tuple[str, ...]] = ("axis", "subject", "evidence_key", "residual_count")
 
-REDACTION: Final[Redaction] = Redaction(classified=Map.empty())  # hub-exported: compute evidence facts carry no secret field
+REDACTION: Final[Redaction] = Redaction(classified=Map.empty())
 
-# the one domain segment every compute audit verb carries — the same `<domain>` the metric projection and the point
-# ids already record under — DERIVED off this page's own scope spelling rather than transcribed, so a root rename
-# cannot strand a durable verb under a segment no series answers, and every producer page reads this one export.
 EVIDENCE_DOMAIN: Final[str] = EvidenceScope.HANDOFF.value.split(".", 2)[1]
 
-# the three coordinate keys `BoundaryFault.facts()` carries on every case, carved out so a refusal detail projects
-# the case-specific remainder WHOLE without a per-arm read; a `fault.boundary[1]` index raises on exactly the arm a
-# refusal ring exists to retain, since `_admit`'s refinement breach classifies `api` and `_clear`'s rejection `boundary`.
 _COORDINATES: Final[frozenset[str]] = frozenset({"tag", "subject", "leg"})
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this hub's own raise-side roster under the `runtime/reliability/faults#FAULT` row contract: every explicit refusal
-# and every lift fence on this page resolves ONE anchor here, so a subject is derived from its leg rather than spelled
-# at a call site and the coordinates a raise carries prove against the row's declared `slots`.
 WIRE_DECODE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.HANDOFF, point="decode", arm="boundary", defect="wire-decode", retriability=TERMINAL
 )
@@ -198,13 +168,9 @@ WIRE_SUBJECT: Final[FaultRow[ComputeLeg]] = FaultRow(
 WIRE_KEY: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.HANDOFF, point="key", arm="boundary", defect="malformed-wire-key", retriability=TERMINAL, slots=("render",)
 )
-# fence-only anchor: the refinement breach is CAUGHT, never raised through this row, so it declares no `slots` — a
-# coordinate no `raised` call fills is a column nothing reads. Its `api` arm names what the fence classifies.
 ADMIT_LEDGER: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.HANDOFF, point="admit", arm="api", defect="non-finite-ledger", retriability=TERMINAL
 )
-# the axis rides a NAMED slot rather than the subject, because a per-axis subject spelling forks one refusal law into
-# nine coordinates no roster could enumerate and no shared census read could seat.
 CEILING: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.HANDOFF, point="clear", arm="boundary", defect="residual-ceiling", retriability=TERMINAL, slots=("axis",)
 )
@@ -214,42 +180,22 @@ RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([WIRE_DECODE,
 
 
 class StageTap(Struct, frozen=True, gc=False):
-    # the mid-operation half of the weave, and the reason compute needs no pulse vocabulary of its own: the mark
-    # carrier is the hook registry's `StageMark`, COMPOSED — a compute clone would be a second payload type
-    # for one conduit and a second registration shape for one registry. The closed milestone roster stays each long
-    # fold's OWN type parameter and erases at the conduit exactly as the geometry peer's does, so the point row keeps
-    # declaring one payload type and closure is a producer-side type fact rather than a registry edit. `total` is
-    # `Option` because a fold that cannot know its extent up front must say so — a zero census reads as a fold over
-    # an empty design and every progress bar renders it as complete.
     point: HookId
     tap: Queue[PulseFact | None]
     total: Option[int] = Nothing
 
     @staticmethod
     def of(scope: EvidenceScope, tap: Queue[PulseFact | None], total: Option[int] = Nothing) -> "StageTap":
-        # the point DERIVES off the producer's own scope exactly as its lifecycle pair does, so a fold names the
-        # milestone roster it owns and never an id — an id spelled at a call site is the drift the derived table
-        # exists to foreclose, and the derivation is what makes a new long fold zero registry edits.
         return StageTap(point=stage_point(scope), tap=tap, total=total)
 
     def beat[S: StrEnum](self, stage: S, done: int) -> None:
         pulsed(self.tap, self.point, StageMark(stage=stage.value, done=done, total=self.total))
 
     def facts(self) -> SpanFacts:
-        # an unknown census OMITS its key: a `stage_total` of zero on the span reads as a measured empty extent,
-        # which is the `docs/laws/scars.md` `[FORGED_ZERO]` clause verbatim.
         return self.total.map(lambda extent: {"stage_total": extent}).default_value({})
 
 
 class _GeometryWire(Struct, frozen=True, gc=False, forbid_unknown_fields=True):
-    # frozen `GeometryHandoff.wire()` projection — decode-only mirror of the geometry mint;
-    # field names are wire law, re-shaped only by a geometry ripple, and `forbid_unknown_fields`
-    # is the widen tripwire: a geometry band shipped without its compute row rails a typed
-    # ValidationError on both decode arms instead of admitting silently. The optional W3C carrier
-    # defaults None and keeps trace context plus baggage under one wire field. The three mapping
-    # slots read `dict` because that IS the crossing shape: the owner holds `measured`, `ceilings`,
-    # and `trace` as persistent maps for its own frozen custody and `wire()` projects each to a
-    # plain dict, so a mirror widened to the owner's interior carrier decodes nothing it sends.
     subject: str
     key: str
     measured: dict[str, float]
@@ -272,12 +218,8 @@ class GraduationReceipt(Struct, frozen=True):
         source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float],
         upstream: Mapping[str, str] | None = None, composition: ScopeKey = DEFAULT_SCOPE,
     ) -> RuntimeRail[GraduationReceipt]:
-        # two-stage rail: `boundary(_admit)` mints exactly one `RuntimeRail` over the refinement check, `.bind(_clear)`
-        # threads the pure ceiling fold — admission, ceiling rejection, and emission stay one rail with no escape path;
-        # both arms fire their `graduation/observability.md` admission fact under the caller's composition, taps
-        # projecting it without touching the rail.
         def rail() -> RuntimeRail[GraduationReceipt]:
-            _linked(upstream)  # producer-chain join at the rail head — the weave's live graduate span carries the Link on both arms
+            _linked(upstream)
             return (
                 boundary(ADMIT_LEDGER, lambda: GraduationReceipt._admit(measured, ceiling), catch=BeartypeCallHintViolation)
                 .bind(lambda validated: GraduationReceipt._clear(source_package, axis, evidence_key, validated))
@@ -293,14 +235,6 @@ class GraduationReceipt(Struct, frozen=True):
         source_package: str, axis: HandoffAxis, evidence_key: ContentKey, measured: dict[str, float], ceiling: dict[str, float],
         upstream: Mapping[str, str] | None = None, composition: ScopeKey = DEFAULT_SCOPE,
     ) -> RuntimeRail[GraduationReceipt]:
-        # the awaitable twin over the band hop, and the ONE seat where an admission reaches the durable plane.
-        # `graduates` is a pure fold over an already-measured ledger — it opens no loop and awaits nothing — so the
-        # trail cannot land inside it, recording being a suspending act. BOTH verdicts record: an admission plane
-        # carrying only the crossings that cleared answers "did anything try" with silence, and a refused graduation
-        # is exactly the crossing an audit reconstructs. The rails differ by arm and that difference is load-bearing
-        # — the admitted rail BINDS, because a crossing the plane could not record must not read as graduated, while
-        # the refused one rides BESIDE the fault, since replacing a caller's own ceiling rejection with a plane fault
-        # hides the domain verdict it came for.
         match GraduationReceipt.graduates(source_package, axis, evidence_key, measured, ceiling, upstream, composition):
             case Result(tag="ok") as cleared:
                 return (await Journal.record(_evidence(source_package, axis, cleared), scope=composition)).bind(lambda _landed: cleared)
@@ -310,9 +244,6 @@ class GraduationReceipt(Struct, frozen=True):
 
     @staticmethod
     def geometry(source_package: str, payload: bytes | Mapping[str, object], composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationReceipt]:
-        # ONE carrier-decode ingress, channel-agnostic: bytes ride the cached decoder, in-process builtins ride `convert`. An
-        # out-of-union subject rails typed on the `unknown-subject` band — the drift signal a geometry union extension trips until
-        # compute's ripple lands — never an unfenced ValidationError, never a silent admit.
         def decode() -> _GeometryWire:
             return _GEOMETRY_DECODER.decode(payload) if isinstance(payload, bytes) else convert(payload, type=_GeometryWire)
 
@@ -326,10 +257,6 @@ class GraduationReceipt(Struct, frozen=True):
                 )
             )
 
-        # `catch` names the codec's OWN raise surface — `libs/python/.api/msgspec.md:33-35`: a malformed or
-        # type-mismatched carrier raises `DecodeError`, a constraint breach `ValidationError`, and `convert` raises
-        # the same pair off an in-process mapping, so the widen tripwire `forbid_unknown_fields` arms fires here and
-        # an unrelated raise out of the decoder propagates as the defect it is.
         return boundary(WIRE_DECODE, decode, catch=(ValidationError, DecodeError)).bind(admit)
 
     @property
@@ -338,18 +265,9 @@ class GraduationReceipt(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, str | int]:
-        # exactly the FACT_FLOOR scalars; the full `residuals` ledger rides the receipt facts, never the span.
         return {"axis": self.axis.tag, "subject": self.subject, "evidence_key": self.evidence_key.hex, "residual_count": len(self.residuals)}
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine, never a hub-local receipt shape: the payload is the pinned floor plus the
-        # residual ledger namespaced under `residual.` — the floor names stay authoritative by construction, a ledger
-        # metric can never shadow them, and slots stay native `float` — while the key, the provenance pair, the
-        # warning band, and the stamp are the spine's own columns. The band is EMPTY here and that is the receipt's
-        # meaning: a ceiling breach is an `Error` that never reaches `contribute`, so an admitted crossing publishes
-        # a cleared band where the geometry peer publishes its breaches. Provenance names the crossing's produced key
-        # alone — a graduation consumes an already-keyed ledger it did not derive, so a consumed roster here would
-        # forge a lineage this hub never walked.
         facts: dict[str, object] = {**self.span_facts, **{f"residual.{name}": value for name, value in self.residuals.items()}}
         return (
             Receipt.of(
@@ -363,8 +281,6 @@ class GraduationReceipt(Struct, frozen=True):
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def _admit(measured: Ledger, ceiling: Ceiling) -> tuple[Ledger, Ceiling]:
-        # `Is` finiteness contract fires here inside the `boundary` fence, so `_clear` only ever
-        # folds an already-finite ledger; a `NaN`/`±inf` breach rails through the `CLASSIFY` `api` row.
         return (measured, ceiling)
 
     @staticmethod
@@ -379,24 +295,16 @@ class GraduationReceipt(Struct, frozen=True):
 
     @staticmethod
     def _witnessed(receipt: "GraduationReceipt", composition: ScopeKey) -> "GraduationReceipt":
-        # admission fact: one tee fire off the cleared receipt under the caller's composition — the observability taps
-        # project it onto metrics and receipts, and the rail passes untouched.
         fired(ComputePoint.ADMITTED, GraduationAdmitted(axis=receipt.axis.tag, subject=receipt.subject, evidence_key=receipt.evidence_key.hex, residual_count=len(receipt.residuals)), composition)
         return receipt
 
     @staticmethod
     def _refused(fault: BoundaryFault, composition: ScopeKey) -> BoundaryFault:
-        # rejection fact on the replay ring: a late diagnostic subscriber drains the recent refusals on attach, and
-        # both arms land discriminated by the fault's OWN tag. The retired `fault.boundary[0]` pair read was a
-        # case-indexed access on a family whose two live arms are `api` and `boundary` — it raises on exactly the
-        # refinement breach the ring most needs to retain, so the projection reads through `facts()` instead.
         fired(ComputePoint.REJECTED, GraduationRejected(subject=fault.subject, tag=fault.tag, detail=_detail(fault)), composition)
         return fault
 
     @staticmethod
     def _subject(axis: HandoffAxis) -> str:
-        # one or-pattern binds the carried subject off every case; `assert_never` makes a new handoff kind a compile gap. The fold
-        # is the single place the union is read — `subject`, `span_facts`, and `contribute` all route through it.
         match axis:
             case (
                 HandoffAxis(tag="solver", solver=s)
@@ -421,15 +329,6 @@ _WIRE_KEY: Final[re.Pattern[str]] = re.compile(r"\A(?P<digest>[0-9a-f]{32}):(?P<
 
 
 def _evidence(source_package: str, axis: HandoffAxis, settled: RuntimeRail[GraduationReceipt]) -> Block[Fact]:
-    # ONE admission-trail fold over BOTH verdicts, so the two arms cannot drift into two vocabularies for one
-    # crossing: the verb, the actor, and the axis target are shared and only the retention, the subject source, and
-    # the diff differ. Retention is where the arms genuinely diverge — an ADMITTED crossing is the record a C#
-    # consumer acts on years later, so it holds REGULATORY, while a REFUSED one is the operational trail of a bar
-    # that held, worth reading back through an incident window and never worth a seven-year hold. The verb carries
-    # the package's one domain segment beside the axis its own union names, so a durable row greps against the
-    # series the taps already record. Subjects stay EMPTY by law: an evidence key names a computation, never a data
-    # subject, so indexing one would pull solve evidence into every portability export and every erasure sweep. No
-    # meter rides here — the crossing's cpu is the resource band's one COMPUTE charge.
     match settled:
         case Result(tag="ok", ok=receipt):
             row: tuple[Retain, str, tuple[Change, ...]] = (
@@ -457,10 +356,6 @@ def _evidence(source_package: str, axis: HandoffAxis, settled: RuntimeRail[Gradu
 
 
 def _linked(carrier: Mapping[str, str] | None) -> None:
-    # consumer half of the co-shipped trace carrier: the installed global composite decodes trace context and baggage,
-    # and the live consumer span folds its SpanContext as a Link — cross-producer click-through without a second
-    # trace or a wire re-shape. A malformed carrier extracts an invalid context and folds nothing, so trace metadata
-    # never rails the crossing; the telemetry SPAN_LIMITS max_links row bounds the fan a hostile payload could stamp.
     if carrier is None:
         return
     linked = trace.get_current_span(propagate.extract(carrier)).get_span_context()
@@ -468,12 +363,6 @@ def _linked(carrier: Mapping[str, str] | None) -> None:
         trace.get_current_span().add_link(linked, {"rasm.link.kind": LINK_KIND})
 
 
-# S4 boot gate over the hand-copied geometry mirror: a composition root composing BOTH branches feeds geometry's own
-# exports (`SUBJECTS`, `WIRE_FIELDS`, `LINK_KIND`) and compute imports nothing — the branch descriptor-drift-gate
-# pattern seated at the one tier where both ends are importable. Set equality catches the removed-or-renamed subject
-# `forbid_unknown_fields` never trips, the field census closes the rename-and-drop hole on `_GeometryWire`, and the
-# link spelling proves the trace join stamps one kind at both ends. Empty roster reads aligned; a root refuses boot
-# on any row, naming the drift instead of decoding past it.
 def mirror_aligned(subjects: Iterable[str], wire_fields: Iterable[str], link_kind: str) -> Block[str]:
     theirs, fields = frozenset(subjects), frozenset(wire_fields)
     mirror = frozenset(_GeometryWire.__struct_fields__)
@@ -487,14 +376,6 @@ def mirror_aligned(subjects: Iterable[str], wire_fields: Iterable[str], link_kin
 
 
 def _key(render: str) -> RuntimeRail[ContentKey]:
-    # wire crossing identity is the hex render `{value:032x}:{fmt}` (the C# InterchangeIdentity.Key contract);
-    # admission proves the exact shape — 32 lowercase hex digits, ONE separator, a non-empty separator-free fmt —
-    # so a torn, oversized, or non-hex render rails typed at the crossing instead of minting a garbage key or
-    # letting a bare int() raise past the fence. The byte extent is producer-local and NEVER wire data, so the
-    # decoded key is minted through the arm that carries none: the retired `byte_length=0` filled a required
-    # measurement slot with a number no producer took, which is `docs/laws/scars.md` `[FORGED_ZERO]` — "converting
-    # a canon-only value mints a key or stamp no producer took" — and a consumer summing extents over a mixed
-    # roster read the crossing as weightless rather than as unmeasured.
     matched = _WIRE_KEY.fullmatch(render)
     return (
         Ok(ContentKey.decoded(value=int(matched["digest"], 16), fmt=matched["fmt"]))
@@ -504,9 +385,6 @@ def _key(render: str) -> RuntimeRail[ContentKey]:
 
 
 def _detail(fault: BoundaryFault) -> str:
-    # the fault's OWN `facts()` projection minus the three coordinates every case already carries, so a refusal reads
-    # WHOLE regardless of which arm classified it and the `domain` case's carried sibling token survives beside the
-    # five detail-bearing arms. The retired form indexed one case's tuple and raised on every other.
     return ";".join(f"{name}={value}" for name, value in fault.facts().items() if name not in _COORDINATES)
 
 
@@ -514,16 +392,6 @@ def evidence_run[T](
     scope: EvidenceScope, subject: str, dispatch: Callable[[], T] | Callable[[], Awaitable[T]], facts: SpanFacts = Map.empty(),
     composition: ScopeKey = DEFAULT_SCOPE, stage: Option[StageTap] = Nothing,
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
-    # hub's one policy binding of the runtime measured weave: compute's scope vocabulary, the hub REDACTION row, and the caller's
-    # call-time discriminating facts stamped on the recording span beside {scope, subject} — span and receipt carry parallel evidence.
-    # `ledgered` wraps the dispatch, so every producer's kernel fires its domain lifecycle points and the two-block resource band
-    # with zero producer edits, and the composition key threads through it AND onto the weave itself so an embedded second
-    # composition's lifecycle facts, its harvested weave line, and its recorded series all key to it rather than the root's:
-    # `scope.value` is the instrumentation scope the tracer opens under and never doubles as the custody key.
-    # `stage` is the OPTIONAL mid-operation slot the branch's long folds thread: the weave opens the stream so a
-    # subscriber reads the extent before the first interior position and a fold that rails still reported that it
-    # started, and the census stamps the span beside the caller's own facts. A fold with no interior positions omits
-    # the slot and its call shape is untouched, which is what makes one instrumented fold zero edits at the other 25.
     return measured(
         scope.value, subject, REDACTION, ledgered(scope, subject, dispatch, composition=composition, stage=stage),
         {**facts, **stage.map(StageTap.facts).default_value({})}, composition=composition,

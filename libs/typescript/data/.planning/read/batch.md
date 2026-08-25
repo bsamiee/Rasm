@@ -32,17 +32,10 @@ import { type ObjectFault, ObjectStore } from "../object/store.ts"
 
 class DescriptorMiss extends Schema.TaggedError<DescriptorMiss>()("DescriptorMiss", { key: Digest.Key.content }) {
   get class(): Fault.Class.Kind {
-    return "absent" // the one honest kind: the HEAD answered no such object
+    return "absent"
   }
 }
 
-// `_family` carries the store roster VERBATIM minus the one arm it re-homes: `missing` is `DescriptorMiss`'s, so every
-// other store reason crosses unmapped and a reason the store mints tomorrow refuses HERE at compile time — a narrowed
-// mirror instead strands `archived` and `owner` in a fold its own schema refuses. Classes stay the store's;
-// retryability, blame, and quarantine stay the core Fault.Class row table's on both sides.
-// The store's own subject crosses with the reason, so the mirror re-seats the key onto the REQUEST and carries the
-// rest whole; each row renders the sentence its reason means at this seam, which is why a persisted failure replays
-// readable without the store page in hand. One leg because one surface decides every arm — the descriptor window.
 const _Subject = Schema.Struct({ key: Digest.Key.content, detail: Schema.String })
 
 const _family = Fault.Class.family(["archived", "owner", "integrity", "io"] as const, {
@@ -88,7 +81,7 @@ class DescriptorFault extends Schema.TaggedError<DescriptorFault>()("DescriptorF
 
 class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
   payload: { key: Digest.Key.content },
-  success: ObjectStore.Stat, // the store-minted evidence class: probe, window, and durable band persist one row shape
+  success: ObjectStore.Stat,
   failure: Schema.Union(DescriptorMiss, DescriptorFault),
 }) {
   static readonly resolver = (
@@ -96,8 +89,6 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
   ): RequestResolver.RequestResolver<Descriptor> =>
     _of(_ENGINE, _settled(_ENGINE, (request: Descriptor) =>
       head(request.key).pipe(
-        // the store issue crosses WHOLE and only its key re-seats onto the request, so a reason the store roster grows
-        // arrives here as compile pressure at the family declaration rather than as a widened detail string
         Effect.mapError((fault) =>
           fault.case.reason === "missing"
             ? new DescriptorMiss({ key: request.key })
@@ -113,7 +104,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
   ) =>
     _durable(Descriptor.resolver(head), {
       storeId: policy.storeId,
-      timeToLive: (_request, exit) => (Exit.isSuccess(exit) ? policy.hit : policy.miss), // hits and misses age separately
+      timeToLive: (_request, exit) => (Exit.isSuccess(exit) ? policy.hit : policy.miss),
     })
 }
 ```
@@ -166,10 +157,6 @@ declare namespace Batch {
   ) => Effect.Effect<void, never, R>
 }
 
-// Every family composes this settle fold, defect-total by construction: `Effect.exit` lands a typed refusal, a
-// defect, and an interrupt alike in the request's own `Exit`, and `Request.complete` settles from it. Effect's own
-// `RequestResolver.fromEffect` is this exact shape for the same reason — `Request.completeEffect` folds the failure
-// channel alone, so one dying key escapes it, aborts the traversal, and leaves every unreached sibling suspended.
 const _settled = <Req extends Request.Request<unknown, unknown>, R>(
   engine: Batch.Engine,
   run: (request: Req) => Effect.Effect<Request.Request.Success<Req>, Request.Request.Error<Req>, R>,
@@ -188,8 +175,6 @@ const _of = <Req extends Request.Request<unknown, unknown>, R>(
   RequestResolver.makeBatched(settle).pipe(
     RequestResolver.batchN(engine.width),
     RequestResolver.aroundRequests(
-      // Two grains, because the bracket wraps the width cap: `window` counts everything that ARRIVED and `chunks`
-      // counts the executions `batchN` splits it into, so a board reading either never mistakes one for the other.
       (window) =>
         Effect.tap(Clock.currentTimeMillis, () =>
           Effect.annotateCurrentSpan({
@@ -198,7 +183,6 @@ const _of = <Req extends Request.Request<unknown, unknown>, R>(
           })),
       (_, opened) =>
         Effect.flatMap(Clock.currentTimeMillis, (closed) =>
-          // Mounted distribution rows take an elapsed span and scale it into their own code, so the raw difference lifts once here
           Effect.zipRight(Metric.update(_wall, Duration.millis(closed - opened)), Effect.annotateCurrentSpan("batch.millis", closed - opened))),
     ),
   )
@@ -289,7 +273,7 @@ const Batch = {
   durable: _durable,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Batch, Descriptor, DescriptorFault, DescriptorMiss }
 ```

@@ -20,7 +20,7 @@ Persistent topological naming survives every rebuild behind one `Naming.Apply(Na
 - Boundary: `TopoName` is the one naming value object over every `EntityKind`, the modality carried in the `Kind` column. `TopoSignature` is position-free — built from incident names and kind histograms, never coordinates — so a rigid transform preserves every name and only an adjacency change re-anchors, matching the morph-versus-topology-break distinction `GeometryHash` reads from the same canonical adjacency. Migration is the `Overlap` shared-name fraction under the `NamingPolicy.MigrationOverlap` floor; `VertexNames` keys by `RebuiltEntity.Self`; boundary names resolve through the table under construction on the vertices-first walk; exact re-anchor reads the prior `SignatureIndex` buckets while migration gathers from the `BoundaryIndex` postings through hash-index lookups. `Apply` is total over the `Fin` rail, a name collision routing `GeometryFault.NameCollision` (`Numerics/faults.md`) accumulated internally as `Validation<Error, NameTable>`. `TopoName` is a `UInt128` reference identity orthogonal to the `GeometryHash` content identity the reconciliation sibling bridges, and the `NameTable` is immutable — `Apply` returns the next generation.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
@@ -30,10 +30,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Spatial;
 
-// --- [TYPES] -----------------------------------------------------------------------------------
-// Rows own the two per-kind bodies the anchor fold used to branch on — the boundary feed and the fingerprint — so a
-// new modality is one row that cannot compile without stating both. The arity column they replace was a two-valued
-// predicate wearing an arity name, spelling the variadic face as a `-1` no reader ever distinguished.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class EntityKind {
     public static readonly EntityKind Vertex = new(key: 0,
@@ -49,15 +46,12 @@ public sealed partial class EntityKind {
     [UseDelegateFromConstructor] internal partial Seq<TopoName> BoundaryOf(NameTable table, RebuiltEntity entity);
     [UseDelegateFromConstructor] internal partial Seq<int> FingerprintOf(RebuiltEntity entity, HashMap<int, Arr<int>> stars);
 
-    // WL-1 refinement: the vertex fingerprint appends the sorted star-neighbor kind histograms, so same-valence
-    // vertices with different neighborhoods separate without names or coordinates, identically at both generations.
     private static Seq<int> Star(RebuiltEntity entity, HashMap<int, Arr<int>> stars) =>
         toSeq(entity.KindHistogram.AsIterable())
         + toSeq(toSeq(entity.IncidentVertices.AsIterable()).Map(stars.Find).Somes()
             .OrderBy(static histogram => histogram, HistogramOrder)
             .SelectMany(static histogram => histogram.AsIterable()));
 
-    // Lexicographic full-array order: a new EntityKind row widens the histogram and the sort absorbs it.
     private static readonly IComparer<Arr<int>> HistogramOrder = Comparer<Arr<int>>.Create(
         static (a, b) => toSeq(a.AsIterable()).AsSpan().SequenceCompareTo(toSeq(b.AsIterable()).AsSpan()));
 }
@@ -79,21 +73,17 @@ public abstract partial record NamingOp {
     public sealed record Resolve(CanonicalTopology Boundary) : NamingOp;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct Generation {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0 ? null : new ValidationError("Generation must be >= 0.");
 
-    // A COMPUTED successor admits through `Validate`: unchecked `Value + 1` at `int.MaxValue` lands negative, and the
-    // throwing `Create` would exit the fold rather than route the `Fin` rail the caller two frames up already holds.
     public Fin<Generation> Next(Op key) => key.AcceptValidated<Generation>(candidate: Value + 1);
 }
 
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct TopoSignature {
-    // `Sorted` IS the published order — the key selector and comparer replace the hand sort, and the count frame it
-    // writes is what keeps a name list and a histogram from concatenating into one another's fields.
     public static TopoSignature Of(EntityKind kind, Seq<TopoName> incidentNames, Seq<int> kindHistogram) =>
         Create(ContentHash.Of(
             state: (Kind: kind, Names: incidentNames, Histogram: kindHistogram),
@@ -103,10 +93,6 @@ public readonly partial struct TopoSignature {
                     field: static (name, field) => field.U128(value: name.Value))
                 .Rows(rows: row.Histogram, field: static (count, field) => field.Ordinal(value: count))));
 
-    // Shared-name overlap |a ∩ b| / min(|a|,|b|) over the boundary MULTISETS as ONE counted fold — the prior tally
-    // decrements per hit, so multiplicity holds without an order. A two-pointer merge re-sorted both sides on every
-    // candidate comparison, and `OverlapParent` runs one comparison per candidate per entity: 1.0 for a subset
-    // either way (split child ⊂ parent, parent ⊂ merged child).
     public static double Overlap(Seq<TopoName> prior, Seq<TopoName> rebuilt) {
         if (prior.IsEmpty || rebuilt.IsEmpty) return 0.0;
         HashMap<TopoName, int> tally = prior.Fold(HashMap<TopoName, int>.Empty,
@@ -121,9 +107,6 @@ public readonly partial struct TopoSignature {
 
 [ValueObject<UInt128>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct TopoName {
-    // born folds into the digest: a fresh mint can never collide with a prior-generation name. The canonical words
-    // ride the writer's own count-framed `Rows`, so no hand int32-LE block stands beside the ONE preimage writer and
-    // the entity payload keeps structural equality all the way to the digest.
     public static TopoName Mint(EntityKind kind, Arr<int> canonical, Generation born) =>
         Create(ContentHash.Of(
             state: (Kind: kind, Born: born, Canonical: canonical),
@@ -133,9 +116,6 @@ public readonly partial struct TopoName {
                 .Rows(rows: toSeq(row.Canonical.AsIterable()), field: static (word, field) => field.Ordinal(value: word))));
 }
 
-// The floor is a SHARED-NAME MAJORITY — half is where a majority begins — and `UnitInterval` makes an out-of-band
-// candidate unconstructible rather than a silently disabled or universalised migration. No tolerance lane owns it:
-// `TopoSignature` is position-free, so this is a combinatorial ratio, never a numeric-agreement gate.
 public sealed record NamingPolicy(UnitInterval MigrationOverlap) {
     public static readonly NamingPolicy Canonical = new(MigrationOverlap: UnitInterval.Create(value: 0.5));
     public static Fin<NamingPolicy> Of(double migrationOverlap, Op? key = null) =>
@@ -153,8 +133,6 @@ public readonly record struct NameEntry(
                 None: () => new TrackOutcome.Born(Name));
 }
 
-// Every column is a structurally-equal carrier, so two entities with identical content compare and hash alike — the
-// whole point of a record whose identity IS its content, and what a raw `byte[]`/`int[]` column silently withheld.
 public readonly record struct RebuiltEntity(EntityKind Kind, int Self, Arr<int> Canonical, Arr<int> IncidentVertices, Arr<int> KindHistogram);
 
 public sealed record NameTable(
@@ -183,9 +161,6 @@ public sealed record NameTable(
 
     public NameTable With(NameEntry entry, int self) {
         HashMap<TopoSignature, Set<TopoName>> perKind = SignatureIndex.Find(entry.Kind).IfNone(HashMap<TopoSignature, Set<TopoName>>.Empty);
-        // `Set<A>` is ordered by construction and `TryAdd` is its idempotent admission — `Add` throws on a duplicate —
-        // so the bucket owes neither a linear membership probe nor a per-insert sort, the pair that made one
-        // generation quadratic in its widest bucket.
         HashMap<TopoSignature, Set<TopoName>> index = perKind.AddOrUpdate(entry.Signature,
             bucket => bucket.TryAdd(entry.Name), Set(entry.Name));
         HashMap<TopoName, Seq<TopoName>> postings = toSeq(entry.Boundary.Distinct()).Fold(BoundaryIndex, (posted, name) => posted.AddOrUpdate(
@@ -198,19 +173,17 @@ public sealed record NameTable(
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Naming {
     public static Fin<NameTable> Apply(NamingOp op, Op? key = null) {
         Op minted = key.OrDefault();
         return op.Switch(
             state: minted,
-            // The successor generation is a COMPUTED admission, so the rail carries its refusal rather than a throw.
             track: static (k, t) => t.Prior.Generation.Next(key: k)
                 .Bind(next => Anchor(t.Prior, t.Rebuilt, next, t.Policy.IfNone(NamingPolicy.Canonical), k)),
             resolve: static (k, r) => Anchor(NameTable.Empty, r.Boundary, Generation.Create(0), NamingPolicy.Canonical, k));
     }
 
-    // Every collision joins one Validation failure set; the fold never aborts early, so one verdict reports the complete non-injective re-anchor set.
     static Fin<NameTable> Anchor(NameTable prior, CanonicalTopology rebuilt, Generation next, NamingPolicy policy, Op key) {
         HashMap<int, Arr<int>> stars = toHashMap(rebuilt.Entities
             .Filter(static e => e.Kind == EntityKind.Vertex).Map(static e => (e.Self, e.KindHistogram)));
@@ -223,8 +196,6 @@ public static class Naming {
             : Validation.Fail<Error, NameTable>(folded.Collisions).ToFin();
     }
 
-    // Boundary names resolve through the in-progress next-generation table — vertices walk first, so an edge/face reads the names its endpoints
-    // just anchored, gen-g comparing like-with-like against gen-(g-1); the vertex row takes no boundary, its star feeding the fingerprint.
     static (NameTable Table, Set<TopoName> Claimed, Seq<Error> Collisions) Step(
         NameTable prior, RebuiltEntity entity, HashMap<int, Arr<int>> stars, Generation next, NamingPolicy policy,
         (NameTable Table, Set<TopoName> Claimed, Seq<Error> Collisions) state) {
@@ -235,7 +206,6 @@ public static class Naming {
             .Head
             .Match(
                 Some: name => Survive(prior, name, signature, boundary, next, entity),
-                // Exhausted buckets are growth, never a collision: the extra same-fingerprint entity migrates or is born fresh.
                 None: () => MigrateOrBirth(prior, entity, signature, boundary, next, policy))
             .Bind(entry => state.Claimed.Contains(entry.Name)
                 ? Fin.Fail<NameEntry>(new GeometryFault.NameCollision(entry.Name, entity.Kind))
@@ -248,20 +218,14 @@ public static class Naming {
     static Fin<NameEntry> Survive(NameTable prior, TopoName name, TopoSignature signature, Seq<TopoName> boundary, Generation next, RebuiltEntity entity) =>
         prior.Entries.Find(name).Match(
             Some: prev => Fin.Succ(prev with { LastSeen = next, Signature = signature, Boundary = boundary, Canonical = entity.Canonical }),
-            // Signature-index hits whose registry entry is absent mark a corrupt prior table.
             None: () => Fin.Fail<NameEntry>(new GeometryFault.NameCollision(name, entity.Kind)));
 
-    // Claimed survivors stay eligible as migration parents — provenance is lineage, not a claim; the child's fresh born-generation mint carries injectivity.
     static Fin<NameEntry> MigrateOrBirth(NameTable prior, RebuiltEntity entity, TopoSignature signature, Seq<TopoName> boundary, Generation next, NamingPolicy policy) {
         Option<TopoName> parent = OverlapParent(prior, entity.Kind, boundary, policy);
         TopoName name = TopoName.Mint(entity.Kind, entity.Canonical, next);
         return Fin.Succ(new NameEntry(name, entity.Kind, next, next, parent, signature, boundary, entity.Canonical));
     }
 
-    // Posting-list candidate gather: only a prior entity sharing a boundary name can clear a >0 overlap floor, and
-    // `Bind` IS the flatten a hand `+` fold spelled. ONE linear argmax fold takes the maximum — a full O(k log k)
-    // sort to read one element is the deleted form, and the tiebreak compares the name value rather than ordering on
-    // a negated `double` no NaN respects.
     static Option<TopoName> OverlapParent(NameTable prior, EntityKind kind, Seq<TopoName> boundary, NamingPolicy policy) =>
         toSeq(toSeq(boundary.Distinct())
                 .Bind(name => prior.BoundaryIndex.Find(name).IfNone(Seq<TopoName>()))
@@ -275,13 +239,10 @@ public static class Naming {
                 None: () => Some(next)))
             .Map(static candidate => candidate.Entry.Name);
 
-    // Strictly-greater score wins and a tie resolves to the SMALLEST name, so one rebuild picks one parent every run.
     static bool Beats((NameEntry Entry, double Score) challenger, (NameEntry Entry, double Score) held) =>
         challenger.Score > held.Score
         || (challenger.Score == held.Score && challenger.Entry.Name.Value < held.Entry.Name.Value);
 
-    // Vertex refine post-pass: with every vertex anchored, each vertex's star resolves through the completed VertexNames and becomes the stored
-    // Boundary (the next generation's migration material); a generation-fresh orphan gains star-overlap Parent provenance. Names never change here.
     static NameTable RefineVertices(NameTable prior, NameTable table, CanonicalTopology rebuilt, NamingPolicy policy, Generation next) =>
         rebuilt.Entities.Filter(static e => e.Kind == EntityKind.Vertex)
             .Fold(table, (acc, entity) => acc.VertexNames.Find(entity.Self).Bind(acc.Entries.Find)

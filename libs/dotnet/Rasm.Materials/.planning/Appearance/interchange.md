@@ -30,7 +30,7 @@ This page owns the generated appearance egress and the MaterialX node-graph inte
 - Boundary: `Ibl` is the ONE environment document and it mirrors the resolved `EnvironmentLight` row — the frozen band-major `sh9`, the six product planes by `PlaneRef`, the roughness ladder, and the READ-TIME `intensity`/`rotation` pair a consumer applies and a producer never bakes. The model key rides `Set.source` (the generator of a synthesized dome, absent for an ingested HDRI); NAMED LOSS: the two Hosek-Wilkie asset digests and the authored intensity unit pair, which stay on the domain row and reach the analytics plane off that row rather than off the wire.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
@@ -57,15 +57,8 @@ using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using Wacton.Unicolour;
 using static LanguageExt.Prelude;
-// The generated namespace is never imported bare: `AlphaMode`, `MipPolicy`, `NormalConvention`, `PlaneFormat`,
-// `LayerLaw`, and `LicenseClass` spell both a Materials roster and a generated enum, so every wire spelling rides
-// the alias one qualified hop from its domain counterpart — exactly the boundary the mapper crosses.
 using Wire = Rasm.Contracts.Appearance;
 using Artifact = Rasm.Contracts.Artifact;
-// The `rasm.contracts.stage` family serves [04]. Its MESSAGES already carry the `Wire` suffix in the proto and
-// alias to themselves; its nine ENUMS each spell a co-resident Materials roster (`PbrStage`, `LicenseClass`,
-// `InferenceProvider`, `TensorPrecision`, `PriorField`, `ScoreField`, `PadMode`, `PlaneTransfer`, `PlaneFormat`),
-// so each takes the `Wire` suffix and a bare namespace import is unspellable.
 using BucketWire = Rasm.Contracts.Stage.BucketWire;
 using StageInputWire = Rasm.Contracts.Stage.StageInputWire;
 using StageOutputWire = Rasm.Contracts.Stage.StageOutputWire;
@@ -83,19 +76,11 @@ using PriorFieldWire = Rasm.Contracts.Stage.PriorField;
 using ScoreFieldWire = Rasm.Contracts.Stage.ScoreField;
 using TensorPrecisionWire = Rasm.Contracts.Stage.TensorPrecision;
 
-// THE ASSEMBLY-WIDE MAPPER POSTURE, declared HERE because this page owns the assembly's heaviest wire seam and the
-// row is load-bearing rather than hygiene: with the default conversion set, Mapperly binds LanguageExt's THROWING
-// explicit `Option<T>` -> `T` cast and PREFERS it over a registered user mapping, so an absent column would throw at
-// runtime where the converter it shadowed would have written the wire's own typed absence. Clearing ExplicitCast is
-// what makes every per-type Option converter on this page reachable at all.
 [assembly: MapperDefaults(EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 
 namespace Rasm.Materials.Appearance.Interchange;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The ONE Appearance-tier vocabulary bridge: `LicenseClass` is `neural#MODEL_REGISTRY`'s roster and a Raster
-// stratum names no frontier type, so its enum bridge seats here over the same derived, type-init-proved
-// `Raster/set#SET_INGEST` `WireVocabulary.Total` fold every Raster vocabulary rides.
+// --- [TYPES] ---------------------------------------------------------------------------
 internal static class LicenceVocabulary {
     static readonly Lazy<FrozenDictionary<LicenseClass, Wire.LicenseClass>> Licences =
         WireVocabulary.Total<LicenseClass, Wire.LicenseClass>(static () => LicenseClass.Items, static r => r.Key);
@@ -103,10 +88,7 @@ internal static class LicenceVocabulary {
     public static Wire.LicenseClass Wire(LicenseClass row) => Licences.Value[row];
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// `RasterCodec.Encode` returns BYTES, and the app root's write-once object store is where those bytes come to rest,
-// so the evidence arrives from the step that wrote it — a projection re-deriving any column asserts a fact about a
-// store it never touched. The level list is ASCENDING: ONE entry for a self-pyramiding container, one per level otherwise.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct LevelEgress(EgressVariant Variant, ArtifactContent Artifact);
 
 public readonly record struct PlaneEgress(
@@ -114,44 +96,29 @@ public readonly record struct PlaneEgress(
 
 public readonly record struct PackEgress(ChannelPack Pack, RasterFormat Format, Seq<LevelEgress> Levels);
 
-// One stored environment product carries the semantic XXH3 blob key used to prove it belongs to the resolved
-// light and the disjoint SHA-256-plus-extent artifact coordinate emitted on the wire.
 public readonly record struct EnvironmentProductEgress(
     string File, ContentAddress Blob, ArtifactContent Artifact, TexturePlane Plane,
     RasterFormat Container, KtxPayload Payload, LayerLaw LayerLaw, uint Mips);
 
-// The whole `Ibl` storage roster. The guide is `Option` because an unguided prefilter wrote none; its optional wire
-// presence follows that stored evidence and never fabricates a reference.
 public sealed record IblStorage(
     EnvironmentProductEgress Equirect, EnvironmentProductEgress Cubemap, EnvironmentProductEgress Preview,
     Seq<EnvironmentProductEgress> Specular, EnvironmentProductEgress BrdfLut,
     Option<EnvironmentProductEgress> LuminanceCdf);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// The egress folds are co-located in ONE static owner so the contracted Projection/component#COMPONENT_SUBGRAPH
-// spelling is AppearanceEgress.Summary exactly and every appearance document mints from one roster of entries.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AppearanceEgress {
     static RgbSpectrum Linear(Unicolour colour) { var lin = colour.RgbLinear; return RgbSpectrum.Create(Math.Max(0.0, lin.R), Math.Max(0.0, lin.G), Math.Max(0.0, lin.B)); }
 
-    // The seven-value preimage crosses as ONE landed Element [ComplexValueObject] AppearanceVector, whose MEMBER
-    // ORDER is the frozen preimage order. AppearanceSummary.Of seeds its CanonicalWriter at zero internally, so no
-    // caller passes a tolerance and none can pass a wrong one.
     public static Fin<AppearanceSummary> Summary(MaterialParameters parameters, Op key) =>
         Linear(parameters.BaseColor) switch {
             var baseLinear => AppearanceSummary.Of(AppearanceVector.Create(
                 baseColorR: baseLinear.R, baseColorG: baseLinear.G, baseColorB: baseLinear.B,
                 metallic: Math.Clamp(parameters.Metalness, 0.0, 1.0),
                 roughness: Math.Clamp(parameters.Roughness, 0.0, 1.0),
-                // Opacity is the transmission complement, so a transmissive row carries sub-unit opacity and the GLB
-                // KHR_materials_transmission channel reads it; the refractive bit beside it is a DISTINCT signal,
-                // because an opaque-alpha glass still transmits.
                 opacity: Math.Clamp(1.0 - parameters.Transmission, 0.0, 1.0),
                 transmissive: parameters.Transmission > 0.0), key),
         };
 
-    // The MaterialParameters->OpenPBR correspondence is the DERIVED_LOGIC primary surface.md declares once; this wire
-    // NEVER re-mints the column mapping. The three optional slots write by hand because proto3 `optional` sits behind
-    // null-rejecting setters the generator cannot express — the named host demand at the arm.
     public static Wire.Material Project(MaterialId id, MaterialParameters parameters, CaptureProvenance provenance, SurfaceShade preview) {
         (string family, string name) = Lens(id);
         Option<ConductorMetal> resolved = ConductorMetal.Resolve(family, name);
@@ -161,17 +128,11 @@ public static class AppearanceEgress {
             Provenance = Provenance(provenance),
             Preview = AppearanceWireMap.Color(preview.BaseColorLinear),
         };
-        // Conductor-ness is STRUCTURAL — a rostered metal at full metalness — and absence crosses absent: substituting
-        // a rostered neighbour once shipped its (eta, k) into every unrostered row's shading.
         resolved.Filter(_ => parameters.Metalness >= 1.0).Iter(metal => wire.Conductor = metal.Key);
-        // The admitted-emission receipt crosses whole or not at all — never a zero-filled record standing in for an
-        // emission no admission resolved.
         parameters.EmissionProvenance.Iter(admitted => wire.Emission = AppearanceWireMap.ToWire(admitted));
         return wire;
     }
 
-    // The generated Provenance transcription fills Capture/Fit/Chromaticity by nested target path; the two optional
-    // sub-messages and the one optional scalar lower here, each from the Option column the receipt already carries.
     public static Wire.Provenance Provenance(CaptureProvenance receipt) {
         Wire.Provenance.Types.Capture capture = new() {
             Device = receipt.Device,
@@ -232,20 +193,12 @@ public static class AppearanceEgress {
         return wire;
     }
 
-    // A registered library row IS authored; a measured material routes Project directly with its acquisition
-    // CaptureProvenance. Summary needs no graph evaluation, so a projector that only needs the AppearanceSummary
-    // never pays the shade evaluation.
     public static Fin<Wire.Material> Mint(MaterialId id, Op key) =>
         from parameters in MaterialLibrary.Lookup(id, key)
         from point in ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Option<Vector3d>.None, 0.5, 0.5, Context.Canonical, key)
         from preview in MaterialGraph.Default.Evaluate(point, parameters, key)
         select Project(id, parameters, CaptureProvenance.Authored, preview);
 
-    // THE BAKED SET DOCUMENT — the generated `baked` arm behind the appearance key. Channel rows emit in ROSTER order, the same
-    // order TextureSet.Of keyed the set under, so the document's row sequence IS the key preimage order. `tiled` is
-    // the PROJECTION of the set's Evidence<TileProof> measured-AND-accepted read. GPU-backed press REFUSES here — the
-    // content-identity veto is structural upstream and this gate is the proof no path around it exists — which is
-    // also why `Press` carries no backend column. A blocked licence never ships: `LicenseClass.Grants` is the gate.
     public static Fin<Wire.Set> Set(
         TextureSet set, AppearanceSummary summary, Seq<PlaneEgress> planes, Seq<PackEgress> packs,
         CaptureProvenance provenance, Option<PressReceipt> press, LicenseClass licence, Op key) =>
@@ -258,8 +211,6 @@ public static class AppearanceEgress {
         from _ in guard(press.ForAll(static receipt => receipt.Backend.ContentAuthoritative),
                 new MaterialFault.Parameter(key, "<set-wire-gpu-minted>"))
         from __ in guard(licence.Grants, new MaterialFault.Parameter(key, $"<set-wire-licence-blocked:{licence.Key}>"))
-        // The frozen packed-slot law holds at the WIRE too: planes is caller-supplied storage evidence, and a
-        // duplicate here would key one field twice.
         from ___ in guard(!planes.Exists(plane => set.Packs.Exists(pack => pack.Present.Contains(plane.Channel))),
                 new MaterialFault.Parameter(key, "<set-wire-channel-both-packed-and-standalone>"))
         from rows in toSeq(TextureChannel.Items)
@@ -286,8 +237,6 @@ public static class AppearanceEgress {
             },
         }, press);
 
-    // The four optional scalars and the optional press message write by hand — proto3 optional behind null-rejecting
-    // setters — so the one set of presence decisions lives at one site rather than per egress shape.
     static Wire.SurfaceSet Fill(Wire.SurfaceSet wire, TextureSet set) {
         set.Material.Iter(id => wire.MaterialId = id.Value);
         set.Conductor.Iter(metal => wire.Conductor = metal.Key);
@@ -300,10 +249,6 @@ public static class AppearanceEgress {
         return wire;
     }
 
-    // A UDIM sheet crosses as ONE document: the tile axis is the frozen `<variant>` slot, so plane rows repeat per
-    // ascending tile under each tile's own Udim egress leaf, `udim_tiles` carries the Mari indices the rows group by,
-    // and the sheet key replaces the per-tile set key. Extent and vocabulary columns are any tile's — UdimSheet.Of
-    // proved roster and vocabulary agreement before the sheet keyed, so the head tile speaks for the sheet.
     public static Fin<Wire.Set> Set(
         UdimSheet sheet, AppearanceSummary summary,
         Seq<(UdimTile Tile, Seq<PlaneEgress> Planes, Seq<PackEgress> Packs)> storage,
@@ -332,10 +277,6 @@ public static class AppearanceEgress {
         return head;
     }
 
-    // The frozen level-list length law holds at the PRODUCER — one triple for a self-pyramiding container whatever
-    // the chain declares, one per level otherwise — so a document naming files it cannot address is unrepresentable.
-    // A baked row carries transfer, alpha mode, mip policy, and block format; the ingest-side primaries/depth/tool
-    // columns stay absent, since this producer bakes and never ingests.
     static Fin<Wire.Plane> Plane(TextureSet set, TextureChannel channel, PlaneEgress plane, Op key) =>
         from pyramid in set.Channels.Find(channel).ToFin(new MaterialFault.Parameter(key, $"<set-wire-unbound-channel:{channel.Key}>"))
         from legal in guard(plane.Payload.Traits.Admits(CodecCapability.WireLegal), new MaterialFault.Parameter(key, $"<set-wire-payload-illegal:{channel.Key}:{plane.Payload.Key}>"))
@@ -371,7 +312,6 @@ public static class AppearanceEgress {
                 .Map(leaf => Reference(leaf, level.Artifact))).As()
         select new Wire.PackRow {
             Pack = WireVocabulary.Pack(pack.Pack),
-            // `present` names the channels genuinely seated, in the pack row's own slot order.
             Present = { plane.Pack.Slots.Filter(plane.Present.Contains).Map(WireVocabulary.Role) },
             Format = WireVocabulary.Format(plane.Plane.Base.Format),
             Container = container,
@@ -379,7 +319,6 @@ public static class AppearanceEgress {
             Levels = { levels },
         };
 
-    // The ONE PlaneRef mint: semantic XXH3 keys never alias onto the SHA-256 artifact coordinate.
     static Wire.PlaneRef Reference(string file, ArtifactContent artifact) =>
         new() {
             File = file,
@@ -389,11 +328,6 @@ public static class AppearanceEgress {
             },
         };
 
-    // THE ENVIRONMENT DOCUMENT — the generated `environment.ibl` arm mirroring the resolved light row. Storage evidence is cross-checked
-    // against the row's own blob custody, so a caller cannot key a wire to bytes the light never resolved; the
-    // model key rides `source`, the generator of a synthesized dome, and stays absent for an ingested HDRI. The
-    // dome's planes are always `gl` by construction of the two mints and carry no alpha, so the two set-level
-    // vocabulary columns the corpus requires read the estate's structural constants rather than a declared fact.
     public static Fin<Wire.Set> Ibl(EnvironmentLight light, IblStorage storage, LicenseClass licence, Op key) =>
         from _ in guard(licence.Grants, new MaterialFault.Parameter(key, $"<ibl-wire-licence-blocked:{licence.Key}>"))
         from __ in guard(storage.Equirect.Blob == light.Blobs.Equirect && storage.Cubemap.Blob == light.Blobs.Cubemap
@@ -456,8 +390,6 @@ public static class AppearanceEgress {
             AlphaMode = WireVocabulary.Alpha(product.Plane.Alpha),
         });
 
-    // family.name lensing over the seam MaterialId string — the codebase metal.<name> convention the conductor table
-    // keys on, ONE pure string read over the SEAM identity, NEVER a parallel MaterialId declaration.
     static (string Family, string Name) Lens(MaterialId id) =>
         id.Value.Split('.') switch {
             [var family, var name, ..] => (family, name),
@@ -466,38 +398,21 @@ public static class AppearanceEgress {
         };
 }
 
-// ONE [Mapper] OWNS THE WHOLE APPEARANCE SEAM — the material vector here and the stage crossing at [04] — because
-// two mappers over one namespace duplicate the knob set, and the day one grew a converter the other lacked, two wire
-// columns of the same source type crossed under two rules.
-// MappingConversionType.None is strictly narrower than the assembly's All & ~ExplicitCast: every cross-type hop here
-// is an explicit user mapping, so an implicit numeric widening cannot silently mask a source/target mismatch on a
-// wire whose field numbers are frozen. No [MapPropertyFromSource] reader rides any mapping, so every
-// [MapperIgnoreSource] row below is a compiler PROOF naming the hand-lowered column, never authored inventory.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both, EnabledConversions = MappingConversionType.None)]
 public static partial class AppearanceWireMap {
     // --- [COLOUR_CONVERTERS]
-    // Colour crosses scene-linear: the working-space triplet is the message, so a peer renders without re-deriving
-    // ACEScg and no hex rendering rides beside it.
     [UserMapping] public static Wire.Color Color(RgbSpectrum rgb) => new() { R = rgb.R, G = rgb.G, B = rgb.B };
     [UserMapping] public static Wire.Color Color(Unicolour colour) =>
         colour.RgbLinear.Triplet switch { var lin => new Wire.Color { R = lin.First, G = lin.Second, B = lin.Third } };
     [UserMapping] static Wire.Color Band(SubsurfaceRadius radius) => new() { R = radius.R, G = radius.G, B = radius.B };
-    // Counts cross unsigned; a negative count is a producer defect the checked narrowing surfaces, never a wrap.
     [UserMapping] static uint Unsigned(int value) => checked((uint)value);
     [UserMapping] static ulong Unsigned(long value) => checked((ulong)value);
 
     // --- [MATERIAL_VECTOR]
-    // Every OpenPbr column auto-maps by NAME from its own OpenPbrSurface column — the three tints included, since a
-    // synthesized White would ship a constant through the .mtlx coat_color and specular_color ports. geometry_opacity
-    // is COVERAGE, never the summary's transmission-derived opacity: it holds no OpenPbrSurface column because it is
-    // a TEXTURABLE geometry input whose only producer is the per-texel plane, so its vector-borne value is the
-    // OpenPBR untextured default. Conductor is the ONE waived source member — it crosses as Material.conductor.
     [MapValue(nameof(Wire.OpenPbr.GeometryOpacity), 1.0)]
     [MapperIgnoreSource(nameof(OpenPbrSurface.Conductor))]
     public static partial Wire.OpenPbr ToWire(OpenPbrSurface surface);
 
-    // Emission chromaticity is presence-sensitive, so this boundary constructs its optional evidence explicitly
-    // while the admitted unit magnitude and the always-observed luminance/gamut facts remain required.
     public static Wire.Emission ToWire(EmissionInput admitted) {
         Wire.Emission wire = new() {
             Unit = admitted.Provenance.Measure.CanonicalUnit,
@@ -512,10 +427,6 @@ public static partial class AppearanceWireMap {
         return wire;
     }
 
-    // The press receipt: both keys through the kernel byte projection, the elapsed millisecond onto the well-known
-    // Duration, and the two quality tallies at wire grain. Backend is WAIVED because every wire press is CPU-minted
-    // by the egress gate; Planes and Aging are waived because per-plane receipts ride the Plane rows and a ladder
-    // census is press telemetry; GraphKey and GpuDeltaMax lower by hand so absence stays protobuf absence.
     [MapProperty(nameof(PressReceipt.PlanKey), nameof(Wire.Press.PlanKey), Use = nameof(Key))]
     [MapProperty(nameof(PressReceipt.ElapsedMs), nameof(Wire.Press.Elapsed), Use = nameof(Elapsed))]
     [MapProperty(nameof(PressReceipt.Downgraded), nameof(Wire.Press.Downgraded), Use = nameof(Tally))]
@@ -539,14 +450,9 @@ public static partial class AppearanceWireMap {
     [UserMapping] static ByteString Key(UInt128 key) => ContentHash.Wire(key);
     [UserMapping] static Duration Elapsed(double milliseconds) => Duration.FromTimeSpan(TimeSpan.FromMilliseconds(milliseconds));
     [UserMapping] static uint Tally(Seq<TextureChannel> downgraded) => (uint)downgraded.Count;
-    // Dataset columns are SET-grained, so the per-channel tally sums to one wire scalar and the split stays on the
-    // interior receipt for the observability arm that fans it by channel.
     [UserMapping] static ulong Summed(HashMap<TextureChannel, ulong> faulted) =>
         faulted.Values.Fold(0UL, static (acc, texels) => acc + texels);
 
-    // The STAGE-CROSSING half of this same seam continues as a PARTIAL of this class at [04] — one type, one knob
-    // set, one converter roster. The class attributes ride this part alone, because attributes on any part of a
-    // partial type apply to the whole.
 }
 
 ```
@@ -567,12 +473,7 @@ public static partial class AppearanceWireMap {
 - Boundary: the `.mtlx` port name IS the canonical channel name for every OpenPBR-owned row, which is why the binding needs no translation column and a `Scaled` row carries its unit fork as a real `multiply` node rather than a silent rename; a procedural node instead carries its `texture#TEXTURE_UV` `MtlxParameters` rows so it round-trips its parameters and not a bare category, and the `normalmap` node carries its `scale` input from `AppearanceNode.Normal.Strength`. `MtlxDocument` crosses as portable data the host `System.Xml.Linq` serializer renders and admits through the same node-category map, this owner never holding an XML reader at an interior signature and never binding a native MaterialX runtime; `MtlxInput.Value` renders through `ToString("R", CultureInfo.InvariantCulture)` because the schema requires the invariant round-trip literal. An unmapped category, a dangling edge, or a malformed port rails `MaterialFault.Graph`, never a partial document.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// MtlxPort closes the MaterialX 1.39 typed-port axis — float/integer/boolean/color3/vector3/filename/surfaceshader; every MtlxInput carries the REAL
-// type of the slot it fills, a file reference is filename-typed (never a color3), and the fractal2d octaves count is integer-typed (never a
-// float a strict validator rejects).
-// MixTrait closes the LOWERING DISPOSITIONS a blend projection can carry, so the disposition row holds ONE
-// capability column instead of a bool per behaviour and a third disposition is a ROW rather than a widened record.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class MixTrait : ICapability<MixTrait> {
@@ -592,8 +493,6 @@ public sealed partial class MtlxPort {
     public static readonly MtlxPort Surface  = new("surfaceshader");
 }
 
-// Each row carries the category's DEFAULT output port; a type-polymorphic node instance (math/mix) overrides it
-// from its op row, so the category port is the floor, never the per-instance truth.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -656,25 +555,17 @@ public sealed partial class NodeCategory {
     public MtlxPort Port { get; }
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct MtlxInput(string Name, MtlxPort Type, string Value, Option<string> NodeName);
 
 public sealed record MtlxNode(string Name, NodeCategory Category, MtlxPort Type, Seq<MtlxInput> Inputs);
 
-// LossyEdges names every blend the projection could not carry exactly, one token per degraded node — the DECLARED
-// half of the disposition table. A document is only honest about its own fidelity if it says so in the document:
-// a consumer re-importing a soft-light graph reads that the edge arrived as an overlay instead of diffing a picture
-// against a source it does not have, and an EMPTY roster is the positive statement that the whole graph crossed
-// exactly. The `.mtlx` render carries it as document comment text, never as a schema element MaterialX does not define.
 public sealed record MtlxDocument(string Version, Seq<MtlxNode> Nodes, string SurfaceNode, string MaterialName, Seq<string> LossyEdges) {
     public const string Schema = "1.39";
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Mtlx {
-    // FileSlots declares the image-family categories and their filename-typed input SLOTS as POLICY data the texture emit arm folds, never an
-    // inline category-equality chain re-deriving the set per node. Triplanar carries THREE per-axis file slots (`filex`/`filey`/`filez` — the
-    // stdlib nodedef), image/tiledimage the single `file`.
     static readonly FrozenDictionary<NodeCategory, ImmutableArray<string>> FileSlots =
         new Dictionary<NodeCategory, ImmutableArray<string>> {
             [NodeCategory.Image] = ["file"],
@@ -682,15 +573,6 @@ public static class Mtlx {
             [NodeCategory.Triplanar] = ["filex", "filey", "filez"],
         }.ToFrozenDictionary();
 
-    // Four TEXTURABLE open_pbr_surface GEOMETRY inputs carry no OpenPbr column and therefore no
-    // constant — the nodedef default IS the shading frame — so SurfaceNode emits none of them and a bound channel
-    // APPENDS its edge onto the surface node. `geometry_thin_walled` is that group's fifth input and the one
-    // exception in both directions: a set-level shell boolean no texel field carries, so it rides the wire as a
-    // column and emits as a CONSTANT port off the OpenPbrPorts row rather than as a bindable edge.
-    // GeometryPorts is the ROSTER and NormalWrapped the SUBSET routing through a `normalmap` node, because a
-    // tangent-space texel becomes a shading-frame perturbation while a tangent binds its vector image direct.
-    // MEMBERSHIP is the fact, so the two false entries a bool payload carried — rows that stated nothing the roster
-    // did not already say — delete with it, and a fifth geometry port lands on whichever set it belongs to.
     static readonly FrozenSet<TextureChannel> GeometryPorts = new[] {
         TextureChannel.GeometryNormal, TextureChannel.GeometryCoatNormal,
         TextureChannel.GeometryTangent, TextureChannel.GeometryCoatTangent,
@@ -700,14 +582,9 @@ public static class Mtlx {
         TextureChannel.GeometryNormal, TextureChannel.GeometryCoatNormal,
     }.ToFrozenSet();
 
-    // CategoryOf resolves the per-TextureSource-case MaterialX category string to the closed NodeCategory row; texture#TEXTURE_UV owns the
-    // case→category projection itself (TextureSource.MtlxCategory). FromGraph composes it through the wiring-site binding map — the graph's
-    // Texture case carries only the erased sampler closure, so the source is recoverable ONLY from the binding.
     public static NodeCategory CategoryOf(TextureSource source) =>
         NodeCategory.TryGet(source.MtlxCategory, out NodeCategory? category) ? category! : NodeCategory.Image;
 
-    // A duplicate node id is two `<node name="nodeN">` elements — an invalid document, and toHashMap silently keeps
-    // the last; a sink that is missing or not the BsdfOutput would bind a phantom surface node.
     public static Fin<MtlxDocument> FromGraph(MaterialGraph graph, MaterialId id, MaterialParameters parameters, Op key, HashMap<PortId, TextureSource> textures = default) =>
         graph.Nodes.TraverseM(n => Row(n, parameters, textures, key).Map(row => (n.Id, row))).As().Map(toHashMap)
             .Bind(ports =>
@@ -717,42 +594,22 @@ public static class Mtlx {
                 from ___ in guard(graph.Nodes.ForAll(n => n.Dependencies.ForAll(ports.ContainsKey)),
                     new MaterialFault.Graph(key, "<mtlx-dangling-edge>"))
                 from emitted in graph.Nodes.TraverseM(n => Emit(n, ports, parameters, textures, key)).As()
-                // The lossy roster DERIVES from the resolved shapes rather than being accumulated at emit: the
-                // disposition is already a column on the row the shape pass settled, so a second accumulator would
-                // be a chance for the document and the table to disagree about what crossed. BOTH degradation axes
-                // fold here — the blend substitutions off each resolved Mix row and the texture-source substitutions
-                // off each bound source's own `texture#TEXTURE_UV` `MtlxLossy` column — because a document is only
-                // honest about its fidelity if every axis that can degrade reports on the same roster.
                 let lossy = toSeq(ports.Values).Bind(shape => shape.Mix.Bind(static row => row.Lossy).ToSeq())
                           + toSeq(textures.Values).Bind(static source => source.MtlxLossy.ToSeq())
                 select new MtlxDocument(MtlxDocument.Schema, emitted.Bind(static group => group),
                     $"node{graph.Sink.Value}", id.Value.Replace('.', '_'), lossy.Strict()));
 
-    // An unbound Texture floors to `image`. The six blends MaterialX cannot express are NOT rails — each carries its
-    // declared lossy disposition and the document names it. Lowered mix rows register their OUTER wrapper (the `mix`
-    // node downstream edges reference and type against).
     static Fin<(NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> Row(AppearanceNode node, MaterialParameters parameters, HashMap<PortId, TextureSource> textures, Op key) =>
         node.Switch(
             state: (Parameters: parameters, Textures: textures, Key: key),
             input:      static (s, i) => Fin.Succ((NodeCategory.Constant, PortOf(i.Pull(s.Parameters)), Option<MixProjection>.None)),
             texture:    static (s, t) => Fin.Succ(Categorized(s.Textures.Find(t.Id))),
             math:       static (s, m) => MathRow(m.Op, s.Key).Map(static row => (row.Item1, row.Item2, Option<MixProjection>.None)),
-            // The projection RESOLVES here, once, on the rail that can refuse — and rides the shape map so the emit
-            // arm reads it rather than indexing MixRows a second time. A raw re-lookup at emit re-asks a settled
-            // question on a total indexer that cannot refuse, which is where a row absent from the table becomes a
-            // throw instead of the fault this pass already owns.
             mix:        static (s, x) => MixRow(x.Op, s.Key).Map(static row =>
                             (row.Traits.Admits(MixTrait.Lowered) ? NodeCategory.Mix : row.Category, MtlxPort.Color3, Some(row))),
             normal:     static (_, _) => Fin.Succ((NodeCategory.Normalmap, MtlxPort.Vector3, Option<MixProjection>.None)),
             bsdfOutput: static (_, _) => Fin.Succ((NodeCategory.OpenPbrSurface, MtlxPort.Surface, Option<MixProjection>.None)));
 
-    // MathRow holds the MathOp→(category, output type) correspondence — TOTAL generated Switch, so a new MathOp row breaks HERE at compile time; the
-    // op row pins the polymorphic node variant (Scale is the vector3 multiply, Multiply the float).
-    // The MaterialX stdlib INPUT ROSTER per math row, carved to the rows whose schema names its inputs. Every other
-    // row takes the positional family, which is MaterialX's own convention for the arithmetic set, so this table
-    // carries only what genuinely diverges and a coverage proof would report noise. `Of` answers the declared roster
-    // when one exists and derives the positional one otherwise, truncated to the operands a node actually carries —
-    // an arity the op's own Admits column already gated, so the projection is total here.
     static readonly FrozenDictionary<MathOp, ImmutableArray<string>> NamedPorts = new (MathOp Row, string[] Ports)[] {
         (MathOp.Smoothstep, ["in", "low", "high"]),
         (MathOp.Contrast,   ["in", "amount", "pivot"]),
@@ -765,8 +622,6 @@ public static class Mtlx {
     static class MtlxPorts {
         public static Seq<string> Of(MathOp op, int operands) =>
             op == MathOp.Pick
-                // `switch` names its SELECTOR `which` and its branches `in1..inN`, and the selector is this row's
-                // FIRST operand — a straight positional emit would bind the selector to the first branch.
                 ? Seq("which") + toSeq(Enumerable.Range(1, Math.Max(operands - 1, 0)).Select(static slot => $"in{slot}"))
                 : NamedPorts.TryGetValue(op, out ImmutableArray<string> named)
                     ? toSeq(named.Take(operands))
@@ -813,27 +668,12 @@ public static class Mtlx {
             pick:         () => Fin.Succ((NodeCategory.Switch, MtlxPort.Float)),
             fresnel:      () => Fin.Fail<(NodeCategory, MtlxPort)>(new MaterialFault.Graph(key, "<mtlx-no-category:fresnel-weight>")));
 
-    // One MixOp→MaterialX row: the projected category, the closed disposition traits, and Lossy naming the FIDELITY
-    // the substitution costs where MaterialX 1.39 stdlib carries no equivalent node.
-    // Lossy is typed absence rather than an empty string: an exact projection and a declared approximation are
-    // different facts, and a document whose consumer cannot tell them apart re-imports a blend the estate never
-    // exported. A row is EITHER exact or carries the loss it took, never silent about either.
     static readonly CapabilitySet<MixTrait> Lowered = CapabilitySet<MixTrait>.Of(MixTrait.Lowered);
     static readonly CapabilitySet<MixTrait> LoweredSwapped = CapabilitySet<MixTrait>.Of(MixTrait.Lowered, MixTrait.Swapped);
 
-    // Both behaviour columns ride ONE CapabilitySet rather than a bool per disposition, so a third lowering
-    // behaviour is a trait ROW and the record's shape never moves: Lowered marks a factorless projection the emitter
-    // wraps in a `mix` node so the Factor lerp survives, Swapped the W3C operand exchange (hard-light(a,b) IS
-    // overlay(b,a)).
     readonly record struct MixProjection(
         NodeCategory Category, CapabilitySet<MixTrait> Traits = default, Option<string> Lossy = default);
 
-    // The four NON-SEPARABLE modes — hue, saturation, colour, luminosity — degrade to the plain factor lerp, because
-    // a channel-independent node cannot express a blend defined over the whole triple and substituting a separable
-    // lookalike would ship a different picture wearing the right name. Railing them instead made an authored
-    // sixteen-mode graph unexportable at the first non-separable blend, which is a worse answer than an export whose
-    // document NAMES what it could not carry.
-    // Authoring stays SIXTEEN modes — this table is the egress projection, never a narrowing of the graph algebra.
     static readonly FrozenDictionary<BlendMode, MixProjection> MixRows = new Dictionary<BlendMode, MixProjection> {
         [BlendMode.Normal]      = new(NodeCategory.Mix),
         [BlendMode.Multiply]    = new(NodeCategory.Multiply, Lowered),
@@ -863,29 +703,15 @@ public static class Mtlx {
         return (category, category.Port, Option<MixProjection>.None);
     }
 
-    // An image-family texture carries filename-typed EMPTY file slots (in-memory levels — the host edge writes the
-    // sidecar assets). A UNARY op crosses on the stdlib `in` port — invert/clamp/sqrt/absval/sin/cos/normalize declare
-    // `in`, never `in1`, and emitting `in1` on a unary node is the schema violation the prior form carried. Every arm
-    // emits ONE node except a Lowered mix, which expands through MixNodes into its inner node plus the `mix` wrapper
-    // at node{id}.
     static Fin<Seq<MtlxNode>> Emit(AppearanceNode node, HashMap<PortId, (NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> ports, MaterialParameters parameters, HashMap<PortId, TextureSource> textures, Op key) =>
         node.Switch(
             state: (Ports: ports, Parameters: parameters, Textures: textures, Key: key),
             input:      static (s, i) => Fin.Succ(One(i.Id, s.Ports, Constant(i.Pull(s.Parameters)))),
-            // The DRIVER edge crosses beside the file slots: a texture whose sampler reads an upstream parameter
-            // (a gradient driven by a field) exports that wire on the stdlib `texcoord` input, so a driven lookup
-            // round-trips as the graph it is rather than as an unwired constant the far end resamples at (u,v).
             texture:    static (s, t) => Fin.Succ(One(t.Id, s.Ports,
                 (FileSlots.TryGetValue(s.Ports[t.Id].Category, out ImmutableArray<string> slots)
                     ? toSeq(slots.Select(static slot => new MtlxInput(slot, MtlxPort.Filename, string.Empty, Option<string>.None)))
                     : s.Textures.Find(t.Id).Map(TextureInputs).IfNone(Seq<MtlxInput>()))
                 + t.Parameter.Map(driver => Seq(Edge("texcoord", driver, s.Ports))).IfNone(Seq<MtlxInput>()))),
-            // A unary row crosses on the stdlib `in` port and an n-ary ARITHMETIC row on the positional `in1..inN`
-            // family, which IS MaterialX's own convention for add/subtract/multiply/divide/modulo/power/min/max/
-            // atan2/dotproduct/crossproduct. The stdlib rows whose inputs are NAMED — smoothstep, remap, range,
-            // contrast, the two conditionals, switch — read their roster off MtlxPorts: emitting `in3` where the
-            // schema declares `outlow` produces a document that parses and shades wrong, which is worse than one
-            // that refuses, and the far end has no way to recover the intended binding.
             math:       static (s, m) => Fin.Succ(One(m.Id, s.Ports,
                 MtlxPorts.Of(m.Op, m.Operands.Count)
                     .Map((slot, index) => Edge(slot, m.Operands[index], s.Ports)))),
@@ -903,19 +729,10 @@ public static class Mtlx {
     static Seq<MtlxNode> One(PortId id, HashMap<PortId, (NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> ports, Seq<MtlxInput> inputs) =>
         Seq(new MtlxNode($"node{id.Value}", ports[id].Category, ports[id].Port, inputs));
 
-    // TextureInputs projects the procedural-node inputs: texture#TEXTURE_UV owns the case→(name, MaterialX-type, value) parameter rows
-    // (TextureSource.MtlxParameters); this resolves each row's type string to the closed MtlxPort and never mints the case→parameter mechanics
-    // locally (altitude: the MtlxCategory-owning page owns the parameter law too). An image-family node carries file slots in the texture arm
-    // above, not parameters, so the two projections never overlap.
     static Seq<MtlxInput> TextureInputs(TextureSource source) =>
         source.MtlxParameters.Map(static row =>
             new MtlxInput(row.Name, MtlxPort.TryGet(row.Type, out MtlxPort? port) ? port! : MtlxPort.Float, row.Value, Option<string>.None));
 
-    // Comp rows: fg = B (the SOURCE MixOp.Apply blends over the backdrop), bg = A (the backdrop the factor lerps FROM), mix = Factor — exactly
-    // lerp(a, blend(b over a), t); an fg=A/bg=B spelling inverts every composite on the wire. Lowered rows: the inner factorless node at
-    // node{id}b (math in1/in2, or the operand-SWAPPED overlay for HardLight), then the `mix` wrapper fg=node{id}b, bg=A, mix=Factor — the factor
-    // lerp survives, downstream edges keep referencing node{id}, and the DAG topology stays recoverable. The row arrives
-    // RESOLVED off the shape pass, so this fold owns no table lookup and no unreachable-miss branch.
     static Seq<MtlxNode> MixNodes(AppearanceNode.Mix x, MixProjection projection, HashMap<PortId, (NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> ports) =>
         projection switch {
             var row when !row.Traits.Admits(MixTrait.Lowered) => Seq(new MtlxNode($"node{x.Id.Value}", row.Category, MtlxPort.Color3,
@@ -945,13 +762,9 @@ public static class Mtlx {
         vector: static v => Triple(v.Value.X, v.Value.Y, v.Value.Z),
         frame:  static f => Triple(f.Value.ZAxis.X, f.Value.ZAxis.Y, f.Value.ZAxis.Z));
 
-    // Edge types an interior edge from its SOURCE (the resolved output of the node it connects from) and pins a surface-slot edge to its declared
-    // type through the Option slot — one body, no arity twin.
     static MtlxInput Edge(string name, PortId source, HashMap<PortId, (NodeCategory Category, MtlxPort Port, Option<MixProjection> Mix)> ports, Option<MtlxPort> slot = default) =>
         new(name, slot.IfNone(() => ports[source].Port), string.Empty, Some($"node{source.Value}"));
 
-    // ONE surface-document entry over an OPTIONAL baked set — never a bound/unbound pair, because the two documents
-    // differ by which inputs carry a texture edge and by nothing else.
     public static Fin<MtlxDocument> ToOpenPbr(Wire.Material wire, Option<Wire.Set> planes, Op key) =>
         string.IsNullOrWhiteSpace(wire.Id)
             ? Fin.Fail<MtlxDocument>(new MaterialFault.Graph(key, "<mtlx-empty-material-id>"))
@@ -960,26 +773,15 @@ public static class Mtlx {
                     .Map(bound => Document(wire, bound.Bind(static entry => entry.Nodes).Add(Textured(wire, bound)))))
                 .IfNone(() => Fin.Succ(Document(wire, Seq(SurfaceNode(wire)))));
 
-    // The wire-sourced document carries an EMPTY lossy roster and that emptiness is a real claim: this projection
-    // folds the OpenPBR port schema, which has no blend algebra to degrade — every input crosses exactly or the
-    // table has no row for it at all.
     static MtlxDocument Document(Wire.Material wire, Seq<MtlxNode> nodes) =>
         new(MtlxDocument.Schema, nodes, "node0", wire.Id.Replace('.', '_'), Seq<string>());
 
-    // The surface node is named node0 to key consistently with node{id}. The table spans the CONSTANT-VALUED inputs
-    // alone: the four geometry inputs (geometry_normal, geometry_coat_normal, geometry_tangent,
-    // geometry_coat_tangent) are genuine nodedef ports with NO wire column — GeometryPorts owns them and Textured
-    // appends their edges only when a baked channel binds one.
     static readonly ImmutableArray<(string Port, MtlxPort Type, Func<Wire.OpenPbr, string> Text)> OpenPbrPorts = [
         ("base_weight", MtlxPort.Float, static g => Num(g.BaseWeight)),
         ("base_color", MtlxPort.Color3, static g => Rgb(g.BaseColor)),
         ("base_metalness", MtlxPort.Float, static g => Num(g.BaseMetalness)),
         ("base_diffuse_roughness", MtlxPort.Float, static g => Num(g.BaseDiffuseRoughness)),
         ("specular_weight", MtlxPort.Float, static g => Num(g.SpecularWeight)),
-        // specular_color ships the wire column VERBATIM: OpenPbrSurface.Of already resolved the Disney tint into
-        // it through Tinted(authored, baseHue, tint) at surface#OPENPBR_SLAB. Re-biasing here toward BaseColor
-        // applied that tint a SECOND time under a different algebra, so an exported document and the Slab.Base its
-        // own row shades disagreed on every tinted specular.
         ("specular_color", MtlxPort.Color3, static g => Rgb(g.SpecularColor)),
         ("specular_roughness", MtlxPort.Float, static g => Num(g.SpecularRoughness)),
         ("specular_ior", MtlxPort.Float, static g => Num(g.SpecularIor)),
@@ -997,15 +799,11 @@ public static class Mtlx {
         ("fuzz_color", MtlxPort.Color3, static g => Rgb(g.FuzzColor)),
         ("fuzz_roughness", MtlxPort.Float, static g => Num(g.FuzzRoughness)),
         ("thin_film_weight", MtlxPort.Float, static g => Num(g.ThinFilmWeight)),
-        // The frozen unit fork: thickness is NANOMETRES everywhere, and the open_pbr_surface nodedef's
-        // thin_film_thickness input alone is MICROMETRES — the divide by 1000 lives at exactly this egress row and
-        // nowhere else, so every other consumer reads nm and only the .mtlx text carries the µm lowering.
         ("thin_film_thickness", MtlxPort.Float, static g => Num(g.ThinFilmThickness / 1000.0)),
         ("thin_film_ior", MtlxPort.Float, static g => Num(g.ThinFilmIor)),
         ("emission_color", MtlxPort.Color3, static g => Rgb(g.EmissionColor)),
         ("emission_luminance", MtlxPort.Float, static g => Num(g.EmissionLuminance)),
         ("geometry_opacity", MtlxPort.Float, static g => Num(g.GeometryOpacity)),
-        // The one geometry BOOLEAN with a wire column: MaterialX spells booleans lowercase true/false.
         ("geometry_thin_walled", MtlxPort.Boolean, static g => g.GeometryThinWalled ? "true" : "false"),
     ];
 
@@ -1013,7 +811,6 @@ public static class Mtlx {
         new("node0", NodeCategory.OpenPbrSurface, MtlxPort.Surface,
             toSeq(OpenPbrPorts.Select(row => new MtlxInput(row.Port, row.Type, row.Text(wire.OpenPbr), Option<string>.None))));
 
-    // The mm-band radius splits below — a zero-radius row scales (1,1,1) so the float radius alone zeroes the effect.
     static double RadiusMax(Wire.OpenPbr g) => Math.Max(g.SubsurfaceRadius.R, Math.Max(g.SubsurfaceRadius.G, g.SubsurfaceRadius.B));
 
     static string RadiusScale(Wire.OpenPbr g) =>
@@ -1021,13 +818,6 @@ public static class Mtlx {
             ? Triple(g.SubsurfaceRadius.R / max, g.SubsurfaceRadius.G / max, g.SubsurfaceRadius.B / max)
             : Triple(1.0, 1.0, 1.0);
 
-    // Each bound channel becomes one `tiledimage` node whose `file` is
-    // filename-typed and whose output feeds the open_pbr_surface input its OWN MtlxBinding row names: a canonical binding binds straight (the
-    // OpenPBR port name IS the canonical channel name — that identity is why no translation column exists), Scaled inserts a `multiply` by its
-    // factor (the thin-film nm-to-micrometre divide is a unit fork, not a rename), Split feeds the paired scale input, Lowered routes into the
-    // named host input, and Absent emits NO node — a channel OpenPBR has no input for stays a wire column rather than becoming a phantom port a
-    // validator rejects. Image node and multiply travel together on a Scaled row because a scaled channel whose multiply went missing feeds the
-    // surface a value in the wrong unit, silently, since both slots are floats.
     static Fin<(TextureChannel Channel, Seq<MtlxNode> Nodes, string Source)> Bound(Wire.Plane row, Op key) =>
         WireVocabulary.Channel(row.Role).Case is TextureChannel channel
             ? BaseLeaf(row, key).Map(file => channel.Mtlx switch {
@@ -1037,13 +827,7 @@ public static class Mtlx {
                             new MtlxInput("in1", Lane(channel), string.Empty, Some($"tex_{channel.Key}")),
                             Value("in2", MtlxPort.Float, scaled.Factor)))),
                     $"scale_{channel.Key}"),
-                // Absent EMITS NOTHING — the channel has no OpenPBR input, so an image node here would be the
-                // dangling phantom port this arm's own law forecloses; Textured already skips the wiring, and the
-                // node list must match it.
                 MtlxBinding.Absent => (channel, Seq<MtlxNode>(), string.Empty),
-                // A normal-row geometry channel routes tiledimage -> normalmap -> the surface's geometry input, so
-                // the raw tangent-space texel never binds a shading-frame port direct; the normalmap output is the
-                // source the surface edge references.
                 _ when NormalWrapped.Contains(channel) => (channel, Seq(
                         Image(channel, file),
                         new MtlxNode($"nrm_{channel.Key}", NodeCategory.Normalmap, MtlxPort.Vector3,
@@ -1053,13 +837,6 @@ public static class Mtlx {
             })
             : Fin.Fail<(TextureChannel, Seq<MtlxNode>, string)>(new MaterialFault.Graph(key, $"<mtlx-unknown-channel:{row.Role}>"));
 
-    // The `file` attribute names the BASE level alone: a mip chain resolves through the container (a self-pyramiding
-    // KTX2 carries its own levels) or through the renderer's filtering, so the document binds level zero and the
-    // remaining PlaneRef rows stay the object-store addresses a durability consumer walks. The leaf lives on the
-    // LEVEL-ORDERED address list and nowhere else — the row carries no scalar file column, because a name beside a
-    // level list is a second spelling of the same string that the frozen levels law already orders — so a row whose
-    // list is empty names no file at all and refuses HERE rather than emitting an image node with a blank `file`
-    // that a validator accepts and a renderer resolves to nothing.
     static Fin<string> BaseLeaf(Wire.Plane row, Op key) =>
         toSeq(row.Levels).Head
             .Map(static level => level.File)
@@ -1069,11 +846,6 @@ public static class Mtlx {
         new($"tex_{channel.Key}", NodeCategory.TiledImage, Lane(channel),
             Seq(new MtlxInput("file", MtlxPort.Filename, file, Option<string>.None)));
 
-    // Textured REPLACES every covered channel's constant input with its texture edge under the row's own MtlxBinding: an Absent binding
-    // contributes nothing (the channel has no OpenPBR input at all) and a Lowered or Split binding names the input its own row carries, so the
-    // port names come from the roster rather than a second list here that could disagree with the OpenPbrPorts table SurfaceNode already folds.
-    // A GEOMETRY port has no constant row to replace — the surface table carries no input for it — so a bound
-    // geometry channel APPENDS its edge; replace-or-append is one probe on the same fold, never a second emit path.
     static MtlxNode Textured(Wire.Material wire, Seq<(TextureChannel Channel, Seq<MtlxNode> Nodes, string Source)> bound) =>
         bound.Fold(SurfaceNode(wire), static (node, entry) => entry.Channel.Mtlx is MtlxBinding.Absent
             ? node
@@ -1094,9 +866,6 @@ public static class Mtlx {
             _ => channel.Key,
         };
 
-    // Lane drives a float input from a single-component channel and a color3 from a multi-component one; the count is the roster's SEMANTIC
-    // column, so a vector channel stored in a four-component plane still declares three. A geometry channel is
-    // vector data, never color — its image node and its surface edge both type vector3.
     static MtlxPort Lane(TextureChannel channel) =>
         GeometryPorts.Contains(channel) ? MtlxPort.Vector3
         : channel.Components is 1 ? MtlxPort.Float : MtlxPort.Color3;
@@ -1127,15 +896,9 @@ public static class Mtlx {
 - Boundary: this cluster PROJECTS and never decides. `neural#MODEL_REGISTRY` owns the stage, licence, provider, precision, prior, and score vocabularies and `Raster/set#TEXTURE_CHANNEL` the channel roster; the relaying root moves proto-binary bytes with no `WireJson` rendering and no decode, so the only two surfaces reading a stage message are the two ends the manifest case names.
 
 ```csharp signature
-// (Continues the Rasm.Materials.Appearance.Interchange compilation unit — the [02] prelude is in scope.)
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// The two-direction door. Both halves cross WireAdmission once — outbound after the message is final, inbound
-// before a single column is read — so the descriptor rules are the first and last thing this crossing evaluates.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StageWire {
-    // neural#STAGE_PLAN StageRequest.Of already gated the plan — a blocked licence has no request to project, a
-    // stochastic card at the zero seed has none either — so this half transcribes, fills the three columns no
-    // generated mapper may construct, and admits.
     public static Fin<StageRequestWire> Request(StageRequest request) =>
         from bucket in Bucket(request.Bucket, request.Op)
         from pad in Pad(request.PadMode, request.Op)
@@ -1143,12 +906,6 @@ public static class StageWire {
         from admitted in WireAdmission.Admit(wire, WireBoundary.OutboundPayload, request.Op)
         select admitted;
 
-    // FOUR columns write after construction and each names its reason. Bucket and pad because their
-    // producer-interior spelling types only here; the artefact because a proto3 `optional` sits behind a
-    // null-rejecting setter that cannot spell absence, and a card whose weights the caller supplies has no
-    // registry digest to name; the input rows because the mapper runs at `MappingConversionType.None`, where the
-    // generator's own collection fill is not an admitted conversion — a get-only `RepeatedField` takes the
-    // initializer spelling every other row set on this page already takes.
     static StageRequestWire Fill(StageRequestWire wire, StageRequest request, BucketWire bucket, PadModeWire pad) {
         wire.Bucket = bucket;
         wire.Pad = pad;
@@ -1157,9 +914,6 @@ public static class StageWire {
         return wire;
     }
 
-    // The `WxH` spelling is the producer-interior form InferenceTiling carries; it types ONCE here, so a malformed
-    // spelling refuses at the mint rather than reaching the message CEL rule as a bucket-versus-tile disagreement
-    // whose message names the wrong fault.
     static Fin<BucketWire> Bucket(string spelling, Op key) =>
         spelling.Split('x') switch {
             [var w, var h] when uint.TryParse(w, NumberStyles.None, CultureInfo.InvariantCulture, out uint width)
@@ -1169,24 +923,13 @@ public static class StageWire {
             _ => new MaterialFault.Parameter(key, $"<stage-bucket-unparsable:{spelling}>"),
         };
 
-    // The generated roster is the pad vocabulary; the unspecified arm is refused HERE as well as by the field rule,
-    // because a zero ordinal reaching the message would be a pad nothing declared rather than a pad this producer
-    // pinned.
     static Fin<PadModeWire> Pad(string spelling, Op key) =>
         Enum.TryParse(spelling, ignoreCase: true, out PadModeWire pad) && pad is not PadModeWire.Unspecified
             ? Fin.Succ(pad)
             : new MaterialFault.Parameter(key, $"<stage-pad-unrostered:{spelling}>");
 
-    // Ingestion re-admits through the OWNING gate rather than trusting the executor's message: the descriptor rules
-    // run first, the correlation echo second, every vocabulary lifts back onto its own closed roster third, and the
-    // reconstructed result then crosses neural#STAGE_PLAN StageResult.Admit, so the physical-channel prohibition,
-    // the output completeness, the extent congruence, the plane-shape proof, the partition bound, and the residual
-    // ceiling are all proved by their owner. A decode that merely parsed would let a peer publish a fabricated
-    // normal plane as measured.
     public static Fin<StageResult> Admit(StageResultWire wire, ModelCard card, StageRequest request, Op key) =>
         from message in WireAdmission.Admit(wire, WireBoundary.InboundPayload, key)
-        // The executor echoes the correlation key VERBATIM; a result whose echo names another request refuses
-        // before any vocabulary lift — without this guard the op correlation is write-only.
         from _echo in guard(message.Op == key.ToString(), new MaterialFault.Parameter(key, $"<stage-op-echo:{message.Op}>"))
         from stage in Row(message.Stage, key)
         from provider in Row(message.ProviderUsed, key)
@@ -1197,8 +940,6 @@ public static class StageWire {
         from echoed in key.AcceptValidated<ModelCardId>(ModelCardId.Validate(message.ModelCardId, null, out ModelCardId id), id)
         from admitted in StageResult.Admit(
             new StageResult(stage, echoed, artefact, outputs, scores, provider,
-                // The two tallies cross unsigned and land signed: every consumer downstream counts in `int`, and a
-                // count past `int.MaxValue` is a producer defect the checked narrowing surfaces rather than wraps.
                 checked((int)message.PartitionCount), message.Elapsed.ToNodaDuration().TotalMilliseconds,
                 message.GoldenDelta, message.ParityFresh, message.Coverage, checked((int)message.TilesEmitted), key),
             card, request, key)
@@ -1211,10 +952,6 @@ public static class StageWire {
         from blob in Address(output.Blob, key)
         select new StageOutput(product, blob, Dimension.Create(checked((int)output.Width)), Dimension.Create(checked((int)output.Height)), transfer, format);
 
-    // The union inverse: a channel key resolves against the Materials-owned roster and refuses on an unknown
-    // spelling, while the two corpus-closed rosters lift through their own switches. `RoleOneofCase.None` is
-    // refused by the oneof rule at admission and still answers on the rail, because a `_` arm throwing would put
-    // an exception where every sibling column already carries a typed refusal.
     static Fin<StageProduct> Product(StageProductWire role, Op key) =>
         role.RoleCase switch {
             StageProductWire.RoleOneofCase.Channel =>
@@ -1226,14 +963,9 @@ public static class StageWire {
             var absent => Refused<StageProduct>(key, "product", absent.ToString()),
         };
 
-    // The sixteen-byte inverse: the field rule already fixed the width, and ContentHash.Admit refuses any other,
-    // so the seam address reconstructs from bytes and never from a rendered hex string neither end transmits.
     static Fin<ContentAddress> Address(ByteString bytes, Op key) =>
         ContentHash.Admit(bytes.Span, key).Map(ContentAddress.Of);
 
-    // ONE switch per inbound roster, every arm a declared row and the `_` arm refusing with the value named. The
-    // generated enum's own `Unspecified` member falls to that arm alongside a value from a newer generation, which
-    // is the whole reason the arm exists after `defined_only` already ran.
     static Fin<PbrStage> Row(PbrStageWire wire, Op key) =>
         wire switch {
             PbrStageWire.Delight => PbrStage.Delight,
@@ -1302,9 +1034,6 @@ public static class StageWire {
     static Fin<T> Refused<T>(Op key, string axis, string value) => Fin.Fail<T>(Refused(key, axis, value));
 }
 
-// The REQUEST transcription and every fold both directions share. The result lifts by hand at StageWire.Admit
-// because each of its columns resolves a generated ordinal onto a closed roster ON THE RAIL, which no generated
-// mapping expresses.
 public static partial class AppearanceWireMap {
     // --- [STAGE_REQUEST]
     [MapProperty(nameof(StageRequest.Stage), nameof(StageRequestWire.Stage), Use = nameof(Stage))]
@@ -1320,11 +1049,11 @@ public static partial class AppearanceWireMap {
     [MapProperty(nameof(StageRequest.Provider), nameof(StageRequestWire.Provider), Use = nameof(Provider))]
     [MapProperty(nameof(StageRequest.Precision), nameof(StageRequestWire.Precision), Use = nameof(Precision))]
     [MapProperty(nameof(StageRequest.Op), nameof(StageRequestWire.Op), Use = nameof(OpKey))]
-    [MapperIgnoreSource(nameof(StageRequest.Inputs))]     // get-only RepeatedField: fills at StageWire.Fill, no admitted conversion
-    [MapperIgnoreSource(nameof(StageRequest.Artefact))]   // proto3 optional bytes: presence writes at StageWire.Fill
-    [MapperIgnoreSource(nameof(StageRequest.Bucket))]     // producer-interior `WxH`: types at StageWire.Bucket on the rail
-    [MapperIgnoreSource(nameof(StageRequest.PadMode))]    // producer-interior key: types at StageWire.Pad on the rail
-    [MapperIgnoreSource(nameof(StageRequest.Layout))]     // the leased card owns the dimension order; a wire column could only contradict it
+    [MapperIgnoreSource(nameof(StageRequest.Inputs))]
+    [MapperIgnoreSource(nameof(StageRequest.Artefact))]
+    [MapperIgnoreSource(nameof(StageRequest.Bucket))]
+    [MapperIgnoreSource(nameof(StageRequest.PadMode))]
+    [MapperIgnoreSource(nameof(StageRequest.Layout))]
     [MapperIgnoreTarget(nameof(StageRequestWire.Inputs))]
     [MapperIgnoreTarget(nameof(StageRequestWire.Artefact))]
     [MapperIgnoreTarget(nameof(StageRequestWire.Bucket))]
@@ -1334,17 +1063,12 @@ public static partial class AppearanceWireMap {
     static string OpKey(Op op) => op.ToString();
 
     // --- [STAGE_VOCABULARY]
-    // Each fold IS the row's generated total Map — one arm per row — so a roster gaining a row breaks THIS BUILD
-    // until the corpus enum carries its value, where a derived roster fold would answer the same gap as a
-    // type-initializer throw on the first egress.
     [UserMapping] static PbrStageWire Stage(PbrStage row) => row.Map(
         delight: PbrStageWire.Delight, albedo: PbrStageWire.Albedo, normals: PbrStageWire.Normals,
         depth: PbrStageWire.Depth, svbrdf: PbrStageWire.Svbrdf, intrinsicAppearance: PbrStageWire.IntrinsicAppearance,
         spectralReflectance: PbrStageWire.SpectralReflectance, superResolve: PbrStageWire.SuperResolve,
         tileability: PbrStageWire.Tileability);
 
-    // The blocked arm is DECLARED and unreachable: StageRequest.Of refuses a blocked card before a request exists.
-    // Declaring it anyway is what keeps the fold total, so the licence roster and the corpus enum stay one shape.
     [UserMapping] static LicenseClassWire Licence(LicenseClass row) => row.Map(
         permissive: LicenseClassWire.Permissive, copyleft: LicenseClassWire.Copyleft, openRail: LicenseClassWire.OpenRail,
         research: LicenseClassWire.Research, blocked: LicenseClassWire.Blocked);
@@ -1361,17 +1085,12 @@ public static partial class AppearanceWireMap {
     static ScoreFieldWire Grade(ScoreField row) => row.Map(tileability: ScoreFieldWire.Tileability);
 
     // --- [STAGE_PRODUCTS]
-    // An input names the intent's own plane by CONTENT KEY or names the producer and product an earlier stage
-    // emitted, which the executor resolves against results it already holds — so a chained stage never carries the
-    // source blob and its albedo estimator cannot read the raw photograph the delighting stage exists to replace.
     public static StageInputWire Input(StageInput input) => input.Switch<StageInputWire>(
         source: static row => new StageInputWire { Source = new StageInputWire.Types.Source { Key = ContentHash.Wire(row.Key.Value) } },
         produced: static row => new StageInputWire {
             Produced = new StageInputWire.Types.Produced { Stage = Stage(row.Stage), Product = Product(row.Product) },
         });
 
-    // The channel arm crosses the roster's own key string; the two closed rosters cross typed. One union fold
-    // serves inputs and outputs alike, so an input row binds to its producer's output row without a translation.
     static StageProductWire Product(StageProduct product) => product.Switch<StageProductWire>(
         channel: static row => new StageProductWire { Channel = row.Field.Key },
         prior: static row => new StageProductWire { Prior = Field(row.Field) },

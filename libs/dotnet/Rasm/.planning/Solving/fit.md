@@ -19,7 +19,7 @@ Refinement INSTANTIATES the `Solving/solver` `Lm.Minimize` functor through a `Fi
 - Boundary: one `Fit.Apply` over one `FitOp` owns fitting entirely — never a per-kind fitter family nor a `Detect` surface — and every `FitPrimitive` dispatch is the compile-exhaustive generated `Switch`, so a new case breaks every fold arm loudly. Consensus defaults to the truncated-cost M-estimator (`Msac`) with the MLESAC mixture likelihood one `ConsensusScore` row beside it, both under the two-gate law: distance band AND `Agreement ≥ NormalBand` whenever the op carries normals, so a plane cutting a cylinder's diameter collects distance-near points whose normals disagree and charges them the saturated `t²`; the score folds accumulate at 106 bits so the likelihood row's cancelling terms survive a hundred-thousand-point reduce. Bounded-support pruning is exact by saturation and gates on the cost row's own `Saturating` column — a saturating candidate exposing `Support` scores its ball and charges every outside point `t²`, while a non-saturating cost row (the mixture NLL, still rising past the band) and a kind exposing no `Support` both reduce the full cloud. Refinement minimizes true orthogonal distance with every `Gradient` arm closed-form, and every draw reads a lane SUFFIX off ONE `Deterministic.Draw` whose prefix binds `FitPolicy.Seed` to the requested kinds' DECLARED `IDrawLane` ordinals at the `Apply` entry, so a fit replays across runtimes AND across roster edits — a positional `Items.IndexOf` lane re-seeds every standing fit on a mid-roster insert, which is why the ordinal is data on the row. The candidate shuffle, each kind's competition, and each trial's minimal set are then INDEPENDENT sub-streams, decorrelated by their lane paths rather than by ordering inside one sequence, and each replays alone. `Apply` is total over `Fin`: declared refusals are `GeometryFault` cases, and a foreign raise crosses `Op.Catch` unchanged; the score reduce, the minimal-draw rejection loops, and the `Gradient` arms are the named span-kernel statement exemption.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,19 +34,15 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: Rhino.Geometry.Matrix/Dimension collide with the Rasm.Numerics owners under the dual usings.
 using Dimension = Rasm.Numerics.Dimension;
 using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Solving;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-// The draw lane is a DECLARED column, never a roster position: `IDrawLane` is what lets the vocabulary be re-ordered,
-// widened, or re-keyed without re-seeding a standing fit, and it closes the positional twin of scar
-// SEEDED_FROM_STRING_HASH — a `Key.GetHashCode()` lane is unstable across processes, an `Items.IndexOf` lane across edits.
 public sealed partial class FitKind : IDrawLane<FitKind> {
     public static readonly FitKind Plane    = new("plane",    lane: 0L, minimalSamples: 3, freeParameters: 3, needsNormals: false, carrier: Kind.Plane,    MinimalPlane,    UnpackPlane);
     public static readonly FitKind Sphere   = new("sphere",   lane: 1L, minimalSamples: 4, freeParameters: 4, needsNormals: false, carrier: Kind.Sphere,   MinimalSphere,   UnpackSphere);
@@ -65,14 +61,9 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
     [UseDelegateFromConstructor]
     public partial Fin<FitPrimitive> Minimal(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key);
 
-    // Unpack reads POSITIONALLY, so it takes the span the functor already holds — a `.ToArray()` at every Norm and
-    // every Linearize allocated one parameter vector per LM pass per inlier sweep for a body that only indexes.
     [UseDelegateFromConstructor]
     public partial FitPrimitive Unpack(ReadOnlySpan<double> parameters);
 
-    // Accessor-backed arity proof, never an eager static: the generator fills `Items` at static init, so a fold
-    // behind a readerless member passes vacuously. `FitPrimitive.Gradient` reads it before it fills its first row,
-    // and a kind landing an eighth free parameter breaks HERE rather than truncating its partials into six columns.
     static readonly Lazy<Unit> WidestParameters = new(
         static () => Items.Max(static row => row.FreeParameters) == PartialRow.Arity
             ? unit
@@ -102,8 +93,6 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             });
     }
 
-    // Schnabel cylinder: axis = cross of two surface normals; section center = the projected normal lines' crossing,
-    // or the chord-hypothesis circumcenter with no field — an axis anchored on a surface point sits one radius off the truth.
     static Fin<FitPrimitive> MinimalCylinder(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
         Vector3d axis = normals.Match(
             Some: field => Vector3d.CrossProduct(field[draw[0]], field[draw[1]]),
@@ -132,8 +121,6 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Cylinder, draw[0], "degenerate-section")));
     }
 
-    // Schnabel cone: apex FIRST from the tangent-plane system, then axis = plane normal of the apex-to-point units
-    // — constant-tilt cone normals never cross to the axis.
     static Fin<FitPrimitive> MinimalCone(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) =>
         normals.Match(
             Some: field => {
@@ -167,8 +154,6 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             : Fin.Succ((FitPrimitive)new FitPrimitive.Line(new Rhino.Geometry.Line(a, b)));
     }
 
-    // Three-point circle: plane normal from the sample cross, circumcenter in the same (u,v)⊥ chart the cylinder
-    // section reads, lifted back along the normal — both degeneracies are one collinear cause, one typed refusal.
     static Fin<FitPrimitive> MinimalCircle(Point3d[] cloud, int[] draw, Option<Vector3d[]> normals, Context tolerance, Op key) {
         Point3d a = cloud[draw[0]], b = cloud[draw[1]], c = cloud[draw[2]];
         Vector3d normal = Vector3d.CrossProduct(b - a, c - a);
@@ -189,7 +174,6 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
                 None: () => Fin.Fail<FitPrimitive>(new GeometryFault.DegenerateInput(Kind.Circle, draw[0], "collinear-sample")));
     }
 
-    // Torus axis: cross of two tube-radial normals (exact on the equator, consensus-graded elsewhere); parallel normals fall to the first — a burned trial.
     static Vector3d AxisFromNormals(int[] draw, Vector3d[] normals) {
         Vector3d cross = Vector3d.CrossProduct(normals[draw[0]], normals[draw[1]]);
         return cross.IsTiny() ? normals[draw[0]] : cross;
@@ -197,9 +181,6 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
 
     static (double U, double V) InFrame(Vector3d w, Vector3d u, Vector3d v) => (w * u, w * v);
 
-    // Both determinants are SECOND-order in the chart — a direction cross and twice a signed area — so each gates on
-    // its own lane SQUARED. A first-order anchor against a second-order quantity refuses at the wrong scale, and the
-    // `tolerance` parameter every minimal solver already takes is what carries the lane the model was measured in.
     static Option<(double U, double V)> LineCross((double U, double V) a, (double U, double V) da, (double U, double V) b, (double U, double V) db, double band) {
         double det = (da.U * db.V) - (da.V * db.U);
         if (Math.Abs(det) <= band * band) return None;
@@ -216,7 +197,6 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
             ((a2 * (c.U - b.U)) + (b2 * (a.U - c.U)) + (c2 * (b.U - a.U))) / d));
     }
 
-    // Owner thin-QR least squares (Gram-pseudoinverse squares κ); a rank-deficient field falls to the draw centroid, not a garbage apex.
     static Point3d ApexFromNormals(Point3d[] cloud, int[] draw, Vector3d[] normals, Op key) {
         int n = draw.Length;
         double[] lhs = new double[n * 3];
@@ -285,7 +265,6 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
     }
 
     // --- [CHART_REBUILD]
-    // Charts invert FitPrimitive.Pack: plane = Hesse foot vector; line = foot-of-perpendicular (a,b) in the (u,v)⊥ frame + azimuth/polar.
     static FitPrimitive UnpackPlane(ReadOnlySpan<double> p) {
         Vector3d foot = new(p[0], p[1], p[2]);
         Vector3d unit = foot.IsTiny() ? Vector3d.ZAxis : Unit(foot);
@@ -330,33 +309,21 @@ public sealed partial class FitKind : IDrawLane<FitKind> {
 
 [SmartEnum<int>]
 public sealed partial class ConsensusScore {
-    // Msac is the truncated M-estimator min(d², t²). MaximumLikelihood is the MLESAC mixture negative
-    // log-likelihood — inliers Gaussian at the two-sigma truncation (t = 2σ) normalized over the band by erf,
-    // outliers uniform over [−t, t]; its per-sample terms cancel over thousands of samples, so the score folds
-    // accumulate at 106 bits and compare in double only at the candidate gate.
     public static readonly ConsensusScore Msac = new(key: 0, inlierRatio: 1.0, saturating: true, Truncated);
     public static readonly ConsensusScore MaximumLikelihood = new(key: 1, inlierRatio: MixturePrior, saturating: false, MixtureNll);
 
-    // Gamma is the γ prior of the two-component mixture; the saturated Msac cost reads none of it.
     public double InlierRatio { get; }
 
-    // Saturating states whether Cost(d², t²) is CONSTANT for every d² ≥ t² — the identity the bounded-support
-    // shell prefilter charges outside points on. Msac truncates (min(d², t²) = t² exactly); the mixture NLL keeps
-    // rising past the band toward its outlier asymptote, so MixtureNll(t², t²) UNDERCHARGES an outside point and
-    // the prefilter would return a wrong likelihood — a non-saturating row full-reduces by this column.
     public bool Saturating { get; }
 
     [UseDelegateFromConstructor]
     public partial double Cost(double squaredDistance, double squaredThreshold);
 
     const double MixturePrior = 0.5;
-    // erf(√2) — the Gaussian mass inside the fixed two-sigma truncation band; hoisted so no call re-pays it.
     static readonly ddouble BandNormalization = ddouble.Erf(ddouble.Sqrt(2.0));
 
     static double Truncated(double d2, double t2) => Math.Min(d2, t2);
 
-    // −log(γ·N(d; 0, σ²)/Z + (1−γ)/2t) with σ² = t²/4; the Gaussian term underflows naturally past the band, so
-    // saturation needs no min, and the constant offset per fit never reorders candidates sharing one threshold.
     static double MixtureNll(double d2, double t2) {
         double sigma2 = t2 / 4.0;
         ddouble inlier = ddouble.Exp(-(ddouble)d2 / (2.0 * sigma2)) / (ddouble.Sqrt(Math.Tau * sigma2) * BandNormalization);
@@ -372,19 +339,13 @@ public sealed partial class DrawOrder {
     public static readonly DrawOrder Neighborhood = new(key: 2);
 }
 
-// Jacobian row filled in Pack order. `Arity` is the ONE spelling of the width, read by both the layout attribute
-// and `FitKind.Widest`'s proof, so the mirror cannot drift from the roster it tracks.
 [InlineArray(PartialRow.Arity)]
 public struct PartialRow {
     internal const int Arity = 7;
     double element0;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Three of these columns are unit-interval quantities and one a positive scale, so each rides the kernel value
-// object that already guards its band; the refine ladder is the `Solving/solver` policy itself rather than a pair
-// of columns mirroring two of its own. `Confidence` is the one column whose OPEN upper bound the band cannot hold —
-// `Math.Log(1 - 1.0)` is −inf and would fix the adaptive budget at its ceiling forever — so `Admit` states it.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FitPolicy(
     ConsensusScore Score,
     DrawOrder Order,
@@ -408,13 +369,10 @@ public sealed record FitPolicy(
             MaxTrials: TrialCeiling, Seed: 0x5EED, Neighborhood: 32, Ladder: refine).Admit(key: key)
         select admitted;
 
-    // The trial ceiling is the adaptive budget's own saturation point, not a tuning knob: `AdaptiveBudget` clamps
-    // into it and a fraction at or below zero returns it whole, so it is the count a hopeless kind pays.
     const int TrialCeiling = 1 << 16;
 
     internal Fin<FitPolicy> Admit(Op key) {
         FitPolicy self = this;
-        // Fully qualified: the member's own name shadows the `Rasm.Domain` admission owner inside this record.
         return Rasm.Domain.Admit.Claims(key,
             (self.Confidence.Value < 1.0, nameof(Confidence)),
             (self.InlierFloor.Value > 0.0, nameof(InlierFloor)),
@@ -456,11 +414,8 @@ public abstract partial record FitPrimitive {
             cone:     static (q, k) => ConeDistance(k.Apex, k.Axis, k.HalfAngle, q),
             torus:    static (q, t) => TorusDistance(t.Center, t.Axis, t.Major, t.Minor, q),
             line:     static (q, ln) => AxisDistance(ln.Axis.From, ln.Axis.Direction, q),
-            // Circle reads as the zero-minor torus spine, so the torus kernel owns its orthogonal distance.
             circle:   static (q, c) => TorusDistance(c.Curve.Center, c.Curve.Normal, c.Curve.Radius, 0.0, q));
 
-    // Chart poles λ-damp inside the functor, so no arm guards them. The arity proof reads HERE — the one member
-    // that fills a row — so no roster edit can widen a kind past the layout without breaking on first use.
     public PartialRow Gradient(Point3d query) {
         _ = FitKind.Widest;
         return Switch(
@@ -484,7 +439,6 @@ public abstract partial record FitPrimitive {
             line:     static ln => PackLine(ln.Axis),
             circle:   static c => [c.Curve.Center.X, c.Curve.Center.Y, c.Curve.Center.Z, Math.Atan2(c.Curve.Normal.Y, c.Curve.Normal.X), Math.Acos(Math.Clamp(FitKind.Unit(c.Curve.Normal).Z, -1.0, 1.0)), c.Curve.Radius]);
 
-    // Bounded-support ball: every inlier of the kind lies inside it; None marks an unbounded kind the prefilter cannot cut.
     public Option<(Point3d Center, double Reach)> Support(double threshold) =>
         Switch(
             state: threshold,
@@ -496,7 +450,6 @@ public abstract partial record FitPrimitive {
             line:     static (_, _) => Option<(Point3d, double)>.None,
             circle:   static (t, c) => Some((c.Curve.Center, c.Curve.Radius + t)));
 
-    // Agreement in [0,1]: surface arms read |n̂·N̂(q)| at the footpoint, the CURVE arms perpendicularity — an edge normal is ⊥ the edge with free roll.
     public double Agreement(Point3d query, Vector3d normal) =>
         Switch(
             state: (Query: query, Normal: normal),
@@ -565,8 +518,6 @@ public abstract partial record FitPrimitive {
         return row;
     }
 
-    // ONE revolute gradient: a circle IS the zero-minor torus spine, so the six shared columns are identical and
-    // the tube radius — whose partial is the constant −1 — is present exactly where the primitive HAS that freedom.
     static PartialRow RevolveGradient(Point3d center, Vector3d axis, double major, Option<double> minor, Point3d query) {
         PartialRow row = new();
         Vector3d unit = FitKind.Unit(axis);
@@ -586,7 +537,6 @@ public abstract partial record FitPrimitive {
         return row;
     }
 
-    // Total derivatives carry the frame motion of the foot chart's moving anchor a·u+b·v, regular off the polar poles.
     static PartialRow LineGradient(Point3d query, Line ln) {
         PartialRow row = new();
         double[] p = PackLine(ln.Axis);
@@ -630,7 +580,6 @@ public abstract partial record FitPrimitive {
         return Math.Sqrt(inPlane * inPlane + along * along) - minor;
     }
 
-    // Outward footpoint normals — ∇q of each signed-distance arm over the same axis frame.
     static Vector3d ConeNormal(Point3d query, Cone k) {
         Vector3d axis = FitKind.Unit(k.Axis);
         (_, _, Vector3d dir, _) = AxisFrame(k.Apex, axis, query);
@@ -645,8 +594,6 @@ public abstract partial record FitPrimitive {
         return (inPlane / w) * dir + (along / w) * axis;
     }
 
-    // Rim tangent at the footpoint — axis × radial dir; an on-axis query has no footpoint direction and the zero
-    // tangent scores full agreement, matching the frame guards' degenerate leniency.
     static Vector3d CircleTangent(Point3d query, Circle c) {
         Vector3d axis = FitKind.Unit(c.Curve.Normal);
         (_, _, Vector3d dir, _) = AxisFrame(c.Curve.Center, axis, query);
@@ -689,9 +636,6 @@ public abstract partial record FitPrimitive {
 
 public sealed record FitOp(Seq<FitKind> Kinds, Point3d[] Cloud, Option<Vector3d[]> Normals, FitPolicy Policy);
 
-// Inliers ride the ADMITTED INDICES, not a bitset: `FitReceipt` is what `Spatial/reconciliation` `Encode`
-// content-addresses, and a `BitArray` column gives a record REFERENCE equality — two identical fits hashing apart —
-// while handing callers a mutable BCL bitset. `InlierCount` is then the roster's own count, never a second column.
 public readonly record struct Candidate(FitPrimitive Primitive, Arr<int> Inliers, double Cost, int Trials) {
     public int InlierCount => Inliers.Count;
 }
@@ -713,7 +657,7 @@ public sealed record FitReceipt(
         ValidityClaim.CountAtLeast(count: Iterations, floor: 0));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 sealed class FitModel(FitPrimitive template, Point3d[] cloud, Arr<int> inliers) : ILmModel {
     public int Dof => template.Kind.FreeParameters;
 
@@ -749,10 +693,6 @@ public static class Fit {
     public static Fin<FitReceipt> Apply(FitOp op, Context tolerance, Op? key = null) {
         Op ok = key.OrDefault();
         return ok.Catch(() => {
-            // ONE bound draw for the whole fit — the kinds' DECLARED lanes and `FitPolicy.Seed` mint its prefix once at
-            // the entry, and the shuffle, each kind's competition, and each trial's minimal set then read INDEPENDENT
-            // sub-streams off that prefix. Threading a `ref ulong` through seven signatures bought a single sequence and
-            // cost every arm a tuple workaround; a lane suffix decorrelates them by construction and replays per trial.
             Deterministic.Draw draw = new(Seed: op.Policy.Seed, Prefix: [.. op.Kinds.Map(static kind => kind.Lane)]);
             int[] whole = [.. Enumerable.Range(0, op.Cloud.Length)];
             return Validate(op)
@@ -766,9 +706,6 @@ public static class Fit {
                             Some: best => Consensus(best, op, ok).Bind(fraction => fraction.Value < op.Policy.InlierFloor.Value
                                 ? Fin.Fail<FitReceipt>(new GeometryFault.FitFault(fraction, op.Policy.InlierFloor))
                                 : Refine(best, op.Cloud, op.Normals, index, whole, op.Policy, tolerance, ok)),
-                            // Every trial of every kind burned, so NO candidate measured a consensus fraction — a
-                            // `FitFault` carrying `0.0` here reads exactly like a genuine zero-inlier winner and states
-                            // a measurement no producer took, which is why the refusal names the degenerate draw instead.
                             None: () => Fin.Fail<FitReceipt>(
                                 new GeometryFault.DegenerateInput(Kind.PointCloud, None, "no-candidate")))));
         });
@@ -779,8 +716,6 @@ public static class Fit {
 
     static Fin<FitOp> Validate(FitOp op) {
         int minimal = op.Kinds.Map(static kind => kind.MinimalSamples).Fold(0, Math.Max);
-        // Defect rosters are indexed FILTERS, the same shape the probe chain below already composes — a bare `for`
-        // appending to an outer list from inside a lambda is the one form this fence otherwise never spells.
         Seq<int> badPoints = toSeq(op.Cloud).Map(static (point, index) => (Point: point, Index: index))
             .Filter(static row => !row.Point.IsValid).Map(static row => row.Index);
         Seq<int> badNormals = op.Normals.Match(
@@ -811,15 +746,9 @@ public static class Fit {
     }
 
     // --- [CONSENSUS]
-    // Draw lanes off the fit's own prefix, so the shuffle, each kind's competition, and each trial's minimal set are
-    // INDEPENDENT sub-streams — no permutation can correlate with the trials that follow it.
     const long ShuffleLane = 0L;
     const long TrialLane = 1L;
 
-    // Total per-kind lane: a degenerate draw or minimal solve burns its trial; a kind whose every trial burns
-    // reports None, never an aborting rail. The adaptive budget IS fold state — a bare `for` mutating its own bound
-    // hides its halting condition, and the two burns are skips the fold spells as an unchanged accumulator.
-    // `Schedule.recurs` owns the ceiling, so no trial outlives the policy's own `MaxTrials`.
     static Option<Candidate> Draw(
         Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] order, int[] whole,
         FitKind kind, FitPolicy policy, Context tolerance, Deterministic.Draw draw, Op key) {
@@ -844,9 +773,6 @@ public static class Fit {
             .Best;
     }
 
-    // Bounded-support prefilter (EXACT only under saturation): Σ min(d²,t²) = Σ_ball min(d²,t²) + t²·(N − |ball|)
-    // holds because the truncated cost is constant past the band; the prefilter gates on the row's OWN Saturating
-    // column, so a non-saturating cost (the mixture NLL) full-reduces and can never ride an identity it breaks.
     static (double Cost, Arr<int> Inliers) Score(
         FitPrimitive primitive, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole,
         FitPolicy policy, double t2, double threshold, Op key) =>
@@ -858,11 +784,6 @@ public static class Fit {
                 None: () => Scored(primitive, cloud, whole, ddouble.Zero, normals, policy, t2, threshold))
             : Scored(primitive, cloud, whole, ddouble.Zero, normals, policy, t2, threshold);
 
-    // ONE scoring body over a DOMAIN and a pre-charge: the full reduce passes the whole index roster charging
-    // nothing ahead of it, the shell pass its ball ids with every outside point already charged the saturated t².
-    // The normal gate resolves ONCE off the field's presence — a null test inside the hottest loop on the page
-    // re-asked a question the `Option` answered at entry. 106-bit accumulation: the Msac min-fold never cancels, but
-    // the likelihood row's near-equal log terms do, so ONE ddouble accumulator serves both rows.
     static (double Cost, Arr<int> Inliers) Scored(
         FitPrimitive primitive, Point3d[] cloud, int[] domain, ddouble preCharge,
         Option<Vector3d[]> normals, FitPolicy policy, double t2, double threshold) {
@@ -908,7 +829,6 @@ public static class Fit {
                     ? key.AcceptValue(PlanarityPrior(cloud, pca.Mean, pca.Eigen, tolerance))
                     : Fin.Fail<double[]>(key.InvalidResult())));
 
-    // Dominant-mode prior |n̂·n̄̂| ranks the dominant structure into the PROSAC front; unit normals carry no length signal.
     static double[] ModePrior(Vector3d[] field) {
         Vector3d mean = Vector3d.Zero;
         foreach (Vector3d n in field) mean += n;
@@ -918,7 +838,6 @@ public static class Fit {
         return quality;
     }
 
-    // Eigen pairs sort |λ|-descending (owner law): [2] is the least axis — the global normal estimate.
     static double[] PlanarityPrior(Point3d[] cloud, Vector3d mean, Seq<(double Eigenvalue, Arr<double> Eigenvector)> eigen, Context tolerance) {
         Vector3d axis = new(eigen[2].Eigenvector[0], eigen[2].Eigenvector[1], eigen[2].Eigenvector[2]);
         double floor = Math.Max(Math.Sqrt(Math.Abs(eigen[2].Eigenvalue)), tolerance.Absolute.Value);
@@ -930,8 +849,6 @@ public static class Fit {
         return quality;
     }
 
-    // Each trial reads its OWN sub-stream off the bound draw, so no arm returns state and no arm takes a `ref` — the
-    // tuple workaround that carried an advanced word back out of the generated `Switch` had no other cause.
     static Fin<int[]> Sample(int[] order, Point3d[] cloud, NeighborIndex index, FitKind kind, FitPolicy policy, int trial, Deterministic.Draw lane, Op key) =>
         policy.Order.Switch(
             state: (Order: order, Cloud: cloud, Index: index, Kind: kind, Policy: policy, Trial: trial, State: lane.At(trial).State, Key: key),
@@ -940,7 +857,6 @@ public static class Fit {
                 return s.Key.AcceptValue(UniformDraw(s.Order, s.Kind.MinimalSamples, ref draw));
             },
             qualityFront: static s => {
-                // PROSAC growth draw: the newest front point enters every sample, the remainder draws DISTINCT from the preceding window — trial 0 is the top-m set.
                 int window = Math.Min(s.Order.Length, s.Kind.MinimalSamples + s.Trial);
                 int[] sample = new int[s.Kind.MinimalSamples];
                 sample[0] = s.Order[window - 1];
@@ -953,12 +869,8 @@ public static class Fit {
                 return s.Key.AcceptValue(sample);
             },
             neighborhood: static s => {
-                // NAPSAC: a seeded local draw is likelier all-inlier on a multi-structure scan; the kNN ring returns the seed itself, so it is excluded.
                 ulong draw = s.State;
                 int seed = s.Order[Deterministic.NextBelow(state: ref draw, exclusiveCeiling: s.Order.Length)];
-                // TOTAL on the draw path: a failed index query recovers to the uniform draw off the SAME sub-stream,
-                // and because every trial keys its own lane, a burn can no longer re-pick the identical seed —
-                // NAPSAC is a draw-order heuristic, never a correctness gate, so uniform is the honest degradation.
                 return NeighborKernel.GraphOf(index: s.Index, needles: [s.Cloud[seed]], count: Some(s.Policy.Neighborhood), radius: Option<double>.None, key: s.Key).Match(
                     Succ: graph => graph.Ids[0].Where(id => id != seed).ToArray() is var pool && pool.Length >= s.Kind.MinimalSamples - 1
                         ? s.Key.AcceptValue(NeighborhoodDraw(seed, pool, s.Kind.MinimalSamples, ref draw))
@@ -966,7 +878,6 @@ public static class Fit {
                     Fail: _ => s.Key.AcceptValue(UniformDraw(s.Order, s.Kind.MinimalSamples, ref draw)));
             });
 
-    // Distinct minimal draw: a with-replacement duplicate degenerates every minimal solver, so membership rejection guarantees distinctness.
     static int[] UniformDraw(int[] order, int count, ref ulong state) {
         int[] sample = new int[count];
         for (int i = 0; i < count; i++) {
@@ -988,8 +899,6 @@ public static class Fit {
         return sample;
     }
 
-    // Shuffles a COPY: a body mutating its argument and returning it wears a pure signature over a hidden write,
-    // and the caller still holds the array it handed in.
     static int[] Shuffled(int[] source, ulong state) {
         int[] order = [.. source];
         for (int i = order.Length - 1; i > 0; i--) {
@@ -1000,12 +909,7 @@ public static class Fit {
     }
 
     // --- [REFINE]
-    // The refine ladder is `FitPolicy.Ladder` itself — one `SolvePolicy` minted off the same `Context` at policy
-    // admission — so no merge re-derives a residual tolerance and a budget the solver's own record already carries.
     static Fin<FitReceipt> Refine(Candidate seed, Point3d[] cloud, Option<Vector3d[]> normals, NeighborIndex index, int[] whole, FitPolicy policy, Context tolerance, Op key) =>
-        // The refine reads parameters, not the terminal row: a budget-exhausted or stationary descent still lands a
-        // primitive strictly closer than the minimal-set seed, and the consensus re-score below is what decides the
-        // receipt — a fit is best-effort by construction, so `SolveStatus` is DECLINED here and said so once.
         Lm.Minimize(new FitModel(seed.Primitive, cloud, seed.Inliers), policy.Ladder, key).Bind(result => {
             FitPrimitive refined = seed.Primitive.Kind.Unpack(result.Parameters.AsSpan());
             double threshold = policy.Threshold(tolerance.Absolute.Value);
@@ -1015,9 +919,6 @@ public static class Fit {
                    select new FitReceipt(refined, mask, residual, consensus.Value, seed.Trials, result.Iterations);
         });
 
-    // An EMPTY inlier set measured no residual, so it refuses: a `0.0` here seats `FitReceipt.Residual` at the one
-    // value a perfect fit reports, and `IsValid` gates only finiteness and sign — a measurement no producer took
-    // would read as the best fit the estate can publish.
     static Fin<double> Rms(FitPrimitive shape, Point3d[] cloud, Arr<int> inliers, Op key) =>
         inliers.IsEmpty
             ? Fin.Fail<double>(key.InvalidResult())

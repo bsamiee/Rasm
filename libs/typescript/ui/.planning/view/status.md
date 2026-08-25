@@ -42,8 +42,6 @@ declare namespace Status {
   type Slot = (typeof _slots)[number]
 }
 
-// waiting sieves first so first-load and refresh-over-data stay distinct faces, and then the
-// settled fold totalizes — the waiting arm below is unreachable by construction and exists to keep the fold total
 const _of = <A, E>(result: Result.Result<A, E>, extent?: (value: A) => number): Status.Posture =>
   Result.isWaiting(result)
     ? Result.isSuccess(result) ? "refreshing" : "loading"
@@ -54,7 +52,6 @@ const _of = <A, E>(result: Result.Result<A, E>, extent?: (value: A) => number): 
       onDefect: () => "torn" as const,
     })
 
-// total over the roster: a new posture breaks here rather than rendering unstyled
 const _tone = {
   empty: { tone: "neutral" },
   loading: { tone: "neutral" },
@@ -64,8 +61,6 @@ const _tone = {
   torn: { tone: "danger" },
 } as const satisfies Record<Status.Posture, { readonly tone: Theme.Tone }>
 
-// aria posture as data: the banner is a labelled landmark and never live; the alert is the platform's assertive
-// region; announcement for the banner tier composes the one announce rail at the caller's policy
 const _TIERS = {
   banner: { host: "section", role: Option.none<"alert">(), labelled: true, focus: Option.some(-1) },
   alert: { host: "div", role: Option.some("alert" as const), labelled: false, focus: Option.none<number>() },
@@ -75,20 +70,14 @@ const _slots = ["indicator", "content", "title", "description", "actions"] as co
 
 const _fills = ["soft", "surface", "outline"] as const
 
-// fill names only generated slot utilities — the palette stays the token authority's
 const _FILL = {
   soft: (tone: Theme.Tone) => `bg-${tone}-surface text-${tone}-text`,
   surface: (tone: Theme.Tone) => `bg-${tone}-surface text-${tone}-text border border-${tone}-border`,
   outline: (tone: Theme.Tone) => `border border-${tone}-border text-${tone}-text`,
 } as const satisfies Record<Status.Fill, (tone: Theme.Tone) => string>
 
-// each fill's tone variants DERIVE from the token roster in one Record.map pass — a new semantic tone becomes a
-// variant on every face with zero recipe edits, and Record.map preserves the literal tone union for VariantProps
 const _toned = (fill: Status.Fill) => Record.map(Theme.Palette.rows, (_row, tone) => _FILL[fill](tone))
 
-// tone carries the full surface fill and fill SUBTRACTS from it — border-0 and bg-transparent
-// win their merge groups deterministically through cn, so three fills x eight tones stay two independent axes
-// instead of a twenty-four-row compound table
 const _face = cva("flex items-start gap-3 rounded-md p-4", {
   variants: {
     tone: _toned("surface"),
@@ -120,8 +109,6 @@ declare namespace Status {
   type Phase = "hidden" | "shown"
 }
 
-// delay is the entry window (no veil for fast answers); linger is the minimum hold once shown (no flicker for
-// slow-then-fast answers); None retracts on the act — the data landing — alone
 const _WINDOWS = {
   skeleton: { delay: Duration.millis(300), linger: Option.some(Duration.millis(400)) },
   spinner: { delay: Duration.seconds(1), linger: Option.some(Duration.millis(400)) },
@@ -132,7 +119,6 @@ const _useWindow = (kind: Status.Kind, waiting: boolean): Status.Phase => {
   const [shown, setShown] = useState(false)
   const row = _WINDOWS[kind]
   useEffect(() => {
-    // BOUNDARY ADAPTER: the lease rides platform timers — entry arms the delay, exit honours the linger floor
     if (waiting && !shown) {
       const entry = globalThis.setTimeout(() => setShown(true), Duration.toMillis(row.delay))
       return () => globalThis.clearTimeout(entry)
@@ -151,8 +137,6 @@ const _useWindow = (kind: Status.Kind, waiting: boolean): Status.Phase => {
   return shown ? "shown" : "hidden"
 }
 
-// a held window surfaces on the existing vital replay point, so lease breaches read as
-// rows on the boards already mounted — never a second rail
 const _horizon = (kind: Status.Kind, held: Duration.Duration): Points["rasm.ui.vital.row"]["payload"] => ({
   label: `status-${kind}-held`,
   unit: "ms",
@@ -179,10 +163,7 @@ const _Skeleton = createContext(false)
 
 const _useSkeleton = (): boolean => useContext(_Skeleton)
 
-// one WAAPI write phase-locks the subtree: every pulse shares startTime zero, so a veiled page breathes as one
-// surface; reduced motion never reaches here because the hold class already resolved to animate-none
 const _sync = (host: HTMLElement): void => {
-  // BOUNDARY ADAPTER: getAnimations is the platform's animation registry — the write is idempotent per frame
   for (const animation of host.getAnimations({ subtree: true })) animation.startTime = 0
 }
 ```
@@ -231,8 +212,6 @@ declare namespace Status {
 - Growth: a new gauge posture (a segmented bar, a radial track) is one indicator variant row; a new dot rank is one row on its own closed axis beside the tone column.
 
 ```typescript signature
-// both RAC gauges render one slot roster, and the value slot's formatter receives RAC's locale-correct valueText —
-// no gauge formats a number itself
 const _gauges = ["track", "indicator", "label", "value"] as const
 
 declare namespace Status {
@@ -241,7 +220,6 @@ declare namespace Status {
 }
 
 const _spun = (period: number): { readonly animationDelay: string } => {
-  // BOUNDARY ADAPTER: the platform clock aligns every spinner's phase — one visual clock, mirroring the skeleton sync
   return { animationDelay: `-${globalThis.performance.now() % period}ms` }
 }
 
@@ -287,7 +265,7 @@ const Status: Status.Shape = {
   spun: _spun,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Status }
 ```

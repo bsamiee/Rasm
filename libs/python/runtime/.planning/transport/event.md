@@ -39,51 +39,33 @@ from rasm.runtime.metrics import DOMAINS
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# `Segment` evaluates lazily, so it refines against the ONE grammar below rather than re-spelling its character
-# class, while `Fact` reads past tense by a convention the mint cannot enforce.
 type Segment = Annotated[str, Meta(pattern=rf"^{SEGMENT}$")]
-# content key AS IT CROSSES: the bare 32-lowercase-hex `ContentKey.project("wire")` render every branch publishes.
-# It is the message envelope's own slot type because the pair must round-trip — a `ContentKey` slot needs `fmt` and
-# `byte_length`, and the pinned spelling carries neither, so a decode rebuilding one fabricates both.
 type WireKey = Annotated[str, Meta(pattern=r"^[0-9a-f]{32}$")]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# ONE compiled grammar over the whole spelling — stem and three segments — that `parse` reads and `of` renders
-# against, so neither entry restates the other's rule and a segment a producer names is proven by the same pattern
-# a decode runs. A `case [TYPE_STEM, domain, ...]` sequence arm CAPTURES the bare name rather than comparing it,
-# admitting every four-segment spelling while rebinding the constant it appears to read, so the compiled form is
-# what refuses a foreign stem at all.
 SEGMENT: Final[str] = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 TYPE_STEM: Final[str] = "rasm"
 TYPE_GRAMMAR: Final[re.Pattern[str]] = re.compile(
     rf"{TYPE_STEM}\.(?P<domain>{SEGMENT})\.(?P<subject>{SEGMENT})\.(?P<fact>{SEGMENT})"
 )
 SOURCE_GRAMMAR: Final[re.Pattern[str]] = re.compile(rf"rasm:(?P<domain>{SEGMENT})/(?P<capability>{SEGMENT})")
-# branch law over package law: `CloudEvent` proves the CHARSET and the one-character floor, this states the
-# specification's twenty-character ceiling the package never reads, so the mint refuses a name `CloudEvent` admits.
 EXTENSION_FMT: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9]{1,20}$")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class EventType(Struct, frozen=True, order=True, gc=False):
-    # ONE site spells the type grammar. `order=True` because a subscription roster is an ordered `Map` keyed
-    # on this value, and a second `f"rasm.{domain}..."` anywhere forks what every filter's prefix dialect matches.
     domain: Segment
     subject: Segment
     fact: Segment
 
     @classmethod
     def of(cls, domain: str, subject: str, fact: str, /) -> RuntimeRail[Self]:
-        # `of` RENDERS through the spelling `wire` publishes and ADMITS through the grammar `parse` reads, so a
-        # producer cannot construct a value the wire round-trip then refuses and no segment reaches the wire unproven.
         return cls.parse(_spelled(domain, subject, fact))
 
     @classmethod
     def parse(cls, spelling: str, /) -> RuntimeRail[Self]:
-        # `<domain>` proves against the METRIC roster, never a local set: one capability vocabulary means a board
-        # and a subscription name the same thing, and an unrostered segment is a missing capability row upstream.
         return (
             Error(EVENT_TYPE.raised(spelling))
             if (found := TYPE_GRAMMAR.fullmatch(spelling)) is None
@@ -98,8 +80,6 @@ class EventType(Struct, frozen=True, order=True, gc=False):
 
 
 class Source(Struct, frozen=True, order=True, gc=False):
-    # the Rasm profile of the official URI-reference: an application-specific `rasm:` scheme over the explicitly
-    # stated source domain and capability. It does not derive from type/subject; the profile joins domains once.
     domain: Segment
     capability: Segment
 
@@ -122,21 +102,15 @@ class Source(Struct, frozen=True, order=True, gc=False):
 
 
 class OperationId(Struct, frozen=True, order=True, gc=False):
-    # producer OPERATION identity — a retried operation replays this value and two operations over identical
-    # bytes never share it. Content identity is `subject`'s, so this slot never takes a digest render.
     value: Annotated[str, Meta(min_length=1)]
 
 
 class Uniqueness(Struct, frozen=True, order=True, gc=False):
-    # `(source, id)` is the composite the specification fixes: every dedup window, idempotency key, and matched-duplicate
-    # half reads THIS value, so no consumer joins two loose fields and none keys on `id` alone across sources.
     source: Source
     operation: OperationId
 
     @classmethod
     def of(cls, envelope: "MessageEnvelope", /) -> Self:
-        # projected off the decoded owner rather than two loose arguments a caller transposes, so the composite a
-        # producer keys its dedup on and the one a settlement reads are the same value built at one site.
         return cls(source=envelope.source, operation=envelope.operation)
 
 
@@ -144,23 +118,14 @@ class Uniqueness(Struct, frozen=True, order=True, gc=False):
 
 
 def _spelled(domain: str, subject: str, fact: str, /) -> str:
-    # `_spelled` IS the ONE render the mint and the `wire` view both compose, so the grammar has one producer beside its
-    # one admission and a second `f"rasm.{...}"` anywhere is the fork every filter's prefix dialect then finds.
     return f"{TYPE_STEM}.{domain}.{subject}.{fact}"
 
 
 def _profiled(event_type: EventType, source: Source, /) -> RuntimeRail[None]:
-    # Rasm composes two independently admitted CloudEvents attributes. Only the estate domain must agree: forcing
-    # `source.capability == type.subject` aliases occurrence context to fact classification and narrows the generic model.
     return Ok(None) if event_type.domain == source.domain else Error(EVENT_SOURCE.raised(source.reference))
 
 
 def stamped(produced: datetime, arrived: datetime, /) -> RuntimeRail[float]:
-    # `recordedtime` mints at producer creation and `arrived` exists only inside the receiver, so the pair MEASURES
-    # transport lag without publishing receiver state as a CloudEvents extension. The measurement fills
-    # `Announced.lag` from the one site that proved it rather than a zero a later reader cannot tell from a real reading.
-    # A producer stamp after its receiver observation leaves the lag
-    # unmeasured and refuses rather than publishing a negative one.
     return (
         Error(EVENT_NAIVE.raised())
         if produced.tzinfo is None or arrived.tzinfo is None
@@ -218,10 +183,7 @@ type EventData = Raw | Message | None
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# The package-owned core roster distinguishes unknown extensions from CloudEvents attributes without restating names.
 CORE_ATTRIBUTES: Final[frozenset[str]] = frozenset(REQUIRED_ATTRIBUTES) | frozenset(OPTIONAL_ATTRIBUTES)
-# RFC 3986 URI-reference characters, with percent escapes admitted only as complete octets. `urlsplit` below proves
-# component structure; this ceiling prevents the parser's permissive acceptance of spaces, controls, and broken escapes.
 URI_REFERENCE_FMT: Final[re.Pattern[str]] = re.compile(
     r"^(?:[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=-]|%[0-9A-Fa-f]{2})*$"
 )
@@ -231,10 +193,6 @@ URI_REFERENCE_FMT: Final[re.Pattern[str]] = re.compile(
 
 
 class Codec[V](Struct, frozen=True, gc=False):
-    # ONE pair per CARRIED kind, shared by every column holding it: `render` lowers the typed value onto the wire and
-    # `admit` lifts either a typed structured/protobuf value or its binding text back onto the rail, so a column's codec
-    # is chosen by its descriptor kind and validation options and no two
-    # rows repeat a body between them.
     arm: AttributeArm
     render: Callable[[V], object]
     admit: Callable[[object], RuntimeRail[V]]
@@ -248,8 +206,6 @@ class CloudEventUriRef(str):
     __slots__ = ()
 
 
-# ONE rostered anchor serves every extension admit. The codecs keep the abstract CloudEvents type whole in structured
-# and protobuf formats while accepting the text form a protocol binding necessarily carries.
 _TEXT: Final[Codec[str]] = Codec(
     arm="ce_string",
     render=lambda held: held,
@@ -317,9 +273,6 @@ def _uri_reference(column: DescField, /) -> bool:
 
 
 def _codec(column: DescField) -> Codec[Any]:
-    # codec BY DESCRIPTOR KIND, total over the kinds the corpus message declares: strings, an unsigned counter, and
-    # `Timestamp` cells. A kind this fold never rows is a corpus edit this page has not
-    # absorbed and kills the import, never a column silently rendered as text.
     if EXTENSION_FMT.fullmatch(column.local_name) is None:
         raise TypeError(column.local_name)
     match column.value:
@@ -333,35 +286,24 @@ def _codec(column: DescField) -> Codec[Any]:
             raise TypeError(f"{column.local_name}:{type(unrowed).__name__}")
 
 
-# --- [TABLES] -----------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# Both projections fold THIS descriptor-derived table and neither hand-writes a field arm.
 EXTENSION_ROWS: Final[Map[str, Codec[Any]]] = Map.of_seq(
     (column.local_name, _codec(column)) for column in Extensions.desc().fields
 )
 
-# Specification context-attribute types ARE the filter language's own, so the numeric carve DERIVES
-# from the codec each column already answers rather than a second roster `transport/filter#CESQL` keeps parallel
-# and a newly generated extension silently leaves out.
 NUMERIC_EXTENSIONS: Final[frozenset[str]] = frozenset(name for name, row in EXTENSION_ROWS.items() if row is _ORDINAL)
 
-# W3C slots, read as one carrier the admission fold consumes — the generated roster INTERSECTED with the global
-# propagator's own `fields`, so the subset derives from the propagator and a hand list cannot drift from it.
 TRACE_SLOTS: Final[Block[str]] = Block.of_seq(sorted(frozenset(EXTENSION_ROWS.keys()) & frozenset(propagate.get_global_textmap().fields)))
 
 
 class Announced(Struct, frozen=True, gc=False):
-    # what the mint PROVED, never what it did: the composite every dedup reads, the measured lag, the peer names the
-    # roster ignored. Receipt semantics stay the producing surface's.
     composite: Uniqueness
     lag: float
     ignored: Block[str]
 
 
 class MessageEnvelope(Struct, frozen=True, gc=False):
-    # canonical owner. Opaque `Raw` bytes and a generated protobuf `Message` are the complete payload union, preserving
-    # the publisher data arm without a local payload wrapper. `extensions` is the GENERATED corpus message, one fresh
-    # instance per envelope because a generated class is mutable and a shared default would alias every mint.
     event_type: EventType
     source: Source
     operation: OperationId
@@ -373,9 +315,6 @@ class MessageEnvelope(Struct, frozen=True, gc=False):
     extensions: Extensions = field(default_factory=Extensions)
 
     def attributes(self) -> Attributes:
-        # a FRESH mapping per call: `CloudEvent.__init__` writes its `specversion`/`id`/`time` defaults INTO the
-        # mapping it is handed and `get_attributes()` returns that same live dict, so a retained caller mapping is
-        # mutated behind its owner. Every default is already present here, so none of the package's ever fires.
         core: Attributes = {
             "specversion": SPECVERSION_V1_0,
             "id": self.operation.value,
@@ -391,9 +330,6 @@ class MessageEnvelope(Struct, frozen=True, gc=False):
         return core | {key: held for key, value in optional.items() for held in value.to_list()} | dict(rendered(self.extensions))
 
     def event(self) -> RuntimeRail[CloudEvent]:
-        # ONE mint boundary. `CloudEventValidationError.errors` is `dict[attribute, list[exception]]`, so every
-        # finding becomes its own fault and `ACCUMULATE` reduces them onto the aggregate — a caller repairs the whole
-        # attribute set in one pass, which is exactly what the aggregating constructor exists for.
         return _profiled(self.event_type, self.source).bind(lambda _: _schema(self.data_schema)).bind(
             lambda _: boundary(
                 EVENT_EXTENSION,
@@ -405,9 +341,6 @@ class MessageEnvelope(Struct, frozen=True, gc=False):
     @classmethod
     @effect.result[tuple[Self, Block[str]], BoundaryFault]()
     def decoded(cls, event: BaseCloudEvent, /) -> RuntimeRail[tuple[Self, Block[str]]]:
-        # inverse of `announce` over a decoded event, answering the owner BESIDE the peer extension names the
-        # roster ignored — an unknown or over-length name never sheds the fact it rode in on, and the ignored set is
-        # decode evidence rather than a silent drop; the roster half rides `admitted` below.
         attributes = event.get_attributes()
         extensions, ignored = admitted(attributes)
         event_type = yield from EventType.parse(event.get_type())
@@ -435,17 +368,10 @@ class MessageEnvelope(Struct, frozen=True, gc=False):
 
 
 def rendered(extensions: Extensions) -> Map[str, object]:
-    # ONE fold over the row table, keyed by the generated `local_name` that IS the wire name, so no projection spells a
-    # wire name at all; an unset column contributes no key, because an empty-string value identifies an extension a
-    # filter matches and nobody fills. `sequence` already carries its complete D20 wire value and needs no companion.
     return Map.of_seq((name, row.render(getattr(extensions, name))) for name, row in EXTENSION_ROWS.items() if extensions.has_field(name))
 
 
 def admitted(attributes: Mapping[str, object]) -> tuple[RuntimeRail[Extensions], Block[str]]:
-    # the inverse fold: every rostered name present in the inbound attributes admits through its row's codec onto the
-    # generated message — the refusals ACCUMULATE, so a peer repairs every malformed extension in one pass — and every
-    # non-core name the roster does not hold, or one past the specification's twenty-character ceiling, lands in the
-    # ignored set as decode evidence rather than a whole-message fault.
     rostered = Block.of_seq((name, _admitted(row, attributes[name])) for name, row in EXTENSION_ROWS.items() if name in attributes)
     ignored = Block.of_seq(sorted(name for name in attributes if name not in EXTENSION_ROWS and name not in CORE_ATTRIBUTES))
     lifted = traversed(rostered.map(lambda cell: cell[1].map(lambda value: (cell[0], value))), by=Disposition.ACCUMULATE)
@@ -465,9 +391,6 @@ def _validated(extensions: Extensions, /) -> Extensions:
 
 
 def _renderable(extensions: Extensions, /) -> RuntimeRail[Extensions]:
-    # Corpus validation proves the generated field domain; CloudEvents may be narrower. Its abstract integer and the
-    # publisher protobuf/Avro arms are signed 32-bit while a source field may be unsigned, so every present value
-    # re-enters its CloudEvents codec before any format is selected.
     cells = Block.of_seq(
         boundary(
             EVENT_EXTENSION,
@@ -543,8 +466,6 @@ def _absolute(raw: str, name: str = "dataschema", /) -> RuntimeRail[str]:
 
 
 def _event(attributes: dict[str, Any], data: object, /) -> CloudEvent:
-    # `CloudEvent` validates attributes and retains data untouched, but the package's public factory annotation omits
-    # generated `Message` and the publisher Avro union. The runtime behavior is widened exactly once at this call.
     factory = cast(Callable[[dict[str, Any], object], CloudEvent], CloudEvent)
     return factory(attributes, data)
 
@@ -591,9 +512,6 @@ def _strict(event: BaseCloudEvent, /) -> RuntimeRail[CloudEvent]:
 
 
 def creation(extensions: Extensions) -> Correlation:
-    # CREATION-time trace: `Correlation.seed` is admission's own adoption fold — the `is_valid` gate over both id
-    # bands, the `is_remote` evidence, the fall-through to `mint()` — composed over the W3C subset of the generated
-    # roster. The hop's own carrier is the binding's and never enters here.
     carrier = rendered(extensions)
     trace: dict[str, str] = {}
     for slot in TRACE_SLOTS:
@@ -669,7 +587,6 @@ type Payload = Message | dict[str, Any] | str | bytes | None
 
 STRUCTURED_STEM: Final[str] = "application/cloudevents+"
 BATCH_STEM: Final[str] = "application/cloudevents-batch+"
-# the four attributes the vendored envelope carries as its OWN fields; every other attribute rides the `attributes` map.
 _ENVELOPE_FIELDS: Final[frozenset[str]] = frozenset({"id", "source", "specversion", "type"})
 _AVRO_RESOURCE: Final[str] = "vendor/io/cloudevents/v1/cloudevents.avsc"
 _FORMAT_RAISES: Final[Catch] = (
@@ -689,17 +606,12 @@ _FORMAT_RAISES: Final[Catch] = (
 
 
 class Content(StrEnum):
-    # content modes the specification fixes: BINARY splits attributes onto the binding's own headers while the payload
-    # rides the body, STRUCTURED puts the whole message envelope in one body, BATCH frames a sequence under the batch stem.
-    # `transport/binding#BINDING` rows declare which of the three each protocol holds.
     BINARY = "binary"
     STRUCTURED = "structured"
     BATCH = "batch"
 
 
 class PayloadArm(StrEnum):
-    # the sealed MessageEnvelope payload union projected as format capability data. Opaque bytes are interoperable
-    # across all three rows; a generated Message has a standard structured representation only on protobuf through Any.
     OPAQUE = "opaque"
     MESSAGE = "message"
 
@@ -707,9 +619,6 @@ class PayloadArm(StrEnum):
 
 
 class FormatRow(Struct, frozen=True, gc=False):
-    # one row per structured event format. `codec` implements the package protocol whole; `batch_codec` is present only
-    # where the specification publishes a batch representation. Binary mode is a PROTOCOL-BINDING shape and therefore
-    # does not select a structured event-format suffix at all.
     suffix: Suffix
     codec: Format
     batch_codec: Option["BatchCodec"]
@@ -735,42 +644,25 @@ class MediaType(Struct, frozen=True, gc=False):
 
 
 class BatchCodec(Struct, frozen=True, gc=False):
-    # two realized implementations bind here: JSON's array of structured event objects and the publisher's generated
-    # CloudEventBatch. Callables keep the row data-driven without a declaration-only protocol or a type switch.
     write: Callable[[Block[BaseCloudEvent]], bytes]
     read: Callable[[bytes], Block[BaseCloudEvent]]
     raises: Catch
 
 
 class ProtobufFormat(Format):
-    # the VENDORED `io.cloudevents.v1.CloudEvent` is the structured envelope and `CloudEventBatch` the batch body — both
-    # generated, committed, and byte-compatible with every peer's CloudEvents proto binding — so `write` is a field fold
-    # onto the generated class plus `to_binary`, `read` is `from_binary` plus the inverse fold, and the `data` oneof
-    # elects the content mode. No branch-authored framing, no second schema, no descriptor registry of its own.
     def read(self, event_factory: EventFactory | None, data: str | bytes) -> BaseCloudEvent:
-        # `from_binary` raises `ValueError` on a malformed body, the one class the protocol documents; the caller's
-        # `Decode.railed` fence names it. The factory fall-through is REFUSED: an absent factory binds `CloudEvent` 1.0
-        # explicitly, and a foreign `specversion` then fails that class's own required-attribute gate.
         wire = cloudevents_pb.CloudEvent.from_binary(data if isinstance(data, bytes) else data.encode())
         if event_factory is not None and event_factory is not CloudEvent:
             raise ValueError("protobuf format binds core.v1.event.CloudEvent")
-        # The distribution's `EventFactory` annotation omits generated messages although `CloudEvent.__init__`
-        # validates only attributes and stores data untouched. `_event` is the one proven package seam widening that
-        # callable for singular, batch, and Avro reads without introducing a second payload carrier.
         return _event(_attributes(wire), _payload(wire))
 
     def write(self, event: BaseCloudEvent) -> bytes:
         return _wired(event).to_binary()
 
     def write_data(self, data: Payload, datacontenttype: str | None) -> bytes:
-        # binary-mode payload lowering: octets and text pass as themselves, a JSON-shaped mapping encodes once, and a
-        # generated message lowers through its generated binary encoder — `proto_data` remains the STRUCTURED election.
         return _payload_bytes(data)
 
     def read_data(self, body: bytes, datacontenttype: str | None) -> Payload:
-        # the inverse keeps octets opaque: a consumer resolves a `proto_data` body through the packed `Any.type_url`
-        # and separately configured descriptor registry, while a JSON body crosses its own row, so this member never
-        # overloads `dataschema` or guesses a shape.
         return body
 
     def get_content_type(self) -> str:
@@ -790,8 +682,6 @@ class ProtobufFormat(Format):
 
 @dataclass(frozen=True, slots=True)
 class AvroFormat(Format):
-    # `schema` is the parsed exact publisher asset, bound once from rasm.contracts. It is the EVENT schema, not an
-    # application payload schema and not a registry-id frame. No hand transcription or tests/ runtime path exists.
     _schema: DictSchema
 
     def read(self, event_factory: EventFactory | None, data: str | bytes) -> BaseCloudEvent:
@@ -822,8 +712,6 @@ class AvroFormat(Format):
         return target.getvalue()
 
     def write_data(self, data: Payload, datacontenttype: str | None) -> bytes:
-        # Format's payload pair is an SDK binding mechanism, not an Avro event-format capability. Rasm binary mode
-        # carries the sealed payload directly and never selects this structured format by suffix.
         return _payload_bytes(data)
 
     def read_data(self, body: bytes, datacontenttype: str | None) -> Payload:
@@ -839,15 +727,11 @@ class Encoded(Struct, frozen=True, gc=False):
 
 
 class Decoded(Struct, frozen=True, gc=False):
-    # Rasm-profile admission evidence only. The generic format decoder answers package CloudEvent values first; the
-    # profile then retains opaque bytes or a generated Message, including an Any with its type_url intact.
     events: Block[MessageEnvelope]
     ignored: Block[str]
 
 
 class EventFormat(Struct, frozen=True, gc=False):
-    # concrete composition-bound owner. Rows are instance state because Avro carries a parsed exact publisher schema;
-    # no global codec singleton, identity Frame default, or declaration-only Protocol remains.
     rows: Map[Suffix, FormatRow]
 
     @classmethod
@@ -876,8 +760,6 @@ class EventFormat(Struct, frozen=True, gc=False):
     def write(
         self, value: BaseCloudEvent | Block[BaseCloudEvent], /, *, suffix: Suffix
     ) -> RuntimeRail[Encoded]:
-        # Generic producer entry: remint through the strict v1 owner so a BaseCloudEvent implementation cannot bypass
-        # source/dataschema admission or the package's aggregate attribute validation.
         return self._row(suffix, "structured").bind(
             lambda row: _strict_events(value).bind(lambda admitted: self._written(row, admitted))
         )
@@ -890,26 +772,18 @@ class EventFormat(Struct, frozen=True, gc=False):
         )
 
     def admit(self, events: Block[BaseCloudEvent], /) -> RuntimeRail[Decoded]:
-        # Profile admission is explicit and later than format decoding. Generic CloudEvents consumers can inspect a
-        # generated Any and its type_url directly; a Rasm broker lane composes this gate before routing.
         return _admitted_events(events)
 
     def admitted(self, event: BaseCloudEvent, /) -> RuntimeRail[Decoded]:
         return self.admit(Block.singleton(event))
 
     def codec(self, suffix: Suffix, envelope: MessageEnvelope, /) -> RuntimeRail[Format]:
-        # Protocol bindings such as Kafka own carrier-only behavior (including their key mapper) while this instance
-        # remains the one codec registry. Lookup admits the selected row's payload arm before the binding can mint or
-        # invoke that codec, preventing an SDK carrier from bypassing the same capability gate `encode` composes.
         return self._row(suffix, "structured").bind(
             lambda row: self._payloads(row, envelope).map(lambda _: row.codec)
         )
 
     @property
     def payload_codec(self) -> Format:
-        # SDK binary-binding mechanism only: the protobuf row passes opaque bytes unchanged and lowers a generated
-        # Message through its generated binary encoder. Reads remain bytes because binary mode carries no Any type_url;
-        # application admission resolves its independent dataschema/datacontenttype coordinate later.
         return self.rows["protobuf"].codec
 
     def _decoded(self, row: FormatRow, batch: bool, body: bytes, /) -> RuntimeRail[Block[BaseCloudEvent]]:
@@ -995,8 +869,6 @@ class EventFormat(Struct, frozen=True, gc=False):
 
 
 def parse_media(raw: str, /) -> MediaType:
-    # The standard-library header registry owns MIME token/quoted-string parsing and records every malformed
-    # parameter tail as a defect. Rejecting those defects prevents a valid-looking stem from masking invalid syntax.
     if not raw or "\r" in raw or "\n" in raw:
         raise ValueError("invalid media type")
     parsed = HeaderParser(policy=policy.default).parsestr(f"Content-Type: {raw}\n\n")
@@ -1058,8 +930,6 @@ def _format_rows(schema: DictSchema, /) -> Map[Suffix, FormatRow]:
 
 
 def _json_batch_write(codec: JSONFormat, events: Block[BaseCloudEvent], /) -> bytes:
-    # Every member is already the package's conforming JSON event object. Joining those complete values under one array
-    # preserves Raw payload bytes and avoids a parse/re-encode pass that can respell numbers.
     return b"[" + b",".join(codec.write(event) for event in events) + b"]"
 
 
@@ -1118,9 +988,6 @@ def _avro_attribute(value: object, /) -> bool | int | str | bytes:
 
 
 def _avro_data_encode(value: object, /) -> object:
-    # The publisher asset's data union is complete here: scalars cross directly, object fields use its recursive
-    # AvroCloudEventData wrapper, and its array arm contains record objects. Generated Message has no such union arm
-    # and refuses rather than being packed into a branch-authored wrapper.
     match value:
         case bytes() | bytearray():
             return bytes(value)
@@ -1207,10 +1074,6 @@ def _avro_value(value: object, /) -> dict[object, object]:
 
 
 def _attribute(name: str, value: object) -> cloudevents_pb.CloudEvent.CloudEventAttributeValue:
-    # attribute value onto the vendored oneof BY TYPE, so nothing stringifies: the arms are the specification's own
-    # attribute types and the inverse reads the arm back. A generated extension's codec owns its precise arm; the
-    # `dataschema` core attribute is URI, and unknown extension values retain their abstract type. `bool` precedes
-    # `int` because it subclasses it.
     if name in EXTENSION_ROWS:
         return _rostered_attribute(EXTENSION_ROWS[name], value)
     if name == "dataschema" and isinstance(value, str):
@@ -1257,10 +1120,6 @@ def _rostered_attribute(
 
 
 def _wired(event: BaseCloudEvent) -> cloudevents_pb.CloudEvent:
-    # the structured envelope off the package event: the four envelope fields by name, every other attribute typed
-    # onto the map, and the payload elected on the `data` oneof — a generated message packs as `Any`, octets ride
-    # `binary_data`, and text rides `text_data`; a JSON mapping refuses because this publisher format has no JSON-value
-    # arm and spelling it into `text_data` would change its semantic type.
     attributes = dict(event.get_attributes())
     data = None
     match event.get_data():
@@ -1273,8 +1132,6 @@ def _wired(event: BaseCloudEvent) -> cloudevents_pb.CloudEvent:
         case str() as text:
             data = Oneof("text_data", text)
         case dict():
-            # Protobuf `text_data` is TEXT, not a JSON-value carrier. Stringifying a mapping here changes its semantic
-            # type; an application needing generated protobuf data packs its generated message as Any.
             raise TypeError("protobuf structured data must be bytes, text, or a generated message")
         case None:
             data = None
@@ -1295,10 +1152,6 @@ def _wired(event: BaseCloudEvent) -> cloudevents_pb.CloudEvent:
 
 
 def _attributes(wire: cloudevents_pb.CloudEvent) -> dict[str, Any]:
-    # the inverse fold: envelope fields back under their specification names, each mapped attribute read off its
-    # oneof ARM — a `ce_timestamp` lands as the aware `datetime` `CloudEvent` admits for `time`, the rest as the value
-    # the arm holds. `dataschema` crosses only when the producer supplied that independent schema URI; `Any.type_url`
-    # remains on the packed payload and registry configuration remains outside the attribute map.
     mapped = {name: _attribute_value(name, cell) for name, cell in wire.attributes.items()}
     return {"id": wire.id, "source": wire.source, "specversion": wire.spec_version, "type": wire.type} | mapped
 
@@ -1306,9 +1159,6 @@ def _attributes(wire: cloudevents_pb.CloudEvent) -> dict[str, Any]:
 def _attribute_value(
     name: str, cell: cloudevents_pb.CloudEvent.CloudEventAttributeValue, /
 ) -> object:
-    # Protobuf scalar reads answer defaults even when another oneof arm is active. Read the elected arm FIRST and
-    # prove every standard/profile attribute against its exact abstract type before extracting `value`; unknown
-    # generic extensions retain whichever legal CloudEvents arm the producer supplied.
     arm = cell.attr
     if arm is None:
         raise ValueError(f"{name}:unset-attribute-arm")
@@ -1336,8 +1186,6 @@ def _attribute_value(
 
 
 def _payload(wire: cloudevents_pb.CloudEvent) -> Payload:
-    # the payload off the elected arm: a packed message remains the generated `Any` carrying its own `type_url`, which
-    # the consumer resolves through separately configured registry state — octets and text as themselves, no arm as `None`.
     match wire.data:
         case None:
             return None

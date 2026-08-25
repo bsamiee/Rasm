@@ -18,7 +18,7 @@ Layout members ride `System.Numerics.Tensors`; `TensorDtype`/`TensorReason` arri
 - Boundary: `ReshapeOp<T>` is generic, so `Concatenate`/`Stack` carry same-typed `ImmutableArray<Tensor<T>>` operands feeding the variadic `ConcatenateOnDimension`/`StackAlongDimension` `params ReadOnlySpan<Tensor<T>>` directly; a float-locked `Tensor<float>[]` payload with runtime `Cast<Tensor<T>>` is rejected. Every extent, axis, and range payload is `ImmutableArray` under `[Equatable]`/`[OrderedEquality]`, so an admitted request is a VALUE: a caller-owned `nint[]` left the proof `PadLengths`/`Broadcastable`/`AxisPermutation.Admit` had just paid for void the instant the caller wrote to it, and eight reference-compared cases missed every plan-cache probe. `AxisPermutation` publishes the same `ImmutableArray<int>` its bijection proof narrowed. Destination capability is a TYPE, not a refusal: the destination entrypoint takes `DestinationOp<T>`, so a permute or a pad against a caller destination is unrepresentable rather than fourteen arms re-spelling their own case names as string literals. Aliasing is a column: `ReshapeOp<T>.Storage` answers `StorageClass` from the same total `Switch` the apply reads, so a caller asks whether a result aliases its buffer instead of reading a Boundary sentence. Every arm admits its structural invariant before the host call so `Fin<T>` carries `ComputeFault.TensorRejected`: `AxisPermutation.Admit` proves a bijection over `0..rank-1`; `Reshaped` accumulates its four independent wildcard facts through `Validation` and compares an overflow-free `BigInteger` product with `FlattenedLength`; `Broadcastable` checks right-aligned compatibility span-wise; `SplitEven` checks axis divisibility; `Axis` bounds dimensions; `Transpose` requires rank ≥ 2; `SqueezeDimension` requires a unit axis; `PositiveLengths` is the ONE positive-extent oracle both `Resize` forms take a symbol argument to. `Reform` also rejects duplicate axis labels before deriving nchw→nhwc `[0,2,3,1]` or nhwc→nchw `[0,3,1,2]`. `Pad` captures checked extent addition, materializes `CreateFromShape`, and copies the source into the interior slice. `Roll` normalizes the shift modulo the axis extent and concatenates complementary slices. `Reshape` admits zero extents and rejects only an extent below its one `-1` wildcard, `Resize` requires positive extents, and `Slice` captures `NRange.GetOffsetAndLength` and hands back the RANGES IT OWNS. `Split`'s dimension is `nint` because `Tensor.Split(ReadOnlyTensorSpan<T>, int, nint)` declares it so and an `int` plumbing widened implicitly. Join compatibility carries its exempt axis as `Option<int>` and reads the `ReshapeOp` case that already discriminates concatenate from stack, never a `bool stack` knob beside a `-1` sentinel spelling one fact twice. Shape oracles walk spans directly — `TensorPrimitives.Product`, `MemoryExtensions.SequenceEqual`, and index loops — because five `.ToArray()` lifts per shape check bought LINQ five heap allocations on the admission path. Gather, scatter, and take-along-axis read or write by index value and remain `Tensor/dispatch#KERNEL_DISPATCH` structural operations. `Permute`/`Transpose`/`Squeeze`/`Unsqueeze`/`Slice`/`Reverse` are `StorageClass.Shared`; `Concatenate`/`Stack`/`Pad`/`Write` and the plural `Split` are `StorageClass.Materialized`; `Reshape`/`Flatten`/`Densify`/`Roll` are `SourceDependent` — the first three because a strided or broadcast source materializes through `ToDenseTensor` while a dense one re-windows in place (`Contiguity.Reshapeable` holds on the dense row alone), and `Roll` because a normalized shift of zero returns the source untouched. `Flatten` folds a dimension range through `Reshape`, distinct from `Tensor<T>.FlattenTo(Span<T>)`. `Contiguity.Classify` reads `Tensor<T>.IsDense` and zero strides. Region writes remain dispatch-owned.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -41,10 +41,6 @@ public sealed partial class LayoutForm {
             : TensorReason.RowMissing.Fail<ImmutableArray<int>>("incompatible-forms", $"{Key}->{target.Key}");
 }
 
-// Aliasing is the fact a caller cannot recover from the verb name: `Shared` returns a view over the source
-// buffer, `Materialized` returns an independent allocation, and `SourceDependent` decides from the operand's own
-// `Contiguity` (a dense reshape re-windows, a strided one densifies; a roll at normalized shift zero returns the
-// source untouched). A caller holding the source and the result needs this before it writes to either.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -58,10 +54,6 @@ public sealed partial class StorageClass {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Contiguity {
-    // `Reshapeable` is the SHARE-STORAGE column, not a legality column: a zero-stride axis addresses fewer stored
-    // elements than its logical volume, so a broadcast view carries no strided re-length and materializes through
-    // `ToDenseTensor` exactly as a strided one does. The host catalogue proves `Reshape` only over the flattened
-    // count, never over a zero-stride source, so dense is the one row that re-windows in place.
     public static readonly Contiguity Dense = new("dense", reshapeable: true);
     public static readonly Contiguity Strided = new("strided", reshapeable: false);
     public static readonly Contiguity Broadcast = new("broadcast", reshapeable: false);
@@ -72,11 +64,6 @@ public sealed partial class Contiguity {
         tensor.IsDense ? Dense : tensor.Strides.Contains((nint)0) ? Broadcast : Strided;
 }
 
-// The two verbs the host serves against a CALLER destination — `Tensor.TryBroadcastTo` and `Tensor.ResizeTo`
-// are the only caller-destination writes `System.Numerics.Tensors` exposes. Seating them as their own union
-// makes the destination entrypoint's argument type the capability: a permute against a destination does not
-// compile, where the prior fourteen `DestinationForm("<case-name>")` arms refused it at run time and re-spelled
-// each case name as a string literal to do it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DestinationOp<T> {
     private DestinationOp() { }
@@ -87,10 +74,6 @@ public abstract partial record DestinationOp<T> {
     public sealed partial record Resize([property: OrderedEquality] ImmutableArray<nint> Lengths) : DestinationOp<T>;
 }
 
-// Every extent, axis, and range payload is an `ImmutableArray` under `[Equatable]`: a request is a VALUE a plan
-// cache keys on, and a caller-owned array both reference-compares (missing every cache probe) and stays writable
-// after the admission gate proved it. Tensor operands compare by reference because a tensor IS its buffer
-// identity — two tensors over the same shape are not the same operand.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReshapeOp<T> {
     private ReshapeOp() { }
@@ -126,14 +109,12 @@ public abstract partial record ReshapeOp<T> {
         pad: static _ => StorageClass.Materialized, write: static _ => StorageClass.Materialized);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AxisPermutation {
     private AxisPermutation(ImmutableArray<int> axes) => Axes = axes;
 
     public ImmutableArray<int> Axes { get; }
 
-    // The host checks NEITHER half: length == rank AND every value 0..rank-1 present is the whole bijection
-    // proof, and it publishes as the immutable array it narrowed rather than the caller's live buffer.
     public static Fin<AxisPermutation> Admit(ReadOnlySpan<int> axes, int rank) {
         ImmutableArray<int> order = [.. axes];
         return order.Length == rank && Enumerable.Range(0, rank).All(i => order.Contains(i))
@@ -142,15 +123,13 @@ public readonly record struct AxisPermutation {
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TensorLayout {
     public static Fin<Tensor<T>> Reform<T>(Tensor<T> source, LayoutForm origin, LayoutForm target) where T : unmanaged =>
         source.Rank != origin.Rank
             ? TensorReason.ShapeMismatch.Fail<Tensor<T>>("reform-rank", $"{origin.Key}:{source.Rank}")
             : origin.AxisMap(target).Bind(axes => AxisPermutation.Admit(axes.AsSpan(), origin.Rank)).Map(p => Tensor.PermuteDimensions(source, p.Axes.AsSpan()));
 
-    // Every arm answers exactly ONE tensor, so the return rail states the arity the case family guarantees; the
-    // prior `Fin<Seq<Tensor<T>>>` made fifteen callers unwrap a sequence whose length only a lead sentence bound.
     public static Fin<Tensor<T>> Apply<T>(Tensor<T> source, ReshapeOp<T> op) where T : unmanaged =>
         op.Switch<Fin<Tensor<T>>>(
             permute: p => AxisPermutation.Admit(p.Axes.AsSpan(), source.Rank).Map(perm => Tensor.PermuteDimensions(source, perm.Axes.AsSpan())),
@@ -174,27 +153,20 @@ public static class TensorLayout {
             roll: r => Axis(r.Dimension, source.Rank).Map(axis => Rolled(source, r.Shift, axis)),
             write: w => Written(source, w.Form));
 
-    // Destination capability is the ARGUMENT TYPE: the fourteen verbs the host cannot serve against a caller
-    // destination are not refused here, they are unrepresentable here.
     public static Fin<Unit> Apply<T>(Tensor<T> source, DestinationOp<T> op, in TensorSpan<T> destination) where T : unmanaged =>
         op.Switch(
             state: destination,
             broadcast: (target, request) => BroadcastTo(source, request.Lengths.AsSpan(), target),
             resize: (target, request) => ResizeTo(source, request.Lengths.AsSpan(), target));
 
-    // The ONE plural verb: a split spans segments where every `ReshapeOp` case spans one. `Tensor.Split`
-    // declares its dimension `nint`, so the request declares it too rather than widening an `int` at the call.
     public static Fin<Seq<Tensor<T>>> Split<T>(Tensor<T> source, int count, nint dimension) where T : unmanaged =>
         SplitEven(source, count, dimension).Map(_ => toSeq(Tensor.Split(source, count, dimension)));
 
-    // The allocating form of a destination write mints the destination the caller did not bring.
     private static Fin<Tensor<T>> Written<T>(Tensor<T> source, DestinationOp<T> form) where T : unmanaged =>
         form.Switch<Fin<Tensor<T>>>(
             broadcast: b => Broadcastable(source, b.Lengths.AsSpan()).Map(_ => Tensor.Broadcast(source, b.Lengths.AsSpan())),
             resize: z => PositiveLengths(z.Lengths.AsSpan(), "resize-extent").Map(_ => Tensor.Resize(source, z.Lengths.AsSpan())));
 
-    // `Broadcastable` is the one compatibility oracle; this destination form adds only the shape-equality gate
-    // and the host write, so the right-alignment law never forks into a second spelling.
     private static Fin<Unit> BroadcastTo<T>(Tensor<T> source, ReadOnlySpan<nint> lengths, in TensorSpan<T> target) where T : unmanaged {
         if (!target.Lengths.SequenceEqual(lengths)) { return TensorReason.ShapeMismatch.Fail<Unit>("destination-shape", "broadcast"); }
         if (Broadcastable(source, lengths) is { IsFail: true } refused) { return refused; }
@@ -210,8 +182,6 @@ public static class TensorLayout {
         return Fin.Succ(unit);
     }
 
-    // ONE positive-extent oracle carrying its symbol; the destination form re-implementing it verbatim under a
-    // second slug meant a widened extent law held on one path and not the other.
     private static Fin<Unit> PositiveLengths(ReadOnlySpan<nint> lengths, string symbol) {
         foreach (nint extent in lengths) {
             if (extent <= 0) { return symbol.Fail<Unit>(extent.ToString(CultureInfo.InvariantCulture)); }
@@ -219,8 +189,6 @@ public static class TensorLayout {
         return Fin.Succ(unit);
     }
 
-    // `GetOffsetAndLength` is the captured bounds oracle and the admitted ranges are the IMMUTABLE payload it
-    // proved; a caller-owned `NRange[]` handed back voided the proof the moment the caller wrote to it.
     private static Fin<ImmutableArray<NRange>> SliceRanges<T>(Tensor<T> source, ImmutableArray<NRange> ranges) where T : unmanaged =>
         ranges.Length != source.Rank
             ? TensorReason.ShapeMismatch.Fail<ImmutableArray<NRange>>("slice-rank", $"{ranges.Length}!={source.Rank}")
@@ -275,11 +243,6 @@ public static class TensorLayout {
         Validation<Error, Unit> single = wildcards > 1 ? TensorReason.ShapeMismatch.Fault("reshape-wildcard", wildcards.ToString(CultureInfo.InvariantCulture)) : unit;
         BigInteger known = declared.Where(static d => d != -1).Aggregate(BigInteger.One, static (acc, d) => acc * d);
         BigInteger flat = source.FlattenedLength;
-        // Extent floor and wildcard count are INDEPENDENT and accumulate; the product facts sequence behind them
-        // because a below-floor extent makes the product meaningless and a second wildcard makes it unresolvable.
-        // A zero extent is a REPRESENTABLE shape (the empty tensor the ingress lane already admits), so only an
-        // extent below the one `-1` wildcard refuses; a zero extent beside a wildcard drives the known product to
-        // zero and lands `reshape-indivisible`, because no wildcard value resolves against it.
         return (floor, single).Apply(static (_, _) => unit).As().ToFin().Bind(_ =>
             wildcards == 0 && known != flat ? TensorReason.ShapeMismatch.Fail<Tensor<T>>("reshape-product", $"{known}!={flat}")
             : wildcards == 1 && (known == 0 || flat % known != 0) ? TensorReason.ShapeMismatch.Fail<Tensor<T>>("reshape-indivisible", $"{flat}%{known}")
@@ -303,9 +266,6 @@ public static class TensorLayout {
         return Fin.Succ(unit);
     }
 
-    // `exceptAxis` carries BOTH facts the prior `bool stack` + `-1` sentinel pair spelled twice: `None` is stack
-    // (identical shapes, one extra admissible axis position), `Some(axis)` is concatenate (that axis may differ).
-    // The three facts are independent, so they accumulate into one refusal instead of short-circuiting.
     private static Fin<Unit> JoinCompatible<T>(Tensor<T> source, ImmutableArray<Tensor<T>> others, int dimension, Option<int> exceptAxis) where T : unmanaged {
         int rank = source.Rank;
         int upper = exceptAxis.Match(Some: static _ => rank, None: () => rank + 1);

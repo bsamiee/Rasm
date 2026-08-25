@@ -116,8 +116,6 @@ def _receipt(result: TessellationResult) -> TessellateResponse:
 
 
 def _transfer(refusal: ArtifactRefusal) -> BoundaryFault:
-    # `rendered` is the library's own law token for the refusal — the retired `.proof.value` read was a member
-    # `ArtifactError` never carried.
     return SERVE_ARTIFACT.raised(rendered(refusal))
 
 
@@ -144,7 +142,6 @@ class GeometryServe(ComputeService, ArtifactService):
         ctx: RequestContext[TessellateRequest, TessellateResponse],
         /,
     ) -> TessellateResponse:
-        # `ComputeService.Tessellate` binds its payload DIRECTLY: nothing unwraps here and the request reaches the daemon as Connect decoded it.
         _ = ctx
         return ServerHost.settle(await self._tessellate(request, ServerHost.admitted()))
 
@@ -156,7 +153,6 @@ class GeometryServe(ComputeService, ArtifactService):
         /,
     ) -> AsyncIterator[FetchResponse]:
         _ = ctx
-        # `FetchRequest` carries the bare `sha256` coordinate; the single-field envelope it once nested is gone.
         ServerHost.settle(await _served(FETCH_ROUTE, self._composition, Ok(None)))
         try:
             async for response in self._daemon.repository.opened(request.sha256, fetch_responses):
@@ -224,8 +220,6 @@ class GeometryServe(ComputeService, ArtifactService):
 
     async def _put(self, request: AsyncIterator[PutRequest]) -> RuntimeRail[ArtifactRef]:
         try:
-            # `receive` yields a `Result` — the frame law's refusal rides the value, never a raise — so the seal
-            # settles onto the rail here and only the stream's own `ArtifactError` crosses as an exception.
             async with receive(put_frames(request)) as sealed:
                 match sealed:
                     case Result(tag="ok", ok=owned):

@@ -32,37 +32,28 @@ using FlowtideDotNet.Substrait.Relations;
 using FlowtideDotNet.Substrait.Type;
 using LanguageExt;
 using NodaTime;
-using Rasm.Domain;                                // QuantileRule — the quantile convention a residence answers
-using Rasm.Persistence.Element;                   // ProjectionContext — the ruled time-and-causal frame
+using Rasm.Domain;
+using Rasm.Persistence.Element;
 using System.Collections.Frozen;
 using System.Globalization;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Read SCOPE, distinct from read SHAPE: the tenant arrives on the frame and the window arrives here, so a Substrait
-// plan carries filters, projections, and folds alone and never the two coordinates every residence prunes on.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct ResidenceWindow(Instant From, Instant Until);
 
-// ONE read scope every entry on this plane takes: residence, schema, window, and frame always travel together, so a
-// new coordinate widens one value rather than every signature. The lowering reads it as its visitor state and the
-// read reads it as its scope, which keeps `Lower` and `Read` from drifting on what a scan is bounded by.
 public sealed record ResidenceScope(Residence Residence, AnalyticsSchema Schema, ResidenceWindow Window, ProjectionContext Frame) {
     public Fin<string> Column(int ordinal) =>
         ordinal >= 0 && ordinal < Schema.Columns.Count
             ? Fin.Succ(Residence.Quote(Schema.Columns[ordinal].Name))
             : Fin.Fail<string>(new ResidenceFault.Unlowerable(Residence.Key, $"<field-ordinal:{ordinal}>"));
 
-    // Tenant predicate beside the half-open window, both in the residence's own literal dialect: the leading sort-key
-    // column prunes to one tenant's granules and the trailing time column prunes the window.
     public string Scope =>
         $"{Residence.Partition(Frame.Tenant)} AND {Residence.Quote(Schema.Time)} >= {Residence.Moment(Window.From)}"
         + $" AND {Residence.Quote(Schema.Time)} < {Residence.Moment(Window.Until)}";
 }
 
-// What a caller NAMES when it asks for a figure. The builder resolves each against the declared roster and mints the
-// Substrait node, so no consuming page assembles a relation, spells an extension name, or writes a fold's text.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ResidenceFold {
     private ResidenceFold() { }
@@ -71,17 +62,12 @@ public abstract partial record ResidenceFold {
     public sealed record Bucket(Identifier Column, Duration Grain) : ResidenceFold;
     public sealed record Quantile(Identifier Column, double Fraction, QuantileRule Rule) : ResidenceFold;
     public sealed record Weighted(Identifier Column) : ResidenceFold;
-    // Two accessor folds name NO column: weight and sketch are the provisioning arm's own materialised
-    // state, so they read off that owner's declaration and never enter a dataset's column roster, where a producer
-    // would have to declare a physical type the neutral vocabulary carries no token for.
     public sealed record Mean : ResidenceFold;
     public sealed record Tail(double Fraction, QuantileRule Rule) : ResidenceFold;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope> {
-    // Comparison and arithmetic extension names are consts on the shipped catalogs, so a renamed upstream function
-    // breaks the build rather than silently lowering to a spelling no backend resolves.
     static readonly FrozenDictionary<string, string> Operators =
         new Dictionary<string, string>(StringComparer.Ordinal) {
             [FunctionsComparison.Equal] = "=", [FunctionsComparison.NotEqual] = "<>",
@@ -91,8 +77,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
             [FunctionsArithmetic.Multiply] = "*", [FunctionsArithmetic.Divide] = "/",
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // Null tests are POSTFIX rows on the same table discipline the infix glyphs ride, so the two shapes are two
-    // rosters and one arm each rather than a per-function arm accreting down the switch.
     static readonly FrozenDictionary<string, string> Postfixes =
         new Dictionary<string, string>(StringComparer.Ordinal) {
             [FunctionsComparison.IsNull] = "IS NULL", [FunctionsComparison.IsNotNull] = "IS NOT NULL",
@@ -106,10 +90,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
     // --- [RESIDENCE_FOLDS]
-    // Residence folds name what the shipped catalogs cannot, because each carries an ARGUMENT no bare aggregate over a column
-    // carries: a bucket its grain, a quantile its fraction, a weighted mean its interval rule, an accessor the
-    // materialised state it reads. Each rides this custodian's own extension URI and lowers through the owner that
-    // spells it, so no consuming page writes the text and no upstream name is squatted.
     public const string ResidenceUri = "https://rasm.dev/substrait/residence.yaml";
     public const string BucketFold = "time_bucket";
     public const string QuantileFold = "quantile";
@@ -124,14 +104,8 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
                 .Map(held => state.Residence.Bucket(held.Column, Duration.FromSeconds(held.Magnitude))),
             [QuantileFold] = static (arguments, state) => Graded(arguments, state, QuantileFold)
                 .Map(held => state.Residence.Quantile(held.Column, held.Magnitude)),
-            // Content keys compare through the residence's own LITERAL spelling for the same reason a tenant does: its
-            // physical form differs per engine and a quoted hex text against a `bytea` or a `FixedString(16)`
-            // matches nothing and raises nothing, which is why the key row carries no Substrait literal at all.
             [KeyFold] = static (arguments, state) => Keyed(arguments, state)
                 .Map(held => $"({held.Column} = {state.Residence.Literal(held.Hex)})"),
-            // Toolkit folds read state only a provisioning arm that materialises the summary produces. `SeriesResidence`
-            // is the one arm emitting a continuous aggregate, so the guard names that owner rather than a residence key
-            // — and a residence gaining its own summary earns these folds by publishing that arm, not by an arm added here.
             [WeightFold] = static (arguments, state) => Toolkit(arguments, state, WeightFold).Bind(column =>
                 Summarised(state, WeightFold).Map(_ =>
                     $"average(time_weight('linear', {state.Residence.Quote(state.Schema.Time)}, {column}))")),
@@ -143,20 +117,14 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
                     $"approx_percentile({fraction.ToString("0.####", CultureInfo.InvariantCulture)}, {state.Residence.Quote(SeriesResidence.Sketch)})")),
         }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // Guarded entry: every arm recurses through `Visit`, never `Accept`, so the admitted-relation test runs once per
-    // node and an unadmitted kind never reaches the base arm that throws.
     public override Fin<string> Visit(Relation relation, ResidenceScope state) =>
         relation is ReadRelation or FilterRelation or ProjectRelation or AggregateRelation or SortRelation or FetchRelation or TopNRelation or RootRelation
             ? base.Visit(relation, state)
             : Fin.Fail<string>(new ResidenceFault.Unlowerable(state.Residence.Key, relation.GetType().Name));
 
-    // Reads are tenant-scoped and window-bounded: this arm takes both coordinates off the frame, so no filter is ever the
-    // only thing separating tenants and a plan missing its window cannot fall through to a full-history scan.
     public override Fin<string> VisitReadRelation(ReadRelation readRelation, ResidenceScope state) =>
         Named(readRelation, state).Map(relation => $"SELECT * FROM {relation} WHERE {state.Scope}");
 
-    // Every plan names the relation it reads on its OWN table, not the schema's: a rollup read and a raw read differ
-    // by relation while sharing every other coordinate, so a builder naming one is not a second lowering.
     static Fin<string> Named(ReadRelation readRelation, ResidenceScope state) =>
         toSeq(readRelation.NamedTable?.Names ?? []).Last.Match(
             Some: name => Identifier.Validate(name, null, out Identifier admitted) is { } fault
@@ -169,9 +137,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
         from where in Predicate(filterRelation.Condition, state)
         select $"SELECT * FROM ({inner}) AS leg WHERE {where}";
 
-    // Emitted columns carry POSITIONAL slot aliases, because a lowered fold is an expression with no name of its own
-    // and an outer relation addressing it by the declared name would name a column the inner leg never emitted. The
-    // root then renames each slot to the caller's declared name, so declaration order stays the reader's ordinal order.
     public override Fin<string> VisitProjectRelation(ProjectRelation projectRelation, ResidenceScope state) =>
         from inner in Visit(projectRelation.Input, state)
         from columns in toSeq(projectRelation.Expressions).TraverseM(expression => Predicate(expression, state)).As()
@@ -180,8 +145,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
     static string Slot(int ordinal) => $"c{ordinal.ToString(CultureInfo.InvariantCulture)}";
     static string Slotted(Seq<string> parts) => string.Join(", ", parts.Map(static (part, index) => $"{part} AS {Slot(index)}"));
 
-    // Grouping keys thread DOWN into the fold, so a windowed aggregate re-buckets at the caller's grain rather than
-    // silently answering the residence's own storage grain.
     public override Fin<string> VisitAggregateRelation(AggregateRelation aggregateRelation, ResidenceScope state) =>
         from inner in Visit(aggregateRelation.Input, state)
         from keys in toSeq(aggregateRelation.Groupings ?? []).Bind(static grouping => toSeq(grouping.GroupingExpressions))
@@ -191,8 +154,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
             ? $"SELECT {Slotted(folds)} FROM ({inner}) AS leg"
             : $"SELECT {Slotted(keys + folds)} FROM ({inner}) AS leg GROUP BY {string.Join(", ", keys)}";
 
-    // Ordering resolves against whatever its input EMITS: over a slot-aliased leg a field reference addresses the slot,
-    // and over a passthrough leg it addresses the declared column — one test at the site the input is known.
     public override Fin<string> VisitSortRelation(SortRelation sortRelation, ResidenceScope state) =>
         from inner in Visit(sortRelation.Input, state)
         from order in toSeq(sortRelation.Sorts)
@@ -211,15 +172,11 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
         from bound in Bounded(topNRelation.Count, topNRelation.Offset, state)
         select $"SELECT * FROM ({inner}) AS leg ORDER BY {string.Join(", ", order)} {bound}";
 
-    // ONE bound fragment both fetch-shaped arms render: a negative count or offset is a plan every dialect answers
-    // differently — PostgreSQL and ClickHouse raise, DuckDB coerces — so it refuses typed at lowering.
     static Fin<string> Bounded(int count, int offset, ResidenceScope state) =>
         count >= 0 && offset >= 0
             ? Fin.Succ($"LIMIT {count} OFFSET {offset}")
             : Fin.Fail<string>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<fetch-bounds:{count}:{offset}>"));
 
-    // Root relations name the output columns, so the caller's shape reader binds by ordinal against a projection the
-    // plan declared rather than against whatever the innermost leg happened to emit.
     public override Fin<string> VisitRootRelation(RootRelation rootRelation, ResidenceScope state) =>
         from inner in Visit(rootRelation.Input, state)
         from names in toSeq(rootRelation.Names).TraverseM(name =>
@@ -229,9 +186,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
         select $"SELECT {string.Join(", ", names.Map(static (name, index) => $"{Slot(index)} AS {name}"))} FROM ({inner}) AS root";
 
     // --- [EXPRESSIONS]
-    // Field references resolve through the admitted schema by ordinal, literals render in their own invariant form,
-    // and a function resolves through the operator table or this custodian's own residence roster — an unmapped
-    // extension name is a typed refusal, never a spelled fallback the backend rejects at parse time.
     static Fin<string> Predicate(Expression expression, ResidenceScope state) => expression switch {
         DirectFieldReference { ReferenceSegment: StructReferenceSegment segment } =>
             state.Column(segment.Field),
@@ -252,8 +206,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
         _ => Fin.Fail<string>(new ResidenceFault.Unlowerable(state.Residence.Key, expression.GetType().Name)),
     };
 
-    // Aggregate measures read the SAME two rosters the scalar arm reads, so a fold usable as a projected accessor and the
-    // same fold usable under a `GROUP BY` are one row rather than two tables that drift.
     static Fin<string> Fold(AggregateMeasure measure, ResidenceScope state) =>
         measure.Measure.ExtensionUri == ResidenceUri
             ? Resident(measure.Measure.ExtensionName, toSeq(measure.Measure.Arguments), state)
@@ -267,9 +219,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
             ? render(arguments, state)
             : Fin.Fail<string>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<residence-fold:{name}>"));
 
-    // Arity is proven BEFORE any argument lowers, because the malformed shapes are silent otherwise: a one-argument
-    // comparison renders a bare operand the engine parses as a column, and a zero-argument null test indexes past its
-    // own list and throws straight out of the `Fin` fold the lowering exists to carry.
     static Fin<string> Unarity(string name, int found, int expected, ResidenceScope state) =>
         Fin.Fail<string>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<arity:{name}:{found}:{expected}>"));
 
@@ -283,25 +232,16 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
         });
 
     // --- [FOLD_ARGUMENTS]
-    // Every residence fold's magnitude rides a NUMERIC literal beside its column reference, so the pair proves once here
-    // and each render body stays total. Reading the magnitude off the plan rather than off a builder capture is what
-    // lets a foreign plan carry the same fold.
     static Fin<(string Column, double Magnitude)> Paired(Seq<Expression> arguments, ResidenceScope state, string fold) =>
         arguments.ToArray() is [Expression column, NumericLiteral magnitude]
             ? Predicate(column, state).Map(held => (Column: held, Magnitude: (double)magnitude.Value))
             : Fin.Fail<(string, double)>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<residence-fold:{fold}:{arguments.Count}>"));
 
-    // Grain crosses as SECONDS and admits positives alone: a zero or negative interval buckets every row into one group on Postgres
-    // and DuckDB and raises on ClickHouse, so the three answers become one typed refusal.
     static Fin<(string Column, double Magnitude)> Grained(Seq<Expression> arguments, ResidenceScope state) =>
         Paired(arguments, state, BucketFold).Bind(held => held.Magnitude > 0
             ? Fin.Succ(held)
             : Fin.Fail<(string, double)>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<bucket-grain:{held.Magnitude}>")));
 
-    // Fractions cross beside the kernel `QuantileRule` they were asked under, and every residence spelling answers the
-    // INTERPOLATED convention — `percentile_cont` exactly, the two sketch tiers approximately. `NearestRank` answers an
-    // observation the sample contains and no residence spells `percentile_disc`, so the request refuses here rather
-    // than returning a neighbouring value under the caption the exact convention earned.
     static Fin<(string Column, double Magnitude)> Graded(Seq<Expression> arguments, ResidenceScope state, string fold) =>
         arguments.ToArray() is [Expression column, NumericLiteral literal, StringLiteral rule]
             ? Convention(rule.Value, state).Bind(_ => Fraction((double)literal.Value, state)
@@ -313,9 +253,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
             ? Convention(rule.Value, state).Bind(_ => Fraction((double)literal.Value, state))
             : Fin.Fail<double>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<residence-fold:{TailFold}:{arguments.Count}>"));
 
-    // Every residence quantile spelling answers the INTERPOLATED convention — `percentile_cont` exactly, the two
-    // sketch tiers approximately. `NearestRank` answers an observation the sample CONTAINS and no residence spells
-    // `percentile_disc`, so the request refuses rather than returning a neighbouring value under the exact caption.
     static Fin<Unit> Convention(string token, ResidenceScope state) =>
         QuantileRule.Validate(token, null, out QuantileRule? asked) is not null
             ? Fin.Fail<Unit>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<quantile-rule:{token}>"))
@@ -334,26 +271,17 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
             ? Predicate(column, state)
             : Fin.Fail<string>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<residence-fold:{fold}:{arguments.Count}>"));
 
-    // Key narrowings carry their hex TEXT, which the residence's own literal renders; the column reference still
-    // resolves through the declared roster, so an undeclared key column refuses exactly as any other does.
     static Fin<(string Column, string Hex)> Keyed(Seq<Expression> arguments, ResidenceScope state) =>
         arguments.ToArray() is [Expression column, StringLiteral hex]
             ? Predicate(column, state).Map(held => (Column: held, Hex: hex.Value))
             : Fin.Fail<(string, string)>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<residence-fold:{KeyFold}:{arguments.Count}>"));
 
-    // ONE summary gate the three toolkit folds share, naming the owner rather than a residence key: `SeriesResidence`
-    // is the single provisioning arm emitting a continuous aggregate, so its rollup is the only materialised state
-    // these accessors can read.
     static Fin<Unit> Summarised(ResidenceScope state, string fold) =>
         state.Residence.Statements == SeriesResidence.Statements
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new ResidenceFault.Unlowerable(state.Residence.Key, $"<unsummarised:{fold}>"));
 
     // --- [PLAN_BUILDERS]
-    // ONE plan builder every dataset shares in three shapes: callers name the narrowings, the columns, the grouping
-    // keys, and the folds their question carries and take back the rooted plan, so relation assembly lives here once
-    // and a page that would otherwise hand-write SQL reaches a typed shape. Scope stays off the plan — tenant and
-    // window both enter at the read — so one plan serves every residence and every window.
     public static Fin<Plan> Scan(AnalyticsSchema schema, Seq<(Identifier Column, string Value)> matches) =>
         Project(schema, schema.Table, matches,
             schema.Columns.Map(static column => (column.Name, (ResidenceFold)new ResidenceFold.Plain(column.Name))),
@@ -378,15 +306,9 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
             })
         select plan;
 
-    // Assembly is FALLIBLE because every failure mode is silent otherwise: an undeclared column ordinals to -1 and
-    // indexes out of the roster at lowering, and a value rendered as text against a numeric column raises on one
-    // dialect and coerces on another. The three builders differ by the SHAPING relation alone, which arrives as the
-    // one argument, so the read, the filter fold, the sort, and the root are assembled once.
     static Fin<Plan> Build(AnalyticsSchema schema, Identifier relation, Seq<(Identifier Column, string Value)> matches,
         Seq<Identifier> order, Seq<Identifier> names, Func<Relation, Relation> shape) =>
         from conditions in matches.TraverseM(match => Narrowed(schema, match)).As()
-        // Ordering names an EMITTED column, never a base one: a sort over a fold the projection computed has no base
-        // column to address, and a caller naming one that was never projected refuses here.
         from sorts in order.TraverseM(key => names.IndexOf(key) is var slot && slot >= 0
             ? Fin.Succ<Expression>(new DirectFieldReference { ReferenceSegment = new StructReferenceSegment { Field = slot } })
             : Fin.Fail<Expression>(new ResidenceFault.Unprovisioned($"<plan-order:{schema.Dataset}.{(string)key}>"))).As()
@@ -409,9 +331,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
         return new Plan { Relations = [new RootRelation { Input = ordered, Names = [.. names.Map(static name => (string)name)] }] };
     }
 
-    // One narrowing is one admitted column ordinal beside the literal that column's own declared type renders, so a
-    // temporal or key-typed match — the two Substrait carries no literal for — refuses here rather than lowering an
-    // operand three engines each reject differently.
     static Fin<Expression> Narrowed(AnalyticsSchema schema, (Identifier Column, string Value) match) =>
         Reference(schema, match.Column).Bind(field =>
             schema.Columns[schema.Ordinal(match.Column)].Type.Plan(match.Value).Match(
@@ -420,9 +339,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
                     ExtensionName = FunctionsComparison.Equal,
                     Arguments = [field, literal],
                 }),
-                // Key columns carry no Substrait literal by declaration, so a narrowing falls to the residence's
-                // own literal spelling rather than refusing: a content-addressed read is the paradigm question this
-                // family answers, and the previous form left it with no shape at all.
                 None: () => schema.Columns[schema.Ordinal(match.Column)].Type is ColumnShape.Scalar scalar
                     && scalar.Type == ColumnType.KeyHex
                     ? Fin.Succ<Expression>(new ScalarFunction {
@@ -438,9 +354,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
             ? Fin.Succ<Expression>(new DirectFieldReference { ReferenceSegment = new StructReferenceSegment { Field = ordinal } })
             : Fin.Fail<Expression>(new ResidenceFault.Unprovisioned($"<schema-column:{schema.Dataset}.{(string)column}>"));
 
-    // ONE resolution per fold: a plain column IS its own reference, and every other case is the (uri, name, arguments)
-    // triple each builder wraps in the node its relation takes — a scalar function under a projection, an aggregate
-    // function under a grouping — so the vocabulary resolves once and shapes twice.
     static Fin<Either<Expression, (string Uri, string Name, Seq<Expression> Arguments)>> Called(AnalyticsSchema schema, ResidenceFold fold) =>
         fold.Switch(
             state:    schema,
@@ -471,8 +384,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
                 ExtensionUri = call.Uri, ExtensionName = call.Name, Arguments = [.. call.Arguments],
             }));
 
-    // Bare columns under a `GROUP BY` are grouping KEYS, never measures, so the builder that takes keys separately
-    // refuses it here rather than emitting an aggregate the engine reports as an ungrouped column.
     static Fin<AggregateMeasure> Measured(AnalyticsSchema schema, ResidenceFold fold) =>
         Called(schema, fold).Bind(held => held.Match(
             Left:  _ => Fin.Fail<AggregateMeasure>(new ResidenceFault.Unlowerable(schema.Dataset, "<measure-plain-column>")),
@@ -483,10 +394,6 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
     static Expression Magnitude(double value) => new NumericLiteral { Value = (decimal)value };
     static Expression Rule(QuantileRule rule) => new StringLiteral { Value = rule.Key };
 
-    // One lowering entry: the root relation folds under the scope's own residence dialect, a plan naming a projection
-    // that residence does not answer refuses carrying the row's `Degrade` clause, and an empty or inverted window
-    // refuses ahead of both — a half-open window whose end precedes its start returns zero rows on every engine, which
-    // a tile reads as a healthy quiet period rather than an unspellable scope.
     public static Fin<string> Lower(Plan plan, ResidenceScope scope, ResidenceProjection projection) =>
         scope.Window.Until <= scope.Window.From
             ? Fin.Fail<string>(new ResidenceFault.ReadRefused(scope.Residence.Key, new EngineFault("<read-window>", $"{scope.Window.From}..{scope.Window.Until}")))
@@ -524,7 +431,7 @@ public sealed class ResidencePlan : RelationVisitor<Fin<string>, ResidenceScope>
 
 ```csharp signature
 using Apache.Arrow;
-using Apache.Arrow.Arrays;                        // FixedSizeBinaryArray — the packed key column both arms read
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Flight;
 using Apache.Arrow.Flight.Sql;
 using ClickHouse.Driver;
@@ -535,8 +442,8 @@ using LanguageExt;
 using NodaTime;
 using Npgsql;
 using NpgsqlTypes;
-using Rasm.Domain;                                // CorrelationId — the causal key a receipt carries
-using Rasm.Persistence.Element;                   // ProjectionContext — the mark/elapsed pair every leg reads
+using Rasm.Domain;
+using Rasm.Persistence.Element;
 using System.Buffers.Binary;
 using System.Data.Common;
 using System.Globalization;
@@ -545,9 +452,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Transport union: the READ discriminates on the reach VALUE's shape, never on a residence name or a mode flag, so a
-// residence reachable two ways needs no second entry and a new transport breaks the dispatch at compile time.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ResidenceReach {
     private ResidenceReach() { }
@@ -557,9 +462,6 @@ public abstract partial record ResidenceReach {
     public sealed record Local(ColumnarSession Session) : ResidenceReach;
 }
 
-// ONE row surface every reach yields, so the relational and Arrow legs are genuinely interchangeable — a
-// `DbDataReader`-typed shape would force the Flight leg to fake a reader it cannot supply, and a per-reach shape
-// delegate would fork the one entry this plane exists to hold.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ResidenceRow {
     private ResidenceRow() { }
@@ -588,16 +490,12 @@ public abstract partial record ResidenceRow {
         arrow: c => Optional(((TimestampArray)c.Batch.Column(column))[c.Ordinal]).Map(Instant.FromDateTimeOffset))
         .ToFin(Missing(residence, column));
 
-    // Key columns cross as sixteen big-endian bytes on both arms, so the read inverse of every `KeyHex` landing is one
-    // member rather than a decode re-spelled at each dataset that stores an identity.
     public Fin<UInt128> Key(Residence residence, int column) => Switch(
         ado:   c => c.Reader.IsDBNull(column) ? Option<byte[]>.None : Some(c.Reader.GetFieldValue<byte[]>(column)),
         arrow: c => Optional(((FixedSizeBinaryArray)c.Batch.Column(column)).GetBytes(c.Ordinal).ToArray()))
         .ToFin(Missing(residence, column))
         .Map(static packed => BinaryPrimitives.ReadUInt128BigEndian(packed));
 
-    // A `List(Utf8)` column reads as one ordered run on both arms: ADO hands the provider's text array whole, and the
-    // Arrow arm slices the `Values` child between the row's two offsets — the only two members the catalog rows.
     public Fin<Seq<string>> Items(Residence residence, int column) => Switch(
         ado:   c => c.Reader.IsDBNull(column) ? Option<Seq<string>>.None : Some(toSeq(c.Reader.GetFieldValue<string[]>(column))),
         arrow: c => ((ListArray)c.Batch.Column(column)) is var list && !list.IsNull(c.Ordinal)
@@ -606,55 +504,37 @@ public abstract partial record ResidenceRow {
             : Option<Seq<string>>.None)
         .ToFin(Missing(residence, column));
 
-    // One refusal spelling every reader shares, carrying the residence that answered and the ordinal that came back
-    // empty, so a corrupt total column names itself instead of surfacing as a downstream parse failure.
     static ResidenceFault Missing(Residence residence, int column) =>
         new ResidenceFault.ReadRefused(residence.Key,
             new EngineFault("<null-column>", column.ToString(CultureInfo.InvariantCulture)));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `ResidenceReceipt` is the NON-GENERIC projection the read slot carries, so the rows never cross the receipt wire and
-// a consumer arrow handing back bare values loses no diagnosis.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ResidenceReceipt(string Residence, string Lowered, long Scanned, Duration Elapsed);
 
 public readonly record struct ResidenceResult<T>(Residence Residence, string Lowered, Seq<T> Rows, long Scanned, Duration Elapsed) {
     public ResidenceReceipt Receipt => new(Residence.Key, Lowered, Scanned, Elapsed);
 }
 
-// FAMILY health row: the resident time extent and cardinality of one residence's relation, the one evidence every tier
-// produces because every tier partitions on time. `Retained` reads the expiry scheduler's OUTCOME — residue older than the
-// declared horizon means the policy stopped firing, whichever engine owns it — and `Lag` reads the refresh's, so a
-// stalled rollup surfaces as measured staleness rather than as an empty tile. An empty relation answers absence at
-// both ends, because a zero instant reads as 1970 and would report every quiet stream as catastrophically stale.
 public readonly record struct ResidenceHealth(string Residence, string Relation, Option<Instant> Oldest, Option<Instant> Newest, long Rows) {
     public bool Retained(ResidencePolicy policy, Instant now) => Oldest.Map(at => at >= now - policy.Retain).IfNone(true);
     public Duration Lag(Instant now) => Newest.Map(at => now - at).IfNone(Duration.Zero);
 }
 
-// Staged-count receipt: `Dataset` names the residence dataset a batch landed under, so the projection arm reads a
-// DECLARED wire shape rather than a count with no subject — an ingest stream that stopped feeding is invisible when the
-// receipt is a bare number.
 public readonly record struct ResidenceIngestReceipt(string Dataset, long Staged, Instant At, CorrelationId Correlation);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ResidenceRead {
-    // ONE query entry across every residence: the logical plan lowers once through the residence's dialect and the
-    // reach value alone decides the transport.
     public static IO<Fin<ResidenceResult<T>>> Read<T>(
         ResidenceReach reach, Plan plan, ResidenceScope scope, ResidenceProjection projection, Func<ResidenceRow, Fin<T>> shape) =>
         ResidencePlan.Lower(plan, scope, projection).Match(
             Succ: lowered => Serve(reach, scope.Residence, lowered, shape, scope.Frame),
             Fail: error => IO.pure(Fin<ResidenceResult<T>>.Fail(error)));
 
-    // Policy health rides the SAME reach arms every read takes, so the family gains its probe as one statement and one
-    // row shape rather than a second transport ladder per residence.
     public static IO<Fin<ResidenceResult<ResidenceHealth>>> Health(
         ResidenceReach reach, Residence residence, AnalyticsSchema schema, ProjectionContext frame) =>
         Serve(reach, residence, residence.Horizon(schema), row => Shape(residence, schema, row), frame);
 
-    // Row count gates the extent pair, because an empty relation answers absence at both ends and reads its extent
-    // columns not at all. The pair ACCUMULATES: a relation whose two extent columns are both corrupt names both.
     static Fin<ResidenceHealth> Shape(Residence residence, AnalyticsSchema schema, ResidenceRow row) =>
         row.Whole(residence, 2).Bind(rows => rows == 0
             ? Fin.Succ(new ResidenceHealth(residence.Key, (string)schema.Table, None, None, rows))
@@ -663,9 +543,6 @@ public static class ResidenceRead {
                     residence.Key, (string)schema.Table, Some(oldest), Some(newest), rows)).As().ToFin());
 
     // --- [SERVING_DISCIPLINE]
-    // ONE serving order for every reach: OPEN the lease chain, EXECUTE the lowered text, DRAIN through the caller's one
-    // shape, REPORT the figure only that leg can honestly supply. The three ADO-shaped reaches differ by exactly those
-    // two rows, so they are one body; the Arrow reach differs by its drain and shares the rest.
     static IO<Fin<ResidenceResult<T>>> Serve<T>(
         ResidenceReach reach, Residence residence, string lowered, Func<ResidenceRow, Fin<T>> shape, ProjectionContext frame) =>
         reach.Switch(
@@ -674,8 +551,6 @@ public static class ResidenceRead {
             local:      leg => Ado(Duck(leg), residence, lowered, shape, frame),
             flight:     leg => Arrow(leg, residence, lowered, shape, frame));
 
-    // One lease chain and one scanned reader per ADO-shaped reach. `Report` is the row that matters: the two legs whose
-    // driver publishes no scan figure answer with the rows they returned, and the one that does answers with it.
     readonly record struct AdoLeg(
         Func<string, ValueTask<(Seq<IAsyncDisposable> Leases, DbCommand Command)>> Open,
         Func<DbCommand, Seq<IAsyncDisposable>, long, Duration, (long Scanned, Duration Elapsed)> Report);
@@ -684,9 +559,6 @@ public static class ResidenceRead {
         async lowered => (Seq<IAsyncDisposable>(), (DbCommand)leg.Source.CreateCommand(lowered)),
         static (_, _, returned, elapsed) => (returned, elapsed));
 
-    // This leg rides the ADO mirror rather than the pooled client's own reader entry: `QueryStats` is a post-execution
-    // property on the COMMAND and `DbConnection.CreateCommand` takes no text, so each command binds its connection at
-    // construction and carries the lowered plan as its state.
     static AdoLeg Clickhouse(ResidenceReach.Fleet leg) => new(
         async lowered => {
             ClickHouseConnection lane = leg.Client.CreateConnection();
@@ -697,8 +569,6 @@ public static class ResidenceRead {
             ? ((long)stats.ReadRows, Duration.FromNanoseconds(stats.ElapsedNs))
             : (returned, elapsed));
 
-    // Lake reads run in-process over the hive generation tree through the standing DuckDB anchor, so a report-grade
-    // scan needs no Flight hop and the same lowered text serves both reaches.
     static AdoLeg Duck(ResidenceReach.Local leg) => new(
         async lowered => {
             DuckDBConnection lane = leg.Session.Lane();
@@ -709,8 +579,6 @@ public static class ResidenceRead {
         },
         static (_, _, returned, elapsed) => (returned, elapsed));
 
-    // Leases release in reverse acquisition order on every outcome — drained, refused, or cancelled — because a command
-    // outliving its connection is exactly the leak a per-branch dispose leaves on the path nobody remembered.
     static IO<Fin<ResidenceResult<T>>> Ado<T>(
         AdoLeg leg, Residence residence, string lowered, Func<ResidenceRow, Fin<T>> shape, ProjectionContext frame) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async token => {
@@ -729,10 +597,6 @@ public static class ResidenceRead {
             }
         }).ConfigureAwait(false)).MapFail(residence.ReadRefused));
 
-    // Flight is the ONE cross-runtime columnar query plane and Flight SQL the dialect layered on it: the lowered text
-    // executes server-side, the returned `FlightInfo` carries one endpoint per partition, and every endpoint's ticket
-    // streams Arrow batches back on the same plane — so a single-endpoint read and a partitioned read are one loop and
-    // a residence that later partitions needs no arm.
     static IO<Fin<ResidenceResult<T>>> Arrow<T>(
         ResidenceReach.Flight leg, Residence residence, string lowered, Func<ResidenceRow, Fin<T>> shape, ProjectionContext frame) =>
         IO.liftAsync(async () => await Op.Of().Catch(async _ => {
@@ -747,9 +611,6 @@ public static class ResidenceRead {
             return rows.Map(held => new ResidenceResult<T>(residence, lowered, held, info.TotalRecords, frame.Elapsed(mark)));
         }).ConfigureAwait(false));
 
-    // One drain per row family; the row wrapper is what lets the Arrow leg reuse the caller's one shape without a
-    // second delegate or a fabricated reader. Both abort on the FIRST refusing row and return that fault, so a corrupt
-    // column stops the read where it happened rather than yielding a partially fabricated result set.
     static async ValueTask<Fin<Seq<T>>> Drain<T>(DbDataReader reader, Func<ResidenceRow, Fin<T>> shape) {
         List<T> rows = [];
         ResidenceRow row = new ResidenceRow.Ado(reader);
@@ -765,29 +626,14 @@ public static class ResidenceRead {
         toSeq(Range(0, batch.Length)).TraverseM(ordinal => shape(new ResidenceRow.Arrow(batch, ordinal))).As();
 }
 
-// ONE landing across every relational residence dataset, the WRITE peer of `ResidenceRead`. The COPY column list, the
-// tenancy lead, and each column's wire type all derive from the SAME `AnalyticsSchema` the DDL emitter provisions from,
-// so a landed row and the table it lands in cannot drift on order, count, or physical type. This is the Series tier's
-// declared landing owner: `SeriesLane.Ingest` is its hypertable-family arm and carries no second copy loop, while the
-// Fleet tier lands through `Version/egress`'s sink and the Lake tier through `Query/lakehouse`'s generation, so each
-// residence keeps exactly one writer. Binary COPY is the lane — `CompleteAsync` commits and disposal without it
-// discards — so the retry unit is the whole batch and a refusal leaves nothing half-written.
 public static class ResidenceLanding {
-    // Payload roster IS the admitted roster, so the ingest column list and the CREATE column list are one derivation
-    // off one declaration.
     public static Seq<ColumnRow> Payload(AnalyticsSchema schema) => schema.Columns;
 
-    // Roster a PRODUCER fills, which is `Payload` minus every column the custodian stamps. A landing-time dataset's
-    // instant is the custodian's BY CATEGORY, so no producer cell answers it: proving against `Payload` would demand a
-    // cell for the very column the category forbids, and every correct landing-time producer would arrive one short.
     public static Seq<ColumnRow> Supplied(AnalyticsSchema schema) =>
         schema.Spine == TimeSpine.Landing
             ? Payload(schema).Filter(column => column.Name != schema.Time)
             : Payload(schema);
 
-    // Custodian-stamped trailing column, resolved AHEAD of the copy exactly as every supplied column's wire is, so the
-    // write loop stays total. The seam APPENDS the landing column, so `tenant` + supplied + landed reconstructs the
-    // provisioned order byte-for-byte.
     static Validation<Error, Option<(Identifier Name, NpgsqlDbType Wire)>> Landed(AnalyticsSchema schema) =>
         schema.Spine == TimeSpine.Event
             ? Success<Error, Option<(Identifier, NpgsqlDbType)>>(None)
@@ -805,17 +651,9 @@ public static class ResidenceLanding {
                     (Seq(Residence.TenantColumn) + proved.Bound.Map(static entry => entry.Column.Name)
                         + proved.Landed.Map(static stamp => stamp.Name).ToSeq()).Map(Residence.Series.Quote));
                 await using NpgsqlConnection lane = await store.OpenConnectionAsync(token).ConfigureAwait(false);
-                // Scoped disposal releases the copy exactly once on every outcome — commit, typed refusal,
-                // cancellation, or a conversion the gate could not foresee — and an uncompleted importer discards its
-                // staged rows on the way out.
                 await using NpgsqlBinaryImporter importer = await lane.BeginBinaryImportAsync(
                     $"COPY {Residence.Series.Quote(schema.Table)} ({columns}) FROM STDIN (FORMAT BINARY)", token).ConfigureAwait(false);
-                // Tenancy is the FRAME's, never a row column: the whole batch lands under the ingesting tenant and
-                // every read filters by it, so equal keys under distinct tenants never share rows.
                 byte[] tenant = ColumnCell.Packed(frame.Tenant.TenantId.Value);
-                // Landing instants ride the frame on the SAME terms: reading the clock once per batch rather than
-                // once per row keeps a single COPY internally consistent, and the stamp binds through the same cell
-                // arm every supplied cell binds through, so a spine change moves one declaration.
                 Instant landedAt = frame.Now();
                 ColumnCell stamp = new ColumnCell.Moment(landedAt);
                 foreach (Seq<ColumnCell> row in rows) {
@@ -829,17 +667,10 @@ public static class ResidenceLanding {
                     }
                 }
                 ulong staged = await importer.CompleteAsync(token).ConfigureAwait(false);
-                // Receipt and rows carry the SAME instant, so evidence and residence agree on when this batch
-                // landed; a second clock read here dates the receipt after the rows it accounts for.
                 return Fin<ResidenceIngestReceipt>.Succ(new ResidenceIngestReceipt(schema.Dataset, (long)staged, landedAt, frame.Correlation));
             }).ConfigureAwait(false)).MapFail(Residence.Series.IngestRefused)),
             Fail: error => IO.pure(Fin<ResidenceIngestReceipt>.Fail(error)));
 
-    // Conformance runs the DECLARED column's own gate — `ColumnRow.Admits`, absence against `Nullable` and presence
-    // through the shape law — which is the same proof the record-batch fold runs, so the batch
-    // and the COPY cannot disagree on whether a cell belongs to its column. Arity gates the column walk because a short
-    // row shifts every later column onto a neighbour's proof; the two independent halves then accumulate, so a producer
-    // reads every offending column and every unwritable shape from one refusal.
     static Validation<Error, Seq<(ColumnRow Column, NpgsqlDbType Wire)>> Conformed(
         AnalyticsSchema schema, Seq<ColumnRow> supplied, Seq<Seq<ColumnCell>> rows) =>
         rows.Exists(row => row.Count != supplied.Count)
@@ -850,15 +681,8 @@ public static class ResidenceLanding {
                supplied.Traverse(column => column.Type.Wire.ToValidation<Error>().Map(wire => (column, wire))).As())
                 .Apply(static (_, bound) => bound).As();
 
-    // Binding folds with the SHAPE exactly as conformance does: a scalar or dictionary column defers to its row's own
-    // cell law, a list writes its value run under the flagged wire type, and a map writes the ONE canonical JSON text — the
-    // pairs serialize here so every landing spells one document shape, and the key roster reached this loop already
-    // proven distinct. A fixed-arity run has no `NpgsqlDbType` to bind at all, so `Conformed` refused it before the
-    // copy opened and its arm exists to close the fold rather than to be reached.
     static Task Bind(ColumnShape shape, ColumnCell cell, NpgsqlBinaryImporter importer, NpgsqlDbType wire) => shape.Switch(
         state:      (Cell: cell, Importer: importer, Wire: wire),
-        // Absent cells reach this loop only through a column `ColumnRow.Admits` proved nullable and scalar, so the
-        // stage writes SQL NULL — the importer's own spelling — and the cell law stays present-only.
         scalar:     static (s, c) => s.Cell is ColumnCell.Absent
             ? s.Importer.WriteNullAsync()
             : c.Type.Cell.Stage(s.Cell, s.Importer, s.Wire),

@@ -41,9 +41,7 @@ const _styled = <R extends Primitive.Recipe, S>(recipe: R) =>
   (variants: Primitive.Variants<R>, className: Primitive.ClassName<S>): ((state: S & { readonly defaultClassName: string | undefined }) => string) =>
     composeRenderProps(className, (own: ClassValue) => cn(recipe(variants), own))
 
-// _filled DERIVES the tone axis from the token roster: a new semantic is a variant on every recipe with zero recipe edits,
-// and the class strings name the generated slot utilities rather than re-spelling a palette this module does not own
-const _filled = Record.map(Theme.Palette.rows, (_row, tone) => `bg-${tone}-solid text-${tone}-on`) // Record.map preserves the literal tone union; fromEntries widens keys through NonLiteralKey and VariantProps would type tone as string
+const _filled = Record.map(Theme.Palette.rows, (_row, tone) => `bg-${tone}-solid text-${tone}-on`)
 
 const _button = cva("inline-flex items-center gap-2 rounded-md outline-none focus-visible:ring-2", {
   variants: {
@@ -54,8 +52,6 @@ const _button = cva("inline-flex items-center gap-2 rounded-md outline-none focu
   compoundVariants: [{ tone: "danger", size: "sm", class: "font-medium" }],
 })
 
-// sr-only until keyboard focus lifts it into the flow at the top-start corner, ranked on the token z ladder so it
-// clears every mounted surface; activation jumps the whole chrome to the scaffold's one main region
 const _skip = cva(
   "sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:start-4 focus-visible:top-4 focus-visible:z-toast focus-visible:rounded-md focus-visible:bg-accent-solid focus-visible:px-3 focus-visible:py-2 focus-visible:text-accent-on focus-visible:outline-none focus-visible:ring-2",
 )
@@ -84,12 +80,9 @@ declare namespace Overflow {
   type Grant = { readonly role: "region" | undefined; readonly tabIndex: 0 | undefined }
 }
 
-// ResizeObserver measures the grant on every box or content change, never assuming it, and an overflowing container
-// without an accessible name receives NO grant, so the unlabelled tab stop is unrepresentable
 const _useOverflow = (target: RefObject<HTMLElement | null>, labelled: boolean): Overflow.Grant => {
   const [overflows, setOverflows] = useState(false)
   useEffect(() => {
-    // BOUNDARY ADAPTER: ResizeObserver is the platform's measure seam; registration and release bracket on the effect
     const node = target.current
     if (node === null) return undefined
     const observer = new ResizeObserver(() => {
@@ -122,8 +115,8 @@ import { Duration, Effect, Option } from "effect"
 import { UNSTABLE_ToastQueue } from "react-aria-components"
 
 declare namespace Note {
-  type Assertiveness = "assertive" | "polite" // the standalone announce rail's own axis, spelled as that API takes it
-  type Politeness = "status" | "alert" // the note's live semantics AS the content element's role: implicitly polite, implicitly assertive
+  type Assertiveness = "assertive" | "polite"
+  type Politeness = "status" | "alert"
   type Rank = keyof typeof _URGENCY
   type Action = { readonly label: string; readonly run: Effect.Effect<void> }
   type Urgency = { readonly politeness: Note.Politeness; readonly linger: Option.Option<Duration.Duration> }
@@ -136,14 +129,12 @@ type Note = {
   readonly action: Option.Option<Note.Action>
 }
 
-// _URGENCY spells the rank axis as the urgency vocabulary; blocking carries no window because its note is retracted by act, not by time
 const _URGENCY = {
   quiet: { politeness: "status", linger: Option.some(Duration.seconds(5)) },
   spoken: { politeness: "alert", linger: Option.some(Duration.seconds(9)) },
   blocking: { politeness: "alert", linger: Option.none<Duration.Duration>() },
 } as const satisfies Record<string, Note.Urgency>
 
-// total over the roster: a new tone breaks here rather than defaulting into silence
 const _SEVERITY = {
   neutral: "quiet",
   accent: "quiet",
@@ -159,13 +150,10 @@ const _toasts = new UNSTABLE_ToastQueue<Note>({ maxVisibleToasts: 4 })
 
 const _urgency = (tone: Theme.Tone): Note.Urgency => _URGENCY[_SEVERITY[tone]]
 
-// _live realizes the rank's politeness ONCE: `useToast` writes `role="alert"` into contentProps unconditionally, so
-// this spread lands LAST on the content element and is the only place a note's live semantics are decided
 const _live = (note: Note): { readonly role: Note.Politeness } => ({ role: _urgency(note.tone).politeness })
 
 const _notify = (note: Note): Effect.Effect<void> =>
   Effect.sync(() => {
-    // BOUNDARY ADAPTER: the queue is an imperative host surface, and the absent window omits the key rather than writing undefined
     void _toasts.add(note, {
       ...Option.match(_urgency(note.tone).linger, {
         onNone: () => ({}),
@@ -174,13 +162,9 @@ const _notify = (note: Note): Effect.Effect<void> =>
     })
   })
 
-// _announce drives the standalone rail: a message no toast carries (a save status, a result count, a copy receipt) reaches the ONE
-// global region; `Assertiveness` is that API's own axis, distinct from the content-element role `_live` decides,
-// and the message arrives already resolved through the `system/intl` catalog
 const _announce = (message: string, assertiveness: Note.Assertiveness): Effect.Effect<void> =>
   Effect.sync(() => announce(message, assertiveness))
 
-// host teardown releases the singleton region, so a remount re-creates it instead of speaking through a stale twin
 const _silence: Effect.Effect<void> = Effect.sync(() => destroyAnnouncer())
 ```
 
@@ -204,7 +188,6 @@ declare namespace Boundary {
 
 const _fallbackRender = <E,>(fold: Boundary.Fold<E>): ((props: FallbackProps) => ReactNode) =>
   ({ error, resetErrorBoundary }) => {
-    // BOUNDARY ADAPTER
     return fold(error as E, resetErrorBoundary)
   }
 ```
@@ -270,7 +253,6 @@ const Primitive: Primitive.Shape = {
 import { Fault } from "@rasm/core"
 import { Context, Schema, type Effect, type Stream } from "effect"
 
-// the port's two verbs ARE the refusal subject, so the literal is declared once and both rows render off it
 const _Verb = Schema.Literal("copy", "paste")
 
 const _family = Fault.Class.family(
@@ -305,10 +287,10 @@ class ClipboardFault extends Schema.TaggedError<ClipboardFault>()("ClipboardFaul
 class Clipboard extends Context.Tag("ui/Clipboard")<Clipboard, {
   readonly copy: (text: string) => Effect.Effect<void, ClipboardFault>
   readonly paste: Effect.Effect<string, ClipboardFault>
-  readonly granted: Stream.Stream<PermissionState> // this capability's own live verdict: revocation degrades the affordance at the instant, never at the next mount
+  readonly granted: Stream.Stream<PermissionState>
 }>() {}
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Clipboard, ClipboardFault, Primitive }
 ```

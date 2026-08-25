@@ -39,13 +39,8 @@ from rasm.cad.metrology.properties import OPEN, Closure
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# One roster of provider raises the glTF decode path is proved to produce: a truncated buffer, a node index outside the
-# accessor, a missing geometry name, a host read failure, a non-numeric accessor, and a malformed header each land here.
-# `ImportError` is deliberately absent — the split engine is a declared runtime dependency, so its absence is a defect.
 _DECODE_RAISES: Final[tuple[type[Exception], ...]] = (AssertionError, IndexError, KeyError, OSError, TypeError, ValueError)
 
-# `merge_vertices` inherits a mutable `tol.merge` default when handed no digit count; the explicit value welds exactly the
-# bit-identical float32 seams glTF promotion introduces and nothing coarser, so closure states topology, never tolerance.
 _WELD_DIGITS: Final[int] = 15
 
 
@@ -53,8 +48,6 @@ _WELD_DIGITS: Final[int] = 15
 
 
 class GlbCensus(Struct, frozen=True, gc=False):
-    # Every field is a non-container leaf, so `gc=False` drops the record from the tracked set on the census hot path,
-    # and this value pickles by reference across the `to_process` seam beside the fault rows.
     instances: int
     triangles: int
     watertight: bool
@@ -62,15 +55,11 @@ class GlbCensus(Struct, frozen=True, gc=False):
 
     @property
     def closure(self) -> Closure:
-        # One election, read once by the receipt mint: a closed body set carries its summed volume onto the delta, an
-        # open one carries the flag alone. Re-deriving this pair at the receipt is what let the two disagree.
         return Closure(closed=self.volume_m3) if self.watertight else OPEN
 
     @staticmethod
     def of(path: Path, /) -> CadRail["GlbCensus"]:
         try:
-            # `file_type` is declared while `process` rides `**kwargs` unvalidated: a typo there is swallowed and the
-            # decode silently conditions the mesh, moving every count away from the bytes the writer put on disk.
             scene = trimesh.load_scene(path, file_type="glb", process=False)
             parents = {child: parent for parent, child, _attributes in scene.graph.to_edgelist()}
             placements = {
@@ -80,8 +69,6 @@ class GlbCensus(Struct, frozen=True, gc=False):
             triangles = sum(len(geometry.faces) for geometry in scene.geometry.values() if isinstance(geometry, trimesh.Trimesh))
             flattened = scene.to_mesh()
             flattened.merge_vertices(merge_tex=True, merge_norm=True, digits_vertex=_WELD_DIGITS)
-            # `split` delegates to `trimesh.graph.split`, which needs `networkx` or `scipy` resolved; the root manifest carries
-            # `networkx` for exactly this call, so the component walk is engine-backed rather than an optional extra.
             bodies = tuple(flattened.split(only_watertight=False))
         except _DECODE_RAISES as cause:
             return Error(CENSUS_DECODE.at(f"glb.decode:{type(cause).__name__}"))
@@ -99,8 +86,6 @@ class GlbCensus(Struct, frozen=True, gc=False):
 
 
 def _admitted(census: GlbCensus, /) -> CadRail[GlbCensus]:
-    # Every emission reaching this owner already passed its byte-extent gate, so a zero placement or triangle count
-    # marks a decode that read nothing out of bytes proven present, never an honest measurement of an empty result.
     return (
         Ok(census)
         if census.instances > 0 and census.triangles > 0

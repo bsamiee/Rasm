@@ -31,7 +31,7 @@ Composition is downward and sideways within the sub-domain: `Op`, `Lease<T>`, `V
 - Boundary: Rhino's eleven `Rhino.UI` widget cases and its section leaves seat as `Custom` and `Embedded` instances — host widgets are ROWS on this owner, never a fork of it. Grasshopper's canvas objects and attributes stay at its canvas, and its native-host case becomes `Embedded` over an eager mount.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
 using Rasm.Domain;
@@ -40,7 +40,7 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct ElementKey {
@@ -50,8 +50,6 @@ public readonly partial struct ElementKey {
     }
 }
 
-// Three rows over ONE axis, each seating its own pair on the node: the visible-and-disabled corner is a real state
-// and the hidden-and-enabled corner is not, which is exactly what a row set forecloses and a bool pair admits.
 [SmartEnum<int>]
 public sealed partial class ElementState {
     public static readonly ElementState Active = new(key: 0,
@@ -80,16 +78,10 @@ public abstract partial record InspectorSkin {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlSpec {
-    // The base column is `Node` while every case parameter is `Spec`: a base member sharing a case positional
-    // parameter's name suppresses that case's property synthesis, discards the constructor argument, and leaves a
-    // base projection recursing onto the missing property at first read.
     private ControlSpec(ElementSpec spec) => Node = spec;
 
     public ElementSpec Node { get; }
 
-    // Several case names shadow an installed widget of the same name inside every generated arm body — `Label`,
-    // `Slider`, `Progress`, `Panel`, `Group`, `Expander`, `Split`, `Grid`. A grow arm that constructs one of those
-    // widgets spells it globally qualified; every other arm reaches its host type through a role row.
     public sealed record Text(ElementSpec Spec, TextRole Role, string Seed, TextPolicy Policy) : ControlSpec(Spec);
     public sealed record Masked(ElementSpec Spec, string Mask, string Seed) : ControlSpec(Spec);
     public sealed record Number(ElementSpec Spec, double Seed, NumberPolicy Policy) : ControlSpec(Spec);
@@ -128,7 +120,7 @@ public abstract partial record ControlSpec {
     public sealed record Field(ElementSpec Spec, FieldTag Tag, Option<string> Caption, ControlSpec Editor, Option<FieldGuard> Guard) : ControlSpec(Spec);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ElementSpec(
     ElementKey Key,
     ElementState State,
@@ -164,7 +156,7 @@ public sealed record ElementRuntime(ThemeSeam Themes, IntentTable Intents);
 - Boundary: the bare stepper pair and the legacy numeric-up-down alias earn no row — the first carries no capture semantic and the second is a legacy spelling of the numeric stepper. A masked stepper hosts through `Embedded` until a typed-provider case earns its own admission.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
@@ -176,7 +168,7 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 // --- [VOCABULARY]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -189,8 +181,6 @@ public sealed partial class EditTrait : ICapability<EditTrait> {
 
     public int Rank { get; }
 
-    // Every corner is legal, and the claim is a VALUE its owner admits through rather than a sentence beside the
-    // roster: a later closed law binds at one site and every holder refuses at construction with no reader edited.
     public static CapabilityLaw<EditTrait> Law => CapabilityLaw<EditTrait>.Open;
 }
 
@@ -212,8 +202,6 @@ public sealed partial class ColumnTrait : ICapability<ColumnTrait> {
     public static readonly ColumnTrait Sortable = new(key: "sortable", rank: 1);
     public static readonly ColumnTrait Resizable = new(key: "resizable", rank: 2);
     public static readonly ColumnTrait AutoSized = new(key: "auto-sized", rank: 3);
-    // `Hidden`, never `Visible`: an absent capability reads as the default posture, and a column left out of a set
-    // must render rather than disappear.
     public static readonly ColumnTrait Hidden = new(key: "hidden", rank: 4);
     public static readonly ColumnTrait Expand = new(key: "expand", rank: 5);
 
@@ -283,8 +271,6 @@ public sealed partial class TextRole {
         },
         read: static control => new FieldValue.Text(Value: control.Text));
 
-    // The rich row seeds and reads MARKUP: the seed string's dialect is the row's, and a shared plain read would
-    // hand back a formatted editor's flattened projection as if it were the value.
     public static readonly TextRole Rich = new(key: 5,
         mint: static (seed, _) => new RichTextArea { Rtf = seed },
         read: static control => new FieldValue.Markup(Rtf: ((RichTextArea)control).Rtf));
@@ -341,8 +327,6 @@ public sealed partial class ChoiceRole {
         return bar;
     }
 
-    // The host spells "nothing selected" as a negative ordinal, so absence crosses in exactly once here and once at
-    // `Chosen`; no capture value and no consumer past this row ever holds that encoding.
     private static int Seated(Option<int> selected, int count) => count == 0
         ? -1
         : selected.Match(Some: held => int.Clamp(value: held, min: 0, max: count - 1), None: static () => -1);
@@ -356,8 +340,6 @@ public sealed partial class ChoiceRole {
 
 [SmartEnum<int>]
 public sealed partial class FlagRole {
-    // A two-state control has no third state, so an absent seed seats unchecked here and the tri row is the only
-    // place a caller can express "not yet answered".
     public static readonly FlagRole Binary = new(key: 0,
         mint: static (seed, caption) => new CheckBox { Text = caption, Checked = seed.IfNone(false) },
         read: static control => new FieldValue.Flag(Value: Optional(control.Checked)));
@@ -395,15 +377,11 @@ public sealed partial class ButtonRole {
 
     [UseDelegateFromConstructor] internal partial Control Mint(string text, Option<Command> command);
 
-    // Only the toggle row carries an intrinsic pick, so the column answers absence rather than a pick that always
-    // reads the same value — a tagged push button is a forge refusal, not a constant capture.
     [UseDelegateFromConstructor] internal partial Option<Func<Fin<FieldValue>>> Pick(Control control);
 }
 
 [SmartEnum<int>]
 public sealed partial class ProgressRole {
-    // An absent fraction IS the indeterminate state rather than a floor-valued default, so a caller with no figure
-    // to report renders the host's own unknown-progress chrome.
     public static readonly ProgressRole Track = new(key: 0,
         mint: static (fraction, floor, ceiling) => fraction.Match<Control>(
             Some: held => new ProgressBar { MinValue = floor, MaxValue = ceiling, Value = held },
@@ -418,9 +396,6 @@ public sealed partial class ProgressRole {
     [UseDelegateFromConstructor] internal partial Control Mint(Option<int> fraction, int floor, int ceiling);
 }
 
-// The presentation widget is the ROW: `DateTimePickerMode` and `CalendarMode` were two host enums over one axis
-// carried as raw knobs on two cases with an identical column shape, and both leave the union surface here. Row keys
-// derive from the two enums' own members — three picker modes and two calendar modes, five rows and no invention.
 [SmartEnum<int>]
 public sealed partial class MomentRole {
     public static readonly MomentRole Date = new(key: 0,
@@ -440,8 +415,6 @@ public sealed partial class MomentRole {
         read: static control => new FieldValue.Stamp(
             Value: Some(((global::Eto.Forms.Calendar)control).SelectedDate)));
 
-    // The range row reads a SPAN: the host answers both ends, and folding them onto one instant loses the half a
-    // range picker exists to state.
     public static readonly MomentRole Range = new(key: 4,
         mint: static (seed, floor, ceiling) => Dated(CalendarMode.Range, seed, floor, ceiling),
         read: static control => Spanned((global::Eto.Forms.Calendar)control));
@@ -450,8 +423,6 @@ public sealed partial class MomentRole {
     internal partial Control Mint(Option<DateTime> seed, Option<DateTime> floor, Option<DateTime> ceiling);
     [UseDelegateFromConstructor] internal partial FieldValue Read(Control control);
 
-    // Both hosts take NON-OPTIONAL bounds, so an absent bound leaves the widget's own default standing rather than
-    // substituting a sentinel instant; the picker's seed is the one column that crosses as a host nullable.
     private static Control Stamped(
         DateTimePickerMode mode, Option<DateTime> seed, Option<DateTime> floor, Option<DateTime> ceiling) {
         DateTimePicker picker = new() { Mode = mode, Value = Op.ToHostNullable(seed) };
@@ -482,8 +453,6 @@ public sealed partial class CellKind {
         mint: static (column, policy) => new ComboBoxCell(column) { DataStore = policy.Options });
     public static readonly CellKind Figure = new(key: 3, mint: static (column, _) => new ImageViewCell(column));
     public static readonly CellKind Gauge = new(key: 4, mint: static (column, _) => new ProgressCell(column));
-    // A companion column is the image half of an image-and-text cell; absent, both halves read one column, which is
-    // the host's own degenerate form rather than a substituted default.
     public static readonly CellKind Duo = new(key: 5,
         mint: static (column, policy) => new ImageTextCell(column, policy.Companion.IfNone(column)));
 
@@ -491,9 +460,6 @@ public sealed partial class CellKind {
 }
 
 // --- [SHAPES]
-// Each row SEATS its own consequence on the host member it stands for. A mirror bool restating the key buys a name
-// and leaves every consumer re-branching on `row.Bool`; the seat column deletes those branch sites and makes a
-// third row one declaration.
 [SmartEnum<int>]
 public sealed partial class AlphaMode {
     public static readonly AlphaMode Opaque = new(key: 0,
@@ -514,8 +480,6 @@ public sealed partial class InspectorMode {
     [UseDelegateFromConstructor] internal partial Unit Seat(PropertyGrid grid);
 }
 
-// Two placement hosts spell the same axis under two names, so the row carries BOTH seats and neither call site
-// re-derives which member its layout wants.
 [SmartEnum<int>]
 public sealed partial class Stretch {
     public static readonly Stretch Fixed = new(key: 0,
@@ -541,13 +505,8 @@ public abstract partial record CellSpec {
 
     public sealed record Bound(CellKind Kind, CellPolicy Policy) : CellSpec;
     public sealed record Custom(Func<CellEventArgs, Control> Create, Option<Action<CellEventArgs, Control>> Configure) : CellSpec;
-    // `CellPaintEventArgs`, never the `[Obsolete]` `DrawableCellPaintEventArgs`: the host's own paint EVENT still
-    // carries the retired shape, so the drawn cell overrides `OnPaint(CellPaintEventArgs)` rather than subscribing.
     public sealed record Drawn(Action<CellPaintEventArgs> Paint) : CellSpec;
 
-    // The two callback cases park every consumer raise on the plan's fault cell and answer a placeholder, so a
-    // refusing cell factory degrades one cell instead of tearing down the paint pass that called it. The sink is a
-    // `FaultCell` and never a raw `Action<Error>` — a `void` delegate licenses a discard and bounds nothing.
     internal Cell Mint(int column, FaultCell faults, Op key) => Switch(
         state: (Column: column, Faults: faults, Key: key),
         bound: static (held, cell) => cell.Kind.Mint(column: held.Column, policy: cell.Policy),
@@ -563,9 +522,6 @@ public abstract partial record GridRows<TRow> {
     private GridRows() { }
 
     public sealed record Flat(Seq<TRow> Rows) : GridRows<TRow>;
-    // Two bounds, two exhaustion faults: the node budget caps what the whole expansion admits and the depth budget
-    // caps how far one path descends. One value type carries both because the admission is identical and the axis
-    // is the column, and a linear chain inside the node budget still overflows the runtime stack.
     public sealed record Tree(
         Seq<TRow> Roots,
         Func<TRow, Seq<TRow>> Children,
@@ -580,8 +536,6 @@ public abstract partial record LayoutPlan {
     private LayoutPlan() { }
 
     public sealed record Flow(EtoPadding Pad, EtoSize Gap, Seq<ControlSpec> Items) : LayoutPlan;
-    // A `None` slot renders the host's flexible-space gap, so a button row right-aligns by data rather than by a
-    // spacer control the tree would otherwise have to own and release.
     public sealed record Rows(EtoPadding Pad, EtoSize Gap, Seq<Seq<Option<ControlSpec>>> Lines) : LayoutPlan;
     public sealed record Table(EtoPadding Pad, EtoSize Gap, Seq<Seq<TableSlot>> Lines) : LayoutPlan;
     public sealed record Stack(
@@ -594,9 +548,7 @@ public abstract partial record LayoutPlan {
     public sealed record Absolute(Seq<(ControlSpec Item, EtoPoint At)> Items) : LayoutPlan;
 }
 
-// --- [POLICIES] -----------------------------------------------------------------------------
-// Every seed is accessor-backed: a seed reading a generated roster row from an eager static field observes an
-// `Items` sequence its own static constructor has not filled yet.
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record TextPolicy(Option<string> Placeholder, Option<int> MaxLength, CapabilitySet<EditTrait> Traits) {
     internal Fin<CapabilitySet<EditTrait>> Admitted => EditTrait.Law.Admit(held: Traits);
 
@@ -625,7 +577,7 @@ public sealed record CellPolicy(TextAlignment Align, Seq<object> Options, Option
         Align: TextAlignment.Left, Options: Seq<object>(), Companion: None));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ColumnPlan<TRow>(
     string Header,
     Func<TRow, object> Read,
@@ -650,14 +602,12 @@ public sealed record StackChild(ControlSpec Item, Stretch Stretch);
 
 public sealed record TableSlot(Option<ControlSpec> Item, Stretch Stretch);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IGridPlan {
     Fin<ControlMint> Realize(Op key);
     Seq<IsolatedFault> Failures { get; }
 }
 
-// Class, never record: this plan carries a live failure sink, and structural equality over the declared payload
-// makes two plans holding different accumulated faults compare equal and hash alike.
 public sealed class GridPlan<TRow>(
     Seq<ColumnPlan<TRow>> columns,
     GridRows<TRow> rows,
@@ -670,19 +620,13 @@ public sealed class GridPlan<TRow>(
     public GridRows<TRow> Rows { get; } = rows;
     public CapabilitySet<GridTrait> Traits { get; } = traits;
 
-    // BOUNDED and READ: the sink is the branch's fault cell, and `ElementReceipt.Create` drains this roster onto
-    // the receipt's own teardown ledger at realize, so a refusing cell factory reaches a consumer.
     public Seq<IsolatedFault> Failures => faults.Parked;
 
-    // The corner law is admitted ONCE per plan, here: `Open` admits every corner today, so the gate is a value a
-    // later closed law binds at one site rather than a sentence four vocabularies restate.
     internal Fin<Unit> Admitted =>
         from grid in GridTrait.Law.Admit(held: Traits)
         from held in Columns.Traverse(column => ColumnTrait.Law.Admit(held: column.Traits)).As()
         select unit;
 
-    // Typed rows stay typed to the last step: the projection onto the host's erased row carrier happens at item
-    // construction and nowhere earlier, so no consumer of this plan holds an erased row.
     public Fin<ControlMint> Realize(Op key);
 }
 ```
@@ -706,7 +650,7 @@ public sealed class GridPlan<TRow>(
 - Boundary: Rhino carried NO capture algebra — values left only through bindings, so a modal that never bound could not read its own fields. Both boundaries gain this owner whole.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -714,7 +658,7 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -733,8 +677,6 @@ public abstract partial record FieldValue {
     public sealed record Markup(string Rtf) : FieldValue;
     public sealed record Number(double Value) : FieldValue;
     public sealed record Flag(Option<bool> Value) : FieldValue;
-    // The ordinal is `Option`-shaped because the host spells "nothing selected" as a negative index; that encoding
-    // is admitted once at the choice row and never rides a captured value.
     public sealed record Pick(Option<int> Index, string Text) : FieldValue;
     public sealed record PickSet(Seq<string> Keys) : FieldValue;
     public sealed record Colour(PerceptualColor Value) : FieldValue;
@@ -744,15 +686,12 @@ public abstract partial record FieldValue {
     public sealed record Face(TypeFace Value) : FieldValue;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FieldGuard(Func<FieldValue, Fin<FieldValue>> Admit);
 
 public sealed record FieldPort(FieldTag Tag, Control Editor, Func<Fin<FieldValue>> Pick, Option<FieldGuard> Guard);
 
 public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Values, HashMap<FieldTag, FieldGuard> Guards) : IValidityEvidence {
-    // A guard is PURE and re-runnable, so the fold CONJOINS the guards rather than reading the seal as proof of
-    // itself: an absent value and a value its own guard no longer admits both read false, and a confirm-only
-    // surface carries no guard rows and is valid because nothing was demanded.
     public bool IsValid => ValidityClaim.All(Guards.ForAll((tag, guard) =>
         Values.Find(tag).Map(value => guard.Admit(value).IsSucc).IfNone(false)));
 
@@ -779,18 +718,13 @@ public sealed record FieldReport(Op Operation, HashMap<FieldTag, FieldValue> Val
 - Boundary: NAMED LOSS — Grasshopper's dispatch-free realize and Rhino's affinity-refusing realize become ONE owner with two members rather than two entries with two contracts. Neither guarantee is erased: the core still marshals nothing and the gate still refuses off-thread. Witness: `GH Eto/controls.md:301` (the dispatch-free law) against `Rhino Eto/elements.md:596` (the off-thread refusal).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 
 namespace Rasm.Interaction;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// A minted control, the host objects minted BESIDE it, the mints made INSIDE it, and its intrinsic pick. A radio
-// group builds one button per option inside its own layout and a button row one image button per entry; those are
-// leaf payloads no receipt would otherwise reach, and each carries its own pick rather than erasing to a resource.
-// A leaf with children mints through the same two entries and seats them positionally — `Leaf(host) with
-// { Children = kids }` — so no third factory names an arity the record already carries.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ControlMint(
     Lease<Control> Host,
     Seq<Lease<IDisposable>> Resources,
@@ -804,21 +738,10 @@ public readonly record struct ControlMint(
         Host: new Lease<Control>.Owned(host),
         Resources: Seq<Lease<IDisposable>>(), Children: Seq<ControlMint>(), Pick: Some(pick));
 
-    // Reverse mint order, all-attempted, aggregating every refusal: a child's own children drain before it, and the
-    // leaf that contains them releases last, because a contained control released after its container is released
-    // twice by hosts that dispose their own tree.
     internal Fin<Unit> Drain(Op key);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The accruing one-shot release base (E-B3-5): every mount on both boundaries hand-rolled the same custody —
-// a guarded one-shot transition, an accruing fault ledger, and a reverse-order drain over teardown arms. The
-// base owns that mechanism ONCE: `Accrue` registers a release arm in mint order (and REFUSES after release, so
-// a late accrual cannot leak silently); `Release` drains the arms REVERSE-ORDER behind the guarded one-shot,
-// runs every arm even when one refuses (the first fault settles the rail, the rest still run, every fault
-// ledgers onto `ReleaseFaults`); a second release reads the transition's `Refused` rather than no-opping into
-// silence. `Lease<T>` stays the VALUE custody carrier — this is the derivable OWNER custody a mount IS, the
-// base `ElementReceipt` below and every boundary mount (host panel, host page, shell capsule) derive.
+// --- [SERVICES] ------------------------------------------------------------------------
 public abstract class UiLease : IMount, IDisposable {
     protected UiLease(Op key);
     public Op Key { get; }
@@ -831,13 +754,9 @@ public abstract class UiLease : IMount, IDisposable {
 public sealed class ElementReceipt : UiLease {
     private readonly Seq<Lease<BindReceipt>> bindings;
     private readonly Seq<ElementReceipt> children;
-    // The leaf's own beside-minted forest, drained between the spec children and this node's resources.
     private readonly Seq<ControlMint> minted;
     private readonly Seq<Lease<IDisposable>> resources;
     private readonly Lease<Control> host;
-    // Teardown staging rides the BASE: creation accrues host, resources, minted forest, spec children, and
-    // bindings in that order, so the base's reverse drain releases bindings -> child receipts -> child mints ->
-    // resources -> host — the one-shot guard, the fault ledger, and the drain are UiLease's, not re-spelled here.
 
     public Control Host { get; }
     public Seq<FieldPort> Ports { get; }
@@ -848,8 +767,6 @@ public sealed class ElementReceipt : UiLease {
     internal static Fin<ElementReceipt> Mint(
         Func<Fin<ControlMint>> mint, ElementSpec spec, ElementRuntime runtime, Seq<ElementReceipt> children, Op key);
 
-    // The gather releases what it already built on the first refusal, in reverse order, so a container whose fifth
-    // child fails hands back nothing rather than four orphaned subtrees.
     internal static Fin<Seq<ElementReceipt>> Gather(Seq<ControlSpec> nodes, ElementRuntime runtime, Op key);
 
     public Fin<FieldReport> Harvest(Op key);
@@ -857,20 +774,13 @@ public sealed class ElementReceipt : UiLease {
     [BoundaryAdapter] public Fin<ViewEcho> Drive(Grid view, ViewVerb verb, Op? key = null);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ControlForge {
-    // The gate admits the application through the PUBLISHED probe, so a headless process and a worker thread land
-    // two different refusals; an inlined thread test answers `false` for both and recovers from neither.
     [BoundaryAdapter]
     public static Fin<Lease<ElementReceipt>> Realize(ControlSpec spec, ElementRuntime runtime, Op? key = null);
 
-    // Dispatch-free by contract: the presenting owner runs this inside its own crossing, so construction, show, and
-    // capture share one window and no spec row marshals itself.
     public static Fin<ElementReceipt> Grow(ControlSpec spec, ElementRuntime runtime, Op key);
 
-    // The MANY-spec sibling (E-B3-2): composes the internal Gather, so a refusal at child n releases the n-1
-    // already-built subtrees reverse-order and hands back NOTHING — a boundary owner realizing a section roster
-    // was re-spelling exactly that fold and rollback beside this assembly because Gather was unreachable.
     public static Fin<Seq<ElementReceipt>> GrowAll(Seq<ControlSpec> specs, ElementRuntime runtime, Op key);
 }
 ```
@@ -892,7 +802,7 @@ public static class ControlForge {
 - Boundary: cell-edit and selection event streams, calendar raises, and document-page lifecycle are the input owner's source rows observed on the realized control, never forge state.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Eto.Forms.ThemedControls;
 using EtoImage = Eto.Drawing.Image;
@@ -902,7 +812,7 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ViewVerb {
     private ViewVerb() { }
@@ -935,25 +845,18 @@ public sealed partial class NoticeRole {
     public static readonly NoticeRole Abort = new(key: 2);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Three states of ONE axis: the bool pair spelled a default-and-abort corner every reader guarded and no dialog
-// can present. The result is the CALLER's own outcome — an untyped ordinal handed a caller a number it had to map
-// back, which is the defect the picker family already deleted with its typed demand.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record NoticeChoice<TResult>(string Caption, TResult Result, NoticeRole Role);
 
-// The generic is CONTAINED: this modal rides no union case, so the parameter reaches its mount and stops there and
-// no closed family generifies to carry it.
 public sealed record ThemedNotice<TResult>(
     string Text, TextAlignment Alignment, Option<Lease<EtoImage>> Badge, Seq<NoticeChoice<TResult>> Choices) {
     [BoundaryAdapter] public Fin<Lease<NoticeMount<TResult>>> Mint(Op? key = null);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class NoticeMount<TResult> : IDisposable {
     public ThemedMessageBox Host { get; }
 
-    // Absence, never a sentinel: a dialog dismissed without a choice has no result, and the result type is the
-    // caller's own, so no reserved value of it can carry that meaning either.
     public Option<TResult> Reply { get; }
 
     public Fin<Unit> Release();

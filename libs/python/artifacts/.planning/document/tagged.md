@@ -65,7 +65,7 @@ from rasm.runtime.receipts import OPEN, Receipt, receipted
 
 lazy import pikepdf
 lazy import pdf_oxide
-lazy from lxml import etree  # the XMP-packet fault type alone; the parse itself is the model owner's hardened fold
+lazy from lxml import etree
 lazy from pikepdf import Array, Dictionary, Name, NumberTree, String
 
 if TYPE_CHECKING:
@@ -74,54 +74,54 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Arm = Callable[["Access"], "AccessFact"]
-type PdfaLevel = Literal["1a", "1b", "2a", "2b", "2u", "3a", "3b", "3u"]  # the ISO 19005 conformance levels `pdf_oxide.convert_to_pdf_a` admits
+type PdfaLevel = Literal["1a", "1b", "2a", "2b", "2u", "3a", "3b", "3u"]
 type PdfxLevel = Literal[
     "1a_2001", "3_2002", "4"
-]  # the ISO 15930 PDF/X print-production levels `pdf_oxide.validate_pdf_x` admits (the exact accepted token set)
+]
 
 
 class AccessOp(StrEnum):
     TAG = "tag"
     AUDIT = "audit"
     ARCHIVE = "archive"
-    PREFLIGHT = "preflight"  # the ISO 15930 PDF/X print-production close, the print-plane sibling of the ARCHIVE PDF/A close
+    PREFLIGHT = "preflight"
 
 
-class UaCheck(StrEnum):  # the ISO 14289 structural-conformance clauses the AUDIT closes over
-    MARKED = "marked"  # /MarkInfo /Marked true
-    STRUCT_TREE = "struct-tree"  # /StructTreeRoot present
-    LANG = "lang"  # catalog /Lang present
-    TITLE = "title"  # XMP dc:title + /ViewerPreferences /DisplayDocTitle true
-    UA_ID = "ua-id"  # XMP pdfuaid:part identifier
-    NOT_SUSPECT = "not-suspect"  # /MarkInfo /Suspects absent or false
-    FIGURE_ALT = "figure-alt"  # every /Figure AND /Formula carries /Alt or /ActualText — ISO 14289 §7.9 holds formulas to the figure bar
-    HEADING_NESTING = "heading-nesting"  # no skipped heading level in document order
-    ROLE_MAP = "role-map"  # every non-standard /S mapped in /RoleMap
-    STRUCTURE_NESTING = "structure-nesting"  # every constrained /S nests under a standard-legal parent role
-    TABLE_REGULAR = "table-regular"  # EVERY /Table carries its own /TR rows (direct or under THead/TBody/TFoot) — per-owner, never a global tally
-    LIST_STRUCTURE = "list-structure"  # EVERY /L carries its own /LI items — per-owner, never a global tally
-    LINK_CONTENT = "link-content"  # every /Link carries content (kids)
-    PAGES_KEYED = "pages-keyed"  # every page carrying MCIDs resolves the full MCID set through /StructParents into /ParentTree
-    SYNTAX = "syntax"  # pikepdf `check_pdf_syntax` (qpdf --check) reports no structural warning
-    TEXT_LAYER = "text-layer"  # every page carries extractable text or alt-covered tagged imagery — a genuine /Figure page with /Alt conforms
-    NO_XFA = "no-xfa"  # no dynamic XFA form (`pdf_oxide.has_xfa` false) — ISO 14289-1 §7.18.1 prohibits it
-    UA2_VERSION = "ua2-version"  # PDF/UA-2 (ISO 14289-2) targets PDF 2.0 — the oracle's `(major, minor)` version tuple reads >= (2, 0)
-    UA2_NAMESPACES = "ua2-namespaces"  # PDF/UA-2 structure namespaces — /StructTreeRoot carries /Namespaces
-    WTPDF_ACCESSIBILITY = "wtpdf-accessibility"  # a declared WTPDF accessibility conformance holds only under a passing part-2 audit
-    WTPDF_REUSE = "wtpdf-reuse"  # a declared WTPDF reuse conformance holds under local structure + PDF 2.0 evidence — no reuse oracle exists
-    ORACLE = "oracle"  # the independent `pdf_oxide.validate_pdf_ua` in-process oracle agrees (valid, zero errors)
+class UaCheck(StrEnum):
+    MARKED = "marked"
+    STRUCT_TREE = "struct-tree"
+    LANG = "lang"
+    TITLE = "title"
+    UA_ID = "ua-id"
+    NOT_SUSPECT = "not-suspect"
+    FIGURE_ALT = "figure-alt"
+    HEADING_NESTING = "heading-nesting"
+    ROLE_MAP = "role-map"
+    STRUCTURE_NESTING = "structure-nesting"
+    TABLE_REGULAR = "table-regular"
+    LIST_STRUCTURE = "list-structure"
+    LINK_CONTENT = "link-content"
+    PAGES_KEYED = "pages-keyed"
+    SYNTAX = "syntax"
+    TEXT_LAYER = "text-layer"
+    NO_XFA = "no-xfa"
+    UA2_VERSION = "ua2-version"
+    UA2_NAMESPACES = "ua2-namespaces"
+    WTPDF_ACCESSIBILITY = "wtpdf-accessibility"
+    WTPDF_REUSE = "wtpdf-reuse"
+    ORACLE = "oracle"
 
 
-class PreflightCheck(StrEnum):  # the ISO 15930 PDF/X print-production clauses the PREFLIGHT closes over
-    PDFX_VALID = "pdfx-valid"  # the independent `pdf_oxide.validate_pdf_x(level)` oracle agrees (valid, zero errors)
-    CLAIM_HONEST = "claim-honest"  # a document that DECLARES a /pdfxid (`pdfx_claim`) actually validates — the decorative-claim close
-    OUTPUT_INTENT = "output-intent"  # every PDF/X level requires a catalog /OutputIntents entry naming the target print condition
-    PAGE_BOXES = "page-boxes"  # every page declares its print geometry — a TrimBox or ArtBox beside the MediaBox
+class PreflightCheck(StrEnum):
+    PDFX_VALID = "pdfx-valid"
+    CLAIM_HONEST = "claim-honest"
+    OUTPUT_INTENT = "output-intent"
+    PAGE_BOXES = "page-boxes"
 
 
-class ArchiveCheck(StrEnum):  # the ISO 19005 archival clauses the ARCHIVE close reads over its two sources
-    CONVERTED = "converted"  # the converter's OWN `success` verdict with zero converter errors — an empty action list never stands in for it
-    ORACLE = "oracle"  # the post-convert `validate_pdf_a` verdict on the SAME upgraded handle (valid AND zero errors)
+class ArchiveCheck(StrEnum):
+    CONVERTED = "converted"
+    ORACLE = "oracle"
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -129,8 +129,6 @@ class ArchiveCheck(StrEnum):  # the ISO 19005 archival clauses the ARCHIVE close
 
 @tagged_union(frozen=True)
 class AccessFault:
-    # closed ADMISSION vocabulary `of` produces; the arm-level `pikepdf.PdfError`/`pdf_oxide` raise converts
-    # to the runtime `BoundaryFault` at the `async_boundary` capsule, never this interior vocabulary.
     tag: Literal["empty"] = tag()
     empty: None = case()
 
@@ -140,9 +138,7 @@ class AccessFault:
 
 
 class StructureAudit(Struct, frozen=True, gc=False):
-    # one TOTAL clause-evidence record: every `_UA_CLAUSES` predicate reads this value alone, so a decoded
-    # content-addressed audit re-derives its own verdict and no clause input dies at the borrow window.
-    ua_part: int  # the audited conformance part (1 or 2); the UA2 and WTPDF clauses condition on it
+    ua_part: int
     elements: int
     depth: int
     pages: int
@@ -153,37 +149,37 @@ class StructureAudit(Struct, frozen=True, gc=False):
     figures: int
     figures_with_alt: int
     headings: int
-    headings_monotone: bool  # no skipped heading level in document order; the HEADING_NESTING clause reads it
+    headings_monotone: bool
     tables: int
-    tables_irregular: int  # /Table owners whose OWN kid scan found no /TR (direct or under a row group) — the per-owner evidence TABLE_REGULAR reads
+    tables_irregular: int
     lists: int
-    lists_irregular: int  # /L owners whose OWN kid scan found no /LI — the per-owner evidence LIST_STRUCTURE reads
+    lists_irregular: int
     links: int
-    links_with_content: int  # /Link owners carrying kids; the LINK_CONTENT clause reads full coverage
+    links_with_content: int
     role_map: int
-    roles_unmapped: int  # read /S roles neither standard nor /RoleMap-registered; the ROLE_MAP clause reads zero
+    roles_unmapped: int
     misnested: int
-    marked: bool  # /MarkInfo /Marked
-    has_struct: bool  # pikepdf /StructTreeRoot present; STRUCT_TREE reconciles it against the oracle's independent has_tree
-    has_lang: bool  # catalog /Lang present
-    title_ok: bool  # XMP dc:title beside /ViewerPreferences /DisplayDocTitle
-    ua_id: bool  # XMP pdfuaid:part matches the audited part
-    not_suspect: bool  # /MarkInfo /Suspects absent or false
-    namespaced: bool  # /StructTreeRoot /Namespaces present — the PDF 2.0 structure-namespace entry UA2_NAMESPACES reads
-    syntax_warnings: int  # pikepdf `check_pdf_syntax` structural-warning count; the SYNTAX clause reads its emptiness
-    oracle_valid: bool  # the `pdf_oxide.validate_pdf_ua` external verdict `valid` boolean
-    oracle_errors: int  # the external oracle's reported error count; the ORACLE clause reads valid AND zero errors
-    oracle_warnings: int  # the external oracle's non-fatal warning count; captured whole (never a 2-of-3 slice), evidence not a clause since a warning is not a conformance failure
-    structured_warnings: int  # the `pdf_oxide.structured_warnings()` structure-diagnostic count (`{category, page, message, spec_section}` rows), additional two-source structural evidence beside the clause set
-    has_tree: bool  # the oracle's independent `has_structure_tree` confirmation the STRUCT_TREE clause reconciles against the pikepdf `/StructTreeRoot` read
-    pages_with_text: int  # count of pages carrying an extractable text layer (`pdf_oxide.has_text_layer`); evidence the accessible count folds
-    pages_accessible: int  # pages carrying text OR alt-covered tagged imagery; the TEXT_LAYER clause reads full coverage
-    has_xfa: bool  # dynamic XFA presence (`pdf_oxide.has_xfa`); the NO_XFA clause reads its absence
-    pdf_version: tuple[int, int]  # the oracle's `(major, minor)` version tuple; the UA2_VERSION clause reads >= (2, 0) under part 2
-    pdfa_claim: str  # the document's OWN declared PDF/A conformance (pikepdf XMP `pdfa_status`), evidence not a clause
-    pdfx_claim: str  # the document's OWN declared PDF/X conformance (pikepdf XMP `pdfx_status`)
-    wtpdf_accessibility: bool  # a `pdfd:conformsTo` declaration names the WTPDF accessibility level; the WTPDF_ACCESSIBILITY clause conditions on it
-    wtpdf_reuse: bool  # a `pdfd:conformsTo` declaration names the WTPDF reuse level; the WTPDF_REUSE clause conditions on it
+    marked: bool
+    has_struct: bool
+    has_lang: bool
+    title_ok: bool
+    ua_id: bool
+    not_suspect: bool
+    namespaced: bool
+    syntax_warnings: int
+    oracle_valid: bool
+    oracle_errors: int
+    oracle_warnings: int
+    structured_warnings: int
+    has_tree: bool
+    pages_with_text: int
+    pages_accessible: int
+    has_xfa: bool
+    pdf_version: tuple[int, int]
+    pdfa_claim: str
+    pdfx_claim: str
+    wtpdf_accessibility: bool
+    wtpdf_reuse: bool
     failures: tuple[UaCheck, ...]
 
     @property
@@ -194,7 +190,7 @@ class StructureAudit(Struct, frozen=True, gc=False):
     def conformant(self) -> bool:
         return not self.failures
 
-    def facts(self) -> dict[str, str]:  # the scalar projection a span/log consumer reads off the decoded content-addressed audit
+    def facts(self) -> dict[str, str]:
         return {
             "ua_part": str(self.ua_part),
             "elements": str(self.elements),
@@ -240,23 +236,22 @@ class StructureAudit(Struct, frozen=True, gc=False):
 
 
 class PreflightAudit(Struct, frozen=True, gc=False):
-    # `conformant` gates the PAdES/print-issue close.
     level: PdfxLevel
-    pdfx_valid: bool  # the `pdf_oxide.validate_pdf_x(level)` external verdict `valid` boolean
-    pdfx_errors: int  # the oracle's reported error count; the PDFX_VALID clause reads valid AND zero errors
-    pdfx_warnings: int  # the oracle's non-fatal warning count; evidence, not a clause
-    pdfx_claim: str  # the document's OWN declared PDF/X conformance (pikepdf XMP `pdfx_status`)
-    output_intents: int  # catalog /OutputIntents entry count; the OUTPUT_INTENT clause reads non-emptiness
+    pdfx_valid: bool
+    pdfx_errors: int
+    pdfx_warnings: int
+    pdfx_claim: str
+    output_intents: int
     pages: int
-    pages_boxed: int  # pages declaring a TrimBox or ArtBox; the PAGE_BOXES clause reads full coverage
-    structured_warnings: int  # the `pdf_oxide.structured_warnings()` diagnostic count folded as print-side evidence
+    pages_boxed: int
+    structured_warnings: int
     failures: tuple[PreflightCheck, ...]
 
     @property
-    def conformant(self) -> bool:  # empty only when the oracle passes AND a declared claim is honest AND the print geometry holds
+    def conformant(self) -> bool:
         return not self.failures
 
-    def facts(self) -> dict[str, str]:  # the scalar projection a span/log consumer reads off the decoded content-addressed verdict
+    def facts(self) -> dict[str, str]:
         return {
             "level": self.level,
             "pdfx_valid": str(self.pdfx_valid),
@@ -273,13 +268,11 @@ class PreflightAudit(Struct, frozen=True, gc=False):
 
 
 class ArchiveAudit(Struct, frozen=True, gc=False):
-    # two-observation archival verdict: the converter self-report AND the post-upgrade oracle, each a clause — a false
-    # provider boolean fails its clause even when the error lists arrive empty, so success-equivalent evidence is unforgeable.
     level: PdfaLevel
-    converted: bool  # `convert_to_pdf_a` `success` — the self-report verdict, admitted whole
-    applied: int  # converter action count
+    converted: bool
+    applied: int
     converter_errors: int
-    oracle_valid: bool  # `validate_pdf_a` `valid` on the SAME upgraded handle
+    oracle_valid: bool
     oracle_errors: int
     oracle_warnings: int
     failures: tuple[ArchiveCheck, ...]
@@ -321,10 +314,6 @@ class AccessFact:
 
 
 class Access(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
-    # `key` is the PRE-RUN mint taken ONCE at `of` and carried: the preimage re-encodes the whole `pdf` payload and
-    # `ContentIdentity.key` opens a `content.derive` span per call, so a property re-read would pay both again at the
-    # receipt and a third time at `contribute` — and the synchronous port reaches no closure to capture it.
     request: AccessRequest
     pdf: bytes
     lane: LanePolicy
@@ -347,33 +336,21 @@ class Access(Struct, frozen=True):
 
     @receipted(
         OPEN
-    )  # the keep-all redaction policy the runtime receipts owner exports (never a re-minted per-file `Redaction`); drains `contribute` off the stepped owner
+    )
     async def _authored(self) -> Self:
-        # GIL-releasing native folds cross the runtime thread lane through the owner's bound `lane`, never a folder-minted limiter.
         crossed = await self.lane.offload(Kernel.of(self._stepped, KernelTrait.RELEASING))
         return crossed.default_with(lapsed)
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        # terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
         settled = (await async_boundary(ACCESS_AUTHOR, self._authored, catch=_AUTHOR_RAISES)).map(lambda done: (done, done._receipt(key)))
         match settled:
             case Result(tag="ok", ok=(done, receipt)):
-                # a conformance close is a claim a regulator or a client disputes years later, so the durable fact
-                # lands at the ONE awaitable seat — recording suspends and `contribute` cannot — under whichever
-                # class the minted case's own `_RETENTION` row names, REGULATORY on the produced `egress` halves.
                 return (await Journal.record(receipt.evidence(*done._verdict))).map(lambda _landed: receipt)
             case refused:
                 return Error(refused.error)
 
     @property
     def _verdict(self) -> tuple[Change, ...]:
-        # the receipt collapses each close to counts, so WHICH clause refuted rides positionally: an auditor reading
-        # a PDF/UA, PDF/X, or PDF/A verdict back needs the failed clause by name, and widening the `Egress`/`Pdf`
-        # cases three ops share to carry three clause vocabularies is the deleted form. TAG produces bytes under no
-        # verdict of its own, so it states its op and no phantom empty failure list; a passing close states the same,
-        # which is why the op entry always rides — an audit row of pure absence cannot distinguish clean from unrun.
-        # bare `_` wildcards, never named throwaways: an or-pattern must bind ONE name set across alternatives of
-        # three different arities, so the audit value is the only binding and all three closes fold to one arm.
         match self.fact:
             case (
                 AccessFact(tag="audit", audit=(_, _, audit))
@@ -401,14 +378,12 @@ class Access(Struct, frozen=True):
         return emitted
 
     def contribute(self) -> Iterable[Receipt]:
-        if self.fact is None:  # contribute rides the stepped owner the weave returned, never the seed
+        if self.fact is None:
             return
         yield from self._receipt(self.key).contribute()
 
 
 def _minted(request: AccessRequest, pdf: bytes, /) -> ContentKey:
-    # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan.
-    # Called exactly once per owner, at admission.
     op = AccessOp.TAG if request.tag == "tagged" else AccessOp(request.tag)
     return ContentIdentity.key(f"access-{op}", _AUDIT_ENCODER.encode((request, pdf)))
 
@@ -416,15 +391,10 @@ def _minted(request: AccessRequest, pdf: bytes, /) -> ContentKey:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# `_ELT` decodes a read `/S` Name to its model member AND its key set IS the standard-structure membership the /RoleMap
-# completeness check reads; `_CATEGORY` projects each member through `role_category`, so both track the model enum.
 _ELT: Final[Map[str, StructEltKind]] = Map.of_seq((f"/{elt.value}", elt) for elt in StructEltKind)
 _CATEGORY: Final[Map[StructEltKind, tuple[StructCategory, int]]] = Map.of_seq((
     (elt, role_category(StandardRole(elt=elt))) for elt in StructEltKind
 ))
-# standard structure-nesting policy this AUDIT owns: each constrained role's legal parent set per ISO 14289 (list/table
-# grouping + the East-Asian ruby/warichu assemblies the model vocabulary carries); a role absent from the table nests
-# anywhere, a foreign role is unconstrained.
 _NESTING: Final[Map[StructEltKind, frozenset[StructEltKind]]] = Map.of_seq([
     (StructEltKind.LI, frozenset({StructEltKind.L})),
     (StructEltKind.LBL, frozenset({StructEltKind.LI})),
@@ -435,20 +405,16 @@ _NESTING: Final[Map[StructEltKind, frozenset[StructEltKind]]] = Map.of_seq([
     (StructEltKind.TR, frozenset({StructEltKind.TABLE, StructEltKind.THEAD, StructEltKind.TBODY, StructEltKind.TFOOT})),
     (StructEltKind.TH, frozenset({StructEltKind.TR})),
     (StructEltKind.TD, frozenset({StructEltKind.TR})),
-    (StructEltKind.RB, frozenset({StructEltKind.RUBY})),  # ruby base text nests under its `Ruby` assembly
-    (StructEltKind.RT, frozenset({StructEltKind.RUBY})),  # ruby annotation text
-    (StructEltKind.RP, frozenset({StructEltKind.RUBY})),  # ruby fallback punctuation
-    (StructEltKind.WT, frozenset({StructEltKind.WARICHU})),  # warichu text nests under its `Warichu` assembly
-    (StructEltKind.WP, frozenset({StructEltKind.WARICHU})),  # warichu punctuation
+    (StructEltKind.RB, frozenset({StructEltKind.RUBY})),
+    (StructEltKind.RT, frozenset({StructEltKind.RUBY})),
+    (StructEltKind.RP, frozenset({StructEltKind.RUBY})),
+    (StructEltKind.WT, frozenset({StructEltKind.WARICHU})),
+    (StructEltKind.WP, frozenset({StructEltKind.WARICHU})),
 ])
 _ROW_GROUPS: Final[frozenset[StructEltKind]] = frozenset({StructEltKind.THEAD, StructEltKind.TBODY, StructEltKind.TFOOT})
-# WTPDF (PDF Association well-tagged PDF 1.0) PDF Declarations — the pdfd schema (namespace `http://pdfa.org/declarations/`, prefix `pdfd`)
-# carries `pdfd:declarations`, a bag of declaration structs whose `pdfd:conformsTo` URI names the conformance level. Each level admits
-# two live spellings: the erratum-canonical form where `#` is the only path-fragment separator, and the as-published WTPDF 1.0
-# §6.1.2/§6.1.3 form producers wrote with a `/` before the fragment.
-_PDF2_SSN: Final[str] = "http://iso.org/pdf2/ssn"  # the PDF 2.0 standard structure namespace part-2 authoring stamps on /Namespaces
+_PDF2_SSN: Final[str] = "http://iso.org/pdf2/ssn"
 _PDFD_CONFORMS: Final[str] = "{http://pdfa.org/declarations/}conformsTo"
-_RDF_RESOURCE: Final[str] = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"  # the URI-reference spelling of a conformsTo value
+_RDF_RESOURCE: Final[str] = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}resource"
 _WTPDF_ACCESSIBILITY: Final[frozenset[str]] = frozenset({
     "http://pdfa.org/declarations/wtpdf#accessibility1.0",
     "http://pdfa.org/declarations/wtpdf/#accessibility1.0",
@@ -457,12 +423,10 @@ _WTPDF_REUSE: Final[frozenset[str]] = frozenset({
     "http://pdfa.org/declarations/wtpdf#reuse1.0",
     "http://pdfa.org/declarations/wtpdf/#reuse1.0",
 })
-_AUDIT_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")  # the content key addresses this stable encoding
-_DECIMAL_PRECISION: Final = 8  # pinned qpdf real-number precision so a re-emit serializes coordinates identically — the content-addressing precondition beside `deterministic_id`
+_AUDIT_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")
+_DECIMAL_PRECISION: Final = 8
 _PIKEPDF_SETTINGS: Final = Lock()
 
-# each close's clause set is one predicate table over its OWN audit value — the audit carries every clause input, so a
-# verdict re-derives from the decoded record and a new clause is one row here plus its enum member, never a fold edit.
 _UA_CLAUSES: Final[tuple[tuple[UaCheck, Callable[[StructureAudit], bool]], ...]] = (
     (UaCheck.MARKED, lambda a: a.marked),
     (UaCheck.STRUCT_TREE, lambda a: a.has_struct and a.has_tree and a.elements > 0),
@@ -474,35 +438,30 @@ _UA_CLAUSES: Final[tuple[tuple[UaCheck, Callable[[StructureAudit], bool]], ...]]
     (UaCheck.HEADING_NESTING, lambda a: a.headings_monotone),
     (UaCheck.ROLE_MAP, lambda a: a.roles_unmapped == 0),
     (UaCheck.STRUCTURE_NESTING, lambda a: a.misnested == 0),
-    (UaCheck.TABLE_REGULAR, lambda a: a.tables_irregular == 0),  # per-owner: every table proved its OWN rows
-    (UaCheck.LIST_STRUCTURE, lambda a: a.lists_irregular == 0),  # per-owner: every list proved its OWN items
+    (UaCheck.TABLE_REGULAR, lambda a: a.tables_irregular == 0),
+    (UaCheck.LIST_STRUCTURE, lambda a: a.lists_irregular == 0),
     (UaCheck.LINK_CONTENT, lambda a: a.links == a.links_with_content),
     (UaCheck.PAGES_KEYED, lambda a: a.elements == 0 or (a.mcids > 0 and a.pages_keyed == a.pages_marked and a.mcids_keyed == a.mcids)),
     (UaCheck.SYNTAX, lambda a: a.syntax_warnings == 0),
-    (UaCheck.TEXT_LAYER, lambda a: a.pages_accessible == a.pages),  # every page carries text or alt-covered tagged imagery — an uncovered image page fails
+    (UaCheck.TEXT_LAYER, lambda a: a.pages_accessible == a.pages),
     (UaCheck.NO_XFA, lambda a: not a.has_xfa),
-    (UaCheck.UA2_VERSION, lambda a: a.ua_part != 2 or a.pdf_version >= (2, 0)),  # part-2 clause; satisfied by construction under part 1
+    (UaCheck.UA2_VERSION, lambda a: a.ua_part != 2 or a.pdf_version >= (2, 0)),
     (UaCheck.UA2_NAMESPACES, lambda a: a.ua_part != 2 or a.namespaced),
-    # a declared WTPDF accessibility conformance is honest only under a part-2 audit whose generic UA oracle passes beside the local PDF 2.0
-    # version and namespace evidence — `validate_pdf_ua` carries no part argument, so part-2 specificity is local, never oracle-attributed;
-    # a part-1 audit cannot verify the claim, so it fails there rather than passing unexamined
     (
         UaCheck.WTPDF_ACCESSIBILITY,
         lambda a: not a.wtpdf_accessibility or (a.ua_part == 2 and a.oracle_valid and a.oracle_errors == 0 and a.pdf_version >= (2, 0) and a.namespaced),
     ),
-    # a declared WTPDF reuse conformance refutes on local evidence alone — WTPDF is a PDF 2.0 technology, so an untagged or pre-2.0
-    # file declaring it is a false claim; no reuse oracle participates
     (UaCheck.WTPDF_REUSE, lambda a: not a.wtpdf_reuse or (a.has_struct and a.elements > 0 and a.pdf_version >= (2, 0))),
-    (UaCheck.ORACLE, lambda a: a.oracle_valid and a.oracle_errors == 0),  # the independent oracle catches what the clause set cannot enumerate
+    (UaCheck.ORACLE, lambda a: a.oracle_valid and a.oracle_errors == 0),
 )
 _PREFLIGHT_CLAUSES: Final[tuple[tuple[PreflightCheck, Callable[[PreflightAudit], bool]], ...]] = (
     (PreflightCheck.PDFX_VALID, lambda a: a.pdfx_valid and a.pdfx_errors == 0),
-    (PreflightCheck.CLAIM_HONEST, lambda a: not a.pdfx_claim or a.pdfx_valid),  # a declared /pdfxid the oracle refutes is a false claim
+    (PreflightCheck.CLAIM_HONEST, lambda a: not a.pdfx_claim or a.pdfx_valid),
     (PreflightCheck.OUTPUT_INTENT, lambda a: a.output_intents > 0),
     (PreflightCheck.PAGE_BOXES, lambda a: a.pages_boxed == a.pages),
 )
 _ARCHIVE_CLAUSES: Final[tuple[tuple[ArchiveCheck, Callable[[ArchiveAudit], bool]], ...]] = (
-    (ArchiveCheck.CONVERTED, lambda a: a.converted and a.converter_errors == 0),  # the self-report boolean participates — never inferred off list lengths
+    (ArchiveCheck.CONVERTED, lambda a: a.converted and a.converter_errors == 0),
     (ArchiveCheck.ORACLE, lambda a: a.oracle_valid and a.oracle_errors == 0),
 )
 
@@ -510,28 +469,22 @@ _ARCHIVE_CLAUSES: Final[tuple[tuple[ArchiveCheck, Callable[[ArchiveAudit], bool]
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE lift anchor. TRANSIENT — an authoring fold that died on a provider raise or a thread-lane death is
-# a defect a re-issue may clear; every admission refusal is the op's own vocabulary, never a row here.
 ACCESS_AUTHOR: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.TAGGED, point="author", arm="boundary", defect="author-fold", retriability=TRANSIENT
 )
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([ACCESS_AUTHOR]))
 
-# the fence's whole raise surface: `_authored` awaits a RAILED offload and collapses its terminal fault through the
-# shared `document/model#NODE` carrier, which `BoundaryFault.of` admits ahead of `CLASSIFY` so the fault crosses back
-# WHOLE on `domain`. Every `pikepdf` raise already converted inside the worker, so no provider class rides here.
 _AUTHOR_RAISES: Final[Catch] = (Lapse,)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _failed[C, A](clauses: tuple[tuple[C, Callable[[A], bool]], ...], audit: A, /) -> tuple[C, ...]:
-    # one clause fold serves the UA, print, and archival closes; a verdict is the audit value's own derivation.
     return tuple(check for check, holds in clauses if not holds(audit))
 
 
 @dataclass(slots=True)
-class _Author:  # the TAG boundary accumulator: foreign role map, per-page MCID slots, running counts
+class _Author:
     role_map: dict[str, str] = dc_field(default_factory=dict)
     slots: dict[int, list["pikepdf.Object"]] = dc_field(default_factory=dict)
     elements: int = 0
@@ -539,15 +492,13 @@ class _Author:  # the TAG boundary accumulator: foreign role map, per-page MCID 
 
 
 def _elem(pdf: "pikepdf.Pdf", node: DocumentNode, parent: "pikepdf.Object", build: _Author, /) -> "pikepdf.Object":
-    # one element shell: role, parent link, /Alt off the model `alt_of` projection, /ActualText, /Lang — no recursion,
-    # no /K assignment; the frontier owns descent and the K arrays.
     build.elements += 1
     role = role_of(node)
-    if not 0 <= node.meta.page < len(pdf.pages):  # a lens-recovered page ordinal is untrusted: a negative index wraps silently, an overrun raises raw
+    if not 0 <= node.meta.page < len(pdf.pages):
         raise ValueError(f"structure element /{role} names page {node.meta.page} outside 0..{len(pdf.pages) - 1}")
     elem = pdf.make_indirect(Dictionary(Type=Name.StructElem, S=Name("/" + role), P=parent, Pg=pdf.pages[node.meta.page].obj))
     if isinstance(node, StructureNode) and isinstance(node.role, ForeignRole):
-        build.role_map[role] = standard_for(node.role).value  # /RoleMap maps the foreign role to its standard type
+        build.role_map[role] = standard_for(node.role).value
     if isinstance(node, FigureNode):
         build.figures += 1
     if isinstance(node, FigureNode | FormulaNode) and (alt := alt_of(node)[0]):
@@ -560,12 +511,9 @@ def _elem(pdf: "pikepdf.Pdf", node: DocumentNode, parent: "pikepdf.Object", buil
 
 
 def _authored_tree(pdf: "pikepdf.Pdf", source: DocumentNode, struct_root: "pikepdf.Object", build: _Author, /) -> None:
-    # pre-order frontier: parents mint before children so `/P` links resolve, leaves bind MCIDs in document order
-    # exactly as the recursive form did, and the per-parent child lists assemble the `/K` arrays after the sweep —
-    # a lens-recovered source tree carries adversarial depth, so native recursion is forfeit here as in `_walk`.
     grown: dict[int, tuple["pikepdf.Object", list["pikepdf.Object"]]] = {}
     frontier: Block[tuple[DocumentNode, "pikepdf.Object"]] = Block.singleton((source, struct_root))
-    while not frontier.is_empty():  # Exemption: iterative frontier — the untrusted tree depth forfeits the recursive form
+    while not frontier.is_empty():
         (node, parent), frontier = frontier.head(), frontier.tail()
         elem = _elem(pdf, node, parent, build)
         grown.setdefault(id(parent), (parent, []))[1].append(elem)
@@ -573,9 +521,6 @@ def _authored_tree(pdf: "pikepdf.Pdf", source: DocumentNode, struct_root: "pikep
         if branches:
             frontier = Block.of_seq((kid, elem) for kid in branches).append(frontier)
         elif isinstance(node, RunNode):
-            # only a TEXT leaf binds an MCID: `_stamped` marks BT..ET text spans alone, so the slot arrays and the
-            # in-stream marks stay congruent under the per-page equality gate; a figure, formula, field, or annotation
-            # leaf carries its /Alt and /ActualText evidence without claiming a marked span no emitter writes for it.
             owners = build.slots.setdefault(node.meta.page, [])
             elem.K = len(owners)
             owners.append(elem)
@@ -584,9 +529,6 @@ def _authored_tree(pdf: "pikepdf.Pdf", source: DocumentNode, struct_root: "pikep
 
 
 def _stamped(pdf: "pikepdf.Pdf", page: "pikepdf.Page", /) -> None:
-    # post-hoc MCID authoring for an unmarked emitter: every BT..ET text block wraps in `/P BDC <</MCID n>> … EMC`
-    # in document order — the explicit-proplist operator pair the pikepdf catalog verifies — so structure leaves
-    # bind REAL marked spans and the equality gate below verifies congruence instead of trusting convention.
     marked: list[object] = []
     ordinal = 0
     for instruction in pikepdf.parse_content_stream(page):
@@ -601,9 +543,6 @@ def _stamped(pdf: "pikepdf.Pdf", page: "pikepdf.Page", /) -> None:
 
 
 def _numeric(value: object, /) -> int | None:
-    # total integer read over a hostile PDF object — the one guard every MCID, /K, and /StructParents ordinal
-    # resolves through: only a textual-integer object admits, so a name, string, or real planted in a malformed
-    # proplist or tree slot drops as absent evidence instead of raising mid-tag or mid-audit.
     text = str(value)
     return int(text) if text.lstrip("-").isdigit() else None
 
@@ -621,8 +560,6 @@ def _page_mcids(page: "pikepdf.Page", /) -> tuple[int, ...]:
 
 
 def _bound_mcids(page: "pikepdf.Page", entries: "pikepdf.Object", /) -> tuple[int, ...]:
-    # each /ParentTree slot must resolve to a StructElem leaf of THIS page whose integer /K is the MCID it claims;
-    # a non-StructElem, foreign-page, or non-integer-/K entry drops out, so a reordered or malformed tree never keys.
     return tuple(
         ordinal
         for entry in entries
@@ -640,7 +577,7 @@ def _tag(access: "Access") -> AccessFact:
             pass
         case _ as unreachable:
             assert_never(unreachable)
-    with pikepdf.open(BytesIO(access.pdf)) as pdf:  # deterministic close, never GC-reaped
+    with pikepdf.open(BytesIO(access.pdf)) as pdf:
         mark_info = pdf.Root.get(Name.MarkInfo, Dictionary())
         mark_info.Marked = True
         pdf.Root.MarkInfo = mark_info
@@ -650,7 +587,7 @@ def _tag(access: "Access") -> AccessFact:
         meta_lang = None if isinstance(source.meta.lang, msgspec.UnsetType) else source.meta.lang
         if (document_lang := lang or meta_lang) is not None:
             pdf.Root.Lang = String(document_lang)
-        with pdf.open_metadata() as xmp:  # XMP PDF/UA identifier + document title
+        with pdf.open_metadata() as xmp:
             xmp["pdfuaid:part"] = str(ua_part)
             if title:
                 xmp["dc:title"] = title
@@ -663,14 +600,12 @@ def _tag(access: "Access") -> AccessFact:
             role_map[Name("/" + foreign)] = Name("/" + standard)
         struct_root.RoleMap = role_map
         if ua_part == 2:
-            # part-2 output carries the PDF 2.0 standard structure namespace on /StructTreeRoot /Namespaces — the
-            # entry the UA2_NAMESPACES audit clause reads — so an authored part-2 document passes its own audit.
             struct_root.Namespaces = Array([pdf.make_indirect(Dictionary(Type=Name.Namespace, NS=String(_PDF2_SSN)))])
         parent_tree = NumberTree.new(
             pdf
-        )  # the /ParentTree IS a PDF number-tree; the modeled `NumberTree` mapping-view owner replaces the hand-assembled flat `Nums` Array
+        )
         for page_key in sorted(build.slots):
-            if not _page_mcids(pdf.pages[page_key]):  # an unmarked emitter's page gains its marked spans here
+            if not _page_mcids(pdf.pages[page_key]):
                 _stamped(pdf, pdf.pages[page_key])
             pdf.pages[page_key].obj.StructParents = page_key
             parent_tree[page_key] = Array(build.slots[page_key])
@@ -690,7 +625,7 @@ def _tag(access: "Access") -> AccessFact:
 
 
 @dataclass(slots=True)
-class _Tally:  # the AUDIT boundary accumulator over the authored /StructTreeRoot spine
+class _Tally:
     elements: int = 0
     depth: int = 0
     figures: int = 0
@@ -705,7 +640,7 @@ class _Tally:  # the AUDIT boundary accumulator over the authored /StructTreeRoo
     misnested: int = 0
     roles: set[str] = dc_field(default_factory=set)
     levels: list[int] = dc_field(default_factory=list)
-    alt_pages: set[tuple[int, int]] = dc_field(default_factory=set)  # /Pg objgen of pages whose tagged Figure/Formula carries an alternate representation
+    alt_pages: set[tuple[int, int]] = dc_field(default_factory=set)
 
 
 def _struct_kids(elem: "pikepdf.Object", /) -> tuple["pikepdf.Object", ...]:
@@ -719,8 +654,6 @@ def _kid_elts(elem: "pikepdf.Object", /) -> tuple[StructEltKind | None, ...]:
 
 
 def _table_regular(elem: "pikepdf.Object", /) -> bool:
-    # THIS table's own row structure: a direct /TR kid, or a /TR under one of ITS /THead//TBody//TFoot groups —
-    # never a document-wide tally one well-formed sibling could satisfy.
     kinds = _kid_elts(elem)
     return StructEltKind.TR in kinds or any(
         kind in _ROW_GROUPS and StructEltKind.TR in _kid_elts(kid) for kind, kid in zip(kinds, _struct_kids(elem), strict=True)
@@ -732,24 +665,23 @@ def _list_regular(elem: "pikepdf.Object", /) -> bool:
 
 
 def _walk(root: "pikepdf.Object", tally: _Tally, /) -> None:
-    # frontier pushes children before siblings, keeping the document order the `tally.levels` monotonicity read depends on.
     stack: Block[tuple["pikepdf.Object", int, StructEltKind | None]] = Block.singleton((root, 1, None))
-    while not stack.is_empty():  # Exemption: iterative frontier — the untrusted `/K` spine forfeits the recursive form
+    while not stack.is_empty():
         (elem, depth, parent), stack = stack.head(), stack.tail()
         tally.elements += 1
         tally.depth = max(tally.depth, depth)
         role = str(elem.get(Name.S, ""))
         tally.roles.add(role)
-        elt = _ELT.try_find(role).default_value(None)  # the model member behind the read /S, or None for a foreign role (nesting-exempt)
+        elt = _ELT.try_find(role).default_value(None)
         if elt is not None and parent is not None and elt in _NESTING and parent not in _NESTING[elt]:
             tally.misnested += 1
         match elt:
-            case StructEltKind.FIGURE | StructEltKind.FORMULA:  # both roles owe an alternate representation; `_elem` authors Alt for both
+            case StructEltKind.FIGURE | StructEltKind.FORMULA:
                 tally.figures += 1
                 covered = bool(elem.get(Name.Alt) or elem.get(Name.ActualText))
                 tally.figures_with_alt += covered
                 if covered and (pg := elem.get(Name.Pg)) is not None:
-                    tally.alt_pages.add(pg.objgen)  # the page this covered figure marks accessible for the TEXT_LAYER clause
+                    tally.alt_pages.add(pg.objgen)
             case StructEltKind.TABLE:
                 tally.tables += 1
                 tally.tables_irregular += not _table_regular(elem)
@@ -769,13 +701,7 @@ def _walk(root: "pikepdf.Object", tally: _Tally, /) -> None:
 
 
 def _declared(packet: bytes, /) -> frozenset[str]:
-    # `pdfd:declarations` is an rdf:Bag of parseType=Resource structs the pikepdf mapping view cannot decode (the dict read yields
-    # whitespace), so the conformsTo URIs read off the raw `/Metadata` packet's element tree — all three RDF spellings: child element
-    # text, shorthand attribute, and the `rdf:resource` URI reference — and a malformed packet declares nothing rather than failing the audit.
     try:
-        # the /Metadata packet is document-controlled bytes, so it admits through the model owner's ONE hardened
-        # fold — the same libxml2 posture the emit and lens XML rails read — and a malformed packet raises the
-        # provider's own `XMLSyntaxError` rather than a second parser family's fault vocabulary.
         root = hardened_parse(packet)
     except etree.XMLSyntaxError:
         return frozenset()
@@ -791,7 +717,7 @@ def _audit(access: "Access") -> AccessFact:
             pass
         case _ as unreachable:
             assert_never(unreachable)
-    with pikepdf.open(BytesIO(access.pdf)) as pdf:  # deterministic close; every clause resolves to a plain value before the handle frees
+    with pikepdf.open(BytesIO(access.pdf)) as pdf:
         root = pdf.Root
         mark_info = root.get(Name.MarkInfo, Dictionary())
         struct_root = root.get(Name.StructTreeRoot)
@@ -820,37 +746,36 @@ def _audit(access: "Access") -> AccessFact:
         mcids = sum(len(found) for found, _expected in page_bindings)
         keyed = sum(bool(found) and found == expected for found, expected in page_bindings)
         mcids_keyed = sum(len(frozenset(found) & frozenset(expected)) for found, expected in page_bindings)
-        syntax = len(pdf.check_pdf_syntax())  # qpdf --check structural-syntax warnings; a well-formed PDF is the ISO 14289 precondition
-        alt_indices = frozenset(index for index, page in enumerate(pdf.pages) if page.obj.objgen in tally.alt_pages)  # alt-covered page ordinals
-        mapped = {str(name) for name in role_map.keys()}  # the foreign /S Names the /RoleMap registers
-        with pdf.open_metadata(set_pikepdf_as_editor=False, update_docinfo=False) as xmp:  # read-only audit never mutates the audited bytes
+        syntax = len(pdf.check_pdf_syntax())
+        alt_indices = frozenset(index for index, page in enumerate(pdf.pages) if page.obj.objgen in tally.alt_pages)
+        mapped = {str(name) for name in role_map.keys()}
+        with pdf.open_metadata(set_pikepdf_as_editor=False, update_docinfo=False) as xmp:
             ua_id, has_title = str(xmp.get("pdfuaid:part", "")) == str(ua_part), bool(xmp.get("dc:title"))
-            pdfa_claim, pdfx_claim = xmp.pdfa_status, xmp.pdfx_status  # the document's OWN declared PDF/A·PDF/X claim (evidence, not a UaCheck)
-        metadata = root.get(Name.Metadata)  # the raw /Metadata stream octets, never a mapping-view re-serialization
+            pdfa_claim, pdfx_claim = xmp.pdfa_status, xmp.pdfx_status
+        metadata = root.get(Name.Metadata)
         declared = _declared(bytes(metadata.read_bytes()) if metadata is not None else b"")
         wtpdf_accessibility = not declared.isdisjoint(_WTPDF_ACCESSIBILITY)
         wtpdf_reuse = not declared.isdisjoint(_WTPDF_REUSE)
-        # every pikepdf-touching predicate resolved to a plain bool/int here, so no qpdf `Object` escapes the borrow window
         marked = bool(mark_info.get(Name.Marked, False))
         has_struct = struct_root is not None
-        namespaced = has_struct and Name("/Namespaces") in struct_root  # the PDF 2.0 structure-namespace entry UA2_NAMESPACES reads
+        namespaced = has_struct and Name("/Namespaces") in struct_root
         has_lang = bool(root.get(Name.Lang, ""))
         title_ok = has_title and bool(root.get(Name.ViewerPreferences, Dictionary()).get(Name.DisplayDocTitle, False))
         not_suspect = not bool(mark_info.get(Name.Suspects, False))
-        unmapped = sum(1 for role in tally.roles if role not in _ELT and role not in mapped)  # standard membership IS `_ELT`'s key set
+        unmapped = sum(1 for role in tally.roles if role not in _ELT and role not in mapped)
         monotone = all(b - a <= 1 for a, b in pairwise(tally.levels) if b > a)
         role_map_n = len(mapped)
-    with pdf_oxide.PdfDocument.from_bytes(access.pdf) as oracle:  # independent in-process Rust oracle, deterministic close via __exit__
-        verdict = oracle.validate_pdf_ua()  # {'valid': bool, 'errors': list, 'warnings': list} — the veraPDF-grade cross-check, read once
+    with pdf_oxide.PdfDocument.from_bytes(access.pdf) as oracle:
+        verdict = oracle.validate_pdf_ua()
         oracle_valid, oracle_errors, oracle_warnings = bool(verdict["valid"]), len(verdict["errors"]), len(verdict["warnings"])
-        has_tree = oracle.has_structure_tree()  # the independent structure-tree confirmation STRUCT_TREE reconciles against the pikepdf read
-        xfa = oracle.has_xfa()  # a dynamic XFA form is a PDF/UA-1 §7.18.1 violation
-        version = tuple(oracle.version())  # the (major, minor) version tuple — `version()` returns a pair, not a string
-        text_flags = tuple(bool(oracle.has_text_layer(page_index)) for page_index in range(int(oracle.page_count)))  # per-page extractable-text evidence
+        has_tree = oracle.has_structure_tree()
+        xfa = oracle.has_xfa()
+        version = tuple(oracle.version())
+        text_flags = tuple(bool(oracle.has_text_layer(page_index)) for page_index in range(int(oracle.page_count)))
         text_pages = sum(text_flags)
         structured = len(
             oracle.structured_warnings()
-        )  # the oracle's `{category, page, message, spec_section}` structure diagnostics, folded as additional two-source evidence
+        )
     accessible = sum(1 for index, has_text in enumerate(text_flags) if has_text or index in alt_indices)
     evidence = StructureAudit(
         ua_part=ua_part,
@@ -907,9 +832,9 @@ def _archive(access: "Access") -> AccessFact:
             pass
         case _ as unreachable:
             assert_never(unreachable)
-    with pdf_oxide.PdfDocument.from_bytes(access.pdf) as doc:  # deterministic close via __exit__, never GC-reaped
-        outcome = doc.convert_to_pdf_a(level)  # {'success': bool, 'level': str, 'actions': list, 'errors': list}, upgraded in place
-        verified = doc.validate_pdf_a(level)  # {'valid': bool, 'level': str, 'errors': list, 'warnings': list} — the oracle on the SAME upgraded handle
+    with pdf_oxide.PdfDocument.from_bytes(access.pdf) as doc:
+        outcome = doc.convert_to_pdf_a(level)
+        verified = doc.validate_pdf_a(level)
         converted, applied, converter_errors = bool(outcome["success"]), len(outcome["actions"]), len(outcome["errors"])
         oracle_valid, oracle_errors, oracle_warnings = bool(verified["valid"]), len(verified["errors"]), len(verified["warnings"])
         data, pages = doc.to_bytes(), int(doc.page_count)
@@ -933,21 +858,19 @@ def _preflight(access: "Access") -> AccessFact:
             pass
         case _ as unreachable:
             assert_never(unreachable)
-    with pikepdf.open(BytesIO(access.pdf)) as pdf:  # read-only: claim, output intents, and page print geometry resolve to plain values here
+    with pikepdf.open(BytesIO(access.pdf)) as pdf:
         with pdf.open_metadata(set_pikepdf_as_editor=False, update_docinfo=False) as xmp:
-            pdfx_claim = str(xmp.pdfx_status)  # the document's OWN declared PDF/X conformance, resolved before the qpdf handle frees
-        intents = len(pdf.Root.get(Name.OutputIntents, Array()))  # every PDF/X level demands a declared output intent
-        boxed = sum(Name.TrimBox in page.obj or Name.ArtBox in page.obj for page in pdf.pages)  # per-page print geometry
+            pdfx_claim = str(xmp.pdfx_status)
+        intents = len(pdf.Root.get(Name.OutputIntents, Array()))
+        boxed = sum(Name.TrimBox in page.obj or Name.ArtBox in page.obj for page in pdf.pages)
         page_count = len(pdf.pages)
-    with pdf_oxide.PdfDocument.from_bytes(access.pdf) as oracle:  # independent in-process Rust PDF/X oracle, deterministic close via __exit__
+    with pdf_oxide.PdfDocument.from_bytes(access.pdf) as oracle:
         verdict = oracle.validate_pdf_x(
             level
-        )  # {'valid': bool, 'level': str, 'errors': list, 'warnings': list} — read once, every value resolved before the handle frees
+        )
         valid, errors, warnings = bool(verdict["valid"]), len(verdict["errors"]), len(verdict["warnings"])
         structured, oracle_pages = len(oracle.structured_warnings()), int(oracle.page_count)
     if page_count != oracle_pages:
-        # two independent parsers splitting on the page tree is itself a malformed-document verdict — one provider
-        # misread /Pages, so no audit minted over either count is trustworthy and the seam converts the raise.
         raise ValueError(f"preflight page-count split: pikepdf={page_count} pdf-oxide={oracle_pages}")
     evidence = PreflightAudit(
         level=level,

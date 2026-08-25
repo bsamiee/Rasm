@@ -38,8 +38,6 @@ const _policy = {
   timeoutResolution: Duration.millis(100),
 } as const
 
-// a `hold` grain's refused parcel: the value absent because the generation disagreed, the raw stored leaf preserved
-// beside it — declared out here because `Store`'s own `Shape` member shadows the core import inside the namespace
 type _Held<A> = { readonly value: Option.Option<A>; readonly residue: Option.Option<Shape.Json> }
 
 declare namespace Store {
@@ -48,7 +46,7 @@ declare namespace Store {
     readonly memoMap?: Layer.MemoMap
   }
   type Disposition = "hold" | "discard"
-  type Segment<S extends string> = S extends `${string}.${string}` ? never : S // a dotted segment would mint extra key levels no reader parses
+  type Segment<S extends string> = S extends `${string}.${string}` ? never : S
   type Grain<D extends string, G extends string> = { readonly domain: Store.Segment<D>; readonly grain: Store.Segment<G> }
   type Key = `rasm.ui.${string}.${string}`
   type Seal<P extends Store.Disposition> = { readonly generation: number; readonly residue: P }
@@ -68,8 +66,6 @@ declare namespace Store {
 const _key = <D extends string, G extends string>(row: Store.Grain<D, G>): Store.Key =>
   `rasm.ui.${row.domain}.${row.grain}`
 
-// `generation` compares BEFORE the inner schema runs, so a parcel decoding cleanly under today's shape
-// while carrying yesterday's meaning refuses; the `hold` arm hands that refused `value` leaf back verbatim
 declare const _sealed: <A, I, P extends Store.Disposition>(
   schema: Schema.Schema<A, I>,
   seal: Store.Seal<P>,
@@ -122,10 +118,10 @@ const _enroll = Api.mutation("crew", "enroll", { reactivityKeys: ["crew"] })
 class Rpc extends AtomRpc.Tag<Rpc>()("app/Rpc", {
   group: _procedures,
   protocol: RpcClient.layerProtocolHttp({ url: "<origin>/rpc" }),
-  spanPrefix: "rasm.ui.rpc", // binding-side span identity: procedure spans join the rasm.ui vocabulary with zero call-site code
+  spanPrefix: "rasm.ui.rpc",
 }) {}
 
-const _tail = Rpc.query("tail", { key: "<value-a>" }, { reactivityKeys: ["tail"] }) // a streaming procedure lands as a PullResult atom: a write advances the page
+const _tail = Rpc.query("tail", { key: "<value-a>" }, { reactivityKeys: ["tail"] })
 
 const _commit = Rpc.mutation("commit")
 ```
@@ -309,7 +305,7 @@ const History: History.Shape = {
   redoable: (self) => Atom.map(self, (state) => Chunk.isNonEmpty(state.future)),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { History, Store }
 ```

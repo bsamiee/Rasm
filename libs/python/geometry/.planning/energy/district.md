@@ -38,7 +38,7 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
-if TYPE_CHECKING:  # AGPL band: annotations resolve here; every runtime use is a function-local boundary import
+if TYPE_CHECKING:
     from dragonfly.model import Model as DistrictGraph
     from dragonfly_energy.des.loop import FourthGenThermalLoop, GHEThermalLoop
     from dragonfly_energy.opendss.network import ElectricalNetwork, RoadNetwork
@@ -53,11 +53,11 @@ class PerModel(StrEnum):
     STORY = "Story"
 
 
-type Ring = tuple[tuple[float, float, float], ...]  # one footprint boundary as xyz tuples
+type Ring = tuple[tuple[float, float, float], ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ENCODER: Final = msgjson.Encoder(order="deterministic")  # canonical dfjson bytes — one module-level codec, never per-call
+_ENCODER: Final = msgjson.Encoder(order="deterministic")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -84,9 +84,6 @@ class MassingPolicy(Struct, frozen=True, gc=False):
 
 
 class ExplodePolicy(Struct, frozen=True, gc=False):
-    # ONE explosion policy for both paths: `to_honeybee` reads every field, `model_to_urbanopt` reads the multiplier,
-    # plenum, ceiling-adjacency, and shade-distance columns — so the two emitters can never disagree on geometry, and
-    # the two `to_honeybee`-only columns are read by the arm that owns them rather than declared for nobody.
     per_model: PerModel = PerModel.BUILDING
     use_multiplier: bool = True
     add_plenum: bool = False
@@ -98,8 +95,6 @@ class ExplodePolicy(Struct, frozen=True, gc=False):
 
 
 class UrbanoptSpec(Struct, frozen=True):
-    # the URBANopt egress as data: the artifact folder, the geo registration, the shared explosion policy, and the
-    # four optional district layers the writer layers onto the feature GeoJSON.
     folder: Path
     anchor: Anchor
     explode: ExplodePolicy = ExplodePolicy()
@@ -110,8 +105,6 @@ class UrbanoptSpec(Struct, frozen=True):
 
 
 class UrbanoptProduct(Struct, frozen=True):
-    # the writer's own artifact addresses; its third return is the live honeybee graph `explode` already admits
-    # through the model page's gate, so no un-gated model leaves this arm.
     feature: Path
     buildings: tuple[Path, ...]
 
@@ -130,18 +123,16 @@ class DistrictTarget:
     urbanopt: UrbanoptSpec = case()
     des_param: "FourthGenThermalLoop | GHEThermalLoop" = case()
     opendss: tuple["ElectricalNetwork", Anchor] = case()
-    reopt: tuple["REoptParameter", str, str] = case()  # (parameter, base_file, urdb_label)
+    reopt: tuple["REoptParameter", str, str] = case()
     geojson: tuple[Path, Anchor] = case()
 
 
 @tagged_union(frozen=True)
 class DistrictProduct:
-    # mirrors the target case-for-case, so the two-value OpenDSS emit is a declared arm a consumer matches on rather
-    # than a tuple a caller re-discriminates by `isinstance` outside this owner.
     tag: Literal["urbanopt", "des_param", "opendss", "reopt", "geojson"] = tag()
     urbanopt: UrbanoptProduct = case()
     des_param: Mapping[str, object] = case()
-    opendss: tuple[Mapping[str, object], Mapping[str, object]] = case()  # (feature geojson dict, electrical database dict)
+    opendss: tuple[Mapping[str, object], Mapping[str, object]] = case()
     reopt: Mapping[str, object] = case()
     geojson: Path = case()
 
@@ -154,10 +145,10 @@ class DistrictReceipt(Struct, frozen=True):
     footprint_area: float
     floor_area: float
     exploded: int
-    touched: int  # Room2D hosts the assignment fold reached; zero on every non-assigning operation
+    touched: int
     target: Option[str]
     content_key: ContentKey
-    unzoned_segments: int = 0  # wall segments whose boundary condition is not Surface after zoning
+    unzoned_segments: int = 0
     total_segments: int = 0
 
     def contribute(self) -> Iterable[Receipt]:
@@ -181,14 +172,9 @@ class DistrictReceipt(Struct, frozen=True):
         )
 
     def spec(self) -> bytes:
-        # the evidence subject IS the admitted graph beside the operation that read it, so an identical re-translation
-        # of one district dedupes in the persistence ledger without a caller-minted key.
         return b"|".join((self.content_key.memory, self.target.default_value("admit").encode()))
 
     def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.DISTRICT_DEFECTS]) -> GeometryHandoff:
-        # an empty segment census carries no zoning evidence, so it reads fully unzoned (residual 1.0) and refuses the
-        # bar — a `max(total, 1)` fallback would graduate a segmentless district as fully zoned. The bar arrives as a
-        # CITED regime row rather than an anonymous float, so the verdict names the residual it graded.
         residual = self.unzoned_segments / self.total_segments if self.total_segments else 1.0
         subject = GeometrySubject.BUILDING_ENERGY
         return GeometryHandoff.of(
@@ -205,7 +191,7 @@ class DistrictReceipt(Struct, frozen=True):
 class District(Struct, frozen=True):
     graph: "DistrictGraph"
     content_key: ContentKey
-    lane: LanePolicy  # the lane the explosion seam hands each emitted model's BIM-capable admission
+    lane: LanePolicy
     composition: ScopeKey = DEFAULT_SCOPE
 
     @classmethod
@@ -213,7 +199,7 @@ class District(Struct, frozen=True):
         cls, source: DistrictSource, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[tuple[Self, DistrictReceipt]]":
         def admit() -> tuple[Self, DistrictReceipt]:
-            from dragonfly.model import Model  # ruff:ignore[import-outside-top-level] — AGPL isolation seam; the module is `dragonfly`
+            from dragonfly.model import Model
 
             match source:
                 case DistrictSource(tag="dfjson", dfjson=bytes() as raw):
@@ -234,9 +220,9 @@ class District(Struct, frozen=True):
 
     def zone(self) -> "RuntimeRail[tuple[Self, DistrictReceipt]]":
         def fold() -> tuple[Self, DistrictReceipt]:
-            from dragonfly.room2d import Room2D  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+            from dragonfly.room2d import Room2D
 
-            for story in self.graph.stories:  # Exemption: dragonfly zones stories in place; the ordered pair is its owned surface.
+            for story in self.graph.stories:
                 Room2D.intersect_adjacency(story.room_2ds, self.graph.tolerance)
                 Room2D.solve_adjacency(story.room_2ds, self.graph.tolerance)
             return type(self)._gated(self.graph, self.lane, self.composition)
@@ -246,9 +232,6 @@ class District(Struct, frozen=True):
     async def explode(self, policy: ExplodePolicy) -> "RuntimeRail[tuple[Block[BuildingModel], DistrictReceipt]]":
         async def fold() -> "RuntimeRail[tuple[Block[BuildingModel], DistrictReceipt]]":
             emitted = self.graph.to_honeybee(**_honeybee_knobs(policy, self.graph.tolerance))
-            # hbjson admissions run caller-floor inside the model page's own weave, which harvests each ModelReceipt
-            # there, so the district carries the building COUNT and never re-streams evidence a peer already emitted;
-            # the sequential await is the statement-bearing async fold, and every failed building accumulates rather than aborting its siblings.
             rails = Block.of_seq(
                 [await BuildingModel.of(ModelSource(hbjson=model.to_dict()), self.lane, composition=self.composition) for model in emitted]
             )
@@ -259,12 +242,9 @@ class District(Struct, frozen=True):
         return await evidence_run(EvidenceScope.ENERGY_DISTRICT, "explode", fold, composition=self.composition)
 
     def assign(self, spec: EnergySpec) -> "RuntimeRail[tuple[Self, DistrictReceipt]]":
-        # the model page's host-agnostic fold over Room2D hosts BEFORE the explode, so a multiplier story assigns once and a new EnergySpec slot lands at one owner for both tiers.
         def fold() -> tuple[Self, DistrictReceipt]:
-            import dragonfly_energy  # ruff:ignore[unused-import, import-outside-top-level] — REGISTRATION seam, a second ban beside the band's: the import exists FOR `_extend_dragonfly`, which registers `.properties.energy`, and has no dereference site at all, so a deferred binding would sit as an unreified proxy and the effect would never fire — it must land before `assigned` reads the property below
+            import dragonfly_energy
 
-            # the shared fold reports the hosts it reached, so the successor's census carries the assignment extent
-            # rather than a caller's claim about it.
             return type(self)._gated(self.graph, self.lane, self.composition, touched=assigned(self.graph.room_2ds, spec))
 
         return evidence_run(EvidenceScope.ENERGY_DISTRICT, "assign", fold, composition=self.composition)
@@ -276,7 +256,6 @@ class District(Struct, frozen=True):
         return evidence_run(EvidenceScope.ENERGY_DISTRICT, f"translate.{target.tag}", fold, composition=self.composition)
 
     def _receipt(self, exploded: int = 0, touched: int = 0, target: Option[str] = Nothing) -> DistrictReceipt:
-        # a non-Surface boundary condition after zoning is an adjacency-unsolved segment.
         conditions = [type(bc).__name__ for room in self.graph.room_2ds for bc in room.boundary_conditions]
         return DistrictReceipt(
             buildings=len(self.graph.buildings),
@@ -300,8 +279,6 @@ class District(Struct, frozen=True):
         rows = graph.check_all(raise_exception=False, detailed=True)
         if rows:
             census = Block.of_seq(rows).fold(lambda acc, row: acc.change(str(row.get("code", "?")), lambda n: Some(n.default_value(0) + 1)), Map.empty())
-            # the per-code roster crosses as an ordered tuple of pairs the fence lifts whole — a `dict` rendered into an
-            # f-string strands the census in a string every consumer re-parses and reorders run to run.
             raise EnergyFault(district_defects=(len(rows), tuple(census.to_seq())))
         admitted = cls(graph=graph, content_key=ContentIdentity.key("district", _ENCODER.encode(graph.to_dict())), lane=lane, composition=composition)
         return admitted, admitted._receipt(touched=touched)
@@ -311,20 +288,18 @@ class District(Struct, frozen=True):
 
 
 def _location(anchor: Anchor) -> object:
-    from ladybug.location import Location  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+    from ladybug.location import Location
 
     return Location(latitude=anchor.latitude, longitude=anchor.longitude, elevation=anchor.elevation)
 
 
 def _point(anchor: Anchor) -> object:
-    from ladybug_geometry.geometry2d.pointvector import Point2D  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+    from ladybug_geometry.geometry2d.pointvector import Point2D
 
     return Point2D(*anchor.origin)
 
 
 def _honeybee_knobs(policy: ExplodePolicy, tolerance: float) -> dict[str, object]:
-    # the explosion policy projected onto `to_honeybee`'s own keyword roster; the urbanopt arm projects the subset
-    # `model_to_urbanopt` names off the SAME value, so one policy drives both emitters.
     return {
         "object_per_model": policy.per_model.value,
         "shade_distance": policy.shade_distance.to_optional(),
@@ -341,7 +316,7 @@ def _honeybee_knobs(policy: ExplodePolicy, tolerance: float) -> dict[str, object
 def _translated(district: District, target: DistrictTarget) -> DistrictProduct:
     match target:
         case DistrictTarget(tag="urbanopt", urbanopt=spec):
-            from dragonfly_energy.writer import model_to_urbanopt  # ruff:ignore[import-outside-top-level] — AGPL isolation seam; loading it fires `_extend_dragonfly` at this seam too
+            from dragonfly_energy.writer import model_to_urbanopt
 
             feature, buildings, _graph = model_to_urbanopt(
                 district.graph,
@@ -381,10 +356,10 @@ def _translated(district: District, target: DistrictTarget) -> DistrictProduct:
 
 
 def _massed(specs: Block[BuildingSpec], policy: MassingPolicy) -> "DistrictGraph":
-    from dragonfly.building import Building  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
-    from dragonfly.model import Model  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from ladybug_geometry.geometry3d.face import Face3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from dragonfly.building import Building
+    from dragonfly.model import Model
+    from ladybug_geometry.geometry3d.face import Face3D
+    from ladybug_geometry.geometry3d.pointvector import Point3D
 
     def built(spec: BuildingSpec) -> Building:
         footprints = [Face3D([Point3D(*xyz) for xyz in ring]) for ring in spec.footprint]
@@ -408,4 +383,3 @@ def _massed(specs: Block[BuildingSpec], policy: MassingPolicy) -> "DistrictGraph
 -->
 
 (none)
-

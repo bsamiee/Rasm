@@ -54,8 +54,6 @@ const Shifted = Schema.TaggedStruct("Shifted", { next: Schema.String, path: _Pat
 const Change: Schema.Union<[typeof Assigned, typeof Cleared, typeof Shifted]> = Schema.Union(Assigned, Cleared, Shifted)
 type Change = typeof Change.Type
 
-// Quantities lift to `BigInt` exactly once per row in rating, so the ceiling is a schema fact rather than a comment:
-// past it a JSON number has already lost precision at parse and the writer is the last seam that can still refuse.
 const _Quantity = Schema.Int.pipe(Schema.between(0, Number.MAX_SAFE_INTEGER))
 
 class AuditFact extends Schema.TaggedClass<AuditFact>()("AuditFact", {
@@ -63,14 +61,8 @@ class AuditFact extends Schema.TaggedClass<AuditFact>()("AuditFact", {
   actor: Schema.Struct({ key: Schema.NonEmptyString, kind: Schema.Literal(..._ACTORS) }),
   app: Identity.App.fields.app,
   change: Schema.Array(Change),
-  // Upstream occurrence instant, where a producer sealed one: the rail's stamp is an ADMISSION coordinate, so a
-  // record that queued behind a saturated lane before reaching it dates to the drain and not to its own event.
-  // Absence means the rail's stamp IS the occurrence, so no consumer folds a forged instant.
   occurred: Schema.optionalWith(Schema.DateTimeUtc, { as: "Option" }),
   retention: Retain.Class,
-  // Subject-bearing evidence rides the shred spine, never the diff family: `subject` is the erasure coordinate the
-  // custody ledger keys on and `sealed` the ciphertext its data key opens, so destroying that key redacts the
-  // identifier while the append-only row and its verb, actor class, and target stay queryable forever.
   sealed: Schema.optionalWith(SealedEnvelope, { as: "Option" }),
   stamp: Clock.Hlc,
   subject: Schema.optionalWith(Retain.Subject, { as: "Option" }),
@@ -130,9 +122,6 @@ import type { Capability } from "../lane/capability.ts"
 import { Tenancy } from "../lane/tenant.ts"
 
 declare namespace Fact {
-  // Durable projection: every coordinate a reader PREDICATES on is lifted out of the opaque payload — the content key
-  // for dedup, the causal halves for ordering and settlement, the class for grooming, the subject for DSAR — so a
-  // billing window is an index read rather than a per-row decode wearing a pushdown's name.
   type Row = {
     readonly app: Identity.App.Key
     readonly key: Digest.Key<"content">
@@ -144,14 +133,8 @@ declare namespace Fact {
     readonly subject: string | null
     readonly tenant: string | null
   }
-  // `Landing` partitions every offered row: `accepted` names the rows the plane did not already hold and
-  // `duplicate` names the redeliveries the content key matched. Both halves carry facts rather than tallies, so
-  // accepted evidence projects its own fan and the redelivery series resolves its declared stream tag — a bare
-  // count satisfies neither, and one merged tally claims zero redelivery.
   type Pair = { readonly fact: _FactValue; readonly row: Row }
   type Landing = { readonly accepted: ReadonlyArray<Pair>; readonly duplicate: ReadonlyArray<Pair> }
-  // `owed` and `refused` are two different debts and an operator answers them differently: an owed row waits on a
-  // database that may still come back, a refused one waits on a human. One roster holding both reports neither.
   type Refusal = { readonly pair: Pair; readonly detail: string }
 }
 
@@ -186,8 +169,6 @@ const _factDdl: Capability.Ensure = {
   CREATE INDEX IF NOT EXISTS fact_journal_subject ON fact_journal (app, tenant, subject) WHERE subject IS NOT NULL;`,
 }
 
-// Two columns the stream discriminant decides together: a meter fact is billing truth at `regulatory` and bears no
-// subject, an audit fact carries its own class and its erasure coordinate — one fold, so neither column drifts alone.
 const _keyed = (fact: Fact.Value): { readonly retention: Retain.Class; readonly subject: string | null } =>
   fact._tag === "AuditFact"
     ? { retention: fact.retention, subject: Option.getOrNull(fact.subject) }
@@ -196,8 +177,6 @@ const _keyed = (fact: Fact.Value): { readonly retention: Retain.Class; readonly 
 const _encode = Schema.encode(Schema.parseJson(_Fact))
 const _utf8 = new TextEncoder()
 
-// Row and originating fact travel together, because the drain projects metrics and log lines for the rows the plane
-// ACCEPTED and never for the redeliveries it matched — pairing here is what lets the landing filter downstream.
 const _rowed = (fact: Fact.Value): Effect.Effect<Fact.Pair, ParseResult.ParseError> =>
   Effect.flatMap(_encode(fact), (payload) =>
     Effect.map(Digest.mint("content", _utf8.encode(payload)), (key) => ({
@@ -214,11 +193,6 @@ const _rowed = (fact: Fact.Value): Effect.Effect<Fact.Pair, ParseResult.ParseErr
       },
     })))
 
-// `DO NOTHING` with `RETURNING` is the whole landing account: the statement is atomic, so an offered row either
-// inserts and comes back or conflicts and does not — there is no third outcome for a short write to hide in, and
-// `duplicate` is therefore exact rather than inferred. Both dialects carry this form (sqlite since 3.35).
-// `_append` carries `SqlError` ALONE, rowing having already run, so its one reachable fault is the transient one
-// an unbounded schedule may sit on.
 const _append = (
   pairs: Array.NonEmptyReadonlyArray<Fact.Pair>,
 ): Effect.Effect<Fact.Landing, SqlError.SqlError, SqlClient.SqlClient> =>
@@ -254,8 +228,6 @@ import { Payload } from "./generation.ts"
 
 declare namespace Fact {
   type Key = readonly [app: Identity.App.Key, tenant: Option.Option<Identity.Tenant.Key>, resource: Resource]
-  // `total` is `bigint` because it is money's preimage: a `number` sum rounds past 2^53 and `BigInt` widens that
-  // rounded double without complaint, so the exactness the rating law claims has to hold in the ACCUMULATOR.
   type Aggregate = { readonly count: number; readonly total: bigint }
   type Rate = { readonly currency: string; readonly per: BigDecimal.BigDecimal }
   type Rating = { readonly [R in Resource]: Rate }
@@ -268,9 +240,6 @@ const _fused = (left: Fact.Aggregate, right: Fact.Aggregate): Fact.Aggregate => 
   total: left.total + right.total,
 })
 
-// Settlement bounds cross from the wall-clock instants a billing period names into the stamp coordinate the rail
-// minted, so cutoff and row share one time base; predicating on `recorded_at` instead settles a retry-delayed row
-// into the period its landing fell in, stranding the true instant inside the opaque payload.
 const _meters = (window: Fact.Window) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     SqlSchema.findAll({
@@ -359,19 +328,11 @@ const _drained = Convention.mount(Convention.metric.factDrained)
 const _refused = Convention.mount(Convention.metric.factRefused)
 const _usage = Convention.mount(Convention.metric.meterUsage)
 
-// Deliberately UNBOUNDED — never a `Fault.Budget` row: every compiled budget exhausts, and the drain's own totality law
-// depends on a schedule that never does (an unsettled batch stays owed; `pending` names every row). The union caps
-// the delay at a 10s cadence, jitter decorrelates the fleet, and the price is stated here, not smuggled.
 const _RETRY = Schedule.exponential("100 millis").pipe(
   Schedule.jittered,
   Schedule.union(Schedule.spaced("10 seconds")),
 )
 
-// Endlessness is safe only while the fault a schedule sits on can still resolve. Rejections no wait changes grade
-// non-retryable on the shared class table, and `Journal.retryable` is the journal's projection of a driver fault onto
-// that table — without this gate the unbounded schedule holds one permanently-unacceptable batch forever and every
-// later fact queues behind it, the rowing/appending split rebuilt as a retry policy. Composing the projection rather
-// than comparing a signal literal keeps ONE opinion about refusal: a row landing at either owner moves this with it.
 const _retryable = Journal.retryable
 
 const _metered = (fact: MeterFact): Effect.Effect<void> => {
@@ -387,9 +348,6 @@ const _metered = (fact: MeterFact): Effect.Effect<void> => {
   )
 }
 
-// Every row tags its stream and an audit row adds the verb and actor class the census declares, so the drain counter
-// carries exactly its own fan while identifier-grade keys stay on the log record beside it. Counting per fact is what
-// makes that fan spellable at all — a batch-sized increment has no row to read an axis off.
 const _counted = (fact: Fact.Value): Effect.Effect<void> =>
   Metric.increment(
     fact._tag === "AuditFact"
@@ -405,10 +363,6 @@ const _counted = (fact: Fact.Value): Effect.Effect<void> =>
       : Metric.tagged(_drained, Convention.rasm.factStream, fact._tag),
   )
 
-// Redeliveries the content key matched, tagged by the stream the census declares. The half is exact rather than
-// inferred — `DO NOTHING` admits exactly two outcomes per offered row — so a non-zero value is genuine at-least-once
-// evidence and a permanently non-zero value is a wedged retry re-offering one window forever, the shape an inflated
-// `accepted` would erase.
 const _reoffered = (landing: Fact.Landing): Effect.Effect<void> =>
   Effect.forEach(landing.duplicate, (pair) =>
     Metric.increment(Metric.tagged(_deduped, Convention.rasm.factStream, pair.fact._tag)), {
@@ -416,9 +370,6 @@ const _reoffered = (landing: Fact.Landing): Effect.Effect<void> =>
     discard: true,
   })
 
-// Facts a refusal parked, tagged by the stream the census declares. Rosters and series answer different questions —
-// `refused` names WHICH rows an operator owes, this counter answers whether any exist at all — so a plane quietly
-// accumulating permanent rejections beneath a healthy drain rate reads as healthy until somebody greps the logs.
 const _parked = (pairs: ReadonlyArray<Fact.Pair>): Effect.Effect<void> =>
   Effect.forEach(pairs, (pair) =>
     Metric.increment(Metric.tagged(_refused, Convention.rasm.factStream, pair.fact._tag)), {
@@ -453,10 +404,6 @@ const _Charge = Schema.Struct(MeterFact.fields).omit("_tag", "app", "stamp").pip
 
 // --- [AUDIT_PORT]
 
-// One row per security fact kind, mapped over the union's own tag set so a new point fails HERE rather than reaching
-// an unclassified journal. Derivation drops two columns: `action` reads the record's registry point, already spelling
-// its dotted verb path this audit brand refines, and `retention` reads that point's own class. `bearing` names each
-// field whose value identifies a person, so the diff fold skips it and the seal takes it.
 const _AUDITED: {
   readonly [K in SecurityFact["_tag"]]: {
     readonly actor: (typeof _ACTORS)[number]
@@ -474,13 +421,8 @@ const _AUDITED: {
   ShredOpen: { actor: "system", bearing: [], subject: () => Option.none(), target: "subject" },
 }
 
-// Breach evidence outlives routine trails, so the security lane class IS the retention class and no second policy
-// vocabulary appears on either side of the seam.
 const _RETAINED = { breached: "regulatory", notice: "operational" } as const satisfies Record<SecurityFact.Class, Retain.Class>
 
-// Total over the scalar shapes the union admits, wrapper flattened rather than stringified: a case that widens with a
-// signature counter or an attempt tally lands that value instead of disappearing from the diff, which is the one loss
-// a compliance fold reading only this output can never detect.
 const _rendered = (value: unknown): Option.Option<string> =>
   Option.isOption(value)
     ? Option.flatMap(value, _rendered)
@@ -490,15 +432,9 @@ const _rendered = (value: unknown): Option.Option<string> =>
         ? Option.some(String(value))
         : Option.none()
 
-// A field name is an identifier only by convention, so the pointer ESCAPES its two reserved characters before the
-// brand admits it: an unescaped `/` mints a path a compliance fold reads as a nested location the document has none
-// of, and `~` collides with the escape prefix itself. Escaping is what makes the admission a DECODE rather than an
-// assertion over a shape the field never promised — the brand is a refinement, and a cast onto one forges evidence.
 const _pointer = (field: string): Option.Option<typeof _Path.Type> =>
   Schema.decodeOption(_Path)(`/${field.replaceAll("~", "~0").replaceAll("/", "~1")}`)
 
-// Non-identifying payload fields land as `Assigned` change rows so a compliance fold reads typed evidence rather than
-// a rendered blob; an identifying field never joins them, because a `Change` value survives key destruction.
 const _changed = (fact: SecurityFact, bearing: ReadonlyArray<string>): ReadonlyArray<Change> =>
   Array.filterMap(
     Record.toEntries(Record.filter(fact as Record.ReadonlyRecord<string, unknown>, (_value, field) =>
@@ -506,10 +442,6 @@ const _changed = (fact: SecurityFact, bearing: ReadonlyArray<string>): ReadonlyA
     ([field, value]) => Option.zipWith(_rendered(value), _pointer(field), (next, path) => Assigned.make({ next, path })),
   )
 
-// Custody is `(app, tenant, subject)` structurally, so a fact carrying no tenant coordinate has no custody row to key
-// on: its identifying fields are DROPPED rather than landed unsealed, and the verb, actor class, target, and instant
-// still record the event. Sealing runs before the draft leaves, so the identifier reaches the rail already unreadable
-// and an erase after this point redacts the row with no rewrite of the append-only log.
 const _audited = (
   record: AuditRecord,
 ): Effect.Effect<Fact.AuditDraft, SqlError.SqlError | ParseResult.ParseError, Shredder | SqlClient.SqlClient> =>
@@ -517,14 +449,7 @@ const _audited = (
     const row = _AUDITED[record.fact._tag]
     const tenant = "tenant" in record.fact ? record.fact.tenant : Option.none()
     const shredder = yield* Shredder
-    // The registry point spells the dotted verb path this brand refines, so the projection DECODES it on the rail it
-    // already carries rather than asserting the refinement: a point that stops conforming refuses here as evidence
-    // instead of landing an unrefined string every downstream grouping then reads as a valid verb.
     const action = yield* Schema.decodeUnknown(_Action)(record.point)
-    // Each row's subject accessor already answers `Option`, so the decode runs INSIDE it: handing the wrapper
-    // straight to `Schema.decodeOption` parses an `Option` value against a string schema and answers `none` for
-    // every fact alike, which silently kills custody, sealing, the subject index, and the DSAR leg while every law
-    // reading those columns still assumes them populated.
     const custody = Option.zipWith(
       Option.flatMap(row.subject(record.fact), Schema.decodeOption(Retain.Subject)),
       tenant,
@@ -553,13 +478,6 @@ const _audited = (
     }
   })
 
-// Satisfaction is a projection, never a second write path: every security record folds onto one audit draft and enters
-// through `Fact.record`, so the drain, the retry posture, the retention window, the subject index, and the DSAR fold
-// serve security evidence exactly as they serve every other fact. Sealing is the only fault this seam raises, and it
-// lands as the port's own `append` reason rather than a foreign rail crossing the Tag — carrying the record's OWN
-// registry point, which is the coordinate that row's renderer names and the one this seam always holds. Order is load-
-// bearing: the service's static field reads this value at class evaluation, so a `const` seated after the class body
-// evaluates in its temporal dead zone and every composition importing this module dies at load.
 const _audits: Layer.Layer<AuditJournal, never, Fact | Shredder | SqlClient.SqlClient> = Layer.effect(
   AuditJournal,
   Effect.map(Effect.context<Fact | Shredder | SqlClient.SqlClient>(), (context) => ({
@@ -584,9 +502,6 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
         Ref.update(owed, (held) => Array.reduce(pairs, held, (map, pair) => HashMap.set(map, pair.row.key, pair)))
       const settling = (pairs: ReadonlyArray<Fact.Pair>): Effect.Effect<void> =>
         Ref.update(owed, (held) => Array.reduce(pairs, held, (map, pair) => HashMap.remove(map, pair.row.key)))
-      // Refusals move rather than clear: batches leave the owed roster so the drain advances, and land on the refused
-      // one so evidence stays readable. Dropping one makes a permanent rejection indistinguishable from a landed row,
-      // which is the one confusion an evidence plane may never publish.
       const refusing = (pairs: ReadonlyArray<Fact.Pair>, fault: SqlError.SqlError): Effect.Effect<void> =>
         Effect.zipRight(
           settling(pairs),
@@ -600,10 +515,6 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
               Effect.annotateLogs({ count: pairs.length, detail: fault.message }))),
         )
       const landed = (landing: Fact.Landing): Effect.Effect<void> =>
-        // ACCEPTED rows alone project: the append retries without bound, so a batch replayed after an unacknowledged
-        // commit must cost one absorbed duplicate rather than a second charge and a second audit line, and the
-        // matched redeliveries carry their own series instead of vanishing. Both halves settle off the roster,
-        // because a matched duplicate is a landed row exactly as an accepted one is.
         settling([...landing.accepted, ...landing.duplicate]).pipe(
           Effect.zipRight(
             Effect.forEach(landing.accepted, (pair) => _emitted(pair.fact), { concurrency: "inherit", discard: true })),
@@ -611,8 +522,6 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
         )
       const drained = (facts: Array.NonEmptyReadonlyArray<Fact.Value>): Effect.Effect<void, never, SqlClient.SqlClient> =>
         Effect.gen(function* () {
-          // `record` already ran the family's own filters, so an encode fault here names a declaration defect and
-          // never an input one — it dies loudly rather than parking as evidence no database could ever accept.
           const pairs = yield* Effect.orDie(Effect.forEach(facts, _rowed, { concurrency: "unbounded" }))
           yield* owing(pairs)
           yield* _append(pairs).pipe(
@@ -620,8 +529,6 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
               Metric.increment(_deferred).pipe(Effect.zipRight(
                 Effect.logError("fact drain deferred").pipe(Effect.annotateLogs({ count: pairs.length, fault: fault._tag }))))),
             Effect.retry({ schedule: _RETRY, while: _retryable }),
-            // Both arms stay reachable because the schedule exits only on a refusal, so this fold is total without
-            // shedding: landed batches project, refused ones move rosters, and the drain's error channel stays `never`.
             Effect.matchEffect({ onFailure: (fault) => refusing(pairs, fault), onSuccess: landed }),
           )
         })
@@ -634,16 +541,11 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
           }),
         ),
       )
-      // `end` lets the consumer finish what was already offered where `shutdown` cancels it, and scope finalizers run
-      // last-registered-first, so this flush precedes the fork's own interrupt and that interrupt then reaches a
-      // fiber which already completed. Both halves are idempotent, so an explicit `close` costs the scope nothing.
       const close = Effect.zipRight(intake.end, Fiber.join(drain))
       yield* Effect.addFinalizer(() => close)
       const stamped = (draft: Fact.Draft): Effect.Effect<void> =>
         Effect.gen(function* () {
           const now = yield* DateTime.now
-          // One successor per admitted fact under a single atomic modify, so concurrent recorders never share a
-          // coordinate; the branch's stamp algebra owns the physical/logical decision and this rail spells none of it.
           const stamp = yield* Ref.modify(clock, (held) => {
             const next = Clock.Hlc.tick(held, Clock.Hlc.physicalOf(now))
             return [next, next] as const
@@ -665,9 +567,6 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
                 change: draft.change,
                 occurred: draft.occurred,
                 retention: draft.retention,
-                // Custody travels with the draft: sealing runs at that writer, so dropping these two here strands
-                // an unindexed subject beside a discarded ciphertext — the erasure spine's whole coordinate —
-                // while every downstream law still reads the column as populated.
                 sealed: draft.sealed,
                 stamp,
                 subject: draft.subject,
@@ -675,8 +574,6 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
                 tenant,
                 trace: draft.trace,
               })
-          // `end` makes every later offer answer `false` rather than suspend, so the losing writer in a shutdown
-          // race parks its fact on the roster — that boolean is evidence, never a discard.
           const taken = yield* intake.offer(fact)
           yield* taken ? Effect.void : Effect.flatMap(Effect.orDie(_rowed(fact)), (pair) => owing([pair]))
         })
@@ -705,7 +602,7 @@ declare namespace Fact {
   type Draft = AuditDraft | Charge
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { AuditFact, Change, Fact, MeterFact }
 ```

@@ -66,9 +66,6 @@ lazy from colour_cxf import (
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type ColorField = Annotated[
-    # ONE float field type across every arm: `float32` is the deep-pixel plane a texture caller converts before it
-    # enters that estate, `float64` the document and measurement field, and the channel band spans a single coverage
-    # plate through RGBA — a second array alias per depth or per channel count is the fork this admits away.
     NDArray[np.float32] | NDArray[np.float64],
     Is[lambda value: 2 <= value.ndim <= 4 and value.shape[-1] in (1, 2, 3, 4) and bool(np.isfinite(value).all())],
 ]
@@ -80,7 +77,7 @@ type ManagedRaster = Annotated[
     NDArray[np.uint8] | NDArray[np.uint16],
     Is[lambda value: value.ndim == 3 and value.shape[0] > 0 and value.shape[1] > 0 and value.shape[2] in (3, 4)],
 ]
-type ColorOperand = ManagedRaster | ColorField  # the config legs take either: the operand's own dtype IS the processor's ingress bit depth
+type ColorOperand = ManagedRaster | ColorField
 type LutSize = Annotated[int, Is[lambda n: 2 <= n <= 256]]
 type ShaperSize = Annotated[int, Is[lambda n: 2 <= n <= 65536]]
 type Coverage = Annotated[float, Is[lambda c: 0.0 <= c <= 100.0]]
@@ -163,10 +160,6 @@ class BitDepth(StrEnum):
 
 
 class OcioRole(StrEnum):
-    # Roles carry the config's OWN names as values, because a role name IS what `getProcessor` consumes and the
-    # provider constants (`ocio.ROLE_SCENE_LINEAR`, …) carry exactly these strings. Dereferencing those constants at
-    # module scope would reify the `lazy import` proxy at import and crash a host with no OCIO build, so the owned
-    # mirror is the form: naming a role survives a config swap where a colorspace string binds to one config.
     SCENE_LINEAR = "scene_linear"
     DATA = "data"
     REFERENCE = "reference"
@@ -182,16 +175,13 @@ class OcioRole(StrEnum):
 
 
 class OcioDepth(StrEnum):
-    # Mirrors `PyOpenColorIO.BitDepth` MEMBER NAMES, resolved at the call seam through `getattr` — the member objects
-    # themselves cannot ride a module-level row without reifying the lazy proxy. Bit depth is a PROCESSOR property,
-    # so the ingress row here is what `getOptimizedCPUProcessor` compiles the normalization into.
     UINT8 = "BIT_DEPTH_UINT8"
     UINT16 = "BIT_DEPTH_UINT16"
     F16 = "BIT_DEPTH_F16"
     F32 = "BIT_DEPTH_F32"
 
 
-class LutInterp(StrEnum):  # mirrors `PyOpenColorIO.Interpolation` member names; tetrahedral is the 3-D default every grading tool assumes
+class LutInterp(StrEnum):
     NEAREST = "INTERP_NEAREST"
     LINEAR = "INTERP_LINEAR"
     TETRAHEDRAL = "INTERP_TETRAHEDRAL"
@@ -200,9 +190,6 @@ class LutInterp(StrEnum):  # mirrors `PyOpenColorIO.Interpolation` member names;
 
 
 class LutFormat(StrEnum):
-    # Rows mirror the full `Baker.getFormats()` roster: an owned mirror admits every provider member, because a
-    # dropped row raises on the interior `LutFormat(value)` reconstruction the receipt round-trip performs. CLF and
-    # CTF are the two the estate cannot otherwise write — `colour.write_LUT` registers six methods, neither among them.
     FLAME = "flame"
     LUSTRE = "lustre"
     CLF = "Academy/ASC Common LUT Format"
@@ -253,9 +240,6 @@ class ManagedFact(StrEnum):
 
 
 class AlphaBand(StrEnum):
-    # WHETHER the trailing channel is alpha, declared because the field cannot answer it: a four-band float plane is
-    # RGB-plus-alpha or CMYK ink and the array is identical either way. Alpha is not colour and never crosses an ICC
-    # transform, so the declaration is what splits it off and rejoins it rather than a guess at the seam.
     NONE = "none"
     TRAILING = "trailing"
 
@@ -265,10 +249,6 @@ class AlphaBand(StrEnum):
 
 
 class ProfileNames(NamedTuple):
-    # Two ICC engines ship two different built-in rosters: pyvips `icc_transform` takes a libvips device NAME, and
-    # `imagecodecs.cms_profile` takes an lcms2 built-in name. A member reaches a leg only where its column is filled,
-    # so `Plane` refuses a P3 or CMYK built-in on `<profile-engine>` instead of raising inside liblcms2, and a name
-    # whose profile constructs yet builds no transform (`rgb`, `gray`, `null` on this lcms2) earns no member at all.
     vips: str | None
     cms: str | None
 
@@ -282,19 +262,15 @@ class BuiltinProfile(ProfileNames, Enum):
 
 
 type ProfileRef = ProfileBytes | BuiltinProfile
-type SpaceRef = OcioRole | str  # a role name resolves as a colorspace name on every config surface that takes one
-type ChainTarget = SpaceRef | tuple[str, str]  # a name is the colorspace move, a (display, view) pair the display-referred one
+type SpaceRef = OcioRole | str
+type ChainTarget = SpaceRef | tuple[str, str]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class ConfigSource:
-    # Four closed cases resolve a config, and this owner holds the graph they resolve to behavior-dense: one memoized
-    # `Config` per source per worker, the processor acquired off it, the transform identity read off that processor,
-    # and the file-rules classification answered from it. `GetCurrentConfig` gets no reader and `SetCurrentConfig` no
-    # writer — process-wide config state is the composition root's, so every leg threads the source it declares.
     tag: Literal["builtin", "env", "file", "raw"] = tag()
-    builtin: str = case()  # an `ocio://` name; the shipped ACES CG and Studio set resolves with no file on disk
+    builtin: str = case()
     env: None = case()
     file: OutPath = case()
     raw: None = case()
@@ -310,28 +286,20 @@ class ConfigSource:
                 assert_never(unreachable)
 
     def identity(self, src: SpaceRef, target: ChainTarget, look: str = "", /) -> tuple[str, bool]:
-        # Read BEFORE any pixel moves: `getCacheID()` is the transform's version on the receipt, a 32-hex digest or
-        # else the processor's own no-op marker for an identity chain. `hasChannelCrosstalk()` decides whether a
-        # sub-RGB operand may be transformed at all — a crosstalk chain over one channel computes nothing meaningful.
         processor = _processor(self, src, target, look)
         return processor.getCacheID(), processor.hasChannelCrosstalk()
 
     def applied(self, field: ColorOperand, src: SpaceRef, target: ChainTarget, look: str = "", /) -> ColorField:
-        # This entry IS the in-memory half of the move the `Space`/`View` arms land, so a texture caller converting a plane
-        # into the `scene_linear` role before publication and the receipted egress cannot disagree.
         return _transformed(_processor(self, src, target, look), field)
 
     def classified(self, path: OutPath, /) -> tuple[str, int]:
-        # `FileRules` answers from the config's own declaration — canonical colorspace name with the matched rule index as
-        # provenance. An ingest inferring a space from a stem convention of its own forks the project's rules, so the
-        # texture and ingest planes consume this VALUE through their caller and import no symbol from this page.
         config = _config(self)
         name, rule = config.getColorSpaceFromFilepath(path)
         return config.getCanonicalName(name), rule
 
 
-_BUILTIN: Final[ConfigSource] = ConfigSource(builtin="ocio://default")  # the registry's own recommended row, so the pin tracks the distribution
-_RAW: Final[ConfigSource] = ConfigSource(raw=None)  # the minimal single-data-space config a file-LUT chain compiles against, naming no colorspace
+_BUILTIN: Final[ConfigSource] = ConfigSource(builtin="ocio://default")
+_RAW: Final[ConfigSource] = ConfigSource(raw=None)
 
 
 @tagged_union(frozen=True)
@@ -357,8 +325,6 @@ class GradeStep:
     @staticmethod
     @beartype
     def Colourspace(source: ColorModel, target: ColorModel, adapt: AdaptMethod = AdaptMethod.BRADFORD) -> Result["GradeStep", ManageFault]:
-        # `ColorModel.rgb` is the `colour.RGB_COLOURSPACES` key: an appearance or luma-chroma model names no primaries
-        # and no cctf, so it can never be a `RGB_to_RGB` end and the pair refuses here rather than KeyErroring in the fold.
         return (
             Ok(GradeStep(colourspace=(source, target, adapt)))
             if source.rgb is not None and target.rgb is not None
@@ -383,10 +349,6 @@ class GradeStep:
 
 @tagged_union(frozen=True)
 class LutBake:
-    # WHAT the lattice samples, closed: a colour-science grade chain, a config-resolved colorspace move, or a
-    # config-resolved display view. The engine follows the case — `colour.write_LUT` registers six container methods
-    # and `ocio.Baker` twelve, so the CLF and CTF the estate's own `GradeStep.Lut` reads are only writable on the
-    # config legs, and a `graded` bake keeps the `_grade` law so the authored file and the in-memory table agree.
     tag: Literal["graded", "spaced", "viewed"] = tag()
     graded: tuple[ColorModel, tuple[GradeStep, ...], Option[ToneCurve]] = case()
     spaced: tuple[ConfigSource, SpaceRef, SpaceRef, str, LutFormat, Option[SpaceRef]] = case()
@@ -427,12 +389,6 @@ class SpotChannel:
 @beartype
 @dataclass(frozen=True, slots=True, kw_only=True)
 class IccTransform:
-    # One policy value carries the whole ICC posture: intent, black point, connection space, egress depth, the
-    # encoder coordinates, the lcms2 proof profile, and the spot declarations. The encoder coordinates ride
-    # `raster/io#IO`'s OWN `CodecPolicy` rather than a local `quality`/`effort` pair, because that owner already
-    # defines them, bounds them, and derives `rate` from them — two owners for one pair meant this page defaulted
-    # `(92, 6)` while the raster page defaulted `(80, 4)`, so the same container encoded differently depending on
-    # which surface composed it, and a third coordinate would have had to land twice.
     intent: RenderingIntent = RenderingIntent.RELATIVE
     black_point: BlackPoint = BlackPoint.APPLY
     pcs: ConnectionSpace = ConnectionSpace.LAB
@@ -472,8 +428,6 @@ class ManageOp:
         return (
             Error("<proof-source>")
             if transform.proof.is_some() and not isinstance(src_profile, bytes) and src_profile is not BuiltinProfile.SRGB
-            # pyvips `icc_transform` admits 8/16-bit alone — a FLOAT32 request refuses HERE so produced pixels and
-            # receipt depth never disagree; float ICC egress is the `Plane` arm's own lcms2 capability.
             else Error("<icc-depth>")
             if transform.depth is BitDepth.FLOAT32
             else Error("<profile-engine>")
@@ -493,9 +447,6 @@ class ManageOp:
         transform: IccTransform = _ICC_DEFAULT,
         alpha: AlphaBand = AlphaBand.NONE,
     ) -> Result["ManageOp", ManageFault]:
-        # lcms2 builds a three-component transform and SILENTLY drops every band past the third, so the colour band
-        # count is proved HERE — a one- or two-channel plane has no three-component form and a four-band plane is
-        # admitted only as RGB plus a declared alpha, never as CMYK ink this leg's built-in roster cannot address.
         return (
             Error("<profile-engine>")
             if not _cms_named(src_profile) or not _cms_named(dst_profile)
@@ -542,9 +493,6 @@ class ManageOp:
         shaper: ShaperSize = 1024,
         intent: RenderingIntent = RenderingIntent.RELATIVE,
     ) -> Result["ManageOp", ManageFault]:
-        # `colour.write_LUT` keys its container off the path suffix and registers five of them, so a graded bake into
-        # a CLF or CTF path refuses HERE rather than raising a bare `KeyError` mid-write; a config bake names its
-        # container as a `LutFormat` value the `Baker` resolves, so the suffix decides nothing on that leg.
         return (
             Ok(ManageOp(lut=(bake, path, size, shaper, intent)))
             if bake.tag != "graded" or Path(path).suffix in _COLOUR_LUT
@@ -564,9 +512,6 @@ class ManageOp:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor. Every refusal this folder mints is caller-repairable — a colorspace the config does
-# not name, a container the linked build cannot write, a malformed ICC blob — so the row is TERMINAL and the closed
-# `ManageFault` token rides as its one NAMED coordinate.
 MANAGED_REFUSED: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.MANAGED, point="produce", arm="config", defect="manage-refused", retriability=TERMINAL, slots=("cause",)
 )
@@ -581,17 +526,13 @@ _BROADCAST: Final[frozendict[TransferKind, Callable[..., ColorField]]] = frozend
     TransferKind.EOTF: colour.eotf,
     TransferKind.OOTF: colour.ootf,
 })
-# each colour OETFS/EOTFS/OOTFS registry admits a distinct curve set; Broadcast proves the pairing so no worker KeyErrors
 _BROADCAST_ROSTER: Final[frozendict[TransferKind, frozenset[BroadcastCurve]]] = frozendict({
     TransferKind.OETF: frozenset({BroadcastCurve.BT709, BroadcastCurve.BT2100_PQ, BroadcastCurve.BT2100_HLG}),
     TransferKind.EOTF: frozenset({BroadcastCurve.BT1886, BroadcastCurve.BT2100_PQ, BroadcastCurve.BT2100_HLG}),
     TransferKind.OOTF: frozenset({BroadcastCurve.BT2100_PQ, BroadcastCurve.BT2100_HLG}),
 })
-# This table is the pyvips leg's OWN: `icc_transform` takes a bit count and admits 8/16 alone, so the `Managed` admission
-# refuses FLOAT32 and the config legs never read this row — a processor compiles their ingress depth instead.
 _DEPTH_BITS: Final[frozendict[BitDepth, int]] = frozendict({BitDepth.UINT8: 8, BitDepth.UINT16: 16})
 _INGRESS_DEPTH: Final[frozendict[str, OcioDepth]] = frozendict({
-    # numpy dtype name to the processor's ingress depth; `float64` has no OCIO row, so it crosses cast to F32
     "uint8": OcioDepth.UINT8,
     "uint16": OcioDepth.UINT16,
     "float16": OcioDepth.F16,
@@ -604,19 +545,13 @@ _CARRIER: Final[frozendict[OcioDepth, type[np.generic]]] = frozendict({
     OcioDepth.F32: np.float32,
 })
 _INTENT_NAME: Final[frozendict[RenderingIntent, str]] = frozendict({
-    # ONE row set serves both lcms2 faces the page reaches — `ImageCms.Intent` and `imagecodecs.CMS.INTENT` spell the
-    # same four ICC intents, so the member NAMES resolve at each call seam and neither engine gets a table of its own;
-    # `AUTO` is a pyvips-only posture with no lcms2 member, so it folds onto the perceptual row the spec defaults to.
     RenderingIntent.PERCEPTUAL: "PERCEPTUAL",
     RenderingIntent.RELATIVE: "RELATIVE_COLORIMETRIC",
     RenderingIntent.SATURATION: "SATURATION",
     RenderingIntent.ABSOLUTE: "ABSOLUTE_COLORIMETRIC",
     RenderingIntent.AUTO: "PERCEPTUAL",
 })
-# Coverage plates are lossless single-channel tint fields, and 16-bit PNG is the container every prepress reader takes
 _PLATE_DEPTH: Final[str] = BitDepth.UINT16.value
-# `colour.io.LUT_WRITE_METHODS` resolves these suffixes; every other container the estate authors is a `Baker` format,
-# and the two rosters together are why the LUT terminal carries two engines rather than one with an unreachable half
 _COLOUR_LUT: Final[frozenset[str]] = frozenset({".cube", ".csp", ".spi1d", ".spi3d", ".spimtx"})
 
 
@@ -632,17 +567,9 @@ class ColorManaged:
 
     @property
     def _key(self) -> ContentKey:
-        # PRE-RUN key over the op's length-framed canonical preimage through the bare synchronous mint; the railed
-        # `ContentIdentity.of` Struct encode is the rejected form — `ManageOp` is a tagged union, not a wire Struct.
         return ContentIdentity.key(f"color-managed-{self.op.tag}", _canon(self.op))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # ONE durable seat over the whole op fan, seated ABOVE `_produced` rather than inside its arms: every arm
-        # settles onto the same two cases, so a per-arm record is one fold written nine times and the tenth arm
-        # would land without one. `OPERATIONAL` and the `STORAGE` charge derive from each case's own rows, and the
-        # `ManagedFact` band never reaches the diff — its leaf set is this producer's own instrumentation, and an
-        # audit row whose width tracks it compares nothing across two runs. Recording suspends on the journal's
-        # bounded intake, so the seat is this awaitable fold and `contribute` stays the synchronous projection.
         match await self._produced():
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -653,7 +580,6 @@ class ColorManaged:
         match self.op:
             case ManageOp(tag="managed", managed=(raster, path, src_profile, dst_profile, transform, codec, grade)):
                 crossed = await self.lane.offload(
-                    # bare rasters ride the span channel at zero payload bytes
                     Kernel.of(_icc_apply, KernelTrait.HOSTILE, wire=Wire.SHARED_MEMORY, idempotent=False),
                     raster,
                     path,
@@ -711,8 +637,6 @@ class ColorManaged:
 
     # --- [PROJECTIONS] ------------------------------------------------------------------
     def _railed[T](self, crossed: RuntimeRail[Result[T, ManageFault]], project: Callable[[T], ArtifactReceipt], /) -> RuntimeRail[ArtifactReceipt]:
-        # ONE flatten for the worker's nested carrier: the outer rail carries the boundary classification the runtime
-        # owns, the inner one this folder's typed refusal, and `_lifted` folds the second onto the first exactly here.
         return crossed.bind(lambda produced: produced.map_error(_lifted).map(project))
 
     def _previewed(
@@ -815,7 +739,6 @@ class ColorManaged:
         facts: frozendict[str, float | str] = frozendict({
             ManagedFact.INKS.value: float(len(coverages)),
             ManagedFact.DPI.value: float(dpi),
-            # an undeclared plate egress omits the row: absence of a measurement is not a zero byte count
             **plates.map(lambda written: {ManagedFact.PLATES.value: float(written)}).default_value({}),
             **{f"spot:{name}": coverage for name, coverage in coverages},
         })
@@ -835,13 +758,10 @@ class ColorManaged:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _lifted(fault: ManageFault, /) -> BoundaryFault:
-    # Every refusal this folder mints is caller-repairable — a colorspace the config does not name, a container the
-    # linked build cannot write, a malformed ICC blob — so the whole vocabulary folds onto the construction case
     return MANAGED_REFUSED.raised(fault)
 
 
 def _framed(*chunks: bytes) -> tuple[bytes, ...]:
-    # patterns row [05]: count-frame the tuple and length-frame every chunk so adjacent variable-width fields never re-split
     return (len(chunks).to_bytes(4, "big"), *chain.from_iterable((len(chunk).to_bytes(8, "big"), chunk) for chunk in chunks))
 
 
@@ -866,12 +786,6 @@ def _cms_named(ref: ProfileRef, /) -> bool:
 
 
 def _vips_native(codec: ConvertFormat, /) -> bool:
-    # Rows serve this leg only through their NATIVE libvips encoder: the imagecodecs ARRAY writer beside it takes an 8-bit
-    # `Frame`, never this pipeline's 16-bit or CMYK egress, so a container libvips writes only through that leg
-    # refuses at admission on the row's own tag rather than quantizing a device conversion at the last hop
-    # `writers` maps an engine to a TUPLE of emitters — the preference run a missing provider falls through — so a
-    # match against a bare `CodecEmit` head never fired and this predicate answered False for every container,
-    # refusing every codec at `ManageOp.Managed` admission and killing the whole managed egress.
     return any(emit.tag == "native" for emit in CODEC[codec].writers.get(RasterEngine.LIBVIPS, ()))
 
 
@@ -960,9 +874,6 @@ def _canon(op: ManageOp, /) -> tuple[bytes, ...]:
 
 @cache
 def _config(source: ConfigSource, /) -> "ocio.Config":
-    # ONE `Config` per source per worker process. OCIO's `Processor` cache lives on the `Config`, so memoizing the
-    # source is what makes every later acquisition a hash lookup and satisfies the acquire-outside-the-fold law with
-    # no table of the owner's own; `functools.cache` keys on the frozen source, whose four cases are hashable whole.
     match source:
         case ConfigSource(tag="builtin", builtin=name):
             return ocio.Config.CreateFromBuiltinConfig(name)
@@ -981,14 +892,10 @@ def _depth(depth: OcioDepth, /) -> "ocio.BitDepth":
 
 
 def _desc(buf: NDArray[np.generic], depth: "ocio.BitDepth", /) -> "ocio.PackedImageDesc":
-    # One descriptor shape carries the flattened (texels, channels) view, so every operand rank folds onto one call; the
-    # explicit channel/x/y stride triple is mandatory the moment a bit depth is named on the constructor
     return ocio.PackedImageDesc(buf, buf.shape[0], 1, buf.shape[1], depth, buf.itemsize, buf.strides[0], buf.strides[0] * buf.shape[0])
 
 
 def _processor(source: ConfigSource, src: SpaceRef, target: ChainTarget, look: str, /) -> "ocio.Processor":
-    # ONE acquisition surface over the three chain shapes the config resolves; `target` discriminates structurally, so
-    # no mode flag re-states what the value already carries and a display-referred chain never loses its name pair.
     config = _config(source)
     match target:
         case (display, view):
@@ -1002,21 +909,12 @@ def _processor(source: ConfigSource, src: SpaceRef, target: ChainTarget, look: s
 
 
 def _transformed(processor: "ocio.Processor", field: ColorOperand, /) -> ColorField:
-    # Every config leg reaches this ONE apply core — the two `ManageOp` arms, the `managed` grade step, and the
-    # file-LUT step alike. Bit depth is a PROCESSOR property, so `getOptimizedCPUProcessor` compiles the ingress
-    # normalization into the chain and an 8- or 16-bit operand never pays a caller-side divide; the source buffer is
-    # never the destination, so the in-place `applyRGB` mutation contract cannot reach a caller's array.
-    # Exemption: a measured native kernel — the descriptor pair, the identity short-circuit, and the destination
-    # allocation are the platform-forced statement seam pybind11 admits no expression form for.
-    depth = _INGRESS_DEPTH.get(str(field.dtype), OcioDepth.F32)  # float64 carries no OCIO row, so it crosses cast to F32
+    depth = _INGRESS_DEPTH.get(str(field.dtype), OcioDepth.F32)
     cpu = processor.getOptimizedCPUProcessor(_depth(depth), _depth(OcioDepth.F32), ocio.OptimizationFlags.OPTIMIZATION_DEFAULT)
     if cpu.isNoOp():
         return np.ascontiguousarray(field, dtype=np.float32)
     channels = field.shape[-1]
     flat = np.ascontiguousarray(field, dtype=_CARRIER[depth]).reshape(-1, channels)
-    # `PackedImageDesc` refuses fewer than three channels outright, so a gray or gray+alpha operand crosses as a
-    # broadcast triple with its trailing channels carried through untouched — legal exactly where the crosstalk gate
-    # already passed, because a chain with no crosstalk answers every replicated channel identically.
     wide = flat if channels >= 3 else np.ascontiguousarray(np.repeat(flat[:, :1], 3, axis=1))
     egress = np.empty(wide.shape, dtype=np.float32)
     cpu.apply(_desc(wide, _depth(depth)), _desc(egress, _depth(OcioDepth.F32)))
@@ -1025,10 +923,6 @@ def _transformed(processor: "ocio.Processor", field: ColorOperand, /) -> ColorFi
 
 
 def _guarded[T](thunk: Callable[[], Result[T, ManageFault]], /) -> Result[T, ManageFault]:
-    # One adapter bounds every provider family this page's transform legs raise: `ExceptionMissingFile` and
-    # `Exception` are the whole OCIO surface (sibling classes, so two arms discriminate an unresolvable config or LUT
-    # reference from every naming, validation, and compilation refusal) and `CmsError` the whole lcms2 one. An
-    # unlisted raise propagates as the defect it is and the runtime classifies it; nothing else reaches the interior.
     try:
         return thunk()
     except ocio.ExceptionMissingFile:
@@ -1053,10 +947,6 @@ def _grade(field: ColorField, steps: tuple[GradeStep, ...]) -> ColorField:
             case GradeStep(tag="correction", correction=ccm):
                 return colour.apply_matrix_colour_correction(acc, ccm)
             case GradeStep(tag="lut", lut=(interp, paths)):
-                # ONE LUT reader for every container the estate writes: `ocio.FileTransform` carries CLF, CTF, CDL,
-                # ICC, and the whole cube/3dl/spi/csp family, a strict superset of `colour.read_LUT`'s six registered
-                # methods — so a `.clf` this page's own `Baker` leg authored reads back, which no colour reader does.
-                # File LUTs name no colorspace, so the minimal raw config compiles them: the chain IS the whole graph.
                 group = ocio.GroupTransform([ocio.FileTransform(src=path, interpolation=getattr(ocio.Interpolation, interp.value)) for path in paths])
                 return _transformed(_config(_RAW).getProcessor(group, ocio.TransformDirection.TRANSFORM_DIR_FORWARD), acc)
             case GradeStep(tag="managed", managed=(source, src, target)):
@@ -1068,26 +958,21 @@ def _grade(field: ColorField, steps: tuple[GradeStep, ...]) -> ColorField:
 
 
 def _written(toned: ColorField, path: OutPath, depth: str, /) -> tuple[ColorField, int]:
-    # Every field arm lands through this one egress, so the produced artifact and the measured byte count are one act
     colour.write_image(toned, path, depth)
     return toned, Path(path).stat().st_size
 
 
 def _export_image(field: ColorField, path: OutPath, depth: str, grade: tuple[GradeStep, ...]) -> Result[tuple[ColorField, int], ManageFault]:
-    # Chains carry a `managed` or `lut` step, so the graded write rides the same boundary adapter the config legs do
     return _guarded(lambda: Ok(_written(_grade(field, grade), path, depth)))
 
 
 def _ocio_apply(
     field: ColorOperand, path: OutPath, source: ConfigSource, src: SpaceRef, target: ChainTarget, look: str
 ) -> Result[tuple[int, int, int, int, str, bool], ManageFault]:
-    # Config-resolved moves read identity first so a refusal costs no pixels, then apply once, then write.
-    # Egress depth is the processor's own contract rather than a knob — every compiled chain lands F32 — so the
-    # scene-referred product is written at the depth the transform actually produced.
     def resolved() -> Result[tuple[int, int, int, int, str, bool], ManageFault]:
         cache_id, crosstalk = source.identity(src, target, look)
         return (
-            Error("<channel-crosstalk>")  # a crosstalk chain reads channels the operand does not carry
+            Error("<channel-crosstalk>")
             if crosstalk and field.shape[-1] < 3
             else Ok(_measured(_written(source.applied(field, src, target, look), path, BitDepth.FLOAT32.value), cache_id, crosstalk))
         )
@@ -1103,13 +988,6 @@ def _measured(produced: tuple[ColorField, int], cache_id: str, crosstalk: bool, 
 def _cms_apply(
     field: ColorField, path: OutPath, src: ProfileRef, dst: ProfileRef, intent: RenderingIntent, bpc: bool, alpha: AlphaBand
 ) -> Result[tuple[int, int, int, int], ManageFault]:
-    # lcms2 carries the float ICC leg pyvips cannot: `icc_transform` admits 8/16-bit alone, while `cms_transform`
-    # retypes and transforms in one call at `outdtype=np.float32`, so a scene-linear or deeper-than-16-bit plane
-    # crosses a device profile without the quantization the integer pipeline forces. Profiles cross as BLOBS — a
-    # name string raises — and each validates before liblcms2 opens it. Alpha carries THROUGH, never across: the
-    # transform emits three components and drops every further band without a word, so the DECLARED alpha splits
-    # off ahead of the call and rejoins after. The split reads the declaration rather than the band count, because
-    # a four-band float plane is RGB-plus-alpha or CMYK ink and the array is identical either way.
     def resolved() -> Result[tuple[int, int, int, int], ManageFault]:
         carried = field[..., -1:].astype(np.float32) if alpha is AlphaBand.TRAILING else None
         managed = imagecodecs.cms_transform(
@@ -1128,16 +1006,12 @@ def _cms_apply(
 
 
 def _blob(ref: ProfileRef, /) -> ProfileBytes:
-    # Built-ins resolve through lcms2's own roster; a caller-supplied blob is untrusted material, so the header
-    # validates here and raises `CmsError` the one boundary adapter maps, never mid-transform inside liblcms2
     resolved = imagecodecs.cms_profile(ref.cms) if isinstance(ref, BuiltinProfile) else ref
     imagecodecs.cms_profile_validate(resolved)
     return resolved
 
 
 def _softproof(rgb8: NDArray[np.uint8], reference: str | ImageCms.ImageCmsProfile, proof_path: str, intent: RenderingIntent) -> int:
-    # simulate the press/proof profile (buildProofTransform, reference as input+display, proof the press); the plain-vs-GAMUTCHECK
-    # output diff marks the out-of-press-gamut pixels — the lcms2 PDF/X preflight signal pyvips has no member for.
     origin = PilImage.fromarray(rgb8, "RGB")
     intent_member = getattr(ImageCms.Intent, _INTENT_NAME[intent])
     proof_intent = ImageCms.Intent.ABSOLUTE_COLORIMETRIC
@@ -1169,11 +1043,6 @@ def _softproof(rgb8: NDArray[np.uint8], reference: str | ImageCms.ImageCmsProfil
 def _separate(
     document: PdfBytes, page: PageIndex, dpi: Dpi, plates: Option[OutPath]
 ) -> tuple[float, tuple[tuple[str, float], ...], Option[int]]:
-    # Read-side prepress audit worker: pdf_oxide renders one grayscale coverage plate per page ink (pixel intensity ==
-    # tint %), so per-ink mean coverage and the true per-pixel ink-sum PEAK TAC are MEASURED off the finished PDF,
-    # never re-derived by hand. A declared egress lands each plate as its own single-channel field through the same
-    # write leg every other field arm uses, so the audit that renders the separations can also emit them; an undeclared
-    # egress carries `Nothing`, which is the absence of a measurement rather than a zero byte count.
     doc = pdf_oxide.PdfDocument.from_bytes(document)
     fields = Block.of_seq(doc.render_separations(page, dpi)).map(
         lambda plate: (str(plate.ink_name), np.frombuffer(plate.data, dtype=np.uint8).astype(np.float64).reshape(plate.height, plate.width) / 255.0)
@@ -1201,9 +1070,6 @@ def _icc_apply(
     proof: ProfileBytes | None,
 ) -> Result[tuple[int, int, int, int, bool, str, int, float], ManageFault]:
     def named(stack: ExitStack, profile: ProfileRef, /) -> str:
-        # Built-ins pass their own libvips device name with no file at all; a caller-supplied blob is untrusted
-        # material crossing into liblcms2, so `_blob` validates the ICC header BEFORE the temp file exists and the
-        # refusal lands on the typed rail rather than mid-write inside the transform
         if isinstance(profile, BuiltinProfile):
             return profile.vips
         handle = stack.enter_context(NamedTemporaryFile(suffix=".icc", delete_on_close=False))
@@ -1215,7 +1081,7 @@ def _icc_apply(
         suffix, options = emit
         toned = _grade(raster / np.float64(np.iinfo(raster.dtype).max), grade)
         image = pyvips.Image.new_from_array(toned)
-        with ExitStack() as stack:  # the profile temp files must outlive the lazy icc_transform until write_to_buffer pulls pixels
+        with ExitStack() as stack:
             src_path = named(stack, src)
             managed = image.icc_transform(
                 named(stack, dst), input_profile=src_path, intent=intent.value, black_point_compensation=bpc, pcs=pcs, depth=depth
@@ -1231,12 +1097,7 @@ def _icc_apply(
                 else 0
             )
             space = str(managed.interpretation)
-            # Total Area Coverage — the peak (C+M+Y+K) ink sum over the converted CMYK field, the ISO 12647 / PDF-X-4 ink-limit
-            # preflight paired with gamut. cmyk guarantees 4 bands, so `maxpos()[0]` over the band sum normalizes
-            # against the depth ceiling, and a non-cmyk egress reads 0.0.
             ink = float((managed[0] + managed[1] + managed[2] + managed[3]).maxpos()[0]) / float((1 << depth) - 1) * 100.0 if space == "cmyk" else 0.0
-            # Containers land HERE and only their length crosses the process seam, so the product is durable and the
-            # pickled payload stays eight scalars instead of the megabytes the encode just produced
             Path(path).write_bytes(managed.write_to_buffer(suffix, keep=pyvips.ForeignKeep.ICC, **options))
             return (
                 Path(path).stat().st_size,
@@ -1253,15 +1114,6 @@ def _icc_apply(
 
 
 def _vips_emit(codec: ConvertFormat, codec_policy: CodecPolicy, /) -> Result[tuple[str, frozendict[str, object]], ManageFault]:
-    # This half of the codec gate PROBES: `_vips_native` reads the row's tag alone so admission stays provider-free on
-    # its loop, where this one runs the column's own memoized trial write, which reads the LINKED build rather than a
-    # registry membership — an unbuilt encoder refuses at the capability gate before the lazy pipeline pays a decode.
-    # Suffix and option builder both belong to the row, so no container spelling or quality literal lands here.
-    # `_writer` is the raster owner's OWN preference fold — it walks the engine's ordered emitter run and takes the
-    # first whose build probe passes — so this leg composes it instead of re-deriving a walk that a tuple-shaped
-    # `writers` column had already broken here: matching the tuple against a bare `CodecEmit` head never fired, and
-    # every managed egress returned `<codec-writer>`. The option builder takes the WHOLE `CodecPolicy`, so the two
-    # coordinates cross as the one owner rather than as a positional pair the row would have to re-assemble.
     match writer(codec, RasterEngine.LIBVIPS):
         case Ok(CodecEmit(tag="native", native=(suffix, _probe, options))):
             return Ok((suffix, options(codec_policy)))
@@ -1270,8 +1122,6 @@ def _vips_emit(codec: ConvertFormat, codec_policy: CodecPolicy, /) -> Result[tup
 
 
 def _plate_author(document: PdfBytes, path: OutPath, channels: tuple[SpotChannel, ...]) -> tuple[int, int]:
-    # Each spot owns a Type 2 `/Separation`; a multi-channel set adds one Type 4 `/DeviceN` calculator that folds
-    # all tints onto the CMYK alternate and registers every color space on every page.
     with pikepdf.open(BytesIO(document)) as pdf:
         spaces = {
             channel.name: pdf.make_indirect(
@@ -1294,7 +1144,7 @@ def _plate_author(document: PdfBytes, path: OutPath, channels: tuple[SpotChannel
                     pdf.make_stream(calculator, pikepdf.Dictionary(FunctionType=4, Domain=[0, 1] * len(channels), Range=[0, 1] * 4)),
                 ])
             )
-        for page in pdf.pages:  # Exemption: pikepdf pages/resources are a mutable qpdf object tree; add_resource registers in place
+        for page in pdf.pages:
             for name, space in spaces.items():
                 page.add_resource(space, pikepdf.Name("/ColorSpace"), pikepdf.Name(f"/{name}"))
         pdf.save(path)
@@ -1302,9 +1152,6 @@ def _plate_author(document: PdfBytes, path: OutPath, channels: tuple[SpotChannel
 
 
 def lut_bytes(space: ColorModel, grade: tuple[GradeStep, ...], size: LutSize, /) -> bytes:
-    # in-memory half of the SAME bake: the raw float32 N³x3 table `graphic/raster/process#PROCESS`
-    # `Transform.LUT_3D` decodes — one `_grade` law feeds the `.cube`/`.csp` container AND the raster consumer,
-    # so the authored file and the in-memory wire cannot disagree.
     return _lattice(grade, size).astype(np.float32).reshape(-1, 3).tobytes()
 
 
@@ -1315,11 +1162,6 @@ def _lattice(grade: tuple[GradeStep, ...], size: LutSize, /) -> ColorField:
 
 
 def _lut_author(bake: LutBake, path: OutPath, size: LutSize, shaper: ShaperSize) -> Result[tuple[int, int, str, str], ManageFault]:
-    # Two engines, one terminal: a grade chain bakes through colour-science's LUT family into the six containers
-    # `write_LUT` registers, and a config-resolved chain bakes through `ocio.Baker` into all twelve — CLF and CTF
-    # included, which the estate's own `GradeStep.Lut` reads back and no colour writer authors. Shaping makes a log
-    # or PQ input tractable: a 1-D pre-curve linearizes the domain so the cube samples it uniformly instead of
-    # brute-forcing a lattice large enough to resolve the toe.
     def resolved() -> Result[tuple[int, int, str, str], ManageFault]:
         match bake:
             case LutBake(tag="graded", graded=(space, grade, curve)):
@@ -1337,8 +1179,6 @@ def _lut_author(bake: LutBake, path: OutPath, size: LutSize, shaper: ShaperSize)
 
 
 def _shaper_lut(tone: ToneCurve, size: ShaperSize, /) -> "colour.LUT1D":
-    # CLF names a 1-D pre-curve into a 3-D cube as its canonical shape: linearizing the domain lets the cube sample it
-    # uniformly, where a log or PQ input otherwise needs a lattice large enough to resolve its own toe
     return colour.LUT1D(table=_TRANSFER[Transfer.DECODE](colour.LUT1D.linear_table(size), function=tone.value), name=f"rasm-{tone.value}")
 
 
@@ -1354,8 +1194,6 @@ def _baked(
     shaper: ShaperSize,
     /,
 ) -> tuple[int, int, str, str]:
-    # Exemption: `Baker` is a mutable provider builder with no value constructor, so the chain is a setter sequence;
-    # `target` discriminates structurally exactly as `_processor` does, so the two config surfaces read one law.
     baker = ocio.Baker()
     baker.setConfig(_config(source))
     baker.setInputSpace(str(src))
@@ -1373,8 +1211,6 @@ def _baked(
 
 
 def separations(document: CxfBytes, /) -> tuple[SpotChannel, ...]:
-    # decode the CxF3 DEVICE half — the ColorCmykplusN spot declaration (managed owns the device half; the spectral/Lab
-    # color half is derive#DERIVE's), each named SpotColorType channel at its coverage.
     resources = read_cxf(document).resources
     collection = resources.object_collection if resources else None
     return tuple(

@@ -24,7 +24,7 @@
 - Boundary: carbon never converts to currency and never takes a commercial load, so `EstimateRow.Carbon` carries no loading column at all. Credits remain signed rows on the same ledger rather than a second family.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics;
 using System.Threading;
@@ -48,7 +48,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Verify;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CostStage {
     public static readonly CostStage Unit = new("unit");
@@ -89,8 +89,6 @@ public sealed partial class RateBasis {
 
 [SmartEnum<string>]
 public sealed partial class CostKind {
-    // Read-before-use fixes this seat: static initializers run in declaration order, so the shared tariff arrow
-    // exists before the rows that carry it. A row whose rate comes from an evidence receipt names its own reader.
     private static readonly Func<EstimateBasis, Option<decimal>> Tariffed = static _ => None;
 
     public static readonly CostKind Machine = new("machine", RateBasis.Hour, AllocationKind.Variable,
@@ -151,8 +149,6 @@ public sealed partial class CommercialLoad {
     public bool PricesCredits { get; }
     public Set<CostStage> Over { get; }
 
-    // Yield transformations price a credit with its charge; commercial ones do not, because a margin taken on a
-    // recovered offcut invents revenue the shop never earns.
     public bool Prices(AllocationKind allocation) => PricesCredits || allocation != AllocationKind.Credit;
 
     [UseDelegateFromConstructor]
@@ -162,8 +158,6 @@ public sealed partial class CommercialLoad {
     public partial bool Admits(double rate);
 }
 
-// The correlation vocabulary. `Qualified` decides whether a family stands alone or names a subject its own owner
-// keyed — a tool target, a consumable row, a plan step, a specialized lane, a magazine change.
 [SmartEnum<string>]
 public sealed partial class LocusFamily {
     public static readonly LocusFamily Motion = new("motion", qualified: false);
@@ -191,8 +185,6 @@ public sealed partial class LocusFamily {
 
     public bool Qualified { get; }
 
-    // Items-derived index materializes on first read, so an unqualified locus costs a frozen lookup rather than a
-    // re-admission on every activity row a pricing fold mints.
     private static readonly Lazy<FrozenDictionary<LocusFamily, Locus>> Plain = new(
         static () => Items.Where(static row => !row.Qualified).ToFrozenDictionary(static row => row, static row => Locus.Create(row.Key)),
         LazyThreadSafetyMode.ExecutionAndPublication);
@@ -211,8 +203,6 @@ public readonly partial struct Locus {
 
     public static Fin<Locus> Admit(string value) => Admission.OfValue<Locus, string>(value);
 
-    // The composed key leads on the family key, which is non-empty for every declared row, so this factory is
-    // total by construction whatever the qualifier carries and never reaches the throwing admission's fail arm.
     public static Locus Of(LocusFamily family, string qualifier) =>
         family.Qualified ? Create($"{family.Key}:{qualifier}") : family.At;
 }
@@ -231,7 +221,7 @@ public readonly partial struct Locus {
 - Boundary: pricing consumes evidence and never invents missing clocks or rates. Every evidence case correlates to `EstimateBasis.Subject`. Machine, depreciation, and energy rows belong to the clock spine at the demand locus, so an `OperationTime` at that same locus contributes labor and setup only. Tool-change evidence is AUTHORITATIVE for change time: the magazine measures index traverse and arm swing the controller's dwell word does not model, so a receipt carrying it prices those rows off the evidence and the page invents no per-change constant.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class EvidenceKind {
     public static readonly EvidenceKind Simulation = Of<EstimateEvidence.Simulation>(
@@ -267,15 +257,10 @@ public sealed partial class EvidenceKind {
     public bool Repeatable { get; }
     public Func<EstimateEvidence, bool> Admits { get; }
 
-    // The S0 case lift closes the type test, so the row's predicate reads its own case shape directly and a foreign
-    // payload fails the test rather than the predicate. A case arriving from a generated union is already non-null,
-    // so a presence clause here is refuted ceremony.
     private static EvidenceKind Of<TCase>(string key, bool repeatable, Func<TCase, bool> admits)
         where TCase : EstimateEvidence => new(key, repeatable, Witness.Case<EstimateEvidence, TCase>(admits));
 }
 
-// The clock is one duration and its provenance. A two-case union whose arms carried one identical column was a
-// boolean wearing a type, and the source row is what the `backed` telemetry dimension reads.
 [SmartEnum<string>]
 public sealed partial class ClockSource {
     public static readonly ClockSource Simulation = new("simulation", backed: true);
@@ -284,7 +269,7 @@ public sealed partial class ClockSource {
     public bool Backed { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class StockConsumption {
     public NestYield Yield { get; }
@@ -297,11 +282,6 @@ public sealed partial class StockConsumption {
     public double WasteMassKg => SheetMassKg(Yield.WasteAreaMm2, ThicknessMm, DensityKgM3);
     public double ScrapMassKg => WasteMassKg - RemnantMassKg;
 
-    // Sheet mass crosses mm-to-SI through the dimensioned algebra at ONE derivation site — Area x Length yields
-    // Volume and Volume x Density yields Mass — so three admitted carriers reach a kilogram with no transcribed
-    // power of ten between them. The record's own columns stay bare `double` under the boundary-once admission
-    // law; the quantity types exist for this product, never for the fields. UnitsNet is spelled in full because
-    // its `Duration` collides with the NodaTime one this page carries.
     private static double SheetMassKg(double areaMm2, double thicknessMm, double densityKgM3) =>
         (UnitsNet.Area.FromSquareMillimeters(areaMm2)
             * UnitsNet.Length.FromMillimeters(thicknessMm)
@@ -372,9 +352,6 @@ public sealed partial class CapacityQuote {
     public static Fin<CapacityQuote> Admit(Interval promise, Duration queue, double loadFactor, int units) =>
         Validate(promise, queue, loadFactor, units, out CapacityQuote quote).Admitted(quote);
 
-    // A planned lot never asserts its own promise: availability, calendar completion, and the queue the shift
-    // calendar imposed are already derived facts, and the bottleneck machine's committed load is the fourth.
-    // Scalar admission survives only for capacity the package did not plan, such as an outside service window.
     public static Fin<CapacityQuote> Of(Receipt<LotEvidence> lot, AvailabilityPlan bottleneck, int units) =>
         Admit(new Interval(lot.Stamped, lot.Evidence.Completion), lot.Evidence.Queue(lot.Stamped),
             bottleneck.LoadFactor, units);
@@ -406,9 +383,6 @@ public readonly record struct ActivityRows(Seq<CostActivity> Cost, Seq<ImpactAct
     public ActivityRows Concat(ActivityRows other) => new(Cost.Concat(other.Cost), Impact.Concat(other.Impact));
 }
 
-// `Subject` and `Kind` are the universal columns and the ROOT owns both properties; each case takes the subject as
-// the plain argument `subject` and seats its own kind row. A case re-declaring a base property's own name
-// synthesizes nothing and silently drops the argument the correlation gate then reads.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EstimateEvidence(ContentKey Subject, EvidenceKind Kind) {
     public sealed record Simulation(ContentKey subject, SimulationLedger Receipt)
@@ -425,8 +399,6 @@ public abstract partial record EstimateEvidence(ContentKey Subject, EvidenceKind
         : EstimateEvidence(subject, EvidenceKind.Welding);
     public sealed record Operation(ContentKey subject, OperationTime Receipt)
         : EstimateEvidence(subject, EvidenceKind.Operation);
-    // Magazine mechanics the controller dwell word does not model: one row per change, each carrying the traverse
-    // and arm swing its layout index distance and swing policy derived.
     public sealed record ToolChange(ContentKey subject, Seq<ToolChangeEvidence> Changes)
         : EstimateEvidence(subject, EvidenceKind.ToolChange);
     public sealed record Capacity(ContentKey subject, CapacityQuote Receipt)
@@ -440,8 +412,6 @@ public abstract partial record EstimateEvidence(ContentKey Subject, EvidenceKind
     public sealed record ConsumableMass(ContentKey subject, Map<ConsumableKind, double> Kilograms)
         : EstimateEvidence(subject, EvidenceKind.ConsumableMass);
 
-    // Every case prices what its own receipt proves. The clock spine owns machine, depreciation, and energy at the
-    // demand locus, so an operation receipt sharing that locus contributes labor and setup only.
     public ActivityRows Rows(EstimateBasis basis, EstimateClock clock, Locus locus) => Switch(
         state: (Basis: basis, Locus: locus, Source: clock.Source),
         simulation: static (_, _) => ActivityRows.Empty,
@@ -472,9 +442,6 @@ public abstract partial record EstimateEvidence(ContentKey Subject, EvidenceKind
                     ? Seq<CostActivity>()
                     : Seq(new CostActivity(CostKind.Machine, value.Receipt.Locus, value.Receipt.Machine.TotalHours))),
             Seq<ImpactActivity>()),
-        // A simulation-backed clock ALREADY carries every change: `Verify/simulate` charges the magazine's own
-        // `Elapsed` onto the modal clock as a `DelayKind.ToolChange` slice, so the census attributes that time
-        // rather than pricing it again. Without a simulation nothing charged it, so the census is the producer.
         toolChange: static (context, value) => new ActivityRows(
             context.Source.Backed
                 ? Seq<CostActivity>()
@@ -492,8 +459,6 @@ public abstract partial record EstimateEvidence(ContentKey Subject, EvidenceKind
             .Map(static row => new ImpactActivity(CarbonKind.Consumable,
                 Locus.Of(LocusFamily.Consumable, row.Key.Key), row.Value)).ToSeq()));
 
-    // Wear states dispatch through their own generated total Switch: a status row and an unconsumed row prove no
-    // consumed life, so they contribute nothing and a fifth wear case breaks here rather than pricing as zero.
     private static Option<CostActivity> Life(WearState state) => state.Switch(
         tool: static row => ValidityClaim.Positive(row.Limit) ? Some(new CostActivity(CostKind.Tooling,
                 Locus.Of(LocusFamily.Tool, row.Target.ToString()), Math.Clamp(row.Current / row.Limit, 0.0, 1.0)))
@@ -526,8 +491,6 @@ public sealed partial class EstimateBasis {
     public Map<CostKind, decimal> Tariffs { get; }
     public Map<CarbonKind, double> CarbonFactors { get; }
     public UncertaintyTable Uncertainty { get; }
-    // The kernel `UnitInterval` carries the band, so the hand-spelled finite-and-within-zero-to-one clause this
-    // gate used to run is the admitted carrier's own law and no longer restated here.
     public UnitInterval RemnantCreditFactor { get; }
 
     [IgnoreMember]
@@ -541,9 +504,6 @@ public sealed partial class EstimateBasis {
     public Set<Locus> OperationLoci => Index.OperationLoci;
     public bool Carries(EvidenceKind kind) => Index.ByKind.ContainsKey(kind);
 
-    // No `ValidateFactoryArguments`: every column carrier now guards its own band, and the corpus-level
-    // invariants — tariff and factor coverage, correlation, cardinality, payload, operation identity, temporal
-    // routing — are the ACCUMULATING fan below, which reports every violation rather than first-fault-wins.
     public static Fin<EstimateBasis> Admit(
         ContentKey subject,
         Currency currency,
@@ -556,8 +516,6 @@ public sealed partial class EstimateBasis {
         Admitted(EvidenceIndex.Of(evidence), subject, currency, evaluatedAt, evidence, tariffs, carbonFactors,
             uncertainty, remnantCreditFactor);
 
-    // The gate fan reads ONE index build: operation identity, temporal routing, and the payload census all project
-    // the same fold the admitted basis then holds, so admission never walks the corpus a second time.
     private static Fin<EstimateBasis> Admitted(
         EvidenceIndex index,
         ContentKey subject,
@@ -589,15 +547,11 @@ public sealed partial class EstimateBasis {
                 remnantCreditFactor, out EstimateBasis basis).Admitted(basis));
 
 
-    // A capacity promise bounds the evaluation instant where the package planned the lot; otherwise the matched
-    // machine instance's own availability answers, so an unplanned quote still proves it can be routed.
     private static bool Routable(EvidenceIndex index, Instant evaluatedAt) => index.Capacity.Match(
         Some: quote => quote.Promise.Contains(evaluatedAt) || quote.Promise.Start >= evaluatedAt,
         None: () => index.Machine.ForAll(match => match.Instance.Availability.Standing(evaluatedAt) == RoutingStanding.Routable));
 }
 
-// The ONE place a payload is read by identity. Every arm is generated, so a fourteenth evidence case breaks this
-// fold at compile time rather than reaching the pricing spine as a silently missing read.
 internal sealed record EvidenceIndex(
     Map<EvidenceKind, Seq<EstimateEvidence>> ByKind,
     Option<SimulationLedger> Simulation,
@@ -614,8 +568,6 @@ internal sealed record EvidenceIndex(
             machine: static (index, value) => index with { Machine = Some(value.Receipt) },
             capacity: static (index, value) => index with { Capacity = Some(value.Receipt) },
             toolChange: static (index, value) => index with { ToolChanges = value.Changes },
-            // The locus set doubles as the identity gate: a repeated operation locus collapses in the set, so its
-            // cardinality against the bucket count is what proves every operation named a distinct locus.
             operation: static (index, value) => index with { OperationLoci = index.OperationLoci.Add(value.Receipt.Locus) },
             wear: static (index, _) => index,
             stock: static (index, _) => index,
@@ -645,9 +597,7 @@ internal sealed record EvidenceIndex(
 - Boundary: THE CLOCK-SOURCE DISCRIMINANT — `ClockSource` alone decides whether evidence PRODUCES a time row or merely ATTRIBUTES one, and both partitions read it. A simulation-backed clock already contains every `SpecializedToolpathEnvelope` and every tool change, because `Verify/simulate` charges each as its own ledger slice inside `SimulationLedger.Cycle`, so an evidence case that also priced those hours would charge the shop twice for one second of spindle time; the census then names where the priced clock went and mints nothing. A declared clock contains neither, so the same evidence is the genuine producer and prices normally. Attribution reads the ledger's own tallies rather than re-folding the evidence, so the ledger stays the one clock owner. The `SpecializedToolpathEnvelope` was admitted once at its S0 atom and the tool-change census once at `Tooling/magazine`, so nothing here re-walks rows or re-tests a payload.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// A derived row prices a FACTOR over an already-priced amount. The pair is the whole derivation, so the loaded
-// amount stays re-derivable while the base row it names keeps its own quantity and rate untouched.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RowLoading(decimal Over, double Factor);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -669,8 +619,6 @@ public abstract partial record EstimateRow {
         public bool Derived => Loading.IsSome;
     }
 
-    // Carbon never converts to currency and never takes a commercial load, so the impact family carries no
-    // loading column and no derived arm at all.
     public sealed record Carbon(CarbonKind Kind, Locus Locus, double Quantity, double Factor) : EstimateRow {
         public double KgCo2e => Quantity * Factor;
     }
@@ -679,8 +627,6 @@ public abstract partial record EstimateRow {
         money: static value => value.Kind.Allocation,
         carbon: static value => value.Kind.Allocation);
 
-    // Allocation scales a base row inside its OWN dimension — hours per unit become hours per lot — so it moves
-    // quantity and stage and never touches rate.
     public EstimateRow Allocate(int quantity, int batches) => Switch(
         state: (Quantity: quantity, Batches: batches),
         money: static (lot, value) => (EstimateRow)(value with {
@@ -696,15 +642,12 @@ public readonly record struct EstimateClock(Duration Value, ClockSource Source) 
     public bool SimulationBacked => Source.Backed;
 }
 
-// A policy table with a neutral preset: the caller supplies the cells it charges and the preset answers the rest.
 [ComplexValueObject]
 public sealed partial class LoadingTable {
     public Map<(CommercialLoad Load, CostKind Kind), double> Overrides { get; }
 
     public static LoadingTable Neutral { get; } = Create(Map<(CommercialLoad, CostKind), double>());
 
-    // Zero is the loading fold's identity — a load at zero rate mints no row — so a shop quoting at cost supplies the
-    // empty table and every unstated cell is a declared no-op rather than a missing mandatory rate.
     public double Rate(CommercialLoad load, CostKind kind) => Overrides.Find((load, kind)).IfNone(0.0);
 
     [BoundaryAdapter]
@@ -722,9 +665,6 @@ public sealed partial class LoadingTable {
 public sealed partial class UncertaintyTable {
     public Map<CostKind, double> Variation { get; }
 
-    // Correlation between cost kinds is DECLARED, not assumed: machine rate and energy both scale with the cycle
-    // clock and material with yield, so the risk fan reads a coefficient rather than treating every kind as
-    // independent. An unstated pair is uncorrelated and the diagonal is unity by construction.
     public Map<(CostKind First, CostKind Second), double> Correlation { get; }
 
     public static UncertaintyTable Independent { get; } =
@@ -751,8 +691,6 @@ public sealed partial class UncertaintyTable {
         Validate(variation, correlation, out UncertaintyTable table).Admitted(table);
 }
 
-// Attribution names where a PRICED clock went and never adds to it. Both partitions read the simulation ledger's
-// own tallies, so the ledger stays the one clock owner and neither partition can disagree with `MachineTime`.
 public sealed record ClockAttribution(
     Map<SpecializedToolpathKind, Duration> Specialized,
     Duration ToolChange,
@@ -761,10 +699,6 @@ public sealed record ClockAttribution(
         new(Map<SpecializedToolpathKind, Duration>(), Duration.Zero, 0);
 }
 
-// The unit ledger's own evidence: the currency it prices in, the signed row family, the priced clock, and where
-// that clock went. Subject, plane, and evaluation instant seat on `Receipt<TEvidence>` — the priced artifact IS
-// the receipt's content key and the evaluation instant IS its stamp — so this carrier holds no second identity,
-// no second clock, and no plane column a lane could contradict.
 public sealed record CostEvidence(
     Currency Currency,
     Seq<EstimateRow> Rows,
@@ -773,8 +707,6 @@ public sealed record CostEvidence(
     public Duration MachineTime => Clock.Value;
     public bool SimulationBacked => Clock.SimulationBacked;
 
-    // The signed family splits through its own generated total dispatch. A runtime `is` test over a closed union
-    // is the arm a third row case slips past silently, where the generated `Switch` breaks at compile time.
     public Seq<EstimateRow.Money> Money => Rows.Choose(static row => row.Switch(
         money: static value => Some(value), carbon: static _ => Option<EstimateRow.Money>.None));
     public Seq<EstimateRow.Carbon> Carbon => Rows.Choose(static row => row.Switch(
@@ -790,8 +722,6 @@ public sealed record CostEvidence(
 }
 
 [ComplexValueObject]
-// Every counted column is the kernel `Dimension` and the confidence a kernel `UnitInterval`, so the count floor
-// and the unit band live in the TYPE and this gate states only the law the carriers cannot: the quantile domain.
 public sealed partial class QuotePolicy {
     public Dimension Quantity { get; }
     public Dimension BatchCapacity { get; }
@@ -809,9 +739,6 @@ public sealed partial class QuotePolicy {
         ref LoadingTable loading,
         ref UnitInterval confidence,
         ref Duration validFor) {
-        // `Dimension` already floors both counts at one and `UnitInterval` already bands the confidence, so what
-        // stays is the one-sided normal quantile's own domain for a MEANINGFUL upper bound: at or below one half
-        // the quantile is non-positive and the risk row would CREDIT the quote, and at unity it is unbounded.
         if (!(ValidityClaim.All(confidence.Value > 0.5, confidence.Value < 1.0, validFor > Duration.Zero)))
             validationError = new ValidationError("quote-policy");
     }
@@ -821,8 +748,6 @@ public sealed partial class QuotePolicy {
         Validate(quantity, batchCapacity, loading, confidence, validFor, out QuotePolicy policy).Admitted(policy);
 }
 
-// The lot ledger. It mints no key and stamps no instant of its own — validity and promise both measure from the
-// unit receipt's own stamp — so it is a LEDGER over that receipt rather than a second settled receipt beside it.
 public sealed record QuoteLedger(
     Receipt<CostEvidence> Unit,
     QuotePolicy Policy,
@@ -853,9 +778,6 @@ public abstract partial record EstimateRequest {
     public sealed record Lot(FabricationResult Result, EstimateBasis Basis, QuotePolicy Policy) : EstimateRequest;
 }
 
-// The modality is the CASE, so `Estimate.Run` answers one type and a caller reads its scope off the discriminant.
-// The `*Receipt` name holds under the branch ruling because every arm carries a settled receipt — `Unit` directly
-// and `Lot` through its ledger's own unit — so the key, evidence, and stamp the ruling demands are present on both.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EstimateReceipt {
     private EstimateReceipt() { }
@@ -864,8 +786,6 @@ public abstract partial record EstimateReceipt {
     public sealed record Lot(QuoteLedger Ledger) : EstimateReceipt;
 }
 
-// One demand per result case: the locus every clock-derived row carries, whether a simulation clock is mandatory, the
-// declared fallback, the evidence kinds the result cannot be priced without, and the rows only the result proves.
 internal sealed record EstimateDemand(
     Locus Locus,
     bool ClockRequired,
@@ -887,7 +807,7 @@ internal sealed record EstimateDemand(
 - Boundary: this page takes NO `SpanBand`. A traced lane earns its bracket from a solver fold counting internal steps, and `FabricationEngine` carries no estimation row because pricing is a fold over settled receipts with no step census of its own; adding one is a `Process/telemetry` decision, not a folder mint.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Estimate {
     public static Fin<EstimateReceipt> Run(EstimateRequest request, FabricationTap? tap = null) =>
         from receipt in request.Switch(
@@ -898,9 +818,6 @@ public static class Estimate {
         let _fact = (tap ?? FabricationTap.Silent).Fire(FabricationFact.Estimate.Of(receipt))
         select receipt;
 
-    // The unit ledger settles on the ONE receipt spine: the subject the basis correlates against IS the content
-    // key, the admitted evaluation instant IS the stamp, and `FabConcern.Verify` names the plane that priced it —
-    // three columns this page used to carry itself, each now proved once at admission rather than restated here.
     private static Fin<Receipt<CostEvidence>> Priced(FabricationResult result, EstimateBasis basis) =>
         from _ in ResultSubject(result, basis.Subject)
         from demand in Demand(result, basis)
@@ -935,8 +852,6 @@ public static class Estimate {
             : Fin.Fail<Option<CapacityQuote>>(FabricationFault.Inadmissible(FabConcern.Verify, "estimate:lot-capacity"))
         select new QuoteLedger(priced, policy, money, carbon, capacity);
 
-    // The subject a basis correlates against must be one the result actually produced or consumed — the owner's
-    // own `Keys` census decides, so a basis pointed at a foreign artifact refuses before any row is priced.
     private static Fin<Unit> ResultSubject(FabricationResult result, ContentKey subject) =>
         result.Keys.Contains(subject)
             ? Fin.Succ(unit)
@@ -965,12 +880,8 @@ public static class Estimate {
                 Some(Duration.Zero), Set(EvidenceKind.Operation), Seq<CostActivity>())),
             formedResult: static (_, _) => Fin.Succ(new EstimateDemand(LocusFamily.Forming.At, ClockRequired: false,
                 Some(Duration.Zero), Set(EvidenceKind.Operation), Seq<CostActivity>())),
-            // A tube bend or roll schedule prices on the same forming locus and the same operation evidence a
-            // sheet unfold does — the modality differs, the estimating demand does not.
             tubeFormed: static (_, _) => Fin.Succ(new EstimateDemand(LocusFamily.Forming.At, ClockRequired: false,
                 Some(Duration.Zero), Set(EvidenceKind.Operation), Seq<CostActivity>())),
-            // Step coverage tests the index's own locus set rather than re-scanning the corpus per step, so a
-            // hundred-step plan costs one membership probe per step.
             fabricationPlan: static (context, value) => value.Steps.ForAll(step =>
                     context.OperationLoci.Contains(Locus.Of(LocusFamily.Step, $"{step.Order}:{step.Process.Key}")))
                 ? Fin.Succ(new EstimateDemand(LocusFamily.Plan.At, ClockRequired: false, Some(Duration.Zero),
@@ -995,8 +906,6 @@ public static class Estimate {
             .Filter(static clock => clock.Value >= Duration.Zero)
             .ToFin(FabricationFault.Inadmissible(FabConcern.Verify, $"estimate:{demand.Locus.Value}:clock"));
 
-    // Machine, depreciation, and energy are the clock's own rows; every other row belongs to the evidence case
-    // proving it. Energy rides an absent simulation as no row rather than a zero reading.
     private static ActivityRows Spine(EstimateBasis basis, EstimateClock clock, EstimateDemand demand) {
         double hours = clock.Value.TotalHours;
         Option<double> energy = basis.Simulation.Map(static receipt => receipt.EnergyKwh);
@@ -1008,8 +917,6 @@ public static class Estimate {
             energy.ToSeq().Map(value => new ImpactActivity(CarbonKind.Electricity, demand.Locus, value)));
     }
 
-    // Both partitions of the priced clock, read off the ledger that already charged them: the envelope's own
-    // admitted duration per specialized lane, and the delay tally the tool-change slices accumulated.
     private static ClockAttribution Attributed(EstimateBasis basis) => basis.Simulation.Match(
         Some: static receipt => new ClockAttribution(
             receipt.Specialized.Fold(
@@ -1027,8 +934,6 @@ public static class Estimate {
     private static EstimateRow.Carbon Impact(ImpactActivity activity, EstimateBasis basis) =>
         new(activity.Kind, activity.Locus, activity.Quantity, basis.CarbonFactors[activity.Kind]);
 
-    // A derived row keeps its source locus and kind, moves only its stage, and carries the base amount it loaded
-    // beside the factor it applied — so the loading is auditable and the base row it names is untouched.
     private static Seq<EstimateRow.Money> Scale(Seq<EstimateRow.Money> source, CommercialLoad load, QuotePolicy policy) =>
         source.Map(row => (Row: row, Factor: load.Factor(policy.Loading.Rate(load, row.Kind))))
             .Filter(static item => item.Row.Amount != decimal.Zero && item.Factor != 0.0)
@@ -1037,9 +942,6 @@ public static class Estimate {
                 Loading = Some(new RowLoading(item.Row.Amount, item.Factor)),
             });
 
-    // The correlated quadratic form: sigma squared is the double sum of rho times the two deviations, so the
-    // independence sum is the case the declared table selects rather than an assumption the fold makes. Each row's
-    // risk is its own correlated contribution to that total, which is what keeps the shares summing to sigma.
     private static Seq<EstimateRow.Money> Risk(
         Seq<EstimateRow.Money> rows,
         UncertaintyTable uncertainty,
@@ -1059,8 +961,6 @@ public static class Estimate {
         });
     }
 
-    // One monoid over generic math: the money ledger keyed by cost kind and the carbon ledger keyed by emission
-    // source share this fold rather than two hand-spelled totals that can drift apart.
     internal static Map<TKind, TAmount> Reconcile<TRow, TKind, TAmount>(
         Seq<TRow> rows, Func<TRow, TKind> kind, Func<TRow, TAmount> amount)
         where TKind : notnull

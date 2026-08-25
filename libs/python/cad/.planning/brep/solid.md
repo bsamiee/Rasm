@@ -73,8 +73,6 @@ from rasm.cad.faults import BREP_INPUT, CadRail
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class PrimitiveRow:
-    # Every analytic primitive spells one shape: a placement seat followed by an ordered extent run. `mint` holds the
-    # OCCT class, so the arms that differed only by that literal become rows over one body.
     mint: Callable[..., ShapeBuilder]
     seat: Callable[[Message], gp_Ax2]
     extents: Callable[[Message], tuple[float, ...]]
@@ -82,8 +80,6 @@ class PrimitiveRow:
 
 # --- [ROWS] -----------------------------------------------------------------------------
 
-# Full spheres carry no observable rotation, so the world-up seat below is the frame the wire declines to spell
-# rather than a default standing in for one; an angle-bounded sphere makes that seat observable.
 _UP: Final[gp_Dir] = gp_Dir(0.0, 0.0, 1.0)
 
 PRIMITIVE: Final[frozendict[str, PrimitiveRow]] = frozendict({
@@ -141,8 +137,6 @@ def merged(shapes: Sequence[TopoDS_Shape], /) -> CadRail[TopoDS_Shape]:
 
 
 def carved(body: TopoDS_Shape, tools: Sequence[TopoDS_Shape], coordinate: str, /) -> CadRail[TopoDS_Shape]:
-    # Empty tool runs leave the body its own difference, so a hole-free region and a hole-bearing one reach the
-    # same expression and no caller branches on whether its profile carried holes.
     return Ok(body) if not tools else nary((body,), tools, BOOLEANS["cut"], coordinate)
 ```
 
@@ -168,8 +162,6 @@ type Extrusion = Callable[[TopoDS_Face], CadRail[TopoDS_Shape]]
 
 
 def generated(section: PlacedProfile, extrusion: Extrusion, /) -> CadRail[TopoDS_Shape]:
-    # One spine for every generative arm: the placed face run, one arm per face, one fold. Four arms re-spelled this
-    # body before the collapse, each differing only in the callable this parameter now carries.
     return (
         faces(section)
         .bind(lambda placed: traverse(extrusion, Block.of_seq(placed)))
@@ -193,13 +185,10 @@ def _piped(spine: TopoDS_Wire, section: TopoDS_Wire, /) -> CadRail[TopoDS_Shape]
     if not builder.IsReady():
         return Error(BREP_INPUT.at("sweep.not-ready"))
     builder.Build()
-    # `IsDone` alone passes a shell the pipe status still grades as degenerate, so both gates hold before the solid.
     if not builder.IsDone() or builder.GetStatus() != BRepBuilderAPI_PipeDone:
         return Error(BREP_INPUT.at(f"sweep:{int(builder.GetStatus())}"))
     if not builder.MakeSolid():
         return Error(BREP_INPUT.at("sweep.open-profile"))
-    # Pipe shells answer no further `Build` verdict past this point, so the shape half admits through the rail's
-    # shape-only arm rather than a second `BRepCheck_Analyzer` call standing here.
     return admitted(builder.Shape(), "sweep.invalid")
 
 
@@ -209,8 +198,6 @@ def _pipe(spine: TopoDS_Wire, base: TopoDS_Face, /) -> CadRail[TopoDS_Shape]:
         return Error(BREP_INPUT.at("sweep.outer"))
     held = TopTools_IndexedMapOfShape()
     TopExp.MapShapes_s(base, TopAbs_WIRE, held)
-    # Wire maps on a face are ONE-based and carry the outer loop among the holes, so identity against the outer
-    # wire is the only partition; assuming which slot holds the boundary silently bores the body instead.
     holes = tuple(
         TopoDS.Wire_s(held.FindKey(index))
         for index in range(1, held.Extent() + 1)
@@ -230,8 +217,6 @@ def _wall(op: ThickOp, base: TopoDS_Face, /) -> CadRail[TopoDS_Shape]:
         .bind(lambda areas: traverse(lambda area: _prism(area, op.direction, op.distance_m), Block.of_seq(areas)))
         .bind(lambda parts: merged(tuple(parts)))
     )
-    # Negative thickness walls inward, so the offset sign alone elects which prism bounds the shell, and the wire
-    # keeps `thickness_m` non-zero, which is what makes that election total without a third arm.
     return source.map2(
         shifted, lambda inner, outer: (outer, inner) if op.thickness_m > 0.0 else (inner, outer)
     ).bind(lambda pair: carved(pair[0], (pair[1],), "thick.cut"))
@@ -296,8 +281,6 @@ def _shell(track: LoftTrack, style: LoftStyle, pick: Callable[[ProfileRegion], P
 
 
 def _track(track: LoftTrack, style: LoftStyle, /) -> CadRail[TopoDS_Shape]:
-    # Outer loop and holes loft through ONE body under a pick function; the wire's hole-correspondence rule proves
-    # that count matches across sections, so section zero is the roster and no arm re-counts per section.
     picks: tuple[Callable[[ProfileRegion], ProfileLoop], ...] = (
         lambda region: region.outer,
         *(partial(_hole, index) for index in range(len(track.sections[0].region.holes))),

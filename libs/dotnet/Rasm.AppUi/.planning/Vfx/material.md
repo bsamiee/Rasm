@@ -23,7 +23,7 @@ Rasm.AppUi materials are the effects plane's surface-treatment owner: one layer 
 - Boundary: subpixel text over a material layer is the one coverage election this plane makes and the one it must not make blindly — `GlyphCoverage.Lcd` keeps LCD glyph coverage through the layer, and `LayerSpec.Of` already REFUSES it over a `Filtered` ground because a blurred backdrop is never opaque. The residual that admission names is a translucent composite over an unfiltered COPY, and this plane is the mount that closes it: the coverage a mount requests narrows to `Grayscale` under a translucent `Glazing`, so a sheet that hosts glyphs cannot fringe them against content the layer never composited. The glyph side of that same law is the `Theme/typography` layer posture, which drops LCD coverage to grayscale edging for a layer-hosted run: the two ends state one fact — subpixel coverage is invalid against pixels the layer never composited — and a surface that elected LCD while shaping under a non-layer posture would fringe exactly the runs the posture protected. The `Previous` arm is the honest floor on an embedded host: it copies what the compositor already painted and applies this plane's own tint, where `AcrylicBackgroundSource.Digger` would erase those pixels and dig through to nothing. Layer bounds are the material's OWN extent and never the surface — a layer bounded to the surface pays a full-surface offscreen for a panel-sized treatment — and the bound is what `[03]-[SAMPLE_CONTRACT]` clamps against, so the two are one value read twice and never two authored rects.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayerFault : Fault {
@@ -60,18 +60,12 @@ public abstract partial record LayerFault : Fault {
 ```
 
 ```csharp signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The page's catalog rows and their role addresses in ONE place, DERIVED from the tier roster so the two cannot
-// agree by coincidence: `LayerSpec.Composite` narrowed to `DrawRole`, and the composed `$"material-{key}"` string
-// the prior spelling put there addressed no paint at all (`RULINGS.md:105`). The app root concatenates this seq
-// with every other owner's into one `PaintCatalog.Of` call per generation.
 public static class TreatmentSurfaces {
     public static readonly HashMap<MaterialTier, DrawRole> Roles =
         toHashMap(toSeq(MaterialTier.Items).Map(static tier => (tier, DrawRole.Create($"material-{tier.Key}"))));
 
-    // RESIDUAL: `PaintSpec` carries no alpha column, so the composite paint takes the tier's own pigment at the
-    // token's alpha and `MaterialValue.MaterialOpacity` reaches the surface through the tint fill alone.
     public static readonly Seq<PaintSpec> Paints =
         toSeq(MaterialTier.Items).Map(static tier =>
             new PaintSpec(Roles[tier], tier.Tint.At(0), 0f, SKPaintStyle.Fill, Seq<FxRow>()));
@@ -91,31 +85,19 @@ public static class TreatmentSurfaces {
 - Boundary: the change source is the stream of the region the material SAMPLES, never the material's own property stream — an own-property change already dirties own bounds and re-runs the operation, which is exactly the case the contract does not cover. The carrier is `IObservable` because `InvalidateVisual` is a UI-thread push the Avalonia host already publishes that way and a channel here would need a pump nothing drains. `InvalidateVisual` is issued per change and never per frame: a per-frame invalidation defeats the compositor's dirty-rect economy for every surface in the tree, which is the cost this contract exists to bound. A blur ground bleeds by its own sigma, so a `Filtered` material's requested region is its bounds inflated by that sigma and the clamp is what forces the inflation onto the driven case rather than letting it silently sample stale ground. Both vehicles' host signatures return `void`, so each collapses its typed refusal through the ONE `Diagnostics/devloop#HOST_COLLAPSE` `HostSink` and parks it on the composition-minted kernel `FaultCell`; the prior `ignore(...)` meant a backend with no Skia lease rendered nothing and reported nothing.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The two total resolutions of the sampling law as CASES, because they differ in what they CARRY and not in a flag:
-// the local case clamps and needs nothing, while the driven case owes a live subscription over the region it
-// samples. A bool column left a driven spec with no change source spellable and let a bounds-local host accept a
-// stream and silently drop it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SampleScope {
     private SampleScope() { }
     public sealed record BoundsLocal() : SampleScope;
     public sealed record Driven(IObservable<Unit> Changes) : SampleScope;
 
-    // `Inflate` is the ground's own bleed — a clamp against un-inflated bounds passes a material that then samples
-    // sigma pixels of ground it never invalidates. It is scope-independent, so the render-bound projection reads it
-    // without electing a case first.
     public static SKRect Inflate(SKRect bounds, LayerGround ground) => ground.Switch(
         state: bounds,
         filtered: static (rect, row) => SKRect.Inflate(rect, row.Row.Sigma, row.Row.Sigma),
         previous: static (rect, _) => rect);
 
-    // The one admission, TOTAL over the two cases. A driven material passes its inflated region through because the
-    // subscription is what keeps a sample outside own bounds fresh; a bounds-local material admits only where the
-    // inflation changed nothing, which makes the pairing law STRUCTURAL rather than advisory — a filtered ground
-    // bleeds by its own sigma and therefore cannot be bounds-local, because clamping that bleed away deletes
-    // exactly the ground the arm was chosen for.
     public Fin<SKRect> Admit(SKRect own, LayerGround ground) => Switch(
         state: (Own: own, Region: Inflate(own, ground)),
         boundsLocal: static (s, _) => s.Own.Contains(s.Region)
@@ -126,19 +108,14 @@ public abstract partial record SampleScope {
 ```
 
 ```csharp signature
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// The four columns a host-edge seal takes, seated by composition exactly as `Diagnostics/devloop` seats them on
-// `InspectorEdits`: the sink advances the envelope HLC, and the cell is where a void host signature parks a refusal.
 public sealed record TreatmentEvidence(
     ReceiptSinkPort Sink,
     CorrelationId Correlation,
     TenantContext Tenant,
     HostSink Faults);
 
-// The in-tree vehicle. `Render` folds the lease to `DrawSource.Borrowed` exactly as every other in-tree draw on
-// this estate does, so the material composites into the host's in-flight frame and mints no surface. The catalog
-// arrives as the per-generation VALUE every other consumer takes rather than as a zero-argument factory.
 public sealed class TreatmentHost : Control {
     readonly SerialDisposable seat = new();
     readonly SurfaceTreatment treatment;
@@ -148,8 +125,6 @@ public sealed class TreatmentHost : Control {
     public TreatmentHost(SurfaceTreatment treatment, PaintCatalog paints, TreatmentEvidence evidence) =>
         (this.treatment, this.paints, this.evidence) = (treatment, paints, evidence);
 
-    // Attach RE-SEATS and detach releases (`RULINGS.md:132`): a seat taken once in the constructor left every
-    // reattached material subscribed to nothing and permanently stale.
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e) {
         base.OnAttachedToVisualTree(e);
         seat.Disposable = treatment.Scope.Switch(
@@ -163,18 +138,11 @@ public sealed class TreatmentHost : Control {
         base.OnDetachedFromVisualTree(e);
     }
 
-    // An in-tree host is chosen exactly where the treatment does NOT advance per frame, so it draws the run's
-    // settled state; the animating vehicle is the `compose#CUSTOM_VISUAL_TICK` handler.
     public override void Render(DrawingContext context) =>
         context.Custom(new TreatmentOperation(
             treatment, paints, new Rect(Bounds.Size), SurfaceTreatment.Settled, evidence));
 }
 
-// Bounds are GLOBAL-coordinate per the custom-draw contract and `HitTest` answers from its own geometry without
-// recursing. The explicit member algebra is what makes the retained-scene-node reuse REAL: the record's own
-// equality reference-compares `Seq<FilterRow>` and would fold the catalog and the evidence seat in besides, and
-// while a delegate column sat on the spec it could never hold at all — so every frame rebuilt a node the
-// compositor had been told was unchanged.
 [Equatable(Explicit = true)]
 public sealed partial record TreatmentOperation(
     [property: DefaultEquality] SurfaceTreatment Treatment,
@@ -187,9 +155,6 @@ public sealed partial record TreatmentOperation(
 
     public bool HitTest(Point point) => Bounds.Contains(point);
 
-    // The host signature carries no rail, so the draw's outcome collapses through the one `HostSink`: a completed
-    // draw seals its receipt onto the evidence stream and a refusal parks on the fault cell, where the prior
-    // `ignore` discarded both.
     public void Render(ImmediateDrawingContext context) =>
         ignore(Evidence.Faults.Collapse(
             IO.lift(() => context.TryGetFeature<ISkiaSharpApiLeaseFeature>() is { } feature
@@ -206,7 +171,6 @@ public sealed partial record TreatmentOperation(
         return Treatment.Draw(new DrawSource.Borrowed(lease), Paints, Bounds.ToSKRect(), Phase);
     }
 
-    // The lease is the only handle this operation holds and `Draw` scopes it; the interface demands the member.
     public void Dispose() { }
 }
 ```
@@ -245,10 +209,8 @@ flowchart LR
 - Boundary: the lit filters derive their height field from the input's ALPHA, so a rim highlight and an inset highlight differ in the light direction ALONE — the inset row negates the incident vector and nothing else, and a second filter family for insets would carry one sign as a whole owner. Refraction is the glass floor and its displacement source is a `shader#EFFECT_PROGRAM` ROW carrying its own uniform frame, never an inline shader and never a composed key: displacement takes ONE channel per axis and offsets by that channel's distance from mid-grey, so the source must publish two decorrelated channels over the same seeded field the grain draw samples — an achromatic source hands both axes one value and shears every pixel along one diagonal — and the frame rides the row because a row alone cannot state the field's own separation. Every row's native is minted PER DRAW and `SKPaint.Dispose` releases none of the four slots it binds, so a fold that refuses mid-stack releases the prefix it already minted through the kernel custody owner rather than through a hand rollback lambda. Skia natives are reference-counted and the catalogue carries that custody: a composed filter holds its OWN reference to every arm, so the handles a composition consumed release on both paths. The crossfade is the one arm that cannot release unconditionally — `SKColorFilter.CreateLerp` short-circuits at the CLOSED endpoints `UnitInterval` admits and hands back an input as the result, so that arm releases only what the result does not alias. `Tint` is a lerp toward the pigment expressed as one 4x5 matrix whose fifth column carries the additive term in normalized units, so an 8-bit byte constant in that column is the deleted form; `Crossfade` is `SKColorFilter.CreateLerp` over two built rows, which is why the phase cannot be frozen and why the module wash reaches its crossfade here rather than through a second animation path. The 256-entry curve tables are GENERATED from their kind's transfer — an authored table is unverifiable against the shape it claims — and its buffers stay private to `ToneTable` because the native takes `byte[]` and a shared writable array a consumer can reach is a table the next draw reads differently. `Contrast` binds the shipped high-contrast config and keeps its `IsValid` read: the amount is a `SignedUnit` this plane owns, but `SKHighContrastConfigInvertStyle`'s valid range belongs to SkiaSharp, so the native's own gate stays the admission and `ContrastUnsupported` stays raised.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Rim and inset differ by the incident vector alone: both filters read the input's ALPHA as a height field, so
-// flipping the light to come from below inverts the bevel. A second owner for insets would carry one sign.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LightFace {
@@ -261,8 +223,6 @@ public sealed partial class LightFace {
         new(direction.X, direction.Y * Flip, direction.Z * Flip);
 }
 
-// Tone shapes as transfers, so the 256-entry table is a GENERATION and never an authored roster. Amount is the
-// row's single knob and every transfer is total on the unit interval, so a table entry cannot leave range.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CurveKind {
@@ -274,14 +234,8 @@ public sealed partial class CurveKind {
     public Func<double, double, double> Transfer { get; }
 }
 
-// The materialized transfer. The table is a pure function of (kind, amount), so it materializes at the ROW's mint
-// and never inside `Build`, which allocated a fresh 256-byte array on every draw of every curve row. Identity and
-// the channel buffer stay PRIVATE: `SKColorFilter.CreateTable` demands `byte[]`, and a writable array a consumer
-// can reach is a lookup the next draw reads differently.
 [Equatable(Explicit = true)]
 public sealed partial class ToneTable {
-    // Alpha passes through every tone curve untouched: a curve that lifted alpha would dissolve the material's own
-    // coverage while claiming to move its tone. One identity buffer serves every row.
     static readonly byte[] Identity = [.. Enumerable.Range(0, 256).Select(static step => (byte)step)];
 
     readonly byte[] channel;
@@ -299,8 +253,6 @@ public sealed partial class ToneTable {
     public SKColorFilter Native() => SKColorFilter.CreateTable(a: Identity, r: channel, g: channel, b: channel);
 }
 
-// The shipped high-contrast config takes a grayscale flag beside an invert style, and the estate uses three of the
-// six combinations — so the pair is ONE row carrying both columns and the union case spells no bool at all.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ContrastMode {
@@ -319,13 +271,8 @@ public sealed partial class ContrastMode {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The per-draw filter algebra. Every case carries its parameters as ROW DATA and mints its native at Build, because
-// each one's parameters move — a light direction per pointer sample, a refraction scale per resize, a curve amount
-// per preference flip. A parameter that holds for a whole generation belongs to the frozen FxRow catalogue instead,
-// where one mint serves every draw. Every scalar carries its own domain as a type: `Ks` is a fraction, surface
-// scale and shininess are positive, and a contrast amount is signed on `[-1,1]` exactly as the native gates it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FilterRow {
     private FilterRow() { }
@@ -340,18 +287,11 @@ public abstract partial record FilterRow {
     public sealed record Curve(ToneTable Table) : FilterRow;
     public sealed record Contrast(ContrastMode Mode, SignedUnit Amount) : FilterRow;
 
-    // The ONE native mint. Colour rows land in the paint's ColorFilter slot and geometry-reading rows in its
-    // ImageFilter slot, so the product discriminates by slot exactly as the capture-side effect union does and a
-    // caller never chooses where a row binds. Refraction takes a compiled ROW beside a frame, so a program the
-    // roster never minted is unspellable rather than a key resolving to nothing at draw time.
     public Fin<FxEffect> Build(EffectTokens tokens, EffectCatalog effects, UnitInterval phase) => Switch(
         state: (Tokens: tokens, Effects: effects, Phase: phase),
         lighting: static (s, row) =>
             from light in Pigment(s.Tokens, row.Light)
             select (FxEffect)new FxEffect.Imaging(SKImageFilter.CreateDistantLitSpecular(
-                // The lit filters take an 8-bit SKColor and publish no float twin, so the light quantizes at this
-                // boundary by the API's own shape — the explicit cast states that where an implicit conversion
-                // would hide a working-space value silently losing its gamut.
                 direction: row.Face.Incident(row.Direction),
                 lightColor: (SKColor)light,
                 surfaceScale: (float)row.SurfaceScale.Value,
@@ -368,8 +308,6 @@ public abstract partial record FilterRow {
         tint: static (s, row) =>
             from pigment in Pigment(s.Tokens, row.Pigment)
             select (FxEffect)new FxEffect.Coloring(SKColorFilter.CreateColorMatrix(Lerp(pigment, row.Strength))),
-        // A refused second arm releases the first; the built lerp is bracketed because it holds its own reference
-        // to whichever arms it composed — one custody law, two kernel members.
         crossfade: static (s, row) =>
             from origin in row.From.Colour(s.Tokens, s.Effects, s.Phase)
             from target in row.To.Colour(s.Tokens, s.Effects, s.Phase).Rollback(origin)
@@ -383,10 +321,6 @@ public abstract partial record FilterRow {
             _ => Fin.Fail<FxEffect>(new LayerFault.ContrastUnsupported(row.Mode, row.Amount)),
         });
 
-    // `CreateLerp` short-circuits at the CLOSED endpoints `Band.Unit` admits — weight 0 hands back `filter0` and
-    // weight 1 hands back `filter1` — and SkiaSharp's handle map returns that as the SAME managed instance, so a
-    // phase of exactly 0 or 1 makes the result one of the arms. Releasing both would dispose the native the
-    // success arm just transferred, so the aliased arm holds no release slot and `Bracket` skips its null.
     static Fin<FxEffect> Crossfade(UnitInterval phase, SKColorFilter origin, SKColorFilter target) {
         SKColorFilter lerped = SKColorFilter.CreateLerp((float)phase.Value, origin, target);
         return Custody.Bracket(
@@ -395,11 +329,6 @@ public abstract partial record FilterRow {
             ReferenceEquals(lerped, target) ? null : target);
     }
 
-    // Save-layer backdrops take an image filter alone, so a colour row lifts through CreateColorFilter rather than
-    // forcing every ground to be authored twice. The lift is free at the node level — Skia composes it into the
-    // same DAG the blur ground already builds — and the refusing arms hold a live native no other owner reaches.
-    // The lift RETAINS rather than consumes, so the colour row's own handle releases on the drawn path too and
-    // only the imaging arm hands its native straight through; a bare lift would strand one reference per ground.
     public Fin<SKImageFilter> Ground(EffectTokens tokens, EffectCatalog effects, UnitInterval phase) =>
         Build(tokens, effects, phase).Bind(static effect => effect.Switch(
                 shading: static _ => Fin.Fail<SKImageFilter>(new LayerFault.FilterRejected("shader", "a layer ground")),
@@ -409,9 +338,6 @@ public abstract partial record FilterRow {
                 pathing: static _ => Fin.Fail<SKImageFilter>(new LayerFault.FilterRejected("path", "a layer ground")))
             .Rollback(() => Fin.Succ(effect.Release())));
 
-    // The crossfade arms must both be COLOUR rows: SKColorFilter.CreateLerp interpolates two colour filters and has
-    // no image-filter twin, so a geometry row reaching a crossfade refuses through the union's own total Switch
-    // rather than through a hand type test, and the refused arm's native releases where the colour arm TRANSFERS.
     Fin<SKColorFilter> Colour(EffectTokens tokens, EffectCatalog effects, UnitInterval phase) =>
         Build(tokens, effects, phase).Bind(static effect => effect.Switch(
                 shading: static _ => Fin.Fail<SKColorFilter>(new LayerFault.FilterRejected("shader", "a colour row")),
@@ -420,16 +346,9 @@ public abstract partial record FilterRow {
                 coloring: static row => Fin.Succ(row.Native))
             .Rollback(() => Fin.Succ(effect.Release())));
 
-    // The pigment read routes through the capture-side token edge and re-bands its refusal: `EffectTokens.Pigment`
-    // already owns the frozen-bucket lookup and the policy widening that lifts an 8-bit display value into the
-    // generation's one working space, so a second lookup here would be a second token edge disagreeing with it. The
-    // address is the generated `TokenKey` off the role ladder (`RULINGS.md:105`), so a rung the generation never
-    // emitted is a typed refusal on this plane's own band instead of a miss discovered at draw time.
     static Fin<SKColorF> Pigment(EffectTokens tokens, TokenKey pigment) =>
         tokens.Pigment(pigment).MapFail(error => (Error)new LayerFault.TintUndeclared(pigment, error));
 
-    // A 4x5 row-major matrix lerping every channel toward the pigment. The fifth column is the ADDITIVE term in
-    // normalized units, which is why the pigment enters as SKColorF and never as a byte constant.
     static float[] Lerp(SKColorF pigment, UnitInterval strength) {
         float s = (float)strength.Value;
         return [
@@ -456,11 +375,8 @@ public abstract partial record FilterRow {
 - Boundary: which translucent ground a surface asks for is the MOUNT's fact and never the tier's (`RULINGS.md:127`) — a sheet over a live viewport and a sheet on an embedded host beneath which no pixels exist take different arms under one tier, and the opaque floor is the single ground rule this plane owns because an opaque material overpaints every pixel a filtered ground would read. Every native this capsule mints lives for ONE draw: a filter row rebuilds its filter per frame, the grain source is a fresh `SKShader` off the retained builder, and `SKPaint.Dispose` releases none of them (`RULINGS.md:125`), so the capsule releases what it built on the drawn and the refused path alike — through one body, because `FxEffect.Release` is the union's own ordered teardown rather than an `IDisposable` a `Custody.Bracket` span could carry. Every paint is minted, configured, used, and dropped inside one bracket, so no fill retains a paint the next frame reads differently. The grain is a DRAW, not a token knob — `MaterialValue.Grain` is a declared weight and the noise it weights is the compiled `grain` program at `shader#EFFECT_PROGRAM`, because the shipped acrylic material composes a fixed noise bitmap under a fixed alpha and neither is addressable, so a material that wanted its grain to follow density or variant had no seam at all. The module wash crossfades two `EffectRow.Wash` sources through ONE arithmetic blender rather than drawing both and hoping alpha compounds: two alpha-over draws at coverage `c` composite to `1-(1-c)²` and brighten the mid-transition frame, which is precisely the luminance the `WashRow.LuminanceCeiling` gate exists to hold. The wash resolves its rows from `WorkspaceRow` values and never from caller text (`RULINGS.md:115`), and the join between the wash roster's module column and the workspace roster's key lives at ONE site — `present` is the workspace that declares no wash today, so the refusal is live rather than defensive. `TreatmentOperation` is the only in-tree vehicle, so a control that wants a material mounts one rather than overriding its own render, and the capsule brackets the treatment alone: an earlier content fold no consumer ever supplied is gone, so a host's own content composites over the treatment through the scene graph rather than inside its layer.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The grain as a CASE resolved at admission from the tier's declared weight: the draw body no longer tests a float
-// against zero, and the 8-bit paint alpha is a column the mint quantized rather than a rounding inside a per-frame
-// body. The opaque floor already zeroes the weight at the token owner, so `Bare` is the resolved fact.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GrainLay {
     private GrainLay() { }
@@ -473,11 +389,6 @@ public abstract partial record GrainLay {
             : new Weighted(weight, (byte)Math.Round(weight.Value * byte.MaxValue));
 }
 
-// The executable material: the tier that produced it, the resolved value the token generation handed over, the
-// translucency verdict, the ground arm, the elected glyph coverage, the sample case, the per-draw filter stack, the
-// resolved grain, the module wash it lays, and the compiled program roster its procedural sources resolve against.
-// The catalog is a VALUE the composition binds; the delegate column it replaces erased the roster's own refusals
-// and made every operation's structural equality permanently false.
 [Equatable]
 public sealed partial record SurfaceTreatment(
     MaterialTier Tier,
@@ -494,17 +405,8 @@ public sealed partial record SurfaceTreatment(
     static readonly UnitInterval Full = UnitInterval.Create(1d);
     static readonly Op ReleaseOp = Op.Of(name: "appui.material.release");
 
-    // A non-animating vehicle draws the run's TERMINAL state: the in-tree host is chosen exactly where the
-    // treatment does not advance per frame, so a crossfade mounted there shows its destination rather than
-    // freezing at its origin.
     public static readonly UnitInterval Settled = Full;
 
-    // Admission is where the variant projection reaches the effects plane: the high-contrast row appends to the
-    // stack exactly once, so a contrast flip re-stacks every mounted material through the generation rather than
-    // through a per-surface conditional. A driven scope with no inflation to justify it still admits —
-    // over-invalidation is a cost, where under-invalidation is a stale frame. The resolved bucket is addressed by
-    // the tier's own `MaterialKey`, because the frozen map is keyed by `TokenKey` and the smart-enum string key is
-    // a different vocabulary that would not type against it.
     public static Fin<SurfaceTreatment> Of(
         MaterialTier tier, ResolvedTheme theme, LayerGround ground, GlyphCoverage coverage, SampleScope scope,
         Seq<FilterRow> stack, Option<WashPlane> wash, EffectCatalog effects) =>
@@ -514,11 +416,7 @@ public sealed partial record SurfaceTreatment(
             Tier: tier,
             Value: value,
             Glaze: glaze,
-            // The ONE ground rule this plane owns: an opaque material has nothing to filter, because the ground it
-            // would blur is entirely overpainted, so the copy arm is both cheaper and the only honest spelling.
             Ground: glaze == Glazing.Opaque ? LayerGround.Copy : ground,
-            // `LayerSpec.Of` refuses LCD over a filtered ground; the RESIDUAL that admission names — a translucent
-            // composite over an unfiltered copy — closes here, because this is the mount that knows the opacity.
             Coverage: glaze == Glazing.Opaque ? coverage : GlyphCoverage.Grayscale,
             Scope: scope,
             Stack: theme.Variant.Projection.FloorLift.Match(
@@ -528,10 +426,6 @@ public sealed partial record SurfaceTreatment(
             Wash: wash,
             Effects: effects);
 
-    // The capsule. One layer plan, one bracketed treatment, one release — and the restore belongs to the layer site
-    // at the capture-side owner, so no exit path here can strand a saved layer. The LAYER takes the admitted region
-    // and the fills take the visible extent: the layer must cover the ground its filter reads, while the treatment
-    // paints only what the material actually covers.
     public Fin<TreatmentReceipt> Draw(DrawSource source, PaintCatalog paints, SKRect extent, UnitInterval phase) =>
         from bounds in Scope.Admit(extent, Ground)
         from plan in LayerSpec.Of(bounds, Ground, Some(TreatmentSurfaces.Roles[Tier]), Coverage)
@@ -540,11 +434,6 @@ public sealed partial record SurfaceTreatment(
             source.Layered(paints, plan, canvas => Compose(canvas, paints, extent, natives, phase)))
         select new TreatmentReceipt(Tier, Glaze, Ground, Scope, Stack.Count);
 
-    // Wash first, then tint, then grain over both: the wash is the MODULE's ambient ground, the tint is the
-    // material's own pigment, and the grain is a surface property that modulates what it sits on rather than
-    // veiling it. The tint crosses through the policy's own byte admission — `SKPaint.Color` assumes sRGB and
-    // quantizes before any conversion, so a component-wise divide by 255 here would fabricate a working-space
-    // value — and every native binds onto ONE paint, which is the estate's paint law.
     Fin<Unit> Compose(SKCanvas canvas, PaintCatalog paints, SKRect extent, Seq<FxEffect> natives, UnitInterval phase) =>
         from washed in Wash.Match(
             Some: plane => plane.Lay(canvas, paints, Effects, extent, phase),
@@ -561,9 +450,6 @@ public sealed partial record SurfaceTreatment(
             weighted: static (s, row) => s.Treatment.Film(s.Canvas, s.Extent, row))
         select grained;
 
-    // Grain rides Overlay so it MODULATES the tint it sits on: an alpha-over noise at the same weight washes the
-    // surface toward the noise's own mid grey and flattens every rung beneath it. The shader is a fresh native off
-    // the retained builder every frame and releases with the fill that bound it, in ownership order.
     Fin<Unit> Film(SKCanvas canvas, SKRect extent, GrainLay.Weighted grain) =>
         Effects.Source(EffectRow.Grain, UniformFrame.Of(
                 new SKSize(extent.Width, extent.Height),
@@ -575,8 +461,6 @@ public sealed partial record SurfaceTreatment(
                 paint.Color = SKColors.White.WithAlpha(grain.Alpha);
             }), shader));
 
-    // The ONE paint-scoped fill on the plane, shared with the wash: a paint is minted, configured, used, and
-    // dropped inside one bracket, so no fill can retain a paint the next frame reads differently.
     internal static Fin<Unit> Filled(SKCanvas canvas, SKRect extent, Action<SKPaint> configure) {
         SKPaint paint = new() { IsAntialias = true };
         return Custody.Bracket(() => {
@@ -586,8 +470,6 @@ public sealed partial record SurfaceTreatment(
         }, paint);
     }
 
-    // A short-circuiting traverse drops every native built before the offending row with no other owner holding
-    // them, so the build FOLDS and its refusal releases its own prefix through the kernel custody owner.
     static Fin<Seq<FxEffect>> Built(
         Seq<FilterRow> stack, EffectTokens tokens, EffectCatalog effects, UnitInterval phase) =>
         stack.Fold(Fin.Succ(Seq<FxEffect>()), (state, row) => state.Bind(built =>
@@ -598,9 +480,6 @@ public sealed partial record SurfaceTreatment(
                     key: ReleaseOp)
                 .Map(built.Add)));
 
-    // The stack releases whichever way the fold ended, including a layer that refused before the body ever ran; a
-    // paint releases nothing it was bound, so kernel custody drains the typed roster in reverse and aggregates
-    // every release refusal with the primary result instead of dropping a tail failure.
     static Fin<T> Released<T>(Seq<FxEffect> natives, Fin<T> fold) =>
         fold.Settled(
             held: natives,
@@ -611,40 +490,22 @@ public sealed partial record SurfaceTreatment(
         (theme.Materials.TryGetValue(tier.MaterialKey, out MaterialValue value) ? Some(value) : None)
             .ToFin(new LayerFault.LayerRefused($"tier {tier.Key} carries no resolved material"));
 
-    // The one translucency derivation on the plane, speaking the token owner's own row rather than a local bool.
     static Glazing Glazed(MaterialValue value) =>
         value.MaterialOpacity == Full && value.TintOpacity == Full ? Glazing.Opaque : Glazing.Translucent;
 
-    // The high-contrast row DERIVES from the lifted floor's own ratio: the amount is that floor's relative lift
-    // over the AA text baseline, so raising the projection's floor raises the filter with it and the prior literal
-    // `0.3f` — authored beside a `FloorLift` read that discarded the lifted value entirely — cannot disagree with
-    // the generation. The value SATURATES at the axis's own domain edge, which is the clamping-channel law at
-    // `Theme/motion#MOTION_BINDING`.
     static FilterRow Lifted(ContrastFloor floor) =>
         new FilterRow.Contrast(ContrastMode.Colour, SignedUnit.Create(
             Math.Clamp(1d - (ContrastFloor.AaText.Ratio.Value / floor.Ratio.Value), -1d, 1d)));
 }
 
-// The module ambient wash: the token catalogue's WashRow pair executed as two `EffectRow.Wash` sources lerped by
-// one arithmetic blender. The blend is a true lerp, so the mid-transition frame never exceeds either row's own
-// coverage and the luminance ceiling the token owner already gated that coverage against still holds through the
-// crossfade — a re-clamp here would be a second gate on a value the generation settled.
 public sealed record WashPlane(WashRow From, WashRow To, UnitInterval Aim) {
-    // BOTH lookups are independent, so the admission is APPLICATIVE and names every unmapped workspace rather than
-    // the first: a first-defect chain reported one rename and hid the other.
     public static Validation<Error, WashPlane> Of(WorkspaceRow from, WorkspaceRow to, UnitInterval aim) =>
         (Row(from), Row(to)).Apply((origin, target) => new WashPlane(origin, target, aim)).As();
 
-    // `WashRow.Module` and `WorkspaceRow.Key` are one key space two rosters spell separately, so the join lives
-    // HERE, once, against declared rows and never against caller text (`RULINGS.md:115`); a workspace the token
-    // generation gave no wash refuses by name, which `present` does today.
     static Validation<Error, WashRow> Row(WorkspaceRow workspace) =>
         ThemeCatalog.Washes.Find(row => row.Module == workspace.Key)
             .ToValidation<Error>(new LayerFault.WashUnmapped(workspace.Key));
 
-    // One directional falloff per row at the row's own coverage. A refused second source releases the first, and
-    // the composed blend holds its own references to the blender and both sources, so all three release here and
-    // the fill takes the only handle a caller owes back.
     public Fin<Unit> Lay(
         SKCanvas canvas, PaintCatalog paints, EffectCatalog effects, SKRect extent, UnitInterval phase) =>
         from origin in Source(paints, effects, From, extent, Aim)
@@ -652,9 +513,6 @@ public sealed record WashPlane(WashRow From, WashRow To, UnitInterval Aim) {
         from laid in Custody.Bracket(() => Blended(canvas, extent, origin, target, phase), origin, target)
         select laid;
 
-    // The hue crosses as a float pigment through the same `ColorPolicy.Resolve` the tint takes, so a shader colour
-    // and a painted colour agree in the generation's one working space. The aim is a fraction of a full turn, which
-    // is why the row carries no radians and no degrees.
     static Fin<SKShader> Source(
         PaintCatalog paints, EffectCatalog effects, WashRow row, SKRect extent, UnitInterval aim) =>
         from hue in paints.Tokens.Pigment(row.Hue.At(0))
@@ -667,10 +525,6 @@ public sealed record WashPlane(WashRow From, WashRow To, UnitInterval Aim) {
             .MapFail(error => (Error)new LayerFault.SourceMissing(EffectRow.Wash, error))
         select shader;
 
-    // k1..k4 name the arithmetic blender's own terms: result = k1*src*dst + k2*src + k3*dst + k4. `CreateBlend`
-    // binds its first shader as the DESTINATION and its second as the source, so a lerp toward `To` is k2 = phase,
-    // k3 = 1 - phase, and the product and constant terms are zero. Two alpha-over draws would composite to
-    // 1-(1-c)^2 at the midpoint and overshoot the ceiling this row exists to hold.
     Fin<Unit> Blended(SKCanvas canvas, SKRect extent, SKShader origin, SKShader target, UnitInterval phase) {
         using SKBlender lerp = SKBlender.CreateArithmetic(
             k1: 0f, k2: (float)phase.Value, k3: 1f - (float)phase.Value, k4: 0f, enforcePMColor: true);
@@ -679,10 +533,6 @@ public sealed record WashPlane(WashRow From, WashRow To, UnitInterval Aim) {
     }
 }
 
-// The row the capsule MINTS on every completed draw. Time stays off it because the envelope HLC is the sole
-// evidence-time authority, and every column carries ONE fact: `Outcome` takes the glazing verdict the receipt
-// exists to prove, the sample case rides `Flag`, and the ground arm rides the typed coordinate measure — the prior
-// spelling put ground and scope on `Outcome` together, which is a counted lie on the fan's dimension (`RULINGS.md:86`).
 public readonly record struct TreatmentReceipt(
     MaterialTier Tier, Glazing Glaze, LayerGround Ground, SampleScope Scope, int Filters);
 ```

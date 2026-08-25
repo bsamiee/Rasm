@@ -19,19 +19,17 @@ Rasm.Persistence owns the token-VALIDATING fenced-lease coordination store — t
 - Boundary: the four PORT rows are AppHost→Persistence READs/decodes (correct HOST-BOUNDARY→APP-PLATFORM direction) — `Agent/capability` debits and credits the Budget vector, `Runtime/orchestration` drives `StepStateCas`+`StepStateInFlight`+`SignalPut`/`SignalLoad` (`CrashResume` reads the in-flight scan; the `StepStateSeam.SignalPut`/`SignalOf` delegates decode the signal cases), `Wire/outbox` rides the same-transaction outbox spine, `Wire/coordination` drives CAS+lease+membership and `MembershipView.Serving` folds the membership rows in-process — no AppHost type crosses down and no Persistence signature names `ClockPolicy` or `Principal` ([A.1] — the kernel `CorrelationId`/`TenantContext` pair is S0 vocabulary this package composes directly off the frame); the fenced-CAS is strictly stronger than any lease library because the token is VALIDATED at every guarded write rather than held — `DistributedLock.Postgres` (no fencing token) and `WolverineFx` (message-envelope outbox table beside the stream-IS-outbox law) stay the recorded rejections; the advisory lock is the `_xact_` family (auto-released at transaction end AND at rollback — a session lock survives its own transaction's rollback and requires explicit unlock, the leak form); `LockRank` is the CONTAINMENT ladder the AppHost ports compose along — a node's membership encloses the leases it may hold, a lease fences the work beneath it, a step is that work's unit, a signal is a channel detail inside one instance, and the cursor advance is the terminal drain position nothing nests inside — so acquiring in rank order is a discipline every caller shares by construction rather than by convention, and the budget seats NO rank because its grain is row-level inside its own statement, ordered by the sorted unit array; row-level locking cannot serve that vector at all, since a unit's ledger row may be absent and `FOR UPDATE` over the requested-vector `LEFT JOIN` is refused at PLAN time (`0A000`, the nullable side of an outer join) while a lock on an absent row is a lock on nothing — the engine's own conditional-`UPDATE` re-check is what replaces it, and it is strictly stronger than the whole-ledger advisory key it deletes because it neither serializes unrelated units nor depends on a lock domain the server does not enforce; `hashtext` is a 32-bit digest, so two distinct keys can share one advisory slot and serialize needlessly — a throughput cost the rank ordering never turns into a correctness one; deadline comparisons read `frame.Now()` (the injected clock value), never a wall-clock call; a failed `OutboxAdvance` cursor-CAS is `CoordinationFault.OutboxDrain` — the coordination-side write fault, kept inside this fenced store's rail, NEVER a `Version/egress` `EgressFault` delivery fault; this tier CLASSIFIES and executes nothing, publishing the kernel `Retriability` its cases OVERRIDE and the `RetryShape` route beside it exactly as the object plane's `RemoteStoreFault` does, and the two discriminants are what make the classification legible to a caller whose refusal arrives as a result rather than a throw — a bare `Error` on the rail leaves the whole retriable class unreadable to every predicate, the deleted form `Lift` closes, and a single bool spanning both axes drops the distinction between a fenced token recovering under a WIDER re-plan and a contended one recovering under a wait; the executing rail is the STORE EXECUTION STRATEGY (`docs/stacks/csharp/domain/resilience.md` `[04]-[LAYER_SPLIT]` row `[01]` — this callee owns transactional semantics, so no hop pipeline may bracket it, since a pipeline there replays from the wrong boundary), seated at the relational owner `Element/identity#IDENTITY_RAIL` holds under the `StoreCapability.StrategyRedrive` row that profile carries, ABOVE `Run` because `Lift` converts a throw to a value and a strategy beneath it has nothing left to classify; every guarded statement here is a conditional write, so that strategy admits this rail only under `verifySucceeded` and `Verified` is the probe it passes; the discriminant then drives a WIDER-scope caller re-offer, re-planning the step rather than re-executing one statement.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Text.Json;
 using NodaTime.Text;
 using Npgsql;
-using Rasm.Domain;                                // CorrelationId/TenantContext — the S0 causal pair the frame seats
-using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
+using Rasm.Domain;
+using Rasm.Persistence.Element;
 
 namespace Rasm.Persistence.Store;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// `LeaseAcquire` mints this Kleppmann fencing token as a monotone lease generation, and every guarded write's
-// `fence <= @token` predicate VALIDATES it — a token proves currency, never possession.
 [ValueObject<long>]
 public readonly partial struct LeaseToken;
 
@@ -44,9 +42,6 @@ public readonly partial struct LeaseToken;
 [ValueObject<string>] public readonly partial struct MemberId;
 [ValueObject<string>] public readonly partial struct SinkKey;
 
-// `StepState` closes the orchestration step lifecycle: `Terminal` gates re-entry, so a CAS into a terminal state
-// is final and the `StepStateInFlight` scan returns every non-terminal step, resuming exactly the open work under
-// `CrashResume`.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -59,10 +54,6 @@ public sealed partial class StepState {
     private StepState(string key, bool terminal) : this(key) => Terminal = terminal;
 }
 
-// Advisory-lock containment ladder. `Depth` is the domain rank every acquisition sorts ascending on, so opposed
-// callers walk one order and the deadlock the per-case key otherwise builds in cannot form. The row's KEY is the
-// lock-key PREFIX itself, so a scope and its rank are one value and cannot drift. Budget seats no row: its grain
-// is the ledger's own row locks inside one conditional `UPDATE`, ordered by the sorted unit array.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -76,28 +67,14 @@ public sealed partial class LockRank {
     private LockRank(string key, int depth) : this(key) => Depth = depth;
 }
 
-// One advisory key as DATA: `Key` renders the text the batch hashes, `(Depth, Scope)` orders the acquisition.
 public readonly record struct LockScope(LockRank Rank, string Scope) {
     public string Key => $"{Rank.Key}:{Scope}";
 }
 
-// `CoordinationOp` closes the coordination family: guarded writes through ONE fenced-CAS fold, tenant-guarded
-// READs through ONE truth projection, one cursor advance (#OUTBOX_CURSOR). Every new concern lands as a case
-// here, never a per-port service; `SignalPut`/`SignalLoad` are the durable-signal cases the AppHost
-// `Runtime/orchestration#STEP_STATE_SEAM` `StepStateSeam.SignalPut`/`SignalOf` delegates decode.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CoordinationOp {
     private CoordinationOp() { }
 
-    // POLARITY IS REMAINING BALANCE per unit, never cumulative spend. Sufficiency is therefore `balance >= amount`,
-    // decided INSIDE the atomic vector CAS with no ceiling crossing at all — a spend ledger would have to re-supply and
-    // re-compare its ceiling at the caller, which is precisely the read-then-write window this fenced write exists to
-    // close. So a debit is a ONE-field case: a ceiling argument beside the vector maps to nothing here and no statement
-    // or bind reads one. Spend is a CONSUMER derivation (`ceiling - remaining`), and a ceiling's only write-side role is
-    // SEEDING an opening balance — which `BudgetCredit` already is, since its `ON CONFLICT` establishes an absent row
-    // and a credit against a never-seeded unit and a seed are ONE write under this reading, so no fifth case exists.
-    // Declaring polarity here is what stops the next reader re-forking it (`docs/laws/scars.md`
-    // `[DISCARDED_DISCRIMINANT]` — a value crossing a seam whose polarity neither end declares).
     public sealed record BudgetDebit(HashMap<string, long> Debit) : CoordinationOp;
     public sealed record BudgetCredit(HashMap<string, long> Credit) : CoordinationOp;
     public sealed record StepStateCas(WorkflowKey Workflow, StepKey Step, StepState Expected, StepState Next) : CoordinationOp;
@@ -109,18 +86,7 @@ public abstract partial record CoordinationOp {
     public sealed record LeaseRenew(LeaseKey Lease, LeaseToken Token, Duration Ttl) : CoordinationOp;
     public sealed record LeaseRelease(LeaseKey Lease, LeaseToken Token) : CoordinationOp;
     public sealed record ExpiredScan : CoordinationOp;
-    // ADVISORY DETECTION, never a gate: it loads the lease row's current generation so a holder can notice a token it
-    // no longer owns BEFORE spending work, and it takes NO advisory scope for the same reason — locking the lease key
-    // to read it would serialize against the very holder the read exists to observe. Authoritative rejection stays
-    // each guarded write's own `fence <= @token` predicate, because a guard evaluated apart from the write it protects
-    // passes on a value another writer moved (`docs/laws/scars.md` `[SNAPSHOT_FROZEN_GUARD]`); reading this case as a
-    // gate re-mints exactly that scar.
     public sealed record LeaseGuard(LeaseKey Lease, LeaseToken Token) : CoordinationOp;
-    // Budget READs, both nullary: tenant rides the injected frame ([A.1]), so a `TenantId` field here would re-mint the
-    // ambient source the RLS bind already fixes, and an AppHost arrow taking a tenant argument mints the frame with it
-    // rather than a case column. `BudgetLoad` returns the per-unit balance rows; `BudgetToken` returns the tenant's
-    // fence WATERMARK — the highest generation its ledger has observed — the one read both the budget port and the
-    // outbox relay need, so ONE case serves both and a per-consumer twin is the deleted form.
     public sealed record BudgetLoad : CoordinationOp;
     public sealed record BudgetToken : CoordinationOp;
     public sealed record MembershipUpsert(MembershipKey Group, MemberId Member, Duration Ttl) : CoordinationOp;
@@ -131,64 +97,34 @@ public abstract partial record CoordinationOp {
     public sealed record OutboxPark(SinkKey Sink, long Sequence, int Attempt, string Status) : CoordinationOp;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// `CoordRow` projects the ONE loaded row every statement returns — key, state/holder, generation, deadline,
-// payload — so every guarded `RETURNING` and every truth/read `SELECT` projects one canonical shape and the
-// fenced rail reads one row form structurally; `Payload` fills only on the signal rows (`NULL` everywhere else),
-// and a per-read row record is the deleted form.
 public readonly record struct CoordRow(string Key, string State, long Fence, Option<long> Value, Instant Until, Option<JsonElement> Payload);
 
-// `CoordinationFact` rides `store.coordination.fault` with both columns projected off the union: numeric identity
-// identifies the exact case and `Route` names WHERE a recovery re-enters — a wait the caller
-// re-drives unchanged, a re-read against observed state, or a rescoped re-plan. The bool that stood here
-// answered only the first of those three, so a `LeaseFenced` and a `CasConflict` (both re-planned at a wider
-// scope) read identically to an exhausted budget on a contention board. No instant — the receipt's message
-// envelope stamps the HLC.
 public readonly record struct CoordinationFact(FaultId Identity, string Route);
 
-// Per-sink durable drain cursor (#OUTBOX_CURSOR). A deferred head is one value, not four nullable-or-sentinel
-// columns crossing separately: sequence, earned attempt, exact store status, and the park instant move together.
-// The op-log remains the message owner; this state belongs to the sink cursor and can never leak one sink's retry
-// history into another's view of the same event.
 public sealed record OutboxDeferred(long Sequence, int Attempt, string Status, Instant At);
 
 public sealed record OutboxCursor(SinkKey Sink, long Sequence, Option<OutboxDeferred> Deferred) {
     public static OutboxCursor Genesis(SinkKey sink) => new(sink, 0L, None);
 }
 
-// The coordination SQL projection remains internal. The pending boundary returns the envelope JSON beside the
-// exact deferred state read from the same cursor snapshot; the AppHost adapter alone decodes that pair into its
-// `PendingRelay`. `Sequence` is a store-local drain position, never an HLC and never a portable event order.
 public sealed record PendingOutbox(long Sequence, JsonElement Envelope, Option<OutboxDeferred> Deferred);
 
-// Per-op typed evidence on the kernel validity floor: `IsValid` is ONE `ValidityClaim.All` fold over the
-// case's own claims — the post-debit vector is non-negative per unit, a committed write carries a positive
-// generation, a read's row count is conserved — never a hand-rolled `&&` chain.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CoordinationReceipt : IValidityEvidence {
     private CoordinationReceipt() { }
 
-    // `Debited` is the balance-vector receipt BOTH budget verbs project — a debit carries the post-debit
-    // vector, a credit the post-credit vector; the op case discriminates the verb, never a sibling receipt.
-    // `Fence` is the generation the applied rows stamped, threaded UPWARD beside the vector so a metering consumer
-    // reads the post-op balances and the tenant watermark off ONE unit. An empty vector has no applied row and
-    // therefore no measured fence; absence stays typed instead of fabricating generation zero.
     public sealed record Debited(HashMap<string, long> Balances, Option<long> Fence, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Stepped(WorkflowKey Workflow, StepKey Step, StepState Committed, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Signaled(WorkflowKey Instance, SignalKey Channel, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Leased(LeaseKey Lease, LeaseToken Token, Instant Until, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Member(MembershipKey Group, MemberId Id, Instant Until, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Advanced(OutboxCursor Cursor, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
-    // Parking is a WRITE and gets its own evidence: an advance and a park move different columns of one row, so
-    // reporting a park as an `Advanced` would publish a drain position the cursor never reached. Every READ still
-    // answers `Loaded`, so the receipt family grows per write shape and never per verb.
     public sealed record Parked(SinkKey Sink, long Sequence, int Attempt, string Status, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Pending(SinkKey Sink, OutboxCursor Cursor, Seq<PendingOutbox> Rows, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
     public sealed record Loaded(Seq<CoordRow> Rows, Instant At, CorrelationId Correlation, Duration Elapsed) : CoordinationReceipt;
 
-    // Each predicate crosses as a CLAIM through the kernel's own implicit lift, so no arm wraps a bool it already
-    // computed — `ValidityClaim.Of` at a call site re-states the conversion the carrier performs.
     public bool IsValid => Switch(
         debited:  static c => ValidityClaim.All(c.Balances.Values.ForAll(static b => b >= 0L), c.Fence.ForAll(static fence => fence >= 0L)),
         stepped:  static c => ValidityClaim.All(!string.IsNullOrEmpty(c.Step.Value)),
@@ -207,24 +143,7 @@ public abstract partial record CoordinationReceipt : IValidityEvidence {
         loaded:   static c => ValidityClaim.All(ValidityClaim.CountAtLeast(c.Rows.Count, 0)));
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// Band 8430 is the kernel `Rasm/Domain/rails#FAULT_BAND` row `StoreCoordination`: the roster below realizes the
-// kernel `[FaultCase]` floor, so the band is read ONCE, each case's offset is a declared column, and
-// `generated identity admission` proves the ten unique and inside the band's span at first construction — the raw
-// raw arithmetic this replaces proved neither. `OutboxDrain` is the failed cursor-CAS — the coordination-side
-// write fault the V3 pump depends on, never an EgressFault delivery fault.
-// Retriability rides TWO axes and neither substitutes for the other: the kernel `Retriability` a case OVERRIDES
-// answers whether a bare re-offer is admitted, and `RetryShape` answers WHERE a recovery re-enters. Both are
-// load-bearing HERE above every other store rail: a fenced store advertising one advisory lock per key and
-// committing its guarded CAS beside the session's domain events manufactures serialization failures and
-// deadlocks under exactly the contention it exists to arbitrate, and those SQLSTATEs (`40001`, `40P01`,
-// `55P03`, the `53xxx` resource family, the `08xxx` connection family, the `57Pxx` shutdown family) succeed on
-// a re-drive of the identical op. Because this rail STATES its refusal as a `Fin` result rather than raising,
-// an executor whose predicate reads exceptions alone observes nothing here — so the class has to arrive as a
-// discriminant a result-shaped predicate can read, which is what `Contended`/`Unreachable` mint and what a bare
-// `Error` on the rail withheld. Six cases state neither axis and are Terminal by construction, so a caller can
-// never re-drive a genuinely fenced token or an exhausted budget into a spin; the two that RE-PLAN say so on the
-// route alone, which a single bool spanning both axes could not express at all.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CoordinationFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.StoreCoordination;
@@ -232,9 +151,6 @@ public abstract partial record CoordinationFault : Fault {
 
     [FaultCase(0)] public sealed partial record Unmapped(string SqlState, Error Cause) : CoordinationFault, ICausedFault;
 
-    // Superseded tokens and moved step states both refuse a bare re-offer and both recover under a WIDER
-    // re-plan — the caller re-reads the observed state and re-decides — which is the route this page's own
-    // boundary law already names and a transient bit could only spell as "do not retry".
     [FaultCase(1)] public sealed partial record LeaseFenced(Option<LeaseToken> Stale, Option<long> Current) : CoordinationFault {
         public override RetryShape Route => RetryShape.Rescoped;
     }
@@ -246,19 +162,12 @@ public abstract partial record CoordinationFault : Fault {
     [FaultCase(5)] public sealed partial record MembershipLapsed(MembershipKey Group, MemberId Member) : CoordinationFault;
     [FaultCase(6)] public sealed partial record OutboxDrain(SinkKey Sink, long Through) : CoordinationFault;
     [FaultCase(7)] public sealed partial record Refused(string Detail) : CoordinationFault;
-    // `Contended` bands the server-side retriable class and carries the SQLSTATE the server itself reported
-    // rather than a reason string, so a board partitions contention by code and one WAIT re-drives the same op.
     [FaultCase(8)] public sealed partial record Contended(string SqlState, Error Cause) : CoordinationFault, ICausedFault {
         public override Retriability Retriability => Retriability.Transient;
     }
-    // Transport-level loss with no SQLSTATE to carry — the connection dropped before the batch settled, so the
-    // op's own outcome is unknown and a re-drive is safe exactly because every guarded statement is a fenced CAS.
     [FaultCase(9)] public sealed partial record Unreachable(Error Cause) : CoordinationFault, ICausedFault {
         public override Retriability Retriability => Retriability.Transient;
     }
-    // Re-offer ROUTE beside the kernel posture, the `Store/redrive#FAULT_BAND` shape every Persistence band
-    // carries: a transient case waits on the same call and everything else is terminal to a bare re-offer, so
-    // only the two rescoping cases override and the default reads the posture rather than restating it.
     public virtual RetryShape Route =>
         Retriability is Retriability.TerminalCase ? RetryShape.Terminal : RetryShape.Waited;
 
@@ -274,13 +183,6 @@ public abstract partial record CoordinationFault : Fault {
         unreachable:      static c => $"<coordination-unreachable:{c.Cause.Message}>",
         unmapped:         static c => $"<sqlstate:{c.SqlState}>:{c.Cause.Message}");
 
-    // `Lift` is the ONE provider-throw conversion, so no rail leg lands a bare `Error` outside the band. Retriability
-    // reads the provider's OWN classification (`PostgresException.IsTransient` folds the `40001`/`40P01`
-    // serialization and deadlock pair, the `55xxx` lock family, the `53xxx` resource family, the `08xxx`
-    // connection family, and the `57Pxx` shutdown family) rather than a re-spelled SQLSTATE roster this page
-    // would then have to keep in step with the driver. A non-transient `PostgresException` keeps its SQLSTATE
-    // as `Unmapped`; `NpgsqlException` beneath the server layer is `Unreachable` on its own transient bit and
-    // every other error passes through untouched instead of being re-minted from display text.
     public static Error Lift(Error error) => error switch {
         CoordinationFault fault => fault,
         { Exception.Case: PostgresException pg } => pg.IsTransient
@@ -291,7 +193,7 @@ public abstract partial record CoordinationFault : Fault {
     };
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Coordinate {
     const string LockSql = "SELECT pg_advisory_xact_lock(hashtext(@tenant || ':' || @key))";
@@ -299,10 +201,6 @@ public static class Coordinate {
     const string Mark = "SAVEPOINT rasm_coord";
     const string Undo = "ROLLBACK TO SAVEPOINT rasm_coord";
 
-    // `FaultSlot` seats the refusal stream beside the eight verb slots: every typed refusal this rail mints — a
-    // fenced token, a CAS conflict, an exhausted budget, a contended re-drive — reached no evidence surface, so a
-    // split-brain storm and a quiet cluster read identically on every board. `Refusal` projects the fault's numeric
-    // identity and its `RetryShape` route with no parallel classification field on the receipt wire.
     public static readonly StoreSlot DebitSlot = StoreSlot.Create("store.coordination.debit");
     public static readonly StoreSlot CreditSlot = StoreSlot.Create("store.coordination.credit");
     public static readonly StoreSlot StepSlot = StoreSlot.Create("store.coordination.step");
@@ -318,10 +216,6 @@ public static class Coordinate {
 
     public static CoordinationFact Refusal(CoordinationFault fault) => new(fault.Identity, fault.Route.Key);
 
-    // `Run` is the ONE rail at every arity. `ops` carries one op from a port and several from a composed unit; trailing
-    // frame and token parameters are why arity rides `Seq` and not a `params` tail. `held` is the caller's fencing
-    // token — required by every fenced case, `None` legal only on READs and the initial `LeaseAcquire`, and the
-    // gate reads the whole set so one tokenless write refuses the unit before a single statement dispatches.
     public static IO<Fin<Seq<CoordinationReceipt>>> Run(IDocumentSession session, ReceiptSinkPort sink, Seq<CoordinationOp> ops, Option<LeaseToken> held, ProjectionContext frame, CancellationToken cancellationToken) =>
         from mark in IO.lift(frame.Mark)
         from sql in IO.lift(() => ops.Map(op => CaseSql.For(op, frame.Now())))
@@ -331,9 +225,6 @@ public static class Coordinate {
         from _ in Emit(sink, ops, outcome, frame)
         select outcome;
 
-    // The sole first-terminal operation. The cursor CAS runs first; only its successful verdict queues the stable
-    // dead-letter document, and `SaveChangesAsync` commits both on this session. AppHost's terminal delegate maps
-    // directly here, never to a `Store(letter)` call followed by a separately callable advance.
     public static IO<Fin<OutboxCursor>> QuarantineAndAdvance(
         IDocumentSession session,
         ReceiptSinkPort sink,
@@ -358,8 +249,6 @@ public static class Coordinate {
                    None: () => Fin<OutboxCursor>.Fail(new CoordinationFault.OutboxDrain(letter.Sink, letter.Sequence))));
     }
 
-    // Verb slot resolves off the OP, never the receipt: `Debited` is the receipt shape BOTH budget verbs project,
-    // so only the op discriminant separates a debit fact from a credit one.
     static StoreSlot SlotOf(CoordinationOp op) => op.Switch(
         budgetDebit:       static _ => DebitSlot,  budgetCredit:      static _ => CreditSlot,
         stepStateCas:      static _ => StepSlot,   stepStateInFlight: static _ => ReadSlot,
@@ -372,10 +261,6 @@ public static class Coordinate {
         outboxPark:        static _ => OutboxSlot, leaseGuard:        static _ => ReadSlot,
         budgetLoad:        static _ => ReadSlot,   budgetToken:       static _ => ReadSlot);
 
-    // ONE emitter, at the owner that mints the outcome: a committed unit sends each receipt under its own op's
-    // verb slot, a refusal sends one `CoordinationFact` under `FaultSlot`. Every published field is one the fold
-    // measured — the fault's numeric identity and recovery route — so no slot carries a value this call site
-    // cannot read, and no port adapter re-constructs a fact outside the rail that produced it.
     static IO<Unit> Emit(ReceiptSinkPort sink, Seq<CoordinationOp> ops, Fin<Seq<CoordinationReceipt>> outcome, ProjectionContext frame) =>
         outcome.Match(
             Succ: receipts => ops.Zip(receipts).TraverseM(pair => Send(sink, frame, SlotOf(pair.Item1), pair.Item2)).As().Map(static _ => unit),
@@ -385,19 +270,6 @@ public static class Coordinate {
         sink.Send(frame.Correlation, frame.Tenant, TelemetrySource.Persistence.Key, slot,
             JsonSerializer.SerializeToElement(fact, ElementJson.Options)).Map(static _ => unit);
 
-    // Every case rides this ONE fold. Marten's session transaction force-OPENS first (Marten otherwise defers it
-    // to `SaveChangesAsync`, leaving the batch outside the transaction the lock law requires), then the rail
-    // composes ONE NpgsqlBatch on the session's live connection: every DISTINCT `LockScope` the rows name, sorted
-    // `(Depth, Scope)` so acquisition order is the rank's and never the caller's; the savepoint; then each op's
-    // guarded statement, its current-truth `SELECT`, and its wake, in CALLER order. A read names no scope and no
-    // guarded statement, so reads and writes ride this one leg. Every
-    // row statement projects `(key, state, fence, value, until, payload)`, `Slice` carves each op's own result
-    // sets back out, and a refusal rolls back to the savepoint BEFORE the commit, so a partially-applied vector
-    // leaves nothing behind and the `_xact_` locks release either way. A provider throw converts through
-    // `CoordinationFault.Lift` HERE, once, so the serialization failures and deadlocks contention still raises
-    // reach the caller as a retriable BAND case rather than a bare `Error` no result-shaped predicate classifies.
-    // HERE is also this rail's OUTERMOST edge: a strategy composed beneath it would receive a completed `Fin` and have
-    // nothing left to classify, so any re-drive owner seats ABOVE `Run` and pairs with `Verified`.
     static IO<Fin<Seq<CoordinationReceipt>>> Bracket(
         IDocumentSession session,
         Seq<CoordinationOp> ops,
@@ -427,29 +299,12 @@ public static class Coordinate {
             return outcome;
         }, cancellationToken).ConfigureAwait(false)).MapFail(CoordinationFault.Lift));
 
-    // `verifySucceeded` for this rail, and the reason `Lift` seats where it does. EF's execution strategy classifies
-    // EXCEPTIONS while `CoordinationFault.Lift` turns a throw into a VALUE, so a strategy composed INSIDE `Run` is
-    // handed a completed `Fin` and never sees a retryable exception — `Lift` therefore seats at that strategy's OUTER
-    // edge and this fold composes no strategy of its own. Relational retry stays the owner
-    // `Element/identity#IDENTITY_RAIL` holds under `StoreProfile.Capabilities.Admits(StoreCapability.StrategyRedrive)`,
-    // and this entry is the probe that
-    // owner passes as `verifySucceeded`: it re-runs each op's TRUTH statement alone — no locks, no guarded statement,
-    // no savepoint, no wake — and folds the sets through the SAME `Verdict`, so a `Succ` proves an ambiguous commit
-    // already landed and a `Fail` proves it did not. Re-driving blind double-applies: a fenced CAS still satisfies
-    // `fence <= @token` once it has applied, `LeaseAcquire` mints a SECOND generation that invalidates the token its
-    // first attempt returned, and `BudgetDebit` decrements twice. Every guarded statement here is a CONDITIONAL write,
-    // so its guard must re-evaluate per attempt for exactly the reason `docs/laws/scars.md` `[SNAPSHOT_FROZEN_GUARD]`
-    // states — a verdict frozen at the first attempt passes on a value another writer moved. Which is why the
-    // discriminant drives a WIDER-scope caller re-offer (re-plan the step) and never a re-execute of one statement.
     public static IO<Fin<Seq<CoordinationReceipt>>> Verified(IDocumentSession session, Seq<CoordinationOp> ops, Option<LeaseToken> held, ProjectionContext frame, CancellationToken cancellationToken) =>
         from mark in IO.lift(frame.Mark)
         from sql in IO.lift(() => ops.Map(op => CaseSql.For(op, frame.Now())))
         from outcome in Truths(session, ops, sql, held, frame, mark, cancellationToken)
         select outcome;
 
-    // Truth-only replay. Stripping `Guarded` and `Wake` off each row is what keeps `Slice` honest: every row then
-    // contributes exactly ONE result set, matching a batch that dispatched exactly one statement per op, so the same
-    // positional carve reads the probe's sets and the run's alike.
     static IO<Fin<Seq<CoordinationReceipt>>> Truths(IDocumentSession session, Seq<CoordinationOp> ops, Seq<CaseSql> sql, Option<LeaseToken> held, ProjectionContext frame, long mark, CancellationToken cancellationToken) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async token => {
             await session.BeginTransactionAsync(token).ConfigureAwait(false);
@@ -465,13 +320,9 @@ public static class Coordinate {
         _ = await undo.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    // One bound command per statement: `@tenant` and `@token` ride every case (the structural fence), the
-    // case's own binds append after — a lock skipped on the READ leg is the only shape difference.
     static NpgsqlBatchCommand Bound(string statement, Seq<(string Name, object Value)> binds, Option<LeaseToken> held, ProjectionContext frame) {
         NpgsqlBatchCommand command = new(statement) {
             Parameters = {
-                // `Entry` is the kernel's one tenant text; the RLS predicate and the `hashtext` lock prefix
-                // compare against exactly this spelling, so no call site re-formats the key scalar.
                 new NpgsqlParameter<string>("tenant", frame.Tenant.Entry),
                 new NpgsqlParameter<long?>("token", held.Map(static t => t.Value).ToNullable()),
             },
@@ -480,8 +331,6 @@ public static class Coordinate {
         return command;
     }
 
-    // Drain PER RESULT SET, keeping the batch's positional shape: a lock scalar and the savepoint yield sets with
-    // no matching columns and drain empty, so the walk stays total and an op reads only its own statements' rows.
     static async Task<Seq<Seq<CoordRow>>> Sets(NpgsqlBatch batch, CancellationToken cancellationToken) {
         List<Seq<CoordRow>> sets = [];
         await using NpgsqlDataReader reader = await batch.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -501,21 +350,13 @@ public static class Coordinate {
 
     static JsonElement ReadPayload(string json) { using JsonDocument document = JsonDocument.Parse(json); return document.RootElement.Clone(); }
 
-    // Per-op verdicts in CALLER order, short-circuiting on the first refusal — the savepoint undo is what makes
-    // that short circuit honest, since every op ahead of it already wrote.
     static Fin<Seq<CoordinationReceipt>> Project(Seq<CoordinationOp> ops, Seq<CaseSql> sql, Seq<Seq<CoordRow>> sets, Option<LeaseToken> held, ProjectionContext frame, long mark) =>
         ops.Zip(Slice(sql, sets)).TraverseM(pair => Verdict(pair.Item1, pair.Item2, held, frame, mark)).As();
 
-    // Positional carve: each row's declared `Sets` count takes its own window, so an absent guarded statement or
-    // a wake command never shifts a sibling op's rows onto the wrong verdict.
     static Seq<Seq<CoordRow>> Slice(Seq<CaseSql> sql, Seq<Seq<CoordRow>> sets) =>
         sql.Fold((Cursor: 0, Slices: Seq<Seq<CoordRow>>()), (state, row) =>
             (state.Cursor + row.Sets, state.Slices.Add(sets.Skip(state.Cursor).Take(row.Sets).Bind(static rows => rows)))).Slices;
 
-    // Per-case verdict: the row discriminator every op folds through, reading its refusal off the rows the
-    // batch RETURNED: an `applied` row names what the guarded statement committed and the trailing current-truth
-    // `SELECT` carries the row's generation and state where that statement missed, so no typed fault needs a
-    // second round trip. Read cases project Loaded through this same total Switch.
     static Fin<CoordinationReceipt> Verdict(CoordinationOp op, Seq<CoordRow> rows, Option<LeaseToken> held, ProjectionContext frame, long mark) => op.Switch(
         budgetDebit: d => Settled(d.Debit, rows, held, frame, mark),
         budgetCredit: c => Settled(c.Credit, rows, held, frame, mark),
@@ -565,9 +406,6 @@ public static class Coordinate {
         budgetLoad:  _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))),
         budgetToken: _ => Fin<CoordinationReceipt>.Succ(new CoordinationReceipt.Loaded(rows, frame.Now(), frame.Correlation, frame.Elapsed(mark))));
 
-    // The first row is the cursor snapshot the same statement joined against. It makes an empty healthy read
-    // distinguishable from a stale caller watermark and keeps the parked attempt/status/instant attached to the
-    // exact head row. JSON is the SQL projection's envelope carrier only; it is admitted once here.
     static Fin<CoordinationReceipt> Pending(
         CoordinationOp.OutboxPending op, Seq<CoordRow> rows, ProjectionContext frame, long mark) =>
         rows.Head.Match(
@@ -631,11 +469,6 @@ public static class Coordinate {
                 None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.Sequence))),
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.OutboxDrain(op.Sink, op.Sequence)));
 
-    // Both budget verbs fold through this shared verdict: an unapplied unit is the refusal, and its identity comes
-    // from the requested vector rather than a count comparison, so the success arm is "every unit applied" stated
-    // as the predicate it actually is. The refusing unit's truth row was never written, so it reads true either
-    // side of the savepoint undo; a unit with NO truth row is the domain's structural zero balance — an unheld
-    // unit — never an unmeasured one, and a higher fence on that row is the stale-token refusal instead.
     static Fin<CoordinationReceipt> Settled(HashMap<string, long> amounts, Seq<CoordRow> rows, Option<LeaseToken> held, ProjectionContext frame, long mark) {
         Seq<CoordRow> applied = rows.Filter(static row => row.State == "applied");
         if (applied.Find(static row => row.Value.IsNone) is { IsSome: true, Case: CoordRow malformed }) {
@@ -656,9 +489,6 @@ public static class Coordinate {
                 applied.Head.Map(static row => row.Fence), frame.Now(), frame.Correlation, frame.Elapsed(mark))));
     }
 
-    // `Held` folds the renew and release verdicts alike: an applied row carries the validated generation
-    // ("held"/"released"), and a current-truth row with a higher fence rails the stale-token refusal carrying the
-    // CURRENT generation.
     static Fin<CoordinationReceipt> Held(Seq<CoordRow> rows, LeaseKey lease, LeaseToken token, ProjectionContext frame, long mark) =>
         rows.Head.Match(
             Some: r => r.State is "held" or "released"
@@ -667,13 +497,7 @@ public static class Coordinate {
             None: () => Fin<CoordinationReceipt>.Fail(new CoordinationFault.LeaseFenced(Some(token), None)));
 }
 
-// `For` generates every statement and bind row from the op discriminant. `RequiresToken` makes a missing write
-// fence refuse before SQL dispatch; reads and the generation MINT are the only false rows, and it stays a plain
-// bool because it is one INDEPENDENT axis with no legal-corner law beside it — the shape the kernel capability
-// law leaves alone rather than the adjacent pair it deletes.
 public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, Option<string> Guarded, string Truth, Option<string> Wake, Seq<(string Name, object Value)> Binds) {
-    // Result sets this row contributes, in batch order — the count `Slice` walks back out: the guarded statement
-    // where the case writes, the truth `SELECT` always, the wake where a case names a channel.
     public int Sets => (Guarded.IsSome ? 1 : 0) + 1 + (Wake.IsSome ? 1 : 0);
 
     public static CaseSql For(CoordinationOp op, Instant now) => op.Switch(
@@ -727,14 +551,9 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
             "SELECT sink,'current',fence,sequence,updated_at,jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at) FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink",
             "rasm_outbox",
             ("sink", value.Sink.Value), ("through", value.Through), ("now", now)),
-        // The cursor row and the op-log window are one snapshot. The cursor row is projected first even when the
-        // window is empty, so a stale `After` refuses rather than masquerading as a healthy empty drain. The parked
-        // row remains the first sequence after the cursor, and its exact attempt/status/instant travel with it.
         outboxPending: value => Read(
             "WITH held AS (SELECT sink,sequence,parked,attempt,status,parked_at,updated_at,fence FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink), position AS (SELECT * FROM held UNION ALL SELECT @sink,0,NULL,0,NULL,NULL,'epoch'::timestamptz,0 WHERE NOT EXISTS (SELECT 1 FROM held)), projected AS (SELECT sink::text AS key,'cursor'::text AS state,fence,sequence AS value,updated_at AS until,jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at) AS payload FROM position UNION ALL SELECT entry.id::text,CASE WHEN position.parked=entry.sequence THEN 'deferred' ELSE 'pending' END,entry.fence,entry.sequence,CASE WHEN position.parked=entry.sequence THEN position.parked_at ELSE entry.committed_at END,jsonb_build_object('envelope',entry.envelope,'parked',CASE WHEN position.parked=entry.sequence THEN position.parked END,'attempt',CASE WHEN position.parked=entry.sequence THEN position.attempt END,'status',CASE WHEN position.parked=entry.sequence THEN position.status END,'parkedAt',CASE WHEN position.parked=entry.sequence THEN position.parked_at END) FROM position JOIN LATERAL (SELECT id,fence,sequence,committed_at,envelope FROM op_log WHERE tenant=@tenant AND sequence>position.sequence AND @after=position.sequence ORDER BY sequence LIMIT @take) entry ON true) SELECT key,state,fence,value,until,payload FROM projected ORDER BY value",
             ("sink", value.Sink.Value), ("after", value.After), ("take", value.Take)),
-        // Parking may only move the current head, and attempts are strictly monotone for that same head. The
-        // persisted timestamp is the park instant, not the cursor's generic update stamp.
         outboxPark: value => Write(new LockScope(LockRank.Outbox, value.Sink.Value),
             "INSERT INTO outbox_cursor(tenant,sink,sequence,parked,attempt,status,parked_at,updated_at,fence) SELECT @tenant,@sink,0,@sequence,@attempt,@status,@now,@now,@token WHERE @attempt>0 AND @sequence=(SELECT min(sequence) FROM op_log WHERE tenant=@tenant AND sequence>0) ON CONFLICT(tenant,sink) DO UPDATE SET parked=excluded.parked,attempt=excluded.attempt,status=excluded.status,parked_at=excluded.parked_at,updated_at=excluded.updated_at,fence=excluded.fence WHERE outbox_cursor.fence<=@token AND (outbox_cursor.parked IS NULL OR outbox_cursor.parked=excluded.parked) AND excluded.attempt>outbox_cursor.attempt AND excluded.parked=(SELECT min(sequence) FROM op_log WHERE tenant=@tenant AND sequence>outbox_cursor.sequence) RETURNING sink,'parked',fence,parked,parked_at,jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at)",
             "SELECT sink,CASE WHEN parked IS NULL THEN 'current' ELSE 'parked' END,fence,parked,coalesce(parked_at,updated_at),jsonb_build_object('parked',parked,'attempt',attempt,'status',status,'parkedAt',parked_at) FROM outbox_cursor WHERE tenant=@tenant AND sink=@sink",
@@ -742,24 +561,11 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
         leaseGuard: value => Read(
             "SELECT key,holder,generation,NULL::bigint,until,NULL::jsonb FROM lease WHERE tenant=@tenant AND key=@lease",
             ("lease", value.Lease.Value)),
-        // Both budget reads answer off the ledger the debit and credit already write. The token read is an AGGREGATE
-        // over that ledger — `coalesce` floors an untouched tenant at generation zero rather than handing the reader a
-        // null the row projection cannot carry — so the watermark needs no second table and no per-tenant row to mint.
         budgetLoad: _ => Read(
             "SELECT unit,'current',fence,balance,'epoch'::timestamptz,NULL::jsonb FROM budget_ledger WHERE tenant=@tenant ORDER BY unit"),
         budgetToken: _ => Read(
             "SELECT @tenant,'current',coalesce(max(fence),0),count(*),'epoch'::timestamptz,NULL::jsonb FROM budget_ledger WHERE tenant=@tenant"));
 
-    // Units bind SORTED, and `HashMap` keys are unique by construction, so every caller walks the ledger's rows in
-    // one order and a repeated unit — raising `21000` on the credit's `ON CONFLICT`, silently dropping an amount
-    // on the debit's `UPDATE … FROM` — cannot be spelled. Debit guards ride the statement's own `WHERE`, which
-    // PostgreSQL re-evaluates against a concurrent writer's committed version, so decrements settle with no lock;
-    // credits ride `ON CONFLICT DO UPDATE`, the one construct guaranteeing insert-or-update for a unit whose row
-    // may be absent. Both RETURN what they applied and truth reads every requested unit's balance and fence, so
-    // `Settled` names its refusing unit and that unit's held balance off ONE round trip.
-    // These two statements carry the WHOLE difference between the verbs, so each rides its own named const and the
-    // op case that already discriminates them supplies it — a `bool debit` re-derived at the fold what the
-    // generated `Switch` had just decided, and a third ledger verb would have had no bit left to spell.
     const string DebitSql = "UPDATE budget_ledger b SET balance=b.balance-r.amount,fence=@token FROM unnest(@units,@amounts) AS r(unit,amount) WHERE b.tenant=@tenant AND b.unit=r.unit AND b.balance>=r.amount AND b.fence<=@token RETURNING b.unit,'applied',b.fence,b.balance,'epoch'::timestamptz,NULL::jsonb";
     const string CreditSql = "INSERT INTO budget_ledger(tenant,unit,balance,fence) SELECT @tenant,r.unit,r.amount,@token FROM unnest(@units,@amounts) AS r(unit,amount) ORDER BY r.unit ON CONFLICT(tenant,unit) DO UPDATE SET balance=budget_ledger.balance+excluded.balance,fence=excluded.fence WHERE budget_ledger.fence<=@token RETURNING unit,'applied',fence,balance,'epoch'::timestamptz,NULL::jsonb";
 
@@ -772,24 +578,18 @@ public readonly record struct CaseSql(Seq<LockScope> Locks, bool RequiresToken, 
             ("units", units), ("amounts", values));
     }
 
-    // Budget verbs take NO advisory scope: the ledger's own row locks are the grain, so one tenant's debits
-    // over disjoint units never serialize against each other and the whole-ledger key that made them is deleted.
     static CaseSql Ledger(string guarded, string truth, params (string Name, object Value)[] binds) =>
         new(Seq<LockScope>(), true, Some(guarded), truth, None, toSeq(binds));
 
     static CaseSql Write(LockScope scope, string guarded, string truth, params (string Name, object Value)[] binds) =>
         new(Seq(scope), true, Some(guarded), truth, None, toSeq(binds));
 
-    // Generation MINT earns its own entry rather than `Write` under a flag: `LeaseAcquire` is the one write that
-    // holds no token yet, because it is the statement that issues one — so the site names what it does and the
-    // `requiresToken: false` argument that once said it obliquely has no spelling.
     static CaseSql Mint(LockScope scope, string guarded, string truth, params (string Name, object Value)[] binds) =>
         new(Seq(scope), false, Some(guarded), truth, None, toSeq(binds));
 
     static CaseSql WriteWake(LockScope scope, string guarded, string truth, string wake, params (string Name, object Value)[] binds) =>
         new(Seq(scope), true, Some(guarded), truth, Some(wake), toSeq(binds));
 
-    // Reads name no scope and no guarded statement, so each contributes ONE result set and takes no lock at all.
     static CaseSql Read(string truth, params (string Name, object Value)[] binds) =>
         new(Seq<LockScope>(), false, None, truth, None, toSeq(binds));
 }

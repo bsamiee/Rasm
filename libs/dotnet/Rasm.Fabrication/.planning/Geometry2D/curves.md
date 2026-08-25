@@ -20,7 +20,7 @@
 - Boundary: free-form fitting, evaluation, refinement, splitting, and arrangement stay kernel-owned. `CurveAlgebra` owns closure normalization, typed union projection, approximation evidence, and canonical `Loop` egress; no host or provider carrier escapes.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
@@ -34,7 +34,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Geometry2D;
 
-// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SampleClosure {
     public static readonly SampleClosure Open = new("open", false);
@@ -58,7 +58,7 @@ public sealed partial class SampleClosure {
     }
 }
 
-// --- [OWNERS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [OWNERS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record CurveSource {
     public sealed record Samples(
@@ -86,7 +86,7 @@ public abstract partial record CurveOp {
         Op? Key) : CurveOp;
 }
 
-// --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [EVIDENCE] ------------------------------------------------------------------------
 [Union]
 public abstract partial record CurveAdmissionReceipt {
     public sealed record Samples(int Input, int FitSamples, SampleClosure Closure) : CurveAdmissionReceipt;
@@ -111,7 +111,7 @@ public abstract partial record CurveTrace {
     public sealed record Lowered(Loop Loop, CurveLoweringReceipt Receipt) : CurveTrace;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CurveAlgebra {
     public static Fin<CurveTrace> Apply(CurveOp operation) => operation.Switch(
         admit: static request => Admit(request.Source, request.Key),
@@ -224,10 +224,6 @@ public static class CurveAlgebra {
             : Fin.Fail<double>(new GeometryFault.DegenerateInput(Kind.Curve, None, "curve-lower:deviation"));
     }
 
-    // ONE narrowing gate over every kernel union this page reads. Narrowing asks a single question — is the
-    // returned case the one this call requested — and a generated total `Switch` whose every other arm returns the
-    // same refusal answers that question by re-spelling it once per case, so a kernel union gaining a case grows
-    // this page by nothing and the refusal has one locus per call site rather than one per arm.
     private static Fin<TCase> Narrowed<TResult, TCase>(TResult result, string locus)
         where TCase : class, TResult =>
         result is TCase typed

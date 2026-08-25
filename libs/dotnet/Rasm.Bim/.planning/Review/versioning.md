@@ -22,7 +22,7 @@ The durable commit-DAG storage, the governed branch ACL/tag refs, and the maxima
 - Boundary: `BimRepository.Seal` is the ONE point both `Commit` and `CommitMerge` funnel through, so it is the sole fire site for the `Model/observability#HOOK_RAIL` `rasm.bim.review.committed` point with `BimFact.Committed` — `CommitKey`, the sorted-distinct parent keys as a `ContentKeySet`, the advanced branch name, and the fingerprint count off the sealed result — the unchanged-model no-op returning the head without reaching `Seal` and therefore firing nothing, the CloudEvents announcement being `Exchange/events#EVENT_PROJECTION`'s observe subscription over that point and a direct message-envelope mint here the deleted form. The commit and merge key on the `Review/diff#MODEL_DIFF` `ElementFingerprint.GlobalId` and a parallel commit-local fingerprint or a second identity scheme is the deleted form — the `ElementFingerprint` is diff's, reused verbatim. The `CommitKey` composes the kernel `CanonicalWriter` + the seam `ContentAddress` (the ONE codec, the ONE seed-zero `XxHash128`) so a delimiter-forgeable `Encoding.UTF8.GetBytes(string.Join(...))` preimage keyed through a second hasher is the named defect `Projection/address#CONTENT_ADDRESS` closes, and the preimage excludes the author/message/`Instant`/`Fidelity` carried metadata so a re-commit of the identical model and lineage is idempotent. The commit fingerprints the seam `ElementGraph.ObjectNodes` and a `BimModel.Elements` fold over the retired parallel element record is the deleted form; it admits the `GlobalId`-uniqueness invariant the seam does not carry, faulting a federation duplicate typed instead of throwing through `ToMap` or last-wins-dropping a real element. `History`/`MergeBases` fold a transient `QuikGraph` graph through ONE `BreadthFirstSearchAlgorithm` `Ancestry` kernel per the shared `libs/dotnet/.api/api-quikgraph.md` substrate, ordered by the shipped `VertexDistanceRecorderObserver` under its own `Attach` scope — a raw `DiscoverVertex` `+=`/`-=` pair over a mutable `List` is the deleted form, because a detach spelled as a statement outlives the walk on any early exit. The merge-base is the minimal-common-ancestor ANTICHAIN over two such closures and a single-nearest election is the deleted form that silently reduces ambiguous ancestry to one arbitrary base — the exact election `CrissCross` exists to refuse — and BOTH prior walk forms are rejected: the hand-rolled visited-set walk over a `Map<>` adjacency, and Tarjan `OfflineLeastCommonAncestor` over the multi-parent DAG. The in-memory `BimRepository` is the TRANSIENT working DAG and the durable commit-DAG store, the governed `BranchRef`, and the maximal-antichain merge-base are the Persistence owner's — a durable store minted here is the named seam violation, this owner joining at the `Review/versioning → Rasm.Persistence/Version/commits # [CONTENT_KEY]: BimCommit content-addressed commit-DAG` seam by the `CommitKey` and at the `# [SHAPE]: BimCommit DAG common-ancestor merge substrate` seam where `ModelHistory.Merge` bases against `CommitGraph.MergeBase`. The three-way merge reuses the `ElementFingerprint` verbatim and weighs BOTH axes so a divergent relocation surfaces `PlacementDiverged` rather than being silently auto-merged, and a field-by-field element comparison beside the fingerprint is the deleted form; an element whose antichain bases DISAGREE has no single ancestor and surfaces `CrissCross` carrying every candidate, while the strictly better recursive pairwise base merge needs ancestor commits this host-neutral algebra does not hold and belongs to the durable owner if it ever lands. The commit and parent keys are typed seam `ContentAddress` values end to end — the `.Value` unwrap that stored a raw `UInt128` erased the one content-key type `Review/diff#AUDIT` states its keys in. This owner is the FINGERPRINT-altitude federation/IFC three-way merge, distinct from the `Rasm.Persistence/Version/merge#STRUCTURAL_DIFF` `StructuralMerge.ThreeWay` FOREST-altitude merge over the full topology, neither re-cased as the other; conflict resolution is the `SignOff` lifecycle's concern, so `CommitMerge` rejecting an unresolved outcome is the law and a silent last-write-wins merge is the deleted form. The page is HOST-LOCAL — a `BimCommit` carries host-free content keys and takes a neutral NodaTime `Instant` off the threaded `IClock` rather than the app-platform `ClockPolicy` an AEC-domain owner never references — and a versioning rejection raises its `BimFault.Refused` value carrying its closed scope and reason and lifts `BimFault` BARE.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
@@ -42,17 +42,14 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The branch side a merge fact belongs to. Two rows rather than a bool, because a boolean side reads correctly
-// only through the parameter name that carried it (`removedByOurs: true`), and a stored one leaves a receipt whose
-// polarity a reviewer must recover from prose.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class MergeSide {
     public static readonly MergeSide Ours = new("ours");
     public static readonly MergeSide Theirs = new("theirs");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BimCommit(
     ContentAddress CommitKey,
     Seq<ContentAddress> ParentKeys,
@@ -64,10 +61,6 @@ public sealed record BimCommit(
     public bool IsRoot => ParentKeys.IsEmpty;
     public bool IsMerge => ParentKeys.Count > 1;
 
-    // Mint a commit from a seam ElementGraph, keyed by each fingerprint's GlobalId [H6]. The seam keys nodes by
-    // NodeId with NO ExternalId uniqueness law, so the GlobalId-keyed commit admits that invariant EXACTLY ONCE
-    // here: a federation duplicate rails Refused/BimReason.Rejected BARE, where the raw ToMap duplicate-key throw dressed as a
-    // total commit and a last-wins fold silently dropping a real element are the deleted forms.
     public static Fin<BimCommit> Of(ElementGraph graph, Seq<ContentAddress> parents, string author, string message, Instant at, Op key, Option<FidelityLog> fidelity = default) {
         Seq<ElementFingerprint> prints = graph.ObjectNodes.Map(o => ModelDiff.Fingerprint(graph, o));
         Seq<string> collided = toSeq(prints.GroupBy(static fp => fp.GlobalId, StringComparer.Ordinal).Where(static g => g.Skip(1).Any()).Select(static g => g.Key));
@@ -76,19 +69,11 @@ public sealed record BimCommit(
             : Fin.Fail<BimCommit>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "duplicate-globalid", "commit", string.Join(',', collided) })));
     }
 
-    // The identity is content-addressed over the lineage + the fingerprint set ONLY — author/message/at and the
-    // exchange's FidelityLog are carried metadata EXCLUDED from the key, so a re-commit of the identical model and
-    // lineage is idempotent (an instant-bearing key broke that). ParentKeys normalize sorted-distinct HERE, the one
-    // construction path mirroring the durable CommitNode canon, so a reordered parent seq seals one commit.
     public static BimCommit Sealed(Seq<ContentAddress> parents, Map<string, ElementFingerprint> fingerprints, string author, string message, Instant at, Option<FidelityLog> fidelity = default) {
         Seq<ContentAddress> lineage = toSeq(parents.Distinct().OrderBy(static k => k.Value));
         return new(KeyOf(lineage, fingerprints), lineage, fingerprints, author, message, at, fidelity);
     }
 
-    // The fold writes NO quantized member — ordinals, ids, and the fingerprints' already-minted addresses — so the
-    // mint is the kernel ZeroTolerance streaming hasher and no model grid has to reach it. Parents arrive canonical
-    // from Sealed; fingerprints sort by GlobalId so insertion order addresses identically, the order-independence
-    // the durable CommitNode shares.
     static ContentAddress KeyOf(Seq<ContentAddress> parents, Map<string, ElementFingerprint> fingerprints) =>
         ContentAddress.Of(ContentHash.Of((Parents: parents, Fingerprints: fingerprints), static (state, w) => {
             w.Ordinal(state.Parents.Count);
@@ -102,30 +87,16 @@ public sealed record BimCommit(
 
 public sealed record BimBranch(string Name, ContentAddress Head);
 
-// The closed element-granularity merge-conflict family the three-way fold surfaces for Review/coordination#SIGN_OFF.
-// Each arm carries its GlobalId through an ABSTRACT base member its leaf overrides — a base auto-property paired
-// with same-named leaf records SHADOWS rather than overrides (CS0108), so one conflict answers two GlobalIds
-// depending on the static type the caller holds — and the FULL per-side ElementFingerprints, diff's currency
-// verbatim. DISTINCT-BY-DESIGN (E-P6 allowlist): reviewer sign-off conflict cells share zero columns with
-// Rasm.Persistence `Version/merge`'s CRDT node-merge MergeConflict (NodeId + Hlc + actor).
 [Union]
 public abstract partial record MergeConflict {
     private MergeConflict() { }
 
     public abstract string GlobalId { get; }
 
-    // BothModified alone carries the AXIS-TYPED payload: the two content keys say THAT the element diverged and
-    // nothing about WHERE, so the AspectDelta rows the composing rail already computed ride the conflict and a
-    // reviewer resolves on the aspect rather than on two opaque hashes. The placement and delete/edit arms carry no
-    // delta set: their divergence axis is already named by the case.
     public sealed record BothModified(string GlobalId, ElementFingerprint Base, ElementFingerprint Ours, ElementFingerprint Theirs, ImmutableArray<AspectDelta> Deltas) : MergeConflict;
     public sealed record PlacementDiverged(string GlobalId, ElementFingerprint Base, ElementFingerprint Ours, ElementFingerprint Theirs) : MergeConflict;
     public sealed record ModifiedAndRemoved(string GlobalId, ElementFingerprint Base, ElementFingerprint Surviving, MergeSide RemovedBy) : MergeConflict;
     public sealed record AddedTwiceDivergent(string GlobalId, ElementFingerprint Ours, ElementFingerprint Theirs) : MergeConflict;
-    // CrissCross is the ONE arm whose sides are Options, because ambiguous ancestry does not imply both sides still
-    // carry the element: one branch may have removed it under bases that disagree. A required-fingerprint payload
-    // has no spelling for that, so the absent side fills with a COPY of the present one and the reviewer reads
-    // Ours == Theirs — the exact signature of two branches that AGREE — on the one row where a branch deleted it.
     public sealed record CrissCross(string GlobalId, Seq<ElementFingerprint> Bases, Option<ElementFingerprint> Ours, Option<ElementFingerprint> Theirs) : MergeConflict;
 }
 
@@ -136,10 +107,6 @@ public sealed record MergeOutcome(Map<string, ElementFingerprint> Merged, Seq<Me
 public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<string, BimBranch> Branches) {
     public static readonly BimRepository Empty = new(Map<ContentAddress, BimCommit>(), Map<string, BimBranch>());
 
-    // The bulk working-set admission — a wire-received or store-loaded commit set enters ONCE here: commits dedup
-    // by content key (two equal keys ARE one commit — AddOrUpdate, never the throwing ToMap), a branch naming two
-    // divergent heads or a head the set never declares rails typed. Commit PARENTS may lie outside the set, so a
-    // shallow set truncates History at the boundary and bases beyond it as conservative no-base divergences.
     public static Fin<BimRepository> Of(Seq<BimCommit> commits, Seq<BimBranch> branches, Op key) {
         Map<ContentAddress, BimCommit> declared = commits.Fold(Map<ContentAddress, BimCommit>(), static (map, c) => map.AddOrUpdate(c.CommitKey, c));
         Seq<string> duplicated = toSeq(branches.GroupBy(static b => b.Name, StringComparer.Ordinal).Where(static g => g.Select(static b => b.Head).Distinct().Skip(1).Any()).Select(static g => g.Key));
@@ -154,12 +121,6 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
     public Option<BimCommit> Find(ContentAddress key) => Commits.Find(key);
     public Option<BimBranch> Branch(string name) => Branches.Find(name);
 
-    // Seal a seam ElementGraph as a child of the branch head (a fresh branch roots with no parent) and advance the
-    // in-memory branch ref. An UNCHANGED model no-ops: a head whose fingerprint map equals the minted one returns
-    // the head itself with the repository untouched — the entry-level idempotency the key-level law alone cannot
-    // give, because the child's lineage embeds the head and re-sealing mints a fresh key per sync tick. Takes a
-    // neutral NodaTime Instant off the threaded IClock, never the app-platform ClockPolicy that stops at the app
-    // root; the no-op drops the fresh FidelityLog, since no new version means no new evidence seat.
     public Fin<(BimRepository Repository, BimCommit Commit)> Commit(
         ElementGraph graph, string branch, string author, string message, Instant at, Op key,
         Option<FidelityLog> fidelity = default, Option<BimRail> rail = default) =>
@@ -170,16 +131,8 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
 
     public Seq<BimCommit> History(ContentAddress head) => Ancestry(Lineage(), head).Choose(Commits.Find);
 
-    // The in-memory merge-base ANTICHAIN: every MINIMAL common ancestor, not the single nearest — one shadowed by
-    // another common ancestor drops, so a clean history yields exactly one base and a criss-cross two or more, the
-    // SAME shape the durable CommitGraph.MergeBase publishes. Level-order discovery makes the closure sound over
-    // the multi-parent DAG where Tarjan OfflineLeastCommonAncestor is NOT: its contract is a rooted TREE, so the
-    // DFS tree of a merge diamond keeps one in-edge per merge commit and mis-bases a post-merge query at the root,
-    // and a first-parent projection loses the same lineage. Disjoint histories fold empty.
     public Seq<ContentAddress> MergeBases(ContentAddress ours, ContentAddress theirs) => MergeBases(Lineage(), ours, theirs);
 
-    // LanguageExt.HashSet spelled qualified: `using LanguageExt` and the BCL generic collections both publish a
-    // HashSet<T>, and the bare name binds whichever import the file's using order favours.
     static Seq<ContentAddress> MergeBases(BidirectionalGraph<ContentAddress, SEdge<ContentAddress>> lineage, ContentAddress ours, ContentAddress theirs) {
         LanguageExt.HashSet<ContentAddress> theirAncestry = toHashSet(Ancestry(lineage, theirs));
         Seq<ContentAddress> common = Ancestry(lineage, ours).Filter(theirAncestry.Contains);
@@ -188,11 +141,6 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
         return common.Filter(candidate => !shadowed.Contains(candidate));
     }
 
-    // Resolve both heads, base on the whole minimal-ancestor ANTICHAIN, fold the three-way over the fingerprint
-    // maps. The acyclicity guard is the forged-key integrity gate — an honest content-addressed lineage cannot
-    // cycle, because a child's key derives from its parents' — an absent head rails Refused/BimReason.DanglingReference BARE, and ONE
-    // Lineage fold serves the gate and both ancestry closures. The durable path supplies CommitGraph.MergeBase to
-    // ModelHistory.Merge directly, which virtualizes 0/1/N bases: one algebra, two base sources.
     public Fin<MergeOutcome> Merge(ContentAddress ours, ContentAddress theirs, Func<string, ImmutableArray<AspectDelta>> deltas, Op key) =>
         from lineage in Fin.Succ(Lineage())
         from _ in guard(lineage.IsDirectedAcyclicGraph(), () => (Error)new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, string.Join(':', new object?[] { "merge-lineage-cyclic" })))
@@ -201,11 +149,6 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
         let bases = MergeBases(lineage, ours, theirs).Choose(Commits.Find)
         select ModelHistory.Merge(o, t, bases, deltas);
 
-    // Seal a CLEAN (or sign-off-resolved) outcome as a merge commit + advance the branch: fewer than two DISTINCT
-    // parents rails Refused/BimReason.Rejected (the arity gate reads the Sealed-canonical distinct set, so a duplicated head
-    // cannot smuggle past it), a parent the working set never declares rails Refused/BimReason.DanglingReference, and an outcome
-    // still carrying unresolved Conflicts rails BARE so a conflicted merge NEVER auto-commits. The parent arity
-    // rides the Seq, so one entry serves a pairwise merge and an octopus merge alike.
     public Fin<(BimRepository Repository, BimCommit Commit)> CommitMerge(
         MergeOutcome resolved, Seq<ContentAddress> parents, string branch, string author, string message, Instant at, Op key,
         Option<BimRail> rail = default) =>
@@ -216,10 +159,6 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
             _                                   => Fin.Succ(Seal(BimCommit.Sealed(parents, resolved.Merged, author, message, at), branch, key, rail)),
         };
 
-    // Both Commit and CommitMerge funnel through this ONE seal, which is therefore the only fire site for the
-    // rasm.bim.review.committed point; the unchanged-model no-op returns the head without reaching here, which is
-    // what keeps the announced stream free of no-change rows. Firing here rather than announcing here keeps the
-    // envelope custody at Exchange/events#EVENT_PROJECTION, which observes this point like any other subscriber.
     (BimRepository Repository, BimCommit Commit) Seal(BimCommit commit, string branch, Op key, Option<BimRail> rail) {
         BimRepository advanced = Advance(branch, commit);
         ignore(rail.Map(live => live.Fire(BimPoint.Committed, new BimFact.Committed(
@@ -236,13 +175,6 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
         Branches = Branches.AddOrUpdate(branch, new BimBranch(branch, commit.CommitKey)),
     };
 
-    // The breadth-first ancestor closure — the sanctioned QuikGraph kernel boundary: the imperative walk collapses
-    // INTO the package. Order rides the SHIPPED VertexDistanceRecorderObserver scoped by its own Attach IDisposable
-    // (BreadthFirstSearchAlgorithm IS an ITreeBuilderAlgorithm, that observer's Attach seam), a unit relaxer making
-    // the recorded distance the generation depth and the key tie-break making two walks byte-identical. The head
-    // leads explicitly and is FILTERED out of the distances: the observer seeds each tree edge's SOURCE, so a head
-    // carrying any parent lands at depth zero and an unfiltered projection emits it twice, while a parentless head
-    // records nothing at all.
     static Seq<ContentAddress> Ancestry(BidirectionalGraph<ContentAddress, SEdge<ContentAddress>> lineage, ContentAddress head) {
         if (!lineage.ContainsVertex(head)) { return Seq<ContentAddress>(); }
         BreadthFirstSearchAlgorithm<ContentAddress, SEdge<ContentAddress>> bfs = new(lineage);
@@ -267,12 +199,8 @@ public sealed record BimRepository(Map<ContentAddress, BimCommit> Commits, Map<s
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ModelHistory {
-    // The host-neutral three-way merge: reduce the merge-base antichain per GlobalId, then fold the union of the
-    // three commits' GlobalId keys, reusing the ElementFingerprint verbatim. The key universe sorts by GlobalId so
-    // the merged map and the conflict sequence are deterministic. `deltas` is the member-level evidence the
-    // composing rail already holds, so a BothModified conflict names WHICH aspects diverged.
     public static MergeOutcome Merge(BimCommit ours, BimCommit theirs, Seq<BimCommit> bases, Func<string, ImmutableArray<AspectDelta>> deltas) =>
         toSeq(ours.Fingerprints.Keys.Concat(theirs.Fingerprints.Keys).Concat(bases.Bind(static b => b.Fingerprints.Keys.ToSeq()))
                 .Distinct().OrderBy(static id => id, StringComparer.Ordinal))
@@ -286,19 +214,9 @@ public static class ModelHistory {
                     conflict.Match(Some: c => acc.Conflicts.Add(c), None: () => acc.Conflicts));
             });
 
-    // CRISS-CROSS LAW: where the antichain's bases AGREE on an element the reduction is total and that one
-    // signature IS the base; where they DISAGREE the element has no single ancestor, and electing one is a decision
-    // the merge is not entitled to make — the prior hash-magnitude election picked the numerically smaller
-    // ContentKey, deterministic, semantically arbitrary, and silently converting a real BothModified into an
-    // auto-merge whenever a side happened to match. Recursive pairwise base merging is the strictly better
-    // algorithm and is deliberately NOT taken: it demands ancestor commits this host-neutral algebra does not hold.
     static Seq<ElementFingerprint> BaseOf(Seq<BimCommit> bases, string id) =>
         bases.Choose(commit => commit.Fingerprints.Find(id)).Distinct();
 
-    // An element whose antichain bases disagree: where the two sides CONVERGE the ambiguous ancestry decides
-    // nothing and the converged value lands — Option equality states that in one predicate, because a converged
-    // presence and a converged removal are the same fact about the sides. Every divergence is the typed CrissCross
-    // carrying each side AS IT STANDS, the present-versus-removed case included.
     static (Option<MergeConflict> Conflict, Option<ElementFingerprint> Keep) Ambiguous(
         string id, Option<ElementFingerprint> ours, Option<ElementFingerprint> theirs, Seq<ElementFingerprint> bases) =>
         ours.Equals(theirs)
@@ -320,9 +238,6 @@ public static class ModelHistory {
                     None: () => (Option<MergeConflict>.None, Some(t))),
                 None: () => (Option<MergeConflict>.None, Option<ElementFingerprint>.None)));
 
-    // Both sides present: an element is changed when EITHER its ContentKey or its PlacementKey moved off the base
-    // (a no-base both-present case treats both as changed -> an added-twice divergence). Only one side changed ->
-    // take it; both converged to one signature -> take it; both diverged -> a typed conflict.
     static (Option<MergeConflict> Conflict, Option<ElementFingerprint> Keep) BothSides(
         string id, ElementFingerprint ours, ElementFingerprint theirs, Option<ElementFingerprint> mergeBase,
         Func<string, ImmutableArray<AspectDelta>> deltas) {
@@ -336,9 +251,6 @@ public static class ModelHistory {
         };
     }
 
-    // The divergent-edit conflict, axis-typed: a content divergence is BothModified (or AddedTwiceDivergent with no
-    // base), a content-CONVERGENT placement-only divergence is PlacementDiverged — the conflict a ContentKey-only
-    // merge silently auto-merged. Every arm carries the full per-side fingerprints, so a mixed divergence keeps it.
     static MergeConflict Divergence(string id, ElementFingerprint ours, ElementFingerprint theirs, Option<ElementFingerprint> mergeBase,
         Func<string, ImmutableArray<AspectDelta>> deltas) =>
         mergeBase.Match(
@@ -347,17 +259,12 @@ public static class ModelHistory {
                 : new MergeConflict.PlacementDiverged(id, b, ours, theirs),
             None: () => new MergeConflict.AddedTwiceDivergent(id, ours, theirs));
 
-    // One side removed, the other survives: an UNCHANGED surviving side (content AND placement match the base)
-    // honors the removal; any change races the removal into ModifiedAndRemoved, the full-signature check keeping a
-    // relocation racing a removal from being silently dropped and the full fingerprints keeping the raced axis
-    // readable (a placement-only race shows equal ContentKeys and divergent PlacementKeys).
     static (Option<MergeConflict> Conflict, Option<ElementFingerprint> Keep) RemovedVsModified(
         string id, ElementFingerprint surviving, ElementFingerprint mergeBase, MergeSide removedBy) =>
         Same(surviving, mergeBase)
             ? (Option<MergeConflict>.None, Option<ElementFingerprint>.None)
             : (Some<MergeConflict>(new MergeConflict.ModifiedAndRemoved(id, mergeBase, surviving, removedBy)), Option<ElementFingerprint>.None);
 
-    // The full element signature — content AND placement — so the merge weighs a relocation, never the key alone.
     static bool Same(ElementFingerprint a, ElementFingerprint b) => a.ContentKey == b.ContentKey && a.PlacementKey == b.PlacementKey;
 }
 ```

@@ -18,7 +18,7 @@ The chart plane's ink base: `ChartChrome` folds every chart chrome key from the 
 - Boundary: `ChartFault` owns failures shared across the Charts sub-domain; each leaf carries only the payload its semantic case requires.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChartFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Chart;
@@ -78,10 +78,7 @@ public abstract partial record ChartFault : Fault {
 - Boundary: `ChartChrome` mints NO token — every row addresses a rung the `Theme/tokens` generation already produces through `PaintRole.At(rung)`, so a chart chrome colour and a control chrome colour are one value and a chart-local paint token is the deleted form; stroke widths read `MetricFamily.Stroke` steps, so the high-contrast projection's stroke gain widens every chart hairline with no chart edit. `ChartInk` holds `SolidColorPaint` instances rather than colours: a `Paint` is a live draw task, so the swap re-runs the row's own restyle over the held instance and every mounted chart re-tints on its next frame with NO re-mount — the `Rematerialize.ChartPaint` roster row names this rebuild, and a chart holding a resolved colour outside this set is the defect that roster's law names. The process `Theme` is a VALUE the package reads at series attach, so the swap re-runs `Register` AND folds `Theme.ApplyStyleToSeries` over every attached series — `GetSeriesColor` indexes `Colors` by `SeriesId`, so the re-apply is deterministic and idempotent; `GetDefaultTooltip`/`GetDefaultLegend` are FACTORIES read at mount, so the swap re-assigns both as property writes; offscreen `SKCharts` twins and sealed captures are PRODUCTS re-rendered rather than re-tinted. `LiveChartsSettings.HasTheme` REPLACES the whole `Theme` and the last `Add*Theme` call wins, so registration is exactly one `LiveCharts.Configure` at the composition root; a second `Configure` from a board, tile, or screen is the deleted form, and a per-control `ChartTheme` override exists only for the offscreen proof twin whose gamut is pinned. A DASH is a `StrokeForm` row rather than a column beside the pigment: the dashed arm writes `SkiaPaint.PathEffect` inside the one restyle both the mint and the swap run, the intervals are the custom plane's `StrokeStyle.Dashed.Intervals(width)` CITED at the resolved width, so a comparison ghost on a chart and the same series drawn on that plane dash identically and a chrome row carrying its own interval roster is the deleted form. Severity ink is the folder `Severity` family's (`Theme/tokens`): `ChartInk.Ink(Severity)`/`Shade(Severity)` resolve severity pigment through the same rung read chrome takes, so a threshold band, a watch badge, and a status chip are one pigment. The three package-colour repacks (`AsLvc`/`AsSk`/`AsColor`) are BYTE transposes between foreign colour structs, never colour-space math — kernel `PerceptualColor` enters only where perception does (the CVD candidate pairs feed the token sweep's perceptual model); routing a byte repack through the perceptual model would compand a value that never left sRGB bytes.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// The restyle SHAPE is a row, so the mint and the swap run one body and a slot can never land on one path
-// and not the other — which is exactly how a dash survived its first resolve and vanished on the next
-// variant flip. The dash slot CLEARS on every non-dashed row because these paints outlive a swap.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -95,9 +92,6 @@ public sealed partial class StrokeForm {
     public bool Dashed { get; }
 }
 
-// Chip differs from Fill by its CONSUMER read alone (`ChartInk.Tint` answers `LvcColor` because the crosshair
-// chip slot takes a colour, not a paint); Text by the typography role that sizes it. Both share the fill form,
-// so the restyle is the form column's and the five rows carry no delegate bodies.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -110,11 +104,8 @@ public sealed partial class ChromeInk {
 
     public StrokeForm Form { get; }
 
-    // The mint is the restyle over a fresh paint, so a slot the swap writes cannot be one the mint forgot.
     public SolidColorPaint Mint(SKColor color, float width) => Restyle(new SolidColorPaint(), color, width);
 
-    // The intervals are the custom plane's own row read at the resolved width — the one spelling both
-    // surfaces cite, so a chart ghost and a diagram edge cannot disagree about what dashed looks like.
     public SolidColorPaint Restyle(SolidColorPaint paint, SKColor color, float width) {
         paint.Color = color;
         paint.IsStroke = Form.Stroked;
@@ -141,15 +132,8 @@ public sealed partial class ChromeFamily {
     public static readonly ChromeFamily Legend = new("legend");
 }
 
-// The resolve coordinate one row projects: role, rung, ink, stroke step, alpha, and draw layer travel as ONE
-// value, so the chrome mint and the severity mint are one body at two facet sources rather than four members
-// re-spelling the same resolve.
 public readonly record struct PaintFacet(PaintRole Role, int Rung, ChromeInk Ink, int Stroke, UnitInterval Alpha, int Layer);
 
-// Every chart surface that carries ink is one row here, addressing a generated rung by key. Alpha rides the
-// row because a band fill, a ghost layer, and a dimmed error frame are the same generated pigment at three
-// coverages; `Layer` rides it because the crosshair must draw over the separators it crosses; `Family` is the
-// package-slot group the roster partitions on, so the hand-kept group table is a `GroupBy(Family)` read.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -179,8 +163,6 @@ public sealed partial class ChartChrome {
     public static readonly ChartChrome SectionStroke = new("section-stroke", PaintRole.Border, rung: 1, ChromeInk.Stroke, stroke: 0, alpha: 0.60d, layer: 0, ChromeFamily.Band);
     public static readonly ChartChrome SectionLabel = new("section-label", PaintRole.TextMuted, rung: 0, ChromeInk.Text, stroke: 0, alpha: 1d, layer: 2, ChromeFamily.Band);
     public static readonly ChartChrome Ghost = new("ghost", PaintRole.TextFaint, rung: 0, ChromeInk.Stroke, stroke: 0, alpha: 0.45d, layer: -1, ChromeFamily.Posture);
-    // The DASHED ghost every comparison layer wears: alpha alone loses not-this-run the moment two lines
-    // cross, and the dash carries the distinction exactly where the strokes overlap.
     public static readonly ChartChrome GhostDash = new("ghost-dash", PaintRole.TextFaint, rung: 0, ChromeInk.Dashed, stroke: 0, alpha: 0.45d, layer: -1, ChromeFamily.Posture);
     public static readonly ChartChrome Annotation = new("annotation", PaintRole.Warning, rung: 0, ChromeInk.Stroke, stroke: 0, alpha: 1d, layer: 3, ChromeFamily.Annotation);
     public static readonly ChartChrome AnnotationLabel = new("annotation-label", PaintRole.Warning, rung: 1, ChromeInk.Text, stroke: 0, alpha: 1d, layer: 4, ChromeFamily.Annotation);
@@ -202,9 +184,6 @@ public sealed partial class ChartChrome {
 
     public PaintFacet Facet => new(Role, Rung, Ink, Stroke, Alpha, Layer);
 
-    // Axis chrome through `IPlane`, narrowed to `ICartesianAxis` for the members the polar plane does not
-    // carry, so ONE fold styles every axis kind. Six distinct surfaces (separators, subseparators, ticks,
-    // subticks, the zero line, the crosshair trio) are why the single grid role died.
     public static Unit Apply(IPlane plane, ChartInk ink, TypographyRole label) {
         plane.NamePaint = ink.Paint(AxisName);
         plane.LabelsPaint = ink.Paint(AxisLabel);
@@ -230,9 +209,6 @@ public sealed partial class ChartChrome {
     }
 }
 
-// A family names the anchor role a monochrome surface takes AND the colormap a multi-series or magnitude ramp
-// derives from. The colormap catalogue is the `Theme/tokens` owner; a ramp restated here would be a second
-// stop table drifting from the one the token page proves.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -250,10 +226,7 @@ public sealed partial class PaintFamily {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The resolved paint set. Every roster row resolves ONCE per board into a live `SolidColorPaint` the charts
-// hold by reference, so a theme swap writes colour, width, and order onto the same draw tasks and re-tints on
-// the next frame; resolving per read would hand each chart a private paint the swap could never find.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record ChartInk(
     ResolvedTheme Theme,
     PaintFamily Family,
@@ -277,8 +250,6 @@ public sealed record ChartInk(
                 resolved.Stops.Map(ChartPigment.AsLvc).ToArray(),
                 resolved.Stops.Map(ChartPigment.AsSk).ToArray()));
 
-    // Totality is the point: the dictionaries build over the whole rosters, so a read cannot miss and no
-    // consumer carries a null-paint arm. A key the generation cannot resolve refuses at `Of`.
     public Paint Paint(ChartChrome chrome) => Chrome[chrome];
 
     public Paint Ink(Severity severity) => SeverityInk[severity];
@@ -287,8 +258,6 @@ public sealed record ChartInk(
 
     public SKColor Shade(Severity severity) => SeverityInk[severity].Color;
 
-    // The swap write: colour, stroke width, and draw order all move under a variant flip — the high-contrast
-    // projection widens the stroke family — and the paints stay the instances the mounted charts hold.
     public Fin<ChartInk> Retint(ResolvedTheme next) =>
         toSeq(ChartChrome.Items).Traverse(chrome => Write(next, chrome.Key, chrome.Facet, Chrome[chrome])).As()
             .Bind(_ => toSeq(Severity.Items)
@@ -300,9 +269,6 @@ public sealed record ChartInk(
                 Ramp = stops.Map(ChartPigment.AsSk).ToArray(),
             });
 
-    // Adjacent AND non-adjacent pairs: a qualitative ramp fails a deficiency wherever ANY two categories
-    // collapse, and a legend reader compares every swatch against every other. The pairs feed the same
-    // perceptual accessibility sweep the token ladder's candidates enter.
     public Seq<(Color A, Color B, Cvd Lens)> CvdCandidates =>
         toSeq(Palette) switch {
             var palette => Seq(Cvd.Protanopia, Cvd.Deuteranopia, Cvd.Tritanopia).Bind(lens =>
@@ -310,20 +276,14 @@ public sealed record ChartInk(
                     .Map(right => (ChartPigment.AsColor(cell.Left), ChartPigment.AsColor(right), lens)))),
         };
 
-    // ONE resolve body for chrome and severity facets: which row supplied the facet is the caller's fact, so
-    // the mint and the swap cannot disagree about what a facet resolves to.
     static Fin<SolidColorPaint> Mint(ResolvedTheme theme, string label, PaintFacet facet) =>
         Resolve(theme, facet).Map(cell => Seated(facet.Ink.Mint(cell.Color, cell.Width), facet.Layer))
             .MapFail(_ => (Error)new ChartFault.PaintUnresolved(label));
 
-    // The swap runs the SAME restyle the mint ran, so every slot the ink arm owns moves together; a swap that
-    // re-wrote a subset left whichever slot it forgot carrying the previous generation's value.
     static Fin<Unit> Write(ResolvedTheme theme, string label, PaintFacet facet, SolidColorPaint paint) =>
         Resolve(theme, facet).Map(cell => ignore(Seated(facet.Ink.Restyle(paint, cell.Color, cell.Width), facet.Layer)))
             .MapFail(_ => (Error)new ChartFault.PaintUnresolved(label));
 
-    // Alpha rides the resolved pigment rather than a paint-level opacity, because the paint tier carries no
-    // alpha knob and a translucent band drawn at full alpha under a scrim reads as a solid plate.
     static Fin<(SKColor Color, float Width)> Resolve(ResolvedTheme theme, PaintFacet facet) =>
         (theme.Paint(facet.Role, facet.Rung), theme.Metric(MetricFamily.Stroke, facet.Stroke)) switch {
             ({ IsSome: true, Case: Color pigment }, { IsSome: true, Case: double width }) => Fin.Succ((
@@ -335,10 +295,6 @@ public sealed record ChartInk(
     static SolidColorPaint Seated(SolidColorPaint paint, int layer) { paint.ZIndex = layer; return paint; }
 }
 
-// The ONE byte-transpose owner between the three package colour structs. These are repackings of the same
-// sRGB bytes, never colour-space conversions — the perceptual model owns conversion and would compand a
-// value that never left byte space. `AsColor` is named for what it answers: a member spelled `Avalonia`
-// would capture that root and make every namespace-qualified reach unresolvable.
 public static class ChartPigment {
     public static LvcColor AsLvc(Color color) => new(color.R, color.G, color.B, color.A);
 
@@ -347,10 +303,7 @@ public static class ChartPigment {
     public static Color AsColor(LvcColor color) => Color.FromArgb(color.A, color.R, color.G, color.B);
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// The ONE process-wide registration: `HasTheme` replaces the whole `Theme` and the last `Add*Theme` wins, so
-// a second call anywhere silently discards every rule the first chained. The dark theme seeds and every rule
-// overwrites what the seed set, so nothing shipped survives unexamined.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ChartComposition {
     public static Fin<Unit> Register(ChartInk ink, MotionPlan motion, TypographyRole label, SKTypeface typeface) =>
         Op.Of(name: "appui.chart.register").Catch(() => {
@@ -370,8 +323,6 @@ public static class ChartComposition {
             return Fin.Succ(unit);
         });
 
-    // Every rule chain appends onto the one theme instance, so the axis chain, the frame chain, and the
-    // series chain are three folds over one owner rather than three registrations racing to be last.
     static void Seed(Theme theme, ChartInk ink, TypographyRole label) {
         theme.Colors = ink.Palette;
         theme.VirtualBackroundColor = ink.Tint(ChartChrome.FrameFill);
@@ -397,9 +348,6 @@ public static class ChartComposition {
             .HasDefaultLegend(() => new SKDefaultLegend { Easing = theme.EasingFunction, AnimationsSpeed = theme.AnimationsSpeed });
     }
 
-    // The swap half: `GetSeriesColor` indexes `Colors` by `SeriesId`, so the re-apply is deterministic and
-    // idempotent and an attached series keeps its ramp position; tooltip and legend are factory products
-    // re-assigned as property writes. Nothing here re-mounts a chart.
     public static Fin<Unit> Reapply(ChartInk ink, MotionPlan motion, TypographyRole label, SKTypeface typeface, Seq<IChartView> mounted) =>
         Register(ink, motion, label, typeface).Map(_ => {
             Theme theme = LiveCharts.DefaultSettings.GetTheme();
@@ -424,15 +372,13 @@ public static class ChartComposition {
 - Boundary: the list is ORDERED and its base is the severity BELOW the first crossing, so a value's severity is the last step it cleared and a gap between steps is unrepresentable — a per-panel threshold block re-authoring its own crossings is what a shared list value forecloses. A percentage-basis list carries crossings in the unit interval and resolves them against the surface's own floor and ceiling at read; an absolute list carries measured values and ignores the surface range, which is what a physical limit needs. Axis bands project through the `BandAxis` row, so a horizontal compliance band and a vertical phase band are one list at two orientations and each carries its severity's own edge caption — a colour with no stated meaning is unspellable, which is why the caption column is total rather than a knob. Severity ink resolves through `ChartInk.Shade` off the `Severity` row, so a threshold band, a watch badge, and a status chip are one pigment and a threshold-local colour column is the deleted form. The tables-side receiving seam for `Cell` is the value-driven format column on `TableColumnRow`; the stepped legend reads `Edges` — both consumers are named on the mode row itself, so the projection-to-consumer correspondence is fence data rather than a hand table.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct ThresholdStep(double At, Severity Severity);
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ThresholdBasis {
-    // Absolute crossings are measured values a physical limit carries; percentage crossings are unit-interval
-    // fractions the surface's own range resolves at read.
     public static readonly ThresholdBasis Absolute = new("absolute", static (at, _, _) => at);
     public static readonly ThresholdBasis Percentage = new("percentage", static (at, floor, ceiling) => floor + (at * (ceiling - floor)));
 
@@ -440,8 +386,6 @@ public sealed partial class ThresholdBasis {
     public partial double Resolve(double at, double floor, double ceiling);
 }
 
-// The consumer is a COLUMN, so the mode-to-surface correspondence lives on the roster the projections gate on
-// and a hand-kept mirror table has nothing left to say.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -454,9 +398,7 @@ public sealed partial class ThresholdMode {
     public string Consumer { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// One ordered family every renderer projects. `Floor` is the severity below the first crossing, so a value
-// always classifies and a gap between steps cannot exist.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ThresholdList(
     Severity Floor,
     Seq<ThresholdStep> Steps,
@@ -469,33 +411,25 @@ public sealed record ThresholdList(
             ? Fin.Succ(new ThresholdList(floor, steps, basis, mode))
             : Fin.Fail<ThresholdList>(new ChartFault.ThresholdRejected(mode.Key));
 
-    // The one classification: the last cleared crossing wins, so severity is monotone in the value.
     public Severity At(double value, double floor, double ceiling) =>
         Steps.Fold(Floor, (held, step) => value >= Basis.Resolve(step.At, floor, ceiling) ? step.Severity : held);
 
-    // Bands span crossing to crossing, the base band open from the floor and the last open to the ceiling, so
-    // the whole range is covered; orientation is the axes page's `BandAxis` row, never a bool.
     public Fin<Seq<ChartSection>> Bands(double floor, double ceiling, BandAxis axis, int scalesAt) =>
         Mode != ThresholdMode.AxisBand
             ? Fin.Fail<Seq<ChartSection>>(new ChartFault.ThresholdRejected($"{Mode.Key}: not a band mode"))
             : Fin.Succ(Edges(floor, ceiling).Map(edge =>
                 axis.Section(edge.From, edge.To, ChartChrome.SectionFill, Tint(edge.Severity), Some(edge.Severity.Key), scalesAt)));
 
-    // Ordered gauge stops: each stop is the value the arc changes colour at and the pigment it changes to.
     public Fin<Seq<(double At, SKColor Fill)>> Fills(ChartInk ink, double floor, double ceiling) =>
         Mode != ThresholdMode.GaugeFill
             ? Fin.Fail<Seq<(double, SKColor)>>(new ChartFault.ThresholdRejected($"{Mode.Key}: not a fill mode"))
             : Fin.Succ(Edges(floor, ceiling).Map(edge => (edge.From, ink.Shade(edge.Severity))));
 
-    // The mode gate keeps a band list from silently colouring cells at a crossing set authored for an axis
-    // whose range differs.
     public Fin<SKColor> Cell(ChartInk ink, double value, double floor, double ceiling) =>
         Mode != ThresholdMode.CellBackground
             ? Fin.Fail<SKColor>(new ChartFault.ThresholdRejected($"{Mode.Key}: not a cell mode"))
             : Fin.Succ(ink.Shade(At(value, floor, ceiling)));
 
-    // Public because the stepped legend reads exactly this covering set — a legend re-deriving bands from the
-    // crossings would be a second edge fold drifting from the one every band, fill, and cell paints.
     public Seq<(double From, double To, Severity Severity)> Edges(double floor, double ceiling) =>
         Steps.Fold(
             (From: floor, Severity: Floor, Acc: Seq<(double, double, Severity)>()),
@@ -505,8 +439,6 @@ public sealed record ThresholdList(
             var tail => tail.Acc.Add((tail.From, ceiling, tail.Severity)),
         };
 
-    // The base band reads as chrome and every RAISED band as status; tinting the base too would paint a nominal
-    // plate across the whole plot and leave a breach nothing contrasts against.
     Option<Severity> Tint(Severity severity) => severity == Floor ? None : Some(severity);
 }
 ```
@@ -522,10 +454,7 @@ public sealed record ThresholdList(
 - Boundary: the profile NEVER computes a metric — every row names a scalar `TileSource` arm and the scorecard subscribes it through the same live-data scalar-fold edge a stat tile takes, so a gross-floor-area check and the area readout beside it are one number. Comparison is unit-safe by CONSTRUCTION: bound and measured value both stand in the role's own metric unit — the canonical storage unit every measured feed writes — and the display unit is ELECTED at render exactly as an axis title's is, so a row carrying a transcribed unit abbreviation is unspellable. MARGIN is signed distance in that metric unit; RATIO is that distance as a fraction of the bound's magnitude and is an `Option` — a zero-magnitude bound admits no fraction, and the retired fallback that published the raw margin in the ratio column handed the one cross-metric-comparable column a value in the role's own unit (`RULINGS [02]` ratio law); the zero test reads `EpsilonPolicy.ZeroTolerance`, never `double.Epsilon`, which is the denormal floor and no tolerance at all. The DRIVER names which edge broke; a passing row's driver is empty, since naming a cause on a pass invents one. `Passes` is a DERIVATION of the margin's sign, never a stored column a mutation could desynchronize. Severity is the profile's ONE `ThresholdList` read at the shortfall under a percentage basis; a ratio-less breach grades at the ladder's deepest step because an unscalable breach cannot be ranked shallow, and a ratio-less pass grades at the floor. Ranking reads kernel `Ranked.Top` over ascending ratio so the closest-to-breach rows rise and a truncated card keeps exactly the rows a designer must see; ratio-less rows seat last. A profile is a SAVED artifact crossing the one composition-seated `EvidenceOps.Wire` through its own `Diagnostics/evidence#DURABLE_PARCEL` seal, whose ceiling and generation compare are the shared owner's; a parcel the generation refuses HOLDS its bytes beside the seeded profile, because a compliance set is authored and its rows stay readable by hand. NAMED LOSS: attribute-rename carry — a row column renamed across a generation reaches no reader under the next. `ConstraintVerdict` is DISTINCT from Fabrication's nesting `ConstraintVerdict` — this row grades a live metric against a saved compliance bound; the NFP row witnesses a geometric non-fit — the shared name carries no shared regime.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// The comparison sense, carrying BOTH its predicate and its signed margin: positive inside the bound, negative
-// on breach, on every direction alike — a per-direction sign convention would make one scorecard column mean
-// three things.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -536,8 +465,6 @@ public sealed partial class BoundDirection {
     public static readonly BoundDirection AtLeast = new("at-least",
         static (value, bound, ceiling) => value - bound,
         static (value, bound, ceiling) => value < bound ? "below" : string.Empty);
-    // The tightest edge governs: a value inside a band reports its distance to the closest wall — the room
-    // actually left — where the wider distance reports comfort the check does not have.
     public static readonly BoundDirection Within = new("within",
         static (value, bound, ceiling) => Math.Min(value - bound, ceiling - value),
         static (value, bound, ceiling) => value < bound ? "below" : value > ceiling ? "above" : string.Empty);
@@ -549,9 +476,7 @@ public sealed partial class BoundDirection {
     public partial string Driver(double value, double bound, double ceiling);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// One check. `Metric` names the scalar source slot the row subscribes and `Measure` the role its bound and
-// measured value both stand in. `Ceiling` is populated by the `within` direction alone.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ConstraintRow(
     string Key,
     string Label,
@@ -561,22 +486,15 @@ public sealed record ConstraintRow(
     double Ceiling,
     MeasureRole Measure,
     TileSource Source) {
-    // Accumulating admission: every violated column names itself in one refusal instead of the first defect
-    // masking the rest behind an opaque key.
     public static Fin<ConstraintRow> Admit(ConstraintRow candidate) =>
         (Gate(!string.IsNullOrWhiteSpace(candidate.Key), $"row/{candidate.Key}: blank key"),
          Gate(!string.IsNullOrWhiteSpace(candidate.Metric), $"row/{candidate.Key}: blank metric"),
          Gate(double.IsFinite(candidate.Bound), $"row/{candidate.Key}: non-finite bound"),
          Gate(candidate.Direction != BoundDirection.Within || (double.IsFinite(candidate.Ceiling) && candidate.Ceiling > candidate.Bound),
              $"row/{candidate.Key}: within needs ceiling above bound"),
-         // A row whose source cannot answer a number would bind a subscription that renders nothing and
-         // reports no fault — the same defect the tile source law refuses one layer up.
          Gate(candidate.Source.Arm == SourceArm.Scalar, $"row/{candidate.Key}: source answers no scalar"))
             .Apply((_, _, _, _, _) => candidate).As().ToFin();
 
-    // The one comparison. Ratio is the margin as a fraction of the bound's magnitude — the only column
-    // comparable across gross area, daylight factor, and cost — and is ABSENT on a zero-magnitude bound;
-    // margin stays in the role's metric unit, the only column a designer can act on.
     public ConstraintVerdict Read(double measured, ThresholdList grade) =>
         Direction.Margin(measured, Bound, Ceiling) switch {
             var margin => (Margin: margin,
@@ -586,8 +504,6 @@ public sealed record ConstraintRow(
                     Value: measured,
                     Margin: read.Margin,
                     Ratio: read.Ratio,
-                    // The grade reads the SHORTFALL, so a breach deepens as it grows and a comfortable pass
-                    // classifies at the floor; an unscalable breach grades at the deepest declared step.
                     Severity: read.Ratio.Match(
                         Some: ratio => grade.At(-ratio, 0d, 1d),
                         None: () => read.Margin >= 0d
@@ -597,9 +513,6 @@ public sealed record ConstraintRow(
             },
         };
 
-    // The chip text both a scorecard cell and a metric-table verdict column print: the margin renders as a
-    // QUANTITY under the row's role, so the elected display unit travels with the number. A measured value the
-    // role's quantity family cannot lift refuses rather than printing a bare number under a unit it never had.
     public Fin<string> Chip(ConstraintVerdict verdict, ResolvedLocale locale) =>
         Quantity.TryFrom(verdict.Margin, Measure.MetricUnit, out IQuantity? margin) && margin is not null
             ? locale.Quantity(margin, Measure).Bind(spelled => locale.Message(
@@ -615,21 +528,17 @@ public sealed record ConstraintRow(
         holds ? unit : (Validation<Error, Unit>)(Error)new ChartFault.ProfileRejected(detail);
 }
 
-// One row's reading. `Passes` DERIVES from the margin's sign; `Ratio` is absent where the bound's magnitude
-// admits no fraction, so a reader ranking by pressure never mistakes a metric-unit distance for one.
 public readonly record struct ConstraintVerdict(
     string RowKey, double Value, double Margin, Option<double> Ratio, Severity Severity, string Driver) {
     public bool Passes => Margin >= 0d;
 }
 
-// A named, project-scoped, shareable check set carrying its own grading list, so every row reads one ladder.
 public sealed record ConstraintProfile(
     string Key,
     string Label,
     string Project,
     ThresholdList Grade,
     Seq<ConstraintRow> Rows) {
-    // Compliance sets are AUTHORED, so a refused parcel holds its bytes beside the seeded profile.
     public static readonly StateSeal Seal = StateSeal.Of("chart", "profile", generation: 1, StateResidue.Hold);
 
     public static Fin<ConstraintProfile> Admit(ConstraintProfile candidate) =>
@@ -641,18 +550,12 @@ public sealed record ConstraintProfile(
             .Apply((_, _, _, _, _) => candidate).As().ToFin()
             .Bind(static admitted => admitted.Rows.Traverse(ConstraintRow.Admit).As().Map(rows => admitted with { Rows = rows }));
 
-    // The badge reads the WORST live row, so one failing check is never averaged away by nine passing ones.
     public Severity Reading(Seq<ConstraintVerdict> verdicts) =>
         Severity.Worst(verdicts, static verdict => verdict.Severity);
 
-    // Pressure ordering through the kernel bounded fold: closest-to-breach and breached rows rise, which is
-    // the order a designer reads and the order a truncated card must keep; ratio-less rows seat last because
-    // an unscalable pressure cannot outrank a measured one.
     public Seq<ConstraintVerdict> Pressure(Seq<ConstraintVerdict> verdicts, int keep) =>
         Rasm.Domain.Ranked.Top(verdicts, keep, static verdict => verdict.Ratio.IfNone(double.PositiveInfinity), ExtremumDirection.Minimum);
 
-    // Seal owns the wire, the ceiling, and the generation compare every AppUi durable payload crosses, so
-    // this owner states only which grain it is and what a refusal keeps.
     public Fin<string> Save() => Seal.Write(this);
 
     public static Restored<ConstraintProfile> Open(string blob) => Seal.Read<ConstraintProfile>(blob, Admit);

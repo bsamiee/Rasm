@@ -61,15 +61,11 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 import { Schema } from "effect"
 import { TokenFieldValue, type TokenFieldSegment } from "react-stately"
 
-// Tokenized owns the LIVE grammar: one subclass per field that owns a token vocabulary, and the caret, undo history, coalescing
-// window, and boundary search arrive with the base value — re-modelling any of them beside it forks the edit state
 declare class Tokenized<T> extends TokenFieldValue<T> {
   protected tokenize(text: string): Array<TokenFieldSegment<T>>
   protected createFieldValue(segments: ReadonlyArray<TokenFieldSegment<T>>): this
 }
 
-// TokenCodec marks the COMMITTED crossing, and the only one: a tokenized field's schema is the codec whose ENCODED side IS the segment
-// sequence the value holds, so `Form.standard` validates the live edit and that same owner restores a saved expression
 declare namespace Form {
   type TokenCodec<A, T> = Schema.Schema<A, ReadonlyArray<TokenFieldSegment<T>>>
 }
@@ -95,7 +91,7 @@ import { Hook } from "../system/hook.ts"
 
 declare module "../system/hook.ts" {
   interface Points {
-    readonly "rasm.ui.form.submit": { readonly modality: "veto"; readonly payload: Submit.Fact } // this page's contributed row: the veto modality restated at this end of the seam
+    readonly "rasm.ui.form.submit": { readonly modality: "veto"; readonly payload: Submit.Fact }
   }
 }
 
@@ -107,7 +103,6 @@ declare namespace Submit {
   type Write = (draft: Draft) => Promise<Exit.Exit<void, Submit.Refusal>>
 }
 
-// Hook-point ids keep their package-keyed spelling under the Tier-0 grammar carve; this SERIES resolves to the form domain
 const _SUBMITTED = Convention.mount(Convention.metric.formSubmit)
 
 const _submitHook: Hook.Row<"rasm.ui.form.submit"> = {
@@ -126,8 +121,7 @@ const _observed = Effect.fn("Form.observed")(function* <A, E, R>(
     Effect.flatMap((verdict) =>
       Tap.Verdict.$match(verdict, {
         fanned: () => Effect.void,
-        unrostered: () => Effect.void, // the mint seats every contributed point, so an unrostered preflight admits like a fan
-        // a veto refusal folds into the same sink a validation failure feeds, carrying the arbiter's own reason
+        unrostered: () => Effect.void,
         vetoed: ({ veto }): Effect.Effect<void, Submit.Refusal> =>
           Effect.fail({ _tag: "DraftRefused", errors: { "": [veto.reason] } }),
       })),
@@ -141,7 +135,7 @@ const _observed = Effect.fn("Form.observed")(function* <A, E, R>(
         (stage) =>
           Effect.zipRight(
             Effect.asVoid(Hook.publish(registry, "rasm.ui.form.submit", { form, stage })),
-            Effect.asVoid(Effect.withMetric(Effect.succeed(1), Metric.tagged(_SUBMITTED, Convention.rasm.formOutcome, stage))), // one stage value drives the hook fact and metric tag
+            Effect.asVoid(Effect.withMetric(Effect.succeed(1), Metric.tagged(_SUBMITTED, Convention.rasm.formOutcome, stage))),
           ),
       )),
     Effect.annotateLogs({ form }),
@@ -158,9 +152,6 @@ const _submit = (
   sink: (errors: Form.Errors) => void,
 ) =>
   async (_formData: FormData): Promise<void> => {
-    // nearest-form action seam: this function IS the <form action={...}> binding — React brackets
-    // it in its own transition and useFormStatus reads the trip; the draft reads from the atom cursor
-    // root at submit time, never from the platform FormData
     const outcome = await Effect.runPromiseExit(
       _observed(
         Effect.flatMap(Effect.promise(() => write(draft())), (exit) =>
@@ -231,10 +222,6 @@ declare namespace Form {
   type Progress = { readonly sent: number; readonly total: number }
 }
 
-// One row per reason carrying the core kind, the leg it refuses at, and the subject it alone renders: a refused
-// permission is not a transient outage, so the three bands route differently and the core row table decides
-// retryability for each — no local retry column exists. The endpoint's own response code rides each subject as
-// absence-shaped evidence, because a severed transfer answers no code at all and a placeholder would read as one.
 const _Status = Schema.optionalWith(Schema.Int, { as: "Option" })
 const _coded = (status: Option.Option<number>): string =>
   Option.getOrElse(Option.map(status, (code) => `${code}`), () => "no response")
@@ -260,11 +247,9 @@ const _family = Fault.Class.family(["endpoint-denied", "payload-rejected", "tran
   }),
 })
 
-// _refusal projects status once: the session's onShouldRetry hook and the rail's fault both read it, so the two
-// can never disagree about whether an offset is worth re-driving
 const _refusal = (status: Option.Option<number>): UploadFault.Reason =>
   Option.match(status, {
-    onNone: () => "transfer-lost" as const, // no response at all: transport, never the endpoint's verdict
+    onNone: () => "transfer-lost" as const,
     onSome: (code) => (code === 401 || code === 403 ? "endpoint-denied" : code >= 400 && code < 500 ? "payload-rejected" : "transfer-lost"),
   })
 
@@ -293,14 +278,13 @@ const _upload = (
   progress: (step: Form.Progress) => void,
 ): Effect.Effect<OnSuccessPayload, UploadFault> =>
   Effect.async<OnSuccessPayload, UploadFault>((resume) => {
-    // BOUNDARY ADAPTER: tus hooks are the platform's push seam — success and fault resume the effect, interruption aborts
     const session = new Upload(file, {
       endpoint: policy.endpoint,
       chunkSize: policy.chunkSize,
       metadata: { ...policy.metadata },
       onProgress: (sent, total) => progress({ sent, total }),
       onSuccess: (payload) => resume(Effect.succeed(payload)),
-      onShouldRetry: (fault) => _refusal(Option.fromNullable(fault.originalResponse?.getStatus())) === "transfer-lost", // the session re-drives exactly the band the rail calls retryable
+      onShouldRetry: (fault) => _refusal(Option.fromNullable(fault.originalResponse?.getStatus())) === "transfer-lost",
       onError: (fault) => {
         const status = fault instanceof DetailedError ? Option.fromNullable(fault.originalResponse?.getStatus()) : Option.none<number>()
         return resume(Effect.fail(new UploadFault({ case: { reason: _refusal(status), status, cause: fault.message } })))
@@ -311,7 +295,7 @@ const _upload = (
         const prior = held[0]
         if (prior !== undefined) session.resumeFromPreviousUpload(prior)
       })
-      .catch(() => undefined) // a fingerprint store that cannot answer costs the resume, never the upload
+      .catch(() => undefined)
       .finally(() => session.start())
     return Effect.promise(() => session.abort())
   })
@@ -357,8 +341,8 @@ import { cva } from "class-variance-authority"
 import { Array, Option, Schema } from "effect"
 
 declare namespace Wizard {
-  type Node<Stage extends string> = Stage | "done" // the builder's one final node; a stage spelled "done" duplicates it and Transition.spec refuses at compile
-  type Signal<Stage extends string> = "next" | "back" | "skip" | `seek.${Stage}` // seek derives from the stage roster: an unknown TARGET is unspellable; a linear wizard leaves every seek unrouted instead
+  type Node<Stage extends string> = Stage | "done"
+  type Signal<Stage extends string> = "next" | "back" | "skip" | `seek.${Stage}`
   type Standing = "completed" | "current" | "incomplete"
   type Options<Stage extends string, X> = {
     readonly name: string
@@ -367,12 +351,10 @@ declare namespace Wizard {
     readonly seed: X
     readonly valid: (stage: Stage) => (extended: X) => boolean
     readonly skippable: (stage: Stage) => (extended: X) => boolean
-    readonly linear: boolean // true generates NO seek rows: a jump has no row to ride, so the macrostep answers `Unrouted`
+    readonly linear: boolean
   }
 }
 
-// `_rows` generates the policy; a refused press needs no row here — `Transition.admits` answers it as `Guarded` on `Macro.refused`,
-// so the generated family emits nothing and its verdict vocabulary is `never`
 const _rows = <const Stage extends string, X>(
   options: Wizard.Options<Stage, X>,
 ): ReadonlyArray<Transition.Row<Wizard.Node<Stage>, Wizard.Signal<Stage>, never, X>> =>
@@ -388,7 +370,6 @@ const _rows = <const Stage extends string, X>(
       ...(options.linear
         ? []
         : Array.filterMap(options.stages, (seek) =>
-          // a self-seek row would exit and re-enter the standing stage, re-running its entry program over live drafts
           seek === stage
             ? Option.none()
             : Option.some({ source: stage, on: `seek.${seek}` as const, to: [seek] as const }))),
@@ -455,8 +436,6 @@ import { Option } from "effect"
 import type { Motion } from "../system/act.ts"
 import type { Theme } from "../system/token.ts"
 
-// `_phases` mirrors the runtime session plane's tag vocabulary field-for-field as a deliberate non-import: ui imports
-// core alone, and the subscribed cell's own tag is the value this roster discriminates
 const _phases = ["Anonymous", "Authenticating", "Authenticated", "Expired"] as const
 
 declare namespace Ceremony {
@@ -464,7 +443,6 @@ declare namespace Ceremony {
   type Posture = { readonly tone: Theme.Tone; readonly hold: Option.Option<Motion.Hold> }
 }
 
-// total over the session vocabulary: a new phase breaks here rather than defaulting into neutral chrome
 const _PHASES = {
   Anonymous: { tone: "neutral", hold: Option.none() },
   Authenticating: { tone: "accent", hold: Option.some("spin" as const) },
@@ -484,7 +462,7 @@ const Ceremony: Ceremony.Shape = {
   postures: _PHASES,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Ceremony, Form, UploadFault, Wizard }
 ```

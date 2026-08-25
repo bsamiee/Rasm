@@ -26,7 +26,7 @@ Recency and fingerprint admission are the settled `Rasm.Persistence` `Query/cach
 - Boundary: the terminal `PayloadBand` row's ceiling IS `long.MaxValue`, so the band scan is total by construction and the `"large"` magic default the tuple roster carried — a second spelling of the terminal row, drifting the moment the row moved — has nothing left to fall back to.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using static Rasm.Element.Projection.AdmissionSlots;
 
 [SmartEnum<string>]
@@ -40,8 +40,6 @@ public sealed partial class PayloadBand {
 
     public long MaxBytes { get; }
 
-    // Rows ascend by ceiling and the terminal row's ceiling is the whole `long` domain, so the scan cannot miss
-    // and the fall-through names that same ROW rather than a literal the roster does not own.
     public static PayloadBand Of(long payloadBytes) =>
         toSeq(Items).Find(row => payloadBytes <= row.MaxBytes).IfNone(Large);
 }
@@ -54,10 +52,6 @@ public sealed partial class BenchmarkPolarity {
     public static readonly BenchmarkPolarity Maximize = new("maximize");
 }
 
-// The six columns one benchmark run measures TOGETHER — a median without its sample count is a figure no reader
-// can weigh, and a P95 below its own median is a distribution no run produced. Branch RULINGS `[03]` keeps the
-// exact bench figures three-formed against `StreamMonitor.Quantile` and `Distribution.Of`; this is the product
-// those figures already formed as six loose columns, not an estimator standing in for any of them.
 [ComplexValueObject]
 public sealed partial class BenchDistribution {
     public Duration Mean { get; }
@@ -67,8 +61,6 @@ public sealed partial class BenchDistribution {
     public int Samples { get; }
     public int Warmups { get; }
 
-    // `p95 >= median` is the one DEPENDENT claim here and binds inside its own slot rather than reading another's
-    // result; the rest are independent and accumulate.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref Duration mean, ref Duration median, ref Duration p95, ref Duration stdDev, ref int samples, ref int warmups) =>
@@ -88,10 +80,6 @@ public sealed partial class BenchDistribution {
         new ComputeFault.EquivalenceMiss($"<{stem}-rejected:{Error.Many(errors)}>");
 }
 
-// `[Equatable]` is the claim-input DIFF rail: two admitted input classes compare member-wise and `Inequalities`
-// names the axis that moved between two claim generations. The generated value-object equality is declined so the
-// two generators do not both own the member set, and the derived projections are ignored by BOTH so no member
-// compares twice. `Seq<long>` members carry no ordering attribute — the carrier already compares element-wise.
 [ComplexValueObject(SkipEqualityComparison = true)]
 [Equatable]
 public sealed partial class BenchmarkInput {
@@ -108,9 +96,6 @@ public sealed partial class BenchmarkInput {
     [IgnoreMember, IgnoreEquality]
     public int Rank => Shape.Count;
 
-    // Unchecked by ADMISSION PROOF: the extent slot already refused a shape whose product overflows `long`, so the
-    // running product here cannot. The `Try`-to-`bool` collapse this replaces caught its own overflow, discarded
-    // the error, and let the caller re-report it as an opaque `"extent"` token the raiser never measured.
     [IgnoreMember, IgnoreEquality]
     public bool Contiguous =>
         Shape.Rev().Zip(Strides.Rev())
@@ -131,7 +116,6 @@ public sealed partial class BenchmarkInput {
             .Apply(static (_, _, _, _, _, _, _) => unit).As()
             .Match(Succ: static _ => null, Fail: static errors => BenchDistribution.Rejection("benchmark-input", errors));
 
-    // Overflow remains a distinct typed refusal; the arithmetic exception text is not re-minted as domain data.
     static Validation<Error, Unit> Extent(Seq<long> shape) =>
         Op.Of(name: "benchmark.extent").Catch(() => Fin.Succ(shape.Fold(1L, static (extent, dimension) => checked(extent * dimension))))
             .Match(
@@ -218,9 +202,6 @@ public sealed partial class BenchmarkClaim {
         ref double equivalenceMaxDeviation, ref string toleranceClass, ref HostFingerprint fingerprint,
         ref Seq<ProfileArtifact> artifacts, ref Instant at) =>
         validationError = Accumulate(Seq(
-            // `CacheToken` is a struct value object, so null is unrepresentable — the ghost is zero-init: a
-            // `default(CacheToken)` bypasses the admission gate with a blank key member, and identity (`Key`,
-            // `Persist`) embeds the case, so the outer seam reads the key member here.
             Gate(!string.IsNullOrWhiteSpace((string)@case), "case", "<default>", Rejected),
             Gate(!string.IsNullOrWhiteSpace(route), "route", route, Rejected),
             Gate(!string.IsNullOrWhiteSpace(provider), "provider", provider, Rejected),
@@ -242,19 +223,12 @@ public sealed partial class BenchmarkClaim {
     public string Key() => string.Create(CultureInfo.InvariantCulture,
         $"{Family.Key}|{(string)Case}|{Input.Key()}|{Substrate.Key}|{Route}|{Provider}|{Polarity.Key}|{ToleranceClass}");
 
-    // This family owns the durable mint and its refusals, so the rail is the family's own — a claim admitted here
-    // can still fail the row invariants persistence holds, and swallowing that leaves a forecast reading a row
-    // no store would accept.
     public Fin<BenchmarkRow> Persist() => Family.Claim(
         Case, Route, Distribution.Median, Distribution.P95, AllocatedBytes, Operations,
         Corpus, ArtifactKey, Fingerprint.ToString(), At);
 
-    // Generated comparer read: the spine declaration carries [Equatable] with its unordered Stamps roster, so
-    // staleness is one structural compare and Digest comparisons stay their own axis.
     public bool Stale(HostFingerprint current) => !HostFingerprint.EqualityComparer.Default.Equals(Fingerprint, current);
 
-    // Cadence is a declared VALUE the AppHost scheduler executes; this library tier publishes retriability and
-    // executes none (branch RULINGS).
     public static ScheduleEntry Sweep(Func<IO<Unit>> work) =>
         new("compute-equivalence-sweep", new OccurrenceSpec.Every(Duration.FromDays(7)), DeadlineClass.SupportWindow, None, RedrivePolicy.None, work);
 }
@@ -280,8 +254,6 @@ public static class HostClaims {
     }
 
     extension(HostFingerprint) {
-        // `Effective` substitutes the admitted budget: the spine's own `Current` reads the ambient host count, which
-        // over-reports every cgroup-limited container and would let a claim measured under 4 cores win a 64-core row.
         public static HostFingerprint Effective(FrozenDictionary<string, string> stamps, CpuBudget budget) =>
             HostFingerprint.Current(stamps) with { Processors = budget.Total };
     }
@@ -302,13 +274,9 @@ public static class HostClaims {
 - Boundary: `BenchmarkPolarity` and `PayloadBand` are `[SmartEnum<string>]` rows whose keys spell the generated enum names under `ByName` mapping, so `minimize`/`maximize` and `micro`/`small`/`medium`/`large` cross with no table and an unrostered key has no arm to land on; `corpus` crosses as the kernel's sixteen big-endian bytes through `ContentHash.Wire`; `minted` crosses as the NodaTime `Instant` through `ToTimestamp`; the band's `samples` column is the measured sample vector the AppHost bench edge supplies and stays empty where a claim carries only its distribution.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// The generated `benchmark.PayloadBand` enum shares its simple name with this folder's `PayloadBand` roster it was
-// derived from; the alias resolves the one collision in the one file that imports both namespaces.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using WireBand = Rasm.Contracts.Benchmark.PayloadBand;
 
-// ONE seam from the claim domain onto the generated host family. Reader-free member moves generate; proto3
-// optional scalars and the two oneofs are the hand tail protobuf forces, spelled once here.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target, EnumMappingStrategy = EnumMappingStrategy.ByName)]
 [UseStaticMapper(typeof(NodaExtensions))]
 public static partial class ClaimWireMap {
@@ -318,8 +286,6 @@ public static partial class ClaimWireMap {
         return document;
     }
 
-    // The metric's generated body, then the optional tail: `Warmups` lives on the distribution, `AllocatedBytes`
-    // and `Operations` on the claim, each present on every Compute claim because admission refused their absence.
     public static BenchMetric Metric(BenchmarkClaim claim) {
         BenchMetric metric = new() {
             Label = claim.Case, Unit = "ns", Modality = BenchModality.Fn, Polarity = Polarity(claim.Polarity),
@@ -348,8 +314,6 @@ public static partial class ClaimWireMap {
     [MapperIgnoreSource(nameof(BenchmarkInput.Contiguous))]
     public static partial BenchInputWire Input(BenchmarkInput input);
 
-    // The distribution's six columns become one band: sample count, and the four rungs a Compute run measures,
-    // each in nanoseconds. `ticks`, `samples`, `gc`, `heap`, and `counters` are the harness's and stay unset here.
     public static BenchBandWire Band(BenchDistribution distribution) {
         BenchBandWire band = new() { SampleCount = checked((uint)distribution.Samples) };
         band.Rungs.AddRange(Seq(
@@ -360,7 +324,6 @@ public static partial class ClaimWireMap {
         return band;
     }
 
-    // ONE arm per case through the generated total Switch — a multi-arm initializer would clear the arm it set.
     public static ProfileArtifactWire Artifact(ProfileArtifact artifact) => artifact.Switch(
         chromeTrace: static trace => new ProfileArtifactWire { ChromeTrace = new ChromeTraceWire { Content = ContentHash.Wire(trace.Content.Value), StartNs = trace.StartNs } },
         benchmarkExport: static export => new ProfileArtifactWire { BenchmarkExport = new BenchmarkExportWire { Content = ContentHash.Wire(export.Content.Value), Exporter = export.Exporter } },

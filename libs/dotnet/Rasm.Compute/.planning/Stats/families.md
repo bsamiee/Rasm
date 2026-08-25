@@ -30,11 +30,8 @@ Dense factorizations ride `Tensor/blas#DENSE_ALGEBRA` — `DenseRoute.Solve`, `L
 - Boundary: the SMO loops, the Lloyd assignment sweep, the agglomerative merge scan, the DBSCAN region walk, and the NMF multiplicative update are MEASURED numeric kernels: statement bodies, index arithmetic, and mutation-local scratch stay confined inside them and never reach domain flow, exactly as the wavelet and power-iteration kernels on the sibling signal page are exempted. What is NOT exempt is their terminal — every one of them reports a `Convergence` verdict its caller reads, so the exemption covers the body and never the answer.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// One fit-quality vocabulary the whole lane reads. The receipt's `QualityMetric` column is a WIRE spelling, and
-// twelve literals scattered across three rosters meant twelve independent chances for `"r2"` to become `"R2"` on
-// one row; a new reading is a ROW here, and a row that reuses an existing reading references it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -61,15 +58,9 @@ public sealed partial class EstimatorFamily {
     public static readonly EstimatorFamily Classify = new("classify");
     public static readonly EstimatorFamily Temporal = new("temporal");
 
-    // Supervision is a PROJECTION of the family, so the roster answers it once instead of fifteen kind rows each
-    // restating it — and contradicting it becomes unspellable rather than a silent column.
     public bool Supervised => this == Regression || this == Classify;
 }
 
-// One row carries the inverse link g⁻¹(η) in BOTH arities — the scalar the prediction fold applies and the
-// tensor the fit's loss composes — so a `Link` override moves the fitted objective and the predicted mean
-// together. The variance function V(μ) is the FAMILY's, never the link's: identity paired with a binomial
-// family still weights by μ(1−μ), and a link-owned variance silently reports the Gaussian one.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -77,30 +68,17 @@ public sealed partial class LinkFunction {
     public static readonly LinkFunction Identity = new("identity", static eta => eta, static eta => eta, admits: static _ => true);
     public static readonly LinkFunction Logit = new("logit", static eta => 1.0 / (1.0 + Math.Exp(-eta)), static eta => torch.special.expit(eta), admits: static _ => true);
     public static readonly LinkFunction Log = new("log", static eta => Math.Exp(eta), static eta => eta.exp(), admits: static _ => true);
-    // g(μ)=1/μ, the statsmodels `InversePower` link: η is the RECIPROCAL mean, so the domain is η > 0 and an
-    // unconstrained LBFGS step reaches η ≤ 0 on the way to the optimum — the gate refuses there rather than
-    // returning a NaN loss the driver reads as progress. statsmodels ships `safe_links = [Log]` for the same reason.
     public static readonly LinkFunction Inverse = new("inverse", static eta => 1.0 / eta, static eta => eta.pow(-1.0), admits: static eta => eta > 0.0);
-    // Inverse-Gaussian's canonical g(μ)=1/μ², so g⁻¹(η)=η^(−1/2) under the same positive-η domain.
     public static readonly LinkFunction InverseSquared = new("inverse-squared", static eta => 1.0 / Math.Sqrt(eta), static eta => eta.pow(-0.5), admits: static eta => eta > 0.0);
 
     [UseDelegateFromConstructor] public partial double Mean(double eta);
     [UseDelegateFromConstructor] internal partial Tensor Mean(Tensor eta);
     [UseDelegateFromConstructor] private partial bool Admits(double eta);
 
-    // The linear predictor's admissible range, proved over the FITTED η before the carrier lands and over the
-    // predicted η before a mean leaves; an out-of-domain η is a typed refusal naming the link.
     internal Fin<Unit> Domain(Vector<double> eta) =>
         eta.All(Admits) ? Fin.Succ(unit) : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(eta.Count))));
 }
 
-// One exponential-family law per row. The EXACT unit deviance d(y,μ) is branch-explicit at its own limits —
-// y=0 and y=1 are real points of the support where the y·ln y term has a finite limit, so the branch states
-// the limit and a clamp (`Math.Max(1e-9, …)`) that fabricates a nearby value is the deleted form. The torch
-// column carries only the θ-DEPENDENT part of that same deviance: the exponential-family normalizer and every
-// y-only term are constants in θ that cancel out of the gradient, and ln y is −∞ at the admitted y=0 where a
-// `torch.where` would still evaluate both branches into a NaN gradient. `Weight` is the GLM prior weight —
-// the binomial trial count m per row, 1.0 for every other family — and both d and V read it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -115,8 +93,6 @@ public sealed partial class GlmFamily {
         variance: static (mu, _) => mu,
         supports: static y => y >= 0.0 && double.IsInteger(y),
         kernel: static (mu, y) => mu.sub(y.mul(mu.log())));
-    // y is the observed PROPORTION of m trials, so the endpoints y=0 and y=1 are the ordinary Bernoulli
-    // observations and carry the whole deviance in one term each.
     public static readonly GlmFamily Binomial = new("binomial", LinkFunction.Logit,
         deviance: static (y, mu, m) => y == 0.0 ? -2.0 * m * Math.Log(1.0 - mu)
             : y == 1.0 ? -2.0 * m * Math.Log(mu)
@@ -142,10 +118,6 @@ public sealed partial class GlmFamily {
     [UseDelegateFromConstructor] private partial bool Supports(double y);
     [UseDelegateFromConstructor] private partial Tensor Kernel(Tensor mu, Tensor y);
 
-    // The loss is ONE composition for every (family, link) cell: the θ-dependent unit deviance evaluated at
-    // the link's own tensor inverse. A per-pair loss table re-derives five identities the composition already
-    // yields — gaussian∘identity is the squared error, poisson∘log is `e^η − y·η`, binomial∘logit is
-    // `log1p(e^η) − y·η`, gamma∘log is `η + y·e^{−η}`, and gamma∘inverse is `y·η − ln η`.
     internal Func<Tensor, Tensor, Tensor> Loss(LinkFunction link) => (eta, y) => Kernel(link.Mean(eta), y).mean();
 
     internal Fin<Unit> Admit(Design design) =>
@@ -153,9 +125,6 @@ public sealed partial class GlmFamily {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(Key))));
 
-    // Deviance explained, 1 − D_resid/D_null, the family's own R² analogue: D_null is the same unit deviance
-    // against the intercept-only mean, so the scale-free ratio compares fits within one family and the
-    // saturated-model normalizer cancels twice over.
     internal double Explained(Vector<double> y, Vector<double> fitted, double weight) {
         double mean = y.Average();
         double nullDeviance = EstimatorFold.ExactSum(toSeq(Enumerable.Range(0, y.Count).Select(i => Deviance(y[i], mean, weight))));
@@ -166,8 +135,6 @@ public sealed partial class GlmFamily {
         EstimatorFold.ExactSum(toSeq(Enumerable.Range(0, y.Count).Select(i => Deviance(y[i], fitted[i], weight))));
 }
 
-// One kernel vocabulary every kernel consumer reads — the SMO Gram, the LS-SVM Gram, the decision sum, and
-// the kernel-PCA operand are one row's `At`/`Gram`, never four transcriptions of the same RBF exponent.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -182,8 +149,6 @@ public sealed partial class KernelRow {
     public Matrix<double> Gram(Matrix<double> left, Matrix<double> right, KernelParams parameters) =>
         Matrix<double>.Build.Dense(left.RowCount, right.RowCount, (i, j) => At(left.Row(i), right.Row(j), parameters));
 
-    // The diagonal is the SMO second-order denominator's operand and, for `rbf`/`sigmoid` with zero offset,
-    // a constant — computing it per pair from the full kernel keeps the row the one authority on its value.
     public Vector<double> Diagonal(Matrix<double> x, KernelParams parameters) =>
         Vector<double>.Build.Dense(x.RowCount, i => At(x.Row(i), x.Row(i), parameters));
 }
@@ -200,11 +165,6 @@ public sealed partial class OptimDriver {
     [UseDelegateFromConstructor] public partial torch.optim.Optimizer Bind(IEnumerable<Parameter> parameters, double lr);
 }
 
-// ONE `glm` row spans every exponential family: the family is per-occurrence payload on `Estimator.Regression`,
-// so poisson, binomial, gamma, and inverse-gaussian fits differ by a row value, never by a kind. A per-family
-// kind re-declares the same driver, the same admission shape, and the same loss composition five times and
-// hard-codes each one's link into its key, which is exactly what made a `glm-poisson` fit under an overridden
-// identity link minimize the log-link deviance and predict through the identity mean.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -234,10 +194,6 @@ public sealed partial class EstimatorKind {
     [UseDelegateFromConstructor] internal partial Fin<Unit> Admit(FitContext context);
 }
 
-// Forecast projection is a ROW column, not an equality ladder over the carrier's own model tag: the deleted
-// `lag.Model == X ? … : lag.Model == Y ? … : …` chain re-decided at the call site what the row already knows,
-// and a new forecast row would have routed silently to the ARMA roll. Detector rows carry a typed refusal
-// because their carrier is `EstimatorModel.Detector` and never a `Lag` — the arm is unreachable and says so.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -246,9 +202,6 @@ public sealed partial class TimeSeriesModel {
     public static readonly TimeSeriesModel Arma = new("arma", FitMetric.InnovationVariance, EstimatorKernels.MovingAverage, EstimatorKernels.ArmaForecast);
     public static readonly TimeSeriesModel ExponentialSmoothing = new("exponential-smoothing", FitMetric.InnovationVariance, EstimatorKernels.Holt, EstimatorKernels.TrendForecast);
     public static readonly TimeSeriesModel StateSpace = new("state-space", FitMetric.InnovationVariance, EstimatorKernels.StateSpace, EstimatorKernels.TrendForecast);
-    // The three detection rows bind ONE baseline fit. Three per-row forwarders each calling the same body with a
-    // row argument the spec already derives were three names for one fold plus a `spec.Model != model` re-check
-    // that could never fire, because `TemporalSpec.Detection` DERIVES the row from the payload it carries.
     public static readonly TimeSeriesModel Cusum = new("cusum", FitMetric.BaselineLogLikelihood, EstimatorKernels.DetectorBaseline, EstimatorKernels.NoForecast);
     public static readonly TimeSeriesModel BayesianOnline = new("bayesian-online", FitMetric.BaselineLogLikelihood, EstimatorKernels.DetectorBaseline, EstimatorKernels.NoForecast);
     public static readonly TimeSeriesModel CorrelatedResidual = new("correlated-residual", FitMetric.BaselineLogLikelihood, EstimatorKernels.DetectorBaseline, EstimatorKernels.NoForecast);
@@ -259,10 +212,6 @@ public sealed partial class TimeSeriesModel {
     [UseDelegateFromConstructor] internal partial Fin<Vector<double>> Forecast(EstimatorModel.Lag lag, int horizon);
 }
 
-// Curve rows own the linear-in-parameters fits whose design matrix is a transform of one feature column, so the
-// library's own log-linearization conventions stay authoritative and no arm re-derives which side gets logged.
-// Every row scores identically — `R2` is the quality and `StandardError` the residual — because each fits an
-// identity link, so the link-weighted Pearson dispersion the GLM rows need has nothing to weight here.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -288,25 +237,17 @@ public sealed partial class RegressionForm {
     [UseDelegateFromConstructor] internal partial double[] Fit(CurveSpec spec, double[] x, double[] y);
     [UseDelegateFromConstructor] internal partial double Evaluate(CurveSpec spec, Vector<double> coefficients, double x);
 
-    // Two-parameter library fits name their elements differently (`(A, R)` versus `(A, B)`), so positional
-    // deconstruction reads both and no row spells a member name the next release could rename.
     private static double[] Pair((double, double) row) => [row.Item1, row.Item2];
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The detection payload at ONE owner. The three cases are the closed set `Detect` dispatches on, so its switch
-// is total with no unreachable arm — where the widened seven-case temporal carrier gave it four forecast arms
-// that could not fire and a caller could not tell an impossible state from a refused one.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DetectorSpec {
     private DetectorSpec() { }
 
     public sealed record Cusum(int Warmup, double Drift, double Threshold) : DetectorSpec;
     public sealed record BayesianOnline(int Warmup, double Hazard, double Threshold) : DetectorSpec;
-    // Ridge is the diagonal loading the baseline covariance takes before factorization; every other detector row
-    // loads at the shared variance floor, so the column lives on the ONE case that moves it rather than as a
-    // seven-arm switch answering the floor six times.
     public sealed record CorrelatedResidual(int Warmup, double FalsePositiveRate, double Ridge) : DetectorSpec;
 
     public TimeSeriesModel Model => Switch(
@@ -322,9 +263,6 @@ public abstract partial record DetectorSpec {
         bayesianOnline: static _ => EstimatorFold.VarianceFloor,
         correlatedResidual: static s => s.Ridge);
 
-    // Each case admits its OWN parameters under its OWN slug, accumulating across the independent columns so a
-    // caller learns every violated band at once. The deleted shared gate took a `bool range` that had already
-    // collapsed three unrelated conditions into one bit before the fault was even minted.
     internal Fin<Unit> Admit(int rows, int columns) => Switch(
         state: (Rows: rows, Columns: columns),
         cusum: static (s, spec) => (
@@ -343,8 +281,6 @@ public abstract partial record DetectorSpec {
             Band(spec.Ridge > 0.0 && double.IsFinite(spec.Ridge), "correlated-ridge", spec.Ridge).ToValidation())
             .Apply(static (_, _, _) => unit).ToFin());
 
-    // The warmup prefix must both exceed the dimension (a covariance below it is singular by construction) and
-    // leave rows behind to score.
     private static Fin<Unit> Prefix(int warmup, int rows, int columns) =>
         warmup >= Math.Max(4, columns + 1) && rows > warmup
             ? Fin.Succ(unit)
@@ -354,9 +290,6 @@ public abstract partial record DetectorSpec {
         holds ? Fin.Succ(unit) : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())));
 }
 
-// The three DBSCAN assignment states one `int` spelled through the sentinels `-2` and `-1`. `Cluster` collapses
-// onto the carrier's own `Option<int>` at the boundary, so the sentinel decoding happens ONCE and never at a read
-// — the deleted form re-decoded `label < 0` at four sites, each of which had to know both magic values.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record Reach {
     private Reach() { }
@@ -386,8 +319,6 @@ public abstract partial record TemporalSpec {
 
     public bool Forecasts => Detector.IsNone;
 
-    // The detection payload projects as an `Option` and every detector consumer reads it through this ONE
-    // narrowing, so no downstream switch carries a forecast arm it cannot reach.
     public Option<DetectorSpec> Detector => Switch(
         ar: static _ => Option<DetectorSpec>.None, arma: static _ => Option<DetectorSpec>.None,
         exponentialSmoothing: static _ => Option<DetectorSpec>.None, stateSpace: static _ => Option<DetectorSpec>.None,
@@ -411,8 +342,6 @@ public abstract partial record TemporalSpec {
             : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Counts(rows, columns, history))));
 }
 
-// `CurveSpec` generates a curve row exactly as `TemporalSpec` generates a temporal one, owning every parameter its
-// form cannot reconstruct and deriving the `RegressionForm` that binds the kernel.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveSpec {
     private CurveSpec() { }
@@ -428,8 +357,6 @@ public abstract partial record CurveSpec {
         power: static _ => RegressionForm.Power, logarithm: static _ => RegressionForm.Logarithm,
         combination: static _ => RegressionForm.Combination);
 
-    // Fitted-parameter count, the degrees of freedom `GoodnessOfFit.StandardError` consumes: a polynomial of order n
-    // fits n+1 coefficients, the log-linearized rows fit two, and a combination fits one per basis function.
     public int Terms => Switch(
         polynomial: static s => s.Order + 1, exponential: static _ => 2,
         power: static _ => 2, logarithm: static _ => 2,
@@ -440,8 +367,6 @@ public abstract partial record CurveSpec {
         polynomial: static _ => Seq<Func<double, double>>(), exponential: static _ => Seq<Func<double, double>>(),
         power: static _ => Seq<Func<double, double>>(), logarithm: static _ => Seq<Func<double, double>>());
 
-    // `Power` and `Logarithm` linearize through `ln x` and `Exponential` through `ln y`, so each row's admission
-    // proves the support its transform needs instead of letting the library return a silent NaN coefficient.
     internal Fin<Unit> Admit(Design design) =>
         design.Columns != 1
             ? Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(design.Columns, 1L))))
@@ -466,16 +391,8 @@ public abstract partial record CurveSpec {
             : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(gate))));
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// Torch-loss rows minimize a Tensor loss under torch.autograd + the row's OptimDriver inside one DisposeScope; the LBFGS line-search form re-evaluates the closure per probe.
-// Every intermediate is reclaimed at scope exit and AnomalyMode traps a NaN/inf fit, so no Tensor escapes the lane.
-// The Float64 default dtype is BOOT state `Tensor/blas#DENSE_ALGEBRA` `AtenFloor.Configure` pins once — a
-// per-fit `set_default_dtype` mutates a process-global from inside a lane that may run concurrently with any
-// other torch consumer, and every tensor here already names its own `ScalarType.Float64` at construction.
-// The `using` scope inside a `Fin`-returning static is DELIBERATE and no `SUCCESS_ARM_RELEASE` violation: the
-// disposal frees torch intermediates, and the only value that leaves is a detached MathNet vector already copied
-// out of the graph — nothing the success arm returns is owned by either scope.
 public static class IterativeEngine {
     public static Fin<(Vector<double> Theta, double Loss, int Steps, Convergence Verdict)> Minimize(
         Func<Tensor, Tensor, Tensor, Tensor> loss, Matrix<double> design, Vector<double> response, OptimDriver driver, double learningRate, FitBudget budget) {
@@ -486,8 +403,6 @@ public static class IterativeEngine {
         Parameter theta = new(torch.zeros(design.ColumnCount, ScalarType.Float64), requires_grad: true);
         torch.optim.Optimizer opt = driver.Bind([theta], learningRate);
         Tensor Step() { opt.zero_grad(); Tensor l = loss(theta, x, y); l.backward(); return l; }
-        // The terminal is a VERDICT, never a flag: a spent budget answers `Exhausted` carrying the budget, so a
-        // GLM under a thousand-iteration cap can no longer publish an unconverged carrier through a success arm.
         double last = double.MaxValue;
         int steps = 0;
         Convergence verdict = new Convergence.Exhausted(budget.MaxIterations.Value);
@@ -510,11 +425,8 @@ public static class IterativeEngine {
     private static Tensor Plain(torch.optim.Optimizer opt, Func<Tensor> closure) { Tensor l = closure(); opt.step(); return l; }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Every body a row column binds. The shared numeric helpers — `Intercept`, `Center`, `Distance`, `Nearest`,
-// `LogGaussian`, `Mahalanobis`, `Choleskies`, `ExactSum` — belong to `EstimatorFold` at `Stats/estimator`, which
-// is the contract owner both this page's fits and that page's prediction readers compose, so no helper has two homes.
 public static class EstimatorKernels {
     // --- [REGRESSION]
 
@@ -523,8 +435,6 @@ public static class EstimatorKernels {
     internal static Fin<FittedModel> Ridged(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Regression>().Bind(p => ClosedForm(ctx, tikhonov: p.Regularization));
 
-    // OLS/ridge share intercept-augmented thin-QR; ridge stacks the unpenalized-intercept `√λ·I` block.
-    // `λ = 0` selects the unstacked identity without a mode flag.
     private static Fin<FittedModel> ClosedForm(FitContext ctx, double tikhonov) =>
         ctx.Case<EstimatorPolicy.Regression>().Bind(p => ctx.Supervised().Bind(y => {
             Matrix<double> design = EstimatorFold.Intercept(ctx.Design.Features);
@@ -537,16 +447,10 @@ public static class EstimatorKernels {
     private static Matrix<double> Tikhonov(int columns, double lambda) =>
         Matrix<double>.Build.Diagonal(columns, columns, j => j == 0 ? 0.0 : Math.Sqrt(lambda));
 
-    // One kernel serves every curve row: the row supplies its coefficient fit and its evaluator, and the shared body
-    // owns capture, finiteness, and the uniform quality pair. `RSquared` scores the surrogate on the ORIGINAL scale
-    // rather than the linearized one the library fits on, so an exponential row's quality is comparable with a
-    // polynomial's; `StandardError` reads the row's own fitted-parameter count as its degrees of freedom.
     internal static Fin<FittedModel> CurveFit(FitContext ctx, CurveSpec spec) =>
         ctx.Supervised().Bind(y => {
             double[] x = ctx.Design.Features.Column(0).AsArray() ?? ctx.Design.Features.Column(0).ToArray();
             double[] observed = y.AsArray() ?? y.ToArray();
-            // The ONE foreign-throw boundary on the page preserves MathNet's error when `Fit.*` rejects a singular
-            // linearization.
             return Op.Of(name: "stats.curve-fit").Catch(() => Fin.Succ(spec.Form.Fit(spec, x, observed)))
                 .Bind(coefficients => coefficients.Length == spec.Terms && TensorPrimitives.IsFiniteAll<double>(coefficients)
                     ? Fin.Succ(Vector<double>.Build.DenseOfArray(coefficients))
@@ -571,27 +475,17 @@ public static class EstimatorKernels {
             IterativeEngine.Minimize((theta, x, yy) => deviance(x.matmul(theta), yy), EstimatorFold.Intercept(ctx.Design.Features), y, ctx.Driver, p.LearningRate, p.Budget)
                 .Bind(fit => Build(ctx, p, y, EstimatorFold.Split(fit.Theta), fit.Loss, fit.Steps, fit.Verdict))));
 
-    // ONE builder for every linear row, closed-form and iterative alike: quality is the family's own
-    // deviance-explained (Gaussian∘identity recovers R² exactly, so no row needs a second metric), and the
-    // residual is the link-and-family-weighted Pearson dispersion. The linear predictor crosses the link's
-    // domain gate BEFORE the carrier lands, so an LBFGS step that walked a Gamma inverse-link fit to η ≤ 0
-    // refuses by name instead of publishing a carrier whose every prediction is a signed infinity.
     private static Fin<FittedModel> Build(
         FitContext ctx, EstimatorPolicy.Regression policy, Vector<double> y,
         (double Intercept, Vector<double> Slopes) split, double loss, int steps, Convergence verdict) {
         Vector<double> eta = ctx.Design.Features.Multiply(split.Slopes).Add(split.Intercept);
         return ctx.Link.Domain(eta).Map(_ => {
             Vector<double> predicted = eta.Map(ctx.Link.Mean);
-            // Pearson dispersion √(Σ (yᵢ−μᵢ)²/V(μᵢ)/(n−p)): the FAMILY's V(μ) weights each squared residual, so a
-            // binomial fit scores on its μ(1−μ)/m scale and gaussian (V=1) recovers the ordinary standard error.
-            // Never an unweighted RMSE blind to the family variance — that residual is the deleted decorative form.
             int dispersionDof = Math.Max(1, y.Count - split.Slopes.Count - 1);
             double dispersion = Math.Sqrt(EstimatorFold.ExactSum(toSeq(Enumerable.Range(0, y.Count)
                 .Select(i => (y[i] - predicted[i]) * (y[i] - predicted[i]) / ctx.Family.Variance(predicted[i], policy.Weight)))) / dispersionDof);
             double deviance = ctx.Family.Total(y, predicted, policy.Weight);
             EstimatorModel.Linear carrier = new(split.Slopes, split.Intercept, ctx.Link, ctx.Family, deviance / Math.Max(1e-12, dispersion * dispersion));
-            // The log-likelihood the criterion reads is −D/(2φ̂) with the family normalizer dropped: it is a
-            // constant in θ that cancels between candidates of one family, and no candidate set spans two.
             return new FittedModel(
                 ctx.Estimator, carrier, ctx.Family.Explained(y, predicted, policy.Weight),
                 double.IsFinite(dispersion) ? dispersion : loss,
@@ -622,9 +516,6 @@ public static class EstimatorKernels {
                 }));
         });
 
-    // Kernel-PCA: the centered Gram of the policy's OWN `KernelRow` is the operand and its top eigenvectors the
-    // duals, so a linear, polynomial, or sigmoid kernel-PCA is a policy value rather than a second kernel row;
-    // out-of-sample projection double-centers the test/train kernel against the stored row/grand means.
     internal static Fin<FittedModel> KernelPrincipal(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Reduction>().Bind(policy => {
             Matrix<double> x = ctx.Design.Features;
@@ -660,10 +551,6 @@ public static class EstimatorKernels {
         return Math.Max(1, cap);
     }
 
-    // NMF (Lee–Seung multiplicative updates): X ≈ W·H, W,H ≥ 0, minimizing the Frobenius reconstruction. The
-    // factor pair seeds through the kernel `Deterministic.Source` on the estimator's own lane, so one design and
-    // one policy answer one factorization — the deleted bare integer seeds drew from an unseeded process RNG and
-    // gave two runs two answers with nothing on the carrier or the receipt to say why.
     internal static Fin<FittedModel> NonNegative(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Reduction>().Map(policy => {
             Matrix<double> x = ctx.Design.Features;
@@ -686,9 +573,6 @@ public static class EstimatorKernels {
 
     // --- [CLUSTER]
 
-    // Lloyd stops when no row changes its assignment, which is CONVERGENCE with a measured residual of zero
-    // moves — the deleted `bool moved` was the same fact spelled as a flag the caller could not distinguish from
-    // a spent budget.
     internal static Fin<FittedModel> Lloyd(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Grouping>().Bind(policy => ctx.Groups().Map(k => {
             Matrix<double> x = ctx.Design.Features;
@@ -710,10 +594,6 @@ public static class EstimatorKernels {
             return new FittedModel(ctx.Estimator, new EstimatorModel.Partition(centroids, [.. labels]), -inertia, inertia / Math.Max(1, n), None, steps, verdict, ctx.Clock.GetCurrentInstant());
         }));
 
-    // GMM-EM as a rail-threaded HALTING fold: `foldWhile` stops at the settled state rather than binding a no-op
-    // through the whole remaining budget, and the terminal is `Converged` carrying the log-likelihood delta the
-    // stop measured or `Exhausted` carrying the budget it spent. Cholesky failure on a degenerate covariance
-    // aborts the whole fit through the rail.
     internal static Fin<FittedModel> ExpectationMaximization(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Grouping>().Bind(policy => ctx.Groups().Bind(k => {
             Matrix<double> x = ctx.Design.Features;
@@ -729,8 +609,6 @@ public static class EstimatorKernels {
                     static state => state.State.Map(static s => s.Verdict is not Convergence.Converged).IfFail(static _ => false),
                     Fin.Succ(seed),
                     toSeq(Enumerable.Range(0, policy.Budget.MaxIterations.Value)))
-                // The EM evidence IS the observed-data log-likelihood, so the mixture row is the one unsupervised
-                // carrier an information criterion can score without fabricating a likelihood from a quality score.
                 .Map(s => new FittedModel(ctx.Estimator, new EstimatorModel.Mixture(s.Means, s.Covariances, s.Weights), s.LogLik,
                     double.IsFinite(s.LogLik) ? -s.LogLik / Math.Max(1, n) : double.MaxValue,
                     double.IsFinite(s.LogLik) ? Some(s.LogLik) : None, s.Steps, s.Verdict, ctx.Clock.GetCurrentInstant()));
@@ -761,9 +639,6 @@ public static class EstimatorKernels {
                 delta < policy.Budget.Stop.Value ? new Convergence.Converged(delta) : s.Verdict);
         });
 
-    // DBSCAN reachability. Labels ride a three-case union rather than the `-2`/`-1` integer sentinels the deleted
-    // form carried: `Unvisited`, `Noise`, and `Member(cluster)` are three facts one `int` spelled through two
-    // magic values that every read had to re-decode.
     internal static Fin<FittedModel> Reachability(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Grouping>().Map(policy => {
             Matrix<double> x = ctx.Design.Features;
@@ -792,8 +667,6 @@ public static class EstimatorKernels {
                 }
             }
             double noise = labels.Count(static label => label is not Reach.Member) / (double)n;
-            // A density walk visits every row exactly once and terminates by construction — there is no budget to
-            // exhaust, so the verdict is `Converged` at the measured noise fraction rather than a fabricated flag.
             return new FittedModel(
                 ctx.Estimator, new EstimatorModel.Density(x, [.. labels.Select(static label => label.Cluster)], [.. core], eps),
                 cluster + 1, noise, None, 1, new Convergence.Converged(noise), ctx.Clock.GetCurrentInstant());
@@ -820,8 +693,6 @@ public static class EstimatorKernels {
         for (int g = 0; g < clusters.Count; g++) { foreach (int member in clusters[g]) { labels[member] = g; } }
         Matrix<double> centroids = Recenter(x, labels, clusters.Count, Matrix<double>.Build.Dense(clusters.Count, x.ColumnCount));
         double spread = Inertia(x, labels, centroids);
-        // The merge sweep runs to the requested group count by construction — the `ScaleCeiling.Cubic` admission
-        // IS its budget — so the terminal is the last accepted linkage distance, never a spent iteration count.
         return new FittedModel(
             ctx.Estimator, new EstimatorModel.Partition(centroids, [.. labels]),
             -spread, spread / Math.Max(1, n), None, n - clusters.Count, new Convergence.Converged(best), ctx.Clock.GetCurrentInstant());
@@ -829,9 +700,6 @@ public static class EstimatorKernels {
 
     // --- [CLASSIFY]
 
-    // One-vs-rest LS-SVM runs one regularized-Gram KKT solve per label; binary targets reduce to two machines.
-    // The dense closed form yields NO zero duals, so every training row is a support row and the carrier's
-    // support set is the full index range — the honest one for this mechanism, where SMO's is genuinely sparse.
     internal static Fin<FittedModel> MarginMachines(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Classification>().Bind(policy => ctx.Supervised().Bind(y => {
             Matrix<double> x = ctx.Design.Features;
@@ -846,10 +714,6 @@ public static class EstimatorKernels {
                 });
         }));
 
-    // LS-SVM KKT system [[0, sᵀ],[s, K+I/γ]]·[b; α] = [0; 1] for one machine's ±1 indicator s.
-    // The bordered matrix is symmetric INDEFINITE — the zero corner alone guarantees one negative eigenvalue —
-    // so it rides `FactorRoute.SquarePivoting` and `Admission.Definite` never gates it; routing it to the
-    // definite kernel refuses a system that is exactly solvable.
     private static Fin<SupportMachine> Machine(Matrix<double> gram, Vector<double> y, int label, double regularization, DenseSubstrate substrate) {
         int n = gram.RowCount;
         Vector<double> signed = Vector<double>.Build.Dense(n, i => (int)y[i] == label ? 1.0 : -1.0);
@@ -864,8 +728,6 @@ public static class EstimatorKernels {
                 Vector<double>.Build.Dense(n, i => solved.X[i + 1] * signed[i]), solved.X[0]));
     }
 
-    // kNN is the lazy store; quality is LEAVE-ONE-OUT accuracy (each row voted with itself excluded), because
-    // plain training accuracy of a 1-NN-containing vote is unconditionally perfect — evidence, not decoration.
     internal static Fin<FittedModel> Neighborhood(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Classification>().Bind(policy => ctx.Supervised().Map(y => {
             Matrix<double> x = ctx.Design.Features;
@@ -874,9 +736,6 @@ public static class EstimatorKernels {
             return new FittedModel(ctx.Estimator, carrier, accuracy, 1.0 - accuracy, None, 0, new Convergence.Converged(1.0 - accuracy), ctx.Clock.GetCurrentInstant());
         }));
 
-    // Per-class moments ride the kernel `Stat<Scalar>` four-moment fold, so the mean/variance pair a naive
-    // sum-of-squares pass computed with catastrophic cancellation now shares the one Welford recurrence the whole
-    // corpus reads, and the sentinel screen rides in with it.
     internal static Fin<FittedModel> GaussianBayes(FitContext ctx) =>
         ctx.Supervised().Bind(y => {
             Matrix<double> x = ctx.Design.Features;
@@ -904,10 +763,6 @@ public static class EstimatorKernels {
 
     // --- [SEQUENTIAL_MINIMAL_OPTIMIZATION]
 
-    // One-vs-rest C-SVM: per label the dual min ½αᵀQα − eᵀα subject to 0 ≤ αᵢ ≤ C and yᵀα = 0, with
-    // Qᵢⱼ = yᵢyⱼK(xᵢ,xⱼ). Where LS-SVM equalizes every constraint into one dense solve and yields a fully dense
-    // dual, the box constraint here leaves α sparse — the hard-margin support set — so the carrier's decision
-    // sum walks the support alone and a large training set predicts in support-set time, not row-count time.
     internal static Fin<FittedModel> SequentialMinimal(FitContext ctx) =>
         ctx.Case<EstimatorPolicy.Classification>().Bind(policy => ctx.Supervised().Bind(y => {
             Matrix<double> x = ctx.Design.Features;
@@ -917,9 +772,6 @@ public static class EstimatorKernels {
                 .Map(runs => {
                     EstimatorModel.Margin carrier = new(x, runs.Map(static m => m.Machine), policy.Kernel, policy.Parameters);
                     double accuracy = Enumerable.Range(0, x.RowCount).Count(i => EstimatorFold.Strongest(x.Row(i), carrier) == (int)y[i]) / (double)x.RowCount;
-                    // The receipt reads SMO's own terminal evidence: `Steps` is the total across the one-vs-rest
-                    // machines, the residual the WORST final gap m(α) − M(α), and the verdict `Converged` only
-                    // where EVERY machine's gap crossed ε — one machine short of its gate exhausts the whole fit.
                     double worst = runs.Fold(0.0, static (gap, m) => Math.Max(gap, m.Gap));
                     return new FittedModel(
                         ctx.Estimator, carrier, accuracy, worst, None,
@@ -931,9 +783,6 @@ public static class EstimatorKernels {
                 });
         }));
 
-    // A byte-budgeted column LRU: SMO touches exactly two kernel COLUMNS per step and revisits the same working
-    // indices for long stretches, so a column cache is the whole memory story and the full n×n Gram is the one
-    // allocation the box-constrained route exists to avoid — an n of 32_768 is 8 GiB of Gram, 256 KiB of column.
     private sealed class KernelCache(Matrix<double> x, KernelRow row, KernelParams parameters, int rows) {
         private const long ByteBudget = 512L << 20;
 
@@ -963,20 +812,15 @@ public static class EstimatorKernels {
         }
     }
 
-    // The dual iterate: α, the gradient Gₜ = Σₛ Qₜₛαₛ − 1 maintained incrementally, the ±1 label indicator, and
-    // the shrinking working set. `Gap` is the measured KKT violation m(α) − M(α) the terminal verdict reads.
     private sealed record SmoState(double[] Alpha, double[] Gradient, double[] Signed, bool[] Active, int Steps, double Gap);
 
     private sealed record SmoRun(SupportMachine Machine, int Steps, double Gap, Convergence Verdict);
 
-    // The fold HALTS at its own KKT gate. The deleted form bound a no-op through every remaining iteration of a
-    // million-step budget once the gap had already closed, so the machine's own stop condition was reached and
-    // then ignored for the rest of the budget.
     private static Fin<SmoRun> Smo(KernelCache cache, Vector<double> y, int label, EstimatorPolicy.Classification policy) {
         int n = cache.Rows;
         SmoState seed = new(
             Alpha: new double[n],
-            Gradient: [.. Enumerable.Repeat(-1.0, n)],                     // α = 0 seeds G = Q·0 − e = −e.
+            Gradient: [.. Enumerable.Repeat(-1.0, n)],
             Signed: [.. Enumerable.Range(0, n).Select(i => (int)y[i] == label ? 1.0 : -1.0)],
             Active: [.. Enumerable.Repeat(true, n)],
             Steps: 0,
@@ -1002,12 +846,6 @@ public static class EstimatorKernels {
                 : next with { Steps = measured.Steps + 1 });
     }
 
-    // The stop is the KKT VIOLATION GAP m(α) − M(α) ≤ ε, NEVER a coefficient or objective delta: the dual is flat
-    // near its optimum, so a step-size stall certifies an α that still violates the KKT conditions and the machine
-    // it publishes misclassifies exactly the rows the stall left violating. Shrinking makes the shrunk gap a
-    // LOWER bound only — parked gradients go stale the moment the working set moves — so once that gap closes to
-    // 10ε the full gradient RECONSTRUCTS, every index unshrinks, and the gap re-measures over all of them. That
-    // reconstruction is mandatory, never an option: without it the verdict is read off stale evidence.
     private static SmoState Measured(SmoState state, KernelCache cache, EstimatorPolicy.Classification policy) {
         (double up, double low) = Violation(state, policy.Box, shrunk: policy.Shrinking);
         if (!policy.Shrinking || up - low > policy.KktTolerance.Value * 10.0) { return state with { Gap = up - low }; }
@@ -1016,9 +854,6 @@ public static class EstimatorKernels {
         return full with { Gap = fullUp - fullLow };
     }
 
-    // WSS2 second-order working-set selection: i maximizes the up-violation −yᵢGᵢ, and j minimizes the projected
-    // objective decrease −b²/a among the low indices strictly below it. First-order selection — the maximal
-    // violating PAIR — converges an order of magnitude slower on an RBF kernel for the identical gap.
     private static Fin<SmoState> Step(SmoState state, KernelCache cache, EstimatorPolicy.Classification policy) {
         const double Tau = 1e-12;
         int n = cache.Rows;
@@ -1034,9 +869,6 @@ public static class EstimatorKernels {
             if (!state.Active[t] || !Low(state, t, policy.Box)) { continue; }
             double violation = best + state.Signed[t] * state.Gradient[t];
             if (violation <= 0.0) { continue; }
-            // Curvature a_it = Kᵢᵢ + Kₜₜ − 2Kᵢₜ is exactly zero for duplicate rows, so the τ floor is the ONE
-            // guard keeping a degenerate pair from an infinite step rather than a NaN one — and it is a floor on
-            // the DENOMINATOR alone, never a clamp on the step the box constraint already bounds.
             double curvature = Math.Max(Tau, cache.Diagonal(i) + cache.Diagonal(t) - 2.0 * ki[t]);
             double projected = -violation * violation / curvature;
             if (projected < gain) { (j, gain) = (t, projected); }
@@ -1045,10 +877,6 @@ public static class EstimatorKernels {
         return Fin.Succ(Moved(state, cache, policy, i, j, ki, Math.Max(Tau, cache.Diagonal(i) + cache.Diagonal(j) - 2.0 * ki[j])));
     }
 
-    // The EXACT two-variable step under the equality constraint yᵀα = 0: with s = yᵢ·yⱼ the pair slides along
-    // αᵢ + αⱼ (equal labels) or αⱼ − αᵢ (opposite labels), so the clip bounds differ by label PARITY and a bare
-    // [0, C] clamp per variable silently leaves the equality violated. αᵢ then recovers from the invariant, which
-    // is why it needs no clamp of its own — the [L, H] bounds already place it inside the box.
     private static SmoState Moved(
         SmoState state, KernelCache cache, EstimatorPolicy.Classification policy, int i, int j, double[] ki, double curvature) {
         double si = state.Signed[i], sj = state.Signed[j], s = si * sj;
@@ -1061,9 +889,6 @@ public static class EstimatorKernels {
         double newI = oldI + s * (oldJ - newJ);
         double[] alpha = (double[])state.Alpha.Clone();
         (alpha[i], alpha[j]) = (newI, newJ);
-        // Gradient maintenance costs exactly the two columns the step already fetched:
-        // Gₜ += Qₜᵢ·Δαᵢ + Qₜⱼ·Δαⱼ with Qₜᵤ = yₜyᵤKₜᵤ. Recomputing G from α is O(n²) per step, which turns SMO
-        // back into the dense solve it exists to replace.
         double[] kj = cache.Column(j);
         double[] gradient = (double[])state.Gradient.Clone();
         double di = newI - oldI, dj = newJ - oldJ;
@@ -1077,7 +902,6 @@ public static class EstimatorKernels {
     private static bool Low(SmoState state, int t, double box) =>
         (state.Signed[t] > 0.0 && state.Alpha[t] > 0.0) || (state.Signed[t] < 0.0 && state.Alpha[t] < box);
 
-    // m(α) = max over I_up of −y·G, M(α) = min over I_low of −y·G; the gap between them IS the KKT violation.
     private static (double Up, double Low) Violation(SmoState state, double box, bool shrunk) {
         double up = double.NegativeInfinity, low = double.PositiveInfinity;
         for (int t = 0; t < state.Alpha.Length; t++) {
@@ -1089,9 +913,6 @@ public static class EstimatorKernels {
         return (up, low);
     }
 
-    // A BOUND index whose violation score falls outside the current [M(α), m(α)] band can be selected as neither
-    // i nor j, so it parks. A free index never parks — its own gradient defines the bias — and parking is
-    // reversible by construction, because `Unshrunk` restores every index before any verdict is read.
     private static SmoState Shrunk(SmoState state, double box) {
         (double up, double low) = Violation(state, box, shrunk: true);
         bool[] active = (bool[])state.Active.Clone();
@@ -1103,8 +924,6 @@ public static class EstimatorKernels {
         return state with { Active = active };
     }
 
-    // Full gradient reconstruction G = Qα − e over the support alone: a parked index's gradient is stale by every
-    // step taken since it parked, and the reconstruction is what makes the unshrunk gap a verdict rather than a guess.
     private static SmoState Unshrunk(SmoState state, KernelCache cache) {
         int n = cache.Rows;
         double[] gradient = [.. Enumerable.Repeat(-1.0, n)];
@@ -1116,9 +935,6 @@ public static class EstimatorKernels {
         return state with { Gradient = gradient, Active = [.. Enumerable.Repeat(true, n)] };
     }
 
-    // The bias reads off the FREE support vectors (0 < α < C), whose KKT conditions hold with equality, as
-    // b = −mean(y·G) over that set. An empty free set means every support vector sits at a bound and the only
-    // information left is the bracketing interval the final violation pair names: b = −(m(α) + M(α))/2.
     private static SupportMachine Machine(SmoState state, double box, int label) {
         int n = state.Alpha.Length;
         int[] support = [.. Enumerable.Range(0, n).Where(t => state.Alpha[t] > 0.0)];
@@ -1132,16 +948,11 @@ public static class EstimatorKernels {
 
     // --- [TEMPORAL]
 
-    // The Gaussian conditional log-likelihood at the maximizing σ̂², ℓ = −n/2·(ln 2πσ̂² + 1) — the one form every
-    // innovation-variance row shares, so a criterion ranks AR against ARMA against Holt on one scale. `n` is the
-    // CONDITIONAL count each row's own warmup leaves, never the raw series length, because a row that discarded
-    // more warmup would otherwise score as though it had explained those observations.
     private static Option<double> Gaussian(int conditional, double variance) =>
         conditional > 0 && variance > 0.0 && double.IsFinite(variance)
             ? Some(-0.5 * conditional * (Math.Log(2.0 * Math.PI * variance) + 1.0))
             : None;
 
-    // Pure AR(p): the lag design Y[t] = Σ φₖ·Y[t−k] solved through the dense-algebra thin-QR — the same closed-form route OLS rides, the AR coefficients its solution.
     internal static Fin<FittedModel> AutoRegress(FitContext ctx) =>
         ctx.Temporal.ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Required(ComputeSubject.Input))).Bind(spec => {
             Vector<double> series = ctx.Design.Features.Column(0);
@@ -1160,8 +971,6 @@ public static class EstimatorKernels {
                 });
         });
 
-    // ARMA minimizes conditional sum-of-squares through hyperdual `LevenbergMarquardt`; `GetGradient()` supplies its exact Jacobian.
-    // Exponential smoothing and state space reuse that solver with distinct Holt-error and Kalman-innovation recurrences.
     internal static Fin<FittedModel> MovingAverage(FitContext ctx) =>
         ctx.Temporal.ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Required(ComputeSubject.Input))).Bind(spec => {
             Vector<double> series = ctx.Design.Features.Column(0);
@@ -1171,8 +980,6 @@ public static class EstimatorKernels {
                 : LevenbergMarquardt.Minimize(theta => ArmaResiduals(series, p, q, theta), Vector<double>.Build.Dense(p + q), LmPolicy.Canonical)
                     .Map(lm => {
                         Vector<double> resid = Primal(ArmaResiduals(series, p, q, Constants(lm.Iterate)));
-                        // Tail packs most-recent-first AR observations, then conditional MA residuals;
-                        // residual slots zero-fill past the warmup.
                         Vector<double> tail = Vector<double>.Build.Dense(p + q, k =>
                             k < p ? series[n - 1 - k]
                             : resid.Count - 1 - (k - p) >= 0 ? resid[resid.Count - 1 - (k - p)] : 0.0);
@@ -1183,8 +990,6 @@ public static class EstimatorKernels {
                     });
         });
 
-    // Holt linear-trend exponential smoothing: a genuinely distinct level+trend recurrence (NOT an ARMA roll); (α, β) is logistic-reparametrized so LevenbergMarquardt searches ℝ² unconstrained while live rates stay in (0,1).
-    // Carrier stores the realized (α, β) and the terminal (level, trend) the forecast extrapolates as level + h·trend.
     internal static Fin<FittedModel> Holt(FitContext ctx) {
         Vector<double> series = ctx.Design.Features.Column(0);
         int n = series.Count;
@@ -1201,8 +1006,6 @@ public static class EstimatorKernels {
                 });
     }
 
-    // Local-linear-trend Kalman fitting log-parameterizes `(qLevel, qSlope)` and minimizes raw innovations; standardization by `√F` admits the `q→∞` degeneracy.
-    // Carrier stores filtered terminal `(level, slope)` for forecast projection.
     internal static Fin<FittedModel> StateSpace(FitContext ctx) {
         Vector<double> series = ctx.Design.Features.Column(0);
         int n = series.Count;
@@ -1218,18 +1021,12 @@ public static class EstimatorKernels {
                 });
     }
 
-    // The dense owner's `SolveTermination` is the SAME decision this lane's `Convergence` carries, so the
-    // projection lives at ONE site: a truncated sketch never reaches an LM fit, so its arm names the impossible
-    // rather than folding onto either neighbour.
     private static Convergence Settled(SolveOutcome<Vector<double>> outcome) => outcome.Termination switch {
         SolveTermination.Converged => new Convergence.Converged(outcome.Residual),
         SolveTermination.Exhausted spent => new Convergence.Exhausted(spent.Budget),
         _ => new Convergence.Stalled(),
     };
 
-    // ONE detector baseline for all three rows: the fitted multivariate Gaussian over the warmup prefix, loaded
-    // by the spec's OWN ridge column. The deleted three forwarders each re-checked `spec.Model != model` against
-    // a row the spec DERIVES, so the refusal arm could never fire.
     internal static Fin<FittedModel> DetectorBaseline(FitContext ctx) =>
         ctx.Temporal.Bind(static spec => spec.Detector).ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Required(ComputeSubject.Input)))
             .Bind(spec => ctx.Case<EstimatorPolicy.Temporal>().Bind(policy => {
@@ -1240,15 +1037,13 @@ public static class EstimatorKernels {
                     Matrix<double>.Build.DiagonalIdentity(x.ColumnCount) * spec.Loading;
                 return Admission.Definite(covariance).Map(scale => {
                     double nll = x.EnumerateRows().Average(row => -EstimatorFold.LogGaussian(row, mean, scale, x.ColumnCount));
-                    // A detector fits a BASELINE over the warmup prefix, not a model of the whole stream, so it
-                    // carries no series log-likelihood and an information criterion is unavailable rather than misread.
                     return new FittedModel(
                         ctx.Estimator, new EstimatorModel.Detector(mean, scale, spec, policy.Budget.MaxIterations.Value),
                         -nll, nll, None, 1, new Convergence.Converged(nll), ctx.Clock.GetCurrentInstant());
                 });
             }));
 
-    // --- [DETECTION] -- the three scorers `EstimatorModel.Detector` dispatches, one per DetectorSpec case.
+    // --- [DETECTION]
 
     internal static Prediction.Anomaly Cusum(EstimatorModel.Detector detector, Matrix<double> evidence, DetectorSpec.Cusum spec) {
         double accumulator = 0.0;
@@ -1316,10 +1111,8 @@ public static class EstimatorKernels {
             EstimatorFold.Mahalanobis(value, mean, scale) / inflation);
     }
 
-    // --- [FORECAST] -- the projection each TimeSeriesModel row binds.
+    // --- [FORECAST]
 
-    // AR(+MA) roll: ŷ[T+h] = Σφₖ·ŷ[T+h−1−k] + Σψₖ·ê[T+h−1−k]; a future shock has zero expectation, so the MA term decays to zero past q steps while the AR feedback continues from the rolled forecasts.
-    // Pure-AR (q=0) skips the residual loop — one roll serving both lag-regression rows.
     internal static Fin<Vector<double>> ArmaForecast(EstimatorModel.Lag lag, int horizon) {
         int p = lag.ArCoefficients.Count, q = lag.MaCoefficients.Count;
         double[] obs = new double[p];
@@ -1340,19 +1133,14 @@ public static class EstimatorKernels {
         return Fin.Succ(Vector<double>.Build.DenseOfArray(forecast));
     }
 
-    // Holt and the local-trend state-space row extrapolate the IDENTICAL line off the terminal `(level, slope)`
-    // pair their carriers both store, so the two forecast bodies were one body under two names.
     internal static Fin<Vector<double>> TrendForecast(EstimatorModel.Lag lag, int horizon) =>
         Fin.Succ(Vector<double>.Build.Dense(Math.Max(1, horizon), h => lag.Tail[0] + (h + 1) * lag.Tail[1]));
 
-    // A detector carrier is `EstimatorModel.Detector` and never a `Lag`, so this arm names an unreachable request
-    // rather than routing a detection row into a forecast roll.
     internal static Fin<Vector<double>> NoForecast(EstimatorModel.Lag lag, int horizon) =>
         Fin.Fail<Vector<double>>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(lag.Model.Key))));
 
-    // --- [HYPERDUAL_RECURRENCES] -- authored ONCE over DDScalar so every LM Jacobian is machine-exact.
+    // --- [HYPERDUAL_RECURRENCES]
 
-    // Holt one-step level+trend recurrence; (α, β) arrive logistic-mapped from the LM iterate so live rates stay in (0,1).
     private static (DDScalar[] Errors, DDScalar Level, DDScalar Trend) HoltFilter(Vector<double> series, DDScalar[] theta) {
         DDScalar alpha = Logistic(theta[0]), beta = Logistic(theta[1]);
         int n = series.Count;
@@ -1380,8 +1168,6 @@ public static class EstimatorKernels {
         return (run.Level.Value, run.Slope.Value, variance);
     }
 
-    // 2-state (level, slope) local-linear-trend Kalman filter: transition T=[[1,1],[0,1]], observation H=[1,0] with unit measurement variance, diffuse covariance start, process variances (qLevel, qSlope); the raw innovation v feeds the LM prediction-error fit.
-    // Authored ONCE over the DDScalar so the innovation Jacobian is exact THROUGH the filter recursion — the covariance/gain arithmetic differentiates too, the algorithmic derivative a finite-difference probe could only approximate.
     private static (DDScalar[] Innovations, DDScalar Level, DDScalar Slope) StateSpaceFilter(Vector<double> series, DDScalar[] theta) {
         DDScalar qLevel = HyperJetMath.Exp(theta[0]), qSlope = HyperJetMath.Exp(theta[1]);
         int n = series.Count;
@@ -1405,7 +1191,6 @@ public static class EstimatorKernels {
 
     private static DDScalar Logistic(DDScalar z) => 1.0 / (1.0 + HyperJetMath.Exp(-z));
 
-    // Conditional residual recursion r[t] = y[t] − (Σφₖ·y[t−1−k] + Σψₖ·r[t−1−k]); residuals before the max(p,q) warmup are zero, the standard conditional-sum-of-squares start.
     private static DDScalar[] ArmaResiduals(Vector<double> series, int p, int q, DDScalar[] theta) {
         int n = series.Count, warmup = Math.Max(p, q);
         DDScalar zero = theta[0] * 0.0;
@@ -1420,14 +1205,12 @@ public static class EstimatorKernels {
         return residuals[warmup..];
     }
 
-    // Constant seeding for post-fit reads (gradient-free, order-1-compatible) and the primal projection back onto the MathNet vector the model carriers store.
     private static DDScalar[] Constants(Vector<double> theta) => [.. theta.Select(static v => DDScalar.Constant(v, 0, order: 1))];
 
     private static Vector<double> Primal(DDScalar[] values) => Vector<double>.Build.Dense([.. values.Select(static v => v.Value)]);
 
     // --- [GROUPING_KERNELS]
 
-    // Farthest-first traversal anchors row `0`; each next centroid maximizes distance from its nearest chosen row.
     private static Matrix<double> Seed(Matrix<double> x, int k) {
         int[] chosen = new int[k];
         double[] nearest = new double[x.RowCount];
@@ -1439,7 +1222,6 @@ public static class EstimatorKernels {
         return Matrix<double>.Build.DenseOfRowVectors([.. chosen.Select(x.Row)]);
     }
 
-    // Emptied clusters keep their prior centroid — an origin-snapped centroid corrupts inertia and every later assignment.
     private static Matrix<double> Recenter(Matrix<double> x, int[] labels, int k, Matrix<double> prior) {
         Matrix<double> sums = Matrix<double>.Build.Dense(k, x.ColumnCount);
         int[] counts = new int[k];

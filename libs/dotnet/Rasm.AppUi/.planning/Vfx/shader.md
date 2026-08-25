@@ -26,11 +26,8 @@ Rasm.AppUi shader effects are the effects plane's procedural-source owner: one c
 - Boundary: both `SKRuntimeEffectUniforms.Add` and `SKRuntimeEffectChildren.Add` THROW on a name the compiled program never declared, and the uniform overload validates the value's own data type against that declaration and throws on a mismatch — so a `Uniform` slot declares its block SHAPE and the frame resolves both axes against the slot before it writes, which is what leaves the throwing arms unreachable rather than trapped. A `Uniform` slot also carries the numeric `Band` its value must land inside, so the `max(x, 1e-3)` floors inside the shader sources are a GPU-side belt over a refusal the C# edge already owns rather than the only guard a zero meets.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// WHY a slot roster refused, beside the two cases naming WHICH HALF of the roster refused. A consumer partitions
-// a source that drifted from a frame that skipped a slot without reading a message, and the requirement column is
-// what each rendered message states rather than five hand-interpolated sentences.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SlotDefect {
@@ -44,9 +41,6 @@ public sealed partial class SlotDefect {
 
 
 
-// One band spans three owners on this page — the program cluster, the pattern family, and the tile cache — which
-// is legal because a band is a PAGE's neighbourhood and the offsets stay unique inside it; `generated identity admission`
-// proves that at the family's first construction.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EffectFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Effect;
@@ -56,8 +50,6 @@ public abstract partial record EffectFault : Fault {
     public sealed partial record SkslRejected(string Program, string Diagnostic) : EffectFault() {
         public override string Message => $"{Program}: the runtime effect compiler rejected the source — {Diagnostic}";
     }
-    // Names ride as a SEQ: a joined string cannot be filtered, counted, or diffed by the consumer that reads it,
-    // and the divergence arm reports both directions at once.
     [FaultCase(1)]
     public sealed partial record UniformUndeclared(string Program, SlotDefect Defect, Seq<string> Names) : EffectFault() {
         public override string Message => $"{Program}: uniform {Names} must be {Defect.Requirement}";
@@ -86,11 +78,8 @@ public abstract partial record EffectFault : Fault {
 ```
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The uniform-block shapes a chrome program declares. `SKRuntimeEffectUniforms.Add` validates the value's own
-// data type against the compiled declaration and THROWS on a mismatch, so the shape rides the slot beside the
-// name and a scalar aimed at a float2 slot refuses on the rail instead of raising inside a draw.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -100,14 +89,9 @@ public sealed partial class UniformShape {
     public static readonly UniformShape Pigment = new("float4");
 }
 
-// What a declared slot IS, as one closed family rather than three parallel name lists. Conformance, coverage,
-// seeding, and shape resolution were five projections of one roster before this, three of them recomputed on
-// every read; each is now a filter over the same Seq and the two-way source check reads one set.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SlotKind {
     private SlotKind() { }
-    // The band is the numeric admission the SkSL body's own `max` floor was silently standing in for; absent, the
-    // slot takes any finite value its shape can carry.
     public sealed record Uniform(UniformShape Shape, Option<Band> Admits) : SlotKind;
     public sealed record Content : SlotKind;
     public sealed record Seed(Func<SKShader> Mint) : SlotKind;
@@ -132,27 +116,14 @@ public readonly record struct SlotRow(string Name, SlotKind Kind) {
     public static SlotRow Extent() => new(EffectRow.ExtentName, new SlotKind.Uniform(UniformShape.Extent, None));
 }
 
-// The closed roster. Source is the LAW here — a uniform name, a channel order, and a falloff shape are the
-// contract the binding fold and every consumer read against, so the SkSL body is transcribed rather than
-// described. Every program returns PREMULTIPLIED half4, which is the shader contract Skia composites under; an
-// unpremultiplied return reads as a halo brighter than its own alpha at every partially covered pixel.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EffectRow {
-    // The extent name every resolution-independent falloff divides by. The frame seats it from the size it is
-    // already drawing at, so a consumer binds the values that MOVE and never the extent beneath them, and the
-    // seat is conditional on the row declaring it because an undeclared name is a refusal rather than a drop.
     public const string ExtentName = "extent";
 
-    // The ONE film field the grain and the glass both sample. Base frequency is per-DEVICE-unit and the seed is
-    // fixed, so two programs citing this mint read the same field and the glass cannot disagree with the grain
-    // at the pixel; the octave count carries the film's fineness rather than a resolution-dependent frequency.
     static SKShader Field() => SKShader.CreatePerlinNoiseFractalNoise(0.8f, 0.8f, numOctaves: 3, seed: 0f);
 
-    // Emissive edge falloff added to the child's own sample, so a focused control glows without a second draw
-    // pass and an unfocused one composes to the identity. `radius` is the fraction of the half-extent the
-    // falloff occupies, so the term is resolution-independent and a density change re-derives nothing.
     public static readonly EffectRow Glow = new("glow",
         """
         uniform shader content;
@@ -173,10 +144,6 @@ public sealed partial class EffectRow {
             SlotRow.Bounded("radius", UniformShape.Scalar, Band.Positive),
             SlotRow.Uniform("intensity", UniformShape.Scalar), SlotRow.Content("content")]);
 
-    // Zero-mean film grain over the sampled noise child: the material lays this under an Overlay blend, so the
-    // output centres on mid grey and the paint's own alpha carries the weight. A luminance-shifted grain would
-    // wash every rung beneath it toward the noise's own mean. The noise is the estate's own source and mints from
-    // the shared field, because a per-surface noise would re-seed the field the refraction row samples.
     public static readonly EffectRow Grain = new("grain",
         """
         uniform shader noise;
@@ -189,11 +156,6 @@ public sealed partial class EffectRow {
         """,
         slots: [SlotRow.Uniform("weight", UniformShape.Scalar), SlotRow.Seed("noise", Field)]);
 
-    // The displacement field the glass reads. Skia's displacement map takes ONE channel per axis and offsets by
-    // `(channel - 0.5) * scale`, so an achromatic source hands the same value to both axes and every pixel
-    // slides along one diagonal — a shear wearing glass's name. The two axes therefore sample the shared field
-    // at decorrelated positions and land in the red and green channels, and `coarse` sets that separation as a
-    // fraction of the extent so the field's structure scales with the surface rather than with the device.
     public static readonly EffectRow Refract = new("refract",
         """
         uniform shader field;
@@ -209,9 +171,6 @@ public sealed partial class EffectRow {
         slots: [SlotRow.Extent(), SlotRow.Bounded("coarse", UniformShape.Scalar, Band.Positive),
             SlotRow.Seed("field", Field)]);
 
-    // The module ambient wash: one directional falloff over the surface at the row's coverage. Angle is a
-    // uniform because a layout change re-aims the wash without recompiling, and coverage arrives already
-    // clamped against its own luminance ceiling at the token owner.
     public static readonly EffectRow Wash = new("wash",
         """
         uniform float2 extent;
@@ -229,8 +188,6 @@ public sealed partial class EffectRow {
             SlotRow.Bounded("coverage", UniformShape.Scalar, Band.Unit),
             SlotRow.Uniform("angle", UniformShape.Scalar)]);
 
-    // A travelling specular band for indeterminate progress and skeleton states. Phase is the only moving
-    // value, so the motion plane advances one float rather than re-authoring a gradient per frame.
     public static readonly EffectRow Sheen = new("sheen",
         """
         uniform shader content;
@@ -249,20 +206,14 @@ public sealed partial class EffectRow {
 
     public string Sksl { get; }
 
-    // ONE declared roster; every reading below is a filter over it, so the conformance check, the coverage gate,
-    // the seeding fold, and the shape resolution can never disagree about what this row declares.
     public Seq<SlotRow> Slots { get; }
 
     public Seq<string> UniformNames => Slots.Filter(static slot => slot.Kind is SlotKind.Uniform).Map(static slot => slot.Name);
 
-    // The child half is the union of caller-supplied and estate-seeded slots, because the compiled program
-    // publishes ONE child roster and the split governs only who supplies the native.
     public Seq<string> ChildNames => Slots.Filter(static slot => slot.Kind is not SlotKind.Uniform).Map(static slot => slot.Name);
 
     public Seq<SlotRow> Seeds => Slots.Filter(static slot => slot.Kind is SlotKind.Seed);
 
-    // One TOTAL name resolution per frame cell: a name this row never declared refuses here, because both native
-    // `Add` members throw on an unknown name and a throw inside a bind is the arm this rail exists to replace.
     public Fin<SlotRow> Slot(string name) =>
         Slots.Find(row => row.Name == name)
             .ToFin(new EffectFault.UniformUndeclared(Key, SlotDefect.Undeclared, Seq(name)));
@@ -270,22 +221,13 @@ public sealed partial class EffectRow {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The compiled cell. It retains the BUILDER, not the effect: SKRuntimeEffectBuilder.Dispose disposes the
-// effect it wraps, so a per-frame builder over a cached effect frees that effect at the end of the frame and
-// every later frame binds a dead handle. One builder per row, re-bound per frame, disposed with the catalog —
-// and the row's seeded children mint once beside it, because a per-frame mint would leak one native generator
-// per draw while the block's own child array holds nothing it owns. Identity is the ROW: compiler-generated
-// equality over a native builder handle and a shader map answers reference identity wearing a value's name.
 [Equatable]
 public sealed partial record EffectProgram(
     EffectRow Row,
     [property: IgnoreEquality] SKRuntimeShaderBuilder Builder,
     [property: IgnoreEquality] HashMap<string, SKShader> Seeded) : IDisposable {
-    // The typed compile gate. CreateShader returns a NULL effect and a non-null diagnostic on rejection and a
-    // non-null effect with a null diagnostic on success, so both halves of the pair discriminate one outcome.
-    // BuildShader validates the identical pair and throws, which is why it has no call site on this rail.
     public static Fin<EffectProgram> Compile(EffectRow row) =>
         SKRuntimeEffect.CreateShader(row.Sksl, out string? errors) switch {
             null => Fin.Fail<EffectProgram>(new EffectFault.SkslRejected(row.Key, errors ?? "no diagnostic")),
@@ -294,11 +236,6 @@ public sealed partial record EffectProgram(
                     (slot.Name, ((SlotKind.Seed)slot.Kind).Mint()))))),
         };
 
-    // Declared-name conformance at ADMISSION, as an ACCUMULATING admission over two independent axes: the
-    // compiled program publishes its own uniform and child names, and a row whose declared roster drifted on both
-    // halves reports both rather than the first. Custody transfers on success — the builder adopts the effect —
-    // and rolls the effect back on refusal, so the hand dispose-inside-the-refusal-arm shape that double-releases
-    // the day a second refusal path lands has no spelling here.
     static Fin<SKRuntimeShaderBuilder> Declared(EffectRow row, SKRuntimeEffect effect) =>
         (Agrees(row.UniformNames, toSeq(effect.Uniforms),
              names => new EffectFault.UniformUndeclared(row.Key, SlotDefect.Diverged, names)),
@@ -308,39 +245,26 @@ public sealed partial record EffectProgram(
             .ToFin()
             .Rollback(effect);
 
-    // Symmetric difference in ONE pass answering the offending NAMES: the two-pass `Except(...).Any()` pair this
-    // replaced reported that the rosters disagreed and never which member disagreed.
     static Validation<Error, Unit> Agrees(Seq<string> declared, Seq<string> source, Func<Seq<string>, EffectFault> refuse) =>
         (declared.Except(source).ToSeq() + source.Except(declared).ToSeq()).Strict() switch {
             { IsEmpty: true } => Validation<Error, Unit>.Success(unit),
             var diverged => Validation<Error, Unit>.Fail((Error)refuse(diverged)),
         };
 
-    // Release order is ownership order: the builder holds the effect and the block references, so the seeded
-    // generators the block pointed at drop after it. `SKRuntimeEffectChildren.Dispose` releases NOTHING it was
-    // handed, which is exactly why the cell owns the seeded shaders rather than the block it bound them into.
     public void Dispose() {
         Builder.Dispose();
         Seeded.Iter(static shader => shader.Dispose());
     }
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// The process roster, compiled once and addressed by ROW, and the ONE surface a consumer names. A refused row
-// fails the whole catalog rather than leaving a hole a draw discovers: a chrome surface that silently loses its
-// glow reads as a rendering bug at every consumer, where a refused catalog names the offending source at boot.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record EffectCatalog(HashMap<EffectRow, EffectProgram> Programs) : IDisposable {
-    // The fold is what a traverse cannot be here: a short-circuiting traverse drops every program compiled
-    // before the offending row with no other owner holding them, so the refusal rolls its own prefix back.
     public static Fin<EffectCatalog> Of() =>
         toSeq(EffectRow.Items)
             .Fold(Fin.Succ(Seq<EffectProgram>()), static (state, row) => state.Bind(built =>
                 EffectProgram.Compile(row).Map(built.Add).Rollback([.. built])))
             .Map(static programs => new EffectCatalog(toHashMap(programs.Map(static p => (p.Row, p)))));
 
-    // `Build` mints a FRESH shader over the block as it stands, so the product is the caller's to release and
-    // the cell keeps only the builder — a consumer holding a built shader past its own draw holds a native the
-    // next frame's bind has already rewritten the inputs of.
     public Fin<SKShader> Source(EffectRow row, UniformFrame frame) =>
         Programs.Find(row)
             .ToFin(new EffectFault.ProgramMissing(row.Key))
@@ -365,12 +289,8 @@ public sealed record EffectCatalog(HashMap<EffectRow, EffectProgram> Programs) :
 - Boundary: the write is lifted through `Op.Catch`, not through a bare invoke — both `Add` members THROW on an unknown name and on a data type the declaration cannot take, and the shape gate ahead of the write makes those arms unreachable rather than trapped, so the lift is the belt that keeps a native throw a value on the fold instead of an escape past the rail. A frame carries no time: motion advances the values a frame BINDS, and the clock that advances them belongs to `compose#CUSTOM_VISUAL_TICK`, so a shader cannot read a wall clock and drift from the animation driving it.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One typed cell per uniform kind, each owning the write its own case admits and each ANSWERING its block shape.
-// That answer is the page's one primary correspondence: the bind is a single equality against the slot's declared
-// shape, so the child arm is total against the split — a shader aimed at a uniform name and a value aimed at a
-// child name both refuse before the block sees either.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UniformValue {
     static readonly Op Binding = Op.Of(name: "appui.effect.bind");
@@ -392,8 +312,6 @@ public abstract partial record UniformValue {
             ? Admitted(program, slot).Bind(_ => Written(builder, slot.Name))
             : Fin.Fail<Unit>(new EffectFault.UniformUndeclared(program, SlotDefect.Misplaced, Seq(slot.Name)));
 
-    // The numeric band is the SCALAR axis alone: an extent and a pigment carry their own admitted carriers, and
-    // a child slot carries a native. A slot declaring no band admits every finite value its shape can hold.
     Fin<Unit> Admitted(string program, SlotRow slot) => Switch(
         state: (Program: program, Slot: slot),
         scalar: static (s, cell) => s.Slot.Kind.Admits(cell.Value)
@@ -411,16 +329,10 @@ public abstract partial record UniformValue {
         child: static (s, cell) => { s.Builder.Children.Add(s.Name, cell.Value); return Fin.Succ(unit); }));
 }
 
-// The per-frame binding value. Neither block is reset: `Uniforms.Reset` re-creates the uniform data and
-// abandons the previous `SKData` undisposed, and total coverage is the stronger guarantee anyway. The frame
-// carries the caller's cells alone; the extent it is drawing at and the row's seeded children seat inside the
-// fold, so a consumer never names a slot whose source the estate already ships.
 public sealed record UniformFrame(SKSize Extent, Seq<(string Name, UniformValue Value)> Cells) {
     public static UniformFrame Of(SKSize extent, params (string Name, UniformValue Value)[] cells) =>
         new(extent, toSeq(cells));
 
-    // Resolve, write, record — one pass. The recorded name set is what the coverage gate reads, because the
-    // block itself cannot answer which of its declared names carry a value.
     public Fin<SKRuntimeShaderBuilder> Bind(EffectProgram program) =>
         Seated(program)
             .Fold(Fin.Succ(Seq<string>()), (state, cell) => state.Bind(bound =>
@@ -429,10 +341,6 @@ public sealed record UniformFrame(SKSize Extent, Seq<(string Name, UniformValue 
                     .Map(_ => bound.Add(cell.Name))))
             .Bind(bound => Covered(program, bound));
 
-    // The caller's cells, the extent where the row declares one, and the row's seeded children as ONE cell
-    // stream, so the resolution, the write, and the coverage gate each read one shape. The extent seat is
-    // CONDITIONAL because an undeclared name is a refusal here rather than a silently dropped cell, and the
-    // grain program declares no extent at all.
     Seq<(string Name, UniformValue Value)> Seated(EffectProgram program) =>
         (program.Row.Slot(EffectRow.ExtentName).IsSucc
             ? Cells.Add((EffectRow.ExtentName, (UniformValue)new UniformValue.Extent(Extent)))
@@ -440,11 +348,7 @@ public sealed record UniformFrame(SKSize Extent, Seq<(string Name, UniformValue 
         + toSeq(program.Seeded).Map(static seed =>
             (Name: seed.Key, Value: (UniformValue)new UniformValue.Child(seed.Value)));
 
-    // Coverage is a VALUE, and both halves accumulate: a source edit leaving one uniform and one child unbound
-    // names both. The written set folds into a hash set once, so the gate is one pass over the declared roster
-    // rather than a `Seq.Contains` scan per declared name.
     static Fin<SKRuntimeShaderBuilder> Covered(EffectProgram program, Seq<string> bound) {
-        // CS0104 guard: `LanguageExt.HashSet` collides with the BCL name under the dual usings.
         LanguageExt.HashSet<string> written = toHashSet(bound);
         Seq<SlotRow> absent = program.Row.Slots.Filter(slot => !written.Contains(slot.Name)).Strict();
         return (Whole(absent.Filter(static slot => slot.Kind is SlotKind.Uniform),
@@ -484,10 +388,8 @@ public sealed record UniformFrame(SKSize Extent, Seq<(string Name, UniformValue 
 - Boundary: the tiled row takes its tiling from an `SKMatrix`, so spacing and rotation are one transform rather than a spacing knob beside an angle knob — the pair drifts the moment either moves — and it carries no phase because a tiling advance is the matrix's own translation. A `Cell` operand and a `Rule` operand differ only in which native factory takes that matrix, which is why they are ONE case over a two-armed operand rather than two rows. The stamped row's advance is contour-space, not device-space, so a stamp on a scaled canvas keeps its spacing relative to the geometry it decorates rather than to the pixels beneath it; the estate roster seats no stamped or celled row because both carry a caller's `SKPath` and the roster ships source, never a native a row would have to own.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// A dash interval run admitted WHOLE: two spans minimum, every span positive by its carrier, and the alternation
-// period derived from the one roster that holds it rather than re-folded at every phase read.
 public readonly record struct DashRun {
     static readonly Op Runs = Op.Of(name: "appui.effect.dash");
 
@@ -506,8 +408,6 @@ public readonly record struct DashRun {
                 "a dash run alternates at least one on span and one off span"));
 }
 
-// The tiled operand. Both arms hand the SAME matrix to a 2D path-effect factory and differ only in what the
-// factory repeats, so a second top-level row for the ruled case would have carried one operand as a whole type.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TileMark {
     private TileMark() { }
@@ -515,10 +415,6 @@ public abstract partial record TileMark {
     public sealed record Rule(PositiveMagnitude Width) : TileMark;
 }
 
-// Per-draw stroked-geometry patterns. Every row binds the PathEffect slot: a pattern spelled as a shader tiles
-// the fill and leaves the stroke smooth, which is a defect that renders as a plausible picture. Every case
-// carries its parameters as ROW DATA and mints its native at Build, because each one's geometry moves — a
-// marching phase per frame, a trim progress as a leader draws on, a stamp advancing along its contour.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PathRow {
     private PathRow() { }
@@ -527,9 +423,6 @@ public abstract partial record PathRow {
     public sealed record Stamp(SKPath Glyph, PositiveMagnitude Advance, UnitInterval Phase, SKPath1DPathEffectStyle Style) : PathRow;
     public sealed record Tiled(SKMatrix Tiling, TileMark Mark) : PathRow;
 
-    // The one per-frame read, and it is TOTAL by construction: the phase a row carries is the NORMALIZED
-    // progress, so every moving arm seats one admitted value and no arm re-mints a fallible carrier from
-    // arithmetic. The tiled row advances through its matrix and holds.
     public PathRow AtPhase(UnitInterval progress) => Switch(
         state: progress,
         dash: static (p, row) => (PathRow)(row with { Phase = p }),
@@ -537,11 +430,6 @@ public abstract partial record PathRow {
         stamp: static (p, row) => row with { Phase = p },
         tiled: static (_, row) => row);
 
-    // The cycle multiply happens HERE, once, against the period the run already holds: a dash walks one full
-    // interval period and a stamp one glyph advance per unit of progress, so a run reads as continuous whatever
-    // the pattern measures. A trim draws on FROM its own start toward the end, so the derived stop can never
-    // precede the start it was measured from. Each factory answers null on native-degenerate input, which is the
-    // one refusal left after admission moved to construction.
     public Fin<FxEffect> Build() => Switch(
         dash: static row => Minted(SKPathEffect.CreateDash(
             [.. row.Run.Intervals.Map(static span => (float)span.Value)], (float)row.Phase.Value * row.Run.Period),
@@ -564,11 +452,7 @@ public abstract partial record PathRow {
             : Fin.Fail<FxEffect>(new EffectFault.PatternDegenerate(detail));
 }
 
-// --- [TABLES] ---------------------------------------------------------------------------
-// The estate's own pattern vocabulary, seated exactly like the SkSL roster above and for the same reason: a
-// pattern the tick addresses by ROW is source the estate ships. Every row's seed is native-FREE, so the roster
-// owns no handle and re-seeds without leaking; a stamped glyph and a celled tile carry a caller's `SKPath` and
-// stay caller-minted cases rather than rows.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PatternRow {
@@ -600,10 +484,8 @@ public sealed partial class PatternRow {
 - Boundary: NAMED LOSS — under the owner's generation floor the ceiling DEGRADES rather than refusing. When every live cell belongs to the current generation, pressure frees nothing and the incoming record seats over the bound, where the retired hand cache refused the admission instead. That is the owner's declared law and this plane consumes it rather than re-deciding it: the overshoot lasts one generation, drains at the next `Cycle`, and the receipt's strain flag publishes it so a board reads the breach the refusal used to name. `SKPicture.ToShader` retains the picture, so the pair is one cell releasing in ownership order, and the recorder rides `Custody.Bracket` so a record fold that never reaches `EndRecording` still releases its own scope.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// What a tile RECORDS, as a typed pair of the two closed rosters this page owns. Two raw strings were spellable
-// as any two strings and addressed nothing the estate declares.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TileSubject {
     private TileSubject() { }
@@ -621,46 +503,29 @@ public sealed partial class TileOutcome {
     public static readonly TileOutcome Refuse = new("refuse");
 }
 
-// `Key` is the WIRE rendering the evidence projection reads, never an address: lookup is the value's own
-// structural equality, so a composed string never resolves a cell.
 public readonly record struct PictureTileKey(TileSubject Subject, Dimension CellPx, ThemeVariantRow Variant) {
     public string Key => $"{Subject.Key}/{CellPx.Value}/{Variant.Key}";
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// A recorded tile beside its retained cost. Touch order and generation stamp belong to the cache owner's own
-// slot, so this cell carries neither and cannot disagree with the ledger about either.
 public sealed record TileCell(SKPicture Picture, SKShader Shader, long Bytes) : IDisposable {
-    // Release order is ownership order: the shader samples the picture, so it drops first.
     public void Dispose() {
         Shader.Dispose();
         Picture.Dispose();
     }
 }
 
-// The product beside the receipt describing how it was obtained. The RAIL rides inside the hit rather than
-// around it, which is what makes the receipt total — a refusal seals its own evidence instead of vanishing into
-// a `Fin.Fail` the fan never sees.
 public readonly record struct PictureTileHit(Fin<SKShader> Product, PictureTileReceipt Receipt);
 
-// Byte columns stay `long` at this stratum: `EvidenceMap` formats each invariant-decimal text column from its
-// own magnitude at the wire edge, so a receipt formatted here could not be compared, summed, or thresholded
-// without re-parsing text the same page produced.
 public readonly record struct PictureTileReceipt(
     PictureTileKey Key, long Generation, long RecordedBytes, long ResidentBytes,
     TileOutcome Outcome, int Evicted, bool Strained, Instant At);
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// The tile plane's instance of the folder's one budgeted cache. The ceiling is BYTES and the measure is the op
-// list's own retained cost, so a full-surface record and a hatch cell are comparable; a handle count would rank
-// them identically. A sealed CLASS, not a record: this is one identity over a live lane.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PictureTileCache : IDisposable {
     static readonly Op Tiling = Op.Of(name: "appui.tile.cache");
 
-    // The generation rides the KEY, which is what makes the reach EXACT under a posture whose reads are
-    // generation-blind: a caller mints its key against the live lane, so an older stamp is simply a key nobody
-    // asks for, and the posture's release floor then retires exactly those stale cells first.
     readonly record struct Stamped(PictureTileKey At, long Generation);
 
     readonly BudgetedCache<Stamped, TileCell> cells;
@@ -682,15 +547,8 @@ public sealed class PictureTileCache : IDisposable {
 
     public long Resident => cells.Bytes;
 
-    // The theme-generation edge, bound at composition beside `AssetCache.Cycle` on the one `Rematerialize`
-    // row naming a re-tinted asset: a tile recorded in the old palette is stale by construction, so raising the
-    // lane retires it by making its key unmintable and its cell releasable in one move.
     public long Cycle() => cells.Retire(static (_, _) => false, advance: true).Generation;
 
-    // Probe, record on a miss, seal on every path. The MINT's own identity is what separates an admit from a
-    // reuse — `Take` answers the winner, so a CAS loser reports the reuse it became rather than the record it
-    // paid for — and the sweep the seal drains is what the receipt's released count reports, because a count
-    // column reads what happened since the previous receipt.
     public PictureTileHit Tile(PictureTileKey key, SKRect cull, Func<SKCanvas, Fin<Unit>> record) {
         TileCell? minted = null;
         Fin<TileCell> held = cells.Take(
@@ -712,11 +570,7 @@ public sealed class PictureTileCache : IDisposable {
                 At: clock.GetCurrentInstant()));
     }
 
-    // --- [OPERATIONS] -----------------------------------------------------------------------
-    // Record, measure, pair. The retained cost is knowable only after the op list seals, so the owner's ceiling
-    // test runs against a real measure rather than an estimate, and `ToShader` retains the picture so the pair
-    // is one cell from here on. The recorder's own scope releases on every path including the fold that never
-    // reached `EndRecording`.
+    // --- [OPERATIONS] ------------------------------------------------------------------
     static Fin<TileCell> Record(SKRect cull, Func<SKCanvas, Fin<Unit>> record) =>
         Custody.Bracket(
             static () => new SKPictureRecorder(),

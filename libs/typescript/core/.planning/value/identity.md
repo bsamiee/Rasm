@@ -46,7 +46,6 @@ const _environments = Shape.vocabulary(_environmentKinds, _environmentRows)
 const _ringKinds = ["canary", "beta", "stable"] as const
 const _ringRows = { canary: {}, beta: {}, stable: {} } as const
 const _rings = Shape.vocabulary(_ringKinds, _ringRows)
-// Ascending separation: `none` scopes nothing, `single` binds one tenant per deployment, `multi` separates inside one.
 const _tenancyKinds = ["none", "single", "multi"] as const
 const _tenancyRows = { none: {}, single: {}, multi: {} } as const
 const _tenancies = Shape.vocabulary(_tenancyKinds, _tenancyRows)
@@ -129,7 +128,7 @@ declare namespace Identity {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Identity }
 ```

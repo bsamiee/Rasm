@@ -28,11 +28,6 @@ import { Curb, Reject } from "../crypt/verify.ts"
 const _SubjectId = Schema.UUID.pipe(Schema.brand("SubjectId"))
 const _SessionId = Schema.UUID.pipe(Schema.brand("SessionId"))
 
-// Six reasons share one subject because one respell mints them all: a `crypt/sign` fault carries a cause and the
-// COORDINATE the presentation was about — the session id where the frame already resolved to one, the ceremony
-// itself where it never did. `reuse` alone carries its own subject, because a replayed rotation is this page's own
-// statechart verdict over a stored generation and its evidence is the session, the subject, and the generation the
-// replay tried to spend — facts no primitive fault can supply and no shared cause string can hold.
 const _family = Fault.Class.family(["expired", "notFound", "reuse", "mismatch", "denied", "throttled", "store"] as const, {
   expired: Fault.Class.row({
     class: "expired",
@@ -81,8 +76,6 @@ const _family = Fault.Class.family(["expired", "notFound", "reuse", "mismatch", 
 declare namespace SessionFault {
   type Case = typeof _family.payload.Type
   type Reason = (typeof _family.kinds)[number]
-  // A primitive fault never reports a REPLAY: reuse is this page's own statechart verdict over a stored generation,
-  // so the respell table's value type forecloses it and no future core class can land a breach word on an outage.
   type Respelled = Exclude<Reason, "reuse">
 }
 
@@ -170,10 +163,6 @@ const _RotationStep = Data.taggedEnum<RotationStep>()
 
 const _RefreshWire = Schema.TemplateLiteralParser(_SessionId, ".", Schema.String)
 
-// Re-spelling to ONE family is this seam's law; flattening the BLAME axis never was. Each row keeps the class the
-// core lattice already grades, so a caller-blamed `SignFault` (a denied claim, a refused algorithm, a malformed
-// key) answers on the caller's side while a system-blamed one answers on the deployment's, and the table is total
-// over `Fault.Class.Kind` so a new core class breaks here at compile time instead of defaulting to an outage.
 const _SPELL: { readonly [K in Fault.Class.Kind]: SessionFault.Respelled } = {
   absent: "notFound",
   conflicted: "mismatch",
@@ -187,7 +176,6 @@ const _SPELL: { readonly [K in Fault.Class.Kind]: SessionFault.Respelled } = {
   defect: "store",
 }
 
-// The one SESSION_ decode site: both lifetime rows resolve at the boot line as one described record.
 const _policy = Config.unwrap({
   accessTtl: Config.duration("SESSION_ACCESS_TTL").pipe(
     Config.withDefault(Duration.minutes(15)),
@@ -204,8 +192,6 @@ const _step = (session: Session, now: DateTime.Utc, matched: boolean): RotationS
     : matched ? _RotationStep.Rotate({ session })
     : _RotationStep.Reused({ session })
 
-// The coordinate is the respell's one parameter, never a second respell member: a refresh leg already holds the
-// session id the refusal is about, a bearer guard holds only the ceremony, and both mint through this one site.
 const _spell = (coordinate: string) => (fault: SignFault): SessionFault =>
   new SessionFault({ case: { reason: _SPELL[fault.class], coordinate, cause: fault.message } })
 
@@ -222,7 +208,7 @@ class BearerGuard extends HttpApiMiddleware.Tag<BearerGuard>()("security/authn/B
       bearer: (token: Redacted.Redacted<string>) =>
         jwt.verify(token).pipe(
           Effect.tapError(() => Reject.mark("bearer")),
-          Reject.measured("bearer"), // the guard is the plane's highest-traffic ceremony: its admissions are the denominator every reject ratio divides by
+          Reject.measured("bearer"),
           Effect.mapError(_spell("bearer")),
         ),
     })),
@@ -345,9 +331,6 @@ const CookieSpec = {
 
 const _EMPTY_VALUE = Redacted.make("")
 
-// The pair leg names WHICH half arrived, because a missing header and a missing cookie point at different bugs in
-// the calling client. The compare leg carries no subject and says so: both operands are the tokens themselves, and
-// a renderer that named either would publish the secret the double-submit check exists to keep opaque.
 const _csrfFamily = Fault.Class.family(["absent", "mismatch"] as const, {
   absent: Fault.Class.row({
     class: "denied",
@@ -431,9 +414,6 @@ const _SAFE: ReadonlyArray<string> = ["GET", "HEAD", "OPTIONS"]
 
 class SessionGuard extends HttpApiMiddleware.Tag<SessionGuard>()("security/authn/SessionGuard", {
   provides: CurrentClaims,
-  // Two refusals, two classes: the bearer leg answers on the class `_SPELL` derived, the CSRF gate answers `denied`
-  // under its own two-arm family. One `failure` schema forced the gate's verdict into a session `detail` string,
-  // which handed the problem ladder a `malformed` for a refusal the whole double-submit design exists to make a 403.
   failure: Schema.Union(SessionFault, CsrfFault),
   security: { cookie: HttpApiSecurity.apiKey({ in: "cookie", key: CookieSpec.access.name }) },
 }) {
@@ -446,9 +426,6 @@ class SessionGuard extends HttpApiMiddleware.Tag<SessionGuard>()("security/authn
             Effect.tapError(() => Reject.mark("bearer")),
             Effect.mapError(_spell),
           )
-          // CSRF gates the state-changing methods alone: the double-submit pair reads CookieSpec.csrf's ONE row,
-          // cookie by name and echoed header by field, and Cookie.verify already lands the csrf ledger row, so
-          // this seam adds nothing to the refusal and re-spells nothing away from it.
           const request = yield* HttpServerRequest.HttpServerRequest
           yield* Array.contains(_SAFE, request.method)
             ? Effect.void
@@ -457,12 +434,12 @@ class SessionGuard extends HttpApiMiddleware.Tag<SessionGuard>()("security/authn
                 Headers.get(request.headers, CookieSpec.csrf.header),
               )
           return claims
-        }).pipe(Reject.measured("bearer")), // one denominator for the claims provision: browser and API presentations divide the same reject ratio
+        }).pipe(Reject.measured("bearer")),
     })),
   )
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { BearerGuard, Cookie, CookieSpec, CredentialRef, CsrfFault, CurrentClaims, IdentityJournal, Session, SessionFault, SessionGuard, SessionStore, Subject, Token, TokenPair }
 export type { RotationStep }

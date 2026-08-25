@@ -21,7 +21,7 @@ Tolerances arrive from `Domain/context` lanes rather than page literals: the eig
 - Boundary: `SearchCapsule` confines every platform mutation and native lease; every kNN in the corpus reads `NeighborhoodGraph`, and deterministic index release wraps the index in `Lease<T>.Owned`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using QuikGraph;
 using QuikGraph.Algorithms.MinimumSpanningTree;
 using QuikGraph.Algorithms.Observers;
@@ -32,7 +32,7 @@ using SuperClusterKDTree;
 
 namespace Rasm.Spatial;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class NeighborSearchBackend {
     public static readonly NeighborSearchBackend RTreeKnn = new(key: 0);
@@ -41,14 +41,6 @@ public sealed partial class NeighborSearchBackend {
     public static readonly NeighborSearchBackend KdTreeRadius = new(key: 3);
 }
 
-// Metrics belong on the QUERY — the kd-tree splits on coordinates, so one built tree serves every
-// coordinate-monotone metric with no rebuild. The row carries the `KDTree` STATIC, not the `DistanceMetrics` enum: the
-// enum is the build-factory's own argument and `Tree.Metric` is a `Func`, so a row is the function itself. The
-// radius transform is a row COLUMN because the Euclidean body returns SQUARED distance and no other row does — a
-// boolean saying so would leave the transform for each reader to re-derive. Cosine is excluded on three counts, any
-// one disqualifying: the hyperrect prune assumes a coordinate monotonicity cosine does not hold, its norm product
-// round-trips through `double` whatever the coordinate type, and it answers a sentinel on a zero dot product or a
-// zero-norm operand, so its priority ordering is not a metric ordering at all.
 [SmartEnum<int>]
 public sealed partial class NeighborMetric {
     public static readonly NeighborMetric Euclidean = new(key: 0, body: KDTree.EuclideanDistance, searchRadius: static r => r * r);
@@ -92,31 +84,21 @@ public abstract partial record NeighborSource {
     public sealed record StaticCase(Seq<Point3d> Values) : NeighborSource;
 }
 
-// An invariant-bearing scalar admits through `Validate`, so a native callback id that reports a miss as a negative
-// is unconstructible here rather than carrying a post-hoc predicate three construction sites could ignore.
 [ValueObject<int>(KeyMemberName = "Id", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct NeighborHit {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value >= 0 ? null : new ValidationError("NeighborHit id must be >= 0.");
 }
 
-// A/B span two id spaces (treeA/treeB, needle/source) — A != B is not an invariant, but each side is an ordinal, so
-// the pair is one admitted product rather than a record carrying its invariant as a predicate no constructor reads.
 [ComplexValueObject]
 public sealed partial class NeighborPair {
     public int A { get; }
     public int B { get; }
-    // Generated seams carry ONE ValidationError, so the fold is first-refusal; the capsule's Fin rail accumulates.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int a, ref int b) =>
         validationError = a >= 0 && b >= 0 ? null : new ValidationError("NeighborPair ordinals must be >= 0.");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `RadiusLimited` is DERIVED, never stored: it is `Radius.IsSome` and a stored twin can disagree with the option it
-// mirrors. The self-neighbour fact is an OPTIONAL count — a needle set that is not the hay set never took the
-// measure, and a zero there reads as "every needle missed itself" where nothing was counted at all. `Returned` is
-// the branch's ONE moment owner over the per-needle return counts, so min, max, mean, and the spread arrive together
-// and no reducer roster re-derives the recurrence beside it.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborhoodReceipt(
     int InputCount, int QueryCount, int RequestedNeighborCount, NeighborSearchBackend SearchBackend,
@@ -138,7 +120,6 @@ public readonly record struct NeighborhoodReceipt(
 
 public readonly record struct NeighborhoodGraph(int[][] Ids, NeighborhoodReceipt Receipt);
 
-// Case and field names are frozen by the Analysis/query.md ProjectAnswer binding.
 [Union]
 public abstract partial record NeighborAnswer {
     private NeighborAnswer() { }
@@ -147,7 +128,7 @@ public abstract partial record NeighborAnswer {
     public sealed record Graph(NeighborhoodGraph Value) : NeighborAnswer;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union]
 public abstract partial record NeighborIndex {
     private NeighborIndex() { }
@@ -155,10 +136,6 @@ public abstract partial record NeighborIndex {
     public sealed record PointsCase(Point3d[] Hay, RTree Tree) : NeighborIndex;
     public sealed record MeshFacesCase(Mesh Source, RTree Tree) : NeighborIndex;
     public sealed record BoundsCase(RTree Tree, int Count) : NeighborIndex;
-    // ONE tree per metric row, built once and never mutated: `Tree.Metric` is a settable field on a shared instance,
-    // so two concurrent `GraphOf` calls under different rows raced and the loser's kNN answered under the winner's
-    // metric — the silently-Euclidean answer the query gate exists to refuse. The roster is closed and coordinate-
-    // monotone, so the tree-per-row cost is bounded and is the price of an immutable published index.
     public sealed record StaticCase(FrozenDictionary<NeighborMetric, KDTree<double, double, int>> Trees, Point3d[] Points) : NeighborIndex;
 
     public static Fin<NeighborIndex> Of(NeighborSource source, Op? key = null) {
@@ -183,14 +160,9 @@ public abstract partial record NeighborIndex {
                 .Map(tree => (NeighborIndex)new BoundsCase(Tree: tree, Count: b.Boxes.Count)),
             staticCase: static (k, s) =>
                 from points in s.Values.TraverseM(v => k.AcceptValue(value: v)).As().Map(static vs => vs.ToArray())
-                // KDTree.Create throws a raw ArgumentOutOfRangeException on an empty set — gate ahead so the
-                // admitted-but-empty cloud stays on the Fin rail.
                 from _ in guard(points.Length > 0, k.InvalidInput()).ToFin()
                 let coordinates = points.Select(IReadOnlyList<double> (p) => [p.X, p.Y, p.Z]).ToArray()
                 let payloads = Enumerable.Range(0, points.Length).ToArray()
-                // Create takes the enum by contract and has no metric-free overload, so the build seeds Euclidean and
-                // each row's own body lands on ITS tree once, at admission; the raw constructor stays reserved for a
-                // search window this species does not carry.
                 select (NeighborIndex)new StaticCase(
                     Trees: NeighborMetric.Items.ToFrozenDictionary(static row => row, row => {
                         KDTree<double, double, int> tree = KDTree.Create(coordinates, payloads, DistanceMetrics.EuclideanDistance);
@@ -216,8 +188,6 @@ public abstract partial record NeighborIndex {
                     select (NeighborAnswer)new NeighborAnswer.Graph(Value: graph),
                 boxCase: static (s, q) =>
                     from _ in guard(q.Bounds.IsValid, s.Key.InvalidInput()).ToFin()
-                    // Ids admit through `Validate` at the callback: a negative the host reports as a miss refuses on
-                    // the capsule's own rail instead of riding a constructed value the claim later rejects.
                     from hits in s.Self.WithTree(key: s.Key, run: tree => SearchCapsule<NeighborHit>(
                         run: buffer => tree.Search(box: q.Bounds, callback: (sender, args) => { if (NeighborHit.Validate(args.Id, out NeighborHit? hit) is null) { buffer.Add(hit!.Value); } args.Cancel = s.Cancel.IsCancellationRequested; }),
                         order: static (left, right) => left.Id.CompareTo(right.Id), cancel: s.Cancel, key: s.Key))
@@ -284,21 +254,13 @@ public abstract partial record NeighborIndex {
 - Boundary: every measure an arm may not take rides an `Option` — the residual summary, the whole band set, and the self-neighbour count are absent rather than zero-filled, so a receipt never reads as a perfect fit over samples that failed to solve nor as a needle set that missed itself when nothing was counted. Moments and extrema come off `Domain/stats` `Stat<Scalar>`, the branch's ONE moment owner, so no reducer roster re-derives the recurrence here.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct NeighborhoodPolicy(Dimension NeighborCount, Option<PositiveMagnitude> Radius, PositiveMagnitude EigenGapTolerance, PositiveMagnitude FitResidualTolerance, UnitInterval SphereLikenessBand) {
     internal static Fin<NeighborhoodPolicy> Of(Context context, Op key, Option<Dimension> neighbors = default, Option<PositiveMagnitude> radius = default) =>
-        // Ten is the Hoppe-DeRose surface-reconstruction default (SIGGRAPH '92 §3), chosen so a k-neighbourhood
-        // spans past the immediate ring on a uniformly sampled surface while staying under the quadric's own
-        // conditioning limit; a caller with a known sampling density passes its own.
         from count in neighbors.Match(Some: Fin.Succ, None: () => key.AcceptValidated<Dimension>(candidate: 10))
         from gap in key.AcceptValidated<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Svd).Value)
         from residual in key.AcceptValidated<PositiveMagnitude>(candidate: context.For(lane: ToleranceLane.Residual).Value)
-        // This band classifies SHAPE rather than flooring numeric agreement: it says how near k1 and k2 must be for a
-        // neighbourhood to read as spherical, so no tolerance lane owns it and it declares here. The figure is
-        // UNMEASURED — a 35% principal-curvature spread admitting as spherical is a working default owed a
-        // measurement against classified ground truth, tracked at `[05]-[RESEARCH]` `[SPHERE_BAND]`.
-        // 0.35 is the working sphere/mixed spread band — calibrate on a labelled sphere/saddle/plane set, taking the band maximizing agreement.
         from band in key.AcceptValidated<UnitInterval>(candidate: 0.35)
         select new NeighborhoodPolicy(NeighborCount: count, Radius: radius, EigenGapTolerance: gap, FitResidualTolerance: residual, SphereLikenessBand: band);
     internal Fin<NeighborhoodPolicy> Admit(Op key) {
@@ -335,9 +297,6 @@ public readonly record struct NeighborhoodPcaReceipt(
 
 public readonly record struct NeighborhoodPcaResult(Seq<NeighborhoodPcaSample> Samples, NeighborhoodPcaReceipt Receipt);
 
-// Rows own their own classification body in DECLARATION order, so `ClassOf` is `Items.First(row => row.Admits(...))`
-// and the ternary ladder that decided this vocabulary from outside it deletes. `Empty` is the no-sample verdict the
-// range fold reads before any classification runs, and `Mixed` is the total tail row every leftover reaches.
 [SmartEnum<int>]
 public sealed partial class CurvatureRangeKind {
     public static readonly CurvatureRangeKind Empty = new(key: 0, admits: static (_, _) => false);
@@ -367,9 +326,6 @@ public readonly record struct CurvatureSample(
         ValidityClaim.CountAtLeast(count: NeighborCount, floor: NeighborKernel.QuadricUnknowns));
 }
 
-// Derived curvature scalars form ONE axis vocabulary, each row owning its projection, so the range fold, the
-// per-point measures, and every later per-axis statistic read one body — the shape-index and curvedness formulas
-// have exactly one site each. A new derived scalar is one row and its band appears in every receipt unasked.
 [SmartEnum<int>]
 public sealed partial class CurvatureAxis {
     public static readonly CurvatureAxis Principal = new(key: 0, project: static s => s.K1);
@@ -377,16 +333,12 @@ public sealed partial class CurvatureAxis {
     public static readonly CurvatureAxis Gaussian = new(key: 2, project: static s => s.K1 * s.K2);
     public static readonly CurvatureAxis Mean = new(key: 3, project: static s => 0.5 * (s.K1 + s.K2));
     public static readonly CurvatureAxis Curvedness = new(key: 4, project: static s => Math.Sqrt(0.5 * ((s.K1 * s.K1) + (s.K2 * s.K2))));
-    // Koenderink shape index; the umbilic band answers the sign because atan2 is undefined where k1 == k2.
     public static readonly CurvatureAxis Shape = new(key: 5, project: static s => Math.Abs(s.K1 - s.K2) < EpsilonPolicy.SqrtEpsilon
         ? (double)Math.Sign(s.K1 + s.K2)
         : 2.0 / Math.PI * Math.Atan2(s.K1 + s.K2, s.K1 - s.K2));
     [UseDelegateFromConstructor] internal partial double Project(CurvatureSample sample);
 }
 
-// Residuals ride ONE optional `Stat<Scalar>`: an all-rejected cloud measured none, and a 0.0 there reads as a
-// perfect fit over samples that never solved. The four refusal counts are the `QuadricAttempt` rows' own census, so
-// a solver fault is a counted outcome rather than a rank rejection wearing another cause's name.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureReceipt(
     int InputCount, int RequestedNeighborCount, int AcceptedSampleCount, int RejectedSampleCount,
@@ -408,15 +360,11 @@ public readonly record struct CurvatureReceipt(
         ValidityClaim.CountExactly(count: Range.AcceptedSampleCount, expected: AcceptedSampleCount));
 }
 
-// The band is the axis's own SPREAD, so extrema arrive beside the mean and deviation an extremum pair could never
-// carry — the moment owner answers all four off one fold rather than two hand reducers per axis.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureBand(CurvatureAxis Axis, Stat<Scalar> Spread) : IValidityEvidence {
     public bool IsValid => ValidityClaim.Evidence(Some(Spread));
 }
 
-// One band per axis row replaces the hand-paired min/max columns: the extrema are absent as a SET when nothing was
-// accepted, so an empty cloud publishes no band rather than a zero pair reading as a measured flat surface.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CurvatureRangeReceipt(
     int AcceptedSampleCount, CurvatureRangeKind Kind, int PlaneLikeCount, int SphereLikeCount,
@@ -431,7 +379,7 @@ public readonly record struct CurvatureRangeReceipt(
 
 public readonly record struct CurvatureResult(Seq<CurvatureSample> Samples, CurvatureReceipt Receipt);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class NeighborKernel {
     internal static Fin<NeighborhoodGraph> GraphOf(NeighborIndex index, Point3d[] needles, NeighborhoodPolicy policy, Op key) =>
         policy.Admit(key: key).Bind(admitted => GraphOf(index: index, needles: needles,
@@ -441,8 +389,6 @@ internal static partial class NeighborKernel {
         from gate in guard(needles.Length > 0
             && count.Map(static k => k > 0).IfNone(true)
             && radius.Map(static r => double.IsFinite(r) && r > 0.0).IfNone(count.IsSome), key.InvalidInput()).ToFin()
-        // Only the kd-tree species answers a non-Euclidean metric; an RTree-backed species with one requested is a
-        // typed refusal, never a silently-Euclidean answer.
         from admitted in guard(metric.IfNone(NeighborMetric.Euclidean) == NeighborMetric.Euclidean || index is NeighborIndex.StaticCase,
             key.Unsupported(inputType: index.GetType(), outputType: typeof(NeighborMetric))).ToFin()
         from graph in index.Switch(
@@ -460,8 +406,6 @@ internal static partial class NeighborKernel {
             meshFacesCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(s.Key.Unsupported(inputType: typeof(NeighborIndex.MeshFacesCase), outputType: typeof(NeighborhoodGraph))),
             boundsCase: static (s, _) => Fin.Fail<NeighborhoodGraph>(s.Key.Unsupported(inputType: typeof(NeighborIndex.BoundsCase), outputType: typeof(NeighborhoodGraph))),
             staticCase: static (s, t) => {
-                // The row SELECTS its own frozen tree — no query mutates the shared index — and carries the radius
-                // transform, because the Euclidean body answers SQUARED distance and no other row does.
                 NeighborMetric row = s.Metric.IfNone(NeighborMetric.Euclidean);
                 KDTree<double, double, int> tree = t.Trees[row];
                 return Batch(needles: s.Needles, count: s.Count, radius: s.Radius, key: s.Key,
@@ -472,18 +416,12 @@ internal static partial class NeighborKernel {
             })
         select graph;
 
-    // Neighbourhood receipts ARE the spine's own product, so this entry re-reads one rather than re-measuring.
     internal static Fin<NeighborhoodReceipt> ReceiptOf(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
         GraphOf(index: new NeighborIndex.CloudCase(Source: cluster), needles: [.. cluster.Vertices.AsIterable()], policy: policy, key: key)
             .Map(static graph => graph.Receipt);
 
-    // Per-point PCA over the spine: the covariance fold is `cloud.md`'s one owner, the eigen decomposition
-    // `matrix.md`'s, and the clamp floor keeps a flat neighbourhood's third eigenvalue representable so the sample's
-    // rank census is a measurement rather than a division hazard.
     internal static Fin<NeighborhoodPcaResult> PcaOf(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key);
 
-    // Smallest-eigenvalue eigenvector rides per sample; sign is arbitrary here and `OrientNormals` is the one owner
-    // that resolves it, so a caller reading these unoriented gets a normal field consistent only up to sign.
     internal static Fin<Arr<Vector3d>> EstimateNormals(VectorCloud.ClusterCase cluster, NeighborhoodGraph graph, NeighborhoodPolicy policy, Op key);
 
     internal static Fin<Seq<Vector3d>> OrientNormals(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
@@ -494,11 +432,6 @@ internal static partial class NeighborKernel {
             _ = knn.AddVertexRange(Enumerable.Range(0, normals.Count));
             _ = knn.AddEdgeRange(graph.Ids.SelectMany((row, i) =>
                 row.Where(j => j >= 0 && j < normals.Count && j != i).Select(j => new SEdge<int>(i, j))));
-            // KRUSKAL, never Prim: a kNN graph over a sampled cloud is routinely DISCONNECTED, and Prim returns only
-            // the root component's tree — every other component's normals would keep the arbitrary per-sample sign
-            // `EstimateNormals` leaves. Kruskal answers the forest the `ProcessAllComponents` walk already expects.
-            // Both directions enter the tree, so `EdgeRecorderObserver` records each vertex as a TREE-edge Target
-            // exactly once and the walk reaches every component.
             AdjacencyGraph<int, SEdge<int>> tree = new(allowParallelEdges: false);
             _ = tree.AddVertexRange(Enumerable.Range(0, normals.Count));
             _ = tree.AddEdgeRange(knn
@@ -520,8 +453,6 @@ internal static partial class NeighborKernel {
         from graph in GraphOf(index: new NeighborIndex.CloudCase(Source: cluster), needles: [.. cluster.Vertices.AsIterable()], policy: policy, key: key)
         from attempts in toSeq(graph.Ids.Select(static (row, index) => (Row: row, Index: index)))
             .TraverseM(vertex => AttemptOf(cluster: cluster, index: vertex.Index, row: vertex.Row, policy: policy, key: key)).As()
-        // ONE generated fold over the closed outcome family: the four counts are the union's own cases, so a
-        // consumer never re-derives a third state by conjunction over a sample option and a boolean.
         let census = attempts.Fold((Accepted: Seq<CurvatureSample>(), Rank: 0, Residual: 0, Solve: 0), static (held, attempt) => attempt.Switch(
             state: held,
             fitted: static (h, f) => (h.Accepted.Add(f.Sample), h.Rank, h.Residual, h.Solve),
@@ -544,8 +475,6 @@ internal static partial class NeighborKernel {
             : Fin.Fail<CurvatureResult>(key.InvalidResult())
         select result;
 
-    // Both per-point measures ARE axis projections, so each is the same fold over a different row and neither owns
-    // a formula; a third derived measure is one CurvatureAxis row and one line here.
     internal static Fin<Seq<double>> Curvedness(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
         Projected(axis: CurvatureAxis.Curvedness, cluster: cluster, policy: policy, key: key);
     internal static Fin<Seq<double>> ShapeIndex(VectorCloud.ClusterCase cluster, NeighborhoodPolicy policy, Op key) =>
@@ -559,13 +488,11 @@ internal static partial class NeighborKernel {
         guard(hayCount > 0, key.InvalidInput()).ToFin().Bind(_ => key.Catch(() => {
             int requested = Math.Min(count.IfNone(hayCount), hayCount);
             IEnumerable<int[]> batch = radius.Match(Some: r => radial(r, requested), None: () => knn(requested));
-            using IDisposable? window = batch as IDisposable;   // the native batch lease — the read window
+            using IDisposable? window = batch as IDisposable;
             int[][] ids = radius.IsSome
                 ? [.. batch.Select((row, i) => row.OrderBy(id => needles[i].DistanceToSquared(hayAt(id))).Take(requested).ToArray())]
                 : [.. batch];
             double[] returned = [.. ids.Select(static row => (double)row.Length)];
-            // The self-neighbour measure exists only where the needle set IS the hay set; on any other arm the fold
-            // never ran and the column carries absence, not a zero a caller reads as "no needle found itself".
             return Stat<Scalar>.Of(plane: returned, key: key).Bind(spread => {
                 NeighborhoodReceipt receipt = new(
                     InputCount: hayCount, QueryCount: needles.Length, RequestedNeighborCount: requested,
@@ -583,22 +510,18 @@ internal static partial class NeighborKernel {
             });
         }));
 
-    // Six quadric unknowns — fewer than six equations can never be full-rank, and the design matrix's own column
-    // count IS this constant, so the fit basis and its three guards cannot desynchronise.
     internal const int QuadricUnknowns = 6;
 
     private static Fin<QuadricAttempt> AttemptOf(VectorCloud.ClusterCase cluster, int index, int[] row, NeighborhoodPolicy policy, Op key) =>
         row.Length < QuadricUnknowns
             ? Fin.Succ((QuadricAttempt)new QuadricAttempt.RankRefused())
             : from stats in CloudKernel.CovarianceOf(points: toSeq(row.Select(id => cluster.Vertices[id])), mass: Option<Arr<double>>.None, key: key)
-               // Reads at [0]/[1] tangent-span and [2] normal are positional — PairsIn DEMANDS the order on the rail.
               from eigen in stats.Cov.DecomposeEigenDetailed(key: key).Bind(receipt => receipt.PairsIn(expected: EigenOrder.DescendingMagnitude, key: key))
               let frame = (U: AxisOf(eigen[0].Eigenvector), V: AxisOf(eigen[1].Eigenvector), N: AxisOf(eigen[2].Eigenvector))
               let center = cluster.Vertices[index]
               let local = row.Select(id => cluster.Vertices[id] - center).Select(d => (U: d * frame.U, V: d * frame.V, N: d * frame.N)).ToArray()
               from rows in key.AcceptValidated<Dimension>(candidate: local.Length)
               from cols in key.AcceptValidated<Dimension>(candidate: QuadricUnknowns)
-              // The row basis is six wide BY that constant — a change to the fit basis breaks the guards with it.
               from design in Matrix.Of(rows: rows, cols: cols, entries: new Arr<double>([.. local.SelectMany(static q => (double[])[q.U * q.U, q.U * q.V, q.V * q.V, q.U, q.V, 1.0])]), key: key)
               from attempt in design.LeastSquaresDetailed(rhs: new Arr<double>([.. local.Select(static q => q.N)]), key: key).Match(
                   Succ: fit => !fit.Stop.IsUsable
@@ -607,24 +530,18 @@ internal static partial class NeighborKernel {
                           ? Fin.Succ((QuadricAttempt)new QuadricAttempt.ResidualRefused(Residual: fit.Residual))
                           : SampleOf(index: index, point: center, frame: (frame.U, frame.V), fit: fit, neighborCount: row.Length, context: cluster.Tolerance, key: key)
                               .Map(static sample => (QuadricAttempt)new QuadricAttempt.Fitted(Sample: sample)),
-                  // Refused solves partition the cloud, never abort it — and the CAUSE rides its own case, so a
-                  // solver fault is a counted outcome rather than a discarded Error wearing a rank rejection's name.
                   Fail: cause => Fin.Succ((QuadricAttempt)new QuadricAttempt.SolveRefused(Cause: cause)))
               select attempt;
 
-    // Shape operator [[2a,b],[b,2c]] of the fitted quadric; eigenpairs order by value (k1 ≥ k2, Koenderink).
     private static Fin<CurvatureSample> SampleOf(int index, Point3d point, (Vector3d U, Vector3d V) frame, SolveReceipt fit, int neighborCount, Context context, Op key) =>
         from dim in key.AcceptValidated<Dimension>(candidate: 2)
         from shape in SymmetricMatrix.Of(dim: dim, upper: new Arr<double>([2.0 * fit.Solution[0], fit.Solution[1], 2.0 * fit.Solution[2]]), key: key)
-        from pairs in shape.DecomposeEigenDetailed(key: key).Map(static receipt => receipt.Pairs)   // order-independent: the ternary below re-orders by value itself
+        from pairs in shape.DecomposeEigenDetailed(key: key).Map(static receipt => receipt.Pairs)
         let ordered = pairs[0].Eigenvalue >= pairs[1].Eigenvalue ? (Max: pairs[0], Min: pairs[1]) : (Max: pairs[1], Min: pairs[0])
         from e1 in Direction.Of(value: (ordered.Max.Eigenvector[0] * frame.U) + (ordered.Max.Eigenvector[1] * frame.V), context: context, key: key)
         from e2 in Direction.Of(value: (ordered.Min.Eigenvector[0] * frame.U) + (ordered.Min.Eigenvector[1] * frame.V), context: context, key: key)
         select new CurvatureSample(Index: index, Point: point, K1: ordered.Max.Eigenvalue, K2: ordered.Min.Eigenvalue, E1: e1, E2: e2, Residual: fit.Residual, NeighborCount: neighborCount);
 
-    // ONE tally fold keyed by row: four `Count` passes plus a subtracted remainder walked the sample set five times
-    // and derived the fourth count by arithmetic instead of measuring it. One band per declared axis, so a new
-    // derived scalar joins every receipt by declaration; an empty accepted set yields no band set at all.
     private static Fin<CurvatureRangeReceipt> RangeOf(Seq<CurvatureSample> samples, double band, Op key) {
         HashMap<CurvatureRangeKind, int> tally = samples.Fold(HashMap<CurvatureRangeKind, int>.Empty,
             (held, sample) => held.AddOrUpdate(CurvatureRangeKind.Of(sample: sample, band: band), static n => n + 1, 1));
@@ -637,7 +554,6 @@ internal static partial class NeighborKernel {
                     .Map(bands => Some(new Arr<CurvatureBand>([.. bands]))))
             .Map(bands => new CurvatureRangeReceipt(
                 AcceptedSampleCount: samples.Count,
-                // A uniform verdict is a row that took EVERY sample; anything else is Mixed, and an empty set is Empty.
                 Kind: samples.IsEmpty
                     ? CurvatureRangeKind.Empty
                     : CurvatureRangeKind.Items.Find(row => Counted(row) == samples.Count).IfNone(CurvatureRangeKind.Mixed),
@@ -649,9 +565,6 @@ internal static partial class NeighborKernel {
     private static Vector3d AxisOf(Arr<double> eigenvector) => new(x: eigenvector[0], y: eigenvector[1], z: eigenvector[2]);
     private static IReadOnlyList<double> Coordinate(Point3d point) => [point.X, point.Y, point.Z];
 
-    // The quadric outcome is a CLOSED four-valued family, so the illegal `(Some(sample), RankRejected: true)` corner
-    // a bool knob admitted is unrepresentable and each refusal carries its own consequence: a residual its measured
-    // value, a solver fault its `Error`, where the bool discarded both and named them all rank rejections.
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
     private abstract partial record QuadricAttempt {
         private QuadricAttempt() { }
@@ -672,7 +585,7 @@ internal static partial class NeighborKernel {
 - Boundary: every emitted plane admits through `VectorFrame.Of`; `Direction.ParallelTransport` applies caller-supplied frames, and parametric-curve sweeps route `Parametric/curve.md` `PerpendicularFrames`.
 
 ```csharp signature
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class NeighborKernel {
     internal static Fin<Seq<Plane>> BishopChain(VectorCloud cloud, Op key) => cloud.Switch(
         state: key,
@@ -685,7 +598,6 @@ internal static partial class NeighborKernel {
             from seed in Direction.Of(value: VectorFrame.SeedPerpendicular(axis: p.Vertices[1] - p.Vertices[0]), context: p.Tolerance, key: k)
             from chain in BishopChain(points: p.Vertices, initialNormal: seed, closure: ChainClosure.Open, context: p.Tolerance, key: k)
             select chain,
-        // Clusters carry no chain order; transport over an unordered set is undefined.
         clusterCase: static (k, _) => Fin.Fail<Seq<Plane>>(k.Unsupported(inputType: typeof(VectorCloud.ClusterCase), outputType: typeof(Seq<Plane>))));
 
     internal static Fin<Seq<Plane>> BishopChain(Seq<Point3d> points, Direction initialNormal, ChainClosure closure, Context context, Op key) =>
@@ -693,8 +605,6 @@ internal static partial class NeighborKernel {
         from columns in key.Catch(() => {
             Point3d[] p = [.. points];
             bool closed = closure.Equals(ChainClosure.Closed);
-            // A vanishing step is a COLLAPSE question — this segment carries no direction — so the floor reads that
-            // lane; the squared form is the chord-length comparison the double-reflection body makes.
             double step = context.For(lane: ToleranceLane.Collapse).Value;
             double floor = step * step;
             var tangents = new Vector3d[p.Length];
@@ -713,7 +623,7 @@ internal static partial class NeighborKernel {
             for (int i = 0; i < p.Length - 1; i++) {
                 reference[i + 1] = Transported(reference: reference[i], tangent: tangents[i], next: tangents[i + 1], chord: p[i + 1] - p[i], floor: floor);
             }
-            if (closed) {   // holonomy: spread the closing defect as −residual·i/count per tangent, closing with zero twist seam
+            if (closed) {
                 Vector3d returned = Transported(reference: reference[^1], tangent: tangents[^1], next: tangents[0], chord: p[0] - p[^1], floor: floor);
                 double residual = Math.Atan2(Vector3d.CrossProduct(a: reference[0], b: returned) * tangents[0], reference[0] * returned);
                 for (int i = 1; i < p.Length; i++) {
@@ -727,7 +637,6 @@ internal static partial class NeighborKernel {
                 xHint: Some(columns.References[i]), context: context, key: key).Map(static frame => frame.Value)).As()
         select frames;
 
-    // Double reflection (Wang et al.) — the discretely rotation-minimizing transport.
     private static Vector3d Transported(Vector3d reference, Vector3d tangent, Vector3d next, Vector3d chord, double floor) {
         double c1 = chord * chord;
         (Vector3d rl, Vector3d tl) = c1 <= floor

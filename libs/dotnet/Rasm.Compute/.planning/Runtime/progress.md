@@ -41,10 +41,6 @@ public sealed partial class ProgressPhase {
 
     public int Dominance { get; }
 
-    // Three tiers of terminal precedence resolved in ONE traversal: the highest-Dominance terminal locks (Faulted
-    // over Cancelled), unanimous completion answers Completed, otherwise the least-advanced live rank. The prior
-    // form walked the set twice with two seeded folds; a single ordered comparator cannot replace them, because
-    // unanimity is a QUANTIFIER over the whole set rather than a relation between two rows.
     public static ProgressPhase Resolve(Seq<ProgressPhase> parts) =>
         parts.IsEmpty
             ? Queued
@@ -58,8 +54,6 @@ public sealed partial class ProgressPhase {
                     (Locked: { Case: ProgressPhase locked }, _, _) => locked,
                     (_, _, Unanimous: true) => Completed,
                     (_, Slowest: { Case: ProgressPhase slowest }, _) => slowest,
-                    // All terminal, none dominating, none unanimous — unreachable while every terminal row past
-                    // Completed carries Dominance above zero, and the arm a Dominance-zero terminal row would open.
                     _ => Finalizing,
                 };
 }
@@ -98,18 +92,12 @@ flowchart LR
 - Boundary: `ProgressCell` is the boundary capsule for subscription wiring and event registration. Its constructor is private; `Mint` is the only leaf factory and reads the admitted intent's `Spec.Progress` column — the spine-declared `Option<SubscriptionPolicy>` the capability descriptor stamped and the command algebra carried onto the intent verbatim, so a `None` row structurally has no cell for its producer to advance and no cadence is ever re-derived at dispatch — while `Aggregate` is the only parent factory. `Subscribe` accepts an effectful observer, so UI marshal and wire-write failures remain on `Fin` and terminate the cell instead of disappearing behind `ignore`. `IProgress<T>` plumbing, null checks, and consumer-side reminting never arise. `Advance` builds a candidate ONCE before the transition, because a compare-and-swap body re-runs on every contended retry and a candidate minted inside one would stamp a fresh instant per attempt. `Rate` and `Eta` derive from a mark pair and BOTH answer `Option`: no interval or no measurement on either side is absence, and a zero throughput is a measured stall riding `Some(0)` — one absence spelling across the pair, where a `0d` rate beside an `Option` ETA made an unmeasurable interval and a stalled producer indistinguishable. Producers are FOREIGN-THREAD by contract: a native search worker, a companion pump, or a lane task all publish through `Advance`, so the Atom commit IS the concurrency contract and the cell holds no affinity — `Change` then fans every subscriber on that producer's own thread, which is why each seam marshals or writes non-blockingly and never re-enters the cell. `Fail` is the ONE sanctioned re-entry, bounded by its own terminal probe: it advances to `Faulted` from inside a `Change` handler, the second pass reads the terminal phase and stops, so an observer failing under a foreign producer terminates once instead of recursing. Observer cancellation rides `CancelScope`; composite jobs reuse the identical `ProgressMark` and observation seams. `IClock` supplies the semantic stamp and kernel `MonotonicTimeline` the mark/elapsed pair a phase transition reads, both threaded directly because App-owned `ClockPolicy` never crosses into this owner.
 
 ```csharp signature
-// A streamed segment total is 64-bit by wire declaration and never negative, so the width and the floor ride the
-// value rather than a `Math.Max(0L, …)` clamp at every read.
 [ValueObject<long>]
 public readonly partial struct SegmentCount {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref long value) =>
         validationError = value >= 0L ? validationError : new ValidationError("<segment-count-range>");
 }
 
-// Fraction and segments are PHASE-CONDITIONAL payload, so both are `Option`-shaped: a `Queued` mark measured
-// neither, and a zero in either slot is a measurement — a stalled producer reporting zero segments per second is
-// a real reading and must not share a spelling with "nothing measured". The kernel `UnitInterval` carries the
-// `[0, 1]` law the old finite-and-in-range guard re-proved on every commit.
 public readonly record struct ProgressMark(
     ProgressPhase Phase,
     Option<UnitInterval> Fraction,
@@ -118,9 +106,6 @@ public readonly record struct ProgressMark(
     CorrelationId Correlation) {
     public int Rank => Phase.Rank;
 
-    // Both derivations answer absence the SAME way: no interval, no measurement. A zero throughput is a measured
-    // stall and rides `Some(0)`, where the prior `0d` return made an unmeasurable interval and a stalled producer
-    // one value no consumer could separate.
     public Option<double> Rate(ProgressMark prior) =>
         (At - prior.At).TotalSeconds is var seconds and > 0d
             ? from now in Segments
@@ -136,16 +121,11 @@ public readonly record struct ProgressMark(
               select Duration.FromSeconds((1d - now.Value) * seconds / (now.Value - before.Value))
             : None;
 
-    // The candidate DECLINES with `None`, so the kernel transition owner answers `Refused` and the caller reads a
-    // verdict rather than a mark identical to the one it already held. Rank regression and a terminal write that
-    // is not a dominance upgrade are the two refusals; range and sign refuse at construction and never reach here.
     public static Option<ProgressMark> Accept(ProgressMark prior, ProgressMark next) =>
         prior.Phase.Terminal
             ? next.Phase.Terminal && next.Phase.Dominance > prior.Phase.Dominance ? Some(Merged(prior, next)) : None
             : next.Rank < prior.Rank ? None : Some(Merged(prior, next));
 
-    // Monotone merge: fraction, segments, and the stamp all rise, completion pins the fraction whole, and the
-    // correlation stays cell-owned so a foreign producer cannot re-address the cell it publishes into.
     private static ProgressMark Merged(ProgressMark prior, ProgressMark next) =>
         next with {
             Fraction = next.Phase == ProgressPhase.Completed ? Some(UnitInterval.Create(1d)) : Rising(prior.Fraction, next.Fraction, static (a, b) => a.Value >= b.Value),
@@ -154,8 +134,6 @@ public readonly record struct ProgressMark(
             Correlation = prior.Correlation,
         };
 
-    // Absence never overwrites a measurement and a measurement never regresses: one fold serving both columns,
-    // where two hand `Math.Max` calls could disagree about which slot absorbs an unmeasured advance.
     private static Option<T> Rising<T>(Option<T> prior, Option<T> next, Func<T, T, bool> atLeast) =>
         (prior, next) switch {
             ({ Case: T held }, { Case: T candidate }) => Some(atLeast(held, candidate) ? held : candidate),
@@ -163,9 +141,6 @@ public readonly record struct ProgressMark(
             _ => prior,
         };
 
-    // The parent's fraction is the UNWEIGHTED mean of the parts that measured one — a part carries no cost column,
-    // so a weighted mean would rest on a share nothing measured — and its segment total is the exact sum. An
-    // overflowing sum reports UNMEASURED rather than a saturated `long.MaxValue` a consumer reads as a real count.
     public static ProgressMark Roll(Seq<ProgressMark> parts, CorrelationId correlation, Instant at) =>
         parts.IsEmpty
             ? new ProgressMark(ProgressPhase.Completed, Some(UnitInterval.Create(1d)), None, at, correlation)
@@ -178,10 +153,6 @@ public readonly record struct ProgressMark(
                 at,
                 correlation);
 
-    // A part that measured nothing leaves the running total alone; a total that cannot be represented in 64 bits
-    // becomes absent. NAMED LOSS: absence no longer separates "no part reported segments" from "the sum exceeded
-    // the carrier", and the witness is per-part — every child's own `Latest.Segments` still reads, so a consumer
-    // that needs the distinction reads the parts the aggregate rolled rather than the aggregate.
     private static Option<SegmentCount> AddSegments(Option<SegmentCount> accumulated, ProgressMark mark) =>
         (accumulated, mark.Segments) switch {
             (_, { IsNone: true }) => accumulated,
@@ -192,15 +163,6 @@ public readonly record struct ProgressMark(
         };
 }
 
-// The cadence THRESHOLDS declare at `Rasm.AppHost` `Agent/capability#DESCRIPTOR_AXIS`, beside the
-// descriptor column that carries them, because an op declares its reporting posture where it declares itself —
-// and the platform's command algebra seats that same value on the intent it compiles. The delivery PREDICATE
-// lands here because it reads a `ProgressMark` pair, and `ProgressMark` is this owner's hot-path capsule that
-// never crosses downward. So one value is declared once at the spine and decides exactly one thing, here: a
-// second cadence record at either end would let a descriptor advertise thresholds this gate never applied.
-// Only COMMITTED marks reach a subscriber — `Accept` refuses a rank regression before any `Change` fires — so the
-// gate carries no rank-order clause of its own; the retired `next.Rank >= prior.Rank` head could never be false
-// at this seam and read as a guard over a path the commit already closed.
 public static class ProgressCadence {
     extension(SubscriptionPolicy policy) {
         public bool Due(ProgressMark prior, ProgressMark next) =>
@@ -211,8 +173,6 @@ public static class ProgressCadence {
             || Moved(next.Segments, prior.Segments, static (a, b) => (double)(a.Value - b.Value)) >= Math.Max(0L, policy.MinSegments);
     }
 
-    // A threshold over an unmeasured pair has no movement to compare, so it contributes NOTHING rather than a zero
-    // delta that would read as "held still" — the same distinction the mark's own optional payload carries.
     private static double Moved<T>(Option<T> next, Option<T> prior, Func<T, T, double> delta) =>
         (from now in next from before in prior select delta(now, before)).IfNone(double.NegativeInfinity);
 }
@@ -235,7 +195,6 @@ public sealed class ProgressCell {
     public ProgressMark Latest => cell.Value;
     public Option<Error> LatestFailure => failure.Value;
 
-    // Admitted progress policy is the only leaf-mint gate.
     public static Option<ProgressCell> Mint(AdmittedIntent intent, IClock clock) =>
         intent.Spec.Progress.Map(_ => new ProgressCell(
             intent.Correlation,
@@ -246,14 +205,9 @@ public sealed class ProgressCell {
     private static ProgressMark Seeded(CorrelationId correlation, IClock clock) =>
         new(ProgressPhase.Queued, None, None, clock.GetCurrentInstant(), correlation);
 
-    // `Option` payload, never a zero default: a `Queued` or `Selected` advance measured no fraction and no segment
-    // count, and a defaulted `0d`/`0L` published both as measurements the wire then carried verbatim.
     public Transition<ProgressMark> Advance(ProgressPhase phase, Option<UnitInterval> fraction = default, Option<SegmentCount> segments = default) =>
         Advance(new ProgressMark(phase, fraction, segments, clock.GetCurrentInstant(), Correlation));
 
-    // The VERDICT rides the transition. A rejected advance and an idempotent re-advance returned byte-identical
-    // marks, so a producer that just published a rank regression learned nothing; `Committed` and `Refused` are
-    // the kernel transition owner's own cases and no local outcome union re-states them.
     public Transition<ProgressMark> Advance(ProgressMark next) =>
         Cell.Step(
             cell: cell,
@@ -272,14 +226,10 @@ public sealed class ProgressCell {
         if (parts.IsEmpty) { return None; }
 
         ProgressCell parent = new(correlation, scope, clock, Seeded(correlation, clock));
-        // ONE roll expression both the subscriber body and the eager seed read. Written twice verbatim, a later
-        // edit to either copy forked the fold silently — the subscription would coalesce on one law and the
-        // initial snapshot on another.
         Func<ProgressMark> rolled = () => ProgressMark.Roll(parts.Map(static child => child.Latest), correlation, clock.GetCurrentInstant());
         Seq<PhaseSubscription> wiring = parts.Map(part => part.Subscribe(
             cadence,
             _ => IO.lift(() => ignore(parent.Advance(rolled())))));
-        // Subscribe BEFORE the seed, so no advance falls between the snapshot and the registration.
         ignore(parent.Advance(rolled()));
         return Some((parent, new PhaseSubscription(wiring.Bind(static sub => sub.Detachers))));
     }
@@ -291,10 +241,6 @@ public sealed class ProgressCell {
 
     private static readonly ComputeFault Undue = new ComputeFault.PayloadOverBounds("<progress-under-cadence>");
 
-    // The ONE sanctioned re-entry: the failure seat is first-writer-wins on the kernel transition, and the
-    // terminal probe bounds the second pass — an observer failing under a foreign producer terminates once.
-    // Exemption: statement-shaped because two cells move under one decision and the terminal probe reads the
-    // second, so no fold or expression spine states the pair.
     private Unit Fail(Error error) {
         ignore(Cell.Seat(failure, () => error));
         if (Latest.Phase != ProgressPhase.Faulted) { ignore(Advance(ProgressPhase.Faulted)); }
@@ -320,20 +266,12 @@ using ProgressService = Rasm.Contracts.Compute.ProgressService;
 using WatchRequest = Rasm.Contracts.Compute.WatchRequest;
 using WatchResponse = Rasm.Contracts.Compute.WatchResponse;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// The served endpoint holds NO registry: the composing root already owns the live intent map and the one HLC mint
-// the fault evidence stamps, so both arrive as legs. A cell registry declared here would be a second seat for a
-// correspondence `Runtime/scheduling#JOB_GRAPH` already keeps.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ProgressPorts(
     Func<CorrelationId, Option<ProgressCell>> Resolve,
     Func<FaultContext> Evidence);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// A seam member earns its name by ADDING something to `Subscribe`: the UI arm adds the marshal, the instrument
-// arm adds the write register. A wire arm added only a frozen cadence argument, so the served endpoint spells
-// `cell.Subscribe(SubscriptionPolicy.Wire, seat)` — one hop, and the cadence reads at the call site instead of
-// hiding inside a rename. Both survivors take their cadence as an argument, so the arity disagreement that let
-// two members freeze a row while a third took one is gone.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ProgressSeams {
     extension(ProgressCell cell) {
         public PhaseSubscription Observe(UiSchedulerPort scheduler, SubscriptionPolicy cadence, Action<ProgressMark> render) =>
@@ -345,15 +283,6 @@ public static class ProgressSeams {
         }
     }
 
-    // Instrument name and dimension slot are the `Runtime/receipts` owner's consts, and `InstrumentSet.Tags` mints
-    // exactly the `TagList` its own `in TagList` write overload consumes, so declared row, writer, and
-    // materialization owner stay one vocabulary; `Advance` requires a phase on every mark, so this axis carries no
-    // absence arm and never omits its dimension. Cadence needs a predecessor, so the FIRST mark this subscription
-    // observes records none — the register carries the subscription's own history and no phase flip resets it.
-    // Returning the kernel rail binds `IO.lift`'s railed overload at the subscribe seam above, so a refused
-    // write raises on the subscription's error channel instead of dying one frame short of it. The predecessor
-    // advances on the SUCCESS path alone and outside the CAS body, so a refused pair leaves the register on the
-    // last mark that actually recorded and the next interval spans the real gap instead of dropping it.
     static Fin<Unit> Written(InstrumentSet set, Atom<Option<ProgressMark>> prior, ProgressMark mark) {
         Option<ProgressMark> held = prior.Value;
         TagList phase = InstrumentSet.Tags((ComputeInstrument.PhaseSlot, mark.Phase.Key));
@@ -365,13 +294,7 @@ public static class ProgressSeams {
     }
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// `RequiredMappingStrategy.Both` makes the mirror COMPILER-HELD on every column Mapperly can carry: a capsule
-// field with no wire member and a wire member with no capsule field each fail this build. The two `optional`
-// scalars are the columns it cannot carry — a proto3 `optional` scalar target is a nullable-oblivious presence
-// pair behind a null-rejecting setter, so the shell names both sides in its ignore rosters and writes presence by
-// hand. The mapping stays READER-FREE, which is what keeps that source-side roster compiler-proved inventory
-// rather than an authored list (`libs/dotnet/.api/api-mapperly.md`).
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 [UseStaticMapper(typeof(NodaExtensions))]
 [UseStaticMapper(typeof(HostWire))]
@@ -380,13 +303,10 @@ public static partial class ProgressWireMap {
     public static WatchResponse ToWire(ProgressMark mark) {
         WatchResponse wire = Projected(mark);
         mark.Fraction.Iter(fraction => wire.Fraction = fraction.Value);
-        // `SegmentCount` refuses a negative at construction, so the widening to the wire's `uint64` is total.
         mark.Segments.Iter(segments => wire.Segments = (ulong)segments.Value);
         return wire;
     }
 
-    // `Rank` derives from `Phase` and does not cross, so it is named here rather than mirrored as a column a peer
-    // could publish contradicting its own phase row.
     [MapperIgnoreSource(nameof(ProgressMark.Rank))]
     [MapperIgnoreSource(nameof(ProgressMark.Fraction))]
     [MapperIgnoreSource(nameof(ProgressMark.Segments))]
@@ -394,10 +314,6 @@ public static partial class ProgressWireMap {
     [MapperIgnoreTarget(nameof(WatchResponse.Segments))]
     private static partial WatchResponse Projected(ProgressMark mark);
 
-    // The row's GENERATED total projection is the whole correspondence: one arm per row, discovered by Mapperly on
-    // the unique `ProgressPhase` → `ProgressPhaseWire` pair, so a tenth row breaks HERE until its enum value lands
-    // at `progress.proto`. `At` crosses through the registered `NodaExtensions.ToTimestamp` and `Correlation`
-    // through the registered `HostWire.Correlation`, so neither column carries a per-member configuration.
     [UserMapping]
     private static ProgressPhaseWire Phase(ProgressPhase row) => row.Map(
         queued: ProgressPhaseWire.Queued,
@@ -411,29 +327,19 @@ public static partial class ProgressWireMap {
         faulted: ProgressPhaseWire.Faulted);
 }
 
-// --- [ENTRY] ------------------------------------------------------------------------------
-// The one Compute-served endpoint. The app root maps it beside `Rasm.AppHost/Wire/companion#CONTROL_SERVICE`
-// `ControlServiceImpl` and binds both legs; the peer client is `typescript:core/interchange/invoke#PROGRESS_WATCH`.
+// --- [ENTRY] ---------------------------------------------------------------------------
 public sealed class ProgressStream(ProgressPorts ports) : ProgressService.ProgressServiceBase {
     public override Task Watch(WatchRequest request, IServerStreamWriter<WatchResponse> responseStream, ServerCallContext context) =>
         Admit(request, Op.Of(context.Method)).Match(
             Succ: cell => Pump(cell, responseStream, context.CancellationToken),
             Fail: error => throw FaultWire.Raise(error, ports.Evidence()));
 
-    // Three refusals on ONE rail: an unrostered or rule-breaking message, a correlation that is not the 16-byte
-    // RFC 4122 form, and a correlation naming no live cell. The producer status table carries no `NotFound` arm,
-    // so the third answers the kernel `InvalidContext` — a watched intent whose cell has been released is a
-    // live-state gate, and the peer reads `FailedPrecondition` with the detail the one fault wire packed.
     private Fin<ProgressCell> Admit(WatchRequest request, Op key) =>
         from message in ParseGuard.Validated(request)
         from correlation in HostWire.Correlation(message.Correlation, key)
         from cell in ports.Resolve(correlation).ToFin(Fail: key.InvalidContext())
         select cell;
 
-    // The gate re-arms BEFORE the register is read, so a mark landing in that window completes the gate the pump
-    // is about to await rather than being lost between the two reads; the equality test then absorbs the one
-    // redundant pass that ordering buys. A terminal mark is written and ENDS the stream, because the phase family
-    // admits no advance past a dominance upgrade the peer would still be waiting on.
     private static async Task Pump(ProgressCell cell, IServerStreamWriter<WatchResponse> writer, CancellationToken token) {
         Atom<ProgressMark> register = Atom(cell.Latest);
         Atom<TaskCompletionSource> gate = Atom(Armed());
@@ -455,9 +361,6 @@ public sealed class ProgressStream(ProgressPorts ports) : ProgressService.Progre
         }
     }
 
-    // Submit-and-return on the producer's own thread: seat the latest mark, release the pump, touch neither the
-    // socket nor the cell. `RunContinuationsAsynchronously` keeps the pump's continuation off that thread, which
-    // is the whole point of the hand-off — without it the awaiting write would resume inline on the solver worker.
     private static Unit Seat(Atom<ProgressMark> register, Atom<TaskCompletionSource> gate, ProgressMark mark) {
         ignore(register.Swap(_ => mark));
         return ignore(gate.Value.TrySetResult());
@@ -473,8 +376,6 @@ public sealed class ProgressStream(ProgressPorts ports) : ProgressService.Progre
 - Boundary: `fraction` and `segments` cross OPTIONAL so an unmeasured phase publishes absence rather than a zero a chart reads as a stall; `at` crosses as `google.protobuf.Timestamp` and `correlation` as the 16-byte RFC 4122 form the request echoed; `rank` does NOT cross, because it derives from the phase row through the vocabulary both ends generate and a denormalized column can contradict the key beside it. Aggregate marks cross the identical message, since a rolled value IS a `ProgressMark`. Consumer cadence stays observer-side policy, while throughput and ETA derive from consecutive frames.
 
 ```proto signature
-// Transcribed verbatim from `libs/contracts/proto/rasm/contracts/compute/progress.proto`; the rules are the
-// corpus source's own and a hand mirror of them here forks what it transcribes.
 message WatchResponse {
   ProgressPhase phase = 1 [(buf.validate.field).enum = {
     defined_only: true

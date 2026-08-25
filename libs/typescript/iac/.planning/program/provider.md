@@ -49,8 +49,6 @@ const _map = {
     "selfhosted-k8s": "cnpg Cluster CR + Database CR + Converge Jobs",
     "selfhosted-docker": "docker.Container(postgres) + postgresql.Database/Role/Grant/Extension",
     aws: "cnpg Cluster CR + Database CR + Converge Jobs (compute: cluster)",
-    // the core lane alone: a managed instance loads no custom image, so the VectorChord, bm25, and parquet
-    // rows the extension roster admits are unreachable here and `_managed` refuses them at the coordinate
     gcp: "gcp.sql.DatabaseInstance + gcp.sql.Database + gcp.sql.User (core extensions only)",
   },
   object: {
@@ -161,14 +159,8 @@ declare namespace Dispatch {
   type Arm = (spec: StackSpec, material: Material, pins: Pins) => Effect.Effect<PulumiFn, DeployFault>
   type App = { readonly image: string; readonly edge: Option.Option<Traffic.Edge> }
   type Planes = Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, pulumi.Input<string | number>>>
-  // Every fault a program body can carry: the tier admissions the estate composes plus the coordinate
-  // rail. The body converts to the engine's own contract exactly once, at `_bodied`.
   type EstateFault = ConvergeRefused | DataRefused | DeployFault
   type ManagedEngine = (typeof _ENGINES)[number]
-  // A managed data cell states its OWN coverage: the engine it is (the sibling plane's vocabulary, not a
-  // cloud release name), the provider's release literal the resource takes, its machine tier, and the
-  // extension subset the instance actually loads — the twin conformance law's claim carried as data, so
-  // `_managed` proves it against the profile instead of a chart discovering the gap at apply.
   type Managed = {
     readonly engine: ManagedEngine
     readonly version: string
@@ -186,10 +178,6 @@ declare namespace Dispatch {
     readonly objectImage: string
     readonly nats: string
     readonly natsImage: string
-    // The observe tier's OWN versions record, widened by the docker arm's all-in-one image — never a mapped
-    // flattening of it: that tier splits a chart version from a container image reference on purpose, so a mapped
-    // `[K in keyof Lgtm.Versions]: string` collapses the `exporter` image row's `{ repository, digest }` back into
-    // the one string the split exists to forbid, and the pins then fail the tier's own argument type at the seam.
     readonly observe: Lgtm.Versions & { readonly dev: string }
     readonly dns: string
     readonly cloudflared: string
@@ -206,18 +194,13 @@ declare namespace Dispatch {
     readonly backend?: {
       readonly projection: Backend.Projection
       readonly runner: Converge.Runner
-      readonly materializer: pulumi.Input<string> // digest-pinned public ECR AWS CLI image
+      readonly materializer: pulumi.Input<string>
       readonly publication: string
       readonly recovery: (target: string) => Postgres.Recovery
     }
     readonly site?: {
-      readonly path: string // the built static-frontend directory; app data, never a lib literal
-      // the publish entry's OWN encoded row, not a structural restatement of it: `siblings` stays optional
-      // for a single-leaf artifact while a `Source.set(setKey, leaves)` mint survives the pin unnarrowed,
-      // and a widened admission reaches every caller through one type instead of two that can drift
+      readonly path: string
       readonly assets: ReadonlyArray<Source.AssetInput>
-      // one digest per decoder slug the build shipped; `_DECODERS` owns every leaf name, so the pin never
-      // re-spells a filename the viewer resolves by name and an unshipped decoder is an omitted key
       readonly decoders?: Source.Distribution["decoders"]
     }
     readonly boards: ReadonlyArray<typeof Board.DashboardModel.Encoded>
@@ -230,10 +213,6 @@ declare namespace Dispatch {
   }
 }
 
-// The data plane's own closed engine vocabulary, transcribed verbatim from `data/lane/postgres.md`
-// `_PROFILE_ENGINES` because the two planes meet at the process boundary and no import crosses — the
-// spelling is frozen at both ends, and a drift is visible here rather than hidden behind a free string
-// where a cloud release literal became the semantic owner of an engine the sibling folder already closed.
 const _ENGINES = [
   "pg", "pglite", "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode", "duckdbWasm", "clickhouse",
 ] as const
@@ -248,9 +227,6 @@ const _input = (spec: StackSpec, detail: string): DeployFault =>
 const _coord = <A>(spec: StackSpec, held: Option.Option<A>, name: string): Effect.Effect<A, DeployFault> =>
   Effect.mapError(held, () => _input(spec, `<missing-${name}>`))
 
-// Presence and vocabulary in ONE proof: the roster is the provider's own generated const, so the admitted
-// value carries the closed member type onward and the arm never re-checks it. The membership read is
-// `findFirst` rather than a boolean test because the narrowing is what makes the cast unnecessary.
 const _vocab = <A extends string>(
   spec: StackSpec,
   held: Option.Option<string>,
@@ -288,10 +264,6 @@ const _staged = (spec: StackSpec): Effect.Effect<Option.Option<Dispatch.App>, De
           ),
   })
 
-// the data row's twin conformance proof: a managed cell loads no custom image, so the arm's engine must be
-// the one its column realizes and the profile's extension subset must fall inside what the pinned instance
-// carries — both refuse on the coordinate rail naming every offender, where the values are still loggable,
-// rather than inside a database resource the operator has already accepted
 const _managed = (spec: StackSpec, pins: Dispatch.Pins): Effect.Effect<Dispatch.Managed, DeployFault> => {
   const unrealized = Array.difference(spec.profile.extensions, pins.managedData.extensions)
   return pins.managedData.engine !== "pg"
@@ -460,8 +432,6 @@ const _grounded = (
 
 const _DB_KEYS = ["DB_ADMIN_PASSWORD", "DB_PASSWORD", "DB_ANALYST_PASSWORD"] as const
 
-// One credential triple per realized cluster scope, keyed on the scope the data tier itself
-// enumerates — so a dedicated tenant cluster mints its own superuser and no scope reads a peer's.
 const _scoped = (key: string, scope: string): string => `${key}_${scope.toUpperCase().replaceAll("-", "_")}`
 
 const _credentials = (spec: StackSpec, data: string): Record.ReadonlyRecord<string, Secrets.Entry> => ({
@@ -505,8 +475,6 @@ const _estate = (
   app: Option.Option<Dispatch.App>,
 ): Effect.Effect<Dispatch.Planes, Dispatch.EstateFault> =>
   Effect.gen(function* () {
-    // Backend material belongs only to arms that realize the Kubernetes data estate. Prove that arm-local demand
-    // before declaring a resource; distribution-only and non-Kubernetes arms carry no meaningless contract pin.
     const backend = yield* _coord(spec, Option.fromNullable(pins.backend), "backend")
     const bound = { providers: [provider] }
     const ns = new k8s.core.v1.Namespace(spec.name, { metadata: { name: spec.name } }, { provider })
@@ -545,8 +513,6 @@ const _estate = (
           fence: identity.result,
         },
       }, bound)
-    // `Postgres.Targets` types the roster non-empty, so destructuring seats the primary with no head
-    // projection and hands the tail to one traversal.
     const [head, ...followers] = data.targets
     const primary = yield* converge(head)
     const convergences = [primary, ...yield* Effect.forEach(followers, converge)]
@@ -555,16 +521,13 @@ const _estate = (
       namespace: ns.metadata.name,
       versions: pins.observe,
       auth: secrets.read("GRAFANA_PASSWORD"),
-      // pg-server metrics coordinates: discrete because the two pg receivers take opposite credential shapes; in-graph, never a published output
       data: { host: data.host, port: data.port, database: data.database, user: data.role, password: secrets.read(_scoped("DB_PASSWORD", "data")) },
-      objects: { endpoint: objects.endpoint, bucket: objects.bucket }, // one storage truth: the mimir ruler and the lake residence bind the object plane's own coordinates
-      alerts: pins.alerts, // the same suite `Boards` compiles: the store row records the burn numerator the alert then reads
+      objects: { endpoint: objects.endpoint, bucket: objects.bucket },
+      alerts: pins.alerts,
     }, bound)
     const boards = new Boards("boards", {
       spec,
       urls: lgtm.urls,
-      // render coordinates ride the tier that OWNS the backend selection: re-deriving them here from the spec spells
-      // a grammar and a driver the installed row never answered, and a mismatched selector matches nothing silently
       targets: lgtm.targets,
       auth: secrets.read("GRAFANA_PASSWORD"),
       boards: pins.boards,
@@ -574,14 +537,11 @@ const _estate = (
       deploy: { id: identity.result },
     })
     secrets.store("GRAFANA_AUTOMATION_TOKEN", boards.automation)
-    // tenant read identities ride the same custody as the automation token
     Array.map(Record.toEntries(boards.viewers), ([tenant, key]) =>
       secrets.store(`GRAFANA_VIEWER_${tenant.toUpperCase()}`, key))
     if (spec.profile.separation.mode !== "single") {
       new Tenants("tenants", { spec, versions: { capsule: pins.capsule, vcluster: pins.vcluster } }, bound)
     }
-    // the unleased custody CELL, not the Kubernetes Secret behind it: `Workload.rows` stamps its variable rows
-    // off the cell's own `carries` roster, so the leased mint and this one reach the env fold as one value
     const custody = Workload.token("doppler-token", { namespace: ns.metadata.name, token: secrets.token }, { provider })
     const outputs = {
       data: { host: data.host, port: data.port, database: data.database, role: data.role, pooling: data.pooling },
@@ -589,11 +549,6 @@ const _estate = (
       fanout: { origin: fanout.origin },
       otlp: { endpoint: lgtm.collectorEndpoint },
       grafana: { url: lgtm.urls.grafana },
-      // query ends bind one residence, and the ARMED ROW publishes its own door: `clickhouse` and `both` publish the
-      // interactive plane, `lake` the object plane's endpoint under the evidence catalog, and `none` publishes no
-      // plane so absence reads as refusal. The tier's own coordinate names WHICH row that door belongs to — the spec
-      // value names a selection (`both` is two planes, not a residence) and publishing it hands a query end a key no
-      // residence family holds. Re-deriving either the door or the row here forks a projection the tier already proved.
       ...Option.match(lgtm.targets.analytics, {
         onNone: () => ({}),
         onSome: ({ residence }) => ({
@@ -623,16 +578,11 @@ const _estate = (
     }
     const ca = Certs.root("mesh-ca")
     secrets.store("MESH_CA_KEY", ca.key.privateKeyPem)
-    // `role: service` guarantees the surface, so absence breaks the tier contract rather than the
-    // spec; the coordinate rail carries that verdict like every other proof and nothing throws here.
     const service = yield* _coord(spec, workload.service, "workload-service")
     const traffic = new Traffic("traffic", {
       spec,
       namespace: ns.metadata.name,
       service: service.metadata.name,
-      // the tier's own label derivation: the fence selects the pods this edge fronts, and the arm seats the
-      // data, fanout, object, and collector planes in this same namespace, so a namespace-wide fence would
-      // close the app out of every dependency it dials
       selector: workload.selector,
       port: pins.port,
       connector: pins.cloudflared,
@@ -644,12 +594,8 @@ const _estate = (
     return { ...outputs, ingress: { hostname: traffic.hostname } }
   })
 
-// `PulumiFn` hands the engine its one in-band error contract, so the typed rail runs out exactly
-// here and a refused estate surfaces as a rejected program promise, never a throw inside a tier.
 const _bodied = <A>(program: Effect.Effect<A, Dispatch.EstateFault>): Promise<A> => Effect.runPromise(program)
 
-// the served-header grammar has two pattern shapes — a prefix star, and a prefix star with a suffix — so
-// coverage and specificity both derive from one split and no dialect re-parses a pattern it renders
 const _split = (pattern: string) => {
   const star = pattern.indexOf("*")
   return { prefix: pattern.slice(0, star), suffix: pattern.slice(star + 1) }
@@ -661,8 +607,6 @@ const _covers = (general: string, specific: string): boolean => {
   return narrow.prefix.startsWith(wide.prefix) && (wide.suffix === "" || wide.suffix === narrow.suffix)
 }
 
-// first-match engines answer ONE behavior per request: each pattern folds the union of every covering
-// roster row, ordered narrow to wide — under the two-shape grammar a covered pattern spells longer
 const _postures = (rules: Source.Distributed["edge"]) =>
   Array.map(
     Array.sort(
@@ -678,12 +622,7 @@ const _postures = (rules: Source.Distributed["edge"]) =>
     }),
   )
 
-// each arm renders the ONE header roster in its own dialect — pattern/header/value rows in, the arm's own
-// fronting resources out, no roster literal anywhere in an arm body
 const _EDGED = {
-  // aws: the response headers policy is the only per-path header surface an S3 origin admits, so the
-  // CloudFront front IS the fold's product — one policy per posture, one ordered behavior per pattern,
-  // the OAC origin and one owned cache policy carrying no roster literal
   aws: (name: string, rules: Source.Distributed["edge"], site: { readonly bucket: aws.s3.BucketV2 }, opts: { readonly provider: aws.Provider }) => {
     const access = new aws.cloudfront.OriginAccessControl(`${name}-access`, {
       originAccessControlOriginType: "s3",
@@ -727,9 +666,6 @@ const _EDGED = {
       viewerCertificate: { cloudfrontDefaultCertificate: true },
     }, opts)
   },
-  // gcp: route rules carry the headers — prefixMatch for the bare-star pattern, pathTemplateMatch
-  // `/<prefix>**<suffix>` for a suffix pattern (regexMatch is unspellable on the external managed
-  // scheme) — over one CDN-enabled backend bucket behind the URL map, proxy, and door the arm owns
   gcp: (name: string, rules: Source.Distributed["edge"], site: { readonly bucket: gcp.storage.Bucket }, opts: { readonly provider: gcp.Provider }) => {
     const backend = new gcp.compute.BackendBucket(`${name}-origin`, { bucketName: site.bucket.name, enableCdn: true }, opts)
     const routes = new gcp.compute.URLMap(`${name}-routes`, {
@@ -741,7 +677,7 @@ const _EDGED = {
         routeRules: Array.map(_postures(rules), (posture, rank) => {
           const shape = _split(posture.pattern)
           return {
-            priority: rank + 1, // ascending evaluation: the narrow-to-wide posture order IS the rule order
+            priority: rank + 1,
             service: backend.id,
             matchRules: [
               shape.suffix === ""
@@ -762,8 +698,6 @@ const _EDGED = {
       loadBalancingScheme: "EXTERNAL_MANAGED",
     }, opts)
   },
-  // cloudflare: the rules engine applies EVERY matching header-transform rule, so the roster rows render
-  // verbatim — one rewrite rule per row, the pattern lowered into the zone's own path predicates
   cloudflare: (name: string, rules: Source.Distributed["edge"], site: { readonly zone: pulumi.Input<string>; readonly app: string }, opts: { readonly provider: cloudflare.Provider }) =>
     new cloudflare.Ruleset(`${name}-headers`, {
       zoneId: site.zone,
@@ -901,16 +835,10 @@ const _AWS: {
     }, pulumi.mergeOptions(opts, { dependsOn: backend.dependsOn }))
     const bucket = new aws.s3.BucketV2("objects", {}, opts)
     new aws.s3.BucketVersioningV2("objects-versioning", { bucket: bucket.id, versioningConfiguration: { status: "Enabled" } }, opts)
-    // Ownership is DECLARED, not inherited: a fresh bucket already defaults to bucket-owner-enforced, and an
-    // unstated default is a posture the policy pack cannot read and a provider bump can move. Enforced
-    // ownership disables ACLs outright, which is why no canned-ACL coordinate exists anywhere on this arm.
     new aws.s3.BucketOwnershipControls("objects-ownership", {
       bucket: bucket.id,
-      rule: { objectOwnership: "BucketOwnerEnforced" }, // the arg is `Input<string>` — this SDK exports no ownership roster
+      rule: { objectOwnership: "BucketOwnerEnforced" },
     }, opts)
-    // All four refusals ride one row: the distribution reaches the origin as a service principal under the
-    // policy below, never as a public reader, so blocking public ACLs and public policies costs the estate
-    // nothing and closes the bucket to every path except the front.
     new aws.s3.BucketPublicAccessBlock("objects-closed", {
       bucket: bucket.id,
       blockPublicAcls: true,
@@ -918,8 +846,6 @@ const _AWS: {
       ignorePublicAcls: true,
       restrictPublicBuckets: true,
     }, opts)
-    // the distribution cell the map advertises: the served plane arms the ui codec gate, and the edge
-    // fold renders the same call's header roster onto the CloudFront front — one distribute, both ends
     const site = pins.site === undefined
       ? Option.none<Source.Distributed>()
       : Option.some(Source.distribute("frontend", {
@@ -929,10 +855,6 @@ const _AWS: {
           assets: pins.site.assets,
           decoders: pins.site.decoders,
         }, { providers: [opts.provider] }))
-    // Granting the front is the other half of the lockdown — a closed bucket behind an OAC origin answers 403
-    // until a policy names it, and the `SourceArn` condition scopes that grant to THIS distribution so the
-    // service principal cannot be borrowed by another account's front. Composition rides the typed
-    // `PolicyDocument` shape under the provider's own version and effect constants, never serialized JSON.
     Option.map(site, (held) => {
       const front = _EDGED.aws("frontend", held.edge, { bucket }, opts)
       new aws.s3.BucketPolicy("objects-origin", {
@@ -965,7 +887,6 @@ const _AWS: {
       createOidcProvider: true,
       skipDefaultNodeGroup: true,
     }, opts)
-    // `capacity` proved its vocabulary at decode, so this group states the pool and spells no roster of its own
     const capacity = spec.profile.capacity
     new eks.ManagedNodeGroup("capacity", {
       cluster: plane,
@@ -1022,9 +943,6 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           image: pins.pgImage,
           restart: "unless-stopped",
           envs: [pulumi.interpolate`POSTGRES_PASSWORD=${secrets.read(_scoped("DB_ADMIN_PASSWORD", "data"))}`, `POSTGRES_DB=${spec.app}`],
-          // Loopback custody: the data plane never publishes on an interface the host exposes — the `ip` bind
-          // keeps the mapped port host-local, the fence alias serves every in-fence consumer, and the only
-          // remote path is the SSH forward below, so the superuser credential cannot cross a public hop.
           ports: [{ internal: 5432, external: 5432, ip: "127.0.0.1" }],
           networksAdvanced: [{ name: fence.name, aliases: ["data"] }],
           volumes: [{ volumeName: store.data.volume.name, containerPath: store.data.path }],
@@ -1059,10 +977,6 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           network: fence.name,
           auth: secrets.read("GRAFANA_PASSWORD"),
         }, machine)
-        // The DDL hop rides the SSH channel, never a published interface: one control-socket forward holds
-        // 127.0.0.1:15432 -> deploy-host loopback 5432 open across the whole `up` (create arms it, delete
-        // releases it), pinned to the proven connection's hardening coordinates exactly as the daemon dial is.
-        // `sslmode: "disable"` is thereby a loopback fact — no credential byte leaves the encrypted channel.
         const pinned = Option.match(proven.connection.hostKey, {
           onNone: () => `-o StrictHostKeyChecking=accept-new`,
           onSome: () => `-o UserKnownHostsFile="$PWD/sql.known" -o StrictHostKeyChecking=yes`,
@@ -1079,14 +993,14 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
             SSH_PEM: pulumi.secret(Redacted.value(proven.key)),
             SSH_HOST_KEY: Option.getOrElse(proven.connection.hostKey, () => ""),
           },
-          logging: "none", // credential-bearing step: never echo
+          logging: "none",
         }, { dependsOn: [data] })
         const sql = new postgresql.Provider("sql", {
           host: "127.0.0.1",
           port: 15432,
           username: "postgres",
           password: secrets.read(_scoped("DB_ADMIN_PASSWORD", "data")),
-          sslmode: "disable", // loopback-only endpoint behind the SSH forward — no cleartext interface exists
+          sslmode: "disable",
         }, { dependsOn: [forward] })
         const role = new postgresql.Role("app-role", {
           name: `${spec.app}_app`,
@@ -1103,7 +1017,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         }, { provider: sql })
         new postgresql.GrantRole("analyst-read-all", {
           role: analyst.name,
-          grantRole: "pg_read_all_data", // the built-in read tier: membership, never a second grant surface
+          grantRole: "pg_read_all_data",
         }, { provider: sql })
         new postgresql.Grant("analyst-select", {
           database: database.name,
@@ -1118,20 +1032,18 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           owner: role.name,
           schema: "public",
           objectType: "table",
-          privileges: ["SELECT"], // future objects inherit the ACL: the analyst tier never chases new relations
+          privileges: ["SELECT"],
         }, { provider: sql })
         new postgresql.ReplicationSlot("outbox", {
           database: database.name,
           name: `${spec.app}_outbox`,
-          plugin: "pgoutput", // the logical seam as a typed row: a replication topology is rows here, never a rewrite
+          plugin: "pgoutput",
         }, { provider: sql })
         new docker.Container("app", {
           image: image.ref,
           restart: "unless-stopped",
           envs: [
             pulumi.interpolate`DOPPLER_TOKEN=${secrets.token}`,
-            // the channel catalog names the variable, so the loop arm and the estate arm write ONE spelling
-            // and neither re-states a key the reading process resolves through its own Setting group
             pulumi.interpolate`${StackOutputs.channels["otlp.endpoint"]}=${observe.collectorEndpoint}`,
             ...backend.envs,
           ],
@@ -1144,7 +1056,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         const boards = new Boards("boards", {
           spec,
           urls: observe.urls,
-          targets: observe.targets, // the loop's bundled store answers for itself; the k8s `_stores` row installs nothing here
+          targets: observe.targets,
           auth: secrets.read("GRAFANA_PASSWORD"),
           boards: pins.boards,
           alerts: pins.alerts,
@@ -1154,10 +1066,6 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         }, { dependsOn: [observe] })
         secrets.store("GRAFANA_AUTOMATION_TOKEN", boards.automation)
         return {
-          // one container, no pooler: the realized mode voids no pooled-bind primitive, and the row publishes
-          // deployment truth — the data plane's one reachable coordinate is the fence alias (the loopback
-          // publish serves only the deploy host and the SSH forward), so the rail states the alias, never a
-          // public address no listener answers
           data: { host: "data", port: 5432, database: spec.app, role: `${spec.app}_app`, pooling: "session" },
           object: { endpoint: `http://${proven.connection.host}:9000`, bucket },
           fanout: { origin: `ws://${proven.connection.host}:8080` },
@@ -1191,8 +1099,6 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
     ),
   aws: (spec, _material, pins) =>
     Effect.map(
-      // aws is the one arm whose region roster its provider publishes, so an unpublished coordinate refuses here,
-      // where it stays loggable, instead of reaching the SDK as an endpoint failure naming no coordinate at all
       Effect.all({ region: _vocab(spec, spec.region, "region", aws.types.enums.Region), app: _staged(spec) }),
       ({ region, app }) => () => {
         const provider = new aws.Provider("aws", { region })
@@ -1207,24 +1113,17 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         managed: _managed(spec, pins),
       }),
       ({ region, project, managed }) => async () => {
-        // the entry MINTS the scoped key the user row below reads: an unscoped `DB_PASSWORD` entry beside a
-        // `_scoped` read generates one key nothing consumes and reads another nothing generates, and the SQL user
-        // then takes whatever a Doppler config happens to hold under a name this arm never wrote
         const secrets = new Secrets("secrets", { spec, entries: { [_scoped("DB_PASSWORD", "data")]: { generate: {} } } })
         const provider = new gcp.Provider("gcp", { project, region, credentials: secrets.read("GCP_CREDENTIALS") })
         const opts = { provider }
         const bucket = new gcp.storage.Bucket("objects", { location: region, uniformBucketLevelAccess: true, versioning: { enabled: true } }, opts)
         const sql = new gcp.sql.DatabaseInstance("data", {
-          // the PROVIDER's own release literal; the engine coordinate beside it is the data plane's
-          // vocabulary and `_managed` already proved the pair names the cell this column realizes
           databaseVersion: managed.version,
           region,
           settings: { tier: managed.tier },
         }, opts)
         new gcp.sql.Database("app", { instance: sql.name, name: spec.app }, opts)
         new gcp.sql.User("app-role", { instance: sql.name, name: `${spec.app}_app`, password: secrets.read(_scoped("DB_PASSWORD", "data")) }, opts)
-        // one distribute serves both ends: the served plane exits, the edge roster renders onto the
-        // CDN-enabled front the fold mints
         const site = pins.site === undefined
           ? Option.none<Source.Distributed>()
           : Option.some(Source.distribute("frontend", {
@@ -1237,8 +1136,6 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
         Option.map(site, (held) => _EDGED.gcp("frontend", held.edge, { bucket }, opts))
         return {
           object: { endpoint: bucket.url, bucket: bucket.name },
-          // the arm stands no pooler, so the realized mode is the one that voids no pooled-bind primitive —
-          // the plane publishes deployment truth and the runtime capability rail gates on it
           data: { host: sql.publicIpAddress, port: 5432, database: spec.app, role: `${spec.app}_app`, pooling: "session" },
           ...Option.match(site, { onNone: () => ({}), onSome: (held) => ({ served: held.served }) }),
         }
@@ -1262,7 +1159,7 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
             id: "abort-stale-multipart",
             enabled: true,
             conditions: { prefix: "" },
-            abortMultipartUploadsTransition: { condition: { type: "Age", maxAge: 604800 } }, // stale upload fragments age out; referenced objects never age here — the reference ledger owns deletion
+            abortMultipartUploadsTransition: { condition: { type: "Age", maxAge: 604800 } },
           }],
         }, { provider })
         const site = new cloudflare.PagesProject("site", {
@@ -1278,8 +1175,6 @@ const _ARMS: { readonly [K in StackSpec.Arm]: Dispatch.Arm } = {
           proxied: true,
           ttl: 1,
         }, { provider })
-        // the static origin uploads out of graph and converges no folder, so the arm reads Source.edge
-        // directly and its proxied zone answers the same roster every converging arm serves
         _EDGED.cloudflare("site", Source.edge, { zone, app: spec.app }, { provider })
         return {
           object: { endpoint: pulumi.interpolate`https://${account}.r2.cloudflarestorage.com/${store.name}`, bucket: store.name },
@@ -1302,7 +1197,7 @@ const Dispatch = {
     _ARMS[spec.target](spec, material, pins),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Bootstrap, Dispatch }
 ```

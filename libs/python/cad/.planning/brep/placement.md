@@ -37,14 +37,10 @@ class ShapeBuilder(Protocol):
 
 
 def admitted[S: TopoDS_Shape](shape: S, coordinate: str, /) -> CadRail[S]:
-    # Generic in the concrete topology type: a face probed here comes back a face, so a caller that already narrowed
-    # never re-downcasts, and the one `BRepCheck_Analyzer` call in the leg stays single-sited.
     return Ok(shape) if not shape.IsNull() and BRepCheck_Analyzer(shape).IsValid() else Error(BREP_OUTPUT.at(coordinate))
 
 
 def built(builder: ShapeBuilder, coordinate: str, /) -> CadRail[TopoDS_Shape]:
-    # Builders whose ctor already performed still answer `IsDone`, so the verdict is one question whether the row's
-    # ctor or this `Build` did the solving, and `Shape` is never read ahead of that answer.
     builder.Build()
     return Error(BREP_KERNEL.at(coordinate)) if not builder.IsDone() else admitted(builder.Shape(), coordinate)
 
@@ -96,8 +92,6 @@ from rasm.cad.faults import BREP_INPUT, BREP_KERNEL, BREP_OUTPUT, CadRail
 
 @dataclass(frozen=True, slots=True)
 class Lowering[W, G, *Cs]:
-    # One correspondence spelled once: a spatial owner reads an ordered component run and spreads it onto its own
-    # `gp` constructor, so a composite row reads its leaves through the leaf rows instead of re-spelling them.
     read: Callable[[W], tuple[*Cs]]
     mint: Callable[[*Cs], G]
 
@@ -107,8 +101,6 @@ class Lowering[W, G, *Cs]:
 
 @dataclass(frozen=True, slots=True)
 class Basis:
-    # Lowering a frame once fixes both planar directions. `gp_Ax2` derives Y as Z cross X, matching the rule the
-    # wire states for local coordinates, so no third axis crosses that can disagree with the cross product.
     origin: gp_Pnt
     x_axis: gp_Dir
     y_axis: gp_Dir
@@ -128,8 +120,6 @@ class Basis:
 
 # --- [ROWS] -----------------------------------------------------------------------------
 
-# One row per spatial owner. `read` names the component order the `gp` constructor expects and `mint` the constructor
-# itself, so the derivation is the executable spec and a per-type converter sibling never forms beside it.
 point: Final[Lowering[Point3, gp_Pnt, float, float, float]] = Lowering(
     read=lambda value: (value.x_m, value.y_m, value.z_m), mint=gp_Pnt
 )
@@ -137,8 +127,6 @@ direction: Final[Lowering[UnitDirection3, gp_Dir, float, float, float]] = Loweri
     read=lambda value: (value.x, value.y, value.z), mint=gp_Dir
 )
 
-# `axis` and `seated` share this read verbatim and diverge only at the constructor, which is why the correspondence
-# holds a `read` field at all: a second `Axis3` converter would restate the origin-and-direction pair to change one word.
 _SEATING: Final[Callable[[Axis3], tuple[gp_Pnt, gp_Dir]]] = lambda value: (point(value.origin), direction(value.direction))
 
 axis: Final[Lowering[Axis3, gp_Ax1, gp_Pnt, gp_Dir]] = Lowering(read=_SEATING, mint=gp_Ax1)
@@ -153,8 +141,6 @@ datum: Final[Lowering[Frame3, gp_Ax3, gp_Ax2]] = Lowering(read=lambda value: (fr
 
 
 def displaced(op: TransformOp, /) -> gp_Trsf:
-    # `uniform_scale` is wire-proved finite and positive, so this composition is total and mints no rail. Scale seats
-    # on the TARGET origin, which is the mapping the wire states only when displacement applies first.
     rigid = gp_Trsf()
     rigid.SetDisplacement(datum(op.source_frame), datum(op.target_frame))
     scale = gp_Trsf()
@@ -163,8 +149,6 @@ def displaced(op: TransformOp, /) -> gp_Trsf:
 
 
 def placed(shape: TopoDS_Shape, op: TransformOp, /) -> CadRail[TopoDS_Shape]:
-    # Copying is admitted deliberately: the decoded source stays untouched so a later arm reading the same digest
-    # sees the geometry the artifact seals rather than a transformed body sharing its topology.
     return built(BRepBuilderAPI_Transform(shape, displaced(op), True, False), "transform")
 ```
 
@@ -188,8 +172,6 @@ type Lift[P] = Callable[[P], gp_Pnt]
 
 
 class EdgeKind(StrEnum):
-    # Members spell the oneof field names both span families carry, so a wire token admits directly and no
-    # field-to-kind table sits between them. `RING` is the closed-loop arm no open span reaches.
     LINE = "line"
     ARC = "arc"
     SPLINE = "spline"
@@ -201,8 +183,6 @@ class EdgeKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Span[P]:
-    # One span of one wire. `case` holds the oneof payload untyped because two message families share this owner,
-    # and `lift` restores the point type at the one site that reads a coordinate.
     kind: EdgeKind
     case: Message
     start: P
@@ -218,8 +198,6 @@ def _arced(run: Sequence[gp_Pnt], /) -> CadRail[TopoDS_Edge]:
 
 
 def _fitted(run: Sequence[gp_Pnt], /, *, periodic: bool) -> CadRail[TopoDS_Edge]:
-    # Interpolation owns a ONE-based handle array, so the fill index opens at one; a zero-based fill drops the
-    # first pole silently and returns a curve short of the run it was handed.
     values = TColgp_HArray1OfPnt(1, len(run))
     for index, held in enumerate(run, 1):
         values.SetValue(index, held)
@@ -243,8 +221,6 @@ def minted(kind: EdgeKind, run: Sequence[gp_Pnt], /) -> CadRail[TopoDS_Edge]:
 
 
 def joined(edges: Iterable[TopoDS_Edge], /) -> CadRail[TopoDS_Wire]:
-    # Wire building reports its refusal per added edge, so the fault names the ordinal that broke connectivity
-    # rather than naming the whole loop; polling only after the last add loses that coordinate.
     builder = BRepBuilderAPI_MakeWire()
     for edge in edges:
         builder.Add(edge)
@@ -254,8 +230,6 @@ def joined(edges: Iterable[TopoDS_Edge], /) -> CadRail[TopoDS_Wire]:
 
 
 def _interior[P](kind: EdgeKind, case: Message, /) -> tuple[P, ...]:
-    # Both span families spell the interior run as `through`: absent on a line, a lone point on an arc, a run on a
-    # spline. Reading the member structurally is what keeps ONE dispatch where the wire carries two case families.
     match kind:
         case EdgeKind.LINE:
             return ()
@@ -287,8 +261,6 @@ def wired[P](spans: Block[Span[P]], lift: Lift[P], /) -> CadRail[TopoDS_Wire]:
 
 
 def _paired(value: Curve3, /) -> Block[tuple[Oneof, Point3, Point3]]:
-    # Every segment opens at its predecessor's endpoint, so the start run IS the endpoint run seeded by the curve's
-    # own start; deriving it from the pairing keeps continuity structural instead of threading a mutable cursor.
     ends = tuple(one.curve.value.end for one in value.segments)
     return Block.of_seq(zip((one.curve for one in value.segments), (value.start, *ends), ends, strict=True))
 

@@ -23,13 +23,7 @@ Rasm.Compute owns the durable half of the sensor wire: `ObservationLane` accumul
 - Boundary: `Rasm.AppHost` is the S1 spine and cannot reference the Element seam, so the sensor-series PRODUCER seats here — the AppHost livewire stays the transport coercing a BMS reading to canonical SI and this lane turns that coerced stream into durable graph evidence; a producer minted at the spine is unreachable by construction. The binding roster is a COMPOSITION value, never derived from an envelope body: a binding read off the wire lets a publisher name the occurrence it reports against and write into any element's evidence. The lane ADDRESSES bytes and never fetches them — `ObservationChunk.Encode` mints the block and its `BlobKey` from ONE projection, so the sink WRITES under the key the chunk already carries and a store returning its own key is the second hasher the seam's one seed forecloses; the port is therefore key-TAKING and a key-minting twin anywhere in this package is its deleted inverse. The chunk's bytes cross once, at that write: the seam retired `Span` and `CanonicalBytes` on the chunk, so no reader here re-derives a payload the `Encode` pair already handed over. The occurrence is occurrence-scoped by the seam's own admission — `AssignKind.Observation` refuses a Type subject because a `Component` names no instrument — so a binding pointing at a Type fails at `AdmitOnto` rather than minting a series the named-type fold would skip. `Rasm.Element` owns the sampling algebra, the chunk codec, the statistics derivation, and every admission gate; this lane holds accumulation policy, binding custody, and the delta hand-off, so a lane-local downsample, a lane-local completeness screen, or a lane-computed representative figure is the deleted form. The reading's finite-magnitude gate is this lane's own and NOT the twin's `TwinSignal.Invalid` predicate, which additionally demands a non-empty `OperatingPoint` — a surrogate-scoring need, not a metering one — so a shared predicate would refuse honest readings the twin has no use for. `ObservationGrade.Missing` is not publisher-reachable: it marks a cadence slot nothing arrived for, which only a gap-filling pass mints, so no `SensorQuality` row projects onto it. Absence in the instrument audit rides the `Option` the seam declares, so a blank-string sentinel provenance is unspellable here.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// The publisher's quality flag is a VOCABULARY, so it lands as a declared row map: a per-call `flag switch`
-// re-decides the consumable share at every site and drifts the day a vendor ships a token. Two arms carry the
-// whole absent-and-unknown policy. An ABSENT attribute grades `Measured` — a raw BMS point IS a measurement, and
-// grading it `Validated` claims a review that never ran. An UNMINTED token grades `Suspect`, so a quality this
-// vocabulary cannot read leaves the sample readable and OUT of the consumable share rather than silently
-// consumable.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SensorQuality {
@@ -48,13 +42,7 @@ public sealed partial class SensorQuality {
             None: static () => ObservationGrade.Measured);
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
-// Flush cadence, window bound, pending ceiling, model tolerance, and the in-flight re-drive curve as POLICY
-// VALUES: a chunk closes on whichever edge trips first, so a fast point closes on count and a slow one on elapsed
-// window, and neither is a literal inside the fold. PendingCap is the lane's own backpressure floor — a binding
-// whose flush cannot land keeps accumulating, so the ceiling sheds and RECORDS rather than growing the process
-// out of memory. Tolerance rides HERE rather than as a lane column because it is the identity grid a projection
-// quantizes on, which is policy the same way the flush edges are.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record ObservationPolicy(
     int FlushSamples, Duration FlushWindow, int PendingCap, double Tolerance, Schedule Retry) {
     public static readonly ObservationPolicy Canonical = new(
@@ -62,27 +50,15 @@ public sealed record ObservationPolicy(
         FlushWindow: Duration.FromMinutes(15),
         PendingCap: 4096,
         Tolerance: EpsilonPolicy.ZeroTolerance,
-        // `Duration` here is NodaTime's, so the schedule builders take `TimeSpan` and ride LanguageExt's own
-        // implicit widening — spelling `Duration.FromSeconds` in these two arguments resolves to the wrong type.
         Retry: Schedule.exponential(TimeSpan.FromSeconds(1)) | Schedule.maxCumulativeDelay(TimeSpan.FromMinutes(2)));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// ONE deployed sensor -> ONE observed aspect of ONE occupied occurrence, carrying every column
-// `ObservationSeries.Open` takes. The aspect is first-class beside the quantity because one element reports
-// several aspects under one dimension (a wall's surface temperature and its heat flux), which the quantity alone
-// under-discriminates. The quantity is the seam's ONE admitted signature rather than a loose type/dimension/unit
-// triple, so a roster row whose type and dimension disagree cannot be composed at all.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SensorBinding(
     NodeId Occurrence, SensorId Sensor, PropertyName Aspect,
     QuantitySignature Quantity, SamplingKind Sampling, Option<Duration> Cadence,
     Option<SensorProvenance> Provenance);
 
-// Per-binding accumulation. `Claimed` is the HAND-OFF slot the CAS law forces: the transition records what it
-// closed ON the value it installs, and the caller drains that claim once after the swap returns, so a losing
-// attempt recomputes against the winner's state instead of re-running an effect. `Shed` rides the same installed
-// value because a swap returning the post-transition state alone carries no other refusal channel. The whole-run
-// summary is NOT a column here: `Series.Statistics` already carries it after every `Append`.
 public readonly record struct ObservationRun(
     ObservationSeries Series,
     Seq<(Instant At, double Si, ObservationGrade Grade)> Pending,
@@ -94,21 +70,13 @@ public readonly record struct ObservationRun(
     public static ObservationRun Opened(ObservationSeries series, (Instant At, double Si, ObservationGrade Grade) sample) =>
         new(series, Seq(sample), Drained, 0);
 
-    // The commit's absent arm: a grown series with nothing outstanding. Re-seeding from the flushed window instead
-    // would re-admit samples the chunk already carries, which the next `Append` overlap gate then refuses.
     public static ObservationRun Landed(ObservationSeries series) => new(series, Drained, Drained, 0);
 
-    // Absorb and close in ONE transition: a second swap to test the edge would let a concurrent absorb slip past
-    // the edge the first just tripped, and the ceiling shed is the same arm rather than a guard the caller
-    // re-spells.
     public ObservationRun Absorb((Instant At, double Si, ObservationGrade Grade) sample, ObservationPolicy policy) =>
         Pending.Count >= policy.PendingCap
             ? this with { Shed = Shed + 1 }
             : (this with { Pending = Pending.Add(sample) }).Closed(policy);
 
-    // The elapsed edge reads the run's OWN extent (last instant less first), never a wall clock: a stream that
-    // stopped reporting must not close an empty window on a clock that keeps moving, and a replayed backlog must
-    // close on the cadence it actually carries rather than flushing every sample into one block.
     private ObservationRun Closed(ObservationPolicy policy) =>
         Claimed.IsEmpty && !Pending.IsEmpty
         && (Pending.Count >= policy.FlushSamples
@@ -116,16 +84,10 @@ public readonly record struct ObservationRun(
             ? this with { Claimed = Pending, Pending = Drained }
             : this;
 
-    // The commit re-reads the LIVE run and replaces only the series and the claim: a delivery that arrived while
-    // the flush was in flight already sits in `Pending`, so installing the flushed value whole would drop it.
     public ObservationRun Committed(ObservationSeries grown) => this with { Series = grown, Claimed = Drained };
 }
 
-// --- [BOUNDARIES] -----------------------------------------------------------------------
-// The two durable ports as ONE seam value, both key-TAKING: `Encode` already minted the block's `BlobKey` off the
-// same projection that produced its bytes, so a port that returns a key it computed itself is the second hasher
-// the seam's one seed forecloses. Two loose delegates on the lane made that inversion invisible at the call site;
-// one record makes the pair a seam a composition binds whole.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record ObservationSink(
     Func<ArtifactContent, ReadOnlyMemory<byte>, Fin<Unit>> Blob,
     Func<GraphDelta, Fin<Unit>> Land);
@@ -138,16 +100,8 @@ public sealed record ObservationLane(
 
     private static readonly Op Key = Op.Of(name: nameof(ObservationLane));
 
-    // Publisher quality is a PEER extension the estate roster deliberately does not declare — it is one vendor's
-    // grading vocabulary, not an estate-wide attribute — so it decodes UNTYPED exactly as the specification's
-    // ignore rule describes and this lane reads it by name off the envelope's own populated set.
     private const string QualityName = "sensorquality";
 
-    // BOUNDARY ADMISSION: every roster row crosses the seam's own gates ONCE, here, and the gates ACCUMULATE, so a
-    // composition seating three malformed bindings learns all three at boot. The cell validator beside it is the
-    // STRUCTURAL backstop under `Absorb`'s typed shed arm, not that rule twice: the shed arm is the evidence path
-    // an operator reads, this makes an over-cap state unrepresentable, so a transition arm that forgets the
-    // ceiling fails at the cell rather than growing the process silently.
     public static Fin<ObservationLane> Of(
         HashMap<string, SensorBinding> bindings, ObservationPolicy policy, ObservationSink sink) =>
         bindings.Values.Traverse(Admissible).As()
@@ -155,17 +109,9 @@ public sealed record ObservationLane(
                 Atom(HashMap<string, ObservationRun>(), runs => runs.ForAll(pair => pair.Value.Pending.Count <= policy.PendingCap))))
             .ToFin();
 
-    // The seam's `Open` gates a named canonical unit and a positive cadence at the DEPLOYMENT instant, and neither
-    // gate reads that instant — so proving them against a probe instant here proves them for every later sample,
-    // and the per-sample `Open` below becomes a re-check whose refusal arm no admitted roster can reach.
     private static Validation<Error, Unit> Admissible(SensorBinding binding) =>
         Series(binding, Instant.MinValue).Map(static _ => unit).ToValidation();
 
-    // The seam `Open` runs OUTSIDE the swap because it rails. The absent arm seeds the run at the FIRST sample's
-    // instant, which is the deployment instant the stream identity folds, so a lane restart over a live binding
-    // re-opens at a fresh instant and mints a fresh node rather than splicing two mountings into one record. The
-    // post-swap read is also the DELIVERY-DRIVEN re-drive: a claim a prior landing exhausted is still in place, so
-    // the next delivery on that binding re-drives the same window under the policy's own schedule.
     public IO<Fin<Unit>> Admit(SensorReading<TwinSignal> reading) =>
         Bindings.Find(reading.Data.SignalId).Match(
             None: () => IO.pure(Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Required(ComputeSubject.Input)))),
@@ -182,15 +128,6 @@ public sealed record ObservationLane(
                             None: static () => IO.pure(Fin.Succ(unit)))),
                     Fail: error => IO.pure(Fin.Fail<Unit>(error))));
 
-    // The full seam production chain for one closed window, ORDERED-AWAIT under this binding's own claim: mint the
-    // block and its bytes off ONE projection, write the bytes under the key the block already carries, summarize
-    // the window, FOLD that onto the carried whole-run summary the `Append` census gate re-proves, grow the
-    // series, and land the delta. Land runs BEFORE the commit so a failed hand-off leaves the claim standing —
-    // rather than advancing `Window.End` over evidence no consumer ever received.
-    //
-    // The production rides the IO error channel so the policy's `Schedule` drives the in-flight re-drive as a
-    // VALUE; `Try` returns it to the `Fin` rail and exhaustion names the binding and the window it could not
-    // land, where a success-shaped fall-through would certify an unwritten chunk as written.
     private IO<Fin<Unit>> Flush(SensorBinding binding, string signal, ObservationRun run) =>
         IO.lift(() => Produced(binding, run))
             .Retry(Policy.Retry)
@@ -210,11 +147,6 @@ public sealed record ObservationLane(
                 .Bind(whole => run.Series.Append(block.Chunk, whole, Key))
                 .Bind(grown => Sink.Land(Delta(binding, run.Series, grown)).Map(_ => grown)));
 
-    // The node id is the STREAM's own content self-hash, so every flush re-addresses the same node. The occurrence
-    // edge lands on the flush whose PRE-append run still carries no chunk, which is the once-only condition the
-    // series shape already states — no `linked` flag stands beside it to drift. The projection writes no `Double`,
-    // so the model tolerance is canon-inert on this seed; it threads from the policy row anyway because a literal
-    // at this call site forks the day a column that DOES quantize lands on the seam.
     private GraphDelta Delta(SensorBinding binding, ObservationSeries opened, ObservationSeries grown) {
         NodeId id = NodeId.Of(new NodeSeed.Content(new Node.Observation(NodeId.Of(new NodeSeed.Placement()), grown), Policy.Tolerance));
         GraphDelta delta = GraphDelta.Empty.Put(new Node.Observation(id, grown));
@@ -228,9 +160,6 @@ public sealed record ObservationLane(
             binding.Sensor, binding.Aspect, binding.Quantity, binding.Sampling,
             binding.Cadence, start, binding.Provenance, Key);
 
-    // The magnitude arrives SI-coerced — the AppHost livewire owns the BMS-to-canonical coercion — so this leg
-    // re-mints no unit and the binding's own signature is what `ObservationSeries.Value` lifts every decoded
-    // scalar through downstream. The finite gate is the whole admission a stored sample owes.
     private static Fin<(Instant At, double Si, ObservationGrade Grade)> Sample(SensorReading<TwinSignal> reading, SensorBinding binding) =>
         double.IsFinite(reading.Data.Measured)
             ? Fin.Succ((reading.Data.At, reading.Data.Measured, SensorQuality.Of(Flag(reading.Envelope))))

@@ -33,10 +33,6 @@ public sealed partial class ProvRole {
     public static readonly ProvRole Delegate = new("delegate");
 }
 
-// `ProvEndpoint` rows the PROV-O endpoint law per influence term — the from/to property NAMES the W3C-PROV-JSON
-// edge map emits (an EntityActivity generation carries prov:entity/prov:activity, an AgentAgent delegation
-// prov:delegate/prov:responsible), so the JSON projection reads the property names off the relation's own
-// endpoint row rather than a per-term switch.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProvEndpoint {
@@ -52,9 +48,6 @@ public sealed partial class ProvEndpoint {
     private ProvEndpoint(string key, string fromProperty, string toProperty) : this(key) => (FromProperty, ToProperty) = (fromProperty, toProperty);
 }
 
-// `ProvClass` owns the PROV-O base class: the top-level PROV-JSON map key AND the class IRI on one row. A kind's
-// class was a `"prov:Activity"` string column compared as text to discriminate, and the JSON projection re-derived
-// the same partition from node shape through a second literal set — one row now answers both reads.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProvClass {
@@ -76,19 +69,9 @@ public sealed partial class ProvKind {
     public static readonly ProvKind Merge = new("merge", ProvClass.Activity, ProvRole.Merger);
     public static readonly ProvKind Import = new("import", ProvClass.Activity, ProvRole.Importer);
     public static readonly ProvKind Solve = new("solve", ProvClass.Activity, ProvRole.Solver);
-    // `CloudRun` types a completed Pollination cloud run under the same Solver role a local solve plays — the
-    // cloud/local split is deployment, never a second role vocabulary.
     public static readonly ProvKind CloudRun = new("cloud-run", ProvClass.Activity, ProvRole.Solver);
-    // `Acquire` types a neural acquisition run whose recorded model card, licence class, and execution provider carry
-    // every bit of evidence an acquired texture's Blob retention class rests on — a retired card or a drifted
-    // provider makes those bytes unreproducible, and this row lands that fact durably.
     public static readonly ProvKind Acquire = new("acquire", ProvClass.Activity, ProvRole.Solver);
-    // The PROV class discriminant a lineage-walk node mint reads, so a reached commit types Activity and never an
-    // activity-kinded Entity the JSON class map would mis-file.
     public ProvClass Class { get; }
-    // `AssociationRole` names the role an agent associated with this activity kind played, qualifying the
-    // WasAssociatedWith influence — an Import activity's agent is the Importer, a Merge's the Merger, and a
-    // Solve's the Solver.
     public ProvRole AssociationRole { get; }
     private ProvKind(string key, ProvClass cls, ProvRole role) : this(key) => (Class, AssociationRole) = (cls, role);
 }
@@ -100,9 +83,6 @@ public sealed partial class AgentClass {
     public static readonly AgentClass SoftwareAgent = new("software", "prov:SoftwareAgent");
     public static readonly AgentClass Organization = new("organization", "prov:Organization");
     public string ClassIri { get; }
-    // `Of` DERIVES the agent class off the actor's role claims — the AppHost port maps its principal kind onto a
-    // role claim spelled as an `AgentClass` key ("software"/"organization"), so a service principal or an org
-    // asserter classes correctly and the unclaimed default is `Person`; a hardcoded class is the deleted form.
     public static AgentClass Of(StoreActor actor) => Items.Find(cls => actor.Roles.Contains(cls.Key)).IfNone(Person);
     private AgentClass(string key, string classIri) : this(key) => ClassIri = classIri;
 }
@@ -117,9 +97,6 @@ public sealed partial class EntitySubclass {
     private EntitySubclass(string classIri) => ClassIri = classIri;
 }
 
-// `ProvRelation` closes the W3C-PROV-O influence vocabulary: each row carries its prov: term, its endpoint law,
-// and the derivation-subclass parent it specializes (so a WasRevisionOf ancestry resolves to the generic
-// wasDerivedFrom family — `Derivations` reads `GeneralizesTo` to bound a derivation-only lineage).
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProvRelation {
@@ -137,16 +114,10 @@ public sealed partial class ProvRelation {
     public string Term { get; }
     public ProvEndpoint Endpoint { get; }
     public Option<ProvRelation> GeneralizesTo { get; }
-    // `Family` is the influence family HEAD — the generic term a specialization rolls up to, itself where none. A
-    // derivation-scoped lineage filters on `Family == WasDerivedFrom`, so a twelfth specialization joins by its own
-    // `generic` column and no predicate anywhere names it; a per-family bool would need one member per family.
     public ProvRelation Family => GeneralizesTo.IfNone(this);
     private ProvRelation(string key, string term, ProvEndpoint endpoint, Option<ProvRelation> generic) : this(key) => (Term, Endpoint, GeneralizesTo) = (term, endpoint, generic);
 }
 
-// Direction is a CONTAINER decision, never a per-step branch: descent reads the lineage graph's own incidence and
-// ancestry the zero-copy `ReversedBidirectionalGraph` view over that same container, so one frontier body serves
-// both and no fold re-derives which endpoint is the influencing one.
 [SmartEnum]
 public sealed partial class WalkDirection {
     public static readonly WalkDirection Ancestry = new();
@@ -159,16 +130,8 @@ public abstract partial record ProvNode {
     private ProvNode() { }
     public sealed record Entity(ContentAddress Address, ProvKind Kind, EntitySubclass Subclass, Instant At) : ProvNode;
     public sealed record Activity(UInt128 Id, ProvKind Kind, Instant Started, Instant Ended) : ProvNode;
-    // `Attested` names WHICH attestation stands, absence spelling unsigned — a bare flag separated neither the two
-    // states nor the two attestations a re-signed entry carries.
     public sealed record Agent(string Actor, AgentClass Class, Option<UInt128> Attested) : ProvNode;
 
-    // Mint the CORRECT PROV class from the kind's own row: an Activity kind (Commit/Merge/Import/Solve/CloudRun/
-    // Acquire) is an Activity node, an entity kind (Graph/Delta/Snapshot/Blob) an Entity — so a reached COMMIT in a
-    // lineage walk is never mis-minted as an activity-kinded Entity, a PROV-O typing contradiction the JSON class
-    // map would mis-file.
-    // The parameter IS the `kindOf` resolver's own return shape, so a reached vertex resolves once and the pair
-    // travels intact rather than being split at the call and re-paired here.
     public static ProvNode Of(ContentAddress address, (ProvKind Kind, EntitySubclass Subclass) row) =>
         row.Kind.Class == ProvClass.Activity
             ? new Activity(address.Value, row.Kind, Instant.MinValue, Instant.MinValue)
@@ -179,24 +142,17 @@ public abstract partial record ProvNode {
         activity: static a => a.Id,
         agent: static g => CausalDag.AgentKey(g.Actor));
 
-    // The PROV-JSON top-level map key: read off the node's own class row, never a second literal set beside it.
     public ProvClass Class => Switch(
         entity: static _ => ProvClass.Entity,
         activity: static _ => ProvClass.Activity,
         agent: static _ => ProvClass.Agent);
 
-    // The REFINED class IRI a node publishes — a Collection, Bundle, or Plan entity and a Person or Organization
-    // agent each narrow their base class, so the member reads the refinement and the base row only where none exists.
     public string ClassIri => Switch(
         entity: static e => e.Subclass.ClassIri,
         activity: static a => a.Kind.Class.ClassIri,
         agent: static g => g.Class.ClassIri);
 }
 
-// `ProvEdge` carries one qualified causal edge — the PROV term, the endpoints, the HLC cell, the qualified-influence
-// role (hadRole), and the optional plan (hadPlan) an association carries. The influence endpoints ARE the graph
-// endpoints, so this value IS the lineage container's edge and no second edge type mirrors it: `Source`/`Target`
-// name QuikGraph's contract while `From`/`To` name the PROV endpoint law the JSON projection reads.
 public readonly record struct ProvEdge(ProvRelation Relation, UInt128 From, UInt128 To, Hlc Cell, Option<ProvRole> Role, Option<UInt128> Plan) : IEdge<UInt128> {
     public UInt128 Source => From;
     public UInt128 Target => To;
@@ -204,75 +160,38 @@ public readonly record struct ProvEdge(ProvRelation Relation, UInt128 From, UInt
     public ProvEdge Qualified(ProvRole role, Option<UInt128> plan) => this with { Role = Some(role), Plan = plan };
 }
 
-// `LineageWalk` requests one bounded ancestry or descent — root, direction, and the depth ceiling the search respects.
 public readonly record struct LineageWalk(ContentAddress Root, WalkDirection Direction, int Depth) {
     public static LineageWalk Ancestry(ContentAddress root, int depth) => new(root, WalkDirection.Ancestry, depth);
     public static LineageWalk Descent(ContentAddress root, int depth) => new(root, WalkDirection.Descent, depth);
 }
 
-// `ProvBundle` names a PROV Bundle — a set of provenance descriptions with its own provenance-of-provenance (who
-// asserted the bundle, when), so the lineage export is itself an attributable PROV Entity. Its asserter is the
-// DERIVED Agent node (class off the actor's role claims, attestation off the signature's own key), never a raw
-// actor value the projection re-classifies.
 public readonly record struct ProvBundle(UInt128 Id, Seq<ProvEdge> Lineage, ProvNode.Agent Asserter, Instant At);
 
-// `CloudRunFact` carries the sidecar-projected completed cloud run: the SDK DTOs never cross this seam — the sidecar reads
-// `RunsApi.GetRunAsync` -> `Run`/`RunStatusEnum`, resolves the service principal behind
-// `Configuration.AccessToken` (`TokenRepo`), and hands over VALUES: the run id, the recipe plan reference
-// (`owner/name:tag`) with its registry `PackageVersion.Digest`, and the input/output asset content keys the
-// `Store/blobstore` landing minted.
 public readonly record struct CloudRunFact(
     string RunId, string ServicePrincipal, string OnBehalfOf, string RecipeRef, string RecipeDigest,
     Seq<ContentAddress> Used, Seq<ContentAddress> Generated, Hlc Started, Hlc Ended);
 
-// `AcquireFact` carries a completed neural-acquisition run as VALUES the composing seam projects off the producer's
-// own provenance receipt (the Materials wire carries ModelCard/License/ModelArtefact as its Key(12)/(13)/(16)
-// columns) — model card, licence, and artefact digest triple as the hadPlan Plan, the execution provider naming the
-// software agent, and no Materials type crossing the S2 seam. This fact grounds an acquired texture's Blob retention
-// class: the catalog's "unreproducible bytes" claim cites a landed activity.
 public readonly record struct AcquireFact(
     string RunId, string Provider, string OnBehalfOf, string ModelCard, string License, string ModelArtefact,
     Seq<ContentAddress> Used, Seq<ContentAddress> Generated, Hlc Started, Hlc Ended);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CausalDag {
-    // TWO resolvers with DISTINCT key spaces: `containing` maps an entry's content key (an OP key recorded under
-    // CommitNode.OpKeys — the commit's own key only on the `commit` lane) to the commit that RECORDED it (the
-    // op-key→commit index the composition root maintains off the commit lane); `resolve` maps a COMMIT content
-    // key to its node (the parent walk). Resolving an op key through the commit-key resolver returns None for
-    // every committed delta and silently drops its generation/association/revision edges — the deleted defect.
     public static Seq<ProvEdge> Derive(Seq<OpLogEntry> changefeed, Func<UInt128, Option<CommitNode>> containing, Func<UInt128, Option<CommitNode>> resolve) =>
         changefeed.Bind(entry => {
             Option<CommitNode> node = containing(entry.ContentKey);
             Option<UInt128> commit = node.Map(static c => c.ContentKey);
-            // `CommitNode.IsMerge` decides the association role off the COMMIT activity: a multi-parent commit IS a
-            // merge, so its agent plays Merger; an ordinary commit's plays Author. The role reads
-            // off the activity, never the entity kind; no plan rides here — CommitNode records no Plan entity.
             ProvKind activity = node.Map(static c => c.IsMerge ? ProvKind.Merge : ProvKind.Commit).IfNone(ProvKind.Commit);
             UInt128 agent = AgentKey(entry.Actor);
-            // EXACT PROV-O: the delta/snapshot Entity WasGeneratedBy its commit Activity; the Activity
-            // WasAssociatedWith its Agent qualified by the activity's role; the produced Entity
-            // WasAttributedTo that Agent; a merge Activity WasInformedBy each parent commit Activity; a
-            // revised Entity WasRevisionOf its prior (the derivation subclass), a retired one WasInvalidatedBy
-            // its activity. No attribution is ever sourced off an activity (that is association).
             Seq<ProvEdge> generated = commit.ToSeq().Map(c => ProvEdge.Of(ProvRelation.WasGeneratedBy, entry.ContentKey, c, entry.Stamp));
             Seq<ProvEdge> associated = commit.ToSeq().Map(c => ProvEdge.Of(ProvRelation.WasAssociatedWith, c, agent, entry.Stamp).Qualified(activity.AssociationRole, None));
             Seq<ProvEdge> attributed = Seq(ProvEdge.Of(ProvRelation.WasAttributedTo, entry.ContentKey, agent, entry.Stamp));
-            // WasInformedBy is the MERGE chain only — ordinary succession already rides the entity-level WasRevisionOf,
-            // so an activity-level edge per single-parent commit would restate it as a parallel lineage.
             Seq<ProvEdge> informed =
                 from current in node.ToSeq()
                 where current.IsMerge
                 from activityKey in commit.ToSeq()
                 from parent in current.Parents
                 select ProvEdge.Of(ProvRelation.WasInformedBy, activityKey, parent, entry.Stamp);
-            // Lineage rides the COMMIT-DAG, NEVER the `OpLogEntry.Closure` (which is the DESCENDANT GEOMETRY content-key
-            // manifest — a blob set, not a predecessor). PROV-O endpoint typing is exact: a RETIRED entity `WasInvalidatedBy`
-            // its retiring commit ACTIVITY (EntityActivity, entity->activity, so the target is the commit key); a REVISED
-            // entity `WasRevisionOf` each PARENT-COMMIT'S delta ENTITY (EntityEntity, entity->entity — the parent commit is
-            // an Activity, so the predecessor is its produced op-key entities, resolved one hop through `resolve`, NEVER the
-            // parent commit key itself which would mistype an activity as the used entity). A root commit (no parents) emits
-            // no revision edge — the genesis is generation-only.
             Seq<ProvEdge> lineage = entry.Kind.Ops.Admits(SyncCapability.Tombstone)
                 ? commit.ToSeq().Map(activityKey => ProvEdge.Of(ProvRelation.WasInvalidatedBy, entry.ContentKey, activityKey, entry.Stamp))
                 : from current in node.ToSeq()
@@ -283,26 +202,14 @@ public static class CausalDag {
             return generated + associated + attributed + informed + lineage;
         });
 
-    // `Derive(CloudRunFact)` and `Derive(AcquireFact)` are the RUN modalities of the ONE lineage derivation — input
-    // shape discriminates, never a sibling name. Each run is a PROV Activity keyed off its run id; the SoftwareAgent
-    // behind the credential associates qualified Solver with hadPlan the plan entity its own evidence keys; the asset
-    // content keys the blobstore landing minted are the Used/WasGeneratedBy entities; the agent delegates to the
-    // submitter. Both modalities emit the SAME five edge families, so the shape folds once and each overload supplies
-    // only what its seam knows: the activity kind, the agent's identifier, and the plan's evidence segments.
     public static Seq<ProvEdge> Derive(CloudRunFact run) =>
         Run(ProvKind.CloudRun, run.RunId, run.ServicePrincipal, run.OnBehalfOf,
             Seq(run.RecipeRef, run.RecipeDigest), run.Used, run.Generated, run.Started, run.Ended);
 
-    // Model card, licence class, and artefact digest key the hadPlan Plan entity, so "which card produced these
-    // bytes" is a lineage read, and the execution provider names the software agent delegating to the human
-    // submitter — the evidence fold the acquired-texture Blob retention row rests on.
     public static Seq<ProvEdge> Derive(AcquireFact run) =>
         Run(ProvKind.Acquire, run.RunId, run.Provider, run.OnBehalfOf,
             Seq(run.ModelCard, run.License, run.ModelArtefact), run.Used, run.Generated, run.Started, run.Ended);
 
-    // The plan key mints through the kernel writer's COUNT-FRAMED row stream, so a two-segment recipe reference and a
-    // three-segment model triple share one preimage law and no delimiter can collide two different segmentations
-    // into one key — the defect a `$"{a}@{b}"` join carries by construction.
     private static Seq<ProvEdge> Run(
         ProvKind kind, string runId, string actor, string principal, Seq<string> plan,
         Seq<ContentAddress> used, Seq<ContentAddress> generated, Hlc started, Hlc ended) {
@@ -317,34 +224,19 @@ public static class CausalDag {
                 ProvEdge.Of(ProvRelation.ActedOnBehalfOf, agent, AgentKey(principal), ended));
     }
 
-    // `Graph` is the ONE lineage container. `BidirectionalGraph` because ancestry reads predecessors and descent
-    // successors off the same incidence, and `allowParallelEdges` because one ordered pair legitimately carries
-    // several influence terms — a revised entity holds both its revision edge and any quotation or primary-source
-    // edge to the same predecessor, and dropping the second silently narrows a derivation closure.
-    // DISCRIMINANT against `Query/topology#TOPOLOGY_VIEW`: that container keys `NodeId` over `RelationshipKind`
-    // element relations INSIDE one model version; this one keys content addresses over `ProvRelation` influence
-    // ACROSS versions. Two vertex spaces, two edge vocabularies, so neither is the other's view.
     public static BidirectionalGraph<UInt128, ProvEdge> Graph(Seq<ProvEdge> lineage) =>
         lineage.ToBidirectionalGraph<UInt128, ProvEdge>(allowParallelEdges: true);
 
-    // ONE walk, one observer, one product. Direction rides the CONTAINER — ancestry reads the zero-copy reversed
-    // view, descent the container itself — so the frontier body is written once over whichever incidence it holds.
     public static Seq<ProvNode> Walk(LineageWalk walk, IBidirectionalGraph<UInt128, ProvEdge> lineage, Func<UInt128, (ProvKind Kind, EntitySubclass Subclass)> kindOf) =>
         walk.Direction == WalkDirection.Ancestry
             ? Frontier(new ReversedBidirectionalGraph<UInt128, ProvEdge>(lineage), walk, kindOf)
             : Frontier(lineage, walk, kindOf);
 
-    // The distance recorder supplies the hop depth off the SAME run that supplies the order, so the reached roster IS
-    // the recorded distance map and no second traversal produces it. The ceiling trips the search's own `Abort()` at
-    // the first over-depth DEQUEUE: breadth order discovers every node at depth d while dequeuing depth d-1, so
-    // everything inside the bound is already recorded when the first depth-d vertex is examined — the bound stays a
-    // COST bound rather than a filter over a fully expanded reachable set.
     private static Seq<ProvNode> Frontier<TEdge>(
         IVertexListGraph<UInt128, TEdge> graph, LineageWalk walk, Func<UInt128, (ProvKind Kind, EntitySubclass Subclass)> kindOf)
         where TEdge : IEdge<UInt128> {
         BreadthFirstSearchAlgorithm<UInt128, TEdge> search = new(graph);
         VertexDistanceRecorderObserver<UInt128, TEdge> depths = new(DistanceRelaxers.ShortestDistance);
-        // Exemption: an event handler is a `void` seam no expression can inhabit, and the abort is the whole body.
         search.ExamineVertex += examined => {
             if (depths.Distances.TryGetValue(examined, out double hops) && (hops >= walk.Depth)) { search.Abort(); }
         };
@@ -354,22 +246,12 @@ public static class CausalDag {
             .Map(reached => ProvNode.Of(ContentAddress.Of(reached.Key), kindOf(reached.Key)));
     }
 
-    // Derivation-only ancestry — the transitive wasDerivedFrom/Revision/Quotation/PrimarySource closure (the PROV
-    // "what did this derive from" query) scopes the SAME container through a filtered VIEW holding it by reference,
-    // so nothing is copied and no second walker exists. The predicate reads the relation's family head, so a new
-    // derivation specialization joins the closure with no edit here.
     public static Seq<ProvNode> Derivations(ContentAddress root, int depth, IBidirectionalGraph<UInt128, ProvEdge> lineage, Func<UInt128, (ProvKind Kind, EntitySubclass Subclass)> kindOf) =>
         Walk(LineageWalk.Ancestry(root, depth),
             new FilteredBidirectionalGraph<UInt128, ProvEdge, IBidirectionalGraph<UInt128, ProvEdge>>(
                 lineage, static _ => true, static edge => edge.Relation.Family == ProvRelation.WasDerivedFrom),
             kindOf);
 
-    // `Bundle` derives the asserting Agent node HERE — class off the actor's role claims (`AgentClass.Of`),
-    // attestation off the signature's own key — so the JSON projection reads a settled node and never re-classifies.
-    // The bundle id mints through the kernel writer's `Sorted`, which OWNS the canonical order for a hash-keyed
-    // container: a caller-side `OrderBy` beside a hand hasher both forked the framing and, on the string term,
-    // ordered by the culture-sensitive default comparer, so two runtimes in different locales computed two ids for
-    // one lineage. The order is stated ordinally here and the terms are length-framed by the writer.
     public static ProvBundle Bundle(Seq<ProvEdge> lineage, StoreActor authority, Option<SignedAuthorship> attestation, Instant at) =>
         new(Id: ContentHash.Of(lineage, static (edges, writer) => writer.Sorted(
                 rows: edges,
@@ -389,18 +271,8 @@ public static class CausalDag {
             : left.Item2 != right.Item2 ? left.Item2.CompareTo(right.Item2)
             : string.CompareOrdinal(left.Item3, right.Item3));
 
-    // `ProvJson` projects a standards-conformant W3C-PROV-JSON document: top-level prefix, per-class node maps
-    // (entity/activity/agent), and per-relation influence maps, every node and edge keyed by its prov:-namespaced
-    // id, every influence carrying its endpoint properties with the qualified prov:hadRole/prov:hadPlan — ingestible
-    // by any PROV-O toolchain, never a flat from->to edge dictionary.
     public static JsonElement ProvJson(ProvBundle bundle, Func<UInt128, ProvNode> resolve) {
         static string Iri(UInt128 id) => $"rasm:{id:x32}";
-        // `ProvBundle` is itself an attributable PROV `Bundle` entity, so it and its asserting Agent enter the SAME
-        // node stream every lineage node takes rather than being patched into two already-built maps afterwards —
-        // the patch form left `entity` and `agent` mandatory while `activity` was conditional, three shapes for one
-        // fact. The bundle->asserter attribution rides one ordinary `WasAttributedTo` edge, never a top-level literal
-        // a lineage attribution group would clobber. Top-level influence keys are the UNPREFIXED `ProvRelation.Key`
-        // names the PROV-JSON schema fixes; the `prov:` prefix belongs to member properties alone.
         UInt128 authorityKey = AgentKey(bundle.Asserter.Actor);
         Seq<ProvEdge> edges = bundle.Lineage.Add(ProvEdge.Of(ProvRelation.WasAttributedTo, bundle.Id, authorityKey, new Hlc(bundle.At, 0UL)));
         Seq<(ProvClass Class, string Iri, object Members)> nodes =
@@ -423,8 +295,6 @@ public static class CausalDag {
             ["prov:type"] = EntitySubclass.Bundle.ClassIri, ["prov:generatedAtTime"] = bundle.At.ToString(),
         };
 
-        // `rasm:attestation` names WHICH attestation stands and its absence IS the unsigned fact, so the projection
-        // publishes the evidence rather than a flag a consumer cannot trace back to a signature.
         static object NodeMembers(ProvNode node) => node.Switch(
             entity: static e => new Dictionary<string, object?> { ["prov:type"] = e.ClassIri, ["rasm:kind"] = e.Kind.Key, ["prov:generatedAtTime"] = e.At.ToString() },
             activity: static a => new Dictionary<string, object?> { ["prov:type"] = a.ClassIri, ["prov:startedAtTime"] = a.Started.ToString(), ["prov:endedAtTime"] = a.Ended.ToString() },
@@ -442,15 +312,10 @@ public static class CausalDag {
         };
     }
 
-    // The two PROV-JSON namespace bindings the document fixes — one frozen row set, never re-minted per export.
     private static readonly FrozenDictionary<string, string> Prefixes = new Dictionary<string, string> {
         ["prov"] = "http://www.w3.org/ns/prov#", ["rasm"] = "urn:rasm:prov:",
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // `AgentKey` mints the agent key as the kernel seed-zero digest over the length-framed actor SUBJECT string
-    // ([B] — a durable PROV node identity is a content-key mint, never a raw hasher call) — one stable actor identifier
-    // reconstructible from BOTH the changefeed `OpLogEntry.Actor` header and a `SignedAuthorship.Actor.Subject`,
-    // never a full `StoreActor` (role claims are session facts the bare changefeed actor string cannot reconstruct).
     internal static UInt128 AgentKey(string actor) => ContentHash.Of(actor, static (subject, writer) => writer.String(subject));
 }
 ```
@@ -486,30 +351,15 @@ public static class CausalDag {
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AttestedEntry(UInt128 ContentKey, Option<UInt128> Prior, UInt128 Chain, Option<SignedAuthorship> Authorship, Instant At);
 
-// `MerkleAudit` balances the Merkle tree over the chain's rolling addresses — Levels[0] the leaves (one per entry's
-// Chain address), each higher level the pairwise kernel digest of its children (a lone right child carried up),
-// Levels[^1] the single audit-head root: the transparency-log structure the inclusion/consistency proofs descend,
-// composing the one `ContentHash.Of` the rolling chain already uses.
 public readonly record struct MerkleAudit(Seq<Seq<UInt128>> Levels, int Leaves) {
     public UInt128 Root => Levels.Last.Bind(static top => top.Head).IfNone(UInt128.Zero);
 }
 
-// `InclusionProof` carries the sibling-hash path proving one leaf's membership in the audit head — the auditor
-// re-folds the siblings from the leaf to the root and compares against the published head. The side of each step is
-// bit `level` of `Leaf` and is DERIVED from the level the sibling came from, never carried beside it: a stored side
-// could disagree with the index it accompanies, and such a proof was malformed in every case the pair could express.
-// The level also states WHICH rung a skipped odd tail omitted, which a flat sibling list could not.
 public readonly record struct InclusionProof(int Leaf, int Size, Seq<(int Level, UInt128 Sibling)> Path);
 
-// Proof coordinates for a full newer audit: the verifier re-seals its old-size leaf prefix and compares both roots.
 public readonly record struct ConsistencyProof(int OldSize, int NewSize, UInt128 OldRoot, UInt128 NewRoot);
 
-// `WitnessedHead` carries the externally witnessed tree head: root, leaf count, and the KMS signature over the
-// canonical head bytes — published beyond the store so an independent witness caches it and rejects any rewrite. `Signature`
-// is None on the local KmsProvider.None tier (order-only witness, the same Unsigned stance the chain carries).
 public readonly record struct WitnessedHead(UInt128 Root, int Leaves, Option<SignedAuthorship> Signature, Instant At) {
-    // The head bytes are SIGNED and WIRED, so the mint is the retaining leg: `U128`, `Ordinal`, `I64` on the kernel
-    // writer, closed through `ToBytes` — the one seat that hands bytes back, and it answers on the rail.
     public static Fin<ReadOnlyMemory<byte>> Canonical(UInt128 root, int leaves, Instant at, Op key) =>
         CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance).U128(root).Ordinal(leaves).I64(at.ToUnixTimeTicks()).ToBytes(key);
 }
@@ -533,11 +383,6 @@ public abstract partial record AttestVerdict {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AttestedLedger {
-    // Authorship BINDS the address: the signature bytes and the attestation instant fold into the rolling hash, so a
-    // valid authorship or attestation-time rewrite moves every downstream chain address and the Merkle audit root —
-    // a chain bound only to (prior, content key) is the rewritable deleted form. `Optional` presence-frames both
-    // absent halves and the signature rides `Ordinal` + `Raw`, so a genesis entry, an unsigned entry, and a signed
-    // entry occupy three disjoint preimage spaces on the one kernel alphabet.
     public static AttestedEntry Append(Option<AttestedEntry> prior, UInt128 contentKey, Option<SignedAuthorship> authorship) =>
         new(contentKey, prior.Map(static p => p.Chain),
             ContentHash.Of((Prior: prior, Key: contentKey, Authorship: authorship), static (link, w) =>
@@ -546,19 +391,10 @@ public static class AttestedLedger {
                  .Optional(link.Authorship, static (a, x) => { x.Ordinal(a.Signature.Length).Raw(a.Signature.Span).I64(a.At.ToUnixTimeTicks()); })),
             authorship, authorship.Map(static a => a.At).IfNone(Instant.MinValue));
 
-    // Verification COMPOSES Element/identity#KMS_CUSTODY Custody.Verify over the resolved keyring — the
-    // SAME KMS dispatch that gates every signed op, so the chain folds the CustodyVerdict arms (Authentic/
-    // Forged/Unauthored/Unsigned) it returns into one AttestVerdict, never a hand-rolled bool predicate.
-    // `digestOf` RE-DERIVES the expected OpDigest from the entry's actual content (the bytes the ContentKey
-    // addresses, re-hashed under the authorship's SigningAlgorithm) so `Custody.Verify` compares the SIGNED
-    // digest against an INDEPENDENT recomputation — passing `authorship.Digest` as both sides would make the
-    // Unauthored arm (digest-does-not-bind-content) structurally unreachable, the illusory-verify deleted form.
     public static IO<AttestVerdict> Verify(Seq<AttestedEntry> chain, Func<SignedAuthorship, SigningKeyring> keyringFor, Func<AttestedEntry, OpDigest> digestOf) =>
         chain.FoldM(
             (State: Option<AttestedEntry>.None, Verdict: (AttestVerdict)new AttestVerdict.Authentic(0), Index: 0, Signed: 0, Unsigned: 0),
             (acc, entry) => {
-                // FIRST-DEFECT-WINS: a later mismatch never overwrites the earliest break locus — the verdict slot
-                // assigns only while still `Authentic`, so the receipt names the discontinuity the auditor replays from.
                 AttestedEntry recomputed = Append(acc.State, entry.ContentKey, entry.Authorship);
                 return (recomputed.Chain != entry.Chain) || (acc.State.Map(static s => s.Chain) != entry.Prior)
                     ? IO.pure((Some(entry), acc.Verdict is AttestVerdict.Authentic ? new AttestVerdict.Broken(acc.Index, recomputed.Chain, entry.Chain) : acc.Verdict, acc.Index + 1, acc.Signed, acc.Unsigned))
@@ -567,13 +403,10 @@ public static class AttestedLedger {
                             CustodyVerdict.Authentic => (Some(entry), acc.Verdict, acc.Index + 1, acc.Signed + 1, acc.Unsigned),
                             CustodyVerdict.Unauthored u => (Some(entry), acc.Verdict is AttestVerdict.Authentic ? (AttestVerdict)new AttestVerdict.Unauthored(acc.Index, u.Expected, u.Found) : acc.Verdict, acc.Index + 1, acc.Signed, acc.Unsigned),
                             CustodyVerdict.Forged f => (Some(entry), acc.Verdict is AttestVerdict.Authentic ? new AttestVerdict.Forged(acc.Index, f.Actor) : acc.Verdict, acc.Index + 1, acc.Signed, acc.Unsigned),
-                            // EVERY remaining custody arm (DigestWidth, UnsupportedAlgorithm, AlgorithmMismatch, and any
-                            // future case) is a non-authentic consequence — a custody rejection can never finalize Authentic.
                             _ => (Some(entry), acc.Verdict is AttestVerdict.Authentic ? new AttestVerdict.CustodyRejected(acc.Index, decision) : acc.Verdict, acc.Index + 1, acc.Signed, acc.Unsigned),
                         }),
                         None: () => IO.pure((Some(entry), acc.Verdict, acc.Index + 1, acc.Signed, acc.Unsigned + 1)));
             })
-            // `Mixed` verdicts a partly signed chain on its own — partial custody never masquerades as Authentic.
             .Map(final => final.Verdict is AttestVerdict.Authentic
                 ? (final.Signed == 0) && (chain.Count > 0) ? (AttestVerdict)new AttestVerdict.Unsigned(chain.Count)
                     : (final.Signed > 0) && (final.Unsigned > 0) ? new AttestVerdict.Mixed(final.Signed, final.Unsigned)
@@ -596,8 +429,6 @@ public static class AttestedLedger {
                 .Filter(static step => (step.Index ^ 1) < step.Level.Count)
                 .Map(static step => (step.Rung, step.Level[step.Index ^ 1]))));
 
-    // The side of each fold step is bit `Level` of the proof's own leaf index, so the verifier reconstructs the
-    // pairing from the index it was handed instead of trusting a side the prover supplied.
     public static bool Includes(InclusionProof proof, UInt128 leaf, UInt128 root) =>
         proof.Path.Fold(leaf, (acc, step) => ((proof.Leaf >> step.Level) & 1) == 1
             ? Pair(step.Sibling, acc)
@@ -606,13 +437,6 @@ public static class AttestedLedger {
     public static ConsistencyProof Extend(MerkleAudit older, MerkleAudit newer) =>
         new(older.Leaves, newer.Leaves, older.Root, newer.Root);
 
-    // `Witness`/`Corroborate` pair the external witness. Witness signs the canonical head bytes through the SAME Element/identity
-    // KMS custody lane that signs every op (the `sign` delegate; None on the local tier — order-only witness);
-    // Corroborate is the witness's own probe over its CACHED head — it needs no stored older audit, because
-    // consistency reduces to re-sealing the newer's leaf prefix against the cached root through the one
-    // Consistent check.
-    // Publication belongs to an application binding; this owner seals and signs the head without inventing an
-    // unattached op-log producer.
     public static IO<WitnessedHead> Witness(MerkleAudit audit, Func<ReadOnlyMemory<byte>, IO<Option<SignedAuthorship>>> sign, Instant at) =>
         IO.liftFin(WitnessedHead.Canonical(audit.Root, audit.Leaves, at, Op.Of()))
             .Bind(sign)
@@ -621,11 +445,6 @@ public static class AttestedLedger {
     public static bool Corroborate(WitnessedHead cached, MerkleAudit newer) =>
         Consistent(new ConsistencyProof(cached.Leaves, newer.Leaves, cached.Root, newer.Root), newer);
 
-    // `Consistent` runs the append-only check (the ledger is a hash chain, so consistency reduces to leaf-prefix
-    // equality): re-sealing the newer audit's first OldSize leaves must reproduce OldRoot AND the newer audit must
-    // re-seal to NewRoot — a newer tree shorter than the older, or a prefix that does not reproduce the old root, is
-    // a rewrite the proof rejects. `ConsistencyProof` carries only values this verifier consumes, and the newer
-    // audit supplies the prefix leaves reproducing the cached root.
     public static bool Consistent(ConsistencyProof proof, MerkleAudit newer) =>
         (proof.OldSize >= 0)
         && (proof.NewSize == newer.Leaves)
@@ -633,11 +452,8 @@ public static class AttestedLedger {
         && (newer.Root == proof.NewRoot)
         && ((proof.OldSize == 0) || (Reseal(newer.Levels.Head.IfNone(Seq<UInt128>()).Take(proof.OldSize)).Root == proof.OldRoot));
 
-    // Re-seal a leaf prefix into its Merkle audit — the inverse the consistency check folds the prefix
-    // through, composing the one `Seal` pairing over synthetic chain-address leaves.
     static MerkleAudit Reseal(Seq<UInt128> leaves) => Seal(leaves.Map(static leaf => new AttestedEntry(default, None, leaf, None, Instant.MinValue)));
 
-    // Two fixed-width `U128` words concatenate injectively, so the pair needs no frame and no second alphabet.
     static UInt128 Pair(UInt128 left, UInt128 right) =>
         ContentHash.Of((Left: left, Right: right), static (pair, w) => { w.U128(pair.Left).U128(pair.Right); });
 }

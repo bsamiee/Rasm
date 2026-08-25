@@ -19,7 +19,7 @@
 - Boundary: USD token vocabularies stay foreign spellings held at this seam — `Wrap`, `ColorSpace`, `OutputPort`, and `SurfaceInput` carry the schema's own strings verbatim so the shader graph needs no translation column, and the cross-branch channel roster the texture sub-domain transcribes never reaches these members. Texture BYTES, their egress leaf names, and the lowering that binds a canonical channel role onto a preview-surface slot are `graphic/texture/set#TEXTURE_SET`'s; this page consumes a resolved asset path with the slot, the port, and the source colour space a caller already chose, and authors the graph that reads it. The caller states that space from the plane's own declared transfer, never from the `AUTO` default, because `AUTO` defers to the renderer's file sniff and a raw parameter plane in an eight- or sixteen-bit container sniffs as display-encoded — the one silent decode the whole transfer roster exists to foreclose.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from enum import StrEnum
 from hashlib import blake2b
@@ -36,12 +36,12 @@ from msgspec import Struct
 from numpy.typing import NDArray
 from pxr import Gf, Kind, Sdf, Usd, UsdGeom, UsdLux, UsdSemantics, UsdShade, UsdUtils, Vt
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Vec2 = tuple[float, float]
 type Vec3 = tuple[float, float, float]
 type Vec4 = tuple[float, float, float, float]
-type Quat = tuple[float, float, float, float]  # (w, x, y, z) — the page-wide quaternion convention every buffer and factory carries
+type Quat = tuple[float, float, float, float]
 type Matrix4 = tuple[float, ...]
 type PrimKindTag = Literal["mesh", "points", "curves", "xform", "instancer", "camera", "sun"]
 type StageOpTag = Literal["render_export", "mesh_author"]
@@ -101,7 +101,6 @@ class UsdzProfile(StrEnum):
 
 
 class Wrap(StrEnum):
-    # UsdUVTexture wrap modes; `useMetadata` defers to the file's own wrap metadata rather than fixing a mode
     BLACK = "black"
     CLAMP = "clamp"
     REPEAT = "repeat"
@@ -110,14 +109,12 @@ class Wrap(StrEnum):
 
 
 class ColorSpace(StrEnum):
-    # UsdUVTexture sourceColorSpace: how the FILE encodes its values, never a working-space declaration
     RAW = "raw"
     SRGB = "sRGB"
     AUTO = "auto"
 
 
 class OutputPort(StrEnum):
-    # UsdUVTexture output ports; `rgb` carries float3 and the four singles carry float
     R = "r"
     G = "g"
     B = "b"
@@ -126,8 +123,6 @@ class OutputPort(StrEnum):
 
 
 class SurfaceInput(StrEnum):
-    # every CONNECTABLE UsdPreviewSurface input; `useSpecularWorkflow` is interfaceOnly, so it admits no
-    # connection and rides `Material.specular_workflow` as a scalar rather than an unreachable roster member
     DIFFUSE_COLOR = "diffuseColor"
     EMISSIVE_COLOR = "emissiveColor"
     SPECULAR_COLOR = "specularColor"
@@ -155,7 +150,7 @@ class ModelKind(StrEnum):
         return getattr(Kind.Tokens, self.value)
 
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
@@ -243,9 +238,6 @@ class XformOp:
 
 
 class SurfaceLaw(Struct, frozen=True):
-    # ONE row per SurfaceInput — the `CreateInput` value type, the primvar-reader id the input's arity selects,
-    # Rows carry the semantic component count and whether the value admits the unit window. Schema fallbacks stay
-    # OFF the columns: an unauthored input already resolves to one, and a copy here drifts the first time it moves.
     value_type: object
     reader: str
     channels: int
@@ -263,47 +255,35 @@ _SURFACE: Final[frozendict[SurfaceInput, SurfaceLaw]] = frozendict({
     SurfaceInput.OPACITY: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
     SurfaceInput.OPACITY_THRESHOLD: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
     SurfaceInput.OCCLUSION: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1),
-    # Three rows run unbounded: an index of refraction lives near 1.5, a displacement is a signed offset along
-    # its normal, and a tangent-space normal spans [-1, 1] after the sampler's own scale-and-bias decode
     SurfaceInput.IOR: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1, bounded=False),
     SurfaceInput.DISPLACEMENT: SurfaceLaw(Sdf.ValueTypeNames.Float, "UsdPrimvarReader_float", 1, bounded=False),
     SurfaceInput.NORMAL: SurfaceLaw(Sdf.ValueTypeNames.Normal3f, "UsdPrimvarReader_float3", 3, bounded=False),
 })
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form: `InputSource.admitted` and `InputSource.wire` BOTH index `_SURFACE[slot]` — the first before any prim is
-# defined, the second while the shader graph authors — so an unruled `SurfaceInput` is a runtime `KeyError` that
-# leaves a half-authored material behind, the exact state `Material.bind`'s admit-everything-first order exists to
-# foreclose. The enum vocabularies (`Wrap`, `ColorSpace`, `OutputPort`, `Projection`, `UpAxis`, `SubdivScheme`,
-# `ModelKind`) take no pair: each carries the schema's own token as its `.value` or resolves one through a `token`
-# property, so there is no parallel row a member could miss.
 _COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = ((frozenset(_SURFACE), frozenset(SurfaceInput)),)
 if any(rows != vocabulary for rows, vocabulary in _COVERED):
     raise RuntimeError("stage tables do not cover their vocabularies")
 
 
 class UvTransform(Struct, frozen=True, gc=False, kw_only=True):
-    # UsdTransform2d evaluates `in * scale * rotate + translation` over the st stream before the sampler reads it
-    rotation: float = 0.0  # counter-clockwise degrees about the origin
+    rotation: float = 0.0
     scale: Vec2 = (1.0, 1.0)
     translation: Vec2 = (0.0, 0.0)
 
 
 class Texture(Struct, frozen=True, kw_only=True):
     file: str
-    st: str = "st"  # the primvar name; samplers sharing one name share one reader prim
+    st: str = "st"
     wrap_s: Wrap = Wrap.REPEAT
     wrap_t: Wrap = Wrap.REPEAT
     color_space: ColorSpace = ColorSpace.AUTO
-    scale: Vec4 = (1.0, 1.0, 1.0, 1.0)  # the sampler's own `value * scale + bias` decode — an 8-bit normal map reads (2, 2, 2, 2) / (-1, -1, -1, -1)
+    scale: Vec4 = (1.0, 1.0, 1.0, 1.0)
     bias: Vec4 = (0.0, 0.0, 0.0, 0.0)
-    fallback: Vec4 = (0.0, 0.0, 0.0, 1.0)  # what a renderer reads when the file does not resolve
+    fallback: Vec4 = (0.0, 0.0, 0.0, 1.0)
     transform: UvTransform | None = None
 
 
 class PbrMap(Struct, frozen=True, kw_only=True):
-    # one texture bound to one surface input through one output port; the port is REQUIRED because a packed
-    # sheet feeds three inputs off one file and a defaulted port would silently hand all three the same channel
     texture: Texture
     channel: OutputPort
 
@@ -337,8 +317,6 @@ class InputSource:
                 if law.bounded and any(not 0.0 <= cell <= 1.0 for cell in cells):
                     raise ValueError(f"{slot.value} constant leaves the unit window")
             case InputSource(tag="texture", texture=bound):
-                # Port `rgb` carries float3 and every single port carries float, so the port matches the input
-                # exactly when the component counts agree — one derived rule rather than a per-input legal-port list
                 if (bound.channel is OutputPort.RGB) is not (law.channels == 3):
                     raise ValueError(f"{slot.value} takes {law.channels} component(s) and cannot read the {bound.channel.value} port")
                 if not bound.texture.file or not bound.texture.st:
@@ -358,7 +336,7 @@ class InputSource:
         law = _SURFACE[slot]
         target = shader.CreateInput(slot.value, law.value_type)
         match self:
-            case InputSource(tag="constant", constant=(r, g, b)):  # the sequence pattern narrows the union; a scalar never matches it
+            case InputSource(tag="constant", constant=(r, g, b)):
                 target.Set(Gf.Vec3f(r, g, b))
             case InputSource(tag="constant", constant=scalar):
                 target.Set(float(scalar))
@@ -374,17 +352,12 @@ class InputSource:
 
 
 class Material(Struct, frozen=True, kw_only=True):
-    # Holds the whole UsdPreviewSurface vector as ONE slot-keyed map: an unauthored input resolves to the schema's own
-    # fallback, so an empty material is the neutral preview surface and every authored input is one entry.
     inputs: frozendict[SurfaceInput, InputSource] = frozendict()
     specular_workflow: bool = False
 
     def bind(self, stage: object, prim: object, path: object) -> None:
-        # SLOT-SORTED, not caller-insertion: the wiring order is the order prims land in the layer and therefore the
-        # order they serialize, so two callers spelling one material in two orders would export two byte streams and
-        # two content keys off one appearance. Admission takes the same order, so a refusal names the same input twice.
         ordered = sorted(self.inputs.items(), key=lambda entry: entry[0].value)
-        for slot, source in ordered:  # every input admits BEFORE any prim is defined, so a refused material authors nothing
+        for slot, source in ordered:
             source.admitted(slot)
         material = UsdShade.Material.Define(stage, path)
         shader = UsdShade.Shader.Define(stage, path.AppendChild("PreviewSurface"))
@@ -393,12 +366,6 @@ class Material(Struct, frozen=True, kw_only=True):
         for slot, source in ordered:
             source.wire(stage, shader, path, slot)
         material.CreateSurfaceOutput().ConnectToSource(shader.ConnectableAPI(), "surface")
-        # A displacement-bearing material also authors the material-level TERMINAL: CreateDisplacementOutput
-        # namespaces per render context where a hand-rolled CreateOutput("displacement", ...) hardcodes the
-        # universal case, and the connect rides output-to-output forwarding onto the shader's declared
-        # `token outputs:displacement` — the terminal a renderer's displacement pass resolves, DISTINCT from
-        # the `float inputs:displacement` scalar the wire above feeds (Material.CreateDisplacementAttr is the
-        # legacy schema attribute no Compute*Source resolves — never authored here).
         if SurfaceInput.DISPLACEMENT in self.inputs:
             material.CreateDisplacementOutput().ConnectToSource(
                 shader.CreateOutput("displacement", Sdf.ValueTypeNames.Token)
@@ -426,7 +393,7 @@ class Instancing(Struct, frozen=True, kw_only=True):
     positions: NDArray[np.float32]
     proto_indices: NDArray[np.int32]
     scales: NDArray[np.float32] | None = None
-    orientations: NDArray[np.float32] | None = None  # (N, 4) rows in the page-wide (w, x, y, z) convention; _instancer rolls at the seam
+    orientations: NDArray[np.float32] | None = None
 
 
 @tagged_union(frozen=True)
@@ -454,7 +421,7 @@ class PrimKind:
         if any(subset.faces.ndim != 1 or (subset.faces.size and (subset.faces.min() < 0 or subset.faces.max() >= len(faces))) for subset in subsets):
             raise ValueError("face subset indices exceed the face range")
         if len({subset.name for subset in subsets}) != len(subsets):
-            raise ValueError("face subsets require unique names")  # a duplicate name silently re-defines one Subset prim path
+            raise ValueError("face subsets require unique names")
         return PrimKind(mesh=(points, faces, normals, subsets))
 
     @staticmethod
@@ -476,7 +443,7 @@ class PrimKind:
     @staticmethod
     def Group(children: tuple["PrimNode", ...], *ops: XformOp) -> "PrimKind":
         if len({child.name for child in children}) != len(children):
-            raise ValueError("group children require unique prim names")  # duplicate siblings silently merge onto one Sdf path
+            raise ValueError("group children require unique prim names")
         return PrimKind(xform=(ops, children))
 
     @staticmethod
@@ -514,7 +481,6 @@ class PrimKind:
             or len(color) != 3
             or any(not 0.0 <= channel <= 1.0 for channel in color)
         ):
-            # color carries exactly three finite [0, 1] channels — the same admission Material.bind enforces
             raise ValueError("sun requires finite values, bounded elevation, nonnegative intensity, and a three-channel [0, 1] color")
         return PrimKind(sun=(azimuth, elevation, intensity, color))
 
@@ -626,12 +592,6 @@ class MeshScene(Struct, frozen=True, kw_only=True):
 
 
 class PackageFacts(Struct, frozen=True, gc=False):
-    # every field is a MEASURE some close took, never a slot a default stands in for: `_dependencies` reads the
-    # layer, reference, and asset rosters off the artifact the close just settled, and the compliance run counts the
-    # rules it exercised beside the warnings they raised — a clean verdict over ten rules and a clean verdict over
-    # none are different evidence, and only the counted form separates them. `combined` is the evidence-side
-    # instance of the associative law the fault vocabulary carries: the dependency rosters are one artifact's own
-    # property so they JOIN idempotently, while the rule and warning counts accrue per close.
     layers: int = 0
     references: int = 0
     assets: int = 0
@@ -682,7 +642,6 @@ class StageOp:
                 exporter.Write()
                 out = Path(path)
                 if not out.exists() or not out.stat().st_size:
-                    # a failed write never reads stale or missing output back as a successful render
                     raise ValueError(f"USD render export produced no output: {path}")
                 return out.read_bytes(), frozendict()
             case StageOp(tag="mesh_author", mesh_author=scene):
@@ -735,7 +694,7 @@ class PackageOp:
         return PackageOp(relocate=(layer, rewrite))
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _extent(points: NDArray[np.float32]) -> object:
@@ -743,16 +702,10 @@ def _extent(points: NDArray[np.float32]) -> object:
 
 
 def _identity(texture: Texture, /) -> str:
-    # Each sampler's OWN value is its identity — file, st stream, wrap pair, source colour space, decode, fallback,
-    # and placement are every input a `UsdUVTexture` carries, so two bindings agreeing on all of them are one node.
-    # `msgspec.json.encode` walks declaration order, giving a digest stable across processes where `hash` is
-    # seed-randomized on `str` and would fork the exported layer bytes run to run.
     return blake2b(msgspec.json.encode(texture), digest_size=8).hexdigest()
 
 
 def _placed(stage: object, path: object, token: str, reader: object, transform: UvTransform | None, /) -> object:
-    # absent placement leaves the reader AS the st stream — an identity UsdTransform2d is a node every consumer
-    # then evaluates for nothing. Both nodes publish `result`, so the sampler binds one port name either way.
     if transform is None:
         return reader
     placed = UsdShade.Shader.Define(stage, path.AppendChild(f"Sampler{token}Place"))
@@ -765,11 +718,6 @@ def _placed(stage: object, path: object, token: str, reader: object, transform: 
 
 
 def _sampler(stage: object, path: object, texture: Texture, /) -> object:
-    # BOTH nodes are get-or-create over a VALUE-derived path, never a slot-derived one. The st reader keys by primvar
-    # NAME, so a set whose twelve maps read `st` authors one reader and a second uv set is one more name; the sampler
-    # keys by the texture's own identity, so an ORM sheet feeding occlusion, roughness, and metalness authors ONE
-    # UsdUVTexture that three inputs read on three ports — which is the whole reason the port is a required column.
-    # Keying the sampler by slot instead authors that one file three times and pays three decodes for one plane.
     token = _identity(texture)
     reader = UsdShade.Shader.Define(stage, path.AppendChild(f"{texture.st}Reader"))
     reader.CreateIdAttr("UsdPrimvarReader_float2")
@@ -804,7 +752,7 @@ def _dress(
         UsdGeom.PrimvarsAPI(prim).CreatePrimvar("displayColor", Sdf.ValueTypeNames.Color3fArray, interp).Set(Vt.Vec3fArray.FromNumpy(colors))
     if material is not None:
         material.bind(stage, prim, path.AppendChild("Material"))
-    for taxonomy, tags in sorted(labels.items()):  # taxonomy order reaches the layer bytes exactly as input order does
+    for taxonomy, tags in sorted(labels.items()):
         UsdSemantics.LabelsAPI.Apply(prim, taxonomy).CreateLabelsAttr(Vt.TokenArray(list(tags)))
 
 
@@ -819,7 +767,6 @@ def _instancer(stage: object, path: object, inst: Instancing, subdiv: SubdivSche
     if inst.scales is not None:
         instancer.CreateScalesAttr(Vt.Vec3fArray.FromNumpy(inst.scales))
     if inst.orientations is not None:
-        # Gf quaternion memory is imaginary-first real-last, so the (w, x, y, z) buffer rolls one slot left before FromNumpy
         wxyz = np.ascontiguousarray(np.roll(inst.orientations, -1, axis=1), dtype=np.float32)
         instancer.CreateOrientationsAttr(Vt.QuathArray.FromNumpy(wxyz))
     instancer.CreateExtentAttr(_extent(inst.positions))
@@ -836,7 +783,6 @@ def _camera(stage: object, path: object, lens: Lens, /) -> object:
 
 
 def _look_at(eye: Vec3, target: Vec3, up: Vec3, /) -> Matrix4:
-    # USD cameras use row-vector transforms and look down local `-Z`.
     e = np.asarray(eye, dtype=np.float64)
     z = e - np.asarray(target, dtype=np.float64)
     z_norm = float(np.linalg.norm(z))
@@ -860,8 +806,6 @@ def _diagonal(prim: object, /) -> float:
 
 
 def _usd_exporter() -> type:
-    # find_spec on a dotted name imports the PARENT package, so a missing vtkmodules raises ModuleNotFoundError
-    # here rather than probing silently — both absences converge on the one explicit provisioning hint.
     try:
         present = find_spec("vtkmodules.vtkIOUSD") is not None
     except ModuleNotFoundError:
@@ -880,10 +824,6 @@ def author_mesh(scene: MeshScene, path: str) -> tuple[bytes, frozendict[str, flo
 
 
 def _dependencies(asset: str, /) -> PackageFacts:
-    # the DELIVERED artifact's own rosters: `ComputeAllDependencies` walks a `.usdc` layer and a `.usdz` package
-    # alike, so every close measures the three counts off the asset it just settled instead of returning a default
-    # the receipt band would read as evidence. Measuring the SINK — never the source the caller handed in — is the
-    # folder's receipts-measure-the-product law applied to the one artifact that leaves this seam.
     layers, references, assets = UsdUtils.ComputeAllDependencies(Sdf.AssetPath(asset))
     return PackageFacts(layers=len(layers), references=len(references), assets=len(assets))
 
@@ -891,8 +831,6 @@ def _dependencies(asset: str, /) -> PackageFacts:
 def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
     match op:
         case PackageOp(tag="package", package=(source, sink, profile)):
-            # the ARKit and standard writers differ only in which constructor runs, so the profile selects the
-            # member and one arm carries the measure — never two arms whose bodies differ by a single name.
             built = UsdUtils.CreateNewARKitUsdzPackage if profile.arkit else UsdUtils.CreateNewUsdzPackage
             return Ok(_dependencies(sink)) if built(Sdf.AssetPath(source), sink) else Error(PackageFault(package=sink))
         case PackageOp(tag="extract", extract=(package, into)):
@@ -901,8 +839,6 @@ def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
             checker = UsdUtils.ComplianceChecker(arkit=profile.arkit)
             checker.CheckCompliance(package)
             issues = tuple((*checker.GetErrors(), *checker.GetFailedChecks()))
-            # errors and failed checks REFUSE; warnings pass and ride the band, so a compliant package that raised
-            # advisories stays distinguishable from one that raised none without inventing a second verdict field.
             measured = msgspec.structs.replace(_dependencies(package), checks=len(checker.GetRules()), warnings=len(checker.GetWarnings()))
             return Ok(measured) if not issues else Error(PackageFault(verify=(package, issues)))
         case PackageOp(tag="relocate", relocate=(layer_path, rewrite)):
@@ -911,7 +847,6 @@ def packaged(op: PackageOp) -> Result[PackageFacts, PackageFault]:
                 return Error(PackageFault(relocate=layer_path))
             UsdUtils.ModifyAssetPaths(layer, rewrite)
             if not layer.Save():
-                # ModifyAssetPaths rewrites in memory only until the layer persists; an unsaved relocate never mints facts
                 return Error(PackageFault(relocate=layer_path))
             return Ok(_dependencies(layer_path))
         case _:

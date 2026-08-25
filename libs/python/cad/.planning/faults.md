@@ -47,7 +47,6 @@ DOMAIN: Final[str] = "rasm.cad"
 
 
 class CadLeg(StrEnum):
-    # one member per `.planning/` sub-domain, so a receipt joins a refusal to the owner that produced it
     EXCHANGE = "exchange"
     BREP = "brep"
     METROLOGY = "metrology"
@@ -57,8 +56,6 @@ class CadLeg(StrEnum):
 
 @verify(EnumCheck.UNIQUE)
 class CadCase(IntEnum):
-    # FROZEN: these ordinals are the issued `rasm.cad` codes a peer already stores against. A member appends at the
-    # next free ordinal; renumbering or retiring one strands every code issued under its old seat.
     INPUT = 1
     PROTOCOL = 2
     KERNEL = 3
@@ -74,8 +71,6 @@ class CadCase(IntEnum):
 
 @tagged_union(frozen=True)
 class Recovery:
-    # arm for arm the generated `FaultRecovery.kind` oneof; `retry_after` carries SECONDS, minted once into the arm's own
-    # `RetryInfo`, so detail and standard seat hold one message and neither derives from a code.
     tag: Literal["terminal", "transient", "retry_after"] = tag()
     terminal: None = case()
     transient: None = case()
@@ -96,22 +91,15 @@ class FaultRow(Struct, frozen=True, gc=False):
         return CadFault(row=self, coordinate=coordinate)
 
     def windowed(self, seconds: float, /) -> "FaultRow":
-        # one derived row: a saturation refusal states the ceiling a caller waits behind, read off the admitted
-        # policy rather than spelled as a literal, so the arm's own `RetryInfo` delay is a measured worst case.
         return FaultRow(leg=self.leg, case=self.case, code=self.code, recovery=Recovery(retry_after=seconds))
 
 
 class CadFault(Struct, frozen=True, gc=False):
-    # picklable by reference on both ends of the `to_process` seam, so a worker refusal rides the rail home as a
-    # value; a custom exception transporting an inner fault across that seam is the rejected inversion.
     row: FaultRow
     coordinate: str
 
 
 class FaultStamp(Struct, frozen=True, gc=False):
-    # admitted once at the app root; the serve edge reads an already-proven stamp and never re-checks the extent.
-    # `tenant` mirrors the wire's `optional string` + `min_len: 1` — absence is `None` on the presence bit, and an
-    # empty string would SET the bit then fail the length rule on every unauthenticated fault.
     correlation: bytes
     stamp: Hlc
     tenant: str | None = None
@@ -127,9 +115,6 @@ class FaultStamp(Struct, frozen=True, gc=False):
 
 # --- [ROWS] -----------------------------------------------------------------------------
 
-# One row per refusal shape. `leg` names the producing sub-domain, `case` the frozen wire ordinal, `code` the Connect
-# status the same refusal carries separately, and `recovery` the producer's own verdict a consumer reads instead of
-# band-mapping the code back to a posture.
 STEP_READ: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.INPUT, code=Code.INVALID_ARGUMENT, recovery=TERMINAL)
 STEP_SCHEMA: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.PROTOCOL, code=Code.INVALID_ARGUMENT, recovery=TERMINAL)
 STEP_WRITE: Final[FaultRow] = FaultRow(leg=CadLeg.EXCHANGE, case=CadCase.OUTPUT, code=Code.DATA_LOSS, recovery=TERMINAL)
@@ -171,8 +156,6 @@ LANE_SATURATED: Final[FaultRow] = FaultRow(leg=CadLeg.SERVICE, case=CadCase.BUSY
 - Boundary: `refused` builds the value on the refusing arm alone, so a passing call prices no detail work; `service/provider` raises it.
 
 ```python signature
-# One row per recovery arm, each minting the oneof and its detail tail together: a second table keyed on the same
-# tag drifts the instant an arm's window changes on one side alone.
 _PROJECTED: Final[frozendict[str, Callable[[Recovery], tuple[Oneof, tuple[Message, ...]]]]] = frozendict({
     "terminal": lambda _held: (Oneof("terminal", Empty()), ()),
     "transient": lambda _held: (Oneof("transient", Empty()), ()),

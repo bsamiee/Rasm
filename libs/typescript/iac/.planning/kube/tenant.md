@@ -41,25 +41,14 @@ declare namespace Tenants {
   type Scope = (overrides?: pulumi.CustomResourceOptions) => pulumi.CustomResourceOptions
 }
 
-// The operator's own label on every namespace it governs: the fence's peer selector and the replicated policy read
-// one spelling, so a tenant's namespaces admit each other and nothing else by construction.
 const _TENANT_LABEL = "capsule.clastix.io/tenant"
 
-// Registry hosts arrive as DATA, never as patterns: the matcher compiles `exp` as a Go regexp, so an
-// unescaped dot in `ghcr.io` also admits `ghcrxio` — a wider allowlist than the roster spells.
 const _quoted = (host: string): string => host.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-// Absent means unrestricted, present-and-empty means nothing matches — so the defaulted empty roster spreads
-// to no key at all. `allowedClasses: { allowed: [] }` refuses every Ingress in the tenant it meant to open.
 const _classes = (classes: ReadonlyArray<string>): {
   readonly ingressOptions?: { readonly allowedClasses: { readonly allowed: ReadonlyArray<string> } }
 } => (Array.isNonEmptyReadonlyArray(classes) ? { ingressOptions: { allowedClasses: { allowed: classes } } } : {})
 
-// `action: allow` is what ARMS the allowlist: without it the engine's default `deny` fires ON MATCH, so the
-// roster becomes a denylist of itself and every unnamed registry is admitted. Armed, a value matching no allow
-// rule is denied — which also makes an armed rule with no matcher deny every image, hence the empty case.
-// `exact` is whole-reference equality against `<registry>/<repo>:<tag>`, never the host alone, so a registry
-// roster has exactly one spelling here: one expression anchored at the head of the reference.
 const _registries = (roster: ReadonlyArray<string>): ReadonlyArray<capsule.types.input.v1beta2.TenantSpecRulesArgs> =>
   Array.isNonEmptyReadonlyArray(roster)
     ? [{
@@ -70,9 +59,6 @@ const _registries = (roster: ReadonlyArray<string>): ReadonlyArray<capsule.types
       }]
     : []
 
-// The intra-tenant ingress fence, replicated into every namespace the tenant owns. It rides `GlobalTenantResource`
-// because the Tenant CR's own `networkPolicies` block is deprecated in favour of Replications, and a deprecated
-// spelling on a cluster-scoped governance CR is exactly the row an operator bump deletes without warning.
 const _fence = (tenant: string): k8s.types.input.networking.v1.NetworkPolicy => ({
   apiVersion: "networking.k8s.io/v1",
   kind: "NetworkPolicy",
@@ -95,10 +81,6 @@ const _MODES: {
       version: args.versions.capsule,
       skipCrds: false,
       values: {
-        // `certManager.generateCertificates` DEFAULTS TRUE and renders a `Certificate` plus an `Issuer`, so the
-        // install fails outright on a cluster carrying no cert-manager CRDs — which is every cluster this estate
-        // stands up, since `kube/traffic.md` rules cert-manager an unarmed in-cluster lane. The chart's own
-        // self-managed path is the answer: the operator mints and rotates its own webhook material.
         certManager: { generateCertificates: false },
         tls: { create: true },
       },
@@ -107,15 +89,9 @@ const _MODES: {
       const owned = new capsule.v1beta2.Tenant(tenant, {
         metadata: { name: tenant },
         spec: {
-          // `kind` closes on the operator's own `User | Group | ServiceAccount` enum; the group SPELLING is the
-          // spec's row, so an estate binding tenants to a different directory convention edits one field.
           owners: [{ name: `${tenant}-${governance.ownerGroup}`, kind: "Group" }],
           namespaceOptions: { quota: governance.quota },
-          // Not deprecated, unlike the registry and network blocks beside it: the allowlist is the CR's own
-          // stable ingress governance and the traffic tier's classes are what a tenant may name.
           ..._classes(governance.ingressClasses),
-          // Enforcement is the successor to the deprecated `containerRegistries` allowlist. The CRD marks the rule
-          // construct unstable, so the column rides the operator version this tier pins and moves with it.
           rules: _registries(governance.registries),
         },
       }, scope({ dependsOn: [governor] }))
@@ -123,13 +99,7 @@ const _MODES: {
         metadata: { name: `${tenant}-fence` },
         spec: {
           tenantSelector: { matchLabels: { [_TENANT_LABEL]: tenant } },
-          // `Namespace` fans one copy into every namespace the selected tenants own, which is what an
-          // intra-tenant fence means; the `Tenant` alternative lands one copy per tenant and would leave
-          // every namespace after the first unfenced. It is the CRD's default and it is the whole behavior
-          // this replication exists for, so it is stated rather than inherited.
           scope: "Namespace",
-          // `rawItems` takes whole embedded objects under `x-kubernetes-preserve-unknown-fields`, so the policy
-          // travels as the typed manifest it is rather than as a rendered string whose escaping this tier owns.
           resources: [{ rawItems: [_fence(tenant)] }],
         },
       }, scope({ dependsOn: [owned] }))
@@ -138,18 +108,12 @@ const _MODES: {
   vcluster: (args, scope) =>
     void Array.map(args.spec.tenants, (tenant) => {
       const home = new k8s.core.v1.Namespace(tenant, { metadata: { name: tenant } }, scope())
-      // The RELEASE name is the vcluster's name: this chart defines no fullname helper and neither
-      // `nameOverride` nor `fullnameOverride` exists in its values, so every rendered object — the Service, the
-      // headless Service, the `vc-`-prefixed ServiceAccount — reads `.Release.Name` verbatim. A row spelling an
-      // override here names a key the schema rejects and renames nothing.
       return new k8s.helm.v4.Chart(`${tenant}-plane`, {
         chart: "vcluster",
         repositoryOpts: { repo: "https://charts.loft.sh" },
         version: args.versions.vcluster,
         namespace: home.metadata.name,
         values: {
-          // `{ enabled, patches }` is this key's whole shape under a schema that refuses excess members, and the
-          // legacy top-level `sync.ingresses` spelling no longer exists.
           sync: { toHost: { ingresses: { enabled: true } } },
         },
       }, scope())
@@ -188,10 +152,6 @@ class Tenants extends Tier {
 import { Data, Effect, Option } from "effect"
 import { DeployFault } from "../program/automation.ts"
 
-// What ONE cross-stack channel reads back. The three cases are the platform's own contract read as a family
-// rather than asserted as prose: a coordinate published, a value the publishing gate should have refused, and a
-// channel that does not exist. `Sealed` is the case the page's no-material law exists to make unreachable, so
-// carrying it is what turns that law into a verdict a caller can route on.
 type Reading = Data.TaggedEnum<{
   Published: { readonly channel: string; readonly value: string }
   Sealed: { readonly channel: string }
@@ -211,19 +171,12 @@ const _platform = (qualified: string): {
       reference.getOutput(channel).apply((value: unknown) =>
         typeof value === "string" ? Option.some(value) : Option.none()),
     require: (channel) => reference.requireOutput(channel).apply(String),
-    // `getOutputDetails` is the one member returning a Promise rather than an Output, and it takes a bare
-    // `string` where its two siblings take `Input<string>` — so the audit path converts at the folder's own
-    // rail seam instead of riding the Output graph, exactly as `automation.md` lifts every workspace call.
     audit: (channel) =>
       Effect.map(
         Effect.tryPromise({
           try: () => reference.getOutputDetails(channel),
           catch: DeployFault.triaged(qualified),
         }),
-        // The two halves are exclusive by the type's own contract, so the fold is total: a coordinate answers
-        // `Published`, a secret-flagged output answers `Sealed`, and a channel the platform never emitted
-        // answers `Absent` — which is what turns the platform's no-material law into evidence rather than an
-        // assertion, because a `secretValue` reaching this arm IS the law's counterexample, named and reported.
         (details) =>
           details.value !== undefined && details.value !== null
             ? Reading.Published({ channel, value: String(details.value) })
@@ -231,8 +184,6 @@ const _platform = (qualified: string): {
               ? Reading.Sealed({ channel })
               : Reading.Absent({ channel }),
       ),
-    // The roster read the per-channel audit fans over: the reference publishes every secret-flagged name, so a
-    // platform that leaked one is caught by enumeration rather than by guessing which channel to probe.
     sealed: reference.secretOutputNames,
   }
 }
@@ -241,7 +192,7 @@ declare namespace Tenants {
   type Platform = ReturnType<typeof _platform>
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Reading, Tenants }
 ```

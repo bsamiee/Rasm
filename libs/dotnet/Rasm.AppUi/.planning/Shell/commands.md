@@ -23,7 +23,7 @@ Rasm.AppUi runs one command rail: a single `CommandRow` table is the UI's one in
 - Boundary: every column here is a UI DERIVATION column — what the row presents, where it mounts, which chord claims it, which palette kinds it acts on, which schema collects its arguments — and the columns naming WHAT command are read off `Rasm.AppHost/Agent/runtime#DISPATCH_FRONT_DOOR` `CommandIntent` at `ToIntent` rather than re-declared here, because a second command identity in a package that references its owner is a strata twin whose two spellings dispatch resolves by whichever page a call site happened to cite; the locked row shape — intent key, capability requirement, availability delegate over the two-plane `Availability` input, `Option<KeyGesture>`, surface predicate, palette-kind target set, argument schema — deletes menu registries, toolbar registries, palette registries, hotkey tables, keymap files, and deep-link maps in one stroke; `CommandPayload` crosses as the generated `CommandPayloadWire` alone — `Many` fills the arm's `ids` repeated field and `Fields` its `Struct`, each field value parsed through the AppHost `WireJson.Parser` as a well-known `Value`, so no carrier converter exists on this rail and a `JsonSerializerOptions` column on the composition is the deleted form; the intent key is simultaneously the localization string key the `Label` resolver consumes and the icon catalog key, so a label column and an icon column are the deleted forms; `Chord` is the host-agnostic Cmd/Ctrl column transform, so per-platform gesture rows are the rejected form; `Execute` delegates bind host work at composition and no case body names a host API outside its own row; `Targets` names the `PaletteKind` keys a verb acts on as a CONTEXTUAL action — keys rather than rows, because the set crosses the intent wire; `Arguments` carries the `Editing/forms#FORM_SCHEMA` schema a parameterized verb collects its own arguments through, the schema's `SubmitIntent` and this row's key being one value by construction; the discriminants of `CommandPayload` and `CommandOutcome` are the generated `KindOneofCase` enums — `CommandWire.Kind` reads a payload's arm off its own lowering and `CommandWire.KindOf` renders an outcome's arm name off the descriptor, so a literal roster beside the corpus is the deleted form; a surface verb absent from this table is not a dead button but a screen that FAILS TO MATERIALIZE, because a tree resolves its expansion command and a strip its jump command against this frozen deck and both abort the materialize on a miss.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Text.Json;
 using Google.Protobuf;
@@ -46,7 +46,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.AppUi.Shell;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed partial record CommandRow(
     string Key,
@@ -58,20 +58,7 @@ public sealed partial record CommandRow(
     Func<ConsumptionProfile, SurfaceMount, bool> Surfaces,
     FrozenSet<string> Targets,
     Option<FormSchema> Arguments,
-    // The BODY the suite dispatch drives, never a door: the root binds this arrow into the AppHost
-    // `CommandRuntime.Dispatch` fold keyed by the row's descriptor, so the work runs INSIDE the transaction
-    // that vetoed, brokered, metered, and chained it rather than beside one. The token is an EXPLICIT column
-    // rather than an ambient read: a synchronous kernel fold below the effect floor takes its governance as
-    // parameters, so a bound body that reaches one seats it there and a long solve ends on the gesture that
-    // cancelled it; that token is the transaction's own `CancelScope` spine, so the receipt and the work
-    // still burning a core cannot disagree about when the command stopped.
     Func<CommandPayload, CancellationToken, IO<Unit>> Execute) {
-    // Identity crosses UP, never down: the row's key IS the AppHost descriptor id, the admitted payload is
-    // the argument blob, and the boot-bound tenant and correlation ride the same carrier — so this mint is
-    // the one place UI vocabulary becomes suite vocabulary. It is a FACTORY rather than a stored member
-    // because two of the three columns are invocation facts: a payload exists only once a modality supplied
-    // one, and the caller modality is what distinguishes the same row pressed by an operator from the same
-    // row replayed off the wire.
     public CommandIntent ToIntent(CommandPayload payload, CommandComposition composition, CallerModality caller) =>
         CommandIntent.Of(
             Key,
@@ -81,32 +68,22 @@ public sealed partial record CommandRow(
                 composition.Correlation),
             caller);
 
-    // TWO capability planes, both total over the roster: the level is what the process still SERVES and
-    // Reach is what the mounted surface structurally TOUCHES (`Shell/hosts` `SurfaceSession.Reach`) —
-    // `DegradationLevel.Full` retains `Faculty.HostDocument` on every healthy process, so a level-only gate
-    // admitted every host-targeting verb against a standalone shell that owns no document.
     public readonly record struct Availability(
         DegradationLevel Level, CapabilitySet<Faculty> Reach, bool Valid, SelectionSnapshot Selection);
 
     public bool Admits(Availability input) =>
         input.Level.Retains.AdmitsAll(Requires) && input.Reach.AdmitsAll(Requires) && When(input);
 
-    // The one payload-admission fold: every invocation modality routes through Run, so a syntactically
-    // valid payload outside the row's admitted kind domain seals PayloadRejected before Execute.
     public Fin<CommandPayload> Admit(CommandPayload payload) =>
         Accepts.Contains(CommandWire.Kind(payload))
             ? Fin.Succ(payload)
             : Fin.Fail<CommandPayload>(new DeckFault.PayloadRejected($"{Key}: '{CommandWire.Kind(payload)}' outside the row's admitted domain"));
 
-    // The argument fold: the schema accumulates every visible field rule and the admitted state lowers onto
-    // the one erased payload case, so a half-filled form refuses HERE with every failure at once.
     public Fin<CommandPayload> Compose(FormState state) =>
         Arguments.Match(
             Some: schema => schema.Admit(state).ToFin().Map(static admitted => (CommandPayload)new CommandPayload.Fields(admitted.Values)),
             None: () => Fin.Fail<CommandPayload>(new DeckFault.PayloadRejected($"{Key}: carries no argument schema")));
 
-    // Keys rather than palette rows: the target set crosses the intent wire, and the deck never imports the
-    // palette vocabulary that composes it.
     public bool Acts(string paletteKind) => Targets.Contains(paletteKind);
 }
 
@@ -118,8 +95,6 @@ public sealed partial class CommandScope {
     public static readonly CommandScope Dialog = new("dialog");
 }
 
-// `Kinds` canonicalizes to a distinct ordinal-sorted `Seq`, so structural sequence equality IS set equality
-// and the gate's `DistinctUntilChanged` never re-fires on a reference-fresh identical selection.
 [ComplexValueObject]
 public readonly partial struct SelectionSnapshot {
     public int Count { get; }
@@ -135,8 +110,6 @@ public readonly partial struct SelectionSnapshot {
     }
 }
 
-// One domain case per generated `CommandPayloadWire.kind` arm; the wire carries the discriminant, so no case
-// spells a literal and the generated `KindOneofCase` is the one vocabulary the row's `Accepts` set names.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CommandPayload {
     private CommandPayload() { }
@@ -145,14 +118,8 @@ public abstract partial record CommandPayload {
     public sealed record Many(Seq<string> Ids) : CommandPayload;
     public sealed record Text(string Value) : CommandPayload;
 
-    // Values stay ERASED `JsonElement` exactly as the form state stores them, so the payload is the schema's
-    // own admitted output; the field key is the wire key and the row's schema is the only decoder. On the wire
-    // the map is the arm's `Struct`, each value a well-known `Value` parsed through the suite parser.
     public sealed record Fields(HashMap<string, JsonElement> Values) : CommandPayload;
 
-    // One-hasher law: the digest folds the payload through the kernel CanonicalWriter — arm ordinal, then the
-    // framed fields in the one published order — so a receipt's digest is the same key every other content
-    // key in the estate mints, never a hash over a serialization.
     public UInt128 Digest() => ContentHash.Of(this, static (payload, w) => payload.CanonicalBytes(w));
 
     public CanonicalWriter CanonicalBytes(CanonicalWriter w) => Switch(
@@ -166,10 +133,6 @@ public abstract partial record CommandPayload {
             static (pair, x) => x.String(pair.Key).String(pair.Value.GetRawText())));
 }
 
-// The per-user binding overlay: one named set of gesture rebinds and label aliases, folded over the authored
-// rows AHEAD of the freeze so the authored table stays pure data and every downstream reader sees one deck.
-// A present gesture entry mapping to `None` is an explicit UNBIND, an absent key keeps the row's own chord,
-// so "no opinion" and "deliberately unbound" are different values rather than one missing entry.
 public sealed record BindingOverlay(
     string SetKey,
     string LabelKey,
@@ -183,8 +146,6 @@ public sealed record BindingOverlay(
     public CommandRow Rebind(CommandRow row) =>
         Gestures.Find(row.Key).Match(Some: user => row with { Gesture = user }, None: () => row);
 
-    // Every text a query can reach this row through: the resolved label first, then the user's aliases,
-    // sharing one normalization domain because the label resolver is the deck's own.
     public Seq<string> Texts(CommandRow row, Func<string, string> label) =>
         Seq(label(row.Key)) + Aliases.Find(row.Key).IfNone(Seq<string>());
 
@@ -196,8 +157,6 @@ public sealed record BindingOverlay(
     public BindingOverlay Without(string key) => this with { Gestures = Gestures.Remove(key) };
 }
 
-// The persisted shortcut section, shaped exactly as the theme section is: a named active set plus the rows
-// the user authored, so a swap is one key write and a reload re-admits every row through the same freeze.
 public sealed record ShortcutPolicy(string ActiveSet, Seq<BindingOverlay> Sets) {
     public const string Section = nameof(ShortcutPolicy);
 
@@ -207,12 +166,11 @@ public sealed record ShortcutPolicy(string ActiveSet, Seq<BindingOverlay> Sets) 
         Sets.Find(row => string.Equals(row.SetKey, ActiveSet, StringComparison.Ordinal)).IfNone(BindingOverlay.Defaults);
 }
 
-// Contest evidence: one spelling serves the sealed receipt, the fault detail, and the editor's refusal.
 public sealed record GestureContest(CommandScope Scope, string Gesture, Seq<string> Keys) {
     public string Spelled => $"{Scope.Key}:{Gesture}:{string.Join(',', Keys)}";
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeckFault : Fault {
@@ -234,7 +192,7 @@ public abstract partial record DeckFault : Fault {
     public sealed partial record ProviderFailed(string Detail) : DeckFault(Detail);
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed record CommandComposition(
     ConsumptionProfile Profile,
@@ -251,11 +209,6 @@ public sealed record CommandComposition(
     TenantContext Tenant,
     ReceiptSinkPort Sink,
     Func<GestureContest, Unit> Conflict,
-    // The ONE execution door this package reaches: the root binds it to `Rasm.AppHost/Agent/runtime`
-    // `CommandDispatch.Run` and reads the returned receipt's `Txn`, so the veto rail fires, the caller
-    // modality records at the mediation, the meter charges, and the entry chains — none of which a
-    // UI-local dispatcher could do. A composition-bound delegate rather than an imported static because
-    // the mounted surface, not this page, owns which `DispatchRuntime` its commands cross.
     Func<CommandIntent, CancellationToken, IO<CommandTxn>> Cross);
 
 public sealed record CommandDeck(
@@ -280,17 +233,12 @@ public sealed record CommandDeck(
                     Fin.Fail<CommandDeck>(new DeckFault.GestureConflict(contest))).Item2,
                 None: () => Fin.Succ(deck)));
 
-    // The ONE chord-ownership read: the freeze refuses a contested default and the binding editor a contested
-    // assignment through it, so the two answers cannot drift; scope-local, because the freeze's own law lets a
-    // Global row and a Screen row share one chord.
     public Seq<string> Claimants(CommandScope scope, KeyGesture gesture) =>
         toSeq(Rows.Values
             .Where(row => row.Scope == scope && row.Gesture.Map(Composition.Chord).Filter(bound => bound.Equals(gesture)).IsSome)
             .Select(static row => row.Key)
             .Order(StringComparer.Ordinal));
 
-    // The one keyed read every fold takes: `FrozenDictionary` answers through an out-parameter probe, so the
-    // lift onto `Option` lands once here rather than at each call site.
     public Option<CommandRow> Row(string key) =>
         Rows.TryGetValue(key, out CommandRow? row) ? Optional(row) : None;
 
@@ -303,9 +251,6 @@ public sealed record CommandDeck(
             .OrderBy(static contest => contest.Scope.Key, StringComparer.Ordinal)
             .ThenBy(static contest => contest.Gesture, StringComparer.Ordinal));
 
-    // Identity admission covers the WHOLE searchable text set: an alias colliding with another row's label
-    // resolves one query to two verbs — the same defect a duplicate label is. Both axes accumulate, so a boot
-    // refusal names every colliding key AND every colliding text rather than one merged sentence.
     private static Validation<Error, (Seq<CommandRow> Rows, Seq<(string Text, string Key)> Index)> Admitted(
         Seq<CommandRow> rows, CommandComposition composition) {
         Seq<(string Text, string Key)> index = rows.Bind(row => composition.Overlay.Texts(row, composition.Label)
@@ -335,14 +280,8 @@ public sealed record CommandDeck(
 - Boundary: `FamilyRow` is the ONE registration shape and `FamilyRow.Mint` the ONE `CommandRow` construction — a positional `CommandRow` construction and a full-control mint taking a raw accepts array beside a hand predicate are the two deleted forms, because each re-declares the columns the policy row already decides and neither is reachable by a column the row later grows; `ViewportVerbs.Visibility` keys derive as `viewport.<action.Key>` from the `Render/pipeline` `VisibilityAction` roster because that roster predates intent keys — every OTHER family key is its owner's own declared constant, so one act keeps one key and a re-spelled stem drifts nothing; the reveal family stays three HAND rows with stated provenance — the Command kind self-invokes and the Issue kind's act is `BoardSurface.JumpIntent`, already a Collab row, so a derivation over `PaletteKind.Reveal` would mint the borrowed key twice and refuse at the freeze; the history and graph planes arrive WHOLE off their own row projections (`HistoryIntents.Rows`, `GraphVerbs.Rows`) and the activity and workspace families close over their live owners, so owner-state behaviour never rides the arrow table where nothing could prove its coverage.
 
 ```csharp signature
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
-// The admitted-payload-and-gate policy every family row shares. `Marked` is the selection-gated shape;
-// `Open` is the reveal-or-recall shape whose bare arm shows the roster and whose keyed arm recalls one row;
-// `Keyed` addresses exactly one subject, so a bare press refuses where `Open` would list; `Named` is the
-// shape whose payload IS the name, which is how a row over live user-minted state stays one frozen row.
-// The roster is POLICY, not the payload union's power set: a subset no family names would be a row nothing
-// reads, and a family whose product no row spells states its `Accepts`/`When` override at the site instead.
 [SmartEnum<string>]
 public sealed partial class RowShape {
     public static readonly RowShape Bare      = new("bare", K(Arm.None_), static _ => true);
@@ -358,16 +297,9 @@ public sealed partial class RowShape {
     [UseDelegateFromConstructor]
     public partial bool When(CommandRow.Availability input);
 
-    // `None_` is the generated spelling of the `none` arm — `None` is the enum's unset zero — so the empty
-    // payload names the ARM and an unset wire arm can never be admitted as one.
     private static FrozenSet<Wire.CommandPayloadWire.KindOneofCase> K(params Wire.CommandPayloadWire.KindOneofCase[] arms) => arms.ToFrozenSet();
 }
 
-// One reachability row: key, scope, shape, and the optional columns a family occasionally overrides. The
-// override columns exist for the roster-generated families whose rows carry their own accepts and chord.
-// This is the ONE registration shape and `Mint` the ONE place a `CommandRow` is constructed, so the two
-// columns no family varies — the surface predicate and the palette targets — are spelled once, and a column
-// landing on `CommandRow` reaches every family through this one body rather than through every mint site.
 public sealed record FamilyRow(
     string Key,
     CommandScope Scope,
@@ -382,9 +314,6 @@ public sealed record FamilyRow(
             When.IfNone(() => Shape.When), Gesture, static (_, _) => true, FrozenSet<string>.Empty, Arguments, run);
 }
 
-// The keyed arrow table the composition registers: one entry per intent constant, so a verb stops editing a
-// record signature and starts adding one registration. The adapters carry the two payload admissions every
-// registration otherwise re-spells.
 public sealed record DeckArrows(HashMap<string, Func<CommandPayload, CancellationToken, IO<Unit>>> Rows) {
     public static Fin<DeckArrows> Of(params ReadOnlySpan<(string Key, Func<CommandPayload, CancellationToken, IO<Unit>> Run)> rows) {
         Seq<(string Key, Func<CommandPayload, CancellationToken, IO<Unit>> Run)> declared = toSeq(rows.ToArray());
@@ -408,16 +337,12 @@ public sealed record DeckArrows(HashMap<string, Func<CommandPayload, Cancellatio
         (payload, _) => run(payload).Bind(static outcome => outcome.Match(Succ: static _ => IO.pure(unit), Fail: IO.fail<Unit>));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class DeckRows {
-    // Coverage and mint in ONE traverse: a family row whose key no arrow binds refuses at composition on the
-    // same UnknownIntent rail a bad deep link takes, so an unreachable verb cannot survive to its first press.
     public static Fin<Seq<CommandRow>> Mint(DeckArrows arrows, Seq<FamilyRow> rows) =>
         rows.Traverse(row => arrows.Bound(row.Key).Map(row.Mint)).As();
 
-    // The named-view family: traversal, orientation, projection, bookmarks, and measure all move the ONE
-    // `Render/viewpoint#VIEW_REGISTRY` registry; the bookmark row discriminates on its own payload.
     public static Seq<FamilyRow> View() => Seq(
         new FamilyRow(ViewChrome.BackKey, CommandScope.Viewport, RowShape.Bare),
         new FamilyRow(ViewChrome.ForwardKey, CommandScope.Viewport, RowShape.Bare),
@@ -426,8 +351,6 @@ public static class DeckRows {
         new FamilyRow(ViewChrome.BookmarksKey, CommandScope.Viewport, RowShape.Open),
         new FamilyRow(ViewChrome.MeasureKey, CommandScope.Viewport, RowShape.Bare));
 
-    // Presence is the gate rather than a capability row: a surface that never opened a session registers no
-    // arrows for these keys, and `XrReviewVerb.Bound` refuses a key the frozen deck does not carry.
     public static Seq<FamilyRow> Immersive() => Seq(
         new FamilyRow(XrReviewVerb.CaptureIssueIntent, CommandScope.Viewport, RowShape.Bare),
         new FamilyRow(XrReviewVerb.PassthroughIntent, CommandScope.Viewport, RowShape.Bare),
@@ -438,8 +361,6 @@ public static class DeckRows {
 
     public static Seq<FamilyRow> Collab() => Seq(
         new FamilyRow(PresenceFollow.ReleaseIntent, CommandScope.Global, RowShape.Bare),
-        // The connection verbs are a bounded roster and project as one — the two per-const rows were the
-        // transcription this table's own law names the deleted form.
         .. toSeq(ConnectionVerb.Items).Map(static verb => new FamilyRow(verb.Key, CommandScope.Global, RowShape.Bare)),
         new FamilyRow(DiffSurface.LayoutIntent, CommandScope.Screen, RowShape.Bare),
         new FamilyRow(DiffSurface.NextIntent, CommandScope.Screen, RowShape.Bare),
@@ -479,7 +400,6 @@ public static class DeckRows {
         new FamilyRow(ContextChannel.ScenarioIntent, CommandScope.Screen, RowShape.Addressed))
         + toSeq(BakeVerb.Items).Map(static verb => new FamilyRow(verb.Intent, CommandScope.Screen, RowShape.Addressed));
 
-    // `Editing/forms#SELECTION_MODEL` owns the sets and states their recall verbs are table intents.
     public static Seq<FamilyRow> SelectionSets() => Seq(
         new FamilyRow(SelectionSet.ListIntent, CommandScope.Global, RowShape.Bare),
         new FamilyRow(SelectionSet.ApplyIntent, CommandScope.Global, RowShape.Addressed),
@@ -487,15 +407,11 @@ public static class DeckRows {
         new FamilyRow(SelectionSet.DropIntent, CommandScope.Global, RowShape.Addressed),
         new FamilyRow(SelectionSet.SimilarIntent, CommandScope.Global, RowShape.Marked));
 
-    // HAND rows with stated provenance: Command self-invokes and Issue's act is `BoardSurface.JumpIntent`
-    // (already a Collab row), so deriving over `PaletteKind.Reveal` would mint the borrowed key twice.
     public static Seq<FamilyRow> Reveal() => Seq(
         new FamilyRow(PaletteKind.DocumentRevealIntent, CommandScope.Global, RowShape.Addressed),
         new FamilyRow(PaletteKind.ElementRevealIntent, CommandScope.Global, RowShape.Addressed),
         new FamilyRow(PaletteKind.RouteRevealIntent, CommandScope.Global, RowShape.Addressed));
 
-    // The three document verbs name `Faculty.HostDocument`, so they fold unavailable both on a degraded
-    // process and on a mount whose surface never reached a document — the pair the two-plane gate answers.
     public static Seq<FamilyRow> Surfaces() => Seq(
         new FamilyRow(RunQueueSurface.ExpandIntent, CommandScope.Screen, RowShape.Addressed),
         new FamilyRow(RunQueueSurface.CancelIntent, CommandScope.Screen, RowShape.Addressed),
@@ -511,8 +427,6 @@ public static class DeckRows {
         new FamilyRow(SettingsSurface.ResetRowVerb, CommandScope.Screen, RowShape.Addressed),
         new FamilyRow(SettingsSurface.ResetSectionVerb, CommandScope.Screen, RowShape.Addressed));
 
-    // The seven cell rows generate off `CellVerb`; the cell rides the PAYLOAD because the deck freezes
-    // before any cell exists, which is why every one of them is addressed.
     public static Seq<FamilyRow> Documents() => Seq(
         new FamilyRow(ResultsPresentation.ExpandIntent, CommandScope.Screen, RowShape.Addressed),
         new FamilyRow(ExportForm.RunIntent, CommandScope.Screen, RowShape.Addressed),
@@ -520,24 +434,17 @@ public static class DeckRows {
         new FamilyRow(ExportForm.RevealIntent, CommandScope.Global, RowShape.Addressed))
         + toSeq(CellVerb.Items).Map(static verb => new FamilyRow(verb.Intent, CommandScope.Screen, RowShape.Addressed));
 
-    // The conflict family generates off `Editing/inspector#CONFLICT_RESOLUTION`'s non-generic roster; each
-    // row carries its own admitted payload domain and default chord as override columns.
     public static Seq<FamilyRow> Conflict() =>
         toSeq(ConflictIntent.Items).Map(static row => new FamilyRow(
             row.Key, CommandScope.Dialog, RowShape.Addressed,
             Gesture: row.Chord, Accepts: Some(row.Accepts.ToFrozenSet())));
 
-    // Keys derive as `viewport.<action.Key>` because the `VisibilityAction` roster predates intent keys —
-    // the one derived-key family; reset admits none and stays always available.
     public static Seq<FamilyRow> Visibility() =>
         toSeq(VisibilityAction.Items).Map(static action => new FamilyRow(
             $"viewport.{action.Key}", CommandScope.Viewport,
             action == VisibilityAction.Reset ? RowShape.Bare : RowShape.Marked));
 
-    // --- [OWNER_STATE_FAMILIES] — the arrow closes over a live owner, so these bind their body AT the mint
-    // instead of registering it in the composition-time arrow table. The registration shape is still the one
-    // `FamilyRow`, so an owner-state row carries the same declared shape, gate, and chord columns every
-    // arrow-table row does and the coverage a keyed table would prove is the closure itself.
+    // --- [OWNER_STATE_FAMILIES]
 
     public static Seq<CommandRow> Graph(
         IDrawingNode drawing, GraphCamera camera, GraphFind find, Func<Seq<GraphNodeRow>> selected) =>
@@ -552,7 +459,6 @@ public static class DeckRows {
         HistoryIntents.Rows(history, turn, jump, ordinalOf)
             .Add(new FamilyRow(TimelineSurface.ExpandVerb, CommandScope.Screen, RowShape.Addressed).Mint(timelineExpand));
 
-    // `activity.clear` stays available under a running entry because the fold itself SKIPS running rows.
     public static Seq<CommandRow> Activity(ActivityCenter centre, Func<IO<Unit>> open) => Seq(
         new FamilyRow(ActivityCenter.OpenKey, CommandScope.Global, RowShape.Bare,
             Gesture: Some(new KeyGesture(Key.I, KeyModifiers.Control | KeyModifiers.Shift)))
@@ -561,8 +467,6 @@ public static class DeckRows {
             When: Some<Func<CommandRow.Availability, bool>>(_ => centre.Unread > 0 || centre.Rows.Length > 0))
             .Mint(DeckArrows.Bare(() => IO.lift(() => ignore(centre.Clear())))));
 
-    // `Enter` and `Reset` address a workspace by key so a palette hit, a chord, and a remote caller name one
-    // row and an unknown key refuses on the nav band; `Save` captures whatever the live surface holds.
     public static Seq<CommandRow> Workspace(WorkspaceCell cell, Func<IO<Unit>> save) => Seq(
         Entered(Workspaces.EnterVerb, cell, static (workspace, row) => workspace.Enter(row)),
         new FamilyRow(Workspaces.SaveVerb, CommandScope.Global, RowShape.Bare,
@@ -622,8 +526,6 @@ Every family binds keys its own owner declares, so the deck states reachability 
 
 ```csharp signature
 public static class CommandGate {
-    // Reach is a MOUNT fact, so it enters as a frozen value rather than a stream: the mounted surface cannot
-    // change shape under a live deck; it rides the fault fallback unchanged for the same reason.
     public static IObservable<CommandRow.Availability> Observe(
         IObservable<DegradationLevel> level,
         CapabilitySet<Faculty> reach,
@@ -648,9 +550,6 @@ public static class CommandGate {
                 .Replay(1)
                 .RefCount();
 
-        // The generated feed is a projection of the exact local verdict. The level is the AppHost roster's own
-        // generated coordinate, not a string conversion, and the keyed row remains distinct from the aggregate
-        // CommandAvailability process snapshot.
         public IObservable<Wire.CommandGateWire> Wire(IObservable<CommandRow.Availability> inputs) =>
             inputs.Select(input => new Wire.CommandGateWire {
                     Key = row.Key,
@@ -676,10 +575,8 @@ public static class CommandGate {
 - Boundary: this fold is a DERIVATION over the AppHost door, never a second dispatcher — the row mints one `CommandIntent`, crosses `Composition.Cross`, and reads the disposition back, so the veto rail, the caller mediation, the meter, and the hash-chained event log all see a UI command exactly as they see an MCP tool call, and a UI-local invocation of `row.Execute` is the deleted form; the sealed `DeckReceipt` here is PRESENTATION evidence — surface key, elapsed, digest, correlation — over the suite receipt the crossing already sealed, never a rival record of the transaction; cancellation crosses as ONE token on two planes — `EnvIO` cuts the effect chain and the transaction's own `CancelScope` spine passes explicitly to the row's bound body, so the work stops where the receipt says it stopped; the receipt crosses as the generated `DeckReceiptWire` through `DeckWire.Lower` and re-admits through `DeckWire.Admit`, so no package context row names it; ICommand wrapper classes are the deleted form and a generic receipt or ledger abstraction the rejected form; the digest is the kernel `ContentHash.Of` over the payload's own canonical bytes (the federation one-hasher; seed zero) and crosses as its 16 big-endian bytes through `ContentHash.Wire`, so receipt payloads stay fixed-size on the hot path; `Combine` is the only batch-verb spelling and each child execution still seals its own receipt, so batch evidence never collapses into one opaque receipt; `Search` and its `Score` kernel are the page's one language-owned boundary capsule carrying statement forms for the alternate-lookup probe and the span walk; intent keys cross every boundary as ordinal strings.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One case per generated `CommandOutcomeWire.kind` arm; the refusal carries the generated observation the
-// AppHost owner lowers, never the Error value.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CommandOutcome {
     private CommandOutcome() { }
@@ -698,11 +595,8 @@ public sealed record DeckReceipt(
     UInt128 PayloadDigest,
     CorrelationId Correlation);
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The ONE seam for the deck's two unions and its receipt: every lowering assigns exactly one arm through the
-// union's total Switch, every admission dispatches on the generated case enum with the unset arm refusing
-// typed, and the arm NAME a telemetry dimension reads comes off the descriptor, never a literal.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -724,8 +618,6 @@ public static partial class CommandWire {
         text: static c => new Wire.CommandPayloadWire { Text = c.Value },
         fields: static c => new Wire.CommandPayloadWire { Fields = Bag(c.Values) });
 
-    // `Many` re-proves the corpus `min_items`/`unique` rule and `Fields` re-parses every value, so a hostile
-    // wire never mints a payload the row's own admission would have refused.
     public static Fin<CommandPayload> Admit(Wire.CommandPayloadWire wire, Op key) => wire.KindCase switch {
         Wire.CommandPayloadWire.KindOneofCase.None_ => Fin.Succ<CommandPayload>(new CommandPayload.None()),
         Wire.CommandPayloadWire.KindOneofCase.Single => Fin.Succ<CommandPayload>(new CommandPayload.Single(wire.Single)),
@@ -755,7 +647,6 @@ public static partial class CommandWire {
         Wire.CommandOutcomeWire.KindOneofCase.None or _ => Fin.Fail<CommandOutcome>(key.InvalidInput()),
     };
 
-    // The `Struct` crossing is the one JSON text edge on this rail, and it rides the suite parser both ways.
     static Struct Bag(HashMap<string, JsonElement> values) {
         Struct bag = new();
         values.Iter((field, value) => bag.Fields[field] = WireJson.Parser.Parse<Value>(value.GetRawText()));
@@ -782,7 +673,7 @@ public static partial class DeckWire {
     [UserMapping] private static ByteString Key(CorrelationId correlation) => correlation.Wire();
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CommandExecution {
     static readonly Op RunKey = Op.Of(name: "appui.command.run");
@@ -802,22 +693,12 @@ public static class CommandExecution {
         set.Write(Elapsed, receipt.Elapsed.TotalSeconds, InstrumentSet.Tags((AppUiTelemetry.CommandSlot, receipt.Key)));
 
     extension(CommandRow row) {
-        // A press IS an operator act, so the modality is seated HERE rather than knobbed onto the signature:
-        // ReactiveUI's own token reaches the crossing, and the transaction's spine carries it to the body.
         public ReactiveCommand<CommandPayload, DeckReceipt> Materialize(CommandDeck deck) =>
             ReactiveCommand.CreateFromTask<CommandPayload, DeckReceipt>(
                 (payload, token) => row.Run(payload, deck, CallerModality.Operator, token).RunAsync(EnvIO.New(token: token)).AsTask(),
                 row.CanExecute(deck.Composition.Inputs),
                 deck.Composition.Scheduler);
 
-        // Payload admission precedes the crossing on EVERY modality, and the crossing is the ONLY way a row
-        // reaches its work: the row mints its `CommandIntent` and hands it to the AppHost front door, which
-        // fires the veto rail, records the caller at the mediation, prices the command, drives the row's own
-        // bound body through its dispatch, and chains the entry. Running `row.Execute` from here is the
-        // DELETED form — it stranded the veto rail with no firing site, left the modality unrecorded, and
-        // landed a dispatched command outside the hash chain, so the suite's command log disagreed with the
-        // UI about what the user ran. This page therefore catches nothing but cancellation: a suite fault is
-        // a `CommandTxn` case, not an exception this fold has to guess a code for.
         public IO<DeckReceipt> Run(CommandPayload payload, CommandDeck deck, CallerModality caller, CancellationToken cancel = default) =>
             from start in Stamp(deck)
             from outcome in row.Admit(payload).Match(
@@ -831,9 +712,6 @@ public static class CommandExecution {
             select receipt;
     }
 
-    // The suite disposition IS the UI outcome, folded TOTALLY through the union's generated `Switch` so a
-    // fifth transaction case breaks this arm at compile time. A refusal carries its bounded structured fault
-    // observation; a rolled-back or compensated transaction retains its reason with no fabricated fault identity.
     static CommandOutcome Settled(CommandTxn txn) =>
         txn.Switch(
             committed: static _ => (CommandOutcome)new CommandOutcome.Completed(),
@@ -843,8 +721,6 @@ public static class CommandExecution {
 
     static FaultV1.FaultObservation Observed(Error error) => FaultWire.Observe(error);
 
-    // Elapsed is MEASURED or the rail refuses: a fabricated zero on a broken gauge would bill and grade a
-    // duration nothing measured.
     static IO<MonotonicStamp> Stamp(CommandDeck deck) =>
         IO.lift(() => deck.Composition.Line.Capture(RunKey))
             .Bind(static stamp => stamp.Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>));
@@ -854,8 +730,6 @@ public static class CommandExecution {
             .Match(Succ: static span => IO.pure(Duration.FromTimeSpan(span)), Fail: IO.fail<Duration>));
 
     extension(CommandDeck deck) {
-        // ONE seal path: the receipt rides the evidence union's Command case, so the envelope carries the
-        // `command` arm of `EvidenceReceiptWire` and the fan decodes it through the same inverse as every case.
         public IO<DeckReceipt> Seal(string key, CommandOutcome outcome, Duration elapsed, UInt128 digest) =>
             IO.pure(new DeckReceipt(key, deck.Composition.SurfaceKey, elapsed, outcome, digest, deck.Composition.Correlation))
                 .Bind(receipt => new EvidenceReceipt.Command(receipt)
@@ -870,18 +744,12 @@ public static class CommandExecution {
                 .As()
                 .Map(children => ReactiveCommand.CreateCombined(children, outputScheduler: deck.Composition.Scheduler));
 
-        // The one raise every non-wire modality ends at: no caller constructs a receipt, none skips the
-        // availability read, and an unavailable or unknown key seals a rejected receipt with zero elapsed.
-        // The palette activation, the action panel, and the argument submit are all operator gestures, so
-        // the modality is a stated fact at this seat rather than a parameter every call site re-answers.
         public IO<DeckReceipt> Raise(string key, CommandPayload payload, CancellationToken cancel = default) =>
             deck.Row(key).Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
                 Some: row => row.Run(payload, deck, CallerModality.Operator, cancel),
                 None: () => Unavailable(deck, key));
     }
 
-    // Refusal evidence still seals: the receipt is the one record of a raise nothing ran, and the exact error
-    // projects through the suite's bounded structured observation.
     static IO<DeckReceipt> Unavailable(CommandDeck deck, string key) {
         DeckFault fault = new DeckFault.UnknownIntent(key);
         return deck.Seal(key, new CommandOutcome.Rejected(Observed(fault)), Duration.Zero, new CommandPayload.None().Digest());
@@ -889,9 +757,6 @@ public static class CommandExecution {
 
     extension(CommandDeck deck) {
 
-        // The wire route carries its caller as EVIDENCE: a deep link an operator followed, a journal replay
-        // an agent drove, and a plugin's remote verb are one entry discriminated by the modality the caller
-        // declared, which is exactly the fact the AppHost mediation records and the event log chains.
         public IO<DeckReceipt> Invoke(string key, Wire.CommandPayloadWire payload, CallerModality caller, CancellationToken cancel = default) =>
             deck.Row(key).Filter(row => row.Admits(deck.Composition.Snapshot())).Match(
                 Some: row => CommandWire.Admit(payload, RunKey).Match(
@@ -900,9 +765,6 @@ public static class CommandExecution {
                         key, new CommandOutcome.Rejected(Observed(failure)), Duration.Zero, new CommandPayload.None().Digest())),
                 None: () => deck.Raise(key, new CommandPayload.None(), cancel));
 
-        // The span-ranked lookup over the freeze-built index: the query folds to lowercase ONCE, so the exact
-        // probe and the fuzzy walk read the casing the index admitted; one key reachable through both its
-        // label and an alias ranks once at its best spread.
         public Seq<(string Key, int Rank)> Search(ReadOnlySpan<char> query) {
             Span<char> folded = query.Length <= 128 ? stackalloc char[query.Length] : new char[query.Length];
             ignore(query.ToLowerInvariant(folded));
@@ -921,8 +783,6 @@ public static class CommandExecution {
         }
     }
 
-    // Both spans arrive pre-normalized, so the walk is a pure ordinal subsequence rank (EXPRESSION_SPINE
-    // exemption: a span walk no fold operator expresses without per-char allocation).
     private static Option<int> Score(ReadOnlySpan<char> label, ReadOnlySpan<char> query) {
         int cursor = 0;
         int spread = 0;

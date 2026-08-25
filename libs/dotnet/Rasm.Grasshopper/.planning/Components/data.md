@@ -19,13 +19,13 @@
 - Boundary: `Op.Catch` preserves unknown host exceptions and recognizes cancellation only from its requested execution token.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -66,7 +66,7 @@ public abstract partial record GhFault : Fault {
         : GhFault($"grasshopper operation overdue during {Key.Key}: {Detail}");
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 public static class HostCall {
     public static Fin<T> Run<T>(Func<T> call, Op? key = null) =>
@@ -94,18 +94,11 @@ public sealed partial class Severity {
 
 public sealed record Notice(
     Severity Severity, Option<int> Code, string Title, string Detail, Seq<Grasshopper2.Doc.MessageAction> Actions) {
-    // ONE identity read decides both columns: an owned fault titles the panel row with the generator's own case
-    // token beside its code, and a foreign `Error` keeps its exact CLR type as the exceptional render and claims
-    // no code. Titling EVERY notice `GetType().Name` was a runtime type probe per notice that answered whatever
-    // trimming left of the nested record's name and silently re-spelled the row on a rename; the token is a
-    // compile-time constant the generator mints, so the panel and the trace tag read one vocabulary.
     public static Notice Of(Error fault) => fault switch {
         Fault expected => new(Severity.Error, Some(expected.Identity.Code), expected.Identity.Case, expected.Message, []),
         _ => new(Severity.Error, None, fault.GetType().Name, fault.Message, []),
     };
 
-    // ManyErrors FANS: one notice per member fault, recursively — a five-fault admission surfaces
-    // as five addressable rows on the component, never one opaque "5 faults" line.
     public static Seq<Notice> Fan(Error fault) => fault switch {
         ManyErrors held => toSeq(held.Errors).Bind(member => Fan(member)),
         _ => Seq1(Of(fault)),
@@ -131,14 +124,14 @@ public sealed record Notice(
 - Law: `GetTransform(int, out Transform)`/`GetQuaternion(int, out Quaternion)` are the host's own dedicated typed reads and `Read<T>` composes them by preference where the target type matches — the host publishes them beside the generic path precisely because they own their conversion, so routing those two targets through `GetPear<T>` bets on an equivalence the host never states.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Transfer<T> {
@@ -163,9 +156,6 @@ public abstract partial record Retention {
         retag: static (meta, row) => row.Project(meta));
 }
 
-// ONE ingress shape for every out-parameter IDataAccess read: the array rows answer their array, the
-// assistant rows fuse the host's two out-parameters into one Assisted pair — the two parallel
-// delegate-plus-wrapper families were one fact spelled twice.
 public delegate bool HostIngress<T>(IDataAccess access, int pin, out T value);
 
 public readonly record struct HostRead<T>(HostIngress<T> Ingress);
@@ -214,7 +204,7 @@ public static class HostReads {
         });
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class GardenData {
     public static Fin<Transfer<T>> Read<T>(IDataAccess access, int pin, PinAccess depth, Op? key = null) =>
@@ -249,7 +239,6 @@ public static class GardenData {
                 held.Pin,
                 held.Retention is Retention.Preserve
                     ? row.Tree
-                    // PearWiseOp is the three-arity host member; a pure retag fold carries no cancellation.
                     : Garden.PearWiseOp(row.Tree, pear => Retag(pear, held.Retention), CancellationToken.None)), held.Key));
 
     public static Fin<Tree<T>> AsTree<T>(Transfer<T> payload, Op? key = null) =>
@@ -299,12 +288,12 @@ public static class GardenData {
 - Boundary: the `BrokerLedger` per-key transitions and the cast-or-convert out-probes are the named boundary-kernel statement seam; interior code receives typed carriers and receipts only, and the ledger's ONE instance lives on `PlatformRoot.Brokers` — no page constructs a second.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BrokerScope {
@@ -365,12 +354,8 @@ public abstract partial record SurfaceShape {
     public sealed record OfSubD(Rhino.Geometry.SubD Value) : SurfaceShape;
 }
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// ROOT-OWNED: the composition root constructs ONE ledger and seats it on `PlatformRoot.Brokers`
-// (`Platform/composition.md` row [03]); pages receive it injected — a process-global static registry on a
-// library page was the seat defect this move deletes. AtomHashMap transitions per key; the enrolment
-// ordinal advances on its own counter cell.
 public sealed class BrokerLedger {
     private readonly AtomHashMap<Guid, (BrokerRow Row, long Ordinal)> rows = AtomHashMap<Guid, (BrokerRow, long)>();
     private readonly Atom<long> next = Atom(0L);
@@ -395,12 +380,9 @@ public static class Coerce {
     public static Fin<(TOut Value, ConversionReceipt Receipt)> To<TOut>(object? raw, BrokerLedger ledger, ConversionScope scope, Op? key = null) => raw switch {
         null => Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Absent(new GhSubject(key.OrDefault(), typeof(TOut).Name))),
         TOut direct => Fin.Succ((direct, Receipt<TOut>(raw, nameof(Type), None))),
-        // FIRST SUCCESS by the rail's own choice — the hand fold testing IsSucc per row is unspellable.
         _ => ledger.Resolved(raw.GetType(), typeof(TOut), scope)
             .Fold(Fin.Fail<(TOut, ConversionReceipt)>(new GhFault.Conversion(key.OrDefault(), raw.GetType().Name, typeof(TOut).Name, nameof(BrokerLedger))),
                 (state, row) => state | Projected<TOut>(raw, row, key.OrDefault()))
-            // Broker refusal is evidence the server fallback must not erase: a failed serve aggregates the
-            // broker fault through the standard error accumulation rail.
             .BindFail(brokerFault => Served<TOut>(raw, key.OrDefault())
                 .MapFail(serveFault => Error.Many([brokerFault, serveFault]))),
     };
@@ -484,14 +466,14 @@ public static class Coerce {
 - Boundary: every kernel call consumes the admitted `Context`, so raw GH2 tolerance values stop at this projection. `ScalingTo` is the HOST's answer to a host question and never a second cross-context scale owner — a kernel-space rescale is `ModelUnit.ScaleTo` off the admitted `Context.Unit`, and a call that reaches for the host factor to convert kernel measures forks the one scale owner.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Rasm.Domain;
 using Rhino;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record HostUnits(double Absolute, double Relative, Grasshopper2.Types.Numeric.Angle Angle, UnitSystem Units) {
     public static Fin<HostUnits> Of(IDataAccess access, Op? key = null) =>

@@ -27,13 +27,6 @@ Retrieval is one bound owner: five data-driven lanes — FTS, trigram, phonetic,
 import { Array, Context, Effect, Schema } from "effect"
 import { Fault } from "@rasm/core"
 
-// TWO ports raise this family and only one of them holds a fingerprint: `Embedder` refuses under the admitted
-// identity it embeds beneath, `Reranker` under the query it was scoring and no embedding identity at all. So the
-// wire-and-screen reasons name the boundary that answered and the coordinate it answered about — a rerank arm
-// forging a fingerprint it never had is the shape this pair forecloses — while `shape` carries the four coordinates
-// the vector disagreement IS, because that arm is decided at a seam holding both the corpus and the answer.
-// Retryability, blame, and quarantine stay the core Fault.Class row table's, so no rank or retry column rides here.
-// One leg because one surface decides every arm: the port boundary, whichever of the two ports was called.
 const _PORTS = ["embed", "rerank"] as const
 const _Refusal = Schema.Struct({
   port: Schema.Literal(..._PORTS),
@@ -54,17 +47,12 @@ const _family = Fault.Class.family(["budget", "provider", "malformed", "refused"
     detail: _Refusal,
     render: ({ detail, port, subject }) => `<${port}:${subject}> refused at the wire — ${detail}`,
   }),
-  // material neither side can parse is NOT a transient wire failure: a request the provider rejects outright and a
-  // response this client cannot decode both re-drive identically, so grading them `provider` spends a whole budget
-  // on a settled answer. `shape` cannot hold them either — that row's subject is a vector length no decode fault has.
   malformed: Fault.Class.row({
     class: "malformed",
     leg: "port",
     detail: _Refusal,
     render: ({ detail, port, subject }) => `<${port}:${subject}> exchanged material no schema admits — ${detail}`,
   }),
-  // a moderation verdict is settled, not transient: borrowing `provider` would grade it retryable and re-drive an
-  // identical request against a screen that already answered
   refused: Fault.Class.row({
     class: "denied",
     leg: "port",
@@ -99,8 +87,6 @@ class EmbedFault extends Schema.TaggedError<EmbedFault>()("EmbedFault", {
   }
 }
 
-// The roster publishes so a satisfying Layer grades its own provider vocabulary against THIS family's words rather
-// than against a column the raise no longer carries.
 declare namespace EmbedFault {
   type Issue = typeof _family.payload.Type
   type Port = (typeof _PORTS)[number]
@@ -170,9 +156,6 @@ class _Embedding extends Schema.Class<_Embedding>("Search.Embedding")({
 
 const _Table = Query.Relation.fields.table.pipe(Schema.brand("Corpus"))
 
-// Corpus GEOMETRY, not a tuning knob: whole-string scorers (a soundex code, an edit distance) read the leading
-// characters of `body` and answer noise once `body` is prose, while the inverted, trigram, and vector lanes score
-// prose exactly. One declared geometry lets `[4]` refuse a lane it cannot score instead of pooling its noise.
 const _SHAPES = ["document", "label"] as const
 
 class _Corpus extends Schema.Class<_Corpus>("Search.Corpus")({
@@ -233,7 +216,7 @@ INSERT INTO ${corpus}_fts(${corpus}_fts) VALUES ('rebuild');`,
     ensure: (corpus: Search.Table) => ({
       pg: `CREATE INDEX IF NOT EXISTS ${corpus}_embedding_vchord ON retrieve_embedding
        USING vchordrq (embedding vector_cosine_ops) WHERE corpus = '${corpus}';`,
-      sqlite: "SELECT 1", // the semantic lane rides pg-only grants: no sqlite artifact exists to ensure
+      sqlite: "SELECT 1",
     }),
   },
   vectorHnsw: {
@@ -257,8 +240,6 @@ INSERT INTO ${corpus}_fts(${corpus}_fts) VALUES ('rebuild');`,
     artifact: "phonetic",
     grant: "phonetic",
     ensure: (corpus: Search.Table) => ({
-      // `daitch_mokotoff` answers a GIN-indexable code array and the lane's own `&&` searches it, so the phonetic
-      // lane stops being the one grant-bearing row with no artifact; `fastupdate = off` keeps the overlap probe exact
       pg: `CREATE INDEX IF NOT EXISTS ${corpus}_phonetic ON ${corpus}
        USING gin (daitch_mokotoff(body)) WITH (fastupdate = off);`,
       sqlite: "SELECT 1",
@@ -312,8 +293,6 @@ class _Vector extends Schema.Class<_Vector>("Search.Vector")({
   fingerprint: _Fingerprint,
 }) {}
 
-// Whole-string scorers read a leading window, never the body: a `label` fits inside it, and the edit-distance
-// matrix is O(n·m), so an unwindowed pair pays quadratic cost per row for characters no label-shaped scorer reaches.
 const _WINDOW = 64
 
 class _Bind extends Schema.Class<_Bind>("Search.Bind")({
@@ -370,8 +349,6 @@ const _lanes = {
     material: "text",
     shapes: ["label"],
     rank: (sql: SqlClient.SqlClient, corpus: Search.Table, bind: Search.Bind) =>
-      // one ceiling rides the predicate AND the order, so the scan truncates its matrix at the first cell past the
-      // budget instead of computing a full one per row and ranking the whole corpus by a distance nobody asked for
       sql`SELECT c.cell, rank() OVER (
             ORDER BY levenshtein_less_equal(left(c.body, ${_WINDOW}), left(${bind.text}, ${_WINDOW}), ${bind.distance})
           ) AS rank
@@ -399,9 +376,6 @@ const _LANE_NAMES = ["fts", "trigram", "phonetic", "fuzzy", "semantic"] as const
 
 const _DISPOSITIONS = ["ran", "ungranted", "unembedded", "denied", "unshaped", "excluded"] as const
 
-// The embed outcome as three-valued evidence, never a boolean: `held` proves the vector, `denied` carries a settled
-// screen verdict off `EmbedFault.class`, and `absent` covers no port, no request, and every fault the class lattice
-// does not grade as that verdict — a retryable wire failure and an unparseable exchange alike leave the lane unrun.
 const _EMBEDS = ["held", "absent", "denied"] as const
 
 declare namespace Search {
@@ -420,9 +394,9 @@ const _admitted = (
     !Array.contains(requested, lane)
       ? "excluded"
       : !Array.contains(row.shapes, shape)
-        ? "unshaped" // the geometry gate outranks the grant gate: a granted lane scoring noise is worse than an absent one
+        ? "unshaped"
         : row.material === "embedding" && embed === "denied"
-          ? "denied" // settled verdict, never retried: the reply says a screen refused, not that capability was missing
+          ? "denied"
           : row.material === "embedding" && embed !== "held"
             ? "unembedded"
             : Array.some(row.grants, (grant) => HashSet.has(granted, grant)) || row.floor
@@ -469,8 +443,6 @@ const _Cursor = Schema.compose(
 class _Policy extends Schema.Class<_Policy>("Search.Policy")({
   limit: Schema.Int.pipe(Schema.between(1, 200)),
   k: Schema.Int.pipe(Schema.between(1, 1000)),
-  // `distance` bounds the fuzzy lane's edit budget below the scorer's own window: a ceiling at or past `_WINDOW`
-  // admits every row and reinstates the full-corpus rank the ceiling exists to refuse
   distance: Schema.Int.pipe(Schema.between(1, _WINDOW - 1)),
   rerank: Schema.NonNegativeInt.pipe(Schema.lessThanOrEqualTo(200)),
   facetTop: Schema.Int.pipe(Schema.between(1, 500)),
@@ -507,8 +479,6 @@ class _Request extends Schema.Class<_Request>("Search.Request")({
   rerank: Schema.optionalWith(_Policy.fields.rerank, { default: () => _PAGE.rerank }),
 }) {}
 
-// pg answers `sum()` and `count(*)` as NUMERIC and the wire delivers that as text, while every sqlite profile answers a
-// number: the driver spelling is the encoded fact alone, so a lane swap moves no decoded type.
 const _Score = Schema.Union(Schema.Number, Schema.NumberFromString)
 
 const _Count = Schema.Union(Schema.NonNegativeInt, Schema.NumberFromString.pipe(Schema.int(), Schema.nonNegative()))
@@ -518,8 +488,6 @@ const _posture = VariantSchema.make({ variants: ["row", "domain"], defaultVarian
 class _Hit extends _posture.Class<_Hit>("Search.Hit")({
   cell: Schema.NonEmptyString,
   score: _posture.Field({ row: _Score, domain: Schema.Number }),
-  // Clips join the snippet statement's answer onto the fused hit: no lane projects the column, so the row variant
-  // carries no key to decode and the projection is the only site that fills it
   snippet: _posture.Field({ domain: Schema.OptionFromSelf(Schema.String) }),
 }) {}
 
@@ -541,8 +509,6 @@ const _Body = Reranker.Candidate
 
 const _Clip = Schema.Struct({ cell: Schema.NonEmptyString, clip: Schema.String })
 
-// `Match.tagsExhaustive` under `Match.type` is the reusable record terminal, so every arm checks against the stated
-// return at the arm rather than at the terminal, and one dispatch spelling serves the whole corpus.
 const _scoped = (sql: SqlClient.SqlClient, filter: ReadonlyArray<Search.Filter>) =>
   Array.isNonEmptyReadonlyArray(filter)
     ? sql.and(Array.map(
@@ -657,14 +623,12 @@ const _reranked = (
           if (!Array.isNonEmptyReadonlyArray(candidates)) return [hits, "partial"] as const
           const verdict = yield* Effect.either(reranker.rerank(text, candidates))
           return Either.match(verdict, {
-            // Fusion order holds under every port fault; the disposition reads the core lattice off `class`, so a
-            // settled screen verdict reports `denied` and a wire fault `degraded` — the two the retry rail treats oppositely.
             onLeft: (fault) => [hits, fault.class === "denied" ? ("denied" as const) : ("degraded" as const)] as const,
             onRight: (order) => {
               const byCell = HashMap.fromIterable(Array.map(head, (hit) => [hit.cell, hit] as const))
               const ranked = Array.filterMap(Array.dedupe(order), (cell) => HashMap.get(byCell, cell))
               const seen = HashSet.fromIterable(Array.map(ranked, (hit) => hit.cell))
-              const kept = Array.filter(head, (hit) => !HashSet.has(seen, hit.cell)) // omitted candidates keep fusion order behind the ranked head
+              const kept = Array.filter(head, (hit) => !HashSet.has(seen, hit.cell))
               const repaired = ranked.length !== order.length || kept.length > 0
               return [Array.appendAll(Array.appendAll(ranked, kept), Array.drop(hits, window)), repaired ? ("partial" as const) : ("applied" as const)] as const
             },
@@ -679,14 +643,13 @@ const _facetArm = (
   scope: Statement.Fragment,
   top: number,
 ) =>
-  // each arm wraps as a derived table: pg refuses a bare per-arm ORDER BY/LIMIT inside UNION ALL
   sql`SELECT * FROM (SELECT ${dim} AS dim, c.${sql(dim)} AS value, count(*) AS count FROM ${sql(table)} c
       WHERE ${scope} GROUP BY c.${sql(dim)} ORDER BY count(*) DESC LIMIT ${top}) f`
 
 const _of = (corpus: Search.Corpus) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
-    const capability = yield* Capability.of<Pg.Grant>() // grants are scope-construction facts: read once at bind
+    const capability = yield* Capability.of<Pg.Grant>()
     const hits = Schema.decodeUnknown(Schema.Array(_Hit.row))
     const bodies = SqlSchema.findAll({
       Request: Schema.Array(Schema.String),
@@ -707,7 +670,6 @@ const _of = (corpus: Search.Corpus) =>
         }),
     })
     const counted = SqlSchema.findAll({
-      // one statement censuses every asked dimension: the UNION ALL folds wrapped per-dim arms, no per-dim round trip
       Request: Schema.Struct({
         dims: Schema.Array(Query.Relation.fields.table),
         filter: Schema.Array(_Filter),
@@ -727,8 +689,6 @@ const _of = (corpus: Search.Corpus) =>
       Effect.gen(function* () {
         const requested = request.lanes
         const embedder = yield* Effect.serviceOption(Embedder)
-        // The fault is KEPT, not swallowed: the census reads its `class` to tell a settled screen verdict from a
-        // retryable absence, so the embed step lands an `Either` and only then narrows to the vector option.
         const outcome = yield* Effect.transposeOption(
           Option.map(Option.filter(embedder, () => Array.contains(requested, "semantic")), (port) =>
             Effect.either(
@@ -836,7 +796,7 @@ const Search = {
   of: _of,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Embedder, EmbedFault, Reranker, Search }
 ```

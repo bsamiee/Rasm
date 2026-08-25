@@ -18,7 +18,7 @@
 - Growth: a new scene-file export is one `SceneTarget` member plus one `ROW` entry; the coverage gate rejects an unruled member. A new plotter variant changes `write`, `Prepass`, `Capture`, or `options` inside that row. A new strategy is one `ExportRow` case plus its total projections and worker fold arm. A new USD metadata field threads once through `authored`, a new fault is one `ExportFault` member, and a new round-trip source is one `SceneSource` member plus one `scene/render_worker#WORKER` `_IMPORTER` row. `ROW` remains the single target correspondence.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -40,7 +40,7 @@ from rasm.artifacts.scene.stage import ColorSpace, InputSource, Material, MeshSc
 if TYPE_CHECKING:
     import pyvista as pv
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type ExportFault = Literal["<write-failed>", "<usd-failed>", "<empty-output>", "<bundle-failed>", "<unsupported-target>"]
 type ExportRowTag = Literal["plotter", "usd_layer", "usdz_package"]
@@ -59,15 +59,15 @@ class Capture(StrEnum):
     BUNDLE = "bundle"
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _EPOCH: datetime = datetime(1980, 1, 1, tzinfo=UTC)
 _ZIP_LEVEL: int = 9
 _CHUNK: int = 1 << 16
 _SUN_NITS: float = 2500.0
-_BUNDLE_SUFFIXES: Final[frozenset[str]] = frozenset({".obj", ".mtl"})  # the declared Capture.BUNDLE member pair pv.export_obj writes
+_BUNDLE_SUFFIXES: Final[frozenset[str]] = frozenset({".obj", ".mtl"})
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
@@ -115,7 +115,7 @@ class ExportRow:
                 assert_never(unreachable)
 
 
-# --- [ERRORS] --------------------------------------------------------------------------
+# --- [ERRORS] ---------------------------------------------------------------------------
 
 
 class ExportError(Exception):
@@ -124,7 +124,7 @@ class ExportError(Exception):
         self.cause: ExportFault = cause
 
 
-# --- [TABLES] --------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 _GL2PS: Final[frozendict[SceneTarget, str]] = frozendict({
     SceneTarget.SVG: "SetFileFormatToSVG",
@@ -139,8 +139,8 @@ def _vector(target: SceneTarget, /) -> Write:
     def write(plotter: "pv.Plotter", out: str, _spec: RenderSpec, _options: Options) -> None:
         exporter = vtkGL2PSExporter()
         exporter.SetRenderWindow(plotter.render_window)
-        getattr(exporter, _GL2PS[target])()  # format setter resolves at the call seam; the row carries the member name
-        exporter.SetFilePrefix(str(Path(out).with_suffix("")))  # GL2PS appends the format suffix itself
+        getattr(exporter, _GL2PS[target])()
+        exporter.SetFilePrefix(str(Path(out).with_suffix("")))
         exporter.SetSortToBSP()
         exporter.SetCompress(False)
         exporter.Write()
@@ -168,7 +168,7 @@ ROW: Final[frozendict[SceneTarget, ExportRow]] = frozendict({
 if frozenset(ROW) != frozenset(SceneTarget):
     raise RuntimeError("ROW does not cover SceneTarget")
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def plotted(plotter: "pv.Plotter", row: ExportRow, spec: RenderSpec, out: Path, /) -> None:
@@ -177,11 +177,9 @@ def plotted(plotter: "pv.Plotter", row: ExportRow, spec: RenderSpec, out: Path, 
             try:
                 write(plotter, str(out), spec, options)
             except (OSError, RuntimeError, ValueError) as refused:
-                # the provider write set — a filesystem refusal, a VTK/pyvista render-window fault, a rejected
-                # export argument — converges on the one export fault; an unexpected raise stays a defect.
                 raise ExportError("<write-failed>") from refused
             finally:
-                plotter.close()  # unconditional: the live render window closes on success, fault, and defect alike
+                plotter.close()
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -207,10 +205,6 @@ def authored(surface: Surface, row: ExportRow, spec: RenderSpec, out: Path, /) -
         case ExportRow(tag="usdz_package", usdz_package=profile):
             layer = out.with_suffix(f".{SceneTarget.USD.value}")
             facts = author_mesh(scene, str(layer))[1]
-            # `_closed` raises `<usd-failed>` on a failed package or a compliance error, so reaching this projection
-            # IS the passing verdict — a `compliant` constant restating the raise carries no information and is the
-            # deleted form. The band instead publishes what the closes MEASURED: the delivered package's own
-            # dependency rosters and the rule and warning counts its compliance run exercised.
             packaged_facts = _closed(PackageOp.Package(str(layer), str(out), profile), PackageOp.Verify(str(out), profile))
             return frozendict({
                 **facts,
@@ -226,9 +220,6 @@ def authored(surface: Surface, row: ExportRow, spec: RenderSpec, out: Path, /) -
 
 
 def _closed(*ops: PackageOp) -> PackageFacts:
-    # the seed is the monoid IDENTITY, never a measurement, and each close's own facts accrue through
-    # `PackageFacts.combined` — a last-wins fold discards every earlier arm's evidence, so the package close's
-    # dependency rosters and the compliance close's rule counts both survive onto one band.
     folded = reduce(
         lambda railed, op: railed.bind(lambda held: packaged(op).map(lambda measured: PackageFacts.combined(held, measured))),
         ops,
@@ -249,17 +240,12 @@ def captured(root: Path, out: Path, capture: Capture, /) -> bytes:
             try:
                 data = out.read_bytes()
             except OSError as missing:
-                # a vanished or unreadable single output is a write failure at the export boundary, never a raw OSError
                 raise ExportError("<write-failed>") from missing
             if not data:
                 raise ExportError("<empty-output>")
             return data
         case Capture.BUNDLE:
             try:
-                # only the DECLARED bundle members archive — pv.export_obj writes exactly the out-stem .obj/.mtl pair,
-                # so a stale sibling export or unrelated worker-dir file never rides into the deliverable — and every
-                # filesystem read (iterdir, stat, the lazy _streamed pull inside the join) converges on the bundle fault;
-                # the .obj is the mandatory member, the .mtl rides only when materials exist.
                 declared = frozenset(f"{out.stem}{suffix}" for suffix in _BUNDLE_SUFFIXES)
                 files = sorted(member for member in root.iterdir() if member.is_file() and member.name in declared)
                 if not any(member.suffix == ".obj" for member in files):
@@ -284,10 +270,6 @@ _USD_SLOT: Final[frozendict[TextureSlot, tuple[SurfaceInput, OutputPort]]] = fro
     TextureSlot.EMISSIVE: (SurfaceInput.EMISSIVE_COLOR, OutputPort.RGB),
     TextureSlot.NORMAL: (SurfaceInput.NORMAL, OutputPort.RGB),
 })
-# ^ total and LOSSY BY DECLARATION over the render-slot roster: `ANISOTROPY` and `COAT_NORMAL` get NO row because
-#   `UsdPreviewSurface` carries neither input, and the packed `MATERIAL` sheet fans through `_PACKED_PORTS` —
-#   three surface inputs off ONE sampler; the value-derived identity keying in `stage#STAGE` collapses the three
-#   `PbrMap`s onto one `UsdUVTexture` reader prim.
 _PACKED_PORTS: Final[tuple[tuple[SurfaceInput, OutputPort], ...]] = (
     (SurfaceInput.OCCLUSION, OutputPort.R),
     (SurfaceInput.ROUGHNESS, OutputPort.G),
@@ -295,12 +277,9 @@ _PACKED_PORTS: Final[tuple[tuple[SurfaceInput, OutputPort], ...]] = (
 )
 _USD_SPACE: Final[frozendict[TextureSpace, ColorSpace]] = frozendict(
     {TextureSpace.SRGB: ColorSpace.SRGB, TextureSpace.LINEAR: ColorSpace.RAW, TextureSpace.RAW: ColorSpace.RAW}
-)  # the plane's DECLARED transfer lowers onto the sampler's sourceColorSpace; AUTO never lands — an undeclared
-#    sniff on a raw normal map is the silent sRGB decode the transfer roster exists to prevent
+)
 _NORMAL_SCALE: Final[tuple[float, float, float, float]] = (2.0, 2.0, 2.0, 2.0)
 _NORMAL_BIAS: Final[tuple[float, float, float, float]] = (-1.0, -1.0, -1.0, -1.0)
-# ^ the render-path companion stores normals unsigned (only sampled containers reach this floor), so the sampler
-#   decodes `value * 2 - 1`; a float EXR normal never reaches here — the reader roster refuses upstream
 
 
 def _textured(slot: TextureSlot, mapped: TextureMap, /) -> tuple[tuple[SurfaceInput, InputSource], ...]:
@@ -316,14 +295,6 @@ def _textured(slot: TextureSlot, mapped: TextureMap, /) -> tuple[tuple[SurfaceIn
 def _material(spec: RenderSpec, colors: NDArray[np.float32] | None, /) -> Material | None:
     match spec.style:
         case Style(tag="surface", surface=band) if band.shaded:
-            # the gate is `SurfaceBand.shaded`, the SAME derived predicate `scene/spec#SPEC`'s `added` forces the
-            # plotter interpolation on — a `pbr=True`-only test authors no material for a maps-bearing band the
-            # render leg textures, so every bound sampler vanishes from the USD egress alone.
-            # Later pairs win in the dict fold, so a bound map overrides its scalar constant slot-for-slot and a
-            # BASE_COLOR map overrides the vertex-colour primvar. A scalar the band did NOT declare authors
-            # NOTHING: `UsdPreviewSurface` already resolves an unauthored input to its own fallback, and a
-            # re-asserted copy of that fallback drifts the first time the schema moves — the absent/zero split the
-            # `Option`-shaped band carries dies the moment a truthiness fold reads `None` as the default.
             scalars = (
                 *(((SurfaceInput.METALLIC, InputSource.Constant(band.metallic)),) if band.metallic is not None else ()),
                 *(((SurfaceInput.ROUGHNESS, InputSource.Constant(band.roughness)),) if band.roughness is not None else ()),

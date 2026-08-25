@@ -42,22 +42,8 @@ Board content is code and the UI is drift: `storeDashboardSha256: true` diffs da
 - Packages: `@pulumi/pulumi` (`Input`, `Output`, `interpolate`); `@rasm/core` (`Board`, `Convention`); `../program/spec.ts` (`StackSpec`).
 
 ```typescript signature
-// One signal vocabulary, two readers: the census a plane answers on the floor below and the routing bound a gateway
-// leg answers on its own column. Profiles enter neither family — that backend holds its own plane — so the alphabet
-// is the three OTLP signals a store or a residence can hold.
 type _Signal = "logs" | "metrics" | "traces"
 
-// Both backend-row families answer this floor under the estate's own column spellings. `signals` CENSUSES what the
-// plane HOLDS, so a plane gaining a relation is a value edit and never a second family, and a reader asking what it
-// may join across reads this column rather than inferring contents from whichever branch owns the writer; what a
-// gateway leg WRITES is the exporter column's own bound, because one plane can be filled by two owners. `tenancy`
-// stays each plane's own closed vocabulary, since a series plane and a wide-event plane isolate by mechanisms neither
-// can spell for the other. `lifetime` carries the ending OWNER beside the window, because a window with no owner
-// reads as a promise this tier made about a store's own compactor. `admit` seats ON the floor as its own parameter
-// rather than in each family's extension: every family answers it — a store row as the OTLP path a collector
-// exporter dials, a residence row as the writer that fills it — so it earns the floor by the whole-family test, and
-// only its SHAPE is per-family. Declared twice below the floor instead, one question read as two coordinates a
-// reader crossing families could not line up.
 type _Plane<Isolation extends string, Admit> = {
   readonly fits: string
   readonly admit: Admit
@@ -68,8 +54,6 @@ type _Plane<Isolation extends string, Admit> = {
 }
 
 declare namespace Lgtm {
-  // one rule set, three loaders: the groups are the payload every dialect carries, the mount coordinates are
-  // what a row reads when its loader is a filesystem rather than a values key.
   type Rules = {
     readonly groups: ReadonlyArray<{
       readonly name: string
@@ -80,7 +64,6 @@ declare namespace Lgtm {
     readonly directory: string
     readonly tenant: string
   }
-  // every column the family declares arrives in one record, so a row cannot answer a coordinate it never received
   type Store = {
     readonly fullname: string
     readonly retention: StackSpec.Window
@@ -91,64 +74,27 @@ declare namespace Lgtm {
   }
 }
 
-// Local-disk coordinates the two single-binary rows share. `claim` is ONE number because both rows hold the same
-// series plane at the same retention window, so a per-row size prices one escalation against the other's horizon;
-// each chart already ships its claim armed, which makes stating it a record of the SIZE rather than an arming.
-// `exemplars` is the reference row's alone — the ring is a single in-memory circular buffer the store trims by
-// eviction, so it bounds memory rather than the retention window, and the number is the server's own default made
-// explicit so the click-through plane cannot resize under a release that moves it.
 const _SERIES = { claim: "50Gi", exemplars: 100_000 } as const
 
 const _stores = {
   prometheus: {
     chart: "prometheus", repo: "https://prometheus-community.github.io/helm-charts",
-    // The rendered Service IS `server.fullnameOverride` — no `-server` tail survives the override — and it
-    // answers port 80 onto the container's 9090, so the address carries no port either.
     admit: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}.${ns}.svc/api/v1/otlp`,
     read: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}.${ns}.svc`,
     values: (row: Lgtm.Store) => ({
-      // This chart's scaffold NESTS the override: its top-level `fullnameOverride` is absent from values and its
-      // `prometheus.fullname` helper is invoked by zero templates, so a flat key here renames nothing and every
-      // address derived from the pinned name resolves to a Service that was never rendered under it.
       server: {
         fullnameOverride: row.fullname,
         retention: row.retention,
-        // Flags carry no leading dashes here — the chart renders each as `- --{{ . }}`. `native-histograms` is
-        // NOT on this list: the pinned server accepts the feature name and warns that it does nothing, so the
-        // representation column arms through the OTLP receiver's own conversion knob below instead.
         extraFlags: ["enable-feature=exemplar-storage", "web.enable-otlp-receiver"],
-        // `server.otlp` is the canonical seat and `serverFiles["prometheus.yml"]` is dumped verbatim into the
-        // SAME ConfigMap key, so spelling `otlp` in both emits two `otlp:` keys in one YAML document. The
-        // representation answer rides here because it is a receiver decision: leaving the conversion off keeps an
-        // OTLP exponential histogram as one native series, and turning it on lands the `le`-bearing buckets the
-        // classic arm renders against.
         otlp: { translation_strategy: row.translation, convert_histograms_to_nhcb: row.histogram === "classic" },
-        // That flag above OPENS exemplar storage and this seat SIZES it. Chart defaults ship this seat empty, and
-        // an empty seat renders no `storage.exemplars` block at all, which leaves the row's own decisive column
-        // riding whatever ring the server itself defaults to. It seats here rather than under `serverFiles` for the
-        // duplicate-key reason `otlp` does: `storage` is a key the chart already synthesizes into that document.
         exemplars: { max_exemplars: _SERIES.exemplars },
-        // Chart defaults already arm this claim at their own size, so this row RECORDS the size rather than arming
-        // volume: a bump moving that default resizes the plane every alert evaluates against with nothing to raise.
         persistentVolume: { enabled: true, size: _SERIES.claim },
       },
-      // Four subcharts ship default-ON — an alert manager, kube-state-metrics, a node exporter, and a pushgateway
-      // — none of which this estate declared: alerting is the board plane's, node and object state arrive through
-      // the collector's own enrichment, and nothing pushes. The alertmanager row also injects an `alerting` block
-      // into the rendered config, so leaving it on wires a delivery path beside the one `Boards` owns.
       alertmanager: { enabled: false },
       "kube-state-metrics": { enabled: false },
       "prometheus-node-exporter": { enabled: false },
       "prometheus-pushgateway": { enabled: false },
-      // The dedicated scrape seat, emptied: this chart's default job set is a whole cluster-wide kubernetes-SD
-      // ingest plane — apiservers, nodes, cadvisor, service endpoints, pods — beside jobs the parent's own helpers
-      // still name for the four subcharts just disabled above. Leaving it stands a SECOND ingest plane against the
-      // one-ingress law this page states everywhere else, consumes the discovery RBAC nothing granted it, and pins
-      // four permanently-down targets. Helm replaces lists, so the empty seat is the deletion, and the collector's
-      // own `prometheus` receiver stays the estate's one scraper.
       scrapeConfigs: [],
-      // Only the rule content lands: setting one sub-key merges into the chart's default `prometheus.yml` map, so
-      // its own `rule_files` list survives; replacing that key whole would drop the path this content mounts at.
       serverFiles: { "recording_rules.yml": { groups: row.rules.groups } },
     }),
     fits: "reference posture: one store, native exemplars, the click-through plane every board links on",
@@ -158,45 +104,32 @@ const _stores = {
   },
   mimir: {
     chart: "mimir-distributed", repo: "https://grafana.github.io/helm-charts",
-    // The reverse proxy renders as `<pinned>-gateway` on port 80 — `nginx` is the values COMMENT's scope word and
-    // the retired component name, never a rendered Service, so an address spelled off it resolves to nothing.
     admit: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-gateway.${ns}.svc/otlp`,
     read: (release: string, ns: pulumi.Input<string>) => pulumi.interpolate`http://${release}-gateway.${ns}.svc/prometheus`,
     values: (row: Lgtm.Store) => ({
       fullnameOverride: row.fullname,
-      minio: { enabled: false }, // the estate's object plane is the one store; the bundled subchart would stand up a second
-      // this chart's SECOND default-on bundle: a broker the estate never declared, beside the one the collector's own
-      // `observe.buffer` axis dials against externally supplied addresses — leaving it on stands a broker nothing
-      // produces to and nothing drains, sized for a fleet, inside the escalation already earned for its footprint
+      minio: { enabled: false },
       kafka: { enabled: false },
       ruler: {
-        enabled: true, // in-store rule evaluation is what lets a burn rule escalate off the board plane
-        // `local` reads `<directory>/<tenant>/`, and a ConfigMap item path carries that one directory level
+        enabled: true,
         extraVolumes: [{ name: "rules", configMap: { name: row.rules.configMap, items: [{ key: "rules.yaml", path: `${row.rules.tenant}/rules.yaml` }] } }],
         extraVolumeMounts: [{ name: "rules", mountPath: row.rules.directory }],
       },
       mimir: {
         structuredConfig: {
-          // one storage truth: the object plane's endpoint and bucket bind common storage, and every per-section store inherits it
           ...(row.objects === undefined ? {} : {
             common: { storage: { backend: "s3", s3: { endpoint: row.objects.endpoint, bucket_name: row.objects.bucket } } },
             blocks_storage: { s3: { bucket_name: row.objects.bucket } },
           }),
-          // rules diverge from common storage deliberately: code-owned groups load read-only, while the s3 backend
-          // would carry an API-mutable rule set the content-is-code law forbids
           ruler_storage: { backend: "local", local: { directory: row.rules.directory } },
-          // native histograms survive query sharding only under the protobuf response format, so the pair rides together
           frontend: { query_result_response_format: "protobuf" },
           limits: {
             compactor_blocks_retention_period: row.retention,
-            // Mimir's distributor panics when these three disagree: an unescaped strategy demands the utf8 scheme, and its suffix half demands the toggle
             otel_translation_strategy: row.translation,
             name_validation_scheme: "utf8",
             otel_metric_suffixes_enabled: true,
-            // Arming rides the row's own `histogram` column rather than a chart default: an OTLP exponential
-            // histogram lands as buckets when this is off, and every quantile tile then renders the wrong arm
             native_histograms_ingestion_enabled: row.histogram === "native",
-            max_native_histogram_buckets: 160, // the SDK's own exponential-histogram bucket count; a sample over it scales down instead of dropping
+            max_native_histogram_buckets: 160,
           },
         },
       },
@@ -214,11 +147,7 @@ const _stores = {
       fullnameOverride: row.fullname,
       server: {
         retentionPeriod: row.retention,
-        // this dialect answers translation by leaving the flag off: names land as ingested, so no escaping and no suffix rules run
         extraArgs: { "opentelemetry.usePrometheusNaming": "false" },
-        // Same recording as the reference row and the same claim, because both rows hold one series plane at one
-        // retention window; this chart ships the claim armed at a smaller default, and inheriting it would size the
-        // escape's disk off a chart opinion rather than off the window the row already states.
         persistentVolume: { enabled: true, size: _SERIES.claim },
       },
     }),
@@ -232,24 +161,13 @@ const _stores = {
   readonly repo: string
   readonly read: (release: string, ns: pulumi.Input<string>) => pulumi.Output<string>
   readonly values: (row: Lgtm.Store) => Record.ReadonlyRecord<string, unknown>
-  // Grafana datasource this row's query API answers: an engine shipping its own plugin and its own query dialect
-  // selects it here, and the board plane provisions what the row named rather than what the reference row answers
   readonly plugin: string
   readonly exemplars: boolean
   readonly rules: boolean
-  // each row spells this receiver strategy in its own dialect and every store-side expression renders series names
-  // through it, so a row escaping or suffixing differently reads its own names off one unchanged query value
   readonly translation: Convention.Translation
-  // Whether this row's engine stores an OTLP exponential histogram as ONE series or as `le`-bearing buckets: the
-  // quantile and fraction arms render entirely differently per answer, so the capability is a row column and the
-  // row arms its own dialect for it — reading the algebra's default renders bucket arithmetic against a store that
-  // holds no buckets, which matches nothing and raises nothing.
   readonly histogram: Board.Query.Histogram
 }>
 
-// One scope-header projection both ends of an `org` row take: the collector stamps it on every exporter whose backend
-// reads it, and the board plane's own datasource stamps it on every query and every alert evaluation. Ingest-only
-// scoping publishes a read door refusing every request for a missing scope, which reads as an empty panel.
 const _scoped = (store: (typeof _stores)[keyof typeof _stores], app: string): Record.ReadonlyRecord<string, string> =>
   store.tenancy === "org" ? { "X-Scope-OrgID": app } : {}
 ```
@@ -304,11 +222,9 @@ import { Board, Convention, Reliability, Shape } from "@rasm/core"
 import { Olap } from "@rasm/data"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
-const _OWN = (name: string) => name // the chart renders its own Service under the pinned fullname
+const _OWN = (name: string) => name
 
 const _charts = {
-  // `fullname` names the values path THIS chart's fullname helper reads and `service` names what actually renders:
-  // pyroscope nests its whole scaffold, the residence hands naming to its operator, every other row states it flat.
   agent: { chart: "opentelemetry-collector", repo: "https://open-telemetry.github.io/opentelemetry-helm-charts", fullname: (name: string) => ({ fullnameOverride: name }), service: _OWN },
   clickhouse: { chart: "clickhouse", repo: "https://helm.altinity.com", fullname: (name: string) => ({ fullnameOverride: name }), service: (name: string) => `clickhouse-${name}` },
   collector: { chart: "opentelemetry-collector", repo: "https://open-telemetry.github.io/opentelemetry-helm-charts", fullname: (name: string) => ({ fullnameOverride: name }), service: _OWN },
@@ -325,49 +241,21 @@ const _charts = {
   readonly service: (name: string) => string
 }>
 
-// Residences answer the same `_Plane` floor the store rows answer, so a reader crossing the two families reads values
-// under one column set. `signals` CENSUSES the plane's contents and answers what a board may JOIN across: a plane the
-// gateway alone fills holds the two unbounded-attribute signals its leg carries, and a plane a data-branch writer
-// also fills holds the metric relations that writer plants. What the gateway WRITES is the `exporter` column's own
-// bound, because reading the census for it would fan a metrics leg at a plane no collector exporter can frame a point
-// for. `cap` is stated and permanently false — unbounded dimensionality IS the
-// capability, so a ceiling deletes the reason residences exist for, and stating it as a column forecloses a later
-// pass helpfully adding one. Every remaining column is a row FUNCTION: `chart` the install this row plants beside the
-// values body and init-script DDL that install takes, `door` the read address a stack can realize, `exporter` the
-// gateway leg that fills the plane beside the address that leg dials, and `plugin` the board driver that door answers
-// beside every coordinate that driver dials — because a family whose install, ingest, write seat, and connection body
-// are all spelled off one engine's anchor is one row wearing a table's shape.
 const _RESIDENCE = {
   lake: {
     fits: "cold tail, cheapest per byte, batch scan",
-    // CENSUS, never a route: this plane holds the wide-event pair AND the OTLP metric-point relations `data`
-    // `lane/olap` plants and fills, so a board joining series to wide events resolves that join HERE on one plane.
-    // No gateway leg reaches this row at all, which is exactly why the two answers diverge and why the routing bound
-    // rides `exporter` — widening this column fans nothing, because the column the fan reads is the other one.
     signals: ["logs", "metrics", "traces"],
-    // this tier provisions the catalog prefix and publishes the door; the Parquet under it is `data` `lane/olap`'s own
-    // write, which is why no collector exporter and no chart row appear on this row
     admit: "object-plane Parquet minted by `data` `lane/olap` `Olap.lake.sink`, absorbed through `Olap.absorb`",
     tenancy: "partition column",
     lifetime: "table-format retention the object plane's own lifecycle rules end, never this tier",
     cap: false,
-    // No chart: the Parquet under this door is a data-plane writer's, so this row installs nothing here exactly as
-    // its exporter and plugin columns already answer `None`.
     chart: () => Option.none(),
-    // ARMING this row is the object plane, never the spec value: the tier plants nothing here, so a stack naming the
-    // cold tail without an object plane realizes no residence and this row answers `None` — the same answer the
-    // unnamed case gives. The catalog segment is the LAKE's own, because spelling it off the interactive plane's
-    // database re-points every Parquet object already written the day that database is renamed.
     door: (bind) =>
       Option.map(
         Option.fromNullable(bind.objects),
         (objects) => pulumi.interpolate`${objects.endpoint}/${objects.bucket}/${_LAKE.catalog}`,
       ),
-    // Objects here arrive from the `data` branch's own writer, so the gateway defines no exporter for this plane; a
-    // gateway leg beside that writer double-writes one plane under two retention owners, indistinguishably.
     exporter: () => Option.none(),
-    // No Grafana driver reads a Parquet tree behind an object-plane prefix, so this row publishes its door and NO
-    // board datasource: the plane answers a `data`-side report reader, which is exactly what `degrade` already says.
     plugin: () => Option.none(),
     degrade: "no interactive latency, no tier-side producer, and no board datasource: a tile reading here reads as a report a data-plane reader renders, and the plane holds only what a data-plane writer already landed",
   },
@@ -378,8 +266,6 @@ const _RESIDENCE = {
     tenancy: "tenant leads the sort key",
     lifetime: "table TTL with `ttl_only_drop_parts` beside materialized views, which the store's own TTL merge ends",
     cap: false,
-    // This row installs its own chart, so its values body and its init-script DDL ride the row beside the door that
-    // chart's Service answers; the tier folds the roster and mounts what the column hands it.
     chart: () =>
       Option.some({
         key: "clickhouse",
@@ -388,33 +274,20 @@ const _RESIDENCE = {
           clickhouse: {
             replicasCount: 1,
             shardsCount: 1,
-            persistence: { enabled: true, size: "100Gi" }, // wide events are the volume the family exists to hold
-            // Chart defaults mask this user to `127.0.0.1/32`, reaching nothing off its own loopback, and this row
-            // keeps that posture: only the init script needs it, and it runs inside the server's own container.
-            // This chart's one widening switch rewrites that mask to every source address on an ACCESS-MANAGING
-            // user, so it is declined outright and the remote reach lands on a scoped user instead.
+            persistence: { enabled: true, size: "100Gi" },
             defaultUser: { password_secret_name: bind.credential },
-            // Gateway exporter and board driver both dial from OTHER pods, so this residence mints the user they
-            // already name under the narrowest mask a pod network fits: the private ranges every CNI allocates out
-            // of. Stating that key is what NARROWS — its absence renders every source address, exactly the reach
-            // declined one row above. Grants carry the two verbs the write leg and the read leg run, because the
-            // DDL rides the init script's own default-user session — which is why no create verb enters here and
-            // why one Secret serves both custody ends.
             users: [{
               name: _COLUMNAR.user,
               hostIP: [..._COLUMNAR.reach],
               password_secret_name: bind.credential,
               grants: [`GRANT INSERT, SELECT ON ${_COLUMNAR.database}.*`],
             }],
-            // the DDL is `IF NOT EXISTS` throughout, so re-running it on every start converges instead of failing
             initScripts: { enabled: true, alwaysRun: true, configMapName: bind.schema },
           },
-          keeper: { enabled: false }, // replicated tables are the fleet escalation; one node holds the reference posture
+          keeper: { enabled: false },
           operator: { enabled: true },
         }),
       }),
-    // This row installs its own chart, so naming it arms it; the address is the operator-decorated Service the
-    // `_charts` row already pins rather than a second naming authority spelled here.
     door: (bind) =>
       Option.some(pulumi.interpolate`http://${_charts.clickhouse.service(`${bind.release}-clickhouse`)}.${bind.namespace}.svc:${_COLUMNAR.port.http}`),
     exporter: () => Option.some({ id: "clickhouse", routes: ["logs", "traces"], seat: _seat, egress: _column }),
@@ -422,18 +295,10 @@ const _RESIDENCE = {
       Option.some({
         dialect: _COLUMNAR.plugin.dialect,
         type: _COLUMNAR.plugin.type,
-        // Every coordinate this driver dials rides its OWN row — host off the published door, then the port, the
-        // protocol, the catalog, the user, and the release stamp off the residence anchor its DDL and its exporter
-        // already read — beside the one generated credential the residence chart's own user takes, so no second
-        // custody owner enters for the read side.
         settings: (bind) => ({
-          headers: {}, // this driver authenticates on its own connection and dials no request header at all
+          headers: {},
           json: {
             defaultDatabase: _COLUMNAR.database,
-            // This driver's ad-hoc-filter key discovery ships ON and issues a DISTINCT-over-arrayJoin probe per
-            // `Map` column — three of them on the logs relation, three on the traces relation — each an unbounded
-            // scan of the very wide-event tables the branch-owned sort key and bloom indices exist to keep prunable;
-            // it is the one driver default that reads every granule the residence was shaped to skip.
             enableMapKeysDiscovery: false,
             host: _host(bind.door),
             port: _COLUMNAR.port.http,
@@ -448,39 +313,18 @@ const _RESIDENCE = {
   },
 } as const satisfies Record.ReadonlyRecord<string, _Plane<string, string> & {
   readonly cap: false
-  // Chart install AND its body in one answer, on the same footing as `door`, `exporter`, and `plugin`: a boolean here
-  // states a capability an install below then re-decides from a key literal, so the two can disagree and a second
-  // chart-bearing residence installs nothing while its column reads armed. `ddl` is the init-script payload the tier
-  // mounts and `values` takes the two names that ConfigMap and the credential Secret only have once minted.
   readonly chart: () => Option.Option<{
     readonly key: keyof typeof _charts
     readonly ddl: string
     readonly values: (bind: { readonly credential: pulumi.Input<string>; readonly schema: pulumi.Input<string> }) => pulumi.Inputs
   }>
-  // Read address AND arming in one answer: a row the stack cannot realize has no address to publish, so realization
-  // never resolves off a value the realized and unrealized cases share. Read lazily, because the residence anchors
-  // these rows name are declared with the collector coordinates below.
   readonly door: (bind: { readonly release: string; readonly namespace: pulumi.Input<string>; readonly objects: Lgtm.Args["objects"] }) => Option.Option<pulumi.Output<string>>
-  // Gateway leg that FILLS this plane: its component id, the signals it writes, the write address it dials inside the
-  // tier, and its own egress dialect. `None` is a first-class answer — a plane a data-plane writer fills defines no
-  // gateway exporter — and the id, the pipeline fan, and the exporter map all fold this ONE column rather than three
-  // matching literals.
   readonly exporter: () => Option.Option<{
     readonly id: string
-    // Routing bound, held apart from the plane's own census: columnar ingest carries the wide-event pair alone
-    // because a TSDB answers alerting and this exporter frames no metric point, while the census answers what the
-    // plane HOLDS across every writer. One column serving both makes a plane a second owner fills unspellable — it
-    // either under-reports its contents to a board or fans a leg the exporter cannot frame.
     readonly routes: ReadonlyArray<_Signal>
-    // Write door, distinct from the read door in port and protocol alike, dialed inside the tier and spelled by no
-    // consumer — so one row answers both rather than a reader deriving either from the other.
     readonly seat: (bind: { readonly release: string; readonly namespace: pulumi.Input<string> }) => pulumi.Output<string>
     readonly egress: (endpoint: string, ttl: string) => Record.ReadonlyRecord<string, unknown>
   }>
-  // Board driver this row's door answers. `None` is a first-class answer: the row is readable, and not through a
-  // panel. `dialect` and `settings` ride the same payload because a driver, the language it speaks, and the
-  // coordinates it dials are ONE row answer — reading any of them off the board plane binds every future residence
-  // to the interactive plane's grammar, its port, and its catalog.
   readonly plugin: () => Option.Option<{
     readonly dialect: _Dialect
     readonly type: string
@@ -488,27 +332,15 @@ const _RESIDENCE = {
   }>
 }>
 
-// Which residence a BOARD reads: the first realized row running an engine Grafana has a driver for. Every downstream
-// answer — the published door, the tier's render coordinate, the datasource's presence, its driver identity, and its
-// dialect — takes THIS one search, because copies of it resolve to different rows the day a resident order changes.
 const _boarded = (residences: ReadonlyArray<keyof typeof _RESIDENCE>): Option.Option<keyof typeof _RESIDENCE> =>
   Array.findFirst(residences, (key) => Option.isSome(_RESIDENCE[key].plugin()))
 
-// Which residence a READER addresses: the board-readable row where one is realized, else the resident head — the cold
-// tail, addressed off the object plane rather than through a panel. `None` here IS the refusal `analytics: "none"`
-// states and equally the refusal a cold-tail selection on a stack carrying no object plane earns.
 const _addressed = (residences: ReadonlyArray<keyof typeof _RESIDENCE>): Option.Option<keyof typeof _RESIDENCE> =>
   Option.orElse(_boarded(residences), () => Array.head(residences))
 
-// Realized rows publish their board driver here, resolved once so presence, type, dialect, and every dialed
-// coordinate are four answers off ONE row rather than four independent searches that can disagree.
 const _driven = (residences: ReadonlyArray<keyof typeof _RESIDENCE>) =>
   Option.flatMap(_boarded(residences), (key) => _RESIDENCE[key].plugin())
 
-// Selection is a keyed row, never a branch ladder: each spec value names its resident set whole, and the set's ORDER
-// is what `_addressed` falls back to — the pair row leads with the interactive plane so a stack arming both publishes
-// that door, and a stack arming the cold tail alone publishes ITS door and provisions no datasource, because the
-// board-readable row wins the address wherever one is realized.
 const _RESIDENT = {
   none: [],
   lake: ["lake"],
@@ -516,11 +348,6 @@ const _RESIDENT = {
   both: ["clickhouse", "lake"],
 } as const satisfies Record<StackSpec.Residence, ReadonlyArray<keyof typeof _RESIDENCE>>
 
-// Rosters are what a spec names; THIS is what the stack can actually reach — a row whose own `door` answers `None`
-// addresses a plane nothing planted, so it leaves the resident set entirely. Every downstream answer — the published
-// address, the render coordinate, the board driver, the gateway's exporter fan, and the sealed residence rows — reads
-// this ONE set, so a plane the stack cannot realize is absent from all five rather than realized in one fold and
-// empty in the next, which is the advertised-but-unplanted plane a reader meets as an authentication failure.
 const _resident = (
   analytics: StackSpec.Residence,
   bind: { readonly release: string; readonly namespace: pulumi.Input<string>; readonly objects: Lgtm.Args["objects"] },
@@ -529,15 +356,7 @@ const _resident = (
 
 declare namespace Lgtm {
   type Versions = { readonly [K in keyof typeof _charts | "store"]: pulumi.Input<string> } & { readonly exporter: Lgtm.Image }
-  // a chart version and a container image reference are distinct facts: one pins a rendered template, the other a digest
-  // workloads run, and one field carrying both is how an image tag reached a `version:` argument
   type Image = { readonly repository: pulumi.Input<string>; readonly digest: pulumi.Input<string> }
-  // Every answer the metrics plane owes a board, projected by the tier that OWNS the backend selection. `target`
-  // carries the selected row's translation and representation columns, so a pack rendered off this value spells the
-  // series names that receiver actually wrote; `plugin`, `scope`, `exemplars`, and `recorded` are the four answers a
-  // board plane otherwise re-reads off `_stores` from the spec — which describes the K8S arm's install even on the
-  // docker arm, whose bundled store ships its own escaping default, its own plugin, and no rule evaluator at all, so
-  // that read provisions a scope header no backend expects and renders recorded series nothing records.
   type Metrics = {
     readonly target: Board.Query.Target
     readonly plugin: string
@@ -545,14 +364,6 @@ declare namespace Lgtm {
     readonly exemplars: boolean
     readonly recorded: boolean
   }
-  // `analytics` carries the REALIZED residence coordinate rather than a target, because the residence schema —
-  // relation names, attribute accessor, engine grammar — is `data` `lane/olap`'s own row and this tier neither holds
-  // nor mirrors it; a composition root hands this pair to `Olap.target`, which mints the SQL target off the row that
-  // owns it. It resolves the SAME row the published door resolves, so a realized cold tail carries its coordinate
-  // for whichever reader addresses it while `source` stays `None` there — readable, and not through a panel.
-  // `source` carries the driver WHOLE rather than a key: identity, dialect, and every coordinate it dials come off the
-  // armed row, so a board plane provisions what this tier realized instead of re-resolving realization from the spec —
-  // a read that names a plane the docker arm's container never runs and aims a driver at an address it publishes empty.
   type Targets = {
     readonly metrics: Metrics
     readonly analytics: Option.Option<{
@@ -564,9 +375,6 @@ declare namespace Lgtm {
         readonly settings: (bind: { readonly auth: pulumi.Input<string>; readonly door: pulumi.Output<string> }) => _Settings
       }>
     }>
-    // Profiles answer at the producing tier too: the k8s arm installs its chart off the spec value while the
-    // all-in-one image runs it regardless, so a board plane reading the spec refuses a datasource the dev container
-    // is serving and provisions one the k8s stack never installed.
     readonly profiles: boolean
   }
   type Urls = {
@@ -578,21 +386,14 @@ declare namespace Lgtm {
       readonly metrics: pulumi.Output<string>
       readonly profiles: pulumi.Output<string>
     }
-    // Query-door rows are named for the PLANE each door answers, never for the engine behind it: `metrics` resolves to
-    // whichever `_stores` row the spec selected and `residence` to whichever `_RESIDENCE` row it armed, so a stack
-    // escalating either family re-points one address and every reader keeps its spelling.
     readonly query: {
       readonly loki: pulumi.Output<string>
       readonly tempo: pulumi.Output<string>
       readonly metrics: pulumi.Output<string>
       readonly pyroscope: pulumi.Output<string>
-      // SELECTED residence row publishes this door, never one row's product spelled as the plane: a stack running
-      // its lake row publishes that catalog prefix here and a stack running neither publishes the empty refusal
       readonly residence: pulumi.Output<string>
     }
   }
-  // pg coordinates arrive discrete because `postgresqlreceiver` takes host:port beside separate credential fields and
-  // `sqlqueryreceiver` takes one DSN; a single opaque DSN can serve only the second and silently mis-shapes the first.
   type Data = {
     readonly host: pulumi.Input<string>
     readonly port: pulumi.Input<number>
@@ -606,25 +407,16 @@ declare namespace Lgtm {
     readonly versions: Versions
     readonly auth: pulumi.Input<string>
     readonly data: Data
-    readonly objects?: { readonly endpoint: pulumi.Input<string>; readonly bucket: pulumi.Input<string> } // the object plane's coordinates the mimir ruler and the lake residence bind
+    readonly objects?: { readonly endpoint: pulumi.Input<string>; readonly bucket: pulumi.Input<string> }
     readonly alerts: ReadonlyArray<Reliability.Alert.Spec>
     readonly keyring?: pulumi.asset.Asset
   }
-  // One bind, every axis: each collector arm reads the spec's own observe record rather than a boolean the caller
-  // pre-folded, so adding an axis edits the schema and the arm that interprets it — never the shape between them.
   type Plan = {
     readonly observe: StackSpec.Observe
     readonly ingest: { readonly logs: string; readonly traces: string; readonly metrics: string; readonly profiles: string }
-    // Realized rows carrying a gateway leg, each beside the write address its own row dialed — so the exporter map
-    // and the pipeline fan fold ONE roster and a second collector-filled plane is a row rather than a third literal.
-    // Rows whose writer is a data plane contribute nothing here, exactly as their `exporter` column says.
     readonly residences: ReadonlyArray<{ readonly key: keyof typeof _RESIDENCE; readonly endpoint: string }>
-    // Two upstream doors serve an agent tier — an Arrow stream carries the columnar rows and an OTLP door carries every
-    // other; a gateway tier's own plan carries none, which is what makes their absence the role discriminant
     readonly gateway: { readonly arrow: string; readonly otlp: string } | undefined
     readonly ttl: string
-    // Pull-side infra receivers and the ids the metrics pipeline names them by: one roster, two readers, so a
-    // surface entering the scrape plane cannot land a receiver no pipeline names or a pipeline name nothing defines.
     readonly infra: Record.ReadonlyRecord<string, unknown>
     readonly infraReceivers: ReadonlyArray<string>
     readonly headers: Record.ReadonlyRecord<string, string>
@@ -635,15 +427,12 @@ declare namespace Lgtm {
 
 const _COMPONENT = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9_]*(?:\/[A-Za-z0-9_.-]+)?$/), Schema.brand("ComponentId"))
 const _PIPELINE = Schema.String.pipe(Schema.pattern(/^(?:traces|metrics|logs|profiles)(?:\/[A-Za-z0-9_.-]+)?$/), Schema.brand("PipelineId"))
-// The stated depth of a non-exporter component: its ID closes and its BODY does not, because the body's vocabulary is
-// the chart's own external contract and a twin declared here drifts on the next pin. Exporters carry `_Egress` instead
-// precisely because the tier authors those bodies off its own closed dialect roster.
 const _Bag = Schema.Record({ key: Schema.String, value: Schema.Unknown })
 const _Components = Shape.Record(_COMPONENT, _Bag)
 
 const _Queue = Schema.Struct({
   enabled: Schema.Boolean,
-  storage: Schema.optional(_COMPONENT), // absent is an in-memory queue: a daemonset holds no per-node claim, so the agent leg's durability IS its retry horizon
+  storage: Schema.optional(_COMPONENT),
   sizer: Schema.Literal("requests", "items", "bytes"),
   queue_size: Schema.Int.pipe(Schema.positive()),
   num_consumers: Schema.Int.pipe(Schema.between(1, 64)),
@@ -653,11 +442,9 @@ const _Retry = Schema.Struct({
   enabled: Schema.Boolean,
   initial_interval: Schema.String,
   max_interval: Schema.String,
-  max_elapsed_time: Schema.String, // the queue survives a restart; this bounds how long ONE accepted batch keeps retrying
+  max_elapsed_time: Schema.String,
 })
 
-// One durability contract, four transport dialects: an accepted batch survives the same way whatever door it leaves
-// by, so the policy pair rides every exporter and each dialect adds only its own wire coordinates.
 const _POLICY = { sending_queue: _Queue, retry_on_failure: _Retry } as const
 
 const _Otlp = Schema.Struct({
@@ -667,8 +454,6 @@ const _Otlp = Schema.Struct({
   headers: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
 })
 
-// Arrow rides a bidirectional gRPC stream, so its lifetime sits one anchor below the receiver's connection
-// grace: expiring first lets in-flight requests drain, expiring after makes every reset a retry storm.
 const _Arrow = Schema.Struct({
   ..._POLICY,
   endpoint: Schema.String,
@@ -681,9 +466,6 @@ const _Arrow = Schema.Struct({
   }),
 })
 
-// `create_schema` is pinned FALSE at the type, not by convention: the exporter's own DDL leaves every attribute in a
-// `Map` outside the sort key, so a row selecting exporter-created schema buys a whole-granule tenant scan no reader
-// sees coming, and the branch-owned DDL is what puts tenant in `ORDER BY`.
 const _Column = Schema.Struct({
   ..._POLICY,
   endpoint: Schema.String,
@@ -698,12 +480,6 @@ const _Column = Schema.Struct({
   traces_table_name: Schema.String,
 })
 
-// Brokers buffer past the gateway's own life, so topics stay per-signal and acks carry the durability
-// coordinate the file queue spells as `fsync`.
-// One topic row, four signals: the struct answers EVERY signal the topic roster spells, because a signal the
-// roster carries and this shape omits decodes away silently — the producer then falls to the client's own default
-// topic while the drain leg subscribes to the rostered name, which is exactly the split-topic failure the shared
-// roster exists to foreclose.
 const _Topic = Schema.Struct({ topic: Schema.String, encoding: Schema.Literal("otlp_proto") })
 
 const _Broker = Schema.Struct({
@@ -729,7 +505,7 @@ const _Pipeline = Schema.Struct({
 const _Service = Schema.Struct({
   extensions: Schema.NonEmptyArray(_COMPONENT),
   telemetry: Schema.Struct({
-    resource: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })), // the chart stamps pod/node coordinates from the downward API; the tier adds owned rows over them, never a free-string dimension
+    resource: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
     metrics: Schema.Struct({ level: Schema.Literal("none", "basic", "normal", "detailed"), readers: Schema.NonEmptyArray(_Bag) }),
     logs: Schema.Struct({ level: Schema.Literal("DEBUG", "INFO", "WARN", "ERROR"), encoding: Schema.Literal("json", "console"), processors: Schema.NonEmptyArray(_Bag) }),
     traces: Schema.Struct({ processors: Schema.NonEmptyArray(_Bag) }),
@@ -745,8 +521,6 @@ class Collector extends Schema.Class<Collector>("Collector")({
   extensions: _Components,
   service: _Service,
 }).pipe(Schema.filter((config) => {
-  // Closure, not completeness: a named id MUST be defined, while a defined id may stay unnamed — an inert component is
-  // exactly what makes an escalation row an arming flip. A connector is legal on both sides, so it joins both universes.
   const defined = (...maps: ReadonlyArray<Record.ReadonlyRecord<string, unknown>>): ReadonlyArray<string> =>
     Array.flatMap(maps, Record.keys)
   const held = (ids: ReadonlyArray<string>, pool: ReadonlyArray<string>): ReadonlyArray<string> =>
@@ -762,14 +536,9 @@ class Collector extends Schema.Class<Collector>("Collector")({
   return dangling.length === 0 || { path: ["service"], message: `undefined component reference: ${Array.join(dangling, ", ")}` }
 }, { identifier: "CollectorClosure" }))
 
-// OTLP fixes its listener pair, and every end that opens or dials a door reads it here — collector publication, relay
-// leg, gateway self-telemetry, Tempo's own receiver block, and the endpoint projection alike.
 const _OTLP = { http: 4318, grpc: 4317 } as const
 
 const _COLLECTOR = {
-  // The gateway's own OTLP door, dialed at the address the receiver BINDS: the chart defaults every protocol
-  // endpoint to `${env:MY_POD_IP}` and this tier merges into that block without restating one, so a listener bound
-  // to the pod address answers nothing on loopback and the whole self-telemetry stack lands in a connection refusal.
   self: `http://\${env:MY_POD_IP}:${_OTLP.http}`,
   queue: { path: "/var/lib/otelcol/queue", gib: 8, consumers: 10, depth: 10_000 },
   guard: { check_interval: "5s", limit_percentage: 80, spike_limit_percentage: 25 },
@@ -777,66 +546,24 @@ const _COLLECTOR = {
   admit: { bytes: 16 * 1024 ** 2, metadata: true },
   probe: ["/healthz", "/readyz", "/livez"],
   buckets: ["5ms", "25ms", "125ms", "625ms", "3s", "15s"],
-  // arrow bounds sit AHEAD of the shared pipeline's guard on the gateway an agent estate dials: this receiver
-  // admits by uncompressed request size and bounds waiters separately, and its grace outlives the exporter's
-  // stream so a reset drains rather than re-sending every in-flight batch
   arrow: { port: 4319, grace: "10m", age: "1m", lifetime: "9m30s", streams: 2, request_mib: 128, waiting_mib: 32, buffer_mib: 256 },
-  // one topic roster, two readers: the producing exporter and the draining receiver both fold it, because a broker
-  // client naming no topic falls to its own package default and a drain leg then subscribes to a name nothing wrote
   broker: { topics: { traces: "rasm.otlp.traces", metrics: "rasm.otlp.metrics", logs: "rasm.otlp.logs", profiles: "rasm.otlp.profiles" }, bytes: 8 * 1024 ** 2 },
-  // The ruler mount and ONE cadence number, two readers: the store's own recording group renders it as a duration
-  // string and the board plane's rule group takes it as an integer of seconds. Two literals for one cadence let the
-  // evaluator and the reader of its recorded series drift, and the alert then samples a numerator refreshed on a
-  // schedule nobody stated.
   rules: { path: "/etc/rules", seconds: 60 },
 } as const
 
-// Cold-tail anchor. Its catalog segment is the prefix this tier publishes under the object plane's bucket AND the
-// DuckLake catalog `data` `lane/olap` attaches over it, so the planter names it once and the reader spells that same
-// name; deriving it from the interactive plane's database instead re-points every Parquet object already written on
-// whatever day that database is renamed, and the two planes share no coordinate that raises on the divergence.
 const _LAKE = { catalog: "lake" } as const
 
-// One residence anchor spanning both ends: the database the DDL creates, the TTL its tables carry, the ports each end
-// dials, and the plugin the board plane queries through — so the exporter row, the planted DDL, and the panel target
-// all read one source. Relation names are NOT here: `data` `lane/olap` owns the wide-event roster and this tier
-// derives them off it, because a name spelled on both sides of a branch seam drifts the day either side renames.
 const _COLUMNAR = {
   database: "rasm",
   port: { native: 9000, http: 8123 },
-  // Read-plane identity for THIS engine, published to the board plane through its own residence row's `plugin`
-  // column and read nowhere else: this type id names the driver, this editor discriminant selects the plugin's
-  // raw-SQL arm over its builder arm, and `dialect` names the `_DIALECTS` row whose alphabet spells every form a
-  // panel bound to this driver renders. A board plane reading this anchor directly would bind every future residence
-  // to it. `version` is ONE axis filling two sites deliberately: the driver's own config field and every query
-  // record's `pluginVersion` both name the PLUGIN release, never the server's — the plugin overwrites its config
-  // copy with its own package version whenever the config is saved, so a server release spelled there is silently
-  // rewritten and every reader gating on it answers for a version nothing pinned.
   plugin: { dialect: "clickhouse", editor: "sql", type: "grafana-clickhouse-datasource", version: "4.20.0" },
-  // Evidence retention is its own decision, never a multiple of the store window: series retention answers alerting
-  // and residence retention answers audit and incident reconstruction, so deriving one from the other couples two
-  // unrelated horizons and silently shortens the audit trail every time an operator tunes an alert lookback.
   ttlDays: 180,
   user: "otel",
-  // Source masks the residence user admits, stated because the chart's per-user key falls to every source address
-  // when absent — so this narrows the reach rather than opening it. A pod CIDR is the deploy target's own allocation
-  // and no coordinate this tier can spell, so the mask is the private space every CNI allocates inside and the
-  // `podSelector` fence stays the estate's real edge; the default user keeps its loopback mask beside these rows.
   reach: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
-  // Reading ends need two clauses to write a pruning predicate: the partition expression bounds the parts a time
-  // window opens, and the tenant expression LEADS the sort key so a single-tenant filter prunes granules instead of
-  // reading every other tenant's. Both live here over inside the DDL string alone, because planter and reader are
-  // different branches and a reader deriving either one is reading a schema nothing planted.
   partition: "toDate(Timestamp)",
   sort: `ResourceAttributes['${Convention.rasm.tenant}']`,
 } as const
 
-// Gateway write seat for the interactive plane: the native protocol port, distinct from the HTTP read door in both
-// port and protocol, so the exporter dials what its own driver speaks and no reader derives one address from the other.
-// The two relations this tier plants, read off the roster that owns their columns rather than restated beside it:
-// the exporter's write target, the planted DDL, and the published relation contract move together on one rename.
-// The metric signal never enters: `_stores` answers health and alerting, the residence answers evidence and history,
-// and the exporter's own metric support is alpha, so the third signal rides the degradation column instead.
 const _TABLES = Record.map(Olap.events, (row) => row.table)
 
 const _seat = (bind: { readonly release: string; readonly namespace: pulumi.Input<string> }): pulumi.Output<string> =>
@@ -845,12 +572,10 @@ const _seat = (bind: { readonly release: string; readonly namespace: pulumi.Inpu
 const _STORAGE = {
   directory: _COLLECTOR.queue.path,
   timeout: "10s",
-  max_size: (_COLLECTOR.queue.gib * 1024 ** 3) / 2, // half the claim, so compaction always has room to rewrite in place
-  fsync: false, // the PVC is the durability boundary; per-write fsync trades gateway throughput for a guarantee the disk already gives
+  max_size: (_COLLECTOR.queue.gib * 1024 ** 3) / 2,
+  fsync: false,
   compaction: {
     on_start: true,
-    // rebound compaction validates against its own cadence: `on_rebound` without a positive `check_interval` refuses at start,
-    // and either rebound threshold above `max_size` refuses with it, so the pair rides the same anchor the ceiling comes from
     on_rebound: true,
     check_interval: "5m",
     rebound_needed_threshold_mib: (_COLLECTOR.queue.gib * 1024) / 8,
@@ -865,9 +590,6 @@ const _SELF = (kind: "metrics" | "logs" | "traces"): Record.ReadonlyRecord<strin
   [kind === "metrics" ? "periodic" : "batch"]: { exporter: { otlp: { protocol: "http/protobuf", endpoint: _COLLECTOR.self } } },
 })
 
-// One durability policy, two custody arms. `durable` is the tier's disk claim, not a per-exporter taste: a tier
-// holding the PVC names its storage extension, and a tier holding none states the in-memory queue rather than naming
-// a component its own plan never defines — which is what a queue pointed at an undefined `file_storage` does.
 const _policy = (durable: boolean) => ({
   sending_queue: {
     enabled: true,
@@ -886,8 +608,6 @@ const _egress = (endpoint: string, headers: Record.ReadonlyRecord<string, string
   ...(Record.isEmptyRecord(headers) ? {} : { headers }),
 })
 
-// Residence egress pins `create_schema` false at the type, rides `${env:…}` for its credential like every
-// other, and the TTL the exporter stamps agrees with the TTL the DDL wrote because both read one anchor.
 const _column = (endpoint: string, ttl: string) => ({
   ..._policy(true),
   endpoint,
@@ -903,34 +623,30 @@ const _column = (endpoint: string, ttl: string) => ({
 })
 
 const _arrow = (endpoint: string) => ({
-  ..._policy(false), // no claim per node, so the agent's queue lives in memory and its retry horizon IS its durability
+  ..._policy(false),
   endpoint,
-  tls: { insecure: true }, // one in-cluster hop on the pod network; the gateway terminates no public transport
+  tls: { insecure: true },
   arrow: {
-    num_streams: _COLLECTOR.arrow.streams, // each stream holds encoder state, so an agent per node stays deliberately narrow
+    num_streams: _COLLECTOR.arrow.streams,
     max_stream_lifetime: _COLLECTOR.arrow.lifetime,
     prioritizer: "leastloaded" as const,
     payload_compression: "zstd" as const,
   },
 })
 
-// Per-signal topic rows, spelled once for both ends of the broker leg.
 const _topics = () => Record.map(_COLLECTOR.broker.topics, (topic) => ({ topic, encoding: "otlp_proto" as const }))
 
-const _BROKER_WIRE = { protocol_version: "3.9.0" } as const // one negotiated wire version; a producer and a consumer disagreeing here fail at connect
+const _BROKER_WIRE = { protocol_version: "3.9.0" } as const
 
 const _broker = (brokers: ReadonlyArray<string>) => ({
   ..._policy(true),
   ..._BROKER_WIRE,
   brokers,
   client_id: "rasm-gateway",
-  // full ISR acknowledgement is what makes the broker leg a durability upgrade over the disk queue rather than a second best-effort hop
   producer: { required_acks: -1 as const, compression: "zstd" as const, max_message_bytes: _COLLECTOR.broker.bytes },
   ..._topics(),
 })
 
-// Drain clients read the rows their producer wrote and commit only after the pipeline exports: an autocommit ack on
-// read drops every message in flight when the gateway dies, which is the failure the broker leg exists for.
 const _drain = (brokers: ReadonlyArray<string>) => ({
   ..._BROKER_WIRE,
   brokers: [...brokers],
@@ -942,19 +658,10 @@ const _drain = (brokers: ReadonlyArray<string>) => ({
 
 // --- [RESIDENCE_DDL]
 
-// Branch-owned DDL, planted as the residence chart's init script. The column roster is NOT branch-owned: `Olap.events`
-// carries every wide-event relation's name, its column list, that list's ORDER, and the neutral token each column
-// rides, so this side spells the dialect and nothing else. Exactly three clauses diverge from the exporter's shipped
-// template: the tenant expression leads `ORDER BY` so a single-tenant filter prunes granules instead of reading every
-// other tenant's, the attribute key and value indices land together so key existence prunes before any value
-// comparison, and the TTL drops whole parts.
 const _Z = "CODEC(ZSTD(1))"
 
-// ClickHouse's answer to the shared column alphabet, bound to the token subset the roster actually uses: a token that
-// plane starts spelling refuses HERE, at this declaration, which is the compile break a hand transcription of the
-// column list only ever asserted. Types are the exporter's own, because its generated INSERT writes these columns.
 const _T: Record<Olap.WideToken, string> = {
-  stamp: "DateTime64(9) CODEC(Delta(8), ZSTD(1))", // monotonic within a part, so delta before zstd is what makes the column small
+  stamp: "DateTime64(9) CODEC(Delta(8), ZSTD(1))",
   text: `String ${_Z}`,
   low: `LowCardinality(String) ${_Z}`,
   map: `Map(LowCardinality(String), String) ${_Z}`,
@@ -966,18 +673,11 @@ const _T: Record<Olap.WideToken, string> = {
   maps: `Array(Map(LowCardinality(String), String)) ${_Z}`,
 }
 
-// The one wide-event fact this side owns: which columns LEAD the sort key behind the tenant expression. Column
-// identity and order answer to the producer that writes them; which of those columns a read prunes on is a read-plane
-// decision no producer can make, so this roster stays here and closes against the relation keys the roster publishes.
 const _AFTER = {
   logs: ["ServiceName", "SeverityText"],
   traces: ["ServiceName", "SpanName"],
 } as const satisfies Record<Olap.Relation, ReadonlyArray<string>>
 
-// Key-existence indices over both attribute planes plus a token index over the row's own free text: a predicate
-// naming a key that no granule holds is answered from the index instead of a granule read. The `*AttributesKeys` trio
-// is one feature and lands whole or not at all — a key-existence index over two of three columns prunes half the
-// predicates — so the filter reads the roster's own column names rather than a list repeated here.
 const _INDEX = (row: (typeof Olap.events)[Olap.Relation]): ReadonlyArray<string> => [
   ...Array.flatMap(["ResourceAttributes", "ScopeAttributes", row.plane], (map) => [
     `INDEX idx_${map}_key mapKeys(${map}) TYPE bloom_filter(0.01) GRANULARITY 1`,
@@ -996,29 +696,20 @@ const _ddl = (days: number): string =>
       `CREATE TABLE IF NOT EXISTS ${_COLUMNAR.database}.${row.table} (`
       + Array.join([...Array.map(row.columns, ([name, token]) => `\`${name}\` ${_T[token]}`), ..._INDEX(row)], ", ")
       + `) ENGINE = MergeTree PARTITION BY ${_COLUMNAR.partition} `
-      // tenant reads deterministically off a stored column, so it keys the primary index directly and no
-      // second column, materialized twin, or projection is minted to carry what the resource map already holds
       + `ORDER BY (${_COLUMNAR.sort}, ${Array.join([..._AFTER[relation], "toUnixTimestamp(Timestamp)", "TraceId"], ", ")}) `
       + `TTL toDateTime(Timestamp) + toIntervalDay(${days}) SETTINGS ttl_only_drop_parts = 1;`),
   ], "\n")
 
 // --- [COLLECTOR_PIPELINES]
 
-const _ENRICH = ["memory_limiter", "k8s_attributes", "resource_detection"] as const // guard first, then identity: every later component sees the workload coordinates
+const _ENRICH = ["memory_limiter", "k8s_attributes", "resource_detection"] as const
 
-// per-signal gateway shaping beyond the shared resource rule. Only the metric leg carries a datapoint pass, deleting
-// that synthetic UCUM carrier the Effect metric bridge rides as its descriptor-unit tag — spelled off `Convention.wire`
-// because emission and strip are one export-contract fact a free string forks at the next rename. Facade-lane producers
-// strip it through their own view roster; this pass closes the NATIVE lane, where no view runs at all, so no store on
-// either lane sees the carrier and no series forks into a unit-labelled family.
 const _SHAPED = {
   trace: [],
   log: [],
   metric: [{ context: "datapoint", statements: [`delete_key(attributes, "${Convention.wire.unit}")`] }],
 } as const satisfies Record<"trace" | "log" | "metric", readonly { readonly context: string; readonly statements: readonly string[] }[]>
 
-// Placement rows this gateway stamps: the extract roster and the vocabulary a board joins a series to its pod
-// through are ONE set, so neither side can gain a key the other cannot resolve.
 const _PLACEMENT = [
   Convention.attr.k8sNamespace,
   Convention.attr.k8sPodName,
@@ -1033,30 +724,11 @@ const _PLACEMENT = [
   Convention.attr.containerImage,
 ] as const
 
-// Container-plane rows resolve only where the SDK already stamped `container.id` or `k8s.container.name` on the
-// incoming resource: this processor keys a container off one of those two and enriches from there, so the image row
-// rides the detector arm every workload composition already runs rather than standing inert on this roster.
-// Image TAG stays deliberately absent: this processor emits a SINGULAR `container.image.tag` of its own dialect
-// while the installed semconv build declares only the plural `container.image.tags`, so requesting either spelling
-// here buys one concept under two names — the roster asks for the image NAME, whose semconv row this processor
-// writes byte-identical, and the tag reaches evidence through the resource detector that owns the stable spelling.
 
-const _LEGACY_ENVIRONMENT = "deployment.environment" // the deprecated spelling a foreign SDK still emits: a migration SOURCE this estate never mints, so it earns no convention row
+const _LEGACY_ENVIRONMENT = "deployment.environment"
 
-// Signal-shaped wiring, one rule: the ADMIT leg receives and shapes, the DRAIN leg fans to every residence the spec
-// armed. `buffer: "file"` fuses them into one pipeline behind the disk queue; `buffer: "broker"` splits them at a
-// kafka topic, so an accepted batch outlives the gateway POD and not merely its restart. Neither arm changes a
-// component definition — the split is which pipeline names which id.
-// One span-derived pair, two mentions: exporters on the traces leg, receivers on the metrics leg. Naming the pair
-// once is what keeps a connector from being wired as a sink with no source, which parses and then emits nothing.
 const _CONNECTORS = ["span_metrics", "service_graph"] as const
 
-// Every signal is a row, and a row assembled outside this table is how a pipeline came to name an exporter its own
-// role never defines. `spine` is the row's own processor prefix, because the enrichment set predates profile support
-// and a shared constant names components that pipeline cannot load; `armed` is the spec predicate deciding whether
-// this row renders at all; `arrow` states whether its payload crosses the columnar agent hop, since Arrow
-// transport carries the three OTLP signals and no profile frame — a row answering false relays over the gateway's own
-// OTLP door instead, so an agent estate forwards every signal it admits rather than stranding one on a dead leg.
 const _SIGNALS = {
   logs: { spine: _ENRICH, shape: ["transform"], self: "otlp_http/logs", arrow: true, armed: () => true },
   traces: { spine: _ENRICH, shape: ["transform", "filter"], self: "otlp_http/traces", arrow: true, armed: () => true },
@@ -1070,11 +742,8 @@ const _SIGNALS = {
   readonly armed: (observe: StackSpec.Observe) => boolean
 }>
 
-const _RELAY = "otlp_http/gateway" // the agent's OTLP leg to the gateway door, taken by every row Arrow cannot carry
+const _RELAY = "otlp_http/gateway"
 
-// `gateway` is the whole role discriminant: a plan carrying gateway doors RELAYS — it enriches at the node and hands
-// each signal to the transport its own row names — while a plan carrying none is the gateway itself and owns the
-// fan-out, the span-derived connectors, the residence, and the broker legs.
 const _wired = (bind: Lgtm.Plan, signal: keyof typeof _SIGNALS): Record.ReadonlyRecord<string, unknown> => {
   const row = _SIGNALS[signal]
   const relay = bind.gateway !== undefined
@@ -1083,23 +752,14 @@ const _wired = (bind: Lgtm.Plan, signal: keyof typeof _SIGNALS): Record.Readonly
   const sources = [
     "otlp",
     ...(signal === "metrics" && !relay ? [..._CONNECTORS, ...bind.infraReceivers] : []),
-    // an agent estate's gateway opens the arrow door for rows that cross it, while a profile row keeps
-    // arriving on the shared OTLP receiver — same door the agent's relay leg dials
     ...(agents && !relay && row.arrow ? ["otelarrow"] : []),
   ]
-  // residences take the same admitted stream the backend takes — one ingest, two durabilities, never a second door —
-  // and each realized row's own `exporter` column decides both whether a leg exists and which signals it writes, so a
-  // second collector-filled residence entering is a value edit rather than literals here to match. The fan reads
-  // ROUTES, never the census: a plane a data-branch writer also fills censuses relations no exporter frames, and a
-  // fan reading that column would name a metrics leg against an exporter whose own dialect carries no metric point.
   const backends = relay ? [row.arrow ? "otelarrow" : _RELAY] : [
     row.self,
     ...Array.filterMap(bind.residences, ({ key }) =>
       Option.flatMap(_RESIDENCE[key].exporter(), (leg) =>
         Array.some(leg.routes, (route) => route === signal) ? Option.some(leg.id) : Option.none())),
   ]
-  // span-derived connectors ride the ADMIT leg alone: naming them on both legs feeds one span stream through the
-  // connector twice and doubles every RED and topology series the boards read
   const derived = relay || signal !== "traces" ? [] : _CONNECTORS
   const admit = { receivers: sources, processors: [...row.spine, ...row.shape, ...sampled, "batch"] }
   return !row.armed(bind.observe)
@@ -1108,7 +768,6 @@ const _wired = (bind: Lgtm.Plan, signal: keyof typeof _SIGNALS): Record.Readonly
       ? { [signal]: { ...admit, exporters: [...backends, ...derived] } }
       : {
           [signal]: { ...admit, exporters: ["kafka", ...derived] },
-          // drain re-enters already-shaped data, so this leg carries the guard and the batch alone
           [`${signal}/drain`]: { receivers: ["kafka"], processors: ["memory_limiter", "batch"], exporters: backends },
         }
 }
@@ -1116,16 +775,12 @@ const _wired = (bind: Lgtm.Plan, signal: keyof typeof _SIGNALS): Record.Readonly
 const _plan = (bind: Lgtm.Plan): Collector =>
   Schema.decodeSync(Collector)({
     receivers: {
-      // each transport bounds a body in its own unit: confighttp counts bytes, configgrpc counts mebibytes on the receive frame
       otlp: {
         protocols: {
           http: { max_request_body_size: _COLLECTOR.admit.bytes, include_metadata: _COLLECTOR.admit.metadata },
           grpc: { max_recv_msg_size_mib: _COLLECTOR.admit.bytes / 1024 ** 2, include_metadata: _COLLECTOR.admit.metadata },
         },
       },
-      // arrow owns its own admission at the receive frame — uncompressed request size and waiters counted
-      // separately — ahead of the shared pipeline's guard rather than instead of it: one pipeline per signal
-      // serves this door and the OTLP door both, and the OTLP door bounds nothing, so the spine keeps the guard
       ...(bind.observe.topology === "agent" && bind.gateway === undefined ? {
         otelarrow: {
           protocols: {
@@ -1140,12 +795,11 @@ const _plan = (bind: Lgtm.Plan): Collector =>
         },
       } : {}),
       ...(bind.observe.buffer.mode === "broker" && bind.gateway === undefined ? { kafka: _drain(bind.observe.buffer.brokers) } : {}),
-      ...(bind.gateway === undefined ? bind.infra : {}), // infra scrape is a gateway concern; an agent per node would scrape the same surface once per node
+      ...(bind.gateway === undefined ? bind.infra : {}),
     },
     processors: {
       memory_limiter: _COLLECTOR.guard,
       k8s_attributes: {
-        // pod identity by IP and by the downward-API pod name, so a workload behind a service mesh still resolves
         auth_type: "serviceAccount",
         passthrough: false,
         extract: { metadata: [..._PLACEMENT] },
@@ -1155,33 +809,25 @@ const _plan = (bind: Lgtm.Plan): Collector =>
           { sources: [{ from: "connection" }] },
         ],
       },
-      resource_detection: { detectors: ["env", "k8s_api"], timeout: "5s", override: false }, // enrich, never replace: the SDK-minted triple wins the merge
+      resource_detection: { detectors: ["env", "k8s_api"], timeout: "5s", override: false },
       transform: {
         error_mode: "ignore",
         ...Object.fromEntries(Array.map(["trace", "log", "metric"], (signal) => [`${signal}_statements`, [{
           context: "resource",
           statements: [
-            // one narrow shaping rule: a foreign SDK still on the deprecated key lands under the current semconv spelling
             `set(attributes["${Convention.attr.deploymentEnvironment}"], attributes["${_LEGACY_ENVIRONMENT}"]) where attributes["${Convention.attr.deploymentEnvironment}"] == nil and attributes["${_LEGACY_ENVIRONMENT}"] != nil`,
             `delete_key(attributes, "${_LEGACY_ENVIRONMENT}")`,
           ],
         }, ..._SHAPED[signal]]])),
       },
-      // DELTA is the estate wire law and producer-side conversion is lossless for monotonic sums ALONE — an interval
-      // min and max are unrecoverable from a cumulative histogram snapshot — so the gateway completes the law for any
-      // stream a producer still ships cumulative. `include` bounds the rewrite to the estate namespace, leaving a
-      // third-party series on whatever temporality its own backend contract expects.
       cumulative_to_delta: {
         include: { metrics: [`^${Convention.wire.namespace}\\..*`], match_type: "regexp" },
         initial_value: "auto",
       },
       filter: {
         error_mode: "ignore",
-        // condition lists are the current spelling; the per-signal `spans`/`logs` blocks are superseded and refuse beside them
-        trace_conditions: Array.map(_COLLECTOR.probe, (path) => `attributes["${Convention.attr.urlPath}"] == "${path}"`), // probe traffic is liveness, never evidence
+        trace_conditions: Array.map(_COLLECTOR.probe, (path) => `attributes["${Convention.attr.urlPath}"] == "${path}"`),
       },
-      // `observe.sampling` names it or nothing does: the definition is standing and inert, so arming the decision tier
-      // is one pipeline mention the closure filter already proves resolvable, never a re-design
       tail_sampling: {
         decision_wait: "10s",
         num_traces: 100_000,
@@ -1198,35 +844,26 @@ const _plan = (bind: Lgtm.Plan): Collector =>
       span_metrics: {
         histogram: { explicit: { buckets: [..._COLLECTOR.buckets] } },
         dimensions: Array.map([Convention.rasm.tenant, Convention.attr.httpRoute, Convention.attr.httpMethod], (name) => ({ name })),
-        exemplars: { enabled: true }, // the RED series link back to the spans they were derived from
+        exemplars: { enabled: true },
         aggregation_temporality: "AGGREGATION_TEMPORALITY_DELTA",
         metrics_flush_interval: "15s",
       },
       service_graph: { latency_histogram_buckets: [..._COLLECTOR.buckets], dimensions: [Convention.rasm.tenant], store: { ttl: "10s", max_items: 100_000 } },
     },
     exporters: {
-      // Backend fan-out is the gateway's alone, and each signal row's own `self`/`armed` pair mints its key — the
-      // exporter map and the pipeline map fold ONE table, so a row the spec disarms cannot leave a pipeline naming an
-      // exporter this map never defined, which is the dangling reference that fails the whole decode.
       ...(bind.gateway !== undefined ? {} : Record.fromEntries(
         Array.filterMap(Record.keys(_SIGNALS), (signal) =>
           _SIGNALS[signal].armed(bind.observe)
             ? Option.some([_SIGNALS[signal].self, _egress(bind.ingest[signal], bind.headers, true)] as const)
             : Option.none()))),
-      // residence writes belong to the gateway fan-out too: a daemonset defining one carries that credential and a
-      // disk-queue coordinate onto every node for an exporter its own relay arm can never name. Each realized row
-      // names its own component id and its own egress dialect, so this map and the pipeline fan above fold ONE roster.
       ...(bind.gateway !== undefined ? {} : Record.fromEntries(
         Array.filterMap(bind.residences, ({ endpoint, key }) =>
           Option.map(_RESIDENCE[key].exporter(), (leg) => [leg.id, leg.egress(endpoint, bind.ttl)] as const)))),
       ...(bind.observe.buffer.mode === "broker" && bind.gateway === undefined ? { kafka: _broker(bind.observe.buffer.brokers) } : {}),
-      // agents carry the two upstream legs their signal rows name: the Arrow stream for the columnar signals and the
-      // gateway's own OTLP door for every row Arrow carries no frame for
       ...(bind.gateway === undefined ? {} : { otelarrow: _arrow(bind.gateway.arrow), [_RELAY]: _egress(bind.gateway.otlp, bind.headers, false) }),
     },
     extensions: {
       ...(bind.gateway === undefined ? { file_storage: _STORAGE } : {}),
-      // probes dial this one target; pipeline-failure gating is the extension's own dead field, so export health reads off the self-telemetry series instead
       health_check: { endpoint: "${env:MY_POD_IP}:13133", path: "/", response_body: { healthy: "ok", unhealthy: "degraded" } },
       pprof: { endpoint: "localhost:1777" },
       zpages: { endpoint: "localhost:55679" },
@@ -1234,21 +871,15 @@ const _plan = (bind: Lgtm.Plan): Collector =>
     service: {
       extensions: [...(bind.gateway === undefined ? ["file_storage"] : []), "health_check", "pprof", "zpages"],
       telemetry: {
-        // gateway holds no Identity.App, so its own resource reads the estate pin off the wire triple rather than spelling a second literal
         resource: { [Convention.attr.serviceNamespace]: Convention.wire.namespace },
         metrics: { level: "detailed", readers: [_SELF("metrics")] },
         logs: { level: "INFO", encoding: "json", processors: [_SELF("logs")] },
         traces: { processors: [_SELF("traces")] },
       },
-      // `cumulative_to_delta` runs AFTER shaping and before batch: the rewrite reads the datapoint set the transform left
       pipelines: Object.assign({}, ...Array.map(Record.keys(_SIGNALS), (signal) => _wired(bind, signal))),
     },
   })
 
-// Port publication is the chart's, never the config document's. A receiver binding an address the `ports` map never
-// rows renders no `servicePort`, so its listener answers a Service the cluster routes nothing to — the dead-address
-// class one layer down from a dead name. Rows the estate never opened ship closed; the Arrow door opens exactly where
-// an agent estate dials it, and the self-telemetry readers replace the chart's pull reader so `metrics` serves nothing.
 const _ports = (arrow: boolean): Record.ReadonlyRecord<string, unknown> => ({
   "jaeger-compact": { enabled: false },
   "jaeger-thrift": { enabled: false },
@@ -1258,22 +889,12 @@ const _ports = (arrow: boolean): Record.ReadonlyRecord<string, unknown> => ({
   ...(arrow ? { otelarrow: { enabled: true, containerPort: _COLLECTOR.arrow.port, servicePort: _COLLECTOR.arrow.port, protocol: "TCP", appProtocol: "grpc" } } : {}),
 })
 
-// Chart defaults are not neutral, so this roster names every component the estate never opened. `prometheus` rides it
-// like every other name BECAUSE the fold below tombstones only what the plan leaves undefined: a gateway defines that
-// receiver off its own infra roster and keeps it, while an agent — whose role defines no infra scrape at all — would
-// otherwise inherit the chart's default receiver untombstoned, which is the one chart default a name-conditional
-// roster left standing and a reader could only find by rendering the daemonset.
 const _PRUNED = { exporters: ["debug"], receivers: ["jaeger", "prometheus", "zipkin"] } as const
 
-// Every tombstone lands INSIDE the map the decoded plan already owns. Values merge as maps one key at a time, so a sibling
-// `{ ..._PRUNED, ...plan }` spread replaces `receivers` and `exporters` whole and every null in it is silently dropped.
-// A name the plan DEFINES is skipped rather than tombstoned — the definition displaces the chart default on its own, and
-// a null written after it would delete the tier's own component — so the roster states the estate's whole closed set
-// once and each tier's own plan decides which rows it still owes a tombstone.
 const _pruned = (config: Collector): Record.ReadonlyRecord<string, unknown> => ({
   ...config,
   ...Record.map(_PRUNED, (names, slot) => {
-    const defined: ReadonlyArray<string> = Record.keys(config[slot]) // stated annotation widens the branded ids; no assertion re-admits them
+    const defined: ReadonlyArray<string> = Record.keys(config[slot])
     return {
       ...config[slot],
       ...Record.fromEntries(
@@ -1285,16 +906,9 @@ const _pruned = (config: Collector): Record.ReadonlyRecord<string, unknown> => (
 
 // --- [RECORDING_RULES]
 
-// Precomputed burn numerator. `Board.Query.breach` defines it once here; `_expr` on the board plane reads this same
-// name back, so the expensive expression evaluates once per group interval instead of once per alert evaluation and
-// its definition still exists at exactly one site. Colon-separated spelling is the store-derived convention and
-// cannot collide with the dotted producer grammar Tier-0 fixes.
 const _recorded = (spec: Reliability.Alert.Spec, window: Duration.DurationInput): string =>
   `${spec.slug}:burn:${Duration.toSeconds(Duration.decode(window))}s`
 
-// One render target for every store-side expression on this page. The selected row's `translation` column decides how a
-// mint name becomes a series name, so the recording rule, the alert numerator, and the objective observable read the
-// spelling the receiver actually wrote; `source` names the query end a rendered panel binds and rule evaluation ignores.
 const _promql = (store: (typeof _stores)[keyof typeof _stores]): Board.Query.Target =>
   Board.Query.promql({ histogram: store.histogram, source: "metrics", translation: store.translation })
 
@@ -1302,8 +916,6 @@ const _groups = (alerts: ReadonlyArray<Reliability.Alert.Spec>, target: Board.Qu
   Array.map(alerts, (spec) => ({
     name: spec.slug,
     interval: `${_COLLECTOR.rules.seconds}s`,
-    // both windows record under one group so the short and long verdicts read one evaluation timestamp; split groups
-    // let the multiwindow guard compare numerators sampled at two different instants
     rules: Array.map([spec.windows.short, spec.windows.long], (window) => ({
       record: _recorded(spec, window),
       expr: Board.Query.render(Board.Query.breach(spec.sli, Board.Query.span(Duration.decode(window)), {}, spec.filters), target),
@@ -1318,15 +930,8 @@ const _RBAC = [
 ] as const
 
 class Lgtm extends Tier {
-  // Reading ends bind this residence RELATION CONTRACT whole: the catalog, the two planted relations, the partition
-  // expression, the tenant sort-key lead every scoped read prunes on, and the evidence horizon parts drop at. Column
-  // rosters answer to `Olap.events`, which both ends already read, so this contract carries only what the PLANTING
-  // decided. Re-spelling any coordinate here reads a schema this tier never planted, which is why the contract
-  // crosses as one published value.
   static readonly residence = {
     catalog: _COLUMNAR.database,
-    // Cold-tail catalog crosses beside it, because the object prefix this tier publishes and the DuckLake catalog
-    // a reader attaches over it are ONE name a planter owes its reader.
     lake: _LAKE.catalog,
     relations: _TABLES,
     partition: _COLUMNAR.partition,
@@ -1336,10 +941,6 @@ class Lgtm extends Tier {
   readonly urls: Lgtm.Urls
   readonly collectorEndpoint: pulumi.Output<string>
   readonly rendered: pulumi.Output<ReadonlyArray<unknown>>
-  // The SELECTED store row whole, sealed beside the resident residence rows: `fits`, `signals`, `lifetime`, and
-  // `degrade` are declarations a consumer reads to know what this stack gave up on series, and they answer nowhere
-  // else — `targets.metrics` publishes the four coordinates a board plane DIALS and states nothing about the trade.
-  // A degradation column with no seat is a row that reads complete to a prose scan and reaches no reader at all.
   readonly store: (typeof _stores)[keyof typeof _stores]
   readonly residences: ReadonlyArray<(typeof _RESIDENCE)[keyof typeof _RESIDENCE]>
   readonly targets: Lgtm.Targets
@@ -1349,35 +950,24 @@ class Lgtm extends Tier {
     const store = _stores[observe.store]
     const isolated = store.tenancy === "org"
     const agents = observe.topology === "agent"
-    // REALIZED, never the spec's roster: a cold-tail selection on a stack carrying no object plane addresses a prefix
-    // nothing holds, so that row leaves the set here and every consumer below reads the absence rather than an address
-    // and a coordinate for a plane this tier never planted.
     const residences = _resident(observe.analytics, { release: name, namespace: args.namespace, objects: args.objects })
     this.urls = _urls({ release: name, namespace: args.namespace, store, residences, objects: args.objects, topology: observe.topology })
-    // Render coordinates resolve with the selection, ahead of every consumer: the recording-rule fold below reads the
-    // metrics target, and a pack rendered against a target a composition root guessed is a board whose every selector
-    // spells a strategy the selected store never wrote. Residence stays a COORDINATE the `data` branch's own row
-    // completes, because relation names, attribute accessor, and engine grammar are its schema.
     this.targets = {
       metrics: {
         target: _promql(store),
         plugin: store.plugin,
-        scope: _scoped(store, args.spec.app), // one header projection, two ends: the collector exporters and this door
+        scope: _scoped(store, args.spec.app),
         exemplars: store.exemplars,
         recorded: store.rules,
       },
       analytics: Option.map(_addressed(residences), (residence) => ({
         residence,
-        // Datasource half answers only where a realized row runs a driver, and it carries that driver WHOLE — a cold
-        // tail publishes its coordinate for whichever reader addresses it and claims no panel binding it cannot
-        // provision, while an interactive row hands the board plane the identity, the language, and the coordinates
-        // its own engine dials rather than a key a board plane then resolves against the spec.
         source: Option.map(_driven(residences), (plugin) => ({ key: "residence" as const, ...plugin })),
       })),
-      profiles: observe.profiles, // this arm installs the chart off the spec value, so the spec value IS its answer
+      profiles: observe.profiles,
     }
     const provenance = args.keyring === undefined ? {} : { verify: true, keyring: args.keyring }
-    const charts: Array<pulumi.Output<ReadonlyArray<unknown>>> = [] // every chart's rendered child set aggregates onto the tier's discovery projection
+    const charts: Array<pulumi.Output<ReadonlyArray<unknown>>> = []
     const row = (key: keyof typeof _charts, values: pulumi.Inputs) => {
       const chart = new k8s.helm.v4.Chart(`${name}-${key}`, {
         chart: _charts[key].chart,
@@ -1385,47 +975,29 @@ class Lgtm extends Tier {
         version: args.versions[key],
         namespace: args.namespace,
         ...provenance,
-        values: { ..._charts[key].fullname(`${name}-${key}`), ...values }, // the pinned name IS what `_urls` projects; no consumer re-derives a helm fullname
+        values: { ..._charts[key].fullname(`${name}-${key}`), ...values },
       }, this.child())
       charts.push(chart.resources)
       return chart
     }
     row("grafana", {
       adminPassword: args.auth,
-      // Persistence is this chart's one default-off row that MATTERS here: the provider re-applies folders, sources,
-      // boards, and rules, and nothing else it lands — organizations, service accounts, the rotating token values
-      // Doppler already holds, org preferences, and every deploy and roll annotation live in the server's own store.
-      // Without a claim a reschedule returns a blank server holding none of them while Pulumi state still says it
-      // does, so the tenant fleet reads empty and every issued token authenticates against an identity that no
-      // longer exists. The provisioning rows (`datasources`, `dashboards`, `alerting`, `sidecar`) stay untouched
-      // because content is code applied against the running server, and each ships off.
       persistence: { enabled: true, size: "10Gi" },
     })
     row("loki", {
       deploymentMode: "SingleBinary",
       singleBinary: { replicas: 1 },
-      // The mode value alone does not disarm the other topology: the chart's own validator REFUSES to render when
-      // the single-binary and simple-scalable targets both carry replicas, and `write`/`read`/`backend` default to
-      // non-zero, so the three zeroes are what make the declared mode the installed one.
       write: { replicas: 0 },
       read: { replicas: 0 },
       backend: { replicas: 0 },
       loki: {
-        auth_enabled: isolated, // the store row's tenancy column governs the log plane too; a metrics-only escalation pools every tenant's logs
+        auth_enabled: isolated,
         commonConfig: { replication_factor: 1 },
         storage: { type: "filesystem" },
-        // this chart ships an EMPTY schema block and starts no server without one; the index period is the schema's own
-        // fixed grain, so it is a chart contract rather than the estate's retention coordinate
         schemaConfig: { configs: [{ from: "2024-04-01", store: "tsdb", object_store: "filesystem", schema: "v13", index: { prefix: "loki_index_", period: "24h" } }] },
         limits_config: { retention_period: args.spec.profile.observe.retention, allow_structured_metadata: true },
-        compactor: { retention_enabled: true, delete_request_store: "filesystem" }, // retention without the compactor leg is a setting that deletes nothing
+        compactor: { retention_enabled: true, delete_request_store: "filesystem" },
       },
-      // Five workloads ship default-ON beside the single binary — an nginx gateway, a canary daemonset, a test pod,
-      // and two memcached tiers — none of them declared here, and one of them fronting the very door the collector
-      // already dials directly, so the whole-page chart-default law deletes each by name. This chart's other two
-      // subtiers, the zone-aware rollout controller and the bundled object store, ship OFF and are owed no tombstone:
-      // a disarm written against a default-off row proves nothing about the census it appears to have passed, and it
-      // reads on the next chart bump as a decision someone made rather than a default someone inherited.
       gateway: { enabled: false },
       lokiCanary: { enabled: false },
       test: { enabled: false },
@@ -1436,9 +1008,7 @@ class Lgtm extends Tier {
       tempo: {
         retention: args.spec.profile.observe.retention,
         multitenancyEnabled: isolated,
-        // Tempo installs no OTLP door by default; the collector's traces exporter dials exactly this one
         receivers: { otlp: { protocols: { http: { endpoint: `0.0.0.0:${_OTLP.http}` }, grpc: { endpoint: `0.0.0.0:${_OTLP.grpc}` } } } },
-        // declined: the metrics-generator would mint a SECOND span-derived series family beside the collector's connectors
         metricsGenerator: { enabled: false },
       },
       persistence: { enabled: true, size: "20Gi" },
@@ -1450,9 +1020,6 @@ class Lgtm extends Tier {
           extraArgs: { "pyroscopedb.retention-policy-min-free-disk-gb": "10" },
           structuredConfig: { limits: { max_query_lookback: observe.retention }, multitenancy_enabled: isolated },
         },
-        // this chart bundles a whole Grafana Alloy collector DAEMONSET default-on — a second per-node agent beside
-        // the one ingest seam this tier owns, dialing its own destinations; the legacy `agent` and the bundled
-        // `minio` are the row's other two subtiers and both ship off, so this is the one it owes a tombstone
         alloy: { enabled: false },
       })
     }
@@ -1460,16 +1027,9 @@ class Lgtm extends Tier {
       row("opencost", {
         opencost: {
           prometheus: {
-            // This chart SUMS its three upstream modes and refuses when more than one is on, and `internal` is
-            // on by default — so arming `external` alone fails the render outright rather than degrading. The
-            // key names the chart's own upstream dialect; the VALUE is the selected store row, so a store swap
-            // re-points cost series with zero opencost edits.
             internal: { enabled: false },
             external: { enabled: true, url: this.urls.query.metrics },
           },
-          // The exporter's UI and MCP server both ship default-ON, standing up two more containers and two more
-          // service ports beside the metrics door — a second board plane next to Grafana and an agent surface
-          // this estate never declared. The whole-page law that no row installs on chart defaults deletes both.
           ui: { enabled: false },
           mcp: { enabled: false },
         },
@@ -1485,25 +1045,15 @@ class Lgtm extends Tier {
         },
       })
     }
-    // Credential custody: chart values render into a ConfigMap, so every credential rides a Secret and the config reads ${env:…}.
     const credential = new k8s.core.v1.Secret(`${name}-pg`, {
       metadata: { namespace: args.namespace },
       stringData: {
         PG_PASSWORD: pulumi.secret(args.data.password),
-        // one generated read, two key spellings, because the two consumers read by different contracts: the collector
-        // expands `${env:CH_PASSWORD}` off the whole Secret while the residence chart's `password_secret_name` reads
-        // key `password` by name — a second Secret here mints a second custody owner for one value
         CH_PASSWORD: pulumi.secret(args.auth),
         password: pulumi.secret(args.auth),
         DATA_SOURCE_NAME: pulumi.secret(pulumi.interpolate`postgresql://${args.data.user}:${args.data.password}@${args.data.host}:${args.data.port}/${args.data.database}`),
       },
     }, this.child())
-    // Residences install before the exporter writing them: `create_schema: false` means tables must already
-    // exist, and the chart's init-script hook is the one place DDL runs without minting a job the estate then owns.
-    // The ROSTER drives the fold and each row's own `chart` column answers whether it installs and with what body, so
-    // a second chart-bearing residence costs one column answer and no edit here, and a key literal at this seat can
-    // never disagree with the row it claims to install. What is NOT the row's is the exporter's address, which its
-    // `exporter` column already answered.
     Array.forEach(residences, (key) =>
       Option.match(_RESIDENCE[key].chart(), {
         onNone: () => undefined,
@@ -1515,20 +1065,15 @@ class Lgtm extends Tier {
           row(install.key, install.values({ credential: credential.metadata.name, schema: schema.metadata.name }))
         },
       }))
-    // Every realized row carrying a gateway leg hands the collector its OWN write address, folded once here — so the
-    // exporter map, the pipeline fan, and this roster read one column and a second collector-filled residence costs
-    // no edit below. A row a data plane fills contributes nothing, exactly as its `exporter` column already said.
     const seated = pulumi.all(Array.filterMap(residences, (key) =>
       Option.map(
         _RESIDENCE[key].exporter(),
         (leg) => leg.seat({ release: name, namespace: args.namespace }).apply((endpoint) => ({ key, endpoint })),
       )))
-    // One compile, two readers: the ConfigMap body and the store row's own values block read the same array, so a row
-    // whose loader is a filesystem and a row whose loader is a values key can never evaluate different rules.
     const compiled = store.rules ? _groups(args.alerts, this.targets.metrics.target) : []
     const groups = new k8s.core.v1.ConfigMap(`${name}-rules`, {
       metadata: { namespace: args.namespace },
-      data: { "rules.yaml": pulumi.jsonStringify({ groups: compiled }) }, // YAML admits JSON, so one encoder serves both loaders
+      data: { "rules.yaml": pulumi.jsonStringify({ groups: compiled }) },
     }, this.child())
     charts.push(new k8s.helm.v4.Chart(`${name}-store`, {
       chart: store.chart,
@@ -1540,13 +1085,12 @@ class Lgtm extends Tier {
         fullname: `${name}-store`,
         retention: observe.retention,
         rules: { groups: compiled, configMap: groups.metadata.name, directory: _COLLECTOR.rules.path, tenant: args.spec.app },
-        translation: store.translation, // the family column reaches the row's own dialect through the one install record
-        histogram: store.histogram, // same path: the representation column arms the row's own dialect and renders the matching query arm
+        translation: store.translation,
+        histogram: store.histogram,
         objects: args.objects,
       }),
     }, this.child()).resources)
     if (observe.ingest === "scrape") {
-      // infra exporter is a tier child, never an app workload: the DSN reaches it by secret ref, and the collector alone scrapes it
       new k8s.apps.v1.Deployment(`${name}-pg-exporter`, {
         metadata: { namespace: args.namespace, labels: { app: "postgres-exporter" } },
         spec: {
@@ -1556,7 +1100,7 @@ class Lgtm extends Tier {
             spec: {
               containers: [{
                 name: "exporter",
-                image: pulumi.interpolate`${args.versions.exporter.repository}@${args.versions.exporter.digest}`, // workloads run a digest and charts pin a version; one field carrying both is how a tag reached a `version:`
+                image: pulumi.interpolate`${args.versions.exporter.repository}@${args.versions.exporter.digest}`,
                 env: [{ name: "DATA_SOURCE_NAME", valueFrom: { secretKeyRef: { name: credential.metadata.name, key: "DATA_SOURCE_NAME" } } }],
               }],
             },
@@ -1571,22 +1115,16 @@ class Lgtm extends Tier {
     const queue = new k8s.core.v1.PersistentVolumeClaim(`${name}-queue`, {
       metadata: { namespace: args.namespace },
       spec: { accessModes: ["ReadWriteOnce"], resources: { requests: { storage: `${_COLLECTOR.queue.gib}Gi` } } },
-    }, this.child()) // the queue directory outlives a reschedule only on a claim; an emptyDir erases every accepted batch
-    // Both collector tiers install through one row: gateways carry the whole component set, agents carry the same
-    // admission legs aimed at the gateway's two doors, and neither tier spells a coordinate the other invented.
+    }, this.child())
     const collector = (key: "agent" | "collector", shape: pulumi.Inputs, gateway: pulumi.Output<string> | undefined) =>
       row(key, {
         mode: key === "agent" ? "daemonset" : "deployment",
-        image: { repository: "otel/opentelemetry-collector-contrib" }, // standing, not an escalation: file_storage and every pg receiver ship contrib-only
-        clusterRole: { create: true, rules: _RBAC }, // the price of owning processor ordering instead of surrendering it to a preset
+        image: { repository: "otel/opentelemetry-collector-contrib" },
+        clusterRole: { create: true, rules: _RBAC },
         extraEnvsFrom: [{ secretRef: { name: credential.metadata.name } }],
-        // Daemonsets render NO Service unless this row asks for one, and the chart's own default policy then keeps a
-        // pod on its node's agent — which lets one published door serve both topologies with no downward-API hop.
         ...(key === "agent" ? { service: { enabled: true } } : {}),
         ports: _ports(key === "collector" && agents),
         ...shape,
-        // an agent tier defines no residence leg at all, so the roster resolves once here and the plan's own role
-        // discriminant drops it — a daemonset never carries a residence credential onto every node
         config: pulumi.all([this.urls.ingest.logs, this.urls.ingest.traces, this.urls.ingest.metrics, this.urls.ingest.profiles, seated, gateway ?? pulumi.output("")])
           .apply(([logs, traces, metrics, profiles, columnar, door]) =>
             _pruned(_plan({
@@ -1594,7 +1132,7 @@ class Lgtm extends Tier {
               ingest: { logs, traces, metrics, profiles },
               residences: columnar,
               gateway: door === "" ? undefined : { arrow: `${door}:${_COLLECTOR.arrow.port}`, otlp: `http://${door}:${_OTLP.http}` },
-              ttl: `${_COLUMNAR.ttlDays * 24}h`, // the exporter's own TTL and the DDL's read one anchor, so a drift between them cannot exist
+              ttl: `${_COLUMNAR.ttlDays * 24}h`,
               infra: _infra(observe, args.data, { release: name, namespace: args.namespace }),
               infraReceivers: _infraReceivers(observe.ingest),
               headers: _scoped(store, args.spec.app),
@@ -1603,19 +1141,15 @@ class Lgtm extends Tier {
     collector("collector", {
       extraVolumes: [{ name: "queue", persistentVolumeClaim: { claimName: queue.metadata.name } }],
       extraVolumeMounts: [{ name: "queue", mountPath: _COLLECTOR.queue.path }],
-      resources: { limits: { memory: "2Gi", cpu: "2" }, requests: { memory: "1Gi", cpu: "500m" } }, // memory_limiter reads these percentages; without a limit the guard has no ceiling
+      resources: { limits: { memory: "2Gi", cpu: "2" }, requests: { memory: "1Gi", cpu: "500m" } },
     }, undefined)
     if (agents) {
-      // one claim per node is unschedulable on a daemonset, so the agent leg's durability IS its retry horizon and its
-      // queue stays in memory — the disk queue is a gateway capability, stated rather than silently absent
       collector("agent", {
         resources: { limits: { memory: "512Mi", cpu: "500m" }, requests: { memory: "256Mi", cpu: "100m" } },
       }, pulumi.interpolate`${_charts.collector.service(`${name}-collector`)}.${args.namespace}.svc`)
     }
     this.rendered = pulumi.all(charts).apply(Array.flatten)
     this.collectorEndpoint = this.urls.collector
-    // both backend families seal with their declared degradation, so a consumer reads what this stack gives up on
-    // evidence exactly where it reads what it gives up on series — one `_Plane` floor, one seat, two answers
     this.store = store
     this.residences = Array.map(residences, (key) => _RESIDENCE[key])
     this.seal({
@@ -1651,23 +1185,13 @@ class Lgtm extends Tier {
 - Boundary: the pg coordinates and the exporter image ref arrive as args from the composing arm; the data tier owns the server config rows, `track_io_timing` and `track_wal_io_timing` among them — without them the timing columns read zero, never null.
 
 ```typescript signature
-// Metrics doors the estate's own infra surfaces publish. One anchor, three readers: the exporter Deployment's
-// container port, the CNPG relabel rewriting every discovered pod onto its instance listener, and the target each
-// scrape row spells — so a port is stated once and no job re-types a number a workload already published.
 const _INFRA_PORT = { pgExporter: 9187, opencost: 9003 } as const
 
-// Pull-side infra surfaces ride ONE prometheus receiver under the one-ingress law, each a row gated by the very
-// coordinate that installs it. A row IS the hop carrying an exporter's series into the store every board reads, so
-// an installed exporter holding no row here publishes a `/metrics` door nothing dials and its whole plane renders as
-// empty tiles rather than as a capability the spec declined — the failure a chart row and an ingest row split across
-// two owners produces every time only one of them is armed.
 const _SCRAPED = {
-  // the pg exporter is the scrape arm's own child; the native arm dials the server directly and installs none
   postgres: {
     armed: (observe: StackSpec.Observe) => observe.ingest === "scrape",
     job: () => ({ job_name: "postgres", static_configs: [{ targets: [`postgres-exporter:${_INFRA_PORT.pgExporter}`] }] }),
   },
-  // operator + instance health: pod discovery narrowed to the cluster label, every hit rewritten onto the instance listener
   cnpg: {
     armed: () => true,
     job: () => ({
@@ -1685,10 +1209,6 @@ const _SCRAPED = {
       ],
     }),
   },
-  // the pricing exporter READS the selected store and emits its OWN cost series on its own door, so installing it and
-  // ingesting it are one arming decision keyed on one coordinate: an armed chart row with no scrape row prices the
-  // estate onto a door nothing dials, and every cost tile the board plane compiles then renders against series no
-  // producer ever landed — a plane that reads as broken exactly where the spec said it was on
   opencost: {
     armed: (observe: StackSpec.Observe) => observe.costs,
     job: (bind) => ({
@@ -1708,14 +1228,12 @@ const _PG_POLL = { interval: "30s", timeout: "10s", connections: 1 } as const
 const _IO_GRAIN = ["backend_type", "object", "context"] as const
 
 const _IO_KINDS = {
-  // kinds key on the pg18 source column type: `bigint` counts, `numeric` byte volumes, `double precision` millisecond timings
   count: { unit: "{operation}", value: "int", cast: "" },
   bytes: { unit: "By", value: "int", cast: "::bigint" },
   time: { unit: "ms", value: "double", cast: "" },
 } as const satisfies Record<string, { readonly unit: string; readonly value: "int" | "double"; readonly cast: string }>
 
 const _IO_COLUMNS = {
-  // rows hold the pg18 view's own column order and spelling, one per tracked IOOp
   reads: "count", read_bytes: "bytes", read_time: "time",
   writes: "count", write_bytes: "bytes", write_time: "time",
   writebacks: "count", writeback_time: "time",
@@ -1724,7 +1242,7 @@ const _IO_COLUMNS = {
   fsyncs: "count", fsync_time: "time",
 } as const satisfies Record<string, keyof typeof _IO_KINDS>
 
-const _IO_START = "reset_ns" // start_ts_column parses an integer nanosecond epoch, never a rendered timestamp
+const _IO_START = "reset_ns"
 
 const _IO_QUERY = {
   sql: `SELECT ${Array.join([
@@ -1738,7 +1256,7 @@ const _IO_QUERY = {
     value_column: column,
     value_type: _IO_KINDS[kind].value,
     unit: _IO_KINDS[kind].unit,
-    attribute_columns: [..._IO_GRAIN], // the receiver reads attribute columns per metric row; the query level carries no such field
+    attribute_columns: [..._IO_GRAIN],
     data_type: "sum",
     monotonic: true,
     aggregation: "cumulative",
@@ -1753,7 +1271,6 @@ const _infra = (
 ) => ({
   ...(observe.ingest === "scrape" ? {} : {
     postgresql: {
-      // this receiver dials a host:port and takes its credential as discrete fields; a DSN here parses as a hostname and never connects
       endpoint: pulumi.interpolate`${data.host}:${data.port}`,
       transport: "tcp",
       username: data.user,
@@ -1761,17 +1278,11 @@ const _infra = (
       databases: [data.database],
       tls: { insecure: false, insecure_skip_verify: false },
       collection_interval: _PG_POLL.interval,
-      // EVERY scraper-controller receiver ships its timeout at zero, which is no deadline — this one runs many
-      // statements per collection against the same locks its sibling reads through, so the bound rides both or the
-      // arm's stall posture holds on exactly one of the two receivers dialing one server
       timeout: _PG_POLL.timeout,
       connection_pool: { max_open: _PG_POLL.connections, max_idle: _PG_POLL.connections, max_idle_time: "10m" },
     },
     sqlquery: {
       driver: "postgres",
-      // this receiver takes the assembled DSN instead: datasource and the individual fields are mutually exclusive at its validation
-      // this env reference escapes with ONE backslash so the template emits `${env:…}` verbatim for the collector
-      // to expand; two make the dollar an interpolation of `env:PG_PASSWORD`, which is not an expression at all
       datasource: pulumi.interpolate`host=${data.host} port=${data.port} user=${data.user} password=\${env:PG_PASSWORD} dbname=${data.database} sslmode=require`,
       collection_interval: _PG_POLL.interval,
       timeout: _PG_POLL.timeout,
@@ -1779,8 +1290,6 @@ const _infra = (
       queries: [_IO_QUERY],
     },
   }),
-  // one receiver, every armed pull-side surface: the roster decides which jobs render, so a second infra exporter is
-  // one `_SCRAPED` row and no edit here, and no store-side scrape config exists on either arm
   prometheus: {
     config: {
       scrape_configs: Array.filterMap(Record.keys(_SCRAPED), (key) =>
@@ -1814,21 +1323,8 @@ const _DEV = {
   image: "grafana/otel-lgtm",
   edge: { grafana: 3000, otlpGrpc: _OTLP.grpc, otlpHttp: _OTLP.http, pyroscope: 4040 },
   query: { metrics: 9090, loki: 3100, tempo: 3200, pyroscope: 4040 },
-  // This image bundles its own store and this arm hands it no receiver configuration, so it runs the OTLP receiver's
-  // own escaping default rather than the estate pin an `_stores` row spells. Carrying that as a row lets the loop's
-  // target render the names the loop actually holds; asserting parity renders every panel against a series spelling
-  // that exists on neither pane.
   translation: "UnderscoreEscapingWithSuffixes" satisfies Convention.Translation,
-  // Representation answers on the same terms and the argv is NOT where it is decided: the bundled server's flags
-  // carry the OTLP receiver and exemplar storage and no native-histogram feature, which arms nothing either way,
-  // because that feature name is a no-op the server warns about while ingesting natively regardless. The receiver's
-  // own conversion knob is the whole split, the image's config leaves it unstated, and unstated IS the native
-  // answer — so this loop holds one series per histogram and every quantile tile renders the native arm. The column
-  // AGREES with the reference row here, which is precisely why it is read rather than assumed: an agreement and a
-  // parity claim are indistinguishable on the pane, and only one of them survives the image moving its config.
   histogram: "native" satisfies Board.Query.Histogram,
-  // Bundled Grafana provisions its own datasources, yet this tier reprovisions them by name over the same URL
-  // plane; this driver names the store the image runs, and no scope header exists because the loop holds one tenant.
   plugin: "prometheus",
 } as const
 
@@ -1850,36 +1346,28 @@ class Dev extends Tier {
     new docker.Container(name, {
       image: args.image,
       restart: "unless-stopped",
-      envs: [pulumi.interpolate`GF_SECURITY_ADMIN_PASSWORD=${args.auth}`], // the credential discipline holds in the loop: Boards authenticates with the same generated read
+      envs: [pulumi.interpolate`GF_SECURITY_ADMIN_PASSWORD=${args.auth}`],
       ports: Array.map(Record.toEntries(_DEV.edge), ([, port]) => ({ internal: port, external: port })),
       networksAdvanced: [{ name: args.network }],
     }, this.child())
     const otlp = pulumi.output(`http://${args.host}:${_DEV.edge.otlpHttp}`)
-    const local = (port: number) => pulumi.output(`http://localhost:${port}`) // query APIs resolve from the dev Grafana's own container; every backend shares its network namespace
+    const local = (port: number) => pulumi.output(`http://localhost:${port}`)
     this.urls = {
       grafana: pulumi.output(`http://${args.host}:${_DEV.edge.grafana}`),
-      collector: otlp, // the image's own door is the tier's collector row: one `Lgtm.Urls` shape serves either producer
-      ingest: { logs: otlp, traces: otlp, metrics: otlp, profiles: otlp }, // the bundled collector is the one ingest seam: every signal enters the same OTLP door
-      // this image carries no residence, so the analytics door resolves to the loop's own absence rather than to a
-      // port nothing serves: `observe.analytics` realizes no plane here and the degrade row says so
+      collector: otlp,
+      ingest: { logs: otlp, traces: otlp, metrics: otlp, profiles: otlp },
       query: { loki: local(_DEV.query.loki), tempo: local(_DEV.query.tempo), metrics: local(_DEV.query.metrics), pyroscope: local(_DEV.query.pyroscope), residence: pulumi.output("") },
     }
     this.collectorEndpoint = this.urls.collector
-    // This loop renders against the spelling and the representation its own bundled store holds, and no residence to
-    // render SQL against, so `Boards` reads one shape from either producer and the values alone differ.
     this.targets = {
       metrics: {
         target: Board.Query.promql({ histogram: _DEV.histogram, source: "metrics", translation: _DEV.translation }),
         plugin: _DEV.plugin,
-        scope: {}, // one tenant in one container: no isolation header exists for this arm to stamp
-        exemplars: true, // the bundled server runs exemplar storage, so the click-through into the loop's traces holds
-        // no rule loader reaches the bundled store, so every burn numerator renders inline here rather than reading
-        // a recorded series this arm never writes — the same column the estate's evaluator-less store row answers
+        scope: {},
+        exemplars: true,
         recorded: false,
       },
       analytics: Option.none(),
-      // this image runs its profile backend whatever the spec says, so this arm answers for the container it
-      // started rather than for the chart the k8s arm installs
       profiles: true,
     }
     this.seal({ urls: this.urls, collectorEndpoint: this.collectorEndpoint, targets: this.targets })
@@ -1903,25 +1391,17 @@ class Dev extends Tier {
 - Boundary: ports and path suffixes are the pinned charts' facts, versioned with the pins.
 
 ```typescript signature
-// Which collector row every workload dials, keyed by the topology axis: a gateway estate publishes the deployment,
-// and an agent estate publishes the daemonset, whose own Service policy keeps a pod on its node's agent. Publishing
-// that gateway on both arms installs a per-node tier no workload ever reaches — an escalation costing a daemonset and
-// buying nothing. A new topology value is one row.
 const _DOOR = { gateway: "collector", agent: "agent" } as const satisfies Record<StackSpec.Observe["topology"], keyof typeof _charts>
 
 const _urls = (bind: {
   readonly release: string
   readonly namespace: pulumi.Input<string>
   readonly store: (typeof _stores)[keyof typeof _stores]
-  // Resident rows drive the residence door: the FIRST armed row publishes it, so `both` publishes the interactive
-  // plane while the cold tail stays readable off the object plane's own output
   readonly residences: ReadonlyArray<keyof typeof _RESIDENCE>
   readonly objects: Lgtm.Args["objects"]
   readonly topology: StackSpec.Observe["topology"]
 }): Lgtm.Urls => {
   const { namespace, release, store } = bind
-  // `${release}-${key}` IS the fullname row() pinned, and the row's own `service` projection is what the cluster
-  // actually renders — identity where the chart names its Service, the controller's decoration where it does not
   const svc = (key: keyof typeof _charts, port: number, path = ""): pulumi.Output<string> =>
     pulumi.interpolate`http://${_charts[key].service(`${release}-${key}`)}.${namespace}.svc:${port}${path}`
   return {
@@ -1938,10 +1418,6 @@ const _urls = (bind: {
       tempo: svc("tempo", 3200),
       metrics: store.read(`${release}-store`, namespace),
       pyroscope: svc("pyroscope", 4040),
-      // Realized rows publish their own door; the write door is each row's own `exporter` seat and no consumer spells
-      // it, so a stack realizing no residence publishes the one empty refusal at this ONE seam rather than a sentinel
-      // each row invents. `_addressed` is the same resolution the tier's render coordinate takes, so an address a
-      // reader dials and whichever row that coordinate names can never be two different planes.
       residence: Option.getOrElse(
         Option.flatMap(_addressed(bind.residences), (key) => _RESIDENCE[key].door({ release, namespace, objects: bind.objects })),
         () => pulumi.output(""),
@@ -2021,7 +1497,7 @@ declare namespace Boards {
   type Model = typeof Board.DashboardModel.Encoded
   type Wire = (typeof _PACKS)[number]
   type Pack = {
-    readonly wire: Wire // the producer census this pack carries; `Board.Pack.decode` is its one mint, off the producer's own generated message
+    readonly wire: Wire
     readonly boards: ReadonlyArray<Model>
     readonly alerts: ReadonlyArray<Reliability.Alert.Spec>
   }
@@ -2041,12 +1517,6 @@ declare namespace Boards {
   type Args = {
     readonly spec: StackSpec
     readonly urls: Lgtm.Urls
-    // Rendered against the SAME value the incoming boards were rendered against, and carrying every answer the three
-    // backend planes owe a board — the metrics door's driver, scope header, exemplar posture, and rule posture, the
-    // realized residence with its whole board driver, and whether the profiles backend runs — because the producer
-    // tier projected each off the rows IT installed; re-deriving any of them here from the spec splits the two the
-    // moment a caller renders its packs against anything else, and answers for the k8s install on the docker arm
-    // outright, where the container runs no residence and runs its profile backend whatever the spec says.
     readonly targets: Lgtm.Targets
     readonly auth: pulumi.Input<string>
     readonly boards: ReadonlyArray<Model>
@@ -2062,14 +1532,8 @@ declare namespace Boards {
 
 const _ROTATION = { live: Duration.toSeconds(Duration.days(7)), early: Duration.toSeconds(Duration.days(1)) } as const
 
-// Delivery grouping is owned vocabulary, never free strings: the service and tenant dimensions ride the breached
-// series, the objective and severity rows ride the rule's own labels, and an instance carrying none of a key
-// groups under its absence rather than escaping the fold.
 const _GROUPED = [Convention.attr.serviceName, Convention.rasm.tenant, Convention.rasm.sloObjective, Convention.rasm.sloSeverity] as const
 
-// Closed tuples admit exactly the wires a branch mints: an entry whose producer exists nowhere types an arm promising
-// an ingest arm for a pack that can never arrive, so a key enters here only once its producing branch lands the pack
-// projection, and a wish for one lives as a card at that branch instead.
 const _PACKS = [
   "apphost.instrument",
   "compute.receipt",
@@ -2081,10 +1545,9 @@ const _PACKS = [
   "security.audit",
 ] as const
 
-const _ROLL_TONES = { advanced: "green", rolledBack: "red" } as const // a rollback reads as loud as an advance
+const _ROLL_TONES = { advanced: "green", rolledBack: "red" } as const
 
 const _TRANSFORMS = {
-  // model transform tags onto Grafana transformer ids; options stay the row's own payload
   Calculate: "calculateField",
   Filter: "filterByValue",
   Group: "groupBy",
@@ -2093,19 +1556,10 @@ const _TRANSFORMS = {
   Reduce: "reduce",
 } as const
 
-// Panel tags name a wire form once in this neutral vocabulary. Every RENDERABLE dialect answers every row here in
-// its own alphabet or declares the absence, so a form is named at one altitude and spelled at another, and a tag
-// naming a form its bound dialect cannot spell refuses at the target seam over rendering a silently empty tile.
 const _FORMS = ["heatmap", "logs", "table", "timeseries"] as const
 
-// Display ceilings are tier posture: each bounds what ONE panel renders regardless of which board mounts it, so both
-// live at this anchor rather than as knobs an upstream author answers per board or as optional columns one tag row
-// each carries.
 const _CEILING = { lines: 1000, paginate: true } as const
 
-// Every compile-seam refusal is one reason row against one coordinate. A deploy program signals fatal configuration
-// where the coordinate is still loggable, so this is the tier's one refusal owner and no arm mints a second message
-// shape; a panel bound to an unprovisionable target never reaches the provider.
 const _REFUSED = {
   dialect: "untyped-panel-datasource",
   form: "unspellable-panel-form",
@@ -2117,15 +1571,10 @@ const _refuse = (reason: keyof typeof _REFUSED, coordinate: string): never => {
   throw new Error(`${_REFUSED[reason]}:${coordinate}`)
 }
 
-// Each renderable dialect's own form alphabet, declared once so the row table, the build seam, and the correlated
-// dispatch between them read one correspondence: the residence takes the sqlds `FormatQueryOption` ordinal, LogQL
-// carries no wire-form field and selects its mode instead, and PromQL takes the SDK's own enum.
 type _Alphabet = { readonly clickhouse: number; readonly loki: "instant" | "range"; readonly prometheus: PromQueryFormat }
 
 type _Dialect = keyof _Alphabet
 
-// What one target build reads before its dialect spells the form. A new emission coordinate is a field here rather
-// than a parameter every dialect row then re-lists.
 type _Rendered = {
   readonly exemplars: boolean
   readonly expr: string
@@ -2133,100 +1582,49 @@ type _Rendered = {
   readonly refId: string
 }
 
-// Dialect builders receive this record: the rendered coordinates beside the form already spelled in that dialect's
-// own alphabet, so a builder never re-reads the neutral vocabulary that selected it.
 type _Aim<Spelling> = _Rendered & { readonly form: Spelling }
 
-// What a datasource row dials: the URL plane either producer publishes, the one generated credential the residence
-// and the board plane share, the metrics plane's OWN projection off whichever tier installed it, and the app key an
-// org-scoped read stamps — so a row needing more than an address reads it here rather than from a second args field
-// every arm then threads. `metrics` arrives rather than re-deriving off `_stores` from the spec, because that read
-// answers for the k8s install on an arm running a container whose store this tier never configured.
 type _Dial = {
   readonly app: string
   readonly auth: pulumi.Input<string>
   readonly metrics: Lgtm.Metrics
-  // Realized backend rows a source row reads to answer `present`, projected by the tier that INSTALLED them. A source
-  // row cannot decide its own realization from a URL, because every unrealized plane publishes an EMPTY address and an
-  // empty address provisions a datasource that authenticates against nothing; and it cannot decide it from the spec
-  // either, because `analytics: "clickhouse"` on the docker arm names a plane that container never runs and
-  // `profiles: false` on that same arm names one its image is serving regardless. Both arrive answered.
   readonly analytics: Lgtm.Targets["analytics"]
   readonly profiles: boolean
   readonly urls: Lgtm.Urls
 }
 
-// ONE resolution of the realized board driver: identity, language, and every coordinate it dials come off the same
-// answer, so the four residence columns below cannot resolve against different rows. `_drives` is the arm `present`
-// already gated — the refusal exists because the type demands a value, not as a second admission gate.
 const _driver = (bind: _Dial) => Option.flatMap(bind.analytics, (row) => row.source)
 
 const _drives = (bind: _Dial) => Option.getOrElse(_driver(bind), () => _refuse("residence", "unrealized"))
 
-// BOUNDARY ADAPTER: residence drivers take a host where this door publishes an address, so its own authority is
-// read back once. An unrealized residence publishes an empty door and yields an empty host, which is exactly the
-// docker arm's declared analytics absence rather than a parse fault.
 const _host = (door: pulumi.Output<string>): pulumi.Output<string> =>
   door.apply((address) => address === "" ? "" : new URL(address).hostname)
 
-// Every source row answers this one settings body in THREE columns: its plain half encodes into `jsonDataEncoded`,
-// its sealed half into `secureJsonDataEncoded`, and headers ride the resource's own typed map. That third column is
-// no convenience — Grafana stores a custom header as an indexed `httpHeaderName<N>`/`httpHeaderValue<N>` pair
-// split across those two documents, and the provider RESERVES both spellings and refuses either encoded body that
-// contains one, so hand-folding Grafana's storage shape fails validation before a request is ever made and the typed
-// map is the one seat. Naming the shape once keeps a row dialing its own coordinates and a row dialing the
-// provisioned address alone differing in values and never in shape.
 type _Settings = {
   readonly headers: Record.ReadonlyRecord<string, pulumi.Input<string>>
   readonly json: Record.ReadonlyRecord<string, unknown>
   readonly secure: Record.ReadonlyRecord<string, unknown>
 }
 
-// Rows whose driver dials the provisioned url alone still ANSWER every settings column: an empty body encodes as an
-// empty document and an empty map lands no header, so a coordinate the family gains is a value edit at one row and
-// never a silently dropped key.
 const _PLAIN = (): _Settings => ({ headers: {}, json: {}, secure: {} })
 
-// Every key names the PLANE its door answers, never the engine behind it: `metrics` is whichever store row the tier
-// that installed it projected and `residence` whichever armed `_RESIDENCE` row carries a driver, so an escalation
-// re-points one uid and every compiled board keeps its binding. `dialect` names the dataquery language a panel bound
-// to the row emits, and its presence is what the core algebra RENDERS: PromQL and SQL have render targets, while
-// TraceQL and the profile selector do not, so those rows answer `Option.none()` and stay Explore doors even where the
-// pinned SDK types their builders — and it is a row FUNCTION like every sibling column, because whichever language a
-// residence speaks is that armed row's own answer, and a literal here binds every future residence to one grammar.
-// `present` is the row's own realization answer off the armed rows — a plane the spec never armed publishes an empty
-// address, and provisioning a driver against one leaves a board tile failing to authenticate where the spec declared
-// an absence. `settings` and `type` are columns every row answers, so a row dialing its own coordinates and a row
-// dialing the provisioned address alone differ in values and never in shape.
 const _SOURCES = {
   loki: { dialect: () => Option.some("loki" as const), present: () => true, type: () => "loki", url: (bind) => bind.urls.query.loki, settings: _PLAIN },
   metrics: {
-    // Store rows mint their target through `Board.Query.promql`, so this language follows that projection rather than
-    // whichever engine sits behind the door — a row shipping its own plugin renders the dialect its family renders
     dialect: () => Option.some("prometheus" as const),
-    present: () => true, // every stack runs a metrics store: the family has no `none` arm and alerting depends on it
-    // PROJECTED row supplies both plugin and scope header: this door IS the metrics plane, so an escalation isolating
-    // by org reads through the same header its ingest already stamps and a row shipping its own plugin provisions
-    // that plugin rather than the reference row's
+    present: () => true,
     type: (bind) => bind.metrics.plugin,
     url: (bind) => bind.urls.query.metrics,
-    // Scope IS a header, so it rides the resource's own header column rather than a fold into those two encoded
-    // documents, which refuse the indexed spelling outright; a `label`-tenancy row hands an empty record here and
-    // lands no pair at all, which is the same answer every row dialing the provisioned address alone gives.
     settings: (bind) => ({ ..._PLAIN(), headers: bind.metrics.scope }),
   },
   pyroscope: {
     dialect: () => Option.none(),
-    present: (bind) => bind.profiles, // the profiles row is spec data, and its chart is absent where the value is
+    present: (bind) => bind.profiles,
     type: () => "grafana-pyroscope-datasource",
     url: (bind) => bind.urls.query.pyroscope,
     settings: _PLAIN,
   },
   residence: {
-    // Realized rows name their own language, their own driver, and every coordinate that driver dials, so a
-    // residence family gaining an engine whose Grafana plugin speaks another dialect against another port renders and
-    // connects with no edit at this row; reading any of it off `_COLUMNAR` here binds every future residence to the
-    // interactive plane's grammar, catalog, and listener — the engine-name-as-family-key defect `type` already deleted.
     dialect: (bind) => Option.map(_driver(bind), (driver) => driver.dialect),
     present: (bind) => Option.isSome(_driver(bind)),
     type: (bind) => _drives(bind).type,
@@ -2242,15 +1640,9 @@ const _SOURCES = {
   readonly url: (bind: _Dial) => pulumi.Output<string>
 }>
 
-// Realized rows answer in declaration order. Every downstream fold — provisioning, panel admission, the tier's own
-// target projection — reads this ONE resolution, so a plane the spec disarmed is absent from the board estate rather
-// than provisioned against an empty address, and a tile bound to it refuses at the compile seam.
 const _realized = (bind: _Dial): ReadonlyArray<keyof typeof _SOURCES> =>
   Array.filter(Struct.keys(_SOURCES), (key) => _SOURCES[key].present(bind))
 
-// One `oss.DataSource` construction both the default org and every tenant org compose: the row answers its whole
-// settings body, the key pins the `uid` one compiled board binds in every org, and an empty body encodes as an empty
-// document rather than as an absent argument, so a row gaining a coordinate never changes this fold.
 const _provisioned = (
   key: keyof typeof _SOURCES,
   bind: _Dial,
@@ -2261,21 +1653,15 @@ const _provisioned = (
   const dialed = row.settings(bind)
   return new grafana.oss.DataSource(org === undefined ? key : `${org.slug}-${key}`, {
     type: row.type(bind),
-    uid: key, // the row key IS the uid in every org, which is what lets one compiled board JSON bind everywhere
+    uid: key,
     url: row.url(bind),
-    httpHeaders: dialed.headers, // the resource's own header seat; both encoded bodies below refuse the indexed pair by name
+    httpHeaders: dialed.headers,
     jsonDataEncoded: pulumi.jsonStringify(dialed.json),
     secureJsonDataEncoded: pulumi.jsonStringify(dialed.secure),
     ...(org !== undefined && { orgId: org.id }),
   }, child)
 }
 
-// Residence queries transcribe the plugin's own `CHSqlQuery` field-for-field — SQL editor discriminant, release
-// stamp, rendered relation, sqlds format ordinal — over the base every Grafana dataquery carries. `queryType`, the
-// builder-mode payload, and the macro-expansion flag stay off this record because each decides something only the
-// plugin's own editor decides, and a compiled board opens no editor. `format` carries the plugin's own optionality:
-// one dialect row spells the ordinal at every build, so a draft that never reached it stays unset, and the plugin
-// reads that absence as the timeseries frame rather than as a coordinate the seed had to invent.
 type _ChSql = {
   datasource?: DataSourceRef
   editorType: typeof _COLUMNAR.plugin.editor
@@ -2292,14 +1678,9 @@ const _defaultChSql = (): _ChSql => ({
   pluginVersion: _COLUMNAR.plugin.version,
   rawSql: "",
   refId: "",
-  _implementsDataqueryVariant: () => {}, // the marker the target contract reads; serialization drops it, as it does for every generated builder
+  _implementsDataqueryVariant: () => {},
 })
 
-// Transcribed from the generated dataquery builders — a `protected` draft seeded by a default factory, fluent setters
-// returning `this`, one `build()` emission — because `cog` publishes `Builder<T>` and `isBuilder` and no base class,
-// so that shape IS the SDK's builder machinery. Extending `datasource.DataqueryBuilder` was the alternative and is
-// refused on evidence: its `defaultDataquery()` seeds `panelId` and `withTransforms`, two fields the plugin's config
-// never declares, so every residence query would ship envelope keys its own datasource discards.
 class _ResidenceQuery implements Builder<Dataquery> {
   protected readonly internal: _ChSql = _defaultChSql()
   build(): _ChSql {
@@ -2317,8 +1698,6 @@ class _ResidenceQuery implements Builder<Dataquery> {
     this.internal.hide = hide
     return this
   }
-  // core renders the whole relation, absolute bucket boundaries included, so the plugin's `$__` macro vocabulary
-  // never fires and the residence receives the identical text `Board.Query.render` produced for every other reader
   rawSql(rawSql: string): this {
     this.internal.rawSql = rawSql
     return this
@@ -2332,49 +1711,33 @@ class _ResidenceQuery implements Builder<Dataquery> {
 const _legended = <B extends { legendFormat(format: string): B }>(built: B, legend: Option.Option<string>): B =>
   Option.match(legend, { onNone: () => built, onSome: (format) => built.legendFormat(format) })
 
-// Per-form emission posture as a mapped row over the SDK's own format union, so the dispatch grows a row and never an
-// arm: exemplars ride range series alone because a table or heatmap frame carries no sample stream to link, and the
-// instant flag rides the table form because that is the frame a point-in-time facet reads.
 const _PROM_MODE: { readonly [F in PromQueryFormat]: (built: DataqueryBuilder, exemplars: boolean) => DataqueryBuilder } = {
   [PromQueryFormat.Heatmap]: (built) => built,
   [PromQueryFormat.Table]: (built) => built.instant(),
   [PromQueryFormat.TimeSeries]: (built, exemplars) => built.exemplar(exemplars),
 }
 
-// One row per RENDERABLE dialect: its own form alphabet beside the builder consuming it, mapped so a row missing
-// either column fails at this record and the indexed dispatch below stays correlated and cast-free. A new query
-// language is one row here plus one `_SOURCES` row naming it — the dispatch that reads them never grows an arm, and
-// switch arms restating this correspondence are what the table deletes.
 const _DIALECTS: {
   readonly [K in _Dialect]: {
     readonly forms: Record.ReadonlyRecord<(typeof _FORMS)[number], Option.Option<_Alphabet[K]>>
     readonly target: (aim: _Aim<_Alphabet[K]>) => Builder<Dataquery>
   }
 } = {
-  // sqlds `FormatQueryOption` ordinals: the timeseries row pivots core's three-column long relation into the wide
-  // frame a series panel reads and the table row leaves it long, so the heatmap facet takes the SAME pivot — a bucket
-  // frame is time beside one column per bound, which the long relation is not.
   clickhouse: {
     forms: { heatmap: Option.some(0), logs: Option.some(2), table: Option.some(1), timeseries: Option.some(0) },
-    // core renders the whole relation, absolute bucket boundaries included, so the plugin's `$__` macro vocabulary
-    // never fires and the residence receives the identical text every other reader took; `legendFormat` has no
-    // spelling here because series identity rides the relation's own `by` column rather than a selector template
     target: (aim) => new _ResidenceQuery().rawSql(aim.expr).refId(aim.refId).format(aim.form),
   },
-  // LogQL carries no wire-form field at all — the builder exposes the range/instant mode pair instead — so a log
-  // frame and a range series ride `range` while a point-in-time facet frame rides `instant`, and the heatmap form
-  // declares its absence because this dialect spells no bucket frame a heatmap panel reads.
   loki: {
     forms: { heatmap: Option.none(), logs: Option.some("range"), table: Option.some("instant"), timeseries: Option.some("range") },
     target: (aim) => {
-      const built = new LokiQuery().expr(aim.expr).refId(aim.refId).maxLines(_CEILING.lines) // the log ceiling is tier posture, never a per-board knob
+      const built = new LokiQuery().expr(aim.expr).refId(aim.refId).maxLines(_CEILING.lines)
       return _legended(aim.form === "instant" ? built.instant(true) : built.range(true), aim.legend)
     },
   },
   prometheus: {
     forms: {
       heatmap: Option.some(PromQueryFormat.Heatmap),
-      logs: Option.none(), // no log frame exists on a series plane: a Logs tile bound here refuses instead of emitting a range query
+      logs: Option.none(),
       table: Option.some(PromQueryFormat.Table),
       timeseries: Option.some(PromQueryFormat.TimeSeries),
     },
@@ -2382,8 +1745,6 @@ const _DIALECTS: {
   },
 }
 
-// One profile selector carries the tenant dimension every board filters on, aims at the CPU profile type, and renders
-// through the typed query builder rather than a hand-spelled selector string a datasource then reinterprets.
 const _PROFILE_TYPE = "process_cpu:cpu:nanoseconds:cpu:nanoseconds"
 
 const _profiled = (app: string) =>
@@ -2391,7 +1752,7 @@ const _profiled = (app: string) =>
     .profileTypeId(_PROFILE_TYPE)
     .labelSelector(`{${Convention.attr.serviceName}="${app}", ${Convention.rasm.tenant}="$tenant"}`)
     .groupBy([Convention.rasm.tenant])
-    .queryType("both") // series answer the board's time axis, the flamegraph answers the explorer this links into
+    .queryType("both")
     .refId("P")
 
 const _byAt: Order.Order<{ readonly at: number }> = Order.mapInput(Order.number, (step) => step.at)
@@ -2400,11 +1761,6 @@ const _DEDUP = {
   exact: LogsDedupStrategy.Exact, none: LogsDedupStrategy.None, numbers: LogsDedupStrategy.Numbers, signature: LogsDedupStrategy.Signature,
 } as const
 
-// Which wire form each panel tag reads, in the neutral vocabulary every dialect answers — so one row serves a store
-// tile and an evidence tile alike, and the point-in-time frame a facet panel needs is the form itself rather than a
-// second flag every dialect then re-interprets. Which BACKEND a panel reads is the MODEL's own `source` and never
-// this row: a tag-derived key binds every table to whatever backend that tag defaulted to, so an evidence tile and a
-// series tile on one board would both land on the metrics store.
 const _FORMED = {
   Gauge: "timeseries",
   Geomap: "table",
@@ -2416,15 +1772,9 @@ const _FORMED = {
   Timeseries: "timeseries",
 } as const satisfies Record<typeof Board.DashboardModel.Panel.Type["_tag"], (typeof _FORMS)[number]>
 
-// Admission of the model's own datasource key against the rows this stack REALIZED, never the declared roster: a key
-// outside the roster and a key naming a plane the spec disarmed are one defect, and both refuse at the compile seam
-// where the coordinate is still loggable rather than as a panel bound to a datasource nothing provisioned. Matching
-// against the realized array narrows the literal by search, so no assertion re-admits a key the roster never held.
 const _sourced = (source: string, bind: _Dial): keyof typeof _SOURCES =>
   Option.getOrElse(Array.findFirst(_realized(bind), (key) => key === source), () => _refuse("source", source))
 
-// Model axis vocabulary maps onto the builder's own enums, and both logarithmic rows differ only in the base
-// they carry — so each case builds its own scale rather than a switch re-deciding the family per panel.
 const _PLACED = { left: AxisPlacement.Left, right: AxisPlacement.Right, hidden: AxisPlacement.Hidden } as const
 const _SCALED = {
   linear: () => new ScaleDistributionConfigBuilder().type(ScaleDistribution.Linear),
@@ -2434,9 +1784,6 @@ const _SCALED = {
 } as const
 const _TIP = { hidden: TooltipDisplayMode.None, multi: TooltipDisplayMode.Multi, single: TooltipDisplayMode.Single } as const
 
-// The heatmap's two colour axes against the builder's OWN enums, TOTAL because the core owner now carries exactly
-// the pinned SDK's value sets — the retired scheme-family and axis-scale literals were deleted at the model under
-// core's SDK-floor law, so an unspellable colour coordinate is unconstructible and no refusal arm survives here.
 const _HEAT_MODE = {
   opacity: HeatmapColorMode.Opacity,
   scheme: HeatmapColorMode.Scheme,
@@ -2447,8 +1794,6 @@ const _HEAT_SCALE = {
   linear: HeatmapColorScale.Linear,
 } as const satisfies Record<(typeof Board.DashboardModel.Heatmap.Type)["scale"], HeatmapColorScale>
 
-// Axes and interaction are shared model fields whose builder members live on the Timeseries tag alone, so they land at
-// that one arm; carrying them on every other tag would emit a field no builder there reads.
 const _axed = (
   built: Timeseries,
   axes: ReadonlyArray<{
@@ -2469,8 +1814,6 @@ const _axed = (
     return _united(ceiled, axis.unit)
   }).tooltip(new VizTooltipOptionsBuilder().mode(_TIP[tooltip]).hideZeros(false))
 
-// Geomap coordinate mapping IS the panel: without it every point lands at the frame's first two numeric columns
-// by accident, so the model's own lat/lon column names drive one Coords-mode layer over the row's own basemap.
 const _mapped = (
   mapping: {
     readonly color: Option.Option<string>
@@ -2482,9 +1825,7 @@ const _mapped = (
   zoom: boolean,
 ): Geomap =>
   new Geomap()
-    .view(new MapViewConfigBuilder().allLayers(true)) // the view frames every layer rather than pinning a hardcoded centre no dataset shares
-    // one model field drives both halves of this row's controls: a visible control the reader never scrolls onto
-    // denies as much as a wheel zooming a map the reader meant to scroll past
+    .view(new MapViewConfigBuilder().allLayers(true))
     .controls(new ControlsOptionsBuilder().showZoom(zoom).mouseWheelZoom(zoom))
     .basemap(new MapLayerOptionsBuilder().type("default").name("basemap"))
     .layers([
@@ -2493,11 +1834,6 @@ const _mapped = (
         .name("points")
         .tooltip(true)
         .location(new FrameGeometrySourceBuilder().mode(FrameGeometrySourceMode.Coords).latitude(mapping.latitude).longitude(mapping.longitude))
-        // `MapLayerOptions.config` is the SDK's one untyped envelope (`config?: any`), yet every binding inside
-        // it compiles through the typed `common` dimension builders — the `.field` spellings are checked and
-        // only the `{ style }` wrapper is the markers layer's own persisted shape. `text.mode` is REQUIRED by
-        // the schema for a field-driven label; `size.min`/`size.max` are required scale bounds (the panel's own
-        // 2/15 defaults, spelled because the schema demands them, never a styling opinion).
         .config({
           showLegend: true,
           style: {
@@ -2522,7 +1858,7 @@ const _stepped = <B extends { thresholds(builder: ThresholdsConfigBuilder): B }>
   steps: ReadonlyArray<{ readonly at: number; readonly tone: string }>,
 ): B =>
   steps.length === 0 ? built : built.thresholds(new ThresholdsConfigBuilder().mode(ThresholdsMode.Absolute).steps([
-    { value: null, color: "transparent" }, // the wire demands a -Infinity base row; transparent tones nothing below the first declared step
+    { value: null, color: "transparent" },
     ...Array.map(Array.sort(steps, _byAt), (step) => ({ value: step.at, color: step.tone })),
   ]))
 
@@ -2530,12 +1866,9 @@ const _united = <B extends { unit(unit: string): B }>(built: B, unit: Option.Opt
   Option.match(unit, { onNone: () => built, onSome: (value) => built.unit(value) })
 
 const _minted = (panel: typeof Board.DashboardModel.Panel.Type) =>
-  // each tag's distinct payload lands at mint: a new panel tag fails compilation at this record until its arm exists
   Match.value(panel).pipe(Match.tagsExhaustive({
-    Gauge: (row) => _stepped(new Gauge().max(row.ceiling), row.steps), // the gauge ceiling is the scale fact; the trip point rides its steps row
+    Gauge: (row) => _stepped(new Gauge().max(row.ceiling), row.steps),
     Geomap: (row) => _mapped(row.mapping, row.zoom),
-    // both colour axes land on the one options builder this panel reads them through: the model declared them and
-    // the builder carries them, so neither survives as an emission fact the compile leg dropped on the floor
     Heatmap: (row) =>
       _united(
         new Heatmap().color(new HeatmapColorOptionsBuilder().mode(_HEAT_MODE[row.color]).scale(_HEAT_SCALE[row.scale])),
@@ -2547,11 +1880,8 @@ const _minted = (panel: typeof Board.DashboardModel.Panel.Type) =>
         .wrapLogMessage(row.wrap)
         .sortOrder(row.order === "ascending" ? LogsSortOrder.Ascending : LogsSortOrder.Descending)
         .dedupStrategy(_DEDUP[row.deduplicate]),
-    // Organize below renames the mapping row onto the conventional frame columns this graph reads. Greedy zoom claims
-    // every wheel event where cooperative demands a modifier, so the model's zoom field IS this row's mode.
     Nodes: (row) => new Nodes().zoomMode(row.zoom ? ZoomMode.Greedy : ZoomMode.Cooperative),
     Stat: (row) => _united(_stepped(new Stat(), row.steps), row.unit),
-    // pagination is tier posture like the log ceiling; the sort row is the model's, so the footer and the sort land together
     Table: (row) =>
       Option.match(row.sort, {
         onNone: () => new Table(),
@@ -2560,33 +1890,21 @@ const _minted = (panel: typeof Board.DashboardModel.Panel.Type) =>
     Timeseries: (row) => _axed(_united(_stepped(new Timeseries(), row.steps), row.unit), row.axes, row.tooltip),
   }))
 
-// Three owners, one correlated indexed dispatch: the SOURCE row names its dialect, `_FORMED` names the tag's neutral
-// wire form, and the dialect's own row spells that form in its own alphabet before building. The generic parameter is
-// what keeps the alphabet following the dialect, so the arm-per-dialect switch this replaces cannot re-enter. Forms
-// no dialect spells refuse here over emitting a range query for a tile whose tag asked for wide events, which is the
-// silent empty panel the neutral vocabulary exists to surface.
 const _target = <K extends _Dialect>(dialect: K, form: (typeof _FORMS)[number], aim: _Rendered): Builder<Dataquery> =>
   _DIALECTS[dialect].target({
     ...aim,
     form: Option.getOrElse(_DIALECTS[dialect].forms[form], () => _refuse("form", `${dialect}:${form}`)),
   })
 
-// One dial answers every coordinate this compile reads — the app key, the metrics plane's own projection and thence
-// its exemplar posture, the realized residence driver, the profiles answer, and the URL plane — so a panel's
-// datasource type, its target, and the board's own profile link all resolve off the same value the provisioning fold
-// took, and no second field re-states what the dial already carries.
 const _compiled = (model: Boards.Model, bind: _Dial) => {
-  // BOUNDARY ADAPTER: Foundation SDK builders mutate their own drafts; this function contains that imperative contract.
   const decoded = Schema.decodeSync(Board.DashboardModel)(model)
   const board = new DashboardBuilder(decoded.title)
     .uid(decoded.uid)
     .tags([...decoded.tags])
-    .readonly() // content is code and the UI is drift: the hash-diff provider posture and this presentation row are one law
+    .readonly()
     .refresh(`${Duration.toSeconds(decoded.refresh)}s`)
-    .time({ from: `now-${Duration.toSeconds(decoded.since)}s`, to: "now" }) // the model's since lands; the Grafana-default range never renders
+    .time({ from: `now-${Duration.toSeconds(decoded.since)}s`, to: "now" })
   if (bind.profiles) {
-    // this SDK types the query and Explore renders it: the board hands the typed selector across rather than a panel
-    // that pin cannot build, and the link keeps the reader's window so the profile matches what they were reading
     board.link(
       new DashboardLinkBuilder("profiles")
         .type(DashboardLinkType.Link)
@@ -2599,29 +1917,22 @@ const _compiled = (model: Boards.Model, bind: _Dial) => {
   board.variables([...decoded.variables])
   for (const note of decoded.annotations) board.annotation(new AnnotationQueryBuilder().name(note.slug).iconColor(note.tone).enable(true))
   for (const { panel, position } of Board.DashboardModel.laid(decoded)) {
-    const key = _sourced(panel.source, bind) // the model names its own plane, so one board mixes a store tile and a residence tile
+    const key = _sourced(panel.source, bind)
     const source = _SOURCES[key]
     const built = _minted(panel)
       .title(panel.title)
       .gridPos({ h: position.h, w: position.w, x: position.x, y: position.y })
       .transparent(panel.transparent)
-      .datasource({ type: source.type(bind), uid: key }) // the uid pinned at the source row: one compiled JSON binds identically in every org
+      .datasource({ type: source.type(bind), uid: key })
     if (Option.isSome(panel.description)) built.description(panel.description.value)
     if (Option.isSome(panel.repeat)) built.repeat(panel.repeat.value)
-    // panel links open in place, carrying the board's variables and time range, so a drill-down lands on the same
-    // tenant and window the operator was reading rather than the target's own defaults
     if (panel.links.length > 0) {
       built.links(Array.map(panel.links, (link) =>
         new DashboardLinkBuilder(link.title).url(link.url).type(DashboardLinkType.Link).includeVars(true).keepTime(true).targetBlank(false)))
     }
-    for (const transform of panel.transformations) built.withTransformation({ id: _TRANSFORMS[transform._tag], options: transform }) // the tag selects the transformer id; the row is its own options payload
+    for (const transform of panel.transformations) built.withTransformation({ id: _TRANSFORMS[transform._tag], options: transform })
     if (panel._tag === "Nodes") {
       built.withTransformation({
-        // Mapping renames onto the conventional frame columns the node graph reads; identity stays model data.
-        // The discrimination stage is CASE-SENSITIVE (`FieldCache.getFieldByName`): lowercase `id`/`source` are
-        // what admit and split the two frames, so every landing spelling below is the panel's own lowercase
-        // convention. `nodeWeight` lands on `mainstat` — the panel's numeric stat column, unit-carried through
-        // `NodeOptionsBuilder.mainStatUnit` — never `noderadius`, a pixel radius, not a magnitude.
         id: _TRANSFORMS.Organize,
         options: {
           order: [],
@@ -2639,11 +1950,7 @@ const _compiled = (model: Boards.Model, bind: _Dial) => {
     }
     const legend = "legend" in panel ? panel.legend : Option.none<string>()
     const exprs = "exprs" in panel ? panel.exprs : "expr" in panel ? [panel.expr] : "filter" in panel ? [panel.filter] : [panel.nodes, panel.edges]
-    // a source rendering no dialect refuses here: TraceQL and the profile selector reach an operator through the
-    // Explore link this board already carries, never through a panel target the core algebra cannot render
     const dialect = Option.getOrElse(source.dialect(bind), () => _refuse("dialect", key))
-    // Node-graph frame ADMISSION keys on `refId`/`name` `nodes`|`edges` (or an `id` field) — an `A0`/`A1` refId
-    // pair fails all three tests for the edges frame, so the Nodes tag names its frames outright.
     exprs.forEach((expr, at) =>
       built.withTarget(_target(dialect, _FORMED[panel._tag], {
         exemplars: bind.metrics.exemplars,
@@ -2664,19 +1971,12 @@ const _burned = (spec: Reliability.Alert.Spec, breach: (window: Duration.Duratio
     " and ",
   )
 
-// Numerators resolve at exactly one altitude: a store that evaluates rules already holds `Board.Query.breach`'s result
-// under `_recorded`, so the rule reads the recorded series and the store computes it once per group interval; a store
-// with no evaluator renders the same core projection inline. Neither arm re-derives a threshold or a series spelling,
-// and `Board.Query.breach` remains the one definition both arms trace back to.
 const _expr = (spec: Reliability.Alert.Spec, recorded: boolean, target: Board.Query.Target): string =>
   _burned(spec, (window) =>
     recorded
       ? _recorded(spec, window)
       : Board.Query.render(Board.Query.breach(spec.sli, Board.Query.span(Duration.decode(window)), {}, spec.filters), target))
 
-// Core owns the operator-read observable beside the breach expression, so this leg renders and
-// re-derives nothing — a local dispatch here forks the level polarity, the partition selector, and the
-// quantile spelling away from the burn panels reading the identical objective.
 const _query = (objective: Reliability.Objective, target: Board.Query.Target): string =>
   Board.Query.render(Board.Query.indicator(objective.sli, undefined, {}, objective.filters), target)
 
@@ -2686,7 +1986,7 @@ const _alerted = (
     readonly folder: pulumi.Output<string>
     readonly datasource: pulumi.Output<string>
     readonly contacts: Boards.Contacts
-    readonly recorded: boolean // the metrics plane's own rule posture: the numerator is precomputed or it is not
+    readonly recorded: boolean
     readonly target: Board.Query.Target
   },
   child: pulumi.CustomResourceOptions,
@@ -2698,7 +1998,6 @@ const _alerted = (
     }, child)
     new grafana.alerting.MessageTemplate(severity, {
       name: severity,
-      // wording leads, the runbook follows, then the two sorted planes: labels carry the spec's owned identity, annotations the derived headline
       template: `{{ define "${severity}" }}${row.wording ?? ""}${row.runbook === undefined ? "" : ` runbook: ${row.runbook}`} {{ .CommonLabels.SortedPairs }} {{ .CommonAnnotations.SortedPairs }}{{ end }}`,
     }, child)
     const quiet = row.quiet === undefined ? undefined
@@ -2713,10 +2012,10 @@ const _alerted = (
     onNonEmpty: ([head, ...rest]) =>
       new grafana.alerting.NotificationPolicy("routing", {
         contactPoint: head.point.name,
-        groupBies: [..._GROUPED], // the root grouping identity every child route inherits unless it declares its own
+        groupBies: [..._GROUPED],
         policies: Array.map([head, ...rest], ({ severity, point, quiet }) => ({
           contactPoint: point.name,
-          matchers: [{ label: Convention.rasm.sloSeverity, match: "=", value: severity }], // the spec's own severity row, never a free-string label
+          matchers: [{ label: Convention.rasm.sloSeverity, match: "=", value: severity }],
           ...(quiet !== undefined && { muteTimings: [quiet.name] }),
         })),
       }, child),
@@ -2726,23 +2025,17 @@ const _alerted = (
     onNonEmpty: (specs) =>
       new grafana.alerting.RuleGroup("burn", {
         folderUid: bind.folder,
-        // the store's recording group and this evaluator read ONE cadence anchor, so the rule never samples a
-        // recorded numerator on a schedule the group that writes it does not keep
         intervalSeconds: _COLLECTOR.rules.seconds,
         rules: Array.map(specs, (spec) => ({
           name: spec.slug,
           condition: "B",
           for: _window(spec.severity.hold),
-          // Grafana splits the two planes by use: labels carry routing, grouping, and silencing identity while
-          // annotations carry the read headline — so the spec's owned Convention rows land as labels
           annotations: { summary: `${spec.slug} burning ${spec.factor}x, spending ${spec.spend} of the objective window budget` },
           labels: spec.annotations,
           datas: [
             {
               refId: "A",
               datasourceUid: bind.datasource,
-              // the query window IS the spec's own long window: a fixed hour is a literal beside a spec that already
-              // names both horizons, and it reads short the moment an objective declares a longer burn window
               relativeTimeRange: { from: Duration.toSeconds(Duration.decode(spec.windows.long)), to: 0 },
               model: JSON.stringify({ refId: "A", expr: _expr(spec, bind.recorded, bind.target) }),
             },
@@ -2792,13 +2085,7 @@ class Boards extends Tier {
       storeDashboardSha256: true,
     }, { parent: this })
     const child = this.child({ provider })
-    // Producer tiers project every backend plane off the rows THEY installed — the metrics target, driver, scope
-    // header, exemplar posture, and rule posture; the realized residence and its whole board driver; the profiles
-    // answer — so nothing here re-reads the spec and a docker arm's bundled container answers for itself instead of
-    // borrowing the k8s install's columns.
     const plane = args.targets.metrics
-    // One read of what a row may dial and which rows this stack REALIZED: every org and every compile compose the
-    // same value, so a plane the stack never planted is absent from provisioning and from panel admission alike.
     const dial: _Dial = {
       app: args.spec.app,
       auth: args.auth,
@@ -2811,12 +2098,10 @@ class Boards extends Tier {
       Array.map(pack.boards, (model) => ({ ...model, tags: [...model.tags, pack.wire] })))
     const compiled = Array.map([...args.boards, ...ingested], (model) => ({
       uid: model.uid,
-      json: pulumi.jsonStringify(_compiled(model, dial)), // one compile serves the default org and every tenant org
+      json: pulumi.jsonStringify(_compiled(model, dial)),
     }))
-    const alerts = [...args.alerts, ...Array.flatMap(args.packs ?? [], (pack) => pack.alerts)] // pack burn rows join the one rule fold
+    const alerts = [...args.alerts, ...Array.flatMap(args.packs ?? [], (pack) => pack.alerts)]
     const folder = new grafana.oss.Folder(name, { title: args.spec.app, uid: args.spec.app }, child)
-    // Metrics binds by name because the rule fold needs its uid and the store family has no `none` arm; every other
-    // realized row folds beside it, and a row the spec disarmed constructs nothing at all.
     const metrics = _provisioned("metrics", dial, undefined, child)
     Array.map(Array.filter(_realized(dial), (key) => key !== "metrics"), (key) => _provisioned(key, dial, undefined, child))
     Array.map(compiled, (board) =>
@@ -2826,15 +2111,15 @@ class Boards extends Tier {
       json: pulumi.jsonStringify(_minted(Schema.decodeSync(Board.DashboardModel.Panel)(row.panel)).title(row.name).build()),
     }))
     Array.map(shelf, ({ row, json }) =>
-      new grafana.oss.LibraryPanel(row.name, { name: row.name, folderUid: folder.uid, modelJson: json }, child)) // compiled once, served to every board that references it
+      new grafana.oss.LibraryPanel(row.name, { name: row.name, folderUid: folder.uid, modelJson: json }, child))
     _alerted(alerts, { folder: folder.uid, datasource: metrics.uid, contacts: args.contacts, recorded: plane.recorded, target: plane.target }, child)
     _slos(args.objectives, folder.uid, plane.target, child)
     const operator = new grafana.oss.ServiceAccount(`${name}-automation`, { name: `${name}-automation`, role: "Editor" }, child)
     this.viewers = Record.fromEntries(Array.map(args.spec.tenants, (tenant) => {
       const org = new grafana.oss.Organization(tenant, { name: tenant }, child)
-      const scope = org.orgId.apply(String) // org-scoped args take Input<string>; the realized org's number renders exactly here
+      const scope = org.orgId.apply(String)
       const home = new grafana.oss.Folder(`${tenant}-${name}`, { title: args.spec.app, uid: `${tenant}-${args.spec.app}`, orgId: scope }, child)
-      Array.map(_realized(dial), (key) => _provisioned(key, dial, { id: scope, slug: tenant }, child)) // every org realizes the same rows, so one board JSON binds in all of them
+      Array.map(_realized(dial), (key) => _provisioned(key, dial, { id: scope, slug: tenant }, child))
       const fleet = Array.map(compiled, (board) =>
         new grafana.oss.Dashboard(`${tenant}-${board.uid}`, { configJson: board.json, folder: home.uid, orgId: scope }, child))
       Array.map(shelf, ({ row, json }) =>
@@ -2843,12 +2128,12 @@ class Boards extends Tier {
       new grafana.oss.ServiceAccountPermissionItem(`${tenant}-viewer`, {
         serviceAccountId: viewer.id,
         permission: "Admin",
-        user: operator.id, // custody of the tenant identity stays with the operator identity, never the tenant
+        user: operator.id,
       }, child)
       Array.match(fleet, {
         onEmpty: () => undefined,
         onNonEmpty: ([overview]) =>
-          new grafana.oss.OrganizationPreferences(`${tenant}-home`, { orgId: scope, homeDashboardUid: overview.uid }, child), // the org opens on its own overview board
+          new grafana.oss.OrganizationPreferences(`${tenant}-home`, { orgId: scope, homeDashboardUid: overview.uid }, child),
       })
       const key = new grafana.oss.ServiceAccountRotatingToken(`${tenant}-viewer`, {
         namePrefix: `${tenant}-viewer`,
@@ -2857,21 +2142,21 @@ class Boards extends Tier {
         earlyRotationWindowSeconds: _ROTATION.early,
         deleteOnDestroy: true,
       }, child).key
-      return [tenant, key] as const // Doppler custody rides the composing arm: the key never becomes a stack output
+      return [tenant, key] as const
     }))
     new grafana.oss.Annotation(`${name}-deploy`, {
-      text: pulumi.interpolate`deploy ${args.deploy.id} ${args.spec.name}`, // board-visible deploy marker; run evidence stays receipt material
+      text: pulumi.interpolate`deploy ${args.deploy.id} ${args.spec.name}`,
       tags: ["deploy", args.spec.app],
     }, child)
     Array.map(args.rolls ?? [], (roll) =>
       new grafana.oss.Annotation(`${name}-roll-${roll.wave}`, {
-        text: `roll ${roll.wave} ${roll.channel} ${roll.verdict} hosts=${roll.hosts}`, // the AppHost wire consumed as data; tone rides the verdict row
+        text: `roll ${roll.wave} ${roll.channel} ${roll.verdict} hosts=${roll.hosts}`,
         tags: ["fleet-roll", _ROLL_TONES[roll.verdict], args.spec.app],
       }, child))
     new grafana.oss.FolderPermissionItem(`${name}-automation`, {
       folderUid: folder.uid,
       permission: "Admin",
-      user: operator.id, // the grant scopes the Editor-role identity to exactly the app folder
+      user: operator.id,
     }, child)
     this.automation = new grafana.oss.ServiceAccountRotatingToken(`${name}-automation`, {
       namePrefix: `${name}-automation`,
@@ -2884,7 +2169,7 @@ class Boards extends Tier {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Boards, Dev, Lgtm }
 ```

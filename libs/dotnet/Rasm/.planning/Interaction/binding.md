@@ -26,14 +26,14 @@ Composition is downward: `Op`, `Lease<T>`, `Atom`, `Transition<TState>`, `Cell`,
 - Boundary: the two host enums appear on this row set and nowhere else on the sub-domain — every interior consumer reads `FlowMode`, never `DualBindingMode`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Numerics;
 using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct BindingKey {
@@ -43,8 +43,6 @@ public readonly partial struct BindingKey {
     }
 }
 
-// String-keyed for the SAME reason its two sibling discriminants are: this key is the middle coordinate of the
-// fusion wire a refusal reports, and an integer key names a corner no reader can place.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FlowMode {
@@ -61,8 +59,6 @@ public sealed partial class FlowMode {
     internal bool ToControl => Host is DualBindingMode.TwoWay or DualBindingMode.OneWay or DualBindingMode.OneTime;
 }
 
-// All THREE discriminant rosters are string-keyed because their keys are READ into a refusal: a rejected fusion
-// names its three coordinates in text, and an integer key would report a corner no reader can place.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SourceKind {
@@ -122,7 +118,7 @@ public abstract partial record Cadence {
 - Boundary: the reflected `Named` arm is the one site a model member is addressed by text, and every call site spells it through `nameof`, so a renamed property breaks at compile time rather than at first bind.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using Eto.Forms;
@@ -130,7 +126,7 @@ using Rasm.Domain;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BindSource<TValue> {
     private BindSource() { }
@@ -139,8 +135,6 @@ public abstract partial record BindSource<TValue> {
     public sealed record FromValue(TValue Value) : BindSource<TValue>;
     public sealed record FromContext(IndirectBinding<TValue> Path) : BindSource<TValue>;
     public sealed record Named(string Property) : BindSource<TValue>;
-    // `Delegated`, never `Delegate`: a nested case named `Delegate` shadows `System.Delegate` inside every arm body
-    // of the generated dispatch, where the shadow reads as a type name and silently resolves to the case.
     public sealed record Delegated(Func<object, TValue> Get, Option<Action<object, TValue>> Put, Option<string> Notify) : BindSource<TValue>;
     public sealed record Child(BindSource<object> Parent, BindSource<TValue> Member) : BindSource<TValue>;
 
@@ -163,8 +157,6 @@ public abstract partial record BindSource<TValue> {
         None: () => Fin.Fail<BindSource<TNext>>(new UiFault.Rejected(
             Key: key, Field: FieldTag.Create(value: nameof(path)), Reason: RejectReason.NoChildPath)));
 
-    // The context band lowers ONCE, here. The state and seed arms answer absence rather than raising, so `Drill`
-    // and the rig read one carrier and no consumer re-tests the case it already dispatched on.
     internal Option<IndirectBinding<TValue>> Lower() => Switch(
         fromState: static _ => Option<IndirectBinding<TValue>>.None,
         fromValue: static _ => Option<IndirectBinding<TValue>>.None,
@@ -183,16 +175,14 @@ public abstract partial record BindSource<TValue> {
             .As());
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record Lens<TState, TValue>(Func<TState, TValue> Get, Func<TState, TValue, TState> Put) {
     public Lens<TState, TNext> Then<TNext>(Lens<TValue, TNext> next) => new(
         Get: state => next.Get(Get(state)),
         Put: (state, value) => Put(state, next.Put(Get(state), value)));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The cell holds its OWN fault cell because the two host seams below return `void`: a verdict a seam cannot carry
-// outward parks on evidence, and the cell is that consumer.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
     private static readonly HookId Rail = HookId.Create(value: "rasm.kernel.interaction.binding.state");
 
@@ -202,13 +192,9 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
     public Transition<TState> Mutate(Func<TState, TState> transition) => Cell.Commit(state, transition);
 
     public DirectBinding<TValue> Channel<TValue>(Lens<TState, TValue> lens, Op op) {
-        // Keyed on the handler the binding machinery hands in, because removal must present the SAME adapter
-        // instance; a re-derived closure compares unequal and leaves the atom subscribed to a released control.
         ConcurrentDictionary<EventHandler<EventArgs>, AtomChangedEvent<TState>> adapters = new();
         return Binding.Delegate<TValue>(
             getValue: () => lens.Get(state.Value),
-            // The host setter is `void`, so the verdict lands on the cell rather than in `ignore`: a refused or
-            // contended write is a fact the next edit supersedes SILENTLY, and parking is what makes it readable.
             setValue: value => Park(Cell.Commit(state, held => lens.Put(held, value)), op),
             addChangeEvent: handler => {
                 AtomChangedEvent<TState> adapter = _ => Park(UiThread.Run(
@@ -222,8 +208,6 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
             });
     }
 
-    // TOTAL over the verdict: the two landing arms are `unit` and the two refusing arms park, so no case reaches a
-    // discard. A contended commit carries no cause of its own, so the operation mints the one it stands for.
     private Unit Park(Transition<TState> verdict, Op op) => verdict.Switch(
         state: op,
         committed: static (_, _) => unit,
@@ -231,8 +215,6 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
         refused: (_, row) => ignore(faults.Park(point: Rail, cause: row.Cause)),
         contended: (key, _) => ignore(faults.Park(point: Rail, cause: key.InvalidResult())));
 
-    // The adapter's crossing answers a whole `Fin` the host handler cannot read, so its failure parks on the same
-    // cell rather than riding `ignore` — a raised change notification is otherwise lost with no count behind it.
     private Unit Park(Fin<Unit> crossing, Op op) => crossing.Match(
         Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Rail, cause: cause)));
 }
@@ -257,7 +239,7 @@ public sealed class StateCell<TState>(Atom<TState> state, FaultCell faults) {
 - Boundary: host binding construction, cadence attach, rollback, and unbind are the binding-provider statement seam, and all four cross `UiThread` on the immediate lane.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using Eto.Forms;
@@ -266,18 +248,16 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GatePolicy<TModel> {
     private GatePolicy() { }
 
     public sealed record Hold : GatePolicy<TModel>;
-    // The substitute is a MODEL value already past admission: a raw substitute re-entering `Admit` can refuse a
-    // second time, and the only shape left for that second refusal is a silent default.
     public sealed record Fallback(TModel Value) : GatePolicy<TModel>;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ValueGate<TRaw, TModel>(Func<TModel, TRaw> Render, Func<TRaw, Fin<TModel>> Admit) {
     public static Fin<ValueGate<TRaw, TModel>> Of(Func<TModel, TRaw> render, Func<TRaw, Fin<TModel>> admit, Op op) {
@@ -287,15 +267,12 @@ public readonly record struct ValueGate<TRaw, TModel>(Func<TModel, TRaw> Render,
     }
 }
 
-// --- [POLICIES] -----------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct BindFusion(SourceKind Source, FlowMode Flow, CadenceKind Timing) {
     public string Wire => $"{Source.Key}/{Flow.Key}/{Timing.Key}";
 }
 
-// A clause is a ROW carrying its own predicate, and its `Reason` is the `RejectReason` row a refusal reports.
-// The two rosters move as ONE: every clause names a distinct reason row, and a clause landing without its row
-// leaves a refusal no consumer can match on.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FusionLaw {
@@ -317,10 +294,6 @@ public sealed partial class FusionLaw {
 }
 
 public static class BindLaw {
-    // The roster DERIVES from the clause rows over the full cross-product, so the clause set is the one authority
-    // and this table is only its materialization — a hand-listed roster beside the clauses is two models of one
-    // fact. Accessor-backed: all FOUR generated rosters fill from their own static constructors, and an eager field
-    // here materializes the cross-product of three EMPTY `Items` sequences.
     public static FrozenSet<BindFusion> Legal => Roster.Value;
 
     private static readonly Lazy<FrozenSet<BindFusion>> Roster = new(static () =>
@@ -331,9 +304,6 @@ public static class BindLaw {
          where toSeq(FusionLaw.Items).ForAll(law => law.Admits(fusion))
          select fusion).ToFrozenSet());
 
-    // EVERY violated clause is reported, one typed refusal per row, joined through the `Error` monoid: a caller
-    // recovering on a clause reads its `RejectReason` case, and a surface rendering the refusal reads that row's
-    // `Requirement`. The key is already an admitted non-blank identity, so the tag mint cannot refuse here.
     public static Fin<BindFusion> Admit(BindFusion fusion, BindingKey key, Op op) => Legal.Contains(fusion)
         ? Fin.Succ(fusion)
         : Fin.Fail<BindFusion>(Error.Many(toSeq(FusionLaw.Items)
@@ -342,7 +312,7 @@ public static class BindLaw {
                 Key: op, Field: FieldTag.Create(value: key.Value), Reason: law.Reason))));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IBindingPlan {
     BindingKey Key { get; }
     Fin<Lease<BindReceipt>> Rig(Control control, Op key);
@@ -391,8 +361,6 @@ public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where 
                     key, held.Select, held.Source, fusion, held.Cadence, gate, held.Ledger)));
     }
 
-    // Wiring, refresh, and unbind all touch the control tree, so all three cross the marshal under one contract
-    // rather than leaving the entry that reaches the tree as this owner's lone unmarshalled seam.
     [BoundaryAdapter]
     public Fin<Lease<BindReceipt>> Rig(Control control, Op key) =>
         from typed in control is TControl accepted
@@ -408,8 +376,6 @@ public sealed record BindingPlan<TControl, TValue, TModel> : IBindingPlan where 
     private Fin<BindReceipt> Wire(TControl control, Op key);
 }
 
-// The latch is why commit timing exists: a write buffered until focus leaves must survive detach, so the final
-// drain runs from the release path and a drain on an empty latch is a verdict rather than a fault.
 internal sealed class CommitLatch<TPayload> : IDisposable {
     private readonly Atom<Option<TPayload>> gate = Atom(Option<TPayload>.None);
     private readonly Op key;
@@ -444,26 +410,26 @@ internal sealed class CommitLatch<TPayload> : IDisposable {
 - Boundary: control realization retains receipts and releases them in reverse tree order, so a partially rigged subtree unwinds exactly what it wired.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct LedgerCapacity {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
         validationError = value > 0 ? null : new ValidationError(message: "LedgerCapacity must be positive.");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BindLedgerEntry(long Ordinal, BindingKey Key, UiFault Fault);
 
 internal sealed record BindLedgerState(long Next, Seq<BindLedgerEntry> History, HashMap<BindingKey, UiFault> Current);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class BindLedger {
     private readonly LedgerCapacity capacity;
     private readonly Atom<BindLedgerState> state;
@@ -483,8 +449,6 @@ public sealed class BindLedger {
 
     public Option<UiFault> Holds(BindingKey key) => state.Value.Current.Find(key);
 
-    // History truncates at capacity; the current map never prunes. One bounded log declares a still-broken fusion
-    // valid the moment its entry ages out, which is the reading a keyed map exists to refuse.
     public Transition<BindLedgerState> Reject(BindingKey key, UiFault fault) => Cell.Commit(
         state,
         held => {
@@ -503,8 +467,6 @@ public sealed class BindLedger {
 public sealed class BindReceipt : IDisposable, IValidityEvidence {
     private readonly BindLedger ledger;
     private readonly Atom<Seq<Error>> teardown = Atom(Seq<Error>());
-    // The one-shot is a guarded TRANSITION, so a second release reads `Refused` rather than no-opping silently;
-    // this page's whole custody model is `Atom`/`Cell`/`Transition` and a hand interlocked flag forks it.
     private readonly Atom<bool> released = Atom(false);
     private readonly Op key;
 
@@ -522,7 +484,7 @@ public sealed class BindReceipt : IDisposable, IValidityEvidence {
     public void Dispose() => ignore(Release());
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DataScope {
     [BoundaryAdapter] public static Fin<Unit> Assign(IBindable root, object model, Op? key = null);
 }
@@ -544,14 +506,14 @@ public static class DataScope {
 - Boundary: Rhino mounted data through its grid plan alone and carried no list or tree store mount and no virtual carrier; all three gaps close here, and its boundary edit is a deletion.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using Eto.Forms;
 using Rasm.Domain;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StoreRow<T> where T : class {
     private StoreRow() { }
@@ -564,8 +526,6 @@ public abstract partial record StoreRow<T> where T : class {
         @virtual: static row => new DataStoreVirtualCollection<T>(store: row.Window));
 }
 
-// The host tree sink demands the ITEM contract rather than the element type, so the carrier states the projection
-// back onto `T` — a selection read off a tree view is otherwise erased at the one place a consumer needs it.
 public sealed record TreeStore<T>(ITreeGridStore<ITreeGridItem> Store, Func<ITreeGridItem, Option<T>> Element) where T : class;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -577,10 +537,10 @@ public abstract partial record StoreSink<T> where T : class {
     public sealed record Tree(TreeGridView View, TreeStore<T> Store) : StoreSink<T>;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record StoreItemLens(Option<IIndirectBinding<string>> Text, Option<IIndirectBinding<string>> Key);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StoreRail {
     [BoundaryAdapter]
     public static Fin<Unit> Mount<T>(StoreSink<T> sink, Op? key = null) where T : class;

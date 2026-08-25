@@ -41,10 +41,6 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Enforcement, Kernel, KernelTrait
 
-# cold trees deferred to first dereference: `scipy.optimize`/`scipy.sparse` pull the full SciPy extension set and `highspy`
-# a native solver library, so the page-level binds cost nothing until a route actually solves and the missing-package
-# `ImportError` still lands inside the `boundary` fence. Every table below carries closures or member-NAME strings, so no
-# module-scope cell reifies one of these proxies at import.
 lazy import highspy
 lazy from scipy.optimize import (
     Bounds,
@@ -62,41 +58,28 @@ lazy from scipy.optimize import (
 lazy from scipy.sparse import csc_matrix
 
 if TYPE_CHECKING:
-    import scipy.optimize as opt  # `OptimizeResult`/`Bounds` annotation carriers only; the `opt` alias itself never binds at runtime
+    import scipy.optimize as opt
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Bound = tuple[float, float]
 type Objective = Callable[[np.ndarray], float]
-type Constraints = "tuple[opt.LinearConstraint | opt.NonlinearConstraint, ...]"  # the scipy carrier tuple the `_violation` `match` reads
-type DirectEntry = Callable[[Carried, "Warm"], "ProgramSolve"]  # the retained-HiGHS arm a route admits
-# prepared per-route buffers as the precise union of the five route payload shapes, never an
-# erased `tuple[object, ...]`: each arm is the normalized buffer set the route's `_entry`/`direct`/
-# `carriers` closures consume and `_program_key` digests, so a closure narrows its shape by route
-# construction rather than indexing a phantom `object` tuple by magic position. The two HiGHS-capable
-# routes carry the retained-solver payload as their trailing slot; `_program_key`'s ndarray filter drops
-# it from the identity preimage by construction, so a warm handle never forks the content key.
+type Constraints = "tuple[opt.LinearConstraint | opt.NonlinearConstraint, ...]"
+type DirectEntry = Callable[[Carried, "Warm"], "ProgramSolve"]
 type Carried = (
-    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, "Warm | None"]  # linear: cost, A_ub, b_ub, A_eq, b_eq, box, warm
-    | tuple[np.ndarray, np.ndarray, np.ndarray, Constraints, "Warm | None"]  # integer: cost, integrality, box, constraints, warm
-    | tuple[Objective, np.ndarray, "GlobalMethod"]  # stochastic: objective, box, engine
-    | tuple[Objective, np.ndarray, np.ndarray, Constraints]  # constrained: objective, x0, box, constraints
-    | tuple[np.ndarray]  # assignment: cost matrix
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, "Warm | None"]
+    | tuple[np.ndarray, np.ndarray, np.ndarray, Constraints, "Warm | None"]
+    | tuple[Objective, np.ndarray, "GlobalMethod"]
+    | tuple[Objective, np.ndarray, np.ndarray, Constraints]
+    | tuple[np.ndarray]
 )
 
 
 class Termination(StrEnum):
-    # scipy-carrier result-shape adjudicator, carried by the `host` solve case itself rather than as a route column:
-    # `CODED` reads the integer `.status`, `FLAGGED` the boolean `.success`. The assignment route's
-    # optimal-by-construction verdict and the retained solver's `HighsModelStatus` are the OTHER two solve cases, so
-    # neither needs a member here and no arm exists for a carrier that cannot occur.
     CODED = "coded"
     FLAGGED = "flagged"
 
     def adjudicate(self, result: "opt.OptimizeResult") -> SolveStatus:
-        # the `host` case binds a live carrier by construction, so no `| None` narrowing arm survives and the
-        # `.status`/`.success` reads stay type-checker-total without naming the `TYPE_CHECKING`-only
-        # `opt.OptimizeResult` as a runtime match class.
         match self:
             case Termination.CODED:
                 return _PROGRAM_STATUS.try_find(int(result.status)).default_value(SolveStatus.OTHER)
@@ -108,13 +91,8 @@ class Termination(StrEnum):
 
 @tagged_union(frozen=True)
 class GlobalMethod:
-    # derivative-free global-search family as ONE engine-as-policy union (the `design.md` `Descent`
-    # shape): `DE` carries its `(workers, polish, strategy)` advanced surface, the rest are bare cases.
-    # `solve` is the one total projection dispatching to each arm's `scipy.optimize` entrypoint off the
-    # module-scope `lazy` bind, threading the SPEC-007 `rng` seed so a reproducible content-keyed global solve maps
-    # to a fixed iterate — never four parallel `ProgramIntent` cases beside the LP/MILP solve.
     tag: Literal["de", "annealing", "simplicial", "direct"] = tag()
-    de: tuple[int, bool, str] = case()  # (workers, polish, strategy)
+    de: tuple[int, bool, str] = case()
     annealing: None = case()
     simplicial: None = case()
     direct: None = case()
@@ -143,18 +121,18 @@ class GlobalMethod:
             case GlobalMethod(tag="annealing"):
                 return dual_annealing(func, pairs, rng=seed)
             case GlobalMethod(tag="simplicial"):
-                return shgo(func, pairs)  # deterministic simplicial-homology global search; no `rng` keyword
+                return shgo(func, pairs)
             case GlobalMethod(tag="direct"):
-                return direct(func, pairs)  # deterministic Lipschitz partition; no `rng` keyword
+                return direct(func, pairs)
             case _ as unreachable:
                 assert_never(unreachable)
 
 
-_EMPTY_1D: np.ndarray = np.empty(0, dtype=float)  # `ProgramIntent.Linear` default-arg anchors, read at class definition
+_EMPTY_1D: np.ndarray = np.empty(0, dtype=float)
 _EMPTY_2D: np.ndarray = np.empty((0, 0), dtype=float)
 
 
-_DEFAULT_GLOBAL: GlobalMethod = GlobalMethod.DE()  # the global-route default engine; per-call `method` overrides it
+_DEFAULT_GLOBAL: GlobalMethod = GlobalMethod.DE()
 
 
 @tagged_union(frozen=True)
@@ -199,13 +177,10 @@ class ProgramIntent:
         return cls(assignment=cost)
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _SEED = 0
 
-# `0/1/2/3` agree across the `linprog` and `milp` exit-code tables; code `4` diverges — `linprog`
-# "numerical difficulties", `milp` "other" — and neither is the matrix-conditioning `conlim` verdict
-# `solvers/receipt#RECEIPT` reserves `ILL_CONDITIONED` for, so both fold the honest `OTHER`.
 _PROGRAM_STATUS: Map[int, SolveStatus] = Map.of_seq([
     (0, SolveStatus.SUCCESS),
     (1, SolveStatus.MAX_STEPS),
@@ -214,19 +189,9 @@ _PROGRAM_STATUS: Map[int, SolveStatus] = Map.of_seq([
     (4, SolveStatus.OTHER),
 ])
 
-# HiGHS member names the direct arm gates on. Every provider verdict crosses this owner as its member NAME, never as
-# the enum object: `highspy`'s pybind11 enums mint a FRESH instance per call, so `is` is always false and `==` against a
-# cross-call value is unreliable, which silently turns every verdict guard into a no-op and reports each evidence slot
-# absent on the exact solves that produce it. The name is stable, is what the status table already keys on, and is what
-# the receipt carries outward.
 _HIGHS_OK: Final[str] = "kOk"
 _HIGHS_OPTIMAL: Final[str] = "kOptimal"
 
-# `HighsModelStatus` member NAME -> the shared verdict. The direct arm's vocabulary is STRICTLY richer than the facade's
-# five-code table, which is the evidence half of the warm-solve case: a declared limit halting a search short of proven
-# optimality (time, iteration, solution count, objective bound or target) is one class, resource exhaustion and every
-# stage error are `BREAKDOWN`, and an external interrupt carries no numeric verdict at all where the facade collapses
-# each onto one code. `kNotset`/`kUnknown`/`kModelEmpty` degrade through the default, never crash.
 _HIGHS_STATUS: Map[str, SolveStatus] = Map.of_seq([
     ("kOptimal", SolveStatus.SUCCESS),
     ("kInfeasible", SolveStatus.INFEASIBLE),
@@ -246,20 +211,15 @@ _HIGHS_STATUS: Map[str, SolveStatus] = Map.of_seq([
 ])
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
 class ProgramSolve:
-    # ONE closed family over the three carrier shapes a solve can produce, so the iterate read, the verdict fold, and
-    # the evidence read are each one total `match` rather than three parallel route columns the row had to keep in
-    # step. Nothing is derived at construction: the iterate and objective are read LAZILY past the verdict, so an
-    # infeasible `linprog` whose `result.x`/`result.fun` are `None` adjudicates to `INFEASIBLE` rather than crashing a
-    # `float(None)` into the fence, and the `host` case carries its OWN adjudicator shape so the route sheds that column.
     tag: Literal["host", "matched", "retained"] = tag()
     host: "tuple[opt.OptimizeResult, Termination]" = case()
-    matched: tuple[np.ndarray, np.ndarray] = case()  # the `linear_sum_assignment` row/column pair
-    retained: tuple[object, str, float | None, int | None] = case()  # (Highs, HighsModelStatus name, fragility, witness)
+    matched: tuple[np.ndarray, np.ndarray] = case()
+    retained: tuple[object, str, float | None, int | None] = case()
 
     @classmethod
     def Host(cls, result: "opt.OptimizeResult", shape: Termination) -> Self:
@@ -275,9 +235,6 @@ class ProgramSolve:
 
     @property
     def status(self) -> SolveStatus:
-        # the carrier's own shape selects the adjudicator: the assignment route is optimal by construction, the
-        # retained solver carries the richer `HighsModelStatus`, and the scipy carrier defers to the shape it was
-        # constructed with. `assert_never` makes a fourth carrier a compile gap.
         match self:
             case ProgramSolve(tag="matched"):
                 return SolveStatus.SUCCESS
@@ -290,9 +247,6 @@ class ProgramSolve:
 
     @property
     def evidence(self) -> tuple[float | None, int | None]:
-        # the stability band and the certificate size exist on the retained arm ALONE: the scipy facade surfaces
-        # neither a ranging table nor an infeasible subsystem, so a facade solve reports both absent rather than a
-        # zero a downstream reader cannot distinguish from a measured margin of nothing.
         match self:
             case ProgramSolve(tag="retained", retained=(_, _, fragility, witness)):
                 return (fragility, witness)
@@ -300,15 +254,10 @@ class ProgramSolve:
                 return (None, None)
 
 
-class Warm(Struct, frozen=True):  # GC-tracked: `handle` is the live stateful solver
-    # RETAINED HiGHS solver the caller threads across a sweep so the simplex basis survives every re-solve. The struct
-    # is frozen and the handle it points at is stateful BY DESIGN — that statefulness IS the capability, and the
-    # PRESENCE of this payload on the intent is the direct arm's discriminant, never a `backend: str` knob the body
-    # re-pairs to an engine the value already selects. The design and study sweeps re-solve one program per perturbed
-    # right-hand side; the facade pays a full cold rebuild each time where a mutated column plus `run()` reuses the basis.
+class Warm(Struct, frozen=True):
     handle: object
-    ranging: bool = True  # capture the `HighsRanging` stability band on an optimal solve
-    witness: bool = True  # capture the infeasibility/unboundedness certificate on a refusing verdict
+    ranging: bool = True
+    witness: bool = True
 
     @classmethod
     def opened(cls, *, ranging: bool = True, witness: bool = True) -> Self:
@@ -317,11 +266,6 @@ class Warm(Struct, frozen=True):  # GC-tracked: `handle` is the live stateful so
         return cls(held, ranging, witness)
 
     def solved(self, model: Callable[[], object]) -> ProgramSolve:
-        # the model thunk is called ONLY on the first solve — `getNumCol() == 0` is the not-yet-loaded probe — so a warm
-        # re-solve pays nothing to re-assemble a model the retained solver already holds and `run()` re-optimizes from
-        # the surviving basis. A caller mutating bounds, costs, or coefficients between solves does so on this same
-        # handle through `changeColBounds`/`changeColCost`/`changeRowBounds`/`changeCoeff`. The verdict projects to its
-        # member NAME here, once, so no arm below ever compares a pybind11 enum object.
         if self.handle.getNumCol() == 0:
             self.handle.passModel(model())
         self.handle.run()
@@ -329,14 +273,6 @@ class Warm(Struct, frozen=True):  # GC-tracked: `handle` is the live stateful so
         return ProgramSolve.Retained(self.handle, verdict, self._fragility(verdict), self._witness(verdict))
 
     def _fragility(self, verdict: str) -> float | None:
-        # NEGATED tightest finite cost-range width, so the hub's `<=` ceiling reads naturally on a want-it-large
-        # quantity — the negated-floor form the graduation owner's own ledger law names. `getRanging` answers a
-        # `(HighsStatus, HighsRanging)` pair and each range is a `HighsRangingRecord` whose `value_` array carries the
-        # bound sized over columns AND rows, so the read slices to the column count rather than folding row entries in.
-        # An all-infinite width set means no coefficient has a binding range at all, so the slot is ABSENT rather than
-        # an `inf` the hub's finiteness refinement would reject as a malformed ledger instead of grading. Ranging is a
-        # property of a simplex basis, so a branch-and-bound solve answers non-`kOk` and reports the slot absent too —
-        # the status guard is what keeps that honest instead of reading a stale or unfilled record.
         if not self.ranging or verdict != _HIGHS_OPTIMAL:
             return None
         status, ranging = self.handle.getRanging()
@@ -348,46 +284,27 @@ class Warm(Struct, frozen=True):  # GC-tracked: `handle` is the live stateful so
         return -float(binding.min()) if binding.size else None
 
     def _subsystem(self) -> int | None:
-        # irreducible infeasible subsystem cardinality: how many columns and rows together cannot be satisfied.
-        # Presolve can prove infeasibility WITHOUT isolating one, and that is absence, not a subsystem of size zero —
-        # the retired `else 0` made an unextracted IIS read identically to an empty one HiGHS did isolate, which is
-        # precisely the confusion `_witness` already refuses one slot over.
         status, iis = self.handle.getIis()
         return len(iis.col_index_) + len(iis.row_index_) if status.name == _HIGHS_OK else None
 
     def _witness(self, verdict: str) -> int | None:
-        # SIZE of the certificate the refusing verdict admits — how many model entities the proof implicates — read
-        # through the `_CERTIFICATE` row that names which proof each verdict carries. Every other verdict admits none,
-        # so the slot is absent rather than a zero indistinguishable from an empty subsystem HiGHS did isolate.
         read = _CERTIFICATE.try_find(verdict).default_value(None) if self.witness else None
         return read(self) if read is not None else None
 
 
-class ProgramRoute(Struct, frozen=True):  # GC-tracked: carries the entry/direct/carriers closures
-    # buffer-and-key projection is NOT a route column: `_project` owns every per-tag `Carried` shape in one `match`,
-    # the iterate read and the verdict fold live on the `ProgramSolve` family, so the row carries only what genuinely
-    # varies per route — its facade entry, the direct arm it admits, its constraint reification, and whether the seed
-    # alters the iterate.
-    entry: Callable[[Carried, int], ProgramSolve]  # the `scipy.optimize` facade entry, binding its own carrier shape
-    direct: DirectEntry | None  # the retained-HiGHS arm this route admits; `None` where HiGHS has no analogue
-    carriers: Callable[[Carried, ProgramSolve], Constraints]  # reifies the `LinearConstraint`/`NonlinearConstraint` fold inputs
-    seeded: bool  # whether the `rng` seed alters the iterate, so it folds into the content key
+class ProgramRoute(Struct, frozen=True):
+    entry: Callable[[Carried, int], ProgramSolve]
+    direct: DirectEntry | None
+    carriers: Callable[[Carried, ProgramSolve], Constraints]
+    seeded: bool
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 async def solve(
     intent: ProgramIntent, lane: LanePolicy, *, seed: int = _SEED, composition: ScopeKey = DEFAULT_SCOPE
 ) -> "RuntimeRail[OutcomeReceipt]":
-    # `boundary` fences the scipy solve (raising routes, the gated `ImportError`); the railed
-    # `ContentIdentity.of` key threads through `.bind` so a digest fault propagates on the one rail
-    # rather than collapsing to a phantom bare `ContentKey`. The scipy global/discrete bodies are
-    # native work crossing under the `RELEASING` trait onto the runtime thread band under the hub weave —
-    # span, fence, and the fenced contributor harvest composed, with the MODULE-LEVEL
-    # `_program_kernel` crossing the lane; isolation, band, and worker-death retry derive at the runtime Kernel crossing.
-    # Stochastic arms declare TERMINAL: a pathological global search dies at the caller's wall-clock budget —
-    # pebble kill is the one bound a tight native loop obeys — and the sealed crossing carries a closure objective.
     async def dispatch() -> "RuntimeRail[OutcomeReceipt]":
         kernel = Kernel.of(
             _program_kernel,
@@ -400,10 +317,6 @@ async def solve(
     return await evidence_run(EvidenceScope.PROGRAM, f"program.{intent.tag}", dispatch, facts=facts, composition=composition)
 
 
-# this page's raise-side roster under the hub `ComputeLeg` seat. ONE lift-FENCE row spans every route and declares
-# no slots, because nothing raises through it — the classifier supplies the detail. The retired
-# `f"program.{intent.tag}"` subject forked one refusal law across every route; the intent discriminant rides the
-# weave's own span facts, where a trace already filters on it.
 PROGRAM_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.PROGRAM, point="solve", arm="boundary", defect="solve-refused", retriability=TERMINAL
 )
@@ -411,28 +324,17 @@ RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([PROGRAM_SOLV
 
 
 def _program_kernel(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":
-    # `catch` names the raise surface this body reaches, probed against the installed band: `highspy` exposes NO
-    # exception family at all — it answers through status codes, and a pybind11 signature mismatch surfaces as
-    # `TypeError` — while the scipy facade raises `ValueError` on every shape and integrality refusal and
-    # `np.linalg.LinAlgError` leads as the narrower subclass so the classifier reads the precise type.
     return boundary(
         PROGRAM_SOLVE, lambda: _program_receipt(intent, seed), catch=(np.linalg.LinAlgError, ValueError, TypeError)
     ).bind(lambda r: r)
 
 
 def _program_receipt(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeReceipt]":
-    # backend selection is the VALUE's own answer: a retained-solver payload the route admits takes the direct arm, and
-    # everything else the facade — no knob, and a route with no HiGHS analogue declares `direct=None` so its intent
-    # cannot reach an arm that does not exist.
     route = _PROGRAM_ROUTES[intent.tag]
     fields = _project(intent)
     warm = _warmed(intent)
     outcome = route.direct(fields, warm) if warm is not None and route.direct is not None else route.entry(fields, seed)
     status = outcome.status
-    # objective and violation are MEASURED on a converged solve alone. A refused program has no iterate to read, so
-    # both slots spell ABSENCE — an `inf` there enters the graduation ledger as a value and breaches the hub's own
-    # finiteness refinement on every infeasible crossing, where an absent slot leaves the ledger and the hub's
-    # key-coverage gate refuses the crossing against the `violation` ceiling as the rejection it is.
     graded = _graded(route, fields, outcome) if status is SolveStatus.SUCCESS else (None, None)
     fragility, witness = outcome.evidence
     return _program_key(intent, fields, seed if route.seeded else None).map(
@@ -441,17 +343,11 @@ def _program_receipt(intent: ProgramIntent, seed: int) -> "RuntimeRail[OutcomeRe
 
 
 def _graded(route: ProgramRoute, fields: Carried, outcome: ProgramSolve) -> tuple[float, float]:
-    # the ONE site reading a converged carrier, so the refused path never coerces a `None` field and no arm fabricates
-    # a number for a quantity no solve produced.
     x, objective = _iterate(fields, outcome)
     return objective, _violation(route.carriers(fields, outcome), x)
 
 
 def _warmed(intent: ProgramIntent) -> "Warm | None":
-    # the retained-solver payload rides the two HiGHS-capable cases alone. An integer program carrying a
-    # `NonlinearConstraint` DECLINES the direct arm rather than dropping the row: HiGHS reads a two-sided linear row
-    # band and has no nonlinear form, so the facade's `milp` — which consumes the carrier natively — stays the honest
-    # engine for it.
     match intent:
         case ProgramIntent(tag="linear", linear=(*_, warm)):
             return warm
@@ -466,16 +362,10 @@ def _row_shaped(constraint: object) -> bool:
 
 
 def _ray_support(certificate: "tuple[object, bool, np.ndarray]") -> int | None:
-    # `getDualRay`/`getPrimalRay` each answer `(HighsStatus, has_ray, ray)`; the ray's NONZERO support is the set of
-    # model entities the certificate implicates, and the `has_ray` flag is load-bearing — presolve can prove a refusal
-    # without producing a ray at all, so an unproven refusal reports absence rather than a zero-length count.
     _status, present, ray = certificate
     return int(np.count_nonzero(np.asarray(ray, dtype=float))) if present else None
 
 
-# refusing verdict NAME -> the certificate reader its proof rides, so a new certifiable verdict is one row. `kInfeasible`
-# prefers the irreducible subsystem and falls to the dual ray where presolve refused without isolating one; `kUnbounded`
-# carries only the primal ray. A `0`-sized subsystem reads as no subsystem, which is why the fall-through is an `or`.
 _CERTIFICATE: Map[str, Callable[["Warm"], int | None]] = Map.of_seq([
     ("kInfeasible", lambda warm: warm._subsystem() or _ray_support(warm.handle.getDualRay())),
     ("kUnbounded", lambda warm: _ray_support(warm.handle.getPrimalRay())),
@@ -483,25 +373,14 @@ _CERTIFICATE: Map[str, Callable[["Warm"], int | None]] = Map.of_seq([
 
 
 def _program_key(intent: ProgramIntent, fields: Carried, seed: int | None) -> "RuntimeRail[ContentKey]":
-    slots = [(i, f) for i, f in enumerate(fields) if isinstance(f, np.ndarray) and f.size]  # callables/carrier tuples never seed identity
+    slots = [(i, f) for i, f in enumerate(fields) if isinstance(f, np.ndarray) and f.size]
     buffer = b"".join(np.ascontiguousarray(field).tobytes() for _, field in slots)
-    # each surviving block's `Carried` SLOT INDEX and shape ride the fmt so a pure-inequality LP and a
-    # pure-equality LP whose `A`/`b` blocks are byte-identical AND same-shaped still key DISTINCTLY: the
-    # empty-block filter drops zero-size blocks, so the slot index is what distinguishes the `A_ub`/`b_ub`
-    # role (positions 1/2) from the `A_eq`/`b_eq` role (positions 3/4) the bare concatenation would erase.
     shape_tag = "".join(f".{i}:{f.ndim}x{'x'.join(map(str, f.shape))}" for i, f in slots)
-    # a seeded route folds its `rng` seed AND the `GlobalMethod` engine discriminant into the fmt so two
-    # `differential_evolution` runs at distinct seeds, and a DE-vs-DIRECT solve on identical data and
-    # seed, key DISTINCTLY (the iterate is both seed- and engine-dependent); the deterministic
-    # LP/MILP/assignment routes pass `None` so a re-solve on identical data is a cache hit regardless of
-    # its ignored seed argument (`_engine_tag` contributes only on the seeded stochastic route).
     seed_tag = f".{seed}{_engine_tag(intent)}" if seed is not None else ""
     return ContentIdentity.of(f"program.{intent.tag}{shape_tag}{seed_tag}", buffer)
 
 
 def _engine_tag(intent: ProgramIntent) -> str:
-    # `Global` route's iterate is engine-dependent, so the chosen `GlobalMethod` (and the DE strategy,
-    # which alters the mutation walk) folds into the content key; every other route returns "".
     match intent:
         case ProgramIntent(tag="stochastic", stochastic=(_, _, GlobalMethod(tag="de", de=(_, _, strategy)))):
             return f".de.{strategy}"
@@ -513,12 +392,10 @@ def _engine_tag(intent: ProgramIntent) -> str:
 
 def _bounds(box: np.ndarray) -> "opt.Bounds | None":
     pairs = box.reshape(-1, 2)
-    return Bounds(pairs[:, 0], pairs[:, 1]) if pairs.size else None  # the one `Bounds` carrier linprog/milp/minimize all accept
+    return Bounds(pairs[:, 0], pairs[:, 1]) if pairs.size else None
 
 
 def _violation(constraints: Constraints, x: np.ndarray) -> float:
-    # reached with a CONVERGED iterate alone, so no empty-iterate arm survives to fabricate an `inf` the ledger then
-    # publishes as a measurement; an unconstrained program's violation is the honest `0.0` the default supplies.
     def residual(con: "opt.LinearConstraint | opt.NonlinearConstraint") -> float:
         match con:
             case LinearConstraint():
@@ -533,7 +410,7 @@ def _violation(constraints: Constraints, x: np.ndarray) -> float:
     return float(max((residual(con) for con in constraints), default=0.0))
 
 
-# --- [COMPOSITION] -------------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def _entry_linear(fields: Carried, _: int) -> ProgramSolve:
@@ -558,7 +435,7 @@ def _entry_integer(fields: Carried, _: int) -> ProgramSolve:
 
 
 def _entry_stochastic(fields: Carried, seed: int) -> ProgramSolve:
-    objective_fn, box, method = fields  # the `GlobalMethod` policy carried on the case dispatches the engine
+    objective_fn, box, method = fields
     return ProgramSolve.Host(method.solve(objective_fn, box, seed), Termination.FLAGGED)
 
 
@@ -575,31 +452,25 @@ def _entry_assignment(fields: Carried, _: int) -> ProgramSolve:
 
 
 def _direct_linear(fields: Carried, warm: Warm) -> ProgramSolve:
-    # the inequality and equality blocks stack into ONE HiGHS row band; the model thunk defers assembly so a warm
-    # re-solve over a mutated column never re-encodes a matrix the retained solver already holds.
     cost, ub_mat, ub_rhs, eq_mat, eq_rhs, box, _warm = fields
     mat, lower, upper = _stacked(_band(ub_mat, ub_rhs, equality=False), _band(eq_mat, eq_rhs, equality=True))
     return warm.solved(lambda: _highs_model(cost, mat, lower, upper, box, None))
 
 
 def _direct_integer(fields: Carried, warm: Warm) -> ProgramSolve:
-    # a `LinearConstraint` IS a two-sided row band, so its `A`/`lb`/`ub` lower straight onto the HiGHS row set and the
-    # integrality vector selects the branch-and-bound engine; `_warmed` already proved every carrier row-shaped.
     cost, flags, box, constraints, _warm = fields
     mat, lower, upper = _stacked(*(_band(np.asarray(con.A, dtype=float), np.asarray(con.ub, dtype=float), lb=con.lb) for con in constraints))
     return warm.solved(lambda: _highs_model(cost, mat, lower, upper, box, flags))
 
 
 def _iterate(fields: Carried, outcome: ProgramSolve) -> tuple[np.ndarray, float]:
-    # ONE iterate read over the closed carrier family, replacing the per-route `iterate` column: each arm reads the
-    # primal and objective the shape it holds actually exposes, and `assert_never` makes a fourth carrier a compile gap.
     match outcome:
         case ProgramSolve(tag="host", host=(result, _)):
             return np.asarray(result.x, dtype=float), float(result.fun)
         case ProgramSolve(tag="retained", retained=(solver, *_)):
             return np.asarray(solver.getSolution().col_value, dtype=float), float(solver.getInfo().objective_function_value)
         case ProgramSolve(tag="matched", matched=(rows, cols)):
-            (matrix,) = fields  # only the assignment route mints this case, so `fields` is its one-tuple by construction
+            (matrix,) = fields
             selected = matrix[rows, cols]
             return np.asarray(selected, dtype=float), float(selected.sum())
         case _ as unreachable:
@@ -612,11 +483,11 @@ def _carriers_linear(fields: Carried, _: ProgramSolve) -> Constraints:
 
 
 def _no_carriers(_: Carried, __: ProgramSolve) -> Constraints:
-    return ()  # the global and assignment routes are unconstrained / feasible-by-construction
+    return ()
 
 
 def _carriers_integer(fields: Carried, _: ProgramSolve) -> Constraints:
-    _cost, _flags, _box, constraints, _warm = fields  # named destructure, never a starred index the warm slot now shifts
+    _cost, _flags, _box, constraints, _warm = fields
     return constraints
 
 
@@ -625,17 +496,12 @@ def _carriers_constrained(fields: Carried, _: ProgramSolve) -> Constraints:
     return constraints
 
 
-# one row band per constraint block: HiGHS carries ONE two-sided row bound where scipy splits `A_ub`/`A_eq` into two
-# matrices, so an inequality row reads `(-inf, b)`, an equality row `(b, b)`, and an explicit `lb` passes through for a
-# `LinearConstraint` that already carries both sides.
 def _band(mat: np.ndarray, rhs: np.ndarray, *, equality: bool = False, lb: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     lower = np.asarray(lb, dtype=float) if lb is not None else (rhs if equality else np.full(rhs.size, -np.inf))
     return (mat, lower, rhs)
 
 
 def _stacked(*bands: tuple[np.ndarray, np.ndarray, np.ndarray]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    # empty blocks contribute no rows, so a pure-inequality, pure-equality, or box-only program each assemble through
-    # this one fold and a program with no rows at all yields the empty band the model builder sizes to zero.
     live = tuple(band for band in bands if band[2].size)
     return (
         (np.vstack([mat for mat, _, _ in live]), np.concatenate([lo for _, lo, _ in live]), np.concatenate([hi for _, _, hi in live]))
@@ -645,10 +511,6 @@ def _stacked(*bands: tuple[np.ndarray, np.ndarray, np.ndarray]) -> tuple[np.ndar
 
 
 def _highs_model(cost: np.ndarray, mat: np.ndarray, lower: np.ndarray, upper: np.ndarray, box: np.ndarray, integrality: np.ndarray | None) -> object:
-    # sparse CSC assembly off the dense blocks `_project` already normalized: HiGHS reads the `start_`/`index_`/`value_`
-    # triplet directly and the catalog names a dense constraint duplicate as a reject. `kHighsInf` is the free-bound
-    # sentinel an absent box resolves to, and the integrality vector is what selects the branch-and-bound engine —
-    # an all-continuous model with no Hessian runs the simplex/IPM/PDLP arm instead.
     lp = highspy.HighsLp()
     pairs = box.reshape(-1, 2)
     lp.num_col_, lp.num_row_ = int(cost.size), int(upper.size)
@@ -690,9 +552,6 @@ def _project(intent: ProgramIntent) -> Carried:
             assert_never(unreachable)
 
 
-# the `direct` column declares which routes HiGHS can hold: the LP and MIP arms are its own regime, while a
-# derivative-free global search, a trust-constr smooth minimum, and a closed-form assignment have no HiGHS analogue at
-# all — a `None` there makes an unsupported warm solve unspellable rather than a runtime refusal.
 _PROGRAM_ROUTES: Map[str, ProgramRoute] = Map.of_seq([
     ("linear", ProgramRoute(_entry_linear, _direct_linear, _carriers_linear, False)),
     ("integer", ProgramRoute(_entry_integer, _direct_integer, _carriers_integer, False)),

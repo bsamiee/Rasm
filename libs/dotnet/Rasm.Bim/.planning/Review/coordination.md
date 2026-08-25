@@ -21,7 +21,7 @@ Identity follows the seam law [H6]: a kernel receipt keys on the neutral `Rasm.E
 - Boundary: the rule applicability/requirement is the `Model/query#ELEMENT_SET` `BimTerm`, so the validation predicate IS the query predicate IS the coordination predicate — one selection surface across `Model/query#ELEMENT_SET`, `Review/validation#IDS_FACETS`, and this owner, a parallel `RuleSelector`/`CoordinationQuery` expression type the deleted form. The clash evidence is the `Model/systems#INTERFERENCE` `Interference` row carrying the `NodeId` pair — the systems page owns the geometric proximity, this owner consumes the ranked evidence and proposes the fix, so re-running the proximity test here is the named cross-page drift defect, and the clearance verification obeys the SAME law: `Cleared` composes the systems-owned `InterferenceCheck.Neighborhood` ring over the retained `ClashIndex`, so a coordination-local radius query or a hand-rolled distance sweep beside the seated broad phase is the deleted form. A COORDINATION RUN IS A NAMED TEST — `Run` is the ONE proposal entry and the retired unscoped `Propose` (whose rows carried an empty-string test sentinel and whose report had no lifecycle to join on) is GONE; the whole-stream fold it spelled is `ClashTest.Everything`, which carries a name and a run-over-run diff besides. The `ImpactReport` ripple and the `Reachable` verdict are REAL reachability — the flow leg composes the settled `SystemTrace.From` over the ONE graph-scoped `DistributionNetwork.View` decomposition (a per-rule rebuild is the deleted form) and the schedule/cost legs the one `Downstream` breadth-first distance kernel whose recorder attaches through the observer's own `IDisposable` scope, so a hand-rolled visited-set walk and a distance-blind closure that reads a fourth-order successor as a seed are the deleted forms; EVERY leg publishes DISTANCE — the flow leg reads the trace's own `TraceHop` element-hop column, so flattening a whole downstream closure to one propagation hop is the deleted form and re-tracing per level to recover the depth the walk already measured is the other; the two legs merge multiple seeds under DIFFERENT laws because their walks differ — the schedule/cost distance kernel is ONE multi-source walk over ONE graph, a synthetic source edged to every seed making the whole seed set the frontier at depth one, so a per-seed `Compute` loop with its `Math.Min` merge is the deleted form there, while the flow leg's nearest-seed `Math.Min` fold is the LAWFUL reduction because each trace is a single-source walk over its own system view and the trace owner stays single-source for `Runs`' one-seed route contract; a post-hoc seeding of the distance map is deleted on both legs, because `VertexDistanceRecorderObserver` records off TREE EDGES alone and an unsequenced task or parentless cost line reached by no edge drops the row the severity bands rank HIGHEST. A `Resolution` carries a seam `MeasureValue` and a bare `double` deficit crossing to a BCF topic or a fabrication consumer is the deleted form; a BCF viewpoint anchors ONLY on a real IFC `ExternalId` (the `IfNone(NodeId)` fallback that leaked a neutral key into a `SelectedGlobalIds` slot is the deleted form) and carries `Option<BcfCamera>` absence, because a selection-only viewpoint is legal BCF while a degenerate origin camera publishes a black frame as authored intent. A `RuleVerdict` keys on the COMPLETE `NodeId` identity while the BCF anchor and the impact join key on the IFC `ExternalId` their targets demand. The yield hierarchy, the fix delegates, and the ripple bands are `CoordinationPolicy` VALUES a composition supplies (`Default` serving an unconfigured root) and a durable `static class DisciplinePriority`/`ImpactSeverity` table is the deleted form — a project's trade hierarchy is project data. An IDS-raised topic keys on the audit's document ORDINAL and a specification-NAME key is the deleted form. The multi-model union is the SEAM's `ElementGraph.Federate` — it owns the coordination-header refusal axes and the id-collision-versus-dedup discrimination, so a coordination-local graph merge or a re-decided id rename beside that entry is the deleted form, and the geodetic `GeoTransform.Preflight` matrix gates the union rather than reconciling frames. The `CoordinationRule`/`Resolution`/`ClashState` unions are closed families; the coordination operations live on the ONE `Coordination` owner (the prior `CoordinationCheck`/`ClashProposal`/`ChangeImpact` single-method classes collapsed), and a rejection raises its `Model/faults#FAULT_BAND` `BimFault.Refused` value carrying its closed scope and reason and lifts `BimFault` BARE.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Globalization;
@@ -38,22 +38,15 @@ using QuikGraph.Algorithms.Search;
 using Rasm.Element.Graph;
 using Rasm.Element.Properties;
 using Rasm.Element.Query;
-using SwiftCollections.Query;   // BoundVolume — the ONE bound type Model/systems#INTERFERENCE indexes and this owner only passes through
+using SwiftCollections.Query;
 using Thinktecture;
 using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
-using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;   // closed-generic alias: the bare name collides with the global-using System.Predicate<T>
+using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
 
-// Coordination DOMAIN namespace the ARCHITECTURE seams name — the Review/issues#BCF_ARCHIVE BcfTopic family and
-// the SignOff lifecycle the Rasm.AppUi/Collab/issues board consumes as Rasm.Bim.Coordination.*; the child
-// namespace resolves the sibling Rasm.Bim owners implicitly, the seam owners through Rasm.Element.
 namespace Rasm.Bim.Coordination;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// If-X-then-Y model-check vocabulary: every arm carries an applicability BimTerm (the X — the SAME
-// Model/query#ELEMENT_SET surface the IDS facet fold reads) with its own modality requirement (the Y).
-// Applicability and Severity are abstract members every arm overrides positionally, so a rule selects and reports
-// without a Switch; an ADVISORY rule is any arm at RuleSeverity.Info — severity is the axis, never a sibling arm.
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record CoordinationRule {
     private CoordinationRule() { }
@@ -64,13 +57,10 @@ public abstract partial record CoordinationRule {
     public sealed record Require(BimTerm Applicability, BimTerm Requirement, RuleSeverity Severity) : CoordinationRule;
     public sealed record Prohibit(BimTerm Applicability, BimTerm Requirement, RuleSeverity Severity) : CoordinationRule;
     public sealed record Cardinality(BimTerm Applicability, int Min, Option<int> Max, RuleSeverity Severity) : CoordinationRule;
-    public sealed record Unique(BimTerm Applicability, ValueSource Source, RuleSeverity Severity) : CoordinationRule;   // distinctness over a direct attribute OR an effective Pset/Qto value (space numbers, door marks)
+    public sealed record Unique(BimTerm Applicability, ValueSource Source, RuleSeverity Severity) : CoordinationRule;
     public sealed record Reachable(BimTerm Applicability, BimTerm Target, TraceMode Mode, RuleSeverity Severity) : CoordinationRule;
 }
 
-// Closed clash-fix family. Every dimensioned arm carries a seam MeasureValue, never a bare double: a proposal that
-// crosses to a BCF topic, a fabrication ticket, or a UI dimension entry must carry its quantity type and dimension
-// with it. Reject is the coordinator's manual override, the one arm carrying no measure.
 [Union]
 public abstract partial record Resolution {
     private Resolution() { }
@@ -88,9 +78,6 @@ public sealed record RuleVerdict(CoordinationRule Rule, Seq<NodeId> Passed, Seq<
     public bool Blocking => !Conforms && Severity.Blocking;
 }
 
-// The run-over-run lifecycle a re-test answers, stamped by joining a run against its predecessor on the
-// (Test, First, Second) identity. Resolved rows are CARRIED FORWARD from the prior report rather than dropped: a
-// coordination cycle is measured by what closed, and a row that vanishes silently reports nothing.
 [SmartEnum<string>]
 public sealed partial class ClashState {
     public static readonly ClashState New = new("new");
@@ -98,39 +85,22 @@ public sealed partial class ClashState {
     public static readonly ClashState Resolved = new("resolved");
 }
 
-// One NAMED coordination test — the clash-matrix cell a coordinator works: the two discipline BimTerms, the seam
-// MeasureValue tolerance below which an interference is not reported, and the ClashKind the pair is tested under.
-// The predicates are ORIENTATION-FREE — a pair matches when either assignment satisfies (Left, Right) — because an
-// interference carries no authored direction.
 public sealed record ClashTest(string Name, BimTerm Left, BimTerm Right, MeasureValue Tolerance, ClashKind Kind) {
-    // The whole-stream fold the retired unscoped Propose spelled: both sides Open, so every interference of the
-    // kind clears the pair gate while the run still carries a NAME and a lifecycle the bare fold could not.
     public static ClashTest Everything(string name, MeasureValue tolerance, ClashKind kind) =>
         new(name, BimTerm.Open, BimTerm.Open, tolerance, kind);
 }
 
-// The topic is OPTIONAL because BCF SelectedGlobalIds are IFC GlobalIds: a clash between elements the exchange has
-// never seen has no BCF anchor. The proposal itself always lands — it keys on the COMPLETE NodeId identity — so a
-// coordinator sees the fix and the board carries no topic until the pair is emitted.
 public sealed record ClashProposalRow(
     string Test, NodeId First, NodeId Second, NodeId Yields, ClashKind Kind,
     Resolution Proposed, ClashState State, Option<BcfTopic> Topic);
 
-// One test's run receipt. Outstanding is the derived working set — a projection, never a second stored column.
 public sealed record ClashReport(ClashTest Test, Seq<ClashProposalRow> Rows, Instant At) {
     public Seq<ClashProposalRow> Outstanding => Rows.Filter(static row => row.State != ClashState.Resolved);
     public bool Clear => Outstanding.IsEmpty;
 }
 
-// One impacted row on the IFC GlobalId axis: WHICH element/task/line, HOW FAR from the contested seed, and the
-// band that distance earns. Hops is real graph distance on every leg — the schedule DAG and the cost roll-up
-// measure it on the Downstream kernel, the element leg reads it off the flow trace's own TraceHop column.
 public readonly record struct ImpactRow(string GlobalId, int Hops, RuleSeverity Severity);
 
-// A/B change-impact report — every dimension on the IFC ExternalId axis because the join targets are
-// IFC-GlobalId-keyed receipts. Contested is the direct two-diff seed; Elements the seed plus the flow-downstream
-// closure; the task/line columns transitively closed. Every rippled column carries typed rows, so a 4D/5D consumer
-// thresholds on distance instead of treating a seed and a fourth-order successor as one set.
 public sealed record ImpactReport(
     Seq<string> Contested,
     Seq<ImpactRow> Elements,
@@ -140,26 +110,15 @@ public sealed record ImpactReport(
 
 public sealed record FederatedModel(ElementGraph Graph, FederationReceipt Federation, Seq<FrameAlignment> Alignment);
 
-// --- [POLICIES] ---------------------------------------------------------------------------
-// One coordination row per discipline: its yield RANK in rigidity order and the FIX a proposal elects when this
-// discipline's element gives way. The delegate column is what makes the Growth promise real — a re-tuned trade
-// hierarchy or a new proposal heuristic is one row edit, and Sleeve and Reject gain producers a ternary ladder over
-// ClashKind could never give them.
+// --- [POLICIES] ------------------------------------------------------------------------
 public readonly record struct DisciplineRule(int Rank, Func<MeasureValue, Resolution> Propose);
 
-// The ONE composition-supplied coordination behaviour value — the trade hierarchy a project negotiates and the
-// ripple thresholds a programme tunes are PROJECT data, so they live at an overridable value whose Default serves
-// an unconfigured root. Ripple bands read the ONE RuleSeverity vocabulary Review/validation#IDS_FACETS owns.
 public sealed record CoordinationPolicy(
     FrozenDictionary<IfcDomain, DisciplineRule> Disciplines,
     FrozenDictionary<int, RuleSeverity> RippleBands) {
 
-    // An unrostered discipline never yields silently and never auto-fixes: it ranks last and proposes Reject.
     static readonly DisciplineRule Unranked = new(int.MaxValue, static _ => new Resolution.Reject());
 
-    // The full seven-member default roster, so no discipline falls to the unranked default: a service crossing a
-    // rigid Structural or Architectural element is bored and framed, a Geotechnical or Infrastructure conflict is
-    // coordinator-elected, and a gravity Plumbing run re-sizes before it re-routes because its fall is fixed.
     public static readonly CoordinationPolicy Default = new(
         new Dictionary<IfcDomain, DisciplineRule> {
             [IfcDomain.Structural]     = new(0, static deficit => new Resolution.Sleeve(deficit)),
@@ -170,30 +129,20 @@ public sealed record CoordinationPolicy(
             [IfcDomain.HvacFire]       = new(3, static deficit => new Resolution.Reroute(deficit)),
             [IfcDomain.Electrical]     = new(4, static deficit => new Resolution.Reroute(deficit)),
         }.ToFrozenDictionary(),
-        // The contested seed blocks, its immediate successors warn, everything further downstream is advisory.
         new Dictionary<int, RuleSeverity> { [0] = RuleSeverity.Error, [1] = RuleSeverity.Warning }.ToFrozenDictionary());
 
     DisciplineRule Rule(IfcDomain domain) => Disciplines.GetValueOrDefault(domain, Unranked);
 
-    // True when the second endpoint is the lower-or-equal-priority discipline (it yields); an equal-rank
-    // same-discipline clash tie-breaks onto the second endpoint deterministically.
     public bool SecondYields(IfcDomain first, IfcDomain second) => Rule(second).Rank >= Rule(first).Rank;
 
-    // The clash KIND axis decides waiver, the yielding DISCIPLINE row decides the fix — the one branch lives here in
-    // the policy owner, so the proposal fold stays a straight map and a new heuristic never grows an arm in it.
     public Resolution Propose(ClashKind kind, IfcDomain yielding, MeasureValue deficit) =>
         kind == ClashKind.Clearance ? new Resolution.GrantClearance(deficit) : Rule(yielding).Propose(deficit);
 
     public RuleSeverity Band(int hops) => RippleBands.GetValueOrDefault(hops, RuleSeverity.Info);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Coordination {
-    // The FEDERATED ingress: N discipline models become the ONE graph Check/Run/Between fold over. The pairwise
-    // geodetic preflight runs FIRST and an Unresolvable row REFUSES the union, because a clash matrix over models
-    // the datum leg could not reconcile ranks proximity across two frames and still reads as clean. The union is
-    // the seam ElementGraph.Federate, which owns the tolerance/GeoReference refusals and the
-    // occurrence-collision-versus-content-dedup discrimination, so this owner re-decides none of it.
     public static Fin<FederatedModel> Federate(
         Seq<(string Model, ElementGraph Graph)> models, Header coordination,
         (double X, double Y, double Z) anchor, CancellationToken token, Op key) =>
@@ -205,10 +154,6 @@ public static class Coordination {
                     : ElementGraph.Federate(models, coordination, key)
                         .Map(union => new FederatedModel(union.Graph, union.Receipt, alignment)));
 
-    // Rule-check fold: validate the library (a malformed bound short-circuits the whole check), then fold each
-    // well-formed rule to a verdict — pure ROP, never an exception-capture funnel, because ElementQuery.Query is total. The
-    // DistributionNetwork.View decomposition is graph-scoped, so it builds ONCE per check and threads through every
-    // verdict rather than re-decomposing the whole network inside each Reachable arm.
     public static Fin<Seq<RuleVerdict>> Check(ElementGraph graph, Seq<CoordinationRule> rules, Op key) =>
         rules.TraverseM(rule => Validate(rule, key)).As()
             .Map(valid => Systems(graph) switch {
@@ -218,12 +163,6 @@ public static class Coordination {
     static Seq<(DistributionSystem View, LanguageExt.HashSet<NodeId> Members)> Systems(ElementGraph graph) =>
         DistributionNetwork.View(graph, None).Map(static system => (View: system, Members: toHashSet(system.Members)));
 
-    // The ONE proposal entry, and it is always a NAMED test: scope the ranked interference evidence to the test's
-    // discipline predicate pair (each side queried ONCE) under its ClashKind and tolerance, map each clash onto its
-    // Resolution and BCF anchor, then LEFT-JOIN the prior report on the (Test, First, Second) identity so the run
-    // measures what a fix closed rather than losing it. Fin because the deficit admits as a seam MeasureValue,
-    // which refuses a non-finite magnitude rather than carrying it into a published fix. Orientation is free: an
-    // Interference carries no authored direction, so a pair matches when EITHER assignment satisfies.
     public static Fin<ClashReport> Run(
         ElementGraph graph, Seq<Interference> interferences, ClashTest test, Option<ClashReport> prior,
         CoordinationPolicy policy, string author, Instant at, Op key) {
@@ -244,10 +183,6 @@ public static class Coordination {
                 test, clash.First, clash.Second, fix.Yields, clash.Kind, fix.Fix, ClashState.New,
                 TopicOf(graph, clash, author, at)))).As();
 
-    // The one lifecycle join: the incoming run keyed by pair identity decides New vs Active, and every prior row the
-    // run no longer reports is carried forward AS IT STOOD under Resolved — the fix a coordinator landed stays
-    // readable on the row that proves it. The key is the (Test, First, Second) triple, so two tests over the same
-    // pair keep distinct cells and a re-run of one never touches the other.
     static Seq<ClashProposalRow> Lifecycle(Seq<ClashProposalRow> run, Seq<ClashProposalRow> prior) {
         LanguageExt.HashSet<(string, NodeId, NodeId)> seen = toHashSet(prior.Map(Cell));
         LanguageExt.HashSet<(string, NodeId, NodeId)> current = toHashSet(run.Map(Cell));
@@ -257,26 +192,16 @@ public static class Coordination {
 
     static (string, NodeId, NodeId) Cell(ClashProposalRow row) => (row.Test, row.First, row.Second);
 
-    // A/B impact fold: the contested seed — the IFC-GlobalId intersection of two diffs this owner consumes, never
-    // re-derives — propagated as a REAL reachability closure: downstream through each owning system's flow graph,
-    // then transitively through the schedule DAG and the cost roll-up tree via the one Downstream kernel.
     public static ImpactReport Between(ElementGraph graph, ModelDiff before, ModelDiff after, ScheduleNetwork schedule, CostSchedule cost, CoordinationPolicy policy) {
         var touched = toHashSet(after.Changes.Map(static c => c.GlobalId));
         var contested = before.Changes.Map(static c => c.GlobalId).Filter(touched.Contains).Distinct().ToSeq();
         var byExternal = graph.ObjectNodes.Choose(static o => o.ExternalId.Map(e => (e, o.Id))).ToHashMap();
         var seeds = toHashSet(contested.Choose(byExternal.Find));
         Seq<(DistributionSystem View, LanguageExt.HashSet<NodeId> Members)> systems = Systems(graph);
-        // The flow leg reads DEPTH off the trace's own TraceHop column, so a rippled element bands at the element-hop
-        // distance the walk already measured. Each trace is a single-source fold over its OWN system view — the trace
-        // owner is single-source because Runs ranks routes from ONE seed — so the nearest-seed reduction here merges
-        // INDEPENDENT walks, which is not the re-walk of one graph the Downstream kernel's synthetic source retires.
         Map<NodeId, int> ripple = systems.Fold(Map<NodeId, int>(), (map, entry) => entry.Members.Intersect(seeds).ToSeq()
             .Fold(map, (near, seed) => SystemTrace.From(entry.View, seed, TraceMode.Downstream).ElementHops
                 .Fold(near, static (acc, hop) => acc.AddOrUpdate(hop.Node, existing => Math.Min(existing, hop.Hops), hop.Hops))));
         var affectedNodes = seeds.Union(toHashSet(ripple.Keys));
-        // Nearest depth per IFC identity in the SAME fold that resolves it: a federated union can publish one GlobalId
-        // from two nodes, and the nearer row is the one the bands must rank, so no post-hoc Distinct decides which of
-        // two depths for one identity survives. A contested seed is hop zero and never re-enters as a rippled row.
         Map<string, int> rippled = toSeq(ripple).Fold(Map<string, int>(), (map, row) => ExternalOf(graph, row.Key)
             .Filter(id => !contested.Contains(id))
             .Match(Some: id => map.AddOrUpdate(id, existing => Math.Min(existing, row.Value), row.Value), None: () => map));
@@ -300,9 +225,6 @@ public static class Coordination {
                 .Choose(static entry => entry.View.ExternalId).Distinct().ToSeq());
     }
 
-    // Rule-shape gate as the generated TOTAL Switch (no runtime-silent `_`): the closed-vocabulary predicates carry
-    // already-validated values and the SmartEnum TraceMode cannot miss, so four arms admit unconditionally — but a
-    // SIXTH modality cannot land without declaring its own gate, where a `_` catch-all admits it unvalidated.
     static Fin<CoordinationRule> Validate(CoordinationRule rule, Op key) => rule.Switch(
         state:       key,
         require:     static (_, r) => Fin.Succ<CoordinationRule>(r),
@@ -313,8 +235,6 @@ public static class Coordination {
         unique:      static (_, r) => Fin.Succ<CoordinationRule>(r),
         reachable:   static (_, r) => Fin.Succ<CoordinationRule>(r));
 
-    // The applicable set and the graph-scoped flow decomposition thread as ONE Switch state, so every arm stays a
-    // closure-free static lambda and the reachability arm reads the systems the check already built.
     static RuleVerdict Verdict(ElementGraph graph, Seq<(DistributionSystem View, LanguageExt.HashSet<NodeId> Members)> systems, CoordinationRule rule) =>
         rule.Switch(
             state:       (Applicable: ElementQuery.Query(graph, rule.Applicability), Systems: systems),
@@ -324,9 +244,6 @@ public static class Coordination {
             unique:      static (s, r) => Distinct(r, s.Applicable),
             reachable:   static (s, r) => Traced(r, s.Applicable, s.Systems));
 
-    // Require/Prohibit collapse to ONE partition derived by the `prohibits` policy bit: the matching subset
-    // (re-folded over only the current members via ElementQuery.Where, never an O(n^2) re-query) is the passing set
-    // for Require and the violating set for Prohibit.
     static RuleVerdict Predicated(CoordinationRule rule, ElementQuery applicable, BimTerm requirement, bool prohibits) {
         var matching = applicable.Where(requirement);
         var (pass, violated) = prohibits ? (applicable.Except(matching), matching) : (matching, applicable.Except(matching));
@@ -338,9 +255,6 @@ public static class Coordination {
             ? new RuleVerdict(rule, Ids(applicable), Seq<NodeId>())
             : new RuleVerdict(rule, Seq<NodeId>(), Ids(applicable));
 
-    // Uniqueness: group the applicable set by the ValueSource value through the ONE ElementQuery.ValuesOf exposure,
-    // so the seam bag merge is never re-derived. A duplicate-valued member violates; an unreadable-source member
-    // cannot prove distinctness so it violates too — one group fold, never a nested compare.
     static RuleVerdict Distinct(CoordinationRule.Unique rule, ElementQuery applicable) {
         var keyed = applicable.Objects.Map(o => (o.Id, Key: ElementQuery.ValuesOf(applicable.Graph, o, rule.Source).Head.Map(static v => v.Render())));
         var duplicated = toHashSet(keyed.Choose(static r => r.Key)
@@ -350,9 +264,6 @@ public static class Coordination {
         return new RuleVerdict(rule, pass, violated);
     }
 
-    // Graph-incidence verdict: every applicable element must reach a Target-matching element through its owning
-    // DistributionSystem's Mode-oriented flow graph. An element in no system, or whose trace reaches no target,
-    // violates: the orphaned terminal IS the defect the rule surfaces (a target element passes by self-reach).
     static RuleVerdict Traced(CoordinationRule.Reachable rule, ElementQuery applicable, Seq<(DistributionSystem View, LanguageExt.HashSet<NodeId> Members)> systems) {
         LanguageExt.HashSet<NodeId> targets = toHashSet(ElementQuery.Query(applicable.Graph, rule.Target).Ids);
         (Seq<NodeId> pass, Seq<NodeId> violated) = Ids(applicable).Partition(id => systems
@@ -363,20 +274,12 @@ public static class Coordination {
 
     static Seq<NodeId> Ids(ElementQuery query) => query.Ids;
 
-    // Proposal: the lower-priority discipline's element yields and ITS row's delegate names the fix — the whole
-    // heuristic is policy data. The deficit admits ONCE through the one dimensioned-scalar gate, so every published
-    // fix carries its quantity type and dimension and a non-finite proximity result rails instead of reaching BCF.
     static Fin<(NodeId Yields, Resolution Fix)> ResolveOf(Interference clash, CoordinationPolicy policy, Op key) =>
         MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, clash.Deficit, key: key)
             .Map(deficit => policy.SecondYields(clash.FirstDomain, clash.SecondDomain)
                 ? (clash.Second, policy.Propose(clash.Kind, clash.SecondDomain, deficit))
                 : (clash.First, policy.Propose(clash.Kind, clash.FirstDomain, deficit)));
 
-    // The verification a GrantClearance IMPLIES: an accepted exception waives the clearance envelope around the
-    // YIELDING member, so the grant is only readable beside whatever that envelope still reaches — the
-    // systems-owned clearance ring over the RETAINED ClashIndex, never a second proximity test. The granted pair
-    // drops out, so an empty answer IS a clean waiver. Only the GrantClearance arm reads: the other four fixes move
-    // or bore geometry rather than waiving an envelope, and their verification is the next Run.
     public static Seq<NodeId> Cleared(ClashIndex index, ClashProposalRow row) =>
         row.Proposed is Resolution.GrantClearance
             ? Volume(index, row.Yields)
@@ -386,16 +289,9 @@ public static class Coordination {
                 .IfNone(Seq<NodeId>())
             : Seq<NodeId>();
 
-    // The yielding member's seated volume off the ONE SwiftBucket handle registry both structures index on — the
-    // registry owns the key space, so no NodeId map sits beside it and an unseated member answers None rather than
-    // a zero box the ring would then query as a point.
     static Option<BoundVolume> Volume(ClashIndex index, NodeId member) =>
         toSeq(index.Registry).Find(entry => entry.Member.Id == member).Map(static entry => entry.Bounds);
 
-    // Write-time IDS<->BCF seam (the read-time seam is the shared BimTerm algebra the facet fold lowers onto): one
-    // BcfTopic per NON-conforming IdsAudit, keyed on the audit's document ORDINAL so a re-audit re-lands the SAME
-    // topic — IDS v1.0 specification NAMES are not unique, so a name key merges two specifications' topics and the
-    // second's failures vanish from the board.
     public static Seq<BcfTopic> Raise(Seq<IdsAudit> audits, string author, Instant at) =>
         audits.Filter(static a => !a.Conforms).Map(a => new BcfTopic(
             $"ids-{a.Spec}", $"IDS non-conformance: {a.Specification}#{a.Spec}",
@@ -406,9 +302,6 @@ public static class Coordination {
             Seq(new BcfViewpoint($"vp-ids-{a.Spec}", Option<BcfCamera>.None,
                 a.Verdicts.Bind(static v => v.Failed).Distinct().ToSeq(), BcfVisibility.Everything, Option<ReadOnlyMemory<byte>>.None))));
 
-    // Clash topic keyed on the clash content identity so a re-proposal of the same clash is stable. BOTH endpoints
-    // must resolve: BCF SelectedGlobalIds are IFC GlobalIds, so a half-anchored topic points a receiving tool at one
-    // element and a token it cannot resolve. The viewpoint carries NO camera — the selection IS the anchor.
     static Option<BcfTopic> TopicOf(ElementGraph graph, Interference clash, string author, Instant at) =>
         from first in ExternalOf(graph, clash.First)
         from second in ExternalOf(graph, clash.Second)
@@ -419,25 +312,14 @@ public static class Coordination {
             Seq(new BcfViewpoint($"vp-{clash.Identity:X32}", Option<BcfCamera>.None,
                 Seq(first, second), BcfVisibility.Everything, Option<ReadOnlyMemory<byte>>.None)));
 
-    // ONE parameterized MULTI-SOURCE distance kernel: the schedule SequenceRel DAG and the CostItem.ParentGlobalId
-    // roll-up tree are two edge-row inputs to one QuikGraph breadth-first walk. A synthetic Source vertex edges to
-    // every seed, so a single Compute discovers the whole frontier and the nearest-seed distance falls out of
-    // level-order discovery; the depth shifts down one to seat the seeds at zero, which is also what MEASURES a
-    // seed participating in no edge — the observer records off TREE EDGES alone, so an unsequenced task is measured
-    // only because the synthetic edge reaches it, and it is the row the bands rank HIGHEST.
     static Seq<ImpactRow> Downstream(Seq<(string From, string To)> edges, Seq<string> seeds, CoordinationPolicy policy) {
-        // The synthetic vertex leads with the NUL escape: every real key on these legs is an IFC GlobalId or a
-        // schedule/cost identifier, none of which can carry a control character, so the sentinel cannot collide.
         const string Source = "\0multi-source";
         var dag = new AdjacencyGraph<string, SEdge<string>>();
         foreach (var (from, to) in edges) { dag.AddVerticesAndEdge(new SEdge<string>(from, to)); }
         foreach (string seed in seeds) { dag.AddVerticesAndEdge(new SEdge<string>(Source, seed)); }
         BreadthFirstSearchAlgorithm<string, SEdge<string>> bfs = new(dag);
-        // Unit edge weight, so the relaxer counts hops; the recorder rides its own Attach IDisposable scope.
         VertexDistanceRecorderObserver<string, SEdge<string>> distances = new(static _ => 1.0);
         using (distances.Attach(bfs)) { bfs.Compute(Source); }
-        // The ordered run re-enters the carrier through Prelude.toSeq, because OrderBy answers an
-        // IOrderedEnumerable the K-rail ToSeq binds nothing of.
         return toSeq(distances.Distances
             .Where(entry => !string.Equals(entry.Key, Source, StringComparison.Ordinal))
             .Select(entry => new ImpactRow(entry.Key, (int)entry.Value - 1, policy.Band((int)entry.Value - 1)))
@@ -460,7 +342,7 @@ public static class Coordination {
 - Boundary: `Rasm.Bim/coordination` owns the issue-board DOMAIN over the `Review/issues#BCF_ARCHIVE` `BcfTopic` contract and `Rasm.AppUi/Collab/issues` owns only the board projection — the AppUi head re-mints no BCF schema and reads the domain at the package edge, the `[ISSUES_RELOCATE_TO_BIM]` relocation leaving `SignOff` on a settled Bim owner; `Rasm.Persistence/Version/ledger` owns the durable op-log/CDE-sync store joined by the `Node.Object` `ExternalId` content-key, the `[ANNOTATION_RELOCATE_TO_BIM]` relocation leaving the BCF record family, the `BcfApi` server dialect, AND the `.bcfzip` container wire in `Rasm.Bim` — `BcfArchive` is the branch's one custodian and `Rasm.Persistence/Ingest/issue` holds the durable rows, neither side re-minting the BCF schema across the boundary; the `SignOff` legal transitions are per-case data on the SmartEnum and a parallel `FrozenDictionary<BcfStatus,…>` the instances merely mirror, a per-transition method, or an unchecked status setter is the deleted form — the `[SmartEnum]` is the dispatch surface so `Advance` is its operation and an illegal advance lifts `BimFault.Refused` with `BimReason.Rejected` BARE; the `IssueBoard` ranks by the archive's own `BcfVocabulary.Priorities` order, so a frozen canonical rank table as the PRIMARY authority is the deleted form (it reads a project's own `"P1"`/`"P2"` bands as unknown and flattens the board) and survives only as the no-vocabulary fallback; a lexical priority sort or a parallel board-side issue record are the deleted forms.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
@@ -473,11 +355,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Coordination;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Lifecycle state machine over the wire BcfStatus: each state carries its legal forward set as per-case delegate
-// data, so the SmartEnum IS the dispatch surface and Advance is its instance operation.
-// [UseDelegateFromConstructor] binds the generated Forward() to the new(...) delegate arg in declaration order
-// (key, Status, forward); the static () => Seq(...) form resolves the self-referential forward cases lazily.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SignOff {
     public static readonly SignOff Open       = new("open",        BcfStatus.Open,       static () => Seq(InProgress, Closed));
@@ -491,18 +369,10 @@ public sealed partial class SignOff {
     [UseDelegateFromConstructor]
     public partial Seq<SignOff> Forward();
 
-    // Terminal == no legal forward transition, the honest derivation: the BCF lifecycle is fully re-enterable
-    // (Closed itself can Reopen) so this is invariantly false today and a `== Closed` form would lie.
     public bool IsTerminal => Forward().IsEmpty;
 
-    // Every BcfStatus maps to exactly one SignOff case, so the resolve is total — an out-of-roster status degrades
-    // to Open through the IfNone fallback (the same default the archive codec lands an unparseable status on),
-    // never a throwing First in domain logic.
     public static SignOff Of(BcfStatus status) => toSeq(Items).Find(s => s.Status == status).IfNone(Open);
 
-    // ONE polymorphic transition entrypoint discriminating on input shape: the SmartEnum state advances itself, the
-    // wire BcfStatus overload resolves through Of first — a Closed->InProgress skip faults while a Closed->Reopened
-    // re-entry is admitted, the legal set read off the case data, never a table lookup.
     public Fin<SignOff> Advance(SignOff to, Op key) =>
         Forward().Contains(to)
             ? Fin.Succ(to)
@@ -519,9 +389,6 @@ public sealed record IssueBoard(Map<BcfStatus, Seq<BcfTopic>> Lanes, Seq<string>
             .Select(g => (g.Key, toSeq(g.OrderBy(t => PriorityRank.Of(priorities, t.Priority)))))
             .ToMap(), priorities);
 
-    // Land clash proposals on the board through ONE Of re-partition — the span absorbing the single and the
-    // whole-run arity — so the partition and PriorityRank ordering stay the ONE owner. Anchoring is IDEMPOTENT by
-    // topic Guid: the clash-content-keyed topic id is stable, so a re-proposal REPLACES its stale board copy.
     public IssueBoard Anchor(params ReadOnlySpan<ClashProposalRow> proposals) {
         var incoming = toSeq(Iterable<ClashProposalRow>.FromSpan(proposals).Choose(static p => p.Topic));
         var replaced = toHashSet(incoming.Map(static t => t.Guid));
@@ -529,18 +396,12 @@ public sealed record IssueBoard(Map<BcfStatus, Seq<BcfTopic>> Lanes, Seq<string>
     }
 }
 
-// --- [POLICIES] ---------------------------------------------------------------------------
-// Board ordering rank: a BCF Priority is an extension-defined free string, but a board orders by SEMANTIC urgency,
-// never alphabetically ("High" < "Low" < "Normal" lexically inverts the real order). buildingSMART declares the
-// archive's own roster MOST-URGENT-FIRST, so the row's INDEX is its rank and a project that renames its bands
-// ("P1"/"P2") orders correctly. The literal roster is the no-vocabulary fallback alone.
+// --- [POLICIES] ------------------------------------------------------------------------
 static class PriorityRank {
     static readonly FrozenDictionary<string, int> Fallback = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase) {
         ["Critical"] = 0, ["High"] = 1, ["Major"] = 1, ["Normal"] = 2, ["Medium"] = 2, ["Low"] = 3, ["Minor"] = 3,
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
-    // The indexed Choose on SeqExtensions takes the INDEX FIRST (the instance Map's (value, index) order inverts
-    // here), so the ordinal binds the first slot; Head.IfNone lands an out-of-roster priority after every band.
     public static int Of(Seq<string> vocabulary, string priority) =>
         vocabulary.IsEmpty
             ? Fallback.GetValueOrDefault(priority, int.MaxValue)

@@ -56,21 +56,13 @@ if TYPE_CHECKING:
 
     from rasm.data.tabular.interop import FieldShape
 
-# faults-owned scope stamp: `scoped` binds the version and semconv triple, so no page re-spells the pin.
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.tabular.profile")
 
 
 def _probe_raises() -> Catch:
-    # reified at the CALL so the `lazy pointblank` proxy stays deferred for a composition that never interrogates.
-    # pointblank publishes no exception namespace of its own: a malformed step surfaces as the builtin its validation
-    # raises and a plan failure as the polars rail beneath it (probed against the installed distribution), so the
-    # engine root beneath it is what a fence names. `OSError` covers the thread band the interrogation offloads onto.
     return (pl.exceptions.PolarsError, TypeError, ValueError, KeyError, OSError)
 
 
-# this module's whole raise roster: the interrogation and the report share one refusal LAW each, parameterized on the
-# plan label and the report tag rather than split per call site. Both declare TRANSIENT — a blocking materialization
-# over a live frame is an engine hop a re-issue may clear.
 PROFILE_INTERROGATE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.PROFILE, point="interrogate", arm="boundary", defect="interrogation", retriability=TRANSIENT
 )
@@ -100,8 +92,6 @@ _INCLUSIVE: Final[Map[Inclusive, tuple[bool, bool]]] = Map.of_seq([
     ("right", (False, True)),
 ])
 
-# failing-row extract cap, read by BOTH the declared `interrogate` default and the lazy `graded()` fallback a
-# plan-free `report` forces, so a report that had to interrogate for itself grades on the same evidence bound.
 _EXTRACT_LIMIT: Final[int] = 500
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -126,8 +116,6 @@ class Grade(IntEnum):
         return max(cls.breaches(plan), default=cls.PASSED) if not plan.all_passed() else cls.PASSED
 
 
-# `_LEVELS` DERIVES from the member roster in definition order, so a fifth severity is one enum member and
-# zero table edits; a hand-spelled tuple is the parallel secondary the primary already holds.
 _LEVELS: Final[tuple[Grade, ...]] = tuple(level for level in Grade if level is not Grade.PASSED)
 
 
@@ -172,11 +160,6 @@ class StepKind:
 
 
 class ProbeStep(Struct, frozen=True):
-    # pointblank exposes these four policy knobs on EVERY step method, so one wrapper threads them uniformly:
-    # `brief` documents the step on the report, and `active` retires a step from evaluation without unseating
-    # it — plans still number a retired step, so per-step receipt indices survive a policy flip. `pre` and
-    # `segments` stay off this wrapper because the provider carries them on a subset of steps only, and a knob
-    # threaded where its method rejects it fails the whole plan on an unrelated step.
     kind: StepKind
     thresholds: "pb.Thresholds | None" = None
     actions: "pb.Actions | None" = None
@@ -185,8 +168,6 @@ class ProbeStep(Struct, frozen=True):
 
     @property
     def policy(self) -> dict[str, Any]:
-        # one splat carries the whole uniform tail into every arm, so a fifth knob pointblank adds to every step
-        # method is one entry here and zero arm edits — and no arm can drift by threading three of four.
         return {"thresholds": self.thresholds, "actions": self.actions, "brief": self.brief, "active": self.active}
 
     def append(self, plan: "pb.Validate", tables: "ProbeTables") -> "pb.Validate":
@@ -243,19 +224,12 @@ class ProbeStep(Struct, frozen=True):
 @tagged_union(frozen=True)
 class ProfileReport:
     tag: ReportKind = tag()
-    # the publication report's whole knob set: `Validate.get_tabular_report` carries the header/footer pair AND the
-    # two footer sub-knobs (`incl_footer_timings`/`incl_footer_notes`), so the case threads all four rather than
-    # stopping at the pair — a knob the provider offers and the case drops is capability this plane cannot reach.
     tabular: tuple[str, bool | None, bool | None, bool | None, bool | None] = case()
     step: tuple[int, tuple[str, ...] | None, int] = case()
     json: tuple[tuple[str, ...] | None, tuple[str, ...] | None] = case()
     dataframe: Literal["polars", "pandas", "duckdb"] = case()
     sundered: Literal["pass", "fail"] = case()
     probe: bool = case()
-    # UNIT cases: `col_summary_tbl(data, tbl_name=)` and `missing_vals_tbl(data)` take no report knob at all, so a
-    # `bool` payload here was settable to either value with identical behavior — a knob with no effect on a public
-    # union. `probe` keeps its `bool` because `show_sample_data=` reads it; a knob these two gain lands as their own
-    # payload then.
     summary: None = case()
     missing: None = case()
     preview: tuple[tuple[str, ...] | None, int, int, int] = case()
@@ -263,8 +237,6 @@ class ProfileReport:
 
 class ProfileFrame(Struct, frozen=True):
     kind: ReportKind
-    # `None` where nothing was interrogated: a plan-free report reached over the raw table with no run threaded
-    # in reaches no verdict, and stamping `PASSED` there publishes a grade the profile never graded.
     grade: Grade | None
     frame: Any
 
@@ -297,16 +269,6 @@ class ProfileReceipt(Struct, frozen=True):
         )
 
     def contribute(self) -> Iterable[Receipt]:
-        # receipts stay truth, instruments stay projections: the worst per-step failed fraction lands on the metric
-        # spine under domain="quality" keyed by the overall grade, so a dashboard grades data health without log parsing.
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads — the
-        # SAME pair handed `Metrics.record` beside the minted key — and `domain` is that plane's partition column, so a
-        # contributor omitting it lands every quality row in one nameless partition no predicate ever prunes.
-        # a ZERO-step interrogation measures no breach fraction, so it records NONE: the `default=0.0` this deletes
-        # published a perfect data-health reading indistinguishable from a fully-passing many-step run, which
-        # `libs/.planning/RULINGS.md` `[02]` rules out by name — an unmeasured instrument reads UNMEASURED, never
-        # zero. The same abstention `tabular/columnar#SCAN` already holds for an unprofiled receipt and
-        # `tabular/materialize#MATERIALIZE` for a drain that recomputed nothing.
         rows, cols = self.shape
         match Block.of_seq(self.failed_fraction.values()).sort(reverse=True).try_head():
             case Option(tag="some", some=worst):
@@ -332,9 +294,6 @@ class ProfileReceipt(Struct, frozen=True):
 
 
 class Interrogation(Struct, frozen=True):
-    # `plan` IS the shared artifact and `receipt` its evidence projection, so a grade, a receipt, and every
-    # plan-consuming report answer off ONE interrogation. `plan` stays `Any` because `pointblank` is banned at
-    # module scope, exactly as `ProfileFrame.frame` holds its `GT` opaquely.
     plan: Any
     receipt: ProfileReceipt
 
@@ -375,10 +334,6 @@ class QualityProfile(Struct, frozen=True):
         get_first_n: int | None = None,
         extract_limit: int = _EXTRACT_LIMIT,
     ) -> "RuntimeRail[Interrogation]":
-        # sampling folds into the fingerprint, so a re-sampled run — same probes, different grade and counts — never reuses a byte-stable key.
-        # interrogation drives every step to completion against the backend — a blocking leg riding the banded thread hop, never the loop.
-        # `Interrogation` rides the plan out beside its receipt, so a caller threading it into `report` spends ONE
-        # interrogation across the grade, the receipt, and every plan-consuming report.
         sampling = (sample_n, sample_frac, get_first_n, extract_limit)
         with _TRACER.start_as_current_span(
             f"profile.interrogate.{self.label}", attributes={"rasm.quality.label": self.label, "rasm.quality.steps": len(self.steps)}
@@ -400,24 +355,15 @@ class QualityProfile(Struct, frozen=True):
 
     @beartype(conf=FAULT_CONF)
     async def report(self, data: Any, report: ProfileReport, interrogated: "Option[Interrogation]" = Nothing) -> "RuntimeRail[ProfileFrame]":
-        # one report entrypoint over both report classes: a caller holding its `Interrogation` threads it here and
-        # never re-runs the plan, an absent one lets plan-consuming arms interrogate lazily off `graded()`, and
-        # plan-free arms read the raw table either way — same blocking materialization, same banded hop.
         return await async_boundary(PROFILE_REPORT, lambda: on_thread(self._report, data, report, interrogated), catch=_probe_raises())
 
     def fingerprint(self, sampling: tuple[int | None, float | None, int | None, int]) -> "RuntimeRail[ContentKey]":
-        # `leaf` renders a callable to its stable code identity (module, qualname, marshalled bytecode) so two `<lambda>`
-        # predicates never collide on a bare qualname; a `repr`-of-callable carries a run-varying memory address.
         def leaf(value: object) -> object:
             code = getattr(value, "__code__", None)
             if code is not None:
                 return (getattr(value, "__module__", ""), getattr(value, "__qualname__", ""), marshal.dumps(code))
             return getattr(value, "__qualname__", None) or str(value)
 
-        # both rows DERIVE their field set from the owning `Struct`, so a fifth plan-level policy field or a fifth
-        # per-step override lands in the key with zero edits here. A hand-listed subset silently dropped
-        # `final_actions`, `tbl_name`, and `brief` — two profiles differing only in their post-interrogation callback
-        # keyed IDENTICALLY, which is the graded-evidence collision the content key exists to foreclose.
         spine = (
             msgjson.encode((sampling, *(leaf(getattr(self, name)) for name in _PLAN_FIELDS)), enc_hook=leaf, order="deterministic"),
             *(
@@ -432,10 +378,6 @@ class QualityProfile(Struct, frozen=True):
         return ContentIdentity.of("profile", spine)
 
     def _report(self, data: Any, report: ProfileReport, interrogated: "Option[Interrogation]") -> ProfileFrame:
-        # threaded interrogation wins; absent, `cache` keeps the lazy fallback to exactly one run per report call,
-        # and the plan-free arms below never force the thunk at all. `carried` is the grade a threaded run ALREADY
-        # holds on its receipt, so a plan-free report reports the real verdict when one exists and `None` when the
-        # caller never interrogated — never a fabricated `PASSED` and never an interrogation to answer a preview.
         graded = cache(lambda: interrogated.map(lambda run: run.plan).default_with(partial(self._lazily, data)))
         carried = interrogated.map(lambda run: run.receipt.grade).default_value(None)
         match report:
@@ -469,8 +411,6 @@ class QualityProfile(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _lazily(self, data: Any) -> "pb.Validate":
-        # `_lazily` reads the SAME failing-row cap `interrogate` declares, so a report forced to
-        # interrogate for itself grades on the identical evidence bound a threaded run carries.
         return self._plan(data).interrogate(extract_limit=_EXTRACT_LIMIT)
 
     def _plan(self, data: Any) -> "pb.Validate":
@@ -489,9 +429,6 @@ class QualityProfile(Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# fingerprint field rosters DERIVED from the owning `Struct` declarations: a fifth plan-level policy field or a
-# fifth per-step override lands in the content key with zero edits, where a hand-listed subset drifts silently
-# once the owner grows. `steps` and `kind` stay excluded because each folds through its own row.
 _PLAN_FIELDS: Final[tuple[str, ...]] = tuple(row.name for row in struct_fields(QualityProfile) if row.name != "steps")
 _STEP_FIELDS: Final[tuple[str, ...]] = tuple(row.name for row in struct_fields(ProbeStep) if row.name != "kind")
 ```
@@ -504,9 +441,6 @@ _STEP_FIELDS: Final[tuple[str, ...]] = tuple(row.name for row in struct_fields(P
 _STATS: Final[tuple[Stat, ...]] = ("avg", "sum", "sd")
 _OPS: Final[tuple[Operator, ...]] = ("gt", "ge", "lt", "le", "eq", "ne")
 _AGG_OPS: Final[tuple[AggOp, ...]] = ("gt", "ge", "lt", "le", "eq")
-# `_SELECTORS` DERIVES from the closed `Selector` vocabulary, so a new selector is one `Literal`
-# member; membership decided by `hasattr` over the provider namespace instead admits `("Validate", ())` as a
-# column spec and calls it, and an unknown name falls silently through to the passthrough arm.
 _SELECTORS: Final[frozenset[str]] = frozenset(get_args(Selector))
 
 

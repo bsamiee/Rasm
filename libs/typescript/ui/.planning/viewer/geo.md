@@ -41,7 +41,6 @@ import type {
 declare namespace Geo {
   type Surface = { readonly map: MapLibreMap; readonly overlay: MapboxOverlay }
   type Fix = {
-    // the whole platform coordinate: the four measurable-or-absent facts ride Option, the fix instant rides the scalar owner
     readonly lnglat: readonly [number, number]
     readonly accuracy: number
     readonly altitude: Option.Option<number>
@@ -53,13 +52,9 @@ declare namespace Geo {
 }
 
 declare namespace Grant {
-  // the platform record whole: `state` is the live verdict, and re-narrowing `name` recovers the literal the DOM widens to `string`
   type Status<Name extends PermissionName> = Omit<PermissionStatus, "name"> & { readonly name: Name }
 }
 
-// Two legs partition the fix: the platform's permission verdict and the fix attempt itself. Each row states an
-// EMPTY subject because the platform's own position error carries a code and nothing else a reader can act on, so
-// the reason IS the whole fact and a free string here would only restate it.
 const _positionFamily = Fault.Class.family(
   ["denied", "unavailable", "timeout"] as const,
   {
@@ -110,11 +105,9 @@ class Position extends Context.Tag("ui/viewer/Position")<Position, {
 
 class Grant extends Context.Tag("ui/viewer/Grant")<Grant, {
   readonly query: <Name extends PermissionName>(name: Name) => Effect.Effect<Grant.Status<Name>>
-  readonly changes: (name: PermissionName) => Stream.Stream<PermissionState> // revocation is a live fact: the record's own change signal, never a mount-time read — only `state` moves, so no name parameter flows to the return
+  readonly changes: (name: PermissionName) => Stream.Stream<PermissionState>
 }>() {}
 
-// ONE terrain row: `_relief` applies it and the `Relief` chrome arm toggles exactly it, so the control and the
-// scene config cannot disagree about which DEM is on — a per-arm spec would fork the same terrain into two answers
 const _RELIEF = { source: "relief-dem", exaggeration: 1.2 } as const satisfies TerrainSpecification
 
 const _SKY = { "atmosphere-blend": 0.8, "sky-horizon-blend": 0.5 } as const satisfies SkySpecification
@@ -148,17 +141,15 @@ const _globe = (surface: Geo.Surface): Effect.Effect<void> =>
 const _sky = (surface: Geo.Surface): Effect.Effect<void> =>
   Effect.sync(() => {
     surface.map.setSky(_SKY)
-    surface.map.setLight(_LIGHT) // one atmosphere row: sky and light are the same live re-config, never two calls a caller sequences
+    surface.map.setLight(_LIGHT)
   })
 
 declare namespace Chrome {
-  // the closed chrome family: each arm owns its own construction options because the shipped classes disagree on
-  // arity, so the discriminant is what keeps the one `addControl` rail uniform across five different constructors
   type Rail = Data.TaggedEnum<{
     Navigate: { readonly compass: boolean; readonly pitch: boolean }
     Scale: { readonly unit: Unit }
     Locate: { readonly track: boolean }
-    Relief: {} // toggles the ONE `_RELIEF` row `_relief` applies: a per-arm spec would fork one terrain into two answers
+    Relief: {}
     Globe: {}
   }>
   type Row = { readonly rail: Chrome.Rail; readonly at: ControlPosition }
@@ -175,12 +166,9 @@ const _control = (rail: Chrome.Rail): IControl =>
     Globe: () => new GlobeControl(),
   })
 
-// the chrome set is scope-bracketed like the overlay: a control outliving its surface holds a DOM node and an event
-// subscription `map.remove()` never reaches, so acquisition and removal ride the same scope the map does
 const _chrome = (surface: Geo.Surface, rows: ReadonlyArray<Chrome.Row>): Effect.Effect<void, never, Scope.Scope> =>
   Effect.asVoid(Effect.acquireRelease(
     Effect.sync(() =>
-      // BOUNDARY ADAPTER — the mint-then-add pair is the platform's own registration seam; the handles detach immutable
       Array.map(rows, (row) => {
         const control = _control(row.rail)
         surface.map.addControl(control, row.at)
@@ -226,17 +214,15 @@ const _ORIGIN: Clock.Held = { frame: { now: 0, delta: 0 }, stamp: 0 }
 
 const _advanced = (held: Clock.Held, drive: Clock.Drive, stamp: number): Clock.Held =>
   _Drive.$match(drive, {
-    // every arm re-stamps, so the first advance after any drive change measures a real interval
     Run: ({ rate }) => ({ frame: { now: held.frame.now + (stamp - held.stamp) * rate, delta: (stamp - held.stamp) * rate }, stamp }),
     Hold: () => ({ frame: { now: held.frame.now, delta: 0 }, stamp }),
-    Seek: ({ at }) => ({ frame: { now: at, delta: at - held.frame.now }, stamp }), // the signed jump lands a mixer on the sought pose in one step; the next frame measures nothing and holds
+    Seek: ({ at }) => ({ frame: { now: at, delta: at - held.frame.now }, stamp }),
   })
 
 const _stamps: Stream.Stream<number> = Stream.asyncScoped<number>(
   (emit) =>
     Effect.acquireRelease(
       Effect.sync(() => {
-        // BOUNDARY ADAPTER: the platform frame callback is the one push seam — emissions are void-discarded and the handle never escapes
         const pump = { handle: 0 }
         const step = (stamp: number): void => {
           pump.handle = globalThis.requestAnimationFrame(step)
@@ -247,12 +233,12 @@ const _stamps: Stream.Stream<number> = Stream.asyncScoped<number>(
       }),
       (pump) => Effect.sync(() => globalThis.cancelAnimationFrame(pump.handle)),
     ),
-  { bufferSize: 1, strategy: "sliding" }, // freshest-wins: a stalled consumer coarsens delta, never backpressures the browser
+  { bufferSize: 1, strategy: "sliding" },
 )
 
 const _live = (opening: Clock.Drive): Effect.Effect<Clock.Live, never, Scope.Scope> =>
   Effect.gen(function* () {
-    const drive = yield* Ref.make<Clock.Drive>(opening) // the boot posture is a drive value: a held or scrubbed start needs no second parameter
+    const drive = yield* Ref.make<Clock.Drive>(opening)
     const frames = yield* SubscriptionRef.make<Clock.Frame>(_ORIGIN.frame)
     yield* Effect.forkScoped(
       Stream.runForEach(
@@ -261,7 +247,7 @@ const _live = (opening: Clock.Drive): Effect.Effect<Clock.Live, never, Scope.Sco
             const next = _advanced(held, row, stamp)
             return [next, next.frame] as const
           })),
-        (frame) => SubscriptionRef.set(frames, frame), // the drain is scope-forked: no run call fires inside the callback
+        (frame) => SubscriptionRef.set(frames, frame),
       ),
     )
     return { frames, drive: (row) => Ref.set(drive, row) }
@@ -334,7 +320,6 @@ const _drive = (map: MapLibreMap, intent: Camera.Intent): void =>
     FitBounds: ({ bounds, padding }) => void map.fitBounds([bounds[0], bounds[1], bounds[2], bounds[3]], { padding }),
     LookAt: ({ eye, millis, target }) =>
       void map.easeTo({
-        // the facade declares this solve over `LngLat` instances, not the `LngLatLike` its camera class takes
         ...map.calculateCameraOptionsFromTo(new LngLat(eye[0], eye[1]), eye[2], new LngLat(target[0], target[1]), target[2]),
         duration: millis,
       }),
@@ -348,7 +333,7 @@ const _settled = (map: MapLibreMap): Camera.State =>
     pitch: map.getPitch(),
   }))
 
-const _gestured = (state: Camera.State): Camera.Intent => _Intent.JumpTo({ state }) // the gesture owner's write half: a live drag is already at its destination, so easing would fight the pointer
+const _gestured = (state: Camera.State): Camera.Intent => _Intent.JumpTo({ state })
 ```
 
 ## [05]-[PROJECT]
@@ -366,11 +351,10 @@ import { WebMercatorViewport } from "@deck.gl/core"
 import { type AllGeoJSON, bbox } from "@turf/turf"
 
 declare namespace Camera {
-  type Extent = { readonly width: number; readonly height: number } // the surface extent the viewport solve needs; it rides the camera hub, never a second namespace with no owner
+  type Extent = { readonly width: number; readonly height: number }
 }
 
 const _anchor = (state: Camera.State, extent: Camera.Extent, lnglat: readonly [number, number]): readonly [number, number] => {
-  // BOUNDARY ADAPTER
   const projected = new WebMercatorViewport({
     longitude: state.center[0],
     latitude: state.center[1],
@@ -386,7 +370,6 @@ const _anchor = (state: Camera.State, extent: Camera.Extent, lnglat: readonly [n
 const _fitFrom = (geometry: AllGeoJSON, padding: number): Camera.Intent =>
   pipe(bbox(geometry), (box) =>
     _Intent.FitBounds({
-      // the tuple arity is the discriminant: the 6-form interleaves the altitude band, so the horizontal quadruple reads by position without a cast
       bounds: box.length === 6 ? ([box[0], box[1], box[3], box[4]] as const) : ([box[0], box[1], box[2], box[3]] as const),
       padding,
     }))
@@ -452,16 +435,11 @@ import { tableFromIPC, type RecordBatch, type Table } from "apache-arrow"
 import { Array, Cache, Data, type Duration, Effect, Match, pipe, type Schedule, Schema } from "effect"
 import type { FeatureCollection } from "geojson"
 
-// Four legs partition the plane and each reason renders its OWN subject: a decode refusal names its cause, a
-// projection refusal names the SRID the row table holds no entry for, a style refusal names WHICH slot kind the
-// live style lacks beside the coordinate that named it, and a transport refusal names its cause. One free
-// `detail` string spelled all four as bracketed prose a reader had to parse back into a coordinate.
 const _slots = ["layer", "source", "sprite"] as const
 
 const _geoFamily = Fault.Class.family(
   ["frame-refused", "crs-unresolved", "style-unbound", "tile-unreachable"] as const,
   {
-    // arrived and would not decode: caller-blamed, quarantined, never re-driven
     "frame-refused": Fault.Class.row({
       class: "malformed",
       leg: "decode",
@@ -474,15 +452,12 @@ const _geoFamily = Fault.Class.family(
       detail: Schema.Struct({ srid: Schema.Int }),
       render: ({ srid }) => `srid ${srid} resolves to no registered crs row`,
     }),
-    // a source, layer, or glyph the live style never declared: the write names a coordinate the style has no slot
-    // for, so a retry against the same style answers identically and the refusal is the operator's evidence
     "style-unbound": Fault.Class.row({
       class: "absent",
       leg: "style",
       detail: Schema.Struct({ slot: Schema.Literal(..._slots), id: Schema.String, cause: Schema.String }),
       render: ({ cause, id, slot }) => `style ${slot} ${id}: ${cause}`,
     }),
-    // never arrived: system-blamed and retryable, so the lookup's Schedule re-drives it off the class column
     "tile-unreachable": Fault.Class.row({
       class: "unavailable",
       leg: "transport",
@@ -555,12 +530,10 @@ const _tileCache = (
     lookup: (tile: Wire.GeoFeature.Tile) =>
       Effect.tryPromise({
         try: (signal) => fetched(tile, signal),
-        catch: (defect) => new GeoFault({ case: { reason: "tile-unreachable", cause: String(defect) } }), // the fetch leg is transport truth: retryable and system-blamed, so the schedule re-drives it
+        catch: (defect) => new GeoFault({ case: { reason: "tile-unreachable", cause: String(defect) } }),
       }).pipe(Effect.retry(policy.retry)),
   })
 
-// the abort leg of the tile lookup: deck fires the load props' signal when the viewport drops a pending tile, and an
-// already-aborted signal never fires again, so the settled case answers before any listener is bound
 const _untilAborted = (signal: AbortSignal): Effect.Effect<never> =>
   signal.aborted
     ? Effect.interrupt
@@ -578,13 +551,10 @@ const _rasterTiles = (
   new TileLayer<ImageBitmap>({
     id,
     getTileData: ({ index, signal }) => {
-      // the abort RACES the shared entry: threading it into `lookup` would cancel the fetch every other caller on this
-      // coordinate is awaiting, so only the asking fiber dies and the cache entry runs on for whoever else wants it
       const at = Data.struct({ zoom: index.z, x: index.x, y: index.y })
       return run(signal === undefined ? cache.get(at) : Effect.raceFirst(cache.get(at), _untilAborted(signal)))
     },
     renderSubLayers: (props) => {
-      // BOUNDARY ADAPTER
       const box = props.tile.boundingBox as [[number, number], [number, number]]
       return new BitmapLayer({
         id: `${props.id}/frame`,
@@ -598,7 +568,7 @@ const _vectorTiles = (id: string, template: string, idProperty: string): MVTLaye
   new MVTLayer({ id, data: template, binary: true, pickable: true, uniqueIdProperty: idProperty })
 
 declare namespace Tiles3d {
-  type Basis = "x" | "y" | "z" // the loader's own up-axis vocabulary; "z" is the re-basing every Z-up producer needs
+  type Basis = "x" | "y" | "z"
   type Transport = Data.TaggedEnum<{
     Open: {}
     Ion: { readonly token: string }
@@ -610,8 +580,6 @@ declare namespace Tiles3d {
 
 const _Transport = Data.taggedEnum<Tiles3d.Transport>()
 
-// the decoded-payload vocabulary keyed by the loader's own type constant: each row names the peer that surfaces it, so
-// `onTileLoad` routes evidence and appearance off one table and no render switch restates deck's own traversal
 const _peers = { mesh: "scene#INSTANCED_ROWS", points: "PointCloudLayer", container: "_peers", none: "<unsurfaced>" } as const
 
 const _tileContent = {
@@ -624,15 +592,14 @@ const _tileContent = {
   [TILE3D_TYPE.GLTF]: "mesh",
 } as const satisfies Record<(typeof TILE3D_TYPE)[keyof typeof TILE3D_TYPE], Tiles3d.Peer>
 
-// the up-axis is a LOADER option keyed by each loader's own bag, never a layer prop; the pinned default is null, so an omitted row hands the mesh peer an unrotated payload
 const _transports = {
   Open: (basis: Tiles3d.Basis) => ({ loaders: [Tiles3DLoader], loadOptions: { "3d-tiles": { assetGltfUpAxis: basis } } }),
   Ion: (basis: Tiles3d.Basis, token: string) => ({
     loaders: [CesiumIonLoader],
-    loadOptions: { "cesium-ion": { accessToken: token, assetGltfUpAxis: basis } }, // the Ion bag is its own key; the asset identity stays in the href
+    loadOptions: { "cesium-ion": { accessToken: token, assetGltfUpAxis: basis } },
   }),
   Archive: (basis: Tiles3d.Basis, path: string) => ({
-    loaders: [Tiles3DArchiveFileLoader, Tiles3DLoader], // two loaders, one row: the archive unwraps one member to bytes, the tileset loader parses them
+    loaders: [Tiles3DArchiveFileLoader, Tiles3DLoader],
     loadOptions: { "3d-tiles-archive": { path }, "3d-tiles": { assetGltfUpAxis: basis } },
   }),
 } as const satisfies { readonly [K in Tiles3d.Transport["_tag"]]: (basis: Tiles3d.Basis, ...rest: never) => unknown }
@@ -650,8 +617,7 @@ const _tiles3d = (id: string, source: string, policy: Tiles3d.Policy): Tile3DLay
   })
 
 declare namespace Scan {
-  type Grade = "common" | "extended" // point-record format, never a file extension
-  // one policy value carries the whole scan decision: the grade that picks the descriptor sits beside the decimation and precision the same format governs
+  type Grade = "common" | "extended"
   type Policy = {
     readonly grade: Scan.Grade
     readonly skip: number
@@ -678,12 +644,8 @@ const _scan = (id: string, href: string, policy: Scan.Policy): PointCloudLayer =
     material: true,
   })
 
-// the one-shape envelope: the loader hardcodes its `shape`, so the discriminant is a constant and the projection
-// below is a member read rather than a narrow
 type _ArrowEgress = Awaited<ReturnType<typeof LASArrowLoader.parse>>
 
-// the fused fetch-and-decode call can fail on either truth, so the caught value is triaged rather than assigned one reason:
-// the loaders.gl fetch failure is transport (retryable, system-blamed), every other defect is payload (quarantined)
 const _scanFault: (defect: unknown) => GeoFault = pipe(
   Match.type<unknown>(),
   Match.when(Match.instanceOf(FetchError), (fault) => new GeoFault({ case: { reason: "tile-unreachable", cause: fault.message } })),
@@ -693,8 +655,6 @@ const _scanFault: (defect: unknown) => GeoFault = pipe(
 const _scanned = (href: string): Effect.Effect<Table, GeoFault> =>
   Effect.map(
     Effect.tryPromise({
-      // the abort signal is the ONE row that reaches this lane, and it reaches the transport leg alone: core owns the
-      // fetch while the loader owns a decode that reads no option at all
       try: (signal) => load(href, LASArrowLoader, { fetch: { signal } }),
       catch: _scanFault,
     }),
@@ -734,7 +694,6 @@ const _trips = (
 const _imagery = (id: string, endpoint: string, layers: ReadonlyArray<string>): _WMSLayer =>
   new _WMSLayer({ id, data: endpoint, serviceType: "wms", layers: [...layers] })
 
-// the effect element type derives from the sink's own parameter, so no deck `Effect` import collides with the rail's
 type _Passes = NonNullable<Parameters<MapboxOverlay["setProps"]>[0]["effects"]>
 
 const _push = (surface: Geo.Surface, layers: LayersList, effects: _Passes): void =>
@@ -777,17 +736,12 @@ const _extensions = {
 } as const
 
 declare namespace Screen {
-  type Pass = ConstructorParameters<typeof PostProcessEffect>[0] // deck's constructor IS the admission surface; the luma substrate is never imported directly
-  type Depth = { readonly strength: number; readonly radius: number } // eye-dome: shading weight, and the neighbour sampling ring in CSS pixels
+  type Pass = ConstructorParameters<typeof PostProcessEffect>[0]
+  type Depth = { readonly strength: number; readonly radius: number }
 }
 
-// the row's consumed default: a surface taking the standard shading passes its pixel ratio alone
 const _DEPTH: Screen.Depth = { strength: 1.2, radius: 2 }
 
-// the authored pass, whose generated entry is therefore `eyedome_sampleColor(texSrc, screen.texSize, coordinate)`:
-// the std140 block order IS the uniformTypes order, the shade folds the luminance drop against the brightest ring
-// neighbour — the colour-frame reading of the eye-dome discontinuity, since no depth attachment reaches a screen
-// pass — and `radius` arrives already scaled to device pixels so the shader divides by texSize alone
 const _EYEDOME = {
   name: "eyedome",
   fs: `\
@@ -853,12 +807,10 @@ declare namespace Planar {
   type Relation = keyof typeof _relation
   type Overlay = keyof typeof _overlay
   type Projection = keyof typeof _project
-  type _Relations<T extends Record<Relation, (a: Planar.Subject, b: Planar.Subject) => boolean> = typeof _relation> = T // row guard: a non-uniform predicate fails here, never at a call site
+  type _Relations<T extends Record<Relation, (a: Planar.Subject, b: Planar.Subject) => boolean> = typeof _relation> = T
   type _Overlays<T extends Record<Overlay, (areal: Planar.Areal) => Planar.Shaped> = typeof _overlay> = T
 }
 
-// the NTS relationship matrix, member for member: one uniform arity means a relation is selected as data and the
-// cross-language pair is checkable by name — a divergence between this row and its C# twin is the drift defect
 const _relation = {
   contains: booleanContains,
   within: booleanWithin,
@@ -869,31 +821,23 @@ const _relation = {
   touches: booleanTouches,
 } as const
 
-// the boolean-overlay triple: collection in, one feature or null out — the empty overlay is an answer, never a fault
 const _overlay = { union, intersect, difference } as const
 
 const _project = { mercator: toMercator, wgs84: toWgs84 } as const
 
-const _PRECISION = { coordinates: 2, precision: 7 } as const // the re-encode gate: planar precision trims once, so a derived feature cannot fork a content key against the same geometry rounded elsewhere
+const _PRECISION = { coordinates: 2, precision: 7 } as const
 
-// the coordinate substrate every fold rides: a walk this table does not carry is a substrate call, never a loop
 const _walk = { coords: coordEach, geoms: geomEach, features: featureEach } as const
 
-// the flexible-input normalizers: turf takes a `Coord` union and these collapse it once, so no op re-probes shape
 const _read = { coord: getCoord, geom: getGeom, kind: getType } as const
 
-// ONE measurement policy: `area` is fixed at square metres by the package while `length` takes `{ units }`, so
-// stating both axes here is what keeps a report's two numbers on one declared scale
 const _MEASURE = { area: "hectares", span: "meters" } as const satisfies { area: AreaUnits; span: Units }
 
 const _measured = (geojson: Feature | FeatureCollection): { readonly area: number; readonly span: number } => ({
-  area: convertArea(area(geojson), "meters", _MEASURE.area), // the area crossing: the package answers m², the policy names the report's unit
+  area: convertArea(area(geojson), "meters", _MEASURE.area),
   span: length(geojson, { units: _MEASURE.span }),
 })
 
-// the ONE raiser `crs-unresolved` has, and the `[06]` assembly law realized: the wire SRID resolves against the
-// core row table, a projected collection crosses to WGS84 exactly once here, and an unresolvable SRID refuses —
-// re-projecting inside a layer accessor would re-run this crossing per feature per draw
 const _admitted = <T extends AllGeoJSON>(geojson: T, srid: number): Effect.Effect<T, GeoFault> =>
   Option.match(Wire.GeoFeature.Crs.of(srid), {
     onNone: () => Effect.fail(new GeoFault({ case: { reason: "crs-unresolved", srid } })),
@@ -934,7 +878,7 @@ const _planar: Planar.Shape = {
   dissolve,
   clip: bboxClip,
   mask,
-  measure: _measured, // the two metric axes answer together on one declared scale; a bare `length` forward would leave its unit at the call site
+  measure: _measured,
   centroid,
   admit: _admitted,
   trimmed: (geojson) => truncate(geojson, _PRECISION),
@@ -968,8 +912,6 @@ import type {
 } from "maplibre-gl"
 
 declare namespace Style {
-  // the property writes stay three correlated members: `AllPaintProperties[K]` and `AllLayoutProperties[K]` are
-  // disjoint key spaces the package correlates per name, so a union payload would erase the very correlation
   type Shape = {
     readonly layer: (surface: Geo.Surface, layer: AddLayerObject, beforeId?: string) => Effect.Effect<void, GeoFault>
     readonly paint: <K extends keyof AllPaintProperties>(
@@ -989,8 +931,6 @@ declare namespace Style {
   }
 }
 
-// the probe every layer-addressed write shares: the host drops an unknown-id write behind an internal error event,
-// so the coordinate is proven here or the family carries the refusal — nothing downstream can observe the silence
 const _bound = (surface: Geo.Surface, layerId: string): Effect.Effect<void, GeoFault> =>
   surface.map.getLayer(layerId) === undefined
     ? Effect.fail(new GeoFault({ case: { reason: "style-unbound", slot: "layer", id: layerId, cause: "the live style declares no such layer" } }))
@@ -999,7 +939,7 @@ const _bound = (surface: Geo.Surface, layerId: string): Effect.Effect<void, GeoF
 const _style: Style.Shape = {
   layer: (surface, layer, beforeId) =>
     surface.map.getLayer(layer.id) !== undefined
-      ? Effect.void // the coordinate already holds: a re-add is the registry's own idempotence, never a fault
+      ? Effect.void
       : Effect.zipRight(
           Option.match(Option.fromNullable(beforeId), { onNone: () => Effect.void, onSome: (before) => _bound(surface, before) }),
           Effect.sync(() => void surface.map.addLayer(layer, beforeId)),
@@ -1011,8 +951,6 @@ const _style: Style.Shape = {
   filter: (surface, layerId, filter) =>
     Effect.zipRight(_bound(surface, layerId), Effect.sync(() => void surface.map.setFilter(layerId, filter))),
   data: (surface, sourceId, payload) =>
-    // the undeclared source is the one refusal this sink can raise: `getSource` answers undefined and there is no
-    // promise to await, so the miss lifts here rather than resolving into a write the style silently dropped
     Option.match(Option.fromNullable(surface.map.getSource<GeoJSONSource>(sourceId)), {
       onNone: () => Effect.fail(new GeoFault({ case: { reason: "style-unbound", slot: "source", id: sourceId, cause: "the live style declares no such source" } })),
       onSome: (source) =>
@@ -1023,8 +961,6 @@ const _style: Style.Shape = {
     }),
 }
 
-// the selection echo consumes `mark`'s own diff pair: entered ids take the key, left ids give it back, and the
-// removal names the SAME key the stamp wrote so a hover or a review tint riding another key survives untouched
 const _SELECTED = "selected" as const
 
 const _echo = (
@@ -1033,14 +969,11 @@ const _echo = (
   diff: { readonly entered: ReadonlyArray<string>; readonly left: ReadonlyArray<string> },
 ): Effect.Effect<void> =>
   Effect.sync(() => {
-    // BOUNDARY ADAPTER — the feature-state plane is an imperative host surface keyed by identifier
     Array.forEach(diff.entered, (id) => void surface.map.setFeatureState({ ...target, id }, { [_SELECTED]: true }))
     Array.forEach(diff.left, (id) => void surface.map.removeFeatureState({ ...target, id }, _SELECTED))
   })
 
 declare namespace Glyph {
-  // the per-context resources a drawing glyph binds: the family rebuilds them against whatever `gl` arrives and hands
-  // them to the paint routine, so no arm ever captures a handle a context loss silently invalidates
   type Kit = {
     readonly program: WebGLProgram
     readonly array: WebGLVertexArrayObject
@@ -1051,20 +984,18 @@ declare namespace Glyph {
     Sprite: { readonly id: string; readonly href: string }
     Drawn: {
       readonly id: string
-      readonly width: number // the slot dimensions are FINAL: `updateImage` refuses a resize, so a re-dimensioned glyph is a new id
+      readonly width: number
       readonly height: number
       readonly pixelRatio: number
       readonly build: (gl: WebGL2RenderingContext) => Glyph.Kit
       readonly paint: (target: StyleImageWebGLTarget, kit: Glyph.Kit) => void
-      readonly changed: () => boolean // the redraw probe: an always-animated ring answers `true`, a datum-driven wedge answers off its own datum
+      readonly changed: () => boolean
     }
   }>
 }
 
 const _Glyph = Data.taggedEnum<Glyph.Row>()
 
-// the GPU arm rendered as pure data: the descriptor survives a context loss and the kit does not, so the build is
-// lazy against the live `gl` and the dead context's entry collects with the context that keyed it
 const _drawing = (row: Data.TaggedEnum.Value<Glyph.Row, "Drawn">): StyleImageInterface => {
   const kits = new WeakMap<WebGL2RenderingContext, Glyph.Kit>()
   return {
@@ -1072,8 +1003,6 @@ const _drawing = (row: Data.TaggedEnum.Value<Glyph.Row, "Drawn">): StyleImageInt
     height: row.height,
     data: {
       renderWithWebGL: (target) => {
-        // BOUNDARY ADAPTER — the atlas slot is the only rectangle this image owns: the texture arrives unbound with no
-        // vertex array, and the scissor test is the one state the host never restores, so the carve is cleared here
         const gl = target.gl
         const kit = kits.get(gl) ?? row.build(gl)
         kits.set(gl, kit)
@@ -1084,7 +1013,7 @@ const _drawing = (row: Data.TaggedEnum.Value<Glyph.Row, "Drawn">): StyleImageInt
         gl.enable(gl.SCISSOR_TEST)
         gl.useProgram(kit.program)
         gl.bindVertexArray(kit.array)
-        row.paint(target, kit) // premultiplied alpha inside the carve alone: a pixel beyond it corrupts a neighbour
+        row.paint(target, kit)
         gl.disable(gl.SCISSOR_TEST)
       },
     },
@@ -1094,14 +1023,12 @@ const _drawing = (row: Data.TaggedEnum.Value<Glyph.Row, "Drawn">): StyleImageInt
 
 const _glyph = (surface: Geo.Surface, row: Glyph.Row): Effect.Effect<void, GeoFault> =>
   _Glyph.$match(row, {
-    // a repeat `addImage` on a live id is refused upstream, so registration reads the registry before it writes
     Image: ({ href, id, pixelRatio, sdf }) =>
       surface.map.hasImage(id)
         ? Effect.void
         : Effect.flatMap(
             Effect.tryPromise({
               try: () => surface.map.loadImage(href),
-              // an unfetchable glyph is transport truth, so the class column lets a schedule re-drive it
               catch: (defect) => new GeoFault({ case: { reason: "tile-unreachable", cause: String(defect) } }),
             }),
             (response) =>
@@ -1110,15 +1037,12 @@ const _glyph = (surface: Geo.Surface, row: Glyph.Row): Effect.Effect<void, GeoFa
           ),
     Sprite: ({ href, id }) =>
       Effect.try({
-        // BOUNDARY ADAPTER — the pair list IS the sprite registry, and the guarded write is one host unit because the
-        // sheet's own fetch answers a callback the facade discards; the style-not-loaded refusal is what throws
         try: () => {
           if (Array.some(surface.map.getSprite(), (sheet) => sheet.id === id)) return
           surface.map.addSprite(id, href)
         },
         catch: (defect) => new GeoFault({ case: { reason: "style-unbound", slot: "sprite", id, cause: String(defect) } }),
       }),
-    // one call registers it: the host routes a GPU-backed image straight through its own update rail
     Drawn: (drawn) =>
       surface.map.hasImage(drawn.id)
         ? Effect.void
@@ -1129,18 +1053,14 @@ const _glyph = (surface: Geo.Surface, row: Glyph.Row): Effect.Effect<void, GeoFa
 const _glyphs = (surface: Geo.Surface, rows: ReadonlyArray<Glyph.Row>): Effect.Effect<void, GeoFault> =>
   Effect.forEach(rows, (row) => _glyph(surface, row), { discard: true })
 
-// the DOM anchor is scope-bracketed like every other surface resource: a pin outliving its map keeps a detached
-// element and its listeners alive, and `mark#ANCHOR_PINS` mints the pin VALUE while this row owns the element
 const _pinned = (
   surface: Geo.Surface,
   lnglat: readonly [number, number],
   element: HTMLElement,
-  // the detail node arrives already through `system/primitive`'s sanitize gate: this row takes a node, never HTML
   detail: Option.Option<Node>,
 ): Effect.Effect<Marker, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.sync(() =>
-      // BOUNDARY ADAPTER — the fluent DOM-overlay builder; binding the popup to the marker is what makes the pair one lifetime
       new Marker({ element })
         .setLngLat([lnglat[0], lnglat[1]])
         .setPopup(Option.getOrNull(Option.map(detail, (node) => new Popup().setDOMContent(node))))
@@ -1214,7 +1134,7 @@ const Geo: Geo.Shape = {
   pinned: _pinned,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Camera, Clock, Geo, GeoFault, Grant, Position, PositionFault }
 ```

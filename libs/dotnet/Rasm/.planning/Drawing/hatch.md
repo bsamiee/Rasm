@@ -23,7 +23,7 @@ This page founds no clipping kernel: regions normalize once through `Arrangement
 - Boundary: the hatch owner is the ONE polymorphic `HatchOp` fold — a `ParallelHatcher`/`CrosshatchHatcher`/`MotifStamper` sibling-class family is the named density defect. Clipping is EXACT: region algebra composes `PlanarOverlay` (a page-local polygon clipper is deleted), crossing existence is the exact lifted-sign straddle and the crossing point the `SegmentSegment` construction (an epsilon-band straddle or a slope-intercept solve is the non-determinism defect), and the winding walk starts at zero because every course spans the extent with padded endpoints — no seed battery, no interior probe. Symmetry composes the `Parametric` wallpaper vocabulary (`Patterning.Apply` the orbit fold); a page-local Seitz table or a hand-rolled reflection coset is the deleted re-mint, and the `Drawing`→`Parametric` read is the recorded same-stratum S3 reach. Host `Rhino.Geometry.Hatch` never enters — the wire is host-neutral SoA data, host hatch materialization living at host `Annotation/hatch`, the hatch-table custody tier this synthesis stands beside, consumers selecting by output target; screen-plane raw `double` stays inside the course kernels, `Point3d`/`Line`/`Polyline` the only public coordinate carriers, and a magnitude, count, or unit-bounded fraction crossing a signature carries its band owner rather than a bare `double`. Dash rhythm is row data in spacing units — an absolute dash length beside the spacing is the killed twin knob — and the census is one slot-keyed fact stream over one `HatchRow`, so six parallel accumulators and the multi-argument delta signature that fed them are the killed parallel-counter form. Chain assembly composes `SuccessorChain` at `Drawing/view`, the ONE successor walk both Drawing carriers read; a second cursor loop beside it is the deleted twin. `Apply` is total over the `Fin` rail; admission refusals ride the `Op` channel and geometry defects ride `GeometryFault` family, neither family absorbing the other.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -43,13 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Drawing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Dash law in SPACING units — absolute scale enters once through HatchPlan.Spacing. Bounds ride `Band` rows, so
-// the guard has ONE owner and this factory keeps only the CROSS-member claim no single band can state: a
-// zero-period rhythm (Length + Gap == 0) once sent the world dash grid into a non-advancing counter loop, so a
-// grown row with a bad literal breaks at admission rather than hanging the weave.
-// Every member is a struct, so the generated default evidence reaches a fallible caller through `Op.AcceptValidated`;
-// no package validation-error type or parallel fault plane exists.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct HatchRhythm {
     public double Length { get; }
@@ -65,9 +59,6 @@ public readonly partial struct HatchRhythm {
                 : HatchClaim.Refused(label: nameof(HatchRhythm), requirement: "a dash period with Length + Gap strictly above zero"));
 }
 
-// One course family relative to the plan: AngleOffset off Plan.Angle, SpacingScale on Plan.Spacing, Phase in
-// [0,1) spacings, Dash = None a continuous course. SpacingScale carries its band as a value object; Phase and
-// Stagger read `Band.Fractional`, the half-open row `Numerics/atoms` owns.
 [ComplexValueObject]
 public readonly partial struct HatchFamily {
     public double AngleOffset { get; }
@@ -81,21 +72,14 @@ public readonly partial struct HatchFamily {
             : HatchClaim.Refused(label: nameof(AngleOffset), requirement: "a finite radian offset from the plan angle");
 }
 
-// Family and Course each carry two meanings across the two arms — family ordinal against orbit seat, course
-// ordinal against instance ordinal — so the discriminant rides the row rather than a consumer inferring it.
 [SmartEnum<int>]
 public sealed partial class HatchArm {
     public static readonly HatchArm Course = new(0);
     public static readonly HatchArm Motif  = new(1);
 }
 
-// Row data IS the pattern's structure: family-table columns over ONE weave, no per-pattern class.
-// Motif carries no families — its HatchPlan.Motif orbit realizes it through Patterning.Apply.
 [SmartEnum<int>]
 public sealed partial class HatchPattern {
-    // Declared BEFORE the rows: static field initializers run in textual order, so a scale the rows read must
-    // already hold its value when the first row mints. Every published family rides the plan's own spacing
-    // unchanged — a scale column earns a distinct value only where a pattern publishes a second pitch.
     private static readonly PositiveMagnitude Unscaled = PositiveMagnitude.Create(value: 1.0);
 
     public static readonly HatchPattern Parallel = new(key: 0, families: Seq(
@@ -111,8 +95,6 @@ public sealed partial class HatchPattern {
     public Seq<HatchFamily> Families { get; }
 }
 
-// Census slot vocabulary: one fact stream with slot metadata replaces six parallel counters and the
-// multi-argument delta signature that fed them.
 [SmartEnum<int>]
 public sealed partial class HatchCount {
     public static readonly HatchCount Regions   = new(0);
@@ -123,10 +105,7 @@ public sealed partial class HatchCount {
     public static readonly HatchCount Culled    = new(5);
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
-// ONE refusal grammar for the folder — a prose requirement naming what the value must be, the shape every
-// sheet.md peer carries — replacing the angle-bracket machine token the two rhythm factories spelled. `Band`
-// rows stay the range authority: a factory reads `Admits` and never restates a bound of its own.
+// --- [ERRORS] --------------------------------------------------------------------------
 internal static class HatchClaim {
     internal static Fault? Banded(string label, Band band, double value) =>
         band.Admits(value: value)
@@ -137,16 +116,10 @@ internal static class HatchClaim {
         new KernelFault.InvalidValue(Label: label, Requirement: requirement);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Wallpaper symmetry rides Orbit.Group — Parametric's theorem-closed vocabulary composed as-is;
-// Rings are the motif geometry the orbit stamps, closed by claim. A directional material's legality rides
-// Orbit.Law the same way — the plan's own admission adjudicates, never a second gate here.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record HatchMotif(PatternPlan Orbit, [property: OrderedEquality] Seq<Polyline> Rings);
 
-// Per-region policy: absolute Angle/Spacing/Origin here, rhythm structure on the pattern row. The five claims
-// accumulate at ADMISSION through the independent-clause rail, so `Weave` reads one regime and a caller learns
-// which claim refused instead of one opaque string standing for all five.
 public sealed record HatchPlan {
     private HatchPlan(HatchPattern pattern, double angle, PositiveMagnitude spacing, Point2d origin, Option<HatchMotif> motif) {
         Pattern = pattern;
@@ -180,15 +153,10 @@ public sealed record HatchPlan {
 [Equatable]
 public readonly partial record struct HatchRegion([property: OrderedEquality] Seq<Polyline> Rings, HatchPlan Plan);
 
-// Every slot the TAKEN arm measures; Grazed counts closed-open lift incidences (the exactness honesty census),
-// Culled the motif instances whose clip against the region is empty. Accessors are the read surface, so the
-// slot roster stays the one authority and no consumer indexes the map.
 [Equatable]
 public sealed partial record HatchReceipt([property: UnorderedEquality] HashMap<HatchCount, int> Counts) {
     public static readonly HatchReceipt Empty = new(HashMap<HatchCount, int>());
 
-    // An UNMEASURED slot is absent, never zero: a Motif op takes no course measurement, and a zero default there
-    // is indistinguishable from a course census the run genuinely measured at zero.
     public Option<int> Of(HatchCount slot) => Counts.Find(slot);
     public Option<int> Regions => Of(HatchCount.Regions);
     public Option<int> Courses => Of(HatchCount.Courses);
@@ -198,9 +166,6 @@ public sealed partial record HatchReceipt([property: UnorderedEquality] HashMap<
     public Option<int> Culled => Of(HatchCount.Culled);
 }
 
-// Successor-linked SoA wire: a course run is one row (Next = -1), a clipped motif loop a linked ring; Arm names
-// which reading Family and Course carry — family ordinal and course ordinal on a Course row, orbit seat and
-// instance ordinal on a Motif row — so a consumer never infers the arm from the shape of the numbers.
 [Equatable]
 public sealed partial record HatchResult(
     [property: OrderedEquality] Arr<Point3d> Start, [property: OrderedEquality] Arr<Point3d> End,
@@ -219,16 +184,12 @@ public sealed partial record HatchResult(
         Next.All(link => link >= -1 && link < Start.Count),
         Receipt.Crossings.Map(static census => census >= 0).IfNone(true),
         Receipt.Grazed.Map(static census => census >= 0).IfNone(true),
-        // A measured instance census demands a measured cull within it; an unmeasured one demands the cull be
-        // unmeasured too, so the pair cannot report a cull against an arm that never ran.
         Receipt.Instances.Match(
             Some: total => Receipt.Culled.Map(culled => culled <= total).IfNone(false),
             None: () => Receipt.Culled.IsNone));
 
     public Seq<Line> ToSegments() => toSeq(Enumerable.Range(0, Start.Count).Select(i => new Line(Start[i], End[i])));
 
-    // Chain walk is SuccessorChain's, seated beside DrawingProjection; this carrier only says how an index
-    // chain becomes a polyline off its own SoA columns.
     public Seq<Polyline> ToPolylines() {
         HatchResult wire = this;
         return SuccessorChain.Walk(
@@ -238,13 +199,8 @@ public sealed partial record HatchResult(
     }
 }
 
-// ONE emission row: the census collapsed to a slot-keyed stream and the emission follows it, so six parallel
-// accumulators and the five-argument delta signature that fed them are gone from the arena.
 internal readonly record struct HatchRow(Point3d A, Point3d B, int Region, int Family, int Course, int Next, HatchArm Arm);
 
-// Single-writer emission arena under the Meshing/edit arena law; Freeze() the one projection. Rows grow on the
-// pooled writer and the census rides one slot-keyed map, so a seventh axis needs no field, no parameter, and no
-// Freeze edit — and the arena is row-major for its writer while the wire stays columnar for its readers.
 internal sealed class HatchStore : IDisposable {
     readonly ArrayPoolBufferWriter<HatchRow> rows = new();
     HashMap<HatchCount, int> counts = HashMap<HatchCount, int>();
@@ -256,7 +212,6 @@ internal sealed class HatchStore : IDisposable {
         return rows.WrittenCount - 1;
     }
 
-    // Links land on the RENTED array because a successor slot is only known once its own row is written.
     internal void Link(int fromSlot, int toSlot) {
         ArraySegment<HatchRow> written = rows.DangerousGetArray();
         written.Array![written.Offset + fromSlot] = written.Array[written.Offset + fromSlot] with { Next = toSlot };
@@ -280,11 +235,7 @@ internal sealed class HatchStore : IDisposable {
     public void Dispose() => rows.Dispose();
 }
 
-// --- [POLICIES] ---------------------------------------------------------------------------
-// CourseBudget caps the projected course census BEFORE any generation and caps the dash census inside a run — a
-// sub-tolerance spacing over a sheet extent fails typed instead of exploding the wire. The ceiling is a WIRE-ROW
-// provenance, not a derivation: the region extent and plan spacing that would derive one arrive at `Courses`,
-// two folds past this row, so the figure states where it comes from rather than claiming a derivation.
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record HatchPolicy(ArrangementPolicy Arrange, IntersectPolicy Narrow, BuildPolicy Broad, Dimension CourseBudget) : IValidityEvidence {
     public static readonly Dimension WireCourseCeiling = Dimension.Create(value: 100_000);
 
@@ -292,23 +243,19 @@ public sealed record HatchPolicy(ArrangementPolicy Arrange, IntersectPolicy Narr
         Arrange: ArrangementPolicy.Canonical, Narrow: IntersectPolicy.Canonical, Broad: BuildPolicy.Canonical,
         CourseBudget: WireCourseCeiling);
 
-    // Positivity is `Dimension`'s own band; the fold guards only what no band already holds.
     public bool IsValid => ValidityClaim.All(Arrange.IsValid, Narrow.IsValid);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HatchOp {
     private HatchOp(HatchPolicy policy) => Policy = policy;
 
-    // Per-region policy rides the request: each HatchRegion pairs its rings with its own plan.
     public sealed record Regions : HatchOp {
         public Regions(Seq<HatchRegion> set, HatchPolicy policy) : base(policy) => Set = set;
         public Seq<HatchRegion> Set { get; }
     }
 
-    // Fill loops of an already-solved projection seed one plan — sheet drafting goes
-    // projection → hatched in one op with no intermediate ring hand-off.
     public sealed record Projection : HatchOp {
         public Projection(DrawingProjection source, HatchPlan plan, HatchPolicy policy) : base(policy) {
             Source = source;
@@ -344,8 +291,6 @@ public static class Hatching {
     }
 
     // --- [NORMALIZE]
-    // ONE overlay resolves raw rings to the canonical covered region (outer CCW / holes CW);
-    // ring admission lives on the overlay — open/degenerate/non-finite rings return `DegenerateInput` there, once.
     static Fin<Seq<Chain>> Normalize(Seq<Polyline> rings, HatchPolicy policy, Op key) =>
         Arrangement.Apply(new ArrangementOp.PlanarOverlay(A: rings, B: Seq<Polyline>(), Op: BooleanOp.Union, Plane: Axis.Z, Policy: policy.Arrange), key)
             .Bind(result => result is ArrangementResult.Overlay overlay
@@ -353,16 +298,12 @@ public static class Hatching {
                 : Fin.Fail<Seq<Chain>>(key.InvalidResult()));
 
     // --- [WEAVE]
-    // The plan arrived admitted — HatchPlan.Of accumulated its five claims — so no guard re-reads them here and
-    // no refusal collapses five distinguishable defects onto one string.
     static Fin<Unit> Weave(HatchStore store, int region, Seq<Chain> loops, HatchPlan plan, HatchPolicy policy, Op key) {
-        if (loops.IsEmpty) { return Fin.Succ(unit); }  // a fully-clipped fill hatches to nothing — legal, never a fault
+        if (loops.IsEmpty) { return Fin.Succ(unit); }
         if (loops.Exists(static loop => !loop.Closed)) {
             return Fin.Fail<Unit>(new GeometryFault.HatchFault(plan.Pattern, region, "open boundary chain"));
         }
         store.Tally(HatchCount.Regions);
-        // Every slot the TAKEN arm measures seeds at zero, so a measured zero is PRESENT while an untaken arm's
-        // slot stays absent — the receipt's absence and its zero mean two different things to a reader.
         (plan.Motif.IsSome
             ? Seq(HatchCount.Instances, HatchCount.Culled)
             : Seq(HatchCount.Courses, HatchCount.Crossings, HatchCount.Grazed)).Iter(slot => store.Tally(slot, delta: 0));
@@ -371,8 +312,6 @@ public static class Hatching {
             None: () => Courses(store, region, Edges(loops), plan, policy, key));
     }
 
-    // Directed edges preserve loop orientation; a closed Chain already repeats its first point. The pooled
-    // writer owns the growth the region-sized List rebuild used to pay for.
     static (Point3d A, Point3d B)[] Edges(Seq<Chain> loops) {
         using ArrayPoolBufferWriter<(Point3d A, Point3d B)> edges = new();
         foreach (Chain loop in loops) {
@@ -386,7 +325,6 @@ public static class Hatching {
     }
 
     // --- [COURSES]
-    // Census gates BEFORE generation, then one BVH per region prunes candidates per course.
     static Fin<Unit> Courses(HatchStore store, int region, (Point3d A, Point3d B)[] edges, HatchPlan plan, HatchPolicy policy, Op key) {
         Point3d origin = new(plan.Origin.X, plan.Origin.Y, 0.0);
         Seq<CourseFrame> frames = Frames(origin, plan, edges);
@@ -403,21 +341,14 @@ public static class Hatching {
                         .Map(static _ => unit)));
     }
 
-    // Course coordinates: s = (p - origin)·D along the course, c = (p - origin)·N across it —
-    // one frame per family, the extents swept once off the region's own edge points.
     readonly record struct CourseFrame(
         int Family, Vector3d D, Vector3d N, double Spacing, double Phase0, double KLo, double KHi, double TMin, double TMax, Option<HatchRhythm> Dash) {
-        // The int narrowing is DECIDED here, not asserted by a cast: `checked` governs integral conversions and
-        // arithmetic, so an out-of-range double→int conversion is unspecified rather than trapping, and a
-        // silently wrapped course count would hand Range a negative or truncated ceiling.
         public Fin<int> Count(Op key) =>
             KHi - KLo + 1.0 is var span && span >= 0.0 && span <= int.MaxValue
                 ? Fin.Succ((int)span)
                 : Fin.Fail<int>(key.InvalidInput());
     }
 
-    // Ordinates project ONCE for the whole region and each family reduces them through TensorPrimitives, so the
-    // extent sweep is two vectorized passes per family rather than a scalar min/max ladder re-walking every edge.
     static Seq<CourseFrame> Frames(Point3d origin, HatchPlan plan, (Point3d A, Point3d B)[] edges) {
         if (edges.Length == 0) { return Seq<CourseFrame>(); }
         using MemoryOwner<double> xOwner = MemoryOwner<double>.Allocate(size: edges.Length * 2);
@@ -442,17 +373,12 @@ public static class Hatching {
         });
     }
 
-    // One projection, two reductions: the span dot product and its extremes are TensorPrimitives' arithmetic.
     static (double Min, double Max) Extent(ReadOnlySpan<double> x, ReadOnlySpan<double> y, Span<double> staging, double ax, double ay) {
         TensorPrimitives.Multiply(x, ax, staging);
         TensorPrimitives.MultiplyAdd(y, ay, staging, staging);
         return (TensorPrimitives.Min<double>(staging), TensorPrimitives.Max<double>(staging));
     }
 
-    // Padded endpoints sit strictly outside the region extent, so the winding walk SEEDS AT ZERO —
-    // no interior probe, no stab battery; the crossing rows alone carry the parity. Iteration rides
-    // frame-LOCAL ordinals (the global course index of a far-from-origin region overflows int),
-    // while stagger parity reads the GLOBAL index so dash offsets align across regions.
     static Fin<Unit> CourseOf(HatchStore store, SpatialIndex index, (Point3d A, Point3d B)[] edges, Point3d origin, CourseFrame frame, int ordinal, int region, HatchPattern pattern, HatchPolicy policy, Op key) {
         double c = frame.Phase0 + ((frame.KLo + ordinal) * frame.Spacing);
         bool odd = (((long)frame.KLo + ordinal) & 1L) != 0;
@@ -478,9 +404,6 @@ public static class Hatching {
     }
 
     // --- [PARITY]
-    // Closed-open lift: a Zero endpoint sign reads Positive, so a boundary-through-vertex crossing
-    // counts exactly once across its two incident edges, a tangent touch nets zero, and a
-    // boundary-collinear edge contributes nothing (its neighbours carry the entry and exit).
     static Fin<(Seq<(double S, int Delta)> Rows, int Grazed)> Rows((Line Hatch, Point3d Origin, Vector3d D) course, (Point3d A, Point3d B)[] edges, Seq<int> ids, HatchPolicy policy, Op key) =>
         ids.Fold(Fin.Succ((Rows: Seq<(double S, int Delta)>(), Grazed: 0)), (state, id) => state.Bind(acc => {
                 (Point3d ea, Point3d eb) = edges[id];
@@ -495,23 +418,14 @@ public static class Hatching {
                     Point3d vertex = rawFrom == Sign.Zero ? ea : eb;
                     return Fin.Succ((acc.Rows.Add((((vertex - course.Origin) * course.D), delta)), grazed));
                 }
-                // Lifted signs proved a strict mutual straddle, so an empty exact answer is inconsistent state: the
-                // crossing rides the rail rather than being read off a forged empty hit set.
                 return Intersection.Apply(new IntersectOp.SegmentSegment(course.Hatch, new Line(ea, eb), Axis.Z, policy.Narrow), key)
                     .Bind(result => result is IntersectResult.Points { Hits: var hits } && !hits.IsEmpty
                         ? Fin.Succ((acc.Rows.Add((((hits[0] - course.Origin) * course.D), delta)), grazed))
                         : Fin.Fail<(Seq<(double S, int Delta)>, int)>(key.InvalidResult()));
             }))
-            // Coincidence law: entries (+1) sort BEFORE exits (-1) at one ordinate, so a run passing through a
-            // shared vertex stays ONE continuous run. The inverse order closes and reopens at the same s and
-            // emits two chained rows where the geometry has one.
             .Map(static acc => (toSeq(acc.Rows.OrderBy(static row => row.S).ThenByDescending(static row => row.Delta)), acc.Grazed));
 
     // --- [DASHES]
-    // World dash grid anchors at the plan origin, so families align across courses AND regions; Stagger
-    // phase-shifts globally-odd courses by its fraction of one period. Ordinals ride a LONG: a course far from
-    // the plan origin drove |m| past 2^53 on a double counter, where m++ stops advancing and the weave hangs —
-    // the census then gates on the same budget the course sweep answers to, so an unbounded carve refuses typed.
     static Fin<Unit> Dashes(HatchStore store, Point3d origin, CourseFrame frame, int region, int course, bool odd, double c, double sA, double sB, HatchPattern pattern, HatchPolicy policy, Op key) {
         if (frame.Dash.Case is not HatchRhythm dash) {
             _ = store.Add(new HatchRow(At(origin, frame, c, sA), At(origin, frame, c, sB), region, frame.Family, course, -1, HatchArm.Course));
@@ -535,21 +449,15 @@ public static class Hatching {
         return Fin.Succ(unit);
     }
 
-    // Emission constructs from the (c, s) ordinates ONCE — dash grid and crossings share one frame.
     static Point3d At(Point3d origin, CourseFrame frame, double c, double s) => origin + (c * frame.N) + (s * frame.D);
 
     // --- [MOTIF]
-    // Orbit extent must cover the region about the plan origin — an under-covering plan
-    // under-fills silently, so the gate is typed; Patterning owns the Seitz fold whole.
     static Fin<Unit> Motifs(HatchStore store, int region, Seq<Chain> loops, HatchPlan plan, HatchMotif motif, HatchPolicy policy, Op key) {
         Point3d origin = new(plan.Origin.X, plan.Origin.Y, 0.0);
-        // SQUARED reach: the comparison needs no root, and Enumerable.Max would THROW on an empty ring against
-        // this page's own totality law — the fold answers zero there and the extent gate still decides.
         double reach = loops.Bind(static loop => toSeq(loop.Points)).Fold(0.0, (held, p) => Math.Max(held, (p - origin).SquareLength));
         if (motif.Orbit.Extent * motif.Orbit.Extent < reach) {
             return Fin.Fail<Unit>(new GeometryFault.HatchFault(plan.Pattern, region, $"orbit extent {motif.Orbit.Extent:R} under region radius {Math.Sqrt(reach):R}"));
         }
-        // Orbit turn is loop-INVARIANT over the instance sweep, so it mints once here and threads as a column.
         Transform orbitTurn = Transform.Rotation(angleRadians: plan.Angle, rotationAxis: Vector3d.ZAxis, rotationCenter: Point3d.Origin);
         return Patterning.Apply(new PatternOp.Orbit(motif.Orbit), key)
             .Bind(stream => stream is InstanceStream.Planar planar
@@ -561,12 +469,9 @@ public static class Hatching {
                 .Map(static _ => unit));
     }
 
-    // Per-instance clip keeps provenance: Family = seat ordinal, Course = instance ordinal, Arm = Motif — a
-    // batched all-instance overlay would merge loops and erase all three.
     static Fin<Unit> Stamp(HatchStore store, int region, Seq<Chain> loops, HatchPlan plan, HatchMotif motif, InstanceStream.Planar planar, Transform orbitTurn, int i, HatchPolicy policy, Op key) {
         (double U, double V) site = planar.Site[i];
         Point3d world = new Point3d(plan.Origin.X, plan.Origin.Y, 0.0) + (orbitTurn * new Vector3d(site.U, site.V, 0.0));
-        // Mirror BEFORE spin: y-handedness flips in the seat frame, so reflected seats place reflected motifs.
         Transform seat = Transform.Translation(world - Point3d.Origin)
             * Transform.Rotation(angleRadians: planar.Spin[i] + plan.Angle, rotationAxis: Vector3d.ZAxis, rotationCenter: Point3d.Origin)
             * (planar.Mirrored[i] ? Transform.Mirror(new Plane(Point3d.Origin, Vector3d.YAxis)) : Transform.Identity);
@@ -600,9 +505,6 @@ public static class Hatching {
         Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, Array.ConvertAll(edges, static e => new BoundingBox([e.A, e.B])), policy), key)
             .Bind(answer => answer is SpatialAnswer.Index index ? Fin.Succ(index.Value) : Fin.Fail<SpatialIndex>(key.InvalidResult()));
 
-    // The prune band is a NUMERICAL floor relative to the query itself, not a model tolerance: an
-    // axis-aligned course line boxes flat, and a zero-width range test misses the edge boxes touching it.
-    // Exactness is the Rows sweep's, which re-decides every candidate the prune admits.
     static Fin<Seq<int>> Candidates(SpatialIndex index, Line hatch, Op key) {
         BoundingBox box = new([hatch.From, hatch.To]);
         box.Inflate(hatch.Length * EpsilonPolicy.SqrtEpsilon);

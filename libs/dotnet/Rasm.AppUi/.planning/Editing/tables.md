@@ -30,7 +30,7 @@ Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColu
 - Boundary: classification governs EVERY materialization channel — a classified column materializes ONLY the redacted presentation template (theme-token-resolved through the chrome's `Redacted` fold), read-only, unsortable, with no `Binding` and no `ClipboardContentBinding`, so display and the grid's own `Ctrl+C` copy structurally cannot carry the source cell value, and the column never enters filter, aggregate, paste, or export admission; row height and cell spacing arrive as density-token values; per-column control subclasses are the deleted form. `TableCellEdit` is the ONE edit authority and the `TableCellSlot` cases make its correspondence structural rather than guarded: a bound cell always carries its binding, a painted cell its display, an authored cell BOTH its display and its editor, and read-only versus editable is the CASE rather than a flag beside an absence — the retired slot record carried three optional columns an `Admit` proved and seven kind delegates then unwrapped, which is thirteen unsafe reads standing downstream of the one fold that existed to make them safe. CELL-LEVEL validation reaches the `:invalid` pseudo-class on BOUND columns alone and its producer is exact — `DataGridCell.IsValid` and `DataGridRow.IsValid` carry internal setters, so the only reachable writer is the grid's own `EndCellEdit` commit gate, which reads `DataValidationErrors.GetHasErrors` on the editing element and refuses the commit when the column carries a `CellEditBinding`; the attach fold therefore writes `DataValidationErrors.SetErrors` from `TableCellEdit.Set` inside `CellEditEnding`, which raises BEFORE that gate reads, so a refused candidate lands `:invalid` on the cell and its row and never leaves edit mode. A template-backed column generates no `CellEditBinding`, so its rule cannot reach the cell gate and validates at the row gate instead — that is the stated ceiling, not a gap. The value-driven format column is template-backed BY CONSTRUCTION because `DataGridColumn.CellStyleClasses` applies one class list to every cell of a column and cannot vary by value; the page mints that display template itself from the measure and the `ThresholdList`, so the cell background is the threshold family's own `Cell` colour crossing one boundary conversion from the resolved chart ink, this owner authors no brush, and the absent shade rides the kernel `Op.ToHostSlot` host-slot write rather than an unsafe unwrap that painted a null background on every unformatted cell. `TableCellKind.Spark` mounts the `Charts/tiles` `Sparkline.Render` offscreen chart rastered at the cell edge with its image and encoded data released through kernel `Custody.Bracket`, and it materializes for REALIZED rows alone because the grid recycles row containers through `LoadingRow`/`UnloadingRow` — a spark cell per source row is the rejected form. Column configuration is a boundary capsule (statement carve-out): `DataGridColumn` is package-owned mutable state whose posture members are settable properties rather than constructor slots, so the trait reads write in one place instead of once per kind delegate.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Collections;
 using System.ComponentModel;
@@ -63,11 +63,8 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.AppUi.Editing;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The two BOUND control families, and the mint is the row's own delegate column. A text cell and a check cell
-// are different control TYPES, which is the only irreducible divergence left once the slot union took the
-// posture — the five other cell rows differed from these in nothing but their key.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -82,8 +79,6 @@ public sealed partial class BoundKind {
     public partial DataGridBoundColumn Mint(BindingBase cell);
 }
 
-// The four legal cell materials, and every illegal one is unspellable. The posture is the CASE, so no arm reads
-// an absence and no construction site restates an `IsReadOnly = !editable` expression.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TableCellSlot(string Header) {
     public sealed record Bound(string Header, BoundKind Kind, BindingBase Cell) : TableCellSlot(Header);
@@ -100,24 +95,15 @@ public abstract partial record TableCellSlot(string Header) {
             CellEditingTemplate = slot.Editor,
         }));
 
-    // `IsReadOnly` is a settable property on a package control rather than a constructor slot, so the write is
-    // stated ONCE here; the two editable cases never touch it and inherit the control's own default.
     private static DataGridColumn Frozen(DataGridColumn column) => (column.IsReadOnly = true, Column: column).Column;
 
     private DataGridColumn Chromed(DataGridColumn column) => (column.Header = Header, Column: column).Column;
 }
 
-// The cell vocabulary as TWO columns: the bound control family a kind materializes through (absent for the
-// template-backed rows) and the kernel capability set the kind ADMITS. The retired seven construction delegates
-// carried three distinct bodies — the body varied with the control family, never with the row — and the
-// read-only literal inside three of them was a posture the trait set now carries as data.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TableCellKind {
-    // A temporal cell prints a calendar-and-zone-bound pattern the locale owns and no pattern round-trips every
-    // instant it can render, so the row REFUSES the editable trait rather than admitting an editor whose commit
-    // reconstructs an instant the display already lost; a progress or spark cell renders a measure, not a value.
     private static readonly CapabilitySet<ColumnTrait> Presented =
         CapabilitySet<ColumnTrait>.All.Without(ColumnTrait.Editable);
 
@@ -134,11 +120,8 @@ public sealed partial class TableCellKind {
     public CapabilitySet<ColumnTrait> Admits { get; }
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-// The refusal targets as DECLARED keys (folder `RULINGS` `[02]`): nine raw literals over four roles let one
-// target string bind by accident, and the kernel `Op` is the corpus key owner every fault target already
-// crosses — so a target is a member a reader resolves, never a string a reviewer diffs.
 public static class TableOps {
     public static readonly Op Column = Op.Of("table/column");
     public static readonly Op View = Op.Of("table/view-state");
@@ -147,11 +130,8 @@ public static class TableOps {
     public static readonly Op Export = Op.Of("table/export");
 }
 
-// --- [POLICIES] -------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 
-// The ONE clause lift every admission on this page composes, in two arms discriminated by input shape: a held
-// fact at a declared target, or a refusal its owner already minted against a column key. Five per-owner copies
-// of the same two lines is the form this replaces.
 public static class TableClause {
     public static Validation<Error, Unit> Of(bool held, Op target, string detail) =>
         held
@@ -164,16 +144,10 @@ public static class TableClause {
             None: static () => Validation<Error, Unit>.Success(unit));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The ONE edit authority. `Set` admits a candidate text into a new row, so the same value is the editor's commit
-// gate, the paste cell admission, and the cell-validation producer; `Editor` is the editing template a
-// template-backed kind enters, and the row's `Editable` trait states the same fact the presence does.
 public sealed record TableCellEdit<TRow>(Func<TRow, string, Fin<TRow>> Set, Option<IDataTemplate> Editor = default);
 
-// The numeric axis a column declares, as ONE value: the measured projection, the aggregate roster it feeds, and
-// the threshold list that paints it. Three separate columns made a cell's text, its subtotal, and its background
-// three independent declarations that could name three different numbers for one field.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TableMeasure<TRow> where TRow : notnull {
     private TableMeasure() { }
@@ -189,31 +163,21 @@ public sealed record TableColumnMeasure<TRow>(
     TableMeasure<TRow> Measure,
     Seq<AggregateMeasure> Aggregates,
     Option<TableCellFormat> Format = default) where TRow : notnull {
-    // The rendered text and the exported field are ONE projection: a quantity elects its display unit and
-    // grammar through the measurement policy under its role, and a scalar takes the resolved number format.
     public Fin<string> Text(TRow row, ResolvedLocale locale) => Measure.Switch(
         state: (Row: row, Locale: locale),
         quantity: static (s, q) => s.Locale.Quantity(q.Value(s.Row), q.Role),
         scalar: static (s, n) => Fin.Succ(n.Value(s.Row).ToString($"N{n.Decimals}", s.Locale.Formats)));
 
-    // The folded number is the value IN THE ELECTED UNIT, so a subtotal and the cells above it are the same
-    // measure rather than a sum over whatever unit each row happened to carry. An unconvertible quantity answers
-    // NaN, which the footer's own admission refuses by name — a zero would fold as a real reading.
     public double Select(TRow row, ResolvedLocale locale) => Measure.Switch(
         state: (Row: row, Locale: locale),
         quantity: static (s, q) => TableOps.Column.Catch(() => Fin.Succ(q.Value(s.Row).ToUnit(s.Locale.Measures.Unit(q.Role)).Value))
             .Match(Succ: static value => value, Fail: static _ => double.NaN),
         scalar: static (s, n) => n.Value(s.Row));
 
-    // `Selective` is the case that CARRIES a selector, so the count spec's dead-selector shape has no spelling;
-    // the band and the footer read this one roster, so a grouped quantity table shows sums under the very
-    // columns that total them and the footer never re-derives what a band computed.
     public Seq<AggregateSpec<TRow>> Specs(AggregateColumn column, ResolvedLocale locale) =>
         Aggregates.Map(measure => (AggregateSpec<TRow>)new AggregateSpec<TRow>.Selective(
             column, measure, row => Select(row, locale)));
 
-    // The cell colour the threshold family owns, crossing ONE boundary conversion from the resolved chart ink
-    // into the presentation brush type — this owner authors no pigment and holds the token law.
     public Option<IBrush> Shade(TRow row, ChartInk ink, ResolvedLocale locale) =>
         Format.Bind(format => format.Steps.Cell(ink, Select(row, locale), format.Floor, format.Ceiling)
             .Match(
@@ -221,7 +185,6 @@ public sealed record TableColumnMeasure<TRow>(
                 Fail: static _ => Option<IBrush>.None));
 }
 
-// The spark cell's declaration: the series it plots and the offscreen extent it rasters into.
 public sealed record TableSpark<TRow>(Func<TRow, Seq<double>> Series, ChartChrome Stroke, SKImageInfo Info);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -247,26 +210,17 @@ public sealed record TableColumnRow<TRow>(
     CapabilitySet<ColumnTrait> Traits,
     Option<IComparer> Sort = default,
     Option<TableColumnMeasure<TRow>> Measure = default) where TRow : notnull {
-    // `Hidden`, never `Visible`: the kernel roster's polarity is that an absent capability reads as the default
-    // posture, so a row left out of a trait set renders rather than disappearing.
     public bool Visible => !Traits.Admits(ColumnTrait.Hidden);
 
-    // A formatted measure and a spark row MINT their own display, so a template-backed kind is admitted with no
-    // authored template at all — the caller cannot author a template over folds this owner holds.
     public bool Paints =>
         Measure.Exists(static measure => measure.Format.IsSome)
         || Access is TableColumnAccess<TRow>.Plain { Spark.IsSome: true };
 
-    // Admission ACCUMULATES. The clauses are INDEPENDENT reads of one declaration, so a row naming a bound kind
-    // with no binding while claiming an editable trait it carries no fold for reports both; the tuple ladder
-    // this replaces reported the first alone, which left four of five refusals structurally unreachable.
     public Validation<Error, TableColumnRow<TRow>> Admit() => Clauses().Traverse(identity).As().Map(_ => this);
 
     private Seq<Validation<Error, Unit>> Clauses() => Access.Switch(
         state: this,
         plain: static (row, plain) => Seq(
-            // The kernel refusal door carries its own evidence: the refusal names WHICH traits the kind
-            // refuses rather than restating the pair as prose.
             TableClause.Of(row.Kind.Admits.AdmitsAll(row.Traits)
                 ? Option<Error>.None
                 : Some<Error>(new EditFault.Invariant(row.Key, $"kind '{row.Kind.Key}' admits no <{row.Kind.Admits.Missing(row.Traits).Wire}>"))),
@@ -288,15 +242,12 @@ public sealed record TableColumnRow<TRow>(
         Some((Error)new EditFault.Invariant(key, detail));
 }
 
-// The materialization context: the redaction fold, the resolved chart ink every threshold shade resolves
-// through, and the locale every measured and temporal cell prints under. One record because a column can
-// materialize under none of them alone.
 public sealed record TableChrome(
     Func<DataClassification, IDataTemplate> Redacted,
     ChartInk Ink,
     ResolvedLocale Locale);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class TableSurface {
     extension<TRow>(TableColumnRow<TRow> row) where TRow : notnull {
@@ -305,9 +256,6 @@ public static class TableSurface {
                 ? Some(Configured(Slot(admitted, chrome).Build(), admitted))
                 : Option<DataGridColumn>.None);
 
-        // The exported field and the rendered cell are one text: a measure-bearing column prints through the
-        // measurement policy and every other column through its own export projection, so a delimited file and
-        // the grid a reader compared it against can never disagree.
         public Option<string> Project(TRow item, ResolvedLocale locale) => row.Access.Switch(
             state: (Item: item, Row: row, Locale: locale),
             plain: static (s, access) => s.Row.Measure.Match(
@@ -322,17 +270,10 @@ public static class TableSurface {
             row.Access is TableColumnAccess<TRow>.Plain plain ? plain.Edit : None;
     }
 
-    // The slot election is TOTAL over an ADMITTED row: classification wins before any kind dispatch, and every
-    // remaining case reads material the clauses already proved present. A formatted measure mints its own
-    // display, a spark row mints its own, and an authored template stands where neither applies — one election
-    // in that order, because a measure's format and a caller's template addressing one cell is an authoring
-    // mistake this page resolves toward the value-driven form rather than painting one over the other.
     private static TableCellSlot Slot<TRow>(TableColumnRow<TRow> row, TableChrome chrome) where TRow : notnull =>
         row.Access.Switch(
             state: (Row: row, Chrome: chrome),
             plain: static (s, access) => s.Row.Kind.Bound.Match(
-                // `Admit` proved the binding present for every bound kind, so the absent arm is reachable only
-                // through an unadmitted row — it paints the header rather than fabricating a binding.
                 Some: bound => access.Cell.Match(
                     Some: cell => access.Edit.IsSome
                         ? (TableCellSlot)new TableCellSlot.Editable(s.Row.Header, bound, cell)
@@ -353,12 +294,6 @@ public static class TableSurface {
             | access.Display
             | Some<IDataTemplate>(new FuncDataTemplate<FlatNode<TRow>>(static _ => true, static (_, _) => new TextBlock()));
 
-    // Boundary capsule (statement carve-out): `DataGridColumn` posture members are settable properties on a
-    // package-owned control. EVERY materialized column carries its roster key at `SortMemberPath`, classified
-    // rows included, so the column-axis snapshot, the cell-validation lookup, and the sort capture address a
-    // column by key rather than by a position a reorder shifts. The width election has THREE postures the
-    // retired bool pair could not spell: `Expand` takes the remaining space, `AutoSized` fits its content, and a
-    // row claiming neither keeps its declared extent.
     private static DataGridColumn Configured<TRow>(DataGridColumn column, TableColumnRow<TRow> row) where TRow : notnull {
         column.CanUserSort = row.Traits.Admits(ColumnTrait.Sortable);
         column.CanUserResize = row.Traits.Admits(ColumnTrait.Resizable);
@@ -370,18 +305,12 @@ public static class TableSurface {
         return column;
     }
 
-    // ONE row-scoped template scaffold. The node case is the match predicate because the flatten emits one row
-    // vocabulary and a band never reaches a cell template; the predicate and the non-row arm were spelled twice
-    // verbatim before the two producers below shared this body.
     private static IDataTemplate RowTemplate<TRow>(Func<TRow, Control> render) where TRow : notnull =>
         new FuncDataTemplate<FlatNode<TRow>>(
             static node => node is FlatNode<TRow>.Row,
             (node, _) => node is FlatNode<TRow>.Row item ? render(item.Item) : new TextBlock(),
             supportsRecycling: true);
 
-    // The value-driven format cell: the threshold family's own colour behind the measure's own text, both read
-    // off one measured value. `Background` is a host slot, so an absent shade crosses through the kernel's one
-    // legal null spelling rather than an unwrap that painted null on every unformatted cell.
     private static IDataTemplate Formatted<TRow>(TableColumnMeasure<TRow> measure, TableChrome chrome) where TRow : notnull =>
         RowTemplate<TRow>(item => new Border {
             Background = Op.ToHostSlot(measure.Shade(item, chrome.Ink, chrome.Locale)),
@@ -393,9 +322,6 @@ public static class TableSurface {
             Succ: static bitmap => (Control)new Image { Source = bitmap },
             Fail: static _ => new TextBlock()));
 
-    // Three nested natives release on BOTH arms through the kernel bracket, so a raster that refuses mid-encode
-    // frees the image it already acquired — the `using` ladder this replaces released on the success path alone
-    // once the encode itself began answering a rail.
     private static Fin<Bitmap> Raster<TRow>(Seq<double> values, TableSpark<TRow> spark, TableChrome chrome) where TRow : notnull =>
         Sparkline.Render(values, chrome.Ink, spark.Stroke, spark.Info).Bind(image =>
             Custody.Bracket(() => image, owned =>
@@ -406,9 +332,6 @@ public static class TableSurface {
                 TableOps.Column));
 
     extension<TRow>(Seq<TableColumnRow<TRow>> rows) where TRow : notnull {
-        // The dashboards seam's PRODUCING half: a roster plus its keyed change-set become the erased binding a
-        // `TileSource.Rows` key resolves to. The erasure happens HERE, at the one place the typed roster is
-        // still in hand, so the board never learns a row type and the tables side never learns a tile.
         public TableSourceBinding Binding<TKey>(string sourceKey, IObservable<IChangeSet<TRow, TKey>> changes)
             where TKey : notnull =>
             new(sourceKey,
@@ -416,11 +339,6 @@ public static class TableSurface {
                     .ChangeKey(static (key, _) => Optional(key.ToString()).IfNone(string.Empty)),
                 rows.Filter(static row => row.Visible).Map(static row => (string)row.Key));
 
-        // The filter seam's PRODUCING half: the roster erases into the `Editing/livedata#FILTER_ALGEBRA`
-        // property vocabulary, so the grid's predicate, its order comparer, and its group key all come off the
-        // one compiler every board, list, and search panel already evaluates. A measured column filters as
-        // `number` through its elected-unit projection and every other plain column as `text` through the same
-        // display projection its cell renders. A classified or hidden column contributes no property at all.
         public Fin<FilterSchema<FlatNode<TRow>>> Schema(ResolvedLocale locale) =>
             new FilterSchema<FlatNode<TRow>>(rows
                 .Filter(static row => row.Visible && row.Access is TableColumnAccess<TRow>.Plain)
@@ -429,10 +347,6 @@ public static class TableSurface {
                         row.Measure.IsSome ? FilterKind.Number : FilterKind.Text, Seq<FilterValue>()),
                     node => Cell(row, node, locale)))).Admit();
 
-        // A BAND or window node carries no cell on any column, so it answers an empty value set: every operator
-        // refuses it and a header never survives a filter its members failed. Both arms read the projections the
-        // cell itself renders, so a filter matches what a reader sees, and a non-finite measure answers an EMPTY
-        // set rather than landing an unconvertible quantity at one edge of a bound.
         private static Seq<FilterValue> Cell(TableColumnRow<TRow> row, FlatNode<TRow> node, ResolvedLocale locale) =>
             node is FlatNode<TRow>.Row item
                 ? row.Measured(item.Item, locale).Match(
@@ -448,10 +362,6 @@ public static class TableSurface {
                 .Map(measure => measure.Specs(row.Key, locale))
                 .IfNone(Seq<AggregateSpec<TRow>>()));
 
-        // The footer reduces through the SAME `FlatFold.Cells` body a band reduces its subtotals through, so a
-        // grand total and a subtotal are one scan at ONE revision. The per-spec `CombineLatest` fan this
-        // replaces published each column against a different revision, which is the one-scan rule the flatten
-        // owner already settled; a non-finite cell is refused by name, never printed.
         public IObservable<Seq<AggregateCell>> Totals<TKey>(
             IObservable<IChangeSet<TRow, TKey>> changes, ResolvedLocale locale) where TKey : notnull =>
             rows.Specs(locale) switch {
@@ -460,9 +370,6 @@ public static class TableSurface {
                     .Select(static cells => cells.Filter(static cell => double.IsFinite(cell.Value))),
             };
 
-        // The grouping request minted from the roster: the group column's own projection labels each band and
-        // every measured column contributes its aggregate specs, so the header subtotals land under the very
-        // columns that total them and the plan carries no vocabulary the roster does not already hold.
         public Fin<GroupPlan<TRow, TKey, string>> Grouping<TKey>(
             AggregateColumn groupColumn, Func<GroupBand, TKey> key, ResolvedLocale locale) where TKey : notnull =>
             rows.Find(row => row.Key == groupColumn && row.Visible && row.Access is TableColumnAccess<TRow>.Plain)
@@ -495,11 +402,8 @@ public static class TableSurface {
 - Boundary: boundary capsule (statement carve-out) — `DataGridCollectionView` and `DataGridColumn` are package-owned mutable state, so `Apply` carries language-owned statement forms writing filter, sort, group, page, column, and current-row descriptors inside one `DeferRefresh` scope; the snapshot is built from screen control state and never read back from the view except through `Capture`, which is the one read-back seam and whose column half is a GENERATED projection rather than a hand field copy — the `SortMemberPath`-to-key rename is stated once as a `[MapProperty]` row instead of at a construction site a fourth column would silently outgrow. The PREDICATE is the live-data compiler's and this owner adapts it at one cast, because the control's filter is untyped and every other surface takes the typed one — a grid-local operator vocabulary beside `FilterSense` is the deleted form and is what made a grid filter and a board filter two dialects; `Predicate<FilterTerm>.Open` writes a NULL filter rather than a predicate answering true, so an unfiltered view costs the collection view no per-row call at all. SORT identity is the grid's own: a column carrying a domain comparer writes `DataGridSortDescription.FromComparer` and every other column writes `FromPath` with the view's culture, which is exactly what the header gesture constructs — so a restored description and a gesture-produced one are the same value and the header toggles in place instead of appending a second entry. `Capture` maps each description back to its column through `HasPropertyPath` or through `DataGridComparerSortDescription.SourceComparer` reference identity, so a comparer-sorted column — whose description carries no property path at all — still resolves to its key and the sort axis survives restore. Setting BOTH `CustomSortComparer` and a path-bearing description on one column is the rejected form: `DataGridColumn.GetSortDescription` matches a comparer-bearing column by source comparer alone, finds no match against a path description, and the gesture then ADDS a second sort entry for the same column. The MULTI-SORT gesture law is the control's and this owner never re-implements it — a plain header click clears the descriptions and toggles that column alone, `Shift`-click appends or toggles in place so the sort keys read in click order, `Ctrl`/`Cmd`-click clears every description, `Shift`+`Ctrl`/`Cmd` is a no-op, and sorting is refused outright while a row is in edit; `Sorting` with `e.Handled` is the ONE interception, reserved for pushing the order into a backing query, and substituting a comparer there that the column already declares is the deleted form. The `Paged` window rides the live-data `Page` operator at the projection fold and constructs `ProjectionWindow.Paged`, while the virtualized window rides `Virtualise` and constructs `ProjectionWindow.Virtualized` from the `ExtentLedger`, so one modality never carries zero/default fields belonging to the other, and `Admit` rejects a `Paged` window whose size disagrees with the snapshot's `PageSize`; a second collection-view state holder is the deleted form. Structural admission ACCUMULATES over seven independent clauses, because a snapshot whose column permutation is short AND whose expansion set repeats a key holds two defects and the ladder it replaces folded both onto one opaque sentence.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The window a projection MEASURED, named for the projection rather than the shell: the kernel binds Eto's own
-// `WindowState` (normal/maximized/minimized) at `Rasm/Interaction/chrome`, so a screen composing chrome beside a
-// grid held two unrelated meanings under one simple name in one scope.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(ProjectionWindow.Paged), "paged")]
@@ -509,24 +413,14 @@ public abstract partial record ProjectionWindow {
     public sealed record Paged(int Index, int Size) : ProjectionWindow;
     public sealed record Virtualized(int Start, int Size) : ProjectionWindow;
 
-    // Admission is the union's OWN, so the snapshot's structural fold reads one clause rather than re-matching
-    // the family behind a catch-all that turned a future case into a silent refusal.
     public bool Admits(Option<int> pageSize) => Switch(
         state: pageSize,
         paged: static (size, page) => page.Index >= 0 && page.Size > 0 && size.ForAll(held => held == page.Size),
         virtualized: static (_, view) => view.Start >= 0 && view.Size > 0);
 }
 
-// The GRID-MECHANISM column cell: display index and resolved pixel extent, the two things a user mutates through
-// this control and no other surface has. Visibility left this record for `ViewState.Visible`, because a column
-// hidden on a board and hidden on a grid is one domain fact and a second copy here let the two disagree the
-// first time a board hid a column the grid still showed. Width persists as a RESOLVED pixel extent because
-// `ActualWidth` is what a resize produced and re-applying a star or auto length would discard it.
 public readonly record struct TableColumnState(AggregateColumn ColumnKey, int Order, double Width);
 
-// The grid snapshot: the ENCODED filter and the domain view axis both ride the `Editing/livedata` owners, so the
-// axes a user recognizes as "the view" are one value across every surface and only the control-mechanism cells
-// stay here.
 public sealed record TableViewState(
     string Filter,
     FilterPace Pace,
@@ -545,17 +439,9 @@ public sealed record TableViewState(
         from held in Structural(columns).ToFin()
         select held;
 
-    // Seven INDEPENDENT clauses, seven named refusals. The six-clause `&&` chain this replaces folded a column
-    // permutation, a page size, a current key, an expansion duplicate, an expansion blank, and a window bound
-    // onto one sentence — "column, page, expansion, or window state is invalid" — which named none of them.
     private Validation<Error, TableViewState> Structural<TRow>(Seq<TableColumnRow<TRow>> columns) where TRow : notnull =>
-        // The column axis covers the MATERIALIZED roster: a hidden row mints no column at all, so a state row
-        // naming it would address a seat the control never held.
         toSet(columns.Filter(static column => column.Visible).Map(static column => column.Key)) switch {
             var roster => Seq(
-                    // The axis is a PERMUTATION of that roster or it is empty: a partial snapshot leaves the
-                    // unnamed columns at whatever display index the last layout happened to hold, which is a
-                    // restore that silently reorders the columns it did not mention.
                     TableClause.Of(Columns.IsEmpty
                         || (Columns.Count == roster.Count
                             && Columns.Map(static column => column.ColumnKey).Distinct().Count == Columns.Count
@@ -575,7 +461,7 @@ public sealed record TableViewState(
         };
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ViewStateSurface {
     extension(DataGrid grid) {
@@ -589,8 +475,6 @@ public static class ViewStateSurface {
             from admitted in state.Admit(columns, locale, policy)
             from schema in columns.Schema(locale)
             from expression in FilterLink.Decode(admitted.Filter, schema, policy)
-            // The compiled predicate is the LIVE-DATA compiler's, adapted at this one cast: the control takes an
-            // untyped filter and every other surface takes the typed one, so the grammar never forks.
             from compiled in schema.Compile(expression)
             select fun(() => {
                 using IDisposable batch = view.DeferRefresh();
@@ -604,17 +488,8 @@ public static class ViewStateSurface {
                 view.GroupDescriptions.Clear();
                 admitted.View.Group.Iter(group => view.GroupDescriptions.Add(new DataGridPathGroupDescription(group)));
                 view.PageSize = admitted.PageSize.IfNone(0);
-                // The column axis writes in ASCENDING target order, because assigning `DisplayIndex` shuffles
-                // every column between the old and new position — descending assignment walks each column back
-                // over the ones already placed and lands a permutation nobody authored. The ordered run re-enters
-                // the carrier before the walk, since ordering leaves the carrier.
                 toSeq(admitted.Columns.OrderBy(static column => column.Order))
                     .Iter(column => Seated(grid, column, admitted.View.Shows(column.ColumnKey)));
-                // The paged window's INDEX is collection-view state: `PageSize` alone restores the page SHAPE and
-                // lands on page zero, so a snapshot taken on page N re-opens at the top with its own admitted
-                // index discarded. The virtualized window holds no view position — its restore is the
-                // projection's viewport re-request — and the move rides inside the batch, so the deferred page
-                // change and the current-row move settle as one refresh.
                 admitted.Window.Iter(window => window.Switch(
                     state: view,
                     paged: static (target, page) => ignore(target.MoveToPage(page.Index)),
@@ -623,16 +498,11 @@ public static class ViewStateSurface {
                 return unit;
             })();
 
-        // The PRODUCER every user-mutable axis needed: reorder, resize, visibility, and the header sort gesture
-        // all write the control, so the snapshot reads them back off the control rather than shadowing each
-        // gesture with a second state write a missed event would desynchronize.
         public TableViewState Capture<TRow>(
             DataGridCollectionView view,
             Seq<TableColumnRow<TRow>> columns,
             TableViewState held) where TRow : notnull =>
             held with {
-                // Order and visibility capture back onto the DOMAIN axis, so a header gesture and a board's own
-                // column toggle write one value rather than two the merge would have to reconcile.
                 View = held.View with {
                     Order = toSeq(view.SortDescriptions)
                         .Choose(description => Keyed(description, columns)
@@ -643,9 +513,6 @@ public static class ViewStateSurface {
                 Columns = toSeq(grid.Columns).Map(TableColumnMap.ToState),
             };
 
-        // The snapshot's live counterpart: the roster's schema, the snapshot's own pace, and the caller's policy
-        // become the one shaping binding, so the persisted cadence reaches the edit stream that consumes it and
-        // a recall re-admits against the very roster this grid materialized.
         public Fin<ViewBinding<TRow>> Bound<TRow>(
             Seq<TableColumnRow<TRow>> columns,
             TableViewState state,
@@ -655,10 +522,6 @@ public static class ViewStateSurface {
             from paced in state.Pace.Admit()
             select new ViewBinding<TRow>(schema, paced, policy);
 
-        // The seat resolves by KEY: `Configured` stamped every materialized column's roster key onto
-        // `SortMemberPath`, so a reorder the user already applied cannot move the seat out from under the state
-        // about to write it. Visibility arrives from the view axis rather than the column cell, because it is
-        // the same fact every other surface reads.
         private static Unit Seated(DataGrid grid, TableColumnState state, bool visible) =>
             toSeq(grid.Columns)
                 .Find(column => string.Equals(column.SortMemberPath, state.ColumnKey, StringComparison.Ordinal))
@@ -671,8 +534,6 @@ public static class ViewStateSurface {
                     },
                     None: static () => unit);
 
-        // The description a restore writes is the one the header gesture would have produced, so a restored sort
-        // toggles in place on the next click instead of appending a second entry for the same column.
         private static DataGridSortDescription Described<TRow>(
             TableColumnRow<TRow> column, bool descending, CultureInfo culture) where TRow : notnull =>
             (column.Sort, descending ? ListSortDirection.Descending : ListSortDirection.Ascending) switch {
@@ -681,10 +542,6 @@ public static class ViewStateSurface {
                 (_, var direction) => DataGridSortDescription.FromPath(column.Key, direction, culture),
             };
 
-        // A comparer-bearing description carries NO property path, so path matching alone dropped every
-        // domain-sorted column from the captured snapshot; the package's own `SourceComparer` closes it. The
-        // catch-all is lawful because `DataGridSortDescription` is the PACKAGE's open hierarchy, not an owned
-        // family — a foreign subclass this page never constructs resolves to no column by definition.
         private static Option<AggregateColumn> Keyed<TRow>(
             DataGridSortDescription description, Seq<TableColumnRow<TRow>> columns) where TRow : notnull =>
             description switch {
@@ -699,12 +556,8 @@ public static class ViewStateSurface {
     }
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The capture seam as a GENERATED projection under `RequiredMappingStrategy.Target`: a `DataGridColumn` carries
-// far more than its state cell, so a source-completeness policy here would inventory the whole control as ignore
-// rows. The one rename lives on its `[MapProperty]` row, and `ExplicitCast` stays excluded as the guard against
-// LanguageExt's throwing `Option<T>` cast.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -714,8 +567,6 @@ public static partial class TableColumnMap {
     [MapProperty(nameof(DataGridColumn.ActualWidth), nameof(TableColumnState.Width))]
     public static partial TableColumnState ToState(DataGridColumn column);
 
-    // `TableSurface.Configured` is the ONLY writer of `SortMemberPath` and it writes an already-minted key, so
-    // the mint's own refusal is unreachable through this seam.
     [UserMapping]
     private static AggregateColumn Column(string key) => AggregateColumn.Create(key);
 }
@@ -741,10 +592,8 @@ public static partial class TableColumnMap {
 - Boundary: `TreeDataGrid` stays rejected — every hierarchy renders as `FlatNode.Row` indent rows on the flat virtualized `DataGrid`, which is the absorbing fold; windowing routes through the one `VirtualWindow` owner, so a tables-local virtualizer is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form and `Editing/tables` delegates windowing to the one fabric while conserving its `TableColumnRow` column-metadata family and its sibling-order comparer; the tables-side fold contributes its `parentKey`, sibling-order comparer, expansion cell, and grouping plan to the shared `FlatFold` bridges, which own the `TransformToTree`-plus-recursion and the `Group`-plus-aggregation this page previously held in-folder, so the flatten algebra lives at one owner with zero capability lost — the column metadata, the lazy `LoadChildren`, the paged arm, and the pivot stay tables-owned. GROUP MATERIALIZATION is the collection view's and the AGGREGATE is the flatten's: `FlatFold.Grouped` emits `FlatNode.Band` nodes carrying live `AggregateCell` subtotals, the fold FILTERS those bands out of the bound row stream and publishes them as the band roster `LoadingRowGroup` stamps onto each materialized `DataGridRowGroupHeader` through its `DataContext`, and `GroupDescriptions` renders the header itself — binding a band AS a grid row is the rejected form on this control, because every bound column would render an empty cell against a node carrying no item and a template column carries no `CellEditBinding`, which is the one reachable `:invalid` producer; the band's own `Cardinality` cell is the header's count, so `IsItemCountVisible` stays false and one count source serves the header. `TransformToTree` emits root nodes only (its default predicate is `IsRoot`), so the shared flatten fold owns child materialization and never double-counts; grouped virtualization stability rides the live-data immutable-group projection-policy row; the expansion cell and the header stamp both dispose inside the screen's activation scope with its `DisposalReceipt`, which is why each returns a bare `IDisposable` rather than a bracket that would release at the end of an expression the surface outlives; the virtualized window bound reads `ExtentLedger.Window` and `Live` for the current range rather than folding the realized collection, so restore re-requests the exact viewport with zero re-query, an empty ledger emits no window at all, and start and size arrive as ONE answer rather than two reads that could refuse independently — and a `FlatNode` carries no offset or extent because the fixed density-token row height makes both derivable from the index the window already reports. The PIVOT's column axis is bounded at admission: the control virtualizes ROWS and never columns, so each dynamic column costs one header plus one materialized cell per realized row and an unbounded cross would realize an unbounded control set per row — `PivotSpec.ColumnCeiling` refuses an over-wide cross by name as a kernel `Dimension` rather than a bare literal, and column recycling is unavailable by construction because `Columns` is a model collection the grid re-materializes wholesale rather than a recycled container pool.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The three expansion senses as a closed roster. `Expand` and `Collapse` DECLINE where the cell already reads
-// their answer, so an idempotent gesture publishes nothing and the flatten walks nothing; `Toggle` always steps.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExpandVerb {
@@ -753,10 +602,6 @@ public sealed partial class ExpandVerb {
     public static readonly ExpandVerb Toggle = new("toggled");
 }
 
-// A cross cell as a CLOSED family: a sparse cross is the NORMAL case for a takeoff or status matrix, so absence
-// has two owners and each is a case — the fold owns an empty cross, the spec's delegate owns a populated cross
-// carrying no admitted measure. A `Sum` fold over no rows would answer a measured-looking zero, an `Avg` fold
-// NaN, and the finiteness gate would then fail the entire pivot on one vacant cross.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PivotCell {
     private PivotCell() { }
@@ -781,11 +626,8 @@ public abstract partial record PivotCell {
         measured: static row => double.IsFinite(row.Value));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Three streams off ONE subscription. A tuple return grew a third member the moment grouping landed its band
-// roster, so the feed is a record: a fourth beside-the-rows product is a column, never a wider tuple every call
-// site re-destructures.
 public sealed record TableProjectionFeed<TRow, TKey>(
     IObservable<IChangeSet<FlatNode<TRow>, TKey>> Rows,
     IObservable<ProjectionWindow> Window,
@@ -802,55 +644,35 @@ public abstract partial record TableProjection<TRow, TKey> where TRow : notnull 
         Option<IComparer<TRow>> Order = default,
         Option<Func<TKey, IObservable<IChangeSet<TRow, TKey>>>> LoadChildren = default) : TableProjection<TRow, TKey>;
 
-    // The plan is the fold's request and the column key is the snapshot's vocabulary, so the grouped arm carries
-    // both rather than re-deriving one from the other at either end.
     public sealed record Grouped(AggregateColumn GroupColumn, GroupPlan<TRow, TKey, string> Plan) : TableProjection<TRow, TKey>;
 
-    // Paging demands the SORTED change-set type, which the shared keyed receiver has already erased, so this arm
-    // carries the order it needs rather than trusting an upstream sort the type system cannot see.
     public sealed record Paged(
         IObservable<PageRequest> Pages,
         IObservable<IComparer<TRow>> Order) : TableProjection<TRow, TKey>;
 
-    // The comparer STREAM is the window's ONE ordering authority — `OrderedChangeSet` pairs it with the source
-    // and the ledger reads its ordinals off the sorted change-set the window owner produces, so an order
-    // projection supplied beside it is a second sequence that can disagree with the one the window realized.
     public sealed record Virtualized(
         VirtualWindow<TRow, TKey> Owner,
         IObservable<ViewportRange> Viewport,
         IObservable<IComparer<TRow>> Order) : TableProjection<TRow, TKey>;
 }
 
-// The cross-tab's two products under one value, so the roster projection and the export fold read one shape.
 public sealed record PivotCross(Seq<AggregateColumn> Columns, Seq<PivotRow> Rows);
 
 public sealed record PivotRow(string Label, Seq<PivotCell> Cells) {
     public PivotCell At(int ordinal) => ordinal >= 0 && ordinal < Cells.Count ? Cells[ordinal] : PivotCell.Empty;
 }
 
-// The diff summary in the ONE cell vocabulary both altitudes already read, so a per-class tally renders through
-// the same column lookup a band subtotal and a footer total do.
 public sealed record DiffSummary(Seq<AggregateCell> Classes, Seq<ChangeRow> Rows);
 
-// Cross-tab pivot: the two-axis aggregate SNAPSHOT projection — the row axis crosses the column axis into a cell
-// matrix whose column roster derives from the data and feeds `Roster` for the one delivery fold; a spreadsheet
-// round-trip to pivot elsewhere is the deleted form. Live cases stay on `TableProjection`; the pivot re-folds
-// per snapshot by construction.
 public sealed record PivotSpec<TRow>(
     Func<TRow, string> RowAxis,
     Func<TRow, AggregateColumn> ColumnAxis,
     Func<Seq<TRow>, Option<double>> Cell) {
-    // The control virtualizes rows and never columns, so every distinct column value costs one header plus one
-    // materialized cell control per realized row for the whole surface lifetime. The ceiling is a kernel
-    // positive magnitude rather than a bare literal, so it admits at its own construction.
     public static readonly Dimension ColumnCeiling = Dimension.Create(64);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The expansion cell as a sealed CLASS holding one kernel `Atom`: a record copy would share the live cell by
-// reference and its synthesized equality would compare it structurally under the name of value equality
-// (`RULINGS [02]`).
 public sealed class ExpansionState<TKey> where TKey : notnull {
     private readonly Atom<Set<TKey>> cell;
 
@@ -860,8 +682,6 @@ public sealed class ExpansionState<TKey> where TKey : notnull {
 
     public bool IsExpanded(TKey key) => cell.Value.Contains(key);
 
-    // The cell's OWN change event lifted and seeded, so the first flatten walks the restored set rather than
-    // waiting for a gesture, and a swap that landed the same set publishes nothing.
     public IObservable<Set<TKey>> Keys =>
         Observable
             .FromEvent<AtomChangedEvent<Set<TKey>>, Set<TKey>>(
@@ -870,8 +690,6 @@ public sealed class ExpansionState<TKey> where TKey : notnull {
             .StartWith(cell.Value)
             .DistinctUntilChanged();
 
-    // The seat ANSWERS: a declined step reads `Refused` and its caller learns the gesture changed nothing, where
-    // a bare swap reported success to every writer and re-published a set it had not moved.
     public Transition<Set<TKey>> Seat(TKey key, ExpandVerb verb) =>
         Cell.Step(
             cell,
@@ -885,10 +703,6 @@ public sealed class ExpansionState<TKey> where TKey : notnull {
 
 public static class ProjectionFold {
     extension<TRow, TKey>(IObservable<IChangeSet<TRow, TKey>> source) where TRow : notnull where TKey : notnull {
-        // The windowed arms publish ONE shared subscription and project twice off it: rows for the grid and
-        // bounds for the snapshot. Transforming straight to the row vocabulary discards the `IPagedChangeSet`
-        // response and the realized ordinals, which is the whole evidence the restore law re-requests a window
-        // from — a second `Page` or `Realize` subscription to recover them would window the source twice.
         public TableProjectionFeed<TRow, TKey> Project(
             TableProjection<TRow, TKey> projection, ExpansionState<TKey> expansion, Func<TRow, TKey> key) =>
             projection.Switch(
@@ -901,8 +715,6 @@ public static class ProjectionFold {
                         .Flatten(tree.ParentKey, s.Expansion.Keys, s.Key, tree.Order),
                     Unwindowed,
                     Ungrouped),
-                // The bands are the AGGREGATE product and the collection view is the header materializer, so the
-                // fold splits one flatten: `Row` nodes bind the grid, `Band` nodes feed the header stamp.
                 grouped: static (s, grouped) => s.Source.Grouped(grouped.Plan, s.Expansion.Keys, s.Key)
                     .Publish().RefCount() switch {
                         var shared => new TableProjectionFeed<TRow, TKey>(
@@ -913,9 +725,6 @@ public static class ProjectionFold {
                                     ? Some((band.Group.LabelKey, band.Group))
                                     : Option<(string, GroupBand)>.None)))),
                     },
-                // The order applies HERE rather than upstream: `Page` takes a sorted change-set and the receiver
-                // every arm shares is the keyed feed. One comparer stream serves the sort and the re-page, so a
-                // column flip re-ranks and re-pages in place instead of re-subscribing the source.
                 paged: static (s, paged) => s.Source.Sort(paged.Order).Page(paged.Pages).Publish().RefCount() switch {
                     var shared => new TableProjectionFeed<TRow, TKey>(
                         shared.Transform(Leaf),
@@ -924,11 +733,6 @@ public static class ProjectionFold {
                             .DistinctUntilChanged(),
                         Ungrouped),
                 },
-                // This arm hands the comparer stream ACROSS rather than applying it: `Realize` sorts inside its
-                // own fold, admits the sorted collection to the ledger, and windows off that one sequence, so
-                // the ordinals the ledger projects and the order the window realizes cannot come from two
-                // applications. The LEDGER answers the virtual bounds in ONE call, because start and size were
-                // always one question and the pair it now returns cannot refuse by halves.
                 virtualized: static (s, virtualized) => virtualized.Owner
                     .Realize(new OrderedChangeSet<TRow, TKey>(s.Source, virtualized.Order), virtualized.Viewport)
                     .Publish().RefCount() switch {
@@ -950,10 +754,6 @@ public static class ProjectionFold {
     private static IObservable<HashMap<string, GroupBand>> Ungrouped =>
         Observable.Return(HashMap<string, GroupBand>());
 
-    // A ledger with no live rows, or a range it refuses, publishes NO window rather than a zero-sized one, so a
-    // snapshot taken over an empty source restores nothing instead of pinning the next session to the top of an
-    // empty viewport; the empty sequence lets the window stream skip an update the way the realize fold already
-    // skips a refused range.
     private static Seq<ProjectionWindow> Bounds<TKey>(ExtentLedger<TKey> ledger, ViewportRange range) where TKey : notnull =>
         ledger.Live == 0
             ? Seq<ProjectionWindow>()
@@ -961,9 +761,6 @@ public static class ProjectionFold {
                 .Map(static window => (ProjectionWindow)new ProjectionWindow.Virtualized(window.Start, window.Size))
                 .ToSeq();
 
-    // First-expansion loading: a key ENTERING the expansion set subscribes its child stream exactly once, and
-    // the loaded change-sets merge into the SAME keyed spine the shared flatten reads — a side child collection
-    // is the deleted form.
     private static IObservable<IChangeSet<TRow, TKey>> FirstExpansion<TRow, TKey>(
         IObservable<Set<TKey>> expansion, Func<TKey, IObservable<IChangeSet<TRow, TKey>>> load)
         where TRow : notnull where TKey : notnull =>
@@ -976,12 +773,7 @@ public static class ProjectionFold {
             .Merge();
 }
 
-// The band roster's one materialization edge: the control raises its header with the collection view group as
-// `DataContext`, and the stamp replaces it with the band the flatten already computed, so a subtotal in a header
-// and a total in the footer read one `AggregateCell` shape.
 public static class GroupHeaderStamp {
-    // The HEADER event drives and the roster follows: combining both as equals would re-fire the stamp on the
-    // next roster emission against a header reference the control may already have recycled.
     public static IDisposable Attach(DataGrid grid, IObservable<HashMap<string, GroupBand>> bands) =>
         Observable
             .FromEventPattern<EventHandler<DataGridRowGroupHeaderEventArgs>, DataGridRowGroupHeaderEventArgs>(
@@ -998,13 +790,7 @@ public static class GroupHeaderStamp {
 
 public static class PivotFold {
     public static Fin<PivotCross> Cross<TRow>(PivotSpec<TRow> spec, Seq<TRow> items) {
-        // The axis identity is the SHARED `AggregateColumn` mint, so its own ordinal comparer orders the column
-        // roster and indexes the cross — a comparer spelled per call site was three chances to grade one matrix
-        // under two identities, with no structural check comparing the three.
         Seq<AggregateColumn> columns = toSeq(items.Map(spec.ColumnAxis).Distinct().OrderBy(identity)).Strict();
-        // ONE grouping pass per row group, folded INSIDE the carrier: each group indexes its own members by
-        // column axis, so the cross costs one walk of the group rather than one filter per column. Re-filtering
-        // the member sequence inside the column map priced the whole matrix at O(rows x columns x |group|).
         Seq<PivotRow> rows = toSeq(items.GroupBy(spec.RowAxis, StringComparer.Ordinal).OrderBy(static group => group.Key, StringComparer.Ordinal))
             .Map(group => toSeq(group).Fold(
                     HashMap<AggregateColumn, Seq<TRow>>(),
@@ -1024,23 +810,16 @@ public static class PivotFold {
                     TableOps.Pivot, "a row axis key is blank"),
                 TableClause.Of(rows.ForAll(static row => row.Cells.ForAll(static cell => cell.IsFinite)),
                     TableOps.Pivot, "a measured cell is non-finite"),
-                // A populated cross the spec's delegate never measured is a DECLARATION defect, not sparsity, so
-                // a matrix whose every populated cross reads unmeasured refuses rather than rendering blank.
                 TableClause.Of(rows.IsEmpty || rows.Exists(static row => row.Cells.Exists(static cell => cell is PivotCell.Measured)),
                     TableOps.Pivot, "the cell delegate admitted no measure on any populated cross"))
             .Traverse(identity).As().Map(_ => new PivotCross(columns, rows)).ToFin();
     }
 
-    // The cross projected into the ONE column family the grid materializes and the export fold shapes, so a
-    // takeoff matrix delivers through `Encode` and `ExportDelivery.Deliver` rather than a second delimited path
-    // the page's own law promised and no fence reached.
     public static Seq<TableColumnRow<PivotRow>> Roster(PivotCross cross, ResolvedLocale locale) =>
         Axis(AggregateColumn.Create("axis"), TableCellKind.Text, static row => row.Label)
             .Cons(cross.Columns.Map((column, ordinal) =>
                 Axis(column, TableCellKind.Numeric, row => row.At(ordinal).Text(locale))));
 
-    // The pivot column and the axis column differ in their key, their kind, and their projection alone, so the
-    // trait set, the width posture, and the access shape are stated once rather than twice.
     private static TableColumnRow<PivotRow> Axis(
         AggregateColumn key, TableCellKind kind, Func<PivotRow, string> project) =>
         new(key, key, kind,
@@ -1050,9 +829,6 @@ public static class PivotFold {
 }
 
 public static class DiffTableFold {
-    // The change roster arrives WHOLE from its owner rather than re-spelled as an anonymous pair, and the
-    // summary lands in the aggregate vocabulary, so a class tally reads through the same column lookup a band
-    // subtotal does. The bare tuple this replaces answered no rail at all while every sibling fold did.
     public static Fin<DiffSummary> Classify(Seq<ChangeRow> changed) =>
         changed.ForAll(static row => !string.IsNullOrWhiteSpace(row.ElementId))
             ? Fin.Succ(new DiffSummary(
@@ -1086,17 +862,13 @@ public static class DiffTableFold {
 - Boundary: store rows bind `Persist` to `StoreOp.Upsert` through the Persistence port; host-object rows bind the same column to the abstract `DocumentTransaction` commit surface-host port the app root binds to the host; delivery is the `Document/export.md` `VisualDestination` union through `ExportDelivery.Deliver` — the `FilePath` value arrives from the storage-pick DialogIntent row and the `BlobLane` arm rides the Persistence Sep lane — so a table-local delivery union is the `SHAPE_BUDGET` deleted form; the clipboard is a TRANSPORT owned by `Shell/input`, never a destination and never a boundary this page crosses: the paste fold takes an already-decoded `DragPayload` and refuses every case but `TableRows` by name, the copy fold MINTS that same case, so this owner holds no `IClipboard` call and the format gate stays the input rail's `ClipboardRow.Decode`. EXPORT is streamed under a stated ceiling (boundary capsule, statement carve-out): the fold writes header and rows into one `ArrayBufferWriter<byte>` and the ceiling guard ANSWERS the rail after the header and after each row, so an oversize set refuses by name at the line that crossed it with nothing beyond it materialized, a wide roster over an empty item set cannot slip past a test that never ran, and delivery takes that buffer's own `WrittenMemory` through the `ReadOnlyMemory<byte>` overload so the last step copies nothing — joining every row into one string and then doubling it through `Encoding.UTF8.GetBytes` held the whole export twice at peak and could not refuse until after both copies existed. The row projection is POSITIONALLY TOTAL: one field per admitted column, an unprojected cell emitting empty rather than dropping, since a dropped cell shifts every field after the hole one column left against a header this same fold wrote. Batched persistence ANSWERS TOTALLY (folder `RULINGS` `[02]`): the fold threads a `BatchReport` on the IO rail rather than a bare rail, reporting offered, landed, and the refusal together, so a caller learns how many rows crossed before the refusal — the rail-only return it replaces asserted "the one receipt carries the refusal" while carrying no count at all, which reads a block that wrote nothing and a block that wrote every row but the last as one answer, and the hand `foreach` over awaited persists it replaces could neither re-drive nor report.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The RFC-4180 scan position as a CLOSED phase rather than two flags: the four boolean corners admitted one
-// state the parse can never reach (escaped outside a quote), so the fold carried two arms no input selects.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScanPhase {
     private ScanPhase() { }
     public sealed record Plain : ScanPhase;
     public sealed record Quoted : ScanPhase;
-    // A `"` inside a quoted field is a CLOSING quote or the first half of a doubled one, and the next glyph
-    // decides which — so the pending phase is that undecided moment, not a flag beside the quoted one.
     public sealed record Pending : ScanPhase;
 
     public static readonly ScanPhase Open = new Plain();
@@ -1104,14 +876,9 @@ public abstract partial record ScanPhase {
     public static readonly ScanPhase Half = new Pending();
 }
 
-// The transport policy roster: five columns one row carries together, so a delivery ceiling, its buffer seed,
-// its header posture, its default delimiter, and its re-drive curve can never be assembled into a combination
-// no transport declares. The two seed factories this replaces differed in exactly these columns.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExportTransport {
-    // A clipboard payload crosses a platform boundary that COPIES it and a platform write does not re-drive;
-    // a delivered artifact streams once and a transient store decline is worth a bounded second attempt.
     public static readonly ExportTransport Clipboard = new("clipboard",
         ceiling: 8_388_608, delimiter: '\t', header: true, redrive: RedrivePolicy.None);
 
@@ -1127,14 +894,9 @@ public sealed partial class ExportTransport {
 
     public RedrivePolicy Redrive { get; }
 
-    // The buffer never over-allocates for a small ceiling and never chases a large one: the seed is the ceiling
-    // capped at one page batch, so the literal that lived inside the encode fold is the row's own reading.
     public int Seed => Math.Min(Ceiling, 65_536);
 }
 
-// The three grid facts as ONE roster, so the instrument declaration and the write read one authority. Three
-// consts beside three `InstrumentSpec.Create` calls beside three `Observe` overloads was one correspondence
-// spelled three times, each free to drift.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GridMetric {
@@ -1158,11 +920,10 @@ public sealed partial class GridMetric {
 
     public InstrumentSpec Row { get; }
 
-    // The partition slot the row's own arm tags, so a write can never carry a dimension the declaration omits.
     public string Partition { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record TableExportSpec(Seq<AggregateColumn> Columns, ExportTransport Transport, char Delimiter) {
     public static TableExportSpec For(
@@ -1170,21 +931,14 @@ public sealed record TableExportSpec(Seq<AggregateColumn> Columns, ExportTranspo
         new(columns, transport, delimiter.IfNone(transport.Delimiter));
 }
 
-// `Persist` is IO-shaped so cancellation rides the effect's own environment rather than a token every caller
-// threads, and so the kernel re-drive executor composes it directly.
 public sealed record TableCommit<TRow>(
     string IntentKey,
     Func<TRow, Fin<TRow>> Gate,
     Func<TRow, IO<Unit>> Persist,
     RedrivePolicy Redrive) where TRow : notnull;
 
-// The batch's TOTAL answer: a rail alone loses the landed count on refusal, so a caller could not tell a block
-// that wrote nothing from one that wrote every row but the last.
 public readonly record struct BatchReport(int Offered, int Landed, Option<Error> Refusal);
 
-// The three dispositions as ONE closed family, each carrying exactly the typed value its arm reads. The three
-// `Observe` overloads this replaces were arity twins over one concern, and nothing stopped a fourth fact from
-// being smuggled onto a slot two of them already shared.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GridOutcome {
     private GridOutcome() { }
@@ -1192,8 +946,6 @@ public abstract partial record GridOutcome {
     public sealed record Paste(string IntentKey, Fin<int> Cells) : GridOutcome;
     public sealed record Export(VisualDestination Destination, Fin<string> Delivered) : GridOutcome;
 
-    // One fact off the family: the metric row, the magnitude, the partition value, and the outcome key resolve
-    // together, so `Observe` is one write and a fourth case lands its four columns or does not compile.
     public (GridMetric Metric, double Magnitude, string Partition, string Outcome) Fact => Switch(
         commit: static row => (GridMetric.Commits, 1d, row.IntentKey, row.Landed.IsSucc ? "committed" : "rejected"),
         paste: static row => (GridMetric.Cells, row.Cells.Map(static count => (double)count).IfFail(0d),
@@ -1202,8 +954,6 @@ public abstract partial record GridOutcome {
             row.Delivered.IsSucc ? "delivered" : "rejected"));
 }
 
-// The cell gate's verdict as a value (folder `RULINGS` `[04]`): presentation state the control writes from its
-// OWN gate is produced by SATISFYING that gate, so the admission answers and one writer applies it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellVerdict {
     private CellVerdict() { }
@@ -1212,8 +962,6 @@ public abstract partial record CellVerdict {
     public static readonly CellVerdict Clear = new Admitted();
 }
 
-// The RFC-4180 scan state as a VALUE: the phase decides whether a delimiter or a newline separates or is literal
-// content, so the fold threads one immutable state and the parse is an expression rather than a cursor walk.
 public readonly record struct PasteScan(Seq<Seq<string>> Rows, Seq<string> Fields, string Field, ScanPhase Phase) {
     public static readonly PasteScan Empty = new(Seq<Seq<string>>(), Seq<string>(), string.Empty, ScanPhase.Open);
 
@@ -1221,22 +969,14 @@ public readonly record struct PasteScan(Seq<Seq<string>> Rows, Seq<string> Field
 
     public PasteScan Break() => this with { Fields = Fields.Add(Field), Field = string.Empty };
 
-    // A record ends by closing its pending field, so a trailing field is never dropped and an empty tail line
-    // yields an empty row the block filter drops rather than a phantom one-field row.
     public PasteScan Wrap() => Break() switch {
         var closed => closed with { Rows = closed.Rows.Add(closed.Fields), Fields = Seq<string>() },
     };
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The clipboard-block-to-column mapping every paste and fill-down rides. The block is admitted WHOLE before any
-// row is rebuilt, so a rectangle naming one inadmissible column rejects by that column's name with no partial
-// write behind it.
 public static class PasteFold {
-    // RFC-4180 parse: a quoted field carries the delimiter, CR, LF, and doubled quotes literally, and the record
-    // separator is the newline OUTSIDE quotes — splitting on the delimiter first is the form that shears a
-    // quoted address into two columns.
     public static Seq<Seq<string>> Block(string text, char delimiter) =>
         toSeq(text)
             .Fold(PasteScan.Empty, (scan, glyph) => (glyph, scan.Phase) switch {
@@ -1255,10 +995,6 @@ public static class PasteFold {
             })
             .Wrap().Rows.Filter(static row => row.Exists(static field => field.Length > 0));
 
-    // One block row per target row, or ONE block row filled down across every target: a block whose row count is
-    // neither one nor the target count refuses, because silently truncating or repeating a two-row block across
-    // five targets writes rows a user never saw in the source. The three shape facts are INDEPENDENT, so the
-    // nested ternary ladder they replaced reported one and hid two.
     public static Fin<Seq<TRow>> Plan<TRow>(
         Seq<TableColumnRow<TRow>> columns,
         int anchor,
@@ -1278,10 +1014,6 @@ public static class PasteFold {
                     .As()),
         };
 
-    // Fill-down reads the anchor row's OWN admitted cells as its one-row block, so the two gestures share the
-    // whole admission and a column that refuses a paste refuses a fill for the same stated reason. The span is
-    // the SELECTION's width exactly as a paste block's is, never the roster's tail: seating every column from
-    // the anchor to the end made one trailing classified or read-only column refuse every fill on the grid.
     public static Fin<Seq<TRow>> FillDown<TRow>(
         Seq<TableColumnRow<TRow>> columns,
         int anchor,
@@ -1296,9 +1028,6 @@ public static class PasteFold {
                 targets,
                 Seq<Seq<string>>(seats.Map(seat => seat.Column.Project(source, locale).IfNone(string.Empty)))));
 
-    // The seats resolve ONCE for the whole block: display order from the anchor, every seat proved visible,
-    // plain, and editable, so the per-cell fold never re-derives an admission. The two range facts accumulate
-    // because an anchor outside the roster and a width that overruns it are two independent mistakes.
     private static Fin<Seq<(TableColumnRow<TRow> Column, TableCellEdit<TRow> Edit)>> Seated<TRow>(
         Seq<TableColumnRow<TRow>> columns, int anchor, int width) where TRow : notnull =>
         Seq(
@@ -1316,8 +1045,6 @@ public static class PasteFold {
                         new EditFault.Invariant(column.Key, "column is hidden or classified")))
                 .As());
 
-    // Each cell admits through the column's OWN edit fold, so a pasted value crosses exactly the gate a typed
-    // value crosses; a short block row leaves its trailing seats untouched rather than clearing them.
     private static Fin<TRow> Rebuilt<TRow>(
         TRow row,
         Seq<(TableColumnRow<TRow> Column, TableCellEdit<TRow> Edit)> seats,
@@ -1332,9 +1059,6 @@ public static class CommitSurface {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, [.. toSeq(GridMetric.Items).Map(static row => row.Row)]);
 
-    // ONE write over the whole family: the disposition names its row, its magnitude, its partition value, and
-    // its outcome key together, so every contributed row has exactly one writer and none stands
-    // declared-but-unrecorded. The returned rail parks at the composition's evidence cell.
     public static Fin<Unit> Observe(InstrumentSet set, GridOutcome outcome) =>
         outcome.Fact switch {
             var fact => set.Write(fact.Metric.Row, fact.Magnitude, InstrumentSet.Tags(
@@ -1343,10 +1067,6 @@ public static class CommitSurface {
         };
 
     extension<TRow>(TableCommit<TRow> commit) where TRow : notnull {
-        // ONE intent invocation over N persists, so the rail seals one receipt and one correlation for the whole
-        // block. The fold threads a REPORT rather than a rail, so it never leaves the carrier and the landed
-        // count survives the refusal; a refused row short-circuits every row behind it without unwinding the
-        // count already earned.
         public IO<BatchReport> Batch(Seq<TRow> rows) =>
             rows.Fold(
                 IO.pure(new BatchReport(rows.Count, 0, None)),
@@ -1358,12 +1078,6 @@ public static class CommitSurface {
             (commit.Execution(row).Map(_ => report with { Landed = report.Landed + 1 })
                 | @catch(error => IO.pure(report with { Refusal = Some(error) }))).As();
 
-        // Two hooks, two altitudes. `CellEditEnding` is where the cell's own admission runs, and the control
-        // reads `DataValidationErrors` on that same editing element immediately after — so writing the errors
-        // here is what makes `:invalid` reachable and what refuses the cell commit; a bound column carries the
-        // `CellEditBinding` that gate requires, and a template column has no such binding, so its rule lands at
-        // the row hook instead. `RowEditEnding` is the cancellable row guard: a failing gate vetoes AT the event
-        // via `e.Cancel`, so an inadmissible row never leaves edit mode.
         public IDisposable Attach(
             DataGrid grid,
             Seq<TableColumnRow<TRow>> columns,
@@ -1384,18 +1098,11 @@ public static class CommitSurface {
                             Succ: valid => invoke(commit.IntentKey, valid),
                             Fail: error => { pattern.EventArgs.Cancel = true; fault(error); }))));
 
-        // The gate refuses BEFORE any persist and the persist alone re-drives, through the kernel's ONE executor
-        // reading the fault's own `Retriability` against the commit row's curve — the hand attempt loop, the
-        // delay window, and the clock arithmetic a local retry would need are the forms `Rasm/Domain/rails`
-        // exempts to `Redrive.Run` and to nothing else.
         public IO<Unit> Execution(TRow row) =>
             commit.Gate(row).Match(
                 Succ: valid => Redrive.Run(commit.Redrive, commit.Persist(valid)),
                 Fail: IO.fail<Unit>);
 
-        // The candidate text comes from the editor the bound kinds generate — a text box for the text and
-        // numeric rows, a check box for the boolean row — and any other editing element is a template column
-        // whose rule the row gate owns, so the fold ADMITS rather than refusing what it cannot read.
         private static CellVerdict Judged(DataGridCellEditEndingEventArgs args, Seq<TableColumnRow<TRow>> columns) =>
             (args.Row.DataContext, Candidate(args.EditingElement)) switch {
                 (FlatNode<TRow>.Row node, { IsSome: true, Case: string text }) => columns
@@ -1409,8 +1116,6 @@ public static class CommitSurface {
                 _ => CellVerdict.Clear,
             };
 
-        // The ONE writer of the gate's own presentation state: `DataValidationErrors` is what the control's
-        // commit gate reads microseconds later, so the verdict and the write meet here and nowhere else.
         private static Unit Stamped(DataGridCellEditEndingEventArgs args, CellVerdict verdict) => verdict.Switch(
             state: args.EditingElement,
             admitted: static (element, _) => { DataValidationErrors.ClearErrors(element); return unit; },
@@ -1427,8 +1132,6 @@ public static class CommitSurface {
     }
 
     extension<TRow>(Seq<TableColumnRow<TRow>> rows) where TRow : notnull {
-        // Four INDEPENDENT spec facts, four named refusals. "Columns, delimiter, or ceiling are invalid" named
-        // none of the three it folded together.
         public Fin<Seq<TableColumnRow<TRow>>> Admitted(TableExportSpec spec) =>
             Seq(
                     TableClause.Of(!spec.Columns.IsEmpty, TableOps.Export, "the column set is empty"),
@@ -1444,11 +1147,6 @@ public static class CommitSurface {
                         .ToFin(new EditFault.Invariant(key, "column is absent, hidden, or classified")))
                     .As());
 
-        // Boundary capsule: ONE streamed materialization into a single growable byte buffer, whose written
-        // length is tested after the header and after every row, so an oversize set refuses AT the row that
-        // crossed the ceiling and nothing beyond it is ever encoded. The header crosses the SAME test every row
-        // does — a wide roster under a clipboard ceiling can exceed it before the first row exists, and an empty
-        // item set would then run no test at all and hand back a payload the ceiling was declared to refuse.
         public Fin<ReadOnlyMemory<byte>> Encode(TableExportSpec spec, Seq<TRow> items, ResolvedLocale locale) =>
             rows.Admitted(spec).Bind(columns => {
                 ArrayBufferWriter<byte> buffer = new(spec.Transport.Seed);
@@ -1467,8 +1165,6 @@ public static class CommitSurface {
                 return held.Map(_ => buffer.WrittenMemory);
             });
 
-        // The clipboard leg: the shaped bytes decode ONCE into the input rail's own transfer case, so this owner
-        // hands the transport a typed payload rather than a bare string every caller would have to re-case.
         public Fin<DragPayload> Copied(TableExportSpec spec, Seq<TRow> items, ResolvedLocale locale) =>
             from columns in rows.Admitted(spec)
             from payload in rows.Encode(spec, items, locale)
@@ -1476,10 +1172,6 @@ public static class CommitSurface {
                 columns.Map(static column => (string)column.Key),
                 Encoding.UTF8.GetString(payload.Span));
 
-        // The streamed buffer hands over as MEMORY, never as a copy: the fold already refused an oversize set at
-        // the row that crossed the ceiling, so materializing a second full-size array here would double the peak
-        // the streaming ceiling exists to bound, at the last step before delivery. Delivery re-drives on the
-        // TRANSPORT's own curve, so a blob lane that declined transiently retries and a clipboard write does not.
         public IO<Fin<string>> Export(
             VisualRuntime runtime,
             TableExportSpec spec,
@@ -1492,8 +1184,6 @@ public static class CommitSurface {
                     .Map(static receipt => Fin.Succ(receipt)),
                 Fail: error => IO.pure(Fin.Fail<string>(error)));
 
-        // The paste seam takes an ALREADY-DECODED payload from the input rail's clipboard row, so this owner
-        // crosses no clipboard boundary and every non-table case refuses by its own case name.
         public Fin<Seq<TRow>> Paste(
             DragPayload payload,
             int anchor,
@@ -1504,8 +1194,6 @@ public static class CommitSurface {
                 : Fin.Fail<Seq<TRow>>(new EditFault.Invariant(
                     TableOps.Paste, $"{payload.GetType().Name} carries no table rows"));
 
-        // The ceiling guard ANSWERS the rail rather than a bool the caller re-branches on, so the refusal names
-        // the crossing length and the ceiling it crossed at the one site that measured both.
         private static Fin<Unit> Ceiling(ArrayBufferWriter<byte> buffer, TableExportSpec spec) =>
             buffer.WrittenCount <= spec.Transport.Ceiling
                 ? Fin.Succ(unit)
@@ -1518,8 +1206,6 @@ public static class CommitSurface {
             return unit;
         }
 
-        // RFC-4180: a field containing the delimiter, a quote, CR, or LF wraps in quotes with interior quotes
-        // doubled — a bare join over raw cell values is the deleted form.
         private static string Quote(string field, char delimiter) =>
             field.Contains(delimiter) || field.Contains('"') || field.Contains('\r') || field.Contains('\n')
                 ? $"\"{field.Replace("\"", "\"\"")}\""

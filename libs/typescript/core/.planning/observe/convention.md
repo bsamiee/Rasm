@@ -52,7 +52,7 @@ import {
   ATTR_USER_AGENT_ORIGINAL,
   EVENT_EXCEPTION,
   METRIC_HTTP_SERVER_REQUEST_DURATION,
-} from "@opentelemetry/semantic-conventions" // container.* and k8s.* are stable at the manifest pin: the frozen tier is where the collector's enrichment keys belong
+} from "@opentelemetry/semantic-conventions"
 import {
   ATTR_BROWSER_BRANDS,
   ATTR_BROWSER_LANGUAGE,
@@ -104,7 +104,7 @@ import {
   NETWORK_CONNECTION_TYPE_VALUE_UNKNOWN,
   NETWORK_CONNECTION_TYPE_VALUE_WIFI,
   NETWORK_CONNECTION_TYPE_VALUE_WIRED,
-} from "@opentelemetry/semantic-conventions/incubating" // feature_flag.result.* supersedes the deprecated feature_flag.evaluation.* family: the alias row absorbs the next move
+} from "@opentelemetry/semantic-conventions/incubating"
 import { Array, Cause, Duration, Effect, Exit, Metric, MetricBoundaries, MutableHashMap, Option, Order, Record, type Types } from "effect"
 import { Identity } from "../value/identity.ts"
 import { Shape } from "../value/schema.ts"
@@ -125,7 +125,7 @@ const _attr = {
   k8sJob: ATTR_K8S_JOB_NAME,
   k8sNamespace: ATTR_K8S_NAMESPACE_NAME,
   k8sNode: ATTR_K8S_NODE_NAME,
-  k8sPodIp: ATTR_K8S_POD_IP, // the association source, never an extracted dimension: the processor reads it to key a pod and stamps the rest
+  k8sPodIp: ATTR_K8S_POD_IP,
   k8sPodName: ATTR_K8S_POD_NAME,
   k8sPodUid: ATTR_K8S_POD_UID,
   k8sStatefulSet: ATTR_K8S_STATEFULSET_NAME,
@@ -143,9 +143,6 @@ const _incubating = {
   browserLanguage: ATTR_BROWSER_LANGUAGE,
   browserMobile: ATTR_BROWSER_MOBILE,
   browserPlatform: ATTR_BROWSER_PLATFORM,
-  // Announcement identity rides the specification's own five: a board joins a span to the fact producing it by
-  // `cloudevents.event_id` beside `cloudevents.event_source`, which IS the uniqueness composite every branch dedups
-  // on, so a subscription and a trace read one coordinate rather than each stamping a private correlation key.
   cloudeventsId: ATTR_CLOUDEVENTS_EVENT_ID,
   cloudeventsSource: ATTR_CLOUDEVENTS_EVENT_SOURCE,
   cloudeventsSpecVersion: ATTR_CLOUDEVENTS_EVENT_SPEC_VERSION,
@@ -154,20 +151,13 @@ const _incubating = {
   cloudRegion: ATTR_CLOUD_REGION,
   cloudZone: ATTR_CLOUD_AVAILABILITY_ZONE,
   connectionType: ATTR_NETWORK_CONNECTION_TYPE,
-  deviceModel: ATTR_DEVICE_MODEL_IDENTIFIER, // the UA client hints expose a model alone: device.manufacturer has no browser source to stamp
-  // Tracked outcomes name a business event and carry no flag key, so `feature_flag.context.id` — the targeting
-  // identity both planes stamp — IS the join back to the evaluations that produced it, and `feature_flag.result.variant`
-  // is the arm the outcome attributes to. Without the pair a tracking event lands as an unattributable count.
+  deviceModel: ATTR_DEVICE_MODEL_IDENTIFIER,
   flagContext: ATTR_FEATURE_FLAG_CONTEXT_ID,
   flagKey: ATTR_FEATURE_FLAG_KEY,
   flagProvider: ATTR_FEATURE_FLAG_PROVIDER_NAME,
   flagReason: ATTR_FEATURE_FLAG_RESULT_REASON,
   flagVariant: ATTR_FEATURE_FLAG_RESULT_VARIANT,
   hostName: ATTR_HOST_NAME,
-  // Transport coordinates a binding row already decides, so a producer and a consumer stamp one vocabulary: the
-  // destination a row routes on, the partition an ordering key selected, the group a durable consumer holds, and
-  // whatever batch arity a frame settled per member. `messaging.system` is an OPEN enum whose generated value names
-  // Kafka and not the branch's NATS or MQTT bindings, so those two spell their system name at the emitting owner.
   messagingBatchCount: ATTR_MESSAGING_BATCH_MESSAGE_COUNT,
   messagingBodySize: ATTR_MESSAGING_MESSAGE_BODY_SIZE,
   messagingConsumerGroup: ATTR_MESSAGING_CONSUMER_GROUP_NAME,
@@ -196,9 +186,6 @@ const _value = {
   flagStatic: FEATURE_FLAG_RESULT_REASON_VALUE_STATIC,
   flagTargeting: FEATURE_FLAG_RESULT_REASON_VALUE_TARGETING_MATCH,
   flagUnknown: FEATURE_FLAG_RESULT_REASON_VALUE_UNKNOWN,
-  // Messaging span names derive from this bounded operation vocabulary: `create` mints the announcement, `publish`
-  // hands it to a transport, `receive` pulls it, `process` runs the handler, and `settle` acknowledges — five words
-  // spanning the whole fabric, so a lane never invents a sixth to describe a step one of these already names.
   messagingCreate: MESSAGING_OPERATION_TYPE_VALUE_CREATE,
   messagingKafka: MESSAGING_SYSTEM_VALUE_KAFKA,
   messagingProcess: MESSAGING_OPERATION_TYPE_VALUE_PROCESS,
@@ -292,24 +279,22 @@ const _rasm = {
   auditTargetKey: "rasm.audit.target.key",
   auditTargetKind: "rasm.audit.target.kind",
   benchBand: "rasm.bench.band",
-  benchCounterKind: "rasm.bench.counter.kind", // the leaf axis: the addon's platform-forked counters share one band value, so the band alone cannot split them; `Board.Bench.counterLeaves` closes the vocabulary
+  benchCounterKind: "rasm.bench.counter.kind",
   benchLabel: "rasm.bench.label",
   benchSuite: "rasm.bench.suite",
   benchVerdict: "rasm.bench.verdict",
   cacheName: "rasm.cache.name",
   canvasSolveStage: "rasm.canvas.solve.stage",
-  contentKind: "rasm.content.kind", // the quarantined block's foreign kind: bounded by the sending deployment's own roster, so skew reads as a short vocabulary and never a free coinage
+  contentKind: "rasm.content.kind",
   crashHop: "rasm.crash.hop",
   exportFormat: "rasm.export.format",
   exportSource: "rasm.export.source",
   factStream: "rasm.fact.stream",
-  // Domain and case carry the producer's semantic identity; owner and posture carry local blame and recovery.
-  // Connect Code remains transport classification and never enters this annotation family.
   faultCase: "rasm.fault.case",
   faultDomain: "rasm.fault.domain",
   faultOwner: "rasm.fault.owner",
   faultPosture: "rasm.fault.posture",
-  flagDetail: "rasm.flag.detail", // the rendered remainder: the member family admits nested objects, arrays, and instants no attribute value type accepts
+  flagDetail: "rasm.flag.detail",
   flagEvent: "rasm.flag.event",
   flagValue: "rasm.flag.value",
   formOutcome: "rasm.form.outcome",
@@ -339,10 +324,10 @@ const _rasm = {
   sloBurn: "rasm.slo.burn",
   sloObjective: "rasm.slo.objective",
   sloSeverity: "rasm.slo.severity",
-  tapLoss: "rasm.tap.loss",       // shed beside lost: the two halves `Tap.Census` keeps apart, since one merged tally cannot tell a refused fact from a displaced one
-  tapOutcome: "rasm.tap.outcome", // `Tap.Verdict`'s own arms on the wide event: a per-publish arbitration is not a summable series
-  tapPoint: "rasm.tap.point",     // the `rasm.<pkg>.<domain>.<point>` row the fact fired at
-  tapSeating: "rasm.tap.seating", // `Tap.Seating`'s own columns
+  tapLoss: "rasm.tap.loss",
+  tapOutcome: "rasm.tap.outcome",
+  tapPoint: "rasm.tap.point",
+  tapSeating: "rasm.tap.seating",
   tenant: "rasm.tenant",
   vitalDelta: "rasm.vital.delta",
   vitalElement: "rasm.vital.element",
@@ -378,8 +363,8 @@ const _rasm = {
   vitalSession: "rasm.vital.session",
   vitalState: "rasm.vital.state",
   workChannel: "rasm.work.channel",
-  workFamily: "rasm.work.family", // the actor family, static on every message span beside the package's own entity.type
-  workShard: "rasm.work.shard", // the instance's shard placement, stamped on the lifetime span alone: the message-span seat is a static record
+  workFamily: "rasm.work.family",
+  workShard: "rasm.work.shard",
 } as const
 
 const _ESTATE = ["ring", "tenant"] as const
@@ -577,7 +562,7 @@ const _Unit = Shape.vocabulary(_unitKinds, _promUnit)
 const _grafanaUnit = {
   [_unit.action]: { level: "short", rate: "cps" },
   [_unit.admission]: { level: "short", rate: "cps" },
-  [_unit.byte]: { level: "bytes", rate: "binBps" },        // IEC on both halves: a level in 1024-scaled bytes and a rate in the matching per-second id
+  [_unit.byte]: { level: "bytes", rate: "binBps" },
   [_unit.call]: { level: "short", rate: "cps" },
   [_unit.change]: { level: "short", rate: "cps" },
   [_unit.decision]: { level: "short", rate: "cps" },
@@ -609,10 +594,6 @@ const _grafanaUnit = {
   [_unit.verdict]: { level: "short", rate: "cps" },
 } as const
 
-// Where a row's word axis comes FROM, declared on the row rather than chosen at the site: `fault` names a raiser's own
-// reason roster, so the census is complete exactly when every reason that family can raise preregisters; `vocabulary`
-// names a lane's declared state or outcome roster, whose words a fold produces. The column is what makes the word axis
-// a published census value instead of a tuple a caller assembles.
 const _censuses = ["fault", "vocabulary"] as const
 
 const _kinds = ["counter", "frequency", "gauge", "histogram", "summary", "updown"] as const
@@ -622,7 +603,7 @@ const _tail = {
   frequency: { dimensionless: "total", measured: "total" },
   gauge: { dimensionless: "ratio", measured: "" },
   histogram: { dimensionless: "", measured: "" },
-  summary: { dimensionless: "", measured: "" }, // the quantile series carries the bare name; the receiver mints the `_count`/`_sum` siblings itself
+  summary: { dimensionless: "", measured: "" },
   updown: { dimensionless: "", measured: "" },
 } as const
 const _Kind = Shape.vocabulary(_kinds, _tail)
@@ -689,7 +670,7 @@ const _instrument = {
   sceneGrafts: { description: "committed graft arrivals", kind: "counter", name: _metric.sceneGrafts, unit: _unit.graft },
   sceneRefusals: { census: "fault", description: "graft refusals by fault reason", kind: "frequency", name: _metric.sceneRefusals, unit: _unit.refusal },
   securityAdmitted: { description: "authenticity admissions by kind", dimensions: [_rasm.securityKind], kind: "counter", name: _metric.securityAdmitted, unit: _unit.admission },
-  securityCeremony: { bounds: { count: 6, factor: 2, ladder: "exponential", start: 125 }, description: "credential-ceremony wall span", dimensions: [_rasm.securityKind], kind: "histogram", name: _metric.securityCeremony, unit: _unit.milli }, // rungs 125..4000 land 1000 as a declared edge — the audit ceremony objective pins its p99 ceiling there, and a ceiling must land on a bound
+  securityCeremony: { bounds: { count: 6, factor: 2, ladder: "exponential", start: 125 }, description: "credential-ceremony wall span", dimensions: [_rasm.securityKind], kind: "histogram", name: _metric.securityCeremony, unit: _unit.milli },
   securityJwksMiss: { description: "cold JWKS resolutions missing the cache", kind: "counter", name: _metric.securityJwksMiss, unit: _unit.miss },
   securityJwksQuarantined: { description: "JWKS keys quarantined by the breaker", kind: "counter", name: _metric.securityJwksQuarantined, unit: _unit.key },
   securityJwksResolve: { bounds: { edges: [5, 25, 100, 250, 1000, 5000], ladder: "explicit" }, description: "JWKS resolve wall span", kind: "histogram", name: _metric.securityJwksResolve, unit: _unit.milli },
@@ -723,11 +704,11 @@ const _event = {
 } as const
 
 const _profile = {
-  id: "pyroscope.profile.id",  // the span-profile correlation attribute the runtime profiling bridge stamps on long-lived scoped spans
-  service: "service_name",     // the profile-store series label; its value is always the identity projection's app key
-  span: "span_name",           // the profile-store label banding samples by workload region
-  spanId: "span_id",           // the store's own join key back to the stamping span; the identifier half the region label cannot carry
-  traceId: "trace_id",         // the store-side trace filter: every banded sample of one trace answers one query
+  id: "pyroscope.profile.id",
+  service: "service_name",
+  span: "span_name",
+  spanId: "span_id",
+  traceId: "trace_id",
 } as const
 ```
 
@@ -760,10 +741,10 @@ const _translation = {
 
 const _wire = {
   namespace: "rasm",
-  occurrence: "key", // the word axis both metric bridges append to a frequency point, hardcoded there: the one exported dimension no vocabulary row mints
-  schemaUrl: "https://opentelemetry.io/schemas/1.43.0", // path segment tracks the manifest semconv pin; bump together
+  occurrence: "key",
+  schemaUrl: "https://opentelemetry.io/schemas/1.43.0",
   translation: "NoUTF8EscapingWithSuffixes",
-  unit: "unit", // the synthetic UCUM carrier: Effect's constructors take no unit option, so the OTLP bridge reads the descriptor unit off this tag key
+  unit: "unit",
 } as const
 
 const _named = Record.fromEntries(Array.map(Record.values(_instrument), (row) => [row.name, row] as const)) as Convention.Named
@@ -813,8 +794,6 @@ const _LADDER: { readonly [L in Convention.Ladder]: (bounds: Extract<Convention.
 const _quantiles = (metric: Convention.MetricName<"summary">): ReadonlyArray<number> => _Metric.at(metric).window.quantiles
 
 const _edges = (metric: Convention.MetricName<"histogram">): ReadonlyArray<number> =>
-  // BOUNDARY ADAPTER: a keyed dispatch erases the case-to-arm correlation the mapped table declares, so one cast rejoins each
-  // arm to the case its own discriminant selected
   (_LADDER[_Metric.at(metric).bounds.ladder] as (bounds: Convention.Bounds) => ReadonlyArray<number>)(_Metric.at(metric).bounds)
 
 const _counted = (row: Extract<Convention.Row, { readonly kind: "counter" | "updown" }>, incremental: boolean): Convention.Instrument =>
@@ -859,9 +838,6 @@ const _mount = <N extends Convention.MetricName, const W extends Convention.Rost
   const vocabulary: ReadonlyArray<string> = words[0]?.kinds ?? []
   const key = JSON.stringify([metric, vocabulary])
   return Option.getOrElse(MutableHashMap.get(_mounted, key), () => {
-    // BOUNDARY ADAPTER: the keyed dispatch erases the row-to-arm correlation the mapped table declares and `Mounted`
-    // re-derives the carrier from the same columns the arm read; UCUM tagging lands here because the OTLP bridge computes
-    // that exported descriptor unit before any view runs. This memo boundary materializes each row/vocabulary pair once.
     const mounted = Metric.tagged(
       (_MOUNT[_Metric.at(metric).kind] as (row: Convention.Row, words: ReadonlyArray<string>) => Convention.Instrument)(
         _Metric.at(metric),
@@ -875,17 +851,15 @@ const _mount = <N extends Convention.MetricName, const W extends Convention.Rost
   }) as Convention.Mounted<N>
 }
 
-const _TERMINAL = ["crashed", "halted", "resolved"] as const // the fold's own three exit rows, which every census word must stay disjoint from
+const _TERMINAL = ["crashed", "halted", "resolved"] as const
 
 const _outcome = <N extends Convention.CensusMetric<"fault", "counter">, E, const W extends Convention.Roster>(
   metric: N,
-  key: Convention.Fan<N>, // the row's OWN declared fan: an axis the instrument never mints is unspellable here
-  census: Convention.Census<W> & Convention.Fused<W>, // the raiser's published roster, and `Fused` refuses one whose word shadows an exit row
+  key: Convention.Fan<N>,
+  census: Convention.Census<W> & Convention.Fused<W>,
   reason: (fault: E) => W[number],
 ): (<A, R>(self: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>) => {
   const mounted = _mount(metric)
-  // BOUNDARY ADAPTER: the entry pairs erase to a string-keyed record and the census closes the word set the fold can
-  // reach, so every admitted word holds its tagged carrier from construction rather than minting one per exit
   const tagged = Record.fromEntries(
     Array.map([..._TERMINAL, ...census.kinds], (word) => [word, Metric.tagged(mounted, key, word)] as const),
   ) as { readonly [O in Convention.Outcome<W[number]>]: Convention.Mounted<N> }
@@ -938,7 +912,7 @@ const _identity = (identity: Identity.App): Convention.Resource => ({
   [_attr.deploymentEnvironment]: identity.environment,
   [_attr.serviceInstance]: identity.instance,
   [_attr.serviceName]: identity.app,
-  [_attr.serviceNamespace]: Option.getOrElse(identity.namespace, () => _wire.namespace), // the estate pin is the floor; a fleet's own service group overrides it
+  [_attr.serviceNamespace]: Option.getOrElse(identity.namespace, () => _wire.namespace),
   [_attr.serviceVersion]: identity.build.version,
   [_incubating.hostName]: identity.host,
   [_rasm.ring]: identity.ring,
@@ -978,18 +952,18 @@ declare namespace Convention {
   }
   type Domain = keyof typeof _domain
   type Module = keyof typeof _module
-  type Emitter = { readonly [M in Module]: (typeof _module)[M]["emits"] extends true ? M : never }[Module] // the roster's own column carves the emitting half; a second hand-listed union drifts on the first module that starts or stops mounting
-  type EstateDimension = (typeof _ESTATE)[number] // the identity dimensions the resource projection stamps: the carve on the domain grammar
-  type EstateKey = (typeof _rasm)[EstateDimension] // their wire spellings, which no instrument row may claim as its own fan
+  type Emitter = { readonly [M in Module]: (typeof _module)[M]["emits"] extends true ? M : never }[Module]
+  type EstateDimension = (typeof _ESTATE)[number]
+  type EstateKey = (typeof _rasm)[EstateDimension]
   type AttrKey = (typeof _attr)[Attr]
   type IncubatingKey = (typeof _incubating)[keyof typeof _incubating]
   type RasmKey = (typeof _rasm)[keyof typeof _rasm]
   type Key = AttrKey | IncubatingKey | RasmKey | (typeof _profile)["id"]
-  type Dimension = Key | Wire["occurrence"] // the metric-plane roster: vocabulary rows beside the one exported axis the bridge appends and no row mints
-  type ProfileLabel = (typeof _profile)[Exclude<keyof typeof _profile, "id">] // store labels only: _profile.id is the span-correlation attribute, never a series label
+  type Dimension = Key | Wire["occurrence"]
+  type ProfileLabel = (typeof _profile)[Exclude<keyof typeof _profile, "id">]
   type ConnectionType = (typeof _value)[Extract<keyof typeof _value, `connection${string}`>]
-  type FlagReason = (typeof _value)[Extract<keyof typeof _value, `flag${string}`>] // template extraction over the family prefix, never the whole table: each bounded family projects under one unchanged clause
-  type InstrumentKind = (typeof _kinds)[number] // the closed wire forms, derived from their own roster so the type and the runtime tuple can never disagree
+  type FlagReason = (typeof _value)[Extract<keyof typeof _value, `flag${string}`>]
+  type InstrumentKind = (typeof _kinds)[number]
   type Unit = (typeof _unit)[keyof typeof _unit]
   type Units = typeof _Unit.kinds
   type TimeUnit = keyof typeof _scale
@@ -1005,31 +979,31 @@ declare namespace Convention {
     readonly quantiles: readonly [number, ...ReadonlyArray<number>]
   }
   type Terminal = (typeof _TERMINAL)[number]
-  type Outcome<W extends string = never> = Terminal | W // the fold's three exit rows beside the census's own word axis
+  type Outcome<W extends string = never> = Terminal | W
   type CensusSource = (typeof _censuses)[number]
-  type Roster = readonly [string, ...ReadonlyArray<string>] // the census's word tuple as a CONSTRAINT only: a mount takes the published census, never a tuple a caller assembled
-  type Census<W extends Roster = Roster> = Shape.Vocabulary<W, { readonly [K in W[number]]: unknown }> // the ordered roster its own owner minted, so a duplicate word already refused at the vocabulary
+  type Roster = readonly [string, ...ReadonlyArray<string>]
+  type Census<W extends Roster = Roster> = Shape.Vocabulary<W, { readonly [K in W[number]]: unknown }>
   type CensusMetric<S extends CensusSource = CensusSource, K extends InstrumentKind = InstrumentKind> = {
     readonly [N in keyof typeof _instrument]: (typeof _instrument)[N] extends { readonly census: S; readonly kind: K } ? (typeof _instrument)[N]["name"] : never
-  }[keyof typeof _instrument] // the rows a census aspect may aim at: a counter whose fan is a name, scheme, or resource axis is unspellable at `outcome`
-  type Fused<W extends Roster> = [Extract<W[number], Terminal>] extends [never] ? unknown : never // a census word shadowing an exit row fuses a success with a fault, so the intersection admits no argument
+  }[keyof typeof _instrument]
+  type Fused<W extends Roster> = [Extract<W[number], Terminal>] extends [never] ? unknown : never
   type Fan<N extends MetricName> = Named[N] extends { readonly dimensions: infer D extends ReadonlyArray<Dimension> } ? D[number] : never
   type MetricName<K extends InstrumentKind = InstrumentKind> = {
     readonly [N in keyof typeof _instrument]: (typeof _instrument)[N]["kind"] extends K ? (typeof _instrument)[N]["name"] : never
   }[keyof typeof _instrument]
-  type Named = { readonly [N in keyof typeof _instrument as (typeof _instrument)[N]["name"]]: (typeof _instrument)[N] } // the row table re-keyed by its own wire name
+  type Named = { readonly [N in keyof typeof _instrument as (typeof _instrument)[N]["name"]]: (typeof _instrument)[N] }
   type Row<N extends MetricName = MetricName> = Named[N]
   type Mounted<N extends MetricName, R = Named[N]> = R extends { readonly kind: "frequency" } ? Metric.Metric.Frequency<string>
     : R extends { readonly kind: "histogram" } ? Metric.Metric.Histogram<R extends { readonly unit: TimeUnit } ? Duration.Duration : number>
     : R extends { readonly kind: "summary" } ? Metric.Metric.Summary<number>
     : R extends { readonly kind: "gauge" } ? Metric.Metric.Gauge<R extends { readonly bigint: true } ? bigint : number>
     : Metric.Metric.Counter<R extends { readonly bigint: true } ? bigint : number>
-  type Input<N extends MetricName> = Mounted<N> extends Metric.Metric<infer _Type, infer In, infer _Out> ? In : never // the admitted update a named row's own carrier takes, so a subscriber's projection types off the name alone
-  type Instrument = Mounted<MetricName> // every carrier the census admits, which is exactly what one mount arm returns
+  type Input<N extends MetricName> = Mounted<N> extends Metric.Metric<infer _Type, infer In, infer _Out> ? In : never
+  type Instrument = Mounted<MetricName>
   type Minter = "browser" | "deploy" | "process"
-  type Words<N extends MetricName, W extends Roster> = Named[N] extends { readonly kind: "frequency" } ? [census: Census<W>] : [] // the census is required where the family counts words and unspellable everywhere else
+  type Words<N extends MetricName, W extends Roster> = Named[N] extends { readonly kind: "frequency" } ? [census: Census<W>] : []
   type GrafanaUnit = typeof _grafanaUnit
-  type Display = keyof GrafanaUnit[Unit] // the fold's own read: a quantity or that quantity per second
+  type Display = keyof GrafanaUnit[Unit]
   type DurationMetric = (typeof _Duration.kinds)[number]
   type EventName = (typeof _event)[keyof typeof _event]
   type Scalar = string | number | boolean
@@ -1101,9 +1075,9 @@ declare namespace Convention {
       | Extract<AttrKey, IncubatingKey | RasmKey | (typeof _profile)["id"]>
       | Extract<IncubatingKey, RasmKey | (typeof _profile)["id"]>
       | Extract<RasmKey, (typeof _profile)["id"]>,
-  > = Overlap // pairwise key disjointness: a promotion landing the stable row without retiring its incubating twin doubles a `keys` entry and forks every census-ordered render
-  type _Domain<T extends Record<Domain, { readonly emitters: readonly [Emitter, ...ReadonlyArray<Emitter>]; readonly subject: string }> = typeof _domain> = T // a subject with no emitter is a segment nothing mints
-  type _Event<T extends Record<Exclude<keyof typeof _event, "exception">, `rasm.${Domain}.${string}`> = typeof _event> = T // the semconv event keeps its spec spelling; every Rasm event name closes against the domain roster
+  > = Overlap
+  type _Domain<T extends Record<Domain, { readonly emitters: readonly [Emitter, ...ReadonlyArray<Emitter>]; readonly subject: string }> = typeof _domain> = T
+  type _Event<T extends Record<Exclude<keyof typeof _event, "exception">, `rasm.${Domain}.${string}`> = typeof _event> = T
   type _InstrumentRows<
     T extends {
       readonly [K in keyof typeof _metric]:
@@ -1122,11 +1096,11 @@ declare namespace Convention {
         : (typeof _instrument)[K]["name"]
         : never
     }[keyof typeof _instrument],
-  > = Loose // a census declared on a row with neither a word axis nor a reason fan names words no exported tag can carry
-  type _Named<T extends Record<MetricName, unknown> = Named> = T // the key remap covers every name: an unreachable row would leave the translation projection partial
-  type _PromUnits<T extends Record<Unit, string> = typeof _promUnit> = T // totality over the unit vocabulary: an unanswered code renames its own series at the receiver
-  type _GrafanaUnits<T extends Record<Unit, { readonly level: string; readonly rate: string }> = typeof _grafanaUnit> = T // totality over the same vocabulary: an unanswered code renders its panel unitless
-  type _Units<Missing extends never = Exclude<Unit, Units[number]>> = Missing // roster totality follows the semantic table's own values
+  > = Loose
+  type _Named<T extends Record<MetricName, unknown> = Named> = T
+  type _PromUnits<T extends Record<Unit, string> = typeof _promUnit> = T
+  type _GrafanaUnits<T extends Record<Unit, { readonly level: string; readonly rate: string }> = typeof _grafanaUnit> = T
+  type _Units<Missing extends never = Exclude<Unit, Units[number]>> = Missing
   type _Tails<T extends Record<InstrumentKind, { readonly dimensionless: string; readonly measured: string }> = typeof _tail> = T
   type _Temporal = { readonly [K in keyof typeof _instrument]: (typeof _instrument)[K]["unit"] extends TimeUnit ? (typeof _instrument)[K]["name"] : never }[keyof typeof _instrument]
   type _Durations<Missing extends never = Exclude<_Temporal, DurationMetric>, Excess extends never = Exclude<DurationMetric, _Temporal>> = [Missing, Excess]
@@ -1136,11 +1110,11 @@ declare namespace Convention {
       & Record<Exclude<keyof typeof _rasm, EstateDimension>, `rasm.${Domain}.${string}`>
       & Record<EstateDimension, `rasm.${string}`> = typeof _rasm,
   > = T
-  type _RasmMetric<T extends Record<Exclude<keyof typeof _metric, "httpServerDuration">, `rasm.${Domain}.${string}`> = typeof _metric> = T // the dotted rasm.<domain>.<measure> law, closed against the domain roster
-  type _Value<K extends `connection${string}` | `flag${string}` = keyof typeof _value> = K // family closure: a bounded row outside every prefix binds no ValueOf clause and reaches its signal site as a free string
+  type _RasmMetric<T extends Record<Exclude<keyof typeof _metric, "httpServerDuration">, `rasm.${Domain}.${string}`> = typeof _metric> = T
+  type _Value<K extends `connection${string}` | `flag${string}` = keyof typeof _value> = K
   type _Wire<
     T extends { readonly namespace: string; readonly schemaUrl: `https://opentelemetry.io/schemas/${string}`; readonly translation: Translation; readonly unit: string } = typeof _wire,
-  > = T // the strategy closes against its roster: a receiver posture no `_translation` row implements refuses here, never at the store's own values file
+  > = T
 }
 
 const Convention: Convention.Shape = {

@@ -20,14 +20,14 @@ This page composes settled `Domain` vocabulary: `evaluation.md` owns `ClosestHit
 - Packages: Thinktecture.Runtime.Extensions, `Rasm.Domain` (`ICapability`, `CapabilitySet`, `Capability`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
 
 namespace Rasm.Spatial;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SupportCapability : ICapability<SupportCapability> {
@@ -57,9 +57,7 @@ public sealed partial class SupportCapability : ICapability<SupportCapability> {
 - Boundary: `SupportSpace` is the ONE proximity adapter, and `Domain/evaluation`'s landed ingress is `extension(object? geometry)`, so every regime hands it the boxed payload and the case NAME carries the regime the payload's type never carries. NAMED LOSS on `SignedDistance`: `EvaluationRequest.Signed` re-solves the closest hit inside `evaluation.md`, so the caller's already-computed `ClosestHit` is not reused and a signed read costs one extra closest solve — the price of one evaluation ingress instead of two, paid where the hit is cheap and the second entrypoint was not. Its cluster arm composes `cloud.md`'s indexed closest-vertex probe; a second `PointCloud` index minted here doubles the `ClusterCase` cache. Admission runs once and crosses pages, so no read re-validates the factory-proven payload.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Containment is a CLOSED two-row question, so the row is the probe: `Region` stays a value-comparable case and the
-// host-type test runs once at `Of`. Rows qualify their pattern type because the field name shadows it in this body.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ContainProbe {
     public static readonly ContainProbe Brep = new(key: 0,
@@ -70,7 +68,7 @@ public sealed partial class ContainProbe {
     [UseDelegateFromConstructor] internal partial bool Inside(GeometryBase solid, Point3d sample, double tolerance);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnalyticShape {
     private AnalyticShape() { }
@@ -109,8 +107,6 @@ public abstract partial record SupportSpace {
     public static Fin<SupportSpace> Of(object? value, Op? key = null) {
         Op op = key.OrDefault();
         return value switch {
-            // ClusterCase valid by construction (cloud.md factory-proven vertices/dedup/mass); the arm captures the
-            // empty set because a point cloud carries no surface answer at all.
             VectorCloud.ClusterCase cluster => Fin.Succ((SupportSpace)new Cluster(Value: cluster)),
             _ => from source in Optional(value).ToFin(op.InvalidInput())
                  let type = source.GetType()
@@ -139,15 +135,11 @@ public abstract partial record SupportSpace {
 
     internal CapabilitySet<SupportCapability> Capabilities => Switch(
         cluster: static _ => CapabilitySet<SupportCapability>.None,
-        // Analytic regions answer a signed distance from their own closed form, whatever the normalization rows say
-        // about a surface normal it does not need.
         analytic: static _ => CapabilitySet<SupportCapability>.Of(SupportCapability.Signed),
         region: static r => r.Held,
         sheet: static s => s.Held,
         form: static f => f.Held);
 
-    // Each gate's SHAPE half sits here; the capability half rides `SupportProjection.Requires`, so neither restates the
-    // other and a hit missing its facet refuses on the same rail a missing capability does.
     internal bool SignedReach(ClosestHit hit) => Switch(
         state: hit,
         cluster: static (_, _) => false,
@@ -161,8 +153,6 @@ public abstract partial record SupportSpace {
         cluster: static (_, _) => false,
         analytic: static (probe, _) => probe.Distance.IsSome,
         region: static (probe, _) => probe.Distance.IsSome,
-        // Open shells have no interior, so containment is not a measurement one can decline to take — it is one the
-        // geometry cannot define, and a signed fall-through here would answer a question the caller did not ask.
         sheet: static (_, _) => false,
         form: static (probe, _) => probe.Normal.IsSome);
 
@@ -180,7 +170,6 @@ public abstract partial record SupportSpace {
     internal Fin<double> ContainmentDistance(ClosestHit hit, Point3d sample, Context context, Op key) => SwitchPartially(
         state: (Hit: hit, Sample: sample, Context: context, Key: key),
         @default: static (s, space) => space.SignedDistance(sample: s.Sample, key: s.Key),
-        // Containment is a CLOSURE question, so the probe reads that lane rather than the derivation-graph floor.
         region: static (s, r) => s.Hit.Distance.ToFin(Fail: s.Key.InvalidResult())
             .Map(d => (r.Probe.Inside(solid: r.Value, sample: s.Sample,
                 tolerance: s.Context.For(lane: ToleranceLane.Closure).Value) ? -1.0 : 1.0) * d),
@@ -200,7 +189,7 @@ public abstract partial record SupportSpace {
 - Boundary: raw→typed resolves once at the egress by delegating to the canonical owners' `Project<TOut>`; the capability half of every gate reads the space's admission-captured set, never re-deriving the `normalization.md` rows per call.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SupportProjection {
     public static readonly SupportProjection Closest = Hit(key: 0,
@@ -239,12 +228,9 @@ public sealed partial class SupportProjection {
 
     private readonly record struct SupportState(SupportSpace Space, ClosestHit Hit, Point3d Sample, Context Context, Op Key, Type Output);
 
-    // ONE membership test over the row's whole requirement, so a row needing two capabilities — a signed frame, an
-    // oriented distance — is one more entry in its set rather than a second column no gate reads.
     private bool Admits(SupportSpace space, ClosestHit hit) =>
         space.Capabilities.AdmitsAll(required: Requires) && Reach(space: space, hit: hit);
 
-    // `default(CapabilitySet<T>)` carries a null backing set, so the builders name `None` rather than defaulting the struct.
     private static SupportProjection Hit(int key, Func<Type, bool> accepts, Func<SupportState, Fin<object>> projectRaw,
         CapabilitySet<SupportCapability>? requires = null, Option<Func<SupportSpace, ClosestHit, bool>> reach = default) =>
         new(key: key, requires: requires ?? CapabilitySet<SupportCapability>.None, accepts: accepts,
@@ -253,7 +239,6 @@ public sealed partial class SupportProjection {
         Hit(key: key, accepts: static output => output == typeof(T), requires: requires,
             projectRaw: state => choose(state.Hit).ToFin(Fail: state.Key.InvalidResult())
                 .Bind(value => state.Key.AcceptValue(value: value).Map(static accepted => (object)accepted)));
-    // Vector3d/double are RAW state.Output reads: a sample ON the support has a legal zero displacement no positive-magnitude VectorSpan can carry.
     private static SupportProjection SpanOf(int key, double sign) =>
         Hit(key: key,
             accepts: static output => output == typeof(VectorSpan) || output == typeof(Vector3d) || output == typeof(Line) || output == typeof(double),
@@ -264,8 +249,6 @@ public sealed partial class SupportProjection {
                     .Map(static span => (object)span),
             });
 
-    // Derived, never a roster: a row projects a vector exactly when it accepts one and the space holds whatever it
-    // requires, so a new vector-valued row joins this predicate by declaration.
     internal bool CanProjectVector(SupportSpace space) =>
         Accepts(output: typeof(Vector3d)) && space.Capabilities.AdmitsAll(required: Requires);
 

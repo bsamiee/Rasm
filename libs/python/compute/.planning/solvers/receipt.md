@@ -20,7 +20,7 @@ Three exported folds stay stable across the solver plane: `status_of`, the one t
 - Boundary: `SolveStatus` is the vocabulary the C# graduation gate reads, not the gate itself; the admit/reject verdict belongs to the `convex_program`/`solver` `HandoffAxis` cases, and the graduation crossing to the one `graduate` projection rather than a per-owner inline `HandoffAxis(solver=...)`. Family DEFAULT ceilings are policy rows on each family's own carrier beside its route table; the caller's tighter row overrides. Composition custody is the caller's — `graduate` forwards the key it is handed and defaults `DEFAULT_SCOPE`, so the root call shape stays scope-free and the registry partition is the hub owner's mechanic, never re-derived here.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable
 from enum import StrEnum
 from math import isfinite
@@ -36,21 +36,14 @@ from rasm.runtime.faults import RuntimeRail
 from rasm.runtime.identity import ContentKey
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 type SolveMethod = Literal["direct", "iterative", "least_squares", "eigen"]
-# `None` is the UNMEASURED slot, not a zero: a sparse factorization exposes no condition number, so the slot
-# spells absence and the ledger drops it rather than publishing a forged value a ceiling then clears.
 type SolveSlot = float | int | ContentKey | EngineProfile | Provider | None | SolveStatus
 
 
 class Provider(StrEnum):
-    # which engine ACTUALLY answered. Without it a `cubic` interpax resample and a linear `np.interp` floor, or a
-    # scikit-fem quadrature readout and a bare DOF norm, project receipts a consumer cannot tell apart — the extents
-    # differ by construction and nothing on the receipt says why. It seats HERE, on the page every solve route already
-    # imports downward, because the nonlinear floor and the field floor need one discriminant and no import edge runs
-    # between those two producers.
     GATED = "gated"
     FLOOR = "floor"
 
@@ -74,22 +67,14 @@ class SolveStatus(StrEnum):
         return self in _CONVERGENT
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# `EVENT` is converged: a diffrax event crossing is a successful termination.
 _CONVERGENT: frozenset[SolveStatus] = frozenset({SolveStatus.SUCCESS, SolveStatus.EVENT})
 
-# the two `_SLOTS` names the receipt spine now owns as columns of its own — `key` as the content coordinate and
-# `profile` as the band that spreads namespaced — so `contribute` carves them out of the payload rather than
-# publishing either twice and letting a reader join on whichever copy drifted.
 _SPINE_SLOTS: Final[frozenset[str]] = frozenset({"key", "profile"})
 
-# Floor when a caller passes no `tol`; a live tolerance overrides.
 _TOL: Final[Map[SolveMethod, float]] = Map.of_seq([("direct", 1e-6), ("iterative", 1e-6), ("least_squares", 1e-6), ("eigen", 1e-8)])
 
-# `strict=True` raises on a length drift, never truncates; `key` LEADS every row exactly as it leads the
-# `solvers/mesh#MESH_FIELD` `MeshReceipt` and `solvers/field#FIELD` `FieldReceipt` rows, `profile` is every row's
-# penultimate slot, and `status` its trailing slot.
 _SLOTS: Final[Map[SolveMethod, tuple[str, ...]]] = Map.of_seq([
     ("direct", ("key", "residual", "condition", "profile", "status")),
     ("iterative", ("key", "residual", "iterations", "tol", "provider", "profile", "status")),
@@ -97,9 +82,6 @@ _SLOTS: Final[Map[SolveMethod, tuple[str, ...]]] = Map.of_seq([
     ("eigen", ("key", "spectral_residual", "k", "condition", "profile", "status")),
 ])
 
-# Per-method DECLARED residual set — the graduation-ledger domain, narrower than `_SLOTS` by construction: a
-# tolerance, an iteration tally, a rank, and an eigen count are call evidence, never quantities a ceiling can
-# bar, so projecting the whole slot row publishes them as pseudo-residuals a caller's tighter row then grades.
 _LEDGER: Final[Map[SolveMethod, frozenset[str]]] = Map.of_seq([
     ("direct", frozenset({"residual", "condition"})),
     ("iterative", frozenset({"residual"})),
@@ -107,7 +89,6 @@ _LEDGER: Final[Map[SolveMethod, frozenset[str]]] = Map.of_seq([
     ("eigen", frozenset({"spectral_residual", "condition"})),
 ])
 
-# Documented `RESULTS` member-name keys; an unmapped member degrades to `OTHER`, never crashes.
 _STATUS: Final[Map[str, SolveStatus]] = Map.of_seq([
     ("successful", SolveStatus.SUCCESS),
     ("event_occurred", SolveStatus.EVENT),
@@ -126,10 +107,9 @@ _STATUS: Final[Map[str, SolveStatus]] = Map.of_seq([
 ])
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# `case None` is the no-adjudicator floor; the trailing arm is the `assert_never` totality witness over `str | None`.
 def status_of(adjudicated: str | None, residual: float, tol: float) -> SolveStatus:
     match adjudicated:
         case str() as name:
@@ -143,7 +123,6 @@ def status_of(adjudicated: str | None, residual: float, tol: float) -> SolveStat
 
 
 def verdict(gated: ModuleType, results: type, outcome: object) -> str:
-    # invert `_name_to_item`, reduce to the worst code through the gated `jax.numpy` handle, render the mapped name.
     names: dict[int, str] = {int(item._value): name for name, item in results._name_to_item.items()}
     return names[int(gated.max(outcome._value))]
 
@@ -156,15 +135,11 @@ def graduate(
     ceiling: dict[str, float],
     composition: ScopeKey = DEFAULT_SCOPE,
 ) -> RuntimeRail[GraduationReceipt]:
-    # evidence shape IS the modality: a receipt projects its own `ledger`, a prepared ledger passes through — no downstream import.
-    # `composition` is the caller's custody key threaded straight onto the hub: the solver axis is the widest crossing in the
-    # package, so an embedded second composition whose solve legs graduate through this ONE projection would otherwise fire every
-    # admission and refusal into the root scope and register hook points that never receive a fact.
     ledger = evidence.ledger if isinstance(evidence, SolverReceipt) else evidence
     return GraduationReceipt.graduates(owner, HandoffAxis(solver=subject), key, ledger, ceiling, composition=composition)
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
@@ -179,8 +154,6 @@ class SolverReceipt:
     def Direct(
         cls, key: ContentKey, residual: float, condition: float | None = None, result: str | None = None, profile: EngineProfile | None = None
     ) -> Self:
-        # `condition` DEFAULTS absent: only the dense route holds a singular spectrum, so a sparse or operator solve
-        # constructs without the slot rather than passing a sentinel the ledger must then learn to disbelieve.
         return cls(direct=(key, residual, condition, profile, status_of(result, residual, _TOL["direct"])))
 
     @classmethod
@@ -188,8 +161,6 @@ class SolverReceipt:
         cls, key: ContentKey, residual: float, iterations: int, provider: Provider, tol: float = _TOL["iterative"],
         result: str | None = None, profile: EngineProfile | None = None,
     ) -> Self:
-        # `provider` carries NO default: a floor result reading as the gated engine's is exactly the confusion the
-        # discriminant exists to end, and a default hands every unedited call site the answer it is least able to check.
         return cls(iterative=(key, residual, iterations, tol, provider, profile, status_of(result, residual, tol)))
 
     @classmethod
@@ -250,26 +221,13 @@ class SolverReceipt:
 
     @property
     def content_key(self) -> ContentKey:
-        # the leading slot read exactly as the mesh and field receipts read theirs, so the spine column resolves off
-        # one accessor and the `graduates` wrapper on every solve route stops carrying a key the value already holds.
         return self.facts["key"]
 
     @property
     def ledger(self) -> dict[str, float]:
-        # graduation-ledger projection over the method's DECLARED residual set alone, in `_SLOTS` order: the status
-        # verdict, the profile band, and the tolerance/iteration/rank/count evidence all stay off it, and an UNMEASURED
-        # slot drops rather than floating — the hub's `measured.keys() >= ceiling.keys()` gate then refuses a caller
-        # whose ceiling bars a quantity this route never measured, where a forged value would silently clear it.
         return {name: float(value) for name, value in self.facts.items() if name in _LEDGER[self.tag] and isinstance(value, (int, float))}
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine: the key, the provenance pair, the warning band, and the stamp are the runtime
-        # `runtime/observability/receipts#RECEIPT` owner's columns, so this producer keeps only its payload — the
-        # per-method `_SLOTS` row, minus the two slots the spine now names. The profile band spreads
-        # `profile.`-namespaced beside the numeric slots, so a ledger metric can never shadow it, and `key` leaves the
-        # payload because publishing the spine coordinate twice lets a reader join on the copy that drifted.
-        # The band IS the non-convergence roster: a converged solve publishes an empty band, and every other
-        # termination class names itself, so a warning that a bar did not hold survives without a second field.
         banded = self.profile
         facts: dict[str, object] = {
             "converged": self.converged,

@@ -64,11 +64,6 @@ const _triaged: (residue: unknown) => { readonly name: string; readonly note: st
   Match.orElse((residue) => ({ name: "defect", note: String(residue), stack: "" })),
 )
 
-// `Cause.prettyErrors` reifies EVERY exception the tree carries as a `PrettyError extends Error` — name, message,
-// stack — where `Cause.squash` collapses to one dominant value and the rest are unrecoverable from the emission.
-// The head seeds the forensic triple exactly as before; the tail lands as one band row, so two concurrently-failed
-// fibers emit one fatal record naming both instead of one. `Array.head` is Option-returning, so a defect whose tree
-// reifies no exception folds through the squash triage the `Match.instanceOf(Error)`/`String(residue)` pair owns.
 const _shaped = (
   cause: Cause.Cause<unknown>,
 ): { readonly name: string; readonly note: string; readonly siblings: ReadonlyArray<string>; readonly stack: string } =>
@@ -110,8 +105,6 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
                     stacktrace: shaped.stack === "" ? Option.none() : Option.some(shaped.stack),
                     type: shaped.name,
                   }).enriched(
-                    // the sibling exceptions of a parallel cause, on the page's own growth seam: one band row rather
-                    // than a second signal, and it rides the same scrub the forensic triple does
                     Array.isNonEmptyReadonlyArray(shaped.siblings)
                       ? { [Convention.rasm.crashHop]: shaped.siblings.join(" | ") }
                       : {},
@@ -121,7 +114,6 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
                 yield* Effect.annotateCurrentSpan(Convention.attr.errorType, capture.class)
                 yield* Effect.logFatal("crash").pipe(
                   Effect.annotateLogs({
-                    // forensic band rides the same fold the export boundary runs: message and stack text never land raw
                     ...Redaction.scrub(rules, capture.attributes),
                     [Convention.event.breadcrumb]: JSON.stringify(Chunk.toReadonlyArray(crumbs)),
                   }),
@@ -147,7 +139,7 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
     )
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Crash }
 ```
@@ -164,7 +156,6 @@ export { Crash }
 import type { Crash } from "./crash.ts"
 
 const browserHook: Crash.Hook = {
-  // one-row ./browser subpath module in full
   install: (emit) => {
     const onError = (event: ErrorEvent) => emit(event.error ?? event.message)
     const onRejection = (event: PromiseRejectionEvent) => emit(event.reason)
@@ -178,7 +169,6 @@ const browserHook: Crash.Hook = {
 }
 
 const serverHook: Crash.Hook = {
-  // one-row ./server subpath module in full: capture-and-continue — exit disposition stays runMain's
   install: (emit) => {
     const onException = (fault: Error) => emit(fault)
     const onRejection = (reason: unknown) => emit(reason)
@@ -191,7 +181,7 @@ const serverHook: Crash.Hook = {
   },
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { browserHook, serverHook }
 ```

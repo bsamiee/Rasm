@@ -52,8 +52,6 @@ from rasm.cad.faults import CadRail
 
 
 class BooleanBuilder(ShapeBuilder, ShapeHistory, Protocol):
-    # `SectionEdges` is the intersection-curve product the `section` arm exists to return; the roster's remaining
-    # operators publish it too, so one protocol carries it rather than splitting the family on which arm reads it.
     def SetArguments(self, shapes: TopTools_ListOfShape) -> None: ...
     def SetTools(self, shapes: TopTools_ListOfShape) -> None: ...
     def SetFuzzyValue(self, value: float) -> None: ...
@@ -78,8 +76,6 @@ def nary(
     coordinate: str,
     /,
 ) -> CadRail[TopoDS_Shape]:
-    # In-process operands carry no wire tolerance, so the seating passes the unstated value and the kernel keeps each
-    # shape's own tolerance rather than being pinned to exact arithmetic by a zero the caller never chose.
     return built(_seeded(factory(), arguments, tools, 0.0), coordinate)
 
 
@@ -99,8 +95,6 @@ def boolean(field: str, payload: BooleanInputs, sources: frozendict[bytes, Path]
 
 # --- [OPERATORS] ------------------------------------------------------------------------
 
-# One row per wire field, carrying the class literal alone. `brep/operation#ARMS` spreads these keys into its own
-# table, so five set-algebra wire fields need no arm body and a sixth operator lands as one row here.
 BOOLEANS: Final[frozendict[str, Callable[[], BooleanBuilder]]] = frozendict({
     "fuse": BRepAlgoAPI_Fuse,
     "cut": BRepAlgoAPI_Cut,
@@ -121,7 +115,6 @@ BOOLEANS: Final[frozendict[str, Callable[[], BooleanBuilder]]] = frozendict({
 ```python signature
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Whole-lane custody is the precondition: the native lane admits one call at a time, so OCCT may spend every core.
 PARALLEL: Final[bool] = True
 
 
@@ -138,7 +131,6 @@ def _seeded(
     operation.SetArguments(listed(arguments))
     operation.SetTools(listed(tools))
     if fuzzy_m > 0.0:
-        # Zero is the wire's "unstated"; `SetFuzzyValue(0.0)` pins the operator to exact arithmetic instead.
         operation.SetFuzzyValue(fuzzy_m)
     operation.SetRunParallel(PARALLEL)
     return operation

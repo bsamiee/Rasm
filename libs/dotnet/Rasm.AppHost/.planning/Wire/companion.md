@@ -24,7 +24,7 @@ The inbound serving counterpart to the outbound boundary: three `ModalityRow` ro
 - Boundary: the modality row consumes `OutboundHop.CompanionSpawn` and `OutboundHop.LocalIpc` from the dial-out owner and never re-declares the spawn or connect mechanics — `Discovery.Spawn`, `Discovery.Connect`, and `Discovery.Read` carry the bytes; the row keys on `DeploymentTopology` and mints no vocabulary of its own — the closed axis at Tier-0 `[10]-[CONSUMPTION_MODEL]` already spells `companion` and `sidecar`, and a local re-mint of those two values is the anchoring defect `[CONSUMPTION_DESCRIPTOR]` forecloses; a fourth `paired-peer` value is the rejected form for a second reason — pairing DIRECTION is already two capabilities, so a set holding `Admit` without `Spawn` states the symmetric attach exactly and `Service` is the axis value that peer already carries; FOUR ADJACENT BOOLS WERE A CORNER LAW IN DISGUISE — three of sixteen corners are legal and the other thirteen name peers this page cannot serve (a row spawning without degrading, a row forwarding writes it never admitted, the empty row that inherits the attach arm), so the set rides `CapabilitySet<ModalityCapability>` under an UNCONDITIONAL `CapabilityLaw.Legal` roster and `ModalityRows.Law.Admit` refuses at the `Fin` mint; NAMED LOSS — per-column compile-time exhaustiveness, bought back twice by that admit and by every consumer stating the capability it needs as a value through `Admits`; `ModalityReceipt.CascadeEligible` DERIVES from the carried set rather than storing a copy of one column, because a stored mirror answers the question its source already answers and diverges the moment a row moves; the attach deadline is the `DeadlineClass.HopAttempt` row read by projection and the lease deadline is the `LeasePolicy.Maintenance.CrashStaleness` value, never a literal here; `CompanionPeer` carries the `CompanionChild` produced by the outbound spawn and the `GrpcChannel` produced by the control dial so one capsule owns both legs of an attached child; `PeerRoster` is the single host-side attached-connection owner — the lease epoch is a monotone `ulong` bumped on every join and drop so a stale peer reconnecting under a prior epoch is detectable, and the roster never re-mints presence: it is the beat PRODUCER of the `Rasm.Persistence` `Version/ledger#PRESENCE` EPHEMERAL awareness lane — each join and drop crosses as the Persistence-OWNED `PresenceRow(Actor, State, At, Ttl)` through `Awareness.Present(actor, state, ttl, frame)` on the `Runtime/resources#DRAIN_QUEUES` `DrainSurface` lane, `durable: false`, never the durable store, never the exactly-once CDC envelope, and no AppHost type crosses down; THE ABSENT IDENTIFIER IS AN OPTION, NOT A ZERO — a receipt for a pid the roster does not hold reported uid 0, which names root, and an attach that faulted before a manifest existed reported pid 0, which names the kernel's own scheduler, so both columns are `Option`-shaped and an audit reader can no longer read a fabricated superuser or a fabricated peer out of a missing entry; that same law bars the pid-0 SENTINEL an attach-only manifest read once passed as its argument, so the reader takes `Option<int>` and the absent child is a value rather than a number the callee must know to disbelieve; FOREIGN ERRORS ARE ADOPTED, NEVER LAUNDERED — `CompanionFault.Of` passes a companion fault through untouched and wraps anything else as `Foreign`, carrying the original `Error` so its numeric identity and retry semantics survive instead of being rebuilt from message text; NAMED LOSS — the `Verify` case the ingress signature gate once minted from a message, which `Foreign` replaces at its own offset: the verifier's typed refusal now reaches the delivery tally under the band code its own owner gave it, which is stronger than a companion-band name carrying that owner's text; `WireHealth` reads the attached-count for per-peer serving status, never a second roster; the two-tier membership law holds — `PeerRoster` is the LOCAL kernel-credentialed attach set contributing into `Wire/coordination#MEMBERSHIP_VIEW` through `Membership.Contribute`, `FleetRoll` reads `MembershipView.Serving` (cluster liveness) for its fleet wave while each node's actual roll dials local over this control hop, and `ForwardWrite` reads `PeerRoster.Attached` as the LOCAL forwarding set; the page is host-local and crosses no browser or peer TS wire of its own — the verb messages are Rasm.Compute/Runtime/wire#PROTO_VOCABULARY-owned protobuf consumed here, and `RosterReceipt`/`ModalityReceipt` reconstruct as the `Runtime/ports#TS_PROJECTION` `ReceiptHeaderWire` beside an AppHost family arm the corpus still owes, so the page authors no `TS_PROJECTION` cluster and mints no second wire shape.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Collections.Frozen;
 using System.Diagnostics;
@@ -61,7 +61,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Wire;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -74,7 +74,7 @@ public sealed partial class ModalityCapability : ICapability<ModalityCapability>
     public int Rank { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ModalityRow(
     DeploymentTopology Topology,
     CapabilitySet<ModalityCapability> Capabilities,
@@ -87,8 +87,6 @@ public sealed record CompanionPeer(
     GrpcChannel Control,
     DiscoveryManifest Manifest);
 
-// THE ABSENT PID IS AN OPTION, NOT A ZERO: an attach that faulted before a manifest existed has no peer to
-// name, and pid 0 names the kernel's own scheduler on both supported platforms.
 public readonly record struct ModalityReceipt(
     DeploymentTopology Topology,
     Option<int> PeerPid,
@@ -100,7 +98,6 @@ public readonly record struct ModalityReceipt(
 
 
 
-// Numeric identity is generated from each direct leaf's `[FaultCase]`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CompanionFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Companion;
@@ -140,9 +137,6 @@ public abstract partial record CompanionFault : Fault {
         public int HttpStatus { get; }
     }
 
-    // Adoption carries the cause WHOLE as the inner, so its own code, recovery, and
-    // retriability survive the crossing. The signature gate's refusal reaches a reader as the verifier's own
-    // typed fault rather than rebuilding its message in this band, which would erase the verifier's code.
     [FaultCase(7)]
     public sealed partial record Foreign : CompanionFault, ICausedFault {
         public Foreign(Error inner) : base(inner.Message) => Cause = inner;
@@ -173,7 +167,7 @@ public abstract partial record CompanionSignal {
         DrainRuntimeResponse Reply) : CompanionSignal;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ModalityRows {
     public static readonly ModalityRow Companion = new(
         DeploymentTopology.Companion,
@@ -224,9 +218,6 @@ public static class ModalityRows {
             ? roster.Attached.TraverseM(entry => hop(entry, intent)).As().Map(Some)
             : IO.pure(Option<Seq<CommandReceipt>>.None);
 
-    // Manifest reads take the started child's pid as an OPTION, so the attach-only arm states that it spawned none
-    // instead of asking for pid 0 — the spawn arm adapts to `Discovery.Spawn`'s own started-child arity at the
-    // one call site that has a real pid to give.
     static IO<CompanionPeer> Dial(
         ModalityRow row, OutboundRuntime outbound, ProcessStartInfo spec, RedrivePolicy attach,
         Func<Option<int>, Fin<DiscoveryManifest>> manifestOf,
@@ -286,8 +277,6 @@ public sealed record PeerRoster(
 
     public IO<MonotonicStamp> Stamp => Clocks.Line.Capture(Key).Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>);
 
-    // Kestrel exposes the accepted socket through `IConnectionSocketFeature`, so the kernel-reported uid and
-    // pid are read off THAT socket; the manifest's own pid is a claim the peer writes about itself.
     public IO<Fin<RosterReceipt>> Accept(ModalityRow row, ServerCallContext context, DiscoveryManifest manifest) =>
         !row.Capabilities.Admits(ModalityCapability.Admit)
             ? IO.pure(Fin.Fail<RosterReceipt>(new CompanionFault.Excluded($"{Service}:{row.Topology.Key}:does-not-admit")))
@@ -308,8 +297,6 @@ public sealed record PeerRoster(
                 Succ: landed => IO.lift(() => Contribute(credential, manifest)).Map(_ => Fin.Succ(landed)),
                 Fail: error => IO.pure(Fin.Fail<RosterReceipt>(error))));
 
-    // A renew on a pid the roster does not hold DECLINES: the prior fold swapped an unchanged map and fanned a
-    // receipt announcing a renewal that never happened, which reads to every consumer as a live peer.
     public IO<Fin<RosterReceipt>> Renew(int pid, Instant now) =>
         Commit(RosterTransition.Renewed, pid, Uid(pid), now, held => held.Entries.Find(pid).Map(entry => (
             held.Entries.SetItem(pid, entry with { LeaseUntil = now + LeasePolicy.Maintenance.CrashStaleness }),
@@ -324,8 +311,6 @@ public sealed record PeerRoster(
         Peers.Value.Entries.Values.Filter(entry => entry.LeaseUntil <= now).ToSeq()
             .TraverseM(entry => Drop(entry.Pid, now)).As();
 
-    // Absent means ABSENT: uid 0 is root, so a receipt for a pid the roster does not hold once named the
-    // superuser as the peer that transitioned.
     Option<uint> Uid(int pid) => Peers.Value.Entries.Find(pid).Map(static entry => entry.Uid);
 
     IO<Fin<RosterReceipt>> Commit(
@@ -370,7 +355,7 @@ stateDiagram-v2
 - Boundary: THE PROTO IS THE WIRE ROSTER'S EVIDENCE — `ControlService` declares only `SetDegradation` and `DrainRuntime`, and this page implements exactly those two generated overrides. Reload, tool dispatch, patch dispatch, and support capture stay with their local owners rather than becoming speculative operator RPCs. Response messages project typed receipts field-for-field through one `[Mapper]`; drain-runtime threads the admitted inherited allotment unchanged to the conductor, which owns the one `min(local, inherited)` intersection. `ControlContractInterceptor` reads the central two-rail verdict directly: authored request refusals raise `InvalidArgument`, authored response refusals raise `Internal`, and both pass the unchanged violation sequence into `FaultContext`; an unrostered type or CEL failure raises `Internal` with no fabricated field detail. It is registered for `ControlServiceImpl` alone, so generated health and externally supplied service planes do not pass through a corpus roster they do not belong to. No handler, mapper, or second validator rechecks a message. Ingress tenancy is admitted per carrier: `ControlRuntime.Adoption` is `TenantAdoption.Adopted` because `PeerAdmission` reads the connecting peer's kernel-reported uid and pid from the accepted socket.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -382,10 +367,10 @@ public sealed partial class ControlVerb {
     public partial Option<string> Audit(string detail);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct VerbReceipt(ControlVerb Verb, JsonElement Payload);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ControlRuntime(
     DegradationCell Degradation,
     Func<Duration, IO<DrainReceipt>> Drain,
@@ -398,9 +383,7 @@ public sealed record ControlRuntime(
     public static readonly TenantAdoption Adoption = TenantAdoption.Adopted;
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
-// `Target`, not `Both`: the response messages are DELIBERATELY narrower than the receipts they project, which the
-// proto states at `SetDegradationResponse` — every target member is answered and an unread receipt column stays host-side.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class ControlReplyMap {
@@ -408,17 +391,11 @@ internal static partial class ControlReplyMap {
 
     public static partial DrainRuntimeResponse Reply(DrainReceipt receipt);
 
-    // `~ExplicitCast` bars the silent enum cast, so the SmartEnum-to-wire projection is this ONE
-    // user-implemented member Mapperly consumes for the `Level` column — the row's own `Wire` column
-    // stays the map, and no ordinal arithmetic crosses the seam.
     static Control.DegradationLevel Wire(DegradationLevel level) => level.Wire;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ControlInbound {
-    // The request's `Level` is the GENERATED wire enum, never a string key: `OfWire` is the roster-derived
-    // inverse of the row's own `Wire` column, so `Unspecified` and any foreign ordinal fold to `None` and
-    // `Force` re-derives rather than forcing a phantom level.
     public static IO<DegradationState> SetDegradation(ControlRuntime runtime, ServerCallContext context, Control.DegradationLevel level, string reason) =>
         Continued(runtime, context, ControlVerb.SetDegradation, reason, _ =>
             IO.lift(() => runtime.Degradation.Force(DegradationLevel.OfWire(level)))
@@ -429,9 +406,6 @@ public static class ControlInbound {
             runtime.Drain(inherited)
                 .Map(receipt => (Value: receipt, Payload: (object)receipt)));
 
-    // The scope restores prior baggage on dispose, so the bracket is a statement body — a fold that continued
-    // without disposing would leak the caller's tenancy into whatever ran next on the thread.
-    // Correlation, audit, trace, fan, and fire happen HERE or nowhere.
     static IO<A> Continued<A>(
         ControlRuntime runtime, ServerCallContext context, ControlVerb verb, string detail,
         Func<CorrelationId, IO<(A Value, object Payload)>> fold) =>
@@ -449,7 +423,7 @@ public static class ControlInbound {
 
 }
 
-// --- [ENTRY] --------------------------------------------------------------------------------
+// --- [ENTRY] ---------------------------------------------------------------------------
 public sealed class ControlServiceImpl(ControlRuntime runtime) : ControlService.ControlServiceBase {
     public override Task<SetDegradationResponse> SetDegradation(SetDegradationRequest request, ServerCallContext context) =>
         ControlInbound.SetDegradation(runtime, context, request.Level, request.Reason).Map(ControlReplyMap.Reply).RunAsync().AsTask();
@@ -468,8 +442,6 @@ public sealed class CapabilityDiscoveryServiceImpl(
         Task.FromResult(CapabilityDiscovery.Project(registry, degradation.Level, pin));
 }
 
-// Contract admission surrounds the generated verb edge exactly once in each direction. It consumes the
-// accumulated violation sequence directly; `WireAdmission.Admit` is intentionally not used because it collapses it.
 public sealed class ControlContractInterceptor(ControlRuntime runtime) : Interceptor {
     public override async Task<TResponse> UnaryServerHandler<TRequest, TResponse>(
         TRequest request,
@@ -525,7 +497,7 @@ public sealed class ControlContractInterceptor(ControlRuntime runtime) : Interce
 - Boundary: a served plane arrives as a port and never as a named sibling type; one row binds both its registration and endpoint mapping. An empty row set serves control and health only. Contract warming is synchronous composition work, not the first request's work; the interceptor is scoped to `ControlServiceImpl`, because health and external planes carry package-owned generated messages outside `WireAdmission.Files`. The Unix leg reuses the `Discovery` `sun_path` law at the 104-byte cap and the inherited-fd leg consumes each activated listener through `ListenHandle`. `Grpc.HealthCheck.HealthServiceImpl` owns wire health; no diagnostic service is mounted.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlTransport {
     private ControlTransport() { }
@@ -534,7 +506,7 @@ public abstract partial record ControlTransport {
     public sealed record InheritedHandle(SafeSocketHandle Handle) : ControlTransport;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BindReceipt(string Service, string Address, BindOrigin Origin, ReusePolicy Reuse, int Listeners);
 
 public sealed record ServedPlane(
@@ -542,7 +514,7 @@ public sealed record ServedPlane(
     Func<IGrpcServerBuilder, IGrpcServerBuilder> Registration,
     Action<IEndpointRouteBuilder> Map);
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ServiceHost {
     public static readonly ServedPlane CapabilityDiscoveryPlane = new(
         "capability-discovery",
@@ -582,12 +554,6 @@ public static class ServiceHost {
         unixDomainSocket: uds => (kestrel.ListenUnixSocket(uds.SocketPath), unit).Item2,
         inheritedHandle: inherited => (kestrel.ListenHandle((ulong)inherited.Handle.DangerousGetHandle()), unit).Item2);
 
-    // Every acquired descriptor mounts: a launchd `Sockets` entry with no `SockFamily` hands back one listener
-    // per family and a systemd pair exists only under `BindIPv6Only=ipv6-only`, so the fold is count-driven and
-    // binding the first alone leaves a sibling open, unlistened, and undiagnosed. `ListenHandle` ADOPTS without
-    // taking the close, so the `SafeSocketHandle` stays the owning side and `Release` is the one close.
-    // Dispatch is the union's OWN total `Switch`: the `var other` catch-all it replaces swallowed every address
-    // kind but one, so the Growth claim that a fourth `BindAddress` case is a compile break held nowhere.
     public static Fin<Unit> BindEndpoint(KestrelServerOptions kestrel, BoundEndpoint endpoint) =>
         endpoint.Listeners.IsEmpty
             ? endpoint.Address.Switch(
@@ -614,13 +580,13 @@ public static class ServiceHost {
 - Boundary: only a row admitting `ModalityCapability.Degrade` cascades, so a sidecar never floors its externally-supervised peer; the parent forwards its own `DegradationCell.Level` value as data to the child over the control hop, so the level value READ stays the parent's degradation owner and the floor WRITE lands on the child cell through `Cascade`, never the operator `Force` the set-degradation verb owns — the seam-split owner on `Observability/health#DEGRADATION_RAIL` keeps the level vocabulary, the `Derive` fold, and the `Cascade` floor admit; the child admits the cascaded wire enum through the same `DegradationLevel.OfWire` admission the wire verb uses so an unknown ordinal never floors the cell; NAMED LOSS — none: the child-side `Apply(cell, parent)` member DELETES because it forwarded verbatim to `DegradationCell.Cascade` and resolved no name in one hop, so the child's inbound leg calls that owner directly.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CascadeReceipt(
     DegradationLevel Source,
     int ChildPid,
     Option<DegradationLevel> Acknowledged);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DegradationCascade {
     public static IO<CascadeReceipt> Cascade(
         PeerRoster roster, CompanionPeer peer, DegradationLevel level, string reason, ModalityRow row) =>
@@ -630,8 +596,6 @@ public static class DegradationCascade {
         .Map(acked => new CascadeReceipt(level, peer.Manifest.Pid, acked))
         .Bind(receipt => roster.Fan.Fan(Correlation.Mint(), nameof(DegradationCascade), receipt, new CompanionSignal.Cascade(receipt)));
 
-    // The client half of the local-ipc propagation pair: an uninjected call makes the child's span a fresh root
-    // and severs the multi-process trace at the one hop the propagation composite names.
     static IO<Option<DegradationLevel>> Forward(CompanionPeer peer, DegradationLevel level, string reason) =>
         IO.liftAsync(async () => {
             var client = new ControlService.ControlServiceClient(peer.Control);
@@ -655,7 +619,7 @@ public static class DegradationCascade {
 - Boundary: the read is `Socket.GetRawSocketOption(int level, int optionName, Span<byte> optionValue)` returning the kernel-filled byte count — the raw `getsockopt` P/Invoke and the managed `Socket.GetSocketOption` path are both rejected, the former because the BCL already owns the raw-option seam over the safe handle and the latter because the PAL carries no `SocketOptionLevel.Local`, no `SO_PEERCRED`/`LOCAL_PEERCRED` translation, and `SocketOptionName.BlockSource=17` shares the integer with Linux `SO_PEERCRED=17` only by coincidence; Linux `SOL_SOCKET=1`/`SO_PEERCRED=17` fills `ucred{pid,uid,gid}` 12 bytes captured at connect time so a later exec cannot launder identity, macOS `SOL_LOCAL=0`/`LOCAL_PEERCRED=1` fills `xucred{cr_version,cr_uid,cr_ngroups,cr_groups[16]}` 76 bytes with `cr_version` mandated to equal `XUCRED_VERSION=0` and `SOL_LOCAL=0`/`LOCAL_PEERPID=2` reads the 4-byte peer pid `xucred` omits; the accepted-socket credential read is the admission row the `Discovery` manifest read defers to, so a connecting peer's identity is the kernel-reported value, never the manifest's self-asserted pid, and `PeerRoster.Admit` keys the entry on this `PeerCredential.Pid`; the credential faults are the INBOUND band's own — they name a serving-side admission refusal, and reporting them on the outbound hop band made an unreadable peer identity indistinguishable from a failed dial at every reader keying on the code; the peer leg this read gates is `python:runtime/transport/serve#SERVE`, whose UDS serve row admits `insecure_loopback` alone precisely because identity arrives here through `SO_PEERCRED`/`LOCAL_PEERCRED` rather than a wire-carried PEM — so the two ends name one credential source and neither seats a second.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Sequential)]
 public readonly struct Ucred {
     public readonly int Pid;
@@ -672,7 +636,7 @@ public readonly struct Xucred {
 
 public readonly record struct PeerCredential(int Pid, uint Uid);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PeerAdmission {
     public const int SolSocketLinux = 1;
     public const int SoPeerCred = 17;
@@ -729,7 +693,7 @@ public static class PeerAdmission {
 - Boundary: THE POLICY KEY IS THE ROW'S OWN — the prior form re-derived the key inside a nested ternary that asked `is BindAddress.LoopbackTcp` four times and read `OperatingSystem.IsMacOS()` inside one arm of it, so the table's key existed only in that expression and a row could never be added without editing it; keying on `(HostOs, ActivationSource, AddressKind)` makes an unrostered combination a REFUSAL (Linux with launchd activation is exactly that) where the ternary answered a neighboring row; DISPATCH IS THE ROW'S OWN TOO — `Acquire` compared `request.Source` against two of the three rows over a `[SmartEnum]` that generates a total `Switch`, so a fourth source silently took the fresh-bind arm; the inheritance arm now rides the row and fresh-bind's arm answers an empty descriptor set, which is what selects the fresh path; `ProfileRoots` LEAVES the signature — it was never read and the activation-name lookup it claimed to scope is `BindRequest.ActivationName`; the host-binding owner resides beside `SERVICE_HOST` because `ServiceHost.Bind`/`KestrelServerOptions.ListenUnixSocket` is the listener seam it binds through — `host-profiles` owns profile variance and never the bind() call; `Microsoft.Extensions.Hosting.Systemd` carries the `SystemdNotifier` readiness mirror but no socket-activation fd intake, so `SystemdActivation` reads the listen protocol directly with no libsystemd P/Invoke — through the `Runtime/profiles#LIFETIME_ADAPTERS` `BootVariable` roster, the one owner of a coordinate resolved before any configuration source mounts, so the three handoff variables sit beside the watchdog pair rather than as bare reads at this boundary; there is no `Microsoft.Extensions.Hosting.Launchd` package, so `LaunchdActivation` is a `[LibraryImport("/usr/lib/libSystem.B.dylib")]` adapter over `launch_activate_socket(3)` whose `int**` out-parameter is a heap array of `getaddrinfo(3)`-derived descriptors the caller adopts WHOLE and whose `size_t*` count is the discriminant, with one `free(3)` release the man page mandates — the import carries no `SetLastError` because the call's own return value IS the errno, and the descriptors copy out of the array in ONE span read before the free rather than accumulating through a quadratic append; `SafeSocketHandle(nint preexistingHandle, bool ownsHandle)` is the adoption ctor — the `int` fd widens implicitly and the parameter is `nint`, so a fence spelling `(int, bool)` names a member that does not exist; descriptor OWNERSHIP settles at the `SafeSocketHandle` alone — `KestrelServerOptions.ListenHandle(ulong)` adopts the descriptor for listening and never takes the close, so `Release` disposing each held handle is the one close; the macOS secret-acquisition route is an in-process `Security.framework` `[LibraryImport]` over `SecItemCopyMatching`/`SecItemAdd` for parity with the launchd adapter, avoiding a child-process credential surface, and returns an exact kernel refusal which the `Runtime/secrets#SECRET_LEASE` owner wraps only after redacting the key id — never a second credential-fault owner and never this page's own band; its live execution triggers an OS keychain dialog and stays a tier-3 live-host residual the headless session never invokes; the abstract-unix namespace lands on Linux and refuses on macOS because no directory mode gates it, riding the policy row's own column, never a fourth address case; `NOTIFY_SOCKET` exists only on systemd so a launchd or fresh-bind row carries no readiness notify.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -795,7 +759,7 @@ public sealed partial class ReusePolicy {
     public static readonly ReusePolicy None = new("none");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PortOverride(Option<int> Port) {
     public static readonly PortOverride Unset = new(None);
 }
@@ -814,7 +778,7 @@ public sealed record BoundEndpoint(
     ReusePolicy Reuse,
     Seq<Socket> Listeners);
 
-// --- [POLICIES] -----------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record HostBindPolicy(
     HostOs Os,
     ActivationSource Source,
@@ -851,10 +815,8 @@ public static class HostBindRows {
             : Fin.Fail<HostBindPolicy>(new CompanionFault.Bind($"{os.Key}:{source.Key}:{address.Key}"));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostBinding {
-    // The acquisition is the transition, so it fans here: a `BoundEndpoint` that reached Kestrel with no receipt
-    // left the one host-binding fact readable nowhere but a debugger.
     public static IO<Fin<BoundEndpoint>> Acquire(BindRequest request, FactSink<CompanionSignal> fan) =>
         Bound(request).Match(
             Succ: endpoint => Fanned(fan, endpoint).Map(Fin.Succ),
@@ -877,8 +839,6 @@ public static class HostBinding {
         loopbackTcp: static tcp => string.Create(CultureInfo.InvariantCulture, $"127.0.0.1:{tcp.Port}"),
         inheritedFd: static inherited => string.Create(CultureInfo.InvariantCulture, $"fd:{inherited.Handles.Count}"));
 
-    // A fresh AND a reclaimed unix path both own their file, so both unlink; every held socket disposes once,
-    // which is also the one close of the descriptor `ListenHandle` adopted for listening.
     public static IO<Unit> Release(BoundEndpoint endpoint) =>
         IO.lift(() => {
             if (endpoint.Origin != BindOrigin.Inherited && endpoint.Address is BindAddress.UnixPath { AbstractAllowed: false } unix && File.Exists(unix.SocketPath)) {
@@ -902,9 +862,6 @@ public static class HostBinding {
         inheritedFd: inherited => Fin.Fail<BoundEndpoint>(
             new CompanionFault.Bind($"inherited-fd-not-fresh:{inherited.Handles.Count}")));
 
-    // Bind-failure-is-mutex, stated where the origin is stamped: an absent file is Fresh, a file a live peer
-    // answers on is a held mutex the acquisition refuses, and a file nothing answers on unlinks as Reclaimed.
-    // A blind unlink would evict a serving peer.
     static Fin<BindOrigin> Reclaim(BindRequest request, BindAddress.UnixPath unix) =>
         !File.Exists(unix.SocketPath)
             ? Fin.Succ(BindOrigin.Fresh)
@@ -917,8 +874,6 @@ public static class HostBinding {
                 Fail: _ => Op.Of().Catch(() => { File.Delete(unix.SocketPath); return Fin.Succ(BindOrigin.Reclaimed); })
                     .MapFail(static error => (Error)CompanionFault.Of(error)));
 
-    // `Socket(SafeSocketHandle)` loads the descriptor's real family off the kernel, so each listener is TAGGED
-    // by what it is rather than by its array position; descriptor numbers repeat across activations and key nothing.
     static BoundEndpoint Settle(BindRequest request, HostBindPolicy row, Seq<SafeSocketHandle> handles) =>
         new(request.Service,
             new BindAddress.InheritedFd(handles.Map(static handle => (int)handle.DangerousGetHandle())),
@@ -927,13 +882,10 @@ public static class HostBinding {
             handles.Map(static handle => new Socket(handle)));
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static partial class SystemdActivation {
     public const int ListenFdsStart = 3;
 
-    // `$LISTEN_FDNAMES` repeats the unit name once per fd, so a name lookup returns the run's FIRST index and
-    // never disambiguates within it — the service's fds are the maximal contiguous name-matching span and every
-    // one adopts, which serves the count-one norm and the explicit `BindIPv6Only=ipv6-only` pair alike.
     public static Fin<Seq<SafeSocketHandle>> Inherit(string activationName) =>
         int.TryParse(BootVariable.ListenOwner.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int pid) && pid == Environment.ProcessId
         && int.TryParse(BootVariable.ListenCount.Read().IfNone(string.Empty), CultureInfo.InvariantCulture, out int count) && count >= 1
@@ -943,7 +895,6 @@ public static partial class SystemdActivation {
                 None: () => Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd fd run: {activationName}")))
             : Fin.Fail<Seq<SafeSocketHandle>>(new CompanionFault.Activation($"no systemd socket activation: {activationName}"));
 
-    // A name matching nothing answers ABSENCE rather than a `(-1, 0)` pair a caller can still index with.
     static Option<(int Offset, int Length)> NameRun(Option<string> listenNames, string activationName, int count) =>
         string.IsNullOrEmpty(activationName)
             ? Some((0, count))
@@ -969,20 +920,12 @@ public static partial class LaunchdActivation {
     public const int ESrch = 3;
     public const int EAlready = 37;
 
-    // No `SetLastError`: this call RETURNS the errno as its int result and never sets the errno global, so
-    // `Marshal.GetLastPInvokeError()` reads a stale unrelated value here. Zero is success; every other value
-    // is the diagnosis itself.
     [LibraryImport("/usr/lib/libSystem.B.dylib", StringMarshalling = StringMarshalling.Utf8)]
     private static unsafe partial int launch_activate_socket(string name, int** fds, nuint* count);
 
     [LibraryImport("/usr/lib/libSystem.B.dylib")]
     private static unsafe partial void free(void* ptr);
 
-    // The out-parameter is a heap ARRAY the count sizes — one entry per `getaddrinfo(3)` result — so taking
-    // `fds[0]` alone abandons its sibling open and undiagnosable, and emission ORDER is launchd's own detail.
-    // The call is once-per-process: a repeat answers `EALREADY` with count 0 and a NULL out-pointer, so both
-    // failure arms answer NULL and `free` is owed on the success arm alone. The descriptors copy out in ONE
-    // span read, so the array releases before any managed handle is minted.
     public static unsafe Fin<Seq<SafeSocketHandle>> Inherit(string activationName) {
         int* fds = null;
         nuint count = 0;
@@ -1089,7 +1032,7 @@ stateDiagram-v2
 |  [05]   | `cloudevents.event_subject`      | the payload's own address                       |
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public static class WebhookHeader {
     public const string RequestOrigin = "WebHook-Request-Origin";
     public const string RequestRate = "WebHook-Request-Rate";
@@ -1125,7 +1068,7 @@ public readonly record struct WebhookAllowance(Option<WebhookRate> Limit) {
         .IfNone("*");
 }
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class EventSemconv {
     public const string EventId = "cloudevents.event_id";
     public const string EventSource = "cloudevents.event_source";
@@ -1141,7 +1084,7 @@ public static class EventSemconv {
             (EventSubject, envelope.Subject));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record Delivery(
     int Accepted, int Duplicate, int Externalized, [property: OrderedEquality] Seq<CompanionFault> Refusals) {
@@ -1162,8 +1105,6 @@ public readonly record struct WebhookCredential(string Token, bool Query);
 
 public readonly record struct AuthenticatedWebhook(Principal Principal, WebhookCredential Credential);
 
-// A private array is filled exactly once, never exposed mutably, and the parsed framing travels beside it.
-// Verification and decode therefore consume one bounded carrier rather than two reads of a request stream.
 public sealed class IngressBody {
     private readonly byte[] bytes;
 
@@ -1233,7 +1174,7 @@ public sealed record IngressPolicy(
     ClockPolicy Clocks,
     FactSink<CompanionSignal> Fan);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EventIngress {
     public static IResult Validate(HttpRequest request, HttpResponse response, IngressPolicy policy) {
         response.Headers[HeaderNames.Allow] = HttpMethods.Post;

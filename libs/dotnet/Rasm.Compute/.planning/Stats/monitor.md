@@ -24,10 +24,8 @@ Rasm.Compute stats monitor scores operational streams online: `StreamMonitor` is
 - Boundary: this lane's sketch serves LIVE receipt streams alone. Exact small-sample batch quantiles are the kernel `Rasm/Domain/stats#ORDER_STATISTICS` `Distribution.Of` fold over a bounded materialized sample, and the branch three-form quantile law binds both — an operational sketch crossing into a bounded-sample reading grades a value no run produced. The three forms are the CARRIER split the ruling protects; the marker walk itself is one body at one owner.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Policy scalars admit ONCE at the mint and the interior reads bands it cannot violate: the seven-condition `||`
-// chain these replace collapsed every EWMA violation onto one fault slug naming the monitor and NOT the knob.
 [ValueObject<string>]
 public readonly partial struct MonitorKey {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -48,9 +46,6 @@ public readonly partial struct Smoothing {
     public static Fin<Smoothing> From(double repr) => Validate(repr, null, out Smoothing value) is { } fault ? Fin.Fail<Smoothing>(fault) : value;
 }
 
-// The control multiplier IS a derivation of the rate, so it is proved HERE rather than gated at the mint: a
-// sub-representable rate rounds the Φ⁻¹ argument to 1 and lands +∞, and an infinite band can never breach and
-// would silence the monitor forever. Refusing at construction makes that rate unspellable instead of caught.
 [ValueObject<double>]
 public readonly partial struct FalseAlarm {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
@@ -60,15 +55,11 @@ public readonly partial struct FalseAlarm {
 
     public static Fin<FalseAlarm> From(double repr) => Validate(repr, null, out FalseAlarm value) is { } fault ? Fin.Fail<FalseAlarm>(fault) : value;
 
-    // L = Φ⁻¹(1 − α/2), the two-sided control multiplier; read ONCE at the mint because InvCDF Brent-solves and
-    // this lane advances once per receipt.
     public double ControlLimit => Multiplier(Value);
 
     private static double Multiplier(double rate) => Normal.InvCDF(0d, 1d, 1d - rate / 2d);
 }
 
-// Two observations is the floor Bessel's correction needs, and the warmed baseline is the ONLY sigma a control
-// chart reads — so the sample normalizer is defined on every path that reaches it by this band alone.
 [ValueObject<int>]
 public readonly partial struct Warmup {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
@@ -85,8 +76,6 @@ public readonly partial struct Threshold {
     public static Fin<Threshold> From(double repr) => Validate(repr, null, out Threshold value) is { } fault ? Fin.Fail<Threshold>(fault) : value;
 }
 
-// The verdict label is a closed vocabulary, not a per-arm literal: the receipt's `Statistic` column is a wire
-// spelling four arms once transcribed independently, and a fifth arm now owes a row rather than a new string.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -94,22 +83,13 @@ public sealed partial class MonitorStatistic {
     public static readonly MonitorStatistic EwmaLevel = new("ewma-level");
     public static readonly MonitorStatistic P2Quantile = new("p2-quantile");
     public static readonly MonitorStatistic DetectorScore = new("detector-score");
-    // A sample the kernel screen refused: it advances no state, bounds nothing, and lands so the cadence stays
-    // observable — the batch survives one host sentinel exactly as the kernel moment fold's `Rejected` column does.
     public static readonly MonitorStatistic SampleRejected = new("sample-rejected");
 }
 
-// Stateful capsule family: each case carries exactly its own advance state — EWMA level over a kernel Stat
-// baseline, the kernel quantile sketch, the estimator's bounded residual window — so a knob record shared across
-// modalities is unrepresentable and a new online statistic is one case plus one Advance arm.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StreamMonitor {
     private StreamMonitor() { }
 
-    // `Baseline` is the kernel three-state probe receipt, never an Option: `Absent` is a warmup that has taken no
-    // sample yet, `Measured` the held summary, and `Refused` a kernel fold that DECLINED carrying its own cause —
-    // three facts one `Option<Stat>` collapsed onto `None`, which is why a refused update read as warmup-incomplete
-    // and advanced the stream as though nothing had gone wrong.
     public sealed record Ewma(MonitorKey Id, Smoothing Lambda, double ControlL, Warmup Warmup, double Level, Evidence<Stat<Scalar>> Baseline, long Count) : StreamMonitor;
 
     public sealed record Quantile(MonitorKey Id, Threshold Limit, QuantileSketch Sketch) : StreamMonitor;
@@ -121,9 +101,6 @@ public abstract partial record StreamMonitor {
         quantile: static monitor => monitor.Id,
         detector: static monitor => monitor.Id);
 
-    // Each mint is an ACCUMULATING fan-in over INDEPENDENT columns exiting once through `ToFin()`: the caller
-    // learns every violated band in one refusal, where the `||` ladder these replace reported the first and named
-    // none of them. The derived control multiplier rides `FalseAlarm`'s own admission, so no arm re-proves it.
     public static Fin<StreamMonitor> OfEwma(string monitorId, double lambda, double falseAlarm, int warmup) =>
         (MonitorKey.From(monitorId).ToValidation(),
          Smoothing.From(lambda).ToValidation(),
@@ -133,8 +110,6 @@ public abstract partial record StreamMonitor {
                 id, smoothing, alarm.ControlLimit, warm, Level: 0d, Baseline: new Evidence<Stat<Scalar>>.Absent(), Count: 0L))
             .ToFin();
 
-    // The tracked fraction admits at the KERNEL sketch, so this mint carries no unit-open band of its own and the
-    // seeded marker positions arrive already laid out.
     public static Fin<StreamMonitor> OfQuantile(string monitorId, double probability, double limit) =>
         (MonitorKey.From(monitorId).ToValidation(),
          Threshold.From(limit).ToValidation(),
@@ -152,7 +127,7 @@ public abstract partial record StreamMonitor {
             .ToFin();
 }
 
-// --- [MODELS] --------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record MonitorVerdict(MonitorKey Monitor, MonitorStatistic Statistic, double Level, Option<double> Limit, bool Breach, int Window, Instant At) {
     public ComputeReceipt.Drift Receipt(CorrelationId correlation) =>
@@ -161,23 +136,14 @@ public sealed record MonitorVerdict(MonitorKey Monitor, MonitorStatistic Statist
         };
 }
 
-// One channel walk answers all three of its facts together — the capsule the caller reinstalls, the verdicts it
-// reads, and the receipts the drift rail folds — so the receipt chain's producer is the same entry that advances
-// the state and no caller re-walks the verdict sequence to mint what the walk already knows.
 public sealed record MonitorObservation(StreamMonitor Settled, Seq<MonitorVerdict> Verdicts, Seq<ComputeReceipt.Drift> Drift);
 
-// Receipt-to-scalar extraction rows: the identical fact stream the dashboards fold, one extractor column per
-// operational stream — a second receipt-scanning loop beside these rows is the deleted form.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MonitorChannel {
     public static readonly MonitorChannel SolveResidual = new("solve-residual",
         read: static fact => fact is ComputeReceipt.Solve solve ? Some(solve.Residual) : None);
-    // Factorization residual is a SECOND stream, not a spelling of the first: a Solve fact reports physics
-    // equilibrium against its convergence target, a Factorization fact the measured linear-algebra residual
-    // against its ResidualCap. The column is nullable because a route that computed no witness reports none,
-    // and Optional keeps that absence out of the moment stream instead of feeding it a fabricated zero.
     public static readonly MonitorChannel FactorResidual = new("factor-residual",
         read: static fact => fact is ComputeReceipt.Factorization factor ? Optional(factor.TrueResidual) : None);
     public static readonly MonitorChannel RemoteSeconds = new("remote-seconds",
@@ -187,17 +153,12 @@ public sealed partial class MonitorChannel {
 
     [UseDelegateFromConstructor] private partial Option<double> Read(ComputeReceipt fact);
 
-    // `Choose` fuses the presence test and the projection in ONE pass; the row's own column decides both.
     public Seq<double> Extract(Seq<ComputeReceipt> facts) => facts.Choose(Read);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class MonitorLane {
-    // Sample admission is ONE kernel screen for every arm: `Scalar.From` runs `ValidityClaim.Finite`, which
-    // rejects the host `RhinoMath.UnsetValue` sentinel that `double.IsFinite` admits as an ordinary value — the
-    // exact value the deleted per-arm gate let into the quantile marker set. A refused sample lands its own
-    // verdict rather than failing the batch, so the arms below receive an ADMITTED carrier and re-screen nothing.
     public static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Advance(StreamMonitor monitor, double sample, IClock clock) =>
         Scalar.From(sample).Match(
             Succ: admitted => monitor.Switch(
@@ -213,11 +174,6 @@ public static class MonitorLane {
         Walk(monitor, channel.Extract(facts), clock).Map(walked => new MonitorObservation(
             walked.Settled, walked.Verdicts, walked.Verdicts.Map(verdict => verdict.Receipt(correlation))));
 
-    // Twin-detector projection: the capsule advances across calls in an Atom, and each evidence row lands one
-    // score and one change flag so the Anomaly carrier satisfies the clash cardinality proof. Each exchange
-    // installs the advanced capsule BESIDE the verdicts that transition emitted, so the swap function stays pure
-    // and re-runs whole on a losing exchange while the caller still reads what the accepted transition produced —
-    // a lock around a mutable local instead publishes a half-advanced capsule the next caller scores against.
     public static Func<Matrix<double>, Fin<Prediction>> AsDetector(StreamMonitor.Detector seed, IClock clock) {
         Atom<(StreamMonitor.Detector Held, Fin<Seq<MonitorVerdict>> Emitted)> cell =
             Atom((Held: seed, Emitted: Fin.Succ(Seq<MonitorVerdict>())));
@@ -240,8 +196,6 @@ public static class MonitorLane {
             (acc, sample) => acc.Bind(held => Advance(held.Settled, sample, clock)
                 .Map(advanced => (advanced.Next, held.Verdicts.Add(advanced.Verdict)))));
 
-    // The receipt's window column is `int` while the capsules count in `long`, so the narrowing is ONE projection
-    // three arms read rather than three transcriptions of the same saturating cast.
     static int Windowed(long count) => (int)Math.Min(count, int.MaxValue);
 
     static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Detected(StreamMonitor.Detector held, Scalar sample, Instant at) {
@@ -253,11 +207,6 @@ public static class MonitorLane {
                 : Fin.Fail<(StreamMonitor, MonitorVerdict)>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(next.Id.Value)))));
     }
 
-    // Baseline rides the KERNEL's admitted moment summary advanced one sample at a time, not a local mean/M2/count
-    // triple. A REFUSED update is a kernel invariant break carrying its own cause and rails HERE — the deleted
-    // `.ToOption()` erased that cause and let the stream read it as a warmup that had simply not started. Sigma is
-    // the SAMPLE normalizer because a control chart's σ̂ is the unbiased estimate: the warm gate is reached only
-    // after `Warmup ≥ 2` admitted observations, so Bessel's denominator is defined on every path that reads it.
     static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Smoothed(StreamMonitor.Ewma held, Scalar sample, Instant at, Op key) {
         bool warm = held.Count >= held.Warmup.Value;
         Evidence<Stat<Scalar>> advanced = warm
@@ -274,9 +223,6 @@ public static class MonitorLane {
                 long count = held.Count + 1L;
                 double mean = baseline.Value.Mean;
                 double level = warm ? held.Lambda.Value * sample.To() + (1d - held.Lambda.Value) * held.Level : mean;
-                // The band exists only where a baseline bounds it, so warmup emits `None` rather than a limit over
-                // an unestimated mean; `warm` also proves `count > Warmup`, which is why the warmed exponent needs
-                // no floor — the deleted `Math.Max(1L, …)` defaulted a value its own guard made unreachable.
                 Option<double> band = warm
                     ? Some(held.ControlL * baseline.Value.Deviation(MomentNormalizer.Sample) * Math.Sqrt(
                         held.Lambda.Value / (2d - held.Lambda.Value) * (1d - Math.Pow(1d - held.Lambda.Value, 2d * (count - held.Warmup.Value)))))
@@ -291,10 +237,6 @@ public static class MonitorLane {
             });
     }
 
-    // The P² marker walk is the KERNEL's — seeding, cell selection, desired-position drift, and the parabolic
-    // adjustment with its linear fallback all live at `QuantileSketch.Update`, whose Boundary names this lane as
-    // its composer. `Estimate()` answers the exact order statistic below five samples and the centre marker at and
-    // beyond it, so the deleted rounded index into a partially-seeded row leaves with the body.
     static Fin<(StreamMonitor Next, MonitorVerdict Verdict)> Sketched(StreamMonitor.Quantile held, Scalar sample, Instant at, Op key) =>
         QuantileSketch.Update(held.Sketch, sample.To(), key).Bind(advanced => advanced.Estimate()
             .ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(held.Id.Value))))

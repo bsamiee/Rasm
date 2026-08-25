@@ -30,7 +30,7 @@ Output dispatch rides `Numerics/atoms.md`'s `AtomProjection.Rows`; receipt valid
 - Boundary: owner-first is law — the local kernel never shadows a route another owner carries, and the sampled projection composes the `sample.md`, `flow.md`, and `fields.md` owners rather than re-implementing any. Log-map is the probe's only mesh-band special case; a Hodge probe reads its sampled component vector here while the `HodgeDecompositionReceipt` rides `fields.md`'s tagged vector rail.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,16 +44,12 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
 using SegmentKeySet = System.Collections.Generic.HashSet<(ScalarIsolinePointKey A, ScalarIsolinePointKey B)>;
 using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
-// The route decides its own per-item census: a native adapter hands back a whole batch and a dropped curve is an
-// item failure, while a local kernel already gates on its own rejection count and a second column would double-report.
-// Both were re-decided at the call site off one bool that the body then translated into this very vocabulary.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ExtractionRoute {
     public static readonly ExtractionRoute Native = new(key: 0, failures: static (attempted, emitted) => Some(attempted - emitted));
@@ -63,8 +59,6 @@ public sealed partial class ExtractionRoute {
     public partial Option<int> Failures(int attempted, int emitted);
 }
 
-// Head and Tail are ONE walk read from two ends: the anchor and the insertion slot ride the row, so the two ternaries
-// a bool mode knob forced through the chain body leave with it.
 [SmartEnum<int>]
 public sealed partial class ChainEnd {
     public static readonly ChainEnd Head = new(key: 0, anchor: static points => points[index: 0], slot: static _ => 0);
@@ -74,13 +68,9 @@ public sealed partial class ChainEnd {
     [UseDelegateFromConstructor] public partial int Slot(List<Point3d> points);
 }
 
-// RhinoDefault witnesses the native evaluator's fixed internal tolerance — recorded, never chosen.
 [Union]
 [BoundaryAdapter]
 public abstract partial record ExtractionTolerance {
-    // A recorded band names its LANE — every context-sourced site knows which gate it read, and dropping that left the
-    // number untraceable at the receipt. RhinoDefault stays a bare double because a native evaluator's fixed internal
-    // tolerance derives from no lane this estate owns: recorded, never chosen.
     public sealed record FromContextCase(Tolerance Value) : ExtractionTolerance;
     public sealed record RhinoDefaultCase(Option<double> Witnessed) : ExtractionTolerance;
     public sealed record NotApplicableCase : ExtractionTolerance;
@@ -89,7 +79,6 @@ public abstract partial record ExtractionTolerance {
     public static ExtractionTolerance RhinoFixed(double witnessed) => new RhinoDefaultCase(Witnessed: Some(witnessed));
     public static readonly ExtractionTolerance RhinoDefault = new RhinoDefaultCase(Witnessed: Option<double>.None);
     public static readonly ExtractionTolerance NotApplicable = new NotApplicableCase();
-    // Generated TOTAL Switch, no catch-all: a new case breaks the build where the `_` arm turned it into a silent None.
     public Option<Tolerance> Band => Switch(
         fromContextCase: static c => Some(c.Value),
         rhinoDefaultCase: static _ => Option<Tolerance>.None,
@@ -119,7 +108,6 @@ public abstract partial record ContourPolicy {
         new SurfaceIsoCase(Status: status, Parameter: parameter).Admit(key: key.OrDefault());
     public static Fin<ContourPolicy> MeshScalar(Arr<double> values, Seq<double> levels, Op? key = null) =>
         new MeshScalarCase(Values: values, Levels: levels).Admit(key: key.OrDefault());
-    // Qualified Rasm.Domain.Admit: the Admit member name shadows the vocabulary class inside this type.
     internal Fin<ContourPolicy> Admit(Op key) => Switch(
         state: key,
         planeCase: static (op, policy) => Rasm.Domain.Admit.Plane(basis: policy.Section, key: op).Map(_ => (ContourPolicy)policy),
@@ -132,7 +120,6 @@ public abstract partial record ContourPolicy {
             (IsoStatus.North or IsoStatus.East or IsoStatus.South or IsoStatus.West, _) => Fin.Succ<ContourPolicy>(policy),
             _ => Fin.Fail<ContourPolicy>(op.InvalidInput()),
         },
-        // Floor is DATA: both rows demand at least one finite entry, so emptiness is a number, not a flag.
         meshScalarCase: static (op, policy) =>
             from scalars in Rasm.Domain.Admit.All(toSeq(policy.Values.AsIterable()), static value => ValidityClaim.Finite(value: value), floor: 1, key: op)
             from levels in Rasm.Domain.Admit.All(policy.Levels, static value => ValidityClaim.Finite(value: value), floor: 1, key: op)
@@ -149,7 +136,6 @@ public abstract partial record ExtractionDomain {
     private ExtractionDomain() { }
     public static Fin<ExtractionDomain> Support(SupportSpace value, Op? key = null) =>
         Optional(value).ToFin(key.OrDefault().InvalidInput()).Map(valid => (ExtractionDomain)new SupportCase(value: valid));
-    // Op.Need is the null gate here: the Admit member name shadows the Rasm.Domain.Admit class inside this type.
     public static Fin<ExtractionDomain> Mesh(MeshSpace value, Op? key = null) =>
         key.OrDefault().Need(value.Native).Map(_ => (ExtractionDomain)new MeshCase(value: value));
     public static Fin<ExtractionDomain> Cloud(VectorCloud value, Op? key = null) {
@@ -158,7 +144,6 @@ public abstract partial record ExtractionDomain {
             .Bind(cloud => cloud.Admit(key: op))
             .Map(static valid => (ExtractionDomain)new CloudCase(value: valid));
     }
-    // Lattices are their own admission evidence — construction-gated at CellLattice.Of — so the factory only lifts.
     public static Fin<ExtractionDomain> Lattice(CellLattice value, Op? key = null) =>
         key.OrDefault().AcceptValue(value: (ExtractionDomain)new LatticeCase(value: value));
     public static Fin<ExtractionDomain> Of(object? value, Context context, Op? key = null) {
@@ -181,7 +166,6 @@ public abstract partial record ExtractionDomain {
 
     internal Fin<CurveBatch> Contours(ContourPolicy policy, Context context, Op key) => Switch(
         state: (Policy: policy, Context: context, Key: key),
-        // Support-borne meshes admit into a MeshSpace first: the section owner takes admitted truth, never a raw soup.
         supportCase: static (state, domain) => domain.Value.Value switch {
             Brep brep => CurvesFromBrep(brep: brep, policy: state.Policy, key: state.Key),
             Mesh mesh => MeshSpace.Of(native: mesh, context: state.Context, key: state.Key)
@@ -206,8 +190,6 @@ public abstract partial record ExtractionDomain {
     private static Fin<CurveBatch> CurvesFromMesh(MeshSpace space, ContourPolicy policy, Op key) =>
         key.Catch(() => policy.Switch(
             state: (Space: space, Key: key),
-            // ONE mesh-plane section owner: the crossing lattice's chain walk emits oriented loops and typed open rows,
-            // which a tolerance-welded native contour cannot express.
             planeCase: static (state, p) =>
                 Intersection.Apply(new IntersectOp.PlaneMesh(Cut: p.Section, Mesh: state.Space, Policy: IntersectPolicy.Canonical), state.Key)
                     .Bind(result => result is IntersectResult.Chains chains
@@ -231,7 +213,6 @@ public abstract partial record ExtractionDomain {
             planeCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(Surface), outputType: typeof(ContourPolicy.PlaneCase))),
             axisCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(Surface), outputType: typeof(ContourPolicy.AxisCase))),
             meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(Surface), outputType: typeof(ContourPolicy.MeshScalarCase)))));
-    // RhinoCommon IsoCurve law: direction is which way the resulting curve runs; edge statuses read the opposite-direction domain end.
     private static Fin<(int Direction, double Parameter)> IsoFrame(IsoStatus status, double parameter, Func<int, Interval> domain, Op key) =>
         status switch {
             IsoStatus.X => key.Finite(parameter).Map(_ => (Direction: 1, Parameter: parameter)),
@@ -249,9 +230,6 @@ public abstract partial record ExtractionDomain {
             planeCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(CellLattice), outputType: typeof(ContourPolicy.PlaneCase))),
             axisCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(CellLattice), outputType: typeof(ContourPolicy.AxisCase))),
             surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(CellLattice), outputType: typeof(ContourPolicy.SurfaceIsoCase)))));
-    // Here the 2D iso family closes: per level one ScalarField.Lattice admission and the reconstruct.md managed
-    // marching-squares fold, its oriented Chain loops (outer CCW, holes CW) leaving as polyline curves — the rank
-    // gate is IsoContour's own, so a rank-3 lattice answers a typed fault, never a silent flattening.
     private static Fin<CurveBatch> LatticeIsolines(CellLattice grid, Arr<double> values, Seq<double> levels, Context context, Op key) =>
         from field in ScalarField.Lattice(grid: grid, values: values, key: key)
         from results in levels.TraverseM(level => IsoContour.Detailed(field: field, grid: grid, policy: new IsoContourPolicy(IsoValue: level), context: context, key: key)).As()
@@ -267,8 +245,6 @@ public abstract partial record ExtractionDomain {
             planeCase: static (state, p) => state.Cloud.UseIndex(key: state.Key, project: pc => AcceptNative(curves: pc.CreateSectionCurve(plane: p.Section, absoluteTolerance: state.Context.Absolute.Value), tolerance: ExtractionTolerance.FromContext(state.Context.Absolute), key: state.Key)),
             surfaceIsoCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(PointCloud), outputType: typeof(ContourPolicy.SurfaceIsoCase))),
             meshScalarCase: static (state, _) => Fin.Fail<CurveBatch>(error: state.Key.Unsupported(inputType: typeof(PointCloud), outputType: typeof(ContourPolicy.MeshScalarCase)))));
-    // Native adapters may hand back null and their array length IS the attempted census, so the host shape admits ONCE
-    // here on a route fixed by construction — never a bool the accepting body decodes back into this vocabulary.
     private static Fin<CurveBatch> AcceptNative(Curve[] curves, ExtractionTolerance tolerance, Op key) =>
         Optional(curves).ToFin(key.InvalidResult())
             .Bind(active => AcceptCurves(curves: toSeq(active), attempted: active.Length, route: ExtractionRoute.Native, tolerance: tolerance, key: key));
@@ -281,20 +257,15 @@ public abstract partial record ExtractionDomain {
             .Map(receipt => new CurveBatch(Curves: accepted, ScalarIsoline: scalarIsoline, Receipt: receipt));
     }
 
-    // Named statement-kernel exemption: no owner carries a per-vertex scalar contour, so this PL kernel follows the triangulated topology and returns stitched candidates only.
     private static Fin<ScalarIsolineResult> ScalarIsolinesDetailed(Mesh mesh, Arr<double> values, Seq<double> levels, Context context, Op key) {
         if (values.Count != mesh.Vertices.Count || values.Exists(static value => !double.IsFinite(value)) || levels.IsEmpty || levels.Exists(static value => !double.IsFinite(value)))
             return Fin.Fail<ScalarIsolineResult>(key.InvalidInput());
         using Mesh triangulated = mesh.DuplicateMesh();
         if (triangulated.Faces.QuadCount > 0 && !triangulated.Faces.ConvertQuadsToTriangles()) return Fin.Fail<ScalarIsolineResult>(key.InvalidResult());
         if (triangulated.Vertices.Count != values.Count) return Fin.Fail<ScalarIsolineResult>(key.InvalidResult());
-        // TWO regimes, two lanes, resolved once: the level comparison is scale-relative (Fraction) and the point weld
-        // is a length quantum (Weld). The kernel used to take a caller tolerance AND mint a second band locally.
         Tolerance band = context.For(ToleranceLane.Fraction);
         Tolerance weld = context.For(ToleranceLane.Weld);
         List<ScalarIsolineSegment> segments = [];
-        // The ledger is the fold's monoidal OUTPUT, never an in/out parameter returned-and-reassigned through six
-        // signatures: each kernel tells its own rejections and one Run() yields the curves and the census together.
         Writer<IsolineLedger, Seq<Curve>> run =
             from _ in toSeq(Enumerable.Range(start: 0, count: triangulated.Faces.Count))
                 .Filter(f => triangulated.Faces[index: f].IsTriangle)
@@ -324,8 +295,6 @@ public abstract partial record ExtractionDomain {
                 converter: cut => new ScalarIsolineSegment(A: points[cut.Edge.A], B: points[cut.Edge.B]));
             segments.AddRange(collection: edgeSegments);
             Point3d[] unique = [.. cuts.SelectMany(cut =>
-                    // Sign OPPOSITION, never the product: two same-sign deltas near 1e-200 multiply to exactly 0.0 and
-                    // the straddle arm then misses a crossing every finiteness probe passes.
                     (Math.Abs(value: cut.ADelta) <= epsilon, Math.Abs(value: cut.BDelta) <= epsilon, Sign.Of(cut.ADelta) != Sign.Of(cut.BDelta)) switch {
                         (true, true, _) => (Point3d[])[],
                         (true, false, _) => [points[cut.Edge.A]],
@@ -335,8 +304,6 @@ public abstract partial record ExtractionDomain {
                     })
                 .Where(predicate: static point => point.IsValid)
                 .DistinctBy(keySelector: point => KeyOf(point: point, weld: weld))];
-            // One or three unique crossings means the level ran through a VERTEX: the face contributes no segment and
-            // the census SAYS so, where the silent drop reported a clean run over a mesh that had lost geometry.
             return unique.Length == 2
                 ? Writer.tell(IsolineLedger.Raw(edgeSegments.Length + 1).Combine(Emit(segments, unique)))
                 : Writer.tell(IsolineLedger.Raw(edgeSegments.Length).Combine(IsolineLedger.VertexTouch));
@@ -380,7 +347,6 @@ public abstract partial record ExtractionDomain {
             if (used[i]) continue;
             List<Point3d> points = [all[i].A, all[i].B];
             used[i] = true;
-            // Both ends of the chain are ONE walk over the closed ChainEnd roster, so head and tail cannot drift.
             ledger = toSeq(ChainEnd.Items).Fold(ledger, (held, end) => held.Combine(Extend(points: points, end: end, all: all, used: used, incident: incident, weld: weld)));
             Polyline polyline = [.. points];
             attempted++;
@@ -388,8 +354,6 @@ public abstract partial record ExtractionDomain {
         }
         return Writer.write(toSeq(curves), ledger.Combine(IsolineLedger.Stitched(attempted: attempted, emitted: curves.Count)));
     }
-    // Three typed exits and no re-entry flag: no incident bucket, a branch (more than one unused segment at the
-    // anchor, tallied), or an exhausted bucket. Only the single-candidate corner advances the chain.
     private static IsolineLedger Extend(List<Point3d> points, ChainEnd end, ScalarIsolineSegment[] all, bool[] used, Dictionary<ScalarIsolinePointKey, List<int>> incident, Tolerance weld) {
         IsolineLedger ledger = IsolineLedger.Empty;
         while (true) {
@@ -403,8 +367,6 @@ public abstract partial record ExtractionDomain {
             used[index] = true;
         }
     }
-    // Weld quantum is the context's own Weld lane floored at sqrt-epsilon, stated here because the key IS the
-    // equivalence class the whole stitch reads.
     private static ScalarIsolinePointKey KeyOf(Point3d point, Tolerance weld) {
         double scale = 1.0 / Math.Max(val1: weld.Value, val2: EpsilonPolicy.SqrtEpsilon);
         return new ScalarIsolinePointKey(
@@ -424,13 +386,11 @@ public abstract partial record ExtractionProbe {
     public static ExtractionProbe Vector(VectorField source) => new VectorCase(Source: source);
     public static ExtractionProbe Scalar(ScalarField source) => new ScalarCase(Source: source);
     public static ExtractionProbe Tensor(TensorField source) => new TensorCase(Source: source);
-    // Source gate runs at the request boundary (Extraction.Probe), so a null field union never reaches Project. Op.Need: the member name shadows the Admit class.
     internal Fin<ExtractionProbe> Admit(Op key) => Switch(
         state: key,
         vectorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe),
         scalarCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe),
         tensorCase: static (op, probe) => op.Need(probe.Source).Map(_ => (ExtractionProbe)probe));
-    // Mesh-band rows route out: log-map to geodesics.md's kernel, Hodge evidence to dec.md's memoized HodgeSolutionOf seat, scalar rows to fields.md's tagged rails.
     internal Fin<TOut> Project<TOut>(Point3d sample, Context context, Op key) => Switch(
         state: (Sample: sample, Context: context, Key: key),
         vectorCase: static (state, probe) => AtomProjection.Rows<ExtractionProbe.VectorCase, TOut>(self: probe, key: state.Key, owner: typeof(VectorCase),
@@ -469,8 +429,6 @@ public abstract partial record SampledExtraction {
     public sealed record GlyphCase(VectorField Field, PositiveMagnitude Scale) : SampledExtraction;
     public sealed record GridCase(ScalarField Field) : SampledExtraction;
     public sealed record StreamBundleCase(VectorField Field, PositiveMagnitude InitialStep, FieldIntegrator Integrator, Termination Termination) : SampledExtraction;
-    // Directional drape — the one non-closest projection mode; Spatial/support owns the closest-point rail and this
-    // case owns "project this sample set down an axis onto the mesh band", which no closest-point read expresses.
     public sealed record DrapeCase(Vector3d Direction) : SampledExtraction;
     private SampledExtraction() { }
     public static Fin<SampledExtraction> Glyph(VectorField field, double scale, Op? key = null) {
@@ -481,7 +439,6 @@ public abstract partial record SampledExtraction {
     }
     public static Fin<SampledExtraction> Grid(ScalarField field, Op? key = null) =>
         Admit.NotNull(value: field, key: key.OrDefault()).Map(static source => (SampledExtraction)new GridCase(Field: source));
-    // Unit admission runs at the spine where Context flows; the factory gates finiteness and non-degeneracy.
     public static Fin<SampledExtraction> Drape(Vector3d direction, Op? key = null) {
         Op op = key.OrDefault();
         return guard(ValidityClaim.Finite(direction) && direction.Length > 0.0, op.InvalidInput()).ToFin()
@@ -497,7 +454,6 @@ public abstract partial record SampledExtraction {
     }
 }
 
-// Public extraction request vocabulary; intent.md carries it as one case.
 [Union]
 [BoundaryAdapter]
 public abstract partial record Extraction {
@@ -544,7 +500,6 @@ public abstract partial record Extraction {
                 ProjectionRow.Of<ScalarIsolineResult>(() => batch.ScalarIsoline.ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineResult)))),
                 ProjectionRow.Of<ScalarIsolineReceipt>(() => batch.ScalarIsoline.Map(static result => result.Receipt).ToFin(Fail: state.Key.Unsupported(inputType: typeof(ContourPolicy), outputType: typeof(ScalarIsolineReceipt)))))
             select output,
-        // Marching cubes is reconstruct.md's IsoSurface owner; the case's root-step budget rides its policy row.
         isoSurfaceCase: static (state, extraction) =>
             from result in IsoSurface.Detailed(field: extraction.Field, bounds: extraction.Bounds, resolution: extraction.Resolution.Value,
                 policy: IsoSurfacePolicy.Default with { MaxRootSteps = extraction.MaxRootSteps }, context: state.Context, key: state.Key)
@@ -580,9 +535,6 @@ public abstract partial record Extraction {
                     Streamed<StreamlineTrace>(rejected, op, traces),
                     Streamed<Polyline>(rejected, op, traces),
                     Streamed<Curve>(rejected, op, traces))),
-            // Drapes are BATCH-shaped by the host member and a miss is DATA, not failure — a sample beyond the
-            // mesh footprint legitimately drops, so the receipt census carries the uncovered count and the pair row
-            // carries the Ex overload's source-index correspondence instead of a zero-rejection gate.
             drapeCase: static (s, mode) => s.Domain is ExtractionDomain.MeshCase meshDomain
                 ? from samples in s.Seeds.Evaluate(domain: s.Domain, context: s.Context, key: s.Key)
                   from direction in Direction.Of(value: mode.Direction, context: s.Context, key: s.Key)
@@ -603,19 +555,14 @@ public abstract partial record Extraction {
                   select output
                 : Fin.Fail<TOut>(s.Key.Unsupported(inputType: s.Domain.GetType(), outputType: typeof(SampledExtraction.DrapeCase)))));
 
-    // Items gate on zero rejections ONCE — the rule states here and every sampled row reads it, where six hand
-    // ternaries re-encoded it per row and any one of them could drift from the law the spine declares.
     private static ProjectionRow Gated<T>(int rejected, Op op, Func<Fin<T>> body) =>
         ProjectionRow.Of<T>(() => rejected == 0 ? body() : Fin.Fail<T>(op.InvalidResult()));
 
-    // The three stream-bundle rows differ only in the shape FlowKernel projects each trace into.
     private static ProjectionRow Streamed<TShape>(int rejected, Op op, Seq<StreamlineTrace> traces) =>
         Gated<Seq<TShape>>(rejected, op, () => traces.TraverseM(trace => FlowKernel.ProjectTrace<TShape>(trace: trace, key: op)).As());
 
     private static Fin<TOut> ProjectSamples<TOut, TItem>(SampleKind seeds, ExtractionDomain domain, Context context, Op key, Func<Point3d, Context, Op, Fin<TItem>> sample, Func<Seq<TItem>, int, ExtractionReceipt, Op, Fin<TOut>> project) =>
         from samples in seeds.Evaluate(domain: domain, context: context, key: key)
-        // Partition runs ALL seeds and splits, so the rejected census and the discarded faults arrive from one pass
-        // where the hand fold counted failures and threw every Error away.
         let split = samples.Points.Map(point => sample(point, context, key)).Partition()
         from receipt in ExtractionReceipt.Of(
             route: ExtractionRoute.Local, attempted: samples.Points.Count, emitted: split.Succs.Count,
@@ -625,7 +572,7 @@ public abstract partial record Extraction {
         select output;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal readonly record struct CurveBatch(Seq<Curve> Curves, Option<ScalarIsolineResult> ScalarIsoline, ExtractionReceipt Receipt);
 
 [StructLayout(LayoutKind.Auto)]
@@ -636,8 +583,6 @@ internal readonly record struct ScalarIsolinePointKey(long X, long Y, long Z) {
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct ScalarIsolineSegment(Point3d A, Point3d B);
 
-// The kernel's monoidal OUTPUT: counts add, the incident census takes its maximum, and every rejection class is a
-// named mint, so a fold order can never change the receipt and no kernel threads the ledger as an in/out parameter.
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct IsolineLedger(
     int RawSegments, int DedupedSegments, int DegenerateRejected, int PlateauRejected, int VertexTouchRejected,
@@ -678,8 +623,6 @@ public readonly record struct ScalarIsolineReceipt(int FiniteLevels, int RawSegm
 public readonly record struct ScalarIsolineResult(Seq<Curve> Curves, ScalarIsolineReceipt Receipt);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-// No ParallelCallback column: three of its four producers passed the literal false, the fourth forwarded a DIFFERENT
-// type's flag, and no reader anywhere reached it — the one genuine value already rides the IsoSurface receipt below.
 public readonly record struct ExtractionReceipt(
     ExtractionRoute Route, int Attempted, int Emitted, ExtractionTolerance Tolerance,
     Option<IsoSurfaceReceipt> IsoSurface = default, Option<ScalarIsolineReceipt> ScalarIsoline = default,

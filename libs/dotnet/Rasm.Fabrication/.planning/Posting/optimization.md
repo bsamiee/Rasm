@@ -27,7 +27,7 @@
 - Boundary: raw dimensional doubles, provider range types, and page-local cutting-force equations never cross admission; the ordered `Map` carrier never keys on a `[ComplexValueObject]`, which owns structural equality and no comparer.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using LanguageExt;
@@ -44,19 +44,15 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Posting;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class OptimizePass {
-    // Stability fixes the SPINDLE and feed adaptation derives against it, so the stable point is upstream of every
-    // feed the removal-rate pass writes; ordering it after would price a feed on a speed the next pass replaces.
     public static readonly OptimizePass StabilitySpeed = new("stability-speed", 5);
     public static readonly OptimizePass MrrFeed = new("mrr-feed", 10);
     public static readonly OptimizePass CornerSmooth = new("corner-smooth", 20);
     public static readonly OptimizePass Compact = new("compact", 30);
     public static readonly OptimizePass PatternFold = new("pattern-fold", 40);
 
-    // The terminal feed certification. It is never SELECTED — `PassPolicy` carries no case for it — so this row
-    // exists to NAME its delta on the ledger, where the stage previously rewrote every feed and published nothing.
     public static readonly OptimizePass Lookahead = new("lookahead", 50);
 
     public int Order { get; }
@@ -99,9 +95,6 @@ public sealed partial class EngagementRow {
         Validate(locus, radialDepth, axialDepth, out EngagementRow row).Admitted(row);
 }
 
-// The machine and material envelope EVERY pass prices against — the cutting model, the controller's own resolved
-// bounds, the tool, and the setup's nominal engagement. Seating these on the feed pass made the stability pass read
-// a sibling pass's policy for its power ceiling, and forced a caller selecting compaction alone to supply all of it.
 [ComplexValueObject]
 public sealed partial class CutContext {
     public CuttingData Cutting { get; }
@@ -133,9 +126,6 @@ public sealed partial class CutContext {
             validationError = new ValidationError("optimization:context");
     }
 
-    // The controller publishes its bounds through whichever range slots it populates; the budget's own derived rate
-    // is the floor a controller that publishes none leaves standing, and every slot is already an `Option` because
-    // `Tooling/magazine#TOOL_ASSET` admitted the provider envelope before it reached this page.
     public static Fin<CutContext> Admit(ContextIngress raw) {
         Speed feedFloor = Speed.FromMillimetersPerMinutes(raw.Budget.FeedRate);
         RotationalSpeed spindleFloor = RotationalSpeed.FromRevolutionsPerMinute(raw.Budget.SpindleRpm);
@@ -157,8 +147,6 @@ public sealed partial class CutContext {
         published.Map(lift).IfNone(floor);
 }
 
-// One raw case per SELECTED pass. The flattened twenty-three-column ingress it replaces put five concerns in one
-// positional list, so an adjacent pair of same-typed depths was one transposition away from a silently wrong cut.
 public sealed record ContextIngress(
     ProcessBudget.Subtractive Budget,
     CuttingData Cutting,
@@ -247,8 +235,6 @@ public sealed partial class PatternPolicy {
     public int MinimumOccurrences { get; }
     public int FirstLabel { get; }
 
-    // The rewrite re-enters on its own output, so the budget is what BOUNDS it: a program whose folded body still
-    // matches would otherwise fold until the label space or the stack ran out.
     public int OccurrenceBudget { get; }
 
     [BoundaryAdapter]
@@ -261,8 +247,6 @@ public sealed partial class PatternPolicy {
     }
 }
 
-// The gate the elected point must clear. It CONSUMES `StabilityLobes` and produces no bands of its own, which is
-// why the chatter producer at `Tooling/cuttingdata#CHATTER_STABILITY` keeps the `StabilityPolicy` name.
 [ComplexValueObject]
 public sealed partial class StabilityGate {
     public StabilityLobes Lobes { get; }
@@ -273,15 +257,11 @@ public sealed partial class StabilityGate {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref StabilityLobes lobes,
         ref Length requestedDepth, ref Ratio minimumMargin) {
-        // A margin fraction is a share of the stable band, so it lies inside the unit interval; a zero floor admits
-        // a point sitting exactly on a lobe crossing, which is the chatter boundary itself.
         if (requestedDepth <= Length.Zero || minimumMargin.DecimalFractions is <= 0.0 or > 1.0)
             validationError = new ValidationError("optimization:stability");
     }
 }
 
-// The ONE selected-pass family. The case IS the selection, so a pass carries exactly the policy it runs against and
-// a roster beside these rows has nothing left to disagree with.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PassPolicy {
     private PassPolicy() { }
@@ -299,16 +279,10 @@ public abstract partial record PassPolicy {
         compact: static _ => OptimizePass.Compact,
         pattern: static _ => OptimizePass.PatternFold);
 
-    // Each case states its OWN precondition against the program it will rewrite. The prior form was a flat gate
-    // list keyed on roster membership, so a new pass added a row to the roster and nothing forced a gate for it.
     internal K<Validation<Error>, Unit> Admits(CutProgram program, bool geometry) => Switch(
         state: (Program: program, Geometry: geometry),
-        // A stable point is only actionable where the controller admits a spindle word at all; on a dialect that
-        // admits none the elected speed would be recorded and never emitted.
         stability: static (context, _) => AdmissionSlots.Gate(GCommand.Spindle.Admits(context.Program.Dialect),
             FabConcern.Posting, "optimization:spindle-word", FabricationFault.Inadmissible),
-        // The feed rewrite reads the cutting model and the engagement evidence alone, so it demands nothing of the
-        // program the numeric admission has not already proved.
         feed: static (_, _) => AdmissionSlots.Gate(true, FabConcern.Posting, "optimization:feed-context", FabricationFault.Inadmissible),
         smooth: static (context, _) => AdmissionSlots.Gate(
             context.Geometry && context.Program.Dialect.Arc.Exists(
@@ -345,8 +319,6 @@ public sealed partial class OptimizePolicy {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref CutContext context,
         ref Seq<PassPolicy> passes, ref PostPolicy post) {
-        // Two rows for one pass would run its rewrite twice against two policies, so distinctness is the only
-        // invariant a selection carrying its own policy still needs.
         if (passes.Map(static row => row.Pass).Distinct().Count != passes.Count)
             validationError = new ValidationError("optimization:pass-repeat");
     }
@@ -367,8 +339,6 @@ public sealed partial class OptimizationEgress {
     }
 }
 
-// The ONE unit lift. A millimetre double becoming a `Length` is a MAPPING, so it generates; the constructor fan
-// that spelled every conversion at a call site is the deleted form.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 internal static partial class OptimizeMap {
     [MapProperty(nameof(PassIngress.Smooth.MaximumDeviationMm), nameof(SmoothPolicy.MaximumDeviation), Use = nameof(Mm))]
@@ -420,7 +390,7 @@ internal static partial class OptimizeMap {
 - Boundary: separate `Feeds`, `Delta`, and `Blocks` estimators are deleted forms; symbolic `GValue.Variable`/`Expression` motion fails admission because geometry-changing passes cannot preserve unevaluated coordinates by inspection.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PassDelta(
     OptimizePass Pass,
     Duration Before,
@@ -429,8 +399,6 @@ public sealed record PassDelta(
     int EstimatedEngagement,
     int FoldedPatterns);
 
-// The stage ledger. Its endpoints are the stages' own — the certification always lands, so the optimized objective
-// is a column the last stage already published rather than a second measurement beside it.
 public sealed record OptimizeLedger(
     Seq<PassDelta> Passes,
     PassDelta Certification,
@@ -448,18 +416,14 @@ public sealed record OptimizationResult(CutProgram Program, PostImage Image, Opt
 
 internal readonly record struct MotionSpan(double Length, double Cruise, double Entry, double Minutes, Vector3d Direction);
 
-// `Stable` is the elected chatter-free operating point, threaded so the feed pass prices against the speed the
-// stability pass actually wrote rather than against the policy value it replaced.
 internal sealed record PassState(
     CutProgram Program, ProgramTrace Trace, Option<StablePoint> Stable, Seq<PassDelta> Deltas);
 
-// A pass returns its rewritten nodes AND the evidence it counted while rewriting them, so the receipt column and
-// the tree it describes leave one transform together.
 internal readonly record struct PassOutcome(Seq<GNode> Nodes, int Estimated, int Patterns) {
     public static PassOutcome Of(Seq<GNode> nodes) => new(nodes, 0, 0);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Optimize {
     public static Fin<OptimizationResult> Apply(CutProgram program, OptimizationIngress ingress, OptimizationEgress egress) =>
         from policy in Admit(ingress)
@@ -480,8 +444,6 @@ public static partial class Optimize {
         raw: static raw => Admit(raw),
         admitted: static admitted => Fin.Succ(admitted.Policy));
 
-    // The context and every selected pass admit independently, so a caller reads every violated invariant at once
-    // rather than the first; the selection is the admitted sequence and no roster is carried beside it.
     private static Fin<OptimizePolicy> Admit(OptimizationIngress.Raw raw) =>
         (CutContext.Admit(raw.Context).ToValidation(),
          raw.Passes.Traverse(Admit).As())
@@ -521,8 +483,6 @@ public static partial class Optimize {
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new FabricationFault.OptimizationRefused("admission", "symbolic-program"));
 
-    // Every selected pass states its own precondition through the generated dispatch; independent refusals
-    // accumulate, so a caller reads every unmet demand at once.
     private static Fin<Unit> Capability(CutProgram program, OptimizePolicy policy, ProgramTrace trace) {
         bool geometry = trace.Events.ForAll(static item => item switch {
             ProgramEvent.Motion motion => Seq('X', 'Y', 'Z').ForAll(address => motion.Word.P(address).IsSome),
@@ -544,7 +504,7 @@ public static partial class Optimize {
 - Boundary: arc rows preserve their admitted `I`/`J` centre evidence, distances use full `Point3d` positions, no absent axis becomes zero, and no zero-length span becomes fabricated distance.
 
 ```csharp signature
-// --- [OBJECTIVE] ----------------------------------------------------------------------------------------------------------------------------------
+// --- [OBJECTIVE] -----------------------------------------------------------------------
 public static partial class Optimize {
     internal static Duration Objective(ProgramTrace trace, MotionDynamics dynamics) {
         (GCommand Plane, Option<MotionSpan> Pending, double Minutes) folded = trace.Events.Fold(
@@ -562,8 +522,6 @@ public static partial class Optimize {
         return Duration.FromMinutes(folded.Minutes + folded.Pending.Map(span => Elapsed(span, 0.0, dynamics)).IfNone(0.0));
     }
 
-    // The junction speed is ONE derivation: it is both the entry the new span records and the exit its predecessor
-    // is charged against, so deriving it twice let the two disagree on the same turn.
     private static (GCommand Plane, Option<MotionSpan> Pending, double Minutes) Advance(
         (GCommand Plane, Option<MotionSpan> Pending, double Minutes) state, MotionSpan span, MotionDynamics dynamics) {
         double junction = Junction(state.Pending, span, dynamics);
@@ -576,8 +534,6 @@ public static partial class Optimize {
             dynamics.JunctionFeed(Vector3d.VectorAngle(previous.Direction, span.Direction))))
         .IfNone(0.0);
 
-    // Exemption: the trapezoid closure is a numeric kernel — the ramp pair, the covered distance, and the cruise
-    // remainder are one solution over the same peak, and splitting them re-solves it.
     private static double Elapsed(MotionSpan span, double exit, MotionDynamics dynamics) {
         if (span.Minutes > 0.0)
             return span.Minutes;
@@ -648,10 +604,8 @@ public static partial class Optimize {
 - Boundary: `NodeWalk` decides no domain question — it descends and re-seats bodies, and every rewrite is the caller's.
 
 ```csharp signature
-// --- [WALK] ---------------------------------------------------------------------------------------------------------------------------------------
+// --- [WALK] ----------------------------------------------------------------------------
 internal static class NodeWalk {
-    // The ONE rewrite descent. `leaf` answers for a word or a cycle; `level` re-seats each body once its children
-    // have settled, so a pass needing sequence context states it exactly once.
     internal static Fin<Seq<GNode>> Deep(
         Seq<GNode> nodes,
         Seq<int> prefix,
@@ -675,8 +629,6 @@ internal static class NodeWalk {
             .As()
             .Bind(level);
 
-    // The ONE fold descent. Every census — labels, estimated engagement, symbolic residue — reads this, so a case
-    // a census must answer for cannot be missing from one walker and present in another.
     internal static Seq<T> Collect<T>(Seq<GNode> nodes, Seq<int> prefix, Func<BlockLocus, GNode, Seq<T>> pick) =>
         nodes.Map((node, index) => (Node: node, Locus: prefix.Add(index)))
             .Bind(row => pick(Locus(row.Locus), row.Node) + row.Node.Switch(
@@ -698,8 +650,6 @@ internal static class NodeWalk {
     private static Fin<GNode> Seat(Seq<int> prefix, GNode node, Func<BlockLocus, GNode, Fin<GNode>> leaf) =>
         leaf(Locus(prefix), node);
 
-    // The path is non-empty and index-derived by construction, so the admitted locus is total here and the
-    // refusal arm names a caller that walked from an empty prefix.
     private static BlockLocus Locus(Seq<int> path) => BlockLocus.Create(path);
 }
 ```
@@ -718,13 +668,10 @@ internal static class NodeWalk {
 - Boundary: `Geometry2D/arcs` remains the owner for subsequent arc inspection, offset, and densification.
 
 ```csharp signature
-// --- [PASSES] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [PASSES] --------------------------------------------------------------------------
 internal static class OptimizationCore {
-    // Tapping and threading feed is bound to pitch and spindle speed, so adaptation never reaches them.
     private static readonly Set<GCommand> AdaptiveCycles = Set(GCommand.Drill, GCommand.DrillDwell, GCommand.Peck, GCommand.Bore);
 
-    // The ONE pass dispatch: the case that carries the policy is the case that names the transform, so a selected
-    // pass and the body it runs cannot be paired wrongly at the roster.
     internal static Fin<PassState> Fold(PassState state, PassPolicy pass, OptimizePolicy policy) => pass.Switch(
         state: (State: state, Policy: policy),
         stability: static (context, row) => Stability(context.State, row.Gate, context.Policy),
@@ -733,9 +680,6 @@ internal static class OptimizationCore {
         compact: static (context, row) => Compact(context.State, row.Policy, context.Policy),
         pattern: static (context, row) => PatternFold(context.State, row.Policy, context.Policy));
 
-    // The elected chatter-free point, intersected with what the controller can actually command. A recommendation
-    // outside the spindle envelope or above the power ceiling is not an operating point, so the pass refuses rather
-    // than recording a speed the machine would clamp away.
     private static Fin<PassState> Stability(PassState state, StabilityGate gate, OptimizePolicy policy) =>
         gate.Lobes.Recommend(gate.RequestedDepth.Millimeters)
             .Filter(point => point.MarginFraction >= gate.MinimumMargin.DecimalFractions)
@@ -751,8 +695,6 @@ internal static class OptimizationCore {
                     NodeWalk.Level).Map(PassOutcome.Of),
                 stable: Some(point)));
 
-    // Cutting power rises with the spindle the point elects, so the ceiling is checked against the demand at that
-    // speed rather than against the programmed one the pass is replacing.
     private static bool Powered(StablePoint point, CutContext context) => context.SpindlePower.ForAll(ceiling =>
         context.Cutting.Evaluate(Intent(context, OptimizeMap.Mm(point.DepthMm), context.NominalRadialDepth,
                 context.Cutting.Feed, RotationalSpeed.FromRevolutionsPerMinute(point.SpindleRpm),
@@ -787,20 +729,12 @@ internal static class OptimizationCore {
             level => Fin.Succ(Compacted(level, compact, state.Program.Dialect))).Map(PassOutcome.Of),
         stable: state.Stable);
 
-    // The transform reads the nodes it is HANDED and returns its own evidence with them; closing over the incoming
-    // program made the fold run against the pre-pass tree, and smuggling the fold count out through a cell put the
-    // receipt's evidence off the rail the nodes travelled on.
     private static Fin<PassState> PatternFold(PassState state, PatternPolicy pattern, OptimizePolicy policy) => Rewrite(
         state, OptimizePass.PatternFold, policy,
         nodes => Fin.Succ(Folded(nodes, pattern, NodeKey.Grid(state.Program.Dialect),
             pattern.FirstLabel, pattern.OccurrenceBudget)),
         stable: state.Stable);
 
-    // The terminal stage every run takes. `Post.Lookahead` re-caps every block, macro, and subprogram feed against
-    // the machine's own dynamics after the selected passes settle, so it rides the same stage body and publishes
-    // the minutes it cost or saved instead of moving them silently into the total. It hands its delta BACK rather
-    // than leaving the ledger to pull the last row off a sequence, so no caller carries a refusal for a row the
-    // stage always writes.
     internal static Fin<(PassState State, PassDelta Delta)> Certify(PassState state, OptimizePolicy policy) =>
         Staged(state, OptimizePass.Lookahead, policy,
             nodes => Post.Lookahead(nodes, policy.Dynamics).Map(PassOutcome.Of),
@@ -810,8 +744,6 @@ internal static class OptimizationCore {
         Func<Seq<GNode>, Fin<PassOutcome>> transform, Option<StablePoint> stable) =>
         Staged(state, pass, policy, transform, stable).Map(static staged => staged.State);
 
-    // Incoming trace is the prior stage's result, so one interpretation per stage proves both ends of its delta,
-    // and the stage's own counted evidence rides the same rail its nodes do.
     private static Fin<(PassState State, PassDelta Delta)> Staged(PassState state, OptimizePass pass,
         OptimizePolicy policy, Func<Seq<GNode>, Fin<PassOutcome>> transform, Option<StablePoint> stable) =>
         from outcome in transform(state.Program.Nodes)
@@ -825,8 +757,6 @@ internal static class OptimizationCore {
     private static Fin<Speed> Rate(BlockLocus locus, FeedPolicy feed, CutContext context, Option<StablePoint> stable) {
         EngagementRow engagement = feed.Engagement.Find(locus).IfNone(
             EngagementRow.Create(locus, context.NominalRadialDepth, context.NominalAxialDepth));
-        // The elected stable point caps BOTH axes it fixes: the spindle the pass wrote and the depth that speed is
-        // chatter-free at. Pricing against the context nominal would quote a feed for a cut the program no longer runs.
         double spindle = stable.Map(static point => point.SpindleRpm).IfNone(context.ProgramSpindle.RevolutionsPerMinute);
         Length axial = stable
             .Map(point => Length.FromMillimeters(Math.Min(engagement.AxialDepth.Millimeters, point.DepthMm)))
@@ -854,9 +784,6 @@ internal static class OptimizationCore {
                select rate;
     }
 
-    // The intent is built by NAMED slot. Its chip-thickness and chip-width columns are adjacent same-typed lengths,
-    // and the engaged edge length IS the axial depth for a peripheral cut, so positional construction put two
-    // legitimately equal arguments side by side with nothing marking which was which.
     private static CutIntent Intent(
         CutContext context, Length axial, Length radial, double chipMm, RotationalSpeed spindle, Speed feed) =>
         CutIntent.Create(
@@ -874,8 +801,6 @@ internal static class OptimizationCore {
         return toSeq(Enumerable.Range(0, source.Length)).Bind(index => Blend(source, index, policy, dialect));
     }
 
-    // Exemption: the corner blend is a geometric kernel — the tangent trim, the arc radius, and the admission
-    // verdict all read one three-word window, and splitting them re-derives the window.
     private static Seq<GNode> Blend(GNode[] source, int index, SmoothPolicy policy, PostDialect dialect) {
         if (index == 0 || index + 1 >= source.Length || source[index] is not GNode.Word corner
             || source[index - 1] is not GNode.Word incoming || source[index + 1] is not GNode.Word outgoing
@@ -912,8 +837,6 @@ internal static class OptimizationCore {
         return Seq<GNode>(line, arc);
     }
 
-    // An explicit-retention control repeats every modal word, so the produced arc carries the corner's own feed and speed
-    // while keeping its own tangent-out endpoint.
     private static GNode.Word Modal(GNode.Word arc, GNode.Word corner, PostDialect dialect) => dialect.Retention == WordRetention.Modal
         ? arc
         : Seq('F', 'S').Fold(arc, (current, address) => corner.P(address).Match(
@@ -925,7 +848,6 @@ internal static class OptimizationCore {
             (Rows: Seq<GNode>(), Start: Point3d.Origin, Cursor: Point3d.Origin),
             (state, node) => Merge(state, node, policy)).Rows, dialect).Rows;
 
-    // Start is the locus entering the surviving row and Cursor the locus leaving it, so a merged row keeps its true span.
     private static (Seq<GNode> Rows, Point3d Start, Point3d Cursor) Merge(
         (Seq<GNode> Rows, Point3d Start, Point3d Cursor) state, GNode node, CompactPolicy policy) {
         if (state.Rows.Last.Case is not GNode.Word previous || node is not GNode.Word current)
@@ -948,7 +870,6 @@ internal static class OptimizationCore {
             : (state.Rows.Add(node), state.Cursor, end);
     }
 
-    // A nested body runs under state this fold cannot read, so the census clears rather than stripping a stale repeat.
     private static (Seq<GNode> Rows, HashMap<char, double> Modal) StripModal(Seq<GNode> rows, PostDialect dialect) =>
         dialect.Retention != WordRetention.Modal
             ? (rows, HashMap<char, double>())
@@ -969,8 +890,6 @@ internal static class OptimizationCore {
         return (state.Rows.Add(stripped.Word), stripped.Modal);
     }
 
-    // The rewrite re-enters on its own output, so the budget bounds it: each accepted fold spends one, and a
-    // program whose folded body still matches stops at the declared allowance rather than at a stack limit.
     private static PassOutcome Folded(
         Seq<GNode> nodes, PatternPolicy policy, double grid, int label, int budget) {
         if (budget <= 0)
@@ -1029,17 +948,11 @@ internal static class OptimizationCore {
             _ => Seq<int>(),
         }).Fold(0, static (sum, count) => sum + count);
 
-    // Changed nodes read the KEY streams, so a subtree that moved without changing compares in constant time and a
-    // structural diff never re-walks a body.
     private static int Changed(Seq<UInt128> before, Seq<UInt128> after) =>
         before.Zip(after).Count(static pair => pair.Item1 != pair.Item2) + Math.Abs(before.Count - after.Count);
 }
 
-// The pattern census over the structural key stream. Exemption: the prefix array is a measured hash kernel — one
-// linear pass builds it and every window reads it in constant time, so the array IS the algorithm.
 internal static class PatternCensus {
-    // FNV-1a's 64-bit offset basis and prime. The polynomial needs one base and one seed; borrowing a named pair
-    // keeps the census free of a tuning constant of its own.
     private const ulong Seed = 14695981039346656037UL;
     private const ulong Prime = 1099511628211UL;
 
@@ -1058,8 +971,6 @@ internal static class PatternCensus {
                 .IfNone(row));
     }
 
-    // One bucket per window hash, then one key-slice verification per bucket member — the hash makes the census
-    // linear and the verification is what keeps a collision from folding two different bodies onto one label.
     private static IEnumerable<Candidate> Windows(
         Seq<UInt128> keys, ulong[] prefix, ulong[] powers, int length, PatternPolicy policy) =>
         Enumerable.Range(0, Math.Max(0, keys.Count - length + 1))
@@ -1096,11 +1007,8 @@ internal static class PatternCensus {
         return rows;
     }
 
-    // The digest is a hundred and twenty-eight bits and the polynomial runs on sixty-four, so both halves fold in;
-    // taking one half alone would collide every pair of nodes agreeing on it.
     private static ulong Lane(UInt128 key) => ContentHash.Half(key, 0) ^ ContentHash.Half(key, 1);
 
-    // Occurrences replaced by one call each, one hoisted definition, and its two framing records.
     private static int Saving(int occurrences, int length) => ((occurrences - 1) * length) - occurrences - 2;
 }
 ```

@@ -23,7 +23,7 @@
 - Boundary: scalar admission is `workholding#EVALUATION` `Fixtures`, so a `As(unit) >= 0 && double.IsFinite(...)` clause spelled at this page is the deleted form.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
@@ -48,7 +48,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Fixturing;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WcsSlot {
     private WcsSlot() { }
@@ -59,7 +59,6 @@ public abstract partial record WcsSlot {
     public sealed record Rotary(int Ordinal, int Axis) : WcsSlot;
     public sealed record Local(int Ordinal, int Parent) : WcsSlot;
 
-    // A local shift addresses its parent's ordinal, so it publishes none of its own to the controller roster.
     public Option<int> Controller => Switch<Option<int>>(
         @base: static row => Some(row.Ordinal),
         extended: static row => Some(row.Ordinal),
@@ -155,7 +154,6 @@ public abstract partial record SetupRelation {
     public sealed record SameFixture : SetupRelation;
     public sealed record SameOrientation : SetupRelation;
 
-    // Ordering edges enter the precedence graph; co-location edges constrain candidate FIT and carry no direction.
     public bool Orders => Switch(
         precedes: static _ => true,
         datum: static _ => true,
@@ -187,8 +185,6 @@ public abstract partial record SetupRelation {
 
 public readonly record struct SetupEdge(int Source, int Target, SetupRelation Relation) : IEdge<int>;
 
-// Every scalar an objective axis reads, gathered once per placement so a term is a projection rather than a
-// re-derivation from three receipts.
 public readonly record struct CostTerms(
     bool Extended,
     Duration Changeover,
@@ -213,9 +209,6 @@ public readonly record struct SetupScales(
         Fixtures.Positive(DatumAngle), ValidityClaim.Positive(Condition));
 }
 
-// One row per cost axis. `Bounding` marks the rows whose term is derivable BEFORE evidence exists and depends on
-// the operation-fixture pair alone — those and only those form the branch-and-bound remainder, so the bound stays
-// admissible by construction and can never outrun the cost it bounds.
 [SmartEnum<string>]
 public sealed partial class SetupAxis {
     public static readonly SetupAxis Setup = new("setup", bounding: false,
@@ -266,8 +259,6 @@ public sealed partial class SetupObjective {
     public double Cost(CostTerms terms) =>
         toSeq(SetupAxis.Items).Sum(axis => Weight(axis) * axis.Term(terms, Scales));
 
-    // The bounding rows alone: every other axis term is nonnegative, so dropping them leaves an admissible
-    // remainder no completion can undercut.
     public double Bound(CostTerms terms) =>
         toSeq(SetupAxis.Items).Filter(static axis => axis.Bounding).Sum(axis => Weight(axis) * axis.Term(terms, Scales));
 }
@@ -284,7 +275,7 @@ public readonly partial struct CarrierKey {
     public static Fin<CarrierKey> Admit(string value) => Admission.OfValue<CarrierKey, string>(value);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CarrierStation(int Index, Plane Frame, WcsSlot Wcs);
 
 public sealed record Carrier(CarrierKey Key, Mounting Mounting, Seq<CarrierStation> Stations, Duration ToolChange);
@@ -293,7 +284,6 @@ public readonly record struct PartInstance(int Key, int Operation, CarrierKey Ca
 
 public readonly record struct InstanceWcs(int Instance, WcsSlot Slot, Transform Frame);
 
-// The admissible resources one operation may consume, and the dimensioned demand it places on whichever it gets.
 public sealed record SetupRoster(
     Seq<int> Features,
     Seq<Mounting> Mountings,
@@ -332,10 +322,6 @@ public readonly record struct MachineReach(
         Robot.ForAll(static receipt => double.IsFinite(receipt.Selected.Score)));
 }
 
-// How well a datum is KNOWN, as one row: whether a probe measured it and whether its chain traces to an anchored
-// predecessor. Two independent booleans admitted the same four corners and let a landed probe correction stamp
-// the measured half while leaving the traceable half to whatever it already said; the transition is now the
-// roster's own `AfterProbe`, so no site pokes one column and forgets the other.
 [SmartEnum<string>]
 public sealed partial class DatumGrade {
     public static readonly DatumGrade Nominal = new("nominal", measured: false, traceable: false);
@@ -346,8 +332,6 @@ public sealed partial class DatumGrade {
     public bool Measured { get; }
     public bool Traceable { get; }
 
-    // A landed probe correction measures the datum; it widens no lineage claim, so the traceable half rides
-    // through unchanged and the roster answers the pair.
     public DatumGrade AfterProbe => Traceable ? Certified : Probed;
 }
 
@@ -365,8 +349,6 @@ public readonly record struct DatumLineage(
         Fixtures.Nonnegative(TransferError), Fixtures.Nonnegative(AngularTransferError),
         Fixtures.Nonnegative(ProbeCorrection), Fixtures.Nonnegative(AngularProbeCorrection));
 
-    // ONE-TIME RE-KEY: the grade frames as its own discriminant where two presence bits stood. Column ORDER is
-    // preserved exactly, so every other field lands on the bytes it already did.
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => writer
         .Ordinal(Anchor).Discriminant(Grade)
         .Rows(Lineage, static (held, anchor) => held.Ordinal(anchor))
@@ -387,7 +369,7 @@ public readonly record struct SetupBoundaryEvidence(
     ResourceHold Resources,
     ContentKey Key);
 
-// --- [SERVICES] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface ISetupEvidenceSource {
     Fin<SetupBoundaryEvidence> Evaluate(int machine, SetupOperation operation, Fixture fixture, Mounting mounting);
 }
@@ -425,7 +407,7 @@ public sealed record SetupEvidence(
 - Boundary: ordinary infeasibility prunes one candidate as `Option.None`; malformed input, failed geometry, exhausted budget, withdrawn run, or boundary failure remains a typed `Fin` failure.
 
 ```csharp signature
-// --- [SCHEDULE] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [SCHEDULE] ------------------------------------------------------------------------
 public sealed record SetupCatalog(
     FixtureSet Fixtures,
     Seq<int> Machines,
@@ -477,11 +459,7 @@ public sealed record SetupDraft(
 
 public readonly record struct WcsAssignment(int Setup, WcsSlot Slot);
 
-// The cyclic refusal carries its COMPONENT MEMBERS: the strongly-connected labels are what the detecting walk
-// already computed, and an operation count names nothing a caller can break.
 public sealed record SetupChain(Seq<int> Operations, Seq<Arr<int>> Components, Seq<(int Before, int After)> Lineage) {
-    // The chain addresses through the S0 keyed close, so the retaining mint's refusal is the caller's rail rather
-    // than a subject key minted off bytes no writer ever held.
     public Fin<ContentKey> Keyed(double toleranceMm, Op key) => FabricationCanon.Keyed(
         EgressKind.Plan,
         toleranceMm,
@@ -537,10 +515,8 @@ public sealed record SetupSchedule(
                     .Map<SetupResult>(static artifact => new SetupResult.Projected(artifact))));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Setups {
-    // Assignment solves over integers, so a pair bound quantizes at one part in ten thousand and an inadmissible
-    // pair carries a cost no feasible allocation can beat.
     private const double BoundScale = 1e4;
     private const int Blocked = int.MaxValue / 4;
 
@@ -643,9 +619,6 @@ internal static partial class Setups {
 
     private static bool Distinct<T>(Seq<T> rows) => rows.Distinct().Count == rows.Count;
 
-    // Lineage faults carry a content-keyed subject, so the readable chain rides the schedule while the fault
-    // carries its key. BOTH outcomes of the keyed close are faults here — the caller is already refusing — so the
-    // mint's own refusal SUBSTITUTES for the lineage subject rather than being discarded into a forged key.
     private static Error Broken(SetupChain chain, double toleranceMm) =>
         chain.Keyed(toleranceMm, Key).Match(
             Succ: static key => (Error)new FabricationFault.DatumLineageBroken(new FaultSubject.Lineage(key)),
@@ -654,9 +627,6 @@ internal static partial class Setups {
     private static readonly Op Key = Op.Of(name: nameof(SetupSchedule));
 
     // --- [SEARCH]
-    // Operation indexing and the pair-bound table are admission-time derivations, not per-node folds; `Cut` records
-    // the least bound the search refused, and `Budget` bounds a tree whose candidate fan is machines by fixtures by
-    // mountings per level.
     internal sealed record SearchSpace(
         Arr<int> Order,
         HashMap<int, SetupOperation> Operations,
@@ -674,10 +644,6 @@ internal static partial class Setups {
         BidirectionalGraph<int, SetupEdge> graph = Graph(plan);
         return !graph.IsDirectedAcyclicGraph()
             ? Fin.Fail<SetupSchedule>(Broken(Cycles(graph), Grid(plan.Operations)))
-            // Forward Kahn source-degree order is the whole demand here, so the sort taking the WEAKEST container
-            // contract answers it. The bidirectional form's parameterless overload defaulted a direction this page
-            // never chose, and `Fixturing/assembly` keeps that form only because disassembly genuinely walks the
-            // backward direction; both throw on cyclic input, which is why the acyclicity gate rails first.
             : Space(plan, toSeq(graph.SourceFirstTopologicalSort()).ToArr(), cancel)
                 .Bind(space => RootBound(space).Bind(root => Search(space, cursor: 0, SetupDraft.Empty, double.PositiveInfinity)
                     .Bind(result => result.ToFin(new FabricationFault.SetupInfeasible(
@@ -692,9 +658,6 @@ internal static partial class Setups {
         return graph;
     }
 
-    // The pair bound is the ONE column-dependent quantity available before evidence: the fixture's own restraint
-    // margin under this operation's loads. It is exactly the `Bounding` axis terms with every non-pair term at its
-    // zero, so it never exceeds the cost the same axes contribute at placement.
     private static Fin<SearchSpace> Space(SetupPlan plan, Arr<int> order, CancellationToken cancel) {
         HashMap<int, SetupOperation> operations = plan.Operations.Fold(
             HashMap<int, SetupOperation>(), static (index, row) => index.Add(row.Key, row));
@@ -712,10 +675,6 @@ internal static partial class Setups {
                     order,
                     operations,
                     bounds,
-                    // The seed is the fold's IDENTITY, and `Min` folds it in: a zero seed pins every remainder at
-                    // zero, `SearchSpace.Remaining` collapses to nothing, and the branch-and-bound loses the
-                    // lookahead its own admissibility law rests on while `SetupDecision.Bound` publishes a column
-                    // that can only be zero. Every pair bound is non-negative, so infinity is the true identity.
                     order.ToSeq().Fold(HashMap<int, double>(), (index, key) => index.Add(key,
                         operations[key].Roster.FixtureKeys
                             .Map(fixture => bounds[(key, fixture)])
@@ -742,9 +701,6 @@ internal static partial class Setups {
             ToolChange: Duration.Zero,
             Instances: 1)));
 
-    // Exemption: the rectangular integer matrix is the shape `HungarianAlgorithm` binds. A row with no admissible
-    // column, or an assignment that lands on a blocked cell, proves NO schedule exists — the matching oracle is the
-    // cheapest infeasibility proof the plan admits, so it answers before the first node expands.
     private static Fin<double> RootBound(SearchSpace space) {
         Arr<int> fixtures = toSeq(space.Plan.Catalog.Fixtures.ByOperation.Keys.Order()).ToArr();
         int[,] costs = new int[space.Order.Count, fixtures.Count];
@@ -864,8 +820,6 @@ internal static partial class Setups {
             .As()
             .ToFin();
 
-    // The datum budget the distortion receipt already consumed narrows the tolerance BEFORE the comparison, so a
-    // weld-plane displacement spends the setup's repeatability rather than arriving as a second estimate.
     private static bool Admissible(SetupOperation operation, SetupEvidence evidence, SetupPlan plan) {
         Length tolerance = plan.Distortion.Match(
             Some: receipt => DatumTransfer
@@ -928,8 +882,6 @@ internal static partial class Setups {
         if (extended && (position < 0 || position >= state.Setups.Count))
             return Fin.Fail<SetupDraft>(FabricationFault.Fixture(
                 new FixturingWitness.Offsets(index, state.Setups.Count, plan.Budget.MaxSetups)));
-        // Offsets come from the unconsumed roster remainder; array position is not an allocator, and two setups on
-        // different machines do not serialize against each other.
         Option<WcsSlot> slot = plan.Catalog.Wcs.Find(row => !state.Setups.Exists(setup => setup.Wcs == row));
         if (!extended && slot.IsNone)
             return Fin.Fail<SetupDraft>(FabricationFault.Fixture(
@@ -988,8 +940,6 @@ internal static partial class Setups {
             None: () => candidate);
 
     // --- [RECEIPT]
-    // Reduction returns the ORIGINAL edge instances, so the surviving pairs read once into a set and the original
-    // relation rows filter against it: every relation justifying a kept pair survives, and no edge rescans the list.
     private static Fin<SetupSchedule> Finalize(
         SetupPlan plan,
         BidirectionalGraph<int, SetupEdge> graph,
@@ -1012,9 +962,6 @@ internal static partial class Setups {
                 key));
     }
 
-    // Measured frames move the part, so planned-frame reach, clearance, and stability evidence no longer describe
-    // this setup: correction re-enters through the same evidence boundary that admitted it, and a correction past
-    // the operation's own datum tolerance is a rejection, never a traceable rebase.
     internal static Fin<SetupSchedule> Rebase(SetupSchedule schedule, int setup, Plane measured) {
         int position = schedule.Setups.TakeWhile(row => row.Index != setup).Count;
         if (position >= schedule.Setups.Count || !measured.IsValid)
@@ -1060,8 +1007,6 @@ internal static partial class Setups {
                     Cost = decisions.Sum(static decision => decision.IncrementalCost),
                     ProvenLowerBound = None,
                 };
-                // The grid reads the WHOLE plan, exactly as `Finalize` does: a rebase that narrowed the grid to the
-                // corrected setup's own operations would re-key an unchanged schedule.
                 return Keyed(draft.Setups, draft.Decisions, draft.Precedence, draft.Cost, draft.ProvenLowerBound,
                         Grid(schedule.Plan.Operations))
                     .Map(key => draft with { Key = key });
@@ -1080,8 +1025,6 @@ internal static partial class Setups {
         };
 
     // --- [GRAPH_EVIDENCE]
-    // The strongly-connected labels ARE the evidence: the components a caller must break publish as member rows,
-    // and this is the ONE grouping both Fixturing precedence graphs read.
     internal static Seq<Arr<TVertex>> Components<TVertex, TEdge>(IVertexListGraph<TVertex, TEdge> graph)
         where TEdge : IEdge<TVertex> {
         Dictionary<TVertex, int> labels = new();
@@ -1103,9 +1046,6 @@ internal static partial class Setups {
     }
 
     // --- [CANONICAL]
-    // Every preimage composes `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`: `Double` folds
-    // `-0.0` to `+0.0` and every NaN payload to one quiet pattern, `String` frames by UTF-8 byte count, and `Rows`
-    // writes the count first — so a colon inside a pallet name cannot shift two field splits onto one digest.
     private static Fin<ContentKey> Keyed(
         Arr<Setup> setups,
         Seq<SetupDecision> decisions,
@@ -1134,13 +1074,9 @@ internal static partial class Setups {
             .Maybe(provenLowerBound, static (held, bound) => held.Double(bound)),
             Key);
 
-    // A frame's origin and its two in-plane axes fix the third, so nine doubles carry the pose and the fourth axis
-    // is derived rather than digested twice.
     private static CanonicalWriter Pose(this CanonicalWriter writer, Plane frame) =>
         writer.Coords(frame.Origin).Coords(frame.XAxis).Coords(frame.YAxis);
 
-    // The strictest datum tolerance the plan carries IS the canonical grid: quantizing looser than the tightest
-    // datum a setup must hold would address two schedules that differ exactly where the plan cares most.
     private static double Grid(Seq<SetupOperation> operations) =>
         Least(operations.Map(static row => row.Demand.DatumTolerance)).IfNone(Length.Zero).As(LengthUnit.Millimeter);
 
@@ -1159,7 +1095,7 @@ internal static partial class Setups {
 - Boundary: posting receives WCS identity and values, probing receives datum and correction targets, and documentation receives immutable schedule evidence; no consumer derives setup order from array position alone.
 
 ```csharp signature
-// --- [PROJECTION] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [PROJECTION] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SetupProjection {
     public static readonly SetupProjection Machine = new("machine");

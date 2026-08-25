@@ -41,8 +41,6 @@ declare namespace Traffic {
     readonly spec: StackSpec
     readonly namespace: pulumi.Input<string>
     readonly service: pulumi.Input<string>
-    // the workload tier's own published label set: the fence selects exactly the pods this edge fronts, so the
-    // shared-namespace data, fanout, object, and collector planes keep the default-allow posture they need
     readonly selector: Record.ReadonlyRecord<string, string>
     readonly port: number
     readonly connector: pulumi.Input<string>
@@ -73,9 +71,6 @@ const _fenced = (
   new k8s.networking.v1.NetworkPolicy(`${name}-fence`, {
     metadata: { namespace: args.namespace },
     spec: {
-      // The FRONTED pods, not the namespace: selecting a pod for Ingress denies everything the rules omit, and
-      // this namespace also holds the pooler, the JetStream door, the object endpoint, and the collector the
-      // app dials — an empty selector fences the estate's own interior traffic out along with the public edge.
       podSelector: { matchLabels: args.selector },
       policyTypes: ["Ingress"],
       ingress: [{
@@ -135,11 +130,8 @@ const _tunneled = (
       template: {
         metadata: { labels },
         spec: {
-          // The connector is a pod this plane authors, so it carries the estate's ONE privilege posture: a
-          // Deployment shipped without it is both a root-capable pod holding the tunnel credential and a
-          // guaranteed violation of the mandatory hardening gate every run of this arm is judged against.
           securityContext: Tier.harden.pod,
-          automountServiceAccountToken: false, // the connector dials Cloudflare, never the API server
+          automountServiceAccountToken: false,
           containers: [{
             name: "cloudflared",
             image: args.connector,
@@ -304,7 +296,7 @@ class Traffic extends Tier {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Traffic }
 ```

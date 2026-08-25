@@ -25,7 +25,7 @@ A declarative forms-and-selection owner family delivers schema-driven forms with
 - Boundary: a form is a validated `FormSchema` whose field controls materialize through `ControlFactory` and whose rows seat into the admitted form mechanism; a settings-dialog framework, form-builder, per-form control class, and second validation scheme are rejected. The interior is TYPED — `FormState` holds kernel `FieldValue` cases inside `FieldCell` rows, and JSON exists only at `With` (inbound, admitted once per entry row) and `FieldJson.Lower` (outbound, the `Shell/commands#INTENT_TABLE` `CommandPayload.Fields` crossing) — so heterogeneous storage never becomes untyped interior reads. Dimensioned admission parses against the FAMILY type `QuantityInfo.ValueType` carries and clamps on the scalar in the elected display unit; `UnitMath.Clamp` constrains to the closed family type an erased field never carries, so the boxed face cannot reach it and the `[BASEUNITS_PARTIALITY]` walk is never entered, the display unit arriving from the `MeasureRole` row rather than a unit system. Expression admission is the `Rasm.Compute` symbolic owner — `SymbolicBuild.Build` over the engine's non-throwing parse, free-symbol binding from sibling field values, `SymbolicExpr.Evaluate` to one real — so a local arithmetic parser, a string `eval`, and a second dimension proof are deleted; a typed spinner carries no expression because its text seam narrows through the package's own per-closed-generic parse. Form validation accumulates independent failures and submit rides the one `CommandRow` rail.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FormFault : Fault {
@@ -53,12 +53,8 @@ public abstract partial record FormFault : Fault {
     public sealed partial record RecipeRejected(string Detail)                    : FormFault(Detail);
 }
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Provenance answers WHO set the value — a derived value and an authored one can be byte-identical while only
-// one survives a re-solve. `Resettable` stays one measured right; a second origin right lands as a
-// CapabilitySet column when it exists.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -75,8 +71,6 @@ public sealed partial class ValueOrigin : ICapability<ValueOrigin> {
     public string Badge => LocaleStrings.Key(nameof(ValueOrigin), Key);
 }
 
-// Agreement is a closed union, not a bool pair: Mixed and Overridden were mutually exclusive by construction,
-// so the product type admitted four corners no reader could produce.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Agreement {
     private Agreement() { }
@@ -87,8 +81,6 @@ public abstract partial record Agreement {
 
 public readonly record struct FieldFacts(Agreement Agreement, bool Pending, bool Invalid);
 
-// The ranked ink axis: the strongest state wins by table order. `Declared` holds unconditionally at rank zero,
-// which is what makes the fold total without an `IfNone` that could disagree with the table.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -108,16 +100,12 @@ public sealed partial class EditState {
 
     public string Badge => LocaleStrings.Key(nameof(EditState), Key);
 
-    // Ordered ONCE behind a Lazy — the generator fills `Items` from its own static constructor, so an eager
-    // field fold would read an empty roster; a per-call sort re-ranked five rows on every field of every plan.
     private static readonly Lazy<Seq<EditState>> ByRank = new(
         static () => toSeq(Items.OrderByDescending(static row => row.Rank)).Strict(),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static EditState Of(FieldFacts facts) => ByRank.Value.Find(row => row.Holds(facts)).IfNone(Declared);
 
-    // Overriddenness compares TYPED values: the schema admitted both sides, so structural equality answers
-    // exactly where the raw-text compare guessed.
     public static EditState Read(FormField field, FormState state, Option<FieldCell> pending) {
         Agreement agreement = state.Values.Find(field.Key).Match(
             Some: cell => cell.Divergent
@@ -129,14 +117,10 @@ public sealed partial class EditState {
         return Of(new FieldFacts(agreement, pending.IsSome, field.Rule(state).IsFail));
     }
 
-    // One write per state change sets this row's mark and clears every sibling, so a stale mark cannot survive
-    // the write that settled the field.
     public Unit Apply(Control row) =>
         fun(() => Items.Iter(state => row.Classes.Set(state.Mark, ReferenceEquals(state, this))))();
 }
 
-// The search facet narrows on STATE and PROVENANCE, the two axes a query string cannot express; the derived
-// facet reads an origin SET rather than an `||` ladder.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -156,8 +140,6 @@ public sealed partial class FilterFacet {
 public readonly record struct FormFilter(string Query, FilterFacet Facet) {
     public static readonly FormFilter Open = new(string.Empty, FilterFacet.All);
 
-    // The query matches the RESOLVED label and the raw tag through the resolved culture's own CompareInfo —
-    // ambient culture has no reader on any AppUi surface.
     public bool Match(FormField field, EditState state, ValueOrigin origin, ResolvedLocale locale) =>
         Facet.Holds(state, origin)
         && (string.IsNullOrWhiteSpace(Query)
@@ -167,18 +149,13 @@ public readonly record struct FormFilter(string Query, FilterFacet Facet) {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The stored value: a kernel FieldValue case beside the three facts the payload cannot carry — whether the
-// targets agree, how many there are, and what the operator actually typed. `Source` retains the authored
-// expression so a formula field re-presents its algebra rather than the number it collapsed to.
 public sealed record FieldCell(Option<FieldValue> Uniform, int Targets, Option<string> Source, ValueOrigin Origin) {
     public static FieldCell Of(FieldValue value, ValueOrigin origin) => new(Some(value), 1, None, origin);
 
     public static FieldCell Authored(FieldValue value, string source, ValueOrigin origin) => new(Some(value), 1, Some(source), origin);
 
-    // Divergence is N targets with no agreed value; one target can never diverge and a uniformly absent value
-    // across N targets is agreement about absence.
     public bool Divergent => Targets > 1 && Uniform.IsNone;
 }
 
@@ -187,9 +164,6 @@ public sealed record FormState(HashMap<FieldTag, FieldCell> Values) {
 
     internal FormState Seat(FieldTag key, FieldCell value) => this with { Values = Values.AddOrUpdate(key, value) };
 
-    // The one outbound erased projection — `Shell/commands#INTENT_TABLE` `Compose` lowers this onto
-    // `CommandPayload.Fields`. A DIVERGENT field has no single spelling, so the lowering refuses here rather
-    // than handing a command a field whose targets never agreed.
     public Fin<HashMap<string, JsonElement>> Payload() =>
         toSeq(Values)
             .Traverse(static pair => pair.Value.Uniform
@@ -199,18 +173,12 @@ public sealed record FormState(HashMap<FieldTag, FieldCell> Values) {
             .Map(toHashMap);
 }
 
-// The dimensioned column. The role names the display unit per posture, the family fixes the quantity concern,
-// and the two bounds are quantities of that family, so a bound authored in inches and a value typed in
-// millimetres compare in the elected unit instead of by accident.
 public sealed record FieldMeasure(MeasureRole Role, QuantityInfo Family, Option<IQuantity> Floor, Option<IQuantity> Ceiling) {
-    // Parsing addresses the FAMILY type: `Quantity.TryParse` takes the struct type `QuantityInfo.ValueType`
-    // carries and the typed abbreviation elects the unit, so `12mm` and `1/2"` admit into one family.
     public Fin<IQuantity> Admit(string text, ResolvedLocale locale) =>
         Quantity.TryParse(locale.Formats, Family.ValueType, text, out IQuantity? parsed) && parsed is not null
             ? Bound(parsed, locale)
             : Fin.Fail<IQuantity>(new FormFault.MeasureRejected(Role.Key, text));
 
-    // A bare scalar takes the ELECTED display unit — the operator typed what the label showed.
     public Fin<IQuantity> Admit(double value, ResolvedLocale locale) =>
         Quantity.TryFrom(value, locale.Measures.Unit(Role), out IQuantity? built) && built is not null
             ? Bound(built, locale)
@@ -218,8 +186,6 @@ public sealed record FieldMeasure(MeasureRole Role, QuantityInfo Family, Option<
 
     public Fin<string> Render(IQuantity value, ResolvedLocale locale) => locale.Quantity(value, Role);
 
-    // Family agreement first, then clamping on the SCALAR in the elected unit — the closed family type an
-    // erased field never carries keeps `UnitMath.Clamp` unreachable and this projection is its exact substitute.
     Fin<IQuantity> Bound(IQuantity value, ResolvedLocale locale) =>
         !StringComparer.Ordinal.Equals(Family.Name, value.QuantityInfo.Name)
             ? Fin.Fail<IQuantity>(new FormFault.MeasureRejected(Role.Key, value.QuantityInfo.Name))
@@ -233,10 +199,6 @@ public sealed record FieldMeasure(MeasureRole Role, QuantityInfo Family, Option<
             };
 }
 
-// One admission row per value concern: each declares which control intents it may sit behind and OWNS the
-// typed constructor its concern lands as — the erased JsonElement dies here, on the row, and the interior
-// reads kernel FieldValue cases alone. Seven of the nine bodies ride one Shaped fold; scalar, formula, and
-// set carry the bespoke measure, symbolic, and recursive halves.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -254,9 +216,6 @@ public sealed partial class FieldEntry {
                     .ToValidation(),
                 None: () => Validation<Error, FieldCell>.Success(FieldCell.Of(new FieldValue.Number(real), ValueOrigin.Authored)))
             : Validation<Error, FieldCell>.Fail(new FormFault.FieldInvalid(field.Key.Value, $"expected a number, saw {value.ValueKind}")));
-    // The expression rail is the Compute symbolic owner end to end: source admits through the non-throwing
-    // parse, every free symbol binds from the sibling field the schema's own edge already declared, and the
-    // evaluated real crosses the measure column when the field carries one.
     public static readonly FieldEntry Formula = new("formula",
         static intent => intent is ControlIntent.TextInput,
         static (field, state, value, locale) => value.ValueKind is JsonValueKind.String
@@ -289,8 +248,6 @@ public sealed partial class FieldEntry {
         static (field, _, value, _) => value.ValueKind is JsonValueKind.True or JsonValueKind.False
             ? Validation<Error, FieldCell>.Success(FieldCell.Of(new FieldValue.Flag(Some(value.ValueKind is JsonValueKind.True)), ValueOrigin.Authored))
             : Validation<Error, FieldCell>.Fail(new FormFault.FieldInvalid(field.Key.Value, $"expected a flag, saw {value.ValueKind}")));
-    // A moment crosses as ISO-8601 text; the date-only fidelity rides the Lower projection, which re-formats
-    // the stored midnight stamp through the same pattern — the one named loss of the kernel Stamp case.
     public static readonly FieldEntry Moment = new("moment",
         static intent => intent is ControlIntent.DateInput,
         static (field, _, value, _) => Shaped(field, value, JsonValueKind.String,
@@ -305,8 +262,6 @@ public sealed partial class FieldEntry {
                 var text when !string.IsNullOrWhiteSpace(text) => Fin.Succ<FieldValue>(new FieldValue.Path(Some(text))),
                 _ => Fin.Fail<FieldValue>(new FormFault.FieldInvalid(target, "expected a path")),
             }));
-    // Colour admits through the kernel perceptual owner, so a captured colour carries kernel identity rather
-    // than a host struct a consumer must convert.
     public static readonly FieldEntry Colour = new("colour",
         static intent => intent is ControlIntent.ColorInput,
         static (field, _, value, _) => Shaped(field, value, JsonValueKind.String,
@@ -326,8 +281,6 @@ public sealed partial class FieldEntry {
                 .ToValidation()
             : Validation<Error, FieldCell>.Fail(new FormFault.FieldInvalid(field.Key.Value, $"expected {shape}, saw {value.ValueKind}"));
 
-    // The choice lands as the kernel Pick case: a rostered option carries its ordinal beside its value, an
-    // open choice carries the text alone, and an off-roster value refuses.
     static Fin<FieldValue> Chosen(FormField field, JsonElement value) =>
         (value.GetString() ?? string.Empty) switch {
             var text => Options(field.Control).Match(
@@ -338,7 +291,6 @@ public sealed partial class FieldEntry {
                 None: () => Fin.Succ<FieldValue>(new FieldValue.Pick(None, text))),
         };
 
-    // Only NUMERIC sibling values bind — a symbol is a real in the engine's evaluation.
     static Map<string, double> Bindings(FormState state) =>
         toSeq(state.Values).Fold(Map<string, double>(), static (map, pair) =>
             pair.Value.Uniform
@@ -354,9 +306,6 @@ public sealed partial class FieldEntry {
     };
 }
 
-// The inspectable predicate family: a rule declares the edges it reads, so the dependency graph sees
-// visibility edges exactly as it sees formula edges, and the two closure constants the opaque form demanded
-// are named cases. Custom survives for a genuinely computed predicate and DECLARES its reads.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldRule {
     private FieldRule() { }
@@ -393,8 +342,6 @@ public sealed record FormField(
     Option<FieldMeasure> Measure,
     CommitPosture Posture,
     Func<FormState, Validation<Error, Unit>> Rule) {
-    // Every edge the graph oracle reads: declared dependencies, the two rules' declared reads, and — on a
-    // formula — the free symbols the source itself names.
     public Seq<FieldTag> Edges => (DependsOn + Visible.Edges + Required.Edges).Distinct();
 
     public static FormField Of(
@@ -410,8 +357,6 @@ public sealed record FormField(
         new(key, labelKey, control, entry, Seq<FieldTag>(), new FieldRule.Always(), new FieldRule.Never(),
             fallback, helpKey, measure, posture ?? CommitPosture.Deferred, rule);
 
-    // A formula field's dependency edges DERIVE from its own source, so the roster the graph oracle checks and
-    // the symbols the expression names are one set.
     public static Validation<Error, FormField> Formula(
         FieldTag key,
         string labelKey,
@@ -431,8 +376,6 @@ public sealed record FormField(
                 posture ?? CommitPosture.Deferred, rule));
 }
 
-// The section row is the wizard-step shape carrying its own gate: a flat form renders every unskipped section
-// and a wizard walks the same roster one index at a time.
 public sealed record FormSection(string Key, string TitleKey, Seq<FieldTag> FieldKeys, SectionChrome Chrome, Func<FormState, bool> Skip) {
     public static FormSection Of(string key, string titleKey, Seq<FieldTag> fieldKeys, SectionChrome? chrome = null) =>
         new(key, titleKey, fieldKeys, chrome ?? SectionChrome.Grouped, static _ => false);
@@ -457,8 +400,6 @@ public sealed record FormSchema {
 
     private static readonly Op Admission = Op.Of(name: nameof(FormSchema));
 
-    // The one untrusted-key door: the kernel bridge runs the generated FieldTag admission and the refusal
-    // re-keys onto this family's rail.
     public static Fin<FieldTag> Tag(string key) =>
         Admission.AcceptValidated<FieldTag>(key);
 
@@ -486,8 +427,6 @@ public sealed record FormSchema {
                 (Error)new FormFault.SchemaInvalid($"{key}: duplicate section key or repeated section field")).ToValidation(),
             guard(sections.ForAll(static section => !string.IsNullOrWhiteSpace(section.Key) && !string.IsNullOrWhiteSpace(section.TitleKey)),
                 (Error)new FormFault.SchemaInvalid($"{key}: section identity is empty")).ToValidation(),
-            // The partition test in one guard: the seated roster is the field set with no repeat and no field
-            // left unseated, so a field that would render nowhere refuses here.
             guard(seated.Count == fields.Count && toSet(seated) == fieldKeys,
                 (Error)new FormFault.SchemaInvalid($"{key}: sections do not partition the field set")).ToValidation(),
             guard(Graph(fields).IsDirectedAcyclicGraph(), (Error)new FormFault.SchemaInvalid($"{key}: dependency cycle")).ToValidation())
@@ -508,21 +447,15 @@ public sealed record FormSchema {
     public Validation<Error, FormState> Seat(FormState state, FieldTag key, JsonElement value, ResolvedLocale locale) =>
         With(state, key, value, locale).Map(seated => state.Seat(seated.Changed, seated.Value));
 
-    // TRANSITIVE, in dependency order: a chain a -> b -> c re-evaluates c when a changes — the direct-filter
-    // form propagated one hop against its own stated law. The reach index derives once from the memoized graph.
     public Seq<FormField> Affected(FieldTag changed) => reach.Value.Find(changed).IfNone(Seq<FormField>());
 
     public Option<FormField> Field(FieldTag key) => Roster.Find(key);
 
-    // Requiredness is a RULE, not a chrome flag: the asterisk the mechanism paints and the refusal the rail
-    // seals read one predicate.
     static Validation<Error, Unit> Demanded(FormField field, FormState state) =>
         field.Required.Holds(state) && state.Values.Find(field.Key).Bind(static cell => cell.Uniform).IsNone
             ? Validation<Error, Unit>.Fail(new FormFault.FieldInvalid(field.Key.Value, "required value is absent"))
             : field.Rule(state).Map(static _ => unit);
 
-    // ONE graph fold — GraphExtensions materializes from the edge list and AddVertexRange preserves the
-    // isolated fields the edge fold cannot see.
     static AdjacencyGraph<FieldTag, SEdge<FieldTag>> Graph(Seq<FormField> fields) {
         AdjacencyGraph<FieldTag, SEdge<FieldTag>> graph = fields
             .Bind(field => field.Edges.Map(dependency => new SEdge<FieldTag>(dependency, field.Key)))
@@ -531,8 +464,6 @@ public sealed record FormSchema {
         return graph;
     }
 
-    // Reverse topological fold: each vertex's reach is its direct dependents plus theirs, computed once —
-    // the same graph the acyclicity proof read, so the oracle and the index cannot disagree about an edge.
     static HashMap<FieldTag, Seq<FormField>> Reach(Seq<FormField> fields) {
         AdjacencyGraph<FieldTag, SEdge<FieldTag>> graph = Graph(fields);
         HashMap<FieldTag, FormField> byKey = fields.ToHashMap(static field => field.Key, static field => field);
@@ -548,12 +479,8 @@ public sealed record FormSchema {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The one typed-to-erased projection pair: Lower feeds the command payload crossing and Rendered the read-only
-// display. The host-capture cases no form row mints (Markup, Span, Face) lower by their canonical text so the
-// switch stays total over the kernel union; a tri-state Flag's absence collapses to JSON null HERE — the wire
-// edge — and nowhere interior.
 public static class FieldJson {
     public static JsonElement Lower(FieldValue value) => value.Switch(
         text: static row => JsonSerializer.SerializeToElement(row.Value),
@@ -593,17 +520,12 @@ public static class FieldJson {
         face: static (_, row) => row.Value.ToString());
 }
 
-// The pure projection the chrome capsule seats: a plan carries no control, so a wizard step, a flat panel, a
-// remote head, and a proof reading fold the same sections without materializing anything.
 public sealed record FieldPlan(FormField Field, EditState State, ValueOrigin Origin, bool Required, Option<string> Display);
 
 public sealed record SectionPlan(FormSection Section, Seq<FieldPlan> Fields);
 
 public static class FormSurface {
     extension(FormSchema schema) {
-        // ONE projection for both shapes: the flat form plans every unskipped section and the wizard plans the
-        // cursor's section alone. A section whose every field is filtered out drops whole, so in-panel search
-        // reads as a shorter form rather than a page of empty headings.
         public Seq<SectionPlan> Plan(
             FormState state,
             HashMap<FieldTag, FieldCell> pending,
@@ -624,8 +546,6 @@ public static class FormSurface {
                     .Filter(plan => filter.Match(plan.Field, plan.State, plan.Origin, locale))))
                 .Filter(static plan => !plan.Fields.IsEmpty);
 
-        // The head carrying no form mechanism still receives the whole tree as nested panels, so the plan
-        // crosses `ControlIntentWire` unchanged and the desktop capsule adds geometry rather than capability.
         public ControlIntent Panel(string panelKey, Seq<SectionPlan> plan) =>
             new ControlIntent.Panel(
                 panelKey,
@@ -638,7 +558,6 @@ public static class FormSurface {
                 IntentBinding.Of(PaintRole.Surface));
     }
 
-    // A measured field renders through the ONE quantity render; every other case renders its typed spelling.
     static Option<string> Display(FormField field, FormState state, ResolvedLocale locale) =>
         state.Values.Find(field.Key).Bind(static cell => cell.Uniform).Map(value =>
             (field.Measure, value) switch {
@@ -661,26 +580,18 @@ public static class FormSurface {
 - Boundary: `FormChrome` is the page's boundary capsule for form-mechanism construction — the mechanism owns geometry, the capsule owns seating, and every CONTROL comes from `ControlFactory`. The operation cluster's verbs bind through `BehaviorRail.Intent` over `MaterializeContext.Activate`, and their commands are the form's own arrows rather than deck rows, because the deck freezes at boot and a runtime-compiled schema cannot mint rows in it. The read-only description grid carries resolved TEXT and no editor. The form host is the mechanism's items control and never the constraint-solver panel — the solver carries no label-column algebra.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The mechanism's own geometry axis in the mechanism's own types. An ABSOLUTE width pins the label column: the
-// mechanism republishes it to each row verbatim and any other width as NaN.
 public readonly record struct FormGeometry(Position LabelPosition, GridLength LabelWidth, HorizontalAlignment LabelAlignment) {
     public static readonly FormGeometry Stacked = new(Position.Top, GridLength.Auto, HorizontalAlignment.Left);
-    // The inline label column is a raw pixel width pending its Theme/tokens row — the S0 token law owns every
-    // visual literal and this one is reported to that owner.
     public static readonly FormGeometry Inline = new(Position.Left, new GridLength(168d), HorizontalAlignment.Right);
 }
 
-// Reset is keyed by field because it is the one verb whose subject is a row, and it arrives as an arrow
-// because the boot-frozen deck has no rows for a runtime-compiled schema.
 public sealed record FormOperations(
     Func<FieldTag, ICommand> Reset,
     Option<ICommand> Apply,
     Option<ICommand> Cancel);
 
-// Section furniture as rows: a description grid and a grouped field run differ in two delegates rather than
-// in a branch at the capsule.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -699,11 +610,9 @@ public sealed partial class SectionChrome {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class FormChrome {
-    // The whole form is ONE mechanism host inside one scroll region beside its rail, so the label column, the
-    // scroll-spy, and the section order all read one plan.
     public static Fin<Control> Mount(
         FormSchema schema,
         Seq<SectionPlan> plan,
@@ -742,9 +651,6 @@ public static class FormChrome {
 
     // --- [ROW_SEATS]
 
-    // The editing row: the control comes from the one factory, the label, requiredness, and help ride the
-    // mechanism's attached properties, the ink mark lands on the row, and the trailing cluster carries the
-    // provenance badge and the reset verb — one vocabulary with the property grid's operation column.
     public static Fin<Control> Editor(FieldPlan plan, FormOperations operations, MaterializeContext context, ResolvedLocale locale) =>
         ControlFactory.Materialize(plan.Field.Control, context)
             .Bind(control => Cluster(plan, operations, context, locale).Map(cluster => (Control: control, Cluster: cluster)))
@@ -761,7 +667,6 @@ public static class FormChrome {
                 return (Control)row;
             });
 
-    // The read-only row: a description entry carries the plan's already-resolved display text.
     public static Fin<Control> Description(FieldPlan plan, FormOperations operations, MaterializeContext context, ResolvedLocale locale) =>
         Fin<Control>.Succ(new DescriptionsItem {
             Label = locale.Label(plan.Field.LabelKey),
@@ -773,8 +678,6 @@ public static class FormChrome {
     public static Control Group(string title, Seq<Control> rows, FormGeometry geometry) =>
         Seated(new FormGroup { Header = title, ItemsSource = rows.ToArray() });
 
-    // A titled rule above ungrouped rows: each row keeps the host's geometry subscription through the
-    // intervening panel — the mechanism resolves geometry off the nearest form ancestor.
     public static Control Band(string title, Seq<Control> rows, FormGeometry geometry) {
         StackPanel band = new();
         band.Children.Add(new Divider { Content = title });
@@ -782,7 +685,6 @@ public static class FormChrome {
         return Seated(band);
     }
 
-    // A notched group box around a nested mechanism host, for a section that must read as its own enclosure.
     public static Control Box(string title, Seq<Control> rows, FormGeometry geometry) =>
         Seated(new UrsaGroupBox {
             Header = title,
@@ -794,8 +696,6 @@ public static class FormChrome {
             },
         });
 
-    // The key-value grid for read-only runs: its label geometry mirrors the form's, so description and editing
-    // blocks align on one column.
     public static Control Table(string title, Seq<Control> rows, FormGeometry geometry) {
         StackPanel band = new();
         band.Children.Add(new Divider { Content = title });
@@ -809,8 +709,6 @@ public static class FormChrome {
 
     // --- [RAIL_AND_FOOT]
 
-    // The shipped scroll-spy over the same scroll region the form scrolls in; re-measured after a plan change
-    // because a plan edit moves every offset it cached.
     public static Control Rail(Seq<SectionPlan> plan, ScrollViewer region, ResolvedLocale locale) {
         Anchor rail = new() {
             TargetContainer = region,
@@ -822,8 +720,6 @@ public static class FormChrome {
         return rail;
     }
 
-    // The reset verb materializes only where the origin admits one — a linked value has no local default, so
-    // offering reset there would offer a write the next propagation erases.
     static Fin<Control> Cluster(FieldPlan plan, FormOperations operations, MaterializeContext context, ResolvedLocale locale) =>
         Badges(plan, context).Map(badges => {
             StackPanel cluster = new() { Orientation = Orientation.Horizontal };
@@ -845,8 +741,6 @@ public static class FormChrome {
                 context))
             .As();
 
-    // The apply-and-cancel pair exists only under the deferred posture, so an immediate form grows no foot and
-    // the pair's presence IS the pending statement.
     static Option<Control> Foot(FormOperations operations, ResolvedLocale locale) =>
         (operations.Apply, operations.Cancel) switch {
             ({ IsSome: true, Case: ICommand apply }, { IsSome: true, Case: ICommand cancel }) => Some(Verbs(apply, cancel, locale)),
@@ -860,8 +754,6 @@ public static class FormChrome {
         return foot;
     }
 
-    // A section host enters the mechanism as a LABEL-LESS row — declining the label is what makes furniture
-    // span the full width instead of sitting in the value column.
     static Control Seated(Control host) {
         FormItem.SetNoLabel(host, true);
         return host;
@@ -904,8 +796,6 @@ public static class WizardFold {
                 .Traverse(field => field.Rule(state).Map(static _ => unit)).As()
                 .Map(_ => state);
 
-        // Retreat mirrors Advanced: the cursor lands on the nearest EARLIER non-skipped section, so a bypassed
-        // conditional section is never re-presented walking backwards.
         public WizardState Retreat(WizardState cursor, FormState state) => cursor with {
             Index = toSeq(Enumerable.Range(0, int.Min(cursor.Index, schema.Sections.Count)))
                 .Rev()
@@ -937,8 +827,6 @@ public static class WizardFold {
 - Boundary: every `SelectionSet` persists per document through the `Editing/livedata#VIEW_STATE` `SnapshotPort` instantiation bound at composition to the Persistence snapshot vocabulary — no store type enters these fences and a second port shape is the deleted form; composition refuses operands spanning two documents; the recall verbs are command-table intents gated by the availability algebra, so a set list, apply, rename, and drop mint no local command surface; element-set queries stay Bim-owned receipts and AppUi runs no query engine.
 
 ```csharp signature
-// Both rows keep the range delegate TOTAL over its flag: a single-mode row that discarded `selected` made the
-// clear half of an exact projection SELECT its first non-member.
 [SmartEnum]
 public sealed partial class PickMode {
     public static readonly PickMode Single = new(
@@ -957,8 +845,6 @@ public sealed partial class PickMode {
     public partial void ApplyRange(ICheckedList backing, Seq<object> items, bool selected);
 }
 
-// Each gesture row carries its own anchor custody — the range row alone preserves the anchor, because a range
-// that moved its own anchor makes every successive shift-click select a different span than the visible one.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -982,8 +868,6 @@ public sealed partial class SelectionGesture {
         static (backing, mode, hits) => mode.ApplyRange(backing, hits, true),
         static (current, hit) => current.IsSome ? current : hit);
 
-    // Shift outranks the platform primary because a range gesture that also toggled could not express a plain
-    // contiguous span.
     public static SelectionGesture Of(KeyModifiers modifiers, KeyModifiers primary) =>
         (modifiers & KeyModifiers.Shift) != 0 ? Extend
         : (modifiers & primary) != 0 ? Toggle
@@ -997,9 +881,6 @@ public sealed partial class SelectionGesture {
     public partial Option<string> Reanchor(Option<string> current, Option<string> hit);
 }
 
-// Similarity axes as capability rows: each names its element property and label key, and the SET carries
-// declaration-rank order, so a facet signature is one spelling per facet set by construction.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1015,8 +896,6 @@ public sealed partial class SelectionFacet : ICapability<SelectionFacet> {
     public string LabelKey { get; }
 }
 
-// The hit fold as rows: window takes what the band fully contains, crossing what it touches, and the mode
-// derives from the drag direction the band retains its origin to answer.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1028,7 +907,7 @@ public sealed partial class BandMode {
     public partial bool Hits(Rect extent, Rect bounds);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct SelectionBand(Point Anchor, Point Live, SelectionGesture Gesture) {
     public static SelectionBand Begin(Point at, KeyModifiers modifiers, KeyModifiers primary) =>
@@ -1036,14 +915,10 @@ public readonly record struct SelectionBand(Point Anchor, Point Live, SelectionG
 
     public SelectionBand Extend(Point to) => this with { Live = to };
 
-    // Corners arrive in gesture order; a negative-extent rectangle contains and intersects nothing, so the
-    // extent normalizes before any hit test reads it.
     public Rect Extent => new Rect(Anchor, Live).Normalize();
 
     public BandMode Mode => Live.X >= Anchor.X ? BandMode.Window : BandMode.Crossing;
 
-    // Extent and mode resolve ONCE for the whole plane: a sweep across a dense table tests thousands of bounds
-    // against one band.
     public Seq<TItem> Hit<TItem>(Seq<(TItem Item, Rect Bounds)> plane) =>
         (Extent, Mode) switch {
             var (extent, mode) => plane.Filter(row => mode.Hits(extent, row.Bounds)).Map(static row => row.Item),
@@ -1058,22 +933,14 @@ public sealed record Selection<TItem>(
     Func<TItem, string> Kind,
     Func<TItem, SelectionFacet, Option<string>> Facet,
     Option<string> Anchor) where TItem : notnull {
-    // Every plane routes its gestures through this ONE entry. Admission reads `SourceItems` — the CANDIDATE
-    // roster — never `Items`, the already-selected set: guarding against the selected set makes selecting an
-    // unselected item refuse by construction.
     public Fin<Selection<TItem>> Raise(SelectionGesture gesture, Seq<TItem> hits) {
         if (!hits.ForAll(item => Backing.SourceItems.Contains(item))) {
             return Fin.Fail<Selection<TItem>>(new FormFault.FieldInvalid("selection", "a hit is outside the backing"));
         }
-        // `Cast` answers an erased `IEnumerable`, so the roster re-enters through `toSeq` and the anchor takes
-        // the carrier's own `Rev`.
         gesture.Fold(Backing, Mode, toSeq(hits.Cast<object>()));
         return Fin.Succ(this with { Anchor = gesture.Reanchor(Anchor, hits.Rev().Head.Map(Identity)) });
     }
 
-    // Range resolution lives here alone: a plane supplies its own ORDER and this derives the anchor-to-target
-    // slice. An absent anchor makes the target its own range — exactly what a first shift-click must do — and
-    // a target the plane does not carry refuses rather than silently selecting from the top.
     public Fin<Seq<TItem>> Span(Seq<TItem> ordered, TItem target) =>
         Index(ordered, Identity(target)).Match(
             Some: end => Anchor.Bind(anchor => Index(ordered, anchor)).Match(
@@ -1087,9 +954,6 @@ public sealed record Selection<TItem>(
             .Find(row => string.Equals(row.Id, identity, StringComparison.Ordinal))
             .Map(static row => row.Index);
 
-    // Select-similar is a SIGNATURE match: the facet SET composes one ordinal signature per seed and the plane
-    // admits every member whose signature is in that set. A facet a seed does not carry REFUSES the query, and
-    // the refusal accumulates per seed so a mixed pick reports every gap at once.
     public Validation<Error, Seq<TItem>> Similar(Seq<TItem> seeds, Seq<TItem> plane, CapabilitySet<SelectionFacet> facets) =>
         facets.Held.Count == 0 || seeds.IsEmpty
             ? (Validation<Error, Seq<TItem>>)new FormFault.FieldInvalid("selection-similar", "seeds and facets are required")
@@ -1099,8 +963,6 @@ public sealed record Selection<TItem>(
                         .Match(Succ: signature => wanted.Contains(signature), Fail: static _ => false)),
                 });
 
-    // Facet values join on the unit separator because it cannot occur inside one; the facet order is the SET's
-    // declaration-rank order, so the signature is caller-independent.
     Validation<Error, string> Signature(TItem item, CapabilitySet<SelectionFacet> facets) =>
         toSeq(facets.Held).OrderBy(static row => row.Rank).AsIterable().ToSeq()
             .Traverse(facet => Facet(item, facet)
@@ -1113,12 +975,8 @@ public sealed record Selection<TItem>(
         .Traverse(item => Admit(item).ToFin(new FormFault.FieldInvalid("selection", item.GetType().Name)))
         .As();
 
-    // `Items` and `SourceItems` are `object[]`, so the count is `Length` — `ICollection.Count` is an explicit
-    // implementation on `System.Array` and unreachable off the array reference.
     public int Count => Backing.Items.Length;
 
-    // A refused admission answers the EMPTY snapshot rather than propagating: a selection the model cannot
-    // type is not a selection any verb should be enabled against, and a gate carries no failure rail.
     public SelectionSnapshot Snapshot() =>
         Selected().Match(
             Succ: items => SelectionSnapshot.Create(items.Count, items.Map(Kind).ToFrozenSet(StringComparer.Ordinal)),
@@ -1129,14 +987,10 @@ public sealed record Selection<TItem>(
             ? Selected().Map(items => new SelectionSet(documentKey, key, name, toSet(items.Map(Identity))))
             : Fin.Fail<SelectionSet>(new FormFault.FieldInvalid("selection-set", "document, key, and name are required"));
 
-    // Set application IS the replace gesture over the set's live members — one exact projection, one law — so
-    // recalling a set and sweeping an unmodified marquee cannot diverge on what "these and only these" means.
     public Fin<Selection<TItem>> ApplySet(SelectionSet set, Seq<TItem> plane) =>
         Raise(SelectionGesture.Replace, plane.Filter(item => set.Members.Contains(Identity(item))));
 }
 
-// Manual picks and Bim-owned query receipts seal to ONE durable noun, so every apply-to-these-elements
-// workflow scopes on one stable vocabulary.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1150,33 +1004,23 @@ public sealed partial class SelectionAlgebra {
 }
 
 public sealed record SelectionSet(string DocumentKey, string Key, string Name, Set<string> Members) {
-    // The recall VERBS are command-table intents — one declaration the deck's `DeckRows.SelectionSets`
-    // projection binds and the palette, a chord, and a replayed journal entry all reach.
     public const string ListIntent = "selection.set.list";
     public const string ApplyIntent = "selection.set.apply";
     public const string RenameIntent = "selection.set.rename";
     public const string DropIntent = "selection.set.drop";
     public const string SimilarIntent = "selection.similar";
 
-    // Composition is DOCUMENT-SCOPED: member identities are document-local, so a union across two documents
-    // yields a set whose members resolve in neither.
     public Fin<SelectionSet> Combine(SelectionAlgebra op, SelectionSet other) =>
         string.Equals(DocumentKey, other.DocumentKey, StringComparison.Ordinal)
             ? Fin.Succ(this with { Members = op.Fold(Members, other.Members) })
             : Fin.Fail<SelectionSet>(new FormFault.FieldInvalid("selection-set", "operands span two documents"));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The durable seam is the Editing/livedata#VIEW_STATE SnapshotPort — composition binds
-// `SnapshotPort<string, (string Document, string Key), SelectionSet>` to the Persistence snapshot vocabulary,
-// so this page declares no second port shape and no store type enters these fences.
 public static class SelectionChannel {
-    // The status-footer fact key: the chrome row names it, this owner declares it, the snapshot fills it.
     public const string CountFact = "selection.count";
 
-    // Snapshots leave ONE edge — the backing's own `SelectionChanged` — because a pulse subject beside it is a
-    // second source of one fact, and two sources drift.
     public static IObservable<SelectionSnapshot> Snapshots<TItem>(Selection<TItem> selection) where TItem : notnull =>
         Observable.FromEventPattern(
                 handler => selection.Backing.SelectionChanged += handler,
@@ -1184,8 +1028,6 @@ public static class SelectionChannel {
             .Select(static _ => unit)
             .StartWith(unit)
             .Select(_ => selection.Snapshot())
-            // Kind sets are `FrozenSet<string>`, which equates by REFERENCE, so the distinct key reads
-            // structurally — count beside the ordered kinds.
             .DistinctUntilChanged(static snapshot =>
                 (snapshot.Count, string.Join('', snapshot.Kinds.Order(StringComparer.Ordinal))))
             .Replay(1)
@@ -1207,10 +1049,8 @@ public static class SelectionChannel {
 - Boundary: the pending cell is the one deferred-commit owner — a per-screen dirty-field set, a second apply path, and a keystroke-driven re-solve are rejected. The parameter lane is an INSTANCE of the settled `Editing/history#REVERT_SCOPE` algebra: it carries its own recorder, `ClientLog`, content identity, actor, and cursor, binds that owner's `SessionWindow` so the durable half answers empty by construction, and reads the algebra's OWN head placement — a lane-local head read hands the newest recorded op to undo and redo alike. A value set re-admits every member through the target schema on import and reports each stale member individually. Batch editing folds through the one `CommandExecution.Combine` algebra with one intent key and one `CommandPayload.Many`; a per-macro registry and a batch payload case beside the closed `CommandPayload` union are rejected. Host-mutating batch edits route through the abstract `DocumentTransaction` surface-host port so the undo scope batches the N edits as one host transaction.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The write axis as rows: deferred marks and immediate writes through, so the expensive-solve decision is a
-// field column the schema declares once.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1224,25 +1064,19 @@ public sealed partial class CommitPosture {
     public partial PendingForm Seat(PendingForm cell, FieldTag key, FieldCell value);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One applied-or-rejected instrument pair: the two outcome writers on this page were verbatim twins of this
-// shape, so the pair is a row and an Observe body exists once.
 public sealed record OutcomeCount(InstrumentSpec Applied, InstrumentSpec Rejected, string Slot) {
     public Fin<Unit> Observe<T>(InstrumentSet set, string key, Fin<T> outcome) =>
         set.Write(outcome.IsSucc ? Applied : Rejected, 1d, InstrumentSet.Tags((Slot, key)));
 }
 
-// The batch's evidence IS its one `DeckReceipt`, which crosses the envelope stream under the evidence
-// union's own Command case.
 public sealed record BatchReceipt(string Verb, int Items, CorrelationId Correlation, DeckReceipt Command);
 
 public sealed record CommitReceipt(string Schema, int Fields, CorrelationId Correlation, DeckReceipt Command, RevertCursor Cursor) {
     public const string Kind = "form-commit";
 }
 
-// The parameter lane is a `RevertScope` OF ITS OWN — its recorder, identity, and cursor — so the shape is the
-// settled one and a lane is an instance rather than a second algebra. Its stamp is the Persistence seam `Hlc`.
 public sealed record ParameterLane(RevertScope Scope, RevertCursor Cursor, string ContentIdentity, string Actor, Func<Hlc> Stamp) {
     public static ParameterLane Of(
         CancelableCommandRecorder recorder,
@@ -1256,9 +1090,6 @@ public sealed record ParameterLane(RevertScope Scope, RevertCursor Cursor, strin
             actor,
             stamp);
 
-    // Recording resets the cursor to the surface: a fresh op invalidates every redo position the previous
-    // traversal left behind — the recorder clears its own redo queue on push, and the roster push truncates
-    // that same tail against the PRE-record cursor.
     public ParameterLane Record(RevertibleOp op) {
         Scope.Recorder.PushCommand(op.ToCommand($"{ContentIdentity}:{op.Kind.Key}", Scope.Apply));
         Scope.Log.Push(op, Cursor);
@@ -1270,15 +1101,10 @@ public sealed record ParameterLane(RevertScope Scope, RevertCursor Cursor, strin
             .Map(outcome => outcome.Map(step => (step.Op, this with { Cursor = step.Next })));
 }
 
-// The transportable value set. It carries the schema key it was taken against, so an import into a foreign
-// form refuses whole while an import into a grown form lands every member the schema still admits.
 public sealed record ParameterSet(string Key, string SchemaKey, HashMap<FieldTag, FieldCell> Values) {
     public static ParameterSet Export(string key, FormSchema schema, FormState state) =>
         new(key, schema.Key, toHashMap(toSeq(state.Values).Filter(pair => schema.Field(pair.Key).IsSome)));
 
-    // Members admit APPLICATIVELY against the pre-import state — threading each member through the state the
-    // previous one produced would make an import order-dependent — and re-enter through the entry rows via the
-    // erased projection, so a stale member is a refusal rather than a silently collapsed value.
     public Validation<Error, FormState> Import(FormSchema schema, FormState state, ResolvedLocale locale) =>
         !StringComparer.Ordinal.Equals(SchemaKey, schema.Key)
             ? Validation<Error, FormState>.Fail(new FormFault.CommitRejected($"{Key}: set targets {SchemaKey}"))
@@ -1302,8 +1128,6 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
 
     public static PendingForm Of(FormSchema schema, FormState committed) => new(schema, committed, HashMap<FieldTag, FieldCell>());
 
-    // The projected state every read takes: marks shadow committed values, so validation, visibility,
-    // propagation, and the plan all see what the operator typed before any of it commits.
     public FormState Projected => toSeq(Pending).Fold(Committed, static (state, pair) => state.Seat(pair.Key, pair.Value));
 
     public Validation<Error, PendingForm> Mark(FieldTag key, JsonElement value, ResolvedLocale locale) =>
@@ -1312,11 +1136,8 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
                 .ToValidation((Error)new FormFault.FieldInvalid(key.Value, "unknown field"))
                 .Map(field => field.Posture.Seat(this, key, seated.Value)));
 
-    // Cancel drops MARKS alone: committed state is never rewritten to undo an uncommitted edit.
     public PendingForm Cancel() => this with { Pending = HashMap<FieldTag, FieldCell>() };
 
-    // One apply is ONE execution: the projected state validates whole, the marked keys cross ordinally sorted,
-    // the commit intent runs once under one correlation, and the batch records as a single composite op.
     public IO<Fin<(PendingForm Next, CommitReceipt Receipt)>> Apply(
         CommandDeck deck,
         ParameterLane lane,
@@ -1330,8 +1151,6 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
                         ? Fin.Succ(row)
                         : Fin.Fail<CommandRow>(new DeckFault.UnknownIntent(Schema.CommitIntent)))
                     .Match(
-                        // The OUTCOME admits, not the receipt's arrival: a refused execution still seals a
-                        // receipt, and folding on arrival alone cleared the marks and counted the run applied.
                         Succ: row => row.Run(new CommandPayload.Many(marked.Map(static key => key.Value)), deck, cancel)
                             .Map(receipt => BatchEdit.Landed(receipt).Map(landed => {
                                 ParameterLane next = lane.Record(Composite(marked, lane.Actor, lane.Stamp()));
@@ -1342,8 +1161,6 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
                         Fail: fault => IO.pure(Fin.Fail<(PendingForm, CommitReceipt)>(fault))),
             };
 
-    // The marked key set in ORDINAL order: an unordered payload would digest differently on two runs that
-    // marked the same fields.
     public Seq<FieldTag> Marked => toSeq(Pending.Keys.OrderBy(static key => key.Value, StringComparer.Ordinal));
 
     public static Fin<Unit> Observe(InstrumentSet set, string schemaKey, Fin<(PendingForm Next, CommitReceipt Receipt)> outcome) =>
@@ -1352,9 +1169,6 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Committals, Rejections);
 
-    // Every marked field contributes one `Set` delta carrying the committed value it displaced; the absent
-    // committed value crosses as the Option the delta's own admitted shape declares, so the composite inverts
-    // field by field and a first write is still invertible with no null sentinel minted here.
     RevertibleOp Composite(Seq<FieldTag> marked, string actor, Hlc at) =>
         new("parameters", Schema.Key, actor,
             new RevertDelta.Composite(marked.Choose(key => Pending.Find(key).Bind(static cell => cell.Uniform).Map(after => new RevertibleOp(
@@ -1368,7 +1182,7 @@ public sealed record PendingForm(FormSchema Schema, FormState Committed, HashMap
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class BatchEdit {
     public static readonly InstrumentSpec Applied = InstrumentSpec.Create(
@@ -1382,9 +1196,6 @@ public static class BatchEdit {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Applied, Rejected);
 
-    // The ONE command-outcome admission every fold on this page takes: `CommandRow.Run` is TOTAL — its
-    // catch rail seals a receipt for a refused execution exactly as for a completed one — so the outcome IS
-    // the fact and it enters the same typed refusal a schema fault takes.
     public static Fin<DeckReceipt> Landed(DeckReceipt receipt) =>
         receipt.Outcome is CommandOutcome.Completed
             ? Fin.Succ(receipt)
@@ -1410,10 +1221,6 @@ public static class BatchEdit {
         public BatchReceipt Seal(string verb, CorrelationId correlation, CommandPayload.Many payload, DeckReceipt command) =>
             new(verb, payload.Ids.Count, correlation, command);
 
-        // Snapshot the payload FIRST, gate the selection, resolve the one combined command, execute once, and
-        // seal off the SAME snapshot — receipt truth never reads mutable selection after execution. A combined
-        // execution answering more than one receipt refuses by name: `Combine` materializes exactly one child,
-        // and a longer list is a contract breach, not a tail to drop.
         public IO<Fin<BatchReceipt>> Execute(string verbIntent, CommandDeck deck, CorrelationId correlation) =>
             selection.Payload()
                 .Bind(payload => selection.Combine(verbIntent, deck).Map(command => (Payload: payload, Command: command)))
@@ -1443,9 +1250,8 @@ public static class BatchEdit {
 - Boundary: a study form is a compiled `FormSchema` — no schema type, wizard variant, or submission dialog is minted, and the pending posture is the settled one. Revision election refuses an absent pin because a study silently re-configured against a newer recipe is a result nobody can reproduce. Submission binds the settled correlation vocabulary alone and names no queue type. The pre-solve gate arrives as an ARROW — `Analysis/context#BUDGET_METER` `BudgetMeter.Of` (mapped to `Fin<Unit>` at composition) binds there, that owner already consumes `StudySubmission`, and a budget TYPE crossing into this fence would make the pair mutually referential; the gate runs FIRST because a request nothing can compute makes every field rule beneath it moot.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The pin axis: Tracking elects the highest revision at resolve time and a pin elects exactly one.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RecipePin {
     private RecipePin() { }
@@ -1454,8 +1260,6 @@ public abstract partial record RecipePin {
     public sealed record Tracking : RecipePin;
 }
 
-// The partition axis IS the requiredness declaration: a required-section input demands a value and an
-// optional-section one never does, so the section filter, the rule, and the chrome read one row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SectionSlot {
@@ -1463,8 +1267,6 @@ public sealed partial class SectionSlot {
     public static readonly SectionSlot Optional = new("optional");
 }
 
-// Each kind carries the control intent it materializes and the admission row that intent sits behind, so an
-// input's declaration and its editor can never disagree.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1483,8 +1285,6 @@ public sealed partial class RecipeInputKind {
             input.Key.Value, SelectPosture.Closed, new OptionSource.Inline(input.Options),
             VirtualWindowSpec.FixedRow(DropViewport), IntentBinding.Of(PaintRole.Well)));
 
-    // The drop-down viewport the windowed option source is specified against — the popup's own maximum height;
-    // reported to the Theme/tokens owner with the inline label width.
     public const double DropViewport = 240d;
 
     public FieldEntry Entry { get; }
@@ -1493,11 +1293,8 @@ public sealed partial class RecipeInputKind {
     public partial ControlIntent Intent(RecipeInput input);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// A number input compiles as an EXPRESSION field, so `span / 3` is admissible wherever a study takes a
-// dimension. Slot and posture are the input's own typed declarations — the two bools the compile re-derived
-// into exactly these values are gone.
 public sealed record RecipeInput(
     FieldTag Key,
     string LabelKey,
@@ -1516,11 +1313,9 @@ public sealed record StudySubmission(string StudyKey, string RecipeKey, int Revi
     public const string Kind = "study-submission";
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class RecipeCatalog {
-    // An absent pin REFUSES: falling forward to a revision the operator did not choose is the deleted form,
-    // and tracking is the operator's own declaration.
     public static Fin<StudyRecipe> Resolve(Seq<StudyRecipe> revisions, RecipePin pin) =>
         revisions.IsEmpty
             ? Fin.Fail<StudyRecipe>(new FormFault.RecipeRejected("recipe carries no revision"))
@@ -1537,8 +1332,6 @@ public static class StudySchema {
     private static readonly FieldTag NameTag = FieldTag.Create("study.name");
     private static readonly FieldTag NotesTag = FieldTag.Create("study.notes");
 
-    // The compile is one projection: identity fields, then the recipe's own slot partitions, each a section of
-    // the one grammar — the study surface IS the form surface.
     public static Validation<Error, FormSchema> Compile(StudyRecipe recipe, string submitIntent, string commitIntent) =>
         (Identity(recipe), recipe.Inputs.Traverse(Field).As())
             .Apply(static (identity, inputs) => identity + inputs)
@@ -1551,8 +1344,6 @@ public static class StudySchema {
                 fields,
                 Sections(recipe)));
 
-    // The pre-solve gate runs FIRST because it is the absolute precondition: a request nothing can compute
-    // makes every field rule beneath it moot, and a form fault would mask the one refusal no edit fixes.
     public static IO<Fin<StudySubmission>> Submit(
         StudyRecipe recipe,
         FormSchema schema,
@@ -1581,8 +1372,6 @@ public static class StudySchema {
                 recipe.Inputs.Filter(static input => input.Slot == SectionSlot.Optional).Map(static input => input.Key), SectionChrome.Divided))
             .Filter(static section => !section.FieldKeys.IsEmpty);
 
-    // Study identity is two ORDINARY fields, so a study with an empty name refuses exactly where an empty
-    // required input does.
     static Validation<Error, Seq<FormField>> Identity(StudyRecipe recipe) =>
         Validation<Error, Seq<FormField>>.Success(Seq(
             FormField.Of(NameTag, LocaleStrings.Key(nameof(StudySchema), "name"),
@@ -1596,8 +1385,6 @@ public static class StudySchema {
                 FieldEntry.Words,
                 static _ => Validation<Error, Unit>.Success(unit))));
 
-    // Requiredness derives from the input's own slot and the posture is its declared row — one declaration,
-    // no re-derivation.
     static Validation<Error, FormField> Field(RecipeInput input) =>
         Validation<Error, FormField>.Success(new FormField(
             input.Key,

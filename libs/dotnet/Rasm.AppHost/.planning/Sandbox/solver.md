@@ -26,7 +26,7 @@ Representation is the kernel `Rasm/Drawing/pack` `PackKind` roster composed dire
 - Boundary: the solver-kind axis is the only extension-category owner — a per-category plugin interface, a category-specific loader, and a parallel solver registry are the deleted forms, so all seven categories ride one contract and one hosting fold differing only by row columns; representation identity is TYPE identity, never a mirrored roster — an AppHost `EncodingKind` re-declaring the kernel keys and a lock table keyed on that mirror are the deleted forms precisely because a kernel row the mirror never grew is structurally invisible to a table its own keys seed, which is how `gaussian-splat` sat unmirrored while three prose lines asserted a 1:1 lock; the kernel owns encode, decode, and the round-trip witness, so a `GeometryPacking`-style AppHost capsule forwarding `Encode.Apply`, a residency-side packer, and a per-plugin geometry codec are all deleted forms and every caller reaches `Encode.Apply(PackOp, Op?)` and `PackKind.Channels` directly; the kind axis is orthogonal to substrate selection — a plugin declares its category and contract while the executing stratum decides the substrate its dispatched op runs on, so plugin extensibility and substrate selection never merge; the generative-codec row carries the generative-run contract shape but AI model execution stays the model lane's concern, so this page hosts the codec contract and never the model; `MaterialModel` and `FieldCodec` share an identical column set today and are held apart by their operator-facing category alone, which is a real discriminant a registry listing reads and a `Producing(PackKind.Field)` answer therefore names both.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SolverFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Solver;
@@ -34,10 +34,6 @@ public abstract partial record SolverFault : Fault {
     public string Detail { get; }
     public sealed override string Message => Detail;
 
-    // Hosting crosses two foreign families — the sandbox load's `SandboxFault` and the supply-chain gate's
-    // own refusal underneath it — so `Of` adopts rather than rebuilding: a message-only wrapper erases the
-    // band code that tells an operator whether the plugin was unsigned, unservable on this isolation axis,
-    // or broken.
     public static SolverFault Of(Error error) => error as SolverFault ?? new Foreign(error);
 
     [FaultCase(0)]
@@ -57,13 +53,7 @@ public abstract partial record SolverFault : Fault {
     }
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Contract columns ride the ROW. A bare-key roster beside a sibling contract roster beside a hand join switch
-// is one concept spelled three times, where a new category is three edits and a forgotten one still compiles.
-// Representation is the KERNEL row, not a key copied into an AppHost twin: a mirror carries no compile-time
-// tie to the roster it claims to lock, so a kernel row it never grew stays invisible while the lock table's
-// own keys report full coverage. `ICapability` is what lets a deployment state the categories it hosts as one
-// set value, which is the only thing that can produce `KindUnsupported`.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -78,9 +68,6 @@ public sealed partial class SolverKind : ICapability<SolverKind> {
         rank: 3, input: PackKind.MeshPatch, output: PackKind.Toolpath, effect: EffectClass.Write, progress: None);
     public static readonly SolverKind MaterialModel = new("material-model",
         rank: 4, input: PackKind.Field, output: PackKind.Field, effect: EffectClass.Pure, progress: None);
-    // Progress stays absent for field codecs even under archive-corpus reads: the corpus-scale loop lives at the
-    // host's job-graph node, which mints its own cell off the admitted intent, while a codec plugin decodes ONE
-    // bounded chunk per call — a policy here would grant every trivial codec a cell for a loop it never owns.
     public static readonly SolverKind FieldCodec = new("field-codec",
         rank: 5, input: PackKind.Field, output: PackKind.Field, effect: EffectClass.Pure, progress: None);
     public static readonly SolverKind GenerativeCodec = new("generative-codec",
@@ -92,9 +79,6 @@ public sealed partial class SolverKind : ICapability<SolverKind> {
     public EffectClass Effect { get; }
     public Option<SubscriptionPolicy> Progress { get; }
 
-    // Seeded from `PackKind.Items`, never from the rows: the fold visits EVERY kernel row, so a representation
-    // no category produces lands with an empty producer set at type initialization instead of being absent, and
-    // and its read stays total by construction rather than an indexer that throws on a key outside the roster.
     public static Seq<SolverKind> Producing(PackKind kind) => Producers.Value.GetValueOrDefault(kind, Seq<SolverKind>());
 
     private static readonly Lazy<FrozenDictionary<PackKind, Seq<SolverKind>>> Producers = new(
@@ -120,10 +104,7 @@ public sealed partial class SolverKind : ICapability<SolverKind> {
 - Boundary: the plugin contract is the only declared-extension owner — a plugin that registers ops by reflection, a category-specific manifest schema, and a runtime-discovered op set are the deleted forms, so a plugin's ops are exactly its declared set and validation gates every one; the manifest's ops become `CapabilityDescriptor` rows, so a solver plugin's solve op is dispatched, metered, and brokered exactly as a built-in op and the plugin gains no privileged execution path; the representation pair is the kernel roster so the contract never admits a plugin-private format; the compiled op targets the `CommandBody` the descriptor's own `Compile` column declares — the executing stratum adopts the `Spec` the command algebra seats and its own intent record never crosses up here, so a fence naming that record is the strata inversion this page does not take; the manifest's `ContractRange` is the ONE declared host-contract range and the hosting fold proves the resolved artifact carries the same value, so the supply-chain gate and the manifest can never disagree about which host a plugin claims; `[Equatable]` keys the manifest structurally because it holds three collections whose synthesized record equality compares by reference, which silently answers false for two byte-identical declarations.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// `[SetEquality]` on the object set and `[OrderedEquality]` on the op and channel sequences: default record
-// equality over a `FrozenSet` and a `Seq` is reference-shaped, so two identical declarations compare unequal
-// wherever a manifest is cached, de-duplicated, or content-keyed.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record OpDeclaration(
     string OpId,
@@ -146,12 +127,8 @@ public sealed partial record SolverManifest(
     public Seq<EncodingChannel> Unmet => Reads.Filter(channel => !Input.Channels.Contains(channel));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolverPluginContract {
-    // Four INDEPENDENT admissions accumulate: a manifest naming an unhosted category, declaring the wrong
-    // representation pair, shipping no ops, and shipping one above its ceiling names all four in one pass. The
-    // prior ternary ladder bottomed out in `Find(...).Match(Some: fail, None: succeed)` — an Option used as an
-    // error channel whose SUCCESS arm was `None` — and reported whichever cause the chain reached first.
     public static Validation<Error, SolverManifest> Validate(SolverManifest manifest, CapabilitySet<SolverKind> hosted) =>
         (Hosted(manifest, hosted), Represents(manifest), Declares(manifest), Ceilings(manifest))
             .Apply(static (held, _represents, _declares, _ceilings) => held)
@@ -180,10 +157,6 @@ public static class SolverPluginContract {
                 : Fail<Error, OpDeclaration>(new SolverFault.ContractRejected(
                     $"{manifest.PluginId}.{op.OpId}: {op.Effect.Key} over {manifest.Kind.Effect.Key} or unschema'd"))).As();
 
-    // Each category's `Progress` column crosses HERE and nowhere else: it becomes the descriptor's progress
-    // admission, the command algebra seats that verbatim on the Spec it declares, and the executing stratum's
-    // `ProgressCell.Mint` gates the leaf cell on it. The grant scope is absent by design — `GrantScope.Covers`
-    // reads the `PermissionShape` at mediation, so a scope baked into the row forks the one authority check.
     public static Seq<CapabilityDescriptor> Descriptors(
         SolverManifest manifest, Negotiation negotiation,
         Func<Negotiation, OpDeclaration, Func<CommandArguments, Fin<CommandBody>>> compileOf) =>
@@ -217,11 +190,7 @@ public static class SolverPluginContract {
 - Boundary: solver hosting is the only solver-load owner — it composes the sandbox load, the grant binding, and the registry projection, never bypassing any, so a hosted solver is always sandboxed and always brokered; the negotiation is the seam between plugin extensibility and the kernel representation — the plugin declares which channels it reads and the kernel roster decides whether that demand is servable, so the canonical representation stays the suite's single geometry truth and the plugin never widens it; a negotiation record carrying a lossless boolean only ever constructed `true`, and a manifest digest beside the artifact content key the admission gate already mints, are both deleted forms — the first measures nothing and the second forks the identity axis, which is also why this page composes no `ContentHash` of its own; the hosted solver's ops dispatch through the same substrate selection every built-in op takes, because the plugin's op is a `CapabilityDescriptor` compiling to a `CommandBody`; a solver plugin gains no lane privilege — its op rides the same `WorkLane`, budget, and lane-drain the built-in ops ride; the gate this page reaches is the supply-chain gate INSIDE `SandboxRows.Load`, never a second direct `Admit` call, so `Sandbox/admission` counts one consumer here and the load path owns the crossing; the three `Func<>` columns on the runtime capsule are per-call effects the composition supplies — resolving an artifact off a plugin source, building a compile closure over a loaded instance and its proven negotiation, and projecting descriptors into the live registry — which is the one shape the folder's capsule law admits a delegate column for; the compile column takes the INSTANCE because its closure crosses into that guest through `SandboxRows.Enter`, and a factory shaped without it is one the composition root cannot bind at all, which is exactly the state it sat in.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// Negotiations carry the PROVEN channel contract, not a verdict flag: `Tolerance` is the per-channel
-// bound the compile closure's encode must hold, read off the kernel `ChannelDtype` the input category's own
-// roster declares. A boolean here would be a claim no member measures. Input and output read off `Kind`,
-// which is why they no longer ride as a third copy of a pair the manifest and the row both already carry.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record Negotiation(
     SolverKind Kind,
@@ -237,27 +206,18 @@ public sealed record HostedSolver(
     Negotiation Negotiation,
     Seq<DescriptorReceipt> Projected);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// `Hosted` is the deployment's declared category set — the one value that can refuse a manifest naming an
-// extension category this host does not serve, and the reason `KindUnsupported` has a producing arm at all.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record SolverHostRuntime(
     SandboxRuntime Sandbox,
     SandboxRow Row,
     McpRuntime Mcp,
     CapabilitySet<SolverKind> Hosted,
     Func<SolverManifest, Fin<PluginArtifact>> Resolve,
-    // The compile factory takes the LOADED instance, because the closure it returns dispatches INTO that
-    // guest and the instance is resolved inside the hosting fold after `SandboxRows.Load`. Without it the
-    // composition could only supply a closure over a plugin it holds no handle on, which is why this column
-    // had no binder at all: the consumer names the true domain and the kernel signature followed it.
     Func<PluginInstance, Negotiation, OpDeclaration, Func<CommandArguments, Fin<CommandBody>>> CompileOf,
     Func<Seq<CapabilityDescriptor>, IO<Seq<DescriptorReceipt>>> Project);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolverHost {
-    // Boot gate: every declared manifest hosts under one traversal that ACCUMULATES, so a boot naming two
-    // bad plugins names both rather than stopping at the first — and a page whose owners no composition fence
-    // reached is what this entry exists to close.
     public static IO<Validation<Error, Seq<HostedSolver>>> Register(
         SolverHostRuntime runtime, Seq<SolverManifest> declared, GrantScope scope, Op key) =>
         declared.TraverseM(manifest => Host(runtime, manifest, scope, key)).As()
@@ -271,12 +231,6 @@ public static class SolverHost {
             Succ: proven => Loaded(runtime, proven.Manifest, scope, proven.Negotiation, key),
             Fail: faults => IO.pure(Fail<Error, HostedSolver>(faults)));
 
-    // Real material only: `Resolve` loads component bytes and the cosign bundle from the manifest source
-    // through `PluginArtifact.Admit`, so a manifest with no resolvable artifact rejects `AttestationMissing` by
-    // construction and a hollow artifact never reaches the gate. Range agreement is proven HERE because the
-    // gate parses the artifact's copy and the contract declares the manifest's — one value read at two seams
-    // is two values the moment nothing compares them. The projection is BRACKETED: a refused registry write
-    // used to return past a loaded plugin whose Wasmtime store then lived for the rest of the process.
     static IO<Validation<Error, HostedSolver>> Loaded(
         SolverHostRuntime runtime, SolverManifest manifest, GrantScope scope, Negotiation negotiation, Op key) =>
         (from artifact in runtime.Resolve(manifest)
@@ -290,25 +244,15 @@ public static class SolverHost {
             QuotaControl.Evict(runtime.Sandbox, instance, new EvictionCause.CommandedCase(nameof(SolverHost)), key)
                 .Bind(_ => IO.fail<HostedSolver>(error)))
         select Success<Error, HostedSolver>(hosted))
-        // Every load leaves on the VALIDATION channel. Legs above sequence on the IO error channel because a
-        // manifest with no resolvable artifact must never reach a load — but an `IO.fail` escaping one
-        // manifest short-circuits the boot traversal, so the second bad plugin never reported and the
-        // accumulate claim held for the contract legs alone. `Of` ADOPTS whatever refused, so a rejected
-        // signature and an unservable isolation axis still read as themselves one stratum up, and the
-        // acquisition bracket is untouched: eviction drains the loaded instance before this projects.
         .Catch(static error => IO.pure(Fail<Error, HostedSolver>(SolverFault.Of(error))));
 
     static IO<HostedSolver> Projected(
         SolverHostRuntime runtime, SolverManifest manifest, Negotiation negotiation, PluginInstance instance) =>
-        // The instance narrows the compile factory HERE and nowhere else, so every projected op carries a
-        // closure over the plugin this fold just loaded and `Descriptors` keeps its per-op contract whole.
         from receipts in runtime.Project(SolverPluginContract.Descriptors(
             manifest, negotiation, (proven, op) => runtime.CompileOf(instance, proven, op)))
         let handle = GrantHandleSurface.Bind(instance, runtime.Mcp)
         select new HostedSolver(manifest, instance, handle, negotiation, receipts);
 
-    // Unmet channels fold ONCE on the manifest: computing it for the test and again for the refusal message
-    // priced one fold twice and let the two disagree the moment the channel roster stopped being deterministic.
     public static Validation<Error, Negotiation> Negotiate(SolverManifest manifest) =>
         manifest.Unmet.IsEmpty
             ? Success<Error, Negotiation>(new Negotiation(

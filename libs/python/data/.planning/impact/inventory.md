@@ -50,34 +50,18 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.impact.inventory")
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# every Brightway provider binds `lazy`, so each raise set resolves at the CALL: a module-scope `Final[Catch]`
-# naming `bd.errors.BW2Exception` would import the whole project stack at module load and undo the deferral this
-# page's package law states. `gridded/field#FIELD`'s `_arrow_raises()` is the landed shape.
 def _project_raises() -> Catch:
-    # `bw2data.errors.BW2Exception` roots the store's own family (`ValidityError`/`PickleError` under it); a project
-    # or database name the registry never held answers `KeyError`, and the on-disk store answers `OSError`.
     return (bd.errors.BW2Exception, KeyError, TypeError, ValueError, OSError)
 
 
 def _ingest_raises() -> Catch:
-    # the pipeline adds `bw2io`'s two flat rows — `StrategyError` for a link against an absent database or an
-    # invalid linking config, `MultiprocessingError` for the parallel extract — over the store family the write
-    # leg reaches; the extract itself reads a file, so `OSError` stays.
     return (bw2io.errors.StrategyError, bw2io.errors.MultiprocessingError, *_project_raises())
 
 
 def _package_raises() -> Catch:
-    # `bw_processing.errors.BrightwayProcessingError` roots the datapackage family (`FileIntegrityError` under it);
-    # the array arguments are numpy buffers, so a mis-shaped vector answers `TypeError`/`ValueError`.
     return (bp.errors.BrightwayProcessingError, KeyError, TypeError, ValueError, OSError)
 
 
-# this module's raise roster under its one `DataLeg` member. The ingest legs split on the law they hold rather than
-# on the source tag: a RELEASE download is a remote hop a re-issue may clear and declares TRANSIENT — it is the leg
-# the HTTP retry class already wraps — while the FILE pipeline folds a local document and refuses identically on
-# every re-read, so it declares TERMINAL. `bootstrap` fetches the bundled LCIA packs and is transient with them.
-# The unlinked-residual row is this owner's OWN refusal and carries its count through `raised`; every other row is
-# a fence anchor and declares no `slots`, a converted provider raise filling its detail from the cause.
 INVENTORY_BOOTSTRAP: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.INVENTORY, point="bootstrap", arm="boundary", defect="project-setup", retriability=TRANSIENT
 )
@@ -114,13 +98,12 @@ class IngestSource:
     simapro_csv: str = case()
     excel: str = case()
     csv: str = case()
-    ecoinvent_release: tuple[str, str] = case()  # (version, system_model) — needs ecoinvent_interface credentials
-    useeio: str = case()  # database name
-    exiobase: tuple[int, int, int] = case()  # version triple
+    ecoinvent_release: tuple[str, str] = case()
+    useeio: str = case()
+    exiobase: tuple[int, int, int] = case()
 
     @property
     def importer(self) -> str:
-        # member value -> bw2io importer name, resolved at the call seam off ONE table.
         return _IMPORTER[self.tag]
 
 
@@ -136,17 +119,12 @@ _IMPORTER: Final[dict[str, str]] = {
 @tagged_union(frozen=True)
 class Resolution:
     tag: Literal["matched", "promoted", "strict"] = tag()
-    matched: tuple[str, tuple[str, ...]] = case()  # (database, match fields)
-    promoted: str = case()  # biosphere database receiving unlinked flows
+    matched: tuple[str, tuple[str, ...]] = case()
+    promoted: str = case()
     strict: None = case()
 
 
 class IngestReceipt(Struct, frozen=True, gc=False):
-    # the four linking-quality slots ride `Option` because only the FILE pipeline runs `statistics()`: a network
-    # one-shot import never computes them, and the zeros that used to stand in published a perfectly-linked import
-    # indistinguishable from a measured one — `libs/.planning/RULINGS.md` `[02]`, unmeasured instruments read
-    # UNMEASURED. `nodes` is optional for the same reason on the other side: a release whose database the registry
-    # does not hold answered `0` for both "no such database" and "an empty one".
     database: str
     nodes: Option[int]
     edges: Option[int]
@@ -155,15 +133,11 @@ class IngestReceipt(Struct, frozen=True, gc=False):
     content_key: ContentKey
 
     def contribute(self) -> "Iterable[Receipt]":
-        # the metric lands only for a MEASURED node count: a series that reads zero for every release import grades
-        # the import as empty, and the absence is the fact the receipt carries instead.
         match self.nodes:
             case Option(tag="some", some=counted):
                 Metrics.record({"rasm.impact.ingested": float(counted)}, domain="impact", kind="ingest")
             case Option(tag="none"):
                 pass
-        # an unmeasured slot OMITS its key rather than rendering a placeholder, so the evidence dict carries exactly
-        # the facts this leg proved and a reader tells an absent statistic from a measured zero by key presence.
         measured = {
             name: held
             for name, slot in (
@@ -187,7 +161,7 @@ class Inventory(Struct, frozen=True):
     def bootstrap(self) -> "RuntimeRail[None]":
         def run() -> None:
             bd.projects.set_current(self.project)
-            bw2io.bw2setup()  # idempotent on an existing biosphere
+            bw2io.bw2setup()
 
         with _TRACER.start_as_current_span("inventory.bootstrap", attributes={"rasm.impact.project": self.project}):
             return boundary(INVENTORY_BOOTSTRAP, run, catch=_ingest_raises())
@@ -195,10 +169,6 @@ class Inventory(Struct, frozen=True):
     async def ingest(
         self, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]" = ()
     ) -> "RuntimeRail[IngestReceipt]":
-        # file imports run the blocking pipeline on the band hop; the network one-shots additionally ride the
-        # HTTP retry class because a release download is a transient-faulting remote leg. The fenced body answers a
-        # RAIL rather than a value, because the strict-resolution refusal is this owner's own and must not arrive
-        # as a converted raise; each seam self-flattens once.
         def run() -> "RuntimeRail[IngestReceipt]":
             bd.projects.set_current(self.project)
             match source:
@@ -212,29 +182,19 @@ class Inventory(Struct, frozen=True):
                     bw2io.exiobase_monetary(version=(major, minor, patch), name=self.database)
                     return Ok(self._release_receipt(f"exiobase:{major}.{minor}.{patch}"))
                 case filed:
-                    # every file-backed case routes the one pipeline; the importer name rides the case's own table row.
                     return self._pipeline(filed, resolution, strategies)
 
         remote = source.tag in {"ecoinvent_release", "useeio", "exiobase"}
         with _TRACER.start_as_current_span(f"inventory.ingest.{source.tag}", attributes={"rasm.impact.project": self.project}):
             if remote:
-                # TWO coordinates, answering different questions: `at` names WHICH CALL raised and `on` WHICH PEER it
-                # reached. `RetryClass.HTTP` carries both a `CIRCUIT` and a `RATES` row, so an unstated peer refuses
-                # `config` here — and rightly: the three release legs dial three distinct ORIGINS, and one arc over
-                # the lot would trip on an ecoinvent outage and shed every healthy exiobase caller behind it. The
-                # source tag IS that origin, so it keys the breaker arc and the rate bucket per destination.
                 railed = await guarded(RetryClass.HTTP, on_thread, run, at=INVENTORY_RELEASE, on=Some(source.tag))
                 return railed.bind(lambda rail: rail)
             fenced = await on_thread(lambda: boundary(INVENTORY_PIPELINE, run, catch=_ingest_raises()))
-            # three rails stack on this leg — the band hop's, the fence's, and the body's own refusal rail — so two
-            # self-flattens drop exactly the two wrappers and a strict refusal reaches the caller as itself rather
-            # than nested inside a fence verdict that succeeded.
             return fenced.bind(lambda fence: fence).bind(lambda body: body)
 
     def _pipeline(
         self, source: IngestSource, resolution: Resolution, strategies: "tuple[Callable[[list], list], ...]"
     ) -> "RuntimeRail[IngestReceipt]":
-        # the canonical extract -> strategies -> statistics -> resolve -> write flow, statistics AS the receipt.
         path = getattr(source, source.tag)
         imp = getattr(bw2io, source.importer)(path, self.database)
         imp.apply_strategies(verbose=False)
@@ -251,22 +211,15 @@ class Inventory(Struct, frozen=True):
                 assert_never(unreachable)
         nodes, edges, unlinked, multifunctional = imp.statistics(print_stats=False)
         if unlinked and resolution.tag == "strict":
-            # the strict row refuses on the RAIL carrying its residual count as a named coordinate; reckless drop
-            # never appears, and no write runs past this point.
             return Error(INVENTORY_UNLINKED.raised(str(unlinked)))
         imp.write_database()
         key = ContentIdentity.key("impact", Path(path).read_bytes())
-        # this leg RAN `statistics()`, so all four slots are measured and every one declares.
         return Ok(IngestReceipt(
             database=self.database, nodes=Some(nodes), edges=Some(edges), unlinked=Some(unlinked),
             multifunctional=Some(multifunctional), content_key=key,
         ))
 
     def _release_receipt(self, coordinate: str) -> IngestReceipt:
-        # a one-shot release import runs NO `statistics()` pass, so the three linking-quality slots are absent
-        # rather than zero — a release is not a perfectly-linked import and the receipt must not read as one. The
-        # node count is the registry's own len where the database registered and absent where it did not, which is
-        # the state a bare `0` fused with an empty database.
         key = ContentIdentity.key("impact", coordinate.encode())
         counted = Some(len(bd.Database(self.database))) if self.database in bd.databases else Nothing
         return IngestReceipt(
@@ -283,7 +236,6 @@ class Inventory(Struct, frozen=True):
 
 ```python signature
 class Matrix(StrEnum):
-    # member value IS the bw2calc matrix name.
     TECHNOSPHERE = "technosphere_matrix"
     BIOSPHERE = "biosphere_matrix"
     CHARACTERIZATION = "characterization_matrix"
@@ -293,10 +245,6 @@ class MatrixPackage(Struct, frozen=True):
     name: str
 
     def written(self, matrix: Matrix, indices: object, data: object, flip: Option[object] = Nothing) -> "RuntimeRail[object]":
-        # one persistent-vector write onto a fresh package handle: indices ride INDICES_DTYPE rows, data the
-        # aligned float vector, flip the sign mask — the exact triple bw2calc mounts; the handle returns for
-        # further vectors, and `finalize_serialization` is the caller's terminal on the same handle. A vector with
-        # no sign mask carries `Nothing`, and the provider kwarg is the ONE site that absence lowers back to `None`.
         def build() -> object:
             package = bp.create_datapackage(name=self.name)
             package.add_persistent_vector(

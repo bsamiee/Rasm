@@ -49,7 +49,7 @@
 - Boundary: `ThcSpan` rows neither overlap nor gap, and every non-`Off` terminal closes inside the admitted schedule.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using CavalierContours.Core;
 using CavalierContours.Polyline;
@@ -68,7 +68,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
-// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ----------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class PrepStandard {
     public static readonly PrepStandard I = Create(0.0, 0.0, 0.0, 0.0, 1.0);
@@ -103,7 +103,6 @@ public sealed partial class PrepStandard {
             validationError = new ValidationError("bevel:standard");
     }
 
-    // Top and bottom flanks occupy disjoint bands of the body and carry independent angles, so an asymmetric double prep is expressible.
     public double OffsetAt(PrepDimensions dimensions, double through) {
         double body = Math.Max(0.0, dimensions.ThicknessMm - dimensions.RootFaceMm);
         double topDepth = body * TopShare;
@@ -148,9 +147,6 @@ public sealed partial class CompensationMode {
             : new ValidationError("bevel:compensation-mode");
 }
 
-// The orientation solve rides the CASE that can answer it: the nominal tool axis tilts by the preparation angle
-// about the edge tangent and by the cross tilt about its normal, and a machine whose axes cannot reach a demanded
-// rotation refuses it here rather than accepting whatever an injected function returned.
 [Union]
 public abstract partial record HeadKinematics {
     public sealed record Fixed(Vector3d Axis) : HeadKinematics;
@@ -160,12 +156,9 @@ public abstract partial record HeadKinematics {
 
     public Fin<Vector3d> Orient(Vector3d tangent, Vector3d normal, double angleDeg, double crossTiltDeg) => Switch(
         state: (Tangent: tangent, Normal: normal, Angle: angleDeg, Cross: crossTiltDeg),
-        // A fixed head holds one axis: it can cut a square edge and nothing else, so a demanded tilt is refused
-        // rather than silently dropped onto an axis that never moved.
         @fixed: static (state, row) => state.Angle == 0.0 && state.Cross == 0.0
             ? Unitized(row.Axis, "bevel:fixed-axis")
             : Unsupported("fixed", state.Angle),
-        // One rotary reaches the bevel angle about the edge and no cross tilt at all.
         rotary: static (state, row) => state.Cross == 0.0
             ? Tilted(row.PivotAxis, state.Tangent, state.Normal, state.Angle + row.RotaryZeroDeg, 0.0, "bevel:rotary-axis")
             : Unsupported("rotary", state.Cross),
@@ -215,10 +208,6 @@ public abstract partial record HeightSource {
         disabled: static _ => true);
 }
 
-// Cut speed, kerf width, and budget evidence ride BASE COLUMNS each case fills off its own budget at construction:
-// three two-arm folds each read one column and answered the same shape, and the kerf fold reached PAST the abrasive
-// budget's own `KerfWidth` into a compensation column that restated it — one kerf declared at two owners, movable at
-// one. Cross tilt survives as a fold because the two cases genuinely disagree: a thermal head holds no cross tilt.
 [Union]
 public abstract partial record BevelProcess(double SpeedMmPerMin, double KerfWidthMm, BudgetEvidence Evidence) {
     public sealed record Thermal(ProcessBudget.Thermal Budget)
@@ -236,9 +225,6 @@ public abstract partial record BevelProcess(double SpeedMmPerMin, double KerfWid
         thermal: static (_, _) => true,
         abrasive: static (height, _) => height is HeightSource.Disabled);
 
-    // The live run budget must be the SAME case this policy admitted, so a routed lane proves correspondence
-    // instead of re-admitting: a thermal calibration cannot condition an abrasive edge, and a modality no bevel
-    // head serves reaches a routed pass only through this mismatch.
     public bool Serves(ProcessBudget budget) => Switch(
         state: budget,
         thermal: static (live, _) => live is ProcessBudget.Thermal,
@@ -268,7 +254,6 @@ public abstract partial record BevelProcess(double SpeedMmPerMin, double KerfWid
         new(FormattableString.Invariant($"{law.ThicknessMm:R}:{law.Stations.Count}"));
 }
 
-// Regulating carries the admitted HeightSource rather than mirroring its cases, so a new sensor is one HeightSource case and no directive arm.
 [Union]
 public abstract partial record ThcDirective {
     public sealed record Regulating(HeightSource Source) : ThcDirective;
@@ -276,7 +261,7 @@ public abstract partial record ThcDirective {
     public sealed record Off : ThcDirective;
 }
 
-// --- [ADMISSION] ----------------------------------------------------------------------------------------------------------------------------------
+// --- [ADMISSION] -----------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class PrepDimensions {
     public double ThicknessMm { get; }
@@ -285,8 +270,6 @@ public sealed partial class PrepDimensions {
     public double RadiusMm { get; }
     public double AngleDeg { get; }
 
-    // Four dimensions cross the text boundary in ONE traversal of the arrow's batch arity, so a section opens the
-    // boundary once instead of four times for one admission.
     public static Fin<PrepDimensions> Admit(
         string thickness,
         string rootFace,
@@ -359,7 +342,6 @@ public sealed partial class PrepLaw {
     public Arr<PrepStation> Stations { get; }
     public double ThicknessMm { get; }
 
-    // Kerf compensates toward the prepared side, so an outside and an inside preparation never share one offset direction.
     public double KerfSideMm(double kerfWidthMm) => 0.5 * kerfWidthMm * Stations[0].Section.SideSign;
 
     public double OffsetAt(double station, double through) => toSeq(Stations).Zip(toSeq(Stations).Skip(1))
@@ -426,10 +408,6 @@ public sealed partial class PassRow {
     }
 }
 
-// The head's geometry is CATALOGUED, not re-declared: `Tooling/magazine#TOOL_ASSET` is the package's only provider
-// decode, and every measurement it resolved into canonical millimetres and degrees is read back off the mounted
-// assembly by its `ToolMeasure` row. Provider measurement types on this page were the decode happening a second time
-// under the vocabulary floor, and each one carried a raw unit string the assembly had already admitted away.
 [ComplexValueObject]
 public sealed partial class HeadPolicy {
     public HeadKinematics Kinematics { get; }
@@ -439,9 +417,6 @@ public sealed partial class HeadPolicy {
     public Length CornerRadius { get; }
     public Length ChamferWidth { get; }
 
-    // A controller that published no bound leaves the demand alone: `Process/physics#EQUIPMENT` states an absent
-    // ceiling as `None` and never a sentinel maximum a clamp would read as a measurement, so an unpublished floor
-    // cannot lift a feed the physics chose and an unpublished ceiling cannot cap it.
     public double Feedable(double demandMmPerMin) => Math.Min(
         Feed.Maximum.IfNone(demandMmPerMin),
         Math.Max(Feed.Minimum.IfNone(demandMmPerMin), demandMmPerMin));
@@ -456,8 +431,6 @@ public sealed partial class HeadPolicy {
             out HeadPolicy head).Admitted(head)
         select admitted;
 
-    // A measurement the catalogue never carried refuses on the LANE that wanted it, so a shop reads which dimension
-    // its asset is missing rather than one undifferentiated head refusal.
     private static Fin<double> Measured(ToolAssembly assembly, ToolMeasure kind) =>
         assembly.Snapshot.Metric(kind).ToFin(
             new KernelFault.InvalidValue("bevel", $"bevel:head:{kind.Key}"));
@@ -477,8 +450,6 @@ public sealed partial class HeadPolicy {
             fiveAxis: static row => row.PrimaryAxis.IsValid && row.SecondaryAxis.IsValid
                 && row.PrimaryAxis.Length > 0.0 && row.SecondaryAxis.Length > 0.0,
             robot: static row => row.ToolAxis.IsValid && row.ToolAxis.Length > 0.0 && Witness.Keyed(row.FrameKey));
-        // Bound ordering and finiteness crossed `ProcessRange` admission at the catalogue, so this gate proves only
-        // what a bevel HEAD demands of a catalogued dimension and never re-asks the range its own owner settled.
         if (!axis
             || !TensorPrimitives.IsFiniteAll<double>([pivotLength.Millimeters, maxTilt.Degrees,
                 cornerRadius.Millimeters, chamferWidth.Millimeters])
@@ -488,10 +459,6 @@ public sealed partial class HeadPolicy {
     }
 }
 
-// The CALIBRATION beside the cut physics: what the head adds on top of the budget the process already states. Its
-// kerf column is gone — the process budget owns kerf width on both cases — so what remains is the shop's own
-// correction terms, each carried as the quantity it IS. `Lag` alone stays a named scalar: degrees per metre-per-minute
-// is a rate between two dimensions no unit carrier spells, and the name states it in full.
 [ComplexValueObject]
 public sealed partial class CompensationPolicy {
     public CompensationMode Mode { get; }
@@ -548,8 +515,6 @@ public sealed partial class ThcPolicy {
     }
 }
 
-// The admitted conditioning law, independent of the edge it prepares: one calibration conditions many edges, and
-// the schedule's own coherence with the process budget is proved here rather than at every job.
 [ComplexValueObject]
 public sealed partial class BevelPolicy {
     public PrepLaw Preparation { get; }
@@ -615,7 +580,6 @@ public sealed partial class BevelJob {
             .Admitted(job)
         select admitted;
 
-    // Only what the EDGE and the caller add is proved here; every conditioning column crossed `BevelPolicy.Admit`.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -629,7 +593,7 @@ public sealed partial class BevelJob {
     }
 }
 
-// --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [EVIDENCE] ------------------------------------------------------------------------
 public readonly record struct BevelPoint(
     Point3d Point,
     Vector3d ToolAxis,
@@ -638,8 +602,6 @@ public readonly record struct BevelPoint(
     double Station,
     int Pass);
 
-// The frame one station resolves: point, axis, pivot, and every derived term the block publishes. Naming it once
-// keeps the nine-slot tuple from being spelled at the signature and at each of its refusal returns.
 public readonly record struct BevelFrame(
     Point3d Point,
     Vector3d Axis,
@@ -651,9 +613,6 @@ public readonly record struct BevelFrame(
     double FeedMmPerMin,
     double CompensationMm);
 
-// `Ordinal` is the block's index into the PROGRAM's emitted move stream — the `MoveTrail` convention every
-// specialized lane keys directives on, so a pass-local index beside a program-wide `AfterMove` cannot mislead a
-// consumer joining the two.
 public sealed record BevelBlock(
     int Ordinal,
     Move Motion,
@@ -681,7 +640,6 @@ public sealed partial class ThcSpan {
     public static Fin<ThcSpan> Admit(int fromInclusive, int toExclusive, ThcDirective directive) =>
         Validate(fromInclusive, toExclusive, directive, out ThcSpan span).Admitted(span);
 
-    // Run boundaries derive from adjacent-directive inequality, so coalescing stays one linear pass rather than a per-block tail rewrite.
     public static Fin<Seq<ThcSpan>> AdmitSchedule(
         Seq<BevelBlock> blocks,
         HeightSource source,
@@ -714,7 +672,6 @@ public sealed partial class ThcSpan {
             validationError = new ValidationError("bevel:thc-span");
     }
 
-    // Armed counter resets on every suspension, so control re-arms after a hold on the response delay observed at pass start.
     private static Seq<ThcDirective> Directives(
         Seq<BevelBlock> blocks,
         HeightSource source,
@@ -761,8 +718,6 @@ public sealed record BevelObservation(
         && AngleToleranceDeg >= 0.0 && OffsetToleranceMm >= 0.0;
 }
 
-// The verdict DERIVES: the observation carries both tolerance bands and the row carries both deviations, so a stored
-// bool was the same comparison frozen beside its own inputs, free to disagree with them under any `with` rewrite.
 public sealed record BevelInspection(
     BevelObservation Observation,
     double NominalAngleDeg,
@@ -773,9 +728,6 @@ public sealed record BevelInspection(
         && Math.Abs(OffsetDeviationMm) <= Observation.OffsetToleranceMm;
 }
 
-// EVIDENCE, not a receipt: `Process/owner#RECEIPT` `Receipt<TEvidence>` requires a content key, a plane, and a
-// settling stamp, and conditioning mints no artifact and reads no clock — the suffix claimed a spine this value
-// never joined, so the caller's own arrow is what settles anything settleable here.
 public sealed record BevelEvidence(
     Seq<BevelPass> Passes,
     PrepLaw Preparation,
@@ -792,15 +744,11 @@ public sealed record Beveled(
     Option<SpecializedToolpathEnvelope> Inspection) {
     public Seq<BevelPass> Passes => Evidence.Passes;
 
-    // Ordinals accumulate across passes, so the pass order IS the program's move order and a routed consumer reads
-    // the emitted stream here rather than re-deriving the convention over `BevelPass`.
     public Seq<Move> Moves => Passes.Bind(static pass => pass.Blocks).Map(static block => block.Motion);
 
     public MotionDirective SpecializedDirective => new MotionDirective.Specialized(
         Passes.Sum(static pass => pass.Blocks.Count) - 1, Specialized);
 
-    // Conformance measurement attaches to NO realized move, so it rides the program-level ordinal `Posting/program`
-    // reserves for a directive no move carries; a job that measured nothing carries no directive at all.
     public Option<MotionDirective> InspectionDirective => Inspection
         .Map(static envelope => (MotionDirective)new MotionDirective.Specialized(-1, envelope));
 
@@ -809,16 +757,13 @@ public sealed record Beveled(
     public PostSource PostingSource => new PostSource.Specialized(Specialized);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The bevel seam: block columns and inspection columns each read off members their source already carries, so both
-// transcriptions generate and the observation flattening is declared once. The `[Mapper]` declaration is
-// `Toolpath/motion`'s alone — one attribute per partial class.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class ToolpathRowMap {
     [MapProperty(nameof(BevelBlock.Ordinal), nameof(SpecializedToolpathRow.Bevel.Move))]
-    [MapperIgnoreSource(nameof(BevelBlock.Motion))] // the lowered move rides the program, never a posted evidence row
-    [MapperIgnoreSource(nameof(BevelBlock.PathDistanceMm))] // arc-length custody stays pass evidence
-    [MapperIgnoreSource(nameof(BevelBlock.PreparationOffsetMm))] // published as receipt extrema, not per block
-    [MapperIgnoreSource(nameof(BevelBlock.AngleRateDegPerStation))] // height-control input, resolved into `ThcSpan`
+    [MapperIgnoreSource(nameof(BevelBlock.Motion))]
+    [MapperIgnoreSource(nameof(BevelBlock.PathDistanceMm))]
+    [MapperIgnoreSource(nameof(BevelBlock.PreparationOffsetMm))]
+    [MapperIgnoreSource(nameof(BevelBlock.AngleRateDegPerStation))]
     public static partial SpecializedToolpathRow.Bevel ToRow(BevelBlock block);
 
     [MapProperty([nameof(BevelInspection.Observation), nameof(BevelObservation.Pass)], [nameof(SpecializedToolpathRow.Inspection.Pass)])]
@@ -828,8 +773,6 @@ public static partial class ToolpathRowMap {
 }
 
 public static class Bevel {
-    // Dimension TEXT crosses at `Process/owner#RUN_DISPATCH` `QuantityArrow` alone, so the arrow names the axis and
-    // this plane, and a `PhysicsQuantity.<axis>.Admit` entry here would be a second boundary raising a foreign fault.
     internal static readonly QuantityArrow Length =
         new(PhysicsQuantity.Length, FabConcern.Toolpath, "bevel:length");
 
@@ -838,7 +781,6 @@ public static class Bevel {
         from job in BevelJob.Admit(demand)
         from edge in ArcOffset.Single(
             job.Edge, job.Policy.Preparation.KerfSideMm(job.Policy.Budget.KerfWidthMm), "bevel:kerf")
-        // Ordinals accumulate ACROSS passes, so the block index and the directive's `AfterMove` speak one convention.
         from passes in job.Policy.Passes.AsIterable().ToSeq().FoldM<Fin, (Seq<BevelPass> Rows, int Ordinal)>(
             (Seq<BevelPass>(), 0),
             (state, pass) => Pass(job, edge, pass, state.Ordinal)
@@ -861,9 +803,6 @@ public static class Bevel {
             receipts.Sum(static pass => pass.Blocks.Zip(pass.Blocks.Skip(1)).Sum(static pair =>
                 (pair.Second.PathDistanceMm - pair.First.PathDistanceMm) / pair.Second.FeedMmPerMin * 60.0)
                 + pass.PierceDelaySeconds))
-        // An envelope carries ONE kind, which its own factory proves across every row. Conformance rows are the
-        // `Inspection` lane, so they ride their own envelope at zero cut duration — measurement consumes no spindle
-        // time — and folding them into the bevel envelope refused every observed job on that kind gate.
         from inspected in inspection.IsEmpty
             ? Fin.Succ(Option<SpecializedToolpathEnvelope>.None)
             : SpecializedToolpathEnvelope.Admit(
@@ -874,8 +813,6 @@ public static class Bevel {
         from projected in Invoke(() => Fin.Succ(project(new Beveled(evidence, envelope, inspected))), "bevel:projection")
         select projected;
 
-    // A conditioned edge always emitted blocks, so the extremum seeds on the first measurement rather than on an
-    // infinity a receipt would then publish as a bound.
     private static Fin<(double Min, double Max)> Extrema(Seq<double> values) =>
         values.Head
             .Map(seed => values.Fold(
@@ -917,9 +854,6 @@ public static class Bevel {
                 Math.Max(peak, Math.Sqrt(row.AngleDeg * row.AngleDeg + row.CrossTiltDeg * row.CrossTiltDeg))),
             job.Policy.Budget.Evidence);
 
-    // Geometric sagitta stations alone smooth a preparation knot away, so every knot interval contributes its own
-    // offset-error subdivision; stations then deduplicate at the admitted chord error rather than on exact float
-    // equality, which admitted two blocks the geometry could not tell apart.
     private static Fin<Seq<BevelBlock>> Blocks(BevelJob job, Loop edge, PassRow pass, int ordinal) {
         Polyline<double> path = Native(edge);
         double length = path.PathLength();
@@ -1027,8 +961,6 @@ public static class Bevel {
             compensation));
     }
 
-    // A caller callback that throws names its own cause in the refusal: flattening it to the slot alone discarded
-    // the only evidence distinguishing a bad lowering from a bad guard from a bad projection.
     private static Fin<T> Invoke<T>(Func<Fin<T>> callback, string slot) =>
         Op.Of(name: slot).Catch(callback);
 
@@ -1075,8 +1007,6 @@ public static class Bevel {
             }).As()
         select sampled.Rows;
 
-    // A straight span has no radius at all, so the arc terms are computed only where an arc exists — a stand-in
-    // radius for the straight case would be a sentinel the sagitta arithmetic then reads as a measurement.
     private static (double Length, int Divisions) Sagitta(double chord, double bulge, double chordError) {
         if (bulge == 0.0)
             return (chord, 1);

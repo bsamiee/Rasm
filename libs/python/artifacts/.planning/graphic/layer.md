@@ -69,8 +69,6 @@ class LayerIntent(StrEnum):
     OVERLAY = "overlay"
 
 
-# published-grammar selection IS regime's `LayerSchema` — ONE roster, no parallel enum whose string values
-# reconstruct the canonical member; `EDITORIAL` is the one non-grammar naming mode, a literal sentinel.
 type NamingSchema = LayerSchema | Literal["editorial"]
 
 EDITORIAL: Final[Literal["editorial"]] = "editorial"
@@ -148,11 +146,6 @@ class LayerNode:
     @staticmethod
     @beartype
     def Annotation(name: LayerNameText, source: Fragment, /, *, aec: Option[LayerName] = Nothing, z: int = 0) -> "LayerNode":
-        # THE annotation-plane leaf every drawing producer emits, homed here because the projection is this owner's
-        # vocabulary and not each producer's: `ANNOTATION` intent, serialized fragment payload, `aec` carrying the
-        # regime `LayerName` only where the row owns one — an aec-less row names by its stable segment under an
-        # `EDITORIAL` plan, while an AEC regime refuses it typed as `<missing-aec-name>` at `named`, never a silent
-        # editorial spelling — and `z` carrying that producer's own bucket order, flat by default.
         return LayerNode.Leaf(LayerMeta(name=name, intent=LayerIntent.ANNOTATION, z=z, aec=aec), LayerContent.Fragment(source))
 
     @property
@@ -179,12 +172,6 @@ class LayerPlan:
     comps: tuple[LayerComp, ...] = ()
 
     def composed(self, name: LayerNameText, /) -> Result[tuple[FlatLayer, ...], LayerFault]:
-        # THE COMP'S OWN PROJECTION, and what makes `comps` load-bearing at its owner rather than a field a writer
-        # was expected to interpret for itself. A comp is a named audience view-state, so the thing every layered
-        # writer actually needs is the FLATTENED layer run under that state — a PSD layer comp, a PDF OCG
-        # configuration, and an ORA view are the same selection expressed three ways. Resolving it here means the
-        # semantic-path membership test happens once, against the tree that owns those paths, instead of once per
-        # writer against a path grammar none of them owns.
         return next(
             (
                 flattened(self).map(lambda flat: tuple(layer for layer in flat if layer[0] in comp.visible))
@@ -197,13 +184,10 @@ class LayerPlan:
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def named(meta: LayerMeta, schema: NamingSchema, /) -> Result[str, LayerFault]:
-    # a new published grammar is one regime `LayerSchema` roster edit — no string reconstruction seam here.
     match schema:
         case "editorial":
             return Ok(meta.name)
         case LayerSchema():
-            # `compose` refuses an incompatible AEC value (an ISO 13567 minor past its element tail) by raise; the refusal
-            # rails typed here so `flattened` reports it instead of leaking a ValueError mid-traverse.
             return meta.aec.to_result("<missing-aec-name>").bind(
                 lambda value: catch(exception=ValueError)(value.compose)(schema).map_error(lambda _refused: "<uncomposable-name>")
             )
@@ -216,8 +200,6 @@ def zsorted(nodes: tuple[LayerNode, ...], /) -> tuple[LayerNode, ...]:
 
 
 def walked[T](plan: LayerPlan, project: LayerProjection[T], /) -> Block[T]:
-    # the frontier is a persistent Block, so each visit pops the head and conses children with structural sharing —
-    # never a `frontier[1:]` tuple copy that re-materializes the pending tail per node on a wide producer tree.
     type Frame = tuple[tuple[LayerMeta, ...], LayerNode]
 
     def step(frontier: Block[Frame]) -> Option[tuple[T, Block[Frame]]]:
@@ -237,9 +219,6 @@ def walked[T](plan: LayerPlan, project: LayerProjection[T], /) -> Block[T]:
 
 
 def flattened(plan: LayerPlan, /) -> Result[tuple[FlatLayer, ...], LayerFault]:
-    # sibling names are path segments: two siblings sharing one name collapse onto one LayerPath, so a comp's
-    # `visible` set and every exporter keyed by path would silently merge them — refused here, the one egress
-    # every path consumer reads; distinct parents reuse a name freely because the full path stays distinct.
     paths = walked(plan, lambda path, _node: tuple(meta.name for meta in path))
     if len(paths) != len(set(paths)):
         return Error("<duplicate-sibling-name>")

@@ -26,7 +26,7 @@ Settled composition: `InstrumentSpec` with its `InstrumentKind` and `MeasureForm
 - Boundary: every row binds through the composition's minted meter, so no instrument outlives its `IMeterFactory` owner; `LevelCells` reaches a pulled row at bind time through the kernel spec's own bind derivation, so no row closes over the cell and one declaration mounts against any composition — three arms write the levels the gauges read and each spells ONE call, so a pulled row is current at every collection and no process-static cell exists: the degradation tap writes `fan.Set.Level(AppHostMeasure.HealthLevel.Row, (double)reading.Level.Rank)` at `[03]`'s own tap, the Agent/capability registry mount writes the keyed `CapabilityRoster` family off its surface index, and the Wire/livewire binding fold writes the stale-binding level on every binding-state commit, that count being what its own state map holds in a stale or faulted case — a level written on ENTRY to that state alone decays into a reading no recovery ever clears; the drain band writes its distribution row at the same altitude, one `set.Write(AppHostMeasure.DrainDuration.Row, consumed.TotalSeconds, InstrumentSet.Tags((AppHostSlot.Band, band.Key)))` per completed drain step at Runtime/lifecycle#DRAIN_CONDUCTOR, so the reliability objective over that series grades a measured population instead of reading permanently healthy over an empty one — the roster family is the composition-freeze projection its owning registry carries, never a per-admission push a registration fold strands mid-composition; the GenAI rows keep the semconv spelling rather than the `rasm.*` namespace because the convention owns the name, and their `gen_ai.token.type` dimension carries the input/output split the reasoning loop stamps; the declared `Dimensions` ARE the exported tag vocabulary — the governance view predicate at Observability/telemetry#SIGNAL_GOVERNANCE projects each stream onto this row's own list beside the one tenancy key under one series budget, so an undeclared tag reaches no exporter and a row admits an evidence string only by declaring it here, where this roster's classification grades it — a declared key a given entry omits is absent from that entry's tag set, which the one predicate row shapes exactly as it shapes the keyed entries, so a sometimes-absent dimension mints no second stream and the whole family stays inside one budget; the pack declares HERE rather than beside the alert engine because a panel and an objective name mounted instruments while a health rule names a `HealthSignal`, so the two never share an evidence plane — objectives compile to `AlertSpec` rows the deploy plane provisions off a metric series, and the alert engine folds the in-process degradation reading, so a burn arm on either side mints the second grader both boundaries forbid; the pack leaves this roster only on the contributor port, so the AppHost proves at `[03]-[RECEIPT_PROJECTION]` through the same fold every sibling pack rides and no composition root spells this static field; admission resolves against the port's declaration rather than a mounted handle set, so a plugin-ALC contributor's pack is provable at the same seam.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Threading;
 using NodaTime;
@@ -34,10 +34,7 @@ using Thinktecture;
 
 namespace Rasm.AppHost.Observability;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Keys carry the branch head because `outcome`, `case`, and `verdict` are concepts four packages tag and a bare
-// noun collides on the second. Semconv owns `gen_ai.token.type`, which therefore keeps its own spelling and takes
-// the bare arity — the one row `TelemetryDomain` neither owns nor grades.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -69,8 +66,6 @@ public sealed partial class AppHostSlot {
     private static AppHostSlot Branch(string segment) => new(TelemetryDomain.AppHost.Measure(segment));
 }
 
-// The reliability shape a row may carry, metric-FREE: `Indicator` names everything about an objective EXCEPT the
-// series, which is the row it sits on, so a hand-spelled metric name has no place to be written.
 [Union]
 public abstract partial record Indicator {
     private Indicator() { }
@@ -86,17 +81,12 @@ public abstract partial record Indicator {
         saturation: static (series, row) => new Sli.Saturation(series, row.Bound, row.Breach));
 }
 
-// `Name` is the alert-namespace SUFFIX; the pack qualifies it with the domain key, so the objective namespace and
-// the metric namespace derive from one roster row and cannot drift apart.
 public sealed record Reliability(string Name, Indicator Shape, double Target);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AppHostMeasure {
-    // Flushes count SCOPES, not records: `LogBuffer.Flush` publishes no count and replays through a
-    // provider-owned `IBufferedLogger` this branch never holds, so a record unit here would name a measurement
-    // no surface takes.
     public static readonly AppHostMeasure LogsFlushed = Count(
         "logs.flushed", "{flush}", "incident buffer flushes by held scope", Seq(AppHostSlot.Scope));
     public static readonly AppHostMeasure LogsLost = Count(
@@ -135,15 +125,12 @@ public sealed partial class AppHostMeasure {
     public static readonly AppHostMeasure CommandAdmissions = Count(
         "command.admissions", "{command}", "command dispatches by transaction disposition", Seq(AppHostSlot.Txn),
         panel: "command admissions");
-    // Descriptors carry a REQUIRED surface key, so this family writes no untagged entry — one keyed row whose
-    // declared key every entry holds, which the governance view shapes identically to a family that omits one.
     public static readonly AppHostMeasure CapabilityRoster = Levels(
         "capability.roster", "{descriptor}", "live capability descriptors by admitting surface", AppHostSlot.Surface,
         panel: "capability roster");
     public static readonly AppHostMeasure LifecycleTransitions = Count(
         "lifecycle.transitions", "{transition}", "lifecycle phase commits by from, to, and trigger",
         Seq(AppHostSlot.From, AppHostSlot.To, AppHostSlot.Trigger), panel: "lifecycle transitions");
-    // Rank rises as capability degrades, so the ceiling polarity reads the level in its own unit.
     public static readonly AppHostMeasure HealthLevel = Level(
         "health.level", "1", "derived degradation level rank, zero full through four suspended", panel: "degradation level",
         grade: new Reliability("degradation",
@@ -163,8 +150,6 @@ public sealed partial class AppHostMeasure {
         Seq(AppHostSlot.Strategy, AppHostSlot.Channel, AppHostSlot.Verdict), panel: "fleet waves");
     public static readonly AppHostMeasure MachineObservations = Count(
         "machine.observations", "{observation}", "decoded machine-telemetry observations by machine", Seq(AppHostSlot.Machine));
-    // Durable-egress rows partition on ONE disposition dimension: per-outcome instruments mount six streams whose
-    // denominator no consumer reconstructs, and byte count is a second UNIT over the same population.
     public static readonly AppHostMeasure OtlpOffline = Count(
         "otlp.offline", "{batch}", "otlp export batches by signal and durable-queue disposition",
         Seq(AppHostSlot.Signal, AppHostSlot.Disposition), panel: "durable otlp queue");
@@ -184,18 +169,12 @@ public sealed partial class AppHostMeasure {
     public Option<string> Panel { get; }
     public Option<Reliability> Grade { get; }
 
-    // Spend rows are a VOCABULARY family rather than roster rows: one instrument per `CostUnit`, each reading that
-    // unit's own UCUM column, so a sixth unit mounts its stream with no edit here and no second UCUM map.
     public static Seq<InstrumentSpec> Rows => Roster.Value;
 
     public static InstrumentSpec Spend(CostUnit unit) => Spends.Value[unit];
 
     public static BoardPack Board => Pack.Value;
 
-    // Rows, this package's own trace planes, and the pack over them leave as ONE downward fact, so the mounting
-    // root proves this pack in the fold every sibling contributor's rides and reaches no AppHost type by name. The
-    // outbox drain plane is this package's only span custody — every other host bracket opens under a kernel
-    // domain the band already holds — so one plane row carries it.
     public static TelemetryContributorPort Telemetry(string version) =>
         new(Scope: TelemetrySource.AppHost, Version: version, Instruments: Rows,
             Planes: Seq(OutboxRelay.Scope), Board: Some(Board));
@@ -227,8 +206,6 @@ public sealed partial class AppHostMeasure {
         Option<string> panel, Option<Reliability> grade) =>
         Semconv(TelemetryDomain.AppHost.Measure(segment), kind, form, unit, description, dimensions, bounds, tag, panel, grade);
 
-    // The one arity taking a WHOLE name: a semconv row's name belongs to the convention that minted it, so this
-    // seat exists precisely to spell a name `TelemetryDomain` neither derives nor grades.
     private static AppHostMeasure Semconv(
         string name, InstrumentKind kind, MeasureForm form, string unit, string description,
         Seq<AppHostSlot> dimensions, Option<Buckets> bounds, Option<string> tag = default,
@@ -237,8 +214,6 @@ public sealed partial class AppHostMeasure {
                 dimensions.Map(static slot => slot.Key).Strict(), bounds, tag, None),
             panel, grade);
 
-    // Items-derived rosters materialize on first read: an eager field initializer folds another type's vocabulary
-    // before its own static construction is protected, capturing an empty roster (branch RULINGS `[02]`).
     private static readonly Lazy<FrozenDictionary<CostUnit, InstrumentSpec>> Spends = new(
         static () => CostUnit.Items.ToFrozenDictionary(static unit => unit, static unit => InstrumentSpec.Create(
             TelemetryDomain.AppHost.Measure($"grant.spend.{unit.Key}"), InstrumentKind.Count, MeasureForm.Whole,
@@ -249,10 +224,6 @@ public sealed partial class AppHostMeasure {
         static () => toSeq(Items).Map(static row => row.Row).Concat(toSeq(Spends.Value.Values)).Strict(),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
-    // Reliability and board policy travel WITH the rows that declare them, so a renamed row moves its tile and its
-    // objective in the same edit and neither can name a series this roster does not mount. Widgets stay absent
-    // because each row's measurement shape derives one; windows pass `Duration.Zero` to take the kernel
-    // compliance default, so a tuned discipline is one `BurnRow` edit every objective re-derives.
     private static readonly Lazy<BoardPack> Pack = new(
         static () => new BoardPack(
             Wire: TelemetryDomain.AppHost.Measure("instrument"),
@@ -282,13 +253,13 @@ public sealed partial class AppHostMeasure {
 - Boundary: `ReceiptKind` rows are the canonical spellings — every emitting page passes its row's `Key` to `ReceiptSinkPort.Send` beside the typed `TelemetrySource.AppHost` package slot (`Hop` at Wire/outbound, `Delivery` at the delivery fan, `Sweep` at Wire/outbox, `Command` at Agent/capability, `Identity` at Agent/identity, `Model` at Agent/reasoning, `Benchmark` at Observability/benchmarks, receipt-only `Replay` and `Orchestration` at Runtime/determinism and Runtime/orchestration, `WireRejection` and receipt-only `WireStatus` at Wire/livewire, `Write` at its write-back mint, `Roll` at the Sandbox/provisioning fleet-wave annotation, `Observation` at the Wire/livewire machine decode lane, `Offline` at the Observability/telemetry durable OTLP queue, `Loss` at that page's `SpineLossFold` listener, `Support` at the Observability/bundles export, `Alert` at the Observability/health escalation, `Eviction` at the Sandbox/isolation drain fold, `Update` at the Sandbox/provisioning phase mint, `Secret` at the Runtime/secrets lease emit, `Drop` at the Wire/topics conservation account) — and the roster is per-package: this one owns AppHost kinds, and sibling fans project their own typed before the message envelope (AppUi over its evidence union, Compute over `ComputeReceipt`, Grasshopper over `GhEvidence`, Element over `ElementFact`) through `ReceiptFan.Arm<TFact>`, so one envelope kind projects in exactly one arm; payload decode stays inside the row's own write — the one place a wire shape meets an instrument write — and a write never re-validates what the typed owner already admitted. Binding status and rejection are distinct kinds because only the latter contributes to `wire.rejections`; a mixed payload kind makes every healthy transition increment the failure population.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Text.Json;
 using Thinktecture;
 
 namespace Rasm.AppHost.Observability;
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record InstrumentFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Instrument;
@@ -304,7 +275,7 @@ public abstract partial record InstrumentFault : Fault {
     public sealed partial record Flush : InstrumentFault { public Flush(string signal) : base(signal) { } }
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -318,18 +289,13 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
                         AppHostMeasure.HopDuration.Row, measured.Elapsed.TotalSeconds, in tags))
                     : counted,
             None: static () => Fin.Succ(unit))));
-    // A suppressed leg carries NO verdict — `Outcome` is `None` — so it enters no outcome-tagged row and the
-    // availability objective reads only legs that actually dialed or refused, matching the `Hop` arm's gate.
     public static readonly ReceiptKind Delivery = new("delivery", static (set, payload) =>
         Decoded<DeliveryReceipt>("delivery", payload).Bind(row => row.Outcome.Match(
             Some: verdict => set.Write(
                 AppHostMeasure.DeliveryOutcomes.Row, 1d,
                 InstrumentSet.Tags((AppHostSlot.Channel, row.Channel), (AppHostSlot.Outcome, verdict.Key))),
             None: static () => Fin.Succ(unit))));
-    // The sweep's per-topic lane rows mount no gauge on this roster, so the kind is receipt-only BY DECLARATION.
     public static readonly ReceiptKind Sweep = new("outbox-sweep", Silent);
-    // Charged slots are the `CostUnit` vocabulary's own keys, so the spend fold reads the receipt's typed vector
-    // rather than re-enumerating a roster the receipt already carries.
     public static readonly ReceiptKind Command = new("command", static (set, payload) =>
         Decoded<CommandReceipt>("command", payload).Bind(row =>
             set.Write(AppHostMeasure.CommandAdmissions.Row, 1d, InstrumentSet.Tags((AppHostSlot.Txn, row.Txn.Kind)))
@@ -341,7 +307,6 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
             .TraverseM(column => set.Write(AppHostMeasure.ModelTokenUsage.Row, column.Read(row),
                 InstrumentSet.Tags((AppHostSlot.TokenType, column.Type)))).As()
             .Bind(_ => set.Write(AppHostMeasure.ModelOperationDuration.Row, row.Elapsed.TotalSeconds))));
-    // Passing verdicts mint no regression point, so the population stays the gate's failures alone.
     public static readonly ReceiptKind Benchmark = new("benchmark", static (set, payload) =>
         Decoded<BenchmarkReceipt>("benchmark", payload).Bind(row =>
             InstrumentSet.Tags((AppHostSlot.Suite, row.Suite), (AppHostSlot.Case, row.Case)) is var tags
@@ -356,7 +321,6 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
     public static readonly ReceiptKind WireRejection = new("wire-rejection", static (set, payload) =>
         Decoded<WireRejectionWire>("wire-rejection", payload)
             .Bind(_ => set.Write(AppHostMeasure.WireRejections.Row, 1d)));
-    // Status is receipt-only; counting it as rejection made every healthy transition a failure sample.
     public static readonly ReceiptKind WireStatus = new("wire-status", Silent);
     public static readonly ReceiptKind Write = new("write-back", static (set, payload) =>
         WireJson.Read<Rasm.Contracts.Binding.WriteReceiptWire>(payload, DecodeWire).Bind(row => set.Write(
@@ -368,36 +332,23 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
     public static readonly ReceiptKind Observation = new("machine-observation", static (set, payload) =>
         Decoded<MachineObservationWire>("machine-observation", payload).Bind(row => set.Write(
             AppHostMeasure.MachineObservations.Row, 1d, InstrumentSet.Tags((AppHostSlot.Machine, row.Machine)))));
-    // Queue evidence never depends on the egress it repairs, so the offline fact rides the receipt rail and its
-    // writes ride whatever provider the composition already owns: a direct meter write mints the second truth this
-    // fan deletes, and a log line rides the very leg whose disposition it reports as down.
     public static readonly ReceiptKind Offline = new("otlp-offline", static (set, payload) =>
         Decoded<OtlpOfflineFact>("otlp-offline", payload).Bind(row =>
             InstrumentSet.Tags((AppHostSlot.Signal, row.Signal), (AppHostSlot.Disposition, row.Disposition)) is var tags
             && set.Write(AppHostMeasure.OtlpOffline.Row, 1d, in tags) is var counted
                 ? counted.Bind(_ => set.Write(AppHostMeasure.OtlpOfflineBytes.Row, row.Bytes, in tags))
                 : counted));
-    // The count is the failed batch's own record count, so a listener reporting a drop of zero records writes
-    // zero rather than one — a per-failure tally would price a queue overflow like a single throw.
     public static readonly ReceiptKind Loss = new("log-loss", static (set, payload) =>
         Decoded<SpineLossFact>("log-loss", payload).Bind(row => set.Write(
             AppHostMeasure.LogsLost.Row, row.Count,
             InstrumentSet.Tags((AppHostSlot.Sink, row.Sink), (AppHostSlot.Loss, row.Kind)))));
-    // Redaction counts are the MANIFEST's own per-entry evidence, the one plane where a masked value and its
-    // classification are both known: the generated tag path redacts inside the provider and publishes neither. The
-    // exported receipt is host-local, so it stays on the native SuiteContracts.Host route instead of inventing a
-    // peer contract. One point per masking entry; a bundle that masked nothing writes no zero-valued row.
     public static readonly ReceiptKind Support = new("support-bundle", static (set, payload) =>
         Decoded<SupportReceipt.Exported>("support-bundle", payload).Bind(row => toSeq(row.Manifest.Entries)
             .Filter(static entry => entry.Redactions > 0)
             .TraverseM(entry => set.Write(AppHostMeasure.RedactionTags.Row, entry.Redactions,
                 InstrumentSet.Tags((AppHostSlot.Class, entry.Classification.Key)))).As().Map(static _ => unit)));
-    // Identity evidence is the agent audit trail's, whose population the command counter already carries.
     public static readonly ReceiptKind Identity = new("agent-identity", Silent);
     public static readonly ReceiptKind Alert = new("health-alert", Silent);
-    // Eviction, update, and secret-lease evidence is each receipt's own typed fact — cause and drain proof on the
-    // sandbox receipt, phase on the update receipt, transition and refusal on the secret receipt — and the
-    // fleet-wave counter already carries the provisioning population, so all three ride receipt-only.
     public static readonly ReceiptKind Eviction = new("sandbox-eviction", Silent);
     public static readonly ReceiptKind Update = new("plugin-update", Silent);
     public static readonly ReceiptKind Secret = new("secret-lease", Silent);
@@ -411,8 +362,6 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
 
     static IReadOnlyList<ReceiptKind> IReceiptKind<ReceiptKind>.Items => Items;
 
-    // One (typed column, semconv token type) row per column of the usage family: a third token type is one row,
-    // never a third hand-spelled write pair on a family every column shares.
     private static readonly Seq<(string Type, Func<ReasoningTranscript, double> Read)> Tokens =
         Seq(("input", (Func<ReasoningTranscript, double>)(static row => row.InputTokens)),
             ("output", static row => row.OutputTokens));
@@ -421,19 +370,13 @@ public sealed partial class ReceiptKind : IReceiptKind<ReceiptKind> {
 
     private static Fin<Unit> Silent(InstrumentSet set, JsonElement payload) => Fin.Succ(unit);
 
-    // Host-local receipts retain the one STJ options graph. Peer-decoded families take the `WireJson.Read<T>`
-    // calls on their rows instead, so generated messages never enter this generic serializer route.
     private static Fin<TPayload> Decoded<TPayload>(string kind, JsonElement payload) =>
         Optional(payload.Deserialize<TPayload>(SuiteContracts.Host))
             .ToFin(new InstrumentFault.Payload(kind));
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class InstrumentFan {
-    // All THREE proof legs run BEFORE the first mint, because a meter minted for a port carrying an unrostered
-    // segment, an unprovable pack, or a kind another roster already claims is already registered when the refusal
-    // lands: `Rostered` grades the dimension vocabulary, `Admit` grades each carried pack against the port's OWN
-    // declaration, and `ReceiptFan.Of` grades the merged arm space — every refusal naming its descriptor.
     public static Fin<ReceiptFan> Mount(
         IMeterFactory factory, CorrelationId root, LevelCells cells,
         Seq<HashMap<ArmKey, InstrumentArm>> contributed, params ReadOnlySpan<TelemetryContributorPort> contributors) =>
@@ -454,10 +397,6 @@ public static class InstrumentFan {
         envelope.Tenant.Stamp().Bind(lease =>
             lease.Use(_ => fan.Project(envelope.Kind, envelope.Payload), key));
 
-    // ONE tap over the closed fact union: the receipt arm projects every registered envelope through the roster,
-    // the phase arm counts one transition per commit, and the degradation arm folds the committed reading into the
-    // level the `[02]` gauge reads. The five unscoped arms REFUSE rather than pass, so widening `Scope` without an
-    // arm parks a typed fault on the composition's cell instead of metering nothing.
     public static HookTap<AppHostPoint, AppHostFact, TelemetrySource> Tap(ReceiptFan fan, Op key) =>
         new(Name: key,
             Scope: Some(Seq(AppHostPoint.Receipt, AppHostPoint.Phase, AppHostPoint.Degradation)),
@@ -492,17 +431,14 @@ public static class InstrumentFan {
 - Boundary: enablement and shaping are two planes that never substitute for each other — an `InstrumentRule` decides whether an instrument PUBLISHES at all on this factory, while an `AddView` row decides how a published stream is shaped, so silencing a series through a `Drop` view still pays its instrument's recording cost and gating a mount through a rule still leaves every view row intact for the next capsule; the rules scope `MeterScope.Local` by declaration because a `Global` rule reaches ctor-constructed meters in the host process this capsule does not own; the provider — never the `Meter` or `ActivitySource` — is the disposable owner, and the capsule is the enforcing structure behind the process-static-meter prohibition: every meter reaches the process through a factory whose lifetime is the ALC; service-modality processes take the host-owned `SignalGovernance.Govern` path instead, so exactly one provider owner exists per process shape; egress rides the one `LogPipeline.Owner` arbitration the hosted root reads, so a capsule in a host session that bound no collector provider builds both providers and registers no exporter — an unconditional exporter opens a collector socket every reader cadence against a door that does not answer, at the attended sample ratio of 1.0 where every span it recorded is a span it then ships; endpoint and headers stay the deploy plane's `OTEL_EXPORTER_OTLP_*` rows while protocol and compression ride the program, so neither owner leans on a key the deploy plane never publishes; histogram aggregation rides the same `SignalGovernance.Views` projection this capsule binds, seating the base2-exponential configuration on every advice-free distribution with the kernel `Buckets` advice as the explicit-bucket re-arm, because no environment key on this SDK reaches that preference and a view is its one seat; this capsule opens NO durable queue — a blob file outliving the load context that wrote it replays through a provider the unload already disposed, so an unloadable capsule's failed batches die with it by design and durable egress stays the hosted root's; logs remain on the host `ILogger` projection and continuous profiling remains the process-wide Pyroscope agent.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Runtime.Loader;
 
 namespace Rasm.AppHost.Observability;
 
-// --- [POLICIES] -----------------------------------------------------------------------------
-// Every push-signal square, cadence, and wire pin is a declared policy VALUE both provider owners read off one
-// record: the queue depth an export burst survives and the delay a drop appears after are the two numbers an
-// incident reads first, and a capsule and a hosted root disagreeing on either is a difference no test can see.
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record ProviderProgram(
     BatchExportProcessorOptions<Activity> SpanBatch,
     BatchExportLogRecordProcessorOptions LogBatch,
@@ -538,7 +474,7 @@ public sealed record ProviderProgram(
     public int FlushMillis => (int)FlushBound.TotalMilliseconds;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PluginTelemetryHost {
     private readonly Atom<Option<Unit>> released = Atom(Option<Unit>.None);
     private readonly ServiceProvider services;
@@ -554,22 +490,14 @@ public sealed class PluginTelemetryHost {
         AssemblyLoadContext alc, ResolvedProfile resolved, Seq<TelemetryContributorPort> contributors,
         Seq<InstrumentRule> suppressed, params ReadOnlySpan<KeyValuePair<string, object>> extra) {
         ProviderProgram program = ProviderProgram.Canonical;
-        // One AddMetrics call mints the factory AND folds this capsule's enablement rows: a rule appended past
-        // provider construction is read by nobody, so publication policy and factory lifetime land together.
         var services = new ServiceCollection()
             .AddMetrics(metrics => suppressed.Fold(metrics, static (builder, rule) =>
                 builder.DisableMetrics(rule.MeterName, rule.InstrumentName, rule.ListenerName, MeterScope.Local)))
             .BuildServiceProvider();
-        // Extra rows ride the ONE identity owner: two capsules co-resident in one host process separate by
-        // resource attribute, so the plugin discriminator each root stamps has to reach `Compose` or the two report
-        // one identity and their series merge under a single emitter.
         var identity = ResourceIdentity.Compose(resolved, extra);
         var views = SignalGovernance.Views(contributors);
-        // Propagation defaults are PROCESS-wide and no hosted root runs in a plugin process.
         Sdk.SetDefaultTextMapPropagator(program.Propagator);
         var pipeline = LogPipeline.Owner(resolved.Profile);
-        // Foreign instrumentation scopes the hosted root admits stay out of a plugin ALC, which instruments no
-        // host transport; the branch's own sources and meters admit whole.
         var tracing = pipeline.Switch(
                 state: (Program: program, Identity: identity, Profile: resolved.Profile),
                 state2: program.Bind(Sdk.CreateTracerProviderBuilder()
@@ -599,9 +527,6 @@ public sealed class PluginTelemetryHost {
         return host;
     }
 
-    // `Cell.Seat` carries the verdict a bare interlocked exchange discarded: the SECOND unload cedes, and the
-    // winner's two flush verdicts accumulate rather than riding `ignore` — a flush that reported false dropped
-    // spans or points this process will never re-send, which is the one thing an unload can still report.
     public Fin<Unit> Release(ProviderProgram program) =>
         Cell.Seat(released, static () => unit) is Transition<Option<Unit>>.Committed
             ? (Drained(tracing.ForceFlush(program.FlushMillis), TelemetrySignal.Trace),

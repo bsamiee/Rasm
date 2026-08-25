@@ -25,7 +25,7 @@
 - Growth: a host formatting member joins as a column on the `FaceDecoration` row that already names its concept; a new run edit is one case with its factory and its arm.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -35,7 +35,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Annotation;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class TextFormat {
     public static readonly TextFormat Plain = new(key: false);
@@ -85,7 +85,6 @@ public sealed partial class TextAngle {
     }
 }
 
-// Replacing a span with nothing is a deletion, so an empty run payload stays lawful and the null the host member cannot take is this owner's one clause.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public sealed partial class TextValue {
@@ -107,7 +106,7 @@ public sealed partial class FormulaText {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class TextSpec {
@@ -138,7 +137,6 @@ public sealed record LeaderPath {
     private LeaderPath(Seq<Point3d> points) => Points = points;
     public Seq<Point3d> Points { get; }
 
-    // Optionals before `params` foreclose the positional spread, so the key mints at the entry.
     public static Fin<LeaderPath> Of(params ReadOnlySpan<Point3d> points) {
         Op op = Op.Of(name: nameof(LeaderPath));
         return from run in op.Accept(values: points)
@@ -172,9 +170,7 @@ public sealed record LeaderSpec {
         .ToFin(Fail: key.InvalidResult()));
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Both cases carry an already-admitted payload, so the family seals at its payload owners and needs no factory of
-// its own; `Named` is the one projection the RTF egress reads instead of re-testing the case.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FaceDelta {
     private FaceDelta() { }
@@ -193,10 +189,6 @@ public abstract partial record FaceDelta {
             success: context.Annotation.SetFacename(setOn: true, facename: change.Name.Value)));
 }
 
-// Three decoration cases this family carried differed only in which host setter they named, which is a column
-// on the `FaceDecoration` row rather than a case here. NAMED LOSS: `RunFormat.Bold` no longer exists as a type, so
-// no compiler can enumerate the decorations a caller may spell — the roster's `Items` does, and a decoration
-// with no setter refuses at the write instead of being unrepresentable.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RunFormat {
     private RunFormat() { }
@@ -273,10 +265,7 @@ public abstract partial record RunEdit {
         }))));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// `FormatRtfString` takes its eight booleans POSITIONALLY, so the delta is a keyed fold read at the one call site
-// rather than a nine-member argument struct rebuilt per edit: a decoration the run never named contributes
-// neither a clear nor a set, which is exactly the host's "leave alone" encoding.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TextRtf {
     public static Fin<string> FromPlain(string text, Op? key = null) =>
         key.OrDefault().AcceptText(value: text).Map(static value => AnnotationBase.PlainTextToRtf(str: value));
@@ -327,7 +316,7 @@ public static class TextRtf {
 - Growth: a catalog-proven `TextFields` member is one `FieldKind` row with its signature run; every program, composition, and evaluation gains it without another surface.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CoordAxis {
     public static readonly CoordAxis X = new(key: "X");
@@ -382,8 +371,6 @@ public readonly record struct FieldSlot(FormulaKind Kind, FormulaDemand Demand) 
         Kind == value.Kind || (!Demand.Key && value.Kind == FormulaKind.Absent);
 }
 
-// Positional admission as one zip: the caller's run pads to the slot count with `Absent` and every slot answers
-// its own position, so no index walk re-derives which slot a value faces.
 public sealed record FieldSignature(Seq<FieldSlot> Slots) {
     internal bool Accepts(Seq<FormulaValue> values) =>
         values.Count <= Slots.Count
@@ -439,7 +426,7 @@ public sealed partial class FieldKind {
     internal bool Accepts(Seq<FormulaValue> values) => Signatures.Exists(signature => signature.Accepts(values));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FieldExpr {
     private FieldExpr(FieldKind kind, Seq<FormulaValue> values) {
         Kind = kind;
@@ -453,8 +440,6 @@ public sealed record FieldExpr {
         Op op = Op.Of(name: nameof(FieldExpr));
         return from admittedKind in op.Need(value: kind)
                from admitted in op.Accept(values: values)
-               // Right fold over the run: a trailing `Absent` drops while the tail is still empty and every
-               // earlier position survives, so no sentinel index reconstructs where the trim stopped.
                let positional = admitted.FoldBack(
                    Seq<FormulaValue>(),
                    static (tail, value) => tail.IsEmpty && value.Kind == FormulaKind.Absent ? tail : value.Cons(tail))
@@ -513,7 +498,7 @@ public sealed record FieldProgram {
 - Growth: a new outline family is one `OutlineForm` case, one arm naming its host pair, and one `OutlineProduct` case; the grouping fold and the evidence capture gain it unchanged.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class OutlineGrouping {
     public static readonly OutlineGrouping Merged = new(key: 0);
@@ -565,8 +550,6 @@ public sealed partial class GlyphMetrics {
     public Option<OutlineScale> SmallCaps { get; }
     public GlyphSpacing Spacing { get; }
 
-    // Host members take the small-caps request as a flag beside its scale; presence IS the request here, so the
-    // pair derives at the one call site instead of two columns that can disagree.
     internal bool MakeSmallCaps => SmallCaps.IsSome;
     internal double SmallCapsScale => SmallCaps.Map(static value => value.Value).IfNone(1.0);
 }
@@ -588,7 +571,7 @@ public abstract partial record TextFrame {
     public sealed record Explicit(Transform Transform) : TextFrame;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct GeometryEvidence<TGeometry>(TGeometry Geometry, uint Crc, BoundingBox Bounds)
     where TGeometry : GeometryBase;
 
@@ -614,8 +597,6 @@ public sealed partial class OutlineSpec {
     public OutlineGrouping Grouping { get; }
     public TextFrame Frame { get; }
 
-    // Every other column is an admitted owner the generated null guard already screens; a caller-supplied
-    // transform is the one raw host value on the request, so it is the one clause here.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref OutlineForm form, ref GlyphMetrics metrics, ref OutlineGrouping grouping, ref TextFrame frame) {
@@ -643,8 +624,6 @@ public sealed partial class OutlineSpec {
             key: key)
         select product;
 
-    // Form cases name their host member PAIR and the grouping row picks the half; the eight overloads are
-    // therefore four arms, and a fifth form breaks this fold at compile time.
     private Fin<OutlineProduct> Drawn(TextEntity text, DimensionStyle style, Op key) => Form.Switch(
         state: (Text: text, Style: style, Metrics: Metrics, Grouping: Grouping, Key: key),
         strokes: static (context, form) => Emit(
@@ -735,7 +714,7 @@ public sealed partial class OutlineSpec {
 - Growth: a new text mutation is one `TextOp` case with its factory and arm; a new read is one `TextAsk` case beside its answer case, and the commit and ask entries gain both unchanged.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnnotationSeed {
     private AnnotationSeed() { }
@@ -893,9 +872,7 @@ public abstract partial record TextOp {
         select receipt;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Each trait roster carries the host member that answers it, exactly as `FaceDecoration` does, so the snapshot
-// folds its rows instead of naming each host read beside a column of the same name.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ContentTrait : ICapability<ContentTrait> {
@@ -951,10 +928,6 @@ public sealed record TextFormatState(
     double Height, double RotationRadians,
     bool Wrapped, double FormatWidth, double ModelWidth);
 
-// Host discrimination spans EVERY annotation, not the measuring subset: a plain text is `Text`, a leader is
-// `Leader`, and an arc-length dimension is `ArcLen`, so a vocabulary carrying only the dimension rows refuses the
-// two kinds this page's own snapshot reads most. `Measures` is the column that re-narrows it where a caller asks
-// for the measuring subset, so the narrowing is a row's answer rather than a second roster.
 [SmartEnum<int>]
 public sealed partial class AnnotationKind {
     public static readonly AnnotationKind Unset = new(key: (int)AnnotationType.Unset, measures: false);
@@ -1043,7 +1016,6 @@ public sealed partial class TextAlignDown {
     public static readonly TextAlignDown BottomOfBoundingBox = new(key: (int)TextVerticalAlignment.BottomOfBoundingBox);
 }
 
-// Disabled masks answer no colour, source, frame, or offset: those columns exist only where the host draws one.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextMask {
     private TextMask() { }
@@ -1126,8 +1098,6 @@ public sealed record TextState(
                 AlternateLengthDisplay: alternateLengthDisplay)));
 }
 
-// Landing length exists only where the leader draws a landing, so presence carries the value rather than a
-// flag beside a length that means nothing when the flag is false.
 public sealed record LeaderFacts(
     ResourceId Key, Seq<Point2d> Points2D, Seq<Point3d> Points3D, Option<Lease<NurbsCurve>> Spline,
     LeaderArrow ArrowType, double ArrowSize, Option<ResourceId> ArrowBlock,
@@ -1141,7 +1111,7 @@ public sealed record LeaderFacts(
 
 public readonly record struct RunLocation(int Run, int Start, int Length);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextAsk {
     private TextAsk() { }

@@ -23,10 +23,7 @@ The chart grammar: `ChartDatum` is the canonical point every feed reduces to ove
 - Boundary: `ChartMagnitude.Of` takes ONE span — the populated slot count IS the arity, so five arity twins collapse into one entry and a sixth slot is a struct column, not an overload. `ChartAnchor` carries the package's `TooltipPosition` AND `LegendPosition` as row columns (the legend enum carries no `Auto`, so the auto row lands on the shipped side — the one place the two vocabularies genuinely differ in cardinality); the two five-arm ternary ladders that re-derived the mapping at the bind edge are row reads. A data LABEL is a source row rather than a switch: the row carries the projection AND the chrome its text takes, the value row renders through the locale's own numeric formatter off the settled numeric-axis `CompositeFormat` so a data label and the axis tick beside it print one decimal separator, and neither row touches `ChartPoint.AsDataLabel` — that property resolves through `GetDataLabelText`, which calls the very formatter being defined and recurses until the stack ends.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// The canonical magnitude: five inline slots, one span entry, so the transform chain and the encoding share
-// one allocation-free carrier and a hot feed never allocates a vector per sample. The bare name `Magnitude`
-// is the kernel atom's; this carrier is chart-plane vocabulary and spells it.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct ChartMagnitude(double A, double B, double C, double D, double E) {
     public static ChartMagnitude Of(ReadOnlySpan<double> slots) => new(
         slots.Length > 0 ? slots[0] : 0d,
@@ -38,9 +35,6 @@ public readonly record struct ChartMagnitude(double A, double B, double C, doubl
     public double this[int slot] => slot switch { 0 => A, 1 => B, 2 => C, 3 => D, _ => E };
 }
 
-// One row shape between every feed and every series. `Group` is the aggregation key and the cross-filter
-// dimension value, `Weight` the population a weighted reduction reads, `Stamp` the instant a time brush
-// admits against — three axes a bare (x, y) pair could not carry.
 public readonly record struct ChartDatum(
     double X,
     ChartMagnitude Value,
@@ -54,13 +48,9 @@ public readonly record struct ChartDatum(
     public static ChartDatum Of(double x, ChartMagnitude value, int arity, double weight, string group, Option<Instant> stamp) =>
         new(x, value, arity, weight, group, stamp);
 
-    // The reduction carrier every scalar tile folds; a producer with no population count contributes one, so
-    // an unweighted row stays exact under the weighted mean.
     public StatSample Sample => new(Value.A, Weight);
 }
 
-// Coordinate arity as data: each row names the slot count its coordinate reads and the projection that reads
-// it, so a box layer fed a two-slot chain refuses at admission rather than rendering four zero whiskers.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -77,15 +67,9 @@ public sealed partial class ChartEncoding {
     [UseDelegateFromConstructor]
     public partial Coordinate Point(double x, ChartMagnitude value);
 
-    // The ONE `Mapping` body every layer binds. A datum short of the encoding's arity answers the package's
-    // own empty coordinate, which the measure pass skips and `EnableNullSplitting` breaks the line on — the
-    // honest rendering of a hole, where a zero would draw a value the feed never carried.
     public Coordinate Of(ChartDatum datum) => datum.Arity >= Arity ? Point(datum.X, datum.Value) : Coordinate.Empty;
 }
 
-// Where a data label's TEXT comes from, and the chrome that text takes. Two rows retire the boolean that
-// could only say "labelled": value prints the measured magnitude through the locale, caption prints the group
-// the datum carries.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -101,10 +85,6 @@ public sealed partial class DataLabel {
     public partial string Text(ChartPoint point, ResolvedLocale locale);
 }
 
-// One anchor vocabulary for both overlay surfaces: the rows CARRY the two package enums, so the bind edge
-// reads columns and the two five-arm ladders that re-derived this mapping are unspellable. The legend enum
-// has no Auto member, so the auto row lands the shipped side — the one cardinality difference between the
-// two vocabularies, stated on the row that owns it.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -121,8 +101,6 @@ public sealed partial class ChartAnchor {
     public LegendPosition Legend { get; }
 }
 
-// The navigation posture IS the policy value — each row carries the composed ZoomAndPanMode assigned to the
-// chart ZoomMode verbatim, so no bind edge reconstructs behavior from flag combinations.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -135,8 +113,6 @@ public sealed partial class ChartNav {
     public ZoomAndPanMode Mode { get; }
 }
 
-// Tooltip finding is a POSTURE: a multi-series time board wants every series at one instant, a scatter board
-// wants the one point under the pointer, and one shipped strategy renders one of those two unusable.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -162,8 +138,7 @@ public sealed partial class ChartFind {
 - Boundary: COMPARISON is a posture on the layer it shadows, never a view — `Compare` mints a ghost of that same layer on the same axes, the ALIGNMENT is a `TransformRow.Shift` appended to the ghost's own chain (a declared reshape the evaluator already runs, replayable offscreen with no live feed), and the offset is an EXPRESSION, never a wall-clock instant: `Period` shifts by a duration `TimeRange.Shifted` also understands, `Ordinal` by index for members that are positions, `Scenario` re-binds the stream under a named board-variable member. Ghost presentation is `ChartChrome.GhostDash` at reduced alpha one layer below its host — alpha alone loses which run a reader is on exactly at the overlap, which is the one place a comparison is actually read — and the ghost is untoggleable on its host's axes, because a shadow a viewer can leave visible while its subject is hidden reads as data. FACETING replicates the whole layer list rather than minting a chart kind: each member takes a COPY of the spec under a member-suffixed key carrying the parent policy's `ScaleGroup`, so `ChartSync.Pair` shares one min-max across the grid and the legend stays the PARENT tile's single declaration — a shared facet DECLARES its group on the policy (one authority; the auto-minted private group is gone, and its loss is exactly that a shared-scale facet now names its group where the fold once invented one). Cursor sync rides `InvalidateCrosshair`/`ClearCrosshair` over the member set, because a shared range pairs the SCALE and never the pointer. The CAP is a rendering bound with an honest overflow: members past it fold into ONE residual member whose caption carries the count through the locale — twelve cells and a thirteenth reading the rest, where a silent truncation renders twelve cells and a lie. Facet placement is the SAME `PlacementFlow.Flow` fold the board runs over a tile-local `PlacementGrid`. `ChartSpec.AnnotationTolerance` is a bare axis-space scalar BY DECLARATION — the tolerance lives in the measure the axis renders, not in model space, so it composes no kernel tolerance lane and the discriminant is stated here.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
+// --- [MODELS] --------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -172,8 +147,6 @@ public sealed partial class LayerTrait : ICapability<LayerTrait> {
     public static readonly LayerTrait Toggleable = new(key: "toggleable");
 }
 
-// One layer is one series binding: the kind, the axis indices it scales against, the feed it reads, the
-// transform rows that reshape that feed, and the presentation columns the kind admits.
 public sealed record ChartLayer(
     string Name,
     ChartSeriesKind Kind,
@@ -192,18 +165,12 @@ public sealed record ChartLayer(
         new(name, kind, stream, toSeq(transforms), 0, 0, None, None, None, None, Seq<ChartDatum>(),
             CapabilitySet<LayerTrait>.Of(LayerTrait.Toggleable), 0);
 
-    // A PINNED layer holds its own points and subscribes nothing — an annotation mark, a target line, a
-    // reference band's carrier — so a literal-valued layer and a fed layer are one shape at two populations.
     public bool Literal => !Pinned.IsEmpty;
 
-    // The layer's declared output shape: the chain's terminal shape, or the feed's own when the layer declares
-    // no rows. A pinned layer declares the canonical series shape, because its points are already series rows.
     public Fin<ChartShape> Shape() =>
         Literal ? Fin.Succ(ChartShape.Series) : TransformChain.Admit(Stream.Shape + Transforms, ChartShape.Series);
 }
 
-// Every arm is an EXPRESSION rather than a captured window, so a ghost re-derives from whatever range the
-// board currently carries instead of pinning the range it was authored under.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CompareOffset {
     private CompareOffset() { }
@@ -211,8 +178,6 @@ public abstract partial record CompareOffset {
     public sealed record Ordinal(int Steps) : CompareOffset;
     public sealed record Scenario(string VariableKey, string Member) : CompareOffset;
 
-    // Alignment as a declared reshape on the ghost's own chain; a scenario ghost shifts nothing — it reads a
-    // different member of the same feed and lands at the same coordinates by construction.
     public Option<TransformRow> Alignment => Switch(
         period: static row => Some<TransformRow>(new TransformRow.Shift(row.Back, 0)),
         ordinal: static row => Some<TransformRow>(new TransformRow.Shift(Duration.Zero, row.Steps)),
@@ -223,9 +188,6 @@ public abstract partial record CompareOffset {
         ordinal: static row => $"−{row.Steps}",
         scenario: static row => row.Member);
 
-    // The one ghost expansion: a comparison layer becomes TWO layers — the live one untouched and its shadow
-    // one draw layer below under the DASHED ghost chrome — so the tile's series list is recoverable from the
-    // declaration and no bind edge assembles a comparison.
     public Seq<ChartLayer> Expand(ChartLayer host) =>
         Seq(host, host with {
             Name = $"{host.Name}:{Suffix}",
@@ -241,9 +203,6 @@ public abstract partial record CompareOffset {
         });
 }
 
-// The partition a facet splits on. Both arms read a value the canonical datum ALREADY carries — the
-// aggregation group, or the civil cell the calendar rows already fold — so a facet member is data and a datum
-// carrying no partitionable value is honestly absent rather than silently bucketed.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FacetAxis {
     private FacetAxis() { }
@@ -256,17 +215,12 @@ public abstract partial record FacetAxis {
         calendar: static (s, row) => s.Datum.Stamp.Map(stamp => row.Axis.Group(s.Calendar.Civil(stamp))));
 }
 
-// Small multiples as a COLUMN on the spec: `Columns` is the tile-local grid width the placement fold derives
-// every sub-chart span from and `Cap` bounds the rendered member count. Scale sharing is the parent policy's
-// own `ScaleGroup` — one authority, no shadow flag.
 public sealed record FacetSpec(FacetAxis On, int Columns, int Cap, int RowSpan) {
     public static Fin<FacetSpec> Admit(FacetSpec candidate) =>
         candidate.Columns > 0 && candidate.Cap > 0 && candidate.RowSpan > 0
             ? Fin.Succ(candidate)
             : Fin.Fail<FacetSpec>(new ChartFault.SpecRejected("facet/bounds"));
 
-    // The overflow member's caption stem, so a residual cell states how many members it stands for under the
-    // viewer's own plural rules.
     public static string OverflowStem => LocaleStrings.Key(nameof(FacetSpec), "overflow");
 
     public static Fin<Seq<(string Member, ChartSpec Spec, Seq<ChartDatum> Rows)>> Partition(
@@ -276,8 +230,6 @@ public sealed record FacetSpec(FacetAxis On, int Columns, int Cap, int RowSpan) 
                 .Map(members => members.Map(member => (member.Member, Member(spec, member.Member), member.Rows)))),
             None: () => Fin.Succ(Seq((spec.Key, spec, rows))));
 
-    // Members hold FEED order rather than an alphabetical one, because a partition over months, phases, or
-    // options carries meaning in its own sequence. Everything past the cap folds into one residual member.
     static Fin<Seq<(string Member, Seq<ChartDatum> Rows)>> Members(
         FacetSpec facet, Seq<ChartDatum> rows, CalendarPolicy calendar, ResolvedLocale locale) =>
         rows.Choose(datum => facet.On.Member(datum, calendar).Map(member => (Member: member, Datum: datum))) switch {
@@ -290,9 +242,6 @@ public sealed record FacetSpec(FacetAxis On, int Columns, int Cap, int RowSpan) 
             },
         };
 
-    // Every member copy carries the PARENT policy's scale group, so a shared-group grid pans and zooms as one
-    // scale; the legend is the parent tile's one declaration — a legend per cell would repeat one domain N
-    // times and let two cells disagree about what a swatch means.
     static ChartSpec Member(ChartSpec spec, string member) =>
         spec with {
             Key = $"{spec.Key}:{member}",
@@ -301,21 +250,15 @@ public sealed record FacetSpec(FacetAxis On, int Columns, int Cap, int RowSpan) 
             Policy = spec.Policy with { Legend = ChartAnchor.Hidden },
         };
 
-    // Placement is the board's OWN wrapping fold at a tile-local grid width, so a sub-chart arrangement is
-    // derived exactly as a board arrangement is and a facet-local column arithmetic is unspellable.
     public Seq<TilePlacement> Place(BreakpointRow at, Seq<string> members) =>
         PlacementFlow.Flow(new PlacementGrid(at, Columns), members, span: 1, rowSpan: RowSpan, from: 0).Placements;
 
-    // A shared range pairs the SCALE and never the pointer: a hover in one cell draws the crosshair in every
-    // cell at the same domain position, and a leave clears them all.
     public static Unit Cursor(Seq<(SourceGenCartesianChart Chart, ICartesianAxis Axis)> members, Option<LvcPoint> at) =>
         members.Fold(unit, (_, member) => at.Match(
             Some: point => fun(() => member.Axis.InvalidateCrosshair(member.Chart.CoreChart, point))(),
             None: () => fun(() => member.Axis.ClearCrosshair(member.Chart.CoreChart))()));
 }
 
-// The whole per-tile chart: layers, both axis rosters, bands, thresholds, facet, legend, and one policy — a
-// dual-axis stacked mix with a threshold band is a declaration rather than a bind-edge assembly.
 public sealed record ChartSpec(
     string Key,
     Seq<ChartLayer> Layers,
@@ -334,10 +277,6 @@ public sealed record ChartSpec(
 
     public ChartCanvas Canvas => Layers.Head.Kind.Canvas;
 
-    // Admission is the whole shape law under ONE applicative: canvas agreement, axis-index resolution, name
-    // uniqueness, mark-layer resolution, and tolerance refuse TOGETHER, so a spec wrong on five gates names
-    // all five rather than the first a ladder met; the axis, layer-arity, facet, and legend admissions then
-    // sequence because each is itself a fold over the already-shaped value.
     public static Fin<ChartSpec> Admit(ChartSpec candidate) =>
         candidate.Layers.IsEmpty
             ? Fin.Fail<ChartSpec>(new ChartFault.SpecRejected($"{candidate.Key}: no layers"))
@@ -346,8 +285,6 @@ public sealed record ChartSpec(
                Slot(candidate.Layers.ForAll(layer => layer.ScalesXAt >= 0 && layer.ScalesXAt < candidate.XAxes.Count
                    && layer.ScalesYAt >= 0 && layer.ScalesYAt < candidate.YAxes.Count), $"{candidate.Key}: axis index"),
                Slot(candidate.Layers.Map(static layer => layer.Name).Distinct().Count == candidate.Layers.Count, $"{candidate.Key}: layer names"),
-               // A mark naming no layer would seat on axis zero and drift off the series it annotates the
-               // first time that series moved to a second value axis.
                Slot(candidate.Annotations.ForAll(mark => candidate.Layers.Exists(layer => layer.Name == mark.Layer)), $"{candidate.Key}: annotation layer"),
                Slot(candidate.AnnotationTolerance >= 0d, $"{candidate.Key}: tolerance"))
                 .Apply(static (_, _, _, _, _, _) => unit).As().ToFin()
@@ -360,10 +297,6 @@ public sealed record ChartSpec(
     static Validation<Error, Unit> Slot(bool holds, string reason) =>
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new ChartFault.SpecRejected(reason));
 
-    // Expansion is the ONE place a declaration becomes a series list: ghosts mint beside their hosts and marks
-    // mint their pinned layers and sections, ahead of every materialization and every facet split — so a ghost
-    // is faceted with its subject and a mark rides into every member cell. Runs after `Admit`, so every name
-    // it resolves is already proved.
     public Fin<ChartSpec> Expand(ResolvedLocale locale) =>
         Admit(this).Bind(spec => ChartAnnotation.Project(
                 ChartAnnotation.Cluster(spec.Annotations, spec.AnnotationTolerance), locale, spec.Layers)
@@ -379,9 +312,6 @@ public sealed record ChartSpec(
             : Fin.Fail<Unit>(new ChartFault.SpecRejected(
                 $"layer/{layer.Name}: {shape.Key} carries {shape.Arity} magnitudes, {layer.Kind.Encoding.Key} needs {layer.Kind.Encoding.Arity}")));
 
-    // Materialization writes what the SPEC declares and leaves what the theme rules own alone: the ramp, the
-    // tooltip, and the legend arrive from the process theme at attach. Runs over the EXPANDED list, so ghosts
-    // and marks are series by the time anything mints one.
     public Fin<Seq<XamlSeries>> Materialize(ChartInk ink, TypographyRole label, ResolvedLocale locale) =>
         Expand(locale).Bind(spec => spec.Layers.Traverse(layer => Mint(layer, ink, label, locale)).As());
 
@@ -392,11 +322,7 @@ public sealed record ChartSpec(
             geoAsset: static (s, _) => Fin.Fail<XamlSeries>(new ChartFault.SpecRejected(
                 $"layer/{s.Layer.Name}: {s.Layer.Kind.Key} mounts through GeoSeries.Mount, not the series mint")));
 
-    // The ONE dress fold: every slot writes only where the KIND's trait set admits it, so the per-mint
-    // type-test ladder is a row read and a trait the row lacks is a slot this fold provably never touches.
     static XamlSeries Dressed(XamlSeries series, ChartLayer layer, ChartInk ink, TypographyRole label, ResolvedLocale locale) {
-        // `SeriesName` writes `ISeries.Name` — the text the drawn legend prints — so a layer's name is its
-        // legend entry and no second label table exists.
         series.SeriesName = layer.Name;
         series.ZIndex = layer.Layer;
         series.IsVisibleAtLegend = layer.Traits.Admits(LayerTrait.Toggleable);
@@ -406,7 +332,6 @@ public sealed record ChartSpec(
             series.DataLabelsPaint = ink.Paint(row.Ink);
             series.DataLabelsFormatter = point => row.Text(point, locale);
         });
-        // A pinned layer's points ARE its values; the mount binds a feed only for layers that declare one.
         if (layer.Literal) { series.Values = layer.Pinned.ToList(); }
         layer.Ink.Iter(chrome => series.Stroke = ink.Paint(chrome));
         if (layer.Kind.Traits.Admits(SeriesTrait.Cartesian) && series is ICartesianSeries cartesian) {
@@ -429,7 +354,7 @@ public sealed record ChartSpec(
 - Boundary: every key that was a bare string is TYPED — `MotionPlan`, `TypographyRole`, `ChartChrome`, `PaintFamily` — so a policy value naming nothing is a compile error rather than a resolve that quietly returns the shipped default. `LegendToggle` makes a legend entry a series switch by writing `ISeries.IsVisible` from the legend hit; `AnimationsSpeed` and the easing delegate derive from the `MotionPlan` row through the motion page's reduced-motion projection, so an active reduction reaches chart animation with no chart edit. `VisualElements` overlays route `VisualElementsPointerDown` through the `PointerIntent` CommandRow key, never a local handler. `ScaleGroup` is the axis-pairing key AND the lock key — a second grouping vocabulary beside it is the deleted form; a NAMED group whose lock is absent is a composition defect the board refuses, because minting a fresh object on the miss hands each paired chart a private lock under the name of a shared one, silently; an ungrouped tile keeps its own instance minted ONCE at mount, because a lock re-created per read is never held by two readers and locks nothing. `ChartSync.Mount` is the one `SyncContext` write and the one `ChartSyncGroups.For` caller — every fold that mutates a chart's bound collection (the geo land swap, the brush re-filter) takes the object the LiveCharts update pass itself takes.
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record ChartPolicy(
     ChartNav Nav,
     ChartFind Find,
@@ -456,7 +381,6 @@ public sealed record ChartPolicy(
         Family: PaintFamily.Accent);
 }
 
-// ONE sync object per `ScaleGroup` value, minted once at board activation.
 public sealed record ChartSyncGroups(FrozenDictionary<string, object> Locks) {
     public static ChartSyncGroups Of(Seq<ChartPolicy> policies) =>
         new(policies.Choose(static policy => policy.ScaleGroup).Distinct().ToFrozenDictionary(identity, static _ => new object()));
@@ -475,16 +399,11 @@ public static class ChartSync {
             return shared;
         });
 
-    // The paired-axis write: the group's axes share ONE range through the package's own `SharedWith` slot, so
-    // a pan on any member re-ranges every member inside the measure pass instead of through a limit-copying
-    // subscription that fires a frame late and fights the user's next gesture.
     public static Fin<Unit> Pair(Seq<ICartesianAxis> group) =>
         group.Count < 2
             ? Fin.Succ(unit)
             : Fin.Succ(group.Fold(unit, (_, axis) => { axis.SharedWith = group.Filter(peer => !ReferenceEquals(peer, axis)); return unit; }));
 
-    // The interaction write: every policy column lands on exactly one package member, and the two anchor
-    // columns are ROW reads off `ChartAnchor` — the ladders that re-derived them are unspellable.
     public static Fin<Unit> Apply(SourceGenCartesianChart chart, ChartPolicy policy, ChartInk ink) =>
         Fin.Succ(unit).Map(_ => {
             chart.ZoomMode = policy.Nav.Mode;
@@ -519,7 +438,7 @@ public static class ChartSync {
 - Boundary: this catalog is a frozen KIND vocabulary a `ChartLayer` names, never a per-tile seat — a comparison, a facet member, and a dual-axis overlay are all layer rows over the same kind rather than parallel spec objects. Every shell is constructed CLOSED over the canonical `ChartDatum`, so `Mapping` is reachable and typed — the erased shell binds `double?` collections and leaves the projection member unspellable, which is why the factory arms mint `XamlLineSeries<ChartDatum>` and its peers. The geo row's `SeriesMint.GeoAsset` carries `AssetDeclaration.GeoWorld.Asset` ITSELF, resolved through the asset rank fold — a transcribed key literal survives a rename at the assets owner and empties the row silently. Chart code never opens files; the decoded asset feeds `GeoMap` through `SourceGenMapChart`, and heat-land geometry projects from the Bim-owned `GeoFeature` GeoJSON projection delivered over the Persistence query lane. `HeatLandSeries<TLand>` over `CoreHeatLandSeries<TLand>` owns the heat series — `TModel : IWeigthedMapLand` (settable `Name`/`Value` under `INotifyPropertyChanged`), so `GeoLand` implements the interface and binds as the model directly; the fold's in-place `Value` write IS the render invalidation, and a shipped `HeatLand` projection would be a second collection the update pass never watched. `DrawnMap.FindLand(shortName, layerName)` answers null when absent, so the fold treats a missing land as an append rather than a fault. The Mapsui basemap-overlay leg is the disjoint tiled-basemap owner (`Charts/basemap.md`) composing the realized Bim MVT source. `AdditionalVisualStates` on the materialized series carries per-point hover and selection states resolved from `ChartInk`, so a per-point state is a series column, never a local overlay control; gauge accessories `XamlNeedle`/`XamlAngularTicks` ride the gauge rows as canvas children. Per-chart wrapper controls, hand-drawn chart code, and a second charting package are the deleted patterns.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -530,9 +449,6 @@ public sealed partial class ChartCanvas {
     public static readonly ChartCanvas Map = new("map");
 }
 
-// The dress capability vocabulary: which slots the grammar's ONE dress fold may write on a kind. A trait the
-// row does not hold is a slot the fold never touches, so the per-mint type-test ladder is a row read.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -541,9 +457,6 @@ public sealed partial class SeriesTrait : ICapability<SeriesTrait> {
     public static readonly SeriesTrait NullSplitting = new(key: "null-splitting");
 }
 
-// How a kind CONSTRUCTS: a closed factory over the canonical datum, or the decoded world asset the map canvas
-// boots from. The two arms retire the nullable factory/asset column pair whose seventeen `null` literals each
-// spelled the other arm's absence.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SeriesMint {
     private SeriesMint() { }
@@ -551,9 +464,6 @@ public abstract partial record SeriesMint {
     public sealed record GeoAsset(AssetKey Key) : SeriesMint;
 }
 
-// The kind catalog. Every factory closes its shell over `ChartDatum`, so the layer's encoding reaches
-// `Mapping` and one datum stream feeds every kind; `Encoding` is the arity this kind's coordinate needs,
-// checked against the layer's transform chain at `ChartSpec.Admit` rather than per point.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -587,10 +497,6 @@ public sealed partial class ChartSeriesKind {
 
     public SeriesMint Mint { get; }
 
-    // Baseline rows exist only on the offscreen mount — `SurfaceMount.Offscreen` is the one deterministic
-    // render target the hash lane grabs — so the row carries no surface predicate and admission stays on the
-    // proof owner. The lane key is the kernel content address of the (kind, variant, density) cell, so a
-    // renamed variant row moves the baseline rather than silently aliasing the old capture.
     public Fin<CaptureRow> Baseline((ThemeVariantRow Variant, DensityRow Density) cell, RenderHashLane lane,
         Func<ChartSeriesKind, (ThemeVariantRow, DensityRow), FrameGrab> grab) =>
         (lane with {
@@ -610,11 +516,7 @@ public sealed partial class ChartSeriesKind {
 - Boundary: the fold OWNS the dispatch on `Change<GeoLand, string>.Reason` — `Add` appends, `Update`/`Refresh` replace by feature name with `Current` reassigning heat through the family ramp, `Remove` drops, `Moved` is a no-op on a keyed set carrying no ordinal, and an unadmitted reason REFUSES rather than passing as a silent no-op that quietly stops updating one land. The whole mutation runs under the resolved group lock `ChartSync.Mount` supplied — the lock is a parameter, so the law is enforced by the signature — and a land swap and a cross-filter re-filter cannot tear the bound set against each other or against the LiveCharts update pass. Feature name IS the key at every seat: the change set keys on it, the index maps it, and a second key projection beside it would let a rename desynchronize the two. In-place writes on the live bound collection are the declared mutation grain — an immutable rebuild per delta re-renders the whole layer the incremental fold exists to avoid — and the `Value` INPC write IS the render invalidation, where an element swap re-binds. The overlay counts each delivered change set once through the composition-bound `observed` edge because that is where the folded count exists; the change-set is the Persistence `SpatialDiff` change-detection fold projected to land records, so AppUi re-computes no diff, and the land records project from the Bim `GeoFeature` vocabulary Persistence serves — a choropleth arm on the Compute proto family is the rejected wire.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// GeoLand IS the bound series model: `CoreHeatLandSeries<TModel>` constrains `TModel : IWeigthedMapLand`, so
-// the land the fold holds is the land the chart renders and an in-place Value write invalidates exactly that
-// land through its own change notification. A record projected name-for-name onto the shipped HeatLand was a
-// second collection the update pass never watched.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class GeoLand(string name, double value) : LiveChartsCore.Geo.IWeigthedMapLand {
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -629,10 +531,7 @@ public sealed class GeoLand(string name, double value) : LiveChartsCore.Geo.IWei
     } = value;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The geo mount: series mint and land fold in ONE expression, so the fold's reason law has exactly one
-// declaring owner and the series it mutates cannot be a stranger's. `GeoOverlay` is the basemap page's NTS
-// owner and the name stays its.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeoSeries {
     public static (HeatLandSeries<GeoLand> Series, IDisposable Feed) Mount(
         object sync,
@@ -641,8 +540,6 @@ public static class GeoSeries {
         Action<int> observed,
         Action<Error> fault) {
         HeatLandSeries<GeoLand> series = new([]);
-        // Feature-name index beside the bound list: the fold's lookups stay O(1) per delta where the hand
-        // scan re-walked the whole land set per change on a keyed change-set.
         Dictionary<string, int> index = new(StringComparer.Ordinal);
         IDisposable feed = diff.ObserveOn(scheduler.Ui)
             .Subscribe(
@@ -658,7 +555,6 @@ public static class GeoSeries {
         return (series, feed);
     }
 
-    // Total over the cache change vocabulary, returning the land count each reason touched.
     static Fin<int> Apply(IList<GeoLand> lands, Dictionary<string, int> index, Change<GeoLand, string> change) => change.Reason switch {
         ChangeReason.Add => Fin.Succ(Appended(lands, index, change.Current)),
         ChangeReason.Update or ChangeReason.Refresh => Fin.Succ(Replaced(lands, index, change.Key, change.Current)),
@@ -675,7 +571,7 @@ public static class GeoSeries {
 
     static int Replaced(IList<GeoLand> lands, Dictionary<string, int> index, string key, GeoLand current) {
         if (!index.TryGetValue(key, out int at)) { return Appended(lands, index, current); }
-        lands[at].Value = current.Value; // the INPC write IS the render invalidation — an element swap re-binds where a value write re-heats
+        lands[at].Value = current.Value;
         return 1;
     }
 
@@ -701,7 +597,7 @@ public static class GeoSeries {
 - Boundary: DUAL axes are the axis LIST, not a second axis concept — a spec carries `Seq<ChartAxis>` per orientation and each layer names its index through `ScalesXAt`/`ScalesYAt`, so two named-unit rows and two layer indices are an energy plot and a layer naming a missing index refuses at `ChartSpec.Admit` rather than silently scaling against axis zero. A CATEGORICAL axis is the package's own `Labels` roster under `MinStep` of one and `ForceStepToMin`, so a category is an ordinal position with a label and the datum's `X` is that ordinal; a categorical row carrying no domain refuses. A MEASURED axis carries its `MeasureRole` and nothing else — display unit, conversion, precision, and grammar are the resolved measurement policy's, the title's unit token is the abbreviation the policy ELECTED (`MeasurePolicy.Abbreviation`, `Theme/locale#MEASUREMENT_FORMAT`), and an axis carrying a unit string is the deleted form because it prints the authoring machine's units to every viewer. Every tick label crosses `ResolvedLocale` — a measured axis through `Quantity` under its role, the temporal rows through the locale's own patterns via each row's OWN label projection, a bare numeric axis through the culture-bound `Text` over the row's `CompositeFormat` (parsed once per row) — so no arm reaches a default `ToString` and a comma decimal separator cannot silently become a point on the one surface a viewer reads numbers from. Instant ticks cross as `DateTime` ordinals through the package's own `AsDate` projection, so no page-local epoch arithmetic exists on either side. Axis ORDER never mirrors: `MirrorSubject.NumericAxis` is a never-flipping subject, so a right-to-left locale mirrors chrome and leaves value direction, category order, and time direction as the data carries them — `AxisTrait.Inverted` stays a declared trait a spec sets deliberately and never a locale consequence. `ChartPolicy.ScaleGroup` pairs axes across charts through `ICartesianAxis.SharedWith` under one shared min-max fold per group key, and the SAME key resolves the render lock at `ChartSync.Mount`. A `ChartSection` carries both-axis coordinates as four independent `Option<double>` bounds because the package extends a null bound to the draw margin, so a horizontal band, a vertical band, and a rectangular region are one value at three coordinate populations and a band family per orientation is unspellable — `BandAxis` owns which pair a linear band populates, so the threshold family's bands and the legend's dock read the same two rows instead of each carrying an orientation bool; the label rides the section because a caption that is a separate overlay drifts the moment either axis re-ranges. Every paint on both owners resolves from a `ChartChrome` row.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -718,8 +614,6 @@ public sealed partial class ChartAxisKind {
     public static readonly ChartAxisKind Logarithmic = new("logarithmic", "{0:E2}", categorical: false,
         static () => new XamlLogarithmicAxis(),
         static (kind, locale, value) => locale.Text(kind.Format, value));
-    // A category is an ORDINAL with a label, so the categorical row rides the numeric shell under a label
-    // roster rather than a distinct scale type the package does not ship.
     public static readonly ChartAxisKind Categorical = new("categorical", "{0}", categorical: true,
         static () => new XamlAxis(),
         static (kind, locale, value) => locale.Text(kind.Format, value));
@@ -731,22 +625,15 @@ public sealed partial class ChartAxisKind {
 
     public bool Categorical { get; }
 
-    // Parsed ONCE per row: `CompositeFormat.Parse` is the corpus's only runtime-format path and an axis
-    // relabels on every measure pass.
     public CompositeFormat Format => field ??= CompositeFormat.Parse(LabelFormat);
 
     [UseDelegateFromConstructor]
     public partial IPlane Shell();
 
-    // The row's OWN label projection — the temporal rows carry their locale pattern read as row data, so the
-    // label fold below holds no per-kind ladder.
     [UseDelegateFromConstructor]
     public partial string Label(ChartAxisKind kind, ResolvedLocale locale, double value);
 }
 
-// Value inversion and crosshair admission are independent DECLARED traits — four legal corners, four
-// spellable — so the set is the flag idiom rather than two bool columns.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -755,17 +642,12 @@ public sealed partial class AxisTrait : ICapability<AxisTrait> {
     public static readonly AxisTrait Crosshair = new(key: "crosshair");
 }
 
-// The ONE orientation vocabulary. A linear band populates exactly one coordinate pair, and WHICH pair is this
-// row's seat projection — so the threshold bands, the annotation regions, and the legend dock never carry an
-// orientation bool of their own.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BandAxis {
-    // A band ALONG X spans an X range and draws the vertical strip; its section populates (Xi, Xj).
     public static readonly BandAxis X = new("x",
         static (from, to) => (Xi: Some(from), Xj: Some(to), Yi: Option<double>.None, Yj: Option<double>.None));
-    // A band ALONG Y spans a Y range and draws the horizontal strip; its section populates (Yi, Yj).
     public static readonly BandAxis Y = new("y",
         static (from, to) => (Xi: Option<double>.None, Xj: Option<double>.None, Yi: Some(from), Yj: Some(to)));
 
@@ -773,8 +655,6 @@ public sealed partial class BandAxis {
     public partial (Option<double> Xi, Option<double> Xj, Option<double> Yi, Option<double> Yj) Seat(double from, double to);
 }
 
-// One axis declaration: kind, name key, measure role, categories, pinned range, unit width, traits, and side
-// are columns rather than axis families, so a dual-axis spec is two values of one shape.
 public sealed record ChartAxis(
     ChartAxisKind Kind,
     Option<string> NameKey,
@@ -787,8 +667,6 @@ public sealed record ChartAxis(
     public static readonly ChartAxis Time = new(ChartAxisKind.Instant, None, None, None, None, None, CapabilitySet<AxisTrait>.Of(AxisTrait.Crosshair), AxisPosition.Start);
     public static readonly ChartAxis Value = new(ChartAxisKind.Numeric, None, None, None, None, None, CapabilitySet<AxisTrait>.Of(AxisTrait.Crosshair), AxisPosition.Start);
 
-    // Independent slots refuse together on the applicative, so a candidate wrong on three axes names all
-    // three rather than the first the ladder met.
     public static Fin<ChartAxis> Admit(ChartAxis candidate) => (
         Slot(candidate.Kind.Categorical == candidate.Categories.IsSome
             && candidate.Categories.ForAll(static domain => domain.Count > 0 && domain.ForAll(static label => !string.IsNullOrWhiteSpace(label))),
@@ -802,9 +680,6 @@ public sealed record ChartAxis(
     static Validation<Error, Unit> Slot(bool holds, string reason) =>
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new ChartFault.SpecRejected(reason));
 
-    // The localized label for the name KEY beside the abbreviation the resolved policy elected for the role —
-    // a metric viewer and an imperial viewer read the same axis under the units each was promised, and
-    // `UnitInfo.Name` (the enum member's own `ToString`) would print `Millimeter` where a reader expects `mm`.
     public string Title(ResolvedLocale locale) =>
         (NameKey.Map(locale.Label), Measure.Map(role => locale.Measures.Abbreviation(role, locale.Formats))) switch {
             ({ IsSome: true, Case: string name }, { IsSome: true, Case: string unit }) => $"{name} [{unit}]",
@@ -837,9 +712,6 @@ public sealed record ChartAxis(
             return plane;
         });
 
-    // Categories, then the measured role, then the KIND's own projection — the axis carries its values in the
-    // role's METRIC unit (the canonical storage unit every measured feed writes) and the policy converts to
-    // whatever it elected.
     static string Text(ChartAxis axis, ResolvedLocale locale, double value) =>
         axis.Categories.Bind(domain => domain.At((int)Math.Round(value))).Match(
             Some: identity,
@@ -850,9 +722,6 @@ public sealed record ChartAxis(
                 None: () => axis.Kind.Label(axis.Kind, locale, value)));
 }
 
-// Four independent bounds because the package extends a null edge to the draw margin. The axis indices ride
-// the value so a band on the second value axis lands where its layer lands; `Tint` is the severity override a
-// threshold band carries, so a status band reads its own status ink and a chrome band reads chrome.
 public readonly record struct ChartSection(
     Option<double> Xi,
     Option<double> Xj,
@@ -864,8 +733,6 @@ public readonly record struct ChartSection(
     Option<Severity> Tint,
     int ScalesXAt,
     int ScalesYAt) {
-    // The ONE linear-band constructor: orientation is the `BandAxis` row's seat projection, so both
-    // orientations and every threshold projection are one entry at two row values.
     public static ChartSection Of(BandAxis axis, double from, double to, ChartChrome fill,
         Option<Severity> tint = default, Option<string> label = default, int scalesXAt = 0, int scalesYAt = 0) =>
         axis.Seat(from, to) switch {
@@ -902,7 +769,7 @@ public readonly record struct ChartSection(
 - Boundary: an ANNOTATION is a mark declared beside the layer it annotates rather than a free overlay — the arm names the layer, `ChartSpec.Admit` refuses a name the roster lacks, and the mark inherits that layer's axis indices and moves with its series when a spec is re-authored. Every arm materializes onto an owner the plane ALREADY has, because the package's two data-anchored planes are the section and the series: `XamlDrawnLabelVisual` carries pixels with no axis binding, so a label visual anchored to a datum is unreachable from this plane by construction. The REGION arm materializes as a `ChartSection` on its `BandAxis` row; the MOMENT arm is that same section at `From == To`, so a vertical instant mark is a degenerate band whose stroke draws the hairline and whose own `Label` draws the flag; the POINT arm is a one-datum scatter `ChartLayer` outside the legend — pinned to its literal coordinate, captioned through `DataLabel.Caption` so the mark prints the words the board wrote instead of the number its marker already sits at. Density is a CLUSTERING policy rather than a draw-order accident: marks inside the declared tolerance collapse into one cluster carrying its member count, the lead mark's caption renders through the locale's own cluster message stem under the viewer's plural rules, and the cluster's severity is the WORST member's — an overlapping stack of forty deploy flags renders as one flag reading forty rather than burying the critical one behind thirty-nine nominal ones. Instants cross OUTBOUND to chart space as raw `DateTime.Ticks`, the exact ordinal the instant axis reads back through `AsDate` — the package ships that conversion in one direction only, so both sides agree by construction. The tolerance is in AXIS units — a board declares it in the measure the axis renders, and no fold needs a pixel-per-unit reading it cannot have before the measure pass; the discriminant (axis-space, not model-space) is why it composes no kernel tolerance lane.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChartAnnotation {
     private ChartAnnotation() { }
@@ -920,24 +787,16 @@ public abstract partial record ChartAnnotation {
     public string Caption => Switch(
         point: static row => row.Label, region: static row => row.Label, moment: static row => row.Flag);
 
-    // The arm key is the clustering partition beside the layer, so two marks of different classes never merge:
-    // a region beginning where an event fired states two facts and one caption carries only one of them.
     public string Arm => Switch(
         point: static _ => "point", region: static _ => "region", moment: static _ => "moment");
 
-    // The clustering ordinate: a region clusters on its own start edge (two overlapping spans that begin
-    // together are the pair a reader cannot separate) and an event on the axis ordinal its instant projects
-    // to, so a mark set mixing instants and values folds on ONE comparable number.
     public double Ordinate => Switch(
         point: static row => row.X,
         region: static row => row.From,
         moment: static row => row.At.ToDateTimeUtc().Ticks);
 
-    // The plural stem the collapsed caption renders through.
     public static string ClusterStem => LocaleStrings.Key(nameof(ChartAnnotation), "cluster");
 
-    // Proximity collapse on the declared ordinate, partitioned by layer and arm: one ordered pass per family,
-    // the open cluster riding the fold state and closing when the next mark clears the tolerance.
     public static Seq<AnnotationCluster> Cluster(Seq<ChartAnnotation> marks, double tolerance) =>
         toSeq(marks.GroupBy(static mark => (mark.Layer, mark.Arm)))
             .Bind(family => toSeq(family.OrderBy(static mark => mark.Ordinate))
@@ -948,8 +807,6 @@ public abstract partial record ChartAnnotation {
                     None: () => (held.Closed, Some(new AnnotationCluster(mark, 1, mark.Severity)))))
                 switch { var folded => folded.Closed + toSeq(folded.Open) });
 
-    // Both materializations in one fold: the region and event arms are `ChartSection` values and the point arm
-    // is a one-datum scatter layer. A cluster of more than one renders the locale's counted caption.
     public static Fin<(Seq<ChartSection> Sections, Seq<ChartLayer> Marks)> Project(
         Seq<AnnotationCluster> clusters, ResolvedLocale locale, Seq<ChartLayer> layers) =>
         clusters.Traverse(cluster => Caption(cluster, locale).Map(caption => (Cluster: cluster, Caption: caption))).As()
@@ -963,8 +820,6 @@ public abstract partial record ChartAnnotation {
             ? locale.Message(ClusterStem, ("count", cluster.Count), ("label", cluster.Lead.Caption))
             : Fin.Succ(cluster.Lead.Caption);
 
-    // The layer lookup IS the axis binding: a mark scales against exactly the indices its named layer scales
-    // against; an unresolved name refuses here rather than defaulting to axis zero.
     static Fin<(Option<ChartSection> Section, Option<ChartLayer> Mark)> Seated(
         AnnotationCluster cluster, string caption, Seq<ChartLayer> layers) =>
         layers.Find(layer => layer.Name == cluster.Lead.Layer).Match(
@@ -977,8 +832,6 @@ public abstract partial record ChartAnnotation {
                     Some(ChartSection.Of(row.Axis, row.From, row.To, ChartChrome.SectionFill,
                         Some(s.Cluster.Severity), Some(s.Caption), s.Layer.ScalesXAt, s.Layer.ScalesYAt)),
                     Option<ChartLayer>.None),
-                // From == To is the whole event geometry: a zero-width band is a full-height hairline carrying
-                // its own flag label; a second label owner would drift off the line on the first re-range.
                 moment: static (s, row) => (
                     Some(ChartSection.Of(BandAxis.X,
                         row.At.ToDateTimeUtc().Ticks, row.At.ToDateTimeUtc().Ticks,
@@ -987,9 +840,6 @@ public abstract partial record ChartAnnotation {
             None: () => Fin.Fail<(Option<ChartSection>, Option<ChartLayer>)>(
                 new ChartFault.SpecRejected($"annotation/{cluster.Lead.Layer}: names no layer on this spec")));
 
-    // A point mark is a one-datum scatter layer seated on its host's own axes: pinned to its literal
-    // coordinate so it carries no feed, untoggleable so it never enters the legend as a series, and captioned
-    // through the `DataLabel.Caption` row, which reads the datum's group.
     static ChartLayer Mark(ChartLayer host, Point row, string caption) =>
         ChartLayer.Of($"{host.Name}:mark:{row.X}", ChartSeriesKind.Scatter, host.Stream) with {
             ScalesXAt = host.ScalesXAt,
@@ -1002,9 +852,6 @@ public abstract partial record ChartAnnotation {
         };
 }
 
-// The count rides the cluster rather than the lead mark: a mark is a declaration a board authored and a
-// cluster is a rendering decision the density fold made — writing the count back onto the declaration would
-// make a re-render at a wider zoom read a count the author never wrote.
 public readonly record struct AnnotationCluster(ChartAnnotation Lead, int Count, Severity Severity);
 ```
 
@@ -1019,7 +866,7 @@ public readonly record struct AnnotationCluster(ChartAnnotation Lead, int Count,
 - Boundary: the domain arm is the WHOLE discriminant — a form column beside it would let a spec declare a ramp presentation over a series domain, a state no renderer can answer — and the statistics table is that same discriminant at a populated `Columns` roster, so a table legend is a swatch legend that also carries reductions. What each render arm can DRAW is stated law, because the package legends are far narrower than the declaration: the default legend builds one miniature plus one series name per visible entry and nothing else; the heat legend reads the FIRST visible heat series' own map and weight bounds and draws a gradient bar with exactly two labels. Both derive orientation from `LegendPosition`, so `Vertical` on the dock row is a DERIVATION of its side, never a column a spec could contradict. Every richer form — statistics columns, stepped bands, categorized members, ordinal dictionaries, and every corner dock, since `LegendPosition` spells four sides and no corner — renders on the custom plane through the `Drawn` arm, and that whole classification is `LegendSpec.Arm`, so `Admit` and the render dispatch read one verdict and neither re-derives it from type tests. The CLAMP on a continuous domain applies to the DATA through `TransformRow.Clamp`, because the heat legend prints the series' own measured bounds — a clamp declared on the legend alone would caption a range the ramp does not paint. The stepped domain's band count is `ThresholdList.Edges`' — a legend never invents a step set, so a stepped legend and the axis bands beside it cannot drift. The ORDINAL arm exists because a coded raster carries integer codes with no numeric meaning: interpolating between code three and code four is meaningless, so the dictionary renders discrete swatches keyed by code and a ramp over the same data refuses. Legend chrome resolves entirely from `ChartChrome` rows on generated rungs, so a legend colour and a control colour are one value.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LegendDomain {
     private LegendDomain() { }
@@ -1031,13 +878,8 @@ public abstract partial record LegendDomain {
     public sealed record Ordinal(HashMap<int, string> Dictionary) : LegendDomain;
 }
 
-// One statistics column on a table legend: the reducer is the SETTLED row, so a legend's p95 and the chart's
-// p95 are one computation over one sorted substrate.
 public sealed record LegendColumn(string HeaderKey, ChartReducer Reducer, double Tau, Option<MeasureRole> Measure);
 
-// Placement carrying the package side and the corner routing; orientation DERIVES from the side, because both
-// package legends lay out vertically exactly on the left and right rows and a spec carrying its own flow
-// would state an orientation the renderer overrides.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1047,8 +889,6 @@ public sealed partial class LegendDock {
     public static readonly LegendDock Bottom = new("bottom", LegendPosition.Bottom, corner: false);
     public static readonly LegendDock Left = new("left", LegendPosition.Left, corner: false);
     public static readonly LegendDock Right = new("right", LegendPosition.Right, corner: false);
-    // Corner rows carry the side their content would take if a package arm ever rendered them, so the column
-    // is total; `Corner` is what routes them to the drawn arm.
     public static readonly LegendDock TopLeft = new("top-left", LegendPosition.Left, corner: true);
     public static readonly LegendDock TopRight = new("top-right", LegendPosition.Right, corner: true);
     public static readonly LegendDock BottomLeft = new("bottom-left", LegendPosition.Left, corner: true);
@@ -1061,7 +901,6 @@ public sealed partial class LegendDock {
     public bool Vertical => Side is LegendPosition.Left or LegendPosition.Right;
 }
 
-// The render-arm verdict: which surface a declaration reaches.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1071,10 +910,7 @@ public sealed partial class LegendArm {
     public static readonly LegendArm Drawn = new("drawn");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// The one legend declaration. `Columns` populated makes it a statistics table without a sixth form column,
-// `Segments` is the ramp's sampling count and the wind-rose bin count alike, and `Offset` is what a drag
-// accumulates against the declared dock.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LegendSpec(
     string Key,
     LegendDomain Domain,
@@ -1084,16 +920,11 @@ public sealed record LegendSpec(
     int Segments,
     Option<string> TitleKey,
     Option<(double X, double Y)> Offset) {
-    // The default every spec takes when it declares no legend of its own.
     public static readonly LegendSpec Swatches = new(
         "swatches", new LegendDomain.Series(), LegendDock.Right, Seq<LegendColumn>(), None, 0, None, None);
 
-    // The verb every docked legend answers, raised through the CommandRow table so one board command
-    // returns every dragged legend at once.
     public const string ResetIntent = "chart.legend.reset";
 
-    // The ONE arm classification: `Admit` and the render dispatch read this, so neither re-derives the verdict
-    // from type tests and a spec cannot reach an arm its declaration exceeds.
     public LegendArm Arm =>
         Dock == LegendDock.Hidden ? LegendArm.Swatches
         : Dock.Corner || !Columns.IsEmpty ? LegendArm.Drawn
@@ -1104,16 +935,12 @@ public sealed record LegendSpec(
             categorized: static _ => LegendArm.Drawn,
             ordinal: static _ => LegendArm.Drawn);
 
-    // Accumulating admission: every violated column names itself, and the domain arm proves its own payload.
     public static Fin<LegendSpec> Admit(LegendSpec candidate) =>
         (Gate(!string.IsNullOrWhiteSpace(candidate.Key), $"{candidate.Key}: blank key"),
          Gate(candidate.Segments >= 0, $"{candidate.Key}: negative segments"),
          Gate(candidate.Columns.Map(static column => column.HeaderKey).Distinct().Count == candidate.Columns.Count,
              $"{candidate.Key}: duplicate column headers"),
-         // A ramp with fewer than two stops is a solid plate wearing a gradient's name.
          Gate(candidate.Arm != LegendArm.Ramp || candidate.Segments >= 2, $"{candidate.Key}: ramp needs two stops"),
-         // Statistics columns reduce the chart's own SERIES rows, so a domain carrying its own members has no
-         // series to reduce and a column set over it would print reductions of nothing.
          Gate(candidate.Columns.IsEmpty || candidate.Domain is LegendDomain.Series, $"{candidate.Key}: columns need a series domain"),
          Gate(candidate.Offset.ForAll(static at => double.IsFinite(at.X) && double.IsFinite(at.Y)), $"{candidate.Key}: non-finite offset"),
          Domain(candidate))
@@ -1133,14 +960,9 @@ public sealed record LegendSpec(
         holds ? unit : (Validation<Error, Unit>)(Error)new ChartFault.LegendRejected(detail);
 }
 
-// One resolved row: `At` is the domain position a ramp or member sits at and absent for a series swatch,
-// `Stats` is populated only on a table legend, and `Swatch` is the pigment the surface actually paints —
-// resolved from the same ramp and palette the chart draws with, never sampled a second time.
 public readonly record struct LegendEntry(
     string Label, LvcColor Swatch, Option<double> At, Seq<(string Header, string Value)> Stats);
 
-// The render product: the package arm carries what the shipped legends can draw and the drawn arm everything
-// else, so the split is a VALUE a composition root dispatches on.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LegendRender {
     private LegendRender() { }
@@ -1159,10 +981,8 @@ public abstract partial record LegendRender {
 - Boundary: statistics reduce the layer's OWN rows through the settled reducer over the one ordered substrate `Charts/streams.md` publishes, so a legend column and a chart transform answer one number, and a layer with no rows answers an empty column rather than a zero — a reduction of nothing is absence. The arm dispatch reads `LegendSpec.Arm` and nothing else, so the admission's verdict and the render's routing cannot disagree; a corner-docked ramp draws its sampled stops as the swatch ladder because no package arm reads a drag offset. The colour hops at this fold's two edges — the chart's byte swatch into an entry, an entry's swatch into the wide-gamut float the custom plane carries — are `ChartInk`'s own correspondence members, so the legend spells no channel arithmetic of its own and the quantization boundary stays at the one ink owner. The theme's OWN factory products cross: the default legend arrives through the registered theme so it inherits the easing, speed, and background the one `LiveCharts.Configure` chained, and the heat legend's `Formatter` is the one place the elected quantity lands — this arm cannot print a bound the series does not measure, which is why a clamp belongs on the data.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LegendFold {
-    // The ONE entry resolution: every arm answers the same row shape, so the two render surfaces consume one
-    // projection and a per-arm entry builder cannot disagree about which layer a colour belongs to.
     public static Fin<Seq<LegendEntry>> Entries(
         LegendSpec spec, ChartSpec chart, ChartInk ink, Seq<ChartDatum> rows, ResolvedLocale locale) =>
         spec.Domain.Switch(
@@ -1184,14 +1004,11 @@ public static class LegendFold {
                 .Traverse((member, index) => Fin.Succ(new LegendEntry(
                     member.Label, s.Ink.Palette[index % s.Ink.Palette.Length], Some(member.At), Seq<(string, string)>())))
                 .As(),
-            // Codes carry no magnitude: the dictionary orders by CODE and colours by palette position.
             ordinal: static (s, row) => toSeq(row.Dictionary.OrderBy(static entry => entry.Key))
                 .Traverse((entry, index) => Fin.Succ(new LegendEntry(
                     entry.Value, s.Ink.Palette[index % s.Ink.Palette.Length], Some(entry.Key), Seq<(string, string)>())))
                 .As());
 
-    // The arm dispatch on the spec's OWN verdict — no type re-derivation, no corner a package arm would
-    // silently round to a side.
     public static Fin<LegendRender> Render(
         LegendSpec spec, Seq<LegendEntry> entries, CustomVisualStyle style, ChartInk ink, ResolvedLocale locale) =>
         spec.Arm == LegendArm.Swatches
@@ -1208,30 +1025,21 @@ public static class LegendFold {
                 .Map(rows => (LegendRender)new LegendRender.Drawn(
                     new CustomVisualData(
                         $"legend:{spec.Key}",
-                        // The custom plane's LEGEND arm: an entry's swatch is the pigment this chart painted
-                        // and its columns are already-spelled reductions — a label-and-value payload would
-                        // re-derive every swatch and print a key that disagrees with the plot it explains.
                         new VisualPayload.Legend(rows, Vertical: spec.Dock.Vertical),
                         style),
                     spec.Dock,
                     spec.Offset));
 
-    // Statistics reduce the layer's OWN rows over the one ordered substrate; a layer with no rows answers an
-    // empty column rather than a zero.
     static Fin<Seq<(string Header, string Value)>> Statistics(
         LegendSpec spec, ChartLayer layer, Seq<ChartDatum> rows, ResolvedLocale locale) =>
         rows.Filter(datum => datum.Group == layer.Name) switch {
             var owned when owned.IsEmpty => Fin.Succ(Seq<(string, string)>()),
-            // One kernel spread per layer, every column a projection of it — the group reduces once however
-            // many statistics the legend prints (Charts/streams#[03] GroupSpread).
             var owned => GroupSpread.Of(owned, spec.Columns.Map(static column => column.Tau))
                 .Bind(spread => spec.Columns.Traverse(column =>
                     Rendered(column.Reducer.Reduce(spread, column.Tau).A, column.Measure, locale)
                         .Map(value => (Header: locale.Label(column.HeaderKey), Value: value))).As()),
         };
 
-    // Ramp stops sampled at the spec's own segment count — admission proved at least two — each labelled with
-    // the domain value it starts at, so a twelve-segment wind rose and a twelve-stop legend are one number.
     static Fin<Seq<LegendEntry>> Sampled(LegendSpec spec, double low, double high, ChartInk ink, ResolvedLocale locale) =>
         toSeq(Range(0, spec.Segments))
             .Traverse(step => (low + ((high - low) * step / (spec.Segments - 1))) switch {
@@ -1240,8 +1048,6 @@ public static class LegendFold {
             })
             .As();
 
-    // Every printed value crosses the locale under the spec's own role, so a legend bound and the axis tick
-    // beside it carry the same elected unit. Public because the heat arm's `Formatter` IS this projection.
     public static Fin<string> Rendered(double value, Option<MeasureRole> measure, ResolvedLocale locale) =>
         measure.Match(
             Some: role => Quantity.TryFrom(value, role.MetricUnit, out IQuantity? quantity) && quantity is not null
@@ -1249,18 +1055,13 @@ public static class LegendFold {
                 : Fin.Succ(locale.Text(ChartAxisKind.Numeric.Format, value)),
             None: () => Fin.Succ(locale.Text(ChartAxisKind.Numeric.Format, value)));
 
-    // A drag accumulates onto the declared dock rather than replacing it, so the reset is a column clear and
-    // never a re-derivation of where the legend "should" have been.
     public static LegendSpec Dragged(LegendSpec spec, (double X, double Y) by) =>
         spec with { Offset = Some(spec.Offset.Match(Some: at => (at.X + by.X, at.Y + by.Y), None: () => by)) };
 
     public static LegendSpec Reset(LegendSpec spec) => spec with { Offset = None };
 
-    // The theme's OWN factory product: the registration already seeded the easing, speed, and background this
-    // legend reads, so constructing one bare would skip every rule the one `LiveCharts.Configure` chained.
     static IChartLegend Swatches() => LiveCharts.DefaultSettings.GetTheme().GetDefaultLegend();
 
-    // The formatter is the WHOLE label surface of this arm: two labels at the heat series' own weight bounds.
     static IChartLegend Ramp(LegendSpec spec, ResolvedLocale locale) => new SKHeatLegend {
         Formatter = value => Rendered(value, spec.Measure, locale).IfFail(_ => string.Empty),
     };

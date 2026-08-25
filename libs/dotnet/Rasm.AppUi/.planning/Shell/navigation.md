@@ -21,7 +21,7 @@ Rasm.AppUi composes one shell: a three-case `NavRequest` union over a `RouteVerb
 - Boundary: `Freeze` projects the route index off the frozen `ScreenCatalog` roster — keys are `row.RouteKey` by construction, so an independently authored route pair is unrepresentable; `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, and view lookup beside them is the deleted pattern; the `ViewContract` value carries `profile.HostKey` so one screen resolves a host-specific template; modal and peek land through TWO presenter columns rather than one presenter under a mode flag, because the session stack admits one modal and the canvas stack admits many peeks — a peek touches the navigation stack not at all, so it mints no back entry, while the ROUTE it names is the same key a push enters; a viewpoint recall is the third landing — `View` binds `Render/viewpoint#VIEW_REGISTRY` `ViewRegistry.Recall`, its segment IS that owner's `NamedView.LinkPrefix`, and the recall refuses on the registry's own unknown-key rail because a view key is not a route key; every route resolution threads a `SurfaceKey` because `ScreenCatalogRow.Model` requires one and the state partition keys on `(ScreenId, SurfaceKey)`; viewport-scoped navigation rides the same verb grammar over `ZoomBorder.NavigateBack`/`NavigateForward`/`ClearViewHistory`, so a per-canvas back-stack is the deleted pattern; a second router beside the router cell and a region framework are the rejected forms.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NavFault : Fault {
@@ -48,12 +48,8 @@ public abstract partial record NavFault : Fault {
     public sealed partial record InstanceRejected(string Detail)     : NavFault(Detail);
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
-// The verb roster: the deep-link literal, the direction, and the LANDING are columns of one row, so the
-// parse grammar, the telemetry dimension, and the dispatch read one vocabulary and a verb cannot spell its
-// literal in the grammar and a different one on the board. The landing takes the capsule because the router
-// cell and the presenter columns are per-shell state no static row can hold.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -66,8 +62,6 @@ public sealed partial class RouteVerb {
         static (root, key) => root.Forward(root.Router.NavigateAndReset, key, "reset"));
     public static readonly RouteVerb Modal = new("modal",
         static (root, key) => root.Resolved(key, "modal").Bind(root.PresentModal));
-    // Peek resolves the route and presents it WITHOUT touching the stack, so no back entry is minted and
-    // dismissing one returns to exactly the surface that opened it.
     public static readonly RouteVerb Peek = new("peek",
         static (root, key) => root.Resolved(key, "peek").Bind(root.PresentPeek));
 
@@ -79,8 +73,6 @@ public sealed partial class RouteVerb {
 public abstract partial record NavRequest {
     private const string Scheme = "rasm";
     public const string PopVerb = "pop";
-    // The viewpoint segment is the render owner's own prefix, so a link a saved view mints and a link this
-    // grammar admits are one string.
     public const string ViewVerb = NamedView.LinkPrefix;
 
     private NavRequest() { }
@@ -89,27 +81,18 @@ public abstract partial record NavRequest {
 
     public sealed record Pop() : NavRequest;
 
-    // A viewpoint recall is a navigation verb because a saved view is ADDRESSED exactly as a screen is: the
-    // link carries the registry key, the stack is untouched, and the camera flight is the transition.
     public sealed record View(string ViewKey) : NavRequest;
 
-    // The declared navigation dimension, read once per dispatch and carried into the miss count so both
-    // instruments group on one value.
     public string Verb => Switch(
         route: static c => c.Verb.Key,
         pop: static _ => PopVerb,
         view: static _ => ViewVerb);
 
-    // Direction is a PROJECTION of the case, never a caller flag: only a pop travels back, so the page
-    // carrier and the router cannot disagree about which way a transition runs.
     public RouteDirection Direction => Switch(
         route: static _ => RouteDirection.Forward,
         pop: static _ => RouteDirection.Back,
         view: static _ => RouteDirection.Forward);
 
-    // Robust scheme parse: Uri owns the grammar — scheme match is ordinal-case-insensitive, the verb is the
-    // authority-or-first-segment, the key is the remaining path, and every reject is a typed NavFault. The
-    // roster lookup IS the verb admission, so a sixth verb extends the grammar by declaring its row.
     public static Fin<NavRequest> Parse(string deepLink) =>
         Uri.TryCreate(deepLink, UriKind.Absolute, out Uri? uri)
             ? !string.Equals(uri.Scheme, Scheme, StringComparison.OrdinalIgnoreCase)
@@ -123,7 +106,6 @@ public abstract partial record NavRequest {
                 }
             : Fin.Fail<NavRequest>(new NavFault.InvalidDeepLink(deepLink));
 
-    // rasm:push/key and rasm://push/key both admit: authority-form verbs land in Host, opaque-form in the path.
     private static string[] Segments(Uri uri) =>
         (uri.IsAbsoluteUri && uri.Host.Length > 0
             ? new[] { uri.Host }.Concat(uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries))
@@ -133,10 +115,8 @@ public abstract partial record NavRequest {
         .ToArray();
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Per-key restore evidence as a UNION: the fallen case carries WHICH fallback seated and the typed cause the
-// resolve refused with, so a restore report names what it could not carry instead of a bare false.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RouteRestoreFact {
     private RouteRestoreFact() { }
@@ -146,7 +126,7 @@ public abstract partial record RouteRestoreFact {
     public string RouteKey => Switch(resolved: static r => r.Key, fell: static f => f.Key);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class ShellRoot(
     FrozenDictionary<string, Func<IScreen, SurfaceKey, IRoutableViewModel>> routes,
@@ -158,32 +138,18 @@ public sealed class ShellRoot(
     Func<InstrumentSpec, string, IO<Unit>> count) : ReactiveObject, IScreen {
     public RoutingState Router { get; } = new();
 
-    // Each route mints its model AGAINST a surface key: the state partition keys on (ScreenId, SurfaceKey),
-    // so a factory that dropped the key would have two floats of one route silently overwrite each other's
-    // scroll, filter, and selection on every flush.
     public FrozenDictionary<string, Func<IScreen, SurfaceKey, IRoutableViewModel>> Routes { get; } = routes;
 
-    // The router's own instance elector, bound at composition to the active workspace's primary instance for
-    // a route: a dock spawn addresses its minted key explicitly; a deep link, a chord, and a back step have
-    // no instance to name, so the elector answers for them.
     public Func<string, SurfaceKey> Surface { get; } = surface;
 
     public Func<IRoutableViewModel, IO<Unit>> PresentModal { get; } = presentModal;
 
     public Func<IRoutableViewModel, IO<Unit>> PresentPeek { get; } = presentPeek;
 
-    // The viewpoint landing, bound at composition to `Render/pipeline` `ViewRegistry.Recall` through the
-    // viewport cell that scrubs the returned camera timeline.
     public Func<string, IO<Unit>> RecallView { get; } = recallView;
 
-    // The page-transition direction column, bound at composition to `Theme/motion` `RouteCarrier.Bind` over
-    // the one `RoutedViewHost`; set BEFORE the router transition, because the carrier configures the
-    // transition the very next stack write plays.
     public Func<RouteDirection, Unit> Direction { get; } = direction;
 
-    // The meter reach is keyed on the DECLARATION, never a name: composition binds the write against the row
-    // it contributed, so a count against an undeclared instrument has no spelling and the one tag slot is the
-    // row's own declared verb dimension.
     public Func<InstrumentSpec, string, IO<Unit>> Count { get; } = count;
 
     public static readonly InstrumentSpec Navigated = InstrumentSpec.Create(
@@ -196,17 +162,10 @@ public sealed class ShellRoot(
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Navigated, RouteMiss);
 
-    // The route index is a projection of the frozen screen roster: keys are row.RouteKey by construction, so
-    // deep links, dock rows, palette listings, and screens cannot disagree. The projector argument exists
-    // because ScreenBase does not implement IRoutableViewModel — the catalog's own Model column answers a
-    // ScreenBase — so the bridge is spelled ONCE here rather than silently at every caller; it deletes the
-    // release ScreenBase implements the interface (Freeze then reads row.Model directly).
     public static FrozenDictionary<string, Func<IScreen, SurfaceKey, IRoutableViewModel>> Freeze(
         ScreenCatalog catalog, Func<ScreenCatalogRow, Func<IScreen, SurfaceKey, IRoutableViewModel>> make) =>
         toSeq(catalog.Rows.Values).ToFrozenDictionary(static row => row.RouteKey, make, StringComparer.Ordinal);
 
-    // The verb dimension threads from the request, so the dispatch count and every miss count under it carry
-    // ONE value; the landing is the verb row's own column, so this dispatch has one arm per CASE, not per verb.
     public IO<Unit> Navigate(NavRequest request) =>
         Count(Navigated, request.Verb).Map(_ => Direction(request.Direction)).Bind(_ => request.Switch(
             state: this,
@@ -214,13 +173,9 @@ public sealed class ShellRoot(
             pop: static (root, _) => root.Back(),
             view: static (root, c) => root.RecallView(c.ViewKey)));
 
-    // Replace is ONE stack write — pop-plus-push as a single NavigationStack assignment, so no intermediate
-    // back transition renders and the router observes exactly one change.
     internal IO<Unit> Swap(string key, string verb) =>
         Resolved(key, verb).Map(vm => ignore(Router.NavigationStack = [.. Router.NavigationStack.SkipLast(1), vm]));
 
-    // The ONE route-admission outcome: navigation lifts it into IO, the dock factory consumes the Fin
-    // directly, so an unknown key is the same NavFault.UnknownRoute evidence on every ingress path.
     public Fin<IRoutableViewModel> Resolve(string key, SurfaceKey surface) =>
         Routes.TryGetValue(key, out Func<IScreen, SurfaceKey, IRoutableViewModel>? make)
             ? Fin.Succ(make(this, surface))
@@ -228,9 +183,6 @@ public sealed class ShellRoot(
 
     public Fin<IRoutableViewModel> Resolve(string key) => Resolve(key, Surface(key));
 
-    // Workspace restore is stack manipulation, never command replay: saved keys materialize, the stack sets
-    // ONCE, and an unresolvable key folds to the fallback row carrying its typed cause — first-run, restore,
-    // and upgrade are one total fold over (saved keys × route index).
     public Fin<Seq<RouteRestoreFact>> Restore(Seq<string> saved, string fallback) =>
         Resolve(fallback).Bind(fallbackScreen => {
             Seq<string> requested = saved.IsEmpty ? Seq(fallback) : saved;
@@ -273,7 +225,7 @@ public sealed class ShellRoot(
 - Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout`/`InitializeFactory` false so the factory owns initialization; the dock chrome variant resolves through the `IDockThemeManager` bound at composition off the theme-token variant subscription, `DockSurfaceWorkbenchBrush` and `DockSeparatorBrush` minting from the token emission as ordinary role slots; the dock skin carries ZERO keys of its own and inherits every light/dark decision from the base Semi dictionaries, so variant coherence is a standing obligation no structural check inside this page can see; floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate; rows where `ShellPolicy.ExternalSurface` holds register an AppUi-supplied `IExternalDockSurface` ADAPTER through `DockControl.RegisterExternalDockSurface` — Dock holds registered surfaces as `WeakReference` and keeps enumeration internal, so the adapter's lifetime is composition-owned (the activation scope holds it for the mount's life) and the registration rows here are the readable roster; the drop overlay rides `GlobalDockTarget` and `DockControl.ShowSelector(DockSelectorMode)`/`HideSelector()` under the `ShellPolicy.DropSelector` gate over the three-member `Documents | Tools | All` domain; dockable `Context` resolves through the same `ShellRoot.Resolve` admission as navigation, so a stale `DockableRow.RouteKey` yields the identical `NavFault.UnknownRoute` evidence — a dockable IS a screen and a second viewmodel system is the deleted pattern; RESTORE reaches that same admission through the package's own locators (`GetContext(id)`, `RestoreDockable(id)`), an off-roster id sealing the same fault and answering null so the package drops the dockable — the alternative is a structurally perfect layout of dead shells; drop legality is POLICY ROWS the package's own resolver reads (`DockGroup` + `DockGroupValidator` gate cross-group drops); pinned auto-hide rides `PinnedPosture` columns through `PreviewPinnedDockable`/`TogglePreviewPinnedDockable` so a hover peek never unpins — `PinDockable` itself TOGGLES; the drag ghost is `DragPreviewControl` bound through `ControlRecycling`, and its caption is the MANAGER's own verdict (`DockCapabilityResolver.Evaluate` beside `IDockManager.LastCapabilityEvaluation`) so a refused drop names the policy rung that refused it; the dock's own overlay stack (`OverlayHost`…`BusyOverlayControl`) stays unmounted — modal presentation has exactly two admitted owners (`Shell/dialogs#SESSION_ALGEBRA`) and the drop SELECTOR is a different mechanism that renders drag targets rather than presenting content; `IDockState.Save`/`Restore`/`Reset` is the IN-PROCESS snapshot pair a workspace switch takes while the serialized checkpoint stays the CROSS-PROCESS carrier — the same fact at two lifetimes; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row, so the flushed layout captures post-suspension state; the support artifact reports the REDACTOR's own count through the AppHost `SupportArtifact.Produce` pair bound to the same `Redactor` every bundle column masks through, because the payload carries route keys and catalog-resolved titles; a TEAR-OUT is `FloatDockable(dockable, DockWindowOptions)` with the float host chromed by the owned window row (`Shell/hosts` `WindowRow.TearOut`) so a torn-out panel wears Dock's own `HostWindowTitleBar` and `ToolChromeRole` decides what fills the vacated band; float geometry restores CLAMPED against `SurfaceSession.Displays` and re-clamps on every `SurfaceFact.DisplayChanged`.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -282,8 +234,6 @@ public sealed partial class DockRole {
     public static readonly DockRole Tool = new("tool");
 }
 
-// The region ADDRESS, distinct from the role: a role says what a dockable IS and decides its host dock class,
-// a zone says where the program seats it — collapsing the two is what forced one hardcoded arrangement.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -292,35 +242,24 @@ public sealed partial class DockZone {
     public static readonly DockZone Left = new("left", DockMode.Left, DockRole.Tool, policy: null);
     public static readonly DockZone Right = new("right", DockMode.Right, DockRole.Tool, policy: null);
     public static readonly DockZone Top = new("top", DockMode.Top, DockRole.Tool, policy: null);
-    // The status band takes no drop at all: a panel dragged into a fixed readout strip would displace
-    // geometry the chrome fold owns, so the zone policy refuses it above every row's own base flag.
     public static readonly DockZone Bottom = new("bottom", DockMode.Bottom, DockRole.Tool, policy: new DockCapabilityPolicy { CanDrop = false });
 
     public DockMode Mode { get; }
 
-    // The host dock class this zone seats, as a COLUMN: an identity test against the primary row made a
-    // second document area — a split editor, a comparison pane — unspellable.
     public DockRole Role { get; }
 
     public DockCapabilityPolicy? Policy { get; }
 
-    // The dock side mirrors under the ONE mirroring law: reading the flip off the landed
-    // `MirrorSubject.DockSide` row keeps the dock, the chrome zones, and every anchored surface on one verdict.
     public DockMode Sided(LocaleRow locale) =>
         MirrorSubject.DockSide.Mirrors(locale)
             ? Mode switch { DockMode.Left => DockMode.Right, DockMode.Right => DockMode.Left, var held => held }
             : Mode;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Auto-hide as a row: strip edge, whether the reveal floats over the layout or takes space in it, and whether
-// the reveal survives losing focus — one independent axis, so the bool stays a bool by the capability carve.
 public sealed record PinnedPosture(Alignment Alignment, PinnedDockDisplayMode Display, bool KeepVisible);
 
-// Capabilities are the PACKAGE's own six-member axis: `DockCapability` is a foreign enum and cannot realize
-// the kernel `ICapability` floor, so the set stays a `FrozenSet` with the discriminant stated here — a local
-// three-row rename of half the axis is the deleted form, because it made the policy ladder unaddressable.
 public sealed record DockableRow(
     string RouteKey,
     DockRole Role,
@@ -331,8 +270,6 @@ public sealed record DockableRow(
     Option<string> Group,
     Option<PinnedPosture> Pinned);
 
-// The topology as DATA. Orientation is the whole nesting law: horizontal rows form the outer band, the
-// vertical rows one inner column seated at the band position their rank gives.
 public sealed record RegionRow(DockZone Zone, Orientation Orientation, double Proportion, int Rank);
 
 public sealed record RegionProgram(string Key, Seq<RegionRow> Rows, DockCapabilityPolicy? Policy, PinnedDockDisplayMode PinnedDisplay) {
@@ -347,10 +284,6 @@ public sealed record RegionProgram(string Key, Seq<RegionRow> Rows, DockCapabili
         Policy: null,
         PinnedDisplay: PinnedDockDisplayMode.Overlay);
 
-    // Three INDEPENDENT admissions accumulate, so a program that is empty AND zone-duplicated reports both.
-    // The vertical block must be CONTIGUOUS in rank because it collapses into one inner column seated at a
-    // single band position — an arrangement with two vertical runs is one this band-and-column fold cannot
-    // build, and admitting it silently would drop the second run's regions.
     public Fin<Seq<RegionRow>> Admit() {
         Seq<RegionRow> ordered = toSeq(Rows.OrderBy(static row => row.Rank));
         int runs = Runs(ordered);
@@ -372,11 +305,8 @@ public sealed record RegionProgram(string Key, Seq<RegionRow> Rows, DockCapabili
         .Count;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// Dock-tab titles resolve through the ONE screen-catalog title cell bound at composition, so a rename lands
-// everywhere at once. `stale` takes the rail's own Error — every refusal on this path is a NavFault minted at
-// Resolve, so no narrowing shim stands between the locator and its seal.
 public sealed class ShellDockFactory(
     ShellRoot shell,
     Seq<DockableRow> rows,
@@ -385,8 +315,6 @@ public sealed class ShellDockFactory(
     Func<IDockThemeManager> themeManager,
     Func<LocaleRow> locale,
     Func<Error, Unit> stale) : Factory {
-    // The locator rosters are FROZEN at construction: a restore rebuilds no dictionary, because the roster
-    // cannot change between two restores of one factory.
     private readonly Dictionary<string, Func<object?>> contexts =
         rows.Map(row => KeyValuePair.Create(row.RouteKey, Context(shell, stale, row.RouteKey))).ToDictionary(StringComparer.Ordinal);
     private readonly Dictionary<string, Func<IDockable?>> restored =
@@ -394,11 +322,6 @@ public sealed class ShellDockFactory(
 
     public IDockThemeManager ThemeManager() => themeManager();
 
-    // The REHYDRATION seam: the serialized graph holds dockable ids and no contexts, so the package resolves
-    // each one back through the locators it owns — GetContext(id) for a restored panel's view-model,
-    // RestoreDockable(id) for a hidden dockable returning to the graph. Both resolve through the SAME
-    // ShellRoot.Resolve admission every other ingress takes; a stale id seals the identical
-    // NavFault.UnknownRoute and answers null, which the package reads as "drop it".
     public override void InitLayout(IDockable layout) {
         foreach (DockableRow row in rows) {
             restored[row.RouteKey] = () => Dockable(row).Match<IDockable?>(
@@ -417,15 +340,11 @@ public sealed class ShellDockFactory(
             Succ: static vm => vm,
             Fail: error => { ignore(stale(error)); return null; });
 
-    // Build folds the ROSTER through the PROGRAM: each admitted region draws its own zone's dockables, seats
-    // them in the dock class its zone's role implies, and the orientation column alone decides the band.
     public Fin<IRootDock> Build() =>
         from ordered in program.Admit()
         from mounted in ordered.Traverse(region => Region(region).Map(dock => (Region: region, Dock: dock))).As()
         select Assemble(mounted.Choose(static pair => pair.Dock.Map(dock => (pair.Region, Dock: dock))));
 
-    // An empty zone contributes NO dock rather than an empty one: a zero-child tool dock renders as a bare
-    // strip with a splitter beside it, which reads as a broken layout rather than an absent region.
     private Fin<Option<IDock>> Region(RegionRow region) =>
         toSeq(rows.Filter(row => row.Zone == region.Zone).OrderBy(static row => row.Rank))
             .TraverseM(Dockable).As()
@@ -442,8 +361,6 @@ public sealed class ShellDockFactory(
             return (IDockable)Governed(dockable, row);
         });
 
-    // The row writes the WEAKEST rung of the capability ladder — the dockable's own base flags — so a zone
-    // policy and a root policy can each still narrow it above.
     private static IDockable Governed(IDockable dockable, DockableRow row) {
         dockable.CanClose = row.Capabilities.Contains(DockCapability.Close);
         dockable.CanPin = row.Capabilities.Contains(DockCapability.Pin);
@@ -470,16 +387,12 @@ public sealed class ShellDockFactory(
         return dock is IDocumentDock documents ? DocumentInstances.Spawnable(documents, this) : dock;
     }
 
-    // Band and column: horizontal regions form the outer band, the contiguous vertical run collapses into one
-    // inner column, and the column takes the band position its own rank gives. One Partition splits the two
-    // orientations, so the fold traverses the mounted set once.
     private IRootDock Assemble(Seq<(RegionRow Region, IDock Dock)> live) {
         (Seq<(RegionRow Region, IDock Dock)> vertical, Seq<(RegionRow Region, IDock Dock)> horizontal) =
             live.Partition(static pair => pair.Region.Orientation == Orientation.Vertical);
         Seq<IDockable> column = vertical.Map(static pair => (IDockable)pair.Dock);
         Option<(int Rank, IDockable Dockable)> inner = column.IsEmpty
             ? None
-            // The admitted program orders by rank, so the vertical run's head carries its band position.
             : Some((vertical.Head.Region.Rank, column.Count == 1 ? column[0] : (IDockable)Split(Orientation.Vertical, column)));
         Seq<(int Rank, IDockable Dockable)> band =
             horizontal.Map(static pair => (pair.Region.Rank, Dockable: (IDockable)pair.Dock)) + inner.ToSeq();
@@ -494,8 +407,6 @@ public sealed class ShellDockFactory(
         return root;
     }
 
-    // Splitters interleave BETWEEN adjacent parts and never trail the last: a trailing splitter renders as a
-    // grab handle against the window edge that moves nothing and steals the edge-resize gesture.
     private IProportionalDock Split(Orientation orientation, Seq<IDockable> parts) {
         IProportionalDock split = CreateProportionalDock();
         split.Orientation = orientation;
@@ -505,9 +416,6 @@ public sealed class ShellDockFactory(
     }
 }
 
-// The drag ghost's caption is the MANAGER's verdict, never a locally composed sentence: the resolver returns
-// the effective value beside the rung that decided it. The one caller is the drag-preview template the
-// composition binds over `ControlRecycling` — a view-layer bind, which is why no fence in this folder calls it.
 public static class DropVerdict {
     public const string AdmittedKey = "dock.drop.admitted";
     public const string PendingKey = "dock.drop.pending";
@@ -522,7 +430,7 @@ public static class DropVerdict {
 ```
 
 ```csharp signature
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 public static class ShellPolicy {
     public const int DrainRank = 20;
@@ -531,10 +439,6 @@ public static class ShellPolicy {
     public const double StatusDropdownExtent = 240d;
     public static readonly Duration CheckpointCadence = Duration.FromSeconds(120);
 
-    // Each predicate reads the axis its product name implied: a panel mount owns no floating host window, a
-    // surfaceless profile materializes neither a floating window nor a drop adorner, and the embedded surface
-    // class is exactly the set of mounts a foreign host owns the frame for. Three independent policy
-    // questions, not one row's columns — which is why they stay predicates under the capability carve.
     public static bool FloatingWindows(ConsumptionProfile profile, SurfaceMount mount) =>
         mount is not SurfaceMount.Panel && profile.Surface != HostSurface.None;
 
@@ -545,14 +449,10 @@ public static class ShellPolicy {
         profile.Surface == HostSurface.Embedded;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record LayoutContent(string Payload, Seq<string> RouteStack);
 
-// Content key is the kernel digest, so the checkpoint's integrity check compares two values of known
-// provenance and a caller-supplied hash function has no seam to enter. Shape and INTEGRITY stay independent
-// questions: the seal answers whether this build authored the parcel, `Admit` whether the payload and the key
-// still agree — a stored arrangement HOLDS its bytes on either refusal, since a person built the layout.
 public sealed record LayoutCheckpoint(UInt128 ContentKey, LayoutContent Content, Instant At) {
     public static readonly StateSeal Seal = StateSeal.Of("shell", "layout", generation: 2, StateResidue.Hold);
 
@@ -562,9 +462,6 @@ public sealed record LayoutCheckpoint(UInt128 ContentKey, LayoutContent Content,
             : Fin.Fail<LayoutCheckpoint>(new NavFault.CheckpointRejected("content-key"));
 }
 
-// Support returns the AppHost `ArtifactPayload` — bytes AND the mask tally — because a literal zero beside a
-// payload nothing examined asserts a measurement no redactor took; composition binds it to the same
-// `Redactor` every other bundle column masks through. `Count` is keyed on the DECLARATION per the meter law.
 public sealed record LayoutPersistence(
     Func<string> Serialize,
     Func<Seq<string>> RouteStack,
@@ -573,11 +470,6 @@ public sealed record LayoutPersistence(
     Func<string, IO<Unit>> Persist,
     Func<InstrumentSpec, Unit> Count,
     IO<Option<string>> Latest) {
-    // The one serializer binding: the generated DockSystemTextJsonContext resolver keeps layout round-trips
-    // AOT-safe, restore re-inits through the factory so InitializeLayout stays false, and the SAME checkpoint
-    // restores the router stack through ShellRoot.Restore — one blob, two rails. A view-model whose
-    // UrlPathSegment is empty is a non-routable presentation entry and stays out of the persisted stack BY
-    // DECLARATION — the stack carries route identities, not view instances.
     public static LayoutPersistence Bind(
         DockControl control, ShellDockFactory factory, ShellRoot shell, string fallbackRoute,
         Func<Seq<PixelRect>> displays,
@@ -587,14 +479,9 @@ public sealed record LayoutPersistence(
         return new(
             Serialize: () => serializer.Serialize(control.Layout),
             RouteStack: () => toSeq(shell.Router.NavigationStack).Choose(static vm => Optional(vm.UrlPathSegment).Filter(static key => key.Length > 0)),
-            // Shape and integrity both answered before this leg: the seal proved the generation and `Admit`
-            // proved the key, so a checkpoint reaching here is worth deserializing.
             Restore: checkpoint =>
                 Optional(serializer.Deserialize<RootDock>(checkpoint.Content.Payload))
                     .ToFin(new NavFault.CheckpointRejected("dock-payload"))
-                    // The clamp lands BEFORE InitLayout: initialization seats every float host at the geometry
-                    // the graph carries, so a rectangle corrected afterwards has already shown a window on a
-                    // screen that is gone.
                     .Bind(root => shell.Restore(checkpoint.Content.RouteStack, fallbackRoute).Map(facts => {
                         ignore(WindowPlacement.Clamp(root, displays()));
                         factory.InitLayout(root);
@@ -608,8 +495,6 @@ public sealed record LayoutPersistence(
     }
 }
 
-// The user's restore decision as a value, so a declined crash offer is distinguishable from an absent one on
-// the rail the count reads.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RestoreVerdict {
     private RestoreVerdict() { }
@@ -617,7 +502,7 @@ public abstract partial record RestoreVerdict {
     public sealed record Declined : RestoreVerdict;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class LayoutLedger {
     public static readonly InstrumentSpec Flushed = InstrumentSpec.Create(
@@ -627,8 +512,6 @@ public static class LayoutLedger {
         "rasm.appui.layout.restored", InstrumentKind.Count, MeasureForm.Whole, "{restore}",
         "layout ledger restores", Seq<string>(), None, None, None);
 
-    // The one content key: payload and route stack frame through the kernel writer, so a navigation-only
-    // change still checkpoints, a byte-identical pair still skips, and no caller supplies a hash function.
     public static UInt128 Key(LayoutContent content) =>
         ContentHash.Of(content, static (held, writer) => {
             ignore(writer.String(held.Payload));
@@ -636,10 +519,6 @@ public static class LayoutLedger {
             held.RouteStack.Iter(key => ignore(writer.String(key)));
         });
 
-    // The unchanged-key skip is a TRANSITION: the step declines on an equal key, so two racing flushes commit
-    // one persist and the loser reads the declined transition rather than re-persisting a blob it lost. Seal
-    // FIRST and step second: a refused encode leaves the cell holding the prior key, so the next cadence tick
-    // re-attempts the identical content instead of skipping it as already flushed.
     public static IO<Option<LayoutCheckpoint>> Flush(IClock clock, LayoutPersistence port, Atom<Option<UInt128>> last) =>
         IO.lift(() => (Payload: port.Serialize(), Stack: port.RouteStack()))
             .Map(captured => new LayoutContent(captured.Payload, captured.Stack))
@@ -656,12 +535,6 @@ public static class LayoutLedger {
     public static Option<LayoutCheckpoint> Offer(Seq<FaultSource> crashes, Option<LayoutCheckpoint> latest) =>
         crashes.Exists(static fault => fault is FaultSource.HostCrashMarker) ? latest : None;
 
-    // Counted returns the same outcome it observes, so the restore count fires on an ACCEPTED restore alone —
-    // a declined crash offer and a first-run empty latest are not restores, and a rejected checkpoint never
-    // counts one either.
-    // Stored blobs open ONCE, here: a parcel this build did not author or whose payload and key disagree
-    // answers absence, so the crash offer, the warm restore, and a first run reach one empty path and the
-    // shell opens on its declared layout.
     public static IO<Fin<Seq<RouteRestoreFact>>> Restore(
         LayoutPersistence port, Seq<FaultSource> crashes, Func<LayoutCheckpoint, IO<RestoreVerdict>> confirm) =>
         port.Latest.Map(Opened).Bind(latest =>
@@ -676,8 +549,6 @@ public static class LayoutLedger {
     private static Fin<Seq<RouteRestoreFact>> Counted(LayoutPersistence port, Fin<Seq<RouteRestoreFact>> outcome) =>
         outcome.Map(facts => (port.Count(Restored), facts).Item2);
 
-    // Blobs become checkpoints in ONE place: the restore path and the support capture read one admission, so
-    // a parcel this build did not author reads as absent to both rather than to whichever asked.
     private static Option<LayoutCheckpoint> Opened(Option<string> blob) =>
         blob.Bind(static held => LayoutCheckpoint.Seal.Read<LayoutCheckpoint>(held, LayoutCheckpoint.Admit).Value);
 
@@ -704,9 +575,6 @@ public static class LayoutLedger {
                 Name: "dock-layout",
                 Classification: DataClassification.Operational,
                 EstimatedBytes: ShellPolicy.LayoutArtifactBytes,
-                // The redaction count is the redactor's own measurement, never a literal: an absent checkpoint
-                // contributes zero bytes and zero redactions because nothing was examined — and a parcel the
-                // seal refuses is absent by the same read, so the bundle never masks bytes it cannot admit.
                 Produce: capture => port.Latest.Map(latest =>
                     Opened(latest).Map(port.Support).IfNone(ArtifactPayload.Empty)))));
 
@@ -716,12 +584,8 @@ public static class LayoutLedger {
 ```
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// A named workspace is ONE row: the arrangement it seats, the chrome it hides, and the route it opens on. The
-// mode a user picks and the layout they get are therefore the same value. Every shipped row seats the one
-// Workbench program — the column is the capability, the shared value is seed data, and a review layout that
-// diverges is one row edit.
 public sealed record WorkspaceRow(
     string Key,
     string LabelKey,
@@ -730,8 +594,6 @@ public sealed record WorkspaceRow(
     string DefaultRoute);
 
 public static class Workspaces {
-    // The verbs live on the command deck, so switching a workspace is bindable, palette-searchable, and
-    // journal-replayable exactly as every other verb is.
     public const string EnterVerb = "workspace.enter";
     public const string SaveVerb = "workspace.save";
     public const string ResetVerb = "workspace.reset";
@@ -749,10 +611,6 @@ public static class Workspaces {
             .ToFin(new NavFault.UnknownWorkspace(key));
 }
 
-// Switching a workspace is a LIVE snapshot pair, never a serializer round-trip: the outgoing arrangement
-// saves into its own dock-state cell and the incoming one restores from its cell over a freshly built
-// program, so switching away and back returns the exact arrangement including the transient state the
-// serialized blob never carried. One cell per workspace, because IDockState holds exactly one snapshot.
 public sealed record WorkspaceCell(
     Func<RegionProgram, Fin<IRootDock>> Build,
     Func<IDock> Live,
@@ -772,20 +630,12 @@ public sealed record WorkspaceCell(
                         Fin.Succ(Seq<RouteRestoreFact>(new RouteRestoreFact.Resolved(next.DefaultRoute)))).Item2),
                 Fail: error => IO.pure(Fin.Fail<Seq<RouteRestoreFact>>(error))));
 
-    // The explicit snapshot the save verb raises: `Enter` saves the OUTGOING arrangement on a switch, so this
-    // is the seat for pinning the current arrangement WITHOUT leaving it.
     public IO<Unit> Save(WorkspaceRow row) => IO.lift(() => StateOf(row.Key).Save(Live()));
 
-    // Reset DISCARDS the workspace's snapshot rather than editing it, so the next entry rebuilds from the
-    // region program — nothing in a snapshot records which differences were user arrangement.
     public IO<Fin<Seq<RouteRestoreFact>>> Reset(WorkspaceRow row) =>
         IO.lift(() => { StateOf(row.Key).Reset(); return unit; }).Bind(_ => Enter(row));
 }
 
-// The per-instance partition key EVERY persisted carrier keys on. The ordinal is monotone per (workspace,
-// route) rather than a fresh identity per spawn, because a restored instance must FIND the partition it
-// wrote and a minted GUID finds none; the zeroth instance carries no suffix so a single-instance route's key
-// never churns.
 public readonly record struct SurfaceKey(string Workspace, string Route, int Instance) {
     public string Value => Instance is 0 ? $"{Workspace}/{Route}" : $"{Workspace}/{Route}#{Instance}";
 
@@ -796,13 +646,9 @@ public readonly record struct SurfaceKey(string Workspace, string Route, int Ins
                 .Fold(-1, static (best, key) => Math.Max(best, key.Instance)) + 1);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class DocumentInstances {
-    // The package's OWN spawn path and nothing beside it: CanCreateDocument gates the affordance,
-    // CreateDocument runs the spawn, DocumentFactory supplies the dockable, AddDocument seats it — a
-    // hand-built Document appended to VisibleDockables bypasses the factory's init, its registries, and
-    // every DockableAdded consumer at once.
     public static IDocumentDock Spawnable(IDocumentDock dock, IDocumentDockFactory spawn) {
         dock.CanCreateDocument = true;
         dock.CreateDocument = ReactiveCommand.Create(() =>
@@ -810,9 +656,6 @@ public static class DocumentInstances {
         return dock;
     }
 
-    // The factory column the dock spawns through: each call mints the NEXT surface key for its route, so the
-    // instance identity is decided at spawn and every carrier keyed on it partitions from that moment. A
-    // route the shell cannot resolve falls to the TEMPLATE body — the spawn's own declared fallback.
     public static Func<IDockable> Factory(
         ShellDockFactory factory, ShellRoot shell, IDocumentTemplate template, string workspace, string route,
         Func<string, string> title, Func<Seq<SurfaceKey>> live, Func<SurfaceKey, Unit> minted) =>
@@ -827,8 +670,6 @@ public static class DocumentInstances {
         };
 }
 
-// The tool-chrome election as a row, not a bool written twice: `Frame` means the tool chrome IS the window
-// frame, `Content` that the platform band stays and the chrome fills the content edge.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToolChromeRole {
@@ -838,8 +679,6 @@ public sealed partial class ToolChromeRole {
     public bool Owns { get; }
 }
 
-// Tear-out and its restore clamp. The float host is chromed by the OWNED window row, which suppresses the
-// platform frame, so a torn-out panel wears Dock's own `HostWindowTitleBar` rather than the platform's.
 public static class TearOut {
     public static Func<IHostWindow?> HostFactory(ToolChromeRole chrome) => () => {
         HostWindow host = WindowRow.TearOut.Apply(new HostWindow());
@@ -855,16 +694,12 @@ public static class TearOut {
 }
 
 public static class WindowPlacement {
-    // Every saved float rectangle folds against the LIVE working areas before the graph is seated: a window
-    // still intersecting a live area keeps its geometry untouched; one that intersects nothing re-seats onto
-    // the primary area, centred and bounded by it.
     public static Unit Clamp(IRootDock root, Seq<PixelRect> working) =>
         working.IsEmpty
             ? unit
             : toSeq(root.Windows ?? []).Fold(unit, (_, window) => Seat(window, working));
 
     private static Unit Seat(IDockWindow window, Seq<PixelRect> working) {
-        // Rounded, never truncated: a fractional DPI-scaled rectangle truncates inward one pixel per restore.
         PixelRect saved = new(
             (int)Math.Round(window.X), (int)Math.Round(window.Y),
             (int)Math.Round(Math.Max(1d, window.Width)), (int)Math.Round(Math.Max(1d, window.Height)));
@@ -912,10 +747,8 @@ flowchart LR
 - Boundary: rows carry intent keys only — command mechanics, gestures, and availability live on the intent table and arrive as settled vocabulary, so menu item classes and per-surface registries are the deleted patterns; every slot's content resolves to `ControlIntent` rows through `Materialize`, so the chrome fold mints no control of its own; geometry is `Shell/solver` `ChromeProgram` rows, so no chrome surface names a panel type; the RAIL is the Ursa nav-menu surface whose collapse POSTURE arrives through `BreakpointRow.Rail` on the tier-selects-program seam, so a rail never measures a width; a rail entry's badge is the package's `Badge` with its dot, corner, and overflow columns so a count past its cap renders the package's own overflow form; a rail group's flyout re-seats the `Theme/motion` Flyout plan's origin from LIVE placement at open — one plan, every side; overflow promotion is the toolbar's own `OverflowMode` attached per child; the STATUS footer materializes only on status-admitting mounts, three zones distributing through the `SpaceBetween` flow program; where a running operation REPORTS is `ProgressLocation.Select` over expected duration and `WorkPosture` — long blocking work stays inline, long background work takes the persistent strip, brief background work announces once as a toast — and the run-queue card is the owing consumer of that policy row; the HUD is corner chips through the package's own `ProportionalCanvas` quartet, camera facts reaching chips through injected observables; readout chips bind `TypographyRole.Numeric` so a coordinate readout does not jitter on digit change; the notification inbox reaches chrome as an ORDINARY row (`ShellChrome.Activity`) badged on the center's unread projection, seated on the status trail because an inbox that disappears at the compact tier is one a user stops trusting; the CONTEXT menu derives its items from the command deck by TARGET KIND — a row's `Accepts` set is the admitted payload-kind domain; the Menu slot projects to the macOS global menu through `NativeMenu.MenuProperty` with `GetIsNativeMenuExported` as the probe, and to the managed `NativeMenuBar` elsewhere; the Tray slot materializes through the `TrayIcon.IconsProperty` attached collection; embedded mounts suppress menu, status, and rail chrome because the host owns its own chrome; window titles compose through `Title`, which `Shell/hosts` `WindowTitle` subscribes per owned window.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The visibility matrix as THREE named rows rather than seven verbatim lambdas: the matrix states a fact
-// about SURFACES, so the fact is declared once and each slot names its row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SlotAdmission {
@@ -930,9 +763,6 @@ public sealed partial class SlotAdmission {
     public partial bool Admits(ConsumptionProfile profile, SurfaceMount mount);
 }
 
-// The slot realizes the kernel capability floor, so a workspace's suppressed set is a `CapabilitySet` with
-// set equality rather than a reference-compared frozen set.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -944,12 +774,8 @@ public sealed partial class ChromeSlot : ICapability<ChromeSlot> {
     public static readonly ChromeSlot Status = new("status", ChromeProgram.StatusBar, SlotAdmission.StandingSurface);
     public static readonly ChromeSlot Hud = new("hud", ChromeProgram.HudStack, SlotAdmission.Surfaced);
     public static readonly ChromeSlot Context = new("context", ChromeProgram.ContextItems, SlotAdmission.Surfaced);
-    // A sidecar process owns its own tray presence while an in-host one would mint a second icon for an
-    // application the host already represents — that one cell narrows on the row's Visible predicate over
-    // the profile's topology rather than widening the slot admission every other cell shares.
     public static readonly ChromeSlot Tray = new("tray", ChromeProgram.Toolbar, SlotAdmission.WindowedStandalone);
 
-    // The layout program this slot's children expand into, so a chrome surface never names a panel type.
     public ChromeProgram Program { get; }
 
     public SlotAdmission Admission { get; }
@@ -978,7 +804,6 @@ public sealed partial class PaneKind {
     public static readonly PaneKind Progress = new("progress");
 }
 
-// The reporting posture as a row, never a bool a call site passes.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WorkPosture {
@@ -986,10 +811,6 @@ public sealed partial class WorkPosture {
     public static readonly WorkPosture Background = new("background");
 }
 
-// WHERE a running operation reports is policy over two facts the caller already holds: blocking work reports
-// inline where the user is already looking, long background work takes the persistent strip, and brief
-// background work announces once and leaves — a five-minute export must not report on a surface that scrolls
-// away while it runs. The run-queue card (`Shell/screens#RUN_QUEUE`) is the owing consumer.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1006,11 +827,8 @@ public sealed partial class ProgressLocation {
         : Toast;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// A dot and a count are two PRESENTATIONS, not two columns: the union makes a dot carrying an overflow count
-// unrepresentable, and the counted case names the live fact its header binds — a badge with a static count is
-// a decoration.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BadgeMark {
     private BadgeMark() { }
@@ -1018,23 +836,16 @@ public abstract partial record BadgeMark {
     public sealed record Counted(CornerPosition Corner, int Overflow, string CountKey) : BadgeMark;
 }
 
-// Four payload shapes because four slots carry structurally different content: one flat row with every
-// column optional would let a status pane carry a corner and a HUD chip carry a zone.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChromeContent {
     private ChromeContent() { }
 
     public sealed record Entry(Option<IconSlot> Icon, Option<BadgeMark> Badge, Option<string> Group, OverflowMode Overflow) : ChromeContent;
-    // `Measure` names the readout's quantity role, because a footer figure is a MEASUREMENT and a default
-    // `ToString` renders the invariant unit system with invariant separators; a pane whose fact is not a
-    // quantity carries None and renders its text as given.
     public sealed record Pane(PaneKind Kind, StatusZone Zone, string FactKey, Option<BadgeMark> Badge, Option<MeasureRole> Measure) : ChromeContent;
     public sealed record Chip(CornerPosition Corner, string FactKey) : ChromeContent;
     public sealed record Items(string TargetKind) : ChromeContent;
 }
 
-// The row's IntentKey is deliberately the deck key, the label key, and the control id at once: the deck is
-// the ONE verb registry, so the three reads share one identity by design rather than by coincidence.
 public sealed record ChromeRow(
     string IntentKey,
     ChromeSlot Slot,
@@ -1042,11 +853,9 @@ public sealed record ChromeRow(
     Func<ConsumptionProfile, bool> Visible,
     ChromeContent Content);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ShellChrome {
-    // Rank orders the rows and the MIRRORING LAW reverses them, so a right-to-left locale reads a rail, a
-    // tool bar, and a footer in the direction its script runs without any row carrying a direction column.
     public static Seq<ChromeRow> Project(ConsumptionProfile profile, SurfaceMount mount, ChromeSlot slot, Seq<ChromeRow> rows, LocaleRow locale) =>
         slot.Admits(profile, mount)
             ? MirrorSubject.ChromeZone.Order(
@@ -1056,9 +865,6 @@ public static class ShellChrome {
                 locale)
             : Seq<ChromeRow>();
 
-    // Every slot's content resolves to ONE control intent, so the chrome fold mints no control of its own.
-    // A row naming a key the deck does not carry is a roster defect — it refuses here rather than
-    // materializing a button whose command silently never fires.
     public static Fin<ControlIntent> Materialize(ChromeRow row, CommandDeck deck, Func<string, string> label) =>
         deck.Rows.TryGetValue(row.IntentKey, out CommandRow? intent)
             ? Fin.Succ(row.Content.Switch(
@@ -1071,7 +877,6 @@ public static class ShellChrome {
                         Hint = s.Intent.Gesture.Map(gesture => new HintRow(s.Label(s.Row.IntentKey), Some(s.Deck.Chord(gesture)))),
                     }),
                 pane: static (s, content) => PaneIntent(s.Row, content),
-                // Readout chips take the numeric role, whose numeral modality fixes advance width.
                 chip: static (s, content) => (ControlIntent)new ControlIntent.Label(
                     s.Row.IntentKey, content.FactKey, TypographyRole.Numeric, IntentBinding.Of(PaintRole.TextMuted)),
                 items: static (s, content) => (ControlIntent)new ControlIntent.Menu(
@@ -1093,9 +898,6 @@ public static class ShellChrome {
             progress: static s => (ControlIntent)new ControlIntent.Progress(
                 s.Row.IntentKey, ProgressForm.Bar, None, IntentBinding.Of(PaintRole.Accent) with { ValueKey = Some(s.Content.FactKey) }));
 
-    // Context items are exactly the verbs that ACCEPT the target kind: the deck row's own admitted payload
-    // domain is the filter, so a menu can never offer a verb whose payload admission would refuse the very
-    // target it was opened over.
     static Seq<MenuRow> ContextRows(CommandDeck deck, string targetKind, Func<string, string> label) =>
         toSeq(toSeq(deck.Rows.Values)
                 .Filter(intent => intent.Accepts.Contains(targetKind))
@@ -1110,8 +912,6 @@ public static class ShellChrome {
                 CheckedKey: None,
                 Rows: Seq<MenuRow>()));
 
-    // Badge and overflow are ATTACH-time facts, never intent columns: a badge WRAPS its content in the
-    // package's own headered badge and overflow is an attached property the tool bar reads off each child.
     public static Control Adorn(ChromeRow row, Control control, Func<string, Control, AvaloniaProperty, Fin<IDisposable>> bind) =>
         Adorned(row) is { Badge: var badged, Overflow: var overflow }
             ? badged.Match(
@@ -1133,16 +933,12 @@ public static class ShellChrome {
                 })
             : control;
 
-    // Badge and overflow live on two content cases, so ONE reader projects both rather than each adorn site
-    // pattern-matching the union again.
     static (Option<BadgeMark> Badge, OverflowMode Overflow)? Adorned(ChromeRow row) => row.Content switch {
         ChromeContent.Entry entry => (entry.Badge, entry.Overflow),
         ChromeContent.Pane pane => (pane.Badge, OverflowMode.Never),
         _ => null,
     };
 
-    // A footer figure is a MEASUREMENT, so a readout pane naming a role renders through the locale quantity
-    // fold and never a default `ToString`; a pane with no role renders its fact as given.
     public static Func<object, Fin<string>> Readout(ChromeRow row, ResolvedLocale locale) =>
         row.Content is ChromeContent.Pane { Measure.Case: MeasureRole role }
             ? value => value is IQuantity quantity
@@ -1150,9 +946,6 @@ public static class ShellChrome {
                 : Fin.Fail<string>(new NavFault.UnknownRoute($"{row.IntentKey}: readout is not a quantity"))
             : value => Fin.Succ(value?.ToString() ?? string.Empty);
 
-    // The flyout a rail group opens re-seats the motion origin from its LIVE placement, so one Flyout plan
-    // serves every side. The forward correspondence lives here because PlacementMode is this toolkit's; the
-    // motion owner holds the origin vocabulary — a placement⇄origin table at both would drift.
     public static MotionOrigin Origin(PlacementMode placement) => placement switch {
         PlacementMode.Right or PlacementMode.RightEdgeAlignedTop or PlacementMode.RightEdgeAlignedBottom => MotionOrigin.Leading,
         PlacementMode.Left or PlacementMode.LeftEdgeAlignedTop or PlacementMode.LeftEdgeAlignedBottom => MotionOrigin.Trailing,
@@ -1161,9 +954,6 @@ public static class ShellChrome {
         _ => MotionOrigin.Top,
     };
 
-    // The activity affordance is an ORDINARY chrome row: the badge count binds the center's own unread
-    // projection and the two verbs are its own command keys, so the inbox takes the identical slot admission,
-    // materialization, and overflow policy every other entry takes.
     public static readonly ChromeRow Activity =
         new(IntentKey: ActivityCenter.OpenKey,
             Slot: ChromeSlot.Status,
@@ -1176,8 +966,6 @@ public static class ShellChrome {
                 Badge: Some<BadgeMark>(new BadgeMark.Counted(CornerPosition.TopRight, 99, nameof(ActivityCenter.Unread))),
                 Measure: None));
 
-    // The selection readout the `Editing/forms#SELECTION_MODEL` `SelectionChannel` snapshot feeds: a READOUT
-    // rather than a toggle because a count is a fact with no affordance, seated trail-side beside the inbox.
     public static readonly ChromeRow Selection =
         new(IntentKey: SelectionSet.ListIntent,
             Slot: ChromeSlot.Status,
@@ -1215,10 +1003,8 @@ Visibility matrix — the value source the three `SlotAdmission` rows realize; t
 - Boundary: `AdaptiveLayout.Resolve` is the ONE responsive owner and `Attach` its only ingress, so a per-view width literal is the deleted pattern; the `Xaml.Behaviors` responsive pair is the REJECTED form structurally — each class setter carries its own min/max pair, a second breakpoint table authored in XAML beside this one, and a class setter is a LOOKUP where this fold is a TRANSITION, so it cannot express "only a flip counts"; the tier SELECTS the layout program rather than adjusting one — `BreakpointRow.Rail` names the `ChromeProgram` the rail expands into and a hidden posture names none, the counterpart law standing at `Shell/solver#LAYOUT_PRESETS` where a preset carries no width column; density-aware spacing arrives from the theme token resolve and composes orthogonally; the row keys are serializable strings, so the designed-only WebBrowser growth case consumes the same vocabulary with zero live surface.
 
 ```csharp signature
-// --- [TABLES] -------------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
-// The rail's posture per tier, carrying the program it expands into. A hidden rail carries NONE rather than
-// an empty program, because an empty flow still mints a panel, a gap, and a solver owner for nothing.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1241,32 +1027,24 @@ public sealed partial class BreakpointRow {
 
     public double MinWidth { get; }
 
-    // The tier SELECTS the rail's program — the rail never measures a width itself.
     public RailPosture Rail { get; }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class AdaptiveLayout {
     public static readonly InstrumentSpec Breakpoint = InstrumentSpec.Create(
         "rasm.appui.layout.breakpoint", InstrumentKind.Count, MeasureForm.Whole, "{transition}",
         "responsive-tier transitions by row key", Seq(AppUiTelemetry.TierSlot), None, None, None);
 
-    // The ascending table is a FROZEN roster ordered once: `Resolve` runs per distinct width, so a
-    // re-sorting accessor would sort twice per resize sample to answer an order that cannot change.
     public static readonly Seq<BreakpointRow> Rows = toSeq(BreakpointRow.Items.OrderBy(static row => row.MinWidth));
 
-    // Resolve is a TRANSITION, not a lookup: the prior row is the input a flip is defined against, so the
-    // count fires once per genuine tier change and a resize sweep inside one tier counts nothing.
     public static BreakpointRow Resolve(BreakpointRow prior, double width, Func<InstrumentSpec, string, Unit> count) =>
         Rows.Fold(Rows[0], (best, row) => row.MinWidth <= width ? row : best) switch {
             var next when next == prior => next,
             var next => (count(Breakpoint, next.Key), next).Item2,
         };
 
-    // The one ingress: a surface root's own bounds drive the fold. The width de-duplicates BEFORE the fold,
-    // and the tier cell steps under the kernel transition so two subscriptions on one root cannot race the
-    // compare — only the writer that committed the flip applies the program.
     public static IDisposable Attach(
         Visual root, Atom<BreakpointRow> tier, SurfaceRuntime runtime, IScheduler ui, Func<BreakpointRow, Unit> apply) =>
         root.GetObservable(Visual.BoundsProperty)

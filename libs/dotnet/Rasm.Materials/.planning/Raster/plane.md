@@ -29,7 +29,7 @@ Typed texels size the arena because bytes cannot: `byte[]` caps at `Array.MaxLen
 - Growth: a new combinable column is one `PlaneTrait` row plus its membership on the owning axis' rows; a new range window is one `PlaneRange` affine pair; a new fold law is one `MipPolicy` row. No arm, no ctor arity, and no consumer moves for any of the three.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -46,10 +46,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Raster;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// What the stored number IS. The axis a transfer row projects onto, and the reason `raw` and `linear` are two rows:
-// both decode by identity, but a colour transform reaches `light` and never `parameter`, and `display` is the pair
-// no scene-referred bake may carry.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlaneQuantity {
@@ -58,10 +55,6 @@ public sealed partial class PlaneQuantity {
     public static readonly PlaneQuantity Display = new("display");
 }
 
-// PlaneTrait is the vocabulary's ONE combinable-column roster over the kernel ICapability floor: the association and
-// level-fold axes each declared a private bool pair, so a new fold law was a column plus a ctor arity change on every
-// row of its owner and nothing could project the columns onto a wire. One roster answers both, `Traits` is one column
-// per owner, and a new law is one row the owning axis names in its own set.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlaneTrait : ICapability<PlaneTrait> {
@@ -74,33 +67,22 @@ public sealed partial class PlaneTrait : ICapability<PlaneTrait> {
     private PlaneTrait(string key, int rank) : this(key) => Rank = rank;
 }
 
-// PlaneTransfer rows carry the encoded transfer. Function is the composed fold's own row and NULL means identity — the
-// one place `raw` and `linear` differ numerically is nowhere, so the difference lives on Quantity instead of on a second curve.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlaneTransfer {
     public static readonly PlaneTransfer Linear = new("linear", TransferFunction.Linear, PlaneQuantity.Light, sceneReferred: true);
     public static readonly PlaneTransfer Srgb = new("srgb", TransferFunction.Srgb, PlaneQuantity.Display, sceneReferred: true);
     public static readonly PlaneTransfer Raw = new("raw", function: null, PlaneQuantity.Parameter, sceneReferred: true);
-    // Pq and Hlg encode a display-referred transfer and assert NO reference white: the 203-nit HDR anchor is
-    // surface#TONE_MAP DisplayEncoding's DynamicRange column, so a plane carrying pq with no DisplayEncoding
-    // provenance carries legible code values whose absolute luminance nothing states.
     public static readonly PlaneTransfer Pq = new("pq", TransferFunction.Pq, PlaneQuantity.Display, sceneReferred: false);
     public static readonly PlaneTransfer Hlg = new("hlg", TransferFunction.Hlg, PlaneQuantity.Display, sceneReferred: false);
 
     public TransferFunction? Function { get; }
     public PlaneQuantity Quantity { get; }
-    // Bake legality is the column set#TEXTURE_SET reads: srgb decodes to scene-linear at Read, so it bakes; pq/hlg are
-    // environment-only display transfers that refuse on every channel plane.
     public bool SceneReferred { get; }
     public bool Identity => Function is null or TransferFunction.Linear;
     private PlaneTransfer(string key, TransferFunction? function, PlaneQuantity quantity, bool sceneReferred) : this(key) =>
         (Function, Quantity, SceneReferred) = (function, quantity, sceneReferred);
 
-    // Decode reads an ENCODED lane run and writes scene-linear; Encode is its inverse. Both delegate to the composed
-    // span fold, which admits a destination aliasing its source at the same start — so one scratch run threads a row. The
-    // span-shaped dispatch is the section's [EXPRESSION_SPINE] kernel exemption: a switch expression cannot carry
-    // void arms and a lambda cannot capture a span, so the identity short-circuit is a statement.
     public void Decode(ReadOnlySpan<float> source, Span<float> destination) {
         if (Identity) { source.CopyTo(destination); return; }
         ImageProcessing.DecodeTransfer(source, destination, Function!.Value);
@@ -112,14 +94,6 @@ public sealed partial class PlaneTransfer {
     }
 }
 
-// PlanePrimaries rows carry the chromaticity a plane's colour lanes are stated against — a SEPARATE axis from
-// transfer, because a linear plane may be AP1, Rec.709, or AP0 and a container labels each differently. Geometry is
-// the kernel RgbProfile row's own published chromaticity column, so this axis carries CONTAINER LABELS alone and the
-// eight-coordinate table it once transcribed per row — a second copy of numbers the working-space owner already
-// publishes — is deleted; Space is the composed reconciliation row Matrix resolves through and NULL means the resampler
-// carries no endpoint for that gamut; Cicp is the ITU-T H.273 code point where the standard names one, absent on the
-// two ACES rows the standard does not; Assign is the container token the KTX colour-assignment pair spells, so no
-// page derives a chromaticity label from a transfer.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlanePrimaries {
@@ -127,19 +101,9 @@ public sealed partial class PlanePrimaries {
     public static readonly PlanePrimaries Bt709 = new("bt709", ColorSpace.Srgb, cicp: 1, assign: "bt709", profile: RgbProfile.Srgb);
     public static readonly PlanePrimaries Bt2020 = new("bt2020", ColorSpace.Rec2020, cicp: 9, assign: "bt2020", profile: RgbProfile.Rec2020);
     public static readonly PlanePrimaries AcesAp0 = new("acesAp0", ColorSpace.AcesAp0, cicp: null, assign: "aces", profile: RgbProfile.Aces20651);
-    // P3-D65 DECLARES and never converts: the resampler's own ColorSpace roster carries no P3 endpoint, so the row
-    // holds the code point (SMPTE ST 432-1) and the container token while Matrix refuses it. Dropping the row was
-    // strictly worse — a PNG or WebP whose CICP block states P3 resolved to `unknown` and the file's own declaration
-    // was lost, which is the fabrication in the other direction.
     public static readonly PlanePrimaries P3D65 = new("p3d65", space: null, cicp: 12, assign: "displayp3", profile: RgbProfile.DisplayP3);
-    // CIE 1931 XYZ (SMPTE ST 428-1) is the one row whose geometry is DEFINITIONAL rather than measured — the identity
-    // primaries and the equal-energy white are the space's definition, not a published measurement a working-space
-    // preset could carry — and it is a full rebase endpoint the resampler does carry, so an EXR authored in XYZ
-    // reconciles instead of refusing.
     public static readonly PlanePrimaries Xyz = new("xyz", ColorSpace.Xyz, cicp: 10, assign: "ciexyz", geometry:
         (new Chromaticity(1.0, 0.0), new Chromaticity(0.0, 1.0), new Chromaticity(0.0, 0.0), new Chromaticity(1.0 / 3.0, 1.0 / 3.0)));
-    // Absence takes a row of its own: a decode that read no chromaticity attribute and no CICP block declares nothing, which is
-    // what makes the container's own --fail-on-color-conversions gate real rather than a stamp over a guess.
     public static readonly PlanePrimaries Unknown = new("unknown", space: null, cicp: null, assign: "none", geometry: None);
 
     public ColorSpace? Space { get; }
@@ -154,21 +118,10 @@ public sealed partial class PlanePrimaries {
         Option<(Chromaticity Red, Chromaticity Green, Chromaticity Blue, Chromaticity White)> geometry) : this(key) =>
         (Space, Cicp, Assign, Geometry) = (space, cicp, assign, geometry);
 
-    // Declared chromaticity resolves to the row it matches within one authoring tolerance, else to absence — a
-    // near-miss is a file stating primaries this estate does not carry, and naming the nearest row would fabricate
-    // exactly the label the axis exists to stop. Absence of GEOMETRY is what disqualifies a candidate, never absence
-    // of a rebase endpoint: a P3 header states real coordinates the roster must still recognize.
-    // The 1e-3 AUTHORING slack is a declared policy value admitted through the kernel Coordinate lane's own band
-    // (Ratio) — the type-init refusal is the registry-proof idiom, so an off-band policy edit fails at first touch.
     private static readonly Lazy<Tolerance> CoordinateBand = new(static () =>
         Tolerance.Of(lane: ToleranceLane.Coordinate, value: 1e-3, key: Op.Of(name: nameof(PlanePrimaries)))
             .IfFail(static e => throw e.ToException()));
 
-    // Both resolutions read a FROZEN index rather than walking the roster: `Of` runs per decoded container and a
-    // per-call roster scan re-derives a constant. The CICP arm is an exact key and freezes as a lookup; the
-    // chromaticity arm is a tolerance match no hash answers, so it freezes as the geometry-BEARING subset alone and
-    // the rows carrying no coordinates — the two ACES-adjacent declarations and absence itself — never enter the walk.
-    // The lazy seat defers past the generated roster's own initialization, so no row reads Items while Items is building.
     private static readonly Lazy<FrozenDictionary<int, PlanePrimaries>> ByCicp =
         new(static () => Items.Where(static row => row.Cicp is not null).ToFrozenDictionary(static row => row.Cicp!.Value));
 
@@ -181,8 +134,6 @@ public sealed partial class PlanePrimaries {
     public static PlanePrimaries Of(int cicp) =>
         ByCicp.Value.TryGetValue(cicp, out PlanePrimaries? row) ? row : Unknown;
 
-    // Chromaticities carries eight f32 coordinates, so each read widens to double before the comparison and the
-    // f32 quantization of a published coordinate sits three orders inside the authoring tolerance.
     public bool Matches(Chromaticities declared) =>
         Geometry.Map(g =>
             Near(g.Red, declared.RedX, declared.RedY) && Near(g.Green, declared.GreenX, declared.GreenY)
@@ -191,12 +142,6 @@ public sealed partial class PlanePrimaries {
     private static bool Near(Chromaticity row, double x, double y) =>
         Math.Abs(row.X - x) <= CoordinateBand.Value.Value && Math.Abs(row.Y - y) <= CoordinateBand.Value.Value;
 
-    // Matrix RESOLVES the gamut reconciliation ONCE per conversion — the package composes the XYZ pair with a
-    // Bradford-class adaptation where the white points differ, so no 3x3 is hand-typed here. An unknown endpoint
-    // REFUSES: a rebase across an undeclared gamut is a fabricated transform wearing a conversion. Resolution is the
-    // only fallible step, so the plane walk that consumes the matrix is TOTAL — a per-row rail whose refusal cannot
-    // change between rows is a leak arm wearing a guard, and lifting it here deletes both the arm and the per-row
-    // roster lookup it hid.
     public Fin<ColorMatrix3x3> Matrix(PlanePrimaries target, Op key) =>
         (Space, target.Space) switch {
             ({ } from, { } to) => Fin.Succ(ImageProcessing.GetColorMatrix(from, to)),
@@ -204,10 +149,6 @@ public sealed partial class PlanePrimaries {
         };
 }
 
-// AlphaMode rows carry the association as a PlaneTrait set: Coverage decides whether an alpha lane exists at all,
-// Premultiplied whether the colour lanes are scaled by it, and the two travel as one column because no row holds
-// Premultiplied without Coverage — a corner the bool pair could spell and the set cannot reach without naming both.
-// The straight-associated crossing is lossy below 16 bits, so [04] gates it on depth.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AlphaMode {
@@ -218,20 +159,9 @@ public sealed partial class AlphaMode {
     public CapabilitySet<PlaneTrait> Traits { get; }
     private AlphaMode(string key, CapabilitySet<PlaneTrait> traits) : this(key) => Traits = traits;
 
-    // ColourLanes and AlphaLane are the association's OWN lane arithmetic, seated here because every decode ladder,
-    // every band walk, every codec staging, and every filter kernel in the estate derived them by re-spelling the
-    // same ternary against a lane count — one row fact restated at two dozen call sites, each free to drift on the
-    // day a row stops reserving its coverage lane last. AlphaLane answers the composed resampler's own alpha-index
-    // convention, where a negative index declares absence, so the two readings differ by their sentinel alone.
     public int ColourLanes(int lanes) => Traits.Admits(PlaneTrait.Coverage) ? lanes - 1 : lanes;
     public int AlphaLane(int lanes) => Traits.Admits(PlaneTrait.Coverage) ? lanes - 1 : -1;
 
-    // Convertible is the ONE crossing predicate, keyed on COVERAGE MATH rather than lane cardinality: identity always converts; a
-    // crossing that runs no coverage multiply — straight to none, none to anything (coverage is definitionally one) —
-    // converts at every depth; and a crossing that multiplies or divides by a stored coverage admits only above 8
-    // bits, because the quantized division amplifies its own step into colour error the inverse cannot recover. The
-    // [04] ToAlpha gate and the set#TEXTURE_SET admission both read THIS row fact, so the 16-bit floor has one
-    // spelling — and the Radiance egress lives for a straight chain, whose drop to none is arithmetic-free.
     public bool Convertible(AlphaMode target, ChannelDtype depth) =>
         target == this
         || (!Traits.Admits(PlaneTrait.Premultiplied) && !target.Traits.Admits(PlaneTrait.Premultiplied))
@@ -239,11 +169,6 @@ public sealed partial class AlphaMode {
         || depth != ChannelDtype.Unorm8;
 }
 
-// PlaneRange rows carry the stored value range as the AFFINE MAP from storage span onto value span — the corpus's only
-// spelling of the signed integer packing, held as row DATA rather than as a bool the two members re-branch on. The unit
-// row is the identity affine, so `Unpack`/`Pack` are one expression pair over every row and a new range window (a
-// half-signed store, a [0,2] exposure store) is one row with no arm anywhere. A float plane stores its value verbatim,
-// so the depth gate stays the ONE branch and no kernel above this page ever sees a packing at all.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlaneRange {
@@ -260,8 +185,6 @@ public sealed partial class PlaneRange {
         PlaneFormat.Normalizes(depth) ? (value - Bias) / Scale : value;
 }
 
-// Green polarity. The wire is always `gl`; `dx` is an INGEST record converted once through ToGl — or through the
-// equivalent filter#PLANE_OP Swizzle lane inversion — before the plane is keyed.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NormalConvention {
@@ -271,17 +194,9 @@ public sealed partial class NormalConvention {
     public double GreenSign { get; }
     private NormalConvention(string key, double greenSign) : this(key) => GreenSign = greenSign;
 
-    // ToGl flips a DECODED texel — a green-sign multiply, never a depth-branching pair, because the integer
-    // 1-g spelling is PlaneRange's and set#SET_INGEST is this member's one caller.
     public ShadeVec4 ToGl(ShadeVec4 decoded) => decoded with { Y = GreenSign * decoded.Y };
 }
 
-// MipPolicy rows carry the level fold. Filter is the composed separable downsample a row delegates to, and NULL routes
-// the kaiser row to [05]'s Materials-owned windowed-sinc kernel: the kernel Numerics/transform#WINDOW WindowTaper.Kaiser
-// row DOES exist, but it publishes an endpoint-aligned width-N window ARRAY where this fold evaluates the same Kaiser
-// bell at twelve half-texel offsets inside a sinc product, so the discriminant is PUBLICATION SHAPE and never absence.
-// Traits carries the fold's own PlaneTrait set: Chains states whether a chain exists at all, Renormalize and Coupled the
-// two post-folds making a vector chain and a roughness chain correct rather than merely smaller.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MipPolicy {
@@ -310,9 +225,7 @@ public sealed partial class MipPolicy {
 - Growth: a new depth is one `IComponent` witness with its rows, one `Normalizes` arm, and one `WebReachable` arm; a new arity is one texel struct with its rows; a new storage row is one `PlaneFormat` declaration naming its arity, witness, component count, depth, and alpha. Nothing else on this page, in the codec, in the filter, or in the pyramid changes — the `Rent` column carries the type application and every consumer stays generic over `ITexel`.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// IComponent<T> witnesses one storage scalar as a static-abstract pair, so normalization is declared once per depth
-// and the texel arities stay generic. byte/ushort/Half/float cannot implement an interface, so the witness carries it.
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IComponent<T> where T : unmanaged {
     static abstract double ToUnit(T value);
     static abstract T FromUnit(double value);
@@ -338,9 +251,6 @@ public readonly struct F32 : IComponent<float> {
     public static float FromUnit(double value) => (float)value;
 }
 
-// ITexel<TSelf> contracts every arena element. Lanes is the storage width; Project/Compose are the lane
-// correspondence [04]'s row rails fold through, and they are the page's [EXPRESSION_SPINE] kernel exemption —
-// fixed-arity index writes into a caller-owned span.
 public interface ITexel<TSelf> where TSelf : unmanaged, ITexel<TSelf> {
     static abstract int Lanes { get; }
     static abstract void Project(in TSelf texel, Span<double> lanes);
@@ -378,10 +288,6 @@ public readonly record struct Texel4<TC, TW>(TC C0, TC C1, TC C2, TC C3) : ITexe
         new(TW.FromUnit(lanes[0]), TW.FromUnit(lanes[1]), TW.FromUnit(lanes[2]), TW.FromUnit(lanes[3]));
 }
 
-// PlaneFormat rows roster storage. Depth is the KERNEL ChannelDtype row; Rent is the type application — the ONE
-// column that erases the texel type into the arena, so every surface above this page is generic over ITexel and none
-// of them enumerates a format. The two-lane float rows feed the two-component normal path the codec's BC5 block row
-// and [04]'s two-lane register seat both already reserve.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlaneFormat {
@@ -405,27 +311,12 @@ public sealed partial class PlaneFormat {
     public long BytesPerTexel => (long)Components * Depth.Width;
     public bool Normalized => Normalizes(Depth);
     public bool WebLegal => WebReachable(Components, Depth);
-    // MaxComponents reads the roster's own widest storage arity — the ONE source for a consumer sizing a widest-case lane scratch, so
-    // no kernel hardcodes a lane-count literal the roster could outgrow. The roster is FROZEN at construction, so the
-    // fold runs once behind a lazy seat rather than per read: filter#PLANE_OP sizes a scratch off this member per row
-    // of every band it walks, and a per-access roster fold there is a LINQ pipeline inside a per-texel loop.
     private static readonly Lazy<int> WidestArity = new(static () => Items.Max(static row => row.Components));
 
     public static int MaxComponents => WidestArity.Value;
 
-    // Normalizes is the ONE discriminant over the four kernel depth rows this arena realizes: the Unorm rows scale
-    // onto [0,1] through their witness and the Float rows pass verbatim. The kernel roster carries width, tolerance,
-    // and the complex pairing and NO normalization column, because a byte arena reads its own pack arm — so the
-    // correspondence is stated once beside the rows that declare it and PlaneRange, AlphaMode, and
-    // codec#RASTER_FORMAT all read this member rather than re-testing a dtype identity.
     public static bool Normalizes(ChannelDtype depth) => depth == ChannelDtype.Unorm8 || depth == ChannelDtype.Unorm16;
 
-    // WebReachable is the ONE wire-target discriminant, the storage-side twin of codec#RASTER_CODEC KtxPayload.WireLegal.
-    // Narrow 16-bit UNORM stores carry no Vulkan format row the browser KTX2 read path resolves, so r16 and rg16 stay
-    // producer-side and desktop-native. Arity and depth decide it as a RULE rather than a per-row column, exactly as
-    // Normalizes does, so a new witness or arity answers here once and every refusal follows with no literal to chase.
-    // It bites hardest where [05] routes a direction plane to two components: that makes the natural high-precision
-    // normal store the undecodable one, and the producer re-routes to Rg16F rather than ship a file no consumer opens.
     public static bool WebReachable(int components, ChannelDtype depth) =>
         depth != ChannelDtype.Unorm16 || components >= 4;
 
@@ -434,9 +325,6 @@ public sealed partial class PlaneFormat {
     private static PlaneFormat Row(string key, int components, ChannelDtype depth, AlphaMode alpha, Func<int, int, AllocationMode, PlaneStore> rent) =>
         new(key, components, depth, alpha, rent);
 
-    // Storage width rounds a SEMANTIC count up through {1, 2, 4}: a three-lane channel takes the four-lane row and
-    // declares AlphaMode.None. The roster is total over the three arities at every depth, so the projection never
-    // rounds past the arity a channel declares and an absent pair is a typed absence rather than a fabrication.
     public static Option<PlaneFormat> For(int semanticComponents, ChannelDtype depth) =>
         toSeq(Items.Where(row => row.Depth == depth && row.Components >= Math.Max(1, semanticComponents))
                    .OrderBy(static row => row.Components))
@@ -460,7 +348,7 @@ public sealed partial class PlaneFormat {
 - Boundary: the arena is TYPED end to end and exposes no whole-plane byte view. `MemoryMarshal.AsBytes` over one row span is the sole reinterpretation, taken by the key fold and by the codec bridge, so a caller cannot address the plane as bytes and no consumer can smuggle a depth reinterpretation past the format row. `AllocationMode.Clear` is the admission default because a partially-written plane must read its neutral rather than pool residue, and a press writing every texel passes `AllocationMode.Default` to skip the zeroing pass over a quarter-billion elements.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.IO.Hashing;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
@@ -476,15 +364,11 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Raster;
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// IPlaneFold<TResult> seams re-entry. A caller holding a type-erased store hands in a struct fold and the JIT specializes
-// one body per texel type — closure-free, allocation-free, and total, because PlaneStore<T> is the only realization.
+// --- [MODELS] --------------------------------------------------------------------------
 public interface IPlaneFold<TResult> {
     TResult Fold<T>(Memory2D<T> view) where T : unmanaged, ITexel<T>;
 }
 
-// ONE generic arena. The abstract base exists to erase T at the TexturePlane field; it carries no case roster, so a
-// new storage row adds no case here — it adds a PlaneFormat row whose Rent column names the type application.
 public abstract record PlaneStore : IDisposable {
     public abstract int Lanes { get; }
     public abstract void Dispose();
@@ -498,24 +382,15 @@ public abstract record PlaneStore : IDisposable {
     }
 }
 
-// The owner slot is OPTIONAL because ownership is what a window does not have: an absent owner makes "a windowed
-// layer never owns the arena" a fact the type holds rather than a sentence a caller has to read, and a layer's
-// Dispose can no longer tear down the parent's rental out from under every sibling band.
 public sealed record PlaneStore<T>(Option<MemoryOwner<T>> Owner, Memory2D<T> View) : PlaneStore
     where T : unmanaged, ITexel<T> {
     public override int Lanes => T.Lanes;
     public override void Dispose() => Owner.Iter(static owner => owner.Dispose());
     public override TResult Accept<TFold, TResult>(scoped in TFold fold) => fold.Fold(View);
-    // Window BORROWS the rental — the layer band is a view, never a copy — so disposal stays with the owning plane.
     public override PlaneStore Window(int rowOffset, int rows) =>
         new PlaneStore<T>(Option<MemoryOwner<T>>.None, View.Slice(rowOffset, 0, rows, View.Width));
 }
 
-// TexturePlane admits the plane. Grid is the kernel cell lattice seated at ONE layer — it owns the two spatial axes, the
-// index-to-world affine that carries the spatial grain, the linearization, the budget ceiling, and the Coarsen step
-// [05] folds. Layers extends the arena by BAND rather than by a lattice axis, so cube faces, array slices, volume
-// slabs, and flipbook frames are ONE shape whose law set#TEXTURE_SET's LayerLaw row names — and a mip level never
-// halves a face count.
 public sealed record TexturePlane(
     PlaneFormat Format,
     CellLattice Grid,
@@ -526,13 +401,8 @@ public sealed record TexturePlane(
     PlaneRange Range,
     PlaneStore Store) : IDisposable {
 
-    // Dimension.Create(1) is the page's ONE total construction: the literal is statically inside the >=1 domain, so the
-    // generated throw is unreachable and this is the named [EXPRESSION_SPINE] admission exemption rather than a rail.
     private static readonly Dimension Single = Dimension.Create(value: 1);
 
-    // THE EXTENT MODALITY: a caller stating a texel census and an optional physical pitch. The lattice's own ceiling
-    // gate is the element budget for the spatial census; the layer band multiplies it, so the arena gate below closes the
-    // product. Each gate retains its owning lattice or Materials error; neither translates a failure across bands.
     public static Fin<TexturePlane> Of(
         PlaneFormat format, Dimension width, Dimension height, PlaneTransfer transfer, AlphaMode alpha, Op key,
         Option<Dimension> layers = default, Option<PlaneRange> range = default, Option<PlanePrimaries> primaries = default,
@@ -543,16 +413,11 @@ public sealed record TexturePlane(
             range.IfNone(PlaneRange.Unit), primaries.IfNone(PlanePrimaries.Unknown), key, mode)
         select plane;
 
-    // THE LATTICE MODALITY: a caller holding an admitted grid — a coarsened level, a world-seated bake target, a
-    // re-association twin. A padded lane is legal (AlphaMode.None over a four-lane row is the [03] three-component
-    // law), so the storage gate refuses only an alpha the row cannot HOLD, never a declaration narrower than the row.
     public static Fin<TexturePlane> Of(
         PlaneFormat format, CellLattice grid, Dimension layers, PlaneTransfer transfer, AlphaMode alpha,
         PlaneRange range, PlanePrimaries primaries, Op key, AllocationMode mode = AllocationMode.Clear) {
         long rows = (long)grid.Rows.Value * layers.Value;
         long elements = grid.CellCount * layers.Value;
-        // The storage gate is a COVERAGE gate alone: a row supplies the lane, the declaration decides how the lane is
-        // read, so an Associated declaration over a Straight storage row is the re-association twin ToAlpha mints.
         return (elements, !alpha.Traits.Admits(PlaneTrait.Coverage) || format.Alpha.Traits.Admits(PlaneTrait.Coverage)) switch {
             ( > Array.MaxLength, _) => new MaterialFault.Parameter(key, $"<plane-elements:{elements}>"),
             (_, false) => new MaterialFault.Parameter(key, $"<plane-alpha-storage:{alpha.Key}!={format.Alpha.Key}>"),
@@ -561,9 +426,6 @@ public sealed record TexturePlane(
         };
     }
 
-    // Seat gives a pixel plane the IDENTITY affine, so its cell measures one texel and every derivative reads a
-    // texel-unit run; a physically-pitched plane seats its millimetres-per-texel through the kernel's own transform
-    // mint, so the grain is a property of the grid rather than a column each derivative carrier re-declares.
     private static Fin<Transform> Seat(Option<PositiveMagnitude> pitchMm, Op key) =>
         pitchMm.Match(
             Some: pitch => Placement.Build(new TransformSpec.UniformScale(Anchor: Point3d.Origin, Factor: pitch.Value), key: key),
@@ -574,44 +436,19 @@ public sealed record TexturePlane(
     public int Lanes => Store.Lanes;
     public int RowScalars => Width.Value * Lanes;
     public long Texels => Grid.CellCount * Layers.Value;
-    // Run reads the spatial grain in the affine's OWN units — one texel of march under the identity seat, millimetres
-    // under a pitched one — and carries no unit suffix precisely because the value carries no fixed unit: naming it
-    // for millimetres would assert the pitched case on every pixel plane and fork one spelling with the genuinely
-    // millimetre weld run beside it. Every horizon sweep, curvature stencil, and gradient slope divides its rise by
-    // THIS run, so the affine is the single unit witness and no derivative carrier re-declares one.
-    // The march is a per-axis TEXEL COUNT and the run is its Euclidean length through the grid's own cell, so both
-    // CellSize axes ride the read: the lattice modality admits an anisotropic seat, and an X-only read would report a
-    // vertical sweep's rise over a horizontal spacing and tilt every horizon on a non-square cell. An axis-aligned
-    // caller passes zero on the other axis and the hypotenuse collapses to the exact product it had before.
     public double Run(int columns, int rows) => double.Hypot(columns * Grid.CellSize.X, rows * Grid.CellSize.Y);
 
-    // One layer as a plane of its own over the SHARED rental, so a cube face folds its own pyramid and lifts its own
-    // sampler without a copy. The grid is untouched — a face and its parent address the same spatial lattice.
-    // Disposal stays with this plane: a windowed layer never owns the arena.
     public Fin<TexturePlane> Layer(int index, Op key) =>
         index >= 0 && index < Layers.Value
             ? Fin.Succ(this with { Layers = Single, Store = Store.Window(index * Height.Value, Height.Value) })
             : new MaterialFault.Parameter(key, $"<plane-layer:{index}:{Layers.Value}>");
 
-    // THE DECODE LADDER, stated once for the corpus: texel lanes -> component normalization -> signed unpack ->
-    // un-association -> transfer decode over the COLOUR lanes alone. The alpha lane is a linear coverage weight and
-    // never crosses a transfer curve, because a display curve over coverage darkens every edge in the plane.
     public void Read(int row, int layer, Span<double> lanes) =>
         Store.Accept<RowRead, Unit>(new RowRead(this, (layer * Height.Value) + row, lanes));
 
     public void Write(int row, int layer, ReadOnlySpan<double> lanes) =>
         Store.Accept<RowWrite, Unit>(new RowWrite(this, (layer * Height.Value) + row, lanes));
 
-    // ReadShade projects the decoded row rail into ShadeVec4 — ONE lane-to-register correspondence for every consumer
-    // staging four-lane rows: a single lane replicates across XYZ, a two-lane pair fills X and Y with Z zero (the
-    // frozen two-component reconstruction rows rebuild Z downstream, so replicating X into Z would hand the
-    // reconstruction a fabricated component), four lanes map straight through, and the alpha register reads the
-    // coverage lane where the plane carries one, else 1.0. WriteShade inverts it, so the tile fold, the press
-    // staging, the set mean, and the sky sweep never re-derive a lane seat and a plane's arity change breaks HERE
-    // rather than in five consumers.
-    // KERNEL-EXEMPTION on both bodies: the lane-to-register seat is a per-texel ARITY fold whose four destination
-    // slots read different source lanes under different arity arms, so no elementwise span operator spans it — the
-    // TensorPrimitives form is three masked passes over scratch saying what one indexed body says exactly.
     public void ReadShade(int row, int layer, Span<ShadeVec4> texels) {
         using SpanOwner<double> lanes = SpanOwner<double>.Allocate(RowScalars);
         Read(row, layer, lanes.Span);
@@ -639,9 +476,6 @@ public sealed record TexturePlane(
         Write(row, layer, lanes.Span);
     }
 
-    // Association conversion on decoded lanes. The 16-bit floor is structural: at eight bits the un-association
-    // divides by a quantized coverage and amplifies its own step into colour error the inverse cannot recover.
-    // Convertible is the one crossing predicate; set#TEXTURE_SET reads the same row fact at admission.
     public Fin<TexturePlane> ToAlpha(AlphaMode target, Op key) =>
         target == Alpha ? Fin.Succ(this)
         : !Alpha.Convertible(target, Format.Depth)
@@ -649,9 +483,6 @@ public sealed record TexturePlane(
         : Of(Format, Grid, Layers, Transfer, target, Range, Primaries, key, AllocationMode.Default)
               .Map(Reassociate);
 
-    // Gamut conversion on decoded lanes, folded through the composed reconciliation matrix per row. Unknown at
-    // either end REFUSES: a decode RECORDS what its container declared and converts nothing, so this is the one
-    // site where both endpoints are stated and a rebase over an undeclared chromaticity is unrepresentable.
     public Fin<TexturePlane> ToPrimaries(PlanePrimaries target, Op key) =>
         target == Primaries
             ? Fin.Succ(this)
@@ -659,10 +490,6 @@ public sealed record TexturePlane(
               from destination in Of(Format, Grid, Layers, Transfer, Alpha, Range, target, key, AllocationMode.Default)
               select Rebase(destination, matrix);
 
-    // Association converts THROUGH the decode ladder: the source reads straight, un-associated lanes and the
-    // destination's own AlphaMode re-applies coverage on write, so the conversion is the ladder's inverse pair and
-    // never a second premultiply spelling. KERNEL-EXEMPTION: the band walk drives two SIDE-EFFECTING row rails over
-    // one shared scratch, which is a sequencing statement no span operator and no expression spine expresses.
     private TexturePlane Reassociate(TexturePlane destination) {
         using SpanOwner<double> lanes = SpanOwner<double>.Allocate(RowScalars);
         for (int layer = 0; layer < Layers.Value; layer++) {
@@ -674,14 +501,6 @@ public sealed record TexturePlane(
         return destination;
     }
 
-    // Rebase walks the plane against an ALREADY-RESOLVED matrix, so the walk is TOTAL and the ORDER is what makes it
-    // leak-free: the one refusal an endpoint can raise resolves before the destination is rented, so no failure arm
-    // exists to orphan a rental and the disposal block a mid-walk rail needed is deleted rather than corrected.
-    // Colour lanes stage as float — the composed matrix fold's own domain — and the coverage lane rides through
-    // untouched, because a chromaticity transform over coverage is a colour transform over an area. KERNEL-EXEMPTION
-    // on the two staging walks: the crossing is a STRIDE change (a lane-count-N interleave gathered into a
-    // lane-count-C one), and the strided plane carries only whole-span conversions, so a TensorPrimitives form would
-    // be one call per texel over three elements — call overhead where the gather is the work.
     private TexturePlane Rebase(TexturePlane destination, ColorMatrix3x3 matrix) {
         int colour = Alpha.ColourLanes(Lanes);
         using SpanOwner<double> lanes = SpanOwner<double>.Allocate(RowScalars);
@@ -702,8 +521,6 @@ public sealed record TexturePlane(
         return destination;
     }
 
-    // Key mints the federation content key through the kernel streaming entry over storage rows in layer-major, row-major
-    // order at seed zero. No whole-plane byte span is ever materialized and no local hash is ever seeded.
     public UInt128 Key => ContentHash.Of(this, static (plane, hash) => plane.Store.Accept<KeyRows, Unit>(new KeyRows(hash)));
 
     public void Dispose() => Store.Dispose();
@@ -711,13 +528,7 @@ public sealed record TexturePlane(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// Each row fold is a ref struct carrying the caller's span with no heap hop. KERNEL-EXEMPTION on every body here: the
-// ladder interleaves a STRIDE change (lane-count-N texels gathered into a lane-count-C colour run) with a per-texel
-// coverage divide, and the strided operator plane carries whole-span elementwise maps alone — so a TensorPrimitives
-// form is one call per texel over two or three elements, which is call overhead where the gather is the work. Every
-// row FACT the ladder reads — the coverage lane index, the association arm, the packing affine — hoists out of the
-// walk, so no membership probe and no roster read runs per texel.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 namespace Rasm.Materials.Raster;
 
 internal readonly ref struct RowRead(TexturePlane plane, int storageRow, Span<double> lanes) : IPlaneFold<Unit> {
@@ -771,11 +582,6 @@ internal readonly ref struct RowWrite(TexturePlane plane, int storageRow, ReadOn
     }
 }
 
-// KeyRows streams STORAGE bytes, not decoded lanes: identity is what the object store holds, so a texel edit
-// re-keys and a declaration retag does NOT — transfer, primaries, range, and association ride the wire's channel
-// row, never the blob preimage, which is what lets ingest re-declare a decoded container per role without
-// re-addressing it. The grid rides the same side of that line: a plane re-seated at a different physical pitch
-// holds identical bytes and keys identically, and the pitch reaches a consumer through the declaring row.
 internal readonly struct KeyRows(XxHash128 hash) : IPlaneFold<Unit> {
     public Unit Fold<T>(Memory2D<T> view) where T : unmanaged, ITexel<T> {
         for (int row = 0; row < view.Height; row++) { hash.Append(MemoryMarshal.AsBytes(view.Span.GetRowSpan(row))); }
@@ -799,7 +605,7 @@ internal readonly struct KeyRows(XxHash128 hash) : IPlaneFold<Unit> {
 - Boundary: arbitrary-ratio resampling is `filter#PLANE_OP` `Resize` — a mip level is the lattice's own `Coarsen` step under a declared policy and never a resize alias, so a chain cannot be minted at an arbitrary ratio and a resize cannot silently produce a level a sampler then trilinearly blends. `TexturePyramid` OWNS its levels and disposes them; a pyramid built over an adopted base at `MipPolicy.None` disposes that base too, so ownership is uniform and a caller never holds a half-owned chain.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -814,27 +620,18 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Raster;
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, bool Coupled) : IDisposable {
-    // Head/Last are Option properties on Seq, so the base read is the POSITIONAL one — total by construction
-    // because Of seeds every chain with its base plane before any descent runs.
     public TexturePlane Base => Levels[0];
 
-    // Texels is the chain's whole census — the residency budget [06] spends and the multiplier an AsImage lift pays
-    // thirty-two bytes against. A geometric chain sums to 4/3 of its base, so the number is READ off the levels
-    // rather than approximated from the base by a ratio the None policy would break.
     public long Texels => Levels.Fold(0L, static (sum, level) => sum + level.Texels);
 
-    // Key folds each LEVEL's own storage key, so a chain rebuilt under a different policy over identical base bytes
-    // keys distinctly — the pyramid is what a KTX2 container holds, and its identity is the whole chain.
     public UInt128 Key => ContentHash.Of(this, static (chain, hash) => chain.Levels.Iter(level => {
         Span<byte> digest = stackalloc byte[16];
         BinaryPrimitives.WriteUInt128LittleEndian(digest, level.Key);
         hash.Append(digest);
     }));
 
-    // ONE entry over both modalities: the policy row decides whether a chain exists, so no caller passes a level count
-    // and no second `Single`/`Chain` factory exists. `paired` is the companion chain a coupled row reads.
     public static Fin<TexturePyramid> Of(TexturePlane basePlane, MipPolicy policy, Op key, Option<TexturePyramid> paired = default) =>
         !policy.Traits.Admits(PlaneTrait.Chains)
             ? Fin.Succ(new TexturePyramid(Seq(basePlane), policy, Coupled: false))
@@ -849,10 +646,6 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
             .Map(levels => new TexturePyramid(levels, policy, coupled));
     }
 
-    // THE LEVEL CHAIN IS THE GRID CHAIN. The kernel Coarsen halves each spatial axis with a floor of one and doubles the
-    // cell, so the descent ends where the census stops moving and no page carries a log2 level count or a Halve of
-    // its own. Depth is logarithmic in the extent — fifteen levels at a 16k plane — so the descent is bounded by the
-    // census it walks, and a level count is what a caller READS off the chain rather than what it supplies.
     private static Fin<Seq<CellLattice>> Descend(CellLattice grid, Op key) =>
         grid.Columns.Value is 1 && grid.Rows.Value is 1
             ? Fin.Succ(Seq<CellLattice>.Empty)
@@ -862,26 +655,11 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
     private static Option<TexturePlane> Level(TexturePyramid chain, int index) =>
         index < chain.Levels.Count ? Some(chain.Levels[index]) : None;
 
-    // One level. Rent at the coarsened grid, decode, separable-resample in the LINEAR domain, apply the row's
-    // post-fold, re-encode — so the fold is one body over every format, every transfer, and every arity,
-    // parameterized by the policy row alone. The grid arrives ADMITTED from Coarsen, so no extent construction and
-    // no unreachable-throw exemption survives here.
     private static Fin<TexturePlane> Fold(TexturePlane source, CellLattice grid, MipPolicy policy, Option<TexturePlane> companion, Op key) =>
         TexturePlane.Of(source.Format, grid, source.Layers, source.Transfer, source.Alpha, source.Range,
                 source.Primaries, key, AllocationMode.Default)
             .Map(level => Resample(source, level, policy, companion));
 
-    // Resample runs the separable downsample with the row's post-fold over DECODED lanes — the composed filter where the
-    // row names one, the Materials-owned windowed-sinc kernel on the kaiser row. Renormalize restores the unit length an
-    // averaged vector loses; the coupled arm folds the companion level's mean-vector length L into the roughness lane
-    // as sqrt(r^2 + 2(1-L)/L), so the directional variance the normal chain destroyed reappears as roughness rather
-    // than as specular aliasing at distance. The companion scratch sizes at the roster's OWN widest arity, because the
-    // paired chain's lane count is the companion's fact, never this plane's. The two staging crossings are the
-    // composed filter's own float domain met by the ladder's double one, and each is a WHOLE-RUN elementwise map over
-    // one contiguous row, so both fold onto the strided conversion operator rather than a hand index walk — the
-    // narrowing declares its truncation and the widening declares that it cannot lose. KERNEL-EXEMPTION on the band
-    // walk itself: it drives two side-effecting row rails and a companion read over one shared scratch, a sequencing
-    // statement no span operator expresses.
     private static TexturePlane Resample(TexturePlane source, TexturePlane level, MipPolicy policy, Option<TexturePlane> companion) {
         int lanes = source.Lanes, sw = source.Width.Value, dw = level.Width.Value;
         int alphaLane = source.Alpha.AlphaLane(lanes);
@@ -917,26 +695,13 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
         return level;
     }
 
-    // THE KAISER FOLD — the frozen windowed-sinc halving, authored under the [02] PUBLICATION-SHAPE discriminant: the
-    // taper owner's Kaiser row publishes an endpoint-aligned window ARRAY and the weight roster's band-limited row is
-    // a sinc window, so neither answers a tap-grid evaluation. The factor is FIXED at two, so the polyphase collapses
-    // to ONE twelve-tap table at half-texel offsets, computed at type initialization and normalized to unit sum:
-    // w(d) = sinc(d/2) · I0(β√(1−(d/a)²))/I0(β) with β = 4 and support a = 6 source texels. The modified Bessel
-    // evaluation is the composed special-function surface, so no local power series exists. Coverage premultiplies
-    // across the fold and un-premultiplies after — the same law the composed resampler's alpha index carries — and an
-    // out-of-extent tap clamps, matching the chain boundary.
     private static readonly double[] KaiserTaps = KaiserTable();
 
-    // KERNEL-EXEMPTION on the tap walk: each entry evaluates a distinct transcendental pair at its own offset, which
-    // is a generator rather than an elementwise map. The unit-sum normalization IS elementwise and folds.
     private static double[] KaiserTable() {
         const double beta = 4.0, support = 6.0;
         double[] taps = new double[12];
         double total = 0.0;
         for (int tap = 0; tap < taps.Length; tap++) {
-            // Every tap sits at a HALF-texel offset, so the sinc argument is never zero and the removable singularity
-            // has no representative in this table — a guard for it would be a dead arm asserting a case the fixed
-            // half-texel geometry forbids. The even offsets land on the sinc's own zeros, which is the band-limit.
             double d = tap - 5.5;
             double sinc = Math.Sin(Math.PI * d / 2.0) / (Math.PI * d / 2.0);
             double t = d / support;
@@ -954,12 +719,6 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
         AxisHalve(mid.Span, dw, sh, dst, dh, lanes, alphaLane, horizontal: false);
     }
 
-    // ONE axis body serves both passes. Each destination texel centres at 2i + 0.5 in source units, so the twelve
-    // taps sit at fixed half-texel offsets and the table is the whole filter; coverage premultiplies into the fold
-    // and divides back out, so a transparent texel never bleeds opaque colour across a coverage edge.
-    // KERNEL-EXEMPTION: the inner sum is a CLAMPED GATHER over strided, non-contiguous source addresses under a
-    // per-lane coverage weighting — the elementwise plane carries no gather, so a fold form would materialize a
-    // twelve-wide scratch per destination lane to reach an operator that then sums twelve elements.
     private static void AxisHalve(ReadOnlySpan<float> input, int width, int height, Span<float> output, int outExtent, int lanes, int alphaLane, bool horizontal) {
         int outWidth = horizontal ? outExtent : width;
         int outHeight = horizontal ? height : outExtent;
@@ -985,11 +744,6 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
         }
     }
 
-    // A DIRECTION plane stores two or three axes — the two-component store carries the frozen reconstruction's
-    // implied Z, so the unit length the fold restores is the RECONSTRUCTED vector's and never the stored pair's,
-    // and the axis count is read off the plane rather than assumed three. KERNEL-EXEMPTION on Renormalize and Couple
-    // alike: each reduces at most three interleaved axes PER TEXEL, so the composed Norm-then-Divide pair would be two
-    // operator calls over a three-element window — dispatch cost where three multiplies are the work.
     private static void Renormalize(Span<double> row, int width, int lanes) {
         int axes = Math.Min(3, lanes);
         for (int x = 0; x < width; x++) {
@@ -1014,16 +768,11 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
         }
     }
 
-    // AsImage bridges to the sampler. Each level's decoded lanes project into the sampler's own ShadeVec4 carrier and the
-    // whole chain admits ONCE through TextureSource.Image.Of, so extent truth is structural at the sampler and no per-tap
-    // recheck exists. A layered plane refuses: the sampler carries one layer, so the caller extracts a Layer first.
     public Fin<TextureSource.Image> AsImage(Op key) =>
         Base.Layers.Value is not 1
             ? new MaterialFault.Parameter(key, $"<pyramid-layered:{Base.Layers.Value}>")
             : TextureSource.Image.Of(Base.Width, Base.Height, Levels.Map(static level => Materialize(level)), key);
 
-    // Materialize reads the plane's own ReadShade rail for its lane-to-register correspondence, so the bridge stages rows and owns
-    // no second projection law. KERNEL-EXEMPTION: the walk drives a side-effecting row rail into a caller-owned array.
     private static ReadOnlyMemory<ShadeVec4> Materialize(TexturePlane level) {
         ShadeVec4[] texels = new ShadeVec4[level.Width.Value * level.Height.Value];
         for (int row = 0; row < level.Height.Value; row++) {
@@ -1050,7 +799,7 @@ public sealed record TexturePyramid(Seq<TexturePlane> Levels, MipPolicy Policy, 
 - Boundary: this window bounds CHAINS, never arena bands — `TexturePlane.Layer` windows one rental into layer bands inside a single plane, while `PlaneResidency` holds independent pyramids addressed by a tile coordinate, so a cube-face set and a UDIM grid never share a mechanism. The window carries no decode, no format, and no channel: every tile of one asset resolves through the caller's own mint, so a residency window over base-colour tiles and one over normal tiles are two windows and neither knows the other exists.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
@@ -1061,10 +810,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Raster;
 
-// --- [POLICIES] ----------------------------------------------------------------------------
-// ResidencyPolicy rows carry the eviction axis as a RANK PROJECTION onto one scalar rather than as a victim selector
-// per row, so the window holds ONE single-pass ordered walk and a new eviction law adds no branch. NULL rank declares
-// a window that never evicts: the whole declared grid stays resident and an over-budget admission refuses.
+// --- [POLICIES] ------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ResidencyPolicy {
@@ -1077,15 +823,9 @@ public sealed partial class ResidencyPolicy {
     private ResidencyPolicy(string key, Func<ResidentTile, long>? rank) : this(key) => Rank = rank;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// Cost freezes at seat time because a chain's census cannot move, so the running residency is arithmetic rather than a
-// fold over the roster per admission. Touched and Hits are the two eviction ordinals a policy row projects.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ResidentTile(int Index, TexturePyramid Chain, long Cost, long Touched, long Hits);
 
-// PlaneResidency is a MEMO TABLE and carries the mutation that makes one: the resident map and the touch clock are the
-// operation's own state, seated with the fold that owns them rather than threaded through every caller. That is this
-// section's [EXPRESSION_SPINE] exemption and the only one it takes — every admission, refusal, and rank walk below is
-// expression-shaped.
 public sealed class PlaneResidency : IDisposable {
     private readonly CellLattice declared;
     private readonly ResidencyPolicy policy;
@@ -1097,8 +837,6 @@ public sealed class PlaneResidency : IDisposable {
     private PlaneResidency(CellLattice tiles, ResidencyPolicy row, long texelBudget) =>
         (declared, policy, budget) = (tiles, row, texelBudget);
 
-    // A non-positive budget is the one admission refusal: a zero-budget window admits nothing and every Resolve would
-    // refuse, which is a window that cannot answer wearing a window's shape.
     public static Fin<PlaneResidency> Of(CellLattice tiles, ResidencyPolicy policy, long texelBudget, Op key) =>
         texelBudget > 0
             ? Fin.Succ(new PlaneResidency(tiles, policy, texelBudget))
@@ -1108,9 +846,6 @@ public sealed class PlaneResidency : IDisposable {
     public long Resident => resident;
     public Seq<int> Seated => toSeq(seated.Keys);
 
-    // ONE read over both modalities: a resident index answers from the map and an absent one mints through the
-    // caller's thunk, so no consumer branches on presence and no second Prefetch entry exists. The grid gate runs
-    // BEFORE the thunk, so a mint never decodes a tile the declared grid does not carry.
     public Fin<TexturePyramid> Resolve(int index, Func<int, Fin<TexturePyramid>> mint, Op key) =>
         seated.Find(index).Match(
             Some: tile => Fin.Succ(Touch(tile)),
@@ -1123,9 +858,6 @@ public sealed class PlaneResidency : IDisposable {
         return tile.Chain;
     }
 
-    // Seat rejects an individually over-large chain before disturbing residents, then retires the selected eviction
-    // prefix through the custody rail. The incoming chain rolls back on every refusal because the caller's thunk has
-    // already handed ownership across; cleanup failures aggregate instead of replacing the admission fault.
     private Fin<TexturePyramid> Seat(int index, TexturePyramid chain, Op key) {
         long cost = chain.Texels;
         if (cost > budget)
@@ -1146,10 +878,6 @@ public sealed class PlaneResidency : IDisposable {
         return Fin.Succ(chain);
     }
 
-    // Reclaim picks the eviction PREFIX in one ranked pass: rows order by the policy's own scalar and accumulate
-    // until the remaining residency fits the headroom, so a large admission frees exactly the prefix it needs and a
-    // Retain window yields the empty set and lets Seat refuse. A negative headroom is the over-large chain, which
-    // drains the whole window and still refuses — Seat's own cost gate is what stops that, not this walk.
     private Seq<ResidentTile> Reclaim(long headroom) =>
         policy.Rank is { } rank
             ? toSeq(seated.Values.OrderBy(rank))

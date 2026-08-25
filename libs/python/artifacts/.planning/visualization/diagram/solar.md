@@ -42,11 +42,11 @@ lazy from pvlib.location import Location
 
 # --- [TYPES] ----------------------------------------------------------------------------
 class SolarProjection(StrEnum):
-    STEREOGRAPHIC = "stereographic"  # r = R·tan((90-alt)/2) — the drafting sun-path chart
-    EQUIDISTANT = "equidistant"  # r = R·(90-alt)/90 — uniform altitude rings
-    ORTHOGRAPHIC = "orthographic"  # r = R·cos(alt) — the shadow-plan projection
-    LAMBERT = "lambert"  # r = R·√2·sin((90-alt)/2) — equal-area hemisphere normalized at the horizon
-    GNOMONIC = "gnomonic"  # r = R·tan(90-alt)/tan(90-floor) — finite chart normalization of shadow rays
+    STEREOGRAPHIC = "stereographic"
+    EQUIDISTANT = "equidistant"
+    ORTHOGRAPHIC = "orthographic"
+    LAMBERT = "lambert"
+    GNOMONIC = "gnomonic"
 
 
 class FurnishingKind(StrEnum):
@@ -60,12 +60,12 @@ class FurnishingKind(StrEnum):
 
 
 class HourConvention(StrEnum):
-    CLOCK = "clock"  # analemma figure-eight per clock hour
-    SOLAR = "solar"  # smooth local-apparent-time curve via the hour-angle correction
+    CLOCK = "clock"
+    SOLAR = "solar"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_GNOMONIC_FLOOR: Final[float] = 5.0  # gnomonic radius diverges at the horizon; altitude clamps here
+_GNOMONIC_FLOOR: Final[float] = 5.0
 _R: Final[frozendict[SolarProjection, Callable[[float], float]]] = frozendict({
     SolarProjection.STEREOGRAPHIC: lambda alt: float(np.tan(np.radians((90.0 - alt) / 2.0))),
     SolarProjection.EQUIDISTANT: lambda alt: (90.0 - alt) / 90.0,
@@ -79,8 +79,6 @@ _R: Final[frozendict[SolarProjection, Callable[[float], float]]] = frozendict({
 
 # --- [MODELS] ---------------------------------------------------------------------------
 def _tz_known(tz: str, /) -> bool:
-    # zoneinfo resolves against the same IANA database pandas and pvlib read, so an identifier admitted here can
-    # never raise a lookup error inside a provider call; the empty string and a traversal-shaped key both refuse.
     try:
         return bool(tz) and ZoneInfo(tz) is not None
     except (ZoneInfoNotFoundError, ValueError):
@@ -92,8 +90,8 @@ class Site(Struct, frozen=True):
     longitude: float
     altitude: float = 0.0
     tz: str = "UTC"
-    pressure: float | None = None  # pascals; None derives from altitude inside the SPA refraction model
-    temperature: float = 12.0  # °C; the refraction correction's atmosphere input
+    pressure: float | None = None
+    temperature: float = 12.0
 
     def issues(self, /) -> tuple[str, ...]:
         return (
@@ -108,10 +106,10 @@ class Site(Struct, frozen=True):
 
 class SunSample(Struct, frozen=True):
     at: datetime
-    azimuth: float  # degrees clockwise from north (SPA apparent)
-    altitude: float  # apparent elevation, refraction-corrected under the site atmosphere
-    zenith_true: float  # true geometric zenith — shading math reads this, never the drawn angle
-    distance_au: float = 1.0  # Earth-Sun distance; the apparent sun-disc scale is 1/distance_au
+    azimuth: float
+    altitude: float
+    zenith_true: float
+    distance_au: float = 1.0
 
 
 class SeasonDates(Struct, frozen=True):
@@ -122,15 +120,14 @@ class SeasonDates(Struct, frozen=True):
 
 
 class FurniturePolicy(Struct, frozen=True):
-    # one chart convention as seed data; a climate or office standard is a policy value, never an edited generator.
     rings: tuple[int, ...] = (10, 20, 30, 40, 50, 60, 70, 80)
-    azimuths: tuple[int, ...] = ()  # azimuth grid rays in degrees; () = compass ticks only
-    compass: int = 16  # tick ring divisions
-    hours: tuple[int, int] = (5, 20)  # hour-line band [start, stop)
+    azimuths: tuple[int, ...] = ()
+    compass: int = 16
+    hours: tuple[int, int] = (5, 20)
     convention: HourConvention = HourConvention.CLOCK
-    hour_freq: str = "7D"  # across-the-year sampling cadence for hour lines
-    step_min: int = 10  # day-arc sampling cadence
-    disc: float = 0.0  # apparent sun-disc base radius in sheet units at 1 AU; 0 disables the disc family
+    hour_freq: str = "7D"
+    step_min: int = 10
+    disc: float = 0.0
 
     def issues(self, /) -> tuple[str, ...]:
         start, stop = self.hours
@@ -150,9 +147,9 @@ CHART: Final[FurniturePolicy] = FurniturePolicy()
 
 class Furnishing(Struct, frozen=True):
     kind: FurnishingKind
-    fragment: str  # vector-path d-string in sheet coordinates
+    fragment: str
     label: str = ""
-    anchor: tuple[float, float] = (0.0, 0.0)  # label seat
+    anchor: tuple[float, float] = (0.0, 0.0)
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -166,7 +163,6 @@ class SolarFault:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 @lru_cache(maxsize=32)
 def _located(site: Site, /) -> "Location":
-    # ONE Site -> Location lowering; every provider call forwards through it, no bare lat/lon threading.
     return Location(site.latitude, site.longitude, site.tz, site.altitude)
 
 
@@ -186,7 +182,6 @@ def positions(site: Site, times: pd.DatetimeIndex, /) -> Result[tuple[SunSample,
 
 
 def project(azimuth: float, altitude: float, kind: SolarProjection, radius: float, /) -> tuple[float, float]:
-    # Hemisphere -> sheet; every normalized projection maps the horizon to `radius` and zenith to the origin.
     r = radius * _R[kind](min(max(altitude, 0.0), 90.0))
     theta = np.radians(azimuth % 360.0)
     return (r * np.sin(theta), -r * np.cos(theta))
@@ -275,9 +270,6 @@ def _furnished(
         (seasons.march_equinox, f"{seasons.march_equinox.strftime('%b %d').upper()} / {seasons.september_equinox.strftime('%b %d').upper()}"),
         (seasons.december_solstice, seasons.december_solstice.strftime("%b %d").upper()),
     )
-    # every labeled furnishing carries its geometry-derived seat: ring labels sit on their own ring's north
-    # crossing, ray and cardinal labels on the horizon at their azimuth, arc and hour labels on their first
-    # sample — the layout owner forwards these anchors verbatim and reconstructs no solar geometry.
     rings = tuple(
         Furnishing(FurnishingKind.ALTITUDE_RING, _circle(ring_r), f"{alt}°", anchor=(0.0, -ring_r))
         for alt in policy.rings
@@ -306,12 +298,12 @@ def _furnished(
         *(
             Furnishing(FurnishingKind.DATE_ARC, _polyline(rows, kind, radius), label, anchor=_head(rows, kind, radius))
             for rows, (_, label) in zip(arc_rows, dates, strict=True)
-            if rows  # a sampleless arc (polar night) draws nothing — skipping keeps its label off the origin
+            if rows
         ),
         *(
             Furnishing(FurnishingKind.HOUR_LINE, _polyline(rows, kind, radius), f"{hour:02d}", anchor=_head(rows, kind, radius))
             for rows, hour in zip(hour_rows, range(*policy.hours), strict=True)
-            if rows  # an hour never above the horizon yields no line, so no origin-anchored label either
+            if rows
         ),
         *disc_rows,
     ))))
@@ -331,9 +323,6 @@ def _discs(
         else positions(site, transits).map(lambda rows: tuple(
             Furnishing(FurnishingKind.SUN_DISC, _disc(project(row.azimuth, row.altitude, kind, radius), policy.disc / row.distance_au))
             for row in rows
-            # a below-horizon transit (polar night) stays undrawn: project() clamps a negative altitude onto the
-            # horizon ring, so an unfiltered row would mint a phantom horizon disc — the same skip law the
-            # sampleless date-arc and hour-line rows already carry.
             if row.altitude > 0.0
         ))
     )
@@ -354,9 +343,6 @@ def _ray(azimuth: float, kind: SolarProjection, radius: float, /) -> str:
 
 
 def _tick(azimuth: float, kind: SolarProjection, radius: float, /) -> str:
-    # the chart's OWN projection, never a hardcoded row: every admitted projection maps the horizon to `radius`
-    # today, so this reads identically — but that equality is an invariant of the `_R` roster, not a law, and a
-    # future member normalizing elsewhere would silently drift the tick ring off the horizon circle it annotates.
     (x0, y0), (x1, y1) = (project(azimuth, 0.0, kind, radius * 0.97), project(azimuth, 0.0, kind, radius))
     return fragment(f"M {x0} {y0} L {x1} {y1}")
 
@@ -367,7 +353,6 @@ def _polyline(samples: tuple[SunSample, ...], kind: SolarProjection, radius: flo
 
 
 def _head(samples: tuple[SunSample, ...], kind: SolarProjection, radius: float, /) -> tuple[float, float]:
-    # a labeled polyline's seat is its first sample; an empty run keeps the origin default the caller never labels.
     return project(samples[0].azimuth, samples[0].altitude, kind, radius) if samples else (0.0, 0.0)
 
 

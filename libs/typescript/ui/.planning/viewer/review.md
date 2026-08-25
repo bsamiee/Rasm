@@ -26,7 +26,6 @@ import { CircleMinus, CirclePlus, Combine, GitBranch, Move3d, PencilLine } from 
 import type { Theme } from "../../src/system/token.ts"
 import { Mark, type Selection } from "./mark.ts"
 
-// the change roster IS the generated oneof's case space: a row per case, keyed on the case name the corpus emits
 const _changeRows = {
   added: { icon: CirclePlus, tone: "success", resident: true, op: "Add", rank: 2 },
   removed: { icon: CircleMinus, tone: "danger", resident: false, op: "Subtract", rank: 0 },
@@ -45,8 +44,6 @@ const _statusRows = {
 } as const satisfies { readonly [K in Review.Status]: { readonly tone: Theme.Tone; readonly blocking: boolean } }
 
 declare namespace Review {
-  // the set arm `{ case: undefined }` the corpus's `oneof required` rule refuses is excluded at the type, so the
-  // table closes over the six cases a producer can emit
   type Change = Exclude<Wire.ModelDiff["changes"][number]["kind"]["case"], undefined>
   type Status = Mark.Status
   type ChangeRow = {
@@ -56,9 +53,6 @@ declare namespace Review {
     readonly op: Selection.Op["_tag"]
     readonly rank: number
   }
-  // both tables close BOTH ways: `satisfies` refuses an excess row and these aliases refuse a generated case or
-  // member without one. effect's `Record` namespace shadows the global utility type across this whole module, so
-  // every string-keyed record shape here spells `Record.ReadonlyRecord`
   type _ChangeGap<K extends keyof typeof _changeRows = Change> = K
   type _StatusGap<K extends keyof typeof _statusRows = Status> = K
 }
@@ -85,7 +79,7 @@ declare namespace Review {
     readonly guid: string
     readonly author: string
     readonly text: string
-    readonly at: Option.Option<DateTime.Utc> // absent exactly where the producer omitted the comment's instant
+    readonly at: Option.Option<DateTime.Utc>
     readonly replies: ReadonlyArray<Review.Note>
   }
   type Issue = {
@@ -102,7 +96,7 @@ declare namespace Review {
   }
   type Census = {
     readonly changes: Record.ReadonlyRecord<Change, number>
-    readonly statuses: HashMap.HashMap<Status, number> // enum members key a map, never a string-keyed record
+    readonly statuses: HashMap.HashMap<Status, number>
     readonly blocking: number
   }
 }
@@ -125,8 +119,6 @@ const _touch = (
   HashMap.modifyAt(held, anchor, (slot) =>
     Option.some(edit(Option.getOrElse(slot, () => ({ ..._SEED, anchor })))))
 
-// the wire's own oneof face routes the fold: every case reads its own value column by name, the end arms share
-// one projection because they share one message, and the unset arm the corpus rule refuses contributes nothing
 const _ends = (end: Extract<Change["kind"], { readonly case: "added" | "removed" }>["value"]): ReadonlyArray<string> =>
   Array.appendAll(Array.fromNullable(end.classification?.code), [end.predefined])
 
@@ -141,21 +133,18 @@ const _attributes = (change: Change): ReadonlyArray<string> =>
     Match.orElse(() => Array.empty<string>()),
   )
 
-// the anchor and the case ride every arm's own `globalId`; the decode is the brand narrowing onto the set's
-// element and the unset arm answers none, which is exactly the member the corpus rule refused
 const _changed = (change: Change): Option.Option<{ readonly anchor: GlobalId; readonly kind: Review.Change }> =>
   pipe(change.kind, (face) =>
     face.case === undefined
       ? Option.none()
       : Option.map(Selection.decode(face.value.globalId), (anchor) => ({ anchor, kind: face.case })))
 
-const _ROOT = "" // a wire comment guid is NonEmptyString, so the empty key can only ever be the synthetic root bucket
+const _ROOT = ""
 
 const _byWritten = Order.mapInput(Option.getOrder(DateTime.Order), (comment: Comment) => Mark.instant(comment.date))
 
 const _thread = (comments: ReadonlyArray<Comment>): ReadonlyArray<Review.Note> => {
   const held = Record.fromIterableWith(comments, (comment) => [comment.guid, comment] as const)
-  // budget carries the comment count, so a ring terminates at the length of the topic rather than the stack
   const anchored = (guid: string, budget: number): boolean =>
     Option.match(Record.get(held, guid), {
       onNone: () => false,
@@ -196,11 +185,7 @@ const _rows = (
       )
       return Array.sort(
         HashMap.values(
-          // the status narrowing is `viewer/mark`'s one seat; an issue it refuses is the member the corpus rule already
-          // refused, so the fold is total over every document a producer emits
           Array.reduce(Array.filterMap(issues, (issue) => Option.map(Mark.keys(issue), (keys) => ({ issue, status: keys.status }))), changed, (held, { issue, status }) => {
-            // reply tree folds once per topic, never once per anchor: a topic naming forty elements would otherwise rebuild
-            // that same thread forty times and hand each row a different object identity for one discussion
             const thread = _thread(issue.comments)
             return Array.reduce(issue.viewpoints, held, (topics, viewpoint) =>
               Array.reduce(Array.filterMap(viewpoint.selectedGlobalIds, Selection.decode), topics, (rows, anchor) =>
@@ -257,8 +242,6 @@ const _columns: ReadonlyArray<ColumnDef<Grid.Features, Review.Row, unknown>> = [
     id: "anchor",
     header: "anchor",
     sortFn: "text",
-    // grid reads identity through THIS key column's accessor, so the branded anchor reaches row
-    // selection, the export parcel, and the scene echo without any of the three re-deriving it
     meta: {
       cell: { render: "text", align: "start", measured: false, editable: false, sort: "text", filter: "includesString" },
       dimension: Option.none(),
@@ -272,10 +255,6 @@ const _columns: ReadonlyArray<ColumnDef<Grid.Features, Review.Row, unknown>> = [
     id: "change",
     header: "change",
     sortFn: "rank",
-    // board rows join a wire, never a feed band, so quantity facts are absent by construction while role and nullability
-    // stay real column facts, and `editable` stays false across the board because a comment commits at the issue port.
-    // sort reads the rank while `token` paints the row's own icon and tone, so severity order never becomes
-    // a number on screen and an issue-only row sorts last without a sentinel token
     meta: {
       cell: { render: "token", align: "start", measured: false, editable: false, sort: "rank", filter: "equals" },
       dimension: Option.none(),
@@ -309,8 +288,6 @@ const _columns: ReadonlyArray<ColumnDef<Grid.Features, Review.Row, unknown>> = [
       identity: false,
     },
   }),
-  // roots, not comments: the count answers how many discussions an element carries, which only the reply fold knows —
-  // a raw comment length counts every reply as its own conversation
   _helper.accessor((row) => Array.flatMap(row.issues, (issue) => issue.thread).length, {
     id: "threads",
     header: "threads",
@@ -345,7 +322,7 @@ const _resident = (rows: ReadonlyArray<Review.Row>, kinds: ReadonlyArray<Review.
       Array.contains(kinds, kind) && _changeRows[kind].resident ? Option.some(row.anchor) : Option.none()))
 
 const _echo = (rows: ReadonlyArray<Review.Row>, kinds: ReadonlyArray<Review.Change>): Selection.Op =>
-  Selection.Op.Replace({ ids: _resident(rows, kinds) }) // one op through the one fold: the board never holds a second set
+  Selection.Op.Replace({ ids: _resident(rows, kinds) })
 
 const _tint = (rows: ReadonlyArray<Review.Row>): ReadonlyArray<readonly [GlobalId, Theme.Tone]> =>
   Array.filterMap(rows, (row) =>
@@ -360,8 +337,6 @@ const _reveal = (
 ): Option.Option<Camera.Intent> =>
   Option.flatMap(
     Option.match(viewpoint, {
-      // with no viewpoint the board frames what it tints, and a non-resident change frames nothing, so the tint set
-      // doubles as the fit set; a viewpoint carrying its own camera yields nothing here and the restore fold answers
       onNone: () => Option.some(Array.map(_tint(rows), ([anchor]) => anchor)),
       onSome: (held) => held.camera === undefined ? Option.some(Array.filterMap(held.selectedGlobalIds, Selection.decode)) : Option.none(),
     }),
@@ -398,7 +373,7 @@ const Review: Review.Shape = {
   reveal: _reveal,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Review }
 ```

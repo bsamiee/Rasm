@@ -20,7 +20,7 @@ Break boundaries and HarfBuzz clusters normalize onto code-point indices. `_icu_
 - Boundary: shaping and bidi resolution stay in `typography/shape#SHAPE`; font engineering stays in `typography/font#FONT`; authoring stays in `document/emit#DOCUMENT`. Greedy first fit, `tt_wrap` for proportional text, `Pyphen.inserted`, `Pyphen.wrap`, local Unicode or UCA tables, scalar-glyph breaking, and `text.split()` tokenization are rejected forms.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterator, Mapping
 from builtins import frozendict
 from enum import StrEnum
@@ -54,28 +54,27 @@ lazy from icu import ICU_VERSION, UNICODE_VERSION, AlphabeticIndex, BreakIterato
 
 lazy from rasm.artifacts.typography.shape import PositionedGlyphRun
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type LayoutAcceptor = Callable[["LayoutRequest"], bytes]
 type Opportunity = tuple[int, "BreakClass"]
 type LayoutTag = Literal["breaks", "hyphenate", "paragraph", "measure", "collate"]
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _INFEASIBLE: Final = 100.0
-_ICU_LINE_HARD: Final = 100  # ICU getRuleStatus UBRK_LINE_HARD floor: >= is a mandatory break
+_ICU_LINE_HARD: Final = 100
 _MANDATORY: Final[frozenset[str]] = frozenset({"BK", "CR", "LF", "NL"})
 _WIDE: Final[frozenset[str]] = frozenset({"W", "F"})
-_CANON: Final = msgspec.msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgspec.msgpack.Encoder(order="deterministic")
 _RUN_ENCODER: Final = msgspec.msgpack.Encoder()
 _TRACER: Final = scoped(trace.get_tracer, "rasm.artifacts.typography.layout")
 _TAILOR_TABLE: Final[Map[str, TailorFunction]] = Map.empty()
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class LayoutOp(StrEnum):
-    # values are the LayoutRequest tag strings, so `LayoutOp(request.tag)` is the whole projection — no parallel table.
     BREAK = "breaks"
     HYPHENATE = "hyphenate"
     PARAGRAPH = "paragraph"
@@ -108,9 +107,7 @@ class CaseFirst(StrEnum):
     UPPER = "upper"
 
 
-# CollationStrength/AlternateHandling member names equal their UCollAttributeValue spellings; only the case-first axis renames.
 _UCA_CASE: Final[Map[CaseFirst, str]] = Map.of_seq([(CaseFirst.OFF, "OFF"), (CaseFirst.LOWER, "LOWER_FIRST"), (CaseFirst.UPPER, "UPPER_FIRST")])
-# the two boolean UCA axes name their `UCollAttributeValue` member directly, so the row reads as the spelling it resolves.
 _TOGGLE: Final[frozendict[bool, str]] = frozendict({True: "ON", False: "OFF"})
 
 
@@ -243,7 +240,6 @@ class LineBrokenRun(Struct, frozen=True):
 
 
 class LineLayout(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     request: LayoutRequest
     lane: LanePolicy
 
@@ -253,7 +249,6 @@ class LineLayout(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         return ContentIdentity.key(f"layout-{self.request.tag}", _CANON.encode((self.request, self._data_versions)))
 
     @property
@@ -278,18 +273,11 @@ class LineLayout(Struct, frozen=True):
         with _TRACER.start_as_current_span(f"layout.{self.request.tag}") as span:
             span.set_attributes({"step": self.request.tag, "trait": trait.value})
             crossed = await self.lane.offload(Kernel.of(acceptor, trait), self.request)
-            # five arms fold onto ONE receipt case, so the arm rides the `product` band: a break opportunity set, a
-            # hyphenation roster, a broken paragraph, a width prefix, and a collation bucketing are one
-            # indistinguishable `document` row without it, and the `_facts` stream can fan none of them.
             facts: frozendict[str, float | str] = frozendict({"step": self.request.tag})
-            # egress fold closes inside the span scope: the Error arm marks ERROR and logs correlated, the Ok path stays silent.
             return crossed.map(lambda data: ArtifactReceipt.Document(key, len(data), facts)).map_error(partial(faulted, span, "layout.emit", step=self.request.tag))
 
     @property
     def _trait(self) -> KernelTrait:
-        # ICU4C arms cross the gated process worker as HOSTILE; the pure uniseg/pyphen folds — the input-scaled
-        # Knuth-Plass paragraph fit included — take the own-GIL interpreter substrate as PURE, so no synchronous
-        # fold ever runs on the loop.
         match self.request:
             case LayoutRequest(tag="collate"):
                 return KernelTrait.HOSTILE
@@ -323,7 +311,7 @@ class _Cluster(Struct, frozen=True):
     advance: float
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _uniseg_breaks(text: str, language: str, /) -> tuple[Opportunity, ...]:
@@ -347,7 +335,7 @@ def _icu_breaks(text: str, language: str, /) -> tuple[Opportunity, ...]:
         offsets[units] = index
     out = []
     iterator.first()
-    while (utf16_position := iterator.next()) != BreakIterator.DONE:  # Exemption: the ICU iterator is a stateful native cursor
+    while (utf16_position := iterator.next()) != BreakIterator.DONE:
         position = offsets[utf16_position]
         cls = BreakClass.MANDATORY if iterator.getRuleStatus() >= _ICU_LINE_HARD else BreakClass.OPPORTUNITY
         if position in boundaries:
@@ -410,8 +398,6 @@ def _clusters(positioned: PositionedGlyphRun, /) -> tuple[_Cluster, ...]:
         (cluster, tuple(entries))
         for cluster, entries in groupby(enumerate(positioned.glyphs), key=lambda entry: entry[1][1])
     )
-    # source spans derive in SOURCE order — each cluster's stop is the next higher cluster value — so the RTL visual
-    # reversal below never inverts a span into stop < start; only the cluster SEQUENCE reverses for reading order.
     ordered = sorted(cluster for cluster, _entries in grouped)
     stops = frozendict(zip(ordered, (*ordered[1:], len(positioned.source)), strict=True))
     logical = grouped if positioned.direction != "rtl" else tuple(reversed(grouped))
@@ -539,7 +525,7 @@ def _trace(chosen: _Node, items: tuple[Item, ...], origins: tuple[_Cluster, ...]
     chain.reverse()
     lines: list[LayoutLine] = []
     opener = -1
-    for broken_at in chain:  # Exemption: predecessor-chain walk over immutable DP links
+    for broken_at in chain:
         start = _line_start(items, opener)
         stop = broken_at.position if items[broken_at.position].tag == "glue" else broken_at.position + 1
         covered = origins[start:stop] or origins[broken_at.position : broken_at.position + 1]
@@ -571,7 +557,7 @@ def broken(spec: ParagraphSpec, /) -> LineBrokenRun:
     items, origins = _items(spec, positioned, opportunities, _soft_breaks(text, spec.language, spec.left_min, spec.right_min))
     measure, count = spec.measure, len(items)
     width, stretch, shrink = [0.0] * (count + 1), [0.0] * (count + 1), [0.0] * (count + 1)
-    for i, item in enumerate(items):  # Exemption: Knuth-Plass prefix sums — cumulative box/glue extent before each item
+    for i, item in enumerate(items):
         natural, flex, squeeze = item.glue if item.tag == "glue" else (item.box, 0.0, 0.0) if item.tag == "box" else (0.0, 0.0, 0.0)
         width[i + 1], stretch[i + 1], shrink[i + 1] = width[i] + natural, stretch[i] + flex, shrink[i] + squeeze
     opened = _line_start(items, -1)
@@ -590,7 +576,7 @@ def broken(spec: ParagraphSpec, /) -> LineBrokenRun:
             previous=None,
         )
     ]
-    for index, item in enumerate(items):  # Exemption: Knuth-Plass total-fit frontier mutates the active list in place
+    for index, item in enumerate(items):
         if not _legal(items, index):
             continue
         forced = item.tag == "penalty" and item.penalty[0] == -inf
@@ -643,14 +629,14 @@ def _collate(request: LayoutRequest) -> bytes:
         (UCollAttribute.NORMALIZATION_MODE, _TOGGLE[policy.normalization]),
         (UCollAttribute.NUMERIC_COLLATION, _TOGGLE[policy.numeric]),
     )
-    for attribute, name in rows:  # Exemption: the ICU collator is a stateful native object configured in place
+    for attribute, name in rows:
         collator.setAttribute(attribute, getattr(UCollAttributeValue, name))
     ordered = sorted(spec.items, key=collator.getSortKey)
     index = AlphabeticIndex(locale)
-    for item in ordered:  # Exemption: ICU AlphabeticIndex is a stateful native bucketer
+    for item in ordered:
         index.addRecord(item, item)
     buckets: list[tuple[str, tuple[str, ...]]] = []
-    while index.nextBucket():  # Exemption: native bucket cursor
+    while index.nextBucket():
         members: list[str] = []
         while index.nextRecord():
             members.append(index.recordData)

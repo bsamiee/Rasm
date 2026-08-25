@@ -30,7 +30,7 @@ Values are RECEIPT PROJECTIONS: a layer carries what a sealed study computed and
   - Provenance is required at mint, never optional: a layer with no study, no digest, and no correlation is a picture nobody can reproduce, so `ProvenanceMissing` refuses at construction rather than rendering an unattributable field.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnalysisFault : Fault {
@@ -60,22 +60,15 @@ public abstract partial record AnalysisFault : Fault {
 ```
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// What a kind DEMANDS of a payload, one row per demand and each row carrying its own proof. The demands were
-// two adjacent bools read by a ternary ladder: a kind needing both, or neither, was unspellable in the ladder
-// and silent in the columns, and a third demand meant a third arm at the one reader.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ResultTrait : ICapability<ResultTrait> {
-    // A topology kind whose payload carries no faces cannot draw a surface.
     public static readonly ResultTrait Topology = new("topology", static (kind, payload) =>
         Col(!payload.Faces.IsEmpty, $"{kind.Key}: needs triangle topology"));
 
-    // `Structured` reads the field's own LATTICE rather than its presence: every sealed run seals a field
-    // receipt, and the question a ray-march needs answered is whether that receipt spans more than one cell.
     public static readonly ResultTrait Structured = new("structured", static (kind, payload) =>
         Col(payload.Cells > 1L, $"{kind.Key}: needs a structured lattice"));
 
@@ -86,9 +79,6 @@ public sealed partial class ResultTrait : ICapability<ResultTrait> {
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new AnalysisFault.PayloadRejected(requirement));
 }
 
-// The four sealed study output classes. The render column collapses them onto TWO folds, because a
-// false-coloured mesh, a section cut, and a hemispherical patch field are one shaded-surface reading at three
-// sampling geometries — a per-kind fold would be three copies of one band walk.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -104,21 +94,12 @@ public sealed partial class ResultKind {
 
     public CapabilitySet<ResultTrait> Demands { get; }
 
-    // The row answers an executable PASS rather than a bare case, because `SimVisual` is entered with the
-    // field it visualizes and a projection stopping at the case would hand the render graph a value it has no
-    // argument for. The field is the layer's own, so the entry is closed here and no consumer supplies one.
     [UseDelegateFromConstructor]
     public partial Fin<RenderPass> Pass(ResultLayer layer, ResultRuntime runtime);
 
-    // The one untrusted-key resolve, so `Adopt` reads an `Option` and lands on its own rail rather than
-    // carrying a bool-out and a null pattern through a double negative.
     public static Option<ResultKind> Find(string key) =>
         TryGet(key, out ResultKind? row) ? Optional(row) : None;
 
-    // The admission every demand states, run once at the mint so no render arm carries a shape test, and
-    // ACCUMULATING so a payload short of samples and short of a lattice names both. A structured kind still
-    // carries its samples, because the probe reads samples and a grid layer that answered no probe would be
-    // exactly the completeness hole the one payload forecloses.
     public Validation<Error, Unit> Admit(ResultPayload payload) =>
         (Col(!payload.Samples.IsEmpty, $"{Key}: no samples"),
          toSeq(ResultTrait.Items).Filter(Demands.Admits).Traverse(row => row.Proof(this, payload)).As())
@@ -129,12 +110,6 @@ public sealed partial class ResultKind {
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new AnalysisFault.PayloadRejected(requirement));
 }
 
-// How the value a face draws is derived from the samples it connects. Per-sample is the raw vertex reading, a
-// per-face mean is the flat-shaded cell every sensor grid renders as, and smooth is the incident-face mean
-// that makes a continuous field read continuous. The posture is a DISPLAY choice over the sealed samples and
-// never a re-reduction of the study: no row here changes what the receipt carries, only which of its values
-// a given triangle paints — three readings of one sample set, so a posture flip re-paints without re-reading
-// the receipt.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -143,7 +118,6 @@ public sealed partial class AveragingPosture {
         static (payload, face) => payload.Samples[face.A].Value);
     public static readonly AveragingPosture PerFace = new("per-face",
         static (payload, face) => payload.FaceMean(face));
-    // The payload's own adjacency already answers each vertex's incident-face mean.
     public static readonly AveragingPosture Smooth = new("smooth",
         static (payload, face) => (payload.Adjacent(face.A) + payload.Adjacent(face.B) + payload.Adjacent(face.C)) / 3d);
 
@@ -153,23 +127,10 @@ public sealed partial class AveragingPosture {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One located reading. `Code` is the classification a coded result carries beside its scalar — a glare
-// category, a compliance class, a material index — so an ordinal legend keys on the code while the probe
-// still prints the magnitude, and a second payload family for classified results has nothing to be.
 public readonly record struct ResultSample(Vector3 At, double Value, Option<int> Code);
 
-// The ONE payload, and the ONE gate every column crosses. `Samples` is what every kind carries and what the
-// probe reads, which is what makes "every layer answers the probe" a structural fact rather than a per-kind
-// obligation. `Faces` is the triangle topology the shaded fold walks and the barycentric probe read resolves
-// inside; `Field` is the sealed run's own field receipt the pass entry consumes, its lattice extent deciding
-// what a kind may draw. `Extent` is the measured range the sealed run reported, carried rather than re-derived
-// so two layers of one study share one scale.
-//
-// The constructor is PRIVATE because three readers index `Samples` by a face ordinal and the carrier's
-// positional read throws: a face naming a vertex the sample set never carries would fault out of a record
-// construction, ahead of every typed rail this plane declares.
 public sealed record ResultPayload {
     private ResultPayload(
         Seq<ResultSample> samples,
@@ -177,8 +138,6 @@ public sealed record ResultPayload {
         SimField field,
         (double Low, double High) extent) {
         (Samples, Faces, Field, Extent) = (samples, faces, field, extent);
-        // Vertex adjacency folded ONCE here, because the smooth posture reads it per face and a per-face walk
-        // over the whole triangle roster is quadratic in the mesh the analysis plane mounts most.
         Neighbourhood = faces
             .Bind(face => Seq(
                 (Vertex: face.A, Face: face), (Vertex: face.B, Face: face), (Vertex: face.C, Face: face)))
@@ -198,14 +157,8 @@ public sealed record ResultPayload {
 
     public FrozenDictionary<int, double> Neighbourhood { get; }
 
-    // The field's declared cell count, which is what `ResultTrait.Structured` proves on: a receipt whose
-    // lattice is one cell wide in two of three axes is a sample run rather than a volume, and ray-marching it
-    // would sweep a line the study never resolved.
     public long Cells => (long)Field.DimX * Field.DimY * Field.DimZ;
 
-    // The ONE mint, ACCUMULATING: finite extent, finite samples, and IN-RANGE face ordinals each name
-    // themselves, so a malformed sealed payload reports every defect it carries rather than the first one a
-    // ladder happened to reach.
     public static Fin<ResultPayload> Of(
         Seq<ResultSample> samples,
         Seq<(int A, int B, int C)> faces,
@@ -219,13 +172,8 @@ public sealed record ResultPayload {
         .Apply((_, _, _) => new ResultPayload(samples, faces, field, extent))
         .ToFin();
 
-    // The ONE face mean: the adjacency fold reads it per incident face at construction and the per-face
-    // posture reads it per drawn face, and two spellings of one arithmetic drift the moment either moves.
     public double FaceMean((int A, int B, int C) face) => Mean(Samples, face);
 
-    // An isolated vertex no face names keeps its own reading rather than answering zero, because a zero is a
-    // measurement and an unconnected sensor is simply not smoothed. The bool-out read is the stated
-    // exemption: this is the per-face hot lookup and the `FrozenDictionary` is what makes it one probe.
     public double Adjacent(int vertex) =>
         Neighbourhood.TryGetValue(vertex, out double mean) ? mean : Samples[vertex].Value;
 
@@ -238,11 +186,6 @@ public sealed record ResultPayload {
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new AnalysisFault.PayloadRejected(requirement));
 }
 
-// The value axis, deciding the colormap CLASS and the legend ARM together because they are one fact — the
-// `Render/viewpoint#VIEWPOINT_CODEC` `PropertyDomain` precedent applied to a measured field. A coded result
-// carries integer classes whose numeric distance means nothing, so ramping them states a magnitude the study
-// never produced; a stepped result reads the compliance list every band, cell, and chip already paints, so a
-// legend band and a threshold band cannot drift.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ResultDomain {
     private ResultDomain() { }
@@ -250,9 +193,6 @@ public abstract partial record ResultDomain {
     public sealed record Continuous(double Low, double High) : ResultDomain;
     public sealed record Stepped(ThresholdList List, double Low, double High) : ResultDomain;
 
-    // The coded arm ORDERS AND RANKS ONCE at construction. The ramp reads a code's rank per FACE, so the rank
-    // scan it replaces cost a two-hundred-class dome two hundred comparisons per triangle, and the extent was
-    // a sentinel-seeded fold re-run at every `Span` read.
     public sealed record Coded : ResultDomain {
         public Coded(HashMap<int, string> dictionary) {
             Dictionary = dictionary;
@@ -269,24 +209,13 @@ public abstract partial record ResultDomain {
         public (double Low, double High) Extent { get; }
     }
 
-    // The arm token a comparison unifies on. It is a projection through the union's own total dispatch rather
-    // than a runtime type read, so a fifth arm breaks every reader of this token at compile time where a type
-    // read would rank it as one more distinct value and let a fallback arm absorb it. The token orders
-    // nothing — it answers identity alone, which is the only question a shared-scale union asks.
     public int Arm => Map(continuous: 0, stepped: 1, coded: 2);
 
-    // The colormap class the domain admits. A sequential ramp carries magnitude, a stepped domain paints its
-    // severity ladder rather than a ramp at all, and a coded domain takes the qualitative rows that separate
-    // categories — so the palette is the domain's own answer and never a session author's taste.
     public Colormap Palette => Switch(
         continuous: static _ => Colormap.Viridis,
         stepped: static _ => Colormap.Viridis,
         coded: static _ => Colormap.Tableau);
 
-    // The legend declaration, so an analysis legend and a chart legend are one owner with two producers and
-    // an analysis-local swatch list never exists. The dock is the viewport corner every scene legend takes;
-    // a docked side would occlude the model the legend explains, and the corner is what routes the render to
-    // `Charts/grammar#LEGEND_FOLD`'s drawn arm.
     public LegendSpec Legend(string key, Option<MeasureRole> measure, int segments) => Switch(
         state: (Key: key, Measure: measure, Segments: segments),
         continuous: static (s, d) => new LegendSpec(
@@ -299,12 +228,6 @@ public abstract partial record ResultDomain {
             s.Key, new LegendDomain.Ordinal(d.Dictionary), LegendDock.BottomRight,
             Seq<LegendColumn>(), s.Measure, d.Codes.Count, Some(s.Key), None));
 
-    // Where a value samples the ramp. A stepped domain samples at its own severity RANK rather than at its
-    // magnitude, so the scene shows the compliance bands the legend prints instead of a gradient the list
-    // never declared; a coded value samples at its pre-ranked position; a degenerate continuous extent samples
-    // the midpoint rather than dividing by nothing and painting one flat colour. A code the dictionary never
-    // declared answers the ramp floor rather than a negative position, since an undeclared class is not a
-    // magnitude below every declared one.
     public double Position(double value) => Switch(
         state: value,
         continuous: static (v, d) => d.High - d.Low > EpsilonPolicy.ZeroTolerance
@@ -313,20 +236,12 @@ public abstract partial record ResultDomain {
         stepped: static (v, d) => d.List.At(v, d.Low, d.High).Rank / (double)Math.Max(Severity.Items.Count - 1, 1),
         coded: static (v, d) => d.Positions.TryGetValue((int)v, out double at) ? at : 0d);
 
-    // The measured span the domain admission and the transfer function both read; a coded domain answers the
-    // extent it folded at construction, so one accessor serves every arm and no consumer discriminates.
     public (double Low, double High) Span => Switch(
         continuous: static d => (d.Low, d.High),
         stepped: static d => (d.Low, d.High),
         coded: static d => d.Extent);
 }
 
-// One run's own evidence row. Every column is a READ of what the study sealed: the submission the study form
-// produced, the content key its inputs digested to, the elected fidelity tier ROW, the solved cell count, and
-// the instant the run sealed — so a layer's caption, its report block, and its evidence timeline all read one
-// record. `Tier` carries the `Analysis/context#BUDGET_METER` row rather than its key, so the chip renders the
-// tier's own `LabelKey` through the locale instead of printing a raw string; `Samples` carries the meter's own
-// `long` cell count, because the `int` it narrowed to hid a lattice it could not name.
 public sealed record LayerProvenance(
     StudySubmission Submission,
     ContentHash Digest,
@@ -335,9 +250,6 @@ public sealed record LayerProvenance(
     Instant SealedAt) {
     public CorrelationId Correlation => Submission.Correlation;
 
-    // The caption row a layer chip, a report block, and a compare-cell header all print — one projection, so
-    // three surfaces cannot spell one run three ways. Every magnitude crosses the one invariant-decimal
-    // projection the evidence owner already publishes, so a report column and its wire twin read one text.
     public Seq<(string HeaderKey, string Value)> Columns(ResolvedLocale locale) => Seq(
         (LocaleStrings.Key(nameof(LayerProvenance), "study"), Submission.StudyKey),
         (LocaleStrings.Key(nameof(LayerProvenance), "revision"), EvidenceOps.Decimal(Submission.Revision)),
@@ -347,12 +259,6 @@ public sealed record LayerProvenance(
         (LocaleStrings.Key(nameof(LayerProvenance), "sealed"), locale.Stamp(SealedAt)));
 }
 
-// The mounted layer. `History` is newest-first and NEVER a single column: `AnalysisLayers.Land` re-runs a
-// mounted key in place and appends its provenance, which is what lets a compare cell bind an older run of the
-// same study without a second layer family. `Opacity` and `Visible` are display columns the stack reads —
-// `Visible` is the one display axis `Toggle` flips and `Active` reads, and it discriminates draw from probe:
-// a hidden layer contributes no pass and still answers a coordinate. `Ramp` is the colormap the domain
-// elected, carried so the transfer function and the legend read one value.
 public sealed record ResultLayer(
     string Key,
     ResultKind Kind,
@@ -371,20 +277,11 @@ public sealed record ResultLayer(
 
     public LegendSpec Legend => Domain.Legend($"analysis.{Key}", Measure, LegendSegments);
 
-    // The elected unit's bare abbreviation, read from the one measurement owner rather than composed from an
-    // abbreviation cache at each site that needs it — so a stack chip, a probe column header, and a compare
-    // cell caption all name one unit and a posture flip re-spells every one of them by re-reading one policy.
-    // A layer carrying no measure role has no unit to name and answers empty.
     public string Unit(ResolvedLocale locale) =>
         Measure.Match(
             Some: role => locale.Measures.Abbreviation(role, locale.Formats),
             None: static () => string.Empty);
 
-    // The layer mint, INTERNAL because `ARCHITECTURE.md` declares `AnalysisLayers.Adopt` the ONE construction
-    // site for a sealed study and a public mint left that law as convention. Key, kind admission, and domain
-    // span accumulate together over a payload whose own gate has already proved its extent, its finiteness,
-    // and its ordinals, so a layer that resolved cannot refuse at draw time and no render arm carries a
-    // fallback; an empty history is unspellable here because a layer nobody can attribute is a picture.
     internal static Fin<ResultLayer> Of(
         string key,
         ResultKind kind,
@@ -401,17 +298,10 @@ public sealed record ResultLayer(
             UnitInterval.Create(1d), Visible: true, Seq(provenance)))
         .ToFin();
 
-    // The re-run, INTERNAL for the same reason: `AnalysisLayers.Land` is the one producer, because `Mount`
-    // refuses a duplicate key and a second landing of one study key must rewrite rather than append a twin.
-    // The payload, extent, and domain move with the run because a re-run at a different fidelity tier measures
-    // a different field; the display columns do not, because an operator who dimmed a layer expects it dimmed.
     internal Fin<ResultLayer> Rerun(ResultPayload payload, ResultDomain domain, LayerProvenance provenance) =>
         Kind.Admit(payload).ToFin().Map(_ =>
             this with { Payload = payload, Domain = domain, Ramp = domain.Palette, History = provenance.Cons(History) });
 
-    // The scene ramp: the layer's own colormap over its own domain span, with the opacity gamma the kind's
-    // volumetric arm reads and the shaded arm ignores. One derivation, so the ramp the scene paints and the
-    // ramp the legend prints cannot be two.
     public Fin<TransferFunction> Transfer() =>
         Domain.Span switch {
             var (low, high) => TransferFunction.Of(Ramp, low, high, OpacityGamma),
@@ -433,15 +323,8 @@ public sealed record ResultLayer(
 ```
 
 ```csharp signature
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// The frame-bound capabilities a layer cannot own. `Project` is the frame's own world-to-raster transform, so
-// a shaded fold emits its contours in the raster space the pass will draw into rather than in a projection
-// this page invented; `RayMarch` is the render graph's leased volume march, so a structured layer declares
-// its volume pass without this page ever touching the device; `Stroke` is the RESOLVED band width the mesh
-// row's dash intervals scale by, resolved at the composition root because the width reads a density policy
-// and a variant projection this page holds neither of — a width authored here would be a second metric
-// authority the density flip never re-seeds, exactly as a paint resolved here would be.
 public sealed record ResultRuntime(
     Func<Vector3, (float X, float Y)> Project,
     Func<RenderTarget, SimField, TransferFunction, Fin<int>> RayMarch,
@@ -449,21 +332,9 @@ public sealed record ResultRuntime(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The two render folds the four kinds bind. Both construct a settled `SimVisual` case and enter its own
-// `Pass` with the layer's own field, so a result layer reaches the render graph through
-// `Render/pipeline#SIM_VISUAL` — the one field-visualization owner — and an analysis-local render pass has no
-// seam to enter. Entering here rather than answering the bare case is what closes the projection: the case's
-// pass entry takes the field it visualizes, and a consumer handed a case alone would have to supply a field
-// only the layer carries. INTERNAL because the kind rows are the only binders.
 internal static class ResultVisuals {
-    // The shaded reading: one stroke per FACE inked by the value that face's own averaging posture answers,
-    // handed to the `MeshQuality` row whose band walk already groups by `(Ink, Style, Pigment)` and disposes
-    // every path on one sweep. The stroke carries no explicit pigment, because that column is the legend
-    // plane's and this plane's colour authority is the ramp the domain elected; the strokes come from the
-    // payload's own sealed samples, so the row's field argument reaches a fold that never reads it — the
-    // owner's column demands an argument no analysis producer has, which is its defect and not this fold's.
     public static Fin<RenderPass> Shaded(ResultLayer layer, ResultRuntime runtime) =>
         new SimVisual.MeshQuality(
                 Key: $"{AnalysisLayers.Plane}.{layer.Key}",
@@ -472,9 +343,6 @@ internal static class ResultVisuals {
                 Shade: _ => Fin.Succ(Faces(layer, runtime)))
             .Pass(layer.Payload.Field);
 
-    // The volumetric reading: the lattice field the payload carries, marched through the layer's own transfer
-    // function by the leased arrow. The lattice itself is the mint's own admission, so nothing re-proves it
-    // here and no arm declares a march over a receipt that spans one cell.
     public static Fin<RenderPass> Volumetric(ResultLayer layer, ResultRuntime runtime) =>
         from transfer in layer.Transfer()
         from pass in new SimVisual.Volume(
@@ -484,12 +352,6 @@ internal static class ResultVisuals {
             .Pass(layer.Payload.Field)
         select pass;
 
-    // EXPRESSION_SPINE exemption, named: the per-face closure is the owner's own declared shape
-    // (`SimVisual.MeshQuality.Shade` answers a stroke seq), so this fold allocates one `Action<SKPath>` and
-    // three projections per triangle and materializes the whole roster. Ink is the DOMAIN's own position for
-    // the face's value, never the raw magnitude over the extent: a stepped domain therefore paints the
-    // compliance bands its list declares where a magnitude read would paint a gradient the list never
-    // declared, and a coded domain paints one qualitative stop per class.
     static Seq<VisualStroke> Faces(ResultLayer layer, ResultRuntime runtime) =>
         layer.Payload.Faces.Map(face => VisualStroke.Of(
             path => {
@@ -532,12 +394,8 @@ internal static class ResultVisuals {
   - Every verb the row template raises is a key this owner DECLARES and the boot-frozen deck already holds — toggle, dim, raise, drop, expand, and the four bake rows — so a control resolving a verb it could never be invoked through is unspellable and an unrostered key is a dead SCREEN rather than a dead button. The opacity slider carries its value slot AND its verb, because a dim is both a number the operator drags and a stack rewrite this plane must fold.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The plane's ONE evidence vocabulary. A mount and a bake shared a producer, a correlation, and a sink, so
-// two receipt spellings would have been two chances to seal nothing — which is exactly what a declared
-// projection with no seal site had been. `Evidence` is the projection onto the shared `Effect` case, whose
-// `Plane` column is what lets material, tile, compose, and the three analysis planes share one wire kind.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnalysisFact {
     private AnalysisFact() { }
@@ -545,9 +403,6 @@ public abstract partial record AnalysisFact {
     public sealed record Mounted(ResultLayer Layer, LayerProvenance Provenance) : AnalysisFact;
     public sealed record Baked(BakeVerb Verb, ResultLayer Layer, LayerProvenance Provenance, BakeProduct Product) : AnalysisFact;
 
-    // Every column means ONE thing across both arms: `Flag` is the layer's visibility at the moment the fact
-    // was taken, `Count` its sample census, and the digest measure the input identity that reproduces it — so a board
-    // reading the analysis plane never has to ask which arm a column came from.
     public EvidenceReceipt Evidence => Switch(
         mounted: static fact => (EvidenceReceipt)new EvidenceReceipt.Effect(
             Plane: AnalysisLayers.Plane,
@@ -568,19 +423,14 @@ public abstract partial record AnalysisFact {
         mounted: static fact => fact.Provenance,
         baked: static fact => fact.Provenance);
 
-    // The seal rides the RUN's own correlation, so a mount, every bake taken off it, and the solve that
-    // produced it assemble into one timeline at `Diagnostics/evidence#CORRELATION_JOIN`.
     public IO<ReceiptEnvelope> Sealed(ReceiptSinkPort sink, TenantContext tenant) =>
         Evidence.Seal(sink, Run.Correlation, tenant);
 }
 ```
 
 ```csharp signature
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// The ordered stack. `Layers` is bottom-first, which is the order the render graph draws and the order a
-// raise moves within — a per-layer z-column would let two layers claim one rank and the draw order would then
-// depend on which the fold reached first.
 public sealed record LayerStack(Seq<ResultLayer> Layers) {
     public static readonly LayerStack Empty = new(Seq<ResultLayer>());
 
@@ -588,9 +438,6 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
 
     public Option<ResultLayer> Find(string key) => Layers.Find(layer => layer.Key == key);
 
-    // A duplicate key REFUSES rather than replacing: two runs of one study are two layers under two keys, and
-    // silently replacing would drop a reading an operator mounted deliberately for comparison. A second
-    // landing of ONE key is a re-run, which `Reseat` lands after `ResultLayer.Rerun` appended its history.
     public Fin<LayerStack> Mount(ResultLayer layer) =>
         Layers.Exists(held => held.Key == layer.Key)
             ? Fin.Fail<LayerStack>(new AnalysisFault.StackRejected($"{layer.Key} is already mounted"))
@@ -604,8 +451,6 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
     public Fin<LayerStack> Dim(string key, UnitInterval opacity) =>
         Rewrite(key, layer => layer with { Opacity = opacity });
 
-    // A raise CLAMPS rather than refusing, because an operator dragging the topmost layer up is expressing
-    // "keep it on top" and a refusal there reads as a broken control.
     public Fin<LayerStack> Raise(string key, int by) =>
         Layers.Map(static (layer, index) => (Index: index, Layer: layer)).Find(row => row.Layer.Key == key).Match(
             Some: row => Fin.Succ(this with {
@@ -614,9 +459,6 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
             }),
             None: () => Fin.Fail<LayerStack>(new AnalysisFault.StackRejected($"{key} is not mounted")));
 
-    // The move is two SLICES around the target ordinal, because the sequence carries no positional insert:
-    // every other layer keeps its relative order by construction and a target at the tail appends, which is
-    // what makes a clamped raise of the topmost layer a no-op rather than a silent drop.
     static Seq<ResultLayer> Reseated(Seq<ResultLayer> rest, ResultLayer moved, int target) =>
         rest.Take(target) + Seq(moved) + rest.Skip(target);
 
@@ -625,24 +467,13 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
             Some: layer => Fin.Succ(this with { Layers = Layers.Filter(held => held.Key != layer.Key) }),
             None: () => Fin.Fail<LayerStack>(new AnalysisFault.StackRejected($"{key} is not mounted")));
 
-    // The render projection: every VISIBLE layer's own executable pass, bottom-first, which is the shape the
-    // graph seats a plane's rows in. The split is a PARTITION and not a traverse — one layer whose pass
-    // refused used to abort the whole frame, so a single malformed field blanked every sound layer beside it;
-    // the refusals ride out as their own column for the composition to surface. A hidden layer contributes
-    // nothing here and still answers the probe, because hiding is a display verb and the probe reads the
-    // sealed field.
     public (Seq<RenderPass> Drawn, Seq<Error> Refused) Passes(ResultRuntime runtime) =>
         Active.Map(layer => layer.Pass(runtime)).Partition() switch {
             var (fails, succs) => (succs, fails),
         };
 
-    // The legend set a viewport corner renders: one declaration per visible layer, so a two-layer stack shows
-    // two keys and neither invents a swatch. Rendering is `Charts/grammar#LEGEND_FOLD`'s arm verdict.
     public Seq<LegendSpec> Legends => Active.Map(static layer => layer.Legend);
 
-    // Ground dimming is ONE x-ray over the whole scene whenever anything is mounted, never one per layer: two
-    // layers each ghosting the model would composite to a transparency neither declared, and the model beneath
-    // an analysis field needs exactly one recession.
     public Seq<VisibilityOverride> Ground(Seq<string> scene) =>
         (Active.IsEmpty ? VisibilityAction.Reset : VisibilityAction.Xray)
             .Fold(scene, LanguageExt.HashSet<string>.Empty);
@@ -655,17 +486,12 @@ public sealed record LayerStack(Seq<ResultLayer> Layers) {
 ```
 
 ```csharp signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public static class AnalysisLayers {
     public const string Plane = "analysis";
-    // The stack screen's route key. It is a `Shell/screens#SCREEN_CATALOG` `ScreenRoster` row like every
-    // other product screen, so a deep link, a dock panel, and a palette hit reach it through one index.
     public const string StackKey = "analysis.layers";
     public const string RowsKey = "analysis.layers.rows";
-    // The disclosure verb the row tree resolves, distinct from the visibility verb beside it: expanding a
-    // layer opens its own provenance history and toggling it hides the field. One key over both acts would
-    // make every disclosure click dim the scene.
     public const string ExpandIntent = "analysis.layer.expand";
     public const string ToggleIntent = "analysis.layer.toggle";
     public const string DimIntent = "analysis.layer.dim";
@@ -675,9 +501,6 @@ public static class AnalysisLayers {
 
     // --- [INSTRUMENTS]
 
-    // The mounted count is a LEVEL row because a stack has a current depth rather than a running total, and it
-    // is the UNKEYED level because a stack has one depth rather than a depth per partition — the keyed family
-    // beside it declares a tag the reader breaks on, which a single scalar has nothing to fill.
     public static readonly InstrumentSpec Mounted = InstrumentSpec.Create(
         "rasm.appui.analysis.layers", InstrumentKind.Level, MeasureForm.Whole, "{layer}",
         "result layers mounted on the scene", Seq<string>(), None, None, None);
@@ -686,25 +509,13 @@ public static class AnalysisLayers {
         "rasm.appui.analysis.adopted", InstrumentKind.Count, MeasureForm.Whole, "{layer}",
         "sealed study outputs adopted as layers", Seq(AppUiTelemetry.SourceSlot), None, None, None);
 
-    // Keyed by the ANSWERING layer so a board reads which studies an operator actually interrogates rather
-    // than one undifferentiated broadcast count.
     public static readonly InstrumentSpec Probed = InstrumentSpec.Create(
         "rasm.appui.analysis.probed", InstrumentKind.Count, MeasureForm.Whole, "{reading}",
         "probe readings answered by layer", Seq(AppUiTelemetry.SourceSlot), None, None, None);
 
-    // The two screen cells. Expansion is worth checkpointing because an operator who opened a layer's
-    // provenance rows, docked the panel away, and came back to a collapsed stack has to re-find it; selection
-    // is worth checkpointing because it is what the bake verbs address, so a bake raised from the palette
-    // names the layer the panel shows picked rather than a key the palette would have to re-derive. Each slot
-    // carries its own TYPE, so a mistyped read is a compile break rather than a silent fallback.
     public static readonly SlotKey<Set<string>> Expansion = new("analysis.layers.expansion");
     public static readonly SlotKey<Seq<string>> Selection = new("analysis.layers.selection");
 
-    // The seated screen. The body reads the LIVE stack and the LIVE reading through the composition's own
-    // surface-scoped arrows, so the panel holds no copy of either and a stack edit re-projects through the one
-    // paced re-materialize every screen takes. Forward and inverse of the one `ScreenState` correspondence
-    // travel as one `StateLens` column, so neither half can be supplied without the other. The alive predicate
-    // reads that same stack, so a restored expansion set can never re-open a layer the operator dropped.
     public static ScreenProgram Program(ScreenComposition composition) =>
         ScreenProgram.Of(StackKey, screen => Body(
                 composition.Layers(screen.Surface),
@@ -724,11 +535,6 @@ public static class AnalysisLayers {
                     screen.Composition.Layers(screen.Surface).Find(key).IsSome,
             };
 
-    // The surface: the bake tool bar over the ordered layer tree, with the live probe table seated beneath.
-    // An empty stack short-circuits to its own empty state, because a bake bar over a bare frame offers four
-    // deliverables of nothing and reads as a study that produced no field rather than as a scene nothing has
-    // been adopted onto. Every child composes a member this owner already holds — a panel that built its own
-    // rows would be a second projection over the one ordered stack.
     public static ControlIntent Body(LayerStack stack, ProbeReading reading, VirtualWindowSpec window) =>
         stack.Layers.IsEmpty
             ? new ControlIntent.EmptyState(StackKey, $"{StackKey}.empty.headline", $"{StackKey}.empty.body",
@@ -742,9 +548,6 @@ public static class AnalysisLayers {
                 ConstraintProgram: StackKey,
                 IntentBinding.Of(PaintRole.Surface));
 
-    // The bake bar GENERATES off `BakeVerb`, so a fifth deliverable gains its button, its chord slot, and its
-    // palette entry with no edit here, and each button carries the ROW's own intent key rather than a spelling
-    // composed at this site — the deck froze exactly those keys off exactly this roster.
     static ControlIntent Bakes() =>
         new ControlIntent.Toolbar(
             $"{StackKey}.bakes",
@@ -755,13 +558,6 @@ public static class AnalysisLayers {
             Orientation.Horizontal,
             IntentBinding.Of(PaintRole.Panel));
 
-    // The row template, materialized once per realized `FlatNode` the flatten emits — a layer band and its
-    // provenance rows ride ONE template and re-dress their named slots, which is what keeps a re-run's history
-    // reachable without a second item shape. Every value binds a NAMED slot, so a recycled row re-dresses in
-    // place and no arm reflects over a property path; every verb is addressed BY KEY, so the row's toggle, its
-    // opacity, its raise, and its drop are the same deck rows a palette hit and a remote call reach. The tier
-    // chip is the provenance row's own label and the unit chip the layer's own elected abbreviation, so a
-    // rapid-surrogate reading and a detailed one are distinguishable on the stack itself.
     static ControlIntent Row() =>
         new ControlIntent.Panel(
             $"{StackKey}.row",
@@ -789,18 +585,11 @@ public static class AnalysisLayers {
             ConstraintProgram: $"{StackKey}.row",
             IntentBinding.Of(PaintRole.Raised));
 
-    // A hundredth of the interval: fine enough that a drag reads as continuous, coarse enough that the verb it
-    // raises carries a value a provenance row can print without a tail nobody chose.
     const double OpacityStep = 0.01d;
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Mounted, Adopted, Probed);
 
-    // The `analysis.layer.adopt` handler — the ONE construction site for what a sealed study becomes. The
-    // queue raised the verb naming its `OutputRow`; this fold re-proves the seal through the row's own
-    // `OutputState` dispatch, resolves the kind by the output's own kind key, reads the artifact through the
-    // injected arrow, and mints. An output whose kind names no row refuses BY NAME rather than defaulting to a
-    // mesh, because a grid rendered as a mesh draws a surface through a lattice that has none.
     public static Fin<ResultLayer> Adopt(
         OutputRow output,
         LayerProvenance provenance,
@@ -816,11 +605,6 @@ public static class AnalysisLayers {
                 from layer in ResultLayer.Of(output.Key, kind, payload, domain, measure, averaging, provenance)
                 select layer);
 
-    // The ONE landing door, and the one producer of run history. Adoption and the stack write are one fold at
-    // the command edge, so the verb cannot land a layer the stack refused and cannot count an adoption the
-    // mint rejected. A key ALREADY mounted re-runs in place — the fresh mint's payload and domain move onto
-    // the held layer, its provenance appends, and its display columns survive — because `Mount` refuses a
-    // duplicate key and without this arm the history column would hold one element forever.
     public static Fin<(LayerStack Stack, AnalysisFact Fact)> Land(
         LayerStack stack,
         OutputRow output,
@@ -838,15 +622,6 @@ public static class AnalysisLayers {
             None: () => stack.Mount(fresh).Map(stacked => (Stack: stacked, Layer: fresh)))
         select (seated.Stack, (AnalysisFact)new AnalysisFact.Mounted(seated.Layer, provenance));
 
-    // The plane's ONE observation: three facts on one rail, so a mount, an adoption, and a probe are three
-    // columns of one write rather than three call sites any of which can be forgotten — which is exactly how
-    // a declared instrument comes to have no producer at all. A fold naming no study wrote no adoption and a
-    // reading answering nothing wrote no probe, so absence costs no write instead of a fabricated zero. Each
-    // tagged write mints its dimension through the kernel's own stack-allocated tag projection, so a partition
-    // costs no per-write heap array and the slot spelling is the one the governance view reads. The per-hit
-    // fan reads the listener gate first: this write is one per ANSWERING LAYER per BROADCAST, the broadcast
-    // cadence is the intent stream's `ScreenOps.Calm` pacing rather than the frame's, and a shell exporting
-    // nothing pays for none of it.
     public static Fin<Unit> Observe(InstrumentSet set, LayerStack stack, Option<string> study, ProbeReading reading) =>
         from _ in set.Level(Mounted, stack.Layers.Count)
         from adopted in study.Match(
@@ -905,13 +680,8 @@ flowchart LR
   - The barycentric weight is the one arithmetic this plane performs, and it is a READ: the weights sum to one over three sealed sample values, so the interpolated reading lies inside the range the receipt already carries and can never be a value the study did not produce.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One layer's answer at one point. `Distance` is what the reading cost — zero inside a face, the gap to the
-// nearest sample outside one — so a table can show an operator that a value came from 40 mm away rather than
-// from under the cursor, which is the difference between a reading and a guess. `Spelled` is the printed
-// value under the layer's own elected unit, resolved at the ONE mint so a table, a marker, and a report block
-// cannot format one number three ways and no reader ever holds a half-built hit.
 public readonly record struct ProbeHit(
     string LayerKey,
     double Value,
@@ -919,26 +689,16 @@ public readonly record struct ProbeHit(
     double Distance,
     string Spelled);
 
-// The broadcast product: one coordinate, one hit per layer that could answer it, the layers that could not,
-// and the instant it was taken. `Silent` carries the refusals rather than dropping them, so a table renders a
-// blank cell against a NAMED absence where a discarded refusal left the reader unable to tell an uncovered
-// coordinate from an unmounted study.
 public sealed record ProbeReading(Vector3 At, Seq<ProbeHit> Hits, Seq<Error> Silent, Option<Instant> Taken) {
-    // The unprobed reading. A screen body needs a total value before any broadcast has happened, and an
-    // ABSENT instant is the honest one — the `Instant.MinValue` it replaces was a magic default a pinned
-    // export would have printed as a real timestamp.
     public static readonly ProbeReading Empty =
         new(Vector3.Zero, Seq<ProbeHit>(), Seq<Error>(), None);
 }
 
-// A pinned reading. `LabelKey` is the operator's own caption resolved through the label rail; the reading
-// travels whole, so a pin taken before a re-run keeps the value it was pinned at and a compare against the
-// live reading is a real comparison rather than a re-read of the same field.
 public sealed record ProbeMarker(string Key, string LabelKey, ProbeReading Reading);
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ProbeChannel {
     public const string TableKey = "analysis.probe.rows";
@@ -946,24 +706,13 @@ public static class ProbeChannel {
     public const string ClearIntent = "analysis.probe.clear";
     public const string ExportIntent = "analysis.probe.export";
 
-    // The pin roster's ONE holder. It is a screen cell rather than a member on the reading, because a pin
-    // outlives the broadcast it was taken from and the surface is what owns it.
     public static readonly SlotKey<Seq<ProbeMarker>> Pins = new("analysis.probe.pins");
 
-    // The broadcast. EVERY mounted layer is read, hidden ones included, because hiding is a display verb and
-    // the probe reads the sealed field; a layer that cannot answer contributes a REFUSAL rather than a zero
-    // and rather than nothing at all.
     public static ProbeReading Read(LayerStack stack, Vector3 at, double radius, ResolvedLocale locale, IClock clock) =>
         stack.Layers.Map(layer => Sample(layer, at, radius, locale)).Partition() switch {
             var (silent, hits) => new ProbeReading(at, hits, silent, Some(clock.GetCurrentInstant())),
         };
 
-    // The per-layer read, and the two arms are the honest ones each geometry supports: a face-connected
-    // payload interpolates BARYCENTRICALLY inside the triangle that contains the point, which is a weighted
-    // read of three sealed values and therefore always inside the range the receipt carries; an unconnected
-    // sample set answers its nearest sample within the admitted radius. Beyond the radius the layer refuses,
-    // because a nearest-sample read with no bound answers a value at every coordinate in the world. The
-    // locale rides IN so the hit is spelled once here rather than minted empty and patched by the caller.
     public static Fin<ProbeHit> Sample(ResultLayer layer, Vector3 at, double radius, ResolvedLocale locale) =>
         Contained(layer.Payload, at).Match(
             Some: hit => Fin.Succ(new ProbeHit(layer.Key, hit.Value, hit.Code, 0d, Spelled(layer, hit.Value, locale))),
@@ -973,14 +722,6 @@ public static class ProbeChannel {
                 _ => Fin.Fail<ProbeHit>(new AnalysisFault.ProbeOutside(layer.Key, radius)),
             });
 
-    // Barycentric containment over the payload's own triangles, evaluated in the plane the samples span. The
-    // weights sum to one by construction, so the interpolated value is a convex combination of three sealed
-    // readings and the code rides the DOMINANT vertex — a class is not interpolable, so the nearest corner's
-    // classification is the only honest answer inside a face. The walk STOPS at the containing face rather
-    // than carrying a found value past every remaining triangle: a probe an operator drags across a mounted
-    // analysis mesh runs this per frame per layer, and a fold that only short-circuits its arithmetic still
-    // pays the whole roster. The remaining O(faces) walk is the escalation this page cannot close — the
-    // payload's mint is where a spatial index would fold, and no kernel locator owns that shape yet.
     static Option<(double Value, Option<int> Code)> Contained(ResultPayload payload, Vector3 at) =>
         payload.Faces.FoldWhile(
             Option<(double, Option<int>)>.None,
@@ -995,10 +736,6 @@ public static class ProbeChannel {
             },
             static state => state.State.IsNone);
 
-    // A degenerate triangle answers None rather than dividing by a zero area, so a collapsed face in a sealed
-    // mesh drops out of the containment walk instead of producing an infinite weight the probe would print.
-    // The dot products stay `float` because the sample coordinates are, and the division widens deliberately;
-    // the tolerance is the kernel's, because `float.Epsilon` is a denormal and caught only an exact tie.
     static Option<(double A, double B, double C)> Weights(Vector3 a, Vector3 b, Vector3 c, Vector3 at) {
         Vector3 ab = b - a, ac = c - a, ap = at - a;
         float d00 = Vector3.Dot(ab, ab), d01 = Vector3.Dot(ab, ac), d11 = Vector3.Dot(ac, ac);
@@ -1011,19 +748,12 @@ public static class ProbeChannel {
         return u >= 0d && v >= 0d && w >= 0d ? Some((u, v, w)) : None;
     }
 
-    // The branch's ONE bounded selection, through the kernel heap rather than a hand accumulator that
-    // re-probed the incumbent at every sample.
     static Option<(ResultSample Sample, double Distance)> Nearest(ResultPayload payload, Vector3 at) =>
         Ranked.Top(payload.Samples, keep: 1, static (ResultSample sample) => (double)Vector3.Distance(sample.At, at),
                 ExtremumDirection.Minimum)
             .Head
             .Map(sample => (sample, (double)Vector3.Distance(sample.At, at)));
 
-    // The one printed-value projection, so a table cell, a marker caption, and a report row read one spelling.
-    // The quantity is built in the role's CANONICAL metric unit because that is the unit the sealed receipt
-    // measured in, and the locale elects the display unit at render — building in the elected unit instead
-    // would re-label a number nobody converted. A layer with no measure role and a quantity the role cannot
-    // build both DEGRADE to the numeric axis format, which is one fallback expression rather than three.
     static string Spelled(ResultLayer layer, double value, ResolvedLocale locale) =>
         layer.Measure
             .Bind(role => Quantity.TryFrom(value, role.MetricUnit, out IQuantity? quantity)
@@ -1031,9 +761,6 @@ public static class ProbeChannel {
                 : None)
             .IfNone(() => locale.Text(ChartAxisKind.Numeric.Format, value));
 
-    // The live table: one row per hit over the one virtual window every list surface uses. The distance
-    // column is a real column rather than a tooltip, because it is the reader's only signal that a value came
-    // from beside the cursor rather than under it.
     public static ControlIntent Table(ProbeReading reading, VirtualWindowSpec window) =>
         reading.Hits.IsEmpty
             ? new ControlIntent.EmptyState(TableKey, $"{TableKey}.empty.headline", $"{TableKey}.empty.body",
@@ -1053,10 +780,6 @@ public static class ProbeChannel {
                 window,
                 IntentBinding.Of(PaintRole.Surface));
 
-    // The three pin verbs, each a rewrite of the ONE cell: a pin under a key already taken REPLACES, because
-    // a pin is addressed by the marker an operator dropped and re-pinning after a re-run is exactly how a
-    // reading is refreshed. Each is what the deck's `analysis.probe.*` arrow binds, so the rostered key and
-    // the fold that answers it are one declaration apart.
     public static Unit Pin(ProductScreen screen, ProbeMarker marker) =>
         Rewrite(screen, held => held.Filter(row => row.Key != marker.Key).Add(marker));
 
@@ -1065,10 +788,6 @@ public static class ProbeChannel {
     public static Seq<ReportBlock> Export(ProductScreen screen, ResolvedLocale locale) =>
         Blocks(screen.Read(Pins, Seq<ProbeMarker>()), locale);
 
-    // The export projection: the pinned set as ONE table block the report plane paginates, so a probe export
-    // and a diagnostics report are the same `ReportBlock` vocabulary and this plane owns no writer. The live
-    // reading is deliberately absent from the export — a report of a value the operator never pinned is a
-    // number nobody chose — and a pin whose instant is absent prints an empty cell rather than a sentinel.
     public static Seq<ReportBlock> Blocks(Seq<ProbeMarker> pins, ResolvedLocale locale) =>
         pins.IsEmpty
             ? Seq<ReportBlock>()
@@ -1104,12 +823,8 @@ public static class ProbeChannel {
 - Boundary: a bake READS the layer and never edits it — nothing here writes the scene, mutates the stack, or re-runs a study, so a baked artifact and the layer it came from cannot diverge. The verbs are `Shell/commands#INTENT_TABLE` rows raised by key under `AnalysisLayers.BakeIntent`, so a bake reachable from a panel is reachable from the palette and from a remote call with no second surface. A bake of a layer whose provenance is absent refuses at the door rather than producing an unattributable deliverable — the one case the mint already forecloses, re-proven here because a bake crosses out of the process and an unattributable export is the failure that survives longest. `BakeContext.Grab` TRANSFERS custody of its image to the caller, so the frame bake — which keeps only the receipt — brackets and releases it on every path, while the compare plane's contact sheet keeps the tile it places; a fold that simply dropped the handle was the leak neither owner named.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The four sealed artifacts, closed because each one is a settled owner's own shape: a portable view receipt,
-// a colour-managed capture row, a board tile, and a report block roster. A fifth product would mean a
-// deliverable no owner already models, which is the test this union states. `Carries` is the union's own
-// total projection onto the evidence outcome, so a new arm names itself on the timeline or breaks the build.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BakeProduct {
     private BakeProduct() { }
@@ -1125,32 +840,17 @@ public abstract partial record BakeProduct {
         blocks: static _ => "blocks");
 }
 
-// The bound arrows a bake reads. Every one is an injected capability the composition root supplies, so this
-// page names no camera, no encoder, no board, and no writer — the four owners each keep their own boundary
-// and a bake is a composition rather than a second implementation of any of them. `Ink` and `Style` are the
-// resolved chart paint set and the custom-visual pigment policy the drawn legend arm consumes; resolving
-// either here would be a second paint authority the theme swap never re-seeds. The name is shared with a
-// `Rasm.Grasshopper` record of the same simple name on another stratum, and no call path crosses.
 public sealed record BakeContext(
     ViewCamera Camera,
     Option<SectionBox> Section,
     Seq<string> Scene,
-    // The grab answers the receipt AND the image, because two consumers need two halves of one capture: a
-    // frame bake seals the receipt, and a compare contact sheet places the tile in a report figure. An
-    // arrow answering the receipt alone forces the sheet to re-capture every cell it already captured.
     Func<LayerStack, IO<Fin<(RenderReceipt Receipt, SKImage Tile)>>> Grab,
     ChartInk Ink,
     CustomVisualStyle Style,
     ResolvedLocale Locale,
-    // Composition binds this per-key revision arrow to the ONE `Render/viewpoint#VIEW_REGISTRY` `ViewRevisions`
-    // minter: re-baking a layer at the same correlation must SUPERSEDE the reading it replaces, and only a
-    // process-wide sequence per key promises that.
     Func<string, int> Revision,
     IClock Clock);
 
-// Each row carries its own fold, so the dispatch is row data and a fifth deliverable adds no arm. The view
-// row is the one that makes an analysis reading SHAREABLE — its overrides are the stack's own ground
-// projection, so a colleague opening the link sees the same recession the author was reading against.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1163,10 +863,6 @@ public sealed partial class BakeVerb {
     [UseDelegateFromConstructor]
     public partial IO<Fin<BakeProduct>> Fold(ResultLayer layer, LayerStack stack, BakeContext context);
 
-    // The ONE bake door. A product crosses OUT of the process, so its evidence is not a caller's option: the
-    // door answers the fact, the composition seals it, and a bake that answered a bare product would be the
-    // untraceable export this plane's whole provenance column exists to prevent. The `IO`/`Fin` stack is the
-    // transformer rather than a hand-nested `Map`, so the provenance read and the effect compose in one query.
     public IO<Fin<AnalysisFact>> Bake(ResultLayer layer, LayerStack stack, BakeContext context) =>
         (from provenance in FinT.lift<IO, LayerProvenance>(layer.Provenance)
          from product in FinT.liftIO(Fold(layer, stack, context))
@@ -1178,15 +874,9 @@ public sealed partial class BakeVerb {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The four row arms. Each takes the whole stack because the row family's delegate is one signature and the
-// view and frame arms genuinely read it; the tile and report arms do not, which is the stated cost of a
-// uniform row contract against four folds that would otherwise each need their own dispatch.
 public static class BakeFolds {
-    // The view bake: the stack's own ground recession captured through the settled receipt, keyed by the
-    // layer and its correlation so a shared link names which reading it froze. `Viewpoint.Capture` owns
-    // duplicate-override admission and accumulates its own column refusals, so nothing here re-derives either.
     public static IO<Fin<BakeProduct>> View(ResultLayer layer, LayerStack stack, BakeContext context) =>
         IO.pure(
             from provenance in layer.Provenance
@@ -1197,23 +887,11 @@ public static class BakeFolds {
                 Seq<string>(), Seq<ViewMeasurement>(), context.Clock.GetCurrentInstant())
             select (BakeProduct)new BakeProduct.View(receipt));
 
-    // The frame bake defers to the injected grab, which is the capture plane's own colour-managed encode: a
-    // bake that rasterized here would be a second Skia surface owner and would leave the gamut unstated. The
-    // image is BRACKETED because this arm keeps only the receipt — release runs on success and failure alike,
-    // and the contact sheet that does keep its tile brackets its own.
     public static IO<Fin<BakeProduct>> Frame(ResultLayer layer, LayerStack stack, BakeContext context) =>
         context.Grab(stack).Bracket(
             static read => IO.pure(read.Map(static shot => (BakeProduct)new BakeProduct.Capture(shot.Receipt))),
             static read => IO.lift(() => ignore(read.Map(static shot => { shot.Tile.Dispose(); return unit; }))));
 
-    // The tile bake seats the layer's LEGEND on a board rather than its field: a scene field on a dashboard
-    // tile is a picture of a viewport, while its legend and its bounds are the reading a board can act on.
-    // The drawn legend arm is the custom plane's own, so this fold declares and never draws — and the chart
-    // shell it hands the legend fold carries no layers, which is admissible precisely because every domain a
-    // result layer declares carries its OWN members and only the series arm ever reads a chart's layer list.
-    // The narrowing is STRUCTURAL and therefore TOTAL: every result legend docks at a viewport corner, no
-    // package legend places at a corner, so the render dispatch is the union's own generated switch and the
-    // package arm is a refusal the dock forecloses rather than a fallback a type test left open.
     public static IO<Fin<BakeProduct>> Tile(ResultLayer layer, LayerStack stack, BakeContext context) =>
         IO.pure(
             from entries in LegendFold.Entries(
@@ -1228,9 +906,6 @@ public static class BakeFolds {
                     $"{AnalysisLayers.Plane}.{held.Key}", CustomVisual.Legend, new TileSource.Rows(drawn.Data.Key))))
             select (BakeProduct)new BakeProduct.Tile(placed));
 
-    // The report bake: the layer's provenance columns beside its domain bounds, as blocks the export plane
-    // paginates. A layer whose numbers left the product carries its whole attribution with them, and the
-    // extent row crosses the resolved locale like every other number this plane prints.
     public static IO<Fin<BakeProduct>> Report(ResultLayer layer, LayerStack stack, BakeContext context) =>
         IO.pure(
             from provenance in layer.Provenance

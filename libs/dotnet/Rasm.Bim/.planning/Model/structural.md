@@ -20,7 +20,7 @@ An idealized analytical line is no payload this reader produces: it content-keys
 - Boundary: this reader produces ONLY neutral seam payloads — an inline `AxisCurve`/`Vector3` analytical-coordinate field on the seam node is the named seam violation, the `AtStart`/`Station`/`Frame` topology reads being TRANSIENT and emitting Boolean/scalar attributes alone; the entity-to-bag reading is ONE polymorphic `Attrs` and a `RestraintAttrs`/`LoadAttrs`/`GroupAttrs` sibling family the deleted form; the rel-level RELEASE and the connection-level SUPPORT are two row families reduced through one policy value, the `rel.AppliedCondition ?? connection.AppliedCondition` fusion that let a released beam end read as a support being the deleted form; a negative-finite or non-finite stiffness FAULTS on the DOF's own verdict, because a fabricated `Boolean(false)` asserts a free DOF no reading established and no egress filter retracts; every row name resolves to an OWNER-declared static — the cross-package vocabulary through `Rasm.Element` `StructuralRows` and every page row through `StructuralRow`, so a call-site `PropertyName.Create` forks the key space between this writer and its non-referencing `Rasm.Compute` reader, and a call-site re-mint of a family the seam owner already names (`Family("ReleaseTranslation")` beside the owner's own `ReleaseTranslation`) forks CUSTODY even while the bytes still match — the `Family(stem, keys)` mint reaches the page-local families alone; the rigid-end offset is a STATED column read off the eccentricity constraint's own three length measures in the relating member's local axes, never a scalar this reader derives off `SupportedLength` and never a fabricated zero, so a connection declaring no eccentricity carries no offset row and the reader's option refuses on the absence by name; the magnitude roster is MIXED and the split is a ROW property — a row READ off a GeometryGym attribute admits under the measure type that attribute declares, while a row this reader DERIVES or reads off a bare `IfcReal` takes the DIMENSION-ONLY mint and stays dimension-anonymous, because a stamped name is fabricated identity where nothing was ingested; the sealed warping stiffness reads through the ONE capsule and is UNAUTHORABLE, so its support row rides OUTSIDE `RestraintFamily.Consumed` and reaches the egress receipt as `Projection/fidelity#FIDELITY_LEDGER` `FidelityDrop.StructuralResidue` rather than re-authoring a stiffness the file never declared.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -39,13 +39,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The page's own row vocabulary: the key IS the seam row name, minted through the owner-blessed empty-prefix
-// PropertyCategory.Seam category, and Measure fixes the IFC measure identity that row admits under so a call
-// site cannot sign one row with two identities. Rows on the Rasm.Element StructuralRows roster carry NO
-// measure column here on purpose — a shared axis family (Force, Moment) takes its identity from the LOAD
-// FAMILY reading it, an IfcForceMeasure for a point action and an IfcLinearForceMeasure for a line one, so
-// their identity is family-keyed and travels with the LoadFamily row instead.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StructuralRow {
@@ -67,8 +61,6 @@ public sealed partial class StructuralRow {
     public static readonly StructuralRow Eccentricity = new("Eccentricity", None);
     public static readonly StructuralRow Coefficient = new("Coefficient", Some(nameof(IfcRatioMeasure)));
     public static readonly StructuralRow Thickness = new("Thickness", Some(nameof(IfcPositiveLengthMeasure)));
-    // The span a varying line action occupies, read off its own Locations roster; a trapezoid whose extent no
-    // row carries reads downstream as a full-length action, so both ends land or neither does.
     public static readonly StructuralRow SpanStart = new("SpanStart", Some(nameof(IfcLengthMeasure)));
     public static readonly StructuralRow SpanEnd = new("SpanEnd", Some(nameof(IfcLengthMeasure)));
 
@@ -76,15 +68,9 @@ public sealed partial class StructuralRow {
 
     public PropertyName Name => PropertyCategory.Seam.Row(Key);
 
-    // The admission triple in ONE read, so the row and the identity it signs can never diverge at a call site.
     public (PropertyName Name, Option<string> Measure, double Native) Cell(double native) => (Name, Measure, native);
 }
 
-// The closed IfcStructuralLoad family as ROWS: the GG type NAME is the key the LoadType row round-trips, Kind
-// the Rasm.Compute FE idealization the Analysis reader probes on, and Vectors the component projection. Three
-// pages dispatched this family independently before — this reader, the eurocode carrier mint, and the SAF
-// action lowering — so a new subtype meant four edits and a silent catch-all wherever one was missed. It is
-// ONE roster now, and the two dependent Switch folds break loudly on the next row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class LoadFamily {
@@ -118,14 +104,7 @@ internal sealed partial class LoadFamily {
                   (StructuralRows.DeltaT["Y"], Named<IfcThermodynamicTemperatureMeasure>(), t.DeltaT_Y),
                   (StructuralRows.DeltaT["Z"], Named<IfcThermodynamicTemperatureMeasure>(), t.DeltaT_Z))
             : Empty);
-    // DisplacementX/Y/Z and RotationalDisplacementRX/RY/RZ are INTERNAL fields with no public accessor, so a
-    // prescribed-displacement action carries its frame rows alone. The row exists so the family stays closed
-    // and the drop is a stated arm rather than a catch-all nobody counts.
     internal static readonly LoadFamily Displacement = new(nameof(IfcStructuralLoadSingleDisplacement), "point", static _ => Empty);
-    // The IFC varying line action pairs Values with Locations POSITIONALLY, so the ramp zips by ORDINAL and
-    // keeps linear-force rows only afterwards: filtering Values first re-indexes the survivors and silently
-    // re-reads another value's position. An ordinal whose Locations entry is short drops WHOLE, so a partial-span
-    // action carries both its magnitudes and its own span or does not lower at all.
     internal static readonly LoadFamily Configuration = new(nameof(IfcStructuralLoadConfiguration), "trapezoid",
         static load => load is IfcStructuralLoadConfiguration cfg && Ramp(cfg) is { Count: >= 2 } ramp
             ? Seq((StructuralRows.Start["X"], Named<IfcLinearForceMeasure>(), ramp[0].Force.LinearForceX),
@@ -149,8 +128,6 @@ internal sealed partial class LoadFamily {
 
     internal static Option<LoadFamily> Of(IfcStructuralLoad load) => Token(load.GetType().Name);
 
-    // The generated Get throws on an unrostered key, so the token read — a round-tripped bag value, not a
-    // compile-time member — takes the total lookup instead.
     internal static Option<LoadFamily> Token(string key) =>
         ByEntity.TryGetValue(key, out LoadFamily? row) && row is { } hit ? Some(hit) : None;
 
@@ -163,43 +140,26 @@ internal sealed partial class LoadFamily {
                 : None);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Which physical fact a boundary condition states, as a POLICY VALUE carrying its own row maps: a rel-level
-// AppliedCondition is the member END RELEASE and a connection's own is the joint SUPPORT. Dofs and Consumed
-// DERIVE off the maps, so the seventh-DOF exclusion is a column law stated once rather than a hand sum beside
-// a comment — Consumed is the re-authorable set alone, which is what carries the unauthorable warping row to
-// the fidelity receipt instead of striking it from the residue while authoring nothing for it.
+// --- [MODELS] --------------------------------------------------------------------------
 internal readonly record struct RestraintFamily(
     Map<string, PropertyName> Translation, Map<string, PropertyName> Rotation, PropertyName Warping) {
     internal Seq<PropertyName> Dofs => Translation.Values.ToSeq() + Rotation.Values.ToSeq() + Seq(Warping);
     internal Seq<PropertyName> Consumed => Translation.Values.ToSeq() + Rotation.Values.ToSeq();
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StructuralProjection {
-    // BOTH families ARE Rasm.Element rosters: the seam owner declares the support triple and the release triple
-    // side by side off its own Family(stem, keys) mint, so this page COMPOSES two named statics and re-mints
-    // neither. A call-site Family("ReleaseTranslation") spells the same bytes today and forks the day the owner
-    // renames a stem — one authority per derived name. The mint stays public for the families no cross-package
-    // reader keys on, which is the only place a call site may still reach it.
     internal static readonly RestraintFamily Support =
         new(StructuralRows.Translation, StructuralRows.Rotation, StructuralRows.Warping["Axial"]);
 
     internal static readonly RestraintFamily Release = new(
         StructuralRows.ReleaseTranslation, StructuralRows.ReleaseRotation, StructuralRows.ReleaseWarping["Axial"]);
 
-    // The eccentricity content key the IIfcProfileStore preserved the ConnectionConstraint geometry fragment
-    // under. ASSEMBLY-INTERNAL under its row's own name because Projection/egress#IFC_EGRESS reads it back to
-    // restore the constraint geometry, and a mirrored literal at that end forks on the first rename.
     internal static readonly PropertyName Eccentricity = StructuralRow.Eccentricity.Name;
 
-    // The two axis families no cross-package reader keys on, minted off the same seam roster so a seventh axis
-    // is unreachable by typo.
     private static readonly Map<string, PropertyName> SelfWeight = StructuralRows.Family("SelfWeight");
     private static readonly Map<string, PropertyName> LocalAxis = StructuralRows.Family("LocalAxis");
 
-    // The Enumerated allowed-sets DERIVE from their own vocabularies — the GG schema enums for the analysis
-    // axes, the LoadFamily roster for the load-type token — so no hand-listed subset drifts from its source.
     private static readonly Seq<string> LoadKinds = LoadFamily.Items.Map(static row => row.Key).ToSeq();
     private static readonly Seq<string> LoadGroupKinds = toSeq(Enum.GetNames<IfcLoadGroupTypeEnum>());
     private static readonly Seq<string> TheoryKinds = toSeq(Enum.GetNames<IfcAnalysisTheoryTypeEnum>());
@@ -207,15 +167,6 @@ public static class StructuralProjection {
 
     // --- [ATTRIBUTES]
 
-    // ONE polymorphic structural attribute-bag reader discriminating on the entity shape. The two
-    // IfcRelConnects* arms build the WHOLE Generic edge payload in one call, so EdgeProjection.Structural
-    // reads Attrs(rel, scale, eurocode, profiles, key) once and never assembles a bag by hand afterwards.
-    // The Measures gate filters every non-finite magnitude, so the surfaces whose public getter exposes the
-    // unset NaN sentinel never emit: DeltaT_*, Coefficient, Thickness, SupportedLength, EccentricityIn*, and a
-    // 2D direction's DirectionRatioZ all read NaN unset and drop there. The IfcStructuralLoad force families are NOT in that
-    // set — their NaN backing field's getter COERCES unset to 0.0, so an unset component reads a deliberate
-    // zero no filter can distinguish from a real one. The restraint DOF rows ride NEITHER path: a DOF carries
-    // a verdict, so a non-finite stiffness faults at SixDof rather than dropping or asserting a free DOF.
     public static Fin<Map<PropertyName, PropertyValue>> Attrs(
         BaseClassIfc? entity, UnitScheme scale, Option<EurocodePolicy> eurocode, IIfcProfileStore profiles, Op key) =>
         entity switch {
@@ -254,8 +205,6 @@ public static class StructuralProjection {
                 (StructuralRow.IsLinear.Name, (PropertyValue)new PropertyValue.Boolean(result.IsLinear)))
                 .AddRange(Optional(result.ResultForLoadGroup)
                     .Map(static loadGroup => (StructuralRow.ResultFor.Name, (PropertyValue)new PropertyValue.Text(loadGroup.GlobalId))).ToSeq())),
-            // LoadedBy/HasResults ride GlobalId list payloads because no IfcRel* edge carries these direct set
-            // attributes and a count erases the wiring a multi-model file needs.
             IfcStructuralAnalysisModel model =>
                 from frame in Frame(model.OrientationOf2DPlane, key)
                 select Seq(
@@ -276,27 +225,6 @@ public static class StructuralProjection {
 
     // --- [RIGID_END_OFFSET]
 
-    // The rigid-end offset vector the connection STATES, read off the eccentric subtype's own
-    // IfcConnectionPointEccentricity — the ONE place the file declares it as magnitudes rather than as geometry.
-    // FRAME: IFC measures EccentricityIn* in the local coordinate system of the RELATING element, which the
-    // structural use definition fixes as the IfcStructuralMember, so x runs along the member axis and the axial
-    // component IS the rigid-end length a frame condensation reads. That is NOT the StructuralRows.Frame row this
-    // same arm stamps, which carries the boundary CONDITION's restraint axes: a skewed ConditionCoordinateSystem
-    // rotates the support springs and leaves this vector untouched, and a reader applying one frame to both
-    // swings every rigid end off the member it belongs to.
-    // SENSE: from PointOnRelatedElement to PointOnRelatingElement — from the JOINT to the analytical member end —
-    // so a consumer places the end at joint + offset and a negated read moves every rigid end the wrong way.
-    // ABSENCE: the three attributes are OPTIONAL and parse unset as NaN, so an unstated transverse pair drops BY
-    // NAME at the Measures gate the way the warping slot lowers, never leaving the axial row read as the whole
-    // vector. A constraint that is not a point eccentricity — a curve or surface connection geometry, or a plain
-    // IfcConnectionPointGeometry — states no offset and emits NOTHING: an absent vector IS the zero-rigid-end
-    // statement, and a fabricated zero row asserts a placement no reading established.
-    // SupportedLength is NO source here. It is the physical support's own length the round-trip froze, and
-    // halving it authors a modelling decision neither this reader nor its consumer owns.
-    // The two-POINT eccentricity form (PointOnRelating plus PointOnRelated, no explicit measures) states its
-    // distance across two DIFFERENT local coordinate systems, so recovering it is a placement resolution this
-    // neutral-payload reader does not perform; the whole constraint still round-trips verbatim through the
-    // Eccentricity fragment lane, so the exchange loses nothing and the analysis column simply stays unstated.
     private static Seq<(PropertyName Name, Option<string> Measure, double Native)> OffsetOf(
         IfcRelConnectsStructuralMember relation) =>
         (relation as IfcRelConnectsWithEccentricity)?.ConnectionConstraint is IfcConnectionPointEccentricity e
@@ -307,15 +235,8 @@ public static class StructuralProjection {
 
     // --- [RESTRAINT]
 
-    // The measure type of each arm is the SELECT's own declaration, never a signature this reader picks: a node
-    // condition reads StiffnessSelect<IfcLinearStiffnessMeasure> and the standalone IfcRotationalStiffnessSelect,
-    // an edge condition the two subgrade-reaction selects — three reaction types one exponent apart, so the edge
-    // pair reading the node pair's names would price every edge spring by a length factor. A face condition,
-    // whose area stiffness GeometryGym exposes only as internal fields, yields the empty (free) bag.
     private static Fin<Map<PropertyName, PropertyValue>> RestraintOf(
         IfcBoundaryCondition? condition, RestraintFamily family, UnitScheme scale, Op key) => condition switch {
-        // The warping subtype precedes its own base: IfcBoundaryNodeConditionWarping IS an IfcBoundaryNodeCondition,
-        // so the base arm ordered first would swallow every seventh degree of freedom.
         IfcBoundaryNodeConditionWarping w => SixDof(
                 (w.TranslationalStiffnessX, w.TranslationalStiffnessY, w.TranslationalStiffnessZ),
                 (w.RotationalStiffnessX, w.RotationalStiffnessY, w.RotationalStiffnessZ),
@@ -332,10 +253,6 @@ public static class StructuralProjection {
         _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
     };
 
-    // The SEVENTH degree of freedom, read through the ONE IfcInternals [UnsafeAccessor] capsule
-    // [SEALED_PAYLOAD_RULING]: mWarpingStiffness on the condition and mFixed/mStiffness on
-    // IfcWarpingStiffnessSelect are internal fields behind no public accessor, so a second accessor spelled
-    // here would fork its version pin.
     private static Fin<Map<PropertyName, PropertyValue>> WarpingOf(
         IfcBoundaryNodeConditionWarping condition, RestraintFamily family, UnitScheme scale, Op key) =>
         IfcInternals.Warping(condition).Match(
@@ -343,10 +260,6 @@ public static class StructuralProjection {
             Some: reading => Verdict(family.Warping, reading, Named<IfcWarpingMomentMeasure>(), scale, key)
                 .Map(static row => Map((row.Name, row.Value))));
 
-    // The local orientation frame as ONE StructuralRows.Frame row carrying the six direction ratios in declared
-    // order, so a skewed support's restraint axes and a 2D model's loading plane land on one row rather than a
-    // prefix-built name family. The two frames never co-occupy a bag. A global-axes placement emits nothing
-    // rather than a fabricated frame, and a non-finite ratio drops the WHOLE row rather than poisoning a list.
     private static Fin<Map<PropertyName, PropertyValue>> Frame(IfcAxis2Placement3D? system, Op key) =>
         system is { Axis: { } axis, RefDirection: { } reference }
         && Seq(axis.DirectionRatioX, axis.DirectionRatioY, axis.DirectionRatioZ,
@@ -356,10 +269,6 @@ public static class StructuralProjection {
                 .Map(values => Map((StructuralRows.Frame, (PropertyValue)new PropertyValue.List(values))))
             : Fin.Succ(Map<PropertyName, PropertyValue>());
 
-    // ONE row per degree of freedom, its PropertyValue CASE carrying whether the support is a rigid restraint
-    // or a finite spring, so a reader keying the DOF can never read the boolean while stranding the magnitude.
-    // The six are INDEPENDENT columns of one restraint, so they ACCUMULATE: a condition with two malformed
-    // springs names both axes rather than reporting the first and re-running.
     private static Fin<Map<PropertyName, PropertyValue>> SixDof(
         (object? X, object? Y, object? Z) translation, (object? X, object? Y, object? Z) rotation,
         Option<string> translationMeasure, Option<string> rotationMeasure, RestraintFamily family, UnitScheme scale, Op key) =>
@@ -373,12 +282,6 @@ public static class StructuralProjection {
             .Traverse(degree => (Verdict(degree.Item1, Dof(degree.Item2), degree.Item3, scale, key)).ToValidation()).As())
         .Map(static rows => rows.Fold(Map<PropertyName, PropertyValue>(), static (map, row) => map.Add(row.Name, row.Value)));
 
-    // ONE degree of freedom's verdict, THREE-WAY over the magnitude the select yielded, because the row is an
-    // ASSERTION about the support: a ZERO magnitude is the fixity Boolean, a POSITIVE magnitude the SI spring
-    // Measure under the select's own type, and a NEGATIVE-finite or non-finite magnitude the typed rejection.
-    // The retired two-arm shape routed a negative stiffness to the Boolean branch, where `rigid || native > 0`
-    // reads false — fabricating a FREE degree of freedom no reading established and none downstream retracts,
-    // because a Boolean row is never dropped. NaN falls to the fault arm: a non-finite spring is malformed.
     private static Fin<(PropertyName Name, PropertyValue Value)> Verdict(
         PropertyName name, (bool Fixity, double Native) reading, Option<string> measure, UnitScheme scale, Op key) =>
         reading.Native switch {
@@ -392,13 +295,6 @@ public static class StructuralProjection {
                         Key: Some(key)),
         };
 
-    // ONE reading per DOF select over GeometryGym's SPLIT select hierarchy: IfcTranslationalStiffnessSelect and
-    // the two subgrade-reaction selects derive StiffnessSelect<TMeasure> while IfcRotationalStiffnessSelect
-    // stands alone, so no common base admits a single property pattern, yet all four independently expose a
-    // Rigid Boolean beside a Stiffness whose .Measure rides IfcDerivedMeasureValue. The reading stays NATIVE
-    // the whole way — the coercion factor is positive and moves neither a sign nor a zero, so the fixity
-    // verdict is the same on either side of it and the ONE Admit entry owns the coercion. A malformed select
-    // carries its non-finite magnitude forward UNTOUCHED, so this reading never launders a NaN into a Boolean.
     private static (bool Fixity, double Native) Dof(object? select) {
         (bool Rigid, double Native) reading = select switch {
             IfcTranslationalStiffnessSelect s                 => (s.Rigid, s.Stiffness?.Measure ?? 0d),
@@ -412,22 +308,10 @@ public static class StructuralProjection {
 
     // --- [MEASURE]
 
-    // The measure identity ONE row admits under, spelled as the GG IfcValue TYPE its source attribute declares.
-    // The generic bound makes a non-value type uncompilable and typeof(T).Name IS the key
-    // Projection/value#PROPERTY_LOWERING MeasureDimensions stores, so the seam Dimension, the coercion axis,
-    // the stamped QuantityType, and the Projection/raise#VALUE_RAISE raiser all resolve from ONE symbol.
-    // Anonymous is its counterpart — the row NO IFC measure names: a coefficient this reader computes or a
-    // source attribute the schema declares a bare IfcReal. Naming one anyway forges a round-trip identity.
     internal static Option<string> Named<TMeasure>() where TMeasure : IfcValue => Some(typeof(TMeasure).Name);
 
     internal static readonly Option<string> Anonymous = None;
 
-    // The whole admission triple in ONE read of the name, so the mint cannot elect a different identity than
-    // the one that signed the row. A NAMED measure resolves the frozen MeasureDimensions row, the ONE table
-    // that also signs the property lane and derives the egress raiser; an anonymous row is dimensionless by
-    // construction and its empty exponent vector gives the identity factor, so the native magnitude IS the SI
-    // one. A named type the table does not carry signs NO dimension and rails rather than coercing on a guessed
-    // exponent vector, wrong by a power of the model's own length factor.
     private static Fin<(Dimension Signature, Option<QuantityType> Type, double Si)> Resolve(
         Option<string> measure, double native, UnitScheme scale, Op key) =>
         measure.Match(
@@ -438,11 +322,6 @@ public static class StructuralProjection {
                         string.Join(':', new object?[] { "structural-measure-unrostered", type }))),
             None: static () => Fin.Succ((Signature: Dimension.Dimensionless, Type: Option<QuantityType>.None, Si: native)));
 
-    // The ONE structural magnitude admission both the DOF springs and every attribute row cross — the MIXED
-    // mint the seam's round-trip law rules: a resolved identity stamps its QuantityType so the value re-exports
-    // as ITSELF through the raiser keyed on that same name, while an unresolved one takes the dimension-only
-    // mint. Model/eurocode#EUROCODE_ALGEBRA re-enters HERE for its factored design actions rather than minting
-    // a second admission beside it.
     internal static Fin<MeasureValue> Admit(Option<string> measure, double native, UnitScheme scale, Op key) =>
         Resolve(measure, native, scale, key).Bind(resolved => resolved.Type
             .Match(
@@ -463,15 +342,10 @@ public static class StructuralProjection {
             Seq<PropertyValue>(new PropertyValue.Text(selected)),
             allowed.Map(static value => (PropertyValue)new PropertyValue.Text(value)));
 
-    // The accumulation's ONE collapse back onto the folder rail, at the fault owner so no page re-declares it.
     private static Fin<A> Accumulated<A>(Validation<Error, A> accumulated) => (accumulated).ToFin();
 
     // --- [LOAD]
 
-    // The applied load the IfcRelConnectsStructuralActivity Generic edge carries: typed components over the
-    // LoadFamily roster PLUS the load-type token, the global/local frame, and the source name. Every component
-    // leaves the row projection model-NATIVE beside its own measure type and coerces inside the one Admit
-    // entry, so this arm spells no factor and no dimension of its own.
     private static Fin<Map<PropertyName, PropertyValue>> LoadOf(
         IfcStructuralActivity? activity, UnitScheme scale, Option<EurocodePolicy> eurocode, Op key) =>
         Optional(activity).Bind(static candidate => Optional(candidate.AppliedLoad).Map(load => (Activity: candidate, Load: load)))
@@ -487,8 +361,6 @@ public static class StructuralProjection {
                                (StructuralRows.Case, new PropertyValue.Text(row.Case)),
                                (StructuralRow.ActionClassRow.Name, new PropertyValue.Text(row.Class.ToString())),
                                (StructuralRow.GlobalOrLocal.Name, new PropertyValue.Text(pair.Activity.GlobalOrLocal.ToString())))
-                               // An unnamed activity emits NO source row: the retired `?? ""` stamped an
-                               // empty-string source every consumer then read as a declared blank name.
                                .AddRange(Optional(pair.Activity.Name).Map(static name =>
                                    (StructuralRow.Source.Name, (PropertyValue)new PropertyValue.Text(name))).ToSeq())
                                .AddRange(row.Imposed.Map(static category =>
@@ -498,10 +370,6 @@ public static class StructuralProjection {
                 },
                 None: static () => Fin.Succ(Map<PropertyName, PropertyValue>()));
 
-    // The load-group definition bag the LoadCase arm extends: the combination/case/group discriminant, the
-    // action nature and source, the partial-safety Coefficient (NaN unset, dropped at the Measures gate), and
-    // the purpose label. A LOAD_COMBINATION_GROUP under an elected policy extends it once more with the
-    // Model/eurocode#EUROCODE_ALGEBRA combination roster, which is the ONLY EN 1990 reach on this page.
     private static Fin<Map<PropertyName, PropertyValue>> GroupOf(
         IfcStructuralLoadGroup group, UnitScheme scale, Option<EurocodePolicy> eurocode, Op key) =>
         from measures in Measures(Seq(StructuralRow.Coefficient.Cell(group.Coefficient)), scale, key)
@@ -521,13 +389,6 @@ public static class StructuralProjection {
 
     // --- [REAUTHOR]
 
-    // The reader's inverse Projection/egress#IFC_EGRESS composes over the authored structural entities. The
-    // family discriminant is the ingest's own LoadType token — the Force/Moment axis rows are family-SHARED, so
-    // a token-blind gate would re-author every uniform line action as a fabricated point force. The egress
-    // target database is SI by construction, so the bag's SI magnitudes land verbatim and no inverse unit fold
-    // exists to get wrong. TOTAL and residue-HONEST: the RETURN IS the residue — the row names the re-stamp did
-    // NOT consume — so a payload with no verified re-author ctor reaches Emit as a value it must FOLD into the
-    // exchange fidelity receipt. The GG ctor is the one throwing seam and crosses as BimFault.Refused.
     public static Fin<Seq<PropertyName>> Author(
         DatabaseIfc db, IfcObjectDefinition entity, Map<PropertyName, PropertyValue> attrs, Op key) =>
         entity switch {
@@ -549,16 +410,6 @@ public static class StructuralProjection {
             _ => Fin.Succ(attrs.Keys.ToSeq()),
         };
 
-    // Consumed names = the stamped components plus the family discriminant. The frame tokens re-derive at the
-    // next ingest and never count as drops, and the Eurocode factors re-resolve from the annex policy. The
-    // release family, the OFFSET family, the warping row, the eccentricity key, and the combination roster are
-    // all deliberately OUTSIDE the consumed sets: each re-authors on a relationship or through a sealed
-    // constructor this entity-keyed entry cannot reach, so each survives as residue the egress folds into its
-    // receipt. The offset family is the one DERIVED member of that list — its rows re-derive at the next ingest
-    // off the very ConnectionConstraint the Eccentricity key restores, so what the egress must carry for it is
-    // that key, already priced as its own EccentricityDegraded drop on a store miss. Re-authoring the rows
-    // themselves would mint a second IfcConnectionPointEccentricity beside the restored fragment and let two
-    // eccentricity statements disagree.
     private static readonly Seq<PropertyName> ForceNames =
         StructuralRows.Force.Values.ToSeq() + StructuralRows.Moment.Values.ToSeq() + Seq(StructuralRow.LoadType.Name);
 
@@ -569,16 +420,12 @@ public static class StructuralProjection {
                 return names.Fold(attrs, static (residue, name) => residue.Remove(name)).Keys.ToSeq();
             });
 
-    // The ingest token read back as its own row, so both the re-author gate and the SAF action lowering
-    // dispatch on the SAME closed family rather than on nameof literals neither side can exhaust.
     internal static Option<LoadFamily> LoadTypeOf(Map<PropertyName, PropertyValue> attrs) =>
         attrs.Find(StructuralRow.LoadType.Name)
             .Bind(static value => value is PropertyValue.Enumerated enumerated ? enumerated.Selected.Head : None)
             .Bind(static selected => selected is PropertyValue.Text text ? Some(text.Value) : None)
             .Bind(LoadFamily.Token);
 
-    // A DOF select off the ONE bag row — the Dof reading's inverse: a Measure row re-stamps its SI stiffness
-    // through the double ctor, a true Boolean row re-stamps rigid, and an absent or false row is free.
     private static IfcTranslationalStiffnessSelect Translational(Map<PropertyName, PropertyValue> attrs, PropertyName dof) =>
         Si(attrs, dof) is > 0d and var k ? new IfcTranslationalStiffnessSelect(k) : new IfcTranslationalStiffnessSelect(Fixity(attrs, dof));
 
@@ -593,11 +440,6 @@ public static class StructuralProjection {
 
     // --- [TOPOLOGY_DISCRIMINANTS]
 
-    // The start/end discriminant the IfcRelConnectsStructuralMember Generic edge carries so Rasm.Compute
-    // resolves a support to the correct member joint. The endpoint coordinates are read TRANSIENTLY off
-    // GeometryGym topology to compute the boolean and never stored on the seam node. A member with no
-    // analytical edge, a connection with no vertex, or a malformed vertex point yields None, so an unresolved
-    // endpoint never silently claims the start and never compares against a fabricated origin.
     public static Option<bool> AtStart(IfcStructuralCurveMember? member, IfcStructuralConnection? connection) =>
         from m in Optional(member)
         from edge in EdgeOf(m.Representation)
@@ -606,9 +448,6 @@ public static class StructuralProjection {
         from e in PointOf(edge.EdgeEnd)
         select Vector3.Distance(vertex, s) <= Vector3.Distance(vertex, e);
 
-    // The normalized point-action position along the member's analytical edge (0 start .. 1 end), the SAME
-    // transient read discipline. None when any topology is absent or the chord degenerate, so a surface action
-    // or an unpositioned load never fabricates a station.
     public static Option<double> Station(IfcStructuralCurveMember? member, IfcStructuralActivity? activity) =>
         from m in Optional(member)
         from edge in EdgeOf(m.Representation)
@@ -631,9 +470,6 @@ public static class StructuralProjection {
             .Choose(static item => item is IfcVertexPoint vp ? PointOf(vp) : None)
             .ToSeq().Head);
 
-    // 2D-honest: an IN_PLANE analytical model's IfcCartesianPoint legally carries TWO coordinates, so a
-    // 2-coordinate vertex reads (x, y, 0) rather than collapsing every plane-frame joint onto a fabricated
-    // origin; a point with fewer coordinates is malformed and yields None.
     private static Option<Vector3> PointOf(IfcVertex? vertex) =>
         vertex is IfcVertexPoint { VertexGeometry: IfcCartesianPoint { Coordinates: { Count: >= 2 } c } }
             ? Some(new Vector3(c[0], c[1], c.Count >= 3 ? c[2] : 0d))

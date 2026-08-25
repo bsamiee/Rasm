@@ -36,11 +36,6 @@ type _DivergenceValue = Data.TaggedEnum<{
 }>
 const _Divergence = Data.taggedEnum<_DivergenceValue>()
 
-// TWO damages, never one reason carrying an `Option` coordinate: a summary whose first divergent SHARED tier the
-// rebuild can name, and one whose shared tiers all agree while the roots differ — a shape mismatch no tier index
-// locates. The old single `digest` reason fused them behind `tier: Option<number>`, so a reader could not tell "tier
-// 3 was re-bucketed" from "the leaf set itself changed" without probing the Option. Both grade `invalid`: a summary
-// that fails its own rebuild is caller-authored material and no re-drive repairs it.
 const _summaryFamily = Fault.Class.family(["tier", "root"] as const, {
   tier: Fault.Class.row({
     class: "invalid",
@@ -75,7 +70,6 @@ const _utf8 = new TextEncoder()
 
 const _byLeaf: Order.Order<Digest.Key<"content">> = Order.string
 
-// BOUNDARY ADAPTER: TextEncoder is the platform-forced crossing from canonical key text to digest bytes.
 const _encoded = (bucket: ReadonlyArray<Digest.Key<"content">>): Uint8Array =>
   _utf8.encode(Array.join(Array.map(bucket, (key) => `${key.length}:${key}`), ""))
 
@@ -159,8 +153,6 @@ class Commit extends Schema.Class<Commit>("Commit")({
         ? Effect.succeed(summary)
         : Effect.fail(
             new _SummaryFault({
-              // The search that used to fill an `Option` now SELECTS the reason, so the discriminant is recovered
-              // from the value and no consumer unwraps a slot to learn which damage it holds.
               case: Option.match(
                 Array.findFirst(
                   Array.range(0, Number.min(rebuilt.tiers.length, summary.tiers.length) - 1),
@@ -195,7 +187,7 @@ declare namespace Commit {
   type SummaryCase = typeof _summaryFamily.payload.Type
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Commit }
 ```

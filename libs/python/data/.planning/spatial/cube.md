@@ -46,25 +46,10 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.cube")
 
 type Predicate = Literal["intersects", "within", "contains", "overlaps", "crosses", "touches", "covers", "covered_by", "dwithin"]
 
-# the accessor plane's raise set. `xvec` declares no exception type of its own (`.api/xvec.md` `[ERROR_ABSENCE]`):
-# it answers `ValueError` for a coordinate carrying no geometry index and `ImportError` for an unmet optional
-# provider. `ShapelyError` and `ProjError` are named because neither refines a builtin — the first roots at
-# `Exception`, the second at `RuntimeError` — so `ValueError` alone would miss both. Every `xarray` fault the cube
-# arms reach DOES refine `ValueError` (`MergeError`, `AlignmentError`, `CoordinateValidationError` alike), so that
-# one row carries them and this page adds no eager `xarray` import the sibling field owner binds `lazy`.
 _XVEC_RAISES: Final[Catch] = (ShapelyError, ProjError, KeyError, TypeError, ValueError, ImportError)
 
-# the Zarr egress leg: `BaseZarrError` roots the metadata, node, codec, and containment tree and itself refines
-# `ValueError` (`.api/zarr.md`), so it leads; the root-metadata read after the write is an ordinary filesystem hop
-# and answers `OSError`. The selection family sits OUTSIDE that root under `IndexError` and no write leg reaches it.
 _ZARR_RAISES: Final[Catch] = (BaseZarrError, ShapelyError, KeyError, TypeError, ValueError, OSError)
 
-# this module's whole raise roster under its one `DataLeg` member: the lift and the operation family are pure
-# in-memory transforms over an admitted cube, so a re-run over the same operand refuses identically and both declare
-# TERMINAL; the egress leg writes a store and declares TRANSIENT, a driver or filesystem fault a re-issue may clear.
-# Every row here is a FENCE ANCHOR alone — no site calls `raised` — so none declares `slots`: a converted provider
-# raise fills its own detail from the cause, and the op the fence was running rides the span's `rasm.geo.op`
-# attribute the enclosing `_TRACER` already stamps rather than a coordinate the row would have to name.
 CUBE_LIFT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CUBE, point="lift", arm="boundary", defect="geometry-index", retriability=TERMINAL
 )
@@ -80,12 +65,7 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([CUBE_LIFT, CUBE
 @tagged_union(frozen=True)
 class CubeOp:
     tag: Literal["query", "extract", "frame"] = tag()
-    # (predicate geometry, predicate name, dwithin distance) — the operand crosses the claim prelude first, and the
-    # distance rides `Option` because only the `dwithin` predicate carries one: a bare `None` in the slot spelled
-    # "no distance" and "a distance the caller has not resolved yet" as one value, and the provider kwarg is the
-    # ONE place that absence lowers back to `None`.
     query: tuple[Any, Predicate, Option[float]] = case()
-    # (points, x coord name, y coord name) — nearest-cell lift for sensor locations on gridded variables.
     extract: tuple[tuple[Any, ...], str, str] = case()
     frame: None = case()
 
@@ -97,8 +77,6 @@ class ZoneCube(Struct, frozen=True):
 
     @classmethod
     def of(cls, cube: "xr.Dataset", coord: str, claim: VectorGeoClaim) -> "RuntimeRail[ZoneCube]":
-        # lift indexes the named coordinate under the CLAIM's CRS — the one CRS authority every operand
-        # then meets through the same prelude; geometry arrives as the coordinate's own shapely values.
         return boundary(
             CUBE_LIFT, lambda: cls(cube=cube.xvec.set_geom_indexes(coord, crs=claim.crs), coord=coord, claim=claim), catch=_XVEC_RAISES
         )
@@ -110,8 +88,6 @@ class ZoneCube(Struct, frozen=True):
     def _apply(self, op: CubeOp) -> Any:
         match op:
             case CubeOp(tag="query", query=(geometry, predicate, distance)):
-                # the ONE lowering of the carried absence back onto the provider's own `distance=None` default,
-                # seated at the single call the kwarg reaches per `boundaries.md` `[SENTINEL_SITE]`.
                 return self.cube.xvec.query(
                     self.coord, self._aligned(geometry), predicate=predicate, distance=distance.default_value(None)
                 )
@@ -119,19 +95,14 @@ class ZoneCube(Struct, frozen=True):
                 aligned = tuple(self._aligned(point) for point in points)
                 return self.cube.xvec.extract_points(list(aligned), x_coord, y_coord)
             case CubeOp(tag="frame"):
-                # ONE claims-plane bridge: long-form zone-keyed GeoDataFrame a VectorGeoClaim operates on.
                 return self.cube.xvec.to_geodataframe(geometry=self.coord, long=True)
             case unreachable:
                 assert_never(unreachable)
 
     def _aligned(self, geometry: Any) -> Any:
-        # every operand crosses the claim's OWN prelude on a one-row frame — the same reproject law every
-        # vector operand crosses — so a mis-referenced predicate lands in the cube's frame, never raw.
         return self.claim.reproject(gpd.GeoDataFrame(geometry=gpd.GeoSeries([geometry]))).geometry.iloc[0]
 
     def write(self, target: ResourceRef) -> "RuntimeRail[FieldReceipt]":
-        # WKB-encode the geometry coordinate through the accessor's own codec, then one Zarr store; the key
-        # folds the v3 `zarr.json` root-metadata bytes, the field Zarr key law, under the `cube` receipt tag.
         def emit() -> "RuntimeRail[FieldReceipt]":
             encoded = self.cube.xvec.encode_wkb()
             encoded.to_zarr(str(target.path))

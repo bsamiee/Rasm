@@ -42,11 +42,11 @@ lazy from PIL import Image
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
-class SymbolError(StrEnum):  # per-symbol EVIDENCE return_errors=True keeps — never a rail fault
+class SymbolError(StrEnum):
     CHECKSUM = "checksum"
     FORMAT = "format"
     UNSUPPORTED = "unsupported"
-    UNKNOWN = "unknown"  # a provider Error.Type the mirror postdates; error_message keeps the provider detail
+    UNKNOWN = "unknown"
 
 
 class ContentKind(StrEnum):
@@ -56,7 +56,7 @@ class ContentKind(StrEnum):
     GS1 = "gs1"
     ISO15434 = "iso15434"
     UNKNOWN_ECI = "unknown-eci"
-    UNKNOWN = "unknown"  # a provider ContentType member the mirror postdates — admission stays total under a zxingcpp roster growth
+    UNKNOWN = "unknown"
 
 
 class DecodeFact(StrEnum):
@@ -120,15 +120,15 @@ class Quad(msgspec.Struct, frozen=True):
 class DecodedSymbol(msgspec.Struct, frozen=True, omit_defaults=True):
     text: str
     raw: bytes
-    symbology: str  # str(Barcode.format) — the precise decoded format ("EAN-13", "Micro QR Code")
-    family: str  # str(Barcode.symbology) — the rolled-up family ("EAN/UPC", "QR Code"); distinct from format, never collapsed onto it
+    symbology: str
+    family: str
     content: ContentKind
     valid: bool
     orientation: int
     ec_level: str
     symbology_id: str
     position: Quad
-    extra: tuple[tuple[str, str], ...]  # symbology-specific provider metadata, wire-stable pairs
+    extra: tuple[tuple[str, str], ...]
     error: SymbolError | None = None
     error_message: str = ""
 
@@ -188,7 +188,7 @@ class DecodeScope:
             case FormatFamily() as family:
                 return Ok(getattr(zxingcpp.BarcodeFormat, _FAMILY[family]))
             case ():
-                return Error(MarkFault(arity="empty decode scope"))  # an explicit zero-symbology scope never widens to READABLE
+                return Error(MarkFault(arity="empty decode scope"))
             case formats:
                 dead = tuple(member for member in formats if TAXONOMY[member][1] is None)
                 if dead:
@@ -232,7 +232,7 @@ class DecodeScope:
                     and frame.shape[1] > 0
                     and frame.strides[0] > 0
                     and frame.strides[1] >= channels * frame.itemsize
-                    and (frame.ndim == 2 or frame.strides[2] == frame.itemsize)  # packed channels: a reversed- or planar-channel view never reaches ImageView
+                    and (frame.ndim == 2 or frame.strides[2] == frame.itemsize)
                 )
                 if not valid:
                     return Error(MarkFault(malformed=f"{frame.dtype}:{frame.shape}:{frame.strides}"))
@@ -281,7 +281,6 @@ class DecodeScope:
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# Canonical provider names resolve at the call; no provider enum crosses a worker seam, and `TAXONOMY` remains the sole carrier correspondence.
 _FAMILY: frozendict[FormatFamily, str] = frozendict({
     FormatFamily.READABLE: "AllReadable",
     FormatFamily.MATRIX: "AllMatrix",
@@ -327,8 +326,6 @@ _CHANNELS: frozendict[PixelFormat, int] = frozendict({
     PixelFormat.LUM: 1,
     PixelFormat.LUMA: 2,
 })
-# Provider .name -> canonical rows, read off the live Barcode at admission; a name the row set postdates
-# falls to the UNKNOWN member through `.get`, so scan stays railed under a provider roster growth.
 _CONTENT: frozendict[str, ContentKind] = frozendict({
     "Text": ContentKind.TEXT,
     "Binary": ContentKind.BINARY,

@@ -41,22 +41,14 @@ declare namespace Export {
   type Format = keyof typeof _formatRows
   type FormatRow = { readonly mime: string; readonly extension: string; readonly binary: boolean }
   type Mint = (octets: Uint8Array) => Effect.Effect<Digest.Key<"content">>
-  // Two row columns already decide the encodable-raster subset — an `image/*` media type carried as octets — so a new
-  // raster row admits the encode port with no second roster, and `svg` stays out on its text column
   type Raster = { readonly [F in Format]: (typeof _formatRows)[F] extends { readonly mime: `image/${string}`; readonly binary: true } ? F : never }[Format]
-  type _Rows<T extends Record<Formats[number], FormatRow> = typeof _formatRows> = T // row guard: a missing format or a malformed column fails at the declaration with zero widening
-  type _Keys<K extends Formats[number] = Format> = K // key guard: a format row outside the tuple fails here
+  type _Rows<T extends Record<Formats[number], FormatRow> = typeof _formatRows> = T
+  type _Keys<K extends Formats[number] = Format> = K
 }
 
-// the delivery vocabulary seats HERE because the family's egress rows close over it; the route fold stays at its own
-// section, so the word set has one declaration and no refusal can name a route no delivery admits
 const _routes = ["save", "share", "clipboard"] as const
 const _Route = Schema.Literal(..._routes)
 
-// Three legs partition the refusal — `source` names material that yielded nothing, `encode` names a serializer that
-// refused it, `egress` names the delivery surface — and each row renders the subject its own leg holds. Severity,
-// blame, retryability, and quarantine stay the core `Fault.Class` row table's, so a local rank or retry column here
-// would fork the branch lattice per folder.
 const _family = Fault.Class.family(["source-refused", "encode-failed", "egress-denied", "egress-absent"] as const, {
   "source-refused": Fault.Class.row({
     class: "invalid",
@@ -95,7 +87,7 @@ class ExportFault extends Schema.TaggedError<ExportFault>()("ExportFault", {
   }
 }
 
-const _Format = Schema.Literal(..._formats) // the tuple spread holds the non-empty overload and keeps the exact literal set
+const _Format = Schema.Literal(..._formats)
 
 class Parcel extends Schema.Class<Parcel>("Parcel")({
   name: Schema.NonEmptyString,
@@ -110,11 +102,11 @@ class Parcel extends Schema.Class<Parcel>("Parcel")({
     return this.row.mime
   }
   get filename(): string {
-    return `${this.name}.${this.row.extension}` // the suffix derives from the row: no call site concatenates one
+    return `${this.name}.${this.row.extension}`
   }
 }
 
-const _utf8 = new TextEncoder() // BOUNDARY ADAPTER: the text-to-byte crossing, mirror of the admission kernel's decoder seam
+const _utf8 = new TextEncoder()
 
 const _encoded = (text: string): Uint8Array => _utf8.encode(text)
 ```
@@ -172,14 +164,11 @@ declare namespace Export {
   }
   type Serialize<T extends Export.Kind> = (source: Export.Case<T>) => Effect.Effect<Uint8Array, ExportFault, Raster | Scope.Scope>
   type Matrix = { readonly [T in Export.Kind]: { readonly [F in Export.Admits[T]]: Export.Serialize<T> } }
-  type _Admits<A extends Record<Export.Kind, Export.Format> = { [T in Export.Kind]: Export.Admits[T] }> = A // key guard: an admitted format outside the vocabulary fails here
+  type _Admits<A extends Record<Export.Kind, Export.Format> = { [T in Export.Kind]: Export.Admits[T] }> = A
 }
 
 const _Source = Data.taggedEnum<Export.Source>()
 
-// Raster declares this folder's encode capability and the browser root satisfies it over the decode pool, so an
-// element handle never crosses the port and a plane never encodes on the thread that drew it. Callers pass the parcel
-// because the refusal stamps where the octets fail, and the satisfier maps its own fault family onto this one.
 class Raster extends Context.Tag("ui/Raster")<Raster, {
   readonly imprint: (
     parcel: string,
@@ -197,12 +186,8 @@ const _blob = (parcel: string, take: () => Promise<Blob>): Effect.Effect<Uint8Ar
 
 const _raster = (parcel: string, canvas: HTMLCanvasElement): Effect.Effect<Uint8Array, ExportFault> =>
   _blob(parcel, () =>
-    // BOUNDARY ADAPTER: the DOM canvas encoder is callback-shaped and answers null on an unencodable surface
     new Promise<Blob>((settle, refuse) => canvas.toBlob((held) => (held === null ? refuse(new Error("the canvas surface is unencodable")) : settle(held)), _formatRows.png.mime)))
 
-// Encoding leaves the document with the plane: `Probe.packed` resolves stride and origin into the same tightly packed
-// top-left RGBA8 the hash preimage takes, the clamped view re-labels those bytes with no copy, and the port's transfer
-// list moves the buffer; the codec and quality axes ride the port, never this arm
 const _drawn = (parcel: string, row: Export.Case<"Readback">): Effect.Effect<Uint8Array, ExportFault, Raster> =>
   Effect.flatMap(Raster, (port) =>
     Effect.flatMap(row.readback(row.width, row.height), (capture) =>
@@ -215,7 +200,6 @@ const _drawn = (parcel: string, row: Export.Case<"Readback">): Effect.Effect<Uin
 
 const _svg = (parcel: string, figure: SVGSVGElement | HTMLElement): Effect.Effect<Uint8Array, ExportFault> =>
   Effect.map(
-    // a caption, title, or legend option wraps the drawing in a figure: the wrapped case reaches the inner element
     Effect.fromNullable(figure instanceof SVGSVGElement ? figure : figure.querySelector("svg")).pipe(
       Effect.mapError(() => new ExportFault({ case: { reason: "source-refused", parcel, cause: "the figure element holds no svg root" } })),
     ),
@@ -233,7 +217,7 @@ const _text = (parcel: string, read: () => Promise<string>): Effect.Effect<Uint8
 
 const _snapshot = <A>(row: Export.Case<"Pivot">, read: (view: View) => Promise<A>) =>
   Effect.mapError(
-    Chart.snapshot(row.pivot, row.feed, row.config, read), // every perspective bracket lives at its owner
+    Chart.snapshot(row.pivot, row.feed, row.config, read),
     (fault) => new ExportFault({ case: { reason: "source-refused", parcel: row.feed, cause: fault.message } }),
   )
 
@@ -244,7 +228,7 @@ const _MATRIX: Export.Matrix = {
     json: (row) => Effect.map(_snapshot(row, (view) => view.to_json_string()), _encoded),
   },
   Figure: { svg: (row) => _svg("figure", row.figure) },
-  Canvas: { png: (row) => _raster("series", row.chart.ctx.canvas) }, // u.ctx.canvas is the only reach to the backing element
+  Canvas: { png: (row) => _raster("series", row.chart.ctx.canvas) },
   Rows: { arrow: (row) => Effect.succeed(tableToIPC(row.table, "file")) },
   Scene: {
     glb: (row) => _blob("scene", () => row.element.exportScene()),
@@ -254,18 +238,17 @@ const _MATRIX: Export.Matrix = {
   Draft: {
     json: (row) =>
       Effect.mapError(
-        Effect.map(Schema.encode(row.schema)(row.draft), _encoded), // parseJson fuses encode and stringify: the exported payload cannot skew from the wire payload
+        Effect.map(Schema.encode(row.schema)(row.draft), _encoded),
         (fault) => new ExportFault({ case: { reason: "encode-failed", parcel: "draft", cause: fault.message } }),
       ),
   },
   Document: {
-    // json ships every embed row's wire form through the fused roster codec inside one payload; no embed re-renders here
     json: (row) =>
       Effect.mapError(
         Effect.map(Schema.encode(row.codec)(row.document), _encoded),
         (fault) => new ExportFault({ case: { reason: "encode-failed", parcel: "document", cause: fault.message } }),
       ),
-    text: (row) => Effect.succeed(_encoded(row.text)), // the projection the owning page computed: this cell serializes, never derives
+    text: (row) => Effect.succeed(_encoded(row.text)),
   },
   Lines: { text: (row) => Effect.succeed(_encoded(Array.join(row.lines, "\n"))) },
 }
@@ -274,11 +257,8 @@ const _octets = <T extends Export.Kind, F extends Export.Admits[T]>(
   source: Export.Case<T>,
   format: F,
 ): Effect.Effect<Uint8Array, ExportFault, Raster | Scope.Scope> =>
-  // _MATRIX's mapped contract resolves the indexed access to one correlated signature: the per-case payload flows cast-free
   _MATRIX[source._tag][format](source)
 
-// This plane owns two convention rows — the counter fans on the bounded format and source axes, the histogram
-// prices parcel octets; both tagged per emission, so one mounted handle serves every format row.
 const _parcels = Convention.mount(Convention.metric.exportParcels)
 const _size = Convention.mount(Convention.metric.exportSize)
 
@@ -290,7 +270,7 @@ const _parcel = <T extends Export.Kind, F extends Export.Admits[T]>(
 ): Effect.Effect<Parcel, ExportFault, Raster | Scope.Scope> =>
   Effect.gen(function* () {
     const octets = yield* _octets(source, format)
-    const key = yield* mint(octets) // the branch's content mint, delegated exactly as the capture fold takes it
+    const key = yield* mint(octets)
     yield* Effect.withMetric(Effect.succeed(1), _parcels).pipe(
       Effect.tagMetrics({ [Convention.rasm.exportFormat]: format, [Convention.rasm.exportSource]: source._tag }),
     )
@@ -335,7 +315,7 @@ declare namespace Export {
     readonly Fault: typeof ExportFault
     readonly Parcel: typeof Parcel
     readonly Source: typeof _Source
-    readonly format: typeof _formatRows // named, never spread: a format key and a member name share one space if they merge
+    readonly format: typeof _formatRows
     readonly formats: Export.Formats
     readonly routes: Export.Routes
     readonly octets: typeof _octets
@@ -354,7 +334,7 @@ const _deliver = (parcel: Parcel, route: Export.Route): Effect.Effect<void, Expo
         }))
         : Effect.flatMap(Clipboard, (board) =>
           Effect.mapError(
-            board.copy(new TextDecoder().decode(parcel.octets)), // BOUNDARY ADAPTER: the text route re-reads the one octet currency
+            board.copy(new TextDecoder().decode(parcel.octets)),
             (fault) => new ExportFault({ case: { reason: "egress-denied", parcel: parcel.name, route: "clipboard", cause: fault.message } }),
           ))),
     Match.orElse((direct) => Effect.flatMap(Egress, (port) => port.deliver(parcel, direct === "share"))),
@@ -368,7 +348,6 @@ const _piped = (
 ): Effect.Effect<void, ExportFault, Egress | Scope.Scope> =>
   Effect.gen(function* () {
     const port = yield* Egress
-    // streaming trades the content key's coverage for size: the mint saw no octets, so the key names the source
     const writable = yield* port.open(new Parcel({ name, format, key, octets: new Uint8Array(0) }))
     const through = RecordBatchWriter.throughDOM<Record<string, never>>()
     yield* Effect.tryPromise({
@@ -393,7 +372,7 @@ const Export: Export.Shape = {
   piped: _piped,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Egress, Export, ExportFault, Parcel, Raster }
 ```

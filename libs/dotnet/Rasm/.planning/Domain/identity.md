@@ -27,7 +27,7 @@ Identity and derivation never cross: a content key built from a `Deterministic` 
 - Boundary: `UInt128` is the identity currency, `Half` its one lane split, `Hex`/`Admit(text)` its one text correspondence, `Wire`/`Admit(bytes)` its one byte correspondence. `Raw` admits bytes the caller already framed — a fixed-width block or a whole-payload leaf — and a caller placing two variable-width `Raw` writes side by side owes the count itself; every other member frames for it. `Rasm.Element` owns the dimensioned leg: `MeasureValue` is the branch's dimensioned carrier, so its `Measure` member stays an `extension(CanonicalWriter)` block at Element composing `String`/`Double`/`Ordinal`/`Optional`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
@@ -43,17 +43,14 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Lane {
     public static readonly Lane Low = new(key: 0);
     public static readonly Lane High = new(key: 1);
-    // Each key IS the half index, so the shift derives rather than riding a second column a row could contradict.
     internal int Shift => Key * 64;
 }
 
-// Stored artifact coordinate. SHA-256 is the byte-integrity identity; Bytes is the allocation/completion bound.
-// ContentHash remains the separate non-cryptographic semantic key and never enters this value.
 public sealed record ArtifactContent {
     public const ulong MaxBytes = 1_073_741_824UL;
 
@@ -73,7 +70,7 @@ public sealed record ArtifactContent {
                 : Fin.Succ(new ArtifactContent(Convert.ToHexStringLower(sha256), bytes));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class CanonicalWriter {
     private readonly XxHash128 accumulator;
     private readonly Option<ArrayBufferWriter<byte>> retained;
@@ -84,9 +81,6 @@ public sealed class CanonicalWriter {
         this.retained = retained;
     }
 
-    // Streaming is the DEFAULT because a content KEY never needs the bytes: a lake schema key, a merge digest,
-    // and a per-element fold stop materializing a whole preimage they only ever hash. The accumulator arrives
-    // from the caller so ONE traversal can feed two algorithms (content identity beside a frame checksum).
     public static CanonicalWriter Streaming(double tolerance, XxHash128 accumulator) =>
         new(tolerance: tolerance, accumulator: accumulator, retained: None);
     public static CanonicalWriter Retaining(double tolerance) =>
@@ -95,8 +89,6 @@ public sealed class CanonicalWriter {
     public double Tolerance { get; }
 
     // --- [FIXED_WIDTH]
-    // These concatenate INJECTIVELY and carry no frame: each writes a constant byte count, so a field boundary is
-    // recoverable from the schema alone. Little-endian on every one, so the preimage is byte-identical across runtimes.
     public CanonicalWriter Bool(bool value) => Emit(bytes: [value ? (byte)1 : (byte)0]);
 
     public CanonicalWriter Ordinal(int value) {
@@ -117,8 +109,6 @@ public sealed class CanonicalWriter {
         return Emit(bytes: word);
     }
 
-    // `UInt128` splits through the owner's own lane projection, never a local shift — the branch ruling
-    // that keeps one digest from acquiring two lane conventions applies to the writer as much as to a consumer.
     public CanonicalWriter U128(UInt128 value) =>
         U64(value: ContentHash.Half(digest: value, lane: Lane.Low))
             .U64(value: ContentHash.Half(digest: value, lane: Lane.High));
@@ -134,18 +124,12 @@ public sealed class CanonicalWriter {
         BinaryPrimitives.WriteDoubleLittleEndian(destination: word, value: Quantize(value: value));
         return Emit(bytes: word);
     }
-    // EXACT bits, never quantized: `Double` keys a tolerance-banded geometry identity, `Bits` keys a replay or
-    // chaos chain that must re-derive bit-exact — two identities, two members, never one with a mode knob. Two
-    // canonical hazards still normalize (no grid snap): `-0.0` writes as `+0.0` and every NaN writes one quiet
-    // payload, because a value equal under `==` splitting into two keys forks one geometry into two identities — the
-    // exact defect `Quantize` closes for `Double`. No other bit pattern changes.
     public CanonicalWriter Bits(double value) {
         double canonical = value == 0.0 ? 0.0 : double.IsNaN(value) ? double.NaN : value;
         Span<byte> word = stackalloc byte[sizeof(long)];
         BinaryPrimitives.WriteInt64LittleEndian(destination: word, value: BitConverter.DoubleToInt64Bits(value: canonical));
         return Emit(bytes: word);
     }
-    // Count-framed quantized span — the plane leg of `Double`.
     public CanonicalWriter Doubles(ReadOnlySpan<double> values) {
         Ordinal(value: values.Length);
         foreach (double value in values) { Double(value: value); }
@@ -153,8 +137,6 @@ public sealed class CanonicalWriter {
     }
 
     // --- [VARIABLE_WIDTH]
-    // ONE text member, and it frames. The int32-LE UTF-8 BYTE count precedes the bytes, which is why ("ab","c")
-    // and ("a","bc") cannot collide; the pooled buffer keeps the encode allocation-free at every payload size.
     public CanonicalWriter String(ReadOnlySpan<char> value) {
         byte[] rented = ArrayPool<byte>.Shared.Rent(minimumLength: Encoding.UTF8.GetByteCount(chars: value));
         try {
@@ -167,13 +149,9 @@ public sealed class CanonicalWriter {
         }
     }
 
-    // Variable-width octets carry the same int32-LE extent frame as UTF-8 text. `Raw` remains the deliberate
-    // already-delimited/fixed-width escape; a semantic bytes field never calls it directly.
     public CanonicalWriter Bytes(ReadOnlySpan<byte> value) =>
         Ordinal(value: value.Length).Raw(bytes: value);
 
-    // `Raw` names the exemption: bytes the CALLER already canonicalized and delimited — a fixed-width block, a canonical
-    // JSON document, a whole-payload leaf. Two variable-width Raw writes side by side owe their own count.
     public CanonicalWriter Raw(ReadOnlySpan<byte> bytes) => Emit(bytes: bytes);
 
     // --- [COMPOSITE]
@@ -185,8 +163,6 @@ public sealed class CanonicalWriter {
         return this;
     }
 
-    // This owner publishes the canonical ORDER for a hash-keyed container: the key selector and comparer ARE the
-    // published order, so no caller sorts beside the writer (`DIGEST_OVER_UNORDERED_CONTAINER`).
     public CanonicalWriter Sorted<T, TKey>(Seq<T> rows, Func<T, TKey> key, IComparer<TKey> order, Action<T, CanonicalWriter> field) =>
         Rows(rows: toSeq(rows.OrderBy(keySelector: key, comparer: order)), field: field);
     public CanonicalWriter Optional<T>(Option<T> value, Action<T, CanonicalWriter> field) {
@@ -198,10 +174,6 @@ public sealed class CanonicalWriter {
     // --- [CLOSE]
     public UInt128 Digest() => accumulator.GetCurrentHashAsUInt128();
 
-    // ToBytes is the RETAINING close alone, and its refusal is TYPED. A streaming writer holds no buffer, and
-    // returning an empty memory there would read as a legitimately empty preimage at every call site — an
-    // absence the bare return cannot state. The mint decides which close is legal, so the rail carries that
-    // decision rather than a raise: a caller that reached the wrong close reads a fault it can attribute.
     [BoundaryAdapter]
     public Fin<ReadOnlyMemory<byte>> ToBytes(Op? key = null) =>
         retained.Map(static buffer => buffer.WrittenMemory)
@@ -215,13 +187,6 @@ public sealed class CanonicalWriter {
         return this;
     }
 
-    // Snap to the grid FIRST, then collapse the two canonical hazards: every NaN payload to one quiet pattern and
-    // -0.0 to +0.0. Non-finite values pass the grid untouched because rounding them is meaningless, not because
-    // they are rare — Infinity divided by the quantum is Infinity and NaN stays NaN either way.
-    // LAW: a ZERO tolerance is "no snap" — the value passes IDENTITY (signed zero still folds), never through the
-    // division, because x/0.0 is Infinity and Infinity*0.0 is NaN, which silently keyed every finite non-zero
-    // double at 21 consumer sites spelling an exact grid as a literal 0.0. An exact-bits caller may spell 0.0 or
-    // `Bits`; the grid-free CONTENT lane stays `EpsilonPolicy.ZeroTolerance` (2⁻³², a real quantum).
     private double Quantize(double value) => value switch {
         _ when double.IsNaN(d: value) => double.NaN,
         _ when !double.IsFinite(d: value) => value,
@@ -230,13 +195,10 @@ public sealed class CanonicalWriter {
     };
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentHash {
     [BoundaryAdapter] public static UInt128 Of(ReadOnlySpan<byte> canonicalBytes) => XxHash128.HashToUInt128(source: canonicalBytes);
 
-    // Payloads whose byte length exceeds `int` range reach no `ReadOnlySpan<byte>` at all, so the stream leg is the
-    // only spelling for a large plane, tile arena, or segmented artifact; the accumulator drains through a
-    // write-only bridge and stages no bytes at any size.
     [BoundaryAdapter]
     public static UInt128 Of(Stream canonical) {
         XxHash128 accumulator = new(seed: 0L);
@@ -244,8 +206,6 @@ public static class ContentHash {
         return accumulator.GetCurrentHashAsUInt128();
     }
 
-    // This framed leg hands the caller a WRITER, never a bare accumulator: the raw-accumulator surface is what
-    // let a separator join, an unframed collection, and a machine-endian text span each become a content key.
     [BoundaryAdapter]
     public static UInt128 Of<TState>(TState state, Action<TState, CanonicalWriter> chunks) {
         CanonicalWriter writer = CanonicalWriter.Streaming(tolerance: EpsilonPolicy.ZeroTolerance, accumulator: new XxHash128(seed: 0L));
@@ -253,25 +213,16 @@ public static class ContentHash {
         return writer.Digest();
     }
 
-    // Each lane IS the projection, so no consumer spells the shift and no call can name a third half. Two consumers
-    // each writing their own `(ulong)digest` / `(ulong)(digest >> 64)` pair is how a frozen fixture and a seeded
-    // generator drift apart on one key while both read correct in isolation.
     public static ulong Half(UInt128 digest, Lane lane) => unchecked((ulong)(digest >> lane.Shift));
 
     public static string Hex(UInt128 digest) => digest.ToString(format: "x32", provider: CultureInfo.InvariantCulture);
 
-    // The ONE byte projection: sixteen big-endian bytes, the `[CONTENT_KEY]` order every peer runtime reads, so a
-    // generated `bytes` column fills through this member and a seam never re-spells the width or the order. The
-    // stack buffer is the copy source alone — `CopyFrom` owns the bytes the message carries.
     public static ByteString Wire(UInt128 digest) {
         Span<byte> wire = stackalloc byte[16];
         BinaryPrimitives.WriteUInt128BigEndian(destination: wire, value: digest);
         return ByteString.CopyFrom(bytes: wire);
     }
 
-    // Admission REFUSES uppercase rather than normalizing it: a permissive reader beside a lowercase renderer makes the
-    // round trip lossy in one direction only, so a text that admits here and a text this key renders are the
-    // same 32 characters or the input was never this key's.
     [BoundaryAdapter]
     public static Fin<UInt128> Admit(ReadOnlySpan<char> hex, Op key) =>
         hex.Length == 32
@@ -280,8 +231,6 @@ public static class ContentHash {
             ? Fin.Succ(value: digest)
             : Fin.Fail<UInt128>(error: key.InvalidInput());
 
-    // The byte inverse REFUSES every width but sixteen: a fifteen-byte or seventeen-byte column is a peer that
-    // forked the key, and reading it as a shorter integer would mint a key no producer ever wrote.
     [BoundaryAdapter]
     public static Fin<UInt128> Admit(ReadOnlySpan<byte> wire, Op key) =>
         wire.Length == 16
@@ -304,7 +253,7 @@ public static class ContentHash {
 - Growth: a new reproducible draw shape is one member composing `Advance`/`Fold`; a new lane vocabulary is one roster implementing `IDrawLane<TSelf>` at its own owner.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Numerics;
 using LanguageExt;
@@ -314,22 +263,18 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Lane identity as a DECLARED ordinal, which is exactly what scar `SEEDED_FROM_STRING_HASH` demands. A roster
-// implements this once and every draw addresses through it, so no folder invents a positional constant of its own.
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IDrawLane<TSelf> where TSelf : IDrawLane<TSelf> {
     static abstract IReadOnlyList<TSelf> Items { get; }
     long Lane { get; }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Deterministic {
     private const ulong Gamma = 0x9E3779B97F4A7C15UL;
     private const int SaltPrime = 16_777_619;
     private const double UnitScale = 1.0 / 9_007_199_254_740_992.0;
     private const float SingleScale = 1.0f / 16_777_216.0f;
-    // 2⁻³², the `uint` bit-width reciprocal a reversed word scales by. Byte-identical to `EpsilonPolicy.ZeroTolerance`
-    // and unrelated to it, which is exactly why it is named here rather than spelled as a literal at its one reader.
     private const double RadicalScale = 1.0 / 4_294_967_296.0;
 
     private static ulong Mix(ulong state) {
@@ -339,9 +284,6 @@ public static class Deterministic {
         return z ^ (z >> 31);
     }
     private static ulong Advance(ref ulong state) => Mix(state: state = unchecked(state + Gamma));
-    // ONE fold and ONE unit projection serve every keyed member below. The projector is an indirect call per
-    // element, which the coordinate and lane folds both pay so that the seed widening, the gamma offset, and the
-    // XOR-then-mix order have a single authority — two transcriptions of six lines is what drifts.
     private static ulong Fold<T>(ReadOnlySpan<T> lanes, Func<T, ulong> bits, long seed) {
         ulong state = unchecked((ulong)seed + Gamma);
         foreach (T lane in lanes) {
@@ -359,23 +301,13 @@ public static class Deterministic {
     public static ulong OrderKey(Point3d point, int seed = 0) => OrderKey(coordinates: [point.X, point.Y, point.Z], seed: seed);
     public static ulong OrderKey(ReadOnlySpan<double> coordinates, int seed = 0) =>
         Fold(lanes: coordinates, bits: Bits, seed: unchecked((uint)seed));
-    // Salt is a lane ordinal, so it arrives `long` from `IDrawLane.Lane`; the order key folds a 32-bit lane word, and
-    // the narrowing below is bit-identical for every int-salt caller.
     public static double UnitInterval(Point3d point, long salt, int seed = 0) =>
         Open(word: OrderKey(point: point, seed: unchecked((int)(((long)seed * SaltPrime) + salt))));
-    // Stream mints a ref-threadable stream STATE from integer lanes and a 64-bit policy seed, so (pixel: 5,
-    // ordinal: 0) and (pixel: 0, ordinal: 5) mint distinct streams where a hand XOR-pack of shifted lanes collides
-    // them, a full 64-bit seed rides one argument where a two-int split truncates it, and no consumer
-    // re-transcribes the private Gamma to mint a state of its own.
     public static ulong Stream(ReadOnlySpan<long> lanes, long seed = 0L) =>
         Fold(lanes: lanes, bits: static lane => unchecked((ulong)lane), seed: seed);
-    // Lane-keyed STATELESS unit draw: a per-(stream, ordinal, dimension) draw keys directly instead of advancing a
-    // state a partition could reorder, and it takes the open-interval clamp because it feeds the same
-    // log-weighted rejection arithmetic `UnitInterval` does.
     public static double Unit(ReadOnlySpan<long> lanes, long seed = 0L) => Open(word: Stream(lanes: lanes, seed: seed));
 
     // --- [BOUND_DRAW]
-    // `Draw` earns its seat only where a prefix is genuinely threaded through a loop; a two-lane draw at one site stays flat.
     public readonly record struct Draw(long Seed, ImmutableArray<long> Prefix) {
         public Draw At(params ReadOnlySpan<long> lanes) => new(Seed: Seed, Prefix: [.. Prefix, .. lanes]);
         public ulong State => Stream(lanes: Prefix.AsSpan(), seed: Seed);
@@ -385,12 +317,6 @@ public static class Deterministic {
 
     public static Draw Of<TLane>(long seed, TLane lane) where TLane : IDrawLane<TLane> => new(Seed: seed, Prefix: [lane.Lane]);
 
-    // `Supplier` is the INJECTABLE draw a sampler seam takes instead of a delegate over process state; `purpose` keys the gate,
-    // so two samplers sharing one seed never interleave — the property a process-wide generator cannot offer at
-    // any seed, and the reason a `Random.Shared.NextDouble` handed to a sampler is unreplayable however the
-    // sampler itself is written. The advance is a CAS over a cell rather than a captured mutable local, because two
-    // concurrent draws off one closure read the same word and break both the stream and its replay — the property
-    // the member sells. The step is TOTAL, every contender taking its own word, so the plain swap carries no verdict.
 
     public static Func<double> Supplier(long seed, long purpose) {
         Atom<ulong> state = Atom(Stream(lanes: [purpose], seed: seed));
@@ -399,15 +325,7 @@ public static class Deterministic {
 
 
     // --- [BOUNDED_DRAW]
-    // Unbiased bounded draw (Lemire): the 64x64 widening multiply's high half is the scaled index and the low half
-    // rejects only the short tail, so a modulo's low-value bias never enters an ordering or a sample index. ONE body
-    // spans both widths — the `int` arity narrows this draw — so a full-width signed span, an int64 ceiling, and a
-    // bounded index all reach the same rejection loop instead of a second transcribed copy that drifts from it.
     public static ulong NextBelow(ref ulong state, ulong exclusiveCeiling) {
-        // Argument CONTRACT, not a domain state: a zero ceiling divides by zero in the threshold — a caller
-        // programming error the BCL throw-helper names at the boundary, never a Fin the hot draw loops would
-        // thread for an unreachable arm. The System.Random adapter below owns the BCL's own degenerate-span
-        // contract, so admitting a zero here to serve it would widen this draw for a caller that has no such arm.
         ArgumentOutOfRangeException.ThrowIfZero(value: exclusiveCeiling);
         ulong threshold = (0UL - exclusiveCeiling) % exclusiveCeiling;
         ulong draw = Advance(state: ref state);
@@ -415,15 +333,11 @@ public static class Deterministic {
         return Math.BigMul(a: draw, b: exclusiveCeiling, low: out _);
     }
     public static int NextBelow(ref ulong state, int exclusiveCeiling) {
-        // Negative ceilings cast to a near-2⁶⁴ bound, so they refuse here; zero refuses one hop down.
         ArgumentOutOfRangeException.ThrowIfNegative(value: exclusiveCeiling);
         return (int)NextBelow(state: ref state, exclusiveCeiling: (ulong)exclusiveCeiling);
     }
 
     // --- [EQUIDISTRIBUTED]
-    // splitmix64 clustering leaves visible noise at a bounded tap budget, so equidistribution is its own member
-    // family here rather than a consumer-page kernel. `ReverseBits` is the hoisted swap ladder — the BCL exposes no
-    // `uint` bit-reverse intrinsic — so a consumer scrambling a Sobol coordinate reads the owner's reversal.
     public static uint ReverseBits(uint bits) {
         bits = (bits << 16) | (bits >> 16);
         bits = ((bits & 0x55555555u) << 1) | ((bits & 0xAAAAAAAAu) >> 1);
@@ -432,10 +346,8 @@ public static class Deterministic {
         return ((bits & 0x00FF00FFu) << 8) | ((bits & 0xFF00FF00u) >> 8);
     }
     public static double RadicalInverse(uint bits) => ReverseBits(bits: bits) * RadicalScale;
-    // Base-parameterized radical inverse — the Halton leg's per-dimension prime, closing the declared
-    // equidistribution law for every dimension rather than base 2 alone; arity discriminates on the second argument.
     public static double RadicalInverse(uint index, int radix) {
-        radix = Math.Max(val1: radix, val2: 2); // base-1 division never terminates and no Halton axis draws below binary
+        radix = Math.Max(val1: radix, val2: 2);
         double inverse = 0.0, fraction = 1.0 / radix;
         while (index > 0u) {
             (inverse, index, fraction) = (inverse + ((index % (uint)radix) * fraction), index / (uint)radix, fraction / radix);
@@ -443,8 +355,6 @@ public static class Deterministic {
         return inverse;
     }
     public static (double U0, double U1) Hammersley(int index, int count) {
-        // Parity with every sibling contract on this owner: a zero count divides to Infinity and a negative index
-        // casts to a near-2³² uint, both of which return a well-formed pair that is silently not a Hammersley point.
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value: count);
         ArgumentOutOfRangeException.ThrowIfNegative(value: index);
         return ((index + 0.5) / count, RadicalInverse(bits: (uint)index));
@@ -453,25 +363,13 @@ public static class Deterministic {
     // --- [HOST_ADAPTER]
     public static Random Source(long seed, params ReadOnlySpan<long> lanes) => new SplitMixRandom(seed: Stream(lanes: lanes, seed: seed));
 
-    // EVERY virtual is overridden, because the base type binds a derived instance to a compat implementation whose
-    // parameterless construction seeds an INDEPENDENT legacy prng, and four members read that prng rather than the
-    // override: `Sample()`, `Next()`, `NextBytes(byte[])`, and the large-range arm of `Next(int, int)`. MathNet's
-    // int32, full-range, and decimal generators reach `Next()` and `NextBytes(byte[])` directly, so a single missing
-    // override is a silent determinism hole no compiler reports. Bounded arms honour the BCL's own degenerate
-    // contracts — a zero `maxValue` and an equal min and max return the floor — which the owner's draw refuses as
-    // caller errors, so the adapter answers them here.
     private sealed class SplitMixRandom(ulong seed) : Random {
         private ulong state = seed;
         protected override double Sample() => NextUnit(state: ref state);
-        // `System.Random` EXCLUDES int.MaxValue by contract, so the bounded draw states the ceiling rather than a 31-bit mask,
-        // which admits int.MaxValue itself and shifts the distribution of every consumer folding on the endpoint.
         public override int Next() => NextBelow(state: ref state, exclusiveCeiling: int.MaxValue);
         public override int Next(int maxValue) => maxValue == 0 ? 0 : NextBelow(state: ref state, exclusiveCeiling: maxValue);
-        // Extent computes in 64 bits: `maxValue - minValue` overflows `int` across the full signed span, and
-        // `CheckForOverflowUnderflow` turns that overflow into a raise exactly where the BCL returns a value.
         public override int Next(int minValue, int maxValue) => (int)(minValue + (long)Draw(state: ref state, extent: Extent(floor: minValue, ceiling: maxValue)));
         public override double NextDouble() => NextUnit(state: ref state);
-        // Top 24 bits scaled by 2⁻²⁴ is the exact float grid — the top-53-bit rule one width down.
         public override float NextSingle() => (float)(Advance(state: ref state) >> 40) * SingleScale;
         public override long NextInt64() => (long)Draw(state: ref state, extent: (ulong)long.MaxValue);
         public override long NextInt64(long maxValue) => (long)Draw(state: ref state, extent: Extent(floor: 0L, ceiling: maxValue));
@@ -491,7 +389,6 @@ public static class Deterministic {
                 tail[..buffer.Length].CopyTo(destination: buffer);
             }
         }
-        // Widths compute unchecked because the full signed span is 2⁶⁴ − 1, which no signed subtraction holds.
         private static ulong Extent(long floor, long ceiling) {
             ArgumentOutOfRangeException.ThrowIfLessThan(value: ceiling, other: floor);
             return unchecked((ulong)ceiling - (ulong)floor);

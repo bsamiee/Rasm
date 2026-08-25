@@ -192,7 +192,7 @@ class CorpusView(StrEnum):
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 
 type ForeignRoleStr = Annotated[str, Meta(min_length=1, max_length=64, pattern=r"\A[A-Za-z][\w.\-]*\Z")]
-type ReferencePart = Annotated[str, Meta(min_length=1, max_length=64, pattern=r"\A[A-Za-z0-9][\w .\-]*\Z")]  # `cite()` interpolates into LaTeX labels, Typst links, and markdown anchors, so admission excludes every markup-special character
+type ReferencePart = Annotated[str, Meta(min_length=1, max_length=64, pattern=r"\A[A-Za-z0-9][\w .\-]*\Z")]
 type FieldName = Annotated[str, Meta(min_length=1, max_length=256)]
 type ChoiceOptions = Annotated[tuple[str, ...], Meta(min_length=1)]
 type AltText = Annotated[str, Meta(max_length=2048)]
@@ -215,29 +215,14 @@ type Rect = tuple[float, float, float, float]
 
 @tagged_union(frozen=True)
 class Lapse(Exception):
-    # the ONE raise crossing a document fold's own interior, in the `media/container#CONTAINER` `_Lapse` form. The
-    # `@receipted` weave binds the CONTRIBUTOR type as its return, so a stepped owner cannot answer a rail and an
-    # offloaded arm's terminal `BoundaryFault` has no other way back to the `async_boundary` fence above it. It seats
-    # HERE because every document page already imports this owner and this owner imports none of them — the same
-    # reachability `hardened_parse` seats on — so five pages share one carrier rather than five local shims.
-    # `carried` holds the fault WHOLE: the retired `raise ValueError(str(fault))` shims stringified a typed fault for
-    # the fence to re-convert into a fresh `boundary` one, killing the tag, the subject, the roster leg, and the
-    # declared retriability at the seam and handing the caller a fault whose detail was another fault's repr. This
-    # family is a `@tagged_union` over `Exception`, so `BoundaryFault.of` admits it AHEAD of `CLASSIFY` and the
-    # carried fault crosses the door on `domain` — a consumer reads `lapse.carried` and matches the original.
     tag: Literal["carried"] = tag()
     carried: BoundaryFault = case()
 
     def __str__(self) -> str:
-        # the total wire-edge collapse every band fault family owes: a `@tagged_union` Exception fills no `args`, so
-        # a renderer below the door would otherwise print the bare type name and lose the coordinate entirely.
         return f"{self.carried.tag}:{self.carried.subject}"
 
 
 def lapsed[T](fault: BoundaryFault, /) -> T:
-    # the ONE `default_with` collapse every document fold names, so the raise is spelled once rather than five times
-    # under five page-local names that each stringified the fault differently. Generic in the return so a caller's
-    # `Result[T, BoundaryFault]` keeps its own success type across the collapse.
     raise Lapse(carried=fault)
 
 
@@ -311,7 +296,7 @@ type AnnotTarget = Uri | Dest | Xref | NoTarget
 class TextField(Struct, frozen=True, tag="text", tag_field="field"):
     value: str = ""
     mode: TextMode = TextMode.SINGLE
-    max_length: NonnegativeInt | None = None  # AcroForm /MaxLen; None = unbounded, and a negative bound never reaches HTML maxlength
+    max_length: NonnegativeInt | None = None
 
 
 class CheckboxField(Struct, frozen=True, tag="checkbox", tag_field="field"):
@@ -424,7 +409,7 @@ class FieldNode(Struct, frozen=True, tag=NodeKind.FIELD.value, tag_field="kind")
     field: FieldValue
     required: bool = False
     readonly: bool = False
-    tooltip: str = ""  # AcroForm /TU alternate description — the accessibility label lens recovery preserves
+    tooltip: str = ""
 
 
 class AnnotationNode(Struct, frozen=True, tag=NodeKind.ANNOTATION.value, tag_field="kind"):
@@ -466,14 +451,9 @@ class CorpusRow(Struct, frozen=True):
 _ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")
 _JSON_ENCODER: Final = msgspec.json.Encoder(order="deterministic")
 _DOCUMENT_DECODER: Final = msgspec.msgpack.Decoder(DocumentNode)
-# the BLANK the digest preimage carries where a node's own key leaf sits — a fixed constant that addresses nothing
-# and is never published, minted so `_keyable` can erase a prior mint from a required field the tree's shape forbids
-# dropping. It goes through `ContentKey.decoded` because no bytes were ever measured for it: the retired
-# `byte_length=0` filled a measurement slot with a number no producer took, and a consumer summing extents across a
-# node tree read the blank as a WEIGHTLESS leaf rather than as the unmeasured non-address it is.
 _NULL_KEY: Final = ContentKey.decoded(value=0, fmt="")
 _CHILD_FIELDS: Final[frozenset[str]] = frozenset({"children", "heading", "runs", "items", "caption", "rows"})
-_XML_DECL: Final[re.Pattern[str]] = re.compile(r"\A\ufeff?\s*<\?xml[^>]*\?>")  # the str-payload prolog cut `hardened_parse` drops before UTF-8 encoding
+_XML_DECL: Final[re.Pattern[str]] = re.compile(r"\A\ufeff?\s*<\?xml[^>]*\?>")
 _TYPST_ESCAPE: Final[Map[TypstScope, dict[int, str]]] = Map.of_seq([
     (TypstScope.STRING, str.maketrans({"\\": "\\\\", '"': '\\"'})),
     (TypstScope.MARKUP, str.maketrans({c: f"\\{c}" for c in "\\[]#*_@$<>`"})),
@@ -529,14 +509,10 @@ _LATEX_DECORATION: Final[Map[TextDecoration, str]] = Map.of_seq([
     (TextDecoration.STRIKETHROUGH, "sout"),
     (TextDecoration.OVERLINE, "overline"),
 ])
-_MASKED: Final = "••••••"  # the one redaction marker a PASSWORD field projects; the secret value never reaches any text egress
-# Link-safety owner every actionable backend reads: `_SAFE_SCHEMES` is the explicit scheme allowlist, `_MD_HREF`
-# percent-encodes the markdown destination's structural characters, `_LATEX_HREF` escapes the `\href` URL argument.
+_MASKED: Final = "••••••"
 _SAFE_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https", "mailto", "tel", "ftp", "ftps"})
 _MD_HREF: Final[dict[int, str]] = str.maketrans({"<": "%3C", ">": "%3E", "(": "%28", ")": "%29", " ": "%20", "\n": "%0A"})
 _LATEX_HREF: Final[dict[int, str]] = str.maketrans({"\\": "\\\\", "%": "\\%", "#": "\\#", "{": "\\{", "}": "\\}"})
-# MathML Core presentation element set — `annotation-xml` (the HTML-island injection vector) and `maction`
-# (actiontype/href) are deliberately absent, so a hostile island can never append into the HTML tree.
 _MATHML: Final[frozenset[str]] = frozenset({
     "math", "mrow", "mi", "mn", "mo", "ms", "mtext", "mspace", "msqrt", "mroot", "mfrac", "mstyle", "merror",
     "mpadded", "mphantom", "menclose", "msub", "msup", "msubsup", "munder", "mover", "munderover",
@@ -545,9 +521,6 @@ _MATHML: Final[frozenset[str]] = frozenset({
 
 
 def _actionable(href: str) -> bool:
-    # Scheme allowlist over the RFC 3986 scheme cut: a scheme-less relative reference stays actionable, and an
-    # explicit scheme outside `_SAFE_SCHEMES` (javascript:, vbscript:, data:, file:) demotes the link to inert
-    # text at EVERY backend — HTML, Typst, Markdown, and LaTeX all read this one gate, never a per-arm re-check.
     head, sep, _ = href.partition(":")
     return not sep or any(mark in head for mark in "/?#") or head.lower() in _SAFE_SCHEMES
 
@@ -615,22 +588,6 @@ _STANDARD_FOR: Final[frozendict[StructCategory, StructEltKind]] = frozendict(
 
 
 def hardened_parse(source: bytes | str, /, *, recover: bool = False) -> "_Element":
-    # THE untrusted-XML admission for the whole document axis: the MathML island below, the `document/emit#DOCUMENT`
-    # schema/stylesheet compiles, the `document/lens#LENS` XML_READ external-file read, and the `document/tagged#ACCESS`
-    # XMP packet all enter here, so the libxml2 posture is stated once and audited once. A `str` payload drops any XML
-    # declaration through `_XML_DECL`, then encodes: `fromstring` refuses a unicode source carrying an encoding
-    # declaration outright, and a declaration surviving the UTF-8 encode mislabels the bytes — libxml2 decodes the
-    # stream under the DECLARED charset, a hard `XMLSyntaxError` on a `UTF-16` label and silent mojibake on an
-    # `ISO-8859-1` one — so the prolog is cut whole and the declaration-free bytes parse as the UTF-8 they are, while
-    # a `bytes` payload passes untouched because its declaration is the byte stream's own truth. Every knob is SPELLED even
-    # where it repeats a libxml2 default, because a default is a moving target and this is the surface an audit reads:
-    # `resolve_entities=False` keeps entity references unexpanded (a billion-laughs bomb never inflates and an external
-    # entity never substitutes text), the DTD triple refuses to load, validate against, or default attributes from any
-    # doctype the packet names, `no_network=True` bars every related-file fetch, `decompress=False` denies a gzip
-    # bomb its expansion at the parser, and `huge_tree=False` keeps libxml2's own depth and text-length limits armed.
-    # Parser construction is per-call: an `XMLParser` carries the parse's error log and is not safe to share across the worker
-    # threads and processes these callers run on. `recover` is the caller's DATA choice, never a hardening one — a
-    # recovering read salvages a truncated foreign file and still admits under the identical security posture.
     parser = etree.XMLParser(
         attribute_defaults=False,
         dtd_validation=False,
@@ -674,21 +631,14 @@ def walk(node: DocumentNode, *, prune: tuple[type, ...] = ()) -> Iterator[Docume
 
 
 def _keyable(node: DocumentNode, /) -> DocumentNode:
-    # digest preimage blanks the node's OWN key leaf — identity derives from content, never a prior mint.
     return msgspec.structs.replace(node, meta=msgspec.structs.replace(node.meta, key=_NULL_KEY))
 
 
 def _own_bytes(node: DocumentNode, /) -> bytes:
-    # deterministic JSON is the digest codec: msgpack cannot integer-encode the live u128 `ContentKey.value`
-    # a sub-payload cell's meta carries, while JSON carries bignums natively under the same field order.
     return _JSON_ENCODER.encode(msgspec.structs.replace(_keyable(node), **{name: () for name in node.__struct_fields__ if name in _CHILD_FIELDS}))
 
 
 def node_digest(node: DocumentNode) -> ContentKey:
-    # depth-safe post-order fold: `results` is a cons stack, so pushing the kids REVERSED makes them pop in reverse
-    # and land back head-first in DOCUMENT order — `take(n)` is therefore already the natural child sequence and
-    # feeds the parent preimage as-is. Re-reversing it here would compound the two reversals into one net flip,
-    # keying a tree against a child order no independent implementation of this digest would reproduce.
     frontier: Block[tuple[bool, DocumentNode]] = Block.singleton((False, node))
     results: Block[ContentKey] = Block.empty()
     while not frontier.is_empty():
@@ -983,7 +933,7 @@ def _filled(element: "_Element", runs: tuple[RunNode, ...], kids: tuple[Document
 def field_text(value: FieldValue, /) -> str:
     match value:
         case TextField(mode=TextMode.PASSWORD):
-            return _MASKED  # a password value is non-exportable — every corpus/Typst/Markdown/LaTeX projection reads the marker
+            return _MASKED
         case TextField(value=text):
             return text
         case CheckboxField(checked=True, export=export):
@@ -1012,7 +962,7 @@ def _field_element(node: FieldNode, /) -> "_Element":
         case TextField(value=value, mode=mode, max_length=bound):
             control, root = etree.Element("input"), None
             control.set("type", "password" if mode is TextMode.PASSWORD else "text")
-            if mode is not TextMode.PASSWORD:  # the secret never lands in markup; the control stays an empty password input
+            if mode is not TextMode.PASSWORD:
                 control.set("value", value)
             if bound is not None:
                 control.set("maxlength", str(bound))
@@ -1063,7 +1013,7 @@ def _field_element(node: FieldNode, /) -> "_Element":
             control.set("type", "button")
             control.text = label or node.name
             match action:
-                case Uri(href=href) if _actionable(href):  # an unsafe scheme drops the action; the button body survives
+                case Uri(href=href) if _actionable(href):
                     control.set("data-href", href)
                 case Uri():
                     pass
@@ -1081,12 +1031,10 @@ def _field_element(node: FieldNode, /) -> "_Element":
     if node.required:
         control.set("required", "required")
     if node.readonly:
-        # Native policy attribute per control kind: `readonly` holds only on text entry; a checkbox, select,
-        # radio fieldset, or button disables — a fieldset `disabled` natively disables every contained input.
         text_entry = control.tag == "textarea" or (control.tag == "input" and control.get("type") in ("text", "password"))
         control.set("readonly" if text_entry else "disabled", "readonly" if text_entry else "disabled")
         control.set("aria-readonly", "true")
-    if node.tooltip:  # AcroForm /TU projects as the visual tooltip and the accessible name
+    if node.tooltip:
         control.set("title", node.tooltip)
         control.set("aria-label", node.tooltip)
     return control if root is None else root
@@ -1142,7 +1090,6 @@ def _element(node: DocumentNode) -> "_Element":
             if mathml and (island := _mathml(mathml)) is not None:
                 math.append(island)
             else:
-                # a missing, malformed, or scrub-refused island falls back to the TeX text the serializer escapes
                 math.text = f"\\[{tex}\\]" if display else f"\\({tex}\\)"
             return math
         case AnnotationNode(annot=AnnotKind.LINK, contents=text, link=Uri(href=href)):
@@ -1169,15 +1116,10 @@ def _element(node: DocumentNode) -> "_Element":
 
 
 def _mathml(payload: str) -> "_Element | None":
-    # MathML admission: the ONE `hardened_parse` fold, then the `_MATHML` whitelist scrub — a comment, PI, or
-    # element outside the set drops with its subtree and script-capable attributes (on*, href, src) strip — so
-    # only presentation MathML ever appends into the HTML tree; a refused island returns None for the TeX fallback.
-    # The island is untrusted whatever the tree's provenance: a `FormulaNode` reaching this lowering may have been
-    # recovered by the lens out of an adversarial PDF or decoded off the wire, so it never takes the builder path.
     parsed = catch(exception=etree.XMLSyntaxError)(hardened_parse)(payload).default_value(None)
     if parsed is None or not isinstance(parsed.tag, str) or etree.QName(parsed).localname != "math":
         return None
-    for element in tuple(parsed.iter()):  # Exemption: whitelist scrub mutates the parsed island at the lxml provider seam
+    for element in tuple(parsed.iter()):
         if not isinstance(element.tag, str) or etree.QName(element).localname not in _MATHML:
             parent = element.getparent()
             if parent is not None:
@@ -1191,7 +1133,6 @@ def _mathml(payload: str) -> "_Element | None":
 
 
 def _anchor(href: str, text: str) -> "_Element":
-    # an unsafe scheme degrades to an inert span carrying the text — the link body survives, the actionability drops
     live = _actionable(href)
     anchor = etree.Element("a" if live else "span")
     if live:
@@ -1773,8 +1714,6 @@ def _with_summary(tree: DocumentNode, deltas: tuple[DocumentDelta, ...], /) -> D
     rows = ((cell("edit"), cell("node")), *tuple((cell(kind), cell(target)) for kind, target in map(_delta_row, deltas)))
     meta = NodeMeta(key=ContentIdentity.key(fmt, _DELTA_ENCODER.encode(deltas)), role="redline-summary", page=tree.meta.page)
     summary = TableNode(meta=meta, rows=rows, header_rows=1)
-    # A leaf root carries no spine for `_with_spine` to grow, so the summary materializes a grouping wrapper
-    # instead of vanishing through the replace no-op — every redline promising a summary shows one.
     match tree:
         case PageNode() | StructureNode() | SectionNode() | BlockNode() | ListNode():
             return _with_spine(tree, (*_spine(tree), summary))
@@ -1822,10 +1761,6 @@ def _all_fields(node: DocumentNode, /) -> tuple[FieldPatch, ...]:
 
 
 def _apply_fields(node: DocumentNode, fields: tuple[FieldPatch, ...], /) -> DocumentNode:
-    # Total admission over the decoded overlay — one hostile member voids the WHOLE patch, degrading to the
-    # established merge no-op rather than a silent partial apply: an unknown, tag, or spine name never rewrites the
-    # discriminant or child spine, a duplicate name never last-wins, a torn or mistyped Raw payload never raises past
-    # the merge, and a `meta` overlay that would re-key the target is refused so the applied node retains its located key.
     patchable = frozenset(node.__struct_fields__) - _SPINE_FIELDS
     names = tuple(field.name for field in fields)
     if not fields or len(frozenset(names)) != len(names) or not patchable.issuperset(names):
@@ -1855,8 +1790,6 @@ def _located(tree: DocumentNode, key: ContentKey, /) -> Option[Path]:
 def _spliced(tree: DocumentNode, parent: ContentKey, index: int, node: DocumentNode, /) -> DocumentNode:
     def grown(target: DocumentNode) -> DocumentNode:
         kids = _spine(target)
-        # A stale or hostile index outside 0..len(kids) degrades to the established merge no-op — never a
-        # negative index silently wrapping onto the tail through slicing.
         return target if not 0 <= index <= len(kids) else _with_spine(target, (*kids[:index], node, *kids[index:]))
 
     return _located(tree, parent).map(lambda path: _rebuilt(tree, path, grown)).default_value(tree)

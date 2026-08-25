@@ -37,14 +37,10 @@ from rasm.runtime.profiles import KTX_TOOL, Bench, BenchKernel, BenchMode, Bench
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type BenchRecipe = Callable[[BenchFeed], RuntimeRail[BenchKernel]]  # setup admits the ruled feed before timing
+type BenchRecipe = Callable[[BenchFeed], RuntimeRail[BenchKernel]]
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's whole raise roster. Both owned recipes refuse the same law — a recipe bound to the owned corpus cannot
-# run against a foreign feed — so ONE parameterized row carries which recipe and which feed rather than two rows
-# spelling one defect twice. Every refusal here is TERMINAL: a re-run over the same roster and the same feed refuses
-# identically, and every downstream refusal past the collision belongs to the runtime grader.
 BENCH_FEED: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.BENCH, point="recipe", arm="config", defect="feed-refused", retriability=TERMINAL, slots=("recipe", "feed")
 )
@@ -57,15 +53,12 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([BENCH_FEED
 
 _SEED: Final[int] = 41
 _BLOCK: Final[int] = 1 << 20
-_TEXEL_EDGE: Final[int] = 2048  # the deep-pixel working edge every planar row anchors to; an equirect halves it
+_TEXEL_EDGE: Final[int] = 2048
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class BenchPlane(Struct, frozen=True, gc=False):
-    # Carries the deterministic working set an extent-scaled kernel derives. Every texel-cost threshold anchors to the
-    # EXTENT as tightly as to the seed, because a row re-graded at another extent reads an input change as a code
-    # regression — that un-anchoring the collision refusal forbids on the kernel side, arriving through the input.
     width: int
     height: int
     channels: int = 4
@@ -74,29 +67,20 @@ class BenchPlane(Struct, frozen=True, gc=False):
 
 @tagged_union(frozen=True)
 class BenchFeed:
-    # typed deterministic-input edge: the ruling a caller kernel replays, carried on the roster row. A host binary is
-    # NOT a case here — what a kernel DERIVES and what its floor leg SPAWNS are orthogonal, so folding them onto one
-    # case admits exactly one tool, denies every other feed kind a floor, and hands the recipe a name it already spells.
     tag: Literal["owned", "signal", "seeded", "planar"] = tag()
-    owned: None = case()  # page-owned recipe supplies its own seeded corpus
-    signal: SynthOp = case()  # the ruled media test-signal the caller kernel replays
-    seeded: int = case()  # the seed a scalar-corpus caller kernel derives its deterministic input from
-    planar: BenchPlane = case()  # seed AND extent, for a kernel whose cost scales per texel
+    owned: None = case()
+    signal: SynthOp = case()
+    seeded: int = case()
+    planar: BenchPlane = case()
 
 
 class BenchEntry(Struct, frozen=True, gc=False):
-    # the artifacts-side roster row: the runtime `BenchSubject` the grader reads BESIDE the deterministic-input edge
-    # this stratum owns and the runtime tier cannot hold — a `BenchFeed` binds a `SynthOp` and a `BenchPlane`, both S3
-    # values, so carrying one upward would drag the media and texture planes into the runtime tier. Pairing them on one
-    # row is what a subject-keyed sidecar table gives up: there, a subject can land with no feed and nothing says so.
     subject: BenchSubject
     feed: BenchFeed = BenchFeed(owned=None)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# native-offload rows carry the tight ceilings: those renders cross the lane onto foreign
-# native kernels whose interior the request-duration histogram cannot attribute.
 CORPUS: Final[Block[BenchEntry]] = Block.of_seq([
     BenchEntry(BenchSubject("artifacts.package.codec.pack", "bundle", BenchMode.LATENCY, BenchThreshold(p95_ceiling_ms=250.0))),
     BenchEntry(
@@ -118,10 +102,6 @@ CORPUS: Final[Block[BenchEntry]] = Block.of_seq([
         BenchSubject("artifacts.media.synthesis.frame", "media", BenchMode.THROUGHPUT, BenchThreshold(p95_ceiling_ms=42.0, floor_hz=24.0)),
         BenchFeed(signal=SynthOp.Bars(1.0)),
     ),
-    # Deep-pixel trio: every row crosses the lane onto a foreign native core over float32 planes, where the
-    # per-texel cost scales with the extent the caller feeds rather than with a page count, so each declares the
-    # extent its bar was set against and carries the round economy its own working set earns instead of the shared
-    # thirty-two. The prefilter row halves its height because an environment plane is admitted at 2:1 or refused.
     BenchEntry(
         BenchSubject("artifacts.graphic.texture.derive.chained", "texture", BenchMode.LATENCY, BenchThreshold(p95_ceiling_ms=400.0), rounds=16),
         BenchFeed(planar=BenchPlane(width=_TEXEL_EDGE, height=_TEXEL_EDGE)),
@@ -178,11 +158,6 @@ RECIPES: Final[Map[str, BenchRecipe]] = Map.of_seq([
 
 
 def benched(recipes: Mapping[str, BenchRecipe], /) -> RuntimeRail[Block[BenchVerdict]]:
-    # this page's whole remaining job: merge the recipes, refuse an override of an owned one, resolve EVERY entry's
-    # feed to a bound kernel, and hand the roster plus that kernel map to the runtime grader. The feed resolution is
-    # exactly what keeps `BenchFeed`, `BenchPlane`, and `SynthOp` at this stratum — the grader reads a
-    # `Callable[[], object]` and never learns what derived it — and every refusal past the collision (an unrostered
-    # tool, an uncovered subject, a wholly unprovisioned host) is the grader's, so this page states none of them twice.
     merged: dict[str, BenchRecipe] = {**dict(RECIPES.items()), **dict(recipes)}
     collided = Block.of_seq(RECIPES.keys()).filter(lambda subject: subject in recipes)
     covered = CORPUS.filter(lambda entry: entry.subject.subject in merged)
@@ -196,15 +171,11 @@ def benched(recipes: Mapping[str, BenchRecipe], /) -> RuntimeRail[Block[BenchVer
 
 
 def _bound(recipes: Mapping[str, BenchRecipe], entry: BenchEntry, /) -> RuntimeRail[tuple[str, BenchKernel]]:
-    # a subject with no recipe never reaches this fold and never enters the kernel map, so the grader's own coverage
-    # refusal names it exactly when the host provisions it — the one place that can be decided, since a host lacking a
-    # binary cannot be asked for the kernel that spawns it. Every recipe that IS present binds its feed here, so a
-    # recipe rejecting its feed refuses under its own subject name before any timing runs.
     subject = entry.subject.subject
     return recipes[subject](entry.feed).map(lambda kernel: (subject, kernel))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ("CORPUS", "RECIPES", "BenchEntry", "BenchFeed", "BenchPlane", "benched")
 ```

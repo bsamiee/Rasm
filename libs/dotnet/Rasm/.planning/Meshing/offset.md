@@ -23,7 +23,7 @@ Rebuilding composes ring simplicity and convolution crossings from `Meshing/inte
 - Boundary: `OffsetOp` is the sole offsetting `[Union]`; exact turn signs decide reflex classification, split admission, ring simplicity, and convolution compatibility over input geometry, while event ordering stays analytic schedule data validated at fire. Ring simplicity and convolution crossings route `Intersection.Apply` behind the probe's own broad phase; the interior test routes `slice.md`'s `Containment.Of`, since a page-local straddle forks the crossing kernel's verdict; loop resolution routes `Arrangement.Apply` `PlanarOverlay` ring-direct; the medial composes the delaunay `VoronoiDual`. `Apply` is total over the `Fin` rail, so a degenerate ring or stalled queue returns a fault rather than throwing, and a `Split` divides the ring rather than dropping a reflex chain to satisfy a budget.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,14 +36,11 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
 using IndexSet = System.Collections.Generic.HashSet<int>;
 
 namespace Rasm.Meshing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Each row emits only the INTERIOR fan between the two tangent points the lane supplies; Bevel's
-// empty fan leaves the bare chord.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -56,10 +53,6 @@ public sealed partial class JoinType {
     [UseDelegateFromConstructor]
     public partial Seq<Point3d> Corner(Point3d apex, Vector3d nIn, Vector3d nOut, double distance, OffsetPolicy policy);
 
-    // Miter apex = bisector hit clamped at MiterLimit; past the clamp the row degrades to the bevel chord.
-    // Every degeneracy gate on this page is DIMENSIONLESS — sums, dots, and determinants of UNIT normals — so
-    // each reads `EpsilonPolicy.ZeroTolerance`, never the denormal minimum that admits a 1e-300 bisector and
-    // divides by it. A model-scaled gate would read a `ToleranceLane` off the policy's bound `Context` instead.
     static Seq<Point3d> MiterCorner(Point3d apex, Vector3d nIn, Vector3d nOut, double distance, OffsetPolicy policy) {
         Vector3d bisector = nIn + nOut;
         double len = bisector.Length;
@@ -70,8 +63,6 @@ public sealed partial class JoinType {
             : Seq<Point3d>();
     }
 
-    // In-plane rotation nIn->nOut through the SHORT arc; a slerp sin(sweep) denominator dies at sweep = π.
-    // Step count solves the sagitta against the Arc lane band, so the chord error is the document's.
     static Seq<Point3d> RoundCorner(Point3d apex, Vector3d nIn, Vector3d nOut, double distance, OffsetPolicy policy) {
         double cross = (nIn.X * nOut.Y) - (nIn.Y * nOut.X);
         double sweep = Math.Atan2(Math.Abs(cross), (nIn.X * nOut.X) + (nIn.Y * nOut.Y));
@@ -84,8 +75,6 @@ public sealed partial class JoinType {
         }));
     }
 
-    // Both points sit on the chord perpendicular to the bisector at the offset distance; each slides
-    // along its own tangent line to that cut, the signed advance absorbing either turn.
     static Seq<Point3d> SquareCorner(Point3d apex, Vector3d nIn, Vector3d nOut, double distance, OffsetPolicy policy) {
         Vector3d bisector = nIn + nOut;
         double len = bisector.Length;
@@ -101,8 +90,6 @@ public sealed partial class JoinType {
     }
 }
 
-// ClosesRibbon is the assembly column: a closing row fuses the ribbon's two sides into ONE loop through the
-// path ends — `joined` is the open-ribbon closure Clipper2-style rosters spell as a separate lane.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -126,11 +113,7 @@ public sealed partial class EndType {
         JoinType.Round.Corner(end, new Vector3d(tangent.Y, -tangent.X, 0.0), new Vector3d(-tangent.Y, tangent.X, 0.0), distance, policy);
 }
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
-// Every budget is an `Of` ARGUMENT with its canonical row as the `IfNone`, so a caller raises the event ceiling
-// or lends the run a wider arena without minting a second factory — the guarded value objects still hold the
-// range. `SameTimeMultiple` is the zero-progress multiple the drain stalls at, `NearestCandidates` the
-// box-ordered prefix the clearance probe opens with, and `Arena` the capacity law the wavefront store seeds from.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record OffsetPolicy(
     Context Context, PositiveMagnitude TimeBudget, Dimension MaxEvents, Dimension SameTimeMultiple,
     ArenaPolicy Arena, Dimension NearestCandidates,
@@ -150,16 +133,9 @@ public sealed record OffsetPolicy(
     public bool Weighted => EdgeSpeed.Count > 0;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ClearanceNode(Point3d At, double Radius, int NearestEdge);
 
-// THE indexed nearest-segment probe of the clearance family: this page MINTS it beside `ClearanceNode` and
-// `Meshing/skeleton` composes it verbatim, the same mint-and-compose split the clearance vocabulary already
-// holds. A segment's own AABB bounds its distance from BELOW, so the box-ordered walk stops the instant the
-// running exact best sits under the next candidate's bound; the ceiling opens the prefix and DOUBLES until
-// either the bound closes or the roster is exhausted, so the answer is exact under every ceiling and an absent
-// index costs only the exhaustive walk. This is what replaced the per-query linear scan the medial fold ran once
-// per circumcenter and the wavefront drain ran once per fired event.
 public sealed record ClearanceProbe(Arr<Point3d> From, Arr<Point3d> To, Option<SpatialIndex> Index, Dimension Ceiling) {
     public int Count => From.Count;
 
@@ -169,8 +145,6 @@ public sealed record ClearanceProbe(Arr<Point3d> From, Arr<Point3d> To, Option<S
         return new ClearanceProbe(From: from, To: to, Index: Seated(boxes), Ceiling: ceiling);
     }
 
-    // Foot parameter rides out with the distance so a consumer interpolating a per-endpoint measure — the
-    // skeleton's radius, a future per-edge weight — reads it instead of solving the projection a second time.
     public (double Distance, int Segment, double Parameter) Nearest(Point3d probe) {
         for (int ceiling = int.Min(Ceiling.Value, Count); ; ceiling = int.Min(ceiling << 1, Count)) {
             (double best, int at, double foot, bool closed) = (double.PositiveInfinity, 0, 0.0, false);
@@ -187,9 +161,6 @@ public sealed record ClearanceProbe(Arr<Point3d> From, Arr<Point3d> To, Option<S
         }
     }
 
-    // Unordered candidate PAIRS for a self-crossing sweep — the index's own dual walk, or every ordered pair
-    // where no index seated. The exact kernel decides each pair either way, so the index narrows the candidate
-    // set and never the verdict.
     public IEnumerable<(int I, int J)> Overlaps(double tolerance) =>
         Index.Bind(index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.SelfOverlap(tolerance))).ToOption())
             .Bind(static answer => answer is SpatialAnswer.Result { Value: QueryResult.Pairs pairs } ? Some(pairs.Overlaps) : None)
@@ -202,7 +173,6 @@ public sealed record ClearanceProbe(Arr<Point3d> From, Arr<Point3d> To, Option<S
             .Map(static ranked => ranked.AsEnumerable())
             .IfNone(() => Enumerable.Range(0, Count));
 
-    // With no index every bound reads zero, so the walk degrades to exhaustion rather than to a wrong early stop.
     double BoxReach(int segment, Point3d probe) =>
         Index.Map(index => index.Primitives[segment].ClosestPoint(probe).DistanceTo(probe)).IfNone(noneValue: 0.0);
 
@@ -211,30 +181,20 @@ public sealed record ClearanceProbe(Arr<Point3d> From, Arr<Point3d> To, Option<S
             .Bind(static answer => answer is SpatialAnswer.Index seated ? Some(seated.Value) : None);
 }
 
-// Admitted ring beside the ONE probe over its edges: the simplicity broad phase, the medial radius, the
-// wavefront's per-event boundary distance, and the clearance query all read it, so a ring builds its index once
-// per `Apply` instead of re-scanning every edge per query.
 public sealed record AdmittedRing(Polyline Ring, ClearanceProbe Edges);
 
 public sealed record SkeletonArc(int From, int To, int OriginEdge);
 public sealed record SkeletonGraph(Seq<ClearanceNode> Nodes, Seq<SkeletonArc> Arcs);
 public sealed record OffsetCurves(Seq<Chain> Loops, double Distance);
 
-// Node is the emanating skeleton node (ring seeds ARE nodes 0..n-1); EdgeOf is the ORIGINAL ring edge,
-// keying the weighted lane's speed through every rewire; plane is the ring elevation every emission returns at.
 public sealed class WavefrontStore {
     double[] px, py, vx, vy, spawnTime;
     int[] prev, next, node, edgeOf;
     bool[] dead;
-    // Slot recycler, not a frontier: Kill returns a slot and Spawn takes it back; no traversal reads it.
     readonly Stack<int> free = new();
     readonly double plane;
     int count;
 
-    // Capacity is the ARENA policy's, not an inline `2n` guess: `Meshing/edit` names that guess the class the
-    // arena tier exists to foreclose, and every column grows together by the doubling law the same page rules.
-    // The verb stays `Array.Resize` because the arena law binds the DOUBLING and lets the verb follow the store's
-    // storage class — this is the heap-array sibling, so no pooled lease crosses the trace it publishes.
     public WavefrontStore(ArenaPolicy policy, double plane) {
         int seed = policy.Capacity.Value;
         (px, py, vx, vy, spawnTime) = (new double[seed], new double[seed], new double[seed], new double[seed], new double[seed]);
@@ -299,7 +259,7 @@ public abstract partial record OffsetResult {
     public sealed record Probe(ClearanceNode Node) : OffsetResult;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OffsetOp {
     private OffsetOp() { }
@@ -340,16 +300,11 @@ public static class Offsetting {
             }));
     }
 
-    // Weighted table is the ONE policy invariant no value object holds: arity against the admitted
-    // ring and strict positivity, gated at the arm that reads it and nowhere else.
     static Fin<Arr<double>> AdmitSpeeds(Arr<double> speeds, int edges) =>
         speeds.Count == edges && speeds.ForAll(static speed => speed > 0.0)
             ? Fin.Succ(speeds)
             : Fin.Fail<Arr<double>>(new GeometryFault.DegenerateOffset(speeds.Count));
 
-    // Admission builds the ring's ONE edge probe and hands it out with the oriented ring, so the simplicity
-    // sweep below, the medial radius, the wavefront's per-event boundary distance, and the clearance query all
-    // read one index instead of four scans.
     static Fin<AdmittedRing> AdmitRing(Polyline ring, OffsetPolicy policy, Op key) {
         if (ring.Count < 4 || !ring.IsClosed) { return Fail<AdmittedRing>(0); }
         for (int i = 0; i < ring.Count; i++) {
@@ -369,11 +324,6 @@ public static class Offsetting {
             ceiling: policy.NearestCandidates);
     }
 
-    // ONE simplicity sweep both admission and loop resolution read, where the same doubly-nested body with the
-    // same skip rule and the same `Hits.IsEmpty` probe stood twice on this page. The index's dual walk supplies
-    // the candidate PAIRS and `IntersectOp.SegmentSegment` decides each: a 10k-vertex ring cost 50M exact calls
-    // under the all-pairs sweep where the broad phase costs n log n. Consecutive edges and the wrap pair share
-    // an endpoint by construction, so those are the only skips.
     static Fin<Unit> SelfCrossing(ClearanceProbe edges, Polyline ring, OffsetPolicy policy, Op key) {
         int n = edges.Count;
         foreach ((int i, int j) in edges.Overlaps(policy.CollapseBand)) {
@@ -385,8 +335,6 @@ public static class Offsetting {
         return Fin.Succ(unit);
     }
 
-    // Open-path admission: finite vertices, two or more of them, no zero-length edge (a coincident
-    // pair degenerates the ribbon normal).
     static Fin<Polyline> AdmitPath(Polyline path) {
         if (path.Count < 2) { return Fail<Polyline>(0); }
         for (int i = 0; i < path.Count; i++) {
@@ -399,10 +347,6 @@ public static class Offsetting {
     static Fin<T> Fail<T>(int vertex) => Fin.Fail<T>(new GeometryFault.DegenerateOffset(vertex));
 
     // --- [WAVEFRONT]
-    // `until` freezes the drain — events past it stay unfired, so the store IS the wavefront state at
-    // that instant. The BCL PriorityQueue is the named exemption: this is an event SIMULATION keyed on a
-    // schedule time each fire re-validates, and QuikGraph's ladder carries no event queue — its frontier
-    // containers (IQueue, BinaryQueue, FibonacciQueue) serve vertex relaxation, which no fire here performs.
     static Fin<Trace> Propagate(AdmittedRing admitted, OffsetPolicy policy, Arr<double> speeds, double until = double.PositiveInfinity) {
         Polyline ring = admitted.Ring;
         WavefrontStore store = Seed(ring, policy, speeds);
@@ -411,9 +355,6 @@ public static class Offsetting {
         List<ClearanceNode> nodes = new(Enumerable.Range(0, n).Select(i => new ClearanceNode(ring[i], 0.0, i)));
         List<SkeletonArc> arcs = new();
         for (int v = 0; v < store.Count; v++) { EnqueueAt(store, queue, v, 0.0, policy, speeds); }
-        // Absence of a previous fire is `None`, never a negative time: every real event time is at or above zero
-        // ONLY while `until` is, so an in-band `-1.0` sentinel collided with the first real event the moment a
-        // caller offset by a negative distance.
         (int fired, Option<double> lastTime, int sameTime) = (0, None, 0);
         while (queue.Count > 0 && queue.Peek().Time <= until) {
             if (fired++ > policy.MaxEvents.Value) { return Fin.Fail<Trace>(new GeometryFault.SkeletonStalled(queue.Count, Some(queue.Peek().Time))); }
@@ -424,8 +365,6 @@ public static class Offsetting {
                 return Fin.Fail<Trace>(new GeometryFault.CollapseStalled(fired, ev.Time - lastTime.IfNone(ev.Time)));
             }
             lastTime = Some(ev.Time);
-            // TOTAL Switch: a new event case breaks the drain at compile time; a failed guard is a
-            // stale event superseded by a rewire, skipped — never a tolerance guess.
             ev.Switch(
                 edge: e => {
                     if (store.Alive(e.Vertex) && store.Alive(e.NextVertex) && store.Next(e.Vertex) == e.NextVertex
@@ -455,18 +394,12 @@ public static class Offsetting {
 
     static double Speed(Arr<double> speeds, int edge) => speeds.Count > 0 ? speeds[edge] : 1.0;
 
-    // CW inputs re-orient CCW at admission; reversed-ring edge k is caller edge n-1-k, so the
-    // per-ORIGINAL-edge speed table re-indexes with the ring.
     static Arr<double> ReversedSpeeds(Arr<double> speeds) {
         double[] flipped = new double[speeds.Count];
         for (int e = 0; e < flipped.Length; e++) { flipped[e] = speeds[speeds.Count - 1 - e]; }
         return Arr.create<double>(flipped);
     }
 
-    // INWARD velocity: the CCW interior sits LEFT of each edge, so the inward normal of (a->b) is
-    // (a.Y-b.Y, b.X-a.X); the (dy,-dx) spelling is OUTWARD and grows the front. v solves
-    // v·n̂In = speedIn ∧ v·n̂Out = speedOut — each incident edge advances at its OWN speed; equal
-    // speeds recover the 2b/|b|² bisector, parallel edges translate at the out-edge speed.
     static Vector3d Bisector(Point3d prev, Point3d cur, Point3d next, double speedIn, double speedOut) {
         Vector3d nIn = Unit(new Vector3d(prev.Y - cur.Y, cur.X - prev.X, 0.0));
         Vector3d nOut = Unit(new Vector3d(cur.Y - next.Y, next.X - cur.X, 0.0));
@@ -489,13 +422,13 @@ public static class Offsetting {
         Point3d meet = store.At(ev.Vertex, ev.Time);
         (double radius, int witness, double _) = edges.Nearest(meet);
         int node = nodes.Count;
-        nodes.Add(new ClearanceNode(meet, policy.Weighted ? radius : ev.Time, witness));  // unit speed: time IS the boundary distance
+        nodes.Add(new ClearanceNode(meet, policy.Weighted ? radius : ev.Time, witness));
         arcs.Add(new SkeletonArc(store.Node(ev.Vertex), node, store.EdgeOf(ev.Vertex)));
         arcs.Add(new SkeletonArc(store.Node(ev.NextVertex), node, store.EdgeOf(ev.NextVertex)));
         (int before, int after) = (store.Prev(ev.Vertex), store.Next(ev.NextVertex));
         store.Kill(ev.Vertex);
         store.Kill(ev.NextVertex);
-        if (before == ev.NextVertex || after == ev.Vertex) { return; }  // a 2-ring dies at its node
+        if (before == ev.NextVertex || after == ev.Vertex) { return; }
         int outEdge = store.EdgeOf(ev.NextVertex);
         int merged = store.Spawn(meet,
             Bisector(store.At(before, ev.Time), meet, store.At(after, ev.Time), Speed(speeds, store.EdgeOf(before)), Speed(speeds, outEdge)),
@@ -513,7 +446,7 @@ public static class Offsetting {
         nodes.Add(new ClearanceNode(hit, policy.Weighted ? radius : ev.Time, witness));
         arcs.Add(new SkeletonArc(store.Node(ev.Reflex), node, store.EdgeOf(ev.Reflex)));
         (int before, int after) = (store.Prev(ev.Reflex), store.Next(ev.Reflex));
-        int opposingEdge = store.EdgeOf(ev.OpposingA);  // both halves of the split edge keep its origin
+        int opposingEdge = store.EdgeOf(ev.OpposingA);
         int left = store.Spawn(hit,
             Bisector(store.At(before, ev.Time), hit, store.At(ev.OpposingB, ev.Time), Speed(speeds, store.EdgeOf(before)), Speed(speeds, opposingEdge)),
             ev.Time, node, opposingEdge);
@@ -537,8 +470,6 @@ public static class Offsetting {
         return closing < 0.0 && speed2 > 0.0 ? Some(now + (-closing / speed2)) : None;
     }
 
-    // Opposing edge moves INWARD at its own speed; the reflex hits when its signed offset along its
-    // inward normal m closes — t = now + m·(a − p) / (d·m − speed).
     static Option<(double Time, int A, int B)> SplitTime(WavefrontStore store, int reflex, double now, Arr<double> speeds) {
         Point3d p = store.At(reflex, now);
         Vector3d d = store.Velocity(reflex);
@@ -556,13 +487,11 @@ public static class Offsetting {
         return best.Map(static x => (x.Item1, x.Item2, x.Item3));
     }
 
-    // Exact turn sign at the vertex's CURRENT neighbours; the ring is CCW, so a clockwise turn is reflex.
     static bool IsReflex(WavefrontStore store, int v, double now) =>
         store.Alive(v)
         && Predicate.Orient2D(store.At(store.Prev(v), now), store.At(v, now), store.At(store.Next(v), now)) == Sign.Negative;
 
     // --- [OFFSET_ASSEMBLY]
-    // Full collapse before Distance is a legitimately EMPTY set, never a fault.
     static Fin<OffsetResult> Snapshot(OffsetOp.Offset op, Op key) =>
         (op.Path.IsClosed && op.Distance > 0.0
             ? AdmitRing(op.Path, op.Policy, key)
@@ -574,9 +503,6 @@ public static class Offsetting {
         .Bind(loops => loops.IsEmpty ? Fin.Succ(Seq<Chain>()) : Resolve(loops, op.Policy, key))
         .Map(chains => (OffsetResult)new OffsetResult.Curves(new OffsetCurves(chains, op.Distance)));
 
-    // Successor-column walk over the arena's own ring links, REFUSING the QuikGraph traversal family: the
-    // product wanted is the CYCLIC ORDER of each surviving ring, which no component labeller publishes,
-    // and every alive vertex has exactly one successor, so there is no frontier to schedule.
     static Seq<int[]> Rings(WavefrontStore store) {
         IndexSet seen = new();
         List<int[]> loops = new();
@@ -594,8 +520,6 @@ public static class Offsetting {
         return toSeq(loops);
     }
 
-    // This lane supplies the two tangent points (centre + r·m̂ along each inward normal) and the JoinType row
-    // emits only the fan BETWEEN them; a convex corner passes through as the exact offset.
     static Polyline Dressed(Trace trace, int[] loop, OffsetOp.Offset op) {
         WavefrontStore store = trace.Store;
         Polyline dressed = new();
@@ -617,12 +541,6 @@ public static class Offsetting {
         return dressed;
     }
 
-    // Direct ribbon: per-edge translates with the row's fan at each convex turn. TWO independent facts decide
-    // the assembly — `path.IsClosed` is a STORAGE fact (the ring repeats its first vertex, so the edge census
-    // drops one) and `fused` the ASSEMBLY fact the end row carries. A `Closed` or `Joined` row fuses an open
-    // path's sides into ONE loop through its ends, which is exactly the capability `EndType.ClosesRibbon`
-    // advertises and this body used to drop on the floor; only a NON-fused open path emits caps and a mirrored
-    // return side.
     static Seq<Polyline> Ribbon(OffsetOp.Offset op) {
         Polyline path = op.Path;
         bool ring = path.IsClosed;
@@ -680,10 +598,6 @@ public static class Offsetting {
             .Bind(pair => pair.Tess.Triangles(key).Map(tris => (pair.Dual,
                 Tris: toArr(tris.Faces.AsIterable().Map(f => (tris.Corners[f.A], tris.Corners[f.B], tris.Corners[f.C]))))))
             .Map(x => {
-                // Interior test is `Containment.Of`, the estate's ONE even-odd ring predicate — the byte-identical
-                // straddle, half-open law, and exact side test this page carried are its body, seated on the roster
-                // that owns the three-valued answer. An on-boundary centroid answers `Overlap`, which is neither
-                // interior nor exterior and drops the circumcenter rather than tipping a parity count.
                 bool[] interior = [.. x.Tris.Select(tri => Containment.Of(Centroid(tri), ring, Axis.Z, Axis.Y).Equals(Containment.Inside))];
                 Dictionary<int, int> keep = new();
                 List<ClearanceNode> nodes = new();
@@ -704,9 +618,6 @@ public static class Offsetting {
     }
 
     // --- [MINKOWSKI]
-    // Global two-pointer normal merges are UNSOUND here: a non-convex ring's normal sequence is not
-    // angle-sorted. Element gated CLOSED + CCW + CONVEX by exact signs; a reflex element faults, its convex
-    // decomposition the recorded growth row.
     static Fin<OffsetCurves> Convolve(Polyline ring, Polyline element, Op key) {
         if (element.Count < 4 || !element.IsClosed) { return Fin.Fail<OffsetCurves>(new GeometryFault.DegenerateOffset(0)); }
         Polyline b = Oriented(element);
@@ -716,8 +627,6 @@ public static class Offsetting {
                 return Fin.Fail<OffsetCurves>(new GeometryFault.DegenerateOffset(j));
             }
         }
-        // Support vertex per outward normal: ONE pooled dot plane filled per query and ONE index search over it,
-        // where a hand argmax re-walked the element tracking a running pair per ring edge.
         using MemoryOwner<double> reach = MemoryOwner<double>.Allocate(size: en);
         int Support(Vector3d outward) {
             Span<double> dots = reach.Span;
@@ -731,10 +640,10 @@ public static class Offsetting {
             int from = support[(i - 1 + rn) % rn], to = support[i];
             bool convex = Predicate.Orient2D(ring[(i - 1 + rn) % rn], ring[i], ring[(i + 1) % rn]) != Sign.Negative;
             for (int k = from, step = 0; k != to && step <= en; k = (k + (convex ? 1 : en - 1)) % en, step++) {
-                cycle.Add(ring[i] + (b[k] - Point3d.Origin));  // the fan (CCW) or reversed arc (CW) at the vertex
+                cycle.Add(ring[i] + (b[k] - Point3d.Origin));
             }
             cycle.Add(ring[i] + (b[to] - Point3d.Origin));
-            cycle.Add(ring[(i + 1) % rn] + (b[to] - Point3d.Origin));  // the translated edge under its support
+            cycle.Add(ring[(i + 1) % rn] + (b[to] - Point3d.Origin));
         }
         cycle.Add(cycle[0]);
         return Arrangement.Apply(new ArrangementOp.PlanarOverlay(Seq(cycle), Seq<Polyline>(), BooleanOp.Union, Axis.Z, ArrangementPolicy.Canonical), key)
@@ -744,14 +653,9 @@ public static class Offsetting {
     }
 
     // --- [PRIMITIVES]
-    // RIGHT/OUTWARD normal of (a->b) on a CCW ring — ribbon and support lanes grow along it; the
-    // wavefront's INWARD normals are its negation, spelled at their own sites.
     static Vector3d Normal(Point3d a, Point3d b) => new(b.Y - a.Y, a.X - b.X, 0.0);
     static Vector3d Unit(Vector3d v) { double len = v.Length; return len == 0.0 ? v : (1.0 / len) * v; }
 
-    // Whole-ring orientation as an EXACT sign: the lexicographic-extremal vertex lies on the hull, so its
-    // first nonzero forward turn IS the orientation. An all-zero scan is the zero-area collinear ring, so
-    // degeneracy gate and orientation decision collapse to one exact verdict.
     static Sign Orientation(Polyline ring) {
         int n = ring.Count - 1;
         int extreme = 0;

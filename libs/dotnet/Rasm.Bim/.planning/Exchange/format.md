@@ -35,54 +35,38 @@
 - [ROW_PROMOTION]: one codec admit promotes one row — a candidate trades the pending corner for a direction-bearing one and drops the `CataloguePackage` marker, the `import#IMPORT_RAIL`/`export#EXPORT_RAIL` folds gain one `InterchangeCodec`-keyed arm grounded against the named package with zero new `BimIo`/`BimExport` entrypoint, and the managed-versus-companion split reads the `Companion` predicate (managed grounds its decode inline, companion routes the geometry hop to `tessellation#TESSELLATION_BRIDGE`), never an `if(ifc)`/`if(step)` branch. Chunked simulation-field, FastCDC geometry-delta, and content-addressed artifact codecs stay at `Rasm.Compute/Runtime/codecs`, consumed at the seam, never re-minted here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Bim.Model;                          // BimFault and its compact scope/reason/boundary axes
-using Rasm.Bim.Projection;                     // IfcWireForm — the wire-form crossing the Serialization column carries
+using Rasm.Bim.Model;
+using Rasm.Bim.Projection;
 using Rasm.Domain;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// InterchangeCapability is the ONE vocabulary all three carriers hold subsets of, so a capability question is one
-// `Admits` read wherever it is asked and a new capability is one row rather than a bool column on each carrier.
-// `Rank` is the kernel's DERIVED declaration index — no ordinal column here.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class InterchangeCapability : ICapability<InterchangeCapability> {
     public static readonly InterchangeCapability Import = new("import");
     public static readonly InterchangeCapability Export = new("export");
     public static readonly InterchangeCapability CompanionGeometry = new("companion-geometry");
-    // ManagedDecode exists so no codec state is spelled by ABSENCE: without it the in-process codecs hold the
-    // empty set and a reader cannot tell "grounds its decode in process" from "declares nothing at all".
     public static readonly InterchangeCapability ManagedDecode = new("managed-decode");
     public static readonly InterchangeCapability CompanionDecode = new("companion-decode");
-    // Awaiting a toolkit is its OWN capability — a row can await arms for an admitted distribution (package named)
-    // or await a toolkit no registry ships (ifc5-ecs, package absent), so deriving pending from package presence
-    // conflates the two states and silently disarms the packageless gate.
     public static readonly InterchangeCapability CataloguePending = new("catalogue-pending");
     public static readonly InterchangeCapability WriteExtension = new("write-extension");
 }
 
-// InterchangeCorner declares the FOURTEEN legal corners of the hundred-and-twenty-eight the product admits, and the three
-// laws built from them — one per carrier, because the carriers share a vocabulary and not a legality. A corner
-// named here is legislated whether or not a row holds it today; a combination absent from the roster is
-// unreachable rather than untested, which is the guarantee the retired seven bool columns could not give.
 public static class InterchangeCorner {
     static CapabilitySet<InterchangeCapability> Of(params ReadOnlySpan<InterchangeCapability> held) =>
         CapabilitySet<InterchangeCapability>.Of(held);
 
-    // FORMAT — eight of sixteen over {Import, Export, CompanionGeometry, CataloguePending}. Barred: the empty
-    // corner and the bare rider (a row that neither reads, writes, nor awaits a toolkit is a dead roster entry),
-    // and every corner pairing CataloguePending with a direction — the invariant a three-term derived predicate
-    // used to re-establish on every read.
     public static readonly CapabilitySet<InterchangeCapability> Read = Of(InterchangeCapability.Import);
     public static readonly CapabilitySet<InterchangeCapability> Write = Of(InterchangeCapability.Export);
     public static readonly CapabilitySet<InterchangeCapability> RoundTrip = Of(InterchangeCapability.Import, InterchangeCapability.Export);
@@ -92,14 +76,11 @@ public static class InterchangeCorner {
     public static readonly CapabilitySet<InterchangeCapability> Pending = Of(InterchangeCapability.CataloguePending);
     public static readonly CapabilitySet<InterchangeCapability> PendingCompanion = Of(InterchangeCapability.CataloguePending, InterchangeCapability.CompanionGeometry);
 
-    // CODEC — four of eight over {ManagedDecode, CompanionDecode, CataloguePending}. A pending codec grounds
-    // nothing, so it never joins a decode capability; the other four products name no codec this branch runs.
     public static readonly CapabilitySet<InterchangeCapability> Inline = Of(InterchangeCapability.ManagedDecode);
     public static readonly CapabilitySet<InterchangeCapability> InlineThenCompanion = Of(InterchangeCapability.ManagedDecode, InterchangeCapability.CompanionDecode);
     public static readonly CapabilitySet<InterchangeCapability> CompanionOnly = Of(InterchangeCapability.CompanionDecode);
     public static readonly CapabilitySet<InterchangeCapability> Unadmitted = Of(InterchangeCapability.CataloguePending);
 
-    // EXTENSION — two of two over {WriteExtension}: a row this rail authors, and a row it reads and never writes.
     public static readonly CapabilitySet<InterchangeCapability> Authored = Of(InterchangeCapability.WriteExtension);
     public static readonly CapabilitySet<InterchangeCapability> Imported = CapabilitySet<InterchangeCapability>.None;
 
@@ -133,16 +114,10 @@ public sealed partial class InterchangeCodec {
     public static readonly InterchangeCodec Saf = new("saf-xlsx", capabilities: InterchangeCorner.Inline, cataloguePackage: Option<string>.None);
     public static readonly InterchangeCodec CobieXlsx = new("cobie-xlsx", capabilities: InterchangeCorner.Inline, cataloguePackage: Option<string>.None);
     public static readonly InterchangeCodec EnergyModel = new("energy-model", capabilities: InterchangeCorner.Inline, cataloguePackage: Option<string>.None);
-    // GeometryGymIFC_Core carries zero `ifcx`/`ifc5` members and `ReleaseVersion` tops at `IFC4X4_DRAFT`, so NO
-    // admitted toolkit carries an `.ifcx` ECS admission and the row awaits with no candidate package to name; the
-    // gate re-probes as freshness work on a release shipping IFC5 members, never as standing research debt.
     public static readonly InterchangeCodec Ifc5Pending = new("ifc5-ecs", capabilities: InterchangeCorner.Unadmitted, cataloguePackage: Option<string>.None);
 
     public CapabilitySet<InterchangeCapability> Capabilities { get; }
 
-    // Candidate package identifier alone — the token the pending fault message names so an operator reads WHICH
-    // distribution a row awaits. Design rationale rides the [CATALOGUE_PENDING] card bullet, never this column: a
-    // sentence seated here reaches every caller as a fault-message body no consumer can key on.
     public Option<string> CataloguePackage { get; }
 }
 
@@ -150,8 +125,6 @@ public sealed partial class InterchangeCodec {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class KhrExtension {
-    // Authored names a row an export arm FILLS; Imported declares a row this branch READS
-    // and never authors, so the roster stays the honest import vocabulary rather than an implied write capability.
     public static readonly KhrExtension DracoMeshCompression = new("KHR_draco_mesh_compression", KhrSlot.Compression, encoder: KhrEncoder.Draco, capabilities: InterchangeCorner.Authored);
     public static readonly KhrExtension MeshoptCompression = new("KHR_meshopt_compression", KhrSlot.Compression, encoder: KhrEncoder.Meshopt, capabilities: InterchangeCorner.Authored);
     public static readonly KhrExtension MeshGpuInstancing = new("EXT_mesh_gpu_instancing", KhrSlot.Geometry, encoder: KhrEncoder.None, capabilities: InterchangeCorner.Authored);
@@ -180,15 +153,8 @@ public sealed partial class KhrExtension {
     public KhrSlot Slot { get; }
     public KhrEncoder Encoder { get; }
 
-    // Declared WRITE capability per row — what the export#EXPORT_RAIL registration union filters on, so a
-    // read-only row can never reach a written extension block. Each row takes the capability WITH the arm that
-    // fills it, exactly as a format row does, so a preset naming an Imported row governs nothing.
     public CapabilitySet<InterchangeCapability> Capabilities { get; }
 
-    // Rows an export arm fills: a caller's InterchangePolicy roster and a payload's own obliged rows both narrow
-    // through this set, so registration never carries a row no producer can serialize. ACCESSOR-BACKED: the
-    // generator fills Items from its own static constructor, so an eager field would freeze an EMPTY roster, and
-    // its expression-bodied predecessor re-folded all twenty-four rows on every registration read.
     public static Seq<KhrExtension> Writables => WritableRows.Value;
 
     static readonly Lazy<Seq<KhrExtension>> WritableRows = new(static () =>
@@ -208,12 +174,7 @@ public sealed partial class InterchangeFormat {
     public static readonly InterchangeFormat Ifc = new("ifc", mediaType: "application/x-step", extensions: Seq(".ifc"), capabilities: InterchangeCorner.RoundTripCompanion, codec: InterchangeCodec.GeometryGym, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.Step);
     public static readonly InterchangeFormat IfcXml = new("ifc-xml", mediaType: "application/ifc+xml", extensions: Seq(".ifcxml"), capabilities: InterchangeCorner.RoundTrip, codec: InterchangeCodec.GeometryGym, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.Xml);
     public static readonly InterchangeFormat IfcJson = new("ifc-json", mediaType: "application/ifc+json", extensions: Seq(".ifcjson"), capabilities: InterchangeCorner.RoundTrip, codec: InterchangeCodec.GeometryGym, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.Json);
-    // Zipped STEP repeats the `ifc` row's serialization under a container the Projection/egress#IFC_EGRESS
-    // IfcWireForm crossing owns on BOTH directions — Seal writes the entry, Admit unwraps it ahead of the sniff —
-    // so no container column joins this table and both capability flags stand against real arms.
     public static readonly InterchangeFormat IfcZip = new("ifc-zip", mediaType: "application/x-ifczip", extensions: Seq(".ifczip"), capabilities: InterchangeCorner.RoundTrip, codec: InterchangeCodec.GeometryGym, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, serialization: IfcWireForm.StepZip);
-    // AP203, AP214, and AP242 share one media type and one extension set, so each spells the DetectRank that seats
-    // it: AP242 is the merged successor a bare `.step` resolves to, AP203 and AP214 reachable by their own keys.
     public static readonly InterchangeFormat StepAp203 = new("step-ap203", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), capabilities: InterchangeCorner.ReadCompanion, codec: InterchangeCodec.StepIso10303, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap203, detectRank: 1);
     public static readonly InterchangeFormat StepAp214 = new("step-ap214", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), capabilities: InterchangeCorner.ReadCompanion, codec: InterchangeCodec.StepIso10303, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap214, detectRank: 2);
     public static readonly InterchangeFormat StepAp242 = new("step-ap242", mediaType: "application/step", extensions: Seq(".step", ".stp", ".p21"), capabilities: InterchangeCorner.ReadCompanion, codec: InterchangeCodec.StepIso10303, frame: BasisChange.Identity, stepProtocol: StepProtocol.Ap242, detectRank: 3);
@@ -239,19 +200,8 @@ public sealed partial class InterchangeFormat {
     public static readonly InterchangeFormat Nwc = new("nwc", mediaType: "application/vnd.autodesk.nwc", extensions: Seq(".nwc", ".nwd"), capabilities: InterchangeCorner.PendingCompanion, codec: InterchangeCodec.NativeCompanion, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
     public static readonly InterchangeFormat Dwg = new("dwg", mediaType: "application/vnd.autodesk.dwg", extensions: Seq(".dwg", ".dxf"), capabilities: InterchangeCorner.Read, codec: InterchangeCodec.AcadSharp, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
     public static readonly InterchangeFormat Ifc5 = new("ifc5", mediaType: "application/ifc5+json", extensions: Seq(".ifcx", ".ifc5"), capabilities: InterchangeCorner.PendingCompanion, codec: InterchangeCodec.Ifc5Pending, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
-    // SAF structural-analysis XLSX, both directions armed: import realizes through Exchange/saf#SAF_EXCHANGE
-    // SafCodec.Run(SafOp.Import) + the Author(db, host, model, key) overload authoring GeometryGym
-    // structural entities the ONE SemanticProjector ingests; export through Workbook(graph, geometry, regime, key) +
-    // SafCodec.Run(SafOp.Export). Round-trippable, so it outranks the write-only COBie row on the shared media type.
     public static readonly InterchangeFormat Saf = new("saf", mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extensions: Seq(".saf.xlsx"), capabilities: InterchangeCorner.RoundTrip, codec: InterchangeCodec.Saf, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, detectRank: 2);
-    // COBie FM-handover XLSX — WRITE-ONLY, GRAPH-SOURCED: the export#COBIE_EMIT CobieEmit.Export author (the
-    // ExportPayload codec Switch routes it there; a COBie spreadsheet is never a geometry import source). This row
-    // shares its office-spreadsheet media type with `saf`; its rank keeps it ahead of every rankless spreadsheet
-    // row while the round-trippable SAF row resolves a bare media-type detect.
     public static readonly InterchangeFormat Cobie = new("cobie", mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", extensions: Seq(".cobie.xlsx"), capabilities: InterchangeCorner.Write, codec: InterchangeCodec.CobieXlsx, frame: BasisChange.Identity, stepProtocol: StepProtocol.None, detectRank: 1);
-    // Energy-model rows (the Energy/ folder the realizing owner): HBJSON/DFJSON raise+lower, OSM/gbXML/IDF raise-only
-    // against the graph — their emit rides the energy Translate matrix over an OSM-family SOURCE, so the Export capability is
-    // withheld until the graph-egress arm lands (a capability is taken WITH its arm). Ladybug/OSM/gbXML are Z-up: Identity frame.
     public static readonly InterchangeFormat Hbjson = new("hbjson", mediaType: "application/vnd.ladybug.hbjson+json", extensions: Seq(".hbjson"), capabilities: InterchangeCorner.RoundTrip, codec: InterchangeCodec.EnergyModel, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
     public static readonly InterchangeFormat Dfjson = new("dfjson", mediaType: "application/vnd.ladybug.dfjson+json", extensions: Seq(".dfjson"), capabilities: InterchangeCorner.RoundTrip, codec: InterchangeCodec.EnergyModel, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
     public static readonly InterchangeFormat Osm = new("osm", mediaType: "application/vnd.openstudio.osm", extensions: Seq(".osm"), capabilities: InterchangeCorner.Read, codec: InterchangeCodec.EnergyModel, frame: BasisChange.Identity, stepProtocol: StepProtocol.None);
@@ -270,41 +220,18 @@ public sealed partial class InterchangeFormat {
     public BasisChange Frame { get; }
     public StepProtocol StepProtocol { get; }
 
-    // Some exactly on the GeometryGym rows; the ctor's nullable `IfcWireForm? serialization = null` arg lifts once
-    // to Option, so non-IFC rows omit the column. The value is the `Projection/wireform#IFC_WIRE_FORM` crossing —
-    // serialization AND container as one owned value, so the `.ifczip` row differs from `.ifc` by its wire form
-    // alone and no container column joins this table. ExportIfc and the wire Seal read THIS row value — a call-site
-    // `InterchangeFormat==`/ternary serialization ladder is the deleted form.
     public Option<IfcWireForm> Serialization { get; }
 
     public Seq<string> Extensions => extensions;
 
-    // FormatLaw bars pairing this with a direction, so a row awaiting a toolkit answers ONE set read rather than
-    // re-establishing a three-term conjunction over a codec flag and two direction flags on every call.
     public bool CataloguePending => Capabilities.Admits(InterchangeCapability.CataloguePending);
 
-    // Geometry leg crosses the companion bridge when EITHER the format holds the rider (live IFC/STEP/IGES or a
-    // pending native design pin)
-    // OR the codec's own geometry read is companion-bound; the import fold reads this one predicate, not two.
-    // FOLD-OUT posture, so the bare Admits reads are correct here and the Require door is not.
     public bool Companion =>
         Capabilities.Admits(InterchangeCapability.CompanionGeometry)
         || Codec.Capabilities.Admits(InterchangeCapability.CompanionDecode);
 
-    // Both directions on one row. The wire#WIRE_PROJECTION seal and negotiation narrow on THIS rather than on the
-    // export capability alone, because a wire that must re-admit what it emitted is answering a two-way question
-    // and a one-way row silently satisfied the one-way test.
     public bool RoundTrippable => Capabilities.AdmitsAll(InterchangeCorner.RoundTrip);
 
-    // THE capability gate every entrypoint composes — BimIo.ImportGeometry/ImportIfc/ImportStep and
-    // BimExport.Export/ExportIfc alike. Two proofs in order: the corner law refuses a row whose held set names no
-    // carrier this branch can serve, then the kernel Require door refuses the demand and RECEIVES the missing rows,
-    // so no refusal here can be spelled without its evidence. The message ordering is the whole point of the arms
-    // below: a pending row holds no direction, so the pending arm must answer FIRST or the plain refusal shadows
-    // its richer package-naming message — exactly the ordering each entrypoint used to re-spell and could re-order
-    // independently. A companion-bound codec refused in a direction it cannot serve lowers Refused/BimReason.Capability (the rail
-    // cannot reach an evaluator) where a managed one lowers Refused/BimReason.Codec (the row declares one-way vocabulary), so
-    // each arm follows the ROW rather than the call site.
     public static Fin<InterchangeFormat> Admitted(InterchangeFormat format, InterchangeCapability demanded, Op key) =>
         from corner in InterchangeCorner.FormatLaw.Admit(format.Capabilities)
         from _ in corner.Require(
@@ -329,10 +256,6 @@ public sealed partial class InterchangeFormat {
 
     public bool IsCanonicalFrame => Frame.IsIdentity;
 
-    // Declared precedence among rows sharing a media type or an extension, the ctor's `int detectRank = 0` arg so an
-    // uncontended row omits the column. BOTH resolvers below read this ONE column: ranking on the StepProtocol enum
-    // VALUE read a schema-vocabulary token as a precedence scale, so the two spreadsheet rows both signing None tied
-    // and resolved by roster accident. Rank is a DOMAIN statement per row — see [DETECT_PRECEDENCE].
     public int DetectRank { get; }
 
     static readonly FrozenDictionary<string, InterchangeFormat> ByExtension =
@@ -360,9 +283,6 @@ public sealed partial class InterchangeFormat {
         : input.StartsWith('.') && !input.Contains('/') ? input
         : "";
 
-    // Longest registered extension the lowercased path ends with wins, so a compound extension (e.g. ".city.json")
-    // that Path.GetExtension cannot return as one token resolves where the bare ".json" leg misses. Media-type and
-    // key inputs (which carry '/' or no leading dot) never reach this fold.
     static Option<InterchangeFormat> CompoundSuffix(string input) =>
         input.Contains('/')
             ? Option<InterchangeFormat>.None
@@ -373,14 +293,6 @@ public sealed partial class InterchangeFormat {
                     : best).Format;
 }
 
-// Basis change onto the canonical kernel frame (Z-up, right-handed) is a signed axis permutation: each
-// canonical component names its signed source axis (+-1->source X, +-2->source Y, +-3->source Z). A signed
-// permutation is orthogonal, so the one map carries positions AND unit normals. Both landed rows are PROPER
-// rotations (determinant +1), so the mirror case has no producer: the retired FlipsWinding pair stood a standing
-// winding-reversal query over a case no row could enter, and a mirroring ingest frame lands the row and its
-// index-reversal arm TOGETHER rather than leaving the query armed and unreachable. The retired UpAxis/Handedness
-// enum pair (whose Left/X-up values no row exercised and whose handedness flip negated one axis without reversing
-// winding) collapses into this data row per DERIVED_LOGIC.
 public readonly record struct BasisChange(sbyte CanonicalX, sbyte CanonicalY, sbyte CanonicalZ) {
     public static readonly BasisChange Identity = new(1, 2, 3);
     public static readonly BasisChange YUpToCanonical = new(1, -3, 2);
@@ -398,12 +310,8 @@ public readonly record struct BasisChange(sbyte CanonicalX, sbyte CanonicalY, sb
 
 public enum StepProtocol : byte { None = 0, Ap203 = 203, Ap214 = 214, Ap242 = 242 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FrameNormalization {
-    // Span kernel (the platform-forced exemption): applies the row's basis change to the leading vec3 of each
-    // stride-spaced element in place — a position buffer and a normal buffer are each canonicalized by a SEPARATE
-    // call over their own strided view (the one orthogonal signed permutation carries both), so a fully interleaved
-    // pos+normal buffer in one call coerces only the positions.
     public static void Canonicalize(InterchangeFormat format, Span<float> components, int stride) {
         var basis = format.Frame;
         if (basis.IsIdentity) {

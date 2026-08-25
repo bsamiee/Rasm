@@ -24,7 +24,7 @@ Every operator threads `Op` and gates finite input through the Domain validation
 - Boundary: mesh-aware Laplacians over connectivity are `Meshing/mesh`'s, this page differentiating ambient ℝ³ samplers and `CellLattice`-addressed value spans alone; the lattice arm addresses and never stores — the value span is the consumer's, the lattice the `Numerics/atoms` owner. A ZERO-SUM tap series is a difference stencil and belongs here, a non-zero-sum one to `Numerics/transform#SPECTRAL`'s `TapSeries.Convolve`, which refuses a zero-sum series at its own mint — the two owners partition on the tap sum and neither carries the other's fold. `ToroidalWrap` is a total pure fold over an admitted strictly-positive period the Domain `Period` guard gates upstream, and it is the per-axis LIFT of `Numerics/atoms`' `Reduce.Centred` — the almanac's angular wrap reads that owner's floored twin, so the general reduction has one seat below both consumers instead of homing on whichever domain spelled one first.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using LanguageExt;
 using Rasm.Domain;
@@ -33,11 +33,8 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Nabla {
-    // Bridson (SIGGRAPH 2007 course, "Curl-Noise for Procedural Fluid Flow", §3) prescribes potential offsets LARGE
-    // relative to the noise wavelength, so the three components decorrelate. The offset is therefore a FUNCTION of
-    // the caller's stencil scale, never a fixed digit-play on pi and e that a fine-frequency sampler out-resolves.
     internal const double CurlDecorrelation2 = 137.0, CurlDecorrelation3 = -311.0;
     internal static Vector3d CurlOffset(double eps, double scale) =>
         new(x: scale * eps, y: scale * eps * 1.3, z: scale * eps * 0.7);
@@ -90,26 +87,17 @@ public static class Nabla {
         let syz = 0.5 * (samples.Z1.Y - samples.Z0.Y + samples.Y1.Z - samples.Y0.Z) * inv2eps
         from value in key.AcceptValue(value: Math.Sqrt(d: (sxx * sxx) + (syy * syy) + (szz * szz) + (2.0 * ((sxy * sxy) + (sxz * sxz) + (syz * syz)))))
         select value;
-    // The centred reduction is `Numerics/atoms`' `Reduce`, seated where every consumer reaches it; this member is
-    // the per-axis lift of that one primitive, and the almanac's floored twin reads the same owner.
     public static Point3d ToroidalWrap(Point3d sample, Vector3d period) =>
         new(x: Reduce.Centred(value: sample.X, period: period.X),
             y: Reduce.Centred(value: sample.Y, period: period.Y),
             z: Reduce.Centred(value: sample.Z, period: period.Z));
 
     // --- [LATTICE_STENCIL]
-    // The ONE lattice admission: the three lattice entries are total on an ADMITTED pair, and nothing else proved
-    // the span against the census — `Tap` indexes `grid.Linear(...)` and a short span threw off the rail. A
-    // composer gates once here and its loop then reads the total entries with no per-tap rail, which is the whole
-    // point of the statement-kernel exemption.
     public static Fin<Unit> AdmitLattice(ReadOnlySpan<double> values, CellLattice grid, Op key) =>
         Admit.Claims(key,
             (values.Length == grid.CellCount, "value-extent"),
             (grid.CellCount >= 1L, "lattice-census"));
 
-    // REFUSED operator, named where the refusal binds: `TensorPrimitives` carries no strided gather, no roll, and no
-    // border operator — it folds flat contiguous spans — and `api-tensors.md` refuses the `Tensor<T>` plane for kernel
-    // fences outright, so a six-tap reflected gather by computed linear index has no span form to reach for.
     private static int Reflect(int index, int count) =>
         count is 1 ? 0 : index < 0 ? -index : index >= count ? (2 * count) - index - 2 : index;
     private static double Tap(ReadOnlySpan<double> values, CellLattice grid, int column, int row, int layer) =>
@@ -140,8 +128,6 @@ public static class Nabla {
         double planar = ((x1 + x0 - (2.0 * center)) / (cell.X * cell.X)) + ((y1 + y0 - (2.0 * center)) / (cell.Y * cell.Y));
         return grid.Rank is 3 ? planar + ((z1 + z0 - (2.0 * center)) / (cell.Z * cell.Z)) : planar;
     }
-    // Packed-upper (Xx, Xy, Xz, Yy, Yz, Zz) second differences — diagonal off the six-tap axes, mixed partials off
-    // the four corner taps per pair — so a SymmetricMatrix admission downstream is repack-free.
     public static (double Xx, double Xy, double Xz, double Yy, double Yz, double Zz) LatticeHessianAt(
         ReadOnlySpan<double> values, CellLattice grid, int column, int row, int layer = 0) {
         (double x1, double x0, double y1, double y0, double z1, double z0) =
@@ -182,7 +168,7 @@ public static class Nabla {
 - Boundary: `Spatial/fields` wraps `Falloff.Metric` over its `TensorField` by passing the tensor sampler, so the tensor-field type never appears here; `Meshing/reconstruct` composes `KernelKind` and `WeightKernelFamily` for its RBF, MLS, and Levin windows — one profile mathematics, zero copies. Positive-definiteness has ONE owner: `Numerics/matrix`'s `SymmetricMatrix.Definite` is the allocation-bounded verdict this page reads, and hand-rolled leading principal minors are the deleted form.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
@@ -195,7 +181,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class KernelProfileStatus {
     public static readonly KernelProfileStatus Smooth = new(key: 0);
@@ -206,20 +192,19 @@ public sealed partial class KernelProfileStatus {
 
 [SmartEnum<int>]
 public sealed partial class KernelSupport {
-    // The dimensionless q edge past which a basis is EXACTLY zero; a globally-supported basis carries none.
     public static readonly KernelSupport Compact = new(key: 0, ceiling: Some(1.0));
     public static readonly KernelSupport Global = new(key: 1, ceiling: Option<double>.None);
     public Option<double> Ceiling { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct KernelProfile(double Value, double FirstDerivative, double SecondDerivative, KernelProfileStatus Status) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(value: Value), ValidityClaim.Finite(value: FirstDerivative), ValidityClaim.Finite(value: SecondDerivative), Status is not null);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class KernelKind {
     public static readonly KernelKind Wendland = new(key: 0, support: KernelSupport.Compact, origin: KernelProfileStatus.Smooth, derivativeSupremum: 135.0 / 64.0, polynomialOrder: 0,
@@ -234,11 +219,6 @@ public sealed partial class KernelKind {
         shape: static (q, r) => (1.0 - q, -1.0 / r, 0.0));
     public static readonly KernelKind Epanechnikov = new(key: 5, support: KernelSupport.Compact, origin: KernelProfileStatus.Smooth, derivativeSupremum: 2.0, polynomialOrder: 0,
         shape: static (q, r) => (1.0 - (q * q), -2.0 * q / r, -2.0 / (r * r)));
-    // Band-limited reconstruction rows — the sinc/jinc family every resampling tap table re-derives. Value and both
-    // derivatives evaluate at 106-bit through the ddouble cardinal ladder and narrow ONCE at the row edge: the
-    // (cos − sinc)/x near-zero cancellation that bars a double closed form is exactly what ddouble absorbs.
-    // Numerically SOLVED suprema, stated: sup|d/dq [sinc(2q)·sinc(q)]| over q in [0,1] and sup|d/dq [2·jinc(j1·q)]|
-    // over the same, each a bisection on the second derivative's sign change at the 106-bit ddouble ladder above.
     public static readonly KernelKind Lanczos = new(key: 6, support: KernelSupport.Compact, origin: KernelProfileStatus.Smooth, derivativeSupremum: 2.8097867788012820, polynomialOrder: 0,
         shape: static (q, r) => (
             (double)(Sinc(x: 2.0 * q) * Sinc(x: q)),
@@ -251,7 +231,6 @@ public sealed partial class KernelKind {
             q <= EpsilonPolicy.SqrtEpsilon
                 ? -BesselFirstZero * BesselFirstZero / (4.0 * r * r)
                 : (double)(-(ddouble)(BesselFirstZero * BesselFirstZero) * ((((ddouble.BesselJ(1, (ddouble)(BesselFirstZero * q)) - ddouble.BesselJ(3, (ddouble)(BesselFirstZero * q))) * (ddouble)(BesselFirstZero * q)) - (2.0 * ddouble.BesselJ(2, (ddouble)(BesselFirstZero * q)))) / ((ddouble)(BesselFirstZero * q) * (ddouble)(BesselFirstZero * q)))) / (r * r)));
-    // PolynomialOrder is the degree+1 tail the augmented design [Φ P; Pᵀ 0] appends; 0 spells an unconditional basis.
     public static readonly KernelKind Gaussian = new(key: 8, support: KernelSupport.Global, origin: KernelProfileStatus.Smooth, derivativeSupremum: GaussianSupremum, polynomialOrder: 0,
         shape: static (q, r) => (Math.Exp(d: -(q * q)), -2.0 * q * Math.Exp(d: -(q * q)) / r, ((4.0 * q * q) - 2.0) * Math.Exp(d: -(q * q)) / (r * r)));
     public static readonly KernelKind Multiquadric = new(key: 9, support: KernelSupport.Global, origin: KernelProfileStatus.Smooth, derivativeSupremum: 1.0, polynomialOrder: 1,
@@ -267,9 +246,6 @@ public sealed partial class KernelKind {
 
     public KernelSupport Support { get; }
     public KernelProfileStatus Origin { get; }
-    // DerivativeSupremum = sup_q|value′(q)|, the slope-bound numerator; compact rows bound on [0,1] (Wendland peaks at
-    // q=1/4, odd-power kernels at the origin, cosine at q=1/2), global rows on [0,∞) — the polyharmonic pair carries
-    // PositiveInfinity because no tolerance-free bound exists, and Falloff.SlopeBound degrades to None through it.
     public double DerivativeSupremum { get; }
     public int PolynomialOrder { get; }
     [UseDelegateFromConstructor] private partial (double Value, double First, double Second) Shape(double q, double radius);
@@ -278,9 +254,6 @@ public sealed partial class KernelKind {
         from _ in Admit.KernelInput(distance: distance, radius: radius, key: key)
         from profile in key.AcceptValue(value: Profiled(q: distance / radius, radius: radius))
         select profile;
-    // The radius rides `PositiveMagnitude`, so a zero divisor is UNREPRESENTABLE rather than an infinity the
-    // ceiling filter reads as OutsideSupport and answers with a fabricated 0.0; a negative distance canonicalizes
-    // at intake, because `Complement(q, 4)` at q < 0 exceeds unity outside the support it claims to leave.
     public double Weight(double distance, PositiveMagnitude radius) =>
         Profiled(q: Math.Max(val1: 0.0, val2: distance) / radius.Value, radius: radius.Value).Value;
     public Fin<Unit> Weights(ReadOnlySpan<double> distances, double radius, Span<double> destination, Op key) =>
@@ -296,15 +269,9 @@ public sealed partial class KernelKind {
                         Status: q <= EpsilonPolicy.SqrtEpsilon ? Origin : KernelProfileStatus.Smooth),
                 };
     private static double Complement(double q, int power) => Math.Pow(x: 1.0 - q, y: power);
-    // CLOSED-FORM suprema, spelled as their derivations rather than transcribed: the Gaussian peaks at q = 1/sqrt(2)
-    // where |value'| = sqrt(2)·e^(-1/2), and the inverse multiquadric at q = 1/sqrt(2) where it is 1.5^(-3/2)/sqrt(2).
     private static readonly double GaussianSupremum = Math.Sqrt(d: 2.0) * Math.Exp(d: -0.5);
     private static readonly double InverseMultiquadricSupremum = Math.Pow(x: 1.5, y: -1.5) / Math.Sqrt(d: 2.0);
-    // First zero of J1 (Abramowitz & Stegun 9.5.1; DLMF 10.21) — the jinc row's support normalization, so
-    // value(1) is exactly the reconstruction null.
     private const double BesselFirstZero = 3.8317059702075123;
-    // 106-bit cardinal-sine ladder: sinc'(x) = (cos(πx) − sinc(x))/x and sinc''(x) = −π²·sinc(x) − 2·sinc'(x)/x,
-    // with the x→0 limits −π²x/3 and −π²/3 closing the removable singularity before the one narrowing to double.
     private static ddouble Sinc(double x) => ddouble.Sinc((ddouble)x, normalized: true);
     private static ddouble SincPrime(double x) => Math.Abs(value: x) <= EpsilonPolicy.SqrtEpsilon
         ? (ddouble)(-Math.PI * Math.PI / 3.0) * (ddouble)x
@@ -322,25 +289,16 @@ public sealed partial class WeightKernelFamily {
     public static readonly WeightKernelFamily Gaussian = new(key: 2, interpolating: false, profile: static t => Math.Exp(d: -(t * t) / GaussianBandwidthSquared));
     public static readonly WeightKernelFamily CompactExp = new(key: 3, interpolating: false, profile: static t => t >= 1.0 ? 0.0 : Math.Exp(d: -(t * t) / Math.Max(val1: 1.0 - (t * t), val2: EpsilonPolicy.ZeroTolerance)));
     public static readonly WeightKernelFamily Singular = new(key: 4, interpolating: true, profile: static t => 1.0 / Math.Max(val1: t * t, val2: EpsilonPolicy.SqrtEpsilon));
-    // Band-limited interpolating weight — sinc is 1 at the sample and 0 at every integer lattice offset, the one
-    // MLS window that interpolates at bounded support without the singular row's pole.
     public static readonly WeightKernelFamily Lanczos = new(key: 5, interpolating: true, profile: static t => (double)(ddouble.Sinc((ddouble)(2.0 * t), normalized: true) * ddouble.Sinc((ddouble)t, normalized: true)));
     private const double GaussianBandwidthSquared = 1.0 / 9.0;
     public bool Interpolating { get; }
     [UseDelegateFromConstructor] private partial double Profile(double t);
-    // Support rides `PositiveMagnitude` for the same reason its sibling's radius does: a zero support sent NaN
-    // through `Math.Min(NaN, 1.0)` into the profile, and a negative distance is canonicalized at intake.
     public double Weight(double distance, PositiveMagnitude support) =>
         distance >= support.Value ? 0.0 : Profile(t: Math.Min(val1: Math.Max(val1: 0.0, val2: distance) / support.Value, val2: 1.0));
     public Fin<Unit> Weights(ReadOnlySpan<double> distances, double support, Span<double> destination, Op key) =>
         SpanProfile.Fill(distances: distances, scale: support, destination: destination, row: t => t >= 1.0 ? 0.0 : Profile(t: t), key: key);
 }
 
-// ONE span-fill owner for every profile family: identical guard, identical q normalization, identical finiteness
-// finalize — the row closure is the whole difference, so two profile owners hand theirs in.
-// NAMED LOSS on the span arm: the per-row closure reaches no `TensorPrimitives` member — a support clamp, a
-// 106-bit ddouble ladder, and a Horner tail are not span operators — so only the q normalization and the
-// finiteness gate vectorize and the row's own shape closes each entry between them.
 internal static class SpanProfile {
     internal static Fin<Unit> Fill(ReadOnlySpan<double> distances, double scale, Span<double> destination, Func<double, double> row, Op key) {
         Fin<Unit> admitted = Admit.Claims(key,
@@ -360,18 +318,13 @@ internal static class SpanProfile {
 public abstract partial record Falloff {
     private Falloff() { }
     public sealed record ConstantCase : Falloff { internal ConstantCase() { } public override Option<double> SlopeBound => Some(0.0); }
-    // d^exponent is ONE parameterized family — inverse (−1) and inverse-square (−2) are exponent values, never
-    // sibling cases, mirroring the settled `SpectralFilter.Power` collapse at `Numerics/spectral`.
     public sealed record PowerCase : Falloff { internal PowerCase(double Exponent) => this.Exponent = Exponent; public double Exponent { get; } public override Option<double> SlopeBound => None; }
     public sealed record GaussianCase : Falloff { internal GaussianCase(PositiveMagnitude Spread) => this.Spread = Spread; public PositiveMagnitude Spread { get; } public override Option<double> SlopeBound => Some(Math.Exp(-0.5) / Spread.Value); }
     public sealed record KernelCase : Falloff { internal KernelCase(KernelKind Kind, PositiveMagnitude Radius) { this.Kind = Kind; this.Radius = Radius; } public KernelKind Kind { get; } public PositiveMagnitude Radius { get; } public override Option<double> SlopeBound => Some(Kind.DerivativeSupremum / Radius.Value); }
     public sealed record MetricCase : Falloff { internal MetricCase(KernelKind Kind, Func<Point3d, Fin<SymmetricMatrix>> Metric, PositiveMagnitude Radius) { this.Kind = Kind; this.Metric = Metric; this.Radius = Radius; } public KernelKind Kind { get; } public Func<Point3d, Fin<SymmetricMatrix>> Metric { get; } public PositiveMagnitude Radius { get; } public override Option<double> SlopeBound => None; }
 
-    // None where no tolerance-free bound exists: power laws steepen toward the degeneracy gate, the sampled metric's spectral radius unbounded.
     public abstract Option<double> SlopeBound { get; }
     public static Falloff Constant => new ConstantCase();
-    // Gated like every sibling mint: an unadmitted `Power(double.NaN)` constructed and poisoned every downstream
-    // weight. The two canonical exponents are PRE-ADMITTED statics reaching the internal constructor directly.
     public static Fin<Falloff> Power(double exponent, Op key) =>
         key.AcceptValue(value: exponent).Map(static value => (Falloff)new PowerCase(Exponent: value));
     public static Falloff Inverse => new PowerCase(Exponent: -1.0);
@@ -403,10 +356,6 @@ public abstract partial record Falloff {
             kernelCase: static (s, k) => k.Kind.Profile(distance: s.Distance, radius: k.Radius.Value, key: s.Key)
                 .Map(static profile => profile.Status.Equals(KernelProfileStatus.OutsideSupport) ? 0.0 : Math.Abs(value: profile.FirstDerivative)),
             metricCase: static (s, _) => Fin.Fail<double>(s.Key.Unsupported(inputType: typeof(MetricCase), outputType: typeof(double)))));
-    // The metric arm has NO distance-only form — it needs the offset and the sample point — so it refuses typed
-    // rather than inventing one. REFUSED operator: the generated total `Switch` cannot reach here, because a
-    // `ReadOnlySpan<T>` cannot enter a lambda, so the verdict STARTS as a typed refusal naming the unlabelled case
-    // and only a labelled arm overwrites it; an unlabelled future case answers `Unsupported`, never a silent pass.
     public Fin<Unit> Weights(ReadOnlySpan<double> distances, double tolerance, Span<double> destination, Op key) {
         if (!ValidityClaim.All(ValidityClaim.CountAtLeast(count: distances.Length, floor: 1),
                 ValidityClaim.CountAtLeast(count: destination.Length, floor: distances.Length),
@@ -445,10 +394,7 @@ public abstract partial record Falloff {
                 from m in s.Offset.ToFin(s.Key.Unsupported(inputType: typeof(MetricCase), outputType: typeof(double)))
                 from tensor in k.Metric(arg: m.Sample)
                 from _ in guard(tensor.Dimension.Value == 3, s.Key.InvalidInput()).ToFin()
-                // The leading-principal-minor fold this arm once carried is deleted onto the one branch verdict.
                 from definite in tensor.Definite(key: s.Key)
-                // Zero offset (query at source) is legal: quadratic 0 -> distance 0 -> kernel max; the
-                // -ZeroTolerance band absorbs rounding of tiny offsets under a definite-proven tensor.
                 from metricDistance in (m.Offset.X, m.Offset.Y, m.Offset.Z) switch {
                     (double x, double y, double z) when
                         (x * ((tensor.At(i: 0, j: 0) * x) + (tensor.At(i: 0, j: 1) * y) + (tensor.At(i: 0, j: 2) * z))) +
@@ -475,7 +421,7 @@ public abstract partial record Falloff {
 - Boundary: `PermTable` and `GradientTable` are the canonical published Perlin permutation and its twelve canonical edge vectors, the sanctioned literal tables on this page — a table with a defining publication transcribes verbatim, where an authored table with no defining sequence rides as a digest-pinned content-keyed asset. The noise VOCABULARY — `NoiseKind` rows and their `CapabilitySet<NoiseTrait>` columns — is `Spatial/fields`', this page owning only the lattice mathematics those rows point at. `Rasm.Materials` `Appearance/texture#TEXTURE_UV` `ProceduralNoise` is a DELIBERATE second lattice family, split on differentiability-vs-parity: this owner hashes the canonical published permutation feeding the `NoiseTrait.Differentiable` membership (the `CurlNoise` admission gate and the `ScalarField.LipschitzBound` fold), while the Materials family holds FastNoiseLite byte-exactness for MaterialX category parity and the WGSL `f32` wrap law, with 2D arms, periodic-by-construction cell-index lattices, and the cellular return set this floor never needs — collapsing either end breaks the other's gating [branch RULINGS `[03]-[COLLAPSE]`].
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using Rasm.Domain;
 using Rhino.Geometry;
@@ -483,30 +429,21 @@ using Thinktecture;
 
 namespace Rasm.Numerics;
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class FieldNoise {
     private static readonly int[] PermTable = [
         151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148, 247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175, 74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54, 65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64, 52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213, 119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104, 218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157, 184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
     ];
-    // Gustavson, "Simplex Noise Demystified" (2005): the skew/unskew pair for three dimensions, the simplex
-    // support radius SQUARED, and the amplitude scale that maps the four-corner sum onto [-1, 1].
     private const double SkewF3 = 1.0 / 3.0;
     private const double UnskewG3 = 1.0 / 6.0;
     private const double SupportRadiusSquared = 0.6;
     private const double AmplitudeScale = 32.0;
-    // Declared lane ordinals, never seed arithmetic: `seed + 17` reads ONE stream at a fixed offset, which is
-    // exactly the correlation a decorrelated feature point must not have.
     private const long JitterX = 0L, JitterY = 1L, JitterZ = 2L, SimplexPrimary = 0L, SimplexRotated = 1L;
 
-    // The seed MIXES rather than adds. Under `PermTable[(x + seed) & 0xFF]` the identity `Perm(x, s+1) ==
-    // Perm(x+1, s)` holds, so a seed change TRANSLATED the lattice by one cell instead of relabelling it, and the
-    // branch's one splitmix64 owner is what every kernel draw threads.
     private static int Perm(int x, int seed) =>
         PermTable[(int)(Deterministic.Stream(lanes: [x, seed]) & 0xFF)];
     private static double Fade(double t) => t * t * t * ((t * ((t * 6) - 15)) + 10);
     private static double Lerp(double t, double a, double b) => a + (t * (b - a));
-    // Perlin's twelve canonical edge vectors as a TABLE — the four-way nested ternary it replaces recomputed
-    // `hash & 15` four times and duplicated the whole u/v subexpression inside each sign branch.
     private static ReadOnlySpan<sbyte> GradientTable =>
         [1, 1, 0, -1, 1, 0, 1, -1, 0, -1, -1, 0,
          1, 0, 1, -1, 0, 1, 1, 0, -1, -1, 0, -1,
@@ -538,9 +475,6 @@ internal static class FieldNoise {
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dz = -1; dz <= 1; dz++) {
                     int nx = cx + dx; int ny = cy + dy; int nz = cz + dz;
-                    // Three INDEPENDENT per-axis jitter draws — each channel hashes the CELL under its own declared
-                    // LANE ordinal through the branch's splitmix owner. A chained form (hashY off hashX) makes y a
-                    // function of x's hash, and an additive seed offset reads one stream at three fixed points.
                     double ddx = nx + (Jitter(x: nx, y: ny, z: nz, seed: seed, channel: JitterX) / 255.0) - px;
                     double ddy = ny + (Jitter(x: nx, y: ny, z: nz, seed: seed, channel: JitterY) / 255.0) - py;
                     double ddz = nz + (Jitter(x: nx, y: ny, z: nz, seed: seed, channel: JitterZ) / 255.0) - pz;
@@ -579,8 +513,6 @@ internal static class FieldNoise {
     }
 }
 
-// The tap regime the skewed lattice folds, as a ROW carrying its own blend — a `bool smooth` knob whose
-// discriminant no value recovers is the deleted form.
 [SmartEnum<int>]
 public sealed partial class SimplexBlend {
     public static readonly SimplexBlend Single = new(key: 0, blended: static (primary, _) => primary);
@@ -601,7 +533,7 @@ public sealed partial class SimplexBlend {
 - Boundary: consumers project the ANGLES into their own world frame — `Rasm.Compute` `Analysis/daylight` folds them into its float clash coordinate at one `SurveyRay` narrowing, `Rasm.Materials` `Appearance/environment#SKY_MODEL` projects azimuth/altitude onto its `+X`-north `WorldDirection`, and `Rasm.AppUi` `Render/pathtrace#LIGHT_RIG` seats the angles on its Sun row — so the frame convention lives at each consuming edge and the almanac states angles alone; the geodetic datum, site CRS, and any reprojection stay the app-root edge's. Consumers holding a VECTOR rotate it into the survey frame at their own edge and re-read through `OfDirection` — `Rasm.Rhino` `Render/settings#SUN_ASTRONOMY` folds the host's north bearing and its sun-toward-scene sign there — so the sign and the north datum resolve where the producing frame is still known, never inside this almanac. `Direction`/`OfDirection` close on double throughout and the round trip holds `5.7e-14°` azimuth and `7.4e-13°` altitude across the whole sphere, matching the accuracy the fold is graded against; a single-precision carrier floors that inverse at `3.9e-6°` azimuth and `1.1e-3°` altitude, so a float engine takes the narrowing at ITS edge and the bijection keeps its digits.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Immutable;
 using LanguageExt;
@@ -613,12 +545,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Angles and elevation stay bare `double` with the unit on the NAME per branch `RULINGS [02]` — kernel measures
-// leave undimensioned and `Rasm.Element` `MeasureValue` is the dimensioned carrier — but the timezone is a CLOCK
-// offset, so NodaTime's `Offset` types it and the hand `>= -14 and <= 14` guard deletes with the range the type
-// already closes. Generated default validation evidence crosses through the kernel acceptance bridge, and the
-// clauses ACCUMULATE — a bad latitude and a bad elevation both report where the AND-ladder named neither.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class SolarSite {
     public double LatitudeDeg { get; }
@@ -644,15 +571,10 @@ public sealed partial class SolarSite {
     }
 }
 
-// Azimuth from north clockwise — the survey convention every consuming frame re-projects from.
 public readonly record struct SunPosition(double AzimuthDeg, double AltitudeDeg) {
     public double ZenithDeg => 90.0 - AltitudeDeg;
     public bool AboveHorizon => AltitudeDeg > 0.0;
 
-    // Unit sun direction in the +Y-north/+X-east SURVEY frame — the EPW/scene convention daylight shadow rays
-    // cast toward, carried in the kernel's own double coordinate so `OfDirection` inverts it at the accuracy this
-    // fold solves to; a +X-north consumer projects the angle pair itself, and a float ray engine narrows at its own
-    // edge, where the lost digits are the traversal's.
     public Vector3d Direction {
         get {
             double alt = AltitudeDeg * Math.PI / 180.0, az = AzimuthDeg * Math.PI / 180.0;
@@ -660,25 +582,17 @@ public readonly record struct SunPosition(double AzimuthDeg, double AltitudeDeg)
         }
     }
 
-    // Absence answers a ray carrying no direction — zero, non-finite, or the host `RhinoMath.UnsetValue` sentinel
-    // whose finite magnitude a bare `double.IsFinite` probe reads as an ordinary coordinate — because its `0°`/`0°`
-    // reading is a due-north horizon sun no consumer distinguishes from a measured one.
     public static Option<SunPosition> OfDirection(Vector3d direction) =>
         direction.Length switch {
             double length when direction.IsValid && length > 0.0 => Some(OfUnit(direction / length)),
             _ => None,
         };
 
-    // Altitude clamps the `asin` domain against the round-off a unitized ray carries at the zenith, where `Z`
-    // overshoots one by an ulp and the domain fault reads as a NaN altitude.
     static SunPosition OfUnit(Vector3d unit) =>
         new(AzimuthDeg: SolarPosition.Wrap360(Math.Atan2(unit.X, unit.Y) * 180.0 / Math.PI),
             AltitudeDeg: Math.Asin(Math.Clamp(unit.Z, -1.0, 1.0)) * 180.0 / Math.PI);
 }
 
-// The almanac's coefficient roster, one row per published series with the chapter and equation it transcribes.
-// The VARIABLES were always named; the COEFFICIENTS are what a transcription error corrupts, so each row carries
-// its own and the fold evaluates by Horner over them — the provenance bar the `integrate.md` tableau roster sets.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SolarSeries {
@@ -687,19 +601,15 @@ public sealed partial class SolarSeries {
     public static readonly SolarSeries CentreFirst      = new("centre-first",      clause: "Meeus ch. 25, equation of centre, sin(M)",               coefficients: [1.914602, -0.004817, -0.000014]);
     public static readonly SolarSeries CentreSecond     = new("centre-second",     clause: "Meeus ch. 25, equation of centre, sin(2M)",              coefficients: [0.019993, -0.000101]);
     public static readonly SolarSeries CentreThird      = new("centre-third",      clause: "Meeus ch. 25, equation of centre, sin(3M)",              coefficients: [0.000289]);
-    // Aberration constant then the nutation-in-longitude amplitude; INDEXED, not a polynomial in t.
     public static readonly SolarSeries Apparent         = new("apparent",          clause: "Meeus ch. 25, apparent longitude correction",            coefficients: [0.00569, 0.00478]);
     public static readonly SolarSeries NutationArgument = new("nutation-argument", clause: "Meeus ch. 22, omega argument",                           coefficients: [125.04, -1934.136]);
-    // Degree and arcminute base of the mean obliquity; the arcsecond tail is the Obliquity row's own series.
     public static readonly SolarSeries ObliquityBase    = new("obliquity-base",    clause: "Meeus ch. 22 (22.2), degree and arcminute base",         coefficients: [23.0, 26.0]);
     public static readonly SolarSeries Obliquity        = new("obliquity",         clause: "Meeus ch. 22 (22.2), arcsecond tail",                    coefficients: [21.448, -46.815, -0.00059, 0.001813]);
-    // Refraction amplitude then the Saemundsson/Bennett altitude-argument pair.
     public static readonly SolarSeries Refraction       = new("refraction",        clause: "Saemundsson/Bennett, Meeus ch. 16 (16.4)",               coefficients: [1.02, 10.3, 5.11]);
 
     public string Clause { get; }
     public ImmutableArray<double> Coefficients { get; }
 
-    // Horner in Julian centuries: c0 + t*(c1 + t*(c2 + ...)).
     public double At(double t) {
         double accumulated = 0.0;
         for (int index = Coefficients.Length - 1; index >= 0; index--) { accumulated = Coefficients[index] + (t * accumulated); }
@@ -708,13 +618,8 @@ public sealed partial class SolarSeries {
     public double this[int index] => Coefficients[index];
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The truncation holds arc-minute apparent position across the four centuries around J2000 and degrades outside;
-// refraction dominates the error budget inside that span (worst near the horizon), which is why site elevation is a
-// parameter and a higher-order ephemeris term is not.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolarPosition {
-    // Published quantities the chain reads by name: Earth's orbital eccentricity at the epoch, the ISO 2533
-    // standard-atmosphere lapse pair the barometric ratio raises for the site's elevation, and the Julian anchors.
     private const double Eccentricity = 0.016708634;
     private const double LapseRate = 2.25577e-5;
     private const double LapseExponent = 5.25588;
@@ -746,8 +651,6 @@ public static class SolarPosition {
         double trueSolarMinutes = Reduce.Floored(value: (fractionalDay * 1440.0) + equationOfTime + (4.0 * site.LongitudeDeg) - (60.0 * site.TimezoneHours), period: 1440.0);
         double hourAngle = ((trueSolarMinutes / 4.0) - 180.0) * Math.PI / 180.0;
         double phi = site.LatitudeDeg * Math.PI / 180.0;
-        // Same clamp its sibling at `SunPosition.OfUnit` carries, for the same reason: an ulp overshoot past
-        // one returns NaN altitude from a member declared TOTAL, with no rail to catch it.
         double altitude = Math.Asin(Math.Clamp(value: (Math.Sin(phi) * Math.Sin(declination)) + (Math.Cos(phi) * Math.Cos(declination) * Math.Cos(hourAngle)), min: -1.0, max: 1.0));
         double azimuth = Math.Atan2(Math.Sin(hourAngle), Math.Cos(hourAngle) * Math.Sin(phi) - Math.Tan(declination) * Math.Cos(phi));
         double altitudeDeg = altitude * 180.0 / Math.PI;
@@ -759,16 +662,12 @@ public static class SolarPosition {
         return new SunPosition(Wrap360(azimuth * 180.0 / Math.PI + 180.0), altitudeDeg + refractionDeg);
     }
 
-    // One day's positions at the policy step — the sun-hours sweep, the viewport sun-path arc, and the sun-study
-    // scrub all read this one sampler.
     public static Seq<(Instant Instant, SunPosition Sun)> SunPath(SolarSite site, Instant midnight, Duration step, Dimension samples) =>
         Range(0, samples.Value).Map(i => {
             Instant at = midnight + step * i;
             return (at, At(site, at));
         }).ToSeq();
 
-    // The floored reduction is `Numerics/atoms`' `Reduce`, seated where both this almanac and `Nabla`'s centred
-    // twin reach it; `Wrap360` is the one angular instantiation this page still names.
     internal static double Wrap360(double degrees) => Reduce.Floored(value: degrees, period: 360.0);
 }
 ```

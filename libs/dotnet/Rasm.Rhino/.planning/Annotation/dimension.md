@@ -22,7 +22,7 @@
 - Growth: a construction form lands as one `DimensionSpec` case and one total dispatch arm; a new point roster is one product both families read.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -33,7 +33,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Annotation;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RadialKind {
     public static readonly RadialKind Radius = new(key: (int)AnnotationType.Radius);
@@ -82,10 +82,7 @@ public abstract partial record DetailEdit {
             Fin.Succ(value: Op.Side(() => context.Dimension.DetailMeasured = Guid.Empty))));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The five definition-point rosters the construction family and the refit family both carry. Each admits its own
-// run through the kernel's span receiver, so the four hand traversals this page once spelled are one call per
-// product and the two unions can never disagree on how many points a family names or in which order.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SpanPoints(Point3d From, Point3d To, Point3d Line) {
     internal Fin<Unit> Admit(Op key) => key.Accept(From, To, Line).Map(static _ => unit);
 }
@@ -116,9 +113,6 @@ public sealed partial class DimFrame {
     public Option<Vector3d> Horizontal { get; }
     public Tolerance Tolerance { get; }
 
-    // `IsPerpendicularTo`'s second argument is an ANGLE tolerance in radians: a length-class epsilon there demands
-    // bit-exact perpendicularity and refuses every hand-built frame, so the gate reads the kernel `Orientation`
-    // lane. C# forbids capturing a `ref` parameter, so the clause roster reads one local copy of the columns.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -192,8 +186,6 @@ public abstract partial record DimensionSpec {
                     kinkoffset1: spec.Points.Kink1, kinkoffset2: spec.Points.Kink2)),
                 markAt: static (ctx, spec) => Fin.Succ<Dimension>(value: Centermark.Create(
                     dimStyle: ctx.Style, plane: spec.Frame.Plane, centerPoint: spec.Center, radius: spec.Radius)),
-                // The curve lives only inside its handle's lease, so the domain gate and the host construction share
-                // ONE borrow scope: a range check outside it reads a native the scope has already closed.
                 markOn: static (ctx, spec) => spec.Source.Typed<Curve, Dimension>(key: ctx.Op, project: curve =>
                     from _ in guard(spec.Parameter >= curve.Domain.Min && spec.Parameter <= curve.Domain.Max,
                         ctx.Op.InvalidInput()).ToFin()
@@ -234,7 +226,7 @@ public abstract partial record DimensionSpec {
 - Growth: a refit form is one `DimAdjust` case reading one point product; a pose column is one member and one clause.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DimAdjust {
     private DimAdjust() { }
@@ -312,7 +304,7 @@ public abstract partial record DimAdjust {
         mark: static (key, fit) => key.Accept(fit.Plane).Bind(_ => key.Accept(fit.Center)).Map(static _ => unit));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class DimPose {
@@ -369,7 +361,7 @@ public sealed partial class DimPose {
 - Growth: a dimension verb is one case with its arm; the receipt, the spine, and every consumer read it unchanged.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class LengthChannel {
     public static readonly LengthChannel Primary = new(apply: static (dimension, display) =>
@@ -430,7 +422,7 @@ public abstract partial record DimOp {
                 .Bind(dimension => change(dimension, key)));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Dimensions {
     public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<DimOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
@@ -462,7 +454,7 @@ public static class Dimensions {
 - Growth: a measuring family is one `DimFamily` row answering every column; a read is one `DimAsk` case with its `DimAnswer` twin.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DimPointRole {
     public static readonly DimPointRole Extension1 = new(key: 0);
@@ -491,7 +483,6 @@ public abstract partial record DimKindFacts {
     public sealed record Mark(double Radius) : DimKindFacts;
 }
 
-// The two payload shapes every `DimFamily` column constructs, so they precede the row table that returns them.
 public readonly record struct DimPoint(DimPointRole Role, Point3d Value);
 
 public sealed record DimSkeleton(
@@ -500,10 +491,6 @@ public sealed record DimSkeleton(
     Seq<Arc> Arcs,
     Arr<Point3d> TextBox) : IDetachedDocumentResult;
 
-// One row per measuring family carrying every behaviour that used to be a separate `switch` over the native type:
-// the family probe, the per-kind fact read, the point/line/arc skeleton read, and the formatted-value read. A new
-// family is one row; a dispatcher reads the row, and a family the host gives no reader says so in its own column
-// instead of falling through a default nothing declares.
 [SmartEnum<int>]
 public sealed partial class DimFamily {
     public static readonly DimFamily Linear = new(
@@ -551,7 +538,6 @@ public sealed partial class DimFamily {
                 : Fin.Fail<(Seq<Line> Lines, Seq<Arc> Arcs)>(key.InvalidResult()))
             from box in TextBox(angular.GetTextRectangle, key)
             select new DimSkeleton(points, display.Lines, display.Arcs, box),
-        // An angle reads in the style's own angular format, so the model unit system is not this row's axis.
         text: static (geometry, _, key) =>
             from angular in key.Need(geometry as AngularDimension)
             from value in key.Catch(() => key.AcceptText(angular.GetAngleDisplayText(angular.DimensionStyle)))
@@ -609,8 +595,6 @@ public sealed partial class DimFamily {
             from value in key.Catch(() => key.AcceptText(ordinate.GetDistanceDisplayText(units, ordinate.DimensionStyle)))
             select value);
 
-    // `Centermark` publishes `AdjustFromPoints` and `Radius` alone — no point, display-line, text-rectangle, or
-    // display-text reader — so both projection columns are declared refusals rather than unstated fall-throughs.
     public static readonly DimFamily Mark = new(
         key: 4,
         probe: static geometry => geometry is Centermark,
@@ -644,7 +628,7 @@ public sealed partial class DimFamily {
         probe(out Point3d[] corners) ? Fin.Succ(value: toArr(corners)) : Fin.Fail<Arr<Point3d>>(key.InvalidResult()));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record DimState(
     TextState Annotation,
     AnnotationKind Kind,
@@ -661,7 +645,7 @@ public sealed record DimState(
     Seq<StyleSetting> EffectiveStyle,
     DimKindFacts Facts) : IDetachedDocumentResult;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", MapMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads, ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DimAsk {
     private DimAsk() { }
@@ -737,8 +721,6 @@ public abstract partial record DimAnswer : IDetachedDocumentResult {
     public sealed record Transformed(Transform Value) : DimAnswer;
     public sealed record Pieces(Seq<GeometryHandle> Products) : DimAnswer;
 
-    // Custody release on the RAIL: only the pieces case owns natives, so the partial dispatch names that one arm
-    // and every other answer settles as success without a per-case no-op.
     public Fin<Unit> Release(Op? key = null) => SwitchPartially(
         context: key.OrDefault(),
         @default: static (_, _) => Fin.Succ(value: unit),

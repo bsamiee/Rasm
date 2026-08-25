@@ -24,7 +24,7 @@ Capability, fidelity, and scale participation are all SET membership over `Capab
 - Growth: a new fidelity is one row plus its legal corner; a new trait, axis, or resource stance is one row; every option projection that reads the new column breaks loudly at the row constructor, never silently at a call site.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -34,7 +34,7 @@ using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CodecAbility : ICapability<CodecAbility> {
     public static readonly CodecAbility Archive = new(key: "archive");
@@ -45,8 +45,6 @@ public sealed partial class CodecAbility : ICapability<CodecAbility> {
     public static readonly CodecAbility Selection = new(key: "selection");
 }
 
-// String-keyed because the key REACHES CALLERS: `FormatDial.Admit`'s seat refusal names the phase, and an
-// ordinal there reads as a raw integer in a requirement text a caller must act on.
 [SmartEnum<string>]
 public sealed partial class CodecPhase {
     public static readonly CodecPhase Import = new(key: "import", demands: CodecAbility.Import);
@@ -61,9 +59,6 @@ public sealed partial class FidelityTrait : ICapability<FidelityTrait> {
     public static readonly FidelityTrait Measured = new(key: "measured");
     public static readonly FidelityTrait Materials = new(key: "materials");
 
-    // The vocabulary is CLOSED at three fidelity rows, so the law enumerates the legal corners EXACTLY: a
-    // containment bar could not express "model fidelity implies measurement and materials", which is the whole
-    // relation the three rows encode.
     public static CapabilityLaw<FidelityTrait> Law { get; } = new(Legal: Seq(
         CapabilitySet<FidelityTrait>.Of(Model, Measured, Materials),
         CapabilitySet<FidelityTrait>.None,
@@ -72,9 +67,6 @@ public sealed partial class FidelityTrait : ICapability<FidelityTrait> {
 
 [SmartEnum<int>]
 public sealed partial class CodecFidelity {
-    // Compression stance per fidelity: a model-fidelity write quantizes nothing, a small write trades position and
-    // texture precision for transfer size, and a geometry-only write keeps position precision high while dropping
-    // the appearance channels the row already excludes.
     public static readonly CodecFidelity Model = new(key: 0,
         traits: CapabilitySet<FidelityTrait>.Of(FidelityTrait.Model, FidelityTrait.Measured, FidelityTrait.Materials),
         draco: None);
@@ -120,7 +112,7 @@ public sealed partial class CodecResource {
     public static readonly CodecResource Copy = new(key: 2);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CodecTune(
     CodecFidelity Fidelity,
     CodecResource Resources,
@@ -136,8 +128,6 @@ public sealed record CodecTune(
 
     public static CodecTune GeometryOnly { get; } = Model with { Fidelity = CodecFidelity.GeometryOnly };
 
-    // Appearance emission is the FIDELITY's own claim, so the read stays where every option projection already
-    // reaches it and the settable column that duplicated it is gone.
     public bool Materials => Fidelity.Materials;
 
     internal bool Grouped(CodecAxis axis) => Group == axis || Order == axis;
@@ -156,7 +146,7 @@ public sealed record CodecTune(
 - Growth: a new vector-capable engine is one `VectorLens` row; a new admitted unit is one `VectorUnit` row carrying its four host spellings.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class VectorUnit {
     public static readonly VectorUnit Inches = new(key: 0, unit: UnitSystem.Inches,
@@ -179,8 +169,6 @@ public sealed partial class VectorUnit {
     internal FileAiWriteOptions.Units AiWrite { get; }
     internal FileEpsReadOptions.Units Eps { get; }
 
-    // The kernel regime resolves to its host spelling here and nowhere else; a document unit the vector engines
-    // cannot name refuses rather than silently taking the first row.
     public static Fin<VectorUnit> For(ModelUnit unit, Op? key = null) {
         Op op = key.OrDefault();
         return toSeq(Items)
@@ -226,14 +214,14 @@ public abstract partial record VectorScale {
         });
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record VectorLens<TOptions>(
     Action<TOptions, bool> Preserve,
     Action<TOptions, double> Rhino,
     Action<TOptions, double> Source,
     Action<TOptions, VectorUnit> Unit) where TOptions : class;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 internal static class VectorLenses {
     internal static readonly VectorLens<FilePdfReadOptions> Pdf = new(
         Preserve: static (o, v) => o.PreserveModelScale = v, Rhino: static (o, v) => o.RhinoScale = v,
@@ -264,7 +252,7 @@ internal static class VectorLenses {
 - Boundary: `FilePdf` page authoring and raster encoding are `publish.md` egress; the `pdf`/`svg` rows here own only page-space vector import, and the raster rows are the extension authority each `RasterCodec` row admits itself against — the publish target vocabulary keys on `FileCodec` row identity, never on the raster ability.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FileCodec {
     public static readonly FileCodec ThreeDm = new("3dm", Seq(".3dm"),
@@ -447,9 +435,6 @@ public sealed partial class FileCodec {
         Fin.Fail<Unit>(error: new ExchangeFault.AbilityMissing(
             Key: key, Codec: System.IO.Path.GetExtension(path), Ability: CodecAbility.Export.Key));
 
-    // Three factories, one per genuine axis: read (one host currency), write over `bool`, and write over
-    // `WriteFileResult` — the two currencies the host itself publishes. The mint always takes the host carrier; a
-    // row ignoring it spells `_`, because a second factory forwarding a shorter mint is a shell, not an axis.
     private static Func<CodecTune, FileReadOptions, RhinoDoc, string, Op, Fin<Unit>> Reader<TCase, TOptions>(
         Func<string, RhinoDoc, TOptions, bool> engine, Func<TCase> dial, Func<TCase, CodecTune, FileReadOptions, TOptions> mint)
         where TCase : FormatDial =>
@@ -466,7 +451,7 @@ public sealed partial class FileCodec {
         (tune, carrier, doc, path, op) => Confirm(engine(path, doc, Dials.Resolve(tune, carrier, dial, mint)), op);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union]
 internal abstract partial record CodecRequest {
     private CodecRequest() { }
@@ -527,7 +512,6 @@ public static class Codecs {
                select row;
     }
 
-    // Two probes, one alternative, one typed refusal: the row key first, then the dotted extension index.
     private static Fin<FileCodec> Resolve(string text, Op op) =>
         (Op.Probe<FileCodec>(probe: (out FileCodec row) => FileCodec.TryGet(text.TrimStart('.'), out row!))
             | Op.Probe<FileCodec>(probe: (out FileCodec row) =>
@@ -558,8 +542,6 @@ public static class Codecs {
                    tune.Scale.IsNone || codec.Has(CodecAbility.Vector),
                    new ExchangeFault.AbilityMissing(
                        Key: op, Codec: codec.Key, Ability: CodecAbility.Vector.Key)).ToFin()
-               // Composed, never re-spelled: `FormatDial.Admit` proves seat correspondence and every requested
-               // capability axis together, before the engine column mints a host option object.
                from _dial in tune.Dial.Match(
                    Some: dial => dial.Admit(codec: codec, phase: request.Phase, key: op),
                    None: static () => Fin.Succ(unit))
@@ -583,13 +565,11 @@ public static class Codecs {
 - Boundary: `bool` and `WriteFileResult` are the host's two dialog verdict currencies — the import override answers a bare `bool`, the export override a `WriteFileResult` — and the port folds the matrix rail into each at the seam so nothing above the port sees either. The port dispatches with `CodecTune.Model` and the host-supplied carrier, because dialog traffic carries host intent in the carrier and the dialog itself carries no policy surface.
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class CodecPort {
     private static readonly Atom<HashMap<(Guid PlugIn, CodecPhase Phase, int Index), FileCodec>> Registry =
         Atom(HashMap<(Guid, CodecPhase, int), FileCodec>());
 
-    // The terminal-collapse cell: the host's override signatures carry no error, so the exact error lands here
-    // BEFORE the scalar answers and the plug-in reads its own last refusal instead of a bare false.
     private static readonly Atom<HashMap<Guid, Error>> Refusals = Atom(HashMap<Guid, Error>());
 
     public static Option<Error> Refusal(Guid plugIn) => Refusals.Value.Find(plugIn);
@@ -632,7 +612,6 @@ public static class CodecPort {
                 key: op));
     }
 
-    // The one place a typed refusal crosses into a host scalar: it is recorded, then dropped.
     internal static T Collapsed<T, TValue>(Guid plugIn, Fin<TValue> outcome, Func<TValue, T> answer, T refused) =>
         outcome.Match(
             Succ: answer,
@@ -677,7 +656,6 @@ public abstract class CodecImportPort : FileImportPlugIn {
 }
 
 public abstract class CodecExportPort : FileExportPlugIn {
-    // Sealed false: this port overrides no option getter, so a host dialog opened here would face an empty surface.
     protected sealed override bool ShouldDisplayOptionsDialog => false;
 
     protected sealed override FileTypeList AddFileTypes(FileWriteOptions options) => CodecPort.Collapsed(

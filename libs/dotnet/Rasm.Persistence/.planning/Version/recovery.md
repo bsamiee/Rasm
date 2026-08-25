@@ -30,18 +30,10 @@ public sealed partial class RecoveryRoute {
     public static readonly RecoveryRoute ObjectReplica = new("object-replica", continuous: true);
     public static readonly RecoveryRoute SnapshotArchive = new("snapshot-archive", continuous: false);
 
-    // `Continuous` discriminates the RPO reading: a continuous route measures the live byte/replication lag bounded by
-    // archive cadence, whose breach is an actionable health signal, while a discrete route measures the checkpoint age
-    // its next seal closes, so an RPO over objective faults `ObjectiveBreach` only on a continuous route.
     public bool Continuous { get; }
     private RecoveryRoute(string key, bool continuous) : this(key) => Continuous = continuous;
 }
 
-// RecoveryPoint fixes the coordinate: the PostgreSQL `(Timeline, Lsn)` `IdentifySystem` yields, the PER-STREAM Marten
-// head (`Events.FetchStreamStateAsync` → `StreamState.Version` for the DR-target model — NEVER the store-wide
-// `EventSequenceNumber` high-water, a different version axis), and the HLC instant — a real version the WAL replay
-// reaches, never a wall-clock approximation. `Lsn` rides the `NpgsqlLogSequenceNumber` cast to `ulong`
-// (monotone-comparable); `Timeline` guards re-bootstrap.
 [ComplexValueObject]
 public sealed partial class RecoveryPoint {
     public uint Timeline { get; }
@@ -55,9 +47,6 @@ public sealed partial class RecoveryPoint {
 
     public bool Continues(uint archiveTimeline) => Timeline == archiveTimeline;
 
-    // AsCut bridges one hop to the `Version/timetravel#TIME_TRAVEL` engine: a restored coordinate folds through
-    // `TimeTravel.Reconstruct`/`Blame`/`Scrub` as a `TimeCut` (exact `AtVersion` when the Marten version is known,
-    // else the instant), so post-restore forensics over the recovered state reuse the one AS-OF cut vocabulary.
     public TimeCut AsCut() => StreamVersion.Match(Some: v => TimeCut.AtVersion(v, new Hlc(At, 0UL)), None: () => TimeCut.Of(At));
 }
 
@@ -74,7 +63,6 @@ public abstract partial record RestoreRefusal {
         attestation: static row => $"<attestation:{row.Verdict.Key}>");
 }
 
-// RecoveryFault is the direct generated-identity union for recovery failures.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RecoveryFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Recovery;
@@ -103,20 +91,11 @@ public abstract partial record RecoveryFault : Fault {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// `WalBytesPerSecond` declares the operator's archiver throughput, and the WAL byte lag divides through that POLICY
-// row — a hardcoded segment-size-as-rate literal is the deleted fabrication. `Model` names the DR-exercise target
-// stream whose per-stream head the coordinate carries; `None` captures a store-wide coordinate the restore folds by
-// `timestamp:`. `ReplicaManifest` pairs each content key with its LOCAL seal instant so the replica lag is a real age.
 public readonly record struct RecoveryContext(
     string Dsn, string ArchiveRoot, uint ArchiveTimeline, NpgsqlLogSequenceNumber ArchiveFlushed, long WalBytesPerSecond,
     Option<ModelId> Model, ObjectStore BlobStore, ObjectClient BlobClient, Seq<(ContentAddress Key, Instant SealedAt)> ReplicaManifest,
     Seq<SnapshotCatalogRow> Checkpoints, ulong SchemaFingerprint, ulong Epoch);
 
-// RecoveryFact seats the recovery receipt on the kernel validity floor: `IsValid` folds ONE `ValidityClaim.All`
-// over the non-negative measured lags and the objective bit, never a hand-rolled `&&` chain. `BackupDuration` carries
-// its own backup-leg elapsed span; `MeasuredRto` mints ONLY in the PointInTimeRestore choreography (fence through
-// re-attestation to the verified receipt) — a backup duration standing in for the recovery-time objective is the
-// deleted conflation, so the backup mint carries `MeasuredRto: None`.
 public readonly record struct RecoveryFact(
     RecoveryRoute Route, RecoveryPoint Point, Duration MeasuredRpo, Duration BackupDuration, Option<Duration> MeasuredRto,
     bool MeetsObjective, Instant At, CorrelationId Correlation) : IValidityEvidence {
@@ -134,9 +113,6 @@ public static class RecoveryRoutes {
         StoreSlot.Create("store.recovery.backup"), StoreSlot.Create("store.recovery.objective"));
 
     public static IO<RecoveryFact> Backup(RecoveryRoute route, RecoveryContext ctx, RecoveryObjective objective, ProjectionContext frame) =>
-        // `Backup` dispatches its leg through the GENERATED `RecoveryRoute.Switch` (compile-time exhaustive over the closed
-        // three-row axis) so a fourth backup substrate breaks the build here — a `route.Key switch { ... _ => SnapshotFloor }`
-        // string switch with a runtime-silent `_` arm is the rejected form: a new route silently runs the floor leg.
         from mark in IO.lift(frame.Mark)
         from leg in route.Switch(
             state: (ctx, frame),
@@ -144,25 +120,12 @@ public static class RecoveryRoutes {
             objectReplica: static s => ObjectReplica(s.ctx, s.frame),
             snapshotArchive: static s => SnapshotFloor(s.ctx, s.frame))
         let backup = frame.Elapsed(mark)
-        // Backup gauges RPO only: the measured span is the BACKUP leg's, distinct by construction from the
-        // recovery-time objective — MeasuredRto mints in PointInTimeRestore where the restore choreography is
-        // actually timed against RecoveryObjective.Rto.
         let fact = new RecoveryFact(route, leg.Point, leg.Rpo, backup, Option<Duration>.None, leg.Rpo <= objective.Rpo, frame.Now(), frame.Correlation)
-        // Only a CONTINUOUS route faults its RPO breach (`ReplicationLag`, the measured WAL/replication gap); a
-        // DISCRETE route records `MeetsObjective: false` in the fact without faulting.
         from gauged in route.Continuous && (leg.Rpo > objective.Rpo)
             ? IO.fail<RecoveryFact>(new RecoveryFault.ReplicationLag(route.Key, leg.Rpo, objective.Rpo))
             : IO.pure(fact)
         select gauged;
 
-    // `pg-pitr`: the coordinate is the live `(Timeline, XLogPos)` `IdentifySystem` yields plus the PER-STREAM Marten
-    // head for the DR-target model (`FetchStreamStateAsync(model).Version` — the store-wide `EventSequenceNumber`
-    // high-water is a DIFFERENT version axis that would fold a per-stream `AggregateStreamAsync(version:)` to the
-    // head, falsifying the point-in-time proof); the RPO is the head-minus-archive-flushed WAL byte lag divided
-    // through the `WalBytesPerSecond` policy row. The lag is CLAMPED at zero — the head is always >= the
-    // durable-archive flush cursor, so an archive cursor momentarily ahead (a probe race) reads zero lag rather
-    // than a `ulong` underflow to a spurious near-`MaxValue` Duration. A coordinate on a timeline the archive does
-    // not continue is the restore-time guard.
     static IO<(RecoveryPoint Point, Duration Rpo)> PgPitr(RecoveryContext ctx, ProjectionContext frame) =>
         IO.liftAsync(async () => await Op.Of().Catch(async _ => {
             await using LogicalReplicationConnection replication = new(ctx.Dsn);
@@ -176,16 +139,10 @@ public static class RecoveryRoutes {
                 head = Optional(state?.Version);
             }
             ulong lagBytes = system.XLogPos >= ctx.ArchiveFlushed ? (ulong)system.XLogPos - (ulong)ctx.ArchiveFlushed : 0UL;
-            // `double.Max` floors the throughput row at one byte/second, so a zero policy row reads as maximal finite
-            // lag, never a division blow-up minting an unrepresentable Duration inside the capture seam.
             return Fin<(RecoveryPoint, Duration)>.Succ(
                 (RecoveryPoint.Of(system, head, frame.Now()), Duration.FromSeconds(lagBytes / double.Max(ctx.WalBytesPerSecond, 1d))));
         }).ConfigureAwait(false)).Bind(IO.liftFin);
 
-    // `object-replica`: fold the (content key, local seal instant) manifest through `ObjectStore.Head` against the
-    // replica client so an EMPTY absent set proves the replica byte-identical by hash (the write-once seal makes any
-    // re-replicate a benign `412`-noop); the RPO is the age of the OLDEST locally-sealed blob the replica still
-    // lacks — every later seal is also unreplicated, so this age IS the data-loss window, never a count-as-minutes.
     static IO<(RecoveryPoint Point, Duration Rpo)> ObjectReplica(RecoveryContext ctx, ProjectionContext frame) =>
         ctx.ReplicaManifest.TraverseM(entry => ctx.BlobStore.Head(ctx.BlobClient, entry.Key).Map(present => (entry.Key, entry.SealedAt, Present: present.IsSome))).As()
             .Map(probes => probes.Filter(static p => !p.Present))
@@ -193,9 +150,6 @@ public static class RecoveryRoutes {
                 absent.Fold(Option<Instant>.None, static (oldest, a) => Some(oldest.Match(Some: m => Instant.Min(m, a.SealedAt), None: () => a.SealedAt)))
                     .Match(Some: oldest => frame.Now() - oldest, None: () => Duration.Zero)));
 
-    // `snapshot-archive`: seal the newest `Checkpoint` and re-read it through the ONE `Snapshots.Verify` tier ladder
-    // on raw bytes so an archived checkpoint that fails the ladder faults at BACKUP time, never at restore; the RPO
-    // is the newest-checkpoint age. A torn or foreign sealed checkpoint self-rejects before cold storage.
     static IO<(RecoveryPoint Point, Duration Rpo)> SnapshotFloor(RecoveryContext ctx, ProjectionContext frame) =>
         toSeq(ctx.Checkpoints.OrderByDescending(static c => c.WrittenAt)).Head.Match(
             Some: newest => IO.lift(() => Op.Of().Catch(() => Fin.Succ(ReadSealed(ctx.ArchiveRoot, newest.Id))))
@@ -203,11 +157,8 @@ public static class RecoveryRoutes {
                 .Bind(bytes => Snapshots.Verify(bytes, ctx.SchemaFingerprint, ctx.Epoch).Match(
                     Succ: _ => IO.pure((RecoveryPoint.Floor(newest.WrittenAt), frame.Now() - newest.WrittenAt)),
                     Fail: IO.fail<(RecoveryPoint, Duration)>)),
-            // No checkpoint means NO recoverable floor: fabricating a present-time RecoveryPoint with zero RPO
-            // would satisfy any objective without one verified byte — the empty inventory is a typed backup fault.
             None: () => IO.fail<(RecoveryPoint, Duration)>(new RecoveryFault.BackupFailed("snapshot-archive", "<no-checkpoint-inventory>")));
 
-    // Shared with `PointInTimeRestore.Verify` — ONE sealed-read spelling for the archive layout, never re-derived.
     internal static byte[] ReadSealed(string root, Guid id) => File.ReadAllBytes(Path.Combine(root, $"{id}{Snapshots.Suffix}"));
 }
 ```
@@ -262,8 +213,6 @@ public abstract partial record StepEvidence {
 
 public readonly record struct StepFact(RestoreStep Step, StepEvidence Evidence, Instant At);
 
-// RestoreLedger seats the run ledger on the kernel validity floor: completeness IS the claim fold — every
-// ranked `RestoreStep` row landed exactly once.
 public readonly record struct RestoreLedger(Seq<StepFact> Steps) : IValidityEvidence {
     public bool Complete => Steps.Count == RestoreStep.Items.Count;
     public bool IsValid => ValidityClaim.All(
@@ -272,21 +221,6 @@ public readonly record struct RestoreLedger(Seq<StepFact> Steps) : IValidityEvid
     public RestoreLedger With(StepFact fact) => new(Steps.Add(fact));
 }
 
-// RestoreContext injects every real probe as a delegate so the choreography owns the verified shape while the
-// foreign-byte legs bind at the platform seam: `Target` is the caller-supplied AS-OF coordinate to restore to (its
-// `StreamVersion` the PER-STREAM head captured at backup), `TargetSeal` the target cut's own `Checkpoint` and
-// `PriorSeal` the seal it chains from — the commit point reads the seal WHOLE rather than a lifted address column, so
-// one gate proves all four `Version/timetravel#TIME_TRAVEL` `SealLink` axes instead of the address alone and the
-// expected content key stays `TargetSeal.Address` (the S3 seam `ContentAddress.OfGraph` digest, the ONE cross-runtime
-// content-identity oracle) with no second authority to drift — `Objective` the settled AppHost-filled
-// DR window whose `Rto` bounds the projection catch-up wait (a hardcoded deadline literal is the deleted knob),
-// `AttestedChain` reads the restored attested ledger, and `Fence`/`Materialize`/`ReplayTo` own the pool quiesce, base
-// materialization, and WAL replay — a choreography step with no effect behind its receipt is the deleted illusory
-// form. `KeyringFor`/`DigestOf` are the EXACT two delegates `Version/provenance#ATTESTED_LEDGER`
-// `AttestedLedger.Verify` composes — the per-authorship KMS keyring resolver and the INDEPENDENT per-entry
-// content-digest recomputation firing the chain's `Unauthored` arm; a single `(SignedAuthorship, OpDigest) ->
-// IO<bool>` predicate is the rejected shape because it cannot drive `Custody.Verify`'s `CustodyVerdict` dispatch and
-// self-compares the digest.
 public sealed record RestoreContext(
     IDocumentStore Store, RecoveryPoint Target, Checkpoint TargetSeal, Option<Checkpoint> PriorSeal, ModelId Model, RecoveryObjective Objective,
     Func<RecoveryPoint, IO<Unit>> ReplayTo, Func<IO<Unit>> Fence, Func<IO<Unit>> Materialize,
@@ -295,10 +229,6 @@ public sealed record RestoreContext(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class PointInTimeRestore {
-    // MeasuredRto is minted HERE: the mark brackets the WHOLE choreography — fence, verify, materialize, WAL
-    // replay, projection rebuild, re-attestation — to the verified receipt, and a verified restore slower than
-    // RecoveryObjective.Rto faults ObjectiveBreach so a DR drill fails loudly; the backup leg's duration never
-    // stands in for this measurement.
     public static IO<(RestoreLedger Ledger, Fin<RecoveryPoint> Outcome, Duration MeasuredRto)> Run(RecoveryRoute route, RecoveryContext ctx, RestoreContext restore, ProjectionContext frame) =>
         from mark in IO.lift(frame.Mark)
         from final in toSeq(RestoreStep.Items.OrderBy(static s => s.Rank)).FoldM(
@@ -316,9 +246,6 @@ public static class PointInTimeRestore {
             : IO.pure(unit)
         select (final.Ledger, final.Outcome, rto);
 
-    // `Perform` dispatches per step through the GENERATED `RestoreStep.Switch` (compile-time exhaustive over the closed
-    // six-row smart-enum, one arm per case) so a new choreography step breaks the build HERE — a `step.Key switch { ... _ => }`
-    // string switch with a runtime-silent `_` arm is the rejected form: a 7th step silently falls into `reAttest`.
     static IO<Fin<string>> Perform(RestoreStep step, RecoveryRoute route, RecoveryContext ctx, RestoreContext restore) =>
         step.Switch(
             state: (route, ctx, restore),
@@ -329,9 +256,6 @@ public static class PointInTimeRestore {
             rebuildProjections: static s => RebuildProjections(s.restore),
             reAttest: static s => ReAttest(s.restore));
 
-    // `Verify` runs the ONE `Snapshots.Verify` 8-tier ladder over EVERY sealed checkpoint's raw bytes before any
-    // decoder binds, then asserts the target coordinate continues the archive timeline — a forked timeline is the
-    // re-bootstrap-vs-resume defect that faults `TimelineDivergence` rather than replaying onto a divergent history.
     static Fin<string> Verify(RecoveryRoute route, RecoveryContext ctx, RecoveryPoint target) =>
         ctx.Checkpoints.Traverse(row =>
             Op.Of().Catch(() => Fin.Succ(RecoveryRoutes.ReadSealed(ctx.ArchiveRoot, row.Id)))
@@ -342,43 +266,22 @@ public static class PointInTimeRestore {
             : Fin<string>.Fail(new RecoveryFault.TimelineDivergence(route.Key, target.Timeline, ctx.ArchiveTimeline)))
         .As();
 
-    // Rebuild the inline authoritative `GraphProjection` for the restored model (`RebuildSingleStreamAsync` re-folds its
-    // co-transactional aggregate from zero), then bring up EVERY daemon-managed ASYNC analytical lane (the `Query/columnar`
-    // DuckDB + `Query/cypher` AGE projections) through `StartAllAsync` so they catch up from their restored progress —
-    // NOT a redundant second `RebuildProjectionAsync<GraphProjection>` (the inline aggregate is already co-transactional, so
-    // re-rebuilding it through the daemon is the deleted duplication, and the async lanes are the ones a restore must
-    // advance). THEN PROVE the rebuild reached the event head: `WaitForNonStaleData` is the daemon's caught-up gate — it
-    // blocks until EVERY shard's high-water (inline + async lanes alike) reaches the event sequence head and throws on
-    // timeout, so a lane that stalled mid-replay faults `RestoreFailed` here rather than serving a stale view; the
-    // `FetchEventStoreStatistics().EventSequenceNumber` head rides the receipt.
     static IO<Fin<string>> RebuildProjections(RestoreContext restore) =>
         IO.liftAsync<Fin<string>>(async () => await Op.Of().Catch(async _ => {
             await restore.Store.Advanced.RebuildSingleStreamAsync<GraphProjection>(restore.Model.Value).ConfigureAwait(false);
             await using IProjectionDaemon daemon = await restore.Store.BuildProjectionDaemonAsync().ConfigureAwait(false);
             await daemon.StartAllAsync().ConfigureAwait(false);
-            // `Objective.Rto` bounds the catch-up wait as the settled DR window — a rebuild slower than the RTO
-            // is already a failed restore, so no second deadline literal exists to drift.
             await daemon.WaitForNonStaleData(restore.Objective.Rto.ToTimeSpan()).ConfigureAwait(false);
             EventStoreStatistics stats = await restore.Store.Advanced.FetchEventStoreStatistics().ConfigureAwait(false);
             return Fin<string>.Succ($"<projections-rebuilt:head{stats.EventSequenceNumber}>");
         }).ConfigureAwait(false));
 
-    // `ReAttest` is the commit point: re-fold the attested ledger through `AttestedLedger.Verify` (the per-authorship
-    // `KeyringFor` KMS resolver with the independent `DigestOf` content-digest recomputation, so a dropped/reordered entry
-    // `Broken`s the chain AND a digest-not-binding-content entry surfaces `Unauthored`) AND fold the restored stream to the
-    // target cut through `AggregateStreamAsync`, grading the reconstructed graph against the target `Checkpoint` through
-    // `TimeTravel.Verify` — restore accepts ONLY when the attested chain verifies AND every `SealLink` of the checkpoint
-    // chain re-folds, the missing links named together so an operator sees the whole break in one read.
     static IO<Fin<string>> ReAttest(RestoreContext restore) =>
         from chain in restore.AttestedChain()
         from verdict in AttestedLedger.Verify(chain, restore.KeyringFor, restore.DigestOf)
         from outcome in verdict is AttestVerdict.Authentic or AttestVerdict.Unsigned
             ? IO.liftAsync<Fin<string>>(async () => await Op.Of().Catch(async _ => {
                 await using IQuerySession query = restore.Store.QuerySession();
-                    // Prefer the EXACT Marten stream version the recovery coordinate carries (`AggregateStreamAsync(version:)`
-                    // is precise) over the approximate `timestamp:` fold; `RecoveryPoint.StreamVersion` is the PER-STREAM
-                    // head `FetchStreamStateAsync` captured at backup for this model — the same version axis this fold
-                    // consumes — so the AS-OF reconstruct lands on the same event the LSN replay reached.
                     GraphProjection? rebuilt = await restore.Target.StreamVersion.Match(
                         Some: version => query.Events.AggregateStreamAsync<GraphProjection>(restore.Model.Value, version: version),
                         None: () => query.Events.AggregateStreamAsync<GraphProjection>(restore.Model.Value, timestamp: restore.Target.At.ToDateTimeOffset())).ConfigureAwait(false);
@@ -386,12 +289,6 @@ public static class PointInTimeRestore {
                         return Fin<string>.Fail(new RecoveryFault.RestoreFailed(new RestoreRefusal.TargetAbsent(restore.Model)));
                     }
                     ContentAddress reached = ContentAddress.OfGraph(projection.Graph);
-                    // TWO proofs grade this restore and they absorb absence OPPOSITELY, which is why neither subsumes the
-                    // other: `AttestedLedger.Verify` grades AUTHENTICITY over the signed provenance chain (an unsigned
-                    // ledger still passes as `Unsigned`), while `TimeTravel.Verify` grades the checkpoint chain's own
-                    // INTEGRITY and demands every link. Demanding `All` is what makes the seal a gate — the address
-                    // compare alone accepted a reconstructed graph whose chain hash, back-link, and version monotonicity
-                    // were never re-folded, so a tampered archive matching its own address restored clean.
                 return TimeTravel.Verify(restore.TargetSeal, restore.PriorSeal, reached)
                     .Require(CapabilitySet<SealLink>.All, missing => new RecoveryFault.VerifyFailed(
                         $"re-attest:{string.Join('+', missing.Held.Select(static link => link.Key))}",

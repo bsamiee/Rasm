@@ -39,7 +39,7 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
-if TYPE_CHECKING:  # annotation carriers only; every runtime bind rides the `DesignEngine` carrier behind its x64 config seam
+if TYPE_CHECKING:
     import jax
     import optax
     import optimistix as optx
@@ -52,14 +52,14 @@ if TYPE_CHECKING:  # annotation carriers only; every runtime bind rides the `Des
 
 
 class Shape(StrEnum):
-    SCALAR = "scalar"  # minimise: fn(y) -> scalar
-    RESIDUAL = "residual"  # least_squares: fn(y) -> residual vector, cost ½‖r‖²
+    SCALAR = "scalar"
+    RESIDUAL = "residual"
 
 
 class Feasible(StrEnum):
     FREE = "free"
-    BOX = "box"  # densities ∈ [0, 1]
-    SIMPLEX = "simplex"  # material-fraction simplex
+    BOX = "box"
+    SIMPLEX = "simplex"
     NONNEGATIVE = "nonnegative"
 
 
@@ -67,41 +67,30 @@ class Feasible(StrEnum):
 
 _TOL: float = 1e-8
 _LR: float = 1e-2
-_CLIP: float = 1e3  # global-norm step bound guarding a diverged inner solve
+_CLIP: float = 1e3
 _FD: float = 1e-6
 _SEED: int = 0
 _JITTER: float = 1e-2
 _MAX_STEPS: int = 256
 
-# per-case payload field names, one tuple per `OutcomeReceipt` tag; the `.facts` strict zip packs each case's destructured payload
-# by its row, so a case's evidence is one row, never a per-case hand-spelled fact dict. The `program` row's two trailing
-# evidence slots are filled by the retained-solver backend alone and left absent by the facade, exactly as the `xla`
-# case alone carries its `TraceEvidence` band — a per-case optional slot, never a second receipt beside this one.
 _OUTCOME_SLOTS: Map[str, tuple[str, ...]] = Map.of_seq([
     ("design", ("problem", "objective", "residual", "iterations", "provider", "status", "key")),
     ("program", ("program", "objective", "status", "violation", "fragility", "witness", "key")),
 ])
 
-# family DEFAULT graduation ceilings, one row per `OutcomeReceipt` tag beside the slot table; a caller's
-# tighter row overrides at `graduates`. `objective` carries no bar — the ceiling fold checks only its own keys.
 _OUTCOME_CEILING: Map[str, dict[str, float]] = Map.of_seq([("design", {"residual": _TOL}), ("program", {"violation": 0.0})])
 
-# tag -> owning scope, beside the slot and ceiling rows. The enum member is the ONE handle: reconstructing a scope by
-# feeding its VALUE back through `EvidenceScope(...)` re-spells a string the vocabulary already owns and breaks the
-# moment its root moves, so the correspondence is a row the two consumers read.
 _OUTCOME_SCOPE: Map[str, EvidenceScope] = Map.of_seq([("design", EvidenceScope.DESIGN), ("program", EvidenceScope.PROGRAM)])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Objective(Struct, frozen=True):
-    fn: "Callable[[PyTree], PyTree]"  # the raw cost thunk over the design PyTree; container-holding, so GC-tracked
+    fn: "Callable[[PyTree], PyTree]"
     params: "PyTree"
     shape: Shape = Shape.SCALAR
 
     def target(self, engine: "DesignEngine", y: "PyTree") -> "jax.Array":
-        # SOLVE input: `least_squares` owns the ½‖r‖² reduction and the Jᵀr Jacobian internally, so `RESIDUAL` feeds the raw vector.
-        # `engine` leads so a `functools.partial` binding it leaves the design PyTree first — the argument `filter_value_and_grad` differentiates.
         value = engine.jnp.asarray(self.fn(y))
         match self.shape:
             case Shape.RESIDUAL:
@@ -112,8 +101,6 @@ class Objective(Struct, frozen=True):
                 assert_never(unreachable)
 
     def cost(self, engine: "DesignEngine", y: "PyTree") -> "tuple[jax.Array, jax.Array]":
-        # RECEIPT projection: the differentiated reduction plus the reported scalar as the value-and-grad aux — ∇(½‖r‖²) = Jᵀr
-        # is the converged-design stationarity gradient on the residual route.
         value = engine.jnp.asarray(self.fn(y))
         match self.shape:
             case Shape.RESIDUAL:
@@ -136,9 +123,6 @@ class OutcomeReceipt:
     def Design(
         cls, problem: str, objective: float, residual: float, iterations: int, provider: Provider, status: SolveStatus, content_key: ContentKey
     ) -> Self:
-        # `provider` carries NO default, on the `solvers/receipt#RECEIPT` law: the numpy central-difference floor
-        # publishes `iterations=0` and a `status_of` grade off one probe, which a converged implicit-adjoint solve
-        # can also produce, so without the column a caller reads a one-shot finite-difference estimate as a solve.
         return cls(design=(problem, objective, residual, iterations, provider, status, content_key))
 
     @classmethod
@@ -153,10 +137,6 @@ class OutcomeReceipt:
         fragility: float | None = None,
         witness: int | None = None,
     ) -> Self:
-        # objective and violation are MEASURED on a converged program alone and absent on every refusal, so a rejected
-        # crossing leaves the hub's key-coverage gate to refuse it rather than an `inf` breaching the finiteness
-        # refinement one fence earlier. `fragility` and `witness` are the retained backend's evidence, absent under the
-        # facade — the diagnosis a bare `INFEASIBLE` and a bare optimum each carry no field for.
         return cls(program=(program, objective, status, violation, fragility, witness, content_key))
 
     @property
@@ -183,8 +163,6 @@ class OutcomeReceipt:
 
     @property
     def facts(self) -> "dict[str, str | float | int | None | SolveStatus]":
-        # `key` lowers to `ContentKey.hex` at the source so the projection carries only renderer-native scalars; an
-        # absent slot rides as `None` and the ledger projection drops it, so an unmeasured quantity is never floated.
         match self:
             case OutcomeReceipt(tag="design", design=(*lead, key)) | OutcomeReceipt(tag="program", program=(*lead, key)):
                 return dict(zip(_OUTCOME_SLOTS[self.tag], (*lead, key.hex), strict=True))
@@ -192,12 +170,6 @@ class OutcomeReceipt:
                 assert_never(unreachable)
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine, shared by both cases: owner spelling resolves through the `_OUTCOME_SCOPE` row off
-        # the case tag, so the shared union never mints a third spelling and never reconstructs a scope value the
-        # vocabulary already owns. The retired `converged` BOOL collapses onto the warning band, which names WHICH
-        # verdict held instead of erasing eight `SolveStatus` members into one true/false cell; a cleared solve
-        # publishes an empty band. `consumed` is EMPTY and honest — the design key derives from the problem's own
-        # params, not from an upstream keyed operand, so naming one would forge a lineage this owner never walked.
         band = Block.empty() if self.converged else Block.singleton(f"unconverged:{self.status.value}")
         return (
             Receipt.of(
@@ -210,10 +182,6 @@ class OutcomeReceipt:
         )
 
     def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
-        # ONE solver-axis crossing for both cases: measured numeric facts project as the ledger — an absent slot is
-        # excluded, so the hub's key-coverage gate refuses a crossing whose ceiling names a quantity the solve never
-        # took — the `_OUTCOME_CEILING` tag row is the governed default bar, and the leading slot (problem/program
-        # name) is the subject.
         facts = self.facts
         ledger = {name: float(value) for name, value in facts.items() if isinstance(value, (int, float))}
         bar = ceiling if ceiling is not None else _OUTCOME_CEILING[self.tag]
@@ -242,8 +210,6 @@ class Descent:
         return cls(first_order=(learning_rate, feasible))
 
     def solver(self, engine: "DesignEngine") -> "DesignSolver":
-        # wrapped in the class-matching `BestSoFar*` guard so a non-monotone final iterate never poisons the converged design; the
-        # `first_order` arm folds only chain-shaped `GradientTransformation`s — never a bare projection callable a `chain` cannot compose.
         optx, optax = engine.optx, engine.optax
         match self:
             case Descent(tag="quasi_newton"):
@@ -251,7 +217,6 @@ class Descent:
             case Descent(tag="levenberg"):
                 return optx.BestSoFarLeastSquares(optx.LevenbergMarquardt(rtol=_TOL, atol=_TOL))
             case Descent(tag="first_order", first_order=(learning_rate, feasible)):
-                # zero_nans -> clip -> adam -> feasibility projection: guard order is load-bearing, the projection is the chain tail.
                 chain = optax.chain(optax.zero_nans(), optax.clip_by_global_norm(_CLIP), optax.adam(learning_rate), *_feasible(engine)[feasible])
                 return optx.BestSoFarMinimiser(optx.OptaxMinimiser(chain, rtol=_TOL, atol=_TOL))
             case _ as unreachable:
@@ -265,13 +230,6 @@ class Descent:
                 return shape is Shape.SCALAR
 
 
-# Five gated JAX-family modules folded into ONE frozen value object built at the head of `_optimistix`, so the imports and the
-# float64 promotion fire once per solve and every carrier consumer reads the handles off `self`. These imports stay function-local
-# against the module-scope `lazy` dialect on the compute RULINGS [04] x64 ruling, and the arm leads them: `jax` imports alone,
-# `jax_enable_x64` fires, and only then do the dependents import — a module-level array a dependent mints before the arm is
-# float32 forever, the silent downgrade the ruling names — while the frozen carrier seconds the guarantee structurally, since no
-# `engine.` handle exists until `gated()` armed x64. The `ImportError` a missing jaxlib raises surfaces from THIS constructor,
-# inside `_backend_outcome`'s guard, so the numpy floor stays reachable exactly as it was when each body imported for itself.
 @dataclass(frozen=True, slots=True)
 class DesignEngine:
     jax: object
@@ -282,13 +240,13 @@ class DesignEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax
 
-        jax.config.update("jax_enable_x64", True)  # armed FIRST: `_TOL` 1e-8 is below float32 eps; JAX defaults to float32
-        import equinox as eqx  # ruff:ignore[import-outside-top-level] — post-arm dependent
-        import jax.numpy as jnp  # ruff:ignore[import-outside-top-level] — post-arm dependent
-        import optax  # ruff:ignore[import-outside-top-level] — post-arm dependent
-        import optimistix as optx  # ruff:ignore[import-outside-top-level] — post-arm dependent
+        jax.config.update("jax_enable_x64", True)
+        import equinox as eqx
+        import jax.numpy as jnp
+        import optax
+        import optimistix as optx
 
         return cls(jax=jax, jnp=jnp, eqx=eqx, optx=optx, optax=optax)
 
@@ -303,8 +261,6 @@ _DEFAULT_DESCENT: Map[str, Descent] = Map.of_seq([
 
 
 def _projected(engine: "DesignEngine", projection: "Callable[[PyTree], PyTree]") -> "optax.GradientTransformationExtraArgs":
-    # `update` returns the corrected delta `projection(params + updates) - params`, so the next iterate lands on the feasible set
-    # INSIDE the chain — an `OptaxMinimiser` solve has no seam for a post-`apply_updates` body call.
     optax = engine.optax
 
     def init(_: "PyTree") -> "optax.EmptyState":
@@ -319,10 +275,6 @@ def _projected(engine: "DesignEngine", projection: "Callable[[PyTree], PyTree]")
 
 
 def _feasible(engine: "DesignEngine") -> "Map[Feasible, tuple[optax.GradientTransformation, ...]]":
-    # the `@functools.cache` this builder used to carry existed ONLY to defer the optax import so the `_floor` path stayed
-    # reachable; the carrier owns that deferral now, and caching on an `engine` argument would key every solve's fresh carrier
-    # into a never-hit entry. Four partials per `first_order` solve is nothing against the solve they configure.
-    # `BOX`/`SIMPLEX` lift their projections through `_projected`, `NONNEGATIVE` folds the stateful catalogued transform, `FREE` is ().
     optax = engine.optax
     return Map.of_seq([
         (Feasible.FREE, ()),
@@ -348,7 +300,6 @@ async def solve(
     chosen = descent if descent is not None else _DEFAULT_DESCENT[problem.tag]
 
     async def dispatch() -> "RuntimeRail[OutcomeReceipt]":
-        # worker death rides the HOSTILE trait row on the isolation leg only.
         return (await lane.offload(Kernel.of(_solve_kernel, KernelTrait.HOSTILE), problem, chosen, restarts, seed)).bind(
             lambda rail: rail
         )
@@ -357,10 +308,6 @@ async def solve(
     return await evidence_run(EvidenceScope.DESIGN, f"design.{problem.tag}", dispatch, facts=facts, composition=composition)
 
 
-# this page's raise-side roster under the hub `ComputeLeg` seat: one lift-FENCE row carrying no slots, and one
-# refusal row whose three coordinates are its declared `slots`, so the arity proves at the raise. The retired
-# `f"design.{problem.tag}"` subject forked both laws across every provenance; the problem tag rides the refusal's own
-# slot and the weave's span facts, where a trace already filters on it.
 DESIGN_SOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.DESIGN, point="solve", arm="boundary", defect="solve-refused", retriability=TERMINAL
 )
@@ -372,9 +319,6 @@ RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([DESIGN_SOLVE
 
 
 def _solve_kernel(problem: "DesignProblem", chosen: "Descent", restarts: int, seed: int) -> "RuntimeRail[OutcomeReceipt]":
-    # `catch` stays IMPORT-FREE by construction: naming `equinox.EquinoxRuntimeError` here would reify the gated jax
-    # tree at every call and defeat the numpy floor an absent jaxlib depends on, so the equinox and jax runtime
-    # families admit through their `RuntimeError` base while the floor's own numpy surface names its types exactly.
     return boundary(
         DESIGN_SOLVE,
         lambda: _backend(problem, chosen, restarts, seed) if chosen.admits(problem.carried.shape) else _mismatch(problem, chosen),
@@ -387,17 +331,12 @@ def _mismatch(problem: "DesignProblem", descent: "Descent") -> "RuntimeRail[Outc
 
 
 def _backend(problem: "DesignProblem", descent: "Descent", restarts: int, seed: int) -> "RuntimeRail[OutcomeReceipt]":
-    # railed digest threads into the deferred receipt builder through `Result.map`, so a digest fault rides the one rail.
     objective = problem.carried
     railed = _backend_outcome(problem.tag, objective, descent, restarts, seed)
     return _design_key(problem.tag, objective.params, descent, restarts, seed).map(railed)
 
 
 def _backend_outcome(tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int) -> "Callable[[ContentKey], OutcomeReceipt]":
-    # the `try` scopes the IMPORT SEAM ALONE — `DesignEngine.gated()` IS the jaxlib dereference. A whole-fold funnel
-    # here re-routes an `ImportError` raised anywhere inside the gated solve (an optax sub-import, an equinox lazy
-    # member, a jax backend plugin load) onto the numpy central-difference floor and publishes a `Design` receipt
-    # whose caller cannot tell a converged implicit-adjoint solve from a one-shot finite-difference probe.
     try:
         engine = DesignEngine.gated()
     except ImportError:
@@ -408,8 +347,6 @@ def _backend_outcome(tag: str, objective: "Objective", descent: "Descent", resta
 def _optimistix(
     engine: "DesignEngine", tag: str, objective: "Objective", descent: "Descent", restarts: int, seed: int
 ) -> "Callable[[ContentKey], OutcomeReceipt]":
-    # ONE x64 config seam for the whole gated route: every jax dereference below is reached through `engine`, so none
-    # can precede the `jax_enable_x64` promotion `gated()` ran at the seam above.
     eqx, jnp, optx = engine.eqx, engine.jnp, engine.optx
     design, static = eqx.partition(objective.params, eqx.is_inexact_array)
     op = _objective(engine)[objective.shape]
@@ -417,7 +354,6 @@ def _optimistix(
 
     @eqx.filter_jit
     def fn(y: "PyTree", _: object) -> "jax.Array":
-        # never `cost(...)[0]` — the pre-reduced ½‖r‖² scalar degenerates the LM least-squares Jacobian.
         return objective.target(engine, eqx.combine(y, static))
 
     def run(y0: "PyTree") -> "optx.Solution":
@@ -433,17 +369,11 @@ def _optimistix(
         best = int(jnp.argmin(scored))
         converged = eqx.combine(engine.jax.tree_util.tree_map(lambda leaf: leaf[best], solution.value), static)
         steps = int(jnp.asarray(solution.stats["num_steps"])[best])
-        # ensemble verdict folds the batched codes by `jnp.max`: `successful = 0`, so `max == 0` iff EVERY start converged —
-        # a partial-failure ensemble surfaces a non-success code rather than masking a diverged start as `SUCCESS`.
     else:
         solution = run(design)
         converged = eqx.combine(solution.value, static)
         steps = int(solution.stats["num_steps"])
 
-    # converged objective and the L∞ stationarity residual fold from one value-and-grad-with-aux pass; the residual norm rides
-    # `optx.max_norm` directly over the gradient PyTree, never a `numpy.asarray` detour.
-    # `partial` binds the carrier so the differentiated argument stays the design PyTree — `filter_value_and_grad` takes the
-    # gradient with respect to the FIRST parameter, which a bare `objective.cost` would make the engine.
     (_, reported), gradient = eqx.filter_value_and_grad(functools.partial(objective.cost, engine), has_aux=True)(converged)
     objective_value, residual = float(reported), float(optx.max_norm(gradient))
     status = status_of(verdict(jnp, optx.RESULTS, solution.result), residual, _TOL)
@@ -451,20 +381,16 @@ def _optimistix(
 
 
 def _floor(tag: str, objective: "Objective") -> "Callable[[ContentKey], OutcomeReceipt]":
-    # floor ravels the general design PyTree through `_ravel` — never `np.asarray(params)`, which silently stacks a tuple of
-    # equal-shaped leaves into one wrong-rank array and crashes on a ragged PyTree — and restores structure via the captured `unravel`.
     x0, unravel = _ravel(objective.params)
     cost, reported = _floor_cost(objective, unravel)
     residual = _central_difference_norm(cost, x0)
-    status = status_of(None, residual, _TOL)  # the no-adjudicator floor: `status_of` grades NONFINITE/SUCCESS/STAGNATION
+    status = status_of(None, residual, _TOL)
     return lambda key: OutcomeReceipt.Design(tag, reported(x0), residual, 0, Provider.FLOOR, status, key)
 
 
 def _floor_cost(
     objective: "Objective", unravel: "Callable[[np.ndarray], PyTree]"
 ) -> "tuple[Callable[[np.ndarray], float], Callable[[np.ndarray], float]]":
-    # host mirror of `Objective.cost`; `.item()` squeezes a singleton array where a bare `float(value)` crashes on non-0-d output,
-    # and `raw` runs the flat probe buffer back through `unravel` so `objective.fn` receives the structured design it is typed over.
     def raw(flat: np.ndarray) -> np.ndarray:
         return np.asarray(objective.fn(unravel(flat)), dtype=float)
 
@@ -482,8 +408,6 @@ def _floor_cost(
 
 
 def _central_difference_norm(cost: "Callable[[np.ndarray], float]", x0: np.ndarray) -> float:
-    # one-hot perturbations, never a materialized dense `np.eye(x0.size)` basis whose O(n²) allocation a realistic SIMP density
-    # field cannot afford; `‖·‖∞` is the same Chebyshev stationarity norm the gated `max_norm` reads.
     def directional(i: int) -> float:
         e = np.zeros(x0.size, dtype=float)
         e[i] = _FD
@@ -494,8 +418,6 @@ def _central_difference_norm(cost: "Callable[[np.ndarray], float]", x0: np.ndarr
 
 
 def _ravel(params: "PyTree") -> "tuple[np.ndarray, Callable[[np.ndarray], PyTree]]":
-    # pure-numpy host mirror of `jax.flatten_util.ravel_pytree` (which pulls the gated jaxlib package): leaves concatenate in
-    # deterministic structure order — the SAME order `_design_key` keys over — and `unravel` rebuilds the original container.
     single = not isinstance(params, (tuple, list))
     leaves = [np.ascontiguousarray(np.asarray(leaf, dtype=float)) for leaf in ((params,) if single else params)]
     shapes = [leaf.shape for leaf in leaves]
@@ -509,9 +431,6 @@ def _ravel(params: "PyTree") -> "tuple[np.ndarray, Callable[[np.ndarray], PyTree
 
 
 def _design_key(tag: str, params: "PyTree", descent: "Descent", restarts: int, seed: int) -> "RuntimeRail[ContentKey]":
-    # `_ravel` concatenates leaves with no boundary delimiter, so a `(4,)` array and a tuple of two `(2,)` leaves flatten byte-identically;
-    # folding each leaf's ordinal and shape into the fmt distinguishes the structure, and the `descent`/`restarts`/`seed` policy folds
-    # beside it because the converged design depends on all three — a cache hit must never return the wrong converged design.
     leaves = [np.asarray(leaf, dtype=float) for leaf in ((params,) if not isinstance(params, (tuple, list)) else params)]
     shape_tag = "".join(f".{i}:{leaf.ndim}x{'x'.join(map(str, leaf.shape))}" for i, leaf in enumerate(leaves))
     policy_tag = f".{descent.tag}.r{restarts}" + (f".s{seed}" if restarts > 1 else "")
@@ -555,9 +474,6 @@ class DesignProblem:
 
 
 def _objective(engine: "DesignEngine") -> "Map[Shape, DesignEntry]":
-    # the `@functools.cache` this builder used to carry existed ONLY to defer the optimistix import; the carrier owns that
-    # deferral now, and caching on an `engine` argument would key every solve's fresh carrier into a never-hit entry. The
-    # lookup still resolves only inside the `_optimistix` route the import guard fences.
     return Map.of_seq([(Shape.SCALAR, engine.optx.minimise), (Shape.RESIDUAL, engine.optx.least_squares)])
 ```
 

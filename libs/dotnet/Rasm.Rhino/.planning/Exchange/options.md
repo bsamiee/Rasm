@@ -23,7 +23,7 @@
 - Boundary: each `Mint` block is a host-mutation capsule; object initialization and the ordered `Seat`/`Through`/`Apply` statements are the platform-forced statement exemption.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Numerics;
@@ -36,7 +36,7 @@ using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SubDForm {
     public static readonly SubDForm Surface = new(key: 0,
@@ -48,8 +48,6 @@ public sealed partial class SubDForm {
     internal FileGltfWriteOptions.SubDMeshing Gltf { get; }
 }
 
-// Forward and inverse of ONE correspondence on one row: the writers swap Rhino Z-up onto the format's Y-up and the
-// readers swap it back, so a row cannot declare an export convention its import does not undo.
 [SmartEnum<int>]
 public sealed partial class AxisConvention {
     public static readonly AxisConvention Native = new(key: 0, swaps: false);
@@ -58,8 +56,6 @@ public sealed partial class AxisConvention {
     internal bool Swaps { get; }
 }
 
-// Two independent booleans were spelling one four-corner lattice; the row is the corner, and the fidelity ladder
-// picks it so no case re-derives ASCII-ness and precision from two unrelated tune reads.
 [SmartEnum<int>]
 public sealed partial class PlyEncoding {
     public static readonly PlyEncoding BinarySingle = new(key: 0, ascii: false, doubles: false);
@@ -73,9 +69,6 @@ public sealed partial class PlyEncoding {
         fidelity == CodecFidelity.Small ? BinarySingle : fidelity.IsModel ? AsciiDouble : AsciiSingle;
 }
 
-// The mesh content axes six host writers each spelled as their own boolean roster. A row's column set IS its
-// legality: `VertexColors` reaches PLY, glTF, VRML, and X3D-V and carries no OBJ column, because OBJ's vertex
-// colours ride a format-bearing override instead — so no case restates which axes it admits.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MeshEmission : ICapability<MeshEmission> {
@@ -106,8 +99,6 @@ public sealed partial class MeshEmission : ICapability<MeshEmission> {
     internal Action<FileFbxWriteOptions, bool>? Fbx { get; }
 }
 
-// Which scene entities a codec carries across, in both directions: the writers save views and lights, the readers
-// take lights and cameras, and DGN takes views alone — nine per-case booleans over one three-row axis.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SceneCarry : ICapability<SceneCarry> {
@@ -131,8 +122,6 @@ public sealed partial class SceneCarry : ICapability<SceneCarry> {
     internal Action<FileDgnReadOptions, bool>? DgnRead { get; }
 }
 
-// The unreferenced-table axis two CAD readers each carried as three booleans; DGN spells its line-style table
-// `LineStyles` and DWG spells the same table `Linetypes`, which is a host SPELLING difference the columns absorb.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class UnreferencedImport : ICapability<UnreferencedImport> {
@@ -179,7 +168,6 @@ public sealed partial class CsvColumn : ICapability<CsvColumn> {
     [UseDelegateFromConstructor]
     private partial bool Selected(CodecTune tune);
 
-    // Every row reaches the one host, so the column is total and the schedule's admissible set is the whole roster.
     internal Action<FileCsvWriteOptions, bool>? Csv => Write;
 
     [UseDelegateFromConstructor]
@@ -188,9 +176,6 @@ public sealed partial class CsvColumn : ICapability<CsvColumn> {
     internal static CapabilitySet<CsvColumn> Baseline(CodecTune tune) =>
         CapabilitySet<CsvColumn>.Of([.. toSeq(Items).Filter(row => row.Selected(tune: tune))]);
 
-    // The four layer columns emit the host layer name — Rhino's `::` path — so a schedule reading them back
-    // re-admits through `HostLayerScheme.RhinoPath.Unproject(standard, text)` rather than splitting the text itself,
-    // and `LayerHierarchy` is that projection's own nesting column (D35, D98).
     private static bool Layered(CodecTune tune) => tune.Grouped(CodecAxis.Layer);
 
     private static bool Blocked(CodecTune tune) => tune.Grouped(CodecAxis.Block);
@@ -200,7 +185,7 @@ public sealed partial class CsvColumn : ICapability<CsvColumn> {
     private static bool UserStrings(CodecTune tune) => tune.Group == CodecAxis.UserString;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
@@ -210,8 +195,6 @@ public readonly partial struct DracoDial {
     public Rasm.Numerics.Dimension NormalBits { get; }
     public Rasm.Numerics.Dimension TextureBits { get; }
 
-    // Each band refuses on its OWN scalar, so a caller learns which quantization axis it broke rather than reading
-    // one collapsed message across four columns.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -278,8 +261,6 @@ public readonly partial struct ObjNgonDial {
                 item: out ObjNgonDial value),
             value: value);
 
-    // `PolicyMap` carries the four name-mirrored columns; `CreateNgons` DERIVES from the mode rather than mirroring
-    // a source member, so it is the one write the generator cannot own.
     internal Unit Apply(FileObjWriteOptions host) {
         PolicyMap.Apply(this, host);
         host.CreateNgons = Mode == FileObjWriteOptions.NGons.Create;
@@ -287,8 +268,6 @@ public readonly partial struct ObjNgonDial {
     }
 }
 
-// Each policy record's `Standard` IS its all-defaults value: one immutable instance per record serves every
-// unstated slot, so the IGES case's two fit slots read one value instead of minting a pair per write.
 public sealed record IgesIdentity(
     string Author = "",
     string Organization = "",
@@ -336,44 +315,25 @@ public sealed record VdaHeader(
     public static VdaHeader Standard { get; } = new();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// ONE static owner per (case, axis): the axis name refusals report and the host column that IS the legality.
-// `Refusal` proves and `Seat` writes the SAME case field, so a demand can never mirror a mint and a case
-// declares no second admissible subset. The nullable column is the roster's one absence spelling, admitted
-// into `Option` here at its single read.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal sealed class HostAxis<TRow, THost>(string axis, Func<TRow, Action<THost, bool>?> column)
     where TRow : notnull, ICapability<TRow> {
-    // Derived from the vocabulary itself, once per constructed axis: a row carrying no setter for this host
-    // cannot be written there, so the admissible set is the column roster's own shape.
     private readonly Lazy<CapabilitySet<TRow>> legal = new(() =>
         CapabilitySet<TRow>.Of([.. toSeq(CapabilitySet<TRow>.All.Held).Filter(row => column(row) is not null)]));
 
     internal CapabilitySet<TRow> Legal => legal.Value;
 
-    // The kernel's TYPED refusal twin: `Some` is the refusal and it always carries the SHORTFALL beside the host
-    // type and its whole legal roster, so a caller learns which rows this host cannot write instead of reading
-    // its whole request back. An unstated axis demands nothing — the baseline is the case author's own
-    // declaration and admits by construction.
     internal Option<ValidationClause> Refusal(Option<CapabilitySet<TRow>> requested, Op key) =>
         requested.Bind(demanded => Legal.AdmitsAll(demanded)
             ? Option<ValidationClause>.None
             : Some(new ValidationClause(string.Join(" | ", new object?[] { key, axis, $"axis rows {typeof(THost).Name} writes <{Legal.Wire}>; unwritable <{Legal.Missing(demanded).Wire}>" }))));
 
-    // Every column the host owns is written on every mint, so an unstated axis lands its declared baseline rather
-    // than leaving the host's own default standing under a different name. The write is total because the door
-    // already refused every requested row without a column.
     internal Unit Seat(THost host, Option<CapabilitySet<TRow>> requested, CapabilitySet<TRow> baseline) {
         CapabilitySet<TRow> held = requested.IfNone(baseline);
         return toSeq(Legal.Held).Iter(row => Optional(column(row)).Iter(write => write(host, held.Admits(row))));
     }
 }
 
-// Existing-target transcription for every name-mirrored product: the host option object is the mapping target, and
-// Source-side completeness makes a new member with no host slot a build break — target completeness stays off
-// because sibling slots fill the host's remaining members. The `Dimension` columns cross through ONE per-type
-// `[UserMapping]` converter rather than a generic unwrap the generator refuses (RMG001). IgesFitPolicy stays
-// hand-seated in the IGES Mint: one shape fills the Curve* and Surface* host prefixes by SLOT, a slot-dependent
-// rename no single mapping expresses.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Source,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -425,29 +385,16 @@ internal static partial class PolicyMap {
 - Growth: a new host knob is one override field with its baseline line in `Mint`; a new format direction is one case and one codec engine expression, and a case carrying a capability axis adds one static `HostAxis` its `RefusalsFor` override proves — the door itself never grows an arm.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct DialSeat(FileCodec Codec, CodecPhase Phase);
 
-// Closed by the private root constructor alone: the generated union surface carried a forty-seven-arm `Switch`
-// no page reads — dispatch is `Dials.Resolve`'s seat-proved shape probe — so `[Union]` deletes as decorative
-// generated surface. NAMED LOSS: compile-time exhaustiveness over the case roster; bought back by the
-// seat-injective roster the codec matrix proves — every `(codec, phase)` pair is distinct and exactly one
-// engine column references each case.
 public abstract partial record FormatDial {
     private FormatDial(FileCodec codec, CodecPhase phase) => Seat = new DialSeat(Codec: codec, Phase: phase);
 
     internal DialSeat Seat { get; }
 
-    // A case declaring no capability axis demands nothing; an axis-bearing case proves its OWN static `HostAxis`
-    // against the same field its mint seats, so the door and the mint read one declaration. The dispatched key
-    // threads in, so every axis fault names the operation the caller ran — no placeholder mint, no rekey pass.
     private protected virtual Seq<ValidationClause> RefusalsFor(Op key) => Seq<ValidationClause>.Empty;
 
-    // `Admit` is THE dial door: one refusal point proving both halves of a dial's contract against the LIVE request — the
-    // declared `DialSeat` correspondence and every capability row the case requested past its host column — before
-    // the mint touches a host object or the engine touches the filesystem. Clauses ACCUMULATE through the family
-    // semigroup, so a caller mis-seating a dial and over-requesting two axes learns all three at once instead of
-    // fixing one and resubmitting.
     internal Fin<Unit> Admit(FileCodec codec, CodecPhase phase, Op key) =>
         FactoryValidation.Admit(
             FactoryValidation.Violated(
@@ -504,7 +451,6 @@ public abstract partial record FormatDial {
         Option<string> LicenseTerms = default,
         Option<string> Rating = default,
         Option<bool> MoveToPositiveOctant = default,
-        // Metadata order is CONTENT — the host writes the pairs in sequence — so equality is ordered.
         [property: OrderedEquality] Seq<(string Key, string Value)> Metadata = default) : FormatDial(FileCodec.ThreeMf, CodecPhase.Export) {
         internal File3mfWriteOptions Mint() {
             File3mfWriteOptions host = new() {
@@ -531,9 +477,6 @@ public abstract partial record FormatDial {
             UseCMYK = UseCmyk.IfNone(false),
             ExportViewBoundary = ExportViewBoundary.IfNone(false),
             ExportHatchesAsSolidFills = HatchesAsSolidFills.IfNone(true),
-            // Illustrator layer ordering exists iff the artifact carries a layer IDENTITY, and that identity is the
-            // declared scheme's projection of a `LayerName` — `LayerName.Read(field)` answers each ordered field, so
-            // a fidelity axis no longer decides whether the drawing set is layered (D95).
             OrderLayers = LayerScheme.IsSome,
         };
     }
@@ -608,8 +551,6 @@ public abstract partial record FormatDial {
                     textures: tune.Materials,
                     normals: tune.Fidelity.Measured,
                     open: true));
-            // The OBJ vertex-colour axis carries a host FORMAT code beside its gate, so it stays an override rather
-            // than a `MeshEmission` row a boolean column could write.
             _ = VertexColors.Iter(field => field.Through(
                 host: host,
                 gate: static (o, v) => o.ExportVcs = v,
@@ -739,15 +680,10 @@ public abstract partial record FormatDial {
                 ExportPolylinesAs = PolylinesAs.IfNone(FileDwgWriteOptions.ExportPolylineMode.Polylines),
                 ExportPolycurvesAs = PolycurvesAs.IfNone(FileDwgWriteOptions.ExportPolycurveMode.Splines),
                 Flatten = Flatten.IfNone(FileDwgWriteOptions.FlattenMode.None),
-                // A declared plot-style table IS the pen regime: a CTB keys on the AutoCAD Colour Index and plots
-                // through its own widths, so BOTH host enums derive from one kernel value and neither reads an
-                // unrelated fidelity axis (D54, D91).
                 ColorMethod = Styles.IsSome
                     ? FileDwgWriteOptions.ColorMethodType.ACI : FileDwgWriteOptions.ColorMethodType.RGB,
                 UseColor = Styles.IsSome
                     ? FileDwgWriteOptions.UseColorType.USEPRINT : FileDwgWriteOptions.UseColorType.USEDISPLAY,
-                // DWG layer names ARE the standard's grammar, so the emitted name is a `HostLayerScheme` choice:
-                // `RhinoPath` writes the `::`-joined field path and `AutoCadFlat` the standard's own text (D33, D91).
                 FullLayerPath = LayerScheme.IfNone(HostLayerScheme.AutoCadFlat) == HostLayerScheme.RhinoPath,
                 UseLWPolylines = UseLWPolylines.IfNone(!tune.Fidelity.IsModel),
                 SimplifyTolerance = SimplifyTolerance.Map(static row => row.Value).IfNone(0.05),
@@ -801,10 +737,6 @@ public abstract partial record FormatDial {
                 ModelUnits = ModelUnits.IfNone(UnitSystem.Millimeters),
                 LayoutUnits = LayoutUnits.IfNone(UnitSystem.Millimeters),
                 SetLayerMaterialToLayerColor = LayerMaterialFromColor.IfNone(false),
-                // A DWG layer name is a flat string under a naming STANDARD, and declaring the standard is what
-                // makes the host's `::` nesting meaningful — the segments it splits on are that standard's own
-                // fields, so `LayerName.Parse(standard, text, key)` projected through `HostLayerScheme.RhinoPath`
-                // is the readback and a bare boolean names no grammar to split by (D34, D92).
                 NestLayers = Nesting.IsSome,
             };
             _ = UnreferencedAxis.Seat(host: host, requested: Unreferenced, baseline: CapabilitySet<UnreferencedImport>.All);
@@ -971,7 +903,6 @@ public abstract partial record FormatDial {
                 IgesStringType = Text.IfNone(FileIgsWriteOptions.IgesStringTypeMode.Unicode),
                 PointType = Points.IfNone(FileIgsWriteOptions.PointObjectsMode.PoSeparate),
                 CompositeCurvesAsSingleBsplines = CompositeCurves.IfNone(false),
-                // IgesFitPolicy fills BY SLOT — one shape, two host member prefixes — so the seat stays hand-written.
                 CurveMaxDegree = curves.MaxDegree,
                 SimplifyCurves = curves.Simplify,
                 FitRationalCurves = curves.FitRational,
@@ -1223,8 +1154,6 @@ public abstract partial record FormatDial {
     public sealed record CsvWriteCase(
         Option<CapabilitySet<CsvColumn>> Columns = default,
         Option<bool> QuotedPoints = default) : FormatDial(FileCodec.Csv, CodecPhase.Export) {
-        // Every CSV row reaches the one host, so this axis is TOTAL and its refusal is unreachable by construction
-        // — the door still reads it, because legality is the column roster's fact and never a case's assertion.
         private static readonly HostAxis<CsvColumn, FileCsvWriteOptions> ColumnAxis =
             new(axis: nameof(Columns), column: static row => row.Csv);
 
@@ -1252,8 +1181,6 @@ public abstract partial record FormatDial {
         private protected override Seq<ValidationClause> RefusalsFor(Op key) => EmissionAxis.Refusal(Emission, key).ToSeq();
 
         internal FileGltfWriteOptions Mint(CodecTune tune) {
-            // The fidelity ladder's own Draco seat is the baseline this override rides over, so `Keep` reads the
-            // ladder rather than a second compression default declared here.
             Option<DracoDial> draco = Draco
                 .Map(field => field.Switch(
                     tune.Fidelity.Draco,
@@ -1327,11 +1254,6 @@ public abstract partial record FormatDial {
         };
     }
 
-    // The two-tier baseline as a SET: each case names the axes its former per-member derivations turned on, so
-    // the byte-identity law survives the collapse. NAMED LOSS: a host-agnostic baseline row the host lacks a
-    // column for drops at the column silently — `Emitted(colors: true)` on the FBX case writes nothing and no
-    // door reads a BASELINE, because the baseline is the author's declaration, not a caller request; the buy-back
-    // is the column roster itself, which every author reads at the vocabulary.
     private static CapabilitySet<MeshEmission> Emitted(
         bool normals = false,
         bool textures = false,
@@ -1359,7 +1281,7 @@ public abstract partial record FormatDial {
 - Boundary: `Dials` returns bare host option objects only into the codec engine columns — the one internal seam already holding the raw `RhinoDoc` — and nothing above the matrix ever sees a host options type.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Dials {
     internal static TOptions Resolve<TCase, TState, TOptions>(
         CodecTune tune,

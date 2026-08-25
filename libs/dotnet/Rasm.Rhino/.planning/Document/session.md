@@ -22,13 +22,13 @@
 - Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Rhino.Document;
 
-// --- [ERRORS] -----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DraftFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostDraft;
@@ -56,7 +56,7 @@ public abstract partial record DraftFault : Fault {
 - Packages: RhinoCommon `RhinoDoc`/`Worksession` (`.api/api-rhinocommon-document.md`); Riok.Mapperly for `SessionMap` (per-project, `PrivateAssets` — generator only); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.IO;
 using Rasm.Domain;
@@ -69,7 +69,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IDetachedDocumentResult { }
 
 [ValueObject<uint>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
@@ -108,8 +108,6 @@ public readonly partial struct DocKey : IDetachedDocumentResult {
     }
 }
 
-// The census vocabulary: a row's whole discriminant is WHICH reaches it admits, so the iterator flag and the
-// admission predicate both derive from one set column and cannot drift apart.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DocumentReach : ICapability<DocumentReach> {
@@ -119,7 +117,6 @@ public sealed partial class DocumentReach : ICapability<DocumentReach> {
 
 [SmartEnum<int>]
 public sealed partial class DocumentSet {
-    // Accessor-backed set literals: the generated reach roster fills from its own static constructor.
     public static readonly DocumentSet Live = new(key: 0, reach: static () => CapabilitySet<DocumentReach>.Of(DocumentReach.Live));
     public static readonly DocumentSet Headless = new(key: 1, reach: static () => CapabilitySet<DocumentReach>.Of(DocumentReach.Headless));
     public static readonly DocumentSet All = new(key: 2, reach: static () => CapabilitySet<DocumentReach>.All);
@@ -127,14 +124,12 @@ public sealed partial class DocumentSet {
     [UseDelegateFromConstructor]
     internal partial CapabilitySet<DocumentReach> Reach();
 
-    // BOTH derive from the one reach column: the host iterator flag and the per-document predicate.
     public bool IncludeHeadless => Reach().Admits(capability: DocumentReach.Headless);
 
     internal bool Admits(RhinoDoc document) =>
         Reach().Admits(capability: document.IsHeadless ? DocumentReach.Headless : DocumentReach.Live);
 }
 
-// The openness axis a capability row states as a SET: two bools made every reader re-conjoin `Open || Transitional`.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PhaseStance : ICapability<PhaseStance> {
@@ -165,7 +160,6 @@ public sealed partial class SessionPhase {
         };
 }
 
-// The condition vocabulary the snapshot, the capability table, and every refusal share.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SessionCondition : ICapability<SessionCondition> {
@@ -180,9 +174,7 @@ public sealed partial class SessionCondition : ICapability<SessionCondition> {
     public static readonly SessionCondition Pointing = new(key: "pointing");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The RAW host projection `SessionMap` generates — one column per host getter, no admission, no domain type.
-// The snapshot mint folds it once; nothing else reads it.
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record SessionFacts(
     uint Serial,
     string? Path,
@@ -211,8 +203,6 @@ internal sealed record WorksessionFacts(
     int ModelCount,
     string[] ModelPaths);
 
-// The generated host projection: every rename is a `[MapProperty]` row and the two member-call columns are the
-// named user mappings, so the getter roster has one spelling and a host member rename breaks HERE.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class SessionMap {
@@ -237,7 +227,6 @@ internal static partial class SessionMap {
     [MapProperty(nameof(Worksession.RuntimeSerialNumber), nameof(WorksessionFacts.Serial))]
     internal static partial WorksessionFacts Worksession(Worksession worksession);
 
-    // The one member-call column the property map cannot reach.
     private static bool CommandDepth(RhinoDoc document) => document.InCommand(bIgnoreScriptRunnerCommands: false);
 }
 
@@ -251,9 +240,6 @@ public sealed partial class SessionSnapshot : IDetachedDocumentResult {
     public CapabilitySet<SessionCondition> Conditions { get; }
     public Option<Guid> ActiveCommand { get; }
 
-    // The three pairwise clauses admit HERE, at the set's one construction, through `FactoryValidation`: the kernel
-    // `CapabilityLaw` carries corners and containment bars but no implication arm, so the
-    // implication clause is this hook's — and the set is constructible nowhere else.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DocKey key,
@@ -299,7 +285,6 @@ public sealed partial class SessionSnapshot : IDetachedDocumentResult {
                select snapshot;
     }
 
-    // One fold from the raw projection onto the set: the getter roster and the vocabulary move together.
     private static CapabilitySet<SessionCondition> Conditions(SessionFacts facts) =>
         CapabilitySet<SessionCondition>.Of(
             Seq<(bool Held, SessionCondition Row)>(
@@ -353,8 +338,6 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
     public bool UnsavedActive { get; }
     public HashMap<uint, DocumentPath> Resolved { get; }
 
-    // Every violated census clause reports, accumulated through the fault semigroup — the ten-clause `||` funnel
-    // this replaces answered one anonymous refusal for any of them.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref DocKey document,
@@ -488,8 +471,6 @@ public sealed partial class WorksessionSnapshot : IDetachedDocumentResult {
         select rows.ToHashMap();
 }
 
-// The membership axis as ONE row: the precondition is `Before`, the postcondition `After`, and the inverse verb
-// carries the opposite row — two bool columns admitted the drift this forecloses.
 [SmartEnum<int>]
 public sealed partial class MembershipShift {
     public static readonly MembershipShift Joins = new(key: 0, before: false, after: true);
@@ -557,7 +538,7 @@ public sealed record WorksessionReceipt(
 public static class SessionWorksession {
     extension(DocumentSession session) {
         public Fin<WorksessionSnapshot> Worksession(params ReadOnlySpan<uint> modelSerials) {
-            Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+            Op op = Op.Of();
             Seq<uint> serials = toSeq(modelSerials.ToArray());
             return op.Need(session).Bind(scope => scope.Demand(
                 use: document => WorksessionSnapshot.Of(document: document, key: op, modelSerials: serials),
@@ -593,8 +574,6 @@ public static class SessionWorksession {
         }
     }
 
-    // Run-then-prove rides one rail; any refusal — script, proving snapshot, or postcondition — hands the
-    // single-verb inverse to kernel `Custody.Rollback`'s delegate arm, which appends its fault onto the primary.
     private static Fin<Unit> Apply(RhinoDoc document, DocumentPath model, WorksessionVerb verb, Op op) =>
         from current in WorksessionSnapshot.Of(document: document, key: op, modelSerials: Seq<uint>())
         from admitted in guard(current.Member(path: model) == verb.Shift.Before, op.InvalidInput()).ToFin()
@@ -606,8 +585,6 @@ public static class SessionWorksession {
             .Rollback(() => Restore(document: document, model: model, completed: Seq(verb), op: op))
         select unit;
 
-    // ONE restore over the completed prefix, reverse order, every inverse attempted: the former single-verb twin
-    // is this fold's own per-element body.
     private static Fin<Unit> Restore(
         RhinoDoc document,
         DocumentPath model,
@@ -651,7 +628,7 @@ public static class SessionWorksession {
 - Boundary: HOST-SPECIFIC-STAYS — `Dialog`, `Acquire`, and `Interrupt` encode `RhinoDoc.InGetPoint`/`InCommand`/`RunMode` host truths; the rows survive because the table is the host contract spelled as data.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LaneCapability : ICapability<LaneCapability> {
@@ -661,7 +638,6 @@ public sealed partial class LaneCapability : ICapability<LaneCapability> {
 
 [SmartEnum<int>]
 public sealed partial class SessionMode {
-    // Accessor-backed: the generated lane roster fills from its own static constructor.
     public static readonly SessionMode Interactive = new(key: 0,
         capabilities: static () => CapabilitySet<LaneCapability>.All);
     public static readonly SessionMode Scripted = new(key: 1,
@@ -682,9 +658,6 @@ public sealed partial class SessionMode {
     }
 }
 
-// The custody ROW carries its grant set AND the host `recordsUndo` argument the commit envelope takes, so a rail
-// naming its custody never states the same axis twice — a `custody:` row beside a literal `recordsUndo:` is two
-// authorities over one fact, free to disagree on the leg that matters.
 [SmartEnum<int>]
 public sealed partial class UndoCustody {
     public static readonly UndoCustody Recorded = new(key: 0, records: true, grants: static () => Seq(SessionNeed.Mutate, SessionNeed.Undo));
@@ -696,7 +669,6 @@ public sealed partial class UndoCustody {
     internal partial Seq<SessionNeed> Grants();
 }
 
-// Four set columns ARE the whole capability policy — no predicate delegate survives on any row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SessionNeed {
@@ -751,10 +723,6 @@ public sealed partial class SessionNeed {
     [UseDelegateFromConstructor] internal partial CapabilitySet<SessionCondition> Demands();
     [UseDelegateFromConstructor] internal partial CapabilitySet<SessionCondition> Barred();
 
-    // `FactoryValidation` screens the four clauses into one generated validation refusal, so a need refused on three
-    // axes names all three and recovery stays on the public `Validation<Error, T>` rail.
-    // `Validation.Bind` over a `Fail` is IDENTITY, so the threaded fold this replaces surfaced the FIRST violated
-    // axis alone, reached `Combine` never, and contradicted the accumulation it advertised.
     internal Validation<Error, SessionNeed> Admit(SessionSnapshot snapshot, SessionMode mode, Op op) {
         SessionNeed need = this;
         return FactoryValidation.Admit(
@@ -770,13 +738,10 @@ public sealed partial class SessionNeed {
             .Map(_ => need);
     }
 
-    // `Ground` is the one refusal spelling every axis reads, so a fifth axis lands as one clause, never a second mint.
-    // `shortfall` carries the missing rows the capability door received; a scalar axis grounds on its name alone.
     private ValidationClause Ground(Op op, string axis, Option<string> shortfall = default) =>
         new(string.Join(" | ", new object?[] { op, Key, $"the '{Key}' need admitted on the '{axis}' axis"
                 + shortfall.Match(Some: static wire => $"; missing <{wire}>", None: static () => string.Empty) }));
 
-    // The mode half alone, for pre-acquisition admission where no snapshot exists yet.
     internal bool AdmitsMode(SessionMode mode) => mode.Capabilities().AdmitsAll(required: Lane());
 
     internal static Seq<SessionNeed> Mutation(UndoCustody custody, RedrawPolicy redraw) =>
@@ -798,7 +763,7 @@ public sealed partial class SessionNeed {
 - Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback. `DocumentPath` conforms — admitted path text is detached by construction — so a path resolution returns through `Demand` directly.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public readonly partial struct DocumentPath : IDetachedDocumentResult {
@@ -889,7 +854,6 @@ public abstract partial record SessionSource {
                 select lease)
         select lease;
 
-    // The borrowed band demands a live lane and the owned band a headless one; `Keyed` serves both.
     private Fin<Unit> Admits(SessionMode mode, Op key) =>
         guard(
             flag: Switch(
@@ -918,14 +882,12 @@ public abstract partial record SessionSource {
             .Map(static value => (Lease<RhinoDoc>)new Lease<RhinoDoc>.Owned(Value: value));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The lifecycle as ONE stepped state: `Depth` counts open demand windows, `Closing` parks a disposal issued
-// mid-demand, and `Released` is terminal — a transition that loses its race reads a verdict, never a torn triple.
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record SessionGate(int Depth, bool Closing, bool Released) {
     internal static readonly SessionGate Open = new(Depth: 0, Closing: false, Released: false);
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
     private readonly Atom<SessionGate> gate = Atom(SessionGate.Open);
     private readonly Lease<RhinoDoc> lease;
@@ -1018,8 +980,6 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
             needs: [SessionNeed.Interrupt]);
     }
 
-    // `Close` either releases now (depth zero) or parks: the gate answers WHICH, and the disposal effect runs on
-    // the committed release arm alone — the mint-outside-the-transition law.
     public void Dispose() =>
         ignore(Cell.Step(
                 gate,
@@ -1036,8 +996,6 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                 refused: static (_, _) => unit,
                 contended: static (_, _) => unit));
 
-    // The demand window as a BRACKET: enter, run, exit — the exit runs on every arm, answers whether it owes the
-    // deferred disposal, and a disposal fault AGGREGATES into the body's outcome rather than replacing it.
     private Fin<TResult> Bracketed<TResult>(
         Func<RhinoDoc, Fin<TResult>> use,
         LanguageExt.HashSet<SessionNeed> requested,
@@ -1117,8 +1075,6 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
             .ToFin()
         select distinct;
 
-    // Live lanes cross the kernel dispatch; a headless session has no marshal to cross and the kernel entry would
-    // refuse `Headless` typed, so its body runs on the caller thread by construction.
     private static Fin<TResult> Marshalled<TResult>(SessionMode mode, Func<Fin<TResult>> use, Op op) =>
         from lane in op.Need(mode)
         from body in op.Need(use)
@@ -1150,7 +1106,6 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
                 mode: lane,
                 lease: acquired,
                 granted: granted));
-        // The cleanup fault AGGREGATES into the primary — a released-but-refused adoption reports both.
         return admitted.BindFail(error => op.Catch(() => {
             acquired.Dispose();
             return Fin.Succ(value: unit);
@@ -1162,7 +1117,7 @@ public sealed class DocumentSession : IDisposable, IDetachedDocumentResult {
     private sealed record DetachedContext(Rasm.Domain.Context Value) : IDetachedDocumentResult;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Admission {
     internal static Fin<Seq<T>> All<T>(ReadOnlySpan<T> values, Op key) =>
         toSeq(values.ToArray())
@@ -1192,13 +1147,13 @@ internal static class Admission {
 - Boundary: row delegates contain the property-set statement seam required by the host API. Failed writes restore every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation rides the kernel `Custody.Rollback` delegate arm — its faults accumulate and join the original fault — and the shared `DocumentCommit.Sealed` decides the enclosing record's seal or rollback under `RedrawPolicy.None`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class UnitScaling {
     public static readonly UnitScaling PreserveCoordinates = new(key: 0, hostScale: false);
@@ -1256,13 +1211,9 @@ public sealed partial class DocumentSpace {
     [UseDelegateFromConstructor]
     internal partial Fin<UnitRegime> Read(RhinoDoc document, Op op);
 
-    // Takes the kernel `Context` whole and reads the three tolerance values at the host write — the one place the
-    // scalars leave the kernel carrier.
     [UseDelegateFromConstructor]
     internal partial Unit SetTolerances(RhinoDoc document, Context context);
 
-    // The host member publishes DECIMAL PLACES alone; the digit count arrives already derived from the kernel
-    // precision owner, so this seam holds no precision authority of its own.
     [UseDelegateFromConstructor]
     internal partial Unit SetPrecision(RhinoDoc document, int digits);
 }
@@ -1339,8 +1290,6 @@ public abstract partial record RegimeChange {
             .ToFin();
     }
 
-    // Tolerances mint the kernel `Context` whole: the units argument is the space's native regime, so the three
-    // scalars admit through the kernel's own lanes rather than a page-local value-object triple.
     public static Fin<RegimeChange> Of(
         double absolute,
         double relative,
@@ -1351,7 +1300,6 @@ public abstract partial record RegimeChange {
             .ToFin()
             .Map(static value => (RegimeChange)new Tolerances(Value: value));
 
-    // The ONE precision ingress: the digit count DERIVES from the scale through the kernel ladder, never authored.
     public static Fin<RegimeChange> Of(DrawingScale scale, DrawingUnits units, Op? key = null) {
         Op op = key.OrDefault();
         return from admission in Admission.Pair(first: scale, second: units, key: op)
@@ -1381,8 +1329,6 @@ public abstract partial record RegimeChange {
                 from written in context.Op.Catch(() => Fin.Succ(
                     value: context.Space.SetPrecision(document: context.Document, digits: digits)))
                 select written);
-        // Failed writes assume nothing about which scalar landed: kernel `Custody.Rollback`'s delegate arm runs the
-        // whole-regime restore on the failure arm and appends any compensation fault onto the primary.
         return mutation.Rollback(() => Restore(
             document: document,
             space: space,
@@ -1402,8 +1348,6 @@ public abstract partial record RegimeChange {
             precision: static (held, change) => change.Value.Digits(key: held.Op)
                 .Map(digits => held.Regime.Digits == digits));
 
-    // Kernel `Custody.Rollback`'s delegate arm consumes this compensation: restore every regime scalar the failed
-    // change may have touched, reversing the unit scaling only where the change was a unit write.
     internal Fin<Unit> Restore(
         RhinoDoc document,
         DocumentSpace space,
@@ -1447,9 +1391,7 @@ public abstract partial record RegimeChange {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// One space's regime: the kernel `Context` carries the tolerance triple and the unit scale, the native unit
-// survives for compensation alone, and the digit count is the host's own read-back evidence.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record UnitRegime : IDetachedDocumentResult {
     private UnitRegime(LengthUnit native, ModelUnit unit, Context space, int digits) =>
         (Native, Unit, Space, Digits) = (native, unit, space, digits);
@@ -1504,7 +1446,7 @@ public sealed record RegimeReceipt : IDetachedDocumentResult {
     internal RegimeReceipt Seal(uint serial) => this with { UndoRecord = Some(serial) };
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SessionRegimes {
     extension(DocumentSession session) {
         public Fin<UnitRegime> Regime(DocumentSpace space, Op? key = null) {
@@ -1581,7 +1523,7 @@ public static class SessionRegimes {
 - Boundary: the sheet-standard unit declaration is `Rasm.Drawing`'s `DrawingUnits` and the model regime is this page's — a title block reads the sheet's row and never this correspondence; the host parse/render estate stays because its grammar is the host's own locale surface.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class UnitDialect {
     public static readonly UnitDialect Standard = new(key: 0, settings: static () => StringParserSettings.DefaultParseSettings);
@@ -1786,7 +1728,7 @@ public abstract partial record UnitText : IDetachedDocumentResult {
             outputType: typeof(AngleTextCase))));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RegimeText {
     extension(DocumentSession session) {
         public Fin<UnitText> Text(DocumentSpace space, UnitText text, Op? key = null) {

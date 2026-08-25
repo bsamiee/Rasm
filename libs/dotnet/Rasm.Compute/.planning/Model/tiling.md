@@ -30,11 +30,7 @@
 - Boundary: this owner names no session, no port, and no archive member. Every carrier crossing a kernel row is a span view, so the four layout delegates are the only shape that holds them and `Span2D`/`ReadOnlySpan2D` projections carry the row addressing the flat index arithmetic used to spell at eleven sites. `TileLayout.Stack` consumes a `PlaneFill` filler rather than a materialized plane, so each row owns its own landing discipline and the double copy dies where placement is contiguous; the filler is a delegate the composing root binds — a blob copy, or a `Runtime/archive#HDF_ARCHIVE` hyperslab fill for an archive-resident plane — so no PureHDF member reaches a Compute signature.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// Which of an axis's two edges abuts a neighbour, as a ROW carrying its own ramp fill. The pair of `int` masks
-// this replaces spelled a two-bool capability product as bit literals (`mask & 1`, `mask & 2`) that four sites
-// re-derived, and index 0 was an all-unit ramp documented only in prose. `Index` is DECLARED rather than taken
-// off `Items` order, so a row rename never silently re-keys a built table.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -53,8 +49,6 @@ public sealed partial class TileEdge {
 
     public bool Trails { get; }
 
-    // One membership read per axis end, so the grid states which edges meet rather than packing two booleans into
-    // a literal every reader has to unpack the same way.
     public static TileEdge Of(bool leads, bool trails) =>
         (leads, trails) switch {
             (true, true) => Both,
@@ -63,8 +57,6 @@ public sealed partial class TileEdge {
             _ => Interior,
         };
 
-    // The row fills its OWN ramp: the unit floor lands first and each admitted end then writes the blend's taper
-    // over its own band, so `Interior` is a ramp of ones by construction rather than by an index nobody named.
     public void Taper(Span<float> ramp, TileBlend blend, int taper) {
         ramp.Fill(1f);
         for (int index = 0; taper > 0 && index < taper && index < ramp.Length; index++) {
@@ -75,21 +67,8 @@ public sealed partial class TileEdge {
     }
 }
 
-// One tile's placement: grid coordinate, SOURCE read origin — which may sit past the plane edge, where the pad
-// row folds the index back — and the per-axis edge row the taper table keys on.
 public readonly record struct TileWindow(int Column, int Row, int SourceX, int SourceY, TileEdge EdgeX, TileEdge EdgeY);
 
-// What ONE roster row binds: the graph's own output tensor, the component LANE inside it, and the opaque role key
-// the product publishes under. Tensor and role are DISTINCT — a model names its outputs whatever its author chose
-// — and the lane exists because a PACKED export names one tensor for several products, so a graph emitting
-// roughness beside metalness in one `material` tensor carries two rows against it and the lane is what separates
-// their bytes. The two cases are genuine MODALITIES rather than a plane wearing a small extent: a field is
-// sampled downstream and a grade is read, so only the field owns an arena, a taper, and a place in the mosaic.
-// Binding columns live on the BASE and the cases pass through — the record-inheritance form, where a case's
-// positional column binds the inherited property instead of shadowing it — with the private constructor reachable
-// from the nested cases alone, which is what seals the family. Every dispatch runs the GENERATED `Switch`: a
-// third modality then breaks each site at compile time where the `is`-probes it replaces silently took the
-// field arm.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TileProduct {
     private TileProduct(string tensor, int lane, string role, int channels) =>
@@ -98,9 +77,6 @@ public abstract partial record TileProduct {
     public sealed record Plane(string Tensor, int Lane, string Role, int Channels)
         : TileProduct(Tensor, Lane, Role, Channels);
 
-    // A grade occupies exactly ONE component of its tensor, stated at the arm that knows it rather than as a column
-    // a row author could fill wrong — which is what lets the lane-offset derivation fold both modalities through one
-    // arithmetic instead of a second roster whose offsets would have to agree with this one.
     public sealed record Measure(string Tensor, int Lane, string Role)
         : TileProduct(Tensor, Lane, Role, channels: 1);
 
@@ -119,26 +95,14 @@ public abstract partial record TileProduct {
     public Option<Measure> Grade => Switch(plane: static _ => Option<Measure>.None, measure: Some);
 }
 
-// One roster row's read window inside its own tensor: the row, its first channel within the packed tensor, and
-// the slot it lands in — a plane index for a field, a grade index for a measure. Both counters derive from the
-// roster in one pass, so nothing indexes a modality-local array by a roster-wide position.
 public readonly record struct TileSlice(TileProduct Product, int Offset, int Slot);
 
-// One produced tensor and every roster row reading it. The distinct-tensor order IS the session's output order,
-// so a tensor resolves by position within one session's own results and each lane by its own offset — never by
-// matching a declared role against a model's naming.
 public readonly record struct TileTensor(string Name, int Channels, Seq<TileSlice> Slices) {
-    // One tensor is all fields or all grades: their element counts differ by the whole tile area, so a mixed
-    // tensor has no single expected length and the plan refuses it at admission rather than the fold guessing.
     public bool Graded => Slices.Exists(static slice => slice.Product.Graded);
 
     public long Expected(long area) => Graded ? Channels : area * Channels;
 }
 
-// Layout rows own this kernel triple. Every carrier stays a span view, so a custom delegate is the only shape
-// that holds them; `row` is scratch the scatter fills with one output row of taper weights. Scatter takes the
-// LANE's own channel count, its channel offset inside the produced tensor, and that tensor's whole width, because
-// a mosaic writes every field of every packed export through this one kernel.
 public delegate void TileGather(ReadOnlySpan<float> source, Span<float> tile, TilePlan plan, TileWindow window);
 
 public delegate void TileScatter(
@@ -148,33 +112,20 @@ public delegate void TileScatter(
 
 public delegate void TileNormalize(Span<float> plane, ReadOnlySpan<float> weight, int channels);
 
-// Index-keyed span filler — the provider seam shape `Model/run#RUN_MODES` `WindowFill` proved: the resolver
-// answers a plane's extent and a filler bound to that blob, the caller owns the destination, and plane bytes land
-// where they are consumed. An archive-resident plane fills by hyperslab straight into the span, so the filler is
-// a delegate and PureHDF stays on no Compute signature.
 public delegate Fin<Unit> PlaneFill(Span<float> destination);
 
-// Channel-axis stacking for a multi-input stage: one source plane lands at its channel offset inside the one
-// bound tensor, in the layout's own placement — a second bound value per input would drift from the warmed bucket
-// shape. The stack row consumes the FILLER, never a materialized plane, so each row owns its own landing
-// discipline and the double copy dies where placement is contiguous.
 public delegate Fin<Unit> TileStack(PlaneFill fill, Span<float> stacked, int channels, int offset, int total, int texels);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PadMode {
-    // Reflect mirrors WITHOUT repeating the edge sample — the frozen wire value and the ONNX `reflect` spelling —
-    // so a border tile carries no duplicated row, which a convolution would read as a false ridge.
     public static readonly PadMode Reflect = new("reflect", static (index, extent) => {
         if (extent is 1) { return Some(0); }
         int period = 2 * (extent - 1);
         int folded = Math.Abs(index) % period;
         return Some(folded < extent ? folded : period - folded);
     });
-    // Every row answers an in-range index or ABSENCE for a texel no source covers; the gather kernels clear on
-    // absence, so a bordering or constant-fill row lands without touching either kernel. The carrier states the
-    // fact where a negative sentinel left four gather arms testing a value `Reflect` never returns.
     [UseDelegateFromConstructor]
     public partial Option<int> Fold(int index, int extent);
 }
@@ -190,10 +141,6 @@ public sealed partial class TileBlend {
     [UseDelegateFromConstructor]
     public partial float Weight(float t);
 
-    // Every row must be COMPLEMENTARY — w(t) + w(1-t) = 1 — because the two tapers meeting over one overlap band
-    // read mirrored ramp coordinates, so their weights sum to unity before the normalizing divide runs. The plan
-    // SAMPLES this rather than trusting the prose: a row that fails it reconstructs the band at the wrong mean
-    // everywhere the divide cannot see, and construction-time refusal is unreachable in a static field.
     public bool Complementary(int samples = 17, float tolerance = 1e-4f) =>
         Enumerable.Range(0, samples).All(step =>
             (step / (float)(samples - 1)) is var t
@@ -222,9 +169,6 @@ public sealed partial class TileLayout {
     public TileNormalize Normalize { get; }
     public TileStack Stack { get; }
 
-    // Channel-major storage: the tile is `[channels * tileHeight, tileWidth]` rows and the source is
-    // `[channels * sourceHeight, sourceWidth]` rows, so both projections carry the addressing the
-    // `(channel * H + y) * W` arithmetic used to spell at every site and a row is one `GetRowSpan`.
     static void PlanarGather(ReadOnlySpan<float> source, Span<float> tile, TilePlan plan, TileWindow window) {
         bool interior = window.SourceX >= 0 && window.SourceX + plan.TileWidth <= plan.SourceWidth;
         Span2D<float> tilePlane = tile.AsSpan2D(plan.Channels * plan.TileHeight, plan.TileWidth);
@@ -243,11 +187,6 @@ public sealed partial class TileLayout {
         }
     }
 
-    // Contiguity along x holds in both the produced tile and the accumulation plane, so one weight vector per row
-    // drives a vectorized fused multiply-add per channel. Weight accumulation is NOT here — it is geometry every
-    // field shares, so the plan owns it and it runs once per window rather than once per field per window.
-    // Channel-major storage addresses a packed lane by its ABSOLUTE channel, so `total` never enters the
-    // arithmetic here — the same read the interleaved row's unused scratch `row` takes.
     static void PlanarScatter(
         ReadOnlySpan<float> tile, Span<float> plane,
         ReadOnlySpan<float> rampX, ReadOnlySpan<float> rampY, Span<float> row,
@@ -262,8 +201,6 @@ public sealed partial class TileLayout {
         Span2D<float> target = plane.AsSpan2D(channels * plan.OutputHeight, plan.OutputWidth);
         for (int y = 0; y < tileHeight; y++) {
             int planeY = originY + y;
-            // The unsigned compare folds the `< 0` and `>= extent` bounds into ONE branch: a negative index wraps
-            // past every positive extent when reinterpreted, so the single test is exact and the pair is dead code.
             if ((uint)planeY >= (uint)plan.OutputHeight) { continue; }
             Span<float> weights = row[..span];
             TensorPrimitives.Multiply(rampX[..span], rampY[y], weights);
@@ -283,9 +220,6 @@ public sealed partial class TileLayout {
         }
     }
 
-    // Channel-interleaved storage puts each texel's channel run contiguous, so the tile projects as
-    // `[tileHeight, tileWidth * channels]` and one row projection per `y` retires the `y * tileWidth` multiply the
-    // inner `x` loop used to pay per texel.
     static void InterleavedGather(ReadOnlySpan<float> source, Span<float> tile, TilePlan plan, TileWindow window) {
         Span2D<float> tilePlane = tile.AsSpan2D(plan.TileHeight, plan.TileWidth * plan.Channels);
         ReadOnlySpan2D<float> sourcePlane = source.AsSpan2D(plan.SourceHeight, plan.SourceWidth * plan.Channels);
@@ -304,9 +238,6 @@ public sealed partial class TileLayout {
         }
     }
 
-    // Channel-interleaved storage strides the x-run, so the fused multiply-add runs across the CHANNEL vector at
-    // one texel and the scratch row stays unread — the same triple, a different contiguous axis. A packed lane is
-    // a sub-run of that texel's stride, which is why this row reads `total` where the planar row reads neither.
     static void InterleavedScatter(
         ReadOnlySpan<float> tile, Span<float> plane,
         ReadOnlySpan<float> rampX, ReadOnlySpan<float> rampY, Span<float> row,
@@ -340,13 +271,9 @@ public sealed partial class TileLayout {
         }
     }
 
-    // Planar placement IS a contiguous slice, so the filler lands the plane directly in the stacked buffer — the
-    // double copy a materialized-plane read paid dies structurally on this row.
     static Fin<Unit> PlanarStack(PlaneFill fill, Span<float> stacked, int channels, int offset, int total, int texels) =>
         fill(stacked.Slice(offset * texels, channels * texels));
 
-    // Interleaved placement seats each texel's channel run inside the widened texel stride, so the filler lands in
-    // a transient scratch and one interleave pass places it — one placement copy, no retained plane.
     static Fin<Unit> InterleavedStack(PlaneFill fill, Span<float> stacked, int channels, int offset, int total, int texels) {
         using SpanOwner<float> scratch = SpanOwner<float>.Allocate(channels * texels);
         if (fill(scratch.Span).Case is Error missed) { return Fin.Fail<Unit>(missed); }
@@ -359,10 +286,7 @@ public sealed partial class TileLayout {
     }
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// Admitted bucket edges and the seam band a leased model card publishes carry onto the plan rather than being
-// mirrored as literals. Cards admitting a 1024 bucket or a 64-texel seam move NO surface here; an empty roster
-// admits every positive edge, which is the honest read for a plan built outside a card's authority.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TileAdmission(Seq<int> Edges, int MinOverlap, int MaxOverlap) {
     public static readonly TileAdmission Unbounded = new(Seq<int>(), 1, int.MaxValue);
 
@@ -372,15 +296,12 @@ public readonly record struct TileAdmission(Seq<int> Edges, int MinOverlap, int 
         && overlap >= MinOverlap && overlap <= MaxOverlap;
 }
 
-// The validator's own candidate view. The `[ComplexValueObject]` seam takes every argument by `ref` for
-// normalization and a lambda cannot close over a `ref` parameter, so the gate roster reads this ONE lifted copy
-// where twelve inline terms each lifted their own locals.
 public readonly record struct TileCandidate(
     int SourceWidth, int SourceHeight, int Channels, Seq<TileProduct> Products,
     int TileWidth, int TileHeight, int Overlap, int Scale,
     TileAdmission Admission, TileBlend Blend);
 
-// --- [ERRORS] ------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 public static class TileRefusal {
     public static readonly ContractRefusal SourceLength = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal TensorCardinality = new(ComputeArea.Model, ComputeContract.Compatible);
@@ -390,12 +311,9 @@ public static class TileRefusal {
 
 }
 
-// One named invariant a plan can break, beside the predicate that proves it. The chain this replaces folded a
-// dozen independent facts into one `&&` and emitted one message, so a plan breaking four of them named none of
-// the four and a reader had to re-derive which term failed from the extents in the string.
 public readonly record struct TileGate(string Row, Func<TileCandidate, bool> Holds);
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class TilePlan {
     public int SourceWidth { get; }
@@ -404,9 +322,6 @@ public sealed partial class TilePlan {
 
     public int Channels { get; }
 
-    // The lease's own binding roster, ordered by the card's declaration; its DISTINCT tensors are the session's
-    // output order and the run's expected result cardinality, which is why a model emitting more planes, packing
-    // more planes into a tensor it already names, or grading its input moves no surface here.
     public Seq<TileProduct> Products { get; }
 
     public int TileWidth { get; }
@@ -417,8 +332,6 @@ public sealed partial class TilePlan {
 
     public int Scale { get; }
 
-    // Carried from the leased card, proved once at admission, and never re-read by the fold: the plan is the one
-    // place the card's shape authority and the grid geometry meet.
     public TileAdmission Admission { get; }
 
     public PadMode Pad { get; }
@@ -427,7 +340,6 @@ public sealed partial class TilePlan {
 
     public TileLayout Layout { get; }
 
-    // Warm-up keys ARE the bucket edge, so a plan and the session shape it needs never spell apart.
     public string Bucket => $"{TileWidth}x{TileHeight}";
 
     public int StrideX => TileWidth - Overlap;
@@ -444,10 +356,6 @@ public sealed partial class TilePlan {
 
     public long[] InputShape => Layout.Shape(Channels, TileHeight, TileWidth);
 
-    // ONE derivation folds the roster into the tensors the session emits: a row joins the tensor it names at the
-    // next free channel or opens a new one at offset zero, and its slot counts within its OWN modality. A packed
-    // export and a one-product export therefore take exactly one path, and the offsets can never disagree with the
-    // roster that produced them.
     public Seq<TileTensor> Tensors =>
         Products.Fold(
             (Roster: Seq<TileTensor>(), Fields: 0, Grades: 0),
@@ -457,18 +365,10 @@ public sealed partial class TilePlan {
                 Grades: state.Grades + (product.Graded ? 1 : 0)))
             .Roster;
 
-    // The mosaic's two collections size and order off these — one accumulation plane per field, one slot per
-    // grade — so the arena roster and the slot roster are one derivation each rather than a count spelled beside
-    // a filter.
     public Seq<TileProduct.Plane> Fields => Products.Choose(static product => product.Field);
 
     public Seq<TileProduct.Measure> Scorers => Products.Choose(static product => product.Grade);
 
-    // Binders seat every bound value from the plan, so shapes the flow holds and shapes the fold writes cannot
-    // drift: any bound output sized elsewhere is a second derivation of one grid. A GRADED tensor has no geometry
-    // to derive — its element count is its lane count and its declared shape is the graph's own — so the plan
-    // answers absence and the binder seats what `InferenceSession.OutputMetadata` declares rather than a rank this
-    // end invented. The binder is the `Model/stage#STAGE_FOLD` `StageSession.Flow` leg the composing root supplies.
     public Option<long[]> OutputShape(TileTensor tensor) =>
         tensor.Graded ? None : Some(Layout.Shape(tensor.Channels, TileHeight * Scale, TileWidth * Scale));
 
@@ -484,8 +384,6 @@ public sealed partial class TilePlan {
         }
     }
 
-    // The taper table is the EDGE ROSTER's own projection: every row fills its own ramp once per axis, and the
-    // fold then reads by row rather than by a bit mask a caller unpacked.
     public FrozenDictionary<TileEdge, float[]> Ramps(int span, int taper) =>
         toSeq(TileEdge.Items).ToFrozenDictionary(
             static edge => edge,
@@ -495,8 +393,6 @@ public sealed partial class TilePlan {
                 return ramp;
             });
 
-    // Taper mass is geometry, not content: one plane serves every product, so it accumulates once per window
-    // however many planes the model emits, and one weight read then normalizes them all identically.
     public void Accumulate(
         Span<float> weight, ReadOnlySpan<float> rampX, ReadOnlySpan<float> rampY, Span<float> row, TileWindow window) {
         int originX = window.SourceX * Scale;
@@ -514,9 +410,6 @@ public sealed partial class TilePlan {
         }
     }
 
-    // Counting the whole extent against the stride emits a trailing tile carrying no new texels, so the first tile
-    // counts whole. The specifying end derives this same column count from the same wire columns — a stated
-    // cross-end invariant, because the strata forbid either end naming the other's owner.
     static int Steps(int extent, int tile, int overlap) =>
         extent <= tile ? 1 : 1 + (int)Math.Ceiling((double)(extent - tile) / (tile - overlap));
 
@@ -530,37 +423,22 @@ public sealed partial class TilePlan {
                 : tensor)
             : roster.Add(new TileTensor(product.Tensor, product.Channels, Seq(new TileSlice(product, 0, slot))));
 
-    // Which pad row is legal is NOT settled here: this owner is the general tiling vocabulary, and the frozen
-    // stage wire pins `reflect` at `StageRequest.Admit`, so restating the pin would make one law answerable twice.
-    // The BUCKET roster and the OVERLAP band follow the same law and for the same reason: a model card declaring
-    // a 1024 bucket, or a wider seam its estimator's receptive field needs, is a row at the specifying end —
-    // mirroring either here turns every admitted model into a Compute edit, the exact defect this folder's own
-    // no-mirrored-roster ruling names. `Admission` carries them from the leased card and these gates prove only
-    // what a plan can prove alone.
     static readonly Seq<TileGate> Gates = Seq(
         new TileGate("extent", static c => c.SourceWidth > 0 && c.SourceHeight > 0 && c.Channels > 0),
         new TileGate("roster-empty", static c => !c.Products.IsEmpty),
         new TileGate("roster-columns", static c => c.Products.ForAll(static product =>
             product.Tensor.Length > 0 && product.Role.Length > 0 && product.Lane >= 0 && product.Channels > 0)),
-        // ROLE keys name what the fold publishes and (Tensor, Lane) pairs name what it reads, so both spaces are
-        // injective or one product's bytes land under another's name.
         new TileGate("role-collision", static c =>
             c.Products.Map(static product => product.Role).ToFrozenSet(StringComparer.Ordinal).Count == c.Products.Count),
         new TileGate("lane-collision", static c =>
             c.Products.Map(static product => $"{product.Tensor}#{product.Lane}").ToFrozenSet(StringComparer.Ordinal).Count == c.Products.Count),
-        // One tensor is all fields or all grades: their element counts differ by the whole tile area, so a mixed
-        // tensor carries no single expected length the fold could prove a run against.
         new TileGate("tensor-modality", static c =>
             c.Products.Map(static product => product.Tensor).ToFrozenSet(StringComparer.Ordinal).All(tensor =>
                 c.Products.Filter(product => StringComparer.Ordinal.Equals(product.Tensor, tensor)) is var lanes
                 && (lanes.ForAll(static lane => !lane.Graded) || lanes.ForAll(static lane => lane.Graded)))),
-        // A GRADE is a property of one tile, and no score row declares a direction an aggregate could reduce
-        // along, so a graded roster admits exactly one window and a wider extent refuses where the plan is built.
         new TileGate("grade-window", static c =>
             !c.Products.Exists(static product => product.Graded)
             || (Steps(c.SourceWidth, c.TileWidth, c.Overlap) is 1 && Steps(c.SourceHeight, c.TileHeight, c.Overlap) is 1)),
-        // Bucket edges and the seam band come off the leased CARD's own admission; the axes decouple, so a
-        // 256x512 request is legal wherever the card lists both edges.
         new TileGate("card-admission", static c => c.Admission.Admits(c.TileWidth, c.TileHeight, c.Overlap)),
         new TileGate("scale", static c => c.Scale > 0),
         new TileGate("seam-containment", static c => c.Overlap * 2 < Math.Min(c.TileWidth, c.TileHeight)),
@@ -599,16 +477,11 @@ public sealed partial class TilePlan {
 - Boundary: `InferTiled` composes the `Model/sessions#SESSION_CAPSULE` shared-arena `BoundFlow` and NEVER opens a session — the flow's bound input is the bucket and its bound outputs are the tensor roster, so a mosaic and its session warm-up name the same shapes by construction. Tiles run sequentially through the one bound input because the binding holds a single device-resident staging value; intra-tile parallelism belongs to the session's own thread pool, and the only fold this page partitions itself is the per-product normalize, which touches no binding at all. Every arena is a pooled `MemoryOwner<float>` released on the fold's exit, and the mosaic transfers one accumulation rental per product to the caller, so a failed pulse disposes every plane before the fault leaves.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// One assembled field plane and the roster row that placed it — role and component count read off the row rather
-// than copied beside it, so the binding the fold scattered under is the binding the writer publishes under.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TilePlane(TileProduct.Plane Product, MemoryOwner<float> Plane);
 
-// One graded product. A grade owns no arena, so it travels by value and its release is nothing.
 public readonly record struct TileGrade(string Role, float Value);
 
-// Assembled field set beside the grade set; owning every rental makes the mosaic the one release point, so a
-// caller that encodes and drops it returns each arena and a faulted fold disposes them all before the fault leaves.
 public sealed class TileMosaic : IDisposable {
     internal TileMosaic(Seq<TilePlane> planes, Seq<TileGrade> grades, TilePlan plan, int tiles, float coverage) =>
         (Planes, Grades, Plan, Tiles, Coverage) = (planes, grades, plan, tiles, coverage);
@@ -622,13 +495,7 @@ public sealed class TileMosaic : IDisposable {
     public void Dispose() => Planes.Iter(static produced => produced.Plane.Dispose());
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// Mosaic closing is this page's ONE item-partitioned fold. Every other parallel row in the corpus partitions an
-// INDEX range over an `IAction`, right for a coordinate fold; products partition by ITEM instead — each plane
-// divides its own arena by the one shared weight plane and reads nothing another plane writes — so `ForEach` hands
-// each worker its own `ref TilePlane` where an index fold would hand it a slot number into a captured array. Both
-// rentals outlive the fold, so the action holds `ReadOnlyMemory` and slices inside the worker rather than closing
-// over a span it could not carry. One action is one whole-plane divide, so the per-thread floor is one item.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 readonly struct NormalizeProduct(TileLayout layout, ReadOnlyMemory<float> weight) : IRefAction<TilePlane> {
     public void Invoke(ref TilePlane produced) =>
         layout.Normalize(produced.Plane.Span, weight.Span, produced.Product.Channels);
@@ -641,9 +508,6 @@ public static partial class RunOps {
                 return TileRefusal.SourceLength.Fault<TileMosaic>();
             }
             int texels = plan.OutputWidth * plan.OutputHeight;
-            // Materialized once: the scatter closure indexes by slice slot, and an array indexer is the only
-            // positional read a lambda can hold without forcing a span the closure cannot capture. Grades ride the
-            // same shape one rank down — one slot each, no arena, filled by a lane read rather than a scatter.
             TilePlane[] planes = plan.Fields
                 .Map(field => new TilePlane(field, MemoryOwner<float>.Allocate(texels * field.Channels, AllocationMode.Clear)))
                 .ToArray();
@@ -659,16 +523,10 @@ public static partial class RunOps {
             Seq<TileWindow> windows = plan.Windows;
             foreach (TileWindow window in windows) {
                 plan.Layout.Gather(source.Span, tile.Span, plan, window);
-                // ONE run per window feeds EVERY product: results arrive in the session's own output order,
-                // matching the DISTINCT-tensor order, so a tensor resolves by position inside one session's
-                // results and each lane by the offset the roster derived — never by matching a model's tensor name
-                // against a role some other end declared, and never by assuming one tensor carries one product.
                 Fin<Unit> pulsed = flow.Pulse(options, scope, new FlowPayload.Floats(tile.Memory), results => {
                     if (results.Count != tensors.Count) {
                         return TileRefusal.TensorCardinality.Fault<Unit>();
                     }
-                    // The produced values zip against the derived roster by POSITION, so no counter tracks a slot
-                    // a `Zip` already carries and no index can drift from the tensor it names.
                     foreach ((OrtValue value, TileTensor tensor) in toSeq(results).Zip(tensors)) {
                         ReadOnlySpan<float> produced = value.GetTensorDataAsSpan<float>();
                         if (produced.Length != tensor.Expected(area) || !TensorPrimitives.IsFiniteAll(produced)) {
@@ -691,21 +549,13 @@ public static partial class RunOps {
             if (coverage <= 0f) { return Strand<TileMosaic>(planes, TileRefusal.Coverage.Fault()); }
             ParallelHelper.ForEach<TilePlane, NormalizeProduct>(
                 planes.AsMemory(), new NormalizeProduct(plan.Layout, weight.Memory), minimumActionsPerThread: 1);
-            // The tile count is the grid's own cardinality: every window either scattered or short-circuited the
-            // whole fold, so a counter here could only ever hold one value.
             return Fin.Succ(new TileMosaic(
                 toSeq(planes), scorers.Map((grade, index) => new TileGrade(grade.Role, grades[index])),
                 plan, windows.Count, coverage));
         }
 
-        // FIRST window's raw output on the FIRST tensor, the deterministic canary two providers compare on: one
-        // tile bounds the parity cost at two runs whatever the mosaic's tile count, and one tensor bounds it
-        // whatever the roster's width — a residual hides in no plane a shared graph produced in the same pass, and
-        // a graded tensor's one-element array makes the residual fold's max magnitude the scalar difference.
         public Fin<float[]> Canary(RunOptions options, CancelScope scope, TilePlan plan, ReadOnlyMemory<float> source) {
             using MemoryOwner<float> tile = MemoryOwner<float>.Allocate(plan.Channels * plan.TileHeight * plan.TileWidth);
-            // Origin window, interior on both axes: the canary compares raw model output and scatters nowhere, so
-            // it takes the all-unit taper by naming the row rather than by passing a zero mask.
             plan.Layout.Gather(source.Span, tile.Span, plan, new TileWindow(0, 0, 0, 0, TileEdge.Interior, TileEdge.Interior));
             return flow.Pulse(options, scope, new FlowPayload.Floats(tile.Memory), static results =>
                 results.Count is 0
@@ -714,8 +564,6 @@ public static partial class RunOps {
         }
     }
 
-    // Partly-built mosaics never escape: every plane already allocated returns to the pool before the fault leaves,
-    // so an abandoned grid strands no arena.
     static Fin<T> Strand<T>(TilePlane[] planes, Error fault) {
         foreach (TilePlane held in planes) { held.Plane.Dispose(); }
         return Fin.Fail<T>(fault);

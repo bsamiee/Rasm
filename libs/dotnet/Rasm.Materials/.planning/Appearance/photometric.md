@@ -18,7 +18,7 @@ ONE `Photometric` static admission fold over the closed `PhotometricQuantity` ba
 - Boundary: `Photometric` NEVER re-mints a unit owner OR a conversion receipt — it admits `UnitsNet` IN-FOLDER through `MaterialUnits` (the seam the Compute `ARCHITECTURE [04]` enshrines: AEC admits UnitsNet in-folder) and CONSTRUCTS the seam `Rasm.Element/Properties/quantity#UNIT_SCHEME` `MeasureEvidence` from that coercion's own columns. Composing the seam receipt upward is not the forbidden reach: the refusal names `Rasm.Compute`, the app-platform unit owner, and stands unchanged. A `Gated` row gates through `MaterialUnits.Admit(family, value, unit, key, correlation)` — `Quantity.TryFrom` constructs, `typed.QuantityInfo.Name == family.Name && typed.Dimensions.Equals(family.BaseDimensions)` gates (the name check load-bearing because UnitsNet collapses lumen/candela/cd·m⁻² to the one luminous-intensity dimension), and ONE `ToUnit(UnitSystem.SI)` derives the SI magnitude and the canonical-unit witness the receipt names, crossing no quantity type into an interior signature. A `Borrowed` row (UnitsNet has no `Radiance`/`RadiantIntensity` quantity — steradian is dimensionally absent in SI) takes the pure `MaterialUnits.Coerce` prefix rescale over its named `IrradianceUnit`/`PowerUnit` SI-base enum. The gate and the radiometric divide COMPOSE in the one `PhotometricQuantity.Admit` row method: coerce to `Measure.CanonicalValue`, THEN derive `RadiometricSi` for a photopic row. Every admission here records `UnitResolution.Declared`, because a caller hands this owner the unit beside the magnitude and no header row or policy default ever supplies one — the inferred and assumed postures have no site on this page. The `Blackbody` case resolves `new Unicolour(config, bb.Cct, bb.Locus, bb.Luminance)` on either the Planckian or the CIE Daylight locus (Planck's law and the daylight polynomial owned by Unicolour, never re-derived); the per-locus CCT guard is inline in the arm — any finite positive CCT on the Planckian arm, the `Radiometry.DaylightCctMinKelvin`–`DaylightCctMaxKelvin` (4000–25000 K, the CIE 15 D-series polynomial domain) range on the daylight arm — with a finite non-negative luminance on both authored arms; a non-zero `Duv` is Planckian-arm-only, bounded `|Duv| ≤ Radiometry.DuvValidBound` (the package `Temperature.IsValid` domain), and resolves `new Unicolour(config, new Temperature(cct, duv), luminance)` — the binned LED admits without a parallel case. `Standard` resolves `illuminant.GetWhitePoint(policy.Observer).Chromaticity` through the config-explicit chromaticity constructor (the `Illuminant.Spd` is `internal`, so the case lowers through the public white-point surface); `Chromatic` guards its point inside the xy triangle (finite, `X ≥ 0`, `Y > 0`, `X + Y ≤ 1`) and lowers through the SAME chromaticity constructor — a datasheet source and a standard illuminant differ only by where the point comes from. `Spectral` carries an already-admitted `SpectralCurve`, whose own `Of` proved the interval against the `Spd.IsValid` domain, the extent, and non-negativity (a measured SPD is non-negative by definition), so the arm resolves rather than re-checks — the same carrier `acquisition#ACQUISITION` freezes to a durable spectral EXR, because a sampled spectrum is one shape whether it measures reflectance or emission. The resolved color projects its `Temperature` readout (CCT + Duv; `IsValid` marks |Duv| ≤ 0.05 where a CCT is chromatically meaningful, `IsHighAccuracy` the 1000–20000 K search band — the ANSI C78.377 binning discriminant), `DominantWavelength`/`ExcitationPurity`, and `RelativeLuminance` (the measured Y the `EmissionInput` construction divides OUT, so `Radiance` is unit-Y chromaticity by construction, intensity carries all the energy, and Y survives as receipt evidence) onto `EmissionInput` — every readout composed from the Unicolour surface, never re-derived. The `EmissionEvidence` receipt rides `EmissionInput.Provenance` so a consumer distinguishes a gated-and-rescaled luminous admission from a raw radiometric passthrough. A non-finite or negative admission rails `MaterialFault.Parameter` (band 2450), never a sentinel emission; a non-finite emission RGB rails `MaterialFault.Gamut`. EVERY AUTHORED LIGHT MAGNITUDE IN THE FOLDER CROSSES `Photometric.Admit` — a declared unit with no admission behind it is a claim, not a quantity — and the folder holds exactly two such sites beside this page's own graph entry: the `environment#SKY_MODEL` zenith level (already composed, so a cd/m² sky and a lux sky reach one radiometric scalar with no page-local efficacy divide) and the `environment#ENVIRONMENT_MAP` `Intensity`, whose admitted `EmissionEvidence` lets an HDRI authored in `lux` and one authored as a bare multiplier stay distinguishable at every domain `Scale` read and in analytics; generated `Set.Ibl.intensity` carries only the resolved scalar, so the authored evidence stays a named loss rather than a fabricated wire field. A dimensionless multiplier admits as `PhotometricQuantity.Radiance` with `RadiometricSi == Measure.CanonicalValue`, so the unitless case costs one construction and no branch. Reciprocally, `Raster/set#TEXTURE_SET` `ChannelUnit` is the PER-TEXEL PROJECTION of this same band and not a second unit vocabulary: each row names the `PhotometricQuantity` this page's admissions already gate through and READS its UCUM code off that row's own `Ucum` column — so a channel's declared unit and the folder's admitted unit are one fact read at two grains, never two rosters that drift, and a channel carrying no light quantity states the UCUM unity `1` on its own roster. UCUM lives here rather than on the channel roster because UnitsNet publishes no UCUM surface: its abbreviation cache yields display renderings (`cd/m²`, Unicode superscript) a reader consumes and a wire cannot. It is a QUANTITY-ROW column rather than a unit-keyed side table, because the code names what `Measure.CanonicalValue` is measured in and the row's own `Coercion` already fixes that — a lookup that could MISS made naming a quantity on a wire a second success that failed by exception, and covered none of the per-steradian rows whose SI-base enum is dimensionally silent about the steradian. High-luminance colour DIFFERENCE reads the HDR-correct metrics on the composed Unicolour selector — `Difference(candidate, DeltaE.Itp)` over the `Ictcp`/`Jzazbz` PQ-grounded spaces where CIELAB's luminance model breaks past the diffuse-white anchor — as one more `DeltaE` policy value on the caller's existing metric column, never a second colour owner or a photometric-local difference kernel.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using Rasm.Domain;
@@ -32,22 +32,16 @@ using Rasm.Numerics;
 using Wacton.Unicolour;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Temperature = Wacton.Unicolour.Temperature;   // UnitsNet also exports Temperature; the bare name pins the CCT readout
+using Temperature = Wacton.Unicolour.Temperature;
 
 namespace Rasm.Materials.Appearance.Photometric;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The closed gate-or-rescale discriminant: Gated rows own a published UnitsNet family (dimension+name gate, then
-// ONE ToUnit(UnitSystem.SI) deriving the SI magnitude AND the canonical-unit witness); Borrowed rows own the
-// per-steradian prefix rescale over a named SI-base enum. One column replaces the prior Family/CanonicalUnit pair
-// where each was meaningful only when the other was absent.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Coercion {
     private Coercion() { }
 
     public sealed record Gated(QuantityInfo Family) : Coercion;
-    // Family is DECLARED beside the borrowed SI-base enum because the receipt's family column crosses the wire, and
-    // reading it off the enum's runtime type spells `IrradianceUnit` where the quantity is a radiance.
     public sealed record Borrowed(Enum Canonical, string Family) : Coercion;
 
     internal Fin<EmissionEvidence> Admit(double value, Enum unit, Op key, Guid correlation) =>
@@ -58,9 +52,6 @@ public abstract partial record Coercion {
                 .Map(si => EmissionEvidence.Raw(s.Value, s.Unit, si, b.Canonical, b.Family, s.Correlation)));
 }
 
-// One light-unit band: each row binds its Coercion case, the Photopic marker driving the 683 lm/W divide, and the
-// radiance-vs-scalar discriminant. Admit composes coerce THEN divide in one place, so a luminous row is BOTH
-// dimensionally admitted AND lowered. `nit` is LuminanceUnit.Nit on Luminance, not a row.
 [SmartEnum<int>]
 public sealed partial class PhotometricQuantity {
     public static readonly PhotometricQuantity Illuminance       = new(0, new Coercion.Gated(UnitsNet.Illuminance.Info),            photopic: true,  canonicalIsRadiance: false, ucum: "lx");
@@ -74,22 +65,11 @@ public sealed partial class PhotometricQuantity {
 
     public Coercion Coercion { get; }
 
-    // THE TWO MARKERS STAY BOOLS, and the kernel CapabilitySet law decides it: a boolean product collapses only
-    // where a subset of its corners is legal, and ALL FOUR corners here carry a real row. The two facts read at
-    // different sites — Photopic drives the 683 lm/W divide inside this row's Admit, CanonicalIsRadiance gates the
-    // write at WithEmission — neither asking the other, so the law's own carve applies and the owner states it.
     public bool Photopic { get; }
     public bool CanonicalIsRadiance { get; }
 
-    // UCUM is a ROW COLUMN because it is a property of the QUANTITY, not of a unit enum a lookup has to find: the
-    // code names what CanonicalValue is measured in, which the row's own Coercion fixes, so a row cannot exist
-    // without its wire spelling. The prior side-table made naming a quantity on a wire a second success that failed
-    // by exception. Owned HERE because UnitsNet publishes DISPLAY renderings and no UCUM surface at all.
     public string Ucum { get; }
 
-    // The ONE row coercion: SI-base magnitude through the Coercion case, then the radiometric-twin derivation for a
-    // photopic row. INTERNAL, because Photometric.Admit is the single admission door and a public row method here
-    // would be a second ungated ingress.
     internal Fin<EmissionEvidence> Admit(double value, Enum unit, double efficacyRatio, Op key, Guid correlation) =>
         Coercion.Admit(value, unit, key, correlation)
             .Map(evidence => evidence with {
@@ -100,41 +80,27 @@ public sealed partial class PhotometricQuantity {
 public abstract partial record EmissionSpectrum {
     private EmissionSpectrum() { }
 
-    // Duv is the planckian offset an ANSI C78.377 bin quotes beside its CCT — 0.0 IS the locus, and a non-zero
-    // offset is Planckian-arm-only, resolving through the Temperature constructor.
     public sealed record Blackbody(double Cct, double Luminance, Locus Locus = Locus.Blackbody, double Duv = 0.0) : EmissionSpectrum;
 
     public sealed record Standard(Illuminant Illuminant, double Luminance) : EmissionSpectrum;
 
-    // The datasheet source: a luminaire/LED specification quotes an xy point plus output — the fourth canonical
-    // emission spec form beside CCT, named illuminant, and measured SPD.
     public sealed record Chromatic(Chromaticity Point, double Luminance) : EmissionSpectrum;
 
-    // The measured SPD reads the folder-root SpectralCurve carrier acquisition#ACQUISITION owns: a sampled spectrum
-    // is one shape whether it measures reflectance or emission, so this arm resolves a grid that carrier's own Of
-    // already proved and carries no coefficient guard.
     public sealed record Spectral(SpectralCurve Curve) : EmissionSpectrum;
 
     public sealed record Constant(double R, double G, double B) : EmissionSpectrum;
 }
 
-// --- [CONSTANTS] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class Radiometry {
-    public const double LuminousEfficacy = 683.0;        // lm/W at the 555 nm monochromatic photopic peak — the luminous->radiometric divide anchor
-    public const double DaylightCctMinKelvin = 4000.0;   // CIE 15 D-series locus polynomial domain — outside it the daylight curve extrapolates silently
+    public const double LuminousEfficacy = 683.0;
+    public const double DaylightCctMinKelvin = 4000.0;
     public const double DaylightCctMaxKelvin = 25000.0;
-    public const double DuvValidBound = 0.05;            // |Duv| beyond which a CCT is chromatically meaningless — the package Temperature.IsValid domain
+    public const double DuvValidBound = 0.05;
 }
 
-// --- [BOUNDARIES] --------------------------------------------------------------------------
-// The in-folder UnitsNet admission boundary: Materials owns its OWN unit coercion through the directly-pinned
-// package, never a Rasm.Compute reference (the acyclic strata forbids the AEC->app-platform edge). Conversion runs
-// exactly once and the receipt carries plain strings/doubles, so no UnitsNet type crosses an interior signature.
-// The seam MeasureEvidence IS the conversion half, its UnitResolution.Declared the posture every admission here
-// takes. RadiometricSi is the photometric EXTENSION the seam has no column for, kept OUTSIDE that receipt.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public readonly record struct EmissionEvidence(MeasureEvidence Measure, double RadiometricSi) {
-    // Gated receipt: ONE ToUnit(UnitSystem.SI) derives the SI magnitude AND the canonical-unit witness, so no
-    // per-row canonical-unit column exists for gated rows.
     public static EmissionEvidence From(IQuantity quantity, Guid correlation) {
         IQuantity si = quantity.ToUnit(UnitSystem.SI);
         double canonical = si.As(si.Unit);
@@ -143,9 +109,6 @@ public readonly record struct EmissionEvidence(MeasureEvidence Measure, double R
             si.Unit.ToString(), canonical, UnitResolution.Declared, correlation), canonical);
     }
 
-    // Borrowed receipt: no UnitsNet quantity exists to read a family or SI unit from, so the row's Borrowed enum is
-    // the SI-base witness for the prefix rescale and its DECLARED family string names the seam identity — reading
-    // that off the enum's runtime type spells IrradianceUnit on a radiance.
     public static EmissionEvidence Raw(double originalValue, Enum originalUnit, double canonicalValue, Enum canonical, string family, Guid correlation) =>
         new(new MeasureEvidence(
             QuantityType.Create(family), originalUnit.ToString(), originalValue,
@@ -153,35 +116,23 @@ public readonly record struct EmissionEvidence(MeasureEvidence Measure, double R
 }
 
 public static class MaterialUnits {
-    // The UCUM correspondence lives on the PhotometricQuantity row, so this owner publishes no unit-code table and
-    // no reader that can throw. A channel carrying no light quantity is dimensionless and states the UCUM unity "1"
-    // on its own roster rather than asking a lookup for it.
     public static Fin<double> Coerce(double value, Enum from, Enum to, Op key) =>
         UnitConverter.TryConvert(value, from, to, out double converted)
             ? Fin.Succ(converted)
             : new MaterialFault.Parameter(key, $"<unit-convert:{from}->{to}>");
 
-    // The name check is load-bearing: UnitsNet collapses lumen/candela/cd·m⁻² to one luminous-intensity dimension,
-    // so dimensions alone cannot distinguish a flux from an intensity from a luminance.
     public static Fin<EmissionEvidence> Admit(QuantityInfo family, double value, Enum unit, Op key, Guid correlation) =>
         Quantity.TryFrom(value, unit, out IQuantity? typed) && typed.QuantityInfo.Name == family.Name && typed.Dimensions.Equals(family.BaseDimensions)
             ? Fin.Succ(EmissionEvidence.From(typed, correlation))
             : new MaterialFault.Parameter(key, $"<unit-admit:{unit}:outside:{family.Name}>");
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The canonical emission payload: unit-Y scene-linear chromaticity, exposure-scaled radiometric-SI intensity, the
-// Temperature CCT+Duv readout (the ANSI C78.377 binning discriminant), the chromaticity pair, the MEASURED relative
-// luminance the construction divided out (Radiance is unit-Y BY CONSTRUCTION, so Intensity carries the energy),
-// the gamut-map evidence, and the threaded provenance. Every readout composes off the ONE resolved Unicolour
-// BEFORE normalization, so the receipt witnesses the resolve, not the normalized product.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct EmissionInput(
     Unicolour Radiance, double Intensity, PhotometricQuantity Source,
     double DominantWavelengthNm, double ExcitationPurity, Temperature Temperature, double RelativeLuminance,
     bool GamutMapped, EmissionEvidence Provenance) {
 
-    // Normalization re-anchors on the ONE Degree2 scene-linear carrier the graph consumes — the observer did its
-    // work during integration and channels are AP1/D65 either way; a zero-Y emission normalizes to itself.
     public static EmissionInput Of(Unicolour sceneLinear, double intensity, PhotometricQuantity source, bool gamutMapped, EmissionEvidence canonical) {
         var (rgb, y) = (sceneLinear.RgbLinear, sceneLinear.RelativeLuminance);
         Unicolour chroma = y > 0.0
@@ -192,26 +143,17 @@ public readonly record struct EmissionInput(
     }
 }
 
-// Observer is a policy column, not a knob: Degree2 the point-source default, Degree10 the large-field architectural
-// readout, selecting the white-point projection AND the SPD/CCT integration observer.
 public readonly record struct PhotometricPolicy(EmissionSpectrum Spectrum, double Exposure, double EfficacyRatio, Observer Observer) {
     public static readonly PhotometricPolicy Neutral = new(new EmissionSpectrum.Constant(1.0, 1.0, 1.0), Exposure: 1.0, EfficacyRatio: 1.0, Observer.Degree2);
 
-    // Of is the MEASURED mint and the ONE producer of EfficacyRatio. A Spectral arm carries its own source SPD, so
-    // the photopic-band fraction is a property of that curve: SpectralCurve.LuminousEfficacy() folds the
-    // scale-invariant ∫V(λ)S(λ)/∫S(λ) over the curve's own grid, surviving where the package's relative tristimulus
-    // readout cannot recover it. Every other arm takes the DECLARED unity default, the 555 nm anchor at which the
-    // 683 lm/W divide is exact — a stated idealization a broadband emitter reads high against.
     public static PhotometricPolicy Of(EmissionSpectrum spectrum, double exposure, Observer observer) =>
         new(spectrum, exposure,
             spectrum is EmissionSpectrum.Spectral measured ? measured.Curve.LuminousEfficacy() : 1.0,
             observer);
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Photometric {
-    // efficacyRatio is the photopic-band radiant-power fraction, (0,1] by physics: zero divides the radiometric twin
-    // to infinity, so it gates with the magnitude.
     public static Fin<EmissionEvidence> Admit(PhotometricQuantity quantity, double value, Enum unit, Op key, Guid correlation, double efficacyRatio = 1.0) =>
         double.IsFinite(value) && value >= 0.0 && efficacyRatio is > 0.0 and <= 1.0
             ? quantity.Admit(value, unit, efficacyRatio, key, correlation)
@@ -224,26 +166,15 @@ public static class Photometric {
         from resolved in SceneLinear(policy.Spectrum, policy.Observer, key)
         select EmissionInput.Of(resolved.Colour, canonical.RadiometricSi * policy.Exposure, quantity, resolved.Mapped, canonical);
 
-    // WithEmission makes the payload the CONSTRUCTOR of the row's two emission columns: an authored row and an
-    // admitted one stay distinguishable because only this path leaves an EmissionEvidence.
-    // THE QUANTITY BAND GATES THE WRITE. EmissionLuminance is a RADIANCE column, so only a row answering
-    // CanonicalIsRadiance may fill it: a flux, illuminance, irradiance, or power magnitude measures a whole emitter
-    // or receiving surface, and normalizing one needs the AREA and SOLID ANGLE no appearance row carries. Gating
-    // HERE rather than at Resolve is deliberate — Resolve's receipt is faithful for ANY quantity, which is what the
-    // sky and environment consumers read.
     public static Fin<MaterialParameters> WithEmission(MaterialParameters row, EmissionInput emission, Op key) =>
         emission.Source.CanonicalIsRadiance
             ? MaterialParameters.Of(
                 row with { Emission = emission.Radiance, EmissionLuminance = emission.Intensity, EmissionProvenance = Some(emission) }, key)
             : new MaterialFault.Parameter(key, $"<emission-quantity-not-radiance:{emission.Source.Key}:{emission.Source.Ucum}>");
 
-    // Observer selects WHICH of the two graph-owned Acescg instances integrates; both mint at PortValue, so the
-    // working-space cache identity stays countable at one owner.
     static Configuration WorkingSpace(Observer observer) =>
         observer == Observer.Degree10 ? PortValue.SceneLinearDegree10 : PortValue.SceneLinear;
 
-    // Every authored arm guards its inputs BEFORE construction and constructs CONFIG-EXPLICIT under the scene-linear
-    // working space, so .RgbLinear is AP1-linear everywhere.
     static Fin<(Unicolour Colour, bool Mapped)> SceneLinear(EmissionSpectrum spectrum, Observer observer, Op key) =>
         spectrum.Switch(
             state: (Observer: observer, Key: key),
@@ -266,9 +197,6 @@ public static class Photometric {
             spectral: static (s, sp) => Gate(new Unicolour(WorkingSpace(s.Observer), sp.Curve.ToSpd()), s.Key),
             constant: static (s, c) => Gate(new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, c.R, c.G, c.B), s.Key));
 
-    // Non-finite rails loud; an out-of-working-gamut emission bounds through the kernel GamutPolicy.Perceptual row
-    // with the mapping recorded — never an RGB clamp, never a negative channel into the lobe math, never a fault
-    // for a physically-real chromaticity.
     static Fin<(Unicolour Colour, bool Mapped)> Gate(Unicolour colour, Op key) {
         var rgb = colour.RgbLinear;
         return !double.IsFinite(rgb.R) || !double.IsFinite(rgb.G) || !double.IsFinite(rgb.B)

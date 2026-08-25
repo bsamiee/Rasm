@@ -71,8 +71,6 @@ _SPOOL_THREAD_CEILING: Final = 8
 
 # --- [POLICIES] -------------------------------------------------------------------------
 
-# Every bound below READS the corpus `buf.validate` rule off the generated descriptor. A literal
-# restating one here would be contract law spelled twice in two languages with nothing to raise on drift.
 
 
 def _rules(message: DescMessage, field: str, /) -> FieldRules:

@@ -26,7 +26,7 @@
 - Boundary: containment, area, and winding are defined only over a CLOSED loop; an open chain has no interior and answers `Sign.Zero`, zero area, and false containment consistently. Provider geometry never leaves this cluster.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,20 +47,15 @@ using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
-// `Rasm.Meshing` declares its own `BooleanOp` over the manifold ordinals, so the bare name is ambiguous here; the
-// alias names the arc-space provider row `BoolKind.Native` answers with and nothing else in this file spells it.
 using BooleanOp = CavalierContours.Polyline.BooleanOp;
 using TimeDuration = NodaTime.Duration;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Process;
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // --- [GEOMETRY]
 
-// The package's ONE Boolean posture, seated beside the atom that consumes it: the provider ordinal is a private
-// column on the row, so no consumer of `Loop.Apply` names a `CavalierContours` type and a provider reordering its
-// own enum moves nothing a caller spells. The truth function is what a set-classifying walk evaluates directly.
 [SmartEnum<string>]
 public sealed partial class BoolKind {
     public static readonly BoolKind Or = new("or", BooleanOp.Or, static (subject, clip) => subject || clip);
@@ -74,11 +69,8 @@ public sealed partial class BoolKind {
     internal bool Includes(bool subject, bool clip) => Rule(subject, clip);
 }
 
-// One polyline and one index per Loop. The view is derived from the admitted members, so it is out of construction,
-// equality, and every codec; it is forced on first query and never rebuilt.
 public readonly record struct LoopView(Polyline<double> Pline, StaticAABB2DIndex<double> Index);
 
-// `Bulges[i]` owns the span beginning at `Vertices[i]`; zero is linear and nonzero is `tan(sweep / 4)`.
 [ComplexValueObject]
 public sealed partial class Loop {
     public Arr<Point3d> Vertices { get; }
@@ -95,9 +87,6 @@ public sealed partial class Loop {
     public Point3d At(int i) => Vertices[((i % Count) + Count) % Count];
     public double BulgeAt(int i) => Bulges.IsEmpty ? 0.0 : Bulges[((i % Count) + Count) % Count];
 
-    // Package-internal, not private: this IS the one loop materialization every `Geometry2D` owner reads, so a
-    // sibling plane composing the held polyline and index builds no second pair. `Polyline<double>` is the provider's
-    // MUTABLE owner, so a caller running an in-place rewrite — `InvertDirection` — copies first.
     internal LoopView View => view ??= Built(Vertices, Bulges, Closed);
 
     private static LoopView Built(Arr<Point3d> vertices, Arr<double> bulges, bool closed) {
@@ -131,8 +120,6 @@ public sealed partial class Loop {
 
     public Loop AsCcw() {
         if (Winding() != Sign.Negative) return this;
-        // The reversal runs on a DETACHED copy: `InvertDirection` rewrites its receiver, so inverting the held view
-        // re-winds every later query on the loop that holds it, including the one that just asked for this copy.
         Polyline<double> reversed = new(View.Pline.IterVertexes(), View.Pline.IsClosed);
         reversed.InvertDirection();
         Seq<PlineVertex<double>> vertices = toSeq(reversed.IterVertexes());
@@ -143,20 +130,11 @@ public sealed partial class Loop {
             Tolerance);
     }
 
-    // The ONE canonical form every content key in the package reads: quantized onto the model grid, oriented CCW,
-    // and rotated to open on the least quantized vertex. Two loops describing one closed region under different
-    // vertex origins and windings mint one preimage; an open chain has no rotation freedom, so direction alone
-    // canonicalizes it. A second rotation rule anywhere below is the deleted fork.
     public Loop Canonical() {
         Loop oriented = Closed ? AsCcw() : Directed();
         return oriented.Closed ? oriented.RotatedTo(oriented.LeastVertex()) : oriented;
     }
 
-    // The ONE sibling-loop order, beside the rotation rule and the preimage it agrees with: closure, then span
-    // count, then the quantized vertex walk with its bulge, read on the canonical form `Canonical()` returns.
-    // Quantizing on each loop's own grid is what makes the rank agree with `CanonicalBytes` — an unquantized key
-    // sorts two loops the preimage already mints one key for. A first-vertex-plus-area key is a strict prefix of
-    // this walk, so a page declaring its own sibling comparer is the deleted fork.
     public static IComparer<Loop> CanonicalOrder { get; } = Comparer<Loop>.Create(static (left, right) =>
         left.Closed != right.Closed ? left.Closed.CompareTo(right.Closed)
         : left.Count != right.Count ? left.Count.CompareTo(right.Count)
@@ -181,7 +159,6 @@ public sealed partial class Loop {
             new Point3d(bounds.MaxX, bounds.MaxY, Vertices.Max(static point => point.Z)))
         : BoundingBox.Empty;
 
-    // Containment is defined only over a closed loop; an open chain has no interior, matching Area and Winding.
     public bool Covers(Point3d point) =>
         Closed && View.Pline.WindingNumber(new Vector2<double>(point.X, point.Y)) != 0;
 
@@ -263,12 +240,6 @@ public sealed partial class Loop {
     private Fin<ProfileResult> Offset(double millimeters) => FromPlines(
         PlineOffset.ParallelOffset<Polyline<double>, double>(View.Pline, millimeters, OffsetOptions()), this);
 
-    // Islands travel WITH the outer loop through one Shape: the winding partition seats CCW outer against CW hole
-    // loops, so an inward offset of a pocket keeps its island standoff instead of collapsing over it.
-    // `ParallelOffset` answers a `Shape<double>` whose CCW and CW loop sets carry that partition, and
-    // `ShapeOffsetOptions<T>(T posEqualEps, T offsetDistEps, T sliceJoinEps)` names its three epsilons in that
-    // order — the model context supplies all three, so the grid a key quantizes on and the grid the offset joins
-    // slices on are one value rather than the provider's own 1e-5/1e-4/1e-4 defaults.
     private Fin<ProfileResult> OffsetShape(Arr<Loop> islands, double millimeters) {
         double eps = Tolerance.Absolute.Value;
         Shape<double> offset = Shape<double>
@@ -380,8 +351,6 @@ public sealed partial class PartTransform {
     public double RotationRadians { get; }
     public int SheetIndex { get; }
 
-    // Sheet parts nest mirrored: the placement reflects across the local Y axis before rotating, which reverses
-    // every arc sweep, so bulge signs and arc senses invert with the point map rather than beside it.
     public bool Mirrored { get; }
 
     [BoundaryAdapter]
@@ -430,7 +399,6 @@ public sealed partial class ProjectionDir {
     public Vector3d ScreenU { get; }
     public Vector3d ScreenV { get; }
 
-    // Orthogonality is the admitted invariant, not decoration: it is exactly what makes the screen triple invertible.
     private const double Orthogonal = 1e-9;
 
     [BoundaryAdapter]
@@ -456,8 +424,6 @@ public sealed partial class ProjectionDir {
             None: () => Fin.Fail<ProjectionDir>(
                 new GeometryFault.DegenerateInput(Kind.Plane, None, "projection-dir:forward")));
 
-    // Project retains depth on the third component, so the correspondence is a change of orthonormal basis and
-    // Unproject reconstructs the world point exactly; neither direction is a sibling owner.
     public Point3d Project(Point3d point) {
         Vector3d radius = point - Point3d.Origin;
         return new Point3d(radius * ScreenU, radius * ScreenV, radius * Forward);
@@ -504,9 +470,6 @@ public sealed partial class DwellBasis {
     public static readonly DwellBasis Revolutions = new("revolutions");
 }
 
-// The wire lane's own action DISCRIMINANT, which is what a specialized row can carry and a preimage can frame:
-// `Toolpath/wire` `WireAction` is a payload-bearing union whose cases hold that plane's access, process, and feed
-// shapes, so the atom names the row it answers to rather than a second type under the union's own name.
 [SmartEnum<string>]
 public sealed partial class WireActionKind {
     public static readonly WireActionKind Access = new("access");
@@ -612,8 +575,6 @@ public abstract partial record SpecializedToolpathRow(SpecializedToolpathKind To
         double GripPlane, double GripLength, double PullDistance) : SpecializedToolpathRow(SpecializedToolpathKind.Turning);
 }
 
-// Private construction plus one admitting factory: the envelope's kind correspondence is proved ONCE here, so a
-// consumer that holds one never re-walks its rows and a locally-revalidating consumer is the deleted form.
 public sealed record SpecializedToolpathEnvelope {
     private SpecializedToolpathEnvelope(
         SpecializedToolpathKind kind,
@@ -636,8 +597,6 @@ public sealed record SpecializedToolpathEnvelope {
             .ToFin()
             .Map(_ => new SpecializedToolpathEnvelope(kind, rows, durationSeconds));
 
-    // Every envelope gate binds this minter as a method group: the toolpath kind rides the gate's concern slot and
-    // reaches the locus it was declared for, so the token composes on the failing arm alone.
     private static FabricationFault Refusal(SpecializedToolpathKind kind, string slot) =>
         FabricationFault.Inadmissible(FabConcern.Toolpath, $"specialized-envelope:{kind.Key}:{slot}");
 }
@@ -652,8 +611,6 @@ public abstract partial record MotionDirective {
         double SurfaceMetersPerMinute,
         double ResolvedRpm,
         Option<double> CeilingRpm) : MotionDirective;
-    // A dwell is a duration OR a revolution count depending on the controller word; carrying the basis beside the
-    // amount is what lets the dialect emit the right address without re-deriving intent from the spindle mode.
     public sealed record Dwell(int AfterMove, DwellBasis Basis, double Amount) : MotionDirective;
     public sealed record Synchronize(int FromMove, int ToMove, double Rpm, double Lead, RotationSense Hand) : MotionDirective;
     public sealed record OrientedStop(int AfterMove, double OrientDeg, Vector3d Retract) : MotionDirective;
@@ -669,8 +626,6 @@ public abstract partial record MotionDirective {
         specialized: static row => row.AfterMove);
 }
 
-// Continuous tool-frame carriage. An oriented move names its tool axis at BOTH ends plus the contact point the
-// surface lane resolved, so a five-axis cut round-trips its orientation instead of re-deriving it from geometry.
 public sealed record MoveOrientation(Vector3d AxisAtStart, Vector3d AxisAtEnd, Option<Point3d> Contact) {
     public bool Valid =>
         AxisAtStart.IsValid && AxisAtEnd.IsValid
@@ -686,8 +641,6 @@ public abstract partial record Move {
     public Point3d Target { get; }
     public Option<MoveOrientation> Orientation { get; }
 
-    // A move with no orientation is exact under a planar swept solid; an oriented one is not, so the guard reads
-    // this rather than inspecting the case.
     public bool AxisFree => Orientation.IsNone;
 
     public sealed record Rapid : Move {
@@ -734,8 +687,6 @@ public abstract partial record Move {
         linear: static _ => Option<Circular>.None,
         circular: static move => Some(move));
 
-    // An affine placement preserves every admitted invariant, so a placed move re-seats without a second admission;
-    // the mirror flips arc sense and sweep sign WITH the point map rather than beside it.
     public Move Transformed(PartTransform placement) => Switch(
         state: placement,
         rapid: static (at, move) => (Move)new Rapid(at.Apply(move.Target), move.Orientation),
@@ -747,9 +698,6 @@ public abstract partial record Move {
             new ArcCenter(at.Apply(move.Arc.Center), at.Mirrored ? move.Arc.Sense.Flipped : move.Arc.Sense),
             at.Mirrored ? -move.SweepRadians : move.SweepRadians));
 
-    // Re-admission at a consuming plane: every case re-enters its OWN sealed factory, so a move arriving across a
-    // seam proves its invariants again in one call rather than through a per-case ladder at each caller. The
-    // element mint, the cell loader, and the machine solver all read this, so the re-proof is one law.
     public static Fin<Move> Admit(Move move) => move.Switch(
         rapid: static row => Rapid.Of(row.Target, row.Orientation),
         linear: static row => Linear.Of(row.Target, row.Feed, row.Orientation),
@@ -769,8 +717,6 @@ public abstract partial record Move {
         Fin.Fail<Move>(new GeometryFault.DegenerateInput(kind, None, locus));
 }
 
-// A warning is evidence, not prose: the raising plane and its declared locus partition the run-warning instrument,
-// while the detail carries whatever the plane measured.
 public sealed record RunWarning(FabConcern Raised, string Locus, string Detail);
 
 [ComplexValueObject]
@@ -821,10 +767,6 @@ public sealed partial class MotionEvidence {
 
 ```csharp signature
 // --- [EQUIPMENT]
-// Consumable identity seats at S0 for the reason station identity does: `Tooling/wear` spends a consumable budget
-// at S2 and `Joining/weld` names a filler, flux, or shielding product at S3, and no stratum composes the one above
-// it. One catalogue entry, one type — filler identity and flux identity are two types rather than two strings a
-// consumer transposes, and the contact tip a procedure names is the contact tip a wear budget spends.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct ConsumableKey {
     [BoundaryAdapter]
@@ -844,8 +786,6 @@ public sealed partial class CornerRule {
     public static readonly CornerRule Partial = new("partial");
     public static readonly CornerRule Any = new("any");
 
-    // Corner radii arrive measured or converted, so every comparison is relative to the cutter's own half-diameter;
-    // exact equality rejects a ground ball nose by one ulp.
     private const double Relative = 1e-6;
 
     public bool Admits(double cornerRadius, double diameter) => Switch(
@@ -897,10 +837,6 @@ public sealed partial class CutterFamily {
     public static readonly CutterFamily FaceMill = new("face-mill", CornerRule.Any, TaperRule.Straight, TaperSource.Flat);
     public static readonly CutterFamily SlittingSaw = new("slitting-saw", CornerRule.Sharp, TaperRule.Straight, TaperSource.Flat);
 
-    // A composite cutter carries TWO profile sections — a straight or radiused body under a coned or bulled tip —
-    // so neither the corner rule nor the taper rule binds it alone; the section split rides `MajorLength` and
-    // `SecondaryAngle` on the metric stream, which is what makes the composite constructors expressible without a
-    // second family per pairing.
     public static readonly CutterFamily Compound = new("compound", CornerRule.Any, TaperRule.Any, TaperSource.EdgeAngle);
 
     public CornerRule Corner { get; }
@@ -911,8 +847,6 @@ public sealed partial class CutterFamily {
         Corner.Admits(cornerRadius, diameter) && Taper.Admits(taperAngle);
 }
 
-// Every optional cutter dimension is a ROW on one metric axis: a new ISO-13399 measurement adds a row, not a
-// column, a constructor slot, and a validation clause on three declarations.
 [SmartEnum<string>]
 public sealed partial class CutterMetric {
     public static readonly CutterMetric UsableLength = new("usable-length");
@@ -927,9 +861,6 @@ public sealed partial class CutterMetric {
     public static readonly CutterMetric ProtrudingLength = new("protruding-length");
     public static readonly CutterMetric BodyDiameter = new("body-diameter");
 
-    // The composite split: `MajorLength` is the axial extent of the lower section and `SecondaryAngle` the upper
-    // section's own included angle, so a compound form states its two-section geometry as rows rather than as a
-    // family per pairing.
     public static readonly CutterMetric MajorLength = new("major-length");
     public static readonly CutterMetric SecondaryAngle = new("secondary-angle");
 }
@@ -1039,8 +970,6 @@ public sealed partial class ToolEvidence {
     private static bool Bounded(double amount) => double.IsFinite(amount) && amount >= 0.0;
 }
 
-// Cutter ingress is one shape, never a family: the whole measurement surface rides the metric stream, so a second
-// ingress record per asset arm is the deleted form.
 public sealed record CutterIngress(
     CutterFamily Family,
     double Diameter,
@@ -1067,8 +996,6 @@ public sealed partial class CutterForm {
     public UnitsNet.Angle Taper => UnitsNet.Angle.FromDegrees(TaperAngle);
     public UnitsNet.Length CuttingLength => UnitsNet.Length.FromMillimeters(FluteLength);
 
-    // Named reads over the one metric stream: a consumer keeps its member spelling while the carrier stays a keyed
-    // fact stream, so adding a dimension never re-spells a validator or a constructor.
     public Option<double> UsableLengthMm => Metrics.Find(CutterMetric.UsableLength);
     public Option<double> FunctionalLengthMm => Metrics.Find(CutterMetric.FunctionalLength);
     public Option<double> OverallLengthMm => Metrics.Find(CutterMetric.OverallLength);
@@ -1132,8 +1059,6 @@ public sealed partial class CutterForm {
 
 ```csharp signature
 // --- [PLAN]
-// The shop-station identity seats at S0 because the schedule, the plan step, and the fleet registry all key on it;
-// `Kinematics/fleet` `MachineInstance` carries this row rather than a bare string of its own.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MachineInstanceKey {
     [BoundaryAdapter]
@@ -1250,8 +1175,6 @@ public sealed partial class PlannedStep {
     public ProcessKind Process { get; }
     public Machine Machine { get; }
 
-    // The physical station the schedule reserved. A plane with no instance census leaves it absent and the machine
-    // CLASS is treated as uncapped; a present instance is what makes a finite-capacity fold possible at all.
     public Option<MachineInstanceKey> Instance { get; }
 
     public int Setup { get; }
@@ -1322,11 +1245,6 @@ public readonly record struct BendStep(
     double TonnageKn,
     BendOrientation Orientation);
 
-// Attestations a capability study earns ride beside its index. A demand states the ones it needs as a VALUE
-// and answers through `AdmitsAll`, so a gate never probes one attestation while forgetting the other, and a
-// third lands as one row rather than a third bool on every carrier, requirement, and preimage that reads them.
-// Rank stays the kernel `ICapability` DEFAULT — declaration order IS the wire order here, so the hand ordinal
-// column published a second answer that drifts the moment a row is inserted between these two.
 [SmartEnum<string>]
 public sealed partial class CapabilityAttestation : ICapability<CapabilityAttestation> {
     public static readonly CapabilityAttestation Procedure = new("procedure-qualified");
@@ -1338,8 +1256,6 @@ public sealed partial class CapabilityVerdict {
     public double Cpk { get; }
     public double DemandedCpk { get; }
 
-    // Fail-closed by ABSENCE: an attestation the study never earned is simply not held, so it fails `Pass` on its
-    // own evidence instead of masquerading as a zero-Cpk process.
     public CapabilitySet<CapabilityAttestation> Attested { get; }
     public bool Pass => Cpk >= DemandedCpk && Attested.AdmitsAll(CapabilitySet<CapabilityAttestation>.All);
 

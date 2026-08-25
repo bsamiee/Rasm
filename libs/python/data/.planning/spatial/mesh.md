@@ -48,17 +48,9 @@ from rasm.runtime.roots import ResourceRef
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.mesh")
 
-# the raise anchors the retried legs on this page key on: `reliability/resilience#RESILIENCE` `guarded` takes the
-# caller's own rostered `at: FaultRow[L]`, so the breaker arc, the rate bucket, the span, and the lifted fault all
-# derive ONE coordinate the roster proves against a real module — the free `subject=<str>` it retired could spell a
-# leg this package never declares. Every row here is a network-bearing leg, so each declares TRANSIENT.
 POINTCLOUD_CLOUD: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.MESH, point="cloud", arm="boundary", defect="cloud-read", retriability=TRANSIENT
 )
-# the rest of this module's raise roster beside it. Posture splits on what a re-offer can clear, never on the
-# entrypoint: every leg crossing a file or a codec declares TRANSIENT, while each caller-repairable routing and
-# shape gate declares TERMINAL. `slots` NAMES each gate's coordinates, so the joined message bodies these rows
-# replace become fields a consumer gates on rather than prose it parses.
 MESH_BACKEND: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.MESH, point="backend", arm="config", defect="suffix-unrouted", retriability=TERMINAL, slots=("suffix",)
 )
@@ -68,8 +60,6 @@ MESH_ARITY: Final[FaultRow[DataLeg]] = FaultRow(
 MESH_OPEN: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.MESH, point="open", arm="boundary", defect="engine-open", retriability=TRANSIENT
 )
-# ONE row for every banded leg — read, arrays, export, preview — because they share one thread hop, one engine, and
-# one narrowed raise surface; the op that ran rides the span this row's fence opens beneath.
 MESH_WORK: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.MESH, point="work", arm="boundary", defect="mesh-leg", retriability=TRANSIENT
 )
@@ -101,29 +91,21 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
     PRODUCT_SUFFIX,
     PRODUCT_WRITE,
 ]))
-_PREVIEW: Final[str] = "glb"  # the format the preview case elects; the export case reads the caller's own token
-_UNSET: Final[UUID] = UUID(int=0)  # `ObjectAttributes.Id` on an attribute block no document ever keyed
-_POINT_BAND: Final[str] = "point"  # the vertex-arity band name; every cell band spells `cell.<block>`
+_PREVIEW: Final[str] = "glb"
+_UNSET: Final[UUID] = UUID(int=0)
+_POINT_BAND: Final[str] = "point"
 
 type Engine = meshio.Mesh | trimesh.Trimesh | rhino3dm.File3dm
 type Arrays = Mapping[str, np.ndarray]
-type Blocks = Mapping[str, Arrays]  # cell arrays keyed BLOCK-first, so one band's arrays share one cell census
+type Blocks = Mapping[str, Arrays]
 type Frames = Iterator[RuntimeRail[tuple[float, "MeshColumns"]]]
 
 
 def _posted(key: str, posture: Posture[str]) -> dict[str, object]:
-    # receipt projection for one posture-carried fact: an ABSENT fact omits its key rather than publishing `""` a
-    # board joins as a declaration, and a DEFAULTED one publishes the standing-in source beside the value, so "the
-    # file said millimetres" and "the document default said millimetres" never collapse into one series.
     sourced = posture.source.map(lambda origin: {f"{key}_source": origin}).default_value({})
     return posture.option().map(lambda value: {key: value} | sourced).default_value({})
 
 
-# one walked node names WHICH object contributed WHICH slice of the concatenated vertex stack. A flattening walk
-# strips layer, object name, object id, and instance transform before the frame ever sees a `.3dm` model, so
-# nothing downstream can say which object a vertex came from. Every identity column is a posture because an object
-# may carry no name and a solver deck carries no object graph at all — an empty string in either slot fuses
-# "unnamed here" with "this format has no such concept".
 class _Node(Struct, frozen=True):
     identity: Posture[str]
     name: Posture[str]
@@ -132,8 +114,6 @@ class _Node(Struct, frozen=True):
     vertex_span: tuple[int, int]
 
 
-# one walked node's identity beside the arrays it contributed; `_folded` assigns the spans and stacks the arrays in
-# one pass, so no engine arm carries a running offset and the per-vertex alignment law lives at one owner.
 class _Piece(Struct, frozen=True):
     identity: Posture[str]
     name: Posture[str]
@@ -155,11 +135,6 @@ class _Extract(Struct, frozen=True):
     nodes: tuple[_Node, ...]
 
 
-# frame carries the canonical-geometry identity (the `float64` point-buffer `ContentKey`), whatever named-array
-# arities the receipt reports, and the node ROWS the payload crosses with; egress-driving column NAMES live on
-# whichever transient `_Extract` the `arrays` leg reads, never re-stored. Mesh identity is its point geometry, so `_frame` is
-# one `ContentIdentity.of(...).map(...)` rail, never a per-array key-derivation fold whose keys no consumer reads
-# off the once-dropped buffers.
 class MeshFrame(Struct, frozen=True):
     points: ContentKey
     point_count: int
@@ -171,19 +146,10 @@ class MeshFrame(Struct, frozen=True):
 
 
 def _stacked(blocks: tuple[np.ndarray, ...]) -> np.ndarray:
-    # one block passes THROUGH: `np.concatenate` over a single array copies a whole point buffer on every read,
-    # and both whole-file engines walk exactly one node per file.
     return blocks[0] if len(blocks) == 1 else np.concatenate(blocks)
 
 
 def _folded(pieces: Block[_Piece]) -> _Extract:
-    # ONE fold over the walk: vertex spans assign here so no engine arm carries a running offset, and the aligned-aux
-    # law generalizes from a `rhino3dm`-only stack to every engine — a per-vertex array stacks only when EVERY piece
-    # declares it AND its row count equals that piece's own vertex count, because a model where one node defines
-    # normals and another does not would otherwise concatenate a short array a "vertex"-keyed consumer reads off the
-    # end of. Cell and field arrays are whole-file facts the single-node engines publish: the multi-node `rhino3dm`
-    # walk publishes block NAMES and no connectivity, since vertex-indexed cells would have to rebase onto the
-    # concatenated stack and the point buffer stays the sole identity preimage.
     stacks = tuple(piece.points for piece in pieces)
     starts = tuple(accumulate((len(block) for block in stacks), initial=0))
     aligned = sorted({
@@ -224,10 +190,6 @@ def _frame(extract: _Extract) -> RuntimeRail[MeshFrame]:
 
 
 def _blocked(per_name: Mapping[str, Mapping[str, np.ndarray]]) -> Blocks:
-    # meshio keys cell data NAME-first (`{name: {cell_type: array}}`) and arrays under ONE name have different
-    # lengths per cell type, so this transposes to BLOCK-first: inside one block every array shares that block's
-    # own cell census, which is the single arity a table can carry. Flattening to `f"{name}.{cell_type}"` keys
-    # instead hands `pa.table` columns of two lengths, which it refuses with `ArrowInvalid`.
     blocks = {cell_type for per_type in per_name.values() for cell_type in per_type}
     return {
         cell_type: {name: np.asarray(per_type[cell_type]) for name, per_type in per_name.items() if cell_type in per_type}
@@ -236,9 +198,6 @@ def _blocked(per_name: Mapping[str, Mapping[str, np.ndarray]]) -> Blocks:
 
 
 def _meshio_walk(mesh: "meshio.Mesh") -> Block[_Piece]:
-    # a solver deck is one flat mesh with no object graph, so the walk publishes one whole-file node whose identity,
-    # name, and layer path are ABSENT rather than a filename standing in for a declaration the format never made,
-    # and `transform_applied` is a measured `False` because a deck declares no instance graph to compose.
     return Block.singleton(
         _Piece(
             identity=Posture(absent=None),
@@ -255,12 +214,6 @@ def _meshio_walk(mesh: "meshio.Mesh") -> Block[_Piece]:
 
 
 def _trimesh_walk(surface: "trimesh.Trimesh") -> Block[_Piece]:
-    # `Trimesh.visual` is the `ColorVisuals | TextureVisuals` union: only `ColorVisuals` carries the `vertex_colors`
-    # `(N,4)` `uint8` RGBA property (synthesizing defaults when no color is defined), while `TextureVisuals` exposes
-    # UV/material and no per-vertex color, so the color point array is a typed `isinstance` discriminant over the
-    # union rather than a stringly-typed `getattr` probe — the texture arm yields no color array (the PIL-backed
-    # `to_color` bake is outside this exchange owner). `transform_applied` is TRUE because the forced-mesh load
-    # collapses the scene graph, so the vertices published already rode their node transforms.
     visual = surface.visual
     faces = np.asarray(surface.faces)
     return Block.singleton(
@@ -279,11 +232,6 @@ def _trimesh_walk(surface: "trimesh.Trimesh") -> Block[_Piece]:
 
 
 def _rhino3dm_walk(model: "rhino3dm.File3dm") -> Block[_Piece]:
-    # layer roster reads ONCE per model and keys on each layer's own `Index`, never on table position:
-    # `File3dmLayerTable.FindIndex` RAISES `IndexError` off the row set, which no `_Backend` row lists as a fault and
-    # which would therefore cross the boundary as an unclassified defect. Definition members are skipped at the top
-    # level because the instance-reference arm reaches them under their own composed transform; admitting them twice
-    # would stack every block's geometry once in its authoring frame and again in each placement.
     layers = Map.of_seq((layer.Index, layer.FullPath) for layer in model.Layers)
     roots = Block.of_seq(obj for obj in model.Objects if not obj.Attributes.IsInstanceDefinitionObject)
     return roots.collect(lambda obj: _placed(model, layers, obj, Nothing, frozenset()))
@@ -296,10 +244,6 @@ def _placed(
     xform: Option["rhino3dm.Transform"],
     branch: frozenset[str],
 ) -> Block[_Piece]:
-    # ONE recursive placement over the object graph: a mesh yields its own node, an instance reference yields its
-    # definition's members under the composed transform, and every other geometry kind yields nothing. `branch`
-    # pins every definition id already on this path, so a self-including definition terminates by name instead of
-    # recursing until the interpreter stack dies inside an offloaded thread.
     attrs = obj.Attributes
     node = (_identified(attrs), _named(attrs), _pathed(layers, attrs))
     match obj.Geometry:
@@ -315,9 +259,6 @@ def _placed(
 
 
 def _meshed(node: tuple[Posture[str], Posture[str], Posture[str]], mesh: "rhino3dm.Mesh", xform: Option["rhino3dm.Transform"]) -> _Piece:
-    # `GeometryBase.Transform` MUTATES in place and answers a bool, so a placed mesh COPIES first: transforming the
-    # definition's own mesh would move every later reference of that block. A face is a 4-int tuple whose triangle
-    # repeats index 3, so `face[3] != face[2]` is the quad probe the catalogue declares.
     placed = xform.map(lambda held: _transformed(mesh, held)).default_value(mesh)
     identity, name, path = node
     bands = Block.of_seq((
@@ -344,15 +285,11 @@ def _transformed(mesh: "rhino3dm.Mesh", xform: "rhino3dm.Transform") -> "rhino3d
 
 
 def _band(mesh: "rhino3dm.Mesh", read: "Callable[[rhino3dm.Mesh], list[tuple[float, ...]]]", dtype: str) -> Option[np.ndarray]:
-    # a per-vertex aux band is admitted for THIS node only when its arity matches this node's own vertex count; the
-    # cross-node all-or-nothing rule is `_folded`'s, so neither owner re-derives the other's half of the law.
     rows = read(mesh)
     return Some(np.array(rows, dtype=dtype)) if len(rows) == len(mesh.Vertices) else Nothing
 
 
 def _identified(attrs: "rhino3dm.ObjectAttributes") -> Posture[str]:
-    # `Id` reads the nil uuid on an attribute block no document ever keyed and `Name` reads `""` on an unnamed
-    # object: both are the provider's own unset spellings and both project HERE, at the single read site.
     return Posture.of_optional(None if attrs.Id == _UNSET else str(attrs.Id))
 
 
@@ -365,18 +302,12 @@ def _pathed(layers: Map[int, str], attrs: "rhino3dm.ObjectAttributes") -> Postur
 
 
 def _xdmf_frames(engine: str, ref: ResourceRef) -> Frames:
-    # reader open and `read_points_cells` (where `ReadError` surfaces) run eagerly inside the fence; only the
-    # per-step `read_data` loop stays lazy, its provider-fault lift deferred to the consumer that drains it — the
-    # same STREAM-arm convention `runtime/transport/roots#RESOURCE` holds, the generator's own `with` owning the HDF5
-    # `TimeSeriesReader.__exit__` close on exhaustion or break.
     reader = meshio.xdmf.TimeSeriesReader(str(ref.path))
     reader.read_points_cells()
     return _framed(engine, str(ref.path), reader)
 
 
 def _framed(engine: str, source: str, reader: "meshio.xdmf.TimeSeriesReader") -> Frames:
-    # each step bands exactly as the whole-file egress does, so a time series and a static read hand a consumer one
-    # shape; the step index joins the receipt source because a series writes one table set per step over one file.
     with reader:
         for step in range(reader.num_steps):
             time, point_data, cell_data = reader.read_data(step)
@@ -423,18 +354,6 @@ def _rhino3dm_export(model: "rhino3dm.File3dm", out: ResourceRef, fmt: str) -> N
         model.Write(str(out.path), 0)
 
 
-# Each row narrows `fault` to the engine's real raise surface so a non-engine exception escapes rather than
-# masquerading as a mesh fault: `rhino3dm` signals load failure by null (the `_rhino3dm_load` `FileNotFoundError`)
-# plus `OSError` on the Draco/`Write` egress; `trimesh.load_mesh` splits its refusals across TWO builtins and the row
-# carries both — an unregistered or undetectable `file_type` raises `NotImplementedError`, while a malformed source,
-# an unset `file_type` on a file object, and a refused remote raise `ValueError` — plus `OSError` for the read and
-# the `export` leg this same row narrows; `meshio` carries its own `ReadError`/`WriteError` codec roots. The tuple
-# `catch` is the `runtime/reliability/faults#FAULT` `boundary` widening (`type[Exception] | tuple[...]`) the `except`
-# clause accepts natively. `units` answers a POSTURE per row: a `.3dm` document with no declared unit still reports `Millimeters`,
-# so that row is DEFAULTED against the member that supplied it; `Trimesh.units` is genuinely nullable, so its row
-# declares what it holds and admits absence otherwise; `meshio` exposes no unit surface at all, so its row is ABSENT
-# and a `"m"` published from that row is a measurement with no producer. `frames` is the XDMF reader, held
-# by the FE row alone — the surface rows skip that leg by ABSENCE rather than by a boolean every arm re-reads.
 _BACKEND: Final[Map[str, _Backend]] = Map.of_seq([
     (
         "rhino3dm",
@@ -474,10 +393,6 @@ _BACKEND: Final[Map[str, _Backend]] = Map.of_seq([
     ),
 ])
 
-# precedence is made EXPLICIT before the rail: the plain-dict left-to-right union fixes
-# later-key-wins (trimesh overrides the shared .obj/.off/.ply/.stl meshio rows, rhino3dm owns
-# .3dm), then the settled mapping lifts onto the one `Map` rail — the precedence never rests
-# on a map iteration order because it is resolved in the dict union before `of_seq` sees it.
 _EXT: Final[Map[str, str]] = Map.of_seq(
     (
         {ext: "meshio" for ext in _BACKEND["meshio"].exts}
@@ -496,9 +411,6 @@ class MeshBackend:
 
     @staticmethod
     def of(ref: ResourceRef) -> "RuntimeRail[MeshBackend]":
-        # an unrecognized suffix is a REFUSAL, never a silent meshio election: a `.get(suffix, "meshio")` default
-        # hands every unknown extension to the FE reader, which dies inside its codec naming the file rather
-        # than whichever routing decision mis-sent it. `to_result_with` builds the fault on the failing arm alone.
         suffix = ref.path.suffix.lower()
         return (
             _EXT.try_find(suffix)
@@ -521,27 +433,16 @@ def _columns(arrays: Arrays) -> pa.Table:
 
 
 class MeshColumns(Struct, frozen=True):
-    # one PROVED `(table, QueryReceipt)` pair per ARITY band: `point` over the vertex-aligned columns and
-    # `cell.<block>` over each cell block, whose rows are that block's own cell census. `pa.table` admits ONE length
-    # across every column handed to it, so a single table spanning point-arity and cell-arity columns raises
-    # `ArrowInvalid` on every mesh carrying both — banding makes that shape unrepresentable rather than rostering
-    # `ArrowInvalid` on a `catch=` tuple, and each band still hands back the `(table, QueryReceipt)` pair every
-    # sibling Arrow producer returns.
     bands: Map[str, tuple[pa.Table, QueryReceipt]]
 
     @staticmethod
     def of(engine: str, source: str, points: Arrays, cells: Blocks, rows: Option[int]) -> "RuntimeRail[MeshColumns]":
-        # ACCUMULATE, so a mesh carrying two malformed blocks names both at once instead of one per re-run.
         celled = Block.of_seq(cells.items()).map(lambda row: _banded(engine, source, f"cell.{row[0]}", row[1], Nothing))
         banded = Block.singleton(_banded(engine, source, _POINT_BAND, points, rows)).append(celled)
         return traversed(banded, by=Disposition.ACCUMULATE).map(lambda pairs: MeshColumns(Map.of_seq(pairs)))
 
 
 def _banded(engine: str, source: str, band: str, arrays: Arrays, rows: Option[int]) -> RuntimeRail[tuple[str, tuple[pa.Table, QueryReceipt]]]:
-    # arity PROVES here, before anything is built: every column inside one band shares one length, measured against
-    # the band's declared census wherever it has one. A disagreement refuses by band name carrying the widths found,
-    # so no consumer meets a half-built table and no `catch=` tuple has to roster a provider raise for a shape this
-    # owner decides on its own inputs.
     census = frozenset(len(array) for array in arrays.values()) | frozenset(rows.to_list())
     if len(census) > 1:
         return Error(MESH_ARITY.raised(band, ",".join(str(width) for width in sorted(census))))
@@ -551,10 +452,6 @@ def _banded(engine: str, source: str, band: str, arrays: Arrays, rows: Option[in
 
 @tagged_union(frozen=True)
 class MeshOp:
-    # ONE surface over the whole file-exchange concern in both directions, the tag its own discriminant. `export`
-    # carries the codec token explicitly because `Trimesh.export` and `meshio.write` both take one, so an
-    # extensionless sink is servable; `preview` carries the destination alone because the format is this owner's own
-    # `glb` election rather than the caller's, and fusing the two would erase which side chose the codec.
     tag: Literal["read", "arrays", "timeseries", "export", "preview"] = tag()
     read: None = case()
     arrays: None = case()
@@ -565,8 +462,6 @@ class MeshOp:
 
 @tagged_union(frozen=True)
 class MeshProduct:
-    # closed outcome family: identity payload, columnar pair, lazy FE frame stream, or content key of what was
-    # written — never an erased `object` a consumer re-discriminates.
     tag: Literal["payload", "columns", "frames", "written"] = tag()
     payload: "MeshPayload" = case()
     columns: MeshColumns = case()
@@ -596,12 +491,6 @@ class MeshReceipt(Struct, frozen=True):
     units: Posture[str]
 
     def contribute(self) -> Iterator[Receipt]:
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
-        # the SAME pair handed `Metrics.record` beside the identity this payload minted — so the durable row lands in
-        # the `mesh` partition a predicate prunes and rejoins the live series its twin emitted. Cells stay a receipt
-        # fact rather than a second instrument: one vertex stack is the volume a regression moves, and a per-block
-        # cell count is a topology shape a distribution over one number cannot carry. Nodes ride as CENSUS here
-        # while `MeshPayload` carries rows, and an absent unit omits its key rather than publishing an empty string.
         Metrics.record({"rasm.mesh.points": float(self.point_count)}, domain="mesh", kind=self.backend)
         yield Receipt.of(
             "mesh",
@@ -665,16 +554,12 @@ class MeshPayload(Struct, frozen=True):
 
 
 class MeshExchange(Struct, frozen=True):
-    # one file admitted ONCE: backend elected off the suffix, engine loaded on the banded thread hop, ref kept for
-    # frame streaming and the export readback. Every op reads this one open.
     backend: MeshBackend
     ref: ResourceRef
     engine: Engine
 
     @staticmethod
     async def of(ref: ResourceRef) -> "RuntimeRail[MeshExchange]":
-        # a whole-file provider load blocks on disk — the banded thread hop, never the loop. Election refuses ahead
-        # of the hop, so an unroutable suffix never opens a span it would immediately close on a codec fault.
         match MeshBackend.of(ref):
             case Result(tag="ok", ok=backend):
                 row = backend.row
@@ -685,10 +570,6 @@ class MeshExchange(Struct, frozen=True):
                 return refused
 
     async def run(self, op: MeshOp) -> "RuntimeRail[MeshProduct]":
-        # ONE entry over the whole concern: the tag IS the discriminant, the engine is already in hand, and the
-        # closed `MeshProduct` keeps the outcome family addressable instead of an erased value a consumer
-        # re-discriminates. A sibling `preview`/`write` pair forks the span, the receipt, and the election three
-        # ways for one file, and each sibling re-runs the provider load this admission already paid.
         subject = f"mesh.{op.tag}"
         marks = {"rasm.mesh.backend": self.backend.tag} | _format(op).map(lambda fmt: {"rasm.mesh.format": fmt}).default_value({})
         with _TRACER.start_as_current_span(subject, attributes=marks):
@@ -707,13 +588,9 @@ class MeshExchange(Struct, frozen=True):
                     assert_never(unreachable)
 
     async def _banded(self, work: Callable[[], RuntimeRail[MeshProduct]]) -> "RuntimeRail[MeshProduct]":
-        # every leg is disk- or CPU-bound inside a provider holding the GIL, so one banded thread hop serves them all
-        # and the row's own `fault` tuple narrows the catch to that engine's real raise surface.
         return (await async_boundary(MESH_WORK, lambda: on_thread(work), catch=self.backend.row.fault)).bind(lambda rail: rail)
 
     async def _streamed(self) -> "RuntimeRail[MeshProduct]":
-        # frame streaming is XDMF's alone, so a row holding no reader REFUSES by backend name; an ungated leg opens
-        # `meshio.xdmf.TimeSeriesReader` over a file no meshio codec ever read.
         row = self.backend.row
         match row.frames:
             case Option(tag="some", some=open_frames):
@@ -728,10 +605,6 @@ class MeshExchange(Struct, frozen=True):
         return row.frame(self.engine).map(lambda frame: MeshProduct(payload=MeshPayload.of(self.backend, frame, row.units(self.engine))))
 
     def _columned(self) -> RuntimeRail[MeshProduct]:
-        # every band keys on the SAME canonical point-buffer identity the payload publishes, so a table and the mesh
-        # it came from join on one key; deriving it here rather than reading it off a caller-held payload is what
-        # lets the arrays leg run without a prior read. Point columns and cell columns ride SEPARATE bands because
-        # they carry different row counts, which one table cannot hold.
         extract = self.backend.row.extract(self.engine)
         return _frame(extract).bind(
             lambda frame: MeshColumns.of(
@@ -775,9 +648,6 @@ from rasm.runtime.receipts import Receipt
 from rasm.runtime.resilience import RetryClass, guarded
 from rasm.runtime.roots import ResourceRef, origin
 
-# `_TRACER`, `_column`, and `_posted` are the [02]-[MESH] owners in this same module: one module-scope scope
-# handle serves every leg, so a second `scoped` mint beside it would fork one instrumentation coordinate in two,
-# and one receipt omit-fold serves both foreign edges.
 
 type Record = laspy.LasData | laspy.ScaleAwarePointRecord
 type Selection = Option[laspy.DecompressionSelection]
@@ -795,9 +665,6 @@ class PointBounds(Struct, frozen=True):
     maxz: float = np.inf
 
     def as_copc(self) -> "laspy.copc.Bounds":
-        # a fully-3D `Bounds` built directly: the `minz`/`maxz` defaults are `±inf` so an unset Z
-        # box admits every depth (the catalogue "2D bounds skip Z filtering" outcome) without the
-        # `ensure_3d` 2D-promotion, which is a pure no-op over an already-3D `mins`/`maxs` pair.
         return laspy.copc.Bounds(
             mins=np.array([self.minx, self.miny, self.minz], dtype="float64"), maxs=np.array([self.maxx, self.maxy, self.maxz], dtype="float64")
         )
@@ -822,10 +689,6 @@ class CopcQuery:
                 assert_never(unreachable)
 
 
-# one row per source kind: what the leg costs (retry class), how a trace joins it (span kind), and the COPC thread
-# election. The `Option` columns skip their stage by ABSENCE — a non-network read takes no retry budget, and a
-# network read takes the catalogue's own `http_num_threads=80` default by omission rather than a local constant
-# restating it.
 class _SourceRow(Struct, frozen=True, gc=False):
     retry: Option[RetryClass]
     span_kind: SpanKind
@@ -841,9 +704,6 @@ _SOURCE: Final[Map[str, _SourceRow]] = Map.of_seq([
 
 @tagged_union(frozen=True)
 class CloudSource:
-    # ONE remote/local discriminant, admitted at the head: span kind, retry class, and thread election all read
-    # this value through `_SOURCE`. A `path.startswith(("http://", "https://"))` test spells one decision once per
-    # call site and classifies nothing at all for the file OBJECT `CopcReader.open` also admits.
     tag: Literal["local", "remote", "handle"] = tag()
     local: UPath = case()
     remote: str = case()
@@ -851,8 +711,6 @@ class CloudSource:
 
     @staticmethod
     def of(ref: ResourceRef) -> "CloudSource":
-        # discrimination reads the ref's OWN declared scheme column, never a prefix test over its rendered path:
-        # a residence that already stated its scheme at admission is not re-parsed here.
         return CloudSource(remote=str(ref.path)) if ref.scheme in _REMOTE else CloudSource(local=ref.path)
 
     @property
@@ -861,15 +719,10 @@ class CloudSource:
 
     @property
     def peer(self) -> Option[str]:
-        # WHICH ORIGIN this source dials, derived from the same value `row` reads for the crossing — the
-        # `reliability/resilience#RESILIENCE` window keys the dependency INSTANCE, so the raw COPC href would mint
-        # one arc per file and no arc would reach its trip. The local and handle arms answer `Nothing`, which is
-        # exactly what their non-retried crossing needs and what `_keyed` no-ops on.
         return Some(origin(self.remote)) if self.tag == "remote" else Nothing
 
     @property
     def addressed(self) -> "str | BinaryIO":
-        # `CopcReader.open` admits a path, an http(s) url, or a file object alike, so every case projects.
         match self:
             case CloudSource(tag="local", local=path):
                 return str(path)
@@ -882,8 +735,6 @@ class CloudSource:
 
     @property
     def whole(self) -> "RuntimeRail[str | BinaryIO]":
-        # `laspy.read` takes a path or a stream and NO url, so the whole-file legs refuse a remote source by name
-        # rather than handing a url to a codec that would open it as a filename.
         match self:
             case CloudSource(tag="remote", remote=url):
                 return Error(CLOUD_SOURCE.raised(url))
@@ -892,8 +743,6 @@ class CloudSource:
 
 
 def _masked(selection: Selection) -> dict[str, object]:
-    # mask rides as an OMITTED keyword when absent, so neither reader carries an `is not None` fork and the
-    # provider's own `DecompressionSelection.all()` default stands where this owner declares nothing.
     return selection.map(lambda mask: {"decompression_selection": mask}).default_value({})
 
 
@@ -902,9 +751,6 @@ def _coords(record: Record) -> np.ndarray:
 
 
 def _crs(header: "laspy.LasHeader") -> Posture[str]:
-    # `parse_crs` answers `pyproj.CRS | None` and reads `None` for BOTH a file carrying no CRS VLR and a file whose
-    # VLR it cannot understand; `str(... or "")` fuses those two with a subset that carried none forward, so all
-    # three publish one declared-empty CRS. The sentinel projects HERE, at the single read site.
     return Posture.of_option(Option.of_optional(header.parse_crs()).map(str))
 
 
@@ -915,12 +761,6 @@ def _to_arrow(record: Record) -> pa.Table:
     return pa.table({name: _column(array) for name, array in columns.items()})
 
 
-# one point-cloud emitted-phase evidence both the content-keyed table and the frozen owner contribute, native scalars
-# the receipts `Encoder(enc_hook=repr)` serializes without a `str()` coerce. `domain`/`kind`/`key` are the lifted
-# evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads — the SAME pair handed `Metrics.record` beside
-# the minted identity — and `kind` is the LAS point-format id because that closed eleven-member set is the bounded
-# dimension a board joins on, where a CRS or a content key would fork the series per file. An absent CRS omits its
-# key, so a file that declared none never joins a reprojection predicate as though it had.
 def _pointcloud_receipt(content_key: ContentKey, point_count: int, point_format: int, crs: Posture[str]) -> Iterator[Receipt]:
     Metrics.record({"rasm.pointcloud.points": float(point_count)}, domain="pointcloud", kind=str(point_format))
     yield Receipt.of(
@@ -970,8 +810,6 @@ class PointCloud(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class CloudOp:
-    # ONE surface over the point-cloud concern in both directions; the four sibling statics each re-derived the
-    # source discriminant and the CRS projection, and a caller chose its retry budget by picking a method name.
     tag: Literal["read", "subset", "to_arrow", "write"] = tag()
     read: None = case()
     subset: CopcQuery = case()
@@ -981,8 +819,6 @@ class CloudOp:
 
 @tagged_union(frozen=True)
 class CloudProduct:
-    # closed outcome family: header-level cloud identity, content-keyed record table, or content key of what was
-    # written.
     tag: Literal["cloud", "records", "written"] = tag()
     cloud: PointCloud = case()
     records: PointRecordTable = case()
@@ -990,8 +826,6 @@ class CloudProduct:
 
 
 def _laz_backend() -> laspy.LazBackend:
-    # backend probe rides the module-scope `laspy` binding: `is_available()` answers whether the lazrs or
-    # laszip native band landed on this lane, so the roster order IS the preference and no second import exists.
     backends = (laspy.LazBackend.LazrsParallel, laspy.LazBackend.Lazrs, laspy.LazBackend.Laszip)
     backend = next((b for b in backends if b.is_available()), None)
     if backend is None:
@@ -999,9 +833,6 @@ def _laz_backend() -> laspy.LazBackend:
     return backend
 
 
-# `do_compress` tri-state is a closed `WriteMode` vocabulary, not a `bool | None` truthiness fork: `compress` transcodes LAS->LAZ over the
-# band-resolved `LazBackend`, `store` forces an explicit uncompressed write, and `preserve` round-trips the source's own format — each one row,
-# never an `if do_compress`/`elif do_compress is not None` ladder collapsing the `store` write into the `preserve` path.
 _WRITE: Final[Map[WriteMode, Callable[["laspy.LasData", str], None]]] = Map.of_seq([
     ("compress", lambda data, dst: data.write(dst, do_compress=True, laz_backend=_laz_backend())),
     ("store", lambda data, dst: data.write(dst, do_compress=False)),
@@ -1010,23 +841,17 @@ _WRITE: Final[Map[WriteMode, Callable[["laspy.LasData", str], None]]] = Map.of_s
 
 
 def _open_copc(source: CloudSource, selection: Selection) -> "laspy.copc.CopcReader":
-    # thread election reads the SOURCE row, never a second prefix test: a remote leg takes the catalogue's own
-    # `http_num_threads=80` default by omission and every non-network leg forces `1` to serialize the single read.
     threads = source.row.threads.map(lambda count: {"http_num_threads": count}).default_value({})
     return laspy.copc.CopcReader.open(source.addressed, **threads, **_masked(selection))
 
 
 class CloudExchange(Struct, frozen=True):
-    # one source admitted ONCE at the head beside the decompression mask fixed at open; one entry runs every op,
-    # and its carried row elects the envelope, so no leg re-derives a discriminant this admission already settled.
     source: CloudSource
     selection: Selection = Nothing
 
     async def run(self, op: CloudOp) -> "RuntimeRail[CloudProduct]":
         subject = f"pointcloud.{op.tag}"
         row = self.source.row
-        # remote COPC legs are outbound network reads — kind=CLIENT per the store span-kind law; every other
-        # source stays INTERNAL, and the row answers both that kind and the retry class no caller can override.
         with _TRACER.start_as_current_span(subject, kind=row.span_kind, attributes={"rasm.pointcloud.source": self.source.tag}):
             return (await self._enveloped(row, self._work(op))).bind(lambda rail: rail)
 
@@ -1044,14 +869,8 @@ class CloudExchange(Struct, frozen=True):
                 assert_never(unreachable)
 
     async def _enveloped(self, row: _SourceRow, work: Callable[[], RuntimeRail[CloudProduct]]) -> "RuntimeRail[RuntimeRail[CloudProduct]]":
-        # retry budget is the ROW's, never the caller's method pick: `guarded` wraps the same banded hop the
-        # non-network leg takes bare, so a network-bearing read cannot reach an un-retried entry and a local read
-        # cannot spend an HTTP budget. `CopcReader.open` reads the `copc_info` header and root octree page eagerly
-        # over `requests` before `query` pages a chunk, which is why the remote leg is network-bearing.
         match row.retry:
             case Option(tag="some", some=cls):
-                # `at` names WHICH CALL, `on` WHICH PEER — the source's own derived origin, so every COPC read of one
-                # archive shares its arc instead of minting a fresh window per file.
                 return await guarded(cls, on_thread, work, abandon=True, at=POINTCLOUD_CLOUD, on=self.source.peer)
             case _:
                 return await async_boundary(POINTCLOUD_CLOUD, lambda: on_thread(work), catch=laspy.LaspyException)
@@ -1063,8 +882,6 @@ class CloudExchange(Struct, frozen=True):
         return self.source.whole.bind(lambda address: _recorded(laspy.read(address, **_masked(self.selection))))
 
     def _records(self, query: CopcQuery) -> RuntimeRail[CloudProduct]:
-        # subset keeps the COPC header's own CRS posture, never dropping it to an empty string a caller then
-        # cannot tell from a file that declared none.
         reader = _open_copc(self.source, self.selection)
         return PointRecordTable.of(query.query(reader), _crs(reader.header)).map(lambda records: CloudProduct(records=records))
 
@@ -1073,8 +890,6 @@ class CloudExchange(Struct, frozen=True):
 
 
 def _headed(data: "laspy.LasData") -> RuntimeRail[CloudProduct]:
-    # header-level identity alone: the point buffer keys the cloud and the header answers count, format, and CRS
-    # posture, so the read leg never materializes an Arrow table the caller did not ask for.
     return ContentIdentity.of("pointcloud", _coords(data).tobytes()).map(
         lambda key: CloudProduct(
             cloud=PointCloud(
@@ -1119,11 +934,8 @@ from rasm.runtime.faults import RuntimeRail, boundary
 from rasm.runtime.receipts import Receipt
 from rasm.runtime.roots import ResourceRef
 
-# `_TRACER` is the [02]-[MESH] owner in this same module.
 
 
-# suffix + media + subject per product: the suffix is the PROVEN container, the media type the wire label a
-# downstream reader admits on, and the subject the receipt phase-subject so one partition holds every product row.
 class _Product(Struct, frozen=True, gc=False):
     suffix: str
     media: str
@@ -1155,8 +967,6 @@ class ProductReceipt(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> Iterator[Receipt]:
-        # the `mesh` partition holds every spatial product row, so an archive and the model it describes prune on one
-        # predicate; no measure records here because the object plane's own egress leg meters the bytes it moves.
         yield Receipt.of(
             "product",
             (
@@ -1175,10 +985,6 @@ class ProductReceipt(Struct, frozen=True):
 
 
 def archived(kind: ProductKind, payload: bytes, out: ResourceRef) -> RuntimeRail[ProductReceipt]:
-    # the container proof leads the write: a suffix mismatch is a labelling fault the producer owns, and landing the
-    # bytes first would leave a mislabelled archive on disk for a reader to sniff wrong. The `catch` names this
-    # fence's own raise surface — `write_bytes` and `read_bytes` raise `OSError` and nothing else here throws — so a
-    # foreign raise propagates as a defect instead of re-keying as a product fault.
     row = kind.row
     if out.path.suffix.lower() != row.suffix:
         named = out.path.suffix.lower() or "none"

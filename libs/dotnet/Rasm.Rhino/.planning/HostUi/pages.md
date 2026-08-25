@@ -26,7 +26,7 @@
 - Growth: a new registration target is one `PageSeat` row plus its host callback at the load root; a new reveal window is one `PageReveal` row carrying its own resolver; a new selection axis is one `SelectionReach` row and no consumer edit.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Interaction;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -34,19 +34,16 @@ using DrawingImage = System.Drawing.Image;
 
 namespace Rasm.Rhino.HostUi;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PageButton : ICapability<PageButton> {
     public static readonly PageButton Apply = new(key: "apply");
     public static readonly PageButton Defaults = new(key: "defaults");
 
-    // Both corners are legal — a page offering neither and a page offering both are real pages — so the law is open
-    // and states it rather than leaving a reader to infer an absent gate.
     public static CapabilityLaw<PageButton> Law => CapabilityLaw<PageButton>.Open;
 }
 
-// The three registration callbacks the host publishes, and nothing else: a seat is what a page is HANDED TO.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PageSeat {
@@ -55,8 +52,6 @@ public sealed partial class PageSeat {
     public static readonly PageSeat Child = new(key: "child");
 }
 
-// The window a seated page OPENS INTO — a different axis, and its conflation with the seat is what made a
-// preferences page unreachable: preferences is a macOS reveal of an options-seated page, never a fourth callback.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PageReveal {
@@ -77,8 +72,6 @@ public sealed partial class PageReveal {
         (page, op) => op.Catch(() => Optional(resolve(page)).ToFin(Fail: op.MissingContext()));
 }
 
-// Every corner is legal — any object, all objects, any component, all components — so the set is the value and the
-// four-row product vocabulary that forked the table owner's own `CapabilitySet<SelectionAxis>` has no site left.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SelectionReach : ICapability<SelectionReach> {
@@ -105,13 +98,11 @@ public sealed partial class ObjectPageSeat {
     public static readonly ObjectPageSeat Decal = new(key: PropertyPageType.Decal);
     public static readonly ObjectPageSeat View = new(key: PropertyPageType.View);
 
-    // The admission arm the roster lacked: an identity built around a page type that came from nowhere is exactly
-    // what a bare keyed roster over a host enum leaves spellable.
     public static Fin<ObjectPageSeat> OfHost(PropertyPageType candidate, Op? key = null) =>
         key.OrDefault().Row<PropertyPageType, ObjectPageSeat>(candidate: candidate);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class StackedIdentity {
     public HostText Caption { get; }
@@ -126,8 +117,6 @@ public sealed partial class ObjectIdentity {
     public Rasm.Numerics.Dimension Index { get; }
     public ObjectPageSeat Seat { get; }
 
-    // The index and the page kind carry their own invariants, so the one clause left is the embedded resource name
-    // the host reads by string and this owner canonicalizes before it refuses.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -166,8 +155,6 @@ public abstract partial record PagePlan {
         Func<SelectionEvidence, Fin<bool>> Display,
         Func<PageSignal, Fin<Unit>> Answer) : PagePlan;
 
-    // Every column a caller can leave absent is reported in ONE pass; the generated identity, scope, and roster
-    // values cannot exist unadmitted, so nothing here re-admits what their own construction already refused.
     internal Fin<PagePlan> Admit(Op op) => Switch(
         op,
         stacked: static (held, page) => (
@@ -207,7 +194,7 @@ public abstract partial record PagePlan {
 - Growth: a new callback is one `PageSignal` case breaking every answering consumer loudly; a new evidence column is one field on the record.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PageActivation {
     public static readonly PageActivation Left = new(false);
@@ -223,25 +210,19 @@ public abstract partial record PageSignal {
     public sealed record Scripted(Option<DocKey> Document, SessionMode Mode) : PageSignal;
     public sealed record Reset : PageSignal;
     public sealed record Helped : PageSignal;
-    // The handle is the host's for exactly this callback's duration; the case reports it and this boundary retains
-    // nothing, because a stored parent handle outlives the window the host is about to destroy.
     public sealed record ParentCreated(nint Handle) : PageSignal;
     public sealed record ParentSized(Rasm.Numerics.Dimension Width, Rasm.Numerics.Dimension Height) : PageSignal;
     public sealed record SelectionShown(SelectionEvidence Evidence) : PageSignal;
     public sealed record SelectionUpdated(SelectionEvidence Evidence) : PageSignal;
     public sealed record Refused(Error Fault) : PageSignal;
 
-    // The one parent-extent admission, reached by both leaves: the host publishes two raw pixel counts on an
-    // override that cannot refuse, so the refusal lands here and the signal carries admitted extents.
     internal static Fin<PageSignal> Sized(int width, int height, Op op) =>
         from measured in op.AcceptValidated<Rasm.Numerics.Dimension>(width)
         from tall in op.AcceptValidated<Rasm.Numerics.Dimension>(height)
         select (PageSignal)new ParentSized(Width: measured, Height: tall);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// ORDER is part of the fact: the host answers its selection in pick order, so two evidence values naming the same
-// objects in different sequence are two facts and the synthesized set-blind equality would call them one.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record SelectionEvidence(
     Option<DocKey> Document,
@@ -273,7 +254,7 @@ public sealed partial record SelectionEvidence(
 - Growth: a new post-realization regime is one entry over the same custody window; a new host base is one `PageLeaf` case with its own leaf class; a new lifecycle phase is one kernel `MountPhase` row and no edit here.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PageLeaf {
     private PageLeaf() { }
@@ -281,9 +262,6 @@ internal abstract partial record PageLeaf {
     internal sealed record Properties(ObjectPropertiesPage Value) : PageLeaf;
 }
 
-// The three claimants of a REGISTRATION, which is what the kernel custody owner band cannot name: a parent page is
-// a mount, a mount token is the `Guid` a land fold minted, and the host collection is an owner with no object at
-// all — the state a transferred, non-removable registration ends in.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PageOwner {
     private PageOwner() { }
@@ -291,8 +269,6 @@ internal abstract partial record PageOwner {
     internal sealed record Mount(Guid Token) : PageOwner;
     internal sealed record Host : PageOwner;
 
-    // Only a parent page owns the page it claimed; a token names a registration and the host collection names a
-    // custody this boundary can no longer reach, so neither answers ownership of a page object.
     internal bool Owns(HostPage page) => Switch(
         page,
         parent: static (held, row) => ReferenceEquals(held, row.Value),
@@ -300,9 +276,6 @@ internal abstract partial record PageOwner {
         host: static (_, _) => false);
 }
 
-// The kernel custody machine's own shape over its own public floor and phase rows; only the transitions are
-// re-spelled, because `MountCustody` publishes them assembly-internal. Every column and every argument here is a
-// kernel type, so this owner deletes whole when those transitions publish.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PageCustody {
     private PageCustody() { }
@@ -318,8 +291,6 @@ internal abstract partial record PageCustody {
             }),
         released: static _ => Option<PageCustody>.None);
 
-    // A leave with no matching enter REFUSES: the count can no longer run negative and reach a release nothing
-    // entered, and the caller reads which page answered rather than inferring it from a later double-dispose.
     internal Fin<(PageCustody Next, Option<Seq<IMount>> Release)> Left(Op key) => Switch(
         state: key,
         live: static (op, row) => row.Active.Match(
@@ -347,10 +318,8 @@ internal abstract partial record PageCustody {
         released: static (_, row) => row);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class HostPage : IMount, IDisposable {
-    // A page tears down once and its children with it, so the ring holds the refusals of one teardown; anything
-    // past that is a shed count the composing root reads rather than a sequence growing without a bound.
     private static readonly Rasm.Numerics.Dimension TeardownCap = Rasm.Numerics.Dimension.Create(value: 32);
 
     private readonly PagePlan plan;
@@ -454,9 +423,6 @@ public sealed class HostPage : IMount, IDisposable {
             key: op));
     }
 
-    // `ModifyPage` publishes no return for the change it ran, so the callback's own verdict is SEATED and then
-    // drained: a host call that returned without invoking the callback answers absence, which is the one refusal
-    // this seam could not otherwise report.
     private static Fin<Unit> Modified(ObjectPropertiesPage page, Func<Fin<Unit>> change, Op op) {
         Atom<Option<Fin<Unit>>> captured = Atom(Option<Fin<Unit>>.None);
         return op.Catch(() => {
@@ -478,8 +444,6 @@ public sealed class HostPage : IMount, IDisposable {
                 return Fin.Succ(value: new HostPage(
                     plan: plan, leaf: seat(plan, receipt.Resource.Host, op), content: receipt, key: op));
             })
-            // The lease releases on a refused style hop and AGGREGATES its own cleanup fault into the primary,
-            // which is why no hand dispose-then-return block survives here.
             .Match(
                 Succ: page => Fin.Succ(value: page),
                 Fail: fault => receipt.Use(_ => Fin.Fail<HostPage>(error: fault), op)));
@@ -491,8 +455,6 @@ public sealed class HostPage : IMount, IDisposable {
                 .Catch(() => Fin.Succ(value: Op.Side(land)))
                 .Match(
                     Succ: _ => Fin.Succ(value: Track(child)),
-                    // A rollback that itself refuses leaves the child LANDED, so it is tracked before the aggregate
-                    // rides out — a page the host holds and this page forgot is the orphan the pair prevents.
                     Fail: primary => op
                         .Catch(() => Fin.Succ(value: (Op.Side(rollback), child.Unclaim(owner)).Item2))
                         .Match(
@@ -530,8 +492,6 @@ public sealed class HostPage : IMount, IDisposable {
 
     internal Unit UnclaimMount(Guid token) => Unclaim(owner: new PageOwner.Mount(Token: token));
 
-    // The object-properties collection publishes no removal member, so a landed registration is PERMANENT and its
-    // custody moves to the host rather than being released: the token stops naming it and nothing else claims it.
     internal Unit TransferMount(Guid token) => ignore(Cell.Step(
         cell: claim,
         step: held => held == Some<PageOwner>(new PageOwner.Mount(Token: token))
@@ -554,8 +514,6 @@ public sealed class HostPage : IMount, IDisposable {
         step: held => held == Some(owner) ? Some(Option<PageOwner>.None) : Option<Option<PageOwner>>.None,
         declined: Contested(Key)));
 
-    // A close arriving from an owner that never claimed this page REFUSES rather than silently no-opping, which is
-    // the gap where one owner's release tore down a page another had claimed.
     private Fin<Unit> Release(Option<PageOwner> owner) {
         if (owner != claim.Value) return Fin.Fail<Unit>(error: Contested(Key));
         Option<Seq<IMount>> release;
@@ -565,7 +523,6 @@ public sealed class HostPage : IMount, IDisposable {
             None: static () => Fin.Succ(unit));
     }
 
-    // Every child releases even when one refuses, and the content lease drains last; both refusal sets compose.
     private Fin<Unit> ReleaseTree(Seq<IMount> children, Op key) =>
         Custody.Release(held: children, release: static child => child.Release(), key: key)
             .Settled(release: () => content.Use(receipt => receipt.Release(), key), key: key);
@@ -686,7 +643,7 @@ internal sealed class PropertiesLeaf : ObjectPropertiesPage {
 - Growth: a new stacked verb is one `PageNav` case with one arm; a new backend publishing the style members is one row in the declared set.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PageDestination {
     public static readonly PageDestination Named = new(false);
@@ -705,7 +662,7 @@ public sealed partial class PageEmphasis {
     public static readonly PageEmphasis Bold = new(true);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PageStyle(PageEmphasis Emphasis, PerceptualColor Color);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -720,8 +677,6 @@ public abstract partial record PageNav {
     public sealed record Styled(PageStyle Style) : PageNav;
     public sealed record Sequence(Seq<PageNav> Steps) : PageNav;
 
-    // The toolkit backends whose `StackedDialogPage` publishes the navigation-style members, stated as a ROW SET:
-    // an ambient operating-system probe answers which system is running, not which backend published the member.
     private static readonly Seq<PlatformRow> Styling = Seq(PlatformRow.WinForms, PlatformRow.Wpf);
 
     internal Fin<Unit> Apply(HostPage owner, StackedDialogPage page, Op op) =>
@@ -783,9 +738,7 @@ public abstract partial record PageNav {
 - Growth: a new host collection is one `PageBasket` case with its own landing pair; a new registration state is one `RegistrationState` case breaking every transition loudly.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The seat rides the BASKET because the host hands the same collection type to two different callbacks; a gate
-// comparing against one literal refused every page seated for the other.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PageBasket {
     private PageBasket() { }
@@ -801,20 +754,16 @@ internal abstract partial record RegistrationState {
     internal sealed record Released : RegistrationState;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record PageLanding(HostPage Page, Action Add, Option<Func<Fin<Unit>>> Remove);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// A mount receipt holds live registration custody, so it is a CLASS: two receipts naming one applied count are not
-// one registration, and a structural-equality carrier over a live lease is a value lying about its own identity.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PageMountReceipt : IDisposable {
     private readonly PageMountLease lease;
 
     internal PageMountReceipt(Rasm.Numerics.Dimension releasable, Rasm.Numerics.Dimension permanent, Option<Error> fault, PageMountLease lease) =>
         (this.lease, Releasable, Permanent, Fault) = (lease, releasable, permanent, fault);
 
-    // What `Release` will actually reach, beside what it cannot: the object-properties collection publishes no
-    // removal member, so a permanent registration is counted and named rather than silently no-opping.
     public Rasm.Numerics.Dimension Releasable { get; }
     public Rasm.Numerics.Dimension Permanent { get; }
     public Rasm.Numerics.Dimension Applied => Rasm.Numerics.Dimension.Create(value: Releasable.Value + Permanent.Value);
@@ -841,8 +790,6 @@ internal sealed class PageRegistration {
 
     internal Fin<Unit> Release(Op key) => Close(next: new RegistrationState.Released(), key: key);
 
-    // The transition is READ: a second closer reads its declined arm rather than proceeding on a decision it never
-    // won, and the host removal runs only on the arm that took the seat.
     private Fin<Unit> Close(RegistrationState next, Op key) => Cell.Step(
             cell: state,
             step: held => held is RegistrationState.Live ? Some(next) : Option<RegistrationState>.None,
@@ -872,7 +819,7 @@ internal sealed class PageMountLease {
         key: op);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PageMount {
     public static Fin<PageMountReceipt> Land(PageBasket basket, Seq<HostPage> pages, Op? key = null) {
         Op op = key.OrDefault();
@@ -911,8 +858,6 @@ public static class PageMount {
                     Add: () => pages.Add(page: leaf),
                     Remove: None)));
 
-    // The kernel mount fold's own rollback shape: a refusal unclaims every seat already taken, in reverse, with
-    // every step running — so a partial claim is unrepresentable rather than merely discouraged.
     private static Fin<Unit> Claim(Seq<PageLanding> landings, Guid token, Op op) =>
         landings.Fold(Fin.Succ(Seq<PageLanding>()), (held, landing) => held.Bind(taken => landing.Page
             .ClaimMount(token: token, op: op)
@@ -924,8 +869,6 @@ public static class PageMount {
             .Map(static _ => unit);
 
     private static Fin<PageMountReceipt> Commit(Seq<PageLanding> landings, Guid token, Op op) {
-        // The halting fold IS the operator: the predicate reads the fault the last step produced, and the pending
-        // set is what the landed counts have not reached — a stored remaining column mirrors the same position.
         (Rasm.Numerics.Dimension Releasable, Rasm.Numerics.Dimension Permanent, Seq<PageRegistration> Registrations, Option<Error> Fault) seed = (
             Releasable: Rasm.Numerics.Dimension.Create(value: 0),
             Permanent: Rasm.Numerics.Dimension.Create(value: 0),

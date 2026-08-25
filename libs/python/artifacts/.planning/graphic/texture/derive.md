@@ -63,46 +63,44 @@ type DeriveOpTag = Literal[
 type DeriveChain = tuple["DeriveOp", ...]
 
 
-class Edge(StrEnum):  # a payload on every neighborhood op, never a default — a tiled plane folded CLAMP seams at the wrap
+class Edge(StrEnum):
     CLAMP = "clamp"
     WRAP = "wrap"
 
 
 class CoverageSource(StrEnum):
-    # Where `neutral_fill` READS validity. An inferred source read a fourth component where one existed and an
-    # all-true mask everywhere else, so on every 1/2/3-component plane a UDIM hole and a genuine 0.0 were one fact.
-    MASK = "mask"  # a staged single-component validity plane — the `plane#PLANE` LERC row decodes one beside its values
-    ALPHA = "alpha"  # the fourth component of a four-component operand
-    TOTAL = "total"  # every texel is valid; the fill writes nothing and the arm is the identity
+    MASK = "mask"
+    ALPHA = "alpha"
+    TOTAL = "total"
 
 
-class SdfShape(StrEnum):  # the libvips `sdf` primitive roster; a new shape is one row with its `_SDF_GEOMETRY` entry
+class SdfShape(StrEnum):
     CIRCLE = "circle"
     BOX = "box"
     ROUNDED_BOX = "rounded_box"
     LINE = "line"
 
 
-class NormalConvention(StrEnum):  # transcribed from the frozen fragment; `ingest#INGEST` resolves it from the filename stem
-    GL = "gl"  # green is +Y; the OpenGL/glTF/USD/MaterialX convention and the CANONICAL wire form
-    DX = "dx"  # green is -Y; admitted at ingest, converted to `gl` BEFORE the plane is keyed
+class NormalConvention(StrEnum):
+    GL = "gl"
+    DX = "dx"
 
 
-class ChannelPack(StrEnum):  # the only two packing orders; a third is a new row, never a caller-ordered tuple
-    ORM = "orm"  # R occlusion, G specular_roughness, B base_metalness — the glTF KHR read order and the ONLY glTF-crossing pack
-    MRA = "mra"  # R base_metalness, G specular_roughness, B occlusion
+class ChannelPack(StrEnum):
+    ORM = "orm"
+    MRA = "mra"
 
 
 class ResampleKernel(StrEnum):
-    BOX = "box"  # area average; exact for an integer shrink
-    TRIANGLE = "triangle"  # linear tent
-    KAISER = "kaiser"  # windowed sinc; the color-channel mip default and the one kernel libvips does not carry
-    LANCZOS3 = "lanczos3"  # three-lobe windowed sinc
+    BOX = "box"
+    TRIANGLE = "triangle"
+    KAISER = "kaiser"
+    LANCZOS3 = "lanczos3"
 
 
 class ResampleEngine(StrEnum):
-    NUMPY = "numpy"  # the separable weight-matrix owner; exact, deterministic, every kernel row
-    LIBVIPS = "libvips"  # the streaming float lane for a plane too large to hold two copies; KAISER routes NUMPY regardless
+    NUMPY = "numpy"
+    LIBVIPS = "libvips"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -111,29 +109,21 @@ class ResampleEngine(StrEnum):
 @tagged_union(frozen=True)
 class DeriveOp:
     tag: DeriveOpTag = tag()
-    normal_from_height: tuple[float, Edge] = case()  # strength, edge handling; the product is ALWAYS `gl` — no dx mint exists
-    height_from_normal: tuple[Edge, float] = case()  # edge handling, the post-integration unit-range gain
-    ao_from_height: tuple[int, int, float, Edge, int, float] = case()  # directions, steps, radius in texels, edge, jitter seed, relief in texels
-    curvature: tuple[float, Edge] = case()  # scale applied before the signed clamp, edge handling
+    normal_from_height: tuple[float, Edge] = case()
+    height_from_normal: tuple[Edge, float] = case()
+    ao_from_height: tuple[int, int, float, Edge, int, float] = case()
+    curvature: tuple[float, Edge] = case()
     pack: ChannelPack = case()
-    unpack: tuple[ChannelPack, int] = case()  # the pack row and the SLOT index in it; one call yields one channel
+    unpack: tuple[ChannelPack, int] = case()
     gloss_invert: None = case()
     flip_green: None = case()
-    mip_chain: tuple[MipPolicy, int] = case()  # policy and the level ceiling; 0 means "to 1x1"
+    mip_chain: tuple[MipPolicy, int] = case()
     resample: tuple[Extent, ResampleKernel, ResampleEngine] = case()
     sdf: tuple[SdfShape, tuple[float, float], tuple[float, float], float, tuple[float, ...], float] = case()
-    # ^ shape, point a, point b, radius, corner radii, and the SPREAD in texels the signed distance divides by.
-    # The op MINTS over its operand's grid, so no extent rides the payload; `_SDF_GEOMETRY` names which of the
-    # geometry fields the shape actually reads and `admitted` proves them present before libvips speaks.
     neutral_fill: tuple[tuple[float, ...], float, CoverageSource] = case()
-    # ^ per-component neutral, the coverage threshold below which it writes, and WHERE validity is read from —
-    # the source is the op's own member and the arity it declares, never a shape probe on the operand.
 
     @staticmethod
     def NormalFromHeight(strength: float = 1.0, edge: Edge = Edge.WRAP) -> "DeriveOp":
-        # the product is ALWAYS the canonical `gl` polarity: the freeze rules the wire carries `gl` alone and the
-        # dx conversion runs at INGEST on arriving planes — a convention knob here was a dx MINT, the exact plane
-        # the wire refuses, dressed as an option
         return DeriveOp(normal_from_height=(strength, edge))
 
     @staticmethod
@@ -144,10 +134,6 @@ class DeriveOp:
     def AoFromHeight(
         directions: int = 16, steps: int = 12, radius: float = 16.0, edge: Edge = Edge.WRAP, seed: int = 0, relief: float = 0.0
     ) -> "DeriveOp":
-        # `relief` is the height span expressed in TEXELS — `height_scale` mm divided by the surface's mm-per-texel
-        # pitch — so the horizon tangent is dimensionless and the same geometry occludes identically at 2K and 4K.
-        # 0.0 is the declared NORMALIZED-SPACE bound: the [0,1] field reads as if its span were one texel, a
-        # resolution-dependent shading approximation the caller accepts by omitting the pitch, never a default law.
         return DeriveOp(ao_from_height=(directions, steps, radius, edge, seed, relief))
 
     @staticmethod
@@ -167,14 +153,10 @@ class DeriveOp:
         shape: SdfShape, *, a: tuple[float, float] = (0.0, 0.0), b: tuple[float, float] = (0.0, 0.0), radius: float = 0.0,
         corners: tuple[float, ...] = (), spread: float = 1.0
     ) -> "DeriveOp":
-        # every geometry field is named because a shape reads a DIFFERENT subset of them, and `_SDF_GEOMETRY` is
-        # what states which — a positional five-tuple made three of the four shapes carry two dead coordinates.
         return DeriveOp(sdf=(shape, a, b, radius, corners, spread))
 
     @staticmethod
     def NeutralFill(neutral: tuple[float, ...], coverage: float = 0.0, source: CoverageSource = CoverageSource.TOTAL) -> "DeriveOp":
-        # TOTAL is the honest default: a plane arriving with no validity carrier has every texel valid, and the
-        # caller that HOLDS a mask or an alpha coverage names it, so the fill never invents a fact from a width.
         return DeriveOp(neutral_fill=(neutral, coverage, source))
 
     def admitted(self, operands: tuple[DeepPlane, ...], /) -> Result["DeriveOp", TextureFault]:
@@ -186,8 +168,6 @@ class DeriveOp:
             case (_, (first, *rest)) if any(other.extent != first.extent for other in rest):
                 return Error(TextureFault(extent=first.extent))
             case (_, planes) if row.accepts is not None and any(plane.channels not in row.accepts for plane in planes):
-                # EVERY operand is gated, not the first: `pack` takes three single-component planes and a
-                # three-component operand in slot two writes a silently wrong pack the receipt cannot distinguish
                 return Error(TextureFault(shape=tuple(plane.channels for plane in planes)))
         match self:
             case DeriveOp(tag="ao_from_height", ao_from_height=(directions, steps, radius, _, _, relief)) if (
@@ -201,44 +181,28 @@ class DeriveOp:
             case DeriveOp(tag="sdf", sdf=(shape, _a, _b, radius, corners, spread)) if (
                 spread <= 0.0 or ("radius" in _SDF_GEOMETRY[shape] and radius <= 0.0) or ("corners" in _SDF_GEOMETRY[shape] and len(corners) != 4)
             ):
-                # the row names the geometry the shape READS, so a missing radius or a short corner list refuses
-                # here rather than reaching libvips, whose own raise names an argument count and never the shape
                 return Error(TextureFault(shape=(len(_SDF_GEOMETRY[shape]), len(corners))))
             case DeriveOp(tag="neutral_fill", neutral_fill=(neutral, _, _)) if len(neutral) != operands[0].channels:
                 return Error(TextureFault(shape=(operands[0].channels, len(neutral))))
             case DeriveOp(tag="neutral_fill", neutral_fill=(_, _, CoverageSource.ALPHA)) if operands[0].channels != 4:
-                # a declared ALPHA source on a narrower operand refuses rather than degrading to TOTAL: the caller
-                # named a coverage carrier the plane does not hold, and a silent widening is the conflation itself
                 return Error(TextureFault(shape=(4, operands[0].channels)))
             case DeriveOp(tag="neutral_fill", neutral_fill=(_, _, CoverageSource.MASK)) if operands[1].channels != 1:
-                # the staged mask is a VALIDITY plane, one component wide; a wider operand is a second image the
-                # arm would silently read one lane of, and `accepts` cannot state a per-position width
                 return Error(TextureFault(shape=(1, operands[1].channels)))
             case DeriveOp(tag="unpack", unpack=(_pack, slot)) if not 0 <= slot <= 2:
-                # a pack occupies three RGB slots and its alpha carries nothing; slot 3 names the component the
-                # `[03.5]` row declares unused, so it is out of band rather than a fourth channel to read
                 return Error(TextureFault(shape=(slot,)))
             case DeriveOp():
-                # the bare capture closes the family: every payload gate above is GUARDED, so an arm past this one
-                # is unreachable code the checker cannot narrow to `Never` and an `assert_never` there never fires
                 return Ok(self)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class DeriveArm:
-    # ONE row per derivation: everything `derived` needs BEFORE it reaches a kernel, so no body re-derives a fact
-    # its row states, and no caller passes a domain, a component count, or a signedness the operation already fixes.
-    arity: Callable[["DeriveOp"], int]  # admitted operand count READ FROM THE OP — `mip_chain` takes one operand at
-    # every policy and TWO under ROUGHNESS_VARIANCE, whose Toksvig term needs the paired normal channel at each
-    # level, and `neutral_fill` takes TWO under CoverageSource.MASK; a static column reads the common case as the
-    # whole truth and the companion arm indexes past the end.
-    accepts: frozenset[int] | None  # admitted input component counts; None admits any
-    channels: int  # produced SEMANTIC component count; 0 means "whatever the operand carried"
-    space: PlaneSpace  # the domain the kernel runs in; `derived` linearizes into it once and the product carries
-    # the tag — the re-encode is `plane#PLANE` `converted`'s at the codec boundary, never this fold's
-    alpha: AlphaMode | None  # the produced association; None inherits the operand's, and `pack` declares NONE
-    signed: bool  # the product occupies [-1, 1] and takes the `signed_encoded` remap at an integer store
-    levels: bool  # the arm produces or consumes a WHOLE pyramid; every other arm runs level 0 and returns one level
+    arity: Callable[["DeriveOp"], int]
+    accepts: frozenset[int] | None
+    channels: int
+    space: PlaneSpace
+    alpha: AlphaMode | None
+    signed: bool
+    levels: bool
     arm: Callable[[tuple[DeepPlane, ...], "DeriveOp"], tuple[Plane, ...]]
 ```
 
@@ -247,8 +211,6 @@ class DeriveArm:
 
 
 def signed_encoded(plane: Plane, /) -> Plane:
-    # Owns the ONE signed-to-unit remap an integer store needs: `plane#PLANE` `quantized` clips to [0, 1], so a normal
-    # or curvature plane stored at u8/u16 lands here first and a float store never runs it.
     return ((plane + 1.0) * 0.5).astype(np.float32)
 
 
@@ -257,46 +219,31 @@ def signed_decoded(plane: Plane, /) -> Plane:
 
 
 def _produced(row: DeriveArm, planes: tuple[Plane, ...], operand: DeepPlane, /) -> Result[tuple[Plane, ...], TextureFault]:
-    # Proves the row's `channels` column here rather than decorating it: an arm returning a width its own row denies is a
-    # kernel that drifted from the law every consumer reads off that row, and the drift is invisible until a pack
-    # slot or a wire `channels` field disagrees with the bytes beside it. A `0` column inherits the operand.
     expected = row.channels or operand.channels
     return Ok(planes) if all(int(level.shape[2]) == expected for level in planes) else Error(TextureFault(shape=(expected, int(planes[0].shape[2]))))
 
 
 def derived(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> Result[DeepPlane, TextureFault]:
-    # one prologue for every case: admit against the row, linearize each operand into the row's declared domain,
-    # dispatch, prove the produced width, then rebuild the carrier. The kernels see linear float arrays and nothing
-    # else, and the association comes off the ROW — a packed plane carries none whatever its operand declared.
     def _run(valid: DeriveOp, /) -> Result[DeepPlane, TextureFault]:
         row = _DERIVE[valid.tag]
         lowered = tuple(
             DeepPlane(
-                # the operand's OWN association rides the transfer call: alpha is linear-coded in every container
-                # the roster carries, so a curve folded over the whole (H, W, C) array decodes the coverage
-                # component as if it were colour and every RGBA `srgb` plane in the estate came back wrong
                 levels=tuple(linearized(level, source.space, source.alpha) for level in source.levels),
                 depth=source.depth,
                 space=row.space,
                 alpha=source.alpha,
-                # the CHROMATICITY and the FACE COUNT survive the lowering: a kernel handed a carrier that dropped
-                # either reads the default gamut and a flattened cube, both silently
                 primaries=source.primaries if row.space is not PlaneSpace.RAW else PlanePrimaries.NONE,
                 faces=source.faces,
             )
             for source in operands
         )
         return _produced(row, row.arm(lowered, valid), operands[0]).bind(
-            # DEPTH, ASSOCIATION, PRIMARIES, and FACE COUNT all ride the rebuild: the row states the association it
-            # produces and the operand carries the other three, so a derived plane keeps the chromaticity datum its
-            # source declared instead of resolving the carrier default, and a cube operand whose arm returned one
-            # level refuses loudly at the face-count admission rather than flattening into a 2-D plane.
             lambda planes: DeepPlane.of(
                 planes,
                 operands[0].depth,
                 row.space,
                 row.alpha if row.alpha is not None else operands[0].alpha,
-                lowered[0].primaries,  # already resolved against the row's domain at the lowering; one rule, one site
+                lowered[0].primaries,
                 operands[0].faces,
             )
         )
@@ -305,11 +252,6 @@ def derived(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> Result[DeepPlan
 
 
 def chained(plane: DeepPlane, chain: DeriveChain, /) -> Result[DeepPlane, TextureFault]:
-    # The SINGLE-OPERAND fold: left-to-right on the rail, the first fault short-circuiting with its own cause, and
-    # a row whose op-read arity exceeds one railing on the arity gate rather than raising inside the fold. A
-    # multi-operand row enters through `derived` with the whole staged tuple `set#TEXTURE_SET` `OperandLeg` built
-    # at plan time — the tag-keyed companion map that used to ride here reached no caller and seated one tuple per
-    # TAG, so a chain repeating a tag shared one companion set across every position that spelled it.
     return Block.of_seq(chain).fold(lambda railed, op: railed.bind(lambda current: derived((current,), op)), Ok(plane))
 ```
 
@@ -339,11 +281,11 @@ def chained(plane: DeepPlane, chain: DeriveChain, /) -> Result[DeepPlane, Textur
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class FilterRow:
-    radius: float  # support in DESTINATION texels before the shrink scaling
-    tap: Callable[[np.ndarray], np.ndarray]  # the normalized tap function over |x| in [0, radius]
+    radius: float
+    tap: Callable[[np.ndarray], np.ndarray]
 
 
-_KAISER_BETA: Final[float] = 6.0  # sidelobe attenuation of the mip window; higher trades ringing for softness
+_KAISER_BETA: Final[float] = 6.0
 _FILTER: Final[frozendict[ResampleKernel, FilterRow]] = frozendict({
     ResampleKernel.BOX: FilterRow(radius=0.5, tap=lambda x: (np.abs(x) <= 0.5).astype(np.float32)),
     ResampleKernel.TRIANGLE: FilterRow(radius=1.0, tap=lambda x: np.maximum(0.0, 1.0 - np.abs(x)).astype(np.float32)),
@@ -356,29 +298,17 @@ _FILTER: Final[frozendict[ResampleKernel, FilterRow]] = frozendict({
     ResampleKernel.LANCZOS3: FilterRow(radius=3.0, tap=lambda x: (np.sinc(x) * np.sinc(x / 3.0)).astype(np.float32)),
 })
 _VIPS_KERNEL: Final[frozendict[ResampleKernel, str]] = frozendict({
-    # libvips carries no kaiser row, so KAISER is absent here and `_resampled` routes it NUMPY whatever the engine column says
     ResampleKernel.TRIANGLE: "linear",
     ResampleKernel.LANCZOS3: "lanczos3",
 })
 _VIPS_SHRINK: Final[frozenset[ResampleKernel]] = frozenset({ResampleKernel.BOX})
-# ^ BOX has no `Kernel` member at all — libvips spells the area average as `Image.shrink(h, v)`, a separate call
-# rather than a `resize` kernel row. Leaving BOX out of both tables sent every libvips box request down the
-# `resize` fallback with a kernel key that is not there, so the row that named the engine never reached it.
 _SDF_GEOMETRY: Final[frozendict[SdfShape, tuple[str, ...]]] = frozendict({
-    # which geometry fields each primitive READS; `admitted` proves exactly these and the kernel passes exactly
-    # these, so a shape gains an input by one row edit and no arm carries a per-shape argument ladder
     SdfShape.CIRCLE: ("a", "radius"),
     SdfShape.BOX: ("a", "b"),
     SdfShape.ROUNDED_BOX: ("a", "b", "corners"),
     SdfShape.LINE: ("a", "b"),
 })
 _SDF_ARGUMENT: Final[frozendict[str, str]] = frozendict({"a": "a", "b": "b", "radius": "r", "corners": "corners"})
-# ^ the field name this page spells against the keyword `Image.sdf` takes; `radius` is the ONE row where the two
-# diverge, and the table is what keeps that divergence at the seam instead of inside the kernel's argument build
-# NO pack-permutation table exists: `ingest#INGEST` `_PACK_MEMBERS` is the ONE slot-order owner and the operand
-# tuple arrives already in that member order, so `_packed` concatenates positionally and `_unpacked` indexes the
-# slot directly — a second index table here was the identity twice, and the one time it carried a permutation it
-# composed onto the already-ordered tuple and wrote occlusion into MRA's R slot, the exact freeze [03.5] inversion.
 ```
 
 ```python signature
@@ -386,9 +316,6 @@ _SDF_ARGUMENT: Final[frozendict[str, str]] = frozendict({"a": "a", "b": "b", "ra
 
 
 def _resample_weights(n_in: int, n_out: int, kernel: ResampleKernel, /) -> np.ndarray:
-    # ONE weight builder for every kernel, every scale, and both directions: the support scales by the shrink ratio
-    # so a downsample INTEGRATES and an upsample interpolates, and each row normalizes to sum one, which is what
-    # keeps a fold energy-preserving and a neutral constant unchanged through a whole pyramid.
     row = _FILTER[kernel]
     scale = min(1.0, n_out / n_in)
     support = row.radius / scale
@@ -406,19 +333,9 @@ def _applied(plane: Plane, extent: Extent, kernel: ResampleKernel, /) -> Plane:
 
 
 def _vips_resampled(plane: Plane, extent: Extent, kernel: ResampleKernel, /) -> Plane:
-    # Streaming float lane: libvips processes a float array natively end to end, so the eight-bit funnel the
-    # `graphic/raster/io#IO` arms carry is that page's policy and never a libvips limit. The `reshape` tail is
-    # LOAD-BEARING: a one-band libvips image returns `(H, W)` from `numpy()` with the component axis dropped,
-    # while every two-, three-, and four-band image keeps it — so the reshape restores the estate's `(H, W, C)`
-    # invariant on the single-component planes every scalar channel is.
     width, height = extent
     image = pyvips.Image.new_from_array(plane)
     moved = (
-        # BOX is `shrink`, never a `resize` kernel: libvips exposes the area average as its own call, and the
-        # INTEGER ratio `_vips_capable` already proved is what makes it exact, which is the whole reason the mip
-        # fold names BOX at all. `resize` is the other whole leg — a downsizing `resize` composes an integer
-        # shrink with a residual reduce and lands the bytes a bare `reduce` lands, and it carries the upsample a
-        # `reduce` cannot, so a `reduce` arm beside it is one more surface over one operation.
         image.shrink(image.width // width, image.height // height)
         if kernel in _VIPS_SHRINK
         else image.resize(width / image.width, vscale=height / image.height, kernel=_VIPS_KERNEL[kernel])
@@ -427,12 +344,6 @@ def _vips_resampled(plane: Plane, extent: Extent, kernel: ResampleKernel, /) -> 
 
 
 def _vips_capable(plane: Plane, extent: Extent, kernel: ResampleKernel, /) -> bool:
-    # EXACTNESS against `_resample_weights` is the gate, never mere reachability. `shrink` takes FLOAT factors and
-    # lands the requested extent at any ratio, but its block bounds ROUND where the filter's support does not, so
-    # the area average equals the box integral at an integer ratio (agreeing to float32 epsilon) and drifts by
-    # percents at every other. `resize` under `linear`/`lanczos3` carries libvips's own reduction, a percent or
-    # two off this page's integral at every measured ratio, so those rows serve the streaming lane alone and the
-    # numpy owner keeps every request whose bytes a second host must reproduce; KAISER has no libvips kernel at all.
     width, height = extent
     match kernel:
         case _ if kernel in _VIPS_SHRINK:
@@ -451,8 +362,6 @@ def _resampled(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane,
 
 
 def _shifted(plane: Plane, dx: int, dy: int, edge: Edge, /) -> Plane:
-    # Serves as the ONE neighborhood accessor both the gradient and the horizon march read through, so the edge mode is
-    # honored identically by every kernel and no arm hand-rolls a border case.
     match edge:
         case Edge.WRAP:
             return np.roll(plane, shift=(-dy, -dx), axis=(0, 1))
@@ -464,11 +373,6 @@ def _shifted(plane: Plane, dx: int, dy: int, edge: Edge, /) -> Plane:
 
 
 def _gathered(plane: Plane, dx: np.ndarray, dy: np.ndarray, edge: Edge, /) -> Plane:
-    # PER-TEXEL neighborhood accessor beside the uniform one: `_shifted` moves the whole plane by one constant
-    # offset, which is every gradient stencil and no jittered march. A horizon fold whose azimuth is per-texel
-    # cannot be a roll — collapsing that jitter to its mean before the shift is a global rotation of every ray at
-    # once, which reproduces the banding the jitter exists to break while still paying for the random draw.
-    # Bilinear over WRAPPED or CLAMPED float coordinates is the one gather both this and any warp read through.
     rows, cols = int(plane.shape[0]), int(plane.shape[1])
     y = (np.arange(rows, dtype=np.float32)[:, None] + dy)
     x = (np.arange(cols, dtype=np.float32)[None, :] + dx)
@@ -492,8 +396,6 @@ def _gathered(plane: Plane, dx: np.ndarray, dy: np.ndarray, edge: Edge, /) -> Pl
 
 
 def _gradient(height: Plane, edge: Edge, /) -> tuple[Plane, Plane]:
-    # central differences through the one shift accessor; `np.gradient` carries no wrap mode, so a tiled plane
-    # differentiated with it seams exactly one texel wide at the repeat.
     return (
         ((_shifted(height, 1, 0, edge) - _shifted(height, -1, 0, edge)) * 0.5).astype(np.float32),
         ((_shifted(height, 0, 1, edge) - _shifted(height, 0, -1, edge)) * 0.5).astype(np.float32),
@@ -501,8 +403,6 @@ def _gradient(height: Plane, edge: Edge, /) -> tuple[Plane, Plane]:
 
 
 def _normal_from_height(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # the product is ALWAYS `gl`: the wire refuses a `dx` plane and the dx conversion is an INGEST move on
-    # arriving bytes, so no mint arm may produce the polarity the estate's own decode then rejects
     strength, edge = op.normal_from_height
     dx, dy = _gradient(operands[0].base[..., 0:1], edge)
     vector = np.concatenate([-dx * strength, -dy * strength, np.ones_like(dx)], axis=2)
@@ -510,13 +410,6 @@ def _normal_from_height(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tup
 
 
 def _height_from_normal(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # Frankot-Chellappa: ONE forward and ONE inverse transform recover the least-squares integrable surface from
-    # the gradient pair; the DC bin zeroes because an integrated height field is defined up to a constant.
-    # The spectral solve is inherently PERIODIC, so the edge payload is honored by EXTENSION, never dropped:
-    # `CLAMP` mirrors the gradient field to twice each axis with the parity integrability demands — the height's
-    # even extension makes its x-derivative ODD in x and its y-derivative ODD in y — solves on the extended grid,
-    # and crops the original quadrant back out, so a non-tiled field no longer wraps its low frequency across the
-    # border it never shared. `WRAP` solves the plain periodic problem a tiled source actually poses.
     edge, gain = op.height_from_normal
     normal = operands[0].base
     slope_x = -normal[..., 0] / np.where(np.abs(normal[..., 2]) < 1e-6, 1e-6, normal[..., 2])
@@ -535,21 +428,11 @@ def _height_from_normal(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tup
     if edge is Edge.CLAMP:
         field = field[: rows // 2, : cols // 2]
     span = float(field.max() - field.min())
-    # a flat normal plane integrates to a constant field whose extrema coincide; the guard yields the 0.5 neutral
     normalized = np.full_like(field, 0.5) if span < 1e-9 else ((field - field.min()) / span * gain)
     return (np.clip(normalized, 0.0, 1.0)[..., None].astype(np.float32),)
 
 
 def _ao_from_height(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # horizon fold: per azimuth, march out to `radius` tracking the maximum subtended elevation, then integrate the
-    # unoccluded cosine-weighted solid angle. The azimuth jitter is PER-TEXEL and rides `_gathered`, so neighbouring
-    # texels sample different rays and the banding a shared azimuth set produces never forms; the draw is SEEDED,
-    # so one seed replays the plane byte-for-byte and the content key over its encoded bytes means something.
-    # `1 - sin(atan(h))` is the unoccluded fraction for one direction, and `horizon` starts at zero so a descending
-    # neighbourhood contributes no occlusion rather than a negative one. `relief` converts the [0,1] height values
-    # into TEXEL units before the tangent — height_scale mm over the surface's mm-per-texel pitch — so the horizon
-    # is dimensionless and the same geometry occludes identically at every resolution; 0.0 is the declared
-    # normalized-space bound the factory names, where the span reads as one texel.
     directions, steps, radius, edge, seed, relief = op.ao_from_height
     height = operands[0].base[..., 0:1]
     rise_scale = relief if relief > 0.0 else 1.0
@@ -577,23 +460,15 @@ def _curvature(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane,
 
 
 def _packed(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # a packed plane is ALWAYS raw transfer and AlphaMode.NONE; the fourth component carries nothing. The operand
-    # tuple arrives in the `ingest#INGEST` `_PACK_MEMBERS` slot order — the ONE order owner — so the concatenation
-    # is positional and no second index table stands between the roster and the bytes.
     return (np.concatenate([operand.base[..., 0:1] for operand in operands[:3]] + [np.ones_like(operands[0].base[..., 0:1])], axis=2).astype(np.float32),)
 
 
 def _unpacked(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # Each op NAMES the slot it reads, so this returns ONE plane. Returning all three hands `DeepPlane.of` a
-    # tuple of same-extent planes as a pyramid, where the halving chain refuses at the first successor — three
-    # products from a level-tuple carrier is a shape the arm signature cannot express and never could.
     _pack, slot = op.unpack
     return (operands[0].base[..., slot : slot + 1].astype(np.float32),)
 
 
 def _mip_chain(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # every fold runs LINEAR (the prologue already linearized), halving and clamping at 1. ROUGHNESS_VARIANCE reads
-    # the paired normal channel as its second operand and adds back the variance that channel lost at the SAME level.
     policy, ceiling = op.mip_chain
     base = operands[0].base
     kernel = _MIP_KERNEL[policy]
@@ -608,8 +483,6 @@ def _mip_chain(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane,
             case MipPolicy.ROUGHNESS_VARIANCE:
                 normals.append(_applied(normals[-1], extent, ResampleKernel.BOX))
                 lost = np.clip(1.0 - np.linalg.norm(normals[-1], axis=2, keepdims=True), 0.0, 1.0)
-                # Toksvig: the shortened averaged normal IS the variance the level lost, folded into roughness so
-                # specular aliasing does not reappear at distance instead of being tuned away at the shader.
                 folded = np.sqrt(np.clip(folded * folded + lost * lost, 0.0, 1.0)).astype(np.float32)
             case MipPolicy.BOX | MipPolicy.KAISER | MipPolicy.NONE:
                 pass
@@ -620,11 +493,6 @@ def _mip_chain(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane,
 
 
 def _sdf(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # MINTS over the operand's grid: libvips returns a ONE-BAND float field of SIGNED distances in texels, so the
-    # numpy view arrives (H, W) with the component axis dropped exactly as `_vips_resampled` documents, and the
-    # spread divides it into the [-1, 1] band the row's `signed` column already stores. The geometry the shape
-    # READS comes off `_SDF_GEOMETRY`, so no argument a primitive ignores ever reaches the operation — `shape` is
-    # POSITIONAL on `Image.sdf(width, height, shape, …)` and a keyword-only spelling refuses with an arity raise.
     shape, a, b, radius, corners, spread = op.sdf
     width, height = operands[0].extent
     supplied = {"a": list(a), "b": list(b), "radius": radius, "corners": list(corners)}
@@ -634,12 +502,6 @@ def _sdf(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
 
 
 def _neutral_fill(operands: tuple[DeepPlane, ...], op: DeriveOp, /) -> tuple[Plane, ...]:
-    # an absent slot, a mip gutter, and a UDIM hole all take the CHANNEL's neutral, never zero — zero is
-    # base_metalness's neutral and occlusion's fully-occluded value at once, so a zero fill darkens every read.
-    # Validity comes from the SOURCE the op names: a staged mask plane (what a `plane#PLANE` LERC decode hands
-    # back beside its values), the operand's own fourth component, or the declaration that every texel is valid.
-    # Inferring it from the operand's WIDTH is the deleted form — it made a hole and a genuine 0.0 one fact on
-    # every scalar channel, which is precisely the plane a mask carrier exists to tell apart.
     neutral, coverage, source = op.neutral_fill
     plane = operands[0].base
     match source:
@@ -662,19 +524,15 @@ _MIP_KERNEL: Final[frozendict[MipPolicy, ResampleKernel]] = frozendict({
     MipPolicy.NONE: ResampleKernel.BOX,
 })
 
-_ONE: Final[Callable[[DeriveOp], int]] = lambda _op: 1  # the arity every single-operand row reads; `pack` and the variance mip declare their own
+_ONE: Final[Callable[[DeriveOp], int]] = lambda _op: 1
 
 
 def _mip_arity(op: DeriveOp, /) -> int:
-    # ROUGHNESS_VARIANCE is the ONE policy whose fold reads a second plane: the Toksvig term is the length the
-    # PAIRED normal channel lost at each level, so the companion is an operand of the op and not a hidden global.
     policy, _ceiling = op.mip_chain
     return 2 if policy is MipPolicy.ROUGHNESS_VARIANCE else 1
 
 
 def _fill_arity(op: DeriveOp, /) -> int:
-    # a MASK source stages the validity plane as a real operand, so the extent gate proves it against the plane it
-    # masks; an alpha or total source reads the operand it already holds and stages nothing.
     _neutral, _coverage, source = op.neutral_fill
     return 2 if source is CoverageSource.MASK else 1
 
@@ -693,8 +551,6 @@ _DERIVE: Final[frozendict[DeriveOpTag, DeriveArm]] = frozendict({
         arity=_ONE, accepts=frozenset({1}), channels=1, space=PlaneSpace.RAW, alpha=AlphaMode.NONE, signed=True, levels=False, arm=_curvature
     ),
     "pack": DeriveArm(
-        # a packed plane is ALWAYS raw with NO association — the row declares it, so a four-component product never
-        # inherits an operand's `straight` and no consumer reads the unused fourth slot as coverage
         arity=lambda _op: 3, accepts=frozenset({1}), channels=4, space=PlaneSpace.RAW, alpha=AlphaMode.NONE, signed=False, levels=False, arm=_packed
     ),
     "unpack": DeriveArm(
@@ -702,7 +558,6 @@ _DERIVE: Final[frozendict[DeriveOpTag, DeriveArm]] = frozendict({
     ),
     "gloss_invert": DeriveArm(
         arity=_ONE, accepts=frozenset({1}), channels=1, space=PlaneSpace.LINEAR, alpha=AlphaMode.NONE, signed=False, levels=False,
-        # `roughness = 1 - gloss` evaluated LINEAR; the row's space column is what forces the srgb decode first
         arm=lambda operands, _op: ((1.0 - operands[0].base).astype(np.float32),),
     ),
     "flip_green": DeriveArm(
@@ -714,8 +569,6 @@ _DERIVE: Final[frozendict[DeriveOpTag, DeriveArm]] = frozendict({
     "mip_chain": DeriveArm(arity=_mip_arity, accepts=None, channels=0, space=PlaneSpace.LINEAR, alpha=None, signed=False, levels=True, arm=_mip_chain),
     "resample": DeriveArm(arity=_ONE, accepts=None, channels=0, space=PlaneSpace.LINEAR, alpha=None, signed=False, levels=False, arm=_resampled),
     "sdf": DeriveArm(
-        # MINTS rather than reads: the operand supplies the grid alone, so `accepts` admits every width, and the
-        # product is the one-component signed field the `[-1, 1]` store already owns
         arity=_ONE, accepts=None, channels=1, space=PlaneSpace.RAW, alpha=AlphaMode.NONE, signed=True, levels=False, arm=_sdf
     ),
     "neutral_fill": DeriveArm(arity=_fill_arity, accepts=None, channels=0, space=PlaneSpace.RAW, alpha=None, signed=False, levels=False, arm=_neutral_fill),

@@ -24,7 +24,7 @@
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `RhinoDoc.Strings`, `DocumentUserTextCount`, `DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `ObjectTable.FindByUserString`, `ObjectEnumeratorSettings`, `ObjectType`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); `Document/tables` (`ResourceId`); Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`); LanguageExt.Core (`libs/dotnet/.api/api-languageext.md`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.DocObjects;
@@ -32,13 +32,10 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public readonly partial struct TextKey : IDisallowDefaultValue {
-    // Host truth: the backslash IS the store discriminant — `DocumentDataCount` counts keys containing one and
-    // `DocumentUserTextCount` counts keys without one, and the document read splits on that same character. A flat
-    // key carrying a backslash therefore writes as a SECTION entry and reads back as one.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         Op op = Op.Of();
         value = value?.Trim() ?? string.Empty;
@@ -53,8 +50,6 @@ public readonly partial struct TextKey : IDisallowDefaultValue {
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public readonly partial struct UserTextValue : IDisallowDefaultValue {
-    // The empty string is a LEGAL user-string payload the host stores and reads back; absence is the `Option` the
-    // edit carries, so the only refusal here is the null the host never produces and a caller might.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value is null
             ? new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(UserTextValue) }))
@@ -89,14 +84,10 @@ public sealed partial class ObjectTextStore : ICapability<ObjectTextStore> {
     public static readonly ObjectTextStore Attributes = new(key: "attributes");
     public static readonly ObjectTextStore Geometry = new(key: "geometry");
 
-    // Both single-store corners and the both-stores corner are legal; the empty set is not, and the bar states
-    // that once so no policy, match, or search re-tests it.
     public static CapabilityLaw<ObjectTextStore> Law =>
         CapabilityLaw<ObjectTextStore>.Forbidden(Seq(CapabilitySet<ObjectTextStore>.None));
 }
 
-// The key IS the host argument: `FindByUserString` takes case sensitivity as a bool, so the row's key carries it
-// and no second column restates what the vocabulary already is.
 [SmartEnum<bool>]
 public sealed partial class TextComparison {
     public static readonly TextComparison Exact = new(key: true);
@@ -130,7 +121,7 @@ public sealed partial record TextSearchPolicy(
     internal bool Searches(ObjectTextStore store) => Stores.Admits(capability: store);
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextAddress {
     private TextAddress() { }
@@ -179,7 +170,6 @@ public abstract partial record TextEdit {
 
     public static TextEdit Delete() => new DeleteCase();
 
-    // The intended post-state as a VALUE, which is what lets every write settle on what the host STORED.
     internal Option<UserTextValue> Result => Switch<Option<UserTextValue>>(
         setCase:    static write => Some(write.Value),
         deleteCase: static _ => None);
@@ -217,9 +207,6 @@ public abstract partial record TextMutationBatch {
         Admitted(mutations: mutations, objects: true)
             .Map<TextMutationBatch>(static admitted => new ObjectsCase(Mutations: admitted));
 
-    // One admission for both cases: a batch is non-empty and every address belongs to the case's own store side,
-    // so the interpreter's document fold can never meet an object address and its object planner never a document
-    // one — the two `InvalidInput` arms that used to prove that at runtime delete.
     private static Fin<Seq<TextMutation>> Admitted(ReadOnlySpan<TextMutation> mutations, bool objects) {
         Op op = Op.Of();
         return from admitted in toSeq(mutations.ToArray())
@@ -286,14 +273,14 @@ public abstract partial record TextOperation {
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TextBodyKind : ICapability<TextBodyKind> {
@@ -316,8 +303,6 @@ public sealed partial class TextSlot : IFactSlot<TextBody, TextBodyKind> {
 
     public CapabilitySet<TextBodyKind> Bodies { get; }
 
-    // The slot a settled mutation belongs to is a FUNCTION of where it landed and what changed, so the choice is
-    // made once here and no call site picks a slot by hand.
     internal static TextSlot Settled(TextAddress address, Option<UserTextValue> prior, Option<UserTextValue> current) =>
         (address.IsObject, prior == current, current.IsNone) switch {
             (false, true, _) => DocumentUnchanged,
@@ -329,7 +314,7 @@ public sealed partial class TextSlot : IFactSlot<TextBody, TextBodyKind> {
         };
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TextBody : IFactBody<TextBodyKind> {
     private TextBody() { }
@@ -340,7 +325,7 @@ public abstract partial record TextBody : IFactBody<TextBodyKind> {
     public TextBodyKind Kind => Map(delta: TextBodyKind.Delta, record: TextBodyKind.Record);
 }
 
-// --- [EXPORTS] ------------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using TextFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Persistence.TextSlot, Rasm.Rhino.Persistence.TextBody>;
 global using UserTextReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persistence.TextSlot, Rasm.Rhino.Persistence.TextBody>;
 ```
@@ -355,14 +340,14 @@ global using UserTextReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persist
 - Packages: `Document/tables` (`ResourceId`); `Document/session` (`IDetachedDocumentResult`); Generator.Equals (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]`, `[UnorderedEquality]`); LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record DocumentTextSnapshot(
     [property: UnorderedEquality] HashMap<TextKey, UserTextValue> Flat,
@@ -410,7 +395,7 @@ public abstract partial record UserTextAnswer : IDetachedDocumentResult {
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` — `StringTable.Count`/`GetKey`/`GetValue`/`SetString`/`Delete`/`DocumentUserTextCount`/`DocumentDataCount`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject.Attributes`/`Geometry`, `GetUserStrings`, `GetUserString`, `SetUserString`, `DeleteUserString`, `UserStringCount`, `ObjectTable.FindId`/`FindByUserString`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`); `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`, `HostInteraction`); `Document/tables` (`Tables.Commit`, `TableOp.Amend`/`Replace`, `TableTarget`, `TableTransaction.Recorded`, `AttributeChange`, `ModeRegard`); `Document/facts` (`FactStream`, `UndoSerial`); kernel `Domain/rails` (`Op.Catch`, `Lease<T>`); LanguageExt.Core (`TraverseM`, `Choose`, `HashMap`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Specialized;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -420,14 +405,12 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The planned object program: each step is one table occurrence beside the delta run the callback must reproduce.
-// It is detached by construction — admitted values only, no host handle — so it crosses the demand boundary.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TextStep(TableOp Operation, UserTextReceipt Evidence);
 
 public sealed record TextPlan(Seq<TextStep> Steps) : IDetachedDocumentResult;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UserTexts {
     public static Fin<UserTextAnswer> Commit(DocumentSession session, TextOperation operation, Op? key = null) {
         Op op = key.OrDefault();
@@ -484,8 +467,6 @@ public static class UserTexts {
             name: nameof(Commit),
             recordsUndo: true,
             redraw: RedrawPolicy.None,
-            // ONE host census seeds the batch and ONE closes it, and the closing census proves the whole batch
-            // against the fold rather than proving only the last write the way a per-mutation re-read did.
             run: () =>
                 from seed in ReadDocument(document: document, key: key)
                 from folded in mutations.Fold(
@@ -534,8 +515,6 @@ public static class UserTexts {
                         None: () => state.Fold.Sections.Remove(address.Address)),
                     Evidence = evidence,
                 })),
-            // Structurally unreachable: the batch factory admitted the document side, so an object address cannot
-            // be here. The arm exists because the union is total and it refuses rather than assuming.
             objectCase: static (state, address) => Fin.Fail<DocumentFold>(
                 error: new KernelFault.InvalidValue(nameof(TextMutationBatch), string.Join(" | ", new object?[] { state.Op, $"a document address in a document batch; got '{address.Key.Value}'" }))));
 
@@ -557,8 +536,6 @@ public static class UserTexts {
                 deleteCase: _ => { delete(); return unit; }))
             .Map(_ => new TextBody.Delta(Address: mutation.Address, Prior: prior, Current: mutation.Edit.Result));
 
-    // Attribute and geometry groups plan through ONE body: the store side selects which detached map is read and
-    // which table occurrence carries the write, and nothing else differs.
     private static Fin<TextPlan> Plan(RhinoDoc document, Seq<TextMutation> mutations, Op key) =>
         toSeq(ObjectTextStore.Items)
             .TraverseM(store => Grouped(mutations: mutations, store: store)
@@ -613,8 +590,6 @@ public static class UserTexts {
         from operation in TableOp.Amend(target: target, change: change, interaction: HostInteraction.Quiet, key: key)
         select new TextStep(Operation: operation, Evidence: planned.Evidence);
 
-    // The staged clone is the lease's whole reason: acquisition brackets the projection, so the duplicate releases
-    // on every exit path — the failed rail included — and no arm owes cleanup evidence of its own.
     private static Fin<TextStep> PlanGeometry(RhinoObject source, Seq<TextMutation> mutations, Op key) =>
         from lease in Lease<GeometryBase>.Acquire(mint: () => source.Geometry.Duplicate(), key: key)
         from step in lease.Use(
@@ -676,10 +651,6 @@ public static class UserTexts {
             .As()
             .Map(static streams => streams.Fold(UserTextReceipt.Empty, static (held, next) => held + next));
 
-    // The STORED value is the whole verdict, exactly as the document rail's closing census is: a host `true` that
-    // wrote something else is a silent divergence, and a host `false` settles ONLY when the key already holds what
-    // the request asked for. A refusal that leaves an EFFECTIVE change unapplied is a typed failure; the identical
-    // prior/current pair proves the write never landed, never that the write was unnecessary.
     private static Fin<TextBody.Delta> Settle(
         Func<string, string?> get,
         Func<string, string, bool> set,
@@ -710,8 +681,6 @@ public static class UserTexts {
                 error: new KernelFault.InvalidValue(nameof(TextAddress), string.Join(" | ", new object?[] { op, $"an object address; got '{value.Address.Wire}'" }))),
             objectCase: static (_, value) => Fin.Succ(value: value));
 
-    // The host counts are a POSTCONDITION, not a mirror: the folded partition must equal what the host itself
-    // reports on each side, and a disagreement refuses with both readings named.
     private static Fin<DocumentTextSnapshot> ReadDocument(RhinoDoc document, Op key) =>
         from rows in key.Catch(() => toSeq(Range(0, document.Strings.Count))
             .Traverse(index => Row(document: document, index: index, key: key).ToValidation())
@@ -768,8 +737,6 @@ public static class UserTexts {
             key: key)
         select new ObjectTextSnapshot(ObjectId: objectId, Attributes: stores.Attributes, Geometry: stores.Geometry);
 
-    // The store set drives BOTH host route arguments and the per-match store column, so a search that asked for
-    // one store can never report a match in the other and an unmatched object is structurally unspellable.
     private static Fin<Seq<TextMatch>> Search(RhinoDoc document, TextSearch search, Op key) =>
         from found in toSeq(ObjectTextStore.Items)
             .TraverseM(store => search.Policy.Searches(store: store)

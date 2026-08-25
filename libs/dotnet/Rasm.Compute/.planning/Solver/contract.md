@@ -32,7 +32,7 @@ The mesh producer is `Solver/discretization#MESH_GENERATION` `MeshLane.Discretiz
 - Boundary: wall budget and cancellation are `LanePolicy` columns the lane composes onto a canonical row and reach the criterion stack through `IterationPolicy.Of` beside the `Solve` argument clock, so every iterative leg bounds wall time off the one clock the receipt durations read; a canonical row binding a clock static, a deadline parameter grown onto the entry signature, or a per-leg literal cap is the rejected form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
 public sealed partial class MaterialForm {
@@ -44,7 +44,6 @@ public sealed partial class MaterialForm {
     public int Dof { get; }
     public int StrainDim { get; }
 
-    // The CONTINUUM coefficient of the form; a payload carrying its own operator data overrides it on its own row.
     [UseDelegateFromConstructor]
     public partial double[] Continuum(double scale, double poisson);
 
@@ -68,9 +67,6 @@ public abstract partial record PhysicsPayload {
     public sealed record EddyCurrent(double Permeability, double Conductivity, double AngularFrequency) : PhysicsPayload;
 }
 
-// The operator family owns BOTH halves of the payload correspondence: which payload case it admits and how that
-// payload lowers to a constitutive coefficient. The bare-tag form put the first half in a six-arm admission switch,
-// the second in a four-arm material switch, and closed the mismatch with two thrown exceptions.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -82,16 +78,11 @@ public sealed partial class OperatorForm {
     public static readonly OperatorForm Helmholtz = new("helmholtz", dense: false, AdmitHelmholtz, LowerContinuum);
     public static readonly OperatorForm EddyCurrent = new("eddy-current", dense: false, AdmitEddy, LowerEddy);
 
-    // Radiosity view factors and network conductance are DENSE `n × n` payloads and the operator they lower is a
-    // dense `n × n` triplet fill, so both the payload and the assembly are quadratic in the node count. The row
-    // states that quadratic shape and the problem gate reads the ceiling off it.
     public bool Dense { get; }
 
     [UseDelegateFromConstructor]
     public partial Fin<Unit> Admits(PhysicsPayload payload, long cells, int nodes);
 
-    // A network operator has no `Bᵀ·D·B` coefficient at all — it IS its own dense lowering — so the arm refuses by
-    // name rather than answering an empty matrix the assembly would fold as zeros.
     [UseDelegateFromConstructor]
     public partial Fin<double[]> Coefficient(MaterialForm form, double scale, double poisson, PhysicsPayload payload);
 
@@ -139,8 +130,6 @@ public sealed partial class OperatorForm {
     }
 }
 
-// Sixteen corners for six legal ones: the four adjacent bools admitted `eigen && transient`, `nonlinear && eigen`,
-// and every other pair no route serves, and the eight-arm ladder that read them fixed a precedence nothing declared.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -152,8 +141,6 @@ public sealed partial class PhysicsRegime {
     public static readonly PhysicsRegime Nonlinear = new("nonlinear");
 }
 
-// Symmetry is which FACTORIZATIONS the operator admits, so the row answers the question the policy gate asked by
-// comparing a bool against a factorization kind at the call site.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -201,9 +188,6 @@ public sealed partial class ConstraintMethod {
     public bool Bordered { get; }
 }
 
-// `arc-length` and `condensed-evd` retire as METHOD keys: both named a ROUTE, not a numeric lowering, and both
-// were held to their policy payload by a validator comparing a key against an `Option`. The route union carries
-// each, and the receipt reads the route's own key beside the method's.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -224,8 +208,6 @@ public sealed partial class SolveMethod {
     public Option<IterativeMethod> Krylov => Optional(krylov);
 }
 
-// `None` names the ABSENCE of preconditioning and must build one, so the identity row is what it builds — the
-// diagonal factory bound to both rows made the two rows indistinguishable in behaviour and the key a lie.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -251,8 +233,6 @@ public sealed partial class TimeIntegrator {
     public double Beta { get; }
     public double Gamma { get; }
 
-    // The implicit/explicit split IS which march body runs, so the row carries the body rather than a bool three
-    // ternary levels away from the fold that reads it.
     [UseDelegateFromConstructor]
     public partial Fin<SolveResult> Advance(MarchRequest request);
 
@@ -266,11 +246,6 @@ public sealed partial class TimeIntegrator {
     }
 }
 
-// The ONE bounded-budget verdict every iterative fold in the folder returns. A fold that ran out of budget reports
-// `Exhausted` with the budget it exhausted, never a success-shaped tuple whose `bool` a caller has to remember to
-// read; a fold whose residual stopped improving reports `Stalled` rather than burning the remaining budget on it.
-// `Solver/optimizer`, `Solver/uncertainty`, `Stats/estimator`, and `Solver/constitutive`'s return map all compose
-// these three arms, so a convergence story reads identically across the folder rather than once per lane.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Convergence {
     private Convergence() { }
@@ -280,9 +255,6 @@ public abstract partial record Convergence {
     public sealed record Stalled : Convergence;
 }
 
-// The route CARRIES its payload. Eighteen policy columns, two `Option`s, and a keyless five-row tag encoded the
-// same eight routes across three types, and a validator held the pairs together by comparing a method key against
-// an option's presence — twice. Every arm below is one case of one total `Switch` on the dispatch fold.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SolveRoute {
     private SolveRoute() { }
@@ -290,10 +262,6 @@ public abstract partial record SolveRoute {
     public sealed record Direct : SolveRoute;
     public sealed record Iterative : SolveRoute;
     public sealed record Transient(TimeIntegrator Integrator, PositiveMagnitude Step, Dimension Steps) : SolveRoute;
-    // Error-controlled march of the SEMI-DISCRETE first-order system, distinct from the fixed-grid structural
-    // schemes `Transient` names: the step size is the integrator's own adaptive product rather than a policy
-    // column, dense stations harvest inside an accepted span, and the run terminal partitions convergence from
-    // budget exhaustion from underflow where a fixed grid can only report the last state it reached.
     public sealed record Traced(FieldIntegrator Integrator, TrajectoryControl Control, QuadratureControl Accuracy, Seq<double> Stations) : SolveRoute;
     public sealed record Nonlinear(Dimension NewtonIterations) : SolveRoute;
     public sealed record Continuation(Dimension NewtonIterations, ArcLengthPolicy Path) : SolveRoute;
@@ -308,8 +276,6 @@ public abstract partial record SolveRoute {
         continuation: static _ => "arc-length", vibration: static _ => "dense-evd",
         condensed: static _ => "condensed-evd", buckling: static _ => "buckling");
 
-    // Which regime a route serves. The derivation runs ONCE at admission against the physics row rather than at
-    // every dispatch, so a route naming a regime its physics cannot reach refuses by name before assembly.
     public PhysicsRegime Regime => Switch(
         direct: static _ => PhysicsRegime.Static, iterative: static _ => PhysicsRegime.Static,
         transient: static _ => PhysicsRegime.Transient, traced: static _ => PhysicsRegime.Transient,
@@ -320,26 +286,13 @@ public abstract partial record SolveRoute {
 
 public sealed record ArcLengthPolicy(PositiveMagnitude Radius, PositiveMagnitude LoadScale, Dimension Steps, PositiveMagnitude ResidualTolerance);
 
-// Static-condensation budget: the retained-set ceiling above which the reduction has bought nothing the dense
-// terminal can afford (the terminal is cubic in the retained count), the relative-residual cap the per-column
-// slave equilibrium and the block reduction witness both gate on, and the byte ceiling on the dense `Ψ`
-// transformation — `retained × condensed × sizeof(double)` is the one allocation the reduction cannot stream. The
-// RETAINED SET itself is no column: it derives from the inertia the model carries, so a caller enumerating a
-// master set is the deleted form.
 public sealed record CondensationPolicy(Dimension MaxRetained, PositiveMagnitude ResidualCap, long MaxTransformBytes) {
     public static readonly CondensationPolicy Canonical = new(
         Dimension.Create(1_024), PositiveMagnitude.Create(1e-8), MaxTransformBytes: 512L * 1024 * 1024);
 }
 
-// Measured reduction receipt: the retained and condensed counts, the slave-equilibrium block residual
-// `‖K_ss·Ψ + K_sm‖_F / ‖K_sm‖_F` recomputed against the ORIGINAL blocks, and the retained pencil's condition
-// number off one held `Svd(false)` handle. A route that could not measure one of them refuses rather than stamping
-// a zero a consumer would read as evidence.
 public readonly record struct CondensationEvidence(int Retained, int Condensed, double Residual, double Conditioning);
 
-// Rayleigh damping is the PAIR `C = αM + βK`, never a single stiffness-proportional constant: the mass term damps
-// the low modes a building's own inertia carries and the stiffness term the high modes, so a lane holding one of
-// them silently changes which end of the spectrum decays. Holding half the pair is now unrepresentable.
 [ComplexValueObject]
 public sealed partial class RayleighPair {
     public static RayleighPair Structural { get; } = Create(mass: 0.0, stiffness: 0.05);
@@ -352,11 +305,8 @@ public sealed partial class RayleighPair {
             ?? Band.Nonnegative.Guard(label: nameof(Stiffness), value: ref stiffness);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// What survives after the route union took its payload: the numeric method, the constraint discipline, and the
-// budgets EVERY route reads. Every column is an admitted atom, so no interior fold re-tests a bound and the eight
-// hand `< 1` and `<= 0.0` guards the ladder ran delete with the types that make them unrepresentable.
 public sealed record LanePolicy {
     public static readonly LanePolicy CanonicalStatic = new(
         SolveMethod.DirectCholesky, ConstraintMethod.Elimination,
@@ -382,21 +332,10 @@ public sealed record LanePolicy {
     public PositiveMagnitude Tolerance { get; init; }
     public PositiveMagnitude PenaltyFactor { get; init; }
     public RayleighPair Damping { get; init; }
-    // Dense-terminal ceiling in degrees of freedom: the whole-operator modal and buckling routes both densify at
-    // full order, so the allocation is quadratic and the factorization cubic in this number. The ceiling refuses
-    // by NAME rather than attempting an allocation the machine answers with an out-of-memory the receipt cannot
-    // explain, and the modal refusal names the condensed route that does serve the model.
     public Dimension MaxDenseDofs { get; init; }
-    // Wall budget and cooperative token are policy VALUES the lane composes onto a canonical row, because the
-    // iterative criterion stack reads clock, deadline, and token together through `IterationPolicy.Of`. CLOCK
-    // stays the `Solve` argument: a canonical row binding a clock static mints a second clock the receipt
-    // durations never read.
     public Duration Deadline { get; init; }
     public CancellationToken Cancel { get; init; }
 
-    // What survives of the ten-deep ladder: three claims that genuinely relate the policy, the route, and the
-    // problem. The other seven tested bounds the atoms now carry and two tested discriminant-payload pairings the
-    // route union makes by construction.
     public Fin<Unit> Admits(SolveProblem problem, SolveRoute route) =>
         Seq(
             Claim(problem.Physics.Regime == route.Regime, new ComputeViolation.Contract(
@@ -408,8 +347,6 @@ public sealed record LanePolicy {
             Claim(Deadline > Duration.Zero, new ComputeViolation.Range(
                 RangeRequirement.Positive,
                 new ScalarEvidence.DurationValue(Deadline))),
-            // Newton and continuation solve their inner step through a Krylov method, and Lagrange bordering adds
-            // multiplier rows a Cholesky factor and an eigen pencil both refuse.
             Claim(route is not (SolveRoute.Nonlinear or SolveRoute.Continuation) || Method.Krylov.IsSome,
                 new ComputeViolation.Unsupported(ComputeCapability.IterativeSolver)),
             Claim(Constraint != ConstraintMethod.Lagrange
@@ -429,11 +366,6 @@ public sealed record LanePolicy {
 public abstract partial record MaterialField {
     private MaterialField() { }
 
-    // Elastic cases carry DENSITY beside the two elastic constants because inertia is a material fact the seam
-    // already supplies, so dropping it forces every dynamic and modal arm to fabricate a mass from geometry alone
-    // — a lumped vector in metres reported as kilogrammes. Scalar cases carry the dual fact: `Capacity` is the
-    // volumetric heat capacity `ρ·c_p` in J/(m³·K), because a first-order march reading a bare geometric volume as
-    // a capacity advances every diffusion problem at the wrong rate.
     public sealed record UniformElastic(double Young, double Poisson, double Density) : MaterialField;
     public sealed record UniformScalar(double Scale, double Capacity) : MaterialField;
     public sealed record PerCellElastic(ImmutableArray<double> Young, ImmutableArray<double> Poisson, ImmutableArray<double> Density) : MaterialField;
@@ -449,8 +381,6 @@ public abstract partial record MaterialField {
                 [.. rows.Map(static m => m.Density.Si)]))
             .As();
 
-    // ONE read answers every per-cell constitutive question the assembly and the inertia fold both ask, so a
-    // second density-only accessor beside it is the deleted hop.
     public Fin<(double Young, double Poisson, double Density)> MechanicalAt(int cell) =>
         Switch(
             state: cell,
@@ -459,9 +389,6 @@ public abstract partial record MaterialField {
             perCellElastic: static (index, assignment) => Fin.Succ((assignment.Young[index], assignment.Poisson[index], assignment.Density[index])),
             perCellScalar: static (_, _) => Fin.Fail<(double, double, double)>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Unsupported(ComputeCapability.ElasticMaterial))));
 
-    // `CapacityAt` is the scalar dual of `MechanicalAt`. The elastic cases refuse rather than returning a
-    // substitute, because their storage term is density and `MechanicalAt` already carries it — a case answering
-    // both reads makes the two indistinguishable.
     public Fin<double> CapacityAt(int cell) =>
         Switch(
             state: cell,
@@ -482,9 +409,6 @@ public abstract partial record MaterialField {
         return valid ? Fin.Succ(unit) : Fin.Fail<Unit>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())));
     }
 
-    // Lowering answers the OPERATOR coefficient alone: the scalar arms lower their conductance and the capacity
-    // never enters, because storage rides the mass fold rather than the stiffness fold. The coefficient SHAPE is
-    // uniform per payload, so the fallible lowering binds ONCE at assembly entry and the per-cell reader is total.
     public Fin<Func<int, double[]>> Lower(PhysicsKind physics, PhysicsPayload payload) =>
         Switch(
             state: (Physics: physics, Payload: payload),
@@ -503,9 +427,6 @@ public abstract partial record MaterialField {
                 .Map(_ => (Func<int, double[]>)(cell => row.Physics.Operator
                     .Coefficient(row.Physics.Form, assignment.Scale[cell], 0.0, row.Payload).ThrowIfFail())));
 
-    // Capacity is IN the canonical bytes, so the scalar cases re-key: two runs differing only in heat capacity are
-    // different derivations with different transient answers, and a key blind to the column would serve one run's
-    // cached result to the other. Every run carries its own count, which the kernel writer frames.
     public void WriteCanonical(CanonicalWriter sink) =>
         Switch(
             state: sink,
@@ -520,9 +441,6 @@ public abstract partial record MaterialField {
     static bool PoissonValid(double value) => double.IsFinite(value) && value is > -1.0 and < 0.5;
 }
 
-// `[Equatable]`+`[OrderedEquality]`: the record carries two `ImmutableArray`s and a `Seq`, all of which synthesized
-// record equality reference-compares, so a problem would never equal its own reconstruction and the content key it
-// carries would be the only working identity it had.
 [Equatable]
 public sealed partial record SolveProblem(
     PhysicsKind Physics,
@@ -534,15 +452,10 @@ public sealed partial record SolveProblem(
     [property: OrderedEquality] ImmutableArray<FrameMember> Members,
     Option<(ConstitutiveModel Model, ConstitutiveParameters Law)> Material,
     UInt128 ContentKey) {
-    // A model above the dense-network ceiling needs a clustered or hierarchical view-factor route this lane does
-    // not own, so it refuses by name with its measured node count instead of attempting an allocation two orders
-    // of magnitude past the machine.
     public static readonly Dimension MaxDenseNetworkNodes = Dimension.Create(4_096);
 
     public int Dof => Element.Family == ShapeFamily.Frame ? 6 : Physics.Dof;
 
-    // Every independent admission accumulates: frame-member cardinality, the payload the operator row admits, the
-    // dense-network ceiling, and the material field's own shape all report together.
     public static Fin<SolveProblem> Of(
         PhysicsKind physics, DiscreteMesh mesh, Seq<BoundaryCondition> conditions, MaterialField field,
         PhysicsPayload payload, ImmutableArray<FrameMember> members,
@@ -566,10 +479,6 @@ public sealed partial record SolveProblem(
                 Key(physics, mesh, conditions, field, payload, members, material)));
     }
 
-    // ONE framed preimage through the kernel writer: tolerance rides the key, `-0.0` canonicalizes, and every
-    // variable-width run carries its own count. The eight hand framing helpers this replaced wrote raw
-    // little-endian doubles with no quantization and no length discipline, so two coordinates a tolerance apart
-    // addressed two identities and two adjacent raw runs were indistinguishable from one.
     static UInt128 Key(
         PhysicsKind physics, DiscreteMesh mesh, Seq<BoundaryCondition> conditions, MaterialField field,
         PhysicsPayload payload, ImmutableArray<FrameMember> members,
@@ -595,11 +504,6 @@ public sealed partial record SolveProblem(
         held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 
-// Modal participation is PER AXIS: `Γ_d = Σ_i m_i·φ_i·r_{d,i}` over the translational degrees of freedom of axis
-// `d`, the influence vector `r_d` being one on that axis's translational rows and zero elsewhere. A scalar factor
-// summing every axis at once cannot answer the question a seismic check asks — which fraction of the excitable
-// mass in THIS direction the retained modes carry — and a frame whose modes are strongly directional reports a
-// healthy total while one axis is unrepresented.
 public readonly record struct ModalParticipation(double X, double Y, double Z);
 
 public sealed record SolveResult(
@@ -615,19 +519,10 @@ public sealed record SolveResult(
     int NewtonSteps,
     Convergence Verdict,
     Instant At) {
-    // Reduction evidence rides an init member because it is route-borne, not universal: `Option<T>` is total over
-    // `default` so no other construction site in the lane changes, and a route that reduced nothing carries `None`
-    // rather than a zeroed record every consumer would have to disbelieve.
     public Option<CondensationEvidence> Condensation { get; init; }
 
-    // Integration evidence rides the same init discipline: the error-controlled march carries the driver's own
-    // achieved horizon, error estimate, reject census, and — the column that matters — its `ConvergenceClaim`, so
-    // a run reporting convergence it never MEASURED is distinguishable at the receipt edge. Every fixed-grid route
-    // carries `None`, because a fixed grid measures no local error to claim.
     public Option<QuadratureEvidence> Evidence { get; init; }
 
-    // The receipt reports the measured residual and the flag; the verdict is what carries WHY, so a run that
-    // exhausted its budget and one that stalled at the same residual stay distinguishable past the receipt edge.
     public double Residual => Verdict switch {
         Convergence.Converged converged => converged.Residual,
         _ => double.PositiveInfinity,
@@ -635,13 +530,6 @@ public sealed record SolveResult(
     public bool Converged => Verdict is Convergence.Converged;
 }
 
-// A factorization is a LIVE resource with a symbolic analysis, a numeric factor, and a disposal — the same reason
-// the archive capability is not a policy value. The session is opened for a PATTERN-STABLE family (one mesh, one
-// constraint set, many right-hand sides or many material combinations) and every solve under it re-values the
-// standing factor through the `Tensor/factor#SPARSE_SOLVE` owner's own `Edit.Revalue`, which reuses the cached
-// permutation and yields an INDEPENDENT factor. A multi-combination static sweep therefore pays the dominant
-// symbolic phase once instead of once per combination, and the pattern key refuses a re-value against an operator
-// whose sparsity moved.
 public sealed class SolveSession : IDisposable {
     readonly Atom<FactoredOp> held;
 
@@ -657,8 +545,6 @@ public sealed class SolveSession : IDisposable {
         SparseOps.Factor(pattern, kind, ordering, pivotTol: 1.0, dropFloor: 0.0)
             .Map(factored => new SolveSession(factored, PatternKeyOf(pattern), kind));
 
-    // The values change and the PATTERN does not: a re-value against an operator whose row pointers or column
-    // indices moved is a different problem wearing the session's factor, so it refuses by name.
     public Fin<double[]> Solve(SparseCompressedRowMatrixStorage<double> csr, double[] rhs, double cap) =>
         PatternKeyOf(csr) != PatternKey
             ? Fin.Fail<double[]>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Consistent, new ContractEvidence.Digest(PatternKey))))
@@ -666,7 +552,6 @@ public sealed class SolveSession : IDisposable {
                 .Map(refactored => { held.Swap(_ => refactored); return refactored; })
                 .Bind(factored => factored.Solve(rhs, cap));
 
-    // The pattern IS the row pointers and column indices; values are exactly what a re-value replaces.
     static UInt128 PatternKeyOf(SparseCompressedRowMatrixStorage<double> csr) =>
         ContentHash.Of(csr, static (storage, sink) => {
             sink.Ordinal(storage.RowCount).Ordinal(storage.ColumnCount);
@@ -677,13 +562,9 @@ public sealed class SolveSession : IDisposable {
     public void Dispose() => held.Value.Dispose();
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class SolveLane {
-    // The SPINE entry: generation, admission, assembly, route. `MeshLane.Discretize` is the mesh producer, so a
-    // caller hands geometry and policy and never assembles over a mesh that skipped the quality gate — the
-    // hand-built path stays available to the analysis pages that own their own element rosters, and this entry is
-    // what makes the generation half reachable.
     public static Fin<SolveResult> Discretized(
         BoundaryShell boundary, MeshPolicy meshPolicy, PhysicsKind physics, Seq<BoundaryCondition> conditions,
         MaterialField field, PhysicsPayload payload, ImmutableArray<FrameMember> members,
@@ -695,9 +576,6 @@ public static partial class SolveLane {
         from result in Solve(problem, mesh, policy, route, clock, archive, session)
         select result;
 
-    // The session mint for a multi-combination family: the SAME constrained assembly Solve runs, so the pattern
-    // the session pins IS the pattern every re-solve reproduces — a caller assembling its own CSR to open a
-    // session was the gap that left the standing factor unmintable from the lane.
     public static Fin<SolveSession> Session(
         SolveProblem problem, DiscreteMesh mesh, LanePolicy policy, FactorKind kind, ColumnOrdering ordering) =>
         from operatorCsr in OperatorAssembly.Assemble(problem, mesh, policy)
@@ -734,11 +612,6 @@ public static partial class SolveLane {
             Scope = new ReceiptScope.Execution(correlation, WorkLane.Background, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
-    // Receipt columns carry the effective-mass FRACTION per axis — `Σ_modes Γ_d² / (rᵀ·M·r)_d` — because that
-    // ratio is what a seismic floor gates on, while the raw factors scale with the model's mass. Both modal
-    // producers fill the factor set and the excitable mass together, so the three columns stay absent exactly on
-    // the routes that report no modes. An axis whose translational rows are all prescribed has no excitable mass,
-    // so its share is exactly zero rather than a division.
     static Option<ModalParticipation> EffectiveMassShare(SolveResult result) =>
         from factors in result.Participation
         from excitable in result.TotalMass

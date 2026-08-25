@@ -24,11 +24,7 @@ Lowering is the gate the `Symbolic/dimensional#DIMENSION_PROOF` pre-numeric admi
 - Boundary: `Compile` is the single lowering entry — a `CompileUnary`/`CompileBinary`/`CompileVariadic` factory trio is the collapsed defect, and the two-parallel-switch shape (one for compile, one for invoke) is what the delegate-backed rows collapse; a compile runs only behind a `DimensionVerdict` whose `Proved` key names THIS tree, so the pre-numeric gate is a signature obligation rather than a call-order convention; the typed generic `Compile<>` is the admitted fast path lowering to IL through the engine's LINQ-expression protocol, and a hand-rolled `Reflection.Emit` or expression-tree re-implementation is the deleted form; the residue gate runs BEFORE the engine compile so the throwing seam is reached only by genuinely un-compilable nodes, and that one capture is the named platform-forced exception exemption; the positional symbol order is the one argument convention, and an unordered `Map<SymbolName,double>`-keyed invoke is rejected because the compiled delegate is positional by construction; a sentinel roster row whose columns no path reaches is the deleted form the `Option`-returning `Select` replaces.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
-// The roster starts at rank ONE. A `nullary` row carried two `Fin.Fail` sentinel columns no path could reach —
-// the capsule branched out before `Lower` and `Invoke` branched out before the delegate — so the row existed to
-// be skipped, and `Select` returning `Option<CompileArity>` is what makes the constant case a shape rather than
-// a forged member.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -67,8 +63,6 @@ public sealed partial class CompileArity {
 
     public int Rank => rank;
 
-    // SymbolName-order count selects the row off the RANK axis itself — a hand `switch` restating ranks 1..8 was a
-    // second mirror of the roster it selects from. Zero symbols selects no row: the caller holds a constant.
     internal static Option<CompileArity> Select(int symbolCount) =>
         symbolCount <= 0
             ? None
@@ -78,7 +72,6 @@ public sealed partial class CompileArity {
 
     internal Fin<double> Invoke(Delegate evaluator, ImmutableArray<double> arguments) => invoke(evaluator, arguments);
 
-    // Interpreter stays behind the row: one closure marshals double[] -> Complex[] -> Call; `Admit` preserves the imaginary residual through the real-result gate.
     static Func<double[], Complex> Interpret(FastExpression fast) =>
         args => fast.Call([.. args.Select(static x => new Complex(x, 0))]);
 
@@ -87,7 +80,6 @@ public sealed partial class CompileArity {
             ? Fin.Succ(value)
             : Fin.Fail<double>(new ComputeFault.SymbolUndefined($"<compiled-non-finite:{value}>"));
 
-    // The imaginary-residual floor is the kernel's double-arithmetic seam, never a lane literal.
     static Fin<double> Admit(Complex value) =>
         double.IsFinite(value.Real) && double.IsFinite(value.Imaginary)
         && Math.Abs(value.Imaginary) <= EpsilonPolicy.SeamUlp * Math.Max(1.0, Math.Abs(value.Real))
@@ -95,10 +87,7 @@ public sealed partial class CompileArity {
             : Fin.Fail<double>(new ComputeFault.SymbolUndefined($"<compiled-non-real:{value}>"));
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
-// A constant holds no delegate and a lowered form holds no constant, so the both-`Some` and both-`None` states an
-// exclusive `Option` pair admitted are unrepresentable — and the four-arm invalid-state ladder that answered them
-// at every invoke deletes with them.
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CompiledBody {
     private CompiledBody() { }
@@ -107,9 +96,6 @@ public abstract partial record CompiledBody {
     public sealed record Lowered(CompileArity Arity, Delegate Evaluator) : CompiledBody;
 }
 
-// The carrier records what its output MEANS beside how to produce it: the proven monomial and, at exactly one
-// candidate row, its family — so a cost or QTO consumer reads the result dimension off the value it already holds
-// instead of re-proving the formula, and `Symbolic/dimensional#UNITS_BRIDGE`'s verdict has a reader.
 [Equatable]
 public sealed partial record CompiledExpr(
     UInt128 ContentKey,
@@ -117,8 +103,6 @@ public sealed partial record CompiledExpr(
     DimensionMonomial Dimension,
     Option<QuantityFamily> Family,
     CompiledBody Body) {
-    // Arity and finiteness stay two NAMED arms rather than an accumulating join: this runs once per optimizer
-    // oracle call, and the applicative allocation is the cost the inner loop cannot pay.
     public Fin<double> Invoke(ImmutableArray<double> arguments) =>
         arguments.Length != SymbolOrder.Count
             ? Fin.Fail<double>(new ComputeFault.SymbolUndefined($"<arity:{arguments.Length}≠{SymbolOrder.Count}>"))
@@ -130,23 +114,18 @@ public sealed partial record CompiledExpr(
             lowered: static (l, args) => Captured.Of(() => l.Arity.Invoke(l.Evaluator, args)));
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CompileCapsule {
     public static Fin<CompiledExpr> Compile(SymbolicExpr source, DimensionVerdict proof, Seq<SymbolName> symbolOrder) =>
         Admit(source, proof, symbolOrder).Bind(tree =>
             CompileArity.Select(symbolOrder.Count).Match(
-                // Zero free symbols IS a constant: the value evaluates once and seats on the carrier, so no
-                // delegate is lowered, none is invoked, and no placeholder exists for a caller to reach.
                 None: () => source.Evaluate(Map<SymbolName, Finite>())
                     .Map(value => Carry(source, proof, symbolOrder, new CompiledBody.Constant(value))),
                 Some: arity => tree.Nodes.Any(static n => n is Entity.CalculusOperator or Entity.Set or Entity.Statement)
                     ? Fin.Fail<CompiledExpr>(new ComputeFault.NonDifferentiable($"<compile-residue:{source.Canonical}>"))
-                    // Engine compile can reject a node the residue gate cannot see; capture preserves that error.
                     : Captured.Of(() => arity.Lower(tree, symbolOrder.Map(static s => s.Var).ToArray()))
                         .Map(evaluator => Carry(source, proof, symbolOrder, new CompiledBody.Lowered(arity, evaluator)))));
 
-    // FOUR independent admissions, so they accumulate: a caller who handed a duplicate symbol AND an order
-    // missing a free symbol used to learn about one of them per round trip.
     static Fin<Entity> Admit(SymbolicExpr source, DimensionVerdict proof, Seq<SymbolName> symbolOrder) =>
         (source.Tree.Match(Succ: Success<Error, Entity>, Fail: static error => Fail<Error, Entity>(error)),
          Proven(source, proof),
@@ -156,9 +135,6 @@ public static class CompileCapsule {
             .As()
             .ToFin();
 
-    // The gate this page's Law always claimed and could not take: a compile runs only behind an ADMITTED
-    // dimensional proof, and the verdict's `Proved` key binds it to THIS tree, so a proof minted for another
-    // formula is a typed refusal rather than a witness the compile silently accepts.
     static Validation<Error, Unit> Proven(SymbolicExpr source, DimensionVerdict proof) =>
         proof.Proved == source.ContentKey
             ? Success<Error, Unit>(unit)
@@ -194,10 +170,8 @@ public static class CompileCapsule {
 - Boundary: tags MINT at `CacheLane.Tag` alone — this cache names its owner key and the lane frames it; the spelling is the same one `Runtime/lifecycle` composes, so it stays stable across both. `LoweringCache` never owns a cache instance — a hand-rolled `ConcurrentDictionary<UInt128, CompiledExpr>` memoization is the deleted form; a `source.Canonical` string key is redundant because the content key already digests the canonical form; keying by the ONNX `ModelResultKey` is rejected because a compiled formula carries no `ModelIdentity`/`ExecutionProvider`/`ModelPrecision`; a `DisableDistributedCacheWrite`-only half-measure is rejected (it leaves the entry probing a permanently-empty L2 on every miss), and an "L2 carries a re-lowering seed" design is illusory because a seed without the source `Entity` cannot reconstruct the delegate; caching the bare `Fin<CompiledExpr>` instead of the `[ImmutableObject]` `LoweringSlot` is rejected because HybridCache serializes the non-immutable value and fails on the `Delegate`; a caller that compiles-then-caches in two steps duplicates the stampede lock the `GetOrCreateAsync` single-flight owns.
 
 ```csharp signature
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 file static class LoweringEntry {
-    // Carries the model lane's TTL/policy forward and adds only the L2 bypass; a compiled Delegate is not serializable, so this entry is L1-only.
-    // HybridCacheEntryOptions is a sealed non-record, so the copy is an object initializer over the lane values — `with` is unavailable.
     public static readonly HybridCacheEntryOptions Compiled = new() {
         Expiration = CacheLane.ModelResult.Entry.Expiration,
         LocalCacheExpiration = CacheLane.ModelResult.Entry.LocalCacheExpiration,
@@ -205,17 +179,12 @@ file static class LoweringEntry {
     };
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
-// [ImmutableObject(true)] is the HybridCache immutable marker: L1 holds this slot by reference and never serializes the live Delegate;
-// success and a deterministic decline both ride the one Fin<CompiledExpr>.
+// --- [MODELS] --------------------------------------------------------------------------
 [ImmutableObject(true)]
 public sealed record LoweringSlot(Fin<CompiledExpr> Result);
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CompiledKey {
-    // Keying does NOT re-admit: `CompileCapsule.Compile` owns the symbol-order gate, and a key derived for an
-    // inadmissible order simply misses and lands that capsule's own typed refusal in the slot — the duplicate
-    // gate here reported the same defect twice under a different grammar.
     public static Fin<UInt128> Of(SymbolicExpr source, Seq<SymbolName> symbolOrder) =>
         Captured.Of(() => {
                 ArrayBufferWriter<byte> symbols = new();
@@ -235,16 +204,10 @@ public static class CompiledKey {
             });
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class LoweringCache(HybridCache cache) {
-    // OWNER keys cross the lane seam, never tags: `CacheLane.ModelResult.Tag` frames this owner into the lane's
-    // own tag space and every write carries the bare lane key beside it, so a raw `"symbolic-lowering"` literal
-    // stamped at the call site would be a tag no lane ever minted and no `Invalidate` could ever reach.
     const string SymbolicOwner = "symbolic-lowering";
 
-    // The rail is `IO`, not a bare `ValueTask`: cancellation rides `EnvIO` instead of a parameter tail, the
-    // fallible key derivation composes as a step rather than a `Match` over two `ValueTask` shapes, and the
-    // Jacobian's fan-out below can `Fork` these directly.
     public IO<CompiledExpr> Through(SymbolicExpr source, DimensionVerdict proof, Seq<SymbolName> symbolOrder) =>
         IO.lift(() => CompiledKey.Of(source, symbolOrder))
             .Bind(key => IO.liftAsync(async (EnvIO env) => (await cache.GetOrCreateAsync(
@@ -257,9 +220,6 @@ public sealed class LoweringCache(HybridCache cache) {
                 env.Token)).Result))
             .Bind(IO.lift);
 
-    // Every compiled delegate roots its `AssemblyLoadContext`; `Evict` drops one key through the lane's physical
-    // remove and `Purge` cuts the symbolic owner tag before collectible-context unload, while the lane's
-    // model-result entries — framed under their own owner tags — survive the cut untouched.
     public IO<Unit> Evict(SymbolicExpr source, Seq<SymbolName> symbolOrder) =>
         IO.lift(() => CompiledKey.Of(source, symbolOrder))
             .Bind(key => IO.liftAsync(async (EnvIO env) => {
@@ -288,11 +248,7 @@ public sealed class LoweringCache(HybridCache cache) {
 - Boundary: the symbolic-Jacobian arm is the additive `DesignVariable.Symbolic` case the optimizer admits — a standalone `GradientSource`, a parallel `(Seq<double>, double)` path (the `Surrogate.Predict` RETURN shape, never the gradient contract), or a `Seq<SymbolicTape>` composition is rejected. `AdjointTape` is a closed `[Union]` whose `Geometry` case carries the composable `Seq<GeometryTape>` and whose `Symbolic` case carries one scalar `SymbolicTape`; each arm retains its honest arity under one optimizer dispatch. `SymbolicJacobian.Backward(SymbolicTape, ReadOnlyMemory<float>)` IS the two-argument transpose the `SensitivityLaw.Chain` contract names — a `SymbolicAdjoint.Chain` re-spelling it verbatim resolved the same name in two hops and is deleted — and it stays two-argument because the design point lives on the tape. Re-pointing that tape at the current design state is `tape with { DesignPoint = origin }` — the SANCTIONED per-iteration move `Solver/optimizer#OPTIMIZER_LANE` makes before each reverse sweep, because the partials are position-independent and only the evaluation point moves; re-lowering the Jacobian per iteration re-compiles what the cache already holds, and reusing a stale point silently returns the first iterate's gradient forever.
 
 ```csharp signature
-// --- [MODELS] ----------------------------------------------------------------------------
-// Design point rides the tape, so the reverse sweep needs no external primal. `Of` is the ONE mint and proves the
-// index/partial/symbol correspondence there, so the six-condition gate the sweep re-ran on every iteration is
-// gone; `with { DesignPoint = origin }` is the sanctioned per-iteration re-point and is the ONLY forgery a caller
-// can still spell, which is exactly why the point's own shape is the one thing `Backward` still proves.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record SymbolicTape(
     [property: OrderedEquality] Seq<SymbolName> DesignSymbols,
@@ -311,11 +267,8 @@ public sealed partial record SymbolicTape(
     public bool IsDegenerate => ActiveIndices.IsEmpty;
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SymbolicJacobian {
-    // Each PARTIAL carries its own dimension — dim(∂f/∂x) is dim(f)/dim(x) — so the context, not the formula's
-    // verdict, is what crosses: every partial admits through `DimensionAdmission` and reaches the cache behind
-    // its own proof, which is what keeps the compiled carrier's stamped dimension honest.
     public static IO<SymbolicTape> Lower(SymbolicExpr formula, DimensionContext context, Seq<SymbolName> designSymbols, ImmutableArray<double> designPoint, LoweringCache cache) =>
         IO.lift(() => Admit(designSymbols, designPoint)).Bind(_ =>
             toSeq(Enumerable.Range(0, designSymbols.Count))
@@ -328,13 +281,10 @@ public static class SymbolicJacobian {
                     .Bind(awaitAll)
                     .Bind(rows => IO.lift(() => SymbolicTape.Of(designSymbols, active, rows, designPoint))));
 
-    // Independent partials, so the width is the fan: each fork proves its own dimension and reads its own cache
-    // slot, and the harvest is one `awaitAll` rather than a `Task.WhenAll` over an escaped async boundary.
     static IO<CompiledExpr> Compiled(SymbolicExpr partial, DimensionContext context, Seq<SymbolName> free, LoweringCache cache) =>
         IO.lift(() => DimensionAdmission.Admit(partial, context).ToFin())
             .Bind(verdict => cache.Through(partial, verdict, free));
 
-    // TWO independent admissions on the design point, so they accumulate.
     static Fin<Unit> Admit(Seq<SymbolName> designSymbols, ImmutableArray<double> designPoint) =>
         (designSymbols.Count == designPoint.Length
             ? Success<Error, Unit>(unit)
@@ -346,8 +296,6 @@ public static class SymbolicJacobian {
             .As()
             .ToFin();
 
-    // Scalar-output VJP admits one cotangent component; inactive design coordinates remain exact zeroes. Only the
-    // re-pointable slot is proved here — every other tape invariant was settled at `SymbolicTape.Of`.
     public static Fin<ReadOnlyMemory<float>> Backward(SymbolicTape tape, ReadOnlyMemory<float> cotangent) =>
         tape.DesignPoint.Length != tape.DesignSymbols.Count || !tape.DesignPoint.All(double.IsFinite)
             ? Fin.Fail<ReadOnlyMemory<float>>(new ComputeFault.SymbolUndefined("<tape-design-point-invalid>"))
@@ -364,7 +312,6 @@ public static class SymbolicJacobian {
             .As();
     }
 
-    // Scalar `f : R^n -> R` scatters active partials into the full design gradient before scaling by the seed.
     static ReadOnlyMemory<float> Contract(Seq<double> gradient, Seq<int> activeIndices, int width, float seed) {
         float[] result = new float[width];
         activeIndices.Zip(gradient).Iter(pair => result[pair.First] = (float)pair.Second);
@@ -388,37 +335,21 @@ public static class SymbolicJacobian {
 - Boundary: the pre-gate serves `Solver/satisfy#RULE_SATISFACTION` — a rule whose enclosure proves over the declared bounds never spends the Z3 timeout, and `Indeterminate` falls through to the exact check, so the gate is a filter, never a verdict authority; `Solver/optimizer` box screening discards `ProvenViolated` regions without oracle calls. Interval division by a zero-straddling denominator, a NEGATIVE integer power over a zero-straddling base (the same reciprocal, so the same refusal), and `Logf` over a non-positive interval each decline typed rather than returning an infinite enclosure that certifies nothing; every arm that can leave the finite range re-checks `Valid` before it returns, so a non-finite bound faults at the node that produced it — and the node NAMES itself, because a string tag passed beside a node whose type already carries its identity is the knob that gate does not need. A columnar SIMD sweep over N design points is NOT owned here: the register-program form this page once carried had no consumer estate-wide, and a DOE sweep loops the scalar `CompiledExpr.Invoke` until a sweep owner names the batched shape it wants.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
-// Named `Enclosure`, never `Interval`: the kernel `Rasm/Numerics/predicates#Interval` is a live type across this
-// project's own reference, and two public `Interval`s over one compile edge is a collision a reader resolves by
-// namespace archaeology. The name that survives states what this carrier IS — an outward-rounded enclosure with
-// its unproven margin — where the kernel's states an exact algebraic interval.
-// `Lo`/`Hi` are the computed bounds and `Pad` is the accumulated soundness margin the transcendental arms owe.
-// Keeping them apart lets a consumer read the computed range while every verdict reads `Sound`, so widening is
-// never mistaken for a wider answer and a zero pad recovers the exact algebraic rule with no second code path.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct Enclosure(double Lo, double Hi, double Pad) {
-    // BCL `Math.Log`/`Math.Pow` are contracted to a few ULP and are NOT correctly rounded, so a transcendental
-    // bound owes a directed multi-ULP step. This is a contracted ULP COUNT, not an epsilon, which is why it has
-    // no `EpsilonPolicy` row; the relative floor beside it keeps a bound near zero from claiming exactness and
-    // sits a decade below the kernel's `SeamUlp` residual floor, so it is the one literal this carrier owns.
     const int TranscendentalUlps = 4;
     const double TranscendentalRelative = 1e-15;
 
-    // Correctly-rounded algebra: the outward step alone is the proof, and the pad stays whatever flowed in.
     public static Enclosure Of(double lo, double hi) => new(Math.BitDecrement(lo), Math.BitIncrement(hi), 0.0);
 
-    // Estimated algebra: the outward step plus the accumulated margin the arm cannot discharge.
     public static Enclosure Widened(double lo, double hi, double carried) =>
         new(Math.BitDecrement(lo), Math.BitIncrement(hi), carried + Margin(lo, hi));
 
-    // Leaf constants stay exactly representable — no outward expansion, so an exact integer exponent stays
-    // detectable by the integer-power law; rounding applies after OPERATIONS, never on the leaf itself.
     public static Enclosure Point(double value) => new(value, value, 0.0);
 
     public bool Valid => double.IsFinite(Lo) && double.IsFinite(Hi) && double.IsFinite(Pad) && Pad >= 0.0 && Lo <= Hi;
     public bool Contains(double value) => value >= Lo && value <= Hi;
 
-    // The range a verdict is entitled to assert: computed bounds opened by everything the path could not prove.
     public Enclosure Sound => new(Lo - Pad, Hi + Pad, 0.0);
 
     public static Enclosure operator +(Enclosure a, Enclosure b) => Of(a.Lo + b.Lo, a.Hi + b.Hi) with { Pad = a.Pad + b.Pad };
@@ -446,15 +377,13 @@ public abstract partial record EnclosureVerdict {
     public sealed record Indeterminate(Enclosure Range) : EnclosureVerdict;
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EnclosureFold {
     public static Fin<Enclosure> Enclose(SymbolicExpr source, Seq<SymbolName> symbolOrder, ImmutableArray<Enclosure> box) =>
         source.Tree.Bind(tree => symbolOrder.Count != box.Length || !box.All(static i => i.Valid)
             ? Fin.Fail<Enclosure>(new ComputeFault.ParseRejected($"<enclosure-box:{box.Length}≠{symbolOrder.Count}>"))
             : Descend(tree, symbolOrder.Zip(toSeq(box)).ToMap()));
 
-    // Constraint pre-gate over g(x) <= 0 read against the SOUND range, so a path that crossed a widened
-    // transcendental arm proves only when its margin clears the pad that arm could not discharge.
     public static Fin<EnclosureVerdict> Certify(SymbolicExpr constraint, Seq<SymbolName> symbolOrder, ImmutableArray<Enclosure> box) =>
         Enclose(constraint, symbolOrder, box).Map(range => (EnclosureVerdict)(
             range.Sound.Hi <= 0.0 ? new EnclosureVerdict.ProvenSatisfied(range)
@@ -465,8 +394,6 @@ public static class EnclosureFold {
         Entity.Variable v => bindings.Find(SymbolName.Create(v.Name)).ToFin(new ComputeFault.SymbolUndefined($"<enclosure-unbound:{v.Name}>")),
         Entity.Number n => NumberBox.Project(n).Map(Enclosure.Point),
         Entity.Sumf s => from a in Descend(s.Augend, bindings) from b in Descend(s.Addend, bindings) select a + b,
-        // AngouriMath's positional names INVERT the mathematical ones: `Subtrahend` is the FIRST child (the
-        // minuend) and `Minuend` the second, so `a - b` reads in declaration order and never the other way.
         Entity.Minusf m => from a in Descend(m.Subtrahend, bindings) from b in Descend(m.Minuend, bindings) select a - b,
         Entity.Mulf m => from a in Descend(m.Multiplier, bindings) from b in Descend(m.Multiplicand, bindings) select a * b,
         Entity.Divf d =>
@@ -484,8 +411,6 @@ public static class EnclosureFold {
         Entity.Absf a => Descend(a.Argument, bindings).Map(static i => i.Abs()),
         Entity.Signumf s => Descend(s.Argument, bindings).Map(static i =>
             i.Lo > 0.0 ? Enclosure.Point(1.0) : i.Hi < 0.0 ? Enclosure.Point(-1.0) : Enclosure.Of(-1.0, 1.0)),
-        // log_b(x) is monotone in each argument with the b-direction sign flipping at x = 1, so the enclosure
-        // is the four-corner min/max — a crossed endpoint pairing returns Lo > Hi on sub-unit arguments.
         Entity.Logf l =>
             from b in Descend(l.Base, bindings)
             from x in Descend(l.Antilogarithm, bindings)
@@ -496,23 +421,16 @@ public static class EnclosureFold {
         _ => Fin.Fail<Enclosure>(new ComputeFault.NonDifferentiable($"<enclosure-node:{node.GetType().Name}>")),
     };
 
-    // Every arm that can leave the finite range re-checks admissibility at the node that produced the bound,
-    // because an infinite or inverted enclosure downstream reports the wrong node as the cause. The NODE names
-    // itself — five call sites passing `"div"`/`"log"`/`"pow"` re-spelled an identity the type already carries.
     static Fin<Enclosure> Finite(Enclosure value, Entity node) =>
         value.Valid
             ? Fin.Succ(value)
             : Fin.Fail<Enclosure>(new ComputeFault.NonDifferentiable($"<enclosure-nonfinite:{node.GetType().Name}>"));
 
-    // Positive-base bivariate maps stay monotone in each argument for the other fixed, so extrema over a box
-    // sit on the four corners; partial corner pairings under-enclose whenever a monotonicity direction flips.
-    // Both `f` bindings are BCL transcendental kernels, so the result is widened, never proven.
     static Enclosure Corners(Enclosure x, Enclosure y, Func<double, double, double> f) {
         double a = f(x.Lo, y.Lo), b = f(x.Lo, y.Hi), c = f(x.Hi, y.Lo), d = f(x.Hi, y.Hi);
         return Enclosure.Widened(Math.Min(Math.Min(a, b), Math.Min(c, d)), Math.Max(Math.Max(a, b), Math.Max(c, d)), x.Pad + y.Pad);
     }
 
-    // Integer exponents split by parity and base sign; a non-integer exponent demands a positive base.
     static Fin<Enclosure> Power(Enclosure baseRange, Enclosure exponent, Entity node) =>
         exponent.Lo == exponent.Hi && double.IsInteger(exponent.Lo)
             ? IntegerPower(baseRange, (int)exponent.Lo, node)
@@ -520,8 +438,6 @@ public static class EnclosureFold {
                 ? Finite(Corners(baseRange, exponent, Math.Pow), node)
                 : Fin.Fail<Enclosure>(new ComputeFault.NonDifferentiable("<enclosure-pow-domain>"));
 
-    // NEGATIVE exponents are reciprocals, so a positive-power range straddling zero has no bound at all — same
-    // refusal `Divf` makes, because the alternative is an infinite enclosure certifying nothing.
     static Fin<Enclosure> IntegerPower(Enclosure a, int n, Entity node) =>
         n == 0 ? Fin.Succ(Enclosure.Point(1.0))
         : n < 0 ? IntegerPower(a, -n, node).Bind(p => p.Contains(0.0)

@@ -44,11 +44,8 @@ from rasm.runtime.faults import FILTER_PARSE, RuntimeRail, boundary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# `Space` names the three value spaces the specification fixes, and every table keys on it.
 type Space = Literal["text", "number", "flag"]
-# `Reading` holds the attribute view ONE event yields, shared by every dialect and expression in a subscription's set.
 type Reading = Map[str, "CesqlValue"]
-# a compiled production IS its evaluation: the parser discriminates once and answers the closure.
 type Eval = Callable[[Reading], "Outcome"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -56,16 +53,10 @@ type Eval = Callable[[Reading], "Outcome"]
 INT32_MIN: Final[int] = -(2**31)
 INT32_MAX: Final[int] = 2**31 - 1
 INT32_SPAN: Final[int] = INT32_MAX - INT32_MIN + 1
-# Boolean casts read these two rosters and nothing else; a truthiness guess makes every non-empty attribute
-# satisfy a boolean filter it never met.
 TRUE_TEXT: Final[frozenset[str]] = frozenset({"true", "TRUE", "True"})
 FALSE_TEXT: Final[frozenset[str]] = frozenset({"false", "FALSE", "False"})
-# `%` spans, `_` is one character, and a backslash escapes either into itself.
 LIKE_WILDCARD: Final[Map[str, str]] = Map.of_seq([("%", ".*"), ("_", ".")])
 
-# ONE layered precedence cascade, each level left-recursive so `lalr` builds a deterministic table. `NOT LIKE`
-# and `NOT IN` are their own alternatives rather than an optional `NOT` factored ahead of both, since the
-# factored form needs two tokens of lookahead to separate the suffixes while the spelled form needs one.
 GRAMMAR: Final[str] = r"""
 ?expression:  disjunction
 ?disjunction: disjunction OR exclusive            -> binary
@@ -122,9 +113,6 @@ STRING:  /'([^'\\]|\\.)*'/ | /"([^"\\]|\\.)*"/
 
 @tagged_union(frozen=True)
 class CesqlValue:
-    # a `str | int | bool` union is UNSOUND here: `bool` subclasses `int`, so a structural match routes `True`
-    # through the number arm and an `isinstance` ladder depends on an ordering every later editor must remember.
-    # `tag` makes that misread unspellable and IS the key the cast matrix reads.
     tag: Space = tag()
     text: str = case()
     number: int = case()
@@ -133,9 +121,6 @@ class CesqlValue:
 
 @tagged_union(frozen=True)
 class CesqlFault:
-    # `CesqlFault` closes the specification's SEVEN error types as accumulated EVIDENCE on a total evaluation
-    # rather than rail failures — only `parse` reaches a rail, at subscription admission, where an unparseable
-    # expression refuses the subscription itself and never one delivery.
     tag: Literal["parse", "math", "cast", "attribute", "function", "evaluation", "generic"] = tag()
     parse: str = case()
     math: tuple[str, str] = case()
@@ -151,8 +136,6 @@ EMPTY_TEXT: Final[CesqlValue] = CesqlValue(text="")
 
 
 class Outcome(Struct, frozen=True, gc=False):
-    # a VALUE and its faults, never a rail choosing one: the specification requires a defined answer for every
-    # call it admits, and the diagnostics an operator raised on the way there are what a vector grades.
     value: CesqlValue
     faults: Block[CesqlFault] = NO_FAULTS
 
@@ -165,10 +148,6 @@ class Outcome(Struct, frozen=True, gc=False):
 
 
 class FunctionRow(Struct, frozen=True, gc=False):
-    # each row carries its arity and its TOTAL body — a body answering a value beside a fault rather than raising.
-    # ONE table serves the parser (which names are callable), the evaluator (what each does), and the diagnostic
-    # (what an unknown name reports), so a tenth function is one row and no dispatch site moves. A NEGATIVE arity
-    # is variadic, so `CONCAT` states its own shape rather than forcing a column every fixed row answers alike.
     key: str
     arity: int
     body: Callable[[Block[CesqlValue]], Outcome]
@@ -178,24 +157,17 @@ class FunctionRow(Struct, frozen=True, gc=False):
 
 
 class OperatorRow(Struct, frozen=True, gc=False):
-    # `operand` is the space BOTH sides cast into before the body runs, so the cast matrix is read by the table
-    # rather than by each body — equality is same-space by specification and arithmetic is number-space, both as data.
     symbol: str
     operand: Space
     body: Callable[[CesqlValue, CesqlValue], Outcome]
 
 
 class Cesql(Struct, frozen=True, gc=False):
-    # `Cesql` holds the compiled expression as a VALUE for the subscription's life: a grammar rebuilt per event
-    # reconstructs the whole closure graph on every delivery.
     source: str
     run: Eval
 
     @classmethod
     def compiled(cls, source: str, /) -> RuntimeRail[Self]:
-        # `compiled` runs the ONE parse, at admission. `_LOWER` folds INSIDE that parse, so the answer is already a
-        # closure and no tree is built; `VisitError` wraps a transformer raise, which is why both cross the same
-        # fence rather than one escaping as a bare provider exception.
         return boundary(FILTER_PARSE, lambda: _PARSER.parse(source), catch=(UnexpectedInput, VisitError)).map(
             lambda run: cls(source=source, run=run)
         )
@@ -208,24 +180,16 @@ class Cesql(Struct, frozen=True, gc=False):
 
 
 def _carried(answered: Outcome, faults: Block[CesqlFault], /) -> Outcome:
-    # `_carried` IS the ONE combination law: every arm folds onto its answer the faults its operands and its casts
-    # raised, so no path reaches a value by discarding a diagnosis.
     return Outcome(value=answered.value, faults=faults.append(answered.faults))
 
 
 def _bounded(operator: str, held: int, /) -> Outcome:
-    # Specification `Integer` is 32-BIT and Python's is not, so `_bounded` is the ONE width guard every arithmetic
-    # arm and `ABS` reads. An unguarded `abs(-2147483648)` answers `2147483648` silently — the inverse of the C#
-    # peer's checked throw and the vector the conformance corpus discriminates on — so the answer wraps into range
-    # beside a `math` fault rather than widening past a space the wire cannot carry.
     wrapped = (held - INT32_MIN) % INT32_SPAN + INT32_MIN
     answered = Outcome.of(CesqlValue(number=wrapped))
     return answered if wrapped == held else answered.faulted(CesqlFault(math=(operator, "<int32-overflow>")))
 
 
 def _divided(operator: str, left: int, right: int, /) -> Outcome:
-    # a zero divisor is a `math` fault beside the specification's defined zero, never a raise: one malformed
-    # operand withholds one event rather than darkening the whole subscription.
     return (
         Outcome.of(CesqlValue(number=0)).faulted(CesqlFault(math=(operator, "<divide-by-zero>")))
         if right == 0
@@ -234,7 +198,6 @@ def _divided(operator: str, left: int, right: int, /) -> Outcome:
 
 
 def _text(value: CesqlValue, /) -> Outcome:
-    # every space renders into text, so this cast is total and carries no fault arm at all.
     match value:
         case CesqlValue(tag="text"):
             return Outcome.of(value)
@@ -284,8 +247,6 @@ def _sliced(args: Block[CesqlValue], /, *, from_start: bool) -> Outcome:
 
 
 def _substring(args: Block[CesqlValue], /) -> Outcome:
-    # an out-of-range position is an `evaluation` fault beside the empty string, never a raise: the evaluator
-    # answers a value for every call it admits, and the position is ONE-based by specification.
     held, at, width = _text(args[0]), _number(args[1]), _number(args[2])
     carried = held.faults.append(at.faults).append(width.faults)
     return _carried(
@@ -297,9 +258,6 @@ def _substring(args: Block[CesqlValue], /) -> Outcome:
 
 
 def _pattern(literal: str, /) -> re.Pattern[str]:
-    # ONE translation at COMPILE time, so a subscription pays it once for its whole life and each delivery pays a
-    # `fullmatch`. A backslash escapes a wildcard into itself and every other run escapes into a literal, so a
-    # pattern carrying regex metacharacters matches them rather than reinterpreting them.
     return re.compile(
         "".join(
             LIKE_WILDCARD.try_find(part).default_with(lambda: re.escape(part.removeprefix("\\")))
@@ -309,23 +267,16 @@ def _pattern(literal: str, /) -> re.Pattern[str]:
 
 
 def _reading(envelope: MessageEnvelope, /) -> Reading:
-    # ONE projection per event into the three spaces: the specification's context-attribute type space IS CESQL's,
-    # so the numeric carve derives from the codec each extension slot already answers rather than a second roster
-    # this owner keeps parallel. D20 `sequence` stays text here; an explicitly numeric operator parses it at the cast.
     return Map.of_seq(
         (name, CesqlValue(number=int(held)) if name in NUMERIC_EXTENSIONS else CesqlValue(text=str(held)))
         for name, held in envelope.attributes().items()
     )
 
 
-# --- [TABLES] -----------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# `CASTS` rows the implicit-cast matrix, one entry per TARGET space; every row is total and answers the target's
-# ZERO beside a `cast` fault where it cannot succeed.
 CASTS: Final[Map[Space, Callable[[CesqlValue], Outcome]]] = Map.of_seq([("text", _text), ("number", _number), ("flag", _flag)])
 
-# `FUNCTIONS` rows the nine specification functions. `ABS` makes the 32-bit width observable and `SUBSTRING`
-# turns an out-of-range position into a fault beside the empty string rather than a raise.
 FUNCTIONS: Final[Map[str, FunctionRow]] = Map.of_seq(
     (row.key, row)
     for row in (
@@ -341,8 +292,6 @@ FUNCTIONS: Final[Map[str, FunctionRow]] = Map.of_seq(
     )
 )
 
-# five arithmetic, six comparison, three logical. `operand` is the cast the table performs so no body re-derives
-# one, and every arithmetic body reads `_bounded` for the 32-bit width.
 OPERATORS: Final[Map[str, OperatorRow]] = Map.of_seq(
     (row.symbol, row)
     for row in (
@@ -364,12 +313,10 @@ OPERATORS: Final[Map[str, OperatorRow]] = Map.of_seq(
     )
 )
 
-# --- [COMPOSITION] ------------------------------------------------------------------------
+# --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def _lifted(held: Outcome, space: Space, project: Callable[[CesqlValue], CesqlValue], /) -> Outcome:
-    # a unary arm casts into its own space FIRST and carries that cast's fault onto the answer, so it accumulates
-    # exactly as a binary arm does rather than reaching a value through a diagnosis it dropped.
     cast = CASTS[space](held.value)
     return Outcome(value=project(cast.value), faults=held.faults.append(cast.faults))
 
@@ -381,8 +328,6 @@ def _applied(row: OperatorRow, left: Outcome, right: Outcome, /) -> Outcome:
 
 
 def _invoked(row: FunctionRow, arguments: Block[Eval], reading: Reading, /) -> Outcome:
-    # `_invoked` reports an arity miss as an `evaluation` fault beside the empty string while every argument's own
-    # faults still ride the answer, so a wrong call names what its operands raised rather than only its own miss.
     answered = arguments.map(lambda held: held(reading))
     carried = answered.fold(lambda held, outcome: held.append(outcome.faults), NO_FAULTS)
     return (
@@ -393,8 +338,6 @@ def _invoked(row: FunctionRow, arguments: Block[Eval], reading: Reading, /) -> O
 
 
 def _member(held: Outcome, members: Block[Eval], reading: Reading, /) -> Outcome:
-    # membership is SAME-SPACE by specification, so each member casts into the probe's own space before the
-    # comparison and every cast fault rides the answer rather than deciding it.
     cast = CASTS[held.value.tag]
     answered = members.map(lambda member: cast(member(reading).value))
     return Outcome(
@@ -405,9 +348,6 @@ def _member(held: Outcome, members: Block[Eval], reading: Reading, /) -> Outcome
 
 @v_args(inline=True)
 class _Lower(Transformer[Token, Eval]):
-    # `_Lower` folds INSIDE the LALR parse and answers a CLOSURE per production, so the parser's own
-    # discrimination is the only dispatch and no second `match` re-reads a tree it already resolved. Growth lands
-    # as one method beside one grammar rule; the operator and function semantics stay in their tables.
     def number(self, token: Token, /) -> Eval:
         held = _bounded("LITERAL", int(token))
         return lambda _reading: held
@@ -421,16 +361,12 @@ class _Lower(Transformer[Token, Eval]):
         return lambda _reading: held
 
     def attribute(self, token: Token, /) -> Eval:
-        # an unrostered name answers `attribute` beside the empty string rather than reaching whatever untyped
-        # value a producer happened to set; the roster is the message-envelope owner's, never a local set.
         name = str(token)
         return lambda reading: (
             reading.try_find(name).map(Outcome.of).default_with(lambda: Outcome.of(EMPTY_TEXT).faulted(CesqlFault(attribute=name)))
         )
 
     def exists(self, _keyword: Token, token: Token, /) -> Eval:
-        # `exists` reads absence WITHOUT the fault every other arm raises, which is the whole reason the
-        # specification gives it an operator rather than leaving absence to a comparison.
         name = str(token)
         return lambda reading: Outcome.of(CesqlValue(flag=reading.try_find(name).is_some()))
 
@@ -519,21 +455,14 @@ from rasm.runtime.binding import BINDINGS, Binding, Pushdown
 from rasm.runtime.event import EventType, MessageEnvelope
 from rasm.runtime.faults import FILTER_SETTINGS, RuntimeRail
 
-# `Cesql`, `CesqlFault`, `Reading`, `Space`, `CASTS`, and `_reading` are this module's [02]-[CESQL] owners —
-# one module, two regions, and the expression region declares first because this one composes it.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# `Dialect` closes the wire vocabulary; `not_` alone diverges from its wire spelling because `not` is a keyword,
-# and `wired` strips the escape so no second roster restates the six needing none.
 type Dialect = Literal["exact", "prefix", "suffix", "all", "any", "not_", "sql"]
 type Affix = Callable[[str], bool]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# dialects that can resolve at a broker AT ALL, before the binding row's own verdict is read: the affix pair
-# tests a routing attribute a topic filter or a subject wildcard already selects on, while negation and an
-# expression have no broker-side mechanism in any roster row.
 BROKER_ELIGIBLE: Final[frozenset[Dialect]] = frozenset({"exact", "prefix"})
 NO_FILTERS: Final[Block["FilterDialect"]] = Block.empty()
 NO_TYPES: Final[Block[EventType]] = Block.empty()
@@ -542,10 +471,6 @@ NO_TYPES: Final[Block[EventType]] = Block.empty()
 
 
 class Verdict(Struct, frozen=True, gc=False):
-    # `Verdict` answers totally, never as a rail choosing between a value and a diagnosis: a `Result` forces an
-    # arm to abandon the delivery bit the specification requires it to produce, and a bare bool discards the
-    # faults an expression raised. Both folds carry faults forward, because a negation or a short-circuit that drops them
-    # hides exactly the expression failing on every event.
     delivers: bool
     faults: Block[CesqlFault] = NO_FAULTS
 
@@ -565,9 +490,6 @@ WITHHOLD: Final[Verdict] = Verdict(delivers=False)
 
 @tagged_union(frozen=True)
 class FilterDialect:
-    # `all`/`any`/`not_` NEST the root, so a filter tree is a shape property the recursion owns and every
-    # consumer's dispatch stays total; `sql` carries a COMPILED expression, so the grammar crossed admission
-    # before the subscription existed and no delivery ever parses text.
     tag: Dialect = tag()
     exact: tuple[str, str] = case()
     prefix: tuple[str, str] = case()
@@ -604,9 +526,6 @@ class FilterDialect:
 
 
 class Subscription(Struct, frozen=True, gc=False):
-    # `Subscription` carries the specification's own resource shape: `filters` an AND-set whose identity is
-    # delivery, `types` the cheap prefilter a broker-side selector already narrows on, and `settings` the binding
-    # row's `protocolsettings` slice — proven at admission against that row rather than re-checked per delivery.
     id: str
     source: str
     sink: str
@@ -630,9 +549,6 @@ class Subscription(Struct, frozen=True, gc=False):
         filters: Block[FilterDialect] = NO_FILTERS,
         config: Map[str, str] = Map.empty(),
     ) -> RuntimeRail[Self]:
-        # `admitted` is the ONE construction and the one place a `parse` fault reaches a rail: an unparseable
-        # expression refuses the SUBSCRIPTION rather than one delivery, while every other CESQL fault accumulates
-        # on a value. Settings prove against the binding row's roster, so a knob outside that slice is unspellable.
         stray = Block.of_seq(sorted(key for key in settings.keys() if key not in BINDINGS[protocol].settings))
         return (
             Error(FILTER_SETTINGS.raised(protocol.value, ",".join(stray)))
@@ -641,15 +557,11 @@ class Subscription(Struct, frozen=True, gc=False):
         )
 
     def delivered(self, envelope: MessageEnvelope, /) -> Verdict:
-        # ONE reading per event feeds every dialect in the set. The `types` prefilter runs first because it is an
-        # equality over a value already in hand and never opens the roster at all.
         reading = _reading(envelope)
         typed = self.types.is_empty() or not self.types.forall(lambda held: held != envelope.event_type)
         return self.filters.fold(lambda carried, child: carried.anded(child.verdict(reading)), PASS if typed else WITHHOLD)
 
     def pushed(self, /) -> Block[FilterDialect]:
-        # `pushed` answers the dialects this subscription's OWN binding resolves broker-side and leaves the
-        # remainder to evaluate after delivery, deriving off `BINDINGS` so a seventh row joins untouched.
         return self.filters.filter(lambda child: _pushes(child, BINDINGS[self.protocol].pushdown))
 
 
@@ -657,14 +569,10 @@ class Subscription(Struct, frozen=True, gc=False):
 
 
 def _held(reading: Reading, name: str, test: Affix, /) -> Verdict:
-    # affix arms compare the WIRE text an attribute carries, so a timestamp or a grade matches the spelling a
-    # peer sees rather than a repr this fence chose; the value's own text cast is that one render.
     return reading.try_find(name).map(lambda value: Verdict(delivers=test(CASTS["text"](value).value.text))).default_value(WITHHOLD)
 
 
 def _pushes(dialect: FilterDialect, pushdown: Pushdown, /) -> bool:
-    # a composite pushes only where EVERY child does, and a leaf only where its own dialect is broker-eligible
-    # and the row carries a broker-side mechanism at all — one recursion, no per-dialect column.
     match dialect:
         case FilterDialect(tag="all", all=children) | FilterDialect(tag="any", any=children):
             return Block.of_seq(children).forall(lambda child: _pushes(child, pushdown))

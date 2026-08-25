@@ -27,7 +27,7 @@ Settled composition: `SupplyChainGate`/`AdmissionSubject` from Sandbox/admission
 - Boundary: `UpdateRail` is the named boundary capsule for the statement carve-out — the `UpdateManager` ctor, the awaited download, and the terminal `ApplyUpdatesAndRestart` carry language-owned statement forms while every other member stays expression-shaped; the rail composes `UpdateManager` directly with no rename adapter and the `UpdateChannel` axis is the only added vocabulary; `VelopackApp.Build()...Run()` is the process-entry bootstrap owned at the app root, never a rail fence, so `VelopackHook` registration stays there; `ApplyUpdatesAndRestart` takes `found.TargetFullRelease` as its `VelopackAsset`, never the `UpdateInfo`, and on success the call never returns because the host process is replaced — the rolled-over receipt mints and fans before it; `UpdateManager` publishes no disposal member at the catalogued surface, so the rail holds it for its own lifetime and implements no `IDisposable` it cannot honour; the feed url is the boot-resolved `FeedBinding`, never a row literal, so the rail dials only a proven configuration value; an inline `meter.CreateCounter` call is the deleted form — every spine instrument is a generated factory whose name and tag set are declaration facts; the `Target` fold reads `VelopackAsset.Version` through `ToString`, the single version-stamp seam; `UpdateReceipt` rides the suite wire law as one `AppHostWireContext` `[JsonSerializable]` row and `UpdateOutcome` carries the `[JsonDerivedType]` roster that registration demands, since a polymorphic member on a registered wire shape without one cannot round-trip its cases; `vpk`-side notarization and SBOM emission are build-time signing concerns and carry no rail fence, but `SupplyChainGate.Admit` verifies a downloaded release before staging as `AdmissionSubject.Release`, never a skipped step or a second gate; the page is host-local and crosses no browser or peer TS wire — `UpdateReceipt` and `FleetRollReceipt` reconstruct in TS as the `ReceiptHeaderWire` beside an AppHost family arm the corpus still owes, so this page authors no second wire shape.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UpdateFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Update;
@@ -49,7 +49,7 @@ public abstract partial record UpdateFault : Fault {
     public sealed partial record FeedUnbound : UpdateFault { public FeedUnbound(string key) : base($"{key}: unset or not absolute") { } }
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -61,11 +61,6 @@ public sealed partial class UpdatePhase {
     public static readonly UpdatePhase RolledBack = new("rolled-back");
 }
 
-// Outcome is the ONE authority and phase PROJECTS off it, so a receipt cannot record a state the machine
-// cannot reach — a Staged phase carrying RolledBack, or a RolledBack phase claiming a restart. `InFlight`
-// exists because the transfer transition previously reported `StagedPending`, staking a staged claim on bytes
-// still moving; the advance arm that mapped phase to phase deletes with the second authority, since nothing
-// advances a phase any more — the outcome names it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonDerivedType(typeof(InFlight), typeDiscriminator: "in-flight")]
 [JsonDerivedType(typeof(StagedPending), typeDiscriminator: "staged-pending")]
@@ -93,7 +88,7 @@ public abstract partial record UpdateOutcome {
         new RolledBack(prior, FaultWire.Observe(fault));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record UpdateReceipt(
     UpdateOutcome Outcome,
     string Channel,
@@ -110,12 +105,7 @@ public sealed record UpdateReceipt(
         !string.IsNullOrEmpty(Channel)).Holds;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Generated partials are the ONE mint of this family — a second bind on the same meter mints a second stream
-// per name, so the `AppHostMeasure` twins of these three rows are the deleted form and governance joins through
-// `Port` instead. The tag roster spells `AppHostSlot.Channel`'s own key rather than the C# type name: an attribute
-// takes no computed value, and a `nameof(UpdateChannel)` dimension exported a key the governance view predicate
-// never admits. Every attribute literal here is the generator's copy of a name the `Port` rows below derive.
+// --- [SERVICES] ------------------------------------------------------------------------
 public static partial class UpdateMetrics {
     [Counter("rasm.apphost.channel", Name = "rasm.apphost.update.staged")]
     public static partial StagedMetric Staged(Meter meter);
@@ -126,10 +116,6 @@ public static partial class UpdateMetrics {
     [Histogram("rasm.apphost.channel", Name = "rasm.apphost.update.rollover.duration")]
     public static partial RolloverDurationMetric RolloverDuration(Meter meter);
 
-    // PUBLISHED, never mounted: the handles above already exist on the meter this rail is handed, so the port
-    // declares the family for `SignalGovernance.Rostered`, the view predicate, and the board without asking any
-    // root to bind a second handle. `Declared` is the proof surface either column feeds, which is why the tiles
-    // these rows carry admit against the very names the partials mint.
     public static TelemetryContributorPort Port(string version) =>
         new(Scope: TelemetrySource.AppHost, Version: version, Instruments: Seq<InstrumentSpec>(),
             Published: Seq(StagedRow, RollbackRow, RolloverRow), Board: Some(Tiles));
@@ -147,8 +133,6 @@ public static partial class UpdateMetrics {
         Buckets.Seconds, "drain-gated update rollover duration per channel", Seq(AppHostSlot.Channel.Key),
         Some(Buckets.CadenceSeconds), None, None);
 
-    // Widgets stay absent so `PanelKind.For` derives each from its own row's measurement shape, exactly as the
-    // sibling pack derives its tiles; the provenance key is this family's own, never the catalog roster's.
     private static readonly BoardPack Tiles = new(
         Wire: TelemetryDomain.AppHost.Measure("update"),
         Panels: Seq(
@@ -158,7 +142,7 @@ public static partial class UpdateMetrics {
         Objectives: Seq<Objective>());
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed class UpdateRail {
     readonly UpdateManager manager;
     readonly UpdateChannel channel;
@@ -169,9 +153,6 @@ public sealed class UpdateRail {
     readonly RollbackMetric rollback;
     readonly RolloverDurationMetric rolloverDuration;
 
-    // Binding arrives already resolved and validated, so the rail never reads configuration and never dials an
-    // unproven host: a refused feed stopped at boot with a named key, and the ring travels ON the binding
-    // rather than beside it, which is why no second channel parameter exists to disagree with it.
     public UpdateRail(FeedBinding feed, Lifecycle host, ReceiptSinkPort sink, SupplyChainGate.Runtime gate, Meter meter) {
         this.channel = feed.Channel;
         this.host = host;
@@ -188,14 +169,8 @@ public sealed class UpdateRail {
 
     public Option<VelopackAsset> Pending => Optional(manager.UpdatePendingRestart);
 
-    // Absence rides the Option: `?? string.Empty` made a host whose installed version cannot be read
-    // indistinguishable from one whose version is genuinely blank, on the one column every rollback reads.
     Option<string> Prior => Optional(manager.CurrentVersion).Map(static version => version.ToString());
 
-    // Both foreclosures decide before a byte moves and settle on one rollback receipt: a ring that forbids the
-    // downgrade Velopack flagged, and a release already staged for restart — transferring over that one
-    // overwrites the very package `Resume` is holding, which is what makes `StagePending` a reachable edge
-    // rather than a drawn one. Order is deliberate: the ring refuses a downgrade even when nothing is pending.
     Option<UpdateFault> Foreclosed(UpdateInfo found) =>
         found.IsDowngrade && !channel.AllowVersionDowngrade
             ? Some((UpdateFault)new UpdateFault.DowngradeBlocked(Target(found)))
@@ -210,14 +185,8 @@ public sealed class UpdateRail {
               select blocked,
             None: () =>
               from start in IO.lift(() => host.Clocks.Now)
-              // `Prior` is PROBED before the transfer and threaded into the terminal fold, because a static
-              // fold reaches no manager — which is why two of the three rollback arms once published
-              // `Prior = None` on the one column every rollback reader consults.
               from prior in IO.lift(() => Prior)
               from _moving in Mint(Target(found), found.DeltasToTarget.Length, Duration.Zero, new UpdateOutcome.InFlight(Target(found)))
-              // Broken transfers are a DRAWN edge on this machine's own diagram and were unreachable: the await
-              // sat bare inside `IO.liftAsync`, so a refused download escaped the rail as an exception and the
-              // `DownloadBroken` case had no producer at all.
               from transferred in IO.liftAsync(async () =>
                   await Op.Of().Catch(async execution => {
                       await manager.DownloadUpdatesAsync(found, progress.Report, execution).ConfigureAwait(false);
@@ -238,13 +207,9 @@ public sealed class UpdateRail {
         from drained in host.Drain(
             DrainRows(), drain.Latency, drain.Checkpoint, drain.Instruments,
             DeadlineClass.DrainCooperative.Allotted)
-        // Seal is the drain band's export act: the frozen ledger leaves through the exporter BEFORE the process
-        // is replaced, so the last drain's checkpoints are evidence the successor reads, never lost memory.
         from _sealed in LatencySpine.Seal(drain.Exporter, drain.Latency)
         from _timed in IO.lift(() => rolloverDuration.Record((host.Clocks.Now - drained.At).TotalSeconds, channel.Key))
         from rolling in Mint(Target(asset), 0, drained.Elapsed, new UpdateOutcome.Restarted(Target(asset)))
-        // This handoff never returns on success; a REFUSED handoff is the diagram's other unreachable edge and
-        // rails here rather than throwing past a receipt that already claimed a restart.
         from handed in IO.lift(() => Op.Of().Catch(() => {
             manager.ApplyUpdatesAndRestart(asset);
             return Fin.Succ(unit);
@@ -314,7 +279,7 @@ stateDiagram-v2
 - Boundary: the axis owns the release-RING decision and never the feed VALUE — a feed URI is a deploy fact differing per environment, per tenant, and per air-gapped mirror, so a literal frozen into a settled row is the deleted form twice over: it asserts a value no surface was read for, and it forecloses the offline and mirror cases the supply-chain gate exists to serve; the feed binds from the `Runtime/config#POLICY_VALUES` ranked source chain and validates at boot, so an unset or unreachable feed refuses on the typed rail under a named channel instead of surfacing later as a network fault from a dead host; the detect-leg `ReleaseIdentity.Feed` is the outbound poll URI of the `UpdateCheck` hop, a distinct value the axis never reads — and the identity-to-ring resolve that once sat here DELETES, because the ring the rail runs on is the one its `FeedBinding` carries and a second read of the same fact off a detect-leg record is a mirror with no producer; `ExplicitChannel` is the Velopack channel-suffix selector pinning which release set the manager resolves; `AllowVersionDowngrade` is the downgrade-policy column the rail reads before any transfer, never a per-call flag; the `AddView` rows at signal-governance cap update-instrument cardinality on the channel key so three channels cap at three series per instrument.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -327,13 +292,7 @@ public sealed partial class UpdateChannel {
     public bool AllowVersionDowngrade { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Feeds BIND, they do not declare. One key per ring under the section root the config grammar mints from
-// `nameof`, its suffix being the ring's own key, so a new ring reaches configuration with zero edit here. Boot
-// resolves every ring the composition will dial: an absent key and a value that is not an absolute URI both
-// refuse on the typed rail naming the ring AND the key an operator must set. A frozen literal could report
-// neither — it dials whatever it was born with, and a host that stops resolving surfaces mid-transfer as a
-// network fault with no configuration to correct.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FeedBinding(UpdateChannel Channel, Uri Feed) {
     public const string Section = nameof(FeedBinding);
 
@@ -364,20 +323,14 @@ public sealed record FeedBinding(UpdateChannel Channel, Uri Feed) {
 - Boundary: drain-before-swap is the law — `ApplyUpdatesAndRestart` is never reached until `DrainConductor.Drain` settles, so the replaced process leaves no half-flushed store write or in-flight hop; the cooperative and forced budgets are the conductor's OWN `DeadlineClass` rows and no longer travel on the thread record, because the fold reads them itself and two call sites carrying them disagree; the latency context, checkpoint token, instrument set, and ledger exporter arrive on the `DrainThread` from the composition root, so this page consumes the drain fold and declares none of its telemetry threads; the staged asset is `UpdatePendingRestart` read at composition, so a rollover after a process bounce resumes from the staged phase without re-staging; the rollover is the single restart path and the bare `ApplyUpdatesAndExit` and `WaitExitThenApplyUpdates` forms are deleted because the drain-gated restart owns the handoff; `RollStrategy` is one row on the existing `FleetRoll`, not a parallel conductor — a second roll state machine or a strategy-specific scheduler beside `ScheduleEntry.Spread` is the rejected form, and the `ScheduleEntry.Spread` fleet-spread seed stays the wave-pacing cadence the strategy `Bake` reads; the bake dwell rides the injected clock-driven delegate on the runtime capsule, never an ambient `Task.Delay`, so a `LinearWave` bakes its window and a `Canary` holds its probe deterministically under the same `TimeProvider` the spine injects; `FleetRoll` consumes `MembershipView.Serving` as fleet membership and the `WireHealth` serving projection as the recovery gate; each node rolls through the same `rail.Rollover`, and the first unrecovered node halts the fleet.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// Drain thread the composition root owns, travelling as ONE record because every rollover call site needs
-// all four and the conductor's own signature proves it: the latency context it marks against, the checkpoint
-// token bounding the flush, the instrument set the band distribution writes, and the exporter the seal drains
-// to arrive from `Observability/telemetry#SIGNAL_GOVERNANCE` and `Observability/instruments#INSTRUMENT_CATALOG`,
-// never minted here. Cooperative and forced deadlines LEFT this record when the conductor took them onto its
-// own `DeadlineClass` rows — a budget travelling beside the fold that owns it is a second value to disagree.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record DrainThread(
     ILatencyContext Latency,
     CheckpointToken Checkpoint,
     InstrumentSet Instruments,
     ILatencyDataExporter Exporter);
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -387,9 +340,6 @@ public sealed partial class RollVerdict {
     public static readonly RollVerdict RolledBack = new("rolled-back");
 }
 
-// Each row carries one cohort plan, one exposure band, and one inter-wave dwell. `Plan` folds the roster into
-// one ordered cohort sequence per strategy shape, and `Verdict` grades the cohort that ran. A second
-// roll state machine beside this axis is the rejected form.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -398,19 +348,11 @@ public sealed partial class RollStrategy {
     public static readonly RollStrategy BlueGreen = new("blue-green", wave: RolloutSegment.Create(50), bake: Duration.Zero, plan: Banded);
     public static readonly RollStrategy LinearWave = new("linear-wave", wave: RolloutSegment.Create(25), bake: Duration.FromSeconds(300), plan: Banded);
 
-    // Unknown variants and an absent features rail both fall to Canary, the narrowest exposure, because an
-    // unresolved verdict must never widen a fleet rollout past the safest wave.
     public static readonly RollStrategy Default = Canary;
 
-    // Exposure bands are the features owner's own [0,100) value object, so a wave width and a flag rollout
-    // segment are ONE percentage vocabulary the estate validates once. Every plan reads the band it is handed,
-    // canary included: a zero band answers a zero cohort width, which would fold the probe into the remainder
-    // and roll the whole fleet in one wave, so canary's 1 is the column that keeps the probe a probe.
     public RolloutSegment Wave { get; }
     public Duration Bake { get; }
 
-    // Features decides WHICH strategy a wave runs and this page decides what the strategy does, so a
-    // verdict's variant keys the row exactly as `ModelRoute.From` keys a model route off the same seam.
     public static RollStrategy From(FlagVerdict verdict) =>
         TryGet((string)verdict.Variant, out RollStrategy? row) ? row : Default;
 
@@ -419,33 +361,20 @@ public sealed partial class RollStrategy {
 
     public Seq<Seq<MemberRecord>> Plan(Seq<MemberRecord> nodes) => Plan(nodes, Wave);
 
-    // One verdict, three causes, read by both the advance decision and the wave annotation: a rollback anywhere
-    // in the cohort holds the wave loudly, a full restart-and-serving cohort advances, and everything else —
-    // staged-pending, declined, or a node that came back NotServing — holds.
     public RollVerdict Verdict(Seq<FleetRollReceipt> cohort) =>
         cohort.Exists(static row => row.Outcome is UpdateOutcome.RolledBack) ? RollVerdict.RolledBack
         : cohort.ForAll(static row => row.Outcome is UpdateOutcome.Restarted && row.Serving == ServingStatus.Serving) ? RollVerdict.Advanced
         : RollVerdict.Held;
 
-    // Canary is a PROBE plus the remainder, and the probe's width is the band's own `Cohort` projection: the
-    // segment floors a nonzero percentage to one node, so a five-node fleet probes one and a three-hundred-node
-    // fleet probes three under the same declared column. Discarding `wave` here froze the probe at a hardcoded
-    // head and made this row's band decorative on the one strategy whose exposure it decides.
     static Seq<Seq<MemberRecord>> Led(Seq<MemberRecord> nodes, RolloutSegment wave) =>
         Seq(nodes.Take(wave.Cohort(nodes.Count)).ToSeq(), nodes.Skip(wave.Cohort(nodes.Count)).ToSeq())
             .Filter(static cohort => !cohort.IsEmpty);
 
-    // BlueGreen and LinearWave differed by their band and their dwell alone, so the plan lands ONCE and the two
-    // rows carry their columns; two byte-identical lambdas is the per-instance body the density law names.
     static Seq<Seq<MemberRecord>> Banded(Seq<MemberRecord> nodes, RolloutSegment wave) =>
         nodes.IsEmpty ? [] : toSeq(nodes.Chunk(int.Max(1, wave.Cohort(nodes.Count))).Select(static cohort => toSeq(cohort)));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Fleet conductors thread their whole dependency set on ONE record: the lock runtime and its receipt fan, the roll,
-// probe, and bake closures the composition supplies, and the single clock and correlation every receipt on the
-// wave stamps. Threading nine loose parameters is what let a fresh `Correlation.Mint()` per node stand beside
-// this rail's own root while the receipt line claimed the two joined.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record FleetRuntime(
     FencedRuntime Fence,
     CoordinationSink Coordination,
@@ -457,7 +386,7 @@ public sealed record FleetRuntime(
     CorrelationId Correlation,
     TenantContext Tenant);
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FleetRollReceipt(
     int Wave,
     RollStrategy Strategy,
@@ -466,19 +395,10 @@ public readonly record struct FleetRollReceipt(
     ServingStatus Serving,
     int Remaining,
     Instant At) : IValidityEvidence {
-    // Remaining counts DOWN across the whole plan, so a negative value or a wave index below zero is a fold
-    // that mis-counted its own tail rather than a fleet state.
     [JsonIgnore]
     public bool IsValid => ValidityClaim.All(Wave >= 0, Remaining >= 0).Holds;
 }
 
-// One record per wave folded off the roll receipts, HLC-stamped on the receipt fan under `ReceiptKind.Roll` so
-// this estate's dashboard timeline marks every fleet wave beside stack deploys. Its rows ride TYPED: the suite
-// wire law generates the key projection for every smart-enum, so the seven-member hand mint that stringified
-// them was a transcription of a converter that already exists. `Remaining` tails the list carrying `= default`
-// because an empty cohort has no live tail to report and a zero there reads as a completed fleet on every
-// dashboard — the `OmitAbsent` modifier drops the absent slot at write, and a slot without a default reads
-// back wire-required under `RespectRequiredConstructorParameters`.
 public readonly record struct RollAnnotationWire(
     int Wave,
     UpdateChannel Channel,
@@ -488,22 +408,12 @@ public readonly record struct RollAnnotationWire(
     Instant At,
     Option<int> Remaining = default);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FleetRoll {
-    // Sections are FLEET-WIDE names, so this one is a page constant on the one keyed-registry key owner rather
-    // than the caller's `Op`: keying the lock on the calling member handed two conductors entering under two
-    // member names two disjoint "exclusive" leases and let both drive one fleet. Caller `Op` keys this fold's
-    // own fault attribution and never the section, which is what keeps it from widening the lock space.
     public const string Section = "rollover-drain";
 
-    // Waves run INSIDE the fenced section: acquisition names the rollover lock on the one keyed-registry
-    // key owner, the guard brackets every cohort with the lease read, and a contended acquire rolls nothing.
-    // Two nodes driving overlapping waves was foreclosed in prose and by nothing else.
     public static IO<Validation<Error, Seq<FleetRollReceipt>>> Roll(
         FleetRuntime fleet, MembershipView membership, UpdateChannel channel, RollStrategy strategy, Op key) =>
-        // Waves over an empty serving set advanced no node and answered an empty receipt sequence, which every
-        // reader takes for a completed fleet — the same absent-tail confusion the `Remaining` law names one
-        // record above. Refusal rides the caller's own `Op`, adopted onto this page's fault family.
         membership.Serving.IsEmpty
             ? IO.pure(Fail<Error, Seq<FleetRollReceipt>>(
                 CoordinationFault.Of(key.InvalidInput(nameof(MembershipView.Serving)))))
@@ -520,7 +430,6 @@ public static class FleetRoll {
                 .TraverseM(pair =>
                     from rolled in fleet.RollNode(pair.Node)
                     from report in fleet.Probe(pair.Node)
-                    // Remaining counts down live — the un-rolled tail of this cohort plus every later cohort.
                     let receipt = new FleetRollReceipt(index, strategy, pair.Node.NodeId, rolled.Outcome, Serving(report),
                         cohort.Count - pair.Slot - 1 + cohorts.Tail.Sum(static rest => rest.Count), fleet.Clocks.Now)
                     from _fanned in fleet.Sink.Send(fleet.Correlation, fleet.Tenant, TelemetrySource.AppHost,

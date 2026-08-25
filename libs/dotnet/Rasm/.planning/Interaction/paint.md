@@ -36,7 +36,7 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Boundary: HOST-SPECIFIC-STAYS — Rhino's `WorldMark`, its `Stroke.Rhino()` projection column, `StrokePattern`, `ShadedMaterial`, `IsoBanding`, the `BlendUse` source-and-destination pair, and the `DisplayBitmap` sprite cache; Grasshopper's `IconCase`, `CapsuleCase`, `WireGhostCase`, and the `EdgeDescription` stroke column. The `DisplayPen` eight-entry dash cap is the Rhino projection's own admission and never bounds this vocabulary.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoBrush = Eto.Drawing.Brush;
 using EtoDash = Eto.Drawing.DashStyle;
 using EtoFont = Eto.Drawing.Font;
@@ -65,9 +65,7 @@ using SystemFonts = Eto.Drawing.SystemFonts;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// A VALUE pattern, never a host handle: the pattern is a cache key, and `EtoDash` publishes no content so two
-// structurally identical host styles would mint two pens.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Dash {
     private Dash() { }
@@ -93,17 +91,12 @@ public abstract partial record PathSpec {
     public sealed record EllipseCase(EtoRectangleF Frame) : PathSpec;
     public sealed record ArcCase(EtoRectangleF Frame, VectorAngle Start, VectorAngle Sweep) : PathSpec;
     public sealed record BezierCase(EtoPointF From, EtoPointF ControlA, EtoPointF ControlB, EtoPointF To) : PathSpec;
-    // Tension is a `[0,1]` cardinal-spline fraction, so it rides the kernel's own bounded carrier: a free float
-    // admits the negative and past-unity values `AddCurve` draws as a self-crossing figure nobody asked for.
     public sealed record CurveCase(Seq<EtoPointF> Points, UnitInterval Tension) : PathSpec;
     public sealed record CompositeCase(Seq<PathSpec> Figures, bool Connect) : PathSpec;
 
     public static Fin<PathSpec> Admit(PathSpec spec, Op? key = null);
-    // The builder is the host's own: `GetRoundRect` mints the per-corner capsule and `AddCurve` the cardinal
-    // span, so no arm here tessellates a figure `IGraphicsPath` already constructs.
     internal Fin<Lease<IGraphicsPath>> Build(FillMode rule, Op key);
     internal Option<EtoRectangleF> Extent { get; }
-    // Edge PRESENCE selects the test: a stroke probe inflates by the pen and a fill probe reads the interior.
     internal Fin<bool> Hits(EtoPointF at, FillMode rule, Option<StrokeSpec> edge, Op key);
 }
 
@@ -114,8 +107,6 @@ public abstract partial record FillSource {
     public sealed record LinearCase(PerceptualColor From, PerceptualColor To, EtoPointF Start, EtoPointF End, GradientWrapMode Wrap, Option<EtoMatrix> Warp) : FillSource;
     public sealed record SheetCase(EtoRectangleF Frame, PerceptualColor From, PerceptualColor To, VectorAngle Angle, GradientWrapMode Wrap, Option<EtoMatrix> Warp) : FillSource;
     public sealed record RadialCase(PerceptualColor From, PerceptualColor To, EtoPointF Centre, EtoPointF Origin, EtoSizeF Radius, GradientWrapMode Wrap, Option<EtoMatrix> Warp) : FillSource;
-    // Host handles compare by REFERENCE (the card's cache-identity law): the image and any warp matrix are
-    // caller-owned handles whose content this owner never reads, so identity is the only lawful equality.
     [Equatable]
     public sealed partial record TextureCase([property: ReferenceEquality] EtoImage Source, UnitInterval Opacity, Option<EtoMatrix> Warp) : FillSource;
 
@@ -128,8 +119,6 @@ public abstract partial record PosePlan {
     public sealed record ShiftCase(float Dx, float Dy) : PosePlan;
     public sealed record SpinCase(VectorAngle Angle) : PosePlan;
     public sealed record StretchCase(float Sx, float Sy, EtoPointF About) : PosePlan;
-    // Two matrix arms, one discriminant: `AffineCase` is AUTHORED and compares by value, `MatrixCase` carries a
-    // caller-owned host handle this owner never clones and never mutates.
     public sealed record AffineCase(float XX, float YX, float XY, float YY, float X0, float Y0) : PosePlan;
     [Equatable]
     public sealed partial record MatrixCase([property: ReferenceEquality] EtoMatrix Matrix) : PosePlan;
@@ -137,12 +126,9 @@ public abstract partial record PosePlan {
     public sealed record InvertedCase(PosePlan Body) : PosePlan;
 
     internal Fin<Lease<EtoMatrix>> Mint(Op key);
-    // The probe inverts rather than reading a live transform, which no longer exists once the pass has returned.
     internal Fin<Lease<EtoMatrix>> Inverse(Op key);
 }
 
-// Eleven `SystemFonts` rows; the face they resolve is process-cached per (font, size, decoration) and shared, so
-// the mint leases it BORROWED and disposal of a shared face is unreachable rather than merely discouraged.
 [SmartEnum<int>]
 public sealed partial class TypeRole {
     public static readonly TypeRole Body = new(key: 0, resolve: static (size, decoration) => SystemFonts.Default(size: Host(size), decoration: decoration));
@@ -157,8 +143,6 @@ public sealed partial class TypeRole {
     public static readonly TypeRole PaletteText = new(key: 9, resolve: static (size, decoration) => SystemFonts.Palette(size: Host(size), decoration: decoration));
     public static readonly TypeRole UserText = new(key: 10, resolve: static (size, decoration) => SystemFonts.User(size: Host(size), decoration: decoration));
 
-    // `Option`, never `float?`: the nullable is the HOST seat and is spelled at the ONE site that reaches it, so
-    // eleven rows share one lowering instead of eleven `Match`es onto `null` inside their own delegates.
     private static float? Host(Option<PositiveMagnitude> size) =>
         Op.ToHostNullable(size.Map(static magnitude => (float)magnitude.Value));
 
@@ -166,8 +150,6 @@ public sealed partial class TypeRole {
     internal partial EtoFont Resolve(Option<PositiveMagnitude> size, FontDecoration decoration);
 }
 
-// A family name is an ADMITTED identity, not any string: a blank one resolves to whatever the platform defaults
-// to, so one union arm would ride a closed roster while the other took anything at all.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -178,8 +160,6 @@ public readonly partial struct FontFamilyName {
     }
 }
 
-// Role OR family, never both and never neither: the boundaries carried two optional columns and each guarded the
-// illegal corners at every use, so the cases make them unreachable — and the case is also the custody column.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TypeSource {
     private TypeSource() { }
@@ -202,12 +182,10 @@ public abstract partial record Mark {
     internal Fin<Option<EtoRectangleF>> Extent(PaintStock stock, PositiveMagnitude density, Op key);
     internal Fin<bool> Hits(EtoPointF at, PaintStock stock, PositiveMagnitude density, Op key);
     internal Fin<Dimension> Draw(Graphics target, PaintStock stock, Op key);
-    // Host handles fold as their reference ordinal, so the digest is a PROCESS identity the redraw probe and the
-    // print page dedup read; it is never a federation content key and never reaches `ContentHash.Hex`.
     internal static void Write(Mark mark, CanonicalWriter writer);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record StrokeSpec(
     PerceptualColor Colour,
@@ -215,10 +193,6 @@ public sealed partial record StrokeSpec(
     PenLineCap Cap,
     PenLineJoin Join,
     Dash Dash) {
-    // The DEVICE hairline, not a plotted pen: its width is one device pixel read off `Graphics.PointsPerPixel` at
-    // the target, so it is the thinnest line the surface can draw rather than a paper weight. A plotted hairline is
-    // `Drawing/sheet`'s ISO 128-24 ladder — `LineGroup.For(size).Narrow` — and the two never alias, because a
-    // screen pixel and a 0.13 mm pen answer different questions about the same stroke.
     public static Fin<StrokeSpec> Hairline(PerceptualColor colour, Lease<Graphics> target, Op? key = null);
     internal Fin<Lease<EtoPen>> Mint(Op key);
 }
@@ -226,8 +200,6 @@ public sealed partial record StrokeSpec(
 [Equatable]
 public sealed partial record TypeFace(TypeSource Source, Option<PositiveMagnitude> Size, FontStyle Style, FontDecoration Decoration) {
     public static TypeFace Of(TypeRole role);
-    // The lease case IS the custody verdict: a `RoleCase` face is the process-cached `SystemFonts` instance and
-    // leases Borrowed, a `FamilyCase` face is minted here and leases Owned.
     internal Fin<Lease<EtoFont>> Mint(Op key);
 }
 
@@ -240,8 +212,6 @@ public sealed partial record BlockSpec(
     public static readonly BlockSpec Default;
 }
 
-// Retained and measured once: the memo holds the ADMITTED extent alone, so a refused measure never freezes a
-// wrong size and a repeated bounds or hit probe never re-enters host shaping.
 public sealed class GlyphBlock {
     public static Fin<GlyphBlock> Of(string text, TypeFace face, BlockSpec block, Option<PerceptualColor> ink = default, Op? key = null);
     public string Text { get; }
@@ -252,8 +222,6 @@ public sealed class GlyphBlock {
     internal Fin<Unit> Draw(Graphics target, EtoPointF at, PaintStock stock, Op key);
 }
 
-// Accountability, not narration: every mark is drawn or culled, and the equality of the two tallies against the
-// run's own count is what makes a silently skipped mark a refused receipt.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintReceipt(
     Op Operation,
@@ -273,22 +241,14 @@ public sealed record PaintProgram {
 
     public Seq<Mark> Marks { get; }
 
-    // Computed ONCE at admission and carried on the value: a property re-hashing per read turns the surface's
-    // redundant-swap probe into a full run walk on every invalidation. The mint is the `Deterministic`-seeded fold
-    // over the canonical writer's rows, NOT `ContentHash.Half` — the page's own discriminant is a reference-ordinal
-    // PROCESS identity, so a run holding two handles with identical bytes is two runs and must be, where a content
-    // key would merge them; the refusal is therefore a decision stated here rather than an omission.
     public UInt128 Identity { get; }
 
     public static Fin<PaintProgram> Of(Seq<Mark> marks, Op? key = null);
 
     public Fin<Option<EtoRectangleF>> Bounds(PaintStock stock, PositiveMagnitude density, Op? key = null);
 
-    // Z-ORDER evidence: the walk runs back to front so the topmost mark is the last ordinal, and a consumer
-    // reading only the head takes the first element rather than re-sorting.
     public Fin<Seq<int>> Hit(EtoPointF at, PaintStock stock, PositiveMagnitude density, Op? key = null);
 
-    // Density is READ off `target.Resource.PointsPerPixel`, so no caller threads a scale the surface can refute.
     [BoundaryAdapter]
     public Fin<PaintReceipt> Replay(
         Lease<Graphics> target, ScenePolicy policy, PaintStock stock, MonotonicTimeline clock, DispatchLane lane, Op? key = null);
@@ -297,43 +257,31 @@ public sealed record PaintProgram {
         writer.Rows(rows: program.Marks, field: Mark.Write);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// `Platform.Cache<TKey,TValue>` is REFUSED here: its lifetime is the platform's and a pen cached across a
-// plugin's life outlives every surface that asked for one. The one platform-lifetime half is a `TypeRole` face,
-// which `SystemFonts` already caches and which therefore leases Borrowed and is never seated in this ledger.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PaintStock : IDisposable {
     public static Fin<Lease<PaintStock>> Open(Op? key = null);
 
-    // Every disposal fault, never the newest: the release aggregates through `Error.Many` — `Error` is a monoid —
-    // so a stock that refused three handles reports three rather than the last one to fail.
     public Seq<Error> Faults { get; }
 
     internal Fin<EtoBrush> Brush(FillSource source, Op key);
     internal Fin<EtoPen> Pen(StrokeSpec stroke, Op key);
     internal Fin<EtoFont> Face(TypeFace face, Op key);
 
-    // First-writer-wins with the mint OUTSIDE the transition: a `Ceded` verdict means another writer seated the
-    // spec first, and this caller's surplus resource releases on that arm rather than stranding.
     private Fin<TResource> Seat<TSpec, TResource>(TSpec spec, Func<TSpec, Op, Fin<Lease<TResource>>> mint, Op key)
         where TSpec : notnull
         where TResource : class, IDisposable;
 
-    // Reverse-creation release, aggregating every disposal fault: a pen minted from a brush's gradient outlives
-    // neither, and a refused release parks rather than vanishing.
     public Fin<Unit> Release();
     public void Dispose();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// One entrypoint per carrier shape, discriminating on the input: the Grasshopper form carried a generic
-// `Interpolate<T>` delegate roster whose five instantiations were the whole population.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Tween {
     public static float Between(float from, float to, UnitInterval at);
     public static double Between(double from, double to, UnitInterval at);
     public static EtoPointF Between(EtoPointF from, EtoPointF to, UnitInterval at);
     public static EtoSizeF Between(EtoSizeF from, EtoSizeF to, UnitInterval at);
     public static EtoRectangleF Between(EtoRectangleF from, EtoRectangleF to, UnitInterval at);
-    // Colour interpolates PERCEPTUALLY through the kernel owner, so a host-to-host blend never exists here.
     public static Fin<PerceptualColor> Between(PerceptualColor from, PerceptualColor to, UnitInterval at, Option<BlendPath> path = default, Op? key = null);
 }
 ```
@@ -364,7 +312,7 @@ public static class Tween {
 - Boundary: frame pacing, display-link cadence, and animation clocks belong to `Parametric/projections` and `Interaction/clock` — this surface exposes swap-and-invalidate and nothing temporal. HOST-SPECIFIC-STAYS: Grasshopper paints into the Grasshopper2 canvas through its own `PaintPhase` hooks and hands a `Graphics` to `PaintProgram.Replay` rather than mounting a surface at all.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoBitmap = Eto.Drawing.Bitmap;
 using EtoPixels = Eto.Drawing.BitmapData;
 using EtoPointF = Eto.Drawing.PointF;
@@ -385,7 +333,7 @@ using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ScenePolicy {
     public static readonly ScenePolicy Crisp = new(key: 0, antiAlias: false, interpolation: ImageInterpolation.None, offset: PixelOffsetMode.None);
@@ -396,7 +344,6 @@ public sealed partial class ScenePolicy {
     internal ImageInterpolation Interpolation { get; }
     internal PixelOffsetMode Offset { get; }
 
-    // Brackets transform, clip, AND the quality tuple, so a replay leaves the caller's stream exactly as found.
     internal TResult Use<TResult>(Graphics target, Func<TResult> body);
 }
 
@@ -410,8 +357,6 @@ public abstract partial record Redraw {
     internal Unit Apply(Drawable host);
 }
 
-// The route is READ, never inferred: a bare refusal and a bare absence both read as failure, and only one of them
-// means the fallback already answered.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OffscreenDraw<TResult> {
     private OffscreenDraw() { }
@@ -433,32 +378,22 @@ public sealed partial class FocusPolicy {
     internal bool Focusable { get; }
 }
 
-// How a locked buffer STORES coverage, read per lock rather than assumed per backend: `BitmapData.Premultiplied
-// Alpha` is computed at each lock from the live representation, so one raster minted with an alpha channel and one
-// decoded out of a straight-alpha file disagree on the same host. The GDI column is the inverse leg — the format a
-// `LockBits` call demands to be HANDED this carriage — so the two directions of one correspondence sit on one row.
 [SmartEnum<int>]
 public sealed partial class AlphaLayout {
     public static readonly AlphaLayout Straight = new(key: 0, channels: 4, gdi: GdiPixelFormat.Format32bppArgb);
     public static readonly AlphaLayout Premultiplied = new(key: 1, channels: 4, gdi: GdiPixelFormat.Format32bppPArgb);
     public static readonly AlphaLayout Opaque = new(key: 2, channels: 3, gdi: GdiPixelFormat.Format24bppRgb);
 
-    // The one carriage every `Bytes` egress publishes. A property rather than a field, because a static readonly
-    // field of this type mints a fourth ITEM aliasing `Straight`'s key instead of naming it.
     public static AlphaLayout Declared => Straight;
 
     internal int Channels { get; }
     internal GdiPixelFormat Gdi { get; }
 
-    // `BytesPerPixel` 3 is the coverage-less arm; past it `PremultipliedAlpha` is the whole discriminant. NAMED
-    // LOSS: a four-byte opaque toolkit raster reads `Straight`, because the toolkit stack publishes no coverage-
-    // presence column, so its skipped byte rides out as stored rather than as claimed coverage.
     public static AlphaLayout OfHost(EtoPixels window);
-    // `PixelFormat` carries GDI+'s own alpha and premultiplied-alpha bits, so this is a flag read, not a roster walk.
     public static AlphaLayout OfHost(GdiPixels window);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SurfaceSpec(
     PaintProgram Initial,
     ScenePolicy Policy,
@@ -469,11 +404,10 @@ public sealed record SurfaceSpec(
     internal Fin<SurfaceSpec> Admit(Op key);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Surface : IDisposable {
     [BoundaryAdapter] public static Fin<Lease<Surface>> Mount(SurfaceSpec spec, Op? key = null);
 
-    // The realized control IS the handle, so a `Painted` consumer swaps through what realize returned.
     public static Option<Surface> Of(Drawable host);
 
     public Drawable Host { get; }
@@ -481,7 +415,6 @@ public sealed class Surface : IDisposable {
 
     [BoundaryAdapter] public Fin<Unit> Swap(Func<PaintProgram, PaintProgram> next, Redraw redraw, Op? key = null);
 
-    // The ONE entry that does not cross: it replays the hit projection over admitted geometry alone.
     public Fin<Seq<int>> HitTest(EtoPointF at, Op? key = null);
 
     [BoundaryAdapter] public Fin<OffscreenDraw<TResult>> Acquire<TResult>(
@@ -493,28 +426,14 @@ public sealed class Surface : IDisposable {
     public void Dispose();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Every egress is a PAIR of arities discriminated by the bitmap's own type — the toolkit stack the mounted surface
-// and the print page reach, and the GDI stack Rhino's capture, z-buffer, and render-window surfaces publish. The
-// discriminant rides the argument, so no `OfGdi` name-suffix family and no cross-stack conversion exists.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PixelLease {
-    // The window crosses `scoped in`, so it can be neither captured nor returned: a `struct` constraint alone does
-    // NOT foreclose escape — `Locked(bmp, static (window, _) => (window, 1))` satisfies it and carries the live
-    // lock straight out — and the parameter modifier is what the compiler actually proves. RESIDUAL, stated rather
-    // than claimed away: a projection may still copy a raw pointer out of the window's own address, which no CLR
-    // constraint forecloses, so the declared layout and the lock's extent are the whole contract past this line.
     public delegate TResult PixelRead<out TResult>(scoped in EtoPixels window, AlphaLayout layout);
     public delegate TResult GdiRead<out TResult>(scoped in GdiPixels window);
 
-    // A VALUE result forecloses every reference form: the buffer view dies when the projection returns, so a
-    // projection handing back the lock — or anything reading through it — hands back released memory. The toolkit
-    // lock admits no format, so the carriage it FOUND rides beside the window rather than being asked for.
     [BoundaryAdapter] public static Fin<TResult> Locked<TResult>(EtoBitmap bitmap, PixelRead<TResult> read, Op? key = null)
         where TResult : struct;
 
-    // The GDI window is `LockBits`/`UnlockBits` under `ImageLockMode.ReadOnly` — the read member decides the mode,
-    // so a caller cannot ask for a read window and mutate through it — and the unlock runs on every arm. Here the
-    // carriage is ASKED for and GDI+ converts on the way in, so the projection needs no second layout argument.
     [BoundaryAdapter] public static Fin<TResult> Locked<TResult>(GdiBitmap bitmap, AlphaLayout layout, GdiRead<TResult> read, Op? key = null)
         where TResult : struct;
 
@@ -524,23 +443,15 @@ public static class PixelLease {
     [BoundaryAdapter] public static Fin<Unit> Write(EtoBitmap bitmap, EtoPoint at, PerceptualColor colour, Op? key = null);
     [BoundaryAdapter] public static Fin<Unit> Write(GdiBitmap bitmap, GdiPoint at, PerceptualColor colour, Op? key = null);
 
-    // Bounds are ONE size read, never a per-pixel host probe: reading each pixel back to prove it addressable
-    // pays a full round trip per point and a second one writing it inside the lock.
     [BoundaryAdapter] public static Fin<Unit> WriteLocked(EtoBitmap bitmap, Seq<(EtoPoint At, PerceptualColor Colour)> pixels, Op? key = null);
     [BoundaryAdapter] public static Fin<Unit> WriteLocked(GdiBitmap bitmap, Seq<(GdiPoint At, PerceptualColor Colour)> pixels, Op? key = null);
 
-    // ONE declared layout — `AlphaLayout.Declared` BGRA, four bytes per pixel, rows tightly packed top-down — so
-    // the stored carriage, the padded row pitch, and a bottom-up row order all resolve here and never per host.
-    // The toolkit arm walks `TranslateDataToArgb`, which canonicalizes channel order and divides coverage back out
-    // in one hop, widening a three-`Channels` row to full coverage; the GDI arm locks at `Declared.Gdi` and lets
-    // GDI+ convert, so neither arm does channel arithmetic twice. `AssetRaster.Pixels` carries exactly these rows.
     [BoundaryAdapter] public static Fin<Arr<byte>> Bytes(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
     [BoundaryAdapter] public static Fin<Arr<byte>> Bytes(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
 
     [BoundaryAdapter] public static Fin<ReadOnlyMemory<byte>> Encode(EtoBitmap bitmap, ImageFormat format, Op? key = null);
     [BoundaryAdapter] public static Fin<ReadOnlyMemory<byte>> Encode(GdiBitmap bitmap, GdiFormat format, Op? key = null);
 
-    // A clone is a fresh host raster the caller now owns, so it leaves leased like every other pixel egress.
     [BoundaryAdapter] public static Fin<Lease<EtoBitmap>> Clone(EtoBitmap bitmap, Option<EtoRectangle> region = default, Op? key = null);
     [BoundaryAdapter] public static Fin<Lease<GdiBitmap>> Clone(GdiBitmap bitmap, Option<GdiRectangle> region = default, Op? key = null);
 }
@@ -559,7 +470,7 @@ public static class PixelLease {
 - Boundary: Grasshopper's DisplayP3 `CGColor` mint STAYS at that boundary, reading the kernel triple; Rhino's `ThemePalette.Detach` swatch feeder STAYS at its boundary and hands a `ThemeShift.Hosted` to the theme grid.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoColor = Eto.Drawing.Color;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -567,7 +478,7 @@ using SystemColors = Eto.Drawing.SystemColors;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChromeRole {
@@ -585,15 +496,11 @@ public sealed partial class ChromeRole {
     [UseDelegateFromConstructor]
     internal partial EtoColor Read();
 
-    // Re-reads on every call: the handler re-resolves the swatch on an appearance flip, so a captured value is
-    // stale the moment the OS accent or contrast setting changes.
     [BoundaryAdapter]
-    // The static extension member is reached on the EXTENDED type: a `public static` declared inside
-    // `extension(PerceptualColor colour)` binds as `PerceptualColor.OfHost`, never through its enclosing class.
     public Fin<PerceptualColor> Sample(Op? key = null) => PerceptualColor.OfHost(host: Read(), key: key);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PaintColor {
     extension(PerceptualColor colour) {
         public static Fin<PerceptualColor> OfHost(EtoColor host, Op? key = null);
@@ -623,7 +530,7 @@ public static class PaintColor {
 - Boundary: the shift arrives INJECTED — variant polarity and any live host swatches are read at the boundary that owns the OS theme, and this owner never reads a host theme global.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Numerics;
@@ -631,7 +538,7 @@ using Rasm.Parametric;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ThemeVariant {
     public static readonly ThemeVariant Light = new(key: 0);
@@ -655,15 +562,9 @@ public sealed partial class PaletteRole {
     public static readonly PaletteRole Warning = new(key: "warning", rank: 10);
     public static readonly PaletteRole Failure = new(key: "failure", rank: 11);
 
-    // The dense index the frozen grid is filled and read at: a `Rank`-indexed axis is total by construction, where
-    // a hash-map read raises out of a value this page calls frozen the first time the generator misses a row.
     public int Rank { get; }
 }
 
-// A MODULAR SCALE, not seven opaque names: each row carries the multiple of the variant's base step it stands for,
-// so the twenty-one spacing cells DERIVE from one base per variant and a generator body can no longer hand-pick a
-// pixel inset per cell. The progression is the estate's own — powers of the base step rounded onto the halving
-// ladder every drawing standard on this branch already uses — and it is DATA here rather than a fold in a body.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpaceRole {
@@ -675,20 +576,13 @@ public sealed partial class SpaceRole {
     public static readonly SpaceRole Loose = new(key: "loose", rank: 5, step: 2.0d);
     public static readonly SpaceRole Section = new(key: "section", rank: 6, step: 4.0d);
 
-    // The dense index every frozen axis is filled and read at, so a snapshot read is total by construction rather
-    // than a throwing map probe over a roster the generator may have missed.
     public int Rank { get; }
     public double Step { get; }
 
-    // One multiplication, one owner: the base is the variant's and the multiple is the row's, so a contrast
-    // variant that widens every inset moves ONE value instead of twenty-one.
     internal Fin<PositiveMagnitude> Of(PositiveMagnitude root, Op key) =>
         key.AcceptValidated<PositiveMagnitude>(candidate: root.Value * Step);
 }
 
-// Each slot names the ISO 3098-1 lettering rung it stands on, so the type scale has the same provenance the colour
-// roster has in `SystemColors` and the spacing roster has in its base step — a hand-picked point size per cell is
-// exactly the defect this page names one layer down, and it was legal here until the rung became a column.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TypeSlot {
@@ -704,12 +598,7 @@ public sealed partial class TypeSlot {
     public int Rank { get; }
     public TextHeight Rung { get; }
 
-    // The slot's own rung against the ladder's base rung is the RATIO the root face scales by, so a variant that
-    // enlarges every caption moves the root and every slot follows — and the ladder that decides the progression
-    // is `Drawing/sheet`'s, never a second ratio table beside it.
     internal Fin<TypeFace> Of(TypeFace root, Op key) =>
-        // A root naming no size REFUSES: a ratio over an absent base has nothing to scale, and fabricating a unit
-        // base would hand every slot a size no generator chose.
         from seat in root.Size.ToFin(new UiFault.Rejected(
             Key: key, Field: FieldTag.Create(value: nameof(TypeFace.Size)), Reason: RejectReason.RootFaceSize))
         from size in key.AcceptValidated<PositiveMagnitude>(candidate: seat.Value * (Rung.Height / Body.Rung.Height))
@@ -725,13 +614,7 @@ public abstract partial record ThemeShift {
     internal (ThemeVariant Variant, HashMap<PaletteRole, PerceptualColor> Overlay) Merge();
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The readability floors WCAG publishes, each naming the success criterion it transcribes: a bare `double` beside a
-// role pair is a policy scalar with no band, no clause, and no reviewer able to audit which rule it encodes. The
-// ratio is a `PositiveMagnitude` because that is exactly what `PerceptualColor.ToneFor` takes, so a rule feeds the
-// kernel's own tonal solve rather than a call-site comparison. NAMED LOSS: an unpublished ratio has no spelling
-// here — a contrast floor no clause states is a number no review can settle, and every floor a standard states is
-// one row.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ContrastFloor {
@@ -752,10 +635,6 @@ public sealed partial class ContrastFloor {
 
 public sealed record ContrastRule(PaletteRole Foreground, PaletteRole Background, ContrastFloor Floor);
 
-// Three axes, one generator, and each axis narrows to its ROOT: the roles carry their own derivation — a spacing
-// step is its multiple of the base and a type slot its rung off the lettering ladder — so the generator states one
-// base inset and one root face per variant and every cell derives. A per-cell function is what let a boundary
-// hand-pick twenty-one insets and twenty-four sizes one layer up, legal because nothing above forbade it.
 public sealed record ThemeProgram(
     Func<PaletteRole, ThemeVariant, PerceptualColor> Paint,
     Func<ThemeVariant, PositiveMagnitude> Base,
@@ -763,8 +642,6 @@ public sealed record ThemeProgram(
     internal Validation<Error, ThemeSnapshot> Cells(ThemeVariant variant, MonotonicStamp generation, Op key);
 }
 
-// Each axis is `Rank`-indexed and its fill is proved ONCE at `Freeze`, so every read is total by construction: the
-// throwing map indexer raised out of a value this page calls frozen the moment a generator missed one row.
 public sealed record ThemeSnapshot(
     MonotonicStamp Generation,
     ThemeVariant Variant,
@@ -782,29 +659,19 @@ public readonly record struct ThemeChange(
     ThemeVariant Variant,
     Seq<PaletteRole> Changed,
     Seq<Error> Failures) : IValidityEvidence {
-    // The receipt claims THREE facts and folds all three: an accepted generation, a variant it accepted under, and
-    // an empty failure set — a bare `Failures.IsEmpty` leaves the other two unmeasured on the one value that
-    // publishes them.
     public bool IsValid => ValidityClaim.All(
         Failures.IsEmpty,
         ValidityClaim.Evidence(evidence: Optional(Generation)),
         ValidityClaim.Evidence(evidence: Optional(Variant)));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ThemeGrid {
-    // Generators admit BESIDE every other input rather than throwing past the accumulating carrier: a guard-block
-    // throw on a `Validation` surface reports one absence where the applicative reports all of them. The clock is
-    // the generation's ONE minter, so a rebroadcast and the paint pass it triggers order against one timeline
-    // rather than against two counters nothing relates; the fill of all three `Rank`-indexed axes is proved here
-    // and never again, which is what makes every snapshot read total.
     public static Validation<Error, ThemeGrid> Freeze(
         ThemeProgram program, ThemeVariant initial, Seq<ContrastRule> contrast, MonotonicTimeline clock, Op? key = null);
 
     public ThemeSnapshot Current { get; }
 
-    // A refused shift never reaches the cell: the merge and the contrast gate run against the held state and only
-    // an ADMITTED snapshot installs, so a breach outlives neither the call nor the caller that caused it.
     [BoundaryAdapter] public Fin<ThemeChange> Swap(ThemeShift shift, Op? key = null);
 }
 ```

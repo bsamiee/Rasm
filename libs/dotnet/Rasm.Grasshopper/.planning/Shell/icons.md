@@ -52,13 +52,13 @@ Perceptual tint math composes the kernel `PerceptualColor`/`BlendPath` owner —
 - Growth: a new draw modality is one `IconDraw` plan case with its `IconProduct` result case; the gate never widens.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct IconTag {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -81,9 +81,6 @@ public abstract partial record IconDraw {
     public sealed record RasterCase(Size Extent, int Padding, Color Backdrop) : IconDraw;
 }
 
-// Draw RESULT is a family, not an Option: `None` for the surface case reads as an absent bitmap where it
-// actually means "this modality produces no owned product", and the raster arm rides the KERNEL AssetRaster
-// carrier so every admitted raster in the estate shares one custody shape.
 [Union]
 public abstract partial record IconProduct {
     private IconProduct() { }
@@ -91,7 +88,7 @@ public abstract partial record IconProduct {
     public sealed record RasterCase(AssetRaster Frame) : IconProduct;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct IconDiagnostics(Seq<CodeDiagnostic> Errors, Seq<CodeDiagnostic> Warnings) : IValidityEvidence {
     public bool IsValid => Errors.IsEmpty;
@@ -119,8 +116,6 @@ public readonly record struct CompileEvidence(
         Assembly: Optional(compiler.GetCachedAssembly).Bind(static loaded => Optional(loaded.FullName)));
 }
 
-// `IIcon.Type` is the host's own kind discriminant and rides the handle beside the evidence that admitted it, so a
-// consumer choosing a raster path for a pixel icon or refusing a compiled one reads a value instead of re-probing.
 public sealed record IconHandle(
     IIcon Icon,
     IconType Kind,
@@ -128,7 +123,7 @@ public sealed record IconHandle(
     IconDiagnostics Notes,
     Option<CompileEvidence> Compile);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class IconCatalog {
     private readonly HashMap<IconTag, IconHandle> rows;
     private IconCatalog(HashMap<IconTag, IconHandle> rows) => this.rows = rows;
@@ -146,10 +141,9 @@ public sealed class IconCatalog {
     public Option<IconHandle> Find(IconTag key) => rows.Find(key);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class IconOwner {
-    // One mint arm per KERNEL origin case; census selects the compiler channel for Source admissions.
     public static Fin<IconHandle> Mint(AssetOrigin origin, bool census = false, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(origin).Bind(valid => UiThread.Run(new UiDispatch<IconHandle>.Blocking(() => valid.Switch(
@@ -160,8 +154,6 @@ public static class IconOwner {
                 mint: () => AbstractIcon.FromFile((string)c.Location)),
             stream: static (s, c) => Clean(key: s.Key, origin: s.Origin,
                 mint: () => AbstractIcon.FromStream(c.Open())),
-            // GH2's factory takes Eto bitmaps: the Toolkit frames feed FromBitmap; a Gdi or Pixels frame
-            // refuses typed per the kernel's asked-shape law — no silent imaging-stack conversion.
             raster: static (s, c) => c.Scales.Traverse(frame => frame is AssetRaster.Toolkit kit
                     ? Fin.Succ(kit.Bitmap)
                     : Fin.Fail<Lease<Bitmap>>(s.Key.InvalidInput(axis: nameof(AssetRaster)))).As()
@@ -207,7 +199,6 @@ public static class IconOwner {
             () => op.Catch(body: () => Fin.Succ(toSeq(target.States)))), DispatchLane.Interactive, op));
     }
 
-    // KERNEL filter rows fold onto the host context; the palette is a host-only capability with no kernel row.
     public static Fin<IconContext> Filtered(
         IconContext seed, Seq<IconFilter> chain, Option<IconPalette> palette = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -216,7 +207,6 @@ public static class IconOwner {
             (acc, filter) => acc.Bind(context => filter.Switch(
                 state: (Context: context, Key: op),
                 disabled: static (s, _) => Fin.Succ(s.Context.WithDisabledFilter()),
-                // GH2 ships no selected-state filter: the row refuses typed rather than redrawing as a tint.
                 selected: static (s, _) => Fin.Fail<IconContext>(s.Key.InvalidInput(axis: nameof(IconFilter.Selected))),
                 greyscale: static (s, _) => Fin.Succ(s.Context.WithGreyscaleFilter()),
                 tinted: static (s, f) => Fin.Succ(s.Context.WithFilter(_ => Quantized(colour: f.Tint))),
@@ -240,7 +230,6 @@ public static class IconOwner {
                select output;
     }
 
-    // Kernel's whole request shape, materialized: origin -> handle, identity pose only, filters, draw.
     public static Fin<IconProduct> Materialize(IconRender request, IconDraw plan, Op? key = null);
 
     private static Fin<IconHandle> Clean(Op key, AssetOrigin origin, Func<IIcon?> mint) =>
@@ -269,7 +258,6 @@ public static class IconOwner {
             Some: name => key.Catch(body: () => Optional(icon.FindState(name)).ToFin(key.InvalidResult(detail: name)).Map(static _ => unit)),
             None: () => Fin.Succ(unit));
 
-    // ONE perceptual/host colour crossing for icon work — quantization lives here, never deeper.
     private static Color Quantized(PerceptualColor colour);
     private static PerceptualColor Perceptual(Color colour);
 }

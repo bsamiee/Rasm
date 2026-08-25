@@ -64,8 +64,6 @@ async def apply(
     budget: Option[float],
     composition: ScopeKey = DEFAULT_SCOPE,
 ) -> RuntimeRail[BrepResult]:
-    # `EXECUTE` discriminates and the client entry owns the whole dial; this page adds the evidence scope and
-    # its receipt projection alone, so the sibling wrapper class that once re-spelled that capture here is gone.
     return (
         await evidence_run(
             EvidenceScope.MESH_BREP,

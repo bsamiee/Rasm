@@ -51,22 +51,14 @@ from rasm.runtime.identity import ContentIdentity
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# `_DOMAIN` names the METRIC roster's own `artifact` subject the receipt fold already records under, so a
-# board and a subscription join ONE vocabulary; `delivery` is the plane's noun and `issued` reads past tense. The
-# hook id spells `rasm.artifacts.delivery.issued` under the registry's own grammar and carries no version segment,
-# so the event type derives from the roster rather than from that id — one segment apart, and both spelled once.
 _DOMAIN: Final[str] = "artifact"
 _CAPABILITY: Final[str] = "delivery"
 _SUBJECT: Final[str] = "delivery"
 _FACT: Final[str] = "issued"
 _VERSION: Final[int] = 1
 
-# `_PAYLOAD_FMT` tags the payload key's own namespace, distinct from every transmittal-stage tag so a notice key
-# and an issue key never collide inside one content-keyed store.
 _PAYLOAD_FMT: Final[str] = "transmittal-notice"
 
-# ISO 19650 confidentiality is free header text, so the grade resolves at THIS boundary: the folded value keys the
-# estate vocabulary and an absent or unspelled value refuses without a weaker fallback.
 _CLASSIFIED: Final[Map[str, Classification]] = Map.of_seq([
     ("public", Classification.PUBLIC),
     ("internal", Classification.INTERNAL),
@@ -75,8 +67,6 @@ _CLASSIFIED: Final[Map[str, Classification]] = Map.of_seq([
     ("secret", Classification.SECRET),
 ])
 
-# Unknown confidentiality cannot fall through to a weaker transport grade. The projection is the one boundary that
-# translates the ISO header's open text into the estate's closed handling vocabulary, so it owns this terminal repair.
 NOTICE_CONFIDENTIALITY: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.NOTICE,
     point="classification",
@@ -91,20 +81,12 @@ RAISES: Final = rostered(Block.singleton(NOTICE_CONFIDENTIALITY))
 
 
 class TransmittalNotice(Struct, frozen=True, gc=False):
-    # ONE projection row handed to the runtime `Emitter` at the composition root. Lowering, binding selection,
-    # format, and delivery are the emitter's, so this owner ends at the message-envelope VALUE and holds no wire bytes,
-    # header map, or content mode.
 
     def projections(self) -> Block[Projection]:
         return Block.singleton(Projection.of(TRANSMITTAL_POINT, self.announce))
 
     def announce(self, fact: TransmittalIssued, /) -> RuntimeRail[MessageEnvelope]:
-        # Payload IS the fired fact: one encode answers the `Raw` band every format lowers,
-        # so no second projection re-spells the evidence and the announcement cannot disagree with the receipt it
-        # projects. `datacontenttype` names these DATA bytes, independently of whichever event-format row encloses them.
         body = json.encode(fact)
-        # CREATION-time trace. Artifacts taps run synchronously inside the fire, so this context is still the
-        # producing fold's; the hop's own carrier stays the binding's and never folds onto these slots.
         carrier: dict[str, str] = {}
         propagate.inject(carrier, otel_context.get_current())
         return _classification(fact.confidentiality).bind(
@@ -113,26 +95,14 @@ class TransmittalNotice(Struct, frozen=True, gc=False):
                     lambda source: MessageEnvelope(
                         event_type=event_type,
                         source=source,
-                        # `core/issue` mints one UUIDv7 scope around the complete producing operation. The pre-run
-                        # aggregate key is reuse identity and cannot distinguish two actual executions.
                         operation=OperationId(value=fact.scope),
                         occurred=fact.occurred,
                         payload=Raw(body),
                         content_type=Some("application/json"),
-                        # PAYLOAD content key, minted over the encoded bytes and lowered HERE through the key
-                        # owner's own `project("wire")` into the WireKey slot — the slot holds what crosses, so
-                        # `decoded` rebuilds exactly, and seating the pre-run key here would collapse the two
-                        # identities `(source, id)` exists to hold apart.
                         subject=Some(ContentIdentity.key(_PAYLOAD_FMT, body).project("wire")),
-                        # the GENERATED corpus roster, filled by keyword: an absent column is simply not passed, so presence
-                        # on the wire is `has_field` and no `Option` wrapper stands beside the generated slot.
                         extensions=Extensions(
-                            # `TRACE_SLOTS` folds the W3C subset off the generated roster's own names, never three keys.
                             **{slot: carrier[slot] for slot in TRACE_SLOTS if slot in carrier},
                             dataclassification=classification.value,
-                            # `partitionkey` keeps one transmittal's whole revision stream ordered inside one
-                            # partition. Python integers retain the complete ordinal; D20 changes only its wire spelling,
-                            # making lexical comparison agree with the numeric position a consumer reads a gap against.
                             partitionkey=fact.transmittal_id,
                             sequence=f"{fact.revision_ordinal:020d}",
                             recordedtime=Timestamp.now(),
@@ -150,7 +120,7 @@ def _classification(raw: str, /) -> RuntimeRail[Classification]:
     )
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ("TransmittalNotice",)
 ```

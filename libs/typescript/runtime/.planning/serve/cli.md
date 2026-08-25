@@ -37,8 +37,6 @@ const _main = <E, R>(
 ) =>
   (args: ReadonlyArray<string>): Effect.Effect<void, E | ValidationError.ValidationError, R> =>
     built(args).pipe(
-      // help, version, and a quit at any prompt are OUTCOMES: each folds to a clean exit, and every other
-      // ValidationError propagates for the boot edge to report
       Effect.catchIf(
         (fault): fault is ValidationError.HelpRequested | Terminal.QuitException =>
           (ValidationError.isValidationError(fault) && ValidationError.isHelpRequested(fault)) ||
@@ -57,7 +55,6 @@ const _completions = <Name extends string, R, E, A>(root: Command.Command<Name, 
   Command.make(
     "completions",
     {
-      // `choice` admits label/value PAIRS, so the key roster maps into tuples rather than handing it bare keys
       shell: Args.choice(
         Array.map(Struct.keys(_shells), (shell): [string, keyof typeof _shells] => [shell, shell]),
         { name: "shell" },
@@ -89,11 +86,6 @@ const Verb = { completions: _completions, main: _main, wizard: _wizard } as cons
 - Boundary: process execution mechanics are `proc/exec#COMMAND_SPEC`'s; fanout semantics are `net/pubsub#PORT_SHAPE`'s; what checks exist beyond the shipped floor is app data through `sources.checks`.
 
 ```typescript signature
-// One family, two refusal routes: a probe verdict is the dependency answering no, the verb gate is this process
-// refusing its own run. The class PROJECTS off the roster — asserting a literal beside the reason is the second
-// taxonomy the branch ruling forecloses, and without any column `Fault.Class.of` folds both to `defect`, which
-// reads a failed doctor row as an internal fault. The two routes carry two subjects, because a refusing probe names
-// the row that answered no and a closing gate names the verb and the count that closed it.
 const _ops = Fault.Class.family(["probe", "gate"] as const, {
   probe: Fault.Class.row({
     class: "unavailable",
@@ -184,7 +176,6 @@ const _doctor = (sources: Ops.Sources) =>
             : Effect.succeed(row.grade),
         })))
       const every = [...anchor, ...sources.checks]
-      // Narrowing never prompts on its own: absence IS the whole surface, so the CI gate passes no flag
       const named = pick
         ? yield* Prompt.run(Prompt.multiSelect({
             message: "probes to run",
@@ -198,8 +189,6 @@ const _doctor = (sources: Ops.Sources) =>
       const [failed, passed] = yield* Effect.partition(selected, (probe) =>
         probe.run.pipe(
           Effect.map((detail) => [probe.name, detail] as const),
-          // the row renderer already spells every subject, so the table prints one sentence per refusal and this
-          // fold reads no column a sibling reason may not carry
           Effect.mapError((fault) => [probe.name, fault.message] as const),
         ))
       yield* _out(_verdicts({ pass: passed, fail: failed }))
@@ -213,8 +202,6 @@ const _replay = (sources: Ops.Sources) =>
   Command.make(
     "replay",
     {
-      // `fileSchema` PARSES the file by the declared format then validates the parsed value, so the schema
-      // is the envelope itself: a `parseJson` wrapper would hand a decoded object to a string decoder
       capture: Args.fileText({ name: "capture" }),
       topic: _topicFlag(sources.topics),
       yes: _confirmFlag,
@@ -271,9 +258,6 @@ const _roles = {
 
 const _role = (kind: keyof typeof _roles, doc: AnsiDoc.AnsiDoc): AnsiDoc.AnsiDoc => Doc.annotate(doc, _roles[kind])
 
-// One reverse index built beside the table: `reAnnotate` visits every annotated node, and re-materializing the
-// roster per visit re-scans it for a lookup the table already holds. Foreign annotations — `@effect/cli`'s own
-// `HelpDoc` markup among them — miss the index and cross unchanged, which is the intended pass-through.
 const _byAnsi: ReadonlyMap<Ansi.Ansi, keyof typeof _roles> = new Map(
   Array.map(Record.toEntries(_roles), ([kind, ansi]) => [ansi, kind] as const),
 )
@@ -314,8 +298,6 @@ const _table = (
   ])
 }
 
-// One grade roster carrying the label's role and whether its detail reads muted; the doctor's own partition feeds
-// both buckets, so a third grade joins the render and the report shape from this one row.
 const _grades = {
   pass: { role: "ok", muted: true },
   fail: { role: "fault", muted: false },
@@ -332,7 +314,6 @@ const _verdicts = (
         row.muted ? _role("faint", Doc.string(detail)) : Doc.string(detail),
       ]))))
 
-// `list` and `tupled` are the printer's own fixed rows over `encloseSep`, so a third delimiter shape is a row here
 const _shapes = { list: Doc.list, tuple: Doc.tupled } as const satisfies Record<string, typeof Doc.list>
 
 const _seq = (items: ReadonlyArray<string>, shape: keyof typeof _shapes = "list"): AnsiDoc.AnsiDoc =>
@@ -367,7 +348,6 @@ const _MODES = {
     AnsiDoc.render(doc, { style: "pretty", options: { lineWidth: width, ribbonFraction: 1 } }),
   plain: (doc: AnsiDoc.AnsiDoc, width: number): string =>
     Doc.render(Doc.unAnnotate(doc), { style: "pretty", options: { lineWidth: width, ribbonFraction: 1 } }),
-  // Machine form is one line by construction, so a measured width has nothing to bound
   wire: (doc: AnsiDoc.AnsiDoc): string => Doc.render(Doc.unAnnotate(doc), { style: "compact" }),
 } as const satisfies Record<string, (doc: AnsiDoc.AnsiDoc, width: number) => string>
 
@@ -375,7 +355,6 @@ class _Mode extends Context.Reference<_Mode>()("runtime/serve/Print/Mode", {
   defaultValue: (): keyof typeof _MODES => "tty",
 }) {}
 
-// Mode DERIVES from the attached terminal, so a pipe or a CI runner inherits `plain` with no root provision
 const _detected: Layer.Layer<_Mode, never, Terminal.Terminal> = Layer.effect(
   _Mode,
   Effect.map(
@@ -386,8 +365,6 @@ const _detected: Layer.Layer<_Mode, never, Terminal.Terminal> = Layer.effect(
 
 const _text = (doc: AnsiDoc.AnsiDoc, mode: keyof typeof _MODES, width: number): string => _MODES[mode](doc, width)
 
-// Captures cross back through the ONE structured spelling they were written in, so a replay re-publishes the fact
-// it holds rather than a re-modelling of it; a file that is not one lawful announcement refuses at the flag.
 const _captureUtf8 = new TextEncoder()
 
 const _captured = (text: string): Effect.Effect<Fanout.Announced, ValidationError.ValidationError> =>
@@ -395,8 +372,6 @@ const _captured = (text: string): Effect.Effect<Fanout.Announced, ValidationErro
     Effect.mapError((issue) => ValidationError.invalidValue(HelpDoc.p(issue.message))),
   )
 
-// One position rendering over the closed coordinate family, so a stream sequence and a partition offset print under
-// one key and a caller reading the receipt never learns which engine answered by which field went missing.
 const _position = (position: Fanout.ReceiptPosition): string =>
   position._tag === "Sequence" ? String(position.seq) : `${position.partition}@${position.offset}`
 
@@ -413,8 +388,6 @@ const _sweep = (rows: number): Effect.Effect<void, PlatformError.PlatformError, 
     const mode = yield* _Mode
     const terminal = yield* Terminal.Terminal
     const width = yield* terminal.columns
-    // `AnsiDoc.eraseLines` IS the published directive document — `Doc.annotate(Doc.empty, …)` — so the mode row's
-    // own annotation strip erases it outside `tty`, and this seam needs neither a branch nor a raw escape string
     yield* terminal.display(_text(AnsiDoc.eraseLines(rows), mode, width))
   })
 
@@ -441,7 +414,7 @@ const Print = {
   sweep: _sweep,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Ops, OpsFault, Print, Verb }
 ```

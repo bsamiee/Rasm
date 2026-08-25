@@ -26,11 +26,11 @@ Siblings this page routes to: `Query/residence` owns the producer column vocabul
 
 ```csharp signature
 using System.Buffers;
-using System.Buffers.Binary;                      // BinaryPrimitives — the xxh128 UDF's big-endian key pack
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
-using System.IO.Hashing;                          // XxHash128 — the engine-parity content-key UDF
+using System.IO.Hashing;
 using System.Linq;
 using Apache.Arrow;
 using Apache.Arrow.Adbc;
@@ -40,15 +40,14 @@ using DuckDB.NET.Native;
 using LanguageExt;
 using LanguageExt.Common;
 using Thinktecture;
-using Rasm.Domain;                                // TenantId — the frame tenancy the series key packs
+using Rasm.Domain;
 using Rasm.Persistence.Element;
-using Rasm.Persistence.Store;                     // StoreProfile — the lane-realizability axis Open admits against
+using Rasm.Persistence.Store;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Trust gates admit identifiers and paths before engine SQL; DuckDB parameters own values only.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct Identifier {
@@ -86,7 +85,6 @@ public readonly partial struct AdbcSql {
     }
 }
 
-// `ExtensionRepo` owns bootstrap form: linked load, core install, or community install.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExtensionRepo {
@@ -96,8 +94,6 @@ public sealed partial class ExtensionRepo {
     [UseDelegateFromConstructor] public partial string Bootstrap(string key);
 }
 
-// `ColumnarExtension` rows own extension identity and repository policy on one pinned runtime. `Substrait` is
-// community-signed and fails closed during `Open`.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -125,13 +121,10 @@ public sealed partial class ColumnarExtension {
     public string Bootstrap => Repo.Bootstrap(Key);
 }
 
-// `ColumnarProfile` rows carry dedicated-machine posture and an ordered extension roster. Lakehouse and federation
-// disable insertion-order preservation; correctness lanes retain it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColumnarProfile {
-    // Every profile shares one memory cap and spill ceiling policy.
     const string MemoryShare = "80%";
     const string SpillShare = "90%";
 
@@ -149,7 +142,6 @@ public sealed partial class ColumnarProfile {
     private ColumnarProfile(string key, string memoryCap, string spillRoot, string spillCap, bool preserveOrder, Seq<ColumnarExtension> roster) : this(key) =>
         (MemoryCap, SpillRoot, SpillCap, PreserveOrder, Roster) = (memoryCap, spillRoot, spillCap, preserveOrder, roster);
 
-    // `max_temp_directory_size` converts spill exhaustion into a loud engine failure rather than an unbounded disk fill.
     public string ConnectionString(StorePath dataSource, ExecutionThreads threads) {
         DuckDBConnectionStringBuilder rows = new() { DataSource = (string)dataSource };
         (rows["threads"], rows["memory_limit"], rows["temp_directory"], rows["max_temp_directory_size"], rows["preserve_insertion_order"]) =
@@ -158,8 +150,6 @@ public sealed partial class ColumnarProfile {
     }
 }
 
-// `SecretScope` rows own each `CREATE SECRET` type, provider, and persistence target. `httpfs` owns transport, while
-// this vocabulary owns credential resolution.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SecretScope {
@@ -178,8 +168,7 @@ public abstract partial record SecretResidence {
     public sealed record Persistent : SecretResidence;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// Native error classes determine typed cases; generated identity supplies their numeric codes.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ColumnarFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Columnar;
@@ -220,13 +209,9 @@ public abstract partial record ColumnarFault : Fault {
     public static Error Lift(Error error, Func<Error, DuckDBException, ColumnarFault> arm) =>
         error.Exception.Case is DuckDBException engine ? arm(error, engine) : error;
 
-    // Trust-gate admissions exclusively reach generator text, so `Create` preserves the trust fault without
-    // fabricating a native kind it never observed.
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// `ColumnarSession` holds one native anchor per source and creates `Duplicate()` lanes for concurrent drains. Private
-// construction requires profile bootstrap, and negative progress remains `None`.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ColumnarSession : IDisposable {
     readonly DuckDBConnection anchor;
     public ColumnarProfile Profile { get; }
@@ -244,23 +229,16 @@ public sealed class ColumnarSession : IDisposable {
     public void Dispose() => anchor.Dispose();
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ColumnarLane {
-    // `Lane` is the token `StoreProfile.Lanes` spells for this owner, so the literal has one home on the page and
-    // every slot below derives its prefix from it.
     public const string Lane = "columnar";
 
     public static StoreSlot Of(string verb) => StoreSlot.Create($"store.{Lane}.{verb}");
 
-    // Residence slots carry NAMES because `Store/observability#STORE_INSTRUMENTS` keys its projection arms on them; a
-    // slot no arm folds stays a derived row.
     public static readonly StoreSlot ProvisionSlot = Of("residence.provision");
     public static readonly StoreSlot ReadSlot = Of("residence.read");
     public static readonly StoreSlot IngestSlot = Of("residence.ingest");
 
-    // Verb roster, not a literal roster: each slot derives from the verb it meters, so a spelling drifting from its
-    // own verb cannot exist and a new verb mounts by naming itself. Landing slots derive from the
-    // `Query/lakehouse#FLAT_TABLE_EGRESS` arm roster on the same terms.
     static readonly Seq<string> Verbs = Seq(
         "open", "query", "append", "mount", "egress", "stamp",
         "flattable", "materialize", "frames", "parquet", "scan", "series.jobs");
@@ -268,9 +246,6 @@ public static class ColumnarLane {
     public static readonly Seq<StoreSlot> Slots =
         Verbs.Map(Of) + Seq(ProvisionSlot, ReadSlot, IngestSlot) + toSeq(LandingArm.Items).Map(static arm => arm.Slot);
 
-    // `Open` is the lane's ONE admission owner: an engine whose profile cannot realize the lane refuses HERE naming the
-    // axis, so an embedded deployment learns at profile selection and never at its first aggregation. Past that
-    // gate `Open` applies ordered bootstrap policy, then verifies every roster row through `duckdb_extensions()`.
     public static IO<ColumnarSession> Open(StoreProfile store, ColumnarProfile profile, StorePath dataSource, ExecutionThreads threads) =>
         !store.Admits(Lane)
         ? IO.fail<ColumnarSession>(new ColumnarFault.PolicyRefused("store-lane", store.Key))
@@ -298,8 +273,6 @@ public static class ColumnarLane {
         return IO.fail<ColumnarSession>(new ColumnarFault.ExtensionGap(string.Join(",", missing)));
     }
 
-    // Engine-parity UDF registration: the embedded floor's identity capabilities answer on BOTH embedded engines, so a
-    // rollup joining on `xxh128(content)` runs unchanged over SQLite or DuckDB.
     public static IO<Unit> Register(ColumnarSession session) =>
         IO.lift(() => Op.Of().Catch(() => {
             session.Anchor.RegisterScalarFunction<string>("uuid7", static () => Guid.CreateVersion7().ToString("N"));
@@ -313,8 +286,6 @@ public static class ColumnarLane {
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Bind(IO.liftFin);
 
-    // Streaming queries run on `Duplicate()` lanes and bind interpolation holes as named `$pN` parameters. One
-    // seam-local list accumulates rows once before `toSeq`, avoiding persistent-sequence forcing per row.
     public static IO<Seq<T>> Query<T>(ColumnarSession session, FormattableString sql, Func<DuckDBDataReader, T> shape) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
             DuckDBConnection lane = session.Lane();
@@ -332,7 +303,6 @@ public static class ColumnarLane {
             static (cause, engine) => new ColumnarFault.QueryFailed(cause, engine.ErrorType))))
         .Bind(IO.liftFin);
 
-    // `DuckDBAppenderMap<T>` validates declared columns before `AppendRecords` streams and `Close` flushes the batch.
     public static IO<long> Append<T, TMap>(ColumnarSession session, Identifier table, Seq<T> rows) where TMap : DuckDBAppenderMap<T>, new() =>
         IO.lift(() => Op.Of().Catch(() => {
             using DuckDBConnection lane = session.Lane();
@@ -344,8 +314,6 @@ public static class ColumnarLane {
             (cause, engine) => new ColumnarFault.AppendRefused(table, engine.ErrorType, cause))))
         .Bind(IO.liftFin);
 
-    // `Mount` admits aliases and paths and attaches foreign stores read-only. Object-store paths resolve credentials
-    // through `Secret` before attachment.
     public static IO<Fin<Unit>> Mount(ColumnarSession session, Identifier alias, StorePath store, ColumnarExtension typed) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
             await using DuckDBConnection lane = session.Lane();
@@ -356,8 +324,6 @@ public static class ColumnarLane {
         }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.MountRefused(alias, engine.ErrorType, cause))));
 
-    // `Secret` doubles literal quotes and forbids credentials in paths. `SecretResidence.Persistent` writes into the
-    // attached credential store; `Session` remains connection-scoped.
     public static IO<Fin<Unit>> Secret(ColumnarSession session, SecretScope scope, Identifier name, Seq<(Identifier Key, string Value)> config, SecretResidence residence) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
             await using DuckDBConnection lane = session.Lane();
@@ -370,8 +336,6 @@ public static class ColumnarLane {
         }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.SecretRefused(name, engine.ErrorType, cause))));
 
-    // ADBC owns SQL and Substrait execution and batch or stream binding on one statement seam. `drain` runs inside
-    // statement lifetime so no `QueryResult.Stream` escapes disposal.
     public static IO<T> ArrowStream<T>(AdbcConnection adbc, AdbcRequest request, Func<QueryResult, ValueTask<T>> drain) =>
         IO.liftAsync(async () => await Op.Of().Catch(async _ => {
             using AdbcStatement statement = adbc.CreateStatement();
@@ -380,9 +344,6 @@ public static class ColumnarLane {
             return Fin<T>.Succ(await drain(result).ConfigureAwait(false));
         }).ConfigureAwait(false)).Bind(IO.liftFin);
 
-    // PARTITIONED execution over the same statement seam: `ExecutePartitioned` hands back the server-side split as
-    // opaque descriptors and each redeems on its own `ReadPartition` stream, so a partition-parallel consumer fans out
-    // without a second transport and without the raw ADBC surface reaching it.
     public static IO<Fin<ArrowPartitions>> ArrowPartitions(AdbcConnection adbc, AdbcRequest request) =>
         IO.lift(() => Op.Of().Catch(() => {
             using AdbcStatement statement = adbc.CreateStatement();
@@ -392,18 +353,11 @@ public static class ColumnarLane {
         }));
 }
 
-// Redemption face of one partitioned execution. The connection rides the value because a descriptor is meaningless
-// without the connection that minted it — handing a consumer bare descriptors invites redemption against a second
-// connection the server never split for.
 public sealed record ArrowPartitions(AdbcConnection Connection, Schema Schema, long AffectedRows, Seq<PartitionDescriptor> Descriptors) {
-    // One partition's Arrow stream; the caller owns disposal exactly as it owns a `QueryResult.Stream`.
     public IO<Fin<IArrowArrayStream>> Redeem(PartitionDescriptor descriptor) =>
         IO.lift(() => Op.Of().Catch(() => Fin.Succ(Connection.ReadPartition(descriptor))));
 }
 
-// DRIVER axis binding the admitted ADBC packages: each row names its driver, its parameter vocabulary (host/port/path
-// /auth per the Apache Thrift drivers; project/dataset/credential for BigQuery), and opens the
-// `AdbcDatabase` → `AdbcConnection` pair through that driver.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -418,17 +372,11 @@ public sealed partial class WarehouseDriver {
 }
 
 public static class AdbcWarehouse {
-    // One open owner: the driver row selects, parameters admit, the database and connection open under that row, and
-    // every driver exception converts ONCE to the typed columnar fault.
     public static IO<Fin<AdbcConnection>> Open(WarehouseDriver driver, HashMap<string, string> parameters) =>
         IO.lift(() => Op.Of().Catch(() => parameters.IsEmpty || parameters.Keys.Exists(string.IsNullOrWhiteSpace)
             ? Fin<AdbcConnection>.Fail(new ColumnarFault.PolicyRefused("adbc-parameters", driver.Key))
             : Fin<AdbcConnection>.Succ(driver.Open(parameters.ToDictionary(static p => p.Key, static p => p.Value)).Connect(new Dictionary<string, string>()))));
 
-    // Driver-to-batches runs WHOLE here, in the shape `Query/federation#PLAN_EXECUTION`'s `Tabular` port
-    // declares: a caller names a driver row and a request and takes batches, so the connection has an owner that
-    // selected it, admitted its parameters, converted its failures, and released it — the bare `AdbcConnection` a
-    // consumer would otherwise hold is the unbound form this composition deletes.
     public static IO<Fin<Seq<RecordBatch>>> Tabular(WarehouseDriver driver, HashMap<string, string> parameters, AdbcRequest request) =>
         Open(driver, parameters).Bind(opened => opened.Match(
             Succ: adbc => IO.pure(adbc).Bracket(
@@ -436,8 +384,6 @@ public static class AdbcWarehouse {
                 static connection => IO.lift(() => Op.Of().Catch(() => { connection.Dispose(); return Fin<Unit>.Succ(unit); })).Bind(IO.liftFin)),
             Fail: error => IO.pure(Fin<Seq<RecordBatch>>.Fail(error))));
 
-    // Drivers answering with no stream answered an EMPTY result, which is a legitimate outcome rather than an
-    // absent one, so the drain reads absence as an empty run and never as a refusal.
     static ValueTask<Seq<RecordBatch>> Batches(QueryResult result) =>
         Optional(result.Stream).Match(
             Some: static stream => Drained(stream),
@@ -452,8 +398,6 @@ public static class AdbcWarehouse {
     }
 }
 
-// `AdbcQuery` closes the statement seam over composed SQL and portable Substrait bytes. Federation owns plan identity;
-// this seam executes without rehashing.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AdbcQuery {
     private AdbcQuery() { }
@@ -461,9 +405,6 @@ public abstract partial record AdbcQuery {
     public sealed record Plan(byte[] Substrait) : AdbcQuery;
 }
 
-// ONE application of a request onto a statement, so the streaming and the partitioned entry cannot diverge on which
-// half of the request reaches the driver: a bind the partitioned arm dropped executes the parameterized plan against
-// no parameters, and the driver answers a partition set for a question nobody asked.
 public sealed record AdbcRequest(AdbcQuery Query, Option<AdbcBind> Bind) {
     public void Apply(AdbcStatement statement) {
         Query.Switch(
@@ -475,8 +416,6 @@ public sealed record AdbcRequest(AdbcQuery Query, Option<AdbcBind> Bind) {
     }
 }
 
-// `AdbcBind` closes binding arity over one batch or an `IArrowArrayStream`. `BindStream` preserves chunking without
-// materializing a batch.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AdbcBind {
     private AdbcBind() { }
@@ -513,9 +452,7 @@ public abstract partial record AdbcBind {
 - Boundary: the `COPY (SELECT) TO` rail is the SQL-mediated egress LANE, not the egress monopoly — the zero-copy `ArrowStream` ADBC bridge and the direct managed `Query/lakehouse#FLAT_TABLE_EGRESS` `ParquetSharp.Arrow` codec are distinct lanes a `FORMAT` token cannot express, so a non-SQL egress lands as a sibling lane and never as a `FORMAT` row. Artifact identity is the footer content stamp and the declared `ArtifactClass` shape, never a filename convention: a renamed artifact keeps its identity and a stamp that no longer matches its content is corruption, not drift. Generations are IMMUTABLE — compaction is a new artifact written beside the old with a new stamp — and `FIELD_IDS` at export with an id-keyed scan map make renames non-breaking across generations. `COPY` is a filesystem effect outside transaction rollback, so publication composes the atomic-write protocol `Element/codec#SNAPSHOT_SPINE` owns. Lakehouse `delta`/`iceberg` scans read the same tables the managed `PublishDelta` commit produces: DuckDB the read projection, the managed Delta log the versioned publication, meeting at the table path and never re-authoring each other's metadata.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// COPY-token smart enums own emitted format, codec, and collision literals, so a mistyped `OVERWRITE_OR_INGORE` is
-// unrepresentable rather than a runtime SQL parse error.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Codec {
@@ -534,8 +471,6 @@ public sealed partial class CopyMode {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EgressFormat {
-    // Engine default row count, declared once on the row that groups: a class restating it is a literal
-    // drifting from the geometry it names.
     public const int GroupRows = 122_880;
 
     public static readonly EgressFormat Parquet = new("parquet", None, Some(GroupRows));
@@ -543,39 +478,27 @@ public sealed partial class EgressFormat {
     public static readonly EgressFormat Json = new("json", Some("ARRAY true"), None);
 
     public Option<string> ArrayRow { get; }
-    // Grouping is a CAPABILITY carried as the default it admits, not a flag beside a size every class restates: a
-    // format that groups carries its own row count and a format that does not has no size to carry, so the two facts
-    // cannot disagree and a `ROW_GROUP_SIZE` under a row-less format is unrepresentable.
     public Option<int> Grouping { get; }
     private EgressFormat(string key, Option<string> arrayRow, Option<int> grouping) : this(key) => (ArrayRow, Grouping) = (arrayRow, grouping);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `CopyBody` composes an admitted source and non-empty admitted columns. Filtered or joined egress stages through a
-// view the parameterized query rail creates.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CopyBody(Identifier Source, Seq<Identifier> Columns) {
     public string Sql => Columns.IsEmpty
         ? $"SELECT * FROM {Source}"
         : $"SELECT {string.Join(", ", Columns)} FROM {Source}";
 }
 
-// Artifact-class rows derive complete `COPY` policy and immutable generation paths, keyed exactly as every sibling
-// egress vocabulary is so `Items`, `Get`, and `Validate` serve the census the analytics registry reads. `KV_METADATA`
-// carries the content stamp in the footer rather than the filename.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ArtifactClass {
     public static readonly ArtifactClass BimRollup = new("bim-rollup", EgressFormat.Parquet, Codec.Zstd, None, None, CopyMode.Overwrite);
     public static readonly ArtifactClass CoverageFeed = new("coverage-feed", EgressFormat.Json, Codec.Snappy, None, Some(Identifier.Create("crs")), CopyMode.Append);
-    // Evidence extract of the kernel receipt stream: one immutable Parquet generation per emission window, partitioned
-    // by the capability domain a query joins on, appended so a window never overwrites a sibling.
     public static readonly ArtifactClass TelemetryEvidence = new("telemetry-evidence", EgressFormat.Parquet, Codec.Zstd, None, Some(Identifier.Create("domain")), CopyMode.Append);
 
     public EgressFormat Format { get; }
     public Codec Codec { get; }
-    // Classes state a row count only where it DIFFERS from the format's default, so the roster carries an override
-    // and never a transcription.
     public Option<int> RowGroup { get; }
     public Option<Identifier> PartitionKey { get; }
     public CopyMode Mode { get; }
@@ -583,8 +506,6 @@ public sealed partial class ArtifactClass {
     private ArtifactClass(string key, EgressFormat format, Codec codec, Option<int> rowGroup, Option<Identifier> partitionKey, CopyMode mode) : this(key) =>
         (Format, Codec, RowGroup, PartitionKey, Mode) = (format, codec, rowGroup, partitionKey, mode);
 
-    // Emitted geometry is the class's override or the format's own default; a non-grouping format supplies
-    // neither, so the clause is absent rather than zero.
     public Option<int> Rows => RowGroup | Format.Grouping;
 
     public string Egress(CopyBody body, StorePath destination, UInt128 stamp) =>
@@ -595,7 +516,7 @@ public sealed partial class ArtifactClass {
                 Some($"KV_METADATA {{ stamp: '{stamp.ToString("x32", CultureInfo.InvariantCulture)}' }}")).Somes())})";
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArtifactEgress {
     public static IO<Fin<Unit>> Publish(ColumnarSession session, ArtifactClass artifact, CopyBody body, StorePath destination, UInt128 stamp) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
@@ -607,8 +528,6 @@ public static class ArtifactEgress {
         }).ConfigureAwait(false)).MapFail(error => ColumnarFault.Lift(error,
             (cause, engine) => new ColumnarFault.EgressRefused(destination, engine.ErrorType, cause))));
 
-    // Artifact admission reads the content stamp from footer metadata without decoding rows; a missing or malformed
-    // stamp rails `UnstampedArtifact`.
     public static IO<Fin<UInt128>> StampOf(ColumnarSession session, StorePath artifact) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async _ => {
             await using DuckDBConnection lane = session.Lane();
@@ -627,9 +546,6 @@ public static class ArtifactEgress {
         return parsed ? Some(key) : None;
     }
 
-    // Generation reads use `read_parquet` with schema union, hive keys, and row provenance: `union_by_name` makes
-    // additive columns compatible by construction (absent reads NULL) and `filename`/`file_row_number` pin per-row
-    // provenance. One unquoted parameter hole carries the whole glob so DuckDB binds the path.
     public static FormattableString Generation(StorePath root) =>
         $"SELECT *, filename, file_row_number FROM read_parquet({$"{(string)root}/**/*.parquet"}, union_by_name = true, hive_partitioning = true, filename = true, file_row_number = true)";
 }

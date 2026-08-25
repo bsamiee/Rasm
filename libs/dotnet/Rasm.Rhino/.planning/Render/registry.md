@@ -40,7 +40,7 @@
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContentType.GetAllAvailableTypes`, `ContentUuids`, `RenderContent.RegisterContent`, `RenderContentSerializer` and its `Read`/`Write`/`CanLoadMultiple`/`LoadMultiple`/`RegisterSerializer`/`ReportContentAndFile`/`ReportDeferredContentAndFile`, `LoadMultipleFlags`); `api-rhinocommon-render-ui.md` (`RenderPanels.RegisterPanel`, `RenderTabs.RegisterTab`, `RenderPanelType`, `ExtraSidePanePosition`, `FromRenderSessionId`, `SidePaneUiIdFromTab`); `api-rhino-ui-controls.md` (`IRdkViewModel.GetData`/`Commit`/`Discard`, `DataSource.ProviderIds`, `RhinoSettings`); `api-rhinocommon-plugins.md` (`PlugIn`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `Lease<T>.Acquire`/`Use`, `Cell.Step`, `Transition`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`, `Op.Row`, `Op.AcceptValidated`); `Display/render.md` (`RenderFault`); `Document/events.md` (`PluginKey`), `Document/tables.md` (`ResourceId`), kernel `Domain/rails` (`Custody`); `Numerics/atoms` (`Dimension`, `Size2i`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Rasm.Domain;
@@ -57,12 +57,9 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ContentTypeInfo(
     ResourceId TypeId, string InternalName, Guid RenderEngineId, PluginKey PlugIn) : IDetachedDocumentResult {
-    // The descriptor's four columns are property reads off ONE foreign value, but two of them project onto
-    // ADMITTED owners whose converters refuse — a generated mapper cannot carry a fallible conversion (RMG001) —
-    // so the projection stays a rail here and Mapperly claims no seam on this page.
     internal static Fin<Seq<ContentTypeInfo>> Census(Op key) =>
         key.Catch(() => toSeq(RenderContentType.GetAllAvailableTypes()).TraverseM(descriptor =>
             Lease<RenderContentType>.Acquire(mint: () => descriptor, key: key).Bind(lease => lease.Use(
@@ -86,9 +83,6 @@ public sealed record ContentUuidSeed(string Name, ContentKind Kind, ContentUuidR
     : IDetachedDocumentResult;
 
 public static class ContentUuidCatalog {
-    // Every `ContentUuids` id is a process-static host constant over `RhRdkUuids_GetUuid`, so the census is built
-    // ONCE behind a lazy cell and every `Find` reads that value — the unmemoized form re-reflected the type and
-    // re-invoked one native getter per member on each lookup.
     private static readonly Lazy<Fin<Seq<ContentUuidSeed>>> Seeds = new(
         static () => Build(Op.Of(name: nameof(ContentUuidCatalog))),
         LazyThreadSafetyMode.ExecutionAndPublication);
@@ -111,9 +105,6 @@ public static class ContentUuidCatalog {
             (Error)new KernelFault.InvalidValue(nameof(ContentUuids), "distinct seed identities")).ToFin()
         select seeds.Strict();
 
-    // Host truth: every `ContentUuids` id is a get-only static PROPERTY over `RhRdkUuids_GetUuid`, so the field arm
-    // is the total-coverage half rather than the live one; an EMPTY projection fails above, because a vacuously
-    // passing duplicate guard over an empty census would answer `None` for every built-in id with no refusal.
     private static IEnumerable<(string Name, Func<Guid> Read)> Slots() =>
         typeof(ContentUuids).GetProperties(BindingFlags.Public | BindingFlags.Static)
             .Where(static property => property.PropertyType == typeof(Guid) && property.GetMethod is not null)
@@ -130,11 +121,6 @@ public static class ContentUuidCatalog {
         from id in ResourceId.Admit(value: raw, key: op)
         select new ContentUuidSeed(Name: slot.Name, Kind: kind, Role: role, Id: id);
 
-    // The grammar is a name-shape test over host member names, so it is fail-closed on BOTH sides: a name matching
-    // no token and a name matching two are equally unclassifiable, and each refusal carries the member and its
-    // match count as typed evidence rather than a prose detail string. An ordered first-match ladder was the
-    // silent-misfile path. Consequence of a host rename or a new member the grammar cannot read: the WHOLE census
-    // refuses, deliberately, because a partially classified roster answers `None` for a real built-in id.
     private static readonly Seq<(string Suffix, ContentUuidRole Role)> RoleSuffixes = Seq(
         ("CCI", ContentUuidRole.Cci),
         ("Instance", ContentUuidRole.DefaultInstance),
@@ -162,7 +148,7 @@ public static class ContentUuidCatalog {
         };
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 public sealed partial class ContentExtension {
@@ -218,8 +204,6 @@ public sealed partial class EditorTrait : ICapability<EditorTrait> {
     public static readonly EditorTrait Brackets = new(key: "brackets");
 }
 
-// The three rows ARE the legal corner set: a bracket without a write is unreachable because the host opens its
-// auto-change bracket only on a write handle, and no row declares that pairing.
 [SmartEnum<string>]
 public sealed partial class EditorIntent {
     public static readonly EditorIntent Read = new("read", traits: CapabilitySet<EditorTrait>.None);
@@ -265,7 +249,7 @@ public sealed partial class ShellPanelKind {
     internal RenderPanelType Native => (RenderPanelType)Key;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class ContentTransfer : IDisposable, IDetachedDocumentResult {
     private Lease<RenderContent>.Owned? owned;
 
@@ -318,9 +302,6 @@ public sealed record SerializerProgram(
     string EnglishDescription,
     string LocalDescription);
 
-// `Body`, `Caption`, and `Engine` hold on BOTH surfaces, so they are base columns rather than per-case fields two
-// factories could drift on; `Surface` is the row's own discriminant and the registrar's, so the drain matches rows
-// to callbacks on one vocabulary instead of two independent bool probes.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ShellRow {
     private ShellRow(ShellSurface surface, Type body, string caption, Option<Guid> engine) =>
@@ -339,8 +320,6 @@ public abstract partial record ShellRow {
     private sealed record TabCase(System.Drawing.Icon Icon, Type Seat, string Label, Option<Guid> Renderer)
         : ShellRow(ShellSurface.Tab, Seat, Label, Renderer);
 
-    // Host truth: the place-less panel overload forwards `ExtraSidePanePosition.Left`, so the default resolves at
-    // ADMISSION and the seat carries a settled row rather than an optional column every call site re-defaults.
     public static Fin<ShellRow> Panel(
         Type body, string caption, ShellPanelKind? kind = null, CapabilitySet<PanelTrait> visibility = default,
         SidePanePlace? place = null, Option<Guid> engine = default, Op? key = null) {
@@ -367,8 +346,6 @@ public abstract partial record ShellRow {
                select (ShellRow)new TabCase(Icon: art, Seat: keyed, Label: label, Renderer: engine);
     }
 
-    // Host truth: the engine-less `RegisterPanel`/`RegisterTab` overloads are `[Obsolete]` since 7.0 and forward
-    // `plugin.Id` as the engine, so resolving that default here leaves exactly one live registrar call per row.
     internal Fin<Unit> Seat(ShellRegistrar registrar, PlugIn owner, Op op) => Switch(
         (Registrar: registrar, Owner: owner, Op: op),
         panelCase: static (context, row) =>
@@ -398,9 +375,6 @@ public abstract partial record ShellRow {
                 icon: row.Icon))))
             select unit);
 
-    // Host truth: each registrar throws unless the row type is a PUBLIC class carrying a parameterless constructor
-    // and EXACTLY ONE `GuidAttribute`, so all three gates prove at admission. `IsPublic` is the host's own test and
-    // a nested public type fails it there too, so widening this to `IsVisible` would admit a row it still rejects.
     private static Fin<Type> Keyed(Type body, Op op) =>
         from active in op.Need(body)
         from _ in guard(
@@ -415,8 +389,6 @@ public abstract partial record ShellRow {
         select active;
 }
 
-// The host hands one registrar per override, so the drain entry absorbs both through the union's own implicit
-// conversions and projects the surface both sides now name.
 [Union<RenderPanels, RenderTabs>(T1Name = "Panels", T2Name = "Tabs")]
 public readonly partial struct ShellRegistrar {
     internal ShellSurface Surface => IsPanels ? ShellSurface.Panel : ShellSurface.Tab;
@@ -433,9 +405,6 @@ public sealed record RenderShellProgram(PlugIn Owner, Seq<ShellRow> Rows) {
     }
 }
 
-// One cell, three states: the arm transition and the per-surface drain claim are both `Cell.Step` verdicts, so a
-// concurrent second arm CEDES and a repeat drain of one surface REFUSES, where two independent atoms could only
-// answer "something happened" after the fact.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record ShellGate {
     private ShellGate() { }
@@ -457,13 +426,6 @@ public sealed record EditorFacts(
     Seq<Size2i> CustomSizes,
     bool CustomSizeIsPreset) : IDetachedDocumentResult;
 
-// Release is a per-slot column because custody is per-payload. Host truth: `GetData` maps each id through one
-// static dispatch — `RhinoSettings` for the settings row, `RenderContentCollection` for the selection and display
-// rows — and every payload is a NON-OWNING wrapper: `RhinoSettings.Dispose` runs `Dispose(true)` then
-// `GC.SuppressFinalize` over a body whose whole content is `m_cpp = IntPtr.Zero`, and the collection's `(nint)`
-// constructor sets `m_delete_cpp_pointer = false` so its `Dispose` skips `CRhRdkContentArray_Delete`. Releasing
-// therefore retires the finalizer each borrow registered and frees nothing the host holds, on every row; the column
-// stays per-row because a FUTURE payload family may own its native, and that row proves its disposal body first.
 [SmartEnum<Guid>]
 public sealed partial class EditorProvider {
     public static readonly EditorProvider Settings = new(
@@ -476,10 +438,6 @@ public sealed partial class EditorProvider {
     internal bool Releases { get; }
 }
 
-// Host truth: `RhinoSettings` declares exactly one public constructor and it takes a native `nint`, so no page
-// mints one — the host vends every editor payload through `IRdkViewModel.GetData(Guid, bool, bool)` inside a UI
-// section's `RunScript(IRdkViewModel)`, keyed by a `DataSource.ProviderIds` row, and `Commit`/`Discard` close a
-// write. The NATIVE stays host-owned in every case.
 public sealed record EditorBridge {
     private EditorBridge(global::Rhino.UI.Controls.IRdkViewModel model) => Model = model;
 
@@ -507,9 +465,6 @@ public sealed record EditorBridge {
         return intent is { Writes: true } ? self.Settle(provider: provider, outcome: outcome, key: key) : outcome;
     }
 
-    // The release is the BRACKET's on a releasing row and a no-op otherwise, and it runs before commit or discard
-    // settles the write — the wrapper is dead the moment the borrow returns, and a failed release appends onto the
-    // borrow's fault through the package's both-arms release fold.
     private static Fin<TOut> Borrowed<TPayload, TOut>(
         EditorProvider provider, TPayload payload, Func<TPayload, Fin<TOut>> borrow, Op key) where TPayload : class =>
         key.Catch(() => borrow(payload))
@@ -530,7 +485,7 @@ public sealed record EditorBridge {
 
 public sealed record ShellSeat<TBody>(TBody Body, Option<Guid> SidePaneUi) where TBody : class;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class RenderShell {
     private static readonly Atom<ShellGate> Gate = Atom<ShellGate>(new ShellGate.Idle());
 
@@ -546,9 +501,6 @@ public static class RenderShell {
                 refused: static (_, row) => Fin.Fail<Unit>(error: row.Cause),
                 contended: static (key, _) => Fin.Fail<Unit>(error: key.InvalidResult()));
 
-    // The drain runs inside the plug-in's own register override; a row seated after the override returns is
-    // discarded by the host, so the surface claim lands FIRST and stays claimed even on a failed seat — a released
-    // claim would only invite a retry the host ignores.
     public static Fin<ShellSeated> Drain(ShellRegistrar registrar, Op? key = null) {
         Op op = key.OrDefault();
         return from claimed in Claim(surface: registrar.Surface, op: op)
@@ -557,10 +509,6 @@ public static class RenderShell {
                select new ShellSeated(Surface: registrar.Surface, Rows: rows.Count);
     }
 
-    // Host truth: `FromRenderSessionId` is a public STATIC on each registry answering `null` for an unseated or
-    // undecorated type. `SidePaneUiIdFromTab` and `SessionIdFromTab` are two DISTINCT public statics carrying ONE
-    // fact — the second's whole body is `return SidePaneUiIdFromTab(tab);` — so ONE side-pane id answers both and a
-    // panel carries none. The armed row that owns `TBody` selects the registry.
     public static Fin<Option<ShellSeat<TBody>>> Resolve<TBody>(PlugIn owner, Guid session, Op? key = null)
         where TBody : class {
         Op op = key.OrDefault();
@@ -598,8 +546,6 @@ public static class RenderShell {
                 refused: static (_, row) => Fin.Fail<RenderShellProgram>(error: row.Cause),
                 contended: static (key, _) => Fin.Fail<RenderShellProgram>(error: key.InvalidResult()));
 
-    // Host truth: the resolver answers `Guid.Empty` for a null, undecorated, or unseated tab, so the sentinel
-    // projects here.
     private static Option<Guid> SidePaneUi(object tab) =>
         Optional(RenderTabs.SidePaneUiIdFromTab(tab: tab)).Filter(static id => id != Guid.Empty);
 }
@@ -694,8 +640,6 @@ public sealed class ContentSerializer : RenderContentSerializer {
             .MapFail(fault => (Op.Side(() => Retain(stage: SerializerStage.Register, path: string.Empty, fault: fault)), fault).Item2);
     }
 
-    // The report's own disposal is the bracket's, so a refused release APPENDS to the emit fault instead of
-    // replacing it; a `Take`n content the host report then refuses is disposed on the same rail.
     private Fin<Unit> Emit(SerializerReport report, Op op) =>
         (from active in Optional(report).ToFin(Fail: op.InvalidResult())
          from transfer in Optional(active.Content).ToFin(Fail: op.InvalidResult())
@@ -741,7 +685,7 @@ public sealed class ContentSerializer : RenderContentSerializer {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.Create`, `SetChild`, `DeleteChild`, `DeleteAllChildren`, `SetChildSlotOn`, `SetChildSlotAmount`, `IsContentTypeAcceptableAsChild`, `SetName`, `Replace`, `SaveToFile`, `MakeGroupInstance`, `Ungroup`, `UngroupRecursive`, `SmartUngroupRecursive`, `ExtraRequirementsSetContexts`, `EmbedFilesChoice`); `api-rhinocommon-render.md` (`RenderMaterial.AssignTo`, `AssignToSubFaceChoices`, `AssignToBlockChoices`); `api-rhinocommon-objects.md` (`ObjRef`); kernel `Domain/rails` (`Lease<T>.Acquire`, `Op.Catch`, `Op.Confirm`), `Domain/validation` (`Op.Row`); `Render/content.md` (`ContentKind`, `ContentRef`, `ChangeReason`, `ChangeScope`, `ContentIo`), `Render/fields.md` (`ContentValue`, `ParamScope`), `Render/kinds.md` (`TextureConfig`, `MaterialMint`, `TextureMint`, `EnvironmentState`, `TextureExport`); `Document/tables.md` (`ResourceId`, `TableTarget`), `Document/session.md` (`DocumentPath`), kernel `Domain/rails` (`Custody`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class UndoPolicy {
     public static readonly UndoPolicy Skip = new(false);
@@ -955,8 +899,6 @@ public abstract partial record ContentExport {
     public sealed record TextureImage(DocumentPath Path, Size2i Extent, int Depth) : ContentExport;
 }
 
-// `Export` writes a file the host owns and opens no undo record; every other case does, so the policy is a column
-// each case declares rather than a negation the plan re-derives.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContentMutation {
     private ContentMutation(UndoPolicy undo) => Undo = undo;
@@ -1132,7 +1074,7 @@ public abstract partial record ContentOp {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.Icon`, `VirtualIcon`, `DynamicIcon`, `DynamicIconUsage`, `MatchData`, `MatchDataResult`, `IsCompatible`, `Xml`, `GetEmbeddedFilesList`); `api-rhinocommon-render.md` (`RenderContentCollection` and its `GetFilterContentByUsage`/`Count`/`ContentAt`/`GetForcedVaries`/`GetSearchPattern`/`ContentNeedsPreviewThumbnail`, `RenderContentKindList` and its `Add`/`Count`/`Contains`/`SingleKind`, `FilterContentByUsage`, `RenderTexture.TextureGeneration`); `api-rhinocommon-document.md` (`RhinoDoc.CurrentEnvironment`, `ICurrentEnvironment`); kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.Catch`), `Domain/validation` (`CapabilitySet`, `Op.Row`); `Render/content.md` (`HashProbe`, `HashWitness`, `ContentSnapshot`, `ContentKind`), `Render/settings.md` (`SubOwners`), `Render/kinds.md` (`BakeScope`, `MaterialBridge`, `MaterialScent`, `TextureConfig`, `TextureTraits`, `EnvironmentState`), `Render/fields.md` (`FieldCensus`, `ContentValue`, `ParamScope`); `Document/session.md` (`DocumentSession`, `SessionNeed`), `Document/commit.md` (`DocumentCommit.Sealed`, `RedrawPolicy`), kernel `Domain/rails` (`Custody`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CollectionTrait : ICapability<CollectionTrait> {
@@ -1166,9 +1108,6 @@ public sealed partial class MatchVerdict {
         key.Row<RenderContent.MatchDataResult, MatchVerdict>(native, static value => (int)value);
 }
 
-// Six host icon routes on one roster: each row answers the host's draw verdict beside whatever bitmap it handed
-// back, and the ONE custody funnel above decides who owns it. Three request cases plus a four-row usage enum
-// described the same six calls and re-spelled the custody hop at each.
 [SmartEnum<string>]
 public sealed partial class IconModality {
     public static readonly IconModality Standard = new("standard", static (content, extent) =>
@@ -1187,8 +1126,6 @@ public sealed partial class IconModality {
         (content, extent) => (content.DynamicIcon(extent, out System.Drawing.Bitmap rendered, usage), rendered);
 }
 
-// One kind fact, three readings: empty, exactly one, or many. A count beside an optional single kind let a reader
-// hold `KindCount == 1` with no single kind, which is a state the host never produces.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record KindScope {
     private KindScope() { }
@@ -1204,7 +1141,7 @@ public abstract partial record KindScope {
         });
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ContentTransaction(
     string Name,
     ContentKind Kind,
@@ -1222,8 +1159,6 @@ public sealed record ContentTransaction(
             Redraw: RedrawPolicy.Deferred,
             Undo: UndoPolicy.Record);
 
-    // The plan records only where its policy allows AND some operation actually opens a record, so a batch of
-    // pure exports opens no bracket the seal would then have to roll back empty.
     internal bool Records => Undo.Key && Operations.Exists(static operation => operation.Undo.Key);
 }
 
@@ -1236,8 +1171,6 @@ public sealed record ContentArchive(string Xml, Seq<string> EmbeddedFiles) : IDe
 
 public sealed record ContentRoster(ContentKind Kind, Seq<ResourceId> Ids) : IDetachedDocumentResult;
 
-// Host truth: both carriers are `IDisposable` with public parameterless constructors, so `Mint` is the corpus
-// producer for a caller-owned pair and `Of` admits the editor's own live set as borrows the host keeps.
 public sealed record ContentCollectionProbe {
     private ContentCollectionProbe(Lease<RenderContentCollection> collection, Lease<RenderContentKindList> kinds) =>
         (Collection, Kinds) = (collection, kinds);
@@ -1259,8 +1192,6 @@ public sealed record ContentCollectionProbe {
                select new ContentCollectionProbe(collection: activeCollection, kinds: activeKinds);
     }
 
-    // Both mints land before either can refuse, and the rollback rail releases whatever was already held — a
-    // second `new` inside a success continuation strands the first on its own failure.
     public static Fin<ContentCollectionProbe> Mint(Seq<ContentKind> kinds, Op? key = null) {
         Op op = key.OrDefault();
         return from collection in Lease<RenderContentCollection>.Acquire(
@@ -1299,8 +1230,6 @@ public sealed record ContentIcon(Lease<System.Drawing.Bitmap> Image) : IDetached
 }
 
 public sealed record IconRequest(Size2i Extent, IconModality Modality) {
-    // The ONE custody funnel: a drawn bitmap becomes an owned lease, and a bitmap the host handed back beside a
-    // FALSE verdict releases through the lease's own fallible use rather than a dispose beside the failure return.
     internal Fin<ContentIcon> Render(RenderContent content, Op key) =>
         key.Catch(() => Modality.Draw(content: content, extent: Extent.Native) switch {
             (true, System.Drawing.Bitmap drawn) =>
@@ -1335,7 +1264,6 @@ public static class ContentQuery {
     public static ContentQuery<FieldCensus> Fields { get; } =
         new(read: static (_, content, op) => FieldCensus.Of(fields: content.Fields, key: op));
 
-    // An empty ask runs the whole scent roster; a named ask pays only its own rows' native predicates.
     public static ContentQuery<ScentCensus> Scents(Seq<MaterialScent> wanted = default) =>
         As<RenderMaterial, ScentCensus>((material, _) =>
             Fin.Succ(value: MaterialScent.CensusOf(material: material, wanted: wanted)));
@@ -1346,9 +1274,6 @@ public static class ContentQuery {
     public static ContentQuery<TextureTraits> Traits { get; } =
         As<RenderTexture, TextureTraits>(static (texture, op) => TextureTraits.Of(texture: texture, key: op));
 
-    // The document scope resolves the live workflow inside the query window and hands it to the ONE read, which
-    // records on its witness which route it took — a stored posture beside a caller-chosen overload let the receipt
-    // disagree with the call.
     public static ContentQuery<HashWitness> Hash(HashProbe probe, HashScope scope) =>
         new(read: (document, content, op) =>
             from active in op.Need(probe)
@@ -1504,7 +1429,7 @@ public static class RegistryQuery {
         new(op => Registry.Editor(bridge, op));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Registry {
     public static Fin<RegistryResult> Run(RegistryCommand command, Op? key = null) {
         Op op = key.OrDefault();
@@ -1533,8 +1458,6 @@ public static class Registry {
                select result;
     }
 
-    // The bridge borrows the host's own `RhinoSettings` for the callback alone, so every value detaches before the
-    // borrow ends.
     internal static Fin<EditorFacts> Editor(EditorBridge bridge, Op op) =>
         from active in op.Need(bridge)
         from facts in active.Use<RhinoSettings, EditorFacts>(
@@ -1544,8 +1467,6 @@ public static class Registry {
             key: op)
         select facts;
 
-    // The four reads are host METHODS, not properties, so no generated mapper can carry this projection and the
-    // rail spells it once.
     private static Fin<EditorFacts> Facts(RhinoSettings settings, Op op) =>
         from renderer in op.Catch(() => Fin.Succ(value: settings.GetCurrentRenderer()))
         from viewport in op.Catch(() => Fin.Succ(value: Optional(settings.RenderingView()).Map(static view => view.Viewport.Id)))
@@ -1661,7 +1582,7 @@ public static class Registry {
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/tables.md` (`ResourceId`), `Document/session.md` (`DocumentPath`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ContentBodyKind : ICapability<ContentBodyKind> {
@@ -1673,8 +1594,6 @@ public sealed partial class ContentBodyKind : ICapability<ContentBodyKind> {
 
 [SmartEnum<int>]
 public sealed partial class ContentSlot : IFactSlot<ContentBody, ContentBodyKind> {
-    // Read-before-use: the row initializers consume these sets, so static construction order decides declaration
-    // order here rather than the public-before-private one.
     private static readonly CapabilitySet<ContentBodyKind> Addressed = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Content);
     private static readonly CapabilitySet<ContentBodyKind> Instanced = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Object);
     private static readonly CapabilitySet<ContentBodyKind> Filed = CapabilitySet<ContentBodyKind>.Of(ContentBodyKind.Path);
@@ -1715,17 +1634,11 @@ public abstract partial record ContentBody : IFactBody<ContentBodyKind> {
         record: ContentBodyKind.Record);
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------------
-// The page's receipt IS the spine's stream closed over this page's two vocabularies; the aliases carry the domain
-// names call sites already read. These are `.cs` `global using` rows in a namespace-scoped file of their own — a
-// file-scoped namespace forecloses them — so no consumer spells the instantiation and no page-local receipt type
-// exists to drift from the owner.
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using ContentFactRow = Rasm.Rhino.Document.Fact<Rasm.Rhino.Render.ContentSlot, Rasm.Rhino.Render.ContentBody>;
 global using ContentReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Render.ContentSlot, Rasm.Rhino.Render.ContentBody>;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
-// The mint surface rides an extension block over the closed instantiation, so every `ContentReceipt.*` call site
-// reads as this page's while the accumulation and the gate stay on the one owner.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentReceipts {
     extension(ContentReceipt) {
         public static Fin<ContentReceipt> Content(ContentSlot slot, ResourceId id, Op key) =>
@@ -1775,7 +1688,7 @@ public static class ContentReceipts {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.ContentAdded`/`ContentRenamed`/`ContentDeleting`/`ContentDeleted`/`ContentReplacing`/`ContentReplaced`/`ContentUpdatePreview`/`CurrentEnvironmentChanged`/`ContentChanged`/`ContentFieldChanged`/`PreviewRendered`, `RenderContentChangeReason`, `PreviewRenderedEventArgs`, `Utilities.PreviewQuality`); kernel `Domain/hooks` (`Ring<T>`, `HookBinding`), `Domain/rails` (`Cell.Seat`/`Take`, `Transition`, `Lease<T>`); `Document/events.md` (`RhinoPoint`, `MountRegistry`, `PluginKey`, `EventScope`), `Document/lifetime.md` (`LifecycleGate`, `Subscription`), kernel `Domain/rails` (`Custody`), `Document/session.md` (`DocKey`), `Document/tables.md` (`ResourceId`); `Render/content.md` (`ChangeReason`), `Render/settings.md` (`EnvironmentRole`); `Numerics/atoms` (`Dimension`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class LifecycleReason {
     public static readonly LifecycleReason None = new(key: (int)RenderContentChangeReason.None);
@@ -1828,8 +1741,6 @@ public abstract partial record ContentSignal : IDisposable {
         environmentFlip: static _ => unit,
         previewReady: static signal => Optional(signal.Image).Map(static image => image.Dispose()).IfNone(unit)));
 
-    // Every case but the preview is already detached evidence, so the clone is the ONE arm that copies: the host
-    // reuses its preview bitmap after the callback returns, and a fact keeping that handle reads a repainted image.
     internal Fin<ContentSignal> Detached(Op key) => Switch(
         context: key,
         lifecycle: static (_, signal) => Fin.Succ<ContentSignal>(signal),
@@ -1862,8 +1773,6 @@ public sealed record PulseFilter(Seq<ChangeReason> DroppedReasons) {
         reason.Map(row => !DroppedReasons.Contains(row)).IfNone(true);
 }
 
-// Host truth: every content event but `PreviewRendered` carries a `RhinoDoc` on its args, so only those rows can
-// honour an `EventScope.Document` watch; the preview row carries none and its affinity refuses that pairing.
 [SmartEnum<string>]
 public sealed partial class ScopeAffinity {
     public static readonly ScopeAffinity EitherScope = new("either-scope", static _ => true);
@@ -1925,8 +1834,6 @@ public sealed partial class ContentPulse {
                      signal: new ContentSignal.FieldChanged(Content: content, Field: args.FieldName, Reason: reason))
                  select fact)
                 .Match(Some: deliver, None: static () => Fin.Succ(value: unit)))));
-    // `PreviewRenderedEventArgs` carries no document, so the fact is keyless; `ScopeAffinity.AnyDocumentOnly`
-    // already refused an `EventScope.Document` stream at admission, which is why no scope branch survives here.
     public static readonly ContentPulse PreviewReady = new(key: 10, affinity: ScopeAffinity.AnyDocumentOnly, bind: (pulse, _, _, deliver) =>
         Subscription.Attach<EventHandler<PreviewRenderedEventArgs>>(
             subscribe: static h => RenderContent.PreviewRendered += h,
@@ -1981,7 +1888,7 @@ public sealed partial class ContentPulse {
                     : Option<ContentFact>.None);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ContentStreamFailure(ContentFact Fact, Error Fault) : IDisposable, IDetachedDocumentResult {
     public void Dispose() => Fact.Dispose();
 }
@@ -2000,7 +1907,6 @@ public sealed record ContentObservation {
     internal TimeSpan SettleWithin { get; }
     internal Func<ContentFact, Fin<Unit>> Sink { get; }
 
-    // Affinity is proved HERE, so a stream mint and a hook bind cannot admit different pairings of one ask.
     public static Fin<ContentObservation> Of(
         EventScope scope,
         Seq<ContentPulse> pulses,
@@ -2025,7 +1931,7 @@ public sealed record ContentObservation {
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class ContentHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
         MountRegistry.Mount(
@@ -2064,15 +1970,9 @@ public sealed class ContentStream : IDisposable {
                select new ContentStream(state: state);
     }
 
-    // The lifecycle machine is the Document spine's `LifecycleGate` — claims, bounded settle, and one-owner close —
-    // so this owner keeps only what is its own: the subscription cell and the bounded ring. The gate's re-entrancy
-    // law applies verbatim: a close issued from a thread already inside a delivery claim REFUSES typed rather than
-    // waiting on its own release, so a sink closing its own stream gets a fault instead of a deadlock.
     private sealed class ContentStreamState {
         private readonly LifecycleGate gate;
         private readonly Atom<Option<Subscription>> subscription = Atom(Option<Subscription>.None);
-        // The ring commits its versioned window before the winning park releases evicted failures. `Landed.Cleanup`
-        // is therefore a release rail, never permission to retry or dispose the newly parked failure.
         private readonly Ring<ContentStreamFailure> failures;
 
         internal ContentStreamState(LifecycleGate gate, Rasm.Numerics.Dimension cap) {
@@ -2105,8 +2005,6 @@ public sealed class ContentStream : IDisposable {
                     .Rollback(release: () => Release(fact: fact, op: op), key: op),
                 key: op);
 
-        // Only the close owner runs these two, and only after every admitted claim has drained, so the take on the
-        // subscription cell and the drain over the ring need no lock of their own.
         internal Fin<Unit> Close(Op op) =>
             gate.Close(
                 stop: () => op.Catch(() => Fin.Succ(

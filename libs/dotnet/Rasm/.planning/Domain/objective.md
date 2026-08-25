@@ -24,17 +24,14 @@ Every admission here proves against ONE roster shape — the declaration keyset 
 - Boundary: series and partition keys stay `string` because the WIRE is the string key — a panel, an alert rule, and a query dialect all address a declared instrument by its published name, and the admission below resolves each against the roster rather than carrying a type no deploy plane can spell. Polymorphic metadata rides the family because every derived `AlertSpec` crosses to a deploy plane, where a base-typed write loses the case.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Text.Json.Serialization;
 using NodaTime;
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Half the estate's level rows are exhaustion measures whose breach falls BELOW a floor — remaining life, free
-// capacity, budget remaining — so the comparison is a row column both the sampler and the deploy-plane compile
-// leg read, never a second indicator shape.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -46,7 +43,7 @@ public sealed partial class LevelBreach {
     public partial bool Breaches(double reading, double bound);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "sli")]
 [JsonDerivedType(typeof(Ratio), "ratio")]
@@ -65,8 +62,6 @@ public abstract partial record Sli {
     }
     public sealed record Freshness(string Metric, Duration Horizon) : Sli;
 
-    // Each case names the instrument kinds its series may be declared as, so a known measure in the wrong
-    // statistical role refuses at admission rather than rendering an empty panel.
     public Seq<InstrumentKind> Admits => Switch(
         ratio: static _ => Seq(InstrumentKind.Count),
         partition: static _ => Seq(InstrumentKind.Count),
@@ -81,8 +76,6 @@ public abstract partial record Sli {
         saturation: static row => Seq(row.Metric),
         freshness: static row => Seq(row.Metric));
 
-    // Partitions over a tag no arm stamps report a flat rate of zero forever, which is the same silent failure
-    // an undeclared panel break key renders.
     public Seq<string> Breaks => Switch(
         ratio: static _ => Seq<string>(),
         partition: static row => Seq(row.By),
@@ -120,17 +113,14 @@ public readonly record struct SloSample(long Breaching, long Total) : IValidityE
 - Boundary: the severity roster is exactly `page` and `ticket` — the vocabulary the deploy plane's contact rows already key on — so the compile leg receives one dialect and a rank-ordered incident ladder rides the `Rank` and `Escalated` columns inside those two rows rather than a second severity type; delivery receivers, schedules, and escalation chains are deploy-plane configuration keyed by the severity row, never spec data. `AlertSpec` crosses a deploy plane whole, as data — annotation values are `string` because every one the derivation writes is a key or a name, and every declared severity column reaches that plane through them: the dwell rides `Hold`, the routing pair rides the posture annotations, so no column on the ladder is a policy nothing compiles.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime;
 using Rasm.Numerics;
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Routing posture is ONE row, never a tone beside an urgency: the deploy plane's contact rows match on the
-// Alertmanager `severity` label this row is KEYED by, and the receiver behind that match reads the urgency the same
-// row carries, so no consumer re-derives one half from the other and no combination outside these two exists.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -148,19 +138,12 @@ public sealed partial class AlertSeverity {
     public static readonly AlertSeverity Ticket = new("ticket", rank: 0, holdMinutes: 30, posture: AlertPosture.Warning);
     public static readonly AlertSeverity Page = new("page", rank: 1, holdMinutes: 0, posture: AlertPosture.Critical);
 
-    // Every extremum this page folds runs over a DECLARED unit-stride ordinal — severity rank, burn-window
-    // minutes — so a band anywhere below one stride ties nothing; `Duplicate` is the residual lane whose own
-    // open floor admits this anchor and refuses the zero a bare exact fold would want.
-    // Admitted through the lane's own band like every tolerance; accessor-backed so the roster read never runs
-    // inside a static initializer.
     internal static Tolerance Stride => StrideBand.Value;
     private static readonly Lazy<Tolerance> StrideBand = new(static () =>
         Tolerance.Of(lane: ToleranceLane.Duplicate, value: EpsilonPolicy.SqrtEpsilon, key: Op.Of(name: "objective.stride")).ThrowIfFail());
 
     public int Rank { get; }
 
-    // Hold is the dwell a spec sustains before it counts as firing: paging rows fire immediately because their
-    // short window already debounces, ticketing rows hold to suppress flappy toil.
     public int HoldMinutes { get; }
 
     public AlertPosture Posture { get; }
@@ -182,8 +165,6 @@ public sealed partial class AlertSeverity {
             direction: ExtremumDirection.Maximum).Head;
 }
 
-// Rows are the standing discipline: two paging pairs consume 2% of budget in 1h and 5% in 6h, two ticketing pairs
-// 10% in 1d and 10% in 3d — the factors those shares imply against a 28-day window.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -213,7 +194,7 @@ public sealed partial class BurnRow {
             direction: ExtremumDirection.Maximum).Head.Match(Some: static row => row.Long, None: static () => Duration.Zero);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class Objective {
     public string Name { get; }
@@ -223,8 +204,6 @@ public sealed partial class Objective {
 
     public double Budget => 1d - Target;
 
-    // Windows canonicalize to the estate default before validation, so a caller omitting one never trips the
-    // compliance floor.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref string name, ref Sli sli, ref double target, ref Duration window) {
         window = window == Duration.Zero ? Duration.FromDays(28) : window;
@@ -243,8 +222,6 @@ public sealed partial class Objective {
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct BurnReading(SloSample Long, SloSample Short);
 
-// Each verdict is a CASE, not a state column beside two absent options: a row whose windows carried no rate has no
-// burn figures at all, so `Unread` holds none and neither reader unwraps an option the state already decided.
 [Union]
 public abstract partial record BurnVerdict {
     private BurnVerdict() { }
@@ -258,7 +235,6 @@ public abstract partial record BurnVerdict {
 
 public sealed record SloVerdict(Seq<BurnVerdict> Rows, Option<AlertSeverity> Severity);
 
-// Compilation-ready policy data: a consumer spells these values in its own dialect and re-derives none of them.
 public sealed record AlertSpec(
     string Slug,
     BurnRow Burn,
@@ -269,12 +245,11 @@ public sealed record AlertSpec(
     double Spend,
     Seq<KeyValuePair<string, string>> Annotations);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Slo {
     public const string ObjectiveSlot = "rasm.slo.objective";
     public const string SeveritySlot = "rasm.slo.severity";
     public const string BurnSlot = "rasm.slo.burn";
-    // The routing posture's two halves: the label a contact row matches and the urgency its receiver reads.
     public const string PostureSlot = "rasm.slo.posture";
     public const string UrgencySlot = "rasm.slo.urgency";
 
@@ -307,23 +282,12 @@ public static class Slo {
                 new KeyValuePair<string, string>(PostureSlot, row.Severity.Posture.Key),
                 new KeyValuePair<string, string>(UrgencySlot, row.Severity.Posture.Urgency)))).Strict();
 
-    // Series admission against the declaration roster: an indicator failing its own field domain, a name with no
-    // row, a row of a kind the shape never admits, and a partition key the row never declares each refuse at
-    // composition where the objective is still editable rather than at the first empty dashboard read — a collided
-    // ratio reports a flat rate of one forever and an unstamped partition key a flat rate of zero. The carrier is
-    // `Validation` so a pack proves every objective it holds instead of stopping at the first broken one.
     public static Validation<Error, Objective> Admit(HashMap<string, InstrumentSpec> roster, Objective objective) =>
         objective.Sli is var sli
         && sli.Wellformed
         && sli.Series.ForAll(name => roster.Find(name).Match(
             Some: row => sli.Admits.Exists(kind => kind.Equals(row.Kind))
                 && sli.Breaks.ForAll(key => row.Dimensions.Exists(declared => declared == key))
-                // Latency ceilings OFF the instrument's bucket ladder grade a flat zero forever (every sample
-                // lands under or over the phantom bound), so the ceiling must BE a declared bucket boundary AND
-                // the comparison must run in the LADDER'S OWN unit. `InstrumentSpec` admission already proves the
-                // bucket row's `Unit` against the instrument row's, so `Buckets.Seconds` on the row is what makes
-                // `TotalSeconds` the right read; the milliseconds probe this replaces compared 5000.0 against a
-                // 5-second bound and matched `IterationCounts` instead.
                 && (sli is not Sli.Latency latency
                     || (string.Equals(row.Unit, Buckets.Seconds, StringComparison.Ordinal)
                         && row.Bounds.Exists(buckets => buckets.Bounds.Contains(latency.Ceiling.TotalSeconds)))),
@@ -333,7 +297,6 @@ public static class Slo {
                 Label: objective.Name,
                 Requirement: $"a wellformed indicator whose series declare as {string.Join(" or ", sli.Admits.Map(static kind => kind.Key))}, name every partition key, and pin a latency ceiling ON the declared seconds bucket ladder"));
 
-    // Both windows must exceed the factor, so a missing sample on either half is UNREAD, never quiet.
     private static BurnVerdict Verdict(Objective objective, BurnRow row, BurnReading reading) =>
         reading.Long.Rate.Bind(slow => reading.Short.Rate.Map(fast => (Slow: Burn(objective, slow), Fast: Burn(objective, fast))))
             .Match(
@@ -358,12 +321,12 @@ public static class Slo {
 - Boundary: panel rows name visualization alone and carry no query dialect, provider field, or datasource binding, and a break key outside the declared row's own dimensions refuses at pack admission where the descriptor is still editable rather than at the first empty render.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -388,17 +351,13 @@ public sealed partial class PanelKind {
         levels: static () => Table);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PanelSpec(string Title, string Instrument, Seq<string> By, Option<PanelKind> Widget) {
-    // The ONE descriptor entry: widget presence in the VALUE discriminates the overloads; break keys lift from
-    // params (folder slot vocabularies cross through their [SmartEnum<string>] implicit key conversion).
     public static PanelSpec Of(string title, string instrument, params ReadOnlySpan<string> by) =>
         new(title, instrument, toSeq(by.ToArray()), None);
     public static PanelSpec Of(string title, string instrument, PanelKind widget, params ReadOnlySpan<string> by) =>
         new(title, instrument, toSeq(by.ToArray()), Some(widget));
 
-    // Roster is the DECLARATION keyset — a contributor port's own roster or a mounted set's rows, one shape both
-    // reach — so a panel over a self-minted row proves exactly as one over a mounted row does.
     public Validation<Error, PanelKind> Admit(HashMap<string, InstrumentSpec> roster) =>
         roster.Find(Instrument).Filter(row => By.ForAll(key => row.Dimensions.Exists(declared => declared == key)))
             .Match(
@@ -407,8 +366,6 @@ public sealed record PanelSpec(string Title, string Instrument, Seq<string> By, 
                     Label: Title, Requirement: $"a declared {Instrument} row naming every break key")));
 }
 
-// Boards and reliability policy travel as one pack, so a roster change re-derives panels, objectives, and alerts
-// in one diff and a hand-authored panel or rule beside the pack is the drift it deletes.
 public sealed record BoardPack(string Wire, Seq<PanelSpec> Panels, Seq<Objective> Objectives) {
     public Seq<AlertSpec> Alerts => Objectives.Bind(Slo.Specs).Strict();
 
@@ -441,11 +398,10 @@ public sealed record BoardPack(string Wire, Seq<PanelSpec> Panels, Seq<Objective
 - Boundary: `Rasm.AppHost`'s corpus gate reads `Rows` and resolves each claim to its benchmark verdict; judging, regression budgets, and host-evidence binding are the gate's — this ledger owns only the typed enumeration and the duplicate-refusal fold.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Slugs name the corpus, and the proof-side fingerprint witnesses the measured bytes.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BenchClaim(
     Op Claim, string VectorizedLane, string ReferenceLane, double SpeedupFloor, Option<string> Corpus = default)
     : IValidityEvidence {
@@ -456,7 +412,7 @@ public sealed record BenchClaim(
         Corpus.Map(static slug => !string.IsNullOrWhiteSpace(value: slug)).IfNone(noneValue: true));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class BenchLedger {
     private BenchLedger(Seq<BenchClaim> rows) => Rows = rows;
 
@@ -471,8 +427,6 @@ public sealed class BenchLedger {
             .Apply(static (admitted, _) => new BenchLedger(rows: admitted)).As().ToFin();
     }
 
-    // Seq carries no `Contains`, so the index fold is the carrier's own: one pass over the proofs answers every
-    // row, where the prior `Exists` probe re-walked the whole proof stream once per claim.
     public Seq<BenchClaim> Unproven(Seq<(Op Claim, Option<UInt128> Corpus)> proven) {
         HashMap<Op, Option<UInt128>> index = proven.Fold(
             HashMap<Op, Option<UInt128>>(),

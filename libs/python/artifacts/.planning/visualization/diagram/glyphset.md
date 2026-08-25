@@ -82,7 +82,7 @@ class MarkerKind(StrEnum):
     CROSS = "cross"
 
 
-class EdgeRoute(StrEnum):  # the layout-resolved routing regime every egress lowers; layout alone selects the engine that realizes it
+class EdgeRoute(StrEnum):
     LINES = "lines"
     SPLINES = "splines"
     ORTHOGONAL = "orthogonal"
@@ -133,9 +133,8 @@ class TextAnchor(StrEnum):
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-ENTITY_BAND: Final[float] = 16.0  # ER-entity title-band height; every lowering seats the header divider and the title run on it
+ENTITY_BAND: Final[float] = 16.0
 ER_CAPS: Final[frozendict[EndCap, tuple[bool, bool, bool]]] = frozendict({
-    # crow's-foot family as (ring, bar, fan) composition rows — every lowering derives its five cardinality terminals from this one table
     EndCap.ER_ONE: (False, True, False),
     EndCap.ER_MANY: (False, False, True),
     EndCap.ER_ZERO_ONE: (True, True, False),
@@ -163,16 +162,10 @@ class Port(Struct, frozen=True):
     label: str | None = None
 
     def __post_init__(self) -> None:
-        # construction is the admission boundary: a negative index would reach `seat`'s bit-reversal as a negative
-        # ordinal — a malformed binary literal at -2, a colliding lane at -1 — so it refuses at mint (msgspec lifts
-        # this ValueError to ValidationError on decode).
         if self.index < 0:
             raise ValueError(f"<port-index:{self.index}>")
 
     def seat(self, x: float, y: float, w: float, h: float, /) -> Point:
-        # derives the port's boundary seat from carried data alone: a fixed `at` wins; else the lane is the bit-reversed
-        # dyadic fraction of index+1 mapped into (0.08, 0.92) — midpoint-first, collision-free at every index, where a
-        # fixed-step outward walk saturates its clamp and collides from index 7.
         if self.at is not None:
             return (x + self.at[0], y + self.at[1])
         ordinal = self.index + 1
@@ -224,7 +217,7 @@ class EdgeMark(Struct, frozen=True):
     style: GlyphStyle
     weight: float = 0.0
     caps: tuple[EndCap, EndCap] = (EndCap.NONE, EndCap.NONE)
-    route: EdgeRoute = EdgeRoute.LINES  # the layout-resolved routing regime egress lowers, never a stringly token or per-target hardcode
+    route: EdgeRoute = EdgeRoute.LINES
     source_port: str | None = None
     target_port: str | None = None
 
@@ -267,8 +260,6 @@ class AreaMark(Struct, frozen=True):
 
     @property
     def centroid(self) -> Point:
-        # area-weighted polygon centroid (shoelace form), so a concave parcel's label anchor stays inside the region;
-        # a degenerate zero-area ring falls back to the vertex mean, and the empty ring seats the origin — total by construction.
         if not self.ring:
             return (0.0, 0.0)
         pairs = tuple(zip(self.ring, (*self.ring[1:], self.ring[0]), strict=True))
@@ -304,7 +295,6 @@ class DiagramGlyph:
 
     @property
     def mark(self) -> AnyMark:
-        # one case-to-named-payload projection every consumer reads; each mark Struct carries `.style`, so style reads ride the union
         match self:
             case DiagramGlyph(tag="node", node=mark):
                 return mark

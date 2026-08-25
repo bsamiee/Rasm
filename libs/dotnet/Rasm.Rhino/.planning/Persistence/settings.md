@@ -22,7 +22,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Probe`, `Op.Catch`, `Cell.Claim`, `Transition`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Persistence/dictionary` (`ArchiveValue`, `ArchiveValue.Of`/`Project`/`Enum`/`EnumMint`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TYPED_READ]`/`[SETTINGS_TYPED_WRITE]`/`[SETTINGS_DEFAULTS]` — the sixteen `TryGet*`/`Set*` pairs with their `legacyKeyList` siblings, `SetDefault`/`TryGetDefault`, `SetEnumValue<T>`/`TryGetEnumValue<T>`, `TryGetSettingType`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using System.Reflection;
 using Rasm.Domain;
@@ -31,14 +31,14 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SettingReach : ICapability<SettingReach> {
     public static readonly SettingReach Write = new("write");
     public static readonly SettingReach Read = new("read");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SettingKind {
     public static readonly SettingKind Guid = OfWriteOnly<Guid>(
@@ -191,7 +191,6 @@ public sealed partial class SettingKind {
             .ToFin(Fail: op.InvalidInput())
             .Bind(entry => op.Catch(() => Fin.Succ<object?>(value: System.Enum.Parse(entry.EnumType, entry.Name, ignoreCase: true)))));
 
-    // Which halves of the DEFAULT layer this row's host kind publishes; the explicit layer is always both.
     public CapabilitySet<SettingReach> Defaults { get; }
 
     public Type Shape { get; }
@@ -246,9 +245,6 @@ public sealed partial class SettingKind {
                         inputType: type, outputType: typeof(System.Enum))),
                 None: static () => Fin.Succ(value: Option<ArchiveValue>.None)));
 
-    // The open handle resolves once at type init and each enum type's closed reader is minted once and held: the
-    // per-call `GetMethod` plus `MakeGenericMethod` walk was repeat reflection on the hottest read on the page.
-    // `Cell.Claim` owns the first-writer-wins transition, so every caller of one enum type shares one delegate.
     private static readonly Option<MethodInfo> EnumReaderTemplate = Optional(typeof(SettingKind).GetMethod(
         nameof(ReadEnumTyped),
         BindingFlags.NonPublic | BindingFlags.Static));
@@ -361,7 +357,7 @@ public sealed partial class SettingKind {
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Document/events` (`PluginKey`); `Persistence/dictionary` (`ArchiveValue`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TREE]`/`[SETTINGS_METADATA]` — `FromPlugInId`, `RhinoAppSettings`, `Keys`, `ChildKeys`, `HiddenFromUserInterface`, `GetSettingType`, `GetSettingIsReadOnly`, `GetSettingIsHiddenFromUserInterface`, `StringListRootKey`, `PersistentSettingsSavedEventArgs`), RhinoCommon commands (`api-rhinocommon-commands.md` — `Command.Settings`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -369,14 +365,10 @@ using Rhino.Commands;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct SettingKey : IDisallowDefaultValue {
-    // Host splice sentinel: a list ELEMENT equal to this key splices the all-users ProgramData list at its position
-    // on read, so a list carrying it round-trips to a DIFFERENT list by host design and a `Same` inequality across
-    // that trip is the splice expanding, never settings drift. Accessor-backed, because a static field would read a
-    // host static inside a type initializer.
     public static SettingKey ListSplice => Create(PersistentSettings.StringListRootKey);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -390,7 +382,6 @@ public readonly partial struct SettingKey : IDisallowDefaultValue {
     }
 }
 
-// Each row's key IS the host value it lowers to or lifts from, so no member restates the bool the row already is.
 [SmartEnum<bool>]
 public sealed partial class SettingsVisibility {
     public static readonly SettingsVisibility Visible = new(key: false);
@@ -415,8 +406,6 @@ public sealed partial class SaveOrigin {
     public static readonly SaveOrigin ThisRhino = new(key: true);
 }
 
-// The three meanings a mutation receipt's change column carries, kept apart: an observed difference, an observed
-// identity, and a write whose layer publishes no reader at all.
 [SmartEnum<string>]
 public sealed partial class SettingDelta {
     public static readonly SettingDelta Unchanged = new("unchanged");
@@ -464,7 +453,7 @@ public abstract partial record IntegerBound {
             rangeCase: static (s, row) => s.Node.GetInteger(s.Key.Value, s.Fallback, row.Floor, row.Ceiling));
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface ISettingGuard {
     SettingKind Kind { get; }
     Type HostType { get; }
@@ -472,7 +461,7 @@ public interface ISettingGuard {
     void Report(Error error);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SettingPath(SettingsRoot Root, Seq<SettingKey> Children);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -494,8 +483,6 @@ public abstract partial record SettingOperation {
     public sealed record NodeVisibilityCase(SettingPath Path, SettingsVisibility Visibility) : SettingOperation;
     public sealed record TreeCase(SettingPath Path) : SettingOperation;
 
-    // The request owns its own routing: the child policy is a property of what the operation DOES, so a new case
-    // states it once beside its path instead of in a second parallel fold the interpreter has to keep aligned.
     internal (SettingPath Path, ChildPolicy Children) Route => Switch<(SettingPath, ChildPolicy)>(
         readCase: static value => (value.Path, ChildPolicy.Require),
         clampCase: static value => (value.Path, ChildPolicy.Create),
@@ -529,8 +516,6 @@ public sealed record SettingMutationReceipt(
     SettingObservation Current,
     SettingDelta Delta);
 
-// `Kind` is optional because a value another writer seated under a type this vocabulary does not model still has
-// readable metadata; refusing the whole read would make a foreign neighbour hide its own node's facts.
 public sealed record SettingMetadata(
     SettingKey Key,
     Type RuntimeType,
@@ -557,7 +542,6 @@ public sealed record SettingNodeReceipt(
 public abstract partial record SettingAnswer {
     private SettingAnswer() { }
 
-    // `Adopted` names the legacy key the host renamed away during this read; every other read answers `None`.
     public sealed record ValueCase(Option<ArchiveValue> Value, Option<SettingKey> Adopted) : SettingAnswer;
     public sealed record MutationCase(SettingMutationReceipt Receipt) : SettingAnswer;
     public sealed record MetadataCase(SettingMetadata Metadata) : SettingAnswer;
@@ -585,7 +569,7 @@ public abstract partial record SettingAnswer {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`, `[SmartEnum<TKey>]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Atom`, `Traverse`); kernel `Domain/rails` (`Op`, `Op.Probe`, `Op.Catch`, `Op.Side`, `Op.AcceptValidated`, `Cell.Claim`, `Cell.Step`, `Transition`, `KernelFault.InvalidValue`), `Numerics/atoms` (`Dimension`); `Document/lifetime` (`Subscription`), `Document/events` (`PluginKey`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[SETTINGS_TREE]`/`[SETTINGS_TYPED_READ]`/`[SETTINGS_METADATA]` — `FromPlugInId`, `RhinoAppSettings`, `TryGetChild`, `AddChild`, `DeleteChild`, `GetChild`, `DeleteItem`, `GetInteger` clamp overloads, `HideSettingFromUserInterface`, `RegisterSettingsValidator<T>`, `ContainsChangedValues`, `ClearChangedFlag`, `ContainsModifiedValues`, `PersistentSettingsEventArgs<T>`), RhinoCommon plug-ins (`api-rhinocommon-plugins.md` — `PlugIn.SettingsSaved`), RhinoCommon commands (`api-rhinocommon-commands.md` — `Command.Settings`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Reflection;
 using Rasm.Domain;
@@ -596,7 +580,7 @@ using Rhino.PlugIns;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SettingStore {
     public static Fin<SettingAnswer> Commit(SettingOperation operation, Op? key = null) {
         Op op = key.OrDefault();
@@ -882,10 +866,6 @@ public static class SettingStore {
                 new SettingObservation.FaultedCase(kind, fault),
                 SettingDelta.Unobserved)));
 
-    // The host resolves the current key FIRST and reaches the roster only on a miss, so the adopted key is derived
-    // by the same order BEFORE the read runs: a seated current key adopts nothing, otherwise the first seated
-    // roster key is the one the read is about to rename away. Deriving it after the read is impossible — the
-    // rename has already erased the evidence.
     private static Fin<Option<SettingKey>> Adopted(PersistentSettings node, SettingKey key, Seq<SettingKey> legacy, Op op) =>
         legacy.IsEmpty
             ? Fin.Succ(value: Option<SettingKey>.None)
@@ -972,8 +952,6 @@ public static class SettingStore {
             .Select(static row => row.Trait)
             .ToArray());
 
-    // The open handle resolves once at type init and each host type's closed writer is minted once and held; the
-    // typed delegate also retires the `is Fin<Unit>` unbox the reflective invoke forced on every registration.
     private static readonly Option<MethodInfo> ValidatorTemplate = Optional(typeof(SettingStore).GetMethod(
         nameof(RegisterTyped),
         BindingFlags.NonPublic | BindingFlags.Static));
@@ -1070,8 +1048,6 @@ public static class SettingStore {
             None: () => op.Catch(() => Fin.Succ(value: node.ContainsChangedValues())))
         .Map<SettingAnswer>(static changed => new SettingAnswer.ChangedCase((ChangeVerdict)changed));
 
-    // The child chain is host-shaped and a pathological depth would fail the stack instead of the rail, so the walk
-    // spends a budget and answers a typed exhaustion naming it.
     private static readonly Rasm.Numerics.Dimension DepthBudget = Rasm.Numerics.Dimension.Create(value: 32);
 
     private static Fin<SettingsTree> Snapshot(PersistentSettings node, SettingPath path, int remaining, Op op) =>

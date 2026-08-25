@@ -29,7 +29,7 @@ One module seats both owners, since a message envelope's extension slot IS a car
 
 ```typescript signature
 import { decodeBinaryHeader, encodeBinaryHeader } from "@connectrpc/connect"
-import type { Wire } from "./codec.ts" // type-only: the census family union, carrying no runtime edge to the codec owner
+import type { Wire } from "./codec.ts"
 import { Headers, HttpTraceContext } from "@effect/platform"
 import { Array, Context, Effect, Either, Encoding, HashSet, Option, ParseResult, Predicate, Record, Schema, String, pipe } from "effect"
 import { Convention } from "../observe/convention.ts"
@@ -53,13 +53,10 @@ const _STATE_KEY = /^[a-z][a-z0-9_\-*/]{0,255}$|^[a-z0-9][a-z0-9_\-*/]{0,240}@[a
 const _STATE_VALUE = /^[\x20-\x2b\x2d-\x3c\x3e-\x7e]{0,255}[\x21-\x2b\x2d-\x3c\x3e-\x7e]$/
 const _BAGGAGE_KEY = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+$/
 const _BAGGAGE_VALUE = /^[\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*$/
-// W3C baggage property grammar: token key, optional "=" then baggage-octets — every printable byte
-// except the dquote, comma, semicolon, and backslash delimiters that would re-frame the header.
 const _PROPERTY = /^[!#$%&'*+\-.^_`|~0-9a-zA-Z]+(?:=[\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*)?$/
 
 const _decodedParent = Schema.decodeUnknownOption(Traceparent)
 
-// Effect Encoding owns the URI exception rail; carrier's restart boundary folds its typed Either to absence.
 const _decodeUri = (value: string): Option.Option<string> => Either.getRight(Encoding.decodeUriComponent(value))
 const _encodeUri = (value: string): Option.Option<string> => Either.getRight(Encoding.encodeUriComponent(value))
 
@@ -73,9 +70,6 @@ const _parent = (text: string): Option.Option<Traceparent> =>
         _decodedParent({ traceId, spanId, sampled: (bits & 1) === 1, random: (bits & 2) === 2 }))),
   )
 
-// Property tails re-print verbatim, so grammar is admission: a malformed tail drops here exactly as a malformed
-// member drops, and the one fold serves parse and print identically. Empty segments are separator noise rather than
-// material — a trailing semicolon is lawful W3C framing, so nothing was sent to drop and no occurrence names it.
 const _properties = (properties: ReadonlyArray<string>): Carrier.Sifted<ReadonlyArray<string>> =>
   Array.partitionMap(
     Array.filter(Array.map(properties, String.trim), String.isNonEmpty),
@@ -92,11 +86,6 @@ type _StateFold = {
 
 const _stateMember = ({ key, value }: Carrier.State): boolean => _STATE_KEY.test(key) && _STATE_VALUE.test(value)
 
-// The four bounds are DEPENDENT — which rows survive uniqueness decides what the count ceiling reaches, and that
-// decides what the aggregate budget can still hold — so one fold applies them in the declared order and every arm
-// answers the reason its own bound means. Split across `filter`/`dedupeWith`/`take`/`reduce`, each stage discarded a
-// DIFFERENT thing into the same shorter list, and a caller reading four rows where a peer sent forty could not tell a
-// grammar refusal from a spent byte budget. The drop constructor is deferred, so an admitted row prices no fact.
 const _stateRows = (rows: ReadonlyArray<Carrier.State>): Carrier.Sifted<ReadonlyArray<Carrier.State>> =>
   pipe(
     Array.reduce(
@@ -138,8 +127,6 @@ const _state = (text: string): Carrier.Sifted<ReadonlyArray<Carrier.State>> =>
 const _utf8 = { read: new TextDecoder(), write: new TextEncoder() } as const
 const _bytes = (text: string): number => _utf8.write.encode(text).byteLength
 
-// A member refused WHOLE takes its property tails with it, so the occurrence names the member alone: reporting the
-// tails of a member no context will hold counts damage twice against one entry.
 const _baggageMember = (entry: string): Carrier.Sifted<Option.Option<Carrier.Member>> =>
   pipe(String.trim(entry), (held) =>
     _bytes(held) > _CEILING.baggageMember
@@ -159,9 +146,6 @@ const _baggageMember = (entry: string): Carrier.Sifted<Option.Option<Carrier.Mem
               }),
             ))))
 
-// An over-budget header used to return `[]`, which read identically to a peer that sent no baggage at all — and
-// `rasm.tenant` vanished with it. It now returns ONE occurrence naming the header and the bytes it overshot, and the
-// member ceiling that follows names each entry it refused past the count rather than trimming the tail in silence.
 const _baggage = (text: string): Carrier.Sifted<ReadonlyArray<Carrier.Member>> =>
   _bytes(text) > _CEILING.baggageText
     ? [[Fault.Drop.fact("oversize", "baggage", _bytes(text) - _CEILING.baggageText)], []]
@@ -180,8 +164,6 @@ const _baggage = (text: string): Carrier.Sifted<ReadonlyArray<Carrier.Member>> =
 const _printedParent = (parent: Traceparent): string =>
   `00-${parent.traceId}-${parent.spanId}-${(Number(parent.sampled) | (Number(parent.random) << 1)).toString(16).padStart(2, "0")}`
 
-// Print re-applies the SAME admission to material the CALLER already holds, so its discards need no census here: the
-// caller reads them off `Carrier.parse` over its own text, and every transport row states the forfeiture on `degrade`.
 const _printedState = (rows: ReadonlyArray<Carrier.State>): string =>
   Array.join(Array.map(_stateRows(rows)[1], (row) => `${row.key}=${row.value}`), ",")
 
@@ -228,8 +210,6 @@ const _printedBaggage = (members: ReadonlyArray<Carrier.Member>): string =>
 - Packages: `effect` (`Array`, `Option`); `../observe/convention.ts` (`Convention`); `../value/identity.ts` (`Identity.Tenant`).
 
 ```typescript signature
-// Observe owns this baggage key outright, so one spelling site serves the branch and a rename there lands here
-// rather than orphaning a twin no consumer can see diverge.
 const _TENANT = Convention.rasm.tenant
 
 const _decodedTenant = Schema.decodeUnknownOption(Identity.Tenant.FromScope)
@@ -293,12 +273,11 @@ const _withoutTenant = (context: Carrier.Context): Carrier.Context => ({
 ```typescript signature
 const _KEYS = ["traceparent", "tracestate", "baggage"] as const
 
-// Zipkin ingress names, READ-only: the single-header form and the multi-header form the platform decoders parse.
 const _B3 = ["b3", "x-b3-traceid", "x-b3-spanid", "x-b3-sampled", "x-b3-parentspanid"] as const
 
 declare namespace Carrier {
-  type Key = (typeof _KEYS)[number] | (typeof _B3)[number] // every header name a row READS
-  type Injected = (typeof _KEYS)[number] // the write half is the W3C three alone, so "inject prints nothing else" is a parameter type rather than a discipline
+  type Key = (typeof _KEYS)[number] | (typeof _B3)[number]
+  type Injected = (typeof _KEYS)[number]
   type State = { readonly key: string; readonly value: string }
   type Member = { readonly key: string; readonly value: string; readonly properties: ReadonlyArray<string> }
   type Context = {
@@ -315,11 +294,7 @@ declare namespace Carrier {
     readonly mqtt: Record.ReadonlyRecord<string, string | ReadonlyArray<string>>
     readonly nats: Record.ReadonlyRecord<string, string>
   }
-  // ONE carrier for every sifting fold on this page: the occurrences it refused beside whatever it admitted, whether
-  // that is a roster or a single member. A second shape per arity would be two names for one answer.
   type Sifted<A> = readonly [dropped: ReadonlyArray<Fault.Drop.Fact>, kept: A]
-  // The context is the value consumers thread; the census is what the parse refused reaching it. Fusing the two into
-  // one widened context would put a decode ledger on a value `inject` also writes.
   type Extraction = { readonly context: Context; readonly dropped: Fault.Ledger.Census }
   type RecordHeader = Uint8Array | string | ReadonlyArray<Uint8Array | string> | undefined
   type RecordHeaders = Record.ReadonlyRecord<string, RecordHeader>
@@ -327,7 +302,7 @@ declare namespace Carrier {
   type Row<F> = {
     readonly read: (frame: F, key: Key) => Option.Option<string>
     readonly write: (frame: F, key: Injected, value: string) => F
-    readonly degrade: string // what this frame shape forfeits carrying a W3C context, stated per row and readable by consumers
+    readonly degrade: string
   }
   type Bin = keyof typeof _BIN
   type Shape = {
@@ -339,7 +314,7 @@ declare namespace Carrier {
       readonly set: (headers: Headers.Headers, name: Bin, octets: Uint8Array) => Headers.Headers
     }
     readonly current: Effect.Effect<Context>
-    readonly dialects: typeof _dialects // consumers read a row's `degrade` before selecting the transport that carries their context
+    readonly dialects: typeof _dialects
     readonly empty: Context
     readonly extract: <K extends Dialect>(dialect: K, frame: Frame[K]) => Extraction
     readonly inject: <K extends Dialect>(dialect: K, context: Context, frame: Frame[K]) => Frame[K]
@@ -366,8 +341,6 @@ declare namespace Carrier {
   type _Rows<T extends { readonly [K in Dialect]: Row<Frame[K]> } = typeof _dialects> = T
 }
 
-// Values name CENSUS families, so the guard binds this table to the codec roster: a renamed family fails at this
-// declaration rather than attaching a typed header whose message class no producer mints.
 const _BIN = {
   "rasm-stamp-bin": "HlcStampWire",
   "rasm-tenant-bin": "TenantContextWire",
@@ -405,15 +378,13 @@ const _records = {
 } as const
 
 const _dialects: { readonly [K in Carrier.Dialect]: Carrier.Row<Carrier.Frame[K]> } = {
-  // Events carry extension attributes UNPREFIXED, so this row reads an event's own attribute record; binary-mode
-  // bindings prefix those names into a header frame the http row already serves, and that prefix stays theirs.
   cloudevents: {
     degrade: "<attribute-record-only>",
     read: (frame, key) => Option.filter(Option.fromNullable(frame[key]), Predicate.isString),
     write: (frame, key, value) => ({ ...frame, [key]: value }),
   },
   connect: {
-    degrade: "<repeats-flattened-before-arrival>", // `Headers` indexes one string per name, so a repeat never reaches this row
+    degrade: "<repeats-flattened-before-arrival>",
     read: (frame, key) => Headers.get(frame, key),
     write: (frame, key, value) => Headers.set(frame, key, value),
   },
@@ -441,7 +412,7 @@ const _inject = <K extends Carrier.Dialect>(dialect: K, context: Carrier.Context
     ({ row, baggage }) =>
       pipe(
         Option.match(context.parent, {
-          onNone: () => frame, // no parent prints no state: vendor rows anchor to the parent whose trace minted them
+          onNone: () => frame,
           onSome: (parent) =>
             pipe(
               row.write(frame, "traceparent", _printedParent(parent)),
@@ -454,8 +425,6 @@ const _inject = <K extends Carrier.Dialect>(dialect: K, context: Carrier.Context
       ),
   )
 
-// Platform B3 decoders read a header frame, so the Zipkin names project off the row's own value codec into one
-// `Headers` map — the dialect stays a value codec, and the two Zipkin grammars stay the platform's own parse.
 const _zipkin = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Headers.Headers =>
   Headers.fromInput(
     Record.fromEntries(
@@ -463,40 +432,27 @@ const _zipkin = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K])
     ),
   )
 
-// EXTRACTION, never a bare context: every bound this parse applies discards material a peer actually sent, so the
-// occurrences RETURN beside the value and a caller reading an empty list reads WHY. `Carrier.Context` is unchanged and
-// stays the value consumers thread; the census is the ledger's own fold over the three legs' occurrences, so no tally
-// rides beside the parse and a fourth bound lands as one more fact rather than as a counter nothing reconciles.
 const _extract = <K extends Carrier.Dialect>(dialect: K, frame: Carrier.Frame[K]): Carrier.Extraction =>
   pipe(
     { row: _dialects[dialect], w3c: Option.flatMap(_dialects[dialect].read(frame, "traceparent"), _parent) },
     ({ row, w3c }) => {
-      // one projection feeds both Zipkin grammars: the fallback is already lazy, so re-projecting per decoder would
-      // rebuild the same header map twice on every W3C-absent hop
       const parent = Option.orElse(w3c, () =>
         pipe(_zipkin(dialect, frame), (zipkin) =>
           Option.flatMap(
             Option.orElse(HttpTraceContext.b3(zipkin), () => HttpTraceContext.xb3(zipkin)),
-            (external) => _span(external).parent, // the recovered external span lifts through the one structural span fold
+            (external) => _span(external).parent,
           )))
       const offered = row.read(frame, "tracestate")
-      // Restart drops what it cannot anchor: vendor rows key to the W3C parent that carried them, so a refused parent
-      // and a b3-recovered one both admit an empty list rather than lineage naming a trace this hop no longer
-      // continues. That discard is now a MEASURED occurrence carrying the bytes it refused, where the bare `[]` it
-      // replaces read identically to a peer that shipped no vendor rows at all.
       const [refusedState, state]: Carrier.Sifted<ReadonlyArray<Carrier.State>> = Option.isSome(w3c)
         ? Option.match(offered, { onNone: () => [[], []], onSome: _state })
         : Option.match(offered, {
             onNone: (): Carrier.Sifted<ReadonlyArray<Carrier.State>> => [[], []],
             onSome: (text) => [[Fault.Drop.fact("unanchored", "tracestate", _bytes(text))], []],
           })
-      // Baggage travels on its own W3C specification and survives a restarted parent, so its admission stays unconditional.
       const [refusedBaggage, baggage] = Option.match(row.read(frame, "baggage"), {
         onNone: (): Carrier.Sifted<ReadonlyArray<Carrier.Member>> => [[], []],
         onSome: _baggage,
       })
-      // A parent the frame OFFERED and no decoder recovered is the loss the restart posture used to swallow whole: an
-      // absent header and a refused one both produced `Option.none()` and nothing downstream could separate them.
       const refusedParent: ReadonlyArray<Fault.Drop.Fact> =
         Option.isNone(parent) && Option.isSome(row.read(frame, "traceparent"))
           ? [Fault.Drop.fact("unparsed", "traceparent", 1)]
@@ -526,7 +482,6 @@ const _current: Effect.Effect<Carrier.Context> = Effect.map(
 
 const _span = (span: { readonly traceId: string; readonly spanId: string; readonly sampled: boolean }): Carrier.Context => ({
   ..._empty,
-  // Effect exposes sampled but not W3C's generation provenance, so a live span cannot assert the random flag.
   parent: _decodedParent({ traceId: span.traceId, spanId: span.spanId, sampled: span.sampled, random: false }),
 })
 
@@ -537,7 +492,7 @@ const Carrier: Carrier.Shape = {
     names: _BIN,
     get: (headers, name) =>
       Option.flatMap(Headers.get(headers, name), (value) =>
-        Either.getRight(Either.try(() => decodeBinaryHeader(value)))), // the codec's DataLoss throw folds to absence by the restart posture
+        Either.getRight(Either.try(() => decodeBinaryHeader(value)))),
     set: (headers, name, octets) => Headers.set(headers, name, encodeBinaryHeader(octets)),
   },
   current: _current,
@@ -597,8 +552,6 @@ import { DateTime } from "effect"
 import { Format } from "./format.ts"
 import { Digest } from "../value/contentKey.ts"
 
-// Type subject and producer capability are independent axes inside one Convention-owned capability domain; `<fact>`
-// reads past tense and carries the announced semantics whole, independently of the payload schema `dataschema` names.
 const _SEGMENT = "[a-z0-9]+(?:-[a-z0-9]+)*"
 const _TYPE = new RegExp(`^rasm\\.(${_SEGMENT})\\.(${_SEGMENT})\\.(${_SEGMENT})$`)
 const _SOURCE = new RegExp(`^rasm:(${_SEGMENT})/(${_SEGMENT})$`)
@@ -647,11 +600,6 @@ const _address = (envelope: CloudEventV1<unknown>): Effect.Effect<Digest.Key<"co
   return Digest.mint("content", [_addressTag, lengths, source, id])
 }
 
-// BOUNDARY MAPPING: the event wire carries the content key in 32 LOWERCASE hex, because C# `ContentHash.Hex` renders
-// `x32` and the python `WireKey` admits `[0-9a-f]{32}` — one spelling reaches a `subject` join and a dedup key, both
-// compared as text. `Digest.codecs.content` ENCODES upper for the interchange frame, so mapping here
-// keeps the shared codec's own spelling intact; re-casing that row respells every appearance address the corpus
-// already froze. Decode lowercases exactly as the shared codec does, so the branded key stays one value.
 const _EVENT_KEY = Schema.transform(Schema.String.pipe(Schema.pattern(/^[0-9a-f]{32}$/)), Digest.Key.content, {
   strict: true,
   decode: (wire) => wire,
@@ -743,7 +691,6 @@ const _admit = (envelope: unknown): Effect.Effect<CloudEvent<unknown>, EventRefu
 const _mintEvent = <T>(attributes: CloudEventV1<T>): Effect.Effect<CloudEvent<unknown>, EventRefusal> => _strict(attributes)
 
 class _Fact extends Schema.Class<_Fact>("Event.Fact")({
-  // Brands refine IN PLACE, so no branded scalar exports beside the owner that admits it.
   id: Schema.NonEmptyString.pipe(Schema.brand("EventId")),
   source: _EVENT_SOURCE,
   type: _EVENT_TYPE.pipe(Schema.brand("EventType")),
@@ -945,8 +892,6 @@ const _attributeEncoded = (key: string, value: unknown, uriArm: _UriArm | undefi
     : Effect.succeed(Format.proto.create(CloudEvent_CloudEventAttributeValueSchema, { attr }))
 }
 
-// Publisher descriptors own the core field roster. Map fields are the generated attribute container rather than an
-// SDK property; oneof members collapse onto their generated oneof name and its SDK JSON base64 companion.
 const _sdkCore = HashSet.fromIterable(Array.flatMap(CloudEventSchema.fields, (field) =>
   field.fieldKind === "map"
     ? Array.empty<string>()
@@ -1124,8 +1069,6 @@ const _eventProtobuf: Event.Protobuf = {
 
 const _eventFormat: Event.Format = { json: _eventJson, protobuf: _eventProtobuf }
 
-// Construction writes `specversion`, `data`, and `data_base64` beside the fields `Fact` addresses, so the drop
-// census subtracts both owned sets and reports only names neither this roster nor `Fact` itself holds.
 const _addressed = HashSet.union(_sdkCore, HashSet.fromIterable(Record.keys(_Fact.fields)))
 
 const _extensionJson = (envelope: CloudEventV1<unknown>): Record.ReadonlyRecord<string, unknown> =>
@@ -1198,7 +1141,7 @@ const Event: Event.Shape = {
   toProto: _toProtobuf,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Carrier, Event }
 ```

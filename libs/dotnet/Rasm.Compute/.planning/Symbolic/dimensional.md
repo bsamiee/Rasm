@@ -22,13 +22,6 @@ That rational vector is the ℚ⁷ symbolic generalization of the ℤ⁷ integer
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The seven SI axes as ROWS carrying two columns: the physics glyph a fault renders and the `BaseDimensions`
-// component reader. `Rank` derives from `Items.Count`, so the two independent sevens (a `Rank` constant beside a
-// seven-element glyph array) collapse to one authority; an out-of-range axis stops being spellable, which is what
-// retires both `ArgumentOutOfRangeException.ThrowIf*` guards; and the `Read` column is the ONE transposition of a
-// UnitsNet vector, which `Symbolic/units#DIMENSIONAL_LAW` composes instead of writing its own seven lines.
-// Glyphs are the PHYSICS register (L M T I Θ N J); the seam `Dimension.SiSymbol` is the SI-UNIT register, and the
-// two carry no string-equality obligation.
 [SmartEnum<int>]
 public sealed partial class SiAxis {
     public static readonly SiAxis Length = new(0, "L", static dims => dims.Length);
@@ -57,14 +50,8 @@ public readonly partial struct DimensionMonomial :
     public static readonly DimensionMonomial Dimensionless =
         Create(toSeq(SiAxis.Items).Map(static _ => ERational.Zero));
 
-    // Group identity of the monomial product — the value the domain reads as `Dimensionless`.
     public static DimensionMonomial MultiplicativeIdentity => Dimensionless;
 
-    // Rank gate then CANONICALIZATION, both at the one mint. `ERational.Equals` is numerator/denominator-exact —
-    // 1/2 and 2/4 are distinct values — and no arithmetic operator reduces, so two monomials reached by different
-    // operation orders would key two dictionary slots for one physical dimension. Lowest terms here makes the
-    // canonical form a construction property every operator, `Of`, and `From` inherits for free. The rank refusal
-    // rides the same `ComputeFault` family every other refusal on this page does, never a Thinktecture default.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<ERational> exponents) {
         if (exponents.Count != SiAxis.Rank) {
             validationError = new ValidationError(string.Join(" | ", new object?[] { $"<monomial-rank:{exponents.Count}≠{SiAxis.Rank}>" }));
@@ -76,8 +63,6 @@ public readonly partial struct DimensionMonomial :
 
     public static DimensionMonomial Base(SiAxis axis) => Of((axis, ERational.One));
 
-    // Sparse terms write through an axis ROW, so a negative or over-rank slot has no spelling and the two
-    // `ThrowIf*` guards — this page's only exception control flow — delete with the `int` that needed them.
     public static DimensionMonomial Of(params ReadOnlySpan<(SiAxis Axis, ERational Exponent)> terms) {
         ERational[] slots = new ERational[SiAxis.Rank];
         Array.Fill(slots, ERational.Zero);
@@ -95,16 +80,11 @@ public readonly partial struct DimensionMonomial :
 
     public bool IsDimensionless => Value.ForAll(static e => e.IsZero);
 
-    // The ℚ⁷ -> ℤ⁷ projection the `[02]` Law promises, made executable: an all-INTEGRAL proven monomial IS the
-    // seam `Rasm.Element/Properties/quantity#DIMENSION` value, and a transient fractional exponent is `None`
-    // rather than a rounded lie. `Runtime/observation#OBSERVATION_LANE` is the landed consumer of that seam type.
     public Option<Dimension> ToSeam() =>
         Value.Traverse(static e => e.IsInteger() ? Some(e.ToInt32Checked()) : Option<int>.None)
             .Map(static axes => Dimension.Create(axes[0], axes[1], axes[2], axes[3], axes[4], axes[5], axes[6]))
             .As();
 
-    // Free-Abelian-group algebra over ℚ⁷: product adds exponent vectors, quotient subtracts, unary minus is the
-    // group INVERSE (a reciprocal dimension reads as itself, not as `Pow(-1)`), `Pow` scales (area^(1/2) is a length).
     public static DimensionMonomial operator *(DimensionMonomial left, DimensionMonomial right) =>
         Create(left.Value.Zip(right.Value, static (a, b) => a + b));
 
@@ -117,7 +97,6 @@ public readonly partial struct DimensionMonomial :
     public DimensionMonomial Pow(ERational exponent) =>
         Create(Value.Map(e => e * exponent));
 
-    // Physics-notation projection a fault reports ("1" dimensionless, else "M L^2 T^-2").
     public string Format() =>
         toSeq(SiAxis.Items).Zip(Value)
             .Filter(static t => !t.Right.IsZero)
@@ -139,9 +118,6 @@ public readonly partial struct DimensionMonomial :
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record DimensionContext(Map<SymbolName, DimensionMonomial> Bindings) {
-    // Declarations arrive as the intent's symbol-to-family-KEY map — FOREIGN text on BOTH columns, so both admit
-    // here and the applicative reports a malformed symbol and an unknown family together rather than one per
-    // round trip; the carrier already enforces one declaration per symbol, so the fold owes no duplicate census.
     public static Validation<Error, DimensionContext> Of(Map<string, string> declarations) =>
         toSeq(declarations.AsIterable())
             .Traverse(static pair => (Admit(pair.Key), Family(pair.Value))
@@ -169,10 +145,6 @@ public sealed record DimensionContext(Map<SymbolName, DimensionMonomial> Binding
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-// One more arm on the SAME `ComputeFault` family, naming its `[FaultCase]` ordinal so `Code` 2215 derives from `Fault`.
-// The lane's three sibling arms carry the refusals that are NOT dimensional —
-// an undeclared symbol is `SymbolUndefined`, an unadmittable declaration or node is `ParseRejected` — so a
-// consumer recovers on the arm instead of prefix-matching one detail grammar.
 public abstract partial record ComputeFault {
     [FaultCase(15)] public sealed partial record DimensionMismatch(string Detail) : ComputeFault(Detail);
 }
@@ -190,7 +162,6 @@ public static class DimensionProof {
                 Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch("dimension: null node")),
             Entity.Number =>
                 Success<Error, DimensionMonomial>(DimensionMonomial.Dimensionless),
-            // Constant Variable leaves (pi, e) carry an empty Vars census — the discriminant needing no constant-name table.
             Entity.Variable variable =>
                 toSeq(variable.Vars).IsEmpty
                     ? Success<Error, DimensionMonomial>(DimensionMonomial.Dimensionless)
@@ -211,18 +182,14 @@ public static class DimensionProof {
                 Descend(argument, context).Map(static _ => DimensionMonomial.Dimensionless),
             Entity.Logf(Entity @base, Entity antilogarithm) =>
                 Dimensionless(Seq(@base, antilogarithm), context, "log"),
-            // dim(f)/dim(x), dim(f)·dim(x), dim(f) — the calculus-residue dimensional laws.
             Entity.Derivativef derivative =>
                 (Descend(derivative.Expression, context), Descend(derivative.Var, context)).Apply(static (f, x) => f / x),
             Entity.Integralf integral =>
                 (Descend(integral.Expression, context), Descend(integral.Var, context)).Apply(static (f, x) => f * x),
             Entity.Limitf limit =>
                 Descend(limit.Expression, context),
-            // IUnaryNode floor covers the whole trig/transcendental family in one arm.
             Entity.Function and IUnaryNode unary =>
                 Dimensionless(Seq(unary.NodeChild), context, node.GetType().Name),
-            // `Piecewise` folds homogeneous case expressions; each `Providedf` predicate proves comparison
-            // operands homogeneous, making regime formulas dimension-provable.
             Entity.Providedf(Entity expression, Entity predicate) =>
                 Predicate(predicate, context).Bind(_ => Descend(expression, context)),
             Entity.Piecewise piecewise when !toSeq(piecewise.Cases).IsEmpty =>
@@ -230,16 +197,12 @@ public static class DimensionProof {
                     Homogeneous(toSeq(piecewise.Cases).Map(static c => c.Expression), context)).As(),
             Entity.Piecewise =>
                 Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch("dimension: empty piecewise has no result dimension")),
-            // Not a dimensional disagreement — a tree this lane declines to admit as a FORMULA, which is a
-            // different recovery: the caller supplies another expression, never another declaration.
             Entity.Statement or Entity.Set or Entity.Boolean =>
                 Fail<Error, DimensionMonomial>(new ComputeFault.ParseRejected($"<non-numeric-node:{node.GetType().Name}>")),
             _ =>
                 Fail<Error, DimensionMonomial>(new ComputeFault.ParseRejected($"<unmapped-node:{node.GetType().Name}>")),
         };
 
-    // Comparison predicates require equal operand monomials; boolean connectives recurse into comparison
-    // leaves, and every unrecognized predicate faults.
     static Validation<Error, DimensionMonomial> Predicate(Entity predicate, DimensionContext context) =>
         predicate switch {
             null =>
@@ -258,7 +221,6 @@ public static class DimensionProof {
                 Fail<Error, DimensionMonomial>(new ComputeFault.ParseRejected($"<unprovable-predicate:{predicate.GetType().Name}>")),
         };
 
-    // Dimensionless-demanding args; the accumulating `Traverse` surfaces every dimensioned arg at once.
     static Validation<Error, DimensionMonomial> Dimensionless(Seq<Entity> args, DimensionContext context, string name) =>
         args.Traverse(arg => Descend(arg, context)).Bind(dims =>
             dims.ForAll(static d => d.IsDimensionless)
@@ -266,9 +228,6 @@ public static class DimensionProof {
                 : Fail<Error, DimensionMonomial>(new ComputeFault.DimensionMismatch(
                     $"dimension: {name} requires dimensionless arguments, got {string.Join(", ", dims.Map(static d => d.Format()))}"))).As();
 
-    // An `IfNone(Dimensionless)` fallback answered the empty fold with a VALUE, so a zero-addend sum reported the
-    // dimensionless monomial where it has no result dimension at all; the proof-carrying probe takes the single
-    // survivor and both other cardinalities decline typed and apart.
     static Validation<Error, DimensionMonomial> Homogeneous(Seq<Entity> addends, DimensionContext context) =>
         addends.Traverse(addend => Descend(addend, context)).Bind(static dims =>
             dims.Distinct() is var distinct && distinct.Count == 1 && distinct.Head is { IsSome: true, Case: DimensionMonomial only }
@@ -281,10 +240,8 @@ public static class DimensionProof {
         exponent switch {
             null =>
                 Fail<Error, ERational>(new ComputeFault.DimensionMismatch("dimension: null power exponent")),
-            // Rational subsumes Integer by inheritance; the ERational payload is exact.
             Entity.Number.Rational rational =>
                 Success<Error, ERational>(rational.ERational),
-            // Finite decimal exponents (`x^0.5`) lift exactly through FromEDecimal; NaN/∞ fault.
             Entity.Number.Real real when real.EDecimal.IsFinite =>
                 Success<Error, ERational>(ERational.FromEDecimal(real.EDecimal)),
             _ =>
@@ -307,12 +264,6 @@ public static class DimensionProof {
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
-// Soundness and naming are separate verdicts: the algebra proves either way, and only the roster decides whether
-// its proven dimension has a name. `Monomial` names the base projection because a base member sharing a case
-// positional parameter's name suppresses that case's property synthesis outright. `Subject` is the PROVED
-// expression's content key, so the verdict is evidence about ONE formula and `Symbolic/lowering#LOWERING` can
-// refuse a proof minted for a different tree — the gate that page's own Law claims and could not previously take.
-// An `IsAmbiguous` boolean is recoverable from `Families` and is the knob the removal test deletes.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DimensionVerdict {
     private DimensionVerdict() { }
@@ -333,16 +284,12 @@ public abstract partial record DimensionVerdict {
         named: static verdict => verdict.Candidates,
         unnamed: static _ => Seq<QuantityFamily>());
 
-    // `Some` at EXACTLY one candidate: a colliding dimension names no family, and an unnamed one names none
-    // either, so the two silences stay one read a consumer stamps onto its compiled carrier.
     public Option<QuantityFamily> Unique =>
         Families is { Count: 1 } only ? only.Head : Option<QuantityFamily>.None;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DimensionAdmission {
-    // Grouping IS the collision census: every dimension shared by two or more rows arrives as one candidate
-    // sequence at static construction, so no enumerated pair roster exists to fall behind the table.
     static readonly FrozenDictionary<DimensionMonomial, Seq<QuantityFamily>> Table =
         QuantityFamily.Items
             .GroupBy(static row => DimensionMonomial.From(row.Info.BaseDimensions))
@@ -357,9 +304,6 @@ public static class DimensionAdmission {
                 $"<undeclared-symbols:{string.Join(",", undeclared.Map(static s => s.Value))}>"))
             : Success<Error, Unit>(unit);
 
-    // Proven monomials the roster names nothing for are SOUND and unnamed, never failures: the algebra held and
-    // only the vocabulary is silent, so the consumer that needs a name is the one entitled to refuse. Total, so
-    // the projection is a `Map`, never a `Validation` arm that no input can reach.
     static DimensionVerdict Match(UInt128 subject, DimensionMonomial monomial) =>
         Table.TryGetValue(monomial, out Seq<QuantityFamily> families)
             ? new DimensionVerdict.Named(subject, monomial, families)

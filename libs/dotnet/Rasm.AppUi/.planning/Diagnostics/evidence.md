@@ -29,7 +29,7 @@ Kernel vocabulary arrives whole from the signal capsule: the causal frame (`Tele
 - Boundary: receipts are process-local and HLC-correlated, never globally shared; this typed union with slot metadata is the absorbing owner. The generated message is the ONE wire and the descriptor the ONE kind authority — `EvidenceOps.KindOf` projects the oneof field name, `Kinds` publishes it, and `Probe` proves case-versus-arm bijection at boot. `Seal` admits the lowered message before the sink and `WireJson.Read` validates every inbound payload before the inverse, so corpus rules are not prose a hand mapper can bypass. `Render.PixelIdentity` is the sole canonical-raster owner: its digest remains `UInt128`, and the boundary explicitly maps its one canonical version to `PixelLayout` while checked extents and content-key admission close the inverse. Absence rides `Option<T>` and crosses as proto3 `optional` presence. `EvidenceMap` is a projection seam under `RequiredMappingStrategy.Target` because source receipts carry envelope-owned columns; `EvidenceWire` runs `Both` because a wire arm is case-shaped. Explicit casts remain disabled, and union-valued columns cross through their generated total switch. Every corpus family leaves through `WireJson.Formatter` and enters through `WireJson.Read`; default protobuf JSON and package serializer contexts are deleted forms. `AppUiWireContext` survives only for durable payloads no peer decodes.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Text.Json;
@@ -56,10 +56,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.AppUi.Diagnostics;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Typed in process, generated on the wire: every 16-byte key is a UInt128, every stamp an Instant, every
-// absence an Option, and every count the width the corpus declares — so a lowering moves members and
-// converts carriers, never parses text.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EffectMeasure {
     private EffectMeasure() { }
@@ -92,20 +89,16 @@ public abstract partial record EvidenceReceipt {
     public sealed record NativeAssetIdentity(NativeAssetFact Fact) : EvidenceReceipt;
     public sealed record Theme(string Variant, string Density, string Trigger, uint ChangedKeys) : EvidenceReceipt;
     public sealed record Motion(string Token, string Resolved, bool Reduced) : EvidenceReceipt;
-    // Plane partitions the producer while Measure retains the producer's typed scalar, identity, extent, moment,
-    // or closed coordinate; no string or integer column changes meaning between producers.
     public sealed record Effect(string Plane, string Key, string Outcome, bool Flag, uint Count, EffectMeasure Measure) : EvidenceReceipt;
     public sealed record Asset(string Key, string AssetKind, string Origin, double Scale, UInt128 ContentHash) : EvidenceReceipt;
     public sealed record LiveData(string Slot, uint Adds, uint Updates, uint Removes, uint Refreshes) : EvidenceReceipt;
     public sealed record CollabSync(string DocKey, uint Deltas, ulong Bytes, uint Pending, bool Applied) : EvidenceReceipt;
     public sealed record CollabRevert(string DocKey, UInt128 FrontierDigest, uint InverseOps) : EvidenceReceipt;
-    // The fault IS the outcome: present is failed, absent is ready, so the corpus CEL cannot be violated here.
     public sealed record Media(string Key, string Codec, string Source, Option<FaultV1.FaultObservation> Fault) : EvidenceReceipt;
     public sealed record Quality(string Tier, uint PathTraceSamples, double WatermarkFactor, string Motion, uint FoveationLevel, double RefreshHz) : EvidenceReceipt;
     public sealed record GpuFrame(ulong FrameOrdinal, uint Passes, uint Unmeasured, ulong MeasuredNanoseconds) : EvidenceReceipt;
     public sealed record Layout(string Panel, uint Constraints, Duration Elapsed, Option<FaultV1.FaultObservation> Fault) : EvidenceReceipt;
     public sealed record DispatcherLag(string Boundary, Duration Elapsed) : EvidenceReceipt;
-    // `Lamport` is the document DAG's logical coordinate, no clock; both magnitudes ride the corpus `uint64` columns.
     public sealed record PreCommit(string DocKey, ulong Lamport, ulong Ops, string Origin, Option<string> Message) : EvidenceReceipt;
 
     public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant) =>
@@ -115,12 +108,10 @@ public abstract partial record EvidenceReceipt {
             .Bind(wire => sink.Send(correlation, tenant, AppUiTelemetry.Source, EvidenceOps.KindOf(wire.KindCase), EvidenceOps.Element(wire)));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EvidenceOps {
     static readonly Op DecodeOp = Op.Of(name: "appui.evidence.decode");
 
-    // The ONE kind authority is the generated `kind` oneof: its fields' names are the envelope literals, its
-    // numbers the `KindOneofCase` ordinals, so the correspondence derives and no roster restates it.
     static readonly OneofDescriptor KindOneof = Wire.EvidenceReceiptWire.Descriptor.Oneofs[0];
 
     static readonly FrozenDictionary<Wire.EvidenceReceiptWire.KindOneofCase, string> KindByCase =
@@ -132,8 +123,6 @@ public static class EvidenceOps {
 
     public static string KindOf(Wire.EvidenceReceiptWire.KindOneofCase arm) => KindByCase[arm];
 
-    // Boot bijection proof: every generated arm admits to a domain case, every domain case lowers to an arm, the
-    // arm names are distinct, and every `EvidenceKind` row keys on an arm name the descriptor publishes.
     public static Fin<Unit> Probe() {
         Seq<Wire.EvidenceReceiptWire.KindOneofCase> arms = toSeq(KindOneof.Fields)
             .Map(static field => (Wire.EvidenceReceiptWire.KindOneofCase)field.FieldNumber).Strict();
@@ -150,15 +139,11 @@ public static class EvidenceOps {
                     Requirement: $"one domain case per evidence arm: {arms.Count} arms, {domainCases} cases"));
     }
 
-    // The envelope payload column is a `JsonElement`; this is the package's ONE bridge onto it, over the AppHost
-    // `WireJson` edge — the suite's TypeRegistry-bearing formatter, never `JsonFormatter.Default`.
     public static JsonElement Element(IMessage message) => WireJson.Element(message);
 
     public static Fin<T> Message<T>(JsonElement payload, Op key) where T : IMessage<T>, new() =>
         WireJson.Read<T>(payload, key);
 
-    // ONE decode for the fan and the billing fold: the parse rides the suite parser, the admission re-runs every
-    // standing gate, and a producer off the package contract fails the rail by name.
     public static Fin<EvidenceReceipt> Decode(ReceiptEnvelope envelope) =>
         Message<Wire.EvidenceReceiptWire>(envelope.Payload, DecodeOp).Bind(wire => EvidenceWire.Admit(wire, DecodeOp));
 
@@ -167,19 +152,13 @@ public static class EvidenceOps {
             ? Fin.Succ(row)
             : Fin.Fail<TCase>(new KernelFault.InvalidValue(Label: envelope.Kind, Requirement: $"the {typeof(TCase).Name} case")));
 
-    // The DURABLE options: the composition-seated merged suite options whose app-root mint folds
-    // `AppUiWireContext.Default` in, serving the persisted payloads no corpus family carries. Every corpus family
-    // leaves through `Element` and `WireJson`, never through these options.
     public static JsonSerializerOptions Wire {
         get => field ?? throw new InvalidOperationException("the app root seats Wire beside the SuiteContracts mint.");
         set;
     }
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// The ONE wire seam: Lower is the union's total Switch assigning exactly one arm per case, Admit the exhaustive
-// inverse over the generated case enum. `Both` keeps a column either side grows loud; the optional scalars are
-// the stated ignore rows because their generated setters reject null and `Has*` sits behind them.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -206,9 +185,6 @@ public static partial class EvidenceWire {
         dispatcherLag: static c => new Wire.EvidenceReceiptWire { DispatcherLag = DispatcherLag(c) },
         preCommit: static c => new Wire.EvidenceReceiptWire { PreCommit = PreCommit(c) });
 
-    // Exhaustive over the generated enum: `None` is the unset arm a newer producer's unknown field leaves
-    // behind, the discard the undefined ordinal no parse can produce — both refuse typed, and `Probe` proves at
-    // boot that every DEFINED arm lands on a case, so a grown corpus arm fails composition rather than decode.
     public static Fin<EvidenceReceipt> Admit(Wire.EvidenceReceiptWire wire, Op key) => wire.KindCase switch {
         Wire.EvidenceReceiptWire.KindOneofCase.Surface => Fin.Succ<EvidenceReceipt>(Surface(wire.Surface)),
         Wire.EvidenceReceiptWire.KindOneofCase.Focus => Fin.Succ<EvidenceReceipt>(Focus(wire.Focus)),
@@ -233,7 +209,7 @@ public static partial class EvidenceWire {
         Wire.EvidenceReceiptWire.KindOneofCase.None or _ => Fin.Fail<EvidenceReceipt>(key.InvalidInput()),
     };
 
-    // --- [LOWER] — one generated partial per arm; optional scalars ride the hand tail after the partial.
+    // --- [LOWER]
     [MapProperty(nameof(EvidenceReceipt.Surface.Descriptor), nameof(Wire.EvidenceReceiptWire.Types.Surface.Descriptor_))]
     [MapperIgnoreSource(nameof(EvidenceReceipt.Surface.Handle))]
     [MapperIgnoreTarget(nameof(Wire.EvidenceReceiptWire.Types.Surface.Handle))]
@@ -298,7 +274,6 @@ public static partial class EvidenceWire {
     private static partial Wire.EvidenceReceiptWire.Types.CollabSync CollabSync(EvidenceReceipt.CollabSync c);
     private static partial Wire.EvidenceReceiptWire.Types.CollabRevert CollabRevert(EvidenceReceipt.CollabRevert c);
 
-    // The outcome DERIVES from the fault carrier, so the generator reads one member into two columns.
     [MapProperty(nameof(EvidenceReceipt.Media.Fault), nameof(Wire.EvidenceReceiptWire.Types.Media.Outcome), Use = nameof(Outcome))]
     [MapProperty(nameof(EvidenceReceipt.Media.Fault), nameof(Wire.EvidenceReceiptWire.Types.Media.Fault), Use = nameof(Held))]
     private static partial Wire.EvidenceReceiptWire.Types.Media Media(EvidenceReceipt.Media c);
@@ -317,8 +292,6 @@ public static partial class EvidenceWire {
         return wire;
     }
 
-    // PixelIdentity is the Render owner's sole canonical-raster value. Version is a closed wire coordinate and
-    // the digest remains the kernel UInt128 currency; no wire-shaped local record sits between them.
     private static Wire.PixelIdentityWire Pixels(PixelIdentity identity) =>
         new() {
             Layout = Wire.PixelLayout.Rgba8SrgbStraightTopLeftV2,
@@ -327,8 +300,7 @@ public static partial class EvidenceWire {
             Hash = ContentHash.Wire(identity.Hash),
         };
 
-    // --- [ADMIT] — infallible arms generate; arms carrying a 16-byte key or the media
-    // CEL admit by hand on the rail, every independent refusal accumulated.
+    // --- [ADMIT]
     private static EvidenceReceipt Surface(Wire.EvidenceReceiptWire.Types.Surface wire) =>
         new EvidenceReceipt.Surface(wire.Host, wire.Descriptor_, wire.Scale, Presence(wire.HasHandle, wire.Handle));
 
@@ -381,7 +353,6 @@ public static partial class EvidenceWire {
         ContentHash.Admit(wire.FrontierDigest.Span, key)
             .Map(static EvidenceReceipt (digest) => new EvidenceReceipt.CollabRevert(wire.DocKey, digest, wire.InverseOps));
 
-    // The CEL at the C# edge: a failed outcome carries its fault, a ready one carries none, anything else refuses.
     private static Fin<EvidenceReceipt> Media(Wire.EvidenceReceiptWire.Types.Media wire, Op key) =>
         (wire.Outcome, Optional(wire.Fault)) switch {
             (Wire.MediaOutcome.Ready, { IsNone: true }) => Fin.Succ<EvidenceReceipt>(new EvidenceReceipt.Media(wire.Key, wire.Codec, wire.Source, None)),
@@ -405,7 +376,7 @@ public static partial class EvidenceWire {
                 : ContentHash.Admit(wire.Hash.Span, key)
                     .Bind(hash => PixelIdentity.Admit((int)wire.Width, (int)wire.Height, hash, key));
 
-    // --- [CONVERTERS] — per-TYPE non-generic user mappings the generator resolves by signature.
+    // --- [CONVERTERS]
     [UserMapping] private static WkDuration Lapse(Duration span) => span.ToProtobufDuration();
     [UserMapping] private static Duration Lapse(WkDuration span) => span.ToNodaDuration();
     [UserMapping] private static ByteString Key(UInt128 digest) => ContentHash.Wire(digest);
@@ -418,8 +389,6 @@ public static partial class EvidenceWire {
     private static Option<T> Presence<T>(bool present, T value) => present ? Some(value) : None;
 }
 
-// The PROJECTION seam from every sibling receipt onto its evidence case — Target-required, because a receipt
-// carries columns the envelope already stamps; union-valued columns cross through their own total Switch.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -430,8 +399,6 @@ public static partial class EvidenceMap {
     [MapProperty(nameof(RenderReceipt.Kind), nameof(EvidenceReceipt.Render.Slot))]
     public static partial EvidenceReceipt.Render ToEvidence(RenderReceipt receipt);
 
-    // EffectMeasure keeps each producer's last coordinate typed; these three projections are explicit because a
-    // union-valued target cannot be inferred from unrelated receipt members without semantic aliasing.
     public static EvidenceReceipt.Effect ToEvidence(PictureTileReceipt receipt) =>
         new("tile", Key(receipt.Key), Key(receipt.Outcome), receipt.Strained, Whole(receipt.Evicted),
             new EffectMeasure.Whole(receipt.ResidentBytes));
@@ -459,14 +426,10 @@ public static partial class EvidenceMap {
     [MapProperty(nameof(CollabRevertReceipt.Key), nameof(EvidenceReceipt.CollabRevert.DocKey))]
     public static partial EvidenceReceipt.CollabRevert ToEvidence(CollabRevertReceipt receipt);
 
-    // The media outcome union lowers onto the fault CARRIER through its own total Switch: ready is None, failed is
-    // the generated observation, so the case's discriminant is the outcome and no string restates it.
     [MapProperty(nameof(MediaReceipt.Outcome), nameof(EvidenceReceipt.Media.Fault), Use = nameof(MediaObservation))]
     public static partial EvidenceReceipt.Media ToEvidence(MediaReceipt receipt);
     public static partial EvidenceReceipt.Quality ToEvidence(QualityVerdict verdict);
 
-    // `ToInt64Nanoseconds` is the EXACT read of the column's own unit; a `Ticks` hop floors every frame to 100ns
-    // and this magnitude is the chargeback input `[04]` accrues into `TenantUsage.Gpu`.
     [MapProperty(nameof(GpuTimeline.Passes), nameof(EvidenceReceipt.GpuFrame.Passes), Use = nameof(Count))]
     [MapPropertyFromSource(nameof(EvidenceReceipt.GpuFrame.Unmeasured), Use = nameof(Unmeasured))]
     [MapProperty(nameof(GpuTimeline.MeasuredGpu), nameof(EvidenceReceipt.GpuFrame.MeasuredNanoseconds), Use = nameof(Nanoseconds))]
@@ -479,7 +442,7 @@ public static partial class EvidenceMap {
     [MapProperty(nameof(PreCommitFact.Len), nameof(EvidenceReceipt.PreCommit.Ops))]
     public static partial EvidenceReceipt.PreCommit ToEvidence(PreCommitFact fact);
 
-    // --- [CONVERTERS] — per-TYPE non-generic user mappings the generator resolves by signature.
+    // --- [CONVERTERS]
     [UserMapping] private static uint Whole(int count) => checked((uint)count);
     [UserMapping] private static ulong Wide(long magnitude) => checked((ulong)magnitude);
     [UserMapping] private static string Key(ThemeVariantRow row) => row.Key;
@@ -499,15 +462,11 @@ public static partial class EvidenceMap {
     [UserMapping] private static string Key(QualityTier row) => row.Key;
     [UserMapping] private static string Key(MotionQuality row) => row.Key;
     [UserMapping] private static uint Count(Seq<TokenKey> keys) => (uint)keys.Count;
-    // The fault crosses as the generated observation the AppHost owner lowers — recovery, rendered cause
-    // stamps, truncation, and the producing family's ordinal where one exists — never the Error value.
     [UserMapping] private static Option<FaultV1.FaultObservation> ErrorObservation(Option<Error> fault) => fault.Map(FaultWire.Observe);
     private static uint Count(Seq<PassTiming> passes) => (uint)passes.Count;
     private static uint Unmeasured(GpuTimeline timeline) => (uint)timeline.Passes.Filter(static pass => pass.Measured.IsNone).Count;
     private static ulong Nanoseconds(Duration measured) => checked((ulong)measured.ToInt64Nanoseconds());
 
-    // `observed`, `persisted`, and `host-routed` carry no instrument on the fan BY DECLARATION; the projection stays
-    // total over the outcome vocabulary so the wire keeps every disposition.
     [UserMapping] private static string Outcome(EditOutcome outcome) => outcome.Switch(
         observed: static _ => "observed",
         committed: static _ => "committed",
@@ -524,13 +483,6 @@ public static partial class EvidenceMap {
 ```
 
 ```csharp signature
-// The DURABLE roster: every payload the product persists and re-opens and NO peer runtime decodes — a board, a
-// revert ledger payload, a redline, a table state, a projection window, a tenant-usage table row. Every family
-// the corpus carries left this context with its STJ record; a row here naming a generated message's family is
-// the twin the wire-contract law refuses. A [Union]/polymorphic payload carries its [JsonPolymorphic]+
-// [JsonDerivedType] roster at its own declaration (RevertDelta 5, BoardItem 5), so the row names the ROOT alone.
-// Grains riding a `[06]` seal register their CLOSED `StateParcel<T>`, because the generator emits per closed
-// type and a bare inner row leaves the envelope the seal stores undescribed.
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -566,12 +518,8 @@ public partial class AppUiWireContext : JsonSerializerContext;
 - Boundary: instrument names are dotted `rasm.appui.<domain>.<measure>` with UCUM units (`s`, `By`, `1`, `{thing}`), never pre-baked `_total` or unit suffixes; the semconv coordinate is the kernel pin every contributor port defaults and `Mount` reads at the one mint; scope identity is the `TelemetrySource.AppUi` row, so a package-name literal beside it forks the spelling the message-envelope guard compares against; dimension keys are the slot consts declared here, so the `Dimensions` a row carries and the tag keys its writer spells are one vocabulary and a bare noun at a write site is a tag the governance view drops; `Mount` is the single materialization surface — the kernel mount refuses a duplicate declaration before any handle is created, and its rail carries both that refusal and any carried pack's; a refused measurement reaches no discard site — a fan arm rides its rail outward to the capsule's rail-shaped `Observe` and a composition-bound projection hands its returned rail to that same parking site; exemplar filtering and export governance ride the AppHost signal-governance rows; the metric plane carries NO tenant dimension and that is the UNTAGGED ARM of one shape rather than a fork of it — a shell process renders one operator's session, the kernel settles the absence as a value of the dimension axis, and the package's per-tenant truth stays `[04]`'s `TenantUsage` fold over the message-envelope partition every seal already stamps; a row earning the dimension declares it beside its own instrument and folds `InstrumentSet.Tags(TenantContext.Current, …)` at its arm with no roster edit here; keyed families keep declaration beside their producer — per-doc collab pending at `Collab/presence.md`, per-screen disposables at `Shell/screens.md`, per-pool resident bytes at `Render/meshlets.md`; board and reliability policy travel DOWN as one `BoardPack` on the contributor port and never as a package-specific field a root reaches by name; the pack's `Wire` column spells `appui.viewport` and the deploy plane's provenance tuple seats no key for it because it stays inside the process; objectives are process-local policy rows whose instruments are the declaring pages' rows and whose window, factor, severity, and budget share derive from the kernel burn table, so `Charts/telemetry.md` consumes them in-process and the estate crossing stays the generated `EvidenceTimelineWire`.
 
 ```csharp signature
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class AppUiTelemetry {
-    // One dimension vocabulary for both ends: a declaring page names these on its InstrumentSpec Dimensions and the
-    // fan writes the identical keys. Outcome carries a DOMAIN KEY and fault the generated integer; verb,
-    // tier, cause, and severity are carved OUT of outcome because an entry path, a geometry band, a terminal
-    // answer, and a rank folded onto one key made a board's outcome column a legend no reader can partition.
     public const string HostSlot = "rasm.appui.host";
     public const string SlotSlot = "rasm.appui.slot";
     public const string SurfaceSlot = "rasm.appui.surface";
@@ -602,14 +550,9 @@ public static class AppUiTelemetry {
     public static TelemetryContributorPort Contribute(string version, params ReadOnlySpan<InstrumentSpec> rows) =>
         new(Scope: Source, Version: version, Instruments: toSeq(rows.ToArray()));
 
-    // Pack-bearing twin, discriminated by input shape: a page carrying board and reliability policy hands them DOWN
-    // with the rows they name, so Mount proves every descriptor against the declaring port.
     public static TelemetryContributorPort Contribute(string version, BoardPack board, params ReadOnlySpan<InstrumentSpec> rows) =>
         new(Scope: Source, Version: version, Instruments: toSeq(rows.ToArray()), Board: Some(board));
 
-    // Meter-only mint: span custody is the kernel `SpanBand`'s, so a paired `ActivitySource` minted here would be a
-    // second source owner the composing root never admits and never disposes. `Admit` grades each pack against
-    // its declaring port BEFORE the meter mints, so a refusal leaves no registered handle behind.
     public static Fin<InstrumentSet> Mount(
         IMeterFactory factory, string version, CorrelationId root, LevelCells cells, Seq<TelemetryContributorPort> contributions) =>
         from _ in contributions.TraverseM(static port => port.Admit()).As()
@@ -619,9 +562,7 @@ public static class AppUiTelemetry {
         select set;
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
-// Outcome-to-instrument fan as data: Rows names the mapped values and Fallback the unmapped remainder, so an arm
-// carries no branch ladder and a route without a fallback drops precisely what it does not name.
+// --- [TABLES] --------------------------------------------------------------------------
 public sealed record FanRoute(FrozenDictionary<string, InstrumentSpec> Rows, Option<InstrumentSpec> Fallback) {
     public static FanRoute Of(Option<InstrumentSpec> fallback, params ReadOnlySpan<(string Value, InstrumentSpec Row)> rows) =>
         new(rows.ToArray().ToFrozenDictionary(static row => row.Value, static row => row.Row, StringComparer.Ordinal), fallback);
@@ -630,18 +571,11 @@ public sealed record FanRoute(FrozenDictionary<string, InstrumentSpec> Rows, Opt
         Rows.TryGetValue(value, out InstrumentSpec? row) ? Some(row) : Fallback;
 }
 
-// The receipt-kind roster the kernel fan mounts: every row KEYS on the generated `kind` arm name
-// — read through `EvidenceOps.KindOf(KindOneofCase)`, never re-spelled — and CARRIES its own write, which
-// decodes the envelope to that case and reads typed columns. Coverage is deliberately partial: an evidence case
-// with no row is receipt-only by declaration, and `EvidenceOps.Probe` proves every row's key is a registered kind.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EvidenceKind : IReceiptKind<EvidenceKind> {
     static readonly FanRoute RenderRoutes = FanRoute.Of(None, (CustomVisuals.Kind, CustomVisuals.Rendered));
 
-    // Four of the seven outcome spellings carry an instrument; `observed`, `persisted`, and `host-routed` drop on
-    // the absent fallback BY DECLARATION — a preview observation measures nothing, a settings write and the cell
-    // that triggered it would count one edit twice, and a host-routed edit is the host transaction's own fact.
     static readonly FanRoute EditRoutes = FanRoute.Of(None,
         ("committed", InspectorSurface.Committed),
         ("rejected", InspectorSurface.Rejected),
@@ -671,7 +605,6 @@ public sealed partial class EvidenceKind : IReceiptKind<EvidenceKind> {
     public static readonly EvidenceKind NativeAsset = new(EvidenceOps.KindOf(Wire.EvidenceReceiptWire.KindOneofCase.NativeAsset), Typed<EvidenceReceipt.NativeAssetIdentity>(
         static (set, row) => set.Write(NativeAssets.Resolved, 1d, InstrumentSet.Tags(
             (AppUiTelemetry.LibrarySlot, row.Fact.Library), (AppUiTelemetry.RidSlot, row.Fact.Rid)))));
-    // Listener gate ahead of a four-row fold: an unlistened change instrument discards all four writes.
     public static readonly EvidenceKind LiveData = new(EvidenceOps.KindOf(Wire.EvidenceReceiptWire.KindOneofCase.LiveData), Typed<EvidenceReceipt.LiveData>(
         static (set, row) => set.Enabled(Seq(LiveDataOps.Changes))
             ? ChangeRows.TraverseM(change => set.Write(LiveDataOps.Changes, change.Count(row),
@@ -687,21 +620,16 @@ public sealed partial class EvidenceKind : IReceiptKind<EvidenceKind> {
         }));
     public static readonly EvidenceKind Media = new(EvidenceOps.KindOf(Wire.EvidenceReceiptWire.KindOneofCase.Media), Typed<EvidenceReceipt.Media>(
         static (set, row) => Routed(set, MediaRoutes, row.Outcome, (AppUiTelemetry.CodecSlot, row.Codec))));
-    // FIVE producers (three Analysis planes, two Vfx) seal one Effect case, so its instrument declares HERE
-    // beside the fan — the one shared-declaration exception, because five per-page rows would spell one metric
-    // five times. Plane and outcome partition the count; the payload columns stay receipt-only.
     public static readonly InstrumentSpec EffectSealed = InstrumentSpec.Create(
         "rasm.appui.effect.sealed", InstrumentKind.Count, MeasureForm.Whole, "{receipt}",
         "effect receipts sealed by plane and outcome", Seq(AppUiTelemetry.PlaneSlot, AppUiTelemetry.OutcomeSlot), None, None, None);
     public static readonly EvidenceKind Effect = new(EvidenceOps.KindOf(Wire.EvidenceReceiptWire.KindOneofCase.Effect), Typed<EvidenceReceipt.Effect>(
         static (set, row) => set.Write(EffectSealed, 1d,
             InstrumentSet.Tags((AppUiTelemetry.PlaneSlot, row.Plane), (AppUiTelemetry.OutcomeSlot, row.Outcome)))));
-    // Tier lookup misses ride the rail: an unmapped key would hold the gauge at its last rank, which a board reads as a steady quality state.
     public static readonly EvidenceKind Quality = new(EvidenceOps.KindOf(Wire.EvidenceReceiptWire.KindOneofCase.Quality), Typed<EvidenceReceipt.Quality>(
         static (set, row) => QualityTier.TryGet(row.Tier, out QualityTier? tier)
             ? set.Level(PerfBudget.Tier, tier.Rank)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: PerfBudget.Tier.Name, Requirement: "a declared quality tier key"))));
-    // The one PER-FRAME arm, so the gate pays for itself at display cadence rather than at receipt volume.
     public static readonly EvidenceKind GpuFrame = new(EvidenceOps.KindOf(Wire.EvidenceReceiptWire.KindOneofCase.GpuFrame), Typed<EvidenceReceipt.GpuFrame>(
         static (set, row) => set.Enabled(Seq(RenderGraph.Gpu))
             ? set.Write(RenderGraph.Gpu, row.MeasuredNanoseconds / (double)NodaConstants.NanosecondsPerSecond,
@@ -711,8 +639,6 @@ public sealed partial class EvidenceKind : IReceiptKind<EvidenceKind> {
     [UseDelegateFromConstructor]
     public partial Fin<Unit> Write(InstrumentSet set, JsonElement payload);
 
-    // The decode rides the envelope's OWN arm: the payload parses through the suite parser, admits through the one
-    // inverse, and a payload off its declared case refuses by name on the rail.
     static readonly Op DecodeCase = Op.Of(name: "appui.evidence.decode-case");
     static Func<InstrumentSet, JsonElement, Fin<Unit>> Typed<TCase>(Func<InstrumentSet, TCase, Fin<Unit>> arm) where TCase : EvidenceReceipt =>
         (set, payload) => EvidenceOps.Message<Wire.EvidenceReceiptWire>(payload, DecodeCase)
@@ -721,18 +647,15 @@ public sealed partial class EvidenceKind : IReceiptKind<EvidenceKind> {
                 ? arm(set, typed)
                 : Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: typeof(TCase).Name, Requirement: "the declared evidence case")));
 
-    // A value the route neither maps nor falls back on is a declared drop, never a refusal.
     static Fin<Unit> Routed(InstrumentSet set, FanRoute route, string value, params ReadOnlySpan<(string Slot, object? Value)> tags) =>
         route.Resolve(value).Match(
             Some: row => set.Write(row, 1d, InstrumentSet.Tags(tags)),
             None: static () => Fin.Succ(unit));
 
-    // The level key is the OPTIONAL half of one cell entry, so a blank partition value projects the family's UNTAGGED
-    // entry rather than a fabricated empty-string key that every board would render as a live cohort.
     static Option<string> Keyed(string key) => Optional(key).Filter(static value => !string.IsNullOrWhiteSpace(value));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class EvidenceFan {
     static readonly Op Project = Op.Of(name: "appui.evidence.project");
 
@@ -741,13 +664,9 @@ public static class EvidenceFan {
             .Map(static row => ReceiptFan.Arm(row.Key, row.Write))
             .ToHashMap(static arm => arm.Key, static arm => arm.Arm));
 
-    // Foreign packages' envelopes are another fan's to project, so the source guard succeeds rather than refusing —
-    // only a MOUNTED arm's own write failure is a defect this rail carries outward.
     public static Fin<Unit> Project(ReceiptFan fan, ReceiptEnvelope envelope) =>
         envelope.Package.Equals(AppUiTelemetry.Source) ? fan.Project(envelope.Kind, envelope.Payload) : Fin.Succ(unit);
 
-    // One tap VALUE the composition hands to the AppHost `HookRail.Of`: scoped to the receipt seat, owned by this
-    // package's source row so `Release` retires exactly it, total over the fact union the seat can never fire outside its own case.
     public static HookTap<AppHostPoint, AppHostFact, TelemetrySource> Tap(ReceiptFan fan) =>
         new(Name: Project,
             Observe: fact => fact.Switch(
@@ -764,20 +683,13 @@ public static class EvidenceFan {
             Owner: Some(AppUiTelemetry.Source));
 }
 
-// Viewport reliability policy over the kernel SLO algebra: each ceiling scales the composed frame budget by its
-// stage share, while window, factor, severity, and budget-share figures all derive from the kernel burn table.
 public static class ViewportObjectives {
     public const double DisplayQuantile = 0.99d;
 
-    // Share names the fraction of the frame budget an indicator's own stage owns; Title is the panel's own column on
-    // the same row, so a viewport indicator and the tile reading it can never name two different series.
     static readonly Seq<(string Name, string Title, InstrumentSpec Row, double Share, double Target)> Rows = Seq(
         ("appui.viewport.frame", "Frame latency", RenderGraph.Frame, 1.0d, 0.99d),
         ("appui.viewport.gpu", "GPU frame time", RenderGraph.Gpu, 0.7d, 0.995d));
 
-    // ONE pack is the whole surface — panels beside objectives off one row table — so `Mount`'s port fold proves
-    // widget resolution, series kind, and objective-name distinctness together. Every row omits its window, so
-    // kernel admission canonicalizes the one estate compliance default and stays total.
     public static BoardPack Pack(FrameBudget budget) =>
         new(Wire: "appui.viewport",
             Panels: Rows.Map(static row => PanelSpec.Of(row.Title, row.Row.Name)).Strict(),
@@ -802,7 +714,7 @@ public static class ViewportObjectives {
 - Boundary: the durable counterpart is a SOURCE, never a second fold — a resident scan hands back the same `ReceiptEnvelope` values the live sink holds, so the correlation join and the billing accrual each stay one implementation; the resident arm carries an injected arrow alone, so this page names no store type, no residence, and no table; the join consumes only `ReceiptEnvelope` — no Compute or Persistence receipt shape enters the fold, and each per-package payload stays an opaque `JsonElement` decoded against its owning wire contract at the view edge; `Overlaps` is the band algebra — a causal-order claim between rows whose bands overlap is structurally unrepresentable; the usage fold partitions on the envelope's own `Tenant` field and rehydrates each payload through `EvidenceOps.Decode` before accrual, so the whole billing fold runs on the typed union under a total `Switch` — a new case decides its billing axes at compile time, a wire-name read never enters the fold, and a second measurement path is the deleted form; the tenant crosses outward as `TenantContext.Entry`, the one projection the `TenantSlot` baggage dimension already carries, and the estate cost-attribution join over that dimension is the cross-libs consumer's.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SkewBand(Instant Earliest, Instant Latest) {
     public static SkewBand Of(ReceiptEnvelope envelope) =>
         new(envelope.Physical - envelope.SkewBound, envelope.Physical + envelope.SkewBound);
@@ -818,12 +730,6 @@ public sealed record EvidenceRow(
 
 public sealed record EvidenceTimeline(CorrelationId Correlation, Seq<EvidenceRow> Rows);
 
-// The ONE projection onto the generated timeline family: rows and bands generate member-wise, the header
-// crosses through the AppHost owner of `ReceiptHeaderWire`, the receipt rides this page's own union seam, and
-// the correlation rides the kernel's own 16-byte rendering. `Both` — the domain row carries exactly the wire's
-// five columns, and the header's column set is AppHost's to prove at its own seam. Header and receipt are
-// SEPARATE columns by the corpus's own composition law: the header states what every receipt carries and the
-// arm states what this one carries, so the payload is exhaustive here rather than an `Any` a registry resolves.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -838,11 +744,8 @@ public static partial class TimelineWire {
     [UserMapping] private static Wire.EvidenceReceiptWire Receipt(EvidenceReceipt receipt) => EvidenceWire.Lower(receipt);
 }
 
-// A correlation-free scope IS the whole-window scan the usage fold reads, so one value serves both questions.
 public readonly record struct EvidenceScope(Instant From, Instant Until, Option<CorrelationId> Correlation);
 
-// Both arms hand back the SAME `ReceiptEnvelope` values, so `Correlate` and `Fold` stay ONE implementation over two
-// sources; the resident arm is one injected arrow the composition root binds like every other port.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EvidenceSource {
     private EvidenceSource() { }
@@ -853,23 +756,17 @@ public abstract partial record EvidenceSource {
         live:     static c => IO.pure(Fin<Seq<ReceiptEnvelope>>.Succ(c.Envelopes)),
         resident: static c => c.Read(c.Scope));
 
-    // Narrowing is the RESIDENT arm's alone: a live sink already holds every envelope and `Correlate` groups them by
-    // correlation anyway, so narrowing a held Seq would filter twice to reach one answer.
     public EvidenceSource Narrowed(CorrelationId correlation) => Switch(
         state:    correlation,
         live:     static (_, held) => (EvidenceSource)held,
         resident: static (key, durable) => new Resident(durable.Read, durable.Scope with { Correlation = Some(key) }));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EvidenceJoin {
     public static IO<Fin<Seq<EvidenceTimeline>>> Correlated(EvidenceSource source, Option<TelemetrySource> package = default) =>
         source.Stream().Map(read => read.Map(envelopes => Correlate(envelopes, package)));
 
-    // The run-queue join point: the submission's correlation narrows the source and the fold answers that one
-    // timeline. The package filter stays absent BY DECLARATION — a study run's evidence is cross-package, so
-    // filtering to the AppUi key would answer the submit and hide the solve. An absent timeline is a run that
-    // sealed nothing yet, structurally distinct from a failed read.
     public static IO<Fin<Option<EvidenceTimeline>>> Run(EvidenceSource source, StudySubmission submission) =>
         Correlated(source.Narrowed(submission.Correlation))
             .Map(read => read.Map(timelines => timelines.Find(row => row.Correlation == submission.Correlation)));
@@ -908,8 +805,6 @@ public static class EvidenceReport {
 ```
 
 ```csharp signature
-// Every 64-bit column here accumulates without bound across a billing window, so the type declares the
-// decimal-text posture ONCE and the two `int` columns, whose range can never reach 2^53, opt back to `Strict`.
 [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
 public sealed record TenantUsage(
     string Tenant,
@@ -931,8 +826,6 @@ public static class TenantUsageFold {
     public static IO<Fin<Seq<TenantUsage>>> Resident(EvidenceSource source, Duration window) =>
         source.Stream().Map(read => read.Bind(envelopes => Fold(envelopes, window)));
 
-    // Admission reads the TICK span the flooring arithmetic divides by: `Duration.ToTimeSpan()` truncates toward
-    // zero, so a `Duration.Zero`-only gate admits a sub-100ns window whose modulus is a division by nothing.
     public static Fin<Seq<TenantUsage>> Fold(Seq<ReceiptEnvelope> envelopes, Duration window) =>
         window.ToTimeSpan().Ticks <= 0L
             ? Fin.Fail<Seq<TenantUsage>>(new KernelFault.InvalidValue(Label: nameof(window), Requirement: "an accrual window of at least one tick"))
@@ -949,8 +842,6 @@ public static class TenantUsageFold {
                         static (usage, row) => usage.Bind(held => Accrue(held, row.Fact))))
                     .As());
 
-    // True floor on both sides of the epoch: the remainder follows the dividend's sign, so a pre-epoch instant would
-    // otherwise bucket toward the epoch and cross a boundary its neighbours do not.
     static Instant Floor(Instant at, Duration window) {
         long span = window.ToTimeSpan().Ticks;
         long ticks = at.ToUnixTimeTicks();
@@ -958,10 +849,6 @@ public static class TenantUsageFold {
         return Instant.FromUnixTimeTicks(ticks - (offset < 0L ? offset + span : offset));
     }
 
-    // Total over the union, so a new evidence case decides its billing axes at compile time or declares it carries
-    // none; the envelope count accrues once outside the dispatch. Effects bill nothing (their typed measures are
-    // receipt evidence, and the pixels already accrue at the render receipt); dev-loop
-    // facts bill nothing (a starved dispatcher is the shell's own defect, pre-commit bytes accrue at the merge).
     static Fin<TenantUsage> Accrue(TenantUsage usage, EvidenceReceipt fact) =>
         fact.Switch(
             state: usage,
@@ -1038,9 +925,7 @@ flowchart LR
 - Boundary: the parcel rides `EvidenceOps.Wire`, the ONE composition-seated options every AppUi durable payload crosses, so a grain carrying `Instant`, `Option`, `Seq`, `Set`, or `HashMap` members round-trips on the registrations this owner cannot self-describe and a package-internal options set beside it is the silent default round-trip no decode refuses. Forward ladders, per-generation upcast steps, version ordinals inside keys, and decodes that rewrite the parsed node are the DELETED forms: each translated one authored shape into another and each translation is a second authority on what the grain means, so a build reading a stale payload rendered a shape nobody authored while every gate passed. Gate ORDER makes each cost what it must — the length read precedes any parse, so a corrupt or hostile blob never allocates against the UI thread, and the generation compare precedes the inner decode, so a stale parcel costs one integer read. `StateKey` refuses a dotted segment, since a segment carrying its own dot mints levels no reader parses and a hand-spelled key beside the mint is the two-producer drift `docs/laws/scars.md` `[UNREAD_KEY_ROW]` names. This owner decides SHAPE alone: where a blob lives, when it is written, and what prunes it stay each consumer's own port, so no store type, lane, or cadence enters here.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// Each row carries WHAT SURVIVES as its own delegate rather than a branch every reader repeats, so a grain's
-// declaration and the refusal behaviour it buys are one line.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1052,9 +937,7 @@ public sealed partial class StateResidue {
     public partial Option<string> Keep(string blob);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// Every persisted grain addresses storage through this ONE mint. Dotted segments mint key levels no reader
-// parses, so this pattern admits four undotted segments and `Create` composes no level `Of` never named.
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(SkipKeyMember = false)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1067,23 +950,14 @@ public sealed partial class StateKey {
             : new ValidationError("StateKey requires rasm.appui.<domain>.<grain> over undotted segments.");
 }
 
-// Generation rides INSIDE the stored bytes beside the value, so the comparison runs before the inner decode
-// rather than off a column the inner shape would have to keep carrying.
 public sealed record StateParcel<T>(int Generation, T Value);
 
-// Value present says the seal agreed; residue present says a `hold` grain kept its refused bytes beside the
-// seed; both absent says a `discard` grain refused — one shape, so no consumer branches on why.
 public sealed record Restored<T>(Option<T> Value, Option<string> Residue) {
     public T Or(T seed) => Value.IfNone(seed);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
-// One grain's whole durable regime: the key it stores under, the generation its writer seals with, and what a
-// refusal leaves behind. Forward and inverse share this owner, so a write and the read answering it cannot
-// disagree about either half.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record StateSeal(StateKey Key, int Generation, StateResidue Residue) {
-    // Generous enough that no honest grain approaches it, tight enough that a decode never becomes an
-    // allocation vector; the length read is the FIRST gate, so an oversize blob costs no parse.
     public const int Ceiling = 1 << 20;
 
     public static StateSeal Of(string domain, string grain, int generation, StateResidue residue) =>
@@ -1093,10 +967,6 @@ public sealed record StateSeal(StateKey Key, int Generation, StateResidue Residu
         Op.Of(name: "appui.state.write").Catch(() =>
             Fin.Succ(JsonSerializer.Serialize(new StateParcel<T>(Generation, value), EvidenceOps.Wire)));
 
-    // TOTAL: oversize, unreadable, foreign-generation, and refused-admission are ONE outcome, because a stored
-    // payload this build cannot admit is nothing a caller can act on — the grain rebuilds from its seed. The
-    // grain's own admission runs HERE, so bytes decoding into the shape still prove the shape's invariants and
-    // every refusal reason takes the one disposition rather than one per consumer.
     public Restored<T> Read<T>(string blob, Func<T, Fin<T>> admit) =>
         (blob.Length > Ceiling
             ? Option<T>.None

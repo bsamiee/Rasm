@@ -24,7 +24,7 @@
 - Boundary: no host type crosses this seam — the kernel `CellLattice` publishes its placement as neutral doubles (`Affine`/`Inverse` twelve row-major coefficients each), so `LatticeGeodesy` composes arithmetic and never a host type, `CentreOf` answering the seam-owned `Graph/element` `Vector3` and `Fractional` a bare `(Column, Row)` pair — `LatticeGeodesy` OWNS the half-cell centring and the column-norm extent over those neutral coefficients, the one place either is spelled; no member on this page names `Point3d`/`Vector3d`/`Transform` or opens `Rhino.Geometry`. `CoverageGrid` holds the bytes BY REFERENCE — the per-level `BlobKey` addresses the raster in the same seed-zero store the geometry uses, and an inlined pixel buffer, a host raster handle, or a second hasher on the seam is the named defect; the placement is the kernel `CellLattice` and nothing else, so a package-local geotransform record, an axis-aligned-only descriptor, or a forward-only map with no inverse is the deleted form, and a re-doubting placement check here is a second admission authority beside the kernel's own. The base IS the level run's head — a base-beside-the-pyramid column pair re-derives the level shape it already owns, and a source pyramid whose factors are not successive halvings normalizes at the `Rasm.Bim` projector (which re-decimates onto the chain) rather than diverging the level affine from the base. Sampling is ONE policy-driven `Sample` and legend reading ONE policy-driven `Shade`, so a consumer hand-branching `Fractional`-vs-`CellAt` or lerping display bytes per call is the deleted form; a region read is the ONE `Window` projection; a band is typed AND fully self-describing, gated at ITS OWN construction, so a `string` data type, a sentinel-double nodata, a raw-undecoded band, or a `Palette` role with no colour table behind it is unrepresentable; a legend colour is an admitted `PerceptualColor` and the display-byte quadruple exists only inside `CanonicalBytes` (through the kernel's ONE `ToRgb` quantizer, condition-free by kernel law, so the content key stays byte-stable cross-runtime); vector features ride the `Object` node, so a parallel `Feature` family on the seam is the deleted form; the `GeoReference` CRS rides the coverage (and the `Header`), so a coverage carries its own georeference for a multi-CRS site context; `CanonicalBytes` is the coverage's only content projection, and a per-coverage ad-hoc serialization is the named defect.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
 using LanguageExt;
 using LanguageExt.Common;
@@ -40,32 +40,22 @@ using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Geospatial;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CoverageKind {
- public static readonly CoverageKind Raster = new("raster", interpolates: false); // discrete cells (orthophoto, land cover)
- public static readonly CoverageKind Field = new("field", interpolates: true);   // continuous phenomenon (elevation, irradiance)
+ public static readonly CoverageKind Raster = new("raster", interpolates: false);
+ public static readonly CoverageKind Field = new("field", interpolates: true);
 
- // The sampling policy Sample and Shade both read: a Field interpolates (fractional inverse, perceptual blend), a
- // Raster contains (floored cell, exact bin) — a column on the row, never a caller-side branch.
  public bool Interpolates { get; }
 }
 
-// LatticeGeodesy reads an admitted kernel lattice geospatially. The kernel publishes the placement HOST-NEUTRALLY —
-// `Affine`/`Inverse` twelve row-major 3×4 coefficients each (the omitted fourth row is the invariant [0 0 0 1]) —
-// so this block OWNS the half-cell centring and the column-norm arithmetic over those neutral doubles and answers
-// the seam-owned Vector3 / bare (Column, Row) pair with no host type in scope. Both coefficient runs are the
-// kernel's own ImmutableArray<double> stores; every read spells .AsSpan() so the projection stays zero-copy.
 public static class LatticeGeodesy {
  extension(CellLattice lattice) {
-  // The one comparable ground-resolution scalar LevelFor ranks against — the cell measure at its rank root, so a
-  // rotated planar lattice and a layered one both answer one magnitude.
   public double Resolution => lattice.Rank is 2 ? Math.Sqrt(lattice.CellMeasure) : Math.Cbrt(lattice.CellMeasure);
 
   public Vector3 CentreOf(int column, int row, int layer = 0) =>
    Placed(lattice.Affine.AsSpan(), column + 0.5, row + 0.5, lattice.Rank is 3 ? layer + 0.5 : 0.0);
 
-  // Invertibility is admission evidence (CellLattice.Of gated it), so this read is total.
   public (double Column, double Row) Fractional(double x, double y) =>
    Placed(lattice.Inverse.AsSpan(), x, y, 0.0) switch { var local => (local.X, local.Y) };
 
@@ -80,8 +70,6 @@ public static class LatticeGeodesy {
       a[8] * x + a[9] * y + a[10] * z + a[11]);
 }
 
-// The GDAL ColorInterp set reduced to the roles a consumer reads; the Rasm.Bim projector maps the full enum
-// (GCI_HueBand/GCI_CyanBand/GCI_YCbCr_*) onto these via the generated TryGet, defaulting Undefined.
 [SmartEnum<string>]
 public sealed partial class BandRole {
  public static readonly BandRole Undefined = new("undefined");
@@ -93,29 +81,16 @@ public sealed partial class BandRole {
  public static readonly BandRole Alpha = new("alpha");
 }
 
-// One palette legend entry — the GDAL ColorTable quad PLUS the RasterAttributeTable category label — lowered onto
-// the seam. The colour is an ADMITTED kernel PerceptualColor (the Bim projector admits through PerceptualColor.OfRgb
-// at the host edge), so the legend gains Mix/Contrast/Difference reach a display-byte quad could not carry.
 [Equatable]
 public readonly partial record struct ColorBin(int Index, PerceptualColor Colour, string Category = "") {
- // Content keys on the display-byte quadruple through the kernel's ONE quantizer — condition-free by kernel law
- // (viewing conditions seat on BlendPath/DeltaMetric payloads, never ToRgb), so the key cannot fork across runtimes
- // adapting under different surrounds. Perceptual reach stays on the DISPLAY axis, never this projection.
  public void CanonicalBytes(CanonicalWriter w) {
   (byte r, byte g, byte b, byte a) = Colour.ToRgb();
   w.Ordinal(Index).Ordinal(r).Ordinal(g).Ordinal(b).Ordinal(a).String(Category);
  }
 }
 
-// One pyramid level — the run's HEAD is the full-resolution base, so base and overview share one row shape, one
-// blob-key column, and one tiling body. The level carries its OWN CellLattice (census, cell size, and world affine
-// one admitted value) and Of proves the run is the head's Coarsen chain, so a level's ordinal IS its position and
-// its affine can never drift from the base. Block is the GDAL tile size; ABSENCE is untiled (no zero sentinel).
 [Equatable]
 public readonly partial record struct OverviewLevel(CellLattice Grid, ArtifactContent Raster, Option<(int X, int Y)> Block = default) {
- // TileOf resolves the GDAL GetBlockSize tile window a windowed fetch ALIGNS to: the containing tile column/row and
- // its bounds-clipped cell-extent (an edge tile is partial). An untiled level is one full-width row band. None for
- // an out-of-bounds cell.
  public Option<(int TileCol, int TileRow, int OriginCol, int OriginRow, int SpanCol, int SpanRow)> TileOf(int col, int row) {
   int width = Grid.Columns.Value, height = Grid.Rows.Value;
   if (!Grid.Contains(col, row)) { return None; }
@@ -131,9 +106,6 @@ public readonly partial record struct OverviewLevel(CellLattice Grid, ArtifactCo
  }
 }
 
-// One Sample result — the discrete-cell-or-continuous-fraction discriminant the CoverageKind.Interpolates policy
-// column selects. Inside rides the ROOT: one bounds column, two payload cases, so neither case re-declares it.
-// RECORD union (transient read result — see the [02] Exemption card); the private root ctor closes the family.
 [Union]
 public abstract partial record CoverageSample {
  private CoverageSample(bool inside) { Inside = inside; }
@@ -144,9 +116,6 @@ public abstract partial record CoverageSample {
  public sealed record Cell(int Col, int Row, bool Inside) : CoverageSample(Inside);
 }
 
-// Construction-gated band schema: Of is the ONLY admission, so a non-finite decode, a degenerate range, or a hollow
-// or colliding palette is UNREPRESENTABLE and the grid's own gates never re-doubt a row. The legend normalizes to
-// index order AT INTAKE, so Bracket, CanonicalBytes, and structural equality all read one stored regime.
 [Equatable]
 public sealed partial record CoverageBand {
  public int Index { get; }
@@ -166,7 +135,6 @@ public sealed partial record CoverageBand {
   (Index, Name, SampleType, Role, NoData, Units, Offset, Scale, Range, Palette) =
    (index, name, sampleType, role, noData, units, offset, scale, range, palette);
 
- // NoData stays UNGATED: a NaN/±∞ sentinel is legal GDAL float nodata the NaN-safe IsNoData exists to match.
  public static Fin<CoverageBand> Of(
   int index, string name, ChannelDtype sampleType, BandRole role, Op key,
   Option<double> noData = default, string units = "", double offset = 0.0, double scale = 1.0,
@@ -187,25 +155,16 @@ public sealed partial record CoverageBand {
     .Apply(static (_, _) => unit).As(),
    None: () => Success<Error, Unit>(unit));
 
- // The linear decode a scaled-integer band carries (GDAL GetOffset/GetScale): a UInt16 DEM at scale 0.01 reads in
- // metres without the consumer hand-applying it.
  public double Real(double raw) => Offset + (Scale * raw);
 
- // NaN-safe via double.Equals — a NaN sentinel matches a NaN cell, which == misses.
  public bool IsNoData(double raw) => NoData is { IsSome: true, Case: double noData } && raw.Equals(noData);
 
- // Resolve a Palette band's raw cell value to its legend entry; None when the band carries no palette or the index
- // is not in the legend — the consumer rails its own missing-legend handling rather than defaulting a colour.
  public Option<ColorBin> Decode(double raw) => Palette.Find(b => b.Index == (int)Math.Floor(raw));
 
- // Greatest bin at-or-below and least strictly above, one pass over the admitted index order.
  private (Option<ColorBin> Lower, Option<ColorBin> Upper) Bracket(double raw) =>
   Palette.Fold((Lower: Option<ColorBin>.None, Upper: Option<ColorBin>.None), (best, bin) =>
    bin.Index <= raw ? (Some(bin), best.Upper) : (best.Lower, best.Upper.IsSome ? best.Upper : Some(bin)));
 
- // Perceptual interpolation between bracketing bins for a continuous Field — a channel-wise byte lerp travels the
- // sRGB diagonal and bands/shifts hue. Beyond the terminal bins the terminal colour holds (a legend states no
- // extrapolation); bins are index-distinct at admission, so the unit quotient is total.
  public Option<PerceptualColor> Blend(double raw) => Bracket(raw) switch {
   ({ IsSome: true, Case: ColorBin lo }, { IsSome: true, Case: ColorBin hi }) =>
    Some(lo.Colour.Mix(hi.Colour, UnitInterval.Create(value: (raw - lo.Index) / (hi.Index - lo.Index)))),
@@ -223,31 +182,21 @@ public sealed partial record CoverageBand {
  }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record CoverageGrid {
  public CoverageKind Kind { get; }
- // ORDERED runs both: Levels' position IS the pyramid ordinal under the Coarsen-chain law, Bands normalize to
- // index order at intake — stored order, structural equality, and CanonicalBytes read ONE regime.
  [property: OrderedEquality] public Seq<OverviewLevel> Levels { get; }
  [property: OrderedEquality] public Seq<CoverageBand> Bands { get; }
  public GeoReference Crs { get; }
 
- // One-hop base reads: the run's head IS the full-resolution base (non-empty by admission, so the index is total).
  public OverviewLevel Base => Levels[0];
  public CellLattice Grid => Base.Grid;
  public ArtifactContent Raster => Base.Raster;
 
- // PRIVATE ctor + GET-ONLY members: Of is the ONLY public admission, so an off-chain pyramid or a malformed band
- // set is UNREPRESENTABLE; a wire or persistence decoder re-admits through the SAME railed Of (the
- // ContentAddress.Verify distrust posture).
  private CoverageGrid(CoverageKind kind, Seq<OverviewLevel> levels, Seq<CoverageBand> bands, GeoReference crs) =>
   (Kind, Levels, Bands, Crs) = (kind, levels, bands, crs);
 
- // Independent invariants ACCUMULATE through the shared ADMISSION_SLOTS algebra; band-local invariants already
- // proved at CoverageBand.Of never re-run here. The Coarsens slot carries the KERNEL's own Coarsen refusal — a
- // boolean gate swallowed it. The lattice arrives ADMITTED (CellLattice.Of gated invertibility and budget), so
- // placement degeneracy is unrepresentable rather than gated.
  public static Fin<CoverageGrid> Of(
   CoverageKind kind, Seq<OverviewLevel> levels, Seq<CoverageBand> bands, GeoReference crs, Op key) =>
   Accumulate(Seq(
@@ -265,10 +214,6 @@ public sealed partial record CoverageGrid {
     In(block.Y, Band.Positive, $"coverage-level[{index}].block.y", key)).Apply(static (_, _) => unit).As(),
    None: () => Success<Error, Unit>(unit))).Strict());
 
- // Each level is its predecessor coarsened EXACTLY once — the adjacent-pair form of the chain proof, accumulating,
- // so every off-chain step reports (a threaded fold stopped at the first). The slot carries the KERNEL's own
- // Coarsen refusal where coarsening itself refuses, the chain token where a level's lattice diverges. This ONE
- // proof subsumes the coarser-than-base, cell-monotone, and ordering gates a descriptor-less level set needed.
  private static Validation<Error, Unit> Coarsens(Seq<OverviewLevel> levels, Op key) =>
   Accumulate(levels.Zip(levels.Tail).Map(pair =>
    pair.Item1.Grid.Coarsen(key).Match(
@@ -277,14 +222,9 @@ public sealed partial record CoverageGrid {
 
  public Option<CoverageBand> BandAt(int index) => Bands.Find(b => b.Index == index);
 
- // The ONE policy-driven legend read, the colour dual of Sample: the SAME Interpolates column that picks a
- // fractional or discrete sample picks an interpolated or exact colour. None for a band without a legend or a raw
- // value outside it. A caller lerping display bytes, or branching on Kind itself, is the deleted form.
  public Option<PerceptualColor> Shade(int index, double raw) =>
   BandAt(index).Bind(band => Kind.Interpolates ? band.Blend(raw) : band.Decode(raw).Map(static bin => bin.Colour));
 
- // The ONE policy-driven read: a Field yields the raw fractional inverse, a Raster the FLOORED containing cell.
- // Floor (not Round) is the GDAL pixel-containment idiom — cell (c,r) spans [c,c+1)×[r,r+1).
  public Fin<CoverageSample> Sample(double x, double y, Op key) =>
   Finite(key, ("coverage-sample-x", x), ("coverage-sample-y", y))
    .Map(_ => SampleAdmitted(x, y)).ToFin();
@@ -297,7 +237,6 @@ public sealed partial record CoverageGrid {
    : new CoverageSample.Cell(c, r, inside);
  }
 
- // The explicit-discrete projection a caller takes when it wants a cell regardless of Kind; None outside.
  public Fin<Option<(int Col, int Row)>> CellAt(double x, double y, Op key) =>
   Finite(key, ("coverage-cell-x", x), ("coverage-cell-y", y))
    .Map(_ => CellAtAdmitted(x, y)).ToFin();
@@ -307,28 +246,18 @@ public sealed partial record CoverageGrid {
   return Discrete(col, row) is (int c, int r, true) ? Some((c, r)) : None;
  }
 
- // The ONE floor-and-bound containment rule Sample and CellAt both compose.
  private (int Col, int Row, bool Inside) Discrete(double col, double row) {
   int c = (int)Math.Floor(col), r = (int)Math.Floor(row);
   return (c, r, Grid.Contains(c, r));
  }
 
- // A discrete cell's CENTRE world point — LatticeGeodesy owns the half-cell offset over the neutral affine.
  public Vector3 CellCenter(int col, int row) => Grid.CentreOf(col, row);
 
- // The coarsest level whose resolution still resolves the target — TOTAL over the admitted chain: resolutions
- // strictly coarsen along the run, so one fold over stored order answers, the base the floor when no overview is
- // fine enough or the target is finer than the base. No extremum machinery re-derives what admission proved.
  public Fin<OverviewLevel> LevelFor(double targetResolution, Op key) =>
   In(targetResolution, Band.Positive, "coverage-target-resolution", key)
    .Map(resolution => Levels.Fold(Base, (best, level) => level.Grid.Resolution <= resolution ? level : best))
    .ToFin();
 
- // A world-rect read a Rasm.Compute region fetch composes (LevelFor -> Window -> ByteLength -> TileOf): the four
- // corners invert onto the CHOSEN level's OWN lattice (rotation-exact — an axis-aligned world rect is a cell-space
- // parallelogram), the corner envelope folds through the one MeasureBand.Envelope owner per axis, floors to
- // containing cells, clips to that lattice's census; None when the rect misses the coverage. Each level carries its
- // own affine (the Coarsen-chain law), so no base-to-level ratio exists to get wrong.
  public Fin<Option<(int Col, int Row, int SpanCol, int SpanRow)>> Window(
   double x0, double y0, double x1, double y1, OverviewLevel level, Op key) =>
   Accumulate(Seq(
@@ -349,17 +278,9 @@ public sealed partial record CoverageGrid {
   return c1 < c0 || r1 < r0 ? None : Some((c0, r0, c1 - c0 + 1, r1 - r0 + 1));
  }
 
- // Uncompressed raster bytes across bands at a chosen level (census · per-cell stride) — a consumer sizes a blob
- // fetch from the metadata alone. A complex row's Width already counts both components, so the sum is exact for
- // SAR/InSAR; every band spans the same census, so the stride folds once and the census multiplies once.
  public long ByteLength(OverviewLevel level) =>
   level.Grid.CellCount * Bands.Fold(0L, static (stride, b) => stride + b.SampleType.Width);
 
- // The Graph/element#NODE_MODEL Node.Coverage arm delegates here: kind, the count-framed level run, the CRS, and
- // each band in stored (index) order — every double through the shared IEEE-754 canon so the content identity is
- // byte-stable across the runtimes sharing the one XxHash128 seed. Twelve coefficients ARE the whole affine, so a
- // rotated or layered placement keys distinctly; two coverages sharing a base raster but differing in pyramid,
- // CRS, palette, or placement address as the distinct coverages they are.
  public void CanonicalBytes(CanonicalWriter w) {
   w.String(Kind.Key)
    .Rows(Levels, static (level, wr) => level.CanonicalBytes(wr));

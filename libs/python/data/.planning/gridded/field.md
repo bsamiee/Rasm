@@ -50,26 +50,10 @@ type FieldCoords = tuple[str, ...]
 type QuantizeMode = Literal["BitGroom", "BitRound", "GranularBitRound"]
 
 
-# the netcdf4-only encoding keys the h5netcdf backend rejects: lossy quantization rides the netCDF-C surface alone, so
-# `for_vars(quantize=False)` strips them and the shared compression band threads to both backends.
 _QUANTIZE_KEYS: "Final[frozenset[str]]" = frozenset({"least_significant_digit", "significant_digits", "quantize_mode"})
 
-# the CF-plane raise surface across all three engines: `h5netcdf`'s strict-netCDF-4 refusal and netCDF-C's
-# absent-feature refusal both root at bare `Exception`, so each is named, and `BaseZarrError` is the v3 metadata,
-# node, and codec root. xarray's own `AlignmentError`/`MergeError`/`CoordinateValidationError` are `ValueError`
-# refinements the builtin ancestor admits, so the set never names the deferred `xarray` proxy and never reifies it at
-# module scope. The HDF5 leg answers `OSError` for a library or driver fault, `KeyError` for an absent name, and
-# `TypeError`/`ValueError` for a dtype or encoding mismatch, exactly as the h5py catalogue documents.
 _CF_RAISES: Final[Catch] = (CompatibilityError, NetCDF4MissingFeatureException, BaseZarrError, KeyError, TypeError, ValueError, OSError)
 
-# this module's whole raise roster, seated once for all five sections: every fenced leg and every explicit refusal on
-# this page resolves ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a
-# real module at import. `container.*` points name the raw-container plane and `corpus.*` the replicate-chunked
-# ensemble container — both live in THIS module, so one leg carries all three planes and a section mints no roster of
-# its own. The I/O legs declare TRANSIENT, a store or driver fault a re-issue may clear; the in-memory selection and
-# Arrow lowerings declare TERMINAL, since a re-run of a pure transform over the same cube refuses identically; and
-# every container-contract refusal declares TERMINAL because a truncated mint, a big-endian element, and a residence
-# outside the producer's closed pair all survive any number of re-reads.
 FIELD_OPEN: Final[FaultRow[DataLeg]] = FaultRow(leg=DataLeg.FIELD, point="open", arm="boundary", defect="cf-open", retriability=TRANSIENT)
 FIELD_READ: Final[FaultRow[DataLeg]] = FaultRow(leg=DataLeg.FIELD, point="read", arm="boundary", defect="cf-read", retriability=TRANSIENT)
 FIELD_WRITE: Final[FaultRow[DataLeg]] = FaultRow(leg=DataLeg.FIELD, point="write", arm="boundary", defect="cf-write", retriability=TRANSIENT)
@@ -88,9 +72,6 @@ CONTAINER_SLAB: Final[FaultRow[DataLeg]] = FaultRow(
 CONTAINER_LIFT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.FIELD, point="container.labelled", arm="boundary", defect="phony-lift", retriability=TRANSIENT
 )
-# one PARAMETERIZED row for both halves of the same law — the producer's mint is incomplete — because an absent
-# dataset path and an absent attribute row are the same refusal reading a different coordinate, and the slot carries
-# which one the container omitted.
 CONTAINER_TRUNCATED: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.FIELD, point="container.mint", arm="boundary", defect="mint-truncated", retriability=TERMINAL, slots=("absent",)
 )
@@ -195,7 +176,6 @@ class FieldDataset(Struct, frozen=True):
     @classmethod
     @beartype(conf=FAULT_CONF)
     def open(cls, ref: ResourceRef) -> "RuntimeRail[FieldDataset]":
-        # CF cube I/O carries a span per leg — trace parity with the gridded plane; the fence inside marks a failed leg's span.
         with _TRACER.start_as_current_span("field.open", attributes={"rasm.field.engine": FieldEngine.from_ref(ref).value}):
             return boundary(FIELD_OPEN, lambda: _open(ref, FieldEngine.from_ref(ref)), catch=_CF_RAISES)
 
@@ -210,9 +190,6 @@ class FieldDataset(Struct, frozen=True):
 
 def _open(ref: ResourceRef, engine: FieldEngine) -> FieldDataset:
     dataset = engine.open(str(ref.path))()
-    # CF `units` is an OPTIONAL variable attribute, so the map carries the DECLARED ones alone and an absent unit is
-    # an absent key a consumer lifts through `Posture.of_optional` — a `""` fill fused "unitless by declaration" with
-    # "the producer stated nothing", the exact fusion `data/RULINGS.md` forecloses.
     units = {name: str(var.attrs["units"]) for name, var in dataset.variables.items() if "units" in var.attrs}
     return FieldDataset(ref=ref, engine=engine, dims=tuple(dataset.dims), coords=tuple(dataset.coords), units=units)
 ```
@@ -247,8 +224,6 @@ if TYPE_CHECKING:
     from flox import Aggregation, ReindexStrategy, Scan
 
 
-# the full registered flox.aggregations func superset: std/var/prod (and nan forms) ARE first-class flox aggregations,
-# so there is one Reduction set, never a bare-vs-flox split.
 type Reduction = Literal[
     "all",
     "any",
@@ -290,20 +265,11 @@ type ReductionFunc = "Reduction | Aggregation"
 type ScanRail = "ScanFunc | Scan"
 type ReindexPolicy = "ReindexStrategy | bool | None"
 
-# the grouped-reduction raise surface: flox and the bare-`xarray` grouper both refuse through builtins — an absent
-# dimension or group key `KeyError`, a malformed bin edge or frequency `ValueError`, a mismatched dtype `TypeError`,
-# an out-of-range axis `IndexError`, an unsupported knob combination `NotImplementedError` — and `policy.base`
-# mapping `mode` onto `reduce` reaches the flox-absent band as an `AttributeError` off the grouper, which is exactly
-# the explicit refusal the mapping exists to raise.
 _SELECT_RAISES: Final[Catch] = (AttributeError, IndexError, KeyError, NotImplementedError, TypeError, ValueError)
 
 _HAS_FLOX = find_spec("flox") is not None
-# derived by comprehension over each closed literal: the bare-`xarray` grouper exposes `mean(skipna=)`/`cumsum`, never a
-# `nan`-prefixed member, so the flox-only nan forms lower to the base member on the fallback band.
 _NAN_BASE: "Final[Map[str, str]]" = Map.of_seq((name, name.removeprefix("nan")) for name in Reduction.__value__.__args__)
 _SCAN_BASE: "Final[Map[str, str]]" = Map.of_seq((name, name.removeprefix("nan")) for name in ScanFunc.__value__.__args__)
-# count/all/any/argmax/argmin/first/last reject the skipna/min_count pair, so the bare path threads it only for this set;
-# `mode` has NO xarray grouper member — `policy.base` maps it to `reduce` so the flox-absent band raises explicitly.
 _SKIPNA_BASE: "Final[frozenset[str]]" = frozenset({"sum", "prod", "mean", "std", "var", "max", "min", "median", "quantile"})
 _FALLBACK_CALL: "Final[Map[GrouperKind, Callable[[xr.Dataset, tuple[object, ...]], object]]]" = Map.of_seq([
     ("group", lambda ds, p: ds.groupby(list(p[0]))),
@@ -401,8 +367,6 @@ class FieldSelection:
 
 
 def apply(selection: FieldSelection, dataset: "xr.Dataset") -> "RuntimeRail[xr.Dataset]":
-    # ONE anchor for the whole axis: the `FieldSelection` case is the caller's own value and rides no fault
-    # coordinate, so the seven per-tag subjects the f-string minted collapse onto the roster row this leg declares.
     return boundary(FIELD_SELECT, lambda: _select(selection, dataset), catch=_SELECT_RAISES)
 
 
@@ -435,8 +399,6 @@ def _reduce(
     dataset: "xr.Dataset", by: tuple[str, ...], dim: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]"
 ) -> "xr.Dataset":
     if policy.vectorizable:
-        # `vectorizable` is the `_HAS_FLOX` floor gate: the lazy `xarray_reduce` proxy reifies only on the
-        # proved band, so a flox-absent install never touches it and lands on the grouper fallback instead.
         return xarray_reduce(dataset, *_grouper(by, dim, policy), dim=dim, **policy.kwargs())
     grouped = _FALLBACK_CALL[fallback[0]](dataset, fallback[1])
     return getattr(grouped, policy.base)(**policy.fallback_kwargs())
@@ -444,8 +406,6 @@ def _reduce(
 
 def _scan(dataset: "xr.Dataset", by: tuple[str, ...], policy: ReductionPolicy, fallback: "tuple[GrouperKind, tuple[object, ...]]") -> "xr.Dataset":
     if policy.vectorizable:
-        # `groupby_scan` is a raw-array kernel with no xarray-aware mirror, so `apply_ufunc` lifts it onto the labelled cube —
-        # never `Dataset.map`, whose mapper must return a `DataArray` the bare-ndarray kernel does not.
         return xr.apply_ufunc(
             lambda arr, *codes: groupby_scan(arr, *codes, func=policy.scan, axis=-1, method=policy.method, engine=policy.engine),
             dataset,
@@ -486,17 +446,10 @@ if TYPE_CHECKING:
     import xarray as xr
 
 
-# the egress-source tags beside the real `FieldEngine` members: the receipt engine slot stays a closed family.
-# `ensemble` partitions the `[06]-[ENSEMBLE]` container writes apart from the CF engines on the one receipt column,
-# `tree` the `gridded/ensemble#ENSEMBLE` scenario-tree store writes, and `cube` the `spatial/cube#CUBE` vector-cube writes.
 type EgressTag = Literal["virtual", "arrow", "ensemble", "tree", "cube"]
 
 
 def _arrow_raises() -> Catch:
-    # reified at the call rather than named at module scope: this leg is the one that reifies the deferred `pyarrow`
-    # proxy anyway, so the set costs nothing until an egress runs. `ArrowInvalid`/`ArrowTypeError`/`ArrowKeyError`/
-    # `ArrowIndexError`/`ArrowMemoryError` are builtin refinements, so `ArrowException` is named for the leaves that
-    # root there ALONE — a capacity or serialization refusal no builtin ancestor admits.
     return (pa.ArrowException, IndexError, KeyError, MemoryError, TypeError, ValueError, OSError)
 
 
@@ -512,11 +465,6 @@ class FieldReceipt(Struct, frozen=True):
         return boundary(FIELD_ARROW, lambda: _to_arrow(dataset), catch=_arrow_raises()).bind(lambda lowered: _arrow_receipt(*lowered))
 
     def contribute(self) -> Iterable[Receipt]:
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
-        # the SAME pair handed `Metrics.record` beside the identity this egress minted — so the durable row lands in
-        # the `field` partition a predicate prunes and rejoins the live series its twin emitted. `kind` renders the
-        # closed `FieldEngine | EgressTag` family, so the absorbed virtual aggregation and a netCDF write partition
-        # apart on one column rather than collapsing into one nameless engine.
         Metrics.record({"rasm.field.byte_volume": float(self.bytes_stored)}, domain="field", kind=str(self.engine))
         yield Receipt.of(
             "field",
@@ -548,8 +496,6 @@ def _write(field: "FieldDataset", dataset: "xr.Dataset", target: ResourceRef, en
 
 def _to_arrow(dataset: "xr.Dataset") -> "tuple[pa.Table, tuple[str, ...], int, bytes]":
     table = pa.Table.from_pandas(dataset.to_dataframe().reset_index())
-    # `combine_chunks().to_batches()[0]` coalesces every chunk so the content key folds a chunk-boundary-stable byte span —
-    # never a per-`to_batches()` digest whose partition drifts; an empty table keys off `b""` per the catalogue contract.
     payload = bytes(table.combine_chunks().to_batches()[0].serialize()) if table.num_rows else b""
     return table, tuple(dataset.sizes), len(dataset.data_vars), payload
 
@@ -587,16 +533,10 @@ from rasm.runtime.roots import ResourceRef
 
 type Residence = Literal["exact", "quantized"]
 
-# the raw-container raise surface: `h5py` answers `OSError` for a library or driver fault, `KeyError` for an absent
-# name, and `TypeError`/`ValueError` for a dtype or selection mismatch, so one set fences every h5py leg on the page.
 _H5_RAISES: Final[Catch] = (KeyError, TypeError, ValueError, OSError)
-# the labelled lift adds `h5netcdf`'s strict-netCDF-4 refusal, the one raise reaching the phony-dims path that roots
-# at bare `Exception` and that no builtin ancestor in the set above admits.
 _LIFT_RAISES: Final[Catch] = (CompatibilityError, *_H5_RAISES)
 
 _FIELD_PATH: Final[str] = "field"
-# wire attribute spellings -> canonical field names, mapped ONCE at this edge; the roster is the producer's
-# whole attribute set, so an absent key is a truncated container, never an optional fact.
 _META: Final[tuple[tuple[str, str], ...]] = (
     ("format-key", "format_key"),
     ("residence", "residence"),
@@ -626,8 +566,6 @@ class FieldContainer(Struct, frozen=True):
 
     @property
     def components(self) -> int:
-        # trailing axis IS the component axis of the one dataset — one-dataset-per-component is the corpus
-        # entry's refuted sibling layout, so a component read is a trailing-axis slice, never a path lookup.
         return self.shape[-1]
 
     @classmethod
@@ -636,19 +574,12 @@ class FieldContainer(Struct, frozen=True):
         return boundary(CONTAINER_OPEN, lambda: _open_container(ref), catch=_H5_RAISES).bind(lambda railed: railed)
 
     def window(self, stations: slice) -> "RuntimeRail[np.ndarray]":
-        # station-outermost chunks at extent 1 make every station slab chunk-aligned; the h5py slice is the
-        # exact counterpart of the producer's station-slab `HyperslabSelection`, so both ends resolve one address.
-        # `window` and `read` are ONE leg over two ranges — the slice is the caller's own value, not a fault
-        # coordinate — so both anchor the same roster row and neither mints a subject of its own.
         return boundary(CONTAINER_SLAB, lambda: _slab(self.ref, stations), catch=_H5_RAISES)
 
     def read(self) -> "RuntimeRail[np.ndarray]":
         return boundary(CONTAINER_SLAB, lambda: _slab(self.ref, slice(None)), catch=_H5_RAISES)
 
     def labelled(self) -> "RuntimeRail[xr.Dataset]":
-        # phony-dims lift for labelled consumers: the container carries NO dimension scales by the corpus pick,
-        # so h5netcdf names axes `phony_dim_N` under `phony_dims="sort"` — a coordinate roster is corpus-entry
-        # growth on the manifest `hdf5-exchange/field` case, never a consumer workaround minted here.
         def lift() -> "xr.Dataset":
             return xr.open_dataset(str(self.ref.path), engine="h5netcdf", phony_dims="sort")
 
@@ -656,10 +587,6 @@ class FieldContainer(Struct, frozen=True):
 
 
 def _open_container(ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
-    # rail-returning under its own fence, which the entry self-flattens: the identity rail threads THROUGH rather
-    # than round-tripping a typed fault out through a `RuntimeError` the classifier then re-reads as a message, and
-    # every producer-contract refusal answers a roster row whose closed defect token replaces the free-form prose
-    # the raises carried. The h5py raises inside the `with` stay raises — they are the provider's, not this owner's.
     with h5py.File(str(ref.path), "r") as file:
         if _FIELD_PATH not in file:
             return Error(CONTAINER_TRUNCATED.raised(f"/{_FIELD_PATH}"))
@@ -696,7 +623,7 @@ def _open_container(ref: ResourceRef) -> "RuntimeRail[FieldContainer]":
     if not bits[0] or not bound[0] or not max_residual[0]:
         return Error(CONTAINER_ELEMENT.raised("root:bits,bound,max-residual"))
     residence = str(raw["residence"])
-    if residence not in ("exact", "quantized"):  # closed pair by producer law — `predicted` refuses HDF5 egress at its own fence
+    if residence not in ("exact", "quantized"):
         return Error(CONTAINER_RESIDENCE.raised(residence))
     bit_count, error_bound, achieved = int(bits[1]), float(bound[1]), float(max_residual[1])
     residence_held = (
@@ -758,7 +685,6 @@ def _slab(ref: ResourceRef, stations: slice) -> np.ndarray:
 ```python signature
 from collections.abc import Mapping
 
-# composes the [05]-[CONTAINER] prelude: h5py/np module-top, ContentIdentity, boundary, ResourceRef, FieldReceipt from [04].
 
 
 class EnsembleMeta(Struct, frozen=True):
@@ -786,8 +712,6 @@ class EnsembleCorpus(Struct, frozen=True):
         return boundary(CORPUS_OPEN, lambda: _open_ensemble(ref), catch=_H5_RAISES)
 
     def replicate(self, ordinal: int) -> "RuntimeRail[dict[str, np.ndarray]]":
-        # replicate-per-chunk layout makes the ordinal slab one chunk per response — resume and UQ folds
-        # address replicates without reading the campaign whole.
         def slab() -> dict[str, np.ndarray]:
             with h5py.File(str(self.ref.path), "r") as file:
                 return {name: file[f"responses/{name}"][ordinal] for name in self.responses}
@@ -798,7 +722,7 @@ class EnsembleCorpus(Struct, frozen=True):
 def _create(
     ref: ResourceRef, meta: EnsembleMeta, design: np.ndarray, responses: Mapping[str, np.ndarray]
 ) -> "RuntimeRail[tuple[EnsembleCorpus, FieldReceipt]]":
-    with h5py.File(str(ref.path), "x") as file:  # create-only: the plane's no-append, no-edit law
+    with h5py.File(str(ref.path), "x") as file:
         file.create_dataset("design", data=np.asarray(design, dtype="<f8"), compression="gzip", shuffle=True)
         group = file.create_group("responses")
         for name, values in responses.items():

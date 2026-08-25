@@ -20,7 +20,7 @@
 - Boundary: the lease is the only credential-lifecycle owner: failed re-pulls keep the current lease live and degrade through health; rented material zeroizes through `CryptographicOperations.ZeroMemory` only after `Cell.Commit` seats its replacement or the drain terminal retires it; content identity uses kernel `ContentHash`. Every fault detail and every receipt column uses the redacted id — the redaction seam covers the log and receipt path alone and never the wire, where `CREDENTIAL_PEM` crosses the key id intact because a verifier SELECTS on it — and an optional refusal passes through `FaultWire.Observe` with `WireJson.Element` once, so the STJ receipt holds canonical ProtoJSON without reflecting a generated message; a reader re-enters through `WireJson.Read`. Mutable material and rotation stay the lease's, while `CredentialPublic` owns public-material admission. That frozen secrets-store mount remains the sole provider read. `LeaseTransition.Released` stays deleted because release without wipe is unlawful. KMS unwrap and PDF signing consume lease-scoped handles without a second long-lived key cache or credential lifecycle.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Security.Cryptography;
 using System.Text.Json;
 using LanguageExt;
@@ -32,7 +32,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LeaseTransition {
     private LeaseTransition() { }
@@ -42,8 +42,6 @@ public abstract partial record LeaseTransition {
     public sealed record Refused(Instant At) : LeaseTransition;
     public sealed record Zeroized(Instant At) : LeaseTransition;
 
-    // ONE key spelling per case: the receipt column and every operator render read this rather than a runtime
-    // type name, so a case rename moves the readers at compile time instead of silently re-labelling a stream.
     public string Key => Map(
         acquired: nameof(Acquired),
         renewed: nameof(Renewed),
@@ -51,7 +49,7 @@ public abstract partial record LeaseTransition {
         zeroized: nameof(Zeroized));
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SecretFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Secret;
@@ -67,8 +65,6 @@ public abstract partial record SecretFault : Fault {
         public RenewMissed(string redacted, string detail) : base($"{redacted}: {detail}") => Redacted = redacted;
         public string Redacted { get; }
     }
-    // `RotationUnbanded` is a COMPOSITION fault, not a runtime one: a lifetime row carrying no escalation skew
-    // can only seat a renewal that fires at expiry, so the band refuses before any credential is read.
     [FaultCase(2)]
     public sealed partial record RotationUnbanded : SecretFault {
         public RotationUnbanded(string row) : base($"{row}: no escalation skew") => Row = row;
@@ -76,10 +72,7 @@ public abstract partial record SecretFault : Fault {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// `RotationBand` is a PAIR of roster rows, never two literals: `Life` is the credential's declared lifetime bound
-// and `Skew` its own declared escalation, so `Period` DERIVES and no call site can seat a renewal landing at
-// expiry. `Window` is the one lease-interval mint — `ClockPolicy` carries no radius-window member to borrow.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RotationBand(DeadlineClass Life, DeadlineClass Skew) {
     public static Fin<RotationBand> Of(DeadlineClass life) =>
         life.Escalation
@@ -99,9 +92,6 @@ public sealed record SecretReceipt(
     Option<JsonElement> Refusal,
     Instant At);
 
-// `Schedule` is the `Runtime/time#SCHEDULE_PORT` registration delegate the composition root binds — the same
-// shape `OrchestrationRuntime` carries. Without it the renewal entry was inert data on the lease record: no
-// occurrence fired, so `Rotate` and `LeaseTransition.Renewed` had no live producer.
 public sealed record SecretRuntime(
     Func<string, Fin<byte[]>> Read,
     Func<ScheduleEntry, IO<Unit>> Schedule,
@@ -113,8 +103,6 @@ public sealed record SecretRuntime(
     ReceiptSinkPort Sink,
     TenantContext Tenant,
     CorrelationId Correlation) {
-    // THE redaction seam. Every fault text, every receipt column, and every schedule key spells the id through
-    // here, so a raw credential id is unspellable downstream rather than merely discouraged at each site.
     public string Redacted(string keyId) {
         Span<char> sink = stackalloc char[Redactor.GetRedactedLength(keyId)];
         int written = Redactor.Redact(keyId, sink);
@@ -122,10 +110,6 @@ public sealed record SecretRuntime(
     }
 }
 
-// `Refusal` is the renewal verdict riding the SWAPPED value: a re-pull that failed commits the prior lease
-// carrying its cause, so the health contributor reads the refusal off the cell rather than re-deriving it from
-// a level nothing published (`DECISION_UNDERIVABLE_FROM_STATE`). Its error is always a banded `SecretFault`,
-// because `Renew` is the only producer of this column.
 [Equatable]
 public sealed partial record SecretLease(
     string KeyId,
@@ -136,10 +120,8 @@ public sealed partial record SecretLease(
     public string Digest => ContentHash.Hex(ContentHash.Of(Material));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SecretLeaseOps {
-    // Acquire REGISTERS the renewal occurrence it constructs — the seat and the registration are one bind, so a
-    // returned cell is always a rotating cell and a constructed-but-unregistered entry never escapes.
     public static IO<Fin<Atom<SecretLease>>> Acquire(SecretRuntime runtime, string keyId) =>
         runtime.Read(keyId)
             .MapFail(error => (Error)new SecretFault.AcquireRejected(runtime.Redacted(keyId), error))
@@ -148,8 +130,6 @@ public static class SecretLeaseOps {
                     .Bind(cell => runtime.Schedule(cell.Value.Renewal).Map(_ => Fin.Succ(cell))),
                 Fail: error => IO.pure(Fin.Fail<Atom<SecretLease>>(error)));
 
-    // Exemption: the renewal occurrence's `Work` closes over the very cell this seat is minting, so the handle
-    // is assigned after construction — a knot no expression form unties, and `Acquire` is its only caller.
     static IO<Atom<SecretLease>> Seat(SecretRuntime runtime, string keyId, byte[] material) {
         Atom<SecretLease>? cell = null;
         Interval window = runtime.Rotation.Window(runtime.Clocks.Now);
@@ -164,11 +144,6 @@ public static class SecretLeaseOps {
             .Map(seated => cell = Atom(seated));
     }
 
-    // `Rotate` IS the occurrence's work: `Renew` re-pulls inside the live window, the kernel commit publishes the
-    // outcome — a fresh lease on success, the prior lease carrying its refusal on failure, and a `Contended`
-    // transition where a discarded `Swap` reported a lost CAS as success — and the retiring buffer wipes only
-    // AFTER `Cell.Commit` seats its replacement: a refused re-pull and a lost CAS both keep the live window's
-    // material intact, where the pre-commit wipe left the cell holding a zero-filled key with its window open.
     public static IO<Unit> Rotate(SecretRuntime runtime, Atom<SecretLease> cell) =>
         IO.lift(() => cell.Value).Bind(prior => Renew(runtime, prior).Bind(outcome =>
             Cell.Commit(cell, held => outcome.Match(
@@ -181,8 +156,6 @@ public static class SecretLeaseOps {
                         .Bind(_ => Emit(runtime, row.State, outcome.Match(
                             Succ: static renewed => (LeaseTransition)new LeaseTransition.Renewed(renewed.Window),
                             Fail: _ => new LeaseTransition.Refused(runtime.Clocks.Now)))),
-                    // `Cell.Commit` answers only Committed or Contended; the two seat-and-step cases below are
-                    // unreachable here and stay spelled so a widened kernel family breaks this dispatch.
                     ceded: static row => IO.pure(row.State),
                     refused: static row => IO.pure(row.State),
                     contended: row => Emit(
@@ -202,8 +175,6 @@ public static class SecretLeaseOps {
         Emit(runtime, lease, new LeaseTransition.Zeroized(runtime.Clocks.Now))
             .Map(retired => { CryptographicOperations.ZeroMemory(retired.Material); return unit; });
 
-    // ONE fan site. The effect is RETURNED rather than run-and-discarded: the deleted `ignore(...Run())` shape
-    // dropped every send fault on the floor and made the receipt stream a claim nothing proved.
     static IO<SecretLease> Emit(SecretRuntime runtime, SecretLease lease, LeaseTransition transition) =>
         runtime.Sink.Send(
                 runtime.Correlation, runtime.Tenant, TelemetrySource.AppHost, ReceiptKind.Secret.Key,
@@ -232,7 +203,7 @@ public static class SecretLeaseOps {
 - Boundary: the material axis is the suite's only credential-material wire owner — the lease holds the live `byte[]` and zeroizes it while `CredentialPublic` owns public-material admission, so the two never merge; `X509CertificateLoader` owns certificate admission and `PublicKey.CreateFromSubjectPublicKeyInfo` bare-key admission, and hand-rolled ASN.1, a base64 wrap, and a third-party codec are the deleted forms. Key ids cross INTACT because a verifier SELECTS on them, matching a JWS `kid`, while `SecretRuntime.Redacted` serves the log and receipt seam alone and its output selects nothing. Private-key arms are structurally absent rather than filtered, so `CarriesSecret`, the public-half filter, and the `DataClassification.Secret` block stamp are deleted with the vocabulary that needed them; what the collapse loses is the self-describing label, and what replaces it is the SPKI and X.509 format parse, which refuses a private body by encoding rather than by trusting its own declaration.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -246,10 +217,7 @@ using Host = Rasm.Contracts.Credential;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Generated `material` oneof, closed onto its owner. Two public arms and no third leave the private-key block
-// that armor policed with a runtime label filter no case to inhabit, so that filter deletes rather than
-// re-spelling: an unrepresentable state needs no guard at each use.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CredentialMaterial {
     private CredentialMaterial() { }
@@ -258,7 +226,7 @@ public abstract partial record CredentialMaterial {
     public sealed record Spki(Der Key) : CredentialMaterial;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PemFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Pem;
@@ -278,29 +246,18 @@ public abstract partial record PemFault : Fault {
         : PemFault($"spki: {Cause.Message}"), ICausedFault;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// DER octets OWN their storage. `X509Certificate2.RawDataMemory` is a view the certificate's own handle bounds and
-// reading it after `Dispose` throws `CryptographicException: m_safeCertContext is an invalid handle`, so an element
-// copies out inside the proving scope. `ImmutableArray<byte>` is the carrier that makes both halves true at once:
-// a `ReadOnlyMemory<byte>` member compares its handle under the synthesized record form, while this one reaches the
-// generated collection policy, and its immortality discharges `UnsafeWrap`'s obligation that the wrapped memory
-// outlive the message — so the wire projection below spends no second copy.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public readonly partial record struct Der([property: OrderedEquality] ImmutableArray<byte> Octets) {
     public static Der Of(ReadOnlySpan<byte> octets) => new([.. octets]);
     public ByteString Wire => UnsafeByteOperations.UnsafeWrap(Octets.AsMemory());
 }
 
-// Order IS identity: the roster is leaf-first and the same certificates in another order are another chain, so the
-// ordered comparer is the one that agrees with the wire the projection writes.
 [Equatable]
 public sealed partial record DerChain([property: OrderedEquality] Seq<Der> Elements);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CredentialPublic {
-    // Each element PARSES as a certificate or none enter, and the copy lands INSIDE the proving scope. An opaque
-    // blob admitted unproved failed later at the consumer's own import where the cause was gone, and a view taken
-    // outside the `using` reads a released handle rather than the octets it was proved over.
     public static Fin<CredentialMaterial> Chain(Seq<ReadOnlyMemory<byte>> certificates) =>
         certificates.IsEmpty
             ? Fin.Fail<CredentialMaterial>(new PemFault.ChainEmpty())
@@ -312,16 +269,12 @@ public static class CredentialPublic {
                 .Map(static proved => (CredentialMaterial)new CredentialMaterial.Chain(new DerChain(proved)))
                 .MapFail(static error => (Error)new PemFault.CertRejected(error));
 
-    // Bare public keys admit through the SAME ASN.1 gate a consumer's own `importKey("spki", ...)` runs, so a
-    // PKCS#8 private body handed to this arm refuses here rather than crossing and failing at the verifier.
     public static Fin<CredentialMaterial> Spki(ReadOnlyMemory<byte> key) =>
         Op.Of()
             .Catch(() => Fin.Succ(Admit(key.Span)))
             .Map(static admitted => (CredentialMaterial)new CredentialMaterial.Spki(admitted))
             .MapFail(static error => (Error)new PemFault.SpkiRejected(error));
 
-    // `CreateFromSubjectPublicKeyInfo` reports the octets it consumed, so a body carrying a valid SPKI prefix and a
-    // tail raises inside the one `Op.Catch` seam that lowers the BCL throw rather than needing a second rail shape.
     static Der Admit(ReadOnlySpan<byte> key) {
         _ = PublicKey.CreateFromSubjectPublicKeyInfo(key, out int read);
         return read == key.Length
@@ -329,9 +282,6 @@ public static class CredentialPublic {
             : throw new CryptographicException("trailing octets after subject public key info");
     }
 
-    // `Carrier` writes the WHOLE message. `KeyId` is the selection key a verifier matches a JWS `kid` against, so
-    // it crosses intact — `SecretRuntime.Redacted` serves the log and receipt path, and a redacted id selects no
-    // key — while the union's own total `Map` writes exactly one oneof arm, leaving no declared slot unanswered.
     public static Host.CredentialPublicWire Carrier(CredentialMaterial material, string keyId) =>
         material.Map(
             chain: arm => new Host.CredentialPublicWire {

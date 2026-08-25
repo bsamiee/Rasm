@@ -53,30 +53,12 @@ if TYPE_CHECKING:
     from zarr.abc.store import Store
 
 
-# faults-owned scope stamp: `scoped` binds the version and semconv triple, so no page re-spells the pin.
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.gridded.store")
 
-# the metric segment this owner's receipt rows, its series, its content keys, and its audit verbs all derive from,
-# spelled once so a rename cannot leave the live series and the durable row standing under two names. The plan
-# receipt shares it deliberately: budget-versus-peak history prunes on the same partition as the store it planned.
 DOMAIN: Final[str] = "tensor"
 
-# the dense-store raise surface across BOTH engines and the residence beneath them. `obstore`'s `BaseError` is NAMED
-# because every leaf under it roots at bare `Exception` — a cloud residence's not-found, permission, precondition, and
-# unauthenticated refusals reach no builtin ancestor, and `transport/roots#RESOURCE` states that none is a `CLASSIFY`
-# row either, so a remote leg escapes the rail without it. `zarr.errors` roots at `ValueError` with its whole selection
-# family (`ArrayIndexError`, `BoundsCheckError`, `NegativeStepError`, `VindexInvalidSelectionError`) at `IndexError`,
-# so both ancestors admit the sync engine's tree without importing a single error name; the async engine's own
-# refusals reach that same builtin pair, so the set never reifies the floor-gated `tensorstore` proxy to name one.
 _STORE_RAISES: Final[Catch] = (BaseError, IndexError, KeyError, TypeError, ValueError, OSError)
 
-# this module's whole raise roster, seated once for both sections: every fenced leg and every explicit refusal on this
-# page resolves ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real
-# module at import. `_UNREACHED` and `_TS_DRIVER` refuse BEFORE any provider import or spec build, so their rows are
-# caller-repairable and TERMINAL — a floor no re-offer raises and a scheme no re-issue teaches a driver. The store I/O
-# legs declare TRANSIENT; `write.guard` declares TRANSIENT because the racing writer that tripped the guard finishes;
-# and the plan legs split on what they refuse, the graph build over a budget the same inputs refuse identically and
-# the executor run over the scratch store a re-issue may clear.
 TENSOR_FLOOR: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.STORE, point="floor", arm="import_", defect="engine-unreached", retriability=TERMINAL, slots=("module",)
 )
@@ -129,41 +111,23 @@ class TensorChunking(Struct, frozen=True):
 
     @property
     def grid(self) -> ChunkGrid:
-        # array-level grid: the outer `shards` when sharding, else `chunks` — tensorstore's `chunk_grid` reads this
-        # while the `sharding_indexed` inner `chunk_shape` reads `chunks`.
         return self.shards or self.chunks
 
 
 type Compressor = Literal["blosc", "zstd", "gzip", "lz4", "lzma", "bz2", "zlib"]
-# checksum digests occupy the SAME bytes-to-bytes slot a compressor takes, so a store guards its blocks and
-# compresses them in ONE tail: zarr spells crc32c natively and numcodecs carries the remaining four.
 type Checksum = Literal["crc32c", "crc32", "adler32", "fletcher32", "jenkins"]
-# byte reordering is the third family sharing that slot: `shuffle` groups the like-significance bytes of an
-# `elementsize`-wide value together, which is what a general compressor needs to find runs in a float grid and
-# what only `blosc` otherwise carries internally — so a zstd or gzip tail reaches it as a row of its own.
 type Reorder = Literal["shuffle"]
 type BytesTag = Compressor | Checksum | Reorder
-# where a digest writes itself relative to the block it guards; the reader reads the same slot back.
 type Digest = Literal["start", "end"]
 
 def _blosc(cname: str, clevel: int, shuffle: "str | None", typesize: "int | None", blocksize: int) -> "BytesBytesCodec":
-    # seated with the table that reads it rather than under the operations below, because a row's builder is the
-    # row. blosc's meta-compressor knobs ARE the ratio decision on a chunked float grid: `shuffle` reorders bytes by
-    # `typesize` before the inner codec runs, which is what makes a float array compress at all, and `blocksize`
-    # fixes the internal split the codec threads over. Four of the five were unreachable while the row carried the
-    # `(cname, clevel)` pair alone, so every store took the provider's own defaults with no page stating them.
     return zc.BloscCodec(cname=cname, clevel=clevel, shuffle=shuffle, typesize=typesize, blocksize=blocksize)
 
 
 _BYTES: "Final[Map[BytesTag, tuple[Callable[..., BytesBytesCodec], str, tuple[str, ...]]]]" = Map.of_seq([
     ("blosc", (_blosc, "blosc", ("cname", "clevel", "shuffle", "typesize", "blocksize"))),
-    # zstd's own frame checksum is a codec knob, distinct from a tail digest row: it guards the compressed frame
-    # where a `crc32c` row guards whatever block reaches it, so both are spellable and neither implies the other.
     ("zstd", (lambda level, checksum: zc.ZstdCodec(level=level, checksum=checksum), "zstd", ("level", "checksum"))),
     ("gzip", (lambda level: zc.GzipCodec(level=level), "gzip", ("level",))),
-    # `nc.LZ4` keys its speed/ratio dial `acceleration` and carries no `level` at all. The zarr adapter takes
-    # `**codec_config`, so a `level=` row builds clean and arms the store, then raises `TypeError` from inside the
-    # codec at the FIRST chunk write — having already written that same unreadable key into the metadata document.
     ("lz4", (lambda acceleration: nc.LZ4(acceleration=acceleration), "numcodecs.lz4", ("acceleration",))),
     ("lzma", (lambda format_, check, preset: nc.LZMA(format=format_, check=check, preset=preset), "numcodecs.lzma", ("format", "check", "preset"))),
     ("bz2", (lambda level: nc.BZ2(level=level), "numcodecs.bz2", ("level",))),
@@ -179,11 +143,6 @@ _BYTES: "Final[Map[BytesTag, tuple[Callable[..., BytesBytesCodec], str, tuple[st
 
 @tagged_union(frozen=True)
 class BytesStage:
-    # ONE bytes-to-bytes row, compressor and checksum in one family because both seat in the slot `Pipeline` already
-    # types as a TUPLE. Splitting them across a two-case `compress|raw` union left the one pairing a chunked
-    # residence wants most — compress AND digest — unspellable, and pinned every compressor to the two or three
-    # knobs that union's positional pair happened to carry. Position in `TensorCodec.tail` IS the applied order: a
-    # digest seated after a compressor guards the COMPRESSED block, and a zarr3 reader unwinds the chain as written.
     tag: BytesTag = tag()
     blosc: "tuple[str, int, str | None, int | None, int]" = case()
     zstd: tuple[int, bool] = case()
@@ -218,10 +177,6 @@ class BytesStage:
 
 
 class TensorCodec(Struct, frozen=True):
-    # whole pipeline as ORDERED rows: array-to-array filters, the byte serializer the format fixes, then the
-    # bytes-to-bytes tail. An EMPTY tail IS the uncompressed store, so absence is a row count rather than a union
-    # case. Sharding is NOT a tail row: `TensorChunking.shards` is its sole owner and the native
-    # `create_array(shards=)` wrap keeps the whole inner pipeline, so a sharded store never drops its codec choice.
     tail: "tuple[BytesStage, ...]" = ()
     filters: "tuple[TensorFilter, ...]" = ()
 
@@ -229,20 +184,16 @@ class TensorCodec(Struct, frozen=True):
         return (tuple(f.codec() for f in self.filters), zc.BytesCodec(), tuple(stage.codec() for stage in self.tail))
 
     def metadata(self, chunking: "TensorChunking") -> list[JsonSpec]:
-        # tensorstore carries no native `shards=`, so the `sharding_indexed` wrap is explicit here.
         inner = [*(f.json() for f in self.filters), {"name": "bytes"}, *(stage.json() for stage in self.tail)]
         return [{"name": "sharding_indexed", "configuration": {"chunk_shape": list(chunking.chunks), "codecs": inner}}] if chunking.shards else inner
 
     @property
     def name(self) -> str:
-        # receipt coordinate over the WHOLE tail, so a compress-then-digest store reports both rather than whichever
-        # one a single-slot name happened to hold; an empty tail names itself.
         return "+".join(stage.tag for stage in self.tail) or "raw"
 
 
 type Filter = Literal["transpose", "scale_offset", "delta", "fixed_scale_offset", "quantize", "bitround", "packbits", "astype"]
 
-# `zc.ScaleOffset` is keyword-only `(*, offset=0, scale=1)` — the `dtype`/`astype` slots belong to `nc.FixedScaleOffset` alone.
 _FILTER: "Final[Map[Filter, tuple[Callable[..., ArrayArrayCodec], str, tuple[str, ...]]]]" = Map.of_seq([
     ("transpose", (lambda order: zc.TransposeCodec(order=order), "transpose", ("order",))),
     ("scale_offset", (lambda scale, offset: zc.ScaleOffset(offset=offset, scale=scale), "scaleoffset", ("scale", "offset"))),
@@ -254,9 +205,6 @@ _FILTER: "Final[Map[Filter, tuple[Callable[..., ArrayArrayCodec], str, tuple[str
     ("quantize", (lambda digits, dtype: nc.Quantize(digits=digits, dtype=dtype), "numcodecs.quantize", ("digits", "dtype"))),
     ("bitround", (lambda keepbits: nc.BitRound(keepbits=keepbits), "numcodecs.bitround", ("keepbits",))),
     ("packbits", (lambda: nc.PackBits(), "numcodecs.packbits", ())),
-    # storage dtype narrowing as its own row: a grid held as `float64` in memory and written as `float32` halves
-    # every chunk before a compressor sees it, and the decode side restores the analysis dtype, which no
-    # compressor row expresses and no downstream reader can undo once the narrowing is baked into the values.
     ("astype", (lambda encode_dtype, decode_dtype: nc.AsType(encode_dtype=encode_dtype, decode_dtype=decode_dtype), "numcodecs.astype", ("encode_dtype", "decode_dtype"))),
 ])
 
@@ -323,41 +271,18 @@ class TensorBackend(StrEnum):
 
     @staticmethod
     def for_ref(ref: ResourceRef) -> "TensorBackend":
-        # residence names the PREFERENCE, reach decides the engine: an object-store ref prefers the async engine and
-        # falls to the sync one when that distribution sits below the interpreter floor, because BOTH engines now
-        # address a cloud residence — the sync arm through `zarr.storage.ObjectStore` over the branch `store_handle`.
-        # Deriving the engine from residence ALONE tied every remote dense tensor to one distribution, so a manifest
-        # marker holding `tensorstore` refused the whole object-store plane while the reachable path sat unmined. A
-        # caller naming its engine still rides through verbatim — this derivation answers only an unnamed one.
         remote = ref.scheme in OBJECT_STORE_SCHEMES
         preferred = TensorBackend.TENSORSTORE if remote else TensorBackend.ZARR
         return TensorBackend.ZARR if remote and _UNREACHED.try_find(preferred).is_some() else preferred
 
     def reached(self, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
-        # ONE gate, two proofs, both refusing BY NAME before any provider import or spec build. Floor first: a
-        # manifest marker holding a provider below the running floor leaves its module unresolvable, so the selected
-        # engine answers `TENSOR_FLOOR` naming the absent module at `create` rather than raising
-        # `ModuleNotFoundError` from a lazy import deep inside an open leg. Driver second, on the async engine alone:
-        # the residence must resolve a kvstore driver, so an admitted-but-unaddressable scheme answers
-        # `TENSOR_DRIVER` naming it instead of a `ValueError` raised mid-leg out of the spec builder.
-        # a refusal here stays honest for a NAMED engine — a caller selecting the async arm below the floor reads its
-        # absent module rather than a silent swap onto the sync one, the verbatim-selection law — while `for_ref`
-        # already routed an UNNAMED remote ref onto whichever engine this floor resolves. The rows carry their own
-        # subjects, so the threaded `subject: str` parameter the three hops passed hand-to-hand deletes with them.
         return _UNREACHED.try_find(self).map(lambda module: Error(TENSOR_FLOOR.raised(module))).default_value(self._driven(ref))
 
     def _driven(self, ref: ResourceRef) -> "RuntimeRail[TensorBackend]":
-        # the sync engine addresses its residence through an `obstore` handle rather than a kvstore driver, so the
-        # driver proof binds the async arm alone.
         return Ok(self) if self is TensorBackend.ZARR else _driver(ref).map(lambda _name: self)
 
     @staticmethod
     def span_kind(ref: ResourceRef) -> SpanKind:
-        # the client boundary follows RESIDENCE, never the engine — the store span-kind law — so a remote leg
-        # publishes CLIENT and a local leg stays INTERNAL whichever engine serves it, and a distributed trace joins
-        # this hop against the egress legs beside it instead of losing an outbound call inside one process-local
-        # span. Keying it on the engine mislabelled every sync-engine cloud leg INTERNAL the moment the sync arm
-        # gained one.
         return SpanKind.CLIENT if ref.scheme in OBJECT_STORE_SCHEMES else SpanKind.INTERNAL
 
     @property
@@ -389,10 +314,6 @@ class TensorReceipt(Struct, frozen=True):
     shards: ChunkGrid | None = None
 
     def contribute(self) -> Iterable[Receipt]:
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
-        # the SAME pair handed `Metrics.record` beside the identity this store minted — so the durable row lands in
-        # the `tensor` partition a predicate prunes and rejoins the live series its twin emitted. A contributor
-        # omitting them writes every row it ever produces into one nameless partition.
         Metrics.record({"rasm.tensor.byte_volume": float(self.bytes_stored)}, domain=DOMAIN, kind=self.backend.value)
         return (
             Receipt.of(
@@ -422,12 +343,7 @@ class TensorStore(Struct, frozen=True):
     chunking: TensorChunking
     dtype: DType
     codec: TensorCodec
-    # the composition this store's evidence and signals partition under, arriving exactly as every sibling data
-    # owner takes it: an embedded composition writing a second app's arrays otherwise lands its facts under the
-    # host's scope, where no reader can tell the two apart.
     scope: ScopeKey = DEFAULT_SCOPE
-    # app-neutral single-writer guard, one per opened store: a second same-process writer refuses typed at the
-    # guard instead of interleaving region writes; cross-process safety stays the chunk grid's own atomicity.
     guard: ResourceGuard = field(default_factory=lambda: ResourceGuard("writing"))
 
     @classmethod
@@ -442,26 +358,17 @@ class TensorStore(Struct, frozen=True):
         *,
         scope: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[TensorStore]":
-        # async on the caller's loop — a per-call `anyio.run` mints a fresh loop and refuses to start inside a running one.
         backend = TensorBackend.for_ref(ref)
 
         async def _open() -> TensorStore:
             await backend.create(ref, shape, dtype, chunking, codec)
             return TensorStore(backend, ref, shape, chunking, dtype, codec, scope=scope)
 
-        # object-store tensor I/O carries a span per leg — the trace-parity law with the sibling spatial/egress I/O legs;
-        # the fence inside marks the span ERROR + record_exception on a failed leg. Reach gates inside the span so an
-        # unreachable engine is a recorded refusal, and `create` is the one gate — `write_region`/`read_region` reuse
-        # whatever `self.backend` this construction already proved.
         with _TRACER.start_as_current_span("tensor.create", kind=TensorBackend.span_kind(ref), attributes={"rasm.tensor.backend": backend.value}):
             match backend.reached(ref):
                 case Result(tag="error", error=refused):
                     return Error(refused)
                 case Result(tag="ok"):
-                    # arming records because it is a MUTATION with no bytes: the async engine opens its spec with
-                    # `delete_existing`, so a create over a live array replaces it, and the audit line naming the
-                    # grid it armed is the only surface that movement leaves. The record rail binds into the
-                    # verdict, so an armed evidence plane refusing it surfaces before a caller holds the handle.
                     match await async_boundary(TENSOR_CREATE, _open, catch=_STORE_RAISES):
                         case Result(tag="ok", ok=store):
                             armed = _evidence(store, "create", (Assigned(path="/shape", next="x".join(map(str, shape))),), 0)
@@ -472,8 +379,6 @@ class TensorStore(Struct, frozen=True):
                     assert_never(unreachable)
 
     async def write_region(self, writes: "Write | Iterable[Write]") -> "RuntimeRail[TensorReceipt]":
-        # `(TensorRegion(), _)` keeps a lone pair whole before the `Iterable` arm can shatter it; an empty snapshot
-        # is a typed `Error`, never a `writes[0]` `IndexError` escaping the rail.
         match writes:
             case (TensorRegion(), _) as lone:
                 staged: tuple[Write, ...] = (lone,)
@@ -488,23 +393,16 @@ class TensorStore(Struct, frozen=True):
             head = staged[0]
             return await self.backend.write(self.ref, *head) if len(staged) == 1 else await self.backend.write_many(self.ref, staged)
 
-        # content key folds the `stream` modality over every written region in write order, so a plural snapshot never
-        # collapses onto the last block; the atomic-vs-sequential disposition is the normalized count, never a flag.
         with _TRACER.start_as_current_span(
             "tensor.write_region",
             kind=TensorBackend.span_kind(self.ref),
             attributes={"rasm.tensor.backend": self.backend.value, "rasm.tensor.regions": len(staged)},
         ):
-            # the guard spans the WHOLE staged write — sequential regions included — so a second same-process
-            # writer refuses immediately as `concurrent-write` rather than interleaving its regions mid-snapshot.
             try:
                 with self.guard:
                     written = await async_boundary(TENSOR_WRITE, _write, catch=_STORE_RAISES)
             except BusyResourceError:
                 return Error(TENSOR_CONCURRENT.raised())
-            # durable evidence lands off the SETTLED receipt, so the content key the fact names is the one the
-            # snapshot actually keyed and no fact stands for a write the store refused; the meter carries the
-            # volume this leg stored, the audit line the identity it landed under.
             match written.bind(
                 lambda stored: ContentIdentity.of(DOMAIN, tuple(block.tobytes() for _, block in staged)).map(
                     lambda key: _receipt(self, stored, key)
@@ -523,9 +421,6 @@ class TensorStore(Struct, frozen=True):
             return await async_boundary(TENSOR_READ, lambda: self.backend.read(self.ref, region), catch=_STORE_RAISES)
 
 
-# module each engine imports, and the floor probe over it: `pyproject.toml` gates `tensorstore` behind
-# `python_version<'3.15'`, so the distribution resolves on no supported floor and every TENSORSTORE selection
-# refuses typed at `create`. The row derives ONCE at import through `find_spec`, never a probe per call.
 _ENGINE_MODULE: "Final[Map[TensorBackend, str]]" = Map.of_seq([(TensorBackend.ZARR, "zarr"), (TensorBackend.TENSORSTORE, "tensorstore")])
 
 _UNREACHED: "Final[Map[TensorBackend, str]]" = Map.of_seq(
@@ -537,14 +432,6 @@ _ZARR_READ: "Final[Map[Indexing, str]]" = Map.of_seq([("orthogonal", "get_orthog
 
 
 def _zarr_store(ref: ResourceRef, *, read_only: bool = False) -> "Store":
-    # residence-polymorphic store for the SYNC engine, root-scoped so the node name is `ref.relative` on BOTH arms.
-    # `zarr.storage.ObjectStore` wraps the very `obstore` handle the branch `store_handle` fold builds, so a cloud
-    # residence reaches this engine under the same retry envelope and credential provider every other remote read in
-    # the branch carries — never a second construction spelling. A hardcoded `LocalStore` here made the async engine
-    # the ONLY cloud arm, so the interpreter-floor marker holding `tensorstore` took the whole object-store dense
-    # plane down with it. `zarr.storage.ObjectStore` is marked experimental upstream, so its churn rides this ONE
-    # construction rather than four call sites. The credential rides the ref's own column, so a private or
-    # requester-pays residence authenticates off the coordinate it arrived on and this page grows no second field.
     return (
         zarr.storage.ObjectStore(store_handle(ref), read_only=read_only)
         if ref.scheme in OBJECT_STORE_SCHEMES
@@ -553,8 +440,6 @@ def _zarr_store(ref: ResourceRef, *, read_only: bool = False) -> "Store":
 
 
 async def _zarr_create(ref: ResourceRef, shape: Shape, dtype: DType, chunking: TensorChunking, codec: TensorCodec) -> None:
-    # `create_array` names the node `name=` where `open_array` names it `path=` — two spellings of one coordinate,
-    # so the store stays root-scoped and each call spells the keyword its own member takes.
     filters, serializer, compressors = codec.pipeline()
     zarr.create_array(
         store=_zarr_store(ref),
@@ -588,10 +473,6 @@ async def _zarr_write_many(ref: ResourceRef, regions: "tuple[Write, ...]") -> in
     return sum(int(data.nbytes) for _, data in regions)
 
 
-# scheme -> kvstore driver, DERIVED off the runtime row family's own `kvstore` column: a backend whose column is
-# `None` filters itself out, so the Azure hole is one absent key the gate names rather than a comment beside a
-# two-row hand map, and the deleted forms are that map, the `raise ValueError` it guarded, and the hardcoded `"file"`
-# tail that wrote a local kvstore for every http and memory residence the driver roster actually serves.
 _TS_DRIVER: "Final[Map[str, str]]" = Map.of_seq(
     (alias, row.kvstore) for row in STORE_BACKENDS if row.kvstore is not None for alias in row.aliases
 )
@@ -602,17 +483,12 @@ def _driver(ref: ResourceRef) -> "RuntimeRail[str]":
 
 
 def _ts_kvstore(ref: ResourceRef) -> JsonSpec:
-    # total below the gate: `reached` proved this scheme's driver at `create`, so the read carries a `str` and no
-    # arm re-derives absence the gate already refused by name.
     return {"driver": _TS_DRIVER[ref.scheme], "path": str(ref.path)}
 
 
 def _ts_spec(
     ref: ResourceRef, *, codec: TensorCodec | None = None, shape: Shape = (), chunking: TensorChunking | None = None, dtype: DType = ""
 ) -> JsonSpec:
-    # CAPABILITY ASYMMETRY: the tensorstore zarr3 `metadata.codecs` chain admits transpose/bytes/sharding_indexed/gzip/
-    # blosc/zstd/crc32c; the `numcodecs.<id>`-named rows and `scaleoffset` are `zarr`-engine-only, so a TENSORSTORE store
-    # selecting one is the typed engine-capability reject, never a silent both-engine claim.
     metadata: JsonSpec = (
         {}
         if codec is None or chunking is None
@@ -628,8 +504,6 @@ def _ts_spec(
 
 @functools.cache
 def _ts_context() -> "Any":
-    # the module-scope `lazy` binding reifies HERE, behind the `reached` floor gate every TENSORSTORE leg
-    # crosses at `create`, so a below-floor selection reads its named refusal before the proxy is ever touched.
     return ts.Context()
 
 
@@ -684,11 +558,6 @@ _READ: "Final[Map[TensorBackend, Callable[[ResourceRef, TensorRegion], Awaitable
 
 
 def _evidence(store: "TensorStore", operation: str, change: "tuple[Assigned, ...]", stored: int) -> "Block[Fact]":
-    # the durable half of a store mutation: arming a grid and landing a region are both governed writes, so both
-    # record, and only the leg that moved bytes meters. The verb spells `<domain>.<operation>` under the runtime
-    # producer grammar — the same segment the live byte-volume series carries — so one fact greps against the series
-    # its receipt twin emitted, and the diff carries whichever coordinate that leg actually moved. `read_region`
-    # reaches this fold nowhere: a region read reconstructs no incident and prices no residence.
     audited = AuditFact(
         action=f"{DOMAIN}.{operation}",
         actor=Party(kind=Actor.SERVICE, key=DOMAIN),
@@ -762,23 +631,16 @@ if TYPE_CHECKING:
 
     from rasm.runtime.roots import ResourceRef
 
-# `ChunkGrid`/`DType`/`TensorStore` are the [02]-[STORE] owners in this same module.
 
 type Op = Literal["reduce", "linalg", "blockwise", "gufunc", "rechunk"]
 type Executor = Literal["single-threaded", "threads", "processes", "dask", "lithops", "modal", "coiled", "ray", "spark"]
 type Reduction = Literal["nanmean", "sum", "mean", "nansum", "std", "var", "prod", "max", "min"]
 type Factorization = Literal["matmul", "svd", "qr", "svdvals", "tensordot", "outer", "vecdot", "matrix_transpose"]
 
-# `cubed` mints NO exception class of its own: the budget refusal, the unknown-dimension refusal, and the source-arity
-# refusals all raise `ValueError`, and an unlowered chunk pattern raises `NotImplementedError`. Beneath them the plan
-# reads and writes Zarr scratch, so the store's own residence set carries through — the `obstore` root NAMED for the
-# same reason it is above, every leaf rooting at bare `Exception`.
 _PLAN_RAISES: Final[Catch] = (*_STORE_RAISES, NotImplementedError)
 
 
 class PlanBudget(Struct, frozen=True):
-    # one execution policy `plan` folds into `cubed.Spec`, never three loose scalars the body re-derives;
-    # `reserved_mem=None` is the genuine "calibrate via `measure_reserved_mem`" value, distinct from a budget int.
     allowed_mem: str = "2GB"
     reserved_mem: str | None = None
     executor: Executor = "single-threaded"
@@ -786,8 +648,6 @@ class PlanBudget(Struct, frozen=True):
 
 DEFAULT_BUDGET: Final[PlanBudget] = PlanBudget()
 
-# NaN-aware reductions live at `cubed.<name>` top-level, not the Array-API standard namespace, so the `reduce` arm
-# resolves these off the `cubed` module and the rest off `__array_namespace__()`.
 _NAN_REDUCTIONS: Final[frozenset[Reduction]] = frozenset({"nanmean", "nansum"})
 
 _LINALG: "Final[Map[Factorization, Callable[..., cubed.Array | tuple[cubed.Array, ...]]]]" = Map.of_seq([
@@ -836,10 +696,6 @@ class PlanOp:
 class MemoryProbe(cubed.Callback):
     def __init__(self) -> None:
         super().__init__()
-        # the running peak rides the posture because `TaskEndEvent.peak_measured_mem_end` DEFAULTS to `None` and the
-        # single-threaded executor never fills it: the deleted `or 0` folded that absence into a real zero the receipt
-        # then reported as a measured floor, the `docs/laws/scars.md` `[FORGED_ZERO]` class exactly. A run that
-        # measured nothing and a run whose every task peaked at zero bytes now read apart at every consumer.
         self.peak: "Posture[int]" = Posture(absent=None)
         self.tasks = 0
         self.operations = 0
@@ -851,7 +707,6 @@ class MemoryProbe(cubed.Callback):
         self.tasks += 1
         if event.peak_measured_mem_end is None:
             return
-        # the fold seed is a MAX identity, never a reported value, so it can never escape as evidence.
         self.peak = Posture(declared=max(self.peak.option().default_value(0), int(event.peak_measured_mem_end)))
 
 
@@ -865,15 +720,9 @@ class PlanReceipt(Struct, frozen=True):
     operations: int
     tasks: int
     target: str
-    # the ONE column an executor may leave unanswered, carried as a posture rather than the `or 0` floor that made a
-    # never-measured run indistinguishable from a zero-byte one.
     peak_mem: "Posture[int]" = Posture(absent=None)
 
     def facts(self) -> dict[str, object]:
-        # ONE flat projection the span attributes and the durable receipt row BOTH read, so the two can never drift —
-        # they previously spelled overlapping column sets twice, a `to_builtins` struct lowering for the span and a
-        # hand-written mapping here. The peak spreads its key only where a task DECLARED one, the runtime `facts`
-        # omission idiom, so a series never fills with a floor no executor measured.
         columns: dict[str, object] = {
             "domain": DOMAIN,
             "kind": self.op,
@@ -889,10 +738,6 @@ class PlanReceipt(Struct, frozen=True):
         return columns | self.peak_mem.option().map(lambda peak: {"peak_mem": peak}).default_value({})
 
     def contribute(self) -> Iterable[Receipt]:
-        # the plan shares the `tensor` partition with the store it plans over and keys its row by the op that ran,
-        # so budget-versus-peak history prunes on the same predicate. It contributes NO `key` and records NO measure:
-        # a lazy graph mints no content identity, and a null key would land at the residence as the literal `"None"`
-        # while a fabricated instrument would meter a byte volume no leg moved.
         return (Receipt.of(DOMAIN, ("planned", self.op, self.facts())),)
 
 
@@ -926,8 +771,6 @@ def materialize(graph: "cubed.Array", op: PlanOp, target: "ResourceRef") -> "Run
             peak_mem=probe.peak,
             target=str(target.path),
         )
-        # ONE projection feeds the span and the durable row alike — budget-vs-peak evidence lands on the span with no
-        # second flattening, and the unmeasured peak simply has no attribute rather than a fabricated zero.
         trace.get_current_span().set_attributes(receipt.facts())
         return receipt
 

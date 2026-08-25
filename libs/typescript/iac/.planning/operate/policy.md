@@ -56,10 +56,6 @@ const _CIS: policy.PolicyComplianceFramework = {
   specification: "workload and data-plane hardening controls",
 }
 
-// Every resource a tier constructs takes `parent: this` through the `Tier` option fold, so its parent URN
-// carries the `rasm:iac:<Kind>` type token; a chart-rendered object's parent is the chart component instead.
-// This is the one authorship fact no upstream chart can forge and no remediation can overwrite, which is why
-// the rows asserting an ESTATE stamp read it and the rows judging any workload's own posture do not.
 const _TIER_URN = "::rasm:iac:"
 
 const _authored = (opts: policy.PolicyResourceOptions): boolean => (opts.parent ?? "").includes(_TIER_URN)
@@ -169,8 +165,6 @@ const _managedBy: policy.ResourceValidationPolicy = {
   name: "managed-by-stamp",
   description: "estate-authored workloads carry the managed-by label",
   enforcementLevel: "remediate",
-  // Remediation runs BEFORE validation, so an unnarrowed stamp would write this estate's ownership label onto
-  // every chart-rendered controller in the graph — a foreign object's field this pack never authored.
   ...policy.validateRemediateResourceOfType(k8s.apps.v1.Deployment, (deployment, args) =>
     _authored(args.opts)
       ? {
@@ -233,7 +227,6 @@ const _iamFloor: policy.ResourceValidationPolicy = {
         ? []
         : Array.isArray(document.Statement) ? document.Statement : [document.Statement])
         .filter((statement) => {
-          // an explicit Deny legitimately wildcards; only a granting statement trips the floor
           const actions = typeof statement.Action === "string" ? [statement.Action] : (statement.Action ?? [])
           return statement.Effect !== "Deny" && actions.some((action) => action.includes("*"))
         })
@@ -245,9 +238,6 @@ const _iamFloor: policy.ResourceValidationPolicy = {
 const _capsule = (resource: policy.PolicyResource, kind: string): boolean =>
   String(resource.props.apiVersion ?? "").startsWith("capsule.clastix.io") && resource.props.kind === kind
 
-// The tenant fence rides a `GlobalTenantResource` replication because the Tenant CR's own `networkPolicies` block
-// is deprecated, so presence-beside is the shape this row judges — the same dependency-aware form the backup row
-// takes — and the replication's own tenant selector is what names which tenant it fences.
 const _tenantFence: policy.StackValidationPolicy = {
   name: "tenant-fence",
   description: "every capsule tenant has a replicated ingress fence beside it",
@@ -265,9 +255,6 @@ const _tenantFence: policy.StackValidationPolicy = {
   },
 }
 
-// The operator still SERVES each of these and has superseded every one, so a tenant composing one is a row the
-// next operator bump deletes with no diff to warn on; naming the whole deprecated set here is what keeps the
-// governance CR on its stable spellings rather than on whichever block an author found first.
 const _DEPRECATED_TENANT = ["networkPolicies", "containerRegistries", "limitRanges", "imagePullPolicies"] as const
 
 const _tenantCurrent: policy.StackValidationPolicy = {
@@ -284,11 +271,6 @@ const _tenantCurrent: policy.StackValidationPolicy = {
       .forEach(({ block, urn }) => report(`<deprecated-tenant-block:${block}>`, urn)),
 }
 
-// Every estate tier stamps ONE `Tier.harden` anchor at the pod and at every container it constructs, so this
-// row asserts the stamp rather than re-deriving a posture. Pod and container rosters stay separate because a
-// container-level setting outranks the pod's, so a compliant pod proves nothing about the container beneath it
-// — the anchor restates the seccomp filter at the container level for exactly that reason, and the roster
-// carries the row that proves it — and a new `Tier.harden` refusal is one entry on the roster its level owns.
 type _Guarded = {
   readonly runAsNonRoot?: boolean
   readonly seccompProfile?: { readonly type?: string }
@@ -313,7 +295,6 @@ const _CONTAINER_HELD = [
   ["<container-may-escalate>", (row: _Container) => row.securityContext?.allowPrivilegeEscalation === false],
   ["<container-writable-root>", (row: _Container) => row.securityContext?.readOnlyRootFilesystem === true],
   ["<container-keeps-capabilities>", (row: _Container) => (row.securityContext?.capabilities?.drop ?? []).includes("ALL")],
-  // the container level outranks the pod's, so the anchor restates the filter here and the roster proves it
   ["<container-without-seccomp>", (row: _Container) => row.securityContext?.seccompProfile?.type === "RuntimeDefault"],
 ] as const
 
@@ -424,9 +405,6 @@ const Evidence = {
   run: (receipt: RunReceipt): Evidence.Row => _Run.make({ receipt }),
   ofVerdict: (verdict: Either.Either<DriftReport, DeployFault>): ReadonlyArray<Evidence.Row> =>
     Either.match(verdict, {
-      // The rendered message IS the detail: each family row renders its OWN subject, and the two reasons carrying
-      // no foreign message would leave a free `detail` read unspellable, so the row reads what the family already
-      // composed rather than a column only some arms hold.
       onLeft: (fault) => [_Faulted.make({ stack: fault.case.stack, reason: fault.case.reason, detail: fault.message })],
       onRight: (report) => [
         _Drifted.make({ report }),
@@ -441,7 +419,7 @@ const Evidence = {
         const at = yield* DateTime.now
         const lines = yield* Effect.forEach(rows, Schema.encode(Evidence.wire))
         yield* fs.writeFileString(path.join(directory, `${DateTime.formatIso(at)}.ndjson`), Array.join(lines, "\n"))
-      }).pipe(Effect.ignoreLogged), // the ruled discard: delivery failure logs and the source proceeds
+      }).pipe(Effect.ignoreLogged),
 } as const
 ```
 
@@ -527,7 +505,6 @@ const Drift = {
           Effect.zipRight(
             sink(Array.flatMap(verdicts, Evidence.ofVerdict)),
             Effect.flatMap(Effect.serviceOption(_CURSOR.tag), Option.match({
-              // presence as data: an unwired root skips the checkpoint, a provided store survives restarts
               onNone: () => Effect.void,
               onSome: (store) =>
                 Effect.gen(function* () {
@@ -579,14 +556,9 @@ class Reconcile extends Tier {
   constructor(name: string, args: Reconcile.Args, opts?: pulumi.ComponentResourceOptions) {
     super("Reconcile", name, opts)
     const operator = new k8s.helm.v4.Chart(name, {
-      // OCI is the chart's ONLY published route: the GitHub Pages host serves no `index.yaml` and redirects to a
-      // 404, so a `repositoryOpts.repo` row here resolves nothing. The reference carries the registry inline.
       chart: "oci://ghcr.io/pulumi/helm-charts/pulumi-kubernetes-operator",
       version: args.version,
       namespace: args.namespace,
-      // The chart's four CRDs ship in `crds/`, which `helm upgrade` installs once and never touches again. This
-      // row escapes that: `helm.v4.Chart` RENDERS and hands every object to the provider, so the CRDs are ordinary
-      // Pulumi resources a version bump diffs and updates — no out-of-band apply, and no silently stale schema.
       skipCrds: false,
     }, this.child())
     const workspace = new k8s.core.v1.Secret(`${name}-workspace`, {
@@ -616,7 +588,7 @@ class Reconcile extends Tier {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Drift, DriftReport, Evidence, Guard, Reconcile }
 ```

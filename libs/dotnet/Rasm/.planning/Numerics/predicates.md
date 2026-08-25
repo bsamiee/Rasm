@@ -22,7 +22,7 @@ Every fold is one polynomial instantiated at both the `Interval` filter and `Exp
 - Boundary: the whole family lives on ONE `Predicate` static owner — a per-predicate class or a `FastOrient2D`/`ExactOrient2D` pair is the deleted form. Verdicts are the closed `Sign` and a raw `int`/`double` sign crossing a public signature is the named defect; coordinates are `Point3d` read at the seam, a domain-local point struct the deleted form. Constructed points travel as `Implicit` defining-point carriage rounded ONCE at `Round()` — a `Denominator`-as-`double` field or an `Estimate()` inside an exact carrier is the named robustness defect; `ClipHalfplane`'s emitted crossings are the one deliberate exception, a ring fold whose product IS coordinates, and they carry their fabrication mark precisely because no exact carriage survives the divide — and derived `Plane` inputs are dead, so a three-plane point is its NINE points. `DominantOf` is the ONE geometry admission, its `NumericsPolicy.SplitCeiling` gate the exact carriers' operand domain, so an over-ceiling coordinate refuses on the `Op` rail rather than reaching a `TwoProduct` row that hands back a NaN error component; every leaf difference rides the error-free `IExact.Diff`, a raw `double` subtraction wrapped in an exact type the deleted rounded-leaf form. Loosening a filter band to pass a near-degenerate case instead of taking the exact branch is the named correctness defect — a sign verdict is exact or it is a defect. `Implicit` keeps its bare name against every upper-folder twin — the discriminant is the CARRIAGE regime, a defining-point construction whose coordinates are derived exactly on demand, where an upper folder's same-named type carries evaluated values; a rename to `ImplicitPoint` names the payload the union already types.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics;
 using DoubleDouble;
@@ -36,7 +36,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Sign {
     public static readonly Sign Negative = new(-1);
@@ -50,9 +50,6 @@ public sealed partial class Sign {
     public Sign Times(Sign other) => Of(Key * other.Key);
 }
 
-// Key = the axis' coordinate ordinal (the Compare column); U/V = the plane NORMAL to it (the
-// Orient2D/InCircle projection plane); Basis = the unit direction along Key, so a lift out of the projection
-// plane reads the row rather than rebuilding a vector from the ordinal.
 [SmartEnum<int>]
 public sealed partial class Axis {
     public static readonly Axis X = new(0, u: static () => Y, v: static () => Z, basis: Vector3d.XAxis, read: static p => p.X, along: static d => d.X);
@@ -61,10 +58,6 @@ public sealed partial class Axis {
 
     public Vector3d Basis { get; }
 
-    // Row-to-row references ride the deferred `static () => Row` form — a direct field reference reads null
-    // during the generator's own static initialization — so U and V are AXES, never ordinals a consumer must
-    // re-resolve; a coordinate read is a delegate COLUMN, so the ternary ladder every call site once re-spelled
-    // has no seat left to occupy.
     [UseDelegateFromConstructor] private partial Axis NormalU();
     [UseDelegateFromConstructor] private partial Axis NormalV();
     public Axis U => NormalU();
@@ -72,14 +65,9 @@ public sealed partial class Axis {
     [UseDelegateFromConstructor] public partial double Read(Point3d p);
     [UseDelegateFromConstructor] public partial double Along(Vector3d d);
 
-    // The homogeneous coordinate this axis names, read off the exact quadruple — one member on the owner
-    // instead of an ordinal threaded into a free generic picker.
     internal T Pick<T>(in (T X, T Y, T Z, T Lambda) h) where T : struct, IExact<T> =>
         Key == 0 ? h.X : Key == 1 ? h.Y : h.Z;
 
-    // Exact IEEE key of an explicit point, the ONE ordinal an arena interns coordinates by. Signed zero folds
-    // onto positive because Compare reads ONE zero, and two ordinates a predicate calls equal must key equal —
-    // a raw bit triple splits one welded corner into two and its incident edges never cancel.
     public static (long X, long Y, long Z) BitKey(Point3d p) => (Bits(p.X), Bits(p.Y), Bits(p.Z));
 
     static long Bits(double v) => BitConverter.DoubleToInt64Bits(v == 0.0 ? 0.0 : v);
@@ -94,7 +82,6 @@ public sealed partial class Axis {
     public static Fin<Axis> DominantOf(Point3d a, Point3d b, Point3d c, Op? key = null) =>
         DominantOf(Vector3d.CrossProduct(b - a, c - a), key);
 
-    // Newell normal over the quad cycle — robust for the nonplanar quad one corner cross is not.
     [BoundaryAdapter]
     public static Fin<Axis> DominantOf(Point3d a, Point3d b, Point3d c, Point3d d, Op? key = null) {
         Span<Point3d> ring = [a, b, c, d];
@@ -110,8 +97,6 @@ public sealed partial class Axis {
 
     static Axis Dominant(double x, double y, double z) => x >= y && x >= z ? X : y >= z ? Y : Z;
 
-    // Exact carriers' operand domain refuses HERE, the one admission the family owns;
-    // NumericsPolicy.SplitCeiling states why the bound exists and why it is unconditional.
     static bool Representable(Vector3d d) =>
         Math.Abs(d.X) <= NumericsPolicy.SplitCeiling
         && Math.Abs(d.Y) <= NumericsPolicy.SplitCeiling
@@ -130,8 +115,6 @@ public readonly partial struct Implicit {
     public Option<Point3d> Round() =>
         IsExplicit ? Some(AsExplicit) : Materialized(Homogeneous<Expansion>());
 
-    // Existence is the EXACT lambda sign on the defining points, read before any division — the rounded
-    // readout is then a representability question, never the degeneracy verdict.
     static Option<Point3d> Materialized((Expansion X, Expansion Y, Expansion Z, Expansion Lambda) h) {
         if (Expansion.SignOf(h.Lambda) == Sign.Zero) { return Option<Point3d>.None; }
         double lambda = h.Lambda.Estimate();
@@ -140,8 +123,7 @@ public readonly partial struct Implicit {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// SSI: two coplanar segments (P,Q)×(R,S) crossing — the parametric numerators ride the (P,Q) segment in all three coordinates.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Ssi(Point3d P, Point3d Q, Point3d R, Point3d S, Axis Plane) {
     public (T X, T Y, T Z, T Lambda) Homogeneous<T>() where T : struct, IExact<T> {
         (Axis u, Axis v) = (Plane.U, Plane.V);
@@ -156,7 +138,6 @@ public readonly record struct Ssi(Point3d P, Point3d Q, Point3d R, Point3d S, Ax
     }
 }
 
-// LPI: the crossing of line (P,Q) with the plane through (A,B,C) — five points, three numerators.
 public readonly record struct Lpi(Point3d P, Point3d Q, Point3d A, Point3d B, Point3d C) {
     public (T X, T Y, T Z, T Lambda) Homogeneous<T>() where T : struct, IExact<T> {
         (T ax, T ay, T az) = (T.Diff(P.X, Q.X), T.Diff(P.Y, Q.Y), T.Diff(P.Z, Q.Z));
@@ -169,7 +150,6 @@ public readonly record struct Lpi(Point3d P, Point3d Q, Point3d A, Point3d B, Po
     }
 }
 
-// TPI: three planes, EACH by three points.
 public readonly record struct Tpi(
     Point3d P1, Point3d P2, Point3d P3,
     Point3d Q1, Point3d Q2, Point3d Q3,
@@ -198,11 +178,6 @@ public readonly record struct Tpi(
             .Add(r1.Z.Mul(r2.X.Mul(r3.Y).Sub(r2.Y.Mul(r3.X))));
 }
 
-// The cut ONE half-plane clip folds a ring against, in the two forms consumers actually hold. Frame names it
-// by the two points spanning the cut line in a projection plane and takes its side through the exact Orient2D
-// ladder; Affine names it by the functional the caller already carries — a radical plane, a support plane —
-// and takes sign and offset off that. Side and Offset are the SAME polynomial per case, so the sign deciding a
-// vertex and the value interpolating its crossing can never disagree about which side was kept.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Halfplane {
     private Halfplane() { }
@@ -219,16 +194,12 @@ public abstract partial record Halfplane {
                         f.Plane.U.Read(q), f.Plane.V.Read(q)),
             affine: static (q, a) => Sign.Of((a.Normal * (Vector3d)q) - a.Constant));
 
-    // The raw reading the crossing parameter divides — never a verdict. Its SIGN is Side's on every
-    // configuration Side calls nonzero; where the two disagree the difference is exactly the cancellation the
-    // clip's denominator floor refuses on.
     public double Offset(Point3d p) =>
         Switch(
             state:  p,
             frame:  static (q, f) => Cross(f.Origin, f.Along, q, f.Plane),
             affine: static (q, a) => (a.Normal * (Vector3d)q) - a.Constant);
 
-    // The raw 2x2 determinant over the frame in its projection plane — the exact polynomial Orient2D decides.
     static double Cross(Point3d origin, Point3d along, Point3d q, Axis plane) {
         (Axis u, Axis v) = (plane.U, plane.V);
         (double ou, double ov) = (u.Read(origin) - u.Read(q), v.Read(origin) - v.Read(q));
@@ -237,7 +208,7 @@ public abstract partial record Halfplane {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Predicate {
     // --- [COORDINATE_CORE]
 
@@ -326,8 +297,6 @@ public static class Predicate {
     }
 
     // --- [IMPLICIT_ORIENT]
-    // Verdicts compose the exact lambda signs through Sign.Times at each lambda's parity — la/lb ODD (flip),
-    // lc SQUARED (Zero-gates, no flip) — so a negative denominator never mis-signs and a zero one yields Zero.
     public static Sign Orient2D(in Implicit a, in Implicit b, in Implicit c, Axis axis) {
         if (a.IsExplicit && b.IsExplicit && c.IsExplicit) {
             return Orient2D(Swizzled(a.AsExplicit, axis), Swizzled(b.AsExplicit, axis), Swizzled(c.AsExplicit, axis));
@@ -341,8 +310,6 @@ public static class Predicate {
         return Expansion.SignOf(e.N).Times(ea).Times(eb).Times(ec).Times(ec);
     }
 
-    // Homogeneous rows scale by (la*li), so the 3x3 determinant scales by la^3 * lb * lc * ld — la's cube and
-    // each other lambda ODD, so every one contributes one flip and a zero one yields Zero through Times.
     public static Sign Orient3D(in Implicit a, in Implicit b, in Implicit c, in Implicit d) {
         if (a.IsExplicit && b.IsExplicit && c.IsExplicit && d.IsExplicit) {
             return Orient3D(a.AsExplicit, b.AsExplicit, c.AsExplicit, d.AsExplicit);
@@ -359,7 +326,6 @@ public static class Predicate {
     }
 
     // --- [IMPLICIT_COMPARE]
-    // Exact per-coordinate order key: Negative = a-before-b.
     public static Sign Compare(in Implicit a, in Implicit b, Axis axis) {
         if (a.IsExplicit && b.IsExplicit) {
             return Sign.Of(axis.Read(a.AsExplicit).CompareTo(axis.Read(b.AsExplicit)));
@@ -373,8 +339,6 @@ public static class Predicate {
     }
 
     // --- [IMPLICIT_IN_CIRCUM]
-    // Explicit-row lifts clear by lambda^2, and the lambda parity is a structural constant — in-circle EVEN
-    // power 4 (Zero-gate, no flip), in-sphere ODD power 5 (one flip) — composed exactly, filter and oracle alike.
     public static Sign InCircle(Point3d a, Point3d b, Point3d c, in Implicit d, Axis axis) {
         if (d.IsExplicit) {
             return InCircle(Swizzled(a, axis), Swizzled(b, axis), Swizzled(c, axis), Swizzled(d.AsExplicit, axis));
@@ -394,14 +358,6 @@ public static class Predicate {
     }
 
     // --- [HALFPLANE_CLIP]
-    // ONE Sutherland-Hodgman fold of ONE convex ring against ONE half-plane — the owner three kernels forked
-    // into three arithmetics, only one of which guarded its crossing. Emission per source vertex is CROSSING
-    // then the kept vertex; a crossing needs a STRICT straddle, so an on-plane vertex is emitted once as itself
-    // rather than twice as itself and its own crossing. Band widens the KEEP test alone, never the sign test,
-    // or two mirror views of one cut disagree on counts. A crossing whose denominator falls under denomFloor
-    // writes the segment midpoint and MARKS that slot fabricated — the coordinate is not a measurement, so the
-    // mark rides per vertex and each consumer decides between refusing the ring and witnessing it. Labels ride
-    // the same stride: a kept vertex keeps its own, a LEAVING crossing takes cutLabel, an ENTERING one inherits.
     public static Fin<(int Written, int Fabricated)> ClipHalfplane(
         ReadOnlySpan<Point3d> ring, ReadOnlySpan<int> labels, Halfplane cut, Sign keep, double band, double denomFloor,
         int cutLabel, Span<Point3d> target, Span<int> targetLabels, Span<bool> targetFabricated) {
@@ -447,8 +403,6 @@ public static class Predicate {
         return (n, la, lb, lc);
     }
 
-    // Row i is (Xi*La - Xa*Li) scaled by La*Li in each coordinate, so all three rows share one homogenizing
-    // power and the determinant is an exact polynomial in the defining points — no division anywhere.
     static (T N, T La, T Lb, T Lc, T Ld) OrientNumerator3<T>(in Implicit a, in Implicit b, in Implicit c, in Implicit d)
         where T : struct, IExact<T> {
         (T X, T Y, T Z, T Lambda) ha = a.Homogeneous<T>();
@@ -487,8 +441,6 @@ public static class Predicate {
         T eLift = eu.Mul(eu).Add(ev.Mul(ev));
         T bLift = bu.Mul(bu).Add(bv.Mul(bv));
         T cLift = cu.Mul(cu).Add(cv.Mul(cv));
-        // Minor order composes the direct ladder's det4 sign: the anchored-at-a row reduction flips the
-        // 3×3 once, folded into each negated 2×2 — so InCircle(a,b,c, Explicit d) equals the direct arm.
         T det = eLift.Mul(cu.Mul(bv).Sub(bu.Mul(cv)))
             .Add(bLift.Mul(eu.Mul(cv).Sub(cu.Mul(ev))))
             .Add(cLift.Mul(bu.Mul(ev).Sub(eu.Mul(bv))));
@@ -522,10 +474,6 @@ public static class Predicate {
     static Point3d Swizzled(Point3d p, Axis axis) => new(axis.U.Read(p), axis.V.Read(p), 0.0);
 
     // --- [EXACT_FALLBACKS]
-    // Raw rounded `a.X - c.X` decides the sign of a DIFFERENT determinant exactly — hence the TwoSum leaf,
-    // which `Expansion.Diff` owns for the interface arm and these folds alike.
-    // Every escalation tier takes the entry's OWN raw doubles: rebuilding a Point3d per tier reconstructed the
-    // very host value the raw entry exists to keep off the interior signature, twice per predicate.
     static Sign Orient2DExact(double ax, double ay, double bx, double by, double cx, double cy) =>
         Expansion.SignOf(Expansion.Difference(
             Expansion.Multiply(Expansion.Diff(ax, cx), Expansion.Diff(by, cy)),
@@ -565,9 +513,6 @@ public static class Predicate {
     }
 
     // --- [DOUBLE_DOUBLE_REFINE]
-    // MULTILINEAR orient determinants align each difference vector to one exponent through `ddouble.AdjustScale`,
-    // a positive per-row scale preserving a multilinear sign; the LIFTED in-circum determinants are
-    // scale-INHOMOGENEOUS (a row scale does not commute with the quadratic lift), so their recompute runs raw.
     static Sign? RefineOrient2D(double ax, double ay, double bx, double by, double cx, double cy) {
         (_, (ddouble acx, ddouble acy)) = ddouble.AdjustScale(0, ((ddouble)ax - cx, (ddouble)ay - cy));
         (_, (ddouble bcx, ddouble bcy)) = ddouble.AdjustScale(0, ((ddouble)bx - cx, (ddouble)by - cy));
@@ -643,19 +588,12 @@ public static class Predicate {
 }
 
 public static class RationalOracle {
-    // ONE oracle runs in the shipping path: the PRIMARY Fraction fold, sound on its own. The independent
-    // ERational source is a DIFFERENTIAL, not a second opinion a verdict waits on — running both on every call
-    // doubled the estate's most expensive tier and resolved disagreement by throwing out of a member typed
-    // total, which is exception-style control flow in domain logic. Both alternates now sit beside `BinaryOf`
-    // for the proof estate's four-way differential, the one reader that must see all four.
     public static Sign InCircum(Expansion det, Expansion lambda, int lambdaDegree) {
         Sign fl = Sign.Of(lambda.ToFraction().Sign);
         Sign parity = (lambdaDegree & 1) == 0 ? fl.Times(fl) : fl;
         return Sign.Of(det.ToFraction().Sign).Times(parity);
     }
 
-    // Each Expansion component lifts losslessly through `ERational.FromDouble` (EInteger substrate — no
-    // representation shared with Fraction's BigInteger), so the second source is independent by construction.
     internal static Sign RationalOf(Expansion det, Expansion lambda, int lambdaDegree) {
         static ERational Lift(Expansion e) {
             ERational acc = ERational.FromEInteger(EInteger.Zero);
@@ -667,9 +605,6 @@ public static class RationalOracle {
         return Sign.Of(Lift(det).Sign).Times(parity);
     }
 
-    // Raised `FlagInexact` (unreachable for dyadic sums under `Unlimited`) marks a FAILED proof returning null,
-    // never a fabricated Zero. The consumer is the four-way differential in the proof estate, which reads
-    // Expansion.Sign, EFloat.Sign, Fraction.Sign, and ERational.Sign as one invariant.
     public static Sign? BinaryOf(Expansion e) {
         EContext exact = EContext.Unlimited.WithBlankFlags();
         EFloat acc = EFloat.Zero;
@@ -693,7 +628,7 @@ public static class RationalOracle {
 - Boundary: `Expansion` is ONE owner for sign-exact arithmetic — a free `TwoSum`/`TwoProduct` set or a parallel `BigFloat`/`MPFR` type is the deleted form. `Interval` is ONE owner for the directed-rounding bracket and keeps its bare name against every upper-folder twin — the discriminant is the CARRIED PROOF, a pair of directed-rounded `EFloat` endpoints whose `Verdict` is a sign proof, where an upper folder's same-named type is a scalar range; a per-predicate epsilon-inflation filter is the deleted form, the bracket sound by construction where an epsilon guess is a tuned lie. Both `TwoProduct` rows share one member gated once on `NumericsPolicy.HardwareFma`; a per-call-site FMA probe or a second product type is the deleted form, and the row selection never reaches a verdict because `SplitCeiling` bounds the admitted domain to where the rows agree bit for bit. `ErrorBound` is the single permanence-threshold table — a keyed roster like every other closed vocabulary here, each row carrying the published `(Alpha, Beta)` pair and deriving `(Alpha + Beta*eps)*eps` at whatever roundoff a tier hands it, so a precision stage is ONE argument and a per-tier constant beside a policy owner is the named defect. `NumericsPolicy` states the strict-IEEE-754/RID invariant as the floor the forward-error coefficients derive against, and a runtime violating it is outside the support matrix, not a tolerated mode; under that same invariant the Dekker row is pure binary64 that RyuJIT never contracts into an `fmadd`, so it carries no RID dependence of its own, and its ONE residual difference from the FMA row — the sign of a zero low word in the underflow regime — is invisible to a sign verdict because `Expansion.Single` drops a zero component, while a bit-level golden over expansion components is the one consumer that must not assume the two rows byte-match.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -704,7 +639,7 @@ using Thinktecture;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IExact<TSelf> where TSelf : struct, IExact<TSelf> {
     static abstract TSelf Of(double value);
     static abstract TSelf Diff(double a, double b);
@@ -715,28 +650,19 @@ public interface IExact<TSelf> where TSelf : struct, IExact<TSelf> {
     Sign? Verdict { get; }
 }
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class NumericsPolicy {
-    // Each anchor is its own derivation, never a seventeen-digit transcription of one: the binary64 unit
-    // roundoff, its double-double square, and Dekker's split constant are compile-time constant expressions.
-    public const double Epsilon = 1.0 / (1L << 53);                  // binary64 unit roundoff 2^-53
-    public const double DoubleDoubleEpsilon = Epsilon * Epsilon * 0.5; // 2^-107, the double-double unit roundoff
-    public const double Splitter = (1 << 27) + 1;                    // 2^27+1 — the Dekker split constant the FMA-free row consumes
-    // FMA-free rows derive their exact domain edge rather than tuning it: `Splitter * value` overflows to infinity
-    // past this magnitude and `c - (c - value)` then yields NaN, so the Dekker split poisons the low word of a
-    // product that never overflowed, and no downstream tier can tell that NaN from an exact zero. INSIDE the
-    // ceiling the two TwoProduct rows are bit-identical — Dekker's theorem makes the exact error of a binary64
-    // product representable in one binary64. `Axis.DominantOf` gates on this constant UNCONDITIONALLY rather
-    // than on HardwareFma, so the admitted domain and every verdict over it are RID-independent; scale-and-restore
-    // is the rejected repair because it buys range past 1e300 no geometry in this estate occupies.
-    public const double SplitCeiling = double.MaxValue / Splitter;   // ~1.3393857589828341e300 (2^997 scale)
+    public const double Epsilon = 1.0 / (1L << 53);
+    public const double DoubleDoubleEpsilon = Epsilon * Epsilon * 0.5;
+    public const double Splitter = (1 << 27) + 1;
+    public const double SplitCeiling = double.MaxValue / Splitter;
 
     public static readonly bool HardwareFma =
         System.Runtime.Intrinsics.X86.Fma.IsSupported || System.Runtime.Intrinsics.Arm.AdvSimd.Arm64.IsSupported;
 
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly struct Expansion : IExact<Expansion> {
     private readonly double[] components;
     private readonly int length;
@@ -755,9 +681,6 @@ public readonly struct Expansion : IExact<Expansion> {
     }
 
     // --- [TWO_PRODUCT]
-    // Rows diverge only past NumericsPolicy.SplitCeiling (which Axis.DominantOf refuses) and on the sign of a
-    // zero low word in the underflow regime, which no Expansion observes because `Single` drops a zero component.
-    // The two-component product is the SCALE row's leaf alone; no polynomial on the page reaches a bare product.
     static (double Hi, double Lo) TwoProductCore(double a, double b) {
         double x = a * b;
         if (NumericsPolicy.HardwareFma) return (x, Math.FusedMultiplyAdd(a, b, -x));
@@ -773,7 +696,6 @@ public readonly struct Expansion : IExact<Expansion> {
     }
 
     // --- [EXPANSION_SUM]
-    // Carry/low splitting reads TwoSumCore directly — the Pair-compressed TwoSum would double-count the high word.
     public static Expansion Sum(Expansion left, Expansion right) {
         double[] merged = new double[left.length + right.length + 1];
         int li = 0, ri = 0, written = 0;
@@ -794,7 +716,6 @@ public readonly struct Expansion : IExact<Expansion> {
     public static Expansion Difference(Expansion left, Expansion right) => Sum(left, Negate(right));
 
     // --- [SCALE_EXPANSION]
-    // Shewchuk's linear scale-expansion, carry threading forward — never a quadratic Sum-per-component accumulate.
     public static Expansion Scale(Expansion e, double scalar) {
         if (e.length == 0 || scalar == 0.0) return Single(0.0);
         double[] scaled = new double[2 * e.length];
@@ -813,8 +734,6 @@ public readonly struct Expansion : IExact<Expansion> {
     }
 
     // --- [MULTIPLY]
-    // Scaling by the SHORTER operand's components minimises the merge count — the product is symmetric, so the
-    // choice is free and the accumulate walks min(m, n) merges instead of whichever side the caller wrote second.
     public static Expansion Multiply(Expansion left, Expansion right) {
         if (left.length == 0 || right.length == 0) return Single(0.0);
         (Expansion wide, Expansion narrow) = left.length >= right.length ? (left, right) : (right, left);
@@ -844,8 +763,6 @@ public readonly struct Expansion : IExact<Expansion> {
     }
 
     // --- [EXACT_ALGEBRA]
-    // The error-free leaf difference has ONE owner here; the interface arm and every fold on the page read it,
-    // so no consumer re-declares `TwoSum(a, -b)` beside it.
     internal static Expansion Diff(double a, double b) => TwoSum(a, -b);
     static Expansion IExact<Expansion>.Of(double value) => Single(value);
     static Expansion IExact<Expansion>.Diff(double a, double b) => Diff(a, b);
@@ -856,15 +773,8 @@ public readonly struct Expansion : IExact<Expansion> {
     Sign? IExact<Expansion>.Verdict => SignOf(this);
 
     // --- [RATIONAL_LIFT]
-    // Every component is dyadic, so the exact sum is ONE BigInteger numerator over ONE shared power-of-two
-    // denominator. The pairwise `Fraction.Add` fold was the deleted form: its unreduced denominator product grew
-    // as the SUM of the per-component bit-lengths, quadratic-cost `BigInteger.Multiply` at every step on exactly the
-    // degenerate inputs the oracle exists to adjudicate.
     public Fraction ToFraction() {
         int shared = int.MaxValue;
-        // An InSphere exact fold reaches hundreds of components and this member is called on exactly those
-        // inputs, so the stack path is BOUNDED and the pooled span carries the tail; an unbounded stackalloc is
-        // a stack overflow no `Fin` rail can catch.
         using MemoryOwner<int> pooled = length <= StackExponents ? MemoryOwner<int>.Empty : MemoryOwner<int>.Allocate(length);
         Span<int> exponents = length <= StackExponents ? stackalloc int[StackExponents] : pooled.Span;
         for (int i = 0; i < length; i++) {
@@ -888,12 +798,9 @@ public readonly struct Expansion : IExact<Expansion> {
     static Expansion Pair(double small, double large) =>
         small == 0.0 ? Single(large) : new Expansion(new[] { small, large }, 2);
 
-    // Stack budget for the rational lift's exponent scratch — above it the fold rents.
     private const int StackExponents = 128;
 }
 
-// 53-bit EFloat endpoints widen conservatively under frozen Floor/Ceiling contexts — fixed cost per
-// operation, no BigInteger growth.
 public readonly struct Interval : IExact<Interval> {
     static readonly EContext Down = EContext.ForPrecisionAndRounding(53, ERounding.Floor).WithPrecisionInBits(true);
     static readonly EContext Up = EContext.ForPrecisionAndRounding(53, ERounding.Ceiling).WithPrecisionInBits(true);
@@ -926,19 +833,12 @@ public readonly struct Interval : IExact<Interval> {
         : Lo.IsZero && Hi.IsZero ? Sign.Zero
         : null;
 
-    // PeterO exposes no EFloat Min/Max — CompareTo is the whole ordering surface and the type ships no
-    // relational operators (api-petero-numbers.md [03] rows [07]-[08]).
     static EFloat Least(EFloat a, EFloat b, EFloat c, EFloat d) => Min(Min(a, b), Min(c, d));
     static EFloat Greatest(EFloat a, EFloat b, EFloat c, EFloat d) => Max(Max(a, b), Max(c, d));
     static EFloat Min(EFloat a, EFloat b) => a.CompareTo(b) <= 0 ? a : b;
     static EFloat Max(EFloat a, EFloat b) => a.CompareTo(b) >= 0 ? a : b;
 }
 
-// One row per direct predicate, keyed like every other closed vocabulary on the page, each carrying the
-// PUBLISHED forward-error coefficient pair (alpha, beta) from Shewchuk 1997, "Adaptive Precision
-// Floating-Point Arithmetic and Fast Robust Geometric Predicates", §4 — the permanence bound is
-// (alpha + beta*eps)*eps at whatever roundoff a tier carries, so a precision stage is ONE argument and never
-// four more constants at a policy owner.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ErrorBound {

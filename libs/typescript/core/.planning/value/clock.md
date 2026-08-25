@@ -14,11 +14,6 @@ import * as Semigroup from "@effect/typeclass/Semigroup"
 import { DateTime, Duration, Option, Order, ParseResult, pipe, Schema } from "effect"
 import { Shape } from "./schema.ts"
 
-// `_Physical` counts Unix-epoch TICKS, 100 nanoseconds each, inside an int64 byte cell, so its mint domain is I63
-// and not the U64 the cell's width suggests. Bounding at the BRAND makes that domain one fact every construction,
-// decode, and window arithmetic answers, where a seam-only guard let an out-of-domain half live in memory until it
-// reached bytes. Ticks cost range against a millisecond half — I63 ticks reach 31197-CE where I63 millis reach year
-// 292-million — and buy the 10,000x resolution the logical half otherwise absorbs as same-instant collisions.
 const _I63 = 0x7fffffffffffffffn
 const _U64 = 0xffffffffffffffffn
 const _TICKS_PER_MILLI = 10_000n
@@ -34,13 +29,11 @@ const _ZERO = _logical(0n)
 const _succ = (held: typeof _Logical.Type): typeof _Logical.Type => _logical(held + 1n)
 
 const _unpack = (bytes: Uint8Array): { readonly physical: bigint; readonly logical: bigint } => {
-  // BOUNDARY ADAPTER: DataView is the platform layout seam; the returned halves detach as immutable values.
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   return { physical: view.getBigUint64(0, true), logical: view.getBigUint64(8, true) }
 }
 
 const _pack = (stamp: { readonly physical: bigint; readonly logical: bigint }): Uint8Array => {
-  // BOUNDARY ADAPTER: DataView is the platform layout seam; the returned byte array owns its buffer.
   const view = new DataView(new ArrayBuffer(16))
   view.setBigUint64(0, stamp.physical, true)
   view.setBigUint64(8, stamp.logical, true)
@@ -56,22 +49,13 @@ class _Hlc extends Schema.Class<_Hlc>("Clock.Hlc")({ physical: _Physical, logica
   static readonly genesis = new _Hlc({ physical: _physical(0n), logical: _ZERO })
   static readonly FromBytes: Schema.transformOrFail<typeof _Bytes, typeof _Hlc> = Schema.transformOrFail(_Bytes, _Hlc, {
     strict: true,
-    // `_Physical` re-admits the unpacked half, so a cell carrying a value past the I63 mint domain faults here
-    // rather than decoding as a stamp no peer could have written. Only the logical half needs its own encode
-    // guard, since the physical domain already refused anything a minter cannot write.
     decode: (bytes) => ParseResult.succeed(_unpack(bytes)),
     encode: (stamp, _options, ast) => stamp.logical > _U64
       ? ParseResult.fail(new ParseResult.Type(ast, stamp, "<u64-overflow>"))
       : ParseResult.succeed(_pack(stamp)),
   })
-  // `physicalOf` SCALES rather than transcribes, because the platform reads milliseconds and the axis counts ticks:
-  // a bare `toEpochMillis` half writes a number 10,000x small into the frozen cell and every comparison against a
-  // peer stamp inverts. Resolution stays the platform's — each stamp is an exact 10,000-tick multiple — while the
-  // UNIT matches the layout, which is what ordering against a finer-resolution peer requires.
   static readonly physicalOf = (instant: DateTime.Utc): typeof _Physical.Type =>
     _physical(BigInt(Math.max(DateTime.toEpochMillis(instant), 0)) * _TICKS_PER_MILLI)
-  // Spans ride the same tick axis, so a grade bound and a stamp subtract coherently; saturation pins at the mint
-  // domain, since a window clipped to the last representable tick still orders where an overflowed one faults.
   static readonly delta = (span: Duration.DurationInput): typeof _Physical.Type =>
     _physical(Option.match(Duration.toNanos(span), {
       onNone: () => _I63,
@@ -106,9 +90,6 @@ const _axis: Order.Order<typeof _Physical.Type> = Order.bigint
 const _past = Order.lessThan(_axis)
 const _within = Order.between(_axis)
 const _overlap = Semigroup.struct({ earliest: Semigroup.max(_axis), latest: Semigroup.min(_axis) })
-// Both window bounds clamp to the mint domain, because the axis is bounded at BOTH ends: a spread wider than the
-// stamp underflows past the epoch and a spread added near the ceiling overflows past I63, and either one throws
-// out of `_mint` where a clamped bound still answers every precedence, containment, and width read.
 const _floored = (at: typeof _Physical.Type, spread: typeof _Physical.Type): typeof _Physical.Type =>
   at > spread ? _mint(at - spread) : _mint(0n)
 const _ceiled = (at: typeof _Physical.Type, spread: typeof _Physical.Type): typeof _Physical.Type =>
@@ -164,7 +145,7 @@ declare namespace Clock {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Clock }
 ```

@@ -22,7 +22,7 @@ This page mints the typed heal evidence — `ManifoldStatus` snapshots, the `Reb
 - Boundary: `RebuildReceipt` stays the typed per-kind union — a `WeldReceipt`'s merged-vertex set and a `ManifoldReceipt`'s forked-face set are different shapes carried by different cases; the before/after status is the composed `Rasm.Meshing` `TopologyReceipt` projected through the un-gated six-field row; the boolean payload is the arrangement `BooleanReceipt`; convergence registers as `IValidityEvidence`. `RebuildLog` feeds the naming `Track` re-anchor and the receipt's affected-ref set is the re-anchor seed, so a topology-rebuilding op that emits no affected entities re-anchors the naming fold blind; the fold carries VERTICES and FACES alone because the arena keys topology by face triples and the `Track` resolves edges through `VertexNames`, so an edge column would publish an empty set every op and make `ReanchorsLineage` read a slot no arm can set. `OrientReceipt.FlippedFaces` rides `Affected` as pure evidence — the `RebuildsTopology` filter excludes the orient stage, so the naming fold still sees nothing while a session consumer can audit the winding change. Op band and payload evidence ride the receipt, which mints no hash and asserts no content identity — the healed mesh's content hash is the reconciliation `Encode` job, the receipt only naming which entities changed so the reference identity (`TopoName`) re-binds.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Meshing;
@@ -32,15 +32,13 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Processing;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Option marks unvalidated genus absent, never a sentinel.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ManifoldStatus(
     int EulerCharacteristic, int BoundaryComponents, bool IsManifold, bool IsOriented,
     int NonManifoldEdges, Option<int> Genus) {
     public static ManifoldStatus Of((int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus) projection) =>
         new(projection.Euler, projection.BoundaryComponents, projection.IsManifold, projection.IsOriented, projection.NonManifoldEdges, projection.Genus);
 
-    // Genus-consistent closed target — the boolean's success predicate.
     public bool GenusClosed =>
         Genus.Match(
             Some: genus => IsManifold && BoundaryComponents == 0 && NonManifoldEdges == 0
@@ -48,16 +46,12 @@ public readonly record struct ManifoldStatus(
             None: static () => false);
 }
 
-// ONE mint payload: the HealStage row reading it states its own evidence and never its plumbing, so the op→receipt
-// table that used to sit here — and its inverse — both leave with it.
 internal readonly record struct ReceiptSeed(
     RepairPolicy Policy, MeshEdit Result, ManifoldStatus Before, ManifoldStatus After,
     Set<int> Faces, Set<int> Vertices, Option<Incidence> Carry,
     Option<(BooleanOp Op, BooleanReceipt Receipt)> Merge, Op Key) {
     internal Context Context => Result.Tolerance;
 
-    // Booleans publish a WHOLE arena: every slot is new material and admission leaves the bitsets clean, so the
-    // extent — not the dirty seed — is that arm's affected set.
     internal Set<int> ExtentFaces => toSet(Range(0, Result.FaceCount));
     internal Set<int> ExtentVertices => toSet(Range(0, Result.VertexCount));
 
@@ -74,22 +68,15 @@ public abstract partial record RebuildReceipt : IValidityEvidence {
     public sealed record DegenerateReceipt(HealStage Stage, Tolerance Sliver, ManifoldStatus Before, ManifoldStatus After, Set<int> CollapsedFaces) : RebuildReceipt;
     public sealed record GapReceipt(HealStage Stage, Tolerance Gap, ManifoldStatus Before, ManifoldStatus After, Set<int> BridgedFaces, Set<int> StitchedVertices) : RebuildReceipt;
     public sealed record WeldReceipt(HealStage Stage, Tolerance Weld, ManifoldStatus Before, ManifoldStatus After, Set<int> MergedVertices) : RebuildReceipt;
-    // ArenaResidual is the split's ONE convergence authority: the vertex copies it forks sit at bit-identical
-    // coordinates and a native topology vertex is a position-keyed equivalence class, so the freeze re-merges them and
-    // After.NonManifoldEdges cannot witness the repair that produced it.
     public sealed record ManifoldReceipt(HealStage Stage, Dimension PassBudget, int ArenaResidual, ManifoldStatus Before, ManifoldStatus After, Set<int> ForkedFaces, Set<int> ForkedVertices) : RebuildReceipt;
     public sealed record SelfIntersectReceipt(HealStage Stage, ManifoldStatus Before, ManifoldStatus After, Set<int> RetiledFaces, Set<int> MintedVertices) : RebuildReceipt;
     public sealed record OrientReceipt(HealStage Stage, ManifoldStatus Before, ManifoldStatus After, Set<int> FlippedFaces) : RebuildReceipt;
     public sealed record MergeReceipt(HealStage Stage, BooleanOp Op, BooleanReceipt Merge, ManifoldStatus Before, ManifoldStatus After, Set<int> SelectedFaces, Set<int> SelectedVertices) : RebuildReceipt;
 
-    // Positional case synthesis overrides these abstract get/init columns. HealStage.Receipt is the only mint and each
-    // row stamps ITSELF, so a stage paired with the wrong case is unrepresentable rather than merely unproven.
     public abstract HealStage Stage { get; init; }
     public abstract ManifoldStatus Before { get; init; }
     public abstract ManifoldStatus After { get; init; }
 
-    // Boundary COUNT is never law — a cross-gap bridge merges loops (−1), a slit splits one (+1) — so the gap witness
-    // is manifold-coherence.
     public bool IsValid =>
         Switch(
             degenerateReceipt:    static d => d.After.NonManifoldEdges <= d.Before.NonManifoldEdges,
@@ -103,8 +90,6 @@ public abstract partial record RebuildReceipt : IValidityEvidence {
             orientReceipt:        static o => o.After.IsOriented && o.After.EulerCharacteristic == o.Before.EulerCharacteristic,
             mergeReceipt:         static m => m.After.GenusClosed);
 
-    // Winding change IS evidence, so the orient arm publishes its flipped faces; the ToLog RebuildsTopology filter
-    // excludes that stage, so the naming fold still sees nothing and the column stays audit-only.
     public (Set<int> Vertices, Set<int> Faces) Affected =>
         Switch(
             degenerateReceipt:    static d => (Set<int>.Empty, d.CollapsedFaces),
@@ -116,9 +101,6 @@ public abstract partial record RebuildReceipt : IValidityEvidence {
             mergeReceipt:         static m => (m.SelectedVertices, m.SelectedFaces));
 }
 
-// Ops carries the HealStage vocabulary itself — consumers read the typed row or its Key, never a re-parsed string.
-// No edge column: the arena keys topology by face triples and the Track resolves edges through VertexNames, so an
-// edge set would publish empty every op and make ReanchorsLineage read a slot no arm can set.
 public sealed record RebuildLog(Set<int> Vertices, Set<int> Faces, Seq<HealStage> Ops) {
     public static readonly RebuildLog Empty = new(Set<int>.Empty, Set<int>.Empty, Seq<HealStage>());
 

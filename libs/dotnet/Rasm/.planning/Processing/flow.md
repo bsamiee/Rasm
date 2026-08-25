@@ -41,7 +41,7 @@ Every receipt validates through the `Domain/rails.md` `ValidityClaim.All` fold u
 - Boundary: `TopologicalSort` and both bidirectional forms throw `NonAcyclicGraphException` and a flow digraph is cyclic by construction, so the band never composes them — the condensation IS the acyclic product; every QuikGraph value stays transient inside the fold with its throws funnelled through `Op.Catch`, and a graph-typed public member is the killed shape. The band publishes through `Processing/intent.md`'s `VectorIntent.Atlas` case exactly as the tracer publishes through `Streamline`, so `MorseAtlas` and `FlowKernel` both stay internal behind one admission-then-dispatch rail. A site is a recurrent set's representative sample, never a root-solved zero — refining one to the field's exact zero is the `Solving/solver` functor's — and a separatrix whose horizon runs out carries `None` for its terminal node rather than a fabricated one. The census and Jacobian-assembly loops are the named span-kernel statement exemption.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -55,15 +55,13 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings, and System.Numerics
-// declares Plane/Quaternion ones, so the spectrum carrier enters by alias rather than a whole-namespace using.
 using Complex = System.Numerics.Complex;
 using Dimension = Rasm.Numerics.Dimension;
 using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Processing;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class StreamlineStopKind {
     public static readonly StreamlineStopKind Terminated = new(key: 0);
@@ -138,7 +136,6 @@ public abstract partial record Termination {
                 LocalizationBudget: localizationBudget.IfNone(TracePolicy.Default.LocalizationBudget)).Admit(key: op));
     }
 
-    // Admit shadows the Rasm.Domain.Admit class inside this type, so Op.Need/Finite are the gates reachable here.
     internal Fin<Termination> Admit(Op key) => Switch(
         state: key,
         stepCountCase: static (_, termination) => Fin.Succ<Termination>(termination),
@@ -166,7 +163,6 @@ public abstract partial record Termination {
         loopDetectedCase: static (s, c) => Decision(stop: ClosureDetected(state: s.Field, radius: c.ClosureRadius.Value)),
         crossSurfaceCase: static (s, c) => EvaluateEvent(
             state: s.Field, kind: TraceEventKind.CrossSurface, tolerance: s.Context.Absolute.Value, budget: c.LocalizationBudget.Value,
-            // The hit proves the SHAPE reach alone; the signed read re-solves its own closest inside the evaluation owner.
             sample: point =>
                 from hit in c.Surface.Closest(sample: point, key: s.Key)
                 from value in c.Surface.SignedReach(hit: hit)
@@ -181,8 +177,6 @@ public abstract partial record Termination {
             key: s.Key).Map(@event => (Stop: @event.IsSome, Event: @event)),
         criticalCaptureCase: static (s, c) => EvaluateEvent(
             state: s.Field, kind: TraceEventKind.CriticalCapture, tolerance: s.Context.Absolute.Value, budget: c.LocalizationBudget.Value,
-            // Option-seeded min: the admission proves the roster non-empty, so None is unreachable and refuses typed
-            // rather than handing the localizer an infinite bracket to halve.
             sample: point => c.Sites
                 .Fold(Option<double>.None, (nearest, site) => Some(nearest.Match(
                     Some: held => Math.Min(val1: held, val2: point.DistanceTo(other: site)),
@@ -208,8 +202,6 @@ public abstract partial record Termination {
             ? EndpointEvent(kind: kind, status: TraceEventStatus.PreviousEndpointTouch, points: (previous, current, previous), values: (previousValue, currentValue, previousValue), parameter: 0.0, tolerance: tolerance)
             : Math.Abs(value: currentValue) <= tolerance
                 ? EndpointEvent(kind: kind, status: TraceEventStatus.CurrentEndpointTouch, points: (previous, current, current), values: (previousValue, currentValue, currentValue), parameter: 1.0, tolerance: tolerance)
-                // Sign OPPOSITION, never the product of the magnitudes: two same-sign values near 1e-200 multiply to
-                // exactly 0.0 and the straddle test then misses a crossing every finiteness probe passes.
                 : Sign.Of(previousValue) != Sign.Of(currentValue)
                     ? LocateRoot(previous: previous, current: current, dense: dense, previousValue: previousValue, currentValue: currentValue, kind: kind, tolerance: tolerance, budget: budget, sample: sample, key: key).Map(Some)
                     : Fin.Succ(Option<TraceEvent>.None)
@@ -221,9 +213,6 @@ public abstract partial record Termination {
                 Iterations: 0,
                 LocalizationKind: TraceEventLocalizationKind.BoundedBisection, DenseOutput: Option<DenseOutputReceipt>.None)))
             : Fin.Succ(Option<TraceEvent>.None);
-    // Each midpoint samples through the Fin-railed callback, so the bracket refines on-rail where a total-Func
-    // root-finder cannot. `Cell.Converge` owns the exact budget and transition verdict; the localized slot is an
-    // Option, so the tail unwraps once and the eleven-slot tuple remains a named row.
     private static Fin<TraceEvent> LocateRoot(Point3d previous, Point3d current, Option<DenseOutputSpan<Point3d, Vector3d>> dense, double previousValue, double currentValue, TraceEventKind kind, double tolerance, int budget, Func<Point3d, Fin<double>> sample, Op key) {
         Atom<Fin<Bracket>> cell = Atom(value: Fin.Succ(new Bracket(
             A: previous, B: current, FA: previousValue, FB: currentValue, TA: 0.0, TB: 1.0,
@@ -255,8 +244,6 @@ public abstract partial record Termination {
                    let hit = Math.Abs(value: fm) <= tolerance || mid.DistanceTo(other: state.A) <= tolerance || mid.DistanceTo(other: state.B) <= tolerance
                        ? Some((At: mid, Value: fm, T: tm))
                        : Option<(Point3d At, double Value, double T)>.None
-                   // Sign opposition, never the product: at 1e-200 scales the product underflows to exactly 0.0 and
-                   // the `<= 0.0` arm then keeps the half that never straddled.
                    select Sign.Of(state.FA) != Sign.Of(fm)
                        ? state with { B = mid, FB = fm, TB = tm, Localized = hit, Iterations = state.Iterations + 1 }
                        : state with { A = mid, FA = fm, TA = tm, Localized = hit, Iterations = state.Iterations + 1 };
@@ -279,7 +266,7 @@ public abstract partial record Termination {
             .Exists(i => state.Current.DistanceToSquared(other: state.Trail[i]) <= radius * radius);
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record TracePolicy(Dimension MaxIterations, Dimension LocalizationBudget) {
     public static readonly TracePolicy Default = new(
         MaxIterations: Dimension.Create(value: 100_000),
@@ -295,8 +282,7 @@ internal static class SpatialIntegration {
         Zero: Vector3d.Zero);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
-// Residual DERIVES off the localized value it always mirrored, so the claim that policed the copy leaves with it.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct TraceEvent(
     TraceEventKind Kind, TraceEventStatus Status,
@@ -315,8 +301,6 @@ public readonly record struct TraceEvent(
         IsValid && terminationPoint.DistanceTo(other: Points.Localized) <= Tolerance;
 }
 
-// AcceptedSteps DERIVES off the trail it always equalled — one accepted step is one trail vertex past the seed — so
-// the column and the claim that proved it against its own source both leave.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct StreamlineTrace(
     Seq<Point3d> Trail, StreamlineStopKind Stop, int RejectedSteps, double ArcLength,
@@ -340,7 +324,6 @@ public readonly record struct StreamlineTrace(
 public sealed record TopologyPolicy(
     Dimension TransitionSteps, Dimension SeparatrixSteps,
     PositiveMagnitude StencilWidth, PositiveMagnitude CaptureRadius, PositiveMagnitude SeedOffset) {
-    // Dimensionless: a seed steps this many capture radii off its saddle, so leaving its own ball never reads as a capture.
     private const double SeedFactor = 4.0;
 
     public static Fin<TopologyPolicy> Of(
@@ -409,9 +392,7 @@ public readonly record struct MorseGraph(
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------
-// The localizer's halving state as ONE named row: Localized is an Option, so "still bracketing" and "settled here"
-// are the same slot and no Done flag rides beside a triple the tail would re-derive from it.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal readonly record struct Bracket(
     Point3d A, Point3d B, double FA, double FB, double TA, double TB,
     Option<(Point3d At, double Value, double T)> Localized, int Iterations);
@@ -532,21 +513,16 @@ internal static class MorseAtlas {
 
     private static Seq<int> Ordinals(FlowPartition partition) => toSeq(Enumerable.Range(start: 0, count: partition.Cells.Value));
 
-    // The τ-map at cell grain: one horizon-bounded trace per cell, its trail located and collapsed to the run of cells entered.
     private static Fin<Seq<int>> Visited(
         VectorField source, FlowPartition partition, Point3d seed, PositiveMagnitude initialStep, FieldIntegrator integrator,
         Termination termination, Context context, Op key, Option<TracePolicy> policy) =>
         FlowKernel.Trace<Seq<Point3d>>(source: source, seed: seed, initialStep: initialStep, integrator: integrator,
                 termination: termination, context: context, key: key, policy: policy)
-            // Locate already answers Option, so the run's previous cell carries the same shape one line on rather
-            // than a -1 seed the transition test decodes back into absence.
             .Map(trail => trail.Fold((Run: Seq<int>(), Last: Option<int>.None), (state, point) =>
                 partition.Locate(arg: point) is { Case: int cell } && state.Last != Some(cell)
                     ? (Run: state.Run.Add(cell), Last: Some(cell))
                     : state).Run);
 
-    // A trail that never leaves its own cell within the horizon is trapped there, and that self-arc is what separates a
-    // recurrent singleton from Tarjan's transient one; every other consecutive pair is one transition row.
     private static Seq<SEdge<int>> Transitions(int cell, Seq<int> visited) =>
         visited.Count < 2
             ? Seq(new SEdge<int>(source: cell, target: cell))
@@ -556,7 +532,7 @@ internal static class MorseAtlas {
     private static Fin<(Seq<int> Component, int Count, AdjacencyGraph<int, SEdge<int>> Graph)> Label(Seq<SEdge<int>> arcs, int cells, Op key) =>
         key.Catch(() => {
             AdjacencyGraph<int, SEdge<int>> graph = arcs.ToAdjacencyGraph<int, SEdge<int>>(allowParallelEdges: false);
-            graph.AddVertexRange(Enumerable.Range(start: 0, count: cells));  // a cell no arc touched still owns its component
+            graph.AddVertexRange(Enumerable.Range(start: 0, count: cells));
             Dictionary<int, int> labels = new(capacity: cells);
             int count = graph.StronglyConnectedComponents(labels);
             return count > 0
@@ -564,8 +540,6 @@ internal static class MorseAtlas {
                 : Fin.Fail<(Seq<int> Component, int Count, AdjacencyGraph<int, SEdge<int>> Graph)>(key.InvalidResult());
         });
 
-    // One pass over the labelling: a component's first cell is its representative, and two or more cells are recurrent by
-    // construction where a singleton is recurrent only under its own self-arc.
     private static Seq<(int Cell, bool Recurrent)> Census(Seq<int> component, int nodes, LanguageExt.HashSet<int> trapped) {
         int[] first = new int[nodes];
         int[] size = new int[nodes];
@@ -588,8 +562,6 @@ internal static class MorseAtlas {
             return Fin.Succ((Arc: rows.Map(static row => (row.From, row.To)), Crossing: rows.Map(static row => row.Crossing)));
         });
 
-    // Row i column j is ∂vᵢ/∂xⱼ off the one six-tap stencil traversal the calculus owner already folds. The GENERAL eigen
-    // route carries it because a flow Jacobian is not symmetric, and its complex pairs are what separate a centre from a node.
     private static Fin<(FixedPointKind Kind, Seq<Vector3d> Unstable)> CriticalAt(
         VectorField source, Point3d site, TopologyPolicy policy, Context context, Op key) =>
         from samples in Nabla.SampleAxes<Vector3d>(
@@ -605,14 +577,12 @@ internal static class MorseAtlas {
         let tolerance = EpsilonPolicy.SqrtEpsilon * pairs.Fold(0.0, static (peak, pair) => Math.Max(val1: peak, val2: pair.Eigenvalue.Magnitude))
         select (
             Kind: Signature(spectrum: pairs.Map(static pair => pair.Eigenvalue), tolerance: tolerance),
-            // A complex pair spans a rotation plane carrying no invariant line, so only the REAL unstable arms seed a separatrix.
             Unstable: pairs
                 .Filter(pair => pair.Eigenvalue.Real > tolerance && Math.Abs(value: pair.Eigenvalue.Imaginary) <= tolerance)
                 .Map(static pair => new Vector3d(x: pair.Eigenvector[0].Real, y: pair.Eigenvector[1].Real, z: pair.Eigenvector[2].Real))
                 .Filter(static direction => !direction.IsTiny())
                 .Map(static direction => (1.0 / direction.Length) * direction));
 
-    // Order-independent: the spectrum folds whole, so the Factorization order the general route returns decides nothing.
     private static FixedPointKind Signature(Seq<Complex> spectrum, double tolerance) =>
         (Unstable: spectrum.Count(value => value.Real > tolerance),
          Stable: spectrum.Count(value => value.Real < -tolerance),

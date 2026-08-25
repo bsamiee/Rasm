@@ -19,7 +19,7 @@ THE FASTENER SEED PAGE owns the `ComponentFamily.Fastener` roster and law, the t
 - Boundary: the retired `bool Metric` on the grade row DERIVES — the thread system is the authority's PRINT system, so `Admits` spells `(Authority == ComponentAuthority.En) == thread.Series.Metric` reading the owning `MaterialGrade` row's own authority column. `Admits`/`At` therefore land on `MaterialGrade` rather than on the arm: the arm carries no authority, and a member seated there takes one as an argument the call site supplies. A non-fastener grade answers `false` and `None` respectively, the arm mismatch stated at the refusal site.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;
@@ -35,11 +35,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Component;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The fastener FORM traits — the kernel capability vocabulary replacing the two bool columns the kind row carried.
-// Threaded: a dowel/rivet has no thread, so its thread length resolves 0 and the body is all shank. Headed: a
-// headless threaded part (nut/coupler) threads through its whole length. A third form fact is one row here plus its
-// membership on the kinds that hold it, and no consumer signature moves.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FastenerTrait : ICapability<FastenerTrait> {
@@ -48,9 +44,6 @@ public sealed partial class FastenerTrait : ICapability<FastenerTrait> {
     public int Rank { get; }
 }
 
-// The JOINT traits of an EN 1993-1-8 Table 3.2 category. Shear selects WHICH resistance triple the capacity fold
-// reports as governing, so a category-D tension connection never reports a shear verdict; Preloaded gates the [03]
-// slip projection and requires a preloadable grade plus a named faying class.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class JointTrait : ICapability<JointTrait> {
@@ -59,17 +52,8 @@ public sealed partial class JointTrait : ICapability<JointTrait> {
     public int Rank { get; }
 }
 
-// The stone-cladding anchor role: the kerf bar is the BODY anchor carrying panel gravity in the panel edge, the
-// restraint pin the LATERAL-only dowel into the back face. A role-carrying kind stamps the seam DetailSchema.AnchorType
-// row beside FastenerType, so a cladding bag names its anchor system.
 public enum AnchorRole : byte { None = 0, Body = 1, Restraint = 2 }
 
-// The kind axis of the seed roster: the member-type vocabulary owning the COMPLETE entity-token binding (POLICY_VALUES
-// — entity selection is a row read, never reconstructed at the seed). The verified GeometryGym
-// IfcMechanicalFastenerTypeEnum carries BOLT/SCREW/NAIL/ANCHORBOLT/DOWEL/RIVET/COUPLER and NO NUT member, so the nut
-// ROW binds IfcDiscreteAccessory/USERDEFINED. Because USERDEFINED is the schema's own catch-all, the wire token alone
-// leaves a nut indistinguishable from any other owner-labelled accessory, so DetailToken is the row's SEPARATE
-// realization identity and the bag stamps THAT.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FastenerKind {
@@ -95,11 +79,6 @@ public sealed partial class FastenerKind {
     public IfcBinding Ifc => IfcBinding.Of(IfcEntity, IfcPredefinedType);
 }
 
-// The pitch family. Metric and unified threads share ONE 60° form, so the series carries only what genuinely differs:
-// the SYSTEM bit a grade admits against, and the ISO 898-1 versus ASME B1.1 tensile-stress-area coefficient — the two
-// standards subtract 0.9382·P and 0.9743·P from the major diameter respectively, and that single coefficient IS the
-// ~3% disagreement between their printed area tables. A fine row is one Threads entry naming this series with its own
-// finer pitch: both columns are read the moment such a row exists.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ThreadSeries {
@@ -111,9 +90,6 @@ public sealed partial class ThreadSeries {
     public double StressAreaCoefficient { get; }
 }
 
-// The EN 1993-1-8 Table 3.2 joint category — the bearing-vs-preloaded axis a CONNECTION selects, never a type-row
-// column. The clause citation rides the capacity#SECTION_CAPACITY SectionCapacity.Code column on the lifted verdict,
-// so no inert static sits beside the rows. A non-preloadable grade in a B/C/E joint rails at FastenerAssembly.Of.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BoltCategory {
@@ -126,22 +102,17 @@ public sealed partial class BoltCategory {
     public bool Preloaded => Traits.Admits(JointTrait.Preloaded);
 }
 
-// The EN 1993-1-8 §3.9 / RCSC slip-factor class μ a preloaded joint relies on; None (μ = 0) is the bearing-joint row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FayingSurface {
     public static readonly FayingSurface None   = new("none",    slipFactor: 0.00);
-    public static readonly FayingSurface ClassA = new("class-a", slipFactor: 0.50);   // blasted, loose rust removed
-    public static readonly FayingSurface ClassB = new("class-b", slipFactor: 0.40);   // blasted + alkali-zinc-silicate coat
-    public static readonly FayingSurface ClassC = new("class-c", slipFactor: 0.30);   // wire-brushed / galvanized + roughened
-    public static readonly FayingSurface ClassD = new("class-d", slipFactor: 0.20);   // untreated
+    public static readonly FayingSurface ClassA = new("class-a", slipFactor: 0.50);
+    public static readonly FayingSurface ClassB = new("class-b", slipFactor: 0.40);
+    public static readonly FayingSurface ClassC = new("class-c", slipFactor: 0.30);
+    public static readonly FayingSurface ClassD = new("class-d", slipFactor: 0.20);
     public double SlipFactor { get; }
 }
 
-// The head geometry as the TWO published EN 1993-1-8 Table 3.4 corrections it drives: k2, the tension-resistance
-// coefficient (0.9 for every head the table names, 0.63 countersunk), and the bearing-thickness deduction, because a
-// countersink removes half its own depth from the ply and the code sizes that depth at half the bolt diameter. One
-// row carries both, so a countersunk connection cannot pick up one correction and miss the other.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HeadForm {
@@ -151,11 +122,6 @@ public sealed partial class HeadForm {
     public double ThicknessDeductionRatio { get; }
 }
 
-// The shear plane as its TWO independent published columns rather than one fused scalar: the AREA the plane cuts (the
-// ISO/ASME tensile stress area through the thread, the gross shank area through the plain body) and the α_v the code
-// tabulates for that plane. Table 3.4 gives the shank plane 0.6 for EVERY class while the threaded plane splits per
-// class, so the shank arm answers a constant and the threaded arm reads the grade arm's own column — and a grade the
-// Eurocode does not tabulate answers None on both, which is what makes the refusal reachable instead of implicit.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ShearPlane {
@@ -166,90 +132,49 @@ public sealed partial class ShearPlane {
     [UseDelegateFromConstructor] public partial Option<double> ShearFactor(GradeProperties.Fastener arm);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The per-size hex hardware envelope, carried for BOTH thread systems: head height, nut height, and the plain-washer
-// bore/outside/thickness triple are dimensioned by ISO 4014/4032/7089 and by ASME B18.2.1/B18.2.2/B18.22.1 alike, so
-// they are plain columns. The BEARING-FACE and UNDER-HEAD FILLET diameters are optional because only the ISO product
-// declares them: an inch head is dimensioned across flats and corners, and a dw/da column on a UNC row could only be
-// an ISO shape transplanted onto a product that never published one. Presence of this envelope on a placement IS the
-// washer declaration — the retired bool said a washer was fitted while the geometry it implied lived elsewhere.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct HexHardware(
     double HeadHeightMm, Option<double> BearingDiameterMm, Option<double> FilletDiameterMm,
     double NutHeightMm, double WasherInnerMm, double WasherOuterMm, double WasherThicknessMm);
 
-// ISO 261/724 + ASME B1.1 thread row. Only the three columns the standards genuinely PRINT independently are stored —
-// major diameter, pitch, and across-flats — because every remaining thread dimension is the ISO 68-1 60° form's own
-// algebra over those three. The basic minor d1 = d − 1.25·H, the pitch diameter d2 = d − 0.75·H, the rounded root
-// d3 = d − (17/12)·H, and the fundamental triangle height H = P/(2·tan(α/2)) all descend from the ONE flank angle.
-// StressAreaMm2 reproduces the printed tensile stress area EXACTLY by its own standard's formula over the series
-// coefficient, so one derivation serves both tables and a transcription slip in either is unrepresentable. Tag is the
-// designation token for inch rows ("3/8" -> "0375"); Key doubles as the token for metric rows.
 public readonly record struct ThreadRow(
     string Key, ThreadSeries Series, double MajorMm, double PitchMm, double AcrossFlatsMm,
     Option<HexHardware> Hardware = default, Option<string> Tag = default) {
 
-    public const double InchToMm = 25.4;        // the ONE inch basis both the thread table and the grade bands convert on
-    public const double FlankAngleDeg = 60.0;   // ISO 68-1 / ASME B1.1 included angle — the ONE form constant below
+    public const double InchToMm = 25.4;
+    public const double FlankAngleDeg = 60.0;
 
     public string Designation => Tag.IfNone(Key);
-    public double FundamentalHeightMm => PitchMm / (2.0 * Math.Tan(FlankAngleDeg * Math.PI / 360.0));   // H
-    public double MinorMm => MajorMm - 1.25 * FundamentalHeightMm;                                      // ISO 724 / ASME basic minor d1
-    public double PitchDiameterMm => MajorMm - 0.75 * FundamentalHeightMm;                              // ISO 724 d2
-    public double RootMinorMm => MajorMm - 17.0 / 12.0 * FundamentalHeightMm;                           // ISO 898-1 rounded-root d3
-    public double AcrossCornersMm => AcrossFlatsMm * 2.0 / Math.Sqrt(3.0);                              // e = s·2/√3
-    public double NominalAreaMm2 => Math.PI / 4.0 * MajorMm * MajorMm;                                  // gross shank area
+    public double FundamentalHeightMm => PitchMm / (2.0 * Math.Tan(FlankAngleDeg * Math.PI / 360.0));
+    public double MinorMm => MajorMm - 1.25 * FundamentalHeightMm;
+    public double PitchDiameterMm => MajorMm - 0.75 * FundamentalHeightMm;
+    public double RootMinorMm => MajorMm - 17.0 / 12.0 * FundamentalHeightMm;
+    public double AcrossCornersMm => AcrossFlatsMm * 2.0 / Math.Sqrt(3.0);
+    public double NominalAreaMm2 => Math.PI / 4.0 * MajorMm * MajorMm;
     public double StressAreaMm2 => Math.PI / 4.0 * Math.Pow(MajorMm - Series.StressAreaCoefficient * PitchMm, 2.0);
-    public double RunoutMm => 2.5 * PitchMm;                                                            // ISO 3508 incomplete-thread allowance x
-    // EN 1993-1-8 §3.6.1(4) d_m: the mean of the across-points and across-flats dimensions of the head or nut,
-    // whichever is smaller — the punching-shear diameter, distinct from the ISO 4014 washer-face dw the shop reads.
+    public double RunoutMm => 2.5 * PitchMm;
     public double PunchingDiameterMm => 0.5 * (AcrossFlatsMm + AcrossCornersMm);
 }
 
-// The >threshold mechanical step a size-banded class carries, in the units its own body prints. ISO 898-1 bands class
-// 8.8 above M16; SAE J429 bands grade 2 above 3/4 in and grade 5 above 1 in; ASTM F3125 unified the legacy A325
-// over-1-in reduction AWAY, so no F3125 row steps and a step transcribed onto one contradicts the specification that
-// removed it.
 public readonly record struct GradeStep(double AboveMm, double ProofStressMpa, double TensileStrengthMpa, double MinimumYieldMpa);
 
-// The diameter range a grade's own specification covers. It is REQUIRED on the arm rather than optional because every
-// body scopes its classes, and the scope is what makes an unplaced roster row honest: class 9.8 exists only to M16,
-// SAE 5.2 and 8.2 only to 1 in, the twist-off F3125 grades only to 1-1/4 in.
 public readonly record struct SizeBand(double MinMm, double MaxMm) {
     public bool Covers(double diameterMm) => diameterMm >= MinMm && diameterMm <= MaxMm;
 }
 
-// The EFFECTIVE mechanical band at a thread size — the ONE band read every projection routes through, so an M20 8.8
-// reads 600/830/660 and an M12 8.8 580/800/640, never a hybrid row. ProofStressMpa is OPTIONAL because F3125
-// acceptance is tensile and yield alone: the proof-load stresses circulate in one secondary reproduction, and typed
-// absence is the honest carrier for a cell no second source confirms.
 public readonly record struct FastenerBand(Option<double> ProofStressMpa, double TensileStrengthMpa, double MinimumYieldMpa);
 
-// The FASTENER arm's physics, co-located with the family that owns it: component#MATERIAL_GRADE declares the columns
-// and this page states what they mean. SpecifiedUltimateMpa is the ultimate each body designates for DESIGN and
-// preload, distinct from the acceptance minimum — an ISO class designates Rm,nom (the leading number × 100, the
-// EN 1993-1-8 Table 3.1 f_ub exactly) while the Table 3 acceptance minimum sits above it for the classes that round
-// up. EurocodeAlphaV is the Table 3.4 THREADED-plane α_v, Some ONLY for the seven classes Table 3.1 tabulates, so
-// inventing one for 9.8, 12.9, or any SAE/ASTM grade is the failure the Option exists to make impossible.
 public partial record GradeProperties {
     public sealed partial record Fastener {
-        // The size-banded read: a stepped class answers its own >threshold row above the step diameter and its base
-        // columns below, so no consumer ever pairs a base proof stress with a stepped tensile minimum.
         public FastenerBand At(ThreadRow thread) =>
             Step.Filter(step => thread.MajorMm > step.AboveMm)
                 .Map(static step => new FastenerBand(Some(step.ProofStressMpa), step.TensileStrengthMpa, step.MinimumYieldMpa))
                 .IfNone(new FastenerBand(ProofStressMpa, TensileStrengthMpa, MinimumYieldMpa));
 
-        // The SIZE SCOPE alone — the SYSTEM exclusion needs the owning row's authority and therefore lands on
-        // MaterialGrade, which is the only surface that holds both halves of the law.
         public bool Covers(ThreadRow thread) => Sizes.Covers(thread.MajorMm);
     }
 }
 
-// The fastener members of the one grade identity. Admits is the SYSTEM exclusion and the SIZE SCOPE in one law: an
-// ISO class pairs metric threads and an SAE/ASTM grade inch threads — the retired `bool Metric` column is exactly the
-// authority's own print system, so it derives here rather than being stored and kept in step by hand. A grade with no
-// fastener arm answers false and None, which is what makes a rebar or timber row reaching a bolt path a typed refusal
-// instead of an arm nobody matched.
 public sealed partial class MaterialGrade {
     public Option<GradeProperties.Fastener> FastenerArm => Columns is GradeProperties.Fastener arm ? Some(arm) : None;
     public bool Admits(ThreadRow thread) =>
@@ -257,26 +182,15 @@ public sealed partial class MaterialGrade {
     public Option<FastenerBand> At(ThreadRow thread) => FastenerArm.Map(arm => arm.At(thread));
 }
 
-// --- [TABLES] ------------------------------------------------------------------------------
-// 17 thread rows: 9 ISO 261 metric coarse + 8 ASME B1.1 UNC (Tag the decimal token), each carrying its own system's
-// published hex envelope. NAMED statics so the roster references rows SYMBOLICALLY — a typo'd size is a compile miss,
-// never a runtime key.
+// --- [TABLES] --------------------------------------------------------------------------
 public static class Threads {
-    // The ISO envelope in the millimetres ISO 4014/4032/7089 print, bearing face and fillet included.
     static Option<HexHardware> Iso(double headHeight, double bearing, double fillet, double nutHeight, double washerInner, double washerOuter, double washerThickness) =>
         Some(new HexHardware(headHeight, Some(bearing), Some(fillet), nutHeight, washerInner, washerOuter, washerThickness));
 
-    // The ASME envelope in the INCHES B18.2.1 (head height), B18.2.2 (nut thickness), and B18.22.1 (Type A narrow
-    // washer) print, converted once — a pre-rounded millimetre column would hide which digits the standard published
-    // behind a conversion the reader has to invert. The heavy-hex and wide-washer series are DIFFERENT products with
-    // their own tables, so a row here never blends them.
     static Option<HexHardware> Asme(double headHeightIn, double nutHeightIn, double washerInnerIn, double washerOuterIn, double washerThicknessIn) =>
         Some(new HexHardware(headHeightIn * ThreadRow.InchToMm, None, None, nutHeightIn * ThreadRow.InchToMm,
             washerInnerIn * ThreadRow.InchToMm, washerOuterIn * ThreadRow.InchToMm, washerThicknessIn * ThreadRow.InchToMm));
 
-    // An inch row states the FRACTION and the threads per inch its own designation IS, plus the across-flats fraction
-    // B18.2.1 prints, and the mint derives every millimetre column — so the 25.4-multiples and 25.4/n reciprocals
-    // cannot drift from the size they name.
     static ThreadRow Unc(string key, string tag, double inches, double threadsPerInch, double acrossFlatsIn, Option<HexHardware> hardware) =>
         new(key, ThreadSeries.UnifiedCoarse, inches * ThreadRow.InchToMm, ThreadRow.InchToMm / threadsPerInch, acrossFlatsIn * ThreadRow.InchToMm, hardware, tag);
 
@@ -300,49 +214,29 @@ public static class Threads {
     public static readonly ImmutableArray<ThreadRow> Rows = [M6, M8, M10, M12, M16, M20, M24, M30, M36, In0250, In0375, In0500, In0625, In0750, In0875, In1000, In1500];
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// The single-fastener DESIGN values over (ThreadRow, GradeProperties.Fastener) — every projection here is already
-// divided by the partial factor its own DesignBasis row publishes, so the receipts Rasm.Compute reads off the seam
-// fold demand directly and the group resistance and combined-action interaction compose them without re-dividing.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Fastening {
-    // The joint partial factor, READ from the capacity#SECTION_CAPACITY DesignBasis row the placement declares —
-    // `en1993-1-8` is the joints row and carries γM2 = 1.25 in the slot EN 1993 puts it in. This page spells no
-    // factor of its own, so an annex moving the recommended value moves ONE cell. The read is GATED on the format
-    // because an EN 1993-1-8 resistance under a φ-format basis would divide a nominal by unity and publish an AISC
-    // §J3 verdict this page never computed; the refusal names the basis that would have to own that arm.
     public static Fin<double> JointFactor(DesignBasis basis, Op key) =>
         basis.Format == SafetyFormat.LimitState
             ? Fin.Succ(basis.GammaM2)
             : new ComponentFault.BasisUnsupported(key, basis, ComponentFamily.Fastener);
 
-    // F_v,Rd = α_v·f_ub·A/γM2. The α_v and the area both ride the ShearPlane row, and a grade EN 1993-1-8 does not
-    // tabulate refuses HERE rather than borrowing a neighbouring class's factor.
     public static Fin<double> ShearResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, ShearPlane plane, DesignBasis basis, Op key) =>
         from gamma in JointFactor(basis, key)
         from alphaV in plane.ShearFactor(arm).ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
         select alphaV * arm.SpecifiedUltimateMpa * plane.ResistanceAreaMm2(thread) / gamma * 1e-3;
 
-    // F_t,Rd = k2·f_ub·A_s/γM2 over the head's own k2.
     public static Fin<double> TensionResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis, Op key) =>
         from gamma in JointFactor(basis, key)
         from tabulated in arm.EurocodeAlphaV.ToFin(new ComponentFault.GradeBandMissing(key, ComponentFamily.Fastener, typeof(GradeProperties.Fastener)))
         select head.TensionFactor * arm.SpecifiedUltimateMpa * thread.StressAreaMm2 / gamma * 1e-3;
 
-    // B_p,Rd = 0.6·π·d_m·t_p·f_u/γM2 — the EN 1993-1-8 §3.6.1(4) punching shear of the ply under the head or nut,
-    // read off the head envelope's own across-flats/across-corners mean. It is a PLY resistance, so it takes the ply
-    // scalars and no grade column at all.
     public static Fin<double> PunchingResistanceKn(ThreadRow thread, double plyThicknessMm, double plyUltimateMpa, DesignBasis basis, Op key) =>
         JointFactor(basis, key).Map(gamma => 0.6 * Math.PI * thread.PunchingDiameterMm * plyThicknessMm * plyUltimateMpa / gamma * 1e-3);
 
-    // ISO 4014 reference thread length: b = 2d plus a per-band constant, the band keyed on the bolt's OWN nominal
-    // length. The three additions were a four-level ternary whose numeric thresholds and constants were interleaved;
-    // as rows the table is what the standard prints, and a revised band is one row. The top band's ceiling is
-    // unbounded, so the fallback names that same row rather than a fabricated zero.
     public readonly record struct ReferenceLengthBand(double LengthCeilingMm, double AdditionMm);
     static readonly ImmutableArray<ReferenceLengthBand> ReferenceLengths = [new(125.0, 6.0), new(200.0, 12.0), new(double.PositiveInfinity, 25.0)];
 
-    // A dowel/rivet is all shank; a headless threaded part (nut/coupler) threads its whole length; a headed threaded
-    // part takes the ISO 4014 reference clamped to its own length for a short fully-threaded bolt.
     public static double ThreadLengthMm(FastenerKind kind, ThreadRow thread, double lengthMm) =>
         !kind.Traits.Admits(FastenerTrait.Threaded) ? 0.0
         : !kind.Traits.Admits(FastenerTrait.Headed) ? lengthMm
@@ -356,18 +250,6 @@ public static class Fastening {
     public static double UnthreadedShankMm(FastenerKind kind, ThreadRow thread, double lengthMm) =>
         lengthMm - ThreadLengthMm(kind, thread, lengthMm);
 
-    // EC5 §8.5 dowel-type TIMBER connection — the cross-material composition of the fastener and timber vocabularies.
-    // Embedment enters ANGLED: f_h,0,k = 0.082·(1 − 0.01·d)·ρk is the parallel-to-grain value, and the §8.5.1.1
-    // reduction f_h,α,k = f_h,0,k/(k90·sin²α + cos²α) carries it to the actual load-to-grain angle, k90 riding each
-    // side's own material class through its GradeProperties.Timber intercept (softwood 1.35 + 0.015d, LVL 1.30, D
-    // classes 0.90). A bolt loaded across the grain embeds at roughly two thirds of its parallel value on a softwood
-    // side, so an angle-free embedment over-states every non-parallel connection the clause is written for. The
-    // fastener yield moment is My,Rk = 0.3·fu,b·d^2.6, the per-shear-plane timber-to-timber single-shear
-    // characteristic Fv,Rk is the MINIMUM over the six Johansen modes (the rope-effect Fax/4 term taken 0 — the
-    // withdrawal capacity is hardware-specific data), and the design value is kmod·Fv,Rk/γM at the timber owner's own
-    // CONNECTION partial factor, which EN 1995-1-1 Table 2.3 sets independently of any member form.
-    // The FIVE input admissions are INDEPENDENT, so they accumulate: a call with a zero thickness AND a negative
-    // diameter names both, where one conjunction behind one message named neither.
     public static Fin<double> TimberDowelShearKn(
         double diameterMm, double fastenerUltimateMpa, double loadToGrainDeg,
         GradeProperties.Timber side1, double t1Mm, GradeProperties.Timber side2, double t2Mm,
@@ -403,16 +285,11 @@ public static class Fastening {
             new KernelFault.OutOfRange(label, value, "finite and positive", Some(key))).ToValidation();
 }
 
-// The seed-time DetailLane.Realization bag. The FastenerForm complex row carries the ISO 68-1 thread algebra and the
-// ISO 4014/4032/7089 hex envelope the shop cuts and turns from — the derived geometry has exactly one consumer and it
-// is the fabrication document, so the form columns are published rather than computed and discarded.
 public static class FastenerDetail {
     public static Fin<PropertyBag> Of(FastenerKind kind, StockFacts facts, Option<ThreadRow> thread, EvidenceGrade source) =>
         from diameter in ComponentDetail.Measured(DetailSchema.NominalDiameter, Dimension.LengthDim, facts.DiameterMm * 1e-3)
         from length in ComponentDetail.Measured(DetailSchema.NominalLength, Dimension.LengthDim, facts.LengthMm * 1e-3)
         from form in thread.Match(Some: t => FormRow(kind, t, facts.LengthMm).Map(Some), None: static () => Fin.Succ(Option<(PropertyName, PropertyValue)>.None))
-        // A role-carrying cladding kind stamps the seam AnchorType row beside FastenerType — the anchor SYSTEM a
-        // stone bag names, derived off the kind row, never a per-seed literal.
         select ComponentDetail.RealizationRows([
             ComponentDetail.Token(DetailSchema.FastenerType, kind.DetailToken),
             .. kind.Role == AnchorRole.None ? Seq<(PropertyName, PropertyValue)>() : Seq(ComponentDetail.Token(DetailSchema.AnchorType, kind.DetailToken)),
@@ -443,9 +320,6 @@ public static class FastenerDetail {
             (DetailSchema.UnthreadedShank, shank))
             + thread.Hardware.Map(HexEnvelope).IfNone(Map<PropertyName, PropertyValue>())));
 
-    // The columns every hex product declares ride the map unconditionally; the two only the ISO product dimensions
-    // are OMITTED where absent rather than written as a zero, so a UNC bag content-keys on the envelope its standards
-    // actually publish and a reader never mistakes a missing dimension for a measured one.
     static Map<PropertyName, PropertyValue> HexEnvelope(HexHardware hex) => Map(
         (DetailSchema.HeadHeight, (PropertyValue)new PropertyValue.Text($"{hex.HeadHeightMm:R}")),
         (DetailSchema.NutHeight, new PropertyValue.Text($"{hex.NutHeightMm:R}")),
@@ -464,34 +338,21 @@ public static class FastenerDetail {
         MeasureValue.OfSi(Dimension.LengthDim, mm * 1e-3).Map(static value => (PropertyValue)new PropertyValue.Measure(value));
 }
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
-// The face BOTH stock cases answer, minted by ONE dispatch. Eight separate two-arm Switches over the same union were
-// eight copies of one correspondence, so a ninth shared column meant a ninth dispatch; here it is one more field.
-// UltimateMpa is OPTIONAL because a threaded row's ultimate lives on its grade's fastener arm: the seed coherence
-// census refuses a grade carrying none, so the absence is the type stating what the roster proves rather than a
-// measure anyone takes.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public readonly record struct StockFacts(
     FastenerKind Kind, string Designation, double DiameterMm, double LengthMm, Option<double> UltimateMpa,
     ComponentAuthority Authority, MaterialId Substance, MaterialId Appearance) {
     public ComponentStandard Standard => new(Authority.Region, StandardJointThicknessMm: 0.0, Authority);
 }
 
-// Threaded rows reference thread and grade currencies symbolically; plain rows carry only shank facts.
 [Union]
 public abstract partial record StockRow {
     private StockRow() { }
     public sealed record Threaded(FastenerKind Kind, ThreadRow Thread, MaterialGrade Grade, double LengthMm) : StockRow;
-    // UltimateMpaColumn is the PUBLISHED tensile strength of the plain shank — ASTM F1667 common nail 690, EN 10025
-    // dowel bar 400, ASTM A502 rivet 415 — the one datum the EC5 §8.5 yield-moment relation needs and no thread/grade
-    // pair carries for a plain product.
     public sealed record Plain(
         FastenerKind Kind, string Designation, double DiameterMm, double LengthMm, double UltimateMpaColumn,
         ComponentAuthority Authority, MaterialId Substance, MaterialId Appearance) : StockRow;
 
-    // The ONE projection: a threaded row reads its grade's tensile strength at its own thread band, a plain row its
-    // published column, and every downstream consumer — geometry, IFC binding, the detail bag, the EC5 dowel check,
-    // the seed law selectors — reads the same record. The designation drops the class separator so an 8.8 bolt keys
-    // as `m16-88`, which is the token the shop document and the ComponentId share.
     public StockFacts Facts => Switch(
         threaded: static row => new StockFacts(
             row.Kind, $"{row.Thread.Designation}-{row.Grade.Key.Replace(".", string.Empty)}", row.Thread.MajorMm, row.LengthMm,
@@ -505,9 +366,6 @@ public abstract partial record StockRow {
     public Option<MaterialGrade> Grade => Switch(threaded: static row => Some(row.Grade), plain: static _ => Option<MaterialGrade>.None);
     public Option<GradeProperties.Fastener> Arm => Grade.Bind(static grade => grade.FastenerArm);
 
-    // The row census, ACCUMULATING: the kind's thread trait, the grade's system-and-size admission, the arm's
-    // presence, and the length are INDEPENDENT columns, so a row wrong in three ways names all three in ONE verdict.
-    // The first-refusal chain this replaced reported one defect per build and hid the rest behind a fix.
     public Validation<Error, Unit> Coherence(Op key) => Switch(
         threaded: row => (
             Prove(row.Kind.Traits.Admits(FastenerTrait.Threaded), new KernelFault.InvalidValue(nameof(row.Kind), "a threaded stock kind", Some(key))),
@@ -524,13 +382,6 @@ public abstract partial record StockRow {
     static Validation<Error, Unit> Prove(bool held, Error fault) => guard(held, fault).ToValidation();
 }
 
-// The CONNECTION a catalogued fastener sits in — the state no stock row can carry, as one closed family whose cases
-// each hold EXACTLY the evidence their receipt arm consumes. It rides ONE Option column on the capacity placement, so
-// a bolted verdict costs the placement one decision rather than a per-family argument tail, and the modality is
-// recoverable from the value alone. The washer is an Option<HexHardware>: presence IS the declaration and the value
-// is the declared product envelope, so an ISO 7090 chamfered washer and an ISO 7089 plain one are two values rather
-// than one bool plus a lookup that could not tell them apart. The timber sides are MaterialGrade rows, the EC5 arm
-// extracted once at the capacity producer.
 [Union]
 public abstract partial record FastenerPlacement {
     private FastenerPlacement() { }
@@ -539,7 +390,7 @@ public abstract partial record FastenerPlacement {
     public sealed record TimberDowel(MaterialGrade Side1, double Thickness1Mm, MaterialGrade Side2, double Thickness2Mm, double LoadToGrainDeg, int ShearPlanes, ServiceClass Service, LoadDuration Duration) : FastenerPlacement;
 }
 
-// --- [POLICIES] ----------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 public static class FastenerSeed {
     public static readonly Seq<StockRow> Roster = Seq<StockRow>(
         new StockRow.Threaded(FastenerKind.Bolt,    Threads.M12,    MaterialGrade.G88,  60.0),
@@ -573,14 +424,8 @@ public static class FastenerSeed {
         new StockRow.Plain(FastenerKind.Dowel, "dowel-20",  20.00, 100.0, 400.0, ComponentAuthority.En,   MaterialId.Of("steel.fastener-dowel"), MaterialId.Of("metal.steel")),
         new StockRow.Plain(FastenerKind.Rivet, "rivet-0500", 12.70, 38.1, 415.0, ComponentAuthority.Astm, MaterialId.Of("steel.fastener-rivet"), MaterialId.Of("metal.iron")));
 
-    // Every stocked row transcribes a product standard whole — the thread geometry off ISO 68-1/261, the strength
-    // band off the grade row, and the length off the product standard's own length series — so one evidence grade
-    // covers the roster rather than a per-case selector whose arms would agree.
     static readonly EvidenceGrade Stock = EvidenceGrade.Catalogue;
 
-    // The seed POLICY value: this page states the roster and the law, component#COMPONENT_SEED owns the traverse.
-    // The regional receipt derives from the row's own authority, so an EN class seeds `eu` and an SAE grade `us`
-    // without a per-body ComponentStandard static.
     public static readonly SeedLaw<StockRow> Law = SeedLaw<StockRow>.Of(
         family: ComponentFamily.Fastener,
         designation: static row => $"fastener.{row.Facts.Kind.Key}-{row.Facts.Designation}",
@@ -602,12 +447,6 @@ public static class FastenerSeed {
             ? Fin.Succ(row)
             : new ComponentFault.ComponentMissing(key, ProfileRef.Of(component.Designation.Value));
 
-    // The ComponentFamily.Fastener CAPACITY producer. A single fastener's design values are meaningless without the
-    // CONNECTION it sits in, so the placement's FastenerPlacement column is the input and its case selects the
-    // receipt: a bearing connection lifts the assembly its own Of already admitted, a preloaded connection the slip
-    // state of that same assembly, and a dowel-type timber connection the EC5 per-plane value this page computes. The
-    // refusal survives ONLY where the placement declares no fastener connection at all — the one state a catalogue
-    // row genuinely cannot price, and it names the column that fixes it.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
         from row in Resolve(component, key)
         from connection in placement.Fastener.ToFin(
@@ -631,16 +470,12 @@ public static class FastenerSeed {
         from capacity in SectionCapacity.Lift(receipt, key)
         select capacity;
 
-    // The bolt-assembly admission both bearing arms share: a plain stock row carries no thread and no grade arm, so
-    // the refusal names the stock rather than letting a nail reach a bolt resistance.
     static Fin<FastenerAssembly> Assembly(StockRow row, BoltCategory category, FayingSurface faying, HeadForm head, int gripPlies, int shearPlanes, Option<HexHardware> washer, Op key) =>
         from thread in row.Thread.ToFin(new KernelFault.InvalidValue(nameof(row.Thread), "a threaded stock row", Some(key)))
         from grade in row.Grade.ToFin(new KernelFault.InvalidValue(nameof(row.Grade), "a threaded stock grade", Some(key)))
         from assembly in FastenerAssembly.Of(thread, grade, category, faying, head, gripPlies, shearPlanes, washer, key)
         select assembly;
 
-    // The EC5 clause reads DENSITY and the k90 intercept, both columns of the timber grade payload, so a grade from
-    // another family reaching a dowel connection refuses here instead of embedding on a column it does not carry.
     static Fin<GradeProperties.Timber> TimberArm(MaterialGrade grade, Op key) =>
         grade.Columns is GradeProperties.Timber arm
             ? Fin.Succ(arm)
@@ -657,11 +492,7 @@ public static class FastenerSeed {
 - Boundary: `Count` admits the discrete grip and shear-plane columns. `BearingDesign` takes the DISTANCES the code's own formulas consume and derives `k1` and `α_b` from them, so a caller cannot hand the resistance one opaque scalar in which a transposed edge and end distance is invisible; the hole-shape reduction and the countersink thickness deduction are rows the same derivation reads. Every resistance takes the placement's `DesignBasis` and reads γM2 through `Fastening.JointFactor` — this section spells no partial factor either. The preload is bounded by the grade's own yield load, because a pretension above the elastic limit is a tightening method the assembly cannot represent. A washer's ABSENCE is the absence of a washer, so its hardness, outer diameter, and thickness are all `None` together rather than a bool guarding three separate reads.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// The EN 1993-1-8 Table 3.4 bolt position as the FLATTENED PRODUCT of its two independent discriminants: the
-// load-path position selects α_d (an end bolt reads its end distance e1, an inner bolt its pitch p1 less a quarter),
-// and the transverse position selects k1 (an edge bolt reads 2.8·e2/d0 − 1.7, an inner bolt 1.4·p2/d0 − 1.7). One row
-// per cell keeps both reads at one level and makes a mis-paired rule unrepresentable.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BoltPosition {
@@ -673,7 +504,6 @@ public sealed partial class BoltPosition {
     [UseDelegateFromConstructor] public partial double K1Raw(double transverseMm, double holeMm);
 }
 
-// The EN 1993-1-8 Table 3.4 hole-form reduction on the bearing resistance.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HoleShape {
@@ -683,12 +513,7 @@ public sealed partial class HoleShape {
     public double BearingFactor { get; }
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The ply the shank bears against, carrying the GEOMETRY EN 1993-1-8 Table 3.4 consumes rather than a pre-collapsed
-// scalar: the loadwise distance (e1 for an end bolt, p1 for an inner one), the transverse distance (e2 or p2), the
-// hole diameter, its form, and the bolt-group position. k1 and α_b are DERIVED here, so the two published factors
-// stay separable on the receipt and an edge distance transposed into the end slot changes the answer visibly instead
-// of disappearing into one number. The generated validation owns the positive-finite guard.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct BearingDesign {
     public double PlyThicknessMm { get; }
@@ -722,18 +547,12 @@ public readonly partial struct BearingDesign {
     public double AlphaB(GradeProperties.Fastener arm) =>
         Math.Min(Math.Min(Position.AlphaD(LoadwiseDistanceMm, HoleDiameterMm), arm.SpecifiedUltimateMpa / PlyUltimateMpa), 1.0);
 
-    // F_b,Rd = k1·α_b·f_u·d·t/γM2 over the BOLT's nominal diameter and the thinnest connected ply, the countersink
-    // removing its own half-depth — sized at a quarter of the bolt diameter — from that thickness.
     public Fin<double> ResistanceKn(ThreadRow thread, GradeProperties.Fastener arm, HeadForm head, DesignBasis basis, Op key) =>
         Fastening.JointFactor(basis, key).Map(gamma =>
             Hole.BearingFactor * K1 * AlphaB(arm) * PlyUltimateMpa * thread.MajorMm
                 * (PlyThicknessMm - head.ThicknessDeductionRatio * thread.MajorMm) / gamma * 1e-3);
 }
 
-// The EN 1993-1-8 §3.9 / EN 1090-2 §8.5 installation design set admitted ONCE: ks the hole-tolerance factor, γM3 the
-// slip partial factor, km the manufacturer-declared EN 14399-2 k-class torque factor. γM3 is an INSTALLATION column
-// rather than a DesignBasis read because EN 1993-1-8 keys it on the slip limit state a project declares (1.10 at
-// ultimate, 1.25 for an oversize or slotted hole), which is a connection decision the basis row cannot carry.
 [ComplexValueObject]
 public readonly partial struct FastenerInstallation {
     public double Ks { get; }
@@ -749,18 +568,10 @@ public readonly partial struct FastenerInstallation {
         key.AcceptValidated<FastenerInstallation>(Validate(ks, gammaM3, km, out FastenerInstallation design), design);
 }
 
-// The complete bolt-connection receipt over the standards rows: preload, slip, and washer projections are the
-// EN 1993-1-8 §3.9 single-bolt design values the Rasm.Compute slip-critical and combined-action checks read. The
-// PROVED fastener arm rides on the record because Of already admitted it — every projection below reads a column
-// rather than re-unwrapping the union, which is what makes the whole surface Option-free except where a value is
-// genuinely absent.
 public readonly record struct FastenerAssembly(
     ThreadRow Thread, MaterialGrade Grade, GradeProperties.Fastener Arm, BoltCategory Category,
     FayingSurface Faying, HeadForm Head, Count GripPlies, Count ShearPlanes, Option<HexHardware> Washer) {
 
-    // The four admissions are INDEPENDENT — a wrong-system thread, a non-fastener grade, a non-preloadable grade in a
-    // preloaded joint, and a preloaded joint with no faying class are four separate authoring defects — so they
-    // accumulate and a caller learns everything wrong with one connection in one verdict.
     public static Fin<FastenerAssembly> Of(
         ThreadRow thread, MaterialGrade grade, BoltCategory category, FayingSurface faying, HeadForm head,
         int gripPlies, int shearPlanes, Option<HexHardware> washer, Op key) =>
@@ -779,18 +590,10 @@ public readonly record struct FastenerAssembly(
 
     public FastenerBand Band => Arm.At(Thread);
 
-    // The two published loads a tightening must stay under, and the governing one. The PROOF load is the stress the
-    // specification requires the bolt to sustain with no permanent set, and where a body prints it, it binds tighter
-    // than yield — an ISO 8.8 proofs at 580 MPa against a 640 MPa yield — so the ceiling is the lesser of the two and
-    // a grade whose body prints no proof load is bounded by its yield alone.
     public double YieldLoadKn => Band.MinimumYieldMpa * Thread.StressAreaMm2 * 1e-3;
     public Option<double> ProofLoadKn => Band.ProofStressMpa.Map(stress => stress * Thread.StressAreaMm2 * 1e-3);
     public double PreloadCeilingKn => ProofLoadKn.Map(proof => Math.Min(proof, YieldLoadKn)).IfNone(YieldLoadKn);
 
-    // Fp,C = 0.7·fub·As over the size-banded read. None IS a snug-tight non-preloaded connection, the absence the
-    // Rasm.Compute consumer reads through the Option — never numeric zero, which would price a preload the joint has
-    // not. A pretension above the ceiling answers None as well: that is not a weaker preload, it is a tightening the
-    // assembly does not represent.
     public Option<double> PreloadKn =>
         Category.Preloaded
             ? Some(0.7 * Arm.SpecifiedUltimateMpa * Thread.StressAreaMm2 * 1e-3).Filter(preload => preload <= PreloadCeilingKn)
@@ -802,8 +605,6 @@ public readonly record struct FastenerAssembly(
     public Option<double> TighteningTorqueNm(FastenerInstallation design) =>
         PreloadKn.Map(preload => design.Km * (Thread.MajorMm * 1e-3) * (preload * 1e3));
 
-    // The group shear over every plane, the tension under the head's own k2, and the bearing against the ply — the
-    // three columns the Connection verdict folds, each already a design resistance under the declared basis.
     public Fin<double> ShearResistanceKn(ShearPlane plane, DesignBasis basis, Op key) =>
         Fastening.ShearResistanceKn(Thread, Arm, plane, basis, key).Map(perPlane => perPlane * ShearPlanes.Value);
     public Fin<double> TensionResistanceKn(DesignBasis basis, Op key) => Fastening.TensionResistanceKn(Thread, Arm, Head, basis, key);
@@ -811,9 +612,6 @@ public readonly record struct FastenerAssembly(
     public Fin<double> PunchingResistanceKn(BearingDesign ply, DesignBasis basis, Op key) =>
         Fastening.PunchingResistanceKn(Thread, ply.PlyThicknessMm, ply.PlyUltimateMpa, basis, key);
 
-    // ISO 7090 300 HV (chamfered, preloaded high-strength) vs ISO 7089 200 HV (plain). A connection with no washer
-    // has no washer hardness — absence, not the hardness of a part that is not there — and the declared envelope
-    // carries the outer diameter and thickness the shop reads, so all three answer together.
     public Option<double> WasherHardnessHv => Washer.Map(_ => Arm.Preloadable ? 300.0 : 200.0);
     public Option<double> WasherOuterMm => Washer.Map(static h => h.WasherOuterMm);
     public Option<double> WasherThicknessMm => Washer.Map(static h => h.WasherThicknessMm);

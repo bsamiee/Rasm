@@ -24,7 +24,7 @@ This codec NEVER knows the element graph and NEVER computes schedule math: the p
 using Rasm.Persistence.Element;
 using MpxjDuration = MPXJ.Net.Duration;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -110,9 +110,6 @@ public sealed partial class RecurrenceKind {
     };
 }
 
-// `DayType` is the EIGHTH foreign enum here and the one this page had collapsed to a `bool`: it carries
-// `Default` beside `Working`/`NonWorking`, so a working-week override inheriting its base calendar is no
-// non-working day, yet that bool read it as one and re-emitted it as one.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -202,7 +199,7 @@ public sealed partial class ScheduleUnit {
         wire is { } value && ByWire.Value.TryGetValue(value, out ScheduleUnit? unit) ? unit : Days;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ScheduleSpan(double Magnitude, ScheduleUnit Unit) {
     public static Option<ScheduleSpan> From(MpxjDuration? span) =>
@@ -216,10 +213,6 @@ public readonly record struct DayRow(DayOfWeek Day, DayKind Kind, Seq<ShiftRow> 
 
 public readonly record struct WeekRow(Option<string> Name, Option<LocalDate> From, Option<LocalDate> To, Seq<DayRow> Days);
 
-// `UseEndDate` selected which of `FinishDate`/`Occurrences` the wire means, so three columns encoded a two-case
-// choice and admitted two illegal corners — an end-date stance with no date and a count stance with no count.
-// NAMED LOSS: a row carrying BOTH a finish date and an occurrence count keeps only the arm `UseEndDate` named
-// authoritative; the other was dead data the wire itself ignores. WITNESS: `RecurrenceEnd.Of`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RecurrenceEnd {
     private RecurrenceEnd() { }
@@ -233,8 +226,6 @@ public abstract partial record RecurrenceEnd {
             : occurrences.Match(Some: static count => (RecurrenceEnd)new ByCount(count), None: static () => new Open());
 }
 
-// `WorkingDaysOnly` and `Relative` STAY bools by the kernel capability law: they are independent `RecurringData`
-// switches mirrored one-to-one onto the wire with no illegal corner between them.
 public sealed record CalendarRecurrence(
     RecurrenceKind Kind,
     Option<LocalDate> Start,
@@ -267,21 +258,14 @@ public sealed record CalendarRecurrence(
     }
 }
 
-// DISTINCT-BY-DESIGN (E-P6 allowlist): the MPXJ boundary mirror of `ProjectCalendar` exceptions — the admission path
-// discriminates it from Fabrication `Kinematics/fleet`'s working-calendar vocabulary; a third spelling re-opens the seat.
 public readonly record struct CalendarException(
     Option<string> Name, Option<LocalDate> From, Option<LocalDate> To, Option<CalendarRecurrence> Recurrence, Seq<ShiftRow> Shifts) {
     public bool Working => !Shifts.IsEmpty;
-    // `Anchored` reports whether this row names a window to be PLACED in: a recurrence carries its own,
-    // otherwise the from-date opens one that the to-date closes, and neither present names none at all.
     public bool Anchored => Recurrence.IsSome || From.IsSome;
 }
 
 public sealed record WorkCalendarRow(int Key, Option<string> Name, Option<CalendarKind> Kind, Seq<DayRow> Week, Seq<WeekRow> Overrides, Seq<CalendarException> Exceptions);
 
-// `Critical`, `Milestone`, and `Summary` STAY bools: they are the source tool's PARSED evidence on three
-// unrelated axes — a CPM verdict, a zero-duration shape, a hierarchy fact — re-emitted verbatim per this page's
-// own no-recompute law, with no corner law between them a set could state.
 public sealed record ScheduleActivity(
     int Key, Option<int> Parent, Option<string> Name, Option<string> Wbs, Option<string> ActivityId,
     Option<double> Percent, bool Critical, bool Milestone, bool Summary, Option<int> OutlineLevel,
@@ -370,7 +354,7 @@ public abstract partial record ScheduleYield {
     public sealed record Profile(Seq<ScheduleProfile> Roster) : ScheduleYield;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScheduleFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.StoreSchedule;
@@ -409,10 +393,9 @@ public sealed partial class ScheduleFactKind {
 
 public readonly record struct ScheduleFact(ScheduleFactKind Kind, Option<string> Dialect, int Projects, long Activities, long Relations, Instant At);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ScheduleSource {
-    // `Slots` censuses off the kind vocabulary; the `store.schedule.` prefix declares once here.
     public static readonly Seq<StoreSlot> Slots =
         toSeq(ScheduleFactKind.Items).Map(static kind => StoreSlot.Create($"store.schedule.{kind.Key}"));
 
@@ -423,8 +406,6 @@ public static class ScheduleSource {
             serialize: static (s, w) => Serialized(w.Target, w.To, w.Graph, s.frame, s.sink),
             probe:     static (s, p) => Probed(p.Spec, s.frame, s.sink));
 
-    // Row admission ACCUMULATES across the container: every unkeyed task, keyless edge, and unanchored calendar
-    // exception in every project reports in one refusal rather than the first one found.
     static IO<Validation<Error, ScheduleYield>> Parsed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
         from rows in IO.lift(() => Container(spec).Bind(spec.Selected)
             .Bind(projects => projects.Traverse(ProjectRows.Of).As())
@@ -450,8 +431,6 @@ public static class ScheduleSource {
             Fail: _ => IO.pure(unit))
         select done;
 
-    // Probing reads properties alone and spans a whole roster, so its fact names NO single dialect rather than
-    // an empty string a census counts as one.
     static IO<Validation<Error, ScheduleYield>> Probed(ScheduleSpec spec, ProjectionContext frame, Func<ScheduleFact, IO<Unit>> sink) =>
         from roster in IO.lift(() => Container(spec).Bind(spec.Selected).Map(projects =>
             (ScheduleYield)new ScheduleYield.Profile(projects.Map(static p => new ScheduleProfile(
@@ -472,8 +451,6 @@ public static class ScheduleSource {
             ? (Validation<Error, Seq<ProjectFile>>)new ScheduleFault.UnknownDialect("<no-reader-claimed-input>")
             : projects);
 
-    // Null and empty yields mean the same thing — no reader claimed the input — so absence admits to the
-    // empty roster the gate below reads, and no `null` reaches a `Seq`.
     static Seq<ProjectFile> Claimed(IList<ProjectFile>? container) =>
         Optional(container).Match(Some: toSeq, None: Seq<ProjectFile>);
 
@@ -489,8 +466,6 @@ public static class ScheduleSource {
 
     static Option<string> Dialect(Seq<ScheduleProject> rows) => rows.Head.Bind(static r => r.Anchor.Dialect);
 
-    // Only documented format/I/O refusals re-case as CodecReject; cancellations, existing faults, and unknown
-    // exceptions remain exact on the Validation rail.
     internal static Validation<Error, TValue> Capture<TValue>(Func<TValue> codec) =>
         Op.Of().Catch(() => Fin.Succ(codec())).Match(
             Succ: static value => (Validation<Error, TValue>)value,
@@ -527,15 +502,12 @@ public static class ScheduleSource {
 - Boundary: the rows are the Persistence half of the relocated Bim schedule domain — `Rasm.Bim/Planning/schedule` runs CPM/4D over them (read AND round-trip: an edited durable network serializes back to XER/PMXML through `[02]`'s egress so the P6 authoring tool re-imports it), and `ScheduleVariance` is what its earned-value and critical-path-drift reads consume; the app composition root maps activity rows to `Rasm.Element` nodes (row-shape law); no row carries an MPXJ type, a Java handle, an absolute re-based duration, or a fabricated UTC stamp.
 
 ```csharp signature
-// --- [BOUNDARIES] -----------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 
 public static class ProjectRows {
     static readonly DayOfWeek[] WeekDays =
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday];
 
-    // `Of` admits the IKVM seam ONCE and every family accumulates: a container with three unkeyed tasks and
-    // one keyless edge reports all four, never the first. `ProjectProperties` is never absent, so the anchor
-    // needs no rail and lifts inside the fold rather than occupying a sixth applicative column.
     public static Validation<Error, ScheduleProject> Of(ProjectFile file) {
         FrozenDictionary<int, int> parents = Parents(file);
         return (Activities(file, parents), Relations(file), Calendars(file), Resources(file), Assignments(file))
@@ -544,16 +516,11 @@ public static class ProjectRows {
             .As();
     }
 
-    // MPXJ hands every identity nullable, and a `?? 0` fallback COLLIDED every keyless row onto key 0 — two
-    // unkeyed tasks became one row, and an edge to a keyless endpoint became an edge to whatever held that key.
-    // Identity is therefore ADMITTED; nothing downstream re-checks it.
     static Validation<Error, int> Keyed(string row, int? key, Option<string> detail) =>
         Optional(key).Match(
             Some: static value => (Validation<Error, int>)value,
             None: () => new ScheduleFault.RowUnkeyed(row, detail.IfNone("<unnamed>")));
 
-    // Absence stays absence: this page already crossed `WBS` and `ActivityID` as `Option`, and a `?? ""` on the
-    // sibling column minted a row whose name a receipt and a reconciliation both read as real.
     internal static Option<string> Text(string? value) =>
         Optional(value).Filter(static text => !string.IsNullOrWhiteSpace(text));
 
@@ -564,8 +531,6 @@ public static class ProjectRows {
         Local(properties.StatusDate), Local(properties.CurrentDate), Text(properties.CurrencyCode),
         Optional(properties.DefaultCalendarUniqueID), Optional(properties.MinutesPerDay), Optional(properties.DaysPerMonth));
 
-    // Only a keyed child under a keyed parent names an edge in the hierarchy; the pair drops otherwise, and the
-    // activity admission refuses the keyless row itself.
     static FrozenDictionary<int, int> Parents(ProjectFile file) =>
         toSeq(file.Tasks)
             .Bind(static t => toSeq(t.ChildTasks).Map(c => (Child: Optional(c.UniqueID), Parent: Optional(t.UniqueID))))
@@ -666,8 +631,6 @@ public static class ProjectRows {
 }
 
 public static class Synthesis {
-    // ADMIT, then build: every calendar exception proves it names a placeable window BEFORE the first mutation,
-    // so a half-built `ProjectFile` can never escape and no refusal throws out of the middle of a fold.
     public static Validation<Error, ProjectFile> Fold(ScheduleProject project) =>
         project.Calendars.Traverse(Anchored).As().Map(_ => Built(project));
 
@@ -743,9 +706,6 @@ public static class Synthesis {
         return file;
     }
 
-    // `Windowed` resolves the window a recurrence or a from-date names. `Anchored` proved every row carries
-    // one, so `None` here is only ever a row admission already refused, which the loop skips instead of
-    // half-building the calendar.
     static Option<ProjectCalendarException> Windowed(ProjectCalendar made, CalendarException e) =>
         e.Recurrence.Match(
             Some: recurrence => Some(made.AddCalendarException(recurrence.Wire())),
@@ -764,8 +724,6 @@ public static class Synthesis {
         anchor.DaysPerMonth.Iter(days => properties.DaysPerMonth = days);
     }
 
-    // `Pattern` crosses the day type back WHOLE: an inherited day re-emits as inherited, where the bool
-    // re-emitted it as explicitly non-working and froze what the base calendar decides.
     static void Pattern(ProjectCalendarDays days, DayRow day) {
         days.SetWorkingDay(day.Day, day.Kind.Wire);
         if (day.Kind == DayKind.Working) {
@@ -816,7 +774,7 @@ public static class Synthesis {
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public readonly record struct ScheduleChange<T>(T Baseline, T Update);
 

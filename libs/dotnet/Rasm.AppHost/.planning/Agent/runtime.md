@@ -21,7 +21,7 @@ This page declares the front door, its veto rail, and the tool-adoption seam the
 - Boundary: `CommandIntent` is the SUITE's command identity and no referencing package re-declares it — `Rasm.AppUi/Shell/commands#INTENT_TABLE` `CommandRow` is the UI DERIVATION over this vocabulary, holding the presentation columns (chord, palette text, mount predicate, argument schema) and minting one `CommandIntent` through `CommandRow.ToIntent` at each raise, so a UI verb reaches its work through this `Run` and never beside it; a second type named `CommandIntent` in a package that references this one is a strata twin, not a naming coincidence, because both spellings reach one compile leg and dispatch then resolves against whichever page a call site happened to cite (`docs/laws/scars.md` `[STRATA_TWIN]`); this front door is the one command-execution entry, and a caller reaching `CommandAlgebra.Run` directly is the deleted form — that bypass strands the veto rail with no firing site, leaves the caller modality unrecorded, and lands a dispatched command outside the hash chain, three failures one shared entry forecloses at once; `CommandAlgebra` stays the one commit-or-rollback transaction at `Agent/capability#COMMAND_ALGEBRA` and this surface is the gate over it, never a second transaction; `EventLog` stays the one hash-chained content-addressed command log on the durable `OpLog` changefeed (`Runtime/determinism#EVENT_LOG`) and both the mint and the publish are that owner's members, so this page composes `Project` and `Publish` in that order and derives no link of its own; the append takes a BODY — `LogBody.Command(descriptor, arguments.Digest)` — so the digest covers the canonical argument bytes and never the descriptor a second time; the veto rail is the app-composed admission policy's seat and this page names no point id and no modality of its own, reading only `Admitted`; a command whose caller resolves no `GrantScope` falls through to the algebra alone, where the broker's consent seat refuses it — one admission decision, never a second gate that could disagree with it.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CommandIntent(
     string Descriptor,
     CommandArguments Arguments,
@@ -30,7 +30,7 @@ public sealed record CommandIntent(
         new(descriptor, arguments, caller);
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record DispatchRuntime(
     CommandRuntime Command,
     MediationRuntime Mediation,
@@ -41,12 +41,8 @@ public sealed record DispatchRuntime(
     HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail,
     Op Key);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CommandDispatch {
-    // Firing through the GUARDED arity IS the veto seam: the rail hands the body its ADMITTED fact, and the body
-    // re-checks the CASE because a subscriber may return a fact the seam never fired — the one residual
-    // hazard the kernel rail names. Reading the intent off the result without folding it drops the `Fail` arm
-    // and every refusal an app-composed policy issued evaporates.
     public static IO<CommandReceipt> Run(DispatchRuntime runtime, CommandIntent intent) =>
         from admitted in IO.lift(() => runtime.Rail.Fire(
             at: AppHostPoint.Command,
@@ -61,8 +57,6 @@ public static class CommandDispatch {
         from _chained in Chain(runtime, receipt, intent.Arguments)
         select receipt;
 
-    // Mediation is what makes the modality EVIDENCE. A scopeless caller falls through to the algebra alone,
-    // where the broker's consent seat refuses it — never a second admission decision beside the broker's.
     static IO<CommandReceipt> Mediated(DispatchRuntime runtime, CommandIntent intent) =>
         runtime.ScopeOf(intent).Match(
             Some: scope => GrantHandleSurface.Mediate(runtime.Mediation, intent.Caller, scope, intent.Descriptor, intent.Arguments,
@@ -70,12 +64,6 @@ public static class CommandDispatch {
                 .Map(static mediated => mediated.Receipt),
             None: () => CommandAlgebra.Run(runtime.Command, intent.Descriptor, intent.Arguments));
 
-    // Advancing the chain runs a BOUNDED commit and the publish follows it, ONCE. `EventLog.Project` is the
-    // publish-free sibling of `Append`, so a re-minted attempt costs one hash and nothing durable — and
-    // re-minting per attempt is the chain's own requirement rather than waste, because an entry's hash chains
-    // to its PREDECESSOR and a contended advance must re-derive against the head that won. The retired form
-    // recursed into `Append` on every lost exchange, RE-PUBLISHING to the changefeed once per spin under a
-    // comment claiming the opposite, with no ceiling and no typed exhaustion at all.
     static IO<Unit> Chain(DispatchRuntime runtime, CommandReceipt receipt, CommandArguments arguments) =>
         receipt.Txn is CommandTxn.Committed or CommandTxn.Compensated
             ? from at in IO.lift(() => runtime.Command.Clocks.Now)
@@ -84,9 +72,6 @@ public static class CommandDispatch {
               select published
             : IO.pure(unit);
 
-    // Named boundary capsule: the frame-local capture is the kernel's own idiom for reading a transition's
-    // computed value — the LAST invocation is the committing one — and `Contended` is the typed exhaustion a
-    // chain that could not advance inside its budget answers instead of publishing an unreferenced entry.
     static Fin<LogEntry> Advanced(DispatchRuntime runtime, CommandReceipt receipt, CommandArguments arguments, Instant at) {
         LogEntry? minted = null;
         Transition<EventLog.Chain> landed = Cell.Commit(runtime.Chain, held => {
@@ -100,7 +85,6 @@ public static class CommandDispatch {
             : Fin.Succ(minted!);
     }
 
-    // ONE physical fold: the switch lives at `Agent/mcp#TOOL_DISPATCH` and this entry supplies the key.
     public static ToolResult Project(CommandReceipt receipt, Option<string> tool = default) =>
         McpDispatch.Project(tool.IfNone(receipt.Descriptor), receipt);
 }
@@ -141,9 +125,7 @@ flowchart LR
 - Boundary: `ToolProjection.Adopt` is the one SDK-adoption site and it lives at `Agent/mcp.md` — this page binds its product and never re-authors the subclass or the `McpServerTool.Create` call, so the SDK adoption stays fenced at one site; a tool set divorced from that seam is the deleted form, so the MCP server, the reasoning loop, and the plugin route share one brokered catalog and one dispatch transaction, never three.
 
 ```csharp signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// ONE projection, ONE adoption, three consumers reading disjoint halves. The adopted product is
-// caller-neutral because tenant and correlation resolve per invocation inside the brokered function.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 McpAdoption adopted = ToolProjection.Adopt(
     mcpRuntime,
     ToolProjection.Project(mcpRuntime));
@@ -155,8 +137,6 @@ IMcpServerBuilder server = services.AddMcpServer()
 
 Seq<AITool> agentTools = adopted.Tools.Map(static row => (AITool)row.Function);
 
-// Plugin routes take neither half: they enter under their own modality, so the sandbox's
-// no-ambient-authority law and the veto rail both hold on a call that never sees a tool catalog.
 Func<string, CommandArguments, IO<CommandReceipt>> pluginDispatch =
     (descriptor, arguments) => CommandDispatch.Run(dispatchRuntime, CommandIntent.Of(descriptor, arguments, CallerModality.Plugin));
 ```

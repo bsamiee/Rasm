@@ -26,7 +26,7 @@
 - Growth: a host decoration member joins as one column on the row that already names its concept; a new specialty reading is one `FaceTrait` row every census and descriptor gains without another column.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Specialized;
 using Rasm.Domain;
@@ -39,7 +39,7 @@ using SectionFields = Rasm.Rhino.Annotation.FieldTable<Rhino.DocObjects.SectionS
 
 namespace Rasm.Rhino.Annotation;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class FaceWeight {
     public static readonly FaceWeight Unset = new(key: (int)Font.FontWeight.Unset);
@@ -98,9 +98,6 @@ public sealed partial class QuartetFace : ICapability<QuartetFace> {
     internal partial bool Held(FontQuartet quartet);
 }
 
-// Host members answer ONE decoration three unrelated ways, so each is a column on the row rather than a read
-// scattered across the pages that need it. Absence is a column too: `Strikeout` has no run-wide probe and no
-// setter, so no caller can spell a strikeout write that silently does nothing.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FaceDecoration : ICapability<FaceDecoration> {
@@ -119,8 +116,6 @@ public sealed partial class FaceDecoration : ICapability<FaceDecoration> {
     public static readonly FaceDecoration Strikeout = new(
         key: "strikeout", held: static font => font.Strikeout, sweep: default, mark: default);
 
-    // Axes construction spells bold and italic as weight and slant, so a decoration set naming either carries
-    // a second authority over one host argument.
     internal static readonly CapabilityLaw<FaceDecoration> AxisLaw = CapabilityLaw<FaceDecoration>.Forbidden(
         barred: Seq(CapabilitySet<FaceDecoration>.Of(Bold), CapabilitySet<FaceDecoration>.Of(Italic)));
 
@@ -133,8 +128,6 @@ public sealed partial class FaceDecoration : ICapability<FaceDecoration> {
     internal static CapabilitySet<FaceDecoration> On(Font font) =>
         CapabilitySet<FaceDecoration>.Of(toSeq(Items).Filter(row => row.Held(font: font)).ToArray());
 
-    // Run-wide reading spans the three rows carrying a probe; `Strikeout` never enters, which is the host's
-    // own coverage rather than this page's choice.
     internal static CapabilitySet<FaceDecoration> Across(AnnotationBase annotation) =>
         CapabilitySet<FaceDecoration>.Of(
             toSeq(Items).Filter(row => row.Sweep.Exists(probe => probe(arg: annotation))).ToArray());
@@ -215,10 +208,7 @@ public abstract partial record FaceQuery {
                 .ToFin(Fail: op.MissingContext())));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Ten host booleans this descriptor once carried are two capability sets: every reader that named one now
-// spells `Admits`, and the `Wire` projection prints a census row no consumer assembles. NAMED LOSS: a
-// per-flag compile-time column, bought back by the rosters' own `Items` and by `AdmitsAll` at each consumer seam.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FaceInfo(
     string FaceName, string FamilyName, string FamilyPlusFaceName, string QuartetName,
     string PostScriptName, string LogfontName, string RichTextFontName, string Description,
@@ -237,8 +227,6 @@ public sealed record FaceInfo(
             FaceDecoration.On(font: font), FaceTrait.On(font: font), font.PointSize));
 }
 
-// Four availability probes fold ONCE here, through the same row column the resolve gate reads, so the census
-// and the gate can no longer disagree about which corner a family publishes.
 public readonly record struct QuartetInfo(ResourceName Name, CapabilitySet<QuartetFace> Faces) {
     internal static Fin<QuartetInfo> Of(FontQuartet quartet, Op key) =>
         key.AcceptValidated<ResourceName>(candidate: quartet.QuartetName)
@@ -277,7 +265,7 @@ public abstract partial record FaceCensusAnswer {
 - Growth: a second face mutation is one `TypefaceOp` case beside the bind; the census gains a request row and its answer row together.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TypefaceOp {
     private TypefaceOp() { }
@@ -299,8 +287,6 @@ public abstract partial record TypefaceOp {
                     slot: DraftSlot.Bound, componentKind: DraftComponentKind.Style, index: index, key: context.Op)
                 select receipt);
 
-    // Short-circuiting scan, not a projection of the whole table: once a style answers the asked face, no further
-    // candidate is read, and a refused projection carries its own fault out rather than a partial roster.
     private static Fin<Option<ResourceIndex>> Seated(RhinoDoc document, FaceInfo face, Op op) =>
         toSeq(document.DimStyles).Filter(static style => !style.IsDeleted).Fold(
             Fin.Succ(Option<ResourceIndex>.None),
@@ -325,7 +311,7 @@ public abstract partial record TypefaceOp {
                 key: op));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Typefaces {
     public static Fin<FaceResolution> Resolve(FaceQuery query, Op? key = null) {
         Op op = key.OrDefault();
@@ -384,7 +370,7 @@ public static class Typefaces {
 - Growth: a catalog-proven `SectionStyle` property is one `SectionField` row through its adapter; the defaults snapshot, every restore, and every write gain it without another surface.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SectionAxis {
     public static readonly SectionAxis Identity = new(key: 0);
@@ -416,8 +402,6 @@ public sealed partial class SectionFillMode {
     internal partial SectionFill Fill(PerceptualColor display, PerceptualColor print);
 }
 
-// Section schema INSTANTIATION of the shared row mechanism: each row binds its axis and one adapter seat,
-// and the adapter bodies live once on `FieldTable`.
 [SmartEnum<int>]
 public sealed partial class SectionField {
     // --- [IDENTITY]
@@ -455,15 +439,12 @@ public sealed partial class SectionField {
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Write(SectionStyle style, StyleValue value, Op key);
 
-    // Axis roster every restore and axis-scoped read walks; the grouping resolves once at first touch.
     internal static Seq<SectionField> On(SectionAxis axis) => ByAxis.Value[axis];
 
     private static readonly Lazy<FrozenDictionary<SectionAxis, Seq<SectionField>>> ByAxis = new(static () =>
         toSeq(Items).GroupBy(static row => row.Axis)
             .ToFrozenDictionary(static group => group.Key, static group => toSeq(group).Strict()));
 
-    // Plural HOST WRITES fail fast: a later property write must never run after an earlier one refused, so the
-    // half-written style never reaches the table.
     internal static Fin<Unit> Apply(SectionStyle style, Seq<SectionEdit> run, Op key) =>
         run.TraverseM(edit => edit.Field.Write(style: style, value: edit.Value, key: key)).As().Map(static _ => unit);
 
@@ -487,7 +468,7 @@ public sealed partial class SectionField {
         new(key: key, axis: axis, seat: SectionFields.Tint(get, set));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SectionEdit {
     private SectionEdit(SectionField field, StyleValue value) {
         Field = field;
@@ -506,8 +487,6 @@ public sealed record SectionEdit {
             .As().ToFin();
 }
 
-// One host-default snapshot per process, read through the schema's own row column and released at the read: the
-// retained native this page once held was a live host resource nothing but a default read ever touched.
 internal static class SectionDefaults {
     internal static Fin<Seq<SectionEdit>> On(SectionAxis axis) =>
         Rows.Value.Map(rows => rows.Filter(row => row.Field.Axis == axis));
@@ -543,18 +522,12 @@ public abstract partial record SectionFill {
             (SectionField.FillColor, new StyleValue.Tint(Value: fill.Display)),
             (SectionField.FillPrintColor, new StyleValue.Tint(Value: fill.Print))));
 
-    // Inactive fill restores its whole axis and then states the mode it does carry, so no colour column is
-    // left holding the value the previous fill wrote.
     private static Fin<Seq<SectionEdit>> Restored(SectionFillMode mode, Op key) =>
         from defaults in SectionDefaults.On(axis: SectionAxis.Fill)
         from stated in SectionEdit.Of(field: SectionField.FillMode, value: StyleValue.Of(mode.Host), key: key)
         select defaults.Filter(static row => row.Field != SectionField.FillMode).Add(stated);
 }
 
-// `SectionStyle` splits the boundary linetype across TWO channels — an index into the document table and an
-// embedded copy the style owns outright — and one `ResourceRef` addresses only the first. `Embedded` therefore
-// carries the WHOLE `StrokeDef` and mints its own native: resolving that case through the linetype table would
-// look up the row the case exists precisely because it lacks.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionStroke {
     private SectionStroke() { }
@@ -571,8 +544,6 @@ public abstract partial record SectionStroke {
             from _ in SectionField.Apply(style: context.Style, run: Seq(seated), key: context.Key)
             from __ in context.Key.Catch(() => Fin.Succ(value: Op.Side(context.Style.RemoveBoundaryLinetype)))
             select unit,
-        // `SetBoundaryLinetype` COPIES into the style, so the minted native releases the moment the copy lands —
-        // its lease's `Use` closes that window, not a caller-side disposal.
         embedded: static (context, row) =>
             from _ in Detach(style: context.Style, key: context.Key)
             from seed in Lease<Linetype>.Acquire(mint: static () => new Linetype(), key: context.Key)
@@ -617,8 +588,6 @@ public abstract partial record SectionBoundary {
             (SectionField.BoundaryWidthScale, new StyleValue.Real(Value: boundary.Width.Value)),
             (SectionField.BoundaryPlotWeight, new StyleValue.Real(Value: boundary.PlotWeight.ToHost()))));
 
-    // Linetype channels are host METHODS, never a property pair, so they land beside the row fold rather than
-    // inside it — and every case writes one, so no stale channel survives a rebind.
     internal Fin<Unit> Bind(SectionStyle style, RhinoDoc document, Op key) => Switch(
         (Style: style, Document: document, Key: key),
         hidden: static (context, _) => SectionStroke.Detach(style: context.Style, key: context.Key),
@@ -689,7 +658,7 @@ public sealed partial class SectionSpec {
 - Growth: a section-only verb is one `SectionOp` case with its arm; a verb every component table shares is one `TableOp` case; a new landing kind is one `ImportLanding` mint carrying its reversal.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class SectionSource {
     public static readonly SectionSource Local = new(add: static (document, style) =>
@@ -715,9 +684,6 @@ public abstract partial record SectionOp {
         ByName: static (document, name) => document.SectionStyles.FindName(name: name),
         ByIndex: static (document, index) => document.SectionStyles.FindIndex(index: index));
 
-    // `SectionStyle` re-publishes no user-string roster and `SectionStyleTable` publishes no current row, so the two
-    // columns the host cannot back are spelled rather than faked: the tag surface reads an empty bag and refuses
-    // every write — clearing an absent bag IS vacuous, seating a pair is not — and election refuses typed.
     internal static readonly TableGrip<SectionStyle, SectionSpec> Grip = new(
         Lens, DraftComponentKind.Section,
         Named: static def => def.Name,
@@ -741,8 +707,6 @@ public abstract partial record SectionOp {
             sectionstyle: copy, index: index, quiet: interaction.IsQuiet)),
         Seat: static (document, style, key) => key.Catch(() => ResourceIndex.Admit(
             document.SectionStyles.Add(sectionstyle: style), key)),
-        // Usage census IS the delete gate, so it rides the retire row: a bound row refuses the whole batch
-        // before the first host removal rather than leaving a partial delete the caller has to unwind.
         Retire: static (document, indices, interaction, key) =>
             from _ in indices.TraverseM(index =>
                 from usage in SectionUsage.Read(document: document, index: index, key: key)
@@ -772,8 +736,6 @@ public abstract partial record SectionOp {
     private sealed record ImportSeat(ResourceIndex Index, SectionStyle Original);
     private sealed record SectionIntent(SectionStyle Style, ResourceName Name, Option<ImportSeat> Seat);
 
-    // One landing shape for both tables: the reversal is a value the LAND leg mints while it still holds the
-    // knowledge, so rollback reads no flag and no per-family arm.
     private sealed record ImportLanding(DraftSlot Slot, ResourceIndex Index, Func<Op, Fin<Unit>> Undo);
 
     private readonly record struct ImportSpoil(Seq<SectionStyle> Styles, Seq<HatchPattern> Patterns);
@@ -781,8 +743,6 @@ public abstract partial record SectionOp {
     internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
         table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
-        // `Grip.Mint` shapes a seed this rail owns until the table copies it, so it rides a lease exactly as the
-        // shared author verb's does — the source column picks the seat the grip's single `Seat` row cannot reach.
         author: static (context, edit) =>
             from _ in guard(!Grip.Occupied(context.Document, edit.Spec.Name), context.Op.InvalidInput()).ToFin()
             from minted in Grip.Mint(context.Document, edit.Spec, context.Op)
@@ -812,8 +772,6 @@ public abstract partial record SectionOp {
                 land: intent => LandPattern(document: document, intent: intent, op: op),
                 rollback: landed => Rollback(landed: landed, op: op))
             .BindFail(primary => Drained<Seq<ImportLanding>>(primary: primary, spoil: owned, op: op))
-        // Landing runs answer their source run positionally, so the hatch re-key is one zip rather than a
-        // per-style scan carrying an `Added` flag the reader has to interpret.
         let targets = toHashMap(plan.Patterns.Zip(
             patterns, static (intent, landing) => (intent.Source, landing.Index)))
         from receipt in ImportSections(
@@ -824,8 +782,6 @@ public abstract partial record SectionOp {
         from __ in Custody.Dispose(held: owned.Patterns, key: op)
         select receipt;
 
-    // `ReadFromFile` hands back two freshly minted host arrays and every pre-existing row is copy-retained for
-    // rollback, so the import owns all three sets and drains them on success and refusal alike.
     private static Seq<SectionStyle> Retained(Seq<SectionIntent> plan) =>
         plan.Choose(static intent => intent.Seat.Map(static seat => seat.Original));
 
@@ -857,8 +813,6 @@ public abstract partial record SectionOp {
             op.InvalidInput()).ToFin()
         select (patterns, styles));
 
-    // Uniqueness and the later lookup share ONE carrier: a collision shows as a short map, and the
-    // re-key reads the same map instead of scanning the run per style.
     private static Fin<HashMap<TKey, TRow>> Keyed<TKey, TRow>(Seq<TRow> rows, Func<TRow, TKey> key, Op op) {
         HashMap<TKey, TRow> map = rows.Fold(
             HashMap<TKey, TRow>(), (state, row) => state.AddOrUpdate(key(arg: row), row));
@@ -922,8 +876,6 @@ public abstract partial record SectionOp {
                         index: index.Value, quiet: HostInteraction.Silent.IsQuiet))))))
         select landed;
 
-    // Reverse landing order, every reversal read off the landing that minted it, and every rollback fault
-    // appended to the primary rather than replacing it.
     private static Fin<Unit> Rollback(Seq<ImportLanding> landed, Op op) =>
         toSeq(landed.AsIterable().Reverse()).Fold(
             Fin.Succ(value: unit), (state, row) => Merge(prior: state, next: row.Undo(arg: op)));
@@ -939,7 +891,7 @@ public abstract partial record SectionOp {
             Fail: second => Fin.Fail<Unit>(error: first + second)));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class SectionUsage {
@@ -1022,8 +974,6 @@ public abstract partial record SectionAsk {
             hatch: hatch,
             rule: rule));
 
-    // `GetBoundaryLinetype` MINTS a fresh native per call and answers null when the embedded channel is unset, so
-    // reads own what they get and the index channel answers only where no embedded copy exists.
     private static Fin<Option<SectionStroke>> Stroke(SectionStyle style, Op key) =>
         Optional(style.GetBoundaryLinetype()) is { IsSome: true, Case: Linetype embedded }
             ? new Lease<Linetype>.Owned(Value: embedded).Use(
@@ -1053,7 +1003,7 @@ public abstract partial record SectionAnswer : IDetachedDocumentResult {
     public sealed record Minted(ResourceName Name) : SectionAnswer;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Sections {
     public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<SectionOp> plan, Op? key = null) =>
         DraftSpine.Commit(session: session, plan: plan,

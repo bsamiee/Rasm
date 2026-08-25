@@ -30,12 +30,8 @@ Every modality reaches the invalidation bus directly, so a binding over a non-re
 import { Array, Record, Schema } from "effect"
 import { Shape } from "@rasm/core"
 
-// Both coordinate halves share one lexical class: a slot declares its lane under it, a composition projects its
-// scope key into it, and the separator below therefore cannot appear inside either segment.
 const _Name = Schema.NonEmptyString.pipe(Schema.pattern(/^[a-z][a-z0-9_]*$/), Schema.brand("LiveName"))
 
-// Two `_Name` segments across one separator form the qualified coordinate, so a bare lane name refuses at decode
-// and `_scope` is the only assembly answering a passing value.
 const _Band = Schema.NonEmptyString.pipe(
   Schema.pattern(/^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$/),
   Schema.brand("LiveBand"),
@@ -58,10 +54,8 @@ declare namespace Live {
   type Keys = _Keys
 }
 
-const _cell = Schema.decodeSync(_Cell) // the one Cell mint: lanes call it inside their key projections, proven non-empty at the seam
+const _cell = Schema.decodeSync(_Cell)
 
-// Binding once per composition closes the discriminant over every lane a scope declares, so no caller pairs one
-// scope's token with another's lane and no member on this page takes the two halves as siblings.
 const _scope = (discriminant: Live.Name) => (name: Live.Name): Live.Band =>
   Schema.decodeSync(_Band)(`${discriminant}:${name}`)
 
@@ -102,15 +96,8 @@ import { Fault } from "@rasm/core"
 
 const _REARM = ["resume", "close"] as const
 
-// Capped exponential: the union recurs whenever either arm does and takes the shorter delay, so re-registration
-// backs off to the ceiling and stays there rather than walking a doubling curve out past any useful liveness.
 const _BACKOFF = Schedule.union(Schedule.exponential(Duration.millis(100)), Schedule.spaced(Duration.seconds(5)))
 
-// Graded faults answer from the estate lattice, so all ten kinds decide here rather than two. An UNGRADED fault
-// carries no `class` property, and `Fault.Class.of` grades exactly those `defect` whose `retryable` is false — so
-// reading the lattice blind closes a feed on the first connection blip, which is the inert gate this probe avoids.
-// Ungraded faults keep their own partition: a decode refusal stays shape-wrong until its rebuild lane rewrites it,
-// and every other ungraded fault on a live feed is transient by construction.
 const _rearm = (fault: unknown): Live.Rearm =>
   Predicate.hasProperty(fault, "class")
     ? Fault.Class.retryable(fault) ? "resume" : "close"
@@ -126,9 +113,6 @@ declare namespace Live {
     readonly backlog?: number
     readonly coordinate?: (value: A) => Option.Option<string>
   }
-  // One caller decision rides the binding — how an emission identifies itself so a reconnecting client proves what
-  // it already rendered. A bound whose read carries no durable coordinate answers `Option.none()`, never a forged
-  // ordinal a client would trust as a resume point; the serving plane reads this as the SSE event id.
   type Bound<A, E, R> = {
     readonly read: Effect.Effect<A, E, R>
     readonly changes: Stream.Stream<A, E, Exclude<R, Scope.Scope> | Reactivity.Reactivity>
@@ -143,8 +127,6 @@ declare namespace Live {
 
 const _of = <A, E, R>(spec: Live.Spec<A, E, R>): Live.Bound<A, E, R> => {
   const verdict = spec.rearm ?? _rearm
-  // `Stream.retry` re-executes the whole stream, so a resume re-registers the coordinates AND re-reads; the schedule
-  // resets once an element passes, which is what makes a long-lived feed survive repeated unrelated blips.
   const changes = Reactivity.stream(spec.query, spec.keys.coordinates).pipe(
     Stream.retry(Schedule.whileInput<E>((fault) => verdict(fault) === "resume")(spec.backoff ?? _BACKOFF)),
   )
@@ -170,8 +152,6 @@ const _of = <A, E, R>(spec: Live.Spec<A, E, R>): Live.Bound<A, E, R> => {
 ```typescript signature
 import { Reactivity } from "@effect/experimental"
 
-// Module accessors take the effect FIRST and the coordinates second, inverting the service member's own order;
-// one spelling site holds that inversion so no caller meets both orders, and the whole page reads the bus one way.
 const _mutation = <A, E, R>(keys: Live.Keys, write: Effect.Effect<A, E, R>) =>
   Reactivity.mutation(write, keys.coordinates)
 
@@ -189,7 +169,7 @@ const Live = {
   invalidate: _invalidate,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Live }
 ```

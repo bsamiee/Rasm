@@ -22,15 +22,13 @@ Quadrature rides the mesh as PROVEN evidence. `ElementClass.Quadrature` is the k
 - Boundary: the nodal gather writes into a PER-THREAD scratch buffer, live only until that thread's next gather — the assembly, the metric fold, and the inertia scatter each call it once per cell over a parallel range, so a fresh array per call is one allocation per cell per pass, and every consumer reads the span inside the same cell iteration, which is exactly the contract that makes the buffer reusable.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FieldStation {
     public static readonly FieldStation Nodal = new("nodal", static m => m.NodeCount);
-    // The rule is the mesh's own PROVEN election, so the station count is total: an element whose declared order
-    // no rule serves never reached a frozen mesh.
     public static readonly FieldStation IntegrationPoint = new("integration-point", static m => m.ElementCount * m.Rule.Points.Length);
     public static readonly FieldStation Cell = new("cell", static m => m.ElementCount);
     public static readonly FieldStation Boundary = new("boundary", static m => m.BoundaryCount);
@@ -39,8 +37,6 @@ public sealed partial class FieldStation {
     public partial long Count(DiscreteMesh mesh);
 }
 
-// Rank and component count are ONE fact: the row derives the components from the ambient dimension, so a caller
-// cannot pair a tensor rank with a component count no dimension produces.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -55,13 +51,11 @@ public sealed partial class FieldRank {
     public partial int Components(int dim);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record FieldSpace(FieldStation Station, FieldRank Rank, int Dim, long Count) {
     public int Components => Rank.Components(Dim);
 
-    // Both vocabulary keys resolve on ONE accumulating pass, so a caller naming two unrostered keys learns both
-    // rather than fixing one to discover the other.
     public static Fin<FieldSpace> OfKey(DiscreteMesh mesh, string station, string rank, int dim) =>
         (FieldStation.TryGet(station, out FieldStation resolvedStation)
             ? Success<Error, FieldStation>(resolvedStation)
@@ -71,16 +65,10 @@ public sealed record FieldSpace(FieldStation Station, FieldRank Rank, int Dim, l
             : Fail<Error, FieldRank>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Key(rank)))))
             .Apply((s, r) => mesh.FieldOf(s, r, dim)).As().ToFin();
 
-    // Container layout is a PROJECTION of the one `Runtime/archive#CHUNK_CURSOR` station-outermost derivation —
-    // every FieldSpace-shaped producer reads its grid here, so a second chunk arithmetic never forks the address a
-    // consumer computes. The grid RAILS: an extent, component count, or budget the derivation cannot serve refuses
-    // by name rather than answering a tuple whose dims a caller would have to disbelieve.
     public Validation<Error, ChunkGrid> Layout(int targetChunkElements = FieldPack.ChunkElementTarget) =>
         ChunkGrid.Derive([checked((int)Count)], Components, targetChunkElements);
 }
 
-// `[Equatable]`+`[OrderedEquality]`: the two buffer columns are `ReadOnlyMemory<T>`, which synthesized record
-// equality reference-compares, so a mesh would never equal its own reload.
 [Equatable]
 public sealed partial record DiscreteMesh(
     ElementClass Element,
@@ -99,14 +87,7 @@ public sealed partial record DiscreteMesh(
     Instant At) {
     public FieldSpace FieldOf(FieldStation station, FieldRank rank, int dim) => new(station, rank, dim, station.Count(this));
 
-    // Mesh archive: nodes and connectivity as two plain datasets with the election evidence as attributes — one
-    // create-only container per mesh, keyed by the caller off the owning problem's content key, so a sweep reuses
-    // one discretization across thousands of variants without re-meshing and a transient or modal archive's
-    // `H5ObjectReference` resolves its geometry without a second decode.
     public Fin<Unit> Archive(Stream sink, HdfArchivePolicy policy) =>
-        // A filtered dataset MUST be chunked — the filter pipeline applies per chunk — so both grids derive
-        // through the ONE `ChunkGrid` owner rather than each naming its own row block; the two derivations
-        // accumulate, so a mesh whose node and cell extents are both unservable reports both.
         (ChunkGrid.Derive([checked((int)NodeCount)], components: 3, FieldPack.ChunkElementTarget),
          ChunkGrid.Derive([checked((int)ElementCount)], Element.Nodes, FieldPack.ChunkElementTarget))
             .Apply(static (nodes, cells) => (Nodes: nodes, Cells: cells)).As().ToFin()
@@ -121,8 +102,6 @@ public sealed partial record DiscreteMesh(
                 graph.Attributes["refine-level"] = RefineLevel;
                 ErrorEstimate.Iter(estimate => graph.Attributes["error-estimate"] = estimate);
                 using HdfWriter writer = HdfArchive.Begin(graph, sink, policy);
-                // The cursor holds the only ordinal each slot will accept, so a repeated or out-of-order chunk is
-                // a value no caller can spell rather than a mid-encode library fault after the work is spent.
                 return writer.Open(nodes, grids.Nodes).WriteAll(Nodes.ToArray())
                     .Bind(_ => writer.Open(cells, grids.Cells).WriteAll(Connectivity.ToArray()));
             }));

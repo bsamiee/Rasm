@@ -19,7 +19,7 @@
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep`/`CreateFromSweepSegmented`/`CreateFromSweepInParts`, `Brep.CreateFromLoft`/`CreateFromLoftRebuild`/`CreateFromLoftRefit`, `DevelopableSrf` `:139-141`), RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurve.MakeCompatible` `:193`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -32,7 +32,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SweepFrameLaw : IValidityEvidence {
     private SweepFrameLaw() { }
@@ -168,7 +168,7 @@ public abstract partial record RulingSolve : IValidityEvidence {
         minTwistBoth: static law => ValidityClaim.All(law.Domain0.IsValid, law.Domain1.IsValid));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SweepEnds : IValidityEvidence {
@@ -185,8 +185,6 @@ public readonly partial struct SweepEnds : IValidityEvidence {
 
     public bool IsValid => Admits(start: Start, end: End);
 
-    // `Point3d.Unset` is the host's documented omit spelling for either terminal, so absence lowers HERE and the
-    // sentinel never enters the domain value.
     internal Point3d StartOrUnset => Start.IfNone(Point3d.Unset);
     internal Point3d EndOrUnset => End.IfNone(Point3d.Unset);
 
@@ -230,8 +228,7 @@ public readonly partial struct CurveCompatibility : IValidityEvidence {
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `Brep.CreatePatch`, `Brep.VariationalPatchSettings` `:47`, `Brep.CreateVariationalPatch`, `Brep.CurveConstraint`/`PointConstraint`, `Brep.VariationalPatchResult`, `RhinoVariationalDomain`), kernel `Domain/rails` (`Op.ToHostSlot`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Declaration order IS the host's `fixEdges` argument order, so the ordered projection below is the whole encoding.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PatchEdge : ICapability<PatchEdge> {
@@ -256,7 +253,7 @@ public sealed partial class VariationalEdgePolicy {
     internal bool Native { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct PatchLaw : IValidityEvidence {
@@ -287,8 +284,6 @@ public readonly partial struct PatchLaw : IValidityEvidence {
         uSpans: USpans, vSpans: VSpans, pointSpacing: PointSpacing,
         flexibility: Flexibility, surfacePull: SurfacePull);
 
-    // One ordered fold off the roster: the host's `bool[4]` positions ARE the declaration order, so the projection
-    // is derived from the vocabulary rather than four hand membership reads a reordered roster would silently break.
     internal bool[] FixedEdges => [.. toSeq(PatchEdge.Items).Map(edge => Edges.Admits(capability: edge))];
 
     private static ValidityClaim Admits(
@@ -410,8 +405,6 @@ public readonly partial struct LoftTangency : IValidityEvidence {
     public bool IsValid => Admits(
         startOwner: StartOwner, startTrim: StartTrim, endOwner: EndOwner, endTrim: EndTrim, ends: Ends);
 
-    // `PairPosture.Neither` names a tangency constraint that constrains neither end — legal as a pair value, inert
-    // as a loft constraint, so it is refused HERE instead of reaching a native that would ignore the whole row.
     private static ValidityClaim Admits(
         GeometryHandle? startOwner, int startTrim, GeometryHandle? endOwner, int endTrim, PairPosture? ends) =>
         ValidityClaim.All(
@@ -435,7 +428,7 @@ public readonly partial struct LoftTangency : IValidityEvidence {
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `SweepOneRail`/`SweepTwoRail` `:39-40,50-51`, `Brep.CreateFromSweep*`, `Brep.CreateFromLoft*`, `Brep.CreatePatch`, `Brep.CreateVariationalPatch` `:94-100`, `Brep.CreateDevelopableLoft`, `DevelopableSrf.GetLocalDevopableRuling`/`RulingMinTwist`/`UntwistRulings` `:139-141`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), LanguageExt.Core (`Eff.runtime`, `Zip`, `Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class VariationalThreading {
     public static readonly VariationalThreading Serial = new(key: 0, native: false);
@@ -625,8 +618,6 @@ public abstract partial record LoftOp {
                                     from _ in guard(stations.RailParameters.Count == shapes.Count, op.InvalidInput(axis: nameof(SweepTwoStations.Partitioned.RailParameters)))
                                     from __ in guard(edit.Ends.Start.IsNone && edit.Ends.End.IsNone, op.InvalidInput(axis: nameof(edit.Ends)))
                                     from ___ in guard(edit.Fit is CurveFit.AsIs, op.InvalidInput(axis: nameof(edit.Fit)))
-                                    // `CreateFromSweepInParts` reads auto-adjust alone, so the partitioned mode's legal
-                                    // corner is the singleton grant set and nothing else.
                                     from ____ in guard(
                                         edit.Shape == CapabilitySet<SweepTwoShapeFeature>.Of(SweepTwoShapeFeature.AutoAdjust),
                                         op.InvalidInput(axis: nameof(edit.Shape)))
@@ -742,9 +733,6 @@ public abstract partial record LoftOp {
                     ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
                         edit.Law.Switch(
                             (Rail0: rail0, Rail1: rail1, Seed: edit.Seed, Op: op),
-                            // `DevelopableSrf.GetLocalDevopableRuling` answers `int`, not `bool`: the value is the
-                            // solver's ruling count/status beside the two solved parameters, so it lands as a `Code`
-                            // fact the consumer reads to qualify the `UvRows` pair rather than being discarded.
                             local: static (ctx, law) => ctx.Op.Catch(() => {
                                 double t0 = ctx.Seed.X;
                                 double t1 = ctx.Seed.Y;
@@ -778,9 +766,6 @@ public abstract partial record LoftOp {
                 return ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail0, key: op, body: rail0 =>
                     ModelGate.Borrow<NurbsCurve, Built<LoftSlot>>(handle: edit.Rail1, key: op, body: rail1 =>
                         op.Catch(() => {
-                            // `UntwistRulings` takes its ruling spread by `ref` and writes the adjusted set back into
-                            // that same slot, so the local is read AFTER the call and no value-returning shape meets
-                            // this host contract.
                             System.Collections.Generic.IEnumerable<Point2d> rulings = edit.Rulings.AsIterable();
                             return op.Confirm(success: DevelopableSrf.UntwistRulings(rail0: rail0, rail1: rail1, rulings: ref rulings))
                                 .Map(_ => Built<LoftSlot>.Of(
@@ -800,9 +785,6 @@ public abstract partial record LoftOp {
             pointSpacing: edit.Law.PointSpacing, flexibility: edit.Law.Flexibility, surfacePull: edit.Law.SurfacePull,
             fixEdges: edit.Law.FixedEdges, tolerance: model.Absolute.Value));
 
-    // One ruling product for three solver shapes: the solved parameter pair is universal, the twist cosine rides
-    // both `RulingMinTwist` arms, and the local solver's `int` status rides its own channel — each lands only
-    // where the host answered it.
     private static Built<LoftSlot> RulingBuilt(
         Op operation, double t0, double t1, Option<double> cosine = default, Option<int> code = default) =>
         Built<LoftSlot>.Of(
@@ -813,10 +795,10 @@ public abstract partial record LoftOp {
                 + ModelFact.Channel(slot: LoftSlot.Rulings, value: code.Map(static value => (BuildBody)new BuildBody.Code(Value: value))));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Lofts {
     public static Eff<ModelRuntime, Built<LoftSlot>> Build(params ReadOnlySpan<LoftOp> operations) {
-        Seq<LoftOp> captured = toSeq(operations.ToArray());   // materialized ahead of the runtime bind: a span cannot cross the effect lambda
+        Seq<LoftOp> captured = toSeq(operations.ToArray());
         return Eff.runtime<ModelRuntime>().Bind(runtime =>
             ModelGate.Entry(
                 runtime: runtime,

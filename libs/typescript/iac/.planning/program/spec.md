@@ -57,23 +57,15 @@ const _arms = ["selfhosted-k8s", "selfhosted-docker", "aws", "gcp", "cloudflare"
 
 const _Name = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]{1,39}$/), Schema.brand("StackName"))
 const _Slug = Schema.String.pipe(Schema.pattern(/^[a-z][a-z0-9-]{1,30}$/), Schema.brand("TenantSlug"))
-// Kubernetes admits a binary suffix (Ki…Ei) or a decimal one (n u m k M G T P E) over a decimal
-// mantissa; the scientific form the API also parses is refused here because no estate value spells it.
 const _Quantity = Schema.String.pipe(
   Schema.pattern(/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:Ki|Mi|Gi|Ti|Pi|Ei|[numkMGTPE])?$/),
   Schema.brand("K8sQuantity"),
 )
-// Six fields, seconds leading: the CNPG `ScheduledBackup` dialect, not the five-field crontab one.
 const _Cron = Schema.String.pipe(
   Schema.pattern(/^[0-9A-Z*/,?-]+(?: [0-9A-Z*/,?-]+){5}$/),
   Schema.brand("CronExpression"),
 )
-// The suffix set is the INTERSECTION every store dialect reads identically: victoria-metrics-single's
-// `retentionPeriod` reads a bare number as MONTHS and admits `h|d|w|y` alone, so a window spelled `ms`, `s`, or
-// `m` silently changes meaning or refuses on exactly one row — the brand refuses those spellings at decode instead.
 const _Window = Schema.String.pipe(Schema.pattern(/^\d+(?:h|d|w|y)$/), Schema.brand("RetentionWindow"))
-// the PgBouncer posture spelled once: the profile SELECTS it and the `data` output plane publishes what the
-// deployment REALIZED, so the two faces of one vocabulary cannot drift into a mode only one side admits
 const _Pooling = Schema.Literal("session", "transaction", "statement")
 
 const _Bastion = Schema.Struct({
@@ -97,25 +89,12 @@ const _Doppler = Schema.Struct({
   config: Schema.NonEmptyString,
 })
 
-// The scheduler reads the pair, so both faces spell one shape: a cluster stating neither lands BestEffort and
-// is the first pod the kubelet evicts under node pressure — on the estate's only stateful workload.
 const _Compute = Schema.Struct({ cpu: _Quantity, memory: _Quantity })
 
-// `_Capacity` sizes the node pool the `cluster` compute posture stands, and `instanceType` spreads the PROVIDER's
-// own generated roster into the admission alphabet: the node-group arg is `Input<string>`, so the SDK closes
-// nothing and this coordinate is the only surface that can, while the roster widens with the installed tree
-// rather than a literal set this page would chase. `min` doubles as the pool's desired size — a cluster whose
-// steady state is its own floor scales up under pressure and parks no capacity the scheduler never claimed.
 const _Capacity = Schema.Struct({
   instanceType: Schema.optionalWith(Schema.Literal(...Object.values(aws.types.enums.ec2.InstanceType)), {
     default: () => aws.types.enums.ec2.InstanceType.M7g_Large,
   }),
-  // `os` is the pin, not `amiType`: the node-group component resolves the EKS-optimized image from this axis
-  // AND the instance types, so an arm64 capacity value picks its own arch, while `amiType` is the raw
-  // `Input<string>` twin that supersedes that derivation and forks it. The default names the FAMILY rather
-  // than the `RECOMMENDED` alias, whose value AWS moves — an alias pin re-images the pool on a bump that
-  // touched nothing this estate stated. Deprecated members ride the provider's own const because an estate
-  // never narrows a provider vocabulary, and `RECOMMENDED` collapses onto its family's literal here.
   os: Schema.optionalWith(Schema.Literal(...Object.values(eks.OperatingSystem)), {
     default: () => eks.OperatingSystem.AL2023,
   }),
@@ -123,11 +102,6 @@ const _Capacity = Schema.Struct({
   max: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 100)), { default: () => 4 }),
 })
 
-// PgBouncer stands in front of the cluster above it, so the pool states its own width and envelope: the CRD
-// defaults ONE replica, and a bouncer entry carrying no `resources` schedules BestEffort in front of a
-// Guaranteed database. `clients` and `sessions` are the two ceilings the bouncer meters by — the operator's
-// parameter spellings and its key-by-key admission allowlist are `kube/data.md`'s, never restated here — and
-// both bounds are this estate's own, floored at one connection because a pool admitting none is not a pool.
 const _Pool = Schema.Struct({
   instances: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 9)), { default: () => 2 }),
   requests: Schema.optionalWith(_Compute, { default: () => _Compute.make({ cpu: _Quantity.make("100m"), memory: _Quantity.make("128Mi") }) }),
@@ -153,17 +127,9 @@ const _Fanout = Schema.Struct({
   storage: Schema.optionalWith(_Quantity, { default: () => _Quantity.make("2Gi") }),
 })
 
-// Governance columns the isolation tier READS: a namespace quota, the owning group's spelling, the pull
-// registries a tenant may reach, and the ingress classes it may claim. Each is estate policy, so it enters
-// here as a defaulted coordinate and the owning tier renders it — a literal inside a mode row is the same
-// policy wearing a module constant's clothes, which is what forced a per-estate quota into lib code.
 const _Governance = Schema.Struct({
-  // the Capsule CRD floors the namespace quota at one; the ceiling is this estate's own bound
   quota: Schema.optionalWith(Schema.Int.pipe(Schema.between(1, 100)), { default: () => 5 }),
-  // the SUFFIX the owning group's name carries — `_MODES` composes `${tenant}-${ownerGroup}` — so the
-  // convention has one edit site and the default preserves the spelling the retired literal already bound
   ownerGroup: Schema.optionalWith(Schema.NonEmptyString, { default: () => "admin" }),
-  // empty means unrestricted on both rows: a governance axis states its restriction or declines to hold one
   registries: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { default: () => [] }),
   ingressClasses: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { default: () => [] }),
 })
@@ -174,21 +140,15 @@ const _Isolated = Schema.Struct({
   ..._Governance.fields,
 })
 
-// How the control plane separates tenants, which is a Kubernetes boundary posture rather than the consumption
-// tenancy axis: the two share no vocabulary, and `_Profile.topology` is where this spec spells a consumption axis.
 const _Separation = Schema.Union(
   Schema.Struct({ mode: Schema.Literal("single") }),
   Schema.Struct({ mode: Schema.Literal("namespace"), ..._Isolated.fields }),
   Schema.Struct({ mode: Schema.Literal("vcluster"), ..._Isolated.fields }),
 )
 
-// Every escalation arm the estate rules OFF resolves to one literal here, so `libs/.planning/ARCHITECTURE.md`
-// `[FLEET_ESCALATION]` names a spec value per row and arming stays a coordinate flip.
 const _Escalation = {
   sampling: Schema.Literal("head", "tail"),
   topology: Schema.Literal("gateway", "agent"),
-  // an escalation with no coordinate is unrepresentable: the broker arm carries the addresses it cannot run without,
-  // so selecting it against an absent broker estate fails at decode instead of rendering a pipeline that never connects
   buffer: Schema.Union(
     Schema.Struct({ mode: Schema.Literal("file") }),
     Schema.Struct({ mode: Schema.Literal("broker"), brokers: Schema.NonEmptyArray(Schema.NonEmptyString) }),
@@ -202,19 +162,12 @@ const _Observe = Schema.Struct({
   ingest: Schema.optionalWith(Schema.Literal("scrape", "native"), { default: () => "scrape" as const }),
   costs: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   ebpf: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-  // residence selection stays metrics-independent: a store retention window bounds series, never evidence
   analytics: Schema.optionalWith(Schema.Literal("none", "lake", "clickhouse", "both"), { default: () => "lake" as const }),
   sampling: Schema.optionalWith(_Escalation.sampling, { default: () => "head" as const }),
   topology: Schema.optionalWith(_Escalation.topology, { default: () => "gateway" as const }),
   buffer: Schema.optionalWith(_Escalation.buffer, { default: () => ({ mode: "file" as const }) }),
 })
 
-// `objective` DERIVES and stores nothing: an operator declares topology, and the durability window follows from it
-// through the one `proc/config#ADMISSION_ROWS` table, so this plane and the process it deploys grade against one
-// pair. Storing it forks that answer the moment an operator moves topology and leaves the window defaulted.
-// Deriving also makes `StackSpec.Profile` satisfy `operate/converge` `Converge.Profile` structurally, so that tier
-// takes a profile row rather than a `StackSpec` and any composition root outside this estate converges identically
-// off the same two members.
 class _Profile extends Schema.Class<_Profile>("StackSpec.Profile")({
   scale: Schema.optionalWith(Schema.Literal("dev", "standard", "fleet"), { default: () => "standard" as const }),
   topology: Schema.optionalWith(Schema.Literal(...ConsumptionProfile.topologies), { default: () => "service" as const }),
@@ -257,8 +210,6 @@ class StackSpec extends Schema.Class<StackSpec>("StackSpec")({
   get tenants(): ReadonlyArray<StackSpec.Slug> {
     return this.profile.separation.mode === "single" ? [] : this.profile.separation.tenants
   }
-  // `single` carries no tier field, so this projection seats the shared tier and every data-plane
-  // consumer reads one total value instead of re-deriving the mode-to-tier correspondence.
   get pgTier(): StackSpec.PgTier {
     return this.profile.separation.mode === "single" ? "shared-rls" : this.profile.separation.pgTier
   }
@@ -311,11 +262,6 @@ const _HOOKS = ["beforeCreate", "afterCreate", "beforeUpdate", "afterUpdate", "b
 
 const _SCRATCH = { name: "scratch", path: "/tmp" } as const
 
-// Deploy-owned posture, never a runtime mirror: the pod block owns identity and the seccomp filter every
-// container inherits, the container block owns the refusals a container-level setting outranks the pod on,
-// and the scratch pair is what makes the read-only root survive `doppler run --` and every temp write. It
-// seats on the base because the workload, traffic, and converge tiers all stamp it and only the base sits
-// below all three — a second copy is a second estate posture the mandatory gate then reports against itself.
 const _HARDEN: Tier.Harden = {
   pod: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, seccompProfile: { type: "RuntimeDefault" } },
   container: {
@@ -353,7 +299,6 @@ abstract class Tier extends pulumi.ComponentResource {
   protected hooked(rows: Tier.Hooks, overrides?: pulumi.CustomResourceOptions): pulumi.CustomResourceOptions {
     return this.child(pulumi.mergeOptions({
       hooks: {
-        // every point mints a NAMED instance under the registry grammar, satisfying the engine's named-hook demand on delete and error points uniformly
         ...Record.fromEntries(_HOOKS.flatMap((point) =>
           rows[point] === undefined
             ? []
@@ -395,12 +340,6 @@ import { DeployFault } from "./automation.ts"
 
 const _Port = Schema.Int.pipe(Schema.between(1, 65535))
 
-// The deploy-to-process seam's ONE key catalog, total over the derived channel union: a plane field with no
-// key, or a key naming a field the class lost, is a compile error here rather than a variable that silently
-// stops being written. Spellings are the RUNTIME contract's own — `Config.nested` composes group and row
-// into `<GROUP>_<ROW>` — because the reading process is what must resolve the value; the OTLP row is that
-// law's proof, since the SDK's ambient `OTEL_EXPORTER_OTLP_ENDPOINT` is a name this estate's provider chain
-// never reads. `served` owns no row: its key vocabulary belongs to its caller, so it exits as a plane.
 const _CHANNELS: { readonly [C in StackOutputs.Channel]: string } = {
   "ingress.hostname": "IAC_INGRESS_HOSTNAME",
   "data.host": "DATA_PG_HOST",
@@ -421,10 +360,6 @@ const _CHANNELS: { readonly [C in StackOutputs.Channel]: string } = {
   "deploy.id": "IAC_DEPLOY_ID",
 } as const
 
-// The catalog's second half: the two variables a namespace custody cell may carry — the config-scoped token
-// every process resolves through, and the encoded lease boundary the security custodian decodes its whole
-// scope out of. `operate/secret.md` mints the cell against this roster and `kube/workload.md` stamps rows off
-// it, so a cell states which of them it holds in DATA and no flag decides the stamping at either end.
 const _CUSTODY = { token: "DOPPLER_TOKEN", lease: "SECURITY_LEASE_SPEC" } as const
 const _BACKEND = {
   root: "RASM_BACKEND_CONTRACT_ROOT",
@@ -445,8 +380,6 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
   otlp: Schema.optionalWith(Schema.Struct({ endpoint: Schema.NonEmptyString }), { as: "Option" }),
   grafana: Schema.optionalWith(Schema.Struct({ url: Schema.NonEmptyString }), { as: "Option" }),
   analytics: Schema.optionalWith(Schema.Struct({
-    // Doors publish their REALIZED residence row, never the spec selection: `both` names two planes and no
-    // residence family holds it as a key, so admitting it here types a query end against a row it can never resolve
     residence: Schema.Literal("lake", "clickhouse"),
     endpoint: Schema.NonEmptyString,
     database: Schema.NonEmptyString,
@@ -488,8 +421,6 @@ class StackOutputs extends Schema.Class<StackOutputs>("StackOutputs")({
 
 declare namespace StackOutputs {
   type Pair = readonly [channel: string, value: string]
-  // the channel union DERIVES off the encoded plane record, so `Option` unwraps to an optional key and every
-  // field of every fixed-shape plane appears exactly once — no hand-listed plane tuple, no missed field
   type Planed = Exclude<keyof typeof StackOutputs.Encoded, "served">
   type Channel = {
     readonly [P in Planed]: `${P & string}.${keyof NonNullable<(typeof StackOutputs.Encoded)[P]> & string}`
@@ -498,12 +429,10 @@ declare namespace StackOutputs {
   type Backend = typeof _BACKEND
   type Custody = typeof _CUSTODY
   type Held = keyof Custody
-  // What a workload mounts: one namespace cell beside the roster of variables it carries, so the minting tier
-  // and the stamping tier pass ONE shape and neither re-declares the roster as a hand-written literal union.
   type Cell = { readonly secret: pulumi.Output<string>; readonly carries: ReadonlyArray<Held> }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Connection, StackOutputs, StackSpec, Tier }
 ```

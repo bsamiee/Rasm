@@ -18,7 +18,7 @@
 - Boundary: `Relationship` is the NEUTRAL edge algebra — the rejected seventeen-typed-`IfcRel*`-case design is the deleted form, because it re-opened the IFC-schema strata the `Classification` collapse closed; the IFC names, directionality, inverse semantics, and the eight stranded families live in the `Rasm.Bim` `SemanticProjector`, mapping each `IfcRel*` onto a neutral case with its typed payload or the `Generic` passthrough, and the seam carries no `IfcRel*` spelling; the discrimination is two-level — the base `RelationshipKind Kind` is the neutral CASE token a topology/merge consumer routes on (a uniform read with NO union switch, the flat edge column Persistence persists), the per-case `SubKind` the NEUTRAL graph-semantic flavor the `Bake` reads (whole/part flavor, assignment flavor), neither the IFC roster, and a per-case `Kind` shadowing a base `Kind` is the deleted form; `Members`/`Touches` include a `Connect`'s realizing intermediary, a `Generic` edge's `Participants` roster, AND its buried attribute references (the `PropertyValue.References` dual of `Remap`) so a `DropNode` cascade never strands a live reference, while `DirectedPairs` stays endpoints-plus-realizing with the `Generic` source→participant legs (a buried attribute reference is not a directed adjacency leg); the `Connect.Interface` content key is a BLOB reference, not a node — it rides `CanonicalBytes` (presence-prefixed) and the wire, never `Members`/`DirectedPairs`/`Remap`, and decodes through the one `GeometrySource.ResolveFootprint` leg so the connection interface never mints a parallel decode port; the `Associate` edge carries the `MaterialUsage` occurrence payload — the type-level `Composition/material#MATERIAL_COMPOSITION` set carries the shared layer/profile structure, the edge the per-occurrence geometric binding — so usage never duplicates onto the composition; classification is a generic value ON the `Object` node, NOT an edge, so the seam carries no classification-association relationship; the `Generic` passthrough guarantees no relationship is dropped, so a round-trip through the seam preserves every edge.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Generator.Equals;
 using LanguageExt;
 using LanguageExt.Common;
@@ -33,10 +33,7 @@ using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Relations;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// RelationshipKind is the neutral CASE discriminant — which of the six edge kinds an edge is, the flat token a
-// topology/merge consumer (Rasm.Persistence Query/Version) routes on through `edge.Kind` without switching on the
-// union type. SubKind (ComposeKind/AssignKind/ConnectKind/VoidKind) carries the per-case flavor the Bake fold reads.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class RelationshipKind {
  public static readonly RelationshipKind Compose = new("compose");
@@ -47,17 +44,12 @@ public sealed partial class RelationshipKind {
  public static readonly RelationshipKind Generic = new("generic");
 }
 
-// Neutral sub-kind vocabularies the Bake fold dispatches on — NOT the IFC roster. The Bim
-// projector maps IfcRelAggregates→Compose/Aggregate, IfcRelDefinesByType→Assign/TypeDefinition, etc.
-// Two orthogonal columns the consumers read instead of identity ladders: IsOwning drives the Bake/Gather part
-// descent (a non-owning Reference descended double-counts the referenced subtree), IsSpatial marks the
-// spatial-structure axis. Contain is the unique owning-AND-spatial row, which is exactly what IsContainment reads.
 [SmartEnum<string>]
 public sealed partial class ComposeKind {
- public static readonly ComposeKind Aggregate = new("aggregate", isOwning: true, isSpatial: false); // whole decomposes into parts
- public static readonly ComposeKind Nest = new("nest", isOwning: true, isSpatial: false); // nested membership; schema list order rides the edge's Ordinal
- public static readonly ComposeKind Contain = new("contain", isOwning: true, isSpatial: true); // spatial containment
- public static readonly ComposeKind Reference = new("reference", isOwning: false, isSpatial: true); // non-owning spatial reference
+ public static readonly ComposeKind Aggregate = new("aggregate", isOwning: true, isSpatial: false);
+ public static readonly ComposeKind Nest = new("nest", isOwning: true, isSpatial: false);
+ public static readonly ComposeKind Contain = new("contain", isOwning: true, isSpatial: true);
+ public static readonly ComposeKind Reference = new("reference", isOwning: false, isSpatial: true);
 
  public bool IsOwning { get; }
  public bool IsSpatial { get; }
@@ -65,39 +57,31 @@ public sealed partial class ComposeKind {
 
 [SmartEnum<string>]
 public sealed partial class AssignKind {
- public static readonly AssignKind PropertyDefinition = new("property-definition"); // attaches a PropertySet/QuantitySet bag
- public static readonly AssignKind TypeDefinition = new("type-definition"); // the occurrence→Type-Object bind the owning Component projection authors; the Bake fold resolves it into the named type→occurrence inheritance (single fields occurrence-overrides-type, Seq materials/assessments/classifications union+dedup-by-key), NEVER a parallel DefinesByType case — IfcRelDefinesByType rides THIS neutral row
- public static readonly AssignKind Group = new("group"); // group/system/zone membership
- public static readonly AssignKind Assessment = new("assessment"); // attaches an Assessment receipt
- public static readonly AssignKind Observation = new("observation"); // attaches an Assessment/observation ObservationSeries — OCCURRENCE-only, so the Bake type fold never gathers it
+ public static readonly AssignKind PropertyDefinition = new("property-definition");
+ public static readonly AssignKind TypeDefinition = new("type-definition");
+ public static readonly AssignKind Group = new("group");
+ public static readonly AssignKind Assessment = new("assessment");
+ public static readonly AssignKind Observation = new("observation");
 }
 
-// ConnectKind names the connection MEDIUM only — realization rides the Connect case's own Option<NodeId> Realizing
-// field, never a fourth row: a Realizing row re-describes that field (MODAL_ARITY's rejected parallel discriminant)
-// and contradicts it (SubKind=Realizing with Realizing=None). Medium (element/path/port) and realization
-// (direct/via-intermediate) are orthogonal axes: IfcRelConnectsWithRealizingElements subtypes the medium-less
-// IfcRelConnectsElements base directly, so it rides Element with Realizing=Some — never a false "path" stamp and
-// never a medium of its own.
 [SmartEnum<string>]
 public sealed partial class ConnectKind {
- public static readonly ConnectKind Element = new("element"); // bare element adjacency — the concrete IfcRelConnectsElements base, no path/port medium
- public static readonly ConnectKind Path = new("path"); // path-element connectivity (walls, members)
- public static readonly ConnectKind Port = new("port"); // MEP port connectivity
+ public static readonly ConnectKind Element = new("element");
+ public static readonly ConnectKind Path = new("path");
+ public static readonly ConnectKind Port = new("port");
 }
 
 [SmartEnum<string>]
 public sealed partial class VoidKind {
- public static readonly VoidKind Void = new("void"); // host carved by a feature (opening, recess)
- public static readonly VoidKind Fill = new("fill"); // feature filled by an element (door in opening)
+ public static readonly VoidKind Void = new("void");
+ public static readonly VoidKind Fill = new("fill");
 }
 
-// IfcLayerSetDirectionEnum reciprocal — WHICH local axis the layers stack along, so the token carries its own
-// geometric provenance instead of an opaque ordinal.
 [SmartEnum<string>]
 public sealed partial class LayerSetDirection {
- public static readonly LayerSetDirection Axis1 = new("axis-1"); // local X — the profile/edge stacking a curtain panel set uses
- public static readonly LayerSetDirection Axis2 = new("axis-2"); // local Y — the wall convention: layers build through the thickness
- public static readonly LayerSetDirection Axis3 = new("axis-3"); // local Z — the slab/roof/covering convention: layers stack vertically
+ public static readonly LayerSetDirection Axis1 = new("axis-1");
+ public static readonly LayerSetDirection Axis2 = new("axis-2");
+ public static readonly LayerSetDirection Axis3 = new("axis-3");
 }
 
 [SmartEnum<string>]
@@ -106,17 +90,13 @@ public sealed partial class DirectionSense {
  public static readonly DirectionSense Negative = new("negative");
 }
 
-// CardinalPoint keys the profile-placement reference grid — the GeometryGym IfcCardinalPointReference reciprocal —
-// on the IFC integer (1..9 bounding-box grid, 10..19 the centroidal/shear-axis references a non-rectangular section
-// places on). SmartEnum, never a guarded int, because the seam admits this value FROM a raw IFC integer, TryGet
-// bridging it; absence stays outside the vocabulary as Option<CardinalPoint>.
 [SmartEnum<int>]
 public sealed partial class CardinalPoint {
  public static readonly CardinalPoint BottomLeft = new(1);
  public static readonly CardinalPoint BottomCentre = new(2);
  public static readonly CardinalPoint BottomRight = new(3);
  public static readonly CardinalPoint MidLeft = new(4);
- public static readonly CardinalPoint Mid = new(5);            // the IFC default reference point
+ public static readonly CardinalPoint Mid = new(5);
  public static readonly CardinalPoint MidRight = new(6);
  public static readonly CardinalPoint TopLeft = new(7);
  public static readonly CardinalPoint TopCentre = new(8);
@@ -136,22 +116,13 @@ public sealed partial class CardinalPoint {
   key.Row<int, CardinalPoint>(reference);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// MaterialUsage carries the occurrence material usage the Associate edge holds — the per-occurrence geometric
-// binding the type-level MaterialComposition set omits. CLASS-root [Union] with [Equatable] seated PER NESTED CASE (the
-// [GRAPH_FAMILY] form — a root seat leaves case members reference-comparing) so a changed OffsetFromReferenceLine
-// flips the case's generated equality and the 3-way merge localizes it through the CASE comparer after
-// discrimination, never a whole-edge replacement lost to reference identity.
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial class MaterialUsage {
  private MaterialUsage() { }
 
- // Unbound, never "None": a nested case named None SHADOWS Prelude.None inside the union body, forcing every
- // absent Option in scope to the qualified spelling — the rename returns the bare spelling to the whole owner.
  [Equatable] public sealed partial class Unbound : MaterialUsage;
 
- // LayerSet carries the occurrence layer-set placement as generated direction/sense rows and optional length
- // measures. Absence is Option, never NaN; SI normalization and finiteness stay the MeasureValue invariant.
  [Equatable]
  public sealed partial class LayerSet : MaterialUsage {
   private LayerSet(LayerSetDirection direction, DirectionSense sense, Option<MeasureValue> offsetFromReferenceLine, Option<MeasureValue> referenceExtent) =>
@@ -162,7 +133,6 @@ public abstract partial class MaterialUsage {
   public Option<MeasureValue> OffsetFromReferenceLine { get; }
   public Option<MeasureValue> ReferenceExtent { get; }
 
-  // The two length slots gate INDEPENDENTLY and accumulate, each refusal naming its own slot.
   public static Fin<MaterialUsage> Of(
    LayerSetDirection direction, DirectionSense sense,
    Option<MeasureValue> offsetFromReferenceLine, Option<MeasureValue> referenceExtent, Op key) =>
@@ -173,7 +143,6 @@ public abstract partial class MaterialUsage {
     .ToFin();
  }
 
- // ProfileSet admits the optional cardinal grid and optional length extent through their owners.
  [Equatable]
  public sealed partial class ProfileSet : MaterialUsage {
   public Option<CardinalPoint> CardinalPoint { get; }
@@ -182,16 +151,12 @@ public abstract partial class MaterialUsage {
   private ProfileSet(Option<CardinalPoint> cardinalPoint, Option<MeasureValue> referenceExtent) =>
    (CardinalPoint, ReferenceExtent) = (cardinalPoint, referenceExtent);
 
-  // The optional raw grid integer lifts through ONE Traverse — absent stays absent, present admits or rails.
   public static Fin<MaterialUsage> Of(Option<int> cardinalPoint, Option<MeasureValue> referenceExtent, Op key) =>
    from point in cardinalPoint.TraverseM(reference => CardinalPoint.Of(reference, key)).As()
    from _ in Length(referenceExtent, "reference-extent", key).ToFin()
    select (MaterialUsage)new ProfileSet(point, referenceExtent);
  }
 
- // MaterialUsage co-locates its canonical projection here (the PropertyValue/MaterialComposition shape): case
- // ordinal then the typed geometric payload, the CardinalPoint written as its grid-integer Key — the Associate
- // edge composes it through one call so the usage owns its own content contribution, never inlined per edge.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
   unbound: _ => w.Ordinal(0),
   layerSet: u => w.Ordinal(1).String(u.Direction.Key).String(u.Sense.Key)
@@ -201,15 +166,10 @@ public abstract partial class MaterialUsage {
    .Optional(u.CardinalPoint, static (point, writer) => writer.Ordinal(point.Key))
    .Optional(u.ReferenceExtent, static (value, writer) => writer.Measure(value)));
 
- // One named length slot — the dimension law spelled once, the refusal naming which slot violated it.
  private static Validation<Error, Unit> Length(Option<MeasureValue> measure, string slot, Op key) =>
   Gate(measure.ForAll(static value => value.Dimension == Dimension.LengthDim), key, $"<material-usage-measure-not-length:{slot}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d));
 }
 
-// WireName is the ROUND-TRIP identity of a Generic edge — the exact IFC entity name the projector preserved
-// ("IfcRelAssignsToProcess") — and RoleName a participant's schema attribute slot ("RelatedObjects"). Both admit
-// non-blank at the boundary (the PropertyName form, ordinal-exact because IFC entity names are case-exact), so a
-// passthrough edge can never lose the name that re-authors it to a bare string a typo silently forks.
 [ValueObject<string>]
 public sealed partial class WireName {
  static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -228,40 +188,21 @@ public sealed partial class RoleName {
 
 public readonly record struct RelationshipParticipant(NodeId Node, RoleName Role, Option<int> Ordinal);
 
-// Relationship declares a CLASS-root [Union] (the [GRAPH_FAMILY] form): a class root surrenders Thinktecture's
-// record-generated equality, so structural equality AND the member-level diff ride Generator.Equals [Equatable] seated PER NESTED CASE — a
-// root seat is the compile-proven silent form whose case members reference-compare. Every EqualityComparer
-// <Relationship>.Default fold reads the case's generated Equals override, and the Persistence 3-way
-// StructuralMerge localizes a changed edge (an Associate.Usage, a [UnorderedEquality] Generic.Attributes delta)
-// through the CASE comparer after discrimination, never a whole-edge replacement lost to reference identity.
 [Union]
 public abstract partial class Relationship {
- // Relationship seeds the Members memo HERE because an edge is immutable and every incidence build, DropNode
- // cascade, and Touches probe reads that set — a Generic edge's recursive attribute walk re-derived per probe is
- // exactly the cost the frozen graph's built-once index exists to avoid. [IgnoreEquality] keeps a derived cache out
- // of the structural diff the Persistence 3-way merge drills.
  private Relationship() { members = new(MembersOf); pairs = new(PairsOf); touch = new(() => [.. members.Value]); }
 
  [IgnoreEquality] private readonly Lazy<Seq<NodeId>> members;
- // DirectedPairs and the Touches probe are read per topology build and per cascade PROBE respectively — the pair
- // walk memoizes with members, and the membership set hashes so a hot DropNode cascade probes O(1), never a Seq scan.
  [IgnoreEquality] private readonly Lazy<Seq<(NodeId From, NodeId To)>> pairs;
  [IgnoreEquality] private readonly Lazy<System.Collections.Generic.HashSet<NodeId>> touch;
 
  [Equatable] public sealed partial class Compose(NodeId whole, NodeId part, ComposeKind subKind, Option<int> ordinal = default) : Relationship { public NodeId Whole { get; } = whole; public NodeId Part { get; } = part; public ComposeKind SubKind { get; } = subKind; public Option<int> Ordinal { get; } = ordinal; }
  [Equatable] public sealed partial class Assign(NodeId subject, NodeId definition, AssignKind subKind) : Relationship { public NodeId Subject { get; } = subject; public NodeId Definition { get; } = definition; public AssignKind SubKind { get; } = subKind; }
  [Equatable] public sealed partial class Associate(NodeId subject, NodeId resource, MaterialUsage usage) : Relationship { public NodeId Subject { get; } = subject; public NodeId Resource { get; } = resource; public MaterialUsage Usage { get; } = usage; }
- // Interface is the OPTIONAL content-keyed connection-interface geometry (IfcConnectionGeometry / the space-boundary
- // surface an energy model runs on) — a blob-store key resolved through the Graph/element#NODE_MODEL
- // GeometrySource.ResolveFootprint leg, NEVER a NodeId (it rides no Members/DirectedPairs/Remap) and never inline coordinates.
  [Equatable] public sealed partial class Connect(NodeId from, NodeId to, ConnectKind subKind, Option<NodeId> realizing, Option<UInt128> interfaceKey = default) : Relationship { public NodeId From { get; } = from; public NodeId To { get; } = to; public ConnectKind SubKind { get; } = subKind; public Option<NodeId> Realizing { get; } = realizing; public Option<UInt128> Interface { get; } = interfaceKey; }
  [Equatable] public sealed partial class Void(NodeId host, NodeId feature, VoidKind subKind) : Relationship { public NodeId Host { get; } = host; public NodeId Feature { get; } = feature; public VoidKind SubKind { get; } = subKind; }
  [Equatable] public sealed partial class Generic(WireName wireName, NodeId source, NodeId target, Map<PropertyName, PropertyValue> attributes, Seq<RelationshipParticipant> participants = default) : Relationship { public WireName WireName { get; } = wireName; public NodeId Source { get; } = source; public NodeId Target { get; } = target; [UnorderedEquality] public Map<PropertyName, PropertyValue> Attributes { get; } = attributes; [OrderedEquality] public Seq<RelationshipParticipant> Participants { get; } = participants; }
 
- // Ends is the ONE primary case walk (DERIVED_LOGIC): each case's relating/related pair with the Connect realizing
- // intermediary (None elsewhere) — Endpoints/Relating/Related/Members/DirectedPairs/Touches all DERIVE from this
- // triple, so the five binary cases state their endpoint law exactly once and a new case extends exactly one
- // dispatch site instead of three parallel Switches restating the same pairs.
  (NodeId Relating, NodeId Related, Option<NodeId> Realizing) Ends => Switch(
  compose: static r => (r.Whole, r.Part, Option<NodeId>.None),
  assign: static r => (r.Subject, r.Definition, Option<NodeId>.None),
@@ -272,9 +213,6 @@ public abstract partial class Relationship {
 
  public (NodeId Relating, NodeId Related) Endpoints => Ends switch { var (relating, related, _) => (relating, related) };
 
- // Kind projects the neutral CASE token a topology/merge consumer routes on without a union switch — the flat column
- // Persistence persists and groups by. Generated Map (case → PRECOMPUTED constant), never Switch: every arm is a
- // singleton row, no throwaway `static _ => Const` lambdas — the constant dual of Remap's allocating func-form below.
  public RelationshipKind Kind => Map(
  compose: RelationshipKind.Compose,
  assign: RelationshipKind.Assign,
@@ -283,24 +221,15 @@ public abstract partial class Relationship {
  @void: RelationshipKind.Void,
  generic: RelationshipKind.Generic);
 
- // Endpoint reads a consumer takes without destructuring the Endpoints pair.
  public NodeId Relating => Endpoints.Relating;
  public NodeId Related => Endpoints.Related;
 
- // Every distinct node the edge involves — the binary endpoints, a Connect's realizing intermediary, AND every graph-node
- // id BURIED in a Generic edge's PropertyValue attributes (the recursive Properties/property#PROPERTY_VALUE
- // PropertyValue.References dual of Remap) — the cascade/orphan reachability set the incidence index, the DropNode
- // cascade, and the Apply replay guard read, so a buried attribute Reference is live for renumber AND cascade in lockstep
- // (Remap rewrites it, Members sweeps it) and a surviving Generic edge can never carry a dangling Reference.
- // DirectedPairs stays endpoints-plus-realizing (an attribute reference is not a directed adjacency leg).
  public Seq<NodeId> Members => members.Value;
 
  Seq<NodeId> MembersOf() =>
   (Ends switch { var (relating, related, realizing) => Seq(relating, related) + realizing.ToSeq() })
   + (this is Generic g ? g.Participants.Map(static participant => participant.Node) + g.Attributes.Values.ToSeq().Bind(static v => v.References()) : Seq<NodeId>());
 
- // DirectedPairs contributes the edge's directed adjacency to a topology view — one pair for a binary edge, the two
- // realizing legs (From→Realizing→To) for a Connect carrying a realizing intermediary.
  public Seq<(NodeId From, NodeId To)> DirectedPairs => pairs.Value;
 
  Seq<(NodeId From, NodeId To)> PairsOf() => (Ends switch {
@@ -312,18 +241,10 @@ public abstract partial class Relationship {
     .Map(participant => (generic.Source, participant.Node))
   : Seq<(NodeId, NodeId)>());
 
- // Spatial containment — the IfcRelContainedInSpatialStructure shape a Persistence spatial-structure query filters:
- // a Compose edge with the Contain flavor (the decomposition Aggregate/Nest and the non-owning Reference are NOT containment).
  public bool IsContainment => this is Compose { SubKind: { IsOwning: true, IsSpatial: true } };
 
  public bool Touches(NodeId node) => touch.Value.Contains(node);
 
- // CanonicalBytes projects through the Projection/address#CONTENT_ADDRESS writer: case ordinal, neutral sub-kind,
- // endpoints, and the typed payload — the edge contributes to the graph content key, and the STANDALONE edge digest
- // a content-3-way merge keys on is `ContentAddress.Of(edge, tolerance)` composing this same projection through the
- // streaming kernel writer (a byte-materializing twin here was the deleted form). Presence rides the kernel
- // `Optional` composer, the Generic collections the kernel `Sorted`/`Rows` count-framed canon — the hand-rolled
- // Bool+IfSome and Ordinal+foreach spellings restated the writer's own vocabulary per arm.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
  compose: r => w.Ordinal(0).String(r.Whole.Value).String(r.Part.Value).String(r.SubKind.Key)
   .Optional(r.Ordinal, static (ordinal, run) => run.Ordinal(ordinal)),
@@ -339,11 +260,6 @@ public abstract partial class Relationship {
   .Rows(r.Participants, static (participant, run) => run.String(participant.Node.Value).String(participant.Role.Value)
    .Optional(participant.Ordinal, static (ordinal, inner) => inner.Ordinal(ordinal))));
 
- // Re-maps EVERY NodeId the edge carries (an unmapped id passes through unchanged): endpoints, a Connect's realizing
- // intermediary, AND every kernel reference buried in a Generic attribute — the Generic arm composes the ONE recursive
- // PropertyValue.Remap owner, never a verbatim Attributes pass that dangles a Reference (the deleted endpoints-only
- // rewrite). Class-root union cases have no `with`, so each arm reconstructs through the func-form Switch (Map carries
- // only precomputed constants); exhaustive over the closed six-case algebra — a new case breaks the rewrite at compile time.
  public Relationship Remap(Func<NodeId, NodeId> map) => Switch<Relationship>(
   compose: r => new Compose(map(r.Whole), map(r.Part), r.SubKind, r.Ordinal),
   assign: r => new Assign(map(r.Subject), map(r.Definition), r.SubKind),

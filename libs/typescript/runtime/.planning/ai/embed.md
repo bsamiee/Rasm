@@ -30,7 +30,6 @@ import { Batch, Embedder, EmbedFault, Reranker, Search } from "@rasm/data"
 import { Guardrail } from "./model.ts"
 
 const _packed = (spans: ReadonlyArray<{ readonly start: number; readonly body: string }>, ceiling: number) => {
-  // BOUNDARY ADAPTER: measured packing kernel — the ledger mutates in place, the packed array detaches immutable at the return
   const packed: Array<{ start: number; body: string }> = []
   for (const span of spans) {
     const last = packed[packed.length - 1]
@@ -147,16 +146,9 @@ declare namespace Embedding {
     readonly lifetime: string
     readonly degrade: string
   }
-  // `request` puts the declared width on the wire and the provider truncates to it; `assert` reaches no wire this
-  // row controls, so the declared width is a caller claim the port proves against the vector and nothing else can.
   type Capability = Descriptor & { readonly dims: "request" | "assert" }
 }
 
-// Providers publish this task vocabulary as a generated literal whose emitted symbol is mangled and cannot be named,
-// so the roster transcribes WHOLE rather than sampling it — a five-value subset silently denies this corpus every
-// code-retrieval, question-answering, and fact-verification posture the engine already answers. One carve stands:
-// `TASK_TYPE_UNSPECIFIED` means "the caller set nothing", so admitting it as a policy value would spell an unmade
-// decision as a made one.
 const _tasks = [
   "RETRIEVAL_QUERY",
   "RETRIEVAL_DOCUMENT",
@@ -168,11 +160,6 @@ const _tasks = [
   "CODE_RETRIEVAL_QUERY",
 ] as const
 
-// Rows answer the descriptor floor as data a `proc/config#ADMISSION_ROWS` `Profile` SELECTS: `admit` names what a
-// caller hands in, `tenancy` the MECHANISM the row separates tenants by, `lifetime` the owner that ends a cached
-// vector, and `degrade` the forfeit. Selection reads the closed axis and the cell explains the separation, so a
-// `none|single|multi` value here re-mints the roster `core/value/identity#IDENTITY_OWNER` already publishes. Every
-// row decides its own vector lifetime because the durable band is this package's own store, and none defers it out.
 const _rowCells = {
   openai: {
     fits: "<curated-engine-with-package-owned-batching-and-hot-cache>",
@@ -201,10 +188,8 @@ const _rowCells = {
 } as const satisfies Record<keyof typeof _rows, Embedding.Capability>
 
 const _cached = (policy: Extract<Embedding.Custom, { readonly _tag: "Batched" }>) =>
-  Option.match(policy.cache, { onNone: () => ({}), onSome: (cache) => ({ cache }) }) // exact-optional: an absent hot tier omits the key, never writes undefined
+  Option.match(policy.cache, { onNone: () => ({}), onSome: (cache) => ({ cache }) })
 
-// The ONE raw-engine builder every non-curated row composes: the window posture is the policy union's on both arms, so
-// no raw provider freezes a batch width in its own body and a windowed deployment of any of them is another value.
 const _raw = (
   policy: Embedding.Custom,
   embedMany: Parameters<typeof EmbeddingModel.make>[0]["embedMany"],
@@ -234,15 +219,10 @@ const _googleEmbed = (
     })),
   }).pipe(
     Effect.map((response) => Array.map(response.embeddings ?? [], (row, index) => ({ index, embeddings: [...(row.values ?? [])] }))),
-    // the raw client's transport and decode faults join the engine's own AiError rail before make() sees them
     Effect.mapError((cause) => new AiError.UnknownError({ module: "GoogleEmbedding", method: "BatchEmbedContents", cause })),
   )
 
 const _rows = {
-  // Both curated arms take the SAME provider request band minus `model`, so the declared width rides the wire on
-  // either posture rather than only on the one that happened to spell it. TRAP: the field is honoured by
-  // `text-embedding-3` and later alone — an earlier model refuses the request outright instead of ignoring it, which
-  // is the failure this row wants, because a silently ignored width returns vectors the port then rejects one by one.
   openai: (embedding: Search.Embedding, policy: Embedding.Custom): Embedding.Row<OpenAiClient.OpenAiClient> => ({
     embedding,
     layer: policy._tag === "DataLoader"
@@ -318,11 +298,6 @@ const _band = (
 ```typescript signature
 const _fingerprint = <R>(row: Embedding.Row<R>): Search.Fingerprint => Search.fingerprint(row.embedding)
 
-// The engine's fault union decides ONE column — which band of the port's family this arm lands in — and the mint
-// happens once beneath it, so the fingerprint, the port word, and the provider's own sentence stop being transcribed
-// per arm. `Match.exhaustive` stays because the union is foreign: a tag `@effect/ai` adds breaks here, not silently
-// downstream. `MalformedInput` and `MalformedOutput` land on `malformed` rather than `shape` — the port's `shape` row
-// is a vector-versus-corpus disagreement carrying a measured length, which a decode fault never holds.
 const _folded = (print: Search.Fingerprint) => (fault: AiError.AiError): EmbedFault =>
   new EmbedFault({
     case: {
@@ -366,9 +341,6 @@ function _embedder<R>(row: Embedding.Row<R>, durable?: Embedding.Durable) {
           Effect.request(new _Embedded({ fingerprint: print, body: Cut.scrub(body) }), band).pipe(
             Effect.filterOrFail(
               (vector) => vector.length === row.embedding.dims,
-              // the refusal crosses as the four coordinates the disagreement IS; at the port both identities are this
-              // row's own, which is exactly what the reader needs to see when a provider answers under it at a width
-              // the row never declared
               (vector) => new EmbedFault({
                 case: {
                   reason: "shape",
@@ -387,11 +359,6 @@ function _embedder<R>(row: Embedding.Row<R>, durable?: Embedding.Durable) {
 
 const _Order = Schema.Struct({ order: Schema.NonEmptyArray(Schema.String) })
 
-// The three moderation bands land on the port's OWN verdict cell instead of borrowing the transport one, and the
-// split is retryability before it is vocabulary: `provider` grades retryable, so a swept answer routed there was
-// re-driven against a screen guaranteed to answer identically. A caller's tool-choice misconfiguration lands on
-// `malformed` — it is an unparseable request, not a verdict, and it carries no vector for `shape` to measure — and a
-// paused turn stays transport, because it IS transport.
 const _blamed = {
   policy: "malformed",
   screened: "refused",
@@ -407,9 +374,6 @@ const _permuted = (presented: ReadonlyArray<string>, answered: ReadonlyArray<str
   return [...kept, ...Array.filter(presented, (cell) => !HashSet.has(named, cell))]
 }
 
-// `Layer.effect` captures the model requirement at build — the same capture `Feed.live` spells — so the port's
-// members stay requirement-free as the `Reranker` Tag declares them; a `Layer.succeed` here would strand
-// `LanguageModel` on the member's own channel, a shape the port never admits.
 const _reranker = (policy: Guardrail.Policy): Layer.Layer<Reranker, never, LanguageModel.LanguageModel> =>
   Layer.effect(
     Reranker,
@@ -423,10 +387,6 @@ const _reranker = (policy: Guardrail.Policy): Layer.Layer<Reranker, never, Langu
           },
         }).pipe(
           Effect.map((response) => _permuted(Array.map(hits, (hit) => hit.cell), response.value.order)),
-          // The gate's OWN rendered refusal rides `detail`, so the four-way blame and its subject both survive the fold
-          // that grades it into three bands — the band decides what the retry rail may do and the detail says which
-          // party to send the operator to. This port holds no embedding identity, so the query it scored is the
-          // coordinate the refusal names.
           Effect.mapError((fault) =>
             new EmbedFault({
               case: { reason: _blamed[fault.case.reason], port: "rerank", subject: query, detail: fault.message },
@@ -446,7 +406,7 @@ const Embedding = {
   fingerprint: _fingerprint,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Cut, Embedding, Piece }
 ```

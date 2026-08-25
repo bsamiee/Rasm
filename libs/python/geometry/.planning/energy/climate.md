@@ -44,7 +44,7 @@ from rasm.runtime.faults import Disposition, RuntimeRail, traversed
 from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 
-if TYPE_CHECKING:  # AGPL band: annotations resolve here and never at runtime; every runtime reach is a LateBound resolution or a boundary-seam function-local import
+if TYPE_CHECKING:
     from ladybug.datacollection import HourlyContinuousCollection
     from ladybug.ddy import DDY
     from ladybug.designday import DesignDay
@@ -54,13 +54,10 @@ if TYPE_CHECKING:  # AGPL band: annotations resolve here and never at runtime; e
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Window = tuple[int, int, int, int, int, int]  # (st_month, st_day, st_hour, end_month, end_day, end_hour)
+type Window = tuple[int, int, int, int, int, int]
 
 
 class ClimateField(StrEnum):
-    # every EPW hourly data field the reader publishes as a collection property, fields 6-34 plus the derived sky
-    # temperature — the member value IS the property name, so a field read is one `getattr` and the index rows below
-    # name their operands from this one vocabulary rather than a per-kernel string.
     DRY_BULB_TEMPERATURE = "dry_bulb_temperature"
     DEW_POINT_TEMPERATURE = "dew_point_temperature"
     RELATIVE_HUMIDITY = "relative_humidity"
@@ -100,16 +97,12 @@ class Grain(StrEnum):
 
 
 class ComfortModel(StrEnum):
-    # the heat-balance collection tier: a class whose results are collection properties.
     PMV = "pmv"
     UTCI = "utci"
     PET = "pet"
 
 
 class IndexModel(StrEnum):
-    # the scalar tier: a pointwise kernel `compute_function_aligned` folds across aligned collections. A class-shaped
-    # comfort model can never be an INDEX row and a scalar kernel can never be a COMFORT row — the two tiers are the
-    # discriminant, so neither table's growth clause overpromises the other's.
     APPARENT = "apparent"
     DISCOMFORT = "discomfort"
     HEAT = "heat"
@@ -129,10 +122,6 @@ class MapKind(StrEnum):
 
 
 class LateBound(Struct, frozen=True, gc=False):
-    # the folder's ONE late-binding owner: a dotted module, the member inside it, and the roster of OWNER attributes
-    # its kernel takes. `leads` names them rather than flagging them, so a row reaches its parameter by keyword at any
-    # position and the boolean prefix branch a two-slot tuple forced dies with it. `energy/model` and
-    # `energy/simulate` read the same struct, so the AGPL band's whole late-binding surface is one grammar.
     module: str
     member: str
     leads: tuple[str, ...] = ()
@@ -145,31 +134,19 @@ class LateBound(Struct, frozen=True, gc=False):
 
 
 class RegimeAction(StrEnum):
-    # what a regime factor DECIDES. The action class is the discriminant a reader needs before the number means
-    # anything: a balance point, a comfort standard, and an admission bar are three different kinds of decision, and
-    # a bare float at a call site declares none of them.
-    DEGREE_BASE = "degree-base"  # the balance-point temperature a degree-time kernel integrates against
-    COMFORT_STANDARD = "comfort-standard"  # the parameter document a comfort kernel scores against
-    COMPLIANCE_CEILING = "compliance-ceiling"  # the residual bar a graduating crossing is admitted under
+    DEGREE_BASE = "degree-base"
+    COMFORT_STANDARD = "comfort-standard"
+    COMPLIANCE_CEILING = "compliance-ceiling"
 
 
 @tagged_union(frozen=True)
 class RegimeFactor:
-    # a factor is a scalar the kernel consumes directly or the provider parameter DOCUMENT a standard is expressed
-    # as — two shapes, one carrier, so a grading site and a comfort fold read the same rows without a second table.
     tag: Literal["magnitude", "parameters"] = tag()
     magnitude: float = case()
     parameters: Mapping[str, object] = case()
 
 
 class EnergyRegime(Struct, frozen=True, gc=False):
-    # ONE row shape for every number and every standard this band decides on. The retired forms carried no axis at
-    # all: two degree-day balance points sat as bare literals inside index rows, a comfort standard rode an erased
-    # `Mapping[str, object]` no reader could attribute, and four graduating crossings took an anonymous `ceiling:
-    # float` from their caller — so nothing on this band could tell a code-mandated bar from a guess, and a
-    # compliance verdict asserted a standard nobody named. The three columns close that: `action` names what the
-    # factor decides, `citation` names the authority that published it, and `kernel` names the provider entry that
-    # consumes it — absent on a bar this band grades itself rather than hands to a provider.
     action: RegimeAction
     factor: RegimeFactor
     citation: str
@@ -177,13 +154,9 @@ class EnergyRegime(Struct, frozen=True, gc=False):
 
     @property
     def magnitude(self) -> Option[float]:
-        # the scalar half, shaped for the operand slots that already carry `Option[float]`; a parameters row is
-        # absent HERE rather than coerced, so a standard document can never be read as a balance point.
         return Some(self.factor.magnitude) if self.factor.tag == "magnitude" else Nothing
 
     def bar(self) -> float:
-        # a compliance ceiling's factor IS a magnitude by construction, so a parameters row reaching a grading site
-        # is a roster defect the band refuses BY NAME rather than grading a crossing against a document.
         match self.factor:
             case RegimeFactor(tag="magnitude", magnitude=value):
                 return value
@@ -193,8 +166,6 @@ class EnergyRegime(Struct, frozen=True, gc=False):
                 assert_never(unreachable)
 
     def document(self) -> Mapping[str, object]:
-        # the standard half, handed to a comfort kernel's own `*Parameter.from_dict`; a magnitude row reaching a
-        # standard slot is the same roster defect read from the other side.
         match self.factor:
             case RegimeFactor(tag="parameters", parameters=document):
                 return document
@@ -205,8 +176,6 @@ class EnergyRegime(Struct, frozen=True, gc=False):
 
 
 class RegimeKey(StrEnum):
-    # one member per DECIDED factor this band holds; a new decision is one member and one `ENERGY_REGIMES` row, never
-    # a literal re-appearing at a call site.
     HEATING_BALANCE = "heating-balance"
     COOLING_BALANCE = "cooling-balance"
     MODEL_VALIDITY = "model-validity"
@@ -215,14 +184,6 @@ class RegimeKey(StrEnum):
     BUILDING_EUI = "building-eui"
 
 
-# every DECIDED factor this band holds, in one table under one row shape. Each citation names an ADMITTED CATALOG ROW
-# rather than a standard asserted from memory, so a reader follows the authority to the member that publishes it: the
-# two balance points quote `.api/ladybug-comfort.md` `[17]`, whose `degreetime` entries document 18 degC and 23 degC
-# as common building balance points; the model and district bars quote the `check_all` rows their own providers
-# publish; the comfort bar quotes the collection property the comfort fold reads; and the intensity bar quotes the
-# EnergyPlus sql parser that measures it. A row whose factor no provider entry consumes carries no kernel — this band
-# grades those itself at the graduation crossing, and the Appendix G / LEED rating entries `.api/honeybee-energy.md`
-# `[09]`-`[13]` publish need a PROPOSED simulation beside a baseline roster, which no arm on this band runs.
 ENERGY_REGIMES: Final[Map[RegimeKey, EnergyRegime]] = Map.of_seq([
     (
         RegimeKey.HEATING_BALANCE,
@@ -286,7 +247,6 @@ class Reduce:
 
     @property
     def method(self) -> str:
-        # one derived spelling over the ladybug reduction family — never a six-arm ladder.
         match self:
             case Reduce(tag="mean", mean=grain):
                 return f"average_{grain}"
@@ -318,9 +278,6 @@ class SolarQuery:
 
 @tagged_union(frozen=True)
 class IndexInput:
-    # one operand slot of a scalar index kernel, in the kernel's own positional order: an EPW field, the SolarCal MRT
-    # series this owner derives, or a named scalar whose package default rides the slot — a slot carrying `Nothing`
-    # demands the caller's value and refuses by name instead of inventing a physical constant.
     tag: Literal["field", "mrt", "constant"] = tag()
     field: ClimateField = case()
     mrt: None = case()
@@ -329,8 +286,6 @@ class IndexInput:
 
 @tagged_union(frozen=True)
 class SeriesSubject:
-    # what a returned series IS — an admitted EPW field, a computed index, or the SolarCal MRT — so one `SeriesFact`
-    # carries all three producers rather than three near-identical fact shapes keyed by three vocabularies.
     tag: Literal["field", "index", "mrt"] = tag()
     field: ClimateField = case()
     index: IndexModel = case()
@@ -352,44 +307,27 @@ class SeriesSubject:
 
 @tagged_union(frozen=True)
 class EnergyFault(Exception):
-    # the energy band's ONE structured refusal, seated here beside `LateBound` because every band page already
-    # imports this owner: raised INTO the converting fence — `evidence_run`'s `boundary` on the caller-floor folds,
-    # the lane's `async_boundary` on the offloaded translate kernel, whose crossing carries the token as
-    # `CrossedFault` DATA and re-mints this family's own case parent-side per `execution/workers#CROSSING` — so the
-    # coordinate facts survive as kwargs the boundary fault lifts whole. A `raise ValueError(f"...")` flattens those
-    # facts into a string every consumer re-parses and forks the refusal vocabulary against the mesh peers.
     tag: Literal[
         "empty_model", "index_constant", "unknown_output", "unresolved_output", "unsupported_target",
         "district_defects", "authored_sun", "shading_fidelity", "shading_census",
         "artifact_integrity", "artifact_admission",
         "map_operands", "regime_factor",
     ] = tag()
-    empty_model: tuple[str, int] = case()  # (admission modality, check-row census) — a model with no rooms
-    index_constant: tuple[str, str] = case()  # (index model, the demanded constant slot no source answers)
-    unknown_output: tuple[tuple[str, ...], int] = case()  # (requested names absent from the SQL census, census size)
-    unresolved_output: tuple[str, tuple[str, ...]] = case()  # (recipe, declared outputs its product never resolved)
-    unsupported_target: tuple[str, str] = case()  # (translation target, the constraint that refuses it)
-    district_defects: tuple[int, tuple[tuple[str, int], ...]] = case()  # (defect rows, the per-code roster)
-    authored_sun: tuple[str, str] = case()  # (recipe, the sited coordinate a manual-control sun never carries)
-    shading_fidelity: tuple[str, float, float] = case()  # (refused bound, declared value, the ceiling it crossed)
-    shading_census: tuple[str, int, int] = case()  # (count coordinate, descriptor value, decoded GLB value)
-    # Two cases, not one two-slot case: the artifact arm measures a failed aggregate proof and NO admission phase,
-    # while the admission arm measures a refused phase and NO artifact proof. One pair forced each arm to fabricate
-    # the half it could not measure, and the two fabrications sat in opposite slots, so slot 0 read as a phase on
-    # one arm and as a literal on the other.
-    artifact_integrity: str = case()  # the `ArtifactProof` aggregate law that failed
-    artifact_admission: str = case()  # the `AdmissionPhase` half Protovalidate refused
-    map_operands: tuple[str, int, int] = case()  # (map kind, operands supplied, the slot roster they overflow)
-    regime_factor: tuple[str, str] = case()  # (regime action, the factor shape its consuming site cannot read)
+    empty_model: tuple[str, int] = case()
+    index_constant: tuple[str, str] = case()
+    unknown_output: tuple[tuple[str, ...], int] = case()
+    unresolved_output: tuple[str, tuple[str, ...]] = case()
+    unsupported_target: tuple[str, str] = case()
+    district_defects: tuple[int, tuple[tuple[str, int], ...]] = case()
+    authored_sun: tuple[str, str] = case()
+    shading_fidelity: tuple[str, float, float] = case()
+    shading_census: tuple[str, int, int] = case()
+    artifact_integrity: str = case()
+    artifact_admission: str = case()
+    map_operands: tuple[str, int, int] = case()
+    regime_factor: tuple[str, str] = case()
 
     def __str__(self) -> str:
-        # `BoundaryFault.of` admits a `Tagged()` token AHEAD of every `CLASSIFY` row, so this family crosses the
-        # conversion door WHOLE on the `domain` case and the catch-all's `str(cause)` half never renders it. A
-        # worker seam carries it whole too: `execution/workers#CROSSING` lowers the token onto `CrossedFault` DATA
-        # at `shipped` and re-mints this family's own case parent-side, so a raise inside a HOSTILE kernel needs no
-        # edit here. `__str__` serves the LOG and HOST edge alone — a token surfacing in a worker traceback or a log
-        # line before the seam lowers it — where `Exception.__str__` answers the EMPTY string for a kwarg-only
-        # union. The law half IS the tag, so no arm re-spells its own case name and a renamed case cannot drift.
         return f"{self.tag}:{self._coordinate()}"
 
     def _coordinate(self) -> str:
@@ -430,16 +368,13 @@ class EnergyFault(Exception):
 class SeriesSpec(Struct, frozen=True):
     field: ClimateField
     window: Option[Window] = Nothing
-    statement: Option[str] = Nothing  # the ladybug conditional DSL, e.g. "a > 25"
+    statement: Option[str] = Nothing
     unit: Option[str] = Nothing
     reduce: Option[Reduce] = Nothing
 
 
 class ComfortSpec(Struct, frozen=True):
     model: ComfortModel
-    # the CITED comfort standard the kernel scores against, never a bare `Mapping[str, object]` a reader cannot
-    # attribute: the regime row names the authority, and its `parameters` factor IS the `*Parameter.from_dict`
-    # document the row's own `parameter` late-bind consumes.
     standard: Option[EnergyRegime] = Nothing
     include_wind: bool = True
     include_sun: bool = True
@@ -447,41 +382,34 @@ class ComfortSpec(Struct, frozen=True):
 
 class IndexSpec(Struct, frozen=True):
     model: IndexModel
-    constants: Map[str, float] = Map.empty()  # per-name overrides of the row's own constant slots
-    window: Option[Window] = Nothing  # applied to every field operand, so the aligned fold stays aligned
+    constants: Map[str, float] = Map.empty()
+    window: Option[Window] = Nothing
 
 
 class MapSpec(Struct, frozen=True):
-    # a spatial map's operands in the kernel's own positional order: the aligned longwave collections a shortwave row
-    # leads with, then the recipe-produced artifacts `energy/simulate`'s `matrix` readback addresses. The owner's own
-    # `location`/`epw` never appear here — the row's `leads` binds them.
     kind: MapKind
     artifacts: tuple[Path, ...] = ()
     series: "Block[HourlyContinuousCollection]" = Block.empty()
 
 
 class ComfortRow(Struct, frozen=True, gc=False):
-    calc: LateBound  # the ComfortCollection class; `leads=("epw",)` binds the admitted weather to `from_epw`
-    parameter: LateBound  # its serializable *Parameter class, reached through `from_dict`
+    calc: LateBound
+    parameter: LateBound
     parameter_kw: str
     results: tuple[str, ...]
 
 
 class IndexRow(Struct, frozen=True, gc=False):
-    kernel: LateBound  # the pointwise scalar kernel `compute_function_aligned` maps
-    result: LateBound  # the ladybug datatype class the aligned result carries; instantiated at the fold
+    kernel: LateBound
+    result: LateBound
     unit: str
     inputs: tuple[IndexInput, ...]
 
 
 class MapRow(Struct, frozen=True, gc=False):
     kernel: LateBound
-    # the kernel's OWN parameter names the operands fill in order — series slot first where the row takes one. The
-    # call binds operands by KEYWORD because the shortwave kernel's lead (`location`) PRECEDES its operands, so a
-    # positional spill lands the series list on the lead slot and collides with the keyword-bound lead; slots the
-    # operands never fill fall to the kernel's own defaults.
     slots: tuple[str, ...]
-    bands: tuple[str, ...] = ()  # the kernel's own declared return bands; empty where each row is one caller sensor
+    bands: tuple[str, ...] = ()
 
 
 class SeriesFact(Struct, frozen=True):
@@ -514,8 +442,6 @@ class ComfortFact(Struct, frozen=True):
 
 
 class MapResult(Struct, frozen=True):
-    # `labels` names the kernel's own return bands where it declares them (the TCP triple) and is EMPTY where each row
-    # is one of the caller's sensors, so a consumer reads the row regime off the value instead of the kind.
     kind: MapKind
     labels: tuple[str, ...]
     values: tuple[tuple[float, ...], ...]
@@ -548,8 +474,6 @@ class SolarResult:
 
 @tagged_union(frozen=True)
 class DerivedDocument:
-    # the ladybug documents the derive arm projects, each named rather than erased to `object`, so a recipe-boundary
-    # consumer matches the arm instead of re-discriminating by `isinstance` outside this owner.
     tag: Literal["wea", "ddy", "design_days", "location"] = tag()
     wea: "Wea" = case()
     ddy: "DDY" = case()
@@ -569,21 +493,18 @@ class DerivedDocument:
 
 @tagged_union(frozen=True)
 class ClimateQuery:
-    # the one read request over an admitted EPW: modality is the case, never a method name.
     tag: Literal["series", "derive", "solar", "comfort", "comfort_map", "mrt", "index"] = tag()
     series: SeriesSpec = case()
     derive: Derived = case()
     solar: SolarQuery = case()
     comfort: ComfortSpec = case()
     comfort_map: MapSpec = case()
-    mrt: "HourlyContinuousCollection" = case()  # surface temperatures for a caller feeding a non-EPW thermal model
+    mrt: "HourlyContinuousCollection" = case()
     index: IndexSpec = case()
 
 
 @tagged_union(frozen=True)
 class ClimateResult:
-    # mirrors the request: `series`, `index`, and `mrt` all resolve to one aligned collection, so ONE `SeriesFact` arm
-    # carries the three and the union stays as narrow as the shapes it actually distinguishes.
     tag: Literal["series", "comfort", "solar", "derived", "mapped"] = tag()
     series: SeriesFact = case()
     comfort: ComfortFact = case()
@@ -615,23 +536,15 @@ class ClimateReceipt(Struct, frozen=True):
                     "latitude": self.latitude,
                     "longitude": self.longitude,
                     "content_key": self.content_key.hex,
-                    # a read that took no comfort pass OMITS the key: a sentinel percentage is a reading no producer
-                    # made, and a dashboard cannot tell one from a real one.
                     **self.comfortable.map(lambda pct: {"comfortable": pct}).default_value({}),
                 },
             ),
         )
 
     def spec(self) -> bytes:
-        # the evidence subject IS the admitted weather beside the query that read it, so two reads over one EPW key
-        # apart and an identical re-read dedupes in the persistence ledger without a caller-minted key.
         return b"|".join((self.content_key.memory, self.operation.encode(), self.discriminant.encode()))
 
     def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.THERMAL_DISCOMFORT]) -> GeometryHandoff:
-        # discomfort is the comfort fold's own measurement; every other read OMITS it, so the spine reports
-        # `unmeasured:discomfort` and refuses honestly rather than clearing the ceiling on a fabricated zero. The bar
-        # arrives as a CITED regime row rather than an anonymous float, so the verdict names the standard it graded
-        # against and a caller overriding it declares its own authority instead of a number.
         measured = self.comfortable.map(lambda pct: {"discomfort": 1.0 - pct / 100.0}).default_value({}) | {"count": float(self.count)}
         subject = GeometrySubject.THERMAL_COMFORT
         return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"discomfort": regime.bar()})
@@ -651,7 +564,7 @@ class Climate(Struct, frozen=True):
         cls, source: "bytes | str | Path | Mapping[str, object]", *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[tuple[Self, ClimateReceipt]]":
         def admit() -> tuple[Self, ClimateReceipt]:
-            from ladybug.epw import EPW  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+            from ladybug.epw import EPW
 
             match source:
                 case bytes() as raw:
@@ -677,8 +590,6 @@ class Climate(Struct, frozen=True):
     def query(
         self, q: "ClimateQuery | Sequence[ClimateQuery]"
     ) -> "RuntimeRail[tuple[ClimateResult, ClimateReceipt]] | RuntimeRail[Block[tuple[ClimateResult, ClimateReceipt]]]":
-        # arity is the argument's own shape; each member keeps its own weave span and its own receipt, so a batch of N
-        # reads emits N evidence rows rather than the last one overwriting its siblings.
         match q:
             case ClimateQuery() as one:
                 return self._routed(one)
@@ -689,8 +600,6 @@ class Climate(Struct, frozen=True):
         return evidence_run(EvidenceScope.ENERGY_CLIMATE, f"query.{q.tag}", partial(self._dispatch, q), composition=self.composition)
 
     def _dispatch(self, q: ClimateQuery) -> tuple[ClimateResult, ClimateReceipt]:
-        # one total fold over the request union; every arm builds its receipt off facts the fold already holds, so no
-        # caller ever hand-asserts a count, a coordinate, or a comfort percentage.
         match q:
             case ClimateQuery(tag="series", series=spec):
                 fact = _series(SeriesSubject(field=spec.field), _reduced(spec, _windowed(getattr(self.epw, spec.field.value), spec.window)))
@@ -709,8 +618,6 @@ class Climate(Struct, frozen=True):
                 return ClimateResult(solar=result), self._receipt("solar", query.tag, result.count)
             case ClimateQuery(tag="comfort", comfort=spec):
                 fact = _comfort(self, spec)
-                # charter row at the producing fold, spelling derived from THERMAL_COMFORT: the discomfort fraction is
-                # the comfortable percentage's complement by definition, so no second parser member is claimed.
                 charter_record(GeometrySubject.THERMAL_COMFORT, {"discomfort": 1.0 - fact.percent_comfortable / 100.0}, composition=self.composition)
                 return ClimateResult(comfort=fact), self._receipt("comfort", spec.model.value, fact.hours, Some(fact.percent_comfortable))
             case ClimateQuery(tag="comfort_map", comfort_map=spec):
@@ -738,7 +645,7 @@ class Climate(Struct, frozen=True):
 
 
 def _windowed(collection: object, window: Option[Window]) -> object:
-    from ladybug.analysisperiod import AnalysisPeriod  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+    from ladybug.analysisperiod import AnalysisPeriod
 
     return window.map(lambda w: collection.filter_by_analysis_period(AnalysisPeriod(*w))).default_value(collection)
 
@@ -752,8 +659,6 @@ def _reduced(spec: SeriesSpec, windowed: object) -> object:
 
 
 def _series(subject: SeriesSubject, collection: object) -> SeriesFact:
-    # the one projection every collection-returning arm folds through: series, index, and MRT all land here, so the
-    # header vocabulary is read once and the three arms share one fact shape.
     header = collection.header
     return SeriesFact(
         subject=subject, data_type=str(header.data_type), unit=header.unit, period=str(header.analysis_period), values=tuple(collection.values)
@@ -761,11 +666,9 @@ def _series(subject: SeriesSubject, collection: object) -> SeriesFact:
 
 
 def _derived(climate: Climate, kind: Derived) -> DerivedDocument:
-    from ladybug.ddy import DDY  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
-    from ladybug.wea import Wea  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from ladybug.ddy import DDY
+    from ladybug.wea import Wea
 
-    # EPW.to_wea/to_ddy take a file_path and WRITE files; the in-memory projections are the Wea radiation constructor
-    # and DDY over the percentile-selected design days.
     match kind:
         case Derived(tag="wea"):
             return DerivedDocument(wea=Wea(climate.location, climate.epw.direct_normal_radiation, climate.epw.diffuse_horizontal_radiation))
@@ -780,7 +683,7 @@ def _derived(climate: Climate, kind: Derived) -> DerivedDocument:
 
 
 def _solar(location: "Location", query: SolarQuery) -> SolarResult:
-    from ladybug.sunpath import Sunpath  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+    from ladybug.sunpath import Sunpath
 
     path = Sunpath.from_location(location)
     match query:
@@ -818,9 +721,7 @@ def _comfort(climate: Climate, spec: ComfortSpec) -> ComfortFact:
 
 
 def _mrt(climate: Climate, surfaces: object) -> object:
-    # OutdoorSolarCal over the EPW's own solar fields; `from_epw` internalizes this path for the COMFORT rows, and the
-    # WBGT index row reaches it through the same fold rather than a second SolarCal construction.
-    from ladybug_comfort.collection.solarcal import OutdoorSolarCal  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+    from ladybug_comfort.collection.solarcal import OutdoorSolarCal
 
     return OutdoorSolarCal(
         climate.location,
@@ -836,8 +737,6 @@ def _operand(climate: Climate, slot: IndexInput, spec: IndexSpec) -> object:
         case IndexInput(tag="field", field=field):
             return _windowed(getattr(climate.epw, field.value), spec.window)
         case IndexInput(tag="mrt"):
-            # surface temperature is the EPW dry bulb — the outdoor ground-at-air-temperature assumption SolarCal is
-            # posed against — so a WBGT read needs no caller input the weather file already answers.
             return _windowed(_mrt(climate, climate.epw.dry_bulb_temperature), spec.window)
         case IndexInput(tag="constant", constant=(name, default)):
             return spec.constants.try_find(name).or_else(default).default_with(lambda: _demanded(spec.model, name))
@@ -846,24 +745,18 @@ def _operand(climate: Climate, slot: IndexInput, spec: IndexSpec) -> object:
 
 
 def _demanded[T](model: IndexModel, name: str) -> T:
-    # the slot's refusal names the model and the operand a caller must supply; converted once by the evidence_run fence.
     raise EnergyFault(index_constant=(model.value, name))
 
 
 def _indexed(climate: Climate, spec: IndexSpec) -> object:
-    from ladybug.datacollection import HourlyContinuousCollection  # ruff:ignore[import-outside-top-level] — AGPL isolation: the lexical coupling stays inside the boundary seam
+    from ladybug.datacollection import HourlyContinuousCollection
 
-    # `compute_function_aligned` admits a mixed operand list of collections and scalars, proves alignment itself, and
-    # rebuilds the result under the row's own datatype and unit — so the index band re-derives no alignment check, no
-    # per-hour loop, and no header.
     row = INDEX[spec.model]
     operands = [_operand(climate, slot, spec) for slot in row.inputs]
     return HourlyContinuousCollection.compute_function_aligned(row.kernel.resolve(), operands, row.result.resolve()(), row.unit)
 
 
 def _floats(row: object) -> tuple[float, ...]:
-    # a map kernel hands back either a ladybug collection per sensor (the MRT rows) or a bare scalar sequence (the TCP
-    # bands, the air matrix rows); `values` is the collection's own projection, so one fold reads both regimes.
     return tuple(float(value) for value in getattr(row, "values", row))
 
 
@@ -878,8 +771,6 @@ def _mapped(climate: Climate, spec: MapSpec) -> MapResult:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# spatial comfort-map kernels over the `energy/simulate` readback addresses; `leads` binds the owner argument each
-# kernel names — the location the shortwave row takes, the weather the longwave and air rows take.
 MAPS: Final[Map[MapKind, MapRow]] = Map.of_seq([
     (
         MapKind.SHORTWAVE_MRT,
@@ -923,14 +814,12 @@ COMFORT: Final[Map[ComfortModel, ComfortRow]] = Map.of_seq([
         ComfortRow(
             calc=LateBound("ladybug_comfort.collection.pet", "PET", leads=("epw",)),
             parameter=LateBound("ladybug_comfort.parameter.pet", "PETParameter"),
-            parameter_kw="body_parameter",  # PET.from_epw spells its PETParameter slot body_parameter, not pet_parameter
+            parameter_kw="body_parameter",
             results=("physiologic_equivalent_temperature", "core_body_temperature", "skin_temperature"),
         ),
     ),
 ])
 
-# the scalar index band: every operand is an admitted EPW field, the derived SolarCal MRT, or a named constant, and
-# every result datatype and unit is the ladybug registry entry the aligned collection carries.
 _TEMPERATURE: Final = "ladybug.datatype.temperature"
 _DEGREE_TIME: Final = "ladybug.datatype.temperaturetime"
 
@@ -1009,8 +898,6 @@ INDEX: Final[Map[IndexModel, IndexRow]] = Map.of_seq([
                 IndexInput(field=ClimateField.WIND_SPEED),
                 IndexInput(field=ClimateField.RELATIVE_HUMIDITY),
                 IndexInput(field=ClimateField.GLOBAL_HORIZONTAL_RADIATION),
-                # ground surface temperature has no weather-file source and no package default, so the slot demands
-                # the caller's value and refuses by name rather than inventing one.
                 IndexInput(constant=("tground", Nothing)),
             ),
         ),

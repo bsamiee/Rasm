@@ -25,7 +25,7 @@ One declaration serves every consumer of a dataset: the DDL that plants its rela
 
 ```csharp signature
 using Apache.Arrow;
-using Apache.Arrow.Arrays;                        // FixedSizeBinaryArray — the key column, which ships no builder
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 using FlowtideDotNet.Substrait.Expressions;
@@ -42,13 +42,7 @@ using System.Text.Json;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// KEY mirrors the producer's own neutral token and every physical column is custodian-only, so a residence spells a
-// producer token without the producer ever naming a storage type. `Arrow`, `Builder`, and `Cell` are the
-// RECORD-BATCH, the array CONSTRUCTION, and the LANDING faces of one row.
-// `Plan` renders a narrowing value as the Substrait literal the column's own type admits: a quoted string compared
-// against an `Int64` column is a ClickHouse type error and a silently coerced Postgres one, and the two types
-// Substrait carries NO literal for return `None`, because a tenant key and an instant are read SCOPE the frame owns.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -56,9 +50,6 @@ namespace Rasm.Persistence.Query;
 public sealed partial class ColumnType {
     public static readonly ColumnType Utf8 = new(TableType.Utf8.Key, "text", "String", "VARCHAR", StringType.Default,
         NpgsqlDbType.Text, Text, Chars, Law<ColumnCell.Text>(static _ => Fin.Succ(unit), static (c, i, w) => i.WriteAsync(c.Value, w)));
-    // Half-precision lands at its STORED width on the Arrow face (the api-arrow narrow-lane law: a half lane
-    // binds `HalfFloatArray`, never a widened `FloatArray`) while each dialect widens to its narrowest real —
-    // no engine here carries a physical float2 — and the COPY stage widens once at the wire for the same reason.
     public static readonly ColumnType Float16 = new("float16", "real", "Float32", "FLOAT", HalfFloatType.Default,
         NpgsqlDbType.Real, Number, Column<ColumnCell.Half, Half>(static c => c.Value, Primitives<Half, HalfFloatArray, HalfFloatArray.Builder>), Halves);
     public static readonly ColumnType Float32 = new("float32", "real", "Float32", "FLOAT", FloatType.Default,
@@ -69,12 +60,6 @@ public sealed partial class ColumnType {
         NpgsqlDbType.Integer, Number, Column<ColumnCell.Whole, int>(static c => (int)c.Value, Primitives<int, Int32Array, Int32Array.Builder>), Wholes(int.MinValue, int.MaxValue));
     public static readonly ColumnType Int64 = new(TableType.Int64.Key, "bigint", "Int64", "BIGINT", Int64Type.Default,
         NpgsqlDbType.Bigint, Number, Column<ColumnCell.Whole, long>(static c => c.Value, Primitives<long, Int64Array, Int64Array.Builder>), Wholes(long.MinValue, long.MaxValue));
-    // Unsigned rows widen on the Series dialect because PostgreSQL carries no unsigned integer: a `UInt8` severity
-    // lands in `smallint`, a `UInt32` in `bigint`, and a `UInt64` in `numeric(20,0)` because `bigint` is signed 64 and
-    // an OTLP counter past 2^63 wraps to a negative rather than refusing. The Fleet and Lake dialects carry the exact
-    // width, so the widening is one row's honest column and never a lost value. The cell carries `long`, so the
-    // `UInt64` row's own bound is `long.MaxValue` and a counter past it has no cell to arrive in — the ceiling this
-    // row states rather than the wrap the dialect widening exists to prevent.
     public static readonly ColumnType UInt8 = new("uint8", "smallint", "UInt8", "UTINYINT", UInt8Type.Default,
         NpgsqlDbType.Smallint, Number, Column<ColumnCell.Whole, byte>(static c => (byte)c.Value, Primitives<byte, UInt8Array, UInt8Array.Builder>), Wholes(byte.MinValue, byte.MaxValue));
     public static readonly ColumnType UInt32 = new("uint32", "bigint", "UInt32", "UINTEGER", UInt32Type.Default,
@@ -88,9 +73,6 @@ public sealed partial class ColumnType {
     public static readonly ColumnType Timestamp = new(TableType.Timestamp.Key, "timestamptz", "DateTime64(9)", "TIMESTAMP_NS",
         Nanoseconds, NpgsqlDbType.TimestampTz, Unplanned, Moments,
         Law<ColumnCell.Moment>(static _ => Fin.Succ(unit), static (c, i, w) => i.WriteAsync(c.Value, w)));
-    // Content-key token: the wire text is the `Rasm.Element` `TableType.KeyHex` row's own key, so the producer that
-    // declares the column and the custodian that plants it read ONE spelling. Arrow ships no builder for a fixed-width
-    // binary column, so `Keys` packs the sixteen big-endian bytes into one contiguous buffer and binds `ArrayData`.
     public static readonly ColumnType KeyHex = new(TableType.KeyHex.Key, "bytea", "FixedString(16)", "BLOB",
         new FixedSizeBinaryType(16), NpgsqlDbType.Bytea, Unplanned, Keys,
         Law<ColumnCell.Key>(static _ => Fin.Succ(unit), static (c, i, w) => i.WriteAsync(ColumnCell.Packed(c.Value), w)));
@@ -99,8 +81,6 @@ public sealed partial class ColumnType {
     public string Fleet { get; }
     public string Lake { get; }
     public IArrowType Arrow { get; }
-    // Binary-COPY wire type: the Series tier lands through an importer that infers NOTHING from the
-    // column list, so a row's declared physical type is the same value its ingest binds.
     public NpgsqlDbType Wire { get; }
     public Func<string, Option<Expression>> Plan { get; }
     public Func<Seq<ColumnCell>, MemoryAllocator?, IArrowArray> Builder { get; }
@@ -112,8 +92,6 @@ public sealed partial class ColumnType {
 
     static readonly TimestampType Nanoseconds = new(TimeUnit.Nanosecond, "UTC");
 
-    // `NumericLiteral.Value` is `decimal`, so every numeric narrowing crosses one parse and a magnitude past that
-    // range refuses rather than lowering a rounded operand no predicate would match.
     static Option<Expression> Text(string value) => Some<Expression>(new StringLiteral { Value = value });
     static Option<Expression> Number(string value) =>
         decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal magnitude)
@@ -123,15 +101,11 @@ public sealed partial class ColumnType {
         bool.TryParse(value, out bool state) ? Some<Expression>(new BoolLiteral { Value = state }) : None;
     static Option<Expression> Unplanned(string _) => None;
 
-    // ONE mint per arm: `Admits` performs the arm test the whole family used to repeat as a nine-arm fold, so `Stage`
-    // runs after the conformance gate proved the cast and carries no second test.
     static CellLaw Law<TCell>(Func<TCell, Fin<Unit>> canonical, Func<TCell, NpgsqlBinaryImporter, NpgsqlDbType, Task> stage)
         where TCell : ColumnCell =>
         new(cell => cell is TCell held ? canonical(held) : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, $"<cell-arm:{cell.GetType().Name}>")),
             (cell, importer, wire) => stage((TCell)cell, importer, wire));
 
-    // Bounded integer rows prove RANGE at the cell, because a narrowing cast into the row's own Arrow width wraps
-    // silently while the same value bound to the declared wire type refuses only after the copy staged its predecessors.
     static CellLaw Wholes(long low, long high) => Law<ColumnCell.Whole>(
         cell => cell.Value >= low && cell.Value <= high
             ? Fin.Succ(unit)
@@ -142,17 +116,10 @@ public sealed partial class ColumnType {
 
     static readonly CellLaw Halves = Law<ColumnCell.Half>(static _ => Fin.Succ(unit), static (c, i, w) => i.WriteAsync((float)c.Value, w));
 
-    // One projection per arm feeds ONE builder fold, so a row differs from its siblings by its Arrow width alone and
-    // no per-type helper family survives beside the roster. The projection carries absence as the `Option` it is —
-    // an `Absent` cell reaches a builder only through a column `ColumnRow.Admits` already proved nullable, and the
-    // validity bitmap is the BUILDER's own to write, never this page's bit arithmetic.
     static Func<Seq<ColumnCell>, MemoryAllocator?, IArrowArray> Column<TCell, TValue>(
         Func<TCell, TValue> read, Func<Seq<Option<TValue>>, MemoryAllocator?, IArrowArray> build) where TCell : ColumnCell =>
         (cells, arena) => build(cells.Map(cell => cell is ColumnCell.Absent ? None : Some(read((TCell)cell))), arena);
 
-    // `Reserve` then one span append is the reduced-call path every `PrimitiveArrayBuilder` publishes and stays the
-    // all-present fast path; a run carrying absence walks once through the builder's own `AppendNull`. `bool` is
-    // excluded from `ArrowBuffer.Builder<T>` outright, so the flag row takes the boolean builder's own arms.
     static IArrowArray Primitives<TValue, TArray, TBuilder>(Seq<Option<TValue>> values, MemoryAllocator? arena)
         where TValue : struct where TArray : IArrowArray
         where TBuilder : PrimitiveArrayBuilder<TValue, TArray, TBuilder>, new() {
@@ -176,16 +143,10 @@ public sealed partial class ColumnType {
         cells.Fold(new Date32Array.Builder().Reserve(cells.Count), static (builder, cell) => cell is ColumnCell.Absent
             ? builder.AppendNull()
             : builder.Append(((ColumnCell.Day)cell).Value.ToDateOnly())).Build(arena);
-    // Timestamp columns build under the FIELD's own unit and zone, so the batch column and the `timestamp-ns` DDL
-    // carry one precision — a default-unit builder writes milliseconds under a nanosecond field with nothing raising.
     static IArrowArray Moments(Seq<ColumnCell> cells, MemoryAllocator? arena) =>
         cells.Fold(new TimestampArray.Builder(Nanoseconds), static (builder, cell) => cell is ColumnCell.Absent
             ? builder.AppendNull()
             : builder.Append(((ColumnCell.Moment)cell).Value.ToDateTimeOffset())).Build(arena);
-    // Fixed-width binary ships an abstract `BuilderBase` and no concrete builder, so the key column writes its own
-    // contiguous run and binds `ArrayData` directly — the zero-copy path rather than a builder that does not exist.
-    // Absent keys write sixteen zero bytes under a cleared validity bit: value bytes below a null bit are unread
-    // by the Arrow contract, and the fixed stride keeps every present slot addressable.
     static IArrowArray Keys(Seq<ColumnCell> cells, MemoryAllocator? arena) {
         ArrowBuffer.Builder<byte> packed = new(cells.Count * 16);
         ArrowBuffer.BitmapBuilder validity = new(cells.Count);
@@ -201,22 +162,15 @@ public sealed partial class ColumnType {
     }
 }
 
-// One cell law per physical row, replacing the three parallel per-arm folds a landing counterpart runs today: `Admits`
-// proves a producer's cell belongs to this row AND is writable, and `Stage` binds it under the row's own wire type.
 public readonly record struct CellLaw(
     Func<ColumnCell, Fin<Unit>> Admits,
     Func<ColumnCell, NpgsqlBinaryImporter, NpgsqlDbType, Task> Stage);
 
-// Producer values arrive closed over the arms the vocabulary admits. Composite arms declare their ELEMENT type, so a
-// container proves against its column's declared shape exactly as a scalar does and a heterogeneous bag has no cell
-// to arrive in.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ColumnCell {
     private ColumnCell() { }
     public sealed record Text(string Value) : ColumnCell;
     public sealed record Real(double Value) : ColumnCell;
-    // Half-precision crosses at its STORED width so the Arrow lane never widens what a producer's tolerance proof
-    // certified narrow; the relational stage alone widens, once, at its own wire type.
     public sealed record Half(System.Half Value) : ColumnCell;
     public sealed record Whole(long Value) : ColumnCell;
     public sealed record Flag(bool Value) : ColumnCell;
@@ -225,16 +179,8 @@ public abstract partial record ColumnCell {
     public sealed record Key(UInt128 Value) : ColumnCell;
     public sealed record Items(ColumnType Element, Seq<string> Values) : ColumnCell;
     public sealed record Tags(ColumnType Element, Seq<(string Key, string Value)> Pairs) : ColumnCell;
-    // Absence spells ONE way at this seam: the producer contract (`Rasm.Element` `TableColumn.Nullable` — its
-    // `Conforms` admits an absent cell on a nullable column and refuses it otherwise) needs a landing cell to
-    // cross in, and an empty-string, zero, or epoch stand-in past this union is the deleted sentinel form. It
-    // proves at the COLUMN grain through `ColumnRow.Admits` — no `ColumnType` row owns it — and lands as SQL
-    // NULL on the COPY and a cleared validity bit on the Arrow face, scalar shapes alone.
     public sealed record Absent : ColumnCell;
 
-    // Big-endian 16-byte pack of a key scalar: the tenant reaches it through `TenantId.Value` and a series through its
-    // own `UInt128`, so ONE encoder serves every `KeyHex` column on every landing and every read inverse decodes
-    // exactly what this staged.
     public static byte[] Packed(UInt128 key) {
         byte[] bytes = new byte[16];
         BinaryPrimitives.WriteUInt128BigEndian(bytes, key);
@@ -242,9 +188,6 @@ public abstract partial record ColumnCell {
     }
 }
 
-// COMPOSITE shape over the scalar roster: `Map(Utf8, Utf8)` and `Map(Utf8, Float64)` are two values of one case,
-// where a `map-string-string` scalar row would mint a roster entry per element pair and strand every pair nobody
-// thought to name. Nesting is by construction, so a `List(Map(Utf8, Utf8))` resource-attribute run needs no new case.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ColumnShape {
     private ColumnShape() { }
@@ -254,13 +197,8 @@ public abstract partial record ColumnShape {
     public sealed record Map(ColumnType Key, ColumnShape Value) : ColumnShape;
     public sealed record Dictionary(ColumnType Element) : ColumnShape;
 
-    // Scalar lift is IMPLICIT so a scalar column declares as its bare row and a composite spells its case — generated
-    // conversion stays off because two cases take a `ColumnType` and emit an ambiguous pair.
     public static implicit operator ColumnShape(ColumnType type) => new Scalar(type);
 
-    // Segment and skip-index eligibility: a columnstore segments BOUNDED TEXT and a bloom filter covers it, so a
-    // dictionary-encoded text column is the paradigm case rather than an exception. A content key mints one compressed
-    // batch per row, and a container carries no single value an index entry addresses.
     public bool Bounded => Switch(
         scalar:     static c => c.Type == ColumnType.Utf8,
         dictionary: static c => c.Element == ColumnType.Utf8,
@@ -268,8 +206,6 @@ public abstract partial record ColumnShape {
         fixedList:  static _ => false,
         map:        static _ => false);
 
-    // Arrow face folds with the shape: `MapType(key, value)` builds the entries struct itself, and the dictionary
-    // index is `Int32Type.Default` because that ctor THROWS on a non-integer index type.
     public IArrowType Arrow => Switch(
         scalar:     static c => c.Type.Arrow,
         list:       static c => new ListType(c.Element.Arrow),
@@ -277,8 +213,6 @@ public abstract partial record ColumnShape {
         map:        static c => (IArrowType)new MapType(c.Key.Arrow, c.Value.Arrow),
         dictionary: static c => new DictionaryType(Int32Type.Default, c.Element.Arrow, ordered: false));
 
-    // Substrait literal rendering is SCALAR-only: a narrowing predicate compares one value, and a container comparison
-    // carries no literal the plan admits, so a filter over a map or list column refuses at lowering.
     public Func<string, Option<Expression>> Plan => Switch(
         scalar:     static c => c.Type.Plan,
         list:       static _ => Unplannable,
@@ -286,9 +220,6 @@ public abstract partial record ColumnShape {
         map:        static _ => Unplannable,
         dictionary: static c => c.Element.Plan);
 
-    // Binary-COPY wire type, FALLIBLE where the shape outruns what one `NpgsqlDbType` value spells: `Array` is a flag
-    // OR'd onto its element, so a nested list has no second flag bit, a fixed-arity run carries no width the value can
-    // state, and a map lands as `Jsonb` whose element typing the wire value cannot carry.
     public Fin<NpgsqlDbType> Wire => Switch(
         scalar:     static c => Fin.Succ(c.Type.Wire),
         dictionary: static c => Fin.Succ(c.Element.Wire),
@@ -298,9 +229,6 @@ public abstract partial record ColumnShape {
             ? Fin.Succ(NpgsqlDbType.Array | leaf.Type.Wire)
             : Fin.Fail<NpgsqlDbType>(new ResidenceFault.Unwritable(Residence.Series.Key, "nested-list")));
 
-    // Conformance folds with the shape too: a scalar defers to its row's own cell law, and each composite proves the
-    // arm, its element type, and the container's own arity or key rule. Composite arms carry their values as TEXT, so
-    // a `list<float64>` column conforming on shape alone would bind a string run under a numeric wire type.
     public Fin<Unit> Admits(ColumnCell cell) => Switch(
         state:      cell,
         scalar:     static (c, s) => s.Type.Cell.Admits(c),
@@ -315,8 +243,6 @@ public abstract partial record ColumnShape {
                 : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, "<map-duplicate-key>"))
             : Fin.Fail<Unit>(new ResidenceFault.Unwritable(Residence.Series.Key, "<map-value>")));
 
-    // ONE column build per shape: scalar and dictionary rows reach their own `ColumnType.Builder`, and every container
-    // binds its CTOR over the child array that builder produced.
     public IArrowArray Column(Seq<ColumnCell> cells, MemoryAllocator? arena) => Switch(
         state:      (Cells: cells, Arena: arena),
         scalar:     static (s, c) => c.Type.Builder(s.Cells, s.Arena),
@@ -334,8 +260,6 @@ public abstract partial record ColumnShape {
     static Seq<ColumnCell> Values(Seq<ColumnCell> cells) =>
         cells.Bind(static cell => ((ColumnCell.Items)cell).Values.Map(static value => (ColumnCell)new ColumnCell.Text(value)));
 
-    // Offsets are the running start of each run plus the terminal length, which is exactly a prefix scan over the run
-    // lengths — the one place a variable-width container needs arithmetic, and it needs it once for both containers.
     static ArrowBuffer Offsets(Seq<int> lengths, MemoryAllocator? arena) {
         ArrowBuffer.Builder<int> starts = new(lengths.Count + 1);
         lengths.Scan(0, static (at, length) => at + length).Iter(at => starts.Append(at));
@@ -358,8 +282,6 @@ public abstract partial record ColumnShape {
             Offsets(cells.Map(static cell => ((ColumnCell.Tags)cell).Pairs.Count), arena), entries, ArrowBuffer.Empty);
     }
 
-    // Dictionary encoding is a VALUE roster plus its index run, and `DictionaryArray` ships no builder — the roster
-    // derives from the cells themselves, so a producer never freezes a value set the column then rejects.
     static IArrowArray Encoded(ColumnType element, Seq<ColumnCell> cells, MemoryAllocator? arena) {
         Seq<ColumnCell> roster = cells.Distinct().ToSeq();
         FrozenDictionary<ColumnCell, int> slots = roster.Zip(Range(0, roster.Count))
@@ -373,10 +295,6 @@ public abstract partial record ColumnShape {
     static readonly Func<string, Option<Expression>> Unplannable = static _ => None;
 }
 
-// One admitted column; `Identifier` is the trust gate the raw producer name crosses exactly once. `Admits` is the
-// COLUMN-GRAIN conformance both landings run: absence proves against `Nullable` here — the one seat that holds it —
-// on scalar shapes alone, and a present cell defers to the declared shape's own gate, so both landing folds read
-// one proof and cannot disagree.
 public readonly record struct ColumnRow(Identifier Name, ColumnShape Type, bool Nullable) {
     public Fin<Unit> Admits(ColumnCell cell) => cell switch {
         ColumnCell.Absent => Type is ColumnShape.Scalar && Nullable
@@ -387,10 +305,6 @@ public readonly record struct ColumnRow(Identifier Name, ColumnShape Type, bool 
     };
 }
 
-// Temporal CATEGORY, declared and never inferred. EVENT-TIME datasets date by when the world produced the fact, so
-// each names its own observation column and its producer stamps every cell; LANDING-TIME datasets date by when this
-// custodian admitted them, so each names none. An optional clock alone leaves an event-time dataset silently re-dated
-// to admission, and a board joining two datasets on time then compares two clocks under one axis with nothing raising.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError]
@@ -399,35 +313,22 @@ public sealed partial class TimeSpine {
     public static readonly TimeSpine Landing = new("landing");
 }
 
-// `Dataset` keeps the producer's dotted `<producer>.<source>` grammar as the wire value and `Table` is its admitted
-// single-identifier projection. `Measure` names the numeric column a rollup folds — a wide-event dataset carries
-// none, which keeps the Series arm from emitting a continuous aggregate over a column that dataset never declared.
 public sealed record AnalyticsSchema(string Dataset, Seq<Identifier> Key, Seq<ColumnRow> Columns, Identifier Time, TimeSpine Spine, Option<Identifier> Measure) {
-    // ONE canonical relation spelling all three dialects agree on: PostgreSQL FOLDS an unquoted identifier to lower
-    // case while ClickHouse folds nothing and DuckDB preserves, so a mixed-case dataset provisions one relation and the
-    // quoted plan then addresses another that was never created.
     public Identifier Table => Identifier.Create(Dataset.Replace('.', '_').ToLowerInvariant());
     public Seq<ColumnRow> Sorted => Key.Bind(key => Columns.Filter(column => column.Name == key));
     public Seq<ColumnRow> Payload => Columns.Filter(column => !Key.Contains(column.Name));
     public bool Declares(Identifier column) => Columns.Exists(row => row.Name == column);
 
-    // Arrow face of the SAME declaration, metadata carried rather than dropped: `Schema.Builder` and
-    // `RecordBatch.Builder` expose no metadata seat, so the receipt facts a producer attaches ride here or nowhere.
     public Schema Fields(Seq<(string Key, string Value)> metadata) =>
         new(Columns.Map(static column => new Field((string)column.Name, column.Type.Arrow, column.Nullable)),
             metadata.ToDictionary(static pair => pair.Key, static pair => pair.Value));
 
-    // Declaration order IS the Substrait field-reference ordinal and the reader's column index alike, so a plan
-    // builder addresses a column by NAME and every consumer's ordinals move with one column insert.
     public int Ordinal(Identifier column) => Columns.Map(static row => row.Name).IndexOf(column);
 }
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// ONE record-batch fold for the branch: the declaration supplies the field list, its order, and every column's own
-// builder, so a landing binds pre-built columns through the metadata-bearing `RecordBatch` ctor and no producer
-// re-declares field order beside the dataset it already declared.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArrowLanding {
     public static Fin<RecordBatch> Build<TRow>(AnalyticsSchema schema, Seq<TRow> rows, Func<TRow, Seq<ColumnCell>> cells,
         Seq<(string Key, string Value)> metadata, MemoryAllocator? allocator = null) {
@@ -437,9 +338,6 @@ public static class ArrowLanding {
             .ToFin();
     }
 
-    // Conformance ACCUMULATES: a producer handing one batch learns every offending column at once, because it cannot
-    // see the second defect after the first refusal and a per-column round trip costs a whole batch each time. Arity
-    // gates the column walk, since a short row shifts every later column onto a neighbour's proof.
     static Validation<Error, Seq<IArrowArray>> Conformed(AnalyticsSchema schema, Seq<Seq<ColumnCell>> rows) =>
         rows.Exists(row => row.Count != schema.Columns.Count)
             ? Fail<Error, Seq<IArrowArray>>(new ResidenceFault.IngestRefused(schema.Dataset,
@@ -451,8 +349,6 @@ public static class ArrowLanding {
         cells.Traverse(cell => column.Admits(cell).ToValidation<Error>()).As()
             .Map(_ => column.Type.Column(cells, null));
 
-    // ONE pivot: a producer hands ROWS and Arrow takes COLUMNS, so the transpose happens here rather than at every
-    // producer arm re-spelling a column-major gather.
     static Seq<Seq<ColumnCell>> Pivot(Seq<Seq<ColumnCell>> rows, int arity) =>
         toSeq(Range(0, arity)).Map(index => rows.Map(row => row[index]));
 }
@@ -471,9 +367,7 @@ public static class ArrowLanding {
 - Boundary: a residence row is TEMPORAL by construction — every residence partitions, prunes, and expires on time — and no producer ever learns a chunk interval, a TTL, or a partition expression. Every residence is DERIVED and carries zero authority; reading one as authority turns a dropped accelerator into billing loss. NO analytics residence carries a cardinality cap and no row can grow one — a metrics store demands view caps because a TSDB indexes every series, while unbounded dimensionality IS the reason these residences exist. Provider failure renders through a TYPE TEST, never a cast: a driver raising a socket, TLS, or cancellation exception is not a `PostgresException`, and casting one at the fold throws straight out of the `Fin` the rail exists to carry. `Bucket` and `Quantile` are DECLARED rows whose lowering arms are owed at `Query/serving` — until that unit lands, the two projections they answer have no plan arm and a read naming one refuses `Unanswerable`.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Projection vocabulary a residence ANSWERS: a residence answering fewer declares the subset on its row and the read
-// refuses typed, so a tile degrades visibly rather than a second query path opening beside it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ResidenceProjection {
@@ -484,9 +378,6 @@ public sealed partial class ResidenceProjection {
     public static readonly ResidenceProjection Fraction  = new("fraction");
 }
 
-// Tenancy mechanism per residence: a sort-key column prunes granules before the filter applies, a partition prefix
-// prunes whole directories. Both resolve the SAME `TenantId.Wire` text, so a metric series and a residence row join on
-// one alphabet.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ResidenceTenancy {
@@ -494,19 +385,10 @@ public sealed partial class ResidenceTenancy {
     public static readonly ResidenceTenancy Prefix  = new("prefix");
 }
 
-// Retention, rollup grain, partition chunk, and residence root supplied by the composing root rather than baked.
-// `Retain` is an INDEPENDENT coordinate, never a multiple of a series or alert window — deriving evidence retention
-// from an alert lookback silently shortens the audit trail the moment an operator retunes the alert. `Root` names
-// where a dataset's bytes rest, so the Lake arm reads its scan target from policy and never from a literal path.
 public readonly record struct ResidencePolicy(Duration Retain, Duration Grain, Duration Chunk, Duration Backfill, StorePath Root);
 
-// ONE diagnostic pair every engine renders its own failure into: a PostgreSQL `SqlState`, a ClickHouse numeric
-// `ErrorCode`, and a DuckDB `ErrorType` are three alphabets for one question. `Code` stays the engine's OWN token — an
-// estate-normalized code would erase the value an operator searches the engine's own documentation with.
 public readonly record struct EngineFault(string Code, string Detail);
 
-// `Fits`, `Admit`, `Tenancy`, `Lifetime`, `Degrade`, and `Cap` are the estate residence floor every branch's family
-// answers, so a reader crossing this family and a peer's reads different VALUES under one column set.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -518,9 +400,6 @@ public sealed partial class Residence {
         "single-node; admits no wide event — a payload column belongs to the Fleet tier",
         Seq(ResidenceProjection.Point, ResidenceProjection.Window, ResidenceProjection.Quantile, ResidenceProjection.Aggregate, ResidenceProjection.Fraction),
         static column => column.Series,
-        // PostgreSQL spells an array by suffix and has no inline dictionary wrapper, so the encoding token passes
-        // through and TOAST owns the compression. A map lands as `jsonb`: no relational type carries a typed
-        // key-value pair and `hstore` is text-to-text alone.
         static element => $"{element}[]",
         static (_, _) => "jsonb",
         static element => element,
@@ -541,28 +420,19 @@ public sealed partial class Residence {
         "no transaction — every read is a convergence-consistent view the egress cursor bounds",
         Seq(ResidenceProjection.Point, ResidenceProjection.Window, ResidenceProjection.Quantile, ResidenceProjection.Aggregate, ResidenceProjection.Fraction),
         static column => column.Fleet,
-        // ClickHouse is the one dialect carrying all three containers natively, so the OTLP attribute map, the
-        // span-event array, and the low-cardinality dimension each render exactly rather than widening.
         static element => $"Array({element})",
         static (key, value) => $"Map({key}, {value})",
         static element => $"LowCardinality({element})",
         static name => $"`{name}`",
         static entry => $"unhex('{entry}')",
-        // ClickHouse's own CAST parses a space-separated datetime, never the ISO `T`/`Z` form, so this row spells the
-        // best-effort parser rather than the shared cast its two siblings share.
         static iso => $"parseDateTime64BestEffort('{iso}', 9, 'UTC')",
         static (column, grain) => $"toStartOfInterval({column}, INTERVAL {(long)grain.TotalSeconds} SECOND)",
         static (column, quantile) => $"quantileTDigest({quantile.ToString("0.####", CultureInfo.InvariantCulture)})({column})",
-        // ClickHouse's driver parses `ErrorCode` out of the server's own text and yields `-1` when that text is
-        // unparsable, so the render carries whatever the driver resolved rather than asserting a code it never read.
         static error => error is ClickHouseServerException server
             ? Some(new EngineFault(server.ErrorCode.ToString(CultureInfo.InvariantCulture), server.Message))
             : Option<EngineFault>.None,
         FleetResidence.Statements);
 
-    // Cold-tail reads answer scans and shares, never an interactive quantile: a Parquet generation carries
-    // per-row-group statistics, not a digest. Its tenant literal is QUOTED TEXT like every other predicate here — a
-    // hive key reads back as a `VARCHAR` column under `hive_partitioning`.
     public static readonly Residence Lake = new("lake", ResidenceTenancy.Prefix,
         "cold tail: cheapest per byte, batch scan over hive Parquet generations the object plane holds",
         "`#FLAT_TABLE_EGRESS`'s `LakeGeneration` writes the generations this row's VIEW names",
@@ -570,8 +440,6 @@ public sealed partial class Residence {
         "no interactive latency and no digest — a quantile tile here reads as a report or refuses",
         Seq(ResidenceProjection.Point, ResidenceProjection.Window, ResidenceProjection.Aggregate, ResidenceProjection.Fraction),
         static column => column.Lake,
-        // DuckDB carries list and map natively; the dictionary token passes through because a DuckDB `ENUM` is a named
-        // catalog type and declaring one would bind the scan to a value roster the producer never froze.
         static element => $"{element}[]",
         static (key, value) => $"MAP({key}, {value})",
         static element => element,
@@ -614,9 +482,6 @@ public sealed partial class Residence {
         (Tenancy, Fits, Admit, Lifetime, Degrade, Projections, Physical, ListOf, MapOf, DictOf, Quote, Literal, Stamp, Bucket, Quantile, Diagnose, Statements) =
         (tenancy, fits, admit, lifetime, degrade, projections, physical, listOf, mapOf, dictOf, quote, literal, stamp, bucket, quantile, diagnose, statements);
 
-    // Each refusal is named for the FAULT it mints rather than the verb that raised it: the floor's own column names
-    // are held here as properties, and a member group sharing a name with a property does not compile — so a factory
-    // spelled `Admit` is unrepresentable while `Ingest` stays free for the landing entry.
     public Error ReadRefused(Error error) => error.Exception.Bind(Diagnose).Match<Error>(
         Some: engine => new ResidenceFault.ProviderReadRefused(Key, engine, error),
         None: () => error);
@@ -624,17 +489,11 @@ public sealed partial class Residence {
         Some: engine => new ResidenceFault.ProviderIngestRefused(Key, engine, error),
         None: () => error);
 
-    // POLICY HEALTH derived from the row's OWN tokens: three engines run three expiry schedulers and each publishes
-    // its self-report in a catalog only that engine has, so a probe reading one catalog measures one tier and reports
-    // a healthy silence for the other two. This probe measures the resident time extent against the declared horizon,
-    // which every residence answers because every residence partitions on time.
     public string Horizon(AnalyticsSchema schema) =>
         $"SELECT MIN({Quote(schema.Time)}), MAX({Quote(schema.Time)}), COUNT(*) FROM {Quote(schema.Table)}";
 
     public bool Answers(ResidenceProjection projection) => Projections.Contains(projection);
 
-    // ONE recursive render every DDL arm and every lowered projection reads: the shape walks itself and the row
-    // supplies four tokens. A `Map` key renders through `Physical` because a key is scalar by construction.
     public string Render(ColumnShape shape) => shape.Switch(
         state: this,
         scalar:     static (row, c) => row.Physical(c.Type),
@@ -643,23 +502,16 @@ public sealed partial class Residence {
         map:        static (row, c) => row.MapOf(row.Physical(c.Key), row.Render(c.Value)),
         dictionary: static (row, c) => row.DictOf(row.Physical(c.Element)));
 
-    // ONE instant spelling per dialect off one ISO text: a Substrait plan carries no timestamp literal, so an instant
-    // reaching engine SQL as a bare number compares against three dialects as three type errors.
     public string Moment(Instant at) => Stamp(InstantPattern.ExtendedIso.Format(at));
 
-    // ONE tenancy predicate every mechanism resolves: a sort-key residence compares its leading stored column and a
-    // prefix residence compares the hive key its scan projects back, so both read as the same equality against
-    // `TenantId.Wire`. Tenancy decides where the byte RESTS, never how a scan compares it.
     public string Partition(TenantContext tenant) => $"{Quote(TenantColumn)} = {Literal(tenant.Entry)}";
 
     public static readonly Identifier TenantColumn = Identifier.Create("tenant");
 
-    // Postgres and DuckDB both read a bare INTERVAL literal; seconds is the one grain both accept without a unit
-    // table, and the Fleet arm spells its own seconds form because ClickHouse takes no INTERVAL string.
     internal static string Interval(Duration grain) => $"{(long)grain.TotalSeconds} seconds";
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ResidenceFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Series;
@@ -670,8 +522,6 @@ public abstract partial record ResidenceFault : Fault {
     public sealed partial record Unprovisioned(string Lane) : ResidenceFault();
     [FaultCase(2)]
     public sealed partial record ReadRefused(string Residence, EngineFault Engine) : ResidenceFault();
-    // Refusal carries the row's own `Degrade` clause, so an operator reads WHY the residence cannot answer rather
-    // than two keys and a shrug.
     [FaultCase(3)]
     public sealed partial record Unanswerable(string Residence, string Projection, string Degrade) : ResidenceFault();
     [FaultCase(4)]
@@ -708,21 +558,11 @@ public abstract partial record ResidenceFault : Fault {
 - Boundary: category crosses as TEXT exactly as every column token does, because the two AEC producers this seam names reference the kernel alone and sit BELOW this custodian — a typed parameter is unconstructable at both, and no reference closes that gap without inverting the edge the store already owns. Identity and CARDINALITY are both proven, because a membership test alone reads a repeated name as present: a twice-declared column mints two DDL entries at one name and a twice-named key mints a duplicate `orderby` entry TimescaleDB rejects outright. `Seat` reads the floor columns and never re-derives them — a residence that states a cap refuses an admission rather than accepting a dataset it will silently truncate, and today no row states one.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// Consumption descriptor a seated dataset reads back: the residence floor is the ANSWER an admission returns, so a
-// producer learns what it was admitted into, how rows enter, how long they survive beside the owner that ends them,
-// and whether any ceiling applies. `Cap` is `None` while a residence states no ceiling and carries the row's own
-// `Degrade` clause the moment one does, so an added ceiling reaches every producer as evidence rather than as silence.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ResidenceCharter(string Residence, string Fits, string Admit, string Lifetime, Option<string> Cap);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// Seam gate: a producer hands dotted names and neutral type tokens as TEXT, and this is the one place that text
-// becomes admitted identifiers and vocabulary rows. Every column admits before any statement composes, so a hostile
-// producer name is a typed refusal at the seam rather than an interpolation site downstream.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AnalyticsSeam {
-    // Landing instant the custodian owns exactly as it owns the tenant column. A snapshot producer hands catalogue
-    // columns and learns no storage concern — this seam appends the landing axis — while a producer that already
-    // carries its own instant names it and keeps one column.
     public static readonly Identifier LandedColumn = Identifier.Create("landed_at");
 
     public static Fin<AnalyticsSchema> Admit(
@@ -737,9 +577,6 @@ public static class AnalyticsSeam {
             .Bind(static schema => Resolved(schema))
             .ToFin();
 
-    // Floor read: the seated residence answers every projection the dataset needs and states its own cap, and the
-    // charter carries the four columns back. A projection refusal names the row's `Degrade` clause, so the producer
-    // reads WHY rather than being handed two keys.
     public static Validation<Error, ResidenceCharter> Seat(Residence residence, AnalyticsSchema schema, Seq<ResidenceProjection> wanted) =>
         (wanted.Traverse(projection => residence.Answers(projection)
             ? Success<Error, ResidenceProjection>(projection)
@@ -756,9 +593,6 @@ public static class AnalyticsSeam {
             ? Fail<Error, TimeSpine>(fault)
             : Success<Error, TimeSpine>(spine!);
 
-    // Landing columns APPEND, so the custodian's instant is the tail of `Columns` and the provisioned order runs
-    // `tenant`, every supplied column, then that instant — the exact order a landing writes, so the COPY column list
-    // and the write loop cannot drift.
     static Validation<Error, AnalyticsSchema> Spined(
         string dataset, TimeSpine spine, Seq<ColumnRow> rows, Seq<Identifier> keys,
         Option<Identifier> at, Option<Identifier> measure) {
@@ -774,9 +608,6 @@ public static class AnalyticsSeam {
                 : Fail<Error, AnalyticsSchema>(new ResidenceFault.Unprovisioned($"<schema-spine:{dataset}:event-names-no-clock>")));
     }
 
-    // Every declared identifier resolves against the roster BEFORE a statement composes: a key the columns omit, a
-    // time column no residence can partition on, and a rollup measure no aggregate can fold each refuse here rather
-    // than emitting DDL the engine rejects at parse time on a table that then half-exists.
     static Validation<Error, AnalyticsSchema> Resolved(AnalyticsSchema schema) =>
         ((schema.Key + Seq(schema.Time) + schema.Measure.ToSeq())
             .Traverse(name => schema.Declares(name)
@@ -800,9 +631,6 @@ public static class AnalyticsSeam {
             ? Fail<Error, Identifier>(fault)
             : Success<Error, Identifier>(admitted);
 
-    // Map keys are scalar tokens by construction and carry no comma, so the map split takes the FIRST comma and needs
-    // no depth scan; the value recurses, which is what admits `map<utf8,list<utf8>>` whole. Fixed runs split on their
-    // own last comma because the arity is the trailing token.
     static Validation<Error, ColumnShape> Admitted(string token) =>
         Wrapped(token, "list<") is { } element ? Admitted(element).Map(static shape => (ColumnShape)new ColumnShape.List(shape))
         : Wrapped(token, "fixed<") is { } run ? Fixed(run)
@@ -819,8 +647,6 @@ public static class AnalyticsSeam {
                 .Apply(static (key, value) => (ColumnShape)new ColumnShape.Map(key, value)).As()
             : Fail<Error, ColumnShape>(new ResidenceFault.Unprovisioned($"<column-type:map<{body}>>"));
 
-    // Arity admits POSITIVE alone: `FixedSizeListType` throws on a non-positive width, so the refusal is the seam's
-    // rather than a throw the fold cannot carry.
     static Validation<Error, ColumnShape> Fixed(string body) =>
         body.LastIndexOf(',') is int cut && cut > 0
             && int.TryParse(body[(cut + 1)..], NumberStyles.None, CultureInfo.InvariantCulture, out int arity) && arity > 0
@@ -847,11 +673,7 @@ public static class AnalyticsSeam {
 - Boundary: relation arguments are REGCLASS text and parse their own quoting, while a column argument and every storage-parameter entry are attname TEXT compared verbatim — so the relation carries the quoted spelling its own `CREATE` used and a column never does. Time trails the order list exactly once: a dataset naming its instant IN the key otherwise repeats it, and a duplicate `orderby` entry is a storage parameter the engine rejects outright. Rollups materialise toolkit SUMMARY state — `time_weight` beside `percentile_agg` — and the reader names its accessor, so the cheap tile and the expensive raw-chunk investigation answer ONE statistic.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// Emission law as a VALUE: a TimescaleDB policy function returns a row and a policy procedure returns none, so the
-// verb decides the invocation form and a step carries the invocation alone. `Idempotent` is the step's own claim the
-// generation rail reads — every step this custodian derives carries its own `IF NOT EXISTS`, `OR REPLACE`, or
-// `if_not_exists => TRUE` guard, and the column is what makes a step that cannot refusable rather than silently applied twice.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SqlVerb {
@@ -871,17 +693,13 @@ public readonly record struct ProvisionStep(SqlVerb Verb, string Text, bool Idem
     public static ProvisionStep Call(string text) => new(SqlVerb.Call, text, Idempotent: true);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// Parameterized provisioning: the WHOLE statement set derives from the residence row and the admitted schema.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ResidenceDdl {
     public static Fin<Seq<ProvisionStep>> Provision(Residence residence, AnalyticsSchema schema, ResidencePolicy policy) =>
         residence.Statements(schema, policy) is var steps && steps.Find(static step => !step.Idempotent) is { IsSome: true } stray
             ? Fin.Fail<Seq<ProvisionStep>>(new ResidenceFault.Unprovisioned($"<provision-reapply:{residence.Key}:{stray.Map(static step => step.Text).IfNone(string.Empty)}>"))
             : Fin.Succ(steps);
 
-    // Column list is one projection both the Series and Fleet arms compose. A sort-key residence LEADS with this
-    // custodian's own tenant column at the key type every tenancy predicate compares against, while a prefix residence
-    // declares none. The admitted roster carries no tenant column of its own, so the lead is unconditional.
     internal static string Columns(Residence residence, AnalyticsSchema schema) =>
         string.Join(", ", (residence.Tenancy.Switch(
                 sortKey: () => Seq(new ColumnRow(Residence.TenantColumn, ColumnType.KeyHex, false)),
@@ -889,16 +707,12 @@ public static class ResidenceDdl {
             + schema.Columns)
             .Map(column => $"{residence.Quote(column.Name)} {residence.Render(column.Type)}{(column.Nullable ? string.Empty : " NOT NULL")}"));
 
-    // Sort key is tenant-first and time-last by construction: the leading column prunes a single-tenant read to its own
-    // granules and the trailing one prunes a window, so a schema whose key omits its time column still orders on it.
     internal static string Keys(Residence residence, AnalyticsSchema schema) =>
         string.Join(", ", (residence.Tenancy.Switch(sortKey: () => Seq(Residence.TenantColumn), prefix: () => Seq<Identifier>())
             + schema.Key
             + (schema.Key.Contains(schema.Time) ? Seq<Identifier>() : Seq(schema.Time))).Map(residence.Quote));
 }
 
-// Series residence: the relational hypertable tier. Every statement reads its schema's OWN spine, so a measure-free
-// wide-event dataset provisions hypertable, columnstore, and retention and emits no rollup.
 public static class SeriesResidence {
     public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, ResidencePolicy policy) {
         string table = Residence.Series.Quote(schema.Table);
@@ -920,14 +734,10 @@ public static class SeriesResidence {
             ProvisionStep.Select($"add_continuous_aggregate_policy('{rollup}', start_offset => INTERVAL '{Residence.Interval(policy.Backfill)}', end_offset => INTERVAL '{grain}', schedule_interval => INTERVAL '{grain}', if_not_exists => TRUE)")));
     }
 
-    // Cardinality reads off the DECLARED type, never off a hand roster: a `Utf8` key is a bounded facet a filter
-    // equals on, and every other key type is identity a segment list must not carry.
     static Seq<ColumnRow> Bounded(AnalyticsSchema schema) => schema.Sorted.Filter(static column => column.Type.Bounded);
     static Seq<ColumnRow> Unbounded(AnalyticsSchema schema) => schema.Sorted.Filter(static column => !column.Type.Bounded);
     static string Names(Seq<Identifier> columns) => string.Join(", ", columns.Map(static column => (string)column));
 
-    // Rollup shape is this arm's own declaration, so a rollup column add moves the view and its reader together and no
-    // read site spells a `_rollup` suffix or a fold alias twice.
     public static Identifier Rollup(AnalyticsSchema schema) => Identifier.Create($"{(string)schema.Table}_rollup");
     public static readonly Identifier Bucket = Identifier.Create("bucket");
     public static readonly Identifier Weight = Identifier.Create("weight");
@@ -936,16 +746,10 @@ public static class SeriesResidence {
     public static readonly Identifier High = Identifier.Create("high");
     public static readonly Identifier Samples = Identifier.Create("samples");
 
-    // Read-time accessor projection over the materialised state, in the ordinal order the bucket row binds: the
-    // quantile is a read argument rather than a second view, which is the two-stage discipline the toolkit's
-    // aggregate/accessor split exists for.
     public static string Projection(double quantile) =>
         $"average({Weight}), approx_percentile({quantile.ToString("0.####", CultureInfo.InvariantCulture)}, {Sketch}), {Low}, {High}, {Samples}";
 }
 
-// Fleet residence: the interactive wide-event tier. Tenant leads `ORDER BY` so a single-tenant filter prunes granules
-// BEFORE the predicate applies, and one bloom skip index per admitted text column outside the sort key prunes
-// attribute-key existence before any value comparison.
 public static class FleetResidence {
     public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, ResidencePolicy policy) {
         string table = Residence.Fleet.Quote(schema.Table);
@@ -961,11 +765,6 @@ public static class FleetResidence {
     }
 }
 
-// Lake residence: the cold tail. The hive tree IS the schema, so this arm creates no storage and declares no column
-// type. It emits exactly ONE statement, the VIEW that gives the tree the NAME the shared plan lowering addresses:
-// without it a lowered `SELECT * FROM "<table>"` names nothing on a DuckDB lane. `union_by_name` makes an additive
-// column compatible by construction and `hive_partitioning` projects the tenant directory back as the column the one
-// tenancy predicate compares.
 public static class LakeResidence {
     public static Seq<ProvisionStep> Statements(AnalyticsSchema schema, ResidencePolicy policy) => Seq(
         ProvisionStep.Ddl($"CREATE OR REPLACE VIEW {Residence.Lake.Quote(schema.Table)} AS SELECT * FROM read_parquet('{(string)policy.Root}/**/*.parquet', hive_partitioning = true, union_by_name = true)"));

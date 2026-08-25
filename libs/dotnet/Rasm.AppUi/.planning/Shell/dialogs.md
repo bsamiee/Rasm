@@ -25,15 +25,10 @@ Both stacks are reached ONLY through a mount-bound presence fact, because both r
 - Boundary: Progress content binds the progress stream selected by `Correlation` and is PRODUCER-AGNOSTIC — a Compute lane and a synchronous kernel fold publish onto the same correlation-selected cell, the kernel through the `IProgress<double>` sink its own governance band carries (`ArrangementPolicy.Governed`), so a long boolean and a remote solve render through one intent with no second progress vocabulary and no case added here; a deadline miss renders the typed `DeadlineOutcome` — never a spinner timeout; the Form and Layer template keys resolve through the topology `ContentTemplate` resolver onto the host `DialogContentTemplate` at registration so a content session selects its template by key from one resolver and a per-case template literal in registration code is the deleted form; About renders the `ReleaseIdentity` record as given. `DialogFault.ResultShape` IS caller-reachable: the DialogHost close parameter is erased to `object?`, so a content template that closes its session with a parameter whose runtime type is neither `TResult` nor `DialogFault` re-types into this fault at `DialogSurface.Project` and travels out as `PromptSettle.Refused` — it names a session whose close contract disagrees with the case that minted the ask, which is a registration defect the caller is the only surface positioned to report. The `Typed` row compares ORDINAL and exact: no trim, no case folding, no culture — a destructive gate that normalizes accepts a phrase the operator never typed, and the whole point of the row is that the operator typed it. The `Inline` row drives an ALREADY-MOUNTED `PopConfirm` the verb's trigger wears in its own screen tree — the row carries the mounted anchor and nothing else, because trigger mode and placement are that control's own styled properties and a duplicate column beside them would let the two disagree; re-parenting a live trigger into a freshly constructed pop-confirm is the deleted form, since the wrapper is a content control and the surgery would detach the very element the gesture is in flight over. The pick result is the kernel `FileLocation` on both legs, so an unadmitted path refuses at the picker seam rather than travelling as text into an export destination. The case-minted-typed-demand idiom is the kernel prompt owner's declared law (`Rasm/Interaction/chrome#PROMPT`); `DialogAsk` instantiates it over `DialogIntent` rather than `PickerSpec` because the intent family is Avalonia-stacked, and the law itself is not re-argued here.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The case-minted question: TResult binds at the case, never at the Show call site, so the result
-// shape travels WITH the intent and a wrong-typed request is a compile failure, not a ResultShape fault.
 public readonly record struct DialogAsk<TResult>(DialogIntent Intent) where TResult : notnull;
 
-// The friction ladder as data. Acknowledge is one affirmative; Typed gates the affirmative on the target's
-// own identifier; Inline never opens a session at all — it drives the pop-confirm the trigger already wears,
-// so the lightest tier costs no stack crossing and the heaviest costs a typed phrase.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConfirmFriction {
     private ConfirmFriction() { }
@@ -43,10 +38,6 @@ public abstract partial record ConfirmFriction {
     public sealed record Inline(PopConfirm Anchor) : ConfirmFriction;
 }
 
-// Where a canvas layer seats, as a CASE rather than two optional columns beside each other: a drawer anchors to
-// a host edge, a peek names the route the shell's own history reads back, and every other modality fills the
-// canvas bound. Two nullable columns admitted an edge-bearing palette and an edge-less drawer; `OverlayShape`
-// carries the pairing law, so both corners refuse at admission instead of at the dispatcher.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayerAnchor {
     private LayerAnchor() { }
@@ -75,14 +66,10 @@ public abstract partial record DialogIntent {
     }
 
     public sealed record Form(string TemplateKey, IReactiveObject Content) : DialogIntent {
-        // The commit-record shape is the CONTENT's shape: the mint demands the evidence, so a Form
-        // asked at a type its content does not carry is None at the mint, never a runtime fault.
         public Option<DialogAsk<TCommit>> Ask<TCommit>() where TCommit : class, IReactiveObject =>
             Content is TCommit ? Some(new DialogAsk<TCommit>(this)) : None;
     }
 
-    // The filter rows are the kernel `FilterPlan` values whole; the Avalonia pattern projection is one member at
-    // the pick seam, so the raw extension roster and the globbed storage type never drift apart.
     public sealed record Pick(PickKind Kind, PickCardinality Cardinality, Seq<FilterPlan> Filters, Option<string> SuggestedName = default) : DialogIntent {
         public DialogAsk<Seq<FileLocation>> Ask => new(this);
     }
@@ -99,18 +86,11 @@ public abstract partial record DialogIntent {
         public DialogAsk<Unit> Ask => new(this);
     }
 
-    // The ONE canvas case. A palette, a peek, a drawer, and a full-surface editor differ in exactly the row the
-    // `Shape` column names — dispatch shape, depth, material, choreography, modality traits, admitted anchor —
-    // so the modality is a VALUE and a fifth one is a row rather than a case, an `Of` arm, and a `Route*` member.
-    // It carries no result because every canvas answer is a sealed receipt on the evidence stream rather than a
-    // close parameter; a layer returning its chosen verb would make that receipt the second answer.
     public sealed record Layer(OverlayShape Shape, string TemplateKey, IReactiveObject Content, LayerAnchor Anchor) : DialogIntent {
         public DialogAsk<Unit> Ask => new(this);
     }
 }
 
-// The arity axis carries its own admission, so the cardinality gate reads the row instead of comparing a path
-// count against a literal at the one site that remembered to.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -122,9 +102,8 @@ public sealed partial class PickCardinality {
     public partial bool Admits(int count);
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// Multi-column cases keep evidence typed and render the base detail.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DialogFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Dialog;
@@ -154,11 +133,8 @@ public abstract partial record DialogFault : Fault {
     public sealed partial record CorrelationUnknown(string Detail) : DialogFault(Detail);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The typed destructive gate. `Armed` is the ONE admission and it is an ordinal exact match, so the affirm
-// command's canExecute and any visual disabled state read one predicate; a second boolean beside it would let
-// a stale visual admit a phrase the comparison rejects.
 public sealed class TypedConfirmCell : ReactiveObject {
     private string phrase = string.Empty;
 
@@ -203,11 +179,8 @@ public sealed class TypedConfirmCell : ReactiveObject {
 - Boundary: overlay choreography is the shape row's own `MotionPlan` read against the layer's measured extent through `Poses`, so each modality enters and leaves on the plan that names it, the reduction collapse rides that one read, and a canvas-local transition is the deleted form; `DialogSurface` is the named boundary capsule — the registration handler and the pick route carry the erased close parameter the DialogHost seam owns, and `Project` re-types it onto the prompt carrier. Every static crossing is GUARDED by the mount's own presence fact and never by a probe of the registry: the DialogHost static surface resolves its instance by scanning loaded hosts and throws on zero, on no identifier match, and on MULTIPLE matches, so `IsDialogOpen`, `GetDialogSession`, `Close`, and `Pop` are all throwing reads before mount and after unmount, and the identifier derivation is what forecloses the multiple-match throw by construction; the Ursa registry is internal and adds by try-add, so a duplicate key keeps the FIRST host and silently drops the second, and an unregistered id answers `DialogResult.None` — the same value a user cancel produces — which no fault rail downstream can see. `DialogHost.Pop` is the package's RAISE verb and never a retreat: it matches a host by CONTENT REFERENCE, moves it to the top of the stack, and re-presents it, so the null-content call the name invites matches nothing and does nothing, and the retreat verb lives on `DialogSession.Close` where the closing veto is honoured. The canvas has the same verb under its own vocabulary — `DialogControlBase.UpdateLayer` raises a `DialogLayerChangeType` its host folds into list order — but the vm-first dispatchers hand back a task and never the shell, so the page declares that vocabulary and owns no canvas raise call; a canvas layer raises itself through its own chrome. `TopLevelResolver` is the single per-surface service-capsule delegate the pick pipe binds over, each row's binding one `TopLevel.GetTopLevel(Visual)` read whose `TopLevel?` return projects to `Option<TopLevel>` at that one seam — an embedded mount answers its root like any other, reference-equal, and KEEPS answering it after the root disposes, so a resolved root proves ATTACHMENT and never liveness and every row needing a live surface reads the mount's own facts instead; the keyboard law is DISCHARGED here rather than declared elsewhere — `Shell/accessibility#KEYBOARD_NAV` states the dialog overlay root as the `Cycle` region and the opener return as a session obligation, so the region mode rides `FocusOps.Mode` at the chrome bind where both roots are in hand and the return keys on the crossing's own END: an awaiting crossing restores at `Request` and a co-resident layer restores at its own detach, because a fold that returned the moment it seated a palette would pull the keyboard back out of the surface the operator is still typing into, and the opener reads off the mount's own top level so no second seam column exists to drift; exactly ONE canvas per modal-status scope sets `IsModalStatusReporter`, because the reporter writes the scope's attached flag unconditionally and a second reporter's close would clear the first's flag while its own layer is still open. The UI-thread crossing vocabulary stays Avalonia's `Dispatcher` here — the kernel `UiThread` marshal is Eto-bound and this package cannot compose the marshal, only the lane vocabulary — and the escalation to split `UiDispatch`/`DispatchLane` from that marshal is recorded rather than pre-empted.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The seam law as a total projection. A case answers which stack owns it and nothing else, so the routing
-// question has one answer per case and a new case states its stack at compile time rather than defaulting
-// into whichever arm the dispatcher happened to reach first.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -225,9 +198,6 @@ public sealed partial class StackOwner {
         layer: static _ => Canvas);
 }
 
-// The canvas modality's independent presentation bits. Three booleans on a four-row family admitted eight
-// corners against four real ones, and the modal bit in particular is the projection of WHICH DISPATCH the arm
-// takes — every awaited in-canvas overload adds a masked layer and only the void fire shapes add a plain one.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayerTrait : ICapability<LayerTrait> {
@@ -236,9 +206,6 @@ public sealed partial class LayerTrait : ICapability<LayerTrait> {
     public static readonly LayerTrait FullSurface = new("full-surface");
 }
 
-// The per-mount presence and chrome bits. `Canvas` is the mount's answer to whether an overlay host can exist
-// at all: an offscreen root draws through a headless surface with no layer plane, so the canvas crossing
-// DEMANDS the row and an offscreen mount refuses with the missing capability as its evidence.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MountTrait : ICapability<MountTrait> {
@@ -248,10 +215,6 @@ public sealed partial class MountTrait : ICapability<MountTrait> {
     public static readonly MountTrait Canvas = new("canvas");
 }
 
-// The canvas modality rows. Each carries the depth tier its layer earns, the material its surface takes, the
-// motion plan its entry and exit choreograph through, the modality traits the dispatch and the chrome read,
-// the anchor shape it seats against, and its OWN host dispatch — so a modality cannot be lit at one tier,
-// scrimmed at another, animated on a third, and dispatched by a fourth member that remembered none of them.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -285,31 +248,18 @@ public sealed partial class OverlayShape {
 
     public MaterialTier Material { get; }
 
-    // The choreography address, not a duration: the plan owns the entry and departure poses, the origin they
-    // travel from, and the reduction collapse, so a layer's motion is one row read against its measured
-    // extent and no overlay authors a transition of its own.
     public MotionPlan Plan { get; }
 
     public CapabilitySet<LayerTrait> Traits { get; }
 
-    // The one placement column the canvas layer plane reads. A palette rises to the TOP of the bound because a
-    // list that grows downward from a fixed edge keeps its first row under the caret, while a centered one
-    // moves every row on each keystroke; the horizontal axis stays centered for every modality, so it is the
-    // options default rather than a column that could only ever carry one value.
     public VerticalPosition Rise { get; }
 
-    // The pairing law between a modality and where it seats. `ShowCustomModal` is an obsolete forwarder onto
-    // the awaited member rather than a third posture, so modality lives in the dispatch column and the trait
-    // set is that choice's projection.
     [UseDelegateFromConstructor]
     public partial bool Admits(LayerAnchor anchor);
 
     [UseDelegateFromConstructor]
     public partial Task<object?> Present(Control layer, DialogIntent.Layer request, string canvasId);
 
-    // The canvas modality a case seats on, ABSENT for every deciding case the session stack owns and for the
-    // inline confirm that never opens a layer at all — so the dispatcher, the chrome fold, and the focus
-    // return all read one projection rather than three predicates that could disagree.
     public static Option<OverlayShape> Of(DialogIntent intent) => intent.Switch(
         layer: static row => Some(row.Shape),
         confirm: static _ => Option<OverlayShape>.None,
@@ -319,8 +269,6 @@ public sealed partial class OverlayShape {
         error: static _ => Option<OverlayShape>.None,
         about: static _ => Option<OverlayShape>.None);
 
-    // The style class is the ROW'S own key, so the shell a dispatcher constructs selects on the modality that
-    // named it and no caller can hand one row's options another row's class.
     public OverlayDialogOptions Options() => new() {
         FullScreen = Traits.Admits(LayerTrait.FullSurface),
         VerticalAnchor = Rise,
@@ -334,10 +282,6 @@ public sealed partial class OverlayShape {
     };
 }
 
-// The per-mount capability columns. Every product row the estate authored — a desktop shell, a panel, a
-// companion, a sidecar — resolves to exactly one of these five, so a new host substrate reaches dialog
-// seating through its descriptor alone and no arm here names a product. Panel and Modal hold identical
-// capability sets and stay DISTINCT rows because the key is the identifier segment, not a label.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -354,14 +298,10 @@ public sealed partial class MountPolicy {
     public static readonly MountPolicy Standalone = new("standalone",
         traits: CapabilitySet<MountTrait>.Of(MountTrait.Stacked, MountTrait.ClickAway, MountTrait.Blur, MountTrait.Canvas),
         anchor: Some(ToastAnchor.BottomRight), inset: default);
-    // No anchor at all rather than a `None` row wearing real alignments: an offscreen root places nothing, and
-    // a row named for absence that still answers centre-top is a value every reader has to remember to skip.
     public static readonly MountPolicy Offscreen = new("offscreen",
         traits: CapabilitySet<MountTrait>.Of(MountTrait.Stacked),
         anchor: None, inset: default);
 
-    // An embedded mount reserves the host's own chrome band, so a layer that filled the whole canvas would sit
-    // under a title bar the host owns and the operator could not reach it.
     public const double EmbeddedInset = 8d;
 
     public CapabilitySet<MountTrait> Traits { get; }
@@ -370,8 +310,6 @@ public sealed partial class MountPolicy {
 
     public Thickness Inset { get; }
 
-    // The reservation predicate the session cell reads, derived rather than re-spelled at the gate: a stacking
-    // mount answers occupancy through the host's own stack, so only a single-session mount reserves.
     public bool Reserves => !Traits.Admits(MountTrait.Stacked);
 
     public static MountPolicy Of(SurfaceMount mount) => mount.Switch(
@@ -382,11 +320,8 @@ public sealed partial class MountPolicy {
         offscreen: static _ => Offscreen);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The one derived address, held as its two admitted SEGMENTS. The host-crossed-mount key was spelled three
-// times inside one mint and the identifier pair copied beside it; here the segments are the only stored
-// state and every address is a member over them, so one authority answers all three.
 public sealed record RootKey {
     public const string SessionSuffix = "session";
     public const string CanvasSuffix = "canvas";
@@ -396,9 +331,6 @@ public sealed record RootKey {
         Mount = mount;
     }
 
-    // BOTH segment defects refuse TOGETHER: a blank host key and an unusable mount key are independent facts
-    // about the composition that bound this surface, so the applicative reports the pair a first-defect fold
-    // would have hidden behind whichever it reached first.
     public static Validation<Error, RootKey> Of(string host, string mount) =>
         (Segment(nameof(host), host), Segment(nameof(mount), mount))
             .Apply(static (admitted, kind) => new RootKey(admitted, kind))
@@ -416,26 +348,17 @@ public sealed record RootKey {
 
     public override string ToString() => Value;
 
-    // The separator is the address grammar, so a segment carrying one would make two distinct roots spell one
-    // identifier — precisely the ambiguity the static surface throws on.
     private static Validation<Error, string> Segment(string axis, string value) =>
         !string.IsNullOrWhiteSpace(value) && !value.Contains(':', StringComparison.Ordinal)
             ? Validation<Error, string>.Success(value)
             : Validation<Error, string>.Fail(new DialogFault.PolicyRejected($"root-key:{axis}:'{value}'"));
 }
 
-// The projected pick the storage route consumes. The page owns the Avalonia projection off the kernel
-// `FilterPlan` rows, so a bound pipe carries a storage call and no filter vocabulary of its own, and the
-// declared projection has a reader instead of being a promise the boundary made and no member kept.
 public readonly record struct PickRequest(
     PickKind Kind, PickCardinality Cardinality, Seq<FilePickerFileType> Types, Option<string> SuggestedName);
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// Every fact the two stacks need that the page cannot construct, bound at mount exactly as the surface seam
-// binds the host's. `SessionMounted` and `CanvasMounted` are the presence facts both registries refuse to
-// answer honestly; `Sessions` is the mount's projection of the host's own stack, so the retreat fold reads a
-// real list while the page still holds no control reference.
 public sealed record DialogSeam(
     Func<bool> SessionMounted,
     Func<bool> CanvasMounted,
@@ -448,10 +371,6 @@ public sealed record DialogSeam(
     ToastPipe Toasts,
     Option<Func<PickRequest, Task<Seq<FileLocation>>>> PickPipe);
 
-// A sealed class rather than a record: this owner holds three live cells, and a record copy would share every
-// one of them by reference while presenting itself as a distinct topology. Its transitions ANSWER what they
-// retired — the drain hands back the roster it took, the reservation hands back the rail — so no reader
-// reconstructs a prior state from a post-state.
 public sealed class DialogTopology {
     private static readonly Op Reservation = Op.Of(name: "appui.dialog.reserve");
 
@@ -475,23 +394,12 @@ public sealed class DialogTopology {
 
     public Interaction<DialogIntent, object?> Requests { get; } = new();
 
-    // A presence-guarded read: the static probe throws before mount and after unmount, so the mount fact is
-    // the first term and the probe never runs without it.
     public bool HasOpenSession => Seam.SessionMounted() && DialogHost.IsDialogOpen(Key.Identifier);
 
-    // The held-note register: a Queued toast parks WHOLE — payload, severity, intent key, stamps — so the
-    // resume flush re-presents the presentable note, never a receipt husk.
     internal Unit Park(QueuedToast note) => ignore(held.Swap(rows => rows.Add(note)));
 
-    // The drain ANSWERS the roster it retired: the take-and-clear commits the empty post-state and hands back
-    // the exact value it replaced, so the read-then-skip prefix arithmetic it replaces — which could drop a
-    // note admitted between the read and the swap — has no spelling left.
     internal Seq<QueuedToast> Drain() => Cell.Take(held).Current;
 
-    // The reservation is a CAS REFUSAL, never a flag a lambda writes: a swap body re-runs on every lost race,
-    // so an admission recorded inside it survives an iteration that lost and the caller opens a session it
-    // never reserved. The host presence probe is hoisted OUT of the transition, because it is a read of the
-    // world rather than part of the atomic decision and a contended body would run it twice.
     internal Fin<Unit> Reserve() =>
         HasOpenSession
             ? Fin.Fail<Unit>(new DialogFault.SessionOccupied(Key.Value))
@@ -507,34 +415,25 @@ public sealed class DialogTopology {
 ```
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The session stack's verbs as VALUES. Four members each re-wrapping the same presence guard stated the guard
-// four times and let a fifth verb forget it; the arity that used to justify the split rides each case's own
-// payload, so one fold guards once and the union is what a caller dispatches on.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SessionVerb {
     private SessionVerb() { }
 
     public sealed record Advance(DialogIntent.Progress Snapshot) : SessionVerb;
     public sealed record Retreat : SessionVerb;
-    // `Pop` matches a session by CONTENT REFERENCE, so the content is a required column here and a bare
-    // identifier raise — which would match nothing and do nothing — is unspellable.
     public sealed record Raise(object Content) : SessionVerb;
     public sealed record Dismiss : SessionVerb;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class DialogSurface {
     private static readonly Op Registration = Op.Of(name: "appui.dialog.register");
 
     private static readonly CapabilitySet<MountTrait> CanvasReach = CapabilitySet<MountTrait>.Of(MountTrait.Canvas);
 
-    // The whole topology derivation. The root key is the host key crossed with the MOUNT's own key exactly as a
-    // catalog route key derives from its row key, so host identity reaches dialog seating through the descriptor
-    // alone and two mounting shapes on one host can never collapse onto one identifier; the identifier pair and
-    // the canvas id are members over that key rather than three copies of one interpolation.
     public static Fin<DialogTopology> Derive(ConsumptionProfile profile, SurfaceMount mount, DialogSeam seam) =>
         MountPolicy.Of(mount) switch {
             var policy => RootKey.Of(profile.HostKey, policy.Key)
@@ -542,8 +441,6 @@ public static class DialogSurface {
                 .ToFin(),
         };
 
-    // A stacking mount centres its popup because the stack owns the placement; a single-session mount aligns
-    // to the top so a sequence of sessions does not walk the surface.
     private static IDialogPopupPositioner Positioner(MountPolicy policy) =>
         policy.Traits.Admits(MountTrait.Stacked)
             ? CenteredDialogPopupPositioner.Instance
@@ -553,18 +450,9 @@ public static class DialogSurface {
             };
 
     extension(DialogTopology root) {
-        // ONE carrier for the whole crossing. The kernel prompt owner rules three stacked carriers over one
-        // crossing the deleted form: a chosen value, a refused admission, and a dismissal are cases a caller
-        // recovers from differently, and stacking them was unstacked again at the seam that read them.
         public IO<PromptSettle<TResult>> Show<TResult>(DialogAsk<TResult> ask) where TResult : notnull =>
             IO.liftAsync(async () => await Request(root, ask).ConfigureAwait(true));
 
-        // One presence guard for the whole session stack. The retreat veto is a REAL fold over the stacked
-        // session surface: the stack arrives from the mount, the target is its top, and the block predicate
-        // refuses BEFORE the close runs. The framework's own `DialogClosing` veto stays the second and
-        // independent guard for the close paths the page does not own — the click-away dismissal and the
-        // templated close command — so a dirty form is refused twice by two owners rather than once by
-        // whichever happened to run.
         public IO<Fin<Unit>> Apply(SessionVerb verb) =>
             IO.lift(() => Guarded(root, RootKey.SessionSuffix, () => verb.Switch(
                 state: root,
@@ -582,9 +470,6 @@ public static class DialogSurface {
                 raise: static (surface, lift) => Ran(() => DialogHost.Pop(surface.Key.Identifier, lift.Content)),
                 dismiss: static (surface, _) => Ran(() => DialogHost.Close(surface.Key.Identifier)))));
 
-        // ONE lease over the whole registration: the request handler, the two chrome binds, and the region
-        // admission release together, so the activation scope disposes one value and no subscription survives
-        // the mount that owns it. The chrome fold has no other caller — this is where it is reached.
         public Fin<Lease<IDisposable>> Register(DialogHost session, Option<OverlayDialogHost> canvas) =>
             Lease<IDisposable>.Acquire(
                 () => new CompositeDisposable(
@@ -594,9 +479,6 @@ public static class DialogSurface {
                 Registration);
     }
 
-    // Seven arms where ten stood, because the four canvas cases are one case reading its own shape row. The
-    // friction ladder's dispatch keeps its three tiers: two open a session and the third never leaves the
-    // control it is anchored to, so the lightest tier costs no stack crossing at all.
     private static Task<object?> Route(DialogTopology root, DialogIntent intent) => intent.Switch(
         state: root,
         confirm: static (surface, request) => request.Friction switch {
@@ -604,8 +486,6 @@ public static class DialogSurface {
             ConfirmFriction.Typed typed => Sessioned(surface, new TypedConfirmCell(request, typed.Target, surface.Key.Identifier)),
             _ => Sessioned(surface, request),
         },
-        // The Form arm keeps its own guarded crossing because it binds the closing veto, a handler the shared
-        // session shape carries nowhere to put.
         form: static (surface, request) => surface.Seam.SessionMounted()
             ? Templated(surface, request.TemplateKey, request.Content, new DialogFault.TemplateMissing(request.TemplateKey)).Match(
                 Succ: content => DialogHost.Show(content, surface.Key.Identifier, null, surface.Seam.Closing(request)),
@@ -617,18 +497,11 @@ public static class DialogSurface {
         about: static (surface, request) => Sessioned(surface, request),
         layer: static (surface, request) => Layered(surface, request));
 
-    // Cardinality is admission, not decoration: a One request returning multiple paths is a picker transport
-    // defect sealed as a typed fault, never a silently multi-valued single pick, and the row itself answers
-    // the count so the gate carries no literal.
     private static async Task<object?> RoutePick(DialogTopology root, DialogIntent.Pick request) =>
         Routed(root, request) is { IsSome: true, Case: Func<PickRequest, Task<Seq<FileLocation>>> route }
             ? Cardinal(request, await route(Projected(request)).ConfigureAwait(true))
             : new DialogFault.PickerUnavailable(root.Key.Value);
 
-    // One canvas crossing for every modality: the mount's capability set admits, the anchor pairing admits, the
-    // template resolves, and the SHAPE ROW dispatches. Without the presence term an unregistered id answers the
-    // SAME shape a cancel does, so the fault would be structurally unreportable rather than merely unreported.
-    // The refusal carries the MISSING capabilities as evidence, so an offscreen mount names the row it lacks.
     private static async Task<object?> Layered(DialogTopology root, DialogIntent.Layer request) =>
         !request.Shape.Admits(request.Anchor)
             ? new DialogFault.PolicyRejected($"layer-anchor:{request.Shape.Key}:{request.Anchor.GetType().Name}")
@@ -643,13 +516,8 @@ public static class DialogSurface {
                     Fail: fault => Task.FromResult<object?>(fault))
                 .ConfigureAwait(true);
 
-    // --- [OVERLAY_DISPATCH] — one arm per dispatch FAMILY, seated as the shape rows' own columns.
+    // --- [OVERLAY_DISPATCH]
 
-    // The co-resident seat. The void fire shapes are the ONLY in-canvas dispatch that adds a plain layer —
-    // every awaited overload adds a modal one — so a non-modal modality seats through the fire shape and
-    // answers seated-as-a-value, which `Project` lifts to a chosen unit and a light dismiss never reaches.
-    // The focus return rides the LAYER'S OWN detach and the handler removes itself first, because a co-resident
-    // crossing outlives the fold that seated it and a handler that never unsubscribes holds the layer alive.
     internal static Task<object?> Fired(Control layer, DialogIntent.Layer request, string canvasId) {
         Option<InputElement> opener = Opener(layer);
         void Detached(object? sender, VisualTreeAttachmentEventArgs args) {
@@ -662,10 +530,6 @@ public static class DialogSurface {
         return Task.FromResult<object?>(unit);
     }
 
-    // The drawer's positioner is its OWN edge column, not the session stack's popup positioner: the canvas
-    // shell arranges a drawer against a host edge while `IDialogPopupPositioner` computes a rect inside a
-    // DialogHost overlay, so the two placement vocabularies never meet and neither is re-spelled. The anchor
-    // read is TOTAL — the pairing law makes the absent side unreachable and the refusal states that.
     internal static async Task<object?> Drawn(Control layer, DialogIntent.Layer request, string canvasId) =>
         await request.Anchor.Side.Match(
             Some: async side => (object?)await OverlayDrawer.ShowCustomAsync<Unit>(layer, request.Content, canvasId, new DrawerOptions {
@@ -678,24 +542,15 @@ public static class DialogSurface {
             }).ConfigureAwait(true),
             None: () => Task.FromResult<object?>(new DialogFault.PolicyRejected($"drawer-edge:{request.TemplateKey}"))).ConfigureAwait(true);
 
-    // The awaited shape is what makes a modality modal — every awaited in-canvas overload paints the host mask —
-    // so the trait set is the projection of this choice rather than a posture beside it.
     internal static async Task<object?> Modaled(Control layer, DialogIntent.Layer request, string canvasId) =>
         await OverlayDialog.ShowCustomAsync<Unit>(layer, request.Content, canvasId, request.Shape.Options()).ConfigureAwait(true);
 
-    // --- [CROSSING] — the presence guards, the focus law, and the one result projection.
+    // --- [CROSSING]
 
-    // The crossing's END, which is what the focus return keys on: a deciding session, a modal canvas layer,
-    // and the inline pop-confirm all end when `Request` returns, while a co-resident layer ends at its own
-    // detach — so the return rides the same trait the modality column already carries and no crossing
-    // restores focus while its own layer is still open.
     internal static bool Awaits(DialogIntent intent) =>
         StackOwner.Of(intent) == StackOwner.Session
         || OverlayShape.Of(intent).Map(static shape => shape.Traits.Admits(LayerTrait.Modal)).IfNone(true);
 
-    // The opener capture. The focused element reads off the mount's OWN top level — the seam column the pick
-    // route already resolves — so the trap-and-return law grows no second seam, and a surface with no resolved
-    // root captures nothing rather than reaching for an ambient focus manager.
     internal static Option<InputElement> Opener(DialogTopology root) => Focused(root.Seam.TopLevel());
 
     private static Option<InputElement> Opener(Visual layer) => Focused(Optional(Avalonia.Controls.TopLevel.GetTopLevel(layer)));
@@ -705,23 +560,14 @@ public static class DialogSurface {
             .Bind(static manager => Optional(manager.GetFocusedElement()))
             .Bind(static held => Optional(held as InputElement));
 
-    // The return. `Focus` answers whether it landed and the verdict is DISCARDED, because a refusal means
-    // the element the operator came from left the tree while the layer was up — a fact no rail can act on —
-    // and the keyboard then falls to the surface root's own `Continue` region rather than to nothing.
     internal static Unit Restore(Option<InputElement> opener) =>
         opener.Iter(static held => ignore(held.Focus()));
 
-    // The session crossing every deciding case takes, so the presence fact is a term of the show rather than of
-    // the arms that remembered it: the typed-confirm cell is content the fold constructs and the other cases are
-    // the intent itself, so the parameter is the CONTENT.
     private static Task<object?> Sessioned(DialogTopology root, object content) =>
         root.Seam.SessionMounted()
             ? DialogHost.Show(content, root.Key.Identifier)
             : Task.FromResult<object?>(new DialogFault.HostUnregistered($"{root.Key.Value}:{RootKey.SessionSuffix}"));
 
-    // The inline tier drives the pop-confirm the trigger already wears: the popup opens, its two commands
-    // settle one completion, and the anchor is left exactly as it was found — no re-parenting, no second
-    // visual, and the trigger mode and placement stay the anchor's own styled properties.
     private static Task<object?> Anchored(PopConfirm anchor) {
         TaskCompletionSource<object?> settled = new(TaskCreationOptions.RunContinuationsAsynchronously);
         anchor.HandleAsyncCommand = false;
@@ -736,35 +582,22 @@ public static class DialogSurface {
             .Map<object>(template => new ContentControl { Content = content, ContentTemplate = template })
             .ToFin(missing);
 
-    // Every static crossing takes the presence fact FIRST. The DialogHost static surface resolves its instance
-    // by scanning loaded hosts and throws on zero, on no match, and on multiple — three exceptions inside a
-    // rail that exists to carry refusals as values — so the guard is the rail's own first term.
     private static Fin<T> Guarded<T>(DialogTopology root, string half, Func<Fin<T>> body) =>
         root.Seam.SessionMounted()
             ? body()
             : Fin.Fail<T>(new DialogFault.HostUnregistered($"{root.Key.Value}:{half}"));
 
-    // The one effect-to-rail lift. Seven sites sequenced a host call through a tuple's second element to reach
-    // a value; a statement body says the same thing once and the idiom leaves the page.
     private static Fin<Unit> Ran(Action body) {
         body();
         return Fin.Succ(unit);
     }
 
-    // One admission over four independent facts — a bound pipe, a resolved root, a SHOWN host window, and the
-    // storage capability THIS kind demands — so an unroutable surface, an unmounted root, a windowless mount,
-    // and a platform that cannot serve this pick answer the identical typed fault. The window read is not
-    // implied by the capability read: an embedded root answers all three capabilities true and still hands
-    // back a task that never activates when its view has no window, which no fault rail downstream can see.
     private static Option<Func<PickRequest, Task<Seq<FileLocation>>>> Routed(DialogTopology root, DialogIntent.Pick request) =>
         from route in root.Seam.PickPipe
         from top in root.Seam.TopLevel()
         where root.Seam.Windowed() && request.Kind.Admits(top.StorageProvider)
         select route;
 
-    // The projection the boundary promised and no member kept: the kernel filter rows carry raw extensions and
-    // the storage face wants globs, so the glob is minted HERE at the one seam that crosses, and a pre-globbed
-    // filter value never travels where a raw extension is the readable form.
     private static PickRequest Projected(DialogIntent.Pick request) =>
         new(request.Kind, request.Cardinality,
             request.Filters.Map(static plan => new FilePickerFileType(plan.Label) {
@@ -780,9 +613,6 @@ public static class DialogSurface {
             _ => paths,
         };
 
-    // The erased close parameter, re-typed once onto the kernel prompt carrier: a null close is the dismissal
-    // case rather than an absent value, a fault travels as the refusal it already is, and a shape the ask never
-    // demanded names BOTH types instead of surfacing as a silent nothing.
     private static PromptSettle<TResult> Project<TResult>(object? closing) where TResult : notnull =>
         closing switch {
             null => new PromptSettle<TResult>.Dismissed(),
@@ -791,10 +621,6 @@ public static class DialogSurface {
             var other => new PromptSettle<TResult>.Refused(new DialogFault.ResultShape(typeof(TResult).Name, other.GetType().Name)),
         };
 
-    // The gate reads the stack owner first, so a canvas modality never touches the session cell at all —
-    // occupancy is a session invariant and applying it to a co-resident layer would refuse the canvas's whole
-    // reason — and the mount's own `Reserves` column answers the second half rather than a negated bool the
-    // policy row already carries.
     private static async Task<PromptSettle<TResult>> Request<TResult>(DialogTopology root, DialogAsk<TResult> ask) where TResult : notnull {
         bool reserving = StackOwner.Of(ask.Intent) == StackOwner.Session && root.Policy.Reserves;
         if (reserving && root.Reserve() is { IsFail: true } refusal) {
@@ -871,11 +697,9 @@ flowchart LR
 - Boundary: the depth address is `DepthTier.Dialog` for the session stack and each canvas modality's own tier, so elevation is the token catalogue's ordered layer stack — ring layer first, dark alphas doubled, inset rim as a layer — and never an offset-and-blur pair authored here; the material address names the tier the layer surface takes and the effects plane executes it, so this page writes no acrylic value; a high-contrast projection empties the shadow stacks and widens the stroke family at the catalogue, so the ring carries the separation on that variant with no conditional here; the shipped `ToastCard` key family carries NO shadow key at all, so a toast reads its depth from the plane that hosts it and binding a card-scoped shadow would write a slot the shipped dictionary never defines; `DialogHostStyle.BorderBrush` and `BorderThickness` are SET-ONLY on the attached surface, so the ring binds through the property identity rather than a read-modify-write that has no read; `SafePadding` is the canvas's whole inset vocabulary and the session stack's counterpart is `DialogMargin`, so neither root re-spells the other's placement knob.
 
 ```csharp signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public static class DialogChrome {
-    // The fold's own anchors: addresses the theme resolves, identical for every mount, so they live with the
-    // one fold that reads them rather than being copied onto a per-mount row that ignores its parameter.
     public const int RadiusStep = 3;
     public const int RingStep = 0;
     public const double BlurRadius = 16d;
@@ -885,15 +709,8 @@ public static class DialogChrome {
     public static IDisposable Bind(DialogHost session, Option<OverlayDialogHost> canvas, MountPolicy policy) =>
         new CompositeDisposable(toSeq(Bindings(Cycled(session), canvas.Map(Cycled), policy)).ToArray());
 
-    // The TRAP half of the keyboard law, discharged where both roots are already in hand: an overlay root
-    // takes the `Cycle` region mode so tab cannot walk out of a presented layer into the surface beneath it,
-    // and both stacks take it from one fold rather than each remembering to. It is a region ADMISSION rather
-    // than a binding, so it composes no lifetime and the chrome subscriptions stay the only disposables here.
     static T Cycled<T>(T root) where T : InputElement => (T)root.Mode(KeyboardNavigationMode.Cycle);
 
-    // One projection over both roots. The session and the canvas take DIFFERENT property identities for the
-    // same fact — a scrim brush, an inset, a corner — so the fold names each pairing once and neither root
-    // grows a chrome path of its own.
     static Seq<IDisposable> Bindings(DialogHost session, Option<OverlayDialogHost> canvas, MountPolicy policy) =>
         Seq(
             ThemeRail.Bind(session, DialogHost.OverlayBackgroundProperty, PaintRole.Scrim.At(0)),
@@ -927,12 +744,8 @@ public static class DialogChrome {
 - Boundary: entry and exit choreography, the stack projection, the visible cap, the hover-intent linger, and the hold window all arrive from the toast motion plan — the row's own severity linger and the suppression fold are the only timing facts owned here, and a plane-local ceiling, dwell, or horizon literal is the deleted form, which is why `Flush` takes no horizon parameter and mints no refusal for one; the stack reflow is one `Stacked` read per live ordinal against the plane's OWN posture cell rather than the card's live pointer state, because a tree read inside the traverse samples a pointer the hover intent has not yet settled; the plane shows through the toast manager's own card and message contract, the card carrying the row's projected notification type and the row's body as its content, so severity re-tints through the shipped `:information`/`:success`/`:warning`/`:error` pseudo-classes and the page writes no paint; the Avalonia notification manager is the deleted form here because it reports no dismissal cause and carries no click action, so a presented note under it is fire-and-linger and its end is unmeasurable; the close callback stamps the DISMISSAL instant it observes rather than re-stamping the presentation instant, since a terminal receipt naming the moment the note appeared asserts a measurement nothing took; the click raise reaches the deck by key alone, so no toast body carries a command; the plane seats into the manager's own protected item list and closes through the card's verb rather than through `Show`/`Close`/`CloseAll`, so it takes the SAME `Dispatcher.UIThread` assertion those members carry at its own three entries and an off-thread raise is a thrown fact rather than a silently corrupted item list — the assertion stays Avalonia's because the kernel dispatch marshal is Eto-bound; native host toasts and status panes stay host-owned; a degradation level serving NO command access drops every note, read off the level's own access column so a future row inherits the rule; quiet hours park rather than drop, and the Error and Pending rows PIERCE because a failure and an in-flight promise are exactly the two facts a quiet window must not swallow.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Two independent axes over one note. `Pierce` is the quiet-hours column — a failure and an in-flight promise
-// are seen whatever the window says — and `Accrue` is the inbox column, the fact the activity fold used to
-// re-derive as a two-term row-identity ladder. All four corners are legal, so the set states them and no law
-// row is minted for a corner nothing bars.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToastTrait : ICapability<ToastTrait> {
@@ -940,10 +753,6 @@ public sealed partial class ToastTrait : ICapability<ToastTrait> {
     public static readonly ToastTrait Accrue = new("accrue");
 }
 
-// Severity is the FOLDER'S ranked family, not a toolkit enum: the card reads its notification type through one
-// projection and the chart ladder, the alert board, and this row all rank off the same authority. `Sticky` is
-// the zero-linger reading rather than a parallel flag, because a sticky note is a row with no expiration and a
-// boolean beside it would let the two disagree.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -967,13 +776,8 @@ public sealed partial class ToastRow {
 
     public bool Sticky => Linger == Duration.Zero;
 
-    // The pending row is the one row that is sticky WITHOUT being terminal: it carries no expiry because its
-    // end is a morph, so the hold window exempts it exactly as it exempts an error and the activity accrual
-    // reads the morphed row rather than this one.
     public bool Provisional => this == Pending;
 
-    // The one toolkit projection, total over the ranked family: the shipped card selects its pseudo-class from
-    // this enum and nothing else on the page names it, so the ladder has one authority and one egress.
     public NotificationType Notification => Rank.Switch(
         nominal: static _ => NotificationType.Success,
         info: static _ => NotificationType.Information,
@@ -990,10 +794,6 @@ public sealed partial class ToastVerdict {
     public static readonly ToastVerdict Dropped = new("dropped");
 }
 
-// Placement is a PLANE column, never a note column: a stack with two anchors is two stacks, so the anchor
-// rides the presenter the mount derives and the note carries no position it could contradict. The plane writes
-// both alignments onto its own item panel at mount, so the columns are the placement rather than a pair of
-// values the presenter stored and never read.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1008,16 +808,10 @@ public sealed partial class ToastAnchor {
     public VerticalAlignment Vertical { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The terminal fact the manager reports, as ONE value: the cause it named, the instant the callback observed,
-// and the span the timeline measured between seat and close. Three positional parameters threaded through a
-// seal delegate let one call site pass the presentation instant where the dismissal instant belonged.
 public readonly record struct ToastClose(MessageCloseReason Cause, Instant At, Option<Duration> Presented);
 
-// The cause column is what separates the ADMISSION verdict from the TERMINAL seal on one receipt shape: an
-// absent cause is the moment the gate decided, a present one the moment the manager reported the note ended.
-// A second receipt type for the ending would fork the correlation join the whole rail exists to keep.
 public readonly record struct ToastReceipt(
     ToastRow Row,
     RootKey Surface,
@@ -1030,10 +824,6 @@ public readonly record struct ToastReceipt(
 
 public readonly record struct QueuedToast(ToastRow Row, string Title, string Body, Option<string> IntentKey, Instant At, CorrelationId Correlation);
 
-// Every fact ONE admission needs, threaded once. Four signatures each re-threaded a `bool quiet` and a seal
-// delegate, so four call sites were four chances to hand one arm a verdict another arm computed differently;
-// the quiet verdict is computed at the one composition site that holds the activity centre and travels as a
-// column, and the seal travels beside it rather than as a fifth parameter on every entry.
 public sealed record NoticeGate(
     RuntimePhase Phase,
     DegradationState Degradation,
@@ -1041,9 +831,6 @@ public sealed record NoticeGate(
     Instant At,
     Func<ToastReceipt, Unit> Seal);
 
-// The mount-bound presentation columns. Composition binds these off a mounted `ToastPlane` on an anchored row
-// and off a receipt-only recorder on the offscreen row, so a headless lane still produces every admission
-// and terminal receipt the proof folds read while presenting nothing.
 public sealed record ToastPipe(
     Func<QueuedToast, Func<ToastClose, Unit>, IO<Fin<Unit>>> Present,
     Func<CorrelationId, ToastRow, string, IO<Fin<Unit>>> Settle,
@@ -1051,13 +838,8 @@ public sealed record ToastPipe(
 ```
 
 ```csharp signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The presentation plane. It derives the shipped toast manager for its installed host, its queue ceiling, and
-// its item panel, and OWNS everything the shipped show path forecloses: a correlation-addressed card, a
-// restartable linger, a hover pause, an in-place severity morph, and a MEASURED presentation span. Every note
-// is presented with a zero expiration — the manager's own never-auto-close posture — so exactly one clock
-// governs a card and the package timer can never race the product one.
 public sealed class ToastPlane : WindowToastManager {
     private static readonly Op Span = Op.Of(name: "appui.toast.span");
 
@@ -1079,17 +861,11 @@ public sealed class ToastPlane : WindowToastManager {
 
     public ToastAnchor Anchor { get; }
 
-    // The ceiling is the motion plan's own cap, because the stack projection already reads it as the depth a
-    // viewer resolves at once: a queue depth authored beside it would let the visible stack and the admitted
-    // stack disagree, and the card the ceiling displaces is exactly the card the projection had faded out.
     public MotionPlan Plan { get; } = MotionPlan.Toast;
 
     public IO<Fin<Unit>> Present(QueuedToast note, Func<ToastClose, Unit> seal) =>
         IO.lift(() => Owned(() => Mounted(note, seal)));
 
-    // The morph: severity, body, and clock settle on the LIVE card under the admission correlation, so the
-    // reader watches one note change rather than one note vanish and another appear, and the linger starts
-    // here because a promise that has just resolved has been read for zero seconds.
     public IO<Fin<Unit>> Settle(CorrelationId correlation, ToastRow row, string body) =>
         IO.lift(() => Owned(() => live.Value.Find(correlation).Match(
             Some: entry => Fin.Succ(Dressed(entry, row, body)),
@@ -1100,12 +876,6 @@ public sealed class ToastPlane : WindowToastManager {
             Some: entry => ignore(entry.Card.Close(MessageCloseReason.UserAction)),
             None: static () => unit)));
 
-    // The affinity guard. The shipped manager verifies UI-thread access inside `Show`, `Close`, and `CloseAll`,
-    // and this plane reaches NONE of them — it seats into the protected item list and closes cards through the
-    // card's own verb — so the assertion is taken here at the three entries that touch the tree. Without it an
-    // off-thread raise corrupts the item list silently, which is the one failure the manager's own guard exists
-    // to turn into a thrown fact. The kernel dispatch marshal is Eto-bound and cannot serve this crossing;
-    // only its lane vocabulary is host-free, and the split is escalated rather than forked here.
     static T Owned<T>(Func<T> body) {
         Dispatcher.UIThread.VerifyAccess();
         return body();
@@ -1119,9 +889,6 @@ public sealed class ToastPlane : WindowToastManager {
             ShowClose = true,
         };
         LiveToast entry = new(card, line.Capture(Span).ToOption(), note.Row);
-        // ONE custody for every subscription the card holds. Three handlers that were added and never removed
-        // kept a closed card's delegates alive on the manager's own tree; the lease releases all three at the
-        // single point that observes the close.
         return entry.Bind(
             Observable.FromEventPattern<MessageClosedEventArgs>(card, nameof(ToastCard.MessageClosed))
                 .Subscribe(args => ignore(Closed(entry, note, seal, args.EventArgs.Reason))),
@@ -1133,9 +900,6 @@ public sealed class ToastPlane : WindowToastManager {
             });
     }
 
-    // The one place a card's end is observed: the custody releases, the register drops the correlation, and the
-    // seal carries the cause beside BOTH clocks — the wall instant the operator's day is measured in and the
-    // monotonic span the note was actually readable for, which no wall-clock subtraction can honestly answer.
     Fin<Unit> Closed(LiveToast entry, QueuedToast note, Func<ToastClose, Unit> seal, MessageCloseReason cause) {
         ignore(entry.Release());
         ignore(live.Swap(map => map.Remove(note.Correlation)));
@@ -1149,11 +913,6 @@ public sealed class ToastPlane : WindowToastManager {
         from span in line.Elapsed(seated, end, Span).ToOption()
         select Duration.FromTimeSpan(span);
 
-    // Hover-pause rides the plan's own HOVER INTENT rather than the raw pointer edges: the linger column
-    // defers the resume across a crossing, so a pointer sweeping the stack pauses the card it rests on and
-    // does not restart the clock of every card it passed over. Intent survives reduction untouched, because a
-    // hover that resumes instantly under reduced motion is a different interaction, not an accessible one.
-    // The posture lands on the ENTRY, so the reflow reads owned state rather than the live tree.
     IDisposable Hovered(ToastCard card, LiveToast entry) =>
         Plan.Intent(
                 Observable.FromEventPattern<PointerEventArgs>(card, nameof(InputElement.PointerEntered)).Select(static _ => true)
@@ -1165,10 +924,6 @@ public sealed class ToastPlane : WindowToastManager {
                 ignore(Reflow());
             });
 
-    // An overflow closes EVERY card past the ceiling, oldest first, with the displacement cause — the
-    // switch-as-statement this replaces closed exactly one, so a burst seating two over the cap left the
-    // second alive under a ceiling that had already displaced it. The survivors then re-read the stack
-    // projection at their new ordinals, so collapse, expand-on-hover, and re-stack are that one read.
     Fin<Unit> Seated(ToastCard card, LiveToast entry) {
         MaxItems = Plan.Cap;
         _items?.Add(card);
@@ -1179,8 +934,6 @@ public sealed class ToastPlane : WindowToastManager {
         return Reflow();
     }
 
-    // The reflow: every live card re-poses at its own ordinal against its measured extent, so a dismissal
-    // moves the remaining stack through one projection and the page composes no per-card animation.
     Fin<Unit> Reflow() =>
         Standing()
             .Map(static (seated, ordinal) => (Card: seated, Ordinal: ordinal))
@@ -1204,11 +957,6 @@ public sealed class ToastPlane : WindowToastManager {
         return Armed(entry);
     }
 
-    // ONE timing mechanism for the whole plane: the linger rides the SAME injected scheduler the hover intent
-    // rides, so a headless proof lane advances both deterministically and a pause is a disposal rather than a
-    // wall-clock subtraction the resume would have to re-derive. The kernel `UiClock` is REFUSED here — it is a
-    // repeating leased beat over a host timer and a linger is one shot per card — and the kernel timeline it
-    // demands is composed for the SPAN, which is the fact a clock could have answered and a timer could not.
     Unit Armed(LiveToast entry) {
         ignore(Paused(entry));
         return entry.Row.Sticky
@@ -1219,9 +967,6 @@ public sealed class ToastPlane : WindowToastManager {
 
     Unit Paused(LiveToast entry) => entry.Unwind();
 
-    // The per-card state the plane threads. A SEALED CLASS rather than a record, because it holds live cells
-    // and a record copy would hand two readers one timer, one custody, and one posture while presenting itself
-    // as two cards; every transition ANSWERS what it retired, so nothing reconstructs a prior value.
     sealed class LiveToast {
         private static readonly Op Custody = Op.Of(name: "appui.toast.custody");
 
@@ -1268,12 +1013,9 @@ public sealed class ToastPlane : WindowToastManager {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ToastGate {
-    // Instrument DECLARATIONS, not names: the kernel write, level, and listener entries all take the row, so a
-    // write against an undeclared instrument has no spelling and the contribution carries exactly what the
-    // writers pass.
     public static readonly InstrumentSpec Presented = InstrumentSpec.Create(
         "rasm.appui.toast.presented", InstrumentKind.Count, MeasureForm.Whole, "{toast}",
         "toast admissions by verdict and surface",
@@ -1289,25 +1031,12 @@ public static class ToastGate {
         "unread activity entries by source",
         Seq<string>(), None, Some(AppUiTelemetry.SourceSlot), None);
 
-    // The terminal phases as a declared TABLE. `RuntimePhase` carries no terminality column, so a four-term
-    // disjunction re-derived one at every read; the set states it once and the SEAT for the column at the
-    // AppHost row is recorded rather than mirrored further.
     static readonly FrozenSet<RuntimePhase> Terminals =
         new[] { RuntimePhase.Draining, RuntimePhase.Unloaded, RuntimePhase.Faulted }.ToFrozenSet();
 
-    // Three instruments because the three facts carry DIFFERENT vocabularies — admission spells the verdict on
-    // the outcome slot, dismissal the manager's close cause on the cause slot, and the inbox what stands now on
-    // the source slot — and folding any two onto one dimension key would count a shown note twice under values
-    // no board could separate.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Presented, Dismissed, Unread);
 
-    // The cause IS the discriminant, so one total projection serves both counts and neither counts the other's
-    // receipts: an admission carries no cause and a seal carries exactly one. The LEVEL rides the same fold
-    // because a level reports what stands now and every receipt is a moment the inbox depth may have moved —
-    // a declared levels row nothing ever wrote was decorative density, and this is the arm that reads it.
-    // Tags materialize through the kernel's own `InstrumentSet.Tags` fold, because `Write` takes ONE `in
-    // TagList` and that fold is the single site where a slot-and-value roster becomes one.
     public static Fin<Unit> Observe(InstrumentSet set, ToastReceipt receipt, ActivityCenter center) =>
         from counted in receipt.Cause.Match(
             Some: cause => set.Write(Dismissed, 1d, InstrumentSet.Tags(
@@ -1319,11 +1048,6 @@ public static class ToastGate {
         from levelled in set.Level(Unread, center.Unread, Some(receipt.Surface.Value))
         select levelled;
 
-    // Suppression is ONE fold over four independent facts — the runtime phase, the capability level's own
-    // served access, the quiet window, and the row's piercing trait — so a terminal phase, a suspended
-    // capability set, and a quiet night are three inputs to one verdict rather than three gates a note crosses
-    // in sequence. The access COLUMN is read rather than the suspended row's identity, so a future level
-    // serving no commands drops notes without an edit here.
     public static ToastVerdict Admit(NoticeGate gate, ToastRow row) =>
         (Terminal: Terminals.Contains(gate.Phase) || gate.Degradation.Level.Access == CommandAccess.None,
          Paused: gate.Phase == RuntimePhase.SupportCapture || (gate.Quiet && !row.Traits.Admits(ToastTrait.Pierce))) switch {
@@ -1333,10 +1057,6 @@ public static class ToastGate {
         };
 
     extension(DialogTopology root) {
-        // The presentable note is ONE value across every arm — parked, presented, and dropped read the same
-        // shape — so the admission carries no parallel payload tail and the flush re-admits a held note
-        // verbatim rather than unpacking and rebuilding it. A present that REFUSED did not show: its verdict
-        // is Dropped, because reporting Shown for a refused presentation asserts a card that never seated.
         public IO<ToastReceipt> Toast(QueuedToast note, NoticeGate gate) =>
             Admit(gate, note.Row) switch {
                 var verdict when verdict == ToastVerdict.Shown =>
@@ -1350,24 +1070,10 @@ public static class ToastGate {
                 var verdict => IO.pure(Admitted(root, note, verdict, gate.At)),
             };
 
-        // The morph emits NO admission receipt: the note was admitted once under this correlation and its one
-        // terminal seal is still owed, so a second admission here would double every promise flow on the
-        // presentation series while leaving the dismissal series intact — the exact asymmetry a board reads
-        // as a leak. The returned receipt is the settled row's own admission restated for the activity plane,
-        // which accrues on rows rather than on counts.
         public IO<Fin<ToastReceipt>> Morph(CorrelationId correlation, ToastRow row, string body, Instant at) =>
             root.Seam.Toasts.Settle(correlation, row, body)
                 .Map(settled => settled.Map(_ => new ToastReceipt(row, root.Key, ToastVerdict.Shown, None, at, correlation, None, None)));
 
-        // The resume flush: held notes drain in arrival order back through the SAME gate — a live phase
-        // presents them, a still-terminal phase drops them — and entries past the motion plan's own hold
-        // window age out as Dropped receipts, so every queued note terminates in exactly one admission
-        // receipt. A STICKY row is exempt from aging: zero linger is the row declaring the note carries no
-        // expiry the reader could have missed, so aging one out would drop the exact class of note the manager
-        // was told never to close on its own. The window is the PLAN's, so this entry takes no horizon
-        // parameter and mints no refusal for a negative one that can no longer be spelled.
-        // `Channel<QueuedToast>` is REFUSED as the register: the flush RE-PARKS a note the gate still refuses,
-        // and a consumed channel message has no spelling for going back.
         public IO<Seq<ToastReceipt>> Flush(NoticeGate gate) =>
             IO.lift(root.Drain)
                 .Bind(taken => taken
@@ -1380,17 +1086,12 @@ public static class ToastGate {
                     .Map(static receipts => receipts.Strict()));
     }
 
-    // The admission verdict carries NO cause and no span, and the terminal seal carries both beside the instant
-    // the manager reported — re-stamping the presentation instant on the seal would assert a measurement the
-    // close callback is the only surface that takes.
     private static ToastReceipt Admitted(DialogTopology root, QueuedToast note, ToastVerdict verdict, Instant at) =>
         new(note.Row, root.Key, verdict, note.IntentKey, at, note.Correlation, None, None);
 
     private static ToastReceipt Sealed(DialogTopology root, QueuedToast note, ToastClose close) =>
         new(note.Row, root.Key, ToastVerdict.Shown, note.IntentKey, close.At, note.Correlation, Some(close.Cause), close.Presented);
 
-    // A note the flush finds still un-presentable goes BACK to the register under its own stamp rather than
-    // being re-admitted as queued, so a second suspension neither re-emits a receipt nor loses the note.
     private static ToastReceipt Parked(DialogTopology root, QueuedToast note) {
         ignore(root.Park(note));
         return Admitted(root, note, ToastVerdict.Queued, note.At);
@@ -1447,11 +1148,8 @@ flowchart LR
 - Boundary: a progress-bearing entry REFUSES dismissal while its fraction is short of complete, so an operator cannot clear the only handle onto a running job — the refusal is a typed policy fault, not a disabled button, because the same rule must hold for the clear-all fold and for a remote invocation that never sees a button; the refusal NAMES which rule refused, read off the transition's own post-state, because a running job and an unknown correlation are two different answers to one verb and one message for both is evidence a caller cannot act on; the clear-all fold therefore skips running entries rather than failing whole, so one running job never blocks a cleanup; the completion fraction is the kernel `UnitInterval`, so the "short of complete" reading is a bounded value's own comparison rather than a raw double gated at each site; entries carry command keys and never commands, exactly as a toast does, and the raise ANSWERS the deck's rail so an unlifted key refuses where every other invocation modality refuses; ordering tiebreaks on the ARRIVAL ORDINAL the register minted, never a stringly compare of a correlation, because two entries minted inside one clock tick still hold a total order the window's ordinal snapshot depends on; quiet hours are wall-clock local, so the row carries its own zone and the fold projects the receipt instant through it rather than reading an ambient one; a quiet window that spans midnight is the wrapped comparison rather than a second row, because two rows for one window drift the moment one edge moves; the exemption roster is an ordinal frozen set, so an admission is a hash probe rather than a linear scan on every note, and its unordered equality is declared because the default structural comparison over a set compares by reference.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Read is a CASE carrying its instant, not a boolean beside a cause. The boolean admitted the illegal
-// `(unread, sealed by user action)` state the accrual fold exists to exclude, and a read entry now reports
-// WHEN it was read — a fact the inbox could not otherwise answer.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReadState {
     private ReadState() { }
@@ -1460,11 +1158,8 @@ public abstract partial record ReadState {
     public sealed record Read(Instant At) : ReadState;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The inbox row. `Fraction` is the running handle: its presence marks a progress-bearing entry and its bounded
-// value the completion, so a running job is `Some` short of one and every dismissal rule reads that one column.
-// `Ordinal` is the register's own arrival stamp, which is what gives two same-instant entries a total order.
 public sealed record ActivityEntry(
     CorrelationId Correlation,
     long Ordinal,
@@ -1479,8 +1174,6 @@ public sealed record ActivityEntry(
     public bool Running => Fraction.Exists(static value => value.Value < 1d);
 }
 
-// One window, wrapped. A quiet span from evening to morning crosses midnight, so the comparison folds rather
-// than splitting into two rows that would drift the moment one edge moves.
 [Equatable]
 public sealed partial record QuietHours {
     private QuietHours(LocalTime from, LocalTime until, DateTimeZone zone, FrozenSet<string> exempt) {
@@ -1490,9 +1183,6 @@ public sealed partial record QuietHours {
         Exempt = exempt;
     }
 
-    // BOTH defects refuse TOGETHER: a degenerate window and an unusable exemption roster are independent facts
-    // about one authored policy, so a first-defect fold would report one of two real defects and the operator
-    // would fix it twice.
     public static Validation<Error, QuietHours> Of(LocalTime from, LocalTime until, DateTimeZone zone, Seq<string> exempt) =>
         (Window(from, until), Exemptions(exempt))
             .Apply((span, rows) => new QuietHours(span.From, span.Until, zone, rows))
@@ -1504,9 +1194,6 @@ public sealed partial record QuietHours {
 
     public DateTimeZone Zone { get; }
 
-    // Ordinal frozen set: an exemption read runs on every admission, and the declared unordered equality is
-    // what keeps two identical policies comparing equal under a set the synthesized record compares by
-    // reference.
     [UnorderedEquality]
     public FrozenSet<string> Exempt { get; }
 
@@ -1516,7 +1203,6 @@ public sealed partial record QuietHours {
             var local => From <= Until ? local >= From && local < Until : local >= From || local < Until,
         };
 
-    // Equal edges name a window with no interior AND a window with no exterior, so the value cannot say which.
     private static Validation<Error, (LocalTime From, LocalTime Until)> Window(LocalTime from, LocalTime until) =>
         from != until
             ? Validation<Error, (LocalTime, LocalTime)>.Success((from, until))
@@ -1530,7 +1216,7 @@ public sealed partial record QuietHours {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class ActivityCenter {
     public const string ClearKey = "activity.clear";
@@ -1549,15 +1235,10 @@ public sealed class ActivityCenter {
         this.raise = raise;
     }
 
-    // The roster crosses as a VALUE: a caller reading the register cannot swap the roster the virtual window
-    // is realizing, and the count the chrome badge binds reads the same snapshot the rows do.
     public Seq<ActivityEntry> Rows => entries.Value;
 
     public int Unread => entries.Value.Count(static row => row.State is ReadState.Unread);
 
-    // Accrual reads the row's own trait first and the receipt's terminal facts second: a note the operator
-    // dismissed by hand was read, so it accrues nothing unless its row carries the trait that keeps it
-    // recoverable after the wave-away.
     public Option<ActivityEntry> Accrue(ToastReceipt receipt) =>
         Accrues(receipt) ? Some(Recorded(receipt)) : None;
 
@@ -1566,10 +1247,6 @@ public sealed class ActivityCenter {
         || receipt.Verdict == ToastVerdict.Dropped
         || receipt.Cause.Exists(static cause => cause != MessageCloseReason.UserAction);
 
-    // A running entry refuses dismissal on the RAIL rather than through a disabled affordance, so a remote
-    // invocation and a rendered button are refused by one rule and neither can clear the only handle onto a
-    // job still in flight. The guarded step decides; the refusal is NAMED off the transition's own post-state,
-    // so the two rules that can decline answer as two faults instead of one message covering both.
     public Fin<Unit> Dismiss(CorrelationId correlation) =>
         Cell.Step(entries, rows => Removable(rows, correlation),
                 new DialogFault.CorrelationUnknown(correlation.ToString())) switch {
@@ -1587,13 +1264,9 @@ public sealed class ActivityCenter {
             Some: _ => (Error)new DialogFault.PolicyRejected($"activity-running:{correlation}"),
             None: () => new DialogFault.CorrelationUnknown(correlation.ToString()));
 
-    // Clear-all SKIPS running entries rather than failing whole: one job in flight must not block a cleanup,
-    // and a partial clear that silently dropped it would be the defect the per-entry rule exists to prevent.
     public Fin<Unit> Clear() =>
         Fin.Succ(ignore(entries.Swap(static rows => rows.Filter(static row => row.Running))));
 
-    // The raise ANSWERS the deck's own rail, so a key no frozen row lifts refuses exactly where a palette hit
-    // and a remote invocation refuse rather than vanishing into a delegate that returned unit either way.
     public IO<Fin<Unit>> Invoke(CorrelationId correlation) =>
         entries.Value.Find(entry => entry.Correlation == correlation).Bind(static entry => entry.IntentKey).Match(
             Some: raise,
@@ -1605,21 +1278,12 @@ public sealed class ActivityCenter {
 
     public bool Quiet(RootKey source, Instant at) => hours.Exists(row => row.Covers(source, at));
 
-    // The inbox realizes through the ONE window fabric over the entry change-set keyed on correlation, so a
-    // long-lived shell's accrued history costs a constant realized set and the inbox mints no virtualizer.
-    // The COMPARER is this owner's, never a caller's: an inbox that accepted a pre-ordered source would let a
-    // caller realize the rows in an order the inbox's own newest-first reading disagrees with. That authority
-    // crosses as a STREAM the window re-sorts in place, so the inbox — whose newest-first reading never moves
-    // — publishes exactly one value and pays nothing for a shape a re-orderable surface needs.
     public IObservable<IChangeSet<RealizedItem<ActivityEntry>, CorrelationId>> Window(
         VirtualWindow<ActivityEntry, CorrelationId> window,
         IObservable<IChangeSet<ActivityEntry, CorrelationId>> changes,
         IObservable<ViewportRange> viewport) =>
         window.Realize(new OrderedChangeSet<ActivityEntry, CorrelationId>(changes, Observable.Return(Newest)), viewport);
 
-    // Newest first, ARRIVAL ORDINAL as the tiebreak so two entries minted inside one clock tick still hold a
-    // total order. The ordinal is minted by the cell that seated them, so no rendered order depends on the
-    // text of a correlation identity nothing else compares.
     static readonly IComparer<ActivityEntry> Newest =
         Comparer<ActivityEntry>.Create(static (left, right) => right.At.CompareTo(left.At) is var byTime && byTime != 0
             ? byTime
@@ -1655,12 +1319,8 @@ public sealed class ActivityCenter {
 - Boundary: the host `FileFormat` vocabulary crosses `HostAttachPort` as key-plus-extension tuples the caller lifts into `FilterPlan` rows — the type never enters this package; host-native modal flows (document file IO, command prompts, semi-modal panels) stay host-owned at the app root and AppUi raises only the intent through the abstract surface-host port; `PickPipe` rows bind the storage route resolved through the seam's top-level delegate per surface, taking the already-projected `PickRequest` so a bound pipe carries a storage call and no vocabulary of its own, and the offscreen row holds no resolved root at all and folds to `DialogFault.PickerUnavailable`; the toolkit is the discriminant that keeps this row family HERE rather than on the kernel prompt owner — `PickerSpec` presents through Eto controls and this package is Avalonia, so the capability read and the storage projection are AppUi's while the settle carrier, the filter rows, and the admitted path value object are the kernel's and are composed rather than re-spelled; a pick admits on TWO independent facts and neither implies the other — the capability the kind demands and a shown, windowed root; the capability read runs through the row's own `Admits` column because `TopLevel.StorageProvider` is NEVER null on a resolved root — an unserved platform answers an internal no-op provider whose three capabilities all read false — so the arm reads a value, never a provider type test the assembly cannot spell and never a null probe the property cannot produce, and the per-kind read is strictly stronger than a whole-provider verdict since a platform serving files but no folder picker refuses exactly the folder pick and keeps the other two live; the window gate is the second and independent admission, because an embedded root serves the platform's own native storage provider with all three capabilities TRUE while a picker launched from a root whose view carries no host window returns a task that never activates — no exception, no sheet, no completion, the worst shape a modal rail can take — so the window read refuses the launch before it happens and seals the same `DialogFault.PickerUnavailable` the unroutable and unresolved arms do, and a capability-only gate is the deleted form; the selected `PickCardinality` gates the picker result at the one `RoutePick` admission through the row's own `Admits` column, so every picker transport converges on the same cardinality law and no site compares a count against a literal; anchored picker and confirm popups ride the alignment positioner the derivation seats on non-stacking mounts, and the stacking surfaces ride the centered positioner.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Each kind carries the ONE storage capability it demands. The platform's fallback provider is internal, so
-// no assembly above can type-test it — and it would be the wrong test anyway: the three capabilities are
-// independent per platform, so the row that names which one it needs refuses exactly the pick that cannot
-// run while its siblings stay live. A whole-provider verdict beside these columns is the deleted form.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]

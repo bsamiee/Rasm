@@ -68,15 +68,6 @@ type MaxShape = tuple[int | None, ...]
 type StoreConfig = dict[str, object]
 type Slab = tuple[str, str, tuple[int, ...], tuple[slice, ...]]
 
-# the manifest plane's raise surface. `obstore`'s `BaseError` is NAMED because every leaf under it roots at bare
-# `Exception` — the registry walks archival sources over object-store handles, so a not-found, permission, or
-# precondition refusal on a signed href reaches no builtin ancestor and `transport/roots#RESOURCE` states none is a
-# `CLASSIFY` row either. `virtualizarr` mints ONE class of its own, `SubChunkIndexingError`, a `ValueError` refinement
-# the ancestor admits; the rest of its refusals are `ValueError`/`TypeError`/`NotImplementedError` over an unlowerable
-# chunk pattern, `ImportError` where an optional parser dependency is absent, and `RuntimeError`/`OSError` from the
-# reader beneath. `h5py` answers `OSError` for a library or driver fault, `KeyError` for an absent name, and
-# `TypeError`/`ValueError` for a dtype or layout mismatch, exactly as its catalogue documents, so the native mint
-# rides the same set. `obspec_utils` raises `ValueError` on an unresolvable or schemeless url.
 _MANIFEST_RAISES: Final[Catch] = (
     BaseError,
     ImportError,
@@ -89,10 +80,6 @@ _MANIFEST_RAISES: Final[Catch] = (
     OSError,
 )
 
-# this module's whole raise roster, seated once for both sections: every fenced leg and every explicit refusal on this
-# page resolves ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real
-# module at import. The manifest walks and the version verbs declare TRANSIENT — a store, driver, or repository fault
-# a re-issue may clear — while the fold-direction refusal is caller-repairable and TERMINAL.
 MANIFEST_WALK: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.VIRTUAL, point="manifest", arm="boundary", defect="manifest-walk", retriability=TRANSIENT
 )
@@ -102,10 +89,6 @@ MANIFEST_TREE: Final[FaultRow[DataLeg]] = FaultRow(
 MANIFEST_NATIVE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.VIRTUAL, point="manifest.native", arm="boundary", defect="native-mint", retriability=TRANSIENT
 )
-# ONE parameterized row for both halves of the same law — a `ManifestWrite` arm handed the fold its own direction does
-# not serve — because an export case reaching `register` and a registration case reaching `write` are one defect
-# reading two coordinates. The deleted pair of `raise ValueError`s crossed the enclosing lift as unclassified
-# `boundary` faults, so a caller's own composition error arrived wearing a provider's classification.
 MANIFEST_DIRECTION: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.VIRTUAL, point="manifest.fold", arm="config", defect="wrong-fold", retriability=TERMINAL, slots=("case", "fold")
 )
@@ -196,8 +179,6 @@ class VirtualParser:
     def build(self) -> object:
         match self:
             case VirtualParser(tag="hdf", hdf=(group, drop)):
-                # Omission is load-bearing: VirtualiZarr supplies `BlockStoreReader`; an explicit `None` replaces the
-                # callable default and fails only when the parser first opens a source.
                 return HDFParser(group=group, drop_variables=list(drop))
             case VirtualParser(tag="netcdf3", netcdf3=(group, skip, reader_options)):
                 return NetCDF3Parser(group=group, skip_variables=list(skip), reader_options=reader_options)
@@ -236,9 +217,6 @@ class VirtualChunkSlab(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class ManifestWrite:
-    # the ONE export/registration axis: `kerchunk`/`icechunk` the EXPORT direction (the `write`
-    # fold over the vz accessors), `cube`/`native` the REGISTRATION direction (the
-    # `register` fold onto the icechunk session store) — one manifest vocabulary, two folds.
     tag: Literal["kerchunk", "icechunk", "cube", "native"] = tag()
     kerchunk: tuple[KerchunkFormat, int | None, int | None] = case()
     icechunk: tuple[object, str | None, str | None, str | None, tuple[object, ...] | None, bool, str | None, bool] = case()
@@ -246,15 +224,8 @@ class ManifestWrite:
     native: tuple[str, tuple[VirtualChunkSlab, ...]] = case()
 
     def write(self, cube: "xr.Dataset | xr.DataTree", target: ResourceRef) -> "RuntimeRail[None]":
-        # the fold returns the rail so its ONE wrong-direction arm answers the roster row rather than raising into the
-        # enclosing lift; `_receipt` binds it ahead of the identity fold, so a misrouted arm never keys bytes it
-        # refused to write.
         is_tree = isinstance(cube, xr.DataTree)
         match self:
-            # the `VirtualiZarrDataTreeAccessor` exposes no `to_kerchunk`, so a tree sink flattens
-            # to one `Dataset` for the kerchunk reference document; only `to_icechunk` survives the
-            # group hierarchy, its tree-accessor keyword `write_inherited_coords`, never the
-            # dataset accessor's `append_dim`/`region`.
             case ManifestWrite(tag="kerchunk", kerchunk=(fmt, record_size, threshold)):
                 flat = cube.to_dataset() if is_tree else cube
                 flat.vz.to_kerchunk(str(target.path), format=fmt, record_size=record_size, categorical_threshold=threshold)
@@ -275,8 +246,6 @@ class ManifestWrite:
     def register(self, session: "Session") -> "RuntimeRail[tuple[tuple[str, ...], VirtualEngine, int]]":
         match self:
             case ManifestWrite(tag="cube", cube=spec):
-                # the asdict strip-and-rebind: only the `export` slot overrides (to the icechunk
-                # case over THIS session's store); every other field rides through unchanged.
                 fields = {key: value for key, value in structs.asdict(spec).items() if key != "export"}
                 lowered = FieldVirtual(**fields, export=ManifestWrite(icechunk=(session.store, None, None, None, None, True, None, False))).aggregate()
                 return lowered.map(lambda r: (tuple(r.dims), "virtual", r.bytes_stored))
@@ -299,11 +268,6 @@ class ManifestWrite:
 
 
 class FieldVirtual(Struct, frozen=True):
-    # `sources` are credential-bearing REFS, never bare URLs: a manifest over signed archival assets walks their
-    # headers under the same token custody that signed each href, refreshing inside the handle rather than expiring
-    # mid-walk. The credential rides each source's own coordinate because a manifest spans MANY residences — a page
-    # field would credential every source with one provider, and `target` credentials the egress residence, which is
-    # a different store entirely. Both survive the `asdict` rebind, so a registration lowering carries them unchanged.
     sources: tuple[ResourceRef, ...]
     target: ResourceRef
     concat_dim: str = "time"
@@ -314,8 +278,6 @@ class FieldVirtual(Struct, frozen=True):
 
     @beartype(conf=FAULT_CONF)
     def aggregate(self) -> "RuntimeRail[FieldReceipt]":
-        # manifest construction walks archival headers over the object store — a spanned I/O leg, trace parity with the
-        # sibling gridded/spatial legs; the fence inside marks the span ERROR + record_exception on a failed leg.
         with _TRACER.start_as_current_span("virtual.manifest", attributes={"rasm.virtual.sources": len(self.sources)}):
             return boundary(MANIFEST_WALK, lambda: _aggregate(self), catch=_MANIFEST_RAISES).bind(lambda railed: railed)
 
@@ -336,8 +298,6 @@ class FieldVirtual(Struct, frozen=True):
         fillvalue: object | None = None,
         export: ManifestWrite = ManifestWrite(kerchunk=("parquet", None, None)),
     ) -> "RuntimeRail[FieldReceipt]":
-        # `_native_file` writes the HDF5 virtual dataset AT the target, so the written file IS the target residence:
-        # the source ref is `target` itself, carrying whatever credential the caller stamped on that coordinate.
         def _built() -> "RuntimeRail[FieldReceipt]":
             _native_file(slabs, shape, dtype, target, maxshape, fillvalue)
             return _aggregate(FieldVirtual(sources=(target,), target=target, export=export))
@@ -346,16 +306,10 @@ class FieldVirtual(Struct, frozen=True):
 
 
 def _url(ref: ResourceRef) -> str:
-    # the registry, the parsers, and every `open_virtual_*` positional take a URL string; the ref is what CARRIES it
-    # plus its credential, so one projection serves all three and no call site re-joins two values. `as_uri()` is
-    # load-bearing: obspec rejects a bare local path because every registry key requires an explicit scheme.
     return ref.path.as_uri()
 
 
 def _registry(sources: "Sequence[ResourceRef]", config: StoreConfig | None) -> object:
-    # Registry keys are STORE prefixes while parser URLs are OBJECT coordinates. Registering `_url(ref)` against a
-    # handle opened at that same full object makes longest-prefix resolution return the empty object key. The ref's
-    # own root/relative split is the one authority for both sides, and `store_handle(ref)` retains its credential.
     roots = tuple((ref.root, ref) for ref in sources)
     if any(left == right and first.credentials is not second.credentials for index, (left, first) in enumerate(roots) for right, second in roots[index + 1 :]):
         raise ValueError("one store root cannot carry multiple credential providers inside one ObjectStoreRegistry")
@@ -375,16 +329,11 @@ def _open_virtual(spec: FieldVirtual) -> "xr.Dataset":
 
 
 def _manifest_wire(name: str, manifest: dict[str, dict[str, object]]) -> bytes:
-    # the CANONICAL per-variable manifest bytes: sorted chunk-key rows of `path offset length`,
-    # one line each — a deterministic wire the `stream` identity modality folds; `repr(dict)` is
-    # the deleted byte source (non-canonical ordering and quoting), the folder key-law.
     rows = (f"{name}/{key} {entry['path']} {entry['offset']} {entry['length']}" for key, entry in sorted(manifest.items()))
     return "\n".join(rows).encode()
 
 
 def _receipt(sink: "xr.Dataset | xr.DataTree", stats: "xr.Dataset", export: "ManifestWrite", target: ResourceRef) -> "RuntimeRail[FieldReceipt]":
-    # the export rail binds AHEAD of the census, so a refused direction sheds the identity fold instead of keying a
-    # manifest whose bytes never landed.
     def _keyed(_landed: None) -> "RuntimeRail[FieldReceipt]":
         manifests = [
             _manifest_wire(str(name), var.data.manifest.dict()) for name, var in stats.data_vars.items() if hasattr(var.data, "manifest")
@@ -468,36 +417,13 @@ type CommitMeta = dict[str, str]
 type ContainerAuth = "tuple[tuple[str, AnyCredential], ...]"
 type VirtualEngine = Literal["virtual", "native"]
 
-# the repository plane's raise surface: `IcechunkError` is NAMED because it roots at bare `Exception` and every
-# refusal the verbs reach descends from it — `ConflictError`/`RebaseFailedError` at commit, `SessionStateError` on a
-# spent session, `StorageError`/`ReadOnlyError`/`AlreadyExistsError` at the store, and the `NotFoundError` family for
-# an absent snapshot, ref, or repository. Two of its leaves DO refine a builtin (`InvalidInputError` a `ValueError`,
-# `NotFoundError` a `KeyError`), which is exactly why the root and not the builtins carries the set. The Rust core
-# owns its own store I/O, so no object-store root crosses this fence the way it does the manifest walk above.
 _VERSION_RAISES: Final[Catch] = (ic.IcechunkError, KeyError, TypeError, ValueError, OSError)
 
-# this owner's metric segment and receipt owner label, spelled once. It shares a SPELLING with the `virtual` member
-# of `VirtualEngine` and nothing else: the engine names which registration path built a cube, this names the
-# partition and series every commit here reports under, and a reader conflating them mistakes a native-slab commit
-# for one under a foreign owner.
 DOMAIN: Final[str] = "virtual"
 type VirtualOutcome = "VirtualReceipt | str | Diff | set[str] | GCSummary | xr.Dataset"
 
-# chunk-refs per manifest shard, a DECLARED tuning a deployment reads and a tuning pass edits, never a measurement:
-# one manifest per array grows linear in chunk count, so an unsplit petabyte-scale cube pays the whole ref table on
-# every session open. The same number gates preload, so a shard small enough to load is exactly a shard preloaded.
 _SPLIT_CHUNKS: Final[int] = 65_536
 
-# the icechunk repository's OWN store policy. `Storage` is icechunk's Rust core rather than an `obstore` handle, so
-# the runtime `store_handle` envelope every other remote leg in this branch carries never reaches it — an
-# unconfigured repository re-dials and times out under provider defaults no page states, diverging from the manifest
-# walk running beside it against the same bucket. `RepositoryConfig` IS the vocabulary and a branch-local mirror of
-# its nested settings would be the rename wrapper, so this is ONE module-level VALUE a caller takes or replaces
-# whole, its retry and timeout axes DERIVED from the branch constants rather than re-asserted here. Manifest
-# splitting is the load-bearing axis at cube scale: `split_sizes` is a SEQUENCE of `(node-condition,
-# sequence-of-(dim-condition, size))` pairs — a mapping raises `TypeError: 'dict' object is not an instance of
-# 'Sequence'` — so a cube sharded along the axis its readers predicate on is one row, `AnyArray()`/`Any()` the
-# whole-repository default and `PathMatches`/`DimensionName` the narrowing this row family grows by.
 _REPOSITORY: "Final[RepositoryConfig]" = ic.RepositoryConfig(
     storage=ic.StorageSettings(
         retries=ic.StorageRetriesSettings(max_tries=STORE_RETRIES),
@@ -511,8 +437,6 @@ _REPOSITORY: "Final[RepositoryConfig]" = ic.RepositoryConfig(
     ),
 )
 
-# icechunk constructor per BRANCH BACKEND, keyed by the `StoreBackend` row family's own classification column so
-# this page states one constructor per residence class and no scheme at all.
 _ICE_BACKEND: "Final[Map[Backend, Callable[[ResourceRef], IceStorage]]]" = Map.of_seq([
     ("s3", lambda r: IceStorage(s3=(r.root, r.relative, None))),
     ("gcs", lambda r: IceStorage(gcs=(r.root, r.relative))),
@@ -522,12 +446,6 @@ _ICE_BACKEND: "Final[Map[Backend, Callable[[ResourceRef], IceStorage]]]" = Map.o
     ("memory", lambda r: IceStorage(memory=None)),
 ])
 
-# scheme -> constructor, DERIVED off the row family's own alias sets exactly as the sibling `gridded/store` derives
-# its kvstore drivers. A hand-listed roster beside that family is the second scheme roster the runtime owner's
-# boundary rejects, and it silently dropped `s3a`, `abfss`, and `azure` — every one of which the family classifies as
-# a remote residence and every one of which then fell through to the local row, opening a LOCAL FILESYSTEM
-# repository for a cloud residence. `r2` and `tigris` are icechunk's own S3-compatible vendors that the family
-# carries no row for, so they seat as explicit rows beside the derivation rather than forcing it flat.
 _STORAGE: "Final[Map[str, Callable[[ResourceRef], IceStorage]]]" = Map.of_seq([
     *((alias, _ICE_BACKEND[row.backend]) for row in STORE_BACKENDS for alias in row.aliases),
     ("r2", lambda r: IceStorage(r2=(r.root, r.relative, None))),
@@ -549,9 +467,6 @@ class IceStorage:
 
     @staticmethod
     def for_ref(ref: ResourceRef) -> "IceStorage":
-        # an unclassified scheme falls to the local row through the SAME spelling the derivation uses, since a path
-        # this branch cannot classify is a filesystem path; what makes that fallback safe is the derivation above
-        # carrying every classified cloud alias, rather than a hand roster leaving three of them to reach it.
         return _STORAGE.try_find(ref.scheme).default_value(_ICE_BACKEND["local"])(ref)
 
     def build(self) -> "Storage":
@@ -630,7 +545,7 @@ class VersionOp:
                 session = repo.writable_session(spec.branch)
 
                 @railed
-                def _commit():  # ruff:ignore[missing-return-type-private-function]
+                def _commit():
                     dims, engine, referenced = yield from write.register(session)
                     refs = tuple(session.all_virtual_chunk_locations())
                     snapshot = session.commit("virtual-reference", metadata=meta, rebase_with=solver)
@@ -677,11 +592,6 @@ class VirtualReceipt(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> "Iterable[Receipt]":
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
-        # the SAME pair handed `Metrics.record` beside the Merkle identity this commit minted — so the durable row
-        # lands in the `virtual` partition a predicate prunes and rejoins the live series its twin emitted. The
-        # metered quantity is REFERENCES rather than referenced bytes: a manifest copies nothing, so its own volume
-        # is the count of byte ranges it addressed, and the bytes column stays receipt evidence the cost fold prices.
         Metrics.record({"rasm.virtual.references": float(self.chunk_refs)}, domain=DOMAIN, kind=self.engine)
         yield Receipt.of(
             DOMAIN,
@@ -704,22 +614,14 @@ class VirtualReceipt(Struct, frozen=True):
 
 
 class VirtualReference(Struct, frozen=True):
-    # the SAME credential-bearing source refs `FieldVirtual` walks — one caller threads one tuple into both, so the
-    # census count and the manifest walk can never disagree about what this commit referenced.
     sources: tuple[ResourceRef, ...]
     ref: ResourceRef
     branch: str = "main"
     containers: ContainerAuth = ()
-    # the repository policy as ONE pre-constructed value: a caller tuning a cube's manifest shards, its cache
-    # budget, or its inline-chunk threshold replaces the whole `RepositoryConfig` rather than growing a knob tail
-    # here, and every axis this page does not decide keeps icechunk's own default rather than a re-asserted number.
     config: "RepositoryConfig" = _REPOSITORY
-    # the composition this owner's evidence and signals partition under, taken exactly as every sibling data owner
-    # takes it, so an embedded composition's commits never land under its host's scope.
     scope: ScopeKey = DEFAULT_SCOPE
 
     def apply(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
-        # snapshot commit/diff/reclaim run store I/O against the icechunk repository — spanned per verb, the branch a dimension.
         with _TRACER.start_as_current_span(f"{DOMAIN}.{op.tag}", attributes={"rasm.virtual.branch": self.branch}):
             return boundary(
                 VERSION_APPLY,
@@ -728,12 +630,6 @@ class VirtualReference(Struct, frozen=True):
             ).bind(lambda rail: rail)
 
     async def apply_async(self, op: VersionOp) -> "RuntimeRail[VirtualOutcome]":
-        # the awaitable twin the sibling `tabular/lakehouse#LAKEHOUSE` and `tabular/egress#EGRESS` owners already
-        # split off one body, over one `on_thread` band hop: every verb below is a blocking native repository call,
-        # so an async composition reaching `apply` stalls its loop for a whole commit. It is also the ONE seat this
-        # owner lands durable evidence from, because recording SUSPENDS by the never-shed law and no synchronous
-        # entry can. The record rail binds into the verdict, so an armed evidence plane refusing a commit fact
-        # surfaces here and a composition that installed none folds to the lawful no-op.
         railed = await async_boundary(VERSION_APPLY, lambda: on_thread(self.apply, op), catch=_VERSION_RAISES)
         match railed.bind(lambda rail: rail):
             case Result(tag="ok", ok=outcome):
@@ -743,11 +639,6 @@ class VirtualReference(Struct, frozen=True):
 
 
 def _evidence(spec: VirtualReference, outcome: VirtualOutcome) -> "Block[Fact]":
-    # only the COMMITTING outcome carries durable evidence, and it identifies itself by the receipt shape it alone
-    # answers — a tag test would re-derive a discriminant the outcome already is, and the read verbs (`diff`,
-    # `checkout`) mutate nothing to evidence. The meter carries REFERENCED bytes: a manifest copies nothing, so the
-    # volume this commit made addressable is the storage fact, exactly as the live series meters its reference
-    # count rather than those bytes. The verb spells `<domain>.<operation>` under the runtime producer grammar.
     if not isinstance(outcome, VirtualReceipt):
         return Block.empty()
     audited = AuditFact(

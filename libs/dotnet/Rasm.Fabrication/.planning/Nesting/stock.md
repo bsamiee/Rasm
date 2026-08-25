@@ -55,7 +55,7 @@
 - Receipt: `NestYield` retains requested and placed cardinality, stock count, true and rectangular areas, stock area, utilization, waste, cost, and the continuous sheet lower bound the placed count is proved against. Rectangular area reads the packer's own placed set wherever every used sheet publishes one, and `NestPlan.Validate` re-derives it from the projected placements, so the two sources disagreeing is an admission failure rather than a silent drift.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CommunityToolkit.HighPerformance.Buffers;
 using CommunityToolkit.HighPerformance.Helpers;
 using LanguageExt;
@@ -77,7 +77,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Nesting;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NestStrategy {
     private NestStrategy() { }
@@ -89,9 +89,6 @@ public abstract partial record NestStrategy {
     public sealed record MassCut : NestStrategy;
     public sealed record Sweep(Seq<NestStrategy> Cases) : NestStrategy;
 
-    // Only `Sweep` carries children, so expansion is a one-column read rather than a six-arm dispatch, and the
-    // frontier folds IMMUTABLY: a mutable queue beside a captured leaf list and a captured visit counter made the
-    // budget check depend on three variables no single expression could state.
     internal Fin<Seq<NestStrategy>> Expand(int countBudget, int depthBudget) =>
         countBudget < 1 || depthBudget < 0
             ? Budget()
@@ -259,8 +256,6 @@ public sealed partial class CutPart {
     }
 }
 
-// The rectangular search's own ceilings, and the integer grid every frame and envelope quantizes onto: two
-// admitted values instead of eight positional scalars whose adjacency a caller could transpose silently.
 public readonly record struct RectangularBudget(
     int StrategyBudget,
     int StrategyDepth,
@@ -330,15 +325,11 @@ public sealed partial class NestRun {
                     inventory,
                     strategy,
                     Seq<NestStrategy>(),
-                    // The stock budget clamps to REAL inventory here rather than refusing: a caller asking for more
-                    // sheets than the shop holds is asking for the shop, not for a rejection.
                     budget with { StockLimit = Math.Clamp(budget.StockLimit, 1, Math.Max(inventory.Count, 1)) },
                     grid,
                     out NestRun run)
                 .Admitted(run));
 
-    // Rectangular admission retains the quarter-turn subset of a rule's rotation family; an oblique-only rule has no
-    // rectangular realization and rails, never silently packing the part at an angle the provider cannot express.
     static Fin<CutPart> Part(Loop profile, PartRule rule, int instance) {
         BoundingBox bounds = profile.Bound();
         double angular = profile.Tolerance.Angle.Value;
@@ -353,8 +344,6 @@ public sealed partial class NestRun {
     }
 }
 
-// Symmetry law belongs to the STOCK, so the frame carries it off `Source.Law` and the part row carries none: a
-// part declares where it wants its grain, and the material declares which turns of the blank leave it unchanged.
 internal sealed record StockFrame(int Index, Stock Source, double OriginX, double OriginY, int Width, int Height,
     double Resolution, double TrueArea, MaterialId Material, Option<double> GrainAxis, MaterialSymmetry Law,
     double Cost) {
@@ -362,21 +351,10 @@ internal sealed record StockFrame(int Index, Stock Source, double OriginX, doubl
     public Rect Bounds => new(0, 0, Width, Height);
 }
 
-// Rectangular packing's own instance: a part already reduced to an integer-grid extent at one admitted rotation,
-// which is the only shape a `RectangleBinPack` provider inserts. `Additive/production` owns `OrientedPart` — a
-// build-plate model with its slices in one frame — and the two share no column, no admission, and no consumer, so
-// this internal takes the name its own domain earned.
 internal sealed record PackedPart(PartInstance Instance, CutPart Source, int Width, int Height, double Rotation);
 internal sealed record ProviderPlacement(PartInstance Instance, int StockIndex, Rect Rect, double Rotation);
-// One row per stock frame carrying the packer's own geometry: what it left free and what it placed. Only the packers
-// that publish a placement list fill `Placed`, and it fills only where the packer's own bin extent still matches the
-// frame that constructed it, so a receipt read from it cannot disagree with the placement that produced it.
 internal sealed record ProviderSheet(int Stock, Option<Seq<Rect>> Free, Option<Seq<Rect>> Placed);
 internal sealed record ProviderRun(NestStrategy Strategy, Seq<ProviderPlacement> Placements, Seq<ProviderSheet> Sheets);
-// Every placement carries its MOVE whole — turn and parity — because `Nest.Honor` transcribes a plan that need
-// not be this packer's: a shop-authored layout can flip a blank, and a plan unable to spell that forces the honour
-// fold to assume a parity it was never handed. This packer writes `false` on every row, since the integer envelope
-// it inserts is achiral and no provider in the family reflects one.
 public sealed record NestPlacement(int PartId, int Instance, int SheetIndex, double XMm, double YMm,
     double RotationRadians, bool Mirrored, double WidthMm, double HeightMm);
 public sealed record CutSpan(int PlacementIndex, CutAxis Axis, double CoordinateMm, double StartMm, double EndMm, double KerfMm);
@@ -394,11 +372,6 @@ public sealed partial class NestPlan {
     public NestYield Yield { get; }
     public ContentKey Evidence { get; }
 
-    // Graded refusals, one per unplaced instance, in the SAME `UnplacedReason` vocabulary the true-shape lane
-    // publishes, so `Nesting/nfp` honours a rectangular plan without flattening every miss to `Capacity`. This
-    // column stays OUT of the evidence digest and proves structurally instead: every reason addresses a requested
-    // instance no placement seated. Digesting it keys the plan on a diagnosis, so refining a grade order moves an
-    // address the shop already printed.
     public Seq<UnplacedReason> Unplaced { get; }
 
     [BoundaryAdapter]
@@ -421,9 +394,6 @@ public sealed partial class NestPlan {
             && row.SheetIndex >= 0 && row.SheetIndex < stock.Count && double.IsFinite(row.XMm) && double.IsFinite(row.YMm)
             && double.IsFinite(row.RotationRadians) && double.IsFinite(row.WidthMm) && row.WidthMm > 0.0
             && double.IsFinite(row.HeightMm) && row.HeightMm > 0.0);
-        // Plans reaching this validator carry parities this packer never mints, so the alignment proof reads each
-        // row's own MOVE through the `Nesting/nfp` folds — a mirror reflects the part's grain with its outline, and
-        // re-proving that here under a straight-parity assumption passes a layout whose grain runs the wrong way.
         bool eligible = inventory && indexed && placements.ForAll(row => {
             CutPart part = parts[new PartInstance(row.PartId, row.Instance)]; Stock source = frames[row.SheetIndex].Source;
             return part.Material.ForAll(material => material == source.Material)
@@ -486,12 +456,7 @@ public sealed partial class NestPlan {
             || patterns.Count != used.Count
             || patterns.Map(static pattern => pattern.SheetIndex).ToFrozenSet().SetEquals(used) is false
             || evidence is null || evidence.Kind != EgressKind.StockSnapshot || evidence.Digest == UInt128.Zero
-            // Retaining closes answer on the rail, so a preimage that never retained its bytes refuses the plan
-            // here rather than passing an address nothing minted.
             || !StockNest.Digest(run, stock, placements, patterns, yield).ToOption().Exists(minted => evidence == minted)
-            // Every refusal addresses a REQUESTED instance the plan left unseated, and one instance carries at
-            // most one row per axis — a reason naming a placed instance would tell the shop a part it holds was
-            // never cut.
             || !unplaced.ForAll(reason => Instance(reason) is PartInstance row
                 && requested.Contains(row) && !actual.Contains(row))
             || unplaced.Count != unplaced.Map(static reason => (Instance(reason), reason.GetType())).Distinct().Count
@@ -499,8 +464,6 @@ public sealed partial class NestPlan {
                 : null;
     }
 
-    // Every `UnplacedReason` case names the instance it refused, so this projection is total over that family and
-    // a new case cannot land without answering it.
     static PartInstance Instance(UnplacedReason reason) => reason.Switch(
         material: static row => new PartInstance(row.PartId, row.Instance),
         grain: static row => new PartInstance(row.PartId, row.Instance),
@@ -541,12 +504,6 @@ internal abstract partial record EligibilityNode {
     public sealed record Stock(int Index) : EligibilityNode;
 }
 
-// Admission is GRADED, never a bare yes: the four axes a frame refuses a part on are four the true-shape lane
-// already names as `UnplacedReason` cases, so the grade IS the arrow between them. A bool answered "no" and
-// threw the axis away, which is why every rectangular miss reached `Nesting/nfp` as a blanket `Capacity` — a
-// shop reading that receipt could not tell a wrong-alloy part from one that simply ran out of sheet. `Admitted`
-// carries no reason because nothing needs explaining, and refusing rows order as the eligibility walk tests them:
-// material before extent before grain before symmetry, cheapest test first.
 [SmartEnum<string>]
 public sealed partial class EligibilityGrade {
     public static readonly EligibilityGrade Admitted = new("admitted",
@@ -566,7 +523,7 @@ public sealed partial class EligibilityGrade {
     public partial Option<UnplacedReason> Reason(PartInstance part, UInt128 stock);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StockNest {
     public static Fin<NestPlan> Pack(NestRun run) =>
         from frames in Frames(run)
@@ -584,7 +541,6 @@ public static class StockNest {
         from plan in Project(run, frames, eligibility, proved)
         select plan;
 
-    // Rectangular admission precedes the stock budget: taking first would spend the budget on frames the packer rejects.
     internal static Fin<Seq<StockFrame>> Frames(NestRun run) {
         Seq<StockFrame> frames = run.Inventory.Map((stock, index) => (stock, index))
             .Choose(row => Frame(row.stock, row.index, run.EdgeAllowanceMm, run.ResolutionMm))
@@ -626,8 +582,6 @@ public static class StockNest {
             billet: static _ => true, filament: static _ => false, fromRemnant: static _ => true);
     }
 
-    // Exact mixed-radix enumeration while the assignment space fits the budget; beyond it a decorrelated per-part draw,
-    // because a saturating stride freezes every part past the prefix at its first rotation and samples one corner only.
     static Seq<Seq<PackedPart>> Orientations(Seq<CutPart> parts, int budget, double resolution, double kerf) {
         Seq<long> strides = parts.Fold(Seq(1L), static (acc, part) =>
             acc.Add(Saturated(acc.Last.IfNone(1L), part.Rotations.Count))).Init;
@@ -657,8 +611,6 @@ public static class StockNest {
     static long Saturated(long prior, int radix) =>
         radix < 1 || prior > long.MaxValue / radix ? long.MaxValue : prior * radix;
 
-    // Beyond the exhaustive budget the assignment is DRAWN, and a raw stream modulo would bias a non-power-of-two
-    // rotation count toward its low rows; one threaded state through the kernel's rejection draw removes it.
     static int Rotation(int seed, int index, int count) {
         ulong stream = Deterministic.Stream(lanes: [seed, index]);
         return Deterministic.NextBelow(ref stream, count);
@@ -678,9 +630,6 @@ public static class StockNest {
                 : Fin.Fail<Seq<ProviderRun>>(new FabricationFault.StockOverflow(run.Parts.Count, frames.Count)));
     }
 
-    // Each arm supplies only what its provider type cannot share: how to construct the packer, how to insert a
-    // part, and which of its own geometry the sheet receipt retains. The drive fold, the option lift, and the
-    // sheet-shape trio are hoisted, so an arm is one expression and a new provider adds no fold.
     static Fin<Option<ProviderRun>> Evaluate(NestStrategy strategy, Seq<PackedPart> parts, Seq<StockFrame> frames,
         EligibilityGraph eligibility) =>
         strategy.Switch(
@@ -690,8 +639,6 @@ public static class StockNest {
                 static (packer, frame) => new ProviderSheet(
                     frame.Index,
                     Some(packer.FreeRectangles.ToSeq()),
-                    // The used list belongs to the frame that constructed the packer; a resized bin publishes a
-                    // roster addressing extents this frame never had.
                     packer.BinWidth == frame.Width && packer.BinHeight == frame.Height
                         ? Some(packer.UsedRectangles.ToSeq())
                         : None)),
@@ -714,8 +661,6 @@ public static class StockNest {
             sweep: static _ => Fin.Fail<Option<ProviderRun>>(
                 new KernelFault.InvalidValue("stock", "stock:nested-sweep")));
 
-    // A packer publishing neither its free nor its used geometry retains its frame index alone; the receipt states
-    // the absence rather than inventing an empty roster a validator would read as a proved complement.
     static Func<TPacker, StockFrame, ProviderSheet> Opaque<TPacker>() where TPacker : class =>
         static (_, frame) => new ProviderSheet(frame.Index, None, None);
 
@@ -723,8 +668,6 @@ public static class StockNest {
         EligibilityGraph eligibility, Func<StockFrame, TPacker> create, Func<TPacker, PackedPart, Rect> insert,
         Func<TPacker, StockFrame, ProviderSheet> state) where TPacker : class {
         TPacker[] packers = frames.Map(create).ToArray();
-        // Each Insert mutates its packer, so the frame walk short-circuits on the first fit; a lazy filter-map would
-        // insert the part into every eligible packer and keep one, silently consuming free area in all the others.
         Seq<ProviderPlacement> placements = parts.Fold(Seq<ProviderPlacement>(), (accepted, part) => frames
             .Filter(frame => eligibility.Allows(part.Instance, part.Rotation, frame.Index).Admits)
             .Fold(Option<ProviderPlacement>.None, (found, frame) => found.IsSome
@@ -771,9 +714,6 @@ public static class StockNest {
         Seq<CutPattern> patterns = used.Map(index => Pattern(index, provider,
             placements.Filter(row => row.SheetIndex == index), frames[index], run.ResolutionMm, run.KerfMm));
         Seq<Stock> stock = frames.Map(static row => row.Source);
-        // Instances the winning provider never seated were refused by the relation, by the sheet budget, or by
-        // both — so graded refusals come first and `Capacity` reads as the residual no grade explains, which is
-        // its only reading under which that case name means what it says.
         FrozenSet<PartInstance> seated = provider.Placements.Map(static row => row.Instance).ToFrozenSet();
         Seq<UnplacedReason> unplaced = run.Parts
             .Filter(part => !seated.Contains(new PartInstance(part.PartId, part.Instance)))
@@ -786,9 +726,6 @@ public static class StockNest {
                 .Admitted(plan));
     }
 
-    // Each packer holds the placed set it mutated, so where every used sheet publishes one the rectangle area is
-    // READ rather than re-accumulated from the projected footprints; the placement derivation stays the
-    // independent recomputation plan admission proves the receipt against.
     internal static NestYield YieldOf(NestRun run, Seq<StockFrame> frames, Seq<NestPlacement> placements,
         Seq<ProviderSheet> sheets) {
         FrozenDictionary<PartInstance, CutPart> parts = run.Parts
@@ -850,18 +787,6 @@ public static class StockNest {
     static double UsedCost(ProviderRun run, Seq<StockFrame> frames) => run.Placements.Map(static row => row.StockIndex)
         .Distinct().Sum(index => frames[index].Cost);
 
-    // The ONE byte codec is the `Rasm.Element` `CanonicalWriter` INSTANCE: it folds `-0.0`, collapses every NaN
-    // payload to one pattern, frames each string by its UTF-8 byte count, and writes a presence bit before an
-    // optional value, so a rectangular digest and a true-shape digest can never fork on framing. Field ORDER is
-    // the page's and stays; the static twin this page once composed is deleted, not aliased. Unit identity rides
-    // the same freeze: every digested scalar is a bare millimetre-basis double named by its own `Mm`/`Mm2` suffix,
-    // and lifting one to a typed quantity moves the preimage bytes — forking every `StockSnapshot` key already
-    // minted and the `NestYield` projection `Rasm.Compute` decodes off it.
-    // Every preimage composes `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`: `Rows` writes the
-    // count ahead of its rows, `Maybe` frames absence as a presence bit ahead of the payload, and `Double`
-    // normalizes `-0.0` and every NaN pattern — so a hand-counted collection prologue, a sentinel ordinal for an
-    // absent free-rectangle list, and a page-local presence writer are all the deleted form. Field ORDER is this
-    // page's and stays; only the framing moves onto the codec.
     internal static Fin<ContentKey> Digest(NestRun run, Seq<Stock> stock, Seq<NestPlacement> placements,
         Seq<CutPattern> patterns, NestYield yield) =>
         FabricationCanon.Keyed(EgressKind.StockSnapshot, run.ResolutionMm, writer => writer
@@ -903,20 +828,12 @@ public static class StockNest {
 
     private static readonly Op SnapshotOp = Op.Of(name: nameof(Digest));
 
-    // A strategy key digests a closed row vocabulary and writes no `Measure`, so the writer's quantization grid
-    // never reaches the bytes; the anchor names that inertness rather than borrowing a run's geometry grid.
     const double MeasureFreeGrid = 1.0;
 
-    // Strategy IDENTITY totally orders a closed row vocabulary and never addresses an artifact, so it takes the
-    // STREAMING close and materializes no buffer — and the plan validator compares thousands of these.
-    // NAMED LOSS: the `EgressKind` frame goes with the retained buffer. WITNESS: the preimage opens with the
-    // literal `nameof(NestStrategy)`, so no other family on this page can present the same bytes.
     internal static UInt128 StrategyKey(NestStrategy strategy) =>
         FabricationCanon.Ordered(MeasureFreeGrid,
             writer => WriteStrategy(writer.String(nameof(NestStrategy)), strategy));
 
-    // A strategy preimage is its own case token then its own closed rows: `Discriminant` frames each generated key
-    // length-prefixed, so a provider heuristic reordering its enum can never re-key a plan.
     static CanonicalWriter WriteStrategy(CanonicalWriter writer, NestStrategy strategy) => strategy.Switch(
         state: writer,
         maxRects: static (held, row) => held.String(nameof(NestStrategy.MaxRects)).Discriminant(row.Choice),
@@ -937,8 +854,6 @@ public static class StockNest {
     }
 }
 
-// Connected components over the bipartite eligibility relation are independent cutting sub-problems, so a component whose
-// part-area demand exceeds its own reachable stock supply is provably infeasible before any provider runs.
 internal sealed class EligibilityGraph {
     readonly UndirectedGraph<EligibilityNode, SEdge<EligibilityNode>> graph;
     readonly HashMap<EligibilityNode, int> components;
@@ -957,9 +872,6 @@ internal sealed class EligibilityGraph {
         graph.AddVertexRange(partNodes.Cast<EligibilityNode>());
         graph.AddVertexRange(orientationNodes.Cast<EligibilityNode>());
         graph.AddVertexRange(frames.Map(static row => new EligibilityNode.Stock(row.Index)).Cast<EligibilityNode>());
-        // Measurement runs ONCE per (instance, rotation, frame) triple here and never again: admitting rows
-        // become edges, refusing rows become the retained diagnosis, and this walk is the one the relation always
-        // ran — retention costs the same order as the measurement it already paid for.
         Seq<((PartInstance Part, long Rotation, int Stock) Slot, EligibilityGrade Grade)> measured =
             parts.Bind(part => part.Rotations.Bind(rotation => {
                 PartInstance instance = new(part.PartId, part.Instance);
@@ -973,8 +885,6 @@ internal sealed class EligibilityGraph {
         measured.Filter(static row => row.Grade.Admits).Iter(row => graph.AddEdge(new SEdge<EligibilityNode>(
             new EligibilityNode.Orientation(row.Slot.Part, BitConverter.Int64BitsToDouble(row.Slot.Rotation)),
             new EligibilityNode.Stock(row.Slot.Stock))));
-        // An orphan is a part whose every orientation reaches no frame — the graph's own degree answers it, so the
-        // cross-product of parts against orientations this replaces re-derived membership the container already holds.
         if (orientationNodes.GroupBy(static row => row.Value)
             .Any(group => group.All(orientation => graph.AdjacentDegree(orientation) == 1)))
             return Fin.Fail<EligibilityGraph>(new KernelFault.InvalidValue("stock", "stock:orphan-part"));
@@ -987,29 +897,17 @@ internal sealed class EligibilityGraph {
                 toHashMap(measured.Filter(static row => !row.Grade.Admits)))));
     }
 
-    // Admitted pairs are EDGES and refused ones retained grades, so this relation answers WHY on both sides from
-    // one read: only the walk that built the graph measures the three axes, and re-measuring them at a consumer
-    // is how a filter and a diagnosis drift apart.
     public EligibilityGrade Allows(PartInstance part, double rotation, int stock) =>
         graph.TryGetEdge(new EligibilityNode.Orientation(part, rotation), new EligibilityNode.Stock(stock), out _)
             ? EligibilityGrade.Admitted
             : grades.Find((part, BitConverter.DoubleToInt64Bits(rotation), stock)).IfNone(EligibilityGrade.Extent);
 
-    // Unplaced census for one instance: every reachable frame's grade, deduplicated to its dominant axis, so a
-    // part refused by alloy everywhere reports alloy once rather than once per sheet. Parts with no refusing frame
-    // at all were placed and contribute nothing.
     public Seq<UnplacedReason> Unplaced(PartInstance part, Seq<double> rotations, Seq<StockFrame> frames) =>
         rotations.Bind(rotation => frames.Map(frame => (frame, Grade: Allows(part, rotation, frame.Index))))
             .Filter(static row => !row.Grade.Admits)
             .Choose(row => row.Grade.Reason(part, row.frame.Identity))
             .DistinctBy(static reason => reason.GetType());
 
-    // Each component is an independent cutting sub-problem, so its own part-area demand against its own reachable
-    // stock supply is the admissible feasibility relaxation — Hall's condition by AREA over a many-to-one relation.
-    // `MaximumBipartiteMatchingAlgorithm` is REFUSED by name here: a matching saturates a one-to-one assignment, and
-    // one frame carries many parts, so a perfect matching neither exists nor implies feasibility on this relation;
-    // the area bound is exact where a matching would be vacuous. Supply indexes by component ONCE, so the frame
-    // roster is walked once rather than once per component.
     static Option<int> Starved(Seq<CutPart> parts, Seq<StockFrame> frames, HashMap<EligibilityNode, int> components) {
         Map<int, double> supply = frames.Fold(Map<int, double>(), (index, frame) =>
             index.AddOrUpdate(components.Find(new EligibilityNode.Stock(frame.Index)).IfNone(-1),
@@ -1028,13 +926,6 @@ internal sealed class EligibilityGraph {
             .Map(static group => group.Count);
     }
 
-    // First refusal wins and the order is the cost order — an alloy comparison before an integer extent before a
-    // presence test before a modular-angle fold — so the grade a consumer reads is the cheapest true explanation,
-    // not the last one tested. `Grain` names the ABSENT axis, a directional part against stock declaring no
-    // direction, and `Symmetry` names the refused TURN, a quarter-turn whose grain residual falls outside the
-    // stock fold's cone; both readings and both folds are `Nesting/nfp`'s, so this lane grades what that lane
-    // gates. A rectangle envelope is ACHIRAL, so no packer inserts a reflected part and this lane mints no flip
-    // move: the grade reads the straight parity because that is the only parity it can produce.
     static EligibilityGrade Fits(CutPart part, StockFrame stock, double kerf, double rotation) {
         (int Width, int Height) extent = StockNest.Envelope(part, stock.Resolution, kerf, rotation);
         SymmetryFold fold = Nest.Fold(part.GrainAxis, stock.Law);

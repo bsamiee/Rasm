@@ -23,7 +23,7 @@ Seam-graph interchange stays out of Bim: the `ElementGraph`/`GraphDelta` snapsho
 - Boundary: this page carries NO decode fence — the bytes→`DatabaseIfc` admission IS `Exchange/import#IMPORT_RAIL` `BimIo.ImportIfc` composed under the `wire-decode` admission context, so a second decode beside the import rail is the deleted form and a hand-constructed non-IFC `IfcWire` faults at `Admit` through that owner's own codec gate. Rooted `NodeId` stays LOCAL — a fresh `Guid`-v7 per ingest, the compressed IFC `GlobalId` riding `Node.Object.ExternalId` for re-ingest correlation — so a re-admitted wire re-mints rooted ids, a "rooted address round-trips across runtimes" claim is the deleted form, and cross-runtime parity runs over that correlation and the content-keyed non-rooted `Material`/`PropertySet`/representation nodes. `ExportArtifact`, the geometry-bearing GLB byte-keyed emit, is `Exchange/export#EXPORT_RAIL`'s and distinct: byte identity, never graph identity.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using GeneratorEquals;
@@ -35,15 +35,11 @@ using Rasm.Bim.Model;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using static LanguageExt.Prelude;
-using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;   // both imported namespaces declare the name; the seam one is the wire stamp
+using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 
 namespace Rasm.Bim;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// ReadOnlyMemory<byte> under synthesized record equality compares the HANDLE — object reference, offset, length —
-// so two byte-identical wires of one graph read UNEQUAL and every memo, parity probe, and re-seal guard keyed on
-// that record misses. WireBytes moves the column onto a span compare and hashes through the ONE kernel
-// seed-zero digest the parity row already mints, so the cheap pre-test and the exact answer share a hasher.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class WireBytes : IEqualityComparer<ReadOnlyMemory<byte>> {
     public static readonly WireBytes Default = new();
 
@@ -52,9 +48,6 @@ public sealed class WireBytes : IEqualityComparer<ReadOnlyMemory<byte>> {
     public int GetHashCode(ReadOnlyMemory<byte> value) => ContentHash.Of(value.Span).GetHashCode();
 }
 
-// IfcWire stores InterchangeFormat.Key because the rich format row carries host-local codec and capability state.
-// One ElementGraph emits to every GeometryGym IFC serialization ALL sharing one Content, because identity is the
-// SEMANTIC graph address, never the byte hash — so a STEP and an ifcJSON of one model join on one key.
 [Equatable]
 public sealed partial record IfcWire {
     private IfcWire(string format, ReadOnlyMemory<byte> bytes, ReleaseVersion schema, ContentAddress content, Instant at) =>
@@ -71,18 +64,11 @@ public sealed partial record IfcWire {
 
     public long ByteCount => Bytes.Length;
 
-    // ONE admission for every column a caller supplies, ACCUMULATING across the two that can refuse: the format key
-    // must resolve to a rostered row under ordinal identity, and the payload must carry bytes. Schema, Content, and
-    // At are typed non-nullable columns with nothing left to prove, which is precisely why the two null-shaped
-    // guards this replaces could never fire — they tested positional columns the type system already closed, and
-    // their interior readers treated absence as reachable.
     public static Fin<IfcWire> Of(
         string format, ReadOnlyMemory<byte> bytes, ReleaseVersion schema, ContentAddress content, Instant at, Op key) =>
         (Rostered(format, key), Payload(bytes, format, key))
             .Apply((row, payload) => new IfcWire(row.Key, payload, schema, content, at)).As().ToFin();
 
-    // Ordinal key identity keeps the wire canonical where Detect serves path, extension, and media-type ingress: a
-    // wire column is the row's OWN key, never a case-folded or extension-shaped spelling of it.
     static Validation<Error, InterchangeFormat> Rostered(string value, Op key) =>
         InterchangeFormat.Items.Find(row => StringComparer.Ordinal.Equals(value, row.Key))
             .ToValidation<Error>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "interchange-format-miss", value })));
@@ -92,11 +78,6 @@ public sealed partial record IfcWire {
             ? Validation<Error, ReadOnlyMemory<byte>>.Fail(new BimFault.Refused(key, BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format })))
             : Validation<Error, ReadOnlyMemory<byte>>.Success(bytes);
 
-    // Producer egress: re-author the graph to IFC bytes through SemanticProjector.Emit, stamp the wire-form
-    // INDEPENDENT seam graph content-address and the Header schema. Emit's emittable gate IS the
-    // format#FORMAT_AXIS Serialization column filtered by RoundTrippable, because a sealed wire must re-admit
-    // through the SAME row — so a None column or a one-way row faults wire-encode. Emit already returns BYTES (the
-    // row's own seal writes the container), so this seam stores the memory whole and no re-encode hop exists.
     public static Fin<IfcWire> Seal(
         SemanticProjector projector, ElementGraph graph, InterchangeFormat format,
         Option<EmitContext> context, Instant at, Op key) =>
@@ -105,9 +86,6 @@ public sealed partial record IfcWire {
                 Of(format.Key, bytes, graph.Header.Schema, ContentAddress.OfGraph(graph), at, key)),
             None: () => Fin.Fail<IfcWire>(new BimFault.Refused(key, BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-encode", format.Key }))));
 
-    // Admission is a DEPENDENCE chain end to end — the decode needs the resolved row, the assembly needs the
-    // database, the header check needs the assembled graph — so it sequences on Fin and the independent columns
-    // accumulate at Of instead. The format read is total against that admission.
     public Fin<ElementGraph> Admit(ProjectionContext ctx, IIfcTypeReconciler reconciler, IIfcProfileStore profiles) =>
         from format in Rostered(Format, ctx.Key).ToFin()
         from db in BimIo.ImportIfc(format, Bytes, ctx.Key)
@@ -123,26 +101,12 @@ public sealed partial record IfcWire {
             (Error)new BimFault.Refused(ctx.Key, BimScope.Wire, BimReason.Rejected, string.Join(':', new object?[] { "wire-decode", $"schema:{Schema.Key}:{graph.Header.Schema.Key}" })))
         select graph;
 
-    // Content negotiation across the IFC serializations a peer admits (STEP > ifcXML > ifcJSON by interop breadth)
-    // — the data-interchange "fidelity routes the format" law. An empty intersection faults rather than silently
-    // defaulting to STEP, and Negotiate offers ONLY sealable rows, so a negotiated format always Seals. The
-    // accepted set is hashed ONCE at the boundary: the pair of linear Contains probes it replaces re-scanned the
-    // caller's sequence twice per rostered row.
     public static Fin<InterchangeFormat> Negotiate(Seq<string> accepted, Op key) =>
         Mutual(toHashSet(accepted)).ToFin(new BimFault.Refused(key, BimScope.Wire, BimReason.Codec, string.Join(':', new object?[] { "wire-no-mutual", string.Join(',', accepted) })));
 
     static Option<InterchangeFormat> Mutual(HashSet<string> offered) =>
         Serializations.Value.Find(f => offered.Contains(f.Key) || offered.Contains(f.MediaType));
 
-    // GeometryGym-emittable IFC wire forms, highest interop fidelity first — DERIVED from the format#FORMAT_AXIS
-    // Serialization column plus export capability, so a future IFC5/IFCX codec admission joins the wire with NO
-    // edit here. IFC5 is ABSENT until then because GeometryGym reads and writes IFC2x3-IFC4.x only, and
-    // enumerating the pending ifc5 row would advertise a wire form Seal cannot produce. FidelityRank is a COLUMN
-    // on the Projection/wireform#IFC_WIRE_FORM row that owns serialization and container, so this fold READS the
-    // owning row's rank rather than re-switching on a serialization kind. Choose fuses the filter and the rank
-    // read, which is what retires the unreachable int.MaxValue sort sentinel the two-step spelling carried behind
-    // its own IsSome test. A container form ranks with the serialization it repeats, so plain and zipped STEP tie
-    // and the stable sort holds InterchangeFormat.Items roster order, bare form first.
     static readonly Lazy<Seq<InterchangeFormat>> Serializations = new(static () =>
         toSeq(InterchangeFormat.Items
             .Choose(static f => f.Serialization.Filter(_ => f.RoundTrippable).Map(form => (Row: f, form.FidelityRank)))
@@ -151,13 +115,7 @@ public sealed partial record IfcWire {
         LazyThreadSafetyMode.ExecutionAndPublication);
 }
 
-// IFC-wire leg of the cross-runtime golden corpus: the seam graph content-key (the cross-runtime CONTRACT) with the
-// C#-host IFC-bytes golden. A cross-runtime BYTE-equality claim is the deleted form — GeometryGym, ifcopenshell,
-// and web serializers emit divergent byte layouts for one graph, so the byte golden never crosses runtimes.
 public sealed record WireParity(string Corpus, ContentAddress GraphKey, UInt128 GoldenBytes, long ByteCount) {
-    // Byte goldens mint through the ONE kernel seed-zero ContentHash the semantic key already rides: the two are
-    // different QUESTIONS over one hasher, so a second digest scheme beside it forks the content space this
-    // package's own ruling seals to one.
     public static WireParity Of(string corpus, IfcWire wire) =>
         new(corpus, wire.Content, ContentHash.Of(wire.Bytes.Span), wire.ByteCount);
 

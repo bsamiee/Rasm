@@ -34,13 +34,11 @@ import type { CloudEventV1 } from "cloudevents"
 import { Array, Data, Effect, Either, Number, Option, Order, Predicate, Record, RegExp, Schema, String, pipe } from "effect"
 import { Event, Fault, Shape } from "@rasm/core"
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 declare namespace Filter {
   type Dialect = keyof typeof _DIALECTS
   type Row = { readonly pushdown: string; readonly arity: "attributes" | "nested" | "single" | "text" }
-  // Recursion forces this one sanctioned hand-stated twin: the union mentions itself, so inference cannot close it,
-  // and its annotation on the suspended declaration states what the checker cannot compute.
   type Spec =
     | { readonly _tag: "all"; readonly all: ReadonlyArray<Spec> }
     | { readonly _tag: "any"; readonly any: ReadonlyArray<Spec> }
@@ -54,10 +52,8 @@ declare namespace Filter {
   type _Rows<T extends Record.ReadonlyRecord<Dialect, Row> = typeof _DIALECTS> = T
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Each case ships as a single-key object, so the discriminant attaches at the declaration and encode drops it: the
-// wire stays exactly what the specification publishes while the interior dispatches one closed tagged family.
 const _Attributes = Shape.Record(Schema.NonEmptyString, Schema.String)
 
 const _Spec: Schema.Schema<Filter.Spec> = Schema.Union(
@@ -73,10 +69,8 @@ const _Spec: Schema.Schema<Filter.Spec> = Schema.Union(
     .pipe(Schema.attachPropertySignature("_tag", "not")),
 )
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// `pushdown` states where a dialect RESOLVES, so a binding reads its own answer instead of inferring one from the
-// dialect's name; `arity` states what the row's payload carries, so the compile arm reads its operand shape here.
 const _DIALECTS = {
   all: { arity: "nested", pushdown: "<broker-only-when-every-child-pushes-down>" },
   any: { arity: "nested", pushdown: "<broker-only-when-every-child-pushes-down>" },
@@ -87,8 +81,6 @@ const _DIALECTS = {
   suffix: { arity: "attributes", pushdown: "<consumer-side-on-every-transport>" },
 } as const satisfies Record.ReadonlyRecord<string, Filter.Row>
 
-// One attribute comparison serves the three text dialects: the row supplies the test and the fold supplies the
-// missing-attribute reading, so `exact`, `prefix`, and `suffix` differ by a predicate and never by a body.
 const _TEXT = {
   exact: (held: string, expected: string) => held === expected,
   prefix: (held: string, expected: string) => String.startsWith(expected)(held),
@@ -140,8 +132,6 @@ const _compiled = (
     ? Either.left(new CesqlFault({ case: { reason: "parse", stage: "nesting", detail: `spec nests past depth ${_CESQL_CEILING.depth}` } }))
     : _Compile[spec._tag](spec as never, grammar, lower, depth)
 
-// Compile arms map over the same closed family the union declares, so a dialect landing without
-// its arm is a compile error at this table rather than a subscription that admits and never matches.
 const _Compile: {
   readonly [K in Filter.Dialect]: (
     spec: Extract<Filter.Spec, { readonly _tag: K }>,
@@ -195,7 +185,7 @@ const CesqlValue = Data.taggedEnum<CesqlValue>()
 
 declare namespace Cesql {
   type Type = CesqlValue["_tag"]
-  type Slot = Type | "Any" // the casting builtins admit every type, so their slot names the absence of a crossing
+  type Slot = Type | "Any"
   type Issue = typeof _cesqlFamily.payload.Type
   type Reason = (typeof _cesqlFamily.kinds)[number]
   type Reading = { readonly value: CesqlValue; readonly faults: ReadonlyArray<CesqlFault> }
@@ -212,10 +202,8 @@ declare namespace Cesql {
   type _Functions<T extends Record.ReadonlyRecord<string, FunctionRow> = typeof _CESQL_FUNCTIONS> = T
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-// Specification law fixes Integer at 32 bits; admission bounds the expression so the evaluator's own recursion walks a
-// data depth, and a caller-supplied filter past either ceiling refuses before it ever reaches the fold.
 const _CESQL_I32 = { max: 2147483647, min: -2147483648 } as const
 const _CESQL_CEILING = { depth: 32, text: 4096 } as const
 const _CESQL_DECIMAL = /^[+-]?(?:0|[1-9][0-9]*)$/
@@ -227,26 +215,13 @@ const _CESQL_ZERO = {
   String: CesqlValue.String({ value: "" }),
 } as const satisfies { readonly [K in Cesql.Type]: Extract<CesqlValue, { readonly _tag: K }> }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// The value roster as data, so the cast row's subject closes against the same three words `_CESQL_ZERO` already
-// proves total against the tagged family.
 const _CESQL_TYPES = ["Boolean", "Integer", "String"] as const satisfies ReadonlyArray<Cesql.Type>
 const _CesqlType = Schema.Literal(..._CESQL_TYPES)
 
-// Four legs partition the census by the surface that raised the reading: the value algebra crosses and saturates,
-// the operator tables resolve names and arities, the expression fold reads the envelope, the grammar owner admits
-// text. A consumer routing a refusal reads the leg rather than re-deriving it from the reason.
-// The four admission stages a text refusal can reach, so a `parse` reading names WHERE the text died instead of
-// carrying that stage hand-templated into its message.
 const _CESQL_STAGES = ["lex", "nesting", "parse", "text"] as const
 
-// Each reason declares its OWN subject and renders it: the free `detail` string re-opened the axis `reason` closed,
-// and every diagnostic this page produced was a hand-templated `<word:value>` no consumer could read back. The
-// coordinates are now columns — the crossing pair a cast refused, the operand and extent a slice fell outside, the
-// site and value an arithmetic band rejected, whether an absent identifier is a declared extension, the offered
-// arity beside the name, the stage a text refusal reached — and the seven spellings stay the conformance corpus's
-// own, declared alphabetically, so two branches transcribing the roster publish one sequence.
 const _cesqlFamily = Fault.Class.family(
   ["cast", "functionEvaluation", "generic", "math", "missingAttribute", "missingFunction", "parse"] as const,
   {
@@ -265,8 +240,6 @@ const _cesqlFamily = Fault.Class.family(
     generic: Fault.Class.row({
       class: "defect",
       leg: "grammar",
-      // the lowering visitor is foreign code behind an untyped seam, so its throw stringifies and nothing narrower is
-      // true of it; every other row in this family declares real coordinates
       detail: Schema.Struct({ detail: Schema.String }),
       render: ({ detail }) => `the lowering visitor threw — ${detail}`,
     }),
@@ -279,8 +252,6 @@ const _cesqlFamily = Fault.Class.family(
     missingAttribute: Fault.Class.row({
       class: "absent",
       leg: "envelope",
-      // the roster decides the DIAGNOSTIC and it is a column, not a prefix: a declared extension the producer omitted
-      // and a name the grammar never rostered are two readings of one absence
       detail: Schema.Struct({ name: Schema.NonEmptyString, rostered: Schema.Boolean }),
       render: ({ name, rostered }) =>
         rostered ? `${name} is a declared extension this envelope omitted` : `${name} names no attribute this roster declares`,
@@ -288,8 +259,6 @@ const _cesqlFamily = Fault.Class.family(
     missingFunction: Fault.Class.row({
       class: "malformed",
       leg: "builtin",
-      // arity is part of a name's identity, so the offered arity rides beside the name and `rostered` separates an
-      // unknown name from a known one offered at an arity its row does not admit
       detail: Schema.Struct({ arity: Schema.Int, name: Schema.NonEmptyString, rostered: Schema.Boolean }),
       render: ({ arity, name, rostered }) =>
         rostered ? `${name} rows no arity ${arity}` : `${name} names no builtin this table rows`,
@@ -306,8 +275,6 @@ const _cesqlFamily = Fault.Class.family(
 class CesqlFault extends Schema.TaggedError<CesqlFault>()("CesqlFault", {
   case: _cesqlFamily.payload,
 }) {
-  // `class` projects off the family mint like every branch fault: without it `Fault.Class.of` finds no `class`
-  // property and grades a subscription-admission refusal `defect` at whatever gate it crosses
   get class(): Fault.Class.Kind {
     return _cesqlFamily.classOf(this.case.reason)
   }
@@ -316,10 +283,8 @@ class CesqlFault extends Schema.TaggedError<CesqlFault>()("CesqlFault", {
   }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Readings carry the value BESIDE every fault their operands accumulated; `_cesqlRaise` folds the same way with one reason
-// appended, so no arm anywhere assembles a fault list of its own.
 const _cesqlCarried = (carried: ReadonlyArray<Cesql.Reading>): ReadonlyArray<CesqlFault> =>
   Array.flatMap(carried, (reading) => reading.faults)
 
@@ -334,8 +299,6 @@ const _cesqlRaise = (
   ...carried: ReadonlyArray<Cesql.Reading>
 ): Cesql.Reading => ({ value, faults: [..._cesqlCarried(carried), new CesqlFault({ case: issue })] })
 
-// Every reader is total over the family, so an operand that failed its crossing still hands a kernel the target type's
-// zero and no arm casts a union member it did not prove.
 const _cesqlFlag = (reading: Cesql.Reading): boolean =>
   reading.value._tag === "Boolean" ? reading.value.value : false
 const _cesqlNumber = (reading: Cesql.Reading): number =>
@@ -343,10 +306,6 @@ const _cesqlNumber = (reading: Cesql.Reading): number =>
 const _cesqlText = (reading: Cesql.Reading): string =>
   reading.value._tag === "String" ? reading.value.value : ""
 
-// Saturation, never wrapping: a result past the band answers the nearest bound beside `math`, which is exactly why the
-// absolute value of the floor cannot answer its own operand.
-// `site` names the operator, builtin, or crossing whose result left the band — a name, never a rendered template,
-// because the row that receives it renders the band statement once for every site.
 const _cesqlInt = (raw: number, site: string, ...carried: ReadonlyArray<Cesql.Reading>): Cesql.Reading =>
   globalThis.Number.isInteger(raw) && raw >= _CESQL_I32.min && raw <= _CESQL_I32.max
     ? _cesqlRead(CesqlValue.Integer({ value: raw }), ...carried)
@@ -394,8 +353,6 @@ const _CESQL_CAST: {
 }
 
 const _cesqlCast = (reading: Cesql.Reading, target: Cesql.Type): Cesql.Reading =>
-  // BOUNDARY ADAPTER: the keyed read erases the case-to-arm correlation the mapped matrix declares, so one cast rejoins
-  // each arm to the case its own discriminant already selected
   pipe(
     (_CESQL_CAST[reading.value._tag] as Record.ReadonlyRecord<Cesql.Type, (held: CesqlValue) => Cesql.Reading>)[target](
       reading.value,
@@ -431,7 +388,6 @@ const _CESQL_ORDER = {
   ">=": (left: number, right: number) => left >= right,
 } as const
 
-// Negation rides a column, never a second kernel: both diamond and bang forms carry `true` here.
 const _CESQL_EQUALITY = { "!=": true, "<>": true, "=": false } as const
 
 const _CESQL_LOGIC = {
@@ -440,8 +396,6 @@ const _CESQL_LOGIC = {
   XOR: { absorbing: Option.none<boolean>(), fold: (left: boolean, right: boolean) => left !== right },
 } as const
 
-// One row per built-in: the required slots, the trailing optional slots, the variadic tail, the return type, and one
-// total kernel over operands the call seam already cast to the row's own slots.
 const _CESQL_FUNCTIONS = {
   ABS: {
     params: ["Integer"], optional: [], rest: Option.none<Cesql.Slot>(), returns: "Integer",
@@ -519,7 +473,6 @@ const _cesqlWord = (operands: ReadonlyArray<CesqlValue>, shape: (text: string) =
 const _cesqlCross = (operands: ReadonlyArray<CesqlValue>, target: Cesql.Type): Cesql.Reading =>
   _cesqlCast(_cesqlRead(operands[0] ?? _CESQL_ZERO[target]), target)
 
-// Probing reads the crossing's success and drops its faults by the stated rule, so the predicate reports nothing.
 const _cesqlProbe = (operands: ReadonlyArray<CesqlValue>, target: Cesql.Type): Cesql.Reading =>
   _cesqlRead(CesqlValue.Boolean({ value: Array.isEmptyReadonlyArray(_cesqlCross(operands, target).faults) }))
 
@@ -535,8 +488,6 @@ const _cesqlSliced = (
         : _cesqlRead(CesqlValue.String({ value: take(text, count) })),
   )
 
-// Specification law indexes from one, reads a negative start from the tail, and names the empty prefix at zero; a
-// start outside the text answers the empty string beside `functionEvaluation` so the refusal is data the report carries.
 const _cesqlSubstring = (operands: ReadonlyArray<CesqlValue>): Cesql.Reading =>
   pipe(
     { start: _cesqlSlot(operands, 1, _cesqlNumber), text: _cesqlSlot(operands, 0, _cesqlText) },
@@ -585,8 +536,6 @@ const CesqlExpr = Data.taggedEnum<CesqlExpr>()
 const _CESQL_WILD = { "%": ".*", _: "." } as const
 
 const _cesqlPattern = (pattern: string): globalThis.RegExp => {
-  // BOUNDARY ADAPTER: one indexed scan — a backslash escapes the two wildcards and itself and stands literal before
-  // every other glyph, a lookahead no fold without an index expresses; the accumulator detaches as the source string
   const glyphs = Array.fromIterable(pattern)
   let source = ""
   let index = 0
@@ -649,8 +598,6 @@ const _cesqlEvaluate = (expr: CesqlExpr, envelope: CloudEventV1<unknown>): Cesql
     Attribute: ({ name }) => _cesqlAttribute(envelope, name),
     Binary: ({ left, op, right }) =>
       pipe(_cesqlEvaluate(left, envelope), (held) =>
-        // Absence reports ALONE on a missing left operand: the peer never evaluates, so a dividend that does not
-        // exist carries no divisor refusal beside the attribute it could not read.
         _cesqlAbsent(held) ? _cesqlRead(_CESQL_ZERO.Integer, held) : _cesqlBinary(op, held, _cesqlEvaluate(right, envelope))),
     Call: ({ name, operands }) => _cesqlCall(name, operands, envelope),
     Exists: ({ name }) => _cesqlRead(CesqlValue.Boolean({ value: envelope[name] !== undefined })),
@@ -670,8 +617,6 @@ const _cesqlEvaluate = (expr: CesqlExpr, envelope: CloudEventV1<unknown>): Cesql
     Literal: ({ value }) => _cesqlRead(value),
     Logic: ({ left, op, right }) =>
       pipe({ held: _cesqlCast(_cesqlEvaluate(left, envelope), "Boolean"), row: _CESQL_LOGIC[op] }, ({ held, row }) =>
-        // Short-circuit lands here alone: an absorbing left operand settles the expression, so the right operand never
-        // evaluates and its own faults never reach the report.
         Option.match(Option.filter(row.absorbing, (absorbing) => absorbing === _cesqlFlag(held)), {
           onSome: (absorbing) => _cesqlRead(CesqlValue.Boolean({ value: absorbing }), held),
           onNone: () =>
@@ -686,8 +631,6 @@ const _cesqlEvaluate = (expr: CesqlExpr, envelope: CloudEventV1<unknown>): Cesql
         _cesqlRead(CesqlValue.Boolean({ value: !_cesqlFlag(held) }), held)),
   })
 
-// Arity is part of the name's identity, so an unadmitted arity refuses exactly as an unknown name does; the slot list
-// casts each operand into the row's declared type before the kernel, so no kernel re-derives a crossing.
 const _cesqlCall = (
   name: string,
   operands: ReadonlyArray<CesqlExpr>,
@@ -741,7 +684,7 @@ const _cesqlSlots = (row: Cesql.FunctionRow, arity: number): Option.Option<Reado
 - Packages: `chevrotain` (`createToken`, `CstParser`, `Lexer`, `CstChildrenDictionary`, `CstElement`, `CstNode`, `IToken`, `TokenType`); `effect` (`Array`, `Effect`, `Either`, `Option`, `Order`, `Predicate`, `Record`, `String`, `pipe`).
 
 ```typescript signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 const _Identifier = createToken({ name: "Identifier", pattern: /[a-zA-Z_][a-zA-Z0-9_]*/ })
 const _cesqlKeyword = (name: string, word: string): TokenType =>
@@ -760,7 +703,6 @@ const _CESQL_TOKENS = {
   False: _cesqlKeyword("False", "FALSE"),
   Identifier: _Identifier,
   Integer: createToken({ name: "Integer", pattern: /0|[1-9][0-9]*/ }),
-  // Literals keep their own case and admit a backslash-escaped quote of their own kind
   Text: createToken({ name: "Text", pattern: /'(?:\\'|[^'])*'|"(?:\\"|[^"])*"/ }),
   LParen: createToken({ name: "LParen", pattern: /\(/ }),
   RParen: createToken({ name: "RParen", pattern: /\)/ }),
@@ -775,8 +717,6 @@ const _cesqlLexer = new Lexer(_cesqlVocabulary, { ensureOptimizations: true, pos
 
 class _CesqlGrammar extends CstParser {
   constructor() {
-    // Lookahead budget resolves the identifier-versus-call choice without a gate, and self-analysis closes the
-    // constructor so every grammar defect is an initialization failure.
     super(_cesqlVocabulary, { maxLookahead: 2, recoveryEnabled: false })
     this.performSelfAnalysis()
   }
@@ -888,11 +828,7 @@ class _CesqlGrammar extends CstParser {
   })
 }
 
-// One instance, one synchronous pass: the input binds, the rule runs, the errors read, and the carried state clears
-// before the next admission reaches it, which is why one grammar serves every fiber.
 const _cesqlParsed = (grammar: _CesqlGrammar, tokens: ReadonlyArray<IToken>): Either.Either<CstNode, CesqlFault> => {
-  // BOUNDARY ADAPTER: `input` and `errors` are the library's own mutable instance state, so the write, the rule call,
-  // and the read are one indivisible statement seam whose values detach before returning
   grammar.input = [...tokens]
   const tree = grammar.expression()
   const errors = [...grammar.errors]
@@ -938,9 +874,6 @@ const _cesqlDepth = (expr: CesqlExpr): number =>
     Not: ({ operand }) => _cesqlDepth(operand),
   })
 
-// Chevrotain buckets each child by its rule or token NAME, so two token types alternating inside one production land
-// in two buckets and their interleaving survives only in the offsets: every operator read sorts by `startOffset`, and
-// `positionTracking: "onlyOffset"` is what fills the coordinate that sort reads.
 const _cesqlNodes = (children: CstChildrenDictionary, key: string): ReadonlyArray<CstNode> =>
   Array.filter(
     (children[key] ?? []) as ReadonlyArray<CstElement>,
@@ -957,8 +890,6 @@ const _cesqlTokens = (children: CstChildrenDictionary, ...keys: ReadonlyArray<st
     Order.mapInput(Order.number, (token: IToken) => token.startOffset),
   )
 
-// One left-associative fold serves every infix production, so precedence lives in the rule spine alone and no arm
-// re-implements associativity.
 const _cesqlInfix = (
   operands: ReadonlyArray<CesqlExpr>,
   operators: ReadonlyArray<IToken>,
@@ -970,14 +901,10 @@ const _cesqlInfix = (
     (left, right, index) => join(String.toUpperCase(operators[index]?.image ?? ""), left, right),
   )
 
-// Literal rules unescape a string's own quote and leave every other glyph standing, which is why the pattern compile treats a
-// backslash before a non-wildcard as literal: the literal rule already consumed the only escapes it owns.
 const _cesqlLiteral = (token: IToken | undefined): string =>
   pipe(token?.image ?? "''", (image) => image.slice(1, -1).replaceAll(`\\${image[0] ?? "'"}`, image[0] ?? "'"))
 
 const _cesqlLowering = (grammar: _CesqlGrammar): { readonly visit: (node: CstNode) => unknown } => {
-  // Chevrotain's base carries one `visitXYZ` slot per recorded rule and `validateVisitor()` proves the set complete, so a
-  // production landing without its lowering fails at construction rather than yielding an untranslated node.
   class _Lowering extends grammar.getBaseCstVisitorConstructor<never, CesqlExpr>() {
     constructor() {
       super()
@@ -1021,8 +948,6 @@ const _cesqlLowering = (grammar: _CesqlGrammar): { readonly visit: (node: CstNod
         : operand
     }
     set(children: CstChildrenDictionary): CesqlExpr {
-      // Comparison reads the set node at its own arm, so this arm exists to satisfy the completeness proof and
-      // answers the first member rather than fabricating a shape no consumer reads.
       return pipe(_cesqlNodes(children, "expression"), (members) =>
         Array.isNonEmptyReadonlyArray(members)
           ? this.visit(Array.headNonEmpty(members))
@@ -1051,7 +976,6 @@ const _cesqlLowering = (grammar: _CesqlGrammar): { readonly visit: (node: CstNod
         ? pipe(this.visit(Array.headNonEmpty(inner)), (operand) =>
           Array.isNonEmptyReadonlyArray(_cesqlTokens(children, "Not"))
             ? CesqlExpr.Not({ operand })
-            // Sign rides the additive token: a plus is the identity and only a minus mints the negation.
             : Array.headNonEmpty(_cesqlTokens(children, "Additive")).image === "-"
             ? CesqlExpr.Negate({ operand })
             : operand)
@@ -1061,8 +985,6 @@ const _cesqlLowering = (grammar: _CesqlGrammar): { readonly visit: (node: CstNod
             : CesqlExpr.Literal({ value: _CESQL_ZERO.Boolean }))
     }
     atom(children: CstChildrenDictionary): CesqlExpr {
-      // Every alternative answers through one keyed read over its own bucket, so a new terminal is a row here rather
-      // than another arm in a widening ladder.
       const nested = _cesqlNodes(children, "expression")
       const called = _cesqlNodes(children, "call")
       const identifier = _cesqlTokens(children, "Identifier")
@@ -1098,14 +1020,10 @@ const _cesqlLowering = (grammar: _CesqlGrammar): { readonly visit: (node: CstNod
 
 class Cesql extends Effect.Service<Cesql>()("runtime/work/Cesql", {
   sync: () => {
-    // BOUNDARY ADAPTER: grammar recording, self-analysis, lexer optimization, and the visitor's completeness proof all
-    // run once here, so every grammar defect is an initialization failure and no admission pays the analysis
     const grammar = new _CesqlGrammar()
     const lower = _cesqlLowering(grammar)
     return {
       compile: (spec: Filter.Spec): Either.Either<Filter.Compiled, CesqlFault> => _compiled(spec, grammar, lower, 1),
-      // AND-set semantics: any false expression withholds delivery, and the accumulated faults ride the verdict so the
-      // consuming seam records why a filter refused rather than only that it did.
       admits: (filters: ReadonlyArray<Filter.Compiled>, envelope: CloudEventV1<unknown>): Filter.Verdict =>
         pipe(Array.map(filters, (filter) => filter.evaluate(envelope)), (readings) => ({
           admitted: Array.every(readings, (reading) => _cesqlFlag(reading)),
@@ -1122,7 +1040,7 @@ class Cesql extends Effect.Service<Cesql>()("runtime/work/Cesql", {
   static readonly functions = _CESQL_FUNCTIONS
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Cesql, CesqlFault, CesqlValue }
 export type { CesqlExpr, Filter }

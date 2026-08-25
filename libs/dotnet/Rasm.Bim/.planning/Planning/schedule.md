@@ -19,7 +19,7 @@ The host-neutral 4D construction-sequencing and CPM DOMAIN owner: one `ScheduleN
 - Boundary: the task grain is the `TaskGrain` ROW and a stored `bool IsMilestone` column is the deleted form — the flag had exactly two readers, the projection that set it and the content key that hashed it, so it discriminated nothing while a task carrying both the flag and a stray `ScheduleDuration` advanced its finish across working days its own zero-length window denied; the dependency edge is ONE `SequenceRel` record discriminated by the `SequenceKind` `[SmartEnum]` over the four modalities — a `FinishToStartRel`/`StartToStartRel`/`FinishToFinishRel`/`StartToFinishRel` record family, four identical-payload union arms with triplicated `PredecessorGlobalId`/`SuccessorGlobalId`/`Lag` accessor switches, or four sibling factory methods is the deleted form mirroring the no-per-element-class law at `Model/elements#IFC_CLASS`, the modality variation carrying NO payload variation so it is a discriminant value not a case shape; the lifecycle axis is the `ProjectStage` ROW vocabulary keyed `(Governance.Name, Id)` and every cross-national reconciliation runs through the `StageCategory` interface-backed rows — an `is IConstruction` ladder at a call site, a `stage.Id` parse or `Name` compare outside the one `StageLabels.Resolve` rung ladder, and a hand-rolled RIBA/HOAI phase enum beside the taxonomy are each the deleted form, and a `ProjectStage` key spelled as a literal rather than derived from its own baseline class is the stale-spelling defect the `Key` derivation forecloses — the row takes the baseline class itself and derives every column from it; the national context is the typed `ICountry` the taxonomy's own `IGovernance.Country` pin yields through `ProjectStage.Nation`, read once at the caller-composed `StageLabels.Nation` roster, and a free country string on the network or a task, a second nation enum, and a nation read off the Whitby-Wood `International` body (whose `Country` is that body's own `UnitedKingdom` domicile, so reading it keys every international project onto the British annex) are each the deleted form, as is a `ProjectStage` nation COLUMN, which reads `None` on all ten baseline rows and so declares a capability no consumer can act on; the `ConstructionTask` carries its calendar value as a NodaTime `Interval` over the model's work-calendar `DateTimeZone` and a BCL `DateTime`/`DateTimeOffset` field on the task or a public projection signature is the named host-neutrality defect — the IFC `DateTime` crosses the projection boundary once at `IntervalOf` and never reaches a domain signature, the schedule consuming the full NodaTime `Interval`/`Period`/`ZonedDateTime`/`LocalDateTime`/`Interval.Contains` surface for the calendar arithmetic; the GeometryGym `IfcWorkPlan`/`IfcWorkSchedule`/`IfcTask`/`IfcTaskTime`/`IfcRelSequence`/`IfcLagTime`/`IfcRelAssignsToProcess`/`IfcRelNests` surface is consumed as settled vocabulary through the `IfcProcess`/`IfcTask` discrimination and a hand-rolled task reader is the deleted form; the plan→schedule link is the `IfcRelNests` decomposition (`IsNestedBy`) and reading schedules off `Controls` (the task-control path) is the named projection defect, while the WBS sub-task tree is the `IfcTask.IsNestedBy` recursion and a flat top-level-only task read is the deleted form; the task-to-element join is the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` resolved through the `Model/query#ELEMENT_SET` `ByAttribute(ObjectAttribute.GlobalId, …)` predicate matching each `Node.Object.ExternalId`, and the retired `BimModel`/`BimElement` element record or a public-constructor selection over a second store is the deleted form — the schedule produces the assigned GlobalIds, the query owns the resolution, and a parallel schedule-element selection arm is the no-second-selection-surface reject; the `(GeometryKey, ScheduleKey)` content-key identity is derived through the ONE kernel seed-zero `ContentHash` over the kernel `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter` fold across ordinally-sorted id/row sets (invariant to the unstable `IfcSet` iteration order), the hasher law the `Review/diff#MODEL_DIFF` owner already rules — a hand-rolled `XxHash128`/`Encoding.UTF8` string-join preimage, whose delimiter and section-marker choices can forge an equality between two decompositions of one concatenation and whose `:R` ratio render a culture or runtime revision can move, and minting a second identity scheme for the report join are the named defects — and the AppUi report and Persistence federation read the network by that reference; the `Planning/cost#ESTIMATE` 5D resource-join cluster cites this `[2]-[SCHEDULE]` `ConstructionTask` anchor by reference and re-deriving the activity network on the cost page is the deleted form; a schedule rejection raises `BimFault.Refused` with its closed scope and reason and lifts the typed `BimFault` case BARE onto the `Fin<T>` rail, so a `.ToError()` lowering hop or a literal case construction bypassing the kernel `Op` context is the named seam defect.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Bim.Model;
@@ -30,17 +30,17 @@ using Rasm.Element.Projection;
 using Rasm.Element.Properties;
 using Rasm.Element.Query;
 using Thinktecture;
-using VividOrange.Countries;                          // ICountry — the national context IGovernance.Country pins
-using VividOrange.Stages;                             // IStage/IGovernance + the international category interfaces
-using Baseline = VividOrange.Stages;                  // the Whitby-Wood concrete roster; the bare class names collide with the ProjectStage rows they key
-using ContentHash = Rasm.Domain.ContentHash;          // the kernel seed-zero hasher every content key in this package seeds from
-using Op = Rasm.Domain.Op;                            // the kernel operation key each typed BimFault case carries
+using VividOrange.Countries;
+using VividOrange.Stages;
+using Baseline = VividOrange.Stages;
+using ContentHash = Rasm.Domain.ContentHash;
+using Op = Rasm.Domain.Op;
 using BimRail = Rasm.Domain.HookRail<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Planning;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class TaskStatus {
@@ -50,12 +50,9 @@ public sealed partial class TaskStatus {
     public static readonly TaskStatus Delayed       = new("DELAYED");
     public static readonly TaskStatus NotDefined    = new("NOTDEFINED");
 
-    // The ONE Option-lift over the generated bool TryGet(string?, out T?) — the settled corpus idiom; the
-    // Option-returning form is NOT a generated member.
     public static Option<TaskStatus> TryGet(string key) =>
         TryGet(key, out TaskStatus? row) && row is { } hit ? Some(hit) : None;
 
-    // IfcTask.Status is a free IfcLabel, so an unrostered status lands NotDefined rather than aborting.
     public static TaskStatus Of(string? status) =>
         Optional(status).Map(static text => text.Trim().ToUpperInvariant()).Bind(TryGet).IfNone(NotDefined);
 }
@@ -76,10 +73,6 @@ public sealed partial class WorkScheduleKind {
         TryGet(kind.ToString()).IfNone(NotDefined);
 }
 
-// The 4D task-kind vocabulary (IfcTask.PredefinedType, IfcTaskTypeEnum): construction vs demolition vs temporary
-// works is the playback modality — a DEMOLITION/REMOVAL task's elements leave the model at its finish where a
-// CONSTRUCTION/INSTALLATION task's arrive — so the kind rides the task row and the AppUi 4D read discriminates on
-// it, never a task-name heuristic; an unrostered future member lands NotDefined through the generated TryGet.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class TaskKind {
@@ -105,12 +98,6 @@ public sealed partial class TaskKind {
         TryGet(kind.ToString()).IfNone(NotDefined);
 }
 
-// The international project-lifecycle category — the cross-national normalization axis VividOrange realizes as
-// interfaces, carried here as ROWS so the axis is data a schedule filters and sorts on rather than an `is IConstruction`
-// ladder at every call site. Each row's membership law rides the row as a delegate, and the roster is ordered
-// most-specific-first because IIdea/IBrief/ICompetition REFINE IPredesign while a Danish Ideoplaeg implements
-// IPredesign directly: the three leaves resolve first and Idea owns the pre-design residue as the phase head, so
-// every national stage on every scale normalizes rather than falling out of the axis.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class StageCategory {
@@ -131,8 +118,6 @@ public sealed partial class StageCategory {
     public static Option<StageCategory> Of(IStage stage) => toSeq(Items).Find(row => row.Holds(stage));
 }
 
-// The RIBA "4", the HOAI "5", and the CSLP "1" are scale-LOCAL Ids that COLLIDE across bodies, so the governing
-// body is half the key and each key derives from its own roster class rather than restating a literal.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class ProjectStage {
@@ -149,20 +134,10 @@ public sealed partial class ProjectStage {
 
     public StageCategory Category { get; }
 
-    // The row derives its key from the baseline class it stands for rather than restating a literal, so the
-    // class IS the row's seed and a promoted national scale needs no second spelling of anything.
     private ProjectStage(IStage stage, StageCategory category) : this(Key(stage)) => Category = category;
 
-    // The composite identity the taxonomy declares — the governing body's own Name beside the scale-local Id.
     public static string Key(IStage stage) => $"{stage.Governance.Name}:{stage.Id}";
 
-    // THE one place the body-to-nation law is stated. IGovernance.Country is a COMPILED VividOrange.IStages→
-    // Countries pin, so a national scale's ICountry is a typed read, never a free label parsed off a phase name.
-    // The Whitby-Wood International baseline is excluded because its Country is that BODY's own UnitedKingdom
-    // domicile and not a project fact: read as one, it would key every international project onto the British
-    // annex at Model/eurocode#EUROCODE_ALGEBRA and stamp GB on every COBie handover register. A ProjectStage
-    // COLUMN carrying this would read None on all ten baseline rows — a column no consumer could act on — so the
-    // read stays where a national body actually enters, on the caller-composed StageLabels roster below.
     public static Option<ICountry> Nation(IStage stage) =>
         stage.Governance is Baseline.International ? None : Some(stage.Governance.Country);
 
@@ -172,14 +147,7 @@ public sealed partial class ProjectStage {
             : StageCategory.Of(stage).Bind(category => toSeq(Items).Find(candidate => candidate.Category == category));
 }
 
-// IfcProject.Phase is authored IfcLabel text with NO declared grammar, so the label-to-stage correspondence is a
-// COMPOSITION VALUE: the caller declares which national scales its projects author and what an unmatched label
-// means. Rung order is the precedence — composite Governance:Id, then scale-local Id, then display Name. That
-// same declaration is what carries the project's NATIONAL context, because a national scale is the only thing
-// that puts a national governing body — and so an ICountry — into this branch.
 public sealed record StageLabels(Seq<IStage> Roster, Option<ProjectStage> Fallback) {
-    // The Whitby-Wood international baseline as the no-configuration default roster; a national composition
-    // instantiates its own scales ([.. International.Roster, new UK.RIBAStage4(), …]) and its own fallback.
     public static readonly StageLabels International = new(
         toSeq<IStage>([
             new Baseline.Idea(), new Baseline.Brief(), new Baseline.Competition(), new Baseline.ConceptDesign(),
@@ -187,15 +155,6 @@ public sealed record StageLabels(Seq<IStage> Roster, Option<ProjectStage> Fallba
             new Baseline.Handover(), new Baseline.InUse(), new Baseline.EndOfLife()]),
         None);
 
-    // The project's national context, DERIVED from the roster the composition already declares — the one place a
-    // national governing body enters this branch. Exactly one distinct nation elects it; a bare international
-    // roster (none) and a genuinely multi-standard project (two or more) both elect None, because a project
-    // running RIBA beside HOAI has no single nation to key an annex or a handover register on and inventing one
-    // from whichever scale sorted first is the fabrication the Option refuses. Distinctness is by the ISO
-    // alpha-2 CountryCode — unique across all 249 nations — never by the display Name, which is exactly the
-    // divergence Model/eurocode#EUROCODE_ALGEBRA AnnexRegime.Of keys around. Its consumers are the composition's
-    // own: AnnexRegime.Of(nation) elects the Eurocode regime and the same value scopes a stage-gated report and
-    // the Exchange/export#COBIE_EMIT handover register, so no leg reads a nation off a free string.
     public Option<ICountry> Nation => Nations is { Count: 1 } sole ? sole.Head : None;
 
     Seq<ICountry> Nations => toSeq(Roster
@@ -213,8 +172,6 @@ public sealed record StageLabels(Seq<IStage> Roster, Option<ProjectStage> Fallba
         Roster.Find(stage => match(label, stage)).Bind(ProjectStage.Of);
 }
 
-// A closed 2x2 over {anchor the predecessor EARLY FINISH vs EARLY START} x {anchor the successor FINISH vs START}.
-// START_FINISH stays first-class; USERDEFINED/NOTDEFINED fold onto FinishToStart, the dominant edge.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class SequenceKind {
@@ -223,8 +180,6 @@ public sealed partial class SequenceKind {
     public static readonly SequenceKind FinishToFinish = new("FINISH_FINISH", fromFinish: true,  toFinish: true);
     public static readonly SequenceKind StartToFinish  = new("START_FINISH",  fromFinish: false, toFinish: true);
 
-    // FromFinish anchors the predecessor EARLY FINISH (else EARLY START); ToFinish anchors the successor FINISH, off
-    // which the CPM recedes the successor working content for its early start — together the full 2x2 modality space.
     public bool FromFinish { get; }
     public bool ToFinish { get; }
 
@@ -236,16 +191,9 @@ public sealed partial class SequenceKind {
     };
 }
 
-// The authored-duration basis (IfcTaskTime.DurationType): a duration means nothing without the basis it was
-// authored under, so the row carries the working-content projection as delegate data and the two travel together.
-// WORKTIME counts SHIFTS of the task's OWN calendar — "P3D" is three working days, never 72 elapsed hours — while
-// ELAPSEDTIME is calendar-elapsed from the anchor and yields whatever working content the span actually contains.
-// NOTDEFINED folds onto WorkTime, the dominant authoring, exactly as SequenceKind.Of defaults its own unknowns.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class DurationBasis {
-    // The date components multiply the calendar's own shift content and the sub-day remainder rides literally; the
-    // anchor normalizes a month/year component into days rather than assuming a 30-day month.
     public static readonly DurationBasis WorkTime = new("WORKTIME", static (calendar, from, span) => {
         LocalDateTime anchor = from.InZone(calendar.Zone).LocalDateTime;
         LocalDateTime shifted = anchor + span;
@@ -265,22 +213,13 @@ public sealed partial class DurationBasis {
         kind == IfcTaskDurationEnum.ELAPSEDTIME ? ElapsedTime : WorkTime;
 }
 
-// The task GRAIN — a milestone is a zero-content EVENT, an activity a work-content SPAN — carrying the work-content
-// ELECTION as delegate data, so the grain is what the CPM reads rather than a bool column no fold discriminates on.
-// IfcTask.IsMilestone and a zero-length scheduled window state the SAME fact two ways, so Of admits either.
 [SmartEnum<string>]
 public sealed partial class TaskGrain {
-    // The two-tier election: the authored IfcTaskTime.ScheduleDuration read under its own DurationType row, else the
-    // working content of the scheduled window. An authored duration states work CONTENT while the window states only
-    // PLACEMENT, so reading the window alone misprices every task whose bounds carry float.
     public static readonly TaskGrain Activity = new("activity", static (calendar, authored, scheduled) =>
         authored.Match(
             Some: duration => duration.Content(calendar, scheduled.Start),
             None: () => calendar.WorkingBetween(scheduled.Start, scheduled.End)));
 
-    // A milestone carries no work whatever the source authored on it. The retired bool column let a flagged task
-    // carrying a stray ScheduleDuration advance its finish across working days its own zero-length window denies,
-    // so the CPM and the interval disagreed about one task and every float downstream read the disagreement.
     public static readonly TaskGrain Milestone = new("milestone", static (_, _, _) => Duration.Zero);
 
     [UseDelegateFromConstructor]
@@ -290,26 +229,16 @@ public sealed partial class TaskGrain {
         milestone || scheduled.Duration <= Duration.Zero ? Milestone : Activity;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The authored duration and the basis it was authored under, carried as ONE value because IfcTaskTime publishes
-// ScheduleDuration and DurationType together and either alone misprices the other.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TaskDuration(Period Span, DurationBasis Basis) {
     public Duration Content(WorkCalendar calendar, Instant from) => Basis.Content(calendar, from, Span);
 }
 
-// ONE dependency-edge record discriminated by the SequenceKind modality — the predecessor/successor task GlobalIds
-// and the IfcLagTime lag as a NodaTime Period applied as elapsed calendar time anchored in the model zone (a
-// months/years lag resolves by calendar arithmetic, never the throwing Period.ToDuration fixed-unit path). A
-// FinishToStartRel/StartToStartRel/… record family or four sibling factories is the deleted form.
 public sealed record SequenceRel(string PredecessorGlobalId, string SuccessorGlobalId, Period Lag, SequenceKind Kind) {
     public static SequenceRel Of(IfcSequenceEnum kind, string predecessor, string successor, Period lag) =>
         new(predecessor, successor, lag, SequenceKind.Of(kind));
 }
 
-// CalendarGlobalId names the IfcWorkCalendar the task itself assigns — the per-crew calendar a six-day concrete
-// week and a five-day commissioning week each ride — resolved against the network's calendar map, None falling
-// back to the network default. Authored carries the IFC-declared duration under its own basis; the Grain row owns
-// the election between it and the working content of the scheduled window, never a silent single source.
 public sealed record ConstructionTask(
     string GlobalId,
     string Name,
@@ -341,15 +270,9 @@ public sealed record ScheduleNetwork(
     Seq<TaskAssignment> Assignments,
     Map<string, WorkCalendar> Calendars,
     WorkCalendar DefaultCalendar) {
-    // The per-task calendar ELECTION: the calendar the task itself assigns, else the network default the work plan
-    // declares (else the standard construction week). Every calendar in the map is already rebased to the network
-    // zone at projection, so no consumer resolves a shift window in a zone the task Intervals were never built in.
     public WorkCalendar CalendarFor(ConstructionTask task) =>
         task.CalendarGlobalId.Bind(Calendars.Find).IfNone(DefaultCalendar);
 
-    // Ordering is ordinal by construction — the edge set down to its (predecessor, successor, kind, lag) chain, so
-    // a real parallel SS+FF pair between one task pair keys deterministically — because the IfcSet iteration order
-    // a re-parse yields is unstable and both keys must survive it.
     public (UInt128 GeometryKey, UInt128 ScheduleKey) Identity => (
         GeometryKeyOf(toSeq(Assignments.Bind(static a => a.ElementGlobalIds).OrderBy(static id => id, StringComparer.Ordinal))),
         ScheduleKeyOf(
@@ -376,8 +299,6 @@ public sealed record ScheduleNetwork(
                     .String(task.Kind.Key)
                     .String(task.ScheduleKind.Key)
                     .String(task.Stage.Map(static row => row.Key).IfNone(""))
-                    // The elected calendar and the authored duration are float inputs, so a re-assigned calendar or
-                    // a re-authored duration re-renders even where the window and the status never moved.
                     .String(task.CalendarGlobalId.IfNone(""))
                     .String(task.Authored.Map(static a => $"{a.Basis.Key}:{PeriodPattern.Roundtrip.Format(a.Span)}").IfNone(""))
                     .String(task.Grain.Key))
@@ -388,8 +309,6 @@ public sealed record ScheduleNetwork(
                     .String(edge.Kind.Key)
                     .String(PeriodPattern.Roundtrip.Format(edge.Lag)))).Value;
 
-    // The assigned-element GlobalIds resolve against the seam graph's Object-node ExternalId index (the IFC GlobalId
-    // is a Bim-stored Object attribute, never the neutral NodeId); an assignment naming an undeclared product aborts.
     public Fin<ScheduleNetwork> BindAssignments(ElementGraph graph, Op key) {
         var index = toHashSet(graph.ObjectNodes.Choose(static o => o.ExternalId));
         return Assignments
@@ -401,25 +320,12 @@ public sealed record ScheduleNetwork(
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ScheduleProjection {
-    // The ONE GeometryGym text admission on this page: IfcRoot.Name and the IfcRelSequence process ids are
-    // schema-OPTIONAL IfcLabels, so a null or blank arrives as None here and no interior body coalesces. A display
-    // Name keeps its string column — NAMED LOSS: an unnamed task and an empty-named task render alike at the AppUi
-    // chart and the Persistence federation that read it, so the Option costs a cross-package break and buys a
-    // distinction no consumer can act on. WITNESS: the four coalesce sites this admission deleted were spread
-    // across three folds, each free to pick its own fallback.
     static Option<string> TextOf(string? value) =>
         Optional(value).Map(static text => text.Trim()).Filter(static text => text.Length > 0);
 
-    // stage is the lifecycle axis the whole plan sits in — the caller resolves it ONCE from the model's verbatim
-    // IfcProject.Phase label through StageLabels.Resolve over its composed roster and hands the row down, so no
-    // task-name heuristic and no per-call `is IConstruction` ladder exists; an unstaged or unmatched model passes
-    // None and every task reads absent rather than a fabricated construction phase.
     public static Fin<ScheduleNetwork> Project(IfcWorkPlan plan, ElementGraph graph, DateTimeZone zone, Option<ProjectStage> stage, Op key) {
-        // IfcTask.TaskTime is schema-OPTIONAL: a dateless row (a P6 WBS container imported as a summary IfcTask) is
-        // structure, not an activity — it projects NO ConstructionTask (its dated leaves already flatten onto the row
-        // set), while a dependency or assignment naming a dateless row faults typed at the CPM/binding gates.
         var tasks = TasksOf(plan).Filter(static entry => entry.Task.TaskTime is { } time && time.ScheduleStart != default);
         return tasks
             .TraverseM(entry => TaskOf(entry.Task, entry.Kind, stage, zone, key))
@@ -439,14 +345,10 @@ public static class ScheduleProjection {
     public static Fin<Seq<ScheduleNetwork>> ProjectAll(Seq<IfcWorkPlan> plans, ElementGraph graph, DateTimeZone zone, Option<ProjectStage> stage, Op key) =>
         plans.TraverseM(plan => Project(plan, graph, zone, stage, key)).As();
 
-    // A work plan decomposes its schedules through IfcRelNests (IsNestedBy), NOT Controls — Controls reaches the
-    // task-control assignment; the plan→schedule edge is the work-control nesting GeometryGym's own traversal reads.
     static Seq<IfcWorkSchedule> SchedulesOf(IfcWorkPlan plan) =>
         toSeq(plan.IsNestedBy
             .SelectMany(static rel => rel.RelatedObjects.OfType<IfcWorkSchedule>()));
 
-    // Each schedule's controlled tasks plus every nested sub-task (the IfcRelNests WBS tree) flattened, paired with
-    // the owning schedule's kind, deduped by GlobalId so a task reached through both control and nesting orders once.
     static Seq<(IfcTask Task, WorkScheduleKind Kind)> TasksOf(IfcWorkPlan plan) =>
         toSeq(SchedulesOf(plan)
             .Bind(static schedule => ControlledTasks(schedule)
@@ -458,8 +360,6 @@ public static class ScheduleProjection {
             .SelectMany(static rel => rel.RelatedObjects.OfType<IfcTask>())
             .SelectMany(NestedTasks));
 
-    // The summary→detail work-breakdown: a task plus the transitive closure of its IfcRelNests sub-tasks, so a
-    // P6/MS-Project WBS imported as nested IfcTasks orders as flat activities alongside its top-level rows.
     static Seq<IfcTask> NestedTasks(IfcTask task) =>
         Seq(task) + toSeq(task.IsNestedBy
             .SelectMany(static rel => rel.RelatedObjects.OfType<IfcTask>()))
@@ -481,9 +381,6 @@ public static class ScheduleProjection {
                 ActualOf(task.TaskTime?.ActualStart, task.TaskTime?.ActualFinish, zone),
                 CompletionOf(task.TaskTime)));
 
-    // A task's own work calendar rides the IfcRelAssignsToControl assignment — IfcWorkCalendar IS an IfcControl, and
-    // that assignment is the ONE IFC path a per-crew calendar takes; the row keeps the ID alone so a calendar shared
-    // by two hundred tasks is one folded value on the network rather than two hundred copies.
     static Option<string> CalendarIdOf(IfcTask task) =>
         CalendarsAssigned(task).Head.Map(static calendar => calendar.GlobalId);
 
@@ -493,30 +390,21 @@ public static class ScheduleProjection {
             .Select(static rel => rel.RelatingControl)
             .OfType<IfcWorkCalendar>());
 
-    // Every assigned calendar folded ONCE per GlobalId and rebased to the model zone at the fold, so the CPM never
-    // resolves a shift window in Utc against tasks built in the model's own zone.
     static Map<string, WorkCalendar> CalendarsOf(Seq<IfcTask> tasks, DateTimeZone zone) =>
         tasks.Bind(CalendarsAssigned).Fold(Map<string, WorkCalendar>(), (map, calendar) =>
             map.ContainsKey(calendar.GlobalId) ? map : map.Add(calendar.GlobalId, WorkCalendar.Of(calendar, zone)));
 
-    // The network default: the calendar the work plan itself assigns (the project calendar an unassigned task
-    // inherits), else the standard construction week rebased onto the model zone.
     static WorkCalendar DefaultCalendarOf(IfcWorkPlan plan, DateTimeZone zone) =>
         CalendarsAssigned(plan).Head.Match(
             Some: calendar => WorkCalendar.Of(calendar, zone),
             None: () => WorkCalendar.Default.In(zone));
 
-    // The authored duration travels with its basis or not at all: IfcTaskTime publishes ScheduleDuration under
-    // DurationType, and a duration read without that row prices a WORKTIME period as elapsed calendar time. A
-    // zero-span authored duration reads absent so the derived tier answers it (the two agree on a milestone).
     static Option<TaskDuration> DurationOf(IfcTaskTime? taskTime) =>
         taskTime?.ScheduleDuration is { } duration
             ? Some(new TaskDuration(PeriodOf(duration), DurationBasis.Of(taskTime.DurationType)))
                 .Filter(static authored => !authored.Span.Equals(Period.Zero))
             : None;
 
-    // An edge missing either endpoint is not an edge: the Option pair CHOOSES it out at admission rather than
-    // minting a blank-ended row a downstream filter then has to remember to drop.
     static Seq<SequenceRel> SequencesOf(Seq<IfcTask> tasks) =>
         toSeq(tasks.SelectMany(static task => task.IsPredecessorTo.OfType<IfcRelSequence>()))
             .Choose(static rel =>
@@ -549,22 +437,14 @@ public static class ScheduleProjection {
             _                                  => None,
         };
 
-    // GeometryGym stamps an absent IfcDate as DateTime.MinValue (== default), not null, so a set-but-empty
-    // ScheduleStart must read as absent rather than minting a year-0001 instant — the same sentinel WorkCalendar.SpanOf reads.
     static Instant? InstantOf(DateTime? value, DateTimeZone zone) =>
         value is { } moment && moment != default
             ? LocalDateTime.FromDateTime(moment).InZoneLeniently(zone).ToInstant()
             : null;
 
-    // The IFC-authored percent-complete (IfcTaskTime.Completion); None when unset so the Planning/cost#EARNED_VALUE
-    // fold reads the actual-interval fraction rather than a spurious zero. A ratio outside (0, 1] reads as unset —
-    // the GG double default 0 and a bogus >1 stamp alike — the same guard the cost resource Completion holds.
     static Option<double> CompletionOf(IfcTaskTime? taskTime) =>
         taskTime is { Completion: var completion } && completion is > 0d and <= 1d ? Some(completion) : None;
 
-    // The ONE IfcDuration decode both the dependency lag and the authored task duration read: IfcDuration carries
-    // decomposed integer fields, so the Period builds from those directly — a structured measure, never an
-    // ISO-string round-trip. IfcLagTime.LagValue is an IfcTimeOrRatioSelect, so its duration leg narrows first.
     static Period PeriodOf(IfcLagTime? lag) => PeriodOf(lag?.LagValue as IfcDuration);
 
     static Period PeriodOf(IfcDuration? duration) =>
@@ -577,10 +457,6 @@ public static class ScheduleProjection {
             : Period.Zero;
 }
 
-// The temporal phase a task holds against an instant — the membership law rides each row as delegate data, so the
-// snapshot fold carries no phase switch: Completed is the finished-by read ("installed by milestone M"), Active the
-// in-flight read ("in flight during week 32"), Pending the not-yet-started read (the look-ahead window's complement).
-// The interval end is instant-exclusive per NodaTime Interval, so a task finishing AT t reads Completed at t.
 [SmartEnum<string>]
 public sealed partial class ConstructionPhase {
     public static readonly ConstructionPhase Completed = new("completed", static (effective, t) => effective.End <= t);
@@ -592,8 +468,6 @@ public sealed partial class ConstructionPhase {
 }
 
 public static class ConstructionState {
-    // "Assigned to no task" is the term algebra own Not over the ByGeneric process-assignment arm, never a fold
-    // here — this snapshot answers membership at an instant and owns no second selection surface.
     public static ElementQuery At(ScheduleNetwork network, ElementGraph graph, Instant instant, Option<ConstructionPhase> phase = default) {
         ConstructionPhase holds = phase.IfNone(ConstructionPhase.Active);
         var matched = toHashSet(network.Tasks.Filter(task => holds.Holds(task.Effective, instant)).Map(static task => task.GlobalId));
@@ -621,7 +495,7 @@ public static class ConstructionState {
 - Boundary: the CPM pass is ONE immutable fold over the `SequenceRel` adjacency by topological order — a mutable `Dictionary<string, double>` early-start accumulator mutated in a `for` loop is the deleted form, the forward/backward pass threading the `Map<string, CriticalPath>` accumulator through the topological fold; the topological orders are the `QuikGraph` `SourceFirstBidirectionalTopologicalSort` source-first/sink-first Kahn sorts over the transient `BidirectionalGraph<string, STaggedEdge<string, SequenceRel>>` folded from the tagged dependencies, and a hand-rolled in-degree drain over a `Map<>` adjacency, a `GroupBy` predecessor/successor side map beside the graph's own `InEdges`/`OutEdges`, or an `order.Rev()` re-derivation of the sink-first order the API yields directly, is the deleted form (`QuikGraph` owns the ORDER and the edge-carried `SequenceRel`, the `WorkCalendar` fold owns the float/calendar arithmetic), as is a backward gate reading every out-edge as finish-to-start — dropping the modality columns and the lag misprices the float of every lagged or SS/FF/SF dependency, so the backward pass runs the `BackShift` dual of the same 2x2 — a cyclic dependency edge surfaces through `IsDirectedAcyclicGraph()` lowered BARE to `BimFault.Refused` with `BimReason.Rejected` rather than looping, and a walk that exhausts `BarrenLimit` or meets an empty work-week lifts the same case rather than returning its seed instant — the seed-return is the deleted form, a fabricated working instant no calendar admits that every downstream float then reads as real; the transient graph is the algorithm input only and never a domain field on `ScheduleNetwork`, the `(GeometryKey, ScheduleKey)` content key keying the fold so the order re-runs only on a changed network; the CPM consumes the `ConstructionTask.WorkContent` election as the `Advance`/`Recede` duration and feeding the raw calendar span (which double-counts non-working days the calendar skips) is the named correctness defect, as is dropping the authored `ScheduleDuration` for a window-derived measure; the ZONE authority is the network's — `ScheduleProjection` rebases every folded calendar through `WorkCalendar.In(zone)` at the fold, since `WorkCalendar.Default` carries `Utc` and an unrebased calendar-less plan resolves its shifts, its working content, and its whole float algebra in a zone the task `Interval`s were never built in; that rebase is a MEMBER because a sealed record's copy constructor is private and a caller-side `with` does not compile; `NonWorking` is the ONE enumerable non-working surface, so a consumer rendering or reasoning over calendar gaps reads it rather than re-deriving the work-week, the exception spans, and the annual rows against this calendar — that re-derivation drifts the moment a project declares an exception window and is the deleted form; the `WorkCalendar` working-time arithmetic composes the NodaTime `LocalDate`/`LocalTime`/`DateInterval`/`AnnualDate`/`IsoDayOfWeek` surface — the exception window is one inclusive `DateInterval` value and the recurring holiday one `AnnualDate` row — and a hand-rolled day-counter, a concrete expanded date set, or a BCL `DateTime.AddDays` loop is the deleted form — NodaTime owns the date arithmetic; the GeometryGym `IfcWorkCalendar.WorkingTimes`/`ExceptionTimes` `SET<IfcWorkTime>` and the public `IfcWorkTime.StartDate`/`FinishDate` `DateTime` spans are consumed as settled vocabulary, while the schema-internal `IfcWorkTime.RecurrencePattern`/`IfcRecurrencePattern` carries NO public accessor at the admitted pin — reading `RecurrencePattern.WeekdayComponent` off a different assembly is the named phantom-member defect, the calendar resolving the public exception spans over the default work-week instead; the `CriticalPath` float window is the `Planning/cost#EARNED_VALUE` `EarnedValue` schedule-performance read and re-deriving the activity network on the cost page is the deleted form; the CPM is THIS owner's single fold and a Persistence `CpmPass` re-deriving the order over MPXJ-parsed edges is the named cross-package drift defect; a CPM rejection lifts the typed `BimFault` case BARE, a `.ToError()` hop being the named seam defect.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using GeometryGym.Ifc;
 using LanguageExt;
@@ -638,11 +512,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Planning;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The CPM lane's OWN stage ladder — the per-lane roster law the Model/observability#HOOK_RAIL Growth bullet binds,
-// never a cross-lane owner forcing phases this fold never runs. Each row's fraction is the work COMPLETED when the
-// row OPENS, so a consumer reads a position rather than a milestone: a network of ten thousand tasks runs two
-// topological folds and a float pass, and a lane watching it otherwise sees a single silent block.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class CpmStage {
     public static readonly CpmStage Ordered  = new(done: 0.00, witness: "order");
@@ -654,20 +524,13 @@ public sealed partial class CpmStage {
     public double Done { get; }
     public string Witness { get; }
 
-    // Rows PROJECT the one Model/observability#HOOK_RAIL StageMark carrier, exactly as the energy translate lane's
-    // roster does, so the branch's long folds publish one fact shape under their own membership.
     public StageMark Mark => new(Done, Witness);
 
-    // A no-op on a rail-less composition, so the fold threads the carrier with no per-stage hook branch.
     public Unit Beat(Option<BimRail> rail, Op key) =>
         rail.IfSome(live => ignore(live.Fire(BimPoint.PlanningProgress, new BimFact.Progress(key, ProgressLane.Planning, Mark), key)));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The work-week set is a FrozenSet read table; the exception windows are inclusive NodaTime DateInterval values
-// (ONE value per IfcWorkTime span, never a hand-expanded concrete-date set) and the recurring holidays AnnualDate
-// rows (the landing column a P6/MS-Project recurring calendar exception fills); the calendar is a pure working-time
-// function, not an accumulator.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WorkCalendar(
     FrozenSet<IsoDayOfWeek> WorkWeek,
     LocalTime ShiftStart,
@@ -679,31 +542,18 @@ public sealed record WorkCalendar(
         new[] { IsoDayOfWeek.Monday, IsoDayOfWeek.Tuesday, IsoDayOfWeek.Wednesday, IsoDayOfWeek.Thursday, IsoDayOfWeek.Friday }.ToFrozenSet(),
         new LocalTime(8, 0), new LocalTime(16, 0), Seq<DateInterval>(), Seq<AnnualDate>(), DateTimeZone.Utc);
 
-    // One shift's working content — the WORKTIME DurationBasis multiplies it, so an authored "P3D" is three shifts
-    // of THIS calendar rather than three fixed 24-hour days. Nanosecond-of-day arithmetic, never the throwing
-    // Period.ToDuration path the lag algebra already refuses.
     public Duration ShiftLength => Duration.FromNanoseconds(ShiftEnd.NanosecondOfDay - ShiftStart.NanosecondOfDay);
 
-    // AnnualDate.InYear lands a Feb-29 holiday on Feb-28 in a non-leap year, so a recurring row always excludes a day.
     bool IsWorking(LocalDate day) =>
         WorkWeek.Contains(day.DayOfWeek)
         && !ExceptionSpans.Exists(span => span.Contains(day))
         && !AnnualHolidays.Exists(holiday => holiday.InYear(day.Year) == day);
 
-    // The day's [ShiftStart, ShiftEnd] working window as zone-resolved instants — the span Advance/Recede clamp the
-    // cursor INTO so a partial first/last day contributes only its remaining shift content, and WorkingBetween sums
-    // the OVERLAP of [from, to] with. A non-working/exception day is handled by the IsWorking gate at each caller.
     (Instant Lo, Instant Hi) ShiftWindow(LocalDate day) =>
         ((day + ShiftStart).InZoneLeniently(Zone).ToInstant(), (day + ShiftEnd).InZoneLeniently(Zone).ToInstant());
 
-    // Ten consecutive workless YEARS marks a degenerate calendar (an AnnualHolidays set covering every work-week
-    // day recurs FOREVER — exception spans alone are finite, the annual rows are not): the walk is BOUNDED on
-    // adversarial input and its exhaustion is a REJECTION, because no working instant satisfying the request exists.
     const int BarrenLimit = 3660;
 
-    // Walk forward consuming each working day remaining shift content until `work` is met, so a mid-shift start
-    // contributes only its tail and the finish lands INSIDE the shift. Exhaustion RAILS: returning the seed
-    // fabricates a working instant no calendar admits, which every float downstream then reads as plausible.
     public Fin<Instant> Advance(Instant from, Duration work, Op key) {
         if (work <= Duration.Zero) { return Fin.Succ(from); }
         if (WorkWeek.Count == 0) { return Fin.Fail<Instant>(new BimFault.Refused(key, BimScope.Planning, BimReason.Rejected, string.Join(':', new object?[] { "work-calendar-empty-work-week" }))); }
@@ -727,9 +577,6 @@ public sealed record WorkCalendar(
         return Fin.Fail<Instant>(new BimFault.Refused(key, BimScope.Planning, BimReason.Rejected, string.Join(':', new object?[] { "work-calendar-barren", "forward", InstantPattern.ExtendedIso.Format(from), DurationPattern.Roundtrip.Format(work) })));
     }
 
-    // The symmetric backward walk the backward CPM pass reads: consume each working day's content from the cursor
-    // clamped DOWN to ShiftEnd back to ShiftStart, so a late-finish receding past non-working days lands inside the
-    // shift. It rails on the same two exhaustion states its forward dual does.
     public Fin<Instant> Recede(Instant to, Duration work, Op key) {
         if (work <= Duration.Zero) { return Fin.Succ(to); }
         if (WorkWeek.Count == 0) { return Fin.Fail<Instant>(new BimFault.Refused(key, BimScope.Planning, BimReason.Rejected, string.Join(':', new object?[] { "work-calendar-empty-work-week" }))); }
@@ -753,9 +600,6 @@ public sealed record WorkCalendar(
         return Fin.Fail<Instant>(new BimFault.Refused(key, BimScope.Planning, BimReason.Rejected, string.Join(':', new object?[] { "work-calendar-barren", "backward", InstantPattern.ExtendedIso.Format(to), DurationPattern.Roundtrip.Format(work) })));
     }
 
-    // The TRUE working content of a span: the inclusive DateInterval [from.Date, to.Date] IS the day walk (the
-    // interval enumerates its own LocalDate sequence), each working day contributing the OVERLAP of [from, to] with
-    // its shift window — so the CPM feeds Advance the exact working duration of a task, never the raw calendar span.
     public Duration WorkingBetween(Instant from, Instant to) =>
         to <= from
             ? Duration.Zero
@@ -768,9 +612,6 @@ public sealed record WorkCalendar(
                     return end > start ? total + (end - start) : total;
                 });
 
-    // The COMPLEMENT of the same walk — a working day contributing its pre-shift head and post-shift tail, a
-    // non-working day its whole extent, abutting pieces merged — so a weekend reads as ONE band rather than as two
-    // days and four partial-shift slivers. WorkingBetween measures how much; only this says WHERE.
     public Seq<Interval> NonWorking(Instant from, Instant to) =>
         to <= from
             ? Seq<Interval>()
@@ -785,16 +626,12 @@ public sealed record WorkCalendar(
                         .Fold(spans, (carried, piece) => Joined(carried, Clamp(piece, from, to)));
                 });
 
-    // Clamping to the queried window happens per piece rather than once at the end, so a query starting mid-shift
-    // never reports the morning it did not ask about.
     static Option<Interval> Clamp((Instant Lo, Instant Hi) piece, Instant from, Instant to) {
         var lo = piece.Lo > from ? piece.Lo : from;
         var hi = piece.Hi < to ? piece.Hi : to;
         return hi > lo ? Some(new Interval(lo, hi)) : None;
     }
 
-    // Abutting pieces merge into the open span rather than accumulating; the day walk is ordered, so the open span
-    // is always the last one and no sort or interval tree is needed.
     static Seq<Interval> Joined(Seq<Interval> spans, Option<Interval> piece) =>
         piece.Match(
             Some: span => spans.Last.Match(
@@ -804,20 +641,11 @@ public sealed record WorkCalendar(
                 None: () => Seq(span)),
             None: () => spans);
 
-    // GeometryGym exposes IfcWorkTime only by its public StartDate/FinishDate spans — the weekday/shift
-    // IfcRecurrencePattern is schema-internal (no public accessor), so the IFC fold reads the public ExceptionTimes
-    // holiday/non-working windows onto DateInterval spans over the default work-week; the AnnualHolidays recurring
-    // rows land from a calendar feed (the MPXJ P6 recurring-exception lane), never off this internal-member surface.
     public static WorkCalendar Of(IfcWorkCalendar calendar, DateTimeZone zone) =>
         Default with { ExceptionSpans = calendar.ExceptionTimes.AsIterable().Choose(SpanOf).ToSeq(), Zone = zone };
 
-    // A sealed record copy constructor is PRIVATE, so a caller-side `calendar with { Zone }` does not compile and
-    // the rebase must be a member. Without it Default carries Utc while the network carries the model zone, so a
-    // Berlin project reads its 08:00-16:00 shift as UTC and every float lands an offset out.
     public WorkCalendar In(DateTimeZone zone) => this with { Zone = zone };
 
-    // ONE inclusive DateInterval per exception window; GeometryGym stamps an absent IfcDate as DateTime.MinValue
-    // (== default), so a dateless exception yields None and an inverted span never reaches the throwing ctor.
     static Option<DateInterval> SpanOf(IfcWorkTime exception) {
         if (exception.StartDate == default) { return None; }
         var start = LocalDate.FromDateTime(exception.StartDate);
@@ -834,24 +662,16 @@ public readonly record struct CriticalPath(
         new(es, ef, ls, lf, ls - es, free, (ls - es) <= Duration.Zero);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ScheduleCpm {
-    // The calendar is PER TASK, so a six-day concrete crew and a five-day commissioning crew price their float on
-    // their own shift content; every calendar in the map is already rebased onto the network zone at projection.
-    // The rail is the optional Model/observability#HOOK_RAIL slot every fire-site entry in this folder repeats.
     public static Fin<Map<string, CriticalPath>> Schedule(this ScheduleNetwork network, Op key, Option<BimRail> rail = default) =>
         network.Tasks.IsEmpty
             ? Fin.Succ(Map<string, CriticalPath>())
             : Opened(CpmStage.Ordered, rail, key).Bind(_ => Graph(network, key)).Bind(graph => {
                 var calendars = network.Tasks.Map(t => (t.GlobalId, network.CalendarFor(t))).ToMap();
-                // The duration ELECTION runs per task on its OWN elected calendar, the TaskGrain row deciding
-                // between the authored ScheduleDuration and the window's working content.
                 var duration = network.Tasks.Map(t => (t.GlobalId, t.WorkContent(calendars[t.GlobalId]))).ToMap();
                 var projectStart = network.Tasks.Min(static t => t.Scheduled.Start);
 
-                // Each stage OPENS on the fraction its own row declares, so a lane reads the work AHEAD of it rather
-                // than a milestone already behind — the retired shape of publishing after the fact ran a consumer's
-                // position backwards at the next boundary.
                 return Opened(CpmStage.Forward, rail, key)
                     .Bind(_ => Forward(graph, calendars, duration, projectStart, key))
                     .Bind(forward => {
@@ -864,13 +684,8 @@ public static class ScheduleCpm {
                     });
             });
 
-    // A stage boundary publishes its declared fraction and stays ON the rail, so the fire order is the fold order
-    // by construction and no arm can advance past a boundary it forgot to open.
     static Fin<Unit> Opened(CpmStage stage, Option<BimRail> rail, Op key) => Fin.Succ(stage.Beat(rail, key));
 
-    // The forward pass folds the source-first Kahn order threading the Fin rail: each task's EarlyStart is the
-    // maximum over its in-edges of the lagged, modality-anchored predecessor bound, its EarlyFinish the working
-    // content advanced on its OWN calendar. Topological order guarantees each predecessor bound is already present.
     static Fin<Map<string, (Instant Es, Instant Ef)>> Forward(
         BidirectionalGraph<string, STaggedEdge<string, SequenceRel>> graph, Map<string, WorkCalendar> calendars,
         Map<string, Duration> duration, Instant projectStart, Op key) =>
@@ -883,8 +698,6 @@ public static class ScheduleCpm {
                         return calendars[id].Advance(es, duration[id], key).Map(ef => acc.Add(id, (es, ef)));
                     })));
 
-    // The backward pass folds the SAME sort sink-first (never an order.Rev() re-derivation): each task's LateFinish
-    // is the minimum over its out-edges of the BackShift bound, its LateStart that finish receded by its own content.
     static Fin<Map<string, (Instant Ls, Instant Lf)>> Backward(
         BidirectionalGraph<string, STaggedEdge<string, SequenceRel>> graph, Map<string, WorkCalendar> calendars,
         Map<string, Duration> duration, Instant projectFinish, Op key) =>
@@ -897,9 +710,6 @@ public static class ScheduleCpm {
                         return calendars[id].Recede(lf, duration[id], key).Map(ls => acc.Add(id, (ls, lf)));
                     })));
 
-    // FreeFloat is the minimum out-edge SLACK — the successor's achieved EarlyStart minus this edge's Shift demand —
-    // exact over all four modalities and lags (an FS-only `min successor Es − Ef` read under-floats a lagged or
-    // SS/FF/SF graph); a sink task carries zero free float.
     static Fin<Map<string, CriticalPath>> Paths(
         BidirectionalGraph<string, STaggedEdge<string, SequenceRel>> graph, ScheduleNetwork network,
         Map<string, WorkCalendar> calendars, Map<string, (Instant Es, Instant Ef)> forward,
@@ -917,9 +727,6 @@ public static class ScheduleCpm {
                     return acc.Add(task.GlobalId, CriticalPath.Of(es, ef, ls, lf, free));
                 })));
 
-    // Column-driven over the SequenceKind 2x2. The lag applies as a calendar Period (never the throwing
-    // Period.ToDuration), and a finish-anchored modality RECEDES the successor content through the SUCCESSOR own
-    // calendar so the FF/SF backoff skips that crew non-working days rather than subtracting a raw Duration.
     static Fin<Instant> Shift(SequenceRel edge, Map<string, (Instant Es, Instant Ef)> forward, Map<string, Duration> duration, Map<string, WorkCalendar> calendars, Op key) {
         var (es, ef) = forward[edge.PredecessorGlobalId];
         var calendar = calendars[edge.SuccessorGlobalId];
@@ -927,9 +734,6 @@ public static class ScheduleCpm {
         return edge.Kind.ToFinish ? calendar.Recede(lagged, duration[edge.SuccessorGlobalId], key) : Fin.Succ(lagged);
     }
 
-    // The exact BACKWARD dual of Shift over the same 2x2: a start-anchored modality ADVANCES the predecessor
-    // content on the PREDECESSOR own calendar so the bound lands on its finish. Reading every out-edge as
-    // finish-to-start misprices the float of every lagged or SS/FF/SF dependency.
     static Fin<Instant> BackShift(SequenceRel edge, Map<string, (Instant Ls, Instant Lf)> backward, Map<string, Duration> duration, Map<string, WorkCalendar> calendars, Op key) {
         var (ls, lf) = backward[edge.SuccessorGlobalId];
         var calendar = calendars[edge.PredecessorGlobalId];
@@ -937,10 +741,6 @@ public static class ScheduleCpm {
         return edge.Kind.FromFinish ? Fin.Succ(bound) : calendar.Advance(bound, duration[edge.PredecessorGlobalId], key);
     }
 
-    // The SequenceRel rides each edge as its Tag, so InEdges/OutEdges ARE the predecessor/successor reads;
-    // allowParallelEdges:true keeps a real P6 SS+FF pair between one task pair as two constraints. The dangling gate
-    // runs FIRST so a phantom vertex never enters the float fold, and the IsDirectedAcyclicGraph pre-gate lifts a
-    // residual cycle before either sort throws. The graph is the algorithm input only — never a field.
     static Fin<BidirectionalGraph<string, STaggedEdge<string, SequenceRel>>> Graph(ScheduleNetwork network, Op key) {
         var taskIds = toHashSet(network.Tasks.Map(static t => t.GlobalId));
         return network.Dependencies

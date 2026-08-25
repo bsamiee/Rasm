@@ -45,7 +45,7 @@ import {
   onTTFB,
 } from "web-vitals/attribution"
 
-const _KINDS = ["capture", "cls", "fcp", "frame", "gpumem", "inp", "lcp", "longtask", "ttfb"] as const // key tuple: the spread below holds Schema.Literal's non-empty overload; derived keys would demote it to the widened array
+const _KINDS = ["capture", "cls", "fcp", "frame", "gpumem", "inp", "lcp", "longtask", "ttfb"] as const
 const _GRADES = ["good", "needs-improvement", "poor"] as const
 const _NAVIGATIONS = ["navigate", "reload", "back-forward", "back-forward-cache", "prerender", "restore", "soft-navigation"] as const
 
@@ -61,13 +61,13 @@ const _rows = {
   lcp: { ..._budget(LCPThresholds), accrues: true, fold: "level", on: onLCP, source: "library", unit: "ms" },
   longtask: { ..._budget([50, 200]), accrues: true, entry: "longtask", fold: "crest", read: (entry: PerformanceEntry) => entry.duration, source: "entry", unit: "ms" },
   ttfb: { ..._budget(TTFBThresholds), accrues: true, fold: "level", on: onTTFB, source: "library", unit: "ms" },
-} as const satisfies Record<(typeof _KINDS)[number], Vital.Row> // tuple-to-table closure; `_Keys` below closes table-to-tuple
+} as const satisfies Record<(typeof _KINDS)[number], Vital.Row>
 
 declare namespace Vital {
   type Fold = (typeof _rows)[Kind]["fold"]
   type Grade = (typeof _GRADES)[number]
   type Kind = keyof typeof _rows
-  type Level = keyof typeof _LEVELS // the UCUM codes a level series exists for: a row cannot name a unit no instrument receives
+  type Level = keyof typeof _LEVELS
   type Navigation = (typeof _NAVIGATIONS)[number]
   type Reported = { readonly [K in Kind]: (typeof _rows)[K]["source"] extends "report" ? K : never }[Kind]
   type Registrar = (report: (metric: MetricWithAttribution) => void, opts: INPAttributionReportOpts) => void
@@ -107,13 +107,10 @@ const _grade = (kind: Vital.Kind, value: number): Vital.Grade =>
 ```typescript signature
 type _Hints = { readonly model?: string; readonly platformVersion?: string }
 
-// both causal records key on `Convention._rasm` rows at the arm that builds them, so the drain spreads them onto the
-// evidence span with no mapping layer and a subpart outside the vital roster is the free-string key the vocabulary owner names
 type _Parts = Readonly<Record<string, number>>
 
 type _Subject = Readonly<Record<string, string>>
 
-// one causal read per metric: the numeric decomposition beside the discrete record naming what the value fell on
 type _Causal = { readonly phases: _Parts; readonly subject: _Subject }
 
 type _Sample = {
@@ -128,13 +125,11 @@ type _Sample = {
   readonly value: number
 }
 
-// a subpart the browser never dispatched reads undefined at every arm: one projection drops the key rather than minting a zero
 const _present = <A>(row: Readonly<Record<string, A | undefined>>): Readonly<Record<string, A>> =>
   Record.filterMap(row, Option.fromNullable)
 
 const _LIBRARY = { CLS: "cls", FCP: "fcp", INP: "inp", LCP: "lcp", TTFB: "ttfb" } as const satisfies Record<MetricWithAttribution["name"], Vital.Kind>
 
-// platform navigation types are a strict subset of the library's and spell the bfcache value with an underscore
 const _NAVIGATED = { back_forward: "back-forward", navigate: "navigate", reload: "reload" } as const satisfies Record<NavigationTimingType, Vital.Navigation>
 
 const _navigation = (): Vital.Navigation =>
@@ -143,7 +138,6 @@ const _navigation = (): Vital.Navigation =>
     onSome: (entry) => _NAVIGATED[entry.type],
   })
 
-// each attribution roster correlates with its own name: one exhaustive switch is the only reader that keeps the correlation
 const _phases = (metric: MetricWithAttribution): _Causal => {
   switch (metric.name) {
     case "CLS":
@@ -170,7 +164,6 @@ const _phases = (metric: MetricWithAttribution): _Causal => {
           [Convention.rasm.vitalPhasePresentation]: metric.attribution.presentationDelay,
           [Convention.rasm.vitalPhaseProcessing]: metric.attribution.processingDuration,
           [Convention.rasm.vitalPhaseScript]: metric.attribution.totalScriptDuration,
-          // `intersectingDuration` measures the part of that script landing INSIDE this interaction, never the script's whole run
           [Convention.rasm.vitalPhaseLongestScript]: metric.attribution.longestScript?.intersectingDuration,
           [Convention.rasm.vitalPhaseStyleAndLayout]: metric.attribution.totalStyleAndLayoutDuration,
           [Convention.rasm.vitalPhaseUnattributed]: metric.attribution.totalUnattributedDuration,
@@ -178,7 +171,6 @@ const _phases = (metric: MetricWithAttribution): _Causal => {
         subject: _present({
           [Convention.rasm.vitalElement]: metric.attribution.interactionTarget,
           [Convention.rasm.vitalInteraction]: metric.attribution.interactionType,
-          // `subpart` names WHERE the worst script ran, so a poor interaction resolves to a code path and never to a duration alone
           [Convention.rasm.vitalScriptInvoker]: metric.attribution.longestScript?.entry.invokerType,
           [Convention.rasm.vitalScript]: metric.attribution.longestScript?.entry.sourceURL,
           [Convention.rasm.vitalScriptFunction]: metric.attribution.longestScript?.entry.sourceFunctionName,
@@ -217,16 +209,15 @@ const _reported = (metric: MetricWithAttribution): _Sample =>
   pipe(_phases(metric), (causal) => ({
     at: performance.now(),
     delta: metric.delta,
-    instance: metric.id, // a bfcache restore mints a fresh instance whose value restarts while delta keeps advancing
+    instance: metric.id,
     kind: _LIBRARY[metric.name],
     navigation: metric.navigationType,
     phases: causal.phases,
-    rated: Option.some(metric.rating), // the shipped rating buckets against the same pair the row carries: re-deriving it forks the standard
+    rated: Option.some(metric.rating),
     subject: causal.subject,
     value: metric.value,
   }))
 
-// entry rows index by their own entry type, so the observer callback stays total and a new family costs no arm here
 const _ENTERED: Readonly<Record<string, { readonly kind: Vital.Kind; readonly read: (entry: PerformanceEntry) => number }>> = pipe(
   Record.toEntries(_rows),
   Array.filterMap(([kind, row]) => (row.source === "entry" ? Option.some([row.entry, { kind, read: row.read }] as const) : Option.none())),
@@ -236,7 +227,7 @@ const _ENTERED: Readonly<Record<string, { readonly kind: Vital.Kind; readonly re
 const _entered = (entry: PerformanceEntry, session: string, navigation: Vital.Navigation): Option.Option<_Sample> =>
   Option.map(Record.get(_ENTERED, entry.entryType), (row) =>
     pipe(row.read(entry), (value) => ({
-      at: entry.startTime, // the entry's own timeline coordinate, never wall clock
+      at: entry.startTime,
       delta: value,
       instance: session,
       kind: row.kind,
@@ -254,7 +245,6 @@ const _watched = (policy: Vital.Policy, navigation: Vital.Navigation): Stream.St
         Effect.sync(() => {
           const gate = { open: true }
           const push = (sample: _Sample): void => void (gate.open && emit.single(sample))
-          // one annotated reporter: the row table's five registrar signatures intersect their callback parameter, and this is the one shape all five admit
           const report = (metric: MetricWithAttribution): void => push(_reported(metric))
           const opts: INPAttributionReportOpts = {
             durationThreshold: policy.interaction,
@@ -276,7 +266,7 @@ const _watched = (policy: Vital.Policy, navigation: Vital.Navigation): Stream.St
         }),
         ({ gate, observer }) =>
           Effect.sync(() => {
-            gate.open = false // the library registrations outlive the scope: the gate is the only teardown they admit
+            gate.open = false
             observer.disconnect()
           }),
       ),
@@ -301,7 +291,6 @@ const _watched = (policy: Vital.Policy, navigation: Vital.Navigation): Stream.St
 
 ```typescript signature
 declare global {
-  // Navigator members no shipped lib declares: one marked augmentation, never a second @types package
   interface Navigator {
     readonly connection?: { readonly type?: string }
     readonly userAgentData?: {
@@ -325,9 +314,6 @@ declare namespace Vital {
 
 const _HINTS = ["model", "platformVersion"] as const
 
-// Network Information API answers its own vocabulary — bluetooth, cellular, ethernet, mixed, none, other, unknown, wifi,
-// wimax — where the bounded spec row set is cell, unavailable, unknown, wifi, wired, so this table maps the dialect at one
-// stamp site and folds every unmapped transport onto the family's own unknown row instead of reaching a bounded key raw
 const _CONNECTED: Readonly<Record<string, Convention.ConnectionType>> = {
   cellular: Convention.value.connectionCell,
   ethernet: Convention.value.connectionWired,
@@ -341,9 +327,8 @@ const _connected = (transport: string): Convention.ConnectionType =>
 const _context = (session: Vital.Session): Effect.Effect<Convention.Attributes> =>
   Effect.map(
     Effect.orElseSucceed(
-      // `Promise.resolve` takes the hint annotation: an unannotated `{}` widens the awaited union and strands every field read below
       Effect.tryPromise(() => globalThis.navigator.userAgentData?.getHighEntropyValues([..._HINTS]) ?? Promise.resolve<_Hints>({})),
-      (): _Hints => ({}), // a refused hint permission degrades the context, never the Layer
+      (): _Hints => ({}),
     ),
     (hints) => ({
       [Convention.incubating.browserLanguage]: globalThis.navigator.language,
@@ -372,7 +357,6 @@ const _context = (session: Vital.Session): Effect.Effect<Convention.Attributes> 
   )
 
 const _enrich = (span: Span, request: Vital.Request): Option.Option<PerformanceResourceTiming> => {
-  // `getEntriesByType` keys by entry name in the types build, so the resource buffer arrives typed and a narrowing guard filters nothing
   const resources = performance.getEntriesByType("resource")
   const timing = getResource(
     normalizeUrl(request.url),
@@ -384,7 +368,7 @@ const _enrich = (span: Span, request: Vital.Request): Option.Option<PerformanceR
   )
   const attach = (entry: PerformanceResourceTiming): PerformanceResourceTiming => {
     request.used.add(entry)
-    addSpanNetworkEvents(span, entry, false, true, true) // emit events, drop zeroed phases, skip the deprecated content-length keys
+    addSpanNetworkEvents(span, entry, false, true, true)
     return entry
   }
   Option.match(Option.fromNullable(timing.corsPreFlightRequest), { onNone: () => undefined, onSome: attach })
@@ -428,7 +412,6 @@ class _Fact extends Schema.Class<_Fact>("Vital/Fact")({
   kind: Schema.Literal(..._KINDS),
   navigation: Schema.Literal(..._NAVIGATIONS),
   phases: Schema.Record({ key: Schema.String, value: Schema.Number }),
-  // absent on a non-accruing kind: a zero total reads as a measured session rather than as one nobody accrues
   session: Schema.optionalWith(Schema.Number.pipe(Schema.finite(), Schema.nonNegative()), { as: "Option" }),
   subject: Schema.Record({ key: Schema.String, value: Schema.String }),
   value: Schema.Number.pipe(Schema.finite(), Schema.nonNegative()),
@@ -446,11 +429,11 @@ class _Policy extends Schema.Class<_Policy>("Vital/Policy")({
 
 type _Cell = { readonly held: number; readonly instance: string; readonly session: number }
 
-const _EMPTY: _Cell = { held: 0, instance: "", session: 0 } // the empty instance IS the unwritten mark: a first sample always emits
+const _EMPTY: _Cell = { held: 0, instance: "", session: 0 }
 
 const _folds = {
   crest: (held: number, value: number) => Number.max(held, value),
-  level: (_held: number, value: number) => value, // the producer accounted it already: web-vitals for the web family, the verdict fold for the render rows
+  level: (_held: number, value: number) => value,
 } as const satisfies Record<Vital.Fold, (held: number, value: number) => number>
 
 const _accounted = (
@@ -463,7 +446,6 @@ const _accounted = (
   const held = _folds[row.fold](restored ? 0 : prior.held, sample.value)
   const grade = Option.getOrElse(sample.rated, () => _grade(sample.kind, held))
   const cell: _Cell = { held, instance: sample.instance, session: prior.session + (row.accrues ? sample.delta : 0) }
-  // a level sample IS the producer's own new accounting: suppressing it on an equal value drops the element, phase split, and delta riding it
   const advanced = prior.instance === "" || restored || row.fold !== "crest" || held > prior.held
   return [
     HashMap.set(ledger, sample.kind, cell),
@@ -486,15 +468,12 @@ const _accounted = (
   ]
 }
 
-// one level series per UCUM code, keyed by the code itself: the row's unit selects the instrument, so a kind cannot
-// declare a unit no series receives and a millisecond level never lands on a dimensionless descriptor
 const _LEVELS = {
   [Convention.instrument.vitalDuration.unit]: Convention.instrument.vitalDuration,
   [Convention.instrument.vitalScore.unit]: Convention.instrument.vitalScore,
   [Convention.instrument.vitalSize.unit]: Convention.instrument.vitalSize,
 } as const
 
-// name tuple beside the table: Schema.Literal holds its non-empty overload off literals, which a Record.values walk widens away
 const _LEVEL_NAMES = [
   Convention.instrument.vitalDuration.name,
   Convention.instrument.vitalScore.name,
@@ -507,9 +486,6 @@ const _observed = Convention.mount(Convention.metric.vitalObserved)
 
 class _Report extends Context.Tag("Vital/Report")<_Report, {
   readonly facts: Stream.Stream<Vital.Fact>
-  // The value carries the caller's own number across a plane boundary, so the intake refuses on the parse rail
-  // rather than admitting it: the accounted fold constructs its fact inside a stream accumulator, where a
-  // malformed sample raises and takes the whole capture with it.
   readonly report: (
     sample: { readonly kind: Vital.Reported; readonly phases?: _Parts; readonly subject?: _Subject; readonly value: number },
   ) => Effect.Effect<void, ParseResult.ParseError>
@@ -518,7 +494,6 @@ class _Report extends Context.Tag("Vital/Report")<_Report, {
 const _drained = (context: Convention.Attributes, fact: Vital.Fact): Effect.Effect<void> =>
   Effect.all(
     [
-      // Each row's unit selects its level series, so a millisecond kind and a byte kind never share a descriptor
       Metric.set(Metric.tagged(_level[_rows[fact.kind].unit], Convention.rasm.vitalKind, fact.kind), fact.value),
       Metric.increment(
         Metric.tagged(Metric.tagged(_observed, Convention.rasm.vitalKind, fact.kind), Convention.rasm.vitalGrade, fact.grade),
@@ -529,7 +504,6 @@ const _drained = (context: Convention.Attributes, fact: Vital.Fact): Effect.Effe
     Effect.withSpan(Convention.metric.vitalObserved, {
       attributes: {
         ...context,
-        // both causal records already key on Convention rows, so the whole decomposition spreads with no mapping layer
         ...fact.phases,
         ...fact.subject,
         [Convention.rasm.vitalDelta]: fact.delta,
@@ -537,13 +511,12 @@ const _drained = (context: Convention.Attributes, fact: Vital.Fact): Effect.Effe
         [Convention.rasm.vitalInstance]: fact.instance,
         [Convention.rasm.vitalKind]: fact.kind,
         [Convention.rasm.vitalNavigation]: fact.navigation,
-        // absent on a non-accruing kind: a zero total reads as a measured session rather than as one nobody accrues
         ...Option.match(fact.session, {
           onNone: () => ({}),
           onSome: (session) => ({ [Convention.rasm.vitalSession]: session }),
         }),
       },
-      root: true, // the drain fiber owns no ambient request span: an inherited parent misattributes a page-lifecycle fact
+      root: true,
     }),
   )
 
@@ -580,7 +553,6 @@ const Vital: {
             Stream.merge(_watched(policy, navigation), Stream.fromQueue(intake)).pipe(
               Stream.mapAccum(HashMap.empty<Vital.Kind, _Cell>(), _accounted),
               Stream.filterMap((accounted) => accounted),
-              // cost is per CHUNK: the intake drains every queued report in one pull, so a flat cost of one shapes nothing on the tap's own burst
               Stream.throttle({ cost: Chunk.size, duration: policy.settle, strategy: "shape", units: policy.pulse }),
             ),
             (fact) => Effect.zipRight(PubSub.publish(hub, fact), _drained(context, fact)),
@@ -590,15 +562,12 @@ const Vital: {
           facts: Stream.fromPubSub(hub),
           report: (sample) =>
             pipe(
-              // ONE cutoff owner: the sample admits against the FACT's own value constraint, so the intake and the
-              // accounted fold cannot disagree on what a measurable number is and no malformed report reaches a
-              // `Schema.Class` construction inside the accumulator.
               Schema.decodeUnknown(_Fact.fields.value)(sample.value),
               Effect.flatMap((value) =>
                 Queue.offer(intake, {
                   at: performance.now(),
                   delta: value,
-                  instance: policy.session.id, // a report-source kind carries the document's own identity: it never restores
+                  instance: policy.session.id,
                   kind: sample.kind,
                   navigation,
                   phases: sample.phases ?? {},
@@ -614,7 +583,7 @@ const Vital: {
   rows: _rows,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Vital }
 ```

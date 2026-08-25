@@ -38,7 +38,6 @@ import { Model } from "@effect/sql"
 import { Identity } from "@rasm/core"
 
 const _BoardState = Schema.Struct({
-  // payload columns carry their own authority: consumers reach board.state.lanes typed, no second decode anywhere
   lanes: Schema.Array(Schema.Struct({ key: Schema.NonEmptyString, order: Schema.Array(Schema.NonEmptyString) })),
   theme: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
 })
@@ -138,7 +137,6 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
     execute: (cells) => sql`SELECT cell, member FROM board_member WHERE ${sql.in("cell", cells)}`,
   }),
   minted: SqlResolver.ordered("MintBoard", {
-    // echo statements answer in insert order, and a dropped row raises SqlError.ResultLengthMismatch rather than passing silently
     Request: Board.insert,
     Result: Board,
     execute: (rows) => sql`INSERT INTO board ${sql.insert(rows)} RETURNING *`,
@@ -152,8 +150,6 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
     Result: Schema.Struct({ id: Schema.String, head: Journal.Version }),
     ResultId: (row) => row.id,
     execute: (ids) =>
-      // Append owner spells the composed identity once as its own fragment, composed twice here — so the id this
-      // resolver keys on and the string the advisory lock hashes cannot drift apart on a separator or an order.
       sql`SELECT ${StreamKey.identityColumn(sql)} AS id, coalesce(max(version), 0) AS head
           FROM journal_event WHERE (${StreamKey.identityColumn(sql)}) IN ${sql.in(ids)}
           GROUP BY app, tenant, aggregate`,
@@ -163,14 +159,11 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
 type _Resolvers = Query.Resolved<ReturnType<typeof _resolverRows>>
 
 const _grown = (resolvers: _Resolvers, draft: typeof Board.insert.Type) =>
-  Effect.tap(resolvers.minted.execute(draft), (row) => resolvers.boards.cachePopulate(row.cell, row)) // write-through: the returning row seeds the read cache in the same flow
+  Effect.tap(resolvers.minted.execute(draft), (row) => resolvers.boards.cachePopulate(row.cell, row))
 
 const _retired = (resolvers: _Resolvers, cell: Board["cell"]) =>
-  Effect.zipRight(resolvers.touch.execute(cell), resolvers.boards.cacheInvalidate(cell)) // mutation evicts: the next read re-proves against the relation
+  Effect.zipRight(resolvers.touch.execute(cell), resolvers.boards.cacheInvalidate(cell))
 
-// Realizing the `board` lane of `read/batch.md`'s census: the engine's one geometry member wraps the row (a
-// `SqlResolver` IS a `RequestResolver`) answering a bare resolver over `SqlRequest`, and `makeExecute` re-binds its
-// typed call surface — the collapse window widens to the wall clock and the decode contract does not move.
 const _windowed = (resolvers: _Resolvers, engine: Batch.Engine) =>
   Effect.map(Batch.windowed(resolvers.boards, engine), (wrapped) => resolvers.boards.makeExecute(wrapped))
 ```
@@ -213,8 +206,6 @@ declare namespace Query {
   type Resolved<Rows extends ResolverRows> = { readonly [K in keyof Rows]: Effect.Effect.Success<Rows[K]> }
   type Column<M extends Model.AnyNoContext> =
     keyof M["Type"] & keyof M["update"]["Type"] & keyof M["fields"] & string
-  // `Foreign` closes the engine roster: a third engine lands as ONE member here and one optional arm wherever a
-  // statement forks — never a second entrypoint, a second product, or a second binding law.
   type Foreign = MysqlClient.MysqlClient | MssqlClient.MssqlClient
   type Native<M extends Model.AnyNoContext, Id extends Column<M>, RD, RS extends ResolverRows> = {
     readonly relation: Relation
@@ -223,8 +214,6 @@ declare namespace Query {
     readonly reads: (sql: SqlClient.SqlClient) => RD
     readonly resolvers: (sql: SqlClient.SqlClient) => RS
   }
-  // No `id` and no `ensure` slot exists to give: this branch owns no DDL and no identity on a foreign relation, so
-  // `Capability.Ensure` never widens to carry a dialect it cannot apply.
   type Ingress<C extends Foreign, RD, RS extends ResolverRows> = {
     readonly relation: Relation
     readonly client: Context.Tag<C, C>
@@ -235,9 +224,6 @@ declare namespace Query {
     | Native<M, Column<M>, unknown, ResolverRows>
     | Ingress<Foreign, unknown, ResolverRows>
   type Client<S> = S extends { readonly client: Context.Tag<infer C, infer C> } ? C : SqlClient.SqlClient
-  // One product owner, projected by the case rather than unioned across it: the native arm infers its id column
-  // here, so the repository and loader shapes stay keyed to the exact column the spec proved, and the ingress arm
-  // simply HAS no write member — read-only is unspellable rather than refused at run time.
   type Bound<M extends Model.AnyNoContext, S extends Spec<M>> =
     & {
       readonly model: M
@@ -253,7 +239,6 @@ declare namespace Query {
       : Record<never, never>)
 }
 
-// Whole verb set: DDL owned, identity bound, repository and loaders minted beside the reads.
 const _native = <M extends Model.AnyNoContext, const S extends Query.Native<M, Query.Column<M>, unknown, Query.ResolverRows>>(
   model: M,
   spec: S,
@@ -277,8 +262,6 @@ const _native = <M extends Model.AnyNoContext, const S extends Query.Native<M, Q
     return { model, relation: spec.relation, ensure: spec.ensure, repository, loaders, reads: spec.reads(sql), resolvers }
   })
 
-// Read half alone. The engine resolves from the spec's OWN Tag, so the ambient `SqlClient` — the pg spine every
-// tenancy scope binds — is never rebound to a foreign engine to serve one ingress relation.
 const _ingress = <M extends Model.AnyNoContext, const S extends Query.Ingress<Query.Foreign, unknown, Query.ResolverRows>>(
   model: M,
   spec: S,
@@ -293,8 +276,6 @@ const _ingress = <M extends Model.AnyNoContext, const S extends Query.Ingress<Qu
     }
   })
 
-// One entrypoint, one overload set over the discriminated spec: the `client` slot is the whole discriminant, each
-// signature answers the product its own case earns, and the implementation is a single terminal two-way probe.
 function _table<M extends Model.AnyNoContext, const S extends Query.Native<M, Query.Column<M>, unknown, Query.ResolverRows>>(
   model: M,
   spec: S,
@@ -312,7 +293,7 @@ const Query = {
   table: _table,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Query }
 ```
@@ -342,10 +323,6 @@ import { Query } from "./query.ts"
 
 const _ident = Schema.decodeSync(Query.Relation.fields.table)
 
-// Modelled for ROW TYPING alone: no origin family, no temporal stamp, no insert variant any consumer reaches,
-// because the ingress product mints neither repository nor loaders to consume one. Both drivers hand a datetime
-// column back as a JS `Date`, so the temporal column admits through `DateTimeUtcFromDate` and no `Date` survives
-// past the model boundary.
 class _Invoice extends Model.Class<_Invoice>("Ingress.Invoice")({
   invoice_no: Schema.NonEmptyString,
   account: Schema.NonEmptyString,
@@ -353,8 +330,6 @@ class _Invoice extends Model.Class<_Invoice>("Ingress.Invoice")({
   posted_on: Schema.DateTimeUtcFromDate,
 }) {}
 
-// Typed against the NEUTRAL client, so one statement definition serves both ingress rows: a parameter position
-// accepts any supertype of the concrete Tag, and the dialect fork states only the arms this lane can meet.
 const _reads = (sql: SqlClient.SqlClient) => ({
   ledger: SqlSchema.findAll({
     Request: Schema.Struct({
@@ -374,8 +349,6 @@ const _reads = (sql: SqlClient.SqlClient) => ({
   }),
 })
 
-// `window` on the relation drives the resolver geometry alone on an ingress row — no loader exists to batch —
-// while `spanPrefix` still names the lane every ingress span lands under.
 const _resolvers = (sql: SqlClient.SqlClient) => ({
   byAccount: SqlResolver.grouped("IngressInvoices", {
     Request: Schema.NonEmptyString,
@@ -388,8 +361,6 @@ const _resolvers = (sql: SqlClient.SqlClient) => ({
   }),
 })
 
-// T-SQL scalars carry their DECLARED type across the wire: `param` answers a Fragment the template splices, so the
-// compiler never infers `NVarChar` width or an integer kind off the runtime value at the edge of a foreign index.
 const _aged = (sql: MssqlClient.MssqlClient) =>
   SqlSchema.findAll({
     Request: Schema.Struct({ account: Schema.NonEmptyString, days: Schema.Number.pipe(Schema.int()) }),
@@ -407,8 +378,6 @@ const _reconcile = Procedure.make("dbo.reconcile_account").pipe(
   Procedure.withRows<{ readonly invoice_no: string; readonly amount_cents: number }>(),
 )
 
-// `withRows` re-types the result set and proves nothing, so the procedure's own answer decodes here exactly as a
-// `Connection.Row` does — output scalars and rows through one schema, `ParseError` on the same admission rail.
 const _Reconciled = Schema.Struct({
   unmatched: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   rows: Schema.Array(Schema.Struct({
@@ -424,8 +393,6 @@ const _reconciled = (sql: MssqlClient.MssqlClient) =>
     (result) => Schema.decodeUnknown(_Reconciled)({ unmatched: result.output.unmatched, rows: result.rows }),
   )
 
-// Both ingress rows on one entrypoint: the engine arrives as its own Tag, no `id` and no `ensure` exists to give,
-// and the bound value carries `reads` and `resolvers` alone — `.repository` is a compile error, not a refusal.
 const _mysqlInvoices = (window: Duration.Duration) =>
   Query.table(_Invoice, {
     relation: new Query.Relation({ table: _ident("invoice"), spanPrefix: "ingress.mysql", window }),
@@ -438,14 +405,10 @@ const _mssqlInvoices = (window: Duration.Duration) =>
   Query.table(_Invoice, {
     relation: new Query.Relation({ table: _ident("invoice"), spanPrefix: "ingress.mssql", window }),
     client: MssqlClient.MssqlClient,
-    // SQL Server's own capability lands as rows BESIDE the shared reads, not as a second binding for one engine
     reads: (sql: MssqlClient.MssqlClient) => ({ ..._reads(sql), aged: _aged(sql), reconciled: _reconciled(sql) }),
     resolvers: _resolvers,
   })
 
-// `layerConfig` publishes `MysqlClient` beside `SqlClient`, so the composition root provides this Layer outside
-// every tenancy scope where a native binding reads that ambient Tag. No pool-adoption entrypoint exists on either
-// foreign driver, so this Layer IS the lane's one pool.
 const _mysqlIngress = MysqlClient.layerConfig({
   url: Config.redacted("INGRESS_MYSQL_URL"),
   maxConnections: Config.integer("INGRESS_MYSQL_POOL"),
@@ -479,15 +442,11 @@ import { Digest, Fault, Shape } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 import { Query } from "./query.ts"
 
-// Identifier evidence derives from the relation owner over page-authored literals, so all three names are total by
-// construction and no caller-derived string reaches an identifier position.
 const _ident = Schema.decodeSync(Query.Relation.fields.table)
 const _ENTITY = _ident("organization_entity")
 const _MEMBER = _ident("organization_member")
 const _VIEW = _ident("organization_view")
 
-// The organization wire lowers its 16-byte content address through the core key owner. Reusing that exact schema
-// preserves the domain brand through persistence and keeps this read plane from becoming a second key authority.
 const _Address = Digest.Key.content
 
 class _Entity extends Model.Class<_Entity>("Organization.Entity")({
@@ -503,10 +462,6 @@ class _Entity extends Model.Class<_Entity>("Organization.Entity")({
   folded_at: Model.DateTimeInsert,
 }) {}
 
-// Direction is the edge ORIENTATION as a row pair, so one recursive term serves both arms by reading its join columns
-// here: `down` matches a candidate's container against the frontier and yields the candidate, `up` matches its address
-// and yields its container. The guard below proves both names against the model, so a renamed column breaks at this
-// declaration rather than at a statement the engine compiles and answers empty.
 const _EDGES = {
   down: { parent: "container", child: "address" },
   up: { parent: "address", child: "container" },
@@ -514,18 +469,12 @@ const _EDGES = {
 
 const _Direction = Schema.Literal(...Struct.keys(_EDGES))
 
-// A reach row IS the entity row plus the two columns the WALK computed. `container` keeps the model's own `Option`
-// because an `up` arm reaches roots, and the group key moved to `seed` — proved non-optional by the statement's own
-// seed column — so the container re-typing a level read once needed to key a group is gone with the artifact.
 const _Reached = Schema.Struct({
   ..._Entity.fields,
   seed: _Address,
   hops: Schema.Int.pipe(Schema.nonNegative()),
 })
 
-// A reach with no seed is a caller defect, not an empty answer, so the request proves arity; `Shape.Bound`'s FINITE arm
-// alone is spellable because this tree is foreign-produced and a container cycle is drift no admission here forecloses
-// — the same election `Shape.Ingress.depth` makes against hostile depth.
 const _Walk = Schema.Struct({
   seeds: Schema.NonEmptyArray(_Address),
   bound: Shape.Bound.finite("hops"),
@@ -538,25 +487,13 @@ declare namespace Organization {
   type Edge = { readonly parent: Query.Column<typeof _Entity>; readonly child: Query.Column<typeof _Entity> }
   type Reached = typeof _Reached.Type
   type Walk = typeof _Walk.Type
-  // The direction rows stay literal and their column names prove HERE against the model, so a renamed field breaks at
-  // this declaration rather than at a statement the engine compiles happily and answers empty.
   type _Edges<T extends Readonly<Record<Direction, Edge>> = typeof _EDGES> = T
 }
 
-// The level read's own bound, stated as a value rather than as a literal buried in a statement.
 const _ONE_HOP = Shape.Bound.bounded("hops", 1)
 
-// Bound exhaustion is ONE family estate-wide: `Shape.Bound`'s units ARE its reasons and its subject closes at the
-// ceiling and the depth reached, so this page mints no spent row of its own to fork that taxonomy.
 const _WalkFault = Fault.Class.spent.census("Organization.WalkFault")
 
-// ONE walk statement answers every reach on this relation. The seed frontier is the whole request's address set carried
-// as `seed`, `hops` counts levels IN THE ENGINE (`r.hops + 1`), and the bound IS the recursive term's own termination
-// predicate — so nothing re-walks a level on the client and no consumer counts one. The predicate admits one level PAST
-// the ceiling on purpose: a row at `ceiling + 1` proves the frontier was still live there, which is the whole
-// difference between a converged subtree and a truncated prefix reported as whole. `min(hops)` collapses a DAG's second
-// path to the nearest distance inside the statement, and `UNION` dedups the frontier rather than re-emitting it.
-// `WITH RECURSIVE` carries on both engines this ledger runs, so no dialect arm forks here.
 const _walked = (sql: SqlClient.SqlClient) => (walk: Organization.Walk) => {
   const edge = _EDGES[walk.direction]
   return sql`WITH RECURSIVE reach(seed, address, hops) AS (
@@ -573,9 +510,6 @@ const _walked = (sql: SqlClient.SqlClient) => (walk: Organization.Walk) => {
      ORDER BY n.seed, n.hops, e.position`
 }
 
-// Exhaustion refuses; it never truncates. `Shape.Bound.spent` is the one gate every bounded walk spends — `none` is the
-// converged answer and a spent budget hands its whole evidence row to the refusal — and the probe level the statement
-// admitted is what makes that verdict decidable at all.
 const _reached = (sql: SqlClient.SqlClient) => {
   const rows = SqlSchema.findAll({ Request: _Walk, Result: _Reached, execute: _walked(sql) })
   return (walk: Organization.Walk) =>
@@ -595,13 +529,7 @@ const _reached = (sql: SqlClient.SqlClient) => {
       ))
 }
 
-// Edge relations carry no independent identity, so they take resolvers and no repository: an organization read
-// replaces a source's whole edge set, never one row. `member` and `view` stay unbranded strings because the
-// producing authority issues them — branding either here claims a grammar no peer promised.
 const _resolverRows = (sql: SqlClient.SqlClient) => ({
-  // The level read is the WALK at one hop, not a second statement: it keeps its own row because a grouped resolver
-  // collapses N fibers' containers into one window, which a caller-gathered seed set cannot do — and it answers `hops`
-  // like every other reach, so a consumer that later wants a whole subtree widens the bound instead of looping levels.
   children: SqlResolver.grouped("OrganizationChildren", {
     Request: _Address,
     RequestGroupKey: (address) => address,
@@ -613,8 +541,6 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
         onNonEmpty: (seeds) => _walked(sql)({ seeds, bound: _ONE_HOP, direction: "down" }),
       }),
   }),
-  // Roots are the SEED PRODUCER, not a reach: a whole-source walk needs addresses to seed and this answers where a
-  // source's tree starts, which is why it carries no distance column and keys on `source` rather than on a frontier.
   roots: SqlResolver.grouped("OrganizationRoots", {
     Request: _Address,
     RequestGroupKey: (source) => source,
@@ -641,15 +567,13 @@ const _resolverRows = (sql: SqlClient.SqlClient) => ({
   }),
 })
 
-// Whole-source roster: the lane replaces a source's projection as one unit, so its diff reads every address the
-// prior fold landed rather than probing per entity.
 const _reads = (sql: SqlClient.SqlClient) => ({
   roster: SqlSchema.findAll({
     Request: _Address,
     Result: Schema.Struct({ address: _Address }),
     execute: (source) => sql`SELECT address FROM ${sql(_ENTITY)} WHERE source = ${source}`,
   }),
-  reach: _reached(sql), // the whole-subtree road: seeds in hand, one statement, distance on every row
+  reach: _reached(sql),
 })
 
 const _ddl: Capability.Ensure = {
@@ -685,7 +609,7 @@ const _rows = (window: Duration.Duration) =>
 
 const Organization = { Entity: _Entity, Address: _Address, Walk: _Walk, WalkFault: _WalkFault, rows: _rows } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Organization }
 ```

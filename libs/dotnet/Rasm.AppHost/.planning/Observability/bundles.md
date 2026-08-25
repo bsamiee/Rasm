@@ -24,9 +24,7 @@ Settled composition: `SupportContributorPort` arrives from Runtime/ports#PORT_SU
 - Boundary: the abstract root seals ingress; fault, health, and schedule causes carry typed evidence whole, while the short reason renders once inside total `Facts` dispatch. Durable crash recovery and support capture read the same native fault fact, never a peer protobuf or local mirror. The live `ScheduleEntry.Work` closure stays process-local; only its key and the deadline lane/outcome enter the reason. Watchdog dump completeness remains enrollment-owned.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Six native cause keys, each carrying the dump completeness its cause deserves, keep the two exact-shape case
-// pairs collapsed without losing the cause the lifecycle and archive read.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -37,8 +35,6 @@ public sealed partial class SupportTriggerKind {
         "fault-transition", Some(DumpPolicy.Routine));
     public static readonly SupportTriggerKind HealthThreshold = new(
         "health-threshold", Some(DumpPolicy.Snapshot));
-    // Watchdog completeness is the ENROLLMENT's — `ProfileBoot.Enrolled` already mints the row carrying it, so an
-    // absent value here keeps the manager's own answer the only one.
     public static readonly SupportTriggerKind WatchdogTimeout = new(
         "watchdog-timeout", Option<DumpPolicy>.None);
     public static readonly SupportTriggerKind ExternalCommand = new(
@@ -49,7 +45,7 @@ public sealed partial class SupportTriggerKind {
     public Option<DumpPolicy> Dump { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SupportTrigger {
     private protected SupportTrigger(CorrelationId correlation, Option<Duration> windowOverride) =>
@@ -67,10 +63,6 @@ public abstract partial record SupportTrigger {
         : SupportTrigger(Correlation, WindowOverride);
     public sealed record HealthThreshold(CorrelationId Correlation, DegradationLevel Level, Option<Duration> WindowOverride = default)
         : SupportTrigger(Correlation, WindowOverride);
-    // The schedule causes carry BOTH halves of the `Runtime/time#SCHEDULE_PORT` contract: the entry, whose
-    // wire-stable `Key` names the row that fired, and the measured `DeadlineReceipt`, whose lane and outcome
-    // name the crossing. The receipt is the half that makes a watchdog bundle diagnostic — a key alone reports
-    // that some occurrence was late and nothing about which ceiling it blew or whether it escalated.
     public sealed record Timed(CorrelationId Correlation, SupportTriggerKind Origin, ScheduleEntry Entry, DeadlineReceipt Deadline, Option<Duration> WindowOverride = default)
         : SupportTrigger(Correlation, WindowOverride);
 }
@@ -82,7 +74,7 @@ public readonly record struct TriggerFacts(
     Option<Duration> Override,
     Option<FaultSource> Fault = default);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SupportTriggerOps {
     extension(SupportTrigger trigger) {
         public TriggerFacts Facts() => trigger.Switch(
@@ -91,10 +83,6 @@ public static class SupportTriggerOps {
                                  row.Correlation, SupportTriggerKind.FaultTransition,
                                  $"fault:{row.Fault.Kind}", row.WindowOverride, Some(row.Fault)),
             healthThreshold: static row => new TriggerFacts(row.Correlation, SupportTriggerKind.HealthThreshold, row.Level.Key, row.WindowOverride),
-            // The entry's `Key` and the receipt's LANE and OUTCOME cross — three smart-enum keys, no formatted
-            // duration, so the reason stays wire-stable text under one alphabet. The live row's work closure
-            // and the receipt's raw span stay process-local: the schedule port keeps the first, and a rendered
-            // elapsed would put a temporal grammar in a manifest field that owns none.
             timed:           static row => new TriggerFacts(
                                  row.Correlation, row.Origin,
                                  $"{row.Entry.Key}:{row.Deadline.Class.Key}:{row.Deadline.Outcome.Key}",
@@ -116,9 +104,7 @@ public static class SupportTriggerOps {
 - Boundary: classification resolves redaction at row registration, so `Produce` returns only redacted bytes with their tally and no unredacted classified byte reaches assembly; every contributor row runs under its own recovery arm — a faulting `Produce` converts to a zero-byte `SupportFault.ContributorFaulted` manifest entry, so the bundle exports partial with the fault named on its row; `SupportArtifact.Cleanup` is the optional custody row the `[05]` fan folds before bundle sealing; the `EffectiveConfig` row passes the `GetDebugView(Func<ConfigurationDebugViewContext, string>?)` per-value processor through the ledger so each provider value redacts at its origin from the `ConfigurationDebugViewContext.Value`, carrying no unredacted secret — the framework drives that callback itself, which is why the ledger's accumulation seat is one cell inside the owner rather than a `Writer` bind no callback can reach; the `EventTrace` row hands `EventPipeSession.EventStream` to `Microsoft.Diagnostics.Tracing.TraceEvent`'s `EventPipeEventSource(Stream).Process()` on a FORKED pump whose window is the fork's own timeout, so the decode blocks on nothing the capture cannot cancel and a detached `Task.Delay` continuation whose faults nothing observes and whose stop races the dispose is the deleted form, with the admitted `Dimension` supplying both `circularBufferMB` and the artifact estimate so runtime buffering and bundle accounting cannot drift; decode faults map to `SupportFault.DecodeFaulted` and land `SupportReceipt`-partial rather than aborting the bundle; the `.gcdump` heap graph has no reader in the admitted TraceEvent assembly, so the gcdump column binds the `dotnet-gcdump` tool boundary; native-symbol leasing is `Observability/benchmarks#CAPTURE_SEAM` `PerfMapLease`, whose three consumers all live on that page — this owner opens no lease and a declaration here is a symbol seam beside a fan that never brackets a profiled window; the `SignalReadings` row is the capture's MEASUREMENT evidence and reads the kernel `InstrumentTally` alone — a bundle is pulled exactly when the exporter, collector, or store is what failed, so the read plane that answers it composes no exporter and no store, the tally's own lifetime and arming stay the composition root's, and a tally refusal rides the standing contributor recovery arm as a named zero-byte entry rather than a second fault path; contributed ports carry rows and never reach the freeze, redact, or cap law, so a benchmark session lends its event-trace row without opening a second capture window.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// Producers read ONE per-capture context, so a dump row reads the escalated policy a watchdog miss deserves
-// without a second roster minted per cause.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CaptureWindow(Interval Frozen, TriggerFacts Facts, DumpPolicy Dump);
 
 public readonly record struct ArtifactPayload(ReadOnlyMemory<byte> Bytes, MaskTally Tally) {
@@ -134,15 +120,12 @@ public readonly record struct MaskTally(int Masked) : Monoid<MaskTally> {
     public MaskTally Combine(MaskTally rhs) => new(Masked + rhs.Masked);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Masking has ONE owner, so the config view and the readings render cannot disagree on what counts; the verdict
-// is the kernel `Masked` case authored where the transform ran, never a length compare.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class MaskLedger(Redactor redactor) {
     readonly Atom<MaskTally> tally = Atom(MaskTally.Empty);
 
     public MaskTally Tally => tally.Value;
 
-    // Absent and empty values mask to the empty string, so no column carries a null and none counts.
     public string Mask(object? value) =>
         value?.ToString() is not { Length: > 0 } text
             ? string.Empty
@@ -152,7 +135,7 @@ public sealed class MaskLedger(Redactor redactor) {
         (ignore(tally.Swap(held => held.Combine(MaskTally.Of(verdict)))), verdict.Value).Item2;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SupportArtifact(
     string Name,
     DataClassification Classification,
@@ -177,8 +160,6 @@ public sealed record SupportArtifact(
             Fail: fault => IO.fail<ArtifactPayload>(
                 (Error)new SupportFault.ContributorFaulted("signal-readings", fault.Message, fault)))));
 
-    // Tag VALUES carry the tenant slug this row is classified for, so redaction runs over values alone; rows the
-    // process never measured print `unmeasured`, so a quiet producer and a dead one stay distinguishable.
     static ArtifactPayload Rendered(Seq<InstrumentReading> readings, MaskLedger ledger) =>
         ArtifactPayload.Of(
             string.Join(Environment.NewLine, readings.Bind(reading => Lines(reading, ledger))),
@@ -195,25 +176,19 @@ public sealed record SupportArtifact(
     static string Tagged(ReadingCell cell, MaskLedger ledger) =>
         string.Concat(toSeq(cell.Tags).Map(tag => $" {tag.Key}={ledger.Mask(tag.Value)}"));
 
-    // Window SUPPLIERS bound the set — never a page-local receipt store — so a capture outside any transition
-    // writes an empty artifact rather than the whole process history.
     public static SupportArtifact PhaseReceipts(
         Func<Interval, Seq<PhaseReceipt>> window, JsonTypeInfo<ImmutableArray<PhaseReceipt>> contract) => new(
         Name: "phase-receipts",
         Classification: DataClassification.Operational,
         EstimatedBytes: 32 << 10,
-        // Wire collections keep the manifest's own immutable shape, so one contract family covers the archive.
         Produce: capture => IO.lift(() => Serialized([.. window(capture.Frozen)], contract)));
 
-    // One coherent reading, so a bundle never pairs a fresh level against a stale snapshot; the member is named for
-    // its READING, so it never captures the `HealthSnapshot` type name inside this declaring type.
     public static SupportArtifact HealthReading(DegradationCell cell, JsonTypeInfo<DegradationReading> contract) => new(
         Name: "health-reading",
         Classification: DataClassification.HostIdentity,
         EstimatedBytes: 16 << 10,
         Produce: _ => IO.lift(() => Serialized(cell.Read(), contract)));
 
-    // Shed and lost counters ride beside the parked rows, so a tap storm reads as a number instead of an absence.
     public static SupportArtifact HookFaults(FaultCell cell, JsonTypeInfo<HookFaultView> contract) => new(
         Name: "hook-faults",
         Classification: DataClassification.Operational,
@@ -236,8 +211,6 @@ public sealed record SupportArtifact(
     static ArtifactPayload Serialized<TPayload>(TPayload payload, JsonTypeInfo<TPayload> contract) =>
         new(new ReadOnlyMemory<byte>(JsonSerializer.SerializeToUtf8Bytes(payload, contract)), MaskTally.Empty);
 
-    // Decoding blocks until the session stops, so the fork's own cancellation ends it and the bracket stops the
-    // session on every exit — a detached delay continuation raced the dispose and observed no faults.
     public static SupportArtifact EventTrace(Seq<EventPipeProvider> providers, Duration window, Dimension circularBufferMiB) => new(
         Name: "event-trace",
         Classification: DataClassification.Operational,
@@ -247,13 +220,11 @@ public sealed record SupportArtifact(
             Catch: static error => IO.fail<ArtifactPayload>((Error)new SupportFault.DecodeFaulted(error.Message, error)),
             Fin: static opened => IO.lift(() => (fun(opened.Session.Stop)(), unit).Item2)));
 
-    // Cancellation is the only expected exit, so every other error stays on the rail for the bracket's `Catch` arm.
     static IO<ArtifactPayload> Pumped(TraceSession opened, Duration window) =>
         from pump in IO.lift(() => (fun(opened.Source.Process)(), unit).Item2).Fork(window.ToTimeSpan())
         from _ in pump.Await | @catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
         select ArtifactPayload.Of(opened.Sink.ToString(), MaskTally.Empty);
 
-    // Contributed rows fold beside this root's own, so the capture reads ONE roster.
     public static Seq<SupportArtifact> Folded(Seq<SupportArtifact> own, params ReadOnlySpan<SupportContributorPort> contributed) =>
         Iterable<SupportContributorPort>.FromSpan(contributed).ToSeq().Fold(own, static (rows, port) => rows + port.Rows);
 }
@@ -267,7 +238,6 @@ public readonly record struct HookFaultRow(
     Rasm.Contracts.Fault.FaultObservation Cause,
     DateTimeOffset At);
 
-// One acquisition value, so the bracket releases session and source together and no arm holds half of it.
 public sealed record TraceSession(EventPipeSession Session, EventPipeEventSource Source, StringBuilder Sink) : IDisposable {
     public static TraceSession Open(Seq<EventPipeProvider> providers, Dimension circularBufferMiB) {
         var session = new DiagnosticsClient(Environment.ProcessId).StartEventPipeSession(
@@ -297,9 +267,7 @@ public sealed record TraceSession(EventPipeSession Session, EventPipeEventSource
 - Boundary: the `ProcessDump` row composes `Microsoft.Diagnostics.NETCore.Client` — `DiagnosticsClient.WriteDumpAsync(DumpType, path, WriteDumpFlags, CancellationToken)` captures under the frozen window observing the `DeadlineClass.SupportWindow` token, so the declared bound binds THROUGH the largest artifact instead of expiring around a synchronous write no token reaches, with completeness as `DumpPolicy` row data; a capture-tool fault is the typed registry-banded case, never a bare `Error.New` and never an orphan code outside every band; the raw row materializes the manifest bytes and registers the image path's cleanup independently of `DumpAnalysis`, and its failure arm releases EAGERLY while the custody row remains the guaranteed release — the two are independent because `DumpAnalysis` still has to read the file the success path leaves; `DumpAnalysis` folds through `Microsoft.Diagnostics.Runtime` — the policy's own `DumpSource.Open` resolves the image (`DataTarget.LoadDump(string filePath, DataTargetOptions? options = null)` for a captured file, `DataTarget.CreateSnapshotAndAttach(int processId, DataTargetOptions? options = null)` for the process fork a dumpless triage walks live), the FIRST `ClrVersions` entry admits through the rail rather than an index — a process image carrying no CLR is a real refusal a bare `[0]` turns into an exception the recovery arm reports as a decode fault — `ClrHeap.EnumerateObjects` samples at most `CensusCap` objects before grouping by `ClrObject.Type?.Name` and summing shallow `ClrObject.Size`, `ClrRuntime.Threads` projects `OSThreadId`/`ManagedThreadId`/`GCMode`/`State` with `ClrThread.CurrentException?.Type?.Name` and the `EnumerateStackTrace(includeContext, maxFrames)`-bounded frame walk discriminated on `ClrStackFrameKind.ManagedMethod` versus the runtime `FrameName`, and `ClrHeap.EnumerateRoots` samples at most `CensusCap` roots before counting `ClrRoot.RootKind`; the triage row's own bracket releases the image on every exit, so cancellation, a skipped dependent row, and an analysis failure cannot leave a partial dump on disk.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Custody is the ONE answer both the raw-dump row's existence and its cleanup arm read: a captured minidump owes
-// a release and a forked snapshot owes none.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -318,7 +286,7 @@ public sealed partial class DumpSource {
     public partial Option<Func<Fin<Unit>>> Custody(string captureRoot);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record DumpPolicy(DumpType Kind, WriteDumpFlags Flags, long EstimatedBytes, int CensusCap, int TriageRows, int FrameCap, DumpSource Source) {
     public static readonly DumpPolicy Snapshot = new(DumpType.Triage, WriteDumpFlags.None, 0L, CensusCap: 250_000, TriageRows: 32, FrameCap: 64, DumpSource.Snapshot);
     public static readonly DumpPolicy Routine = new(DumpType.Triage, WriteDumpFlags.None, 64L << 20, CensusCap: 250_000, TriageRows: 32, FrameCap: 64, DumpSource.File);
@@ -343,8 +311,6 @@ public sealed partial record DumpTriage(
         return Runtime(target).Map(runtime => Walked(runtime, policy));
     }
 
-    // CLR-free images are a real refusal: the bare index turned one into an exception the recovery arm reported as a
-    // decode fault, which reads as a corrupt trace rather than a native-only image.
     static Fin<ClrRuntime> Runtime(DataTarget target) =>
         toSeq(target.ClrVersions).Head
             .Map(static version => version.CreateRuntime())
@@ -379,7 +345,6 @@ public sealed partial record DumpTriage(
     public static string Path(string captureRoot) =>
         System.IO.Path.Join(captureRoot, $"dump-{Environment.ProcessId}.dmp");
 
-    // Existence-guarded, so an eager release and the custody row can both run.
     public static Fin<Unit> Release(string captureRoot) => Op.Of().Catch(() => {
         string path = Path(captureRoot);
         if (System.IO.File.Exists(path)) { System.IO.File.Delete(path); }
@@ -387,11 +352,9 @@ public sealed partial record DumpTriage(
     });
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DumpArtifacts {
     extension(SupportArtifact) {
-        // Failure releases EAGERLY while custody stays the guaranteed one: the success path must leave the file for
-        // `DumpAnalysis`, which is the later reader and owns the terminal release.
         public static Option<SupportArtifact> ProcessDump(DumpPolicy policy, string captureRoot) =>
             policy.Source.Custody(captureRoot).Map(release => new SupportArtifact(
                 Name: "process-dump",
@@ -411,7 +374,6 @@ public static class DumpArtifacts {
             Produce: capture => IO.lift(() => capture.Dump).Bracket(
                 Use: policy => Walked(policy, captureRoot, contract),
                 Catch: static error => IO.fail<ArtifactPayload>((Error)new SupportFault.DumpRejected(error.Message, error)),
-                // Custody releases on EVERY exit, so cancellation and analysis failure leave the disk as they found it.
                 Fin: policy => IO.lift(() => policy.Source.Custody(captureRoot)
                     .Match(Some: static release => ignore(release()), None: static () => unit))));
     }
@@ -449,7 +411,7 @@ public static class DumpArtifacts {
 - Boundary: the `Active` cell is the coalesce gate — a trigger arriving mid-capture folds to host-local `SupportReceipt.Coalesced` and never opens a second window, and only the capture that seated the gate clears it; classification resolves redaction at row registration, so no unredacted classified byte reaches assembly; every contributor and cleanup runs under one recovery arm and faults become zero-byte entries; `Assemble` brackets fan and cleanup before sealing; every written row's content key covers the capped, already-redacted bytes in its zip member; empty rows cannot carry keys by `EntryState` construction; elapsed rides `MonotonicTimeline`; the successful exported case seals directly onto the same-process receipt fan through `SuiteContracts.Host`.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SupportFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Support;
@@ -479,9 +441,7 @@ public abstract partial record SupportFault : Fault {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Rows either wrote bytes and own their key or wrote none and own none — the `with`-chain that cleared a byte
-// count while a key rode along made a forged identity spellable; two cases make it unrepresentable.
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record EntryState {
     private EntryState() { }
@@ -505,14 +465,10 @@ public sealed record SupportPolicy(
     long BundleCapBytes,
     int MaxBundles,
     Duration MaxAge) {
-    // Cutting happens ONCE: manifest count, keyed preimage, and zip member are three reads of one projection, so a
-    // second `long.Min` spelling is how they start describing three different slices.
     public ReadOnlyMemory<byte> Cap(ReadOnlyMemory<byte> payload) =>
         payload[..(int)long.Min(payload.Length, ArtifactCapBytes)];
 }
 
-// `Latency` is the per-capture ledger FACTORY the composition binds off `LatencySpine.Open`, and `Watchdog` is
-// its enrollment `Runtime/profiles#BOOT_SURFACE` minted — read for completeness, never re-decided here.
 public sealed record SupportRuntime(
     SupportPolicy Policy,
     ConsumptionProfile Profile,
@@ -529,7 +485,7 @@ public sealed record SupportRuntime(
     Seq<SupportArtifact> Contributors,
     Atom<Option<CorrelationId>> Active);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SupportCapture {
     static readonly Op CaptureWork = Op.Of(nameof(Capture));
 
@@ -538,8 +494,6 @@ public static class SupportCapture {
             var facts => IO.lift(() => Cell.Seat(runtime.Active, () => facts.Correlation)).Bracket(
                 Use: seat => seat is Transition<Option<CorrelationId>>.Committed
                     ? Ledgered(runtime, facts)
-                    // Coalesced triggers open NO ledger and mark NO checkpoint, and the live correlation rides the transition the
-                    // seat already answered rather than a second read of the cell.
                     : IO.pure<SupportReceipt>(new SupportReceipt.Coalesced(
                         seat.Current.IfNone(facts.Correlation), facts.Kind)),
                 Catch: static error => IO.fail<SupportReceipt>(error),
@@ -551,7 +505,6 @@ public static class SupportCapture {
             Use: opened => Assemble(runtime, facts, opened.Context, opened.Phase),
             Fin: static opened => IO.lift(() => (fun(opened.Context.Dispose)(), unit).Item2));
 
-    // Only the capture that SEATED the gate clears it, so a coalesced release cannot open a live window.
     static Unit Cleared(Atom<Option<CorrelationId>> gate, Transition<Option<CorrelationId>> seat) =>
         seat is Transition<Option<CorrelationId>>.Committed ? ignore(Cell.Take(gate)) : unit;
 
@@ -563,9 +516,7 @@ public static class SupportCapture {
             new Interval(at - facts.Override.IfNone(runtime.Policy.Lookback), at + runtime.Policy.Settle),
             facts,
             Completeness(runtime, facts.Kind))
-        // Stamping runs AFTER the freeze and before the fan, so the phase reported is the fan and not the clock read.
         from _marked in IO.lift(() => LatencySpine.Mark(latency, phase))
-        // Flush counters ride their own rail: a refused counter is no reason to withhold an incident bundle.
         from _held in IO.lift(() => runtime.Buffer.Flush(runtime.Signals))
         let cleanup = Atom(Seq<ArtifactRow>())
         from produced in IO.pure(unit).Bracket(
@@ -581,8 +532,6 @@ public static class SupportCapture {
             JsonSerializer.SerializeToElement(exported, SuiteContracts.Host))
         select (SupportReceipt)exported;
 
-    // Watchdog completeness READS the enrollment row rather than re-deciding one; every other cause names its own
-    // on the trigger roster and an unenrolled host falls to the dumpless routine.
     static DumpPolicy Completeness(SupportRuntime runtime, SupportTriggerKind kind) =>
         (kind.Dump | runtime.Watchdog.Map(static held => held.Policy)).IfNone(DumpPolicy.Snapshot);
 
@@ -590,14 +539,11 @@ public static class SupportCapture {
         IO.lift(() => runtime.Clocks.Line.Capture(CaptureWork))
             .Bind(static captured => captured.Match(Succ: IO.pure, Fail: IO.fail<MonotonicStamp>));
 
-    // Per-row recovery is the partial-receipt fold — one row never aborts the capture.
     static IO<ArtifactRow> Produced(SupportArtifact row, CaptureWindow window, SupportPolicy policy) =>
         (row.Produce(window).Map(payload => Written(row, payload, policy))
             | @catch<IO, ArtifactRow>(static _ => true, error => IO.pure(Refused(
                 row.Name, row.Classification, new SupportFault.ContributorFaulted(row.Name, error.Message, error))))).As();
 
-    // Cleanup runs EXACTLY once: the fold runs outside the swap and the commit publishes the settled roster, where
-    // a fold inside the CAS body re-ran every release on each contended retry.
     static Unit Released(Seq<SupportArtifact> contributors, Atom<Seq<ArtifactRow>> cell) =>
         contributors.Fold(Seq<ArtifactRow>(), Refusal) switch {
             var folded => ignore(Cell.Commit(cell, _ => folded, Cell.SwapBudget)),
@@ -612,14 +558,10 @@ public static class SupportCapture {
                     $"{row.Name}-cleanup", row.Classification,
                     new SupportFault.CleanupFaulted(row.Name, error.Message, error)))));
 
-    // ONE refusal arm for both no-byte causes, so the row that wrote nothing carries no key in exactly one place;
-    // its `-cleanup` slot is the only column the two disagree on.
     static ArtifactRow Refused(string name, DataClassification classification, SupportFault fault) =>
         new(name, classification, new EntryState.Empty(0L), Redactions: 0,
             Fault: Some(FaultWire.Observe(fault)), Bytes: ReadOnlyMemory<byte>.Empty);
 
-    // Identity mints over the FINAL slice, cut ONCE: a key over the pre-redaction or pre-cap payload names bytes no
-    // reader can extract from the archive it is written into.
     static ArtifactRow Written(SupportArtifact row, ArtifactPayload payload, SupportPolicy policy) =>
         policy.Cap(payload.Bytes) switch {
             var kept => new ArtifactRow(
@@ -631,7 +573,6 @@ public static class SupportCapture {
                 payload.Tally.Masked, Fault: None, Bytes: kept),
         };
 
-    // Rows past the budget drop WHOLE, so the key clears with the byte count by CASE rather than a `with`-chain.
     static Seq<ArtifactRow> Capped(Seq<ArtifactRow> produced, SupportPolicy policy) =>
         produced.Fold(
             (Total: 0L, Rows: Seq<ArtifactRow>()),
@@ -683,7 +624,7 @@ Every row names its `SupportArtifact` factory, so table and fence carry one rost
 - Boundary: `Bundle` and `Evict` are the named `System.IO` capsules. Each entry's archive `ContentKey` stays lowercase kernel text over the final written bytes. The `Exported` receipt carries the archive path for local custody and crosses no peer boundary. Native `FaultSource` facts and generated `FaultObservation` members serialize through the one `SuiteContracts.Host` graph, whose protobuf converter gives embedded fault messages canonical ProtoJSON without reflecting over them. Retention folds count and bytes in one state and reads file size before deletion.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record SupportManifest(
     SupportTriggerKind Trigger,
@@ -695,9 +636,6 @@ public sealed partial record SupportManifest(
     [property: OrderedEquality] ImmutableArray<SupportManifest.Entry> Entries,
     [property: UnorderedEquality] ImmutableDictionary<string, string> PackageVersions,
     Option<FaultSource> Fault = default) {
-    // `ContentKey` is the seed-zero kernel digest over the bytes THIS entry's zip member carries, rendered as 32
-    // lowercase hex because a `UInt128` exceeds the exact-integer range every JSON consumer decodes on. The
-    // `= default` is the DECODE half of the omission posture: a parameter with no default reads as wire-required.
     public sealed record Entry(
         string Name,
         DataClassification Classification,
@@ -718,7 +656,7 @@ public abstract partial record SupportReceipt {
     public sealed record Evicted(int Bundles, long Bytes, Instant At) : SupportReceipt;
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 internal static class BundleMap {
     public static SupportManifest Manifest(
         TriggerFacts facts, CaptureWindow window, Seq<ArtifactRow> rows, SupportRuntime runtime) =>
@@ -743,7 +681,7 @@ internal static class BundleMap {
         row.Fault);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SupportLedger {
     static readonly Op BundleWork = Op.Of(nameof(Bundle));
 
@@ -757,13 +695,11 @@ public static class SupportLedger {
         select new SupportReceipt.Exported(
             manifest, path, new FileInfo(path).Length, Duration.FromTimeSpan(elapsed));
 
-    // Elapsed rides the kernel timeline, so a clock step during a long capture cannot report a negative span.
     static IO<TimeSpan> Spanned(ClockPolicy clocks, MonotonicStamp opened) =>
         IO.lift(() => clocks.Line.Capture(BundleWork)
                 .Bind(closed => clocks.Line.Elapsed(opened, closed, BundleWork)))
             .Bind(static measured => measured.Match(Succ: IO.pure, Fail: IO.fail<TimeSpan>));
 
-    // Named `System.IO` capsule: the archive's stream nesting is this page's statement region.
     static string Written(SupportRuntime runtime, SupportManifest manifest, Seq<ArtifactRow> rows) {
         string path = Path.Join(runtime.StorageRoot, $"{manifest.Correlation}.zip");
         using (FileStream sink = File.Create(path))
@@ -779,7 +715,6 @@ public static class SupportLedger {
         return path;
     }
 
-    // Rank past the ceiling and age past the cutoff are ONE predicate, so the swept count is the fold's own state.
     static SupportReceipt Swept(SupportRuntime runtime, Instant at) =>
         toSeq(new DirectoryInfo(runtime.StorageRoot).EnumerateFiles("*.zip")
                 .OrderByDescending(static file => file.CreationTimeUtc))
@@ -792,7 +727,6 @@ public static class SupportLedger {
             var swept => new SupportReceipt.Evicted(swept.Bundles, swept.Bytes, at),
         };
 
-    // Size reads BEFORE the delete — `FileInfo.Length` throws once the entry is gone.
     static long Released(FileInfo file) {
         long size = file.Length;
         file.Delete();

@@ -71,108 +71,74 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# a tagged carrier rather than an erased `Callable -> Callable` union — both shapes are the same `function` runtime type, so a
-# structural `match`/`isinstance` cannot discriminate them. The row scorer returns a scalar or a per-output vector: SALib and the
-# surrogate floors require the scalar `(rows,)` shape, the multi-output `(rows, k)` shape is admitted on the sampling-only methods
-# whose `indices` fold returns `{}`, and a multi-output objective under a SALib/surrogate method rails on the analyzer's own 1-D
-# `Y` contract rather than silently averaging.
 type RowScorer = Callable[[np.ndarray], float | np.ndarray]
 type BatchScorer = Callable[[np.ndarray], np.ndarray]
 type SalibTag = Literal["morris_screen", "sobol_indices", "fast", "rbd_fast", "delta", "pawn", "dgsm", "hdmr"]
-# the row-position beat a scoring fold reports through, bound by the CALLER so each long fold names a member of its
-# OWN closed roster: `Study.run` beats `StudyStage`, `RunHistory.resume` beats `ResumeStage`, and neither vocabulary
-# reaches the other. A shared roster spanning two folds is exactly the cross-fold ladder the stage law refuses.
 type RowBeat = Callable[[int], None]
 
 
 class StudyStage(StrEnum):
-    # the CLOSED milestone roster of `Study.run`'s own fold, erased at the lane conduit: the design draw, the
-    # per-row evaluation sweep, the SALib/surrogate analysis, and the key mint. Four named positions replace the
-    # two the weave's lifecycle pair reported over an N-row design.
     SAMPLED = "sampled"
     EVALUATED = "evaluated"
     ANALYSED = "analysed"
     KEYED = "keyed"
 
 
-_SPEC: Final = msgspec.msgpack.Encoder(order="deterministic")  # deterministic encoder for the NON-array spec parts the key preimage carries
+_SPEC: Final = msgspec.msgpack.Encoder(order="deterministic")
 
 
 class Objective(Struct, frozen=True):
     row: RowScorer
-    batch: Option[BatchScorer] = Nothing  # vectorized fast lane; absent objectives score per-row only
-    jit: Option[JitBackend] = Nothing  # the loop-kernel accelerator row the batch lane compiles through
+    batch: Option[BatchScorer] = Nothing
+    jit: Option[JitBackend] = Nothing
 
     @staticmethod
     def lowered(spec: LoweredSpec) -> "Objective":
-        # spec's kernel is the row scorer and its recommended route arms the batch-lane compile — the symbolic->jit->study
-        # chain with zero symbolic imports.
         return Objective(row=spec.kernel, jit=Some(spec.route))
 
     def scorer(self) -> RowScorer:
-        # a Some `jit` row compiles the row scorer through `JitBackend.compile`; a compile fault degrades to the host row.
         return self.jit.map(lambda route: route.compile(self.row).map(lambda jitted: jitted.fn).default_value(self.row)).default_value(self.row)
 
     def rows(self, design: np.ndarray, beat: RowBeat = _unbeaten) -> np.ndarray:
-        # the per-row beat is this sweep's ONE monotonic interior position, so an N-row design reports N positions
-        # where the weave's lifecycle pair reports two. `mapi` carries the ordinal, so the beat rides the same fold
-        # that scores rather than a counter beside it, and the CALLER binds which roster member the position names.
         scorer = self.scorer()
         return np.stack(list(Block.of_seq(design).mapi(lambda ordinal, point: _scored(scorer, point, beat, ordinal + 1))))
 
     def identity(self) -> tuple[object, ...]:
-        # complete yield-affecting identity `Study.spec_key` folds: row scorer, batch lane, and the jit route
-        # row — a batch or jit configuration change re-keys exactly as a scorer change does.
         route = self.jit.map(lambda held: (held.tag, getattr(held, held.tag))).default_value(())
         return (_scorer_identity(self.row), self.batch.map(_scorer_identity).default_value(()), route)
 
 
 def _unbeaten(_done: int) -> None:
-    # the no-position default: a sweep with no conduit threads this and its fold is byte-identical to the unbeaten
-    # one, which is what keeps the stage slot optional at every caller that has no positions to report.
     return None
 
 
 def _scored(scorer: RowScorer, point: np.ndarray, beat: RowBeat, done: int) -> np.ndarray:
-    # one scored row beside its position beat — the pair the sweep repeats, named once so the reported position can
-    # never drift out of step with the row it reports.
     scored = np.asarray(scorer(point), dtype=float)
     beat(done)
     return scored
 
 
 def _scorer_identity(fn: Callable[..., object]) -> tuple[str, str, bytes]:
-    # `Kernel.of` is the one payload-classification surface: an importable scorer keys by its module-qualified
-    # name (REFERENCE ships an empty payload), a closure or bound method by its cloudpickle content bytes (VALUE) —
-    # so two distinct scorers sharing a `<lambda>` label never share an identity.
     kernel = Kernel.of(fn)
     return (kernel.module, kernel.name, kernel.payload)
 
 
 def _study_kernel(study: "Study", objective: Objective, seed: int, mark: StageTap) -> "RuntimeRail[StudyReceipt]":
-    # module-level so REFERENCE shipping resolves it by import; the fence converts a sampler/analyzer/fit raise. A closure-bearing
-    # objective still crosses the process band as an argument on the pool's cloudpickle wire, and the conduit tap rides
-    # beside it as the ordinary pickled kernel argument the lane law makes it.
     return boundary(STUDY_EXECUTE, lambda: study._execute(objective, seed, mark), catch=_DESIGN_RAISES).bind(lambda outcome: outcome)
 
 
 def _timed[T](thunk: Callable[[], T]) -> tuple[T, float]:
-    # one perf_counter fold the measurement arms share.
     start = time.perf_counter()
     value = thunk()
     return value, time.perf_counter() - start
 
 
 class MeasurementMode(StrEnum):
-    RESULT = "result"  # evaluate the design but suppress the wallclock; report zero elapsed
-    WALLCLOCK = "wallclock"  # time the whole design evaluation as one batch
-    SPEEDUP = "speedup"  # fold the vectorized batch wallclock against the per-row serial baseline
+    RESULT = "result"
+    WALLCLOCK = "wallclock"
+    SPEEDUP = "speedup"
 
     def evaluate(self, objective: Objective, design: np.ndarray, beat: RowBeat = _unbeaten) -> "Measured":
-        # `RESULT`/`WALLCLOCK` and the bare `SPEEDUP` (no batch lane) collapse to one timed-`fast` arm; only a real
-        # `objective.batch` lane earns the second timed pass folding the honest serial-over-batch ratio. The beat
-        # rides the PRIMARY pass alone — the SPEEDUP baseline re-walks rows the primary already reported, so beating
-        # it would publish one design's positions twice and read as a fold that doubled back.
         fast: Callable[[], np.ndarray] = objective.batch.map(lambda b: lambda: b(design)).default_value(lambda: objective.rows(design, beat))
         match self:
             case MeasurementMode.SPEEDUP if objective.batch.is_some():
@@ -187,47 +153,44 @@ class MeasurementMode(StrEnum):
 
 
 class CcAlpha(StrEnum):
-    ORTHOGONAL = "orthogonal"  # axial distance preserving block orthogonality
-    ROTATABLE = "rotatable"  # axial distance giving constant prediction variance on spheres
+    ORTHOGONAL = "orthogonal"
+    ROTATABLE = "rotatable"
 
 
 class CcFace(StrEnum):
-    CIRCUMSCRIBED = "circumscribed"  # axial points OUTSIDE the cube (|coded| > 1); the box map absorbs the overshoot
-    INSCRIBED = "inscribed"  # cube shrunk so axial points sit on the bounds
-    FACED = "faced"  # axial points on the cube faces
+    CIRCUMSCRIBED = "circumscribed"
+    INSCRIBED = "inscribed"
+    FACED = "faced"
 
 
 class SurrogateKind(StrEnum):
-    GRADIENT_BOOST = "gradient_boost"  # ensemble.GradientBoostingRegressor
-    RANDOM_FOREST = "random_forest"  # ensemble.RandomForestRegressor
-    SVR = "svr"  # svm.SVR
-    RIDGE = "ridge"  # linear_model.Ridge
+    GRADIENT_BOOST = "gradient_boost"
+    RANDOM_FOREST = "random_forest"
+    SVR = "svr"
+    RIDGE = "ridge"
 
     def estimator(self) -> "BaseEstimator":
         return SURROGATE_CLASS[self]()
 
 
-# each member's `params` arity matches the `scipy.stats.<dist>` parameterization the SALib `dists` channel resolves, so one axis
-# declares one marginal both paths read identically — never a 2-tuple overload truncating the 3- and 4-param vectors.
 class AxisDist(StrEnum):
-    UNIF = "unif"  # params (low, high) bounds
-    NORM = "norm"  # params (mean, std)
-    LOGNORM = "lognorm"  # params (ln_mean, ln_std) of the underlying normal
-    TRIANG = "triang"  # params (start, end, peak_fraction in [0, 1])
-    TRUNCNORM = "truncnorm"  # params (lower, upper, mean, std)
+    UNIF = "unif"
+    NORM = "norm"
+    LOGNORM = "lognorm"
+    TRIANG = "triang"
+    TRUNCNORM = "truncnorm"
 
 
 class ParamAxis(Struct, frozen=True):
     name: str
-    params: tuple[float, ...]  # SALib `dists` parameter vector; per-dist arity raises on the `rescale`/`bounds` unpack inside the fence
+    params: tuple[float, ...]
     dist: AxisDist = AxisDist.UNIF
 
-    # support endpoints the sampler scales into; `norm`/`lognorm` are unbounded, so the row reads a wide window off mean±std.
     @property
     def bounds(self) -> tuple[float, float]:
         match self.dist:
             case AxisDist.UNIF | AxisDist.TRIANG | AxisDist.TRUNCNORM:
-                return self.params[0], self.params[1]  # explicit support endpoints lead the param vector
+                return self.params[0], self.params[1]
             case AxisDist.NORM:
                 mean, std = self.params
                 return mean - 4.0 * std, mean + 4.0 * std
@@ -237,8 +200,6 @@ class ParamAxis(Struct, frozen=True):
             case _ as unreachable:
                 assert_never(unreachable)
 
-    # qmc path inverse-transforms the unit draw through the exact `scipy.stats.<dist>.ppf` form the SALib `dists` channel
-    # resolves, so the two draws are the same marginal rather than two divergent inverse transforms.
     def rescale(self, unit_col: np.ndarray) -> np.ndarray:
         match self.dist:
             case AxisDist.UNIF:
@@ -248,7 +209,6 @@ class ParamAxis(Struct, frozen=True):
                 mean, std = self.params
                 return stats.norm.ppf(unit_col, loc=mean, scale=std)
             case AxisDist.LOGNORM:
-                # SALib lognorm is `exp(norm.ppf(x, ln_mean, ln_std))`, NOT scipy's `lognorm` shape form.
                 ln_mean, ln_std = self.params
                 return np.exp(stats.norm.ppf(unit_col, loc=ln_mean, scale=ln_std))
             case AxisDist.TRIANG:
@@ -261,8 +221,6 @@ class ParamAxis(Struct, frozen=True):
                 assert_never(unreachable)
 
 
-# named fields, never a four-positional tuple indexed by position; `needs_design` discriminates the paired `(X, Y)` analyzers
-# from the `Y`-only routes.
 class SalibRoute(Struct, frozen=True):
     sample: Callable[[], Callable[..., object]]
     analyze: Callable[[], Callable[..., object]]
@@ -279,7 +237,7 @@ class SalibRoute(Struct, frozen=True):
 class Measured(Struct, frozen=True):
     responses: np.ndarray
     elapsed: float
-    speedup: Option[float]  # batch-versus-serial ratio under MeasurementMode.SPEEDUP, Nothing otherwise
+    speedup: Option[float]
 
 
 @tagged_union(frozen=True)
@@ -306,10 +264,10 @@ class StudyMethod:
     ] = tag()
     lhs: int = case()
     factorial: tuple[int, ...] = case()
-    fractional: int = case()  # minimum-aberration resolution; `fracfact_by_res` raises `design not possible` onto the fence
-    box_behnken: int = case()  # center-point count; pyDOE3 asserts >= 3 factors onto the fence
-    central_composite: tuple[tuple[int, int], CcAlpha, CcFace] = case()  # (factorial-block, axial-block) centers
-    plackett_burman: bool = case()  # True appends the sign-reversed `fold` mirror, decoupling main effects
+    fractional: int = case()
+    box_behnken: int = case()
+    central_composite: tuple[tuple[int, int], CcAlpha, CcFace] = case()
+    plackett_burman: bool = case()
     sobol: int = case()
     halton: int = case()
     morris_screen: tuple[int, int] = case()
@@ -323,8 +281,6 @@ class StudyMethod:
     polynomial: int = case()
     surrogate: SurrogateKind = case()
 
-    # union OWNS its three folds — `design`/`discrepancy`/`indices`, each a total `match` taking `axes` as payload — so no
-    # detached free function reaches back into the union.
     def design(self, axes: tuple[ParamAxis, ...], seed: int) -> np.ndarray:
         match self:
             case StudyMethod(tag="lhs" | "sobol" | "halton" | "polynomial" | "surrogate"):
@@ -341,8 +297,6 @@ class StudyMethod:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    # `qmc.discrepancy` is honest only over an all-`unif` design where the affine de-scale recovers the unit draw; a non-`unif`
-    # marginal shapes the design out of the box and the score is `Nothing` rather than a misread.
     def discrepancy(self, axes: tuple[ParamAxis, ...], design: np.ndarray) -> Option[float]:
         match self:
             case StudyMethod(tag="lhs" | "sobol" | "halton" | "polynomial" | "surrogate") if all(ax.dist is AxisDist.UNIF for ax in axes):
@@ -367,8 +321,6 @@ class StudyMethod:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    # `num_levels` MUST match across `morris.sample` and `morris.analyze` or the elementary-effect grid and the index
-    # reconstruction disagree, so the same value threads both kwarg channels.
     def _salib_args(self) -> tuple[int, dict[str, object], dict[str, object]]:
         match self:
             case StudyMethod(tag="morris_screen", morris_screen=(traj, levels)):
@@ -393,11 +345,8 @@ class StudyMethod:
                 unit = qmc.LatinHypercube(d=dim, scramble=True, rng=seed).random(max(16, dim * 8))
             case _ as unreachable:
                 assert_never(unreachable)
-        # one rescale path across the qmc and factorial floors — `qmc.scale` is not a second uniform-only scaling surface.
         return np.stack([ax.rescale(unit[:, j]) for j, ax in enumerate(axes)], axis=1)
 
-    # classical coded designs: pyDOE3 emits run-by-factor level matrices in its own coded coordinates. Deterministic
-    # constructions, so the seed reaches none of them; row counts derive from the factor count and payload alone.
     def _coded(self, n: int) -> np.ndarray:
         match self:
             case StudyMethod(tag="fractional", fractional=resolution):
@@ -412,16 +361,11 @@ class StudyMethod:
             case _ as unreachable:
                 assert_never(unreachable)
 
-    # normalize a coded matrix onto [0, 1] by its own global extreme, so a circumscribed CCD's |coded| > 1 axial
-    # points land ON the axis bounds and every cube point lands inside them.
     @staticmethod
     def _unit(coded: np.ndarray) -> np.ndarray:
         extreme = max(1.0, float(np.abs(coded).max()))
         return (coded + extreme) / (2.0 * extreme)
 
-    # classical designs are box-geometric: levels place on the support box by construction, so the fold maps
-    # linearly onto each axis's `bounds` — never through the marginal ppf, whose 0/1 tails are unbounded (a NORM
-    # axis would place corner runs at ±inf).
     @staticmethod
     def _box(axes: tuple[ParamAxis, ...], unit: np.ndarray) -> np.ndarray:
         lo = np.asarray([ax.bounds[0] for ax in axes], dtype=float)
@@ -430,8 +374,6 @@ class StudyMethod:
 
     @staticmethod
     def _spec(axes: tuple[ParamAxis, ...]) -> "ProblemSpec":
-        # SALib samplers shape their own marginals off `problem['dists']` (emitted only when an axis is non-`unif`); when set,
-        # SALib reads each `bounds` row as the dist's FULL parameter vector, so the row is `ax.params` itself, not `(low, high)`.
         problem: dict[str, object] = {"num_vars": len(axes), "names": [ax.name for ax in axes], "bounds": [list(ax.params) for ax in axes]}
         if any(ax.dist is not AxisDist.UNIF for ax in axes):
             problem["dists"] = [ax.dist.value for ax in axes]
@@ -469,22 +411,8 @@ class StudyMethod:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# the provider raise surface both study fences reach, named once because both bodies run the SAME stack — the design
-# draw, the evaluation sweep, and the index fold. Every member is proved against the installed distributions rather
-# than authored: pyDOE3 raises `ValueError` across its coded constructors ("design not possible", generator and
-# factor-count refusals) and ASSERTS its factor floors in `bbdesign`/`ccdesign`; SALib raises `ValueError`,
-# `RuntimeError`, and `numpy.linalg.LinAlgError` out of its samplers and analyzers; scipy's `qmc` engines and
-# scikit-learn's pipeline and CV folds raise `ValueError` (which `NotFittedError` and `LinAlgError` both subclass);
-# the `@beartype(conf=FAULT_CONF)` contract on `_execute` raises the canonical violation the `CLASSIFY` `api` row
-# folds. `RuntimeError` is SALib's own and nothing else's — the key-mint rail returns its refusal typed rather than
-# re-raising it here. A bare `Exception` would swallow the interpreter and lane faults the lane owner must see whole.
 _DESIGN_RAISES: Final[Catch] = (BeartypeCallHintViolation, AssertionError, RuntimeError, ValueError)
 
-# this page's raise-side roster under the hub `ComputeLeg` roster: the retired `f"study.{method.tag}"` subject forked
-# ONE refusal law into eighteen coordinates no roster could enumerate and no shared census read could seat — the method
-# is a span fact and a receipt column, never a subject segment. The two rows stay distinct because the fences differ
-# in kind: one converts a raise from the sampled evaluation crossing a worker, the other from grading a cohort a
-# caller already measured.
 STUDY_EXECUTE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.STUDY, point="execute", arm="boundary", defect="study-execute", retriability=TERMINAL
 )
@@ -493,7 +421,6 @@ STUDY_FRAME: Final[FaultRow[ComputeLeg]] = FaultRow(
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([STUDY_EXECUTE, STUDY_FRAME]))
 
-# one route row per tag drives one sampler body and one analyzer body; `result_key` selects the per-method scalar over the `ResultDict`.
 SALIB_ROUTES: Final[Map[SalibTag, SalibRoute]] = Map.of_seq([
     ("morris_screen", SalibRoute(lambda: morris_sampling.sample, lambda: morris_analysis.analyze, "mu_star", True)),
     ("sobol_indices", SalibRoute(lambda: sobol_sampling.sample, lambda: sobol_analysis.analyze, "ST", False)),
@@ -505,7 +432,7 @@ SALIB_ROUTES: Final[Map[SalibTag, SalibRoute]] = Map.of_seq([
     (
         "hdmr",
         SalibRoute(lambda: latin.sample, lambda: hdmr_analysis.analyze, "S", True),
-    ),  # per-input sensitivity (`S=Sa+Sb`, length num_vars); `ST` is the per-component-term total, longer than num_vars
+    ),
 ])
 
 SURROGATE_CLASS: Final[Map[SurrogateKind, Callable[[], "BaseEstimator"]]] = Map.of_seq([
@@ -521,32 +448,27 @@ SURROGATE_CLASS: Final[Map[SurrogateKind, Callable[[], "BaseEstimator"]]] = Map.
 class StudyReceipt(Struct, frozen=True):
     method: str
     mode: MeasurementMode
-    design_cells: int  # whole-grid census in design rows; the run is total (every row evaluates or rails)
-    evaluated_cells: int  # rows THIS run admitted fresh — the non-cached census `meter` prices; a resume's cached prefix stays the original run's
-    response_width: Option[int]  # per-cell output arity; ABSENT on an empty design, where no cell measured one
+    design_cells: int
+    evaluated_cells: int
+    response_width: Option[int]
     indices: dict[str, float]
-    discrepancy: Option[float]  # qmc uniformity score for an all-unif qmc design, Nothing for SALib/factorial/non-unif
+    discrepancy: Option[float]
     elapsed: float
-    speedup: Option[float]  # batch-versus-serial ratio under MeasurementMode.SPEEDUP, Nothing otherwise
-    seed: int  # sampler and analyzer share this deterministic policy value
-    subject: str  # content-keyed benchmark series; objective identity is already admitted into the key
+    speedup: Option[float]
+    seed: int
+    subject: str
     content_key: ContentKey
 
     @staticmethod
     def graded(
         study: "Study", design: np.ndarray, measured: Measured, key: ContentKey, seed: int, *, evaluated: Option[int] = Nothing
     ) -> "StudyReceipt":
-        # `evaluated` defaults to the whole grid — an unbroken run admits every row fresh; only history's resume
-        # grades a narrower fresh-admission census.
         rows = int(design.shape[0])
         return StudyReceipt(
             study.method.tag,
             study.mode,
             rows,
             evaluated.default_value(rows),
-            # an empty design measured no cell, so the arity is ABSENT: the retired `0` fabricated a per-cell width
-            # nothing produced, and the `meter` fold priced the run at zero cells for a reason no reader could
-            # separate from a genuinely zero-width response.
             Some(int(measured.responses.size // rows)) if rows else Nothing,
             study.method.indices(study.axes, design, measured.responses, seed),
             study.method.discrepancy(study.axes, design),
@@ -559,10 +481,6 @@ class StudyReceipt(Struct, frozen=True):
 
     @property
     def band(self) -> Block[str]:
-        # the spine's warning roster: a bar that did not fail yet qualifies the evidence beside it. An absent
-        # response width names a design that evaluated no cell, and the `polynomial` row's indices are IN-SAMPLE
-        # screening where every other method's are validated — a reader joining the two without that qualifier
-        # compares an optimistic fit against a held-out one and reads the difference as signal.
         return Block.of_seq([
             *(("empty-design",) if self.response_width.is_none() else ()),
             *(("in-sample-r2",) if self.method == "polynomial" else ()),
@@ -570,9 +488,6 @@ class StudyReceipt(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, str | int | float]:
-        # bounded scalars only — the full `indices` ledger rides the receipt facts, never the span — and NOT the
-        # spine's own columns: subject and content key are the settlement's `concern` and `key`, so re-spelling
-        # them here would let one crossing's span and receipt disagree about its own coordinate.
         return {
             "method": self.method,
             "mode": self.mode.value,
@@ -582,13 +497,6 @@ class StudyReceipt(Struct, frozen=True):
         }
 
     def meter(self) -> Option[MeterFact]:
-        # `Resource.RECORD` prices the FRESH-ADMISSION surface — every non-cached cell times its response arity — so
-        # wide multi-output objectives bill the work they did and a resume bills only the rows it evaluated, never
-        # re-billing the cached prefix the original run already charged. Zero quantity charges nothing: a wholly-cached
-        # resume lands no row. Series naming lives at the journal owner (`Series.TALLY`), so this charge mints no
-        # metric row beside the receipt fan, and the surface is the study method, the one axis a cost fold cuts a
-        # study estate on. An ABSENT arity charges nothing for the same reason a zero census does — there is no
-        # measured surface to price — and it reaches that answer without a fabricated width standing in for one.
         return self.response_width.bind(
             lambda width: Some(MeterFact(resource=Resource.RECORD, quantity=self.evaluated_cells * width, surface=self.method))
             if self.evaluated_cells * width
@@ -596,23 +504,11 @@ class StudyReceipt(Struct, frozen=True):
         )
 
     def benched(self, subject: Option[str] = Nothing) -> tuple[BenchmarkReceipt, ...]:
-        # bench projection from the held measurement: `BenchmarkReceipt.of` consumes the elapsed this run already
-        # paid for — never a `Bench.run` re-execution — and a SPEEDUP run recovers its serial baseline
-        # (elapsed x ratio) as the sibling `.serial` duration series, so the ratio reads off two honest series
-        # while the ratio scalar stays receipt evidence, never a bench field. RESULT's zero elapsed contributes
-        # nothing; the receipt's default subject already carries the objective-bearing content identity, and a
-        # caller may narrow it further. Observability evidence only — no graduation verdict rides it.
         keyed = subject.default_value(self.subject)
         serial = self.speedup.map(lambda ratio: (BenchmarkReceipt.of(f"{keyed}.serial", BenchMode.LATENCY, 0, (self.elapsed * ratio * 1000.0,)),))
         return () if self.elapsed <= 0.0 else (BenchmarkReceipt.of(keyed, BenchMode.LATENCY, 0, (self.elapsed * 1000.0,)), *serial.default_value(()))
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine, never a study-local receipt shape: the payload is this producer's own per-case
-        # ledger — native scalars, no `str()` coerce where the deterministic renderer keeps types — while the key,
-        # the provenance pair, the warning band, and the stamp are the spine's columns. Provenance names the produced
-        # key alone: a study derives its design from its own spec and consumes no upstream key, so a consumed roster
-        # here would forge a lineage this fold never walked. The bench projection rides the same harvest, its
-        # receipts contributing the `domain="bench"` duration rows with zero runtime edits.
         facts: dict[str, object] = {
             "mode": self.mode.value,
             "design_cells": self.design_cells,
@@ -643,19 +539,11 @@ class Study(Struct, frozen=True):
     axes: tuple[ParamAxis, ...]
     method: StudyMethod
     mode: MeasurementMode
-    # DOE-frame arm's admission source — `FrameInterop.of` is source-bearing; a zero-arity `FrameInterop()` is not an owned shape.
     frame_backend: Backend = Backend.PYARROW
 
     async def run(
         self, source: "Objective | object", lane: LanePolicy, /, *, seed: int = 0, composition: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[StudyReceipt]:
-        # an Objective crosses as an argument of one HOSTILE-trait Kernel — sampler natives hold process-global state — while a
-        # pre-measured frame decodes inline; the weave owns span, fence, and the fenced contributor harvest. Only the RESULT
-        # mode declares idempotent: a worker-death re-run under WALLCLOCK/SPEEDUP would report a post-crash retry as the measurement.
-        # ONE mark for the whole entry, threaded to the weave and to the kernel alike. Its census is ABSENT here by
-        # construction — the design does not exist until the worker draws it — so the worker RE-STAMPS this carrier
-        # once it can state the extent rather than minting a second one beside it. The pre-measured frame arm beats
-        # no interior position and its stream carries the open alone, which is the honest report of a fold graded whole.
         mark = StageTap.of(EvidenceScope.STUDY, lane.pulses.tap)
 
         async def dispatch() -> RuntimeRail[StudyReceipt]:
@@ -676,9 +564,6 @@ class Study(Struct, frozen=True):
         settled = await evidence_run(
             EvidenceScope.STUDY, f"study.{self.method.tag}", dispatch, facts=facts, composition=composition, stage=Some(mark)
         )
-        # this fold is the nearest async owner of the fresh-admission count — the kernel that produced it binds no
-        # plane — so the charge lands here, off the CLEARED receipt's own `meter` projection: a refused study
-        # evaluated nothing to bill, and an empty charge records nothing.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.meter().to_list(), scope=composition)).map(lambda _landed: receipt)
@@ -686,8 +571,6 @@ class Study(Struct, frozen=True):
                 return Error(refused.error)
 
     def _admit_frame(self, frame: object) -> "RuntimeRail[tuple[np.ndarray, np.ndarray]]":
-        # gate proves one Float64 column per `ParamAxis` plus the `response` column, and the decoded design matrix + response
-        # vector cross the boundary as numpy buffers — the published data surfaces only.
         shapes = tuple(FieldShape(field=axis.name, logical_type="Float64", nullable=False) for axis in self.axes)
         response = FieldShape(field="response", logical_type="Float64", nullable=False)
         gate = FrameAdmission.of(FrameInterop.of(self.frame_backend), (*shapes, response))
@@ -709,16 +592,6 @@ class Study(Struct, frozen=True):
         responses: "Option[np.ndarray]" = Nothing,
         seed: int = 0,
     ) -> "RuntimeRail[ContentKey]":
-        # ONE study-key builder over the COMPLETE specification — axes, method, mode, the objective's full identity
-        # (row/batch scorer shipping identity, the jit route row), the sampler/analyzer seed, and the shape-and-buffer
-        # pair of every canonical float64 array — shared by `_execute`, `_graded_frame`, and `RunHistory.resume`, so
-        # distinct closures, configurations, or measured response sets never collide onto one cache slot. The parts
-        # ride `IdentitySource(parts=...)`, whose count-and-length framing is the `evidence/identity#IDENTITY`
-        # `[PREIMAGE_FRAMING]` law: the retired page-local `len(chunk).to_bytes(8, "little")` fold chose a width at a
-        # CALL SITE, which forks the key namespace with no surface able to report it, and a shape stays its own part
-        # rather than a prefix inside one buffer, so a transposed or reshaped design sharing one byte payload keys
-        # apart while dtype and layout normalize onto contiguous float64. An absent response set contributes no parts
-        # at all, and the framing counts parts, so a design-only key and a measured key can never collide.
         spec = objective.map(Objective.identity).default_value(())
         measured = responses.map(lambda held: (_SPEC.encode(held.shape), np.ascontiguousarray(held, dtype=np.float64).tobytes())).default_value(())
         parts = (
@@ -730,13 +603,6 @@ class Study(Struct, frozen=True):
         return ContentIdentity.of("study", IdentitySource(parts=parts))
 
     def _graded_frame(self, design: np.ndarray, responses: np.ndarray, seed: int) -> "RuntimeRail[StudyReceipt]":
-        # a pre-measured DOE frame carries its own responses, so evaluation is skipped and the response bytes join the
-        # key — two frames sharing one design matrix but carrying different measurements are different studies.
-        # The digest rail THREADS rather than re-raising: the retired `raise RuntimeError(fault)` smuggled an
-        # already-typed `BoundaryFault` back out through an untyped exception for its own fence to re-classify, and
-        # the conversion keeps `str(cause)` — so a key refusal reached its consumer as a message string with its
-        # subject, leg, arm, and defect token erased. A rail in hand is returned, never re-raised to be re-classified
-        # by a fence that knows less than the value already did.
         measured = Measured(responses[:, None] if responses.ndim == 1 else responses, 0.0, Nothing)
         return self.spec_key(design, responses=Some(responses), seed=seed).map(
             lambda key: StudyReceipt.graded(self, design, measured, key, seed)
@@ -745,26 +611,17 @@ class Study(Struct, frozen=True):
     @beartype(conf=FAULT_CONF)
     def _execute(self, objective: Objective, seed: int, mark: StageTap) -> "RuntimeRail[StudyReceipt]":
         design = self.method.design(self.axes, seed)
-        # the census exists only once the design is drawn, so the ONE carrier the parent opened with an absent extent
-        # gains its total HERE rather than a second mark being minted beside it; the parent could not have stated the
-        # extent and did not forge one.
         cells = int(design.shape[0])
         staged = structs.replace(mark, total=Some(cells))
         staged.beat(StudyStage.SAMPLED, cells)
         measured = self.mode.evaluate(objective, design, lambda done: staged.beat(StudyStage.EVALUATED, done))
 
         def graded(key: ContentKey) -> StudyReceipt:
-            # each beat lands AFTER the work it names — `graded` is where the SALib and surrogate folds actually run,
-            # so the analysis position reports a completed analysis rather than an intended one.
             staged.beat(StudyStage.KEYED, cells)
             receipt = StudyReceipt.graded(self, design, measured, key, seed)
             staged.beat(StudyStage.ANALYSED, cells)
             return receipt
 
-        # the digest rail THREADS rather than re-raising, for the reason `_graded_frame` states: the retired
-        # `raise RuntimeError(fault)` handed an already-typed `BoundaryFault` to its own fence to re-classify, which
-        # flattens subject, leg, arm, and defect token into one message string. `spec_key` is the one mint every path
-        # shares, which is what makes `history`'s resume key provably equal.
         return self.spec_key(design, Some(objective), seed=seed).map(graded)
 ```
 

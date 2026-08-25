@@ -40,8 +40,6 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 from rasm.runtime.faults import FAULT_CONF, TRANSIENT, FaultRow, RuntimeRail, async_boundary, rostered
 
-# PATH and REGION own the imported vector surface: `RegionOp.Clip` the per-shape crop, `Boolean` the N-ary
-# set-op, `Outline` the fixed-width offset, and `Serialize` the `Fragment` document fold.
 from rasm.artifacts.graphic.vector.path import Bounds, PathFault, Span, bounds, fragment, px, scene
 from rasm.artifacts.graphic.vector.region import BooleanOp, Fragment, RegionFault, RegionOp, RegionResult, RenderPolicy, applied
 from rasm.artifacts.core.hooks import ArtifactsLeg
@@ -79,9 +77,6 @@ type BlendKind = Literal["multiply", "screen", "overlay", "soft_light", "hard_li
 
 
 class MarkKind(Enum):
-    # each member is (svgelements-primitive-name, float-arg builder); the positional constructor
-    # arity is verified — Circle(cx, cy, r), Ellipse(cx, cy, rx, ry), Rect(x, y, w, h),
-    # SimpleLine(x1, y1, x2, y2), Polyline/Polygon(*points) — so `MarkKind.shape` is settled fence.
     CORNER = ("Polyline", lambda x, y, s: (x, y - s, x, y, x + s, y))
     TICK = ("SimpleLine", lambda x, y, s: (x - s, y, x + s, y))
     TARGET = ("Circle", lambda x, y, s: (x, y, s))
@@ -105,26 +100,12 @@ class MarkKind(Enum):
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# Engine raise tuple: `ValueError` on invalid/empty SVG, a render failure, an unsatisfiable arrange
-# solve, or an out-of-range arrange rule member, `OSError` on the `.svgz` file arm, the stdlib `BrokenProcessPool`
-# base (loky's `TerminatedWorkerError` subclasses it) on an exhausted worker-death retry, `BeartypeCallHintViolation`
-# on a degenerate source bbox, a non-positive column/source count at `_fit`/`_rows`, or an empty arrange fan at `arranged`.
 _FAULTS: tuple[type[Exception], ...] = (ValueError, OSError, BrokenProcessPool, BeartypeCallHintViolation)
 
-_CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgpack.Encoder(order="deterministic")
 
-# `_fit`/`_rows`/`arranged` admission seams refine their `Extent`/`Columns`/`Fan` parameters, so a degenerate
-# extent, non-positive grid count, or empty arrange fan rails as `BeartypeCallHintViolation` rather than a
-# `ZeroDivisionError` or degenerate empty document deep in the fold — only a direct parameter is checked, never
-# a `Bounds`/case field. The conf is the runtime's own `FAULT_CONF`, not a local re-mint: one owner declares the
-# canonical violation type, so the `_FAULTS` row above and the runtime `CLASSIFY` `api` row can never disagree.
 _GUARD = beartype(conf=FAULT_CONF)
 
-# per-arm crossing trait — engine truth, never one declared trait spanning heterogeneous engines: `pdf` rides the
-# GIL-releasing `vl_convert` native on the thread band; the `skia-pathops` set-ops (`crop`/`merge`/`matte`), the
-# `kiwisolver` solve plus N-source fold (`arrange`/`tile`), and the raster `annotate`/`metadata` pass hold the GIL and
-# ride the warm process pool; the sub-quantum single-source transforms run INLINE on the loop with no crossing.
-# PURE is refused whole — the `msgspec` payload structs cannot load in a subinterpreter.
 _TRAIT: Final[frozendict[str, KernelTrait]] = frozendict({
     "scale_fit": KernelTrait.INLINE,
     "tile": KernelTrait.HOSTILE,
@@ -142,9 +123,6 @@ _TRAIT: Final[frozendict[str, KernelTrait]] = frozendict({
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
-# spans every placement case, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
-# TRANSIENT: a provider render, a pool death, or a contract breach is a defect a re-issue may clear.
 FIGURE_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.COMPOSE, point="render", arm="boundary", defect="figure-fold", retriability=TRANSIENT
 )
@@ -160,9 +138,6 @@ class MarkSpec(Struct, frozen=True):
     width: float = 0.5
 
 
-# `TextStyle` is the measured-text owner `Text` and `Caption` both compose: `_face` reads `font`/`size`/`variation` and
-# gates `Layout.RAQM` on `features.check("raqm")`; `direction`/`language`/`features` drive complex-script
-# shaping, `variation` a variable-font axis vector, `stroke_width`/`stroke_fill` a legibility halo.
 class TextStyle(Struct, frozen=True):
     font: str | None = None
     size: float = 16.0
@@ -178,8 +153,6 @@ class TextStyle(Struct, frozen=True):
     variation: tuple[float, ...] = ()
 
 
-# one finish-filter correspondence: each row interprets `amount` in its own unit (radius, factor,
-# cutoff, bits, threshold), so a new filter is one row and the `Finish.applied` fold never re-opens a roster.
 _FILTERS: frozendict[FilterKind, Callable[["Image.Image", float], "Image.Image"]] = frozendict({
     "unsharp": lambda image, amount: image.filter(ImageFilter.UnsharpMask(radius=amount)),
     "blur": lambda image, amount: image.filter(ImageFilter.GaussianBlur(radius=amount)),
@@ -196,9 +169,6 @@ _FILTERS: frozendict[FilterKind, Callable[["Image.Image", float], "Image.Image"]
 
 
 class Finish(Struct, frozen=True):
-    # one behavior-carrying frame policy: `filter` keys its `_FILTERS` row, `amount` is that row's own unit,
-    # and the orthogonal border/fit/EXIF axes stay named fields — never a positional knob bundle the fold
-    # re-derives through a nested literal roster.
     filter: FilterKind | None = None
     amount: float = 2.0
     border: int = 0
@@ -215,8 +185,6 @@ class Finish(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class Rule:
-    # Closed constraint vocabulary `arranged` folds onto the Cassowary solve; members index the source
-    # tuple positionally, `inside` tightens the containment margin, and aesthetics ride non-required strengths.
     tag: Literal["align", "chain", "pin", "center", "inside"] = tag()
     align: tuple[AlignEdge, tuple[int, ...]] = case()
     chain: tuple[Axis, tuple[int, ...], float] = case()
@@ -356,16 +324,16 @@ class FigureOp:
     tag: Literal["scale_fit", "tile", "arrange", "crop", "merge", "matte", "rotate", "overlay", "pdf", "annotate", "metadata"] = tag()
     scale_fit: tuple[bytes, Span, Span] = case()
     tile: tuple[tuple[bytes, ...], int, Span, Span, float] = case()
-    arrange: tuple[tuple[bytes, ...], Span, Span, tuple[Rule, ...]] = case()  # constraint-solved placement — the kiwisolver arm
+    arrange: tuple[tuple[bytes, ...], Span, Span, tuple[Rule, ...]] = case()
     crop: tuple[bytes, Bounds] = case()
-    merge: tuple[tuple[bytes, ...], BooleanOp] = case()  # N-source planar set-op — imported REGION `boolean`
-    matte: tuple[bytes, float, str] = case()  # fixed-width offset keyline — imported REGION `outline`
+    merge: tuple[tuple[bytes, ...], BooleanOp] = case()
+    matte: tuple[bytes, float, str] = case()
     rotate: tuple[bytes, str, Corner] = case()
     overlay: tuple[bytes, tuple[MarkSpec, ...]] = case()
     pdf: tuple[bytes, float] = case()
     annotate: tuple[RasterSource, RenderPolicy, tuple[DrawOp, ...], bytes | None] = (
         case()
-    )  # trailing `icc` embeds the working-space profile on the PNG; the full transform is graphic/color/managed#MANAGED's
+    )
     metadata: tuple[bytes, tuple[tuple[int, str], ...], str | None] = case()
 
     @staticmethod
@@ -413,8 +381,6 @@ class FigureOp:
         return FigureOp(metadata=(source, exif, xmp))
 
 
-# one render feeds the content key, the placed bytes, the layer extent, AND the receipt off the same local
-# `data`, so they cannot diverge within an execution; the `rendered()` successor threads it to every projection.
 class Placed(Struct, frozen=True):
     key: ContentKey
     data: bytes
@@ -425,29 +391,19 @@ class Placed(Struct, frozen=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 class Figure(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     op: FigureOp
     lane: LanePolicy
     placed: Option[Placed] = Nothing
 
     def emit(self, /) -> ArtifactWork:
-        # ONE mint per node, captured into the closure and threaded through `_rendered`: `_key` re-encodes the whole
-        # op payload and opens a `content.derive` span per read, and the annotate/metadata arms read it again.
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical op payload minted PRE-RUN through the bare `ContentIdentity.key`
-        # (`of` returns the railed `RuntimeRail[ContentKey]`) — never a key over the placed-figure bytes.
-        # `op` is immutable across `rendered()`, so the standalone `contribute` port's own read answers the SAME
-        # key the plan node carries — the derivation is safe there where a closure cannot reach.
         return ContentIdentity.key(f"figure-{self.op.tag}", _CANON.encode(self.op))
 
     def rendered(self) -> Self:
-        # Sync evidence successor: ONE `_placed` fold lands on `placed` and contribute/layers read it —
-        # never a per-projection re-render; the gated annotate/metadata arms stay `Nothing` here because their
-        # PNG mints only inside the subprocess, their receipt riding the async emission outward.
         return structs.replace(self, placed=_placed(self.op))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
@@ -456,13 +412,9 @@ class Figure(Struct, frozen=True):
     async def _rendered(self, key: ContentKey, /) -> ArtifactReceipt:
         match self.op:
             case FigureOp(tag="annotate", annotate=(source, render, draws, icc)):
-                # resvg's rasterize AND the pillow fold ride the worker beside each other; only the cheap
-                # `render.kwargs` dict + optional ICC bytes cross the seam, and the receipt reads the worker's
-                # OWN emitted PNG — bytes, extent, and key from one render, never a zero-extent placeholder.
                 data, width, height = _out_of(
                     await self.lane.offload(Kernel.of(_gated_annotate, _TRAIT[self.op.tag]), render.kwargs(source.keywords()), draws, icc)
                 )
-                # receipt.slot threads the PRE-RUN node key (core/receipt elision law); the output address rides the band.
                 return ArtifactReceipt.Preview(key, width, height, len(data), frozendict({"address": ContentIdentity.key("figure-annotate", data).hex}))
             case FigureOp(tag="metadata", metadata=(source, exif, xmp)):
                 data, width, height = _out_of(
@@ -470,13 +422,9 @@ class Figure(Struct, frozen=True):
                 )
                 return ArtifactReceipt.Preview(key, width, height, len(data), frozendict({"address": ContentIdentity.key("figure-metadata", data).hex}))
             case _:
-                # `_placed_now` serves the pdf projection and every vector fold at the arm's own `_TRAIT` row —
-                # an INLINE row skips the crossing whole; key, bytes, and receipt derive from the SAME render.
                 return _out_of(await self.lane.offload(Kernel.of(_placed_now, _TRAIT[self.op.tag]), self.op)).receipt
 
     def contribute(self) -> "Iterable[Receipt]":
-        # rows ride the folded successor alone; the un-rendered owner and the gated arms contribute nothing,
-        # so absence stays distinct from evidence and no projection re-enters the render.
         yield from self.placed.map(lambda live: tuple(live.receipt.contribute())).default_value(())
 
     def layers(self, names: tuple[str, ...] = ()) -> tuple[Layer, ...]:
@@ -485,7 +433,6 @@ class Figure(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _out_of[T](rail: "RuntimeRail[T]", /) -> T:
-    # terminal collapse: an offload fault reconstructs the raise the `_FAULTS` boundary folds.
     return rail.default_with(_figure_raise)
 
 
@@ -493,8 +440,6 @@ def _figure_raise(fault: object) -> NoReturn:
     raise ValueError(str(fault))
 
 
-# `Some` for the pdf/vector arms whose bytes/key/receipt derive from the ONE sync render, `Nothing` for the
-# gated annotate/metadata arms that mint only inside async `_emit` — never an empty-byte placeholder key.
 def _placed(op: FigureOp) -> Option[Placed]:
     match op:
         case FigureOp(tag="annotate") | FigureOp(tag="metadata"):
@@ -504,10 +449,6 @@ def _placed(op: FigureOp) -> Option[Placed]:
 
 
 def _placed_now(op: FigureOp) -> Placed:
-    # total over the in-process arms; the gated arms never reach here because `_placed` and `_rendered`
-    # both route them first.
-    # both arms mint the SAME pre-run op-preimage key `Figure._key` computes, so `Placed.key`, the receipt slot,
-    # and the scheduled node key are one identity — never an output-byte re-mint the reuse fold cannot match.
     match op:
         case FigureOp(tag="pdf", pdf=(source, scale)):
             data = vl_convert.svg_to_pdf(source.decode(), scale=scale)
@@ -520,7 +461,6 @@ def _placed_now(op: FigureOp) -> Placed:
             return Placed(key, data, ArtifactReceipt.Preview(key, int(extent[2] - extent[0]), int(extent[3] - extent[1]), len(data)), extent, layers)
 
 
-# `_GUARD`-contracted division seams — the one place the placement math admits an external scalar.
 @_GUARD
 def _fit(width: float, height: float, extent_w: Extent, extent_h: Extent, /) -> float:
     return min(width / extent_w, height / extent_h)
@@ -528,11 +468,9 @@ def _fit(width: float, height: float, extent_w: Extent, extent_h: Extent, /) -> 
 
 @_GUARD
 def _rows(count: Sources, columns: Columns, /) -> int:
-    # a zero-source tile rails here rather than emitting a degenerate negative-gutter extent
     return -(-count // columns)
 
 
-# Placement arms fold `_shapes(source)` through `fragment(shape, matrix)` into one `RegionOp.Serialize`.
 def _compose_vector(op: FigureOp) -> tuple[bytes, tuple[Layer, ...]]:
     match op:
         case FigureOp(tag="scale_fit", scale_fit=(source, width, height)):
@@ -580,8 +518,6 @@ def _compose_vector(op: FigureOp) -> tuple[bytes, tuple[Layer, ...]]:
         case FigureOp(tag="matte", matte=(source, width, stroke)):
             matte = _region(RegionOp.Outline(source, width))
             extent = _extent(matte)
-            # Generated matte band carries the payload's OWN stroke color through the per-fragment `filled`
-            # channel, independent of the source fragments — distinct stroke values yield distinct styled output.
             data = _region(
                 RegionOp.Serialize(
                     (*(Fragment(filled=(fragment(shape), stroke)) for shape in _shapes(matte)), *(Fragment(path=fragment(shape)) for shape in _shapes(source))),
@@ -608,21 +544,14 @@ def _compose_vector(op: FigureOp) -> tuple[bytes, tuple[Layer, ...]]:
                 Layer("overlay", _region(RegionOp.Serialize(overlay, extent)), extent),
             )
         case _:
-            # only the six geometry arms reach here; `pdf`/`annotate`/`metadata` render elsewhere, so a
-            # non-vector op is unreachable — an invariant guard the closed partial fold forbids `assert_never` for.
             raise ValueError(f"figure {op.tag} has no in-process vector composition")
 
 
-# ONE rail-to-raise seam shared by `_extent`/`_shapes` and the `Crop`/`Merge`/`Matte` clip/boolean/outline
-# arms: a foreign `PathFault`/`RegionFault` becomes the `ValueError` the `_FAULTS` boundary classifies, uniform
-# with the pillow/`vl_convert` engine raises — never a scattered `.default_value` that swallows the cause.
 def _extent(source: bytes) -> Bounds:
     return bounds(source).default_with(_source_fault)
 
 
 def _shapes(source: bytes) -> tuple["Shape", ...]:
-    # PATH's `scene` drawable sweep collapsed at the same seam: an empty or malformed source rails there
-    # and reconstructs here as the `ValueError` the boundary admits.
     return scene(source).default_with(_source_fault)
 
 
@@ -643,24 +572,19 @@ def _measured(source: bytes) -> tuple[float, float]:
     return (xmax - xmin, ymax - ymin)
 
 
-# Cassowary placement solve the Arrange arm and composition/sheet#SHEET's FigurePlacement.arranged both
-# consume: required containment plus the Rule constraints, weak top-left settling so an under-constrained
-# system stays deterministic; a kiwisolver fault re-spells as the ValueError the `_FAULTS` boundary admits, and
-# the `Fan` refinement refuses a zero-source solve at BOTH consumers — the tiling guard's admission law applied
-# at the shared seam, never a degenerate empty document.
 @_GUARD
 def arranged(extents: Fan, region: Bounds, rules: tuple[Rule, ...]) -> tuple[Bounds, ...]:
     solver = kiwisolver.Solver()
     xs = tuple(kiwisolver.Variable(f"x{index}") for index in range(len(extents)))
     ys = tuple(kiwisolver.Variable(f"y{index}") for index in range(len(extents)))
     insides = tuple(rule.inside for rule in rules if rule.tag == "inside")
-    if len(insides) > 1:  # two inside rules are one containment contradiction — the first-wins read would silently drop the second
+    if len(insides) > 1:
         raise ValueError(f"figure arrange: conflicting inside rules {insides}")
     margin = insides[0] if insides else 0.0
     if not math.isfinite(margin) or margin < 0.0:
         raise ValueError(f"figure arrange: inside margin {margin}")
     if bad_gaps := tuple(rule.chain[2] for rule in rules if rule.tag == "chain" and (not math.isfinite(rule.chain[2]) or rule.chain[2] < 0.0)):
-        raise ValueError(f"figure arrange: chain gap {bad_gaps}")  # a NaN/inf/negative gap reaches the solver as an unsatisfiable or wrapping bound
+        raise ValueError(f"figure arrange: chain gap {bad_gaps}")
     x0, y0, x1, y1 = region[0] + margin, region[1] + margin, region[2] - margin, region[3] - margin
 
     def _members(rule: Rule) -> tuple[int, ...]:
@@ -673,8 +597,6 @@ def arranged(extents: Fan, region: Bounds, rules: tuple[Rule, ...]) -> tuple[Bou
                 return ()
 
     if rogue := tuple(member for rule in rules for member in _members(rule) if not 0 <= member < len(extents)):
-        # refuse every out-of-range rule member before any constraint lands — a negative member would
-        # silently wrap onto the tail extent, never raising, so the range gate precedes the indexing loop.
         raise ValueError(f"figure arrange: rule member out of range {rogue}")
     try:
         for (width, height), x, y in zip(extents, xs, ys, strict=True):
@@ -685,7 +607,7 @@ def arranged(extents: Fan, region: Bounds, rules: tuple[Rule, ...]) -> tuple[Bou
         for rule in rules:
             match rule:
                 case Rule(tag="align", align=(edge, members)):
-                    for member in members[1:]:  # empty and singleton member sets are trivially aligned, no unpack to trip
+                    for member in members[1:]:
                         solver.addConstraint(_edge(edge, xs, ys, extents, members[0]) == _edge(edge, xs, ys, extents, member))
                 case Rule(tag="chain", chain=(axis, members, gap)):
                     lead, span = (xs, 0) if axis == "x" else (ys, 1)
@@ -701,7 +623,7 @@ def arranged(extents: Fan, region: Bounds, rules: tuple[Rule, ...]) -> tuple[Bou
                         mid = (x0 + x1) / 2.0 if axis == "x" else (y0 + y1) / 2.0
                         solver.addConstraint((lead + span / 2.0 == mid) | "medium")
                 case Rule(tag="inside"):
-                    pass  # folded into the containment bound above, once, before the variable loop
+                    pass
                 case _ as unreachable:
                     assert_never(unreachable)
         solver.updateVariables()
@@ -735,8 +657,6 @@ def _edge(
             assert_never(unreachable)
 
 
-# Registration-overlay mark fold: each `MarkSpec` builds its `svgelements` shape through `MarkKind.shape`,
-# serialized to a `Fragment.stroke` row; both the flat and per-layer egresses compose this fold.
 def _marks(extent: Bounds, marks: tuple[MarkSpec, ...]) -> list[Fragment]:
     return [
         Fragment(stroke=(fragment(spec.kind.shape(_anchor(spec.corner, extent, spec.inset), spec.size)), spec.stroke, spec.width))
@@ -771,8 +691,6 @@ def _anchor(corner: Corner, extent: Bounds, inset: float) -> Anchor:
 
 
 def _fitted(source: bytes, box: Bounds) -> list[Fragment]:
-    # aspect-fit then center the source within its box — the shared fit the tile grid and the solved
-    # arrangement both lower through; a top-left cram is the naive form.
     xmin, ymin, xmax, ymax = _extent(source)
     factor = _fit(box[2] - box[0], box[3] - box[1], xmax - xmin, ymax - ymin)
     ox = box[0] + (box[2] - box[0] - (xmax - xmin) * factor) / 2.0
@@ -792,8 +710,6 @@ def _angle(value: str) -> "Angle":
 
 
 def _face(style: TextStyle) -> "ImageFont.FreeTypeFont | ImageFont.ImageFont":
-    # `Layout.RAQM` is gated on `features.check("raqm")` — a wheel built without libraqm silently falls back,
-    # so the arm routes on the capability probe rather than assuming the feature.
     complex_ = bool(style.features or style.direction)
     engine = ImageFont.Layout.RAQM if complex_ and features.check("raqm") else ImageFont.Layout.BASIC
     face = ImageFont.truetype(style.font, style.size, layout_engine=engine) if style.font is not None else ImageFont.load_default(style.size)
@@ -803,8 +719,6 @@ def _face(style: TextStyle) -> "ImageFont.FreeTypeFont | ImageFont.ImageFont":
 
 
 def _gated_annotate(render_kwargs: dict[str, object], draws: Sequence[DrawOp], icc: bytes | None) -> tuple[bytes, int, int]:
-    # resvg's rasterize AND the pillow draw fold both run on the worker; the lazy proxies reify in the
-    # subprocess, and the returned (bytes, width, height) is the ONE render the emission keys and receipts.
     with Image.open(BytesIO(resvg_py.svg_to_bytes(**render_kwargs))) as opened:
         image = opened.convert("RGBA")
     surface = ImageDraw.Draw(image)
@@ -826,8 +740,6 @@ def _gated_annotate(render_kwargs: dict[str, object], draws: Sequence[DrawOp], i
                     stroke_fill=style.stroke_fill,
                 )
             case DrawOp(tag="caption", caption=(content, xy, style, pad, radius, box_fill, box_outline)):
-                # Caption measures and draws under the SAME shaping tuple Text consumes — anchor, direction,
-                # language, features — so a complex-script caption's background encloses the text it renders.
                 face = _face(style)
                 shaping = {
                     "anchor": style.anchor,
@@ -894,15 +806,11 @@ def _gated_annotate(render_kwargs: dict[str, object], draws: Sequence[DrawOp], i
             case _:
                 assert_never(op)
     sink = BytesIO()
-    # `icc_profile=` tags the PNG with its working-space profile (`None` is a no-op); the full source->dest
-    # transform / soft-proof / CMYK separations are `graphic/color/managed#MANAGED`'s, composed outward.
     image.save(sink, format="PNG", icc_profile=icc)
     return sink.getvalue(), image.width, image.height
 
 
 def _gated_metadata(payload: bytes, exif_tags: Sequence[tuple[int, str]], xmp: str | None) -> tuple[bytes, int, int]:
-    # Figure-egress-local in-worker PNG EXIF/XMP tag write — NOT the authoritative cross-format seal
-    # `exchange/metadata#METADATA` owns, composed outward when a full IPTC/XMP/provenance write is the deliverable.
     with Image.open(BytesIO(payload)) as image:
         exif = image.getexif()
         exif.update(exif_tags)
@@ -911,12 +819,11 @@ def _gated_metadata(payload: bytes, exif_tags: Sequence[tuple[int, str]], xmp: s
         if packet is not None:
             info.add_itxt("XML:com.adobe.xmp", packet)
         sink = BytesIO()
-        # Source working-space profile rides through the re-save (`None` is a no-op), matching the annotate arm.
         image.save(sink, format="PNG", exif=exif, pnginfo=info, icc_profile=image.info.get("icc_profile"))
         return sink.getvalue(), image.width, image.height
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
     "DrawOp",
     "Figure",

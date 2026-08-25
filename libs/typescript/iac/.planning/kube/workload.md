@@ -32,8 +32,6 @@
 - Boundary: the drain fold, the report grades, and the phase spine are the runtime plane's; this anchor is the deploy-side mirror of a settled contract, never a re-derivation.
 
 ```typescript signature
-// `timeoutSeconds` is stated on every row because the API default is ONE second: a report answered correctly
-// but slowly reads as a failure, and the row that then restarts a healthy pod under load is the liveness one.
 const _LIFE = {
   drainSeconds: 25,
   margin: 5,
@@ -78,9 +76,6 @@ const _POLICY = {
   RUNTIME_CLUSTER_LOCK_EXPIRY: "1 minute",
 } as const
 
-// Both catalogs are the spec plane's — the channel map total over the output planes by derivation, so a channel
-// gaining a field there without a spelling refuses at the catalog, never silently here; the custody roster seats
-// beside it because the leased mint sits a stratum below this stamp and neither may hold the literal.
 const _keyed: Record.ReadonlyRecord<string, string> = StackOutputs.channels
 const _CUSTODY = StackOutputs.custody
 
@@ -90,8 +85,6 @@ declare namespace Workload {
   type Pair = readonly [channel: string, value: pulumi.Input<string>]
 }
 
-// The unleased custody cell, yielding the same `StackOutputs.Cell` shape `operate/secret.md`'s leased mint
-// yields — so a workload composes one value whichever path minted it and the env fold never learns which.
 const _token = (
   name: string,
   args: { readonly namespace: pulumi.Input<string>; readonly token: pulumi.Input<string> },
@@ -109,8 +102,6 @@ const _rows = (
   outputPairs: ReadonlyArray<Workload.Pair>,
   policy?: Record.ReadonlyRecord<string, string>,
 ): ReadonlyArray<Workload.EnvRow> => [
-  // The cell's own roster is what lands: a token-only cell stamps one reference and a leased cell stamps both,
-  // so a second custody variable is one catalog row rather than a branch at this fold.
   ...Array.map(custody.carries, (held) => ({
     name: _CUSTODY[held],
     valueFrom: { secretKeyRef: { name: custody.secret, key: _CUSTODY[held] } },
@@ -161,8 +152,6 @@ const _scale = {
     replicas: 2,
     requests: { cpu: "250m", memory: "512Mi" },
     limits: { cpu: "1", memory: "1Gi" },
-    // `IfHealthyBudget` is the API default and refuses to evict the very pod holding `currentHealthy`
-    // below `desiredHealthy`, so a two-replica row at `minAvailable: 1` deadlocks its own node drain.
     disruptionBudget: { minAvailable: 1, unhealthyPodEvictionPolicy: "AlwaysAllow" },
   },
   fleet: {
@@ -174,8 +163,6 @@ const _scale = {
       min: 4,
       max: 12,
       cpuPercent: 70,
-      // Both directions state their own window: the API defaults scale-down stabilization to 300s and
-      // scale-up to none, so leaving flap behaviour implicit is the one knob this table does not edit.
       behavior: {
         scaleDown: { stabilizationWindowSeconds: 300, selectPolicy: "Min", policies: [{ type: "Pods", value: 1, periodSeconds: 60 }] },
         scaleUp: { stabilizationWindowSeconds: 30, selectPolicy: "Max", policies: [{ type: "Percent", value: 100, periodSeconds: 30 }] },
@@ -184,13 +171,6 @@ const _scale = {
   },
 } as const
 
-// The maintenance-verb row, both levels: `Forbid` leads because the API's `Allow` default lets a second run of
-// a verb that mutates the state it reads overlap the first, and the deadline bounds how late a missed window
-// fires. `timeZone` is stated because an unset field runs the schedule in the kube-controller-manager's own
-// zone, which makes a maintenance window fire at an hour no operator picked and drift on a control-plane move.
-// The job-level half exists because `Forbid` makes a hung run suspend its own schedule: `runSeconds` is the
-// wall-clock ceiling on one execution, `attempts` replaces the API's six silent retries of a mutating verb,
-// and `ttlSeconds` retires the finished pod so the history pair is the whole evidence window.
 const _CRON: Workload.CronPolicy = {
   concurrency: "Forbid",
   history: { successful: 3, failed: 1 },
@@ -202,8 +182,6 @@ const _CRON: Workload.CronPolicy = {
   ttlSeconds: 86400,
 }
 
-// The readonly `as const` rows cross into the generated input shape at ONE fold, so neither direction
-// re-spreads its own policy list at the construction site and a widened elasticity axis edits this seam alone.
 const _behavior = (rows: Workload.Behavior): k8s.types.input.autoscaling.v2.HorizontalPodAutoscalerBehavior =>
   Record.map(rows, (rules) => ({
     stabilizationWindowSeconds: rules.stabilizationWindowSeconds,
@@ -211,9 +189,6 @@ const _behavior = (rows: Workload.Behavior): k8s.types.input.autoscaling.v2.Hori
     policies: Array.map(rules.policies, (policy) => ({ type: policy.type, value: policy.value, periodSeconds: policy.periodSeconds })),
   }))
 
-// One merge seam, exactly as `_rows` merges `_POLICY`: the caller's deltas ride over the maintenance row and
-// the spec spreads one block, so no field re-states its own fallback at the construction site. The return
-// projects onto the generated spec's own field set, so a renamed member breaks here rather than at apply.
 const _cronPolicy = (
   policy?: Partial<Workload.CronPolicy>,
 ): Pick<
@@ -231,9 +206,6 @@ const _cronPolicy = (
   }
 }
 
-// The job-level half of the same row, projected onto the generated `JobSpec` field set for the same reason:
-// under `Forbid` an execution with no ceiling suspends every later run of its own schedule, and the API's
-// six-retry default re-runs a mutating verb five more times than a maintenance window ever asked for.
 const _jobPolicy = (
   policy?: Partial<Workload.CronPolicy>,
 ): Pick<k8s.types.input.batch.v1.JobSpec, "activeDeadlineSeconds" | "backoffLimit" | "ttlSecondsAfterFinished"> => {
@@ -257,8 +229,6 @@ const _probe = (kind: _LIFE.Kind, port: number): k8s.types.input.core.v1.Probe =
   timeoutSeconds: _LIFE.probes[kind].timeoutSeconds,
 })
 
-// Absence is the whole fold: a workload the caller composed without a backend generation mounts no
-// projection and stamps no pointer path, so the three pod slots the row fills stay empty together.
 const _backed = (backend: Workload.Backend | undefined): {
   readonly env: ReadonlyArray<Workload.EnvRow>
   readonly mounts: ReadonlyArray<k8s.types.input.core.v1.VolumeMount>
@@ -307,8 +277,6 @@ declare namespace Workload {
     readonly zones?: ReadonlyArray<string>
   }
   type Concurrency = "Allow" | "Forbid" | "Replace"
-  // One row, two levels: the first five fields project onto `CronJobSpec` and the last three onto the `JobSpec`
-  // the schedule spawns, because a schedule that forbids overlap owns how long one execution may hold the slot.
   type CronPolicy = {
     readonly concurrency: Concurrency
     readonly history: { readonly successful: number; readonly failed: number }
@@ -327,9 +295,6 @@ declare namespace Workload {
     readonly env: ReadonlyArray<Workload.EnvRow>
     readonly policy?: Partial<CronPolicy>
   }
-  // the direction keys derive from the generated behavior shape, so a row cannot name a direction the API
-  // does not carry; `Rules` states the readonly row the `as const` anchor holds before the crossing, and both
-  // vocabularies close locally because the generated shape types each as a bare `Input<string>`
   type Direction = keyof k8s.types.input.autoscaling.v2.HorizontalPodAutoscalerBehavior
   type Select = "Max" | "Min" | "Disabled"
   type Step = "Pods" | "Percent"
@@ -371,7 +336,7 @@ class Workload extends Tier {
               spec: {
                 restartPolicy: "Never",
                 securityContext: Tier.harden.pod,
-                automountServiceAccountToken: false, // a maintenance verb states no API rules, so it carries no token
+                automountServiceAccountToken: false,
                 containers: [{
                   name,
                   image: args.image,
@@ -388,8 +353,6 @@ class Workload extends Tier {
       },
     }, opts)
   readonly service: Option.Option<k8s.core.v1.Service>
-  // The Service selector, the template labels, and the traffic tier's fence read ONE derivation, so a fence
-  // scoped to this workload cannot drift from the pods it means to protect.
   readonly selector: Record.ReadonlyRecord<string, string>
   constructor(name: string, args: Workload.Args, opts?: pulumi.ComponentResourceOptions) {
     super("Workload", name, opts)
@@ -432,8 +395,6 @@ class Workload extends Tier {
           spec: {
             serviceAccountName: account.metadata.name,
             securityContext: Tier.harden.pod,
-            // The projected token is an ambient cluster credential in every container's filesystem, so it mounts
-            // on the evidence that the workload reaches the API at all: the `rbac` rows this tier granted.
             automountServiceAccountToken: rules.length > 0,
             terminationGracePeriodSeconds: _LIFE.drainSeconds + _LIFE.margin,
             topologySpreadConstraints: [{
@@ -512,7 +473,7 @@ class Workload extends Tier {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Workload }
 ```

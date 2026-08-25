@@ -24,7 +24,7 @@ The `Rasm.Element` `CanonicalWriter` is the one byte codec every preimage compos
 - Boundary: `EgressKind` federates to the Persistence `ArtifactKind` rows at the content-key boundary by VALUE, never a type reference.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -57,13 +57,11 @@ using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
-// Kernel hook rail closed over the `Process/telemetry#HOOK_RAIL` roster/fact/owner triple — the spine reads the
-// domain name rather than the three-parameter spelling, and `FabricationHooks.Live` is its one mint.
 using FabricationRail = Rasm.Domain.HookRail<Rasm.Fabrication.Process.FabricationPoint, Rasm.Fabrication.Process.FabricationHookFact, Rasm.Domain.TelemetrySource>;
 
 namespace Rasm.Fabrication.Process;
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // --- [CONTENT_KEY]
 [SmartEnum<string>]
 public sealed partial class EgressKind {
@@ -75,14 +73,8 @@ public sealed partial class EgressKind {
     public static readonly EgressKind Nc1 = new("nc1");
     public static readonly EgressKind StockSnapshot = new("stock-snapshot");
     public static readonly EgressKind Traveler = new("traveler");
-    // Two arms address this family: `Verify/audit` `Audit.Preflight` keys its `Receipt<AuditEvidence>` here over the
-    // slice stack and policy it read, and `Spec/manufacturability` `Manufacturability.Assess` keys its
-    // `Receipt<DfmReport>` here over the DfM request it read — a preflight verdict and a producibility verdict are
-    // one egress family read at two planes. Both address their REQUEST, never their findings.
     public static readonly EgressKind QualityRecord = new("quality-record");
     public static readonly EgressKind FlatPattern = new("flat-pattern");
-    // Produced by the `FormSource.Tube` and `FormSource.Roll` dispatch arms through `TubeProgram.Apply`; the
-    // `FormSource.Sheet` arm mints `FlatPattern` instead, which is why the forming contract reads the source.
     public static readonly EgressKind BendProgram = new("bend-program");
     public static readonly EgressKind WeldPlan = new("weld-plan");
     public static readonly EgressKind ScanVectors = new("scan-vectors");
@@ -96,8 +88,6 @@ public sealed record ContentKey {
     public EgressKind Kind { get; }
     public UInt128 Digest { get; }
 
-    // Exemption: span framing is a measured byte kernel. Kind is identity-bearing, so it joins the preimage
-    // length-framed ahead of the payload; hashing the payload alone collides every egress family over equal bytes.
     public static ContentKey Of(EgressKind kind, ReadOnlySpan<byte> canonicalBytes) {
         int keyLength = Encoding.UTF8.GetByteCount(kind.Key);
         Span<byte> preimage = new byte[(sizeof(int) * 2) + keyLength + canonicalBytes.Length];
@@ -143,8 +133,6 @@ public sealed partial class EgressRequest {
         Validate(kinds, target, out EgressRequest request).Admitted(request);
 }
 
-// The ceiling is the whole contract: a floor is vacuous because asking for no artifact is always admissible, and
-// coverage of what WAS asked for is proved against produced keys at `FabricationResult.Evidence`.
 public sealed record EgressContract(Set<EgressKind> Alternatives, int Maximum) {
     public static readonly EgressContract None = new(Set<EgressKind>(), 0);
 
@@ -192,13 +180,8 @@ public abstract partial record FabricationPolicy {
         AdmittedComponent Component,
         DerivePolicy Policy,
         Option<CapabilityVerdict> Capability) : FabricationPolicy;
-    // The forming plane routes by SOURCE, and the machine envelope rides the source arm rather than this case:
-    // a press brake, a tube bender, and a section roll state incompatible capacity axes, so one envelope column
-    // here would have routed two of the three modalities through a station that cannot form them.
     public sealed record Form(FormSource Source) : FabricationPolicy;
 
-    // One artifact correspondence distinguishes supported alternatives from request cardinality;
-    // `FabricationResult.Evidence` proves every requested kind against actual produced keys.
     public EgressContract Egress => Switch(
         hiddenLine: static _ => EgressContract.None,
         cam: static _ => EgressContract.None,
@@ -209,13 +192,8 @@ public abstract partial record FabricationPolicy {
         post: static _ => new EgressContract(Set(EgressKind.CutProgram, EgressKind.Nc1, EgressKind.Cli), 1),
         document: static _ => new EgressContract(Set(EgressKind.Traveler, EgressKind.DigitalProductPassport), 2),
         derive: static _ => new EgressContract(Set(EgressKind.Plan, EgressKind.WeldPlan), 2),
-        // The forming contract is a PAYLOAD projection like `Fits`, not a constant: the unfold arm answers
-        // `FlatPattern` and the two tube arms answer `BendProgram`, and a union of the two over one case would
-        // have admitted a caller asking a press brake for a bend program the arm cannot mint.
         form: static policy => policy.Source.Egress);
 
-    // Consumed ancestry is the POLICY's fact, because only the arm holding a prior artifact knows it consumed one;
-    // the run spine folds this beside the input's own parent and source keys and hard-codes no plane's slot.
     public Seq<ContentKey> Consumed => Switch(
         hiddenLine: static _ => Seq<ContentKey>(),
         cam: static _ => Seq<ContentKey>(),
@@ -285,8 +263,6 @@ public abstract partial record FabricationResult {
         double OvercutVolume,
         double AirCutRatio,
         double VolumeTolerance) : FabricationResult {
-        // Overcut is an accumulated voxel volume; exact-zero equality never holds, so the verdict gates on the
-        // tolerance the verifier admits from its own voxel edge length.
         public bool Clean => Gouges.IsEmpty && OvercutVolume <= VolumeTolerance;
     }
     public sealed record InspectionResult(Seq<InspectionFeature> Features, Seq<ContentKey> Subjects) : FabricationResult;
@@ -310,18 +286,8 @@ public abstract partial record FabricationResult {
         Seq<ContentKey> Artifacts,
         ContentKey Key) : FabricationResult;
     public sealed record FormedResult(Arr<Loop> FlatPattern, Seq<BendStep> Bends, double SpringbackMaxDeg, ContentKey Key) : FabricationResult;
-    // Tube forming produces evidence a flat pattern shares NO column with — canonical bend coordinates, tooling
-    // rows, deformation witnesses, a pass schedule — so widening `FormedResult` would have made four of its
-    // columns `Option` for every sheet run and broken the `Process/derivation` fact table that reads all four.
-    // `TubeResult` is already the closed family over the three tube modalities and carries its own key on every
-    // arm, so this case takes it WHOLE: the discriminant stays recoverable from the value, and the next tube
-    // modality is one row there rather than a new result case here. The run spine routes `Formed` and `Rolled`;
-    // `Coped` reaches a caller through `TubeProgram.Apply` directly and lands on the same case when it does.
     public sealed record TubeFormed(TubeResult Outcome) : FabricationResult;
 
-    // The result's own key census — every content key a case produced or carries as its subject face, the set a
-    // pricing basis, traveler gather, or provenance fold correlates against; per-case Subjects columns stay the
-    // caller-seeded halves this projection composes.
     public Seq<ContentKey> Keys => Map(
         hiddenLineResult: static value => value.Subjects,
         motion: static value => value.Subjects,
@@ -335,8 +301,6 @@ public abstract partial record FabricationResult {
         formedResult: static value => Seq(value.Key),
         tubeFormed: static value => Seq(value.Outcome.Key));
 
-    // Each arm names only the evidence its own case owns; unnamed slots keep the seeded request and consumed ancestry,
-    // so a new result case is one arm rather than a re-spelling of every slot.
     public Fin<RunEvidence> Evidence(FabricationInput input, Seq<ContentKey> consumed) {
         RunEvidence evidence = Switch(
             state: RunEvidence.Seed(this, input, consumed),
@@ -370,8 +334,6 @@ public abstract partial record FabricationResult {
     }
 }
 
-// The settled-receipt spine, generalized off `RunEvidence`: `TEvidence` is the ONLY varying column, so a lane
-// receipt declares its own evidence and inherits plane, key, ancestry, band, and stamp instead of re-spelling them.
 public sealed record Receipt<TEvidence>
     where TEvidence : notnull {
     public required TEvidence Evidence { get; init; }
@@ -383,8 +345,6 @@ public sealed record Receipt<TEvidence>
     public required Instant Stamped { get; init; }
     public Option<bool> Verified { get; init; }
 
-    // The ONE preimage facade: the owning plane frames ahead of the payload and the lane's own frame writes its
-    // evidence through the SAME writer, so a receipt never carries a second codec.
     public CanonicalWriter CanonicalBytes(
         CanonicalWriter writer, Func<TEvidence, CanonicalWriter, CanonicalWriter> frame) =>
         frame(Evidence, writer.Discriminant(Concern))
@@ -392,8 +352,6 @@ public sealed record Receipt<TEvidence>
             .Rows(Produced, static (row, key) => key.CanonicalBytes(row));
 }
 
-// The provenance walk's own outputs, named: the ancestral frontier the child-to-parent walk terminated on and the
-// generation depth it measured per key. The graph itself is a transient fold and never leaves the operation.
 public sealed record RunProvenance(Seq<ContentKey> Roots, Map<ContentKey, int> Generation) {
     public static readonly RunProvenance Empty = new(Seq<ContentKey>(), Map<ContentKey, int>());
 
@@ -464,18 +422,8 @@ public sealed partial class FabricationInput {
     public Arr<Loop> Profiles { get; }
     public Arr<Loop> Keepouts { get; }
 
-    // Markings ride the run BESIDE the loops rather than being dropped at admission: the ingress lowers part marks,
-    // heat numbers, and shop tags off the drawing, and a traveler or a posted program that cannot see them re-parses
-    // an entity sweep it has no access to. Tags is the ingress owner's own keyed fold, so both consumers key by name
-    // through one grouping and a marking-free run reads an empty map rather than an absent capability.
     public Arr<ProfileMarking> Markings { get; }
 
-    // Edge preparation is a fact of the ADMITTED GEOMETRY, not a policy choice: DSTV states the groove an edge is cut
-    // to at the contour vertex that carries it, and dropping that at admission left a CAM run squaring the joint a
-    // downstream weld was designed around. The demand rides here beside the loops for the same reason markings do —
-    // the toolpath, posting, documentation, and joining planes all read it — while the `Toolpath/bevel` law that
-    // GOVERNS the cut stays the engagement's `Option` column, so the two answer different questions and the folder
-    // ruling against a demand flag beside the law is untouched.
     public Arr<EdgePreparation> Preparations { get; }
 
     public ProcessKind Process { get; }
@@ -524,8 +472,6 @@ public sealed partial class FabricationInput {
              FabConcern.Process, "fabrication-input:profiles", FabricationFault.Inadmissible),
          AdmissionSlots.Gate(keepouts.ForAll(static loop => loop.Closed),
              FabConcern.Process, "fabrication-input:keepouts", FabricationFault.Inadmissible),
-         // A demand naming no admitted profile has no edge to prepare, so it is a request defect rather than a lane
-         // the toolpath silently skips.
          AdmissionSlots.Gate(preparations.ForAll(row => row.Profile >= 0 && row.Profile < profiles.Count),
              FabConcern.Process, "fabrication-input:preparations", FabricationFault.Inadmissible),
          AdmissionSlots.Gate(machine.Admits(process), FabConcern.Process, "fabrication-input:process-machine", FabricationFault.Inadmissible),
@@ -539,12 +485,6 @@ public sealed partial class FabricationInput {
 
 }
 
-// Run governance is DECLARED stage rows, never a literal fraction at a report site: the spine crosses exactly
-// four measurable boundaries and each row states the fraction complete when that boundary is crossed, its own
-// key serving as the abandonment witness so no second column restates it — the kernel `ArrangeStage` band a
-// plane kernel reads through `ArrangementPolicy.Governed` is the same shape. A plane kernel publishing finer
-// progress reports through the sink it is handed, so the spine never interpolates between its own rows and
-// never publishes a fraction it did not measure.
 [SmartEnum<string>]
 internal sealed partial class RunStage {
     public static readonly RunStage Started    = new("started", done: 0.00);
@@ -561,25 +501,12 @@ public sealed partial class FabricationRuntime {
     public CancellationToken Cancel { get; }
     public FabricationTap Telemetry { get; }
 
-    // Rail, never a wrapper: `Drain`, `Replay`, `Detach`, and `Release` are members a composing app reaches
-    // through this column, and a folder record forwarding `Fire` alone hides four of them behind a shell.
     public FabricationRail Hooks { get; }
 
-    // Governance pairs a withdrawal with an observation: the token withdraws the run, the sink watches it. Progress
-    // takes the carrier as `Option` for the same reason — no inert reporter exists to default onto, absence IS its
-    // second state — and it takes the kernel's own `Option<IProgress<double>>` spelling so `ArrangementPolicy.Governed`
-    // and every plane kernel below it seat this column with no adaptation and no sentinel sink.
     public Option<IProgress<double>> Progress { get; }
 
-    // Memo stays app-neutral runtime capability, never process-global state: two runtimes composing the
-    // library hold two caches, and a headless kernel run holds none with zero branching.
     public Option<HybridCache> Memo { get; }
 
-    // Tap and rail both default to real values — `Silent` and a subscriber-free `Live` — so their parameters take
-    // the nullable that collapses onto them, while the memo has no such value: absence IS its second state, so it
-    // enters on the same carrier the property publishes and the nest arm at Nesting/nfp already spells. Minting the
-    // default rail is a RAIL operation — `HookRail.Of` seats every point and rolls back a partial subscription —
-    // so admission binds it rather than swallowing a composition refusal behind a `??`.
     public static Fin<FabricationRuntime> Admit(
         IClock clock,
         CancellationToken cancel,
@@ -612,9 +539,7 @@ public sealed partial class FabricationRuntime {
 - Packages: `QuikGraph` (`BidirectionalGraph`, `SEdge`, `IsDirectedAcyclicGraph`, `Sinks`, `BreadthFirstSearchAlgorithm`, `VertexDistanceRecorderObserver`), `Rasm.Element` `CanonicalWriter`, `System.IO.Hashing` (`XxHash128` at the streaming close), LanguageExt.Core rails.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The ONE extension family over the Element codec. Every fabrication preimage composes these and declares nothing
-// of its own; a second Point/Option/Transform writer anywhere in the package is the deleted duplicate.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FabricationCanon {
     public static CanonicalWriter Coords(this CanonicalWriter writer, Point3d point) =>
         writer.Double(point.X).Double(point.Y).Double(point.Z);
@@ -625,15 +550,11 @@ public static class FabricationCanon {
     public static CanonicalWriter Coords(this CanonicalWriter writer, Vector3d vector) =>
         writer.Double(vector.X).Double(vector.Y).Double(vector.Z);
 
-    // A transform enters through its twelve affine reads, never a serialized basis quadruple: the reads are the
-    // matrix, so a basis-point encoding that reconstructs them is a second convention over one fact.
     public static CanonicalWriter Basis(this CanonicalWriter writer, Transform transform) => writer
         .Double(transform.M00).Double(transform.M01).Double(transform.M02).Double(transform.M03)
         .Double(transform.M10).Double(transform.M11).Double(transform.M12).Double(transform.M13)
         .Double(transform.M20).Double(transform.M21).Double(transform.M22).Double(transform.M23);
 
-    // Presence tag then payload: an absent column can never alias a written zero, matching the codec's own
-    // `Optional` discipline for scalars over every carrier shape.
     public static CanonicalWriter Maybe<T>(
         this CanonicalWriter writer, Option<T> value, Func<CanonicalWriter, T, CanonicalWriter> write) =>
         value.Match(
@@ -644,19 +565,10 @@ public static class FabricationCanon {
         this CanonicalWriter writer, Seq<T> rows, Func<CanonicalWriter, T, CanonicalWriter> write) =>
         rows.Fold(writer.Ordinal(rows.Count), write);
 
-    // The one discriminant framing: a generated owner's own key, length-framed. A provider enum ordinal in a
-    // preimage forks every key the day the provider reorders its rows.
     public static CanonicalWriter Discriminant<TRow>(this CanonicalWriter writer, TRow row)
         where TRow : ISmartEnum<string>, IConvertible<string> => writer.String(row.ToValue());
 
     // --- [CLOSE]
-    // The ONE keyed mint every fabrication artifact rides. `CanonicalWriter` publishes no public constructor —
-    // `Retaining` holds a buffer and `Streaming` does not — and `ToBytes` is the RETAINING close alone, answering
-    // `Fin` because a streaming writer has no preimage to hand back. A lane opening a writer by construction and
-    // discarding that rail keyed its artifact off bytes it never held.
-    // The bytes-retaining close: a SEALING consumer (an attested record, a signed passport) needs the preimage it
-    // signs AND the key that addresses it from ONE close — two closes would let the signed bytes and the address
-    // drift. `Keyed` is its key projection, so every keyed mint is a sealed mint that discarded the buffer.
     public static Fin<(ReadOnlyMemory<byte> Preimage, ContentKey Key)> Sealed(
         EgressKind kind, double grid, Func<CanonicalWriter, CanonicalWriter> frame, Op key) =>
         frame(CanonicalWriter.Retaining(grid))
@@ -667,16 +579,9 @@ public static class FabricationCanon {
         EgressKind kind, double grid, Func<CanonicalWriter, CanonicalWriter> frame, Op key) =>
         Sealed(kind, grid, frame, key).Map(closed => closed.Key);
 
-    // The order-only close: a frontier tie-break, a dominance probe, or any consumer needing a TOTAL ORDER over a
-    // preimage rather than its bytes takes the writer's own digest and never materializes a buffer per probe.
-    // NAMED LOSS: two preimages colliding at 128 bits tie instead of ordering — the same unforgeability the branch
-    // already rests every `ContentKey` on. WITNESS: `ContentKey.Digest` is that width and nothing re-derives it.
     public static UInt128 Ordered(double grid, Func<CanonicalWriter, CanonicalWriter> frame) =>
         frame(CanonicalWriter.Streaming(grid, new XxHash128(seed: 0L))).Digest();
 
-    // The quantum is the parameter and an admitting `Context` is one way to name it, so a lane already holding the
-    // context reaches the same close without unpacking it and a lane holding only its own grid — an exact zero, a
-    // gauge resolution, a chord error already projected to millimetres — hands that grid directly.
     public static Fin<ContentKey> Keyed(
         EgressKind kind, Context tolerance, Func<CanonicalWriter, CanonicalWriter> frame, Op key) =>
         Keyed(kind, tolerance.Absolute.Value, frame, key);
@@ -686,9 +591,6 @@ public static class FabricationCanon {
 
 }
 
-// The one dimension-text arrow every plane outside `Process` reaches. The axis names WHICH quantity parses and the
-// plane names which fault its own refusal answers on, so a second `PhysicsQuantity.<axis>.Admit` entry at a caller
-// — a text boundary raising a foreign plane's fault — is the deleted form.
 public readonly record struct QuantityArrow(PhysicsQuantity Axis, FabConcern Raised, string Locus) {
     public Fin<double> Admit(string text) => ProcessPhysics
         .Admit(new PhysicsIngress.Quantity(Axis, text))
@@ -703,10 +605,6 @@ public static class Fabrication {
          let key = Op.Of()
          let started = runtime.Clock.GetCurrentInstant()
          let asked = new FabricationHookFact.Admission(input)
-         // Admission is the ONE transforming veto on the roster, so it takes the kernel's GUARDED arity: the
-         // capsule hands the body its admitted fact and the rewritten request threads onward. Its sibling arm is
-         // unreachable — `Seats` is 1:1 on `At`, so a fact seating at `Admission` IS an `Admission` case — and it
-         // stays a named refusal rather than a cast, because a cast turns a future roster split into a crash.
          from admitted in runtime.Hooks.Fire(asked.At, asked, key, static fact => fact is FabricationHookFact.Admission settled
              ? Fin.Succ(settled.Input)
              : Fin.Fail<FabricationInput>(new KernelFault.InvalidValue("owner", "hook-admission:case")))
@@ -727,7 +625,6 @@ public static class Fabrication {
         run.Provenance.Roots,
         run.Provenance.Generation));
 
-    // The exact execution token is the cancellation authority; polling it lowers the kernel singleton directly.
     private static Fin<Unit> Ready(FabricationRuntime runtime, RunStage stage) => runtime.Cancel.IsCancellationRequested
         ? Fin.Fail<Unit>(Errors.Cancelled)
         : Fin.Succ(runtime.Reached(stage));
@@ -744,16 +641,8 @@ public static class Fabrication {
                 state.Input,
                 static projection => new FabricationResult.HiddenLineResult(projection, projection.Sources))),
             cam:        static (state, policy) => Sync(Cam.Solve(policy, state.Input)),
-            // Nest is the one genuinely asynchronous plane and its pair-memo leg is a landed abandonment producer,
-            // so the runtime travels INTO it WHOLE: tap, memo, token, and settling clock are four columns of one
-            // value, the token threading the memo lane so an in-flight cancel surfaces on the kernel cancellation
-            // rail, and the clock stamping the settled receipt where it settles. Handing three columns instead left
-            // the receipt unstamped and detected a withdrawal only once the search had already run to completion.
             nest:       static (state, policy) => Nest.Solve(policy, state.Input, state.Runtime),
             additive:   static (state, policy) => Sync(Slice.Solve(policy, state.Input)),
-            // The verify plane fires its own settled-receipt fact, so it takes the run's tap exactly as the inspect
-            // plane does; handing it none left the removal fact firing into `Silent` on the one path that carries a
-            // live rail, and the instrument would have reported nothing for every run the spine dispatched.
             verify:     static (state, policy) => Sync(Removal.Verify(policy, state.Input, state.Runtime.Telemetry)),
             inspect:    static (state, policy) => Sync(Probe.Inspect(policy.Policy, state.Input, state.Runtime.Telemetry)),
             post:       static (state, policy) => Sync(Post.Lower(policy.Source, policy.Dialect, state.Input, policy.Policy)),
@@ -763,30 +652,20 @@ public static class Fabrication {
                 state.Runtime.Clock,
                 static artifact => new FabricationResult.TravelerDocument(artifact))),
             derive:     static (state, policy) => Sync(Derivation.Plan(policy, state.Input, state.Runtime.Telemetry)),
-            // The forming plane routes by SOURCE through the generated total dispatch, so a fourth modality is one
-            // arm here and one row there rather than a branch ladder any of them can fall out of.
             form:       static (state, policy) => Sync(policy.Source.Switch(
                 state: state,
                 sheet: static (run, source) =>
                     from unfold in FlatPattern.Unfold(source.Policy, run.Input)
-                    // The bend search is the sheet lane's long leg, so it takes the run's own tap and token: the
-                    // engine census fires at its owner and a withdrawal lowers there rather than being detected
-                    // only when the spine reads the token again on the far side of dispatch.
                     from bends in BendSequence.Plan(
                         unfold, source.Policy, source.Envelope, run.Runtime.Telemetry, run.Runtime.Cancel)
                     from result in FlatPattern.Formed(unfold, bends.Steps)
                     select result,
-                // The tube lanes take the run's own clock because `Receipt<TEvidence>` stamps where it settles;
-                // their runs arrive admitted on the case arm, which is why `TubeProgram.Apply` has a caller at all.
                 tube: static (run, source) => TubeProgram
                     .Apply(new TubeOp.Form(source.Run, source.Kind, source.Envelope), run.Runtime.Clock)
                     .Map(static outcome => (FabricationResult)new FabricationResult.TubeFormed(outcome)),
                 roll: static (run, source) => TubeProgram
                     .Apply(new TubeOp.Roll(source.Run, source.Envelope), run.Runtime.Clock)
                     .Map(static outcome => (FabricationResult)new FabricationResult.TubeFormed(outcome)))));
-        // Plane kernels are the run's long leg, so the token is read again on THEIR far side: a withdrawal during
-        // dispatch would otherwise seal evidence, mint egress keys, and fire the delivery hand-off for a run the
-        // caller already abandoned. The same read publishes the dispatched fraction.
         return from result in dispatched
                from _reached in Ready(runtime, RunStage.Dispatched)
                let consumed = Consumed(input)
@@ -802,9 +681,6 @@ public static class Fabrication {
                select sealedEvidence;
     }
 
-    // Content-addressed lineage CANNOT cycle: a digest covering its own descendant is unforgeable, so a cycle here
-    // names a forged key rather than a modelling error and rails before any traversal runs. Edges point child to
-    // parent, so the ancestral frontier is the SINK set and generation depth is the child-side distance to it.
     private static Fin<RunProvenance> Provenance(Seq<ContentKey> produced, Seq<ContentKey> consumed) {
         BidirectionalGraph<ContentKey, SEdge<ContentKey>> lineage = new(allowParallelEdges: false);
         lineage.AddVertexRange(produced.Concat(consumed));
@@ -812,9 +688,6 @@ public static class Fabrication {
         if (!lineage.IsDirectedAcyclicGraph())
             return Fin.Fail<RunProvenance>(new KernelFault.InvalidValue("owner", "lineage:forged-key"));
 
-        // The observer's one-argument arity takes the edge weight alone and holds its own `Distances` dictionary; the
-        // three-argument arity exists to supply a relaxer and a caller-owned map, neither of which a hop count
-        // needs. A unit weight makes every distance the GENERATION depth in edges, keyed by vertex.
         BreadthFirstSearchAlgorithm<ContentKey, SEdge<ContentKey>> walk = new(lineage);
         VertexDistanceRecorderObserver<ContentKey, SEdge<ContentKey>> depths = new(static _ => 1.0);
         using (depths.Attach(walk)) {
@@ -825,8 +698,6 @@ public static class Fabrication {
             toMap(toSeq(depths.Distances).Map(static row => (row.Key, (int)row.Value)))));
     }
 
-    // The nine synchronous arms take ONE lift, so no arm hand-spells a completed task and the one genuinely
-    // asynchronous plane stands out at the call site.
     private static ValueTask<Fin<FabricationResult>> Sync<T>(Fin<T> settled)
         where T : FabricationResult =>
         ValueTask.FromResult(settled.Map(static value => (FabricationResult)value));
@@ -834,9 +705,6 @@ public static class Fabrication {
     private static Seq<ContentKey> Consumed(FabricationInput input) =>
         input.Policy.Consumed + input.ParentRuns + input.Sources + input.MaterialCertificate.ToSeq();
 
-    // Result-shaped hook projection through the GENERATED total switch: a new result case cannot silently lose its
-    // point, and each fired result folds onto the rail rather than being discarded. Rail and key travel as ONE
-    // state tuple, because the dispatch carries a single state slot and a captured key would strip `static`.
     private static Fin<Unit> Fired(FabricationRail rail, FabricationResult result, Op key) => result.Switch(
         state: (Rail: rail, Key: key),
         hiddenLineResult: static (_, _) => Fin.Succ(unit),
@@ -853,12 +721,6 @@ public static class Fabrication {
         formedResult: static (_, _) => Fin.Succ(unit),
         tubeFormed: static (_, _) => Fin.Succ(unit));
 
-    // One refusal-only raise carries every point but `Admission`. Kernel `Fire` returns the ADMITTED fact, so
-    // comparing it against the fired one CONSUMES the veto capability rather than discarding what a gate returned:
-    // an egress-mint gate rewriting a content key forges an identity nothing produced — the forgery the provenance
-    // walk already rails — while an observe or replay point holds no gate to move it, so the equality costs nothing
-    // where nothing vetoes and is load-bearing where something does. Point spelling stays off the site: `At` is the
-    // fact's own column, so a case and its seat can never be paired wrong here.
     private static Fin<Unit> Raised(FabricationRail rail, FabricationHookFact fact, Op key) =>
         rail.Fire(fact.At, fact, key).Bind(admitted => admitted == fact
             ? Fin.Succ(unit)

@@ -35,15 +35,13 @@ using ArtifactService = Rasm.Contracts.Artifact.ArtifactService;
 using GaussianSplatScan = Rasm.Contracts.Scan.GaussianSplatScan;
 using SplatFormat = Rasm.Contracts.Scan.SplatFormat;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WireServices(GrpcChannel Channel, CallInvoker Invoker) : IDisposable {
     public static WireServices Of(CallInvoker invoker, GrpcChannel channel) {
         ParseGuard.WarmRules();
         return new(channel, invoker);
     }
 
-    // One Bind per logical call: every RPC in that call shares the same correlation-stamping interceptor while the
-    // composition keeps one channel. Keeping generated clients here would freeze the Open-time correlation forever.
     public WireCall Bind(CallSpine spine) => WireCall.Of(Invoker.Intercept(spine));
 
     public void Dispose() => Channel.Dispose();
@@ -54,11 +52,6 @@ public sealed record WireCall(
     ControlService.ControlServiceClient Control,
     ArtifactService.ArtifactServiceClient Artifacts,
     Health.HealthClient Health) {
-    // ONE mint: every generated client on this record binds to the SAME intercepted invoker, so a service the
-    // contract adds breaks HERE — at the owner that declares it — rather than at a dialing capsule that would
-    // otherwise fill the roster positionally and could silently open a channel never carrying the new service.
-    // Only DIALED services seat here. `ProgressService` is served at `Runtime/progress#OBSERVATION_SEAMS` and its
-    // client is the browser's, so a fifth field would open a channel leg this process never calls.
     public static WireCall Of(CallInvoker invoker) => new(
         new ComputeService.ComputeServiceClient(invoker),
         new ControlService.ControlServiceClient(invoker),
@@ -66,8 +59,7 @@ public sealed record WireCall(
         new Health.HealthClient(invoker));
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// Inbound parse hardening: one configured parser per T, one bounded stream decode, one validator, one envelope.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class ParseGuard {
     private static readonly FileDescriptor[] Files = [
         ComputeReflection.Descriptor, ControlReflection.Descriptor, ProgressReflection.Descriptor,
@@ -82,19 +74,13 @@ public static class ParseGuard {
 
     public static readonly Validator Rules = new(Files);
 
-    // Celly compiles CEL lazily per message descriptor. The composition root calls this before readiness so a bad
-    // corpus expression fails bootstrap, never a live request; map-entry descriptors have no generated parser.
     public static Unit WarmRules() {
         Allowed.Values.Iter(static descriptor => ignore(Rules.Validate(descriptor.Parser.ParseFrom([]))));
         return unit;
     }
 
-    // The unknown-field posture is STATED, never inherited: one configured parser per message type, memoized in
-    // a static generic holder so no inbound message pays a fresh parser allocation for a policy that never moves.
     public static MessageParser<T> Parser<T>(MessageParser<T> generated) where T : IMessage<T> => Configured<T>.Of(generated);
 
-    // Size gate, bounded parse, then rules — in that order, so a hostile length costs a comparison, a hostile
-    // nesting costs the recursion ceiling, and a rule refusal reaches the rail as typed violations the peer reads.
     public static Fin<T> Read<T>(MessageParser<T> generated, ReadOnlySequence<byte> payload, WireLimits limits) where T : IMessage<T> =>
         payload.Length > limits.SizeLimit
             ? Fin.Fail<T>(new ComputeFault.PayloadOverBounds($"<inbound-over-bound:{payload.Length}:{limits.SizeLimit}>"))
@@ -112,8 +98,6 @@ public static class ParseGuard {
                     new WireViolation.Rules(toSeq(violations).Map(RuleViolations.Violation)))),
             };
 
-    // Initializer, not a fold: the previous shape mutated one shared `Struct` inside a `Fold` and returned it, which
-    // wears the fold's signature while holding none of its law.
     public static Struct Envelope(HashMap<string, Value> options) =>
         new() { Fields = { options.ToDictionary(static entry => entry.Key, static entry => entry.Value) } };
 
@@ -136,8 +120,6 @@ public static class ParseGuard {
     }
 }
 
-// ONE row per refused rule. Celly exposes no field-path renderer, so this local projection covers every generated
-// subscript arm and fails loudly if the schema adds one.
 public static class RuleViolations {
     public static BadRequest.Types.FieldViolation Violation(Violation violation) => new() {
         Field = Path(violation.Field),
@@ -163,8 +145,6 @@ public static class RuleViolations {
         });
 }
 
-// The corpus-generated scan is producer-owned by Python; this one-way mapper proves every generated column reaches
-// the C# residency value and fails this build when the source grows without a consuming projection.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 [UseStaticMapper(typeof(SplatCodec))]
 public static partial class SplatMapper {
@@ -186,19 +166,13 @@ public static partial class SplatMapper {
 }
 
 public static class SplatCodec {
-    // The format roster is the generated enum's: the domain key is its wire name, so a third format lands as one
-    // enum value at the corpus and crosses here with no table edit.
     public static string Key(SplatFormat format) => WireKeys.Camel(format);
 
     public static ReadOnlyMemory<float> Planes(ByteString packed) =>
         MemoryMarshal.Cast<byte, float>(packed.Span).ToArray();
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The generated member name IS the key vocabulary, so the lowering is a projection of the descriptor rather than a
-// second roster beside it: protoc has already stripped the `PBR_STAGE_` prefix and pascal-cased what remains, and
-// one character separates that spelling from the interior key. Written per consumer, the same fold would drift the
-// first time one call site used `ToLower()` and flattened `CoreMl` to `coreml`.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class WireKeys {
     public static string Camel<TEnum>(TEnum value) where TEnum : struct, Enum =>
         Enum.GetName(value) is { Length: > 0 } name
@@ -206,17 +180,11 @@ public static class WireKeys {
                 source.CopyTo(span);
                 span[0] = char.ToLowerInvariant(span[0]);
             })
-            // Unreachable through `ParseGuard`, whose `defined_only` rules refuse an undefined ordinal before the
-            // interior sees it: the numeric spelling names no roster row, so the caller's own `TryGet` refuses it
-            // rather than this fold inventing a member the corpus never declared.
             : value.ToString();
 }
 ```
 
 ```proto signature
-// Header law of the corpus-homed suite sources (compute.proto, control.proto, progress.proto): managed mode derives
-// Rasm.Contracts.Compute from the package, so no csharp_namespace option rides any of them. Import rosters
-// are the sources' own, read on disk — a hand mirror of them here forks what it transcribes.
 syntax = "proto3";
 
 package rasm.contracts.compute;
@@ -274,8 +242,6 @@ Each message carries its generated field set and wire role; enum vocabularies ca
 - Boundary: the server raises through AppHost `FaultWire.Raise` with one `FaultDetail` in `google.rpc.Status.details`; the client admits exactly one recognized detail as opaque `RemoteFault` on a cause-bearing `WireFault.Remote`. Zero recognized details use transport classification; malformed or multiple recognized details retain the caught RPC error on AppHost's typed `WireBoundary` evidence. In-band conflict slots admit the same compact envelope as response evidence without fabricating a transport cause. Status lookup is keyed by numeric `StatusCode`, never ordinal position. This family is the CLIENT edge alone — the served `ProgressService` leaves its refusals through `FaultWire.Raise` at `Runtime/progress#OBSERVATION_SEAMS`, so no arm here is ever packed onto a trailer.
 
 ```csharp signature
-// Local transport arms derive numeric identity directly from their generated cases; the remote arm retains a
-// foreign detail as evidence and never aliases it into this family's range.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WireFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Wire;
@@ -286,9 +252,6 @@ public abstract partial record WireFault : Fault {
     [FaultCase(0)] public sealed partial record Cancelled(string Detail, Error Cause) : WireFault(Detail), ICausedFault;
     [FaultCase(1)] public sealed partial record DeadlineExpired(string Detail, Error Cause) : WireFault(Detail), ICausedFault;
 
-    // Residual status is a COLUMN, not a fragment of the rendered message, because this arm absorbs every code the
-    // rail does not map by name, and a recovery reading `Unavailable` apart from `Unknown` cannot parse it back out
-    // of prose. `Status` rather than `Code`: `Code` is the generated sealed integer derivation.
     [FaultCase(2)] public sealed partial record Unreachable(StatusCode Status, string Detail, Error Cause) : WireFault($"{Status}:{Detail}"), ICausedFault {
         public override Retriability Retriability => Status is StatusCode.Unavailable ? Retriability.Transient : Retriability.Terminal;
     }
@@ -297,16 +260,11 @@ public abstract partial record WireFault : Fault {
     [FaultCase(4)] public sealed partial record NotFound(string Detail, Error Cause) : WireFault(Detail), ICausedFault;
     [FaultCase(5)] public sealed partial record PermissionDenied(string Detail, Error Cause) : WireFault(Detail), ICausedFault;
 
-    // Both transport arms the kernel re-drive rail may re-attempt: a server out of capacity and an unreachable
-    // endpoint both answer the same request on a later attempt, while every deterministic refusal below inherits
-    // its kernel `Terminal` default by construction — re-attempting one buys the identical verdict at cost.
     [FaultCase(6)] public sealed partial record Exhausted(string Detail, Error Cause) : WireFault(Detail), ICausedFault {
         public override Retriability Retriability => Retriability.Transient;
     }
 
     [FaultCase(7)] public sealed partial record Unauthenticated(string Detail, Error Cause) : WireFault(Detail), ICausedFault;
-    // Captured local codec/descriptor failures land here with their exact error. A remote INTERNAL status is a
-    // transport verdict and routes through Unreachable, so this leaf never needs an optional or fabricated cause.
     [FaultCase(8)] public sealed partial record Internal(WireBoundary Boundary, Error Cause)
         : WireFault($"wire boundary failed: {Boundary.Key}"), ICausedFault;
     [FaultCase(9)] public sealed partial record OutOfRange(string Detail, Error Cause) : WireFault(Detail), ICausedFault;
@@ -317,8 +275,6 @@ public abstract partial record WireFault : Fault {
         public override Retriability Retriability => Evidence.Recovery;
     }
 
-    // The detail leg is AppHost's whole: absent trailer → None, one admitted detail → Some, malformed or plural →
-    // AppHost's typed refusal carried unchanged. This owner adds only the cause-bearing local arm.
     public static Fin<Option<WireFault>> Decode(RpcException error, Error cause) =>
         FaultWire.Decode(error).Map(admitted => admitted.Map(remote => (WireFault)new Remote(remote, cause)));
 

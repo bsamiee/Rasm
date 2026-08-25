@@ -25,7 +25,7 @@
 - Growth: a pipeline phase is one row; a render state one `RenderAspect` case and one total adapter arm; a filter axis one criterion case.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Analysis;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -41,7 +41,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Display;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PhaseCapability : ICapability<PhaseCapability> {
@@ -50,9 +50,6 @@ public sealed partial class PhaseCapability : ICapability<PhaseCapability> {
     public static readonly PhaseCapability WorldSpace = new(key: "world-space");
 }
 
-// WHO hands out the live pipeline: only a `Conduit` phase is a `DisplayConduit` override a program can MOUNT — a
-// realtime engine event and a registered widget's draw each hand a pipeline outside the conduit phase order, so
-// they carry honest cases and refuse mounting rather than borrowing a conduit phase's name.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PhaseHost {
     private PhaseHost() { }
@@ -78,14 +75,11 @@ public sealed partial class ConduitPhase {
     public CapabilitySet<PhaseCapability> Capabilities { get; }
     public PhaseHost Host { get; }
 
-    // The legal corners DERIVE from the roster behind an accessor-backed lazy — the generated `Items` fills from
-    // its own static constructor, so an eager field would freeze an empty law.
     public static CapabilityLaw<PhaseCapability> Law => Corners.Value;
     private static readonly Lazy<CapabilityLaw<PhaseCapability>> Corners =
         new(static () => new CapabilityLaw<PhaseCapability>(toSeq(Items).Map(static row => row.Capabilities).Distinct()));
 }
 
-// The row CARRIES the host consequence, so `Toggle` names its state instead of a bare bool a swapped argument inverts.
 [SmartEnum<bool>]
 public sealed partial class SwitchState {
     public static readonly SwitchState On = new(key: true);
@@ -126,7 +120,6 @@ public abstract partial record RenderAspect {
                 model: static (p, _) => Op.Side(p.PopModelTransform),
                 screen: static (p, _) => Op.Side(p.PopProjection))))
             : Fin.Succ(unit);
-        // Cleanup faults AGGREGATE into the primary — the ruled disposal posture — never `ignore`d.
         return primary.Match(
             Succ: _ => cleanup,
             Fail: failure => cleanup.Match(
@@ -222,9 +215,6 @@ public abstract partial record ConduitBinding {
         viewport: static row => row.Target is not null && row.Use is not null);
 }
 
-// The two veto steps carry structurally identical predicates over INVERTED senses, so each owns its own verdict: a
-// `Cull` decide answers whether the object survives the cull walk and a `Suppress` decide whether its draw runs. One
-// shared `bool` would let the two delegates trade places and type-check, painting the exact frame neither asked for.
 [SmartEnum<bool>]
 public sealed partial class CullVerdict {
     public static readonly CullVerdict Visible = new(key: false);
@@ -237,8 +227,6 @@ public sealed partial class SuppressVerdict {
     public static readonly SuppressVerdict Suppressed = new(key: true);
 }
 
-// The bounds obligation as ROWS — the `(bool Supplies, bool Requires)` tuple whose `(true, true)` corner nothing
-// occupied is the deleted form.
 [SmartEnum<int>]
 public sealed partial class BoundsRole {
     public static readonly BoundsRole None = new(key: 0);
@@ -246,8 +234,6 @@ public sealed partial class BoundsRole {
     public static readonly BoundsRole Requires = new(key: 2);
 }
 
-// The three measured per-frame host postures as one capability set — three parallel bools on a snapshot record
-// were the flat form.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FramePosture : ICapability<FramePosture> {
@@ -256,15 +242,13 @@ public sealed partial class FramePosture : ICapability<FramePosture> {
     public static readonly FramePosture Dynamic = new(key: "dynamic");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FrameContext(
     CapabilitySet<FramePosture> Postures,
     int RenderPass,
     int NestLevel,
     PositiveMagnitude DpiScale);
 
-// The six per-frame host reads as ONE generated projection: the posture fold and the density admission are the two
-// declared user mappings, and every other column is the generator's.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class FrameMap {
@@ -298,8 +282,6 @@ public readonly record struct ConduitFrame {
         new(pipeline, viewport.Id, viewport.ChangeCounter, FrameMap.Detach(pipeline), phase);
 }
 
-// The two draw arities as CASES of one projector, so `Draw` is one step case and a projector arity that disagrees
-// with its phase's `PerObject` capability refuses at admission instead of minting a sibling step.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DrawProjector {
     private DrawProjector() { }
@@ -330,7 +312,6 @@ public abstract partial record ConduitStep {
             && row.Projector.Matches(row.Phase)
             && row.State.ForAll(static aspect => aspect is not null && aspect.Valid));
 
-    // The obligation is the phase's own `WorldSpace` capability, so a screen-space step demands no contribution.
     internal BoundsRole Bounds_ => Switch(
         cull: static _ => BoundsRole.None,
         suppress: static _ => BoundsRole.None,
@@ -338,7 +319,6 @@ public abstract partial record ConduitStep {
         draw: static row => row.Phase.Capabilities.Admits(PhaseCapability.WorldSpace) ? BoundsRole.Requires : BoundsRole.None);
 }
 
-// Steps PARTITION here, once: the host callbacks read frozen lanes, never a per-frame `Choose` over the roster.
 public sealed record ConduitProgram {
     private ConduitProgram(
         Seq<ConduitStep> steps,
@@ -359,7 +339,6 @@ public sealed record ConduitProgram {
     internal HashMap<ConduitPhase, Seq<ConduitStep.Bounds>> BoundsLanes { get; }
     internal HashMap<ConduitPhase, Seq<ConduitStep.Draw>> DrawLanes { get; }
 
-    // Independent admissions ACCUMULATE, so a bad step, a duplicate criterion, and a broken bounds order report together.
     public static Fin<ConduitProgram> Of(
         Seq<ConduitStep> steps,
         ConduitBinding binding,
@@ -405,10 +384,7 @@ public sealed record ConduitProgram {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Case uniqueness is the one admission fold every display program shares: a `[Union]` case's runtime type IS its
-// discriminant, so a duplicate row is a later write silently overwriting an earlier one. Criteria here and the mode
-// policies and appearance concerns on `Display/modes.md` all admit through this member.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Cases {
     internal static bool Unique<T>(Seq<T> rows) where T : class =>
         rows.Map(static row => row.GetType()).Distinct().Count == rows.Count;
@@ -426,15 +402,13 @@ internal static class Cases {
 - Boundary: the adapter is the only `DisplayConduit` subclass and the only statement-shaped host callback seam.
 
 ```csharp signature
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-// One declared cap for every long-lived display fault cell — host-activated owners admit no injected policy, and a
-// per-owner cap beside this one is the fork. The clock feeds the cell's fault stamps alone.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 internal static class DisplayFaults {
     internal static readonly Rasm.Numerics.Dimension Cap = Rasm.Numerics.Dimension.Create(value: 256);
     internal static FaultCell Cell() => new(cap: Cap, clock: TimeProvider.System);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class ConduitAdapter : DisplayConduit {
     private readonly ConduitProgram program;
     private readonly FaultCell faults;
@@ -495,8 +469,6 @@ internal sealed class ConduitAdapter : DisplayConduit {
             }).As()
             .Map(static _ => unit);
 
-    // The receipt's refusal rows PARK: a projector emitting a mark the pipeline cannot draw is a number and a
-    // cause on the cell, never a silent skip.
     private Fin<Unit> Render(ConduitFrame frame, Seq<RenderAspect> state, Fin<Seq<DisplayMark>> projected) =>
         PipelineScope.With(frame.Pipeline, state, () => projected
             .Bind(marks => Marks.Paint(new Canvas.Pipeline(frame, sprites), marks, key))
@@ -517,7 +489,6 @@ internal sealed class ConduitAdapter : DisplayConduit {
             faults.Park(point: Rail, cause: error),
             ObjectsTelemetry.Publish(site: FaultSite.Conduit, error: error))));
 
-    // The ONE ordered teardown fold — every step runs, failures aggregate — composed from `Document/lifetime.md`.
     internal Fin<Unit> Release() => Custody.Release(
         releases: Seq<Func<Fin<Unit>>>(
             () => key.Catch(() => { Enabled = false; return Fin.Succ(value: unit); }),
@@ -526,8 +497,6 @@ internal sealed class ConduitAdapter : DisplayConduit {
         key: key);
 }
 
-// Generic over the drawn result so a bracketed body answers its own shape — the receipt-bearing paint dispatch and
-// the unit-shaped adapter draws share one bracket.
 internal static class PipelineScope {
     internal static Fin<TResult> With<TResult>(DisplayPipeline pipeline, Seq<RenderAspect> state, Func<Fin<TResult>> draw, Op key) {
         Fin<TResult> slot = Fin.Fail<TResult>(key.InvalidResult());
@@ -555,12 +524,9 @@ public sealed class ConduitLease : IDisposable {
     internal ConduitLease(ConduitAdapter adapter, FaultCell faults, Op key) =>
         (this.adapter, this.faults, this.key) = (adapter, faults, key);
 
-    // BOUNDED evidence: the ring's parked rows and its shed count, never an unbounded sequence.
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    // One-shot as a stepped TRANSITION: a second dispose reads a declined step, and a failed release re-arms by
-    // stepping back to `Live` — the interlocked-int-and-`Volatile.Write` pair is the deleted form.
     public void Dispose() {
         Transition<LeaseGate> claimed = Cell.Step(
             gate,
@@ -573,7 +539,7 @@ public sealed class ConduitLease : IDisposable {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Conduits {
     public static Fin<ConduitLease> Mount(
         DocumentSession session,
@@ -607,9 +573,6 @@ public static class Conduits {
 
 public sealed record ConduitVetoAsk(DocumentSession Session, ConduitProgram Program);
 
-// TYPED end to end: the binding names its ask and grant as type parameters, so the `Type`-pair-and-`Func<object,
-// Fin<object>>` erasure and its casts are the deleted form; `MountRegistry` composes the kernel `HookMounts` beneath
-// its name-addressed carve, and `Release` drops every mount the plugin's scope seated.
 public static class ConduitHooks {
     public static Fin<Seq<Lease<IDisposable>>> Mount(PluginKey plugin, Op? key = null) {
         Op op = key.OrDefault();
@@ -645,17 +608,13 @@ public static class ConduitHooks {
 - Boundary: retained geometry never escapes the capsule; disposal composes the one `Custody` and re-arms only an incomplete release.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Participation as rows: `Joined` and `Left` carry the host bool, so a swapped literal cannot silently invert an
-// activation and the call site names its intent.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class ModeParticipation {
     public static readonly ModeParticipation Joined = new(key: true);
     public static readonly ModeParticipation Left = new(key: false);
 }
 
-// The two component vocabularies a mesh sample can address, each carrying its own paint — the `_ =>` catch-all
-// over the host enum is closed, and admission rides the host ordinal through `Op.Row`.
 [SmartEnum<int>]
 public sealed partial class MeshComponent {
     public static readonly MeshComponent Face = new(
@@ -674,7 +633,7 @@ public sealed partial class MeshComponent {
     internal partial Fin<Unit> Paint(Mesh mesh, int index, System.Drawing.Color ink, Op op);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record AnalysisProgram(
     Func<RhinoObject, DisplayPipelineAttributes, Fin<Unit>> Attributes,
     Func<RhinoObject, Mesh[], Fin<Unit>> Colors,
@@ -709,9 +668,6 @@ internal abstract class AnalysisMode : VisualAnalysisMode {
     protected abstract Unit OnFault(Error error);
 }
 
-// Normalization sources are a CASE, never a nullable pair: Declared fixes the band so two objects under one mode
-// are comparable, Measured takes the observed span so one object reads its own contrast, and neither is derivable
-// from the other. Position folds through the SAME member for both, so the degenerate-span rule is stated once.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnalysisScale {
     private AnalysisScale() { }
@@ -727,16 +683,12 @@ public abstract partial record AnalysisScale {
             ? Fin.Fail<(double, double)>(held.Op.InvalidResult())
             : Fin.Succ((held.Values.Min(double.PositiveInfinity), held.Values.Max(double.NegativeInfinity))));
 
-    // Zero-width bands admit no position, so the value sits at the cold end: interpolating a fabricated midpoint
-    // there would render uniform mid-ramp colour as if a measurement had spread, which is the reading it destroys.
     internal static UnitInterval Position(double value, (double Low, double High) band) =>
         UnitInterval.Create(value: band.High > band.Low
             ? Math.Clamp(value: (value - band.Low) / (band.High - band.Low), min: 0.0, max: 1.0)
             : 0.0);
 }
 
-// One law value IS the whole overlay space — the analysis, the two ramp ends, the interpolation row, and the
-// normalization source. A second mode class per measurement is what this collapses; the kernel owns every number.
 [ComplexValueObject]
 public sealed partial class AnalysisLaw {
     public AnalysisQuery Query { get; }
@@ -746,8 +698,6 @@ public sealed partial class AnalysisLaw {
     public AnalysisScale Scale { get; }
 }
 
-// ONE registered false-colour mode, and Rhino constructs and owns it — the law arrives through `Bind`'s seat and
-// an unbound mode refuses rather than painting an undeclared default.
 internal sealed class AnalysisOverlay : AnalysisMode {
     private readonly Atom<Option<AnalysisLaw>> law = Atom(Option<AnalysisLaw>.None);
     private readonly FaultCell faults = DisplayFaults.Cell();
@@ -757,8 +707,6 @@ internal sealed class AnalysisOverlay : AnalysisMode {
     public Seq<IsolatedFault> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    // First binder WINS and the verdict is read, never discarded: a `Ceded` seat is a typed refusal naming the
-    // process-lifetime singleton already bound, which is exactly what the swallowed `Swap` verdict hid.
     internal Fin<Unit> Bind(AnalysisLaw value, Op? key = null) {
         Op op = key.OrDefault();
         return Optional(value).ToFin(op.InvalidInput()).Bind(admitted =>
@@ -771,8 +719,6 @@ internal sealed class AnalysisOverlay : AnalysisMode {
     }
 
     protected override AnalysisProgram Program => new(
-        // Vertex colours are the channel this mode writes, so the attribute pass arms exactly that and touches no
-        // other display axis — a mode that also forced shading or object colour would fight the display mode it runs under.
         Attributes: (_, attributes) => key.Catch(() => Fin.Succ((Op.Side(() => attributes.ShadeVertexColors = true), unit).Item2)),
         Colors: (subject, meshes) => Held(subject).Bind(held =>
             toSeq(meshes ?? []).Filter(static mesh => mesh is not null).TraverseM(mesh => Paint(mesh, held.Law, held.Context)).As().Map(static _ => unit)),
@@ -784,8 +730,6 @@ internal sealed class AnalysisOverlay : AnalysisMode {
         from context in Rasm.Domain.Context.Of(doc: target.Document).ToFin()
         select (admitted, context);
 
-    // Kernels measure and this fold paints: samples arrive addressed by `ComponentIndex`, the row's own paint
-    // writes the corners or the boundary ring, and every ink rides the kernel egress rail.
     private Fin<Unit> Paint(Mesh mesh, AnalysisLaw held, Context context) =>
         from samples in Analyze.In(context: context)
             .Run(operation: Analyze.Query<Mesh, MeshMetricSample>(query: held.Query, key: key), input: mesh)
@@ -810,7 +754,6 @@ internal sealed class AnalysisOverlay : AnalysisMode {
     protected override Unit OnFault(Error error) => ignore(faults.Park(point: Rail, cause: error));
 }
 
-// Visibility as rows carrying the host consequence — the request bool and the receipt bool delete together.
 [SmartEnum<bool>]
 public sealed partial class OverlayVisibility {
     public static readonly OverlayVisibility Shown = new(key: true);
@@ -820,8 +763,6 @@ public sealed partial class OverlayVisibility {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RetainedRequest {
     private RetainedRequest() { }
-    // The retained payload IS the world band: the parallel eight-case retained vocabulary is deleted, and the
-    // `CustomDisplay`-addressable subset is `Marks.Paint`'s corner law, not a second roster here.
     public sealed record Add(Seq<WorldMark> Marks) : RetainedRequest;
     public sealed record Visibility(OverlayVisibility Value) : RetainedRequest;
     public sealed record Clear : RetainedRequest;
@@ -838,8 +779,6 @@ public readonly record struct RetainedReceipt(OverlayVisibility Visibility, Rasm
 
 public sealed class RetainedOverlay : IDisposable {
     private readonly CustomDisplay display;
-    // EXEMPTION [ATOM_STATE]: a `CustomDisplay` write cannot ride a CAS body, and the journal, the native display,
-    // and the release flag move together — the one statement-shaped custody on this page.
     private readonly Lock lifecycle = new();
     private readonly FaultCell faults = DisplayFaults.Cell();
     private readonly Op key;
@@ -864,8 +803,6 @@ public sealed class RetainedOverlay : IDisposable {
                 .Bind(_ => guard(request is not null && request.Valid, op.InvalidInput()).ToFin())
                 .Bind(_ => request.Switch(
                     (Self: this, Op: op),
-                    // Transactional through the ONE dispatch: the batch draws via `Marks.Paint`, and a refusal row
-                    // OR a host fault clears the native display and replays the pre-request journal.
                     add: static (ctx, row) => {
                         Seq<WorldMark> prior = ctx.Self.journal;
                         return Marks.Paint(

@@ -37,8 +37,6 @@ import { Array, Duration, Effect, HashMap, Match, Option, Schema, Stream } from 
 import type { Motion } from "../../src/system/act.ts"
 import type { Theme } from "../../src/system/token.ts"
 
-// The transport supplies the declared feed identity; this closed selector is routing evidence, not a second schema.
-// `Panel.fold` decodes the selected family itself, so no decoded foreign value can bypass its one admission point.
 type PanelEvent =
   | { readonly family: "BindingStatus"; readonly bytes: Uint8Array }
   | { readonly family: "CoercedValueWire"; readonly bytes: Uint8Array }
@@ -51,8 +49,6 @@ type PanelDecodedEvent =
   | { readonly family: "WriteReceiptWire"; readonly value: Wire.WriteReceipt }
   | { readonly family: "CommandGateWire"; readonly value: Wire.CommandGate }
 
-// Protovalidate has already rejected zero and unknown enum values. These generated-value literals carry that proof
-// into TypeScript's narrower table key types, which protobuf-es cannot derive from field options on its own.
 const _State = Schema.Literal(
   BindingState.CONNECTING,
   BindingState.SUBSCRIBED,
@@ -74,21 +70,14 @@ declare namespace Panel {
   type Direction = Wire.BindingStatus["direction"]
   type Level = typeof _Level.Type
   type Row = {
-    // Every slot is OPTION-seated because a row is reachable before any of its producers has spoken: a gate-only
-    // row carries a command key and no livewire binding at all, so a seeded lifecycle token would assert a binding
-    // state the host never published. The retired seed spelled exactly that, under a token no producer emits.
     readonly state: Option.Option<Panel.State>
     readonly transport: Option.Option<Panel.Transport>
     readonly direction: Option.Option<Panel.Direction>
     readonly lastGoodAt: Option.Option<NonNullable<Wire.BindingStatus["lastGoodAt"]>>
-    // the coercion the host landed, on the producer's OWN columns — the canonical magnitude beside both units, so a
-    // panel renders the value under the scheme the source published rather than under one it assumed
     readonly coercion: Option.Option<Omit<Wire.CoercedValue, "bindingId">>
     readonly landed: Option.Option<Wire.WriteReceipt["canonical"]>
     readonly rendered: Option.Option<NonNullable<Wire.WriteReceipt["rendered"]>>
     readonly renderedUnit: Option.Option<NonNullable<Wire.WriteReceipt["renderedUnit"]>>
-    // the write's own four-arm verdict, kept WHOLE: a rejection, a rollback, and an indeterminate write are three
-    // unlike repairs, and a boolean over them shows one badge for three states a user must act on differently
     readonly disposition: Option.Option<NonNullable<Wire.WriteReceipt["disposition"]>>
     readonly optimistic: Option.Option<{ readonly value: unknown; readonly since: Clock.Hlc }>
     readonly gate: Option.Option<{ readonly available: boolean; readonly level: Panel.Level }>
@@ -98,8 +87,6 @@ declare namespace Panel {
 
 const _PATIENCE = Duration.seconds(4)
 
-// ABSENCE is the true seed for a gate-only row: a command key carries no livewire binding, so every binding-sourced
-// slot reads `none` until its producer speaks rather than reading a lifecycle token nothing sent.
 const _EMPTY: Panel.Row = {
   state: Option.none(),
   transport: Option.none(),
@@ -140,8 +127,6 @@ const _landEvent = (board: Panel.Board, event: PanelDecodedEvent): Panel.Board =
           transport: Option.some(status.transport),
           direction: Option.some(status.direction),
           lastGoodAt: Option.fromNullable(status.lastGoodAt),
-          // `faulted` alone clears the in-flight write: a STALE binding is live and still owes its echo, so dropping
-          // the optimistic value there would erase a pending write the edge is about to acknowledge
           optimistic: state === BindingState.FAULTED ? Option.none() : row.optimistic,
         }))
     }),
@@ -194,7 +179,6 @@ const _drain = (
 - Boundary: chip/badge primitives are `system/primitive` recipes; plural and status text is `Message`'s (`system/intl`), so the badge's reason resolves from the level key through a catalog row and no level text is authored here.
 
 ```typescript signature
-// the producer's own five lifecycle rows, in its rank order: two in-flight, two live, one broken
 const _tone = {
   [BindingState.CONNECTING]: { tone: "accent", motion: Option.none<Motion.Hold>() },
   [BindingState.SUBSCRIBED]: { tone: "success", motion: Option.none<Motion.Hold>() },
@@ -203,7 +187,6 @@ const _tone = {
   [BindingState.FAULTED]: { tone: "danger", motion: Option.some<Motion.Hold>("pulse") },
 } as const satisfies Record<Panel.State, { readonly tone: Theme.Tone; readonly motion: Option.Option<Motion.Hold> }>
 
-// producer's rows hold its own rank order; `full` is the undegraded floor and the one level carrying no badge
 const _degrade = {
   [DegradationLevel.FULL]: { tone: "neutral", evident: false },
   [DegradationLevel.REDUCED_REMOTE]: { tone: "accent", evident: true },
@@ -218,7 +201,6 @@ declare namespace Panel {
 
 const _CLOSED: Panel.Affordance = { ..._degrade[DegradationLevel.FULL], disabled: true }
 
-// uncommanded widgets take this floor: no verdict is owed, so none is awaited
 const _OPEN: Panel.Affordance = { ..._degrade[DegradationLevel.FULL], disabled: false }
 
 const _admit = (row: Panel.Row): Panel.Affordance =>
@@ -419,9 +401,7 @@ declare namespace Panel {
     | { readonly kind: "focus"; readonly target: string }
   type Gesture = Panel.Interaction["kind"]
   type Reach<K extends Panel.Gesture> = Extract<Panel.Interaction, { readonly kind: K }>
-  // one rail: each handler answers an Effect, so routing and egress compose with no boundary adapter between them
   type Sinks<E = never, R = never> = { readonly [K in Panel.Gesture]: (interaction: Panel.Reach<K>) => Effect.Effect<void, E, R> }
-  // correlated mapped union: each egress record carries exactly its kind's payload, never an erased slot
   type Egress = { readonly [K in Panel.Gesture]: { readonly kind: K; readonly payload: Omit<Panel.Reach<K>, "kind"> } }[Panel.Gesture]
 }
 
@@ -479,18 +459,13 @@ const _strength = (value: layout.LayoutStrength): number => {
   }
 }
 
-// Three legs partition the solve and each reason renders its OWN subject, because the three refusals answer three
-// different repairs: a numbered constraint the tableau rejected names its wire position, a registration or solve
-// past that walk names no position at all, and a live suggestion names the edit variable it was aimed at. One row
-// carrying `rank: -1` spelled the second and third as the first, so the sentinel WAS the reason discriminant —
-// which is the state a closed reason vocabulary exists to make unrepresentable.
 const _family = Fault.Class.family(["constraint", "program", "suggest"] as const, {
   constraint: Fault.Class.row({
     class: "invalid",
     leg: "walk",
     detail: Schema.Struct({
       surface: Schema.String,
-      rank: Schema.Int.pipe(Schema.nonNegative()), // the constraint's position in the wire walk, never a severity rank
+      rank: Schema.Int.pipe(Schema.nonNegative()),
       cause: Schema.String,
     }),
     render: ({ cause, rank, surface }) => `${surface} constraint #${rank} refused: ${cause}`,
@@ -769,7 +744,7 @@ const Panel: Panel.Shape = {
   surface: _surface,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Panel }
 ```

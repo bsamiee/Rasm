@@ -94,36 +94,34 @@ class DatastructureOp(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# mirrors the dr_numpy tol1 default and the FormParams.tol verdict, so the receipt and the graduation gate read one bar.
 _RESIDUAL_CEILING: Final[float] = 1e-3
 _HANDLE_CEILING: Final[float] = 0.0
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class NodeConstraint(Struct, frozen=True):
-    node: int  # constrained vertex index
-    geometry: str  # COMPAS-JSON of the Plane/Line/Circle/Curve/Surface the node snaps to; Constraint dispatches on its decoded type
+    node: int
+    geometry: str
     damping: float = 0.1
 
 
 class FormParams(Struct, frozen=True):
-    target: float = 0.0  # vertical_from_zmax crown height (TNA)
-    density: float = 1.0  # vertical_from_zmax force-density scale (TNA only; DR selfweight rides rho)
-    rho: float = 1.0  # material density: SelfweightCalculator(density=rho) drives the DR and TNA selfweight load
-    alpha: float = 100.0  # horizontal_numpy form/force weighting; 100 fixes the form diagram
+    target: float = 0.0
+    density: float = 1.0
+    rho: float = 1.0
+    alpha: float = 100.0
     rk_steps: Literal[1, 2, 4] = 2
     kmax: int = 10000
-    tol: float = 1e-3  # residual ceiling the convergence verdict folds against; mirrors the dr_numpy tol1 default
-    constraints: tuple[NodeConstraint, ...] = ()  # each node snaps to its decoded constraint geometry each step; () = unconstrained
+    tol: float = 1e-3
+    constraints: tuple[NodeConstraint, ...] = ()
 
 
 class FormResult(Struct, frozen=True):
-    handles: tuple[str, ...]  # the equilibrium mesh/diagram COMPAS-JSON handles
-    residual: float  # numpy-reduced max-abs residual (DR) or the vertical_from_zmax crown-scale (TNA)
+    handles: tuple[str, ...]
+    residual: float
 
 
 class Census(Struct, frozen=True, gc=False):
-    # `op` carries the case's sub-op StrEnum value; the network case has no sub-op and carries its edge count in the typed `edges` slot.
     kind: AlgebraKind
     handles: int
     inputs: int = 0
@@ -133,14 +131,12 @@ class Census(Struct, frozen=True, gc=False):
 
 
 class CaseSpec(Struct, frozen=True):
-    # one row per AlgebraKind: subject, Census-read ledger projector, per-key ceiling.
     subject: GeometrySubject
     ledger: Callable[[Census], dict[str, float]]
     ceiling: dict[str, float]
 
 
 class NumericalSpec(Struct, frozen=True):
-    # one row per NumericalOp pairing the local callable to its optional out-of-process RPC dotted-name.
     local: Callable[[Coords], object]
     rpc: str | None = None
 
@@ -153,30 +149,21 @@ class AlgebraResult(Struct, frozen=True):
     converged: bool = True
 
     def contribute(self) -> tuple[Receipt, ...]:
-        # Census int/float scalars ride the dict[str, object] slots natively — no str() coerce.
         phase: Phase = "emitted" if self.converged else "admitted"
         facts: dict[str, object] = structs.asdict(self.census)
         return (Receipt.of("rasm.geometry.graph.algebra", (phase, self.graduation_subject, facts)),)
 
     @property
     def spec(self) -> bytes:
-        # the bytes that DEFINE this evidence: the COMPAS-JSON result handles beside the kind and sub-op discriminants
-        # that produced them, so a form-finding solve and a datastructure fold over one input key distinctly and a
-        # re-run over identical input keys identically.
         return b"|".join((self.kind.encode(), self.census.op.encode(), *(handle.encode() for handle in self.handles)))
 
     def graduates(self) -> GeometryHandoff:
-        # the producer derives its own key off its own spec — the graduation spine's `evidence_key` is the one TOTAL
-        # mint, so no caller hands this receipt an identity it never computed and no rail wraps an infallible fold.
         case_spec = CASE[self.kind]
         return GeometryHandoff.of(
             self.graduation_subject, evidence_key(self.graduation_subject, self.spec), case_spec.ledger(self.census), case_spec.ceiling
         )
 
     def frame(self) -> "RuntimeRail[EvidenceFrame]":
-        # one columnar row per algebra receipt through the graduation frame port: this owner's product is a scalar
-        # census beside COMPAS-JSON handles, never a reducer board, so the frame is the census projected one row wide
-        # and the columns DERIVE off the struct — a new `Census` field reaches the data plane with no edit here.
         table: dict[str, list[object]] = {name: [value] for name, value in structs.asdict(self.census).items()} | {"converged": [self.converged]}
         return EvidenceFrame.of(self.graduation_subject, evidence_key(self.graduation_subject, self.spec), table)
 
@@ -219,7 +206,6 @@ def _dispatch(algebra: ComputationalGeometry, *, proxy: Proxy | None = None, com
         case ComputationalGeometry(tag="numerical", numerical=(points, op)):
             pts = [list(p) for p in points]
             spec = NUMERICAL[op]
-            # scipy-backed _numpy rows offload out of process when bridged; pure-Python transform rows (rpc=None) stay in-thread.
             value = proxy.function(spec.rpc)(pts) if proxy and spec.rpc else spec.local(pts)
             return _result(
                 "numerical", (json_dumps(value),), Census(kind="numerical", handles=1, inputs=len(points), op=op), composition=composition
@@ -244,10 +230,6 @@ def _dispatch(algebra: ComputationalGeometry, *, proxy: Proxy | None = None, com
 def _result(
     kind: AlgebraKind, handles: tuple[str, ...], census: Census, *, converged: bool = True, composition: ScopeKey = DEFAULT_SCOPE
 ) -> AlgebraResult:
-    # the charter distribution records at the ONE construction site every arm already threads, keyed on the case's own
-    # subject: `charter_record` reads the charter's rows for that subject, so the form-finding residual reaches its
-    # dashboard row and the three uncharted subjects write nothing — a per-arm `if` re-deciding what the charter table
-    # already answers, and a future chartered algebra subject lands as a charter row with no edit here.
     subject = CASE[kind].subject
     charter_record(subject, structs.asdict(census), composition=composition)
     return AlgebraResult(kind=kind, handles=handles, census=census, graduation_subject=subject, converged=converged)
@@ -255,8 +237,6 @@ def _result(
 
 def _dr(mesh: Mesh, anchors: list[int], params: FormParams, proxy: Proxy | None) -> FormResult:
     xyz = mesh.vertices_attributes("xyz")
-    # `SelfweightCalculator.__call__(xyz)` is `tributary_area * rho`, so `rho` drives the load as material
-    # density; the `(N, 1)` magnitude broadcasts onto the down `z` of the `(N, 3)` load, counted once.
     weight = np.asarray(SelfweightCalculator(mesh, density=params.rho)(xyz), dtype=float).reshape(-1, 1)
     loads = (weight * (0.0, 0.0, -1.0)).tolist()
     indata = InputData.from_mesh(mesh, fixed=anchors, loads=loads, qpre=[1.0] * mesh.number_of_edges())
@@ -266,8 +246,6 @@ def _dr(mesh: Mesh, anchors: list[int], params: FormParams, proxy: Proxy | None)
         if proxy
         else (dr_constrained_numpy if constraints else dr_numpy)
     )
-    # `tol1=params.tol` threads the convergence bar into the solver so the residual gate AND the `converged`
-    # verdict read one value; a default-`tol1` solve under a tighter `params.tol` verdict spuriously admits.
     result: ResultData = (
         solve(indata=indata, constraints=list(constraints), kmax=params.kmax, tol1=params.tol, rk_steps=params.rk_steps)
         if constraints
@@ -282,9 +260,6 @@ def _tna(mesh: Mesh, anchors: list[int], params: FormParams, proxy: Proxy | None
     force = ForceDiagram.from_formdiagram(form)
     keys = list(form.vertices())
     xyz = np.asarray(form.vertices_attributes("xyz", keys=keys), dtype=float)
-    # `LoadUpdater` mutates the Nx3 load buffer in place at column 2; the write-back MUST be a per-vertex
-    # `vertex_attributes(key, names, row)` loop over the SAME `keys` ordering, because `vertices_attributes(names, values=X)`
-    # broadcasts the WHOLE `X` onto every vertex — the plural row-write call is the broadcast defect, not a row distributor.
     loads = np.zeros_like(xyz)
     LoadUpdater(form, loads, density=params.rho)(loads, xyz)
     for key, row in zip(keys, loads.tolist()):
@@ -297,9 +272,6 @@ def _tna(mesh: Mesh, anchors: list[int], params: FormParams, proxy: Proxy | None
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# `bestfit_frame_numpy(pts)` returns the `(origin, xaxis, yaxis)` ndarray triple, NOT a `Frame`, so the RIGID/SIMILARITY rows
-# wrap it as `Frame(*triple)` before the matrix constructors — `Transformation.from_frame_to_frame` requires a real `Frame`;
-# AFFINE/PROJECTIVE rows take the plain `centroid_points` list and the `bestfit_plane` (point, normal) tuple directly.
 _TRANSFORM: Final[Mapping[NumericalOp, Callable[[Coords], Transformation]]] = MappingProxyType({
     NumericalOp.RIGID: lambda pts: Transformation.from_frame_to_frame(
         compas.geometry.Frame.worldXY(), compas.geometry.Frame(*compas.geometry.bestfit_frame_numpy(pts))
@@ -309,9 +281,6 @@ _TRANSFORM: Final[Mapping[NumericalOp, Callable[[Coords], Transformation]]] = Ma
     NumericalOp.PROJECTIVE: lambda pts: Projection.from_plane(compas.geometry.bestfit_plane(pts)),
 })
 
-# all three _numpy primitives return raw ndarray shapes (frame triple / 8-corner list / (indices, faces) pair), NOT `Data`
-# subclasses, yet one `json_dumps(value)` serializes them with no `.tolist()` coerce: COMPAS `DataEncoder` maps `ndarray` ->
-# `tolist()` and numpy scalars -> Python `int`/`float` natively, so every row rides the same single serializer.
 NUMERICAL: Final[Mapping[NumericalOp, NumericalSpec]] = MappingProxyType({
     NumericalOp.BESTFIT_FRAME: NumericalSpec(compas.geometry.bestfit_frame_numpy, "compas.geometry.bestfit_frame_numpy"),
     NumericalOp.OBB: NumericalSpec(compas.geometry.oriented_bounding_box_numpy, "compas.geometry.oriented_bounding_box_numpy"),
@@ -347,17 +316,12 @@ CASE: Final[Mapping[AlgebraKind, CaseSpec]] = MappingProxyType({
 
 
 def _raised(phase: str, fault: BoundaryFault) -> RuntimeError:
-    # one raise-reconstruction owner for every proxy-lifecycle seam: the typed fault rides args[0] WHOLE — the corpus
-    # `RuntimeError(fault)` form — so a caller keys recovery and retry on `fault.tag`, and the lifecycle phase rides a
-    # note, never a message slot displacing the fault into a stringly args tail.
     raised = RuntimeError(fault)
     raised.add_note(f"<at:solver_proxy.{phase}>")
     return raised
 
 
 def _open_proxy() -> Proxy:
-    # `Proxy(...)` eagerly reconnects to the running localhost server (port 1753) or spawns one through the blocking `start_server()`;
-    # `autoreload=False` keeps the worker from reloading mid-fan. A cold-start `RPCServerError` retries under `RetryClass.RPC`.
     proxy = Proxy(url="http://127.0.0.1", autoreload=False, capture_output=True)
     proxy.__enter__()
     return proxy
@@ -365,13 +329,8 @@ def _open_proxy() -> Proxy:
 
 @contextlib.asynccontextmanager
 async def solver_proxy(lane: LanePolicy) -> AsyncIterator[Proxy]:
-    # one async-resource owner of the Proxy lifecycle: the ownership-aware `__exit__` runs `stop_server()` only when this
-    # proxy spawned the server, and rides the same band so teardown is bounded even on a solve fault inside the scope. A
-    # `bridged` fan enters this through one `AsyncExitStack`, so a fan of heavy solves shares ONE reconnected worker.
     match await lane.offload(Kernel.of(_open_proxy, KernelTrait.RELEASING, retry=Some(RetryClass.RPC))):
         case Result(tag="error", error=fault):
-            # scope entry is the foreign seam that demands a raise; `_raised` carries the typed bring-up fault whole,
-            # never a generic message minted after a default_value already erased the cause.
             raise _raised("bring-up", fault)
         case Result(tag="ok", ok=proxy):
             pass
@@ -380,15 +339,14 @@ async def solver_proxy(lane: LanePolicy) -> AsyncIterator[Proxy]:
     try:
         yield proxy
     finally:
-        with anyio.CancelScope(shield=True):  # an outer cancellation must not abandon the ownership-aware stop_server
+        with anyio.CancelScope(shield=True):
             closed = await lane.offload(Kernel.of(lambda: proxy.__exit__(None, None, None), KernelTrait.RELEASING))
         match closed, sys.exception():
             case (Result(tag="error", error=fault), None):
                 raise _raised("teardown", fault)
             case (Result(tag="error", error=fault), active) if isinstance(active, anyio.get_cancelled_exc_class()):
-                active.add_note(f"<solver-proxy-teardown:{fault}>")  # cancellation propagates bare; the note carries the teardown fault
+                active.add_note(f"<solver-proxy-teardown:{fault}>")
             case (Result(tag="error", error=fault), BaseException() as active):
-                # body and teardown both failed: the group surfaces both, the body fault never masked by the release
                 raise BaseExceptionGroup("solver_proxy", [active, _raised("teardown", fault)]) from None
             case _:
                 pass
@@ -397,9 +355,6 @@ async def solver_proxy(lane: LanePolicy) -> AsyncIterator[Proxy]:
 def run(
     op: ComputationalGeometry | Sequence[ComputationalGeometry], *, composition: ScopeKey = DEFAULT_SCOPE
 ) -> RuntimeRail[AlgebraResult] | RuntimeRail[Block[AlgebraResult]]:
-    # each op returns through its own GRAPH_ALGEBRA weave — span, fence, and receipt harvest in one composition — and a
-    # batch folds the weave rails through traversed(ACCUMULATE); the default `i=item` binds the loop variable per closure.
-    # This entry holds no owner, so the composition key threads through to both the weave and the charter record.
     match op:
         case Sequence() as batch:
             return traversed(
@@ -423,10 +378,6 @@ def run(
 
 
 async def bridged(op: ComputationalGeometry, proxy: Proxy, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[AlgebraResult]:
-    # weave harvest emits the conforming AlgebraResult loop-side on the cleared Ok for both paths; the proxy is
-    # supplied by an enclosing solver_proxy(lane) scope, never constructed per call. The RELEASING trait keeps the
-    # crossing on the runtime thread band, so the closure ships LIVE at zero serialization and the live `Proxy` handle
-    # it captures never faces a pickle seam — the by-reference form the process-seam HOSTILE siblings owe.
     return await evidence_run(
         EvidenceScope.GRAPH_ALGEBRA,
         f"bridged.{op.tag}",

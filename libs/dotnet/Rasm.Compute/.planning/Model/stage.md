@@ -36,7 +36,7 @@
 - Boundary: `StagePorts` is the ONLY route to a plane and the only route to durable parity custody. Compute holds no blob store, no artifact index, no codec, and no channel vocabulary — it reads and writes float planes and parity verdicts through injected legs the app root binds against the Persistence object and artifact lanes, exactly as `Model/sessions#SESSION_CAPSULE` binds its warm-artifact leg; the read leg is the index-keyed span filler and the change is Compute-local by construction — the port is Compute-declared, the strata forbid a reference either way, and the filler is a delegate the ROOT binds (a blob copy, or a `Runtime/archive#HDF_ARCHIVE` hyperslab fill for an archive-resident plane), so an archive-resident chained input re-enters without rehydrating whole and no PureHDF member lands on a Compute signature; the parity legs carry no rail outward because the root that owns the artifact write also owns the evidence cell its refusal parks on, and a read answering nothing degrades to the cold measurement the process memo already prices. Every blob key the port answers is the kernel `ContentHash.Hex` spelling, since the outbound half re-admits it through `ContentHash.Admit`. Provider and precision spellings resolve at `Model/providers#EP_AXIS`, whose rows carry their own wire keys, so this record holds no translation table and a roster landing there crosses without an edit here. `StageSession.Flow` takes the built plan and the synthesized draw, so the bound shapes, the bound draw, and the fold's shapes have one source and the root binds bytes rather than re-deriving a distribution. `GridProduct` is NOT a wire mirror: the specifying end's `StageProduct` is an emission `[Union]` naming the role type on its own output rows, and this carrier is an internal per-grid field-and-grade pair — genuinely distinct concepts, so this end keeps a distinct name rather than a same-named twin reaching one S4 consumer. The channel half of a role key stays an opaque string BOTH ways: the appearance channel roster is Materials-owned and open, so this end tags a key it cannot resolve as `channel` and the specifying end admits it through `TextureChannel.TryGet`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Diagnostics;
 using Google.Protobuf;
@@ -50,9 +50,6 @@ using Rasm.Domain;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// `LicenseClass` and `PadMode` each spell a Compute roster AND a generated enum, so every generated stage type
-// rides an explicit alias rather than a bare namespace import — one rule for the family instead of two colliders
-// carved out of an import that silently shadows.
 using BucketWire = Rasm.Contracts.Stage.BucketWire;
 using StageInputWire = Rasm.Contracts.Stage.StageInputWire;
 using StageOutputWire = Rasm.Contracts.Stage.StageOutputWire;
@@ -69,17 +66,11 @@ using PlaneTransferWire = Rasm.Contracts.Stage.PlaneTransfer;
 using PriorFieldWire = Rasm.Contracts.Stage.PriorField;
 using ScoreFieldWire = Rasm.Contracts.Stage.ScoreField;
 using TensorPrecisionWire = Rasm.Contracts.Stage.TensorPrecision;
-// The elapsed span crosses as the well-known message while every interior duration stays NodaTime's, so the
-// projection names both rather than letting a `using` decide which `Duration` a signature meant.
 using WireDuration = Google.Protobuf.WellKnownTypes.Duration;
 
 namespace Rasm.Compute.Model;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// This roster and the specifying registry's licence table are BOTH transcriptions of the corpus enum — cross-branch
-// equality tests the wire key, the strata forbid sharing the type, and each end carries only the columns its own
-// dispatch reads (a grant verdict here, an admission rank there); a merged shape is exactly the strata reference
-// this wire exists to avoid.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -88,22 +79,15 @@ public sealed partial class LicenseClass {
     public static readonly LicenseClass Copyleft = new("copyleft", grants: true);
     public static readonly LicenseClass OpenRail = new("openRail", grants: true);
     public static readonly LicenseClass Research = new("research", grants: true);
-    // Silent-licence models reach the registry as this row and carry no grant to run; the executing end re-checks it.
     public static readonly LicenseClass Blocked = new("blocked", grants: false);
 
     private LicenseClass(string key, bool grants) : this(key) => Grants = grants;
 
     public bool Grants { get; }
 
-    // Wire records carry the roster STRING and this roster owns the resolution, so a spelling no row claims REFUSES
-    // rather than degrading — unlike a provider, a grant has no report column a caller could read a substitution
-    // off, so a defaulted licence would run an unknown model under a typo.
     public static Option<LicenseClass> FromWire(string wire) => TryGet(wire, out LicenseClass? row) ? Some(row!) : None;
 }
 
-// The reproducible-draw lanes this owner mints, as DECLARED ordinals off the kernel `IDrawLane` axis — the shape
-// the branch determinism scar demands, so no folder invents a positional constant of its own and a row rename
-// never re-keys a stored campaign.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -117,53 +101,25 @@ public sealed partial class StageDraw : IDrawLane<StageDraw> {
     static IReadOnlyList<StageDraw> IDrawLane<StageDraw>.Items => Items;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The request's fixed ONNX bucket as a TYPED PAIR, so the bucket-versus-tile agreement is a record comparison
-// rather than two renderings of one grammar compared as text. The name carries the `Tile` prefix because a member
-// spelled `Bucket` inside `StageRequest` would SHADOW a type spelled `Bucket` at every static use — the same
-// interior-versus-wire collision `Pad` and `License` already take, closed here at the type instead.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TileBucket(int Width, int Height);
 
-// One consumed product. An empty Stage names the intent's own plane and carries the blob key; a named Stage names
-// its producer and role, whose already-held output the fold resolves.
 public readonly record struct StageInput(string Stage, string Role, string Key);
 
-// One produced plane, named by the ROLE key the lease's binding roster carried — the graph's tensor name is the
-// executor's business and never reaches the wire, because a packed tensor names several of these rows at once.
 public readonly record struct StageOutput(string Role, string BlobKey, int Width, int Height, string Transfer, string Format);
 
-// One MEASURED scalar. A grade carries its value and its role key alone — no blob, no extent, no transfer band —
-// because nothing downstream samples it and a consumer asking for a grade reads the number the result already
-// holds instead of fetching four bytes out of a store.
 public readonly record struct StageScore(string Role, double Value);
 
-// Every column is the LOWERED primitive `StageWireMap` writes: the producer's own types name none of this record,
-// the vocabulary keys resolve through the rosters THIS package owns, and `Op` is a correlation string echoed
-// verbatim onto the result rather than a value re-minted from a key. Extents land `int` because every grid
-// derivation and span index downstream runs in that domain. No layout column: the dimension order a graph emits is
-// the leased model card's fact (`StageSession.Layout`), and a request carrying one could only ever contradict it.
 public sealed record StageRequest(
     string Stage, string ModelCardId, string License, Seq<StageInput> Inputs,
     int InputWidth, int InputHeight, int OutputWidth, int OutputHeight,
     int TileWidth, int TileHeight, int Overlap, string Pad, TileBucket Bucket,
     string Provider, string Precision, ulong Seed, string Op, string Artefact) {
 
-    // Wire spellings resolve at the ROSTER that owns the rows, so this record holds no translation table and a
-    // provider, precision, or licence landing there crosses without an edit here. The asymmetry is deliberate: a
-    // substituted provider is reported on `ProviderUsed`, a substituted precision or grant is reported nowhere, so
-    // one degrades and the other two refuse. The interior column shortens to `License` because a `LicenseClass`
-    // member would SHADOW the `LicenseClass` type inside this record exactly as `PadMode` would — the same
-    // interior-versus-wire split every other flat column takes, and the wire projection restores `license`.
-    // PROVIDER resolution is deliberately NOT a property here: it answers what this host can run, which is a
-    // property of the runtime rather than of the request, so the executor resolves it once against the frozen
-    // provider census and threads that answer — a per-read property invites two reads of one decision.
     public Option<ModelPrecision> SelectedPrecision => ModelPrecision.FromWire(Precision);
 
     public Option<LicenseClass> SelectedLicense => LicenseClass.FromWire(License);
 
-    // Scale is DERIVED from the extents the wire already threads: a stage publishes `inputWidth × scale`, so a
-    // carried column could only ever contradict them, and a fractional or anisotropic ratio is a grid nothing builds.
-    // The corpus proves the same isotropy as a message rule; this derivation is what every later gate reads.
     public Option<int> Scale =>
         InputWidth > 0 && InputHeight > 0
         && OutputWidth % InputWidth is 0 && OutputHeight % InputHeight is 0
@@ -171,12 +127,6 @@ public sealed record StageRequest(
             ? Some(OutputWidth / InputWidth)
             : None;
 
-    // ONE plan construction lives here. Extent, bucket, overlap, pad, and scale come off this record; channels,
-    // roster, layout, and blend come off the leased session, the only surface knowing the model. `TilePlan`'s own
-    // gate roster then owns the fixed-bucket law, so no predicate here restates it and no later compare exists to
-    // catch two spellings drifting. The wire's `pad` field lands as the `Pad` column: a same-named `PadMode`
-    // property SHADOWS the `PadMode` type inside this record (simple-name lookup binds the string member and
-    // `string.TryGet` is CS1061; the static gate below hits CS0120), so the interior spelling shortens.
     public Fin<TilePlan> Plan(int sourceChannels, Seq<TileProduct> products, TileAdmission admission, TileBlend blend, TileLayout layout) =>
         from scale in Scale.ToFin(StageRefusal.Scale.Fault())
         from pad in (PadMode.TryGet(Pad, out PadMode? row) ? Some(row!) : None)
@@ -189,9 +139,6 @@ public sealed record StageRequest(
             : Fin.Succ(plan!)
         select built;
 
-    // DECODE gate: everything provable WITHOUT a model, accumulated so a request breaking three columns names
-    // three. The plan itself builds after the lease, because only the model names its own products; `StageRun`
-    // re-proves the grant alone, the one column an executing end never takes on trust.
     static readonly Seq<IConstraint<StageRequest>> Decode = Seq<IConstraint<StageRequest>>(
         new LicenseRostered(), new LicenseGrants(), new PrecisionRostered(), new PadPinned(), new BucketAgrees());
 
@@ -215,8 +162,6 @@ public sealed record StageRequest(
             request.SelectedPrecision.IsSome ? request : StageRefusal.Precision.Fault();
     }
 
-    // The corpus PadMode roster carries one value; the `PadMode` family here stays the general tiling vocabulary,
-    // and this boundary — the one carrying the wire — is where the pin enforces.
     sealed class PadPinned : IConstraint<StageRequest> {
         public Validation<Error, StageRequest> Check(StageRequest request) =>
             StringComparer.Ordinal.Equals(request.Pad, PadMode.Reflect.Key)
@@ -224,8 +169,6 @@ public sealed record StageRequest(
                 : StageRefusal.PadPinned.Fault();
     }
 
-    // Typed pair against typed pair: the record comparison replaces a `$"{w}x{h}"` rendering compared as text,
-    // where a leading zero or a stray space read as a bucket disagreement the message could not explain.
     sealed class BucketAgrees : IConstraint<StageRequest> {
         public Validation<Error, StageRequest> Check(StageRequest request) =>
             request.Scale.IsSome && request.Bucket == new TileBucket(request.TileWidth, request.TileHeight)
@@ -234,35 +177,14 @@ public sealed record StageRequest(
     }
 }
 
-// `ParityFresh` and `Coverage` are the two columns that make the other measured columns readable. Decorators at
-// the consuming end see every result identically and cannot know a memo answered it, so a residual histogram keyed
-// on `GoldenDelta` alone reads N observations where ONE measurement was taken — the discriminant therefore rides
-// the RESULT, set true only by the arm that actually leased a floor session and ran both probes, false on a memo
-// hit and false on the floor identity where the zero is a definition rather than an observation. `Coverage`
-// carries the measured overlap-add weight floor: the mosaic gates on it once and a reassembly at 0.001 publishes
-// as healthy without it. `Artefact` is the third: the digest of the weight bytes the leased session actually
-// LOADED, measured at this end because only the lease observes which bytes reached the runtime, so the specifying
-// end's card gate proves an observation rather than trusting a request round-tripped.
 public sealed record StageResult(
     string Stage, string ModelCardId, string Artefact, Seq<StageOutput> Outputs, Seq<StageScore> Scores,
     string ProviderUsed, int PartitionCount, double ElapsedMs, double GoldenDelta, bool ParityFresh, float Coverage,
     int TilesEmitted, string Op);
 
-// What ONE executed grid produced, measured columns and the lease's own observations together. Fields and grades
-// ride separate collections because they are separate MODALITIES, not one collection with a small extent: a field
-// carries a blob key and an output extent, a grade carries a number. The demotion arm and the production arm
-// answer this same shape, which is what lets a breach re-run at the floor and return through the same seam
-// instead of forking the result construction. The name is DELIBERATELY not the specifying end's `StageProduct`,
-// which is an emission `[Union]` naming the role type on its own rows — a genuinely different concept whose
-// same-named twin would reach one S4 consumer under two meanings.
 public readonly record struct GridProduct(
     Seq<StageOutput> Products, Seq<StageScore> Scores, int Partitions, float Coverage, int Tiles, string Artefact);
 
-// The card's parity envelope, mirrored at the shape the specifying end declares it in. `Upper` is the gate every
-// comparison reads; `Lower` is the DECLARED not-a-point state — a deterministic card diverges on the provider axis
-// alone and its floor is its ceiling, while a stochastic card's band spans a seed sweep no single run performs, so
-// absence there states an unmeasured floor rather than a weakened gate. `Admits` folds finiteness into the same
-// read, so a non-finite residual can never pass as within envelope.
 public readonly record struct ResidualBand(Option<double> Lower, double Upper) {
     public static ResidualBand Point(double ceiling) => new(Some(ceiling), ceiling);
 
@@ -271,12 +193,7 @@ public readonly record struct ResidualBand(Option<double> Lower, double Upper) {
     public bool Admits(double delta) => double.IsFinite(delta) && delta <= Upper;
 }
 
-// The seed-driven graph input NO upstream stage emits: the graph's own tensor, the channel depth of the draw, and
-// the factor the tile extent divides by. It rides the lease rather than an input binding because nothing produces
-// it — the executor mints it — and a card declaring none answers absence, at which point no draw exists to bind.
 public readonly record struct LatentInput(string Tensor, int Channels, int Downscale) {
-    // Extent divides by the declared downscale; the specifying end gates that at its own declaration, and this
-    // fold proves it once more rather than packing a fractional grid the session would reject as a shape fault.
     public Fin<LatentDraw> Draw(TilePlan plan, ulong seed) =>
         Channels > 0 && Downscale > 0 && plan.TileWidth % Downscale is 0 && plan.TileHeight % Downscale is 0
             ? Fin.Succ(new LatentDraw(
@@ -285,16 +202,6 @@ public readonly record struct LatentInput(string Tensor, int Channels, int Downs
                 Normal(seed, Channels * (plan.TileHeight / Downscale) * (plan.TileWidth / Downscale))))
             : StageRefusal.LatentGrid.Fault<LatentDraw>();
 
-    // A standard-normal draw the SEED alone determines. The uniform stream is the KERNEL's: the mixer transcribed
-    // here was the owner's own splitmix64 finalizer copied verbatim except for the unit projection, so the two
-    // spellings produced different doubles from one state and a replay across them diverged — this composition is
-    // a correctness fix, not thrift. The lane-keyed STATELESS draw keys `(lane, index, dimension)` directly rather
-    // than advancing a state, so the draw at a given index is a pure function of the seed on every host and no
-    // partition order can reorder it; the open-interval clamp is the owner's, which is what keeps the logarithm
-    // below defined. Box-Muller stays HERE because no kernel member covers the polar pair, and one rotation fills
-    // two texels with no rejection loop, so stream position never depends on the values drawn. The bound `Draw`
-    // carrier is declined at this site: its `At` materializes an `ImmutableArray` per texel where the span-keyed
-    // entry allocates nothing across a latent of tens of thousands.
     static ReadOnlyMemory<float> Normal(ulong seed, int count) {
         float[] draw = new float[count];
         long lane = StageDraw.Latent.Lane;
@@ -309,25 +216,10 @@ public readonly record struct LatentInput(string Tensor, int Channels, int Downs
     }
 }
 
-// The synthesized latent: the graph's own input tensor, its bound shape in the session's layout, and the draw
-// filling it. The executor hands the ROOT bytes rather than a seed, so the distribution has exactly one
-// implementation and a binder cannot re-derive a second one that replays differently.
 public sealed record LatentDraw(string Tensor, long[] Shape, ReadOnlyMemory<float> Values);
 
-// The plane read answers extent AND filler in ONE resolution: a separate stat leg would let two answers about one
-// blob disagree, and a materializing byte read is the double copy the filler seam deletes.
 public sealed record PlaneSource(int Width, int Height, int Channels, PlaneFill Fill);
 
-// Multi-input stages bind ONE tensor: the wire's row order IS the channel-stack order, and the session's layout
-// row owns the placement — planar appends whole channel planes, interleaved interleaves each texel's channel run
-// — so a single-input stage crosses untouched and no second bound value exists to drift from the warm shape. The
-// carrier exists because a stage holds up to three leases (the candidate probe, the floor probe, the production
-// run) whose layouts may differ: the channel sum folds ONCE at the mint and each distinct layout stacks at most
-// once, where a per-lease stack re-traversed the whole plane sequence four times for one stage. The memo keys on
-// the layout row itself because layout is the only property of a lease the placement reads, and it rides a
-// KEY-GRAINED lock-free cell rather than a mutable dictionary — the sibling memo on the parity owner is guarded
-// and this one was not, two disciplines for one problem under a class whose own comment names three concurrent
-// leases.
 public sealed class PlaneStack {
     private readonly Seq<PlaneSource> sources;
     private readonly AtomHashMap<TileLayout, ReadOnlyMemory<float>> stacked = AtomHashMap<TileLayout, ReadOnlyMemory<float>>();
@@ -341,12 +233,6 @@ public sealed class PlaneStack {
     public static PlaneStack Of(Seq<PlaneSource> sources, StageRequest request) =>
         new(sources, sources.Sum(static source => source.Channels), request.InputWidth * request.InputHeight);
 
-    // Single-source stages fill the bound tensor DIRECTLY — one buffer, one fill, layout-independent, exactly the
-    // one materialization the byte read used to pay, now landing where it is consumed (and archive-fillable).
-    // Multi-source stages hand each filler to the layout's own stack row, so a planar plane lands in its
-    // contiguous slice with no intermediate and every distinct layout stacks at most once. A fill failure rides
-    // the rail out — a torn memo entry is unrepresentable because seating happens only after every fill lands, and
-    // the seat is one keyed CAS rather than a read followed by a write another lease could interleave.
     public Fin<ReadOnlyMemory<float>> For(TileLayout layout) =>
         stacked.Find(layout).Match(
             Some: Fin.Succ,
@@ -370,7 +256,7 @@ public sealed class PlaneStack {
     }
 }
 
-// --- [ERRORS] ------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 public static class StageRefusal {
     public static readonly ContractRefusal License = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal Blocked = new(ComputeArea.Model, ComputeContract.Valid);
@@ -379,8 +265,6 @@ public static class StageRefusal {
     public static readonly ContractRefusal PadPinned = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal Scale = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal Shape = new(ComputeArea.Model, ComputeContract.Compatible);
-    // The two crossing refusals: an extent past `int` range on the way in, and a role, provider, or plane spelling
-    // the corpus roster cannot name on the way out.
     public static readonly ContractRefusal Extent = new(ComputeArea.Model, ComputeContract.Compatible);
     public static readonly ContractRefusal Vocabulary = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal NoInput = new(ComputeArea.Model, ComputeContract.Valid);
@@ -400,30 +284,14 @@ public static class StageRefusal {
 
 }
 
-// --- [BOUNDARIES] --------------------------------------------------------------------------
-// The ONE crossing between the corpus family and this end's interior shapes. `RequiredMappingStrategy.Both` is the
-// whole compatibility discipline: a field landing on `stage.proto` breaks this build until a column answers it and
-// a column with no field breaks the same way, so the descriptor is the agreement and no slot roster, digest, or
-// boot probe stands between the two ends. `ContentHash` and `WireKeys` are composed, never re-spelled.
-// ExplicitCast is CLEARED: with it enabled the generator would silently narrow `uint32` to `int` on any column
-// this fence forgot to pin, bypassing the checked fold that is the whole extent guard — every cross-type hop here
-// is an explicit user mapping and a source/target mismatch must break the build rather than compile to a wrap.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class StageWireMap {
     // --- [REQUEST_INGRESS]
-    // Bytes in, admitted record out — the door takes the PAYLOAD the relaying root holds rather than a parsed
-    // message, so nothing can hand this end a value that skipped the size gate or the recursion ceiling.
-    // `ParseGuard.Read` runs the size gate, the bounded parse, and then the corpus CEL and field rules — every
-    // `defined_only` enum, the sixteen-byte key widths, the required bucket, the bucket-versus-tile and
-    // isotropic-scale message rules — so the lowering below reads a message the corpus already proved and the
-    // constraint fold re-proves only what it derives.
     public static Fin<StageRequest> Admit(ReadOnlySequence<byte> payload) =>
         ParseGuard.Read(StageRequestWire.Parser, payload, WireLimits.Inbound).Bind(Lowered).Bind(StageRequest.Admit);
 
-    // The lowering's ONE reachable throw is the checked extent narrowing, and it lands on the rail here rather
-    // than escaping: `uint32` widens losslessly for every extent a grid can address, and a value past
-    // `int.MaxValue` would otherwise wrap into a negative extent every downstream span index reads as legal.
     static Fin<StageRequest> Lowered(StageRequestWire wire) =>
         Op.Of().Catch(() => Fin.Succ(ToDomain(wire)))
             .MapFail(static _ => (Error)StageRefusal.Extent.Fault());
@@ -446,10 +314,6 @@ public static partial class StageWireMap {
     public static partial StageRequest ToDomain(StageRequestWire wire);
 
     // --- [RESULT_EGRESS]
-    // The inverse this end MINTS. The throw arm is the string-to-enum resolution: `Stage` echoes a key the
-    // admitted request already proved rostered and `ProviderUsed` is one of the frozen census's own wire keys, so
-    // the only spelling that can miss is a `StagePorts.Describe` answer outside the corpus plane roster — which is
-    // exactly the contract breach a typed refusal must name rather than a partial message publish.
     public static Fin<StageResultWire> Result(StageResult result) =>
         Op.Of().Catch(() => Fin.Succ(ToWire(result)))
             .MapFail(static _ => (Error)StageRefusal.Vocabulary.Fault());
@@ -463,19 +327,12 @@ public static partial class StageWireMap {
     public static partial StageResultWire ToWire(StageResult result);
 
     // --- [VOCABULARY]
-    // ONE derivation from a generated enum member to this end's key string — `Runtime/wire#PROTO_VOCABULARY`
-    // `WireKeys.Camel` — so five columns read one rule and no `(enum, key)` table exists to drift. The generic
-    // fold itself can never be a `[UserMapping]` (RMG001 refuses a type parameter), which is why each concrete
-    // column takes its own one-line seat.
     [UserMapping] static string StageKey(PbrStageWire wire) => WireKeys.Camel(wire);
     [UserMapping] static string LicenceKey(LicenseClassWire wire) => WireKeys.Camel(wire);
     [UserMapping] static string ProviderKey(InferenceProviderWire wire) => WireKeys.Camel(wire);
     [UserMapping] static string PrecisionKey(TensorPrecisionWire wire) => WireKeys.Camel(wire);
     [UserMapping] static string PadKey(PadModeWire wire) => WireKeys.Camel(wire);
 
-    // The inverse resolves BY NAME under `IgnoreCase`, which is exact because every key this end publishes differs
-    // from its generated member in casing alone (`coreMl`/`CoreMl`, `rgba16f`/`Rgba16F`). `ByName` is the
-    // attribute's required positional argument; `IgnoreCase` is the knob that carries the rule.
     [MapEnum(EnumMappingStrategy.ByName, IgnoreCase = true)]
     private static partial PbrStageWire StageRow(string key);
 
@@ -489,31 +346,18 @@ public static partial class StageWireMap {
     private static partial PlaneFormatWire FormatRow(string key);
 
     // --- [SCALARS]
-    // The narrowing that can refuse and the widening that cannot, each stated once. A negative count reaching the
-    // wire is a producer defect the checked cast surfaces rather than wraps.
     [UserMapping] static int Whole(uint value) => checked((int)value);
     [UserMapping] static uint Unsigned(int value) => checked((uint)value);
 
-    // Sixteen bytes in, lowercase hex out, and the same alphabet back — `ContentHash.Admit` refuses uppercase, so
-    // a key this end rendered and a key it admits are the same thirty-two characters or the port forked the
-    // spelling. An UNSET optional artefact reads empty: the `bytes.len = 16` rule refuses a present-but-empty
-    // column, so emptiness is absence and never a fabricated digest.
     [UserMapping] static string Hex(ByteString bytes) => bytes.IsEmpty ? string.Empty : ContentHash.Hex(Digest(bytes));
     [UserMapping] static ByteString Bytes(string hex) => ContentHash.Wire(ContentHash.Admit(hex, Op.Of()).ThrowIfFail());
     static UInt128 Digest(ByteString bytes) => ContentHash.Admit(bytes.Span, Op.Of()).ThrowIfFail();
 
-    // The request's fixed bucket types HERE, so the agreement gate downstream is a record comparison rather than a
-    // second rendering of one grammar.
     [UserMapping] static TileBucket Bucket(BucketWire wire) => new(Whole(wire.Width), Whole(wire.Height));
 
-    // The elapsed span crosses as the well-known message off the NodaTime projection, so one temporal rule serves
-    // every seam on this branch and no seam spells a tick arithmetic of its own.
     [UserMapping] static WireDuration Elapsed(double milliseconds) => Duration.FromMilliseconds(milliseconds).ToProtobufDuration();
 
     // --- [PRODUCTS]
-    // The oneof both directions cross. `KindOneofCase.None` and `RoleOneofCase.None` are refused by the corpus
-    // `oneof.required` rule inside `ParseGuard.Read`, so the unset arm is unreachable AFTER admission and states
-    // that rather than inventing a domain value; the `Op.Catch` at `Lowered` is what keeps it off the caller.
     [UserMapping] static Seq<StageInput> Rows(RepeatedField<StageInputWire> rows) => toSeq(rows).Map(Row).Strict();
 
     static StageInput Row(StageInputWire wire) =>
@@ -531,11 +375,6 @@ public static partial class StageWireMap {
             var unset => throw new UnreachableException($"<stage-product-role:{unset}>"),
         };
 
-    // The inverse re-derives the arm FROM THE KEY, closed rosters first: this end holds no channel vocabulary, so
-    // `channel` is the fallback arm and the two corpus rosters are what it can actually decide. `Named` demands a
-    // leading LETTER before parsing, because `Enum.TryParse` otherwise admits a decimal string as an ordinal and
-    // would tag a numeric key as a prior; the appearance channel pattern requires that same leading letter, and
-    // the two rosters stay disjoint so one key reads the same from either direction.
     [UserMapping] static StageProductWire Role(string key) =>
         Named(key, out PriorFieldWire prior)
             ? new StageProductWire { Prior = prior }
@@ -562,30 +401,12 @@ public static partial class StageWireMap {
     private static partial StageScoreWire Grade(StageScore score);
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
-// Everything about a run that only the LEASE knows: the card's binding roster naming each product's graph tensor,
-// component lane, role key, and width, the tensor layout its graph emits, the taper profile its class of estimator
-// wants, the partition count that bucket's warm-up measured, the bound input's own CHANNEL width (`InputMetadata`
-// again — the gate the stacked input sum proves against), the card's parity `ResidualBand`, the digest of the
-// weight bytes it loaded, and the LATENT its card declares — absent on a deterministic graph, which is what makes
-// a seed nothing can bind refusable rather than silently dropped. `Flow` takes the BUILT plan and the SYNTHESIZED
-// draw and binds every value from them, so shapes the flow holds, the draw it runs, and shapes the fold writes
-// have one source. Holding the lease as this record's own disposable keeps its session alive across the whole grid.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record StageSession(
     Seq<TileProduct> Products, TileLayout Layout, TileBlend Blend, TileAdmission Admission, Option<int> Partitions, int PartitionCap,
     int InputChannels, ResidualBand Residual, string Artefact,
     Option<LatentInput> Latent, Func<TilePlan, Option<LatentDraw>, Fin<BoundFlow>> Flow, IDisposable Hold);
 
-// Every plane crosses as a content address the host resolves; Compute holds no store, no codec, and no
-// vocabulary. `Read` resolves a key to its declared extent and an index-keyed `PlaneFill` — the filler fills a
-// caller-owned span, so plane bytes land where they are consumed and the app root binds an archive-resident plane
-// to a hyperslab fill without rehydrating whole; the port itself still names no PureHDF member. Every key these
-// legs carry is the kernel `ContentHash.Hex` lowercase spelling, since the outbound half re-admits it. `Lease`
-// takes the resolved precision because a posture admitted at the wire and dropped before the session is a column
-// the receipt then reports without anything having executed it. `Describe` takes the ROSTER ROW rather than a role
-// string: the specifying end declares transfer and format per `(tensor, lane)` binding, so a packed export's two
-// products describe apart and a role alone could not tell the port which binding it was answering for; its answer
-// is a corpus plane-roster spelling, and one outside that roster refuses at the result mint.
 public sealed record StagePorts(
     Func<string, Fin<PlaneSource>> Read,
     Func<ReadOnlyMemory<float>, int, int, int, Fin<string>> Write,
@@ -613,12 +434,10 @@ public sealed record StagePorts(
 - Boundary: the `GridProduct`→`StageResult` projection is NOT a Mapperly correspondence and no mapping method is owed for it: both shapes are this package's own, the crossing folds three independently measured columns (the timeline span, the graded delta, the freshness discriminant) that no generated transcription can produce, and the pure columns it does carry are one owner's carrier feeding its own result rather than an owner↔DTO rename. The `[Mapper]`-earning correspondence is `[02]-[STAGE_WIRE]` `StageWireMap`, which crosses these records against the corpus family and nothing else.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// The lifted candidate the attempt's accumulating gates read. Lifting once is what lets three independent facts
-// fold applicatively where each inline term would otherwise re-read the same four values.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct StageAttempt(StageRequest Request, StageSession Session, TilePlan Plan, int Partitions);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class StageRun {
     public static Fin<Seq<StageResult>> Fold(
         Seq<StageRequest> plan, StagePorts ports, RunOptions options, CancelScope scope, IClock clock, MonotonicTimeline timeline) =>
@@ -637,35 +456,20 @@ public static partial class StageRun {
     static Fin<StageResult> Execute(
         StageRequest request, HashMap<(string Stage, string Role), StageOutput> produced, StagePorts ports,
         RunOptions options, CancelScope scope, IClock clock, MonotonicTimeline timeline) =>
-        // The span is a monotone PAIR whose stamps carry their own timeline identity, so the subtraction proves
-        // both marks came from one source — a stored raw tick belongs to no timeline and cannot.
         from opened in timeline.Capture()
-        // Grants re-check HERE even when `Admit` already ran at decode: any host edge reaches this end, and the
-        // caller's SPELLING resolves against the roster again rather than a resolved row riding in on the record.
         from licensed in request.SelectedLicense.ToFin(StageRefusal.License.Fault())
         from _ in guard(licensed.Grants, (Error)StageRefusal.Blocked.Fault()).ToFin()
         from precision in request.SelectedPrecision.ToFin(StageRefusal.Precision.Fault())
         from keys in Sources(request, produced)
         from planes in keys.Traverse(key => ports.Read(key).ToValidation()).As().ToFin()
-        // Chained rows already proved their extents against their PRODUCERS at resolution; this guard proves every
-        // source's DECLARED extent against the request's declaration — the whole gate for a source plane no stage
-        // made, and the congruence every stacked row must share; the bytes themselves prove at fill, where the
-        // filler's own destination length is the arithmetic witness.
         from __ in planes
             .Traverse(plane => guard(
                     plane.Width == request.InputWidth && plane.Height == request.InputHeight,
                     (Error)StageRefusal.ExtentMismatch.Fault())
                 .ToFin().ToValidation())
             .As().ToFin()
-        // One stack per stage: the parity probes and the production run share it, so the plane sequence is
-        // traversed once for the sum and once per DISTINCT layout rather than once per lease.
         let stack = PlaneStack.Of(planes, request)
-        // Provider resolution answers what this HOST can run, so it resolves once against the frozen census and
-        // threads forward; precision already refused an unrostered spelling above.
         let requested = ExecutionProvider.FromWire(request.Provider)
-        // Parity measures BEFORE the grid and decides nothing about the envelope: the card's live band rides the
-        // lease the run itself takes, so a breach demotes there and the result reports the demotion on
-        // `ProviderUsed` while `GoldenDelta` keeps the measured breach.
         from verdict in Assured(request, ports, stack, requested, precision, options, scope, clock)
         from outputs in Run(request, ports, stack, verdict.Verdict, requested, precision, options, scope)
         from closed in timeline.Capture()
@@ -676,12 +480,6 @@ public static partial class StageRun {
             elapsed.TotalMilliseconds, verdict.Verdict.Delta, verdict.Fresh,
             outputs.Product.Coverage, outputs.Product.Tiles, request.Op);
 
-    // Chained stages NEVER carry the source plane: a binding naming a producer resolves against results already
-    // held, so a pipeline whose links never touch is unrepresentable rather than merely discouraged. EVERY row
-    // resolves — the request carries one row per consumed product in the card's binding order, and that order
-    // is the channel-stack order the bound tensor takes. Each producer's PUBLISHED extent proves against this
-    // request's declared input extent HERE — before the blob read and before the lease — because a plan defect
-    // caught by a bound session's shape mismatch names a port rather than the two stages that disagree.
     static Fin<Seq<string>> Sources(StageRequest request, HashMap<(string Stage, string Role), StageOutput> produced) =>
         request.Inputs.IsEmpty
             ? StageRefusal.NoInput.Fault<Seq<string>>()
@@ -698,14 +496,6 @@ public static partial class StageRun {
                 .As()
                 .ToFin();
 
-    // ONE lease, ONE plan, ONE grid, and the band gate INSIDE that lease. Leasing reports the model's binding
-    // roster and the card's live `ResidualBand`, the request folds the roster into a plan, that plan seats the
-    // flow, and the grid runs once for every plane the model emits. `None` is the DEMOTION signal and nothing
-    // else: the lease that reads the card's authority is the same lease that would have run the grid, so the
-    // decision happens where the authority lives, the floor re-lease is paid only by a run that was about to
-    // publish outside its envelope, and a widened band re-grades an already-measured residual on the very next
-    // request with nothing re-measured. The demoted PRECISION needs no column of its own: the floor row at full
-    // precision is the one demotion this fold performs, so `providerUsed == cpu` already names it.
     static Fin<(GridProduct Product, ExecutionProvider Provider)> Run(
         StageRequest request, StagePorts ports, PlaneStack stack, ParityVerdict verdict,
         ExecutionProvider selected, ModelPrecision precision, RunOptions options, CancelScope scope) =>
@@ -715,16 +505,8 @@ public static partial class StageRun {
                 : Attempt(request, ports, stack, ParityVerdict.Identity, ExecutionProvider.Floor, ModelPrecision.Full, options, scope)
                     .Bind(floored => floored.Case is GridProduct onFloor
                         ? Fin.Succ((onFloor, ExecutionProvider.Floor))
-                        // The floor arm grades the IDENTITY delta against the same band, so only a card whose
-                        // `Upper` is itself negative or non-finite reaches here — a demotion loop is
-                        // unrepresentable rather than merely unlikely.
                         : StageRefusal.Band.Fault<(GridProduct, ExecutionProvider)>()));
 
-    // The three independent facts about one lease accumulate; only the partition READ sequences before its cap,
-    // because a cap over an absent measurement has nothing to compare. REGISTRATION IS NOT MEASUREMENT: the
-    // composition registers each bucket through `ModelSessions.Warm` under its `WarmKey`, which seats
-    // `WarmEvidence` with an absent partition count, and only the trace-reading warm pulse fills it — so an
-    // unmeasured bucket names a pulse the composition has not injected, never a caller error.
     static readonly Seq<IConstraint<StageAttempt>> Gates = Seq<IConstraint<StageAttempt>>(
         new ChannelSum(), new PartitionCap(), new SeedLatent());
 
@@ -743,9 +525,6 @@ public static partial class StageRun {
                   select Some(new GridProduct(
                       emitted.Products, emitted.Scores, partitions, emitted.Coverage, emitted.Tiles, session.Artefact)));
 
-    // Stacked channel sums prove against the width the MODEL's own `InputMetadata` declares — the one surface
-    // knowing how wide the bound tensor is — so a plan missing an input row or carrying a stray one refuses by
-    // arithmetic before any texel moves.
     sealed class ChannelSum : IConstraint<StageAttempt> {
         public Validation<Error, StageAttempt> Check(StageAttempt candidate) =>
             candidate.Plan.Channels == candidate.Session.InputChannels
@@ -760,9 +539,6 @@ public static partial class StageRun {
                 : StageRefusal.Partitions.Fault();
     }
 
-    // Only the leased session knows whether the graph takes a draw at all, so the seed-and-latent gate sits here —
-    // ONE pattern over the pair, because the two refusals are the two halves of one contradiction: a latent
-    // nothing seeds and a seed nothing binds.
     sealed class SeedLatent : IConstraint<StageAttempt> {
         public Validation<Error, StageAttempt> Check(StageAttempt candidate) =>
             (candidate.Request.Seed, candidate.Session.Latent.Case) switch {
@@ -774,12 +550,6 @@ public static partial class StageRun {
             };
     }
 
-    // Lease and plan form ONE bracket: the hold releases inside the bind that took it, so a plan refusing never
-    // strands a session and a fault never leaves a resident held. The artefact pins HERE, at the one seam every
-    // lease crosses — the production run and both parity probes — so a session holding weights the request never
-    // named refuses before a grid runs rather than after the specifying end rejects a whole mosaic, and a residual
-    // graded on the wrong weights never enters the memo. The plan reads the LAYOUT off the session, the one surface
-    // that knows the dimension order the model emits.
     static Fin<T> Leased<T>(
         StageRequest request, StagePorts ports, ExecutionProvider provider, ModelPrecision precision,
         int sourceChannels, Func<StageSession, TilePlan, Fin<T>> use) =>
@@ -793,8 +563,6 @@ public static partial class StageRun {
             }
         });
 
-    // GRADES bypass both ports: no `Describe` because a number carries no transfer band, no `Write` because a blob
-    // the specifying end must fetch to read one float is a store round trip for a value the result already holds.
     static Fin<(Seq<StageOutput> Products, Seq<StageScore> Scores, float Coverage, int Tiles)> Emit(
         StageRequest request, StagePorts ports, StageSession session, TilePlan plan, ReadOnlyMemory<float> source,
         RunOptions options, CancelScope scope) =>
@@ -821,9 +589,6 @@ public static partial class StageRun {
             }
         });
 
-    // ONE synthesis site for the production grid and both parity probes. The draw is a pure function of the
-    // request's seed and the plan's own tile extent, so the canary and the grid bind the SAME latent and the
-    // residual grades the provider rather than two independent draws.
     static Fin<Option<LatentDraw>> Drawn(StageSession session, TilePlan plan, ulong seed) =>
         session.Latent.Match(
             Some: declared => declared.Draw(plan, seed).Map(Some),
@@ -846,63 +611,33 @@ public static partial class StageRun {
 - Boundary: `ParityPort` carries no rail outward: the root that owns the artifact write also owns the evidence cell its refusal parks on, so a failed artifact write never fails an inference whose measurement succeeded, and a read answering nothing degrades to the cold measurement the memo already prices. Memo capacity is a POLICY VALUE on the port beside `Horizon` rather than a constant this fold reads — "bounded by the key product" only bounds anything if the product does, and a long-lived root serving a growing model registry grows it without ceiling.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// Parity verdicts travel as VALUES and carry only what was MEASURED. Residuals are a property of
-// `(card, provider, precision, runtime, device, host)` rather than of a process, so one shape keys the in-process
-// memo and the durable row and neither tier can key differently. `MeasuredAt` is the second measured column and
-// the reason the first stays trustworthy: the key names the silicon but not the driver or firmware stack running
-// on it, and a driver revision changes a residual without changing one term of that key — so age, not a key term,
-// is what retires a verdict. The BAND is deliberately absent: it belongs to the model card, rides the lease, and
-// is read live at every gate, where freezing it here would keep demoting against an envelope the card has since
-// widened.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ParityVerdict(double Delta, Instant MeasuredAt) {
-    // The floor at full precision answers itself, so the delta is zero by DEFINITION rather than by measurement
-    // and the instant is the epoch nothing observed — `ParityFresh` on the result is what tells a reader which.
     public static readonly ParityVerdict Identity = new(0d, Instant.MinValue);
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
-// Parity's DURABLE half injects exactly as every plane crosses. Compute holds no artifact store: the app root
-// binds these legs against the Persistence artifact lane and supplies the running `HostFingerprint`, so the
-// durable key and the process key are ONE derivation. `Read` answering `None` is a miss rather than a fault — an
-// unbound lane costs exactly the two leases and two probes the memo would have saved — and `Write` returns `Unit`
-// by contract because the composing root parks its own write refusal on its own evidence cell. `Horizon` and
-// `Capacity` ride here because this is the record the composing root builds: a verdict older than the horizon
-// reads as ABSENT and re-measures, and the capacity is a policy value a root serving a growing registry raises.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ParityPort(
     HostFingerprint Host,
     Duration Horizon,
     int Capacity,
     Func<string, Option<ParityVerdict>> Read,
     Func<string, ParityVerdict, Unit> Write) {
-    // Thirty days bounds a verdict against the cadence a host's driver stack actually moves at, and it is the
-    // composition's value rather than a constant this fold reads — a root serving volatile silicon shortens it.
     public static readonly Duration CanonicalHorizon = Duration.FromDays(30);
 
     public const int CanonicalCapacity = 512;
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class StageRun {
     readonly record struct ParityMemo(ParityVerdict Verdict, long Read);
 
-    // Key-grained and lock-free: seating, touching, and trimming are all key-local transitions over an immutable
-    // map, and neither runs a native effect — which is the whole reason the sibling capsule's `Lock` is right
-    // there and wrong here. `ParityTick` rides the same cell family rather than a bare mutable static.
     static readonly AtomHashMap<string, ParityMemo> Parity = AtomHashMap<string, ParityMemo>();
     static readonly Atom<long> ParityTick = Atom(0L);
 
-    // ONE key across both tiers: the card names the model at its checksum, the provider's own `ResultKey` folds
-    // the runtime version, the precision, every behavior option that shaped the compiled graph, and the RANKED
-    // device's fingerprint, and the host fingerprint pins the machine whose silicon produced the residual — a
-    // verdict measured on other silicon is another host's verdict, and reading it here would gate an acceleration
-    // nothing on this machine graded. The device comes off `AutoSelect`'s own rank rather than off a lease,
-    // because the key must resolve BEFORE any session opens and the rank is what the lease will take.
     static string ParityKey(StageRequest request, ExecutionProvider provider, ModelPrecision precision, ParityPort parity) =>
         $"{request.ModelCardId}:{provider.ResultKey(OrtEnv.Instance().GetVersionString(), precision, provider.AutoSelect.HeadOrNone())}:{parity.Host}";
 
-    // Floor-at-full answering itself is an IDENTITY, so nothing was observed and `Fresh` is false — the
-    // discriminant a reader needs is `providerUsed == cpu` at `fp32`, never a zero posing as a measurement.
     static Fin<(ParityVerdict Verdict, bool Fresh)> Assured(
         StageRequest request, StagePorts ports, PlaneStack stack,
         ExecutionProvider selected, ModelPrecision precision, RunOptions options, CancelScope scope, IClock clock) =>
@@ -910,9 +645,6 @@ public static partial class StageRun {
             ? Fin.Succ((ParityVerdict.Identity, false))
             : Measured(request, ports, stack, selected, precision, options, scope, clock);
 
-    // A hit measures nothing, so `Fresh` is false — which is what keeps a residual histogram counting
-    // observations rather than requests; a per-inference tap cannot see this branch. Each lease releases inside
-    // the bind that took it, and both probes run at the request's own seed.
     static Fin<(ParityVerdict Verdict, bool Fresh)> Measured(
         StageRequest request, StagePorts ports, PlaneStack stack,
         ExecutionProvider selected, ModelPrecision precision, RunOptions options, CancelScope scope, IClock clock) =>
@@ -929,10 +661,6 @@ public static partial class StageRun {
                         select (Remember(at.Key, new ParityVerdict(delta, at.Now), ports.Parity), true))),
         };
 
-    // Process memo answers first and the durable row second, and a durable hit SEATS the memo so a cold start pays
-    // one artifact read per decision rather than one per request. Both tiers answer through ONE staleness gate: a
-    // verdict past the port's horizon reads as ABSENT and re-measures, because the parity key names the silicon
-    // but not the driver stack on top of it.
     static Option<ParityVerdict> Remembered(string at, ParityPort parity, Instant now) =>
         Parity.Find(at).Filter(seated => Fresh(seated.Verdict, parity, now)) is { IsSome: true } memo
             ? memo.Map(seated => { Parity.SwapKey(at, held => held.Map(row => row with { Read = ParityTick.Swap(static tick => tick + 1L) })); return seated.Verdict; })
@@ -946,8 +674,6 @@ public static partial class StageRun {
         return Seat(at, verdict, parity);
     }
 
-    // Eviction is least-recently-read and one PASS: the sorted-then-head form re-ranked every row on every insert
-    // past the cap to discard all but one of the ranks it computed.
     static ParityVerdict Seat(string at, ParityVerdict verdict, ParityPort parity) {
         Parity.SwapKey(at, _ => Some(new ParityMemo(verdict, ParityTick.Swap(static tick => tick + 1L))));
         if (Parity.Count > parity.Capacity) {
@@ -965,9 +691,6 @@ public static partial class StageRun {
             using (flow) { return flow.Canary(options, scope, plan, source); }
         });
 
-    // One fold serves both modalities: a GRADED canary's arrays hold exactly one element, so the max-magnitude
-    // read IS the scalar absolute difference and a second residual arm would restate one arithmetic under a
-    // modality name.
     static Fin<double> Residual(float[] candidate, float[] reference) {
         if (candidate.Length != reference.Length) {
             return StageRefusal.GoldenShape.Fault<double>();

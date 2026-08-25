@@ -42,8 +42,6 @@ from rasm.cad.faults import BREP_INPUT, STEP_READ, STEP_SCHEMA, STEP_WRITE, CadR
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# every exchange leg that gates a provider status carries its value through unchanged, so one arrow shape
-# composes the whole codec kleisli and `pipeline` never sees a lambda re-threading the carried handle.
 type ExchangeArrow[A] = Callable[[A], CadRail[A]]
 
 
@@ -51,8 +49,6 @@ type ExchangeArrow[A] = Callable[[A], CadRail[A]]
 
 
 class _Schema(Struct, frozen=True):
-    # `aliases` is the second file token a protocol answers to; it feeds the forward map only, so the inverse stays
-    # single-valued and a write-side coordinate can never elect a non-canonical spelling.
     protocol: StepProtocol
     schema: str
     aliases: tuple[str, ...] = ()
@@ -60,7 +56,6 @@ class _Schema(Struct, frozen=True):
 
 # --- [PROTOCOLS] ------------------------------------------------------------------------
 
-# One primary correspondence; both directions derive. A hand-kept inverse drifts the moment an alias lands.
 _ROSTER: Final[tuple[_Schema, ...]] = (
     _Schema(protocol=StepProtocol.AP203, schema="CONFIG_CONTROL_DESIGN"),
     _Schema(protocol=StepProtocol.AP214, schema="AUTOMOTIVE_DESIGN", aliases=("AUTOMOTIVE_DESIGN_CC2",)),
@@ -80,7 +75,6 @@ def schema(protocol: StepProtocol, /) -> str:
 
 
 def _token(identifier: str, /) -> str:
-    # a `FILE_SCHEMA` value may carry a `{...}` conformance qualifier and a trailing period around the bare token
     return identifier.partition("{")[0].strip().removesuffix(".").rstrip()
 
 
@@ -116,8 +110,6 @@ def declared(model: StepData_StepModel, /) -> CadRail[StepProtocol]:
 
 
 def gated[A](row: FaultRow, coordinate: str, call: Callable[[A], IFSelect_ReturnStatus], /) -> ExchangeArrow[A]:
-    # this arrow holds the package's one `IFSelect_RetDone` comparison: it passes the carried value through
-    # untouched so the leg composes kleisli, and it keeps the status so a `RetVoid` never reads like a `RetFail`.
     def arrow(held: A, /) -> CadRail[A]:
         status = call(held)
         return Ok(held) if status == IFSelect_ReturnStatus.IFSelect_RetDone else Error(row.at(f"{coordinate}:{status}"))
@@ -141,7 +133,6 @@ def _matched(protocol: StepProtocol, /) -> ExchangeArrow[STEPControl_Reader]:
 
 
 def _transferred(reader: STEPControl_Reader, /) -> CadRail[STEPControl_Reader]:
-    # `TransferRoots` answers a transferred-root count, never a status, so this leg states its own predicate
     return Ok(reader) if reader.TransferRoots() else Error(STEP_READ.at("STEPControl_Reader.TransferRoots:0"))
 
 
@@ -155,8 +146,6 @@ def unsealed(value: SealedStep, path: Path, /) -> CadRail[TopoDS_Shape]:
 
 
 def sourced(value: SealedStep, sources: frozendict[bytes, Path], /) -> CadRail[TopoDS_Shape]:
-    # Serve-side admission proved every reference and owns the path, so an absent digest here is a lane defect the
-    # coordinate names in full, never a `KeyError` crossing the worker seam as an unpicklable cause.
     return (
         Option.of_optional(sources.get(value.artifact.sha256))
         .to_result_with(lambda: BREP_INPUT.at(f"source.absent:{value.artifact.sha256.hex()}"))
@@ -173,8 +162,6 @@ def _staged(shape: TopoDS_Shape, /) -> ExchangeArrow[STEPControl_Writer]:
 
 
 def _stamped(writer: STEPControl_Writer, /) -> CadRail[STEPControl_Writer]:
-    # this arrow's SEAT is load-bearing, not incidental: reordering it ahead of `_staged` makes every canonical
-    # setter a silent no-op that still reports success, which `exchange/identity#CANONICAL` rules and refuses.
     return canonical(writer.Model()).map(lambda _model: writer)
 
 
@@ -188,8 +175,6 @@ def _written(path: Path, /) -> Callable[[STEPControl_Writer], CadRail[Path]]:
 
 
 def _probed(path: Path, /) -> CadRail[StepProtocol]:
-    # this probe reads back an output this owner just wrote, so a schema refusal grades as `STEP_WRITE` rather
-    # than keeping `declared`'s caller-facing `STEP_SCHEMA`; matching `EMITTED` proves the pinned schema took.
     return (
         gated(STEP_WRITE, "STEPControl_Reader.ReadFile", lambda held: held.ReadFile(str(path)))(STEPControl_Reader())
         .bind(lambda probe: declared(probe.StepModel()).map_error(lambda fault: STEP_WRITE.at(fault.coordinate)))

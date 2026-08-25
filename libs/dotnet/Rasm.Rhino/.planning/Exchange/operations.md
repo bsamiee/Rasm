@@ -23,14 +23,14 @@ This page also seats three folder-wide owners the archive and codec rails compos
 - Packages: `Domain/rails`, Thinktecture.Runtime.Extensions, and LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Thinktecture;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [ERRORS] -----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ExchangeFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostExchange;
@@ -49,8 +49,6 @@ public abstract partial record ExchangeFault : Fault {
         staging: static fault => $"Exchange staging for '{fault.Target}' failed at '{fault.Stage}' for '{fault.Key}'.",
         exhausted: static fault => $"Exchange budget '{fault.Label}' exhausted its bound of {fault.Bound} for '{fault.Key}'.");
 
-    // The native-verdict landing every engine, archive read, and archive write folds into: a refused call carries
-    // its own log, and an empty log states that the host refused without one rather than dropping the fact.
     internal static ExchangeFault Host(Op key, string member, Option<string> log) =>
         new HostRefused(Key: key, Member: member, Detail: log.IfNone(noneValue: "refused without native detail"));
 
@@ -72,7 +70,7 @@ public abstract partial record ExchangeFault : Fault {
 - Boundary: `OutputPolicy.Land`'s published shape is the folder's frozen staging seam — `Exchange/publish`'s `Landing` family and `Exchange/archive`'s `Archives.Land` both bind it by name, so its interior refines freely and its signature does not.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -83,9 +81,7 @@ using System.Runtime.InteropServices;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The residue LADDER: `Raise` never descends, so `(attempted: false, mayRemain: true)` — a residue behind an
-// attempt that never happened — is unrepresentable rather than guarded at each reader.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MutationPhase {
     public static readonly MutationPhase Untouched = new(key: 0);
@@ -109,9 +105,6 @@ public abstract partial record IoLane {
 
 [SmartEnum<int>]
 public sealed partial class CollisionRule {
-    // `Fail` refuses an occupied destination outright; the ordinal row walks ONE candidate roster whose head is the
-    // requested path — a probe walk for `Settle`, a move walk for `Land` — so neither re-spells the grammar and the
-    // requested-path special case with its duplicated `File.Exists` is gone.
     public static readonly CollisionRule Fail = new(
         key: 0,
         settle: static (path, _, op) => guard(
@@ -140,9 +133,6 @@ public sealed partial class CollisionRule {
         return Fin.Succ(value: path);
     });
 
-    // Bounded retry over the ordinal roster: a refused move whose candidate now exists lost the seat to a concurrent
-    // creator and the walk continues, while any other refusal settles as the reported fault instead of being masked
-    // by an exhaustion message the roster never reached.
     private static Fin<DocumentPath> Append(string temporary, DocumentPath path, Rasm.Numerics.Dimension bound, Op op) =>
         OutputPolicy.Candidates(path, bound).Fold(
             (Settled: false, Outcome: Fin.Fail<DocumentPath>(error: Spent(path: path, bound: bound, op: op))),
@@ -173,7 +163,7 @@ public sealed partial class DirectoryRule {
     internal partial Fin<Unit> Ensure(string folder, Op key);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
@@ -211,8 +201,6 @@ internal sealed class MutationTrace {
 
     internal static MutationTrace Fresh() => new();
 
-    // Both raises are TOTAL and unconditional — the ladder decides the post-state, so no verdict exists beside the
-    // swap to discard and the transition owner's `ignore(cell.Swap(...))` prohibition does not reach here.
     internal Fin<Unit> Reach(MutationPhase floor) =>
         Fin.Succ(value: ignore(cell.Swap(held => held.Raise(next: floor))));
 }
@@ -226,8 +214,6 @@ public sealed partial record OutputPolicy {
     public DirectoryRule Directory { get; }
     public Rasm.Numerics.Dimension OrdinalBound { get; }
 
-    // One ordinal roster per settled destination: `<stem>-1` through `<stem>-64` stay legible as variants of the
-    // requested name, and past that a caller wants a distinct destination rather than a deeper rename walk.
     public static Rasm.Numerics.Dimension OrdinalCeiling { get; } = Rasm.Numerics.Dimension.Create(value: 64);
 
     public static OutputPolicy Strict { get; } = Create(
@@ -334,8 +320,6 @@ public sealed partial record OutputPolicy {
         return Fin.Succ(value: unit);
     });
 
-    // The staged artifact's own release: a committed move leaves nothing at the path and this disposes to nothing,
-    // while any refusal upstream releases through `Lease<T>.Use`, which folds a cleanup refusal into the primary.
     private sealed class StagedFile(string path) : IDisposable {
         internal string Path { get; } = path;
 
@@ -361,15 +345,13 @@ public sealed partial record OutputPolicy {
 - Boundary: the fold owns ordering, halting, and residue alone — what a row DOES, what its receipt holds, and how its evidence reads stay with the composing rail.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The two facts the fold reads off any threaded receipt: the evidence it contributes, and — when the receipt wraps
-// its own program — that program's settled verdict, so nesting reports upward without a recursive generic.
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IBatchYield {
     Seq<ExchangeEvidence> Evidence { get; }
     Option<BatchVerdict> Nested { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BatchVerdict(bool Failed, bool Halted, MutationPhase Mutation);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -399,7 +381,6 @@ public abstract partial record BatchStep<TReceipt> where TReceipt : IBatchYield 
         succeededCase: static step => step.Receipt.Evidence,
         failedCase: static step => step.Evidence);
 
-    // The withdrawn seat: a requested row the halt or a prior stop prevented carries the direct-poll identity.
     internal static BatchStep<TReceipt> Withdrawn(int index) => new FailedCase(
         Index: index,
         Mutation: MutationPhase.Untouched,
@@ -424,9 +405,6 @@ public sealed record BatchProgram<TReceipt> where TReceipt : IBatchYield {
         static step => step is BatchStep<TReceipt>.SucceededCase done ? Some(done.Receipt) : None);
     public BatchVerdict Verdict => new(Failed: Failed, Halted: Halted, Mutation: Mutation);
 
-    // EVERY requested row settles a step. A row the halt or a prior stop prevented settles as a WITHDRAWN failure
-    // rather than as a missing seat, so `Steps.Count == Requested` always holds and no consumer infers a halt from
-    // a short roster — the count that read low for a body that threw as readily as for one that was cancelled.
     internal static BatchProgram<TReceipt> Fold<TRow>(
         Seq<TRow> rows,
         ExchangeHalt halt,
@@ -440,8 +418,6 @@ public sealed record BatchProgram<TReceipt> where TReceipt : IBatchYield {
                     : Seated(state: state, step: run(arg1: item.Row, arg2: item.Index), posture: posture))
                 .Steps);
 
-    // The concurrent fan settles its rows itself and seats them in source order; ordering and halting are the fold's
-    // alone, so a settled roster is admitted here rather than re-walked through a driver that would decide neither.
     internal static BatchProgram<TReceipt> Settled(int requested, Seq<BatchStep<TReceipt>> steps) =>
         new(requested: requested, steps: steps);
 
@@ -464,7 +440,7 @@ public sealed record BatchProgram<TReceipt> where TReceipt : IBatchYield {
 - Boundary: the composed seam is the Persistence surface below and nothing more — `PresetOperation` as the request, `PresetExecution` as its policy row, `Presets.Commit` as the entry, and `PresetAnswer` as the yield this rail wraps in one fact.
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 using Rasm.Rhino.Persistence;
 
 internal static class PresetSeam {
@@ -487,12 +463,10 @@ internal static class PresetSeam {
 - Boundary: the model-to-earth transform is unit-aware — `GetModelToEarthTransform(modelUnits:)` receives the document's live `LengthUnit`, read inside the same demand window that uses it, so a stale unit regime cannot skew the projection.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// The kernel drawing-standards owner enters this sub-domain HERE: `NorthPosture` is the one north convention and
-// the boundary rail's Exchange edge carries it beside `ModelUnit`, `ContentHash`, `Dimension`, and `UnitInterval`.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Drawing;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
@@ -595,8 +569,6 @@ public sealed partial record EarthAnchor {
             key: op)
         select admitted;
 
-    // The georeference projection both this rail and the archive header read: an unset earth location is absence,
-    // and a SET location that refuses admission is a fault, never a silently absent basepoint.
     internal static Fin<Option<GeoPoint>> Located(EarthAnchorPoint anchor, Op op) =>
         anchor.EarthLocationIsSet()
             ? GeoPoint.Of(
@@ -624,7 +596,7 @@ public sealed partial record EarthAnchor {
     });
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 internal sealed partial class AnchorDemand {
     public static readonly AnchorDemand Any = new(key: "any", accepts: static _ => true);
@@ -754,9 +726,7 @@ public abstract partial record AnchorYield {
 - Boundary: `RhinoDoc.Open` and every headless constructor belong to the Document session sources; an exchange request that names a document to acquire is a session construction at the call site, and this rail's batch runs against the session it was handed. `Parallel.ForEachAsync` and `DocumentSession` disposal statements are the platform-forced `Task` and resource exemptions.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The union of what the three host write surfaces admit. Each surface declares its own admitted AXES beside its
-// content set, so a channel the surface cannot carry refuses at admission instead of being dropped by the host.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class WriteContent : ICapability<WriteContent> {
     public static readonly WriteContent GeometryOnly = new(key: "geometry-only");
@@ -772,8 +742,6 @@ public sealed partial class WriteContent : ICapability<WriteContent> {
     public static readonly WriteContent PrimaryBackup = new(key: "primary-backup");
     public static readonly WriteContent AuxiliaryBackup = new(key: "auxiliary-backup");
 
-    // A geometry-only write emits no companion channel; asking for both is a caller contradiction the host resolves
-    // by fiat, so the corner is BARRED here rather than silently won by whichever flag the writer reads last.
     public static CapabilityLaw<WriteContent> Law { get; } = CapabilityLaw<WriteContent>.Forbidden(Seq(
         CapabilitySet<WriteContent>.Of(GeometryOnly, UserData),
         CapabilitySet<WriteContent>.Of(GeometryOnly, RenderMeshes),
@@ -851,8 +819,6 @@ public abstract partial record DocumentWritePolicy {
         archiveCase: static _ => WriteContent.DocumentAxes,
         templateCase: static _ => CapabilitySet<WriteContent>.None);
 
-    // The surface's admitted axes, the barred corners, and the backup implication a containment bar cannot state —
-    // one admission per write policy, so no arm re-screens a channel the host would have dropped without a word.
     internal Fin<CapabilitySet<WriteContent>> Admit(Op op) {
         (CapabilitySet<WriteContent> held, CapabilitySet<WriteContent> axes) = (Content, Axes);
         return from _axes in axes.Require(
@@ -963,7 +929,7 @@ public abstract partial record ExchangeOp {
                 Surface: nameof(BatchCase)));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ExchangeHalt(Seq<System.Threading.CancellationToken> Tokens) {
     public static ExchangeHalt None { get; } = new(Tokens: Seq<System.Threading.CancellationToken>());
     public static ExchangeHalt Of(System.Threading.CancellationToken token) =>
@@ -1026,7 +992,7 @@ public sealed record ExchangeReceipt : IDetachedDocumentResult, IBatchYield {
         new(facts: Facts, evidence: Evidence.Add(evidence), program: Program);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Exchanges {
     public static Fin<ExchangeReceipt> Run(DocumentSession session, ExchangeOp request, Op? key = null, ExchangeHalt halt = default) {
         Op op = key.OrDefault();
@@ -1098,9 +1064,6 @@ public static class Exchanges {
                     return Fin.Succ(value: ExchangeReceipt.Programmed(program: BatchProgram<ExchangeReceipt>.Fold(
                         rows: rows, halt: effectiveHalt, posture: admitted.Batch.Posture, run: one)));
                 }
-                // One seat per source row, and the caller's token rides `effectiveHalt` rather than `ParallelOptions`:
-                // the loop therefore raises no `OperationCanceledException`, every body observes the halt itself, and a
-                // withdrawn row settles as a cancelled step instead of an unwritten seat a count later mistakes for one.
                 BatchStep<ExchangeReceipt>[] completed = new BatchStep<ExchangeReceipt>[rows.Count];
                 System.Threading.Tasks.ParallelOptions options = new() {
                     MaxDegreeOfParallelism = parallel.Budget.IoDegree.Value,
@@ -1121,8 +1084,6 @@ public static class Exchanges {
             Fail: failure => System.Threading.Tasks.Task.FromResult(Fin.Fail<ExchangeReceipt>(error: failure)));
     }
 
-    // A pre-dispatch halt withdrew exactly the one unit of work the caller asked for, so the receipt states one
-    // requested step withdrawn rather than an empty program a `Completed` read would answer true for.
     private static ExchangeReceipt Withdrawn { get; } =
         ExchangeReceipt.Programmed(program: BatchProgram<ExchangeReceipt>.Withdrawn(requested: 1));
 

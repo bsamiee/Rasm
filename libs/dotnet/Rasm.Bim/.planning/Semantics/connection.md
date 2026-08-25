@@ -19,7 +19,7 @@ This RETIRES the parallel `ConnectionDetail` record + `ConnectionRealization` `[
 - Boundary: the connection detail is the seam `Properties/property#DETAIL_SCHEMA` `DetailSchema.Realization` conforming `PropertyBag` on the realizing `Object` node, COMPOSED through `DetailSchema.Realization.Bag()`/`.Joint(kind)` (the IDENTICAL schema the `Rasm.Materials` `ComponentProjector` authors) — a hand-synced parallel bag re-spelling the set name, the `OccurrenceWins` precedence, or the `JointTypes` allowed set is the deleted form (the reader READS the seam-declared schema, never a copy), and a typed `ConnectionDetail`/`ConnectionRealization`/`BoltPattern`/`WeldSchedule`/`BearingSurface`/`ConnectionKind`/`Clearance` second-store record family is the deleted form (mirroring `StructuralProjection` retiring `MemberConnection`/`SupportRestraint`) — the realizing element is the seam `Object` node, its detail the schema bag the `Bake` fold reads flat; the in-graph bag carries the NEUTRAL `SetName` and the IFC `Rasm_ConnectionRealization` Pset name is applied ONLY at the `Projection/egress#IFC_EGRESS` `Emit` mapping, so a `Rasm_ConnectionRealization` literal as the in-graph set name is the deleted form; the five joint modality tokens are the `JointModality` roster naming the seam allowed-set members ONCE and a bare `"Cast"`/`"Bolted"`/`"Welded"`/`"Bonded"`/`"Bearing"` literal at a derivation site is the deleted form that forks the vocabulary the seam declares; the canonical realizing-detail rows compose the `DetailSchema` `PropertyName` statics while an INGEST-ONLY scalar the author never mints (a mesh sheet's geometry, a tendon/bearing/isolator token, a bar's surface + overall length) is a reader-side `[READER_ROWS]` row minted through the owner-blessed `PropertyCategory.Seam.Row` category — the anchor token already promoted to the seam `DetailSchema.AnchorType` static this reader composes — a call-site `PropertyName.Create` in this reader is the deleted form and a row a second package begins keying on is promoted to a `DetailSchema` static at the seam owner — an authored bag and a richer imported bag are faithfully DIFFERENT content-keyed nodes, never a forced byte-match, and a reader-side row never widens the seam `DetailSchema`; a row family that is a CROSS-PRODUCT of an axis and a column set (the mesh's two bar axes × three measured columns) is the `MeshBars` generator and six hand-spelled statics beside six hand-spelled `Measured` lines is the deleted form; the `BimModel`/`BimElement` join (`federated.Elements`, the `(MemberGlobalId, MemberGlobalId)` pair, the `BindFederated` dangling-reference rail) is GONE with the retired element records, the joint endpoints being the `Connect` edge's `NodeId` pair the `EdgeProjection` resolves and the analytical member↔connection topology the `Model/structural#STRUCTURAL_PROJECTION` `IfcRelConnectsStructuralMember` `Generic` edge, both meeting on the SHARED graph nodes, never a `GlobalId`-pair selection surface; the detail-bag attachment is ONE polymorphic `BagOf` over the `Realizing` row table keyed on the EXACT runtime type (the realizing families are `IfcElement` leaves with none a supertype of another, so exact keying fails SAFE where an `is` ladder silently details a future subtype against its parent's columns) and a `RealizationOf`/`BoltOf`/`WeldOf`/`LapOf`/`TendonOf`/`BearingOf` sibling-method family is the deleted form; the realizing-vs-not gate is `BagOf`'s OWN `Option` answer and a bag minted for a non-realizing element then discarded on an emptiness test is the deleted form (the schema bag is constructed once, for an element that carries a detail); detail ABSENCE never faults — an unreadable detail is `None`, and routing a missing scalar or token onto `Model/faults#FAULT_BAND` `BimFault` is the deleted form (the entity-class rail is the general fold's `Fin<GraphDelta>`) — while the fold's own rail is real and ACCUMULATING: the independent rows of one bag and the independent elements of one model both cross `Validation<Error, T>` and collapse once through `Error.Many`, so a first-defect `TraverseM` that hides every offending column after the first is the deleted form; every native scalar crosses the ONE `UnitScheme.Coerce` entry the projection threads and a raw double admitted as already-SI is the mm-vs-metre import trap `Semantics/composition#MATERIAL_COMPOSITION` names; the connection detail stays host-neutral scalar data and a RhinoCommon `Brep`/`Mesh` realizing-element field or an in-process fastener tessellation is the named seam violation, the realizing geometry binding by the `RepresentationContentHash` content key; the GeometryGym realizing surface (`IfcMechanicalFastener.PredefinedType` `IfcMechanicalFastenerTypeEnum` and `IfcFastener.PredefinedType` `IfcFastenerTypeEnum`, the `IfcDiscreteAccessory.PredefinedType` `IfcDiscreteAccessoryTypeEnum` and the `IfcElement.IsConnectionRealization` `SET<IfcRelConnectsWithRealizingElements>` back-pointer to the co-realizing attaching `IfcMechanicalFastener` SET — ALL tokens fold distinct and ordinal-sorted so an IFC file's set order never forks the content key, a single token the authored `Text` shape and a multi-token set the typed `PropertyValue.List`, never a `.Head` slice dropping a nailplate+screw second fastener and never a joined literal, the public `IfcReinforcingBar.NominalDiameter` (`IfcReinforcingBarType.NominalDiameter` type-fallback)/`CrossSectionArea`/`BarLength`/`PredefinedType`/`BarSurface`, the public `IfcReinforcingMesh.PredefinedType`/`MeshLength`/`MeshWidth`/`LongitudinalBarNominalDiameter`/`TransverseBarNominalDiameter`/`LongitudinalBarSpacing`/`TransverseBarSpacing`/`LongitudinalBarCrossSectionArea`/`TransverseBarCrossSectionArea`, the `IfcTendon.PredefinedType` `IfcTendonTypeEnum` / `IfcTendonAnchor.PredefinedType` `IfcTendonAnchorTypeEnum` / `IfcBearing.PredefinedType` `IfcBearingTypeEnum` / `IfcVibrationIsolator.PredefinedType` `IfcVibrationIsolatorTypeEnum`, the public `IfcReinforcingElement.SteelGrade` designation, the `HasAssociations` `IfcRelAssociatesMaterial.RelatingMaterial` (`IfcMaterialProfileSetUsage` or bare `IfcMaterialProfileSet`) → `IfcCircleProfileDef.Radius` chain) is consumed as settled vocabulary (`.api/api-geometrygym-ifc`) and a hand-rolled realizing reader is the deleted form; the mechanical-fastener and tendon nominal diameter rides the associated circle-profile radius (the public channel for the internal `mNominalDiameter`) and a fabricated `0` diameter on an unprofiled element is the deleted form (the entry reads `NaN` and is dropped at the row egress); the realizing element's CLASSIFICATION and MATERIAL ride the general `Object`/`Associate` folds, not this bag — an ASSOCIATED material's grade or embodied-carbon column on the connection bag is the named seam violation (those grow on the seam `MaterialPropertySet` the `Semantics/composition` egress authors), while the reinforcing root's OWN declared `SteelGrade` EXPRESS attribute is an ingest-only reader row (public on `IfcReinforcingElement`, the only carrier when an older export binds no material; blank drops at the row egress, and the Materials author never mints it); the realizing family CLOSES at the leaves the `Realizing` table names and the attached-to-one-element `IfcVibrationDamper` is deliberately NOT one (a realizing element seats BETWEEN two elements, and the `.api/api-geometrygym-ifc` catalog publishes no damper surface to read), each being an `IfcElement` leaf so the one `Extract<IfcElement>` walk discovers it exactly once; DETAIL coverage is keyed on the ELEMENT and not on the relation, so a realizing element carries its detail whichever `IfcRelConnects` family realizes it — the relation family's own coverage is `Projection/relations#RELATION_ALGEBRA`'s, where `Connect.Realizing` is authored from `IfcRelConnectsWithRealizingElements` alone and the `IfcRelConnectsPorts.RealizingElement` singular carrier is an OPEN obligation at that owner, unread today; the typed `BoltPattern`/`WeldSchedule` reconstruction relocates to the `Rasm.Fabrication` consumer exactly as the typed analysis model relocated to `Rasm.Compute`, the seam carrying the neutral typed bag alone; the egress is the `Projection/egress#IFC_EGRESS` `Emit` generic `ReauthorProperties`/`ReauthorRelationships` and a `ConnectionItemWire`/`ConnectionWire` second wire crossing the `Rasm.Materials` boundary is the deleted form (those Materials wires are retired, a connection element authored from the Materials/Fabrication side projecting onto the seam graph as an `Object` node + `Connect` edge the `Emit` re-authors).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using GeometryGym.Ifc;
 using LanguageExt;
@@ -35,15 +35,9 @@ using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim.Semantics;
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// FastenerType rows BOTH DetailSchema.Realization and DetailSchema.Product, so a consumer resolves it by the bag
-// SetName FIRST — a bare FastenerType lookup across bags reads a gypsum board screw as a realizing bolt.
-// MembraneSeam is a Product row the panel author emits from its membrane arm ALONE, so a reader keying it for a
-// non-membrane panel resolves absence and reads that panel own fastening off FastenerType; never one read.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ConnectionProjection {
     // --- [JOINT_MODALITY]
-    // Ranked orders the roster by the joint whose failure GOVERNS, the second fact the modalities have always had
-    // and the enumerated form could not express: a truss with welded gussets and bolted splices is welded.
     static readonly string Bolted = nameof(Bolted);
     static readonly string Welded = nameof(Welded);
     static readonly string Bonded = nameof(Bonded);
@@ -52,9 +46,6 @@ public static class ConnectionProjection {
 
     static readonly Seq<string> Ranked = Seq(Welded, Cast, Bolted, Bonded, Bearing);
 
-    // Walking Extract<IfcElement> DIRECTLY (not via the realizing relation) details an element whether or not it
-    // sits in an IfcRelConnectsWithRealizingElements, and the general Objects fold has already minted each as the
-    // Object node this bag binds against.
     public static Fin<Seq<(Node Bag, Relationship Edge)>> All(
         IfcProject project,
         Map<string, NodeId> rooted,
@@ -73,30 +64,18 @@ public static class ConnectionProjection {
             .As()
             .Map(static details => details.Choose(identity).ToSeq())).ToFin();
 
-    // Node cases are class-root [Union] arms with NO compiler-generated `with`, so the content id re-stamps on the
-    // seam Graph/element#NODE_MODEL Node.Relabel — the SAME re-stamp Semantics/composition and Rasm.Materials take,
-    // never a second (GeometryKey, DetailKey) hasher.
     static Node.PropertySet Mint(PropertyBag bag, double tolerance) {
         var draft = new Node.PropertySet(NodeId.Of(new NodeSeed.Placement()), bag);
         return (Node.PropertySet)draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, tolerance)));
     }
 
     // --- [REALIZING_TABLE]
-    // Type identity is EXACT: GetType(), never a pattern match. The realizing families are IfcElement LEAVES in
-    // IFC4.3 with none a supertype of another, so exact keying is total over them today AND fails SAFE tomorrow — a
-    // future subtype lands unclaimed and details nothing, where an `is` ladder would silently detail it against its
-    // parent columns and its own scalars would go unread with no diagnostic.
     static readonly Lazy<FrozenDictionary<Type, RealizingRow>> Realizing = new(static () =>
         new Dictionary<Type, RealizingRow> {
-            // mNominalDiameter has no public getter on the OCCURRENCE and none on IfcMechanicalFastenerType either —
-            // its type edge publishes PredefinedType alone, so no type-level diameter fallback exists to compose,
-            // and claiming one would be a phantom.
             [typeof(IfcMechanicalFastener)] = Row<IfcMechanicalFastener>(
                 static f => Some(f.PredefinedType is IfcMechanicalFastenerTypeEnum.STUDSHEARCONNECTOR or IfcMechanicalFastenerTypeEnum.SHEARCONNECTOR ? Welded : Bolted),
                 Seq(Token<IfcMechanicalFastener>(DetailSchema.FastenerType, static f => f.PredefinedType.ToString())),
                 Seq(Measure<IfcMechanicalFastener>(DetailSchema.NominalDiameter, Dimension.LengthDim, static f => DiameterOf(f).IfNone(double.NaN)))),
-            // IfcFastener, the non-mechanical sibling, publishes PredefinedType alone, so the FastenerType token is
-            // its whole row — kept for the detailer uniform bag read, distinct from the Object node classification.
             [typeof(IfcFastener)] = Row<IfcFastener>(
                 static f => Some(f.PredefinedType is IfcFastenerTypeEnum.WELD ? Welded : Bonded),
                 Seq(Token<IfcFastener>(DetailSchema.FastenerType, static f => f.PredefinedType.ToString())),
@@ -106,8 +85,6 @@ public static class ConnectionProjection {
                 Seq(Token<IfcDiscreteAccessory>(DetailSchema.AccessoryType, static a => a.PredefinedType.ToString()),
                     Tokens<IfcDiscreteAccessory>(DetailSchema.FastenerType, FastenerOf)),
                 Empty<IfcDiscreteAccessory>()),
-            // NominalDiameter reads through the IfcReinforcingBarType.NominalDiameter type-fallback getter; BarType
-            // STUD is the cast-in bar, NOT the welded connector. The NaN defaults drop at the row egress.
             [typeof(IfcReinforcingBar)] = Row<IfcReinforcingBar>(
                 static _ => Some(Cast),
                 Seq(Token<IfcReinforcingBar>(DetailSchema.BarType, static b => b.PredefinedType.ToString()),
@@ -122,8 +99,6 @@ public static class ConnectionProjection {
                     Token<IfcReinforcingMesh>(SteelGrade, static m => m.SteelGrade)),
                 Seq(Measure<IfcReinforcingMesh>(MeshLength, Dimension.LengthDim, static m => m.MeshLength),
                     Measure<IfcReinforcingMesh>(MeshWidth, Dimension.LengthDim, static m => m.MeshWidth)) + MeshBars),
-            // Tendon NominalDiameter/CrossSectionArea/TensionForce are internal with no public getter, so the
-            // diameter recovers through the same profile channel the mechanical fastener takes.
             [typeof(IfcTendon)] = Row<IfcTendon>(
                 static _ => Some(Cast),
                 Seq(Token<IfcTendon>(TendonType, static t => t.PredefinedType.ToString()),
@@ -147,9 +122,6 @@ public static class ConnectionProjection {
                 static _ => Some(Bearing),
                 Seq(Token<IfcVibrationIsolator>(IsolatorType, static i => i.PredefinedType.ToString())),
                 Empty<IfcVibrationIsolator>()),
-            // IfcElementAssembly is an IfcElement and so may sit in an IfcRelConnectsWithRealizingElements — a bolted
-            // splice, a bearing shoe, a prefabricated moment connection. Its modality DERIVES from the parts that
-            // realize it rather than being declared, the one row whose Joint can answer None.
             [typeof(IfcElementAssembly)] = Row<IfcElementAssembly>(
                 AssemblyJoint,
                 Seq(Token<IfcElementAssembly>(AssemblyType, static a => a.PredefinedType.ToString()),
@@ -157,14 +129,11 @@ public static class ConnectionProjection {
                 Empty<IfcElementAssembly>()),
         }.ToFrozenDictionary());
 
-    // Columns type to IfcElement at the table and close over their own case inside Row<T>, so a row body never casts
-    // and the table stays one flat dictionary over the whole family.
     sealed record RealizingRow(
         Func<IfcElement, Option<string>> Joint,
         Seq<(PropertyName Name, Func<IfcElement, Option<PropertyValue>> Read)> Values,
         Seq<(PropertyName Name, Dimension Dimension, Func<IfcElement, double> Read)> Measures);
 
-    // Row<T> is the ONE place the element cast lives, arm-guaranteed because the table key IS the type.
     static RealizingRow Row<T>(
         Func<T, Option<string>> joint,
         Seq<(PropertyName Name, Func<T, Option<PropertyValue>> Read)> values,
@@ -174,12 +143,9 @@ public static class ConnectionProjection {
             values.Map(static v => (v.Name, (Func<IfcElement, Option<PropertyValue>>)(e => v.Read((T)e)))),
             measures.Map(static m => (m.Name, m.Dimension, (Func<IfcElement, double>)(e => m.Read((T)e)))));
 
-    // Token-only families name their empty column set once rather than re-spelling the tuple type at every row.
     static Seq<(PropertyName Name, Dimension Dimension, Func<T, double> Read)> Empty<T>() where T : IfcElement =>
         Seq<(PropertyName, Dimension, Func<T, double>)>();
 
-    // ONE token lands the same Text shape the authored Materials seed bag mints (byte-identical content key);
-    // several land the typed PropertyValue.List — never a .Head slice dropping a nailplate+screw second fastener.
     static (PropertyName Name, Func<T, Option<PropertyValue>> Read) Token<T>(PropertyName name, Func<T, string> read) =>
         (name, value => read(value) is { } token && !string.IsNullOrWhiteSpace(token)
             ? Some((PropertyValue)new PropertyValue.Text(token))
@@ -195,8 +161,6 @@ public static class ConnectionProjection {
     static (PropertyName Name, Dimension Dimension, Func<T, double> Read) Measure<T>(PropertyName name, Dimension dimension, Func<T, double> read) =>
         (name, dimension, read);
 
-    // Only NON-assembly parts contribute, which bounds the walk at one level and makes a malformed cyclic aggregate
-    // terminate by construction.
     static Option<string> AssemblyJoint(IfcElementAssembly assembly) {
         Seq<string> parts = toSeq(assembly.IsDecomposedBy.AsIterable())
             .Bind(static rel => toSeq(rel.RelatedObjects.AsIterable()))
@@ -207,7 +171,6 @@ public static class ConnectionProjection {
         return Ranked.Filter(parts.Contains).Head;
     }
 
-    // A row lists every candidate column unconditionally; row egress drops every non-finite measure and blank token.
     public static Fin<Option<PropertyBag>> BagOf(IfcElement realizing, UnitScheme scale, Op key) =>
         Optional(Realizing.Value.GetValueOrDefault(realizing.GetType()))
             .Bind(row => row.Joint(realizing).Map(kind => (Row: row, Kind: kind)))
@@ -218,11 +181,6 @@ public static class ConnectionProjection {
                     + hit.Row.Measures.Map(column => Measured(column.Name, column.Dimension, column.Read(realizing), scale, key))));
 
     // --- [ROWS]
-    // Joint rails through the schema OWN admission because an out-of-set token rejects at PropertyValue.Of rather
-    // than being trusted here. Measured carries the DIMENSION-only QuantityType — the seam bag law two-peer carve,
-    // whose catalogue-seeding Materials author holds no measure type to name — so an imported and an authored
-    // NominalDiameter content-key identically. Rows accumulates with Validation<Error,T> and collapses through Error.Many;
-    // ValueBag.With is last-write-wins over the schema-stamped bag.
     static Fin<Option<(PropertyName Name, PropertyValue Value)>> Joint(string kind, Op key) =>
         DetailSchema.Realization.Joint(kind, key).Map(static value => Some((DetailSchema.JointType, value)));
 
@@ -241,10 +199,6 @@ public static class ConnectionProjection {
                 .Fold(DetailSchema.Realization.Bag(), static (bag, row) => bag.With(row.Name, row.Value))))).ToFin();
 
     // --- [PROFILE_DIAMETER]
-    // Both IfcMaterialSelect arms are read: the IfcMaterialProfileSetUsage ForProfileSet AND the bare
-    // IfcMaterialProfileSet a type-driven export associates without the occurrence usage. The chain is the one the
-    // profile-hosted IfcMechanicalFastener authoring ctor binds. The finiteness guard rides the Choose so the head
-    // is the first circle with a FINITE radius and a degenerate NaN-radius profile never masks a later valid one.
     static Option<double> DiameterOf(IfcElement element) =>
         element.HasAssociations.AsIterable()
             .Choose(static rel => rel switch {
@@ -257,11 +211,6 @@ public static class ConnectionProjection {
             .Head;
 
     // --- [ACCESSORY]
-    // IfcDiscreteAccessory is the connector BODY, FASTENED BY separate IfcMechanicalFasteners — the IMPORT
-    // counterpart of the Rasm.Materials Component/connector#CONNECTOR_FAMILY seed, whose ConnectorDetail bag
-    // denormalizes both tokens onto one connector Component, so this reader matches that SHAPE through two token
-    // columns. One bounded hop reading only PredefinedType — the joint TOPOLOGY rides the EdgeProjection Connect
-    // edge. Tokens fold distinct then ORDINAL-sorted so an IFC file SET order never forks the content key.
     static Seq<string> FastenerOf(IfcDiscreteAccessory accessory) =>
         toSeq(accessory.IsConnectionRealization.AsIterable()
             .SelectMany(static rel => rel.RealizingElements.AsIterable())
@@ -269,9 +218,6 @@ public static class ConnectionProjection {
             .Distinct().OrderBy(static token => token, StringComparer.Ordinal));
 
     // --- [MESH_AXES]
-    // Mesh bar rows are a CROSS-PRODUCT — {longitudinal, transverse} x {diameter, spacing, area} — not six
-    // independent facts, so the axis fold mints BOTH the PropertyName and the paired GG reader. The axis reader
-    // answers the triple in column order, so the fold zips one row per column and the name derives from the prefix.
     static readonly Seq<(PropertyName Name, Dimension Dimension, Func<IfcReinforcingMesh, double> Read)> MeshBars =
         Family(
             ("Longitudinal", static m => (m.LongitudinalBarNominalDiameter, m.LongitudinalBarSpacing, m.LongitudinalBarCrossSectionArea)),
@@ -285,11 +231,6 @@ public static class ConnectionProjection {
             (PropertyCategory.Seam.Row($"{axis.Axis}BarCrossSectionArea"), Dimension.AreaDim, m => axis.Read(m).Area)));
 
     // --- [READER_ROWS]
-    // Rows this IMPORT reader recovers BEYOND the canonical DetailSchema vocabulary. PropertyName stays an OPEN key
-    // per Properties/property#DETAIL_SCHEMA, so an ingest-only scalar the Materials author never mints lands here,
-    // and the moment a second package keys on one it is PROMOTED to a DetailSchema static at the Rasm.Element owner
-    // — the anchor token took exactly that route, so the tendon-anchor row composes DetailSchema.AnchorType above.
-    // Mesh bar-axis rows mint through that SAME category inside Family.
     static readonly PropertyName BearingType = PropertyCategory.Seam.Row("BearingType");
     static readonly PropertyName IsolatorType = PropertyCategory.Seam.Row("IsolatorType");
     static readonly PropertyName TendonType = PropertyCategory.Seam.Row("TendonType");

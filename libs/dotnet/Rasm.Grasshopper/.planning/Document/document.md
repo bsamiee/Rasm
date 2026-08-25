@@ -26,7 +26,7 @@ Every gate takes the session's injected `MonotonicTimeline` REQUIRED (folder RUL
 - Growth: a new mint posture is one `DocumentTier` row; a new inert read is one facet row with its answer case; a new host answer shape is one `GateOutcome` case; a new gauged gate is one `GateLane` row.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.Undo;
@@ -39,7 +39,7 @@ using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DocumentTier {
     public static readonly DocumentTier Inert = new(key: 0, mint: static () => HostDocument.NewInertDocument());
@@ -55,8 +55,6 @@ public sealed partial class MarkPosture {
     [UseDelegateFromConstructor] internal partial Unit Stamp(HostDocument document);
 }
 
-// Bounds DERIVE from the kernel dispatch lanes the gates cross on — the four gates that measured with no
-// declared bound now measure against one owner and no millisecond literal exists here.
 [SmartEnum<int>]
 public sealed partial class GateLane : IGaugeLane<GateLane> {
     public static readonly GateLane Lifecycle = new(key: 0, lane: static () => DispatchLane.Interactive);
@@ -115,9 +113,7 @@ public abstract partial record DocumentAnswer {
     public sealed record ProjectionCase(PointF Centre, float Zoom) : DocumentAnswer;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Three graph-verb payloads live BESIDE the spine that carries them; `Document/graph.md` and
-// `Document/solution.md` compose them and their member shapes are the host verbs' own return shapes.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct WirelessPair(Guid Shout, Guid Listen) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -156,10 +152,6 @@ public abstract partial record GateOutcome {
     public sealed record RunCase(RunPulse Pulse) : GateOutcome;
 }
 
-// Kernel gauge IS the temporal evidence: identity, seal, outcome, span, and the causal deltas — a stored
-// stamp pair or an outcome-nested observation wrapper has no seat.
-// Generic over its FACTS case (E-G47): the document gates' facts are the causal delta window; the editor
-// gate's facts are its settled shell posture — one receipt family, per-gate facts, zero receipt siblings.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct GateReceipt<TFacts>(
     Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome,
@@ -169,9 +161,7 @@ public readonly record struct GateReceipt<TFacts>(
     public bool IsValid => Span.IsValid;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// SPINE the folder's five gates compose: resolve, marshal synchronously, gauge, receipt — one line per gate
-// where five ~10-line preambles stood (the folder's own ruled collapse).
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class DocumentGate {
     public static Fin<GateReceipt<Seq<UiEvent<GhFact>>>> Run(
@@ -203,12 +193,10 @@ public static partial class DocumentScope {
     public static Fin<HostDocument> Mint(DocumentTier tier, Op? key = null);
     public static Fin<HostDocument> Load(IReader reader, Op? key = null);
 
-    // Probe gates the accessor: a missing archive entry is None, a malformed one a typed fault.
     public static Fin<Option<T>> ReadProbe<T>(IReader reader, string name, Op? key = null) where T : IStorable;
 
     public static Fin<DocumentAnswer> Read(DocumentFacet facet, Option<HostDocument> graph = default, Op? key = null);
 
-    // ABSENCE rides the option — the caller-supplied fallback fabricated a value for a key nothing wrote.
     public static Fin<Option<T>> Recall<T>(string name, Option<HostDocument> graph = default, Op? key = null);
 
     public static Fin<Seq<HostDocument>> Roster(Op? key = null);
@@ -230,7 +218,7 @@ public static partial class DocumentScope {
 - Growth: a new document verb is one `DocumentAct` case whose `Switch` arm breaks the gate loudly; a new sweep, posture, or depth verb is one row on its owning family; a new causal stream is one `GhSource` row added to the observation set.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.Undo;
@@ -243,9 +231,7 @@ using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Scope discriminant every scoped verb reads: a computed EMPTY set is an explicit set touching nothing,
-// never a silent whole-selection sweep — the gain the Seq-emptiness convention could not spell.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record SelectionTarget {
     private SelectionTarget() { }
@@ -266,8 +252,6 @@ public sealed partial class SelectionSweep {
     [UseDelegateFromConstructor] internal partial int Sweep(DocumentMethods verbs);
 }
 
-// Six posture verbs publish explicit-set twins; the four pin-side reveals do not — the twin is an OPTION column
-// and the gate refuses an explicit target on an absent one with a typed refusal naming the axis.
 [SmartEnum<int>]
 public sealed partial class SelectionPosture {
     public static readonly SelectionPosture Enabled = new(key: 0,
@@ -318,8 +302,6 @@ public sealed partial class DeleteDepth {
     [UseDelegateFromConstructor] internal partial GateOutcome Outcome(int touched);
 }
 
-// Host names the axes by what each KEEPS reachable and takes them positionally; the set carries membership
-// and the one host call reads `Admits` per named position — `HasFlag` ladders and a `[Flags]` enum delete.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IsolationAxis : ICapability<IsolationAxis> {
@@ -329,19 +311,15 @@ public sealed partial class IsolationAxis : ICapability<IsolationAxis> {
     public static CapabilityLaw<IsolationAxis> Law => CapabilityLaw<IsolationAxis>.Open;
 }
 
-// ONE settlement union: the five lifecycle/shelf cases beside the seventeen graph cases — the case decides
-// whether the act seals, observes, or neither, and the former two-gate split was an arity twin.
 [Union]
 [GenerateUnionOps]
 public abstract partial record DocumentAct {
     private DocumentAct() { }
-    // --- lifecycle and shelf (no seal, no observation — the host mints no undo for these by design)
     public sealed record CloseCase : DocumentAct;
     public sealed record StoreCase(IWriter Writer, FileContents Contents) : DocumentAct;
     public sealed record MarkCase(MarkPosture Posture) : DocumentAct;
     public sealed record StashCase(string Name, IStorable Value) : DocumentAct;
     public sealed record ForgetCase(string Name) : DocumentAct;
-    // --- graph verbs (sealed and observed)
     public sealed record SweepCase(SelectionSweep Sweep) : DocumentAct;
     public sealed record CopyCase(ClipboardKind Kind) : DocumentAct;
     public sealed record CutCase(ClipboardKind Kind) : DocumentAct;
@@ -354,7 +332,6 @@ public abstract partial record DocumentAct {
     public sealed record SnippetCase(Snippet Payload, PointF At) : DocumentAct;
     public sealed record NudgeCase(int X, int Y) : DocumentAct;
     public sealed record PostureCase(SelectionPosture Posture, SelectionTarget Target) : DocumentAct;
-    // Override crosses as the KERNEL colour and projects to the host colour at its one write arm.
     public sealed record DressCase(PerceptualColor Override, SelectionTarget Target) : DocumentAct;
     public sealed record IsolateCase(IDocumentObject Subject, CapabilitySet<IsolationAxis> Reach) : DocumentAct;
     public sealed record MigrateCase(Seq<IDocumentObject> Objects, PointF At) : DocumentAct;
@@ -362,10 +339,8 @@ public abstract partial record DocumentAct {
     public sealed record RevealDependenciesCase : DocumentAct;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class DocumentScope {
-    // ONE gate over the whole union: the veto fires before a mutating verb, the causal window brackets it, the
-    // seal law reads the case, and the spine gauges the crossing — a sealing case with no label refuses typed.
     public static Fin<GateReceipt<Seq<UiEvent<GhFact>>>> Transact(
         Option<VerbNoun> label,
         DocumentAct op,
@@ -374,14 +349,9 @@ public static partial class DocumentScope {
         Option<HostDocument> graph = default,
         Op? key = null);
 
-    // Causal window: a window-local kernel drain, the four document GhSource rows, AllOrNothing seating,
-    // verb, complete, fold — deltas are ordered kernel envelopes on the receipt. Internal: `Document/graph.md`'s
-    // mutation gate brackets its verbs with the SAME window rather than minting a sibling.
     internal static Fin<(Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome, Seq<UiEvent<GhFact>> Deltas)> Observed(
         HostDocument document, MonotonicTimeline clock, Func<Fin<(Op, Option<VerbNoun>, GateOutcome)>> verb, Op key);
 
-    // Preflight-gated wrap: the host's own feasibility verdict runs on the same roster the mint consumes; a
-    // refusal settles RefusedCase(whyNot) with NO seal — nothing mutated.
     private static Fin<(Op Verb, Option<VerbNoun> Seal, GateOutcome Outcome)> Wrap(
         HostDocument document, Op caseOp, SelectionTarget target,
         Func<DocumentMethods, IDocumentObject[], (bool Can, string WhyNot)> preflight,

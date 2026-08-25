@@ -28,7 +28,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`/`TraverseM`, `Fold`, `BindFail`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `AcceptValidated`), `Domain/rails` (`Op`, `Op.Text`, `Op.Catch`), `Domain/context` (`Context`, `ToleranceLane`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`, `session.Demand`), `Document/commit` (`DocumentCommit.Sealed`, `UndoSerial`, `RedrawPolicy`), `Document/tables` (`TableTarget`, `ResourceIndex`, `SelectionAxis`), `Document/layers` (`Layers.Ask`, `LayerTree`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`), `Commands/selection` (`PartIndex`), `Blocks` (`BlockGraph`, `GraphSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:35,57-62,81-91,138-144` — the mode word, the state and structural discriminants, selection and grip reads, the dynamic-transform and history probes) and `Rhino.UI.Gumball` (`api-rhino-ui.md` — `GumballFrame`, `GumballScaleMode`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -43,7 +43,7 @@ using Rhino.UI.Gumball;
 
 namespace Rasm.Rhino.Objects;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class HighlightGrade {
     public static readonly HighlightGrade None = new(key: 0);
@@ -73,9 +73,6 @@ public sealed partial class SelectionGrade {
     public static readonly SelectionGrade Persistent = new(key: 2);
 }
 
-// `ShortDescriptionWithClosedStatus` publishes a three-valued closed-status contract of the host's own. A bare int
-// published a number whose meaning lived in the host's documentation and nowhere in the type, so a consumer
-// comparing it re-derived the contract at every read; an unmapped value now refuses instead of propagating.
 [SmartEnum<int>]
 public sealed partial class ClosedStatus {
     public static readonly ClosedStatus NotApplicable = new(key: 0);
@@ -83,9 +80,6 @@ public sealed partial class ClosedStatus {
     public static readonly ClosedStatus Closed = new(key: 2);
 }
 
-// Ten adjacent bool columns answered one question — what is true of this row — and each re-read its own host
-// member at the call site. Every row now OWNS its read, so the census is one fold over `Items` and an eleventh
-// host predicate is one row rather than a column on a record every consumer already destructures.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ObjectTrait : ICapability<ObjectTrait> {
@@ -113,8 +107,6 @@ public sealed partial class GripStance {
     public static readonly GripStance Shown = new(key: 1);
     public static readonly GripStance Selected = new(key: 2);
 
-    // Selected-without-shown is a corner no live object holds — grips that are off have none to select — so the
-    // pair admits as a ladder here and the impossible host answer refuses at the read instead of riding a snapshot.
     internal static Fin<GripStance> Of(RhinoObject native, Op key) => (native.GripsOn, native.GripsSelected) switch {
         (false, false) => Fin.Succ(value: Off),
         (true, false) => Fin.Succ(value: Shown),
@@ -123,8 +115,6 @@ public sealed partial class GripStance {
     };
 }
 
-// Three reference-provenance serials spell absence as `0`, which a bare `uint` column carried past the
-// read as an ordinary number every consumer had to know to compare.
 public readonly record struct SourceModel(Option<uint> Worksession, Option<uint> Reference, Option<uint> Definition) {
     internal static SourceModel Of(RhinoObject native) => new(
         Worksession: Present(serial: native.WorksessionReferenceSerialNumber),
@@ -159,8 +149,6 @@ public sealed record ObjectSnapshot(
             Text: native.ShortDescriptionWithClosedStatus(prepend: false, plural: false, status: out int status),
             Status: status)))
         from closure in key.Row<int, ClosedStatus>(closed.Status)
-        // Type flags arrive as a MASK — a host row can carry more than one bit — so decomposition rides the spine's
-        // `ObjectKinds.OfMask` rather than a single-row lookup that would pick one bit and drop every other.
         from kind in ObjectKinds.OfMask(mask: native.ObjectType, key: key)
         from layer in ResourceIndex.Admit(value: native.Attributes.LayerIndex, key: key)
         let material = ResourceIndex.Maybe(value: native.Attributes.MaterialIndex)
@@ -198,7 +186,7 @@ public sealed record ObjectSnapshot(
 - Law: the gumball pose crosses detached — `GumballFrame` is a host struct whose `Plane`, `ScaleGripDistance`, and `ScaleMode` copy into the pose value, and `GumballScaleMode` rides the pose as a seam discriminant.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class GumballAlignment {
     public static readonly GumballAlignment Standard = new(read: static native =>
@@ -206,14 +194,10 @@ public sealed partial class GumballAlignment {
     public static readonly GumballAlignment Current = new(read: static native =>
         native.TryGetGumballFrameForCurrentAlignment(frame: out GumballFrame frame) ? Some(frame) : Option<GumballFrame>.None);
 
-    // Generated delegate column: a hand-declared `Func` property is the rung-2 spelling of the same row, and it
-    // publishes that delegate as state a consumer reads instead of behavior the row performs.
     [UseDelegateFromConstructor]
     internal partial Option<GumballFrame> Read(RhinoObject native);
 }
 
-// Each row CARRIES the host flag it contributes, so the anchor read is one flag union and the axis cannot be
-// re-spelled as a ternary at a second site.
 [SmartEnum<bool>]
 public sealed partial class FrameScale {
     public static readonly FrameScale Excluded = new(key: false, flags: RhinoObject.ObjectFrameFlags.Standard);
@@ -271,7 +255,7 @@ public abstract partial record FramePose : IDetachedDocumentResult {
 - Growth: a new component verb is one `Touch` case dispatched in the same fold; a new reach shape is one `Reach` case every verb arm reads.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Reach {
     private Reach() { }
@@ -358,8 +342,6 @@ public abstract partial record Touch {
                 Highlight: highlight));
     }
 
-    // `TraverseM` IS the fold-then-bind this hand-rolled: it short-circuits on the first refusal and accumulates
-    // in order, and spelling it out invites the accumulator and the rail to drift apart on the next edit.
     private Fin<Seq<TouchResult>> ApplyCaptured(Seq<TouchState> states, Op key) {
         Fin<Seq<TouchResult>> primary = states
             .TraverseM(state => Apply(native: state.Native, key: key))
@@ -451,7 +433,7 @@ public abstract partial record Touch {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class ObjectSignal {
     public static readonly ObjectSignal Disabled = new(on: false);
@@ -481,7 +463,7 @@ public abstract partial record TouchResult {
 - Law: fill resolution demands live clipping planes — each requested id resolves through `FindId` to a `ClippingPlaneObject` inside the grant, and a non-plane id is a typed refusal, never a silent skip.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class FillSpan {
     public static readonly FillSpan Clipped = new(key: false);
@@ -544,12 +526,9 @@ public abstract partial record SectionCut {
                     attributes: null, key: context.Op))
                 select pieces);
 
-    // `.Strict()` is LOAD-BEARING, not tidiness: `toSeq` over a host array is lazy, the fold below duplicates
-    // each shape into a piece, and `Release` disposes the source arrays on the way out — so a lazy sequence still
-    // holding the array would enumerate disposed natives. Forcing the run before the release closes that window.
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class ObjectPiece {
 
     internal static Fin<Seq<ObjectPiece>> Paired(GeometryBase[]? geometry, ObjectAttributes[]? attributes, Op key) {
@@ -581,9 +560,6 @@ public sealed class ObjectPiece {
             .Rollback(handle)
         select new ObjectPiece(geometry: handle, attributes: metadata);
 
-    // ONE custody fold, two instantiations: mint in order, and on the first refusal release the complete prefix
-    // already accumulated. The per-product mint and the prefix release are the only things that differ, so they
-    // ride as arguments — the two hand-written folds this replaces were the same body under different names.
     private static Fin<Seq<TProduct>> Custody<TSource, TProduct>(
         Seq<TSource> rows, Func<TSource, Fin<TProduct>> mint, Func<TProduct, Fin<Unit>> release, Op key) =>
         rows.Fold(
@@ -626,8 +602,6 @@ public sealed class ObjectPiece {
                     key: key)),
             key: key);
 
-    // ONE disposal fold under three shapes: the roster a fold accumulates, the per-object products an extraction
-    // answers, and the one-product rows a harvest answers. The two keyed arities both project onto the roster.
     internal static Fin<Unit> Release(Seq<ObjectPiece> pieces, Op key) =>
         Custody.Release(held: pieces, release: piece => piece.Release(key), key: key);
 
@@ -666,7 +640,7 @@ public sealed class ObjectPiece {
 - Growth: a new read is one ask case with its answer case; a new census dimension is one `DocumentCensus` field folded from an existing owner; the dispatch, the entries, and every consumer read it with zero new surface.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StateAsk {
     private StateAsk() { }
@@ -705,9 +679,6 @@ public abstract partial record StateAnswer : IDetachedDocumentResult {
     public sealed record PartRoster(Seq<(Guid Id, Seq<ComponentIndex> Components)> Rows) : StateAnswer;
     public sealed record PartStates(Seq<PartState> Rows) : StateAnswer;
     public sealed record Extent(BoundingBox Bounds) : StateAnswer;
-    // Members and cuts BOTH answer detached pieces and had one case, so a consumer holding the answer could not
-    // tell an object exploded into its members from an object sectioned against a plane — two questions whose
-    // products carry different meaning and whose callers do different things with them.
     public sealed record Members(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
     public sealed record Sections(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : StateAnswer;
 
@@ -723,12 +694,6 @@ public abstract partial record StateAnswer : IDetachedDocumentResult {
             sections: static (key, answer) => ObjectPiece.Release(answer.Rows, key));
 }
 
-// Both carriers were bare positional records: nothing refused an empty id, a `-1` component on a named type, a
-// blank path, or a negative byte count, so a malformed row could enter a census and no reader could tell. The
-// component's own legal-corner law seats at `Commands/selection` as `PartIndex` — the lower stratum this plane
-// already imports — so the pattern is admitted once at construction rather than spelled at each use site. `Part`
-// is that admission's one lift: the kernel's typed-error receivers cover primitive raws and its lifter pair is
-// class-constrained, so a `[ValueObject<ComponentIndex>]` under a declared fault family reaches the rail here.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class PartState {
@@ -754,8 +719,6 @@ public sealed partial class PartState {
                 (owner == Guid.Empty, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Id) })))));
     }
 
-    // Raw host pairs enter ONCE: the caller hands what the component reader answered and the owner admits the
-    // index and the row together, so no fold re-spells the admission before it names the object it belongs to.
     internal static Fin<PartState> Of(
         Guid id,
         ComponentIndex component,
@@ -816,7 +779,7 @@ public sealed record DocumentCensus(
     int BlockCycleGroups,
     Option<ArchiveExtent> Archive) : IDetachedDocumentResult;
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Objects {
     public static Fin<StateAnswer> Ask(DocumentSession session, TableTarget target, StateAsk ask) {
         Op op = Op.Of();
@@ -833,9 +796,6 @@ public static class Objects {
                                .TraverseM(native => ctx.Op.Catch(() =>
                                    Fin.Succ(value: (native.Id, ask.Frame.Read(native: native))))).As()
                                .Map(static rows => (StateAnswer)new StateAnswer.Posed(Rows: rows)),
-                           // Both roster reads answer `null` for an object carrying no components, so both fold
-                           // absence to the empty roster the way `HighlightState` already does; bare `toSeq` over
-                           // that selected reader threw on exactly that answer at the one site holding it.
                            selectedParts: static (ctx, _) => ctx.Natives
                                .TraverseM(native => ctx.Op.Catch(() => Fin.Succ(value: (
                                    native.Id,
@@ -882,9 +842,6 @@ public static class Objects {
                                        .Bind(parts => DetachMembers(members: parts, key: ctx.Op))),
                                key: ctx.Op)
                                .Map(static rows => (StateAnswer)new StateAnswer.Members(Rows: rows)),
-                           // Only the cut arm needs the model's tolerance bundle, so it reads the kernel `Context`
-                           // off the pinned document inside its own arm rather than charging every other ask a
-                           // host read it never consults.
                            cut: static (ctx, ask) =>
                                from domain in Rasm.Domain.Context.Of(doc: ctx.Document).ToFin()
                                from rows in ObjectPiece.Acquire(
@@ -931,10 +888,6 @@ public static class Objects {
                    : Fin.Fail<Seq<ObjectSnapshot>>(error: op.InvalidResult())
                from path in op.Catch(() => Fin.Succ(value: Op.Text(document.Path)))
                from tree in Layers.Ask(session: session, key: op)
-               // ONE graph source, three questions against it. Three separate `GraphSource.Live` values made the
-               // graph page build the definition topology three times over the same pinned grant, and — worse —
-               // those three answers disagree whenever a definition changes between builds, leaving the census to
-               // report a placement count from one topology and a cycle count from another.
                let topology = new GraphSource.Live(Session: session)
                from definitions in BlockGraph.Ask(source: topology, question: new BlockGraphAsk.Definitions())
                    .Bind(answer => answer is BlockGraphAnswer.Nodes nodes
@@ -983,7 +936,6 @@ public static class Objects {
                 ? Fin.Succ(Option<ArchiveExtent>.None)
                 : Fin.Fail<Option<ArchiveExtent>>(error));
 
-    // Exemption: the handle bracket is the platform-forced disposal seam the length read needs.
     private static long OpenLength(string path) {
         using Microsoft.Win32.SafeHandles.SafeFileHandle handle = System.IO.File.OpenHandle(path: path);
         return System.IO.RandomAccess.GetLength(handle: handle);

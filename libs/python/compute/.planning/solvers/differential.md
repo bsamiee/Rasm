@@ -19,7 +19,7 @@ This solve is adjoint-differentiable, so a parametric study reads sensitivities 
 - Growth: a deterministic solver is one `OdeSolver`+`_SOLVER` row; a stochastic solver adds one `SdeSolver`+`_SOLVER` row, a strong-order-1.5/Langevin solver one `_LEVY` row admitting it to the adaptive controller, and a Langevin solver one `_LANGEVIN` member — never a fourth equation case. Each new equation class lands one `DifferentialIntent` case and one `_terms` arm; a new step controller/adjoint/save/event/path is one enum member with its row or ternary; a new integration scalar is one `IntegratePolicy` field; a new termination class is one `_STATUS` row on the receipt owner; a new gated module is one `SolveEngine` field and one `gated()` import line.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -42,10 +42,8 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
-# Field thunks are (t, y) -> dy/drift/diffusion; the CDE control is a sampled (ts, ys) pair
-# backward_hermite lowers. The numpy floor narrows to np.ndarray at its jaxlib-free boundary.
 type Pytree = PyTree[Float[Array, "..."]]
 type FieldFn = Callable[[float, Pytree], Pytree]
 type Span = tuple[float, float]
@@ -61,8 +59,8 @@ class AdjointMode(StrEnum):
     RECURSIVE_CHECKPOINT = "recursive_checkpoint"
     BACKSOLVE = "backsolve"
     IMPLICIT = "implicit"
-    DIRECT = "direct"  # reverse-mode autodiff through the unrolled solve
-    FORWARD = "forward"  # forward-mode; the few-parameters / batched-sweep sensitivity adjoint
+    DIRECT = "direct"
+    FORWARD = "forward"
 
 
 class SaveKind(StrEnum):
@@ -80,7 +78,7 @@ class OdeSolver(StrEnum):
     TSIT5 = "tsit5"
     DOPRI5 = "dopri5"
     DOPRI8 = "dopri8"
-    IMPLICIT_EULER = "implicit_euler"  # order-1 A-B-L-stable SDIRK floor; embedded order-2 Heun error estimate keeps it adaptive
+    IMPLICIT_EULER = "implicit_euler"
     KENCARP3 = "kencarp3"
     KENCARP4 = "kencarp4"
     KENCARP5 = "kencarp5"
@@ -102,26 +100,21 @@ class SdeSolver(StrEnum):
     SLOW_RK = "slow_rk"
     SEA = "sea"
     SPARK = "spark"
-    ALIGN = "align"  # underdamped Langevin; pairs with the UnderdampedLangevin*Term position-velocity term
+    ALIGN = "align"
     SHOULD = "should"
     QUICSORT = "quicsort"
 
 
 class BrownianPath(StrEnum):
-    VIRTUAL = "virtual"  # VirtualBrownianTree — reproducible, reverse-mode-safe, BacksolveAdjoint-admitting
-    UNSAFE = "unsafe"  # UnsafeBrownianPath — faster forward-only path, no reverse-mode reconstruction
+    VIRTUAL = "virtual"
+    UNSAFE = "unsafe"
 
 
-# Levy-area level a strong-order-1.5 solver demands; the order-1 family carries none and falls to the
-# BrownianIncrement default. SpaceTimeTimeLevyArea is a superset, so SlowRK's level also satisfies the
-# space-time solvers.
 type LevyLevel = Literal["space_time", "space_time_time"]
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Band-independent Brownian-coupling axis: keys each SdeSolver member onto the LevyLevel the gated
-# _LEVY_CLASS later resolves. Order-1 solvers are absent, keeping the BrownianIncrement default.
 _LEVY: Map[SdeSolver, LevyLevel] = Map.of_seq([
     (SdeSolver.SRA1, "space_time"),
     (SdeSolver.SHARK, "space_time"),
@@ -134,15 +127,12 @@ _LEVY: Map[SdeSolver, LevyLevel] = Map.of_seq([
     (SdeSolver.SLOW_RK, "space_time_time"),
 ])
 
-# Term-shape axis: membership selects the UnderdampedLangevin*Term pair over a (x, v) state; the
-# drift thunk supplies grad_f, the diffusion thunk is unused (fixed by gamma/u), and y0 IS the (x, v) pair.
 _LANGEVIN: frozenset[SdeSolver] = frozenset({SdeSolver.ALIGN, SdeSolver.SHOULD, SdeSolver.QUICSORT})
 
-# family DEFAULT graduation ceiling; a caller's tighter row overrides at `graduate` on solvers/receipt.
 _CEILING: Final[Map[str, float]] = Map.of_seq([("residual", 1e-6)])
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class IntegratePolicy(Struct, frozen=True):
@@ -152,20 +142,20 @@ class IntegratePolicy(Struct, frozen=True):
     event: EventKind = EventKind.NONE
     rtol: float = 1e-8
     atol: float = 1e-8
-    dtmin: float | None = None  # PIDController lower step clamp; None lets the controller pick freely
-    dtmax: float | None = None  # PIDController upper step clamp for a stiff long-horizon march
-    step_ts: tuple[float, ...] | None = None  # forced exact step times; read only on the adaptive path
-    jump_ts: tuple[float, ...] | None = None  # known vector-field discontinuities the clip wrap steps around; adaptive path only
-    rejected_revisit: int | None = None  # max CONSECUTIVE rejected-step revisits — noncommutative-noise SDE Levy correctness; adaptive path only
-    init_steps: int = 1000  # grid count seeding dt0=(t1-t0)/init_steps, never a buried literal
-    max_steps: int = 4096  # diffeqsolve step budget; raised past the default for stiff long horizons
-    noise_dim: int | None = None  # Brownian width; None couples noise to y0's last dim for diagonal noise
-    brownian: BrownianPath = BrownianPath.VIRTUAL  # UNSAFE is forward-only, floored to VIRTUAL under BACKSOLVE
-    gamma: float = 1.0  # underdamped-Langevin friction; read only by the Langevin arm
-    langevin_u: float = 1.0  # underdamped-Langevin inverse-mass (1/m); read only by the Langevin arm
-    condition: Callable[..., Pytree] | None = None  # diffrax Event cond_fn(t, y, args, **kw); ROOT_FIND only
-    root_finder: object | None = None  # an optimistix AbstractRootFinder deferred behind the worker lane
-    batched: bool = False  # y0's leading axis is a sweep filter_vmapped through one solve under FORWARD
+    dtmin: float | None = None
+    dtmax: float | None = None
+    step_ts: tuple[float, ...] | None = None
+    jump_ts: tuple[float, ...] | None = None
+    rejected_revisit: int | None = None
+    init_steps: int = 1000
+    max_steps: int = 4096
+    noise_dim: int | None = None
+    brownian: BrownianPath = BrownianPath.VIRTUAL
+    gamma: float = 1.0
+    langevin_u: float = 1.0
+    condition: Callable[..., Pytree] | None = None
+    root_finder: object | None = None
+    batched: bool = False
     seed: int = 0
 
 
@@ -205,11 +195,6 @@ class DifferentialIntent:
         return DifferentialIntent(cde=(vector_field, control, y0, span, solver, policy))
 
     async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
-        # one HOSTILE-trait Kernel carries the solve; isolation, band, and worker-death retry derive at
-        # runtime Kernel crossing owner. This weave owns span, fence, and the fenced contributor harvest under the
-        # caller's composition key, defaulted so the root call shape stays scope-free.
-        # `key` names the integrated system the caller already identified — a convergence verdict keys to what was
-        # solved, never to itself — and crosses as an ordinary kernel argument so the receipt settles carrying it.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self, key)
 
@@ -218,19 +203,12 @@ class DifferentialIntent:
     def graduates(
         self, receipt: SolverReceipt, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[GraduationReceipt]":
-        # `graduate` projects the receipt's own ledger AND its own key, so the receipt IS the whole evidence and the
-        # retired `key` parameter restated a coordinate the value already reconstructs.
         return graduate(
             EvidenceScope.DIFFERENTIAL.value, f"solve.{self.tag}", receipt.content_key, receipt, ceiling or dict(_CEILING.items()),
             composition=composition,
         )
 
 
-# Gated modules folded into one value object, behavior built ONCE per solve: every carrier method
-# reads self.dfx/eqx/jnp/jtu/jr rather than re-importing or threading a loose handle quadruple.
-# These imports stay function-local against the module-scope `lazy` dialect on the compute RULINGS [04] x64
-# ruling: the config seam must precede the first jax dereference, and the frozen carrier enforces that
-# structurally — every `self.` handle exists only after `gated()` armed x64.
 @dataclass(frozen=True, slots=True)
 class SolveEngine:
     dfx: object
@@ -241,37 +219,32 @@ class SolveEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax
 
-        jax.config.update("jax_enable_x64", True)  # armed before any dependent import: 1e-8 rtol/atol and stiff/adjoint solves assume float64
+        jax.config.update("jax_enable_x64", True)
 
-        import diffrax as dfx  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import equinox as eqx  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import jax.numpy as jnp  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import jax.random as jr  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import jax.tree_util as jtu  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import diffrax as dfx
+        import equinox as eqx
+        import jax.numpy as jnp
+        import jax.random as jr
+        import jax.tree_util as jtu
 
         return cls(dfx=dfx, eqx=eqx, jnp=jnp, jtu=jtu, jr=jr)
 
-    # One residual norm, total over a structured y0 pytree where a bare jnp.linalg.norm assumes a
-    # single array leaf: the per-leaf sum-of-squares fold reduces to the global L2 norm. Returns the
-    # traced scalar — the caller coerces at the eager boundary, never inside filter_vmap where float()
-    # on a Tracer raises.
     def tree_norm(self, tree: object) -> object:
         squared = self.jtu.tree_map(lambda leaf: self.jnp.sum(self.jnp.asarray(leaf) ** 2), tree)
         return self.jtu.tree_reduce(lambda a, b: a + b, squared, 0.0) ** 0.5
 
     def verdict(self, result: object) -> str:
-        # receipt-owned shared enum-verdict fold over this carrier's handle and diffrax.RESULTS.
         return verdict(self.jnp, self.dfx.RESULTS, result)
 
-    def lift(self, y0: Pytree) -> object:  # per-leaf; a bare jnp.asarray flattens a structured (x, v)/multi-leaf y0
+    def lift(self, y0: Pytree) -> object:
         return self.jtu.tree_map(self.jnp.asarray, y0)
 
-    def terminal(self, solution: object) -> object:  # last save on every leaf; total over the y0 pytree
+    def terminal(self, solution: object) -> object:
         return self.jtu.tree_map(lambda leaf: self.jnp.asarray(leaf)[-1], solution.ys)
 
-    def last_dim(self, y0: Pytree) -> int:  # diagonal-noise width: y0's last leaf's last dimension
+    def last_dim(self, y0: Pytree) -> int:
         return int(self.jnp.asarray(self.jtu.tree_leaves(y0)[-1]).shape[-1])
 
     def adjoint(self, mode: AdjointMode) -> object:
@@ -280,13 +253,9 @@ class SolveEngine:
     def save(self, policy: IntegratePolicy) -> object:
         return self.dfx.SaveAt(t1=True, dense=policy.save is SaveKind.DENSE)
 
-    # BACKSOLVE reconstructs the path at backward time-points UnsafeBrownianPath cannot supply,
-    # so the path floors to VirtualBrownianTree there.
     def reproducible_path(self, policy: IntegratePolicy) -> bool:
         return policy.brownian is BrownianPath.VIRTUAL or policy.adjoint is AdjointMode.BACKSOLVE
 
-    # Underdamped-Langevin (x, v) term-pair: gamma and u parameterise the drift/diffusion terms, the
-    # drift thunk supplying the potential gradient.
     def langevin_terms(self, policy: IntegratePolicy, drift: FieldFn, brownian: object) -> object:
         grad = self.eqx.filter_jit(lambda t, y, _: drift(t, y))
         return self.dfx.MultiTerm(
@@ -294,14 +263,10 @@ class SolveEngine:
             self.dfx.UnderdampedLangevinDiffusionTerm(gamma=policy.gamma, u=policy.langevin_u, bm=brownian),
         )
 
-    # adaptive_capable gates BOTH the event-forced and StepKind.PID paths: an order-1 SDE solver (absent
-    # from _LEVY) carries no error estimate, floors to ConstantStepSize, and arms no event.
     def _forced_pid(self, tag: str, solver: OdeSolver | SdeSolver, policy: IntegratePolicy) -> bool:
         adaptive_capable = tag != "sde" or solver in _LEVY
         return adaptive_capable and (policy.event is not EventKind.NONE or policy.step is StepKind.PID)
 
-    # ClipStepSizeController wraps ADAPTIVE controllers alone (ValueError otherwise), so the clip triple
-    # reads only on the PID path — a fixed-step solve already owns its grid and the fields stay inert there.
     def controller(self, tag: str, solver: OdeSolver | SdeSolver, policy: IntegratePolicy) -> object:
         if self._forced_pid(tag, solver, policy):
             pid = self.dfx.PIDController(rtol=policy.rtol, atol=policy.atol, dtmin=policy.dtmin, dtmax=policy.dtmax)
@@ -316,11 +281,9 @@ class SolveEngine:
         return _EVENT(self.dfx, policy)[policy.event]() if self._forced_pid(tag, solver, policy) else None
 
 
-# --- [TABLES] ------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 
-# diffrax resolves only on the worker lane, so these tables build from the carrier's `dfx` at solve time,
-# not module import. Each is total over its vocabulary with no NotImplemented arm.
 def _SOLVER(dfx: object) -> Map[OdeSolver | SdeSolver, Callable[[], object]]:
     return Map.of_seq([
         (OdeSolver.TSIT5, dfx.Tsit5),
@@ -373,11 +336,9 @@ def _EVENT(dfx: object, policy: IntegratePolicy) -> Map[EventKind, Callable[[], 
     ])
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# One measured kernel — module-level and import-resolvable, so it crosses the process lane as spec
-# data plus operands; the weave's `@receipted(REDACTION)` harvest streams the receipt.
 def _dispatch(intent: DifferentialIntent, key: ContentKey) -> SolverReceipt:
     match intent:
         case DifferentialIntent(tag="ode", ode=(field, y0, (t0, t1), solver, policy)):
@@ -398,9 +359,7 @@ def _dispatch(intent: DifferentialIntent, key: ContentKey) -> SolverReceipt:
 def _diffrax_receipt(
     key: ContentKey, intent: DifferentialIntent, solver: OdeSolver | SdeSolver, y0: Pytree, t0: float, t1: float, policy: IntegratePolicy
 ) -> SolverReceipt:
-    # jaxtyping contract rails a rank/dtype breach on `y0` at the boundary, never a mid-solve XLA
-    # shape error, through the one shared beartype fence.
-    engine = SolveEngine.gated()  # imports the gated modules once behind the band
+    engine = SolveEngine.gated()
     terms, residual = _terms(engine, intent, solver, y0, t0, t1, policy)
     cls, controller = _SOLVER(engine.dfx)[solver](), engine.controller(intent.tag, solver, policy)
     saveat, adjoint, event = engine.save(policy), engine.adjoint(policy.adjoint), engine.event(intent.tag, solver, policy)
@@ -418,28 +377,26 @@ def _diffrax_receipt(
             adjoint=adjoint,
             event=event,
             max_steps=policy.max_steps,
-            throw=False,  # return the non-successful RESULTS for the receipt fold; the True default raises
+            throw=False,
         )
 
-    if policy.batched:  # y0's leading axis is a sweep; one compiled filter_vmap solve, never a Python loop
+    if policy.batched:
         solutions = engine.eqx.filter_vmap(engine.eqx.filter_jit(run), in_axes=0)(engine.lift(y0))
         per_row = engine.eqx.filter_vmap(lambda s: residual(engine.terminal(s)), in_axes=0)(solutions)
         worst = float(
             engine.jnp.max(engine.jnp.asarray(per_row))
-        )  # worst per-row residual, each itself a tree_norm over that row's terminal pytree
+        )
         steps = int(engine.jnp.max(engine.jnp.asarray(solutions.stats["num_steps"])))
         return SolverReceipt.Iterative(key, worst, steps, Provider.GATED, policy.rtol, engine.verdict(solutions.result))
     solution = run(
         engine.lift(y0)
-    )  # per-leaf lift; a bare jnp.asarray(y0) flattens a structured (x, v)/multi-leaf pytree
+    )
     return SolverReceipt.Iterative(
         key, float(residual(engine.terminal(solution))), int(solution.stats["num_steps"]), Provider.GATED, policy.rtol,
         engine.verdict(solution.result),
     )
 
 
-# Three equation cases vary only in the (terms, residual) pair; controller, adjoint, save, and event
-# are shared engine reads on the one diffeqsolve call site. Each residual is engine.tree_norm.
 def _terms(
     e: "SolveEngine", intent: DifferentialIntent, solver: OdeSolver | SdeSolver, y0: Pytree, t0: float, t1: float, policy: IntegratePolicy
 ) -> tuple[object, Callable[[object], float]]:
@@ -449,8 +406,6 @@ def _terms(
             compiled = eqx.filter_jit(lambda t, y, _: field(t, y))
             return dfx.ODETerm(compiled), lambda yt: e.tree_norm(compiled(t1, yt, None))
         case DifferentialIntent(tag="sde", sde=(drift, diffusion, _, _, sde_solver, _)):
-            # sde_solver narrows the union to SdeSolver, so _LEVY.get types cleanly with no ignore. The
-            # path generator floors UNSAFE to VIRTUAL under BACKSOLVE; UnsafeBrownianPath takes no (t0, t1, tol).
             levy = _LEVY.try_find(sde_solver).to_optional()
             width = policy.noise_dim if policy.noise_dim is not None else e.last_dim(y0)
             levy_kw = {"levy_area": _LEVY_CLASS(dfx)[levy]} if levy is not None else {}
@@ -460,8 +415,6 @@ def _terms(
                 if e.reproducible_path(policy)
                 else dfx.UnsafeBrownianPath(shape=(width,), key=key, **levy_kw)
             )
-            # _LANGEVIN membership selects the (x, v) drift/diffusion pair; the plain family builds
-            # MultiTerm(ODETerm, ControlTerm). One cell, never a per-solver arm.
             terms = (
                 e.langevin_terms(policy, drift, brownian)
                 if sde_solver in _LANGEVIN
@@ -470,7 +423,7 @@ def _terms(
                     dfx.ControlTerm(eqx.filter_jit(lambda t, y, _: diffusion(t, y)), brownian),
                 )
             )
-            return terms, e.tree_norm  # SDE/CDE residual is the terminal-state norm; the ODE arm composes f(t1, .)
+            return terms, e.tree_norm
         case DifferentialIntent(tag="cde", cde=(field, (ts, ys), _, _, _, _)):
             control = dfx.CubicInterpolation(ts, dfx.backward_hermite_coefficients(ts, ys))
             return dfx.ControlTerm(eqx.filter_jit(lambda t, y, _: field(t, y)), control), e.tree_norm

@@ -31,7 +31,7 @@ Session clock is the folder's ONE injected `MonotonicTimeline` (folder RULINGS `
 - Growth: a new session verb is one `SessionOp` case and one total `Switch` arm; a new repaint posture is one `RepaintPlan` case; a new budget band is one `SessionLane` row.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Parametric;
@@ -39,7 +39,7 @@ using Rhino.UI;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record GhScope {
     private GhScope() { }
@@ -76,8 +76,6 @@ public sealed partial class ScopeTarget {
     [UseDelegateFromConstructor] internal partial Fin<GhScope> Acquire(Op key);
 }
 
-// Delay lives ON the one case that reads it — two delay-free rows guarding an Option they refuse was the
-// parameterization defect this union deletes.
 [Union]
 public abstract partial record RepaintPlan {
     private RepaintPlan() { }
@@ -91,8 +89,6 @@ public abstract partial record RepaintPlan {
 public abstract partial record SessionOp {
     private SessionOp() { }
     public sealed partial record RevealCase(Option<string> Layout) : SessionOp;
-    // Park presence IS the posture: None settles blocking; Some(cell) queues, and the eventual fault
-    // lands on the cell — a queued execute with nowhere for its fault to land is unconstructible.
     public sealed partial record ExecuteCase(ScopeTarget Target, DispatchLane Lane, Action<GhScope> Work, Option<FaultCell> Park) : SessionOp;
     public sealed partial record RepaintCase(RepaintPlan Plan) : SessionOp;
     public sealed partial record StyleCase(Control Surface) : SessionOp;
@@ -102,11 +98,11 @@ public abstract partial record SessionOp {
 
 [SmartEnum<int>]
 public sealed partial class SessionLane : IGaugeLane<SessionLane> {
-    public static readonly SessionLane Reveal = new(key: 0);   // editor creation — the slow path, the larger budget
+    public static readonly SessionLane Reveal = new(key: 0);
     public static readonly SessionLane Command = new(key: 1);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SessionReceipt(Op Operation, bool Deferred, GaugedSpan<SessionLane> Span) : IValidityEvidence {
     public TimeSpan Latency => Span.Elapsed;
@@ -114,9 +110,7 @@ public readonly record struct SessionReceipt(Op Operation, bool Deferred, Gauged
     public bool IsValid => Span.IsValid;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Scope-binding wrapper (E-G53): acquisition happens INSIDE the crossing body, on the marshal, so every
-// kernel case rides one wrapper and no case ever closes over a pre-acquired scope.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class GhCrossing {
     internal static Func<Fin<TOut>> Bind<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> body, Op key) =>
         () => target.Acquire(key: key).Bind(scope => key.Catch(body: () => body(arg: scope)));
@@ -155,7 +149,6 @@ public static class GhSession {
                         from lane in k.Need(c.Lane)
                         from work in k.Need(c.Work)
                         from admitted in c.Park.Match(
-                            // Queued: the async crossing admits; the eventual fault parks on the cell.
                             Some: cell => k.Catch(body: () => {
                                 ValueTask<Fin<Unit>> eventual = UiThread.Run(
                                     new UiDispatch<Unit>.Queued(GhCrossing.Bind<Unit>(
@@ -163,10 +156,8 @@ public static class GhSession {
                                         body: scope => Fin.Succ(Op.Side(action: () => work(obj: scope))),
                                         key: k)),
                                     lane, k);
-                                // Admission never awaits: the eventual settlement parks its fault on the cell.
                                 return Fin.Succ(Op.Side(action: () => ignore(SettleDeferred(eventual, cell, k))));
                             }),
-                            // Blocking: settlement inside the sync crossing.
                             None: () => UiThread.Run(
                                 new UiDispatch<Unit>.Blocking(GhCrossing.Bind<Unit>(
                                     target: target,

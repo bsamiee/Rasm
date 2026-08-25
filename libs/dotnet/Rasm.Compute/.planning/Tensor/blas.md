@@ -27,7 +27,7 @@ Rasm.Compute dense linear-algebra lane: BLAS-class dense linear algebra over the
 - Boundary — substrate: `AtenFloor` admits its substrate by EXECUTION, never by inventory: the vendored CPU payload resolves its OpenMP dependency through an absolute path outside the package, so the host process must carry the consolidated payload directory on the platform dynamic-library search path before its first `torch` touch — dyld fixes that path at process start and no library call adds to it later, which is why the floor probes instead of asserting, and why loading the aggregate and the CPU library together is the rejected shortcut (the aggregate already pulls the CPU library, so a second registration aborts the process on a duplicate-priority key rather than failing a rail). `DenseSubstrate` degrades a refused floor onto its managed row with the refusal class on the tag — one row behaviour, never a new surface and never a throw — and the selected row is a VALUE the composition threads, never a mutable process static: an ambient cell let two compositions in one process overwrite each other's choice, made a substrate unpinnable without mutating the world, and stamped receipts with whatever the cell held at read time instead of what served the solve. Managed, native-OpenBLAS, and native-ATen legs diverge at the bit level, so the receipt `DeterminismTag` folds both the serving `DenseSubstrate.DeterminismTag` substrate prefix and the provider type/parallelism triple, the `SolveDedupKey` folds that whole tag, and a dedup key omitting either dimension is the named correctness defect because a cross-substrate or cross-provider cache hit returns bit-divergent numbers. The `_ex` info tensor is the typed-fault rail on every native leg, never a caught native throw, and the three info-gated arms share ONE gate body. `DenseOps` composes MathNet `Matrix<double>`/`Vector<double>` directly — a package-local `RasmMatrix`/`DenseMatrix` wrapper is the deleted form mirroring the tensor-lane no-`TensorService` law.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -46,8 +46,6 @@ public sealed partial class LinearProvider {
 
     private static bool Always() => true;
 
-    // `Managed` probes true on every host, so the ordered roster is never empty; the prior fall-through re-spelled
-    // that row's activation as a second path, which is one row's behaviour landed twice.
     public static LinearProvider Select(Option<BenchmarkRow> claim) =>
         toSeq(toSeq(Items)
             .Filter(static row => row.Available())
@@ -73,12 +71,6 @@ public sealed partial class LinearProvider {
     }
 }
 
-// Native ATen leg is the osx-arm64 dense substrate the x64-only OpenBLAS/MKL providers cannot serve; the MathNet
-// `Matrix<double>` route stays the managed cold-start terminal. Selection runs once at composition and the WINNER
-// THREADS as a value from there: a mutable process static made every solve read ambient state no signature
-// declared, so two compositions in one process fought over one cell, a test could not pin a substrate without
-// mutating the world, and the determinism tag on a receipt named whatever the static held at read time rather
-// than what served the solve.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -118,15 +110,9 @@ public sealed partial class FactorizationKind {
     public static readonly FactorizationKind Cholesky = new("cholesky");
     public static readonly FactorizationKind Svd = new("svd");
     public static readonly FactorizationKind Evd = new("evd");
-    // The sixth row the union always had: a rank-64 randomized sketch reported as a full SVD stamped every
-    // receipt with a decomposition nobody ran, and a receipt reader could not tell one from the other.
     public static readonly FactorizationKind Sketched = new("sketched");
 }
 
-// A held triangular solve runs forward or adjoint; the direction is a ROW, never a defaulted `bool`. The sparse
-// lane's `GemvForm` is the landed answer to the same defect on a different concern and is NOT composed here: it
-// carries the α/β accumulation a triangular solve never reads, so composing it would seat two columns no site
-// consumes to avoid one flag.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -137,10 +123,6 @@ public sealed partial class SolveDirection {
     public bool IsAdjoint { get; }
 }
 
-// Cases carry ONLY per-occurrence factorization policy; the operand `Matrix<double>` is the entrypoint's own
-// argument, so route identity never restates the operand and no per-case `A` re-projection switch exists.
-// `ModifiedOrthonormal` is a CASE because the prior `Orthonormal { Modified: true }` property pattern forked one
-// route out of the total dispatch ahead of the `Switch` that was supposed to close it.
 [Union]
 public abstract partial record FactorRoute {
     private FactorRoute() { }
@@ -152,16 +134,12 @@ public abstract partial record FactorRoute {
     public sealed record Spectral(Symmetricity Sym) : FactorRoute;
     public sealed record RankRevealing : FactorRoute;
 
-    // The receipt's route variant is a case DISCRIMINANT the generator already emits, never `GetType().Name`.
     public string Key => Switch(
         definitePsd: static _ => "definite-psd", squarePivoting: static _ => "square-pivoting",
         orthonormal: static _ => "orthonormal", modifiedOrthonormal: static _ => "modified-orthonormal",
         spectral: static _ => "spectral", rankRevealing: static _ => "rank-revealing");
 }
 
-// How a bounded solve ENDED, as a total union every consumer folds. `Exhausted` carries the budget it spent and
-// the iterate rides the outcome, so the ruled relaxed-criterion retry survives without a `Fin.Fail`; `Truncated`
-// carries the a-posteriori gauge and the cap it cleared, which the sketch tuple used to leave unnamed.
 [Union]
 public abstract partial record SolveTermination {
     private SolveTermination() { }
@@ -171,10 +149,6 @@ public abstract partial record SolveTermination {
     public sealed record Truncated(double Gauge, double Cap) : SolveTermination;
 }
 
-// Whether the driver reported a spectrum at all. The driverless CPU `gelsy` path reports rank and returns an
-// EMPTY singular-value tensor, so an unconditional finite-sigma demand rejects every least-squares solve — and a
-// boolean whose absent arm answered `true` published a pass no measurement supports. The case travels to the
-// receipt so a reader knows the floor was never checked.
 [Union]
 public abstract partial record SigmaEvidence {
     private SigmaEvidence() { }
@@ -187,19 +161,12 @@ public abstract partial record SigmaEvidence {
         unavailable: static _ => true);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The ONE outcome every solve, refinement, fit, and sketch on this page returns, generic over what it iterated
-// to: a `Vector<double>` for a linear or nonlinear solve, a `Factorization` for a randomized sketch. Five
-// carriers answered this question in four shapes, one of them a naked tuple leaking a foreign iteration enum and
-// one of them a `bool` the kernel had already refuted.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SolveOutcome<T>(T Iterate, DenseSubstrate Served, double Residual, SolveTermination Termination, int Steps) {
     public static SolveOutcome<T> Settled(T iterate, DenseSubstrate served, double residual) =>
         new(iterate, served, residual, new SolveTermination.Converged(), Steps: 0);
 }
 
-// `Derive` seeds `SigmaMax` from the O(n²) Frobenius bound; an existing `Svd` refines through `WithSigma`
-// without paying a second decomposition for a threshold. `ResidualCap` READS the envelope owner rather than
-// re-spelling its `16ε` body, which is the de-sync that owner exists to foreclose.
 public sealed record TolerancePolicy(double SigmaMax, double FrobeniusNorm, double RhsInfinityNorm, int MaxDim, double RankFloor, double ResidualCap) {
     public static TolerancePolicy Derive(Matrix<double> a, Vector<double> rhs) {
         double[] flat = a.ToColumnMajorArray();
@@ -228,8 +195,6 @@ public sealed record TolerancePolicy(double SigmaMax, double FrobeniusNorm, doub
 public sealed record SketchPolicy(int Rank, int Oversample, int PowerIterations, double TruncationCap, long Seed) {
     public static readonly SketchPolicy Rom = new(Rank: 64, Oversample: 10, PowerIterations: 2, TruncationCap: 1e-6, Seed: 0L);
 
-    // Four INDEPENDENT policy facts accumulate into one refusal; short-circuiting them made a caller fix one
-    // field per round trip.
     public Fin<SketchPolicy> Admit() =>
         (Gate(Rank >= 1, TensorReason.PolicyInvalid, "sketch-rank", Rank),
          Gate(Oversample >= 0, TensorReason.PolicyInvalid, "sketch-oversample", Oversample),
@@ -267,7 +232,7 @@ public abstract partial record Factorization {
         sketched: static (b, f) => f.Core.Solve(f.Range.TransposeThisAndMultiply(b)));
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class OperandGate {
     public static Fin<Matrix<double>> Admit(Matrix<double> a) =>
         a.ToColumnMajorArray() is var flat && TensorPrimitives.IsFiniteAll<double>(flat)
@@ -278,8 +243,6 @@ public static class OperandGate {
 
     public static Matrix<double> Symmetrize(Matrix<double> a) => (a + a.Transpose()).Multiply(0.5);
 
-    // MathNet `Cholesky()` throws on a non-square or non-PD operand; `Op.Catch` preserves that provider error,
-    // while `DeterminantLn` finiteness rejects a degenerate factor that did not throw.
     public static Fin<Cholesky<double>> Definite(Matrix<double> spd) =>
         spd.RowCount != spd.ColumnCount
             ? TensorReason.ShapeMismatch.Fail<Cholesky<double>>("non-square-spd", $"{spd.RowCount}x{spd.ColumnCount}")
@@ -293,10 +256,6 @@ public static class OperandGate {
             ? Fin.Succ(qr)
             : TensorReason.StructuralRank.Fail<QR<double>>("rank-deficient-qr");
 
-    // `GramSchmidt<T>` IS the modified variant — `DenseGramSchmidt.Factorize` updates every remaining column in
-    // place against each normalized q_i (decompile-proved) — so the package factorization serves whole and the
-    // rank gate reads the R diagonal exactly as `Orthonormal` gates QR; the refused column and its norm are the
-    // first sub-floor diagonal, the same quantity the deleted hand loop measured.
     public static Fin<Vector<double>> Modified(Matrix<double> a, Vector<double> rhs, double floor) =>
         a.GramSchmidt() is var mgs
         && mgs.R.Diagonal().Map(Math.Abs).ToList() is var pivots
@@ -306,25 +265,14 @@ public static class OperandGate {
             : TensorReason.StructuralRank.Fail<Vector<double>>("rank-deficient-modified-gram-schmidt", $"column={deficient}", $"norm={pivots[deficient]:e3}", $"floor={floor:e3}");
 }
 
-// --- [NATIVE_SUBSTRATE] --------------------------------------------------------------------
+// --- [NATIVE_SUBSTRATE] ----------------------------------------------------------------
 public static class AtenFloor {
-    // Residency is a LOAD probe, never a RID predicate or a file-presence check. The vendored CPU payload hard-links
-    // an ABSOLUTE OpenMP library path that its own package does not place, so every RID predicate can pass over a
-    // fully-present payload while the first tensor touch throws a type-initializer failure out of the two-step native
-    // loader — a presence-only gate therefore publishes an accelerated route that cannot execute one operand, and its
-    // receipt would carry a substrate tag for a substrate that never ran. The probe forces the native bring-up ONCE
-    // behind `LazyThreadSafetyMode.ExecutionAndPublication`, and its refusal is the typed evidence the managed degrade
-    // rides rather than an exception escaping whichever solve happened to touch `torch` first.
     static readonly Lazy<Fin<Unit>> Load = new(Probe, LazyThreadSafetyMode.ExecutionAndPublication);
 
     public static bool Resident() => Load.Value.IsSucc;
 
-    // Refusal CLASS, never the loader's own message: the determinism tag folds it, so an operand solved on the managed
-    // substrate BECAUSE the floor refused keys distinctly from one solved on a host that ships no payload at all.
     public static Option<string> Refusal => Load.Value.Match(Succ: static _ => None, Fail: static _ => Some("aten-refused"));
 
-    // Thread count and default dtype bind INSIDE the probe because they ARE the first native touch; a caller that
-    // configured before probing would take the load failure on its own frame instead of on the rail.
     public static void Configure() => ignore(Load.Value);
 
     static Fin<Unit> Probe() =>
@@ -340,8 +288,6 @@ public static class AtenFloor {
 }
 
 public static class AtenDense {
-    // The held LU capsule is the ONE public held-solve surface: the raw `(lu, pivots)` pair stays inside it, and
-    // the forwarding overload that published that pair as a second public entrypoint is deleted.
     public sealed class HeldFactor(Tensor lu, Tensor pivots) : IDisposable {
         public Fin<Vector<double>> Solve(Vector<double> rhs, SolveDirection direction) {
             using DisposeScope scope = torch.NewDisposeScope();
@@ -355,10 +301,6 @@ public static class AtenDense {
         }
     }
 
-    // Definite and spectral routes symmetrize before ingress, then select native factorization by the same
-    // `FactorRoute` case as the managed leg. `None` is this substrate DECLINING the operand — the managed
-    // terminal then serves it — where a fault is the operand itself refusing on both. `ModifiedOrthonormal`
-    // declines outright because ATen ships no modified Gram-Schmidt.
     public static Fin<Option<Vector<double>>> Solve(FactorRoute route, Matrix<double> matrix, Vector<double> rhs, TolerancePolicy tol) {
         using DisposeScope scope = torch.NewDisposeScope();
         using IDisposable noGrad = torch.inference_mode(true);
@@ -374,9 +316,6 @@ public static class AtenDense {
             rankRevealing:       _ => LeastSquares(a, b, tol));
     }
 
-    // ONE info gate for the three factor-then-solve legs: run the factorization, read the `_ex` info code, and
-    // solve only on a zero. A driver that reports NO info tensor reported no error, and the original-operator
-    // witness downstream is what catches a silent breach on that path.
     static Fin<Vector<double>> Gated(TensorReason reason, string site, Option<Tensor> info, Func<Fin<Tensor>> solve) =>
         info.Match(
             None: solve,
@@ -385,13 +324,11 @@ public static class AtenDense {
                 : reason.Fail<Tensor>(site, $"info={status}")
         .Bind(Egress);
 
-    // SPD: Cholesky factor + triangular `cholesky_solve` — the structure the general `solve_ex` discards.
     static Fin<Vector<double>> Spd(Tensor a, Tensor b) {
         (Tensor l, Tensor info) = torch.linalg.cholesky_ex(a, check_errors: false);
         return Gated(TensorReason.NativeRejected, "aten-cholesky-nonspd", Some(info), () => Fin.Succ(torch.cholesky_solve(b, l, upper: false)));
     }
 
-    // Symmetric-indefinite route uses Bunch-Kaufman `ldl_factor_ex`/`ldl_solve`; absent pivots refuse before solve.
     static Fin<Vector<double>> SymmetricIndefinite(Tensor a, Tensor b) {
         (Tensor ld, Tensor? pivots, Tensor? info) = torch.linalg.ldl_factor_ex(a, hermitian: true, check_errors: false);
         return Gated(TensorReason.NativeRejected, "aten-ldl-singular", Optional(info), () => Optional(pivots).Match(
@@ -399,17 +336,11 @@ public static class AtenDense {
             None: () => TensorReason.NativeRejected.Fail<Tensor>("aten-ldl-no-pivots")));
     }
 
-    // General square: pivoted-LU `solve_ex`.
     static Fin<Vector<double>> General(Tensor a, Tensor b) {
         (Tensor result, Tensor info) = torch.linalg.solve_ex(a, b, left: true, check_errors: false);
         return Gated(TensorReason.NativeRejected, "aten-solve-singular", Some(info), () => Fin.Succ(result));
     }
 
-    // `lstsq` rank always gates; the sigma floor binds only where the driver YIELDS the spectrum, which
-    // `SigmaEvidence` now states as a case rather than a boolean whose absent arm passed. Rank-deficient
-    // verdicts are DECLINES, not refusals of the problem: `gelsy` gives the minimum-norm answer no meaning at
-    // deficient rank, while the managed `Svd` route's pseudo-inverse solves exactly that shape, so rank-revealing
-    // routing runs on BOTH substrates with the managed leg as its terminal.
     static Fin<Option<Vector<double>>> LeastSquares(Tensor a, Tensor b, TolerancePolicy tol) {
         (Tensor solution, Tensor residuals, Tensor rank, Tensor singular) = torch.linalg.lstsq(a, b);
         long full = Math.Min(a.shape[0], a.shape[1]);
@@ -422,7 +353,6 @@ public static class AtenDense {
             : Fin.Succ(Option<Vector<double>>.None);
     }
 
-    // `lu_factor` pays O(n³) once; the capsule streams right-hand sides through both directions.
     public static Fin<HeldFactor> Held(Matrix<double> operand) {
         using DisposeScope owner = torch.NewDisposeScope();
         using IDisposable noGrad = torch.inference_mode(true);
@@ -435,8 +365,6 @@ public static class AtenDense {
             });
     }
 
-    // The contraction is chosen by its INPUT: a subscript spec means `einsum`, its absence means the chain
-    // product `multi_dot`. The two prior bodies were verbatim identical but for one native call and one slug.
     public static Fin<Matrix<double>> Contract(Option<string> spec, Seq<Matrix<double>> operands) {
         using DisposeScope scope = torch.NewDisposeScope();
         using IDisposable noGrad = torch.inference_mode(true);
@@ -449,7 +377,6 @@ public static class AtenDense {
                 spec.Match(Some: static _ => "einsum", None: static () => "multi-dot"));
     }
 
-    // One column-major lift for every ingress; five hand-spelled copies of this reshape-transpose drifted apart.
     static Tensor Lift(Matrix<double> m) =>
         torch.from_array(m.ToColumnMajorArray(), ScalarType.Float64).reshape(m.ColumnCount, m.RowCount).t();
 
@@ -457,11 +384,8 @@ public static class AtenDense {
         Fin.Succ(Vector<double>.Build.DenseOfArray(x.reshape(x.NumberOfElements).data<double>().ToArray()));
 }
 
-// --- [DENSE_ROUTE] -------------------------------------------------------------------------
+// --- [DENSE_ROUTE] ---------------------------------------------------------------------
 public static class DenseRoute {
-    // Substrate legs return an unwitnessed solution; one original-operator gate gives either leg an identical
-    // typed residual rejection. The native leg's `None` is a decline, so the managed terminal serves and the
-    // carrier records WHICH substrate that was.
     public static Fin<SolveOutcome<Vector<double>>> Solve(FactorRoute route, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol, DenseSubstrate substrate) =>
         OperandGate.Admit(operand).Bind(_ =>
             substrate.Native
@@ -470,8 +394,6 @@ public static class DenseRoute {
                     None: () => Managed(route, operand, rhs, tol).Bind(x => Witness(operand, x, rhs, tol, DenseSubstrate.Managed))))
                 : Managed(route, operand, rhs, tol).Bind(x => Witness(operand, x, rhs, tol, DenseSubstrate.Managed)));
 
-    // `ModifiedOrthonormal` solves in place rather than returning a handle, so the arm answers the field
-    // directly; every other arm answers an `ISolver<double>` and the shared tail solves it.
     static Fin<Vector<double>> Managed(FactorRoute route, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol) =>
         route.Switch<(Matrix<double> A, Vector<double> B, double Floor), Fin<Vector<double>>>(
             state: (A: operand, B: rhs, Floor: tol.RankFloor),
@@ -482,9 +404,6 @@ public static class DenseRoute {
             spectral:            static (s, c) => Fin.Succ(OperandGate.Symmetrize(s.A).Evd(c.Sym).Solve(s.B)),
             rankRevealing:       static (s, _) => Fin.Succ(s.A.Svd(computeVectors: true).Solve(s.B)));
 
-    // Both attempts read the residual the witness already measured, and BOTH refusals reach the caller: the
-    // prior form discarded the primary error whole under a wildcard and dropped the serving substrate with it,
-    // so a receipt could not say which route or which substrate served a conditioned solve.
     public static Fin<SolveOutcome<Vector<double>>> Conditioned(FactorRoute primary, FactorRoute secondary, Matrix<double> operand, Vector<double> rhs, TolerancePolicy tol, DenseSubstrate substrate) =>
         Solve(primary, operand, rhs, tol, substrate)
             .BindFail(first => Solve(secondary, operand, rhs, tol, substrate)
@@ -504,10 +423,6 @@ public static class DenseRoute {
 }
 
 public static class DenseOps {
-    // Generated total `FactorizationKind.Switch` makes a new row require a build arm at compile time;
-    // reference-typed `matrix` threads as switch state without span-lane restrictions. `Sketched` builds through
-    // `Sketch`, which needs a policy this arity does not carry, so the arm names that owner rather than
-    // fabricating a default rank.
     public static Fin<Factorization> Decompose(Matrix<double> matrix, FactorizationKind kind) =>
         kind.Switch(
             state: matrix,
@@ -518,9 +433,6 @@ public static class DenseOps {
             evd: static m => Fin.Succ<Factorization>(new Factorization.Evd(m.Evd())),
             sketched: static _ => TensorReason.PolicyInvalid.Fail<Factorization>("sketch-needs-policy"));
 
-    // Halko range capture computes `Y = (A·Aᵀ)^q·A·Ω`, thin-QR, then the small SVD of `QᵀA`. The a-posteriori
-    // `‖A − Q·QᵀA‖_F/‖A‖_F` gauge is the outcome's residual and its `Truncated` termination, so a caller reads
-    // the same carrier shape a solve returns.
     public static Fin<SolveOutcome<Factorization>> Sketch(Matrix<double> a, SketchPolicy policy) =>
         policy.Admit().Bind(admitted => {
             int width = Math.Min(admitted.Rank + admitted.Oversample, Math.Min(a.RowCount, a.ColumnCount));
@@ -538,19 +450,12 @@ public static class DenseOps {
                 : TensorReason.WitnessFail.Fail<SolveOutcome<Factorization>>("sketch-truncation", $"{gauge:e3}", $"cap={admitted.TruncationCap:e3}", $"rank={admitted.Rank}");
         });
 
-    // Sketch draws cross through the kernel `Deterministic.Source` adapter — the one sanctioned `System.Random`
-    // crossing. The draw buffer BECOMES the matrix's backing store under `Build.Dense(rows, columns, T[])`, so it
-    // is owned storage rather than kernel scratch and a pooled rent would be released out from under the matrix.
     static Matrix<double> Gaussian(int rows, int columns, long seed) {
         double[] values = GC.AllocateUninitializedArray<double>(rows * columns);
         new Normal(0.0, 1.0, Deterministic.Source(seed)).Samples(values);
         return Matrix<double>.Build.Dense(rows, columns, values);
     }
 
-    // The refinement sweep spends at most `cap` steps and reports which way it ended: an admitted residual is
-    // `Converged`, a spent budget is `Exhausted(cap)` carrying the partial iterate the ruled relaxed-criterion
-    // retry needs. A converged state passes through the remaining fold in constant time — the O(n²) multiply is
-    // what the freeze avoids — and a non-finite residual is a refusal, never a status.
     public static Fin<SolveOutcome<Vector<double>>> Refine(
         Matrix<double> matrix, ISolver<double> held, Vector<double> rhs, TolerancePolicy tol, int cap) {
         Vector<double> dx = Vector<double>.Build.Dense(rhs.Count);
@@ -581,10 +486,6 @@ public static class DenseOps {
         return field;
     }
 
-    // nnz is STRUCTURALLY zero and `dense` is the settled receipt format vocabulary: a dense operand has no
-    // sparsity to count, which is exactly the kind of zero that must say so at its site. Tag folds the SERVING
-    // substrate off the outcome carrier, so a native leg that declined and degraded to the managed terminal keys
-    // as the managed run it was rather than the accelerated one it was asked to be.
     const long DenseNnz = 0L;
     const string DenseFormat = "dense";
 
@@ -603,14 +504,11 @@ public static class DenseOps {
 - Boundary: the LM fit carries NO result type of its own. A local `LmResult` collided by name with the kernel's public `LmResult` across the live `Rasm.Compute.csproj` → `Rasm.csproj` reference and spelled convergence as a `bool` where the kernel spells a status discriminant and states why — so the fit returns `SolveOutcome<Vector<double>>`, whose `Termination` is `Converged` on a met gradient-or-step criterion and `Exhausted(MaxIterations)` on a spent budget, whose `Steps` is the iteration count, and whose `Residual` is `‖r(θ)‖`. HyperJet returns PLAIN .NET arrays — `GetGradient()` answers `double[]` and `GetHessian()` answers `double[,]` — so the Jacobian assembly lifts through `Matrix<double>.SetRow(int, double[])` at the seam and no signature claims a MathNet export the package does not make. The hyper-dual memo keys on the parameter VECTOR's value, not on reference identity: two `Vector<double>` instances with identical values are the same evaluation point, and a `ReferenceEquals` memo re-seeded AD for every one of them while claiming in a comment to share the pass. The AEC-domain `Rasm.Materials` does NOT reference this owner — the strata graph is acyclic (app-platform consumes AEC-domain, never the reverse), so the Materials BRDF fit stays in-folder and the algorithms-doc thin-QR fit is a doctrine reference a Materials probe cites; a `Rasm.Compute` project reference or a "MathNet transitive via Rasm.Compute" claim from Materials is the forbidden AEC→app-platform edge. Linear least squares stays on the one-shot `DenseRoute.Solve(FactorRoute.Orthonormal)` thin-QR; LM is the nonlinear damped iteration. Hand-rolled finite-difference Jacobians beside the HyperJet arm are the deleted form — FD survives ONLY where the residual is a genuine black box no hyper-dual instantiation can reach. This kernel dropped its own MKL reference (x86-64-only, cannot load on osx-arm64) and flagged Compute's as sibling-roster debt: the `native-mkl` `LinearProvider` row above IS the resolution — the RID-claim `Available` filter is the design (osx-arm64 resolves managed/OpenBLAS, an x64 deployment claims MKL), recorded here so the kernel's flag closes.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LmPolicy(int MaxIterations, double GradientTolerance, double StepTolerance, double InitialDamping, double DampingUp, double DampingDown) {
     public static readonly LmPolicy Canonical = new(MaxIterations: 200, GradientTolerance: 1e-10, StepTolerance: 1e-12, InitialDamping: 1e-3, DampingUp: 10.0, DampingDown: 0.1);
 }
 
-// One hyper-dual pass shared between the residual and Jacobian projections of the SAME evaluation point, keyed
-// on the point's VALUE: two vectors carrying identical parameters are one point, and a reference-keyed memo
-// missed every one of them while its own comment claimed the pass was shared.
 public sealed class DualCache(Func<DDScalar[], DDScalar[]> residual) {
     Option<(Vector<double> Theta, DDScalar[] Dual)> held = None;
 
@@ -622,11 +520,8 @@ public sealed class DualCache(Func<DDScalar[], DDScalar[]> residual) {
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LevenbergMarquardt {
-    // `DDScalar.Variables` seeds each parameter; every residual contributes its primal `Value` and exact
-    // `GetGradient()` Jacobian row from one hyper-dual authoring. `GetGradient()` answers `double[]`, which is
-    // exactly what `SetRow(int, double[])` takes, so no MathNet lift is fabricated at this seam.
     public static Fin<SolveOutcome<Vector<double>>> Minimize(Func<DDScalar[], DDScalar[]> residual, Vector<double> initial, LmPolicy policy) {
         DualCache cache = new(residual);
         return Minimize(
@@ -650,16 +545,11 @@ public static class LevenbergMarquardt {
                 Matrix<double> jtj = j.TransposeThisAndMultiply(j);
                 Vector<double> jtr = j.TransposeThisAndMultiply(r);
                 Matrix<double> damped = jtj + Matrix<double>.Build.DiagonalOfDiagonalVector(jtj.Diagonal()) * state.Lambda;
-                // Gated SPD admission turns a rank-deficient damped factor into the LM increase-λ response,
-                // never an escaped `Cholesky()` exception.
                 return OperandGate.Definite(damped).Match(
                     Succ: chol => {
                         Vector<double> step = chol.Solve(-jtr);
                         Vector<double> candidate = state.Theta + step;
                         double trial = Cost(residual(candidate));
-                        // Gain ratio ρ = actual/predicted reduction under the damped quadratic model:
-                        // predicted = ½·δᵀ(λ·D·δ − Jᵀr) with D = diag(JᵀJ); acceptance and λ adaptation
-                        // read model agreement, never the bare cost-decrease sign.
                         double predicted = 0.5 * step.DotProduct(jtj.Diagonal().PointwiseMultiply(step) * state.Lambda - jtr);
                         double rho = predicted > 0.0 ? (state.Cost - trial) / predicted : double.NegativeInfinity;
                         return rho > 0.0
@@ -689,7 +579,7 @@ public static class LevenbergMarquardt {
 - Boundary — persistence: a computed basis leaving this lane persists through `[05]-[BASIS_ARTIFACT]`, never a per-carrier serializer beside each union case.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record SpectralResult {
     private SpectralResult() { }
@@ -700,14 +590,12 @@ public abstract partial record SpectralResult {
     public double Defect => Switch(symmetric: static c => c.Defect, general: static c => c.Defect);
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SpectralOps {
     public static SpectralResult Decompose(Matrix<double> a, Evd<double> evd, Symmetricity sym) {
         if (sym is Symmetricity.Symmetric or Symmetricity.Hermitian) {
             return new SpectralResult.Symmetric(evd.EigenVectors, evd.EigenValues.Map(static v => v.Real), Defect(a, evd.EigenVectors, evd.D));
         }
-        // Schur-pair modal matrix is built once and shared by result and defect; constructing it
-        // twice (once for the carrier, once for the residual) doubles the complex-column reconstruction.
         Matrix<Complex> modal = Modal(evd.EigenVectors, evd.EigenValues);
         return new SpectralResult.General(modal, evd.EigenValues, ComplexDefect(a, modal, evd.EigenValues));
     }
@@ -718,10 +606,6 @@ public static class SpectralOps {
         return (aComplex.Multiply(modal) - modal.Multiply(dComplex)).FrobeniusNorm();
     }
 
-    // INVARIANT the `j - 1` read stands on: MathNet's real Schur reduction writes each conjugate pair as
-    // `e[k] = +z, e[k + 1] = -z` with `z = sqrt(|discriminant|)` non-negative, so the POSITIVE imaginary part
-    // always occupies the lower index and a negative-imaginary eigenvalue always has a partner at `j - 1`.
-    // `j == 0` therefore cannot be negative-imaginary and the backward read cannot underflow.
     public static Matrix<Complex> Modal(Matrix<double> packed, Vector<Complex> values) =>
         Matrix<Complex>.Build.DenseOfColumns(
             Enumerable.Range(0, values.Count).Select(j =>
@@ -734,13 +618,6 @@ public static class SpectralOps {
     public static double Defect(Matrix<double> a, Matrix<double> vectors, Matrix<double> d) =>
         (a.Multiply(vectors) - vectors.Multiply(d)).FrobeniusNorm();
 
-    // Kernel `SpectralFilter.Weight` is the one transfer function; the chain fuses through the partial-monoid
-    // `Compose` BEFORE the spectrum walk, so a non-composable pair rails instead of applying the last filter alone.
-    // TWO floors, because the quantities are unrelated: `zeroFloor` is an EIGENVALUE magnitude below which the
-    // mode is the operator's null space and excludes, while `massFloor` is a summed-WEIGHT magnitude below
-    // which the filtered basis carries no signal. One value serving both tied a null-space cutoff to a
-    // transfer-function total, so tightening the zero-mode exclusion silently tightened the emptiness verdict
-    // on a different scale.
     public static Fin<Vector<double>> Filtered(Evd<double> evd, double zeroFloor, double massFloor, params ReadOnlySpan<SpectralFilter> chain) =>
         Fused(chain).Bind(filter => Weighted(evd, filter, zeroFloor, massFloor));
 
@@ -757,7 +634,6 @@ public static class SpectralOps {
             : TensorReason.WitnessFail.Fail<Vector<double>>("spectrum-fully-excluded", $"mass={mass:e3}", $"floor={massFloor:e3}");
     }
 
-    // `Identity` is the monoid unit, so the empty spread is total and the singular call fuses to itself.
     static Fin<SpectralFilter> Fused(ReadOnlySpan<SpectralFilter> chain) =>
         LanguageExt.Iterable<SpectralFilter>.FromSpan(chain).Fold(
             Fin.Succ(SpectralFilter.Identity),
@@ -777,10 +653,7 @@ public static class SpectralOps {
 - Boundary: `Values` pairs the basis columns and is EMPTY where the kind measures none (rbf) — a zero-filled vector publishes singular values nobody computed; the rank truncation serves the reader that restarts a solve warm from a stored range or modal basis, so it applies to the primary matrix and its paired values alone and support blocks always read whole; the `SolveDedupKey`/determinism-tag law holds — a basis read back re-enters the solve rails as data and never claims the provenance of the run that wrote it. The pooled stream NEVER leaves the writer: release brackets the acquisition on every path, where a `catch { staged.Dispose(); throw; }` bracketed the failure OUTCOME and let a typed refusal raised inside the same body walk past the release. Read-back slabs are pooled rents sized by the dimensions the container declares, released on the same frame the matrix is built.
 
 ```csharp signature
-// --- [BASIS_ARTIFACT] ----------------------------------------------------------------------
-// One container shape for every dense basis this lane computes: a basis IS columns of one primary matrix
-// beside a per-column value vector, so the kind is a row and the writer is one parameterized body, never
-// three artifact classes. Column-axis chunks make rank truncation a hyperslab over the first r columns.
+// --- [BASIS_ARTIFACT] ------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -789,12 +662,9 @@ public sealed partial class BasisKind {
     public static readonly BasisKind Modal = new("modal", support: []);
     public static readonly BasisKind Rbf = new("rbf", support: ["centres", "trend"]);
 
-    // Support roster is ROW DATA so the reader resolves blocks by name without enumerating group children.
     public ImmutableArray<string> Support { get; }
 }
 
-// `Values` pairs basis columns (singular values, eigenvalues) and is EMPTY where the kind measures none;
-// `Gauges` carries the kind's scalar evidence; `Family` the radial row key only the rbf kind states.
 public sealed record BasisArtifact(
     BasisKind Kind, Matrix<double> Basis, ImmutableArray<double> Values, Map<string, Matrix<double>> Support, Map<string, double> Gauges, Option<string> Family) {
 
@@ -809,10 +679,6 @@ public sealed record BasisArtifact(
             Map(("centres", fit.Centres), ("trend", fit.PolynomialCoefficients)),
             Map(("radius", fit.Radius), ("order", (double)fit.PolynomialOrder)), Some(fit.Kernel.Key));
 
-    // ONE writer, and the pooled rent NEVER escapes it: `bracket` releases the acquisition on the success arm,
-    // the refusal arm, and the throw arm alike, where the prior hand `catch/rethrow` released on the throw
-    // alone. `/basis` chunks `[rows, 1]` so read-back truncates by rank; the create-only Begin session closes in
-    // one call and the continuation reads the stream positioned at zero.
     public static IO<Fin<A>> Write<A>(StreamPool pool, CorrelationId correlation, HdfArchivePolicy policy, BasisArtifact artifact, Func<RecyclableMemoryStream, Fin<A>> read) =>
         IO.bracket(
             acquire: IO.lift(() => pool.Get(correlation, new StreamGrant.Open())),
@@ -839,9 +705,6 @@ public sealed record BasisArtifact(
                 return Fin.Succ(staged);
             });
 
-    // Rank-truncated read-back: the first `rank` columns of `/basis` and their paired values — exactly `rank`
-    // chunk reads under the column-axis layout; support blocks read whole, gauges off the attribute roster.
-    // Every slab is a pooled rent released on this frame, not a fresh array per block.
     public static Fin<BasisArtifact> Read(HdfHandle archive, BasisKind kind, Option<int> rank) =>
         Op.Of(name: "hdf5.basis-read").Catch(() => {
                 NativeGroup group = archive.Group(kind.Key);
@@ -889,24 +752,13 @@ public sealed record BasisArtifact(
 - Boundary: provider rank is the `BenchmarkClaim` `Provider` column gated exactly like the SIMD and partition claims — a static native default beside the claim is the named defect; the claim is resolved by the Persistence `ModelResultIndex.Claim` owner whose recency horizon and clock are closed inside the index and threaded in, never re-resolved and never a second horizon; the solve instruments live on the `ReceiptSurface.Instruments` stream and a second numeric-lane-local instrument owner is the deleted form. `SolveProvenance` takes the SELECTED `LinearProvider` as an argument and records its key beside the ambient handle it is checking against: the substrate axis argues at length that a winner threads as a value because a receipt naming whatever a static held at read time names the wrong leg, and a provenance snapshot reading three ambient statics was the same defect landed twice on one page. The online residual accumulator is the KERNEL's: `Rasm/Domain/stats#MOMENTS` owns the four-moment weighted Welford recurrence, its Pebay pairwise join, and the `MomentNormalizer` Bessel-versus-population row, so the second copy this lane carried — a 2-arg normalizer and a hand `Push`/`Combine`/`Skewness`/`Kurtosis` — is DELETED rather than kept beside it. NAMED LOSS: the local delegates fabricated `0.0` for a variance at one observation and for a skew or kurtosis at zero spread, and the kernel answers `NaN` at exactly those points; a reader that treated the zero as a measured spread now reads the undefined the IEEE rail already spells and screens it through `ValidityClaim.Finite`. WITNESS: `held.Fold(Empty, (acc, r) => acc.Push(r)).Variance(MomentNormalizer.Sample)` over a local seed rebuilds as a `ResidualStream` fold whose `Held` is `None` until the first push, so a lane no solve has run reports absence where the `Empty` seed reported a zero-count receipt. The stream still records the running-versus-moving distinction and states its normalizer at every read because unmarked mixing silently corrupts every downstream confidence computation, and one pushed `NaN` permanently poisons every moment so the stream guards at admission through the same all-finite predicate the operands cross — and COUNTS what it turned away, because silently returning the prior state made a producer emitting nothing but sentinels indistinguishable from a lane nobody pushed, and that count merges on every arm including the empty one; the merge identity holds only to the floating-point merge bound.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// Bit-faithfulness IS the record's own value equality — the hand-written three-field compare re-implemented the
-// compiler `==` and is deleted; `[Equatable]` keeps the compare generated and adds the `Inequalities` diff, so a
-// stale cache verdict names WHICH coordinate moved (`ProviderType: MklLinearAlgebraProvider -> Managed…`,
-// `Parallelism: 8 -> 4`) instead of a bare false. `Selected` is the row the composition THREADED; the ambient
-// handle beside it is the world the snapshot is checking that row against.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public readonly partial record struct SolveProvenance(string Selected, string ProviderTag, string ProviderType, int Parallelism) {
     public static SolveProvenance Snapshot(LinearProvider provider) =>
         new(provider.Key, LinearAlgebraControl.Provider.ToString() ?? string.Empty, LinearAlgebraControl.Provider.GetType().Name, Control.MaxDegreeOfParallelism);
 }
 
-// The residual stream is the kernel `Rasm/Domain/stats#MOMENTS` `Stat<Scalar>` receipt, folded through its own
-// `Update`/`Merge` — the same four-moment Welford recurrence and the same Pebay pairwise join this lane once
-// carried as a second copy. ABSENCE is `None`: a lane no solve has pushed has no receipt, where an `Empty` seed
-// carrying `Count: 0` was the forged-zero shape this page's own comment complained about, indistinguishable
-// from a stream that admitted nothing. `Rejected` still counts what the finite guard turned away — the kernel
-// column carries it and `Merge` sums it on every arm including the empty one.
 public sealed record ResidualStream(Option<Stat<Scalar>> Held) {
     public static readonly ResidualStream Empty = new(None);
 

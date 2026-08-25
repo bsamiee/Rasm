@@ -29,7 +29,7 @@ The beat composes the kernel timeline rather than re-minting temporal identity: 
 - Boundary: the platform timer's construction, its disposal, and its run-loop mode are the boundary's — `CADisplayLink` lifecycle, `UITimer` disposal, and idle-callback registration never enter this owner, and this owner never holds a live host timer past its lease.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Parametric;
@@ -37,10 +37,7 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The row CARRIES its consequence: each posture parks the cause on the clock's own cell and answers whether the
-// tick survives, so the "never dies quietly" law is a value a caller reads rather than a bool every reader branches
-// on. The park's settlement discards here because the cell already counted it — a declined park increments `Lost`.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class FaultPosture {
     public static readonly FaultPosture Halt = new(key: 0,
@@ -53,12 +50,10 @@ public sealed partial class FaultPosture {
     [UseDelegateFromConstructor] internal partial Fin<Unit> Settle(FaultCell faults, HookId point, Error cause);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The chain tail: `BeatSeed` names an origin or a predecessor and nothing else remembers which the next tick owes,
-// so the cursor is what keeps one clock on one branded sequence across a pause.
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record ClockCursor(BeatSeed Seed, Option<PulseBeat> Last);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class UiClock : IDisposable {
     private static readonly HookId Rail = HookId.Create(value: "rasm.kernel.interaction.clock");
 
@@ -70,8 +65,6 @@ public sealed class UiClock : IDisposable {
     private readonly Func<PulseBeat, Fin<Unit>> body;
     private readonly FaultCell faults;
 
-    // Cadence is `PositiveMagnitude` in seconds — the kernel's one positive-scalar owner. A bespoke cadence value
-    // object would re-declare an invariant that owner already holds, so none mints here.
     [BoundaryAdapter]
     public static Fin<Lease<UiClock>> Of(
         PositiveMagnitude cadence,
@@ -88,13 +81,9 @@ public sealed class UiClock : IDisposable {
 
     public Fin<Lease<IDisposable>> Tap(Action<PulseBeat> observer, Op key);
 
-    // BOUNDED: a sixty-hertz clock under `Continue` grows a failure history for process lifetime, so the record is
-    // the cell's own ring and the parks it could not seat read as `Shed` beside it rather than as nothing.
     public Seq<IsolatedFault> Failures => faults.Parked;
     public long Shed => faults.Shed;
 
-    // A failing tick NEVER dies quietly: the posture parks the cause and DECIDES whether the beat survives, so the
-    // two rows are the whole failure axis and this fold names neither of them.
     private Fin<Unit> Tick(Op key) =>
         (from pulse in Advance(key: key)
          from published in Fin.Succ(Publish(pulse: pulse, key: key))
@@ -103,13 +92,9 @@ public sealed class UiClock : IDisposable {
             Succ: static _ => Fin.Succ(unit),
             Fail: cause => posture.Settle(faults: faults, point: Rail, cause: cause));
 
-    // Publication runs through `FaultRail.Isolate` on this clock's own cell, exactly as the dispatch observers do:
-    // a tap that can fail a marshal turns instrumentation into a liveness dependency.
     private Unit Publish(PulseBeat pulse, Op key) => observers.Value.Fold(
         unit, (_, observer) => FaultRail.Isolate(faults: faults, publish: () => observer(obj: pulse), key: key));
 
-    // The ordinal gap IS the miss count, so the tick body reads the beat the timeline minted and derives nothing.
-    // The seed is read ONCE and the transition commits against that same read.
     private Fin<PulseBeat> Advance(Op key) =>
         from held in Fin.Succ(cursor.Value)
         from minted in timeline.Beat(seed: held.Seed, cadence: cadence, key: key)
@@ -120,10 +105,6 @@ public sealed class UiClock : IDisposable {
             key: key)
         select pulse;
 
-    // A moved tail is a REFUSAL, not a retry: the guarded step DECLINES when the seed it measured no longer stands,
-    // because a recomputed candidate would re-install a beat derived from a predecessor another writer replaced.
-    // Every losing arm answers a fault — a ceded seat published a beat the winner already superseded, and reporting
-    // success there certifies a decision this caller never won.
     private Fin<Unit> Seat(BeatSeed observed, ClockCursor next, Op key) =>
         Cell.Step(cursor, held => held.Seed == observed ? Some(next) : None, key.InvalidResult()).Switch(
             state: key,
@@ -149,14 +130,14 @@ public sealed class UiClock : IDisposable {
 - Boundary: a host presentation clock's target timestamp is NOT a monotonic counter and never enters this value — a display link's predicted present time stays at the boundary that reads it.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Parametric;
 
 namespace Rasm.Interaction;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PulseBeat(MonotonicBeat Evidence, TimeSpan Interval, TimeSpan Drift, long Missed) : IValidityEvidence {
     public static PulseBeat Of(MonotonicBeat beat, Option<PulseBeat> prior, PositiveMagnitude cadence) => new(

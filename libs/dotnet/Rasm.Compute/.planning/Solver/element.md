@@ -26,7 +26,7 @@ The volumetric facet tables are the kernel's: `Rasm/Meshing/mesh#MESH_SPACE` `Ce
 - Boundary: the mesh is solve-native raw SI `double` — the typed `MeasureValue`/`Dimension` vocabulary lives at the `Rasm.Element/Properties/quantity#MEASURE_VALUE` seam and is admitted once upstream, never threaded through this hot numeric kernel; metric reductions ride the `Tensor/dispatch#KERNEL_DISPATCH` `TensorPrimitives` SIMD folds over the flat per-element span, and MathNet factors only the cold per-class Vandermonde inverse.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
 public sealed partial class ShapeFamily {
@@ -40,9 +40,6 @@ public sealed partial class ShapeFamily {
     public partial ShapeSample Sample(ElementClass element, (double X, double Y, double Z) natural, ReadOnlySpan<double> nodalXyz);
 }
 
-// The Euler-versus-Timoshenko discriminant is a BEHAVIOUR row, not a bool the member body re-tests twice: the
-// rigid row answers zero shear parameter for every section, the shearing row the 12EI/GA_s L² term, and a
-// section with no shear area answers rigid by its own arithmetic rather than by a guard at the call site.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -55,8 +52,6 @@ public sealed partial class ShearModel {
     public partial double Phi(double young, double inertia, double shear, double shearArea, double length);
 }
 
-// Which end of a quality scale is BETTER, as a row carrying both the reduction and the admission test — a bool
-// beside two readers makes each reader re-decide the direction, and the two readers disagreeing is unobservable.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -82,7 +77,7 @@ public readonly record struct Monomial(int I, int J, int K) {
     static double Pow(double b, int e) => e <= 0 ? 1.0 : e == 1 ? b : Math.Pow(b, e);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ShapeSample(double[] Shape, double[] Grad, double DetJ);
 
@@ -90,9 +85,6 @@ public readonly record struct ShapeSample(double[] Shape, double[] Grad, double 
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ElementClass {
-    // Row ctor argument order IS the generated order: key, then every plain column in DECLARATION order, then
-    // every `[UseDelegateFromConstructor]` column in partial-method declaration order, with NO defaults. The
-    // volumetric facet and corner columns read the kernel `CellTopology` row that already owns them.
     public static readonly ElementClass Tet4 = new("tet4", ShapeFamily.Polynomial, ShearModel.Rigid, dim: 3, order: 1,
         ReferenceElement.Tet, integrationOrder: 2, ElementTopology.TetRef4, ElementTopology.TetP1, ElementTopology.TetEdges,
         CellTopology.Tet4.Facets, CellTopology.Tet4.Corners, () => Tet10);
@@ -108,17 +100,12 @@ public sealed partial class ElementClass {
     public static readonly ElementClass Hex27 = new("hex27", ShapeFamily.Polynomial, ShearModel.Rigid, dim: 3, order: 2,
         ReferenceElement.Hex, integrationOrder: 5, ElementTopology.HexRef27, ElementTopology.HexQ2, ElementTopology.HexEdges,
         CellTopology.Hex8.Facets, CellTopology.Hex8.Corners, () => Hex27);
-    // Wedge6 declares 2 and Wedge18 declares 5: a prism rule is exact to the WEAKER of its triangle and line
-    // legs, so the kernel roster publishes Wedge6 at 2 and Wedge21 at 5 and the pre-repair 4/5 pair named rules
-    // no ladder could serve.
     public static readonly ElementClass Wedge6 = new("wedge6", ShapeFamily.Polynomial, ShearModel.Rigid, dim: 3, order: 1,
         ReferenceElement.Wedge, integrationOrder: 2, ElementTopology.WedgeRef6, ElementTopology.WedgeP1, ElementTopology.WedgeEdges,
         CellTopology.Wedge6.Facets, CellTopology.Wedge6.Corners, () => Wedge18);
     public static readonly ElementClass Wedge18 = new("wedge18", ShapeFamily.Polynomial, ShearModel.Rigid, dim: 3, order: 2,
         ReferenceElement.Wedge, integrationOrder: 5, ElementTopology.WedgeRef18, ElementTopology.WedgeP2, ElementTopology.WedgeEdges,
         CellTopology.Wedge6.Facets, CellTopology.Wedge6.Corners, () => Wedge18);
-    // The conical product's exactness is bounded by its BASE directions after the (1−ζ)² collapse weight, so the
-    // pyramid ceiling is 2 and a declared 5 is a claim no owned rule carries.
     public static readonly ElementClass Pyramid5 = new("pyramid5", ShapeFamily.Pyramid, ShearModel.Rigid, dim: 3, order: 1,
         ReferenceElement.Pyramid, integrationOrder: 2, ElementTopology.PyramidRef5, ImmutableArray<Monomial>.Empty, ElementTopology.PyramidEdges,
         CellTopology.Pyramid5.Facets, CellTopology.Pyramid5.Corners, () => Pyramid5);
@@ -145,8 +132,6 @@ public sealed partial class ElementClass {
     public ShearModel Shear { get; }
     public int Dim { get; }
     public int Order { get; }
-    // ReferenceDomain and IntegrationOrder are the WHOLE quadrature declaration: kernel rows elect the smallest
-    // owned rule at or above that order and REFUSE above their ceiling, so a rule constant never appears here.
     public ReferenceElement ReferenceDomain { get; }
     public int IntegrationOrder { get; }
     public ImmutableArray<(double X, double Y, double Z)> Reference { get; }
@@ -161,10 +146,6 @@ public sealed partial class ElementClass {
     public int Nodes => Reference.Length;
     public ImmutableArray<int> Ordinals => ElementTopology.Ordinals(Corners);
 
-    // The higher-order node budget DERIVES from the row's own count against its own tables, in the CGNS order the
-    // reference table already carries: corners, then edge midpoints, then quad-facet centres, then one interior
-    // node. The elevation fold reads these off the TARGET row, so `Hex20 -> Hex27` mints six facet centres and
-    // one interior where `Tet4 -> Tet10` mints six edge midpoints and nothing else, from ONE body.
     public int MidEdges => Math.Clamp(Nodes - Corners, 0, Edges.Length);
     public int MidFaces => Math.Clamp(Nodes - Corners - MidEdges, 0, QuadFacets);
     public int MidInterior => Math.Max(0, Nodes - Corners - MidEdges - MidFaces);
@@ -172,21 +153,12 @@ public sealed partial class ElementClass {
 
     private static readonly Op QuadratureKey = Op.Of(name: nameof(Quadrature));
 
-    // Accessor-backed lazy over the closed roster: the generator fills `Items` from its own static constructor, so
-    // an eager table would freeze empty, and the frozen map replaces the concurrent memo whose whole race argument
-    // was the cost of building on first read from many assembly threads.
     private static readonly Lazy<FrozenDictionary<ElementClass, Fin<QuadratureRule>>> Rules = new(
         static () => Items.ToFrozenDictionary(static row => row, static row => row.ReferenceDomain.Rule(order: row.IntegrationOrder, key: QuadratureKey)),
         LazyThreadSafetyMode.ExecutionAndPublication);
 
-    // The election is the kernel's typed refusal, carried unflattened: an admission binds it ONCE and the admitted
-    // mesh carries the proven rule, so no assembly fold re-elects and no under-integration reaches one dressed as
-    // success. A row whose basis is empty never builds a Vandermonde, which is why that memo stays per-row lazy
-    // while this one folds the whole roster at first read.
     public Fin<QuadratureRule> Quadrature => Rules.Value[this];
 
-    // Per-row lazy because a Reduced, Pyramid, or Frame row has no monomial basis to invert; both derivations are
-    // pure functions of the row, so a concurrent double-build costs one wasted table and publishes exactly one.
     static readonly ConcurrentDictionary<ElementClass, double[,]> Vandermondes = new();
     private double[,] Coefficients => Vandermondes.GetOrAdd(this, static row => ElementTopology.Vandermonde(row.Reference, row.Basis));
 
@@ -254,8 +226,6 @@ public sealed partial class ElementClass {
         return (0.25 * mx * my * mz, 0.25 * dmx * my * mz, 0.25 * mx * dmy * mz, 0.25 * mx * my * dmz);
     }
 
-    // The rational apex denominator floors at the pyramid degeneracy lane rather than at an anonymous literal:
-    // the collapse direction is the one axis whose basis is not polynomial, so its floor is a named domain fact.
     internal double[] PyramidShape((double X, double Y, double Z) p) {
         double[] n = new double[5];
         double inv = 1.0 / Math.Max(EpsilonPolicy.ZeroTolerance, 1.0 - p.Z);
@@ -290,8 +260,6 @@ public sealed partial class CellQuality {
     public static readonly CellQuality AspectRatio = new("aspect-ratio", QualitySense.Lower, AspectRatioMeasure);
     public static readonly CellQuality Skewness = new("skewness", QualitySense.Lower, SkewnessMeasure);
     public static readonly CellQuality MinDihedral = new("min-dihedral", QualitySense.Higher, MinDihedralMeasure);
-    // Condition is the reciprocal of the scaled Jacobian, so it reads that row's measure rather than a second
-    // corner-frame walk over the same topology.
     public static readonly CellQuality Condition = new("condition", QualitySense.Lower, ConditionMeasure);
 
     public QualitySense Sense { get; }
@@ -354,7 +322,7 @@ public sealed partial class CellQuality {
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ElementTopology {
     public static readonly ImmutableArray<(double, double, double)> LineRef2 = [(-1, 0, 0), (1, 0, 0)];
@@ -390,13 +358,9 @@ public static class ElementTopology {
     public static readonly ImmutableArray<(int, int)> WedgeEdges = [(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3), (0, 3), (1, 4), (2, 5)];
     public static readonly ImmutableArray<(int, int)> PyramidEdges = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 4), (1, 4), (2, 4), (3, 4)];
 
-    // The kernel `CellTopology` roster carries no planar cell, so the two 2-D facet tables are genuinely this
-    // page's — every VOLUMETRIC row reads the kernel's own facet data instead.
     public static readonly ImmutableArray<ImmutableArray<int>> TriFaces = [[0, 1, 2]];
     public static readonly ImmutableArray<ImmutableArray<int>> QuadFaces = [[0, 1, 2, 3]];
 
-    // Row-count ordinals interned once at row construction, so the quality fold walks a frozen array instead of
-    // materializing a range per element.
     public static ImmutableArray<int> Ordinals(int count) => [.. Enumerable.Range(0, count)];
 
     public static double[,] Vandermonde(ImmutableArray<(double X, double Y, double Z)> nodes, ImmutableArray<Monomial> basis) {
@@ -419,9 +383,6 @@ public static class ElementTopology {
         return new(shape.ToArray(), grad, det);
     }
 
-    // Neither inverse substitutes a floor for a vanishing determinant: an element whose Jacobian degenerates was
-    // already refused BY NAME at the quality gate, which runs over the whole element set before any sample is
-    // taken, so a substituted pivot here can only launder a mesh that never admitted.
     static double Invert2(ReadOnlySpan<double> j, Span<double> inv) {
         double det = j[0] * j[4] - j[1] * j[3], s = 1.0 / det;
         inv[0] = j[4] * s; inv[1] = -j[1] * s; inv[3] = -j[3] * s; inv[4] = j[0] * s;
@@ -439,11 +400,6 @@ public static class ElementTopology {
 
     public static Vector3 Node(ReadOnlySpan<double> xyz, int index) => new((float)xyz[index * 3], (float)xyz[index * 3 + 1], (float)xyz[index * 3 + 2]);
 
-    // Every declared corner carries at least `Dim` incident edges in its OWN topology table — two in the plane,
-    // three in a volume — so the frame reads them directly and a planar corner's third axis is the edge cross
-    // product. Repeating an edge as the missing axis makes the corner determinant identically zero, which reads as
-    // a degenerate element for a perfectly good triangle; a line row has no corner frame at all, so its unfilled
-    // axes stay zero and the quality floor refuses the model by name rather than a fallback inventing a frame.
     public static (Vector3 E1, Vector3 E2, Vector3 E3) CornerFrame(ElementClass element, int corner, ReadOnlySpan<double> xyz) {
         Vector3 o = Node(xyz, corner);
         Span<Vector3> incident = stackalloc Vector3[3];
@@ -497,10 +453,8 @@ public static class ElementTopology {
 - Boundary: `Up` carries the member roll — the AxisCurve's own orientation vector — so the local triad is (x̂ along axis, ẑ the up projected orthogonal to x̂, ŷ = ẑ×x̂); a roll derived from the global direction alone cannot represent an arbitrarily rotated section and is the deleted form. A near-parallel up degenerates to the global-Z (or global-Y for verticals) fallback so the triad stays orthonormal.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The twelve member-local degrees of freedom as a capability roster: a release SET is membership over closed rows,
-// where the `int` bitmask it replaces made every one of 4096 corners spellable and none of them named.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -521,16 +475,11 @@ public sealed partial class DofRelease : ICapability<DofRelease> {
     public int Local { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// `[Equatable]`+`[UnorderedEquality]`: the release column is a `FrozenSet`-backed capability set, which synthesized
-// record equality compares by REFERENCE, so two structurally identical members would fork one content key.
 [Equatable]
 public sealed partial record FrameMember(
     double Area, double Iy, double Iz, double J,
-    // Warping constant (m^6): the 7th-DOF producer column — carried NOW so the section seam publishes it whole,
-    // read the day a frame lowering adopts the warping ordinate; 0.0 is the closed-section exact value, never a
-    // sentinel (an open thin-walled section carries its computed Iw from the same seam that filled Iy/Iz).
     double Iw,
     double UpX, double UpY, double UpZ,
     [property: UnorderedEquality] CapabilitySet<DofRelease> Releases,
@@ -544,8 +493,6 @@ public sealed partial record FrameMember(
             SpringYj: double.PositiveInfinity, SpringZj: double.PositiveInfinity,
             ShearAreaY: 0.0, ShearAreaZ: 0.0);
 
-    // The release ROSTER is part of the preimage and rides its own ordinal stream, so two members differing only
-    // in which end is pinned address as two identities rather than colliding on their section columns.
     public void WriteCanonical(CanonicalWriter sink) {
         sink.Double(Area).Double(Iy).Double(Iz).Double(J)
             .Double(UpX).Double(UpY).Double(UpZ)
@@ -558,12 +505,9 @@ public sealed partial record FrameMember(
     public UInt128 Key(double tolerance) => ContentHash.Of(this, static (member, sink) => member.WriteCanonical(sink), tolerance);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class FrameKernel {
-    // The five folds run in ONE order and the order is the physics: local stiffness, then the in-series spring,
-    // then the release condensation, then the eccentric transform, then the rotation into global. A release
-    // condensed before its spring folds a stiffness the spring was going to soften.
     public static Fin<Unit> Member(ElementClass element, ReadOnlySpan<double> xyz, in FrameMember member, double young, double poisson, Span<double> global) {
         double dx = xyz[3] - xyz[0], dy = xyz[4] - xyz[1], dz = xyz[5] - xyz[2];
         double length = Math.Sqrt(dx * dx + dy * dy + dz * dz) - member.OffsetI - member.OffsetJ;
@@ -600,8 +544,6 @@ public static class FrameKernel {
         Set(8, 8, by); Set(8, 10, cy); Set(10, 10, dyy);
     }
 
-    // An infinite spring is a RIGID end and folds nothing; the in-series stiffness is exact rather than a
-    // penalty, so a soft connection does not depend on a magnitude the caller had to tune against the section.
     public static void SemiRigid(Span<double> k, in FrameMember m) {
         Fold(k, DofRelease.BendingYI.Local, m.SpringYi); Fold(k, DofRelease.BendingZI.Local, m.SpringZi);
         Fold(k, DofRelease.BendingYJ.Local, m.SpringYj); Fold(k, DofRelease.BendingZJ.Local, m.SpringZj);
@@ -613,8 +555,6 @@ public static class FrameKernel {
         }
     }
 
-    // Static condensation over the released ROWS: the set names them, so no bit test runs for a corner the roster
-    // does not carry and the pivot floor is the kernel's degeneracy lane rather than a bare literal.
     public static void CondenseReleases(Span<double> k, CapabilitySet<DofRelease> releases) {
         foreach (DofRelease release in releases.Held.OrderBy(static row => row.Local)) {
             int d = release.Local;
@@ -635,8 +575,6 @@ public static class FrameKernel {
         Congruence(k, e);
     }
 
-    // The same triad is EXPOSED so load resolution and station recovery read the member-local frame the stiffness
-    // was rotated with, never global components re-derived at a consumer.
     public static void Triad(double dx, double dy, double dz, double upX, double upY, double upZ, Span<double> r) {
         double l = Math.Sqrt(dx * dx + dy * dy + dz * dz);
         double cx = dx / l, cy = dy / l, cz = dz / l;

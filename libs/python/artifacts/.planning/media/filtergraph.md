@@ -32,9 +32,9 @@ from msgspec import Struct
 from numpy.typing import NDArray
 
 lazy import av
-lazy import av.error  # explicit: `_drained` and the registry gate name its leaves, never av's parent-package re-export
+lazy import av.error
 lazy import av.filter
-lazy from PIL import Image, ImageDraw, ImageFont, features  # the drawtext substitute; module-scope (a lazy stmt inside a function is a SyntaxError)
+lazy from PIL import Image, ImageDraw, ImageFont, features
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -46,16 +46,16 @@ type FilterNodeTag = Literal[
     "text_burn", "subtitle_burn", "xfade", "overlay", "concat", "amix", "acrossfade",
 ]
 type AudioGraphTag = Literal["master", "mix"]
-type Rgba = NDArray[np.uint8]  # (H, W, 4) rendered text/subtitle plane
-type SubtitleEvent = tuple[float, float, str]  # (start, end, text) — media/subtitle#SUBTITLE owns the pysubs2 parse
+type Rgba = NDArray[np.uint8]
+type SubtitleEvent = tuple[float, float, str]
 
 
 class SubstituteKind(StrEnum):
-    NATIVE_LINEAR = "native_linear"  # single-input native filter into the link_nodes chain
-    SUBSTITUTE_LINEAR = "substitute_linear"  # native absent -> other single-input native filters (eq -> curves+hue)
-    NATIVE_MULTI = "native_multi"  # multi-input native filter via per-context link_to (concat/amix/acrossfade)
-    COMPOSITE = "composite"  # Pillow alpha-composite pass (drawtext substitute, time-gated subtitle burn-in)
-    DISSOLVE = "dissolve"  # native xfade refuses in-process configure -> numpy cross-dissolve
+    NATIVE_LINEAR = "native_linear"
+    SUBSTITUTE_LINEAR = "substitute_linear"
+    NATIVE_MULTI = "native_multi"
+    COMPOSITE = "composite"
+    DISSOLVE = "dissolve"
 
 
 class Transition(StrEnum):
@@ -67,14 +67,14 @@ class Transition(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_CURVE_X: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0)  # eq-substitute luma-transfer sample points -> curves control string
+_CURVE_X: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class TextSpec(Struct, frozen=True):
     text: str
-    font: str  # a font path the RAQM/BASIC layout loads
+    font: str
     size: int = 48
     x: int = 24
     y: int = 24
@@ -82,9 +82,9 @@ class TextSpec(Struct, frozen=True):
     anchor: str = "la"
     stroke: int = 0
     stroke_fill: tuple[int, int, int, int] = (0, 0, 0, 255)
-    features: tuple[str, ...] = ()  # OpenType features for the complex-script run
+    features: tuple[str, ...] = ()
     language: str | None = None
-    direction: str | None = None  # "rtl"/"ltr"/"ttb" for bidi/vertical
+    direction: str | None = None
 
 
 class FilterRow(Struct, frozen=True):
@@ -114,9 +114,6 @@ _FILTER: frozendict[FilterNodeTag, FilterRow] = frozendict({
     "acrossfade": FilterRow("acrossfade", SubstituteKind.NATIVE_MULTI),
 })
 
-# progress t in [0,1] -> the (h, w) float32 weight plane the OVER frame carries at that step. FADE's plane is
-# spatially CONSTANT, so the temporal ramp is a ROW of the same table the spatial sweeps ride and the dissolve arm
-# carries exactly one blend kernel for the whole vocabulary.
 _WEIGHT: frozendict[Transition, "Callable[[float, int, int], NDArray[np.float32]]"] = frozendict({
     Transition.FADE: lambda t, h, w: np.full((h, w), t, dtype=np.float32),
     Transition.WIPE_LEFT: lambda t, h, w: np.broadcast_to((np.arange(w) < t * w).astype(np.float32), (h, w)),
@@ -126,12 +123,6 @@ _WEIGHT: frozendict[Transition, "Callable[[float, int, int], NDArray[np.float32]
     ).astype(np.float32),
 })
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form. Pair one: `_wire` and `_build_graph` index `_FILTER` by tag, so an unruled `FilterNodeTag` is a runtime
-# `KeyError` mid-build inside a worker. Pair two runs the INVERSE — every declared `SubstituteKind` is SELECTED by
-# some row, so a routing member no row uses is a phantom the vocabulary refuses at import rather than a dead arm
-# `_build_graph` carries forever. Pair three: `_cross_dissolve` indexes `_WEIGHT` by the node's own `Transition`,
-# so an unruled member is a runtime `KeyError` mid-blend inside a worker.
 _COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
     (frozenset(_FILTER), frozenset(get_args(FilterNodeTag))),
     (frozenset(row.route for row in _FILTER.values()), frozenset(SubstituteKind)),
@@ -145,30 +136,25 @@ if any(rows != vocabulary for rows, vocabulary in _COVERED):
 class FilterNode:
     tag: FilterNodeTag = tag()
     scale: tuple[int, int] = case()
-    crop: tuple[int, int, int, int] = case()  # (w, h, x, y)
+    crop: tuple[int, int, int, int] = case()
     fps: int = case()
-    format: str = case()  # pix_fmt
-    color_grade: tuple[float, float, float, float] = case()  # (brightness, contrast, saturation, gamma)
-    denoise: float = case()  # strength
-    sharpen: float = case()  # unsharp luma amount
-    transpose: int = case()  # 0=ccw+vflip, 1=cw, 2=ccw, 3=cw+vflip
-    pad: tuple[int, int, int, int, str] = case()  # (w, h, x, y, color)
-    deinterlace: int = case()  # yadif mode: 0 one frame per frame, 1 one frame per field
-    speed: float = case()  # setpts PTS/factor — >1 speeds up, <1 slows down; the audio leg is a Stage.atempo
+    format: str = case()
+    color_grade: tuple[float, float, float, float] = case()
+    denoise: float = case()
+    sharpen: float = case()
+    transpose: int = case()
+    pad: tuple[int, int, int, int, str] = case()
+    deinterlace: int = case()
+    speed: float = case()
     text_burn: "TextSpec" = case()
-    subtitle_burn: tuple[tuple[SubtitleEvent, ...], str] = case()  # (events, style)
-    # offset and duration carry NO arm here: the caller derives the overlap in FRAMES and hands it to `wired` as
-    # `window`, so a seconds slot beside it would be a second authority for one span and fork the content key on a
-    # value the blend never reads.
+    subtitle_burn: tuple[tuple[SubtitleEvent, ...], str] = case()
     xfade: Transition = case()
-    overlay: tuple[int, int] = case()  # (x, y) top-left placement of the second video source — watermark/picture-in-picture
-    concat: int = case()  # input count
-    amix: tuple[int, tuple[float, ...]] = case()  # (count, weights)
-    acrossfade: tuple[float, str] = case()  # (duration, curve) — exactly two audio sources
+    overlay: tuple[int, int] = case()
+    concat: int = case()
+    amix: tuple[int, tuple[float, ...]] = case()
+    acrossfade: tuple[float, str] = case()
 
     def facet(self) -> tuple[str, object]:
-        # projects the node-owned canonical identity — tag plus the case's plain-value payload, the stable
-        # preimage chunk media/container#CONTAINER's `_canon` deterministic-msgpack-encodes in place of a repr.
         match self:
             case (
                 FilterNode(tag="scale", scale=payload)
@@ -204,18 +190,10 @@ class AudioGraphSpec:
 
 @dataclass(frozen=True, slots=True)
 class WiredGraph:
-    # a frozen dataclass, NOT a msgspec.Struct: it carries live av.filter.Graph handles and closure passes (never
-    # serialized), and deferred annotations keep the TYPE_CHECKING-only `Callable` from a class-creation NameError.
-    # ordered STAGES preserve the declared FilterNode program: each stage is one configured native sub-graph or one
-    # Pillow composite pass at its OWN program position — a composite before a later scale/crop/pad executes there
-    # and targets the geometry present there, never a deferred tail pass over terminal extents.
-    stages: tuple[tuple[str, object], ...] = ()  # ("native", av.filter.Graph) | ("composite", Callable[[frame], frame])
-    node_count: int = 0  # the filter-node fact the producer folds onto ArtifactReceipt.Media
+    stages: tuple[tuple[str, object], ...] = ()
+    node_count: int = 0
 
     def driven(self, frame: "object | None") -> tuple[object, ...]:
-        # ONE ordered walk per frame: native stages push-and-drain, composite stages apply per frame — program
-        # order IS execution order. The flush walk (frame None) forwards each stage's tail downstream AND flushes
-        # every native stage in order, so a buffering filter's tail still crosses the later stages.
         flushing = frame is None
         pending: tuple[object, ...] = () if flushing else (frame,)
         for kind, stage in self.stages:
@@ -229,11 +207,9 @@ class WiredGraph:
 
 @dataclass(frozen=True, slots=True)
 class AudioGraph:
-    # audio capsule media/audio#MEDIA composes for every filter chain — the live configured graph plus its
-    # source contexts, since a multi-input graph pushes per FilterContext, never through the single-source Graph.push.
     graph: object
     sources: tuple[object, ...]
-    node_count: int = 0  # the filter-node fact the composing producer folds onto ArtifactReceipt.Media
+    node_count: int = 0
 
     @staticmethod
     def of(spec: AudioGraphSpec, /) -> "AudioGraph":
@@ -254,7 +230,7 @@ class AudioGraph:
                     tap.link_to(node, 0, index)
                 node.link_to(sink, 0, 0)
                 graph.configure()
-                return AudioGraph(graph=graph, sources=taps, node_count=1)  # processing nodes only — amix; taps and sink are plumbing
+                return AudioGraph(graph=graph, sources=taps, node_count=1)
             case _ as unreachable:
                 assert_never(unreachable)
 
@@ -266,7 +242,6 @@ class AudioGraph:
                 yield from self._filtered(stream)
 
     def _filtered(self, frames: "Iterator[object]", /) -> "Iterator[object]":
-        # push/drain per frame, then the None flush drains a loudnorm/alimiter lookahead tail before EOF.
         for frame in frames:
             self.sources[0].push(frame)
             yield from _drained(self.graph)
@@ -295,15 +270,10 @@ class AudioGraph:
 
 
 def media_filters() -> frozenset[str]:
-    return frozenset(av.filter.filters_available)  # the routing probe, read once per build
+    return frozenset(av.filter.filters_available)
 
 
 def _drained(sink: object, /) -> "Iterator[object]":
-    # THE libavfilter pull protocol, one owner for every drain on the media plane. Both `Graph.pull` and
-    # `FilterContext.pull` raise `av.error.BlockingIOError` (errno 35) for needs-more-input and
-    # `av.error.EOFError` (errno 541478725) once a `None` push has flushed the tail — each subclassing BOTH
-    # `av.error.FFmpegError` and its builtin twin, so a wider catch on either side reads a leaked sentinel as a
-    # codec fault or swallows an unrelated handle's non-blocking OSError as a completed drain.
     while True:
         try:
             yield sink.pull()
@@ -312,22 +282,16 @@ def _drained(sink: object, /) -> "Iterator[object]":
 
 
 def _escaped(value: str, /) -> str:
-    # FFmpeg filter-arg grammar escape — backslash first, then the quote and option separator — so a dynamic text
-    # value can never splice new options into a native filter string.
     return value.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
 
 
 def _grade_args(brightness: float, contrast: float, gamma: float, /) -> str:
-    # sample the eq luma transfer at the control points and format the `curves` all-channel control string; the eq
-    # substitute is `curves` (brightness/contrast/gamma) + `hue=s=` (saturation), both native-present where `eq` is absent.
     ys = np.clip((((np.asarray(_CURVE_X) - 0.5) * contrast) + 0.5 + brightness) ** (1.0 / max(gamma, 1e-3)), 0.0, 1.0)
     points = " ".join(f"{x:.3f}/{y:.3f}" for x, y in zip(_CURVE_X, ys, strict=True))
     return f"all='{points}'"
 
 
 def _render_text(spec: TextSpec, width: int, height: int, /) -> Rgba:
-    # drawtext substitute: a transparent RGBA plane drawn through Pillow, RAQM complex-script shaping gated on the
-    # build probe (the same capability-detection shape one level down), returned as an (H, W, 4) uint8 array.
     layout = ImageFont.Layout.RAQM if features.check("raqm") else ImageFont.Layout.BASIC
     font = ImageFont.truetype(spec.font, spec.size, layout_engine=layout)
     canvas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
@@ -363,9 +327,6 @@ def _composite(plane: Rgba, /) -> "Callable[[object], object]":
 
 
 def _timed(events: tuple[SubtitleEvent, ...], style: str, width: int, height: int, /) -> "Callable[[object], object]":
-    # subtitle-burn composite: one plane per event text, rendered on the first frame inside its window and cached
-    # for the rest — a long track never materializes every plane up front — gated by the pulled frame's own
-    # presentation time; `style` names the substitute face path (the pysubs2 style resolution is media/subtitle#SUBTITLE's).
     banner = lambda text: TextSpec(text=text, font=style, size=max(height // 18, 16), x=width // 2, y=height - max(height // 12, 32), anchor="ms")
 
     @cache
@@ -380,24 +341,18 @@ def _timed(events: tuple[SubtitleEvent, ...], style: str, width: int, height: in
 
 
 def _composited(node: FilterNode, width: int, height: int, /) -> "Callable[[object], object]":
-    # COMPOSITE dispatch: each case consumes only its own admitted payload — the static text plane, or the
-    # time-gated event planes — never a cross-case attribute read.
     match node:
         case FilterNode(tag="text_burn", text_burn=spec):
             return _composite(_render_text(spec, width, height))
         case FilterNode(tag="subtitle_burn", subtitle_burn=(events, style)):
             return _timed(events, style, width, height)
         case _ as other:
-            raise ValueError(f"composited: {other.tag} carries no composite arm")  # a programming defect, never railed as input
+            raise ValueError(f"composited: {other.tag} carries no composite arm")
 
 
 def _cross_dissolve(
     under: tuple[NDArray[np.uint8], ...], over: tuple[NDArray[np.uint8], ...], window: int, transition: Transition, /
 ) -> tuple[NDArray[np.uint8], ...]:
-    # THE overlap-blend owner for every transition (native `xfade` fails in-process `configure()`): the span clamps
-    # to both clips' extents, each step's OVER weight plane comes off the node's own `_WEIGHT` row, and a zero
-    # overlap degrades to a butt joint. Progress runs (i+1)/span so the last blended step is fully OVER and hands
-    # cleanly to the untouched `over` tail — a 0-based ramp leaves the seam one step short of the source it abuts.
     span = max(0, min(window, len(under), len(over)))
     if span == 0:
         return (*under, *over)
@@ -412,31 +367,21 @@ def _cross_dissolve(
 
 
 def _arity(op: FilterNode, /) -> int:
-    # names the exact source arity each multi-source op demands: two for the pairwise ops, the declared count for concat/amix.
     match op:
         case FilterNode(tag="overlay") | FilterNode(tag="acrossfade"):
             return 2
         case (FilterNode(tag="concat", concat=count) | FilterNode(tag="amix", amix=(count, _))) if count <= 0:
-            # a zero or negative declared count would pass the exact-arity equality against an empty source tuple and
-            # mint an invalid `n=0` graph spec; refused here so no buffer ever builds against it.
             raise ValueError(f"wired: {op.tag} declares a non-positive source count {count}")
         case FilterNode(tag="concat", concat=count) | FilterNode(tag="amix", amix=(count, _)):
             return count
         case _ as other:
-            raise ValueError(f"wired: {other.tag} is not a multi-source op")  # a programming defect, never railed as input
+            raise ValueError(f"wired: {other.tag} is not a multi-source op")
 
 
 def _link_clips(op: FilterNode, sources: tuple[object, ...], /) -> "av.filter.Graph":
-    # `wired` multi-source arm for `overlay`/`concat`/`amix`/`acrossfade`: EXACT arity proven before any buffer
-    # mints — an underfill or surplus refuses rather than silently slicing — then one buffer per source, the clip
-    # node, each source wired through `link_to(node, 0, index)` explicit pads (link_nodes' sequential form raises
-    # ArgumentError 22 for multi-input pads), closed on an explicit (a)buffersink.
     if len(sources) != (required := _arity(op)):
         raise ValueError(f"wired: {op.tag} takes exactly {required} sources, received {len(sources)}")
     if op.tag == "amix" and (weights := op.amix[1]) and (len(weights) != op.amix[0] or not np.isfinite(np.asarray(weights)).all()):
-        # amix weight law proven before any graph or buffer mints: an omitted tuple takes the filter's equal-weight
-        # default, a supplied one carries exactly one finite weight per declared input — a short, long, or
-        # non-finite row would splice a malformed `weights=` option into the native spec.
         raise ValueError(f"wired: amix declares {op.amix[0]} inputs, weights {weights}")
     graph = av.filter.Graph()
     match op:
@@ -454,7 +399,7 @@ def _link_clips(op: FilterNode, sources: tuple[object, ...], /) -> "av.filter.Gr
             buffers = tuple(graph.add_abuffer(template=src) for src in sources)
             node, sink = graph.add("acrossfade", f"d={duration}:c1={_escaped(curve)}:c2={_escaped(curve)}"), graph.add("abuffersink")
         case _ as other:
-            raise ValueError(f"wired: {other.tag} is not a multi-source op")  # unreachable past _arity; kept as the defect witness
+            raise ValueError(f"wired: {other.tag} is not a multi-source op")
     for index, buffer in enumerate(buffers):
         buffer.link_to(node, 0, index)
     node.link_to(sink, 0, 0)
@@ -467,8 +412,6 @@ def _extent(template: object, /) -> tuple[int, int]:
 
 
 def _resized(node: FilterNode, extent: tuple[int, int], /) -> tuple[int, int]:
-    # tracks the running output geometry a chain node imposes, so a composite plane appended AFTER a scale/crop/pad/transpose
-    # renders at the graph's live extent rather than the source's — a mismatched plane fails alpha_composite outright.
     match node:
         case FilterNode(tag="scale", scale=(w, h)) | FilterNode(tag="crop", crop=(w, h, *_)) | FilterNode(tag="pad", pad=(w, h, *_)):
             return w, h
@@ -483,18 +426,12 @@ def _native_text(spec: TextSpec, /) -> bool:
 
 
 def _burn_args(spec: TextSpec, /) -> str:
-    # native drawtext arg string: every dynamic value crosses `_escaped` so no caption can extend the filter
-    # grammar, and `expansion=none` disarms drawtext's own %{...} function expansion — which runs AFTER unescape,
-    # so escaping alone cannot stop a caption from evaluating expressions or reading metadata; the substitute
-    # `_render_text` path takes the text directly with no grammar splice at all.
     color = f"0x{spec.color[0]:02x}{spec.color[1]:02x}{spec.color[2]:02x}@{spec.color[3] / 255:.3f}"
     stroke = f"0x{spec.stroke_fill[0]:02x}{spec.stroke_fill[1]:02x}{spec.stroke_fill[2]:02x}@{spec.stroke_fill[3] / 255:.3f}"
     return f"text='{_escaped(spec.text)}':expansion=none:fontfile='{_escaped(spec.font)}':fontsize={spec.size}:x={spec.x}:y={spec.y}:fontcolor={color}:borderw={spec.stroke}:bordercolor={stroke}"
 
 
 def _wire(node: FilterNode, available: frozenset[str], /) -> tuple[tuple[str, str], ...]:
-    # single-input node -> (filter, args) pairs: native when the build exposes it, else the derived substitute;
-    # multi-source and composite ops carry no single-input chain node and fold to (), proven total by assert_never.
     row = _FILTER[node.tag]
     match node:
         case FilterNode(tag="scale", scale=(w, h)):
@@ -538,26 +475,20 @@ def _wire(node: FilterNode, available: frozenset[str], /) -> tuple[tuple[str, st
 
 
 def _staged_pull(segment: object, frame: "object | None", /) -> tuple[object, ...]:
-    # push-one-drain-all per native stage; a None push flushes that stage's tail through the one `_drained` kernel.
     segment.push(frame)
     return tuple(_drained(segment))
 
 
 def _build_graph(nodes: tuple[FilterNode, ...], template: object, /) -> WiredGraph:
-    # `wired` single-source transcode-chain arm: probe once, fold each contiguous native/substitute run into its
-    # OWN configured link_nodes sub-graph, and land each Pillow composite as its own stage AT ITS PROGRAM POSITION
-    # — a composite plane targets the geometry present at its own position, never the terminal extent.
     available = media_filters()
     stages: list[tuple[str, object]] = []
     pending: list[tuple[str, str]] = []
-    extent = _extent(template)  # the running output geometry each stage's planes and buffers must match
+    extent = _extent(template)
     live_fmt: str = template.format.name
     segment_geometry: tuple[tuple[int, int], str] = (extent, live_fmt)
     node_count = 0
 
     def _closed_run() -> None:
-        # close the pending native run into one configured sub-graph whose buffer carries the geometry the
-        # PREVIOUS stage left; the first segment binds the source template directly.
         nonlocal pending, segment_geometry
         if not pending:
             segment_geometry = (extent, live_fmt)
@@ -577,9 +508,6 @@ def _build_graph(nodes: tuple[FilterNode, ...], template: object, /) -> WiredGra
         match row.route:
             case SubstituteKind.NATIVE_LINEAR | SubstituteKind.SUBSTITUTE_LINEAR:
                 for spelled, args in _wire(node, available):
-                    # registry law: EVERY spelling — always-native rows and chosen substitutes alike — proves
-                    # `filters_available` membership before Graph.add, so a limited build rails
-                    # MediaFault.unregistered at the worker capture, never a deep FilterNotFoundError.
                     if spelled not in available:
                         raise av.error.FilterNotFoundError(38, f"filter '{spelled}' absent from this FFmpeg build")
                     pending.append((spelled, args))
@@ -592,9 +520,6 @@ def _build_graph(nodes: tuple[FilterNode, ...], template: object, /) -> WiredGra
                 stages.append(("composite", _composited(node, *extent)))
                 node_count += 1
             case SubstituteKind.NATIVE_MULTI | SubstituteKind.DISSOLVE:
-                # a multi-source op inside a single-source program is a caller error — silently skipping it would
-                # corrupt the declared program, so the chain arm refuses and routes the caller to `wired`'s
-                # multi-source modality with the op's own source tuple.
                 raise ValueError(f"wired: {node.tag} is multi-source — pass it to `wired` with its source tuple, not inside a chain program")
         extent = _resized(node, extent)
         live_fmt = node.format if node.tag == "format" else live_fmt
@@ -609,11 +534,6 @@ def wired(
     *,
     window: int = 0,
 ) -> "WiredGraph | av.filter.Graph | tuple[NDArray[np.uint8], ...]":
-    # THE one filter-build entrypoint: the FilterNode variant and the source arity discriminate the modality,
-    # never a builder-name suffix — a node program + one template runs the single-source transcode chain, one
-    # NATIVE_MULTI node + its exact source tuple builds the link_to multi-source graph, and the `xfade` node +
-    # an (under, over) frame pair runs the numpy dissolve whose frame `window` the caller derives from
-    # rate * duration (the one payload the node cannot carry, since only the caller knows the frame rate).
     match program, source:
         case FilterNode(tag="xfade", xfade=transition), (tuple() as under, tuple() as over):
             return _cross_dissolve(under, over, window, transition)
@@ -622,7 +542,7 @@ def wired(
         case tuple() as nodes, template:
             return _build_graph(nodes, template)
         case _:
-            raise ValueError("wired: program/source shapes match no modality")  # a programming defect, never railed as input
+            raise ValueError("wired: program/source shapes match no modality")
 ```
 
 ## [03]-[RESEARCH]

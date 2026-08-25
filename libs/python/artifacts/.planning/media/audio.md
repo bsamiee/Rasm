@@ -32,8 +32,6 @@ from expression import Error, Ok, Result
 from msgspec import Struct
 from numpy.typing import NDArray
 
-# media/container#CONTAINER owns the shared Media family + worker primitives; media/filtergraph#FILTER owns the
-# AudioGraph capsule audio composes for every filter chain — no `av.filter.Graph` is opened here.
 from rasm.artifacts.media.container import MediaEvidence, MediaFault, MediaProfile, _codec_ok, _deployment, _drive, _flush, _media_fault, _worker
 from rasm.artifacts.media.filtergraph import AudioGraph, AudioGraphSpec
 
@@ -47,12 +45,9 @@ if TYPE_CHECKING:
 
 type Pcm = NDArray[np.int16] | NDArray[np.int32] | NDArray[np.float32] | NDArray[np.float64]
 
-# channel layout rides `MediaProfile.layout` as the FFmpeg layout NAME (`str`): `av` rejects a `StrEnum` member, so it
-# is an open av-name field like `codec`/`pix_fmt`; an arbitrary remap rides a PAN/CHANNELMAP stage row.
 
 
 class StageKind(StrEnum):
-    # closed mastering-and-layout vocabulary: each member IS the libavfilter name its `_STAGE` row renders args for.
     LOUDNORM = "loudnorm"
     HIGHPASS = "highpass"
     LOWPASS = "lowpass"
@@ -72,8 +67,6 @@ class StageKind(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# producer numpy dtype -> av packed sample format; `block.dtype` selects the `from_ndarray`
-# ingest tag, so int16/int32/float32/float64 interleaved PCM all admit with no per-dtype arm.
 _INGEST: frozendict[np.dtype, str] = frozendict({
     np.dtype(np.int16): "s16",
     np.dtype(np.int32): "s32",
@@ -89,9 +82,6 @@ class StageRow(Struct, frozen=True):
     defaults: frozendict[str, float | int | str | bool]
 
 
-# ONE primary correspondence: StageKind -> (arg template, typed knob defaults). Every stage's grammar — the
-# key=value chains, aecho's positional colons, pan's pipe join, compand's dashed key — is a row, and `Stage` is the
-# single constructor over it; a new stage is one member plus one row, never a new factory.
 _STAGE: frozendict[StageKind, StageRow] = frozendict({
     StageKind.LOUDNORM: StageRow(
         "I={integrated}:TP={true_peak}:LRA={loudness_range}:linear={linear}:dual_mono={dual_mono}",
@@ -134,11 +124,6 @@ _STAGE: frozendict[StageKind, StageRow] = frozendict({
     StageKind.CHANNELMAP: StageRow("map={mapping}:channel_layout={layout}", frozendict({"mapping": "FL-FL|FR-FR", "layout": "stereo"})),
 })
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form: `Stage.__init__` and `Stage.args` index `_STAGE` by member, so an unruled `StageKind` is a runtime
-# `KeyError` at construction rather than a load-time refusal, and a new table joins the gate as one pair.
-# `_INGEST` carries NO pair by construction — its keys are numpy dtypes, an open vocabulary the encode and mix
-# arms membership-test (`dtype not in _INGEST`) before every lookup, so the closed-vocabulary law has nothing to prove.
 _COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = ((frozenset(_STAGE), frozenset(StageKind)),)
 if any(rows != vocabulary for rows, vocabulary in _COVERED):
     raise RuntimeError("audio tables do not cover their vocabularies")
@@ -167,8 +152,6 @@ class Stage:
 
 
 class Master(Struct, frozen=True):
-    # ordered mastering-and-layout chain `AudioGraphSpec.master` links into one abuffer -> stages -> abuffersink graph;
-    # default is EBU R128 `loudnorm`, a louder chain composes more ordered rows.
     stages: tuple[Stage, ...] = (Stage(StageKind.LOUDNORM),)
 
 
@@ -176,24 +159,17 @@ class Master(Struct, frozen=True):
 
 
 def _lift(block: Pcm, ingest: str, profile: MediaProfile) -> "av.AudioFrame":
-    # one producer PCM block -> one av AudioFrame with the input timeline stamped; the dtype-keyed `ingest` tag
-    # keeps the lift total over the four interleaved-PCM dtypes with no per-dtype arm — the packed
-    # (1, samples*channels) rank/channel shape is admission-proven against `profile.layout` before any block lands here.
     frame = av.AudioFrame.from_ndarray(block, format=ingest, layout=profile.layout)
     frame.rate = profile.rate
     return frame
 
 
 def _mastered(graph: AudioGraph | None, blocks: tuple[Pcm, ...], profile: MediaProfile, ingest: str) -> "Iterator[av.AudioFrame]":
-    # yield lifted frames through the master capsule, or raw when no master is set; `_voiced` owns the provider's
-    # terminal `resample(None)` flush at the resampler boundary.
     frames = (_lift(block, ingest, profile) for block in blocks)
     yield from graph.frames(frames) if graph is not None else frames
 
 
 def _voiced(container: object, stream: object, blocks: tuple[Pcm, ...], profile: MediaProfile) -> tuple[int, int]:
-    # shared audio drive `_mux_av` also composes: lift -> master -> resample/reframe -> encode -> mux over one
-    # already-opened audio stream, returning (frames, samples). The caller opens the encoder, flushes, and reads the bytes.
     ctx = stream.codec_context
     ingest = _INGEST[blocks[0].dtype]
     graph = (
@@ -201,26 +177,23 @@ def _voiced(container: object, stream: object, blocks: tuple[Pcm, ...], profile:
         if profile.master is not None
         else None
     )
-    # frame_size folds the AudioFifo rebuffer into the resampler: one owner converts format/rate/layout and emits ctx.frame_size-sample frames
     resampler = av.AudioResampler(format=ctx.format.name, layout=profile.layout, rate=ctx.rate, frame_size=ctx.frame_size or None)
     frames = samples = 0
     for shaped in chain(_mastered(graph, blocks, profile, ingest), (None,)):
         for chunk in resampler.resample(shaped):
-            _drive(container, stream, chunk, samples, ctx.rate)  # pts is the cumulative output-sample offset in 1/rate, not the chunk index
+            _drive(container, stream, chunk, samples, ctx.rate)
             frames, samples = frames + 1, samples + chunk.samples
     return frames, samples
 
 
 @_worker
 def _encode_audio(blocks: tuple[Pcm, ...], profile: MediaProfile) -> Result[tuple[bytes, MediaEvidence], MediaFault]:
-    # Pcm is a real runtime union here (unlike the container's TYPE_CHECKING-only forward ref), so `_worker` catches
-    # a beartype hint violation and returns `MediaFault.contract` before the process crossing completes.
     try:
         if not blocks:
             return Error(MediaFault(invalid="empty pcm sequence"))
         if any(block.dtype != blocks[0].dtype for block in blocks):
             return Error(MediaFault(invalid="one pcm sequence must keep one producer dtype"))
-        if blocks[0].dtype not in _INGEST:  # membership against the closed _INGEST vocabulary, so int8/uint8/float16 rail instead of KeyError
+        if blocks[0].dtype not in _INGEST:
             return Error(MediaFault(invalid=f"unsupported pcm dtype {blocks[0].dtype}"))
         channels = av.AudioLayout(profile.layout).nb_channels
         if any(block.ndim != 2 or block.shape[0] != 1 or block.shape[1] % channels for block in blocks):
@@ -235,7 +208,7 @@ def _encode_audio(blocks: tuple[Pcm, ...], profile: MediaProfile) -> Result[tupl
                 return Error(MediaFault(unregistered=("supported_codecs", profile.codec)))
             container.metadata.update(dict(profile.metadata))
             stream = profile.voiced(container)
-            container.start_encoding()  # opens the encoder so codec_context.frame_size/format publish real values, not 0/unset
+            container.start_encoding()
             frames, samples = _voiced(container, stream, blocks, profile)
             rate = stream.codec_context.rate
             sample_format = stream.codec_context.format.name
@@ -257,15 +230,13 @@ def _encode_audio(blocks: tuple[Pcm, ...], profile: MediaProfile) -> Result[tupl
         ))
     except ImportError as exc:
         return Error(MediaFault(provision=str(exc)))
-    except av.error.FFmpegError as exc:  # first: av.error.ValueError subclasses both and keeps its FFmpeg taxonomy
+    except av.error.FFmpegError as exc:
         return Error(_media_fault("encode_audio", exc))
-    except ValueError as exc:  # a provider-side frame-shape refusal lands as the same invalid case admission mints
+    except ValueError as exc:
         return Error(MediaFault(invalid=str(exc)))
 
 
 def _mixed(sources: tuple[tuple[Pcm, ...], ...], profile: MediaProfile, ingests: tuple[str, ...], weights: tuple[float, ...]) -> "Iterator[Pcm]":
-    # hand N per-source lifted-frame streams to `AudioGraph.frames`, which owns the per-context abuffer push, the
-    # amix link_to wiring, and the flush, yielding each mixed frame before `_mix_audio` collects its terminal tuple.
     graph = AudioGraph.of(AudioGraphSpec(mix=(profile.rate, ingests, profile.layout, weights)))
     streams = tuple((_lift(block, ingest, profile) for block in blocks) for blocks, ingest in zip(sources, ingests, strict=True))
     for frame in graph.frames(streams):
@@ -273,19 +244,16 @@ def _mixed(sources: tuple[tuple[Pcm, ...], ...], profile: MediaProfile, ingests:
 
 
 def _mix_audio(sources: tuple[tuple[Pcm, ...], ...], profile: MediaProfile, weights: tuple[float, ...] = ()) -> Result[tuple[Pcm, ...], MediaFault]:
-    # standalone N-source combine `timeline`/`analysis` and the encode arm compose: mixed Pcm blocks on the one
-    # MediaFault rail, so an empty source set and a provider raise are each structurally addressable at every seam.
-    # `weights` empty = equal mix.
     try:
         if not sources or not all(sources):
             return Error(MediaFault(invalid="empty mix source"))
         if weights and len(weights) != len(sources):
             return Error(MediaFault(invalid="mix weights must be empty or match source count"))
-        if not all(math.isfinite(weight) for weight in weights):  # finiteness precedes the amix format — a nan/inf weight poisons every mixed frame
+        if not all(math.isfinite(weight) for weight in weights):
             return Error(MediaFault(invalid="mix weights must be finite"))
         if any(any(block.dtype != source[0].dtype for block in source) for source in sources):
             return Error(MediaFault(invalid="each mix source must keep one producer dtype"))
-        if any(source[0].dtype not in _INGEST for source in sources):  # same closed-vocabulary admission the encode arm runs
+        if any(source[0].dtype not in _INGEST for source in sources):
             return Error(MediaFault(invalid="unsupported pcm dtype in mix source"))
         channels = av.AudioLayout(profile.layout).nb_channels
         if any(block.ndim != 2 or block.shape[0] != 1 or block.shape[1] % channels for source in sources for block in source):
@@ -294,15 +262,13 @@ def _mix_audio(sources: tuple[tuple[Pcm, ...], ...], profile: MediaProfile, weig
         return Ok(tuple(_mixed(sources, profile, ingests, weights)))
     except ImportError as exc:
         return Error(MediaFault(provision=str(exc)))
-    except av.error.FFmpegError as exc:  # first: av.error.ValueError subclasses both and keeps its FFmpeg taxonomy
+    except av.error.FFmpegError as exc:
         return Error(_media_fault("mix_audio", exc))
-    except ValueError as exc:  # a provider-side frame-shape refusal lands as the same invalid case admission mints
+    except ValueError as exc:
         return Error(MediaFault(invalid=str(exc)))
 
 
 def _decoded(reader: object, voice: object) -> "Iterator[Pcm]":
-    # planar decode output (AAC/Opus decode fltp) normalizes to its `AudioFormat.packed` twin so every yielded block
-    # honours the interleaved `Pcm` contract; the terminal None flushes the resampler tail.
     ctx = voice.codec_context
     packed = av.AudioResampler(format=ctx.format.packed, layout=ctx.layout, rate=ctx.rate)
     for frame in chain(reader.decode(audio=0), (None,)):
@@ -311,17 +277,13 @@ def _decoded(reader: object, voice: object) -> "Iterator[Pcm]":
 
 
 def _decode_audio(blob: bytes) -> Result[tuple[tuple[Pcm, ...], int, str], MediaFault]:
-    # inverse of `_encode_audio`: demux + decode one audio stream to interleaved-PCM blocks + the source sample
-    # rate + the CHANNEL-LAYOUT name on the shared rail — interleaved multichannel PCM stays distinguishable from
-    # mono by contract — so a malformed blob or a video-only container is a typed fault at the composing
-    # `timeline`/`analysis` seam, never a raw raise.
     try:
         with av.open(io.BytesIO(blob), mode="r") as reader:
             voice = next(iter(reader.streams.audio), None)
             if voice is None:
                 return Error(MediaFault(invalid="no audio stream"))
             blocks = tuple(_decoded(reader, voice))
-            if not blocks:  # a stream that decodes zero blocks is invalid media — a synthetic silent sample downstream would fake evidence
+            if not blocks:
                 return Error(MediaFault(invalid="audio stream decoded no samples"))
             return Ok((blocks, voice.sample_rate, voice.layout.name))
     except ImportError as exc:

@@ -22,7 +22,7 @@
 - Boundary: solver I/O and route rosters remain in Compute. Assessment DAG links ride `DependsOn`; heavy output rides kernel `ArtifactContent`; neither becomes an edge codec or inline byte payload. The node self-hash excludes audit and lifecycle state, while the route or input key includes solver version so a tool change mints a fresh assessment.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Runtime.InteropServices;
 using Generator.Equals;
 using LanguageExt;
@@ -39,9 +39,7 @@ using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Assessment;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// OPAQUE route token — the roster lives in Compute (the Classification.System neutrality), so the cache key is
-// a typed triple no caller can case-fork; KeyMemberName EXPLICIT (CanonicalBytes reads .Value publicly).
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError]
@@ -51,18 +49,10 @@ public sealed partial class AnalysisRoute {
   value = value.Trim().ToLowerInvariant();
  }
 
- // The caller's operation key owns the generated admission refusal.
  public static Fin<AnalysisRoute> Of(string token, Op key) =>
   key.AcceptValidated<AnalysisRoute>(token);
 }
 
-// The outcome's whole behavior is DATA: Capabilities the kernel S8 set every consumer filter reads (Consumable
-// the value-may-be-read gate; Settled the solver-settled-for-this-key mark; Dispatchable what the Compute sweep
-// may dispatch — in-flight Queued/Running are neither settled nor dispatchable, the third axis a two-column form
-// cannot express; InFlight the Land gate the old !Terminal && !Usable read spelled twice; Reportable the audit
-// sweep's ONE defect filter — Failed/Cancelled/Stale/Superseded carry it, Cancelled closing the drop where a
-// cancelled analysis on a delivered model graded clean), Coherent the row's payload-shape law over the ONE PayloadContent value, Next() the legal
-// in-place flip set (delegate-deferred; terminal RESULTS land through the instance Land, never a flip).
 [SmartEnum<string>]
 public sealed partial class AssessmentOutcome {
  public static readonly AssessmentOutcome Pending = new("pending",
@@ -105,7 +95,6 @@ public sealed partial class AssessmentOutcome {
  [UseDelegateFromConstructor] public partial Seq<AssessmentOutcome> Next();
 }
 
-// The outcome capability vocabulary (kernel S8): each consumer filter reads ONE row instead of a bool column.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OutcomeCapability : ICapability<OutcomeCapability> {
@@ -116,9 +105,6 @@ public sealed partial class OutcomeCapability : ICapability<OutcomeCapability> {
  public static readonly OutcomeCapability Reportable = new("reportable");
 }
 
-// The payload as ONE value — the (hasResults, hasDiagnostic, hasBlob) positional-bool triple made a case family:
-// a Computed-but-empty payload is unrepresentable at CONSTRUCTION (Results gates bag-or-artifact), Coherent gates
-// a VALUE, and the artifact reference is ArtifactContent, never a key without the extent needed to bound resolution.
 [Union]
 public abstract partial record PayloadContent {
  private PayloadContent() { }
@@ -141,12 +127,9 @@ public abstract partial record PayloadContent {
 
  public static PayloadContent Failure(Diagnostic diagnostic) => new FailureCase(diagnostic);
 
- // The token discriminant fault details carry.
  public string Kind => Switch(empty: static _ => "empty", results: static _ => "results", failure: static _ => "failure");
 }
 
-// Where in the route pipeline a failure landed// Where in the route pipeline a failure landed — Extraction/Publication mean the SOLVE succeeded and the result
-// was lost at read-back/write-back, a recovery distinction no flat message carries.
 [SmartEnum<string>]
 public sealed partial class SolvePhase {
  public static readonly SolvePhase Admission = new("admission");
@@ -155,8 +138,6 @@ public sealed partial class SolvePhase {
  public static readonly SolvePhase Publication = new("publication");
 }
 
-// Transient separates a re-dispatchable cause from a deterministic one — the Compute retry gate reads the
-// column, never the foreign message; Foreign is the fail-closed default for unclassified provider text.
 [SmartEnum<string>]
 public sealed partial class FailureKind {
  public static readonly FailureKind Input = new("input", transient: false);
@@ -169,8 +150,6 @@ public sealed partial class FailureKind {
  public bool Transient { get; }
 }
 
-// The typed failure a Failure case drills — phase, kind, verbatim foreign Message, optional foreign Code.
-// Receipt DATA on the node, never an Fault-derived rail fault.
 [ComplexValueObject]
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
@@ -186,18 +165,10 @@ public readonly partial struct Diagnostic {
   message = message.Trim();
  }
 
- // The caller's operation key owns the generated admission refusal.
  public static Fin<Diagnostic> Of(SolvePhase phase, FailureKind kind, string message, Op key, Option<int> code = default) =>
   key.AcceptValidated<Diagnostic>(Validate(phase, kind, message, code, out Diagnostic value), value);
 }
 
-// EvidenceRun audits who/when/tool/cost on every assessment AND rides PropertyEvidence.Run (S-E3) — the ONE
-// solver-run audit record corpus-wide (the name Provenance is retired). Gated: the only owner in the folder that
-// carried a public positional ctor and zero gates let a blank Author, a negative Elapsed, and a negative Attempt
-// reach the wire verbatim. Content-key-INERT on the assessment (the payload canon excludes it); its OWN
-// CanonicalBytes serves the evidence identity a material property carries — Correlation excluded there too (a
-// projection-run correlation is causal-frame provenance, not evidence identity). Attempt advances on exactly one
-// edge (the Failed/Cancelled -> Pending re-request), the declared retry audit the Compute Transient gate reads.
 public sealed record EvidenceRun {
  private EvidenceRun(string author, string tool, string version, Instant at,
   Duration elapsed, Option<Interval> window, Option<CorrelationId> correlation, int attempt) =>
@@ -230,17 +201,13 @@ public sealed record EvidenceRun {
  internal EvidenceRun Retried() =>
   new(Author, Tool, Version, At, Elapsed, Window, Correlation, Attempt + 1);
 
- // The evidence-identity fold a PropertyEvidence.Run rides; Correlation excluded (stated above).
  public void CanonicalBytes(CanonicalWriter w) =>
   w.String(Author).String(Tool).String(Version).I64(At.ToUnixTimeTicks())
    .I64(Elapsed.BclCompatibleTicks).Ordinal(Attempt)
    .Optional(Window, static (span, run) => run.I64(span.Start.ToUnixTimeTicks()).I64(span.End.ToUnixTimeTicks()));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// [Equatable] is LOAD-BEARING: the id keys on the triple alone, so a re-solve/Land/Advance mutates the SAME
-// node in place and the StructuralMerge drills to Nodes[id].Payload.Content / .Outcome member paths; Content's
-// Results case carries the unordered bag, DependsOn is a structural Set.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record AssessmentPayload {
  public Discipline Discipline { get; }
@@ -248,24 +215,15 @@ public sealed partial record AssessmentPayload {
  public UInt128 InputKey { get; }
  public AssessmentOutcome Outcome { get; }
  public PayloadContent Content { get; }
- // Upstream receipts the InputKey was DERIVED over — analysis DAG audit data (the derivation already folds the
- // upstream OUTPUT content into InputKey, so the id set is canon-excluded); a structural Set, distinctness by type.
  [property: SetEquality] public Set<NodeId> DependsOn { get; }
  public EvidenceRun Provenance { get; }
 
- // PRIVATE ctor + get-only members: every admission crosses Open (the ONE coherence-gated entry), the
- // adjacency-gated Advance, or the in-flight Land — a malformed lifecycle is unrepresentable even off a
- // tampered store, and no init/set survives for a `with` to bypass.
  private AssessmentPayload(
   Discipline discipline, AnalysisRoute route, UInt128 inputKey, AssessmentOutcome outcome,
   PayloadContent content, Set<NodeId> dependsOn, EvidenceRun provenance) =>
   (Discipline, Route, InputKey, Outcome, Content, DependsOn, Provenance) =
    (discipline, route, inputKey, outcome, content, dependsOn, provenance);
 
- // The ONE entry — fresh mint AND cross-assembly rehydration are one gate now that the payload is a VALUE the
- // row's Coherent law reads (the former Pending/Computed/Failed factory family and the separate Rehydrate
- // collapsed here; wire decode funnels through it). A persisted tuple is NOT trusted truth: a tampered
- // Computed-but-empty or Pending-carrying-results tuple refuses exactly as a fresh malformed mint does.
  public static Fin<AssessmentPayload> Open(
   Discipline discipline, AnalysisRoute route, UInt128 inputKey, AssessmentOutcome outcome,
   PayloadContent content, EvidenceRun provenance, Op key, Set<NodeId> dependsOn = default) =>
@@ -273,7 +231,6 @@ public sealed partial record AssessmentPayload {
    ? Fin.Succ(new AssessmentPayload(discipline, route, inputKey, outcome, content, dependsOn, provenance))
    : new ElementFault.ValueRejected(key, $"<assessment-incoherent:{outcome.Key}:{content.Kind}>");
 
- // Derived projections keep the consumer spellings one-hop over the ONE Content value.
  public Map<PropertyName, PropertyValue> Results =>
   Content is PayloadContent.ResultsCase results ? results.Values : Map<PropertyName, PropertyValue>();
  public Option<Diagnostic> Diagnostic =>
@@ -283,22 +240,14 @@ public sealed partial record AssessmentPayload {
 
  public Option<PropertyValue> Result(PropertyName name) => Results.Find(name);
 
- // Reads a dimensioned output directly; total over the bag, honestly absent for a non-measure entry.
  public Option<MeasureValue> ResultMeasure(PropertyName name) =>
   Result(name).Bind(static v => v is PropertyValue.Measure m ? Some(m.Value) : None);
 
- // ONLY the (Discipline, Route, InputKey) triple is content: the mutable Outcome/Content, the additive
- // EvidenceRun, and the DependsOn audit set are EXCLUDED, so a re-solve or a flip never forks the node id.
  public void CanonicalBytes(CanonicalWriter w) =>
   w.String(Discipline.Key).String(Route.Value).U128(InputKey);
 
- // Stale marking never deletes and never re-keys: the next Bake surfaces a Stale row the sweep re-dispatches
- // under the CURRENT inputs (a fresh key, a fresh node), the last-good value readable until the re-solve.
  public bool IsStaleFor(UInt128 currentInputKey) => InputKey != currentInputKey;
 
- // The ONE lifecycle flip: adjacency is row data, a cancel REQUIRES its abort diagnostic and no other flip
- // admits one, a Pending re-request clears content and advances the Attempt ordinal, a Superseded flip keeps
- // Content as readable history. Reconstruction routes Open, so the target row's Coherent law gates the result.
  public Fin<AssessmentPayload> Advance(AssessmentOutcome next, Op key, Option<Diagnostic> diagnostic = default) =>
   Accumulate(Seq(
     Gate(Outcome.Next().Exists(row => row == next), key, $"<assessment-flip-illegal:{Outcome.Key}->{next.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),
@@ -311,14 +260,9 @@ public sealed partial record AssessmentPayload {
    ? PayloadContent.Empty
    : diagnostic.Match(Some: PayloadContent.Failure, None: () => Content);
 
- // Pending is reachable only from Failed/Cancelled (the adjacency), so the flip TO it IS the retry re-request
- // and the one edge advancing the Attempt ordinal.
  EvidenceRun Retried(AssessmentOutcome next) =>
   next == AssessmentOutcome.Pending ? Provenance.Retried() : Provenance;
 
- // The ONE outcome landing an in-flight node takes (the former Complete/Fail pair): the content CASE selects
- // the terminal row, identity triple and audit set carried by construction, the same Coherent gate crossing.
- // The former two fault tokens merge into one naming the content kind and the refusing outcome.
  public Fin<AssessmentPayload> Land(PayloadContent content, EvidenceRun provenance, Op key) =>
   Accumulate(Seq(
     Gate(Outcome.Capabilities.Admits(OutcomeCapability.InFlight), key, $"<assessment-land-not-in-flight:{content.Kind}:{Outcome.Key}>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d)),

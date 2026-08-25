@@ -23,7 +23,7 @@ Suite-wide supply-chain admission owner: one `SupplyChainGate.Admit` proves ever
 - Boundary: the artifact's `Der`-level parse never runs during admission — the gate reads bytes, bundle, and range only, so a malicious artifact cannot exploit the gate by executing during verify; the component bytes ride as `ReadOnlyMemory<byte>` and are read twice at most (once for the crypto digest, once for the content key), never staged to a second buffer.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AdmissionSubject {
     private AdmissionSubject() { }
@@ -31,12 +31,7 @@ public abstract partial record AdmissionSubject {
     public sealed record Plugin(PluginArtifact Artifact) : AdmissionSubject;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Real material only, and now BY CONSTRUCTION: the prior plain `record` published its positional constructor
-// beside a `From` factory the prose called "the sole construction path", so the invariant rested on caller
-// discipline and the gate carried a re-guard for the hollow state that discipline was supposed to forbid.
-// Both digests derive from `Component` — the Sigstore-verified SHA-256 and the kernel content identity
-// recompute from the bytes, never a caller-supplied field the gate could be tricked into trusting.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class PluginArtifact {
@@ -85,7 +80,7 @@ public sealed partial class PluginArtifact {
 - Boundary: the gate is the suite's only supply-chain admit owner — a `System.Version`-based semver check, a hand-split `lower-upper` range string, a hand-rolled `Verify` delegate over pinned publisher keys, a throwing `Parse` inside the admission fold, an unsigned-release install, a trust-on-first-use path, a post-load signature check, and a network-bound verify on an air-gapped node are deleted forms, and both the self-update release and a downloaded plugin artifact verify through this one `Admit`; `vpk`-side build-time notarization is distinct — the build signs and this gate proves what the host downloaded; the anchor is a `TrustAnchor` case the composition seats and `Runtime.Of` switches, never a prose alternative beside a hardcoded provider — `TufCase` is admitted only on a connected node and its root fetch rides the `Wire/outbound` `Polly.Core` pipeline, `PinnedCase` pins the offline root for a hermetic air-gapped gate, and the provider each case mints is owned for the composition's life, so the trust-root fetch is the only outbound leg, it happens once, and the verify itself is offline; the version leg admits only the version, range, and comparer surface — package-graph resolution and framework compatibility stay out of scope, and the contract is one `VersionRange.Satisfies` membership test; candidate ranking is `Best` and lives HERE rather than at each resolver, because a feed resolver and a registry resolver each picking their own newest are two policies for one contract — its consumer is the `SolverHostRuntime.Resolve` closure the sandbox module fold binds at `Runtime/modules#MODULE_LEDGER`, which ranks its in-range candidates through `Best` before presenting `AdmissionSubject.Plugin`, and the release arm's ranking is Velopack's own `CheckForUpdatesAsync`, an SDK-internal selection this gate cannot narrow and therefore names as the one declared divergence rather than claiming a policy it does not own; the admitting instant is `ClockPolicy.Now` and never an ambient `DateTimeOffset.UtcNow`.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SupplyChainFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.SupplyChain;
@@ -105,20 +100,12 @@ public abstract partial record SupplyChainFault : Fault {
     public sealed partial record TrustRootUnavailable : SupplyChainFault { public TrustRootUnavailable(string detail) : base(detail) { } }
     [FaultCase(5)]
     public sealed partial record AttestationMissing : SupplyChainFault { public AttestationMissing(string detail) : base(detail) { } }
-    // Absence and corruption demand different operator acts — fetch the bundle, or re-publish it — so the
-    // parse refusal a bare `LoadAsync` threw past the rail carries its own case.
     [FaultCase(6)]
     public sealed partial record BundleUnreadable(string Subject, Error Cause)
         : SupplyChainFault($"{Subject}: {Cause.Message}"), ICausedFault;
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Anchors are a CHOICE the composition makes, not a file path with a network story told beside it: a connected
-// node resolves and refreshes the root through TUF, an air-gapped one pins the `trusted_root.json` it was
-// shipped with, and the TUF options' own `CustomTrustedRoot` makes even that arm hermetic against a mirror.
-// Taking a bare `FileInfo` admitted the pinned arm alone while the boundary asserted both, which left the
-// network anchor a claim no composition reached. Seating stays TOP-LEVEL so the composition root names its
-// case in one hop, while `Runtime` and `TrustPolicy` stay nested as the gate's own interior.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TrustAnchor {
     private TrustAnchor() { }
@@ -126,19 +113,9 @@ public abstract partial record TrustAnchor {
     public sealed record TufCase(Uri Repository, TufTrustRootProviderOptions Options) : TrustAnchor;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Two instants, two authorities: `Attested` is the signer's own RFC-3161 or SCT stamp and rides an Option
-// because a policy requiring no signed timestamp produces none, while `At` is when THIS host admitted. A
-// receipt carrying only the host read cannot answer how old a signature was when it passed. `Attested` tails
-// that list carrying `= default`, since the suite's `OmitAbsent` modifier drops an absent `Option<T>` at write and a
-// slot without a default reads back wire-required under `RespectRequiredConstructorParameters`.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SupplyChainReceipt(
     string Subject, string Signer, string Provenance, string Version, string ContentKey, Instant At, Option<Instant> Attested = default) : IValidityEvidence {
-    // Two clocks bound one fact, so the receipt checks them against each other: a signature attested in this
-    // host's FUTURE is either a skewed node or a forged stamp, and it is the one incoherence a fold sees that
-    // neither leg could — the verify proved the timestamp against its own authority and the host clock proved
-    // nothing. The oracle probes this ahead of any category default, so an incoherent admission is refused at
-    // acceptance rather than read back later as proof of a release nobody signed when it claims.
     [JsonIgnore]
     public bool IsValid => ValidityClaim.All(
         !string.IsNullOrEmpty(Signer),
@@ -147,7 +124,7 @@ public readonly record struct SupplyChainReceipt(
         Attested.Match(Some: stamp => stamp <= At, None: static () => true)).Holds;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SupplyChainGate {
     public sealed record TrustPolicy(VerificationPolicy Verification, VersionRange ContractRange);
 
@@ -157,11 +134,6 @@ public static class SupplyChainGate {
         DirectoryInfo Staging,
         string HostContractVersion,
         ClockPolicy Clocks) {
-        // Anchors admit ONCE, where the fact lives: binding the verifier is what seats the root, so a host
-        // whose pinned `trusted_root.json` is absent or unreadable refuses at composition instead of composing
-        // a gate whose every admit would fail for a reason the per-admit rail had no arm to name. The TUF arm
-        // seats its repository at the same instant and resolves the root itself on first verify, that fetch
-        // being the one anchor cost no composition fold can pay without a network round trip inside it.
         public static Fin<Runtime> Of(
             TrustAnchor anchor, Func<AdmissionSubject, TrustPolicy> policyOf,
             DirectoryInfo staging, string hostContractVersion, ClockPolicy clocks) =>
@@ -191,37 +163,22 @@ public static class SupplyChainGate {
                     .As(),
             Fail: fault => IO.pure<Validation<Error, SupplyChainReceipt>>(Fail(fault)));
 
-    // Malformed bundles are a PARSE refusal and absent ones a fetch refusal; the bare `LoadAsync` threw the
-    // first past the rail entirely while `BundleMissing` named only the second.
     static IO<Fin<SigstoreBundle>> Bundle(Probe probe, CancellationToken token) =>
         IO.liftAsync(async () => (await Op.Of().Catch(
                 async execution => Fin.Succ(await SigstoreBundle.LoadAsync(probe.Bundle, execution)), token))
             .MapFail(error => (Error)new SupplyChainFault.BundleUnreadable(probe.Subject, error)));
 
-    // Each arm answers the kernel identity from its OWN material — the artifact derives it off the component it
-    // holds, and a release folds it once over the staged package the rail downloaded. Keeping the two disjoint
-    // is the whole point: the release arm previously seated its Sigstore SHA-256 here, so one subject kind
-    // silently substituted a cryptographic digest for the identity the evidence stream, the quarantine record,
-    // and the admission cache all key on, while the other passed the real one.
     static IO<string> ContentKey(Runtime gate, AdmissionSubject subject, CancellationToken token) => subject.Switch(
         state: gate,
         release: static (host, found) => IO.liftAsync(async () => ContentHash.Hex(ContentHash.Of(
             await File.ReadAllBytesAsync(Path.Combine(host.Staging.FullName, found.Asset.FileName), token)))),
         plugin: static (_, held) => IO.pure(held.Artifact.ContentKey));
 
-    // Attested instants are the SIGNER's, not the host's: an RFC-3161 authority or a transparency-log SCT
-    // says when the artifact was actually signed, where a host clock says only when this process looked. It
-    // rides an Option because a policy requiring no signed timestamp produces none, and a zero or a
-    // host-substituted stamp there would read as attestation nobody performed.
     static Option<Instant> Attested(Option<VerificationResult> verified) =>
         verified.Map(static result => toSeq(result.VerifiedTimestamps).Map(static stamp => Instant.FromDateTimeOffset(stamp.Timestamp)))
             .IfNone(Seq<Instant>())
             .Fold(Option<Instant>.None, static (earliest, stamp) => earliest.Filter(held => held <= stamp).IfNone(stamp));
 
-    // One subject projection: digest bytes, cosign bundle, the (contract, candidate) version pair, and the
-    // policy row — total over the union, so a new artifact kind is one arm. The pair INVERTS per subject: a
-    // release checks its version against the channel's admitted range, a plugin checks the host's version
-    // against the range the plugin declares, which is why the contract rides the probe rather than the policy.
     sealed record Probe(string Subject, byte[] Digest, FileInfo Bundle, VersionRange Contract, string Candidate, TrustPolicy Policy);
 
     static Fin<Probe> Project(Runtime gate, AdmissionSubject subject) => subject.Switch(
@@ -229,62 +186,37 @@ public static class SupplyChainGate {
         release: (host, found) => Staged(host.Staging, found.Asset.FileName)
             .ToFin(new SupplyChainFault.BundleMissing(found.Asset.FileName))
             .Map(bundle => Released(host.PolicyOf(subject), found, bundle)),
-        // Hollow-artifact re-guards DELETE with the value object: `ValidateFactoryArguments` refuses an
-        // empty component at the only construction path, so the state this arm re-tested cannot exist.
         plugin: (host, held) => held.Artifact.Bundle
             .ToFin(new SupplyChainFault.BundleMissing(held.Artifact.PluginId))
-            // Only the floating-aware overload admits a `1.2.*` plugin contract at all; the
-            // two-argument form parses it as a pinned range and refuses every prerelease the band covers.
             .Bind(bundle => Declared(held.Artifact.ContractRange).Map(declared => new Probe(
                 held.Artifact.PluginId, Convert.FromHexString(held.Artifact.Sha256), bundle,
                 declared, host.HostContractVersion, host.PolicyOf(subject)))));
 
-    // Boundary parses cross on the rail, never as a null-forgiven local: `declared!` asserted a value the
-    // `out` contract does not guarantee on the arm where the parse failed.
     static Fin<VersionRange> Declared(string range) =>
         VersionRange.TryParse(range, allowFloating: true, out VersionRange? declared)
             ? Optional(declared).ToFin(new SupplyChainFault.VersionIncompatible(range))
             : Fin.Fail<VersionRange>(new SupplyChainFault.VersionIncompatible(range));
 
-    // One policy resolution per subject, not two on one line: `PolicyOf` is a composition-bound lookup and
-    // calling it twice for the range and again for the row is the same read priced twice.
     static Probe Released(TrustPolicy policy, AdmissionSubject.Release found, FileInfo bundle) =>
         new(found.Asset.FileName, Convert.FromHexString(found.Asset.SHA256), bundle,
             policy.ContractRange, found.Asset.Version.ToString(), policy);
 
-    // Signature leg: a passing verify carries a `VerifiedIdentity` AND the decoded in-toto SLSA statement, and
-    // and its provenance `Subject` binds the attested artifact so signature and build provenance pass as one. The
-    // SDK's `bool Success` never crosses — the `SignerIdentity is { }` pattern below subsumes it, so a foreign
-    // tuple stops at the boundary instead of becoming an internal parameter type.
     static Validation<Error, (VerifiedIdentity Signer, string Provenance)> Signature(Option<VerificationResult> verified, string subject) =>
         verified.Match(
             Some: result => result switch {
                 { SignerIdentity: { } signer, Statement.PredicateType: { } predicate } =>
                     Success<Error, (VerifiedIdentity, string)>((signer, predicate)),
                 { SignerIdentity: { } } => Fail<Error, (VerifiedIdentity, string)>(new SupplyChainFault.ProvenanceUnbound(subject)),
-                // Null reasons and stated ones are different facts: coalescing to the subject name made the
-                // artifact its own rejection reason on every verify that reported none.
                 _ => Fail<Error, (VerifiedIdentity, string)>(new SupplyChainFault.SignatureRejected(
                     Optional(result.FailureReason).IfNone($"{subject}: verifier reported no reason"))),
             },
             None: () => Fail<Error, (VerifiedIdentity, string)>(new SupplyChainFault.SignatureRejected(subject)));
 
-    // Version leg: parse through `NuGetVersion` (real SemVer-2.0) and decide with `VersionRange.Satisfies`
-    // against the PINNED projection of the contract — a floating range carries a snapshot band its own
-    // membership test reads differently from a pinned candidate, so `ToNonSnapshotRange` puts policy and
-    // candidate on one grammar before the comparison. A parse failure or an out-of-contract version fails
-    // closed, matching the posture.
     static Validation<Error, NuGetVersion> Version(VersionRange contract, string candidate, string subject) =>
         NuGetVersion.TryParse(candidate, out NuGetVersion? version) && Pinned(contract).Satisfies(version)
             ? Success<Error, NuGetVersion>(version)
             : Fail<Error, NuGetVersion>(new SupplyChainFault.VersionIncompatible($"{candidate} ∉ {contract.PrettyPrint()} ({subject})"));
 
-    // Candidate ranking belongs to the GATE, not to whichever resolver holds a listing: a plugin registry
-    // offering several in-range versions and picking its own newest is a second policy for one contract.
-    // `FindBestMatch` resolves the newest the range admits and `IsBetter` is the pairwise preference the
-    // installed version is held against, so a re-resolve never regresses what is already running. Each of the
-    // three refusal causes names ITSELF — one message for "nothing in range", "nothing better than installed",
-    // and a floating range's own band left an operator reading which of the three had fired.
     public static Validation<Error, NuGetVersion> Best(TrustPolicy policy, Option<NuGetVersion> installed, Seq<NuGetVersion> candidates) =>
         Pinned(policy.ContractRange).FindBestMatch(candidates) switch {
             null => Fail<Error, NuGetVersion>(new SupplyChainFault.VersionIncompatible(

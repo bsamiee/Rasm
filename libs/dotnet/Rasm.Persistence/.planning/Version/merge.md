@@ -49,37 +49,29 @@ using Google.Protobuf.WellKnownTypes;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
-using Rasm.AppHost.Runtime;                        // WireJson — the ONE ProtoJSON formatter (ports#WIRE_LAW)
-using Rasm.Contracts.Element;                   // NodeWire — the binary node the mask diffs
-using Rasm.Domain;                                 // ContentHash/CanonicalWriter — the one digest alphabet
+using Rasm.AppHost.Runtime;
+using Rasm.Contracts.Element;
+using Rasm.Domain;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
 using Rasm.Element.Relations;
 using Thinktecture;
-using Control = Rasm.Contracts.Compute;         // PatchOp family
-using Host = Rasm.Contracts.Element;               // EntityEditWire / EditTombstone / EditMembers
+using Control = Rasm.Contracts.Compute;
+using Host = Rasm.Contracts.Element;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Version;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// `NodeRole` closes the NEUTRAL structural-role vocabulary the forest retype axis routes on — derived from the seam's OWN
-// neutral signal (ObjectKind occurrence/type + the containment-Whole role the Compose edges already encode),
-// NEVER an IFC entity-class string. The seam Classification is a neutral (system, code) pair whose Code is a
-// code-within-the-system (a Uniclass "Ss_25_10", an OmniClass code), NOT an IFC class — matching IFC-class
-// literals against it is the phantom deleted form, the IfcClass roster living wholly in the Rasm.Bim projector.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NodeRole {
-    public static readonly NodeRole Occurrence = new("occurrence"); // an ObjectKind.Occurrence with no containment-whole role
-    public static readonly NodeRole Type = new("type");             // an ObjectKind.Type definition object
-    public static readonly NodeRole Container = new("container");   // a node that is the Whole of a Compose.Contain edge (spatial structure)
-    public static readonly NodeRole Annotation = new("annotation"); // an occurrence carrying no representation geometry
+    public static readonly NodeRole Occurrence = new("occurrence");
+    public static readonly NodeRole Type = new("type");
+    public static readonly NodeRole Container = new("container");
+    public static readonly NodeRole Annotation = new("annotation");
 
-    // `Of` projects the neutral role: a Type object is Type; a containment Whole is a Container; an occurrence with
-    // no geometry is an Annotation; everything else is a plain Occurrence — read off ObjectKind + the structural
-    // role the graph encodes, never a foreign-schema string scan.
     public static NodeRole Of(ObjectKind kind, bool containerWhole, bool hasGeometry) =>
         kind == ObjectKind.Type ? Type
         : containerWhole ? Container
@@ -94,10 +86,6 @@ public sealed partial class TallySlot {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// `GraphNode` carries one forest node. GeometryHash digests the Object's WHOLE Representations.ByIdentifier map,
-// PropertyHash the seam ContentAddress over Node.ToCanonicalBytes. Matches
-// tests the content signature, SubtreeHash is the Merkle prune key, and a content node (non-Object) carries its
-// PropertyHash with GeometryHash == 0 and Parent == None — it lives on the content axis, never the Object forest.
 public readonly record struct GraphNode(NodeId Key, NodeRole Role, Option<NodeId> Parent, int Ordinal, UInt128 GeometryHash, UInt128 PropertyHash, UInt128 SubtreeHash, Seq<NodeId> Children) {
     public UInt128 Signature => SubtreeHash;
     public bool Matches(GraphNode other) => GeometryHash == other.GeometryHash && PropertyHash == other.PropertyHash;
@@ -119,8 +107,6 @@ public abstract partial record EditOp {
     public string Axis => this.Map(match: static _ => "", insert: static _ => "insert", delete: static _ => "delete", update: static _ => "content", move: static _ => "parent", reorder: static _ => "ordinal", retype: static _ => "role");
 }
 
-// DISTINCT-BY-DESIGN (E-P6 allowlist): CRDT node-merge conflict cells (`NodeId` + optional causal sides) — zero shared columns
-// with Bim `Review/versioning`'s reviewer sign-off MergeConflict; the MergeOutcome pair rides the same verdict.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record MergeConflict {
     private MergeConflict() { }
@@ -135,25 +121,14 @@ public abstract partial record MergeConflict {
     public NodeId Subject => this.Map(parallelEdit: p => p.Key, deleteUpdate: d => d.Key, moveMove: m => m.Key, reorderReorder: r => r.Key, typeChange: t => t.Key, topologyBreak: b => b.Key, containmentCycle: y => y.Key);
     public string KindName => this.Map(parallelEdit: static _ => "parallelEdit", deleteUpdate: static _ => "deleteUpdate", moveMove: static _ => "moveMove", reorderReorder: static _ => "reorderReorder", typeChange: static _ => "typeChange", topologyBreak: static _ => "topologyBreak", containmentCycle: static _ => "containmentCycle");
 
-    // `Family` names the merge-lane a conflict adjudicates on — only a TopologyBreak rides the geometry axis, every
-    // property/structural class the CRDT axis — derived once so the receipt projection reads one accessor, never a
-    // seven-arm Map that repeats `ColumnFamily.Crdt` six times.
     public ColumnFamily Family => this is TopologyBreak ? ColumnFamily.Geometry : ColumnFamily.Crdt;
 
-    // `ConflictAxis` names the axis the merged script excludes — a per-(key, axis) mask, so one content conflict never
-    // suppresses a clean move/reorder/retype on the same node; DeleteUpdate and ContainmentCycle poison the
-    // WHOLE key (None = every axis) because no orthogonal edit survives a contested existence or a cycle.
     public Option<string> ConflictAxis => this.Map(
         parallelEdit: static _ => Some("content"), deleteUpdate: static _ => Option<string>.None,
         moveMove: static _ => Some("parent"), reorderReorder: static _ => Some("ordinal"),
         typeChange: static _ => Some("role"), topologyBreak: static _ => Some("content"),
         containmentCycle: static _ => Option<string>.None);
 
-    // `Evidence` carries each available causal side — derived through the generated Map so the seven
-    // near-identical Receipt arms collapse to ONE Project expression. Two-sided cases retain both optional stamps;
-    // a single-author ContainmentCycle has no invented held competitor and carries its author as Incoming. The
-    // union owns the projection, not seven copy-pasted Receipt calls. Missing op-log evidence
-    // remains None; it never becomes an Hlc.Zero/empty-actor pseudo-author.
     public (Option<ConflictSide> Held, Option<ConflictSide> Incoming) Evidence => this.Map(
         parallelEdit: static c => (c.Ours, c.Theirs),
         deleteUpdate: static c => (c.Ours, c.Theirs),
@@ -164,9 +139,6 @@ public abstract partial record MergeConflict {
         containmentCycle: static c => (Option<ConflictSide>.None, c.Side));
 }
 
-// Both egress arms carry authoritative held-node OCC. Members carries a `MemberPatch` — a FieldMask over the binary
-// NodeWire beside the prior and successor it reads — and insertion stays on EditOp.Insert and the GraphDelta rail
-// because no held node can supply Base.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record EntityEdit {
     private EntityEdit() { }
@@ -174,12 +146,6 @@ public abstract partial record EntityEdit {
     public sealed record Members(NodeId Key, ContentAddress Base, MemberPatch Patch) : EntityEdit;
 }
 
-// A member patch is the mask beside the two messages it was computed from: `Mask` names every changed path,
-// `Successor` carries the values, `Prior` lets the wire lowering tell an added member from a replaced one, and
-// `Apply` is the substrate's own `Merge` under replace semantics on every axis — a message path replaces whole (an
-// unset source CLEARS the target), a repeated path replaces whole, a primitive path replaces even to its default.
-// NAMED LOSS: `Move`/`Copy`/`Test` never emit — a mask has no reorder or precondition vocabulary; WITNESS: the
-// three-way merge's `Edit` fold never produced them either, so the run lowers onto `Add`/`Replace`/`Remove` alone.
 public sealed record MemberPatch(FieldMask Mask, NodeWire Prior, NodeWire Successor) {
     public static readonly FieldMask.MergeOptions Replace = new() { ReplaceMessageFields = true, ReplaceRepeatedFields = true, ReplacePrimitiveFields = true };
 
@@ -191,10 +157,6 @@ public sealed record MemberPatch(FieldMask Mask, NodeWire Prior, NodeWire Succes
         return patched;
     }
 
-    // `None` is the no-change answer; an over-ceiling path set collapses to the TOP-LEVEL fields either side renders,
-    // so the successor replaces whole under the same `Merge` and the wire carries one op per top-level member rather
-    // than a root replacement the mask vocabulary cannot spell. `IsValid` gates the mask before it leaves, so a path
-    // the descriptor does not own refuses typed here rather than throwing inside `Merge`.
     public static Fin<Option<MemberPatch>> Between(NodeWire prior, NodeWire successor, PatchPolicy policy, Op key) =>
         MemberDiff.Paths(prior, successor) switch {
             { IsEmpty: true } => Fin.Succ(Option<MemberPatch>.None),
@@ -217,12 +179,6 @@ public sealed record PatchPolicy {
         : ElementFault.ValueRejected(key, $"<entity-edit-operation-ceiling:{operationCeiling}>");
 }
 
-// The changed path set is a descriptor walk, never a JSON diff: proto field names in field-number order — the
-// owner-published order, so no caller sorts — with message fields recursing under their own name, repeated and map
-// fields comparing whole (`RepeatedField`/`MapField` equality is element-wise, and a per-index path spells a positional
-// patch `Merge` cannot apply), and a presence flip naming the path outright. `HasValue` is read ONLY where the field
-// has presence — the accessor throws on an implicit-presence scalar — so the fold asks each field the question it
-// can answer.
 public static class MemberDiff {
     public static Seq<string> Paths(IMessage before, IMessage after) => Paths(before, after, Seq<string>());
 
@@ -237,15 +193,11 @@ public static class MemberDiff {
             };
         });
 
-    // The collapse set: every top-level field EITHER side renders, so `Merge` replaces the successor whole and the
-    // wire emits one op per rendered member.
     public static Seq<string> TopLevel(IMessage prior, IMessage successor) =>
         toSeq(prior.Descriptor.Fields.InFieldNumberOrder())
             .Filter(field => Rendered(field, prior) || Rendered(field, successor))
             .Map(static field => field.Name);
 
-    // ProtoJSON renders a member when the field has presence and is set, or when it holds a non-default value — the
-    // rule `JsonFormatter` elides by, stated once so the op kind names the member the peer's document actually holds.
     public static bool Rendered(FieldDescriptor field, IMessage message) =>
         field.HasPresence
             ? field.Accessor.HasValue(message)
@@ -254,10 +206,6 @@ public static class MemberDiff {
     static string Spelled(Seq<string> path) => string.Join('.', path);
 }
 
-// ONE lowering onto the generated message through the union's total Switch — a third `EntityEdit` case breaks the
-// build here. The corpus keys both arms as 16-byte addresses: `base` is the content address on the kernel `Wire`
-// correspondence, and `key` admits the NodeId text through `ContentHash.Admit` so a non-X32 id refuses typed at the
-// edge rather than shipping a malformed key. Each mask path lowers onto exactly one `PatchOp` case.
 public static class EditWire {
     public static Fin<Host.EntityEditWire> Wire(EntityEdit edit, Op key) => edit.Switch(
         tombstone: row => Address(row.Key, key).Map(id => new Host.EntityEditWire {
@@ -272,9 +220,6 @@ public static class EditWire {
     static Seq<Control.PatchOp> Ops(MemberPatch patch) =>
         toSeq(patch.Mask.Paths).Map(path => Op(patch, toSeq(path.Split('.'))));
 
-    // Op kind derives from which side RENDERS the member: absent→present is `Add`, present→present `Replace`,
-    // present→absent `Remove` — the RFC 6902 preconditions a peer applier enforces, read off the two messages rather
-    // than guessed from the mask alone.
     static Control.PatchOp Op(MemberPatch patch, Seq<string> segments) {
         string pointer = Pointer(NodeWire.Descriptor, segments);
         return (Leaf(patch.Prior, segments), Leaf(patch.Successor, segments)) switch {
@@ -284,15 +229,12 @@ public static class EditWire {
         };
     }
 
-    // RFC 6901 over ProtoJSON: each mask segment re-spells through the field's own `JsonName`, descending the message
-    // chain; proto identifiers carry no `/` or `~`, so no escape arm exists to forget.
     static string Pointer(MessageDescriptor root, Seq<string> segments) =>
         segments.Fold((Owner: root, Path: string.Empty), static (at, name) => {
             FieldDescriptor field = at.Owner.FindFieldByName(name);
             return (field.FieldType == FieldType.Message && !field.IsRepeated ? field.MessageType : at.Owner, $"{at.Path}/{field.JsonName}");
         }).Path;
 
-    // The rendered leaf on one side, or `None` where the peer's document holds no member at that pointer.
     static Option<object> Leaf(IMessage message, Seq<string> segments) {
         FieldDescriptor field = message.Descriptor.FindFieldByName(segments[0]);
         return segments.Count == 1
@@ -300,10 +242,6 @@ public static class EditWire {
             : field.Accessor.HasValue(message) && field.Accessor.GetValue(message) is IMessage inner ? Leaf(inner, segments.Tail) : None;
     }
 
-    // ONE ProtoJSON leaf render: the AppHost `WireJson.Formatter` writes any field value — scalar, message, repeated,
-    // map — under the estate's one registry, and `Value.Parser.ParseJson` lifts that text into the corpus
-    // `google.protobuf.Value` leaf the op carries. `WriteValue` writes the value it is handed, so a default crosses
-    // intact where a message-level format would have elided it.
     static Value Json(object value) {
         StringWriter writer = new(CultureInfo.InvariantCulture);
         WireJson.Formatter.WriteValue(writer, value);
@@ -322,9 +260,6 @@ public static class StructuralMerge {
         StoreSlot.Create("store.diff.structural"), StoreSlot.Create("store.merge.threeway"));
 
     public static Seq<GraphNode> Forest(ElementGraph graph) {
-        // Forest topology rides the seam Relationship.Compose containment edges (Whole→Part), siblings ordered
-        // by their index among one Whole's Compose edges — never a phantom unified edge kind. ONLY Object nodes
-        // enter the forest; the non-Object content nodes ride the content axis (ContentNodes below).
         Seq<Relationship.Compose> contain = toSeq(graph.Edges.Choose(static e => Optional(e as Relationship.Compose)));
         HashMap<NodeId, NodeId> parentByKey = toHashMap(contain.Map(static c => (c.Part, c.Whole)));
         HashMap<NodeId, Seq<NodeId>> childrenByParent = toHashMap(contain.GroupBy(static c => c.Whole).Select(static g => (g.Key, toSeq(g.Select(static c => c.Part)))));
@@ -339,11 +274,6 @@ public static class StructuralMerge {
         return nodes.Values.Filter(static node => node.Parent.IsNone).Bind(root => Seal(root, nodes));
     }
 
-    // Content axis: every non-Object node the Object-forest never topologizes — the ContentRole switch names
-    // that roster and breaks on the next case — projects as Parent-less GraphNodes carrying only the PropertyHash content
-    // signature (GeometryHash 0). The three-way merge diffs these DIRECTLY off the node map so a single-side content
-    // edit materializes as a Members patch and a both-side content edit is a ParallelEdit — an Object-only forest would
-    // silently drop a changed property set / material, the deleted form.
     public static HashMap<NodeId, GraphNode> ContentNodes(ElementGraph graph) =>
         toHashMap(toSeq(graph.Nodes.Values).Filter(static n => n is not Node.Object).Map(n => (n.Id, new GraphNode(
             n.Id, ContentRole(n), Option<NodeId>.None, 0, UInt128.Zero,
@@ -357,9 +287,6 @@ public static class StructuralMerge {
              + from.Filter(n => !toByKey.ContainsKey(n.Key)).Map(static n => (EditOp)new EditOp.Delete(n.Key));
     }
 
-    // `DiffContent` compares the content axis map-to-map on the durable NodeId (NOT the Object forest), emitting
-    // Update for a signature change, Insert/Delete for an unmatched key. The content node never moves/reorders/retypes
-    // (it has no containment role), so the only axes are content and insert/delete.
     public static Seq<EditOp> DiffContent(HashMap<NodeId, GraphNode> from, HashMap<NodeId, GraphNode> to) =>
         toSeq(to.Map((key, node) => from.Find(key).Match(
             Some: prior => prior.PropertyHash == node.PropertyHash ? (EditOp)new EditOp.Match(key) : new EditOp.Update(key, prior.PropertyHash, node.PropertyHash, prior.GeometryHash, node.GeometryHash),
@@ -369,8 +296,6 @@ public static class StructuralMerge {
     public static MergeOutcome ThreeWay(ElementGraph @base, ElementGraph ours, ElementGraph theirs, Func<NodeId, Option<OpLogEntry>> stampOurs, Func<NodeId, Option<OpLogEntry>> stampTheirs) {
         Seq<GraphNode> baseForest = Forest(@base), ourForest = Forest(ours), theirForest = Forest(theirs);
         HashMap<NodeId, GraphNode> baseContent = ContentNodes(@base), ourContent = ContentNodes(ours), theirContent = ContentNodes(theirs);
-        // Two axes per side key on the durable NodeId the node map already holds. The object-forest and content-node
-        // scripts concatenate and group by (key, axis); no member-path projection participates in edit egress.
         HashMap<NodeId, HashMap<string, EditOp>> ourEdits = ByKeyAxis(Diff(baseForest, ourForest) + DiffContent(baseContent, ourContent));
         HashMap<NodeId, HashMap<string, EditOp>> theirEdits = ByKeyAxis(Diff(baseForest, theirForest) + DiffContent(baseContent, theirContent));
         HashMap<NodeId, GraphNode> oursByKey = toHashMap(ourForest.Map(static n => (n.Key, n)));
@@ -379,9 +304,6 @@ public static class StructuralMerge {
             .Bind(key => Conflicts(key, ourEdits.Find(key).IfNone(HashMap<string, EditOp>()), theirEdits.Find(key).IfNone(HashMap<string, EditOp>()), stampOurs(key), stampTheirs(key)))
             .Append(Cycles(ourEdits, oursByKey, ByOurs: true, stampOurs))
             .Append(Cycles(theirEdits, theirsByKey, ByOurs: false, stampTheirs)));
-        // Exclusion is PER (key, axis): a node with one conflicting axis retains every clean orthogonal edit —
-        // only DeleteUpdate/ContainmentCycle (ConflictAxis None) poison the whole key. Ours' clean axes first,
-        // then theirs' axes ours did not touch (last-write-wins per axis).
         HashSet<NodeId> poisoned = conflicts.Filter(static c => c.ConflictAxis.IsNone).Map(static c => c.Subject).ToHashSet();
         HashSet<(NodeId Key, string Axis)> conflictedAxes = conflicts.Bind(c => c.ConflictAxis.Map(axis => (c.Subject, axis)).ToSeq()).ToHashSet();
         bool Excluded(NodeId key, string axis) => poisoned.Contains(key) || conflictedAxes.Contains((key, axis));
@@ -390,9 +312,6 @@ public static class StructuralMerge {
         return new MergeOutcome(merged, conflicts, Tally(merged, conflicts));
     }
 
-    // Project held-node groups only. Insert remains on EditOp.Insert/GraphDelta because no current node can supply Base.
-    // Members diffs the binary NodeWire pair under each graph's own header tolerance; TypeScript applies the lowered
-    // PatchOp run to its retained ProtoJSON before node admission.
     public static Fin<HashMap<NodeId, EntityEdit>> Patch(
         Seq<EditOp> script, ElementGraph @base, ElementGraph target, PatchPolicy policy, Op key) =>
         toSeq(script.GroupBy(static op => op.Target)).Fold(
@@ -428,25 +347,11 @@ public static class StructuralMerge {
                                     subject, ContentAddress.Of(before, @base.Header.Tolerance), held))))))),
         };
 
-    // ONE projection over the derived Family + Evidence accessors — the seven near-identical Receipt arms are the
-    // DERIVED_LOGIC collapse: the lane is `conflict.Family`, the two-sided stamps `conflict.Evidence`, so a new
-    // conflict class adds one union case (and its Family/Evidence arm) without a new Project arm.
     public static ConflictReceipt Project(MergeConflict conflict, ModelId model, CorrelationId correlation, Instant at) {
         (Option<ConflictSide> held, Option<ConflictSide> incoming) = conflict.Evidence;
         return Receipt(conflict.Subject, model, conflict.Family, held, incoming, correlation, at);
     }
 
-    // Re-ingest correlation [H6]+[V8b]: the seam mints a FRESH neutral rooted NodeId on every Project, so a
-    // re-imported model shares NO NodeId with the persisted graph and a raw NodeId-keyed diff reads the whole
-    // import as delete-all + insert-all. Reconcile aligns the re-ingested graph to the DURABLE persisted
-    // identities BEFORE the forest/content diff on TWO key rows: a rooted node on the stable 1:1 IFC GlobalId
-    // (Node.Object.ExternalId — NEVER the minted NodeId) and a GlobalId-less Type on the TypeKey natural key;
-    // it builds the ingest->durable NodeId remap and rewrites the ingested nodes + every edge endpoint onto the
-    // durable ids (a correlation key absent from the persisted graph keeps its fresh id as a genuine insert; a
-    // persisted key absent from the ingest surfaces as a delete in the diff). So the durable NodeId survives
-    // re-import (Graph/element#NODE_MODEL) and the NodeId-keyed Diff/ThreeWay below operate on aligned graphs;
-    // Reconcile applies that same remap to a freshly-PROJECTED GraphDelta before it commits so the durable stream
-    // never forks, and the content signature drives change DETECTION, never cross-ingest identity.
     public static (ElementGraph Aligned, HashMap<NodeId, NodeId> Remap) Reconcile(ElementGraph persisted, ElementGraph ingested) {
         HashMap<string, NodeId> durable = Correlation(persisted);
         HashMap<NodeId, NodeId> remap = toHashMap(toSeq(Correlation(ingested).AsIterable())
@@ -455,37 +360,20 @@ public static class StructuralMerge {
         return remap.IsEmpty ? (ingested, remap) : (Reindex(ingested, remap), remap);
     }
 
-    // One correlation map per graph: every rooted GlobalId row plus every UNAMBIGUOUS Type natural-key row — a
-    // natural key two Types share on one side drops from correlation (a 1:1 aligner never guesses; the GlobalId
-    // row wins a collision via TryAdd).
     static HashMap<string, NodeId> Correlation(ElementGraph graph) {
         HashMap<string, NodeId> rooted = toHashMap(toSeq(graph.Nodes.Values).Choose(ExternalKey));
         return toSeq(graph.Nodes.Values.Select(TypeKey).Somes().GroupBy(static pair => pair.External).Where(static g => g.Count() == 1))
             .Fold(rooted, static (acc, g) => acc.TryAdd(g.Key, g.First().Id));
     }
 
-    // `ExternalKey` reads the 1:1 GlobalId correlation key off a ROOTED node — Some only when the node carries an
-    // ExternalId (a rooted IFC node); a from-scratch node carries None and stays NodeId-identified (it lives in one
-    // authoring lineage, matched by the durable NodeId, never re-minted by a foreign ingest).
     static Option<(string External, NodeId Id)> ExternalKey(Node node) =>
         node is Node.Object { ExternalId: var external } obj ? external.Map(ext => (External: ext, Id: obj.Id)) : None;
 
-    // [V8b] The Type correlation key: a GlobalId-less Type definition object correlates on the classification-
-    // EXCLUDED `type:Name\u001fTag` natural key (stable across a re-key, so a re-keyed Type diffs as RENAME,
-    // never delete+insert) — the interim seed the kernel V8a Type natural-key seed replaces on landing; the
-    // `type:` prefix keeps the row disjoint from the GlobalId key space, and Classification NEVER enters the key.
     static Option<(string External, NodeId Id)> TypeKey(Node node) =>
         node is Node.Object { ExternalId.IsNone: true } obj && obj.Kind == ObjectKind.Type
             ? Some((External: $"type:{obj.Name}\u001f{obj.Tag}", Id: obj.Id))
             : None;
 
-    // Rewrite the ingested graph onto the durable ids: re-stamp every node id and re-endpoint every edge through the
-    // ingest->durable map (an unmapped id passes through unchanged), then re-freeze the snapshot. Node identity
-    // rewrite and edge-endpoint rewrite are the seam-owned `Node.Relabel`/`Relationship.Remap` operations (the
-    // Graph/element#NODE_MODEL + Relations/relation#EDGE_ALGEBRA owners) — the seam `Node`/`Relationship` are
-    // class-root unions and a class-root union case has NO `with`, so the id/endpoint rewrite is the union's own
-    // total-Map reconstruction, NOT a per-case `with` re-spelled in this consumer. Reconcile composes them, never
-    // re-deriving them.
     static ElementGraph Reindex(ElementGraph graph, HashMap<NodeId, NodeId> remap) {
         NodeId Resolve(NodeId id) => remap.Find(id).IfNone(id);
         FrozenDictionary<NodeId, Node> nodes = graph.Nodes.Values.Select(node => node.Relabel(Resolve(node.Id))).ToFrozenDictionary(static node => node.Id);
@@ -493,17 +381,6 @@ public static class StructuralMerge {
         return ElementGraph.Of(graph.Header, nodes, edges);
     }
 
-    // `GeometryDigest` folds the Object's geometry signature over the FULL Representations.ByIdentifier keyed map
-    // (M2: every representation the kernel content-keyed) into one digest over a deterministic identifier-sorted
-    // preimage, so a change in any slot surfaces as a geometry divergence. Reading only selected slots silently misses
-    // an opaque or analytical change (the deleted thin slice). The digests are kernel `GeometryHash`
-    // values minted over the kernel-FROZEN `EncodeForm` byte layouts (`Rasm/Spatial/reconciliation#RECONCILIATION_BRIDGE`
-    // — IEEE-754-LE, `-0.0`→`+0.0`; this page is that seam's RE-TARGETED consumer), READ not re-minted, and the
-    // preimage interleaves each identifier WITH its digest — each identifier keys the representation's EncodeForm
-    // lane, so the fold pairs (form lane, digest) and a bare digest never crosses a form boundary. The empty map
-    // digests to 0.
-    // `Sorted` publishes the generated representation-kind order, so the (kind, digest) pairs stream on the same
-    // closed integer vocabulary every peer's contract binding carries.
     static UInt128 GeometryDigest(RepresentationContentHash representations) =>
         representations.ByIdentifier.IsEmpty
             ? UInt128.Zero
@@ -512,14 +389,6 @@ public static class StructuralMerge {
                     static (pair, x) => { x.Ordinal(pair.Key.Key).U128(pair.Value); });
             });
 
-    // Neutral content-node role, one arm per non-Object case and NO catch-all: a `_` arm files the next case the
-    // seam mints under whichever role it happens to sit beside, so a ninth node kind lands misclassified and the
-    // diff never says so. `Node.Object` reaches this fold from nowhere — `ContentNodes` filters it out and the
-    // forest arm owns it — yet its arm is spelled, because an unlisted case in a switch expression is a
-    // `SwitchExpressionException` out of a pure projection rather than a compiler complaint.
-    // `Observation` classifies Occurrence beside Material and Coverage: a deployed sensor's measured run is
-    // resident evidence a commissioning comparison reads, so a `Retype` off that row reports a real instrument
-    // remount, where an Annotation reading buries it among presentation facets.
     static NodeRole ContentRole(Node node) => node switch {
         Node.Material => NodeRole.Occurrence,
         Node.Coverage => NodeRole.Occurrence,
@@ -531,9 +400,6 @@ public static class StructuralMerge {
         Node.Object o => NodeRole.Of(o.Kind, containerWhole: false, hasGeometry: !o.Representations.ByIdentifier.IsEmpty),
     };
 
-    // The Merkle prune key on the one alphabet: two `U128` digests and the `Ordinal` concatenate injectively, the role
-    // key rides `String` length-framed, and the child roll-ups ride `Rows` count-framed — so a node with no children
-    // and a node whose one child digests to zero key apart, which the bare append could not promise.
     static Seq<GraphNode> Seal(GraphNode node, HashMap<NodeId, GraphNode> nodes) {
         Seq<Seq<GraphNode>> children = node.Children.Choose(nodes.Find).Map(child => Seal(child, nodes));
         Seq<UInt128> rollups = children.Map(static subtree => subtree.Head.Map(static r => r.SubtreeHash).IfNone(UInt128.Zero));

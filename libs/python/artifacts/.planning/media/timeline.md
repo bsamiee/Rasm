@@ -44,9 +44,6 @@ type TimelineOpTag = Literal["trim", "concat", "segment", "xfade", "speed", "rev
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
-# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
-# worker death and a codec refusal are defects a re-issue may clear.
 TIMELINE_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.TIMELINE, point="fold", arm="boundary", defect="timeline-fold", retriability=TRANSIENT
 )
@@ -56,18 +53,18 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([TIMELINE_F
 
 
 class Clip(Struct, frozen=True):
-    data: bytes  # the encoded clip bytes a worker decodes/demuxes
-    key: ContentKey  # the parent artifact key the clip producer minted; Timeline.parents projects it
+    data: bytes
+    key: ContentKey
 
 
 @tagged_union(frozen=True)
 class TimelineOp:
     tag: TimelineOpTag = tag()
-    trim: tuple[Clip, float, float] = case()  # (clip, in_point, out_point) seconds
-    concat: tuple[Clip, ...] = case()  # ordered clips joined lossless-or-reencoded by param match
-    segment: tuple[Clip, tuple[float, ...]] = case()  # (clip, cut boundaries)
-    xfade: tuple[Clip, Clip, float, Transition] = case()  # (under, over, overlap seconds, transition)
-    speed: tuple[Clip, float] = case()  # (clip, retime factor; >1 faster, <1 slower)
+    trim: tuple[Clip, float, float] = case()
+    concat: tuple[Clip, ...] = case()
+    segment: tuple[Clip, tuple[float, ...]] = case()
+    xfade: tuple[Clip, Clip, float, Transition] = case()
+    speed: tuple[Clip, float] = case()
     reverse: Clip = case()
     effect: tuple[Clip, tuple[FilterNode, ...]] = case()
 
@@ -121,8 +118,6 @@ class TimelineOp:
 
 class Timeline(Struct, frozen=True):
     op: TimelineOp
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner;
-    # it seats above `profile` because msgspec refuses a required field after a defaulted one at class creation.
     lane: LanePolicy
     profile: MediaProfile = MediaProfile()
 
@@ -131,7 +126,6 @@ class Timeline(Struct, frozen=True):
         return tuple(clip.key for clip in self.op.clips)
 
     def emit(self, /) -> ArtifactWork:
-        # clip keys ARE the node's parent edges, so the planner schedules the clip producers and elides a warm replay.
         return ArtifactWork(key=self._key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=1.0)
 
     @property
@@ -139,9 +133,6 @@ class Timeline(Struct, frozen=True):
         return ContentIdentity.key(f"media.timeline-{self.op.tag}", _canon(self.op, self.profile))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
-        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
-        # to one string and left a consumer nothing to gate on.
         railed = await async_boundary(TIMELINE_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(TIMELINE_FOLD.subject, fault)))
@@ -151,7 +142,6 @@ class Timeline(Struct, frozen=True):
         return (await self._mux()).map(self._keyed)
 
     def _keyed(self, produced: Produced, /) -> ArtifactReceipt:
-        # receipt.slot threads the PRE-RUN node key (the core/receipt elision law); the product address rides the band.
         blob, evidence = produced
         address = ContentIdentity.key(evidence.container.value, blob)
         return ArtifactReceipt.Media(
@@ -166,8 +156,6 @@ class Timeline(Struct, frozen=True):
         )
 
     async def _crossed(self, worker: "Callable[..., Result[Produced, MediaFault]]", /, *args: object) -> Result[Produced, MediaFault]:
-        # a segmented profile's io_open sink writes a manifest plus segment set — external state a worker-death replay must
-        # never repeat — so idempotency derives structurally from the crossing's own profile argument, never a per-arm convention.
         replayable = not any(isinstance(a, MediaProfile) and a.container.segmented and a.segment is not None for a in args)
         outcome = await self.lane.offload(Kernel.of(worker, KernelTrait.HOSTILE, idempotent=replayable), *args)
         return outcome.map_error(_lapsed).bind(lambda inner: inner)
@@ -179,8 +167,6 @@ class Timeline(Struct, frozen=True):
             case TimelineOp(tag="concat", concat=clips):
                 return await self._crossed(_concat, tuple(c.data for c in clips), self.profile)
             case TimelineOp(tag="segment", segment=(clip, cuts)):
-                # the EFFECTIVE segmented profile derives loop-side, so `_crossed`'s structural replay probe reads
-                # the profile the worker actually muxes with — never the pre-derivation original it would misread as replayable.
                 match _segmented(cuts, self.profile):
                     case Result(tag="error", error=fault):
                         return Error(fault)
@@ -212,8 +198,6 @@ from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import traverse
 
-# workers stay module-level for qualified-name dispatch; decode/encode rides the container spine, the packet-copy
-# arms alone open their own av read/write capsules.
 lazy import av
 lazy import av.error
 lazy from rasm.artifacts.media.audio import _decode_audio
@@ -242,7 +226,7 @@ if TYPE_CHECKING:
     from rasm.artifacts.media.audio import Pcm
     from rasm.artifacts.media.container import Frames
 
-# --- [CONSTANTS] --------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _VOICE_CODEC: frozendict[ContainerFormat, str] = frozendict({
     ContainerFormat.MP4: "aac",
@@ -258,7 +242,6 @@ _VOICE_CODEC: frozendict[ContainerFormat, str] = frozendict({
 
 
 def _tail(op: TimelineOp, /) -> tuple[object, ...]:
-    # the op's NON-clip payload — every field that discriminates two otherwise-identical clip sets.
     match op:
         case TimelineOp(tag="trim", trim=(_, in_point, out_point)):
             return (in_point, out_point)
@@ -269,7 +252,7 @@ def _tail(op: TimelineOp, /) -> tuple[object, ...]:
         case TimelineOp(tag="speed", speed=(_, factor)):
             return (factor,)
         case TimelineOp(tag="effect", effect=(_, nodes)):
-            return tuple(node.facet() for node in nodes)  # the node-owned canonical projection, never a repr
+            return tuple(node.facet() for node in nodes)
         case TimelineOp(tag="concat") | TimelineOp(tag="reverse"):
             return ()
         case _ as unreachable:
@@ -277,21 +260,15 @@ def _tail(op: TimelineOp, /) -> tuple[object, ...]:
 
 
 def _canon(op: TimelineOp, profile: "MediaProfile", /) -> tuple[bytes, ...]:
-    # PRE-RUN identity preimage under the `scene/spec#SPEC` framing discipline the whole media plane composes. A
-    # `Clip` is NOT msgpack-encodable whole: `ContentKey.value` is a u128 and the msgspec msgpack integer ceiling
-    # is u64, so encoding the op raises `OverflowError` at the mint — before any work, on every timeline node.
-    # Each clip therefore lowers to its raw bytes plus its key's own published `hex` projection, and the op's
-    # remaining payload rides the deterministic encoder as the tag-keyed tail.
     clips = tuple(chunk for clip in op.clips for chunk in (clip.data, clip.key.hex.encode()))
     return framed(f"timeline.{op.tag}".encode(), CANON.encode(_tail(op)), CANON.encode(profile), *clips)
 
 
 def _augment(evidence: "MediaEvidence", extra: frozendict[str, float | str], /) -> "MediaEvidence":
-    # fold the timeline facts onto the spine's deployment band, ONE MediaEvidence.
     return msgspec.structs.replace(evidence, facts=evidence.facts | extra)
 
 
-type Voice = tuple[tuple["Pcm", ...], int, str]  # (blocks, rate, channel-layout name) — the decode contract keeps layout
+type Voice = tuple[tuple["Pcm", ...], int, str]
 
 
 def _voice(clip: bytes, /) -> Result[Option[Voice], "MediaFault"]:
@@ -306,23 +283,14 @@ def _voice(clip: bytes, /) -> Result[Option[Voice], "MediaFault"]:
 
 
 def _lanes(blocks: "tuple[Pcm, ...]", layout: str, /) -> "NDArray":
-    # THE one time axis every audio fold on this page windows, slices, picks, and reverses on. A `Pcm` block is
-    # PACKED (1, frames*channels) interleaved, so a last-axis index counts SAMPLES, never frames: an unscaled
-    # window keeps a 1/channels fraction of the seconds it names, and an unscaled pick or reversal shuffles the
-    # channel lanes into each other. The (frames, channels) reshape makes every index a frame index, and mono is
-    # `nb_channels == 1` — the degenerate case of the same reshape, never a second arm.
     return np.concatenate([np.asarray(block) for block in blocks], axis=-1).reshape(-1, av.AudioLayout(layout).nb_channels)
 
 
 def _packed(lanes: "NDArray", rate: int, layout: str, /) -> Voice:
-    # inverse of `_lanes`: re-interleave the frame plane into the one packed block the `_encode_audio` contract and
-    # every `_mux_av` shape gate admit, rate and layout carried across untouched.
     return ((lanes.reshape(1, -1),), rate, layout)
 
 
 def _video(clip: bytes, accel: "HwAccel | None" = None, /) -> Result[tuple[int, "Frames"], "MediaFault"]:
-    # active profile's read-side acceleration policy threads every structural decode — REQUIRED refusal and
-    # FALLBACK attempts stay the container owner's, never a timeline-local software-only bypass.
     try:
         rate, decoded = _decode_video(clip, accel)
         frames = tuple(decoded)
@@ -334,10 +302,6 @@ def _video(clip: bytes, accel: "HwAccel | None" = None, /) -> Result[tuple[int, 
 
 
 def _pcm(clip: bytes, voice: Option[Voice], template: "Pcm", rate: int, layout: str, /) -> Result["NDArray", "MediaFault"]:
-    # total over the three-field Voice contract, yielding the `_lanes` (frames, channels) plane: rate then layout
-    # refuse before any block joins, and absence stays silence minted at the timeline's own channel width — a
-    # packed-width fill would run every downstream frame index off by `channels`. `template` carries the producer
-    # dtype alone; the shape is the timeline's, never the absent source's.
     match voice:
         case Option(tag="some", some=(_, source_rate, _)) if source_rate != rate:
             return Error(MediaFault(invalid=f"audio rate {source_rate} does not match timeline rate {rate}"))
@@ -379,7 +343,6 @@ def _sealed(
 
 
 def _params(clip: bytes, /) -> tuple[tuple[str, ...], ...]:
-    # concat-strategy discriminant: the full per-stream identity a lossless packet copy requires equal across clips.
     with av.open(io.BytesIO(clip), mode="r") as reader:
         return tuple(
             (str(s.index), s.type, s.codec_context.name, str(s.time_base), *((str(s.width), str(s.height), s.pix_fmt or "") if s.type == "video" else (str(s.sample_rate), s.layout.name)))
@@ -389,17 +352,13 @@ def _params(clip: bytes, /) -> tuple[tuple[str, ...], ...]:
 
 
 def _keyframes(clip: bytes, /) -> tuple[tuple[float, ...], tuple[tuple[tuple[float, ...], float], ...], bool] | None:
-    # trim-strategy discriminant read off the packet stream (no decode): lead keyframe instants, then EVERY copied
-    # stream's own (packet instants, tick) rows with the lead first — `_packet_trim` clones every video/audio
-    # stream, so the caller proves the window against each stream's grid, never the lead's alone. An audio-only
-    # clip reads its audio packets — every one a keyframe.
     with av.open(io.BytesIO(clip), mode="r") as reader:
         lead = reader.streams.best("video") or reader.streams.best("audio")
         if lead is None:
             return None
         ordered = (lead, *(s for s in reader.streams if s.type in ("video", "audio") and s.index != lead.index))
         marked: dict[int, list[tuple[float, bool]]] = {s.index: [] for s in ordered}
-        for packet in reader.demux(*ordered):  # Exemption: one demux pass buckets per-stream packet instants in place
+        for packet in reader.demux(*ordered):
             if packet.pts is not None:
                 marked[packet.stream.index].append((float(packet.pts * packet.stream.time_base), packet.is_keyframe))
         instants = tuple(at for at, keyed in marked[lead.index] if keyed)
@@ -408,8 +367,6 @@ def _keyframes(clip: bytes, /) -> tuple[tuple[float, ...], tuple[tuple[tuple[flo
 
 
 def _windowed(stamps: tuple[float, ...], tick: float, start: float, stop: float, /) -> bool:
-    # a stream admits a lossless window when both boundaries land on its own packet grid — or outside it entirely,
-    # where the cut removes nothing mid-packet; a stream with no timed packets constrains nothing.
     if not stamps:
         return True
     opened = start <= stamps[0] or any(abs(at - start) <= tick for at in stamps)
@@ -424,10 +381,6 @@ def _lead_codec(delivered: "av.container.InputContainer", /) -> str:
 
 @_worker
 def _trim(clip: bytes, in_point: float, out_point: float, profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # ONE polymorphic arm, the strategy DERIVED: a window whose in-point seats EXACTLY on a keyframe packet and
-    # whose out-point on a packet boundary (tick-exact, never a half-period tolerance that admits a mid-GOP cut and
-    # drops the anchoring keyframe) packet-copies — an audio-only clip qualifies only on real packet boundaries —
-    # anything else re-encodes through the video filter path.
     if not (isfinite(in_point) and isfinite(out_point) and 0.0 <= in_point < out_point):
         return Error(MediaFault(invalid=f"trim window must be finite and ordered, got [{in_point}, {out_point})"))
     try:
@@ -438,8 +391,6 @@ def _trim(clip: bytes, in_point: float, out_point: float, profile: "MediaProfile
         (stamps, tick), *companions = per_stream
         start = next((at for at in instants if abs(at - in_point) <= tick), None)
         stop = out_point if stamps and out_point > stamps[-1] else next((at for at in stamps if abs(at - out_point) <= tick), None)
-        # `_packet_trim` clones EVERY video/audio stream, so both boundaries must seat on every companion's own
-        # packet grid too — a lead-only proof admits a window that chops a companion stream mid-packet.
         aligned = start is not None and stop is not None and all(_windowed(marks, step, start, stop) for marks, step in companions)
         packetable = aligned and not profile.container.segmented and profile.verification is Verification.NONE
         if packetable:
@@ -457,7 +408,6 @@ def _filter_trim(clip: bytes, in_point: float, out_point: float, profile: "Media
     return _voice(clip).bind(
         lambda voice: _sealed(
             frames,
-            # the window is FRAME-indexed on the `_lanes` plane, so `rate * seconds` selects the seconds it names
             voice.map(lambda item: _packed(_lanes(item[0], item[2])[int(in_point * item[1]) : int(out_point * item[1])], item[1], item[2])),
             profile,
             facts,
@@ -466,9 +416,6 @@ def _filter_trim(clip: bytes, in_point: float, out_point: float, profile: "Media
 
 
 def _packet_trim(clip: bytes, in_point: float, out_point: float, profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # lossless window: clone every stream by template, keep packets timed inside the exact [in, out) window, re-stamp
-    # from the selected keyframe origin to a zero base in each stream's own time_base — valid because the caller
-    # snapped both boundaries onto real packet timestamps, so the first kept packet IS the anchoring keyframe.
     try:
         sink = io.BytesIO()
         with av.open(io.BytesIO(clip), mode="r") as reader, av.open(
@@ -478,14 +425,12 @@ def _packet_trim(clip: bytes, in_point: float, out_point: float, profile: "Media
             for attachment in profile.attachments:
                 out.add_attachment(attachment.name, attachment.mimetype, attachment.data)
             cloned = {s.index: out.add_stream_from_template(s) for s in reader.streams if s.type in ("video", "audio")}
-            for packet in reader.demux(*(reader.streams[i] for i in cloned)):  # Exemption: imperative packet re-stamp over one owned muxer
+            for packet in reader.demux(*(reader.streams[i] for i in cloned)):
                 source = packet.stream
-                stamp = packet.dts if packet.pts is None else packet.pts  # decode order anchors the window when presentation is absent
+                stamp = packet.dts if packet.pts is None else packet.pts
                 if stamp is None or not in_point <= float(stamp * source.time_base) < out_point:
                     continue
                 shift = int(round(in_point / source.time_base))
-                # PTS and DTS re-stamp independently and an absent one stays None — fabricating a DTS from PTS breaks
-                # B-frame reorder — while every test is `is None`, never truthiness, so a legitimate 0 stamp survives.
                 packet.stream = cloned[packet.stream.index]
                 packet.pts = None if packet.pts is None else packet.pts - shift
                 packet.dts = None if packet.dts is None else packet.dts - shift
@@ -502,8 +447,6 @@ def _packet_trim(clip: bytes, in_point: float, out_point: float, profile: "Media
 
 @_worker
 def _concat(clips: tuple[bytes, ...], profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # ONE polymorphic arm, the strategy DERIVED from full per-stream param equality; param-equal audio-only clips
-    # packet-join lossless while the re-encode fallback stays video-bound.
     if not clips:
         return Error(MediaFault(invalid="concat requires at least one clip"))
     try:
@@ -521,10 +464,6 @@ def _concat(clips: tuple[bytes, ...], profile: "MediaProfile") -> Result[tuple[b
 
 
 def _packet_concat(clips: tuple[bytes, ...], profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # lossless join over ONE owned writer: every stream cloned from the head clip's template, each source's packets
-    # RE-BASED from that stream's own first timestamp then re-stamped onto a per-stream monotonic offset in the
-    # stream's time_base (valid because `_params` proved stream identity) — a clip whose timeline starts nonzero
-    # (edit-list head, negative-dts lead) would otherwise splice in shifted — no decode, bit-exact, both carried.
     sink = io.BytesIO()
     with av.open(sink, mode="w", format=profile.container.value, container_options=dict(profile.container_options)) as out:
         out.metadata.update(dict(profile.metadata))
@@ -533,22 +472,21 @@ def _packet_concat(clips: tuple[bytes, ...], profile: "MediaProfile") -> Result[
         with av.open(io.BytesIO(clips[0]), mode="r") as head:
             cloned = {s.index: out.add_stream_from_template(s) for s in head.streams if s.type in ("video", "audio")}
         offsets = dict.fromkeys(cloned, 0)
-        for clip in clips:  # Exemption: imperative packet re-stamp over one owned muxer handle
+        for clip in clips:
             with av.open(io.BytesIO(clip), mode="r") as reader:
                 origins: dict[int, int] = {}
                 floors: dict[int, int] = {}
                 last = dict(offsets)
                 for packet in reader.demux(*(reader.streams[i] for i in cloned)):
-                    stamp = packet.pts if packet.dts is None else packet.dts  # decode order anchors; presentation stands in when dts is absent
+                    stamp = packet.pts if packet.dts is None else packet.dts
                     if stamp is None:
                         continue
                     index = packet.stream.index
-                    origin = origins.setdefault(index, stamp)  # first demuxed stamp is the stream's own zero
+                    origin = origins.setdefault(index, stamp)
                     stamped = stamp - origin + offsets[index]
-                    if stamped < floors.get(index, stamped):  # normalized stamps must stay monotonic per stream, or the mux is torn
+                    if stamped < floors.get(index, stamped):
                         return Error(MediaFault(invalid=f"concat source packets are not stamp-monotonic on stream {index}"))
                     floors[index] = stamped
-                    # PTS and DTS re-base independently and an absent one stays None — a fabricated stamp breaks B-frame reorder
                     packet.stream = cloned[index]
                     packet.pts = None if packet.pts is None else packet.pts - origin + offsets[index]
                     packet.dts = None if packet.dts is None else packet.dts - origin + offsets[index]
@@ -564,9 +502,6 @@ def _packet_concat(clips: tuple[bytes, ...], profile: "MediaProfile") -> Result[
 
 
 def _filter_concat(clips: tuple[bytes, ...], profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # every clip decodes on the `_video` rail and the decoded metadata is the admission evidence: all clips must
-    # agree on frame rate and frame shape BEFORE the streams flatten — a rate mismatch mistimes the joined
-    # timeline and a shape mismatch reaches numpy broadcasting instead of the typed rail.
     def _flattened(decoded: Block[tuple[int, "Frames"]], /) -> Result["Frames", "MediaFault"]:
         rates = {rate for rate, _ in decoded}
         shapes = {frames[0].shape for _, frames in decoded}
@@ -592,16 +527,11 @@ def _concatenated(
         return _sealed(frames, Nothing, profile, facts)
     template, rate, layout = present[0][0][0], present[0][1], present[0][2]
     return traverse(lambda pair: _pcm(pair[0], pair[1], template, rate, layout), Block.of_seq(zip(clips, voices, strict=True))).bind(
-        # tracks concatenate along the FRAME axis of the lanes plane — a last-axis join would interleave clip N's
-        # channel 0 into clip N-1's final frame instead of appending time.
         lambda tracks: _sealed(frames, Some(_packed(np.concatenate(tuple(tracks), axis=0), rate, layout)), profile, facts)
     )
 
 
 def _segmented(cuts: tuple[float, ...], profile: "MediaProfile") -> Result["MediaProfile", "MediaFault"]:
-    # loop-side derivation of the EFFECTIVE segment profile: `_crossed` classifies replayability off its argument
-    # list, so the segmented container must be visible there — a worker-side derivation would leave the crossing
-    # marked replayable and a worker-death retry would re-write the manifest and segment set.
     if profile.segment is None:
         return Error(MediaFault(invalid="segment op needs profile.segment (a store root); none supplied"))
     if not cuts or not all(isfinite(cut) and cut > 0.0 for cut in cuts) or any(left >= right for left, right in zip(cuts, cuts[1:], strict=False)):
@@ -618,8 +548,6 @@ def _segmented(cuts: tuple[float, ...], profile: "MediaProfile") -> Result["Medi
 
 @_worker
 def _segment(clip: bytes, cuts: tuple[float, ...], profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # split IS the container SEGMENT sink: the caller passed the `_segmented`-derived profile, so the crossing's
-    # replay probe already read the segmented container off the argument list.
     facts = frozendict({"clips": 1.0, "segments": float(len(cuts) + 1)})
     return _video(clip, profile.hwaccel).bind(
         lambda decoded: _encode_video(decoded[1], profile).map(lambda produced: (produced[0], _augment(produced[1], facts)))
@@ -627,15 +555,10 @@ def _segment(clip: bytes, cuts: tuple[float, ...], profile: "MediaProfile") -> R
 
 
 def _audio_xfade(under: "NDArray", over: "NDArray", window: int, /) -> "NDArray":
-    # overlap-add on the `_lanes` (frames, channels) plane, the audio twin of the filtergraph dissolve: `window`
-    # counts FRAMES, one ramp column broadcasts across every channel lane so the tracks stay phase-locked, progress
-    # runs the dissolve's own (i+1)/span so the audio hand-off lands on the step the video seam does — an
-    # endpoint-inclusive ramp would play the first overlap frame fully UNDER while the picture already shows OVER —
-    # and the span clamps to both tracks here — a request longer than either would wrap its negative tail slice.
     span = max(0, min(window, len(under), len(over)))
     if span == 0:
         return np.concatenate([under, over], axis=0)
-    ramp = (np.arange(1, span + 1, dtype=np.float64) / span)[:, None]  # the OVER weight column
+    ramp = (np.arange(1, span + 1, dtype=np.float64) / span)[:, None]
     mixed = under[-span:] * (1.0 - ramp) + over[:span] * ramp
     return np.concatenate([under[:-span], mixed.astype(under.dtype), over[span:]], axis=0)
 
@@ -665,16 +588,10 @@ def _blended(
     over_rate, over_frames = over_video
     if not under_frames or not over_frames:
         return Error(MediaFault(invalid="transition sources must each contain video frames"))
-    # crossfade admission: BOTH rates and BOTH frame shapes participate — a rate mismatch would mistime the
-    # overlap window and a shape mismatch would reach numpy broadcasting instead of the typed rail.
     if over_rate != rate:
         return Error(MediaFault(invalid=f"transition sources disagree on frame rate: {rate} vs {over_rate}"))
     if under_frames[0].shape != over_frames[0].shape:
         return Error(MediaFault(invalid=f"transition sources disagree on frame shape: {under_frames[0].shape} vs {over_frames[0].shape}"))
-    # EFFECTIVE overlap is the span EVERY lane can honor: the request bounds by both video extents AND both
-    # audio lane extents in seconds BEFORE any blend or fact mints, so video, audio, and `dissolve_frames` carry
-    # ONE shared overlap — a video-only clamp would dissolve frames the audio crossfade cannot cover and record a
-    # span the delivered product never shared.
     return _voice(under).map2(_voice(over), lambda a, b: (a, b)).bind(
         lambda voices: _xfaded(under, over, (under_frames, over_frames), rate, voices[0], voices[1], duration, transition, profile)
     )
@@ -692,14 +609,9 @@ def _xfaded(
     profile: "MediaProfile",
     /,
 ) -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # ONE blend for the whole vocabulary: the filtergraph `wired` dissolve arm owns every weight plane, fade and
-    # spatial sweep alike, so this page carries no second numpy kernel and a new transition lands entirely there.
     under_frames, over_frames = video
 
     def _joined(shared: float, voice: Option[Voice], /) -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-        # `dissolve_frames` records the EFFECTIVE blended span — the shared overlap every lane honored, never the
-        # request — and a share rounding to zero STAYS zero: the dissolve arm and `_audio_xfade` each degrade a zero
-        # window to their butt joint, so no forced one-frame blend fabricates an overlap the lanes never shared.
         span = min(round(shared * rate), len(under_frames), len(over_frames))
         joined = wired(FilterNode(xfade=transition), (under_frames, over_frames), window=span)
         return _sealed(joined, voice, profile, frozendict({"clips": 2.0, "dissolve_frames": float(span), "transition": transition.value}))
@@ -707,8 +619,6 @@ def _xfaded(
     if not (present := (*under_voice.to_list(), *over_voice.to_list())):
         return _joined(min(duration, len(under_frames) / rate, len(over_frames) / rate), Nothing)
     template, arate, layout = present[0][0][0], present[0][1], present[0][2]
-    # both media derive from ONE shared seconds bound — the audio window `round(shared * arate)` and the video span
-    # `round(shared * rate)` name the same interval, and `_audio_xfade`'s own clamp stays the declared lane bound.
     return _pcm(under, under_voice, template, arate, layout).map2(
         _pcm(over, over_voice, template, arate, layout), lambda left, right: (left, right)
     ).bind(
@@ -721,7 +631,6 @@ def _xfaded(
 
 @_worker
 def _speed(clip: bytes, factor: float, profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
-    # index-pick retime: >1 drops frames, <1 duplicates; audio rate-resamples by the same factor (pitch shifts with rate).
     if not isfinite(factor) or factor <= 0.0:
         return Error(MediaFault(invalid=f"speed factor must be positive, got {factor}"))
     facts = frozendict({"clips": 1.0, "factor": factor})
@@ -736,8 +645,6 @@ def _sped(
     picks = np.clip(np.round(np.arange(0, len(frames), factor)).astype(int), 0, len(frames) - 1)
 
     def retimed(item: Voice, /) -> Voice:
-        # the pick is FRAME-indexed on the lanes plane — a packed-axis pick drops a lone channel per step and
-        # re-interleaves the survivors into a rotating lane order.
         lanes = _lanes(item[0], item[2])
         indices = np.clip(np.round(np.arange(0, len(lanes), factor)).astype(int), 0, len(lanes) - 1)
         return _packed(lanes[indices], item[1], item[2])
@@ -749,8 +656,6 @@ def _sped(
 def _reverse(clip: bytes, profile: "MediaProfile") -> Result[tuple[bytes, "MediaEvidence"], "MediaFault"]:
     return _video(clip, profile.hwaccel).bind(
         lambda decoded: _voice(clip).bind(
-            # the flip is FRAME-wise on the lanes plane — a packed-axis reverse also reverses WITHIN each frame,
-            # swapping left and right for the whole track while the waveform reads correct.
             lambda voice: _sealed(
                 tuple(reversed(decoded[1])),
                 voice.map(lambda item: _packed(_lanes(item[0], item[2])[::-1], item[1], item[2])),

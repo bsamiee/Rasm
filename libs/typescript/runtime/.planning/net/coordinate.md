@@ -31,9 +31,6 @@ import { JetStreamApiCodes, JetStreamApiError } from "@nats-io/jetstream"
 import { Fault, type Identity } from "@rasm/core"
 import { Broker } from "./pubsub.ts"
 
-// The coordination NAME is the whole subject on every row — a lock, a seat, a key, or a bucket, and the port is
-// engine-blind about which — so the four rows share one subject and each says what happened to that name. Contention,
-// outage, and a missing ledger read apart because the renderers differ, never because a caller re-splits one string.
 const _AccordSubject = Schema.Struct({ name: Schema.String })
 
 const _family = Fault.Class.family(["dial", "busy", "stale", "ledger"] as const, {
@@ -82,11 +79,6 @@ declare namespace Accord {
   type Mode = "wait" | "try" | "steal"
   type Role = "leader" | "follower"
   type Engine = keyof typeof _ENGINES
-  // Both engines answer ONE descriptor as data, and the cells are where they diverge: a server-clocked bucket and a
-  // host-owned arbiter share no lifetime, no isolation, and no ledger. `fits` names the selection sentence, `admit`
-  // construction, `tenancy` the closed axis value the engine realizes, `lifetime` how long a hold survives AND who
-  // ends it, `degrade` the honest forfeit carrying every divergence the closed columns cannot spell. Silence on a
-  // coordinate is what makes a caller guess, so each cell answers even where the answer is a refusal.
   type Descriptor = {
     readonly fits: string
     readonly admit: string
@@ -102,10 +94,6 @@ declare namespace Accord {
   type Census = _Census
 }
 
-// Lease WINDOWS are deployment state: one must outlive the worst pause a holder takes between heartbeats, which no
-// library knows, so a frozen constant vacates every claim on a machine slower than the one it was written for.
-// Heartbeat cadence DERIVES at half the window instead of standing beside it, since two numbers admit a pairing
-// whose beat never lands inside the window and one number cannot.
 class _Window extends Schema.Class<_Window>("Accord/Window")({
   ttl: Schema.optionalWith(Schema.Duration, { default: () => Duration.seconds(30) }),
 }) {
@@ -198,9 +186,6 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
 - Packages: `@nats-io/kv` (`Kvm`, `KV`), `@nats-io/jetstream` (`JetStreamApiCodes`, `JetStreamApiError`), `effect` (`Chunk`, `Duration`, `Effect`, `Layer`, `Random`, `Ref`, `Schedule`, `Stream`), `./pubsub.ts` (`Broker`).
 
 ```typescript signature
-// Fenced writes carry the holder's token in a fixed eight-byte big-endian prefix ahead of the value, so seniority
-// and payload settle in ONE revision-guarded write. Splitting the token onto a sibling key takes two writes the
-// bucket cannot make atomic, and a successor lands between them.
 const _FENCE = { width: 8 } as const
 
 const _fenced = (token: number, value: Uint8Array): Uint8Array => {
@@ -210,8 +195,6 @@ const _fenced = (token: number, value: Uint8Array): Uint8Array => {
   return framed
 }
 
-// Absence and an unfenced value read alike as token ZERO: nothing has claimed this key, so every live holder outranks
-// it, which is exactly the ordering a first fenced write needs.
 const _held = (fact: Option.Option<Accord.Fact>): number =>
   Option.match(fact, {
     onNone: () => 0,
@@ -228,8 +211,6 @@ const _fact = (
     ? Option.none()
     : Option.some(new _Fact({ value: entry.value, revision: entry.revision }))
 
-// The server's own wrong-last-sequence codes ARE the lost race; every other rejection is transport, so one
-// discriminator serves the claim, the CAS, and the heartbeat and no write reports a dead broker as contention.
 const _raced = (cause: unknown): boolean =>
   cause instanceof JetStreamApiError &&
   (cause.code === JetStreamApiCodes.StreamWrongLastSequence || cause.code === JetStreamApiCodes.StreamWrongLastSequenceUnknown)
@@ -243,14 +224,11 @@ const _kv = (bucket: string, window: Accord.Window): Layer.Layer<Accord, AccordF
     Effect.gen(function* () {
       const nc = yield* Broker
       const kv: KV = yield* Effect.tryPromise({
-        // ttl arms the server-clocked lease expiry; markerTTL keeps TTL removals notifying the watch tail
         try: () => new Kvm(nc).create(bucket, { ttl: Duration.toMillis(window.ttl), markerTTL: Duration.toMillis(window.ttl) }),
         catch: () => new AccordFault({ case: { reason: "dial", name: bucket } }),
       })
       const nonce = Effect.map(Random.nextInt, (seed) => new TextEncoder().encode(seed.toString(36)))
 
-      // One bracketed iterator seam serves both feeds: the live tail and the finite history differ only by which
-      // bucket iterator opens, so the fold, the teardown, and the emitted shape cannot drift between them.
       const iterated = (
         key: string,
         open: () => Promise<{ readonly stop: () => void } & AsyncIterable<Parameters<typeof _fact>[0]>>,
@@ -292,9 +270,6 @@ const _kv = (bucket: string, window: Accord.Window): Layer.Layer<Accord, AccordF
           const held = yield* Ref.make(revision)
           yield* Effect.addFinalizer(() => Effect.flatMap(Ref.get(held), (at) => freed(name, at)))
           yield* Effect.forkScoped(
-            // The heartbeat resets the claim's TTL age at the tracked revision. A LOST REVISION stops renewal because a
-            // successor already owns the name; a transport blip keeps beating, since the server clock — not this fiber —
-            // is what expires a seat, and interrupting on a dial fault would surrender a claim the holder still holds.
             Effect.repeat(
               Effect.flatMap(Ref.get(held), (at) =>
                 Effect.flatMap(
@@ -316,7 +291,6 @@ const _kv = (bucket: string, window: Accord.Window): Layer.Layer<Accord, AccordF
           : mode === "try"
             ? claimed(name, id)
             : Effect.suspend(function attempt(): Effect.Effect<number, AccordFault> {
-                // The tombstone tail is the fast path; the TTL-cadence retry covers a limit expiry the watch never notified.
                 return Effect.catchIf(
                   claimed(name, id),
                   (fault) => fault.case.reason === "busy",
@@ -353,10 +327,6 @@ const _kv = (bucket: string, window: Accord.Window): Layer.Layer<Accord, AccordF
             }),
             (revision) => new _Fact({ value: next, revision }),
           ),
-        // Two guards, and the write needs BOTH: the token guard refuses a holder the ledger already outranked, while
-        // its revision guard refuses a concurrent write that landed between the read and this one. Checking the
-        // token alone lets two writes from one holder race; checking the revision alone lets an expired holder
-        // overwrite its successor, which is the exact failure a fencing token exists to make structural.
         fence: (key, lease, next) =>
           Effect.flatMap(
             Option.match(lease.token, {
@@ -388,9 +358,6 @@ const _kv = (bucket: string, window: Accord.Window): Layer.Layer<Accord, AccordF
           ),
         read: (key, at) =>
           Effect.map(
-            // Pinned revisions read a generation OF THIS KEY: the bucket numbers every revision out of one stream
-            // sequence and the member re-checks the fetched message's key, so a revision minted against another key
-            // answers absence. Seniority therefore rides `fence`, never a read pinned at a lease token.
             Effect.tryPromise({
               try: () => (at === undefined ? kv.get(key) : kv.get(key, { revision: at })),
               catch: () => new AccordFault({ case: { reason: "dial", name: key } }),
@@ -414,7 +381,6 @@ const _kv = (bucket: string, window: Accord.Window): Layer.Layer<Accord, AccordF
             Effect.map(({ keys, status }) =>
               new _Census({
                 names: keys,
-                // the bucket's own facts, so the doctor read reports health rather than a name list that says nothing
                 health: Option.some(
                   new _Health({
                     bucket: status.bucket,
@@ -497,7 +463,6 @@ const _locks = (): Layer.Layer<Accord> =>
                 names: [...(snapshot.held ?? []), ...(snapshot.pending ?? [])]
                   .flatMap((lock) => (lock.name === undefined ? [] : [lock.name]))
                   .filter((name) => filter === undefined || name.startsWith(filter)),
-                // no bucket exists to be healthy, the same honest absence the receipt's token already carries
                 health: Option.none(),
               }),
           ),
@@ -505,7 +470,7 @@ const _locks = (): Layer.Layer<Accord> =>
     })(),
   )
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Accord, AccordFault }
 ```

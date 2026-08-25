@@ -23,10 +23,8 @@ Generation is the page's ruling shape: a hand-authored per-role paint row, a per
 - Boundary: `ThemeCatalog` admits every Avalonia colour into the kernel `PerceptualColor` and constructs, converts, and measures no colour through `Wacton.Unicolour` itself — the one package name that crosses is `HueSpan`, the traversal a polar `BlendPath` row takes as its argument. `TokenKey` is minted by the generation owners alone, so a consumer cannot address a bucket by a string it composed and a key that names no generated rung is unspellable rather than a silent lookup miss; the resolved buckets are total by construction and `Palette` reads them on the accumulating rail, so a refused generation reports EVERY missing anchor as one typed `ThemeFault.PaletteRejected` at boot rather than an index throw inside a static initializer. `Readable` is the one derived-contrast form and its solve lives at the kernel: a page-local bisection over `Tone` beside `Contrast` is the deleted form, exactly as a local sRGB lerp is. Light and high-contrast are PROJECTIONS of one generation through `VariantProjection` — the high-contrast projection zeroes near-neutral chroma, raises every `Readable` floor to `ContrastFloor.AaaText`, drops the `Elevation` trait so every shadow stack empties (the shipped high-contrast dictionaries carve no `BoxShadow` slot, so border emphasis substitutes), and widens the stroke family in one row. Elevation is a LAYER STACK, never one offset-and-blur pair, and each layer names its `LayerKind`. `ThemeFault` owns colour and typography failures through its direct generated union cases.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The ONE key mint. The underlying value IS the resource key the dictionary takes, because Avalonia keys on
-// `object` and a wrapper at that hop would be a second identity the dictionary never resolves.
 [ValueObject<string>(SkipKeyMember = false)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -43,9 +41,6 @@ public sealed partial class TokenKey {
     internal static TokenKey Named(string owner, string slot) => Create($"{owner}-{slot}");
 }
 
-// Seed rows: the whole authored appearance surface. Six pigments, two ramp ladders, four postures, and one
-// generation policy expand into the full role ladder, so a re-identity is a value edit and a rung that cannot
-// derive is a defect in the generation rather than an invitation to hand-add a paint row.
 public sealed record AppearanceSeed(
     Color Surface,
     Color Accent,
@@ -53,9 +48,6 @@ public sealed record AppearanceSeed(
     Seq<(PostureSlot Slot, SurfacePosture Posture)> Postures,
     RampPolicy Ramp);
 
-// Posture is the per-surface-class offset the panel and overlay planes request through a scoped variant: the
-// tone shift moves the surface away from or toward the canvas, the chroma ceiling keeps a posture near-neutral
-// under a tinted seed, and the coverage is the veil weight a scrim over that posture takes.
 public sealed record SurfacePosture(SignedUnit ToneShift, UnitInterval ChromaCeiling, UnitInterval Coverage);
 
 public sealed record RampPolicy(
@@ -68,16 +60,10 @@ public sealed record RampPolicy(
     BlendPath Path,
     GamutPolicy Gamut);
 
-// Ground polarity as ONE row, four columns: the ladder order, the cast-drift sign, the shadow-alpha lens, and
-// row identity as the dark verdict. The single `Ascending` bool these columns replace was read as four
-// unrelated facts at four sites; a fifth reading lands as a fifth column, never a fifth `!Ascending`.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SurfacePolarity {
-    // Interaction rungs INVERT by ground: a pointerover state moves away from the surface, so a light ladder
-    // reads reversed where a dark one reads forward, and one fixed direction renders the hover state invisible
-    // on exactly one variant while passing every structural check.
     public static readonly SurfacePolarity Light = new("light", castSign: -1d,
         order: static ladder => ladder.Rev(), alpha: static layer => layer.LightAlpha);
     public static readonly SurfacePolarity Dark = new("dark", castSign: 1d,
@@ -92,9 +78,6 @@ public sealed partial class SurfacePolarity {
     public partial UnitInterval Alpha(ShadowLayer layer);
 }
 
-// The variant capability axis: elevation stacks and translucency are grants a projection holds or lacks, not
-// bools beside it — high contrast drops both, and a fifth surface treatment is one row here.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -105,9 +88,6 @@ public sealed partial class VariantTrait : ICapability<VariantTrait> {
     public int Rank { get; }
 }
 
-// A variant is a PROJECTION of one generation, never a parallel colour column: polarity, chroma scale, floor
-// lift, the trait grant set, and stroke gain — five row values instead of a per-role light/dark/high-contrast
-// triple that drifts the moment one seed moves.
 public sealed record VariantProjection(
     SurfacePolarity Polarity,
     UnitInterval ChromaScale,
@@ -119,9 +99,6 @@ public sealed record VariantProjection(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SeedAnchor {
-    // The two structural anchors carry a direct column; every status anchor reads its own row off the seed's
-    // status list BY ROW IDENTITY, so the status pigments stay one growable list on the seed and a seed missing
-    // a status row refuses rather than silently resolving the whole status ladder onto the surface pigment.
     public static readonly SeedAnchor Surface = new("surface", static seed => Some(seed.Surface), static ramp => ramp.SurfaceTones);
     public static readonly SeedAnchor Accent = new("accent", static seed => Some(seed.Accent), static ramp => ramp.AccentTones);
     public static readonly SeedAnchor Error = new("error", static _ => None, static ramp => ramp.StatusTones);
@@ -152,8 +129,6 @@ public sealed partial class PostureSlot {
     public static readonly PostureSlot Raised = new("raised");
 }
 
-// The generation law as data. Each case names exactly what its rung depends on, so the fold reads the case and
-// never a flag beside it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PaintDerivation {
     private PaintDerivation() { }
@@ -169,8 +144,6 @@ public abstract partial record PaintDerivation {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PaintRole {
-    // Floors are the kernel ContrastFloor rows: AaText 4.5 (SC 1.4.3), AaLarge 3.0, AaaText 7.0 (SC 1.4.6),
-    // NonText 3.0 (SC 1.4.11) — each row carries its clause and the PositiveMagnitude ToneFor takes.
     public static readonly PaintRole Surface = new("surface", new PaintDerivation.Tonal(SeedAnchor.Surface, Dimension.Create(5)));
     public static readonly PaintRole Panel = new("panel", new PaintDerivation.Posture(SeedAnchor.Surface, PostureSlot.Panel, Dimension.Create(3)));
     public static readonly PaintRole Raised = new("raised", new PaintDerivation.Posture(SeedAnchor.Surface, PostureSlot.Raised, Dimension.Create(3)));
@@ -210,10 +183,6 @@ public sealed partial class PaintRole {
         veil: static (_, _) => 1);
 }
 
-// The folder's ONE ranked alert family over the paint ladder (folder RULINGS [02]:73): charts, the run-queue
-// report, watch rules, and every badge read these rows, so a surface takes its highest live crossing through
-// ONE fold and a local severity enum forks ink. The fold runs over a CARRIER because every consumer holds rows
-// that carry a severity, not severities bare.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -233,10 +202,8 @@ public sealed partial class Severity {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The three layer kinds one elevation stack composes: the ring reads UNDER the cast shadow so a hairline rim
-// survives it, and the rim is the inset top-highlight — a layer of the stack, never a second border.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayerKind {
@@ -257,10 +224,6 @@ public sealed record ShadowLayer(
     UnitInterval LightAlpha,
     UnitInterval DarkAlpha);
 
-// Material rows carry the package's own four knobs and nothing else. Avalonia acrylic composes a tint over a
-// material shader with a FIXED noise bitmap and never a live backdrop blur, so the noise column is a declared
-// grain weight the effects plane applies; `AcrylicBackgroundSource.Digger` digs through to nothing under an
-// embedded host view, so it is unrepresentable here and the opaque tinted fallback is the embedded floor.
 public sealed record MaterialValue(
     Color Tint,
     UnitInterval TintOpacity,
@@ -268,9 +231,6 @@ public sealed record MaterialValue(
     Color Fallback,
     UnitInterval Grain);
 
-// The module-keyed ambient wash: DATA the effects plane executes, never a draw here. The luminance ceiling is
-// the row value the derived contrast candidates gate, so a wash cannot brighten a surface past the point its
-// own text pairs still clear their floor.
 public sealed record WashRow(
     string Module,
     PaintRole Hue,
@@ -278,8 +238,6 @@ public sealed record WashRow(
     UnitInterval LuminanceCeiling,
     MotionToken Crossfade);
 
-// Whether a resolved material may be translucent: the projection's Translucency trait gated by the viewer's
-// reduced-transparency concession, elected once by the variant row rather than re-derived per tier.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Glazing {
@@ -291,8 +249,6 @@ public sealed partial class Glazing {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DepthTier {
-    // Dark alphas double because a shadow on a dark surface loses its ground; the polarity row's Alpha lens
-    // elects the column.
     public static readonly DepthTier Card = new("card", rank: 0, layers: Seq(
         new ShadowLayer(0d, 0d, 0d, 1d, LayerKind.Ring, PaintRole.Border, UnitInterval.Create(0.10d), UnitInterval.Create(0.22d)),
         new ShadowLayer(0d, 1d, 2d, 0d, LayerKind.Cast, PaintRole.Scrim, UnitInterval.Create(0.06d), UnitInterval.Create(0.16d))));
@@ -316,16 +272,10 @@ public sealed partial class DepthTier {
 
     public Seq<ShadowLayer> Layers { get; }
 
-    // The smart-enum generator emits the row's string key as a public `Key` property, so a `TokenKey`-typed
-    // `Key` declared beside it is a duplicate member of a second type and the whole owner stops generating.
     public TokenKey ShadowKey => TokenKey.Named("elevation", Key);
 
     public TokenKey RankKey => TokenKey.Named("z", Key);
 
-    // An unshadowed projection resolves the same empty value a tier authored with an empty stack does: the
-    // shipped high-contrast dictionaries carve no BoxShadow slot, so an empty stack is the honest resolve and
-    // the widened stroke family carries the separation. `Seq.Head` answers `Option`, so the first layer BINDS
-    // rather than an absence reaching a two-argument constructor in its leading slot.
     public Fin<BoxShadows> Resolve(VariantProjection projection, Func<PaintRole, int, Option<Color>> paint) =>
         projection.Traits.Admits(VariantTrait.Elevation)
             ? Layers.Traverse(layer => Shadow(layer, projection, paint)).As()
@@ -367,7 +317,6 @@ public sealed partial class MaterialTier {
 
     public TokenKey MaterialKey => TokenKey.Named("material", Key);
 
-    // The opaque arm is the tinted surface rung itself rather than a second authored colour.
     public MaterialValue Resolve(Glazing glazing, Func<PaintRole, int, Option<Color>> paint) =>
         paint(Tint, 0).IfNone(() => Colors.Transparent) switch {
             var tint => glazing == Glazing.Translucent
@@ -376,10 +325,6 @@ public sealed partial class MaterialTier {
         };
 }
 
-// The per-family capability column: today the stroke family alone widens under a high-contrast projection — a
-// thicker separator restores the structural cue the emptied shadow stacks gave up, while widening space or
-// radius would relayout the estate on a preference flip.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -389,8 +334,6 @@ public sealed partial class MetricTrait : ICapability<MetricTrait> {
     public int Rank { get; }
 }
 
-// Space, radius, stroke, and extent are GENERATED scales: a base, a ratio, a step count, and a snap grid, with
-// density arriving as a scale factor rather than a second authored column per row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -421,14 +364,9 @@ public sealed partial class MetricFamily {
             var raw => Math.Max(Snap, Math.Round(raw / Snap, MidpointRounding.ToEven) * Snap),
         };
 
-    // Concentric nesting: an inner radius is the outer radius less the inset that separates them, floored at
-    // zero, so nested rounded surfaces stay concentric under every density and every radius re-seed.
     public static double Inner(double outer, double inset) => Math.Max(0d, outer - inset);
 }
 
-// The rows generation does not reach. A span carries the motion TOKEN and never a duration, so the reduction
-// resolves in the fold at resolve time; a rank is an integer with no perceptual ladder, so it stays authored
-// beside the depth tier that owns its stacking class.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TokenRow {
     private TokenRow() { }
@@ -437,9 +375,6 @@ public abstract partial record TokenRow {
     public sealed record Rank(TokenKey Key, int Value) : TokenRow;
 }
 
-// Equality is generated: the seven token maps are FrozenDictionary members the synthesized record form compares
-// by reference, so an identical regeneration read as a change; Palette is the mutable Avalonia resource object
-// REBUILT from Seed on every resolve, so it leaves equality rather than voiding it.
 [Equatable]
 public sealed partial record ResolvedTheme(
     ThemeVariantRow Variant,
@@ -461,17 +396,14 @@ public sealed partial record ResolvedTheme(
     public Option<double> Metric(MetricFamily family, int step) =>
         Metrics.TryGetValue(family.At(step), out double value) ? Some(value) : None;
 
-    // The type ladder resolves inside the SAME fold as the paints and the metrics, so a density election or a
-    // host text-scale flip re-derives type and geometry together and no consumer re-runs the generation.
     public Option<TextStyleRow> Type(TypographyRole role, TypeEmphasis emphasis) =>
         Types.TryGetValue(TypeScale.Key(role, emphasis), out TextStyleRow? value) ? Some(value) : None;
 }
 ```
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// The one direct family spans token resolution and typography; each leaf owns its generated numeric identity.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ThemeFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Theme;
@@ -490,13 +422,11 @@ public abstract partial record ThemeFault : Fault {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ThemeCatalog {
     public const string SectionKey = "theme";
 
-    // The shipped default: a near-neutral cool grey band and a restrained desaturated cool accent, because a
-    // saturated brand accent spent on chrome leaves no headroom for the status inks that must out-read it.
     public static readonly AppearanceSeed Default = new(
         Surface: Color.FromUInt32(0xFF17191D),
         Accent: Color.FromUInt32(0xFF3D7EAA),
@@ -536,8 +466,6 @@ public static class ThemeCatalog {
         new WashRow("review", PaintRole.Warning, UnitInterval.Create(0.04d), UnitInterval.Create(0.20d), MotionPlan.Page.Enter),
     ];
 
-    // The chain is a resolve INPUT beside the density and the seed, because the type ladder resolves inside
-    // this fold and a chain probed from the ambient host would defeat the composition-bound election.
     public static Fin<ResolvedTheme> Resolve(ThemeVariantRow variant, DensityRow density, AppearanceSeed seed, FontChain chain, PreferenceCell preferences) =>
         ResolveConcrete(variant.Concrete(preferences), density, seed, chain, preferences);
 
@@ -561,11 +489,6 @@ public static class ThemeCatalog {
                 + toSeq(DepthTier.Items).Map(static tier => (tier.RankKey, tier.Rank))),
             Palette: palette);
 
-    // The generation fold. Roles resolve in DECLARATION order and every derivation naming another role reads
-    // the accumulator, so a forward reference is a refusal rather than a lookup against an empty bucket; each
-    // emitted rung then asserts the seed's perceptual-difference floor against its predecessor. Every generated
-    // roster crosses `toSeq` first: `Items` is an `IReadOnlyList` and the rail combinators are the carrier's
-    // own instance members.
     public static Fin<Seq<(TokenKey Key, Color Value)>> Expand(AppearanceSeed seed, VariantProjection projection) =>
         toSeq(PaintRole.Items).Fold(
             Fin.Succ(Seq<(TokenKey Key, Color Value)>()),
@@ -601,8 +524,6 @@ public static class ThemeCatalog {
             Some: static entry => Fin.Succ(entry.Posture),
             None: () => Fin.Fail<SurfacePosture>(new ThemeFault.PaletteRejected($"posture {slot.Key}")));
 
-    // The perceptual-difference gate: adjacent rungs must separate by at least the seed's declared floor under
-    // its declared metric, so a tone ladder compressed by a gamut bound refuses at resolve.
     static Fin<Unit> Apart(PaintRole role, Seq<(TokenKey Key, Color Value)> rungs, RampPolicy ramp) =>
         rungs.Zip(rungs.Skip(1))
             .Traverse(pair => from left in Admit(pair.First.Value)
@@ -614,9 +535,6 @@ public static class ThemeCatalog {
             .As()
             .Map(static _ => unit);
 
-    // Derived contrast: the readable rung SOLVES for the tone that clears its floor against the role it is
-    // drawn on. The ink takes its GROUND's hue and chroma and moves only in tone, and each successive emphasis
-    // rung relaxes its floor by one step of the declared falloff so muted and faint stay ordered by construction.
     static Fin<Seq<(TokenKey Key, Color Value)>> Readable(PaintRole role, Color against, ContrastFloor floor, Dimension rungs, RampPolicy ramp) =>
         from ground in Admit(against)
         from solved in Steps(rungs.Value)
@@ -628,8 +546,6 @@ public static class ThemeCatalog {
 
     const double EmphasisFalloff = 0.82d;
 
-    // The tonal crossing is fallible at the kernel — a degenerate-chroma seed carries no HCT hue — so a rung
-    // the owner refuses fails the whole ramp rather than landing a substituted colour.
     static Fin<Seq<(TokenKey Key, Color Value)>> Sweep(PaintRole role, Color anchor, Seq<UnitInterval> tones, RampPolicy ramp, VariantProjection projection) =>
         from origin in Admit(anchor)
         from swept in tones.Map(static (tone, rung) => (Tone: tone, Rung: rung))
@@ -641,16 +557,11 @@ public static class ThemeCatalog {
     static Seq<UnitInterval> Shifted(Seq<UnitInterval> ladder, SurfacePosture posture) =>
         ladder.Map(tone => UnitInterval.Create(Math.Clamp(tone.Value + posture.ToneShift.Value, 0d, 1d)));
 
-    // A cast walks from the origin's OWN reference lightness, so the drift is relative to where that role
-    // landed; the polarity row's sign inverts it because a border that lifts away from a dark canvas must sink
-    // away from a light one.
     static Seq<UnitInterval> Drift(PerceptualColor origin, SignedUnit shift, Dimension rungs, VariantProjection projection) =>
         Steps(rungs.Value).Map(rung =>
             UnitInterval.Create(Math.Clamp(
                 origin.ReferenceLightness + shift.Value * projection.Polarity.CastSign * (rung + 1), 0d, 1d)));
 
-    // High contrast pulls near-neutrals to zero chroma so a tinted seed cannot survive as a colour cast the
-    // preference exists to remove; the scale is one projection column rather than a conditional per role.
     static PerceptualColor Chroma(PerceptualColor colour, VariantProjection projection) =>
         PerceptualColor.Of(colour.Lightness, colour.OpponentA * projection.ChromaScale.Value, colour.OpponentB * projection.ChromaScale.Value, colour.Alpha)
             .Match(Succ: identity, Fail: _ => colour);
@@ -664,9 +575,6 @@ public static class ThemeCatalog {
             Some: static entry => Fin.Succ(entry.Value),
             None: () => Fin.Fail<Color>(new ThemeFault.PaletteRejected($"forward reference {key.Value}")));
 
-    // The lens folds ONCE over the paint bucket and both consumers read that one product: the palette is a
-    // projection of the simulated paints, so a second fold would let the Fluent floor and the resolved buckets
-    // disagree the moment the lens carries any state.
     public static ResolvedTheme Simulated(ResolvedTheme resolved, Func<Color, Color> lens) =>
         Frozen(toSeq(resolved.Paints).Map(entry => (entry.Key, lens(entry.Value)))) switch {
             var simulated => resolved with { Paints = simulated, Palette = Palette(simulated).IfFail(resolved.Palette) },
@@ -678,12 +586,8 @@ public static class ThemeCatalog {
     internal static Color Avalonia(PerceptualColor value, Option<GamutPolicy> gamut) =>
         value.ToRgb(gamut) switch { var (red, green, blue, alpha) => Color.FromArgb(alpha, red, green, blue) };
 
-    // One index run per fence family, not six spellings of Enumerable.Range.
     internal static Seq<int> Steps(int count) => toSeq(Enumerable.Range(0, count));
 
-    // The Fluent floor's palette reads the SAME generation on the ACCUMULATING rail: nine independent anchor
-    // reads report every missing bucket in one typed refusal, where the first-defect fan named one anchor per
-    // resolve attempt and a broken seed took nine boots to enumerate.
     static Fin<ColorPaletteResources> Palette(FrozenDictionary<TokenKey, Color> paints) =>
         (At(paints, PaintRole.Accent, 0), At(paints, PaintRole.Text, 0), At(paints, PaintRole.TextMuted, 0),
          At(paints, PaintRole.TextFaint, 0), At(paints, PaintRole.Surface, 0), At(paints, PaintRole.Panel, 0),
@@ -732,17 +636,12 @@ public static class ThemeCatalog {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ThemeVariantRow {
-    // `ThemeVariant` here is Avalonia's styling key (the dictionary partition key); the kernel Interaction row
-    // of the same name never enters this page — alias-qualify if both are ever imported.
     public static readonly ThemeVariantRow Light = new("light", ThemeVariant.Light,
         new VariantProjection(SurfacePolarity.Light, UnitInterval.Create(1d), None,
             CapabilitySet<VariantTrait>.Of(VariantTrait.Elevation, VariantTrait.Translucency), StrokeGain: 1d));
     public static readonly ThemeVariantRow Dark = new("dark", ThemeVariant.Dark,
         new VariantProjection(SurfacePolarity.Dark, UnitInterval.Create(1d), None,
             CapabilitySet<VariantTrait>.Of(VariantTrait.Elevation, VariantTrait.Translucency), StrokeGain: 1d));
-    // The shipped high-contrast variants: SemiTheme.Desert inherits Light and SemiTheme.NightSky inherits Dark.
-    // Every shipped BoxShadow slot is carved from Light and Dark alone, so the high-contrast projection drops
-    // the Elevation trait and widens the stroke family instead.
     public static readonly ThemeVariantRow HighContrastLight = new("high-contrast-light", SemiTheme.Desert,
         new VariantProjection(SurfacePolarity.Light, UnitInterval.Create(0d), Some(ContrastFloor.AaaText),
             CapabilitySet<VariantTrait>.Of(), StrokeGain: 2d));
@@ -759,12 +658,8 @@ public sealed partial class ThemeVariantRow {
 
     public bool Dark => Projection.Polarity == SurfacePolarity.Dark;
 
-    // The concrete rows the emission partitions over: host-matched is a fold and never a partition, because a
-    // dictionary keyed on an unresolved sentinel resolves for nobody.
     public static Seq<ThemeVariantRow> Emitted => Seq(Light, Dark, HighContrastLight, HighContrastDark);
 
-    // Appearance and increased contrast are the SAME probe read: a host asking for high contrast under a dark
-    // appearance wants the dark high-contrast chain, so one fold crosses both columns.
     public ThemeVariantRow Concrete(PreferenceCell preferences) => Switch(
         state: preferences,
         light: static (p, _) => Contrasted(Light, p),
@@ -786,9 +681,6 @@ public sealed partial class ThemeVariantRow {
             : row;
 }
 
-// A posture variant is the shipped variant with a slot suffix, INHERITING the concrete row, so every key the
-// posture does not re-emit falls through to its parent partition and a scoped subtree carries one dictionary
-// override rather than a whole copied palette.
 public static class PostureVariant {
     public static ThemeVariant Of(ThemeVariantRow row, PostureSlot slot) =>
         new($"{row.Key}/{slot.Key}", row.Variant);
@@ -799,8 +691,6 @@ public abstract partial record PreferenceValue {
     private PreferenceValue() { }
 
     public sealed record Appearance(ThemeVariantRow Row) : PreferenceValue;
-    // A concession is granted or withheld as a CASE, never a flag: the granted set folds into one kernel
-    // `CapabilitySet<MotionConcession>` every degrade switch reads.
     public sealed record Granted(MotionConcession Row) : PreferenceValue;
     public sealed record Withheld(MotionConcession Row) : PreferenceValue;
     public sealed record Scale(UnitInterval Factor) : PreferenceValue;
@@ -821,11 +711,8 @@ public sealed partial class PreferenceRow {
     public static readonly PreferenceRow TextScale = new("text-scale", None,
         static () => new PreferenceValue.Scale(UnitInterval.Create(0.5d)));
 
-    // Which kernel concession row this preference fills, where it fills one.
     public Option<MotionConcession> Concession { get; }
 
-    // The unreduced answer, taken when neither a pin nor a host column resolves: light appearance, every
-    // concession withheld, and the midpoint of the text-scale interval, which projects to a multiplier of one.
     [UseDelegateFromConstructor]
     public partial PreferenceValue Fallback();
 }
@@ -841,7 +728,6 @@ public sealed class PreferenceCell(
         toSeq(PreferenceRow.Items)
             .Exists(row => row.Concession == Some(concession) && Read(row) is PreferenceValue.Granted);
 
-    // The whole granted set as the kernel carrier the motion, material, and contrast switches read.
     public CapabilitySet<MotionConcession> Concessions =>
         CapabilitySet<MotionConcession>.Of(toSeq(PreferenceRow.Items)
             .Choose(row => Read(row) is PreferenceValue.Granted granted ? Some(granted.Row) : None)
@@ -849,8 +735,6 @@ public sealed class PreferenceCell(
 
     public IDisposable Track(Action<PreferenceRow> observe) => changed(observe);
 
-    // A pin is DISPOSABLE, so a proof lane restores the host read on scope exit and a leaked pin cannot outlive
-    // the lane that set it; the atom swap is the whole write path, so two lanes pinning one row serialize.
     public IDisposable Pin(PreferenceRow row, PreferenceValue value) {
         pinned.Swap(map => map.AddOrUpdate(row, value));
         return Disposable.Create(() => pinned.Swap(map => map.Remove(row)));
@@ -916,8 +800,6 @@ public sealed partial class DensityRow {
         new DensityPolicy(UnitInterval.Create(1d), UnitInterval.Create(1d), UnitInterval.Create(1d), UnitInterval.Create(1d), UnitInterval.Create(1d)));
     public static readonly DensityRow Default = new("default", DensityStyle.Normal,
         new DensityPolicy(UnitInterval.Create(0.875d), UnitInterval.Create(1d), UnitInterval.Create(1d), UnitInterval.Create(0.9d), UnitInterval.Create(0.95d)));
-    // Radius holds under compaction on purpose: shrinking a corner beside its own control makes the whole
-    // chrome read as a different family, where the geometry that buys screen space is space and extent.
     public static readonly DensityRow Compact = new("compact", DensityStyle.Compact,
         new DensityPolicy(UnitInterval.Create(0.75d), UnitInterval.Create(1d), UnitInterval.Create(1d), UnitInterval.Create(0.78d), UnitInterval.Create(0.9d)));
 
@@ -926,9 +808,6 @@ public sealed partial class DensityRow {
     public DensityPolicy Policy { get; }
 }
 
-// ONE election over the surface class: variant and density are two COLUMNS of one dispatch, so the swap
-// capsule's boot default and a per-surface resolve cannot disagree on how a surface class reads. The sidecar
-// topology override sits above the class fold because topology outranks surface.
 public static class SurfaceElection {
     public static (ThemeVariantRow Variant, DensityRow Density) Of(ResolvedProfile resolved) =>
         resolved.Profile.Topology == DeploymentTopology.Sidecar
@@ -937,9 +816,6 @@ public static class SurfaceElection {
 
     public static DensityRow Density(ConsumptionProfile profile) => Class(profile).Density;
 
-    // An embedded surface runs compact because it borrows a host's chrome budget; a windowed product surface
-    // runs the default posture; a surfaceless or offscreen lane pins comfortable and light so a golden render
-    // and a service export stay deterministic under whatever the operator last elected.
     static (ThemeVariantRow Variant, DensityRow Density) Class(ConsumptionProfile profile) =>
         profile.Surface.Switch(
             state: unit,
@@ -961,9 +837,8 @@ public static class SurfaceElection {
 - Boundary: the stop rosters are PUBLISHED palettes, cited per row — viridis/magma/cividis from the matplotlib perceptually-uniform family, turbo from Google AI, coolwarm from Moreland's diverging maps, twilight from matplotlib's cyclic pair, Tableau 10 from the Tableau categorical set — so provenance is the row's, never a hand-picked hex run; sampling composes the kernel `PerceptualColor.Mix` under the class's own traversal through the tokens page's admission edge, and a local sRGB lerp is the deleted form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -975,9 +850,6 @@ public sealed partial class ColormapTrait : ICapability<ColormapTrait> {
     public int Rank { get; }
 }
 
-// The traversal is the class's own BlendPath row and the treatments are a trait GRANT SET: the three bools
-// this replaces left Diverging and Cyclic carrying identical triples, so the class was discriminated by
-// nothing its own columns held.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ColormapClass {
@@ -997,14 +869,12 @@ public sealed partial class ColormapClass {
     public BlendPath Path { get; }
 }
 
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Colormap {
-    // Anchor stops per published source: matplotlib perceptually-uniform (viridis, magma, cividis), Google AI
-    // (turbo), Moreland diverging (coolwarm), matplotlib cyclic (twilight), Tableau categorical (tableau).
     public static readonly Colormap Viridis = new("viridis", ColormapClass.Sequential, stops: Seq(
         Color.FromUInt32(0xFF440154), Color.FromUInt32(0xFF414487), Color.FromUInt32(0xFF2A788E),
         Color.FromUInt32(0xFF22A884), Color.FromUInt32(0xFF7AD151), Color.FromUInt32(0xFFFDE725)));
@@ -1036,10 +906,6 @@ public sealed partial class Colormap {
         ? SampleAdmitted(Math.Clamp(t, 0d, 1d))
         : Fin.Fail<Color>(new ThemeFault.PaletteRejected($"sample {t}"));
 
-    // The segment blend rides the CLASS's own hue span, so a cyclic ramp's wrap segment traverses the long way
-    // and a sequential ramp stays in Oklab — the traversal is class data, never a per-sample decision. Stops
-    // read on the Option rail: the catalogue's own rows make the indices reachable, and the rail keeps a
-    // malformed future row from throwing out of a chart paint fold.
     private Fin<Color> SampleAdmitted(double t) =>
         Class.Traits.Admits(ColormapTrait.Discrete)
             ? Stops.At(Math.Min((int)(t * Stops.Count), Stops.Count - 1))
@@ -1065,9 +931,6 @@ public sealed partial class Colormap {
                     .Bind(Ordered))
             : Fin.Fail<Seq<Color>>(new ThemeFault.PaletteRejected($"steps {steps}"));
 
-    // The trend reads the kernel's reference-corrected lightness: the stored basis channel mis-ranks near-black
-    // and passes a ramp that visibly plateaus there; a declared-monotone map whose interpolated trend reverses
-    // refuses on the same rail a bad step count takes.
     Fin<Seq<Color>> Ordered(Seq<Color> ramp) =>
         !Class.Traits.Admits(ColormapTrait.LightnessMonotone)
             ? Fin.Succ(ramp)
@@ -1081,8 +944,6 @@ public sealed partial class Colormap {
     public Fin<T[]> HeatMap<T>(int steps, Func<Color, T> project) =>
         Ramp(steps).Map(colors => colors.Map(project).ToArray());
 
-    // The two colour crossings this catalog needs, composed through the tokens page's one admission edge; the
-    // kernel members are the algebra and these carry the Avalonia carrier alone.
     static Fin<Color> Mix(Color left, Color right, UnitInterval amount, BlendPath path) =>
         from origin in ThemeCatalog.Admit(left)
         from target in ThemeCatalog.Admit(right)

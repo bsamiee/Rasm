@@ -25,7 +25,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[ValueObject<int>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `HistoryRecord` setter family, `ReplayHistoryData` `TryGet*` family, `GetRhinoObjRef`); `Document/session.md` (`DraftFault`); kernel `Domain/rails` (`Op.Catch`, `Op.Confirm`, `Op.Unsupported`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using QuikGraph;
@@ -43,7 +43,7 @@ using Web = QuikGraph.BidirectionalGraph<System.Guid, QuikGraph.SEdge<System.Gui
 
 namespace Rasm.Rhino.Objects;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<int>]
 [ValidationError]
 public readonly partial struct SlotKey {
@@ -154,8 +154,6 @@ public abstract partial record SlotValue {
             ids: static (context, slot) => context.Op.Confirm(success: context.Record.SetGuids(id: context.Id, values: slot.Values.AsIterable())),
             texts: static (context, slot) => context.Op.Confirm(success: context.Record.SetStrings(id: context.Id, values: slot.Values.AsIterable()))));
 
-    // `internal` is the carrier fence made structural: `ReplayFrame` is the only consumer, so the raw
-    // `ReplayHistoryData` the sealed adapter delegate receives never reaches a caller through this member.
     internal Fin<SlotValue> Recover(ReplayHistoryData data, SlotKey key, Op? keyOp = null) {
         Op op = keyOp.OrDefault();
         return from active in op.Need(data)
@@ -233,7 +231,7 @@ public abstract partial record SlotValue {
 - Packages: Thinktecture.Runtime.Extensions (`[ComplexValueObject]`, `[SmartEnum<bool>]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/rails` (`Lease<T>.Owned`, `Lease<T>.Dispose`, `Op.Catch`); RhinoCommon objects (`HistoryRecord.CopyOnReplaceObject`, `ObjRef`); `Commands/command.md` (`HistoryOwner.Mint`); `Document/session.md` (`DraftFault`).
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class ReplaceSurvival {
     public static readonly ReplaceSurvival Copies = new(key: true);
@@ -242,7 +240,7 @@ public sealed partial class ReplaceSurvival {
     internal static ReplaceSurvival Of(bool copies) => copies ? Copies : Drops;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class HistorySource : IDetachedDocumentResult {
@@ -300,9 +298,6 @@ public sealed class HistoryScript {
                select new HistoryScript(version: version, owner: seat, copyOnReplace: survival, slots: rows);
     }
 
-    // The lease owns the record from the mint's first statement, so a mid-write refusal releases through the
-    // rail's own disposer rather than a hand `Dispose` beside it — one custody owner for the half-written record
-    // and the completed one alike.
     public Fin<Lease<HistoryRecord>> Mint(RhinoDoc document, Op? key = null) {
         Op op = key.OrDefault();
         return from host in op.Need(document)
@@ -338,7 +333,7 @@ public sealed class HistoryScript {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `ICapability`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Distinct`); kernel `Domain/validation` (`CapabilitySet.Of`/`Admits`); RhinoCommon objects (`ReplayHistoryResult.UpdateTo*` family); kernel `Domain/rails` (`Op.AcceptInput`, `Op.AcceptText`, `Op.Positive`, `Op.Confirm`).
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TextEmphasis : ICapability<TextEmphasis> {
@@ -503,7 +498,7 @@ public abstract partial record Regrown {
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `BindFail`); RhinoCommon objects (`ReplayHistoryData.Results`/`AppendHistoryResult`/`UpdateResultArray`/`HistoryVersion`/`RecordId`/`Document`, `ReplayHistoryResult.ExistingObject`); `Commands/command.md` (`ReplayHook`, `CommandPolicy.Replay`); `Objects/authoring.md` (`ObjectsTelemetry.Publish`, `FaultSite.Replay`); kernel `Domain/rails` (`Op.Catch`, `Error` monoid).
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReplayRoster {
     private ReplayRoster() { }
@@ -605,8 +600,6 @@ public sealed class ReplayProgram {
                select new ReplayProgram(version: version, roster: plan, regrow: body);
     }
 
-    // The egress is `Commands`' own `ReplayHook`, not a bare delegate: `Objects` is S2 and `Commands` is S1, so
-    // the seam TYPE seats at the lower stratum and this owner composes it upward into `CommandPolicy.Replay`.
     public Fin<ReplayHook> Hook =>
         ReplayHook.Validate(Delegate, out ReplayHook? admitted) is null && admitted is not null
             ? Fin.Succ(value: admitted)
@@ -660,7 +653,7 @@ public sealed class ReplayProgram {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<int>]`, `[SmartEnum<string>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `ICapability`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashSet`, `TraverseM`, `Fold`, `Error` monoid); QuikGraph (`BidirectionalGraph`, `SEdge<T>`, `AddVerticesAndEdge`, `OutEdges`); RhinoCommon objects (`RhinoObject.SetHistory`/`DeleteHistoryRecord`/`SetCopyHistoryOnReplace`/`HistoryParents`/`HistoryChildren`, `ObjectTable.HistoryRecordCount`); RhinoCommon application settings (`.api/api-rhinocommon-appsettings.md` — `HistorySettings.RecordingEnabled`/`RecordNextCommand`/`UpdateEnabled`/`ObjectLockingEnabled`/`BrokenRecordWarningEnabled`); `Blocks/graph.md` (`GraphFold.Ordered`/`Cycles`/`Reduced`/`Condensed`, `GraphProjection<TVertex>.Closure`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Document/session.md` (`DraftFault`).
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BondOp {
     private BondOp() { }
@@ -791,9 +784,6 @@ public sealed partial class HistoryConduct {
                 return unit;
             });
 
-    // The rows drive PROCESS statics with no session and no document scope, so one gate owns every conduct
-    // window in the process. `Lock` is recursive, which is what makes nesting compose: an inner `Under` reads the
-    // outer's written value as its own prior and restores exactly that, so priors stack instead of racing.
     private static readonly Lock Gate = new();
 
     internal Fin<ObjectSignal> Read(Op op) => op.Catch(() => {
@@ -804,12 +794,6 @@ public sealed partial class HistoryConduct {
         lock (Gate) { return Fin.Succ(value: WriteRaw(value.On)); }
     });
 
-    // Exemption: the gate spans the read, the write, and the restore — the one critical section a process-global
-    // switch admits — and the FOREIGN BODY runs outside it. A body under the lock re-enters caller code holding a
-    // process-global monitor, so a body that opens a document grant, marshals to the command thread, or takes any
-    // second lock deadlocks against the sibling that already holds them and wants this gate. The window that
-    // matters is the prior's custody, not the body's duration: the prior is captured under the lock, the body runs
-    // free, and the restore re-takes the lock and writes back exactly the value this scope displaced.
     internal Fin<T> Within<T>(ObjectSignal signal, Func<Fin<T>> body, Op op) =>
         Read(op).Bind(prior => Write(value: signal, op: op).Bind(_ => {
             Fin<T> primary = op.Catch(body);
@@ -822,9 +806,6 @@ public sealed partial class HistoryConduct {
         }));
 }
 
-// This rail's whole contribution to the shared stream: a kind vocabulary, a keyed slot roster, and a body
-// union. The bare id roster the prior receipt carried spelled attach, detach, and survival identically, so a
-// reader could count affected objects and never tell which bond had landed on any of them.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HistoryBodyKind : ICapability<HistoryBodyKind> {
@@ -864,7 +845,7 @@ public abstract partial record HistoryBody : IFactBody<HistoryBodyKind> {
         record: HistoryBodyKind.Record);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Chronicle {
     public static Fin<HistoryReceipt> Bind(
         DocumentSession session, TableTarget target, BondOp bond, Op? key = null) {
@@ -950,9 +931,6 @@ public static class Chronicle {
             return Fin.Succ(value: (WebAnswer)new WebAnswer.Condensed(Components: components, Edges: edges));
         }));
 
-    // The one-hop reads are budgeted on the SAME ceilings the transitive walk spends: a `Parents` ask over a
-    // worksession-wide selection reads as many rows and as many edges as a shallow closure does, so a budget
-    // honoured by one arm and ignored by the other is a bound the caller cannot rely on.
     private static Fin<WebAnswer> Adjacent(
         RhinoDoc document, TableTarget target, WebBudget budget, Op op, Func<RhinoObject, Guid[]> linked) =>
         from natives in Objects.Resolve(document: document, target: target, key: op)
@@ -997,11 +975,6 @@ public static class Chronicle {
         internal WebWalk Refused(Error error) => this with { Refusal = Some(error) };
     }
 
-    // Exemption: `BidirectionalGraph` publishes no immutable builder, so the graph is the one mutable accumulator
-    // this kernel threads and the drive rides the same boundary. The walk advances to its OWN fixpoint, so the
-    // tick count is the web's actual node count — a two-node web costs two ticks, not `MaxNodes` empty ones over a
-    // pre-sized range. Termination is the budget's: every tick either refuses or pops one frontier entry and
-    // increments `Nodes`, and `Nodes >= MaxNodes` refuses, so `MaxNodes` bounds the drive without pacing it.
     private static Fin<Web> Woven(RhinoDoc document, Seq<RhinoObject> natives, WebBudget budget, Op op) =>
         op.Catch(() => {
             Web graph = new(allowParallelEdges: false);
@@ -1062,9 +1035,7 @@ public static class Chronicle {
     }
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------------
-// The rail's receipt IS the Document spine's stream closed over this page's two vocabularies; the aliases are
-// `.cs` `global using` rows in the project manifest, so no consumer spells the instantiation.
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using HistoryFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody>;
 global using HistoryReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.HistorySlot, Rasm.Rhino.Objects.HistoryBody>;
 ```

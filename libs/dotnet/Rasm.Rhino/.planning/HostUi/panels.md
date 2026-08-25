@@ -29,7 +29,7 @@
 - Growth: a new lifecycle evidence is one `PanelChange` case; a new identity axis is one column on the seat, breaking every ledger read loudly.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -44,15 +44,13 @@ using DrawingSize = System.Drawing.Size;
 
 namespace Rasm.Rhino.HostUi;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public readonly partial struct PanelKey {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
         validationError = value == Guid.Empty ? new ValidationError(message: "Panel identity is empty.") : null;
 
-    // The runtime computes an identity for an undecorated type and never yields the empty value, so the empty gate
-    // cannot tell a declared panel identity from a build-derived one; the attribute read is the whole admission.
     public static Fin<PanelKey> Of(Type panelType, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(panelType).Bind(declared => op
@@ -96,8 +94,6 @@ public abstract partial record PanelChange {
     };
 }
 
-// The one-shot release vocabulary both mounting owners on this page step: an interlocked exchange answers the same
-// question with a value no caller can read, where a declined transition names the releaser that did not win.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record MountState {
     private MountState() { }
@@ -116,15 +112,13 @@ public abstract partial record PanelAudience {
         plugin: static (held, row) => row.Key.Admit(held),
         registry: static (_, _) => Fin.Succ(value: unit));
 
-    // A PREDICATE over a closed union, not an admission: it filters a delivery fan and has nothing to recover from,
-    // so a rail here would be a failure every caller would immediately discard.
     internal bool Admits(Option<PluginKey> owner) => Switch(
         owner,
         plugin: static (held, row) => held.Exists(key => key == row.Key),
         registry: static (_, _) => true);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PanelSeat(PluginKey Plugin, PanelKey Panel, Option<DocKey> Document);
 
 public sealed record PanelFact(
@@ -137,10 +131,8 @@ public sealed record PanelFact(
         Plugin.Map(owner => new PanelSeat(Plugin: owner, Panel: Panel, Document: Document));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public abstract class HostPanel : Panel, IPanel {
-    // One panel tears down once; anything past this is a shed count a reader takes rather than a ledger that grows
-    // with a host that keeps raising after the close it already reported.
     private static readonly Rasm.Numerics.Dimension FaultCap = Rasm.Numerics.Dimension.Create(value: 32);
 
     private readonly Fin<PluginKey> owner;
@@ -189,8 +181,6 @@ public abstract class HostPanel : Panel, IPanel {
         base.Dispose(disposing);
     }
 
-    // The host close callback and disposal step the SAME transition, so a panel torn down without a host close
-    // still returns its receipt and a second pass reads the declined arm instead of draining twice.
     private Fin<Unit> Release() => Cell.Step(
             cell: state,
             step: static held => held is MountState.Live ? Some<MountState>(new MountState.Released()) : Option<MountState>.None,
@@ -241,7 +231,7 @@ public abstract class HostPanel : Panel, IPanel {
 - Growth: a new registry operation is one `PanelIntent` case, one arm, and one `PanelMount` shape only if no existing shape carries it; a new settlement is one `PanelVerb` row.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PanelFocus {
     public static readonly PanelFocus Background = new(false);
@@ -267,8 +257,6 @@ public sealed partial class DockBarUse {
     public static readonly DockBarUse Taken = new(true);
 }
 
-// Which settlement a mount reports, on ONE case: the three receipts that carried only the panel key differed by
-// case NAME alone, so a reader took the verb from the shape instead of from a column and a fourth cost a case.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanelVerb {
@@ -277,8 +265,6 @@ public sealed partial class PanelVerb {
     public static readonly PanelVerb Rebadged = new(key: "rebadged");
 }
 
-// The three host visibility corners resolved by ONE row read: the selected probe implies the visible one, so the
-// pair is a lookup rather than a truth table a call site restates.
 [SmartEnum<int>]
 public sealed partial class PanelVisibility {
     public static readonly PanelVisibility Hidden = new(key: 0);
@@ -313,8 +299,6 @@ public abstract partial record PanelPlacement {
     public sealed record Beside(PanelKey Sibling, PanelFocus Focus) : PanelPlacement;
     public sealed record Floating(PanelFloat Mode) : PanelPlacement;
 
-    // Only the IDENTITIES admit: a generated row column cannot be absent, so a null check over one is a guard at
-    // use where construction already closed the corner.
     internal Fin<Unit> Admit(Op op) => Switch(
         op,
         docked: static (_, _) => Fin.Succ(value: unit),
@@ -323,16 +307,12 @@ public abstract partial record PanelPlacement {
         floating: static (_, _) => Fin.Succ(value: unit));
 }
 
-// The TWO seams the host panel registry publishes for an icon, projected off the kernel origin family: a resource
-// anchor the host resolves itself, and a live icon this boundary owns for the length of one synchronous call.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record PanelBadge {
     private PanelBadge() { }
     internal sealed record Named(AssetAnchor Anchor) : PanelBadge;
     internal sealed record Owned(Lease<DrawingIcon> Icon) : PanelBadge;
 
-    // The origin family is the kernel's and this fold is the host's answer to it: two cases have a member, five
-    // name a byte source the panel registry publishes nothing for, and each refuses by its own name.
     internal static Fin<PanelBadge> Of(AssetOrigin origin, Op op) => origin.Switch(
         state: op,
         resource: static (op, row) => Fin.Succ<PanelBadge>(new Named(Anchor: row.Anchor)),
@@ -351,15 +331,13 @@ internal abstract partial record PanelBadge {
             Detail: $"{nameof(Panels.RegisterPanel)} takes a resource anchor or an icon; {origin} is neither"));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PanelPresence(
     PanelKey Panel,
     PanelVisibility Visibility,
     Seq<DockBarKey> DockBars,
     Seq<PanelKey> OpenPanels);
 
-// One state, one commit: the seat-keyed ledger, the watcher fan, and the two monotone ordinals move together, so
-// a stamp mints its ordinal from the state it lands in rather than from a counter living beside it.
 internal sealed record PanelRegistry(
     HashMap<PanelSeat, PanelFact> Facts,
     Seq<(long Id, PanelAudience Audience, CallbackObserver<PanelFact> Observer)> Watchers,
@@ -408,7 +386,7 @@ public abstract partial record PanelMount<TPanel> where TPanel : HostPanel {
     public sealed record DockBar(DockBarKey Id, DockBarUse Use) : PanelMount<TPanel>;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PanelHost {
     private static readonly Atom<PanelRegistry> Registry = Atom(PanelRegistry.Empty);
 
@@ -477,8 +455,6 @@ public static class PanelHost {
                select receipt;
     }
 
-    // `Use` keeps the live host instance inside the crossing: the body runs in the same session frame that resolved
-    // it, and the caller keeps only the detached seat, count, or projection its own body returns.
     public static Fin<T> Use<TPanel, T>(
         PluginKey plugin,
         PanelInstanceScope scope,
@@ -508,9 +484,6 @@ public static class PanelHost {
                select result;
     }
 
-    // The ordinal mints from the state the commit LANDS IN, so a contended stamp re-derives its number from the
-    // snapshot it lost to rather than burning one per attempt; the fan is audience-gated, so one plug-in's stamp
-    // never reaches another plug-in's observer.
     internal static Fin<PanelFact> Stamp(
         Option<PluginKey> plugin, PanelKey panel, Option<DocKey> document, PanelChange change, Op op) {
         PanelFact Draft(long ordinal) => new(
@@ -545,8 +518,6 @@ public static class PanelHost {
             compute: seen => seen with { Watchers = seen.Watchers.Filter(row => row.Id != id) })));
     }
 
-    // ONE badge fold for both host verbs: the origin resolves to a seam, the seam picks its overload, and a leased
-    // icon releases the moment the synchronous host call returns.
     private static Fin<PanelMount<TPanel>> Badged<TPanel>(
         AssetOrigin origin,
         Op op,
@@ -564,8 +535,6 @@ public static class PanelHost {
                 from badge in PanelBadge.Of(origin: origin, op: op)
                 from _ in badge.Switch(
                     (Anchor: named, Icon: owned, Text: text, Op: op),
-                    // The rebadge member takes the resource PATH alone and resolves it against the panel type's own
-                    // assembly, so a foreign anchor would replace the icon with nothing and refuses instead.
                     named: (held, row) => guard(
                             flag: row.Anchor.Owner == typeof(TPanel).Assembly || verb != PanelVerb.Rebadged,
                             False: new UiFault.HostRejected(
@@ -616,7 +585,7 @@ public static class PanelHost {
 - Growth: a new observation source is one `PanelObserve` case with one arm.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PanelObserve {
     private PanelObserve() { }
@@ -629,7 +598,7 @@ public abstract partial record PanelObserve {
         hosted: static (_, _) => Fin.Succ(value: unit));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PanelObservation {
     public static Fin<Subscription> Observe(
         PanelObserve scope,
@@ -692,7 +661,7 @@ public static class PanelHooks {
 - Growth: a new toolbar command is one `RuiCommand` case with one apply arm; a new census column is one field on its own fact; a new sidebar or bar is one row both sides read.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class NameMatch {
     public static readonly NameMatch Ordinal = new(false);
@@ -723,12 +692,9 @@ public sealed partial class RuiGroupTrait : ICapability<RuiGroupTrait> {
     public static readonly RuiGroupTrait Visible = new(key: "visible");
     public static readonly RuiGroupTrait Docked = new(key: "docked");
 
-    // A hidden docked group and a floating visible one are both real host states, so every corner is legal.
     public static CapabilityLaw<RuiGroupTrait> Law => CapabilityLaw<RuiGroupTrait>.Open;
 }
 
-// The row owns its host setter AND its host reader, so the snapshot keys on the same roster the write side applies
-// through — two flat columns per axis were a hand-kept mirror that diverges the first time a third row lands.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RuiSidebar {
@@ -778,8 +744,6 @@ public abstract partial record RuiFileRef {
         byName: static (held, address) => held.AcceptText(value: address.Name)
             .Map<RuiFileRef>(name => address with { Name = name }));
 
-    // The LIVE collection, scanned per resolve: the batch this serves opens, closes, and saves toolbar files, so a
-    // frozen index is stale by construction at exactly the site that would read it.
     internal Fin<ToolbarFile> ResolveAdmitted(Op op) => Switch(
         op,
         byId: static (held, address) => toSeq(RhinoApp.ToolbarFiles).Choose(Optional)
@@ -843,19 +807,14 @@ public abstract partial record RuiCommand {
         barSize: static (held, row) => held.Need(row.Size).Map<RuiCommand>(_ => row));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record RuiGroupFact(Guid Group, string Name, CapabilitySet<RuiGroupTrait> State);
 
 public sealed record RuiToolbarFact(Guid Toolbar, string Name);
 
-// CONTAINMENT is the parent key: the host publishes groups and toolbars under their file, so a flat sequence
-// repeating a file identity on every row is a hand-kept mirror of the walk the census already makes, and the
-// group and toolbar counts are the rosters' own lengths rather than two more columns to disagree with them.
 public sealed record RuiFileFact(
     Guid Id, string Name, string Path, Seq<RuiGroupFact> Groups, Seq<RuiToolbarFact> Toolbars);
 
-// The read side keys on the rosters the write side owns, so a third sidebar or bar lands as one row both halves
-// read rather than as two more flat columns one half forgets.
 public sealed record RuiSnapshot(
     Seq<RuiFileFact> Files,
     HashMap<RuiSidebar, RuiVisibility> Sidebars,
@@ -868,12 +827,10 @@ public abstract partial record RuiReceipt {
     public sealed record Partial(RuiSnapshot Snapshot, Rasm.Numerics.Dimension Applied, Error Fault) : RuiReceipt;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Rui {
     public static Fin<RuiReceipt> Run(Seq<RuiCommand> commands, Op? key = null) {
         Op op = key.OrDefault();
-        // ADMISSION accumulates: a malformed batch is the caller's own set of mistakes, and reporting one of six
-        // sends them back six times.
         return from admitted in commands
                    .Traverse(command => op.Need(command).Bind(value => value.Admit(op)).ToValidation())
                    .As()
@@ -884,8 +841,6 @@ public static class Rui {
                select receipt;
     }
 
-    // APPLICATION halts: a half-applied mutation is host state the next command reads, so the fold stops where it
-    // broke and the applied count IS its state rather than a record carrying a sentinel beside it.
     private static Fin<RuiReceipt> Applied(Seq<RuiCommand> commands, Op op) {
         (int Applied, Option<Error> Fault) seed = (Applied: 0, Fault: None);
         var state = foldWhile(
@@ -976,7 +931,7 @@ public static class Rui {
 - Growth: a new menu axis is one `MenuDelta` case with one apply arm.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class MenuToggle {
     public static readonly MenuToggle Off = new(false);
@@ -992,7 +947,7 @@ public abstract partial record MenuDelta {
     public sealed record Caption(HostText Value) : MenuDelta;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class RuiAddress {
     public Guid File { get; }
@@ -1010,7 +965,7 @@ public sealed partial class RuiAddress {
             : null;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MenuLinks {
     public static Fin<Unit> Register(
         RuiAddress address,
@@ -1058,7 +1013,7 @@ public static class MenuLinks {
 - Growth: a new lifecycle signal is one `PanelSectionSignal` case with one override; a new section capability is one row on its roster.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanelSectionFeature : ICapability<PanelSectionFeature> {
@@ -1067,9 +1022,6 @@ public sealed partial class PanelSectionFeature : ICapability<PanelSectionFeatur
     public static readonly PanelSectionFeature Hidden = new(key: "hidden");
     public static readonly PanelSectionFeature FullHeight = new(key: "full-height");
 
-    // Every corner on ONE section is legal — a hidden section stays collapsible and initially expanded for the
-    // moment it is shown — while the at-most-one-full-height law spans the holder and lives at the fold that
-    // sees every section rather than at the value that sees one.
     public static CapabilityLaw<PanelSectionFeature> Law => CapabilityLaw<PanelSectionFeature>.Open;
 }
 
@@ -1091,12 +1043,10 @@ public abstract partial record PanelSectionSignal {
     public sealed record Detached : PanelSectionSignal;
     public sealed record HolderShown : PanelSectionSignal;
     public sealed record HolderHidden : PanelSectionSignal;
-    // The host publishes no named flag vocabulary for its view update, so the word crosses as the host's own and a
-    // roster here would be an authored guess at a set this boundary does not own.
     public sealed record Refreshed(uint Flags) : PanelSectionSignal;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class PanelSectionSpec {
     public HostText Caption { get; }
@@ -1106,8 +1056,6 @@ public sealed partial class PanelSectionSpec {
     public Option<HostText> CommandOption { get; }
     public Option<Func<PanelSectionSignal, Fin<Unit>>> Life { get; }
 
-    // The height carries its own non-negative invariant and the feature corners are all legal, so the one clause
-    // left is the positive height the host measures its section by.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -1122,7 +1070,7 @@ public sealed partial class PanelSectionSpec {
             : new ValidationError(message: "Panel section requires a positive height.");
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class PanelSectionLeaf : EtoCollapsibleSection3 {
     private readonly PanelSectionSpec spec;
     private readonly Action<Error> report;
@@ -1203,10 +1151,8 @@ public sealed class PanelSectionMount : IDisposable {
     public void Dispose() => ignore(Release());
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PanelSections {
-    // One holder's sections and their lifecycle hooks raise inside one panel's lifetime, so the ring is sized to
-    // that and its shed count reads rather than a ledger that grows with every refresh the host raises.
     private static readonly Rasm.Numerics.Dimension FaultCap = Rasm.Numerics.Dimension.Create(value: 64);
 
     public static Fin<PanelSectionMount> Mount(
@@ -1229,9 +1175,6 @@ public static class PanelSections {
                select mounted;
     }
 
-    // The crossing is this entry's, so bodies grow through the DISPATCH-FREE core: the affinity gate would
-    // re-marshal inside the frame that is already the marshal, and the rollback arm releases in reverse what the
-    // fold already grew.
     private static Fin<PanelSectionMount> Seat(
         Seq<PanelSectionSpec> sections,
         CapabilitySet<PanelSectionHolderFeature> features,
@@ -1303,7 +1246,7 @@ public static class PanelSections {
 - Growth: a new Rhino widget is one `HostControl` case and one mint arm; a new layout row is one entry on its own vocabulary; a new update mode is one `UnitPulse` row the mask fold already reads.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<RhinoLayout.PaddingType>]
 public sealed partial class RhinoPad {
     public static readonly RhinoPad None = new(key: RhinoLayout.PaddingType.None);
@@ -1327,13 +1270,9 @@ public sealed partial class RhinoSpace {
 
     internal Size Resolve() => RhinoLayout.Spacing(spacingType: Key);
 
-    // The stacked form the host publishes beside the two-axis one: a row layout takes ONE gap, so the row reads the
-    // member that answers one rather than a caller taking a width off a size the host already collapsed.
     internal int Stacked(Orientation axis) => RhinoLayout.StackedSpacing(orientation: axis, spacingType: Key);
 }
 
-// The third `RhinoLayout` vocabulary, and the one the widget family had no shape for: a numeric entry sized by a
-// pixel literal is exactly the call site the host published this roster to delete.
 [SmartEnum<RhinoLayout.WidthControlType>]
 public sealed partial class RhinoWidth {
     public static readonly RhinoWidth Numeric = new(key: RhinoLayout.WidthControlType.Numeric);
@@ -1356,8 +1295,6 @@ public sealed partial class UnitPulse : ICapability<UnitPulse> {
 
     internal NumericUpDownWithUnitParsingUpdateMode Flag { get; }
 
-    // The ONE illegal corner: the host flag word carries no zero member, so an empty set mints a control that never
-    // reports a value — refused at admission rather than seeded away inside a fold.
     public static CapabilityLaw<UnitPulse> Law =>
         CapabilityLaw<UnitPulse>.Forbidden(Seq(CapabilitySet<UnitPulse>.None));
 
@@ -1377,9 +1314,7 @@ public sealed partial class ColourLink {
     public static readonly ColourLink Linked = new(true);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The per-column invariants ride their carriers, so the value object gates the ORDERED SPAN alone — the one clause
-// no single column can hold.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class UnitSpan {
     public double Value { get; }
@@ -1421,8 +1356,6 @@ public abstract partial record UnitFormat {
         length: static (held, row) => Op.Side(() => held.SetFormatLengthUnits(row.Units, row.Display)));
 }
 
-// ONE command-bearing row for every image-and-intent widget: the standalone button, the entries of a button row,
-// and the dual-tooltip variant differ by which columns are PRESENT, never by which case they ride.
 public sealed record HostCommandRow(
     Image Face,
     Option<Image> Disabled,
@@ -1508,8 +1441,6 @@ public abstract partial record HostControl {
         outputColour: static (held, row) => guard(flag: Enum.IsDefined(row.Mode), False: held.InvalidInput()).ToFin(),
         viewportView: static (_, _) => Fin.Succ(value: unit));
 
-    // Every arm answers the kernel MINT, so a leaf that builds controls inside itself hands them back as CHILD
-    // mints the receipt drains in reverse — the two hand cleanup towers this family carried have no site.
     internal Fin<ControlMint> Mint(ElementRuntime runtime, Op op) => Switch(
         (Runtime: runtime, Op: op),
         unitEntry: static (held, row) => held.Op.Catch(() => {
@@ -1547,8 +1478,6 @@ public abstract partial record HostControl {
             from control in held.Op.Catch(() => Fin.Succ(value: ControlMint.Leaf(
                 host: new AddRemoveButton { AddCommand = add, RemoveCommand = remove })))
             select control,
-        // Each row's button is a CHILD mint, so the receipt reaches every one of them in reverse mint order and a
-        // partially built row unwinds through the same rail rather than through a hand tower of its own.
         actionRow: static (held, row) => held.Op
             .Catch(() => Fin.Succ(value: new RhinoButtonRow {
                 Spacing = row.Gap.Stacked(axis: Orientation.Horizontal),
@@ -1605,8 +1534,6 @@ public abstract partial record HostControl {
             Some: static title => new ViewportControl(viewportTitle: title.Resolve()),
             None: static () => new ViewportControl())))));
 
-    // The second tooltip's PRESENCE selects the host overload: one tip mints the plain image button and two mint
-    // the dual-tooltip widget the library publishes and this family had no shape for.
     private static Fin<ImageButton> Button(HostCommandRow row, ElementRuntime runtime, Op op) =>
         runtime.Intents.Verb(row.Intent, op).Bind(command => op.Catch(() => {
             ImageButton button = row.AltTip.Match(
@@ -1623,7 +1550,7 @@ public abstract partial record HostControl {
         }));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ThemePalette {
     public static Fin<Seq<ThemeSwatch>> Detach(ThemeZone zone, Op? key = null) {
         Op op = key.OrDefault();

@@ -25,7 +25,7 @@ Every relation answer is oracle-admitted evidence: the hit `[Union]`, the `RayQu
 - Boundary: `IntersectionHit` and `RayQuery` are frozen boundary spellings the host re-enters against by docID. Curve payloads are host resources: a projection that drops a curve without disposing it is the named leak, one that disposes a transferred curve the named use-after-free. Validity is the `ValidityClaim` fold per the `Domain/rails` law, never a hand-rolled `&&`-chain; a reflection budget is a `RayTarget` column, never a page-global literal no consumer honours.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
@@ -38,7 +38,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class IntersectionKind {
     public static readonly IntersectionKind Point = new(key: 0);
@@ -53,12 +53,9 @@ public sealed partial class IntersectionTangency {
     public static readonly IntersectionTangency Tangent = new(key: 2);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct RayQuery(Ray3d Ray, int MaxReflections = 1) : IValidityEvidence {
-    // Reflection budget is a TARGET-FAMILY fact: a mesh serves one cast, a trimmed brep one, a surface a bounded
-    // bounce walk. The ceiling therefore rides `RayTarget.Reflections` and this carrier holds only the floor every
-    // family shares, so an out-of-family count refuses at admission naming the serving row instead of mid-compute.
     public static Fin<RayQuery> Of(Ray3d ray, Option<int> maxReflections = default, Op? key = null) =>
         key.OrDefault().AcceptValue(value: new RayQuery(Ray: ray, MaxReflections: maxReflections.IfNone(noneValue: 1)));
     public bool IsValid => ValidityClaim.All(
@@ -120,8 +117,6 @@ public abstract partial record IntersectionHit : IValidityEvidence {
             o.Curve.Map(static curve => curve.IsValid).IfNone(noneValue: true)));
     internal Unit Dispose() => Curves.Iter(static curve => curve.Dispose());
     internal static bool CanProjectTo(Type output) => HitProjection.For(output: output).IsSome;
-    // One row read replaces the frozen-set gate beside its `typeof` ladder: the row that ADMITS the output is the
-    // row that projects it and the row that states its transfer verdict, so no output can pass one and miss another.
     internal static Fin<Seq<TOut>> Project<TOut>(Seq<IntersectionHit> hits, Op key) =>
         hits.ForAll(static hit => hit.IsValid)
             ? HitProjection.For(output: typeof(TOut))
@@ -130,8 +125,6 @@ public abstract partial record IntersectionHit : IValidityEvidence {
                     Succ: row => Releasing(hits: hits, transfers: row.Transfers, result: row.Binding.Admit<TOut>(values: row.Of(hits: hits), key: key)),
                     Fail: cause => DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(cause)))
             : DropCurves(hits: hits, result: Fin.Fail<Seq<TOut>>(key.InvalidResult()));
-    // Transfer is a SUCCESS-only verdict: a refused projection owns nothing, so its payload releases on the same
-    // gate rather than surviving unowned the way the transferring arms' own failure legs formerly left it.
     private static Fin<Seq<TOut>> Releasing<TOut>(Seq<IntersectionHit> hits, bool transfers, Fin<Seq<TOut>> result) =>
         transfers && result.IsSucc ? result : DropCurves(hits: hits, result: result);
     private static Fin<Seq<TOut>> DropCurves<TOut>(Seq<IntersectionHit> hits, Fin<Seq<TOut>> result) {
@@ -140,9 +133,6 @@ public abstract partial record IntersectionHit : IValidityEvidence {
     }
 }
 
-// Projectable set and projection ladder were two hand rosters of one fact — a type in the set with no arm passed the
-// build gate and lowered `Unsupported` at run. One row carries the output binding, the curve-transfer verdict, and
-// the element projection, so `CanProjectTo` and `Project` read the same authority and a new facet is one row.
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class HitProjection {
     public static readonly HitProjection Hits = new(key: "hits", binding: OutputBinding.Of<IntersectionHit>(), transfers: true,
@@ -158,8 +148,6 @@ internal sealed partial class HitProjection {
     public static readonly HitProjection Tangencies = new(key: "tangencies", binding: OutputBinding.Of<IntersectionTangency>(), transfers: false,
         of: static hits => hits.Map(static hit => (object)hit.Tangency));
     public OutputBinding Binding { get; }
-    // Curve payloads transfer under the hit and curve outputs alone — every other row reads coordinates off a
-    // payload it never owns, so the batch releases behind it.
     public bool Transfers { get; }
     [UseDelegateFromConstructor] internal partial Seq<object> Of(Seq<IntersectionHit> hits);
     private static readonly Lazy<FrozenDictionary<Type, HitProjection>> ByOutput =
@@ -181,7 +169,7 @@ internal sealed partial class HitProjection {
 - Boundary: the table IS the dispatch — a `switch` over type pairs or an `IntersectAB` method family beside it is the deleted form. Every host-minted disposable is leased under `using` or `Lease`, and a host-minted ARRAY the row does not transfer into a hit carrier releases on every non-transferring exit; a bare host handle crossing an expression boundary is the named leak. Mesh rows thread `ToleranceLane.MeshIntersection` and return `Errors.Cancelled` on a direct token poll, never an empty result. This lattice captures the host's parametric machinery and never re-mints the predicate-exact robust computation.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Threading;
@@ -196,7 +184,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PairOrder {
     public static readonly PairOrder Ordered = new(key: "ordered",
@@ -216,9 +204,6 @@ public sealed partial class SolvedPosture {
     [UseDelegateFromConstructor] internal partial bool Accepts(bool solved, bool found);
 }
 
-// Reflection budget belongs to the family that can SERVE it: mesh and trimmed-brep casting answer one hit set per
-// shot and only the surface walk bounces, so the count a target cannot serve refuses at admission naming this row —
-// where a page-global ceiling admitted every count and three separate compute arms each lowered `Unsupported`.
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class RayTarget {
     public static readonly RayTarget MeshCast = new(key: "mesh-cast", reflections: Dimension.Create(value: 1),
@@ -228,8 +213,6 @@ internal sealed partial class RayTarget {
                 double t when ValidityClaim.Nonnegative(value: t).Holds => Seq(IntersectionHit.At(point: query.Ray.PointAt(t: t))),
                 _ => Seq<IntersectionHit>(),
             })));
-    // Bounce budget is this row's alone and stated here: no host member publishes a reflection bound, so the walk
-    // declares the estate's own ceiling at the one row that spends it rather than at a const nothing reads.
     public static readonly RayTarget SurfaceWalk = new(key: "surface-walk", reflections: Dimension.Create(value: 1000),
         admits: static type => typeof(Surface).IsAssignableFrom(c: type),
         shoot: static (query, target, _, _) => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(
@@ -244,7 +227,6 @@ internal sealed partial class RayTarget {
     [UseDelegateFromConstructor] internal partial bool Admits(Type type);
     [UseDelegateFromConstructor] internal partial Fin<IntersectionResult> Shoot(RayQuery query, object target, Env env, Op op);
     internal static Option<RayTarget> For(Type target) => toSeq(Items).Find(predicate: row => row.Admits(type: target));
-    // Serving row decides the count, so an over-budget request is an INPUT refusal, never an unsupported operation.
     internal Fin<RayQuery> Admit(RayQuery query, Op op) =>
         query.MaxReflections <= Reflections.Value ? Fin.Succ(query) : Fin.Fail<RayQuery>(op.InvalidInput(axis: nameof(RayQuery.MaxReflections)));
 }
@@ -262,16 +244,12 @@ internal abstract partial record IntersectionResult {
     internal static readonly IntersectionResult IntervalsShape = new Intervals(Values: Seq<Interval>());
     internal static readonly IntersectionResult PolylinesShape = new Polylines(Values: Seq<(Polyline Curve, IntersectionKind Kind)>());
     internal static readonly IntersectionResult HitsShape = new Hits(Values: Seq<IntersectionHit>());
-    // Erased ingress admits ANY shape, so the shape roster exists for exactly this probe and is declared at its one
-    // reader; `Capability.Universal` is the estate's erased-ingress authority and no page re-derives its test.
     internal static bool CanProjectAny(Type output) =>
         Seq(LinesShape, PointsShape, IntervalsShape, PolylinesShape, HitsShape).Exists(shape => shape.CanProject(output: output));
     internal static bool Supports(Type left, Type right, Type output, PairOrder order) =>
         Capability.Universal(type: left) || Capability.Universal(type: right)
             ? CanProjectAny(output: output)
             : Relations.ShapeOf(left: left, right: right, output: output, order: order).IsSome;
-    // Element type is a COLUMN, so the admission test and the unbox ride one `OutputBinding` and the four uniform
-    // shapes share one arm; the hit union answers its own facet roster because its elements carry facets.
     internal OutputBinding Native => Switch(
         lines: static _ => OutputBinding.Of<Line>(),
         points: static _ => OutputBinding.Of<Point3d>(),
@@ -284,8 +262,6 @@ internal abstract partial record IntersectionResult {
         intervals: static i => i.Values.Map(static value => (object)value),
         polylines: static p => p.Values.Map(static row => (object)row.Curve),
         hits: static h => h.Values.Map(static value => (object)value));
-    // A per-element kind column on a UNIFORM shape carries no information the shape did not already state, so the
-    // three uniform shapes admit their element type ALONE where they formerly published N copies of one tag.
     internal bool CanProject(Type output) => Switch(
         state: output,
         lines: Serves, points: Serves, intervals: Serves,
@@ -294,8 +270,6 @@ internal abstract partial record IntersectionResult {
     internal Fin<Seq<TOut>> Project<TOut>(Op key) => Switch(
         state: key,
         lines: Uniform<TOut>, points: Uniform<TOut>, intervals: Uniform<TOut>,
-        // Polyline rows carry their OWN kind, so this is a real second output, not the constant-tag column the
-        // uniform shapes were repeating one copy per element.
         polylines: static (k, p) => typeof(TOut) == typeof(IntersectionKind)
             ? OutputBinding.Of<IntersectionKind>().Admit<TOut>(values: p.Values.Map(static row => (object)row.Kind), key: k)
             : Uniform<TOut>(key: k, shape: p),
@@ -305,13 +279,8 @@ internal abstract partial record IntersectionResult {
         shape.Native.Admit<TOut>(values: shape.Elements, key: key);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Relations {
-    // `Env` already IS the runtime record every builder binds — context, progress, cancellation, telemetry — so the
-    // row takes it whole. Spelling its members as four positional slots made every row discard the three it ignores.
-    // `Supports` is the row's ONE admission authority at both grains: the build-time probe reads it on declared
-    // types and the runtime scan on `GetType()`, so `Compute` is TOTAL on what it accepts and casts nothing it has
-    // not already proved.
     private readonly record struct IntersectionCase(
         Func<Type, Type, bool> Supports,
         IntersectionResult Shape,
@@ -386,17 +355,12 @@ internal static partial class Relations {
                     false when env.Cancellation.IsCancellationRequested => Fin.Fail<IntersectionResult>(Errors.Cancelled),
                     false => Fin.Fail<IntersectionResult>(op.InvalidResult()),
                 })),
-        // Three ray arms answering three targets were one dispatch spelled at the wrong grain: the `RayTarget` row
-        // both ADMITS its family and states the bounce budget it can serve, so an over-budget request refuses as
-        // input at the row rather than as `Unsupported` from inside a compute arm that already ran.
         new IntersectionCase(
             Supports: static (l, r) => l == typeof(RayQuery) && RayTarget.For(target: r).IsSome,
             Shape: IntersectionResult.HitsShape,
             Compute: static (left, right, env, op) =>
                 RayTarget.For(target: right.GetType()).ToFin(op.Unsupported(inputType: right.GetType(), outputType: typeof(IntersectionResult)))
                     .Bind(row => row.Admit(query: (RayQuery)left, op: op).Bind(query => row.Shoot(query: query, target: right, env: env, op: op)))),
-        // Lowering rows recover an analytic curve-like and re-enter the scan ONCE. `left is not Curve` is a type
-        // predicate, so it belongs in `Supports` where the scan already reads it and no arm answers "not mine".
         new IntersectionCase(
             Supports: static (l, r) => l != typeof(Curve) && !typeof(Curve).IsAssignableFrom(c: l) && Capability.CurveForm.Admits(type: l)
                 && (Capability.CurveForm.Admits(type: r) || r == typeof(Plane) || r == typeof(Line) || typeof(Surface).IsAssignableFrom(r) || typeof(Brep).IsAssignableFrom(r) || typeof(BrepFace).IsAssignableFrom(r)),
@@ -418,15 +382,11 @@ internal static partial class Relations {
         (Optional(left).ToFin(op.InvalidInput()), Optional(right).ToFin(op.InvalidInput())).Apply(static (l, r) => (L: (object)l, R: (object)r)).As()
             .Bind(pair => order.Attempts(left: pair.L, right: pair.R).Fold(
                 initialState: Fin.Fail<IntersectionResult>(op.Unsupported(pair.L.GetType(), pair.R.GetType())),
-                // Only a MISSING ROW admits the next attempt: a real failure — a cancelled mesh/mesh sweep, an
-                // invalid ray — stops the fold rather than being masked by a flipped lookup that also has no row.
                 f: (settled, attempt) => settled.Match(
                     Succ: static value => Fin.Succ(value),
                     Fail: cause => cause is KernelFault.Unsupported
                         ? Scan(left: attempt.Left, right: attempt.Right, env: env, op: op)
                         : Fin.Fail<IntersectionResult>(cause))));
-    // Classification opens the curve pair's leases ONCE and hands the live natives to both the scan and the
-    // enrichment — the lowering row and the enrichment fold formerly each re-leased and re-normalized both operands.
     internal static Fin<IntersectionResult> ClassifiedOf<TL, TR>(TL left, TR right, Env env, Op op) where TL : notnull where TR : notnull =>
         Normalization.CurveForm(source: left, key: op).Bind(leftLease => leftLease.Use(
             body: leftCurve => Normalization.CurveForm(source: right, key: op).Bind(rightLease => rightLease.Use(
@@ -439,8 +399,6 @@ internal static partial class Relations {
                 key: op)),
             key: op));
     private static Fin<IntersectionResult> Unenriched<TState>(TState _, IntersectionResult shape) => Fin.Succ(shape);
-    // Admission is the row's own predicate, so the first-match read is `Find` over it and the winner alone computes —
-    // where the hand fold re-tested every row it had already passed and carried a doubled `Option<Fin<_>>`.
     private static Fin<IntersectionResult> Scan(object left, object right, Env env, Op op) =>
         env.Cancellation.IsCancellationRequested
             ? Fin.Fail<IntersectionResult>(Errors.Cancelled)
@@ -456,9 +414,6 @@ internal static partial class Relations {
                 t1: interval.T0 <= interval.T1 ? Math.Min(max, 1.0) : Math.Max(min, 0.0))),
             _ => Seq<Interval>(),
         };
-    // Clamping bands travel WITH the line they clamp, so a band riding no proxy line is unrepresentable. Host events
-    // are point or overlap and NOTHING else, so a third shape is a host contract break the fold refuses rather than
-    // drops; a clamped-out point is a real exclusion the modelled arm filters, which is the declared contract.
     private static Fin<IntersectionResult> HitsFromEvents(Option<CurveIntersections> hits, Op key, Option<Curve> source = default, Option<(Line Line, Tolerance Band)> clamp = default) =>
         hits.Match(
             Some: native => toSeq(native.AsIterable()).Partition(predicate: static hit => hit.IsPoint || hit.IsOverlap) switch {
@@ -475,8 +430,6 @@ internal static partial class Relations {
                 }))),
             },
             None: static () => Fin.Succ((IntersectionResult)new IntersectionResult.Hits(Values: Seq<IntersectionHit>())));
-    // Release brackets the ACQUISITION: the host mints the curve array before any verdict is read, so every exit that
-    // does not TRANSFER it into a hit carrier releases it — a cancelled or refused solve formerly dropped it live.
     private static Fin<IntersectionResult> Solved(SolvedPosture posture, bool solved, Option<Curve[]> curves, Option<Point3d[]> points, IntersectionKind kind, Op op, CancellationToken cancel) =>
         (Curves: toSeq(curves.IfNone([])), Points: toSeq(points.IfNone([]))) switch {
             (Seq<Curve> found, Seq<Point3d> hits) => (posture.Accepts(solved: solved, found: !found.IsEmpty || !hits.IsEmpty), cancel.IsCancellationRequested) switch {
@@ -489,8 +442,6 @@ internal static partial class Relations {
         _ = owned.Iter(static curve => curve.Dispose());
         return result;
     }
-    // Intersection band and OVERLAP band are two host axes, so the arm takes both and the estate's coincidence lane
-    // fills the second — feeding one lane into both erased an axis the host reads independently.
     private static Fin<IntersectionResult> CurveAgainst<TRight>(Curve a, TRight b, Env env, Op op, Func<Curve, TRight, double, double, CurveIntersections?> intersect, Option<(Line Line, Tolerance Band)> clamp = default) {
         using CurveIntersections? hits = intersect(
             arg1: a, arg2: b,
@@ -498,7 +449,6 @@ internal static partial class Relations {
             arg4: env.Context.For(lane: ToleranceLane.Weld).Value);
         return HitsFromEvents(hits: Optional(hits), key: op, source: Some(a), clamp: clamp);
     }
-    // Operands arrive LIVE from the classifier's own leases — this fold owns no lease and opens none.
     private static Fin<Seq<IntersectionHit>> EnrichTangency(Seq<IntersectionHit> hits, Curve left, Curve right, Context context, Op key) =>
         hits.TraverseM(hit => hit switch {
             IntersectionHit.PointCase point when point.Tangency.Equals(IntersectionTangency.Unknown) =>
@@ -513,8 +463,6 @@ internal static partial class Relations {
                 .Map(static relation => relation.Equals(Rasm.Numerics.VectorRelation.Parallel) || relation.Equals(Rasm.Numerics.VectorRelation.AntiParallel)
                     ? IntersectionTangency.Tangent
                     : IntersectionTangency.Transversal)
-                // Unclassifiable contact is a real third answer; a cancelled or malformed run is not. Only the
-                // projection's OWN refusal degrades, so a token trip stops the classify instead of reading `Unknown`.
                 .BindFail(static cause => cause is KernelFault.Unsupported or KernelFault.InvalidResult
                     ? Fin.Succ(IntersectionTangency.Unknown)
                     : Fin.Fail<IntersectionTangency>(cause)),
@@ -553,7 +501,7 @@ internal static partial class Relations {
 - Boundary: `Pair` is the one pair-admission spine — a builder re-deriving kind resolution, readiness, or ray asymmetry locally is the deleted repetition. Classification never re-intersects and never re-leases: it opens the curve pair ONCE and hands the live natives to both the scan and the enrichment, a second curve-pair intersector or a second form recovery for tangency being the killed form; the tangency probe degrades to `Unknown` on the projection's OWN refusal — `KernelFault.Unsupported` and `KernelFault.InvalidResult` alone — since an unclassifiable contact is still a contact, while a cancellation or bad input rides out as itself rather than reading as a verdict. Deviation is exact by contract — the host extremum computation, never a sampled estimate, and `Analysis/measure`'s sampled conformance pipeline short-circuits to `DeviationOf` when exactness is demanded. Self-intersection disposal is total: event sets lease, and mesh polylines lift into owned curves the hit carriers dispose under the projection law.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using Rasm.Domain;
 using Rhino.FileIO;
@@ -563,7 +511,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Relations {
     internal static Operation<(TA A, TB B), TOut> Intersect<TA, TB, TOut>(Op key) where TA : notnull where TB : notnull =>
         Pair<TA, TB, TOut>(
@@ -615,7 +563,6 @@ internal static partial class Relations {
         Capability.CurveForm.Admits(type: left) && Capability.CurveForm.Admits(type: right);
     internal static bool CanSelfIntersect(Type geometry) =>
         geometry == typeof(object) || typeof(Curve).IsAssignableFrom(c: geometry) || typeof(Mesh).IsAssignableFrom(c: geometry);
-    // One name, two input shapes: an erased pair lowers through the form lease and re-enters the exact kernel.
     internal static Fin<CurveDeviation> DeviationOf<TL, TR>(TL left, TR right, Context context, Op op) where TL : notnull where TR : notnull =>
         Normalization.CurveForm(source: left, key: op)
             .Bind(leftLease => leftLease.Use(leftCurve => Normalization.CurveForm(source: right, key: op)
@@ -654,8 +601,6 @@ internal static partial class Relations {
                 evaluator: static (state, pair) =>
                     from runtime in Env.EnvAsks
                     from resolved in (RayRole(a: pair.A, b: pair.B).Case switch {
-                        // Ray asymmetry resolves ONCE by ROLE: the ray is a request value and the geometry the
-                        // readiness subject, and the side each rode is a permutation bit the reassembly reads back.
                         (RayQuery query, GeometryBase target, bool rayLeads) =>
                             (state.Key.AcceptInput(value: query), Requirement.Basic.Apply(context: runtime.Context, value: target, cancel: runtime.Cancellation).ToFin())
                                 .Apply((admitted, ready) => rayLeads

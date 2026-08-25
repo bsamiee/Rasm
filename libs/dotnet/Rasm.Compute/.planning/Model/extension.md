@@ -23,7 +23,6 @@ Registration extends the `ModelSessions` boundary capsule and rides `Microsoft.M
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// Named sites select bounded contracts directly; no string-key roster survives beneath the shared violation.
 public static class EgressRefusal {
     public static readonly ContractRefusal SlotsSymbolic = new(ComputeArea.Model, ComputeContract.Compatible);
     public static readonly ContractRefusal ValueUnmodelled = new(ComputeArea.Model, ComputeContract.Supported);
@@ -49,8 +48,6 @@ public abstract partial record OpOutput {
         public sealed record Int64(long Value) : MapKey;
     }
 
-    // `Real` carries `Float` and `Double` alike because a float widens onto a double EXACTLY; `Whole` keeps `Int64`
-    // in its own case because that widening does not — a 64-bit label past 2^53 rounds and reads back as another.
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
     public abstract partial record MapValue {
         private MapValue() { }
@@ -64,9 +61,6 @@ public abstract partial record OpOutput {
 
     public sealed record Mapping(Seq<(MapKey Key, MapValue Value)> Pairs) : OpOutput;
 
-    // ONE recursive container case covers every sequence shape ONNX admits — of maps (the `ZipMap` classifier
-    // output), of tensors, of sequences, of optionals — where a maps-only case refused a legal `seq(tensor(float))`
-    // output as an unmodelled element and forced a second case per element kind.
     public sealed record Sequence(Seq<OpOutput> Elements) : OpOutput;
 
     public sealed record Optional(Option<OpOutput> Value) : OpOutput;
@@ -75,9 +69,6 @@ public abstract partial record OpOutput {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CustomOps {
-    // Assets accumulate: `.Traverse` runs EVERY probe and `Error.Combine` unions the whole absent set, so a
-    // deployment missing three libraries learns all three — a monadic traverse aborted at the first and made the
-    // card's promise to name every absent or replaced asset false for every case after it.
     public static Fin<SessionOptions> Register(SessionOptions options, SessionPolicy policy) =>
         policy.CustomOpLibraries.Traverse(static library => library.Verify().ToValidation()).As().ToFin()
             .Bind(_ => Op.Of(name: "model.custom-op-register").Catch(() => {
@@ -87,9 +78,6 @@ public static class CustomOps {
                 return Fin.Succ(options);
             }));
 
-    // The overflow fold is the SHAPE's own arithmetic and answers `Option`: a `-1L` sentinel threaded through an
-    // `Aggregate` had to be re-tested at every read, and the two call sites spelled the test differently — one
-    // re-checking `extent < 0L` the other had already pre-guarded.
     static Option<long> Extent(ReadOnlySpan<long> shape) {
         long elements = 1L;
         foreach (long extent in shape) {
@@ -105,11 +93,6 @@ public static class CustomOps {
             .Bind(_ => Op.Of(name: "model.string-slots").Catch(() => Fin.Succ(OrtValue.CreateTensorWithEmptyStrings(allocator, shape))));
 
     extension(OrtValue value) {
-        // The declared SLOT is the coverage law made executable: `Model/identity#MODEL_IDENTITY` admits sequence
-        // and map slots BY NAME because a slot describes a shape while a value carries one, and this is where the
-        // value proves. Every `SlotShape` case the snapshot can carry has a disposition here, so a schema the
-        // admitter accepted cannot reach a run with no reader — the arm set was closed by prose alone before, and
-        // prose closes nothing.
         public Fin<OpOutput> Egress(SlotShape declared) =>
             Op.Of(name: "model.egress").Catch(() => EgressAdmitted(value))
                 .Bind(output => Covers(declared, output)
@@ -117,8 +100,6 @@ public static class CustomOps {
                     : Fin.Fail<OpOutput>(EgressRefusal.SlotUnadmitted.Fault()));
     }
 
-    // The slot and the value are ONE joint discriminant. A nested sparse refuses BY NAME here rather than at the
-    // byte copy, and a slot that admitted a sequence cannot read back a map.
     static bool Covers(SlotShape declared, OpOutput output) => (Slot: declared, Value: output) switch {
         (SlotShape.Tensor tensor, OpOutput.Strings) => tensor.Dtype is TensorElementType.String,
         (SlotShape.Tensor tensor, OpOutput.Numeric numeric) => tensor.Dtype == numeric.Dtype,
@@ -128,24 +109,15 @@ public static class CustomOps {
         _ => false,
     };
 
-    // Child values die with the walk, so every recursion re-enters `EgressAdmitted` rather than the bracketed
-    // `Egress`: one outer `Try` already owns every native read beneath it, and a per-level bracket would classify
-    // one native fault at whichever depth it happened to surface.
     static Fin<OpOutput> EgressAdmitted(OrtValue value) => value.OnnxType switch {
         OnnxValueType.ONNX_TYPE_TENSOR => Dense(value, value.GetTensorTypeAndShape()),
         OnnxValueType.ONNX_TYPE_MAP => Pairs(value).Map(static pairs => (OpOutput)new OpOutput.Mapping(pairs)),
         OnnxValueType.ONNX_TYPE_SEQUENCE => Elements(value),
         OnnxValueType.ONNX_TYPE_OPTIONAL => Optional(value),
-        // Outer-level sparse is the caller's own undisposed value and crosses whole to the residency owner; a sparse
-        // CHILD has no such life, and its three-buffer layout is not a byte run this page can copy out.
         OnnxValueType.ONNX_TYPE_SPARSETENSOR => Fin.Fail<OpOutput>(new ComputeFault.Violation(ComputeArea.Model, new ComputeViolation.Unsupported(ComputeCapability.SparseTensor))),
         OnnxValueType unmodeled => Fin.Fail<OpOutput>(EgressRefusal.ValueUnmodelled.Fault()),
     };
 
-    // Payload leaves as an OWNED byte copy under its declared dtype and shape: the copy is forced by the child's
-    // lifetime, and carrying the bytes uninterpreted is what keeps every dtype dispatch at the residency owner
-    // instead of minting a second numeric extraction on a page that exists for the non-tensor boundary. The dense
-    // split is one ternary the string branch owns, not a hop.
     static Fin<OpOutput> Dense(OrtValue value, OrtTensorTypeAndShapeInfo info) =>
         info.ElementDataType is TensorElementType.String
             ? Strings(value, info)
@@ -154,8 +126,6 @@ public static class CustomOps {
                 : Fin.Succ<OpOutput>(new OpOutput.Numeric(
                     info.ElementDataType, toSeq(info.Shape), value.GetTensorMutableRawData().ToArray()));
 
-    // Elements ACCUMULATE: a sequence with three unmodelled children names all three rather than the first, which
-    // is the same law the asset probe takes and for the same reason.
     static Fin<OpOutput> Elements(OrtValue value) =>
         Range.fromMinMax(0, value.GetValueCount() - 1, 1)
             .AsIterable()
@@ -174,8 +144,6 @@ public static class CustomOps {
         int count => Fin.Fail<OpOutput>(EgressRefusal.OptionalCardinality.Fault()),
     };
 
-    // The `using` inside a switch arm is what the platform forbids in an expression body, so this hop exists to
-    // hold the child's disposal bracket rather than to name a step.
     static Fin<OpOutput> WithOptional(OrtValue value) {
         using OrtValue element = value.GetValue(0, OrtAllocator.DefaultInstance);
         return EgressAdmitted(element).Map(static output => (OpOutput)new OpOutput.Optional(Some(output)));
@@ -190,13 +158,6 @@ public static class CustomOps {
                     ? Fin.Succ<OpOutput>(new OpOutput.Strings(new DenseTensor<string>(text, Array.ConvertAll(info.Shape, static extent => (int)extent))))
                     : Fin.Fail<OpOutput>(EgressRefusal.CardinalityMismatched.Fault()));
 
-    // Key and value dtypes are INDEPENDENT axes of one map, so each admits through its own arm and the shape gate
-    // runs once over both — a value dtype pinned to `Float` inside the shape predicate refused a legal
-    // `map(int64, double)` output with a shape message naming nothing that was wrong with its shape.
-    // Key and value dtypes are INDEPENDENT axes of one map, so each admits through its own arm and both accumulate:
-    // a `map(int32, complex64)` used to report an unmodelled key and hide the unmodelled value behind it, and a
-    // value dtype pinned to `Float` inside the shape predicate refused a legal `map(int64, double)` with a shape
-    // message naming nothing wrong with its shape. The three structural gates accumulate for the same reason.
     static Fin<Seq<(OpOutput.MapKey Key, OpOutput.MapValue Value)>> Pairs(OrtValue map) {
         if (map.GetValueCount() is not 2) {
             return Fin.Fail<Seq<(OpOutput.MapKey Key, OpOutput.MapValue Value)>>(
@@ -238,8 +199,6 @@ public static class CustomOps {
             Fail<Error, Seq<OpOutput.MapValue>>(EgressRefusal.MapValueUnmodelled.Fault()),
     };
 
-    // Finiteness is a REAL-value law alone: an integral map value has no degenerate encoding to screen for, so
-    // folding both through one guard would invent a check the integral domain cannot fail.
     static Validation<Error, Seq<OpOutput.MapValue>> Real(Seq<double> values) =>
         values.ForAll(double.IsFinite)
             ? Success<Error, Seq<OpOutput.MapValue>>(values.Map(static value => (OpOutput.MapValue)new OpOutput.MapValue.Real(value)))

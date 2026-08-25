@@ -28,10 +28,8 @@ ONE sqlite lane runs journal, projection, tenancy, and capability contracts acro
 - Law: the D1 column refuses the interactive transaction — atomic publish is batch-shaped or routed to pg; the refusal is a row, not a code fork.
 
 ```typescript signature
-import { Pg } from "./postgres.ts" // Grant keys stay type-plane reads; profile receipt is the one consumed value.
+import { Pg } from "./postgres.ts"
 
-// Substitute vocabulary closes before any cell may spell one: `builtIn` and `none` are the two terminal
-// verdicts, and every other entry names a real mechanism some profile runs in the spine primitive's place.
 const _fallbacks = [
   "appCheck", "appMint", "appSide", "asyncLane", "batchInsert", "builtIn", "checkpointLane", "chunkedInsert",
   "conflictChanges", "databasePerTenant", "extensionOption", "filePerApp", "fts5", "hostSchedule", "inTabFold",
@@ -81,9 +79,9 @@ declare namespace Sqlite {
   type Profile = keyof (typeof _degrades)[Degraded]
   type Lane = Exclude<Profile, "pglite">
   type Fallback = (typeof _fallbacks)[number]
-  type _Rows<T extends Record<Pg.Grant, Record<Profile, Fallback>> = typeof _degrades> = T // every grant covered, every cell a rostered verdict
-  type _Keys<K extends Pg.Grant = Degraded> = K // no excess grant row
-  type _Fallbacks<V extends (typeof _degrades)[Degraded][Profile] = Fallback> = V // no rostered verdict the matrix never spells
+  type _Rows<T extends Record<Pg.Grant, Record<Profile, Fallback>> = typeof _degrades> = T
+  type _Keys<K extends Pg.Grant = Degraded> = K
+  type _Fallbacks<V extends (typeof _degrades)[Degraded][Profile] = Fallback> = V
 }
 
 ```
@@ -241,7 +239,7 @@ import { Backend, type BackendFault } from "./capability.ts"
 import type { Pg } from "./postgres.ts"
 
 declare namespace PgliteRuntime {
-  type Contrib = keyof typeof _CONTRIB // the bundled half of the grant union: a grant the pin ships no module for cannot reach the parameter
+  type Contrib = keyof typeof _CONTRIB
   type Coordinate = (contract: Backend.Contract) => string
   type Snapshot = "physical" | "logical"
   type Seed =
@@ -258,10 +256,6 @@ declare namespace PgliteRuntime {
   }
 }
 
-// Bundle roster behind every `extensionOption` verdict: one entry per grant the pin actually ships, keyed by the
-// grant so a cell promising an option and a module nobody bundles cannot both exist. `fuzzystrmatch` backs two
-// grants because one bundle carries both function families, and the namespace key IS the extension name hydrate
-// creates and the catalog probe then finds.
 const _CONTRIB = {
   gistScalar: { btree_gist },
   phonetic: { fuzzystrmatch },
@@ -270,14 +264,9 @@ const _CONTRIB = {
   trigram: { pg_trgm },
 } as const satisfies Partial<Record<Pg.Grant, Extensions>>
 
-// Narrowed to the bundled keys, so the merge needs neither a cast nor an empty-object fallback: a grant with no
-// module refuses at the call site instead of silently contributing nothing to an option set nobody re-reads.
 const _extensions = (grants: ReadonlyArray<PgliteRuntime.Contrib>): Extensions =>
   Object.assign({}, ...grants.map((grant) => _CONTRIB[grant]))
 
-// One roster loads the module AND creates the extension, so neither half can arrive alone: a resident bundle with
-// no `CREATE EXTENSION` reads at the probe as an absent capability while its provider sits in the instance. Keys
-// come off the MERGED option set, so the two grants sharing `fuzzystrmatch` issue one statement rather than two.
 const _created = (grants: ReadonlyArray<PgliteRuntime.Contrib>): ReadonlyArray<string> =>
   Object.keys(_extensions(grants)).map((namespace) => `CREATE EXTENSION IF NOT EXISTS "${namespace}";`)
 
@@ -345,16 +334,12 @@ class PgliteRuntime extends Context.Tag("data/PgliteRuntime")<
           }),
           catch: (cause) => _sqlFault("PGLite open failed", cause),
         }),
-        // Release dies on refusal, but it dies NAMED: an untyped rejection reaches the gate as a bare defect carrying
-        // whatever the driver threw, where this fold hands the scope the lane's own fault text.
         (handle) =>
           Effect.tryPromise({
             try: () => handle.close(),
             catch: (cause) => _sqlFault("PGLite close failed", cause),
           }).pipe(Effect.orDie),
       )
-      // Creation precedes the seed script, so a script's own DDL may reference a bundled type, function, or operator
-      // class; `IF NOT EXISTS` keeps the physical arm idempotent, whose restored PGDATA already carries them all.
       const hydrate = [..._created(grants), ...(seed._tag === "logical" ? [seed.script] : [])].join("\n")
       yield* hydrate.length === 0 ? Effect.void : Effect.tryPromise({
         try: () => pg.exec(hydrate),
@@ -430,16 +415,10 @@ type SqliteIo = Data.TaggedEnum<{
 
 const _Io = Data.taggedEnum<SqliteIo>()
 
-// Operation vocabulary binds to the case roster in BOTH directions — `satisfies` proves membership and the
-// completeness guard's default proves no case lacks a spelling — so a new `Sqlite.Io` case refuses to compile until
-// its operation token lands here.
 const _OPERATIONS = ["Snapshot", "Backup", "Extend", "Seed", "Dump"] as const satisfies ReadonlyArray<SqliteIo["_tag"]>
 
 type _Operations<T extends (typeof _OPERATIONS)[number] = SqliteIo["_tag"]> = T
 
-// The one reason names an ABSENT byte-capable profile and its subject is the operation that wanted one, so the row
-// renders the refusal and no message template rides the class; the operation literal reads the same roster the case
-// completeness guard binds, so a `Sqlite.Io` case with no spelling is unrepresentable on the fault too.
 const _family = Fault.Class.family(["profile"] as const, {
   profile: Fault.Class.row({
     class: "absent",
@@ -463,16 +442,10 @@ class SqliteFault extends Schema.TaggedError<SqliteFault>()("SqliteFault", {
   }
 }
 
-// Structural capability slices, never driver identities: `export` and `loadExtension` are the two server members
-// bun and node both carry, `backup` is node's alone, and the browser pair rides the wasm client — so every arm
-// below states WHICH shape it needs and resolution answers presence.
 type _ServerClient = Pick<NodeSqlite.SqliteClient.SqliteClient, "export" | "loadExtension">
 type _BackupClient = Pick<NodeSqlite.SqliteClient.SqliteClient, "backup">
 type _WasmClient = Pick<WasmSqlite.SqliteClient.SqliteClient, "export" | "import">
 
-// One resolution road for every arm: absence is a typed refusal, so the entry's requirement channel stays empty
-// and a bun, browser, or edge composition constructs the call whichever case it passes. An arm reaching a driver
-// Tag through the context instead seats that Tag in the requirement of the WHOLE entry.
 const _resolved = <A>(
   operation: SqliteFault["case"]["operation"],
   candidates: ReadonlyArray<Effect.Effect<Option.Option<A>>>,
@@ -528,9 +501,6 @@ import { Pg } from "./postgres.ts"
 import { SqlClient, SqlSchema, type Statement } from "@effect/sql"
 import { Array, Duration, Schema } from "effect"
 
-// Verdict vocabulary closes exactly as the degradation table's does — `builtIn` and `none` are the terminal
-// verdicts and `probe` marks a compile-time engine fact answered per deployment — so a misspelled availability cell
-// refuses at this declaration instead of landing as a distinct posture no gate reads.
 const _AVAILABILITY = ["builtIn", "none", "probe"] as const
 
 const _harvest = {
@@ -540,8 +510,6 @@ const _harvest = {
   stmtStatus: { server: "none", wasm: "none", libsql: "none", d1: "none", pglite: "none" },
 } as const
 
-// `_ENGINE` binds each profile column to the receipt engine it stamps, so the harvest gate and the receipt
-// read ONE key and no call site carries both spellings.
 const _ENGINE = {
   server: "sqliteServer",
   wasm: "sqliteWasm",
@@ -554,8 +522,8 @@ declare namespace Sqlite {
   type Evidence = keyof typeof _harvest
   type Availability = (typeof _AVAILABILITY)[number]
   type ProfileEngine = (typeof _ENGINE)[Sqlite.Lane]
-  type _Harvest<T extends Record<Evidence, Record<Sqlite.Profile, Availability>> = typeof _harvest> = T // every cell a rostered verdict
-  type _Availabilities<V extends (typeof _harvest)[Evidence][Sqlite.Profile] = Availability> = V // no rostered verdict the table never spells
+  type _Harvest<T extends Record<Evidence, Record<Sqlite.Profile, Availability>> = typeof _harvest> = T
+  type _Availabilities<V extends (typeof _harvest)[Evidence][Sqlite.Profile] = Availability> = V
 }
 
 const _PlanRow = Schema.Struct({ id: Schema.Number, parent: Schema.Number, detail: Schema.String })
@@ -564,19 +532,9 @@ const _PageRow = Schema.Struct({ pages: Schema.Number, freelist: Schema.Number }
 
 const _DbstatRow = Schema.Struct({ btrees: Schema.Number, unusedBytes: Schema.Number })
 
-// Availability probe, not a scan: `SELECT 1 … LIMIT 1` answers whether the dbstat module compiled in — a
-// `count(*)` aggregate would walk every btree page on each diagnosis. It runs ONCE, at arm construction.
-// `matchCause` is the load-bearing choice: a missing module arrives as a typed `SqlError`, but a driver that
-// throws outside its own wrapper arrives as a DEFECT, and a typed-only handler lets that defect escape a probe
-// whose entire contract is answering false on any refusal.
 const _dbstat = (sql: SqlClient.SqlClient): Effect.Effect<boolean> =>
   Effect.matchCause(sql`SELECT 1 AS probed FROM dbstat LIMIT 1`, { onFailure: () => false, onSuccess: () => true })
 
-// Construction-effect: the arm reads its profile's `_harvest` row ONCE, probes dbstat only where that row
-// prices it `probe`, and closes over the verdict — so an edge profile pays no construction round trip, a
-// compile-time engine fact never re-probes per diagnosis, and every diagnosis reuses the cached availability.
-// Each evidence source below gates on the same row, so a profile whose column reads `none` issues no statement
-// against a surface it does not carry and omits the counter rather than erroring or forging a zero.
 const _profiled = (sql: SqlClient.SqlClient, profile: Sqlite.Lane) =>
   Effect.map(
     _harvest.dbstat[profile] === "probe" ? _dbstat(sql) : Effect.succeed(false),
@@ -648,7 +606,7 @@ const Sqlite = {
   profile: { harvest: _harvest, dbstat: _dbstat, of: _profiled },
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Sqlite, SqliteFault }
 ```

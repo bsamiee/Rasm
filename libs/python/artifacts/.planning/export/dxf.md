@@ -101,18 +101,18 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 type Point2 = tuple[float, float]
 type Point3 = tuple[float, float, float]
-type PolyRow = tuple[float, float, float, float, float]  # one lwpolyline xyseb row: (x, y, start width, end width, bulge)
-type HatchRow = tuple[float, float, float]  # one hatch boundary vertex under the default `xyb` path format: (x, y, bulge) — never a z ordinate
-type Silhouette = Callable[[float, float, float, float], tuple[PolyRow, ...]]  # (x, y, w, h) frame -> a closed silhouette ring
-type Extent = tuple[float, float, float, float, float, float]  # (min x, y, z, max x, y, z) bbox AABB
-type Attribs = dict[str, object]  # the `GfxAttribs.asdict()` `dxfattribs=` payload
-type Builder = Callable[["Modelspace | BlockLayout", tuple[Point3, ...], str, Attribs], object]  # a `_DIM` dimension builder
-type PatternLine = tuple[float, Point2, Point2, tuple[float, ...]]  # ezdxf hatch pattern-line def: (angle, base, offset, dash items)
-type LeaderLine = tuple[LeaderSide, tuple[Point3, ...]]  # one multileader leader: (dogleg attachment side, vertices)
-type AcisData = bytes | tuple[str, ...]  # SAB bytes or SAT records decoded by `acis.load`
+type PolyRow = tuple[float, float, float, float, float]
+type HatchRow = tuple[float, float, float]
+type Silhouette = Callable[[float, float, float, float], tuple[PolyRow, ...]]
+type Extent = tuple[float, float, float, float, float, float]
+type Attribs = dict[str, object]
+type Builder = Callable[["Modelspace | BlockLayout", tuple[Point3, ...], str, Attribs], object]
+type PatternLine = tuple[float, Point2, Point2, tuple[float, ...]]
+type LeaderLine = tuple[LeaderSide, tuple[Point3, ...]]
+type AcisData = bytes | tuple[str, ...]
 
 
-class DxfVersion(StrEnum):  # the `ezdxf.new(dxfversion=)` target
+class DxfVersion(StrEnum):
     R12 = "AC1009"
     R2000 = "AC1015"
     R2004 = "AC1018"
@@ -123,8 +123,6 @@ class DxfVersion(StrEnum):  # the `ezdxf.new(dxfversion=)` target
 
 
 class DxfUnits(IntEnum):
-    # mirrors the FULL `ezdxf.units.InsertUnits` vocabulary — `DxfUnits(doc.units)` must be total over every value a
-    # conforming foreign DXF carries, so no member is dropped for local economy.
     UNITLESS = 0
     INCH = 1
     FOOT = 2
@@ -152,23 +150,23 @@ class DxfUnits(IntEnum):
     US_SURVEY_MILE = 24
 
 
-class DxfFormat(StrEnum):  # the egress encoding as a policy value
-    ASC = "asc"  # ascii DXF (`doc.write` text stream)
-    BIN = "bin"  # binary DXF (`doc.write(fmt="bin")`)
-    BASE64 = "b64"  # `doc.encode_base64()` blob
+class DxfFormat(StrEnum):
+    ASC = "asc"
+    BIN = "bin"
+    BASE64 = "b64"
 
 
-class DxfBackend(StrEnum):  # the `Render` sink — in-process backends, each member its own ezdxf sink
-    SVG = "svg"  # SVGBackend.get_string
-    PDF = "pdf"  # PyMuPdfBackend.get_pdf_bytes
-    PNG = "png"  # PyMuPdfBackend.get_pixmap_bytes
-    EPS = "eps"  # MatplotlibBackend + Figure.savefig
-    PS = "ps"  # MatplotlibBackend + Figure.savefig
-    JSON = "json"  # CustomJSONBackend.get_json_data
-    GEOJSON = "geojson"  # GeoJSONBackend.get_json_data
+class DxfBackend(StrEnum):
+    SVG = "svg"
+    PDF = "pdf"
+    PNG = "png"
+    EPS = "eps"
+    PS = "ps"
+    JSON = "json"
+    GEOJSON = "geojson"
 
 
-class DxfArtifact(StrEnum):  # the `DxfComposed.kind` format discriminant the `Cad` receipt carries
+class DxfArtifact(StrEnum):
     DXF = "dxf"
     SVG = "svg"
     PDF = "pdf"
@@ -179,7 +177,7 @@ class DxfArtifact(StrEnum):  # the `DxfComposed.kind` format discriminant the `C
     GEOJSON = "geojson"
 
 
-class DimKind(StrEnum):  # the ISO 129-1 dimension family the `_DIM` table routes to `add_*_dim`
+class DimKind(StrEnum):
     LINEAR = "linear"
     ALIGNED = "aligned"
     ANGULAR = "angular"
@@ -189,39 +187,37 @@ class DimKind(StrEnum):  # the ISO 129-1 dimension family the `_DIM` table route
     ARC = "arc"
 
 
-class SpatialTest(StrEnum):  # the area-shape membership test the `_SPATIAL_TEST` table keys to a `select` predicate
-    INSIDE = "inside"  # select.bbox_inside — the shape fully contains the entity bbox
-    OUTSIDE = "outside"  # select.bbox_outside — the entity bbox lies fully outside the shape
-    OVERLAP = "overlap"  # select.bbox_overlap — the entity bbox intersects the shape
+class SpatialTest(StrEnum):
+    INSIDE = "inside"
+    OUTSIDE = "outside"
+    OVERLAP = "overlap"
 
 
 @tagged_union(frozen=True)
-class BridgeSample:  # the `ToSvg` curve-sampling mode with per-mode payloads
+class BridgeSample:
     tag: Literal["flatten", "control"] = tag()
-    flatten: float = case()  # `Path.flattening(distance)` adaptive tolerance
-    control: None = case()  # `Path.control_vertices()` exact NURBS control frame
+    flatten: float = case()
+    control: None = case()
 
 
-class MLeaderKind(StrEnum):  # multileader content source — selects `add_multileader_mtext` vs `add_multileader_block`
+class MLeaderKind(StrEnum):
     MTEXT = "mtext"
     BLOCK = "block"
 
 
-class LeaderSide(StrEnum):  # `render.mleader.ConnectionSide` — values match the ezdxf member names for by-value derivation
+class LeaderSide(StrEnum):
     LEFT = "left"
     RIGHT = "right"
     TOP = "top"
     BOTTOM = "bottom"
 
 
-class TransformMode(StrEnum):  # `transform.inplace` (mutate) vs `transform.copies` (duplicate) — the affine application mode
+class TransformMode(StrEnum):
     INPLACE = "inplace"
     COPIES = "copies"
 
 
 class TextAlign(StrEnum):
-    # mirrors `ezdxf.enums.TextEntityAlignment` by member name for `set_placement(insert, align=)` derivation; the
-    # two-point ALIGNED/FIT members stay out because the text case carries one insert point.
     LEFT = "left"
     CENTER = "center"
     RIGHT = "right"
@@ -237,9 +233,7 @@ class TextAlign(StrEnum):
     TOP_RIGHT = "top_right"
 
 
-# owned render-policy vocabularies mirroring the `ezdxf.addons.drawing.config` enums by member name, so the payload
-# stays ezdxf-free and `_rendered` derives each ezdxf enum via `getattr(<policy>, member.name)`.
-class BackgroundPolicy(StrEnum):  # render canvas background
+class BackgroundPolicy(StrEnum):
     DEFAULT = "default"
     WHITE = "white"
     BLACK = "black"
@@ -249,13 +243,13 @@ class BackgroundPolicy(StrEnum):  # render canvas background
     CUSTOM = "custom"
 
 
-class LineweightPolicy(StrEnum):  # lineweight resolution — ABSOLUTE honors ISO 128 mm lineweight groups (AEC plot fidelity)
+class LineweightPolicy(StrEnum):
     ABSOLUTE = "absolute"
     RELATIVE = "relative"
     RELATIVE_FIXED = "relative_fixed"
 
 
-class HatchPolicy(StrEnum):  # hatch rendering — solid/outline/approximate-pattern vs ignore
+class HatchPolicy(StrEnum):
     NORMAL = "normal"
     IGNORE = "ignore"
     SHOW_OUTLINE = "show_outline"
@@ -263,7 +257,7 @@ class HatchPolicy(StrEnum):  # hatch rendering — solid/outline/approximate-pat
     SHOW_APPROXIMATE_PATTERN = "show_approximate_pattern"
 
 
-class TextPolicy(StrEnum):  # text rendering fidelity — filled glyphs, outlines, or bounding-rect placeholders
+class TextPolicy(StrEnum):
     FILLING = "filling"
     OUTLINE = "outline"
     REPLACE_RECT = "replace_rect"
@@ -271,7 +265,7 @@ class TextPolicy(StrEnum):  # text rendering fidelity — filled glyphs, outline
     IGNORE = "ignore"
 
 
-class ColorPolicy(StrEnum):  # color resolution — MONOCHROME / COLOR_SWAP_BW for monochrome plot sheets
+class ColorPolicy(StrEnum):
     COLOR = "color"
     COLOR_SWAP_BW = "color_swap_bw"
     COLOR_NEGATIVE = "color_negative"
@@ -283,13 +277,13 @@ class ColorPolicy(StrEnum):  # color resolution — MONOCHROME / COLOR_SWAP_BW f
     CUSTOM = "custom"
 
 
-class ProxyPolicy(StrEnum):  # proxy-graphic handling — derived onto ezdxf `ProxyGraphicPolicy`
+class ProxyPolicy(StrEnum):
     IGNORE = "ignore"
     SHOW = "show"
     PREFER = "prefer"
 
 
-class LinePolicy(StrEnum):  # linetype rendering accuracy
+class LinePolicy(StrEnum):
     SOLID = "solid"
     APPROXIMATE = "approximate"
     ACCURATE = "accurate"
@@ -297,16 +291,12 @@ class LinePolicy(StrEnum):  # linetype rendering accuracy
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _ZERO_EXTENT: Extent = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-# names the dxftypes `make_path`/`addons.geo.proxy` convert — a TOTAL predicate the bridge folds filter on so a
-# non-convertible `Text`/`Insert` never reaches the raise.
 _PATH_TYPES: frozenset[str] = frozenset({"LINE", "ARC", "CIRCLE", "ELLIPSE", "SPLINE", "LWPOLYLINE", "POLYLINE", "HATCH"})
 _GEO_TYPES: frozenset[str] = frozenset({"LINE", "ARC", "CIRCLE", "ELLIPSE", "SPLINE", "LWPOLYLINE", "POLYLINE", "POINT"})
 _UNITS: frozendict[DxfUnits, str] = frozendict({unit: unit.name.lower() for unit in DxfUnits})
-# per-mark default label heights the Diagram arm reads when a glyph carries no TextRun — the draw arm's base sizes at cross-egress parity
 _GLYPH_TEXT: frozendict[GlyphTag, float] = frozendict({
     "node": 10.0, "edge": 8.0, "swimlane": 9.0, "annotation": 9.0, "marker": 9.0, "area": 9.0, "fragment": 8.0,
 })
-# minimum DXF version per drawable postdating R12; AC-code values sort lexicographically, so `.value` comparison is the floor test.
 _ENTITY_FLOOR: Final[frozendict[str, DxfVersion]] = frozendict({
     **dict.fromkeys(
         (
@@ -318,14 +308,12 @@ _ENTITY_FLOOR: Final[frozendict[str, DxfVersion]] = frozendict({
     **dict.fromkeys(("multileader", "underlay", "surface", "extruded_surface", "revolved_surface", "swept_surface"), DxfVersion.R2007),
     "mesh": DxfVersion.R2010,
 })
-_CAP_PREFIX: Final[str] = "RASM_CAP_"  # one shared block definition per used edge terminator; every edge end is one INSERT
+_CAP_PREFIX: Final[str] = "RASM_CAP_"
 _ANCHOR_ALIGN: frozendict[TextAnchor, TextAlign] = frozendict({
-    # glyph-plane baseline text anchor -> the DXF placement member the annotation arm derives
     TextAnchor.START: TextAlign.LEFT,
     TextAnchor.MIDDLE: TextAlign.CENTER,
     TextAnchor.END: TextAlign.RIGHT,
 })
-# maps the ISO 129-1 dimension family -> the matching `add_*_dim` builder; each returns a `DimStyleOverride` whose `.render()` generates the geometry.
 _DIM: frozendict[DimKind, Builder] = frozendict({
     DimKind.LINEAR: lambda msp, pts, ds, at: msp.add_linear_dim(base=pts[0], p1=pts[1], p2=pts[2], dimstyle=ds, dxfattribs=at),
     DimKind.ALIGNED: lambda msp, pts, ds, at: msp.add_aligned_dim(p1=pts[0], p2=pts[1], distance=pts[2][0], dimstyle=ds, dxfattribs=at),
@@ -346,7 +334,6 @@ _DIM_ARITY: frozendict[DimKind, int] = frozendict({
     DimKind.ORDINATE: 2,
     DimKind.ARC: 4,
 })
-# maps the area-test row -> the rtree-backed `select` predicate; fence/point cross their own `select` functions.
 _SPATIAL_TEST: frozendict[SpatialTest, Callable[[object, "EntityQuery"], "Iterable[DXFGraphic]"]] = frozendict({
     SpatialTest.INSIDE: lambda shape, entities: select.bbox_inside(shape, entities),
     SpatialTest.OUTSIDE: lambda shape, entities: select.bbox_outside(shape, entities),
@@ -357,27 +344,23 @@ _SPATIAL_TEST: frozendict[SpatialTest, Callable[[object, "EntityQuery"], "Iterab
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: the region fold is a single fence and the member `RegionFault` case already carries
-# which refusal ran. TRANSIENT — a region render refusal is a defect a re-issue may clear.
 DXF_REGION: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.DXF, point="region", arm="boundary", defect="region-refused", retriability=TRANSIENT
 )
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DXF_REGION]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
-# DXF spec lineweight domain in hundredths of mm plus the -1 ByLayer / -2 ByBlock / -3 default sentinels.
 _LINEWEIGHTS: Final[frozenset[int]] = frozenset((
     -3, -2, -1, 0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, 53, 60, 70, 80, 90, 100, 106, 120, 140, 158, 200, 211,
 ))
 
 
 class DxfAttribs(Struct, frozen=True):
-    # `.gfx()` is the uniform `dxfattribs=` payload; the `drawing/standard` codecs supply `layer`/`linetype` as data.
     layer: str = "0"
-    color: int = 256  # ACI; 256=ByLayer, 0=ByBlock, 1-255 indexed
-    rgb: Option[tuple[int, int, int]] = Nothing  # true-color; absence preserves ACI `color`
+    color: int = 256
+    rgb: Option[tuple[int, int, int]] = Nothing
     linetype: str = "ByLayer"
-    lineweight: int = -1  # -1=ByLayer, -3=default
+    lineweight: int = -1
     transparency: Option[float] = Nothing
     ltscale: float = 1.0
 
@@ -406,7 +389,7 @@ class DxfAttribs(Struct, frozen=True):
         ).asdict()
 
 
-class Xref(Struct, frozen=True):  # an external DXF reference `xref.attach` binds into the authored document
+class Xref(Struct, frozen=True):
     block_name: str
     filename: str
     insert: Point3 = (0.0, 0.0, 0.0)
@@ -414,49 +397,49 @@ class Xref(Struct, frozen=True):  # an external DXF reference `xref.attach` bind
     rotation: float = 0.0
 
 
-class DxfRenderPolicy(Struct, frozen=True):  # the ezdxf render-policy bundle as POLICY_VALUES over owned enums
+class DxfRenderPolicy(Struct, frozen=True):
     background: BackgroundPolicy = BackgroundPolicy.WHITE
-    lineweight: LineweightPolicy = LineweightPolicy.ABSOLUTE  # ABSOLUTE honors ISO 128 mm lineweight groups
+    lineweight: LineweightPolicy = LineweightPolicy.ABSOLUTE
     hatch: HatchPolicy = HatchPolicy.NORMAL
     text: TextPolicy = TextPolicy.FILLING
     color: ColorPolicy = ColorPolicy.COLOR
     proxy: ProxyPolicy = ProxyPolicy.SHOW
     line: LinePolicy = LinePolicy.ACCURATE
-    ctb: str = ""  # `RenderContext(ctb=)` — the CTB/STB plot-style table path (pen/lineweight/color mapping)
-    export_mode: bool = False  # `RenderContext(export_mode=)` — paperspace export vs on-screen display resolution
+    ctb: str = ""
+    export_mode: bool = False
 
 
-class PageSpec(Struct, frozen=True):  # the `ezdxf.addons.drawing.layout.Page`/`Settings` + `Configuration`/`RenderContext` render model
-    width: float = 0.0  # 0 auto-detects from extents
+class PageSpec(Struct, frozen=True):
+    width: float = 0.0
     height: float = 0.0
     margin: float = 10.0
     dpi: int = 300
     fit_page: bool = True
     scale: float = 1.0
-    policy: DxfRenderPolicy = DxfRenderPolicy()  # the full render-policy bundle (background/lineweight/hatch/text/color/proxy/line + ctb + export_mode)
+    policy: DxfRenderPolicy = DxfRenderPolicy()
 
 
-class DxfComposed(Struct, frozen=True):  # the one evidence struct the fold returns
+class DxfComposed(Struct, frozen=True):
     data: bytes
-    kind: DxfArtifact  # format the bytes are, riding the `Cad` receipt's `artifact` slot
+    kind: DxfArtifact
     dxfversion: str
     units: str
-    counts: frozendict[str, int]  # `Counter(dxftype)` entity-census map
+    counts: frozendict[str, int]
     layers: int
     blocks: int
-    errors: int  # `Auditor.errors` count (salvage residual)
+    errors: int
     fixes: int
-    extent: Extent  # `bbox.extents` model AABB
+    extent: Extent
 
 
 @tagged_union(frozen=True)
 class TableEntry:
     tag: Literal["layer", "linetype", "textstyle", "dimstyle", "mleaderstyle"] = tag()
-    layer: tuple[str, int, str, int] = case()  # (name, color, linetype, lineweight) — ISO 13567 layer codec target
-    linetype: tuple[str, tuple[float, ...], str] = case()  # (name, dash/gap pattern, description) — ISO 128 target
-    textstyle: tuple[str, str, float, float] = case()  # (name, font, height, width) — ISO 3098 lettering target
-    dimstyle: tuple[str, frozendict[str, DimVar]] = case()  # (name, dxf-attr overrides) — the standard owner's DimVar domain, so dimpost/dimtxsty/dimblk strings pass beside the numeric variables
-    mleaderstyle: tuple[str, str, str, int] = case()  # (name, text style, leader linetype, lineweight)
+    layer: tuple[str, int, str, int] = case()
+    linetype: tuple[str, tuple[float, ...], str] = case()
+    textstyle: tuple[str, str, float, float] = case()
+    dimstyle: tuple[str, frozendict[str, DimVar]] = case()
+    mleaderstyle: tuple[str, str, str, int] = case()
 
     @property
     def name(self) -> str:
@@ -470,11 +453,11 @@ class TableEntry:
 
 
 @tagged_union(frozen=True)
-class DxfFill:  # the DXF-native hatch fill payload: solid ACI, ISO 128-50 pattern rows, or two-color gradient
+class DxfFill:
     tag: Literal["solid", "pattern", "gradient"] = tag()
-    solid: int = case()  # ACI fill color -> set_solid_fill
-    pattern: tuple[str, tuple[PatternLine, ...], int, float, float] = case()  # (name, definition, color, scale, angle); () definition = ezdxf built-in name
-    gradient: tuple[tuple[int, int, int], tuple[int, int, int], float] = case()  # (rgb1, rgb2, rotation) -> set_gradient
+    solid: int = case()
+    pattern: tuple[str, tuple[PatternLine, ...], int, float, float] = case()
+    gradient: tuple[tuple[int, int, int], tuple[int, int, int], float] = case()
 
     @property
     def issue(self) -> Option[str]:
@@ -495,7 +478,6 @@ class DxfFill:  # the DXF-native hatch fill payload: solid ACI, ISO 128-50 patte
 
 @tagged_union(frozen=True)
 class DxfEntity:
-    # closed drawable vocabulary over the verified `add_*` builder families
     tag: Literal[
         "line",
         "arc",
@@ -538,39 +520,39 @@ class DxfEntity:
         "revolved_surface",
         "swept_surface",
     ] = tag()
-    line: tuple[Point3, Point3, DxfAttribs] = case()  # (start, end, attribs)
-    arc: tuple[Point3, float, float, float, DxfAttribs] = case()  # (center, radius, start_angle, end_angle, attribs)
-    circle: tuple[Point3, float, DxfAttribs] = case()  # (center, radius, attribs)
-    ellipse: tuple[Point3, Point3, float, float, float, DxfAttribs] = case()  # (center, major_axis, ratio, start, end, attribs)
-    spline: tuple[tuple[Point3, ...], int, DxfAttribs] = case()  # (fit_points, degree, attribs)
+    line: tuple[Point3, Point3, DxfAttribs] = case()
+    arc: tuple[Point3, float, float, float, DxfAttribs] = case()
+    circle: tuple[Point3, float, DxfAttribs] = case()
+    ellipse: tuple[Point3, Point3, float, float, float, DxfAttribs] = case()
+    spline: tuple[tuple[Point3, ...], int, DxfAttribs] = case()
     rational_spline: tuple[tuple[Point3, ...], tuple[float, ...], int, Option[tuple[float, ...]], DxfAttribs] = case()
     cad_spline: tuple[tuple[Point3, ...], Option[tuple[Point3, Point3]], DxfAttribs] = case()
-    lwpolyline: tuple[tuple[tuple[float, ...], ...], bool, DxfAttribs] = case()  # (xyseb rows, close, attribs)
+    lwpolyline: tuple[tuple[tuple[float, ...], ...], bool, DxfAttribs] = case()
     polyline2d: tuple[tuple[Point2, ...], bool, DxfAttribs] = case()
-    polyline3d: tuple[tuple[Point3, ...], bool, DxfAttribs] = case()  # (vertices, close, attribs) — the heavy 3D polyline
-    polymesh: tuple[int, int, tuple[Point3, ...], DxfAttribs] = case()  # (m count, n count, vertices, attribs)
+    polyline3d: tuple[tuple[Point3, ...], bool, DxfAttribs] = case()
+    polymesh: tuple[int, int, tuple[Point3, ...], DxfAttribs] = case()
     polyface: tuple[tuple[Point3, ...], tuple[tuple[int, ...], ...], DxfAttribs] = case()
-    hatch: tuple[tuple[tuple[HatchRow, ...], ...], DxfFill, DxfAttribs] = case()  # (xyb boundary loops, fill sub-axis, attribs)
+    hatch: tuple[tuple[tuple[HatchRow, ...], ...], DxfFill, DxfAttribs] = case()
     mpolygon: tuple[tuple[tuple[HatchRow, ...], ...], int, Option[int], DxfAttribs] = case()
-    text: tuple[str, Point3, float, float, TextAlign, DxfAttribs] = case()  # (text, insert, height, rotation degrees, placement, attribs)
-    mtext: tuple[str, Point3, float, DxfAttribs] = case()  # (text, insert, char_height, attribs)
-    attdef: tuple[str, str, Point3, float, DxfAttribs] = case()  # (tag, default text, insert, height, attribs) — block attribute definition
-    leader: tuple[tuple[Point3, ...], DxfAttribs] = case()  # (vertices, attribs) — the legacy single-line leader
-    multileader: tuple[MLeaderKind, str, str, tuple[LeaderLine, ...], Point3, DxfAttribs] = case()  # (kind, content, style, leader lines, insert, attribs)
-    dimension: tuple[DimKind, tuple[Point3, ...], str, DxfAttribs] = case()  # (kind, defpoints, dimstyle, attribs)
-    tolerance: tuple[str, Point3, str, DxfAttribs] = case()  # (content, insert, dimstyle, attribs)
+    text: tuple[str, Point3, float, float, TextAlign, DxfAttribs] = case()
+    mtext: tuple[str, Point3, float, DxfAttribs] = case()
+    attdef: tuple[str, str, Point3, float, DxfAttribs] = case()
+    leader: tuple[tuple[Point3, ...], DxfAttribs] = case()
+    multileader: tuple[MLeaderKind, str, str, tuple[LeaderLine, ...], Point3, DxfAttribs] = case()
+    dimension: tuple[DimKind, tuple[Point3, ...], str, DxfAttribs] = case()
+    tolerance: tuple[str, Point3, str, DxfAttribs] = case()
     blockref: tuple[str, Point3, float, float, frozendict[str, str], DxfAttribs] = case()
-    image: tuple[str, tuple[int, int], Point3, tuple[float, float], float, DxfAttribs] = case()  # (filename, size px, insert, size units, rotation, attribs)
-    underlay: tuple[str, Point3, Point3, float, DxfAttribs] = case()  # (filename, insert, scale xyz, rotation, attribs) — PDF/DWF/DGN underlay
-    ray: tuple[Point3, Point3, DxfAttribs] = case()  # (start, unit_vector, attribs) — semi-infinite construction line
-    xline: tuple[Point3, Point3, DxfAttribs] = case()  # (base, unit_vector, attribs) — infinite construction line
-    point: tuple[Point3, DxfAttribs] = case()  # (location, attribs)
-    solid: tuple[tuple[Point3, ...], DxfAttribs] = case()  # (3-4 vertices, attribs) — 2D filled tri/quad
-    trace: tuple[tuple[Point3, ...], DxfAttribs] = case()  # (3-4 vertices, attribs) — the SOLID sibling with trace semantics
-    shape: tuple[str, Point3, float, DxfAttribs] = case()  # (shape name, insert, size, attribs) — SHX shape reference
-    face3d: tuple[tuple[Point3, ...], DxfAttribs] = case()  # (3-4 vertices, attribs) — 3D face
-    wipeout: tuple[tuple[Point2, ...], DxfAttribs] = case()  # (vertices, attribs) — masking wipeout
-    mesh: tuple[tuple[Point3, ...], tuple[tuple[int, ...], ...], DxfAttribs] = case()  # (vertices, faces, attribs)
+    image: tuple[str, tuple[int, int], Point3, tuple[float, float], float, DxfAttribs] = case()
+    underlay: tuple[str, Point3, Point3, float, DxfAttribs] = case()
+    ray: tuple[Point3, Point3, DxfAttribs] = case()
+    xline: tuple[Point3, Point3, DxfAttribs] = case()
+    point: tuple[Point3, DxfAttribs] = case()
+    solid: tuple[tuple[Point3, ...], DxfAttribs] = case()
+    trace: tuple[tuple[Point3, ...], DxfAttribs] = case()
+    shape: tuple[str, Point3, float, DxfAttribs] = case()
+    face3d: tuple[tuple[Point3, ...], DxfAttribs] = case()
+    wipeout: tuple[tuple[Point2, ...], DxfAttribs] = case()
+    mesh: tuple[tuple[Point3, ...], tuple[tuple[int, ...], ...], DxfAttribs] = case()
     body: tuple[AcisData, DxfAttribs] = case()
     region: tuple[AcisData, DxfAttribs] = case()
     solid3d: tuple[AcisData, DxfAttribs] = case()
@@ -583,7 +565,7 @@ class DxfEntity:
     def issue(self) -> Option[str]:
         if cast(DxfAttribs, getattr(self, self.tag)[-1]).issue.is_some():
             return Some(f"{self.tag}:attribs")
-        if not _finite(getattr(self, self.tag)):  # finiteness precedes every range guard below — an infinity satisfies a bare inequality
+        if not _finite(getattr(self, self.tag)):
             return Some(f"{self.tag}:non-finite")
         match self:
             case DxfEntity(tag="line", line=(start, end, _)) if start == end:
@@ -662,18 +644,18 @@ class DxfEntity:
             case _:
                 return Nothing
 
-class BlockDef(Struct, frozen=True):  # a reusable block definition `add_blockref` places n times
+class BlockDef(Struct, frozen=True):
     name: str
     entities: tuple[DxfEntity, ...] = ()
 
 
-class DxfDocument(Struct, frozen=True):  # the New-arm authoring spec — the whole document graph
+class DxfDocument(Struct, frozen=True):
     version: DxfVersion = DxfVersion.R2018
     units: DxfUnits = DxfUnits.MILLIMETER
-    setup: bool = True  # load standard linetypes/styles/dimstyles
-    standard: Option[Standard] = Nothing  # drawing/standard#STANDARD ISO seeding folded over the fresh Drawing before the builders
-    aec_layers: tuple[LayerName, ...] = ()  # regime layer rows `Standard.seed` lowers; read only when `standard` is set
-    dim_families: tuple[DimStyleFamily, ...] = ()  # ISO 129-1 dimension-style families `Standard.seed` derives; read only when `standard` is set
+    setup: bool = True
+    standard: Option[Standard] = Nothing
+    aec_layers: tuple[LayerName, ...] = ()
+    dim_families: tuple[DimStyleFamily, ...] = ()
     tables: tuple[TableEntry, ...] = ()
     xrefs: tuple[Xref, ...] = ()
     blocks: tuple[BlockDef, ...] = ()
@@ -699,8 +681,6 @@ class DxfDocument(Struct, frozen=True):  # the New-arm authoring spec — the wh
             if any(_ENTITY_FLOOR.get(entity.tag, DxfVersion.R12).value > self.version.value for entity in entities)
             or (self.version.value < DxfVersion.R2007.value and any(entry.tag == "mleaderstyle" for entry in self.tables))
             else Nothing,
-            # `Standard.seed` forces `doc.units = MM` and mints the ISO-3098-MLEADER style, so a spec declaring foreign
-            # units or a pre-R2007 target beside a standard is contradictory — refused at admission, never silently skipped.
             Some("standard")
             if self.standard.is_some() and (self.units is not DxfUnits.MILLIMETER or self.version.value < DxfVersion.R2007.value)
             else Nothing,
@@ -715,58 +695,58 @@ class DxfDocument(Struct, frozen=True):  # the New-arm authoring spec — the wh
 @tagged_union(frozen=True)
 class DxfSource:
     tag: Literal["blob", "file", "zip", "zip_member", "base64"] = tag()
-    blob: bytes = case()  # a DXF byte stream -> `ezdxf.read` / `recover.read`
-    file: str = case()  # a filesystem path -> `ezdxf.readfile` / `recover.readfile`
-    zip: str = case()  # zip path -> `ezdxf.readzip` first DXF member
-    zip_member: tuple[str, str] = case()  # (zip path, member) -> `ezdxf.readzip`
-    base64: str = case()  # a base64 DXF blob -> `ezdxf.decode_base64`
+    blob: bytes = case()
+    file: str = case()
+    zip: str = case()
+    zip_member: tuple[str, str] = case()
+    base64: str = case()
 
 
 @tagged_union(frozen=True)
 class Spatial:
     tag: Literal["window", "circle", "polygon", "fence", "point"] = tag()
-    window: tuple[Point2, Point2, SpatialTest] = case()  # (corner, corner, area-test) -> select.Window
-    circle: tuple[Point2, float, SpatialTest] = case()  # (center, radius, area-test) -> select.Circle
-    polygon: tuple[tuple[Point2, ...], SpatialTest] = case()  # (vertices, area-test) -> select.Polygon
-    fence: tuple[Point2, ...] = case()  # an open polyline -> select.bbox_crosses_fence
-    point: Point2 = case()  # a hit-test point -> select.point_in_bbox
+    window: tuple[Point2, Point2, SpatialTest] = case()
+    circle: tuple[Point2, float, SpatialTest] = case()
+    polygon: tuple[tuple[Point2, ...], SpatialTest] = case()
+    fence: tuple[Point2, ...] = case()
+    point: Point2 = case()
 
 
-class Selection(Struct, frozen=True):  # the `doc.query` EQL + optional `Spatial` read spec
-    eql: str = "*"  # the DXF entity-query-language string, `'LINE CIRCLE[layer=="WALLS"]'`
-    spatial: Option[Spatial] = Nothing  # optional rtree spatial refinement
+class Selection(Struct, frozen=True):
+    eql: str = "*"
+    spatial: Option[Spatial] = Nothing
 
 
-class TransformSpec(Struct, frozen=True):  # an affine (translate∘scale∘z-rotate) over an ingested doc or a queried sub-selection
+class TransformSpec(Struct, frozen=True):
     translate: Point3 = (0.0, 0.0, 0.0)
     scale: Point3 = (1.0, 1.0, 1.0)
-    rotate: float = 0.0  # z-axis rotation (radians)
-    eql: str = "*"  # the `doc.query` selection the affine applies to (`*` = whole modelspace)
+    rotate: float = 0.0
+    eql: str = "*"
     mode: TransformMode = TransformMode.INPLACE
 
 
 @tagged_union(frozen=True)
-class BridgeSpec:  # the DXF<->SVG<->GeoJSON<->glyph geometry wire
+class BridgeSpec:
     tag: Literal["to_svg", "from_svg", "to_geojson", "from_geojson", "text_paths"] = tag()
-    to_svg: tuple[DxfSource, BridgeSample] = case()  # (source, sample policy) -> framed SVG
-    from_svg: tuple[bytes, DxfVersion, DxfAttribs, DxfUnits] = case()  # (SVG source bytes, version, attribs, declared units) -> DXF
-    to_geojson: DxfSource = case()  # entities -> GeoProxy.__geo_interface__ mapping bytes
-    from_geojson: tuple[bytes, DxfVersion, DxfAttribs] = case()  # (GeoJSON bytes, version, attribs) -> DXF
-    text_paths: tuple[str, str, float, Point3, DxfVersion, DxfAttribs] = case()  # (text, font family, size, insert, version, attribs) -> DXF outline
+    to_svg: tuple[DxfSource, BridgeSample] = case()
+    from_svg: tuple[bytes, DxfVersion, DxfAttribs, DxfUnits] = case()
+    to_geojson: DxfSource = case()
+    from_geojson: tuple[bytes, DxfVersion, DxfAttribs] = case()
+    text_paths: tuple[str, str, float, Point3, DxfVersion, DxfAttribs] = case()
 
 
-class DiagramLower(Struct, frozen=True):  # the Diagram-arm payload: a positioned glyph sequence under total regime-pen layer bindings
+class DiagramLower(Struct, frozen=True):
     glyphs: tuple[DiagramGlyph, ...]
-    layers: frozendict[str, LayerName]  # every GlyphStyle.layer name -> its regime row; Standard.seed styles the DXF layer from the discipline pen
+    layers: frozendict[str, LayerName]
     standard: Standard = Standard()
-    cap_size: float = 3.5  # ISO 129-1 terminator length (mm); every edge-cap glyph scales its draw-arm marker proportions from it
+    cap_size: float = 3.5
     version: DxfVersion = DxfVersion.R2018
     units: DxfUnits = DxfUnits.MILLIMETER
     fmt: DxfFormat = DxfFormat.ASC
 
 
 @tagged_union(frozen=True)
-class DxfOp:  # the closed request vocabulary lowered once into DxfComposed
+class DxfOp:
     tag: Literal["new", "read", "recover", "render", "query", "transform", "diagram", "bridge"] = tag()
     new: DxfDocument = case()
     read: DxfSource = case()
@@ -781,19 +761,16 @@ class DxfOp:  # the closed request vocabulary lowered once into DxfComposed
 # --- [ERRORS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class DxfFault:
-    # closed ADMISSION vocabulary `of` produces; a worker provider raise (`DXFError`, a render `RuntimeError`,
-    # a font/resource `OSError`) converts to the runtime `BoundaryFault` at the lane boundary, never this vocabulary.
     tag: Literal["source", "scalar", "geometry", "selection", "document"] = tag()
-    source: str = case()  # the `DxfSource` case tag carrying an empty payload or path
-    scalar: tuple[str, float] = case()  # a non-positive render/bridge/spatial scalar (name, value)
-    geometry: str = case()  # degenerate bridge text/rings or spatial window/polygon/fence geometry
-    selection: None = case()  # an empty EQL selection string
-    document: str = case()  # invalid authored document resource or entity payload
+    source: str = case()
+    scalar: tuple[str, float] = case()
+    geometry: str = case()
+    selection: None = case()
+    document: str = case()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _finite(raw: object, /) -> bool:
-    # structural finiteness sweep over a payload tuple tree; non-numeric leaves pass so one predicate serves every admission guard.
     match raw:
         case float():
             return math.isfinite(raw)
@@ -804,8 +781,6 @@ def _finite(raw: object, /) -> bool:
 
 
 def _canonized(raw: object, /) -> object:
-    # msgpack enc_hook: a tagged-union node lowers to its (tag, payload) pair, an `Option` to its nullable view, a
-    # frozendict to its dict view under the deterministic key order; Structs, enums, and bytes encode natively.
     match raw:
         case Option() as slot:
             return slot.to_optional()
@@ -831,7 +806,6 @@ def _source_fault(source: DxfSource, /) -> Option[DxfFault]:
 
 
 def _degenerate_polygon(vertices: tuple[Point2, ...], /) -> bool:
-    # three distinct finite vertices with non-zero shoelace area — a collinear or non-finite ring never dispatches.
     if len(set(vertices)) < 3 or not all(math.isfinite(x) and math.isfinite(y) for x, y in vertices):
         return True
     return math.fsum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(vertices, (*vertices[1:], vertices[0]), strict=True)) == 0.0
@@ -854,16 +828,14 @@ def _spatial_fault(spec: Spatial, /) -> Option[DxfFault]:
 
 
 def _fragment_broken(d: str, /) -> bool:
-    # admission parses AND flattens the d-string through the same svgelements seam the lowering walks, so a malformed
-    # path refuses at Dxf.of instead of raising mid-emission, and a d that flattens to no drawable ring refuses with it.
     try:
         return not _fragment_rows(d)
-    except (ValueError, TypeError, IndexError, AttributeError):  # svgelements token/segment refusals on a malformed d
+    except (ValueError, TypeError, IndexError, AttributeError):
         return True
 
 
 def _glyph_fault(glyph: DiagramGlyph, layers: frozendict[str, LayerName], /) -> Option[DxfFault]:
-    if not _finite(msgspec.structs.astuple(glyph.mark)):  # finiteness precedes every range guard — an infinite coordinate never reaches a builder
+    if not _finite(msgspec.structs.astuple(glyph.mark)):
         return Some(DxfFault(geometry=f"{glyph.tag}:non-finite"))
     match glyph:
         case (DiagramGlyph(tag="node", node=mark) | DiagramGlyph(tag="swimlane", swimlane=mark)) if mark.w <= 0.0 or mark.h <= 0.0:
@@ -883,7 +855,7 @@ def _glyph_fault(glyph: DiagramGlyph, layers: frozendict[str, LayerName], /) -> 
     style = glyph.mark.style
     if style.text is not None and style.text.size <= 0.0:
         return Some(DxfFault(scalar=("text", style.text.size)))
-    if any(not math.isfinite(run) or run <= 0.0 for run in style.dash):  # a dash run mints a linetype row, so it must be a positive length
+    if any(not math.isfinite(run) or run <= 0.0 for run in style.dash):
         return Some(DxfFault(scalar=("dash", min(style.dash))))
     return Nothing if style.layer in layers else Some(DxfFault(document=f"diagram:layer:{style.layer}"))
 
@@ -892,7 +864,7 @@ def _diagram_fault(spec: DiagramLower, /) -> Option[DxfFault]:
     head = (
         Some(DxfFault(document="diagram:empty"))
         if not spec.glyphs
-        else Some(DxfFault(document="diagram:version"))  # the lowering emits R2000-class entities (lwpolyline/spline/ellipse/hatch)
+        else Some(DxfFault(document="diagram:version"))
         if spec.version is DxfVersion.R12
         else Some(DxfFault(scalar=("cap_size", spec.cap_size)))
         if not math.isfinite(spec.cap_size) or spec.cap_size <= 0.0
@@ -902,8 +874,6 @@ def _diagram_fault(spec: DiagramLower, /) -> Option[DxfFault]:
 
 
 def _checked(op: DxfOp, /) -> Result[DxfOp, DxfFault]:
-    # one admission fold: every arm's sources gate through `_source_fault`, the render/bridge scalars and the
-    # spatial/bridge geometry through their own guards — first fault wins, a clean op passes whole.
     match op:
         case DxfOp(tag="new", new=document):
             fault = document.issue.map(lambda issue: DxfFault(document=issue))
@@ -949,7 +919,7 @@ def _checked(op: DxfOp, /) -> Result[DxfOp, DxfFault]:
             fault = (Some(DxfFault(geometry="text_paths")) if not text else Nothing).or_else_with(
                 lambda: Some(DxfFault(scalar=("size", size))) if not math.isfinite(size) or size <= 0.0 else Nothing
             )
-        case _ as unreachable:  # every op arm above sets `fault`; a new case breaks the admission fold loudly, never a silent pass
+        case _ as unreachable:
             assert_never(unreachable)
     match fault:
         case Option(tag="some", some=admitted):
@@ -958,7 +928,7 @@ def _checked(op: DxfOp, /) -> Result[DxfOp, DxfFault]:
             return Ok(op)
 
 
-def _ingest(source: DxfSource, /) -> "Drawing":  # the conforming polymorphic ingestion family
+def _ingest(source: DxfSource, /) -> "Drawing":
     match source:
         case DxfSource(tag="blob", blob=data):
             with TemporaryDirectory(prefix="rasm-dxf-") as scratch:
@@ -977,7 +947,7 @@ def _ingest(source: DxfSource, /) -> "Drawing":  # the conforming polymorphic in
             assert_never(unreachable)
 
 
-def _binary(source: DxfSource, /) -> bytes:  # normalize any non-file source to a binary stream for salvage
+def _binary(source: DxfSource, /) -> bytes:
     match source:
         case DxfSource(tag="blob", blob=data):
             return data
@@ -995,7 +965,7 @@ def _binary(source: DxfSource, /) -> bytes:  # normalize any non-file source to 
             assert_never(unreachable)
 
 
-def _recovered(source: DxfSource, /) -> "tuple[Drawing, Auditor]":  # `recover.readfile`/`read` -> (doc, auditor)
+def _recovered(source: DxfSource, /) -> "tuple[Drawing, Auditor]":
     match source:
         case DxfSource(tag="file", file=path):
             return recover.readfile(path)
@@ -1004,7 +974,6 @@ def _recovered(source: DxfSource, /) -> "tuple[Drawing, Auditor]":  # `recover.r
 
 
 def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> None:
-    # Exemption: the ezdxf `Drawing` is a mutable builder — each `add_*` is platform-forced construction, the domain shape the closed match.
     match entity:
         case DxfEntity(tag="line", line=(start, end, at)):
             layout.add_line(start, end, dxfattribs=at.gfx())
@@ -1037,11 +1006,11 @@ def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> N
             hatched = layout.add_hatch(dxfattribs=at.gfx())
             for loop in loops:
                 hatched.paths.add_polyline_path(loop, is_closed=True)
-            match fill:  # SOLID/PATTERN/GRADIENT fill sub-axis — total over the closed `DxfFill` family
+            match fill:
                 case DxfFill(tag="solid", solid=color):
                     hatched.set_solid_fill(color=color)
                 case DxfFill(tag="pattern", pattern=(name, definition, color, scale, angle)):
-                    hatched.set_pattern_fill(name, color=color, scale=scale, angle=angle, definition=list(definition) or None)  # () def = built-in
+                    hatched.set_pattern_fill(name, color=color, scale=scale, angle=angle, definition=list(definition) or None)
                 case DxfFill(tag="gradient", gradient=(rgb1, rgb2, rotation)):
                     hatched.set_gradient(color1=colors.RGB(*rgb1), color2=colors.RGB(*rgb2), rotation=rotation)
                 case _ as unreachable:
@@ -1051,7 +1020,6 @@ def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> N
             for loop in loops:
                 body.paths.add_polyline_path(loop, is_closed=True)
         case DxfEntity(tag="text", text=(body, insert, height, rotation, align, at)):
-            # rotation rides the TEXT group-50 attribute through the uniform dxfattribs axis; placement derives the ezdxf alignment by member name
             layout.add_text(body, height=height, dxfattribs={**at.gfx(), "rotation": rotation}).set_placement(
                 insert, align=getattr(TextEntityAlignment, align.name)
             )
@@ -1067,9 +1035,9 @@ def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> N
                 if kind is MLeaderKind.BLOCK
                 else layout.add_multileader_mtext(style, dxfattribs=at.gfx())
             )
-            builder.set_content(content)  # mtext string or block name; `MLeaderKind` selects the builder
+            builder.set_content(content)
             for side, vertices in lines:
-                builder.add_leader_line(getattr(mleader.ConnectionSide, side.value), list(vertices))  # derive ConnectionSide by member value
+                builder.add_leader_line(getattr(mleader.ConnectionSide, side.value), list(vertices))
             builder.build(insert=insert)
         case DxfEntity(tag="dimension", dimension=(kind, defpoints, dimstyle, at)):
             _DIM[kind](layout, defpoints, dimstyle, at.gfx()).render()
@@ -1080,10 +1048,10 @@ def _build_entity(layout: "Modelspace | BlockLayout", entity: DxfEntity, /) -> N
                 name, insert, dxfattribs={**at.gfx(), "xscale": scale, "yscale": scale, "rotation": rotation}
             ).add_auto_attribs(dict(values))
         case DxfEntity(tag="image", image=(filename, size_px, insert, size_units, rotation, at)):
-            image_def = layout.doc.add_image_def(filename, size_px)  # the document-level definition one placement references
+            image_def = layout.doc.add_image_def(filename, size_px)
             layout.add_image(image_def, insert, size_units, rotation=rotation, dxfattribs=at.gfx())
         case DxfEntity(tag="underlay", underlay=(filename, insert, scale, rotation, at)):
-            underlay_def = layout.doc.add_underlay_def(filename)  # format derives from the extension (`fmt="ext"`)
+            underlay_def = layout.doc.add_underlay_def(filename)
             layout.add_underlay(underlay_def, insert, scale=scale, rotation=rotation, dxfattribs=at.gfx())
         case DxfEntity(tag="ray", ray=(start, unit_vector, at)):
             layout.add_ray(start, unit_vector, dxfattribs=at.gfx())
@@ -1141,16 +1109,15 @@ def _table_entry(doc: "Drawing", entry: TableEntry, /) -> None:
             assert_never(unreachable)
 
 
-def _attach_xref(doc: "Drawing", ref: Xref, /) -> None:  # bind one external DXF reference by name
+def _attach_xref(doc: "Drawing", ref: Xref, /) -> None:
     xref.attach(doc, block_name=ref.block_name, filename=ref.filename, insert=ref.insert, scale=ref.scale, rotation=ref.rotation)
 
 
 def _authored(spec: DxfDocument, /) -> "tuple[Drawing, Auditor]":
-    # Exemption: the `Drawing` is a mutable builder — the construction fold is ezdxf's platform seam.
     doc = ezdxf.new(spec.version.value, setup=spec.setup, units=int(spec.units))
     match spec.standard:
         case Option(tag="some", some=standard):
-            standard.seed(doc, spec.aec_layers, spec.dim_families)  # drawing/standard#STANDARD ISO fold
+            standard.seed(doc, spec.aec_layers, spec.dim_families)
         case _:
             pass
     for entry in spec.tables:
@@ -1168,7 +1135,6 @@ def _authored(spec: DxfDocument, /) -> "tuple[Drawing, Auditor]":
 
 
 def _counts(doc: "Drawing", /) -> frozendict[str, int]:
-    # whole-graph census: `doc.blocks` spans modelspace, every paperspace layout, and every BlockDef exactly once.
     return frozendict(Counter(entity.dxftype() for block in doc.blocks for entity in block))
 
 
@@ -1194,7 +1160,6 @@ def _serialize(doc: "Drawing", fmt: DxfFormat, /) -> bytes:
 
 
 def _evidence(doc: "Drawing", /) -> DxfComposed:
-    # shared CAD facts read ONCE off a live document; every arm derives its terminal through `msgspec.structs.replace`.
     return DxfComposed(
         data=b"",
         kind=DxfArtifact.DXF,
@@ -1214,8 +1179,6 @@ def _dxf_composed(doc: "Drawing", auditor: "Auditor", fmt: DxfFormat, /) -> DxfC
 
 
 def _flattened(doc: "Drawing", sample: BridgeSample, /) -> Iterator[np.ndarray]:
-    # only `_PATH_TYPES` drawables cross `make_path` (a TOTAL predicate, so no per-element `TypeError` from a
-    # `Text`/`Insert`); `flattening` adaptively samples a curve, `control_vertices` reads the exact NURBS frame.
     for entity in doc.modelspace():
         if entity.dxftype() in _PATH_TYPES:
             outline = dxfpath.make_path(entity)
@@ -1232,8 +1195,6 @@ def _flattened(doc: "Drawing", sample: BridgeSample, /) -> Iterator[np.ndarray]:
 
 
 def _polyline(vertices: np.ndarray, /) -> str:
-    # one drawable's flattened polyline as an SVG path `d` STRING — `Fragment.path` carries the bare `d`
-    # (region's `_document` wraps it in `draw.Path(d=...)`), never a hand-emitted `<path>` element.
     return "M" + " L".join(f"{x:g},{y:g}" for x, y, _ in vertices)
 
 
@@ -1283,14 +1244,12 @@ def _rendered(source: DxfSource, backend: DxfBackend, page: PageSpec, /) -> DxfC
             Frontend(context, sink, config).draw_layout(doc.modelspace(), finalize=True)
             return msgspec.structs.replace(base, data=sink.get_pixmap_bytes(layout, settings=settings, dpi=page.dpi), kind=DxfArtifact.PNG)
         case DxfBackend.EPS | DxfBackend.PS:
-            figure = Figure()  # GC-safe (no `pyplot` global registry), so no bracket — the render sink savefig writes
+            figure = Figure()
             Frontend(context, MatplotlibBackend(figure.add_axes((0.0, 0.0, 1.0, 1.0))), config).draw_layout(doc.modelspace(), finalize=True)
             vector = io.BytesIO()
             figure.savefig(vector, format=backend.value, dpi=page.dpi)
             return msgspec.structs.replace(base, data=vector.getvalue(), kind=DxfArtifact(backend.value))
         case DxfBackend.JSON | DxfBackend.GEOJSON:
-            # both structured backends expose `get_json_data()` (`get_string` is SVGBackend's alone); the data
-            # re-encodes through the one msgspec wire.
             sink = CustomJSONBackend() if backend is DxfBackend.JSON else GeoJSONBackend()
             Frontend(context, sink, config).draw_layout(doc.modelspace(), finalize=True)
             return msgspec.structs.replace(base, data=msgspec.json.encode(sink.get_json_data()), kind=DxfArtifact(backend.value))
@@ -1302,7 +1261,7 @@ def _queried(source: DxfSource, selection: Selection, /) -> DxfComposed:
     doc = _ingest(source)
     matched = doc.query(selection.eql)
     entities = selection.spatial.map(lambda spatial: _spatial(matched, spatial)).default_with(lambda: list(matched))
-    extract = ezdxf.new(doc.dxfversion, setup=True, units=doc.units)  # the extract inherits the SOURCE unit contract, so serialized bytes and evidence agree
+    extract = ezdxf.new(doc.dxfversion, setup=True, units=doc.units)
     importer = Importer(doc, extract)
     importer.import_entities(entities)
     importer.finalize()
@@ -1322,15 +1281,14 @@ def _queried(source: DxfSource, selection: Selection, /) -> DxfComposed:
 
 
 def _transformed(source: DxfSource, spec: TransformSpec, /) -> DxfComposed:
-    # Exemption: `transform.inplace` mutates the ezdxf entities in place — the affine application is ezdxf's platform seam.
     doc = _ingest(source)
     matrix = Matrix44.chain(Matrix44.scale(*spec.scale), Matrix44.z_rotate(spec.rotate), Matrix44.translate(*spec.translate))
-    entities = doc.query(spec.eql)  # `*` = whole modelspace; an EQL string scopes the affine to a sub-selection
+    entities = doc.query(spec.eql)
     match spec.mode:
         case TransformMode.INPLACE:
             transform.inplace(entities, matrix)
         case TransformMode.COPIES:
-            _, copied = transform.copies(entities, matrix)  # (logger, new entities) — add the duplicated set to the modelspace
+            _, copied = transform.copies(entities, matrix)
             msp = doc.modelspace()
             for entity in copied:
                 msp.add_entity(entity)
@@ -1340,8 +1298,6 @@ def _transformed(source: DxfSource, spec: TransformSpec, /) -> DxfComposed:
 
 
 def _svg_rings(shapes: tuple[object, ...], /) -> Result[tuple[tuple[tuple[Point2, ...], bool], ...], PathFault]:
-    # each drawable flattens through the svgelements seam with transforms already reified by the path owner's
-    # parse; closure is the subpath's own Close fact, so the DXF lowering preserves the SVG command algebra.
     rings: list[tuple[tuple[Point2, ...], bool]] = []
     for shape in shapes:
         for sub in SvgPath(shape).as_subpaths():
@@ -1352,7 +1308,6 @@ def _svg_rings(shapes: tuple[object, ...], /) -> Result[tuple[tuple[tuple[Point2
 
 
 def _fragment_rows(d: str, /) -> tuple[tuple[tuple[Point2, ...], bool], ...]:
-    # one glyph d-string flattened through the svgelements seam — the same subpath/Close algebra `_svg_rings` folds
     return tuple(
         (pts, any(isinstance(segment, Close) for segment in sub.segments()))
         for sub in SvgPath(d).as_subpaths()
@@ -1368,8 +1323,6 @@ def _silhouette_ring(*points: Point2) -> tuple[PolyRow, ...]:
     return tuple(_xyseb(px, py) for px, py in points)
 
 
-# closed silhouette rings as lwpolyline xyseb rows over the DXF-space (x, y, w, h) frame, y-up with y the BOTTOM edge; an arc segment
-# rides its start vertex's bulge (bulge = 2*sagitta/chord, positive bowing left of travel), so every curved body stays ONE snappable polyline.
 _SILHOUETTE: frozendict[NodeShape, Silhouette] = frozendict({
     NodeShape.RECTANGLE: lambda x, y, w, h: _silhouette_ring((x, y), (x + w, y), (x + w, y + h), (x, y + h)),
     NodeShape.DIAMOND: lambda x, y, w, h: _silhouette_ring((x + w / 2, y), (x + w, y + h / 2), (x + w / 2, y + h), (x, y + h / 2)),
@@ -1419,18 +1372,10 @@ _SILHOUETTE: frozendict[NodeShape, Silhouette] = frozendict({
         _xyseb(x, y + h * 0.12),
     ),
 })
-# shapes `_node_entities` bodies itself; every OTHER member falls to its catch-all and reads `_SILHOUETTE` by key.
-# RECTANGLE and DOCUMENT rejoin the required set because three of the armed shapes compose their rings.
 _ARMED: Final[frozenset[NodeShape]] = frozenset({
     NodeShape.OVAL, NodeShape.CONNECTOR, NodeShape.ENTITY, NodeShape.PREDEFINED_PROCESS, NodeShape.MULTI_DOCUMENT
 })
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form, seated after the last table so every pair the page reads by key proves in one place — the sibling of the
-# scene worker's `_BOOL`/`_IMPORTER`/`_SOURCE` gate. Each unruled member is otherwise a runtime `KeyError` mid-fold,
-# one worker away from the caller that composed the document. `_UNITS` takes no pair (a comprehension over
-# `DxfUnits`, total by construction) and neither does `_ENTITY_FLOOR` (a deliberately PARTIAL map `DxfDocument.issue`
-# reads through `.get(tag, R12)`, its absent rows meaning "no floor past R12").
 _COVERED: Final[tuple[tuple[frozenset[object], frozenset[object]], ...]] = (
     (frozenset(_SILHOUETTE) | _ARMED, frozenset(NodeShape)),
     (frozenset(_SILHOUETTE) & {NodeShape.RECTANGLE, NodeShape.DOCUMENT}, frozenset({NodeShape.RECTANGLE, NodeShape.DOCUMENT})),
@@ -1445,16 +1390,12 @@ if any(rows != vocabulary for rows, vocabulary in _COVERED):
 
 
 def _label_entity(text: str, x: float, y: float, height: float, rotation: float, at: DxfAttribs, align: TextAlign = TextAlign.MIDDLE_CENTER, /) -> DxfEntity:
-    # diagram labels stay editable source text (the drawio-arm convention); math typesetting is the draw plane's Formula seam
     return DxfEntity(text=(text, (x, y, 0.0), height, rotation, align, at))
 
 
 def _cap_block(cap: EndCap, /) -> tuple[DxfEntity, ...]:
-    # unit terminator geometry in block-local frame: +x runs into the tip — tip at x=0, tail at x=-4, half-width 1.4,
-    # matching the draw arm's marker proportions at cross-egress parity; entities ride layer "0" ByLayer, so every
-    # INSERT inherits its regime pen from the reference.
     at = DxfAttribs()
-    p = lambda a, b: (a - 2.0, b, 0.0)  # marker-frame (a, b) -> block-local xyz, tip at a=2
+    p = lambda a, b: (a - 2.0, b, 0.0)
     if (er := ER_CAPS.get(cap)) is not None:
         ring, bar, fan = er
         bar_a = -1.2 if fan else 0.4
@@ -1477,40 +1418,36 @@ def _cap_block(cap: EndCap, /) -> tuple[DxfEntity, ...]:
         case EndCap.OPEN:
             return (DxfEntity(line=(p(2.0, 0.0), p(-2.0, 1.4), at)), DxfEntity(line=(p(2.0, 0.0), p(-2.0, -1.4), at)))
         case EndCap.BLOCK:
-            return (DxfEntity(solid=((p(-1.4, -1.2), p(1.4, -1.2), p(-1.4, 1.2), p(1.4, 1.2)), at)),)  # DXF SOLID zigzag vertex order (3<->4 swapped)
+            return (DxfEntity(solid=((p(-1.4, -1.2), p(1.4, -1.2), p(-1.4, 1.2), p(1.4, 1.2)), at)),)
         case EndCap.DIAMOND_OPEN:
             return (DxfEntity(lwpolyline=(tuple(_xyseb(*p(a, b)[:2]) for a, b in ((-2.0, 0.0), (0.0, -1.4), (2.0, 0.0), (0.0, 1.4))), True, at)),)
         case EndCap.DIAMOND_FILLED:
-            return (DxfEntity(solid=((p(-2.0, 0.0), p(0.0, -1.4), p(0.0, 1.4), p(2.0, 0.0)), at)),)  # zigzag: left, bottom, top, right
+            return (DxfEntity(solid=((p(-2.0, 0.0), p(0.0, -1.4), p(0.0, 1.4), p(2.0, 0.0)), at)),)
         case EndCap.CIRCLE:
             return (DxfEntity(circle=(p(0.0, 0.0), 1.2, at)),)
         case EndCap.CROSS:
             return (DxfEntity(line=(p(-1.0, -1.4), p(1.0, 1.4), at)), DxfEntity(line=(p(-1.0, 1.4), p(1.0, -1.4), at)))
         case _:
-            return ()  # NONE is fenced at the edge fold; the crow's-foot family returned through ER_CAPS above
+            return ()
 
 
 def _cap_ref(tip: Point2, back: Point2, cap: EndCap, size: float, at: DxfAttribs, /) -> DxfEntity:
-    # one INSERT per edge end: the shared cap block rotates onto the terminal segment and scales so the drawn length is `size`;
-    # every cap is axis-symmetric, so the y-mirrored segment angle needs no chirality correction.
     angle = math.degrees(math.atan2(tip[1] - back[1], tip[0] - back[0]))
     return DxfEntity(blockref=(f"{_CAP_PREFIX}{cap.value}", (tip[0], tip[1], 0.0), size / 4.0, angle, frozendict(), at))
 
 
 def _dash_name(dash: tuple[float, ...], /) -> str:
-    # deterministic linetype name per distinct glyph dash tuple, shared by the attrib writer and the table mint
     return "RASM_DASH_" + "_".join(f"{run:g}" for run in dash).replace(".", "p")
 
 
 def _dash_linetype(dash: tuple[float, ...], /) -> TableEntry:
-    # one linetype row per distinct dash tuple: ezdxf pattern = [total, on, -off, ...]; an odd tuple doubles, the SVG dasharray law
     runs = dash if len(dash) % 2 == 0 else (*dash, *dash)
     pattern = (math.fsum(runs), *(run if index % 2 == 0 else -run for index, run in enumerate(runs)))
     return TableEntry(linetype=(_dash_name(dash), pattern, "glyph dash " + " ".join(f"{run:g}" for run in dash)))
 
 
 def _node_entities(n: NodeMark, size: float, at: DxfAttribs, /) -> tuple[DxfEntity, ...]:
-    bx, by = n.x, -(n.y + n.h)  # SVG y-down top-left -> DXF y-up bottom-left, the one mirror seam
+    bx, by = n.x, -(n.y + n.h)
     seats = tuple(
         DxfEntity(circle=((px, -py, 0.0), max(1.5, n.style.width), at))
         for port in n.ports
@@ -1523,7 +1460,7 @@ def _node_entities(n: NodeMark, size: float, at: DxfAttribs, /) -> tuple[DxfEnti
         case NodeShape.CONNECTOR:
             body = (DxfEntity(circle=((bx + n.w / 2, by + n.h / 2, 0.0), min(n.w, n.h) / 2, at)),)
         case NodeShape.ENTITY:
-            header = by + n.h - ENTITY_BAND  # the shared title band under the y-up top edge
+            header = by + n.h - ENTITY_BAND
             body = (
                 DxfEntity(lwpolyline=(_SILHOUETTE[NodeShape.RECTANGLE](bx, by, n.w, n.h), True, at)),
                 DxfEntity(line=((bx, header, 0.0), (bx + n.w, header, 0.0), at)),
@@ -1535,7 +1472,7 @@ def _node_entities(n: NodeMark, size: float, at: DxfAttribs, /) -> tuple[DxfEnti
                 DxfEntity(line=((bx + bar, by, 0.0), (bx + bar, by + n.h, 0.0), at)),
                 DxfEntity(line=((bx + n.w - bar, by, 0.0), (bx + n.w - bar, by + n.h, 0.0), at)),
             )
-        case NodeShape.MULTI_DOCUMENT:  # offset back sheets behind a front DOCUMENT body, the draw arm's stack at parity
+        case NodeShape.MULTI_DOCUMENT:
             off = min(n.w, n.h) * 0.1
             body = (
                 DxfEntity(lwpolyline=(_SILHOUETTE[NodeShape.RECTANGLE](bx + 2 * off, by + 2 * off, n.w - 2 * off, n.h - 2 * off), True, at)),
@@ -1553,12 +1490,11 @@ def _node_entities(n: NodeMark, size: float, at: DxfAttribs, /) -> tuple[DxfEnti
 def _edge_entities(e: EdgeMark, size: float, cap_size: float, at: DxfAttribs, /) -> tuple[DxfEntity, ...]:
     placed = tuple((px, -py) for px, py in e.points)
     spine = (
-        # layout-resolved splines lower as a fit-point NURBS; a Sankey ribbon rides the constant polyline width, 0.0 keeping the pen
         DxfEntity(spline=(tuple((px, py, 0.0) for px, py in placed), 3, at))
         if e.route is EdgeRoute.SPLINES and len(placed) > 2
         else DxfEntity(lwpolyline=(tuple(_xyseb(px, py, 0.0, e.weight) for px, py in placed), False, at))
     )
-    solid = msgspec.structs.replace(at, linetype="ByLayer")  # terminators keep the regime pen's linetype, never the spine's dash override
+    solid = msgspec.structs.replace(at, linetype="ByLayer")
     caps = tuple(
         _cap_ref(placed[end], placed[adjacent], cap, cap_size, solid)
         for end, adjacent, cap in ((0, 1, e.caps[0]), (-1, -2, e.caps[1]))
@@ -1572,7 +1508,7 @@ def _edge_entities(e: EdgeMark, size: float, cap_size: float, at: DxfAttribs, /)
 
 def _marker_entities(m: MarkerMark, at: DxfAttribs, /) -> tuple[DxfEntity, ...]:
     cx, cy = m.x, -m.y
-    spin = math.radians(-m.angle)  # the SVG clockwise-positive angle mirrors to CCW under the y-flip
+    spin = math.radians(-m.angle)
     ca, sa = math.cos(spin), math.sin(spin)
 
     def w(lx: float, ly: float, /) -> Point3:
@@ -1581,7 +1517,7 @@ def _marker_entities(m: MarkerMark, at: DxfAttribs, /) -> tuple[DxfEntity, ...]:
     match m.kind:
         case MarkerKind.DOT:
             return (DxfEntity(circle=((cx, cy, 0.0), m.style.width * 2.0, at)),)
-        case MarkerKind.ARROW:  # barbed head keeps ARROW distinct from TICK, matching the drawio arm's triangle-vs-line split
+        case MarkerKind.ARROW:
             return (
                 DxfEntity(line=(w(-4.0, 0.0), w(4.0, 0.0), at)),
                 DxfEntity(line=(w(1.5, -2.0), w(4.0, 0.0), at)),
@@ -1600,7 +1536,6 @@ def _marker_entities(m: MarkerMark, at: DxfAttribs, /) -> tuple[DxfEntity, ...]:
 def _area_entities(r: AreaMark, size: float, at: DxfAttribs, /) -> tuple[DxfEntity, ...]:
     ring = tuple((px, -py) for px, py in r.ring)
     body = (
-        # ByLayer solid poché behind the snappable boundary; the xyb row's third ordinal is a zero bulge, never a z
         DxfEntity(hatch=((tuple((px, py, 0.0) for px, py in ring),), DxfFill(solid=256), at)),
         DxfEntity(lwpolyline=(tuple(_xyseb(px, py) for px, py in ring), True, at)),
     )
@@ -1613,7 +1548,6 @@ def _area_entities(r: AreaMark, size: float, at: DxfAttribs, /) -> tuple[DxfEnti
 
 def _glyph_entities(glyph: DiagramGlyph, spec: DiagramLower, /) -> tuple[DxfEntity, ...]:
     style = glyph.mark.style
-    # everything ByLayer: the seeded discipline pen styles the mark; a dashed glyph alone overrides onto its minted linetype row
     at = DxfAttribs(layer=spec.layers[style.layer].compose(), linetype=_dash_name(style.dash) if style.dash else "ByLayer")
     size = style.text.size if style.text is not None else _GLYPH_TEXT[glyph.tag]
     match glyph:
@@ -1642,14 +1576,10 @@ def _glyph_entities(glyph: DiagramGlyph, spec: DiagramLower, /) -> tuple[DxfEnti
 
 
 def _diagram_entities(spec: DiagramLower, /) -> Result[tuple[DxfEntity, ...], RegionFault]:
-    # fragments are admission-proven parseable and non-empty by _fragment_broken, so the lowering walks a total interior
     return Ok(tuple(entity for glyph in spec.glyphs for entity in _glyph_entities(glyph, spec)))
 
 
 def _diagram_document(spec: DiagramLower, entities: tuple[DxfEntity, ...], /) -> DxfDocument:
-    # glyph marks lower to the SAME closed drawable vocabulary the authoring arm folds, so `_build_entity`,
-    # `Standard.seed`, the audit, and the receipt serve the diagram arm with zero new ezdxf surface; each used
-    # terminator becomes ONE shared block definition, each distinct dash tuple ONE linetype row.
     used = tuple(dict.fromkeys(
         entity.blockref[0] for entity in entities if entity.tag == "blockref" and entity.blockref[0].startswith(_CAP_PREFIX)
     ))
@@ -1658,7 +1588,7 @@ def _diagram_document(spec: DiagramLower, entities: tuple[DxfEntity, ...], /) ->
         version=spec.version,
         units=spec.units,
         standard=Some(spec.standard),
-        aec_layers=tuple(dict.fromkeys(spec.layers.values())),  # two glyph layer names may share one regime row; seed each row once
+        aec_layers=tuple(dict.fromkeys(spec.layers.values())),
         tables=tuple(_dash_linetype(dash) for dash in dashes),
         blocks=tuple(BlockDef(name=name, entities=_cap_block(EndCap(name.removeprefix(_CAP_PREFIX)))) for name in used),
         entities=entities,
@@ -1673,18 +1603,15 @@ def _bridged(spec: BridgeSpec, /) -> Result[DxfComposed, RegionFault]:
             base = _evidence(doc)
             fragments = tuple(Fragment(path=_polyline(vertices)) for vertices in _flattened(doc, sample) if len(vertices) >= 2)
             if not fragments:
-                return Error(RegionFault(geometry=PathFault(empty=None)))  # a pathless or degenerate document never serializes
+                return Error(RegionFault(geometry=PathFault(empty=None)))
             return apply_region(
                 RegionOp.Serialize(fragments, (base.extent[0], base.extent[1], base.extent[3], base.extent[4]))
             ).map(lambda outcome: msgspec.structs.replace(base, data=outcome.document, kind=DxfArtifact.SVG))
         case BridgeSpec(tag="from_svg", from_svg=(source, version, attribs, units)):
-            # TRUE SVG ingress: the graphic/vector path owner parses commands, transforms, and closure, and the
-            # tolerance-flattened rings lower through the ezdxf path bridge under an EXPLICIT unit declaration —
-            # never pre-flattened anonymous rings wearing an SVG name, never a provider-default unit.
             doc = ezdxf.new(version.value, setup=True, units=units.value)
             match scene(source).bind(_svg_rings):
                 case Result(tag="error", error=fault):
-                    return Error(RegionFault(geometry=fault))  # the composed path fault carried whole, never re-classified
+                    return Error(RegionFault(geometry=fault))
                 case Result(tag="ok", ok=rings):
                     paths = [dxfpath.from_vertices(ring, close=closed) for ring, closed in rings if ring]
                     dxfpath.render_lines(doc.modelspace(), paths, dxfattribs=attribs.gfx())
@@ -1694,7 +1621,6 @@ def _bridged(spec: BridgeSpec, /) -> Result[DxfComposed, RegionFault]:
             proxy = dxfgeo.proxy(entity for entity in doc.modelspace() if entity.dxftype() in _GEO_TYPES)
             return Ok(msgspec.structs.replace(_evidence(doc), data=msgspec.json.encode(proxy.__geo_interface__), kind=DxfArtifact.GEOJSON))
         case BridgeSpec(tag="from_geojson", from_geojson=(mapping, version, attribs)):
-            # Exemption: the `Drawing` mutable builder — the GeoProxy entity fold is ezdxf's construction seam.
             doc = ezdxf.new(version.value, setup=True)
             msp = doc.modelspace()
             for entity in dxfgeo.GeoProxy.parse(msgspec.json.decode(mapping)).to_dxf_entities(dxfattribs=attribs.gfx()):
@@ -1709,7 +1635,7 @@ def _bridged(spec: BridgeSpec, /) -> Result[DxfComposed, RegionFault]:
             assert_never(unreachable)
 
 
-def _composed(op: DxfOp) -> Result[DxfComposed, RegionFault]:  # one fold the `_emit` lane crossing runs
+def _composed(op: DxfOp) -> Result[DxfComposed, RegionFault]:
     match op:
         case DxfOp(tag="new", new=document):
             doc, auditor = _authored(document)
@@ -1736,14 +1662,11 @@ def _composed(op: DxfOp) -> Result[DxfComposed, RegionFault]:  # one fold the `_
 
 # --- [SERVICES] -------------------------------------------------------------------------
 class Dxf(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     op: DxfOp
     lane: LanePolicy
 
     @classmethod
     def of(cls, subject: "DxfOp | DxfDocument | DxfSource | DiagramLower | BridgeSpec", /, *, lane: LanePolicy) -> Result[Self, DxfFault]:
-        # one validated ingress, input-shape-discriminated: a bare document authors, a bare source reads, a bare
-        # glyph lowering diagrams, a bare bridge crosses, a full op passes — every arm then gates through the `_checked` admission fold.
         match subject:
             case DxfDocument() as document:
                 op = DxfOp(new=document)
@@ -1764,13 +1687,9 @@ class Dxf(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT: canonical op payload minted PRE-RUN — never a key over the composed DXF bytes;
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         return ContentIdentity.key(f"dxf-{self.op.tag}", _CANON.encode(self.op))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # one lane crossing, one rail: the thread offload converts a provider raise to `BoundaryFault`, `.map`
-        # threads the PRE-RUN key onto the receipt (receipt.slot == node.key) — no second boundary, no raise-bridge.
         crossed = await self.lane.offload(Kernel.of(_composed, KernelTrait.RELEASING), self.op)
         settled = crossed.bind(
             lambda inner: inner.map(
@@ -1788,12 +1707,6 @@ class Dxf(Struct, frozen=True):
                 )
             ).map_error(lambda fault: BoundaryFault(domain=(DXF_REGION.subject, fault)))
         )
-        # Delivered CAD exchange files are the production trail a downstream consumer re-opens, so this fold lands
-        # `OPERATIONAL` durable evidence whose diff carries the whole declared ledger — dxfversion, units, the
-        # artifact format, layer and block rosters, and the `Auditor` error/fix pair the governed `errors` ceiling
-        # already bars — beside its `STORAGE` byte charge, while the entity census rides the band and never the
-        # audit row. Recording suspends where the synchronous `contribute` cannot, so this awaitable fold is the
-        # seat and its rail binds into the emit's own verdict.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)

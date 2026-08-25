@@ -25,13 +25,13 @@ Lanes run SINGLE-PASS at the pipeline: the bracket admits once, and the in-proce
 - Boundary: `Interactive` and `Ranked` hold ONE rank by declaration and the folder does not treat that as a defect — rank orders lanes against each other and these two are equally urgent, while the datum that separates them is `Rasm.Compute/Runtime/scheduling`'s own `LaneBound` column (`Parked(16)` against `Ranked(256)` with an earliest-deadline comparer), which is exactly the column the boundary above leaves at its deciding stratum; a rank column split to make the two differ here would encode a Compute channel shape in a spine roster.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using Thinktecture;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -54,7 +54,6 @@ public sealed partial class PipelineKey {
 
     public static PipelineKey Of(WorkLane lane) => Create(Head + lane.Key);
 
-    // Polly reports a pipeline NAME as free text on its refusal exceptions; this is that text's one admission.
     public static Option<PipelineKey> Named(string? reported) =>
         Validate(reported, out PipelineKey? key) is null ? Optional(key) : None;
 
@@ -74,7 +73,7 @@ public abstract partial record Departure {
     public static Departure Attempt { get; } = new AttemptCase();
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LanePolicy(WorkLane Lane, int Floor, double Trip, DegradationLevel ShedFloor, RedrivePolicy Redrive) {
     public int Permits => Floor * 2;
 
@@ -84,8 +83,6 @@ public sealed record LanePolicy(WorkLane Lane, int Floor, double Trip, Degradati
 
     public int Narrowed => int.Max(Floor / 4, 1);
 
-    // `HalfOpenAttempts` is the one per-execution datum the breaker hands a generator, and the generator
-    // supersedes `BreakDuration` entirely — so that column is absent rather than set and unread.
     public CircuitBreakerStrategyOptions Breaker(TimeSpan attempt, CircuitBreakerManualControl dark, CircuitBreakerStateProvider evidence) =>
         new() {
             Name = LaneStrategy.Breaker.Key,
@@ -98,8 +95,6 @@ public sealed record LanePolicy(WorkLane Lane, int Floor, double Trip, Degradati
             StateProvider = evidence,
         };
 
-    // Replenishment is OFF because the bucket lives inside the partitioned limiter, whose ONE heartbeat calls
-    // `TryReplenish` on every partition it holds — the period still governs and no per-tenant timer exists.
     public TokenBucketRateLimiterOptions Bucket(TimeSpan attempt) => new() {
         ReplenishmentPeriod = attempt,
         TokensPerPeriod = Floor,
@@ -118,8 +113,6 @@ public sealed record LanePolicy(WorkLane Lane, int Floor, double Trip, Degradati
 
 
 
-// Numeric identity is generated from the direct leaf's `[FaultCase]`; per-case Retriability
-// stays the family's own — the throttled/transient discriminants below are the dispatch evidence.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LaneFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.LaneGuard;
@@ -180,7 +173,7 @@ public abstract partial record LaneFault : Fault {
 
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LaneClass {
     public const int LatencyRank = 1;
 
@@ -204,7 +197,7 @@ public static class LaneClass {
 - Boundary: `LaneGuard` is the spine owner for the in-process command/solve edge, distinct from the transport `KeyedLane`, and the keyed-pipeline registry mirrors `Wire/outbound#KEYED_PIPELINES` `KeyedLane.Register`'s `AddResiliencePipeline`/`CircuitBreakerManualControl`/`CircuitBreakerStateProvider` pattern verbatim so the in-process and transport resilience share one shape, never a second registry pattern; a kernel fold reached from inside `Run` takes the token the work delegate is HANDED and seats it through that fold's own governance column — the arrangement band's `ArrangementPolicy.Governed(progress, token)` is the landed instance — so the lane's deadline, breaker, and shed all reach the native lane through one token and a kernel-boundary `CancellationTokenSource` is the second owner this discipline forbids; `WorkLane` names the solve-path lane distinct from the `Runtime/resources#DRAIN_QUEUES` `DrainQueue` process-queue name, one altitude per name; the resilience meter carries the lane key as a TAG through `ConfigureTelemetry(TelemetryOptions)` — the `ILoggerFactory` overload sets a logger alone, so a page claiming a per-lane series behind it publishes none; `SeverityProvider` returns `ResilienceEventSeverity` because the Polly callback contract fixes that type, so the kernel `AlertSeverity` ladder rides the `LaneFault` family at the receipt seam and never this callback; the two limiter rows both raise `RateLimiterRejectedException`, so the fold resolves `ResilienceTelemetrySource.StrategyName` back through the roster and a lane-pool refusal stays distinguishable from a tenant-bucket refusal; a limiter reached through a lease producer is COMPOSITION-owned and the package disposes none of it, so both admission cells release at the one `DrainBand.Telemetry` participant; the composition registers `TimeProvider` in the container so every registry pipeline's sampling window, break duration, and injected latency ride the one `ClockPolicy` clock; the COMPOSED chain is proved off the built pipeline in the suite through `Polly.Testing` `pipeline.GetPipelineDescriptor().Strategies` — an ordered roster whose `Options` type and `Name` are the assertable identity — because resolution alone admits a lane whose arms silently dropped a strategy, and that inspection dependency belongs on the test plane; no `AddSingleton` spelling — the registry composes through `AddResiliencePipeline` exactly as the keyed transport registry does.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -220,9 +213,6 @@ public sealed partial class LaneStrategy {
     [UseDelegateFromConstructor]
     public partial ResiliencePipelineBuilder Arm(ResiliencePipelineBuilder builder, LaneGuard.Composition composition, LanePolicy row);
 
-    // Tenancy reaches the lease producer through the typed context property `Run` fixes at lease, never
-    // through the ambient slot: a strategy runs on whichever execution context Polly hands it, so an ambient
-    // read is correct only where the seam happens to be linear and silently answers root where it is not.
     static ResiliencePipelineBuilder ArmTenant(ResiliencePipelineBuilder builder, LaneGuard.Composition composition, LanePolicy row) =>
         builder.AddRateLimiter(new RateLimiterStrategyOptions {
             Name = Tenant.Key,
@@ -233,8 +223,6 @@ public sealed partial class LaneStrategy {
                 args.Context.CancellationToken),
         });
 
-    // Lane pool is a LIVE limiter the resize writes, reached per execution through the lease producer —
-    // `AddConcurrencyLimiter` binds its permit count once at build, so that overload cannot carry a resize.
     static ResiliencePipelineBuilder ArmBulkhead(ResiliencePipelineBuilder builder, LaneGuard.Composition composition, LanePolicy row) =>
         builder.AddRateLimiter(new RateLimiterStrategyOptions {
             Name = Bulkhead.Key,
@@ -244,7 +232,6 @@ public sealed partial class LaneStrategy {
     static ResiliencePipelineBuilder ArmBreaker(ResiliencePipelineBuilder builder, LaneGuard.Composition composition, LanePolicy row) =>
         builder.AddCircuitBreaker(row.Breaker(composition.Allotted(row.Lane.Attempt), composition.Dark, composition.Evidence.Of(row.Lane)));
 
-    // `TimeoutGenerator` reads a context this seat puts no budget on, so it would return this constant.
     static ResiliencePipelineBuilder ArmDeadline(ResiliencePipelineBuilder builder, LaneGuard.Composition composition, LanePolicy row) =>
         builder.AddTimeout(new TimeoutStrategyOptions {
             Name = Deadline.Key,
@@ -257,14 +244,12 @@ public sealed partial class LaneStrategy {
                 state: (Chain: chain, Arming: arming, Band: band, Behaviors: composition.Behaviors),
                 latency: static seat => seat.Chain.AddChaosLatency(seat.Arming.Latency(seat.Band)),
                 fault: static seat => seat.Chain.AddChaosFault(seat.Arming.Fault(seat.Band, LaneGuard.ChaosFaults)),
-                // Result substitution is the ONE plane a non-generic pipeline cannot reach, so its arm
-                // returns its chain untouched rather than pretending a per-result-type registration exists.
                 outcome: static seat => seat.Chain,
                 behavior: static seat => seat.Chain.AddChaosBehavior(seat.Arming.Behavior(seat.Band, seat.Behaviors)))),
             None: () => builder);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class LaneEvidence {
     readonly FrozenDictionary<WorkLane, CircuitBreakerStateProvider> cells;
 
@@ -350,8 +335,6 @@ public static class LaneGuard {
                         }),
                         (chain, strategy) => strategy.Arm(chain, composition, row))))));
 
-    // The reverse direction needs no fold: `LanePolicy.Lane` is typed `WorkLane`, so a policy naming a lane
-    // the roster does not carry is unconstructible. A missing row is a BOOT fault, never a `LaneFault` arm.
     static Fin<Seq<LanePolicy>> Closed(Seq<LanePolicy> rows) =>
         toSeq(WorkLane.Items)
             .Traverse(lane => rows.Filter(row => row.Lane == lane).Count is 1
@@ -361,9 +344,6 @@ public static class LaneGuard {
             .Map(_ => rows)
             .ToFin();
 
-    // A pipeline exists only after `BuildServiceProvider`, so the built-provider gate runs this fold and
-    // `TryGetPipeline` is the non-throwing probe where `GetPipeline` raises. Resolution is its WHOLE claim —
-    // a lane whose arms dropped a strategy still resolves, so the chain proves off the built descriptor.
     public static Fin<Runtime> Proven(
         ResiliencePipelineProvider<string> pipelines, Composition composition, params ReadOnlySpan<LanePolicy> rows) =>
         Closed(Iterable<LanePolicy>.FromSpan(rows).ToSeq())
@@ -384,9 +364,6 @@ public static class LaneGuard {
             admittedCase: static (frame, _) => IO.liftAsync(env => Executed(frame.Seat, frame.Lane, frame.Work, env.Token)).Bind(Lifted),
             shedCase: static (_, refused) => IO.fail<T>(new LaneFault.Shed(refused)));
 
-    // Named boundary capsule: the pooled-context lease `try`/`finally` and the outcome-capture kernel are the
-    // platform-forced statement seam. `OperationKey` fixes at lease, so every strategy event and the execution
-    // correlate on the lane key without a join.
     static async ValueTask<(Outcome<T> Outcome, Departure From)> Executed<T>(
         Runtime.Seat seat, WorkLane lane, Func<CancellationToken, IO<T>> work, CancellationToken token) {
         ResilienceContext context = ResilienceContextPool.Shared.Get(PipelineKey.Of(lane).Value, token);
@@ -406,8 +383,6 @@ public static class LaneGuard {
         finally { ResilienceContextPool.Shared.Return(context); }
     }
 
-    // Ordered child-before-parent: `IsolatedCircuitException` derives from `BrokenCircuitException`. The
-    // `ErrorException` keeps a caller's typed fault typed; every other exception retains its original cause.
     static IO<T> Lifted<T>((Outcome<T> Outcome, Departure From) captured) => (captured.Outcome, captured.From) switch {
         ({ Exception: null, Result: { } value }, _) => IO.pure(value),
         ({ Exception: OperationCanceledException cancelled }, Departure.CallerCase) => IO.fail<T>(
@@ -446,9 +421,8 @@ public static class LaneGuard {
 - Boundary: this cell is a keyed limiter SET and the branch ruling that keyed limiter sets ride `PartitionedRateLimiter.Create` does not reach it, because that ruling is about unbounded key cardinality (one bucket per tenant the process ever saw) while this key space is the six-row `WorkLane` roster and its whole purpose is REPLACING an instance the partition factory would only ever mint once; the tenant cell above IS the partitioned form, so the two admission shapes sit on opposite sides of that discriminant by declaration. Retirement is bounded on both ends: the reclaim sweep releases every parked limiter whose `IdleDuration` reads present — the package's own evidence that every permit returned — so a long-lived process does not accumulate one retired limiter per resize interval, and the drain releases whatever the sweeps left.
 
 ```csharp signature
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class AdaptiveConcurrency {
-    // Named policy ratios per the const discipline — an inline CPU threshold is the deleted literal.
     public const double Pressured = 0.75d;
     public const double Saturated = 0.90d;
 
@@ -461,29 +435,24 @@ public static class AdaptiveConcurrency {
         };
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class LanePermits(ClockPolicy clocks, Func<Utilization> utilization) {
     public static readonly Duration ResizeInterval = Duration.FromSeconds(5);
 
     readonly Atom<HashMap<WorkLane, Seat>> seats = Atom(HashMap<WorkLane, Seat>());
     readonly Atom<Seq<ConcurrencyLimiter>> parked = Atom(Seq<ConcurrencyLimiter>());
 
-    // An unmeasured mark is a real state, not a zero: `Option` keeps a refused capture from reading as an
-    // interval long enough to resize on.
     readonly record struct Seat(int Permits, Option<MonotonicStamp> Mark, ConcurrencyLimiter Limiter);
 
     readonly record struct Retirement(Seq<ConcurrencyLimiter> Idle, Seq<ConcurrencyLimiter> Held) {
         public static readonly Retirement Empty = new(Seq<ConcurrencyLimiter>(), Seq<ConcurrencyLimiter>());
     }
 
-    // The seated read comes FIRST because the claim mints its candidate outside the transition, so the
-    // steady-state path builds no limiter it would then have to dispose.
     public RateLimiter Of(LanePolicy row) =>
         seats.Value.Find(row.Lane).Match(
             Some: held => Cadenced(row, held),
             None: () => Contested(row, Seated(row, row.Permits)));
 
-    // Ceded is the LOSER'S answer, so this caller disposes the limiter it built and reads the winner's seat.
     RateLimiter Contested(LanePolicy row, Seat candidate) =>
         Cell.Claim(seats, row.Lane, () => candidate) switch {
             Transition<HashMap<WorkLane, Seat>>.Committed committed => committed.State[row.Lane].Limiter,
@@ -507,8 +476,6 @@ public sealed class LanePermits(ClockPolicy clocks, Func<Utilization> utilizatio
     RateLimiter Resized(LanePolicy row, Seat held, MonotonicStamp now) =>
         Sized(row, held, now, AdaptiveConcurrency.Resize(row, utilization()));
 
-    // An unmoved count still advances the mark, so a lane settled at its full pool reads utilization once
-    // per interval rather than once per execution.
     RateLimiter Sized(LanePolicy row, Seat held, MonotonicStamp now, int permits) =>
         permits == held.Permits
             ? Stepped(row, held, held with { Mark = Some(now) }).Current[row.Lane].Limiter
@@ -521,16 +488,12 @@ public sealed class LanePermits(ClockPolicy clocks, Func<Utilization> utilizatio
             var declined => (next.Limiter.Dispose(), declined.Current[row.Lane].Limiter).Item2,
         };
 
-    // The guard re-reads the seat the caller saw, so a declined verdict IS the report that a contender
-    // committed first, and the loser reads the winner's seat off the same transition.
     Transition<HashMap<WorkLane, Seat>> Stepped(LanePolicy row, Seat held, Seat next) =>
         Cell.Step(
             seats,
             map => map.Find(row.Lane).Filter(seat => ReferenceEquals(seat.Limiter, held.Limiter)).Map(_ => map.SetItem(row.Lane, next)),
             new KernelFault.InvalidValue(Label: row.Lane.Key, Requirement: "<the seat this caller read>"));
 
-    // `IdleDuration` reads present only when every permit has returned, so a limiter still holding a lease
-    // re-parks for the next sweep rather than being disposed under it.
     public IO<Unit> Reclaim() =>
         IO.lift(() => Cell.Take(parked).Current.Fold(Retirement.Empty, static (split, limiter) =>
                 limiter.IdleDuration is null
@@ -540,8 +503,6 @@ public sealed class LanePermits(ClockPolicy clocks, Func<Utilization> utilizatio
                 .Bind(_ => split.Idle.TraverseM(Released).As()))
             .Map(static _ => unit);
 
-    // The drained roster is the TRANSITION'S own payload — a swap to empty answers the empty post-state,
-    // which is why the retired instances used to be dropped here and every resize leaked one.
     public IO<Unit> Drain() =>
         IO.lift(() => Cell.Take(parked).Current)
             .Bind(static rows => rows.TraverseM(Released).As())
@@ -564,7 +525,7 @@ public sealed class LanePermits(ClockPolicy clocks, Func<Utilization> utilizatio
 - Boundary: the verdict is the one per-`WorkLane` admission fact — the case `LaneGuard` mints from the atomic `DegradationReading` is the one verdict `Rasm.Compute/Runtime/admission` consumes on its `SubstrateSelection` fold rather than a Compute-side re-derivation (the `ONE_DEGRADATION_SHED_VERDICT` ripple), so the in-process refusal and the Compute veto read one value and a Compute-side re-derivation from raw saturation is the rejected form; the seam couples to the CASE, so a consumer reads `is Admission.ShedCase { Cause: … }` and carries lane, level, and cause into its own hop reason — the earlier `bool Shed` column ORed pressure and breaker into one bit, so a Compute reason string could not say which refusal it was degrading around, and that erasure is what the union retires; the breaker column refuses on `Open` and `Isolated` and ADMITS on `HalfOpen`, because a half-open breaker is waiting for exactly one probe and a verdict refusing that probe leaves the lane dark until something else dispatches — a recovery deadlock the two-state read forecloses; `CircuitBreakerStateProvider` answers `Closed` while unattached, so a verdict minted before the provider binds admits rather than inventing darkness; the consumer count stays TWO under a kernel fold, because `Run` refuses BEFORE it invokes the work delegate — a refused lane never enters the fold, so the kernel governance band inherits the decision by absence.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -574,7 +535,7 @@ public sealed partial class ShedCause {
     public static readonly ShedCause Broken = new("broken");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct LaneReading(WorkLane Lane, DegradationLevel Level, CircuitState Breaker);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -591,8 +552,6 @@ public abstract partial record Admission {
     public static Admission Of(DegradationReading reading, LanePolicy row, CircuitState breaker) =>
         Cased(new LaneReading(row.Lane, reading.Level, breaker), row.ShedFloor);
 
-    // Cause order is the escalation order: operator act, then the lane's own health, then the host's
-    // pressure. `CircuitState` is the package's own open enum, so the tail arm catches a foreign family.
     static Admission Cased(LaneReading seen, DegradationLevel floor) => seen.Breaker switch {
         CircuitState.Isolated => new ShedCase(seen, ShedCause.Dark),
         CircuitState.Open => new ShedCase(seen, ShedCause.Broken),

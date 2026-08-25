@@ -87,28 +87,19 @@ from rasm.runtime.identity import ContentIdentity, ContentKey
 from rasm.runtime.metrics import MEASURES, TENANT_BAGGAGE, Metrics
 from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, REDACTED, Receipt, Redaction, ScopeKey, Signals
 
-lazy from cryptography.exceptions import InvalidTag, UnsupportedAlgorithm  # cold native tier: reified at the first crossing
+lazy from cryptography.exceptions import InvalidTag, UnsupportedAlgorithm
 lazy from cryptography.hazmat.primitives.ciphers.aead import AESGCMSIV, AESSIV
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# JSON-pointer path and dotted audit verb, both refined at the field so the diff vocabulary greps and groups without
-# a central verb registry; `Meta` runs inside the C decoder, so a malformed historical row refuses at admission
-# rather than reaching a policy fold that cannot type it. Both anchor on `\A`/`\Z` because `Meta` matches by SEARCH
-# and `$` admits a trailing newline — a verb or pointer carrying one otherwise lands as a distinct grep token that
-# renders identically to its clean twin.
 type Pointer = Annotated[str, Meta(pattern=r"\A(/[^/~]*(~[01][^/~]*)*)*\Z")]
 type Verb = Annotated[str, Meta(pattern=r"\A[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+\Z")]
 type Quantity = Annotated[int, Meta(ge=0)]
 type Subject = Annotated[str, Meta(min_length=1, max_length=200)]
-# stream tokens close the msgspec tag set, so the row column, the receipt roster, and the ledger discriminant
-# all narrow to the same two literals and a third stream cannot land without its record.
 type Stream = Literal["audit", "meter"]
 
 
 class Actor(StrEnum):
-    # `Actor` closes the actor-class vocabulary the party shape takes as its kind parameter, byte-identical to the
-    # peer roster at `libs/typescript/data/.planning/journal/fact.md`, so one audit row reads the same class on both.
     USER = "user"
     SERVICE = "service"
     SYSTEM = "system"
@@ -130,9 +121,6 @@ class Retain(StrEnum):
 
 
 class Series(StrEnum):
-    # every measure this owner records, spelled ONCE and proved whole at install, so a missing `INSTRUMENTS` row refuses the
-    # composition by name instead of raising `KeyError` out of the first append. UNITS ARE ABSENT BY LAW — the census owns each
-    # row's unit, and a second spelling here exports a rescaled series nothing raises on.
     APPENDED = "rasm.journal.appended"
     DEDUPED = "rasm.journal.deduped"
     DEFERRED = "rasm.journal.deferred"
@@ -144,8 +132,6 @@ class Series(StrEnum):
 
 
 class Motion(StrEnum):
-    # low-cardinality `kind` for series about the PLANE itself — a fact's series takes that record's own `kind` — so a board
-    # groups plane health without learning which retention classes or resources exist.
     APPEND = "append"
     GROOM = "groom"
     ERASE = "erase"
@@ -153,64 +139,37 @@ class Motion(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# this owner's one name serving three vocabularies — receipt owner label, `DOMAINS` census segment, content-key format
-# domain — spelled once, so a rename cannot leave a census pair or a key domain behind.
 OWNER: Final[str] = "journal"
 
-# NodaTime unix-tick geometry: `Hlc.physical_ticks` counts 100-ns intervals since the epoch. Every crossing into
-# tick space runs integer arithmetic end to end — `time_ns` floor-divides, an aware instant and a window subtract
-# through `timedelta` floor-division — so a float mantissa never rounds a stamp, a billing boundary, or a cutoff.
 NANOS_PER_TICK: Final[int] = 100
 TICKS_PER_MICRO: Final[int] = 1_000 // NANOS_PER_TICK
 EPOCH: Final[datetime] = datetime(1970, 1, 1, tzinfo=UTC)
 MICRO: Final[timedelta] = timedelta(microseconds=1)
 
-# stream tokens the ledger discriminates rows by; each spells its own record's msgspec tag, so wire discriminant, row
-# column, and receipt roster read one literal, and `STREAMS` DERIVES from the type so a third record cannot leave the
-# receipt advertising a roster the family outgrew.
 AUDIT_STREAM: Final[Stream] = "audit"
 METER_STREAM: Final[Stream] = "meter"
 STREAMS: Final[tuple[Stream, ...]] = get_args(Stream.__value__)
 
-# every record defaults to this unstamped slot and the stamp cell seeds on it; `record` replaces it on admission, so its
-# whole role is making the writer — never the caller — the mint authority.
 UNSTAMPED: Final[Hlc] = Hlc(physical_ticks=0, logical=0)
 
-# intake bound, batch width, and the patience a quiet surface still flushes on. The intake is BOUNDED and the writer
-# AWAITS it: back-pressure suspends the producer, where a `send_nowait` drop loses billing truth nothing can replay.
 INTAKE: Final[int] = 512
 BATCH_WIDTH: Final[int] = 128
 FLUSH_SECONDS: Final[float] = 2.0
 
-# decorrelated-jitter append backoff, capped so a dead ledger costs a bounded cadence and a fleet of drains never
-# re-hits a recovering ledger in lockstep; attempts never exhaust, because shedding a fact is the one failure this
-# rail refuses.
 BACKOFF_SECONDS: Final[float] = 0.1
 BACKOFF_CEILING: Final[float] = 10.0
 
-# AEAD geometry: 96-bit nonce is AES-GCM-SIV's own width, 256-bit data keys seal payloads, and the KEK is the
-# 512-bit AES-256-SIV double key (one half MAC, one half CTR). `AEAD_SLOTS` bounds the worker threads the envelope
-# crossing offloads onto, so an unbounded payload costs a slot rather than the loop.
 NONCE_BYTES: Final[int] = 12
 KEY_BITS: Final[int] = 256
 KEK_BITS: Final[int] = 512
 AEAD_SLOTS: Final[CapacityLimiter] = CapacityLimiter(8)
 
-# exact-decimal money context: half-even at scale four, traps armed so an invalid or overflowing rate raises inside
-# one rating fence rather than silently rounding a charge, and `FloatOperation` armed so a float operand REFUSES
-# instead of contaminating a settlement. `Inexact` stays untrapped, since the terminal quantize IS the intended
-# rounding and trapping it refuses every fractional price.
 MONEY: Final[Context] = Context(
     prec=34, rounding=ROUND_HALF_EVEN, traps=[InvalidOperation, DivisionByZero, Overflow, FloatOperation]
 )
 SCALE: Final[Decimal] = Decimal("0.0001")
 
-# hook points this owner registers at composition: the append point admits or refuses a fact BEFORE it occupies
-# intake capacity, and the erase point fans the tombstone after key destruction lands, so a compliance observer
-# subscribes to the fact instead of instrumenting this fold.
 class JournalGate(StrEnum):
-    # this folder's OWN hook-id roster: the mechanism owns the `HookId` SHAPE and every package owns its members, so
-    # a fire seam names a member and no bare string can construct a row or reach `Hooks.fire`.
     APPEND = "rasm.runtime.journal.append"
     ERASE = "rasm.runtime.journal.erase"
 
@@ -237,20 +196,12 @@ type Change = Assigned | Cleared | Shifted
 
 
 class Party[K: str](Struct, frozen=True, gc=False):
-    # ONE party shape whose kind VOCABULARY is the parameter: the actor half closes on `Actor` and refuses an
-    # out-of-roster class at decode, the target half stays open because a target names whatever noun its verb
-    # touched. A closed class column seated BESIDE an open one on the same record puts two answers on the actor's
-    # class, and the column no producer fills then defaults its way into every stored row as a lie.
     kind: K
     key: str
     parent: str | None = None
 
 
 class AuditFact(Struct, tag=AUDIT_STREAM, frozen=True, omit_defaults=True):
-    # class-level slots ride the TYPE and never the wire: `stream` is the ledger discriminant, `gate` the
-    # admission point this record crosses, and the billing pair answers absent so `_rowed` stays total over the
-    # family. Declaring them here is what keeps every consuming fold total — a third stream lands as one more
-    # record with its own slots and edits no fold.
     stream: ClassVar[Stream] = AUDIT_STREAM
     gate: ClassVar[HookId | None] = JournalGate.APPEND
     resource: ClassVar[Resource | None] = None
@@ -261,12 +212,8 @@ class AuditFact(Struct, tag=AUDIT_STREAM, frozen=True, omit_defaults=True):
     target: Party[str]
     retention: Retain
     change: tuple[Change, ...] = ()
-    # subject keys this fact touched — the ONE index the portability export walks and the erasure keys on, making a
-    # data-subject read an index scan instead of a full-stream crawl.
     subjects: tuple[Subject, ...] = ()
     tenant: Tenant | None = None
-    # `record` REPLACES this slot at admission; a caller-threaded coordinate would let two producers mint one content
-    # key and dedup genuine evidence away as a redelivery.
     stamp: Hlc = UNSTAMPED
 
     @property
@@ -279,9 +226,6 @@ class AuditFact(Struct, tag=AUDIT_STREAM, frozen=True, omit_defaults=True):
 
 
 class MeterFact(Struct, tag=METER_STREAM, frozen=True, omit_defaults=True):
-    # metering carries NO admission point and no retention column: a charge is a quantity the rating fold prices
-    # rather than a policy surface a subscriber starves, and billing truth is regulatory by constitution. Both
-    # answers ride the type, so the drain reads one shape across the family and neither is a caller's to weaken.
     stream: ClassVar[Stream] = METER_STREAM
     gate: ClassVar[HookId | None] = None
     retention: ClassVar[Retain] = Retain.REGULATORY
@@ -299,35 +243,17 @@ class MeterFact(Struct, tag=METER_STREAM, frozen=True, omit_defaults=True):
 
     @property
     def measures(self) -> Mapping[str, float]:
-        # one landed row plus the quantity onto the series its `RESOURCES` row names; resources sharing a unit share a
-        # series and separate on `kind`, since folding milliseconds into a byte counter exports an uninterpretable sum.
-        # `Mapping` is invariant in its key, so the declared type stays `str` and a `Series` member satisfies both.
         return {Series.APPENDED: 1.0, RESOURCES[self.resource]: float(self.quantity)}
 
 
 type Fact = AuditFact | MeterFact
 type Recordable = Fact | Iterable[Fact]
 
-# one converter per closed family, seated with the owner it converts, on the msgpack arm the branch content-key law
-# fixes — one deterministic `msgspec.msgpack` encode feeds one XxHash128, so this preimage matches the canonical
-# arm `evidence/identity#IDENTITY` already mints and JSON never enters identity. `order="deterministic"` fixes key
-# order, so encoded payload IS the preimage and a replayed fact keys byte-identically; no `enc_hook` rides the
-# encoder, and every field is a native msgspec type, so encoding is TOTAL over admitted facts by construction.
-# `DECODE` is what a ledger composes to lift a stored payload back into the family, and its `Meta` bounds re-run
-# over every historical row at scan — a bound may widen once rows landed, never tighten.
 ENCODE: Final[Callable[[Fact], bytes]] = Encoder(order="deterministic").encode
 DECODE: Final[Callable[[bytes], Fact]] = Decoder(type=Fact).decode
 
 
 class FactRow(Struct, frozen=True):
-    # ledger projection: `key` content-keys its own encoded payload, so an at-least-once landing dedups structurally;
-    # each stamp rides INSIDE its payload, so two genuinely distinct facts never collide on one key. Every column a
-    # ledger PREDICATES on is lifted out of the opaque payload — `subjects` for the portability and erasure reads,
-    # `retention` for the groom, `stamp` and `stream` for the billing window, and the metering pair for the rollup —
-    # so `tallied` pushes its group-by into whatever engine indexes the window. Leaving `resource` and `quantity`
-    # inside the payload instead makes that member a per-row decode wearing a pushdown's name, and a settlement month
-    # then allocates one object per metered fact to produce a handful of slots. The pair answers absent on the audit
-    # stream, and no meter tally reaches those rows: `Period.stream` narrows the scan to one stream first.
     key: ContentKey
     stamp: Hlc
     stream: Stream
@@ -340,34 +266,15 @@ class FactRow(Struct, frozen=True):
     quantity: Quantity = 0
 
 
-# machine-readable seam target: the ledger implementer derives its table DDL, the tag discriminant, and per-field
-# presence from this `$defs`-bearing schema pair — payload family beside durable row — never from prose, and the
-# cross-branch `Resource` parity clause gains a diffable form, so a forked roster fails a schema comparison
-# instead of surviving as prose drift.
 SCHEMA: Final[tuple[tuple[dict[str, object], ...], dict[str, object]]] = schema_components((Fact, FactRow))
 
 
 class Landing(Struct, frozen=True, gc=False):
-    # ledger verdict per batch, and the ONLY surface reporting a short write: the two halves PARTITION the offered
-    # keys — disjoint, their union the whole set — and any other answer is a failed attempt rather than a landing.
-    # A ledger silently dropping half a batch otherwise reads as success and sheds evidence, and one answering a
-    # key on both halves, or a key from another batch, satisfies a bare count while naming rows it never held.
-    # Both halves carry the KEYS rather than tallies, because the drain projects the accepted half alone: the retry
-    # above them never exhausts, so a batch re-offered after a lost acknowledgement must cost one absorbed
-    # duplicate rather than a second charge and a second audit line, and a count names no row to filter on. An
-    # upsert reporting one fused output tally would satisfy the completeness sum while claiming zero redelivery,
-    # and zero redelivery is what a wedged retry re-offering one window forever looks like from the drain's series.
-    # Implementers whose engine reports counts alone read the matched keys before the commit rather than inferring
-    # them, since keys are unique per batch by the stamp riding inside each payload.
     accepted: Block[ContentKey]
     duplicate: Block[ContentKey]
 
 
 class JournalDrain(Struct, frozen=True, gc=False):
-    # terminal drain evidence, associative so the loop folds window after window without a mutable tally. A drain
-    # returning nothing would leave the one plane whose thesis IS evidence unable to report its own throughput.
-    # `landed` counts the ACCEPTED half alone and `deduped` the matched half, so the two never overlap and a
-    # session's throughput reads honestly across a retry that re-offered a window it had already committed.
     landed: int = 0
     deduped: int = 0
 
@@ -392,9 +299,6 @@ class Sealed(Struct, frozen=True, gc=False):
 
 
 class SubjectKey(Struct, frozen=True, gc=False):
-    # tenant-scoped custody identity — equal subject strings under two tenants share no key material, export row, or
-    # erasure — and `aad` binds every envelope to this exact identity, so a ciphertext lifted onto another subject
-    # fails its tag rather than opening under a live key that belongs to someone else.
     tenant: Tenant
     subject: Subject
 
@@ -404,13 +308,6 @@ class SubjectKey(Struct, frozen=True, gc=False):
 
 
 class Custody(Struct, frozen=True):
-    # KEK custody as a policy VALUE rather than a second port, async whole exactly as the ledger is — a remote KMS
-    # arm is a network call no synchronous wrap may run on the loop — so the two shipped instances are two named
-    # values of one shape and this ledger stores whatever wrapped form an arm produced. Both wrap under deterministic
-    # AES-SIV bound to the subject aad over a `KEK_BITS` key: key-wrap needs no nonce custody and determinism leaks
-    # nothing over fresh random keys, where GCM nonce reuse on the KEK path is catastrophic and RFC 3394 keywrap
-    # carries no associated data at all. `local` holds material a root already resolved; `vault` reads the deployment's
-    # own ladder per call, and a third posture is one more instance rather than a field on either.
     wrap: Callable[[bytes, bytes], Awaitable[RuntimeRail[bytes]]]
     unwrap: Callable[[bytes, bytes], Awaitable[RuntimeRail[bytes]]]
 
@@ -426,17 +323,7 @@ class Custody(Struct, frozen=True):
 
     @classmethod
     def vault(cls, boundary: SecretBoundary, service: str) -> Self:
-        # the deployment-custody posture beside `local`: the KEK reaches this arm through the ONE credential reader
-        # `execution/admission#SETTINGS` owns, so a keystore, a cloud vault, and a mounted secrets directory all serve
-        # it and no arm here learns which tier answered. Resolution runs PER CALL rather than captured at bind, so a
-        # rotated KEK reaches the next wrap with no rebind and no composition holds material past its rotation — the
-        # capability a `local(kek)` bind structurally cannot carry. The resolver already folds each tier through the
-        # `RetryClass.SECRET` row, so no second retry envelope wraps it here, where one would multiply the ladder's
-        # own attempts against a locked keystore.
         async def material() -> RuntimeRail[bytes]:
-            # absence is a REFUSAL, never a fallback: `Ok(Nothing)` means the deployment named no KEK for this
-            # service, and minting a substitute would render every envelope written under the real key permanently
-            # unopenable while every wrap read clean.
             resolved = await boundary.resolve(service, shape=SecretShape.TOKEN)
             return resolved.bind(
                 lambda held: held.map(lambda secret: _kek(secret.get_secret_value())).default_with(
@@ -454,9 +341,6 @@ class Custody(Struct, frozen=True):
 
 
 class Period(Struct, frozen=True, gc=False):
-    # billing coordinate: one stream over a half-open stamp window, optionally narrowed to one tenant. Tenancy is a
-    # COLUMN here rather than a post-filter, so settling one customer reads that customer's rows alone instead of
-    # scanning every tenant's window to discard the rest.
     stream: Stream
     since: Hlc
     until: Hlc
@@ -464,11 +348,6 @@ class Period(Struct, frozen=True, gc=False):
 
     @classmethod
     def of(cls, stream: Stream, since: datetime, until: datetime, tenant: Tenant | None = None) -> RuntimeRail[Self]:
-        # billing callers reach this ONE construction: a settlement window names wall-clock instants and the stream
-        # sorts on ticks, so conversion lands here rather than leaving every consumer to re-derive it and disagree
-        # with the groom horizon about what an instant means. Ordering admits HERE too — a half-open window whose
-        # lower bound sorts above its upper selects no row at all, so an inverted settlement reads as a zero
-        # invoice the customer and the ledger both agree on, the one billing defect no later fold can see.
         return at(since).map2(at(until), lambda lower, upper: (lower, upper)).bind(
             lambda bounds: Ok(cls(stream=stream, since=bounds[0], until=bounds[1], tenant=tenant))
             if bounds[0].packed <= bounds[1].packed
@@ -478,18 +357,12 @@ class Period(Struct, frozen=True, gc=False):
 
 @tagged_union(frozen=True)
 class Scan:
-    # one read coordinate over two shapes: a billing period reads one stream across a half-open stamp window, a
-    # portability export reads every fact one subject touched. Both ride the ledger's `scanned`/`tallied` pair,
-    # so no consumer hand-mints a query and the export proves the same index the billing read walks.
     tag: Literal["period", "subject"] = tag()
     period: Period = case()
     subject: SubjectKey = case()
 
 
 class Bound(Struct, frozen=True):
-    # what one composition binds, as a NAMED carrier. `service` is the emitter identity the durable rows partition on,
-    # injected exactly as the telemetry install takes its resource — a worker floor, an offline job, and a daemon each
-    # write under the identity they run as, where a module constant read at drain time claims one for all three.
     ledger: "Ledger"
     custody: Custody
     service: str
@@ -504,8 +377,6 @@ class JournalReceipt(Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# one row per metered resource naming the series its quantity projects onto; the unit belongs to the census row that
-# mounts the instrument, so a row can never mount a spelling its census counterpart disagrees with.
 RESOURCES: Final[Map[Resource, Series]] = Map.of_seq([
     (Resource.COMPUTE, Series.DURATION),
     (Resource.RECORD, Series.TALLY),
@@ -514,8 +385,6 @@ RESOURCES: Final[Map[Resource, Series]] = Map.of_seq([
     (Resource.TOKEN, Series.TALLY),
 ])
 
-# one window per class and the single edit site every aging surface reads. `PERMANENT` carries `Nothing`, so the
-# horizon emits no cutoff for it and a permanent row is unreachable by any groom rather than gated by a check.
 WINDOWS: Final[Map[Retain, Option[timedelta]]] = Map.of_seq([
     (Retain.EPHEMERAL, Some(timedelta(days=7))),
     (Retain.OPERATIONAL, Some(timedelta(days=90))),
@@ -523,16 +392,11 @@ WINDOWS: Final[Map[Retain, Option[timedelta]]] = Map.of_seq([
     (Retain.PERMANENT, Nothing),
 ])
 
-# points this owner registers at composition, as rows rather than a hand-repeated pair of calls: the append gate is
-# typed by the record that names it through `gate`, and the erase point observes a tombstone. A new point is one row.
 POINTS: Final[Block[HookPoint[Struct]]] = Block.of_seq([
     HookPoint(id=JournalGate.APPEND, payload=AuditFact, modality=Modality(veto=None)),
     HookPoint(id=JournalGate.ERASE, payload=Tombstone, modality=Modality(observe=None)),
 ])
 
-# derived-line field policy, classified by KEY NAME at every depth: diff values mask, party and subject identifiers
-# hash to stable correlation tokens, and the pointer path stays legible since a path names a field rather than carrying
-# its value — the keep-all policy would publish into the log plane exactly the material the shredder makes unreadable.
 FACT_REDACTION: Final[Redaction] = Redaction(
     classified=Map.of_seq([("prior", "mask"), ("next", "mask"), ("key", "hash"), ("subjects", "hash")])
 )
@@ -549,12 +413,6 @@ def _ticks(span: timedelta) -> int:
 
 
 def at(moment: datetime) -> RuntimeRail[Hlc]:
-    # wall clock crosses into stamp space exactly HERE, refusing a naive instant rather than normalising one: a
-    # naive value reads as LOCAL time, so a month boundary silently shifts by the host offset and settles the
-    # wrong rows. The OFFSET is what awareness means, never the presence of a `tzinfo` object — a custom
-    # implementation whose `utcoffset` answers `None` is naive by the language's own rule, and the `EPOCH`
-    # subtraction raises `TypeError` on it where the attribute test alone admits it. The subtraction stays
-    # integer µs-then-ticks, so a settlement boundary lands exact where a float `timestamp()` mantissa rounds it.
     return (
         Ok(Hlc(physical_ticks=(moment - EPOCH) // MICRO * TICKS_PER_MICRO, logical=0))
         if moment.utcoffset() is not None
@@ -563,10 +421,6 @@ def at(moment: datetime) -> RuntimeRail[Hlc]:
 
 
 def horizon(now: Hlc) -> Map[Retain, Hlc]:
-    # groom cutoffs in the stream's OWN ordering coordinate: a finite window yields the stamp below which its rows
-    # reclaim, `PERMANENT` emits no key at all, and the floor clamps so an unreachable window never mints a negative
-    # physical half. Taking `now` as a stamp keeps cutoff and stamp on one time base — a caller instant admits a
-    # clock the stream never sorted on — and the ledger then compares stamps and parses no date.
     return Map.of_seq(
         (clazz, Hlc(physical_ticks=max(now.physical_ticks - _ticks(window), 0), logical=0))
         for clazz, held in WINDOWS.items()
@@ -575,42 +429,23 @@ def horizon(now: Hlc) -> Map[Retain, Hlc]:
 
 
 def _kek(text: str) -> RuntimeRail[bytes]:
-    # a secret store holds text, so the KEK travels as its hex render — the one text encoding this estate freezes key
-    # material in — and decodes here rather than at the AEAD call. Width proves in the same expression: `AESSIV`
-    # accepts 256 and 512 bits, so a KEK rotated to the narrower width would wrap cleanly under a primitive this
-    # plane never declared, and the refusal names the coordinate instead of surfacing as a length raise mid-batch.
-    # The fence catches `ValueError` alone and touches no `cryptography` name, so a composition that seals nothing
-    # never reifies the native tier to read a key it will not use.
     return boundary(JOURNAL_HEX, lambda: bytes.fromhex(text), catch=ValueError).bind(
         lambda kek: Ok(kek) if len(kek) * 8 == KEK_BITS else Error(JOURNAL_KEK.raised(str(len(kek) * 8), str(KEK_BITS)))
     )
 
 
 def _crypto[T](axis: str, run: Callable[[], T]) -> RuntimeRail[T]:
-    # ONE native crossing every AEAD call composes: the outer fence reifies the lazy `cryptography` proxy under the
-    # default surface, so an absent or unbuildable build classifies `import_` on the rail at whichever entry touches
-    # it first — seal, wrap, unwrap, or open alike — and the narrow tuple applies only once the primitive is in
-    # hand. Naming the tuple as a module `Final` instead dereferences the proxy at import and reifies the native
-    # tier in every composition that seals nothing; naming it per call site leaves the open-only path unfenced,
-    # since the catch argument evaluates before its own fence exists.
     return boundary(JOURNAL_CRYPTO, lambda: (InvalidTag, UnsupportedAlgorithm, ValueError, OverflowError), catch=ImportError).bind(
         lambda catch: boundary(JOURNAL_CRYPTO, run, catch=catch).map_error(lambda fault: JOURNAL_CRYPTO.raised(axis, fault.detail))
     )
 
 
 async def _offloaded[T](axis: str, run: Callable[[], T]) -> RuntimeRail[T]:
-    # envelope AEAD leaves the loop: an unbounded payload seals on a worker thread bounded by `AEAD_SLOTS`, so a
-    # multi-megabyte crossing costs a slot rather than stalling the drain sharing this scheduler. The inner sync
-    # fence classifies every crypto raise, the outer fence the offload itself, and one `bind` flattens the pair.
     lifted = await async_boundary(JOURNAL_CRYPTO, lambda: anyio.to_thread.run_sync(lambda: _crypto(axis, run), limiter=AEAD_SLOTS), catch=OSError)
     return lifted.bind(lambda railed: railed)
 
 
 def _censused() -> RuntimeRail[Block[Series]]:
-    # composition-root census gate: each `Series` member resolves its `(domain, measure)` pair against the metrics
-    # owner's published `MEASURES`, so a measure without its `INSTRUMENTS` row refuses the install by name instead of
-    # raising `KeyError` out of a drain nobody is watching; resolving that map IS the whole-descriptor proof, which is
-    # why no unit is spelled on this page.
     rows = Block.of_seq(Series)
     unmet = rows.filter(lambda row: MEASURES.try_find((OWNER, row.value)).is_none())
     return Ok(rows) if unmet.is_empty() else Error(JOURNAL_CENSUS.raised(", ".join(unmet)))
@@ -641,10 +476,6 @@ def _censused() -> RuntimeRail[Block[Series]]:
 
 
 def _rowed(fact: Fact, service: str) -> FactRow:
-    # TOTAL by construction: the payload is already bytes, so the key derives through the bare `ContentIdentity.key`
-    # accessor rather than the railed entry, and no fact can be lost to a rail the drain would have to choose between
-    # dropping and stalling on. Every column resolves off the record's own projection, so the fold carries no stream
-    # branch and a third record inherits it whole.
     payload = ENCODE(fact)
     return FactRow(
         key=ContentIdentity.key(OWNER, payload),
@@ -661,22 +492,14 @@ def _rowed(fact: Fact, service: str) -> FactRow:
 
 
 def _fenced(at: FaultRow[RuntimeLeg], run: Callable[[], object], scope: ScopeKey) -> None:
-    # every derived write in this owner crosses HERE, fenced so it can never fault the plane that owns the truth: a
-    # render, record, or sink fault lands as its own rejected receipt, because a dashboard gap never justifies
-    # stalling an append.
     boundary(at, run, catch=Exception).swap().map(lambda fault: Signals.emit(Receipt.of(OWNER, fault), OPEN, scope=scope))
 
 
 def _series(measures: Mapping[str, float], kind: str, scope: ScopeKey) -> None:
-    # `Series` members ARE their measure names, so the census-proved vocabulary reaches the recorder unchanged and
-    # no call site on this page carries a bare metric literal.
     _fenced(JOURNAL_DERIVED, lambda: Metrics.record(measures, domain=OWNER, kind=kind, scope=scope), scope)
 
 
 def _projected(fact: Fact, scope: ScopeKey) -> None:
-    # structured lines render the audit vocabulary through `to_builtins`, so the nested diff cases, parties, and
-    # stamp arrive as mappings the redaction policy descends — a shallow struct projection leaves every classified
-    # field one level down unreachable and publishes it verbatim.
     _series(fact.measures, fact.kind, scope)
     _fenced(
         JOURNAL_DERIVED,
@@ -686,13 +509,7 @@ def _projected(fact: Fact, scope: ScopeKey) -> None:
 
 
 async def _batched(receive: MemoryObjectReceiveStream[Fact]) -> AsyncIterator[Block[Fact]]:
-    # width-and-patience window `anyio` ships no combinator for — the OTel batch processors carrying these knobs
-    # shed at queue-full on their own thread, refused under the never-shed law: block for the first fact, then
-    # gather up to the remaining width inside one patience scope, so a busy surface fills whole batches and a quiet
-    # one still flushes on latency. Both exits are lossless — a `receive` that already took its item returns it
-    # before the scope's cancellation reaches the next checkpoint, and `EndOfStream` closes the window rather than
-    # escaping it and abandoning the facts already taken from the buffer.
-    async for head in receive:  # Exemption: the batching window is the statement-bearing kernel anyio does not carry
+    async for head in receive:
         held = [head]
         with anyio.move_on_after(FLUSH_SECONDS):
             while len(held) < BATCH_WIDTH:
@@ -704,12 +521,8 @@ async def _batched(receive: MemoryObjectReceiveStream[Fact]) -> AsyncIterator[Bl
 
 
 def _swept(receive: MemoryObjectReceiveStream[Fact], service: str) -> Block[FactRow]:
-    # checkpoint-free buffer sweep the drain's terminal runs even inside a tripped scope: `receive_nowait` takes an
-    # item without awaiting AND unwinds one suspended sender into the buffer per call, so a bounded shutdown empties
-    # both the queue and the producers back-pressured behind it into the unlanded roster — absent it every fact still
-    # queued behind the batch in flight sheds silently, exactly the loss the roster exists to make visible.
     held: list[FactRow] = []
-    while True:  # Exemption: the sweep must run under cancellation, where no awaiting form completes
+    while True:
         try:
             held.append(_rowed(receive.receive_nowait(), service))
         except (anyio.WouldBlock, anyio.EndOfStream):
@@ -717,8 +530,6 @@ def _swept(receive: MemoryObjectReceiveStream[Fact], service: str) -> Block[Fact
 
 
 async def _chained[T, U](rail: RuntimeRail[T], step: Callable[[T], Awaitable[RuntimeRail[U]]]) -> RuntimeRail[U]:
-    # `_chained` carries a settled rail into an awaited continuation — the async `bind` the substrate does not
-    # ship — so a custody-and-ledger chain short-circuits an `Error` with no hand-repeated match per step.
     match rail:
         case Result(tag="ok", ok=value):
             return await step(value)
@@ -727,26 +538,15 @@ async def _chained[T, U](rail: RuntimeRail[T], step: Callable[[T], Awaitable[Run
 
 
 async def _resolved[T](scope: ScopeKey, run: Callable[["Bound"], Awaitable[RuntimeRail[T]]]) -> RuntimeRail[T]:
-    # every ledger-touching entry composes this bind over the bound carrier, so an unbound scope refuses once
-    # instead of at six hand-repeated sites that could drift apart.
     return await _chained(Journal.bound(scope), run)
 
 
 def _proven(ledger: object) -> RuntimeRail["Ledger"]:
-    # structural admission over the port's OWN declared roster, presence AND awaitability both: a member satisfied
-    # by a plain `def` passes a presence probe, then faults inside the unbounded retry where it is indistinguishable
-    # from a dead ledger — refusal here names the member instead, and a member added to `Ledger` refuses every
-    # stale implementer with no edit here.
     unmet = Block.of_seq(sorted(member for member in get_protocol_members(Ledger) if not iscoroutinefunction(getattr(ledger, member, None))))
     return Ok(ledger) if unmet.is_empty() else Error(JOURNAL_PORT.raised(", ".join(unmet)))
 
 
 def _partitions(landing: Landing, rows: Block[FactRow]) -> bool:
-    # a landing accounts for every offered row EXACTLY: the two halves are disjoint, their union IS the offered key
-    # set, and neither repeats a key inside itself. The completeness SUM alone proves none of that — a ledger
-    # answering one key on both halves, or a key from a neighbouring batch, satisfies the arithmetic while the
-    # accepted half names rows the plane never held, and the drain then charges and audits off that half. Keys are
-    # unique per batch by the stamp riding inside each payload, so the cardinality test IS the intra-half guard.
     offered = frozenset(row.key for row in rows)
     admitted, matched = frozenset(landing.accepted), frozenset(landing.duplicate)
     return (
@@ -757,12 +557,6 @@ def _partitions(landing: Landing, rows: Block[FactRow]) -> bool:
 
 
 def _tenanted(fact: Fact) -> Fact:
-    # the ONE baggage reader on this plane: a producer leaving `tenant` unset is asking the writer to resolve it, so
-    # the ambient W3C entry the metrics attribute fold already keys on fills the slot here instead of at every
-    # producer. A fact arriving WITH tenancy passes through untouched — recording on behalf of one tenant from inside
-    # another's context is the case a re-read silently overwrites — and the guard reads the slot before the context,
-    # so an attributed batch never pays a baggage lookup per fact. The metric tenant budget stays out: it bounds a
-    # series value axis and this plane bounds no cardinality.
     match baggage.get_baggage(TENANT_BAGGAGE, otel_context.get_current()) if fact.tenant is None else None:
         case str() as tenant if tenant:
             return replace(fact, tenant=Tenant(tenant))
@@ -779,22 +573,6 @@ def _reclaimed(swept: Groomed, scope: ScopeKey) -> Groomed:
 
 
 class Ledger(Protocol):
-    # one durable seam a composition binds and S0 never satisfies: the columnar owner supplies rows, this rail
-    # supplies facts, every member awaits, and every member returns the branch rail so a ledger fault reaches the
-    # drain as data. `SCHEMA` carries the row contract's machine form; the behavioral half reads — `landed` is
-    # idempotent on `FactRow.key` and its `Landing` PARTITIONS the offered keys, accepted NAMING the keys the
-    # plane did not hold and duplicate the keys it matched, every other answer retried by the drain; an engine reporting
-    # counts alone resolves the matched keys BEFORE its commit, since after one every offered key reads present;
-    # `scanned` lifts
-    # stored payloads through `DECODE`, so this family owner alone admits its own wire; `tallied` is the rollup arm —
-    # a ledger's own group-by over the `(tenant, resource)` columns `FactRow` lifts beside the window `scanned`
-    # walks, returned as the `Priced`-keyed monoid rows `rolled` folds, so a settled period never materializes a
-    # window in this process to sum two integers, and an engine carrying no grouped read folds `Aggregate.rolled`
-    # over its own scan rather than minting a second rollup; `groomed` reclaims every row whose stamp sorts
-    # below its class cutoff and reports the count, a class absent from the map untouched; `claimed` is atomic
-    # insert-or-return-standing on the custody row; `held` reads the standing wrapped material; `destroyed`
-    # empties the custody slot, persists the journal-minted stone beside it, and answers `Nothing` when no live
-    # key existed — a ledger mints neither stamp nor identity.
     async def landed(self, rows: Block[FactRow], /) -> RuntimeRail[Landing]: ...
     async def scanned(self, scan: Scan, /) -> RuntimeRail[Block[Fact]]: ...
     async def tallied(self, scan: Scan, /) -> RuntimeRail["Billed"]: ...
@@ -805,35 +583,19 @@ class Ledger(Protocol):
 
 
 class Journal:
-    # composition-owned custody, deliberately without the process latch every sibling install carries — a ledger is
-    # a bound value each composition supplies, never an SDK singleton to adopt. The stamp cell is the one exception
-    # and is process-wide by law: an HLC names this NODE's clock, so two compositions sharing a process must share the
-    # successor or their rows interleave under coordinates neither can order. Serializing that cell and each map
-    # read-modify-write is the gate's whole custody; bound carrier and intake handle read lock-free off immutable
-    # snapshots, so a recording producer never queues behind a process acquire.
     _bound: ClassVar[Map[ScopeKey, Bound]] = Map.empty()
     _intake: ClassVar[Map[ScopeKey, MemoryObjectSendStream[Fact]]] = Map.empty()
     _drain: ClassVar[Map[ScopeKey, MemoryObjectReceiveStream[Fact]]] = Map.empty()
     _pending: ClassVar[Map[ScopeKey, Block[FactRow]]] = Map.empty()
     _receipts: ClassVar[Map[ScopeKey, JournalReceipt]] = Map.empty()
     _pointed: ClassVar[frozenset[ScopeKey]] = frozenset()
-    # the one coordinate separating a scope whose custody was RETIRED from a scope no root ever installed: both
-    # answer an absent intake, and only the first is a fault. `closed` marks, `_bind` clears — so a re-armed scope
-    # sends again — while `_pointed` cannot serve here, since a point latch survives every retirement by design.
     _retired: ClassVar[frozenset[ScopeKey]] = frozenset()
     _stamp: ClassVar[Hlc] = UNSTAMPED
-    # per-scope install lock, distinct from the custody gate BY LAW: install registers points through `Hooks`,
-    # which takes its own lock, so holding `_gate` across that call would mint the two-lock ordering `_bind`'s
-    # outside-the-gate deposit exists to foreclose. Serializing the whole install per scope here instead makes
-    # census, proof, registration, and bind one transaction while `_gate` still covers map mutation alone.
     _installing: ClassVar[Map[ScopeKey, RLock]] = Map.empty()
     _gate = RLock()
 
     @classmethod
     def stamped(cls, causal: Option[CausalFrame] = Nothing) -> Hlc:
-        # one stamp mint: merge the inbound cause, join this process's physical sample, tick the successor. This gate
-        # makes that coordinate a total order — two free-threaded recorders take distinct successors, where an
-        # unsynchronized read-modify-write mints one stamp twice and collapses two rows onto one key.
         observed = causal.map(lambda frame: frame.hlc).default_value(cls._stamp)
         with cls._gate:
             cls._stamp = Hlc.merge(cls._stamp, observed).tick(_sampled())
@@ -843,12 +605,6 @@ class Journal:
     def install(
         cls, ledger: Ledger, custody: Custody, *, service: str = SCOPES[Scope.JOURNAL], scope: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[JournalReceipt]:
-        # order is the whole correctness of this entry: a standing receipt short-circuits before anything runs, the
-        # census and the port prove, the points register, and ONLY a clean registration binds. Binding first would
-        # leave a refused install holding a live ledger beside an orphaned intake no drain reads, and probing
-        # inside the match subject would run every proof on the re-entrant path. The scope's own install lock makes
-        # that order ATOMIC: two roots racing one scope otherwise both read no standing, both register, and both
-        # bind, the loser's stream orphaned with the receipt of a plane nothing drains.
         with cls._installing_lock(scope):
             with cls._gate:
                 standing = cls._receipts.try_find(scope)
@@ -865,8 +621,6 @@ class Journal:
 
     @classmethod
     def _installing_lock(cls, scope: ScopeKey) -> RLock:
-        # get-or-mint under the custody gate, then released before the returned lock is taken, so the two locks are
-        # never held in one order and the process gate is never the one an install holds across `Hooks.register`.
         with cls._gate:
             held = cls._installing.try_find(scope).default_with(RLock)
             cls._installing = cls._installing.add(scope, held)
@@ -874,12 +628,6 @@ class Journal:
 
     @classmethod
     def _registered(cls, scope: ScopeKey) -> RuntimeRail[Block[HookPoint[Struct]]]:
-        # point ids are composition-unique and the registry ships no retirement, so registration latches per scope
-        # while ledger custody re-arms freely: a re-install after `closed` must not re-register ids it already
-        # owns, where a claim over the duplicate would refuse the whole restart.
-        # ONE roster claim: the registry's whole-set arm swaps its point table only past the last admitted row, so a
-        # refused install leaves custody exactly as it stood and this latch can never mark a scope pointed against a
-        # half-mounted roster — the accumulating diagnosis a per-point traverse bought by surrendering that atomicity.
         return (
             Ok(Block.empty()) if scope in cls._pointed else Hooks.register(POINTS, scope=scope).map(lambda points: cls._latched(scope, points))
         )
@@ -892,10 +640,6 @@ class Journal:
 
     @classmethod
     def _bind(cls, ledger: Ledger, custody: Custody, service: str, scope: ScopeKey) -> JournalReceipt:
-        # deposit lands OUTSIDE this owner's gate: the hooks ledger takes its own lock and passes the receipt
-        # through, so the bundle reads one durable-plane answer and no two-lock ordering exists to invert. The
-        # stream roster derives from the family rather than a hand-listed pair, so a third record cannot leave this
-        # receipt advertising a vocabulary the plane outgrew.
         send, receive = anyio.create_memory_object_stream[Fact](max_buffer_size=INTAKE)
         receipt = JournalReceipt(ledger=type(ledger).__qualname__, service=service, streams=STREAMS, classes=tuple(Retain))
         with cls._gate:
@@ -913,29 +657,9 @@ class Journal:
     async def record(
         cls, source: Recordable, *, causal: Option[CausalFrame] = Nothing, scope: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[int]:
-        # one polymorphic writer discriminating on the value, so arity never reaches the signature, and the ONE
-        # stamp authority — a caller-threaded stamp lets two producers mint one content key and dedup genuine
-        # evidence away as a redelivery. `causal` is the inbound half a serve leg or worker crossing already holds,
-        # so a fact orders strictly after the cause its caller saw; the send AWAITS, so a full intake stalls its
-        # producer rather than dropping a row nothing replays. An EMPTY iterable rides that same fold — a metering
-        # fan that priced nothing offers no fact — so it gates nothing, ticks no stamp, and answers `Ok(0)`; a
-        # width test short-circuiting it AHEAD of the intake match would delete the retirement fault for exactly the
-        # legs that record only when they charge, which is where a producer outliving its plane goes unseen longest.
         offered = Block.of_seq((source,) if isinstance(source, AuditFact | MeterFact) else source)
-        # binding order is load-bearing: the intake resolves FIRST, so a scope with no live plane settles without
-        # firing an admission policy over facts nothing accepts, and the two absent states settle apart. RETIRED is
-        # a fault — this producer outlived the plane it writes to. UNARMED is a lawful no-op answering the count it
-        # landed: no composition ever installed here, which is a deployment declaration that this process journals
-        # nothing, so a producer binds one rail either way and pays one map read where evidence was never deployed.
-        # Nothing is recorded on that path — a drop counter prices the hot path of a composition that asked for no
-        # plane, and the census proving this owner's measures never ran on a scope no install crossed.
         match cls._intake.try_find(scope):
             case Option(tag="some", some=send):
-                # the stamp is the LAST step and only on the admitted path, since the cell it ticks is process-wide:
-                # stamping ahead of the gates advances this node's successor for every refused batch, so a vetoing
-                # subscriber leaves gaps in the one coordinate the stream sorts on, and the gate reads each record's
-                # default `UNSTAMPED` slot exactly as its declaration promises. Tenancy resolves BEFORE the gate, so
-                # a subscriber judges the row the plane will store rather than the caller's unattributed draft.
                 attributed = Block.of_seq(_tenanted(fact) for fact in offered)
                 match cls._admitted(attributed, scope):
                     case Result(tag="ok"):
@@ -949,12 +673,6 @@ class Journal:
 
     @staticmethod
     def _admitted(facts: Block[Fact], scope: ScopeKey) -> RuntimeRail[Block[Fact]]:
-        # append gating is a VETO seam run BEFORE a fact occupies intake capacity, so a refused fact costs no drain
-        # cycle and its refusal reaches the caller as that caller's own rail; each record names its OWN point through
-        # `gate`, so an ungated stream skips the fold by declaration and a newly gated stream is one ClassVar beside
-        # one `POINTS` row. The admitted payload is READ FOR ITS DISPOSITION ALONE — evidence with two authors is no
-        # longer evidence — and abort disposition refuses the whole batch, since partial admission lands rejected
-        # evidence with no coordinate naming what survived.
         return traversed(
             facts.choose(lambda fact: Option.of_optional(fact.gate).map(lambda point: Hooks.fire(point, fact, scope=scope))),
             by=Disposition.ABORT,
@@ -963,7 +681,7 @@ class Journal:
     @staticmethod
     async def _offered(send: MemoryObjectSendStream[Fact], facts: Block[Fact]) -> RuntimeRail[int]:
         async def suspended() -> int:
-            for fact in facts:  # Exemption: the suspending send is the never-shed seam — no expression form awaits
+            for fact in facts:
                 await send.send(fact)
             return len(facts)
 
@@ -973,12 +691,6 @@ class Journal:
     async def drained(
         cls, *, scope: ScopeKey = DEFAULT_SCOPE, task_status: TaskStatus[None] = TASK_STATUS_IGNORED
     ) -> RuntimeRail[JournalDrain]:
-        # single-consumer drain a composition root starts inside its own task group — `tg.start` blocks on the
-        # readiness signal, so no producer suspends into an intake nothing reads yet. Taking the receive handle out
-        # of custody makes the single consumer structural: a second concurrent drain on one scope finds nothing and
-        # refuses instead of silently splitting the stream across two tallies. The tally returns once intake closes
-        # and the last window lands — what makes `closed` a shutdown rather than a truncation — and the root reads
-        # it off the child handle's `return_value` after the group closes.
         with cls._gate:
             taken = cls._drain.try_find(scope)
             cls._drain = cls._drain.remove(scope)
@@ -987,20 +699,15 @@ class Journal:
                 settled = JournalDrain()
                 task_status.started()
                 async with receive:
-                    # intake depth plus suspended senders registers as the standing occupancy level under this
-                    # owner's own band, so a full intake with a healthy ledger is visible pressure the lane and
-                    # pool bands never absorb — the deferral counter sees only the ledger.
                     with Metrics.occupied(
                         lambda: (depth := receive.statistics()).current_buffer_used + depth.tasks_waiting_send,
                         band=OWNER,
                         scope=scope,
                     ):
                         try:
-                            async for batch in _batched(receive):  # Exemption: the drain threads its own tally; no expression form awaits
+                            async for batch in _batched(receive):
                                 settled = JournalDrain.combined(settled, await cls._landed(held, batch, scope))
                         finally:
-                            # terminal work runs on EVERY exit, cancellation included, so the batch in flight
-                            # joins the facts still buffered behind it in one roster; empty on the clean path.
                             cls._owed(scope, _swept(receive, held.service))
                 return Ok(settled)
             case _:
@@ -1008,16 +715,6 @@ class Journal:
 
     @classmethod
     def closed(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[None]:
-        # graceful shutdown IS closing the intake: every buffered fact still delivers, the partial window flushes,
-        # and `drained` returns clean. Custody RETIRES with the close and the scope MARKS retired, so a later
-        # `install` re-arms it instead of adopting a closed stream every `record` then rails `resource` against, and
-        # a fact offered meanwhile refuses as the fault it is rather than folding into the never-installed no-op;
-        # unlanded rows and the point latch survive that retirement, because a shutdown owing rows is exactly when a caller reads them
-        # and the registry retires no id. Stays synchronous so a signal handler, an atexit hook, or a non-async
-        # `finally` reaches it with no loop. One gate pass decides ownership of the receive end against `drained`'s
-        # take, so exactly one of the two ever holds it and the close arm is LOSSLESS: a scope closed before any
-        # drain started still owns a buffered window, which sweeps into the unlanded roster here rather than dying
-        # with the dropped handle on the one plane that refuses to shed.
         with cls._gate:
             held, taken = cls._intake.try_find(scope), cls._drain.try_find(scope)
             service = cls._bound.try_find(scope).map(lambda bound: bound.service)
@@ -1029,32 +726,21 @@ class Journal:
 
     @classmethod
     def _stranded(cls, scope: ScopeKey, receive: MemoryObjectReceiveStream[Fact], service: str) -> None:
-        # close-before-drain: nothing ever took this handle, so its buffer and every sender suspended behind it
-        # sweep into the unlanded roster before the handle closes. `_swept` is checkpoint-free, which is what lets
-        # the synchronous close run it, and the roster is where a caller re-offers or persists what never landed.
         cls._owed(scope, _swept(receive, service))
         receive.close()
 
     @classmethod
     def pending(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> Block[FactRow]:
-        # rows a drain took from the intake and never landed — empty on every clean path, and the ONE surface a
-        # bounded shutdown reads: a root capping the wait with its own `CancelScope` gets no return value from a
-        # tripped scope, so the rows a dead ledger still owes leave HERE as data a caller re-offers or persists.
         with cls._gate:
             return cls._pending.try_find(scope).default_value(Block.empty())
 
     @classmethod
     def _owed(cls, scope: ScopeKey, rows: Block[FactRow]) -> None:
-        # ACCUMULATES: a scope that shut down owing rows keeps them across the re-install `closed` invites, so the
-        # next drain's first batch cannot overwrite a prior session's unlanded roster. Replacing the slot instead
-        # sheds exactly the evidence `pending` exists to make visible, on the one plane that refuses to shed.
         with cls._gate:
             cls._pending = cls._pending.add(scope, cls._pending.try_find(scope).default_value(Block.empty()).append(rows))
 
     @classmethod
     def _settled(cls, scope: ScopeKey, rows: Block[FactRow]) -> None:
-        # Removes exactly the keys this landing covered rather than emptying the slot, so a landing never clears rows
-        # a prior session still owes; the content key is the identity both sides already agree on.
         landed = frozenset(row.key for row in rows)
         with cls._gate:
             cls._pending = cls._pending.add(
@@ -1063,21 +749,12 @@ class Journal:
 
     @classmethod
     async def _landed(cls, held: Bound, batch: Block[Fact], scope: ScopeKey) -> JournalDrain:
-        # fact and row travel PAIRED, because the projection reads the fact and the landing answers in keys: a
-        # batch replayed after a lost acknowledgement lands entirely as duplicates, and projecting off `batch`
-        # instead would charge that customer twice and write the audit line twice on the one plane that exists
-        # to be evidence.
         paired = batch.map(lambda fact: (fact, _rowed(fact, held.service)))
         rows = paired.map(lambda pair: pair[1])
         cls._owed(scope, rows)
         delay = BACKOFF_SECONDS
-        # `stamina` stays refused here by settled law: its schedule rejects the unbounded `attempts=None` +
-        # `timeout=None` pair the never-shed law requires, and it retries raised transients where this port
-        # returns railed verdicts the loop must read.
-        while True:  # Exemption: unbounded retry is the never-shed law — a dead ledger suspends, never sheds
+        while True:
             match await async_boundary(JOURNAL_APPEND, lambda: held.ledger.landed(rows), catch=Exception):
-                # a landing accounts for every offered row or it is not a landing: a short write retries, and the
-                # retry is safe precisely because the content key dedups whatever already landed.
                 case Result(tag="ok", ok=Result(tag="ok", ok=landing)) if _partitions(landing, rows):
                     admitted = frozenset(landing.accepted)
                     cls._settled(scope, rows)
@@ -1093,10 +770,6 @@ class Journal:
 
     @classmethod
     async def groomed(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Groomed]:
-        # aging is an ordinary reclaim the ledger's own mechanism executes — table TTL, partition drop, a scheduled
-        # maintenance statement — since no telemetry worker or scheduler surface enters this branch for retention.
-        # Cutoffs derive from THIS owner's clock, never a caller instant, so cutoff and stamp share one time base,
-        # and a sealed field becomes unreadable through key destruction alone, never through a groomed row.
         async def swept(held: Bound) -> RuntimeRail[Groomed]:
             return (await held.ledger.groomed(horizon(_sampled()))).map(lambda done: _reclaimed(done, scope))
 
@@ -1131,12 +804,6 @@ class Aggregate(Struct, frozen=True, gc=False):
 
     @staticmethod
     def rolled(facts: "Block[Fact]") -> "Billed":
-        # This fold seats the rollup monoid WITH its own identity and operator, and answers an implementer whose
-        # engine carries no grouped read: `tallied` folds it rather than re-deriving a billing rollup beside a
-        # ledger, so pushed-down and row-wise arms return one algebra. Audit rows drop HERE rather than at the read,
-        # so one scan surface serves a subject export and a billing period with neither re-filtering the other's
-        # rows. One AVL descent per row: `Map.change` fuses lookup and insert on the hottest path a settlement takes
-        # over a month of rows, an absent key seeding on `ZERO`.
         def keyed(held: "Billed", fact: "MeterFact") -> "Billed":
             return held.change(
                 Priced.of(fact),
@@ -1152,9 +819,6 @@ class Charge(Struct, frozen=True, gc=False):
 
 
 class Priced(Struct, frozen=True, order=True, gc=False):
-    # rollup key ordered by construction for the `Map` tree: `attributed` ranks unattributed rows first with `tenant`
-    # "" only beneath it, so the order stays TOTAL on a mixed-tenancy window and `held` alone lifts the pair back
-    # into absence.
     attributed: bool
     tenant: str
     resource: Resource
@@ -1171,18 +835,12 @@ class Priced(Struct, frozen=True, order=True, gc=False):
 type Billed = Map[Priced, Aggregate]
 type Rating = Map[Resource, Rate]
 
-# monoid identity every fold seeds on and every absent key defaults to, so a zero row is the algebra's own unit
-# rather than a literal re-minted at each fold site.
 ZERO: Final[Aggregate] = Aggregate(count=0, total=0)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 async def rolled(source: Block[Fact] | Scan, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Billed]:
-    # one entry over two input shapes: rows in hand fold through the monoid's own `Aggregate.rolled`, a scan
-    # coordinate hands the group-by to the bound ledger, whose engine already indexes the window over the
-    # `(tenant, resource, quantity)` columns `FactRow` lifts. Both arms answer one algebra, so a caller never learns
-    # which side grouped.
     match source:
         case Scan() as coordinate:
 
@@ -1195,10 +853,6 @@ async def rolled(source: Block[Fact] | Scan, *, scope: ScopeKey = DEFAULT_SCOPE)
 
 
 def _priced(key: Priced, aggregate: Aggregate, rating: Rating) -> RuntimeRail[tuple[Priced, Charge]]:
-    # the money context's armed traps RAISE — an invalid, overflowing, or float-touched rate is a `decimal`
-    # exception, never a value — so the whole charge expression runs INSIDE the rating fence. Computed under
-    # `map` instead it escapes the carrier entirely and takes the settlement traversal down with it, which is
-    # exactly the refusal the traps were armed to make visible rather than silent.
     return rating.try_find(key.resource).to_result_with(lambda: JOURNAL_RATE.raised(key.resource.value)).bind(
         lambda rate: boundary(
             JOURNAL_CHARGE,
@@ -1209,10 +863,6 @@ def _priced(key: Priced, aggregate: Aggregate, rating: Rating) -> RuntimeRail[tu
 
 
 def rated(billed: Billed, rating: Rating) -> RuntimeRail[Map[Priced, Charge]]:
-    # exact end to end: the integral total lifts through `Decimal(int)` losslessly, multiplies inside the money
-    # context whose traps refuse an invalid, overflowing, or float-touched rate, and quantizes half-even at scale
-    # four exactly once at the terminal — a per-row round accumulates a drift a settlement cannot reconcile
-    # against its own aggregate. `traverse` threads the rows, aborting on the first unrated resource by name.
     return traverse(lambda row: _priced(row[0], row[1], rating), Block.of_seq(billed.items())).map(Map.of_seq)
 ```
 
@@ -1232,8 +882,6 @@ def rated(billed: Billed, rating: Rating) -> RuntimeRail[Map[Priced, Charge]]:
 
 
 class Export(Struct, frozen=True):
-    # portability projection carrying the identity it answers for, so an export document names its own subject
-    # rather than leaving the caller to re-pair a loose fact block with the request that produced it.
     subject: SubjectKey
     facts: Block[Fact]
 
@@ -1242,17 +890,12 @@ class Export(Struct, frozen=True):
 
 
 async def _cipher(data_key: bytes, plain: bytes, key: SubjectKey) -> RuntimeRail[Sealed]:
-    # AES-GCM-SIV seals the envelope under a random nonce: equal payloads stay unlinkable — the deterministic SIV
-    # arm would hand an equality oracle over subject material — and a repeated nonce degrades to that equality
-    # leak alone instead of GCM's key-stream break.
     nonce = token_bytes(NONCE_BYTES)
     return await _offloaded("journal.seal", lambda: Sealed(nonce=nonce, cipher=AESGCMSIV(data_key).encrypt(nonce, plain, key.aad)))
 
 
 async def sealed(plain: bytes, key: SubjectKey, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Sealed]:
     async def claimed(held: Bound) -> RuntimeRail[Sealed]:
-        # Minting names the primitive that CONSUMES the key, so a width the envelope cipher refuses cannot pass a
-        # sibling primitive's own generator and fail later at the seal.
         offered = await _chained(
             _crypto("journal.mint", lambda: AESGCMSIV.generate_key(bit_length=KEY_BITS)), lambda fresh: held.custody.wrap(fresh, key.aad)
         )
@@ -1264,9 +907,6 @@ async def sealed(plain: bytes, key: SubjectKey, *, scope: ScopeKey = DEFAULT_SCO
 
 
 async def opened(envelope: Sealed, key: SubjectKey, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Option[bytes]]:
-    # total over erasure: an absent or destroyed key answers `Nothing`, the lawful state a reader folds to its
-    # redaction marker; a live key whose tag fails stays an `Error`, since the fence classifies `InvalidTag` onto
-    # that boundary rail and a tampered payload never renders as a lawfully erased one.
     async def unsealed(held: Bound) -> RuntimeRail[Option[bytes]]:
         match await held.ledger.held(key):
             case Result(tag="ok", ok=Option(tag="some", some=material)):
@@ -1292,14 +932,10 @@ async def exported(key: SubjectKey, *, scope: ScopeKey = DEFAULT_SCOPE) -> Runti
 
 
 def redacted(held: Option[bytes]) -> bytes:
-    # one erased-state render for every reader: the receipts-owned marker, so a redacted field reads identically in
-    # a log line, an export document, and a projection row.
     return held.default_value(REDACTED.encode())
 
 
 def _erasure(stone: Tombstone) -> AuditFact:
-    # stamp stays unset here: this fact takes its admission coordinate from `record` like every other, while the stone
-    # it reports already took its own at the instant the key died — two facts, two coordinates, one process cell.
     return AuditFact(
         action="subject.erased",
         actor=Party(kind=Actor.SYSTEM, key="retain"),
@@ -1312,12 +948,6 @@ def _erasure(stone: Tombstone) -> AuditFact:
 
 
 async def erased(key: SubjectKey, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Option[Tombstone]]:
-    # destruction IS the erasure verb: THIS writer mints the stone — a ledger mints neither stamp nor identity — and
-    # its ledger empties the custody slot and echoes what it persisted, the tombstone lands as regulatory journal
-    # truth, and the observe point fans through the async mirror so a tap returning an awaitable is awaited. The
-    # record's rail BINDS into this verdict because destruction is irreversible — a refused or unlanded tombstone
-    # surfaces naming the subject whose key is already gone. `Nothing` means no live key existed: nothing destroyed,
-    # nothing fans, nothing records.
     async def destroyed(held: Bound) -> RuntimeRail[Option[Tombstone]]:
         stone = Tombstone(subject=key.subject, tenant=key.tenant, destroyed=Journal.stamped())
         match await held.ledger.destroyed(stone):

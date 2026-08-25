@@ -63,9 +63,6 @@ declare namespace Lane {
   ) => Effect.Effect<ReadonlyArray<Live.Cell>, Fold.Fault | SqlError.SqlError | ParseResult.ParseError>
 }
 
-// Edit clauses are DEPENDENT — the held node the base clause reads is what the patch clauses transform — so this arm
-// stays sequenced and refuses singly; the subject is the node key alone, which the page's own content-key law already
-// proves is a lowercase-hex string by the time it reaches this fold.
 const _editFamily = Fault.Class.family(["unstable", "base", "root", "identity"] as const, {
   unstable: Fault.Class.row({
     class: "invalid",
@@ -167,7 +164,6 @@ const _ddl = (relation: Query.Relation): Capability.Ensure => ({
 })
 
 const _Position = Schema.Struct({
-  // driver posture folds to bigint, then the Hlc field brands re-prove: written by encode, total by construction
   sequence: Journal.Sequence,
   stamp_physical: Schema.compose(Journal.Sequence, Clock.Hlc.fields.physical, { strict: false }),
   stamp_logical: Schema.compose(Journal.Sequence, Clock.Hlc.fields.logical, { strict: false }),
@@ -266,9 +262,6 @@ const _apply = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =
       })
   })
 
-// Slot contracts carry a batch whose arity the append split already proved and a receipt whose rows roster is
-// NonEmpty, so the commit point folds off that roster's own head rather than a `0n` seed no inhabited fold reaches,
-// and no arm re-proves an emptiness the signature forecloses.
 const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
   Effect.map(_apply(spec), (apply): Journal.Slot<A> => ({
     keys: () => Live.band(spec.name),
@@ -388,15 +381,10 @@ const _quarantineDdl: Capability.Ensure = {
     PRIMARY KEY (lane, sequence));`,
 }
 
-// Core-compiled budget rows over the journal's own signal classifier: a raw `SqlError` carries no `class` column,
-// so the core's default property grader reads every connection blip as `defect` and never re-drives — and a blanket
-// `constTrue` overshoots the other way, re-driving an absent relation or a violated check on the lease forever.
-// `Journal.retryable` is the gate the append owner publishes for exactly this channel; a decode refusal is
-// shape-wrong evidence no schedule outlasts, so it falls through the gate and exits to the machine.
 const _RETRY = Fault.Budget.schedule("lease", (fault: SqlError.SqlError | ParseResult.ParseError) =>
   fault._tag === "SqlError" && Journal.retryable(fault))
 
-const _REBOOT = Fault.Budget.schedule("bulk", Function.constTrue) // machine defects carry no classifier: the reboot claims re-initialization over its whole channel
+const _REBOOT = Fault.Budget.schedule("bulk", Function.constTrue)
 
 const _checkpointGauge = Convention.mount(Convention.metric.laneCheckpoint)
 
@@ -405,7 +393,7 @@ const _Checkpoint = Schema.Struct({ checkpoint: Journal.Sequence })
 const _Page = Schema.Struct({
   sequence: Journal.Sequence,
   tag: Schema.String,
-  payload: Schema.Unknown, // deliberately raw: a poison payload fails inside the per-event effect, never the whole page read
+  payload: Schema.Unknown,
 })
 
 const _claim = (sql: SqlClient.SqlClient) =>
@@ -432,8 +420,6 @@ const _page = (sql: SqlClient.SqlClient, app: Identity.App.Key) =>
 const _envelope = (payload: unknown) =>
   typeof payload === "string" ? Effect.succeed(payload) : Schema.encode(Schema.parseJson(Schema.Unknown))(payload)
 
-// One quarantine landing both poison roads share: the envelope crosses as the stored text and the row is
-// idempotent, so a replayed cycle re-diverts nothing and the two roads cannot drift apart on the evidence shape.
 const _diverted = <A extends Journal.Event, K, S, I>(
   sql: SqlClient.SqlClient,
   spec: Lane.Spec<A, K, S, I>,
@@ -448,8 +434,6 @@ const _diverted = <A extends Journal.Event, K, S, I>(
       fault: String(fault),
     }])} ON CONFLICT (lane, sequence) DO NOTHING`)
 
-// Decode partitions before any state moves, so both halves keep their row: the admitted half carries the
-// source row its position and stamp read off, the refused half carries the row its quarantine envelope comes from.
 const _decoded = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>) =>
 (
   row: typeof _Page.Type,
@@ -462,11 +446,6 @@ const _decoded = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>)
     { onFailure: (fault) => ({ fault, row }), onSuccess: (event) => ({ event, row }) },
   )
 
-// Pages fold as ONE batch — one seeded held-state read, one upsert per touched cell, one mutation stamp over
-// every cell the page moved — which is the shape `_apply` was built for and the shape the inline slot already runs.
-// `ParseError` escaping it is a STATE-schema refusal the batch grain cannot attribute to a row, so the repair
-// replays the page one event at a time and quarantines exactly the refusing event; the enclosing transaction has
-// committed nothing, so the abandoned attempt leaves the repair nothing to double-apply.
 const _folded = <A extends Journal.Event, K, S, I>(
   sql: SqlClient.SqlClient,
   spec: Lane.Spec<A, K, S, I>,
@@ -510,11 +489,9 @@ const _cycle = <A extends Journal.Event, K, S, I>(
       return yield* Effect.transposeOption(Option.map(held, ({ checkpoint }) =>
         Effect.gen(function* () {
           const rows = yield* page({ floor: checkpoint, take: spec.batch.width })
-          const [poison, admitted] = yield* Effect.partition(rows, _decoded(spec)) // cannot fail: every row lands in exactly one half
+          const [poison, admitted] = yield* Effect.partition(rows, _decoded(spec))
           yield* Effect.forEach(poison, ({ fault, row }) => _diverted(sql, spec, row, fault), { concurrency: 1, discard: true })
           yield* Array.isNonEmptyReadonlyArray(admitted) ? _folded(sql, spec, apply, admitted) : Effect.void
-          // Every row of the claimed page left applied or quarantined, and the page reads ordered by sequence, so its
-          // advance IS that last row and no verdict roster is folded to recover a maximum the read already states.
           const last = Option.match(Array.last(rows), { onNone: () => checkpoint, onSome: (row) => row.sequence })
           yield* sql`UPDATE projection_checkpoint SET checkpoint = ${last}, claimed_at = ${Journal.now(sql)} WHERE lane = ${spec.name}`
           return new _Mark({ lane: spec.name, checkpoint: last, drained: rows.length })
@@ -546,10 +523,10 @@ const _machine = <A extends Journal.Event, K, S, I>(
                   Effect.annotateLogs({ lane: spec.name })),
             })),
           Effect.tapErrorCause((cause) => Effect.logError("lane drain exhausted retries", cause)),
-          Effect.orDie, // exhausted infrastructure recovery is a machine defect: Machine.retry re-initializes from the held state
+          Effect.orDie,
           Effect.map((mark) =>
             Option.match(mark, {
-              onNone: () => [mark, new _State({ checkpoint: state.checkpoint, phase: "idle" })] as const, // a sibling replica held the claim
+              onNone: () => [mark, new _State({ checkpoint: state.checkpoint, phase: "idle" })] as const,
               onSome: (won) => [mark, new _State({
                 checkpoint: won.checkpoint,
                 phase: won.drained < spec.batch.width ? "caughtUp" : "draining",
@@ -559,9 +536,9 @@ const _machine = <A extends Journal.Event, K, S, I>(
       return Machine.procedures.make(previous ?? new _State({ checkpoint: 0n, phase: "idle" })).pipe(
         Machine.procedures.add<_Wake>()("Wake", ({ request, state }) =>
           Option.match(request.hint, { onNone: () => false, onSome: (head) => state.checkpoint > 0n && head <= state.checkpoint })
-            ? Effect.succeed([Option.none<Lane.Mark>(), state] as const) // the hint proves nothing new landed: zero round trips
+            ? Effect.succeed([Option.none<Lane.Mark>(), state] as const)
             : drained(state)),
-        Machine.procedures.add<_Poll>()("Poll", ({ state }) => Effect.succeed([state, state] as const)), // the lag read: dashboards subscribe the Actor or poll this row
+        Machine.procedures.add<_Poll>()("Poll", ({ state }) => Effect.succeed([state, state] as const)),
       )
     }),
   ).pipe(Machine.retry(_REBOOT))
@@ -571,8 +548,6 @@ const _seqOf = (payload: string): Option.Option<bigint> =>
 
 const _wake = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, app: Identity.App.Key): Stream.Stream<Option.Option<bigint>> =>
   Stream.merge(
-    // Notify rides the append owner's wake stream: profile absence, jittered re-listen, and listener loss are its
-    // policy spelled once — a second LISTEN registration here re-derives all three and drifts on the first edit.
     Stream.map(Journal.wake(app), _seqOf),
     Stream.repeatEffectWithSchedule(Effect.succeedNone, Schedule.spaced(spec.batch.window)),
     { haltStrategy: "both" },
@@ -587,7 +562,7 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
   Layer.scopedDiscard(
     Effect.gen(function* () {
       const apply = yield* _apply(spec)
-      const actor = yield* Machine.boot(_machine(spec, app, apply)) // Subscribable of Lane.State: the lag dashboard's live read
+      const actor = yield* Machine.boot(_machine(spec, app, apply))
       yield* Effect.forkScoped(Stream.runForEach(_wake(spec, app), (hint) => actor.send(new _Wake({ hint }))))
     }),
   ).pipe(Layer.withSpan("data.lane", { attributes: { lane: spec.name } }))
@@ -613,10 +588,6 @@ import type { SqlError } from "@effect/sql"
 import { Retain } from "../journal/retain.ts"
 import { Tenancy } from "../lane/tenant.ts"
 
-// Cadence is the maintenance plane's own fact and the statement is retention's, so this record carries exactly the
-// half this page owns and the record is total over the groom roster — a relation retention starts aging fails HERE
-// rather than landing as a sweep no schedule ever runs. A class-carrying relation renders one statement per finite
-// class, so the index closes the job name over a row that expands.
 const _SPECS = {
   facts: "15 4 * * *",
   ledger: "0 4 * * *",
@@ -624,17 +595,12 @@ const _SPECS = {
   quarantine: "45 4 * * *",
 } as const satisfies Record<Retain.Groomed, string>
 
-// Dialect is the INSTALLING plane's fact, threaded rather than assumed: the roster renders through the retention
-// owner's own age table, whose two arms spell different age predicates, so a job installed on an embedded profile that
-// received the spine's spelling dies on its first run. This plane holds no client at render time and elects nothing.
 const _jobs = (dialect: Retain.Dialect): ReadonlyArray<{ readonly name: string; readonly spec: string; readonly statement: string }> =>
   Array.flatMap(Record.toEntries(_SPECS), ([key, spec]) =>
     Array.map(Retain.groomText(key, dialect), (statement, index) =>
-      // Posture rides every job unit: a scheduled session is unpinned, and the FORCE policy answers an unpinned
-      // DELETE zero rows — success over nothing, forever — so the plane word prefixes the statement session-locally.
       ({ name: `groom_${key}_${index}`, spec, statement: Tenancy.sweepText(statement) })))
 
-const _shadowOf = Schema.decodeSync(Query.Relation.fields.table) // total by construction: the identifier pattern is closed under suffixing
+const _shadowOf = Schema.decodeSync(Query.Relation.fields.table)
 
 const _rebuild = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, drain: (into: Query.Relation["table"]) => Effect.Effect<number, SqlError.SqlError | ParseResult.ParseError, SqlClient.SqlClient>) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
@@ -648,24 +614,18 @@ const _rebuild = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>,
           }),
           () =>
             Effect.ignore(sql.onDialectOrElse({
-              // ruled discard: session close releases the advisory lock regardless, so an unlock miss is not evidence
               orElse: () => Effect.void,
               pg: () => held.executeUnprepared("SELECT pg_advisory_unlock(hashtextextended($1, 0))", [spec.name], undefined),
             })),
         )
         const shadow = _shadowOf(`${spec.relation.table}_shadow`)
         const retired = _shadowOf(`${spec.relation.table}_retired`)
-        // Minting spells the lane's own relation under the shadow name: a structural copy of the live one carries
-        // neither its key nor its defaults on sqlite and renames what it copies on pg. Leftover shadows drop first,
-        // because a projection holds zero authority and a rebuild starts from nothing.
         const minted = _ddl({ ...spec.relation, table: shadow })
         yield* sql`DROP TABLE IF EXISTS ${sql(shadow)}`
         yield* sql.onDialectOrElse({
           orElse: () => sql.unsafe(minted.sqlite),
           pg: () => sql.unsafe(minted.pg),
         })
-        // Draining re-folds the spine across every tenant, so it runs under the maintenance-plane transaction —
-        // which is also the consistent snapshot a shadow fill wants; the swap below stays its own transaction.
         const folded = yield* Tenancy.sweep(sql)(drain(shadow))
         yield* sql.withTransaction(
           Effect.gen(function* () {
@@ -703,7 +663,7 @@ const Lane = {
   jobs: _jobs,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Lane }
 ```

@@ -22,9 +22,8 @@ A board is an infinite pannable canvas that composes what the estate already own
 - Boundary: every case is a PLACEMENT over a settled owner — a board-local camera, a board-local chart series, a board-local sheet composer, a board-local markdown model, and a board-local stroke type are the five deleted forms, because a board that modelled any of them would drift from the owner the moment that owner moved; the retired `InkStroke` record was the fifth AND shadowed the admitted `NodeEditor.InkStroke` (`.api/api-nodeeditor.md` `[04]`) inside one assembly, so `Editing/graph.md`'s package type and a board annotation resolved one plain name to two shapes. Bindings are KEYS, never captured objects, and absence is `Option<string>` rather than the empty spelling, because a template's unbound slot and an authored blank are different facts (folder RULINGS `:88`) and a live board renders the first as its own absence caption. Boxes live in BOARD space and crops in NORMALIZED source space, two coordinate systems that never mix: the box says where on the infinite canvas the frame sits and the crop says which part of the source it shows, and folding them into one rectangle makes a resize silently re-crop. `Refit` is the one arrow that crosses them, resizing a box to its crop's own aspect. Ink is DATA on the board rather than a render-time overlay, so an annotation survives a save and participates in selection like every other item. The reference vocabulary is ONE: `Reference` answers exactly the key `WithReference` writes — the retired `@`-joined metric pair and `#`-joined sheet page were composite spellings no rebind parsed back.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Placement kind is one value shared by the item, template slot, and seam roster.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -36,9 +35,8 @@ public sealed partial class PlacementKind {
     public static readonly PlacementKind Ink = new("ink");
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// Recovery probes concrete leaves such as `error.IsType<BoardFault.BoxInvalid>()`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BoardFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Board;
@@ -57,24 +55,15 @@ public abstract partial record BoardFault : Fault {
     public sealed partial record ItemAbsent(string Detail)        : BoardFault(Detail);
     [FaultCase(4)]
     public sealed partial record TemplateMismatch(string Detail)  : BoardFault(Detail);
-    // A re-seat that found the drained cell already refilled: the concurrent seater owns its mounts and this
-    // caller owns the roster it drained, so the refusal names a custody split rather than a lost handle.
     [FaultCase(5)]
     public sealed partial record SeatContended(string Detail)     : BoardFault(Detail);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The board-space rectangle over ADMITTED columns: a coordinate is a finite `Scalar` and an extent a
-// `PositiveMagnitude`, so the five-predicate `Admits` bool the roster re-proved on every verb has nothing
-// left to check. `Z` is the paint order rather than a layer enum, because a board's stacking is continuous
-// reordering and an integer a verb increments is the whole mechanism — signed, because a send-to-back below
-// the current floor is a legal intermediate the restack fold re-ranks.
 public readonly record struct BoardBox(Scalar X, Scalar Y, PositiveMagnitude Width, PositiveMagnitude Height, int Z) {
     static readonly Op Admission = Op.Of(name: "appui.board.box");
 
-    // The accumulating raw admission: a caller handing an infinite origin AND a zero extent is told both,
-    // because a placement dialog reporting one defect per attempt makes the second defect a second trip.
     public static Fin<BoardBox> Of(double x, double y, double width, double height, int z) =>
         (Scalar.From(x).ToValidation(), Scalar.From(y).ToValidation(),
          Admission.AcceptValidated<PositiveMagnitude>(candidate: width).ToValidation(),
@@ -84,19 +73,11 @@ public readonly record struct BoardBox(Scalar X, Scalar Y, PositiveMagnitude Wid
 
     public Rect Rect => new(X.To(), Y.To(), Width.Value, Height.Value);
 
-    // The fit that crosses the two coordinate systems: the box keeps its width and takes the height the
-    // crop's own aspect names, so a re-cropped frame stops letterboxing without the author re-dragging it.
     public Fin<BoardBox> FittedTo(FrameCrop crop) =>
         Admission.AcceptValidated<PositiveMagnitude>(candidate: Width.Value / crop.Aspect)
             .Map(high => this with { Height = high });
 }
 
-// The BOARD-owned crop, in normalized source coordinates, so a frame showing the left third of a view and a
-// frame showing the whole of it are one row differing in four numbers — and neither has written anything the
-// camera can read back. `Scale` is the source pixels per board unit the frame renders at, so a frame can be
-// enlarged on the board without re-cropping and re-cropped without resizing. Each edge is a `UnitInterval`
-// and the scale a `PositiveMagnitude`, so the factory proves only the two ORDERING facts no per-column type
-// can state.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class FrameCrop {
@@ -112,8 +93,6 @@ public sealed partial class FrameCrop {
 
     public double Aspect => (Right.Value - Left.Value) / (Bottom.Value - Top.Value);
 
-    // Both degenerate orders report together: a crop inverted on one axis and collapsed on the other names
-    // both, because a drag that produced it produced both in one gesture.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref UnitInterval left, ref UnitInterval top, ref UnitInterval right, ref UnitInterval bottom,
@@ -126,8 +105,6 @@ public sealed partial class FrameCrop {
             : new ValidationError(string.Join(" | ", new object?[] { $"board/crop-degenerate:{string.Join(',', degenerate)}" }));
     }
 
-    // The rail bridge over the generated factory: crops arrive from a drag, so a degenerate one folds typed
-    // instead of throwing through `Create` inside a traversal.
     public static Fin<FrameCrop> Admit(
         UnitInterval left, UnitInterval top, UnitInterval right, UnitInterval bottom, PositiveMagnitude scale) =>
         Validate(left, top, right, bottom, scale, out FrameCrop? crop) is { } fault
@@ -135,11 +112,6 @@ public sealed partial class FrameCrop {
             : Fin.Succ(crop!);
 }
 
-// A stat card's re-bindable source: the metric the tile reads, the option it reads it under, and the readout
-// role its printed magnitudes carry. Re-binding a card to a second design option is a column write, so a
-// comparison board is one card duplicated and re-pointed rather than a second card kind. `Measure` is the
-// EXPLICIT display-unit token folder RULINGS `:69` demands per readout — a dimensionless metric carries None
-// and prints as a plain figure in the locale's own number formats, never as a unit the metric never had.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class MetricBinding {
@@ -154,10 +126,6 @@ public sealed partial class MetricBinding {
             : validationError;
 }
 
-// The placement family. Key and Box are BASE positional columns threaded through the case constructors — a
-// computed base projection sharing a case parameter name suppresses positional-property synthesis, silently
-// discards the constructor argument (CS8907), and recurses at first read. The reference-bearing cases carry
-// `Option<string>`, so a sealed template's unbound slot and an authored blank are distinct values.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(BoardItem.ViewFrame), "view")]
@@ -177,9 +145,6 @@ public abstract partial record BoardItem(string Key, BoardBox Box) {
         sheetFrame: static _ => PlacementKind.Sheet, textNote: static _ => PlacementKind.Text,
         ink: static _ => PlacementKind.Ink);
 
-    // The FORWARD half of the reference correspondence: the key a re-opened board resolves live, and exactly
-    // the key `WithReference` writes back. Text and ink carry their own content and reference nothing, which
-    // is why the answer is an Option rather than a string every case has to fabricate.
     public Option<string> Reference => Switch(
         viewFrame: static frame => frame.ViewKey,
         statCard: static card => card.Binding.OptionKey,
@@ -187,9 +152,6 @@ public abstract partial record BoardItem(string Key, BoardBox Box) {
         textNote: static _ => Option<string>.None,
         ink: static _ => Option<string>.None);
 
-    // The INVERSE half on the SAME owner: the strip, the slot declaration, and the rebind are three readings
-    // of this one pair, so a sixth placement declares its reference once. A reference written onto a case
-    // that carries none refuses by kind rather than landing nowhere.
     public Fin<BoardItem> WithReference(Option<string> reference) => Switch(
         state: reference,
         viewFrame: static (key, frame) => Fin.Succ<BoardItem>(frame with { ViewKey = key }),
@@ -201,16 +163,11 @@ public abstract partial record BoardItem(string Key, BoardBox Box) {
         textNote: static (key, note) => Unreferenced(key, note),
         ink: static (key, marks) => Unreferenced(key, marks));
 
-    // Whether a placement wears its own caption band. It is the FRAME's declared column and every other
-    // placement is captioned by declaration, so the canvas chrome and the printed figure's caption are ONE
-    // answer — the column was a screen-only flag no arm read at all, and a frame the author unchromed still
-    // printed its title.
     public bool Chromed => Switch(
         viewFrame: static frame => frame.ShowChrome,
         statCard: static _ => true, sheetFrame: static _ => true,
         textNote: static _ => true, ink: static _ => true);
 
-    // The BOX rewrite as one total dispatch, so a new placement case cannot be moved by a fold that forgot it.
     public BoardItem Rebox(BoardBox box) => Switch(
         state: box,
         viewFrame: static (seat, frame) => (BoardItem)(frame with { Box = seat }),
@@ -225,10 +182,6 @@ public abstract partial record BoardItem(string Key, BoardBox Box) {
             : Fin.Fail<BoardItem>(new BoardFault.BindingUnresolved($"{item.Key} is a {item.Kind.Key} placement and carries no reference"));
 }
 
-// The per-item rewrite algebra. Each case IS its verb, so the five bodies that spelled
-// `Items.Map(held => held.Key == itemKey ? rewritten : held)` verbatim collapse onto one `Replace`, and a
-// rewrite that only one placement admits refuses through the union's own total `Switch` — a sixth case added
-// today breaks the arm at compile time instead of inheriting a refusal message naming the wrong kind.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BoardEdit {
     private BoardEdit() { }
@@ -245,8 +198,6 @@ public abstract partial record BoardEdit {
             frame.Box.FittedTo(frame.Crop).Map(box => (BoardItem)(frame with { Box = box }))),
         rebind: static (held, edit) => Carded(held, edit.Binding));
 
-    // Both frame-only arms narrow through ONE gate, so the "is a {kind} placement and carries no crop"
-    // refusal is written once and every non-frame case names itself.
     static Fin<BoardItem> Framed(BoardItem item, Func<BoardItem.ViewFrame, Fin<BoardItem>> rewrite) => item.Switch(
         state: rewrite,
         viewFrame: static (apply, frame) => apply(frame),
@@ -267,11 +218,7 @@ public abstract partial record BoardEdit {
         Fin.Fail<BoardItem>(new BoardFault.BindingUnresolved($"{item.Key} is a {item.Kind.Key} placement and carries no {column}"));
 }
 
-// The board. Items are a SEQ rather than a keyed map because paint order is the sequence and a map would
-// need a parallel ordinal that the reorder verbs could desynchronize from membership.
 public sealed record Board(string Key, string Title, Seq<BoardItem> Items, Instant At) {
-    // Identity and roster distinctness are INDEPENDENT gates, so a board missing a title AND carrying a
-    // duplicate key reports both — a monadic chain naming the first defect is the deleted form.
     public static Fin<Board> Of(string key, string title, Seq<BoardItem> items, IClock clock) =>
         (Named(key, nameof(key)), Named(title, nameof(title)), Distinct(items))
             .Apply((_, _, roster) => new Board(key, title, roster, clock.GetCurrentInstant()))
@@ -282,18 +229,12 @@ public sealed record Board(string Key, string Title, Seq<BoardItem> Items, Insta
             ? Fin.Fail<Board>(new BoardFault.BindingUnresolved($"board/duplicate-item: {item.Key}"))
             : Fin.Succ(Stamped(Items.Add(item), clock));
 
-    // ONE per-item verb over the edit algebra: the rewrite is the edit case, so re-cropping, re-fitting, and
-    // re-binding share the locate, the swap, and the stamp instead of restating them per verb.
     public Fin<Board> Edit(string itemKey, BoardEdit edit, IClock clock) =>
         Replace(itemKey, edit.Apply).Map(items => Stamped(items, clock));
 
     public Fin<Board> Drop(string itemKey, IClock clock) =>
         Located(itemKey).Map(_ => Stamped(Items.Filter(held => held.Key != itemKey), clock));
 
-    // Paint order is a RANK rewrite over the whole roster, so bring-forward and send-back are one arrow and
-    // the z values stay dense — incrementing one item's z in place drifts the roster into sparse ranks the
-    // reorder verbs then have to reason about. One ordered fold does the bump, the sort, and the re-rank; the
-    // three-pass form re-mapped the whole roster twice per "bring forward".
     public Fin<Board> Restack(string itemKey, int delta, IClock clock) =>
         Located(itemKey).Map(_ => Stamped(
             toSeq(Items
@@ -305,7 +246,6 @@ public sealed record Board(string Key, string Title, Seq<BoardItem> Items, Insta
     public Fin<BoardItem> Located(string itemKey) =>
         Items.Find(item => item.Key == itemKey).ToFin(new BoardFault.ItemAbsent($"board/item: {itemKey}"));
 
-    // The one roster rewrite: locate, rewrite, swap in place. Every verb above is this arrow under a name.
     public Fin<Seq<BoardItem>> Replace(string itemKey, Func<BoardItem, Fin<BoardItem>> rewrite) =>
         Located(itemKey)
             .Bind(rewrite)
@@ -319,8 +259,6 @@ public sealed record Board(string Key, string Title, Seq<BoardItem> Items, Insta
             ? (Error)new BoardFault.BindingUnresolved($"board carries a {column}")
             : unit;
 
-    // Distinctness is the ONLY roster gate left: boxes and crops proved themselves at construction, so the
-    // admission that re-ran every geometric predicate on all six verbs has nothing to re-run.
     static Validation<Error, Seq<BoardItem>> Distinct(Seq<BoardItem> items) =>
         toSeq(items.Map(static item => item.Key).Distinct()).Count == items.Count
             ? items
@@ -338,34 +276,20 @@ public sealed record Board(string Key, string Title, Seq<BoardItem> Items, Insta
 - Boundary: the canvas COMPOSES `ZoomBorder` and owns no transform — a board-local `MatrixTransform`, a board-local wheel handler, a board-local fit arithmetic, a board-local grid renderer, and a board-local view history are the five deleted forms (`.api/api-panandzoom.md` reject law), and direct mutation of `ZoomX`/`OffsetX` is rejected exactly as it is on every other viewport; a board-local canvas POSTURE is the sixth, because `PanZoomRow` is the frozen row family every zoomable surface in the package resolves and a hand-set gate roster beside it disabled the constraint clamps this page's own summary claimed and left the rotation gate the row declares unreached. Named board viewpoints ride `ExportState`/`ImportState` under this owner's own keyed roster and NOT the control's `SaveView`/`RestoreView` family: that family captures whatever view is live under a name and publishes no member seating a saved view carrying a matrix, so a roster written through it can never be restored across sessions — the verdict `Editing/graph.md` `[05]-[CANVAS_VERBS]` already settled for the node canvas. Selection routes through the ONE `Editing/forms#SELECTION_MODEL` `Raise` fold and the marquee through that owner's `SelectionBand`, whose `BandMode` rows carry their own hit predicate — so a click, a modifier-click, a shift-click, and a marquee release mean on a board what they mean in a table and a tree, and a board-local band mode, a board-local anchor, and a board-local crossing bool are the three deleted forms. Live resolution is the seam's, not the item's: an item holds a key and the seam answers it, so a board never caches a resolved view, series, or sheet and a deliverable cannot go stale between opens; a seam arm that REFUSES renders its own absence caption AND counts on the seat, so a board of five broken references publishes with a stated refusal count rather than silently. The seating OWNS what it mounted: a text note renders through the markdown owner, which opens one editor session per fence, so the whole mount roster travels out to the seat and the seat's re-seat DRAINS and releases before it installs — a canvas that answered a bare control left one grammar installation per fenced note alive on every re-seat a theme swap caused, and a caller holding the drained roster is the shape that makes "dispose the previous before seating the next" structural rather than remembered. The seating itself is TOTAL: the roster proved every placement kind at its own mint and every refused arm renders its caption, so there is no half-built canvas to compensate and the one rail here is the re-seat's own custody transition. A frame renders its source under its own crop and scale, and the crop applies as a CLIP on the frame's own presenter rather than as a camera change, which is the mechanical form of the board-owned-crop law.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The pick answers the item AND the content point, because a drag needs the grab offset: a move that
-// re-anchored the box origin to the pointer would jump the frame to the cursor on the first pixel of travel.
 public readonly record struct BoardHit(BoardItem Item, Point Content) {
     public Point Grab => new(Content.X - Item.Box.X.To(), Content.Y - Item.Box.Y.To());
 }
 
-// What one placement materialized: the control the canvas seats and whatever that materialization opened.
 public readonly record struct BoardMount(Control Control, Option<IDisposable> Held);
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// The TWO readings of one placeable as ONE row, so the two-place obligation the Growth clause states is
-// structurally one declaration. The retired ten-column resolver record fused a control roster and a tile
-// roster without pairing them: a frame carried three arrows, a card none, a sheet two, and a text note
-// neither, and nothing named the gap. `Print` answers report BLOCKS rather than a raster because a card
-// prints as a two-column table and a note as lowered prose — a tile-only second reading could express
-// neither, which is exactly why both went undeclared. NAMED LOSS: per-case argument typing at the
-// composition site (`Func<string, FrameCrop, Fin<Control>>` becomes `Func<BoardItem, …>`) — bought back by
-// the closed union each arm narrows through its own generated `Switch` and by the roster's totality proof.
 public sealed record BoardSeam(
     Func<BoardItem, MarkdownStyling, Fin<BoardMount>> Seat,
     Func<BoardItem, PublishPolicy, Fin<Seq<ReportBlock>>> Print);
 
-// The composition-bound seam roster, one row per placement kind beside the ONE absence caption every refused
-// arm renders. Totality is proved at the MINT rather than at a mount, because discovering that a placement
-// has no resolver while a user is looking at the board is discovering it too late.
 public sealed record BoardSeams(HashMap<PlacementKind, BoardSeam> Rows, Func<string, Control> Absent) {
     public static Fin<BoardSeams> Of(
         Func<string, Control> absent, params ReadOnlySpan<(PlacementKind Kind, BoardSeam Seam)> rows) =>
@@ -377,42 +301,26 @@ public sealed record BoardSeams(HashMap<PlacementKind, BoardSeam> Rows, Func<str
                 $"board/seams: {declared.Count} rows against {PlacementKind.Items.Count} placement kinds")),
         };
 
-    // The PRINT read rides the rail: a tile a source could not raster must fail the publish, because a
-    // printed board missing its panels reads as complete while carrying neither the frames it was composed
-    // from nor the marks a reviewer left on it.
     public Fin<BoardSeam> For(BoardItem item) =>
         Rows.Find(item.Kind).ToFin(new BoardFault.BindingUnresolved($"board/seam: {item.Kind.Key}"));
 
-    // The SEAT read folds every refusal into the absence caption and COUNTS it, because a placement whose
-    // reference is gone must say so on the board it occupies rather than vanishing from it — and the count is
-    // what lets a caller tell a whole board from one missing five panels.
     public (BoardMount Mount, int Refused) Seated(BoardItem item, MarkdownStyling styling) =>
         For(item).Bind(seam => seam.Seat(item, styling)).Match(
             Succ: mount => (mount, 0),
             Fail: error => (new BoardMount(Absent(error.Message), None), 1));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// A CLASS holding a live cell, never a record: a record copy would share the mount roster by reference while
-// forking every column beside it, so two seats would own one set of editor sessions and the second dispose
-// would run over released natives.
 public sealed class BoardSeat(ZoomBorder canvas, int refusals) {
     readonly Atom<Option<Seq<IDisposable>>> mounts = Atom(Option<Seq<IDisposable>>.None);
 
     public ZoomBorder Canvas { get; } = canvas;
 
-    // The refused seam arms this seating rendered as absence captions. A board whose frames all resolve and a
-    // board missing five panels both mount; only this column tells them apart, and the publish arm reads it.
     public int Refusals { get; } = refusals;
 
     public Option<Seq<IDisposable>> Mounts => mounts.Value;
 
-    // Re-seating is two transitions on ONE cell in a fixed order: `Take` DRAINS and answers the retired
-    // roster, the bracket releases exactly that roster on every path, and `Seat` installs the new one into
-    // the emptied cell. "Dispose the previous before seating the next" is therefore the SHAPE rather than a
-    // rule a host has to remember, and a `Ceded` there names a concurrent re-seat that refilled the cell,
-    // whose own mounts stay its to release.
     public Fin<Seq<IDisposable>> Reseat(Seq<IDisposable> held) =>
         Cell.Take(mounts).Current.IfNone(Seq<IDisposable>()) switch {
             var retired => Custody.Bracket(
@@ -429,20 +337,12 @@ public sealed class BoardSeat(ZoomBorder canvas, int refusals) {
 }
 
 public static class BoardCanvas {
-    // Board lattice and traversal defaults. The zoom span, pan button, clamps, gestures, animation posture,
-    // rotation gate, and indicator are NOT here — they are `PanZoomRow.Dashboard` columns, and a second
-    // spelling of them beside that row is what left the clamps off and the rotation gate unreached.
     const double GridUnit = 8d;
     const int MajorEvery = 8;
     const int HistoryDepth = 32;
 
-    // The discrete rungs a board steps through: powers of two around unity with the two half-steps a reader
-    // actually stops at, so a wheel notch lands on a ratio the zoom indicator can name.
     static readonly Seq<double> ZoomRungs = Seq(0.1d, 0.25d, 0.5d, 0.75d, 1d, 1.5d, 2d, 4d, 8d);
 
-    // The one rail here is the re-seat's custody transition: the materialization itself cannot fail, so the
-    // `Fin` this entry answers carries exactly one refusal — a concurrent seater that refilled the drained
-    // cell — rather than advertising a failure the seating has no way to produce.
     public static Fin<BoardSeat> Seat(Board board, BoardSeams seams, MarkdownStyling styling) =>
         Surface(board, seams, styling) switch {
             var seated => new BoardSeat(Framed(seated.Surface), seated.Refusals) switch {
@@ -450,8 +350,6 @@ public static class BoardCanvas {
             },
         };
 
-    // The row supplies the posture; this fold supplies the lattice, the traversal depth, and the ladder the
-    // row does not carry — exactly the split `GraphCamera.Seated` already runs for the node canvas.
     static ZoomBorder Framed(Control surface) =>
         new ZoomBorder {
             Child = surface,
@@ -487,12 +385,6 @@ public static class BoardCanvas {
             ViewHistorySize = HistoryDepth,
         };
 
-    // Items materialize in PAINT order onto a `Canvas`, so the z rank the restack verb maintains is the child
-    // order the compositor draws and no per-item z-index property has to be kept in step with it. The pass is
-    // TOTAL by construction — the seam roster proved every kind at its own mint and every refused arm renders
-    // its absence caption — so there is no half-built canvas to roll back and the whole mount roster travels
-    // out to the one owner that releases it. The imperative window is the three attached-property writes and
-    // the child add: Avalonia's canvas placement has no expression form and this fold contains it.
     static (Control Surface, Seq<IDisposable> Mounts, int Refusals) Surface(
         Board board, BoardSeams seams, MarkdownStyling styling) =>
         toSeq(board.Items.OrderBy(static item => item.Box.Z))
@@ -513,9 +405,6 @@ public static class BoardCanvas {
         return (held.Surface, held.Mounts + arm.Mount.Held.ToSeq(), held.Refusals + arm.Refused);
     }
 
-    // Picking runs in CONTENT space through the viewport's own mapping, so a pick is correct under any zoom,
-    // pan, or rotation without this page reconstructing the affine; paint order reverses so the topmost item
-    // answers first and the hit agrees with what is drawn on top.
     public static Option<BoardHit> Pick(ZoomBorder canvas, Board board, Point pointer) =>
         canvas.ViewportToContent(pointer) switch {
             var content => toSeq(board.Items.OrderByDescending(static item => item.Box.Z))
@@ -523,9 +412,6 @@ public static class BoardCanvas {
                 .Map(item => new BoardHit(item, content)),
         };
 
-    // Marquee release: the band's own extent and mode come from the settled selection owner, so window and
-    // crossing semantics are the ones a table and a tree already run and a board-local crossing bool has no
-    // spelling. The band maps into content space ONCE for the whole plane.
     public static Fin<Selection<BoardItem>> Picked(
         ZoomBorder canvas, Board board, Selection<BoardItem> selection, SelectionBand band) =>
         (canvas.ViewportToContent(band.Extent), band.Mode) switch {
@@ -533,24 +419,15 @@ public static class BoardCanvas {
                 band.Gesture, board.Items.Filter(item => mode.Hits(extent, item.Box.Rect))),
         };
 
-    // The click travels the SAME fold, so shift-click on a board means what shift-click means in a table and
-    // a board-local anchor cannot exist to disagree with it. A click on empty canvas is the empty hit set,
-    // which the replace gesture reads as a clear.
     public static Fin<Selection<BoardItem>> Clicked(
         ZoomBorder canvas, Board board, Selection<BoardItem> selection, Point pointer, SelectionGesture gesture) =>
         selection.Raise(gesture, Pick(canvas, board, pointer).Map(static hit => hit.Item).ToSeq());
 
-    // Snapping is the VIEWPORT's ladder, so a board's alignment grid and its painted grid are one value and
-    // a placement lands exactly on the ruling the user sees; the snapped rect re-admits because the control
-    // answers raw doubles and the box columns are admitted types.
     public static Fin<BoardBox> Snapped(ZoomBorder canvas, BoardBox box) =>
         canvas.SnapToGrid(box.Rect) switch {
             var snapped => BoardBox.Of(snapped.X, snapped.Y, snapped.Width, snapped.Height, box.Z),
         };
 
-    // The board's own viewport pose round-trips through the viewport owner's exportable state, so restoring a
-    // board restores where the user was looking with no board-local camera model, and a NAMED board viewpoint
-    // is one keyed entry over this same value rather than the control's unrestorable saved-view registry.
     public static ZoomBorderState Pose(ZoomBorder canvas) => canvas.ExportState();
 
     public static Unit Restore(ZoomBorder canvas, ZoomBorderState pose) {
@@ -570,27 +447,19 @@ public static class BoardCanvas {
 - Boundary: a template is STRUCTURE, never content: it holds no resolved view, no resolved series, and no resolved sheet, so instantiating one against a project that lacks a slot's target refuses by slot name rather than producing a board of absence captions. Stripping writes `None` rather than the empty spelling, so the skeleton itself states the obligation the slot roster carries and folder RULINGS `:88`'s absence-versus-authored-blank distinction survives inside the artifact rather than only beside it. Instantiation re-proves the board admission gate on its product, so a template sealed before a geometry rule tightened cannot instantiate past it. A template that captured its source board's resolved values would be a snapshot wearing a template's name — the one form this cluster exists to foreclose.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// An unbound reference. `Kind` is the PLACEMENT ROW the slot expects, so a binding supplied for the wrong
-// kind refuses at instantiation rather than producing a frame pointed at a metric key, and the slot's kind
-// and the item's kind are one value rather than two strings a rename could fork.
 public readonly record struct TemplateSlot(string SlotKey, PlacementKind Kind, string LabelKey) {
     public const string LabelPrefix = "template.slot.";
 
     public static TemplateSlot Of(BoardItem item) => new(item.Key, item.Kind, $"{LabelPrefix}{item.Kind.Key}");
 }
 
-// The reusable artifact: the geometry of a board with every reference lifted out. Items keep their keys, so
-// a slot binds to exactly the placement it was lifted from and a re-ordered roster cannot cross-bind.
 public sealed record BoardTemplate(string Key, string Name, Seq<BoardItem> Skeleton, Seq<TemplateSlot> Slots, Instant At);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class BoardTemplates {
-    // A slot's key IS its item key, so the strip and the rebind are inverse folds over one identity and no
-    // slot-to-item map has to be carried beside the roster. Both legs read `BoardItem.Reference`: the strip
-    // clears it, the declaration tests it, and neither re-enumerates the placement family.
     public static Fin<BoardTemplate> Seal(Board board, string key, string name, IClock clock) =>
         (Named(key, nameof(key)), Named(name, nameof(name)),
          board.Items.Traverse(static item => item.WithReference(None).ToValidation()).As())
@@ -601,8 +470,6 @@ public static class BoardTemplates {
                 clock.GetCurrentInstant()))
             .As().ToFin();
 
-    // Instantiation supplies one binding per slot and re-proves the board gate, so a template cannot produce
-    // a board the placement rules would refuse and EVERY missing binding names its own slot in one refusal.
     public static Fin<Board> Instantiate(
         BoardTemplate template, string boardKey, string title, HashMap<string, string> bindings, IClock clock) =>
         Resolved(template, bindings)
@@ -610,8 +477,6 @@ public static class BoardTemplates {
                 .Traverse(item => Bound(item, resolved).ToValidation()).As().ToFin())
             .Bind(items => Board.Of(boardKey, title, items.ToSeq(), clock));
 
-    // Every unbound slot names itself in ONE refusal: a template pointed at a project whose option list moved
-    // is three missing bindings, and a first-defect traverse turns that into three round trips.
     static Fin<HashMap<string, string>> Resolved(BoardTemplate template, HashMap<string, string> bindings) =>
         template.Slots
             .Traverse(slot => bindings.Find(slot.SlotKey)
@@ -621,8 +486,6 @@ public static class BoardTemplates {
             .As().ToFin()
             .Map(static bound => toHashMap(bound.ToSeq()));
 
-    // A skeleton item whose key names no slot carries no reference by construction, so the rebind is total
-    // over the roster and a text note or an ink layer instantiates verbatim.
     static Fin<BoardItem> Bound(BoardItem item, HashMap<string, string> bindings) =>
         bindings.Find(item.Key).Match(
             Some: reference => item.WithReference(Some(reference)),
@@ -647,12 +510,8 @@ public static class BoardTemplates {
 - Boundary: publishing rides the ONE export plane — a board-local PDF writer, a board-local pagination fold, and a board-local delivery path are the three deleted forms, so the destination admission, the atomic write, the colour policy, and the receipt all come from the export owner. The live arm publishes REFERENCES and never resolved values, which is the whole reason a living deliverable does not go stale; a live publish that embedded its resolved frames would be a snapshot under a second name. That payload crosses `System.Text.Json` under the ONE composition-seated wire options with the placement union carrying its own `[JsonDerivedType]` roster, because `[Union]` generates no JSON support and a union serialized as its abstract base emits an empty object — the retired bare `SerializeToUtf8Bytes(board)` published a document whose items were `[{},{},{}]` and whose content hash and byte count therefore described an empty roster; `Board` registers on `AppUiWireContext` so the payload also survives trimming. Every placed tile is rasterized by the placement's OWN source through the capture codec axis and arrives through the seam, so the board never rasterizes anything itself and the one raster owner stays the capture plane. A visual placeable that lowered to a heading, or ink that lowered to nothing, is the deleted form: a printed board missing its panels and its annotations reads as complete while carrying neither the frames it was composed from nor the marks a reviewer left on it. The markdown-to-report lowering stays a HAND fold and refuses the Mapperly rung by the same reason `Document/media#MARKDOWN_BLOCKS` already states for its own block dispatch — every second arm composes children recursively, so a generated mapper would carry a `Use` converter per member and prove nothing. Time is the kernel `MonotonicTimeline` the run carries: `Capture` answers a stamp and `Elapsed` a span, both on the rail, so a broken gauge refuses rather than fabricating a duration — a mark-and-elapsed pair on an app-stratum `ClockPolicy` is the deleted form, and that record never crosses downward into this package at all.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The two modalities as ROWS carrying their own fold, so the arm IS the dispatch and adding a third (a slide
-// deck, a web page) is one row rather than an arm on a bool test every call site would have to grow. The
-// snapshot row's format mirrors the format `FlowReport` itself seals, so the roster names both output formats
-// in one place and a divergence between the row and the engine is the defect the mirror makes visible.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -666,19 +525,8 @@ public sealed partial class PublishArm {
     public partial IO<Fin<PublishedBoard>> Fold(PublishRun run);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Two independent scales, because a published board answers two different questions: how wide a board unit
-// PRINTS and at what output class its tiles rasterize. Both are typed: the extent is a UnitsNet `Length`
-// beside a `ReportSetup` that already carries the kernel-issued `PlotPolicy` and `SheetMargin`, and the density is a
-// `Rasm/Drawing/sheet` `PlotResolution` row — so the free centimetre-per-unit double this policy used to
-// carry, which `export.md` names as the deleted form it replaced, and the free pixels-per-unit double a
-// caller could set to disagree with the paper are both gone; the density DERIVES.
-// The locale rides the policy because a published board PRINTS numbers and captions: a stat card's headline,
-// its percentile rows, and their column captions are text a reader reads, so they resolve through the one
-// locale the estate already resolved rather than through an invariant format nobody elected. `Units` is the
-// board's own MEASUREMENT posture, elected the way a sheet elects its own (folder RULINGS `:106`) — the
-// posture the retired comment claimed and no column carried.
 public sealed record PublishPolicy(
     ReportSetup Setup, PdfExport Pdf, VisualDestination Destination, ResolvedLocale Locale,
     DraftUnits Units, Length PaperPerBoardUnit, PlotResolution Raster) {
@@ -687,51 +535,30 @@ public sealed record PublishPolicy(
     public double PrintedCm(BoardBox box) => (PaperPerBoardUnit * box.Width.Value).As(LengthUnit.Centimeter);
 }
 
-// The publish argument set as ONE value, so the arm row's fold column takes a single parameter and neither
-// arm restates an order no type checks. The arm rides here too, because a row's own fold cannot read the row.
 public sealed record PublishRun(
     Board Board, PublishArm Arm, BoardSeams Seams, VisualRuntime Runtime, MonotonicTimeline Line, PublishPolicy Policy);
 
 public sealed record PublishedBoard(string BoardKey, PublishArm Arm, string Destination, RenderReceipt Receipt);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The board's own report vocabulary, composed by every seam `Print` arm: the page owns what a placement
-// LOWERS TO while the composition owns what a placement RESOLVES to, so a printed board and the board on
-// screen agree about structure without this page naming a view registry, a metric reader, or a codec. Each
-// entry answers the seam's OWN carrier rather than a bare seq, so an arm binds its resolve straight into its
-// lowering — the rail is the seam's contract, and the refusals it carries are the resolves', not these.
 public static class BoardPrint {
     public const string InkAlt = "board.ink.alt";
     public const string MetricCaption = "board.stat.metric";
     public const string ValueCaption = "board.stat.value";
 
-    // A markdown depth past the role ladder lowers at the deepest report rung, matching the fall
-    // `TypographyRole.ForHeading` already takes past its own ladder; a stat card heads one rung above it so a
-    // card and the note beside it do not read as siblings of the note's own subheadings.
     const int DeepHeading = 4;
     const int CardHeading = 3;
 
-    // Percentile captions render their tau through the locale, so p95 and p99,9 read as one reader's
-    // convention rather than an invariant literal a translated document contradicts; a dimensionless
-    // magnitude renders grouped under the same culture, never in round-trip notation.
     static readonly CompositeFormat TauCaption = CompositeFormat.Parse("p{0:0.##}");
     static readonly CompositeFormat PlainMagnitude = CompositeFormat.Parse("{0:#,##0.###}");
 
-    // A placed tile at its BOARD extent under the policy's physical scale, so two frames sized alike on the
-    // canvas print alike and the report's own page setup does the fitting. The caption follows the
-    // placement's own `Chromed` answer, so a frame the author unchromed on the canvas prints unchromed.
     public static Fin<Seq<ReportBlock>> Figure(
         SKImage tile, BoardItem item, PublishPolicy policy, string altKey, string caption) =>
         Fin.Succ(Seq<ReportBlock>(new ReportBlock.Figure(
             tile, policy.PrintedCm(item.Box), policy.Locale.Label(altKey),
             item.Chromed ? Some(caption) : None)));
 
-    // The captions are LABEL KEYS the locale resolves and the magnitudes render in the board's own unit
-    // posture — a printed board carrying two English column words and invariant-formatted figures reads as a
-    // different document to every reader outside one region, on the one surface a deliverable exists to be
-    // read on. Delta, polarity, and spark are DECLARED absent: a printed card is a headline and its declared
-    // quantiles, because a trend arrow and a sparkline are screen affordances a page cannot animate.
     public static Fin<Seq<ReportBlock>> Stat(StatAnatomy anatomy, MetricBinding binding, PublishPolicy policy) =>
         (Magnitude(anatomy.Value, binding, policy),
          anatomy.Percentiles.Traverse(row => Magnitude(row.Value, binding, policy)
@@ -748,26 +575,15 @@ public static class BoardPrint {
     public static Fin<Seq<ReportBlock>> Note(string markdown) =>
         Fin.Succ(MarkdownProjection.Project(markdown).Body.Map(Lowered));
 
-    // A declared readout role prints its unit token through the board's OWN posture, exactly as a sheet's
-    // dimension does; a dimensionless metric prints as a grouped figure in the locale's number formats. A
-    // round-trip "G" render — which spells one ten-thousandth as 1E-05 — is the deleted form on a surface
-    // whose whole purpose is being read.
     static Fin<string> Magnitude(double value, MetricBinding binding, PublishPolicy policy) =>
         binding.Measure.Match(
             Some: role => policy.Units.Text(policy.Locale, Quantity.From(value, role.Unit(policy.Units.Posture)), role),
             None: () => Fin.Succ(policy.Locale.Text(PlainMagnitude, value)));
 
-    // The report vocabulary a markdown row lowers to. The heading rung is the ROLE's own, so a note carrying
-    // two heading depths prints two — the fixed level this fold used to pass flattened every note's outline
-    // onto one rung. Inline runs flatten through the markdown owner's OWN `MarkdownRenderer.Flat`, so the
-    // string a printed note carries and the string its grid cells and outline captions carry are one fold.
     static ReportBlock Lowered(MarkdownRow row) => row.Switch(
         heading: static h => (ReportBlock)new ReportBlock.Heading(
             h.Role.Heading.IfNone(DeepHeading), MarkdownRenderer.Flat(h.Runs)),
         paragraph: static p => new ReportBlock.Body(MarkdownRenderer.Flat(p.Runs)),
-        // A quoted passage is an UNTITLED block group: the report's callout carries no title, which is
-        // precisely how it renders its children without heading them and without minting a bookmark a reader
-        // would click to reach nothing.
         quote: static q => new ReportBlock.Callout(DeepHeading, string.Empty, q.Children.Map(Lowered)),
         callout: static c => new ReportBlock.Callout(DeepHeading, c.Kind.Key, c.Children.Map(Lowered)),
         listRows: static l => new ReportBlock.List(
@@ -789,9 +605,6 @@ public static class BoardPrint {
         rule: static _ => new ReportBlock.Rule(),
         opaque: static o => new ReportBlock.Body(o.Node));
 
-    // The block's own text where it has one. A block with no text answers NONE and drops out of the join —
-    // the twelve-arm fold that answered `string.Empty` on six of them joined a stray separator into every
-    // list item that happened to contain a rule or a table.
     static Option<string> Text(ReportBlock block) => block.Switch(
         heading: static h => Some(h.Text), body: static b => Some(b.Text),
         list: static l => Some(string.Join(' ', l.Items)), callout: static c => Optional(c.Title).Filter(static t => t.Length > 0),
@@ -806,14 +619,8 @@ public static class BoardPublish {
 
     static readonly Op PublishOp = Op.Of(name: "appui.board.publish");
 
-    // The entry has no dispatch: the arm row carries its own fold, so a third modality is a row and not an
-    // arm on a bool test — folder RULINGS `:159`, on the vocabulary this page declares.
     public static IO<Fin<PublishedBoard>> Publish(PublishRun run) => run.Arm.Fold(run);
 
-    // The snapshot arm composes the board's items as report blocks in paint order and hands them to the ONE
-    // pagination owner, so a board PDF carries the same page setup, running bands, and colour policy every
-    // other report does and no board-local page break exists. The whole arm sequences on `FinT<IO, _>`, so a
-    // block-fold refusal short-circuits the delivery instead of being hand-unwrapped into a pure failure.
     internal static IO<Fin<PublishedBoard>> Reported(PublishRun run) =>
         (from blocks in FinT.lift<IO, Seq<ReportBlock>>(Blocks(run))
          from receipt in FinT.liftIO<IO, RenderReceipt>(FlowReport.Render(run.Runtime, new ReportSpec(
@@ -823,10 +630,6 @@ public static class BoardPublish {
          select new PublishedBoard(
              run.Board.Key, run.Arm, receipt.Destination.IfNone(string.Empty), receipt)).runFin.As();
 
-    // The live arm delivers STRUCTURE — every item, its box, and its reference — so a reader re-opens the
-    // board against live sources. Embedding resolved frames here would produce a snapshot wearing the live
-    // arm's name, which is the one outcome this arm exists to prevent. The span is MEASURED on the kernel
-    // timeline: a broken gauge refuses on the rail rather than billing a fabricated zero.
     internal static IO<Fin<PublishedBoard>> Delivered(PublishRun run) =>
         (from start in FinT.lift<IO, MonotonicStamp>(run.Line.Capture(PublishOp))
          from payload in FinT.lift<IO, byte[]>(Structure(run.Board))
@@ -841,10 +644,6 @@ public static class BoardPublish {
          from _ in FinT.liftIO<IO, Unit>(run.Runtime.Sink(receipt))
          select new PublishedBoard(run.Board.Key, run.Arm, destination, receipt)).runFin.As();
 
-    // Blocks in PAINT order, so the reading order of the PDF matches the visual stacking of the board and a
-    // reader meets the panels in the order the author layered them. Each placement lowers through its OWN
-    // seam row, so a card printing as a table and a frame printing as a captioned figure are two rows rather
-    // than two arms of a fold this page would have to grow.
     static Fin<Seq<ReportBlock>> Blocks(PublishRun run) =>
         toSeq(run.Board.Items.OrderBy(static item => item.Box.Z))
             .Traverse(item => run.Seams.For(item)
@@ -853,8 +652,6 @@ public static class BoardPublish {
             .As().ToFin()
             .Map(static blocks => blocks.ToSeq().Bind(static block => block));
 
-    // The live payload is the board's own structure through the ONE composition-seated wire options, so the
-    // wire is the model and no publish-only shape exists to fall out of step with the board it describes.
     static Fin<byte[]> Structure(Board board) =>
         PublishOp.Catch(() => Fin.Succ(JsonSerializer.SerializeToUtf8Bytes(board, EvidenceOps.Wire)));
 }

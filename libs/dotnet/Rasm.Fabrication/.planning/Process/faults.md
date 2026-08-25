@@ -26,21 +26,19 @@ Wire posture: HOST-LOCAL. `FabricationFault` rides `Fin<T>`, while frozen intege
 - Growth: a new failure condition is one row and one payload case; a new plane is one `FabConcern` row carrying its folder and stratum.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
 using NodaTime;
-using Rasm.Domain;                       // [FaultCase]/Fault/FaultBand — the kernel fault-estate floor this family rides
+using Rasm.Domain;
 using Rasm.Element.Projection;
 using Rhino.Geometry;
 using Thinktecture;
 
 namespace Rasm.Fabrication.Process;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// A row is a PLANE, so a split package states each of its planes; `Folder` is what a receipt partitions by and
-// `Stratum` is what the strata law reads. Two rows sharing a folder are the split, never a duplicate.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FabConcern {
     public static readonly FabConcern Process = new("process", folder: "process", stratum: 0);
@@ -66,8 +64,6 @@ public sealed partial class FabConcern {
     public int Stratum { get; }
 }
 
-// One bound violation, one witness: the side owns the comparison, so a floor and a ceiling stop being two cases
-// carrying the same three operands under two names for the same limit.
 [SmartEnum<string>]
 public sealed partial class RangeSide {
     public static readonly RangeSide Floor = new("floor", static (derived, limit) => limit > derived);
@@ -143,10 +139,6 @@ public sealed partial class DeriveFault : IWitnessKind<DeriveWitness> {
         where TWitness : DeriveWitness => new(key, Witness.Case<DeriveWitness, TWitness>(admits));
 }
 
-// Subject kind is fixed by each fault's own slot TYPE (`FaultSubject.Strategy Strategy`, `FaultSubject.Specification
-// Frame`), so these rows carry the key floor alone and no fault mints through them. `FaultSubject.Admit` is the
-// boundary gate a page admitting runtime subject text — a media type, a stage name off a provider — calls before it
-// seats the subject on a fault; a subject built from a generated owner's own `Key` is already keyed by construction.
 [SmartEnum<string>]
 public sealed partial class SubjectKind : IWitnessKind<FaultSubject> {
     public static readonly SubjectKind Strategy = Of<FaultSubject.Strategy>("strategy", static row => Witness.Keyed(row.Key));
@@ -206,8 +198,6 @@ public sealed partial class JointFault : IWitnessKind<JointDiagnostic> {
     private static JointFault Of<TDiagnostic>(string key, Func<TDiagnostic, bool> admits)
         where TDiagnostic : JointDiagnostic => new(key, Witness.Case<JointDiagnostic, TDiagnostic>(admits));
 
-    // Direct leaves share predicate kernels over their common operands; no abstract intermediate case enters the
-    // generated union's reachability graph.
     private static bool Exceeded(int joint, double required, double limit) =>
         ValidityClaim.All(
             ValidityClaim.Nonnegative(joint), ValidityClaim.Finite([required, limit]), limit >= 0.0,
@@ -231,8 +221,6 @@ public sealed partial class CollisionContact {
     public static readonly CollisionContact Envelope = new("envelope");
 }
 
-// One failed-check vocabulary for both inventory and lineage refusals: the witness reports WHICH checks failed as
-// data, so a predicate reads one non-empty set instead of sniffing a boolean column per check.
 [SmartEnum<string>]
 public sealed partial class NestDefect {
     public static readonly NestDefect Kind = new("kind");
@@ -317,8 +305,6 @@ public sealed partial class SourceKind : IWitnessKind<SourceLocus> {
         where TLocus : SourceLocus => new(key, Witness.Case<SourceLocus, TLocus>(admits));
 }
 
-// A relation refusal re-runs the correspondence it names: a pair that DOES correspond cannot describe an
-// inadmissible pairing, so it lands as `WitnessMalformed` instead of a fault its own evidence refutes.
 [SmartEnum<string>]
 public sealed partial class RelationKind : IWitnessKind<RelationFault> {
     public static readonly RelationKind ModalityStrategy = Of<RelationFault.ModalityStrategy>(
@@ -363,7 +349,7 @@ public sealed partial class KerfKind : IWitnessKind<KerfWitness> {
 - Boundary: a witness kind admits only its own payload type, so a cross-family pairing fails admission rather than reporting a foreign condition. A payload arrives from a generated union already non-null, so the contract carries no null arm and no reflected type tag.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public interface IWitnessKind<in TWitness> {
     string Key { get; }
     Func<TWitness, bool> Admits { get; }
@@ -387,10 +373,6 @@ public static class Witness {
             Some: Fin.Fail<TSelf>,
             None: () => Fin.Succ(candidate));
 
-    // The gated carrier is what puts the predicate on the raising path. A witness whose payload contradicts its own
-    // kind cannot describe the condition it names, so the mint substitutes the SAME `WitnessMalformed` admission
-    // already decided: a fault is still raised, the cause stays addressable, and the raise site keeps its
-    // `FabricationFault`-shaped return with no rail widening. State threads so every carrier arm stays closure-free.
     public static FabricationFault Carried<TSelf, TKind, TState>(
         TSelf candidate,
         TState state,
@@ -399,9 +381,6 @@ public static class Witness {
         where TKind : IWitnessKind<TSelf> =>
         Refused<TSelf, TKind>(candidate).IfNone(() => carrier(state, candidate));
 
-    // Two predicates survive here — the two no kernel row holds: a non-blank key, and an ordered pair of distinct
-    // ordinals. Positivity, finiteness, and a nonnegative ordinal are `ValidityClaim` rows (`Rasm/Domain/rails`),
-    // and a witness predicate composes them through `ValidityClaim.All` rather than restating them on this page.
     public static bool Keyed(string value) => !string.IsNullOrWhiteSpace(value);
     public static bool Pair(int first, int second) =>
         ValidityClaim.All(ValidityClaim.Nonnegative(first), ValidityClaim.Nonnegative(second), first != second);
@@ -447,8 +426,6 @@ public abstract partial record EquipmentWitness(EquipmentFault Kind) : IWitness<
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeriveWitness(DeriveFault Kind) : IWitness<DeriveWitness, DeriveFault> {
     public sealed record ComponentMismatch(UInt128 Requested, UInt128 Assessed) : DeriveWitness(DeriveFault.ComponentMismatch);
-    // A cycle refusal carries the strongly-connected component's MEMBERS: a vertex/edge count pair names no operation
-    // a caller can break, and the component labels are what the detecting walk already computed.
     public sealed record OperationCycle(Arr<int> Cycle) : DeriveWitness(DeriveFault.OperationCycle);
     public sealed record DuplicateOperation(int Id) : DeriveWitness(DeriveFault.DuplicateOperation);
     public sealed record UnknownPredecessor(int Operation, int Predecessor) : DeriveWitness(DeriveFault.UnknownPredecessor);
@@ -461,8 +438,6 @@ public abstract partial record DeriveWitness(DeriveFault Kind) : IWitness<Derive
         Arr<UInt128> Predecessors) : DeriveWitness(DeriveFault.LotInadmissible);
     public sealed record LotOverdue(Instant Completion, Instant Due) : DeriveWitness(DeriveFault.LotOverdue);
     public sealed record LotUnschedulable(int Operation, Instant Ready, Duration Effort) : DeriveWitness(DeriveFault.LotUnschedulable);
-    // Finite capacity refuses on the ASSIGNED instance census, so the receipt names how many machine instances the
-    // schedule had and what effort could not seat inside their availability.
     public sealed record CapacityExhausted(int Operation, int Instances, Instant Ready, Duration Effort)
         : DeriveWitness(DeriveFault.CapacityExhausted);
     public sealed record PredecessorLotMissing(UInt128 Lot) : DeriveWitness(DeriveFault.PredecessorLotMissing);
@@ -479,8 +454,6 @@ public abstract partial record DeriveWitness(DeriveFault Kind) : IWitness<Derive
     public static Fin<DeriveWitness> Admit(DeriveWitness candidate) => Witness.Admit<DeriveWitness, DeriveFault>(candidate);
 }
 
-// Every generated case is a direct sealed leaf. `JointFault` shares predicate kernels over common rate and contact
-// operands without introducing intermediate union cases.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record JointDiagnostic(JointFault Kind) : IWitness<JointDiagnostic, JointFault> {
     public sealed record JointLimit(int Joint, double Position, double Lower, double Upper)
@@ -636,10 +609,8 @@ public sealed partial class VoxelBudget {
 - Boundary: band ownership derives from numeric `Code`, while `Concern` partitions the fabrication plane. No category, message-key, offset-column, or compatibility registry survives. A condition settled as a verdict remains a verdict and never re-mints as a fault.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// --- [ERRORS] -------------------------------------------------------------------------------------------------------------------------------------
-// The case IS the `Error`; the generator combines this root's one band binding with each direct leaf's ordinal.
-// `Concern` is fabrication process evidence, not identity: the numeric code alone crosses identity boundaries.
+// --- [TYPES] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FabricationFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Fabrication;
@@ -788,53 +759,27 @@ public abstract partial record FabricationFault : Fault {
     [FaultCase(50)] public sealed partial record EquipmentInadmissible(EquipmentWitness Witness) : FabricationFault(FabConcern.Process);
     [FaultCase(51)] public sealed partial record DerivationRejected(DeriveWitness Witness, FaultSubject.Stage Stage) : FabricationFault(FabConcern.Derivation);
     [FaultCase(52)] public sealed partial record BendSearchBudgetExceeded(int ExpandedStates, int PendingStates) : FabricationFault(FabConcern.Forming);
-    // Offset 53 is the policy/parameter admission refusal every folder's own admission gate raises: a declared
-    // policy, request, or parameter tuple that fails its own gate is a CONTRACT failure, so it answers on this band
-    // rather than borrowing the kernel geometry band. Raised is threaded (the OpenLoop shape) because every plane
-    // raises it, and Locus is the raising gate's own angle-free discriminant (`guard-policy:clearance-plane`).
     [FaultCase(53)] public sealed partial record PolicyInadmissible(FabConcern Raised, string Locus) : FabricationFault(Raised);
 
-    // The fixturing plane's refusal seats on the band that allocates its offset: a same-named `partial record` in a
-    // second namespace is a DISTINCT type whose cases never reach this union's `Switch`, so the case lands here and
-    // its folder-domain witness vocabulary stays at `Fixturing/workholding` where its own axes live.
     [FaultCase(54)] public sealed partial record FixtureInadmissible(FixturingWitness Witness) : FabricationFault(FabConcern.Fixturing);
 
-    // Abandonment is not a contract failure: nothing about the request was inadmissible, an owner withdrew it
-    // mid-flight. It answers on its own case so a caller separates "the run was refused" from "the run was
-    // stopped", and it carries the DONE fraction the abandoning stage declared beside that stage's witness —
-    // the same evidence shape the kernel `GeometryFault.RunAbandoned` carries for the arrangement lane, which
-    // this case never borrows because its `Kind` slot names geometry a fabrication run has no value for.
     [FaultCase(55)] public sealed partial record RunAbandoned(FabConcern Raised, double Done, string Witness) : FabricationFault(Raised);
 
-    // Tooling. A magazine slot is a physical seat, so its refusal names the seat, what already occupies it, and what
-    // asked for it; a model that cannot be fit names the model and the sample count that failed to determine it.
     [FaultCase(56)] public sealed partial record ToolSlotConflict(int Slot, Option<string> Occupant, string Requested) : FabricationFault(FabConcern.Tooling);
     [FaultCase(57)] public sealed partial record ToolAssetInadmissible(Option<string> Subject, string Axis) : FabricationFault(FabConcern.Tooling);
     [FaultCase(58)] public sealed partial record CuttingModelUnfit(Material Material, Operation Op, string Model, int Samples) : FabricationFault(FabConcern.Tooling);
     [FaultCase(59)] public sealed partial record StabilityUnavailable(double RequestedDepthMm, int Lobes) : FabricationFault(FabConcern.Tooling);
 
-    // Fleet. Contention answers on the INSTANCE, so the refusal carries the station key, the moment work became
-    // ready, and the effort that could not seat inside its availability — a machine CLASS names no station.
     [FaultCase(60)] public sealed partial record MachineInstanceUnavailable(MachineInstanceKey Instance, Instant From, Duration Effort) : FabricationFault(FabConcern.Fleet);
     [FaultCase(61)] public sealed partial record FleetAssignmentInfeasible(int Demands, int Instances) : FabricationFault(FabConcern.Fleet);
 
-    // Kinematics. A chain refusal names the cell, the link, and the axis, because a caller repairs a chain at a
-    // link and never at the whole cell.
     [FaultCase(62)] public sealed partial record KinematicChainInadmissible(string Cell, int Link, string Axis) : FabricationFault(FabConcern.Kinematics);
 
-    // Posting. `ProgramParse` answers for a malformed block; an unresolved WORD is a different failure — the block
-    // parsed and its word reached no command — and an optimization pass that cannot preserve semantics names the
-    // pass rather than reporting a parse it never ran.
     [FaultCase(63)] public sealed partial record ProgramTokenUnresolved(int Line, string Word) : FabricationFault(FabConcern.Posting);
     [FaultCase(64)] public sealed partial record OptimizationRefused(string Pass, string Locus) : FabricationFault(FabConcern.Posting);
 
-    // Ingress. A source the provider read CLEANLY whose geometry cannot be admitted is not a provider outage:
-    // separating the two is what lets a caller distinguish a broken reader from an unfabricable model.
     [FaultCase(65)] public sealed partial record IngressGeometryUnfit(SourceLocus Locus, string Axis) : FabricationFault(FabConcern.Ingress);
 
-    // Every witness-carrying case mints here, so the payload's own kind predicate runs before the fault exists.
-    // A raise site names the concern and hands its payload; the carrier arm stays static because the case-specific
-    // remainder — the stage, the target ordinal, the provider detail — threads through the state slot.
     public static FabricationFault Equipment(EquipmentWitness witness) =>
         Witness.Carried<EquipmentWitness, EquipmentFault, Unit>(
             witness, unit, static (_, row) => new EquipmentInadmissible(row));
@@ -870,11 +815,6 @@ public abstract partial record FabricationFault : Fault {
     public static FabricationFault Fixture(FixturingWitness witness) =>
         new FixtureInadmissible(witness);
 
-    // `AdmissionSlots.Gate` binds this method group straight onto its `Func<TConcern, TDetail, Error>` slot:
-    // `FabricationFault` derives `Error` through `Fault`, so the return converts covariantly, the conversion caches
-    // once per call site, and a passing gate allocates
-    // neither fault nor delegate. ONE group serves the whole concern census: `Raised` is the caller's plane and
-    // `Locus` the gate's own token, so a per-plane `file static class` closing over one `FabConcern` has no job left.
     public static FabricationFault Inadmissible(FabConcern raised, string locus) => new PolicyInadmissible(raised, locus);
 
 }
@@ -890,29 +830,18 @@ public abstract partial record FabricationFault : Fault {
 - Boundary: the slot mints NO fault — the raise site owns which band answers for its refusal, so the combinator carries no `Kind`, no locus prefix, and no `FabricationFault` case, and a package-local OR per-folder re-declaration of the lift or the fold is the named defect: the copy forks the accumulation law and its type name collides with the `Rasm.Element` owner under `CS0104` at every page importing both namespaces plainly. `Accumulate` folds a slot RUN while the tuple `.Apply` joins a fixed product — a raise site picks by the shape it already holds. A gate spelling `new KernelFault.InvalidValue("faults", locus)` inline builds a refusal the passing arm discards and takes the deferred arity against `FabricationFault.Inadmissible` instead; a `file static class` wrapping that spelling behind a two-argument `Of(admitted, locus)` re-spells the deferred arity under a per-plane name and is the deleted form. A boundary value enters through `Validate` or `TryCreate` and never through the throwing `Create`.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Admission {
-    // A `[ValidationError]` owner returns the fault itself, so admission is ONE read: a null
-    // refusal means the `out` slot is populated by contract. A hand ternary re-spelling this beside a `Validate`
-    // call is the deleted form, and so is a lift that re-wraps the refusal in a second case. A struct owner's
-    // generated slot is the value itself — never `Nullable<TOwner>` — so a value owner binds this same extension
-    // and the `is { } refusal ? Fail : Succ(slot!.Value)` spelling is both the deleted form and uncompilable.
     public static Fin<TOwner> Admitted<TOwner>(this ValidationError? refusal, TOwner admitted) =>
         refusal is null
             ? Fin.Succ(admitted)
             : Fin.Fail<TOwner>(new KernelFault.InvalidValue(typeof(TOwner).Name, refusal.Message));
 
-    // The keyed arity: a `[ValueObject<T>]` or `[SmartEnum<TKey>]` owner carries its raw admission statically, so a
-    // constrained generic dispatches it with no instance and no member roster.
     public static Fin<TOwner> Of<TOwner, TRaw>(TRaw value, IFormatProvider? provider = null)
         where TOwner : class, IObjectFactory<TOwner, TRaw, ValidationError>
         where TRaw : notnull =>
         TOwner.Validate(value, provider, out TOwner? admitted).Admitted(admitted!);
 
-    // The keyed VALUE arity. `IObjectFactory` declares its slot as an unconstrained `out T?`, which substitutes to
-    // the plain struct rather than to `Nullable<TOwner>`, so the struct constraint is what makes the call bind and
-    // the two arities cannot share one name — a generic constraint never enters the signature overload resolution
-    // reads. A keyed struct owner spelling its own `Validate` ternary is the deleted form.
     public static Fin<TOwner> OfValue<TOwner, TRaw>(TRaw value, IFormatProvider? provider = null)
         where TOwner : struct, IObjectFactory<TOwner, TRaw, ValidationError>
         where TRaw : notnull =>

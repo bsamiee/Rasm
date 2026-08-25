@@ -43,8 +43,6 @@ public sealed partial class StorageLane {
     private StorageLane(string key, bool durable) : this(key) => Durable = durable;
 }
 
-// Loss capabilities close as a vocabulary: `RetentionLoss.Law` names the corner a bool pair could only leave
-// unstated.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RetentionCapability : ICapability<RetentionCapability> {
@@ -59,7 +57,6 @@ public sealed partial class CacheTier {
     public static readonly CacheTier ArtifactBlob = new("artifact-blob");
 }
 
-// `Dedups` is a SINGLE axis with no second bool beside it, so the kernel capability law leaves it a column.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IdentityScheme {
@@ -68,8 +65,6 @@ public sealed partial class IdentityScheme {
     public bool Dedups { get; }
     private IdentityScheme(string key, bool dedups) : this(key) => Dedups = dedups;
 
-    // Name-plus-epoch preimages stream through the kernel writer: `String` length-frames its field, so a name
-    // holding the separator a formatted key once used can no longer forge another row's identity.
     public ContentAddress Identity(ContentAddress contentKey, string name, ulong epoch) => Switch(
         state: (Key: contentKey, Name: name, Epoch: epoch),
         contentKeyed: static row => row.Key,
@@ -78,20 +73,14 @@ public sealed partial class IdentityScheme {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Cadence, budget, and bounds are retention VALUES; `Redrive` is the class's own kernel policy over the lane's effect
-// arrows. `OrphanAge` is DECLARED here rather than smuggled into the key-only eligibility predicate.
 public readonly record struct RetentionSchedule(
     Duration Cadence, long ByteBudget, int CountBound, Duration AgeBound, Duration OrphanAge, RedrivePolicy Redrive);
 
-// Partition-grained inventory seats here: a rolling-window family sweeps partitions rather than rows.
 public readonly record struct PartitionSpan(string Name, int Rows);
 
-// `Tier` is the artifact's CURRENT durable tier, read by the cold-tiering verdict so a never-evict artifact past its
-// age demotes one rung instead of evicting and one already coldest is `Kept` idempotently.
 public readonly record struct RetentionFact(
     RetentionClass Class, ContentAddress Key, long Bytes, StorageTier Tier, Instant At, Option<PartitionSpan> Partition = default);
 
-// Admission reads the COMMITTED outcome, never a pre-write prediction.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LaneOutcome {
     private LaneOutcome() { }
@@ -102,8 +91,7 @@ public abstract partial record LaneOutcome {
     public long Committed => this.Map(stored: static s => s.Bytes, replaced: static r => r.Bytes, deduped: static _ => 0L);
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// `RetentionFault` derives directly from `Rasm.Domain.Fault`; generated case identity proves each offset in-band.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RetentionFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Retention;
@@ -122,8 +110,6 @@ public abstract partial record RetentionFault : Fault {
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
-// Loss corners close at three. `{Evict, Expire}` is the corner a bool pair could hold while no sweep arm answered it,
-// so `Law` refuses it and `Collecting` is the union the reachability shield reads.
 public static class RetentionLoss {
     public static readonly CapabilitySet<RetentionCapability> ReceiptedEvict = CapabilitySet<RetentionCapability>.Of(RetentionCapability.Evict);
     public static readonly CapabilitySet<RetentionCapability> DeclaredExpiry = CapabilitySet<RetentionCapability>.Of(RetentionCapability.Expire);
@@ -138,8 +124,6 @@ public static class RetentionCeiling {
         DataClassification.UserContent, DataClassification.Personal, DataClassification.Confidential, DataClassification.Credential, DataClassification.Secret,
     }.Select(static (row, ordinal) => (row, ordinal)).ToFrozenDictionary(static t => t.row, static t => t.ordinal);
 
-    // ONE rail, not a mapped-ness probe beside a compare: an UNRANKED stamp is a NEWER upstream tier this seam has
-    // not ordered, so it rejects rather than collapsing to `int.MaxValue` and reporting a breach that never compared.
     public static Fin<DataClassification> Admit(DataClassification stamp, DataClassification ceiling) =>
         (Rank.TryGetValue(stamp, out int held), Rank.TryGetValue(ceiling, out int bound)) switch {
             (false, _) => Fin<DataClassification>.Fail(new RetentionFault.Unstamped(stamp)),
@@ -147,8 +131,6 @@ public static class RetentionCeiling {
             _ => Fin<DataClassification>.Fail(new RetentionFault.CeilingBreach(stamp, ceiling)),
         };
 
-    // Cold-tiering is a retention POLICY over the blobstore-owned `StorageTier`: `Archive` is the floor, so demotion
-    // is idempotent.
     static readonly FrozenDictionary<StorageTier, StorageTier> Colder = new[] {
         (StorageTier.Standard, StorageTier.Infrequent), (StorageTier.Infrequent, StorageTier.Cold), (StorageTier.Cold, StorageTier.Archive),
     }.ToFrozenDictionary(static t => t.Item1, static t => t.Item2);
@@ -177,18 +159,12 @@ public sealed partial class RetentionClass {
     private RetentionClass(string key, StorageLane lane, CapabilitySet<RetentionCapability> loss, IdentityScheme scheme, DataClassification ceiling, RetentionSchedule schedule) : this(key) =>
         (Lane, Loss, Scheme, Ceiling, Schedule) = (lane, loss, scheme, ceiling, schedule);
 
-    // Reachability shields through a SET query: only a collecting class is shielded, the never-evict arm
-    // consuming the mark itself.
     public bool Collects => Loss.Held.Overlaps(RetentionLoss.Collecting.Held);
 
-    // Corner proof runs at type initialization exactly as the kernel band `Disjoint` does, so an illegal loss corner
-    // surfaces where the row is declared rather than at the sweep arm that has no answer for it.
     public static readonly Fin<Unit> Lawful =
         toSeq(Items).Traverse(static row => RetentionLoss.Law.Admit(row.Loss)).As().Map(static _ => unit);
 }
 
-// Retention is DERIVED, never stored: a row's `Retention` IS its class, so a catalogued class contradicting its kind
-// is unrepresentable at both catalogs and the two can no longer drift.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -202,32 +178,19 @@ public sealed partial class ArtifactKind {
     public static readonly ArtifactKind ChunkContent = new("chunk-content", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind CloudRun = new("cloud-run", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind Assessment = new("assessment", RetentionClass.Cache, CacheTier.ModelResult);
-    // Per-slot economics: the three proven derived forms re-tessellate from the recorded body origin (`Cache`), while
-    // `Box` and every opaque form lacking a reconstruction source remain durable (`Blob`); no row pins a process tier.
     public static readonly ArtifactKind RepresentationBody = new("representation-body", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationAxis = new("representation-axis", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationFootprint = new("representation-footprint", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationBox = new("representation-box", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind RepresentationPreserved = new("representation-preserved", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    // `CoverageRaster` keys a `Node.Coverage` MEASURED field grid, never a `RepresentationContentHash` slot, so it
-    // carries no provenance discriminant and admits as its own row — routing it through the representation selector
-    // handed a measured raster the producing body's key as a re-derivation origin nothing can rebuild it from.
     public static readonly ArtifactKind CoverageRaster = new("coverage-raster", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    // Press-baked sets rebuild from the triple its press receipt records; a NEURAL-ACQUIRED one cannot, because its
-    // model card retires and its provider drifts, so cache-classing it is evidence loss.
     public static readonly ArtifactKind TextureSet = new("texture-set", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind TextureAcquired = new("texture-acquired", RetentionClass.Blob, CacheTier.ArtifactBlob);
-    // Materials capacity hull: rebuilds from the eager fibre-integration sweep, so eviction costs compute, never
-    // evidence. The Freeze payload is producer=consumer-ONLY serialized JSON (a deserialization-gadget surface) —
-    // the store carries it as an opaque content-keyed blob keyed by the producer's (ComponentId, DiagramResolution.Key)
-    // admission through `ArtifactIndexRow.Admit`, never decodes it, and never crosses it to a peer runtime.
     public static readonly ArtifactKind CapacityHull = new("capacity-hull", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind ArchiveCorpus = new("archive-corpus", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind ArchiveSolve = new("archive-solve", RetentionClass.Cache, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind GraduationEnvelope = new("graduation-envelope", RetentionClass.Blob, CacheTier.ArtifactBlob);
     public static readonly ArtifactKind InitializerPack = new("initializer-pack", RetentionClass.Blob, CacheTier.ModelResult);
-    // Fabrication egress keys mirror the `Rasm.Fabrication` `EgressKind` rows verbatim; federation is
-    // content-key-only, so no Fabrication type crosses this page.
     public static readonly ArtifactKind CutProgram = new("cutprogram", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind Placement = new("placement", RetentionClass.Cache, CacheTier.ModelResult);
     public static readonly ArtifactKind Remnant = new("remnant", RetentionClass.Blob, CacheTier.ArtifactBlob);
@@ -247,17 +210,9 @@ public sealed partial class ArtifactKind {
     public CacheTier Tier { get; }
     private ArtifactKind(string key, RetentionClass retention, CacheTier tier) : this(key) => (Retention, Tier) = (retention, tier);
 
-    // One plan key projects BOTH the class discriminant AND the origin the index records, so a `TextureSet` row can
-    // never claim rebuildability while its own index carries no origin.
     public static (ArtifactKind Kind, Option<UInt128> Source) Texture(Option<UInt128> planKey) =>
         (planKey.IsSome ? TextureSet : TextureAcquired, planKey);
 
-    // `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot` owns this roster — the one identifier
-    // vocabulary the producing node already keys its `RepresentationContentHash` by — composed, never re-declared,
-    // so the correspondence is this page's own column and a slot mint upstream breaks HERE. Dispatch takes the
-    // roster's generated total `Switch` rather than a row-identity compare, so the retention arm and the origin arm
-    // answer together per row: the three proven derived rows take their cache class only with a body origin, while a
-    // missing origin, `Box`, and every opaque slot select durable preservation and carry no fabricated source.
     public static (ArtifactKind Kind, Option<UInt128> Source) Representation(RepresentationSlot slot, Option<UInt128> bodyKey) =>
         slot.Switch(
             state: bodyKey,
@@ -281,8 +236,6 @@ public sealed partial class ArtifactKind {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RetentionCatalog {
-    // One rail, four stages: ceiling-admit, identity-derive, race-admit, lane-write. The injected `write` leg IS the
-    // declared lane's conditional write, because an `Admit` that only predicts is the deleted form.
     public static IO<Fin<RetentionFact>> Admit(
         RetentionClass cls, ContentAddress contentKey, string name, ulong epoch, DataClassification stamp,
         StorageTier tier, Func<ContentAddress, bool> resident, Func<ContentAddress, IO<Fin<LaneOutcome>>> write, ProjectionContext frame) =>
@@ -325,8 +278,6 @@ public static class RetentionCatalog {
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
-// `Key`/`Bytes` are ABSTRACT so each case's positional property overrides them: a concrete computed base property
-// beside a same-named parameter leaves the parameter unread while the base switch recurses into itself.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SweepVerdict {
     private SweepVerdict() { }
@@ -338,23 +289,18 @@ public abstract partial record SweepVerdict {
     public sealed record EvictSize(ContentAddress Key, long Bytes, long OverBy) : SweepVerdict;
     public sealed record EvictAdministrative(ContentAddress Key, long Bytes, string By) : SweepVerdict;
     public sealed record EvictOrphan(ContentAddress Key, long Bytes, Duration Age) : SweepVerdict;
-    // `Key` is the ordinary name-plus-epoch mint over the partition name, because a partition IS an epoch-grained
-    // name-plus-epoch unit — so the abstract `Key` holds and the receipt stream reads one identity space end to end.
     public sealed record DropPartition(ContentAddress Key, string Partition, int Rows, long Bytes) : SweepVerdict;
     public sealed record Cool(ContentAddress Key, long Bytes, StorageTier From, StorageTier To) : SweepVerdict;
 
     public abstract ContentAddress Key { get; }
     public abstract long Bytes { get; }
 
-    // ONE case predicate: whether the artifact leaves the inventory — what all three readers actually ask.
     public bool Releases => Switch(
         kept: static _ => false, held: static _ => false, heldOverBudget: static _ => false,
         evictAge: static _ => true, evictCount: static _ => true, evictSize: static _ => true,
         evictAdministrative: static _ => true, evictOrphan: static _ => true, dropPartition: static _ => true,
         cool: static _ => false);
 
-    // Each case books ITSELF into the summary through the generated total dispatch, so the planned tally and the
-    // executed tally share one fold and a new case cannot silently land in the wrong conservation slot.
     public SweepReceipt Book(SweepReceipt sum) => Switch(
         state: sum,
         kept:                static (s, _) => s with { Kept = s.Kept + 1 },
@@ -407,8 +353,6 @@ public abstract partial record ReachabilitySource {
     public sealed record Tags(EventTagQuery Query, Func<EventTagQuery, IO<Seq<ContentAddress>>> QueryByTags) : ReachabilitySource;
 }
 
-// `Refused` is the fifth partition slot: a per-key erase the lane declined neither left the inventory nor freed a
-// byte, so booking it as `Evicted` reports reclaim that never happened.
 public readonly record struct SweepReceipt(
     RetentionClass Class, int Inventory, int Kept, int Held, int Cooled, int Evicted, int Refused,
     long EvictedBytes, Seq<(ContentAddress Key, string Code)> Refusals, Instant At, CorrelationId Correlation) {
@@ -420,20 +364,15 @@ public readonly record struct SweepReceipt(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RetentionSweep {
-    // Slots mount through the `Store/observability#SLOT_REGISTRY` census spread, so the verdict stream is
-    // projectable.
     public static readonly StoreSlot AdmitSlot = StoreSlot.Create("store.retention.admit");
     public static readonly StoreSlot RejectSlot = StoreSlot.Create("store.retention.reject");
     public static readonly StoreSlot SweepSlot = StoreSlot.Create("store.retention.sweep");
     public static readonly Seq<StoreSlot> Slots = Seq(AdmitSlot, RejectSlot, SweepSlot);
 
-    // Both sources settle to one idempotent mark: cuts fold every historical graph, tags project Marten results.
     public static IO<LanguageExt.HashSet<ContentAddress>> Mark(ReachabilitySource source) => source.Switch(
         cuts: static row => IO.pure(row.EveryCut.Fold(LanguageExt.HashSet<ContentAddress>.Empty, (live, cut) => row.ReferencedAt(cut).Fold(live, static (set, key) => set.Add(key)))),
         tags: static row => row.QueryByTags(row.Query).Map(static keys => keys.Fold(LanguageExt.HashSet<ContentAddress>.Empty, static (set, key) => set.Add(key))));
 
-    // `Run`'s receipt is the PLANNED partition — the fold has executed nothing, so the refusal slots seat empty and
-    // only `Execute` fills them; a planned figure carrying a refusal reports a lane veto nobody asked for.
     public static (Seq<SweepVerdict> Verdicts, SweepReceipt Receipt) Run(
         RetentionClass cls, Seq<RetentionFact> inventory, Seq<Hold> holds, Reachability live,
         Func<ContentAddress, bool> eligible, Instant now, CorrelationId correlation) {
@@ -443,8 +382,6 @@ public static class RetentionSweep {
         return (scan.Ledger, scan.Ledger.Fold(SweepReceipt.Empty(cls, inventory.Count, now, correlation), static (sum, v) => v.Book(sum)));
     }
 
-    // ONE joint discriminant, not a guard ladder. `Fenced` folds hold, eligibility, and the reachability shield —
-    // which applies only to a COLLECTING class, since the never-evict arm consumes the mark as its own discriminant.
     static SweepVerdict Decide(
         RetentionClass cls, (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact,
         Seq<Hold> holds, Reachability live, Func<ContentAddress, bool> eligible, Instant now) =>
@@ -462,13 +399,9 @@ public static class RetentionSweep {
             ? new SweepVerdict.HeldOverBudget(fact.Key, fact.Bytes, (state.Bytes + fact.Bytes) - cls.Schedule.ByteBudget)
             : new SweepVerdict.Held(fact.Key, fact.Bytes, "hold-or-reachable");
 
-    // Eviction lands AT the declared bound: capture-side truncation owns the budget response, so pressure never
-    // expires early.
     static SweepVerdict Expire(RetentionClass cls, RetentionFact fact, Instant now) =>
         (now - fact.At) >= cls.Schedule.AgeBound ? Aged(fact, now - fact.At) : new SweepVerdict.Kept(fact.Key);
 
-    // Debris past its DECLARED `OrphanAge` collects, a younger orphan is `Kept`, and a reachable aged artifact
-    // demotes one rung — durable lanes only, since a `Transient` artifact has no colder home.
     static SweepVerdict Preserve(RetentionClass cls, RetentionFact fact, Reachability live, Instant now) =>
         !live.Reachable(fact.Key)
             ? (now - fact.At) >= cls.Schedule.OrphanAge
@@ -478,7 +411,6 @@ public static class RetentionSweep {
                 ? new SweepVerdict.Cool(fact.Key, fact.Bytes, fact.Tier, colder)
                 : new SweepVerdict.Kept(fact.Key);
 
-    // Age, then count, then size. Count and size are ROW-grained economics a partition does not answer.
     static SweepVerdict Reclaim(RetentionClass cls, (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact, Instant now) =>
         (now - fact.At) >= cls.Schedule.AgeBound ? Aged(fact, now - fact.At)
         : fact.Partition.IsSome ? new SweepVerdict.Kept(fact.Key)
@@ -487,13 +419,11 @@ public static class RetentionSweep {
             ? new SweepVerdict.EvictSize(fact.Key, fact.Bytes, (state.Bytes + fact.Bytes) - cls.Schedule.ByteBudget)
             : new SweepVerdict.Kept(fact.Key);
 
-    // Both loss arms reach this ONE age mint, so the fact's GRAIN decides its shape and the arms cannot diverge.
     static SweepVerdict Aged(RetentionFact fact, Duration age) =>
         fact.Partition.Case is PartitionSpan span
             ? new SweepVerdict.DropPartition(fact.Key, span.Name, span.Rows, fact.Bytes)
             : new SweepVerdict.EvictAge(fact.Key, fact.Bytes, age);
 
-    // Retained `Cool` threads `Live`/`Bytes` exactly like `Kept` — its bytes stay resident, demoted.
     static (Seq<SweepVerdict> Ledger, int Live, long Bytes) Advance(
         (Seq<SweepVerdict> Ledger, int Live, long Bytes) state, RetentionFact fact, SweepVerdict verdict) =>
         state with {
@@ -502,10 +432,6 @@ public static class RetentionSweep {
             Bytes = state.Bytes + (verdict.Releases ? 0L : fact.Bytes),
         };
 
-    // Every lane routes through this ONE receipted executor: purge, GC, eviction, and demotion all flow here. The
-    // evict arrow is SET-shaped and runs ONCE per pass, so an empty verdict set is a tally of zero requested, never a
-    // skipped call the receipt cannot account for; both arrows ride the class `RedrivePolicy`, so no hand attempt
-    // loop exists.
     public static IO<SweepReceipt> Execute(
         RetentionClass cls, Seq<SweepVerdict> verdicts,
         Func<Seq<ContentAddress>, IO<EraseTally>> evict, Func<ContentAddress, StorageTier, IO<Unit>> demote, ProjectionContext frame) =>
@@ -514,8 +440,6 @@ public static class RetentionSweep {
                           .TraverseM(c => Redrive.Run(cls.Schedule.Redrive, demote(c.Key, c.To))).As()
         select Summed(cls, verdicts, tally, frame);
 
-    // Reclaim measures against the TALLY, never the verdict list: a refused key's bytes are still resident, and
-    // `Cool` bytes stay out because a demotion moves a header and frees nothing.
     static SweepReceipt Summed(RetentionClass cls, Seq<SweepVerdict> verdicts, EraseTally tally, ProjectionContext frame) {
         Set<ContentAddress> refused = toSet(tally.Refused.Map(static row => row.Key));
         SweepReceipt planned = verdicts.Filter(v => !(v.Releases && refused.Contains(v.Key)))

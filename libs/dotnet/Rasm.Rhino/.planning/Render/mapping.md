@@ -22,7 +22,7 @@
 - Packages: `api-rhinocommon-geometry.md` (`TextureMapping`, `TextureMappingType`, `TextureSpace`, `TextureMapping.Projection`, `TryGetMappingPlane`/`Box`/`Sphere`/`Cylinder`/`Mesh`, `Mesh`); kernel `Domain/rails` (`Op`, `Lease<T>`), `Domain/validation` (`Op.Row`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;
@@ -34,7 +34,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class MappingCap {
     public static readonly MappingCap Open = new(key: false);
@@ -70,9 +70,6 @@ public sealed partial class CoordinateInvalidation {
     public static readonly CoordinateInvalidation SurfaceParameters = new(key: true);
 }
 
-// Recovery answers in three shapes because the host does: no inverse at all, a pure-value inverse, and the mesh
-// inverse that yields a NATIVE mesh. As a product of two options the spec-and-mesh corner was representable and the
-// detached snapshot had to carry a lease; as a closed union that corner cannot be built and only one case pays.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MappingRecovery {
     private MappingRecovery() { }
@@ -94,8 +91,6 @@ public abstract partial record MappingRecovery {
         valuesCase: static _ => Option<Lease<Mesh>>.None,
         coordinatesCase: static held => Some(held.Coordinates));
 
-    // Custody transfers to the caller only on success; every refusal path releases whichever channel it holds on
-    // the same rail, so a release refusal appends to the admission fault.
     internal Fin<Unit> Release(Op key) => Switch(
         state: key,
         bareCase: static (_, _) => Fin.Succ(unit),
@@ -129,10 +124,6 @@ public sealed partial class MappingKind {
         "mesh", TextureMappingType.MeshMappingPrimitive, RecoveryForm.Coordinates, RecoverMesh);
     public static readonly MappingKind Ocs = new(
         "ocs", TextureMappingType.OcsMapping, RecoveryForm.Values, RecoverOcs);
-    // Host truth: `TextureMapping` publishes `TryGetMappingPlane`/`Box`/`Sphere`/`Cylinder`/`Mesh` and NOTHING for the
-    // surface-primitive, brep-primitive, or false-colors kinds — no inverse accessor and no `Create*` factory either. Their
-    // spec is structurally absent rather than merely unread, so the three share the one `Bare` form. Each keeps its own row
-    // because the native discriminant round-trips through `MappingSnapshot.Kind` and `ChannelTag.Native`.
     public static readonly MappingKind Surface = new(
         "surface", TextureMappingType.SurfaceMappingPrimitive, RecoveryForm.Bare, BareOf);
     public static readonly MappingKind Brep = new(
@@ -146,8 +137,6 @@ public sealed partial class MappingKind {
     [UseDelegateFromConstructor]
     internal partial Fin<MappingRecovery> Recover(TextureMapping mapping, Op key);
 
-    // Acceptance reads the ONE correspondence: `MappingSpec.Kind` says which kind a spec case belongs to, and the
-    // row's own `Inverse` says which shape it answers. Nothing here restates a per-kind predicate.
     internal bool Accepts(MappingRecovery recovered) {
         MappingKind self = this;
         return recovered.Switch(
@@ -186,7 +175,6 @@ public sealed partial class MappingKind {
             ? MappingRecovery.Of(new MappingSpec.Boxed(frame, dx, dy, dz, MappingCap.Of(capped)))
             : MappingRecovery.Bare);
 
-    // Losing branches still receive an out mesh, so the refusal path releases it before answering bare.
     private static Fin<MappingRecovery> RecoverMesh(TextureMapping mapping, Op key) => key.Catch(() =>
         mapping.TryGetMappingMesh(out Mesh mesh)
             ? Fin.Succ<MappingRecovery>(new MappingRecovery.CoordinatesCase(
@@ -210,7 +198,7 @@ public sealed partial class MappingKind {
 - Packages: `api-rhinocommon-geometry.md` (`TextureMapping.Create*` factories, `TextureSpace`, `UvwTransform`, `PrimitiveTransform`, `NormalTransform`, `Evaluate`, `Decompose`, `MappingTag`, `CachedTextureCoordinates`, `Mesh.GetCachedTextureCoordinates`/`SetCachedTextureCoordinatesFromMaterial`/`InvalidateCachedTextureCoordinates`/`HasCachedTextureCoordinates`); kernel `Domain/rails` (`Lease<T>`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.AcceptValidated<TVO>`); LanguageExt.Core (`Fin`, `Option`, `Arr`, `HashMap`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`, `[ValueObject]`, `[ValidationError]`, `IDisallowDefaultValue`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MappingSpec : IDisposable {
     private MappingSpec() { }
@@ -222,8 +210,6 @@ public abstract partial record MappingSpec : IDisposable {
     public sealed record Boxed(Plane Frame, Interval Dx, Interval Dy, Interval Dz, MappingCap Cap) : MappingSpec;
     public sealed record MeshCustom(Lease<Mesh> Coordinates) : MappingSpec;
 
-    // This map is the page's PRIMARY correspondence: every derived question — which factory mints it, which inverse
-    // recovers it, whether a recovery answers the kind asked — reads it rather than restating it as predicates.
     internal MappingKind Kind => Switch(
         surfaceParameter: static _ => MappingKind.SurfaceParameter,
         planar: static _ => MappingKind.Plane,
@@ -301,9 +287,6 @@ public sealed partial class MappingProfile {
     }
 }
 
-// Detached results carry VALUES alone — no lease reaches a field, so nothing needs disposing and each survives its
-// read window as an ordinary value. Mesh mappings send their native coordinates beside it on their own
-// `Lease<Mesh>`, which the result case that carries them owns.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class MappingSnapshot : IDetachedDocumentResult {
@@ -378,8 +361,6 @@ public sealed partial class MappingProbe {
         });
 }
 
-// Two cases, not eleven: a type that publishes side codes answers `Sided` over its row, and every other type answers
-// `General` over its kind. The nine ordinals are `SideCode` rows, so a new side is one row and no case at all.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MappingSide {
     private MappingSide() { }
@@ -394,9 +375,6 @@ public abstract partial record MappingSide {
                 : MappingKind.Of(type, key).Map(static kind => (MappingSide)new General(Kind: kind)));
 }
 
-// Host truth: `TextureMapping.Evaluate` answers nonzero on success, and for BOX and CAPPED-CYLINDER mappings ALONE that
-// value names the side. These rows are the host's own documented ordinals; every other mapping type publishes no side
-// vocabulary, so its positive code is bare success, and `TextureMappingType.None` evaluates to nothing at all.
 [SmartEnum<string>]
 public sealed partial class SideCode {
     public static readonly SideCode CylinderWall = new("cylinder-wall", TextureMappingType.CylinderMapping, 1);
@@ -412,8 +390,6 @@ public sealed partial class SideCode {
     internal TextureMappingType Owner { get; }
     internal int Ordinal { get; }
 
-    // Both questions the side fold asks — the exact code and whether the type rules any codes at all — answer off one
-    // lazy index. Two `Items` scans per evaluation was the deleted form.
     private static readonly Lazy<(HashMap<(TextureMappingType Owner, int Ordinal), SideCode> ByCode, Seq<TextureMappingType> Owners)> Index =
         new(static () => (
                 ByCode: toSeq(Items).Fold(
@@ -478,8 +454,6 @@ public sealed partial class MappingFrame : IDetachedDocumentResult {
     });
 }
 
-// `IDisallowDefaultValue`: a `default`-initialized channel is unconstructible at the TYPE, so the ghost a public case
-// constructor could otherwise forge never exists and no request seam re-screens for it.
 [ValueObject<int>]
 [ValidationError]
 public readonly partial struct MappingChannel : IDisallowDefaultValue {
@@ -571,7 +545,7 @@ public abstract partial record CoordinateResult : IDetachedDocumentResult {
     public sealed record Presence(bool Value) : CoordinateResult;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TextureCoordinates {
     public static Fin<CoordinateResult> Run(Mesh mesh, CoordinateRequest request, Op? key = null) {
         Op op = key.OrDefault();
@@ -624,7 +598,7 @@ public static class TextureCoordinates {
 - Packages: `api-rhinocommon-objects.md` (`RhinoObject.SetTextureMapping` both arities, `GetTextureMapping`, `GetTextureChannels`, `HasTextureMapping`, `ObjectAttributes.HasMapping`, `ObjectAttributes.OCSMappingChannelId`); `api-rhinocommon-document.md` (`RhinoDoc.Objects.FindId`); kernel `Domain/rails` (`Lease<T>.Use`, `Op`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`), `Document/tables.md` (`TableTarget`, `RedrawPolicy`, `DocumentCommit.Sealed`), `Render/registry.md` (`ContentReceipt`, `ContentSlot`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `guard`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record MappingCensus(Seq<(Guid Object, Seq<MappingChannel> Channels)> Rows) : IDetachedDocumentResult;
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -655,7 +629,7 @@ public abstract partial record MappingResult : IDetachedDocumentResult {
     public sealed record Census(MappingCensus Value) : MappingResult;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Mappings {
     public static Fin<MappingResult> Run(DocumentSession session, MappingRequest request, Op? key = null) {
         Op op = key.OrDefault();

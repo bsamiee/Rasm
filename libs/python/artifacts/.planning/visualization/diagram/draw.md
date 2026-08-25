@@ -69,21 +69,20 @@ type CapDefs = dict[EndCap, "draw.Marker"]
 
 
 class DrawTarget(StrEnum):
-    SVG = "svg"  # drawsvg named-layer SVG -> export/layered
-    DRAWIO = "drawio"  # drawpyo editable .drawio (mxGraph XML)
+    SVG = "svg"
+    DRAWIO = "drawio"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_PRECISION: Final[float] = 3.0  # ziafont d-float places; the content-key determinism lever
-_INK: Final[str] = "#000000"  # readable label ink over any light fill; annotations use the palette
+_PRECISION: Final[float] = 3.0
+_INK: Final[str] = "#000000"
 _CANON: Final = json.Encoder(order="deterministic")
-_HALIGN: Final[Map[TextAnchor, str]] = Map.of_seq([  # closed TextAnchor -> ziafont/Formula halign domain
+_HALIGN: Final[Map[TextAnchor, str]] = Map.of_seq([
     (TextAnchor.START, "left"),
     (TextAnchor.MIDDLE, "center"),
     (TextAnchor.END, "right"),
 ])
 _INTENT: Final[frozendict[GlyphTag, LayerIntent]] = frozendict({
-    # layer-intent class per glyph tag; export/layered routes whole intent classes on it
     "node": LayerIntent.LINEWORK,
     "edge": LayerIntent.LINEWORK,
     "swimlane": LayerIntent.BACKGROUND,
@@ -92,9 +91,8 @@ _INTENT: Final[frozendict[GlyphTag, LayerIntent]] = frozendict({
     "area": LayerIntent.LINEWORK,
     "fragment": LayerIntent.REFERENCE,
 })
-_DRAWIO_UNSPELLABLE: Final[frozenset[str]] = frozenset({"area", "fragment"})  # outside the drawpyo object vocabulary; refused at admission
+_DRAWIO_UNSPELLABLE: Final[frozenset[str]] = frozenset({"area", "fragment"})
 _DRAWIO_MARKER: Final[Map[MarkerKind, str]] = Map.of_seq([
-    # draw.io style tokens verbatim; the `rotation` attribute carries the mark angle
     (MarkerKind.DOT, "ellipse"),
     (MarkerKind.ARROW, "triangle"),
     (MarkerKind.TICK, "line"),
@@ -102,7 +100,6 @@ _DRAWIO_MARKER: Final[Map[MarkerKind, str]] = Map.of_seq([
     (MarkerKind.CROSS, "cross"),
 ])
 _DRAWIO_STYLE: Final[Map[NodeShape, str]] = Map.of_seq([
-    # draw.io style tokens verbatim; RECTANGLE rides the default body, and ENTITY uses the swimlane header.
     (NodeShape.DIAMOND, "rhombus"),
     (NodeShape.OVAL, "ellipse"),
     (NodeShape.PARALLELOGRAM, "parallelogram"),
@@ -122,10 +119,8 @@ _DRAWIO_STYLE: Final[Map[NodeShape, str]] = Map.of_seq([
     (NodeShape.CARD, "shape=mxgraph.flowchart.card"),
     (NodeShape.TAPE, "shape=mxgraph.flowchart.paper_tape"),
 ])
-# maps the layout-resolved EdgeMark.route regime onto drawpyo waypoint tokens — total over the closed EdgeRoute vocabulary.
 _DRAWIO_ROUTE: Final[frozendict[EdgeRoute, str]] = frozendict({EdgeRoute.LINES: "straight", EdgeRoute.SPLINES: "curved", EdgeRoute.ORTHOGONAL: "orthogonal"})
 _DRAWIO_CAP: Final[Map[EndCap, tuple[str, bool]]] = Map.of_seq([
-    # drawpyo terminal token plus fill semantics; NONE never reaches the lookup.
     (EndCap.ARROW, ("classic", True)),
     (EndCap.OPEN, ("open", False)),
     (EndCap.BLOCK, ("block", True)),
@@ -144,9 +139,6 @@ _DRAWIO_CAP: Final[Map[EndCap, tuple[str, bool]]] = Map.of_seq([
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor. The render target leaves the SUBJECT and stays request data — one fence covers every
-# target and the `DrawFault` case carries the defect — so the coordinate is the fence, never the request. TRANSIENT:
-# a provider render refusal is a defect a re-issue under repaired inputs may clear.
 DRAW_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.DRAW, point="render", arm="boundary", defect="draw-refused", retriability=TRANSIENT
 )
@@ -156,17 +148,17 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DRAW_RENDE
 @tagged_union(frozen=True)
 class DrawArtifact:
     tag: Literal["layered", "drawio"] = tag()
-    layered: tuple[LayerNode, ...] = case()  # SVG arm -> graphic/layer LayerNode rows the exporters compose
-    drawio: bytes = case()  # drawio arm -> standalone editable .drawio bytes
+    layered: tuple[LayerNode, ...] = case()
+    drawio: bytes = case()
 
 
 @tagged_union(frozen=True)
 class DrawFault:
     tag: Literal["unrepresentable", "reference", "layer_intent", "typeset", "provider", "many"] = tag()
-    unrepresentable: tuple[str, ...] = case()  # glyph tags the selected target cannot spell faithfully
+    unrepresentable: tuple[str, ...] = case()
     reference: tuple[str, ...] = case()
     layer_intent: tuple[str, str, str] = case()
-    typeset: str = case()  # a Formula MathFault re-spelled at the label seam
+    typeset: str = case()
     provider: str = case()
     many: tuple["DrawFault", ...] = case()
 
@@ -174,17 +166,13 @@ class DrawFault:
 class DiagramDraw(Struct, frozen=True):
     glyphs: tuple[DiagramGlyph, ...]
     palette: Palette
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     width: float = 800.0
     height: float = 600.0
     target: DrawTarget = DrawTarget.SVG
-    font_family: str | None = None  # None -> the bundled DejaVuSans outline fallback
+    font_family: str | None = None
 
     def emit(self, /) -> "Iterable[ArtifactWork]":
-        # ONE node per DiagramKind render; suite construction is core/issue's Diagrams arm. ONE mint too, captured
-        # into the closure and threaded into the render arms: `_seed` canonically re-encodes every glyph plus the
-        # palette bytes, and both arms read the key again to stamp their receipt — inside the worker.
         key = self._key
         return (
             ArtifactWork(
@@ -194,25 +182,15 @@ class DiagramDraw(Struct, frozen=True):
 
     @property
     def _seed(self) -> tuple[bytes, ...]:
-        # RAW semantic fields; `IdentitySource.parts` owns the framing. The lane is execution policy, outside the preimage.
         rows = _CANON.encode(tuple((glyph.tag, glyph.mark) for glyph in self.glyphs))
         bundle = _CANON.encode((self.width, self.height, self.target.value, self.font_family))
         return (rows, self.palette.tobytes(), bundle)
 
     @property
     def _key(self) -> ContentKey:
-        # PRE-RUN key over the canonical input; receipt.slot == node.key, render determinism pinned by _PRECISION/svg2.
-        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with
-        # no delimiter — right for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
         return ContentIdentity.key(f"diagram-{self.target}", IdentitySource(parts=self._seed))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        # The durable seat is this awaitable fold and never `_rendered`: that kernel crosses the lane into a worker
-        # where nothing suspends and no journal custody is bound, so a record there folds to the unarmed no-op. A
-        # drawn diagram is `OPERATIONAL` under the case's own retention row, its diff naming the target kind, the
-        # node and edge cardinality a later layout compares against, and the engine that lowered it, with the byte
-        # volume charging `STORAGE`. `layered()` records nothing — its receipt is a projection artefact the plan
-        # discards, and a durable fact minted off a value no node published is evidence of an artifact that is not.
         crossed = await self.lane.offload(Kernel.of(partial(self._rendered, key), KernelTrait.RELEASING))
         match crossed.bind(lambda inner: inner.map(lambda pair: pair[1]).map_error(self._fault)):
             case Result(tag="ok", ok=receipt):
@@ -221,8 +199,6 @@ class DiagramDraw(Struct, frozen=True):
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # named diagram layers as one LayerPlan tree the exporters compose; SVG-arm projection. This is no plan node,
-        # so it mints its own key for the receipt the projection then discards.
         crossed = await self.lane.offload(Kernel.of(partial(self._rendered, self._key), KernelTrait.RELEASING))
         return crossed.bind(
             lambda inner: inner.bind(
@@ -233,12 +209,9 @@ class DiagramDraw(Struct, frozen=True):
         )
 
     def _fault(self, fault: DrawFault, /) -> BoundaryFault:
-        # the typed `DrawFault` crosses WHOLE on `domain`, so its case and kwargs stay matchable; the retired
-        # `fault.tag` projection reached a consumer as a bare string with the evidence already discarded.
         return BoundaryFault(domain=(DRAW_RENDER.subject, fault))
 
     def _rendered(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
-        # one synchronous render kernel; crosses the runtime thread lane carrying the pre-run key its arms stamp.
         try:
             match self.target:
                 case DrawTarget.SVG:
@@ -254,8 +227,8 @@ class DiagramDraw(Struct, frozen=True):
         return (sum(1 for g in self.glyphs if g.tag == "node"), sum(1 for g in self.glyphs if g.tag == "edge"))
 
     def _render_svg(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
-        ziafont.config.precision = _PRECISION  # idempotent global render policy; every render writes the same value
-        ziafont.config.svg2 = True  # inline <path> egress (no <symbol>/<use>)
+        ziafont.config.precision = _PRECISION
+        ziafont.config.svg2 = True
         ramp = hex_ramp(self.palette)
         face = ziafont.Font(self.font_family)
         nodes, edges = self._tally()
@@ -271,7 +244,7 @@ class DiagramDraw(Struct, frozen=True):
     def _groups(self, ramp: tuple[str, ...], face: "ziafont.Font", caps: CapDefs) -> Result[dict[str, tuple[LayerIntent, "draw.Group"]], DrawFault]:
         groups: dict[str, tuple[LayerIntent, draw.Group]] = {}
         faults: list[DrawFault] = []
-        for glyph in self.glyphs:  # Exemption: drawsvg Group is a MutableSequence sink; admission still accumulates independent glyph faults.
+        for glyph in self.glyphs:
             match _lower(glyph, ramp, face, caps):
                 case Result(tag="error", error=fault):
                     faults.append(fault)
@@ -280,7 +253,7 @@ class DiagramDraw(Struct, frozen=True):
                     expected = _INTENT[glyph.tag]
                     if (current := groups.get(style.layer)) is not None and current[0] is not expected:
                         faults.append(DrawFault(layer_intent=(style.layer, current[0].value, expected.value)))
-                    else:  # membership-guarded mint: the Group constructs only for an absent layer, never as a discarded setdefault default
+                    else:
                         _intent, group = current if current is not None else groups.setdefault(style.layer, (expected, draw.Group(id=style.layer)))
                         group.extend(elements)
         return Error(faults[0] if len(faults) == 1 else DrawFault(many=tuple(faults))) if faults else Ok(groups)
@@ -293,7 +266,7 @@ class DiagramDraw(Struct, frozen=True):
     @staticmethod
     def _parent_cycles(parents: dict[int, int], /) -> tuple[int, ...]:
         cyclic: list[int] = []
-        for origin in parents:  # Exemption: each parent-pointer chain is a bounded admission trace with no provider combinator.
+        for origin in parents:
             seen: set[int] = set()
             cursor = origin
             while cursor in parents and cursor not in seen:
@@ -304,7 +277,6 @@ class DiagramDraw(Struct, frozen=True):
         return tuple(cyclic)
 
     def _render_drawio(self, key: ContentKey, /) -> Result[tuple[DrawArtifact, ArtifactReceipt], DrawFault]:
-        # target admission first: a payload the object vocabulary cannot spell refuses, never degrades.
         if refused := tuple(sorted({glyph.tag for glyph in self.glyphs if glyph.tag in _DRAWIO_UNSPELLABLE})):
             return Error(DrawFault(unrepresentable=refused))
         marks = tuple(glyph.mark for glyph in self.glyphs)
@@ -342,9 +314,9 @@ class DiagramDraw(Struct, frozen=True):
         page = Page(file=doc)
         placed: dict[int, object] = {}
         seats: dict[tuple[int, str], object] = {}
-        for glyph in (glyph for glyph in self.glyphs if glyph.tag != "edge"):  # Exemption: drawpyo mutates the File/Page tree imperatively.
+        for glyph in (glyph for glyph in self.glyphs if glyph.tag != "edge"):
             _lower_drawio(glyph, page, ramp, placed, seats)
-        for index, parent in parents.items():  # one parenting site: the admission-proven parent map rebases after every owner is placed
+        for index, parent in parents.items():
             placed[index].parent = placed[parent]
         for glyph in (glyph for glyph in self.glyphs if glyph.tag == "edge"):
             _lower_drawio(glyph, page, ramp, placed, seats)
@@ -357,11 +329,8 @@ class DiagramDraw(Struct, frozen=True):
 
 
 def _cap_defs() -> CapDefs:
-    # one shared <defs> Marker per EndCap; drawsvg auto-collects and dedupes by id. `context-stroke` inherits the edge stroke, so one def serves every
-    # index; `refX=2` anchors the terminal tip ON the vertex and `auto-start-reverse` points a start cap outward — the CAD cap-block insert parity
-    # (drawsvg emits no refX itself, so the default 0 would overshoot every tip by half the cap).
     defs: CapDefs = {}
-    for cap in EndCap:  # Exemption: the def table assembles once per render; Marker is a mutable defs container
+    for cap in EndCap:
         if cap is EndCap.NONE:
             continue
         marker = draw.Marker(-2.4, -1.6, 2.4, 1.6, orient="auto-start-reverse", refX=2, id=f"cap-{cap.value}")
@@ -371,8 +340,6 @@ def _cap_defs() -> CapDefs:
 
 
 def _er_cap(ring: bool, bar: bool, fan: bool, /) -> "draw.DrawingElement":
-    # crow's-foot builder: every ER cap is a (ring, bar, fan) composition stacked toward the terminal — fan at the
-    # end, bar behind it, ring behind that — never a copied arm per cardinality.
     duo = draw.Group()
     if ring:
         duo.append(draw.Circle(-1.6 if fan else -1.4, 0, 0.7, fill="none", stroke="context-stroke", stroke_width=0.4))
@@ -400,7 +367,7 @@ def _cap_glyph(cap: EndCap) -> "draw.DrawingElement":
             return draw.Circle(0, 0, 1.2, fill="none", stroke="context-stroke", stroke_width=0.4)
         case EndCap.CROSS:
             return draw.Path(stroke="context-stroke", stroke_width=0.4, fill="none").M(-1, -1.4).L(1, 1.4).M(-1, 1.4).L(1, -1.4)
-        case _ as unreachable:  # the ER family derives through _er_cap and never reaches this fold
+        case _ as unreachable:
             assert_never(unreachable)
 
 
@@ -425,7 +392,6 @@ def _paint(style: GlyphStyle, ramp: tuple[str, ...]) -> Paint:
 
 @lru_cache(maxsize=16)
 def _named_face(family: str) -> "ziafont.Font":
-    # per-family sfnt parse memo; a TextRun weight/italic variant names its styled face file here.
     return ziafont.Font(family)
 
 
@@ -441,7 +407,6 @@ def _caption(
     ink: str | None = None,
     angle: float = 0.0,
 ) -> Result["draw.DrawingElement", DrawFault]:
-    # one TextRun resolution seam: size, face family, and ink index come off the run; absent -> defaults.
     run = style.text
     size = run.size if run is not None else base
     color = ramp[run.ink % len(ramp)] if run is not None and run.ink is not None else (ink or _INK)
@@ -459,21 +424,17 @@ def _label(
     run: TextRun | None = None,
     angle: float = 0.0,
 ) -> Result["draw.DrawingElement", DrawFault]:
-    # plain text outlines through ziafont; a `$math$` label composes the typography/math Formula owner — never a second ziamath import.
     align = _HALIGN[halign]
     chosen = _named_face(run.family) if run is not None and run.family else face
     if "$" in text:
         laid = Formula(spec=FormulaSpec(mixed=MixedSpec(source=text, size=size, color=color, halign=align))).laid()
-        # `seat` is the canonical math placement fold — the origin derives from fragment height and baseline,
-        # and rotation applies around that seated origin, never the raw anchor.
         return laid.map(lambda frag: _seated(frag.svg, *seat(frag, x, y), angle)).map_error(lambda fault: DrawFault(typeset=fault.tag))
     frag = chosen.text(text, size=size, halign=align, color=color).svgxml()
-    inner = "".join(ET.tostring(child, encoding="unicode") for child in frag)  # svg2 -> prefix-free inline <path>/<g>
+    inner = "".join(ET.tostring(child, encoding="unicode") for child in frag)
     return Ok(_transformed(inner, x, y, run, size, color, angle))
 
 
 def _seated(svg: str, x: float, y: float, angle: float, /) -> "draw.DrawingElement":
-    # a Formula fragment carries its own typography; the seat applies placement only, never synthetic bold/oblique.
     spin = f" rotate({angle:g})" if angle else ""
     group = draw.Group(transform=f"translate({x},{y}){spin}")
     group.append(draw.Raw(svg))
@@ -481,9 +442,9 @@ def _seated(svg: str, x: float, y: float, angle: float, /) -> "draw.DrawingEleme
 
 
 def _transformed(inner: str, x: float, y: float, run: TextRun | None, size: float, color: str, angle: float, /) -> "draw.DrawingElement":
-    slant = " skewX(-12)" if run is not None and run.italic else ""  # synthetic oblique when the face itself is upright
+    slant = " skewX(-12)" if run is not None and run.italic else ""
     spin = f" rotate({angle:g})" if angle else ""
-    bold: Paint = {"stroke": color, "stroke_width": size * 0.04} if run is not None and run.weight >= 600 else {}  # synthetic bold: outline stroke
+    bold: Paint = {"stroke": color, "stroke_width": size * 0.04} if run is not None and run.weight >= 600 else {}
     group = draw.Group(transform=f"translate({x},{y}){spin}{slant}", **bold)
     group.append(draw.Raw(inner))
     return group
@@ -494,7 +455,7 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
         case NodeShape.RECTANGLE:
             rounding: Paint = {"rx": corner, "ry": corner} if corner > 0.0 else {}
             return draw.Rectangle(x, y, w, h, **rounding, **paint)
-        case NodeShape.ENTITY:  # titled record: outer box + header divider the title rides under
+        case NodeShape.ENTITY:
             record = draw.Group()
             record.append(draw.Rectangle(x, y, w, h, **paint))
             record.append(draw.Line(x, y + ENTITY_BAND, x + w, y + ENTITY_BAND, stroke=paint["stroke"], stroke_width=paint["stroke_width"]))
@@ -520,7 +481,7 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
                 .A(w / 2, cap, 0, 0, 1, x, y + h - cap)
                 .Z()
             )
-        case NodeShape.DOCUMENT:  # wavy base
+        case NodeShape.DOCUMENT:
             dip = h * 0.15
             return (
                 draw
@@ -531,7 +492,7 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
                 .C(x + w * 0.66, y + h + dip, x + w * 0.33, y + h - 3 * dip, x, y + h - dip)
                 .Z()
             )
-        case NodeShape.MULTI_DOCUMENT:  # offset back sheets + a front DOCUMENT body (arm recursion)
+        case NodeShape.MULTI_DOCUMENT:
             off = min(w, h) * 0.1
             stack = draw.Group()
             stack.append(draw.Rectangle(x + 2 * off, y, w - 2 * off, h - 2 * off, **paint))
@@ -552,7 +513,7 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
             return draw.Lines(x, y, x + w, y, x + w - inset, y + h, x + inset, y + h, close=True, **paint)
         case NodeShape.OFF_PAGE:
             return draw.Lines(x, y, x + w, y, x + w, y + h * 0.6, x + w / 2, y + h, x, y + h * 0.6, close=True, **paint)
-        case NodeShape.STORED_DATA:  # both edges bow left
+        case NodeShape.STORED_DATA:
             bow = w * 0.15
             return (
                 draw
@@ -580,10 +541,10 @@ def _shape(shape: NodeShape, x: float, y: float, w: float, h: float, paint: Pain
             return draw.Path(**paint).M(x, y).L(x + w - h / 2, y).A(h / 2, h / 2, 0, 0, 1, x + w - h / 2, y + h).L(x, y + h).Z()
         case NodeShape.CONNECTOR:
             return draw.Circle(x + w / 2, y + h / 2, min(w, h) / 2, **paint)
-        case NodeShape.CARD:  # clipped top-left corner
+        case NodeShape.CARD:
             cut = min(w, h) * 0.25
             return draw.Lines(x + cut, y, x + w, y, x + w, y + h, x, y + h, x, y + cut, close=True, **paint)
-        case NodeShape.TAPE:  # mirrored S-waves top and base
+        case NodeShape.TAPE:
             dip = h * 0.12
             return (
                 draw
@@ -607,7 +568,7 @@ def _lower(glyph: DiagramGlyph, ramp: tuple[str, ...], face: "ziafont.Font", cap
             )
             if not n.label:
                 return Ok(base)
-            title_y = n.y + ENTITY_BAND / 2 if n.shape is NodeShape.ENTITY else n.y + n.h / 2  # ENTITY titles ride the header band
+            title_y = n.y + ENTITY_BAND / 2 if n.shape is NodeShape.ENTITY else n.y + n.h / 2
             return _caption(face, n.style, ramp, n.label, 10.0, n.x + n.w / 2, title_y, TextAnchor.MIDDLE).map(lambda el: (*base, el))
         case DiagramGlyph(tag="edge", edge=e):
             terminal: Paint = {slot: caps[cap] for slot, cap in (("marker_start", e.caps[0]), ("marker_end", e.caps[1])) if cap is not EndCap.NONE}
@@ -652,7 +613,7 @@ def _marker(x: float, y: float, kind: MarkerKind, angle: float, style: GlyphStyl
     match kind:
         case MarkerKind.DOT:
             return draw.Circle(x, y, style.width * 2, fill=fill)
-        case MarkerKind.ARROW:  # barbed head keeps ARROW distinct from TICK, matching the drawio arm's triangle-vs-line split
+        case MarkerKind.ARROW:
             return (
                 draw
                 .Path(stroke=fill, stroke_width=style.width, fill="none", transform=f"rotate({angle},{x},{y})")
@@ -680,7 +641,6 @@ def _marker(x: float, y: float, kind: MarkerKind, angle: float, style: GlyphStyl
 
 
 def _text_format(style: GlyphStyle) -> dict[str, str]:
-    # TextRun -> draw.io label typography: fontStyle is the bold|italic bitmask, fontSize the run size, fontFamily the named face.
     run = style.text
     if run is None:
         return {}
@@ -693,8 +653,6 @@ def _text_format(style: GlyphStyle) -> dict[str, str]:
 
 
 def _drawio_dash(style: GlyphStyle) -> dict[str, str]:
-    # vertex mirror of the edge arm's `pattern=` selection: mxGraph vertices dash through `dashed`/`dashPattern`,
-    # so nodes and swimlanes honor GlyphStyle.dash exactly as edges and the SVG `_paint` fold already do.
     return {"dashed": "1", "dashPattern": " ".join(f"{run:g}" for run in style.dash)} if style.dash else {}
 
 
@@ -703,7 +661,7 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: tuple[str, ...], plac
         case DiagramGlyph(tag="node", node=n):
             obj = DrawioObject(value=n.label or "", position=(n.x, n.y), page=page, width=n.w, height=n.h)
             if (token := _DRAWIO_STYLE.try_find(n.shape).default_value(None)) is not None:
-                obj.apply_style_string(token)  # draw.io style token verbatim
+                obj.apply_style_string(token)
             obj.apply_attribute_dict({
                 "fillColor": ramp[n.style.fill % len(ramp)],
                 "strokeColor": ramp[n.style.stroke % len(ramp)],
@@ -712,7 +670,7 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: tuple[str, ...], plac
                 **_drawio_dash(n.style),
                 **_text_format(n.style),
             })
-            for port in n.ports:  # each port is an editable seat child; an edge naming the port binds it
+            for port in n.ports:
                 px, py = port.seat(n.x, n.y, n.w, n.h)
                 seat = DrawioObject(value=port.label or "", position=(px - 3, py - 3), page=page, width=6, height=6)
                 seat.apply_style_string("ellipse")
@@ -730,7 +688,6 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: tuple[str, ...], plac
             }
             edge = DrawioEdge(
                 page=page,
-                # admission proved every endpoint and every named seat, so the reads are total; an unnamed port never falls through to a seat
                 source=seats[(e.source, e.source_port)] if e.source_port is not None else placed[e.source],
                 target=seats[(e.target, e.target_port)] if e.target_port is not None else placed[e.target],
                 label=e.label or "",
@@ -741,7 +698,7 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: tuple[str, ...], plac
                 **terminal,
             )
             for px, py in e.points[1:-1]:
-                edge.add_point(px, py)  # interior waypoints for route fidelity
+                edge.add_point(px, py)
         case DiagramGlyph(tag="swimlane", swimlane=s):
             band = DrawioObject(value=s.title or "", position=(s.x, s.y), page=page, width=s.w, height=s.h)
             band.apply_attribute_dict({
@@ -763,10 +720,10 @@ def _lower_drawio(glyph: DiagramGlyph, page: object, ramp: tuple[str, ...], plac
             })
         case DiagramGlyph(tag="marker", marker=m):
             dot = DrawioObject(value="", position=(m.x, m.y), page=page, width=8, height=8)
-            dot.apply_style_string(_DRAWIO_MARKER[m.kind])  # kind token verbatim; rotation keeps the angle recoverable
+            dot.apply_style_string(_DRAWIO_MARKER[m.kind])
             dot.apply_attribute_dict({"fillColor": ramp[m.style.fill % len(ramp)], **({"rotation": f"{m.angle:g}"} if m.angle else {})})
         case DiagramGlyph(tag="area") | DiagramGlyph(tag="fragment"):
-            return None  # structurally unreachable: _render_drawio refused these tags at admission, never a silent lowering
+            return None
         case _ as unreachable:
             assert_never(unreachable)
 

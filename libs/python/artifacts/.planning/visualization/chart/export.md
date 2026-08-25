@@ -102,18 +102,10 @@ _CANON: Final = json.Encoder(order="deterministic")
 
 
 
-# the log-line fence's whole raise surface: the emit folds a bound event through the composition's own processor
-# chain into its sink, so a closed or broken stream answers `OSError` and a renderer that cannot serialize a bound
-# value answers `TypeError`/`ValueError`. `structlog.DropEvent` is deliberately absent — a processor discarding an
-# event is the chain's own control flow, which the bound logger already absorbs, never a fault this fence converts.
 _LINE_RAISES: Final[Catch] = (OSError, TypeError, ValueError)
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's whole raise roster. Two refusals are caller-repairable and TERMINAL — the layers egress answers vega
-# alone, and an SSRF fence cannot ride a browser-side HTML render — while the pre-pass fold and the observation line
-# are TRANSIENT, each a defect a re-issue may clear. The export format and the engine ride as NAMED coordinates
-# rather than forking one fence's subject per value.
 CHART_PREPASS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.CHART_EXPORT, point="prepass", arm="boundary", defect="prepass-refused", retriability=TRANSIENT, slots=("format", "cause")
 )
@@ -232,10 +224,6 @@ class VegaTransform:
 
     @staticmethod
     def of(spec: Spec, fmt: ExportFormat, policy: TransformPolicy = TransformPolicy(), retention: Retention = Retention()) -> "VegaTransform":
-        # retention rides the inline case alone by LAW, not omission: the state arm's `new_chart_state` strips
-        # nothing — every signal and dataset survives and interactivity is preserved by construction — so any
-        # retention request is satisfied as a superset there, and only the inline fold consumes the keep/preserve
-        # knobs it can actually violate.
         has_transform = _dialect(spec) == "vega-lite" and _has_transform(spec)
         if fmt.interactive and has_transform:
             return VegaTransform(state=policy)
@@ -279,9 +267,6 @@ _COMPOSITIONS: Final[tuple[str, ...]] = ("layer", "concat", "hconcat", "vconcat"
 
 
 def _dialect(spec: Spec) -> VegaDialect:
-    # spec admission proves a supported canonical $schema at the boundary; this read stays total for a direct
-    # caller by classing an absent or foreign $schema as full Vega — the passthrough arm whose transforms the
-    # embedded runtime evaluates at render — never a KeyError mid-discrimination.
     schema = spec.get("$schema")
     return "vega-lite" if isinstance(schema, str) and "/vega-lite/" in schema else "vega"
 
@@ -299,16 +284,10 @@ def _has_transform(node: Spec) -> bool:
 
 @cache
 def _runtime_defaults() -> tuple[int, int, int]:
-    # pristine singleton caps captured ONCE before any policy mutation; a None-valued policy field resolves
-    # HERE, so identical inputs see identical effective caps regardless of worker history or job order.
     return (vegafusion.runtime.worker_threads, vegafusion.runtime.cache_capacity, vegafusion.runtime.memory_limit)
 
 
 def _tuned(policy: TransformPolicy) -> None:
-    # every prepass observes a FULLY RESOLVED cap set — never process-history inheritance for a None field.
-    # `vegafusion.runtime` is process-global, so this mutation is legal ONLY worker-side: `_pre_transform`
-    # crosses as a HOSTILE kernel, whose process worker executes one job at a time, so the tune and its prepass
-    # are serialized per process by construction and no concurrent prepass ever observes a foreign cap set.
     threads, cache_cap, memory = _runtime_defaults()
     vegafusion.runtime.worker_threads = policy.worker_threads if policy.worker_threads is not None else threads
     vegafusion.runtime.cache_capacity = policy.cache_capacity if policy.cache_capacity is not None else cache_cap
@@ -422,7 +401,6 @@ def _plan(plan: PreTransformSpecPlan) -> PrePassPlan:
 
 
 def pin_version(requested: str | None) -> str:
-    # `vl_version` admits both `'6.4'` and `'v6.4'` spellings; the pin normalizes before the membership test.
     available = vlc.get_vegalite_versions()
     bare = (requested or "").removeprefix("v")
     return bare if bare in available else available[-1]
@@ -443,7 +421,6 @@ def _lp_bytes(export: Callable[[BytesIO], str | None]) -> bytes:
 
 
 def _letsplot_to_bytes(plot: PlotSpec | SupPlotsSpec, palette: Palette, fmt: ExportFormat) -> bytes:
-    # A composite root's subplots arrive palette-threaded from authoring; only a lone PlotSpec gains the manual scales.
     ramp = hex_ramp(palette)
     themed = plot + scale_color_manual(values=ramp) + scale_fill_manual(values=ramp) if isinstance(plot, PlotSpec) else plot
     return LP_RENDER[fmt](themed)
@@ -468,12 +445,6 @@ def _evidence_attrs(evidence: PrePassEvidence) -> dict[str, object]:
 
 
 def _committed(receipt: ArtifactReceipt, engine: str, fmt: str, byte_len: int, evidence: PrePassEvidence | None) -> ArtifactReceipt:
-    # success telemetry rides the Ok continuation of `Journal.record` — the fact ADMITTED onto the journal's
-    # never-shed bounded intake, the strongest per-fact guarantee a producer can observe, since landing settles at
-    # its own drain where appends retry without bound — so a refused record surfaces through the error fold alone.
-    # Observation itself crosses the `boundary` fence exactly as the journal fences its own derived writes:
-    # best-effort beside the receipt truth, a broken log chain lands as one span event on the live export span and
-    # never escapes into — or replaces — the receipt the caller composes.
     boundary(
         CHART_LINE,
         lambda: _LOG.info("chart.export", engine=engine, format=fmt, bytes=byte_len, **(_evidence_attrs(evidence) if evidence is not None else {})),
@@ -504,14 +475,10 @@ def _role(element: etree._Element) -> str:
 
 
 def _split_layers(spec: Spec, policy: ChartRenderPolicy) -> tuple[Layer, ...]:
-    # ONE SVG render partitioned into semantic layers: Vega emits `class="mark-group role-*"` groups under one root
-    # graphics group. Each layer is INDEPENDENTLY RENDERABLE: the shell carries the root `<defs>` closure (clip
-    # paths, gradients) with the root/frame presentation attributes and transforms the detached child inherited,
-    # so a recomposed layer stack is visually equivalent to the single source SVG.
     root = etree.fromstring(_vl_render(spec, ExportFormat.SVG, policy))
     view_box = root.get("viewBox") or f"0 0 {root.get('width', '0')} {root.get('height', '0')}"
     x0, y0, width, height = (float(part) for part in view_box.split())
-    bbox = (x0, y0, x0 + width, y0 + height)  # Layer.bbox is (x0, y0, x1, y1); SVG viewBox is (x, y, w, h)
+    bbox = (x0, y0, x0 + width, y0 + height)
     svg_ns = "http://www.w3.org/2000/svg"
     frame = next(iter(root.findall(f"{{{svg_ns}}}g")), root)
     defs = tuple(root.findall(f"{{{svg_ns}}}defs"))
@@ -592,8 +559,6 @@ VL_RENDER: Final[frozendict[ExportFormat, VlRow]] = frozendict({
         ),
         False,
     ),
-    # `*_to_html` accepts no `allowed_base_urls` — the browser renders the embedded spec, so the fence cannot
-    # ride the call; `_rendered` refuses a fenced HTML export before this row is reached.
     ExportFormat.HTML: VlRow(
         lambda spec, p: vlc.vegalite_to_html(
             spec,
@@ -649,17 +614,12 @@ LP_RENDER: Final[frozendict[ExportFormat, LpRender]] = frozendict({
 class ChartExport(Struct, frozen=True):
     chart: ChartSpec
     fmt: ExportFormat
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     policy: ChartRenderPolicy = ChartRenderPolicy()
     transform: TransformPolicy = TransformPolicy()
     retention: Retention = Retention()
 
     def emit(self, /) -> ArtifactWork:
-        # ONE mint per artifact, captured into the work closure: `_key` re-reads the whole preimage and re-opens a
-        # `content.derive` span on every access, and the live-figure preimage is the SAME `Figure` the render arm
-        # mutates (`set_prop_cycle`, `set_cmap`, `set_layout_engine`), so a post-render re-mint answers a different
-        # key and breaks `receipt.slot == node.key` outright.
         key = self._key
         admission = Admission(keyed=None) if self.chart.tag == "vega" else Admission(bare=None)
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=admission, cost=1.0)
@@ -675,28 +635,21 @@ class ChartExport(Struct, frozen=True):
             case ChartSpec(tag="vega", vega=spec):
                 case_fields = (_CANON.encode(spec),)
             case ChartSpec(tag="lets_plot", lets_plot=(plot, palette)):
-                # live palette threads into the render, so it joins the preimage — charts differing only in
-                # palette key distinctly. Two SEMANTIC fields, so they ride as two parts rather than one
-                # pre-concatenated blob: the owner's framing is what keeps the boundary between them meaningful.
                 case_fields = (pickle.dumps(plot, protocol=5), _CANON.encode(palette))
             case ChartSpec(tag="matplotlib", matplotlib=(figure, palette)):
                 case_fields = (pickle.dumps(figure, protocol=5), _CANON.encode(palette))
             case _ as unreachable:
                 assert_never(unreachable)
-        # `structs.asdict` projection keeps the preimage canonical-encodable; each frame's digest is its own field.
         bundle = _CANON.encode((self.fmt.value, self.policy, {**structs.asdict(resolved), "inline_datasets": None}, self.retention))
         datasets = tuple(
             piece
             for name in sorted(resolved.inline_datasets)
             for piece in (name.encode(), resolved.inline_datasets[name].hash_rows(seed=0).to_numpy().tobytes())
         )
-        # the tag leads, so a per-case arity difference can never alias another case's field run.
         return (self.chart.tag.encode(), *case_fields, bundle, *datasets)
 
     @property
     def _key(self) -> ContentKey:
-        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with
-        # no delimiter — right for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
         return ContentIdentity.key(f"chart-{self.fmt}", IdentitySource(parts=self._seed))
 
     async def _prepared(self, spec: Spec, fmt: ExportFormat) -> RuntimeRail[PrePass]:
@@ -726,13 +679,10 @@ class ChartExport(Struct, frozen=True):
         match self.chart:
             case ChartSpec(tag="vega", vega=spec):
                 if self.fmt is ExportFormat.HTML and self.policy.allowed_base_urls:
-                    # vl-convert's `*_to_html` defers rendering to the browser, so the SSRF fence cannot ride the
-                    # call — a fenced policy refuses HTML export loudly rather than shipping an unfenced document.
                     return Error(CHART_HTML.raised())
                 staged = await self._prepared(spec, self.fmt)
                 match staged:
                     case Result(tag="ok", ok=prepass):
-                        # pre-pass -> render is the one two-crossing stage boundary; the event timestamps it with its evidence.
                         trace.get_current_span().add_event("chart.prepass", _evidence_attrs(prepass.evidence))
                         drawn = await self.lane.offload(Kernel.of(_vl_render, KernelTrait.RELEASING), prepass.spec, self.fmt, self.policy)
                         return drawn.map(lambda data: (data, prepass.evidence))
@@ -762,13 +712,6 @@ class ChartExport(Struct, frozen=True):
             outcome = await self._rendered()
             match outcome:
                 case Result(tag="ok", ok=(data, evidence)):
-                    # ONE durable trail lands per export: a rendered chart is OPERATIONAL production trail under the
-                    # case's own retention row, its diff naming the engine, dialect, scale, and theme a later
-                    # re-render is compared against and its byte volume charging `STORAGE`. Recording seats at this
-                    # awaitable fold — the send suspends on the journal's bounded intake where the synchronous
-                    # `contribute` projection cannot — and closes INSIDE the span scope for the same reason the
-                    # egress fold does, so a refused record correlates to the export it belongs to rather than an
-                    # already-exited span.
                     receipt = ArtifactReceipt.Chart(key, self.chart.tag, self.fmt.value, self.policy.scale, self.policy.theme or "default", len(data))
                     return (await Journal.record(receipt.evidence())).map(
                         lambda _landed: _committed(receipt, self.chart.tag, self.fmt.value, len(data), evidence)

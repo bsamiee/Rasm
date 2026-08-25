@@ -58,8 +58,6 @@ const _WATCH = {
   flight: 2,
 } as const
 
-// `_sealed` is the veto-free half every landing shares: two bounded streaming passes over the seekable file, so the
-// key cannot exist before the last byte is hashed and no internally minted product re-enters the app admission gate
 const _sealed = (path: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -74,34 +72,24 @@ const _sealed = (path: string) =>
       identity.bytes,
     )
     return { key: identity.key, bytes: identity.bytes, written: landed.written, path } satisfies Disk.Intake
-  }).pipe(Effect.withSpan("data.seal", { attributes: { path } })) // the fold every landing shares carries the span: an internally minted product traces without re-entering the veto
+  }).pipe(Effect.withSpan("data.seal", { attributes: { path } }))
 
 const _intake = (path: string, retention: Retain.Class, owner?: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const store = yield* ObjectStore
     const held = yield* Effect.mapError(fs.stat(path), (fault) => new ObjectFault({ case: { reason: "io", key: path, detail: fault.message } }))
-    // Caller-declared owners arrive UNTRUSTED: each decodes through the object namespace and the minted-below prefixes
-    // refuse, so an intake cannot attribute bytes to a subject's custody scan; an undeclared one takes the file
-    // plane's own row mint, whose encoder is what keeps a path bearing `:` from re-splitting the coordinate.
     const custodian = yield* Option.match(Option.fromNullable(owner), {
       onNone: () => Effect.succeed(ObjectStore.owner("disk", path)),
       onSome: ObjectStore.admit(path),
     })
-    // HookVeto crosses UNMAPPED: app policy refuses at the HOST-file admission seam before a byte is hashed, and the
-    // veto's own `denied` class is what keeps the refusal off the re-driven arm; folding it into an `io` ObjectFault
-    // would re-class a caller-blamed refusal as unavailable boundary work. Derivatives land through _sealed and
-    // never reach this gate.
     yield* Hook.gated("objectAdmit", { key: path, owner: custodian, bytes: Option.some(Number(held.size)) })
     const receipt = yield* _sealed(path)
-    yield* store.refer(receipt.key, custodian, retention) // Derived retention tag lands with the reference row.
-    yield* Hook.tapped("objectAdmit", { key: receipt.key, owner: custodian, bytes: Option.some(receipt.bytes) }) // observe fan on the landed receipt
+    yield* store.refer(receipt.key, custodian, retention)
+    yield* Hook.tapped("objectAdmit", { key: receipt.key, owner: custodian, bytes: Option.some(receipt.bytes) })
     return receipt
   }).pipe(Effect.withSpan("data.intake", { attributes: { path } }))
 
-// `Stream.asyncScoped` bridges the watcher, never the push family: an intake candidate is admission material, both
-// push shelves shed, and a dropped `add` on the initial census is a file this plane silently never lands; the
-// suspend-shaped buffer holds every candidate, the settle guard spreads bursts, and a drop tree bounds the census.
 const _watch = (dir: string, retention: Retain.Class, options?: Disk.WatchOptions) =>
   Stream.asyncScoped<string, ObjectFault>((emit) =>
     Effect.acquireRelease(
@@ -122,9 +110,8 @@ const _watch = (dir: string, retention: Retain.Class, options?: Disk.WatchOption
         try: () => watcher.close(),
         catch: (cause) => new ObjectFault({ case: { reason: "io", key: dir, detail: String(cause) } }),
       })),
-    ).pipe(Effect.withSpan("data.watch", { attributes: { dir } })), // the registration bracket is the watcher's whole lifetime: one span per live drop directory
+    ).pipe(Effect.withSpan("data.watch", { attributes: { dir } })),
   ).pipe(
-    // per-candidate disposition: the intake outcome is an Either element, so one malformed file never ends the watcher
     Stream.mapEffect((path) => Effect.either(_intake(path, retention)), { concurrency: _WATCH.flight }),
   )
 
@@ -160,8 +147,6 @@ const _GATE = {
 
 const _DEADLINE = { seconds: 20 } as const
 
-// `dzsave` reads the PENDING format and admits these three alone, so pyramid legality is this roster and never the
-// codec's own file-output column: gif and tiff both answer `output.file` true and refuse the moment `tile` fires
 const _PYRAMID = ["jpeg", "png", "webp"] as const
 
 const _governed = (
@@ -218,7 +203,7 @@ import { Option } from "effect"
 import { Wire } from "@rasm/core"
 
 declare namespace Derive {
-  type Reason = (typeof _family.kinds)[number] // the spine's stage roster, closed by the fault family that names it
+  type Reason = (typeof _family.kinds)[number]
   type Row = { readonly name: string; readonly retention: Retain.Class; readonly grant?: ObjectStore.GrantPolicy }
   type Product<R extends Row, I> = { readonly row: R; readonly key: Digest.Key<"content">; readonly evidence: I }
   type Plane<R extends Row, Facts, Handle, Evidence, E, Env> = {
@@ -230,37 +215,27 @@ declare namespace Derive {
       rows: ReadonlyArray<R>,
       facts: Facts,
       source: Digest.Key<"content">,
-    ) => Effect.Effect<ReadonlyArray<Product<R, Evidence>>, E, Env> // emit persists its own products: the engine owns codec work AND the put, the spine owns fetch, admission, reference, grant
+    ) => Effect.Effect<ReadonlyArray<Product<R, Evidence>>, E, Env>
   }
   type Rgb = { readonly r: number; readonly g: number; readonly b: number }
-  // one row per OUTPUT codec, pairing the format key with the option record sharp's own toFormat overload admits
-  // for it; FormatEnum's remaining keys are decode-only, so a rendition that cannot terminate never spells
   type Codec = {
     readonly gif: GifOptions
-    readonly heif: HeifOptions // the AVIF seat too: FormatEnum carries no avif key, so av1 rides `compression`
+    readonly heif: HeifOptions
     readonly jp2: Jp2Options
     readonly jpeg: JpegOptions
     readonly jxl: JxlOptions
     readonly png: PngOptions
-    readonly raw: RawOptions // the deep-store producer: `depth` over keyof DepthEnum emits headerless deep pixels
+    readonly raw: RawOptions
     readonly tiff: TiffOptions
     readonly webp: WebpOptions
   }
-  type _Coded<K extends keyof FormatEnum = keyof Codec> = K // a codec row outside sharp's own format enum fails here; the reverse closure is _governed's boot read, because output capability is a build fact no type carries
-  // descending rungs read against the source's own entropy: the first met rung's quality replaces the row's,
-  // and no rung met leaves the declared options whole, so a partial ladder forges nothing
+  type _Coded<K extends keyof FormatEnum = keyof Codec> = K
   type Grade = ReadonlyArray<{ readonly above: number; readonly quality: number }>
-  // a band states its own origin: the fan-out's decoded plane, a sibling fetched by key, or a declared constant —
-  // three total arms, so a component the source lacks writes the row's own level and never a foreign column's read
   type Band =
     | { readonly from: "source"; readonly channel: 0 | 1 | 2 | 3 }
     | { readonly from: "plane"; readonly key: Digest.Key<"content">; readonly channel: 0 | 1 | 2 | 3 }
     | { readonly from: "level"; readonly value: number }
-  // position IS the slot: the tag closes against the frozen order vocabulary and the triple's arity is that
-  // order's own, so the row carries no role spelling and no copy of the order the interchange owner froze
   type Assembly = { readonly pack: Wire.Texture.Pack; readonly bands: readonly [Band, Band, Band] }
-  // `Probe` censuses the delivered plane the asset gate's raster arm votes on — decoded facts projected off sharp's
-  // own total Metadata, so the category plane above proves an extent and a codec without naming a libvips type
   type Probe = {
     readonly format: keyof FormatEnum
     readonly width: number
@@ -268,31 +243,25 @@ declare namespace Derive {
     readonly channels: Channels
     readonly depth: keyof DepthEnum
   }
-  type Measure = { readonly opaque: boolean; readonly entropy: number; readonly sharpness: number } // the source analysis the encode consumed, carried so no consumer re-runs it
+  type Measure = { readonly opaque: boolean; readonly entropy: number; readonly sharpness: number }
   type Rendition = Row & {
-    readonly kind: "raster" // the category tag the one entry dispatches on, exactly as a container or ktx row carries its own
+    readonly kind: "raster"
     readonly resize: ResizeOptions
     readonly admit?: (source: Metadata) => boolean
     readonly assemble?: Assembly
     readonly composite?: ReadonlyArray<OverlayOptions>
     readonly keep?: "icc" | "all"
-    readonly alpha?: "opaque" // retires the channel when the analysis proves the source carries no transparency
+    readonly alpha?: "opaque"
     readonly grade?: Grade
     readonly placeholder?: boolean
   }
   type Pyramid = (typeof _PYRAMID)[number]
-  // `container` is unspellable: the default `fs` writes a tile DIRECTORY, and every landing here is a single-file
-  // stream, so the terminal pins `zip` and one pyramid is one content-addressed archive
   type Terminal = { readonly tile: Omit<TileOptions, "container"> }
-  // heif alone carries no option default — `compression` selects av1 or hevc — so its arm demands the record every
-  // sibling leaves optional, and the pyramid column exists only where `dzsave` can honour it
   type _Arm<K extends keyof Codec> =
     & Rendition
     & { readonly format: K }
     & (K extends "heif" ? { readonly options: Codec[K] } : { readonly options?: Codec[K] })
     & (K extends Pyramid ? { readonly terminal?: Terminal } : { readonly terminal?: never })
-  // `Spec` is the generated union: format, options, and pyramid legality correlate at the declaration, so the
-  // OutputOptions column that rejected every quality knob cannot come back and a new codec is one Codec row
   type Spec = { readonly [K in keyof Codec]: _Arm<K> }[keyof Codec]
   type Tiled = Extract<Spec, { readonly format: Pyramid }> & { readonly terminal: Terminal }
   type Receipt<
@@ -304,7 +273,7 @@ declare namespace Derive {
   > = {
     readonly name: string
     readonly key: Digest.Key<"content">
-    readonly grant: Option.Option<ObjectStore.Grant> // minted only where the row's own policy asks
+    readonly grant: Option.Option<ObjectStore.Grant>
   } & I
 }
 ```
@@ -333,12 +302,6 @@ import { Convention, Fault } from "@rasm/core"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import type { Sharp, Stats } from "sharp"
 
-// Every reason names ONE stage of the spine and carries the coordinate that stage held, so the subject is the record
-// every row shares and each row renders the sentence its stage means — a free `detail` field standing alone on the
-// raise re-opens the axis `reason` already closes and leaves the message hand-templated at the class. Retryability,
-// blame, and quarantine stay the core Fault.Class row table's, so no rank or retry column rides here. Legs partition
-// by the surface that DECIDES: the codec gate votes rows before any native decode, the engine owns the two native
-// legs, and the engine-blind tail owns fetch, persist, and grant.
 const _Subject = Schema.Struct({ key: Schema.String, detail: Schema.String })
 
 const _family = Fault.Class.family(["gate", "fetch", "decode", "encode", "persist", "grant"] as const, {
@@ -402,16 +365,12 @@ const _FAN = { flight: 4 } as const
 const _queued = Convention.mount(Convention.metric.derivativeQueued)
 const _active = Convention.mount(Convention.metric.derivativeActive)
 
-// Gate and deadline ride ONE decode leg, so the category plane's probe and this plane's fan-out cannot drift on
-// ingress posture; every terminal below folds through `DeriveFault.at`, the family's own stage stamp
 const _decoded = (bytes: Uint8Array, source: Digest.Key<"content">) =>
   Effect.try({ try: () => sharp(Buffer.from(bytes), _GATE).timeout(_DEADLINE), catch: DeriveFault.at("decode", source) })
 
 const _facts = (handle: Sharp, source: Digest.Key<"content">) =>
   Effect.tryPromise({ try: () => handle.metadata(), catch: DeriveFault.at("decode", source) })
 
-// `_probed` censuses the delivered plane: every projected field is total on `Metadata`, and the extent is the AUTO-ORIENTED
-// pair because the ingress pins autoOrient — the raw pair the same record carries describes the file, not the pipeline
 const _probed = (bytes: Uint8Array, source: Digest.Key<"content">) =>
   Effect.flatMap(_decoded(bytes, source), (handle) =>
     Effect.map(_facts(handle, source), (facts) => ({
@@ -422,8 +381,6 @@ const _probed = (bytes: Uint8Array, source: Digest.Key<"content">) =>
       depth: facts.depth,
     } satisfies Derive.Probe)))
 
-// one lossless single-channel image per band: joinChannel admits buffers, never a live pipeline, and a raw view
-// would narrow a deep source to eight bits because CreateRaw declares no depth
 const _band = (lane: Sharp, key: string) =>
   Effect.tryPromise({
     try: () => lane.toColourspace("b-w").toFormat("png", { compressionLevel: 9 }).toBuffer(),
@@ -432,8 +389,6 @@ const _band = (lane: Sharp, key: string) =>
 
 const _banded = (held: { readonly decoded: Sharp; readonly extent: Metadata["autoOrient"]; readonly source: Digest.Key<"content"> }) =>
   Match.type<Derive.Band>().pipe(
-    // `Match.withReturnType` composes the contract before the first arm, so a band origin is checked where it is
-    // written rather than at the terminal, and a fourth origin fails at the record instead of widening the fold's own channel
     Match.withReturnType<Effect.Effect<Buffer<ArrayBuffer>, DeriveFault, ObjectStore>>(),
     Match.discriminatorsExhaustive("from")({
       source: ({ channel }) => _band(held.decoded.clone().extractChannel(channel), held.source),
@@ -442,8 +397,6 @@ const _banded = (held: { readonly decoded: Sharp; readonly extent: Metadata["aut
           Effect.mapError(Effect.flatMap(ObjectStore, (store) => store.get(key)), DeriveFault.at("fetch", key)),
           (bytes) => Effect.flatMap(_decoded(bytes, key), (lane) => _band(lane.extractChannel(channel), key)),
         ),
-      // a declared constant, sized from the lead plane so the join sees one extent; three bands then band 0,
-      // because CreateChannels admits 3 or 4 alone and a one-band create has no spelling
       level: ({ value }) =>
         _band(
           sharp({ create: { ...held.extent, channels: 3, background: { r: value, g: value, b: value } } }).extractChannel(0),
@@ -455,7 +408,7 @@ const _banded = (held: { readonly decoded: Sharp; readonly extent: Metadata["aut
 const _assembled = (decoded: Sharp, row: Derive.Assembly, facts: Metadata, source: Digest.Key<"content">) => {
   const band = _banded({ decoded, extent: facts.autoOrient, source })
   return Effect.zipWith(
-    band(row.bands[0]), // the tuple index is proven by arity: the pack's own three positions ARE its slots
+    band(row.bands[0]),
     Effect.forEach(Array.drop(row.bands, 1), band, { concurrency: _FAN.flight }),
     (lead, rest) => sharp(lead, _GATE).joinChannel(rest),
     { concurrent: true },
@@ -467,8 +420,6 @@ const _KEEP = {
   all: (lane: Sharp) => lane.keepMetadata(),
 } as const satisfies Record.ReadonlyRecord<NonNullable<Derive.Rendition["keep"]>, (lane: Sharp) => Sharp>
 
-// `_graded` folds the grade substitution into sharp's own option union at ONE annotated projection, so the row's
-// stated options stay codec-correlated where a caller writes them and the encode seam consumes them with no cast
 const _graded = (spec: Derive.Spec, measure: Option.Option<Derive.Measure>): Parameters<Sharp["toFormat"]>[1] =>
   Option.match(
     Option.flatMap(Option.all([Option.fromNullable(spec.grade), measure]), ([ladder, held]) =>
@@ -479,8 +430,6 @@ const _graded = (spec: Derive.Spec, measure: Option.Option<Derive.Measure>): Par
 const _chain = (head: Sharp, spec: Derive.Spec, measure: Option.Option<Derive.Measure>) => {
   const shaped = head.clone().resize(spec.resize)
   const layered = spec.composite === undefined ? shaped : shaped.composite([...spec.composite])
-  // `measure` decides, never the declaration alone: a row asking for opacity over a source carrying real
-  // transparency keeps its channel, so the saving is proven rather than asserted
   const opaque = spec.alpha === "opaque" && Option.match(measure, { onNone: () => false, onSome: (held) => held.opaque })
   const flattened = opaque ? layered.removeAlpha() : layered
   return spec.keep === undefined ? flattened : _KEEP[spec.keep](flattened)
@@ -489,8 +438,6 @@ const _chain = (head: Sharp, spec: Derive.Spec, measure: Option.Option<Derive.Me
 const _encodeBuffer = (head: Sharp, spec: Derive.Spec, measure: Option.Option<Derive.Measure>, sourceKey: Digest.Key<"content">) =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
-    // `toUint8Array` answers the `{ data, info }` pair directly, so the store takes the encoder's own allocation:
-    // routing through `toBuffer` instead spends a whole second copy of every derivative to re-view a Buffer
     const encoded = yield* Effect.tryPromise({
       try: () => _chain(head, spec, measure).toFormat(spec.format, _graded(spec, measure)).toUint8Array(),
       catch: DeriveFault.at("encode", sourceKey),
@@ -501,7 +448,7 @@ const _encodeBuffer = (head: Sharp, spec: Derive.Spec, measure: Option.Option<De
 
 const _encodeTile = (
   head: Sharp,
-  spec: Derive.Tiled, // the pyramid arms alone: `dzsave` refuses every other codec, so the terminal cannot be written elsewhere
+  spec: Derive.Tiled,
   measure: Option.Option<Derive.Measure>,
   sourceKey: Digest.Key<"content">,
 ) =>
@@ -510,8 +457,6 @@ const _encodeTile = (
     const path = yield* Path.Path
     const staged = path.join(yield* fs.makeTempDirectoryScoped(), `${spec.name}.zip`)
     const info = yield* Effect.tryPromise({
-      // `container: "zip"` lands HERE rather than on the row: the libvips default writes a tile directory, and the
-      // seal below streams one seekable file, so pinning it at the terminal makes the directory pyramid unrepresentable
       try: () =>
         _chain(head, spec, measure)
           .toFormat(spec.format, _graded(spec, measure))
@@ -519,8 +464,6 @@ const _encodeTile = (
           .toFile(staged),
       catch: DeriveFault.at("encode", sourceKey),
     })
-    // `_sealed` runs the veto-free fold: an internally minted pyramid never re-enters the host-file admission gate,
-    // and the spine's own tail writes the one reference row this product owns
     const landed = yield* Effect.mapError(_sealed(staged), DeriveFault.at("persist", sourceKey))
     return { key: landed.key, info }
   })
@@ -539,8 +482,6 @@ const _RASTER: Derive.Plane<
   admit: (spec, facts) => spec.admit === undefined || spec.admit(facts),
   emit: (decoded, specs, facts, source) =>
     Effect.gen(function* () {
-      // one pixel analysis serves every asking row and every field it fetched: the placeholder colour, the
-      // proven-opacity retirement, and the entropy ladder are three reads of ONE lift, exactly like metadata
       const analysis = Array.some(specs, (spec) => spec.placeholder === true || spec.alpha !== undefined || spec.grade !== undefined)
         ? Option.some(yield* Effect.tryPromise({ try: () => decoded.clone().stats(), catch: DeriveFault.at("decode", source) }))
         : Option.none<Stats>()
@@ -551,7 +492,6 @@ const _RASTER: Derive.Plane<
       )
       return yield* Effect.forEach(specs, (spec) =>
         Effect.gen(function* () {
-          // `spec.assemble` heads the chain: it replaces the decoded source before resize, composite, and terminal
           const head = spec.assemble === undefined ? decoded : yield* _assembled(decoded, spec.assemble, facts, source)
           const encoded = spec.terminal === undefined
             ? yield* _encodeBuffer(head, spec, measure, source)
@@ -559,8 +499,6 @@ const _RASTER: Derive.Plane<
           return {
             row: spec,
             key: encoded.key,
-            // `evidence` rides every row that ran the analysis, so a consumer reads WHY a row took its quality
-            // without a second lift; the placeholder colour stays gated on the column that asked for it
             evidence: { info: encoded.info, dominant: spec.placeholder === true ? dominant : Option.none<Derive.Rgb>(), measure },
           }
         }), { concurrency: _FAN.flight })
@@ -585,8 +523,6 @@ const _fanout = <R extends Derive.Row, F, H, I, E, Env>(
     return yield* Effect.forEach(products, (product) =>
       Effect.gen(function* () {
         yield* Effect.mapError(
-          // `sourceKey` IS the cascade coordinate, minted through the one owner encoder so the sweep's own
-          // release statement matches the row it wrote
           store.refer(product.key, ObjectStore.owner("derivative", sourceKey), product.row.retention),
           DeriveFault.at("persist", product.key),
         )
@@ -598,8 +534,6 @@ const _fanout = <R extends Derive.Row, F, H, I, E, Env>(
       }), { concurrency: _FAN.flight })
   }).pipe(Effect.withSpan("data.fanout", { attributes: { source: sourceKey, plane: plane.name } }))
 
-// `_pressure` SETS both mounted gauges: the maintenance and doctor surfaces read one owner, and the raw libvips
-// record never leaves this line to be re-projected into series names of another surface's own minting
 const _pressure = Effect.flatMap(
   Effect.sync(() => sharp.counters()),
   (held) => Effect.zipRight(Metric.set(_queued, held.queue), Metric.set(_active, held.process)),
@@ -622,7 +556,7 @@ const Derive = {
   pressure: _pressure,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Derive, DeriveFault, Disk }
 ```

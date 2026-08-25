@@ -58,7 +58,7 @@ Vocabularies are the kernel's wherever the kernel owns the concept: workspace ac
 - Growth: a new workspace policy axis is one kernel `MotionConcession` row with one probe-table entry, and a new retuning value is one `WorkspaceFact` field; the fold, observation, and teardown never widen.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Runtime.InteropServices;
 using AppKit;
 using CoreGraphics;
@@ -75,8 +75,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Grasshopper.Platform;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Bare dark bool cannot grow the host's high-contrast appearance; the row can.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class AppearanceRow {
     public static readonly AppearanceRow Light = new(key: 0);
@@ -104,7 +103,6 @@ public sealed partial class GestureKind {
     [UseDelegateFromConstructor] internal partial NSGestureRecognizer Mint(Action action);
 }
 
-// Host-enum owner: a consumer names a row; the raw NSPressureBehavior never crosses a folder signature.
 [SmartEnum<int>]
 public sealed partial class PressureRow {
     public static readonly PressureRow Default = new(key: 0, host: NSPressureBehavior.PrimaryDefault);
@@ -123,9 +121,7 @@ public abstract partial record AnchorSource {
     public sealed record ControlCase(Control Surface, MacViewRole Role) : AnchorSource;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// NO appearance column: a captured appearance is stale the moment the theme flips while view custody
-// stays valid — appearance is the live NativeSeam.Appearance read.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record MacAnchor(
     NSView View, Option<NSWindow> Window, CGRect Bounds, Option<IMacViewHandler> Handler) {
     public static Fin<MacAnchor> Of(AnchorSource source, Op? key = null) {
@@ -193,15 +189,13 @@ public readonly record struct PaceBounds(
 public sealed record WorkspaceFact(
     CapabilitySet<MotionConcession> Concessions, PaceBounds Pace, AppearanceRow Appearance);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class NativeLog {
     [LoggerMessage(EventId = FaultBand.GrasshopperLogBase + 5, Level = LogLevel.Error, Message = "Native boundary faulted: {Detail}")]
     internal static partial void Faulted(ILogger logger, [UserContent] string detail);
 }
 
-// ABI-plus-projection correspondence as GENERATED data — renames break a mapping row, never a body;
-// host-method reads (button decode, mouse projection, key projection) are named source columns.
-[Mapper] // conversions ride the assembly MapperDefaults (Canvas/canvas.md) — no per-seam re-spell
+[Mapper]
 internal static partial class NativeMap {
     [MapProperty(nameof(NSEvent.Type), nameof(NativeInput.Kind))]
     [MapProperty(nameof(NSEvent.MomentumPhase), nameof(NativeInput.Momentum))]
@@ -211,7 +205,6 @@ internal static partial class NativeMap {
     [MapPropertyFromSource(nameof(NativeInput.Buttons), Use = nameof(ButtonsOf))]
     internal static partial NativeInput Project(NSEvent raw);
 
-    // Anchored overload fills the pointer column through the handler the anchor extracted.
     internal static NativeInput Project(NSEvent raw, Option<IMacViewHandler> handler) => Project(raw) with {
         Pointer = handler.Map(view => MacConversions.GetMouseEvent(handler: view, theEvent: raw, includeWheel: true)),
         Stroke = raw.Type is NSEventType.KeyDown or NSEventType.KeyUp or NSEventType.FlagsChanged
@@ -222,9 +215,6 @@ internal static partial class NativeMap {
     private static MouseButtons ButtonsOf(NSEvent raw) => raw.GetMouseButtons();
 }
 
-// Native attachments are plain records over kernel custody: the LEASE owns the inverse, faults PARK on the
-// plan's FaultCell (bounded, shed-counted), and the hand base class with its LastFault atom and release
-// state machine is unspellable.
 public sealed record NativeMonitor(NSObject Token, MonitorPlan Plan) {
     private static readonly HookId Rail = HookId.Create(value: "rasm.grasshopper.platform.native");
 
@@ -264,9 +254,6 @@ public sealed record WorkspaceWatch(MacAnchor Anchor, Action<WorkspaceFact> Publ
         .IfFail(error => NativeMonitor.Park(cell: Faults, error: error));
 }
 
-// The kernel lease owns an IDisposable VALUE, never a release delegate. This capsule is that value for every
-// native attachment: one Lazy runs the UI-affine inverse exactly once and parks the otherwise-unreturnable
-// release refusal on the caller's one fault cell.
 public sealed class NativeHold<T> : IDisposable {
     private readonly Lazy<Unit> release;
 
@@ -283,7 +270,7 @@ public sealed class NativeHold<T> : IDisposable {
     public void Dispose() => ignore(release.Value);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class MacGate {
     public static Fin<Unit> Demand(Op? key = null) {
@@ -300,7 +287,6 @@ public static class MacGate {
 
 [BoundaryAdapter]
 public static class NativeSeam {
-    // Five NSWorkspace display options ARE the kernel's five concession rows: one probe table, one fold.
     private static readonly Seq<(MotionConcession Row, Func<NSWorkspace, bool> Read)> ConcessionProbes = Seq(
         (MotionConcession.ReduceMotion, (Func<NSWorkspace, bool>)(static w => w.AccessibilityDisplayShouldReduceMotion)),
         (MotionConcession.ReduceTransparency, static w => w.AccessibilityDisplayShouldReduceTransparency),
@@ -308,8 +294,6 @@ public static class NativeSeam {
         (MotionConcession.IncreaseContrast, static w => w.AccessibilityDisplayShouldIncreaseContrast),
         (MotionConcession.InvertColors, static w => w.AccessibilityDisplayShouldInvertColors));
 
-    // ONE acquire fold for every native attachment: gate, marshal, mint under Catch, unwind on refusal with
-    // primary and cleanup faults aggregated once — four hand-rolled mint-or-unwind bodies collapse.
     private static Fin<Lease<NativeHold<T>>> Acquire<T>(
         FaultCell faults, Op key, Func<Fin<(T Value, Func<Fin<Unit>> Release)>> mint, Func<Fin<Unit>> unwind) =>
         from _ in MacGate.Demand(key: key)

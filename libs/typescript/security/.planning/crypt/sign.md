@@ -42,16 +42,8 @@ import {
 } from "effect"
 import { SecurityFact, Witness } from "../access/audit.ts"
 
-// The cost roster is a tuple so the KDF refusal names a pinned row, and the guard pair below closes it against the
-// `CryptoCost` table in both directions — a row without its tuple entry, or the converse, fails at the declaration.
 const _costs = ["login", "kek"] as const
 
-// Six legs partition this page and each reason renders its OWN subject, because the operator questions differ per
-// leg: a KDF refusal names the cost row that broke, a MAC refusal names whether the sign or the compare threw, an
-// entropy refusal names which mint drew, an envelope refusal names the AES step, and a lease refusal names the
-// fingerprint whose window had closed. One free `detail` string answered them all with prose, and the window arm in
-// particular carried a bare fingerprint no reader could tell from a cause. The KDF bulkhead earns no reason: it
-// BLOCKS on permits and hands back every waiter, so an exhaustion row here would be a verdict nothing can reach.
 const _family = Fault.Class.family(
   [
     "digest", "mac", "rng", "seal", "open", "wrap",
@@ -212,8 +204,6 @@ type Ring = {
   readonly verify: ReadonlyArray<Extract<KeyHandle, { readonly _tag: "Verify" }>>
 }
 
-// One case per trust boundary: the peer-attested landing whose producer publishes public blocks only, this
-// folder's own host-held material under its lease window, and a remote JWKS entry.
 type _Source = Data.TaggedEnum<{
   Attested: { readonly bytes: Uint8Array }
   Held: {
@@ -236,9 +226,6 @@ const _Jwk = Schema.parseJson(Schema.Struct({ kty: Schema.String }, { key: Schem
 const _jwkBody = Schema.decodeUnknown(_Jwk)
 const _scheme = Schema.decodeUnknown(Schema.Literal(..._algs))
 
-// One importer per armor label, serving both admitting arms. `PKCS7` retired because it resolved to a refusal at
-// every call, and `PRIVATE KEY` lands because `Held` is the one source carrying signing material and its importer
-// stayed unreachable while this table held public labels alone — which is why `ring` could seat no armored signer.
 const _IMPORT = {
   "CERTIFICATE": importX509,
   "PUBLIC KEY": importSPKI,
@@ -246,18 +233,12 @@ const _IMPORT = {
 } as const satisfies Record<string, (pem: string, alg: string) => Promise<CryptoKey>>
 type _Label = keyof typeof _IMPORT
 
-// Armor is the real structure of the HOST-HELD bundle — undescribed text `crypt/secret` seals from a leased secret
-// with no descriptor over it — so this scan is not a rule beside a generated shape. Only that arm reads it; the
-// wire arm carries a label its descriptor already settled and never comes back through here.
 const _ARMOR = /-----BEGIN ([A-Z0-9 ]+)-----/
 const _label = Schema.decodeUnknownOption(Schema.Literal(...Record.keys(_IMPORT)))
 
 const _labelOf = (armored: string): Option.Option<_Label> =>
   Option.flatMap(Option.fromNullable(_ARMOR.exec(armored)), (found) => _label(found[1]))
 
-// jose polices its own armor prefix and strips every byte back to DER before `crypto.subtle.importKey`, so this
-// wrap is argument marshalling at the call boundary: `Uint8Array` stays the domain value, text dies inside that
-// call, and no line wrap is owed because jose's strip consumes every whitespace byte.
 const _armor = (label: _Label, der: Uint8Array): string =>
   `-----BEGIN ${label}-----\n${Encoding.encodeBase64(der)}\n-----END ${label}-----`
 
@@ -266,7 +247,6 @@ const _handleOf = (key: CryptoKey, kid: string, alg: KeyAlg.Kind): KeyHandle =>
     ? _KeyHandle.Signing({ kid, alg, key: Redacted.make(key) })
     : _KeyHandle.Verify({ kid, alg, key: Redacted.make(key) })
 
-// Both arms land here with their label ALREADY resolved, so neither re-reads a fact it holds.
 const _imported = (label: _Label, pem: string, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHandle, SignFault> =>
   Effect.map(Effect.tryPromise({ try: () => _IMPORT[label](pem, alg), catch: _material }), (key) => _handleOf(key, kid, alg))
 
@@ -276,11 +256,6 @@ const _armored = (block: string, alg: KeyAlg.Kind, kid: string): Effect.Effect<K
     onSome: (label) => _imported(label, block, alg, kid),
   })
 
-// Total over the generated `material` oneof: each arm names the DER it carries and the label that DER wears at the
-// jose boundary. Dispatch reads the descriptor's own discriminant, so the scraped label retires — the wire already
-// settled which encoding arrived and re-reading it out of text asked the payload to re-declare a decided fact. Both
-// absences fold: an empty oneof and an empty chain are one state, the protovalidate `required`/`min_items` pair
-// bypassed, and neither names a key a verifier could select.
 const _admissible = (material: Wire.Credential["material"]): Option.Option<readonly [_Label, Uint8Array]> =>
   Match.value(material).pipe(
     Match.discriminators("case")({
@@ -302,7 +277,6 @@ const _fromJwk = (jwk: JWK, alg: KeyAlg.Kind, kid: string): Effect.Effect<KeyHan
 
 const _admit = (source: Material.Source, alg: KeyAlg.Kind): Effect.Effect<KeyHandle, SignFault> =>
   _Source.$match(source, {
-    // the first typed consumer decodes the direct family and keeps the validated credential inside this arm
     Attested: ({ bytes }) =>
       Effect.flatMap(Wire.decode("CredentialPublicWire", bytes).pipe(Effect.mapError(_material)), (credential) =>
         Option.match(_admissible(credential.material), {
@@ -310,10 +284,8 @@ const _admit = (source: Material.Source, alg: KeyAlg.Kind): Effect.Effect<KeyHan
           onSome: ([label, der]) => _imported(label, _armor(label, der), alg, credential.keyId),
         }),
       ),
-    // the lease window gates the host arm alone, because it is the only source that carries one
     Held: ({ bundle, fingerprint, notBefore, notAfter }) =>
       Effect.flatMap(
-        // one unwrap, deferred past the window gate: the sealed bundle never exists raw ahead of its own admission
         Effect.map(
           Effect.filterOrFail(
             DateTime.now,
@@ -354,9 +326,6 @@ const Material = {
         verify: [_KeyHandle.Verify({ kid, alg, key: Redacted.make(pair.publicKey) })],
       }
     }),
-  // RFC 9449 confirms a sender-constrained token by exactly what a resource server recomputes off the presented
-  // proof key, so this mint answers the BARE thumbprint and the folder holds no `urn:...:jwk-thumbprint` spelling:
-  // a URI landing in `cnf.jkt` is a value no verifier matches.
   thumbprint: (jwk: JWK): Effect.Effect<string, SignFault> =>
     Effect.tryPromise({ try: () => calculateJwkThumbprint(jwk, "sha256"), catch: _material }),
   jwks: (keys: ReadonlyArray<Extract<KeyHandle, { readonly _tag: "Verify" }>>): Effect.Effect<JSONWebKeySet, SignFault> =>
@@ -374,8 +343,6 @@ const Material = {
         (handle): handle is Extract<KeyHandle, { readonly _tag: "Signing" }> => handle._tag === "Signing",
         () => new SignFault({ case: { reason: "material", cause: "signing source resolved public" } }),
       ))
-      // each published entry admits as its own source: no synthetic carrier, no fabricated window, no role
-      // literal outside the credential vocabulary standing in to reach one import
       const [excluded, verify] = yield* Effect.partition(published.keys, (jwk) =>
         _admit(_Source.Published({ jwk }), alg).pipe(Effect.filterOrFail(
           (handle): handle is Extract<KeyHandle, { readonly _tag: "Verify" }> => handle._tag === "Verify",
@@ -415,9 +382,6 @@ type CredentialVerdict = Data.TaggedEnum<{
 }>
 
 type Probe = Data.TaggedEnum<{
-  // `prefix` is the signed stripe frame the caller's dialect prepends, carried as its own field rather than
-  // concatenated by the caller: a spread over the request body materializes an intermediate JS number array of the
-  // whole payload on every verify, which is a memory amplifier an ingress plane hands to any attacker who can post.
   Mac: { readonly key: Redacted.Redacted<Uint8Array>; readonly prefix: Uint8Array; readonly body: Uint8Array; readonly signature: string }
   Digest: { readonly opaque: Redacted.Redacted<string>; readonly stored: string }
   Text: { readonly held: Redacted.Redacted<string>; readonly presented: string }
@@ -427,9 +391,6 @@ const Alphabet = {
   base62: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
 } as const
 
-// Each row names the member its own production path runs, because the two rows do not share one: a credential
-// takes `digest` (PHC string, embedded salt) while the KEK takes `derive` (raw bytes, pinned salt). A calibration
-// that probed one member for both rows would grade a call `Shredder` never makes and publish its p99 as the KEK's.
 const CryptoCost = {
   login: {
     targetMs: 250,
@@ -453,9 +414,6 @@ declare namespace CryptoCost {
 
 const _HASHES = { sha1, sha256, sha512 } as const
 
-// Injectable entropy port: production fills from WebCrypto, a test seeds a deterministic reader, and every RNG on
-// this page — token, uuid, the plugin bytes, the unbiased sampler — draws through it so nothing reaches `crypto`
-// directly and the whole identity lifecycle replays under a seeded fiber.
 type Entropy = { readonly read: (bytes: Uint8Array) => void }
 
 const _CredentialVerdict = Data.taggedEnum<CredentialVerdict>()
@@ -468,9 +426,6 @@ const _enc = new TextEncoder()
 
 const _bytes = (text: string): Uint8Array => _enc.encode(text)
 
-// Folder-owned constant-time compare: length gates first because a length mismatch is already public, then every
-// byte pair folds into one accumulator so the loop's timing carries nothing about WHERE two equal-length inputs
-// diverge — a byte-index short-circuit is the timing oracle this owner exists to foreclose.
 const _sameBytes = (left: Uint8Array, right: Uint8Array): boolean => {
   if (left.byteLength !== right.byteLength) return false
   let acc = 0
@@ -478,14 +433,9 @@ const _sameBytes = (left: Uint8Array, right: Uint8Array): boolean => {
   return acc === 0
 }
 
-// Streaming beats the one-shot `hmac` wherever a signed prefix rides ahead of a body: `hmac.create` absorbs each
-// chunk in place, so the prefix and the held request octets reach the same digest without a joined copy existing.
 const _chunked = (key: Uint8Array, prefix: Uint8Array, body: Uint8Array): Uint8Array =>
   hmac.create(sha256, key).update(prefix).update(body).digest()
 
-// Unbiased alphabet sampling: one drawn byte per character, rejecting any byte at or above the largest multiple of
-// the alphabet size that fits in 256, so no residue class over-represents — a bare `byte % length` skews toward the
-// low indices whenever the length does not divide 256. Each reject refills through the port, so entropy stays owned.
 const _sample = (reader: Entropy, alphabet: string, length: number): string => {
   const ceiling = 256 - (256 % alphabet.length)
   const out = new Array<string>(length)
@@ -564,8 +514,6 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
           }),
         catch: (cause) => new SignFault({ case: { reason: "mac", op: "compare", cause: String(cause) } }),
       })
-    // One mint, two wire forms off the input shape: an alphabet string keeps caller-shaped dialects, a bare byte
-    // count renders base64url-noPadding — the URL-safe wire for tokens riding paths and fragments.
     function token(alphabet: string, length: number): Effect.Effect<Redacted.Redacted<string>, SignFault>
     function token(bytes: number): Effect.Effect<Redacted.Redacted<string>, SignFault>
     function token(form: string | number, length = 0): Effect.Effect<Redacted.Redacted<string>, SignFault> {
@@ -600,11 +548,6 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
       name: "rasm-sign",
       hmac: (alg: keyof typeof _HASHES, key: Uint8Array, data: Uint8Array) => hmac(_HASHES[alg], key, data),
       randomBytes: (len: number) => { const bytes = new Uint8Array(len); reader.read(bytes); return bytes },
-      // The OTP port's compare is called with the two TOKEN STRINGS, never bytes, so the primitive is lifted here
-      // rather than handed over bare: a byte-domain compare handed a string indexes its operands, and on a string
-      // that read yields characters whose XOR is NaN outside the digit alphabet — every character of a non-numeric
-      // variant then compares equal and the whole token passes. Method-shorthand bivariance hides the mismatch at
-      // the type level, so the normalization is the only thing standing between a hooks-encoded dialect and a blanket accept.
       constantTimeEqual: (left: string | Uint8Array, right: string | Uint8Array) =>
         _sameBytes(typeof left === "string" ? _bytes(left) : left, typeof right === "string" ? _bytes(right) : right),
     } as const
@@ -725,17 +668,11 @@ type IssuerRef = {
   readonly algorithms: ReadonlyArray<KeyAlg.Kind>
 }
 
-// Rotation arrives as a rebuild plus a feed, never as a rebuilt Layer: `rebuild` re-runs `Material.ring` over
-// whatever `crypt/secret` now holds, and `rotations` ticks once per observed roll. The element type is `unknown`
-// because the ring's truth is the rebuild's, so a feed carrying custody payloads and a bare tick stream both fit
-// and this page stays free of the sibling that imports it.
 type Rotation = {
   readonly rebuild: Effect.Effect<Keyset, SignFault>
   readonly rotations: Stream.Stream<unknown>
 }
 
-// What the live authority actually holds: the ring beside the two values jose derives from it once, so the verify
-// path never rebuilds a JWKS set per call and a rotation is one atomic swap of all three together.
 type _Compiled = {
   readonly keyset: Keyset
   readonly local: ReturnType<typeof createLocalJWKSet>
@@ -754,9 +691,6 @@ type SingleUse<A, E> = {
   readonly consume: (key: string) => Effect.Effect<Option.Option<A>, E>
 }
 
-// One stash row per port: the persistence key IS a `Schema.TaggedRequest`, so the stashed value rides the store's
-// own `Exit` codec and the TTL travels as payload the store's `timeToLive` reads on write. `PrimaryKey` projects
-// nothing but the caller's key, so `consume` rebuilds the row without knowing the window its stash chose.
 const _stashRow = <A, IA>(storeId: string, value: Schema.Schema<A, IA>) =>
   class Stash extends Schema.TaggedRequest<Stash>()(storeId, {
     payload: { key: Schema.String, ttl: Schema.DurationFromMillis },
@@ -769,10 +703,6 @@ const _stashRow = <A, IA>(storeId: string, value: Schema.Schema<A, IA>) =>
   }
 
 const SingleUse = {
-  // Every two-leg ceremony port in the folder binds here: `webauthn`'s `ChallengeStore`, `oauth`'s
-  // `OAuthStateStore`, `workload`'s `IssuerStore`, and any successor. Consume-once is the remove sequenced onto
-  // its own read, so a replayed challenge, a replayed redirect state, and a replayed grant nonce each answer
-  // `None` ahead of their own expiry gate rather than relying on it.
   persisted: <I, A, IA, E>(options: {
     readonly tag: Context.Tag<I, SingleUse<A, E>>
     readonly storeId: string
@@ -825,10 +755,6 @@ const _reasonOf = (cause: unknown): SignFault.Reason =>
 const _jwksMiss = Convention.mount(Convention.metric.securityJwksMiss)
 const _jwksMs = Convention.mount(Convention.metric.securityJwksResolve)
 
-// A JWK is a provider-shaped open record, not a class instance, so the cell admits by guard and its codec is
-// identity — the stored bytes are already the JSON the provider served. The cell takes the certified client's
-// index-signature-bearing spelling because that one flows into BOTH consumers, where the closed jose interface flows
-// into neither; the reverse crossing is the decode below, which is where a stored value belongs anyway.
 const _CachedJwk = Schema.declare((input: unknown): input is CachedJwk => Predicate.isRecord(input), { identifier: "CachedJwk" })
 
 class JwksSnapshot extends Schema.Class<JwksSnapshot>("JwksSnapshot")({
@@ -855,10 +781,6 @@ class JwksLedger extends Context.Tag("security/crypt/JwksLedger")<JwksLedger, {
 }
 
 class JwksTransport extends Context.Tag("security/crypt/JwksTransport")<JwksTransport, typeof globalThis.fetch>() {
-  // jose asks for a fetch, so the platform client renders back into one rather than the page surrendering the hop
-  // to a bare `globalThis.fetch` that retries nothing and propagates no trace. Method and headers cross in, the
-  // response's own status/headers/body rebuild a `Response`, and jose's `AbortSignal` interrupts the fiber so the
-  // resolver's `timeoutDuration` keeps governing. Retry policy is one budget compile, never a hand loop.
   static readonly Live: Layer.Layer<JwksTransport, never, HttpClient.HttpClient> = Layer.effect(
     JwksTransport,
     Effect.gen(function* () {
@@ -894,10 +816,6 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
       const { cacheAge, cooldown, deadline, tolerance } = yield* _policy
       const rebuild = Predicate.hasProperty(source, "rebuild") ? source.rebuild : Effect.succeed(source)
       const cell = yield* Ref.make(yield* Effect.flatMap(rebuild, _compiled))
-      // Rotation lands right here, which is what makes it the folder's seam rather than a promise: one observed
-      // roll rebuilds the ring, recompiles the local verify set, and swaps the cell, so a retired signing key
-      // keeps verifying while its handle stays published and no layer holding this tag tears down. Any failed
-      // rebuild leaves the live ring standing — a Doppler blip must never disarm an authority still able to sign.
       yield* Effect.forEach(
         Predicate.hasProperty(source, "rotations") ? [source.rotations] : [],
         (rotations) =>
@@ -920,8 +838,6 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
             [jwksCache]: Option.match(held, { onNone: () => ({}), onSome: JwksSnapshot.jose }),
             [customFetch]: transport,
           })
-          // The snapshot reads the resolver's own accessor and stamps OUR observation instant, so no mutable record
-          // survives the closure and the ledger's unit stays the owner's rather than whichever library wrote last.
           const persist = Effect.flatMap(DateTime.now, (observedAt) =>
             Option.match(Option.fromNullable(resolver.jwks()), {
               onNone: () => Effect.void,
@@ -932,9 +848,6 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
                 ),
             }))
           yield* Effect.forkScoped(Effect.repeat(
-            // The tick asks only where the ask can land — jose refuses a reload inside its own cooldown, answers a
-            // fresh set from cache, and holds one reload at a time — so the guard reads the resolver's published
-            // state and an interrupted teardown stays distinguishable from a permanently failing rotation.
             Effect.unless(
               Effect.zipRight(
                 Effect.tryPromise({ try: () => resolver.reload(), catch: (cause) => new SignFault({ case: { reason: "jwks", cause: String(cause) } }) }),
@@ -960,8 +873,6 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
       })
       const _seconds = (ttl: Duration.DurationInput): string =>
         `${Math.max(1, Math.round(Duration.toSeconds(Duration.decode(ttl))))}s`
-      // Each leg reads the cell once, so a verify that started before a roll finishes against the ring it opened
-      // on and the next call picks up the new one — the swap is never observed half-applied.
       const _local = (token: Redacted.Redacted<string>): Effect.Effect<AccessClaims, SignFault> =>
         Effect.flatMap(Ref.get(cell), ({ algorithms, keyset, local }) =>
           Effect.tryPromise({
@@ -984,7 +895,7 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
             catch: (cause) => new SignFault({ case: { reason: _reasonOf(cause), cause: String(cause) } }),
           }).pipe(
             Effect.timeoutFail({ duration: deadline, onTimeout: () => new SignFault({ case: { reason: "jwks", cause: `${issuer.jwksUri} did not answer inside the deadline` } }) }),
-            Effect.retry(Fault.Budget.schedule("pulse")), // the branch compile, gate included: jitter, attempt bound, reset, and elapsed ceiling arrive as one value
+            Effect.retry(Fault.Budget.schedule("pulse")),
             Metric.trackDuration(_jwksMs),
             Effect.tap(() => persist),
             Effect.map((result) => result.payload),
@@ -1053,8 +964,6 @@ class Jwt extends Effect.Service<Jwt>()("security/crypt/Jwt", {
 ```typescript
 declare namespace Calibration {
   type Row = keyof typeof CryptoCost
-  // Derived off `measure`, because the package exports no type name for its own return shape and a re-declared
-  // ladder drifts the moment the engine adds a rung.
   type Stats = Awaited<ReturnType<typeof measure>>
   type Verdict = { readonly admitted: boolean; readonly claim: Board.Claim; readonly row: Row; readonly target: number }
 }
@@ -1065,9 +974,6 @@ const _sampled = <A, R>(probe: Effect.Effect<A, SignFault, R>, trials: number): 
   globalThis.Number.isInteger(trials) && trials > 0
     ? Effect.gen(function* () {
         const runtime = yield* Effect.runtime<R>()
-        // One rail run proves the probe before the band opens, so a broken row fails as its own typed fault rather
-        // than as a rejected promise mid-sample; inside the sampler each run settles to an `Exit` pinned through
-        // that barrier, so no later fault truncates the band and no run is optimized away.
         yield* probe
         return yield* Effect.tryPromise({
           try: () =>
@@ -1089,9 +995,6 @@ const _admitted = (identity: Identity.App, claim: Board.Claim): Effect.Effect<Bo
     ? Effect.succeed(claim)
     : Effect.fail(new SignFault({ case: { reason: "unsupported", cause: `claim host ${claim.host.print} is not ${identity.host}` } }))
 
-// Row to production member: `digest` seals a credential under a PHC-embedded salt, `derive` mints raw KEK bytes
-// under a caller-pinned one. Calibration mints a fresh 16-byte salt for the derive arm — argon2 cost tracks salt
-// LENGTH alone, and reaching for `Shredder`'s pinned salt would seat the master KEK's own input in a receipt.
 const _PROBES = {
   digest: (cipher: Crypto, row: Calibration.Row, secret: Redacted.Redacted<string>) => cipher.digest(row, secret),
   derive: (cipher: Crypto, row: Calibration.Row, secret: Redacted.Redacted<string>) => cipher.derive(row, secret, cipher.plugin.randomBytes(16)),
@@ -1120,7 +1023,7 @@ const Calibration = {
         }))),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { AccessClaims, Alphabet, Calibration, Crypto, CryptoCost, Jwt, JwksLedger, JwksSnapshot, JwksTransport, KeyAlg, Material, Probe, SealedEnvelope, Shredder, SignFault, SingleUse, WrappedKey }
 export type { CredentialVerdict, IssuerRef, KeyHandle, Keyset, Ring, Rotation }

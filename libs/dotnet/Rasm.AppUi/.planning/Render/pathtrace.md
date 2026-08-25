@@ -28,7 +28,6 @@ Every appearance value crosses as a Materials VALUE: `ShadeSeam` resolves a hit 
 - Boundary: convergence is sample-count progressive and the progress sink is the kernel's own `IProgress<double>` governance shape — a fraction this page publishes means samples folded, never seconds spent; the BVH refits in place and rebuilds only through the kernel degradation trigger; the ray-trace dispatch is the GPU compute surface bound through the `Render/pipeline` render-graph lease, the CPU oracle the correctness reference, and the GPU acceleration the SPIKE; per-hit parameterization arrives through `ShadeSeam` over the `Render/meshlets` `MeshletCluster.Sample` projection — a fabricated `(0, 0)` UV is the deleted form, and the sphere-proxy fallback is a DECLARED degradation the attributes row types.
 
 ```csharp signature
-// (Continues the Rasm.AppUi.Render compilation unit, plus:)
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Domain;
@@ -37,24 +36,15 @@ using Rasm.Spatial;
 using Rasm.Materials.Appearance;
 using Rasm.Materials.Appearance.Bsdf;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// RayCone carries the pixel's angular footprint along the path: Width the cone diameter at the current vertex,
-// Spread its per-unit-distance growth. Advanced and Scattered move different columns, so folding them into one
-// call would make every transmission step pay a curvature term no direction change earned.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct RayCone(double Width, double Spread) {
-    // Below this the incidence cosine carries no footprint the projection can divide by: a cone at true grazing
-    // covers unbounded surface; the same floor bounds the scatter growth.
     private const double CosineFloor = 1e-3;
-    // Footprint floor inside the log2: a sub-texel footprint reads mip 0 rather than a negative level.
     private const double FootprintFloor = 1e-9;
 
     public static RayCone Primary(double pixelSpread) => new(0.0, pixelSpread);
 
     public RayCone Advanced(double distance) => this with { Width = Width + (Spread * distance) };
 
-    // The magnitude enters: a concave hit focuses the cone, and a signed shrink drives Spread negative and
-    // contracts Width without bound — mip 0 at every distance past the focus, the aliasing defect the whole
-    // derivation forecloses.
     public RayCone Scattered(double curvature, double cosine) =>
         this with { Spread = Spread + (2.0 * Math.Abs(curvature) * Width / Math.Max(Math.Abs(cosine), CosineFloor)) };
 
@@ -62,30 +52,20 @@ public readonly record struct RayCone(double Width, double Spread) {
         Math.Max(0.0, Math.Log2(Math.Max(Width * uvScale * texels / Math.Max(Math.Abs(cosine), CosineFloor), FootprintFloor)));
 }
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-// The ONE wire node-link reader for the kernel SpatialAnswer.Wire packing NodeLinkProjection freezes:
-// interior = (First << 21) | Fan, leaf = -(((LeafStart − NodeCount) << 21) | LeafCount) − 1, primitive
-// ordinals on the tail, node count = Bounds.Length / 6. Render/reality.md composes THIS reader for its
-// octree stream — the constants exist once in the compilation unit; the kernel-published reader stays a
-// SEAT escalation because Compute's GPU traversal decodes the same packing a third time.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 internal static class NodeLink {
     private const int ChildShift = 21;
     private const long ChildMask = (1L << ChildShift) - 1L;
 
     internal static int Count(float[] bounds) => bounds.Length / 6;
 
-    // Leaf first/fan address the ORDINAL TAIL (offset by nodeCount); interior first/fan address child nodes.
     internal static (bool Leaf, int First, int Fan) Read(long packed, int nodeCount) =>
         packed < 0L
             ? (-(packed + 1L)) switch { var leaf => (true, nodeCount + (int)(leaf >> ChildShift), (int)(leaf & ChildMask)) }
             : (false, (int)(packed >> ChildShift), (int)(packed & ChildMask));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// TraceLimits carries the transport bounds as policy columns rather than literals scattered through the walk.
-// The SHIPPED depths are NAMED postures: Oracle is the one-bounce correctness reference the raster path
-// compares against, Study the bounded global-illumination read a daylight or materials study raises to — a
-// bare `Default` hid the one-bounce election inside a name that promised nothing.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TraceLimits {
     private TraceLimits(int depth, int cutoutSteps, double opacityFloor, double surfaceOffset, double hitEpsilon, double refitDegradationLimit) =>
         (Depth, CutoutSteps, OpacityFloor, SurfaceOffset, HitEpsilon, RefitDegradationLimit) =
@@ -101,8 +81,6 @@ public readonly record struct TraceLimits {
     public static readonly TraceLimits Oracle = new(depth: 1, cutoutSteps: 4, opacityFloor: 1e-3, surfaceOffset: 1e-4, hitEpsilon: 1e-6, refitDegradationLimit: 1.6);
     public static readonly TraceLimits Study = new(depth: 4, cutoutSteps: 4, opacityFloor: 1e-3, surfaceOffset: 1e-4, hitEpsilon: 1e-6, refitDegradationLimit: 1.6);
 
-    // Every column has a silently-wrong render behind it rather than a crash, so admission ACCUMULATES — each
-    // violated column names itself and a caller repairing a policy sees the whole refusal once.
     public static Fin<TraceLimits> Of(
         int depth, int cutoutSteps, double opacityFloor, double surfaceOffset, double hitEpsilon, double refitDegradationLimit) =>
         (Col(depth >= 1, "depth >= 1"),
@@ -117,8 +95,6 @@ public readonly record struct TraceLimits {
     private static Validation<Error, Unit> Col(bool holds, string requirement) =>
         holds ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail((Error)new ViewportFault.ContextUnavailable($"trace-limits: {requirement}"));
 
-    // The kernel build policy DERIVES from this row and reads the kernel's own IsAdmitted verdict, so a
-    // refused refit bar faults naming the trace policy that supplied it.
     public Fin<BuildPolicy> Broadphase() =>
         BuildPolicy.Canonical with { RefitDegradationLimit = RefitDegradationLimit } switch {
             { IsAdmitted: true } policy => Fin.Succ(policy),
@@ -126,19 +102,11 @@ public readonly record struct TraceLimits {
         };
 }
 
-// One named hit: the primitive ordinal in the cluster owner's own index space and the ray parameter. The
-// NULLABLE carrier survives as a named exemption — every caller sits on a `ref ulong` sampler-state frame a
-// monadic Match cannot capture — but it wraps one named type rather than a bare tuple.
 public readonly record struct RayHit(int Primitive, double T);
 
-// Federation broad phase OWNS build, refit, and the degradation-triggered rebuild; Bvh is the trace
-// ACCELERATOR VIEW over that owner, and page-local remains the per-ray wire WALK plus the exact ray-sphere
-// narrow test against each leaf cluster's own bounding sphere.
 public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSphere> PrimitiveBounds, Option<SpatialIndex> Index) {
     private int NodeCount => NodeLink.Count(Bounds);
 
-    // The build takes the CLUSTER OWNER, never a loose view seq: `hit.Primitive` indexes the sequence handed
-    // to this build, and the seam resolves that same ordinal against `MeshletCluster.Sample`/`Clusters`.
     public static Fin<Bvh> Build(MeshletCluster scene, TraceLimits limits, Op? key = null) {
         Seq<ResidencyMeshlet> meshlets = scene.Clusters;
         if (meshlets.IsEmpty) { return Fin.Succ(new Bvh([], [], [], None)); }
@@ -150,8 +118,6 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
                select view;
     }
 
-    // A cardinality change IS a topology change and rebuilds — indexing a retained order into a
-    // differently-sized roster reads bounds that belong to no cluster.
     public Fin<Bvh> Refit(MeshletCluster scene, TraceLimits limits, Op? key = null) {
         Seq<ResidencyMeshlet> moved = scene.Clusters;
         Op op = key.OrDefault();
@@ -174,13 +140,8 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
         new Point3d(sphere.X - sphere.Radius, sphere.Y - sphere.Radius, sphere.Z - sphere.Radius),
         new Point3d(sphere.X + sphere.Radius, sphere.Y + sphere.Radius, sphere.Z + sphere.Radius));
 
-    // Per-thread traversal scratch: a heap Stack per ray is the allocation the measured-oracle claim forbids;
-    // [ThreadStatic] keeps the cell race-free without a lock, Clear-per-call keeps a faulted walk from
-    // leaking depth into the next ray.
     [ThreadStatic] private static Stack<int>? traversalScratch;
 
-    // Closest-hit wire traversal — the oracle's one intersection kernel, shared by primary, shadow, and
-    // continuation rays; front-to-back by child slab entry so the nearer child pops first and shrinks best.T.
     public RayHit? Intersect((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, double tMax, double epsilon) {
         if (Nodes.Length == 0) { return null; }
         RayHit best = new(Primitive: -1, T: tMax);
@@ -201,9 +162,6 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
                 int hits = 0;
                 for (int child = first; child < first + fan; child++) {
                     if (RaySlab(origin, direction, child, best.T, epsilon) is not { } t) { continue; }
-                    // Ordering is an OPTIMIZATION, never a correctness condition — the pop-time re-test rejects
-                    // whatever the shrunken best.T excludes — so a fan wider than the window pushes its tail
-                    // unordered instead of writing past the stack buffer.
                     if (hits == ordered.Length) { walk.Push(child); continue; }
                     int seat = hits++;
                     while (seat > 0 && ordered[seat - 1].Enter < t) { ordered[seat] = ordered[seat - 1]; seat--; }
@@ -215,8 +173,6 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
         return best.Primitive >= 0 ? best : null;
     }
 
-    // Slab test over the wire's outward-rounded box: IEEE infinities carry a zero direction component and the
-    // min/max fold rejects the NaN a degenerate slab would mint.
     private double? RaySlab((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, int node, double tMax, double epsilon) {
         int at = 6 * node;
         (double lo, double hi) = (epsilon, tMax);
@@ -245,9 +201,6 @@ public sealed record Bvh(float[] Bounds, long[] Nodes, ImmutableArray<BoundingSp
     }
 }
 
-// Weighted-reservoir resampled importance sampling state over the ONE candidate payload the light rig already
-// mints — payload storage is what makes temporal reuse survive a rig rebuild, and a second reservoir-local
-// payload shape was the same four columns under different names, round-tripped field-by-field per survivor.
 public readonly record struct Reservoir(double WeightSum, int SampleCount, LightCandidate Chosen, double TargetPdf) {
     public Reservoir Update(LightCandidate candidate, double weight, double pdf, double random) =>
         (WeightSum + weight) switch {
@@ -259,8 +212,6 @@ public readonly record struct Reservoir(double WeightSum, int SampleCount, Light
     public Reservoir Decayed(int cap) =>
         SampleCount <= cap ? this : new Reservoir(WeightSum * ((double)cap / SampleCount), cap, Chosen, TargetPdf);
 
-    // Folded re-enters a prior reservoir as ONE candidate whose target RE-EVALUATES at the current shading
-    // point — the mandatory reweighting that keeps reuse unbiased when the surface moved.
     public Reservoir Folded(Reservoir prior, double targetNow, double random) =>
         prior.SampleCount is 0 || targetNow <= 0d
             ? this
@@ -271,11 +222,9 @@ public readonly record struct Reservoir(double WeightSum, int SampleCount, Light
     public double Weight => SampleCount == 0 || TargetPdf <= 0d ? 0d : WeightSum / (SampleCount * TargetPdf);
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
-// SamplePolicy dispatches the NEE arm's light selection — a row is behavior at the integrator, never a label.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SamplePolicy {
-    // Reuse decision is payload-free, so ONE cached case serves every pixel-sample.
     static readonly SampleDecision Reused = new SampleDecision.ReservoirReuse();
     public static readonly SamplePolicy Restir = new("restir", static (_, _, _, _) => Reused);
     public static readonly SamplePolicy Uniform = new("uniform", static (_, _, count, random) =>
@@ -296,8 +245,6 @@ public abstract partial record SampleDecision {
     public sealed record Direct(int Index, double Weight) : SampleDecision;
 }
 
-// Guide-plane accumulation family: every modality is a ROW carrying its own fold delegate. Both rows write
-// the FINITE FarDepth miss sentinel — a mean folding float.MaxValue poisons every later sample.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GuidePolicy {
@@ -305,9 +252,6 @@ public sealed partial class GuidePolicy {
         static (guide, slot, nx, ny, nz, depth, weight) =>
             (guide[slot], guide[slot + 1], guide[slot + 2], guide[slot + 3]) = (nx, ny, nz, depth));
 
-    // The guide folds the SAME ordinal-weighted running mean the color plane folds, so an anti-aliased edge
-    // pixel edge-stops on coverage-weighted geometry instead of whichever jittered sample landed last. No
-    // renormalization: the bilateral gap reads DIFFERENCES.
     public static readonly GuidePolicy BatchMean = new("batch-mean",
         static (guide, slot, nx, ny, nz, depth, weight) => {
             float next = weight + 1f;
@@ -323,14 +267,10 @@ public sealed partial class GuidePolicy {
     public partial void Fold(Span<float> guide, int slot, float nx, float ny, float nz, float depth, float weight);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Edge-aware joint-bilateral resolve over the accumulation guides. Presentation-only — the render-hash lane
-// pins the RAW mean through AccumulationTarget.Pinned, never this output.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record Denoiser(double NormalSigma, double DepthSigma, double ColorSigma) {
     public static readonly Denoiser EdgeAware = new(NormalSigma: 0.1, DepthSigma: 0.05, ColorSigma: 0.4);
 
-    // The resolved plane is POOLED — one film-sized buffer per present, returned to the pool by the caller's
-    // using scope rather than churning the LOH at display cadence.
     public MemoryOwner<float> Resolve(AccumulationTarget film) {
         MemoryOwner<float> owner = MemoryOwner<float>.Allocate(film.Rgba.Length);
         Span<float> output = owner.Span;
@@ -357,8 +297,6 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
         return owner;
     }
 
-    // Both callers hand PRE-RESOLVED base offsets, so the flag that re-derived one caller's base inside the
-    // fold is gone with its parameter.
     private static double Gap(ReadOnlySpan<float> plane, int baseA, int baseB, int components) {
         double sum = 0d;
         for (int c = 0; c < components; c++) { double d = plane[baseA + c] - plane[baseB + c]; sum += d * d; }
@@ -366,9 +304,6 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
     }
 }
 
-// AccumulationTarget owns the per-pixel running mean, its sample ordinal, the ReSTIR reservoir array, the
-// normal/depth guide plane, and the swallowed-shade fault count as the ONE progressive-state owner. A sealed
-// CLASS: one film is one IDENTITY over shared mutable planes, and record value semantics mint aliases.
 public sealed class AccumulationTarget {
     private AccumulationTarget(int width, int height, long converge) {
         (Width, Height, Converge) = (width, height, converge);
@@ -383,11 +318,8 @@ public sealed class AccumulationTarget {
     public Memory<float> NormalDepth { get; }
     public long Ordinal { get; private set; }
 
-    // Shade/Evaluate faults COUNT instead of vanishing: the hot-loop collapse to black is deliberate, and the
-    // count is its evidence, so a faulting material reads as a fault rate rather than a dark render.
     public long Faults { get; private set; }
 
-    // Each column has a silently-wrong or aborting render behind it, so admission ACCUMULATES per column.
     public static Fin<AccumulationTarget> Of(int width, int height, long converge) =>
         (Col(width > 0, $"width > 0, saw {width}"),
          Col(height > 0, $"height > 0, saw {height}"),
@@ -405,12 +337,8 @@ public sealed class AccumulationTarget {
 
     public bool Converged => Ordinal >= Converge;
 
-    // The raw-mean content identity the render-hash lane compares — the film's own bytes through the kernel
-    // one-hasher, so "pins the RAW mean" is a typed egress and the denoiser can never enter the pinned bytes.
     public UInt128 Pinned => ContentHash.Of(MemoryMarshal.AsBytes(Rgba.Span));
 
-    // The in-flight fraction against the film's own convergence: rises through a long batch, lands exactly on
-    // the post-batch ordinal; a per-batch bar restarting at zero every dispatch is the deleted form.
     public double Fraction(int batch = 0, int rowsFolded = 0) =>
         Converge <= 0L
             ? 0d
@@ -436,9 +364,6 @@ public sealed record PathTracePass(
     TraceLimits Limits) {
     static readonly Op IntegrateOp = Op.Of(name: "appui.pathtrace.integrate");
 
-    // Presentation is a `Render/pipeline` COMPOSITE row over the pass's OWN film cell — the sigma triple the
-    // pass carries is the one that resolves it, and the resolved plane crosses as scene-linear RgbaF32 so
-    // Skia's colour management performs the display transform at draw.
     public RenderPass Present(string key, Atom<AccumulationTarget> film) =>
         new RenderPass.Composite(key, (canvas, request, _) => Painted(canvas, request, film.Value));
 
@@ -450,9 +375,6 @@ public sealed record PathTracePass(
         return Fin.Succ(unit);
     }
 
-    // Honest integrate-or-gate: zero divides a fresh target's mean and a negative budget regresses the
-    // ordinal, so only positive batches enter; a cancelled batch RESETS the target before railing, because
-    // rows folded at two ordinals under one counter is a film state no later batch can repair.
     public Fin<AccumulationTarget> Accumulate(
         AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed,
         CancelScope scope, Option<IProgress<double>> progress = default) =>
@@ -465,9 +387,6 @@ public sealed record PathTracePass(
                     : Integrate(target, camera, rig, sampleBudget, sampleSeed, scope, progress)
                         .Map(_ => target.Advanced(sampleBudget));
 
-    // Statement-bodied oracle kernel (declared exemption) — deterministic per-(pixel, ordinal, seed) so the
-    // render-hash lane pins a sample count. The cancel refusal carries its provenance HERE, where the reset
-    // happened, rather than a caller re-fabricating it from a boolean.
     private Fin<Unit> Integrate(
         AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed,
         CancelScope scope, Option<IProgress<double>> progress) =>
@@ -479,7 +398,6 @@ public sealed record PathTracePass(
         AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed,
         CancelScope scope, Option<IProgress<double>> progress) {
         CameraFrame frame = camera.Frame;
-        // ONE camera triad, shared with the HZB screen projection through OracleFrame.OfCamera.
         ((double fx, double fy, double fz), (double rx, double ry, double rz), (double ux, double uy, double uz)) = OracleFrame.OfCamera(frame);
         double aspect = target.Width / (double)target.Height;
         for (int py = 0; py < target.Height; py++) {
@@ -487,8 +405,6 @@ public sealed record PathTracePass(
                 target.Reset();
                 scope.Source.Token.ThrowIfCancellationRequested();
             }
-            // One poll, both governance answers: the row about to fold reports the fraction the film will hold
-            // once it has, so the reading and the latch describe one loop position.
             progress.Iter(sink => sink.Report(target.Fraction(batch: sampleBudget, rowsFolded: py)));
             for (int px = 0; px < target.Width; px++) {
                 (double r, double g, double b) batch = (0d, 0d, 0d);
@@ -496,9 +412,6 @@ public sealed record PathTracePass(
                     ulong state = Deterministic.Stream([(py * target.Width) + px, target.Ordinal + s], sampleSeed);
                     double screenX = ((px + Deterministic.NextUnit(ref state)) / target.Width * 2d) - 1d;
                     double screenY = 1d - ((py + Deterministic.NextUnit(ref state)) / target.Height * 2d);
-                    // ViewCamera seeds the ray AND its cone in one switch: a perspective pixel opens one
-                    // pixel's solid angle; an orthographic pixel carries constant width and zero spread —
-                    // parallel rays never widen; an asymmetric XR eye offsets by the tangent midpoint.
                     ((double X, double Y, double Z) Origin, (double X, double Y, double Z) Direction, RayCone Cone) ray = camera.Switch(
                         state: (Frame: frame, Fx: fx, Fy: fy, Fz: fz, Rx: rx, Ry: ry, Rz: rz, Ux: ux, Uy: uy, Uz: uz, X: screenX, Y: screenY, Aspect: aspect, Height: (double)target.Height),
                         perspective: static (basis, lens) => {
@@ -546,8 +459,6 @@ public sealed record PathTracePass(
             return Lit(origin, direction, cone, hit, rig, film, pixel, depth, ordinal, ref state);
         }
         if (depth is 0) {
-            // Primary miss writes its OWN guide — zero normal, finite far sentinel — so the denoiser
-            // edge-stops between geometry and background.
             Guides.Fold(film.NormalDepth.Span, pixel * 4, 0f, 0f, 0f, GuidePolicy.FarDepth, ordinal);
         }
         return Dome(rig, direction, bsdfPdf: 0d);
@@ -559,26 +470,17 @@ public sealed record PathTracePass(
         SurfaceAttributes surface = Seam.At(hit.Primitive, (hx, hy, hz), sphere);
         (double X, double Y, double Z) wo = (-direction.X, -direction.Y, -direction.Z);
         RayCone atHit = cone.Advanced(hit.T);
-        // Attribution runs BEFORE the Materials query so the query carries a real UV and the cone's own mip;
-        // the resolved point derives ON the attributes rather than re-assembling their columns by hand.
         SurfacePoint point = surface.At((hx, hy, hz), atHit.MipLevel(surface.Texels, surface.UvScale, OracleFrame.Dot(surface.Frame.Normal, wo)));
         SurfaceMaterial material = Seam.Materials.Resolve(point);
         OracleFrame shading = surface.Frame.Perturbed(material.TangentNormal);
         if (depth is 0) {
-            // PRIMARY hit alone writes the guide — the PERTURBED normal, so the denoiser edge-stops on the
-            // normal the shade used; a continuation vertex writing here would edge-stop on geometry the pixel
-            // never shows.
             Guides.Fold(film.NormalDepth.Span, pixel * 4,
                 (float)shading.Normal.X, (float)shading.Normal.Y, (float)shading.Normal.Z,
                 (float)Math.Min(hit.T, GuidePolicy.FarDepth), ordinal);
         }
         SurfacePoint shaded = point with { Frame = shading };
-        // The cone this hit READS is the arriving one; only the continuation — the reflection — pays the
-        // curvature growth. Shadow rays leave in a new direction with no reflection and carry the arriving cone.
         RayCone bounced = atHit.Scattered(surface.Curvature, OracleFrame.Dot(shading.Normal, wo));
         RgbSpectrum sum = material.Emission.Add(Nee(shaded, material, wo, shading.Normal, atHit, rig, film, pixel, ref state));
-        // Continuation binds OUTSIDE any lambda because the recursion threads the ref sampler state; a faulted
-        // Shade counts on the film and contributes black rather than vanishing.
         (RgbSpectrum Throughput, (double X, double Y, double Z) Wi, double Pdf) bounce = default;
         bool scattered = false;
         this.Shade(shaded, material.Bsdf, wo, Deterministic.NextUnit(ref state), Deterministic.NextUnit(ref state), Deterministic.NextUnit(ref state))
@@ -596,17 +498,9 @@ public sealed record PathTracePass(
         return sum.Add(bounce.Throughput.Mul(Dome(rig, bounce.Wi, bounce.Pdf)));
     }
 
-    // Non-throwing draw admission on the hot loop: NextUnit emits [0,1) so the refusal arm is unreachable and
-    // the fallback is the representable zero rather than a throw the transport's domain law forbids.
     private static UnitInterval Draw(double value) =>
         UnitInterval.TryCreate(value, out UnitInterval unit) ? unit : default;
 
-    // One candidate derivation serves every policy arm — TOTAL over the light family, so a seventh row breaks
-    // this fold at compile time instead of silently streaming at weight zero. A positional row reports Pdf 0 —
-    // the DELTA sentinel every MIS weight reads — while the environment reports its draw's combined balance
-    // density; the environment is a NEE candidate here AND a miss fold in Dome, the balance heuristic keeping
-    // the two from double-counting. Every positional arm reads its reach through Toward, whose proximity
-    // refusal keeps a coincident emitter from returning an unbounded estimate.
     private Option<LightCandidate> Candidate(LightSource row, SurfacePoint point, double u0, double u1) =>
         row.Switch(
             state: (Self: this, Point: point, U0: u0, U1: u1),
@@ -651,8 +545,6 @@ public sealed record PathTracePass(
         return resolved.Color;
     }
 
-    // Every arm draws its dome coordinates from the SAME stream and returns the advanced state, so a guided
-    // environment candidate decorrelates per pixel and no arm consumes randoms the caller cannot account for.
     private (RgbSpectrum Color, ulong State) NeeDirect(LightSource row, SurfacePoint point, SurfaceMaterial material, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, RayCone cone, double weight, AccumulationTarget film, ulong state) {
         (double u0, double u1) = (Deterministic.NextUnit(ref state), Deterministic.NextUnit(ref state));
         return (Candidate(row, point, u0, u1)
@@ -660,9 +552,6 @@ public sealed record PathTracePass(
             .IfNone(RgbSpectrum.Black), state);
     }
 
-    // Weighted-reservoir RIS with temporal reuse over PAYLOADS: the pixel's running reservoir re-enters the
-    // stream as one candidate whose target RE-EVALUATES at the current shading point, every rig row streams a
-    // fresh candidate weighted by its unshadowed target, and ONLY the surviving payload pays the shadow ray.
     private (RgbSpectrum Color, ulong State) NeeRestir(
         SurfacePoint point,
         SurfaceMaterial material,
@@ -681,9 +570,6 @@ public sealed record PathTracePass(
             double target = candidate
                 .Map(drawn => drawn.Radiance.Luminance * Math.Max(OracleFrame.Dot(drawn.Wi, normal), 0d))
                 .IfNone(0d);
-            // RIS weights each candidate by its target OVER its source density (uniform streaming ⇒ N× the
-            // target); a refused candidate streams at weight zero — it still counts a slot, and zero weight
-            // never survives the draw.
             reservoir = reservoir.Update(candidate.IfNone(default(LightCandidate)), target * rig.Rows.Count, target, Deterministic.NextUnit(ref state));
         }
         double targetPrior = prior.Chosen.Radiance.Luminance * Math.Max(OracleFrame.Dot(prior.Chosen.Wi, normal), 0d);
@@ -694,9 +580,6 @@ public sealed record PathTracePass(
             : (Illuminated(reservoir.Chosen, point, material, wo, normal, cone, reservoir.Weight, film), state);
     }
 
-    // Illuminated folds transmittance (alpha-cutout aware), the Materials Evaluate seam, the geometric cosine,
-    // the policy weight, and — for a non-delta row alone — the balance-heuristic MIS weight. A faulted
-    // Evaluate counts on the film and contributes black rather than vanishing.
     private RgbSpectrum Illuminated(LightCandidate candidate, SurfacePoint point, SurfaceMaterial material, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, RayCone cone, double weight, AccumulationTarget film) =>
         Transmittance(point, cone, candidate) switch {
             <= 0d => RgbSpectrum.Black,
@@ -712,8 +595,6 @@ public sealed record PathTracePass(
                 }),
         };
 
-    // Transmittance walks the shadow segment: a blocker whose sampled geometry_opacity is below one ATTENUATES
-    // and the walk resumes past it, bounded by CutoutSteps, terminating opaque at the transmittance floor.
     private double Transmittance(SurfacePoint from, RayCone cone, LightCandidate candidate) {
         (double X, double Y, double Z) at = Offset(from.Position, candidate.Wi);
         (double reach, double carried) = (candidate.TMax, 1d);
@@ -724,8 +605,6 @@ public sealed record PathTracePass(
                 (at.X + (candidate.Wi.X * blocker.T), at.Y + (candidate.Wi.Y * blocker.T), at.Z + (candidate.Wi.Z * blocker.T));
             SurfaceAttributes surface = Seam.At(blocker.Primitive, (bx, by, bz), Scene.PrimitiveBounds[blocker.Primitive]);
             walked = walked.Advanced(blocker.T);
-            // The shadow cone ADVANCES and never scatters: the walk passes straight through the cut-out with
-            // its direction unchanged, so a scatter leg here would widen a cone no reflection opened.
             carried *= 1d - Seam.Materials.Resolve(surface.At(
                 (bx, by, bz),
                 walked.MipLevel(surface.Texels, surface.UvScale, OracleFrame.Dot(surface.Frame.Normal, (-candidate.Wi.X, -candidate.Wi.Y, -candidate.Wi.Z))))).Opacity;
@@ -735,10 +614,6 @@ public sealed record PathTracePass(
         return carried;
     }
 
-    // Every Environment row answers BY DIRECTION on its own resolved EnvironmentLight; Balance makes the miss
-    // fold and the NEE draw one estimator. FRAME LAW, structural: the dome reads take the producer's own
-    // +Z-up WorldDirection carrier, so a tangent-frame vector cannot reach these reads at all. TOTAL over the
-    // family — a new emitter kind decides its dome contribution at compile time.
     private static RgbSpectrum Dome(LightRig rig, (double X, double Y, double Z) direction, double bsdfPdf) =>
         rig.Rows.Fold(RgbSpectrum.Black, (sum, row) => row.Switch(
             state: (Sum: sum, Direction: direction, BsdfPdf: bsdfPdf),
@@ -754,9 +629,6 @@ public sealed record PathTracePass(
     private static double Balance(double primary, double other) =>
         primary <= 0d ? 1d : primary / Math.Max(primary + other, EpsilonPolicy.SeamUlp);
 
-    // Toward reports the reach to a positional emitter, or ABSENCE when the emitter sits closer than the
-    // ray-origin epsilon: refusal is what makes shading a point on a luminaire's own position a zero rather
-    // than a fabricated blowout a clamp would report as finite-but-wrong.
     private Option<((double X, double Y, double Z) Wi, double Distance)> Toward((double X, double Y, double Z) from, (double X, double Y, double Z) to) {
         (double dx, double dy, double dz) = (to.X - from.X, to.Y - from.Y, to.Z - from.Z);
         double distance = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
@@ -768,9 +640,6 @@ public sealed record PathTracePass(
     private (double X, double Y, double Z) Offset((double X, double Y, double Z) at, (double X, double Y, double Z) along) =>
         (at.X + (along.X * Limits.SurfaceOffset), at.Y + (along.Y * Limits.SurfaceOffset), at.Z + (along.Z * Limits.SurfaceOffset));
 
-    // Spot cone falloff: smooth ramp between the inner (full) and outer (zero) half-angles off the aim; wi
-    // points surface->light, so the emitter-side direction is -wi. The ramp-width floor guards a degenerate
-    // inner==outer authoring, a policy fact of the row rather than a tolerance.
     private static double Cone(LightSource.Spot spot, (double X, double Y, double Z) wi) {
         double cos = OracleFrame.Dot(OracleFrame.Normalize(spot.Aim), (-wi.X, -wi.Y, -wi.Z));
         double inner = Math.Cos(double.DegreesToRadians(spot.InnerDeg));
@@ -778,8 +647,6 @@ public sealed record PathTracePass(
         return Math.Clamp((cos - outer) / Math.Max(inner - outer, 1e-6), 0d, 1d);
     }
 
-    // IES candela toward the shading point: polar off the aim axis, azimuth measured in the luminaire's OWN
-    // C0 reference plane, sampled bilinearly from the photometric web and scaled by LumenScale.
     private static double IesCandela(LightSource.Ies lum, (double X, double Y, double Z) wi) {
         (double ax, double ay, double az) = OracleFrame.Normalize(lum.Aim);
         OracleFrame frame = OracleFrame.Of((ax, ay, az), lum.Reference);
@@ -805,15 +672,11 @@ public sealed record PathTracePass(
 - Boundary: `PathTracePass` invokes `LayeredBsdf.Sample`/`Evaluate`/`Pdf` with the exact Materials `ShadingFrame`, `Direction`, `RgbSpectrum`, and `Op` types and never re-derives lobe math; `ShadeSeam` is the single composition-time boundary from oracle tuples to those domain values — a Render-side BSDF, host-color throughput, texture sampler, mip reconstruction, transfer decode, or channel roster is the rejected form; Materials delivers the tangent-space normal DECODED and signed, so the perturbation here is one basis rotation and never a `2v−1` decode a second surface double-applies.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct OracleFrame(
     (double X, double Y, double Z) Normal,
     (double X, double Y, double Z) Tangent,
     (double X, double Y, double Z) Bitangent) {
-    // About builds a basis around an axis, its helper the axis's own SMALLEST component so the cross never
-    // degenerates. The azimuth it lands on is ARBITRARY and switches DISCONTINUOUSLY as that component
-    // changes rank, so About is admissible exactly where azimuth carries no meaning: the cosine-hemisphere
-    // draw and the bounding proxy whose ParameterizationSource row declares the degradation.
     public static OracleFrame About(double nx, double ny, double nz) {
         (double hx, double hy, double hz) = Math.Abs(nx) <= Math.Abs(ny) && Math.Abs(nx) <= Math.Abs(nz)
             ? (1d, 0d, 0d)
@@ -822,8 +685,6 @@ public readonly record struct OracleFrame(
         return new OracleFrame((nx, ny, nz), tangent, Cross(nx, ny, nz, tangent.X, tangent.Y, tangent.Z));
     }
 
-    // Of ORTHONORMALIZES a supplied tangent, never invents one; every degenerate hint (parallel, zero-length,
-    // non-finite) falls back to About so the arbitrary-azimuth completion keeps exactly ONE owner.
     public static OracleFrame Of((double X, double Y, double Z) n, (double X, double Y, double Z) t) {
         (double X, double Y, double Z) normal = Normalize(n);
         double along = Dot(t, normal);
@@ -835,13 +696,8 @@ public readonly record struct OracleFrame(
         return new OracleFrame(normal, tangent, Cross(normal.X, normal.Y, normal.Z, tangent.X, tangent.Y, tangent.Z));
     }
 
-    // Projected-tangent floor: below it the hint carries no azimuth this frame can hold, and dividing by it
-    // would mint a direction out of rounding noise that flips per texel.
     internal const double TangentFloor = 1e-9;
 
-    // Tangent-space perturbation: the vector arrives DECODED and signed from the Materials plane rail, so
-    // this is one rotation into the frame plus ONE re-orthogonalization of the tangent this frame ALREADY
-    // HOLDS — never a fresh About completion, which rotates every anisotropic highlight with the normal map.
     public OracleFrame Perturbed((double X, double Y, double Z) local) =>
         local switch {
             (0d, 0d, 1d) => this,
@@ -852,9 +708,6 @@ public readonly record struct OracleFrame(
                 Tangent),
         };
 
-    // OracleFrame owns the ONE unit and cross fold on the oracle path — the declared sub-hit carve-out
-    // beneath the kernel VectorFrame/Direction admission at the seam; the sibling Render pages compose THESE
-    // members and re-spell neither.
     internal static (double X, double Y, double Z) Normalize(double x, double y, double z) {
         double length = Math.Max(Math.Sqrt((x * x) + (y * y) + (z * z)), EpsilonPolicy.SeamUlp);
         return (x / length, y / length, z / length);
@@ -868,8 +721,6 @@ public readonly record struct OracleFrame(
     internal static double Dot((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
         (a.X * b.X) + (a.Y * b.Y) + (a.Z * b.Z);
 
-    // ONE camera-basis derivation: the HZB screen projection, the splat view sort, and the integrator's
-    // primary-ray fold all read THIS member, so the handedness cannot drift between hand-derived triads.
     internal static ((double X, double Y, double Z) Forward, (double X, double Y, double Z) Right, (double X, double Y, double Z) Up) OfCamera(CameraFrame frame) {
         (double fx, double fy, double fz) = Normalize(frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z);
         (double X, double Y, double Z) right = Normalize(Cross(fx, fy, fz, frame.Up.X, frame.Up.Y, frame.Up.Z));
@@ -877,20 +728,14 @@ public readonly record struct OracleFrame(
     }
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
-// The parameterization's provenance as a ROW, not a bool: Unwrapped carries the author's own UV and tangent;
-// ProxySphere is the bounding-sphere stand-in whose azimuth is arbitrary, whose curvature is the sphere's own
-// exact 1/R, and whose material identity is ABSENT — three consequences one bool used to smear into prose.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ParameterizationSource {
     public static readonly ParameterizationSource Unwrapped = new("unwrapped");
     public static readonly ParameterizationSource ProxySphere = new("proxy-sphere");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// SurfaceAttributes carries the resolved per-hit parameterization; Curvature is the hit cluster's own
-// measured normal-variation bound read off the producer's ResidencyMeshlet column (on the proxy arm the
-// sphere's exact 1/R); Material is OPTIONAL because the proxy arm has no set to name.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SurfaceAttributes(
     OracleFrame Frame,
     (double U, double V) Uv,
@@ -899,9 +744,6 @@ public readonly record struct SurfaceAttributes(
     double UvScale,
     double Curvature,
     ParameterizationSource Source) {
-    // Proxy is the declared degradation: the spherical map of the hit direction from the proxy centre — the
-    // FROZEN equirect correspondence, so a proxied hit and an environment lookup address the same way. The
-    // plane resolution is the resolver's own column, threaded from the bound set's extent at composition.
     public static SurfaceAttributes Proxy(BoundingSphere sphere, (double X, double Y, double Z) at, Dimension texels) {
         (double nx, double ny, double nz) = OracleFrame.Normalize(at.X - sphere.X, at.Y - sphere.Y, at.Z - sphere.Z);
         return new SurfaceAttributes(
@@ -914,8 +756,6 @@ public readonly record struct SurfaceAttributes(
             Source: ParameterizationSource.ProxySphere);
     }
 
-    // The point DERIVES on the attributes — one construction site for the oracle point, so a consumer cannot
-    // re-assemble the columns by hand and drop one.
     public SurfacePoint At((double X, double Y, double Z) position, double mipLevel) =>
         new(position, Frame, Uv, Material, mipLevel);
 }
@@ -927,35 +767,25 @@ public readonly record struct SurfacePoint(
     Option<string> Material,
     double MipLevel);
 
-// Everything the transport needs at one point, answered by ONE Materials query: four separate closures would
-// sample the same set four times and could disagree on the mip level.
 public readonly record struct SurfaceMaterial(
     LayeredBsdf Bsdf,
     (double X, double Y, double Z) TangentNormal,
     double Opacity,
     RgbSpectrum Emission);
 
-// The Materials query the root binds: SetBind.Bind through SlabStack.ToLayered, the (Bsdf, Emission) pair
-// destructured onto SurfaceMaterial — construction is where the Fin rail lives, the closure TOTAL after it.
 public sealed record MaterialBinding(Func<SurfacePoint, SurfaceMaterial> Resolve);
 
-// The ONE seam record: three composition-bound closures serving one hit travel as one value, so a pass cannot
-// be assembled with an attribute resolver from one scene and a material binding from another. Resolve binds
-// the Render/meshlets MeshletCluster.Sample projection; ProxyTexels is the bound set's extent so the degraded
-// parameterization derives its mip against planes the scene carries; Admit and DirectionOf are the boundary
-// into the Materials ShadingFrame/Direction/Op vocabulary.
 public sealed record ShadeSeam(
     Func<int, (double X, double Y, double Z), Option<SurfaceAttributes>> Resolve,
     Dimension ProxyTexels,
     MaterialBinding Materials,
     Func<SurfacePoint, (double X, double Y, double Z), Fin<(ShadingFrame Frame, Direction Outgoing, Op Key)>> Admit,
     Func<(double X, double Y, double Z), Context, Op, Fin<Direction>> DirectionOf) {
-    // Absence is typed state the proxy fills, so At is TOTAL and the integrator never branches on a nullable.
     public SurfaceAttributes At(int primitive, (double X, double Y, double Z) at, BoundingSphere proxy) =>
         Resolve(primitive, at).IfNone(() => SurfaceAttributes.Proxy(proxy, at, ProxyTexels));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BsdfShading {
     extension(PathTracePass pass) {
         public Fin<(RgbSpectrum Throughput, (double X, double Y, double Z) Wi, double Pdf)> Shade(
@@ -980,8 +810,6 @@ public static class BsdfShading {
             from incoming in pass.Seam.DirectionOf(wi, boundary.Frame.Context, boundary.Key)
             select bsdf.Evaluate(boundary.Frame, boundary.Outgoing, incoming);
 
-        // A projection failure means the frame cannot carry the direction at all — a zero density rather than
-        // a fault, so the weight reads the light draw as the only estimator, which it is.
         public double Density(
             SurfacePoint point,
             LayeredBsdf bsdf,
@@ -1040,10 +868,7 @@ flowchart LR
 - Boundary: the kernel `SolarPosition.At` supplies the solar ephemeris and Bim lowers `GeoReference` into `SolarSite` values; IES/LDT decode is an ASSET-BOUNDARY admission — the composition root's decoder lands a validated `PhotometricWeb` carrying the file bytes' SHA-256 artifact identity, so no light row parses a file and the decoded table joins the Rhino `PhotometricWebRef(Artifact, Dialect)` reference typed instead of by coincidence; `dotnet:Rasm.Materials/Appearance/environment#IBL_PREFILTER` supplies the resolved `EnvironmentLight` over the declared `[BOUNDARY]` seam — this page never decodes an HDRI, projects an equirect, integrates an SH band, or builds a prefilter ladder, and `LightRig.Studio` therefore TAKES the resolved row; Render owns neither a second solar ephemeris nor a second light vocabulary.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Typed light identity: a non-blank key the rig, the reservoir survivor, and a study frame all address one
-// row by — `$"sun@{at}"` composed at two mints was the addressed-by-composed-string defect the pigment law
-// deletes, and OfInstant is now the ONE spelling of a dated solar row's identity.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 public sealed partial class LightKey {
     public static LightKey OfInstant(Instant at) => Create($"sun@{InstantPattern.ExtendedIso.Format(at)}");
@@ -1053,9 +878,7 @@ public sealed partial class LightKey {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// PhotometricWeb carries the decoded IES/LDT web beside the kernel artifact coordinate of the bytes it decoded, so
-// the Rhino file-reference form and this decoded form join on one SHA-256 identity and declared extent.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PhotometricWeb(
     ImmutableArray<double> PolarDeg,
     ImmutableArray<double> AzimuthDeg,
@@ -1074,8 +897,6 @@ public sealed record PhotometricWeb(
             ? Fin.Succ(new PhotometricWeb(polarDeg, azimuthDeg, candela, artifact))
             : Fin.Fail<PhotometricWeb>(new ViewportFault.ContextUnavailable("light/ies-web: grids must be sorted and the table total"));
 
-    // Bilinear candela under the two axes' OWN topologies: polar is a bounded arc and clamps to the measured
-    // range, azimuth is a circle and wraps at 360.
     public double Sample(double azimuthDeg, double polarDeg) {
         (int a0, int a1, double at) = Wrap(AzimuthDeg, ((azimuthDeg % 360d) + 360d) % 360d);
         (int p0, int p1, double pt) = Bracket(PolarDeg, Math.Clamp(polarDeg, PolarDeg[0], PolarDeg[^1]));
@@ -1084,8 +905,6 @@ public sealed record PhotometricWeb(
         return Mix(low, high, at);
     }
 
-    // Binary bracket over the validated-sorted grid — the linear scan paid its cost per candela read on the
-    // integrator's hot loop for grids the admission already proved ordered.
     private static (int Lo, int Hi, double T) Bracket(ImmutableArray<double> grid, double value) {
         int seat = grid.BinarySearch(value);
         if (seat >= 0) { return (seat, seat, 0d); }
@@ -1094,9 +913,6 @@ public sealed record PhotometricWeb(
         return (lo, hi, hi == lo ? 0d : (value - grid[lo]) / Math.Max(grid[hi] - grid[lo], EpsilonPolicy.ZeroTolerance));
     }
 
-    // Wrap brackets PERIODICALLY: a value past the last measured plane brackets that plane against the FIRST
-    // one 360 degrees on, so a web measured on 0-350 interpolates across the wrap instead of carrying a hard
-    // candela discontinuity at due north.
     private static (int Lo, int Hi, double T) Wrap(ImmutableArray<double> grid, double value) {
         if (grid.Length is 1) { return (0, 0, 0d); }
         if (value > grid[^1]) {
@@ -1108,10 +924,6 @@ public sealed record PhotometricWeb(
     private static double Mix(double a, double b, double t) => a + ((b - a) * t);
 }
 
-// One unshadowed light projection: the direction toward the emitter, its scene-linear radiance, the shadow
-// reach, and its solid-angle density. Pdf 0 is the DELTA sentinel, so one shape spans the delta and
-// area-measure estimator classes — and it is ALSO the reservoir payload the ReSTIR arm stores, because a
-// second payload shape was these four columns under different names.
 public readonly record struct LightCandidate(
     (double X, double Y, double Z) Wi,
     RgbSpectrum Radiance,
@@ -1126,9 +938,6 @@ public abstract partial record LightSource {
     public sealed record Emissive(LightKey Key, string MeshKey, RgbSpectrum Radiance, double Area, double X, double Y, double Z) : LightSource;
     public sealed record Spot(LightKey Key, double X, double Y, double Z, (double X, double Y, double Z) Aim, double InnerDeg, double OuterDeg, RgbSpectrum Radiance) : LightSource;
     public sealed record Area(LightKey Key, double X, double Y, double Z, (double X, double Y, double Z) Normal, double Width, double Height, RgbSpectrum Radiance) : LightSource;
-    // Reference is the luminaire's own AZIMUTH-ZERO axis — the C0 plane the photometric file's azimuth grid
-    // is measured against; without it the azimuth origin falls out of an arbitrary completion around the aim
-    // and an asymmetric fixture throws its beam in a direction that rotates with the aim's smallest component.
     public sealed record Ies(LightKey Key, double X, double Y, double Z, (double X, double Y, double Z) Aim, (double X, double Y, double Z) Reference, PhotometricWeb Web, RgbSpectrum Tint, double LumenScale) : LightSource;
 
     public static LightSource SunAt(SolarSite site, Instant at, RgbSpectrum radiance) =>
@@ -1136,10 +945,6 @@ public abstract partial record LightSource {
             var sun => new Sun(LightKey.OfInstant(at), sun.AzimuthDeg, sun.AltitudeDeg, radiance),
         };
 
-    // Direction reads the +Z-up world basis in the ENVIRONMENT owner's solar frame — north on +X, east on −Y —
-    // so the rig's sun and a synthesized sky at one instant agree by construction. TOTAL over the family: a
-    // row that HAS an orientation reports it NORMALIZED, a row that has none reports ABSENCE, and a seventh
-    // case decides its arm at compile time instead of inheriting a catch-all's fabricated axis.
     public Option<(double X, double Y, double Z)> Direction => Switch(
         environment: static _ => Option<(double X, double Y, double Z)>.None,
         sun: static sun => Some((
@@ -1152,9 +957,6 @@ public abstract partial record LightSource {
         ies: static lum => Some(OracleFrame.Normalize(lum.Aim)));
 }
 
-// LightRig TAKES a resolved dome — a fabricated uniform-colour constant carries no importance sampler, no SH
-// irradiance, and no split-sum read. Studio REFUSES a Sun lamp beside a dome whose Sun disc is present: the
-// doubled beam hides inside a single render, so the refusal is the only reading a render can surface.
 public sealed record LightRig(Seq<LightSource> Rows) {
     public static Fin<LightRig> Studio(EnvironmentLight dome, params ReadOnlySpan<LightSource> lamps) =>
         toSeq(lamps.ToArray()) switch {
@@ -1175,10 +977,7 @@ public sealed record LightRig(Seq<LightSource> Rows) {
 - Boundary: a Render-side ephemeris sweep or a second sun-study timeline is the deleted form — `Sweep` composes the ONE kernel path; the zone is the site's own civil zone because a statutory design day is a LOCAL date, and `InZoneLeniently` resolves a midnight a DST transition can skip or repeat, so a study never drops a design day over a clock change.
 
 ```csharp signature
-// --- [TABLES] -------------------------------------------------------------------------------
-// The statutory solar reference days as ROWS carrying their own dates — equinoxes and solstices per the
-// design-day convention daylight and rights-to-light studies cite; a bare (month, day) tuple roster carried
-// the same four values with no name a study report could print.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class DesignDay {
     public static readonly DesignDay MarchEquinox = new("march-equinox", 3, 20);
@@ -1192,14 +991,12 @@ public sealed partial class DesignDay {
     public LocalDate In(int year) => new(year, Month, Day);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record SunStudy(SolarSite Site, RgbSpectrum Radiance) {
     public Seq<(Instant At, LightSource Sun)> Sweep(Instant midnight, Duration step, int samples) =>
         SolarPosition.SunPath(Site, midnight, step, samples)
             .Map(row => (row.Instant, (LightSource)new LightSource.Sun(LightKey.OfInstant(row.Instant), row.Sun.AzimuthDeg, row.Sun.AltitudeDeg, Radiance)));
 
-    // The whole-year statutory sweep: every DesignDay row through the SAME kernel path, so the equinox and
-    // solstice study is one call rather than four hand-dated ones a caller can mis-transcribe.
     public Seq<(Instant At, LightSource Sun)> SweepYear(int year, DateTimeZone zone, Duration step, int samples) =>
         toSeq(DesignDay.Items).Bind(day => Sweep(
             day.In(year).AtMidnight().InZoneLeniently(zone).ToInstant(), step, samples));

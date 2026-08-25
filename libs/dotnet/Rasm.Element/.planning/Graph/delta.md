@@ -25,7 +25,7 @@ Every mutation enforces the seam's STRUCTURAL edge law through the generated tot
 - Boundary: the working EDGE half is an ordered `ImmutableList` whose O(edges) membership/splice cost is batch-shaped and deliberate — the fence's `WorkingGraph` comment owns the full law (order is what the wire emits; every read-path query is a frozen-snapshot read), stated once there.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
@@ -37,33 +37,21 @@ using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Graph;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// NodeSlot is the position ONE node id occupies in a delta, and Advance is the merge law itself: the surviving slot
-// for every (this-side, next-side) pair over the closed family. Merge folds it and NormalForm reads it back, so the
-// unique-per-id normal form has ONE owner instead of a forward spelling in the fold and a backward conjunct in the
-// gate — a coalescence rule added to the table is inherited by the predicate with no second edit.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record NodeSlot {
  private NodeSlot() { }
- public sealed record Absent : NodeSlot;                            // this side does not touch the id
- public sealed record Added(Node After) : NodeSlot;                 // minted here
- public sealed record Revised(Node Before, Node After) : NodeSlot;  // re-set over a base-present node
- public sealed record Erased(NodeId Id) : NodeSlot;                 // removed, incident edges cascaded
- public sealed record Recreated(NodeId Id, Node After) : NodeSlot;  // erase-then-mint, the lone removed-plus-added pair
+ public sealed record Absent : NodeSlot;
+ public sealed record Added(Node After) : NodeSlot;
+ public sealed record Revised(Node Before, Node After) : NodeSlot;
+ public sealed record Erased(NodeId Id) : NodeSlot;
+ public sealed record Recreated(NodeId Id, Node After) : NodeSlot;
 
  public static readonly NodeSlot Nothing = new Absent();
 
- // Advance flattens the transition table as ONE pattern over the slot product (the joint-discriminant form, never a
- // dispatch nested in a dispatch arm). Reading the rows: a next-side ADD is next-wins over a live slot (a non-rooted
- // id IS its content hash, so the payloads agree by construction) and the deliberate erase-then-mint over an erase;
- // a next-side REVISE re-points whatever this side already set and coalesces a revise pair onto one (before, after);
- // a next-side ERASE cancels a pending mint outright, because ReplayOnto's remove-before-set order can never
- // resurrect it, and collapses a recreate back to the plain erase.
  public static NodeSlot Advance(NodeSlot held, NodeSlot next) => (held, next) switch {
   (_, Absent) => held,
   (Absent, _) => next,
-  // Recreated-as-next never arises from Claims (only Advance itself mints it into held), but the switch is total:
-  // a recreate supersedes whatever this side held.
   (_, Recreated recreated) => recreated,
   (Erased erased, Added added) => new Recreated(erased.Id, added.After),
   (Recreated recreated, Added added) => new Recreated(recreated.Id, added.After),
@@ -78,49 +66,35 @@ public abstract partial record NodeSlot {
  };
 }
 
-// EdgeSlot is the EDGE half of the same law — previously four inline boolean filter expressions inside Merge, now
-// one declared table Merge folds and NormalForm reads back. NAMED LOSS: the edge table has no Revised position (an
-// edge carries no key to revise under — a changed edge is a removal beside an add), so the two slot tables are
-// deliberately NOT one type. Restored is Recreated's edge analog: an erase-then-re-add pair KEPT only when a
-// surviving node erase ENTANGLES the edge — the erase cascade detaches it physically on replay, so the re-add is
-// load-bearing; unentangled, the pair replays to the identity on a guaranteed-present base and cancels.
 [Union]
 public abstract partial record EdgeSlot {
  private EdgeSlot() { }
- public sealed record Absent : EdgeSlot;                    // this side does not touch the edge
- public sealed record Added(Relationship Edge) : EdgeSlot;  // attached here
- public sealed record Erased(Relationship Edge) : EdgeSlot; // detached here
- public sealed record Restored(Relationship Edge) : EdgeSlot; // the entangled erase-then-re-add pair, kept whole
+ public sealed record Absent : EdgeSlot;
+ public sealed record Added(Relationship Edge) : EdgeSlot;
+ public sealed record Erased(Relationship Edge) : EdgeSlot;
+ public sealed record Restored(Relationship Edge) : EdgeSlot;
 
  public static readonly EdgeSlot Nothing = new Absent();
 
- // Advance flattens the edge transition table over the slot product; `entangled` is the one input the pair alone
- // cannot decide (does a SURVIVING node erase touch this edge), threaded from the merged node partition.
  public static EdgeSlot Advance(EdgeSlot held, EdgeSlot next, bool entangled) => (held, next) switch {
   (_, Absent) => held,
   (Absent, _) => next,
-  // Restored-as-next never arises from EdgeClaims (only Advance itself mints it into held), but the switch is
-  // total: a restore supersedes whatever this side held.
   (_, Restored restored) => restored,
-  (Added, Erased) => Nothing,                                        // add-then-remove replays to identity
-  (Added, Added added) => added,                                     // idempotent duplicate add
+  (Added, Erased) => Nothing,
+  (Added, Added added) => added,
   (Erased, Added added) => entangled ? new Restored(added.Edge) : Nothing,
-  (Erased, Erased erased) => erased,                                 // idempotent duplicate remove
+  (Erased, Erased erased) => erased,
   (Restored, Erased erased) => new Erased(erased.Edge),
   (Restored restored, Added) => restored,
  };
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// NodePartition carries the delta's three node lists as ONE value, so the slot fold projects them through a single
-// total Switch and no arm can populate one list and forget another.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct NodePartition(
  Seq<Node> Added, Seq<NodeId> Removed, Seq<(Node Before, Node After)> Revised) {
  public static readonly NodePartition Empty = new([], [], []);
 }
 
-// GraphDelta is the persistable event body — the change, never a whole-graph snapshot. Merge is the faithful
-// left-fold compactor used by Batch and stream compaction; no associativity claim exceeds those ordered paths.
 public sealed record GraphDelta(
  Seq<Node> AddedNodes,
  Seq<NodeId> RemovedNodes,
@@ -131,16 +105,11 @@ public sealed record GraphDelta(
 
  public static readonly GraphDelta Empty = new([], [], [], [], [], None);
 
- // Every (id, slot) claim this delta's three node lists make, in the SAME order ReplayOnto applies them — erases,
- // then mints, then revisions — so folding a claim run through NodeSlot.Advance reproduces replay semantics exactly.
  Seq<(NodeId Id, NodeSlot Slot)> Claims =>
   RemovedNodes.Map(static id => (Id: id, Slot: (NodeSlot)new NodeSlot.Erased(id)))
   + AddedNodes.Map(static node => (Id: node.Id, Slot: (NodeSlot)new NodeSlot.Added(node)))
   + RevisedNodes.Map(static revision => (Id: revision.After.Id, Slot: (NodeSlot)new NodeSlot.Revised(revision.Before, revision.After)));
 
- // Fold the claim run onto one slot per id, then project in FIRST-APPEARANCE order so the compacted lists keep the
- // recording order the wire and the corpus fingerprint read; the HashMap answers the per-id fold and the ordered
- // id run answers the projection, so neither hash order nor a quadratic membership probe reaches the output.
  static NodePartition Coalesced(Seq<(NodeId Id, NodeSlot Slot)> claims) {
   HashMap<NodeId, NodeSlot> slots = claims.Fold(
    HashMap<NodeId, NodeSlot>.Empty,
@@ -156,14 +125,10 @@ public sealed record GraphDelta(
     recreated: static (acc, s) => acc with { Removed = acc.Removed.Add(s.Id), Added = acc.Added.Add(s.After) }));
  }
 
- // The edge claim run in replay order — erases FIRST (ReplayOnto detaches before it attaches), so folding
- // EdgeSlot.Advance reproduces replay semantics exactly as the node run does for NodeSlot.
  Seq<(Relationship Edge, EdgeSlot Slot)> EdgeClaims =>
   RemovedEdges.Map(static edge => (Edge: edge, Slot: (EdgeSlot)new EdgeSlot.Erased(edge)))
   + AddedEdges.Map(static edge => (Edge: edge, Slot: (EdgeSlot)new EdgeSlot.Added(edge)));
 
- // Per-edge fold under the generated Relationship comparer, projected in first-appearance order (the wire and the
- // corpus fingerprint read recording order; the canonical key sorts its own sections).
  static (Seq<Relationship> Added, Seq<Relationship> Removed) EdgeFold(
   Seq<(Relationship Edge, EdgeSlot Slot)> claims, Func<Relationship, bool> entangled) {
   HashMap<Relationship, EdgeSlot> slots = claims.Fold(
@@ -179,31 +144,16 @@ public sealed record GraphDelta(
     restored: static (state, slot) => (state.Added.Add(slot.Edge), state.Removed.Add(slot.Edge))));
  }
 
- // Merge is the left-fold sequential append (this THEN next): BOTH halves fold their declared slot table —
- // NodeSlot.Advance discharges cancellation, add-idempotence, add-absorbs-revise, revise-coalescing, and the
- // removed-plus-added exemption; EdgeSlot.Advance discharges both cancellation directions, idempotence, and the
- // entangled erase-then-re-add survival — so the surviving id set carries at most one of {added, revised}, the edge
- // set is single-entry-or-Restored, and the order-independent content key stays well-defined. Satisfies the replay
- // law a.Merge(b).ReplayOnto(g) == b.ReplayOnto(a.ReplayOnto(g)); [03] DELTA_MONOID carries the left-fold
- // qualification.
  public GraphDelta Merge(GraphDelta next) {
   NodePartition nodes = Coalesced(Claims + next.Claims);
-  // Membership, not order, is what the entanglement test asks — one hoisted hash set answers it per edge.
   System.Collections.Generic.HashSet<NodeId> erased = nodes.Removed.ToHashSet();
   (Seq<Relationship> added, Seq<Relationship> removed) =
    EdgeFold(EdgeClaims + next.EdgeClaims, edge => edge.Members.Exists(erased.Contains));
   return new(nodes.Added, nodes.Removed, nodes.Revised, added, removed, next.Header.IsSome ? next.Header : Header);
  }
 
- // Inert = no node or edge touch; the header rides SEPARATELY (a model-creating delta is inert-but-headered, and
- // AdmitOnto's guard spells both conjuncts so the dependency is visible at the one site that holds it).
  public bool IsInert => AddedNodes.IsEmpty && RemovedNodes.IsEmpty && RevisedNodes.IsEmpty && AddedEdges.IsEmpty && RemovedEdges.IsEmpty;
 
- // NormalForm is the foreign-delta SHAPE gate the wire boundary composes, read off the SAME transition tables Merge
- // folds: a delta is normal iff folding its own claims re-derives its own lists. Every coalescence Advance can
- // perform STRICTLY shortens a list (the deliberate pairs re-expand to exactly their two entries), so the count
- // identities ARE the conjunct set with no rule restated. Conjuncts ACCUMULATE with named tokens, so a consumer
- // reports WHICH invariant a foreign payload violated instead of minting its own opaque denormal token.
  public Validation<Error, Unit> NormalForm(Op key) {
   NodePartition folded = Coalesced(Claims);
   return Accumulate(Seq(
@@ -216,17 +166,9 @@ public sealed record GraphDelta(
    Gate(AddedEdges.ForAll(edge => !RemovedEdges.Contains(edge) || RemovedNodes.Exists(edge.Touches)), key, "<delta-denormal:unentangled-edge-pair>", static (k, d) => (Error)new ElementFault.ValueRejected(k, d))));
  }
 
- // NodeCount and EdgeCount are the change magnitudes the Rasm.Persistence Version/ledger snapshot cadence reads to
- // bound replay — the node touch count (added + revised + removed) and the edge touch count (added + removed).
  public int NodeCount => AddedNodes.Count + RevisedNodes.Count + RemovedNodes.Count;
  public int EdgeCount => AddedEdges.Count + RemovedEdges.Count;
 
- // Written is the ONE order-independent delta projection — nodes sorted by id (each node's own CanonicalBytes
- // composed INLINE behind String(id); the kernel Sorted count frame keeps the raw-append joins injective because
- // every collection inside the node projection is count-prefixed), edge DIGESTS sorted ascending, the header
- // presence-prefixed through Header.CanonicalBytes (the ONE header projection — wall-clock provenance and the
- // UnitScheme presentation excluded at its owner). The writer's tolerance threads to node measures and Generic edge
- // attributes alike, so a tolerance-0 edge key never forks a below-tolerance pair.
  static void Written(GraphDelta delta, double tolerance, CanonicalWriter w) {
   w.Sorted(delta.AddedNodes, static n => n.Id.Value, StringComparer.Ordinal,
    static (n, run) => { run.String(n.Id.Value); n.CanonicalBytes(run); });
@@ -239,36 +181,21 @@ public sealed record GraphDelta(
   w.Optional(delta.Header, static (h, run) => h.CanonicalBytes(run));
  }
 
- // Address is the ORDER-INDEPENDENT delta content key (Persistence event dedup, Version op-identity) — streamed
- // through the one tolerance-bound ContentAddress entry, no byte materialization.
  public ContentAddress Address(double tolerance) =>
   ContentAddress.Of(this, tolerance, (delta, w) => Written(delta, tolerance, w));
 
- // The byte-materializing leg the parity corpus reads (its witness records the LENGTH beside the digest); every
- // dedup consumer takes Address instead. Kernel-Fin because ToBytes is the retaining writer's typed close.
  public Fin<ReadOnlyMemory<byte>> ToCanonicalBytes(double tolerance, Op key) {
   CanonicalWriter w = CanonicalWriter.Retaining(tolerance);
   Written(this, tolerance, w);
   return w.ToBytes(key);
  }
 
- // Projector builders — an IElementProjection.Project fold accumulates authored nodes/edges/header onto the running
- // delta (the seam-owned composition path beside the GraphMutation/Apply authoring path). A Node carries its own
- // content-addressed NodeId, so Put needs no separate key; Put/Link/Reheader echo the GraphMutation case names; the
- // Production accumulation is a strict left fold through Merge.
  public GraphDelta Put(Node node) => Merge(GraphDelta.Empty with { AddedNodes = [node] });
  public GraphDelta Link(Relationship edge) => Merge(GraphDelta.Empty with { AddedEdges = [edge] });
  public GraphDelta Reheader(Header header) => this with { Header = Some(header) };
 
- // HeaderFor is the ONE header resolution every freeze reads: the delta's own header on a model-establishing event,
- // else the base graph's. ReplayOnto, AdmitOnto, and an interactive session's Freeze all route here, so a second inline projection
- // cannot drift from it.
  public Header HeaderFor(ElementGraph graph) => Header.IfNone(graph.Header);
 
- // ReplayOnto is the persistence rehydrate fold: replay a delta onto a frozen snapshot. The delta was validated
- // when produced, so replay re-applies raw — thaw, apply the recorded changes, freeze under the resolved header.
- // Removed nodes erase FIRST (cascading their edges), then sets, so the cancellation-correct Merge never leaves a
- // remove+set on one id.
  public ElementGraph ReplayOnto(ElementGraph graph) {
   WorkingGraph working = WorkingGraph.Thaw(graph);
   working = RemovedNodes.Fold(working, static (w, id) => w.Erase(id).Graph);
@@ -279,15 +206,6 @@ public sealed record GraphDelta(
   return working.Freeze(HeaderFor(graph));
  }
 
- // AdmitOnto is the structural-VALIDATING sibling of ReplayOnto: a projector builds its delta through the
- // Put/Link/Reheader builders, so LegalLink has NOT run — AdmitOnto routes the changes through WorkingGraph.Apply
- // (LegalLink per Link), node mutations before edge mutations (the ReplayOnto order, so a Link sees the nodes the same
- // delta adds), freezing under the resolved header and carrying it onto the re-derived event body. The short-circuit
- // fires ONLY for a FULLY empty delta (inert AND headerless — both conjuncts spelled at this one site): Assemble seeds its fold with
- // GraphDelta.Empty.Reheader(ctx.Header), so even a no-projector assembly has Header.IsSome and proceeds to FREEZE the
- // seed under ctx.Header — the model-creating event. Removed edges incident to a removed node are NOT re-issued as
- // Unlinks (the DropNode cascade erases and re-records them; a second Unlink spuriously DeltaConflicts), so only the
- // pure edge removals re-issue.
  public Fin<(ElementGraph Graph, GraphDelta Delta)> AdmitOnto(ElementGraph graph, Op key) =>
   IsInert && Header.IsNone
    ? Fin.Succ((graph, GraphDelta.Empty))
@@ -312,19 +230,7 @@ public abstract partial record GraphMutation {
  public sealed record Batch(Seq<GraphMutation> Mutations) : GraphMutation;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// WorkingGraph is the HAMT live-authoring form — HashMap nodes + ImmutableList edges, O(log n) per edit.
-// Header-free: the model header rides the GraphDelta event and the frozen ElementGraph, never the working form.
-// Plain HashMap, not TrackingHashMap: Apply authors its OWN per-mutation delta (a mutation answers typed conflicts
-// the change log cannot express), and the snapshot-subtraction Diff that read the tracking log had zero consumers
-// and died — a change log nothing reads is decorative state.
-//
-// ImmutableList keeps the edge half ORDERED: membership (the Link duplicate gate, the Unlink presence gate) and the
-// Erase splice each cost O(edges) — a batch-shaped cost, never a read-path one, because every degree-keyed and
-// reachability read is a FROZEN-snapshot read off the built-once incidence index and keyed View cache. A membership
-// set answers in O(log edges) and does not land here: list order is native mutation history, while canonical
-// fingerprints sort their own sections and never read it. Erase computes its cascade and surviving list in one
-// sweep and hands the cascaded run back, so DropNode never re-filters the edge run to author its delta.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Relationship> Edges) {
  public static WorkingGraph Thaw(ElementGraph graph) =>
   new(toHashMap(graph.Nodes), graph.Edges.ToImmutableList());
@@ -334,12 +240,6 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
 
  internal WorkingGraph Set(Node node) => this with { Nodes = Nodes.AddOrUpdate(node.Id, node) };
 
- // DropNode's cascade keys on Relationship.Touches (Members), so it drops EVERY edge tied to the id — the binary
- // endpoints, a Connect's realizing intermediary, AND a Generic edge whose only tie is a PropertyValue.Reference buried
- // in its attributes. Cascade, never strip-the-attribute: the closed GraphMutation family carries no edge-attribute
- // mutation op, and a surviving Generic edge with a dangling buried Reference is exactly the asymmetry Members closes.
- // Erase hands the cascaded run back WITH the graph so the mutation's delta reads the one sweep that produced it; a
- // caller re-filtering the edge list to author RemovedEdges pays the O(edges) scan twice for one drop.
  internal (WorkingGraph Graph, Seq<Relationship> Cascaded) Erase(NodeId id) {
   Seq<Relationship> cascaded = toSeq(Edges).Filter(edge => edge.Touches(id));
   return (this with { Nodes = Nodes.Remove(id), Edges = Edges.RemoveRange(cascaded, EqualityComparer<Relationship>.Default) }, cascaded);
@@ -351,8 +251,6 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
  public Fin<(WorkingGraph Graph, GraphDelta Delta)> Apply(GraphMutation mutation, Op key) =>
   mutation.Switch<(WorkingGraph Graph, Op Key), Fin<(WorkingGraph, GraphDelta)>>(
    (this, key),
-   // Revise-versus-no-op discriminates on the GENERATED comparer, never object.Equals: Node is a class-root union
-   // whose equality is Generator.Equals's, and the static helper resolves the same members only by accident.
    putNode: static (s, m) => Fin.Succ(s.Graph.Nodes.Find(m.Node.Id).Match(
     Some: prior => EqualityComparer<Node>.Default.Equals(prior, m.Node)
      ? (s.Graph, GraphDelta.Empty)
@@ -375,19 +273,9 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
     Fin.Succ((Graph: s.Graph, Delta: GraphDelta.Empty)),
     (acc, next) => acc.Bind(state => state.Graph.Apply(next, s.Key).Map(step => (step.Graph, state.Delta.Merge(step.Delta))))));
 
- // BothObjects is the object-pair predicate Compose/Connect/Void share — ONE parameterized policy local (each case keeps its arm for
- // compile-time totality; the detail literal is the only variation), never three copies of the type test.
  static Fin<Unit> BothObjects(Node relating, Node related, Op key, string detail) =>
   relating is Node.Object && related is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, detail);
 
- // LegalLink is the seam's STRUCTURAL edge law: endpoint presence + non-Generic irreflexivity + endpoint-kind legality
- // ONLY, dispatched through the generated total Switch over the closed edge algebra (compile-time exhaustive, NO
- // runtime-default arm); the IFC-semantic legality is the consumer's IGraphConstraint, never here. Every typed kind
- // is IRREFLEXIVE (IFC schema WRs forbid self-aggregation/nesting/connection/typing/grouping; a self-loop double-enters
- // Members and forks the incidence/DirectedPairs topology) — only the Generic passthrough stays
- // self-permissive. The Connect REALIZING intermediary is a first-class structural participant (it rides
- // Members/DirectedPairs, the incidence index, and the Erase cascade), so LegalConnect validates it the SAME as the
- // binary endpoints — present, an Object, AND distinct from both — when Some.
  static Fin<Unit> LegalLink(Relationship edge, HashMap<NodeId, Node> nodes, Op key) {
   (NodeId relating, NodeId related) = edge.Endpoints;
   return edge.Members.Find(member => !nodes.ContainsKey(member)).Match(
@@ -395,8 +283,6 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
    None: () => LegalPresent(edge, relating, related, nodes, key));
  }
 
- // LegalLink's Members sweep already proved EVERY member present, so the endpoint reads here are total by
- // construction — the two absent-endpoint re-probes that stood before this dispatch were unreachable guards.
  static Fin<Unit> LegalPresent(Relationship edge, NodeId relating, NodeId related, HashMap<NodeId, Node> nodes, Op key) =>
    relating == related && edge is not Relationship.Generic ? new ElementFault.RelationshipInvalid(key, $"<link-self-loop:{relating.Value}>")
    : edge.Switch<(Node Relating, Node Related, HashMap<NodeId, Node> Nodes, Op Key), Fin<Unit>>(
@@ -408,10 +294,6 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
     @void: static (s, _) => BothObjects(s.Relating, s.Related, s.Key, "<void-endpoints-must-be-objects>"),
     generic: static (s, _) => Fin.Succ(unit));
 
- // LegalConnect states the Connect law: BothObjects on From/To, then the optional realizing intermediary — when Some —
- // is DISTINCT from both endpoints (a coincident realizing node duplicates Members and collapses the From→Realizing→To legs),
- // resolves in the graph, AND is an Object (coincident/non-Object rails RelationshipInvalid, absent rails NodeAbsent);
- // None is a plain binary connection passing on the endpoint pair alone.
  static Fin<Unit> LegalConnect(Relationship.Connect c, Node from, Node to, HashMap<NodeId, Node> nodes, Op key) =>
   BothObjects(from, to, key, "<connect-endpoints-must-be-objects>")
    .Bind(_ => c.Realizing.Match(
@@ -429,8 +311,6 @@ public sealed record WorkingGraph(HashMap<NodeId, Node> Nodes, ImmutableList<Rel
    typeDefinition: () => definition is Node.Object o && o.Kind == ObjectKind.Type ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<assign-type-definition-must-target-type-object>"),
    group: () => definition is Node.Object ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<assign-group-must-target-object>"),
    assessment: () => definition is Node.Assessment ? Fin.Succ(unit) : new ElementFault.RelationshipInvalid(key, "<assign-assessment-must-target-assessment>"),
-   // Occurrence-only by construction: a Component names no instrument, so a Type subject refuses here rather
-   // than minting a series the named type fold would then have to skip.
    observation: () => definition is not Node.Observation ? new ElementFault.RelationshipInvalid(key, "<assign-observation-must-target-observation>")
     : subject is Node.Object { Kind: ObjectKind.Occurrence } ? Fin.Succ(unit)
     : new ElementFault.RelationshipInvalid(key, "<assign-observation-subject-must-be-occurrence>"));

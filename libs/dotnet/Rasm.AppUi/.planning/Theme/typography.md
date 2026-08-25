@@ -24,15 +24,12 @@ Generation is the page's ruling shape, exactly as it is at `Theme/tokens`: a per
 - Boundary: every size, weight, tracking, line-height, and OpenType-feature literal in AppUi traces to this generation — a bare font value at a call site is the named defect. The declared tracking unit is EM: `TextStyleRow.TrackingEm` is the generated value and `TrackingPx` the single projection a retained `LetterSpacing` or a shaped advance consumes. Emphasis moves the weight rung ALONE, so the emission writes the geometric leaves once per role and the weight leaf once per emitted emphasis. Casing applies at presentation through `FeatureFacet.Apply` and small-caps contributes its feature intent rather than a second string transform; numeric and temporal text arrives pre-formatted through the `Theme/locale` temporal patterns, so the numeric row guarantees glyph geometry alone. The text-scale knob is a UNIT interval whose midpoint is the neutral reading, so the multiplier is two linear segments hinged at that midpoint. `Theme/tokens` owns the `TokenKey` mint and this owner addresses its emission through it. NAMED LOSS of the facet collapse: a role naming two numeral rows was a compile error when `NumeralModality` and `TypeCasing` were two types; it is now the row constructor's axis guard, refusing at type init. `Emission` crosses its leaves as `(TokenKey, object)` because `ResolvedTheme` holds an erased leaf map — a `Theme/tokens` seam to close with a typed leaf union, not a typography concern.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public static class WeightLadder {
     public static readonly ImmutableArray<int> Rungs = [300, 400, 500, 600, 700];
 
-    // Saturating by declaration: `Strong` on rung 3 asks for rung 5 and receives the heaviest shipped face.
     public static int At(int rung) => Rungs[Math.Clamp(rung, 0, Rungs.Length - 1)];
 
-    // The narrowest rung INTERVAL: a synthetic embolden is earned by a face landing a full rung below the request,
-    // and a threshold spelled as the lightest rung would compare a weight DIFFERENCE against a weight VALUE.
     public static int Step => Rungs.Zip(Rungs.Skip(1), static (low, high) => high - low).Min();
 }
 
@@ -48,12 +45,6 @@ public sealed partial class LeadingClass {
     public double Factor { get; }
 }
 
-// One OpenType feature INTENT: its registered tag and the probe text whose shaped output proves a face implements
-// it. The managed binding exposes no GSUB feature enumeration, so a discretionary tag admits by SHAPING the probe
-// twice and comparing glyph ids; a baseline tag (absent probe) applies whether or not the face carries a table, so
-// there is nothing to prove. `zero`, `tnum`, `ss01`, and the `cv` rows are distinct facts; conflating any is the
-// defect this vocabulary closes.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -86,10 +77,6 @@ public sealed partial class FacetAxis {
     public static readonly FacetAxis Casing = new("casing");
 }
 
-// Numeral and casing postures are ONE shape: an axis, the feature intents the posture contributes, and the
-// presentation transform it applies. Tabular fixes advance width, slashed adds the disambiguated zero, and
-// disambiguated adds the character-variant forms; small-caps is a FEATURE and upper a TRANSFORM, which is why
-// the transform is a column rather than a second string pass a call site invents.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -115,8 +102,6 @@ public sealed partial class FeatureFacet {
     private static string Identity(string text, CultureInfo culture) => text;
 }
 
-// Trim is a LAYOUT row: each posture carries the line fold it runs, so the breaker branches on no trim name and
-// the ellipsis and clip rows stop being two spellings of one behaviour.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -129,7 +114,6 @@ public sealed partial class TrimPolicy {
     public partial Seq<TextLine> Lay(ShapedText text, string source, double width, Func<Rune, BreakClass> oracle);
 }
 
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -142,12 +126,9 @@ public sealed partial class TypeEmphasis : ICapability<TypeEmphasis> {
 
     public int Step { get; }
 
-    // The emphases the shipped Semi slot vocabulary binds; the rest resolve on demand at a call site that states them.
     public static readonly CapabilitySet<TypeEmphasis> Emitted = CapabilitySet<TypeEmphasis>.Of(Regular, Strong);
 }
 
-// Slant carries BOTH the variable axis value and the synthetic skew, so a face with a real `slnt` axis takes the
-// true italic while a static face takes the declared skew — a stated row, never a silent per-host difference.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -162,8 +143,6 @@ public sealed partial class TypeSlant {
     public SKFontStyleSlant Slant { get; }
 }
 
-// The family lane a role reads: each row carries its own chain accessor, so a third lane (symbols-only, serif) is
-// one row and `FontChain.Ranked` branches on no lane name.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -175,8 +154,6 @@ public sealed partial class FamilyLane {
     public partial Seq<string> Families(FontChain chain);
 }
 
-// Eleven rungs on the four-pixel rhythm grid. A row authors its generated wire coordinate, INTEGER base size,
-// leading class, base weight rung, and intrinsic policy; `Heading` is the document-heading depth it answers.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -187,7 +164,6 @@ public sealed partial class TypographyRole {
         "caption", Rasm.Contracts.Ui.TypographyRole.Caption, 12, LeadingClass.Snug, 1, TrimPolicy.Wrap);
     public static readonly TypographyRole Label = Row(
         "label", Rasm.Contracts.Ui.TypographyRole.Label, 12, LeadingClass.Snug, 2, TrimPolicy.Ellipsis);
-    // Uppercase counters need opening the optical curve never supplies — the curve is calibrated on mixed case.
     public static readonly TypographyRole Overline = Row(
         "overline", Rasm.Contracts.Ui.TypographyRole.Overline, 11, LeadingClass.Snug, 2, TrimPolicy.Clip,
         casing: FeatureFacet.Upper, trackingBias: 0.08d);
@@ -234,7 +210,6 @@ public sealed partial class TypographyRole {
         new(key, wire, size, leading, rung, trim, numerals ?? FeatureFacet.Proportional, casing ?? FeatureFacet.Source,
             lane ?? FamilyLane.Sans, trackingBias, Optional(heading));
 
-    // The axis guard the two-type split used to prove at compile time.
     static partial void ValidateConstructorArguments(
         ref string key, ref Rasm.Contracts.Ui.TypographyRole wire, ref int size, ref LeadingClass leading,
         ref int rung, ref TrimPolicy trim, ref FeatureFacet numerals, ref FeatureFacet casing, ref FamilyLane lane,
@@ -244,22 +219,17 @@ public sealed partial class TypographyRole {
         }
     }
 
-    // Depth past the ladder lands on the label rung rather than inventing a size.
     public static TypographyRole ForHeading(int level) =>
         toSeq(Items).Find(row => row.Heading == Some(level)).IfNone(Label);
 
-    // Baseline shaping features ride every row; the role's numeral and casing intents ride on top.
     public CapabilitySet<FeatureIntent> Intents =>
         CapabilitySet<FeatureIntent>.Of([.. FeatureIntent.Baselines.Held, .. Numerals.Intents.Held, .. Casing.Intents.Held]);
 }
 
-// The resolution axis: everything a role is NOT.
 public readonly record struct TypeAxis(TypeEmphasis Emphasis, UnitInterval Density, double Scale, TypeSlant Slant) {
     public static readonly TypeAxis Baseline = new(TypeEmphasis.Regular, UnitInterval.Create(1d), 1d, TypeSlant.Upright);
 }
 
-// The resolved product. `TrackingPx` is the ONE projection into device pixels; `Family` is the ranked fallback
-// list a retained Avalonia consumer binds, while the shaped path elects its own face per segment.
 public sealed record TextStyleRow(
     TypographyRole Role,
     TypeEmphasis Emphasis,
@@ -275,20 +245,17 @@ public sealed record TextStyleRow(
     FamilyLane Lane) {
     public double TrackingPx => TrackingEm * Size;
 
-    // The em box sits centred in the line box, so a first line and an interior line share one baseline rule.
     public double HalfLeading => (LineBox - Size) / 2d;
 }
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TypeScale {
-    // Inter's published dynamic-tracking curve, evaluated at the RESOLVED pixel size; the product is em.
     const double TrackingIntercept = -0.0223d;
     const double TrackingAmplitude = 0.185d;
     const double TrackingDecay = -0.1745d;
 
-    // The host knob is a unit interval whose MIDPOINT is the neutral reading, so the multiplier hinges there.
     const double ScaleNeutral = 0.5d;
     const double ScaleFloor = 0.875d;
     const double ScaleCeiling = 1.5d;
@@ -315,7 +282,6 @@ public static class TypeScale {
     public static TypeAxis Of(TypeEmphasis emphasis, DensityPolicy density, PreferenceCell preferences, TypeSlant slant) =>
         new(emphasis, density.Type, Multiplier(preferences), slant);
 
-    // Every role crossed with every emitted emphasis, keyed through the one `TokenKey` mint.
     public static FrozenDictionary<TokenKey, TextStyleRow> Expand(FontChain chain, DensityPolicy density, PreferenceCell preferences) =>
         toSeq(TypographyRole.Items)
             .Bind(role => toSeq(TypeEmphasis.Emitted.Held).Map(emphasis => (
@@ -326,7 +292,6 @@ public static class TypeScale {
     public static TokenKey Key(TypographyRole role, TypeEmphasis emphasis) =>
         TokenKey.Named("type", emphasis == TypeEmphasis.Regular ? role.Key : $"{role.Key}-{emphasis.Key}");
 
-    // Geometric leaves emit once per role off the regular row; the weight leaf emits per emphasis.
     public static Seq<(TokenKey Key, object Value)> Emission(FrozenDictionary<TokenKey, TextStyleRow> rows) =>
         toSeq(rows).Bind(entry => entry.Value.Emphasis == TypeEmphasis.Regular
             ? Seq<(TokenKey, object)>(
@@ -342,7 +307,6 @@ public static class TypeScale {
     static double Tracking(double size, double bias) =>
         TrackingIntercept + (TrackingAmplitude * Math.Exp(TrackingDecay * size)) + bias;
 
-    // Total over the preference union: an appearance or flag value under the text-scale row is the neutral reading.
     static double Multiplier(PreferenceCell preferences) =>
         preferences.Read(PreferenceRow.TextScale).Switch(
             appearance: static _ => 1d,
@@ -365,14 +329,11 @@ public static class TypeScale {
 - Boundary: the chain row is ELECTED ONCE by the composition root off its resolved host profile and handed to `Admit` and `TypeScale.Resolve` — ambient OS probing here is the deleted form, and the three family rosters are the platforms' shipped reading and monospace families (Apple, Microsoft, Noto) with the owned faces ranked first, which is the provenance a platform row carries. `WithInterFont` registers the shipped static collection, the owned faces register through `ConfigureFonts` as embedded collections, `FontManagerOptions.DefaultFamilyName` pins the embedded family, and the ranked host families plus the symbols terminator land as `FontFallbacks` rows. The shipped package carries STATIC faces alone, so optical sizing and true italics exist only through the owned variable asset. The design scale is read off the face's own `UnitsPerEm`, so an advance rescales exactly. A face instance is keyed on `(typeface identity, variation coordinates, palette index)` and holds the stream, blob, face, font, and admitted feature set for the capsule's whole life. Construction is a kernel `Custody.Rollback` fold: a refusal after any native owner initialized releases the completed owners LIFO on the failure arm alone, so a never-returned capsule leaks nothing and no `try`/`catch` spells the release. A concurrent cabinet miss resolves through `Cell.Step`, so the loser of the race disposes the capsule it opened and both callers lease the one that landed. Colour-glyph faces elect their palette from the face's own `OpenTypeColorPaletteFlags`, and the elected index is CLONED onto the raster typeface rather than recorded beside it. `SKFontArguments` is a `ref struct`, so it crosses as a construction argument and is never a stored field.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
-// Typography's cases live on the shared `ThemeFault` root in `Theme/tokens`; no second root or validation union exists.
+// --- [ERRORS] --------------------------------------------------------------------------
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
-// The CAPABILITY key. Family election reads the chain through the lane; everything else is what the resolved
-// style asked for, so a weight, a width, or a slant reaches the platform matcher.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FaceRequest(
     FontChain Chain,
     FamilyLane Lane,
@@ -382,12 +343,9 @@ public readonly record struct FaceRequest(
     double Size,
     PalettePosture Palette,
     Seq<string> Bcp47) {
-    // `SKFontStyle` is an owned native handle, MINTED per election and released with it.
     public SKFontStyle Mint() => new(Weight, (int)Width, Slant.Slant);
 }
 
-// The variation position a variable face is cloned onto. Axes the face does not publish drop, so the request is a
-// WISH and the instance carries what the face accepted.
 public readonly record struct VariationWish(double Weight, double OpticalSize, double Slant) {
     public static readonly SKFourByteTag WeightAxis = SKFourByteTag.Parse("wght");
     public static readonly SKFourByteTag OpticalAxis = SKFourByteTag.Parse("opsz");
@@ -413,8 +371,6 @@ public sealed partial class PalettePosture {
     public static PalettePosture Of(VariantProjection projection) => projection.Ascending ? Light : Dark;
 }
 
-// The owned embedded assets: the collection URI and the face name are two facts, and the Avalonia family string
-// DERIVES from them — a packed `collection#face` string split at a call site was the deleted form.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -435,10 +391,7 @@ public sealed partial class EmbeddedFace {
     public string Family => $"{Collection}#{Face}";
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// The two admission correspondences as ONE generated seam: the style row projects onto the capability key (the
-// width is the one constant column, so it is a value row, never a ctor literal) and the key onto the variable-axis
-// wish, whose slant reads the slant row's axis through a segment path.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target, EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class TypographyMap {
     [MapValue(nameof(FaceRequest.Width), SKFontStyleWidth.Normal)]
@@ -469,7 +422,7 @@ public static partial class TypographyMap {
 ```
 
 ```csharp signature
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -493,7 +446,6 @@ public sealed partial class FontChain {
 
     public string Symbols { get; }
 
-    // The symbols terminator closes every lane, so the election is total or it refuses.
     public Seq<string> Ranked(FamilyLane lane) => lane.Families(this) + Seq(Symbols);
 
     public Fin<SKTypeface> Elect(SKFontManager manager, FaceRequest request) {
@@ -504,7 +456,6 @@ public sealed partial class FontChain {
             .ToFin(Fail: new ThemeFault.FaceUnresolved($"{Key}/{request.Weight}/{request.Slant.Key}"));
     }
 
-    // The demanded codepoint enters the matcher beside the capability; a codepoint nothing covers is a REFUSAL.
     public Fin<SKTypeface> Cover(SKFontManager manager, FaceRequest request, Rune demand) =>
         Ranked(request.Lane)
             .Choose(family => Optional(manager.MatchCharacter(
@@ -513,15 +464,12 @@ public sealed partial class FontChain {
             .ToFin(Fail: new ThemeFault.CoverageRejected($"{Key}/U+{demand.Value:X4}"));
 }
 
-// One capsule per face INSTANCE — the typeface at its variation coordinates and palette, its HarfBuzz chain, the
-// design scale read off the face's own units, and the features a shaped probe proved.
 public sealed class FaceInstance : IDisposable {
     static readonly Op OpenOp = Op.Of(name: "typography.face.open");
 
     readonly Blob blob;
     readonly Face face;
     readonly SKStreamAsset stream;
-    // The variation-instanced typeface a palette clone supersedes: a second owned native handle, held for release.
     readonly Option<SKTypeface> superseded;
 
     FaceInstance(SKStreamAsset stream, Blob blob, Face face, Font font, SKTypeface typeface, Option<SKTypeface> superseded, Option<int> palette, CapabilitySet<FeatureIntent> admitted) {
@@ -537,15 +485,10 @@ public sealed class FaceInstance : IDisposable {
 
     public Option<int> Palette { get; }
 
-    // The tags this face PROVED: every feature request intersects this set, so a role naming a tag the fallback
-    // face never carried resolves to the subset that changes glyphs.
     public CapabilitySet<FeatureIntent> Admitted { get; }
 
     public Option<FaceInstance> Covering(Rune demand) => Typeface.ContainsGlyph(demand.Value) ? Some(this) : None;
 
-    // Construction under kernel custody: each native owner lands in its slot, and a refusal anywhere releases the
-    // landed slots LIFO on the failure arm alone. The palette clone follows the blob (the palette table is a face
-    // read) and the election is APPLIED to the typeface Skia rasterizes — a held index re-tints nothing.
     public static Fin<FaceInstance> Open(SKTypeface resolved, FaceRequest request) {
         SKTypeface instanced = Instanced(resolved, request);
         SKStreamAsset? stream = null; Blob? blob = null; Face? face = null; Font? font = null; SKTypeface? palettized = null;
@@ -585,9 +528,6 @@ public sealed class FaceInstance : IDisposable {
             ? Enumerable.Range(0, face.PaletteCount).AsIterable().ToSeq().Find(index => face.GetPaletteFlags(index) == posture.Flags)
             : None;
 
-    // The probe shapes the intent's own text with the feature on and off and admits the tag only when the glyph
-    // stream differs; a baseline row admits unconditionally. A tag that refuses admission fails the capsule — it is
-    // a roster defect, never "the face lacks it".
     static Fin<CapabilitySet<FeatureIntent>> Probe(Font font) =>
         toSeq(FeatureIntent.Items)
             .Traverse(intent => intent.Probe.Match(
@@ -611,8 +551,6 @@ public sealed class FaceInstance : IDisposable {
     }
 }
 
-// The keyed capsule registry: one instance per (family, weight, width, slant, variation, palette) cell, held for
-// the cabinet's life. The cabinet is the only owner — a consumer leases and never disposes.
 public sealed class FaceCabinet(SKFontManager manager) : IDisposable {
     static readonly Op LeaseOp = Op.Of(name: "typography.face.lease");
     readonly Atom<HashMap<FaceKey, FaceInstance>> instances = Atom(HashMap<FaceKey, FaceInstance>());
@@ -625,9 +563,6 @@ public sealed class FaceCabinet(SKFontManager manager) : IDisposable {
     public Fin<FaceInstance> Cover(FaceRequest request, Rune demand) =>
         request.Chain.Cover(manager, request, demand).Bind(typeface => Leased(typeface, request));
 
-    // The optical-size axis makes the size part of the key, so two rungs of one variable family are two instances
-    // while a static face collapses every size onto one cell. A concurrent miss is a `Cell.Step`: the step refuses
-    // on a key already landed, the loser disposes the capsule it opened, and both lease the one that won.
     Fin<FaceInstance> Leased(SKTypeface typeface, FaceRequest request) =>
         new FaceKey(typeface.FamilyName, request.Weight, request.Width, request.Slant,
             typeface.VariationDesignParameterCount > 0 ? request.Size : 0d, request.Palette) switch {
@@ -650,8 +585,6 @@ public sealed class FaceCabinet(SKFontManager manager) : IDisposable {
 public static class FontAdmission {
     public const string EmbeddedInter = "fonts:Inter#Inter";
 
-    // ONE builder pass the composition root composes: the shipped static collection, the owned collections, the
-    // pinned default family, and the ranked host fallbacks.
     public static AppBuilder Admit(AppBuilder builder, FontChain chain) =>
         builder
             .WithInterFont()
@@ -676,18 +609,16 @@ public static class FontAdmission {
 - Boundary: `FeatureAdmission.Admit` is the one `Feature` mint over both scopes, discriminated by the range. `Tag.Parse` SILENTLY COERCES — a null or empty string yields the none tag and a longer string truncates — so the four-character shape validates BEFORE the parse. The itemizer resolves script through the HarfBuzz unicode functions and general category through the BCL rune classification; a common or inherited codepoint takes the running script and the paragraph base direction, and runs reorder into visual order by that base direction. The carve is stated: no bidirectional algorithm with explicit embedding overrides is admitted. Segment ingress uses the windowed `AddUtf16(text, itemOffset, itemLength)` form with the edge flags set from the segment's position, so joining forms survive a segment boundary. The shaped fold reads the zero-allocation glyph spans; it carries `SKFont.ScaleX` through the horizontal projection, negates the vertical axis because HarfBuzz shaping space is y-up, and rescales every advance through the face's own `UnitsPerEm`; the two-span fill with a running cursor is the page's ONE named `EXPRESSION_SPINE` exemption — no span operator states a three-output scan. `SKTextBlobBuilder.Build()` returns NULL for an empty builder, so an empty segment refuses on the rail by name. `SKCanvas.DrawTextBlob` does not exist — the shaped blob draws through `DrawText(SKTextBlob, x, y, SKPaint)`. Line breaking runs over CLUSTERS: only a cluster boundary whose glyph is safe to break is a candidate. Unshaped `MeasureText(string)`, string convenience shaping, caller-owned blob disposal, an untyped native exception, and a blob outliving its backing stream are rejected forms. Streaming carve: face probing is a bounded boot-time cost inside `Open`, and no edge on this page retries, so `Schedule` and `Channel<T>` have no seat here.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct RunSpec(Direction Direction, Script Script, Language Language, ClusterLevel Level);
 
 public readonly record struct TextSegment(
     int Start, int Length, Script Script, Direction Direction, FaceInstance Face, BufferFlags Edges);
 
-// The shaper's own flags ride whole, so a second flag (`UnsafeToConcat`) is a read, never a second bool.
 public readonly record struct ClusterMark(int Source, float Offset, GlyphFlags Flags) {
     public bool SafeToBreak => !Flags.HasFlag(GlyphFlags.UnsafeToBreak);
 }
 
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -698,8 +629,6 @@ public sealed partial class BreakStrength : ICapability<BreakStrength> {
     public static readonly BreakStrength Mandatory = new("mandatory");
 }
 
-// The declared break-opportunity vocabulary. Full line-break analysis is not admitted; a locale row widening this
-// supplies its own oracle.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -726,7 +655,6 @@ public sealed partial class BreakClass {
         };
 }
 
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -737,10 +665,6 @@ public sealed partial class RasterTrait : ICapability<RasterTrait> {
     public static readonly RasterTrait BaselineSnap = new("baseline-snap");
 }
 
-// The declared posture per surface class. Golden pins grayscale coverage, zero hinting, and linear metrics because
-// subpixel coverage and hinted outlines are host-dependent; paged keeps linear metrics and subpixel positioning so
-// an advance is not quantized into the page; a layer drops to grayscale because subpixel coverage over a
-// translucent layer composites against pixels that are not there.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -760,8 +684,6 @@ public sealed partial class RenderPosture {
 
     public CapabilitySet<RasterTrait> Traits { get; }
 
-    // The slant row's synthetic applies only when the face accepted no slant axis, so a true italic and a skewed
-    // upright never stack.
     public SKFont Raster(FaceInstance face, TextStyleRow style) =>
         new(face.Typeface, (float)style.Size) {
             Edging = Edging,
@@ -774,7 +696,6 @@ public sealed partial class RenderPosture {
         };
 }
 
-// How a laid line closed — a renderer draws the ellipsis glyph on `Elided` and nothing else reads a trim name.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -787,9 +708,7 @@ public sealed partial class LineEnd {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
-// One shaped segment; `Metrics` is the raster font's own metrics captured at shape time so layout never re-opens
-// a font to place a baseline.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class ShapedRun(SKTextBlob blob, SKPoint origin, SKPoint advance, ImmutableArray<ClusterMark> clusters, FaceInstance face, SKFontMetrics metrics) : IDisposable {
     public SKTextBlob Blob { get; } = blob;
 
@@ -806,8 +725,6 @@ public sealed class ShapedRun(SKTextBlob blob, SKPoint origin, SKPoint advance, 
     public void Dispose() => Blob.Dispose();
 }
 
-// The shaped product of one string: runs in VISUAL order, total advance, the style it resolved under, and the
-// byte cost the lease charges — a retained run costs its glyph payload plus the blob's fixed overhead.
 public sealed class ShapedText(Seq<ShapedRun> runs, SKPoint advance, TextStyleRow style) : IDisposable {
     const long GlyphCost = 14L;
     const long RunOverhead = 256L;
@@ -829,13 +746,11 @@ public sealed class ShapedText(Seq<ShapedRun> runs, SKPoint advance, TextStyleRo
 
 public readonly record struct TextLine(int Start, int End, double Advance, double Baseline, LineEnd Close);
 
-// The complete determinant of a glyph stream: two surfaces asking the same question share one shaped result and a
-// posture flip cannot serve a golden a live-shaped run.
 public readonly record struct ShapeKey(string Text, TokenKey Style, RunSpec Spec, RenderPosture Posture, double Size, TypeSlant Slant);
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FeatureAdmission {
     public static Fin<Feature> Admit(string tag, uint value = 1u, Option<(uint Start, uint End)> range = default) =>
         tag.Length == 4 && tag.All(static character => character is >= ' ' and <= '~')
@@ -852,8 +767,6 @@ public static class TextItemizer {
             .Map(marks => Merge(marks, text.Length))
             .Map(segments => Ordered(segments, spec.Direction));
 
-    // An ill-formed code unit is a codepoint nothing covers, so it refuses here rather than electing a face for
-    // U+FFFD; the index/length carry stays because `EnumerateRunes` drops the offsets.
     static Fin<Seq<(int Index, int Length, Rune Rune)>> Runes(string text) =>
         Seq.generate(text.Length, static index => index)
             .Fold(Fin.Succ((Next: 0, Cells: Seq<(int Index, int Length, Rune Rune)>())), (state, _) => state.Bind(held =>
@@ -864,8 +777,6 @@ public static class TextItemizer {
                         : Fin.Fail<(int, Seq<(int, int, Rune)>)>(new ThemeFault.CoverageRejected($"ill-formed UTF-16 at {held.Next}"))))
             .Map(static held => held.Cells);
 
-    // A common or inherited script defers to the paragraph hint; direction comes from the resolved script with
-    // the paragraph base as the neutral fallback; the face election demands the codepoint.
     static Fin<(int Index, int Length, Script Script, Direction Direction, FaceInstance Face)> Resolve(
         (int Index, int Length, Rune Rune) cell, RunSpec spec, FaceRequest request, FaceCabinet cabinet) =>
         (UnicodeFunctions.Default.GetScript(cell.Rune.Value) switch {
@@ -896,8 +807,6 @@ public static class TextItemizer {
                     | (segment.Start + segment.Length == total ? BufferFlags.EndOfText : BufferFlags.Default),
             });
 
-    // The declared two-level resolution: runs reverse wholesale under a right-to-left base and HarfBuzz reorders
-    // inside each run itself.
     static Seq<TextSegment> Ordered(Seq<TextSegment> segments, Direction paragraph) =>
         paragraph is Direction.RightToLeft or Direction.BottomToTop ? segments.Rev() : segments;
 }
@@ -905,7 +814,6 @@ public static class TextItemizer {
 public static class ShapingSurface {
     static readonly Op ShapeOp = Op.Of(name: "typography.shape");
     static readonly Op DrawOp = Op.Of(name: "typography.draw");
-    // composes Theme/assets#ASSET_CACHE BudgetedCache — generation posture, this page's cost and release.
     public static Fin<BudgetedCache<ShapeKey, ShapedText>> Cache(long ceiling, Op key) =>
         BudgetedCache<ShapeKey, ShapedText>.Of(
             ceiling, RetentionPosture.Generation,
@@ -928,8 +836,6 @@ public static class ShapingSurface {
                     .Map(run => (Cursor: new SKPoint(carried.Cursor.X + run.Advance.X, carried.Cursor.Y + run.Advance.Y), Runs: carried.Runs.Add(run)))))
             .Map(carried => new ShapedText(carried.Runs, carried.Cursor, style));
 
-    // Features intersect the face's PROVEN set; tracking rides the em-to-pixel projection as a per-cluster advance
-    // addition because neither HarfBuzz nor Skia carries a tracking knob.
     static Fin<ShapedRun> Segment(
         string text, TextStyleRow style, RunSpec spec, RenderPosture posture, TextSegment segment, SKPoint origin) =>
         toSeq(style.Features.Held)
@@ -958,7 +864,6 @@ public static class ShapingSurface {
             Span<SKPoint> points = run.Positions;
             ImmutableArray<ClusterMark>.Builder clusters = ImmutableArray.CreateBuilder<ClusterMark>(infos.Length);
             SKPoint cursor = SKPoint.Empty;
-            // EXPRESSION_SPINE exemption: a three-output scan over two span fills and a running cursor.
             for (int i = 0; i < infos.Length; i++) {
                 glyphs[i] = (ushort)infos[i].Codepoint;
                 points[i] = new SKPoint(cursor.X + (positions[i].XOffset * horizontal), cursor.Y - (positions[i].YOffset * unit));
@@ -971,7 +876,6 @@ public static class ShapingSurface {
             .Map(blob => new ShapedRun(blob, origin, shaped.Cursor, shaped.Clusters, segment.Face, shaped.Metrics))
             .ToFin(Fail: new ThemeFault.ShapingRejected($"empty run at {segment.Start}")));
 
-    // Every baseline is populated: the first off the metrics policy's rule, each later line one line box down.
     public static Fin<Seq<TextLine>> Layout(ShapedText text, string source, double width, Func<Rune, BreakClass>? oracle = null) =>
         text.Metrics
             .ToFin(Fail: new ThemeFault.ShapingRejected("layout over an empty shaped text"))
@@ -993,12 +897,7 @@ public static class ShapingSurface {
     }
 }
 
-// The three trim folds the `TrimPolicy` rows carry. Only a SAFE-TO-BREAK cluster boundary is a candidate, so a
-// break inside a ligature or a mark cluster is unrepresentable.
 public static class LineBreaker {
-    // Overflow closes the line at the last candidate that still fit; a mandatory class closes where it stands; the
-    // tail closes only when source remains past the last close, so a text ending on a mandatory break emits no
-    // trailing empty line.
     public static Seq<TextLine> Wrapped(ShapedText text, string source, double width, Func<Rune, BreakClass> oracle) =>
         Candidates(text, source, oracle)
             .Fold(
@@ -1014,7 +913,6 @@ public static class LineBreaker {
                     : closed.Lines,
             };
 
-    // One line, cut at the last candidate that fits ahead of the ellipsis glyph's own advance when the text overflows.
     public static Seq<TextLine> Elided(ShapedText text, string source, double width, Func<Rune, BreakClass> oracle) =>
         text.Advance.X <= width
             ? Seq(new TextLine(0, source.Length, text.Advance.X, 0d, LineEnd.Final))
@@ -1027,7 +925,6 @@ public static class LineBreaker {
     public static Seq<TextLine> Clipped(ShapedText text, string source, double width, Func<Rune, BreakClass> oracle) =>
         Seq(new TextLine(0, source.Length, text.Advance.X, 0d, Close: text.Advance.X <= width ? LineEnd.Final : LineEnd.Clipped));
 
-    // The ellipsis reserves one em at the resolved size; a shaped ellipsis would need a second lease per label.
     static double EllipsisAdvance(ShapedText text) => text.Style.Size;
 
     static Seq<(int Source, double Advance, BreakClass Class)> Candidates(ShapedText text, string source, Func<Rune, BreakClass> oracle) =>
@@ -1054,7 +951,7 @@ public static class LineBreaker {
 - Boundary: the pipeline admits only extensions with owned projection arms. Heading depth reads `TypographyRole.ForHeading`, so a document heading is a role reference and the role ladder owns the depth map. Table rows and cells, and fenced and indented code, cross through the `TypographyMap` seam; the block dispatch itself stays a hand fold because every other arm composes children recursively and a generated mapper would carry a `Use` converter per member and prove nothing. The fold's tail arms are LAWFUL openness over a FOREIGN family — Markdig's block and inline hierarchies are open, so an unmatched node lands as `Opaque` carrying its node identity and span. A GFM alert kind is a `StringSlice` on the package block, never an enum, so `CalloutKind` admits it as a keyed row through the generated `TryGet` and an unknown kind lands the block as a `Quote`. `UseMathematics` projects engineering notation without typesetting it, `UseAdvancedExtensions` stays absent because no owner admits its diagram and container grammars, and raw HTML becomes explicit opaque evidence. The inline style set is a `CapabilitySet<InlineStyle>` and the link target an `Option`, read off ONE ancestor walk per leaf inline.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1084,7 +981,6 @@ public sealed partial class TaskState {
     public static TaskState Of(bool done) => done ? Done : Open;
 }
 
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1095,8 +991,6 @@ public sealed partial class InlineStyle : ICapability<InlineStyle> {
     public static readonly InlineStyle Strike = new("strike");
 }
 
-// An ordered list carries a start and a bulleted one its mark — a bool beside both columns admitted a bulleted
-// list at order five.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ListGrammar {
     private ListGrammar() { }
@@ -1105,7 +999,7 @@ public abstract partial record ListGrammar {
     public static ListGrammar Of(ListBlock list) => list.IsOrdered ? new Ordered(list.Order) : new Bulleted(list.BulletType);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MarkdownRow(SourceSpan Span) {
     public sealed record Heading(TypographyRole Role, Seq<InlineRun> Runs, Option<string> Anchor, SourceSpan Span) : MarkdownRow(Span);
@@ -1150,7 +1044,7 @@ public readonly record struct InlineRun(InlineContent Content, CapabilitySet<Inl
 
 public sealed record MarkdownDocumentRows(Seq<MarkdownRow> Body, Option<string> FrontMatter, HashMap<string, Seq<InlineRun>> Footnotes);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MarkdownProjection {
     public static readonly MarkdownPipeline Pipeline =
         new MarkdownPipelineBuilder { PreciseSourceLocation = true, TrackTrivia = true }
@@ -1183,7 +1077,6 @@ public static class MarkdownProjection {
                 .Map(label => (label, toSeq(note.Descendants<LeafBlock>()).Bind(Runs)))
                 .ToSeq()));
 
-    // Foreign-family openness: Markdig's block hierarchy is open, so the tail arm is lawful and names the node.
     static MarkdownRow Row(Block block) =>
         block switch {
             HeadingBlock heading => new MarkdownRow.Heading(TypographyRole.ForHeading(heading.Level), Runs(heading), Optional(heading.TryGetAttributes()?.Id), heading.Span),
@@ -1232,7 +1125,6 @@ public static class MarkdownProjection {
             },
         };
 
-    // ONE ancestor walk answers both the style grant set and the nearest link.
     static (CapabilitySet<InlineStyle> Styles, Option<LinkTarget> Link) Lineage(Inline node) =>
         Ancestry(node) switch {
             var ancestors => (
@@ -1298,9 +1190,7 @@ flowchart LR
 - Boundary: measurement consumes `ShapedText.Advance` and the shaped cluster marks — unshaped `MeasureText(string)` is the deleted form. The em admits as an INTEGER pixel value, because a fractional em makes every derived rung fractional and the grid stops being a grid; the line box snaps to the baseline unit with round-to-even and floors at the em. Half-leading distributes EVENLY above and below the em box, so a container's first baseline is the half-leading plus the ascent. Icon boxes align to the cap-height CENTRE because the visual centre of Latin text is the cap band. Decoration geometry reads the face's own underline and strikeout metrics — Skia publishes them as nullable device-pixel values and the HarfBuzz OpenType metrics table in font units is the fallback, divided by the instance's own em square. A caret lands on the nearest preceding cluster boundary — a source index inside a ligature answers the ligature's start — and `None` means outside the text; a selection band's edges are the covered clusters' SOURCE extrema projected to pen offsets, so a right-to-left run opens the band at its visual start rather than at the carrier's head. Tabular advance constancy for the numeric row is proven by equal shaped advances over digit permutations in the headless evidence lane under the golden posture. The caret, selection, and decoration folds are the editing planes' geometry seam (`Editing/inspector` code pane, `Document/media` diff seat); this page declares them and those surfaces bind them.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// A decoration is its two OpenType metric tags and whether ink breaks it: underline skips descenders through the
-// blob's intercept query, strikeout draws through.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1321,7 +1211,7 @@ public sealed partial class Decoration {
     public partial Seq<SKRect> Rects(ShapedText text, (float Offset, float Thickness) band);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TextMetricsPolicy {
     private TextMetricsPolicy(double baselineUnit) => BaselineUnit = baselineUnit;
 
@@ -1329,7 +1219,6 @@ public sealed record TextMetricsPolicy {
 
     public double BaselineUnit { get; }
 
-    // The em quantum IS the integer pixel, so the density and text-scale product snaps here before anything reads it.
     public double Em(double raw) => Math.Max(1d, Math.Round(raw, MidpointRounding.ToEven));
 
     public double Snap(double height) => Math.Round(height / BaselineUnit, MidpointRounding.ToEven) * BaselineUnit;
@@ -1341,10 +1230,8 @@ public sealed record TextMetricsPolicy {
     public double CapCenter(TextStyleRow row, SKFontMetrics metrics) => FirstBaseline(row, metrics) - (metrics.CapHeight / 2d);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DecorationGeometry {
-    // Skia's decoration metrics are already in device pixels; the face fallback reads FONT UNITS at the design
-    // scale, so it divides by the instance's own em square rather than multiplying by the resolved size.
     public static Fin<Seq<SKRect>> Band(ShapedText text, TextStyleRow row, SKFontMetrics metrics, Option<FaceInstance> face, Decoration decoration) =>
         (decoration.Skia(metrics) switch {
             ({ } offset, { } weight) => Fin.Succ((Offset: offset, Thickness: weight)),
@@ -1362,8 +1249,6 @@ public static class DecorationGeometry {
     public static Seq<SKRect> Solid(ShapedText text, (float Offset, float Thickness) band) =>
         Seq(new SKRect(0f, band.Offset, (float)text.Advance.X, band.Offset + band.Thickness));
 
-    // Skip-ink: the intercept query returns the ordered spans where glyph ink crosses the band, so the rule draws
-    // as their COMPLEMENT — pen-start edge, each interior gap, pen-end edge — and an odd count is impossible.
     public static Seq<SKRect> Broken(ShapedText text, (float Offset, float Thickness) band) =>
         text.Runs.Bind(run => (toSeq(run.Blob.GetIntercepts(band.Offset, band.Offset + band.Thickness))
                 .Prepend(run.Origin.X)
@@ -1379,7 +1264,6 @@ public static class CaretGeometry {
     static Seq<(int Source, double Offset)> Marks(ShapedRun run) =>
         run.Clusters.ToSeq().Map(mark => (mark.Source, Offset: (double)(run.Origin.X + mark.Offset)));
 
-    // The nearest PRECEDING cluster boundary: inside a ligature the caret lands at the ligature's start.
     public static Option<double> Caret(ShapedText text, int source) =>
         text.Runs.Bind(Marks)
             .Filter(cell => cell.Source <= source)
@@ -1387,8 +1271,6 @@ public static class CaretGeometry {
             .AsIterable().ToSeq().Head
             .Map(static cell => cell.Offset);
 
-    // One band per run the range touches, edged by the covered clusters' SOURCE extrema so a reordered run still
-    // opens at its visual start and closes at the first cluster past the range or the run's own pen end.
     public static Seq<(double Start, double End)> Selection(ShapedText text, Range source) =>
         text.Runs.Choose(run => Marks(run) switch {
             var marks => marks.Filter(mark => mark.Source >= source.Start.Value && mark.Source < source.End.Value) switch {

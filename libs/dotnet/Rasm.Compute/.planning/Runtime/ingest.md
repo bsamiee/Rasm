@@ -41,10 +41,7 @@ Both rows reach binary and structured content mode and both resolve a subscripti
 |  [02]   | `nats`    | headers, `ce-` prefixed     | subject     | shedding channel the client owns | receipted; nothing replays it  |
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// The held client per row. A subscription needs the connection AND whatever configures it for this protocol, so
-// the NATS queue group rides the arm holding the client rather than a parameter tail on a pump that would then
-// carry an MQTT-meaningless argument.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BrokerSource {
     private BrokerSource() { }
@@ -53,18 +50,13 @@ public abstract partial record BrokerSource {
     public sealed record Nats(INatsClient Client, Option<string> QueueGroup) : BrokerSource;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// The dialect-neutral delivery every decode reads. `Adopt` is the propagation continuation the DIALECT supplies
-// — MQTT through the propagation owner's own message overload, NATS through the generic overload and one header
-// getter — so the decode names no carrier field and a field landing at that owner reaches both rows unedited.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BrokerDelivery(
     Func<BrokerIngress, IDisposable> Adopt,
     ReadOnlyMemory<byte> Body,
     Option<ContentType> Framing,
     Seq<(string Name, string Value)> Carried);
 
-// Typed body beside the envelope, its admitted generated extensions, and the receiver's interior arrival. Each
-// interval answers None when its source stamp is absent or its end precedes its start.
 public sealed record SensorReading<T>(
     CloudEvent Envelope,
     global::Rasm.Contracts.Event.Extensions Extensions,
@@ -90,8 +82,6 @@ public sealed record SensorReading<T>(
         where Received >= recorded
         select Received - recorded;
 
-    // Head sampling declares a DENOMINATOR, so an absent row reads as unsampled — the only honest default,
-    // because a producer that thins its stream is the party that knows it did.
     public int Sampled => Extensions.HasSampledrate ? checked((int)Extensions.Sampledrate) : 1;
 
     public bool Expired(Instant now) =>
@@ -100,33 +90,18 @@ public sealed record SensorReading<T>(
             None: static () => false);
 }
 
-// Every dialect adapter takes this ingress row, so causality and trust arrive as ONE value rather than a
-// three-argument tail per pump. `Adoption` carries no default because trust is a property of the transport a
-// composition owns — a broker on the estate's own bus adopts its wire tenancy, a public endpoint refuses it —
-// and a defaulted arm hands every later dialect whichever answer read safer the day it was written.
 public sealed record BrokerIngress(ActivitySource Source, TenantAdoption Adoption, string Span);
 
-// --- [TABLES] ---------------------------------------------------------------------------
-// Binding rows carry the whole protocol variation the specification defines and no package here supplies: which
-// content modes the protocol reaches, where attributes ride, whether the placement prefixes, what the protocol
-// routes on, whether a subscription filter resolves at the broker, how one delivery projects onto the neutral
-// carrier, how a subscription opens, and whether the delivery shape needs a bridge at all.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BrokerBinding {
-    // MQTT 5.0 gives User Properties their own namespace, so the specification prefixes NOTHING here — the one
-    // binding in the matrix that does not, and the exact fact a prefix-assuming reader gets silently wrong.
     public static readonly BrokerBinding Mqtt = new("mqtt",
         prefix: "", routes: "topic", pushdown: true, system: "mqtt",
         bridge: new LaneBound.Parked(1024),
         subscribe: MqttBinding.Subscribe);
 
-    // NATS bounds INSIDE the client, so this row states that policy rather than inheriting it: `NatsSub<T>` builds
-    // a `Channel.CreateBounded` over `NatsOpts.SubPendingChannelCapacity`/`SubPendingChannelFullMode` whatever this
-    // row says, so leaving it unstated chooses `16384`/`DropNewest` silently. Parking is barred here — a stalled
-    // reader backs up the socket read loop and the server severs the whole connection as a slow consumer — so the
-    // row sheds and `MessageDropped` carries what it shed.
     public static readonly BrokerBinding Nats = new("nats",
         prefix: "ce-", routes: "subject", pushdown: true, system: "nats",
         bridge: new LaneBound.Shedding(16384, BoundedChannelFullMode.DropNewest),
@@ -134,43 +109,23 @@ public sealed partial class BrokerBinding {
 
     public string Prefix { get; }
 
-    // Ingress spans stamp this `messaging.system` value beside the envelope's own `cloudevents.*` five, so a
-    // broker delivery here and an HTTP delivery at `Rasm.AppHost/Wire/companion#EVENT_INGRESS` join one query.
     public string System { get; }
 
-    // What the protocol partitions and filters on, so a `partitionkey` extension lowers onto the row's own
-    // coordinate rather than a per-leg guess.
     public string Routes { get; }
 
-    // Both protocols resolve a subscription's topic or subject filter AT THE BROKER, so a filter dialect keyed
-    // on the routing coordinate never reaches a consumer-side fold on these rows.
     public bool Pushdown { get; }
 
-    // EVERY row bounds, because every delivery shape queues before this package reads it — the callback protocol
-    // in the bridge this page opens, the enumerator protocol in the client's own pending channel. The column was
-    // `Option`-shaped while the NATS row read as unbounded, which put an unreachable `None` arm at the one
-    // construction site and left the real bound undeclared; a protocol that genuinely queues nowhere takes the
-    // `Option` back with the discriminant named.
     public LaneBound Bridge { get; }
 
     public Func<BrokerSource, string, LaneBound, CancellationToken, IAsyncEnumerable<Fin<BrokerDelivery>>> Subscribe { get; }
 
-    // Attribute names cross the wire under this row's prefix in BOTH directions, so a name a decode reads and a
-    // name an encode wrote cannot disagree about whether the prefix is part of the name.
     public string Wire(string attribute) => Prefix + attribute;
 
     public Option<string> Attribute(string carried) =>
         carried.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase) ? Some(carried[Prefix.Length..]) : None;
 }
 
-// --- [BOUNDARIES] -----------------------------------------------------------------------
-// Admission policy for the capture sink — one row, never a parameter ladder at the fold. The composition supplies
-// the lane runtime, the governor's own verdict read, the intent policy, the correlation mint, the parent cancel
-// scope, the clock triple, the durable lane, and the refusal arrow; that sink seats `WorkLane.CaptureIngest`
-// itself so no composition can route sensor pressure onto a lane that starves interactive work. `Observations` is
-// `Option` because a composition running the twin alone is a real deployment — a scoring loop over a model
-// carrying no instrumented occurrences has nothing to write back — while a defaulted lane would silently
-// accumulate against an empty roster.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record CaptureAdmission(
     LaneRuntime Lanes,
     Func<WorkLane, Admission> Governor,
@@ -188,16 +143,6 @@ public sealed record CaptureAdmission(
             Scope,
             Clocks);
 
-    // ONE delivery, TWO consequences — the ephemeral twin admit and the durable observation accumulate — fanned
-    // HERE rather than at a second subscription: a parallel subscribe pays the wire cost twice and, under a NATS
-    // queue group, hands the two legs DIFFERENT samples, so the durable record and the scored window drift apart
-    // for exactly the readings a rebalance moved. Each leg's refusal parks on the arrow independently.
-    //
-    // TWO gates run ahead of both legs and each answers a different question. EXPIRY asks whether the reading is
-    // still true: one whose delivery window closed would have the twin report a present state from a past world.
-    // The GOVERNOR asks whether the lane can take it at all: reading the in-process verdict here carries the
-    // lane, the degradation level, and the shed CAUSE into the refusal, where enqueueing into a dark or broken
-    // lane surfaced later as an untagged drop no operator could attribute.
     public IO<Unit> Absorb(SensorReading<TwinSignal> reading) =>
         reading.Expired(Clocks.Now)
             ? Refused(new ComputeFault.PayloadOverBounds($"<broker-reading-expired:{reading.Envelope.Id}>"))
@@ -211,7 +156,7 @@ public sealed record CaptureAdmission(
                         None: static () => IO.pure(unit)));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BrokerChannels {
     private static readonly EventExtensionContract<global::Rasm.Contracts.Event.Extensions> ExtensionContract = new(
         global::Rasm.Contracts.Event.Extensions.Parser,
@@ -220,15 +165,7 @@ public static class BrokerChannels {
             global::Rasm.Contracts.Event.EventReflection.Descriptor,
         ]));
 
-    // BOTH protocol bindings live here, branch-owned, because the specification defines them and the estate
-    // admits no package for either. Lower and raise are one pair per row: `Raise` rebuilds the envelope from a
-    // binary-mode carrier the row's own prefix names, and the structured leg needs no pair at all because the
-    // whole envelope is the body the kernel decode already owns.
     public static class BrokerCodec {
-        // Structured mode is whatever the framing SAYS: a content type the kernel format rows admit carries a
-        // whole envelope, and anything else is a binary-mode body whose attributes ride the carrier. Reading that
-        // framing off the message rather than off a subscription flag lets one publisher switch modes mid-stream
-        // with no consumer edit, and stops a composition asserting a mode the broker contradicts.
         public static Fin<CloudEvent> Structured(ReadOnlyMemory<byte> body, ContentType framing, Op key) =>
             from declared in ExtensionContract.Declarations(key)
             from rows in EventEnvelope.Decode(new EventFrame(Body: body, Framing: framing), declared, key)
@@ -237,11 +174,6 @@ public static class BrokerChannels {
                 : Fin.Fail<CloudEvent>(new ComputeFault.WireDecodeRejected($"<broker-batch-on-stream:{rows.Count}>"))
             select single;
 
-        // BINARY mode: attributes ride the transport carrier under the row's prefix and the body is the data
-        // alone. UN-PREFIXING is this binding's whole contribution — the row's own `Attribute` strips the dialect
-        // and a name the dialect never carried drops here — and the un-prefixed pairs cross to the kernel's
-        // `EventEnvelope.Raise`, the declared inverse of its mint. Rebuilding an envelope beside that funnel is a
-        // SECOND construction site inside one branch.
         public static Fin<CloudEvent> Raise(
             BrokerBinding binding, Seq<(string Name, string Value)> carried, ReadOnlyMemory<byte> body,
             Option<ContentType> dataType, Op key) =>
@@ -253,14 +185,6 @@ public static class BrokerChannels {
             select envelope;
     }
 
-    // ONE adapter over BOTH branch-owned bindings. Causality enters through the delivery's own adoption, which is
-    // the ONE propagation owner driving the composite propagator over the dialect's carrier, so this fold spells
-    // no `traceparent` literal, no `tracestate` twin, and no per-property reader. That adoption is also the one
-    // seam that ADMITS the delivery's tenancy under its `TenantAdoption` row — a bare pair read adopted nothing,
-    // so every receipt, meter tag, and RLS predicate downstream answered root for a delivery that named a tenant.
-    // The bracket spans the decode alone; the reading projects its creation-time carrier off the envelope and the
-    // lane's own admit bracket descends from the continued span.
-    // Exemption: the `using` bracket is the platform-forced boundary seam the subscription law names.
     public static Fin<SensorReading<T>> Decode<T>(
         BrokerIngress ingress, BrokerBinding binding, BrokerDelivery delivery, ClockPolicy clocks, Op key) {
         Instant received = clocks.Now;
@@ -274,9 +198,6 @@ public static class BrokerChannels {
             .Bind(Project<T>);
     }
 
-    // ONE pump over both rows: the row's opener answers the enumerable and this fold owns only the decode, so a
-    // third protocol adds an opener rather than a second copy of this loop.
-    // Exemption: the `await foreach` drain is the platform-forced statement seam the subscription law names.
     public static async IAsyncEnumerable<Fin<SensorReading<T>>> Pump<T>(
         BrokerIngress ingress,
         BrokerBinding binding,
@@ -290,34 +211,18 @@ public static class BrokerChannels {
         }
     }
 
-    // The package's ONE inbound-parse bound, read from the policy owner rather than re-declared: a broker with no
-    // message-size limit of its own cannot make this process allocate past the ceiling the wire already declares.
     private static Fin<ReadOnlyMemory<byte>> Bounded(ReadOnlyMemory<byte> body, Op key) =>
         body.Length <= WireLimits.Inbound.SizeLimit
             ? Fin.Succ(body)
             : Fin.Fail<ReadOnlyMemory<byte>>(new ComputeFault.PayloadOverBounds(
                 $"<broker-body-over-bound:{body.Length}:{WireLimits.Inbound.SizeLimit}>"));
 
-    // `recordedtime` belongs to the producer and crosses unchanged. `Received` is captured before decoding and
-    // stays inside the reading, so delivery latency never impersonates a CloudEvents attribute or includes local
-    // decode time. Keeping both stamps makes occurrence-to-recording and recording-to-receipt separate intervals.
-    // Typed projection is the whole reason this lane holds a generic reading: an untyped `CloudEvent.Data` recast
-    // at the twin lets a malformed body reach a scoring loop as a cast fault rather than a refusal.
     private static Fin<SensorReading<T>> Project<T>(
         (CloudEvent Envelope, global::Rasm.Contracts.Event.Extensions Extensions, Instant Received) admitted) =>
         admitted.Envelope.Data is T data
             ? Fin.Succ(new SensorReading<T>(admitted.Envelope, admitted.Extensions, data, admitted.Received))
             : Fin.Fail<SensorReading<T>>(new ComputeFault.WireDecodeRejected($"<broker-reading-data:{admitted.Envelope.Id}>"));
 
-    // ADMIT SINK closing the sensor loop: every decoded delivery enters `CaptureAdmission.Absorb`, whose gate
-    // lands it on the CaptureIngest channel as a `ComputeIntent.SensorAdmit` — so deadline, element cap, cancel
-    // scope, and correlation bind before the lane holds it — and whose durable leg accumulates the same reading
-    // toward its content-keyed chunk. A refused DECODE parks here and every refusal INSIDE the fan parks there,
-    // so one malformed publisher costs one sample and never the subscription; `LaneRuntime` owns the dispatch
-    // delegate, so `TwinLoop.Ingest` binds at composition and this fold names no scoring surface. The drain is
-    // single-consumer per stream, which is also what makes the durable lane's window hand-off exclusive without a
-    // second cell.
-    // Exemption: the `await foreach` drain is the platform-forced statement seam the subscription law names.
     public static IO<Unit> Capture(
         IAsyncEnumerable<Fin<SensorReading<TwinSignal>>> deliveries,
         CaptureAdmission admission,
@@ -331,17 +236,7 @@ public static class BrokerChannels {
 }
 
 // --- [SUBSCRIBE_MQTT]
-// MQTTnet delivers on an EVENT rather than an enumerator, so one bounded bridge carries the client's receive loop
-// onto the enumerable shape the pump consumes. `AutoAcknowledge` is FALSE and the ack rides the successful
-// enqueue alone, so a bridge the lane cannot drain leaves QoS 1/2 deliveries unacked and the broker redelivers
-// them. The finally arm detaches BOTH handlers through `-=` against the same handles `+=` bound, since an event
-// left subscribed past the pump holds the closure and writes into a completed channel for the client's lifetime.
 internal static class MqttBinding {
-    // Both terminal paths — the SUBACK refusal and the severed session — settle ONE cell, so the reader drains
-    // what already arrived and then yields exactly one classified fault. The cell is an `Atom` rather than a
-    // captured `Error?`: two closures and a loop write it, and a nullable local under that access pattern is the
-    // read-modify-write outside a CAS the rail owner deletes.
-    // Exemption: the callback attach/detach pair and the iterator try/catch are the platform-forced seams.
     public static async IAsyncEnumerable<Fin<BrokerDelivery>> Subscribe(
         BrokerSource source, string topicFilter, LaneBound bound,
         [EnumeratorCancellation] CancellationToken ct = default) {
@@ -362,9 +257,6 @@ internal static class MqttBinding {
             else { delivery.ProcessingFailed = true; }
         }
 
-        // A severed session stops delivery WITHOUT completing the bridge, so the drain would wait on a client
-        // that will never write again — the one failure a subscription reports as silence. A disconnect is a
-        // transport fact, so it lands the arm that publishes `Transient` and the re-drive rail may re-attempt it.
         Task Severed(MqttClientDisconnectedEventArgs ended) {
             terminal.Swap(held => held.IsSome
                 ? held
@@ -391,11 +283,6 @@ internal static class MqttBinding {
         }
     }
 
-    // The SUBACK is DATA the package returns, not an exception it raises: MQTTnet throws only for LOCAL faults —
-    // a tripped token, an invalid topic, a disposed or unconnected client, a feature the validator refuses — and
-    // every broker verdict rides a per-filter reason code. Discarding the result left a `NotAuthorized` grant
-    // reading as a healthy subscription that simply never delivered, and folding the local throw onto the
-    // transient arm re-drove a disposed client forever.
     private static async Task<Option<Error>> Granted(IMqttClient client, string topicFilter, CancellationToken ct) =>
         (await Op.Of(name: "mqtt-subscribe").Catch(
             async _ => Fin.Succ(await client.SubscribeAsync(
@@ -410,22 +297,15 @@ internal static class MqttBinding {
                 .Map(item => Refusal(topicFilter, item.ResultCode)),
             Fail: Some);
 
-    // Quota is a capacity fact the broker recovers from and everything else on this lane is a standing refusal,
-    // so the transience is decided by the reason code rather than by which arm the author reached first.
     private static Error Refusal(string topicFilter, MqttClientSubscribeResultCode code) =>
         code is MqttClientSubscribeResultCode.QuotaExceeded
             ? new ComputeFault.EndpointUnreachable($"<mqtt-subscribe:{topicFilter}:{code}>")
             : new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Status((int)code)));
 
-    // The bridge COMPOSES the lane family's own generic construction (`Runtime/scheduling#LANE_AXIS`
-    // `LaneChannels.Open<T>`) instead of re-switching the union — the re-switch here read `Ranked.Capacity`, a
-    // slot that case never carried. A shed delivery stays deliberately unobserved at the drop hook: the unacked
-    // QoS 1/2 message redelivers by this page's own ack law, so the loss class is the broker's to replay.
     private static Fin<Channel<MqttApplicationMessage>> Bridged(LaneBound bound) =>
         bound.Open(new LaneChannel<MqttApplicationMessage>(
             Readers: 1, InlineContinuations: false, Dropped: static (_, _) => { }, Rank: None));
 
-    // Payload reads single-segment straight through and only a segmented body pays one copy.
     private static BrokerDelivery Read(MqttApplicationMessage message) {
         ReadOnlySequence<byte> payload = message.Payload;
         return new BrokerDelivery(
@@ -440,18 +320,7 @@ internal static class MqttBinding {
 }
 
 // --- [SUBSCRIBE_NATS]
-// NATS Core delivers on an enumerator, so this row opens no bridge of its own — the client already owns one. The
-// row's `LaneBound` lowers onto `NatsSubOpts.ChannelOpts`, which is the SAME bounded channel a bridge would have
-// been, one hop earlier and inside the package. `SubscribeCoreAsync` rather than `SubscribeAsync` because the
-// handle is what a drain needs: the enumerable form can only be cancelled, and cancelling discards the buffer.
-// Control frames resolve here rather than reaching a decode that would report a protocol frame as a payload fault.
 internal static class NatsBinding {
-    // Core NATS carries NO redelivery, so a message the pending channel discards is gone: unlike the MQTT row —
-    // whose unacked QoS 1/2 delivery the broker replays, which is why its bridge drops unobserved — this row's
-    // loss has no second chance and must be receipted. `MessageDropped` is the client's own overflow surface and
-    // it fires connection-wide, so the handler discriminates on the args' `Subscription` identity rather than on
-    // `Subject`, which under a wildcard filter is the PUBLISHED subject and matches no subscription spelling.
-    // Exemption: the event attach/detach pair and the iterator try/finally are the platform-forced seams.
     public static async IAsyncEnumerable<Fin<BrokerDelivery>> Subscribe(
         BrokerSource source, string subject, LaneBound bound,
         [EnumeratorCancellation] CancellationToken ct = default) {
@@ -460,9 +329,6 @@ internal static class NatsBinding {
             yield break;
         }
 
-        // Both slots are stated together: supplying the record at all switches every unset slot onto ITS defaults
-        // (1000/Wait) rather than the connection's, so declaring one and inheriting the other is the silent form.
-        // Refusal evidence names WHICH arm failed to lower, so a row edit reads its own cause off it.
         if (Bounded(bound) is not { Case: NatsSubOpts opts }) {
             yield return Fin.Fail<BrokerDelivery>(new ComputeFault.LaneUnprofiled(
                 $"<nats-bound-not-shedding:{bound.GetType().Name}:{subject}>"));
@@ -474,13 +340,6 @@ internal static class NatsBinding {
             .SubscribeCoreAsync<byte[]>(subject, queueGroup.IfNoneUnsafe(() => null), opts: opts, cancellationToken: ct)
             .ConfigureAwait(false);
 
-        // Drops land on a hand-off LOG the reader drains beside deliveries, so an overrun is one receipted refusal
-        // per discarded message rather than a tally nothing can attribute. An `Atom` cell cannot serve this: its
-        // `Swap` returns the POST-swap value, so a take-and-clear hands back the empty it just installed and the
-        // evidence reports zero forever. The log takes the SAME row bound as the subscription it accounts, so it
-        // composes the folder's one channel construction and cannot outgrow the thing it reports on. NAMED LOSS: a
-        // refusal the full log declines is unrecorded, which only happens once the reader has stopped draining
-        // refusals too, and every surviving refusal carries the `Pending` depth that states the condition.
         if (bound.Open(new LaneChannel<Error>(
                 Readers: 1, InlineContinuations: false, Dropped: static (_, _) => { }, Rank: None))
             .Case is not Channel<Error> shed) {
@@ -489,8 +348,6 @@ internal static class NatsBinding {
         }
 
         AsyncEventHandler<NatsMessageDroppedEventArgs> dropped = (_, args) => {
-            // `NatsSub<T>` IS the `NatsSubBase` this event carries, so identity separates two subscriptions on
-            // one connection where a wildcard-filtered `Subject` comparison cannot.
             if (ReferenceEquals(args.Subscription, subscription)) {
                 shed.Writer.TryWrite(new ComputeFault.PayloadOverBounds(
                     $"<nats-pending-overrun:{args.Subject}:{args.Pending}>"));
@@ -504,23 +361,13 @@ internal static class NatsBinding {
                 yield return yielded;
             }
         } finally {
-            // Detach against the SAME handle `+=` bound, then complete the log so no refusal is written into a
-            // channel the reader has left; the handler outliving the pump would hold this closure for the
-            // connection's whole life.
             connection.MessageDropped -= dropped;
             shed.Writer.TryComplete();
-            // DRAIN, never cancel: UNSUB then a PING/PONG fence bounded by `NatsOpts.DrainPingTimeout`, then the
-            // channel completes, so the readings already buffered reach the capture lane. Disposing without it
-            // abandons exactly the window this row bounded and receipted.
             await subscription.DrainAsync(CancellationToken.None).ConfigureAwait(false);
             await subscription.DisposeAsync().ConfigureAwait(false);
         }
     }
 
-    // Row bound IS the client's channel policy, so only the shedding arm carries a lowering: parking stalls the
-    // socket read loop into a server-side slow-consumer severance, and ranking names a comparer this channel has
-    // no element to order. Absence is the whole verdict here — the caller names the
-    // arm off the value it already holds — so no fault mints inside a total projection.
     private static Option<NatsSubOpts> Bounded(LaneBound bound) => bound.Switch(
         shedding: static row => Some(new NatsSubOpts {
             ChannelOpts = new NatsSubChannelOpts { Capacity = row.Capacity, FullMode = row.Mode },
@@ -528,8 +375,6 @@ internal static class NatsBinding {
         parked: static _ => Option<NatsSubOpts>.None,
         ranked: static _ => Option<NatsSubOpts>.None);
 
-    // One reader for both streams: the refusal log is swept BEFORE each delivery batch yields, so a drop reaches
-    // the capture sink in the order the client discarded it rather than after the stream ends.
     private static async IAsyncEnumerable<Fin<BrokerDelivery>> Drain(
         INatsSub<byte[]> subscription, string subject, Channel<Error> shed,
         [EnumeratorCancellation] CancellationToken ct = default) {
@@ -545,7 +390,6 @@ internal static class NatsBinding {
             if (advanced.Case is Error refused) { yield return Fin.Fail<BrokerDelivery>(refused); yield break; }
             if (advanced.Case is false) { yield break; }
             while (subscription.Msgs.TryRead(out NatsMsg<byte[]> message)) {
-                // The NatsMsgFlags bits mark protocol frames, not payloads, so they resolve before any decode runs.
                 if (message.IsEmpty || message.HasNoResponders) { continue; }
                 yield return Fin.Succ(Read(message, subject));
             }
@@ -562,11 +406,6 @@ internal static class NatsBinding {
                 ? Seq<(string, string)>()
                 : toSeq(message.Headers).Map(static row => (row.Key, row.Value.ToString())));
 
-    // ONE non-throwing header read serves the propagation adapter, the framing probe, and the carried pairs — the
-    // prior `string?`/`IEnumerable<string>` pair differed only in return shape and drifted the day one of them
-    // gained the empty-value guard. `NatsMsg.Headers` is `IDictionary<string, StringValues>` with a non-throwing
-    // `TryGetValue`; a null map and an empty value both answer the empty extraction the propagator treats as a
-    // root, so the absent verdict has one spelling.
     private static IEnumerable<string> Carrier(NatsHeaders? carrier, string key) =>
         carrier is not null && carrier.TryGetValue(key, out StringValues values) && !StringValues.IsNullOrEmpty(values)
             ? [values.ToString()]
@@ -587,11 +426,8 @@ internal static class NatsBinding {
 - Boundary: a transport miss returns the typed fault the app-root `BsddPort` adapter degrades on, and the app composition root that references both packages closes `Fetch<BsddClassResponse>` and adapts it into the Bim `BsddPort` so neither package depends on the other — a Bim-minted bSDD transport, a Compute-side bSDD response record or local fallback, and a direct cross-package reference in either direction are the rejected forms. A 200 carrying an empty body is a CONTENT refusal and rails as one: the prior `?? throw` was re-caught two frames up and re-labelled unreachable, so an endpoint answering correctly with nothing read as an endpoint that could not be reached.
 
 ```csharp signature
-// --- [BOUNDARIES] -----------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed class BsddTransport(HttpClient client, CallSpine spine) {
-    // The resolver is DECLARED because the generic is consumer-typed: a `TypeInfoResolver` left unset resolves
-    // through reflection anyway, so the contract's silence and its behaviour disagree the moment a sibling seam
-    // mounts a source-generated context and a reader assumes both did.
     private static readonly JsonSerializerOptions BsddWire = new(JsonSerializerDefaults.Web) {
         PropertyNameCaseInsensitive = true,
         TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
@@ -599,8 +435,6 @@ public sealed class BsddTransport(HttpClient client, CallSpine spine) {
 
     public IO<Fin<TResponse>> Fetch<TResponse>(string classUri, CancellationToken token) =>
         spine.AwaitedHttp(classUri, token, async (uri, scope) => {
-            // An unseated base address is a COMPOSITION fault, so it rails at the boundary that reads it rather
-            // than raising past a rail every other refusal on this leg already crosses.
             if (Optional(client.BaseAddress) is not { Case: Uri seat }) {
                 return Fin.Fail<TResponse>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Required(ComputeSubject.Resource)));
             }
@@ -614,8 +448,6 @@ public sealed class BsddTransport(HttpClient client, CallSpine spine) {
                 : Fin.Fail<TResponse>(Refusal(uri, response.StatusCode, Optional(response.Headers.RetryAfter?.Delta)));
         });
 
-    // The date form of `Retry-After` deliberately degrades to the transient arm: only a server-DECLARED delta
-    // is a window worth honoring over the rail's own curve, and clock-skewed absolute dates forge negative waits.
     private static Error Refusal(string uri, HttpStatusCode status, Option<TimeSpan> retryAfter) =>
         status is HttpStatusCode.TooManyRequests && retryAfter.Case is TimeSpan window
             ? new ComputeFault.EndpointThrottled($"<bsdd:429:{uri}>", Duration.FromTimeSpan(window))
@@ -624,12 +456,6 @@ public sealed class BsddTransport(HttpClient client, CallSpine spine) {
                 : new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Status((int)status)));
 }
 
-// The transport-ingest lane's two roster rows ([FaultCase] 27/28), declared here because this lane's folds
-// raise them. WireDecodeRejected is the foreign-body DECODE refusal — deterministic, kernel Terminal — distinct
-// from PayloadOverBounds (a size fact) and from the symbolic lane's 2212 ParseRejected (a declined
-// Entity.TryParse). EndpointThrottled is the ONLY arm publishing the kernel Throttled posture: the
-// server-declared window IS the payload, so the re-drive rail waits the window the peer named, never its own
-// curve.
 public abstract partial record ComputeFault {
     [FaultCase(27)] public sealed partial record WireDecodeRejected(string Detail) : ComputeFault(Detail);
 

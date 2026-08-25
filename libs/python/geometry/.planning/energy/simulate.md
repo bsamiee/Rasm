@@ -39,8 +39,6 @@ from expression.collections import Map
 from msgspec import Struct
 from msgspec import json as msgjson
 
-# permissively-licensed natives take the deferral dialect the AGPL band cannot: one module-scope binding each,
-# reified at first use. `queenbee` is MIT schema-only — it never belonged to this page's AGPL band.
 lazy import trimesh
 lazy from queenbee.io.artifact_source import ProjectFolder
 lazy from queenbee.io.inputs.job import JobArgument, JobPathArgument
@@ -72,7 +70,7 @@ from rasm.contracts.rasm.contracts.geometry.tessellation_pb import TessellationP
 from rasm.contracts.rasm.contracts.scene.scene_pb import Photometry, SceneDescriptor, SceneSun, SolarAngles
 from rasm.runtime.workers import Kernel, KernelTrait
 
-if TYPE_CHECKING:  # AGPL band ONLY: annotations resolve here, every runtime use riding a function-local or LateBound seam; the MIT `queenbee` names bind lazily at module scope instead
+if TYPE_CHECKING:
     from honeybee.shademesh import ShadeMesh
     from honeybee_radiance.lightsource.sky.cie import CIE
     from honeybee_radiance.lightsource.sky.climatebased import ClimateBased
@@ -80,7 +78,7 @@ if TYPE_CHECKING:  # AGPL band ONLY: annotations resolve here, every runtime use
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-type Row = tuple[object, ...]  # one positional row in FRAME_COLUMNS order, minus the trailing content-key stamp
+type Row = tuple[object, ...]
 
 
 class TranslateTarget(StrEnum):
@@ -92,8 +90,6 @@ class TranslateTarget(StrEnum):
 
 @tagged_union(frozen=True)
 class ResultQuery:
-    # each case carries its own source: the four EnergyPlus arms address one `.sql`, the matrix arm addresses the
-    # recipe product whose declared outputs the comfort-map kernels read.
     tag: Literal["collections", "eui", "tabular", "outputs", "matrix"] = tag()
     collections: tuple[Path, tuple[str, ...]] = case()
     eui: Path = case()
@@ -104,17 +100,13 @@ class ResultQuery:
 
 @tagged_union(frozen=True)
 class SkySource:
-    # Captured descriptors carry angles and no irradiance, so the CIE arm is what one answers unaided and the
-    # climate-based arm exists only where a caller hands the EPW's own pair off the `energy/climate` owner.
     tag: Literal["cie", "climate_based"] = tag()
-    cie: int = case()  # gensky's own CIE sky-type roster, 0..5
-    climate_based: tuple[float, float] = case()  # (direct normal W/m2, diffuse horizontal W/m2)
+    cie: int = case()
+    climate_based: tuple[float, float] = case()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# format -> honeybee_openstudio.writer member as a LateBound row: one late-binding grammar with the climate comfort
-# rows and the model standards loaders, so a format is a row and the page holds no getattr fold of its own.
 WRITERS: Final[Map[TranslateTarget, LateBound]] = Map.of_seq([
     (TranslateTarget.OSM, LateBound("honeybee_openstudio.writer", "model_to_osm")),
     (TranslateTarget.IDF, LateBound("honeybee_openstudio.writer", "model_to_idf")),
@@ -122,8 +114,6 @@ WRITERS: Final[Map[TranslateTarget, LateBound]] = Map.of_seq([
     (TranslateTarget.GBXML, LateBound("honeybee_openstudio.writer", "model_to_gbxml")),
 ])
 
-# the ONE column-and-dtype correspondence every frame seals against; the roster derives from it, so a new column is one
-# row here and the crossing, the receipt, and the C# decoder all read the same declaration.
 FRAME_SCHEMA: Final[frozendict[str, str]] = frozendict({
     "output": "U",
     "unit": "U",
@@ -135,18 +125,12 @@ FRAME_SCHEMA: Final[frozendict[str, str]] = frozendict({
 })
 FRAME_COLUMNS: Final[tuple[str, ...]] = tuple(FRAME_SCHEMA)
 
-# a roster row addresses an artifact and measures nothing, so its float cell spells absence in the column's own
-# vocabulary rather than a zero a chart reads as a real reading.
 _UNMEASURED: Final[float] = float("nan")
 
-_ENCODER: Final = msgjson.Encoder(order="deterministic")  # one module-level canonical-bytes codec; never per-call construction
+_ENCODER: Final = msgjson.Encoder(order="deterministic")
 
-# Authority is the `Power.authority` oneof's own arm: the `radiant_flux_w` arm carries the photometric quantity an
-# engine lighting level reads, so a `relative_scale` row counts as unranked rather than seating a watt figure nobody authored.
 _RADIANT_FLUX: Final[str] = "radiant_flux_w"
 
-# recipes whose run is driven by a weather file, where a sun the modeller authored by hand cannot be proven to
-# belong to the same place the EPW describes.
 _WEATHER_DRIVEN: Final[frozenset[RecipeName]] = frozenset({RecipeName.ANNUAL_ENERGY_USE})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -160,19 +144,17 @@ class SimPar(Struct, frozen=True, gc=False):
     unmet_hours: bool = True
     north_angle: float = 0.0
     terrain: str = "City"
-    run_period: Option[tuple[tuple[int, int], tuple[int, int]]] = Nothing  # ((st_month, st_day), (end_month, end_day)); Nothing = annual
+    run_period: Option[tuple[tuple[int, int], tuple[int, int]]] = Nothing
 
 
 class RunSpec(Struct, frozen=True):
     epw: Path
-    recipe: RecipeName = RecipeName.ANNUAL_ENERGY_USE  # the runtime catalog row this run binds; comfort-map and daylight rows ride the same shape
+    recipe: RecipeName = RecipeName.ANNUAL_ENERGY_USE
     sim_par: SimPar = SimPar()
-    extra: Map[str, object] = Map.empty()  # additional recipe inputs by name
+    extra: Map[str, object] = Map.empty()
 
 
 class ResultFrame(Struct, frozen=True):
-    # columnar by construction: the declared roster beside one sealed array per column, which is exactly the shape the
-    # data tier's `arrow_columns` entry admits — a row-major carrier would force a transpose at the consumer edge.
     columns: tuple[str, ...]
     table: frozendict[str, np.ndarray]
     content_key: ContentKey
@@ -183,9 +165,6 @@ class ResultFrame(Struct, frozen=True):
 
 
 class SceneLighting(Struct, frozen=True):
-    # Columns land only where the descriptor holds one: watts is the authority-ranked radiant flux an EnergyPlus
-    # `Lights` level takes directly {W}, and spectrum is the producer's linear diffuse triple. Radiant, visible, and
-    # replaceable fractions are engine-side gains the host document never authored, so no column invents them.
     identifier: str
     kind: str
     watts: float
@@ -193,14 +172,11 @@ class SceneLighting(Struct, frozen=True):
 
 
 class SceneContext(Struct, frozen=True):
-    # `north_angle` feeds `SimPar.north_angle` and `site` is the CONSISTENCY coordinate: EnergyPlus overrides
-    # `Site:Location` with the weather file's own location, so the descriptor's site proves the capture and the EPW
-    # describe one place rather than supplying an engine input.
     descriptor_key: str
     shade_meshes: tuple["ShadeMesh", ...]
     sky: "CIE | ClimateBased"
     north_angle: float
-    site: Option[tuple[float, float, float, float]] = Nothing  # (latitude deg, longitude deg, time zone hr, elevation m)
+    site: Option[tuple[float, float, float, float]] = Nothing
     lighting: tuple[SceneLighting, ...] = ()
 
 
@@ -224,8 +200,6 @@ class SceneReceipt(Struct, frozen=True):
                     "shade_meshes": self.shade_meshes,
                     "triangles": self.triangles,
                     "lights": self.lights,
-                    # Lights carrying no photometric quantity and webs no engine reads are both INCOMPLETENESS,
-                    # counted here so an operator sees what the capture held and the run could not use.
                     "unranked_lights": self.unranked_lights,
                     "unrouted_webs": self.unrouted_webs,
                 },
@@ -253,22 +227,15 @@ class SimulationReceipt(Struct, frozen=True):
                     "recipe": self.recipe,
                     "model_key": self.model_key.hex,
                     "frame_key": self.frame_key.hex,
-                    # a decode that ran no EUI parse OMITS the key: a zero here reads as a zero-energy building.
                     **self.eui_total.map(lambda total: {"eui": total}).default_value({}),
                 },
             ),
         )
 
     def spec(self) -> bytes:
-        # the evidence subject IS the admitted model beside the recipe and the query that read its outputs, so two
-        # decodes over one run key apart and an identical re-decode dedupes in the persistence ledger.
         return b"|".join((self.model_key.memory, self.recipe.encode(), self.operation.encode(), self.discriminant.encode()))
 
     def graduates(self, regime: EnergyRegime = ENERGY_REGIMES[RegimeKey.BUILDING_EUI]) -> GeometryHandoff:
-        # EUI is the eui arm's own measurement; every other decode OMITS it, so the spine reports `unmeasured:eui`
-        # and the crossing refuses rather than clearing a compliance ceiling on a fabricated zero. The ceiling arrives
-        # as a CITED regime row naming the intensity and the units it grades, never an anonymous float a caller
-        # supplies under no authority at all.
         measured = self.eui_total.map(lambda total: {"eui": total}).default_value({}) | {"rows": float(self.rows)}
         subject = GeometrySubject.BUILDING_ENERGY
         return GeometryHandoff.of(subject, evidence_key(subject, self.spec()), measured, {"eui": regime.bar()})
@@ -285,10 +252,6 @@ class Simulation(Struct, frozen=True):
     composition: ScopeKey = DEFAULT_SCOPE
 
     async def translate(self, target: TranslateTarget, folder: Path) -> "RuntimeRail[Path]":
-        # the weave wraps the OFFLOAD on the parent floor, where the cost bracket, the charter cost rows, and the
-        # evidence row are live — a weave inside the kernel meters a worker whose recorder is a no-op. HOSTILE because
-        # the SDK writer leg loads native openstudio in-process; idempotent=False keeps a worker-death retry from
-        # re-running the artifact write, so a death rails typed instead.
         return await evidence_run(
             EvidenceScope.ENERGY_SIMULATE,
             f"translate.{target}",
@@ -298,10 +261,10 @@ class Simulation(Struct, frozen=True):
 
     def sim_par(self, spec: SimPar) -> "RuntimeRail[dict[str, object]]":
         def fold() -> dict[str, object]:
-            from honeybee_energy.simulation.output import SimulationOutput  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
-            from honeybee_energy.simulation.parameter import SimulationParameter  # ruff:ignore[import-outside-top-level] — AGPL isolation
-            from honeybee_energy.simulation.runperiod import RunPeriod  # ruff:ignore[import-outside-top-level] — AGPL isolation
-            from ladybug.dt import Date  # ruff:ignore[import-outside-top-level] — AGPL isolation
+            from honeybee_energy.simulation.output import SimulationOutput
+            from honeybee_energy.simulation.parameter import SimulationParameter
+            from honeybee_energy.simulation.runperiod import RunPeriod
+            from ladybug.dt import Date
 
             output = SimulationOutput(reporting_frequency=spec.reporting_frequency)
             requests = (
@@ -310,7 +273,7 @@ class Simulation(Struct, frozen=True):
                 (spec.comfort_metrics, output.add_comfort_metrics),
                 (spec.unmet_hours, output.add_unmet_hours),
             )
-            for wanted, add in requests:  # Exemption: SimulationOutput accumulates requests in place; the rows select its owned adders.
+            for wanted, add in requests:
                 if wanted:
                     add()
             window = spec.run_period.map(lambda period: RunPeriod(Date(*period[0]), Date(*period[1]))).to_optional()
@@ -331,15 +294,12 @@ class Simulation(Struct, frozen=True):
         return await staged.map(self.recipes.execute).default_with(_refused)
 
     async def job(self, run: RunSpec, model: Path, source: str) -> "RuntimeRail[Job]":
-        # `source` is the caller-supplied recipe source (the Pollination registry reference).
         projected = await self.recipes.interface(RecipeSpec(recipe=run.recipe))
         return projected.map(lambda interface: _job(interface, run, model, source))
 
     def results(self, query: ResultQuery) -> "RuntimeRail[tuple[ResultFrame, SimulationReceipt]]":
         def fold() -> tuple[ResultFrame, SimulationReceipt]:
             rows, discriminant, recipe, eui = _decoded(query)
-            # charter row at the producing fold under the owner's own composition: total EUI is the end-use sum by
-            # definition, so no second parser member is claimed and a decode that measured none records nothing.
             eui.map(lambda total: charter_record(GeometrySubject.BUILDING_ENERGY, {"eui_total": total}, composition=self.composition))
             frame = _tabled(rows)
             return frame, self._receipt(f"results.{query.tag}", discriminant, recipe, frame, eui)
@@ -400,8 +360,6 @@ class Simulation(Struct, frozen=True):
             return Error(remote_fault(refused))
 
     def crossing(self, frame: ResultFrame) -> "RuntimeRail[tuple[bytes, ContentKey]]":
-        # the ONE admitting entry the data owner declares for this carrier by name: a declared roster beside sealed
-        # arrays in, canonical IPC stream bytes out, no transposition and no `pyarrow` symbol on this page.
         return evidence_run(
             EvidenceScope.ENERGY_SIMULATE,
             "crossing",
@@ -429,9 +387,6 @@ async def _refused[T](fault: object) -> "RuntimeRail[T]":
 
 
 def _derived_sun(sun: SceneSun, recipe: RecipeName) -> tuple[str, SolarAngles, Option[tuple[float, float, float, float]], float]:
-    # Two arms answer two questions. A sited sun proves its angles against a place, so a weather-driven run checks
-    # that the capture and the EPW describe one location; an authored sun carries angles alone and refuses that
-    # class by name rather than back-solving coordinates out of an altitude and an azimuth.
     match sun.derivation:
         case Oneof(field="sited", value=sited):
             frame = sited.frame
@@ -446,16 +401,12 @@ def _derived_sun(sun: SceneSun, recipe: RecipeName) -> tuple[str, SolarAngles, O
         case Oneof(field="authored"):
             raise EnergyFault(authored_sun=(recipe.value, "sited-frame"))
         case _:
-            # an unset derivation names no arm at all — the corpus `oneof.required` rule refuses it at decode, and
-            # the coordinate a sited run reads is the derivation itself.
             raise EnergyFault(authored_sun=(recipe.value, "sun-derivation"))
 
 
 def _sky(angles: SolarAngles, source: SkySource) -> "CIE | ClimateBased":
-    # both skies take azimuth EAST OF NORTH, which is the descriptor's own convention, so the projection passes the
-    # pair through untouched and never re-solves it through `Sunpath` — a second almanac answers a second number.
-    from honeybee_radiance.lightsource.sky.cie import CIE  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
-    from honeybee_radiance.lightsource.sky.climatebased import ClimateBased  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from honeybee_radiance.lightsource.sky.cie import CIE
+    from honeybee_radiance.lightsource.sky.climatebased import ClimateBased
 
     match source:
         case SkySource(tag="cie", cie=kind):
@@ -474,10 +425,7 @@ def _graded(
     decoded_triangles: int,
     units: str,
 ) -> None:
-    # honeybee publishes its own per-unit tolerance floor, so the grade reads that rather than pinning a literal the
-    # library moves out from under. The descriptor is metres and the model is in `units`, so the floor converts
-    # before the comparison — grading a metre deflection against a foot tolerance passes ten times too coarse.
-    from honeybee.units import UNITS_TOLERANCES, conversion_factor_to_meters  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+    from honeybee.units import UNITS_TOLERANCES, conversion_factor_to_meters
 
     floor = UNITS_TOLERANCES[units] * conversion_factor_to_meters(units)
     if fidelity.deflection_m > floor:
@@ -491,12 +439,9 @@ def _graded(
 
 
 def _shades(glb: Path, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
-    # walk the scene GRAPH and apply each node's resolved transform: a GLB meaning Y-up carries that rotation as a
-    # node transform, and a round-trip through this reader is identity, so composing the graph lands the geometry
-    # under either producer convention where a hand-applied axis swap doubles one of them.
-    from honeybee.shademesh import ShadeMesh  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
-    from ladybug_geometry.geometry3d.mesh import Mesh3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
-    from ladybug_geometry.geometry3d.pointvector import Point3D  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from honeybee.shademesh import ShadeMesh
+    from ladybug_geometry.geometry3d.mesh import Mesh3D
+    from ladybug_geometry.geometry3d.pointvector import Point3D
 
     scene = trimesh.load_scene(glb, file_type="glb")
     posed = tuple(
@@ -513,15 +458,10 @@ def _shades(glb: Path, identifier: str) -> tuple[tuple["ShadeMesh", ...], int]:
         )
         for ordinal, geometry in enumerate(posed)
     )
-    # `Model.shade_meshes` and `Model.shades` are DISJOINT populations, so context landed here never appears in a
-    # `len(model.shades)` census and the triangle total rides the receipt instead of a re-walk at the consumer.
     return rows, sum(len(geometry.faces) for geometry in posed)
 
 
 def _lighting(rows: tuple[Photometry, ...]) -> tuple[tuple[SceneLighting, ...], int, int]:
-    # Disabled lights contribute nothing and unranked ones carry no quantity to contribute; both count rather
-    # than refuse, since a daylight study needs neither and a run that stopped for one would be wrong in the loud
-    # direction. The web census counts the payload the capture authored and no consuming engine on this rail reads.
     live = tuple(row for row in rows if row.enabled)
     ranked = tuple(
         SceneLighting(
@@ -537,12 +477,6 @@ def _lighting(rows: tuple[Photometry, ...]) -> tuple[tuple[SceneLighting, ...], 
 
 
 def _product_rows(name: str, value: object) -> tuple[Row, ...]:
-    # a readback value arrives in one of the two shapes `output_value_by_name` produces: the joined artifact ADDRESS
-    # (an output declaring no handler — the simulation folder joined with the output's own `from.path`), or the
-    # LOADED per-grid matrix the output's declared grasshopper-alias handler returns (`read_*_from_folder`, one
-    # sub-list of sensor values per grid — the tcp/hsp/csp comfort metrics and the daylight metric family alike).
-    # An address row rides `_UNMEASURED`; a loaded matrix lands one row per grid per sensor with the grid on the key
-    # column, so a metric reaches the frame as measured values rather than a float-blob pseudo-address.
     if isinstance(value, (str, Path)):
         return ((name, "", "", str(value), 0, _UNMEASURED),)
     grids = value if isinstance(value, Sequence) else (value,)
@@ -554,10 +488,8 @@ def _product_rows(name: str, value: object) -> tuple[Row, ...]:
 
 
 def _decoded(query: ResultQuery) -> tuple[tuple[Row, ...], str, str, Option[float]]:
-    # one total decode over the query union, each arm opening only the reader it needs and returning its rows beside
-    # the receipt discriminant, the recipe it read, and the EUI the eui arm alone measures.
-    from honeybee_energy.result.eui import eui_from_sql  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
-    from ladybug.sql import SQLiteResult  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from honeybee_energy.result.eui import eui_from_sql
+    from ladybug.sql import SQLiteResult
 
     match query:
         case ResultQuery(tag="collections", collections=(sql, names)):
@@ -565,7 +497,6 @@ def _decoded(query: ResultQuery) -> tuple[tuple[Row, ...], str, str, Option[floa
             census = tuple(reader.available_outputs)
             missing = tuple(name for name in names if name not in census)
             if missing:
-                # the absent names and the census size ride as kwargs, so a consumer reads WHICH outputs the SQL lacks.
                 raise EnergyFault(unknown_output=(missing, len(census)))
             rows = tuple(
                 (
@@ -584,8 +515,6 @@ def _decoded(query: ResultQuery) -> tuple[tuple[Row, ...], str, str, Option[floa
         case ResultQuery(tag="eui", eui=sql):
             breakdown = eui_from_sql(str(sql))
             rows = tuple((use, "kWh/m2", "annual", "", 0, value) for use, value in breakdown["end_uses"].items())
-            # total EUI is the end-use sum by definition, so no second parser member is claimed; the caller-floor fold
-            # records it onto the charter and the receipt, and a decode that took no EUI pass carries `Nothing`.
             return rows, "end-uses", RecipeName.ANNUAL_ENERGY_USE.value, Some(sum(float(row[5]) for row in rows))
         case ResultQuery(tag="tabular", tabular=(sql, name)):
             reader = SQLiteResult(str(sql))
@@ -595,12 +524,9 @@ def _decoded(query: ResultQuery) -> tuple[tuple[Row, ...], str, str, Option[floa
             census = tuple(SQLiteResult(str(sql)).available_outputs)
             return tuple((name, "", "", "", 0, _UNMEASURED) for name in census), f"census:{len(census)}", RecipeName.ANNUAL_ENERGY_USE.value, Nothing
         case ResultQuery(tag="matrix", matrix=(recipe, product)):
-            # the recipe row's OWN declared outputs are the roster: an output the product never resolved is the same
-            # refusal an unknown SQL output is, so a comfort-map consumer never receives a guessed address.
             declared = RECIPES[recipe].outputs
             missing = tuple(name for name in declared if product.outputs.try_find(name).is_none())
             if missing:
-                # same refusal class as an unknown SQL output, so a comfort-map consumer matches one tag either way.
                 raise EnergyFault(unresolved_output=(recipe.value, missing))
             rows = tuple(row for name in declared for row in _product_rows(name, product.outputs[name]))
             return rows, recipe.value, recipe.value, Nothing
@@ -609,9 +535,6 @@ def _decoded(query: ResultQuery) -> tuple[tuple[Row, ...], str, str, Option[floa
 
 
 def _tabled(rows: tuple[Row, ...]) -> ResultFrame:
-    # the transpose lands at the PRODUCER, where the roster is authored: each arm emits positional rows in
-    # FRAME_COLUMNS order, the key covers the canonical row bytes, and this fold seals one dtype-declared array per
-    # column — so the data tier receives the declared roster it schemas from and never the mapping's insertion order.
     key = ContentIdentity.key("energy-result", _ENCODER.encode(rows))
     stamped = tuple((*row, key.hex) for row in rows)
     columns = tuple(zip(*stamped, strict=True)) if stamped else ((),) * len(FRAME_COLUMNS)
@@ -623,7 +546,6 @@ def _tabled(rows: tuple[Row, ...]) -> ResultFrame:
 
 
 def _job(interface: "RecipeInterface", run: RunSpec, model: Path, source: str) -> "Job":
-    # v1beta1 Jobs carry ONE inner argument list (one parametric run), artifact paths as ProjectFolder sources.
     run_arguments = [
         JobPathArgument(name="model", source=ProjectFolder(path=str(model))),
         JobPathArgument(name="epw", source=ProjectFolder(path=str(run.epw))),
@@ -633,23 +555,20 @@ def _job(interface: "RecipeInterface", run: RunSpec, model: Path, source: str) -
 
 
 def _translated(building: BuildingModel, target: TranslateTarget, folder: Path) -> Path:
-    # bare kernel: the parent weave owns the span and the band, and both legs raise into the lane's async_boundary.
     def in_process() -> Path:
-        # in-process writers return the serialized document string and take no folder parameter; this kernel owns the artifact write.
         artifact = folder / f"{building.model.identifier}.{target.value}"
         artifact.write_text(WRITERS[target].resolve()(building.model), encoding="utf-8")
         return artifact
 
     def cli() -> Path:
-        from honeybee_energy.run import run_osw, to_openstudio_osw  # ruff:ignore[import-outside-top-level] — AGPL isolation seam
+        from honeybee_energy.run import run_osw, to_openstudio_osw
 
         if target not in (TranslateTarget.OSM, TranslateTarget.IDF):
-            # the CLI leg serves OSM/IDF alone; the target and its constraint ride the case, converted by the lane's own fence.
             raise EnergyFault(unsupported_target=(target.value, "requires-openstudio-sdk"))
 
         model_path = building.model.to_hbjson(name=building.model.identifier, folder=str(folder))
         osw = to_openstudio_osw(str(folder), model_path)
-        osm, idf = run_osw(osw, measures_only=True)  # translation only — simulation is the recipe rail's, never this leg
+        osm, idf = run_osw(osw, measures_only=True)
         return Path(idf if target is TranslateTarget.IDF else osm)
 
     return in_process() if find_spec("openstudio") else cli()

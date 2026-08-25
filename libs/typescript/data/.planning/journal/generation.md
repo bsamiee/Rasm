@@ -32,8 +32,6 @@ const _Column: Schema.Schema<unknown> = Schema.transformOrFail(Schema.Unknown, S
   encode: (value) => ParseResult.succeed(value),
 })
 
-// Opaque at the coordinate: this page owns payload authority per generation, so a projection decoding the column at
-// its own site freezes a shape only the compiled family may read.
 const _Envelope = Schema.Struct({
   tag: Schema.String,
   payload: _Column,
@@ -76,10 +74,6 @@ import { SqlClient, SqlSchema, type Statement } from "@effect/sql"
 import { CanonicalWriter, Digest, Fault, Identity } from "@rasm/core"
 import type { Capability } from "../lane/capability.ts"
 
-// `CanonicalWriter` carries the preimage, so shape identity here and contract identity at the capability rail read
-// one writer rather than two hand-rolled canonicalizations. Record keys SORT because enumeration order gives one
-// logical shape a different preimage per build; array positions HOLD because an `anyOf` roster's order is the
-// family's own declared order. Kind markers keep `["a"]` and `{"0":"a"}` apart.
 const _framed = (writer: CanonicalWriter, node: unknown): CanonicalWriter =>
   Array.isArray(node)
     ? writer.string("[").rows(node, (member, held) => {
@@ -92,7 +86,7 @@ const _framed = (writer: CanonicalWriter, node: unknown): CanonicalWriter =>
         _framed(held.string(key), value)
       },
     )
-    : writer.string(JSON.stringify(node)) // leaves are string, number, boolean, and null: one spelling each
+    : writer.string(JSON.stringify(node))
 
 const _of = <A, I>(shape: Schema.Schema<A, I>): Effect.Effect<Digest.Key<"content">> =>
   Digest.mint("content", _framed(new CanonicalWriter(), JSONSchema.make(shape)).close())
@@ -106,7 +100,7 @@ class GenerationSkew extends Schema.TaggedError<GenerationSkew>()("GenerationSke
   ordinal: _Ordinal,
 }) {
   get class(): Fault.Class.Kind {
-    return "invalid" // the store holds a shape this process cannot read: terminal evidence a deployment repairs
+    return "invalid"
   }
   override get message(): string {
     return `<journal:generation> ${this.app} compiled ${this.compiled} observed ${this.observed} at ${this.ordinal}`
@@ -164,10 +158,6 @@ const _head = (sql: SqlClient.SqlClient, app: Identity.App.Key) =>
           WHERE app = ${key} ORDER BY ordinal DESC LIMIT 1`,
   })(app)
 
-// One whole-log fence spells itself here and takes two modes. Appends and binders take it SHARED, so they never
-// serialize against each other; the cutover takes it exclusive and therefore waits out every in-flight commit before
-// its fold reads a row. Profiles carrying no advisory lock rest on their single writer, which is the same degrade
-// this folder's per-stream OCC lock already declares.
 const _fence = (sql: SqlClient.SqlClient, app: Identity.App.Key, mode: "shared" | "exclusive"): Statement.Fragment =>
   sql.onDialectOrElse({
     orElse: () => sql`SELECT 1`,
@@ -182,8 +172,6 @@ const _held = (app: Identity.App.Key, compiled: Generation.Key) => (row: typeof 
     ? Effect.succeed<Generation.Held>({ app, generation: compiled, ordinal: row.ordinal })
     : Effect.fail(new GenerationSkew({ app, compiled, observed: row.target, ordinal: row.ordinal }))
 
-// Origin seating is one idempotent insert rather than a read-then-write pair: ordinal zero is the origin's own
-// coordinate, so `DO NOTHING` makes a racing second binder a no-op and the head read below answers both of them.
 const _bind = <A, I>(app: Identity.App.Key, family: Schema.Schema<A, I>) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     sql.withTransaction(
@@ -196,23 +184,19 @@ const _bind = <A, I>(app: Identity.App.Key, family: Schema.Schema<A, I>) =>
           ordinal: 0,
           source: null,
           target: compiled,
-          entries: 0, // measured: a log at its origin holds no entry, so the count states emptiness rather than absence
+          entries: 0,
           digest: empty,
         }])} ON CONFLICT (app, ordinal) DO NOTHING`
         return yield* Effect.flatMap(_head(sql, app), _held(app, compiled))
       }),
     ))
 
-// One statement opens every append transaction: the shared fence and the head read together, so a writer bound before
-// a cutover refuses at its next commit instead of landing superseded bytes in a re-minted log.
 const _guard = (sql: SqlClient.SqlClient, held: Generation.Held) =>
   Effect.gen(function* () {
     yield* _fence(sql, held.app, "shared")
     return yield* Effect.flatMap(_head(sql, held.app), _held(held.app, held.generation))
   })
 
-// Cutover rows carry no conflict arm: a second seal at one ordinal is a cutover that lost its fence, and the primary
-// key refuses it instead of overwriting the receipt the lineage already answers with.
 const _seal = (sql: SqlClient.SqlClient, app: Identity.App.Key, custody: Generation.Custody) =>
   sql`INSERT INTO journal_custody ${sql.insert([{
     app,
@@ -234,7 +218,7 @@ const Generation = {
   ddl: [_custodyDdl],
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Generation, GenerationSkew, Payload }
 ```

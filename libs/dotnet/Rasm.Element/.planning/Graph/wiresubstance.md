@@ -16,7 +16,7 @@
 - Growth: a new column is one append-only corpus field and one transcription member; a new union case also updates the `CrossingFamily` arm count so the parity census rejects a half-landed pair.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Diagnostics;
 using Google.Protobuf;
@@ -34,14 +34,9 @@ using static Rasm.Element.Graph.SeamConverters;
 
 namespace Rasm.Element.Graph;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// One partial part of the ONE `[Mapper]` WireCodec family — the attribute, the parity census, the key codecs, and
-// the shared decode gates ride `Graph/wire#NODE_CODEC`; this part owns material composition and property transcriptions.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class WireCodec {
- // --- [CASE_TRANSCRIPTIONS] — Mapperly generates the flat-column width per case; every union-valued member rides
- // an explicit envelope fold below, every MESSAGE-shaped Option crossing rides a nullable-return [UserMapping]
- // carrier codec, every optional SCALAR/STRING column rides a hand IfSome presence write (the [PRESENCE_SHELLS]
- // law below), and [MapProperty] pins every seam→wire name seam so the generator never silently skips a member.
+ // --- [CASE_TRANSCRIPTIONS]
  internal static Fin<MaterialWire> ToWire(Node.Material node, Op key) =>
   toSeq(node.Properties).TraverseM(set => ToWire(set, key)).As().Map(properties => {
    MaterialWire wire = new() {
@@ -52,22 +47,10 @@ internal static partial class WireCodec {
    return wire;
   });
 
- // LeastDimension re-derives from the Depth/Width pair and IsDoublySymmetric from the shear-centre offsets and the
- // mono-symmetry factor — stored columns that DO cross — so neither derived member crosses; a wire field for either
- // double-stores one fact, the same law the property-set rosters below hold.
  [MapperIgnoreSource(nameof(SectionProperties.LeastDimension))]
  [MapperIgnoreSource(nameof(SectionProperties.IsDoublySymmetric))]
  internal static partial SectionPropertiesWire ToWire(SectionProperties section);
 
- // Every property-set case ignores its non-crossing source members BY NAME, never by suppression: the base Evidence
- // column rides the ENVELOPE (MaterialPropertySetWire.evidence, the Switch fold below), the base Discipline read
- // is the case-to-discipline map the far end re-reads off the decoded case, and every DERIVED member (the isotropic
- // ShearModulus, the Environmental carbon projections, the Optical absorptance remainders) re-derives from the stored
- // columns that DO cross — a wire field for any of them would double-store one fact. The explicit roster keeps
- // RequiredMappingStrategy.Both's source-side RMG020 proof live for every stored column; the Acoustic/Damping arms
- // carry hand [UserMapping] bodies below, so no roster applies to them, and the Fire/Environmental/Hygrothermal/
- // Electrical arms ride [PRESENCE_SHELLS] whose optional scalar/string columns are roster-named HAND-CROSSED
- // members, never non-crossing ones.
  [MapperIgnoreSource(nameof(MaterialPropertySet.Mechanical.Evidence))]
  [MapperIgnoreSource(nameof(MaterialPropertySet.Mechanical.Discipline))]
  [MapperIgnoreSource(nameof(MaterialPropertySet.Mechanical.ShearModulus))]
@@ -75,7 +58,6 @@ internal static partial class WireCodec {
 
  [MapperIgnoreSource(nameof(MaterialPropertySet.Orthotropic.Evidence))]
  [MapperIgnoreSource(nameof(MaterialPropertySet.Orthotropic.Discipline))]
- // E005 does not cross: the wire declares no fractile column, and the decode arm re-states the typed absence.
  [MapperIgnoreSource(nameof(MaterialPropertySet.Orthotropic.E005))]
  internal static partial OrthotropicWire ToWire(MaterialPropertySet.Orthotropic set);
 
@@ -106,8 +88,6 @@ internal static partial class WireCodec {
   return w;
  }
 
- // All three EN 13501-2 criteria are optional scalars, so the whole row is presence writes — the one nested message
- // the Fire shell reaches through a hand mapping rather than a generated one.
  [UserMapping] internal static FireResistanceWire ToWire(FireResistance resistance) {
   FireResistanceWire w = new(); resistance.LoadBearingMinutes.IfSome(m => w.LoadBearingMinutes = m); resistance.IntegrityMinutes.IfSome(m => w.IntegrityMinutes = m); resistance.InsulationMinutes.IfSome(m => w.InsulationMinutes = m); return w;
  }
@@ -141,8 +121,6 @@ internal static partial class WireCodec {
   ElectricalWire w = Shell(set); set.MagneticPermeabilityRelative.IfSome(v => w.MagneticPermeabilityRelative = v); return w;
  }
 
- // Every optional row column writes through explicit protobuf presence — an IfSome assignment, never a defaulted zero or
- // false that a decoder cannot distinguish from an author's real value.
  internal static MaterialCompositionWire ToWire(MaterialComposition composition) => composition.Switch<MaterialCompositionWire>(
   single: c => new() { Single = c.Material.Value },
   layerSet: c => { LayerSetWire w = new(); w.Layers.AddRange(c.Layers.Map(static l => ToWire(l))); return new() { LayerSet = w }; },
@@ -159,15 +137,9 @@ internal static partial class WireCodec {
   profile.Priority.IfSome(p => w.Priority = p); w.Offsets.AddRange(profile.Offsets.Map(static o => ToWire(o))); return w;
  }
 
- // ONE ProfileRef projection serves the row and the set-level composite — a second inline construction is the fork
- // that lets one leg drop the content key the Rehydrate gate re-checks.
  internal static ProfileRefWire ToWire(ProfileRef profile) =>
   new() { Standard = profile.Standard, Designation = profile.Designation, ContentKey = ToWire(profile.ContentKey) };
 
- // Evidence rides the envelope (the base-class column), each arm its generated flat mapping over the registered
- // Option carriers — the sampled-curve carrier included, so the reduction, λ(θ), and hygrothermal curve columns
- // generate; the Acoustic/Damping arms carry repeated spectra and a tuple flatten no carrier bridges, so their
- // bodies are owned here beside the fold.
  internal static Fin<MaterialPropertySetWire> ToWire(MaterialPropertySet set, Op key) => set.Switch<Fin<MaterialPropertySetWire>>(
   mechanical: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Mechanical = ToWire(x) }),
   orthotropic: x => Fin.Succ(new() { Evidence = ToWire(x.Evidence), Orthotropic = ToWire(x) }),
@@ -212,11 +184,6 @@ internal static partial class WireCodec {
    toSeq(w.PropertySets).TraverseM(p => ToPropertySet(p, key)).As().Map(sets =>
     (Node)new Node.Material(id, MaterialId.Of(w.MaterialKey), composition, sets)));
 
- // Every arm re-enters the seam Of* admission (the row-count, thickness, priority-range, offset-arity, and normalization
- // gates hold for hostile wire bytes exactly as for an in-process author), and each optional row column reads through the
- // generated Has* presence probe — a defaulted zero priority or false ventilation never forges an author's value. The
- // ProfileSet arm admits the rows FIRST and stamps the baked section afterwards through WithSection, so the private-ctor
- // case is never constructed directly and the head-row derivation stays total.
  static Fin<MaterialComposition> ToComposition(MaterialCompositionWire w, Op key) => w.CompositionCase switch {
   MaterialCompositionWire.CompositionOneofCase.Single => Fin.Succ(MaterialComposition.OfSingle(MaterialId.Of(w.Single))),
   MaterialCompositionWire.CompositionOneofCase.LayerSet =>
@@ -236,24 +203,15 @@ internal static partial class WireCodec {
   _ => new KernelFault.InvalidValue("element-wire.material-composition", "one composition arm is required", Some(key)),
  };
 
- // One compound-profile row: every offset re-crosses the MeasureValue finite gate beside the row's own ProfileRef admission.
  static Fin<MaterialProfile> ToProfile(MaterialProfileWire w, Op key) =>
   from row in Present(w.Profile, "profile.ref", key)
   from profile in ToProfileRef(row, key)
   from offsets in toSeq(w.Offsets).TraverseM(o => ToMeasure(o, key)).As()
   select new MaterialProfile(MaterialId.Of(w.MaterialKey), profile, Opt(w.HasPriority, w.Priority), w.Category, offsets);
 
- // ONE ProfileRef admission serves the row and the set-level composite: Rehydrate re-derives the content key off the
- // normalized (standard, designation) and rails when a persisted key disagrees, so no wire leg trusts a carried digest.
  static Fin<ProfileRef> ToProfileRef(ProfileRefWire w, Op key) =>
   ToKey(w.ContentKey, key).Bind(content => ProfileRef.Rehydrate(w.Standard, w.Designation, content, key));
 
- // ONE column table owns the section's measured run: each row pairs the wire slot's own name with its accessor, and
- // ROW POSITION is simultaneously the traversal order, the frozen SectionPropertiesWire field order, and the ctor
- // position — so a slot moves once and both directions follow. The slot name is load-bearing on the rail: a
- // non-finite column names ITSELF rather than reporting the quantity token nineteen columns share. The positional
- // rebuild survives because a C# constructor takes no splat; the table's own order is what pins it, and the arity is
- // proved by the table rather than restated.
  static readonly (string Slot, Func<SectionPropertiesWire, MeasureValueWire> Read)[] SectionColumns = [
   ("area", static w => w.Area), ("iyy", static w => w.Iyy), ("izz", static w => w.Izz), ("j", static w => w.J),
   ("iw", static w => w.Iw), ("wely", static w => w.Wely), ("welz", static w => w.Welz), ("wply", static w => w.Wply),
@@ -262,8 +220,6 @@ internal static partial class WireCodec {
   ("depth", static w => w.Depth), ("width", static w => w.Width), ("heated-perimeter", static w => w.HeatedPerimeter),
   ("axis-distance", static w => w.AxisDistance), ("shear-centre-y", static w => w.ShearCentreY), ("shear-centre-z", static w => w.ShearCentreZ)];
 
- // Nineteen measure columns re-cross the OfSi finite gate, which a Mapperly partial cannot thread, and they accumulate:
- // a datasheet with three bad columns names all three, matching the owning admission's own accumulating shape.
  static Fin<SectionProperties> ToSection(SectionPropertiesWire w, Op key) =>
   toSeq(SectionColumns)
    .Traverse(column => Present(column.Read(w), $"section.{column.Slot}", key)
@@ -365,10 +321,6 @@ internal static partial class WireCodec {
    : Fin.Fail<ImmutableArray<double>>(new KernelFault.InvalidValue(
     "element-wire.environmental.impacts", "carry the full unique impact-category by lifecycle-band tensor", Some(key))));
 
- // Every arm re-enters the canonical MaterialPropertySet.Of* admission rail — the decoder NEVER constructs a case
- // directly, so the physical bounds, finite gates, matrix arity, and cross-field refinements the owner declares hold
- // for hostile wire bytes exactly as for an in-process author; the raw-double columns pass through verbatim and the
- // measured columns re-cross as admitted MeasureValues (or their SI scalars where the owner mints the type itself).
  static Fin<MaterialPropertySet> ToPropertySet(MaterialPropertySetWire w, Op key) =>
   ToEvidence(w.Evidence, key)
    .Bind(evidence => {
@@ -380,8 +332,6 @@ internal static partial class WireCodec {
     MaterialPropertySetWire.PropertySetOneofCase.Orthotropic =>
      (ToMeasure(w.Orthotropic.Density, key), ToMeasure(w.Orthotropic.E1Parallel, key), ToMeasure(w.Orthotropic.E2Perpendicular, key), ToMeasure(w.Orthotropic.ShearModulus, key), ToMeasure(w.Orthotropic.Strength1Parallel, key), ToMeasure(w.Orthotropic.Strength2Perpendicular, key), OptCurve(w.Orthotropic.ModulusReduction, key), OptCurve(w.Orthotropic.StrengthReduction, key))
       .Apply(static (density, e1, e2, shear, f1, f2, modulusReduction, strengthReduction) => (density, e1, e2, shear, f1, f2, modulusReduction, strengthReduction)).As()
-      // The wire declares no fractile column, so the decode arm states the typed absence — the stability
-      // kernels downstream refuse on it rather than reading a reconstructed ratio.
       .Bind(t => MaterialPropertySet.OfOrthotropic(t.density, t.e1, None, t.e2, t.shear, t.f1, t.f2, w.Orthotropic.ThermalExpansionPerK, key, evidence, t.modulusReduction, t.strengthReduction)),
     MaterialPropertySetWire.PropertySetOneofCase.Thermal =>
      (ToMeasure(w.Thermal.Conductivity, key), ToMeasure(w.Thermal.SpecificHeat, key), OptCurve(w.Thermal.ConductivityCurve, key))
@@ -430,10 +380,6 @@ internal static partial class WireCodec {
       w.Durability.CarbonationRateMmPerSqrtYear, chloride.Si, w.Durability.AgeingExponent, key, evidence)),
     MaterialPropertySetWire.PropertySetOneofCase.Optical => MaterialPropertySet.OfOptical(
      w.Optical.VisibleTransmittance, w.Optical.VisibleReflectanceFront, w.Optical.VisibleReflectanceBack, w.Optical.SolarTransmittance, w.Optical.SolarReflectanceFront, w.Optical.SolarReflectanceBack, w.Optical.ThermalIrTransmittance, w.Optical.ThermalIrEmissivityFront, w.Optical.ThermalIrEmissivityBack, key, evidence),
-    // Both measured columns re-cross the decode measure gate, then pass their SI scalars into the owner's own
-    // admission — resistivity re-entering the registry ElectricResistivity mint at its OhmMeter base, the breakdown
-    // field the DielectricStrength OfSi mint (Ω·m and V/m ARE the SI bases, so both scalars cross verbatim — the
-    // Durability chloride-diffusion shape); the optional μr rides the generated presence probe, never a defaulted unity.
     MaterialPropertySetWire.PropertySetOneofCase.Electrical =>
      (ToMeasure(w.Electrical.Resistivity, key), OptMeasure(w.Electrical.DielectricStrength, key))
       .Apply(static (resistivity, dielectric) => (resistivity, dielectric)).As()

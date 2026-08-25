@@ -34,10 +34,6 @@ import { addListNodes } from "prosemirror-schema-list"
 const _planes = ["node", "mark"] as const
 const _steps = ["authored", "decoded"] as const
 
-// Four legs partition the plane and each reason renders its OWN subject, because the operator act differs per leg:
-// a roster refusal names the plane and the row it condemns, a generation skew states both joins side by side, and
-// an ingress, decode, or sequencer refusal names the payload's own cause. One free `detail` string spelled every
-// reason alike, so a duplicate kind and an unreachable authority read the same on a board.
 const _family = Fault.Class.family(
   ["roster-invalid", "generation-skew", "ingress-refused", "decode-refused", "sequencer-lost"] as const,
   {
@@ -93,9 +89,6 @@ class ContentFault extends Schema.TaggedError<ContentFault>()("ContentFault", {
   }
 }
 
-// `_roster` admits every row INDEPENDENTLY — a duplicate kind decides nothing about a sibling's content
-// expression — so it censuses every offending row in one refusal and an author repairs the whole registration in
-// one pass rather than one round trip per row. Every other reason is a single verdict and keeps the plain carrier.
 const ContentCensus = _family.census("ContentCensus")
 type ContentCensus = InstanceType<typeof ContentCensus>
 
@@ -104,12 +97,12 @@ declare namespace Content {
   type Steps = (typeof _steps)[number]
   type Render =
     | { readonly _tag: "Spec"; readonly toDOM: NonNullable<NodeSpec["toDOM"]> }
-    | { readonly _tag: "Live"; readonly view: string } // names the nodeViews key the host binds; the constructor itself is host material
+    | { readonly _tag: "Live"; readonly view: string }
   type Block =
     | {
         readonly _tag: "Node"
         readonly kind: string
-        readonly attrs: Schema.Schema.AnyNoContext // any struct schema a row supplies: the roster derives the AttributeSpec bag and the codec field from it, and a context-requiring schema cannot enter
+        readonly attrs: Schema.Schema.AnyNoContext
         readonly content: Option.Option<string>
         readonly group: Option.Option<string>
         readonly inline: boolean
@@ -129,7 +122,7 @@ declare namespace Content {
         readonly steps: Content.Steps
       }
   type Doc = { readonly kind: string; readonly attrs: Record.ReadonlyRecord<string, unknown>; readonly marks: ReadonlyArray<{ readonly kind: string; readonly attrs: Record.ReadonlyRecord<string, unknown> }>; readonly text: Option.Option<string>; readonly children: ReadonlyArray<Content.Doc> }
-  type Envelope = { readonly generation: string; readonly doc: Shape.Json } // the stored form: decode judges the generation, then re-admits each node against the live roster
+  type Envelope = { readonly generation: string; readonly doc: Shape.Json }
   type Compiled = {
     readonly schema: PmSchema
     readonly codec: Schema.Schema<Content.Doc, Shape.Json>
@@ -137,30 +130,25 @@ declare namespace Content {
     readonly serializer: DOMSerializer
     readonly generation: string
     readonly rows: Record.ReadonlyRecord<string, Content.Block>
-    readonly stored: (envelope: Content.Envelope) => Either.Either<PmNode, ContentFault> // quarantines unknown node kinds and folds unknown marks and attributes into residue
-    readonly wire: (raw: unknown) => Either.Either<PmNode, ContentFault> // refuses whole on any unknown kind: the live plane never quarantines
+    readonly stored: (envelope: Content.Envelope) => Either.Either<PmNode, ContentFault>
+    readonly wire: (raw: unknown) => Either.Either<PmNode, ContentFault>
   }
 }
 
-// this interior row is an inert atom leaf holding the foreign kind and its raw payload byte-preserved, so a
-// roster that later gains the kind re-admits the payload whole instead of losing it
 const _QUARANTINE = "quarantine"
 
-// presence's thread plane reads this durable text-anchor mark; PM's own StepMap carries it across every edit
 const _THREAD = "thread"
 
-// `_attrsIdentity` reads the row's own declared field names in declared order, so adding, dropping, or renaming
-// an attribute moves the join while an annotation or comment edit leaves it still
 declare const _attrsIdentity: (row: Content.Block) => string
 
 const _generation = (rows: ReadonlyArray<Content.Block>): string =>
-  Array.map(rows, (row) => `${row.kind}@${_attrsIdentity(row)}`).join(",") // declared data in declared order — never a schema hash
+  Array.map(rows, (row) => `${row.kind}@${_attrsIdentity(row)}`).join(",")
 
 declare const _roster: (
   rows: Array.NonEmptyReadonlyArray<Content.Block>,
 ) => Either.Either<Content.Compiled, ContentCensus>
 
-declare const _core: Array.NonEmptyReadonlyArray<Content.Block> // paragraph, heading, blockquote, codeBlock, rule, hardBreak + addListNodes fold + emphasis/strong/link/code/thread marks
+declare const _core: Array.NonEmptyReadonlyArray<Content.Block>
 ```
 
 ## [03]-[PROSE_PLANE]
@@ -180,9 +168,6 @@ import { cva } from "class-variance-authority"
 import { Record } from "effect"
 import { cn, Theme } from "../system/token.ts"
 
-// each register reads a palette variable the token authority already emits, so one emission serves every theme plane
-// and the plugin's own ramps never load-bear; kbd-shadows carries an RGB triple by the plugin's contract, so it reads
-// from the posture row's near-neutral surface rather than a toned slot
 const _REGISTERS = {
   body: "neutral-text",
   headings: "neutral-on",
@@ -258,19 +243,19 @@ import { EditorView, type NodeViewConstructor } from "prosemirror-view"
 import { Primitive } from "../system/primitive.ts"
 
 declare namespace Content {
-  type HistoryPolicy = { readonly depth: number; readonly newGroupDelay: number } // structural: prosemirror-history declares but never exports its options type
+  type HistoryPolicy = { readonly depth: number; readonly newGroupDelay: number }
   type Host = {
     readonly compiled: Content.Compiled
     readonly doc: PmNode
     readonly history: Content.HistoryPolicy
-    readonly cursor: string // the drop-cursor class on the token scale; color: false cedes appearance to it
-    readonly views: Record.ReadonlyRecord<string, NodeViewConstructor> // one entry per Live render row; the gate proves the key set matches
-    readonly fold: (state: EditorState) => void // the atom write: dispatchTransaction applies, folds, then updates the view
+    readonly cursor: string
+    readonly views: Record.ReadonlyRecord<string, NodeViewConstructor>
+    readonly fold: (state: EditorState) => void
   }
 }
 
 const _plugins = (compiled: Content.Compiled, policy: Content.HistoryPolicy, cursor: string): ReadonlyArray<Plugin> => [
-  keymap(_bindings(compiled)), // the document class's own verbs, list rows chained ahead
+  keymap(_bindings(compiled)),
   keymap(baseKeymap),
   history(policy),
   inputRules({ rules: _rules(compiled) }),
@@ -284,14 +269,13 @@ const _mount = (container: HTMLElement, host: Content.Host): Effect.Effect<Edito
       new EditorView({ mount: container }, {
         state: EditorState.create({ doc: host.doc, plugins: [..._plugins(host.compiled, host.history, host.cursor)] }),
         dispatchTransaction(tr: Transaction) {
-          // BOUNDARY ADAPTER: the view hands intent here and renders what the fold returns — one writer, in order
           const next = this.state.apply(tr)
           host.fold(next)
           this.updateState(next)
         },
         nodeViews: { ...host.views },
         transformPastedHTML: (html) => Primitive.sanitize(html),
-        attributes: { class: cn("prose max-w-none") }, // the content DOM is a prose container: one vocabulary for authoring and reading
+        attributes: { class: cn("prose max-w-none") },
       }),
     ),
     (view) => Effect.sync(() => view.destroy()),
@@ -326,7 +310,7 @@ declare namespace Sequencer {
   type Frame = {
     readonly version: number
     readonly steps: ReadonlyArray<Shape.Json>
-    readonly clients: ReadonlyArray<string> // index-aligned with steps: the client's own id marks a confirmation
+    readonly clients: ReadonlyArray<string>
   }
   type Batch = { readonly version: number; readonly steps: ReadonlyArray<Shape.Json>; readonly client: string }
 }
@@ -334,11 +318,10 @@ declare namespace Sequencer {
 class Sequencer extends Context.Tag("ui/Sequencer")<Sequencer, {
   readonly generation: Effect.Effect<string, ContentFault>
   readonly frames: (since: number) => Effect.Effect<Sequencer.Frame, ContentFault>
-  readonly append: (batch: Sequencer.Batch) => Effect.Effect<boolean, ContentFault> // false: the version went stale — pull, rebase, re-offer
+  readonly append: (batch: Sequencer.Batch) => Effect.Effect<boolean, ContentFault>
   readonly live: Stream.Stream<Sequencer.Frame, ContentFault>
 }>() {}
 
-// this stored draft envelope seats generation beside document, so a decode judges meaning before it admits a node
 const _Envelope = Schema.Struct({
   generation: Schema.NonEmptyString,
   doc: Shape.Json,
@@ -349,16 +332,11 @@ const _caret = (state: EditorState): { readonly anchor: number; readonly head: n
   head: state.selection.head,
 })
 
-// carets and durable pins alike ride this position-pair locator the anchor plane holds for this surface
 const _Pos = Schema.Struct({
   anchor: Schema.Int.pipe(Schema.nonNegative()),
   head: Schema.Int.pipe(Schema.nonNegative()),
 })
 
-// this exported anchor-space row spells structurally field-for-field against view/presence#ANCHOR_PLANE's
-// Anchor.Space<L, C>: resolve reads the live view's coordsAtPos, carry maps positions through each transaction's
-// own StepMap (a deleted range answers None and the anchor parks), and epoch is the dispatch fold's transaction
-// stream — the composition root hands this value to the registry, and no view sibling imports another
 const _anchors = (
   surface: string,
   view: EditorView,
@@ -375,7 +353,7 @@ const _anchors = (
   surface,
   locator: _Pos,
   resolve: (locator) => {
-    if (locator.head > view.state.doc.content.size) return Option.none() // past the live extent: parked, never a guess
+    if (locator.head > view.state.doc.content.size) return Option.none()
     const at = view.coordsAtPos(locator.head)
     return Option.some({ x: at.left, y: at.top, width: 0, height: at.bottom - at.top })
   },
@@ -429,13 +407,11 @@ const _commitHook: Hook.Row<"rasm.ui.content.commit"> = {
 
 const _QUARANTINED = Convention.mount(Convention.metric.contentQuarantine)
 
-// on the trip's quarantine leg one bounded kind word rides the metric tag while the full foreign kind stays on the
-// hook fact — _committed composes this per quarantined node
 const _quarantined = (kind: string): Effect.Effect<void> =>
   Effect.asVoid(Effect.withMetric(Effect.succeed(1), Metric.tagged(_QUARANTINED, Convention.rasm.contentKind, kind)))
 
 const _rendered = (compiled: Content.Compiled, doc: PmNode, document: Document): DocumentFragment =>
-  compiled.serializer.serializeFragment(doc.content, { document }) // explicit document: the projection renders identically off-browser
+  compiled.serializer.serializeFragment(doc.content, { document })
 
 declare const _field: (compiled: Content.Compiled) => Schema.Schema<Content.Doc, Shape.Json>
 declare const _committed: <A, E, R>(
@@ -492,7 +468,7 @@ const Content: Content.Shape = {
   hook: _commitHook,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Content, ContentCensus, ContentFault, Sequencer }
 ```

@@ -24,7 +24,7 @@ This page also seats the Modeling spine's shared vocabulary — `ModelClaim`, `M
 - Packages: kernel `Domain/rails` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `ValidityClaim`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Rasm.Rhino.Document` (`GeometryHandle`), LanguageExt.Core (`Validation`, `Seq`, `Traverse` — `libs/dotnet/.api/api-languageext.md`), Thinktecture.Runtime.Extensions (`[SmartEnum]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -37,7 +37,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FitPosture : ICapability<FitPosture> {
@@ -59,16 +59,11 @@ public sealed partial class PairPosture : ICapability<PairPosture> {
     internal bool Second { get; }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// Absence is a MISSING fact, never a zero: a host out-channel that answered nothing contributes no receipt row,
-// so a consumer's empty projection over the slot reads as "the host stayed silent" rather than "the host answered
-// none" — the two are different answers and a coalesced empty erases the difference.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ModelFact {
     internal static BuildReceipt<TSlot> Channel<TSlot>(TSlot slot, Option<BuildBody> value) where TSlot : notnull =>
         value.Map(body => BuildReceipt<TSlot>.Of(slot: slot, body: body)).IfNone(BuildReceipt<TSlot>.Empty);
 
-    // `IEnumerable<T>?` and not `T[]?`: the host publishes side channels as arrays, jagged arrays, and `List<T>`
-    // alike, and one arity covers all three without a call site converting first.
     internal static Option<Seq<T>> Answered<T>(IEnumerable<T>? channel) => Optional(channel).Map(static rows => toSeq(rows));
 }
 
@@ -86,9 +81,6 @@ internal static class ModelClaim {
             ValidityClaim.CountAtLeast(count: rows.Count, floor: allowEmpty ? 0 : 1),
             rows.ForAll(row => claim(arg: row)));
 
-    // One refusal per violated axis. The applicative accumulates, so a request breaching four constraints answers
-    // four keyed faults on one rail; the operation surfaces unaltered on the success arm, so the roster's `Admitted`
-    // stays a total projection rather than a predicate the caller re-reads the value through.
     internal static Fin<TOp> Admits<TOp>(TOp operation, Op key, params ReadOnlySpan<(string Axis, ValidityClaim Holds)> axes) =>
         toSeq(axes.ToArray())
             .Traverse(axis => axis.Holds
@@ -110,7 +102,7 @@ internal static class ModelClaim {
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `RibbonOffsetParameters` `[04]`, `RibbonOffsetSurfaceMethod` `[09]`, `Curve.RibbonOffset` `:214`, `Curve.OffsetOnSurface`/`OffsetNormalToSurface`/`OffsetTangentToSurface`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`), `Rasm.Rhino.Document` (`GeometryHandle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct CurveScalar {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
@@ -199,7 +191,7 @@ public sealed partial class RibbonRefit {
     internal partial double Resolve(Context domain);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct RibbonLaw : IValidityEvidence {
@@ -232,8 +224,6 @@ public readonly partial struct RibbonLaw : IValidityEvidence {
         location: Location, refit: Refit, planeVector: PlaneVector,
         rebuildPointCount: RebuildPointCount, surfaceMethod: SurfaceMethod);
 
-    // `AlignCrossSections` stays a named bool: it is one independent host knob with no sibling in the record, no
-    // host projection column, and no legal-corner law a row could carry.
     internal Fin<RibbonOffsetParameters> Rig(Context domain, Op key) =>
         key.Catch(() => Fin.Succ(value: new RibbonOffsetParameters {
             OffsetDistance = Distance.Value,
@@ -272,7 +262,7 @@ public readonly partial struct RibbonLaw : IValidityEvidence {
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — `NurbsCurveFitParameters` `[05]`, `Curve.CreateFilletCurves` `:170`, `Curve.JoinCurves` `:209`, `Curve.CreateTextOutlines` `:213`, `NurbsCurve.MakeCompatible` `:193`, `Curve.PullToBrepFace`/`PullToMesh` `:112-118`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`), `Modeling/lofting.md` (`CurveCompatibility`, `SweepEnds`), `Modeling/meshing.md` (`SmoothLaw`), `Modeling/solids.md` (`ArcDegree`, `ArcSlider`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveEdit : IValidityEvidence {
     private CurveEdit() { }
@@ -487,8 +477,6 @@ public abstract partial record CatenaryLaw : IValidityEvidence {
         fromApex: static law => ValidityClaim.Finite(value: law.Value));
 }
 
-// RhinoCommon reads `textStyle` additively — 0 Normal, 1 Bold, 2 Italic, "any number of the following" — so the
-// empty set IS Normal, the host bit is the row's rank, and `CapabilitySet.Mask` is the whole encoding.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TextFace : ICapability<TextFace> {
@@ -523,7 +511,7 @@ public sealed partial class FitGrant : ICapability<FitGrant> {
     public static readonly FitGrant Optimize = new(key: "optimize");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FitAxis {
     private FitAxis() { }
@@ -558,8 +546,6 @@ public abstract partial record PointCountLaw {
     public sealed record Fixed(int Count) : PointCountLaw;
     public sealed record Variable(int Count, int Ceiling) : PointCountLaw;
 
-    // Mode reads off the (count, range) PAIR at the host — automatic is `(0, [0,0])`, fixed pins the range shut,
-    // variable opens it upward — so the pair projects here once and no consumer re-derives which mode it named.
     internal (int PointCount, IndexPair Range) Native => Switch(
         automatic: static _ => (0, new IndexPair(0, 0)),
         @fixed: static law => (law.Count, new IndexPair(0, 0)),
@@ -682,7 +668,6 @@ public readonly partial struct RailFilletLaw : IValidityEvidence {
 
     public bool IsValid => Admits(rail: Rail, arc: Arc, bezierSurfaceCount: BezierSurfaceCount, split: Split);
 
-    // `numBezierSrfs` is documented "if > 0, …", so zero is the legal do-not-subdivide value, never a floor breach.
     private static ValidityClaim Admits(
         FilletRailDegree? rail, FilletArcDegree? arc, int bezierSurfaceCount, FilletSurfaceSplitType split) =>
         ValidityClaim.All(
@@ -709,7 +694,7 @@ public readonly partial struct RailFilletLaw : IValidityEvidence {
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the `Curve`/`NurbsCurve` construction, boolean, blend, fillet, tween, match, and outline rosters `:160-225`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `CurveBooleanRegions`, `CurveSimplifyOptions`, `IndexPair`), kernel `Domain/rails` (`Op`, `Fault`, `ValidityClaim`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), `Modeling/lofting.md` (`SweepEnds`, `CurveCompatibility`), `Modeling/meshing.md` (`SmoothLaw`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CurveSlot {
     public static readonly CurveSlot Offset = new(key: 0);
@@ -825,8 +810,6 @@ public abstract partial record CurveOp {
                 (nameof(row.PointCount), ValidityClaim.CountAtLeast(count: row.PointCount, floor: row.Degree + 1))),
             smooth: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Curve), ModelClaim.Handle(handle: row.Curve)), (nameof(row.Law), row.Law.IsValid)),
-            // `CurveSimplifyOptions` is a host flag mask, so every bit combination is legal material and only the
-            // optional end selector carries a roster to gate.
             simplify: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Curve), ModelClaim.Handle(handle: row.Curve)),
                 (nameof(row.EndOnly), ValidityClaim.WhenPresent(facet: row.EndOnly, claim: static side => Enum.IsDefined(side)))),
@@ -1084,8 +1067,6 @@ public abstract partial record CurveOp {
                             cutter: cutter, tolerance: ctx.Model.Absolute.Value, angleToleranceRadians: ctx.Model.Angle.Value))),
                     byPlane: static (ctx, law) => ModelGate.Many(ctx.Op, CurveSlot.SplitApart, () => ctx.Curve.Split(
                         plane: law.Value, tolerance: ctx.Model.Absolute.Value, angleToleranceRadians: ctx.Model.Angle.Value)))),
-            // One arm per destination: the fit posture is a COLUMN the host's own `loose`-bearing overload reads, so
-            // brep and mesh targets each reach one native instead of two arms differing by a literal.
             pull: static (model, edit) => Borrowed(edit.Curve, Pull.SelfOp, (curve, op) =>
                 edit.Target.Switch(
                     state: (Curve: curve, Model: model, Op: op),
@@ -1171,8 +1152,6 @@ public abstract partial record CurveOp {
                                                 int planarCurve = live.SegmentDetails(region, boundary, segment, out Interval domain, out bool reversed);
                                                 return (Region: region, Boundary: boundary, Segment: segment, PlanarCurve: planarCurve, Domain: domain, Reversed: reversed);
                                             })));
-                                // Products concatenate the regions in order, so each region's slice is the running
-                                // offset and its own count — one pass, never a per-region re-count of the prefix.
                                 Seq<Seq<int>> groups = regions.Fold(
                                     state: (Offset: 0, Groups: Seq<Seq<int>>()),
                                     folder: static (state, region) => (
@@ -1425,8 +1404,6 @@ public abstract partial record CurveOp {
     private static Fin<Built<CurveSlot>> Borrowed(GeometryHandle handle, Op op, Func<Curve, Op, Fin<Built<CurveSlot>>> body) =>
         ModelGate.Borrow<Curve, Built<CurveSlot>>(handle: handle, key: op, body: curve => body(curve, op));
 
-    // `CurveBooleanRegions` publishes counts, not sequences, so its three nested rosters generate from the count
-    // alone; an empty count yields an empty spread and no arm carries a bounds branch of its own.
     private static Seq<int> Counter(int count) => toSeq(Enumerable.Range(start: 0, count: count));
 
     private delegate Curve CatenaryNative<in TShape>(
@@ -1442,7 +1419,7 @@ public abstract partial record CurveOp {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostCurves {
     public static Fin<Built<CurveSlot>> Build(ModelRuntime runtime, params ReadOnlySpan<CurveOp> operations) =>
         ModelGate.Entry(

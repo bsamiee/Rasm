@@ -23,7 +23,7 @@ Mesh accumulation is the kernel's: every arm appends into one `Rasm/Meshing/mesh
 - Boundary: `BimIo` is the page boundary capsule — leaked package types (`Ply.Net.*`, `Assimp.*`, `pxr.*`, the `SWIGTYPE_p_*`/`*PINVOKE` USD interop, `Speckle.*`, `dotbim.*`) never cross past `Exchange/import`. Decoded attributes land on the unit-valued domain their seam channel stores: a PLY colour column divides by the full scale its DECLARED width names, never by a scale inferred from the values, because a dark scan and a float writer's output are indistinguishable by inspection and guessing there blackens every such delivery. `.bim` byte admission reads through a source-generated `JsonSerializerContext` declaring `dotbim.File` as an EXTERNAL serializable root, so no reflection-mode `Deserialize<T>` survives a trimmed or AOT publish. Foreign type vocabularies are OPEN, so a type this rail does not evaluate reports ONCE per type name on the degrade channel — a DWG of a hundred thousand 2D lines and a USD stage of curves each state their skipped families exactly once, where a per-entity fact drowns the channel and the retired silent tail hid the drop entirely. `Mesh` AND `PointInstancer` prims both admit on the USD arm, because USD expresses repetition natively and a Mesh-only filter imports a point-instanced site delivery EMPTY; the instancer's own `ComputeInstanceTransformsAtTime` composes each instance matrix and the fan groups BY PROTOTYPE, so each prototype's blocks place at the instances that wear it rather than at every instance the node carries. USD carries a multi-material mesh as material-bound `UsdGeomSubset` children over face ordinals, so the decode partitions on the AUTHORED subsets: one block per subset stamping the seam `MeshBlock.Material` key off that subset's own direct binding, with one further block over the remainder `GetUnassignedIndices` names, and each partition compacts to the points its own faces reference. Stage population is decided AT the open through `UsdScope` and `UsdStage.OpenMasked` — a post-open traversal filter is the deleted form, because it pays the whole layer stack's composition and prim indexing before discarding it, which is the entire cost a scoped read of a federated site delivery exists to avoid. IFC decodes ONLY the live `DatabaseIfc`; the lossy `IfcSemanticModel` flat-row re-projection is the deleted form, and GeometryGym carries no tessellation kernel so an IFC geometry request routes to `tessellation#TESSELLATION_BRIDGE`. STEP splits two legs: the managed semantic-graph leg in-process through the BCL-only `StepReader`, the B-rep geometry leg companion-routed — no managed Part-21 reader admits, and GeometryGym is IFC-schema-bound so it grounds no STEP semantic leg. SAF admits on the IFC entrypoint because its carrier IS the live `DatabaseIfc`: the XLSX bytes decode through the ONE `Exchange/saf#SAF_EXCHANGE` `SafCodec.Run` import leg and the validated `ExcelModel` AUTHORS GeometryGym structural entities onto a fresh SI-declared database the `SemanticProjector` then ingests — a SAF-side projector minting seam member nodes is the deleted standalone form — the authoring residue firing the `saf-residue` degrade row once per uncarried payload so no drop is silent.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -36,7 +36,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using ACadSharp.IO;                            // ICadReader/DxfReader/DwgReader + the ProgressEventArgs/ReadStage pair
+using ACadSharp.IO;
 using Assimp;
 using CommunityToolkit.HighPerformance;
 using GeometryGym.Ifc;
@@ -49,30 +49,25 @@ using Riok.Mapperly.Abstractions;
 using Speckle.Sdk.Models;
 using Rasm;
 using Rasm.Drawing;
-using Rasm.Meshing;                            // MeshDraft/MeshBlockRange/SceneWalk — the kernel accumulator and its one scene fold
+using Rasm.Meshing;
 using Rasm.Bim.Model;
-using Rasm.Bim.Projection;                     // IfcWireForm the Sniff schema owner, and Fidelity the SAF residue carrier
+using Rasm.Bim.Projection;
 using Rasm.Domain;
 using Rasm.Element.Projection;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Cad = ACadSharp.Entities;                // the DWG/DXF entity family QUALIFIES: its Mesh collides with Assimp.Mesh
-using SAF.DataAccess.Contracts;                // IExcelImportService/IExcelExportService/IExcelValidator — the SAF service triple
+using Cad = ACadSharp.Entities;
+using SAF.DataAccess.Contracts;
 using SharpGLTF.Schema2;
-using Matrix4x4 = System.Numerics.Matrix4x4;   // the seam MeshInstance layout type — disambiguated from Assimp.Matrix4x4
-using Transform = Rhino.Geometry.Transform;    // the kernel accumulator's placement currency
-using Vector3 = System.Numerics.Vector3;       // the numerics coordinate this boundary fold speaks
+using Matrix4x4 = System.Numerics.Matrix4x4;
+using Transform = Rhino.Geometry.Transform;
+using Vector3 = System.Numerics.Vector3;
 using BimRail = Rasm.Domain.HookRail<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
-using GGRelease = GeometryGym.Ifc.ReleaseVersion;   // the IFC-text schema token the DatabaseIfc ctor takes
+using GGRelease = GeometryGym.Ifc.ReleaseVersion;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// WHICH prim subtrees a USD stage populates, on the tessellation#TESSELLATION_BRIDGE TessellationScope precedent:
-// the case IS the modality. An unscoped stage composes and prim-indexes the WHOLE layer stack, so a site delivery
-// whose consumer wants one storey pays for every building first — the mask moves that cost to the open. The admitted
-// value carries plain strings because an SdfPath is a native SWIG handle whose lifetime belongs inside the decode's
-// own `using` window, never on a carrier a caller holds.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UsdScope {
     private UsdScope() { }
@@ -82,10 +77,6 @@ public abstract partial record UsdScope {
 
     public static readonly UsdScope Whole = new WholeStage();
 
-    // Empty runs ARE the whole stage: a mask over nothing populates nothing, which reaches a caller as a silently
-    // empty import rather than as a refusal. Every other run gates each path absolute-and-prim through the package's
-    // own grammar, so a property path, a relative path, or a malformed string refuses at admission. Paths admit
-    // APPLICATIVELY: a scoped read of a federated site names EVERY malformed path, never the first alone.
     public static Fin<UsdScope> Of(Seq<string> paths, Op key) =>
         paths.IsEmpty
             ? Fin.Succ(Whole)
@@ -96,7 +87,6 @@ public abstract partial record UsdScope {
                 .Map(static admitted => (UsdScope)new Populated(admitted.Distinct()))
                 .ToFin();
 
-    // Native path handle — lifetime is a `using` statement, the named boundary exemption.
     static bool Populates(string candidate) {
         if (!SdfPath.IsValidPathString(candidate, out string _)) { return false; }
         using var path = new SdfPath(candidate);
@@ -104,10 +94,6 @@ public abstract partial record UsdScope {
     }
 }
 
-// The USD walk's own node vocabulary: a mesh prim carrying its composed world, or ONE prototype of a point instancer
-// carrying every world the instances wearing that prototype named. Grouping the scatter BY PROTOTYPE is what makes
-// the shared fold's block-by-placement product correct — an instancer node carrying every prototype and every
-// instance would place each prototype at every instance's spot.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UsdNode {
     private UsdNode() { }
@@ -116,7 +102,7 @@ public abstract partial record UsdNode {
     public sealed record Scattered(UsdPrim Prototype, Seq<Transform> Worlds) : UsdNode;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record StepSemanticModel(
     StepProtocol Protocol,
     string SchemaName,
@@ -134,18 +120,11 @@ public sealed record StepSemanticModel(
     public sealed record PmiRow(long Id, string EntityType, string Name, string Description);
 }
 
-// The SAF codec's dependency surface, wired ONCE by the composition: the package resolves its service impls behind
-// SAF.Infrastructure's own bootstrapper, Target is the caller-selected SAF schema version, Schema the IFC release the
-// import authoring targets. ONE carrier serves BOTH directions, so the two legs can never disagree on codec,
-// version, or validator.
 public sealed record SafServices(
     IExcelImportService Imports, IExcelExportService Exports, IExcelValidator Validator,
     Version Target, GGRelease Schema);
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// The draft's block extent and the seam's pool range are the SAME fact under two names and two widths: Close already
-// refused a count past the encode seam's int width, so the narrow here is total by that refusal rather than by a
-// per-column guard.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public static partial class PoolMap {
     [MapProperty(nameof(MeshBlockRange.VertexOffset), nameof(MeshBlock.VertexOffset), Use = nameof(Narrow))]
@@ -157,11 +136,8 @@ public static partial class PoolMap {
     [UserMapping] private static int Narrow(long extent) => (int)extent;
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static partial class BimIo {
-    // ONE declared decode-stage ladder every managed arm beats against, so the rasm.bim.exchange.progress observe
-    // point carries a MEASURED position from every long decode rather than from the one lane whose package publishes
-    // its own phases. A per-arm fraction table is the form that let five arms discard the hook carrier silently.
     [SmartEnum]
     public sealed partial class DecodeStage {
         public static readonly DecodeStage Opened = new(done: 0.00, witness: "opened", read: ReadStage.Read);
@@ -172,14 +148,10 @@ public static partial class BimIo {
         public double Done { get; }
         public string Witness { get; }
 
-        // Read names the ACadSharp phase this row COMPLETES, null where no foreign phase maps onto it; a foreign
-        // phase no row claims publishes NOTHING, because a StageMark carries a measured position by construction and
-        // a zero standing in for an unmeasured phase is the deleted form.
         public ReadStage? Read { get; }
 
         public StageMark Mark => new(Done, Witness);
 
-        // Beat is a no-op on a rail-less composition, so an arm threads the carrier with no per-arm hook branch.
         public Unit Beat(Option<BimRail> rail, Op key) =>
             rail.IfSome(live => ignore(live.Fire(BimPoint.ExchangeProgress, new BimFact.Progress(key, ProgressLane.Exchange, Mark), key)));
 
@@ -188,29 +160,19 @@ public static partial class BimIo {
                 .ToFrozenDictionary(static row => row.Read!.Value, static row => row);
     }
 
-    // Decode-degrade vocabulary: a payload an arm READ and deliberately did not decode. A degrade is neither a fault
-    // (the import succeeds) nor progress (it carries no position), so it fires the rasm.bim.exchange.degrade observe
-    // point on the SAME hook carrier every arm threads. A silent drop is the deleted form: a DWG whose whole content
-    // is ACIS solids imports EMPTY, and without a row the receipt reads identical to a file that carried no geometry.
     [SmartEnum<string>]
     [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
     [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
     public sealed partial class DecodeReason {
         public static readonly DecodeReason SolidUnevaluated = new("solid-unevaluated");
-        // One row per SAF payload the workbook authoring could not carry — sealed subsoil/deformation payloads,
-        // IFC-counterpartless rigid relations, linearized constraints.
         public static readonly DecodeReason SafResidue = new("saf-residue");
-        // One row for every foreign TYPE a decode arm read and does not evaluate, the type name its first subject.
         public static readonly DecodeReason TypeUnevaluated = new("type-unevaluated");
-        // D171: the ACAD mesh fold carries GEOMETRY alone — layer name, ACI colour, and pen weight shed BOUNDED,
-        // counted once per distinct source layer, the verbatim layer name the subject.
         public static readonly DecodeReason PresentationDropped = new("presentation-dropped");
 
         public Unit Degrade(Option<BimRail> rail, Op key, string subject) =>
             rail.IfSome(live => ignore(live.Fire(BimPoint.ExchangeDegrade, new BimFact.Degraded(key, "exchange", Key, subject), key)));
     }
 
-    // Foreign vocabularies are OPEN, so an unevaluated type reports once per NAME rather than once per entity.
     sealed class Unseen {
         readonly HashSet<string> seen = new(StringComparer.Ordinal);
 
@@ -218,12 +180,6 @@ public static partial class BimIo {
             seen.Add(type) ? DecodeReason.TypeUnevaluated.Degrade(rail, key, type) : unit;
     }
 
-    // Capability is the ONE format#FORMAT_AXIS gate — InterchangeFormat.Admitted reads the catalogue-pending state,
-    // the companion binding, and the direction column off the row. Past the gate the TOTAL generated InterchangeCodec
-    // Switch dispatches every codec with NO silent fallthrough, so a new row breaks this call site at compile time
-    // and a non-mesh codec is forced to declare its route, never misrouting to a stale needs-companion fault.
-    // EVERY managed arm takes the hook carrier and the Op key: an arm that accepted the parameter and dropped it
-    // reported a decode as instantaneous, which reads to a caller exactly like a decode that never ran.
     public static Fin<ImportedGeometry> ImportGeometry(
         InterchangeFormat format, ReadOnlyMemory<byte> bytes, IClock clock, Op key,
         Option<BimRail> rail = default, Option<UsdScope> scope = default) =>
@@ -232,7 +188,7 @@ public static partial class BimIo {
             meshText:         () => MeshTextGeometry(format, bytes, clock.GetCurrentInstant(), rail, key),
             ply:              () => Boundary(key, () => Ply(format, bytes, clock.GetCurrentInstant(), rail, key)).Bind(g => Framed(format, g, key)),
             sceneExchange:    () => Boundary(key, () => Scene(format, bytes, clock.GetCurrentInstant(), rail, key)).Bind(g => Framed(format, g, key)),
-            usdStage:         () => Boundary(key, () => Usd(format, bytes, clock.GetCurrentInstant(), rail, scope, key)),   // the arm owns frame selection — upAxis is PER-STAGE metadata
+            usdStage:         () => Boundary(key, () => Usd(format, bytes, clock.GetCurrentInstant(), rail, scope, key)),
             acadSharp:        () => Boundary(key, () => AcadReader.Read(format, bytes, clock.GetCurrentInstant(), rail, key)).Bind(g => Framed(format, g, key)),
             dotBim:           () => Boundary(key, () => DotBim(format, bytes, clock.GetCurrentInstant(), rail, key)).Bind(g => Framed(format, g, key)),
             geometryGym:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-ifc-route", "use-ImportIfc", format.Key }))),
@@ -242,26 +198,17 @@ public static partial class BimIo {
             pointCloud:       () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-point-cloud-route", format.Key }))),
             nativeCompanion:  () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Capability, string.Join(':', new object?[] { "import-needs-companion", format.Key }))),
             igesAnsi:         () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Capability, string.Join(':', new object?[] { "import-needs-companion", format.Key }))),
-            saf:              () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-ifc-route", "use-ImportIfc", format.Key }))),   // the SAF carrier IS a live DatabaseIfc
+            saf:              () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-ifc-route", "use-ImportIfc", format.Key }))),
             cobieXlsx:        () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Format, BimReason.Codec, string.Join(':', new object?[] { "direction-unsupported", InterchangeCapability.Import.Key, format.Key }))),
             energyModel:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-energy-route", "EnergyExchange.Apply", format.Key }))),
             ifc5Pending:      () => Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "import-catalogue-pending", format.Key })))));
 
-    // Speckle display-mesh arm of the SAME fold — a non-byte source with the same concern, so it is one more
-    // entrypoint on this capsule rather than a sibling class. The Base arrives already deserialized, so this seam
-    // mints no transport and no IOperations reference; the host-object semantic projection is
-    // Projection/foreign#FOREIGN_PROJECTION's.
     public static Fin<ImportedGeometry> ImportSpeckle(Base root, IClock clock, Op key, Option<BimRail> rail = default) =>
         Boundary(key, () => DisplayScene(root, clock.GetCurrentInstant(), rail, key))
             .Bind(scene => scene.TriangleCount > 0
                 ? Fin.Succ(scene)
                 : Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Rejected, string.Join(':', new object?[] { "speckle-no-display", root.speckle_type }))));
 
-    // IFC byte->graph decode: the ONE bytes->DatabaseIfc admission in the package. The InterchangeCodec.Saf arm
-    // shares THIS entrypoint because the SAF import's carrier IS a live DatabaseIfc, so the SAF wire re-enters
-    // through the exact fold the IFC wire takes and no sibling entrypoint grows per format. The service triple rides
-    // the optional SafServices carrier — a saf-row call without it refuses typed rather than defaulting a codec
-    // nothing wired.
     public static Fin<DatabaseIfc> ImportIfc(
         InterchangeFormat format, ReadOnlyMemory<byte> bytes, Op key,
         Option<SafServices> saf = default, Option<BimRail> rail = default) =>
@@ -283,15 +230,9 @@ public static partial class BimIo {
                 : Fin.Fail<StepSemanticModel>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "step-codec-miss", row.Key }))));
 
     // --- [OPERATIONS]
-    // One Op.Catch boundary admits the foreign decode: thrown failures retain their captured Error, and a typed
-    // refusal returned by an arm passes through without re-minting.
     static Fin<T> Boundary<T>(Op key, Func<Fin<T>> decode) =>
         key.Catch(decode);
 
-    // The ONE arena close: the draft publishes its packed lanes, its rebased corner roster, and its block overlay,
-    // and the seam carrier admits the pool through its own railed door — so an instance naming a block that does not
-    // exist refuses at admission rather than indexing past the roster inside a later flatten. Minting IS every arm's
-    // terminal phase, so the Assembled row beats HERE, one owner rather than a closing line copied per arm.
     static Fin<ImportedGeometry> Sealed(MeshDraft draft, InterchangeFormat format, Instant at, Option<BimRail> rail, Op key) =>
         draft.Close(key)
             .Bind(closed => ImportedGeometry.Of(
@@ -306,22 +247,14 @@ public static partial class BimIo {
                 key:           key))
             .Map(geometry => { DecodeStage.Assembled.Beat(rail, key); return geometry; });
 
-    // Identity-placed append — the shape every WORLD-SPACE source takes, since such a source carries no placement of
-    // its own. Place answers on the same rail as Append, so a stale ordinal refuses instead of vanishing.
     static Fin<int> Baked(
         MeshDraft draft, long count, Seq<(EncodingChannel Channel, float[] Values)> lanes,
         ReadOnlySpan<long> corners, Op key, Option<string> material = default) =>
         draft.Append(count, lanes, corners, key, material).Bind(block => draft.Place(block, Transform.Identity).Map(_ => block));
 
-    // THE one fan generator: an n-gon's corner SLOTS as (0, k, k+1) triples, so every arm maps its own index
-    // accessor over one walk and no two arms can disagree about triangle order for one source polygon.
     static Seq<(int A, int B, int C)> Fan(int arity) =>
         toSeq(Enumerable.Range(1, Math.Max(0, arity - 2))).Map(static k => (A: 0, B: k, C: k + 1));
 
-    // The placement-convention correspondence, declared once in each direction. The kernel accumulator speaks the
-    // COLUMN-vector Transform and the seam MeshInstance the ROW-vector Matrix4x4, so every provider matrix narrows
-    // here and nowhere else. Assimp is already column-vector, so its arm copies straight through — the transpose the
-    // retired numerics narrow performed existed only to reach the row-vector convention.
     static Transform Placed(Matrix4x4 m) {
         Transform t = Transform.Identity;
         (t.M00, t.M01, t.M02, t.M03) = (m.M11, m.M21, m.M31, m.M41);
@@ -340,7 +273,6 @@ public static partial class BimIo {
         return t;
     }
 
-    // GfMatrix4d is row-major over ROW vectors, so this arm transposes where the Assimp arm does not.
     static Transform Placed(GfMatrix4d m) {
         var (a, b, c, d) = (m.GetRow(0), m.GetRow(1), m.GetRow(2), m.GetRow(3));
         Transform t = Transform.Identity;
@@ -361,10 +293,6 @@ public static partial class BimIo {
         new(instance.Block, Numeric(instance.Placement));
 
     // --- [ORDINAL_COMPACTION]
-    // A live-id ordinal table over a SPARSE foreign id space, on a boundary decode path: the named kernel exemption,
-    // stated once here rather than defended at each site. Slot is idempotent, so a caller may pre-populate every live
-    // id and then walk its faces, or mint lazily during the corner walk; the reverse view makes the gather order
-    // STRUCTURAL where the retired per-site dictionary iteration relied on insertion order holding.
     ref struct OrdinalCompactor {
         readonly Dictionary<int, int> slots;
         readonly List<int> sources;
@@ -386,9 +314,6 @@ public static partial class BimIo {
     }
 
     // --- [MESH_TEXT]
-    // OBJ/STL/OFF only. ONE StandardMeshReader is configured once and answers BOTH the support probe and the read:
-    // the second instance the probe used carried no MeshBuilder, so the format set it admitted was never the set that
-    // read.
     static Fin<ImportedGeometry> MeshTextGeometry(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail, Op key) {
         string extension = format.Extensions.Head.Map(static ext => ext.TrimStart('.')).IfNone("");
         var builder = new DMesh3Builder();
@@ -398,8 +323,6 @@ public static partial class BimIo {
             : Fin.Fail<ImportedGeometry>(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "mesh-text-unsupported", format.Key, extension })));
     }
 
-    // EVERY DMesh3 the reader yields lands one pool block — an OBJ with N groups builds N meshes, and a
-    // first-mesh-only read was the deleted coverage defect.
     static Fin<ImportedGeometry> MeshText(
         StandardMeshReader reader, DMesh3Builder builder, InterchangeFormat format, string extension,
         ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail, Op key) {
@@ -437,18 +360,11 @@ public static partial class BimIo {
         return Baked(draft, compact.Count, Lanes(positions, normals), corners, key);
     }
 
-    // Position always, Normal only where the source AUTHORED one: an absent lane is a missing descriptor the block's
-    // Declared set records, never a fabricated up-normal a consumer cannot distinguish from a measured one.
     static Seq<(EncodingChannel Channel, float[] Values)> Lanes(float[] positions, float[] normals) =>
         Seq((EncodingChannel.Position, positions))
         + (normals.Length > 0 ? Seq((EncodingChannel.Normal, normals)) : Seq<(EncodingChannel, float[])>());
 
     // --- [SAF]
-    // SAF structural-workbook admission — the InterchangeCodec.Saf-keyed arm of the DatabaseIfc-carrier entrypoint.
-    // The validated ExcelModel AUTHORS GeometryGym structural entities onto a FRESH database (site host, project
-    // context, Metre-declared units matching the SI magnitudes the authoring writes), so the SAF wire re-enters the
-    // ONE SemanticProjector off the returned database. Residue rows the authoring could not carry arrive on the
-    // codec's own FidelityLog and fire one degrade fact each.
     static Fin<DatabaseIfc> SafDatabase(ReadOnlyMemory<byte> bytes, SafServices services, Option<BimRail> rail, Op key) =>
         SafCodec.Run(
                 new SafOp.Import(new MemoryStream(bytes.ToArray()), services.Target),
@@ -466,10 +382,6 @@ public static partial class BimIo {
                 }));
 
     // --- [IFC]
-    // Serialization dispatch is the ROW ITSELF: the format#FORMAT_AXIS Serialization column carries the
-    // Projection/wireform#IFC_WIRE_FORM IfcWireForm, and that row owns BOTH directions as delegates — Seal writes its
-    // container, Admit reads it — so this body hands the bytes and the sniffed schema to the row and holds no
-    // serialization ladder at all.
     static Fin<DatabaseIfc> Database(InterchangeFormat format, ReadOnlyMemory<byte> bytes, GGRelease schema, Op key) =>
         format.Serialization
             .ToFin(new BimFault.Refused(key, BimScope.Import, BimReason.Codec, string.Join(':', new object?[] { "ifc-codec-miss", format.Key, "serialization-absent" })))
@@ -499,10 +411,6 @@ public static partial class BimIo {
         return context;
     }
 
-    // One block per LOGICAL mesh (the per-primitive corner-expanded triple, mesh-LOCAL space), placed by the shared
-    // scene fold. glTF publishes a WORLD matrix per node, so the fold's parent-frame threading is vacuous here and
-    // each node's placements are its own — the frame law's declared vacuous arm. The scene container is the ABSENT
-    // node: it carries no mesh and no placement, which is exactly what an Option-shaped root says.
     static Fin<ImportedGeometry> Decoded(InterchangeFormat format, ModelRoot model, Instant at, Option<BimRail> rail, Op key) {
         var meshes = model.LogicalMeshes.Decode();
         using var draft = MeshDraft.Of();
@@ -526,10 +434,6 @@ public static partial class BimIo {
             None: static () => Seq<Transform>()),
         Blocks: (node, _) => Fin.Succ(node.Bind(static n => Optional(n.Mesh)).Map(mesh => blocks[mesh.LogicalIndex]).ToSeq()));
 
-    // TEXCOORD_0 availability probes the SCHEMA accessor (a null accessor is unmapped), so an unmapped mesh declares
-    // no Uv lane and a zero-filled decoder read never fabricates a mapping. The DECLARED SET rather than a flag is
-    // what keeps the next lane free: the caller reads the schema, the callee reads the decoder, and the two disagree
-    // by construction — which is why the probe cannot be re-derived inside the block fill.
     static Seq<EncodingChannel> Declared(SharpGLTF.Schema2.Mesh mesh) =>
         mesh.Primitives.Any(static prim => prim.GetVertexAccessor("TEXCOORD_0") is not null)
             ? Seq(EncodingChannel.Uv)
@@ -544,8 +448,6 @@ public static partial class BimIo {
         var uvs = mapped ? new float[vertexCount * 2] : [];
         var corners = new long[vertexCount];
         int slot = 0;
-        // Corner triple hoisted OUT of the triangle walk: a per-iteration stackalloc grows the frame by the
-        // triangle count, which a large logical mesh overflows before it ever reaches the append.
         Span<int> fan = stackalloc int[3];
         foreach (var (prim, (a, b, c)) in triangles) {
             (fan[0], fan[1], fan[2]) = (a, b, c);
@@ -568,11 +470,6 @@ public static partial class BimIo {
             corners, key);
     }
 
-    // Canonicalize the POOL onto the kernel frame: positions AND normals each ride their own strided call (the one
-    // orthogonal signed permutation carries both — the position-only form left normals in the source frame, the
-    // deleted defect), and every instance transform conjugates by the basis (row-vector convention: M' = Bᵀ·M·B) so a
-    // placed block lands where its baked copy would have. Dispatching on the DESCRIPTOR is what keeps a new
-    // EncodingChannel row free here; the per-column rewrite the parallel-buffer form used grew a branch per lane.
     static Fin<ImportedGeometry> Framed(InterchangeFormat format, ImportedGeometry geometry, Op key) {
         if (format.IsCanonicalFrame) {
             return Fin.Succ(geometry);
@@ -593,7 +490,6 @@ public static partial class BimIo {
         });
     }
 
-    // Row's BasisChange as the row-vector numerics matrix: each ROW is the canonical image of a source axis.
     static Matrix4x4 Basis(InterchangeFormat format) {
         var (xx, xy, xz) = format.Frame.Apply(1f, 0f, 0f);
         var (yx, yy, yz) = format.Frame.Apply(0f, 1f, 0f);
@@ -603,8 +499,6 @@ public static partial class BimIo {
 
     // --- [GLB_COMPRESSION]
     static class Compression {
-        // Two CLOSED spec vocabularies as rows carrying their own decoder, so the retired mode switch, filter
-        // function-pointer table, and their two literal defaults collapse into the roster the spec already is.
         public unsafe delegate int MeshoptDecode(byte* destination, nuint count, nuint stride, byte* source, nuint length);
         public unsafe delegate void MeshoptUnfilter(void* buffer, nuint count, nuint stride);
 
@@ -615,13 +509,10 @@ public static partial class BimIo {
             public static readonly MeshoptMode Triangles = new("TRIANGLES", Meshopt.DecodeIndexBuffer);
             public static readonly MeshoptMode Indices = new("INDICES", Meshopt.DecodeIndexBuffer);
 
-            // The spec's own default when a view declares no mode — a row, so the default is data.
             public static readonly MeshoptMode Default = Attributes;
 
             public partial int Decode(byte* destination, nuint count, nuint stride, byte* source, nuint length);
 
-            // Route mirrors the generated roster's own inverse: a token the spec does not declare answers ABSENT, so
-            // the caller chooses between the spec default and a typed refusal instead of catching a lookup throw.
             public static Option<MeshoptMode> Route(string token) => TryGet(token, out var row) ? Some(row) : None;
         }
 
@@ -647,10 +538,6 @@ public static partial class BimIo {
             && json.Length > 0
             && (json.Contains(draco, StringComparison.Ordinal) || json.Contains(meshopt, StringComparison.Ordinal));
 
-        // SharpGLTF.Core drops unrecognized extension JSON (Draco/meshopt have no in-box JsonSerializable extension
-        // class), so the extension parameters are read from the raw glTF/GLB JSON tree the parse discards. The tree
-        // admits ONCE into per-ordinal Option rows here, so no index chain and no fabricated empty array survives
-        // past this member.
         public static ModelRoot Decompress(ModelRoot model, string json) {
             var root = JsonNode.Parse(json)!.AsObject();
             Rows(root, "meshes").Iter((m, mesh) => mesh.Iter(entry =>
@@ -677,9 +564,6 @@ public static partial class BimIo {
         static Option<JsonObject> Extension(JsonObject row, string extension) =>
             Optional(row["extensions"]).Bind(node => Optional(node[extension])).Bind(static node => Optional(node.AsObject()));
 
-        // KHR_draco accessors carry NO bufferView (spec) — the typed-array Fill would read a backing region that does
-        // not exist — so the write-back MATERIALIZES each decoded stream into a fresh model view and re-points the
-        // accessor through the decompile-verified SetData.
         static void DracoPrimitive(MeshPrimitive primitive, JsonObject extension) {
             int bufferView = (int)extension["bufferView"]!;
             ModelRoot model = primitive.LogicalParent.LogicalParent;
@@ -717,10 +601,6 @@ public static partial class BimIo {
             }
         }
 
-        // COMPRESSED slice lives at the EXTENSION's buffer/byteOffset/byteLength — per EXT_meshopt_compression a
-        // bufferView's own properties describe the UNCOMPRESSED fallback target, so reading view.Content as the
-        // source is the deleted spec inversion. Decode lands IN the view's own count*stride region, and a
-        // fallback-less view faults loud through the Boundary funnel rather than decoding into a dead side buffer.
         static unsafe void MeshoptView(ModelRoot model, BufferView view, JsonObject extension) {
             int count = (int)extension["count"]!;
             int stride = (int)extension["byteStride"]!;
@@ -739,9 +619,6 @@ public static partial class BimIo {
             destination.CopyTo(view.Content.AsSpan(0, destination.Length));
         }
 
-        // An absent token IS the spec default and an unrecognized one is a malformed extension, so the roster
-        // answers both without either reaching a literal: the throw rides the Boundary funnel this arm already runs
-        // inside, carrying the roster's own diagnostic token.
         static TRow Token<TRow>(JsonObject extension, string member, Func<string, Option<TRow>> route, TRow fallback)
             where TRow : class =>
             Optional((string?)extension[member]).Match(
@@ -758,11 +635,6 @@ public static partial class BimIo {
     }
 
     // --- [PLY]
-    // The PLY vertex element as ROW DATA: each row names its foreign column, the seam channel it feeds, its ordinate
-    // within that channel, the writer aliases the name is not canonical across (s/t against texture_u/texture_v), and
-    // the fill an ABSENT column takes. A channel whose rows are not all resolvable contributes NO lane, so a
-    // half-declared UV pair is a missing descriptor rather than a zero-padded forgery — and the alpha row's own fill
-    // is what lets an RGB source land a four-arity colour lane without inventing coverage.
     [SmartEnum<string>]
     [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
     public sealed partial class PlyLane {
@@ -791,10 +663,6 @@ public static partial class BimIo {
                 .ToFrozenDictionary(static group => group.Key, static group => toSeq(group).OrderBy(static row => row.Ordinate).ToSeq());
     }
 
-    // PLY decode through Ply.Net — PlyParser.Parse decodes header-plus-chunked body into the immutable Dataset
-    // record graph, whose typed columns materialize once as a System.Array. Dataset.Data is a lazy sequence over the
-    // parse stream, so it materializes ONCE before the lookups: a second enumeration re-reads the already-advanced
-    // stream and strands the columns.
     static Fin<ImportedGeometry> Ply(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail, Op key) {
         using var stream = new MemoryStream(bytes.ToArray());
         using var draft = MeshDraft.Of();
@@ -805,7 +673,6 @@ public static partial class BimIo {
         int vertexCount = Resolve(vertex, PlyLane.X).Map(static column => column.Length).IfNone(0);
         Seq<(EncodingChannel Channel, float[] Values)> lanes = toSeq(PlyLane.ByChannel)
             .Choose(pair => Lane(vertex, pair.Key, pair.Value, vertexCount));
-        // Face element absent is a POINT cloud, which is a legal PLY body — an empty corner run, never a refusal.
         long[] corners = face is null
             ? []
             : ((int[][])face["vertex_indices"].Data)
@@ -818,11 +685,6 @@ public static partial class BimIo {
             .Bind(_ => Sealed(draft, format, at, rail, key));
     }
 
-    // One channel resolves WHOLE or not at all, by the applicative Traverse: every row either finds its column (under
-    // its own name or a writer alias) or carries its own absent FILL, and one row answering neither drops the lane
-    // entirely — a half-declared UV pair is a malformed header, and a zero-filled partner forges a parameterization
-    // the file never carried. An absent-filled row is what lets an RGB source land the four-arity colour lane
-    // without inventing coverage.
     static Option<(EncodingChannel Channel, float[] Values)> Lane(
         ElementData vertex, EncodingChannel channel, Seq<PlyLane> rows, int vertexCount) =>
         rows.Traverse(row => Resolve(vertex, row).Match(
@@ -838,9 +700,6 @@ public static partial class BimIo {
                 return (channel, values);
             });
 
-    // A row resolves under its own name or any writer alias, and a COLOUR row divides by the full scale its DECLARED
-    // width names — never by a scale inferred from the values, because a dark scan whose channels all sit under 1.0 is
-    // indistinguishable from a float writer's output by inspection and guessing there blackens every such delivery.
     static Option<float[]> Resolve(ElementData vertex, PlyLane row) =>
         row.Names.Find(name => vertex.Element.Properties.Exists(p => p.Name == name))
             .Map(name => row.Channel == EncodingChannel.ColorRgba
@@ -849,7 +708,6 @@ public static partial class BimIo {
                     : Column(vertex, name)
                 : Column(vertex, name));
 
-    // Ply.Net types each column as its matching System.Array, so the narrow to float is per-width.
     static float[] Column(ElementData element, string name) => element[name].Data switch {
         float[] f  => f,
         double[] d => Array.ConvertAll(d, static x => (float)x),
@@ -858,9 +716,6 @@ public static partial class BimIo {
         _          => [],
     };
 
-    // Full scale per integer PLY width; a float or double column carries no row because it is already unit-valued.
-    // The literal table stands as the exemption over a width bit-shift: a table is auditable against the spec where a
-    // shift expression is not.
     static readonly FrozenDictionary<PlyParser.DataType, float> ColourScale = new Dictionary<PlyParser.DataType, float> {
         [PlyParser.DataType.Int8] = 127f, [PlyParser.DataType.UInt8] = 255f,
         [PlyParser.DataType.Int16] = 32767f, [PlyParser.DataType.UInt16] = 65535f,
@@ -869,16 +724,9 @@ public static partial class BimIo {
     }.ToFrozenDictionary();
 
     // --- [SCENE_EXCHANGE]
-    // FBX/Collada/3MF through AssimpNetter. Post-process is the catalogue's own declared normalization, complete:
-    // GenerateUVCoords projects the parametric mappings an authoring tool stores as generators into real per-vertex
-    // coordinates and CalculateTangentSpace derives the basis a normal map samples in; without either, an FBX
-    // carrying a full unwrap and a normal-map material lands with its parameterization thrown away. Handedness rides
-    // the per-importer FrameNormalization the row carries, never MakeLeftHanded.
     static Fin<ImportedGeometry> Scene(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail, Op key) {
         using var context = new AssimpContext();
         using var stream = new MemoryStream(bytes.ToArray());
-        // READ hint is the row's file EXTENSION (assimp importer selection keys on extension: "dae", not the row key
-        // "collada"); the row KEY stays the EXPORT formatId — two foreign contracts, never conflated on one value.
         var scene = context.ImportFileFromStream(stream,
             PostProcessSteps.Triangulate | PostProcessSteps.JoinIdenticalVertices | PostProcessSteps.GenerateSmoothNormals
                 | PostProcessSteps.CalculateTangentSpace | PostProcessSteps.GenerateUVCoords,
@@ -893,18 +741,12 @@ public static partial class BimIo {
             .Bind(_ => Sealed(draft, format, at, rail, key));
     }
 
-    // Assimp is the one provider publishing LOCAL node transforms, so its Placements arm is the frame law's live
-    // case: world = parent ∘ local, composed by the fold rather than by a recursive local function.
     static SceneWalk<Assimp.Node> AssimpWalk(Seq<int> blocks) => new(
         Flatten: static node => toSeq(node.Children),
         Excluded: static _ => false,
         Placements: static (node, parent) => Seq(parent * Placed(node.Transform)),
         Blocks: (node, _) => Fin.Succ(toSeq(node.MeshIndices).Map(m => blocks[m])));
 
-    // TextureCoordinateChannels is a per-SET array behind TextureCoordinateChannelCount, each set declaring its own
-    // component width in UVComponentCount — assimp stores every set as Vector3 regardless, so a 2-component set
-    // carries its third ordinate as a zero the seam lane must not transcribe. VertexColorChannels mirrors that shape
-    // exactly, its entries already unit-interval, so set 0 lands ColorRgba with no rescale.
     static Fin<int> AssimpBlock(MeshDraft draft, Assimp.Mesh mesh, Op key) {
         var positions = new float[mesh.VertexCount * 3];
         var normals = mesh.HasNormals ? new float[mesh.VertexCount * 3] : [];
@@ -942,11 +784,6 @@ public static partial class BimIo {
     }
 
     // --- [USD]
-    // One UsdStage opens the layer stack (the native plugin tree reads the temp path), the traversal builds the walk
-    // roster, and the shared fold places it. USD composes each prim's own local-to-world off ONE UsdGeomXformCache,
-    // so the fold's parent frame is vacuous here exactly as it is for glTF. Frame is PER-STAGE: upAxis is stage
-    // metadata (TfToken "Y" the USD default, "Z" the common CAD/BIM export), so a Z-up stage is ALREADY canonical and
-    // skips the row's Y-up Frame. The temp file is bracketed, so an abandoned decode leaves no residue.
     static Fin<ImportedGeometry> Usd(
         InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail,
         Option<UsdScope> scope, Op key) =>
@@ -975,17 +812,11 @@ public static partial class BimIo {
                 scattered: scatter => Pooled(scatter.Prototype, draft, pool, key)),
             None: () => Fin.Succ(Seq<int>())));
 
-    // Blocks key on prim PATH and hold that prim's whole PARTITION SET: a prototype referenced by ten thousand
-    // instances appends its blocks once and places them ten thousand times, which IS the carrier's Blocks/Instances
-    // overlay, and a multi-material prototype shares every one of its splits.
     static Fin<Seq<int>> Pooled(UsdPrim prim, MeshDraft draft, Dictionary<string, Seq<int>> pool, Op key) =>
         prim.GetPath().GetAsString() is var path && pool.TryGetValue(path, out Seq<int> held)
             ? Fin.Succ(held)
             : UsdMesh(new UsdGeomMesh(prim), draft, key).Map(minted => pool[path] = minted);
 
-    // Prototype subtrees hold the instancer's OWN geometry, placed by its per-instance transforms alone. Stages
-    // authoring them as ordinary defined prims would otherwise bake every prototype a SECOND time at its authoring
-    // place, doubling the scene.
     static Seq<UsdNode> Roster(UsdStage stage, UsdGeomXformCache xform, Option<BimRail> rail, Op key) {
         Seq<string> prototypes = stage.Traverse().AsIterable()
             .Filter(static prim => prim.GetTypeName().ToString() == PointInstancerType)
@@ -1003,19 +834,11 @@ public static partial class BimIo {
             .ToSeq().Strict();
     }
 
-    // A USD type name this decode does not evaluate degrades ONCE per name: the retired silent tail imported a stage
-    // of curves or points EMPTY with a clean receipt, the exact defect the degrade channel was minted for.
     static Seq<UsdNode> Skipped(string type, Unseen unseen, Option<BimRail> rail, Op key) {
         ignore(unseen.Once(type, rail, key));
         return Seq<UsdNode>();
     }
 
-    // Point instancers ARE the carrier's block-and-instance overlay authored in USD, and
-    // ComputeInstanceTransformsAtTime composes positions, orientations, scales AND each prototype's own xform into
-    // one per-instance matrix while applying the invisibleIds mask — so a hand-multiplied triple beside it is the
-    // deleted re-derivation. The fan groups BY PROTOTYPE because the shared fold places every block of a node at
-    // every placement of that node; an ungrouped instancer would place each prototype at every instance's spot.
-    // Prototypes that are not Meshes contribute no node, so a curve or nested-instancer prototype scatters nothing.
     static Seq<UsdNode> Scatter(UsdStage stage, UsdPrim prim, Transform instancerWorld) {
         var instancer = new UsdGeomPointInstancer(prim);
         SdfPathVector protoPaths = instancer.GetPrototypesRel().GetTargets();
@@ -1037,25 +860,18 @@ public static partial class BimIo {
             .ToSeq();
     }
 
-    // Population is a STAGE-OPEN decision and lands nowhere after it: a masked stage never composes the prims outside
-    // the mask, where a post-open traversal filter pays the whole layer stack's composition and prim indexing first
-    // and then discards it. Downstream the two opens are indistinguishable, so the scope adds no arm below this line.
     static UsdStage Staged(string path, Option<UsdScope> scope) =>
         scope.IfNone(UsdScope.Whole).Switch(
             state: path,
             wholeStage: static (root, _) => UsdStage.Open(root, UsdStage.InitialLoadSet.LoadAll),
             populated:  static (root, populated) => Masked(root, populated.Paths));
 
-    // Masks CONSTRUCT from the admitted run in one shot through the path-vector ctor: the mutating Add(SdfPath)
-    // returns a fresh managed wrapper over the same native pointer, so an accumulating build hands ownership of one
-    // mask to several finalizers.
     static UsdStage Masked(string path, Seq<string> paths) {
         using var addresses = new SdfPathVector(paths.Map(static prim => new SdfPath(prim)));
         using var mask = new UsdStagePopulationMask(addresses);
         return UsdStage.OpenMasked(path, mask, UsdStage.InitialLoadSet.LoadAll);
     }
 
-    // The native plugin tree reads a PATH, so the bytes spool to one bracketed temp file whose release is structural.
     static Spool Spooled(ReadOnlyMemory<byte> bytes, InterchangeFormat format) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{format.Extensions.Head.IfNone(".usd")}");
         File.WriteAllBytes(path, bytes.ToArray());
@@ -1066,22 +882,13 @@ public static partial class BimIo {
         public void Dispose() => File.Delete(Value);
     }
 
-    // Decode admits these two USD schema type names, spelled once — foreign open vocabulary the roster discriminates
-    // on. Face-subset element type and material-binding family name ride the package's OWN interned tokens.
     const string MeshType = "Mesh";
     const string PointInstancerType = "PointInstancer";
 
-    // Prims belong to an instancer when their path IS a prototype target or descends from one; a trailing separator
-    // keeps `/World/ProtoHouse` from swallowing its sibling `/World/ProtoHouseAnnex`.
     static bool Prototyped(UsdPrim prim, Seq<string> prototypes) =>
         prim.GetPath().GetAsString() is var path
         && prototypes.Exists(root => path == root || path.StartsWith($"{root}/", StringComparison.Ordinal));
 
-    // Typed-array mesh-bridge: GetPointsAttr/GetNormalsAttr/GetFaceVertexCountsAttr/GetFaceVertexIndicesAttr each
-    // fill a VtValue the typed Vt*Array reads, per the api-usd mesh-bridge seam. One prim yields one BLOCK per
-    // SHADING PARTITION: USD carries a multi-material mesh as material-bound UsdGeomSubset children over face
-    // ordinals, so the partition is the authored fact — a subsets-only read silently drops the uncovered run and a
-    // whole-mesh read strands the split.
     static Fin<Seq<int>> UsdMesh(UsdGeomMesh mesh, MeshDraft draft, Op key) {
         var (points, authored, counts, corners) = (new VtValue(), new VtValue(), new VtValue(), new VtValue());
         mesh.GetPointsAttr().Get(points, UsdTimeCode.Default());
@@ -1090,16 +897,11 @@ public static partial class BimIo {
         mesh.GetFaceVertexIndicesAttr().Get(corners, UsdTimeCode.Default());
         var (xyz, faceCounts, faceIndices) = ((VtVec3fArray)points, (VtIntArray)counts, (VtIntArray)corners);
         var perVertex = hasNormals && (VtVec3fArray)authored is { } nrm && (int)nrm.size() == (int)xyz.size() ? nrm : null;
-        // `st` is USD's canonical UV primvar and it reaches the prim through the primvars API, never the typed
-        // schema — ComputeFlattened expands the INDEXED form, where reading the raw values mislabels every vertex.
-        // Only the per-vertex interpolation lands: a faceVarying or uniform `st` re-indexes on the same admission
-        // gate the authored-normals branch takes, and until that gate runs the honest lane is a typed absence.
         var stValue = new VtValue();
         var st = new UsdGeomPrimvarsAPI(mesh.GetPrim()).GetPrimvar(new TfToken("st"));
         bool mapped = st.HasAuthoredValue() && st.ComputeFlattened(stValue)
             && st.GetInterpolation().ToString() == "vertex"
             && (VtVec2fArray)stValue is { } uvArray && (int)uvArray.size() == (int)xyz.size();
-        // Corner cursor per face, so a partition walks its own faces without re-scanning the counts prefix.
         int faces = (int)faceCounts.size();
         var cursors = new int[faces];
         for (int f = 1; f < faces; f++) { cursors[f] = cursors[f - 1] + faceCounts[f - 1]; }
@@ -1107,10 +909,6 @@ public static partial class BimIo {
         Option<string> own = BoundMaterial(mesh.GetPrim());
         Seq<(Seq<int> Faces, Option<string> Material)> subsetGroups =
             toSeq(subsets).Map(static subset => (FaceOrdinals(subset), BoundMaterial(subset.GetPrim())));
-        // Remainder closes the partition — GetUnassignedIndices names the faces no subset claims, and an
-        // unpartitioned mesh takes every face under its own direct binding, so ONE fold serves both readings.
-        // Enumerating the face run for the subset-free mesh rather than trusting the remainder call over an empty
-        // vector is what keeps an ordinary single-material mesh from importing empty.
         Seq<int> remainder = subsets.Count == 0
             ? toSeq(Enumerable.Range(0, faces))
             : Ordinals(UsdGeomSubset.GetUnassignedIndices(subsets, (uint)faces));
@@ -1118,8 +916,6 @@ public static partial class BimIo {
             .Filter(static group => !group.Faces.IsEmpty)
             .Traverse(group => Partition(draft, group.Faces, group.Material, key)).As();
 
-        // Compacted per-partition block: only the points this face group references cross, remapped 0-based, so two
-        // subsets of one mesh land as DISJOINT pool blocks instead of two copies of the whole point array.
         Fin<int> Partition(MeshDraft target, Seq<int> group, Option<string> material, Op op) {
             var compact = new OrdinalCompactor(0);
             var tris = new long[group.Fold(0, (sum, f) => sum + Math.Max(0, faceCounts[f] - 2)) * 3];
@@ -1156,8 +952,6 @@ public static partial class BimIo {
         }
     }
 
-    // FaceOrdinals reads a subset's own authored face set — its one authored surface, never a reverse lookup off
-    // whichever material it binds.
     static Seq<int> FaceOrdinals(UsdGeomSubset subset) {
         var indices = new VtValue();
         subset.GetIndicesAttr().Get(indices, UsdTimeCode.Default());
@@ -1167,27 +961,16 @@ public static partial class BimIo {
     static Seq<int> Ordinals(VtIntArray array) =>
         toSeq(Enumerable.Range(0, (int)array.size()).Select(i => array[i]));
 
-    // BoundMaterial narrows a prim's DIRECT binding to its own scene path — a subset's binding for a partitioned face
-    // range, its mesh's own otherwise. An unbound prim yields None, so a block carries a shading key only where its
-    // source authored one and the appearance projection never re-hydrates a fabricated path.
     static Option<string> BoundMaterial(UsdPrim prim) =>
         new UsdShadeMaterialBindingAPI(prim).GetDirectBinding().GetMaterialPath() is { } path && !path.IsEmpty()
             ? Some(path.GetAsString())
             : None;
 
     // --- [DOTBIM]
-    // dotbim.File is a FOREIGN root, so this context declares it as an external serializable root and the arm reads
-    // through the generated JsonTypeInfo: reflection-mode Deserialize<T>, which a trimmed or AOT publish cannot keep,
-    // is the deleted form. TypeInfoPropertyName renames the emitted contract off `File`, which reads here as this
-    // page's own System.IO.File calls.
     [JsonSourceGenerationOptions(GenerationMode = JsonSourceGenerationMode.Metadata)]
     [JsonSerializable(typeof(dotbim.File), TypeInfoPropertyName = "DotBimFile")]
     public sealed partial class DotBimContext : JsonSerializerContext;
 
-    // Each pooled dotbim.Mesh lands ONE block and each Element places its block by the Vector translation plus
-    // quaternion Rotation, so an N-element model imports N instances over one shared block, never N baked copies.
-    // The format declares NO normals, so this arm declares no Normal lane. Guid/Type/Info/Color semantics ride
-    // Projection/foreign#FOREIGN_PROJECTION, never this geometry fold.
     static Fin<ImportedGeometry> DotBim(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail, Op key) {
         using var draft = MeshDraft.Of();
         return Optional(JsonSerializer.Deserialize(bytes.Span, DotBimContext.Default.DotBimFile))
@@ -1214,11 +997,6 @@ public static partial class BimIo {
     }
 
     // --- [SPECKLE]
-    // Flatten is the single package-owned deduplicating traversal (it caches on Base.id), so the seam never re-walks
-    // the tree or hand-rolls a DynamicBase recursion, and TryGetDisplayValue owns the displayable-node vocabulary
-    // rather than a per-type `is Mesh` ladder. Display meshes arrive world-space, so every block lands
-    // identity-placed. Non-mesh geometry never evaluates in-process: a Brep/Surface/Curve with no displayValue rides
-    // the companion GLB rail exactly as the IFC geometry request does.
     static Fin<ImportedGeometry> DisplayScene(Base root, Instant at, Option<BimRail> rail, Op key) {
         using var draft = MeshDraft.Of();
         DecodeStage.Opened.Beat(rail, key);
@@ -1229,10 +1007,6 @@ public static partial class BimIo {
             .Bind(_ => Sealed(draft, InterchangeFormat.Glb, at, rail, key));
     }
 
-    // Speckle Mesh -> UNWELDED triangle-soup block: each length-prefixed n-gon fans to triangles, each fan corner
-    // expands to its own vertex (Speckle faces index the shared vertex list, the seam unwelds), the vertexNormals
-    // sampled when present, scaled onto the canonical metre frame by the source unit so a millimetre or foot model
-    // lands in kernel units.
     static Fin<int> SpeckleBlock(MeshDraft draft, Mesh mesh, Op key) =>
         Fans(mesh.faces, key).Bind(fans => {
             double scale = Units.GetConversionFactor(mesh.units, Units.Meters);
@@ -1257,9 +1031,6 @@ public static partial class BimIo {
             return Baked(draft, fans.Count, Lanes(positions, normals), corners, key);
         });
 
-    // Legacy Speckle face heads encode 0 = triangle and 1 = quad; a modern head IS the n-gon vertex count, so the
-    // remap widens decode with zero ambiguity (no valid modern face carries n < 3). A degenerate head is a malformed
-    // payload the fold refuses TYPED rather than a lazily-thrown iterator fault that escapes the enumeration site.
     static Fin<Seq<int>> Fans(List<int> faces, Op key) {
         var run = Seq<int>();
         for (int cursor = 0; cursor < faces.Count;) {
@@ -1276,13 +1047,7 @@ public static partial class BimIo {
     }
 
     // --- [ACAD]
-    // Managed in-process DWG/DXF decode through ACadSharp. The DXF/CadDocument is the same decompile-verified reader
-    // Fabrication consumes for 2D profiles; here the Bim arm folds the mesh-bearing entities onto the pool.
     static class AcadReader {
-        // Stream-path INSTANCE readers carry the ICadReader event surface the static Read facade hides: OnProgress
-        // registers onto the hook rail's progress point, and the subscription dies with the using-scoped reader.
-        // ProgressEventArgs carries a ReadStage and the current object — no count and no total, so no COUNTED
-        // fraction exists to publish and the correspondence stays the DecodeStage roster's own nullable column.
         public static Fin<ImportedGeometry> Read(InterchangeFormat format, ReadOnlyMemory<byte> bytes, Instant at, Option<BimRail> rail, Op key) {
             using var stream = new MemoryStream(bytes.ToArray());
             using ICadReader reader = IsDxf(bytes) ? new DxfReader(stream) : new DwgReader(stream);
@@ -1295,8 +1060,6 @@ public static partial class BimIo {
             return entities
                 .Traverse(entity => Accumulate(draft, entity, unseen, rail, key)).As()
                 .Map(_ => {
-                    // The anchor is the VERBATIM layer name: the wire declares no layer standard, so the kernel
-                    // LayerName.Parse composes at a re-authoring consumer that ELECTS one, never at this shed.
                     entities.Choose(static entity => Optional(entity.Layer?.Name).Filter(static name => name.Length > 0))
                         .Distinct().Iter(layer => DecodeReason.PresentationDropped.Degrade(rail, key, layer));
                     return DecodeStage.Placed.Beat(rail, key);
@@ -1304,15 +1067,6 @@ public static partial class BimIo {
                 .Bind(_ => Sealed(draft, format, at, rail, key));
         }
 
-        // Inserts flatten through the package-owned Explode() — the OCS->WCS placement, Rotation, per-axis scale, OCS
-        // Normal, AND the MINSERT array replication ACadSharp owns — each placed entity folded back through the same
-        // classifier so a block-nested Insert recurses (Explode BAKES the placement, so every block lands
-        // identity-placed). The hand-rolled InsertPoint/XScale matrix the api-acadsharp RAIL_LAW rejects dropped
-        // Rotation, the OCS Normal, every MINSERT instance, and every block-nested Mesh.
-        // This walk PARTITIONS in three: the mesh-bearing families decode, ModelerGeometry (the ACIS base ACadSharp
-        // seats Solid3D, Region, and CadBody under, so ONE arm covers the whole solid-modelling family) degrades, and
-        // every remaining foreign type degrades ONCE PER NAME. The retired `default: break` tail collapsed the last
-        // two into one silent drop, so a DWG whose whole content was ACIS solids imported EMPTY with a clean receipt.
         static Fin<Unit> Accumulate(MeshDraft draft, Cad.Entity entity, Unseen unseen, Option<BimRail> rail, Op key) =>
             entity switch {
                 Cad.Mesh mesh => Block(draft, Faces(mesh.Vertices, mesh.Faces), key),
@@ -1328,14 +1082,9 @@ public static partial class BimIo {
         static Fin<Unit> Block(MeshDraft draft, (float[] Positions, long[] Corners) block, Op key) =>
             Baked(draft, block.Positions.Length / 3, Lanes(block.Positions, []), block.Corners, key).Map(static _ => unit);
 
-        // DXF (ascii/binary) opens with "0\nSECTION" / "AutoCAD Binary DXF"; DWG with "AC10xx" — the one sniff the
-        // package leaves to the caller (CadReaderFactory.GetFileFormat is filename-only and the shared Dwg row carries
-        // both extensions over a byte stream), so the reader pick is a boundary kernel, never a hand DXF parse.
         static bool IsDxf(ReadOnlyMemory<byte> bytes) =>
             bytes.Length >= 4 && !(bytes.Span[0] == (byte)'A' && bytes.Span[1] == (byte)'C' && char.IsDigit((char)bytes.Span[2]));
 
-        // POLYLINE/AcDbPolyFaceMesh: the VertexFaceMesh vertex pool with the 1-based signed VertexFaceRecord index
-        // records (a negative index marks a hidden edge -> abs, a zero Index4 marks a triangle).
         static (float[] Positions, long[] Corners) Polyface(Cad.PolyfaceMesh poly) => (
             Triples(poly.Vertices.Select(static v => v.Location).ToList()),
             poly.Faces.SelectMany(static f => {
@@ -1343,7 +1092,6 @@ public static partial class BimIo {
                 return f.Index4 == 0 ? new[] { a, b, c } : new[] { a, b, c, a, c, (long)Math.Abs(f.Index4) - 1 };
             }).ToArray());
 
-        // SubDMesh: the vertex list with the n-gon face index list, each face fanned through the ONE fan owner.
         static (float[] Positions, long[] Corners) Faces(
             IReadOnlyList<XYZ> vertices, IReadOnlyList<int[]> faces) => (
             Triples(vertices),
@@ -1352,7 +1100,6 @@ public static partial class BimIo {
                     entry.face[entry.tri.A], entry.face[entry.tri.B], entry.face[entry.tri.C] })
                 .ToArray());
 
-        // 3DFACE quad (fourth corner equals the third for a triangle), fanned through the same owner.
         static (float[] Positions, long[] Corners) Quad(XYZ a, XYZ b, XYZ c, XYZ d) {
             var pool = d.Equals(c) ? new[] { a, b, c } : new[] { a, b, c, d };
             return (Triples(pool), Fan(pool.Length)
@@ -1370,12 +1117,7 @@ public static partial class BimIo {
     }
 
     // --- [STEP]
-    // The whole reader is ONE named kernel exemption: a recursive-descent tokenizer over a POSITIONAL grammar, where
-    // a cursor-free expression form cannot express the Part-21 escape and nesting rules. The rail resumes at Read's
-    // return; every refusal inside rides the Boundary funnel the arm runs under.
     static partial class StepReader {
-        // ISO 10303 entity keywords shared across AP203/AP214/AP242 — domain-authored from the schema, not derivable
-        // from any package surface this branch admits.
         static readonly FrozenSet<string> GeometryTypes = new[] {
             "ADVANCED_BREP_SHAPE_REPRESENTATION", "MANIFOLD_SOLID_BREP", "FACETED_BREP", "SHELL_BASED_SURFACE_MODEL",
             "B_SPLINE_SURFACE", "B_SPLINE_CURVE", "GEOMETRIC_CURVE_SET", "SHAPE_REPRESENTATION", "TESSELLATED_SHAPE_REPRESENTATION",
@@ -1406,9 +1148,6 @@ public static partial class BimIo {
             var (header, data) = Sections(text);
             var instances = data.Map(Parse).ToSeq();
             var graph = instances.ToDictionary(static i => i.Id, static i => i);
-            // SHAPE_DEFINITION_REPRESENTATION(#definition, #representation) is the definition<->representation join,
-            // so a GeometryRef row carries a REAL owning-definition link — arg 0 of a representation entity is its
-            // NAME string, so the RefAt(args, 0) read yielded the always-zero decorative column.
             var shapeDefinition = instances
                 .Filter(static i => i.Keyword is "SHAPE_DEFINITION_REPRESENTATION")
                 .Fold(Map<long, long>(), static (held, i) => held.TryAdd(RefAt(i.Args, 1), RefAt(i.Args, 0)));
@@ -1442,10 +1181,6 @@ public static partial class BimIo {
             return sink.ToString();
         }
 
-        // ONE literal-aware scan serves the section locator AND the statement split. Strip PRESERVES string literals
-        // (they carry entity data), so every downstream position read must skip them: a part name carrying ENDSEC
-        // would relocate a section boundary into the middle of an entity, silently truncating the instance graph.
-        // Two independent scans were the split that let the locator and the splitter disagree about where a literal was.
         static IEnumerable<int> Bare(string text, int from) {
             bool inString = false;
             for (int i = from; i < text.Length; i++) {
@@ -1455,8 +1190,6 @@ public static partial class BimIo {
             }
         }
 
-        // First bare index at or after `from` carrying `token`; -1 when the token appears only inside literals.
-        // Case-insensitive because the keyword register is the writer's, where literal exclusion is the grammar's.
         static int BareIndexOf(string text, string token, int from) =>
             Bare(text, from).FirstOrDefault(
                 i => string.Compare(text, i, token, 0, token.Length, StringComparison.OrdinalIgnoreCase) == 0, -1);
@@ -1614,9 +1347,6 @@ public static partial class BimIo {
                 Some: static a => a switch { Arg.Text t => t.Value, Arg.Enum e => e.Value, Arg.Untyped u => u.Token, _ => "" },
                 None: static () => "");
 
-        // ISO 10303-21 header read at its POSITIONAL grammar: FILE_SCHEMA(('<schema>')) ordinal 0 (a nested list —
-        // its first text wins); FILE_NAME(name, stamp, (author), (org), preprocessor, originating_system,
-        // authorization) ordinal 5 — the first-text-wins scan returned the file NAME under an "Originating" label.
         static string HeaderText(string header, string keyword, int ordinal) =>
             BareIndexOf(header, keyword, 0) is var head and >= 0
             && BareIndexOf(header, "(", head) is var open and >= 0
@@ -1644,17 +1374,10 @@ public static partial class BimIo {
 - Boundary: `ImportIfcTessellation` decodes explicit indexed meshes and nothing else. Solids requiring an evaluator route to `tessellation#TESSELLATION_BRIDGE`, whose `TessellationRequest.Plan` door admits only the IFC source the real peer implements. Unsupported face-set subtypes refuse typed rather than yielding an empty product. UV coordinates and colour palettes are carried through the existing `IfcInternals`/`IndexedColour` owners; this page mints neither. Decoded geometry lands the same kernel accumulator as every managed arm, and IFC coordinates remain in the declared model frame. Texture payload remains the appearance roster's; this owner carries only coordinates and the texture identity they bind to.
 
 ```csharp signature
-// Split product: what decoded here, and what still needs the evaluator. Deferred is a GlobalId set precisely so it
-// drops straight into TessellationScope.Elements — the companion cross narrows to the residue instead of
-// re-evaluating a model whose tessellated majority is already in hand.
 public sealed record ExplicitTessellation(
     ImportedGeometry Geometry, int DecodedProducts, Seq<string> Deferred, Seq<string> Textures);
 
 public static partial class BimIo {
-    // The emit discriminant, forced by the two CORNER-indexed presentation payloads IFC binds to a face set — the
-    // per-face colour run and the per-triangle UV index triples. Broadcasting either onto a coordinate two faces
-    // share hands that vertex whichever face writes last: a colour bleed and a UV seam tear that render wrong and
-    // read right. Welded carries the COUNT alone, so the identity gather never materializes an array.
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
     public abstract partial record Gather {
         private Gather() { }
@@ -1670,12 +1393,6 @@ public static partial class BimIo {
     public static Fin<ExplicitTessellation> ImportIfcTessellation(DatabaseIfc db, IClock clock, Op key) =>
         Boundary(key, () => Partition(db, clock, key));
 
-    // One walk, one partition. A product whose representation items are ALL fan-decodable tessellations decodes
-    // whole; a product carrying any evaluator-bound item defers WHOLE, because a half-decoded product would place two
-    // fragments of one element under two content keys. A polygonal set holding an IfcIndexedPolygonalFaceWithVoids
-    // defers with them — a face with interior voids needs a real triangulator, and fanning around a hole here would
-    // seal the void shut and render wrong. The clock is the caller's injected IClock: the carrier's At feeds a
-    // content key, so an ambient SystemClock read here would break replay determinism.
     static Fin<ExplicitTessellation> Partition(DatabaseIfc db, IClock clock, Op key) {
         using var draft = MeshDraft.Of();
         return toSeq(db.Project.Extract<IfcProduct>())
@@ -1689,9 +1406,6 @@ public static partial class BimIo {
                                 Textures = split.Textures + bound.Choose(identity),
                                 Decoded = split.Decoded + 1,
                             })))
-            // Bound texture identities ride BESIDE the geometry: a landed Uv lane is only half the fact a consumer
-            // needs, because the export binder must know WHICH texture the coordinates parameterize before it can set
-            // a ChannelImage.CoordinateSet. Emitting the lane alone left that correspondence unowned at the edge.
             .Bind(split => Sealed(draft, InterchangeFormat.Ifc, clock.GetCurrentInstant(), None, key)
                 .Map(geometry => new ExplicitTessellation(
                     geometry, split.Decoded, split.Deferred, split.Textures.Distinct())));
@@ -1705,14 +1419,6 @@ public static partial class BimIo {
     static bool Fannable(IfcTessellatedFaceSet faceSet) =>
         faceSet is not IfcPolygonalFaceSet poly || poly.Faces.All(static face => face is not IfcIndexedPolygonalFaceWithVoids);
 
-    // Coordinates are the packed IfcCartesianPointList3D store shared by both subtypes; the corner run is the
-    // subtype's own index list, fan-triangulated for the polygonal case, each emitted triangle carrying the ordinal
-    // of the SOURCE face it came from. ONE plan answers the whole parameterization question BEFORE the gather is
-    // chosen — which index form the set carries, which vertex list serves it, whether the two agree in arity, and
-    // which texture identity the map binds. The retired order resolved the index form first and gated its arity
-    // inside the coordinate read, so an index-bearing set whose vertex list failed the arity check UNWELDED every
-    // corner and then landed no lane at all. Authored normals ride the SAME gather at per-coordinate arity; an absent
-    // set declares no Normal lane.
     static Fin<Option<string>> Decode(MeshDraft draft, IfcTessellatedFaceSet faceSet, Op key) =>
         Corners(faceSet, key).Bind(mesh => {
             var points = Coordinates(faceSet);
@@ -1720,8 +1426,6 @@ public static partial class BimIo {
             Option<Seq<(int A, int B, int C)>> normalRun = NormalIndex(faceSet);
             Option<IndexedColour> colour = IndexedColour.Of(faceSet);
             Option<UvPlan> uv = Uv(faceSet, mesh.Corner.Length / 3, points.Count);
-            // Corner-addressed payloads — per-face colour, an INDEXED UV plan, or a NormalIndex re-index — force the
-            // one-vertex-per-corner emit; a per-COORDINATE plan needs no unweld.
             Gather gather = colour.IsSome || normalRun.IsSome || uv.Exists(static plan => plan.Indexed)
                 ? new Gather.Unwelded(mesh.Corner)
                 : new Gather.Welded(points.Count);
@@ -1731,8 +1435,6 @@ public static partial class BimIo {
                 int source = gather.Source(v);
                 (positions[v * 3], positions[(v * 3) + 1], positions[(v * 3) + 2]) = points[source];
                 if (normals.Length > 0) {
-                    // NormalIndex-bearing sets address normals by CORNER (one-based through Slot); an index-free
-                    // authored set parallels the coordinate store.
                     var n = normalRun.Match(
                         Some: run => authored.Map(store => store[Slot(run[v / 3], v) - 1]),
                         None: () => authored.Map(store => store[source])).IfNone((0f, 0f, 1f));
@@ -1750,25 +1452,16 @@ public static partial class BimIo {
                 .Map(_ => uv.Bind(static plan => plan.Texture));
         });
 
-    // UvPlan is the resolved parameterization: its index run (EMPTY for the per-coordinate form), the vertex list it
-    // samples, and the texture identity the map binds. Indexed decides the gather, so one value carries both facts
-    // and neither can be decided without the other.
     readonly record struct UvPlan(Seq<(int A, int B, int C)> Index, Seq<(double U, double V)> List, Option<string> Texture) {
         public bool Indexed => !Index.IsEmpty;
     }
 
-    // The unwelded corner order is the dense identity run; a pre-sized uninitialized fill is the named allocation
-    // exemption, since the array exists solely to hand the accumulator a 0..n-1 span.
     static long[] Identity(int count) {
         long[] run = GC.AllocateUninitializedArray<long>(count);
         for (int i = 0; i < count; i++) { run[i] = i; }
         return run;
     }
 
-    // Painted lowers the per-FACE colour onto the per-vertex ColorRgba lane: emitted vertex v belongs to triangle
-    // v/3, that triangle names its source face, and IndexedColour.Rgba resolves that face's palette row plus the
-    // map's single Opacity into the four channels. The value owns the whole transfer — its palette is already
-    // scene-linear and already unit-interval — so this walk scales nothing.
     static float[] Painted(IndexedColour colour, int[] faces, int vertexCount) {
         var lane = new float[vertexCount * 4];
         for (int v = 0; v < vertexCount; v++) {
@@ -1778,35 +1471,19 @@ public static partial class BimIo {
         return lane;
     }
 
-    // Uv resolves the WHOLE plan in one pass. HasTextures is a SET, so a face set parameterized for several textures
-    // carries one map per texture identity; the seam carrier declares ONE coordinate lane, so the FIRST map whose
-    // form and arity both admit lands and the rest ride the appearance roster's own texture identity. Both index
-    // forms yield per-emitted-TRIANGLE triples: the triangulated subtype's own run crosses through the IfcInternals
-    // capsule, and the polygonal subtype's per-face IfcTextureCoordinateIndices projects through the ONE Fan owner,
-    // each fan triangle taking its corner slots off the face's UV row, so the polygon's arity is absorbed BEFORE
-    // Slot. Arity is the LAST gate and it refuses the whole plan, so a mismatch yields the seam's typed absence
-    // rather than a truncated lane AND leaves the gather welded.
     static Option<UvPlan> Uv(IfcTessellatedFaceSet faceSet, int triangles, int coordinateCount) =>
         faceSet.HasTextures.AsIterable()
             .Choose(map => Optional(map.TexCoords)
                 .Map(list => new UvPlan(
                     Index(faceSet, map),
                     toSeq(list.TexCoordsList).Map(static uv => (U: uv.Item1, V: uv.Item2)),
-                    // Bound identity is the map's OWN public Maps list, read as the StepId the appearance roster's
-                    // SurfaceTexture.Of already carries for exactly this join, so the two halves meet at the app-root
-                    // edge on one key. The capsule reaches internal members alone and Maps is public.
                     map.Maps.AsIterable().Head.Map(static texture =>
                         texture.StepId.ToString(CultureInfo.InvariantCulture)))))
             .Filter(plan => plan.Indexed ? plan.Index.Count == triangles : plan.List.Count == coordinateCount)
             .Head;
 
-    // A triangulated set carrying a non-triangle map is a malformed PAIRING, not an unknown subtype: the empty run
-    // the arity gate then reads as the per-coordinate form is the honest answer, where refusing would reject a file
-    // whose geometry is sound. An unknown SUBTYPE refuses at Corners instead, which is the one place it must.
     static Seq<(int A, int B, int C)> Index(IfcTessellatedFaceSet faceSet, IfcIndexedTextureMap map) => (faceSet, map) switch {
         (IfcTriangulatedFaceSet, IfcIndexedTriangleTextureMap triangle) => IfcInternals.TexCoordRun(triangle),
-        // All-or-nothing by the applicative Traverse: one face without a UV row makes the whole run EMPTY — which the
-        // arity gate then reads as the per-coordinate form and refuses — never a zero-triple standing in.
         (IfcPolygonalFaceSet poly, _) => Fan(poly)
             .Traverse(static tri => Optional(tri.Face.HasTexCoords)
                 .Map(row => (A: row.TexCoordIndex[tri.I0], B: row.TexCoordIndex[tri.I1], C: row.TexCoordIndex[tri.I2])))
@@ -1814,10 +1491,6 @@ public static partial class BimIo {
         _ => Seq<(int A, int B, int C)>(),
     };
 
-    // Sampled writes the UV lane in emitted-vertex order: an INDEXED plan takes the ordinate off the vertex's own
-    // corner slot, one-based into the vertex list, and a per-coordinate plan takes the gathered coordinate. A vertex
-    // list too short for an index is a malformed file and throws inside the Boundary envelope beside the colour-run
-    // bound, so neither read needs a guard of its own.
     static float[] Sampled(UvPlan plan, Gather gather) {
         var uvs = new float[gather.Length * 2];
         for (int v = 0; v < gather.Length; v++) {
@@ -1827,39 +1500,25 @@ public static partial class BimIo {
         return uvs;
     }
 
-    // Slot picks a positional triple's ordinate by EMITTED VERTEX, taking the corner residue itself — so the tail is
-    // provably corner 2 rather than a silent widen, and the two call sites stop re-spelling the modulus.
     static int Slot((int A, int B, int C) triple, int vertex) =>
         (vertex % 3) switch { 0 => triple.A, 1 => triple.B, _ => triple.C };
 
-    // Point payloads discriminate ONCE: IfcTessellatedFaceSet.Coordinates is typed to the abstract
-    // IfcCartesianPointList base, the 3D subtype carries CoordList (one tuple per point), and a 2D list is a
-    // curve-set payload no face-set body legally carries — it yields the empty store the arity gates refuse.
     static IReadOnlyList<(float X, float Y, float Z)> Coordinates(IfcTessellatedFaceSet faceSet) =>
         faceSet.Coordinates is IfcCartesianPointList3D list
             ? list.CoordList.ConvertAll(static p => ((float)p.Item1, (float)p.Item2, (float)p.Item3))
             : [];
 
-    // Authored per-COORDINATE (or, with NormalIndex, corner-addressed) normal store — the triangulated subtype's own
-    // get-only list; the polygonal subtype declares none.
     static Option<IReadOnlyList<(float X, float Y, float Z)>> Normals(IfcTessellatedFaceSet faceSet) =>
         faceSet is IfcTriangulatedFaceSet { Normals.Count: > 0 } tri
             ? Some<IReadOnlyList<(float X, float Y, float Z)>>(
                 tri.Normals.ConvertAll(static n => ((float)n.Item1, (float)n.Item2, (float)n.Item3)))
             : None;
 
-    // Optional per-triangle corner re-index for authored normals (one-based) — present forces the unweld gather
-    // exactly as the colour and UV runs do.
     static Option<Seq<(int A, int B, int C)>> NormalIndex(IfcTessellatedFaceSet faceSet) =>
         faceSet is IfcTriangulatedFaceSet { NormalIndex.Count: > 0 } tri
             ? Some(toSeq(tri.NormalIndex).Map(static t => (A: t.Item1, B: t.Item2, C: t.Item3)))
             : None;
 
-    // Corner run and its per-emitted-triangle source-face ordinals: the triangulated subtype's CoordIndex is a
-    // one-based per-triangle triple run (Face[t] = t); the polygonal subtype fans through the ONE Fan owner. BOTH
-    // subtypes carry an optional PnIndex indirection and every index resolves through it exactly once. The tail
-    // REFUSES: a face-set subtype this decode holds no row for is a schema fact the caller must see, where the
-    // retired empty pair imported it as a product with no geometry.
     static Fin<(long[] Corner, int[] Face)> Corners(IfcTessellatedFaceSet faceSet, Op key) => faceSet switch {
         IfcTriangulatedFaceSet tri => Fin.Succ((
             (long[])[.. tri.CoordIndex.SelectMany(t => new long[] {
@@ -1870,8 +1529,6 @@ public static partial class BimIo {
             new BimFault.Refused(key, BimScope.Tessellation, BimReason.Rejected, string.Join(':', new object?[] { "ifc-tessellation", "face-set-subtype", other.GetType().Name }))),
     };
 
-    // ONE fan walk feeds BOTH polygonal projections. Calling the fan owner once per projection built two walks whose
-    // agreement about triangle order was incidental rather than structural, and paid the polygon traversal twice.
     static (long[] Corner, int[] Face) Fanned(
         Seq<(IfcIndexedPolygonalFace Face, int Ordinal, int I0, int I1, int I2)> fan,
         IReadOnlyList<int> pnIndex) => (
@@ -1881,14 +1538,9 @@ public static partial class BimIo {
             Point(pnIndex, tri.Face.CoordIndex[tri.I2])))],
         [.. fan.Map(static tri => tri.Ordinal)]);
 
-    // One-based IFC index -> zero-based point ordinal, through the optional PnIndex indirection exactly once.
     static long Point(IReadOnlyList<int> pnIndex, int index) =>
         pnIndex is { Count: > 0 } ? pnIndex[index - 1] - 1 : index - 1;
 
-    // The polygonal face walk: each face's own corner-slot fan carried beside its source-face ordinal, every
-    // projection deriving from this single walk so no two consumers can disagree about the fan structure. Slots are
-    // POSITIONS within the face's CoordIndex (and its parallel TexCoordIndex), so the polygon's arity never reaches
-    // Slot — the arity itself comes from the ONE Fan generator this branch shares with every other arm.
     static Seq<(IfcIndexedPolygonalFace Face, int Ordinal, int I0, int I1, int I2)> Fan(IfcPolygonalFaceSet poly) =>
         toSeq(poly.Faces).Map(static (face, ordinal) => (Face: face, Ordinal: ordinal))
             .Bind(static entry => Fan(entry.Face.CoordIndex.Count)

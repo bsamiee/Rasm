@@ -28,11 +28,11 @@ Validation composes `normalization.md`'s `Kind` roster, `Capability` rows, and `
 - Packages: Thinktecture.Runtime.Extensions and LanguageExt.Core drive the smart-enum delegate rows and the applicative fold; RhinoCommon carries the check-matrix members.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed partial record Requirement {
     private static readonly Op Operand = Op.Of(name: nameof(Operand));
     private readonly Set<Check> checks;
@@ -41,8 +41,6 @@ public sealed partial record Requirement {
     private static Requirement Single(Check check) => new(checks: Set(check));
     public static readonly Requirement None = new(checks: Set<Check>());
     public static readonly Requirement Basic = new(checks: Set(Check.Validity, Check.UsableBounds));
-    // Gapped polycurves report the summed length of disjoint pieces and read as closed while enclosing nothing,
-    // so structure is standing membership on both curve lanes.
     public static readonly Requirement CurveLength = Basic + Single(check: Check.CurveLengthReadiness) + Single(check: Check.PolycurveStructure);
     public static readonly Requirement AreaMass = Basic + Single(check: Check.CurveAreaReadiness) + Single(check: Check.CurveSelfIntersection) + Single(check: Check.PolycurveStructure);
     public static readonly Requirement MeshCheck = Basic + Single(check: Check.MeshRhinoCheck);
@@ -56,13 +54,10 @@ public sealed partial record Requirement {
         return new(checks: left.checks.Union(right.checks));
     }
     public Requirement Continuous => this + Single(check: Check.ContinuityReadiness);
-    // Host material arrives nullable at this one entry; the arms name the two absences and nothing past them sees a null.
     [BoundaryAdapter]
     public Validation<Error, T> Apply<T>(Context? context, T? value, CancellationToken cancel = default) where T : notnull =>
         (value, context, this) switch {
             (null, _, _) => Fin.Fail<T>(error: new KernelFault.MissingGeometry()).ToValidation(),
-            // Empty requirements never read context, so `(candidate, null, None)` succeeds where
-            // `(candidate, null, Basic)` refuses: arm order IS the contract, not an accident of listing.
             (T candidate, _, Requirement { IsEmpty: true }) => Operand.AcceptInput(value: candidate).ToValidation(),
             (T candidate, Context ctx, Requirement req) => RunChecks(checks: req.checks, context: ctx, original: candidate, cancel: cancel),
             _ => Fin.Fail<T>(error: new KernelFault.MissingContext(Key: Operand)).ToValidation(),
@@ -126,8 +121,6 @@ public sealed partial record Requirement {
     [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
     [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
     private sealed partial class Check {
-        // `Applies` is the ONE applicability gate, so every `run` body casts on the shape its own `applies` column
-        // already proved. A second in-body vacuous-pass arm is a shadow gate that drifts from the column above it.
         public static readonly Check Validity = new(key: "rhino-validity", applies: static _ => true, run: static (check, _, g) => check.Demand(geometry: g, condition: g.IsValidWithLog(log: out string log), log: log));
         public static readonly Check UsableBounds = new(key: "usable-bounds", applies: static _ => true, run: static (check, ctx, g) => check.Demand(geometry: g, condition: g.GetBoundingBox(accurate: true) is { IsValid: true } box && box.IsDegenerate(tolerance: ctx.Absolute.Value) < 4, log: "Rhino could not compute a usable accurate bounding box."));
         public static readonly Check BrepIntegrity = new(key: "brep-integrity", applies: static g => g is Brep, run: static (check, _, g) => ((Brep)g) switch {
@@ -189,7 +182,7 @@ public sealed partial record Requirement {
 - Boundary: `OpAcceptance` is internal; the oracle never crosses the package seam, and the assembly-public gates are `Op`'s acceptance members and the readiness algebra.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using System.Linq.Expressions;
@@ -197,11 +190,7 @@ using Rhino;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] ---------------------------------------------------------------------------------
-// A roster row whose published output type is DATA (a column, not a type parameter) cannot reach `AcceptResults`,
-// whose agreement test is static. `OutputBinding` closes that arity: the declared type, the caller-type test, and
-// the unbox ride ONE value, so a row declaring an output cannot be read by a hand `typeof(TOut) == Output` ladder
-// that forgets the cast, and a mismatched request refuses as `KernelFault.Unsupported` naming BOTH types.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct OutputBinding(Type Declared) {
     public static OutputBinding Of<TDeclared>() => new(Declared: typeof(TDeclared));
     public bool Serves<TOut>() => typeof(TOut) == Declared;
@@ -211,11 +200,8 @@ public readonly record struct OutputBinding(Type Declared) {
             : Fin.Fail<Seq<TOut>>(key.Unsupported(inputType: Declared, outputType: typeof(TOut)));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class OpAcceptance {
-    // Rhino value shapes share `IsValid` by convention and no interface, so the probe is a compiled property
-    // accessor per shape — reflection-free per call, and the whole table's compile cost is paid on first read
-    // rather than at type init, because a page that never admits a value shape never pays it.
     private static readonly Lazy<FrozenDictionary<Type, Func<object, bool>>> ValueValidity = new(static () =>
         Kind.Items
             .Select(static row => row.Type)
@@ -226,16 +212,12 @@ internal static partial class OpAcceptance {
                 ParameterExpression parameter = Expression.Parameter(type: typeof(object));
                 return Expression.Lambda<Func<object, bool>>(Expression.Property(Expression.Convert(parameter, type), propertyName: nameof(IValidityEvidence.IsValid)), parameter).Compile();
             }));
-    // Value shapes no `Kind` row claims carry validity but no topology, so they never enter the
-    // coercion lattice and cannot derive from the geometry roster.
     private static readonly FrozenSet<Type> ValueShapes = new[] {
         typeof(Point2d), typeof(Vector3d), typeof(Transform), typeof(Rectangle3d), typeof(Interval),
     }.ToFrozenSet();
     extension(Op key) {
         internal Fin<Seq<TValue>> Accept<TValue>(TValue value) =>
             key.AcceptValue(value: value).Map(static candidate => Seq(candidate));
-        // Span arity lifts `params ReadOnlySpan<T>` through `Iterable.FromSpan` (a span cannot enter a lambda), so a
-        // caller with a stack roster never re-spells the traversal.
         [BoundaryAdapter] public Fin<Seq<TValue>> Accept<TValue>(params ReadOnlySpan<TValue> values) => key.Accept(values: Iterable<TValue>.FromSpan(values).ToSeq());
         internal Fin<Seq<TValue>> Accept<TValue>(IEnumerable<TValue> values) =>
             Optional(values).ToFin(key.InvalidResult()).Bind(candidates => candidates.AsIterable().ToSeq().Traverse(value => key.AcceptValue(value: value)).As());
@@ -270,11 +252,6 @@ internal static partial class OpAcceptance {
             Guid id => Some(id != Guid.Empty),
             string text => Some(!string.IsNullOrWhiteSpace(value: text)),
             Ray3d ray => Some(ray.Position.IsValid && ray.Direction.IsValid && !ray.Direction.IsTiny()),
-            // Evidence arms OUTRANK every category default below them: a kernel receipt implementing this
-            // interface is a deliberate declaration, and the categories are conveniences for shapes carrying no
-            // fold. Seated after them, a receipt also inhabiting one — a Thinktecture `[SmartEnum<TKey>]` row,
-            // which conforms to `ISmartEnum<TKey>` across the kernel — was admitted unconditionally and its own
-            // `IsValid` was never read, so the one oracle answered a verdict its evidence contradicted.
             IValidityEvidence evidence => Some(evidence.IsValid),
             bool or int or Enum or SurfaceCurvature or MeshCheckParameters or ISmartEnum<int> or ISmartEnum<string> => Some(value: true),
             MeshPoint m => Some(m.Point.IsValid && m.FaceIndex >= 0 && m.ComponentIndex is { ComponentIndexType: not ComponentIndexType.InvalidType, Index: >= 0 } && m.T.All(static t => RhinoMath.IsValidDouble(t))),
@@ -299,12 +276,12 @@ internal static partial class OpAcceptance {
 - Boundary: `AdmissionProjection` owns pure render/admit conversion; refusal posture, held state, fallback, and presentation compose after its `Fin`, and every bidirectional boundary composes it rather than re-minting generated validation.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class AdmissionProjection<TRaw, TModel>
     where TRaw : notnull
     where TModel : notnull {
@@ -326,8 +303,6 @@ public sealed class AdmissionProjection<TRaw, TModel>
                from admitArm in Optional(admit).ToFin(op.InvalidInput())
                select new AdmissionProjection<TRaw, TModel>(operation: op, render: renderArm, admit: admitArm);
     }
-    // `TRaw`/`TModel` are `notnull`, so the only absence either direction can produce is a delegate returning
-    // null past its own contract — one gate on the produced value, never a re-check of the admitted argument.
     [BoundaryAdapter]
     public Fin<TRaw> Render(TModel model) =>
         operation.Catch(body: () => Optional(render(arg: model)).ToFin(operation.InvalidResult()));
@@ -336,7 +311,7 @@ public sealed class AdmissionProjection<TRaw, TModel>
         operation.Catch(body: () => Optional(admit(arg: raw)).ToFin(operation.InvalidResult()).Bind(static rail => rail));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class OpAcceptance {
     extension<TRaw>(TRaw candidate) where TRaw : struct, INumber<TRaw> {
         [BoundaryAdapter]
@@ -426,33 +401,20 @@ public static class OpExtensions {
             where TRaw : notnull
             where TVO : IObjectFactory<TVO, TRaw, ValidationError> =>
             Admitted<TRaw, TVO>(op: op, candidate: candidate, refuse: refusal => InvalidValueOf<TVO>(op: op, refusal: refusal));
-        // This result-shaped sibling of the admission receivers resolves a smart-enum row from the key a HOST READ
-        // answered, so an unmapped ordinal is `InvalidResult` — the read went wrong, no caller value was refused.
         [BoundaryAdapter]
         public Fin<TRow> Row<TKey, TRow>(TKey candidate) where TRow : class, ISmartEnum<TKey, TRow, ValidationError> =>
             TRow.TryGet(candidate, out TRow? row)
                 ? Fin.Succ(value: row)
                 : Fin.Fail<TRow>(error: op.InvalidResult(detail: $"{typeof(TRow).Name} {candidate}"));
-        // Column-keyed arm: a host read answering a COLUMN value (a wire token or host int that is not the key)
-        // resolves by scanning `Items` through the stated projection — the projection names the column on site.
         [BoundaryAdapter]
         public Fin<TRow> Row<TKey, TRow>(TKey candidate, Func<TRow, TKey> column) where TRow : class, ISmartEnum<TKey, TRow, ValidationError> =>
             toSeq(TRow.Items).Find(row => EqualityComparer<TKey>.Default.Equals(column(arg: row), candidate))
                 .ToFin(op.InvalidResult(detail: $"{typeof(TRow).Name} column {candidate}"));
-        // Column-TYPE-decoupled arms (E-D3-1): a roster keyed on ONE type resolving by a column of ANOTHER — the
-        // by-name read over an int-keyed roster, the host-enum column over a string key — cannot ride the
-        // TKey-homogeneous arms above, whose column projection is pinned to the roster's own key type. TColumn
-        // rides FIRST so every spelling reads candidate-key-roster; all generics are explicit at the site (TKey
-        // never appears in an argument, so inference is impossible by construction, and the homogeneous arms
-        // above survive precisely because they keep it). `match` carries the column's own equality — a wire name
-        // admits ordinal-insensitively where a key compares exactly — and absent reads the default comparer.
         [BoundaryAdapter]
         public Fin<TRow> Row<TColumn, TKey, TRow>(TColumn candidate, Func<TRow, TColumn> column, Option<IEqualityComparer<TColumn>> match = default)
             where TRow : class, ISmartEnum<TKey, TRow, ValidationError> =>
             toSeq(TRow.Items).Find(row => match.IfNone(EqualityComparer<TColumn>.Default).Equals(column(arg: row), candidate))
                 .ToFin(op.InvalidResult(detail: $"{typeof(TRow).Name} column {candidate}"));
-        // Host-ENUM arms of the same read serve a page keying on `PlugInType`, `ComponentIndexType`, or any host enum: the
-        // ordinal admission folds ONCE here instead of an `(int)` cast at every site.
         [BoundaryAdapter]
         public Fin<TRow> Row<THostEnum, TRow>(THostEnum candidate, Func<THostEnum, int> ordinal)
             where THostEnum : struct, Enum
@@ -465,8 +427,6 @@ public static class OpExtensions {
                 (ValidationError refusal, _) => Fin.Fail<TVO>(error: InvalidValueOf<TVO>(op: op, refusal: refusal)),
                 _ => Fin.Fail<TVO>(error: op.InvalidResult()),
             };
-        // TYPED sibling of the erased lifter: a generated `Validate` handing back `TVO?` rides this arm and pays
-        // no `object` box, and inference resolves where the erased pair raised CS0411.
         [BoundaryAdapter]
         public Fin<TVO> AcceptValidated<TVO>(ValidationError? fault, TVO? admitted) where TVO : class =>
             (fault, admitted) switch {
@@ -483,8 +443,6 @@ public static class OpExtensions {
             op: op,
             candidate: candidate,
             refuse: refusal => new KernelFault.OutOfRange(Label: typeof(TVO).Name, Scalar: double.CreateSaturating(candidate), Requirement: refusal.Message, Key: Some(op)));
-    // ONE general-tier refusal shape: owner label, the generated `Validate`'s own requirement text, and the
-    // demanding key — five call sites spelled this construction verbatim.
     internal static Error InvalidValueOf<TVO>(Op op, ValidationError refusal) =>
         new KernelFault.InvalidValue(Label: typeof(TVO).Name, Requirement: refusal.Message, Key: Some(op));
     internal static Fin<TVO> Admitted<TRaw, TVO>(Op op, TRaw? candidate, Func<ValidationError, Error> refuse)
@@ -506,7 +464,7 @@ public static class OpExtensions {
 - Packages: LanguageExt.Core (`Validation<Error,_>`, `K<F,A>`, `ManyErrors`), NodaTime (`Interval`), and the kernel `Band` vocabulary.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using LanguageExt.Traits;
 using NodaTime;
@@ -514,7 +472,7 @@ using Rasm.Numerics;
 
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AdmissionSlots {
     public static Validation<Error, Unit> Gate(bool holds, Error refusal) =>
         holds ? unit : refusal;
@@ -618,10 +576,10 @@ public static class AdmissionSlots {
 - Boundary: consumers are `Analysis/measure.md` conformance pairs and `Analysis/relations.md` intersection, classification, and deviation pairs; `Kind` and `KindOf` are `normalization.md`'s.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class RequirementContext {
     extension(Context context) {
         internal Validation<Error, (TA A, TB B, Kind KindA, Kind KindB)> Pair<TA, TB>(
@@ -657,7 +615,7 @@ internal static class RequirementContext {
 - Packages: BCL frozen collections carry the membership store and the vocabulary index; the vocabulary rows themselves are Thinktecture `[SmartEnum<string>]` owners at each instantiating page.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
@@ -666,20 +624,13 @@ using LanguageExt.Common;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface ICapability<TSelf> where TSelf : ICapability<TSelf> {
     static abstract IReadOnlyList<TSelf> Items { get; }
     string Key { get; }
-    // DERIVED, not declared (E-C3-1): rank IS declaration order, so the default member projects the roster's own
-    // index through a per-constructed-type index built once — a hand-kept ordinal column beside `Items` publishes
-    // a second answer that drifts the moment a row is inserted, and a folder-local `GrantRank.Of<T>(key)` helper
-    // re-spells this projection per roster. A vocabulary whose rank is a genuine DOMAIN fact (a severity ladder
-    // whose order is not its declaration order) overrides the member and says so at its owner.
     int Rank => CapabilityRank<TSelf>.Of(row: (TSelf)this);
 }
 
-// Accessor-backed per-constructed-type index: the generic static holds ONE frozen map per closed vocabulary,
-// built on first read (never an eager initializer — the roster fills `Items` from its own static constructor).
 internal static class CapabilityRank<TCapability> where TCapability : ICapability<TCapability> {
     private static readonly Lazy<FrozenDictionary<TCapability, int>> Index = new(
         static () => TCapability.Items.Select(static (row, ordinal) => (row, ordinal)).ToFrozenDictionary(static pair => pair.row, static pair => pair.ordinal),
@@ -687,14 +638,11 @@ internal static class CapabilityRank<TCapability> where TCapability : ICapabilit
     internal static int Of(TCapability row) => Index.Value[row];
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// `[Equatable]`+`[UnorderedEquality]`: `FrozenSet` under synthesized record equality compares by REFERENCE, so two
-// identical held sets read unequal at every gate comparing capability columns (the AppUi command-reach trap).
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public readonly partial record struct CapabilitySet<TCapability>([property: UnorderedEquality] FrozenSet<TCapability> Held)
     where TCapability : notnull, ICapability<TCapability> {
     public static readonly CapabilitySet<TCapability> None = new(FrozenSet<TCapability>.Empty);
-    // Accessor-backed: the generator fills `Items` from its own static constructor, so an eager field would freeze an EMPTY roster.
     public static CapabilitySet<TCapability> All => Whole.Value;
     private static readonly Lazy<CapabilitySet<TCapability>> Whole = new(static () => new(TCapability.Items.ToFrozenSet()));
     public static CapabilitySet<TCapability> Of(params ReadOnlySpan<TCapability> held) => new(held.ToArray().ToFrozenSet());
@@ -702,20 +650,11 @@ public readonly partial record struct CapabilitySet<TCapability>([property: Unor
     public bool Admits(string key) => Lookup.Value.TryGetValue(key, out TCapability? row) && Held.Contains(row);
     public bool AdmitsAll(CapabilitySet<TCapability> required) => required.Held.IsSubsetOf(Held);
     public CapabilitySet<TCapability> Missing(CapabilitySet<TCapability> required) => new(required.Held.Except(Held).ToFrozenSet());
-    // The REFUSAL door (E-P12): a seam whose posture is refuse-at-admission demands through this arm, and the
-    // refusal ALWAYS receives the missing rows — the bare-label refusal that discards the evidence `Missing`
-    // exists to carry is unspellable through it. A seam whose posture is fold-out-for-absence reads a bare
-    // `Admits` ternary instead: posture is the CONSUMER seam's own fact (one lane capability is refusal-shaped
-    // at a pump door and fold-out-shaped at a sync leg), never a column on the capability row — rank and
-    // restart live on their own rails (`Retriability`, `RedrivePolicy`, the ack union), and lawful absence
-    // versus an illegal empty corner is already the LAW row's verdict at construction.
     public Fin<CapabilitySet<TCapability>> Require(CapabilitySet<TCapability> demanded, Func<CapabilitySet<TCapability>, Error> refuse) =>
         AdmitsAll(demanded) ? Fin.Succ(this) : Fin.Fail<CapabilitySet<TCapability>>(refuse(Missing(demanded)));
     public CapabilitySet<TCapability> With(TCapability capability) => new(Held.Append(capability).ToFrozenSet());
     public CapabilitySet<TCapability> Without(TCapability capability) => new(Held.Where(row => !row.Equals(capability)).ToFrozenSet());
     public string Wire => string.Join(',', Held.OrderBy(static row => row.Rank).Select(static row => row.Key));
-    // Host and persisted FLAG WORDS take this ONE boundary arm: `bit` is the vocabulary's own bit column, so a
-    // per-owner `OfMask` never re-spells the fold; an unrostered bit refuses rather than dropping silently.
     public static Fin<CapabilitySet<TCapability>> OfMask(int mask, Func<TCapability, int> bit, Op key) =>
         TCapability.Items.Aggregate(seed: 0, func: (known, row) => known | bit(arg: row)) is int rostered && (mask & ~rostered) == 0
             ? Fin.Succ(new CapabilitySet<TCapability>(TCapability.Items.Where(row => (mask & bit(arg: row)) != 0).ToFrozenSet()))
@@ -725,11 +664,7 @@ public readonly partial record struct CapabilitySet<TCapability>([property: Unor
         new(static () => TCapability.Items.ToFrozenDictionary(static row => row.Key, StringComparer.Ordinal));
 }
 
-// --- [POLICIES] -----------------------------------------------------------------------------
-// Two framings, one closed law: `Legal` enumerates admitted corners EXACTLY; `Barred` bars by CONTAINMENT — a
-// barred row names a co-presence every superset shares, so `Forbidden({A,B})` refuses every corner holding both,
-// and the empty barred row bars the empty held set alone. A corner-exact exclusion states its complement as
-// `Legal` rows instead of leaning on the equality a containment bar no longer performs.
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record CapabilityLaw<TCapability>(Seq<CapabilitySet<TCapability>> Legal, Seq<CapabilitySet<TCapability>> Barred)
     where TCapability : notnull, ICapability<TCapability> {
     public static readonly CapabilityLaw<TCapability> Open = new(Seq<CapabilitySet<TCapability>>(), Seq<CapabilitySet<TCapability>>());
@@ -755,7 +690,7 @@ public sealed record CapabilityLaw<TCapability>(Seq<CapabilitySet<TCapability>> 
 - Packages: Thinktecture.Runtime.Extensions generates the closed unions and the `Symbol` admission; LanguageExt.Core carries the `Fin`/`Option` probe outcomes and the `Error` a refusal parks.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Thinktecture;
@@ -763,7 +698,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 public sealed partial class Symbol {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -772,7 +707,7 @@ public sealed partial class Symbol {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record Quality {
     private Quality() { }
@@ -789,10 +724,6 @@ public abstract partial record Masked {
     public string Value => Switch(unchanged: static row => row.Value, redacted: static row => row.Value);
 }
 
-// `Quality` above grades the trust a foreign status word declares on a PRESENT reading; `Evidence<T>` states
-// whether a measurement happened at all — the value rides inside `Measured` and a refusal parks the probe's own
-// cause, so a statistics scan the backend defeated and a column nothing scanned read as two facts rather than
-// one absence.
 [Union]
 public abstract partial record Evidence<T> {
     private Evidence() { }
@@ -809,8 +740,6 @@ public static class Evidence {
     public static Evidence<T> Of<T>(Option<T> probe) =>
         probe.Match(Some: static value => (Evidence<T>)new Evidence<T>.Measured(value), None: static () => new Evidence<T>.Absent());
 
-    // `Value` collapses onto the Option a presence-only seam column takes: Refused and Absent both answer None,
-    // so the loss is stated HERE once rather than re-decided at each seam.
     public static Option<T> Value<T>(this Evidence<T> evidence) =>
         evidence.Switch(measured: static m => Some(m.Value), refused: static _ => Option<T>.None, absent: static _ => Option<T>.None);
 }
@@ -828,7 +757,7 @@ public static class Evidence {
 - Boundary: `Numerics`, `Spatial`, and `Meshing` owners compose these gates at their boundaries; their value objects admit through the `[04]` bridge.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 using System.Numerics.Tensors;
 using LanguageExt;
@@ -838,11 +767,8 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Domain;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Admit {
-    // INDEPENDENT admission clauses accumulate: each names its own axis, so a multi-column entry reports every
-    // defect a caller can fix together instead of collapsing N claims onto one undiscriminated refusal. A
-    // single-value coherence probe stays on `Fin` first-refusal — accumulation earns its seat on independence.
     internal static Validation<Error, Unit> Claim(bool held, string axis, Op key) =>
         held ? Validation<Error, Unit>.Success(unit) : Validation<Error, Unit>.Fail(key.InvalidInput(axis: axis));
     internal static Fin<Unit> Claims(Op key, params (bool Held, string Axis)[] clauses) =>

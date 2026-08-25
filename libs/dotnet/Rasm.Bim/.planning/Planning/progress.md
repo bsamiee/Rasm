@@ -19,7 +19,7 @@
 - Boundary: `Observed` is MEASURED evidence carried as an `Option` — an unmeasurable task reads absent and a fabricated zero is the deleted form — and re-deriving it from the schedule's authored `PercentComplete` is the named seam violation — the schedule owns the authored claim, this page owns the physical one, and the whole value of the pairing is that the two can disagree; a below-confidence occurrence is EXCLUDED from `Observed` and counted on `Uncertain`, so folding a flagged fit into a completion fraction (reading an unverified element as built) and dropping it silently (erasing the coverage question a reviewer asks first) are both deleted forms; the observed-to-as-designed correspondence is the deterministic `Node.Object.ExternalId` the reconstruction mints, and a spatial-proximity or bounding-box matcher minted here is the deleted form — the correspondence is upstream evidence, never a heuristic this fold invents; every set read is the `Model/query#ELEMENT_SET` `BimTerm` algebra and a direct `Pset_Reconstruction` bag read, a raw `graph.ObjectNodes` scan, or a `Func<Node.Object, bool>` filter beside it is the no-second-selection-surface reject, while the bag and row names compose the `Exchange/reconstruct#RECONSTRUCTION` `ReconstructionRows` statics and a page-local const restating them is the deleted form; `Expected` is the ONE `Planning/cost#EARNED_VALUE` `CostPerformance.Fraction` law and a second clamped elapsed-fraction fold beside it is the deleted form — a progress report and an EVM planned value disagreeing at one instant is the drift that law forecloses; the `CaptureKey` is a typed seam `ContentAddress` minted over the `CanonicalWriter` preimage — the one content-key type the `Review/diff#MODEL_DIFF` `ElementFingerprint`, the `Review/versioning#VERSION_GRAPH` `CommitKey`, and the `Review/validation#IDS_FACETS` `FacetKey` are stated in, so a raw `UInt128` field here erases that type at the exact edge a dashboard joins on — and re-minting an `Exchange/reconstruct#LAS_INGEST` `CaptureLineage` over the lineage SET is the deleted form the reconstruction's own one-value-type-two-key-spaces ruling already closed — that value object addresses ONE capture's source bytes; the assignment gate is the settled `ScheduleNetwork.BindAssignments` fold and a progress-local dangling-reference check with its own detail token is the deleted form; a verification rejection lifts the typed `BimFault` case BARE onto the `Fin<T>` rail and a `.ToError()` lowering hop or a one-arg ctor bypassing the kernel `Op` context is the named seam defect.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
 using Rasm.Bim.Model;
@@ -29,17 +29,12 @@ using Rasm.Element.Properties;
 using Rasm.Element.Query;
 using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
-using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;   // closed-generic alias: the bare name collides with the global-using System.Predicate<T>
-using IdSet = LanguageExt.HashSet<string>;  // the GlobalId membership set — equality-keyed, aliased so bare name never collides with global-using System.Collections.Generic.HashSet.
+using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
+using IdSet = LanguageExt.HashSet<string>;
 
 namespace Rasm.Bim.Planning;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Uncertain counts assigned elements the reconstruction flagged below its ConfidenceFloor — held OFF the fraction
-// and ON its own column, because folding a low-confidence fit into Observed reads an unverified element as built
-// while dropping it erases the coverage question a reviewer asks first.
-// Observed is an OPTION because a task assigning no geometry measures NOTHING: a zero there reads as "built
-// nothing" and ranks a fully-planned activity as the worst variance on the board. Variance propagates the absence.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ProgressEvidence(
     string TaskGlobalId,
     Option<double> Observed,
@@ -52,20 +47,14 @@ public sealed record ProgressEvidence(
     public Option<double> Variance => Observed.Map(observed => observed - Expected);
 }
 
-// One verification whole: per-task rows, reconstructed occurrences no assignment claims (as-built residue a
-// coordination read turns into unplanned work or an unmodelled existing condition), and the capture identity
-// every consumer joins the report by.
 public sealed record ProgressReport(
     Seq<ProgressEvidence> Tasks,
     Seq<string> Unmatched,
     ContentAddress CaptureKey,
     Instant At);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ProgressVerification {
-    // Both selections key off the Exchange/reconstruct#RECONSTRUCTION ReconstructionRows statics the producer
-    // publishes: a page-local const restating those spellings is the deleted form — the producer renames a row and
-    // this consumer silently selects nothing.
     static readonly BimTerm Flagged = BimLeaf.Of(new ElementLeaf.ByProperty(
         new ValueMatch.Exact(new PropertyValue.Text(ReconstructionRows.Set)),
         new ValueMatch.Exact(new PropertyValue.Text(ReconstructionRows.NeedsReview.Value)),
@@ -73,9 +62,6 @@ public static class ProgressVerification {
 
     static readonly ValueSource Lineage = new ValueSource.Property(ReconstructionRows.Set, ReconstructionRows.SourceCloud.Value);
 
-    // BindAssignments gates FIRST: a task naming a GlobalId the as-designed graph never declares aborts on the
-    // schedule owner's own Refused/BimReason.DanglingReference law rather than scoring zero progress against geometry no model
-    // declared. Past that gate the fold is total — every remaining outcome is a measurement, never a rejection.
     public static Fin<ProgressReport> Compare(ScheduleNetwork network, ElementGraph asDesigned, ElementGraph observed, Instant captureAt, Op key) =>
         network.BindAssignments(asDesigned, key).Map(bound => {
             ElementQuery capture = ElementQuery.Query(observed, BimLeaf.Of(new ElementLeaf.ByKind(ObjectKind.Occurrence)));
@@ -94,8 +80,6 @@ public static class ProgressVerification {
                 captureAt);
         });
 
-    // A task assigning nothing measures NOTHING — the fraction is absent, not zero and not a vacuous 1.0: either
-    // number would rank an unmeasurable activity against measured ones on the same board.
     static ProgressEvidence Evidence(
         ConstructionTask task, Seq<string> assigned, IdSet verified, IdSet flagged,
         Instant captureAt, ContentAddress captureKey) {
@@ -111,8 +95,6 @@ public static class ProgressVerification {
             captureAt);
     }
 
-    // Re-minting a CaptureLineage over the SET is the deleted form: that value object addresses ONE capture source
-    // bytes, and the reconstruction owner already closed the one-type-two-key-spaces defect.
     static ContentAddress CaptureKeyOf(ElementGraph observed, ElementQuery capture) {
         Seq<string> lineages = toSeq(capture.Objects
             .Bind(obj => ElementQuery.ValuesOf(observed, obj, Lineage))

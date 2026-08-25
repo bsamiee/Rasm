@@ -22,7 +22,7 @@ This page composes the seam `Rasm.Element/Projection/projection#PROJECTION_CONTR
 - Boundary: `Speckle.Sdk`/`Speckle.Objects` are the OUTSIDE-RHINO concern — this arm composes them only in the host-neutral exchange assembly, never inside the in-Rhino plugin ALC — and no foreign type crosses `Project`: `dotbim.*` and `Speckle.*` die at the `ForeignMap` admission, which is why the fold below reads no nullable and no untyped cell. Property cells cross TYPED — a Speckle `object?` lands `PropertyValue.Boolean`/`Integer`/`Number`/`Text` by its own runtime shape, because collapsing every cell to `Text` erased exactly the discriminants the seam `PropertyValue` union exists to keep. Colour rides ONE carrier: the appearance node the `export#EXPORT_RAIL` counterpart writes from, decoded through the appearance projector's declared inverse, so a Rasm-authored `.bim` keeps its own colour on re-ingest — re-reading it into a hex `PropertyValue.Text` row beside a summary-sourced export is the deleted asymmetry. Alpha never takes the transfer curve because coverage is linear by definition, and the three unauthored PBR channels take the matte-dielectric reading the format's vocabulary implies rather than a guessed metalness. Every seam node here is a PRIMARY identity mint (`NodeId.Of(new NodeSeed.Placement())`), because a foreign host object is an authored element, and every non-rooted bag or appearance re-labels to its own content seed so identical payloads dedup to one node. Speckle containment owns no QuikGraph arm: every `AlgorithmExtensions` entry consumes the parent relation as INPUT and deriving that relation is precisely this fold's work.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -33,7 +33,7 @@ using Riok.Mapperly.Abstractions;
 using Speckle.Sdk.Models;
 using Rasm;
 using Rasm.Bim.Model;
-using Rasm.Bim.Semantics;                     // AppearanceProjection — the estate's ONE sRGB transfer pair
+using Rasm.Bim.Semantics;
 using Rasm.Domain;
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
@@ -42,11 +42,11 @@ using Rasm.Element.Properties;
 using Rasm.Element.Relations;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using Node = Rasm.Element.Graph.Node;         // the seam node union owns the bare name against Speckle's own tree types
+using Node = Rasm.Element.Graph.Node;
 
 namespace Rasm.Bim.Projection;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ForeignSource {
     private ForeignSource() { }
@@ -55,15 +55,12 @@ public abstract partial record ForeignSource {
     public sealed record Speckle(Base Root) : ForeignSource;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// ONE admitted host row per foreign object, minted at the mapper and read by the shared seat fold. System keys the
-// neutral classification vocabulary, TypeToken its code, SetName the property bag's own name. ExternalId is the 1:1
-// reconcile key Reingest matches on — ABSENT where the source authored none, never a blank string standing in.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ForeignHost(
     string System, string TypeToken, Option<string> ExternalId, string Name, string Tag,
     string SetName, Map<PropertyName, PropertyValue> Rows);
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ForeignProjector : IElementProjection {
     private readonly ForeignSource source;
 
@@ -72,15 +69,12 @@ public sealed class ForeignProjector : IElementProjection {
     public static IElementProjection Of(dotbim.File file) => new ForeignProjector(new ForeignSource.DotBim(file));
     public static IElementProjection Of(Base root) => new ForeignProjector(new ForeignSource.Speckle(root));
 
-    // Both sources are fully materialized before Project runs, so a re-drive re-reads identical memory.
     public Fin<GraphDelta> Project(ProjectionContext ctx) => source.Switch(
         state: ctx,
         dotBim: static (context, arm) => Lower(arm.Value, context),
         speckle: static (context, arm) => Lower(arm.Root, context));
 
     // --- [OPERATIONS]
-    // ONE lowering name over two source types — the argument discriminates, so no per-format entrypoint suffix rides
-    // the fold. dotbim arm: one seat per element plus the appearance leg only this source carries.
     static Fin<GraphDelta> Lower(dotbim.File file, ProjectionContext ctx) =>
         toSeq(file.Elements)
             .Traverse(element => Appearance(element, ctx.Key)
@@ -92,8 +86,6 @@ public sealed class ForeignProjector : IElementProjection {
             .Map(static parts => parts.Fold(GraphDelta.Empty, static (all, part) => all.Merge(part)))
             .Map(delta => delta.Reheader(ctx.Header));
 
-    // Speckle arm: one path-carrying deduplicating walk (the package-owned TraverseWithPath, never a DynamicBase
-    // recursion), depth-ordered so every strict ancestor is already seated when a host descends its own chain.
     static Fin<GraphDelta> Lower(Base root, ProjectionContext ctx) =>
         toSeq(root.TraverseWithPath(static _ => false))
             .Choose(static step => step.Item2 is DataObject data ? Some((Path: step.Item1, Data: data)) : None)
@@ -104,9 +96,6 @@ public sealed class ForeignProjector : IElementProjection {
             .Map(static seats => Contained(seats))
             .Map(delta => delta.Reheader(ctx.Header));
 
-    // The shared seat: object node, content-keyed bag node, and the definition edge binding them. Both arms mint the
-    // rooted id through the kernel placement seed because a foreign host object IS an authored element; the bag
-    // re-labels onto its own content seed so two identical property sets dedup to one node.
     static Fin<(GraphDelta Delta, NodeId Id)> Seat(ForeignHost host, ProjectionContext ctx) =>
         Classification.Of(host.System, host.TypeToken, ctx.Key).Map(classification => {
             NodeId id = NodeId.Of(new NodeSeed.Placement());
@@ -129,17 +118,12 @@ public sealed class ForeignProjector : IElementProjection {
                 Id: id);
         });
 
-    // OccurrenceWins because neither foreign source carries type-driven inheritance; EvidenceGrade.Import because
-    // the rows arrive on a wire. The seed mints, then Relabel re-keys off the seeded content with the id excluded.
     static Node.PropertySet Bag(ForeignHost host, double tolerance) {
         Node.PropertySet seed = new(NodeId.Of(new NodeSeed.Placement()),
             new PropertyBag(host.SetName, host.Rows, InheritanceMode.OccurrenceWins, EvidenceGrade.Import));
         return (Node.PropertySet)seed.Relabel(NodeId.Of(new NodeSeed.Content(seed, tolerance)));
     }
 
-    // dotbim's whole-object Color is DISPLAY-REFERRED 0-255 RGBA landing on the SAME seam appearance path
-    // export#EXPORT_RAIL sources its bytes from, so Linearize IS the declared inverse of the Encode egress runs and
-    // one curve closes the round trip. ALPHA never takes the curve: coverage is linear by definition.
     static Fin<Node.Appearance> Appearance(dotbim.Element element, Op key) =>
         AppearanceSummary.Of(
             AppearanceVector.Create(
@@ -156,11 +140,6 @@ public sealed class ForeignProjector : IElementProjection {
             return (Node.Appearance)draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, 0.0)));
         });
 
-    // ONE rooted forest over the path SEGMENTS, descended ONCE. Depth-ordered seats make every strict ancestor
-    // already-owned at descent, so the enclosing owner falls out of the same walk that mints the chain — the retired
-    // form ran a second reverse scan per host over a chain the first pass had already visited. Forest root is ordinal
-    // 0, so a host at the empty path encloses every other. Duplicate paths coalesce last-wins: an ambiguous parent is
-    // one parent, and two hosts at one path are never each other's parent because only STRICT ancestors are read.
     static GraphDelta Contained(Seq<(string[] Path, NodeId Id, GraphDelta Delta)> seats) {
         var nodes = new Dictionary<(int Parent, string Segment), int>();
         var owners = new Dictionary<int, NodeId>();
@@ -184,20 +163,13 @@ public sealed class ForeignProjector : IElementProjection {
     }
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// The ONE foreign-to-admitted correspondence. Both arms map by declared row rather than by hand body, and the two
-// nullable/untyped foreign shapes cross their per-type converters HERE — which is why no `??` survives past this
-// class and why a Speckle numeric parameter keeps its discriminant instead of stringifying.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast,
     RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public static partial class ForeignMap {
-    // Bound as the mapper's default provider, so every StringFormat crossing below narrows under one invariant
-    // culture rather than the ambient one — a tag rendered under a comma-decimal locale is a different reconcile key.
     [FormatProvider(Default = true)]
     private static readonly CultureInfo Invariant = CultureInfo.InvariantCulture;
 
-    // The three geometry columns are consumed by the Exchange/import#IMPORT_RAIL dotbim arm and the appearance leg
-    // above; the roster is authored INVENTORY, because the whole-source ExternalId reader waives source-side RMG020.
     [MapperIgnoreSource(nameof(dotbim.Element.Vector))]
     [MapperIgnoreSource(nameof(dotbim.Element.Rotation))]
     [MapperIgnoreSource(nameof(dotbim.Element.Color))]
@@ -220,15 +192,10 @@ public static partial class ForeignMap {
     [MapProperty(nameof(DataObject.properties), nameof(ForeignHost.Rows), Use = nameof(Cells))]
     public static partial ForeignHost ToHost(DataObject data);
 
-    // Per-type converters, never a generic T? Map<T>(Option<T>) — a type parameter on a hand body draws RMG001.
     [UserMapping] private static Option<string> Admit(string? value) => Optional(value).Filter(static v => v.Length > 0);
 
     [UserMapping] private static string Blank(string? value) => Optional(value).IfNone("");
 
-    // A Rasm-exported .bim writes the verbatim seam GlobalId into Info["globalId"] (the element Guid is
-    // XxHash128-derived FROM it — export#EXPORT_RAIL), so the round trip prefers it and a foreign .bim falls back to
-    // the element Guid; either way the reconcile key is stable across re-ingests. Reading BOTH columns is why this
-    // one crossing is a whole-source reader rather than a member rename.
     [UserMapping]
     private static Option<string> External(dotbim.Element element) =>
         Optional(element.Info).Bind(info => info.TryGetValue("globalId", out string? held) ? Optional(held) : None)
@@ -241,10 +208,6 @@ public static partial class ForeignMap {
                 (PropertyName.Create(pair.Key), (PropertyValue)new PropertyValue.Text(pair.Value))))
             .IfNone([]));
 
-    // A Speckle parameter cell is an untyped CLR object, so the seam case is chosen by the value's own runtime shape:
-    // the retired `?.ToString() ?? ""` mapped a number, a flag, and a missing value onto ONE Text row, erasing exactly
-    // the discriminant the seam PropertyValue union exists to carry. Integral widths cross through their invariant
-    // text because BigInteger admits the full unsigned 64-bit range a double narrow would round away.
     [UserMapping]
     private static Map<PropertyName, PropertyValue> Cells(Dictionary<string, object?> properties) =>
         toMap(toSeq(properties).Map(static pair => (PropertyName.Create(pair.Key), Cell(pair.Value))));
@@ -282,9 +245,6 @@ public static class Reingest {
             .Map(revised => Reconcile(prior, revised))
             .Bind(delta => prior.Apply(delta, key).Map(patched => new ReingestResult(patched, delta)));
 
-    // A non-rooted node (Material/PropertySet/Appearance/...) is content-keyed, so an unchanged one already shares its
-    // NodeId and a changed one is a fresh id (an add plus a remove); only a rooted Object with the SAME remapped id
-    // and a divergent member is a revision.
     static GraphDelta Reconcile(ElementGraph prior, ElementGraph revised) {
         var priorByExternal = prior.ObjectNodes
             .Choose(static o => o.ExternalId.Map(x => (External: x, o.Id)))
@@ -298,14 +258,11 @@ public static class Reingest {
         var revisedNodes = toSeq(revised.Nodes.Values).Map(n => n is Node.Object o ? o.Relabel(Reidentify(o.Id)) : n);
         var revisedEdges = toSeq(revised.Edges).Map(e => e.Remap(Reidentify));
         var revisedIds = toHashSet(revisedNodes.Map(static n => n.Id));
-        // ONE pass over the remapped nodes yields both halves: the prior-present half feeds the member diff and the
-        // absent half IS the add list. The retired form ran the same predicate twice over the same sequence.
         var (held, added) = revisedNodes.Partition(n => prior.Find(n.Id).IsSome);
         var revisedPairs = held.Choose(n => prior.Find(n.Id)
             .Filter(p => !EqualityComparer<Node>.Default.Equals(p, n))
             .Map(p => (Before: p, After: n)));
         var removed = toSeq(prior.Nodes.Keys).Filter(id => !revisedIds.Contains(id));
-        // Hashed membership on both sides — the Seq.Contains scan was the deleted O(edges²) form.
         var priorEdges = toHashSet(prior.Edges);
         var revisedEdgeSet = toHashSet(revisedEdges);
         return new GraphDelta(
@@ -315,8 +272,6 @@ public static class Reingest {
             Some(revised.Header));
     }
 
-    // Bake is the seam's own composed read (memoized per snapshot), so one hop yields a type's attached bags where a
-    // per-consumer EdgesAt hand-walk with case tests re-derives them.
     public static Fin<Seq<TypeCandidate>> ExportTypeCandidates(ElementGraph graph, Op key) =>
         from types in graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Type)
@@ -329,8 +284,6 @@ public static class Reingest {
             .Traverse(pair => Candidate(library, pair.Node, pair.Bags, pair.Signature, key)).As()
         select candidates;
 
-    // A signature-bearing type node with no ExternalId is a corrupt projection, never an absent library: one seed
-    // stamps id and bag together, so one without the other faults rather than exporting a keyless row.
     static Fin<TypeCandidate> Candidate(string library, Node.Object node, Seq<PropertyBag> bags, PropertyBag signature, Op key) =>
         node.ExternalId.Match(
             Some: globalId => Fin.Succ(new TypeCandidate(
@@ -345,9 +298,6 @@ public static class Reingest {
                 ProfileStandard:    Text(signature, SemanticProjector.SignatureRows.ProfileStandard))),
             None: () => Fin.Fail<TypeCandidate>(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "type-candidate-identity-missing", node.Id.Value.ToString() }))));
 
-    // Every attached bag BESIDE the bookkeeping one folds into one row map: reconciliation evidence already rides the
-    // candidate's typed columns. Two Psets sharing a row name is ordinary IFC, so this union upserts — Map.Add throws
-    // straight past the rail on the first collision.
     static Map<PropertyName, PropertyValue> Rows(Seq<PropertyBag> bags) =>
         bags.Filter(static bag => bag.SetName != SemanticProjector.TypeSignatureSet)
             .Fold(Map<PropertyName, PropertyValue>(), static (all, bag) =>
@@ -356,8 +306,6 @@ public static class Reingest {
     static Option<string> Text(PropertyBag signature, PropertyName row) =>
         signature.Values.Find(row).Bind(static value => value is PropertyValue.Text text ? Some(text.Value) : None);
 
-    // FILE_NAME's originating_system names the authoring application a vendor library ships from, and its name field
-    // is what a writer leaving that slot blank still fills. Both blank yields the empty key — one unnamed library.
     static string Library(StepHeader step) =>
         string.IsNullOrWhiteSpace(step.OriginatingSystem) ? step.Name : step.OriginatingSystem;
 }

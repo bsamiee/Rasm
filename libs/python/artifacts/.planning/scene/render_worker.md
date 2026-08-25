@@ -19,7 +19,7 @@ Worker imports sit at the top of the acyclic scene graph: this module composes `
 - Boundary: named provider faults, a failed `PackageOp`, an unsupported round-trip target, an empty output, and `ZipError` converge on `ExportError` inside the export folds; an unexpected exception remains a defect and propagates.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -52,14 +52,13 @@ from rasm.artifacts.scene.spec import (
     WORKER_MODULE,
 )
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FIELD = "field"
 
-# dispatchable roster the import-time witness proves; a kernel missing here never ships.
 _KERNELS = ("render_image", "render_export", "render_frames", "render_ingest", "render_compose")
 
-# --- [TABLES] --------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 _BOOL: frozendict[BoolOp, Callable[[pv.PolyData, pv.PolyData], pv.DataSet]] = frozendict({
     BoolOp.UNION: lambda a, b: a.boolean_union(b),
@@ -95,7 +94,7 @@ _SOURCE: frozendict[SourceKind, Callable[..., pv.PolyData]] = frozendict({
 if frozenset(_BOOL) != frozenset(BoolOp) or frozenset(_IMPORTER) != frozenset(SceneSource) or frozenset(_SOURCE) != frozenset(SourceKind):
     raise RuntimeError("worker tables do not cover their vocabularies")
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _hydrate(grid: SceneGrid, scalars: str | None) -> pv.DataSet:
@@ -124,18 +123,13 @@ def _hydrate(grid: SceneGrid, scalars: str | None) -> pv.DataSet:
             curvilinear.point_data[scalars or _FIELD] = field.ravel(order="F")
             return curvilinear
         case SceneGrid(tag="glb", glb=data):
-            # GEOMETRY route by construction: `pv.read` rides `vtkGLTFReader`, which returns meshes and never
-            # materials, so this arm's appearance is the spec's own — `SurfaceBand` scalars and `maps` — and
-            # `combine()` merges nothing a reader ever carried. A GLB whose EMBEDDED appearance must render
-            # crosses through `render_ingest`'s `_IMPORTER` row (`vtkGLTFImporter`) instead; the two routes are
-            # the dataset pipeline and the importer pipeline, and neither substitutes for the other.
             with TemporaryDirectory() as work:
                 path = Path(work) / "mesh.glb"
                 path.write_bytes(data)
                 loaded = pv.read(path)
             return loaded.combine() if isinstance(loaded, pv.MultiBlock) else loaded
         case SceneGrid(tag="source", source=(kind, params)):
-            return _SOURCE[kind](**params)  # param names are caller data; the factory refuses an unknown kwarg here
+            return _SOURCE[kind](**params)
         case _:
             assert_never(grid)
 
@@ -221,7 +215,7 @@ def surface_arrays(dataset: pv.DataSet, spec: RenderSpec) -> tuple[NDArray[np.fl
     if faces.size and int(faces.max()) > np.iinfo(np.int32).max:
         raise ValueError("surface indices exceed the USD int32 range")
     return (
-        np.ascontiguousarray(surf.points, dtype=np.float32),  # contiguity guard: FromNumpy and the pickle seam receive sliced views otherwise
+        np.ascontiguousarray(surf.points, dtype=np.float32),
         np.ascontiguousarray(faces, dtype=np.int32),
         np.ascontiguousarray(surf.point_normals, dtype=np.float32),
         _mapped_rgb(surf, spec),
@@ -243,14 +237,10 @@ def _mapped_rgb(surf: pv.PolyData, spec: RenderSpec) -> NDArray[np.float32] | No
 
 
 def shoot(plotter: pv.Plotter, spec: RenderSpec) -> NDArray[np.uint8]:
-    # frames egress is rgb24 for the media encoder — no alpha crosses the media seam and no provider movie writer
-    # exists, so this capture loop is the whole animation surface; scale supersamples each frame to window-times-scale.
     return plotter.screenshot(filename=None, return_img=True, window_size=list(spec.window), scale=spec.scale, transparent_background=False)
 
 
 def _snapped(plotter: pv.Plotter, spec: RenderSpec) -> bytes:
-    # raster capture custody for every PNG-returning kernel: the capsule closes on every exit, and the raster
-    # round-trips through a worker-local TemporaryDirectory because the provider writes PNG to disk alone.
     try:
         with TemporaryDirectory() as work:
             out = Path(work) / "scene.png"
@@ -275,13 +265,11 @@ def render_compose(grid_a: SceneGrid, grid_b: SceneGrid, op: str, spec: RenderSp
         raise ValueError("boolean CSG requires watertight manifold operands")
     composed = _BOOL[boolean](a, b)
     if composed.n_points == 0:
-        raise ValueError("composition produced an empty dataset")  # a silent empty union renders a blank frame as if it succeeded
+        raise ValueError("composition produced an empty dataset")
     return _snapped(_scene(spec.staged(composed), spec), spec)
 
 
 def render_export(grid: SceneGrid, target: str, spec: RenderSpec) -> tuple[bytes, frozendict[str, float | str]]:
-    # raw-token admission kernel: an unknown target's ValueError/KeyError converts HERE, so the crossing sees the
-    # typed ExportError marker, never a bare provider raise the seam cannot classify.
     try:
         kind = SceneTarget(target)
         row = ROW[kind]
@@ -335,7 +323,6 @@ def _orbit(plotter: pv.Plotter, orbit: OrbitPath) -> tuple[tuple[Vec3, Vec3, Vec
     start, focal, up = plotter.camera_position
     center = np.asarray(focal, dtype=np.float64)
     distance = float(np.linalg.norm(np.asarray(start, dtype=np.float64) - center))
-    # a cyclic sweep drops its duplicate terminal sample; an open arc, dolly, or helix reaches its endpoint
     cyclic = (orbit.azimuth[1] - orbit.azimuth[0]) % 360.0 == 0.0 and orbit.radius[0] == orbit.radius[1] and orbit.elevation[0] == orbit.elevation[1]
     azimuths = np.deg2rad(np.linspace(*orbit.azimuth, orbit.samples, endpoint=not cyclic))
     radii = distance * np.linspace(*orbit.radius, orbit.samples, endpoint=not cyclic)
@@ -361,10 +348,8 @@ def render_frames(grid: SceneGrid, orbit: OrbitPath, spec: RenderSpec) -> tuple[
         plotter.close()
 
 
-# --- [ENTRY] -----------------------------------------------------------------------------
+# --- [ENTRY] ----------------------------------------------------------------------------
 
-# import-time coverage witness: every roster name resolves through the same walk the runtime `shipped` gate runs, and a
-# railed miss collapses to a raise — a floor that cannot resolve its roster refuses to import, never faults mid-offload.
 if (_COVERAGE := covered(WORKER_MODULE, _KERNELS)).is_error():
     raise RuntimeError(f"kernel roster does not resolve: {_COVERAGE.error}")
 ```

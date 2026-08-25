@@ -109,9 +109,6 @@ import {
   CloudEventSchema,
 } from "@rasm\/contracts/io/cloudevents/v1/cloudevents_pb"
 
-// Each key transcribes its generated descriptor name; the object is the only estate registry roster and every
-// published key list derives from it. Foreign CloudEvents schemas and estate descriptors consumed directly by an
-// owning projection do not enter this Any-resolution registry.
 const _suite = {
   FaultDetail: fault.FaultDetailSchema,
   NodeWire: graph.NodeWireSchema,
@@ -136,15 +133,8 @@ const _suite = {
 
 const _names = Record.keys(_suite)
 
-// ONE registry serves four readers — `Any` unpacking, Connect's `findDetails`, the JSON read posture (a `Struct`-free
-// `Any` inside a ProtoJSON document resolves its type URL here), and protovalidate's CEL environment — so it is minted
-// ahead of every posture that names it.
 const _registry: Registry = createRegistry(...Record.values(_suite))
 
-// Three postures, declared once and passed at EVERY call site. `_READ` and `_JSON_READ` are twins on purpose: the
-// package's binary reader keeps unknown fields by default and its JSON reader REFUSES them by default, so a document a
-// newer producer extended decoded over binary and refused over JSON until both postures were spelled. The recursion
-// bound is one number read twice, never two defaults (100 and 100) inherited on two paths.
 const _READ = { readUnknownFields: true, recursionLimit: 24 } as const
 const _JSON_READ = { ignoreUnknownFields: true, recursionLimit: 24, registry: _registry } as const
 const _WRITE = { writeUnknownFields: true } as const
@@ -152,9 +142,6 @@ const _JSON_WRITE = { registry: _registry } as const
 
 const _validator = createValidator({ registry: _registry })
 
-// Violations cross as filter issues, one per rule, each carrying the field path the rule addressed; a rule that fails
-// to compile or evaluate is a defect in the corpus, not a refusal of this document, and it lands as the distinct
-// `Forbidden` issue so a census never reads a broken rule set as a stream of invalid documents.
 const _issues = (violations: ReadonlyArray<Violation>): ReadonlyArray<Schema.FilterIssue> =>
   Array.map(violations, (violation) => ({
     path: [pathToString(violation.field)],
@@ -187,8 +174,6 @@ const _message = <Desc extends DescMessage>(gen: Desc): Schema.Schema<MessageVal
     },
   )
 
-// JSON text reaches the generated decoder as a `JsonValue`; `Shape.Json`'s own guard proves the parsed tree is one, so
-// the seam holds evidence and no cast stands where the package's type is narrower than `unknown`.
 const _JsonValue: Schema.Schema<JsonValue> = Schema.declare(
   (input: unknown): input is JsonValue => Schema.is(Shape.Json)(input),
   { identifier: "JsonValue" },
@@ -203,9 +188,6 @@ const _jsonMessage = <Desc extends DescMessage>(gen: Desc): Schema.Schema<Messag
       Either.try({ try: () => toJson(gen, message, _JSON_WRITE), catch: (defect) => new ParseResult.Type(ast, message, String(defect)) }),
   })
 
-// Framings are ROWS: `binary` is the proto wire, `json` the ProtoJSON document a host's STJ pipeline now emits
-// through the generated message. Both land `MessageShape<Desc>` from `Uint8Array`, so a family's row names its framing
-// once and every consumer above reads one shape.
 const _framings = {
   binary: <Desc extends DescMessage>(gen: Desc): Schema.Schema<MessageValidType<Desc>, Uint8Array> =>
     _lifted(
@@ -226,8 +208,6 @@ const _frame = <Desc extends DescMessage>(
 
 // --- [STREAM_FRAME]
 
-// Egress is the package's own size-delimited writer; a message leaves validated because the seam above it already
-// ran `_message`, so this loop writes and never re-judges.
 const _pack = <Desc extends DescMessage, IE = never, Done = unknown>(
   gen: Desc,
 ): Channel.Channel<Chunk.Chunk<Uint8Array>, Chunk.Chunk<MessageValidType<Desc>>, IE, IE, Done, Done> =>
@@ -242,8 +222,6 @@ const _pack = <Desc extends DescMessage, IE = never, Done = unknown>(
     return loop
   })
 
-// Exemption: `_joined` performs one bounded allocation — the held tail and the arriving chunk become one buffer the
-// peek reads, which is the one copy a varint-prefixed stream costs.
 const _joined = (held: Uint8Array, arriving: Chunk.Chunk<Uint8Array>): Uint8Array => {
   const extent = held.byteLength + Chunk.reduce(arriving, 0, (total, part) => total + part.byteLength)
   const joined = new Uint8Array(extent)
@@ -255,12 +233,6 @@ const _joined = (held: Uint8Array, arriving: Chunk.Chunk<Uint8Array>): Uint8Arra
   return joined
 }
 
-// The peek reads the varint header without consuming it, so a declared size past the ceiling refuses BEFORE the
-// frame buffers and an incomplete header waits for more bytes. Each complete frame decodes under `_READ` and lands
-// through `_message`, so a stream message is judged by the same rules a unary one is. The fold is explicit rather
-// than the package's `AsyncIterable` decoder because the refusal must stay on the rail with its measured size —
-// `sizeDelimitedDecodeStream` raises a bare `Error` past its limit, which is a defect for the seam above to classify
-// and not evidence it can name.
 const _split = <Desc extends DescMessage>(
   gen: Desc,
   ceiling: number,
@@ -304,7 +276,6 @@ const _unpack = <Desc extends DescMessage, IE = never, Done = unknown>(
             onRight: ([messages, rest]) => Channel.zipRight(Channel.write(messages), loop(rest)),
           }),
         onFailure: Channel.failCause,
-        // a tail the peer never completed is a truncated frame, never a silent drop
         onDone: (done) =>
           held.byteLength === 0
             ? Channel.succeed(done)
@@ -321,8 +292,6 @@ const _framed = <Desc extends DescMessage>(gen: Desc, ceiling: number = Shape.In
 
 // --- [WELL_KNOWN]
 
-// `Any` resolves against THIS registry, so a type URL outside the suite answers absence rather than a guess; the
-// typed arm takes the descriptor a caller already holds.
 function _unpackAny(any: Any): Option.Option<Message>
 function _unpackAny<Desc extends DescMessage>(any: Any, gen: Desc): Option.Option<MessageShape<Desc>>
 function _unpackAny<Desc extends DescMessage>(any: Any, gen?: Desc): Option.Option<Message> {
@@ -335,8 +304,6 @@ const _any = {
   is: (any: Any, gen: DescMessage): boolean => anyIs(any, gen),
 } as const
 
-// `Struct` and `Value` are the corpus's two open JSON seats — `CommandPayloadWire.fields` and every `PatchOp` value —
-// and both cross `Shape.Json` through the generated codecs, so no page rebuilds the `kind` oneof by hand.
 const _StructJson: Schema.Schema<Struct, Shape.Json> = Schema.transformOrFail(Shape.Json, _message(StructSchema), {
   strict: true,
   decode: (json, _options, ast) =>
@@ -444,9 +411,6 @@ const _packOptions = { extensionCodec: _extensions, context: _context, useBigInt
 const _packDecoder = new PackDecoder<Pack.Context>(_packOptions)
 const _packEncoder = new PackEncoder<Pack.Context>({ ..._packOptions, sortKeys: true })
 
-// One lifted pair serves every family: `schema` composes an owned schema onto it and the bare frame stays reachable,
-// so a quarantined payload renders through the same configured decoder that refused it rather than through a second
-// construction whose ceilings and extension registry could drift off this one.
 const _packFrame: Schema.Schema<unknown, Uint8Array> =
   _lifted((octets) => _packDecoder.decode(octets), (value) => _packEncoder.encode(value))
 
@@ -626,8 +590,6 @@ const Patch: Patch.Shape = {
 const _TEXT = { fatal: true } as const
 
 const _strict = new TextDecoder("utf-8", _TEXT)
-// `text` alone owns the lossy twin: a quarantined frame renders where the strict pair already refused, and no
-// decode path reaches it.
 const _render = new TextDecoder("utf-8")
 const _jsonEncoder = new TextEncoder()
 
@@ -656,23 +618,8 @@ const Json: {
 - Boundary: `Wire` owns family-to-arm assignment and supplies the descriptor a proto render needs.
 
 ```typescript signature
-// One row per encoding arm — the columns every consumer of this plane reads off the arm ALONE, so quarantine
-// rendering and schema-free reachability stop being two name ladders on two pages.
-// `admit` and `render` both take the family's descriptor as an argument rather than resolving one, because a
-// descriptor is a FAMILY fact and this table is keyed on the arm: passing it in keeps both members total for the
-// two arms that ignore it and keeps the proto row honest about the one thing it cannot supply itself.
-//
-// TENANCY and LIFETIME are absent as columns because an arm DECIDES NOTHING about either, and a column stating a
-// value it does not decide states a guess. An arm is a pure byte-to-value transform holding nothing across calls:
-// tenancy rides `Carrier` baggage as `Identity.Tenant` and never enters an encoding, and a decoded value's lifetime
-// belongs to whichever consumer bound it. `Wire.Quarantine` is the plane that genuinely decides both, and answers
-// them at its own owner.
 const _arms = ["proto", "json", "msgpack"] as const
 
-// `_armAbsences` names the one row an ARM can lack: field names live in the descriptor and never in the bytes, so the
-// proto arm binds nothing without one while the two self-describing arms lack nothing at all. Naming that row HERE lets
-// `[08]`'s demand vocabulary fold an arm's refusal and a format's refusal into one closed set, instead of a caller
-// reading a bare absence off this table and a second bare absence off that one.
 const _armAbsences = ["descriptor"] as const
 
 declare namespace Arm {
@@ -691,10 +638,6 @@ declare namespace Arm {
   type _Rows<T extends { readonly [K in Kind]: Row } = typeof _armRows> = T
 }
 
-// Held frames render for an operator alone, so the printer is TOTAL over what the binary arms decode: `useBigInt64`
-// puts real bigints on the op-log, commit, and vector families and a bare `JSON.stringify` throws on every one of
-// them, while byte cells would print as objects with numeric keys. Ext cells keep their type byte, so a positional
-// record whose slots drifted reads apart from a malformed one at a glance.
 const _printed = (value: unknown): string =>
   JSON.stringify(value, (_key, held: unknown) =>
     typeof held === "bigint"
@@ -711,16 +654,12 @@ const _decoded = (schema: Schema.Schema<unknown, Uint8Array>) => (octets: Uint8A
 const _armRows = {
   proto: {
     fits: "<schema-evolving-cross-language-payload-with-a-declared-descriptor>",
-    // This arm alone can REFUSE its admission, and it names the row it lacks rather than answering a bare absence:
-    // without its family's descriptor no schema binds, where the two self-describing arms bind unconditionally.
     admit: (owned, descriptor) =>
       Option.match(descriptor, {
         onNone: () => Either.left<Arm.Absent>("descriptor"),
         onSome: (gen) => Either.right(Proto.family(gen, owned)),
       }),
     selfDescribing: false,
-    // Field names live in the descriptor, never in the bytes, so this row yields absence without one rather than
-    // printing a tag-to-value map no operator can read against the `.proto` source.
     render: (octets, descriptor) =>
       Option.flatMap(descriptor, (gen) =>
         Option.map(
@@ -733,7 +672,6 @@ const _armRows = {
     fits: "<operator-readable-payload-whose-producer-emits-text>",
     admit: (owned) => Either.right(Json.schema(owned)),
     selfDescribing: true,
-    // Held octets ARE the document, so this render survives the malformed case the other two arms cannot.
     render: (octets) => Option.some(Json.text(octets)),
     degrade: "<base64-inflated-octets>",
   },
@@ -767,8 +705,6 @@ type _ArmAbsent = Arm.Absent
 ```typescript signature
 import { CONSTANTS, type CloudEventV1 } from "cloudevents"
 
-// This predicate proves JSON arity alone. Carrier owns every CloudEvents semantic and constructs the SDK class after
-// decode; on encode an admitted CloudEvent remains the input object, so JSON.stringify reaches its SDK `toJSON`.
 const _EventTree = Schema.declare(
   (input: unknown): input is CloudEventV1<unknown> => Predicate.isRecord(input),
   { identifier: "CloudEventJsonObject" },
@@ -869,7 +805,7 @@ const EventFormat = {
   protobuf: _protobufEvent,
   avro: _avroEvent,
 } as const
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 declare namespace Format {
   type Arm = _ArmKind

@@ -34,7 +34,7 @@ Wire posture is HOST-LOCAL, envelope-only: the `CloudNative.CloudEvents` envelop
 |  [05]   | `energy-minted`   | `rasm.bim.energy.emitted`    | normalized body content key |
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
@@ -48,19 +48,15 @@ using LanguageExt;
 using NodaTime;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
-using Rasm.Bim.Model;                        // BimFact, its set vocabularies, and the compact fault axes
-using Rasm.Domain;                           // the ONE envelope algebra
+using Rasm.Bim.Model;
+using Rasm.Domain;
 using Rasm.Element.Projection;
 using BimObserver = Rasm.Domain.HookTap<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Announced rows close what this package publishes, each carrying the kernel EventType its subject and fact
-// segments compose. Segments never concatenate at a call site — EventType.Of assembles them — so a filter
-// written at a subscription and a type minted here cannot disagree about the shape both claim, and the major
-// moves only on a breaking body change rather than beside one.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -71,9 +67,6 @@ public sealed partial class BimAnnounce {
     public static readonly BimAnnounce ArtifactMinted = new("artifact-minted", Of("exchange", "artifact-minted"));
     public static readonly BimAnnounce EnergyMinted = new("energy-minted", Of("energy", "artifact-minted"));
 
-    // `bim` is the capability segment the branch telemetry roster already admits, so a board keyed on a metric
-    // name and a subscription keyed on an event type join one vocabulary; the app-platform naming gate resolves
-    // EventType.Domain against that same roster and refuses an unrostered subject at its declaration owner.
     const string Domain = "bim";
 
     const int Major = 1;
@@ -87,11 +80,7 @@ public sealed partial class BimAnnounce {
         toSeq(Items).Find(row => StringComparer.Ordinal.Equals(row.Type.Value, spelled));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Host-free wire payloads — the structured-mode data body per announced fact, camelCase through the context,
-// content keys as the kernel's 32-hex rendering; the source-generated context keeps the formatter
-// reflection-free. Records share NO base, because a common base forces STJ polymorphism and its `$type`
-// discriminator then enters the body every peer parses as a flat camelCase record.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CommittedWire(string CommitKey, ImmutableArray<string> Parents, string Branch, int Elements);
 public sealed record IssueMutatedWire(string Topic, string Mutation, string? Comment, ImmutableArray<string> GlobalIds);
 public sealed record VerdictIssuedWire(
@@ -114,13 +103,7 @@ public sealed record EnergyMintedWire(string ArtifactKey, string Leg, string For
 [JsonSerializable(typeof(EnergyMintedWire))]
 public sealed partial class BimEventContext : JsonSerializerContext;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Composition seam: WHO produces, at WHICH handling class, and WHERE a minted envelope goes. Source is the
-// producing capability rather than a host or deployment, so a redeployment re-authors no identity a consumer
-// keyed on. Grade rides the port rather than each row because handling class is a property of the deployment;
-// a per-row grade lets one composition publish two facts at two classes with nothing reconciling them.
-// Emit is rail-shaped, so a refused sink parks point-attributed on the registry's own evidence cell exactly
-// as every other observe tap's refusal does.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record BimEventPort(EventSource Source, DataGrade Grade, Func<CloudEvent, Fin<Unit>> Emit);
 
 public static class BimEventExtensions {
@@ -147,16 +130,10 @@ public static class BimEventExtensions {
     }
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// Mapperly owns the outbound SHAPE half — the generator fills these five bodies from member correspondence;
-// `Admit` stays the hand-written inbound rail. Five signatures stand in for one `[MapDerivedType]` switch,
-// because the wire records deliberately share no base.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 [UseStaticMapper(typeof(EventCodec))]
 public static partial class BimEventWire {
-    // Every signature leaves the op key unmapped on purpose: it addresses the LOCAL rail operation and is not a
-    // peer fact. Causality crosses through the W3C creation trace, so carrying the key into the body would publish
-    // a second weaker causal vocabulary. Both renames stay explicit, so this generator proves every other slot.
     [MapperIgnoreSource(nameof(BimFact.Committed.Key))]
     public static partial CommittedWire Wire(BimFact.Committed fact);
 
@@ -175,49 +152,26 @@ public static partial class BimEventWire {
     public static partial EnergyMintedWire Wire(BimFact.Emitted fact);
 }
 
-// EventCodec holds the converters the generator resolves by type pair, each the ONE spelling of its crossing. The
-// name is this folder's alone: the codec MECHANISM is the seam `Rasm.Element/Graph/wire#WIRE_CODEC` `WireCodec`,
-// so a third same-named declaration beside it and the Materials one made one noun mean three things (E-B4).
-// Content keys cross through the kernel renderer, so this folder holds no hex format string and the wire form
-// a producer emits is byte-identical to the form `ContentHash.Admit` proves on the way back. User mappings win
-// over Mapperly's built-ins, so `UInt128` never falls to `ToString`.
 public static class EventCodec {
     public static string Hex(UInt128 contentKey) => ContentHash.Hex(contentKey);
     public static string Hex(ContentAddress content) => content.ToValue();
     public static string Key(BimIssueMutation mutation) => mutation.Key;
     public static string? Text(Option<string> value) => value.Match(static v => v, static () => (string?)null);
-    // Sets render off their VALUE, already sorted-distinct by construction, so the wire array is canonical
-    // without a sort at the mapper and two fires of one fact render byte-identically.
     public static ImmutableArray<string> Keys(ContentKeySet keys) => [.. keys.Value.Map(Hex)];
     public static ImmutableArray<string> Texts(GlobalIdSet values) => [.. values.Value];
-    // Nanoseconds cross LOSSLESS, so the inverse rebuilds the exact Duration the emitter measured; a seconds
-    // double would round-trip a figure no producer published and make the admitted fact disagree with the
-    // receipt it projects.
     public static long Nanos(Duration elapsed) => elapsed.ToInt64Nanoseconds();
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BimEventing {
-    // Bodies cross as JSON and the content type is the serdes arrow's OWN media type read off the BCL
-    // constant, never a literal a mint site guesses: the arrow here is the source-generated context, and a
-    // format landing at the kernel changes the ENVELOPE framing while this row keeps naming the body.
     public static readonly string PayloadMedia = MediaTypeNames.Application.Json;
 
-    // ONE tap row the composition hands the rail mint, narrowed by the kernel Scope column to the five announced
-    // seats — the rail subscribes at composition ahead of the first fire, which Verdict requires: it is the Replay
-    // point and the rail fans its held window to a fresh subscriber on attach, so a late mount would re-announce
-    // that window as fresh facts under new envelopes a receiver's dedup never matches. Scoping on the row rather
-    // than probing the point inside the body keeps the five-seat roster one declaration.
     public static BimObserver Observe(BimEventPort port, IClock clock) =>
         new(Name: Op.Of(name: "rasm.bim.announce"),
             Observe: fact => Mint(fact: fact, port: port, at: clock.GetCurrentInstant())
                 .Bind(held => held.Match(Some: port.Emit, None: static () => Fin.Succ(unit))),
             Scope: Some(Seq(BimPoint.Committed, BimPoint.IssueMutated, BimPoint.Verdict, BimPoint.Exported, BimPoint.Emitted)));
 
-    // TOTAL over the fact family: an announced case projects one typed profile mint and every other answers None, so
-    // this posture is exhaustive at the compiler rather than stated in prose a new case can outrun. State
-    // THREADS rather than closing over the port and the instant, because a captured pair allocates one
-    // closure per arm on every fire this projection sits directly inside.
     public static Fin<Option<CloudEvent>> Mint(BimFact fact, BimEventPort port, Instant at) => fact.Switch(
         state:        (Port: port, At: at),
         progress:     static (_, _) => Fin.Succ(Option<CloudEvent>.None),
@@ -238,14 +192,6 @@ public static class BimEventing {
         emitted:      static (s, m) => Announce(BimAnnounce.EnergyMinted, m, s.Port, s.At,
                           Body(BimEventWire.Wire(m), BimEventContext.Default.EnergyMintedWire, m.Key)));
 
-    // Every announced row funnels HERE, so the construction shape is spelled once: the operation identity is a
-    // time-ordered v7 minted off the instant this projection already threads and distinct across two fires inside
-    // one tick — where a `<kind>:<subject>` spelling
-    // makes two announcements of one fact about one address a single event `(source, id)` dedup then drops.
-    // Handling grade rides through the generated extension message the deployment supplies, while the kernel
-    // entry owns field writes and the one `CloudEvent.Validate()` funnel. Causality reads
-    // off the LIVE span because this body runs inside the emitter's own fire, which is the only moment that
-    // producing context exists; a stamp taken at any later sink names the sender, never the producer.
     static Fin<Option<CloudEvent>> Announce(
         BimAnnounce row,
         BimFact fact,
@@ -296,13 +242,6 @@ public static class BimEventing {
         exported:      static (op, e) => Body(BimEventWire.Wire(e), BimEventContext.Default.ArtifactMintedWire, op).Map(body => Some(body.Content)),
         emitted:       static (op, m) => Body(BimEventWire.Wire(m), BimEventContext.Default.EnergyMintedWire, op).Map(body => Some(body.Content)));
 
-    // INVERSE a consuming ingress reaches after profile decode: the type resolves its announced row,
-    // that row's wire shape admits the body, every key, tally, identifier, and set re-enters through its
-    // canonical gate, and the envelope subject must equal the admitted fact's own derived subject — so a
-    // re-addressed envelope never passes as its payload and an unknown type rails BARE rather than
-    // half-admitting a domain fact. Admission lands the SAME `BimFact` a fire produced because every wire
-    // record carries every slot its case holds; a body that dropped one would force this rail to fabricate
-    // evidence no producer published, which is why the elapsed measure crosses as exact nanoseconds.
     public static Fin<BimFact> Admit(CloudEvent envelope, Op key) =>
         from admitted in RasmEventEnvelope.Admit(
             envelope: envelope,
@@ -413,9 +352,6 @@ public static class BimEventing {
             ? Fin.Succ(mutation)
             : Fin.Fail<BimIssueMutation>(new BimFault.Refused(key, BimScope.Events, BimReason.Codec, string.Join(':', new object?[] { "event-mutation-miss", value ?? "" })));
 
-    // Slot-parameterized admissions carry their wire-slot name as a SUBJECT on their own roster row, which
-    // gives this family one fixed grep prefix. Producer text NORMALIZES once at this boundary: surrounding
-    // whitespace is a formatting artifact, never a semantic difference — emptiness after the trim fails.
     static Fin<string> Required(string? value, string slot, Op key) =>
         value?.Trim() is { Length: > 0 } trimmed
             ? Fin.Succ(trimmed)
@@ -436,9 +372,6 @@ public static class BimEventing {
         ? Fin.Succ(Option<string>.None)
         : GuidText(value, slot, key).Map(Some);
 
-    // Content-key admission proves ordering on the WIRE TEXT the outbound half emits, then mints through the
-    // set owner, which re-normalizes on the numeric values; the two agree by construction because the kernel
-    // rendering is fixed-width and therefore order-preserving.
     static Fin<ContentKeySet> ContentKeys(ImmutableArray<string> values, string slot, Op key) =>
         WireSet.Ordered(values)
             ? toSeq(values).TraverseM(value => ContentHash.Admit(hex: value, key: key)).As().Map(ContentKeySet.Of)

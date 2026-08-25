@@ -25,7 +25,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<THostEnum>]`, `[SmartEnum<bool>]` with `ConversionToKeyMemberType = Implicit`, `[UseDelegateFromConstructor]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:51-53` — `PlugInType`, `PlugInLoadTime`, `LoadPlugInResult`; `:70` — the `PlugInInfo` default-on-undefined reads).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Rhino.Document;
@@ -35,7 +35,7 @@ using GdiSize = System.Drawing.Size;
 
 namespace Rasm.Rhino.Plugin;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<PlugInType>]
 public sealed partial class PluginKind : ICapability<PluginKind> {
     public static readonly PluginKind None = new(key: PlugInType.None);
@@ -48,12 +48,9 @@ public sealed partial class PluginKind : ICapability<PluginKind> {
     public static readonly PluginKind DisplayEngine = new(key: PlugInType.DisplayEngine);
     public static readonly PluginKind Any = new(key: PlugInType.Any);
 
-    // The capability text and rank DERIVE from the host flag: the enum member name is the canonical token and the
-    // bit is the canonical order, so the vocabulary cannot drift from the enum the registry publishes.
     string ICapability<PluginKind>.Key => Key.ToString();
     int ICapability<PluginKind>.Rank => (int)Key;
 
-    // The one illegal corner stated as a complement: an empty filter asks the host for nothing.
     public static CapabilityLaw<PluginKind> Law { get; } =
         CapabilityLaw<PluginKind>.Forbidden(barred: Seq(CapabilitySet<PluginKind>.None));
 }
@@ -141,7 +138,7 @@ public sealed partial class LoadProtection {
 - Packages: Generator.Equals (`libs/dotnet/.api/api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); LanguageExt.Core (`Option`, `Seq`); kernel `Domain/validation` (`CapabilitySet`); `Document/events` (`PluginKey`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:70` — the `PlugInInfo` descriptor reads).
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PluginContact(
     Option<string> Organization,
     Option<string> Address,
@@ -169,8 +166,6 @@ public sealed partial record PluginInfo(
     [property: OrderedEquality] Seq<string> FileTypeDescriptions,
     [property: OrderedEquality] Seq<string> FileTypeExtensions);
 
-// The kernel `PackageIdentity.PluginSlot` const owns the word `slot` as a telemetry dimension key, so the
-// installed-roll row carries the name the roll gives it and no reader resolves two senses of one word.
 public sealed record PluginRollRow(PluginKey Plugin, Option<string> Name);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -195,7 +190,7 @@ public sealed record PluginProtection(PluginKey Plugin, LoadProtection Behavior)
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Validation` tuple `.Apply`); kernel `Domain/rails` (`Op.AcceptText`, `Op.Text`, `Op.Need`, `Op.Probe`, `Op.Row`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:60-63,70` — `IdFromName`, `IdFromPath`, `IdFromFileName`, `NameFromPath`, `PathFromId`, `PathFromName`, `GetPlugInInfo`, `PlugInExists`, `GetLoadProtection`, `GetEnglishCommandNames`, `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`).
 
 ```csharp signature
-// --- [TABLES] -------------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PluginRead {
@@ -215,9 +210,6 @@ public sealed partial class PluginRead {
     internal static Fin<PluginAnswer> Named(Func<string> read, Op op) => op.Catch(() =>
         Fin.Succ<PluginAnswer>(value: new PluginAnswer.Text(Value: Op.Text(read()))));
 
-    // The two `out` slots are ROWS, so the state set is built by the vocabulary's own filter and a third state
-    // lands as a row instead of as a third conditional append. The multi-`out` probe lifts once on the kernel
-    // arm, so absence — a key the registry does not hold — is the `Absent` case, never a triple of false.
     internal static Fin<PluginPresence> Probed(PluginKey plugin, Op op) => op.Catch(() => Fin.Succ(
         value: Op.Probe(() => {
             bool installed = PlugIn.PlugInExists(
@@ -244,8 +236,6 @@ public sealed partial class PluginRead {
         Optional(PlugIn.GetPlugInInfo(pluginId: plugin.ToValue())).ToFin(
             Fail: new PluginFault.Unbound(Key: op, Member: nameof(PlugIn.GetPlugInInfo))));
 
-    // The whole record folds in one pass, so a caller holding a `PluginInfo` never re-enters the census for a
-    // coordinate the record already carries — presence included.
     private static Fin<PluginAnswer> Detached(PluginKey plugin, Op op) =>
         from record in Handle(plugin: plugin, op: op)
         from presence in Probed(plugin: plugin, op: op)
@@ -301,7 +291,7 @@ public sealed partial class PluginLookup {
         Fin.Succ<PluginAnswer>(value: new PluginAnswer.Identity(Value: PluginKey.Maybe(read()))));
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PluginQuery {
     private PluginQuery() { }
@@ -344,9 +334,6 @@ public abstract partial record PluginAnswer {
     public sealed record Names(NameSource Source, Seq<string> Value) : PluginAnswer;
     public sealed record Tally(int Value) : PluginAnswer;
 
-    // The typed accessor for the one product two rows both answer: `Presence` reads the probe and `Descriptor`
-    // reads the presence it already folded, so a consumer asks either row and reads its answer in one hop instead
-    // of probing a closed union it already decided.
     public Fin<PluginPresence> Presence(Op key) => Switch(
         key,
         identity: static (held, _) => Elsewhere(held),
@@ -373,7 +360,7 @@ public abstract partial record PluginAnswer {
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `.Strict()`); kernel `Domain/rails` (`Op`, `Op.Text`, `Op.Need`, `Lease<T>`), `Interaction/asset` (`AssetExtent`, `AssetRaster.Gdi`, `AssetOrigin.Raster`), `Numerics/atoms` (`PositiveMagnitude`, `Dimension`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:63` — `GetInstalledPlugIns`, `GetInstalledPlugInNames`, `GetInstalledPlugInFolders`, `InstalledPlugInCount`; `PlugInInfo.Icon(Size)`).
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginCensus {
     public static Fin<PluginAnswer> Ask(PluginQuery query, Op? key = null) {
         Op op = key.OrDefault();
@@ -407,8 +394,6 @@ public static class PluginCensus {
                     value: new PluginAnswer.Tally(Value: PlugIn.InstalledPlugInCount)))));
     }
 
-    // The bitmap is a fresh host allocation on every call, so it crosses owned inside the asset owner's own scale
-    // row; a null answer is an absent icon, never an empty image the caller would then have to test.
     public static Fin<AssetOrigin> Icon(PluginKey plugin, AssetExtent extent, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in plugin.Admit(op)
@@ -433,7 +418,7 @@ public static class PluginCensus {
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<LoadPlugInResult>]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.Side`), `Domain/validation` (`Op.Row`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md:53,62` — `LoadPlugInResult`, `LoadPlugIn` both overloads, `SetLoadProtection`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<LoadPlugInResult>]
 public sealed partial class PathLoadVerdict {
     public static readonly PathLoadVerdict Loaded = new(key: LoadPlugInResult.Success);
@@ -460,7 +445,7 @@ public abstract partial record PluginAct {
             .Map<PluginAct>(_ => row));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PluginReceipt {
     private PluginReceipt() { }
@@ -469,7 +454,7 @@ public abstract partial record PluginReceipt {
     public sealed record Protected(PluginKey Plugin, LoadProtection Behavior) : PluginReceipt;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginRegistry {
     public static Fin<PluginReceipt> Commit(PluginAct act, Op? key = null) {
         Op op = key.OrDefault();
@@ -477,8 +462,6 @@ public static class PluginRegistry {
             .Bind(request => request.Admit(op))
             .Bind(request => request.Switch(
                 op,
-                // A path load reports its identity only on success; the host writes `Guid.Empty` into the out slot
-                // on refusal, so the identity rides `Option` rather than a sentinel a caller could carry forward.
                 loadPath: static (held, row) => held.Catch(() => {
                     LoadPlugInResult native = PlugIn.LoadPlugIn(path: row.Path, plugInId: out Guid loaded);
                     return held.Row<LoadPlugInResult, PathLoadVerdict>(native).Map<PluginReceipt>(verdict =>

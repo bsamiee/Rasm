@@ -25,7 +25,7 @@
 - Boundary: the notice cell, the byte snapshot, and the disposable partial readers are the provider statement kernel — every `CadDocument` and `Entity` terminates here and no provider type reaches the canonical owner; documented BCL file-availability exceptions lower to caused `IngressProviderUnavailable`, while ACadSharp and callback throws retain the exact exceptional `Error`. `ProfileCensus` holds the provider notifications once, so no later stage re-reads them; `ProfilePolicy` decides which lanes owe closure, so a bend or etch run never fails a healed import and a reference layer is censused then discarded; a rejected notice kind lowers to `IngressTranslation` on the source locus before any contour is built.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.IO;
 using System.Linq;
@@ -41,10 +41,10 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Collections;
 using Rasm.Domain;
-using Rasm.Drawing;                             // AciIndex, LayerName, LetteringForm, TextHeight, DraftingMetrics
+using Rasm.Drawing;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
-using Rasm.Numerics;                            // GeometryFault, Kind
+using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
@@ -65,7 +65,7 @@ using HatchSpline = ACadSharp.Entities.Hatch.BoundaryPath.Spline;
 
 namespace Rasm.Fabrication.Ingress;
 
-// --- [RAW_ADMISSION] ----------------------------------------------------------------------
+// --- [RAW_ADMISSION] -------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct ProfilePath {
     [BoundaryAdapter]
@@ -114,18 +114,12 @@ public abstract partial record ProfileClosure {
     public sealed record Healed(ProfileGap MaxGap) : ProfileClosure;
 }
 
-// Two payload-free rows are a ROW FAMILY, not a union: a `[Union]` over cases that carry nothing mints two record
-// types, two equality pairs, and a conversion plane to express one closed vocabulary the row form already states —
-// and every other payload-free vocabulary on this page (`ProfileLane`, `ProfileEncoding`, `ProfileNoticeKind`) is
-// already spelled that way. The generated `Switch` the lowering fold reads is unchanged.
 [SmartEnum<string>]
 public sealed partial class ProfileEntityPolicy {
     public static readonly ProfileEntityPolicy Ignore = new("ignore");
     public static readonly ProfileEntityPolicy Reject = new("reject");
 }
 
-// The host severity rides the row, so the provider-to-owned map is a column read rather than a switch that has to
-// restate the roster and default the one arm it forgot.
 [SmartEnum<string>]
 public sealed partial class ProfileNoticeKind {
     public static readonly ProfileNoticeKind None = new("none", NotificationType.None);
@@ -135,8 +129,6 @@ public sealed partial class ProfileNoticeKind {
 
     public NotificationType Severity { get; }
 
-    // `None` is the host's own residual row, so an unmapped severity resolves to the row that already means "no
-    // finding" rather than to an arbitrary arm.
     public static ProfileNoticeKind Of(NotificationType severity) =>
         toSeq(Items).Find(row => row.Severity == severity).IfNone(None);
 }
@@ -173,15 +165,6 @@ public sealed partial class ProfileLane {
     public bool Closes { get; }
 }
 
-// Every declared insertion unit and its millimetre scale in ONE row set: `UnitsNet` publishes no survey inch, yard,
-// or mile, so those three rows carry their scale as a multiple of the survey foot rather than a unit token, and
-// `Unitless` carries no row at all — the absence a fallback policy answers for.
-//
-// Kernel `DrawingUnits` does NOT own this table and cannot: it keys on `SheetStandard` and carries four rows
-// — the metre, millimetre, inch, and foot-inch a SHEET is drafted in — while `$INSUNITS` is a twenty-four-ordinal
-// host vocabulary reaching angstroms, parsecs, and three survey lengths, and no `SheetStandard` names any of them.
-// Both answer different questions, so this table stays host-only and the kernel row family is what a PUBLISHED
-// sheet reads. Only the `LengthUnit` leg below is shared, and it is one `UnitsNet` conversion either way.
 public static class ProfileScale {
     private static readonly FrozenDictionary<UnitsType, double> Rows = new Dictionary<UnitsType, double> {
         [UnitsType.Angstroms] = Millimeters(LengthUnit.Angstrom),
@@ -228,8 +211,6 @@ public sealed partial class ProfileReadPolicy {
         ref ValidationError? validationError,
         ref Set<ProfileReadCapability> capabilities,
         ref Set<ProfileNoticeKind> rejects) {
-        // Rejecting the residual severity rejects every clean read, so the one row that carries no finding is the
-        // one row a rejection set cannot name.
         if (rejects.Contains(ProfileNoticeKind.None))
             validationError = new ValidationError(string.Join(" | ", new object?[] { "profile-reader:rejects-none" }));
     }
@@ -248,20 +229,12 @@ public sealed partial class ProfilePolicy {
     public ProfileReadPolicy Reader { get; }
 
     // --- [LANE_BLOCK]
-    // Lane resolution folds into the aggregate that was its only consumer. It stood as its own hand-rolled sealed
-    // class with a private constructor, a hand `Fin` factory, and a blank-key gate, justified by "a record cannot
-    // hold a derived view" — which the `Loop` atom refutes on this very page's input by holding its whole `LoopView`
-    // behind `[IgnoreMember]`. The keys are the kernel `LayerName` grammar because they are OPERATOR-authored
-    // material: each proves its standard's required fields in that standard's sequence, so the blank-key gate is
-    // unrepresentable rather than guarded. The drawing side stays a raw string — see `ProfileProvenance`.
     public Map<LayerName, ProfileLane> Layers { get; }
     public ProfileLane Fallback { get; }
 
     [IgnoreMember]
     private FrozenDictionary<string, ProfileLane>? lanes;
 
-    // Layer names arrive from the drawing in whatever case the draftsman typed, so the index renders each admitted
-    // key through its own standard ONCE and resolution costs a lookup per lowered entity rather than a scan.
     private FrozenDictionary<string, ProfileLane> Index => lanes ??= Layers
         .AsIterable()
         .ToDictionary(static row => row.Key.Text, static row => row.Value, StringComparer.OrdinalIgnoreCase)
@@ -285,8 +258,6 @@ public sealed partial class ProfilePolicy {
         ref ProfileLane fallback,
         ref PolygonFill fill,
         ref Context tolerance) {
-        // A healing gap below the model grid can seal nothing, so the closure demand would refuse every drawing it
-        // was configured to repair.
         if (closure is ProfileClosure.Healed healed && healed.MaxGap.Value.Millimeters < tolerance.Absolute.Value)
             validationError = new ValidationError(string.Join(" | ", new object?[] { "profile-closure:gap-below-grid" }));
     }
@@ -307,9 +278,6 @@ public sealed partial class ProfilePolicy {
 
 public sealed record ProfileSource(ProfilePath Path, ProfilePolicy Policy);
 
-// The ONE byte-to-path materialization in `Ingress`. Every provider reader the sub-domain composes takes a PATH,
-// so the admitted bytes land once and delete on every exit; a sibling page declaring its own temp-file helper is
-// the deleted duplicate, and re-reading the caller's original path admits bytes the digest never covered.
 public static class SourceSnapshot {
     public static T With<T>(ReadOnlySpan<byte> payload, string extension, Func<string, T> read) {
         string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{extension}");
@@ -400,9 +368,6 @@ public static partial class ProfileImport {
         ReadOp.Catch(() => Fin.Succ(format.Read(payload, source.Policy.Reader,
             (_, args) => notices.Swap(rows => rows.Add(Notice(args))))));
 
-    // Three partial reads over one sink: `ReadTables().Layers` is the only surface publishing a declared layer that
-    // carries zero entities, and DWG has no partial entity read to pair with it. This is the SURVEY leg alone —
-    // `Read` opens exactly one document and derives its census from the same entity snapshot it lowers.
     private static Fin<ProfileCensus> ProbeDxf(
         ProfileSource source, ProfileFormat format, Atom<Seq<ProfileNotification>> notices) =>
         ReadOp.Catch(() => {
@@ -460,16 +425,12 @@ public static partial class ProfileImport {
     private static ProfileNotification Notice(NotificationEventArgs args) => new(
         ProfileNoticeKind.Of(args.NotificationType), args.Message, Optional(args.Exception?.Message));
 
-    // Every mint below rides the WITNESS-GATED factory: the locus predicate runs on the raising path, so a payload
-    // contradicting its own `SourceKind` lands as `WitnessMalformed` rather than as a fault its evidence refutes.
     internal static Error Fault(ProfilePath path, string detail) => FabricationFault.Sourced(
         new SourceLocus.ProfileEntity(Path.GetFileName(path.Value)), detail);
 
     private static Error Fault(ProfilePath path, Error error) => FabricationFault.Unavailable(
         new SourceLocus.ProfileEntity(Path.GetFileName(path.Value)), error.Message, error);
 
-    // Only the documented BCL source-availability family is reclassified. ACadSharp and callback exceptions have
-    // no provider taxonomy here and remain the exact exceptional Error captured by Op.Catch.
     private static Error Classify(ProfilePath path, Error error) => error.Exception
         .Filter(static raised => raised is IOException or UnauthorizedAccessException)
         .Map(_ => Fault(path, error))
@@ -497,20 +458,9 @@ public static partial class ProfileImport {
 - Boundary: closure is demanded only from lanes `ProfileLane.Closes` marks, so an open bend run reaches the receipt unhealed; provider justification, attachment, stretch, and attribute-flag rosters resolve through owned rows carrying those ordinals, so no provider enum reaches the receipt and no arm restates a roster; `ProfileTopology` reopens no source file and holds no provider handle, because admission already terminated every provider type.
 
 ```csharp signature
-// --- [CANONICAL_OWNER] --------------------------------------------------------------------
+// --- [CANONICAL_OWNER] -----------------------------------------------------------------
 public readonly record struct ProfileBlock(string Name, int Ordinal, int Row, int Column);
 
-// `Layer` stays the drawing's OWN string and is deliberately NOT a kernel `LayerName`: a layer name arrives in
-// whatever form the draftsman typed, `LayerName.Parse` demands every required field of a declared standard in its
-// sequence, and this page's whole lane policy exists to resolve names no standard covers — typing this column would
-// refuse the drawings the owner was built to read. The POLICY side is the opposite case and does carry `LayerName`,
-// because those keys are authored by the operator.
-//
-// `Colour` is the kernel `AciIndex` under `Option`: the index owner admits 1-255 and refuses 0 and 256 by name,
-// because those two are the host's ByBlock and ByLayer INHERITANCE cases rather than colours — and an entity drawn
-// ByLayer, which is most of them, carried a `short` here that read as a palette slot it never named. A consumer
-// resolving a pen composes `PlotStyleKey.Of(index)` against a `PlotStyleTable.Ctb` at the PUBLISHING edge; a DXF
-// read carries no plot-style table, so minting one here would forge a pen the drawing never stated.
 public sealed record ProfileProvenance(
     string Layer,
     ProfileLane Lane,
@@ -522,10 +472,6 @@ public sealed record ProfileProvenance(
 
 public sealed record ProfileContour(Loop Loop, ProfileProvenance Provenance);
 
-// DXF spells justification over two independent axes for TEXT and over a 3x3 attachment grid for MTEXT, so one
-// side-and-rung product carries both: a 9-cell collapse strands the TEXT baseline rung, which stays a distinct
-// datum from bottom wherever a glyph run carries descenders. Each row carries the HOST ordinals it answers for, so
-// admission is a containment read and no lowering arm restates the provider roster.
 [SmartEnum<string>]
 public sealed partial class MarkingSide {
     public static readonly MarkingSide Left = new("left",
@@ -541,8 +487,6 @@ public sealed partial class MarkingSide {
     public Set<TextHorizontalAlignment> Justification { get; }
     public Set<AttachmentPointType> Attachment { get; }
 
-    // The rows PARTITION each host roster, so an ordinal a provider release adds resolves to `None` and refuses at
-    // the lowering arm rather than reading silently as the leftmost row.
     public static Option<MarkingSide> Of(TextHorizontalAlignment value) =>
         toSeq(Items).Find(row => row.Justification.Contains(value));
 
@@ -561,7 +505,6 @@ public sealed partial class MarkingRung {
     public static readonly MarkingRung Bottom = new("bottom",
         Set(TextVerticalAlignmentType.Bottom),
         Set(AttachmentPointType.BottomLeft, AttachmentPointType.BottomCenter, AttachmentPointType.BottomRight));
-    // MTEXT has no baseline cell, so this row carries an empty attachment set: a paragraph never resolves to it.
     public static readonly MarkingRung Baseline = new("baseline",
         Set(TextVerticalAlignmentType.Baseline), Set<AttachmentPointType>());
 
@@ -585,12 +528,8 @@ public readonly record struct MarkingAnchor(MarkingSide Side, MarkingRung Rung) 
             .Apply(static (side, rung) => new MarkingAnchor(side, rung)).As();
 }
 
-// Stretched runs span the marking origin and its carried alignment point rather than sitting at one place:
-// `Aligned` scales glyph height to span them, `Fitted` holds the height and squeezes the width factor.
 [SmartEnum<string>]
 public sealed partial class MarkingFit {
-    // `Natural` carries the EMPTY stretch set, so it is the residual the two stretch rows leave rather than a
-    // fallback arm a ladder had to spell.
     public static readonly MarkingFit Natural = new("natural", Set<TextHorizontalAlignment>());
     public static readonly MarkingFit Aligned = new("aligned", Set(TextHorizontalAlignment.Aligned));
     public static readonly MarkingFit Fitted = new("fitted", Set(TextHorizontalAlignment.Fit));
@@ -614,26 +553,12 @@ public sealed partial class MarkingFlag {
         toSet(toSeq(Items).Filter(row => flags.HasFlag(row.Bit)));
 }
 
-// One line sequence carries every text-bearing modality — a single-line mark is the one-element case, a paragraph
-// its wrapped lines, a multiline tag the lines of the body it hangs off — so arity is the only difference a
-// consumer reads and no case mints a second content spelling.
-// `Height` stays the drawing's MEASURED glyph height, because a posted program and a traveler reproduce the mark the
-// sheet actually carries; the ISO 3098 rung is DERIVED from it through the kernel ladder rather than stored beside
-// it, so no second column can disagree with the height it was snapped from. NAMED LOSS: `Rung` quantizes onto the
-// eight-row ladder and a 3.2 mm mark reads as the 3.5 rung. WITNESS: `TextHeight.For(Length)` is the kernel's own
-// nearest-rung mint, and `Height` is untouched beside it. `Form` resolves the ISO lettering type from the provider
-// style's slant alone: DXF publishes an oblique angle but no stroke-width ratio, so the vertical/italic axis is a
-// read and the Type A/B axis is a JUDGMENT — Type B is the ISO 3098 drafting default and the row states it. `Style`
-// survives as the drawing's own style NAME, the provenance a round trip needs and no kernel row carries.
 public sealed record MarkingType(
     Seq<string> Lines, Length Height, LetteringForm Form, string Style, MarkingAnchor Anchor) {
     public string Text => string.Join('\n', Lines);
 
     public Fin<TextHeight> Rung => TextHeight.For(Height);
 
-    // Full ISO 3098 metrics — stroke width, character spacing, line pitch, word spacing, lower-case height,
-    // frame height and pad — off the two rows this type already carries. A traveler laying out a mark block and a
-    // plot check reading legibility both compose this rather than re-deriving a ratio the kernel owns.
     public Fin<DraftingMetrics> Metrics => Rung.Map(Form.Metrics);
 }
 
@@ -647,8 +572,6 @@ public abstract partial record MarkingContent {
 
     public static readonly MarkingContent Mark = new Glyph();
 
-    // Only a stretched run carries a second placed point, so a replica shifts it beside the marking origin;
-    // threading the receiver through the state tuple returns the identical instance for every static case.
     public MarkingContent Shift(Vector3d delta) => Switch(
         state: (Content: this, Delta: delta),
         glyph: static (state, _) => state.Content,
@@ -676,17 +599,11 @@ public abstract partial record ProfileRepair {
     public sealed record Closed(ProfileProvenance Provenance, Length Gap) : ProfileRepair;
     public sealed record Cleaned(ProfileProvenance Provenance, int Before, int After, int Segments) : ProfileRepair;
     public sealed record Sampled(ProfileProvenance Provenance, SplineSampler Sampler, int Points) : ProfileRepair;
-    // The span pair IS the simplification evidence — `DensifyEvidence` publishes source and output span counts and
-    // nothing else, so a third column has no producer and a reader derives the delta from the two that do.
     public sealed record Densified(
         ProfileProvenance Provenance, double ErrorBound, int SourceSpans, int OutputSpans) : ProfileRepair;
     public sealed record Topology(
         ProfileProvenance Provenance, int Before, int After, Area BeforeArea, Area AfterArea) : ProfileRepair;
 
-    // Provenance rides every case, so the rewrite lives ONCE at the union that owns them rather than as a case
-    // ladder at each translating caller; threading the rewrite through the state slot keeps every arm static and
-    // closure-free, the same shape MarkingContent.Shift takes. A replica whose repairs kept the source frame's
-    // ordinals attributes every joined gap and every densified span of the whole nest to one instance.
     public ProfileRepair Stamped(Func<ProfileProvenance, ProfileProvenance> rewrite) => Switch(
         state: rewrite,
         joined: static (stamp, arm) => (ProfileRepair)(arm with { Provenance = stamp(arm.Provenance) }),
@@ -720,13 +637,8 @@ public sealed record ProfileLowered(
                     Content = delta.IsZero ? marking.Content : marking.Content.Shift(delta),
                     Provenance = Replica(marking.Provenance, row, column),
                 }),
-                // Repair evidence translates with the geometry it repaired: a replica carries the same block
-                // ordinals its contours and markings do, so a census reading repairs per instance resolves the
-                // instance that carried them rather than the source frame every replica shares.
                 Repairs.Map(repair => repair.Stamped(provenance => Replica(provenance, row, column)))));
 
-    // Only the INNERMOST block frame carries replica indices: an outer frame's own ordinal is shared by
-    // every replica beneath it, so stamping the whole chain would erase the nesting the census reads.
     private static ProfileProvenance Replica(ProfileProvenance provenance, int row, int column) => provenance with {
         Blocks = provenance.Blocks.IsEmpty
             ? provenance.Blocks
@@ -758,8 +670,6 @@ public sealed record ProfileImportReceipt(
     public Arr<Loop> Loops => Contours.Map(static contour => contour.Loop);
 }
 
-// The lowering request. One shape carries every column the arms read, so a dispatch row is a function of one
-// argument and the table can be keyed rather than laddered.
 public readonly record struct EntityLowering(
     Entity Subject,
     int Ordinal,
@@ -769,17 +679,11 @@ public readonly record struct EntityLowering(
     double Scale);
 
 public static partial class ProfileImport {
-    // The order-independent dispatch. Resolution walks the entity's OWN base chain from most-derived upward, so
-    // `AttributeEntity` binds its row before the `TextEntity` base it derives from and `Polyline2D` binds its own
-    // row rather than a polyline base's; the table's declaration order decides nothing.
     private static readonly FrozenDictionary<Type, Func<EntityLowering, Fin<ProfileLowered>>> Arms =
         Seq(
             Row<LwPolyline>(static (row, at) => Contour(at,
                 row.Vertices.Map(vertex => Ocs(row.Normal, vertex.Location, row.Elevation, at.Scale)).ToArr(),
                 row.IsClosed, Bulges(row.Vertices.Map(static vertex => vertex.Bulge), row.Normal))),
-            // `Polyline<T>` publishes `Normal` (DXF 210/220/230, defaulting AxisZ) and `Elevation` off the base, and
-            // `Vertex.Location` is documented OCS for a 2D vertex, so this row reads the SAME frame the lightweight
-            // row does — the vertex Z carries no elevation of its own.
             Row<Polyline2D>(static (row, at) => Contour(at,
                 row.Vertices.Map(vertex =>
                     Ocs(row.Normal, new XY(vertex.Location.X, vertex.Location.Y), row.Elevation, at.Scale)).ToArr(),
@@ -792,8 +696,6 @@ public static partial class ProfileImport {
             Row<CadCircle>(static (row, at) => Planar(row.Normal, at)
                 .Bind(_ => CircleLoop(row.Normal, row.Center, row.Radius, at))
                 .Bind(loop => Wrapped(at, loop))),
-            // `Insert.Explode` rewrites a block-nested circle as a unit-ratio full ellipse, so the exact four-bulge
-            // circle survives nesting only where the ellipse row tests that shape before its general conic path.
             Row<CadEllipse>(static (row, at) => Planar(row.Normal, at)
                 .Bind(_ => row.IsFullEllipse && row.RadiusRatio == 1d
                     ? CircleLoop(row.Normal, row.Center, row.MajorAxisEndPoint.GetLength(), at)
@@ -807,9 +709,6 @@ public static partial class ProfileImport {
             Row<Hatch>(static (row, at) => HatchContours(row, at)),
             Row<CadPoint>(static (row, at) => Fin.Succ(Marked(at,
                 Point(row.Location, at.Scale), row.Rotation, MarkingContent.Mark, row.Location.Z * at.Scale))),
-            // `AttributeEntity : AttributeBase : CadText`, so its row binds at its own type: matched at the base,
-            // every placed attribute would lower as anonymous text and its `Tag` — the part mark, heat number, and
-            // shop tag every downstream consumer looks a marking up by — would be gone.
             Row<AttributeEntity>(static (row, at) =>
                 MarkingAnchor.Of(row.HorizontalAlignment, row.VerticalAlignment)
                     .ToFin(Fault(at.Path, row, "profile-marking:anchor"))
@@ -825,9 +724,6 @@ public static partial class ProfileImport {
                             Typography(row, Seq(row.Value), anchor, at.Scale),
                             MarkingFit.Of(row.HorizontalAlignment), Point(row.AlignmentPoint, at.Scale)),
                         row.InsertPoint.Z * at.Scale))),
-            // `MText.Rotation` is DERIVED from the alignment vector — `new XY(AlignmentPoint.X,
-            // AlignmentPoint.Y).GetAngle()` — never a stored field, so a paragraph left on the default X-axis
-            // alignment reads zero rotation no matter what the drawing shows.
             Row<MText>(static (row, at) => MarkingAnchor.Of(row.AttachmentPoint)
                 .ToFin(Fault(at.Path, row, "profile-marking:anchor"))
                 .Map(anchor => Marked(at, Point(row.InsertPoint, at.Scale), row.Rotation,
@@ -844,8 +740,6 @@ public static partial class ProfileImport {
             .MapFail(error => Classify(source.Path, error))
         from format in ProfileFormat.Admit(source.Path)
         from result in Capture(source.Path, notices =>
-            // ONE document open and ONE entity snapshot: the census and the lowering both read this sequence, so a
-            // read costs one parse rather than one parse per consumer of the same stream.
             from document in Open(format, source, raw, notices)
             from _reject in Reject(notices, source.Policy.Reader, source.Path)
             from _acyclic in Acyclic(document, source.Path)
@@ -863,10 +757,6 @@ public static partial class ProfileImport {
         select result)
         .Bind(static result => result.ToEff());
 
-    // The block-reference relation reads off the block TABLE, so the census is a FLAT walk with no recursion of its
-    // own: one edge per contained `Insert`, from the record that owns it to the record it references. The gate rails
-    // BEFORE any lowering runs, so a self-referencing or mutually-referencing block refuses typed rather than being
-    // caught by an ancestor set threaded down a walk that has already lowered half the drawing.
     private static Fin<Unit> Acyclic(CadDocument document, ProfilePath path) =>
         toSeq(document.BlockRecords)
             .Bind(record => toSeq(record.Entities)
@@ -944,8 +834,6 @@ public static partial class ProfileImport {
         _ => Seq<HatchSpan>(),
     };
 
-    // Four quadrant bulges carry a full-turn boundary arc: one span whose start equals its end reaches
-    // `Loop.Admit` as coincident endpoints, which that owner reads as a zero-length edge.
     private static Seq<HatchSpan> HatchArcSpans(Hatch hatch, HatchArc arc, double scale) {
         double sweep = HatchSweep(arc.StartAngle, arc.EndAngle, arc.CounterClockWise);
         int parts = Math.Abs(sweep) == Math.Tau ? 4 : 1;
@@ -989,11 +877,6 @@ public static partial class ProfileImport {
             Ocs(hatch.Normal, new XY(pair.Second.X, pair.Second.Y), hatch.Elevation + pair.Second.Z, scale), 0.0));
     }
 
-    // `Insert.Explode` resolves ONE placement, so a MINSERT row/column array expands here as translated replicas.
-    // That leg enumerates `Block.Entities` ALONE and never yields `Insert.Attributes` — the provider transforms
-    // those on a separate loop of its own — so the placed attribute collection concatenates here or every part
-    // mark, heat number, and shop tag the block carries is dropped with no fault raised. Concatenating rather
-    // than lowering them apart keeps one ordinal space, so replica provenance stays unique.
     private static Fin<ProfileLowered> Insertion(Insert row, EntityLowering at) =>
         ReadOp.Catch(() => Fin.Succ(toSeq(row.Explode()).Strict()
                 .Concat(toSeq(row.Attributes).Map(static attribute => (Entity)attribute)).Strict()))
@@ -1032,10 +915,6 @@ public static partial class ProfileImport {
             Seq(new ProfileMarking(point, rotation, content, Provenance(at, plane))),
             Seq<ProfileRepair>());
 
-    // `TextStyle.ObliqueAngle` is the ONE lettering axis DXF publishes: a slanted style is the italic row and an
-    // upright one the vertical row, both on ISO 3098 Type B — the drafting default, and the axis the format states
-    // nothing about. The gate reads half the nominal fifteen-degree slant, so a style carrying any real obliquity
-    // resolves italic while a nominally upright one cannot drift into it on a rounding.
     private static MarkingType Typography(IText text, Seq<string> lines, MarkingAnchor anchor, double scale) =>
         new(lines,
             Length.FromMillimeters(text.Height * scale),
@@ -1045,17 +924,11 @@ public static partial class ProfileImport {
             text.Style.Name,
             anchor);
 
-    // Multiline attributes carry their body on the paragraph entity they hang off and that reference is nullable,
-    // so the single-line value stays the only content a single-line attribute ever publishes.
     private static Seq<string> TagLines(AttributeEntity attribute) => Optional(attribute.MText)
         .Filter(_ => attribute.AttributeType != AttributeType.SingleLine)
         .Map(static text => toSeq(text.GetPlainTextLines()))
         .IfNone(() => Seq(attribute.Value));
 
-    // `TryPointOnSpline` normalizes `t` to [0,1] across the knot span and nudges `t == 1` down by one epsilon, so
-    // its terminal sample lands epsilon short of the end knot and a closed spline still relies on `Loop.Admit` to
-    // seal. Failure yields `XYZ.NaN` through the out parameter, so that bool stays the only safe gate — reading
-    // that point alone admits NaN vertices surviving every downstream fold.
     private static Fin<(Loop Loop, SplineSampler Sampler, int Points)> SplineLoop(CadSpline row, EntityLowering at) {
         int density = at.Policy.Spline.Value;
         Seq<XYZ> walked = Range(0, density).ToSeq()
@@ -1071,16 +944,11 @@ public static partial class ProfileImport {
                     : Fin.Fail<(Loop, SplineSampler, int)>(Fault(at.Path, at.Subject, "profile-spline:untessellated"));
     }
 
-    // Either the host index admits or it does not: `AciIndex` refuses 0 and 256 because they name inheritance, not a
-    // colour, so both resolve to absence here and no arm invents a palette slot for an entity that stated none.
     private static ProfileProvenance Provenance(EntityLowering at, double plane) => new(
         at.Subject.Layer.Name, at.Policy.Lane(at.Subject.Layer.Name),
         AciIndex.Of(at.Subject.Color.Index).ToOption(),
         at.Subject.Handle, at.Blocks, plane, Set(at.Ordinal));
 
-    // `Arc.GetEndVertices` already applies the arbitrary-axis frame, so the arc row takes no OCS map.
-    // `Arc.Sweep` returns `StartAngle - normalizedEnd`, i.e. the NEGATED counter-clockwise included angle
-    // (always <= 0); the bulge convention is counter-clockwise-positive, so the negation is load-bearing.
     private static Fin<Loop> ArcLoop(CadArc arc, EntityLowering at) {
         arc.GetEndVertices(out XYZ start, out XYZ end);
         return Loop.Admit(
@@ -1088,8 +956,6 @@ public static partial class ProfileImport {
             Arr(Math.Tan(-arc.Sweep / 4d) * Math.Sign(arc.Normal.Z), 0d), at.Policy.Tolerance);
     }
 
-    // Four quadrant vertices at bulge `sqrt(2) - 1` reproduce the circle EXACTLY under the bulge convention,
-    // so a full circle never densifies at ingress and its arc identity survives to the offset owner.
     private static Fin<Loop> CircleLoop(XYZ normal, XYZ center, double radius, EntityLowering at) {
         double bulge = (Math.Sqrt(2d) - 1d) * Math.Sign(normal.Z);
         Matrix3 frame = Matrix3.ArbitraryAxis(normal);
@@ -1160,15 +1026,9 @@ public static class ProfileTopology {
             groups.Map(static group => group.Region).Somes().ToArr(),
             stitched.Repairs.Concat(groups.Bind(static group => group.Repairs)));
 
-    // The ONE grouping key both the stitch and the normalize fold read: provenance stripped of the two columns that
-    // vary per entity, beside the loop's own closure state.
     private static (ProfileProvenance Provenance, bool Closed) Key(ProfileContour contour) =>
         (contour.Provenance with { Ordinals = Set<int>(), Handle = 0ul }, contour.Loop.Closed);
 
-    // One closed provenance group IS the region unit: clean and densify through the arc owner, then read nesting
-    // from the fill rule — a boolean union under one winding absorbs every hole into its outer boundary.
-    // `Seq.Head` is `Option`, and an empty group is the one state this guard cannot answer, so the head binds once
-    // and an empty group passes through unregioned rather than dereferencing absence.
     private static Fin<Normalized> NormalizeGroup(Seq<ProfileContour> rows, ProfilePolicy policy) =>
         rows.Head.Filter(static head => head.Provenance.Lane.Closes && head.Loop.Closed).Match(
         Some: head =>
@@ -1179,8 +1039,6 @@ public static class ProfileTopology {
               ArcTrace.Forest arm => Fin.Succ(arm),
               _ => Fin.Fail<ArcTrace.Forest>(Degenerate("profile-topology:clean")),
           }
-          // Both trace families answer their own TOTAL projection, so a widened family breaks at compile time here
-          // rather than falling through the discard arm that read as a legitimate refusal.
           from lowered in evidence.Result.Loops
               .Traverse(loop => ArcAlgebra
                   .Densify(new ArcProjection.Lower(loop, policy.Tolerance.Absolute.Value))
@@ -1211,9 +1069,6 @@ public static class ProfileTopology {
             ? StitchGroup(group, tolerance, gap)
             : Fin.Succ(new Stitched(group, Seq<ProfileRepair>()));
 
-    // ONE pairwise endpoint census, ONE union pass, ONE ordered walk per component. Re-scoring every candidate pair
-    // after each merge paid cubic distance tests for a relation the endpoints already fix, and the fork guard runs
-    // BEFORE the union, so every surviving component is a simple chain and its merge order is total.
     private static Fin<Stitched> StitchGroup(Seq<ProfileContour> group, Context tolerance, double gap) {
         Seq<Loop> loops = group.Map(static row => row.Loop);
         if (Branching(loops, gap))
@@ -1238,16 +1093,12 @@ public static class ProfileTopology {
                 .Map(chains => Sealed(chains, lead.Provenance, group, tolerance, gap)));
     }
 
-    // Every unordered endpoint pair within the gap, scored ONCE. `Join` re-derives the winning orientation at merge
-    // time, so this census carries only the relation and its best distance.
     private static Seq<Link> Links(Seq<Loop> loops, Context tolerance, double gap) =>
         toSeq(Range(0, loops.Count)).Bind(left =>
             toSeq(Range(left + 1, loops.Count - left - 1))
                 .Choose(right => Join(loops[left], loops[right], tolerance, gap)
                     .Map(joined => new Link(left, right, joined.Distance))));
 
-    // A component with a fork was already refused, so a member with at most one neighbour IS a free end and a ring
-    // starts anywhere; the walk follows the single unvisited neighbour and terminates when none remains.
     private static Seq<int> Ordered(Seq<int> members, Map<int, Seq<int>> adjacency) {
         int head = members
             .Find(member => adjacency.Find(member).Map(static row => row.Count).IfNone(0) <= 1)
@@ -1299,8 +1150,6 @@ public static class ProfileTopology {
                     (ProfileRepair)new ProfileRepair.Closed(provenance, Length.FromMillimeters(value)))).Somes()));
     }
 
-    // Draftsmen draw a perimeter as separate entities, so an open chain whose ends meet within the gap IS the
-    // canonical profile: seal it, or the closure demand rejects a drawing carrying no other defect.
     private static Option<Loop> Seal(Loop loop, Context tolerance, double gap) =>
         !loop.Closed && loop.Count >= 3 && Span(loop) <= gap
             ? Loop.Admit(loop.Vertices, true, loop.Bulges, tolerance).ToOption()
@@ -1328,8 +1177,6 @@ public static class ProfileTopology {
                     .Concat(candidate.Right.Bulges).ToArr(), tolerance)
                 .Map(loop => (loop, candidate.Distance)).ToOption());
 
-    // Reversal negates every bulge AND re-indexes it: span `i` of the reversed chain is span `n-2-i` of the
-    // source, and the trailing slot carries the terminating zero an open loop declares.
     private static Option<Loop> Orient(Loop loop, bool reverse) => reverse
         ? Loop.Admit(
             loop.Vertices.Rev().ToArr(),
@@ -1377,8 +1224,6 @@ public static class ProfileTopology {
     private static Error Degenerate(string locus) =>
         new GeometryFault.DegenerateInput(Kind.Curve, None, locus);
 
-    // Total trace projections take the refusal as the BAND'S OWN type, so the two lowering gates name this lane's
-    // concern rather than borrowing the geometry band a degenerate INPUT would carry.
     private static FabricationFault Inadmissible(string locus) =>
         FabricationFault.Inadmissible(FabConcern.Ingress, locus);
 }
@@ -1394,7 +1239,7 @@ public static class ProfileTopology {
 - Boundary: projection returns settled evidence alone — a consumer needing geometry the receipt does not carry re-reads the source through `Read`, never through this fold.
 
 ```csharp signature
-// --- [PROJECTION_EGRESS] ------------------------------------------------------------------
+// --- [PROJECTION_EGRESS] ---------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProfileView {
     private ProfileView() { }
@@ -1410,14 +1255,10 @@ public abstract partial record ProfileView {
     public sealed record Receipt(ProfileImportReceipt Value) : ProfileView;
 }
 
-// The request IS the row. A payload-free case family beside a total switch spelled every egress twice; the
-// delegate column spells it once and a new egress cannot land half-declared.
 [SmartEnum<string>]
 public sealed partial class ProfileProjection {
     public static readonly ProfileProjection Loops = new("loops",
         static receipt => new ProfileView.Loops(receipt.Loops));
-    // Two adjacent rows were the whole population of a generic grouping shell, and neither reads anything the fold
-    // does not spell here — so the fold inlines at both and the namespace resolves each grouping in one hop.
     public static readonly ProfileProjection Lanes = new("lanes",
         static receipt => new ProfileView.Lanes(toSeq(receipt.Contours.GroupBy(static row => row.Provenance.Lane))
             .Map(static group => (group.Key, toSeq(group).ToArr())).ToMap()));
@@ -1444,9 +1285,6 @@ public sealed partial class ProfileProjection {
 }
 
 public static partial class ProfileImport {
-    // `TagsOf` is PUBLIC because the keyed attribute read has two callers: the tag projection and the run input
-    // that carries markings forward to a traveler or a posted program. One fold owns the grouping, so a downstream
-    // consumer keying a part mark reads the same map the projection returns rather than re-grouping the run.
     public static Map<string, Arr<ProfileMarking>> TagsOf(Arr<ProfileMarking> markings) =>
         toSeq(markings.ToSeq()
             .Choose(static marking => marking.Tag.Map(name => (Name: name, Marking: marking)))
@@ -1464,7 +1302,7 @@ public static partial class ProfileImport {
 - Boundary: the fold seats beside the profile owner because the sub-domain publishes one entry and earns no page of its own; every arm reaches a sibling page's public reader and none reaches a sibling's interior; `SteelImport.Read` takes its contour policy as a second argument the `IngressSource.Steel` case carries, so the fold never re-decides a page's own policy shape; `ElementImport.Admit` is synchronous and lifts here rather than widening its own signature for one consumer.
 
 ```csharp signature
-// --- [INGRESS_FOLD] -----------------------------------------------------------------------
+// --- [INGRESS_FOLD] --------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IngressSource {
     private IngressSource() { }
@@ -1479,17 +1317,11 @@ public abstract partial record AdmittedGeometry {
     private AdmittedGeometry() { }
     public sealed record Profiles(ProfileImportReceipt Receipt) : AdmittedGeometry;
     public sealed record Mesh(SolidImportReceipt Receipt) : AdmittedGeometry;
-    // Steel is the one leg already seated on the settled carrier: its key was real before the sweep began,
-    // so it seats whole. OPEN: the profile, solid, and element legs owe an `EgressKind` row apiece at
-    // `Process/owner#CONTENT_KEY` before they can seat on the same spine — a receipt's key is REQUIRED and there is
-    // no artifact family for a DXF sheet, a tessellated solid, or a baked element to key under.
     public sealed record Steel(Receipt<SteelImportEvidence> Receipt) : AdmittedGeometry;
     public sealed record Elements(ElementAdmission Admission) : AdmittedGeometry;
 }
 
 public static class Ingress {
-    // Clock travels IN rather than being read at each lane: `Receipt<TEvidence>` stamps where it settles, and a
-    // lane reading an ambient now stamps a receipt with whoever happened to read it.
     public static Eff<AdmittedGeometry> Admit(IngressSource source, IClock clock) => source.Switch(
         state: clock,
         profile: static (_, arm) => ProfileImport.Read(arm.Source)

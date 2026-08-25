@@ -52,21 +52,9 @@ _ENCODER: Final = msgjson.Encoder(order="deterministic")
 
 
 def _build_raises() -> Catch:
-    # resolved at the CALL because both providers bind `lazy`. This set names what it can PROVE: the registry reads
-    # and the write-back reach `bw2data`, whose family roots at `BW2Exception`, and the transform's own I/O answers
-    # `OSError`. `premise`'s exception roster is UNPROBEABLE while the floor gate holds — the module resolves
-    # nowhere on the supported interpreter, so no reflection can name its classes — and authoring one from memory is
-    # the form the `catch` law exists to delete. A premise-native raise therefore propagates as the defect it is,
-    # which is the whole point of naming a set rather than funnelling `Exception`; the row lands here the pass the
-    # gate lifts.
     return (bd.errors.BW2Exception, KeyError, TypeError, ValueError, OSError)
 
 
-# this module's raise roster under its one `DataLeg` member. The floor-gate row is `import_` by law — the provider
-# resolves nowhere — and TERMINAL, since no re-issue installs a module. The build fence is TRANSIENT: a multi-hour
-# licensed transform fails on a download, a credential, or a disk far more often than on its own inputs. The
-# write-back proof is this owner's OWN refusal, carries its unregistered names through `raised`, and is TERMINAL —
-# a name the registry does not hold after the transform wrote is a defect no re-run of the same request clears.
 SCENARIO_GATED: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.SCENARIO, point="gate", arm="import_", defect="floor-gated", retriability=TERMINAL, slots=("ceiling",)
 )
@@ -80,7 +68,6 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([SCENARIO_GATED,
 
 
 class Sector(StrEnum):
-    # mirrors the provider's per-sector transformer roster; the wire value IS the provider's sector key.
     ELECTRICITY = "electricity"
     CEMENT = "cement"
     STEEL = "steel"
@@ -94,7 +81,7 @@ class Sector(StrEnum):
 
 
 class Scenario(Struct, frozen=True, gc=False):
-    model: str  # REMIND | IMAGE | TIAM-UCL | GCAM — the provider's own model vocabulary
+    model: str
     pathway: str
     year: int
 
@@ -105,11 +92,11 @@ class Scenario(Struct, frozen=True, gc=False):
 @tagged_union(frozen=True)
 class BuildKind:
     tag: Literal["database", "superstructure", "increment", "pathways", "datapackage"] = tag()
-    database: tuple[str, ...] = case()  # per-scenario registered names, positionally aligned
-    superstructure: str = case()  # one scenario-difference database name
-    increment: tuple[str, ...] = case()  # per-increment names
-    pathways: tuple[str, tuple[int, ...]] = case()  # (package name, year grid)
-    datapackage: str = case()  # shareable bw_processing superstructure name
+    database: tuple[str, ...] = case()
+    superstructure: str = case()
+    increment: tuple[str, ...] = case()
+    pathways: tuple[str, tuple[int, ...]] = case()
+    datapackage: str = case()
 
 
 class ScenarioReceipt(Struct, frozen=True, gc=False):
@@ -137,9 +124,6 @@ class ScenarioBuild(Struct, frozen=True):
     sectors: tuple[Sector, ...] = ()
 
     async def build(self, kind: BuildKind, key: str) -> "RuntimeRail[ScenarioReceipt]":
-        # floor gate FIRST: while the manifest marker holds, premise resolves nowhere on the supported
-        # interpreter, so every request refuses typed here — the gate precedes the first dereference of the
-        # module-scope lazy binding, which is what keeps the crash out of the offloaded band.
         if find_spec("premise") is None:
             return Error(SCENARIO_GATED.raised("numba below cp315"))
 
@@ -173,23 +157,16 @@ class ScenarioBuild(Struct, frozen=True):
                     registered = (name,)
                 case unreachable:
                     assert_never(unreachable)
-            # write-back proof: every registered database name resolves in the registry the carrier reads,
-            # so the receipt never names a background `_from_prospective` would refuse.
             missing = tuple(name for name in registered if kind.tag in {"database", "superstructure", "increment"} and name not in bd.databases.list)
             if missing:
-                # this owner's OWN refusal, on the rail with the offending names as a coordinate a caller can key:
-                # a receipt naming a background the carrier's `_from_prospective` would refuse strands that proof.
                 return Error(SCENARIO_UNREGISTERED.raised(",".join(missing)))
             identity = _ENCODER.encode((sorted((s.model, s.pathway, s.year) for s in self.scenarios), self.source_db, self.system_model, kind.tag))
             return Ok(ScenarioReceipt(
                 names=tuple(registered), scenarios=self.scenarios, kind=kind.tag, content_key=ContentIdentity.key("impact", identity)
             ))
 
-        # premise self-parallelizes over scenarios and sectors: ONE band hop, no outer pool.
         with _TRACER.start_as_current_span("scenario.build", attributes={"rasm.impact.scenarios": len(self.scenarios), "rasm.impact.kind": kind.tag}):
             fenced = await on_thread(lambda: boundary(SCENARIO_BUILD, run, catch=_build_raises()))
-            # the band hop, the fence, and the body's own refusal rail each contribute one wrapper, so two
-            # self-flattens leave the caller one rail and a write-back refusal arrives as itself.
             return fenced.bind(lambda fence: fence).bind(lambda body: body)
 ```
 

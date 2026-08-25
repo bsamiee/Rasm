@@ -38,16 +38,12 @@ from rasm.cad.faults import EMIT_EXTENT, EMIT_WRITE, CadRail
 
 
 def _written(document: TDocStd_Document, glb_path: Path, /) -> CadRail[Path]:
-    # `fileInfo` and `progress` are REQUIRED positional arguments, not optional features: the empty map emits no glTF
-    # asset metadata, and the empty range means no native progress reaches the caller's deadline scope.
     writer = RWGltf_CafWriter(TCollection_AsciiString(str(glb_path)), True)
     performed = writer.Perform(document, TColStd_IndexedDataMapOfStringString(), Message_ProgressRange())
     return Ok(glb_path) if performed else Error(EMIT_WRITE.at("RWGltf_CafWriter.Perform"))
 
 
 def _extent(glb_path: Path, ceiling: int, /) -> CadRail[int]:
-    # Reached only after `Perform` reported success, so a zero extent contradicts the writer's own verdict and grades as
-    # a write failure; an over-ceiling extent is honest output the call's budget refuses, and the two never share a row.
     try:
         artifact_bytes = glb_path.stat().st_size
     except OSError as cause:
@@ -62,8 +58,6 @@ def _extent(glb_path: Path, ceiling: int, /) -> CadRail[int]:
 
 
 def emitted(document: TDocStd_Document, glb_path: Path, ceiling: int, /) -> CadRail[int]:
-    # Two arrows, kleisli-composed: the write proves the path and the gate proves its extent. No intermediate outlives
-    # its successor, so the do-notation form the spine above uses buys only a name nothing re-reads.
     return _written(document, glb_path).bind(lambda written: _extent(written, ceiling))
 ```
 

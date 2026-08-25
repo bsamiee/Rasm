@@ -24,21 +24,14 @@ The graph canvas is the typed-edit plane's node surface: NodeEditorAvalonia `IDr
 - Boundary: connector routing and hit testing stay the package's `OrthogonalRouter`/`RTree`/`HitTestIndex` — `GraphRouting` carries the `ConnectorRoutingAlgorithm` and the default `ConnectorStyle` a render binds and re-implements neither, and a per-edge `ConnectorRoutingMode.Manual` hands that edge's path to its own `Waypoints` exactly as the package intends. Pan and zoom ride the PINNED `PanAndZoom` `ZoomBorder` hosting a bare `DrawingNode` canvas, never the package's `Editor` control and never `NodeZoomBorder`: the transitive `Avalonia.Controls.PanAndZoom` assembly and the pinned `PanAndZoom` assembly BOTH publish `Avalonia.Controls.PanAndZoom.ZoomBorder`, the collision is a package-id rename rather than a namespace clash, `NodeZoomBorder` derives the LEGACY type and adds seven parameterless command shims and nothing else, and every saved-view, view-history, discrete-zoom, grid, rotation, and state-export member lives on the pinned type alone — so `Editor`, whose template fills `ZoomControl` from `PART_ZoomBorder` with the legacy base, is the deleted host and `[05]-[CANVAS_VERBS]` binds the pinned control directly; the manifest posture is `Aliases` metadata on the TRANSITIVE reference (`ExcludeAssets` is not viable because `NodeZoomBorder` inherits the type it removes), placed on the legacy package rather than the pinned one, since aliasing the pinned package lifts its whole type set out of global scope and every existing plain `ZoomBorder` mention across the corpus then binds the legacy type silently while only the absent members fault — and the alias must be manifest metadata rather than a source `extern alias`, because the Avalonia name generator emits its own partial naming the type unqualified and no source directive reaches generated code. Ursa `ImageViewer` is the third pan-zoom owner in the package closure and stays scoped to image presentation. The editor's `IUndoRedoHost` binds to the one `Editing/history.md` `EditHistory` — `Undo`/`Redo` delegate to the `history.undo`/`history.redo` intents and `BeginUndoBatch`/`EndUndoBatch` open and seal one `RevertDelta.Composite` op so a multi-op canvas gesture undoes as one unit; the canvas renders structure and routes recompute through the AppHost `RecomputeGraph` port exactly as the notebook does — a canvas-local topo/dirty engine is the deleted form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Signed unit step shared by the zoom ladder, the history traversal, and the find walk: the enum IS the
-// admitted domain, so the `is 1 or -1` guard every consumer re-spelled has nothing left to check.
 public enum Rung { Next = 1, Prev = -1 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record GraphPinRow(string Key, string Name, PinAlignment Alignment, PinDirection Direction, int BusWidth);
 
-// The node row at the concept `INode` spells. Containment, extent, rotation, lock, and visibility are model
-// columns rather than live-control state, because the hierarchy-move op commits a parent and an index onto
-// the co-edit tree and a model that could not express a parent left that op addressing a shape no peer could
-// rehydrate. `Locked`/`Visible` stay two bools by adjudication: all four corners are legal states and the
-// columns mirror the package's own `INode.IsLocked`/`IsVisible` one-for-one.
 public sealed record GraphNodeRow(
     string Key,
     string TemplateKey,
@@ -55,8 +48,6 @@ public sealed record GraphNodeRow(
 
 public static class GraphRows {
     extension(Seq<GraphNodeRow> rows) {
-        // The one model-extent fold: a camera fit over a scrolled-out selection and the overview frame read
-        // the same rectangle a fully realized canvas would, because both read MODEL columns.
         public Option<Rect> Extent() =>
             rows.Filter(static row => row.Visible)
                 .Fold(Option<Rect>.None, static (held, row) => new Rect(row.X, row.Y, row.Width, row.Height) switch {
@@ -67,13 +58,8 @@ public static class GraphRows {
 
 public readonly record struct GraphEndpoint(string NodeKey, Option<string> PinKey);
 
-// Edge IDENTITY is the pin-qualified endpoint pair alone: duplicate detection, fanout counting, and the
-// co-edit register key all read this value, so presentation columns cannot fork one wiring into two edges.
 public readonly record struct GraphLink(GraphEndpoint From, GraphEndpoint To);
 
-// Per-edge presentation as DATA off the package's own bounded vocabularies. `Seed` is the ONE fresh-wire
-// constructor — an authored edge seeds from the resolved routing row's style and a projected edge from the
-// caller's, and neither carries authored decoration a user never drew.
 public sealed record GraphWire(
     ConnectorRoutingMode Routing,
     ConnectorStyle Style,
@@ -92,16 +78,11 @@ public sealed record GraphEdge(GraphEndpoint From, GraphEndpoint To, GraphWire W
     public GraphLink Ends => new(From, To);
 }
 
-// The composition adapter is the package's MINT surface: total reads off the package contracts are static
-// folds here, and only the two constructions the package cannot perform without the product's own types — a
-// pin and a connector — remain columns, beside the palette that mints nodes and the serializer that clones.
 public sealed record GraphModelAdapter(
     GraphPalette Palette,
     Func<GraphPinRow, Fin<IPin>> Pin,
     Func<GraphWire, Fin<IConnector>> Wire,
     INodeSerializer Serializer) {
-    // A minted node is the template's clone DRESSED with the row's own columns: the template supplies content,
-    // chrome, and behaviour; the row supplies identity, placement, extent, posture, and ports.
     public Fin<INode> Node(DrawingNodeEditor editor, GraphNodeRow row) =>
         from seed in Palette.Mint(editor, row.TemplateKey)
         from pins in row.Pins.TraverseM(Pin).As()
@@ -122,14 +103,10 @@ public sealed record GraphModelAdapter(
             return connector;
         });
 
-    // The ONE boundary admission of the package's nullable pin surface: identity crosses on the member the
-    // package already round-trips through its serializer.
     public static Seq<IPin> Pins(INode node) => toSeq(node.Pins ?? []);
 
     public static string PinKey(IPin pin) => pin.Name ?? string.Empty;
 
-    // Direction and bus width are the OPTIONAL typing contract: a pin that declines it is bidirectional at
-    // unit width — a legal port the settings row then evaluates; only a MISMATCHED one is a fault.
     public static PinDirection Direction(IPin pin) =>
         pin is IConnectablePin typed ? typed.Direction : PinDirection.Bidirectional;
 
@@ -150,18 +127,11 @@ public sealed record GraphModelAdapter(
     }
 }
 
-// Placement and connector-path policy as DATA off the one settings authority. Each lattice is an OPTION whose
-// absence IS the disabled state — the enabled flag and the pitch values can no longer disagree, which is what
-// the per-axis pitch guard existed to survive. `Of` reads the settings row instead of loose knobs; a raw
-// coordinate reaching the position op is the deleted form, because it lands a canvas on a lattice the drag
-// would have quantized away and makes two peers converge to two positions for one gesture.
 public sealed record GraphRouting(
     ConnectorRoutingAlgorithm Algorithm,
     ConnectorStyle Style,
     Option<(double X, double Y)> Snap,
     Option<(double Width, double Height)> Grid) {
-    // A grid cell lifts onto the resolved space scale when the settings row leaves it non-positive, because
-    // the decorator's own cell columns default to zero and a zero-sized grid paints an empty surface.
     public static GraphRouting Of(IDrawingNodeSettings policy, ResolvedTheme resolved, ConnectorRoutingAlgorithm algorithm, ConnectorStyle style) =>
         resolved.Metric(MetricFamily.Space, 3).IfNone(GraphSkin.GridFallback) switch {
             var cell => new(algorithm, style,
@@ -169,14 +139,8 @@ public sealed record GraphRouting(
                 policy.EnableGrid ? Some((Sized(policy.GridCellWidth, cell), Sized(policy.GridCellHeight, cell))) : None),
         };
 
-    // The one grid pitch a stacked placement reads whether or not the lattice paints: drops land a readable
-    // column at the resolved rhythm even on a grid-less canvas.
     public (double Width, double Height) Cell => Grid.IfNone((GraphSkin.GridFallback, GraphSkin.GridFallback));
 
-    // The ONE position projection every write crosses. The package's own lattice is `NodeEditor.SnapHelper`,
-    // which is INTERNAL (decompile-proven), so the rounding is TRANSCRIBED rather than called — and the
-    // transcription is the convergence guarantee precisely because it is that helper's exact body. The
-    // per-axis degenerate guard is the package's own point-overload behaviour: one live axis still quantizes.
     public (double X, double Y) Place(double x, double y) =>
         Snap.Match(
             Some: pitch => (Quantized(x, pitch.X), Quantized(y, pitch.Y)),
@@ -192,8 +156,6 @@ public sealed record GraphRouting(
         double.IsFinite(declared) && declared > 0d ? declared : resolved;
 }
 
-// The commit posture: one spine, three landings. A mode is a row rather than an entrypoint sibling, so the
-// gate, the staging fold, and the landing run once and a fourth posture is one row with zero new surface.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CommitMode {
@@ -209,10 +171,6 @@ public sealed record GraphCanvas(
     GraphAdmission Gate,
     GraphModelAdapter Model,
     GraphRouting Routing) {
-    // Two-phase apply behind ONE entry: the gate and the detached staging admit BEFORE the first Drawing
-    // mutation, `Replace` clears only inside the success arm so a rejected apply leaves the graph intact, and
-    // `Cloned` re-stages its clones and RE-WIRES the edges against the clone index — wiring the originals'
-    // pins under cloned nodes committed connectors no committed node carried.
     public Fin<IDrawingNode> Commit(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges, CommitMode mode) =>
         Gate.Admitted(nodes, edges)
             .Bind(_ => Staged(nodes, edges))
@@ -227,13 +185,9 @@ public sealed record GraphCanvas(
                 cloned: static s => s.Canvas.Cloned(s.Staged, s.Edges)))
             .Map(Landed);
 
-    // Every position write crosses the routing lattice, so a co-edited coordinate converges to the same grid
-    // on every peer and the batch write cannot land a position the drag would have quantized.
     public GraphOp Placed(string nodeKey, double x, double y) =>
         Routing.Place(x, y) switch { var at => new GraphOp.NodeAt(nodeKey, at.X, at.Y) };
 
-    // Containment commits as the identity-preserving tree move, so a node entering a group keeps the key
-    // every edge endpoint, receipt, and remote cursor already addresses it by.
     public GraphOp Reparented(string nodeKey, Option<string> parent, uint index) =>
         new GraphOp.NodeMove(nodeKey, parent, index);
 
@@ -245,9 +199,6 @@ public sealed record GraphCanvas(
         from wires in edges.TraverseM(edge => Wired(index, edge)).As()
         select new Staging(materialized.Strict(), index, wires.Strict());
 
-    // Clipboard and duplication ride the package's OWN round-trip: `Clone<T>` runs each staged node through
-    // the installed `INodeSerializer`, and the clones re-enter `Wired` so the committed connectors bind the
-    // committed pins.
     Fin<Staging> Cloned(Staging staged, Seq<GraphEdge> edges) =>
         from clones in staged.Rows.TraverseM(entry => Optional(Editor.Clone(entry.Node))
             .ToFin(Fail: (Error)new CanvasFault.ModelRejected("serializer round-trip refused a staged node"))
@@ -256,9 +207,6 @@ public sealed record GraphCanvas(
         from wires in edges.TraverseM(edge => Wired(index, edge)).As()
         select new Staging(clones.Strict(), index, wires.Strict());
 
-    // The one Drawing mutation edge: serializer install, containment re-seat off the staged index (so a
-    // parent that materialized after its child is still bound), then the adds. `Clone<T>` silently returns
-    // null against an unset serializer, which is why the install precedes every add.
     IDrawingNode Landed(Staging staged) {
         Drawing.SetSerializer(Model.Serializer);
         staged.Rows.Iter(entry => entry.Row.Parent.Iter(parent =>
@@ -268,8 +216,6 @@ public sealed record GraphCanvas(
         return Drawing;
     }
 
-    // The settings row is the one policy authority: bus width reads its column and final connectability is
-    // the editor's own `CanConnectPin` gate over the same settings.
     Fin<IConnector> Wired(Map<string, INode> index, GraphEdge edge) =>
         from start in Endpoint(index, edge.From, RequiredDirection(PinDirection.Output)).ToFin(Fail: new CanvasFault.EndpointUnknown(edge.From.ToString()))
         from end in Endpoint(index, edge.To, RequiredDirection(PinDirection.Input)).ToFin(Fail: new CanvasFault.EndpointUnknown(edge.To.ToString()))
@@ -280,8 +226,6 @@ public sealed record GraphCanvas(
         from wire in Model.Connect(start, end, edge.Wire)
         select wire;
 
-    // Endpoint grammar: `nodeKey` or `nodeKey/pinKey` — a pin-qualified endpoint routes to its named pin; an
-    // unqualified endpoint routes by direction (first Output on source, first Input on target).
     Option<IPin> Endpoint(Map<string, INode> index, GraphEndpoint endpoint, Option<PinDirection> direction) =>
         index.Find(endpoint.NodeKey).Bind(node => GraphModelAdapter.Pins(node).Find(pin =>
             direction.Match(Some: admitted => GraphModelAdapter.Direction(pin) == admitted, None: static () => true)
@@ -304,14 +248,12 @@ public sealed record GraphCanvas(
 - Boundary: the gate guards STRUCTURE only — recompute scheduling, dirty propagation, and evaluation stay the AppHost `RecomputeGraph`'s; `CanvasFault` leaves each refusal distinct through its direct generated union case.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// Fault-derived (the kernel E-B5 floor): the case IS the Error and lifts bare onto Fin<T>; Code and
-// Numeric identity is generated from `[FaultCase]`; an arm probe names a concrete leaf such as `error.IsType<CanvasFault.CycleRejected>()`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CanvasFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Canvas;
@@ -336,8 +278,6 @@ public abstract partial record CanvasFault : Fault {
     public sealed partial record ModelRejected(string Detail) : CanvasFault() {
         public override string Message => $"graph/model: {Detail}";
     }
-    // A template key with no palette row is its OWN refusal: the repair is a palette edit, where a model
-    // rejection points at the adapter.
     [FaultCase(5)]
     public sealed partial record TemplateUnknown(string Key) : CanvasFault() {
         public override string Message => $"graph/template: {Key} resolves no palette row";
@@ -352,12 +292,9 @@ public abstract partial record CanvasFault : Fault {
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
-    // The accumulating admission, answering the ADMITTED graph value: every independent claim reports its own
-    // named refusal, the wiring oracle runs after the claims because it alone PRODUCES the value the caller
-    // reads, and its fault constructs on the failing arm alone through the deferred gate.
     public Fin<AdjacencyGraph<string, SEdge<string>>> Admitted(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges) =>
         AdmissionSlots.Accumulate(Seq(
                 Identities(nodes),
@@ -376,12 +313,9 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
                 _ => Fin.Fail<AdjacencyGraph<string, SEdge<string>>>(new CanvasFault.CycleRejected(nodes.Count, edges.Count)),
             });
 
-    // Evaluation order off the SAME graph value the cycle oracle reads — one fold, two projections.
     public Fin<Seq<string>> Order(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges) =>
         Admitted(nodes, edges).Map(static graph => toSeq(graph.TopologicalSort()));
 
-    // The ONE container-construction fold (`rungs/quikgraph.md` row [11]): the vertex-fold overload keeps
-    // isolated vertices a later projection reads, and the grouped edge map keeps it one pass.
     public static AdjacencyGraph<string, SEdge<string>> Graph(
         Seq<string> vertices, Seq<(string From, string To)> edges, bool allowParallelEdges) =>
         edges.Map(static edge => new SEdge<string>(edge.From, edge.To))
@@ -395,8 +329,6 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
                 allowParallelEdges),
         };
 
-    // Per-node claims ACCUMULATE, so a batch carrying a blank title on one node and a zero bus width on
-    // another reports both, each under the key of the node that carries it.
     static Validation<Error, Unit> Identities(Seq<GraphNodeRow> nodes) =>
         AdmissionSlots.Accumulate(
             AdmissionSlots.Gate(Repeated(nodes.Map(static node => node.Key)).IsNone, "node", "keys must be distinct",
@@ -414,8 +346,6 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
                 node.Key, "key, extent, rotation, pin keys, and bus widths must be admitted",
                 static (concern, detail) => (Error)new CanvasFault.ModelRejected($"{concern}: {detail}")))));
 
-    // Containment rides the SAME acyclicity oracle the wiring does, over child-to-parent edges: an unknown
-    // parent is an unknown endpoint, and a group nested inside its own descendant is a cycle.
     static Validation<Error, Unit> Containment(Seq<GraphNodeRow> nodes) =>
         toHashSet(nodes.Map(static node => node.Key)) switch {
             var keys => AdmissionSlots.Accumulate(Seq(
@@ -444,8 +374,6 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
             static (offending, _) => (Error)new CanvasFault.PolicyRejected(
                 Repeated(offending.Map(static edge => edge.Ends)).Map(static dup => $"duplicate edge {dup.From} -> {dup.To}").IfNone("duplicate edge")));
 
-    // Fanout counts BOTH endpoints — a pin is as multiply-connected on the source side as on the target — and
-    // keys on the pin-qualified endpoint so two parallel pins on one node stay distinct.
     Validation<Error, Unit> Fanout(Seq<GraphEdge> edges) =>
         AdmissionSlots.Gate(Policy.EnableMultiplePinConnections
                 || Repeated(edges.Map(static edge => edge.From) + edges.Map(static edge => edge.To)).IsNone,
@@ -461,7 +389,6 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
                     && (!Policy.RequireDirectionalConnections || pin.Direction == expected)),
                 None: () => node.Pins.Exists(pin => !Policy.RequireDirectionalConnections || pin.Direction == expected)));
 
-    // The one keyed-collision read the duplicate and fanout gates share.
     static Option<TKey> Repeated<TKey>(Seq<TKey> keys) where TKey : notnull =>
         keys.GroupBy(static key => key).AsIterable().Filter(static group => group.Count() > 1).ToSeq().Head.Map(static group => group.Key);
 }
@@ -478,10 +405,8 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
 - Boundary: the palette holds the package's `INodeTemplate` VALUE rather than re-declaring its three members; template instantiation is `DrawingNodeEditor.Clone<T>` over the row's own `Template`, so a minted node and a pasted node come off one round-trip. The package's own ink CAPTURE is refused — `IsInkMode` stays false so `InkLayer` never installs its pointer handlers — because that capture writes a CONSTANT unit pressure and discards the coalesced burst; `InkLayer` remains the RENDERER. Its render is one immutable pen at one constant width per stroke, so a pressure-varying gesture lands as a RUN SET: the fold quantizes pressure onto the ladder and emits one `InkStroke` per level run, which renders as a varying-width stroke through the package's own renderer instead of forking it. Strokes enter `Drawing.InkStrokes` inside one `BeginUndoBatch`/`EndUndoBatch` pair so a whole gesture reverts as one op on the `Editing/history.md` rail; the pen tool's pointer glyph is the `Theme/assets#CURSOR_ROWS` `CursorRow` the interaction root already inherits.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The palette row carries the package's own template VALUE beside the key the model addresses it by; the
-// title coalesce is the ONE read of the package's nullable member.
 public sealed record GraphTemplate(string Key, INodeTemplate Row) {
     public string Title => Row.Title ?? Key;
 }
@@ -498,25 +423,17 @@ public sealed record GraphPalette(FrozenDictionary<string, GraphTemplate> Templa
                 .Map(_ => new GraphPalette(authored.ToFrozenDictionary(static row => row.Key, static row => row, StringComparer.Ordinal))),
         };
 
-    // A missing key refuses BY NAME rather than folding into a generic model rejection, because the repair is
-    // a palette row and a paste, a drop, and a remote apply cannot tell the two apart otherwise.
     public Fin<INode> Mint(DrawingNodeEditor editor, string templateKey) =>
         Templates.TryGetValue(templateKey, out GraphTemplate? row)
             ? Optional(row.Row.Template).Bind(seed => Optional(editor.Clone(seed)))
                 .ToFin(Fail: (Error)new CanvasFault.ModelRejected($"template '{templateKey}' round-tripped to nothing"))
             : Fin.Fail<INode>(new CanvasFault.TemplateUnknown(templateKey));
 
-    // The roster the package `Toolbox` binds through `TemplatesSource`. The frozen map's `Values` is an
-    // ordinary enumerable, so it re-enters through `toSeq` before a carrier fold reads it.
     public IList<INodeTemplate> Host => [.. toSeq(Templates.Values).Map(static row => row.Row)];
 }
 
-// --- [BOUNDARIES] -----------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 
-// The package's own drop contract over the one transfer-admission rail. Delivery is the package's drop
-// behaviours; admission is `DragPayload`; minting is the palette; landing is the same gate a typed edit
-// crosses. The interface arms are void, so BOTH fold through `Commit` — the composition sink that owns the
-// refusal evidence — and `ignore` runs exactly once per arm at the foreign edge.
 public sealed record GraphDropTarget(
     GraphRouting Routing,
     Func<string, bool> Admitted,
@@ -531,16 +448,12 @@ public sealed record GraphDropTarget(
     public void DropText(string text, Point point) =>
         ignore(Commit(Fin.Succ(Rows(Seq(text), NoteTemplate, point))).Run());
 
-    // Admission precedes the mint: `Admit` accumulates one refusal per unadmitted path, so a mixed drop
-    // reports every rejected file at once instead of minting nodes up to the first refusal.
     public void DropFiles(IReadOnlyList<IStorageItem> files, Point point) =>
         ignore(Commit(DragPayload.Admit(Paths(files), Admitted).ToFin()
             .Map(payload => payload is DragPayload.Files admitted
                 ? Rows(admitted.Paths, FileTemplate, point)
                 : Seq<GraphNodeRow>())).Run());
 
-    // Each dropped subject becomes one node at a SNAPPED point walked down the resolved cell rhythm, so a
-    // multi-file drop lands a readable column rather than a stack of coincident nodes.
     Seq<GraphNodeRow> Rows(Seq<string> subjects, string templateKey, Point point) =>
         subjects.Map((subject, ordinal) => Routing.Place(point.X, point.Y + (ordinal * Routing.Cell.Height)) switch {
             var at => new GraphNodeRow(Mint(at.X, at.Y), templateKey, Title(subject), None,
@@ -553,16 +466,12 @@ public sealed record GraphDropTarget(
         toSeq(files).Choose(static file => Optional(file.TryGetLocalPath()));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The quantization policy as a ROW: the level count, the width floor, and the eraser rung are one value the
-// width scale, the run split, and the routing read together, so a retune moves all three at once.
 public sealed record InkLadder(int Levels, double MinimumScale, double EraserRung) {
     public static readonly InkLadder Standard = new(Levels: 8, MinimumScale: 0.25d, EraserRung: 0.5d);
 }
 
-// The eraser channel is a TOOL routing verdict, never a stroke column: a gesture whose eraser level crosses
-// the rung removes the strokes it touches instead of painting one the renderer would then erase by overdraw.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PenRoute {
@@ -570,8 +479,6 @@ public sealed partial class PenRoute {
     public static readonly PenRoute Erase = new("erase");
 }
 
-// The markup arm. The package renderer takes one width per stroke and reads per-point pressure nowhere, so a
-// gesture becomes a short run set whose widths track the quantized level; the ladder bounds the run count.
 public static class GraphInk {
     public static PenRoute Route(Seq<PenSample> samples, InkLadder ladder) =>
         samples.Exists(sample => sample.Level(PenAxis.Eraser).Exists(level => level.Value > ladder.EraserRung))
@@ -583,8 +490,6 @@ public static class GraphInk {
             .Fold(Seq<(int Level, Seq<PenSample> Run)>(), static (runs, entry) => runs.Last
                 .Filter(last => last.Level == entry.Level)
                 .Match(
-                    // The joining sample repeats into the next run so consecutive runs share an endpoint and
-                    // the rendered path has no gap where the width changes.
                     Some: last => runs.Init.Add((last.Level, last.Run.Add(entry.sample))),
                     None: () => runs.Add((entry.Level, runs.Last.Map(last => last.Run.Last).Match(
                         Some: joint => Seq(joint, entry.sample),
@@ -597,8 +502,6 @@ public static class GraphInk {
             Some: level => Math.Clamp((int)Math.Round(Math.Abs(level.Value) * (ladder.Levels - 1)), 0, ladder.Levels - 1),
             None: () => ladder.Levels - 1);
 
-    // `InkPoint`'s timestamp member demands epoch milliseconds — the one wall-clock read is the package's
-    // own contract, never a timeline this page owns.
     static InkStroke Stroke(Seq<PenSample> run, InkPen pen, int level, InkLadder ladder) =>
         new() {
             Color = pen.Color,
@@ -625,10 +528,8 @@ public static class GraphInk {
 - Boundary: the verb rows land on the one `Shell/commands#INTENT_TABLE` table under the `graph.` prefix and mint no second registry; the content-space point codec is `Editing/history.md`'s `ScrubPoint`, taken as a value — a second encoder over the same keyed payload case drifts from the decoder the moment either gains a column; the package's own bound `ICommand` twins stay unbound at the canvas, because binding both gives one gesture two paths and only one of them a receipt. `GraphCamera` holds the PINNED `ZoomBorder` — the alias posture at `[02]` is what makes the plain type name that control — and the whole camera capability rides its members: discrete rungs through `EnableDiscreteZoomLevels`/`DiscreteZoomLevels`, traversal through `EnableViewHistory`/`ViewHistorySize` with `NavigateBack`/`NavigateForward`, fit through `Uniform`, focus through `ZoomToRectangle`, named views through `ExportState`/`ImportState` under this owner's own keyed roster, and the lattice through `ShowGrid`/`EnableSnapToGrid`/`GridSize` seeded from the same `GraphRouting` row the decorator and the position write read. The control's `SaveView`/`RestoreView` family is NOT the named-view seat: it captures whatever view is live under a name and publishes no member that seats a saved view carrying a matrix, so a roster written through it can never be RESTORED across sessions — which is why the roster lives here, why the `Drop` verb exists (a roster a user can only grow is the capability the swap would have silently dropped), and why all three named-view verbs cross the deck through the payload union's text case. The rectangle a selection-fit frames comes from the model extent fold, so a fit over a virtualized or scrolled canvas frames the same rectangle a realized one would.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The named-view verb rows: one `GraphNav` case spans the whole named-view surface, so a bookmark write, a
-// recall, and a drop cross one admission, one roster, and one dispatch (folder RULINGS [03] named-view law).
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ViewVerb {
@@ -637,8 +538,6 @@ public sealed partial class ViewVerb {
     public static readonly ViewVerb Drop = new("drop");
 }
 
-// The camera vocabulary. Direction-bearing rows carry a `Rung`, so the admitted domain is the type and the
-// `is 1 or -1` guards deleted with it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GraphNav {
     private GraphNav() { }
@@ -652,32 +551,23 @@ public abstract partial record GraphNav {
     public sealed record Reset : GraphNav;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The camera is a CLASS holding a live cell, never a record: a record copy would share the roster cell by
-// reference while forking every column beside it, so two cameras would drive one roster.
 public sealed class GraphCamera(ZoomBorder border) {
     public const string VerbPrefix = "graph.";
 
-    // The named-view registry is THIS owner's rather than the control's (see the section Boundary); holding
-    // `ZoomBorderState` values makes the roster the same serializable shape `[06]`'s snapshot round-trips.
     readonly Atom<Map<string, ZoomBorderState>> bookmarks = Atom(Map<string, ZoomBorderState>());
 
-    // The one control column — the boundary handle `[06]`'s frame and snapshot owners read.
     public ZoomBorder Border { get; } = border;
 
     public Map<string, ZoomBorderState> Bookmarks => bookmarks.Value;
 
-    // The swap ANSWERS the roster it retired, so a restore that displaced an unsaved set hands the caller
-    // what it displaced rather than discarding it.
     public Map<string, ZoomBorderState> Seat(Map<string, ZoomBorderState> roster) {
         Map<string, ZoomBorderState> retired = default;
         bookmarks.Swap(held => { retired = held; return roster; });
         return retired;
     }
 
-    // The composition edge: the routing lattice the position write and the grid decorator read is the SAME
-    // lattice the viewport snaps and paints; ladder and history depths are policy values, not mount knobs.
     public GraphCamera Seated(GraphRouting routing, Seq<double> ladder, int history) {
         Border.EnableViewHistory = history > 0;
         Border.ViewHistorySize = history;
@@ -689,10 +579,6 @@ public sealed class GraphCamera(ZoomBorder border) {
         return this;
     }
 
-    // Every camera move admits its own argument before it dispatches and answers the SAME `Fin` rail every
-    // sibling entry answers; the capture converts a control throw into the typed refusal on that rail. The
-    // `fun(...)()` thunks are the total-dispatch lift over the control's void members — a hand `switch` with
-    // statement arms would trade the generated union's closedness for their absence.
     public IO<Fin<Unit>> Navigate(GraphNav verb) =>
         IO.lift(() => Admit(verb).Bind(admitted => Op.Of(name: "appui.graph.navigate").Catch(() => Fin.Succ(ignore(admitted.Switch(
                 state: this,
@@ -706,8 +592,6 @@ public sealed class GraphCamera(ZoomBorder border) {
                     if (v.Direction is Rung.Next) { camera.Border.NavigateForward(true); } else { camera.Border.NavigateBack(true); }
                 })(),
                 locate: static (camera, v) => fun(() => camera.Border.CenterOn(v.At, true))(),
-                // The bookmark capture runs AHEAD of the exchange because a CAS body re-runs on every losing
-                // attempt: a control read inside it re-samples the live viewport per retry.
                 named: static (camera, v) => v.Verb.Switch(
                     state: (Camera: camera, v.Name),
                     write: static s => fun(() => s.Camera.Border.ExportState() switch {
@@ -718,10 +602,6 @@ public sealed class GraphCamera(ZoomBorder border) {
                     drop: static s => fun(() => ignore(s.Camera.bookmarks.Swap(roster => roster.Remove(s.Name))))()),
                 reset: static (camera, _) => fun(() => camera.Border.ResetMatrix())()))))));
 
-    // One admission over the verb union, total by construction: a ratio must be finite and positive because
-    // zero collapses the viewport scale, a focus rectangle must have extent, a point must be finite, a
-    // written view needs a name, and a restore or a drop needs one the roster actually holds — an unknown key
-    // refuses by name instead of reading as a verb that did nothing.
     Fin<GraphNav> Admit(GraphNav verb) => verb.Switch(
         state: (Row: verb, Roster: bookmarks.Value),
         fit: static (s, _) => Fin.Succ(s.Row),
@@ -741,9 +621,6 @@ public sealed class GraphCamera(ZoomBorder border) {
         Fin.Fail<GraphNav>(new CanvasFault.CameraRejected($"{row}: argument outside its admitted domain"));
 }
 
-// The whole graph verb projection: layout rows generate off the package's own case sets, and every hand row
-// rides the ONE `Raise` minter — availability is the row's only variation, so a verb pair differing in
-// nothing but its predicate cannot exist as two minters.
 public static class GraphVerbs {
     public const string JumpVerb = "overview-jump";
 
@@ -782,16 +659,12 @@ public static class GraphVerbs {
             Walked("find-next", find, Rung.Next),
             Walked("find-previous", find, Rung.Prev));
 
-    // The overview strip's jump verb: the strip publishes a CONTENT-SPACE point and the lift below lowers it
-    // onto the existing keyed payload case, so the verb is an ordinary deck row a chord can also raise.
     public static CommandRow Jump(GraphCamera camera) =>
         Row(JumpVerb, RowShape.Fielded, Anyone, (payload, _) =>
             ScrubPoint.Read(payload).Match(
                 Succ: at => camera.Navigate(new GraphNav.Locate(at)).Map(static _ => unit),
                 Fail: static error => IO.fail<Unit>(error)));
 
-    // The point-lifting arrow the strip binds: handing the row's own materialized command to a control that
-    // publishes a `Point` throws on the first drag, because the command's parameter type is the payload.
     public static Fin<ICommand> Jumped(CommandDeck deck) =>
         deck.Rows.TryGetValue($"{GraphCamera.VerbPrefix}{JumpVerb}", out CommandRow? row)
             ? Fin<ICommand>.Succ(ReactiveCommand.CreateFromTask<Point, DeckReceipt>(
@@ -802,40 +675,29 @@ public static class GraphVerbs {
     static CommandRow Raise(string verb, Action run, Func<CommandRow.Availability, bool> when) =>
         Row(verb, RowShape.Bare, when, (_, _) => IO.lift(() => { run(); return unit; }));
 
-    // The one `IO<Fin<Unit>>` lowering every camera-shaped row shares.
     static IO<Unit> Lowered(IO<Fin<Unit>> outcome) =>
         outcome.Bind(static settled => settled.Match(Succ: static _ => IO.pure(unit), Fail: IO.fail<Unit>));
 
     static CommandRow Camera(string verb, GraphCamera camera, Func<Unit, GraphNav> move) =>
         Row(verb, RowShape.Bare, Anyone, (_, _) => Lowered(camera.Navigate(move(unit))));
 
-    // The named-view rows ride the closed payload union's TEXT case: the roster is live state, so a frozen
-    // deck cannot carry a row per entry a user mints — the name IS the payload.
     static CommandRow Named(string verb, GraphCamera camera, ViewVerb view) =>
         Row(verb, RowShape.Named, Anyone, (payload, _) => payload is CommandPayload.Text named
             ? Lowered(camera.Navigate(new GraphNav.Named(named.Value, view)))
             : IO.fail<Unit>(new CanvasFault.CameraRejected($"{verb} carries no view name")));
 
-    // A selection fit with nothing selected frames the whole canvas rather than refusing, because the row's
-    // availability already reads a non-empty selection and a race between the read and the fold must not
-    // surface as a fault a user cannot act on.
     static CommandRow Framed(string verb, GraphCamera camera, Func<Seq<GraphNodeRow>> selected) =>
         Row(verb, RowShape.Bare, WithSelection, (_, _) => Lowered(
             camera.Navigate(selected().Extent().Match(
                 Some: box => (GraphNav)new GraphNav.FitTo(box),
                 None: static () => new GraphNav.Fit()))));
 
-    // The find walk steps the cursor and FRAMES in one row, because a walk that moved a cursor no camera
-    // followed leaves a user reading an unchanged canvas and pressing the verb again.
     static CommandRow Walked(string verb, GraphFind find, Rung direction) =>
         Row(verb, RowShape.Bare, _ => !find.Matches.IsEmpty, (_, _) =>
             find.Walk(direction).Match(
                 Succ: _ => Lowered(find.Frame()),
                 Fail: static error => IO.fail<Unit>(error)));
 
-    // Every graph row is a `Shell/commands` `FamilyRow` under the camera's verb prefix — the deck's ONE
-    // registration shape and its ONE `Mint`. Constructing `CommandRow` positionally here re-declared eight
-    // columns this page never varies and put a column the row later grows out of reach of this projection.
     static CommandRow Row(
         string verb, RowShape shape, Func<CommandRow.Availability, bool> when,
         Func<CommandPayload, CancellationToken, IO<Unit>> execute) =>
@@ -859,10 +721,8 @@ public static class GraphVerbs {
 - Boundary: the graph publishes an `OverviewFrame` and renders nothing — a graph-local minimap control is the `Shell/virtualization#OVERVIEW_PROJECTION` rejected form, and the strip's drag publishes a content-space point back through the jump verb so the canvas moves its OWN camera; the frame's axis is `OverviewAxis.Plane`, because a graph summarized under an independently-scaled fit renders a distorted map of the thing it exists to make navigable. ZOOM HUD ownership is RULED to the package: the pinned control's own indicator (`ShowZoomIndicator`, `ZoomIndicatorPosition`, `ZoomIndicatorFormat`, `ZoomIndicatorAutoHideDuration`, `IsZoomIndicatorVisible`) reads the live matrix inside the viewport with no subscription, where a chrome chip mirroring the same number needs a subscription, a second formatter, and a placement that tracks a viewport it sits outside. The viewport column is the SCREEN-STATE snapshot's, not the co-edit document's, because a camera is per-viewer and committing it drags every peer's view along with one peer's pan; the snapshot payload rides the one composition-seated `EvidenceOps.Wire` options and `GraphViewport` registers on the package wire context, so a stale or foreign snapshot refuses through the same admission every durable AppUi payload crosses.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The minimap producer. Content and viewport are read at emission from the model and the control; the four
-// decoration lanes are ONE lane-keyed arrow, so a fifth lane is a roster row the fold already carries.
 public sealed record GraphOverview(
     GraphCamera Camera,
     Func<Seq<GraphNodeRow>> Nodes,
@@ -873,14 +733,10 @@ public sealed record GraphOverview(
     public IObservable<OverviewFrame> Frames(IObservable<Unit> ticks) =>
         ticks.StartWith(unit).Select(_ => Frame()).DistinctUntilChanged().Replay(1).RefCount();
 
-    // The strip's own intent, naming its frame producer and its jump verb by KEY: the intent is a
-    // serializable shape that crosses the control wire, so it carries neither a stream nor a command.
     public static ControlIntent Intent(IntentBinding binding) =>
         new ControlIntent.Overview(IntentKey, OverviewAxis.Plane, SourceKey,
             $"{GraphCamera.VerbPrefix}{GraphVerbs.JumpVerb}", binding);
 
-    // A degenerate content extent yields a unit rectangle rather than an empty one, so the downsample's own
-    // ratio guard sees a measurable surface and an unpopulated canvas renders an empty strip.
     OverviewFrame Frame() =>
         Nodes().Filter(static row => row.Visible) switch {
             var visible => new OverviewFrame(
@@ -894,13 +750,9 @@ public sealed record GraphOverview(
             .Map(static row => new Rect(row.X, row.Y, row.Width, row.Height)).Strict());
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Find over the one search plane: the graph contributes CANDIDATES and consumes RANKED RESULTS, so match
-// semantics stay the corpus fold's; the cursor, the highlight set, and the camera walk are this surface's.
 public sealed class GraphFind(GraphCamera camera, Func<Seq<GraphNodeRow>> nodes) {
-    // Cursor custody makes this a class exactly as it makes the camera one: a record copy would fork the
-    // match set's owner while sharing the one cell every walk exchanges through.
     readonly Atom<(Seq<SearchResult> Hits, int Cursor)> state = Atom((Seq<SearchResult>(), -1));
 
     GraphCamera Camera { get; } = camera;
@@ -909,8 +761,6 @@ public sealed class GraphFind(GraphCamera camera, Func<Seq<GraphNodeRow>> nodes)
 
     public Set<string> Matches => toSet(state.Value.Hits.Choose(static hit => hit.Member));
 
-    // Every node is one candidate whose searchable text is its title beside its template key; the node key
-    // rides the candidate's MEMBER slot, the identity a result attributes through and the walk resolves back.
     public Seq<SearchDocument> Candidates(string docKey) =>
         Nodes().Map(row => new SearchDocument(
             SearchSource.Node, docKey, Some(row.Key), row.Title, $"{row.Title} {row.TemplateKey}"));
@@ -918,8 +768,6 @@ public sealed class GraphFind(GraphCamera camera, Func<Seq<GraphNodeRow>> nodes)
     public Unit Seat(Seq<SearchResult> hits) =>
         ignore(state.Swap(_ => (hits, hits.IsEmpty ? -1 : 0)));
 
-    // The walk WRAPS — a find over a canvas has no end a user can see — and rides the kernel transition, so
-    // the declined arm IS the empty-set refusal and no caller re-derives the verdict from the swapped tuple.
     public Fin<int> Walk(Rung direction) =>
         Cell.Step(
             cell: state,
@@ -934,9 +782,6 @@ public sealed class GraphFind(GraphCamera camera, Func<Seq<GraphNodeRow>> nodes)
                     : new CanvasFault.ModelRejected("find carries no matches to walk")),
         };
 
-    // The SEARCH far end: SELECT the addressed node, then FRAME it through the same `Locate` every walk
-    // takes. A key this canvas does not carry refuses by name — the plane's corpus and this canvas differ by
-    // exactly one remote delete.
     public IO<Fin<Unit>> Reveal(SearchOpen.GraphCanvas request, Func<string, Fin<Unit>> select) =>
         Nodes().Find(row => StringComparer.Ordinal.Equals(row.Key, request.NodeKey))
             .ToFin(Fail: new CanvasFault.ModelRejected($"search/node:{request.NodeKey}"))
@@ -946,8 +791,6 @@ public sealed class GraphFind(GraphCamera camera, Func<Seq<GraphNodeRow>> nodes)
                     new Point(row.X + (row.Width / 2d), row.Y + (row.Height / 2d)))),
                 Fail: error => IO.pure(Fin.Fail<Unit>(error)));
 
-    // Centring the current match is a camera verb, so the walk and an overview jump move the viewport
-    // through one dispatch.
     public IO<Fin<Unit>> Frame() =>
         state.Value switch {
             var held when held.Cursor >= 0 => held.Hits[held.Cursor].Member
@@ -959,16 +802,10 @@ public sealed class GraphFind(GraphCamera camera, Func<Seq<GraphNodeRow>> nodes)
         };
 }
 
-// The domain half of the snapshot: the live exported state beside the named-view roster the camera holds.
 public sealed record CameraState(ZoomBorderState State, Map<string, ZoomBorderState> Views);
 
-// The snapshot's WIRE shape: plain-setter values the shared JSON rail serializes with no converter; the
-// roster is a BCL dictionary at this boundary alone.
 public sealed record GraphViewport(ZoomBorderState State, Dictionary<string, ZoomBorderState> Views);
 
-// The one wire correspondence, generated: member mapping is name-for-name and the roster column crosses
-// through the two per-pair converters — the LanguageExt `Map` target is hand-constructed by declaration
-// because the generator's native construction of the carrier is unproven.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class ViewportMap {
@@ -984,15 +821,11 @@ public static partial class ViewportMap {
         toSeq(views).Fold(Map<string, ZoomBorderState>(), static (roster, entry) => roster.AddOrUpdate(entry.Key, entry.Value));
 }
 
-// The viewport snapshot column: the control exports its whole state — matrix, stretch, rotation, clamps —
-// so a restore returns the exact view; the bookmark roster rides the SAME payload.
 public sealed record GraphView(GraphCamera Camera) {
     public Option<string> Export() =>
         Optional(Camera.Border.ExportState()).Map(state =>
             JsonSerializer.Serialize(ViewportMap.ToWire(new CameraState(state, Camera.Bookmarks)), EvidenceOps.Wire));
 
-    // A refused decode leaves the live view UNTOUCHED and typed; the roster seats BEFORE the state import,
-    // so a recall raised on the same frame reads the restored set.
     public Fin<Unit> Import(Option<string> state) =>
         state.Filter(static payload => !string.IsNullOrWhiteSpace(payload)).Match(
             Some: payload => Op.Of(name: "appui.graph.viewport-decode").Catch(() => Fin.Succ(JsonSerializer.Deserialize<GraphViewport>(payload, EvidenceOps.Wire)))
@@ -1019,16 +852,11 @@ public sealed record GraphView(GraphCamera Camera) {
 - Boundary: the roster mints VALUES onto the one emission and never a second dictionary — a graph-local `ResourceDictionary` merged beside the emitted one goes stale on the next re-seed; the slot cases are the token catalogue's shipped-key correspondence vocabulary, and the roster's key strings are FOREIGN package keys, not `TokenKey`s — the one place a raw key string is the value itself. The grid decorator's cell columns default to zero, so the sizing lands on `GraphRouting`, and the decorator, the position snap, and the viewport's own grid all read that one row. A code-level colour property on a node, pin, or connector does not exist and `Connector` derives `Shape`, so stroke and thickness reach it through a theme setter alone; a paint written onto a control is the `Theme/tokens#CONTROL_THEMES` deleted form.
 
 ```csharp signature
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
-// The chrome glyph row: the package template key beside the asset key it resolves through.
 public readonly record struct GlyphSlot(string Slot, AssetKey Key);
 
-// The node-editor correspondence: every row names the resolved role and rung a shipped key re-seeds from, so
-// a seed move carries the whole canvas and no row carries a colour of its own.
 public static class GraphSkin {
-    // The lattice fallback when the resolve carries no space rung — a zero-sized grid paints nothing, so the
-    // fallback exists to make that state unreachable rather than to be authored over.
     public const double GridFallback = 16d;
 
     public static readonly Seq<SemiSlot> Slots = Seq<SemiSlot>(
@@ -1052,12 +880,8 @@ public static class GraphSkin {
         new SemiSlot.Pigment(PaintRole.Panel, 0, "RotationSnapReadoutBackgroundBrush"),
         new SemiSlot.Pigment(PaintRole.Border, 0, "RotationSnapReadoutBorderBrush"),
         new SemiSlot.Pigment(PaintRole.Text, 0, "RotationSnapReadoutForegroundBrush"),
-        // The shipped theme binds ONE key to the alignment-guide overlay and the selected-connector overlay
-        // alike; the guide keeps the shipped key and the selection stroke takes its own.
         new SemiSlot.Pigment(PaintRole.Focus, 0, "GuideLineBrush"),
         new SemiSlot.Pigment(PaintRole.Selection, 0, "ConnectorSelectedStrokeBrush"),
-        // The two backgrounds the package's templates resolve and no shipped dictionary defines — an
-        // unresolved dynamic resource renders that chrome blank rather than faulting.
         new SemiSlot.Pigment(PaintRole.Workbench, 0, "EditorBackground"),
         new SemiSlot.Pigment(PaintRole.Well, 0, "DrawingBackground"));
 
@@ -1067,8 +891,6 @@ public static class GraphSkin {
         new GlyphSlot("EditorPasteIcon", AssetDeclaration.EditorPaste.Asset),
         new GlyphSlot("DeleteIcon", AssetDeclaration.EditorDelete.Asset));
 
-    // The icon half of the emission: a resolved product is an IMAGE rather than a paint, so it lands beside
-    // the slot values as a materialized carrier the swap rebuilds under `Rematerialize.TintedAsset`.
     public static Fin<Seq<(string Slot, IImage Image)>> Glyphs(
         AssetRuntime runtime, ResolvedTheme resolved, int step, double scale, FlowDirection flow) =>
         Icons.TraverseM(row => IconSurface
@@ -1091,21 +913,13 @@ public static class GraphSkin {
 - Boundary: the binding is the ONE projection per canvas and covers both directions — a second inbound sink, a canvas-local `LoroTree` mutation beside `IntentApply.Apply`, a model-poll loop, or a per-node sync channel is the deleted form; remote-applied diffs re-run the `GraphAdmission` gate, and a cycle-closing edit surfaces as the typed conflict row for the presence UI. The gate and the conflict cell live on the BINDING rather than the composition record, because `Bind` mints one binding per canvas while the record composes once: a gate on the record made two canvases over one document cross-suppress, dropping a peer's edit with no fault, no receipt, and no divergence the merge can repair. `Open`, `Subscribe`, `ReadNodes`, and `ReadEdges` are the composition adapters over the verified container values; `Subscribe` is ADDRESSED and the binding seats one per graph container, because the node tree and the edge register are separate roots and a tree-only subscription made every remote edge change a silent no-render — a root-feed subscription beside them is equally deleted, since it re-reconciles this canvas on every unrelated document edit. The multi-seat mount carries CUSTODY across its roster through the kernel rollback fold, so a refusal on the second container releases the seat the first took and a partial bind never leaves a live sink feeding a binding the caller never received.
 
 ```csharp signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed record GraphCoEdit(
     GraphAdmission Gate,
-    // The one transaction rail: `IntentLedger.Commit` is an INSTANCE member at its own owner, so the ledger
-    // rides here as a value — a static call would bind a second ledger identity in any process composing two
-    // documents, and the durable append would land on the wrong one.
     IntentLedger Ledger,
     Func<CollabDoc, Fin<(LoroTree Tree, LoroMap Edges)>> Open,
-    // The container-SCOPED subscribe (`Collab/presence#PRESENCE` `Scoped` shape as a column): a canvas subscribes
-    // the levels it projects, so a busy document costs this surface nothing per unrelated edit.
     Func<CollabDoc, CollabAddress, Subscriber, Fin<Subscription>> Subscribe,
-    // The read columns are `Collab/sync#DURABLE_INTENT` `GraphRegister.ReadNodes`/`ReadEdges` verbatim: the
-    // register owns its write arm AND the projections reading those columns back, so the correspondence
-    // stays one declaration.
     Func<LoroTree, Fin<Seq<GraphNodeRow>>> ReadNodes,
     Func<LoroMap, Fin<Seq<GraphEdge>>> ReadEdges) {
     public IO<Fin<GraphBinding>> Bind(CollabDoc doc, GraphCanvas canvas) =>
@@ -1115,8 +929,6 @@ public sealed record GraphCoEdit(
             from live in Seated(doc, binding)
             select binding.Seated(live));
 
-    // Custody spans the roster through the kernel rollback fold: the second seat's refusal releases the
-    // first, so a partial mount leaves the document exactly as it found it.
     Fin<Seq<Subscription>> Seated(CollabDoc doc, GraphBinding binding) =>
         Subscribe(doc, CollabAddress.Of(CollabRoot.Graph), binding).Bind(tree =>
             Subscribe(doc, CollabAddress.Of(CollabRoot.Edges), binding)
@@ -1124,12 +936,8 @@ public sealed record GraphCoEdit(
                 .Map(edges => Seq(tree, edges)));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The folder reconcile-latch law (RULINGS [02]) as MECHANISM: every arrival RECORDS before the claim, the
-// holder drains every arrival it can see — including one landing between its last read and the release — and
-// a caller that lost the claim has HANDED its arrival to the holder, never dropped it. A burst collapses to
-// at most one extra pass.
 public sealed class ReconcileGate {
     int applying;
     int restated;
@@ -1150,20 +958,13 @@ public sealed class ReconcileGate {
 public sealed class GraphBinding(
     GraphCoEdit owner, CollabDoc doc, GraphCanvas canvas, LoroTree tree, LoroMap edges)
     : Subscriber, IDisposable {
-    // Per BINDING because `Bind` is per canvas: a gate shared across bindings makes one canvas's remote
-    // apply suppress a sibling canvas's unrelated local commit.
     readonly ReconcileGate gate = new();
     Seq<Subscription> live = Seq<Subscription>();
 
-    // The typed conflict row the presence UI observes: a remote apply the gate rejects lands HERE.
     public Atom<Option<Error>> Conflict { get; } = Atom(Option<Error>.None);
 
     public GraphBinding Seated(Seq<Subscription> subscriptions) { live = subscriptions; return this; }
 
-    // Outbound: gate the POST-op topology, then ride the ONE transaction rail — durable first, live tree
-    // apply through the same `IntentApply.Apply` arm replay uses; the resulting Local diff is echo-dropped.
-    // Under the held gate the commit is a NO-OP, not a refusal: a model mutation raised by a remote apply is
-    // the correct case the suppression law names a DROP.
     public IO<Fin<Unit>> CommitLocal(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges, GraphOp op, string origin) =>
         gate.Held
             ? IO.pure(Fin.Succ(unit))
@@ -1173,17 +974,12 @@ public sealed class GraphBinding(
                     Succ: _ => owner.Ledger.Commit(doc, new EditIntent.GraphStructure(doc.Key, op), origin),
                     Fail: error => IO.pure(Fin.Fail<Unit>(error)));
 
-    // `DiffEvent` is DISPOSABLE and its `Dispose` frees the trigger, origin, target, and container events,
-    // so the callback reads its projection inside this frame; the trigger reads into a local BEFORE dispatch
-    // because the unsupported arm spells it into fault text and a disposed read would print freed memory.
     public void OnDiff(DiffEvent diff) {
         using (diff) {
             EventTriggerKind trigger = diff.TriggeredBy;
             ignore(trigger switch {
                 EventTriggerKind.Local => unit,
                 EventTriggerKind.Import or EventTriggerKind.Checkout => gate.Signal(Reconcile),
-                // Foreign enum — the open tail is the foreign-extension discriminant, not a closed-dispatch
-                // catch-all.
                 _ => fun(() => Conflict.Swap(_ => Some<Error>(new CanvasFault.TriggerUnsupported($"{trigger}"))))(),
             });
         }
@@ -1191,8 +987,6 @@ public sealed class GraphBinding(
 
     public void Dispose() { live.Iter(static subscription => subscription.Dispose()); live = Seq<Subscription>(); }
 
-    // Remote apply: whole-state reconcile over the verified read surface through the ONE gate-checked
-    // Commit/Replace fold — a remote edit that would close a cycle surfaces as the typed conflict row.
     void Reconcile() =>
         ignore((from rows in owner.ReadNodes(tree)
                 from pairs in owner.ReadEdges(edges)
@@ -1215,14 +1009,9 @@ public sealed class GraphBinding(
 
 ```csharp signature
 public static class DependencyRead {
-    // Canonical pin pair for a dependency node: all inputs converge on one port and the output fans out —
-    // the shape a recompute node HAS; per-input pins would invent structure the port never recorded.
     public const string InPin = "in";
     public const string OutPin = "out";
 
-    // A node the layout does not place lands at the origin rather than dropping: an unplaced dependency is
-    // still structure the reader must see. The topological order IS the row order, so no consumer re-sorts
-    // and a key the order omits cannot exist — both come from one gate call.
     public static Fin<Seq<GraphNodeRow>> FromDependencies(
         GraphAdmission gate, RecomputeGraph.Graph graph, Map<string, (double X, double Y)> layout,
         string templateKey, Size extent, ConnectorStyle style) {

@@ -20,18 +20,16 @@ Custody is symmetric across the seam: a slot carrying a stream, an image, or a n
 - Boundary: the host's own format constants (`Eto` clipboard type strings, platform UTIs) enter through admission and never as raw strings past this page.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct Mime {
-    // Canonicalized by `ref` BEFORE the grammar test: the standard makes type and subtype ASCII case-insensitive,
-    // so `TEXT/PLAIN` and `text/plain` are one key and an ordinal comparison folds them only after this write.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim().ToLowerInvariant() ?? string.Empty;
         validationError = value.Split('/') is [var type, var subtype]
@@ -60,16 +58,14 @@ public readonly partial struct Mime {
 - Boundary: a native handle never rides `Bytes` — it rides `Resourced` with its lease, so the seam that acquired it is the seam that closes it.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using EtoImage = Eto.Drawing.Image;
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The row CARRIES the refusal rather than a bool restating its own key: `Required` lowers the typed absence with
-// the format it wanted and `Optional` lands `None`, so the read leg reads one rail and branches on nothing.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PayloadPresence {
     public static readonly PayloadPresence Optional = new(key: 0,
@@ -83,8 +79,6 @@ public sealed partial class PayloadPresence {
     internal partial Fin<Option<PayloadSlot>> Settle(Option<PayloadSlot> found, Mime wanted, Op key);
 }
 
-// The four shapes the PLATFORM names: each keys on the host board's own typed accessor, so the roster's provenance
-// is the clipboard contract rather than a choice this page made, and a wire round-trip needs no second mapping.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WellKnownFormat : ICapability<WellKnownFormat> {
@@ -110,8 +104,6 @@ public abstract partial record PayloadShape {
     public sealed record Resourced(Mime Key) : PayloadShape;
 }
 
-// Release is TOTAL over the family and one-shot: the write leg disposes exactly what it staged on a mid-roster
-// refusal, and a per-case `using` at each call site is the deleted form.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PayloadSlot : IDisposable {
     private PayloadSlot() { }
@@ -123,12 +115,9 @@ public abstract partial record PayloadSlot : IDisposable {
     public sealed record Bytes(Mime Key, Arr<byte> Value) : PayloadSlot;
     public sealed record Streamed(Mime Key, Lease<Stream> Value) : PayloadSlot;
     public sealed record Stringed(Mime Key, string Value) : PayloadSlot;
-    // The ONE erased case, carrying its declared type so a consumer reads the contract rather than probing.
     public sealed record Boxed(Mime Key, Type Carried, object Value) : PayloadSlot;
     public sealed record Resourced(Mime Key, Lease<IDisposable> Value) : PayloadSlot;
 
-    // A disposable carries custody `Boxed` has no column for, so it rides `Resourced` instead; the declared type
-    // derives from the value, because a caller-stated type beside the value is two authorities over one fact.
     public static Fin<PayloadSlot> Box(Mime key, object value, Op op) =>
         from held in op.Need(value: value)
         from owned in guard(held is not IDisposable, op.InvalidInput()).ToFin()
@@ -167,14 +156,14 @@ public abstract partial record PayloadSlot : IDisposable {
 - Boundary: NAMED LOSS — both boundaries carried their own `Transfer`, `TransferQuery`, `TransferOp`, `TransferReceipt`, `TransferWriteFact`, `TransferTarget`, `PayloadSlot`, `PayloadPresence`, `DragPlan`, and `Drop`, and every one of them deletes. What is genuinely lost is each side's bespoke naming at its own call sites; what survives is stronger, because the two implementations disagreed on whether a write reported per slot and only one of them did.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransferSurface {
     private TransferSurface() { }
@@ -193,11 +182,8 @@ public abstract partial record TransferOp {
     public sealed record Write(TransferSurface At, Seq<PayloadSlot> Slots) : TransferOp;
     public sealed record Probe(TransferSurface At) : TransferOp;
     public sealed record Clear(TransferSurface At) : TransferOp;
-    // A drag is a WRITE to a bundle the host carries, so it is a case rather than a second entrypoint.
     public sealed record Drag(Control Source, DragPlan Plan) : TransferOp;
 
-    // The verb IS its own key: `[GenerateUnionOps]` mints one `SelfOp` per case, and this fold is that emission's
-    // one reader, so an entry with no caller key names the verb it ran rather than the entry that dispatched it.
     internal Op Key => Switch(
         read:  static _ => Read.SelfOp,
         write: static _ => Write.SelfOp,
@@ -206,7 +192,7 @@ public abstract partial record TransferOp {
         drag:  static _ => Drag.SelfOp);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransferWriteFact : IValidityEvidence {
     private TransferWriteFact() { }
@@ -225,17 +211,14 @@ public abstract partial record TransferReceipt {
     public sealed record Dragged(DragEffects Resolved) : TransferReceipt;
 
     public sealed record Written(Seq<TransferWriteFact> Slots) : TransferReceipt {
-        // Both DERIVE from the roster; a stored count and a stored failure are two authorities over one fact.
         public int Count => Slots.Count(static fact => fact.IsValid);
         public Option<Error> Failure =>
             Slots.Choose(static fact => fact is TransferWriteFact.Rejected row ? Some(row.Cause) : None).HeadOrNone();
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Transfer {
-    // An absent caller key resolves to the VERB's own `SelfOp`, never to this entry's member name, so a refusal
-    // reads which transfer ran rather than that a dispatch happened.
     [BoundaryAdapter] public static ValueTask<Fin<TransferReceipt>> Apply(TransferOp operation, Op? key = null);
 }
 ```
@@ -252,7 +235,7 @@ public static class Transfer {
 - Boundary: the drag SOURCE control is the host's and rides the `Drag` case; the plan carries no control, so a plan is stageable before a source exists.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
 using EtoPointF = Eto.Drawing.PointF;
@@ -260,23 +243,20 @@ using Rasm.Domain;
 
 namespace Rasm.Interaction;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record DragPlan(Seq<PayloadSlot> Slots, DragEffects Permitted, Option<(EtoImage Image, EtoPointF Offset)> Ghost);
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DropReceipt(EtoPointF Location, DragEffects Allowed, DragEffects Resolved);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Drop {
-    // The host argument is read ONCE here and never stored: the platform recycles it after the callback returns,
-    // so a consumer holding it reads a value belonging to a later drag.
     [BoundaryAdapter] public static Fin<Drop> Of(DragEventArgs provider, Op? key = null);
 
     public EtoPointF Location { get; }
     public DragEffects Allowed { get; }
     public TransferSurface Payload { get; }
 
-    // The chosen effect is GATED against `Allowed`, so a caller cannot land a copy where a move was offered.
     public Fin<DropReceipt> Resolve(DragEffects effect, Op key, Option<(string Format, string Inner)> description = default);
 }
 ```

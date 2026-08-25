@@ -29,18 +29,14 @@ import * as pulumi from "@pulumi/pulumi"
 import * as rook from "../crds/rook"
 import { Tier, type StackSpec } from "../program/spec.ts"
 
-// Provenance is one fold every chart row on this page spreads, exactly as `operate/observe.md` spreads it: a
-// keyring accompanying the pins makes each row verify its signature at render, so a tampered chart fails before
-// a resource exists and the estate's content-addressed discipline reaches its chart supply too. Absent keyring
-// yields no keys at all rather than `verify: false`, because the chart argument is presence-shaped.
 const _provenance = (keyring: pulumi.asset.Asset | undefined): { readonly verify?: boolean; readonly keyring?: pulumi.asset.Asset } =>
   keyring === undefined ? {} : { verify: true, keyring }
 
 declare namespace ObjectStore {
   type Auth = { readonly user: pulumi.Input<string>; readonly password: pulumi.Input<string> }
   type Credentials = {
-    readonly name: pulumi.Output<string> // the secret the barman ObjectStore CR references
-    readonly keys: { readonly access: string; readonly secret: string } // the row's own key spellings inside it
+    readonly name: pulumi.Output<string>
+    readonly keys: { readonly access: string; readonly secret: string }
   }
   type Args = {
     readonly spec: StackSpec
@@ -52,8 +48,6 @@ declare namespace ObjectStore {
   type _Rows<T extends Record<StackSpec.Profile["objectEngine"], {
     readonly chart: string
     readonly repo: string
-    // `values` takes the release because every row must PIN its own rendered name, and `endpoint` takes the bucket
-    // because a row whose Service its operator renders is named for the custom resource, never for the release.
     readonly values: (release: string, auth: Auth, size: string, bucket: string) => Record<string, unknown>
     readonly endpoint: (release: string, bucket: string, namespace: pulumi.Input<string>) => pulumi.Output<string>
     readonly credentials: (owner: ObjectStore, name: string, args: Args, bucket: string, child: pulumi.CustomResourceOptions) => Credentials
@@ -65,13 +59,7 @@ const _engines = {
     chart: "minio",
     repo: "https://charts.min.io/",
     values: (release: string, auth: ObjectStore.Auth, size: string, bucket: string): Record<string, unknown> => ({
-      // Without this pin the chart renders `<release>-minio`, because the collapse helper drops the chart name
-      // only when the release name already contains it — and no release named for its ROLE ever does.
       fullnameOverride: release,
-      // The chart's own default is `distributed` at SIXTEEN replicas across one pool, each claiming the full
-      // `persistence.size` — a topology and a capacity commitment no profile coordinate selected, and one the
-      // single storage quantity this row is handed cannot express. `standalone` is what the profile states:
-      // one server, one claim. A distributed pool earns its own profile axis before it earns a values key.
       mode: "standalone",
       replicas: 1,
       image: { repository: "pgsty/minio" },
@@ -83,7 +71,6 @@ const _engines = {
     endpoint: (release: string, _bucket: string, namespace: pulumi.Input<string>): pulumi.Output<string> =>
       pulumi.interpolate`http://${release}.${namespace}.svc:9000`,
     credentials: (_owner: ObjectStore, name: string, args: ObjectStore.Args, _bucket: string, child: pulumi.CustomResourceOptions): ObjectStore.Credentials => ({
-      // Doppler-generated credentials land in the namespace secret referenced by the archive CR.
       name: new k8s.core.v1.Secret(`${name}-auth`, {
         metadata: { namespace: args.namespace },
         stringData: { ACCESS_KEY_ID: args.auth.user, SECRET_ACCESS_KEY: args.auth.password },
@@ -94,19 +81,12 @@ const _engines = {
   ceph: {
     chart: "rook-ceph-cluster",
     repo: "https://charts.rook.io/release",
-    // Ceph capacity is CLAIMED DEVICES, never a size string: the cluster's own storage block takes node and device
-    // selection at `cephClusterSpec.storage`, so the profile's storage coordinate has no seat on this engine and a
-    // top-level `storage: { size }` is a key the chart reads nowhere. Replication rides `dataPool.replicated.size`
-    // — a bare `size` beside `dataPool` is not a `PoolSpec` field and leaves the erasure-coded default standing.
     values: (_release: string, _auth: ObjectStore.Auth, _size: string, bucket: string): Record<string, unknown> => ({
       cephObjectStores: [{ name: bucket, spec: { dataPool: { replicated: { size: 1 } } } }],
     }),
-    // The RGW Service is the OPERATOR's decoration over the `CephObjectStore` CR name — which is the bucket, not
-    // the release — so the address reads the CR this row declared and never the chart's own release name.
     endpoint: (_release: string, bucket: string, namespace: pulumi.Input<string>): pulumi.Output<string> =>
       pulumi.interpolate`http://rook-ceph-rgw-${bucket}.${namespace}.svc:80`,
     credentials: (_owner: ObjectStore, name: string, args: ObjectStore.Args, bucket: string, child: pulumi.CustomResourceOptions): ObjectStore.Credentials => {
-      // Operator custody mints the RGW pair; this tier owns only the user CR.
       const user = new rook.ceph.v1.CephObjectStoreUser(`${name}-user`, {
         metadata: { namespace: args.namespace },
         spec: { store: bucket, displayName: `${name}-archive` },
@@ -166,9 +146,6 @@ class Nats extends Tier {
       namespace: args.namespace,
       ..._provenance(args.keyring),
       values: {
-        // Without this pin the chart renders `<release>-nats` and the websocket origin below addresses nothing:
-        // the collapse helper drops the chart name only for a release name already containing it, and this row's
-        // release is named for the SIGNAL it carries.
         fullnameOverride: name,
         config: {
           cluster: { enabled: args.spec.profile.fanout.replicas > 1, replicas: args.spec.profile.fanout.replicas },
@@ -177,18 +154,9 @@ class Nats extends Tier {
             fileStore: { enabled: true, pvc: { size: args.spec.profile.fanout.storage } },
             merge: { sync_interval: "always" },
           },
-          // `no_tls` is the chart's own render, not a values key — the websocket config file emits it whenever
-          // `tls.enabled` is false, and this block's template reads `port` and `tls` alone. A raw server directive
-          // that has no values seat rides `config.websocket.merge`, the same seam the jetstream row above uses.
           websocket: { enabled: true, port: 8080 },
         },
-        // A listener is reachable only where BOTH halves agree: the config row opens the server port and this
-        // row publishes it. The websocket service half ships default-ON while its config half ships OFF, so a
-        // fence stating one half rides a chart default for the other and a values-side flip of either default
-        // silently closes the one door every browser and node client dials.
         service: { ports: { websocket: { enabled: true } } },
-        // The chart stands up a `natsBox` utility Deployment by DEFAULT — a shell pod with the CLI, which no tier
-        // here declared and nothing dials; the estate's no-chart-defaults law deletes it.
         natsBox: { enabled: false },
       },
     }, this.child())
@@ -225,7 +193,7 @@ import { Pg } from "@rasm/data"
 import { Array, Data, Effect, Match, Option } from "effect"
 import * as cnpg from "../crds/cnpg"
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class DataRefused extends Data.TaggedError("DataRefused")<{
   readonly axis: "extensions" | "pooling" | "recovery"
@@ -239,8 +207,6 @@ const _preload = (granted: ReadonlyArray<(typeof Pg.rows)[number]>): ReadonlyArr
   )
 
 declare namespace Postgres {
-  // The operator's own enum, not the bouncer's: `statement` has no seat here, so the resolved mode is what
-  // the tier publishes and the runtime capability rail reads back.
   type PoolMode = "session" | "transaction"
   type RecoveryBound = {
     readonly backup: Option.Option<string>
@@ -284,11 +250,6 @@ declare namespace Postgres {
 
 const _BARMAN_PLUGIN = "barman-cloud.cloudnative-pg.io"
 
-// PgBouncer's mode decides which server-side state survives a client's next statement, so the mode is a
-// capability input: every primitive a row names dies under that mode across the pooled bind. `spelling` is
-// the operator's half of the same fact — the `Pooler` CRD's `poolMode` enum admits `session` and
-// `transaction` alone, so the bouncer's third posture resolves to nothing and admission refuses it on this
-// one table rather than in a second place that could disagree with it.
 const _POOLING: {
   readonly [K in StackSpec.Pooling]: {
     readonly spelling: Option.Option<Postgres.PoolMode>
@@ -300,8 +261,6 @@ const _POOLING: {
   statement: { spelling: Option.none(), voids: ["advisory", "channel", "skipLocked"] },
 }
 
-// `_scopes` enumerates every cluster the data-tier escalation realizes, so recovery proves against
-// that whole set and never the primary alone.
 const _scopes = (name: string, spec: StackSpec): ReadonlyArray<string> =>
   spec.pgTier === "cluster-per-tenant"
     ? [name, ...Array.map(spec.tenants, (tenant) => `${name}-${tenant}`)]
@@ -335,8 +294,6 @@ const _recoveryTarget = (point: Postgres.RecoveryPoint) =>
     }),
   )
 
-// Admission already proved the source names a foreign server for every realized scope, so the fold
-// is total and no construction-time refusal remains.
 const _bootstrap = (
   target: string,
   recovery: Postgres.Recovery,
@@ -376,9 +333,6 @@ type _ClusterArgs = {
   readonly analystRole: string
 }
 
-// One cluster, one custody envelope: the scope keys its own credential triple out of the caller's
-// per-scope mint and its own archive prefix, so a dedicated cluster shares neither superuser
-// material nor WAL destination with the primary or with a sibling tenant.
 const _custody = (
   scope: string,
   args: Postgres.Args,
@@ -401,7 +355,6 @@ const _custody = (
           destinationPath: pulumi.interpolate`s3://${args.objects.bucket}/postgres/${scope}`,
           endpointURL: args.objects.endpoint,
           s3Credentials: {
-            // Selected engine rows own sink and key spellings for MinIO and Ceph custody.
             accessKeyId: { name: args.objects.credentials.name, key: args.objects.credentials.keys.access },
             secretAccessKey: { name: args.objects.credentials.name, key: args.objects.credentials.keys.secret },
           },
@@ -425,8 +378,6 @@ const _cluster = (
       instances: ctx.args.spec.profile.data.instances,
       imageName: ctx.args.image,
       storage: { size: ctx.args.spec.profile.data.storage },
-      // Without this block every instance schedules BestEffort, so the estate's only stateful pod is the first
-      // one the kubelet evicts under node pressure and its CPU is whatever the node has left after the app.
       resources: { requests: ctx.args.spec.profile.data.requests, limits: ctx.args.spec.profile.data.limits },
       postgresql: { "shared_preload_libraries": [..._preload(ctx.granted)] },
       replicationSlots: { highAvailability: { enabled: true } },
@@ -499,9 +450,6 @@ class Postgres extends Tier {
         externalClusterName: args.external,
       },
     }, child)
-  // `admit` is the one entry: the extension matrix, the pooling axis, and every realized scope's
-  // recovery source prove on the typed rail before a chart is declared, so a refused spec never
-  // half-constructs a tier and no construction-time throw stands in for a spec-derivable verdict.
   static admit(
     name: string,
     args: Postgres.Args,
@@ -538,10 +486,6 @@ class Postgres extends Tier {
       skipCrds: false,
       ..._provenance(args.keyring),
       values: {
-        // `clusterWide` shapes RBAC and NOTHING else: the controller reconciles whatever `WATCH_NAMESPACE`
-        // names, and an unset key means every namespace in the cluster — including every tenant namespace
-        // Capsule governs and every virtual plane a vcluster tenant owns. This estate's clusters all live in
-        // the arm's one namespace, so the watch scope states it and the grant narrows to match.
         config: { clusterWide: false, data: { WATCH_NAMESPACE: args.namespace } },
       },
     }, this.child())
@@ -558,8 +502,6 @@ class Postgres extends Tier {
     const cluster = _cluster(name, { args, granted, custody, role: this.role, analystRole },
       this.child({ dependsOn: [operator, custody.archive] }))
     const pooled = args.spec.profile.data.pool
-    // Suffixing with `-pool` is load-bearing: the operator refuses a Pooler whose own name matches any
-    // cluster name in the namespace, and this tier declares both halves of that collision.
     const pool = new cnpg.postgresql.v1.Pooler(`${name}-pool`, {
       metadata: { namespace: args.namespace },
       spec: {
@@ -568,18 +510,11 @@ class Postgres extends Tier {
         type: "rw",
         pgbouncer: {
           poolMode: this.pooling,
-          // `parameters` types as `map[string]string`, so a ceiling is a STRING — and the admission webhook
-          // proves every key against its own allowlist, rejecting an unlisted one as `Invalid or reserved
-          // parameter`. Both spellings here sit on that list, so the profile's ceilings are the ones that run.
           parameters: {
             "max_client_conn": `${pooled.clients}`,
             "default_pool_size": `${pooled.sessions}`,
           },
         },
-        // CNPG merges this template by container NAME: it patches image, command, ports, env, and probes
-        // onto the entry named `pgbouncer` and writes `resources` on it NOWHERE, so this is the only seat
-        // reaching the bouncer. Pod-level `spec.resources` beside it sizes the bootstrap init container
-        // alone. `containers` is mandatory the moment a template exists — `[]` is the empty form.
         template: {
           spec: {
             containers: [{
@@ -643,9 +578,6 @@ const _granted = (names: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<(ty
     )).pipe(
       Effect.tap((rows) =>
         Effect.forEach(rows, (row) =>
-          // One equality over the relation replaces a two-arm ladder: a `requires` row holds when the demanded
-          // grant is present and an `excludes` row when it is absent, so a corner the matrix later declares is
-          // graded here the day it lands rather than read as an implication that silently always passes.
           Effect.forEach(Pg.demands, (demand) =>
             !Array.contains(row.flags, demand.flag)
               || (demand.relation === "requires") === Array.some(rows, (peer) => Array.contains(peer.capabilities, demand.grant))
@@ -682,8 +614,6 @@ type _Finalize = {
   readonly child: pulumi.CustomResourceOptions
 }
 
-// CNPG's `version` is an exact demand while a matrix `floor` is a lower bound, so the DDL row asks
-// for presence and the startup capability probe alone refuses an image sitting below the floor.
 const _extensions = (granted: ReadonlyArray<(typeof Pg.rows)[number]>): ReadonlyArray<{ name: string; ensure: string }> =>
   Array.map(granted, (row) => ({ name: row.extension, ensure: "present" }))
 
@@ -703,8 +633,6 @@ const _target = (
     { name: "PGHOST", value: direct },
     { name: "PGPORT", value: "5432" },
     { name: "PGDATABASE", value: database },
-    // Convergence authors the relations the application then reads, so its runner binds as this
-    // scope's managed owner; a superuser run leaves every relation owned off-role.
     { name: "PGUSER", value: ctx.owner.role },
     {
       name: "PGPASSWORD",
@@ -776,7 +704,7 @@ declare namespace Postgres {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { DataRefused, Nats, ObjectStore, Postgres }
 ```

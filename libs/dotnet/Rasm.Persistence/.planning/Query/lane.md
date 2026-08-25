@@ -28,8 +28,8 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Diagnostics;                         // Stopwatch — the measured non-stale wait bracket
-using Microsoft.Extensions.Diagnostics.Latency;   // the pooled per-operation phase ledger
+using System.Diagnostics;
+using Microsoft.Extensions.Diagnostics.Latency;
 using LanguageExt;
 using Marten;
 using Marten.Events.Daemon;
@@ -38,21 +38,17 @@ using NetTopologySuite.Geometries;
 using NodaTime;
 using Npgsql;
 using NpgsqlTypes;
-using Rasm.Domain;                                // TenantContext, ContentHash, FaultBand, [FaultCase]/Fault — the kernel floors
+using Rasm.Domain;
 using Rasm.Element.Graph;
-using Rasm.Element.Query;                         // Selection<TKey>, WalkDepth, MatchVerdict — the seam selection vocabulary
+using Rasm.Element.Query;
 using Thinktecture;
-using Rasm.Persistence.Element;                   // ModelId — the stream grain; H3Cell — the identity cell
-// Seam closure instantiated over this folder's leaf family; this alias is LOAD-BEARING, not cosmetic.
-// `Rasm.Element.Query.Predicate<T>` and the implicitly-imported `System.Predicate<T>` delegate go CS0104
-// ambiguous the moment both namespaces are in scope, which the seam's own page never sees because its
-// declaration wins by innermost namespace.
+using Rasm.Persistence.Element;
 using SetQuery = Rasm.Element.Query.Predicate<Rasm.Persistence.Query.SetPredicate>;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ReadRequest {
     private ReadRequest() { }
@@ -78,13 +74,8 @@ public sealed partial class QueryLane {
     public static readonly QueryLane Cypher = new("cypher", Some(Duration.FromSeconds(5)), TargetSessionAttributes.PreferStandby);
     public static readonly QueryLane Retrieval = new("retrieval", Some(Duration.FromSeconds(5)), TargetSessionAttributes.PreferStandby);
     public static readonly QueryLane Cache = new("cache", None, TargetSessionAttributes.Any);
-    // Reflected reads hit the transactionally-current identity relations; no daemon, no wait budget, primary-pinned
-    // because RLS role state and correctness both bind the writable session.
     public static readonly QueryLane Reflected = new("reflected", None, TargetSessionAttributes.Primary);
     public Option<Duration> WaitBudget { get; }
-    // Multihost session target — the third lane column: correctness lanes pin the primary, watermark-carrying
-    // analytical lanes prefer a standby so rollups ride replicas, and the provisioning SlotLag gauge is the
-    // admission evidence behind that preference; a lane never spells a host, only its session demand.
     public TargetSessionAttributes Session { get; }
     private QueryLane(string key, Option<Duration> waitBudget, TargetSessionAttributes session) : this(key) {
         WaitBudget = waitBudget;
@@ -92,11 +83,6 @@ public sealed partial class QueryLane {
     }
 }
 
-// `ReadPhase` spells the lane's phase vocabulary. A latency name governs only where the SAME spelling registers at composition
-// and resolves at the record site: an unregistered name resolves to a POSITIONLESS token whose writes drop with
-// nothing raised (only `LatencyContextOptions.ThrowOnUnregisteredNames` promotes that lookup to a boot failure),
-// so a hand-spelled string at either end is a ledger that reads instrumented and reports nothing. The row IS the
-// name, `Names` is the registration projection the composition root binds, and a new phase is one row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -106,14 +92,11 @@ public sealed partial class ReadPhase {
     public static readonly ReadPhase Connected = new("rasm.persistence.read.connected");
     public static readonly ReadPhase Executed = new("rasm.persistence.read.executed");
 
-    // `LanePivot` is the one TAG dimension the ledger carries: a frozen set groups by lane with no token
-    // per lane row, so a seventh QueryLane needs no registration edit.
     public const string LanePivot = "rasm.persistence.read.lane";
 
     public static Seq<string> Names => toSeq(Items).Map(static row => row.Key);
 }
 
-// `GraphQlDocument` holds the web-native query text: non-empty, NUL-free, bound as a parameter — never concatenated.
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct GraphQlDocument {
@@ -122,9 +105,6 @@ public readonly partial struct GraphQlDocument {
     }
 }
 
-// Tokens resolve ONCE per composition off the issuer — the positional-token rail exists so the hot path carries
-// no name lookup and no allocation, and a per-read `GetCheckpointToken` call throws that away. The phase index
-// derives from `Items`, so a phase row can never be present in the vocabulary and absent from the ledger.
 public sealed record ReadLedger(FrozenDictionary<ReadPhase, CheckpointToken> Phases, TagToken Lane) {
     public static ReadLedger Bind(ILatencyContextTokenIssuer issuer) =>
         new(ReadPhase.Items.ToFrozenDictionary(static row => row, row => issuer.GetCheckpointToken(row.Key)),
@@ -144,17 +124,8 @@ public static class ReadRouter {
         reuse: static _ => QueryLane.Cache,
         reflected: static _ => QueryLane.Reflected);
 
-    // Lane session demand resolves a connection off the one multihost source — analytical reads land on a
-    // standby when one serves, correctness lanes always the primary; `LoadBalanceHosts` stays a provisioning-DSN
-    // fact so the router never spells a host.
     public static NpgsqlConnection Connect(NpgsqlMultiHostDataSource store, QueryLane lane) => store.CreateConnection(lane.Session);
 
-    // Waits are MEASURED — the store.query.wait receipt's elapsed-wait field reads a clock this member starts,
-    // never a forged zero: one timestamp bracket around the production non-stale block, the elapsed returned to the
-    // caller that seals it beside the watermark. This elapsed is the RECEIPT's typed field for one read; the
-    // cross-phase ledger `Observed` brackets is the other rail, and neither re-derives the other. The kernel
-    // `MonotonicTimeline` is NOT the owner here: it seats at S3 `Rasm.Parametric` and this package is S2, so the
-    // raw monotonic pair is the honest floor rather than an up-strata reach.
     public static IO<Duration> AwaitNonStale(IProjectionDaemon daemon, QueryLane lane) =>
         lane.WaitBudget.Match(
             Some: budget => IO.liftAsync(async () => await Op.Of().Catch(async _ => {
@@ -164,12 +135,6 @@ public static class ReadRouter {
             }).ConfigureAwait(false)).Bind(IO.liftFin),
             None: static () => IO.pure(Duration.Zero));
 
-    // `Observed` measures the whole read as ONE pooled ledger, never one phase: a read routes, waits on the daemon,
-    // reaches its lane session, and executes, and only the relative cost of those four says where a slow read is
-    // slow — `store.query.wait` answers how ONE read resolved and the ledger answers where every read spends, so the
-    // two rails coexist and neither re-derives the other. `Bracket` owns the pooled context on every exit path
-    // including failure, because a leaked context starves the pool for every later read. `AddCheckpoint` stamps
-    // once per context, so a re-entrant phase records a measure rather than a second stamp.
     public static IO<T> Observed<T>(ILatencyContextProvider pool, ILatencyDataExporter drain, ReadLedger ledger,
                                     IProjectionDaemon daemon, ReadRequest request, Func<QueryLane, IO<T>> read) =>
         IO.lift(() => Op.Of().Catch(() => Fin.Succ(pool.CreateContext()))).Bind(IO.liftFin).Bracket(
@@ -189,9 +154,6 @@ public static class ReadRouter {
     static IO<Unit> Stamp(ILatencyContext cell, ReadLedger ledger, ReadPhase phase) =>
         Captured(() => { cell.AddCheckpoint(ledger.Phases[phase]); return unit; });
 
-    // `Sealed` drains the frozen set INSIDE the bracket: `LatencyData` projects its checkpoint, tag, and measure
-    // spans over the context's POOLED backing, so a set carried past the release arm reads storage the pool has
-    // already re-leased to another read and reports one read's phases under another's identity.
     static IO<Unit> Sealed(ILatencyContext cell, ILatencyDataExporter drain) =>
         Captured(() => { cell.Freeze(); return unit; })
             .Bind(_ => IO.liftAsync(async () => await Op.Of().Catch(async _ => {
@@ -202,12 +164,9 @@ public static class ReadRouter {
     static IO<T> Captured<T>(Func<T> crossing) =>
         IO.lift(() => Op.Of().Catch(() => Fin<T>.Succ(crossing()))).Bind(IO.liftFin);
 
-    // `ShardState.Timestamp` is daemon observation time; only event and shard sequences measure projection progress.
     public static StalenessWatermark Measure(EventStoreStatistics head, ShardState projection) =>
         new(head.EventSequenceNumber, projection.Sequence);
 
-    // Daemon-fan staleness is the maximum shard gap; averaging masks stragglers, and an empty fan projects
-    // sequence zero because no shard has advanced.
     public static StalenessWatermark Measure(EventStoreStatistics head, Seq<ShardState> shards) =>
         shards.IsEmpty
             ? new StalenessWatermark(head.EventSequenceNumber, 0L)
@@ -219,18 +178,13 @@ public static class ReadRouter {
         IO.liftAsync(async () => await Op.Of().Catch(async _ => {
             EventStoreStatistics stats = await store.Advanced.FetchEventStoreStatistics().ConfigureAwait(false);
             IReadOnlyList<ShardState> progress = await store.Advanced.AllProjectionProgress().ConfigureAwait(false);
-            // Missing progress is evidence of no projected sequence and therefore measures from zero.
             return Fin<StalenessWatermark>.Succ(toSeq(progress).Find(s => s.ShardName == shard.Identity).Match(
                 Some: state => Measure(stats, state),
                 None: () => new StalenessWatermark(stats.EventSequenceNumber, 0L)));
         }).ConfigureAwait(false)).Bind(IO.liftFin);
 }
 
-// `ReflectedRead` is the reflected door: one transaction pins the tenant GUC (RLS partition) and resolves the
-// whole GraphQL operation in-database; the resolver never raises, so the errors message envelope folds typed.
 public static class ReflectedRead {
-    // `ReadRole` is the SELECT-only serving role: reflection surfaces mutation fields only off relations the
-    // executing role can write, so the privilege pin IS the mutation gate — RLS partitions rows, the role removes the write surface.
     const string ReadRole = "rasm_graphql_read";
 
     public static IO<Fin<JsonElement>> Resolve(NpgsqlDataSource store, GraphQlDocument query, JsonElement variables, Option<string> operation, ProjectionContext frame) =>
@@ -239,8 +193,6 @@ public static class ReflectedRead {
             await using NpgsqlTransaction scope = await lane.BeginTransactionAsync(token).ConfigureAwait(false);
             await using NpgsqlBatch batch = lane.CreateBatch();
             NpgsqlBatchCommand role = new($"SET LOCAL ROLE {ReadRole}");
-            // `TenantContext.TenantSlot` is the GUC key and its one `Entry` text the value, so the RLS
-            // policy compares the same canonical spelling the durable column stores.
             NpgsqlBatchCommand pin = new($"SELECT set_config('{TenantContext.TenantSlot}', @tenant, true)");
             _ = pin.Parameters.AddWithValue("tenant", frame.Tenant.Entry);
             NpgsqlBatchCommand door = new("SELECT graphql.resolve(@query, @variables, @operation, NULL)");
@@ -289,14 +241,10 @@ public static class ReflectedRead {
 - Boundary: `KeySelection` is the one composable currency — every analysis surface takes a `KeySelection` and yields a `KeySelection` so results compose (a clash result intersected with a classification selection is one `All`, never a join in application code); the receipt is content-addressed over the length-framed distinct-sorted preimage so it is stable across runs, peers, and tenants AND unambiguous — a positional or timestamp-keyed selection id, or an unframed byte concatenation two key sets collide on, is the deleted form; the private mint is what makes the certification TOTAL, where the previous record struct's `default` carried receipt zero over an empty preimage and compared unequal to a genuinely empty selection, so two "empty" values disagreed on their own identity; `Selection<SetKey>` is the projection a peer folder reads and it carries `Some` because this owner minted it — the seam's own `Union`/`Intersect`/`Except` derivations answer `None` by the seam's law and re-enter here only through `Of`, which re-frames and re-certifies; the `Closure` combinator is a real bounded transitive fold whose one-hop `Expand` is the `Query/topology#GRAPH_TOPOLOGY` incidence neighbour over the seam graph (the reachability owner stays the graph/topology owner, the bounded fold stays here), NEVER the `Version/ledger#CHANGEFEED` `Closure` — that ledger manifest is a representation-content-hash blob-transfer set keyed by `UInt128`, a DIFFERENT closure that cannot answer a `NodeId` reachability selection, so conflating the two is the deleted altitude error; evaluation authority stays with THIS folder because the seam is host-neutral vocabulary — `Predicate.Holds` is the seam's per-candidate structural fold and `Selections.Reached` supplies its closure verdict, so an in-memory verdict and a pushed-down selection answer the same walk rather than two; selection evaluation pushes through the lane router so a `Spatial` leaf executes on the GiST index and a `Jsonpath` leaf on the jsonb index in the store, never client-side; scope is caller DATA — evaluation takes the `SetScope` roster as a value and reads no project rollup of its own, so read-your-writes holds per model and the async `ProjectGraph` roster is one legitimate supplier of a scope, never the evaluator's own read; a federated selection spans separate model streams WITHOUT minting a union graph — the seam `Federate` union stays the materialized-coordination path under its one header, and neither substitutes for the other; the `KeySelection.Preimage` framed byte shape — fixed-width big-endian model bytes beside the length-framed node text under the `SetKey` order — is what the `Version/commits#CRDT_WIRE` `ContentParityCorpus.Contribute(ParitySlot.ElementSet, selection.Preimage)` freezes as the `elementset` parity vector (CONTRIBUTED by this owner, never reverse-imported into the Version owner), the SLOT LABEL staying `elementset` because it is the cross-runtime corpus name the python and TypeScript ends bind, and a membership or framing change re-cuts that vector in the same pass.
 
 ```csharp signature
-// Jsonb-predicate vocabulary (`@>`/`?`/`->>` comparisons the GIN `jsonb_ops` index serves) is one closed
-// row set, never a free comparison string. `SetPath` admits the unbounded path data once.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class JsonComparison {
     public static readonly JsonComparison Exists = new("exists");
-    // `Eq`, never `Equals`: a static item field named `Equals` collides with the generated
-    // `Equals(object?)`/`Equals(JsonComparison?)` members in the same partial type (CS0102); the wire key stays "eq".
     public static readonly JsonComparison Eq = new("eq");
     public static readonly JsonComparison Contains = new("contains");
     public static readonly JsonComparison GreaterThan = new("gt");
@@ -306,8 +254,7 @@ public sealed partial class JsonComparison {
     public static readonly JsonComparison Matches = new("matches");
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// `Depth` refuses an unbounded selection; `Rejected` carries every shape a set-valued reading cannot bound.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SelectionFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Selection;
@@ -329,7 +276,7 @@ public abstract partial record SelectionFault : Fault {
         scope:     static c => $"<selection-scope:{c.Detail}>");
 }
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct SetPath {
@@ -341,9 +288,6 @@ public readonly partial struct SetPath {
     }
 }
 
-// `RuleId` names a stored rule the `Rule` leaf resolves through the index port. The bare `string` it replaces was
-// this page's own Growth law violated in its own fence — a free-string leaf on a typed leaf family — so the
-// identity admits ONCE here and no resolver re-checks it.
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct RuleId {
@@ -355,10 +299,6 @@ public readonly partial struct RuleId {
     }
 }
 
-// `SpatialPredicate` carries each GiST-served PostGIS function name as its key. Typed rows prevent misspelled
-// operators from degrading into sequential scans; an `Argued` row (`ST_DWithin`) consumes the leaf's `Distance`
-// through `Selections.Operand`. Named past the `Rasm.Spatial` `SpatialOp` index-op union — two unrelated
-// concepts on one spelling, resolved at the one that is not the kernel's.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpatialPredicate {
@@ -370,17 +310,10 @@ public sealed partial class SpatialPredicate {
     public static readonly SpatialPredicate Touches = new("ST_Touches", argued: false);
     public static readonly SpatialPredicate Covers = new("ST_Covers", argued: false);
     public static readonly SpatialPredicate CoveredBy = new("ST_CoveredBy", argued: false);
-    // `Argued` is the SAME column the raster roster carries under the same law, so `Selections.Operand` is one
-    // admission both leaves compose rather than two ladders that drifted apart once already.
     public bool Argued { get; }
     private SpatialPredicate(string key, bool argued) : this(key) => Argued = argued;
 }
 
-// `RasterPredicate` carries each `postgis_raster` server predicate as its key — the coverage counterpart of
-// `SpatialPredicate`, so an elevation or overlay selection pushes onto the in-db raster exactly as the `Spatial`
-// leaf pushes onto the GiST index, never a full blob fetch plus in-process decode. Argued rows clip the band
-// under the element footprint (`ST_SummaryStats(ST_Clip(rast, geom), band)`) and compare the fold's mean against
-// against the leaf threshold, and its unargued row reads bare raster-geometry `ST_Intersects` membership.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RasterPredicate {
@@ -391,9 +324,6 @@ public sealed partial class RasterPredicate {
     private RasterPredicate(string key, bool argued) : this(key) => Argued = argued;
 }
 
-// `SetKey` is the model-qualified member: the owning stream's `ModelId` beside the seam `NodeId`, ordered by
-// model RFC-4122 big-endian wire bytes then ordinal over the node text — ONE total order every runtime derives
-// from the same two byte sequences, never `Guid.CompareTo`'s field-wise order no peer reproduces.
 public readonly record struct SetKey(ModelId Model, NodeId Node) : IComparable<SetKey> {
     public int CompareTo(SetKey other) {
         Span<byte> mine = stackalloc byte[16];
@@ -405,10 +335,6 @@ public readonly record struct SetKey(ModelId Model, NodeId Node) : IComparable<S
     }
 }
 
-// `SetScope` is the CALLER-supplied model roster leaf resolution spans — one model for a single-model
-// selection, the roster a `ProjectGraph` read handed over for a project-altitude one. Scope arrives as DATA,
-// so an interactive cross-model selection still binds the synchronous per-model projections and
-// read-your-writes holds; an evaluator-side roster read would inherit the async daemon's lag.
 public readonly record struct SetScope(Seq<ModelId> Models) {
     public static Fin<SetScope> Of(Seq<ModelId> models) =>
         models.IsEmpty
@@ -417,10 +343,6 @@ public readonly record struct SetScope(Seq<ModelId> Models) {
     public bool Admits(ModelId model) => Models.Contains(model);
 }
 
-// `SetPredicate` is the STORE leaf family the seam closure instantiates over — every arm lowers to ONE index
-// predicate, so the boolean structure above it is the seam's and nothing here duplicates it. `Literal` and
-// `Rule` are leaves rather than tree arms because a member roster and a stored rule are both RESOLUTIONS the
-// index port answers, which is what lets the scope admission run once over every leaf's answer.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record SetPredicate {
     private SetPredicate() { }
@@ -430,22 +352,13 @@ public abstract partial record SetPredicate {
     public sealed record Cell(H3Cell Anchor, WalkDepth Ring) : SetPredicate;
     public sealed record Jsonpath(SetPath Path, JsonComparison Cmp, Option<string> Value) : SetPredicate;
     public sealed record Classification(SetPath SystemPath, Option<string> Value) : SetPredicate;
-    // `Ancestor` names its own model: a containment walk climbs ONE model's spatial tree, and that qualified
-    // key lets a project-scoped expression seat per-model containment leaves side by side.
     public sealed record Containment(SetKey Ancestor, bool Subtree) : SetPredicate;
     public sealed record Material(Option<string> Value) : SetPredicate;
     public sealed record Exists(SetPath Path) : SetPredicate;
-    // Coverage-raster leaf: elements whose geometry the named coverage admits under the raster predicate — an
-    // argued row demands `Some` threshold and rails at lowering without one, exactly as an argued `Spatial`
-    // row demands its `Distance`.
     public sealed record Raster(RasterPredicate Op, string Coverage, int Band, Option<double> Threshold) : SetPredicate;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `KeySelection` is the store's CERTIFIED selection: the members under one total order, the `SetScope` the
-// evaluation spanned, the content receipt, and the exact framed bytes that receipt hashed. Sealed with a
-// private mint because the record struct it replaces let `default` carry receipt zero over an empty preimage —
-// a forged certification of the empty set that compared unequal to the genuine empty selection.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record KeySelection {
     private KeySelection(Seq<SetKey> keys, SetScope scope, UInt128 receipt, ReadOnlyMemory<byte> preimage) =>
         (Keys, Scope, Receipt, Preimage) = (keys, scope, receipt, preimage);
@@ -453,13 +366,9 @@ public sealed record KeySelection {
     public Seq<SetKey> Keys { get; }
     public SetScope Scope { get; }
     public UInt128 Receipt { get; }
-    // `Preimage` exposes the exact framed bytes hashed by `Receipt` and contributed to the parity corpus.
     public ReadOnlyMemory<byte> Preimage { get; }
     public int Count => Keys.Count;
 
-    // `Members` PROJECTS the seam carrier a peer folder reads; the receipt has ONE seat here and rides `Some`
-    // because this owner minted it, where a seam-side `Union`/`Intersect`/`Except` derivation answers `None`
-    // by the seam's own law and re-enters through `Of`, which re-frames and re-certifies.
     public Selection<SetKey> Members => new(Keys, Some(Receipt));
 
     public static KeySelection Empty(SetScope scope) => Of(Seq<SetKey>(), scope);
@@ -470,25 +379,15 @@ public sealed record KeySelection {
         return new KeySelection(sorted, scope, ContentHash.Of(preimage.Span), preimage);
     }
 
-    // Seam-carrier arity opens the RE-ENTRY door: a peer handing back a derived `Selection<SetKey>` re-frames
-    // and re-certifies here rather than carrying an uncertified set into a reuse key.
     public static KeySelection Of(Selection<SetKey> members, SetScope scope) => Of(members.Keys, scope);
 }
 
-// `SetResolve` carries scope-threaded index-backed LEAF resolution and one-hop topology expansion. Threaded
-// ports keep reachability in the graph owner while this page owns the algebraic fold; `Expand` crosses model
-// boundaries only through the durable `ModelLink` edges the project view lifts.
 public readonly record struct SetResolve(
     Func<SetPredicate, SetScope, Fin<Seq<SetKey>>> Leaf,
     Func<Seq<SetKey>, Fin<Seq<SetKey>>> Expand);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Selections {
-    // Cross-runtime parity: an LE `int32` key count, then per key the FIXED-WIDTH 16-byte RFC-4122 big-endian
-    // model bytes UNFRAMED (the preimage-framing law length-frames only variable width) and the node text as
-    // an LE `int32` byte length plus UTF8. Sorted under the `SetKey` comparator, so every runtime derives one
-    // byte stream from one member set and framing distinguishes concatenation-equivalent rosters. FROZEN as
-    // this `elementset` parity vector, so a membership or framing edit re-cuts it in the same pass.
     public static ReadOnlyMemory<byte> Preimage(Seq<SetKey> sortedKeys) {
         ArrayBufferWriter<byte> buffer = new();
         BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4), sortedKeys.Count);
@@ -505,40 +404,26 @@ public static class Selections {
         return buffer.WrittenMemory;
     }
 
-    // Bound TYPE stays the seam's and the BAND stays this folder's: `Depth` runs the seam admission and re-keys
-    // its `ElementFault` refusal onto `SelectionFault.Depth`, so `WalkDepth` resolves to ONE declaration
-    // corpus-wide while a Persistence consumer still reads a Persistence-banded fault. `WalkDepth.Whole` is
-    // walk-to-fixpoint and never spells its integer at a call site.
     public static Fin<WalkDepth> Depth(int bound) =>
         WalkDepth.Validate(bound, null, out WalkDepth admitted) is null
             ? Fin.Succ(admitted)
             : Fin.Fail<WalkDepth>(new SelectionFault.Depth(bound));
 
-    // One operand admission for both bounded-operator rosters. The correspondence is EXACT in both directions:
-    // an argued row against a `None` leaf would lower a two-argument call the server rejects, and an unargued
-    // row against a `Some` leaf carries a radius or threshold the emitted SQL silently drops.
     public static Fin<Option<double>> Operand(bool argued, Option<double> carried, string row) =>
         argued == carried.IsSome
             ? Fin.Succ(carried)
             : Fin.Fail<Option<double>>(new SelectionFault.Rejected(argued ? $"<operand-absent:{row}>" : $"<operand-unexpected:{row}>"));
 
-    // `Evaluate` is the SET-VALUED reading of the seam tree — the pushdown fold. It is a different fold from
-    // seam-side per-candidate `Holds`, and both read one value legitimately: `Holds` answers whether
-    // one candidate matches, `Evaluate` answers which members the store returns.
     public static Fin<KeySelection> Evaluate(SetQuery query, SetScope scope, SetResolve resolve) => query.Switch(
         (Scope: scope, Resolve: resolve),
         leaf:    static (s, node) => Leafed(node.Value, s.Scope, s.Resolve),
         all:     static (s, node) => Conjoined(node.Operands, s.Scope, s.Resolve),
         any:     static (s, node) => Disjoined(node.Operands, s.Scope, s.Resolve),
-        // Bare complement names every member the store does NOT hold, over a universe no scope materializes.
         not:     static (_, _) => Fin.Fail<KeySelection>(new SelectionFault.Rejected("<unbounded:complement>")),
         closure: static (s, node) => Evaluate(node.Seed, s.Scope, s.Resolve)
             .Bind(seed => Walked(seed.Keys, seed.Keys, node.Depth.Value, s.Scope, s.Resolve.Expand))
             .Map(reached => KeySelection.Of(reached, s.Scope)));
 
-    // Every leaf resolves through the ONE index port and every answer passes the scope admission — not the
-    // literal roster alone, which is where the guard used to sit while a store leaf's index row could name a
-    // model the caller never scoped.
     static Fin<KeySelection> Leafed(SetPredicate leaf, SetScope scope, SetResolve resolve) =>
         resolve.Leaf(leaf, scope).Bind(keys => Scoped(keys, scope)).Map(keys => KeySelection.Of(keys, scope));
 
@@ -547,18 +432,12 @@ public static class Selections {
             Some: foreign => Fin.Fail<Seq<SetKey>>(new SelectionFault.Scope($"<leaf-model:{foreign.Model.Value}>")),
             None: () => Fin.Succ(keys));
 
-    // `Split` partitions ONE operand run into the positive operands and the operands each `Not` wraps, in one
-    // pass with no cast — the seam's `AndNot` lowers to `All([held…, Not(cut)])`, so this partition IS the
-    // set-difference the deleted `Difference` arm used to spell structurally.
     static (Seq<SetQuery> Held, Seq<SetQuery> Cut) Split(Seq<SetQuery> operands) =>
         operands.Fold((Held: Seq<SetQuery>(), Cut: Seq<SetQuery>()),
             static (parts, operand) => operand is SetQuery.Not negated
                 ? (parts.Held, parts.Cut.Add(negated.Operand))
                 : (parts.Held.Add(operand), parts.Cut));
 
-    // Conjunction reads intersect-then-subtract, and no positive operand leaves nothing to bound the read:
-    // an empty `All` IS the seam's `Open` (match everything — a whole-scope scan this owner does not emit)
-    // and a positive-free `All` of complements is the same unbounded read wearing a negation.
     static Fin<KeySelection> Conjoined(Seq<SetQuery> operands, SetScope scope, SetResolve resolve) {
         (Seq<SetQuery> held, Seq<SetQuery> cut) = Split(operands);
         return from met in held.Fold(Fin.Succ(Option<Seq<SetKey>>.None), (acc, operand) =>
@@ -573,8 +452,6 @@ public static class Selections {
                select KeySelection.Of(kept, scope);
     }
 
-    // Disjunction unions its operands; an empty `Any` holds nothing, which is the EMPTY selection and a
-    // bounded honest answer. A complement inside a union is unbounded for the same reason a bare `Not` is.
     static Fin<KeySelection> Disjoined(Seq<SetQuery> operands, SetScope scope, SetResolve resolve) {
         (Seq<SetQuery> held, Seq<SetQuery> cut) = Split(operands);
         return cut.IsEmpty
@@ -586,10 +463,6 @@ public static class Selections {
             : Fin.Fail<KeySelection>(new SelectionFault.Rejected("<unbounded:complement>"));
     }
 
-    // Waves halt at the FIXPOINT, never at the bound: `WalkDepth.Whole` is `int.MaxValue`, so a bound-counted
-    // fold spins two billion no-op iterations after the frontier empties. Each ring passes the same scope
-    // admission every leaf answer takes, so a `ModelLink` crossing out of the caller's roster rails rather
-    // than silently widening the walk past the scope the caller declared.
     static Fin<Seq<SetKey>> Walked(Seq<SetKey> reached, Seq<SetKey> frontier, int waves, SetScope scope,
                                    Func<Seq<SetKey>, Fin<Seq<SetKey>>> expand) =>
         waves <= 0 || frontier.IsEmpty
@@ -598,9 +471,6 @@ public static class Selections {
                 .Bind(found => Scoped(toSeq(found.Except(reached)), scope))
                 .Bind(ring => Walked(reached + ring, ring, waves - 1, scope, expand));
 
-    // `Reached` is the closure verdict the seam `Predicate.Holds` takes: the caller supplies the leaf verdict,
-    // this owner answers whether the candidate lies inside the seed's bounded transitive walk. One closure law
-    // serves the in-memory verdict and the pushed-down selection, where two folds would drift.
     public static Func<SetQuery.Closure, MatchVerdict> Reached(SetKey candidate, SetScope scope, SetResolve resolve) =>
         walk => Evaluate(walk, scope, resolve).Match(
             Succ: reach => MatchVerdict.Of(reach.Keys.Contains(candidate)),

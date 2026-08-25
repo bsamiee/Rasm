@@ -47,15 +47,10 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type EmitTarget = Literal["stub", "schema", "both"]
-# boundary-input refinement the `@beartype(conf=FAULT_CONF)` fence on `_decode` checks in O(1); an empty
-# payload raises `BeartypeCallHintViolation` the `CLASSIFY` `api` row folds onto the rail.
 type RawBundle = Annotated[bytes, Is[lambda b: len(b) > 0]]
 
 
 class CodegenStage(StrEnum):
-    # this fold's OWN closed milestone roster, erased at the conduit: decode and version gate, the topological owner
-    # order, and the render. One cross-fold phase ladder over every compute long fold is the explicitly refused form
-    # — a stage set is the fold's, and a sibling fold naming a member it never reaches is vocabulary without a producer.
     DECODED = "decoded"
     ORDERED = "ordered"
     RENDERED = "rendered"
@@ -74,8 +69,6 @@ class FieldScalar(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# one scalar->runtime-type table the `_NODE` and `_TYPES` interpreters read, so a new wire primitive is
-# exactly one row and never a second parallel scalar table; `Map` is the folder's one dispatch-table rail.
 _SCALAR: Final[Map[FieldScalar, type]] = Map.of_seq([
     (FieldScalar.I32, int),
     (FieldScalar.I64, int),
@@ -87,14 +80,10 @@ _SCALAR: Final[Map[FieldScalar, type]] = Map.of_seq([
     (FieldScalar.DECIMAL, decimal.Decimal),
 ])
 
-# schema versions this decoder CARRIES — the peer pins `GraduationEvidence.Schema = "1"`; a decoded bundle
-# outside the set rails on the `("codegen.decode", "schema-version:...")` typed fault band, never a best-effort decode.
 _SCHEMA_VERSIONS: Final[frozenset[str]] = frozenset({"1"})
 
-# bare 32-hex bundle-key render under the estate x32 content-key law; no retired manifest ordinal owns this branch-local crossing.
 _BUNDLE_KEY: Final[re.Pattern[str]] = re.compile(r"[0-9a-f]{32}")
 
-# the fmt this crossing keys under, named once so the decoded key and any later re-derivation cannot fork the namespace.
 _BUNDLE_FMT: Final[str] = "graduation-evidence"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -126,13 +115,9 @@ class OptionalField(FieldDescriptor, frozen=True, tag="optional"):
 
 
 class UnionField(FieldDescriptor, frozen=True, tag="union"):
-    # `Meta(min_length=1)` rejects a zero-member union at the wire boundary so the `_NODE` `union`
-    # left-fold over `ms[0]` is total by construction — an empty `members` is a decode-time
-    # `ValidationError` the `CLASSIFY` codec row folds onto the rail, never an `IndexError` in the fold.
     members: Annotated[tuple["FieldNode", ...], msgspec.Meta(min_length=1)]
 
 
-# leaf union the decoder targets — never the open base — so `kind` selects exactly one case.
 type FieldNode = ScalarField | ArrayField | NestedField | MappingField | OptionalField | UnionField
 
 
@@ -142,10 +127,9 @@ class OwnerDescriptor(Struct, frozen=True):
 
 
 class EvidenceBundle(Struct, frozen=True, rename="camel"):
-    # CamelCase wire policy of the peer's `ComputeWireContext`: `schemaVersion`/`bundleKey` on the octets, snake here.
     schema_version: str
     owners: tuple[OwnerDescriptor, ...]
-    bundle_key: str  # bare 32-hex key render; `_bundle_key` admits it into the typed `ContentKey`
+    bundle_key: str
 
 
 class GeneratedModule(Struct, frozen=True):
@@ -158,7 +142,6 @@ class GeneratedModule(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, str | int]:
-        # bounded scalars only — never the multi-KB `source` or the nested `schema` dict.
         return {
             "schema_version": self.schema_version,
             "owner_count": self.owner_count,
@@ -167,12 +150,6 @@ class GeneratedModule(Struct, frozen=True):
         }
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine, never a page-local receipt shape: native scalars only on the payload — no
-        # `str()` coerce where the deterministic renderer keeps types — while the key, the provenance pair, the
-        # warning band, and the stamp are the spine's columns. Provenance names the bundle it CONSUMED beside the
-        # projection it produced, which is the whole lineage a stub carries: the emission derives from exactly one
-        # bundle key and writes no file, so the produced key is that same coordinate. The band is EMPTY because a
-        # drifted version, a torn key, and a cyclic graph are all `Error` arms that never reach `contribute`.
         facts: dict[str, object] = dict(self.span_facts)
         return (
             Receipt.of(
@@ -195,14 +172,8 @@ class FieldAlgebra[T](Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# ONE canonical UTF-8 JSON form (injected `JsonTypeInfo`, CamelCase policy) is the producer's whole emission, so one
-# decoder serves the crossing; a second inbound format re-mints the `WireFormat` axis only with a producer behind it.
 _JSON: Final[msgspec.json.Decoder[EvidenceBundle]] = msgspec.json.Decoder(type=EvidenceBundle)
 
-# this page's raise-side roster under the hub `ComputeLeg` grammar: the retired free-string subjects `codegen.decode`,
-# `codegen.render`, and `codegen.drift` are anchors now, so a fence cannot spell a leg this module never declares and
-# each defect's coordinates prove against its row's declared `slots`. Every row is TERMINAL: a drifted schema version,
-# a torn key render, a cyclic owner graph, and a byte-unstable re-emit all name the SAME bundle refusing again.
 DECODE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.CODEGEN, point="decode", arm="boundary", defect="bundle-decode", retriability=TERMINAL
 )
@@ -223,8 +194,6 @@ DRIFT: Final[FaultRow[ComputeLeg]] = FaultRow(
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([DECODE, SCHEMA_VERSION, BUNDLE_KEY, OWNER_CYCLE, RENDER, DRIFT]))
 
-# the roster's own declaration order IS this fold's position order, so the beat count derives rather than being
-# hand-kept beside the members it would drift from.
 _ORDINAL: Final[Map[CodegenStage, int]] = Map.of_seq([(stage, index + 1) for index, stage in enumerate(CodegenStage)])
 
 
@@ -236,20 +205,14 @@ def _bitor(left: ast.expr, right: ast.expr) -> ast.expr:
     return ast.BinOp(left=left, op=ast.BitOr(), right=right)
 
 
-# modules the stub imports bare; every other scalar renders dotted — one row both `_qual` (rendering) and `_imports`
-# (preamble) read, so a rendered name and its import never disagree.
 _BARE: Final[frozenset[str]] = frozenset({"builtins", "rasm.runtime.identity"})
 
 
-# scalar leaves render to their `ast` node by module+qualname — never a string re-parsed through `ast.parse`.
 def _qual(tp: type) -> ast.expr:
     parts = (tp.__qualname__ if tp.__module__ in _BARE else f"{tp.__module__}.{tp.__qualname__}").split(".")
     return reduce(lambda node, attr: ast.Attribute(value=node, attr=attr, ctx=ast.Load()), parts[1:], ast.Name(id=parts[0], ctx=ast.Load()))
 
 
-# one annotation interpreter: its `ast.expr` is the single source for BOTH the stub line and the `defstruct` field type — the
-# `ast.BinOp(ast.BitOr())` node never evaluates `|`, so a forward ref stays an unbound name `defstruct(namespace=)` resolves at
-# class creation rather than the fold-time `TypeError` an eager `str | None` interpreter raises on a nested owner-name.
 _NODE: Final[FieldAlgebra[ast.expr]] = FieldAlgebra(
     scalar=lambda s: _qual(_SCALAR[s]),
     array=lambda e: _sub("tuple", e, ast.Constant(value=...)),
@@ -259,8 +222,6 @@ _NODE: Final[FieldAlgebra[ast.expr]] = FieldAlgebra(
     nested=lambda ref: ast.Name(id=ref, ctx=ast.Load()),
 )
 
-# scalar runtime types each descriptor references, feeding both the stub preamble and the `defstruct` namespace seed —
-# one fold, so the annotation, the import statement, and the namespace binding cannot disagree.
 _TYPES: Final[FieldAlgebra[frozenset[type]]] = FieldAlgebra(
     scalar=lambda s: frozenset({_SCALAR[s]}),
     array=lambda e: e,
@@ -270,7 +231,6 @@ _TYPES: Final[FieldAlgebra[frozenset[type]]] = FieldAlgebra(
     nested=lambda ref: frozenset(),
 )
 
-# `nested` owner-name edges feed the `_ordered` topological build, so every forward ref resolves regardless of seam order.
 _REFS: Final[FieldAlgebra[frozenset[str]]] = FieldAlgebra(
     scalar=lambda s: frozenset(),
     array=lambda e: e,
@@ -284,22 +244,12 @@ _REFS: Final[FieldAlgebra[frozenset[str]]] = FieldAlgebra(
 
 
 def _bundle_key(render: str) -> RuntimeRail[ContentKey]:
-    # bare 32-hex admission before any render work. The byte extent is producer-local and NEVER wire data, so the
-    # decoded key is minted through the arm that carries none: the retired `byte_length=0` filled a required
-    # measurement slot with a number no producer took, which `docs/laws/scars.md` `[FORGED_ZERO]` names verbatim —
-    # a consumer summing extents over a mixed roster then read this bundle as weightless rather than as unmeasured.
     if _BUNDLE_KEY.fullmatch(render) is None:
         return Error(BUNDLE_KEY.raised(render[:40]))
     return Ok(ContentKey.decoded(value=int(render, 16), fmt=_BUNDLE_FMT))
 
 
 def _evidence(module: GeneratedModule) -> Block[Fact]:
-    # the durable half of an emission, minted off the CLEARED projection so a decode or render fault names no stub
-    # nobody generated. `OPERATIONAL` is the class: a generated stub is reproducible from its own bundle key, so the
-    # trail answers which bundle this process projected and when — an incident-window question, never a seven-year
-    # hold. The target is the bundle key rather than a path, because this owner writes no file: the projection is a
-    # value its caller persists, and naming a location here would assert a write nobody made. No meter rides the leg
-    # — the emission moves no bytes across a boundary, and the fold's cpu is the resource band's one COMPUTE charge.
     return Block.singleton(
         AuditFact(
             action=f"{EVIDENCE_DOMAIN}.codegen",
@@ -316,10 +266,6 @@ def _evidence(module: GeneratedModule) -> Block[Fact]:
 
 
 def _staged[T](mark: Option[StageTap], stage: CodegenStage, value: T) -> T:
-    # tee beat: the position publishes and the rail value passes untouched, so an interior mark can never alter the
-    # fold it observes. `done` is the roster ORDINAL, because this fold's positions are sequential rather than
-    # countable — a reader tracks WHICH milestone landed, and a running element count no stage here carries would be
-    # a number the fold never measured.
     mark.map(lambda tap: tap.beat(stage, _ORDINAL[stage]))
     return value
 
@@ -347,12 +293,6 @@ class StubCodegen:
     def emit(
         raw: bytes, *, target: EmitTarget = "both", tap: Queue[PulseFact | None] | None = None, composition: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[GeneratedModule]:
-        # weave owns span, fence, and the contributor harvest on the clean exit. `catch` names each seam's OWN raise
-        # surface: the decode fence reaches the msgspec codec pair (`libs/python/.api/msgspec.md:33-35`) plus the
-        # `RawBundle` refinement's canonical beartype violation, since that contract sits on the thunk INSIDE the
-        # fence; the render fence reaches `ast`/`defstruct` name resolution and the schema build, and it no longer
-        # reaches `ValueError` — the cyclic owner graph is a typed refusal on the rail now, not a raise a `ValueError`
-        # funnel would swallow alongside every unrelated library raise.
         mark = Option.of_optional(tap).map(lambda queue: StageTap.of(EvidenceScope.CODEGEN, queue, total=Nothing))
 
         def rail() -> RuntimeRail[GeneratedModule]:
@@ -380,11 +320,6 @@ class StubCodegen:
     async def emit_async(
         raw: bytes, *, target: EmitTarget = "both", composition: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[GeneratedModule]:
-        # the awaitable twin over the band hop, seated at the emit rail's SUCCESS map: `emit` is a pure decode-render
-        # fold that opens no loop, and recording suspends, so the trail cannot land inside it. `drift` stays on the
-        # sync leg by design — a golden-fixture re-emit proves byte stability and records nothing, where journalling
-        # it would fill the plane with reproduction noise carrying one bundle key over and over. The record rail
-        # BINDS into the verdict: a stub the plane could not account for must not read as emitted.
         match StubCodegen.emit(raw, target=target, composition=composition):
             case Result(tag="ok", ok=module):
                 return (await Journal.record(_evidence(module), scope=composition)).map(lambda _landed: module)
@@ -393,7 +328,6 @@ class StubCodegen:
 
     @staticmethod
     def drift(golden: bytes, expected: GeneratedModule) -> RuntimeRail[GeneratedModule]:
-        # golden bundle re-emits and the projection must equal the pinned expected byte-for-byte under the deterministic encoder.
         pinned = msgspec.json.Encoder(order="deterministic")
 
         def check(module: GeneratedModule) -> RuntimeRail[GeneratedModule]:
@@ -412,14 +346,10 @@ class StubCodegen:
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def _decode(raw: RawBundle) -> EvidenceBundle:
-        # beartype fence sits on the thunk the `boundary` wraps, NOT on `emit`, so a `RawBundle` breach and a `DecodeError`
-        # both land INSIDE the fence and fold onto the rail.
         return _JSON.decode(raw)
 
     @staticmethod
     def _render(bundle: EvidenceBundle, key: ContentKey, ordered: tuple[OwnerDescriptor, ...], target: EmitTarget) -> GeneratedModule:
-        # the topological order arrives ALREADY PROVED off the rail, so this fence spans exactly the `ast` and
-        # `defstruct` work whose raises its `catch` set names — the cycle refusal is decided before it opens.
         owners = bundle.owners
         return GeneratedModule(
             schema_version=bundle.schema_version,
@@ -441,7 +371,6 @@ class StubCodegen:
 
     @staticmethod
     def _imports(owners: tuple[OwnerDescriptor, ...]) -> list[ast.stmt]:
-        # data-driven off the `_TYPES` fold, so the stub imports exactly its own bases and scalars — no hardcoded list racing `_qual`/`_BARE`.
         scalars = StubCodegen._scalars(owners)
         bare = {tp.__module__: tp.__qualname__ for tp in scalars if tp.__module__ in _BARE - {"builtins"}}
         dotted = sorted({tp.__module__ for tp in scalars} - _BARE)
@@ -468,18 +397,14 @@ class StubCodegen:
 
     @staticmethod
     def _owner_types(owners: tuple[OwnerDescriptor, ...], ordered: tuple[OwnerDescriptor, ...]) -> tuple[type, ...]:
-        # `StructMeta` evaluates each field's string annotation against `namespace` at class creation — the deferred string
-        # `"Owner | None"` evaluates cleanly once `Owner` is registered where an eager `str | None` TypeErrors — so `_ordered`
-        # sequences the build and a `nested` ref always resolves against an already-registered sibling, `schema_components`
-        # cross-linking it as `#/$defs/<name>` with no `schema_hook`.
         scalars = StubCodegen._scalars(owners)
         registry: dict[str, object] = {}
         for tp in scalars:
             if tp.__module__ in _BARE:
-                registry[tp.__qualname__] = tp  # `ContentKey` resolves the bare name
+                registry[tp.__qualname__] = tp
             else:
                 head = tp.__module__.split(".", 1)[0]
-                registry[head] = importlib.import_module(head)  # `decimal.Decimal` resolves off the top package name
+                registry[head] = importlib.import_module(head)
         for owner in ordered:
             registry[owner.name] = msgspec.defstruct(
                 owner.name, [(f.name, ast.unparse(_fold(f, _NODE))) for f in owner.fields], frozen=True, namespace=registry
@@ -488,13 +413,6 @@ class StubCodegen:
 
     @staticmethod
     def _ordered(owners: tuple[OwnerDescriptor, ...]) -> RuntimeRail[tuple[OwnerDescriptor, ...]]:
-        # owner graph is a DAG by contract — a mid-construction name is unresolvable to `defstruct` — so the
-        # `visiting` gray set closes a back-edge or self-ref deterministically rather than as an unbounded
-        # `RecursionError`; a ref absent from the bundle is left to `defstruct` to surface as the unbound-name fault.
-        # The verdict is a RAIL, not a raise: the retired `raise ValueError` needed a `ValueError` funnel at the
-        # render fence, and that funnel classified every unrelated library `ValueError` as this domain refusal while
-        # this refusal — the caller-repairable one, since the bundle producer owns the cycle — read as an engine
-        # boundary fault. `Some(name)` IS the closed edge, so the walk's own return type carries the discriminant.
         by_name = {owner.name: owner for owner in owners}
         out: dict[str, OwnerDescriptor] = {}
         visiting: set[str] = set()

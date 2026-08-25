@@ -23,13 +23,10 @@ Rasm.AppUi motion is one `MotionToken` vocabulary: each row carries one `MotionT
 - Boundary: `MotionTiming.Tween` carries one NodaTime duration and one kernel `Easing` row, while `MotionTiming.Spring` carries one admitted `SpringValue` and derives its duration from `Response` and its curve from the kernel three-regime closed form. `MotionToken.Duration`, `Curve`, `Spring`, `Overshoots`, and `Retargets` are projections of the timing case, never independent constructor columns. Reduced targets are deferred row delegates, and every row whose motion LOOPS reduces to `Instant` so the reduction halts it outright rather than shortening its period. `MotionEasing` is the ONE Avalonia adapter at the animation binding boundary — the kernel `Interaction` plane is Eto-bound, so this adapter is the named Avalonia counterpart, and `Easing.Parse` is unreachable because no motion value crosses this page as a string. `SpringValue.UnitProgress` and `SpringValue.Pixel` are the two declared settle bands — a unit-normalized progress settles below perception at a fraction of its own travel, a pixel-valued travel at half a device pixel — and an epsilon chosen per call site is what makes two surfaces of one product truncate their tails differently; both ride the kernel `SettleBand` carrier and the kernel `Settle` inversion reads the position column as the absolute tolerance. Spring parity has one source: a host-side preset and a shell token evaluate the SAME kernel closed forms over the same admitted pair — the parity map below names each member beside the host surface class that mirrors it; the host preset table seats at the composition root, never here.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 using KernelEase = Rasm.Parametric.Easing;
 
-// Duration, Curve, and Overshoots thread through the base positional parameters; each case derives all three
-// from its own payload at construction — the tween from its kernel easing row, the spring from the kernel
-// three-regime closed form — so the projections capture the kernel read ONCE per row.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MotionTiming(Duration Duration, Func<double, double> Curve, bool Overshoots) {
     public sealed record Tween(Duration Duration, KernelEase Ease)
@@ -40,14 +37,10 @@ public abstract partial record MotionTiming(Duration Duration, Func<double, doub
             SpringProgress(admitted: Value.Shape, response: Value.Response),
             Value.DampingFraction < 1f);
 
-    // `Sprung`, not `Spring`: a member may not share the nested case type's name (CS0102), and the old
-    // `SpringValue` spelling shadowed the SpringValue TYPE instead.
     public Option<SpringValue> Sprung => Switch(
         tween: static _ => None,
         spring: static value => Some(value.Value));
 
-    // The modality fact: velocity survives an interruption only where the modality carries it — the kernel
-    // spring re-enters at the live state, a tween holds no state and restarts from the current value at rest.
     public bool Retargets => Switch(
         tween: static _ => false,
         spring: static _ => true);
@@ -55,9 +48,6 @@ public abstract partial record MotionTiming(Duration Duration, Func<double, doub
     static Func<double, double> Eased(KernelEase ease) =>
         t => ease.Evaluate(t: UnitInterval.Create(Math.Clamp(t, 0d, 1d)));
 
-    // Overshoot classification for the tween arm. The kernel leaves easing output unclamped BECAUSE the back,
-    // elastic, and bounce families legitimately exit the unit band, so the fact is read from the curve — a
-    // roster of the families that overshoot today would misclassify the next imported cubic-bezier token.
     static bool Leaves(KernelEase ease) {
         Func<double, double> curve = Eased(ease);
         return toSeq(Enumerable.Range(0, LatticeSamples)).Exists(step =>
@@ -66,9 +56,6 @@ public abstract partial record MotionTiming(Duration Duration, Func<double, doub
 
     const int LatticeSamples = 33;
 
-    // Unit progress through the kernel closed form: position from rest to a unit target over the response
-    // window. The gate arm folds ONCE per row at construction and the evaluation arm is structurally
-    // unreachable — admitted shape, clamped finite elapsed — so both failures collapse to the terminal pose.
     static Func<double, double> SpringProgress(Fin<SpringShape> admitted, float response) =>
         admitted.Match<Func<double, double>>(
             Succ: shape => t => shape.Evaluate(
@@ -78,17 +65,11 @@ public abstract partial record MotionTiming(Duration Duration, Func<double, doub
             Fail: static _ => static t => 1d);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Authoring projection over the kernel spring mint: Response and DampingFraction are the token-facing tuning
-// pair, admission is the kernel gate package-typed, and Shape carries that gate on the rail. Every derived
-// physical read — live re-entry and settling — is the kernel's own closed form over that shape.
 [ComplexValueObject]
 [ValidationError]
 public readonly partial struct SpringValue {
-    // The two declared settle bands, on the kernel carrier. The kernel `Settle` inversion reads Position as the
-    // ABSOLUTE tolerance: a unit progress settles at a sub-perceptual fraction of one, a pixel travel at half a
-    // device pixel; velocity shares the scale because a band that stops position but not motion never rests.
     public static readonly SettleBand UnitProgress = new(Position: 1d / 512d, Velocity: 1d / 512d);
 
     public static readonly SettleBand Pixel = new(Position: 0.5d, Velocity: 0.5d);
@@ -97,19 +78,13 @@ public readonly partial struct SpringValue {
 
     public float DampingFraction { get; }
 
-    // The Create gate below already proved this pair, so the fail arm is unreachable and the interior
-    // projection carries it as Fin rather than a host-boundary unwrap.
     public Fin<SpringShape> Shape =>
         SpringShape.OfResponse(response: Response, dampingFraction: DampingFraction);
 
-    // Live re-entry: an interrupted or gesture-driven run continues from its current position AND velocity
-    // instead of restarting from rest.
     public Fin<SpringState> Advance(SpringState origin, double target, Duration elapsed) =>
         Shape.Bind(shape => shape.Evaluate(
             origin: origin, target: target, elapsed: elapsed, key: Op.Of(name: nameof(Advance))));
 
-    // The honest run length: a bound taken from the response window alone cuts the tail off a gently-damped
-    // spring, so a run that must END binds this projection and a run that merely PLAYS binds the token duration.
     public Fin<Duration> Settling(SpringState origin, double target, SettleBand band) =>
         Shape.Bind(shape => shape.Settle(
             origin: origin, target: target, band: band, key: Op.Of(name: nameof(Settling))));
@@ -122,9 +97,8 @@ public readonly partial struct SpringValue {
     }
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// Recovery probes a concrete leaf such as `error.IsType<MotionFault.HandoffRefused>()`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MotionFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Motion;
@@ -145,10 +119,8 @@ public abstract partial record MotionFault : Fault {
     public sealed partial record HandoffRefused(string Detail)     : MotionFault(Detail);
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// ONE Avalonia adapter at the animation binding boundary — the kernel Interaction plane is Eto-bound, so this
-// is the named Avalonia counterpart; a per-family Avalonia easing type is the deleted form.
 public sealed class MotionEasing(Func<double, double> curve) : Avalonia.Animation.Easings.Easing {
     public override double Ease(double progress) => curve(progress);
 }
@@ -161,13 +133,9 @@ public sealed partial class MotionToken {
     public static readonly MotionToken Fast = new("fast", new MotionTiming.Tween(Duration.FromMilliseconds(100), KernelEase.QuadOut), reduced: static () => Instant);
     public static readonly MotionToken Standard = new("standard", new MotionTiming.Tween(Duration.FromMilliseconds(250), KernelEase.CubicInOut), reduced: static () => Fast);
     public static readonly MotionToken Emphasized = new("emphasized", new MotionTiming.Tween(Duration.FromMilliseconds(400), KernelEase.QuintOut), reduced: static () => Fast);
-    // The looping grade. Linear because an eased curve stutters at the loop seam; reduced to Instant because a
-    // repeating motion is the one kind reduction must STOP rather than shorten.
     public static readonly MotionToken Ambient = new("ambient", new MotionTiming.Tween(Duration.FromMilliseconds(1200), KernelEase.Linear), reduced: static () => Instant);
     public static readonly MotionToken SpringSnappy = new("spring-snappy", new MotionTiming.Spring(SpringValue.Create(response: 0.30f, dampingFraction: 0.85f)), reduced: static () => Fast);
     public static readonly MotionToken SpringGentle = new("spring-gentle", new MotionTiming.Spring(SpringValue.Create(response: 0.65f, dampingFraction: 1.00f)), reduced: static () => Standard);
-    // Continuous pointer following: a short critically-damped response, because a tracked value that overshoots
-    // the finger reads as lag in the opposite direction; reduction drops the smoothing entirely.
     public static readonly MotionToken SpringTracking = new("spring-tracking", new MotionTiming.Spring(SpringValue.Create(response: 0.15f, dampingFraction: 1.00f)), reduced: static () => Instant);
 
     public MotionTiming Timing { get; }
@@ -207,7 +175,7 @@ public sealed partial class MotionToken {
 - Boundary: `Transitions` validates on admission and THROWS for a `DirectProperty` target, so the bind refuses a direct property onto `MotionFault.AxisRefused` before the list sees it; that validation also verifies UI-thread access, so a seat crosses the UI scheduler port at its caller. `BrushTransition` and `EffectTransition` swap DISCRETELY at half progress whenever their two ends carry incompatible shapes — a continuously varying effect parameter is not a transition and rides the redraw lane, which is why the effect row's lane is `Redrawn` while its transition still exists for the compatible case. `TransformOperations` interpolates OPERATION-WISE while every other `ITransform` interpolates through its collapsed matrix, so the transform axis binds `TransformOperations` and a matrix-assembled `RenderTransform` is the deleted form. Floating chrome animates on the transform and opacity axes ALONE (folder RULINGS `[02]:63` — extent motion is confined to in-flow disclosure). The lane row names WHERE an axis executes; the composed lane's slot correspondence is `Vfx/compose`'s own table, because a `ComposeSlot` column here would point the Theme vocabulary UP at its executor. `TransitioningContentControl.PageTransition` defaults to an immutable cross-fade carrying its own inline duration literal, so the route carrier ASSIGNS the property at mount — leaving the default is a second untokened timing source exactly as the shipped popup-animation style would be.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -216,12 +184,9 @@ public sealed partial class MotionKind {
     public static readonly MotionKind Spatial = new("spatial", admitsOvershoot: true);
     public static readonly MotionKind Effects = new("effects", admitsOvershoot: false);
 
-    // A clamping channel cannot carry an overshoot, so the fact is a column, never a per-bind conditional.
     public bool AdmitsOvershoot { get; }
 }
 
-// Where an axis animates CONTINUOUSLY at full rate without re-entering layout; every row can fall back to its
-// retained transition. The composed lane's slot correspondence is Vfx/compose's table, not a column here.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -258,12 +223,8 @@ public sealed partial class MotionAxis {
 
     public MotionLane Lane { get; }
 
-    // The easing parameter is spelled whole: the kernel easing vocabulary and this page's own adapter both
-    // carry the bare name, so an unqualified spelling here binds whichever using happens to win.
     public Func<AvaloniaProperty, TimeSpan, Avalonia.Animation.Easings.Easing, ITransition> Factory { get; }
 
-    // The one transition mint: reduction folds at the bind, a direct property refuses (the list THROWS on
-    // admission), an overshooting token refuses on a clamping channel, and a resolved instant mounts nothing.
     public Fin<Option<ITransition>> Bind(AvaloniaProperty property, MotionToken token) =>
         ReducedMotion.Select(token) switch {
             _ when property.IsDirect => Fin.Fail<Option<ITransition>>(
@@ -275,8 +236,6 @@ public sealed partial class MotionAxis {
                 property, resolved.Duration.ToTimeSpan(), new MotionEasing(resolved.Curve)))),
         };
 
-    // Retained host state moves here, so the write rides IO; the whole list rebuilds from the row set, so a
-    // re-seat cannot leave a stale entry animating a property the surface stopped driving.
     public static IO<Fin<Unit>> Seat(Animatable target, Seq<(MotionAxis Axis, AvaloniaProperty Property, MotionToken Token)> rows) =>
         IO.lift(() => rows.Traverse(row => row.Axis.Bind(row.Property, row.Token)).As()
             .Map(bound => Mounted(target, bound.Somes())));
@@ -289,10 +248,8 @@ public sealed partial class MotionAxis {
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The travel ladder. A large surface covering the same pixels reads slower than a small one, so the rungs are
-// read against travel INFLATED by the element's own extent against the reference diagonal.
 public static class MotionTravel {
     public static readonly double Reference = 320d;
 
@@ -302,7 +259,6 @@ public static class MotionTravel {
         (240d, MotionToken.Standard),
         (double.PositiveInfinity, MotionToken.Emphasized));
 
-    // The two admission columns are INDEPENDENT, so a call with both bad reports both.
     public static Fin<MotionToken> Of(double travel, double extent) =>
         (Admitted(travel, static value => double.IsFinite(value) && value >= 0d, "travel").ToValidation(),
          Admitted(extent, static value => double.IsFinite(value) && value > 0d, "extent").ToValidation())
@@ -316,15 +272,10 @@ public static class MotionTravel {
         holds(value) ? Fin.Succ(value) : Fin.Fail<double>(new MotionFault.TravelOutOfDomain($"{axis} {value}"));
 }
 
-// Feedback form is a function of EXPECTED duration, not of taste (folder RULINGS `[02]:62`): below perception
-// the result is its own feedback, a second of work earns in-place motion, a known-shaped load earns a skeleton,
-// ten seconds earns a determinate surface, and anything longer hands off to the notification plane. Each row
-// names the plan its feedback surface composes, so placement is the settled choreography vocabulary.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LatencyTier {
-    // Rows declare in ascending ceiling order; Select reads that declaration order.
     public static readonly LatencyTier Instant = new("instant", Duration.FromMilliseconds(100), MotionToken.Instant, None);
     public static readonly LatencyTier Feedback = new("feedback", Duration.FromSeconds(1), MotionToken.Fast, None);
     public static readonly LatencyTier Skeleton = new("skeleton", Duration.FromSeconds(3), MotionToken.Ambient, Some(MotionPlan.Skeleton));
@@ -337,13 +288,11 @@ public sealed partial class LatencyTier {
 
     public Option<MotionPlan> Plan { get; }
 
-    // Total by construction: the last rung's ceiling is the representable maximum, so every expected duration
-    // lands on a row and the fallback is structurally unreachable.
     public static LatencyTier Select(Duration expected) =>
         toSeq(Items).Find(row => expected <= row.Ceiling).IfNone(Handoff);
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -355,9 +304,6 @@ public sealed partial class RouteDirection {
     public bool Reversed { get; }
 }
 
-// The route-content carrier: the page plan lands on the transitioning host as ONE assigned page transition,
-// the slide axis DERIVED from the plan's own origin so no caller re-picks it; reduction drops the slide and
-// keeps the dissolve — the same opacity-only collapse every plan applies.
 public static class RouteCarrier {
     public static IO<Unit> Bind(TransitioningContentControl host, MotionPlan plan, RouteDirection direction) =>
         IO.lift(() => {
@@ -429,11 +375,8 @@ flowchart LR
 - Boundary: the projection surface IS the selection boundary — `ChartSpeed`, `ChartCurve`, `ZoomMilliseconds`, and `Gate` fold `ReducedMotion.Select` at the read, so a raw row token structurally cannot leak unreduced timing; feeding an already-selected token (`EnterToken`, `ExitToken`, a `PhaseMotion.Resolve` result) back through a projection is the deleted double-degrade form. Dwell and linger are INTENT, not motion: they survive reduction untouched, because a hover that opens instantly under reduced motion is a different interaction, not an accessible one. `Gate` discriminates trailing throttle, sampled pulse, and lossless serial dwell through one scheduler-parameterized entrypoint; the pacing rows stay column-less BY REFUSAL — the operator is generic in the element type and a `[UseDelegateFromConstructor]` column cannot carry an open-generic delegate, so the generated total `Switch` is the dispatch. An auto-sized height reads as `NaN` and no transition interpolates it, so a disclosure animates the MEASURED desired extent and releases the pin back to auto at completion — the one place the extent axis animates on floating-free flow. The toast stack reflows as a PROJECTION: a dismissal re-reads `Stacked` at the new ordinals; a card past the cap is present and transparent (the fold derives it from the ordinal — no third posture row), which keeps its measure stable. `MotionPlan.Toast.Hold` is the one motion-owned hold window the `Shell/dialogs.md` `ToastGate.Flush` drain consumes at composition (folder RULINGS `[02]:80` — the product owns toast timers); a dialog-local horizon literal is the deleted form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Where a surface grows FROM: the pivot its scale rotates about and the outward direction its travel column
-// resolves along. Center's zero Outward is the invariant, not a sentinel: Travel scales it, so a centered
-// plan travels nowhere by arithmetic rather than by a guard.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -469,15 +412,11 @@ public sealed partial class StackPosture {
     public bool Expanded { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The composed-property payload. Offsets are device-independent pixels and Travel is a fraction of the
-// element's OWN extent along its origin, so one pose expresses both a twelve-pixel rise and a full-width
-// drawer; Resolve folds the fraction into the offsets once the extent is known.
 public readonly record struct MotionPose(double Opacity, double Scale, double OffsetX, double OffsetY, double Travel) {
     public static readonly MotionPose Seated = new(Opacity: 1d, Scale: 1d, OffsetX: 0d, OffsetY: 0d, Travel: 0d);
 
-    // The faded-in-place pose ten plan rows share: invisible, unscaled, untravelled.
     public static readonly MotionPose Faded = new(Opacity: 0d, Scale: 1d, OffsetX: 0d, OffsetY: 0d, Travel: 0d);
 
     public MotionPose Resolve(MotionOrigin origin, Size extent) => this with {
@@ -486,8 +425,6 @@ public readonly record struct MotionPose(double Opacity, double Scale, double Of
         Travel = 0d,
     };
 
-    // Operation-wise transform authoring: the transition interpolates translate against translate and scale
-    // against scale, which a collapsed matrix cannot do without shearing through the intermediate frames.
     public TransformOperations Operations() {
         TransformOperations.Builder builder = TransformOperations.CreateBuilder(2);
         builder.AppendTranslate(OffsetX, OffsetY);
@@ -502,8 +439,6 @@ public sealed record Choreography(Seq<MotionAxis> Axes, MotionOrigin Origin, Mot
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MotionPlan {
-    // Rise and settle, shallower on the way out: an exit that retraces the entrance reads as a rewind, so the
-    // departure pose travels a third of the entry distance under the faster token.
     public static readonly MotionPlan Dialog = new("dialog",
         enter: MotionToken.Emphasized, exit: MotionToken.Fast, stagger: Duration.Zero, cap: 1,
         dwell: Duration.Zero, linger: Duration.Zero, hold: Duration.Zero,
@@ -512,8 +447,6 @@ public sealed partial class MotionPlan {
             Origin: MotionOrigin.Center,
             Entry: new MotionPose(Opacity: 0d, Scale: 0.96d, OffsetX: 0d, OffsetY: 12d, Travel: 0d),
             Departure: new MotionPose(Opacity: 0d, Scale: 0.99d, OffsetX: 0d, OffsetY: 4d, Travel: 0d)));
-    // A drawer travels its own extent, so its pose is pure travel; the quintic-out token is the hard
-    // deceleration a large panel needs to stop without reading as an abrupt halt.
     public static readonly MotionPlan Drawer = new("drawer",
         enter: MotionToken.Emphasized, exit: MotionToken.Fast, stagger: Duration.Zero, cap: 1,
         dwell: Duration.Zero, linger: Duration.Zero, hold: Duration.Zero,
@@ -522,8 +455,6 @@ public sealed partial class MotionPlan {
             Origin: MotionOrigin.Leading,
             Entry: new MotionPose(Opacity: 1d, Scale: 1d, OffsetX: 0d, OffsetY: 0d, Travel: 1d),
             Departure: new MotionPose(Opacity: 1d, Scale: 1d, OffsetX: 0d, OffsetY: 0d, Travel: 1d)));
-    // Anchor-side slide with a zoom: the origin row is re-seated from the live placement at open, so one plan
-    // serves every side instead of four near-identical rows.
     public static readonly MotionPlan Flyout = new("flyout",
         enter: MotionToken.Fast, exit: MotionToken.Fast, stagger: Duration.Zero, cap: 1,
         dwell: Duration.FromMilliseconds(150), linger: Duration.FromMilliseconds(100), hold: Duration.Zero,
@@ -532,8 +463,6 @@ public sealed partial class MotionPlan {
             Origin: MotionOrigin.Top,
             Entry: new MotionPose(Opacity: 0d, Scale: 0.96d, OffsetX: 0d, OffsetY: 0d, Travel: 0.06d),
             Departure: new MotionPose(Opacity: 0d, Scale: 0.98d, OffsetX: 0d, OffsetY: 0d, Travel: 0.03d)));
-    // Hold is the missed-toast retention window the dialogs drain consumes — motion owns the product's toast
-    // timing whole, so the horizon is a plan column rather than a dialog-local literal.
     public static readonly MotionPlan Toast = new("toast",
         enter: MotionToken.SpringSnappy, exit: MotionToken.Fast, stagger: Duration.Zero, cap: 3,
         dwell: Duration.Zero, linger: Duration.FromMilliseconds(400), hold: Duration.FromSeconds(30),
@@ -558,9 +487,6 @@ public sealed partial class MotionPlan {
             Origin: MotionOrigin.Bottom,
             Entry: new MotionPose(Opacity: 0d, Scale: 1d, OffsetX: 0d, OffsetY: 8d, Travel: 0d),
             Departure: new MotionPose(Opacity: 0d, Scale: 1d, OffsetX: 0d, OffsetY: 4d, Travel: 0d)));
-    // Micro-interactions: the asymmetry IS the row. A hover arrives at pointer speed and leaves slowly enough
-    // to survive a crossing, a press lands instantly and releases visibly, and a selection indicator slides
-    // spatially in and cuts out because two indicators fading past each other reads as a ghost.
     public static readonly MotionPlan Hover = new("hover",
         enter: MotionToken.Fast, exit: MotionToken.Standard, stagger: Duration.Zero, cap: 1,
         dwell: Duration.FromMilliseconds(150), linger: Duration.FromMilliseconds(250), hold: Duration.Zero,
@@ -593,8 +519,6 @@ public sealed partial class MotionPlan {
             Origin: MotionOrigin.Top,
             Entry: MotionPose.Faded,
             Departure: MotionPose.Faded));
-    // The presence-notice decay: dwell is the notice ROW'S own lifetime rather than a column here; the exit is
-    // instant because a lapsed notice must cut rather than fade past the successor sliding into its slot.
     public static readonly MotionPlan Notice = new("notice",
         enter: MotionToken.SpringSnappy, exit: MotionToken.Instant, stagger: Duration.Zero, cap: 4,
         dwell: Duration.Zero, linger: Duration.Zero, hold: Duration.Zero,
@@ -618,8 +542,6 @@ public sealed partial class MotionPlan {
 
     public Duration Stagger { get; }
 
-    // One ceiling serves the stagger bound and the visible stack depth: both answer "how many of these does a
-    // viewer resolve at once", and two columns would drift the moment either is tuned.
     public int Cap { get; }
 
     public Duration Dwell { get; }
@@ -634,9 +556,6 @@ public sealed partial class MotionPlan {
 
     public MotionToken ExitToken => ReducedMotion.Select(Exit);
 
-    // The travelled poses, resolved against the surface's measured extent. Under reduction the poses collapse
-    // to opacity alone — the positional transform drops with the spring, so a reduced host cross-dissolves
-    // between two seated poses instead of translating between them.
     public (MotionPose From, MotionPose To) Poses(Size extent, PlanPhase phase) =>
         (ReducedMotion.Active
             ? (phase.Opening ? MotionPose.Faded : MotionPose.Seated)
@@ -646,9 +565,6 @@ public sealed partial class MotionPlan {
             : (phase.Opening ? MotionPose.Seated : Choreography.Departure).Resolve(Choreography.Origin, extent));
 }
 
-// Column-less BY REFUSAL: the pacing operator is generic in the stream element, and a
-// [UseDelegateFromConstructor] column cannot carry an open-generic delegate — the generated total Switch
-// inside Gate is the dispatch.
 [SmartEnum]
 public sealed partial class MotionPacing {
     public static readonly MotionPacing Trailing = new();
@@ -656,11 +572,8 @@ public sealed partial class MotionPacing {
     public static readonly MotionPacing Serial = new();
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Measured disclosure. An unset height reads NaN and interpolates to nothing, so the animated target is the
-// content's own desired extent under an unbounded measure, and the pin releases back to auto at completion so
-// a later content change re-measures instead of clipping against a frozen value.
 public static class Disclosure {
     public static Fin<(double From, double To)> Span(Layoutable content, double width, PlanPhase phase) =>
         double.IsFinite(width) && width > 0d
@@ -681,21 +594,15 @@ public static class Disclosure {
 }
 
 public static class MotionApplication {
-    // The pacing anchors: WHICH grade paces throttling and debouncing is the declared decision here, so a
-    // stream site names the anchor rather than electing a token.
     public static readonly Duration Throttle = MotionToken.Fast.Duration;
     public static readonly Duration Debounce = MotionToken.Standard.Duration;
 
-    // The stagger falloff is what makes the delay series converge: the total delay of an unbounded list
-    // approaches stagger / (1 - falloff), so a long entrance is bounded by construction, not by the cap alone.
     static readonly UnitInterval StaggerFalloff = UnitInterval.Create(0.72d);
 
     static readonly UnitInterval StackDepthScale = UnitInterval.Create(0.04d);
 
     static readonly double StackPeek = 8d;
 
-    // Each projection selects against the live reduced-motion state at the read — a raw row token never leaks
-    // unreduced timing, so the accessibility invariant holds at the owning surface, not per caller.
     extension(MotionToken token) {
         public TimeSpan ChartSpeed => ReducedMotion.Select(token).Duration.ToTimeSpan();
 
@@ -717,16 +624,10 @@ public static class MotionApplication {
     }
 
     extension(MotionPlan plan) {
-        // Capped and decreasing: the ordinal saturates at the row's cap and each admitted step contributes a
-        // geometrically smaller share.
         public Fin<Duration> Delay(int ordinal) => ordinal >= 0
             ? Fin.Succ(plan.Stagger * Damped(Math.Min(ordinal, plan.Cap)))
             : Fin.Fail<Duration>(new MotionFault.OrdinalOutOfDomain($"{plan.Key}/{ordinal}"));
 
-        // Hover intent, asymmetric by column: the dwell defers an open until the pointer proves it meant the
-        // target, the linger defers a close across a crossing, and a newer edge cancels the pending one. The
-        // inside/outside stream is the caller's own containment projection — the kernel pointer-phase
-        // vocabulary is Eto-bound, so no phase row crosses this Avalonia plane.
         public IObservable<bool> Intent(IObservable<bool> pointer, IScheduler scheduler) =>
             pointer
                 .Select(inside => Observable.Return(inside).Delay(
@@ -734,9 +635,6 @@ public static class MotionApplication {
                 .Switch()
                 .DistinctUntilChanged();
 
-        // The stack projection every card re-reads. A dismissal changes ordinals and the transform axis
-        // carries the reflow; a card past the cap is present and transparent — derived from the ordinal, so
-        // the posture row stays two-valued and the past-cap reading cannot be authored.
         public Fin<MotionPose> Stacked(int ordinal, StackPosture posture, double extent) =>
             ordinal >= 0 && double.IsFinite(extent) && extent > 0d
                 ? Fin.Succ(new MotionPose(
@@ -750,7 +648,6 @@ public static class MotionApplication {
                 : Fin.Fail<MotionPose>(new MotionFault.OrdinalOutOfDomain($"{plan.Key}/{ordinal}@{extent}"));
     }
 
-    // The bounded geometric series the falloff defines, evaluated in closed form.
     static double Damped(int ordinal) => ordinal <= 0
         ? 0d
         : (1d - Math.Pow(StaggerFalloff.Value, ordinal)) / (1d - StaggerFalloff.Value);
@@ -771,11 +668,8 @@ public static class MotionApplication {
 - Boundary: the tracker is a FIRST-ORDER smoother over the last samples, not a sample buffer — a two-sample difference reports whatever jitter the final pointer event carried, and a buffered average lags the release by its own window; the smoothing constant is the one declared window and a per-surface constant is the deleted form. Retargetability is a modality fact the token already carries: a spring re-enters the kernel closed form at its live `SpringState`, a tween restarts from the current value at rest. This owner holds the gesture state and hands VALUES to the apply lanes DELIBERATELY: the kernel's own motion boundary rules delegated interpolation out of the drive algebra, the composed lane publishes no velocity read at all, and no Avalonia gesture surface threads a `MonotonicBeat` chain — so the beat-sampled `MotionDrive.Step`/`Retarget` arms stay the host-pacer composition (Rhino/GH) while this page composes the same `SpringShape`/`DecayShape` closed forms value-wise, and no physics is derived here. A bound run takes its length from `SpringValue.Settling` at the pixel band rather than from the token duration, so a gently-damped completion is not cut off at its response window. Snap-to-grid quantizes the PROJECTED rest before the threshold test, never the live position, so inertia and snapping compose in one fold and a flick that would cross a cell lands on the cell it aimed at.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The measured inertial archetypes as retention per millisecond: the normal row is the deceleration a content
-// surface carries, the fast row the shorter carry a dismissible overlay wants so a flick resolves inside the
-// gesture. The rate, the projection, and the tail are all the kernel's.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -787,8 +681,6 @@ public sealed partial class MotionDecay {
 
     public Fin<DecayShape> Shape => DecayShape.Of(retention: Retention);
 
-    // The one unit crossing on this page: velocities travel in units per second and the retention rows are
-    // authored per millisecond, so the conversion lives beside the constants it belongs to.
     public Fin<double> Project(double velocity) =>
         Shape.Bind(shape => shape.Project(
             velocity: velocity / NodaConstants.MillisecondsPerSecond, key: Op.Of(name: nameof(Project))));
@@ -800,11 +692,8 @@ public abstract partial record MotionRelease(double Target, SpringState Origin, 
     public sealed record Restore(double Target, SpringState Origin, Duration Settling) : MotionRelease(Target, Origin, Settling);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The velocity tracker: a first-order smoother whose weight is the sample interval against the declared
-// window, so a fast sample train converges quickly and a stalled pointer decays toward rest instead of
-// releasing on a velocity it measured a hundred milliseconds ago.
 public sealed record MotionTrack(double Position, double Velocity, Option<Instant> At) {
     public static readonly Duration Window = Duration.FromMilliseconds(30);
 
@@ -823,9 +712,6 @@ public sealed record MotionTrack(double Position, double Velocity, Option<Instan
             None: () => Seed(position, at));
 }
 
-// Per-surface release policy: the axis the gesture drives, the completion token, the inertial row, the
-// fraction of the surface's own extent a projected rest must pass to dismiss, and the optional grid the rest
-// quantizes onto. Extent is the surface's travel span along the axis, so the fraction is dimensionless.
 public sealed record HandoffSpec(
     MotionAxis Axis,
     MotionToken Token,
@@ -833,10 +719,6 @@ public sealed record HandoffSpec(
     UnitInterval Fraction,
     Option<double> Grid,
     double Extent) {
-    // The two admissions are INDEPENDENT, so a release with a bad extent and a bad velocity reports both;
-    // the dependent chain then runs projection, snap, ONE threshold test, and the honest completion length.
-    // The origin carries the live velocity into the completion, so the surface continues at the speed the
-    // finger left it rather than restarting from rest.
     public Fin<MotionRelease> Release(MotionTrack track) =>
         (Bounded().ToValidation(), Decay.Project(track.Velocity).ToValidation())
             .Apply(static (bounded, rest) => (Bounded: bounded, Rest: rest)).As().ToFin()
@@ -860,17 +742,14 @@ public sealed record HandoffSpec(
             Some: cell => cell > 0d ? Math.Round(rest / cell, MidpointRounding.AwayFromZero) * cell : rest,
             None: () => rest);
 
-    // A spring completion runs to its real tail at the pixel band; a tween has no tail and runs its duration.
     Fin<Duration> Completion(SpringState origin, double target) =>
         MotionResolve.OnSpring(Token,
             spring: spring => spring.Settling(origin, target, SpringValue.Pixel),
             tween: static resolved => Fin.Succ(resolved.Duration));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The ONE resolved-modality fold: reduction applies, then the spring arm or the tween arm answers — the two
-// handoff reads share it, so the resolve-then-match shape is spelled once.
 public static class MotionResolve {
     public static Fin<T> OnSpring<T>(MotionToken token, Func<SpringValue, Fin<T>> spring, Func<MotionToken, Fin<T>> tween) =>
         ReducedMotion.Select(token) switch {
@@ -879,18 +758,12 @@ public static class MotionResolve {
 }
 
 public static class GestureBlend {
-    // The pickup: a grab lands on a surface that may still be running, so the tracked value crosses from the
-    // running value to the pointer-driven one over the tracking token's own response window rather than
-    // snapping to the finger on the first sample.
     public static Fin<double> Blend(double running, double pointer, Duration elapsed) =>
         elapsed >= Duration.Zero && MotionToken.SpringTracking.Duration > Duration.Zero
             ? Fin.Succ(running + ((pointer - running)
                 * Math.Clamp(elapsed.TotalSeconds / MotionToken.SpringTracking.Duration.TotalSeconds, 0d, 1d)))
             : Fin.Fail<double>(new MotionFault.HandoffRefused($"blend elapsed {elapsed}"));
 
-    // Interruption: a retargetable modality re-enters the kernel closed form at the live state; a tween
-    // carries no velocity, so it restarts from the current value at rest and the reversal reads as a
-    // direction change rather than a continuation.
     public static Fin<SpringState> Retarget(MotionToken token, SpringState live, double target, Duration elapsed) =>
         ReducedMotion.Select(token).Duration == Duration.Zero
             ? Fin.Succ(new SpringState(Position: target, Velocity: 0d))
@@ -928,8 +801,6 @@ public static class PhaseMotion {
             ? Fin.Succ(ReducedMotion.Select(token))
             : Fin.Fail<MotionToken>(new MotionFault.PhaseUnmapped(phase.Key));
 
-    // Coverage is a VALUE the conformance sweep folds: the map is total over the Compute vocabulary or it
-    // names every absent row on the same fault the resolve takes.
     public static Fin<Unit> Covered() =>
         toSeq(ProgressPhase.Items).Filter(static phase => !Map.ContainsKey(phase)) switch {
             { IsEmpty: true } => Fin.Succ(unit),
@@ -978,13 +849,8 @@ flowchart LR
 public readonly record struct MotionReceipt(string Token, string Resolved, bool Reduced, Instant At);
 
 public static class ReducedMotion {
-    // The bound preference capsule, absent until composition. An unbound switch reads the unreduced default,
-    // which is the same answer the preference family's own fallback gives, so a headless fold that never binds
-    // and a desktop host whose seam answers nothing agree by construction.
     static readonly Atom<Option<PreferenceCell>> bound = Atom(Option<PreferenceCell>.None);
 
-    // The Avalonia half of the concession correspondence: preference row beside its kernel row, so the
-    // posture producer and the tokens page cannot drift on which preferences are concessions.
     static readonly Seq<(PreferenceRow Row, MotionConcession Concession)> Concessions = Seq(
         (PreferenceRow.ReducedMotion, MotionConcession.ReduceMotion),
         (PreferenceRow.IncreasedContrast, MotionConcession.IncreaseContrast),
@@ -996,8 +862,6 @@ public static class ReducedMotion {
 
     public static MotionToken Select(MotionToken token) => Active ? token.Reduced() : token;
 
-    // The kernel posture producer — the Avalonia counterpart of the Rhino ConcessionProbe: live preference
-    // reads fill the concession set per call, so an accessibility flip lands on the next drive.
     public static MotionPosture Posture(PaceBand pace) => new(
         Concessions: bound.Value.Match(
             Some: cell => CapabilitySet<MotionConcession>.Of(Concessions
@@ -1006,8 +870,6 @@ public static class ReducedMotion {
             None: static () => CapabilitySet<MotionConcession>.None),
         Pace: pace);
 
-    // Binding is disposable so a proof lane that mounts its own cell cannot leave a foreign preference behind
-    // for the next lane; the atom swap is the whole write path, so two binds serialize.
     public static IDisposable Bind(PreferenceCell cell) {
         bound.Swap(_ => Some(cell));
         return Disposable.Create(() => bound.Swap(_ => Option<PreferenceCell>.None));

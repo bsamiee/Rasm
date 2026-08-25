@@ -114,11 +114,6 @@ const _within = (sql: SqlClient.SqlClient, locus: _Locus) => {
             ),
           ),
         )
-        // Post-commit drain is quarantined and uninterruptible: the transaction is already durable, so neither a
-        // defect nor an interrupt here may re-fail a unit of work that committed — a caller reading failure
-        // retries and publishes twice. `never` on the registration type closes the typed channel alone, and a
-        // defect walks straight past it. Each hook folds independently, so one broken hook strands no sibling,
-        // and its cause leaves through the log rail rather than the return channel.
         yield* Effect.uninterruptible(
           Effect.forEach(
             yield* Ref.get(hooks),
@@ -148,9 +143,6 @@ const _within = (sql: SqlClient.SqlClient, locus: _Locus) => {
   return within
 }
 
-// The maintenance road: one transaction pinning ONLY the plane coordinate, so an estate-wide read is a stated
-// admission — the policy's plane arm answers it, a tenant pin never carries it, and an unpinned session still
-// matches neither arm. The text form is the same word rendered session-local for a scheduled job's own session.
 const _sweep = (sql: SqlClient.SqlClient) =>
   <A, E, R>(work: Effect.Effect<A, E, R>): Effect.Effect<A, E | SqlError.SqlError, Exclude<R, SqlClient.SqlClient>> =>
     sql.withTransaction(
@@ -163,11 +155,6 @@ const _sweep = (sql: SqlClient.SqlClient) =>
       ),
     )
 
-// The PG PLANE's rendering, and the only plane a rendered form can serve: `_sweep` forks on the dialect because it
-// holds a client, while a text prefix is handed to a scheduler that holds none, so a dialect arm here would be a
-// branch on a fact this function cannot read. `_rlsEnsure` below renders under the same pin — every enforcement this
-// page emits as TEXT is pg's, because the policy the word unlocks exists nowhere else, and a profile whose engine
-// carries no row-level policy has no plane word to render and pins isolation at its own connection boundary instead.
 const _sweepText = (statement: string): string =>
   `SELECT set_config('${SessionCoordinate.plane.guc}', '${SessionCoordinate.plane.value}', false);\n${statement}`
 
@@ -227,8 +214,6 @@ class ScopeKey extends Data.Class<{
   readonly app: Identity.App.Key
   readonly tenancy: Tenancy
 }> {
-  // App-key slugs admit `-` and coordinate names do not, so folding the hyphen to `_` is what makes this projection
-  // total: every legal key and every tag land inside `Live.Keys.Name`'s alphabet by construction.
   get discriminant(): Live.Name {
     return Schema.decodeSync(Live.Keys.Name)(`${this.app}_${this.tenancy._tag}`.toLowerCase().replaceAll("-", "_"))
   }
@@ -249,8 +234,6 @@ class Wiring extends Context.Tag("data/Wiring")<Wiring, {
 }>() {}
 
 declare namespace Stores {
-  // Capability's half carries the pg roster's own grant vocabulary, because the probe Tag is generic in `G` and a
-  // bare service type widens every `require`/`when` to `string`, erasing exactly the closure the roster provides.
   type Provided = Tenant | Capability.Service<Pg.Grant>
 }
 
@@ -262,8 +245,6 @@ const _verified = (
   SqlError.SqlError | ParseResult.ParseError | Capability.Fault,
   SqlClient.SqlClient
 > =>
-  // `atomicity` is a demandable grant like any other: pg scopes seed `transaction`, so the generic journal publisher
-  // composes here and a row demanding it resolves in the same fixed point that resolves an extension grant.
   Capability.Default({
     rows: Pg.rows,
     ensures,
@@ -285,7 +266,7 @@ const _lookup = (
         SchemaPerApp: () => wiring.shared,
         DatabasePerApp: () => Pg.client(locus.database),
       })
-      return subgraph.pipe(Layer.provide(client)) // provide, never provideMerge: the raw client dies inside the lookup
+      return subgraph.pipe(Layer.provide(client))
     }),
   )
 
@@ -313,7 +294,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 - Law: security never imports data and data never imports the port implementations' callers — the Tags meet the Layers only at the app root, keeping the folder edge exactly one direction: `data → security` for `TenantScope`/`SessionCoordinate`/`Shredder` values only.
 
 ```typescript signature
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { ScopeKey, Stores, Tenancy, Tenant, Wiring }
 ```

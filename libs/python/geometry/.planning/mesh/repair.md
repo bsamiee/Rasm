@@ -50,9 +50,6 @@ from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-# the chartered native band: cold until the boolean arm or a consumer's `to_manifold` build runs, so the loop floor
-# importing this module for the `RepairStep`/`BooleanOp`/`ManifoldTier` vocabulary never loads the extension. Every
-# table below keys member NAMES rather than live attributes, so no module-scope cell reifies the proxy at import.
 lazy import manifold3d
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -68,7 +65,7 @@ class RepairStep(StrEnum):
     FIX_INVERSION = "fix_inversion"
     FILL_HOLES = "fill_holes"
     STITCH = "stitch"
-    WELD = "weld"  # merge_vertices weld of the coincident vertices the kernel emits as independent blocks
+    WELD = "weld"
 
 
 class BooleanOp(StrEnum):
@@ -78,51 +75,32 @@ class BooleanOp(StrEnum):
 
 
 class ManifoldTier(StrEnum):
-    # the folder's ONE exact-geometry capability vocabulary, ordered by precedence rather than by preference: the
-    # exact gap supersedes the conservative separation wherever the richer provider resolves.
-    EXACT = "exact"  # manifold3d Manifold.min_gap — the exact solid-to-solid gap, no witness pair
-    FCL_WITNESS = "fcl-witness"  # python-fcl narrow phase — signed separation plus the nearest_points witness pair
+    EXACT = "exact"
+    FCL_WITNESS = "fcl-witness"
 
     @staticmethod
     def resolve() -> "Option[ManifoldTier]":
-        # total over the REAL provider set: `manifold3d` carries no interpreter marker and `python-fcl` does, so a
-        # floor holding neither answers `Nothing` and the consuming arm returns its own invalid-verdict shape. A
-        # probe naming an unprobed second provider as its floor reports a capability that floor cannot deliver.
         return _TIER_MODULE.choose(lambda row: Some(row[0]) if find_spec(row[1]) is not None else Nothing).try_head()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# full winding/normal/inversion/hole-fill/weld pass a non-watertight reconstruction needs before the boolean arm
 STEPS_WATERTIGHT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES, RepairStep.WELD)
 
-# orientation-only pass for an already-merged reconstruction whose coincident vertices need no re-weld
 STEPS_ORIENT: Final[Steps] = (RepairStep.FIX_WINDING, RepairStep.FIX_NORMALS, RepairStep.FIX_INVERSION, RepairStep.FILL_HOLES)
 
-# an open conditioned or boolean result never measures a kernel-vs-mesh agreement, so the closure bar joins the
-# ceiling roster only where the residual exists; the watertight residual is the one bar every result carries.
 CLOSURE_CEILING: Final[float] = 1e-9
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-# raised INTO the lane's `async_boundary`, never a domain `raise ValueError` the lane re-wraps. The token crosses
-# the worker seam as `CrossedFault` DATA and re-mints parent-side per `execution/workers#CROSSING`.
 @tagged_union(frozen=True)
 class RepairFault(Exception):
-    # `BoundaryFault.of` admits a `Tagged()` token AHEAD of every `CLASSIFY` row, so this family crosses the
-    # conversion door WHOLE on the `domain` case and the catch-all's `str(cause)` half never renders it — consumers
-    # match the CASE. A worker seam carries it whole too: `execution/workers#CROSSING` lowers the token onto
-    # `CrossedFault` DATA at `shipped` and re-mints this family's own case parent-side, so a raise inside a HOSTILE
-    # kernel needs no edit here and no render stands anywhere on the crossing. `__str__` serves the LOG and HOST
-    # edge alone — a token surfacing in a worker traceback or a log line before the seam lowers it — where
-    # `Exception.__str__` answers the EMPTY string for a kwarg-only union.
     tag: Literal["rejected", "unknown_step"] = tag()
-    rejected: str = case()  # the non-NoError manifold3d Error name
-    unknown_step: str = case()  # a step/verb absent from its dispatch table
+    rejected: str = case()
+    unknown_step: str = case()
 
     def __str__(self) -> str:
-        # the law half IS the tag, so no arm re-spells its own case name and a renamed case cannot drift from its render.
         return f"{self.tag}:{self._coordinate()}"
 
     def _coordinate(self) -> str:
@@ -138,27 +116,23 @@ class RepairFault(Exception):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence; owns only its fact and key projections
+class MeshRepairReceipt(Struct, frozen=True, gc=False):
     op: OpKind
-    valid: bool  # watertight AND NoError; the phase discriminant
+    valid: bool
     watertight: bool
     winding_consistent: bool
     volume: float
     area: float
     vertex_count: int
     face_count: int
-    verb: str  # the applied step-set join or the CSG verb
-    status: str  # the manifold3d Error name ("NoError" off the conditioning arm)
+    verb: str
+    status: str
     subject: GeometrySubject
-    # ABSENT `closure_gap` means NO kernel-vs-mesh agreement was measured: only the boolean arm cross-checks the
-    # exact kernel volume against the re-wrapped `Trimesh` volume, so a conditioned result has no agreement to report
-    # and the ceiling roster drops the bar rather than grading a fabricated zero that clears it vacuously.
-    closure_gap: Option[float] = Nothing  # |kernel volume - re-wrapped Trimesh volume| on the boolean arm
+    closure_gap: Option[float] = Nothing
 
-    # watertight-after-NoError emits; an open conditioned surface is an admitted caveat
     def fact(self) -> tuple[Phase, GeometrySubject, dict[str, object]]:
         phase: Phase = "emitted" if self.valid else "admitted"
-        facts: dict[str, object] = {  # native scalars for the receipts enc_hook=repr renderer
+        facts: dict[str, object] = {
             "op": self.op,
             "verb": self.verb,
             "status": self.status,
@@ -173,14 +147,9 @@ class MeshRepairReceipt(Struct, frozen=True, gc=False):  # leaf-scalar evidence;
 
     @property
     def spec(self) -> bytes:
-        # the byte projection that DEFINES this evidence: the operation, its verb, and the measured census the
-        # kernel produced — two runs yielding the same solid key identically and a re-run over changed operands
-        # keys apart, so the crossing key derives from the result rather than arriving from a caller.
         return f"{self.op}|{self.verb}|{self.vertex_count}|{self.face_count}|{self.volume:.17g}|{self.area:.17g}".encode()
 
     def graduates(self) -> GeometryHandoff:
-        # ceilings derive PER MEASURE: a conditioned result measures no kernel-vs-mesh agreement, so the closure bar
-        # does not apply rather than grading `0.0` against it, and the watertight residual is graded every time.
         measured = {"nonwatertight": 0.0 if self.watertight else 1.0} | self.closure_gap.map(lambda held: {"closure_gap": held}).default_value({})
         ceilings: Mapping[str, float] = {"nonwatertight": 0.0} | self.closure_gap.map(lambda _: {"closure_gap": CLOSURE_CEILING}).default_value({})
         return GeometryHandoff.of(self.subject, evidence_key(self.subject, self.spec), measured, ceilings)
@@ -211,7 +180,6 @@ class MeshRepairOp:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# each step binds its trimesh.repair verb; an unmapped step is the RepairFault via try_find, never a bare KeyError.
 _CONDITION: Final[Map[RepairStep, Callable[[trimesh.Trimesh], object]]] = Map.of_seq((
     (RepairStep.FIX_WINDING, trimesh.repair.fix_winding),
     (RepairStep.FIX_NORMALS, trimesh.repair.fix_normals),
@@ -221,15 +189,12 @@ _CONDITION: Final[Map[RepairStep, Callable[[trimesh.Trimesh], object]]] = Map.of
     (RepairStep.WELD, lambda m: m.merge_vertices()),
 ))
 
-# verb -> OpType member NAME: a live `manifold3d.OpType` cell here would reify the lazy proxy at import, so the row
-# carries the name and `getattr` resolves it at the boundary. Subtract differences tail from head.
 _OPTYPES: Final[Map[BooleanOp, str]] = Map.of_seq((
     (BooleanOp.UNION, "Add"),
     (BooleanOp.DIFFERENCE, "Subtract"),
     (BooleanOp.INTERSECTION, "Intersect"),
 ))
 
-# tier -> probe MODULE, ordered by precedence; `resolve` walks it once and takes the head that resolves.
 _TIER_MODULE: Final[Block[tuple[ManifoldTier, str]]] = Block.of_seq((
     (ManifoldTier.EXACT, "manifold3d"),
     (ManifoldTier.FCL_WITNESS, "fcl"),
@@ -240,10 +205,6 @@ _TIER_MODULE: Final[Block[tuple[ManifoldTier, str]]] = Block.of_seq((
 
 
 async def apply(op: MeshRepairOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[MeshResult]":
-    # graduation weave seeded MESH_REPAIR: span, fence, and receipt harvest in one composition — the weave's harvest
-    # streams the conforming MeshResult once on the cleared Ok. HOSTILE is the declared trait: a bare callable would
-    # silently lift PURE onto a subinterpreter the native band never imports under, so the kernel names the warm
-    # process pool and its trait-default WORKER death retry.
     return await evidence_run(
         EvidenceScope.MESH_REPAIR, f"apply.{op.tag}", partial(lane.offload, Kernel.of(_dispatch, KernelTrait.HOSTILE), op), composition=composition
     )
@@ -252,9 +213,6 @@ async def apply(op: MeshRepairOp, lane: LanePolicy, *, composition: ScopeKey = D
 def benched(
     op: MeshRepairOp, lane: LanePolicy, *, rounds: int = 32, warmup: int = 4, composition: ScopeKey = DEFAULT_SCOPE
 ) -> "RuntimeRail[BenchmarkReceipt]":
-    # kernel macro-bench beside the per-call evidence-duration row: the subject keys the op kind under the
-    # MESH_REPAIR scope, and each round drives the whole apply crossing — offload, kernel, weave — never an
-    # in-kernel probe (the pulse boundary); the warm process lane amortizes across rounds.
     return bench_seam(
         bench_subject(EvidenceScope.MESH_REPAIR, op.tag),
         partial(apply, op, lane, composition=composition),
@@ -264,22 +222,21 @@ def benched(
     )
 
 
-# keeps the table-miss folds and the status-gate rail one-expression thunks; converts on the lane boundary.
 def _raise[T](fault: RepairFault) -> T:
     raise fault
 
 
-def to_manifold(mesh: trimesh.Trimesh) -> "manifold3d.Manifold":  # the PUBLIC uint32-ceiling build spatial/quality compose downward
+def to_manifold(mesh: trimesh.Trimesh) -> "manifold3d.Manifold":
     verts, faces = np.asarray(mesh.vertices), np.asarray(mesh.faces)
-    if len(verts) > np.iinfo(np.uint32).max:  # past the uint32 ceiling: f64 positions with u64 indices, never a float32 down-cast
+    if len(verts) > np.iinfo(np.uint32).max:
         return manifold3d.Manifold(manifold3d.Mesh64(vert_properties=verts.astype(np.float64), tri_verts=faces.astype(np.uint64)))
     return manifold3d.Manifold(manifold3d.Mesh(vert_properties=verts.astype(np.float32), tri_verts=faces.astype(np.uint32)))
 
 
 def _conditioned(mesh: trimesh.Trimesh, steps: Steps) -> MeshResult:
-    for step in steps:  # Exemption: the trimesh repair verbs mutate in place, the provider's own conditioning seam.
+    for step in steps:
         verb = _CONDITION.try_find(step).default_with(lambda: _raise(RepairFault(unknown_step=step)))
-        verb(mesh)  # repair verbs mutate in place toward a consistent outward-oriented closed solid
+        verb(mesh)
     watertight = bool(mesh.is_watertight)
     return MeshResult(
         mesh,
@@ -302,11 +259,11 @@ def _conditioned(mesh: trimesh.Trimesh, steps: Steps) -> MeshResult:
 def _combined(meshes: Meshes, op: BooleanOp) -> MeshResult:
     opcode = _OPTYPES.try_find(op).default_with(lambda: _raise(RepairFault(unknown_step=op)))
     solid = manifold3d.Manifold.batch_boolean([to_manifold(m) for m in meshes], getattr(manifold3d.OpType, opcode))
-    status = solid.status()  # kernel sets status rather than raising; a non-NoError soup rails, never a phantom solid
+    status = solid.status()
     _ = status is manifold3d.Error.NoError or _raise(RepairFault(rejected=status.name))
     soup = solid.to_mesh()
     mesh = trimesh.Trimesh(vertices=np.asarray(soup.vert_properties)[:, :3], faces=np.asarray(soup.tri_verts), process=True)
-    watertight, kernel_volume = bool(mesh.is_watertight), float(solid.volume())  # past the gate valid reduces to watertight
+    watertight, kernel_volume = bool(mesh.is_watertight), float(solid.volume())
     return MeshResult(
         mesh,
         MeshRepairReceipt(
@@ -321,7 +278,6 @@ def _combined(meshes: Meshes, op: BooleanOp) -> MeshResult:
             op.value,
             status.name,
             GeometrySubject.MESH_ALGEBRA,
-            # kernel-vs-mesh agreement; an OPEN result has no enclosed volume on either side, so nothing was measured
             Some(abs(kernel_volume - float(mesh.volume))) if watertight else Nothing,
         ),
     )

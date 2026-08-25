@@ -18,11 +18,8 @@ Rasm.AppUi binds the shipped `Semi.Avalonia` design-token vocabulary to the gene
 - Boundary: `DockSurfaceWorkbenchBrush` and `DockSeparatorBrush` resolve as `DynamicResource` in the Dock skin yet no shipped dictionary defines them, so the correspondence MINTS both and every other `Dock*` key already resolves to a `SemiColor*` slot — the palette override re-tints the whole docking estate with no dock-side edit; the shipped `Banner*` and `NotificationCard*`/`ToastCard*` families re-tint through these slot overrides rather than a parallel control theme, severity landing on the status ladder's LIGHT rung for the fill and its base rung for the rim; the toast card carries NO shadow key at all — `NotificationCardBoxShadows` belongs to the corner card — so the toast tier binds its depth through the plane hosting it and authoring a card-scoped shadow here would write a slot the shipped dictionary never defines.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Semi is one flat resource bag, so a row's product is the boxed resource the dictionary takes — the erasure is
-// Avalonia's own last hop, never an interior shape, and the case names the axis it reads so the real type stays
-// recoverable. The semantic slots are BRUSHES, so a paint re-emits as a SolidColorBrush.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SemiSlot(string Slot) {
     public sealed record Pigment(PaintRole Role, int Rung, string Slot) : SemiSlot(Slot);
@@ -44,9 +41,6 @@ public abstract partial record SemiSlot(string Slot) {
         family: static (_, _) => Some((object)new FontFamily(EmbeddedFace.Variable.Family)));
 }
 
-// Exclusions are VERDICTS carrying their reason, never silent absence: the conformance rail matches every
-// shipped key the correspondence does not claim against this roster, so an unmatched key is a real gap and a
-// deliberate carve is a row nobody can mistake for an oversight.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -65,9 +59,6 @@ public sealed partial class SemiExclusion {
     public static readonly SemiExclusion Absolute = new("absolute",
         static key => key is "SemiBlack" or "SemiWhite" or "SemiBlackColor" or "SemiWhiteColor" or "SemiColorBlack" or "SemiColorWhite",
         "fixed white and black are absolute anchors by definition and no ladder rung names them");
-    // Glyph carves the shipped icon SET and every control-scoped geometry slot beside it: a severity glyph is a
-    // path the asset rail owns, so tinting it is a foreground write and re-authoring its outline here would
-    // fork the shipped glyph source.
     public static readonly SemiExclusion Glyph = new("glyph",
         static key => key.StartsWith("SemiIcon", StringComparison.Ordinal) || GeometryPattern().IsMatch(key),
         "path geometries owned by Theme/assets as the shipped glyph source");
@@ -99,12 +90,10 @@ public sealed partial class SemiExclusion {
     private static partial Regex GeometryPattern();
 }
 
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
 public static partial class SemiCorrespondence {
     public static readonly Seq<SemiSlot> Slots = [
-        // Seven roles over six states plus the four disabled slots: the state rungs ride the accent and status
-        // ladders, so a re-seed carries every interaction state of every intent with it.
         .. RoleStates(PaintRole.Accent, "Primary"),
         .. RoleStates(PaintRole.Highlight, "Secondary"),
         .. RoleStates(PaintRole.Link, "Tertiary"),
@@ -116,22 +105,14 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Pigment(PaintRole.Disabled, 0, "SemiColorSecondaryDisabled"),
         new SemiSlot.Pigment(PaintRole.Disabled, 0, "SemiColorSuccessDisabled"),
         new SemiSlot.Pigment(PaintRole.Disabled, 0, "SemiColorInformationDisabled"),
-        // The numbered surface and fill ramps land on the generated ladders one for one; the surface ramp also
-        // ships a colour-only twin set with no brush, so those five slots take the Hue case.
         .. Numbered(PaintRole.Surface, "SemiColorBackground", 5),
         .. Numbered(PaintRole.Raised, "SemiColorFill", 3),
         .. ThemeCatalog.Steps(5).Map(static index => (SemiSlot)new SemiSlot.Hue(PaintRole.Surface, index, $"SemiBackground{index}Color")),
-        // The numbered text ramp is FOUR EMPHASIS LEVELS, not four rungs of one role: each level is its own
-        // contrast-solved role, so mapping the ramp onto one role's rung index would collapse the whole ladder
-        // onto the primary ink while still resolving.
         new SemiSlot.Pigment(PaintRole.Text, 0, "SemiColorText0"),
         new SemiSlot.Pigment(PaintRole.TextMuted, 0, "SemiColorText1"),
         new SemiSlot.Pigment(PaintRole.TextMuted, 1, "SemiColorText2"),
         new SemiSlot.Pigment(PaintRole.TextFaint, 0, "SemiColorText3"),
         new SemiSlot.Pigment(PaintRole.Border, 0, "SemiColorBorder"),
-        // The focus TRIO: the ring colour beside the two variant-invariant geometry slots the shipped themes
-        // read for focus thickness and offset, so the double-ring recipe binds shipped keys rather than
-        // describing a geometry no control theme resolves.
         new SemiSlot.Pigment(PaintRole.Focus, 0, "SemiColorFocusBorder"),
         new SemiSlot.Extent(MetricFamily.Stroke, 1, "SemiBorderThicknessControlFocus"),
         new SemiSlot.Extent(MetricFamily.Space, 0, "SemiBorderSpacingControlFocus"),
@@ -143,7 +124,6 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Pigment(PaintRole.Link, 3, "SemiColorLinkVisited"),
         new SemiSlot.Pigment(PaintRole.Highlight, 0, "SemiColorHighlight"),
         new SemiSlot.Pigment(PaintRole.Selection, 0, "SemiColorHighlightBackground"),
-        // The global disabled set and the two surface slots that carry the whole scrim and nav vocabulary.
         new SemiSlot.Pigment(PaintRole.Well, 0, "SemiColorDisabledBackground"),
         new SemiSlot.Pigment(PaintRole.Border, 1, "SemiColorDisabledBorder"),
         new SemiSlot.Pigment(PaintRole.Disabled, 1, "SemiColorDisabledFill"),
@@ -151,8 +131,6 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Pigment(PaintRole.Panel, 0, "SemiColorNavBackground"),
         new SemiSlot.Pigment(PaintRole.Scrim, 0, "SemiColorOverlayBackground"),
         new SemiSlot.Pigment(PaintRole.Scrim, 0, "SemiColorShadow"),
-        // Role-named extents: radius, control height, and icon width re-seed; the numbered spacing and
-        // thickness ladders are SemiExclusion.StepScale.
         new SemiSlot.Extent(MetricFamily.Radius, 0, "SemiBorderRadiusExtraSmall"),
         new SemiSlot.Extent(MetricFamily.Radius, 1, "SemiBorderRadiusSmall"),
         new SemiSlot.Extent(MetricFamily.Radius, 2, "SemiBorderRadiusMedium"),
@@ -165,8 +143,6 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Extent(MetricFamily.Icon, 2, "SemiWidthIconMedium"),
         new SemiSlot.Extent(MetricFamily.Icon, 3, "SemiWidthIconLarge"),
         new SemiSlot.Extent(MetricFamily.Icon, 4, "SemiWidthIconExtraLarge"),
-        // Typography seats: a shipped ladder rung re-seeds from the generated type table, so density and text
-        // scale move it; the shipped bold weight is the BODY role at strong emphasis, not a second role.
         new SemiSlot.Size(TypographyRole.Caption, TypeEmphasis.Regular, "SemiFontSizeSmall"),
         new SemiSlot.Size(TypographyRole.Body, TypeEmphasis.Regular, "SemiFontSizeRegular"),
         new SemiSlot.Size(TypographyRole.Section, TypeEmphasis.Regular, "SemiFontSizeHeader6"),
@@ -176,8 +152,6 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Weight(TypographyRole.Body, TypeEmphasis.Regular, "SemiFontWeightRegular"),
         new SemiSlot.Weight(TypographyRole.Body, TypeEmphasis.Strong, "SemiFontWeightBold"),
         new SemiSlot.Family("SemiFontFamilyRegular"),
-        // Elevation: the one global token plus every shipped control-scoped shadow slot, each mapped to the
-        // tier whose stack its surface class earns.
         new SemiSlot.Shade(DepthTier.Raised, "SemiShadowElevated"),
         new SemiSlot.Shade(DepthTier.Card, "BorderCardBoxShadow"),
         new SemiSlot.Shade(DepthTier.Flyout, "FlyoutBorderBoxShadow"),
@@ -190,12 +164,8 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Shade(DepthTier.Floating, "NotificationCardBoxShadows"),
         new SemiSlot.Shade(DepthTier.Raised, "ToggleSwitchIndicatorBoxShadow"),
         new SemiSlot.Shade(DepthTier.Dialog, "WindowBorderShadow"),
-        // Dock chrome: the two DynamicResource keys no shipped dictionary defines — minted here on purpose.
         new SemiSlot.Pigment(PaintRole.Workbench, 0, "DockSurfaceWorkbenchBrush"),
         new SemiSlot.Pigment(PaintRole.Separator, 0, "DockSeparatorBrush"),
-        // Notification families re-tint through SLOT OVERRIDES rather than a parallel control theme: severity
-        // lands on the status ladder's LIGHT rung for the fill and its base rung for the rim, so four levels
-        // read as one family against a neutral surface and the ink carries the level.
         .. Severity("Banner", "Background", rung: 3),
         .. Severity("Banner", "BorderBrush", rung: 1),
         new SemiSlot.Pigment(PaintRole.Border, 0, "BannerBorderBrush"),
@@ -203,7 +173,6 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Extent(MetricFamily.Radius, 2, "BannerCornerRadius"),
         new SemiSlot.Extent(MetricFamily.Stroke, 0, "BannerBorderThickness"),
         new SemiSlot.Size(TypographyRole.Section, TypeEmphasis.Regular, "BannerTitleFontSize"),
-        // The corner card and the toast card share one severity vocabulary and differ in frame alone.
         .. Severity("NotificationCardLight", "Background", rung: 3),
         .. Severity("NotificationCardLight", "BorderBrush", rung: 1),
         .. Severity("NotificationCard", "IconForeground", rung: 0),
@@ -229,8 +198,6 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Pigment(PaintRole.Text, 0, "ToastCardContentForeground"),
     ];
 
-    // Six states over one role ladder: bare, pointerover, active, and the three Light-family rungs the shipped
-    // themes select for quiet intent arms.
     static Seq<SemiSlot> RoleStates(PaintRole role, string intent) => [
         new SemiSlot.Pigment(role, 0, $"SemiColor{intent}"),
         new SemiSlot.Pigment(role, 1, $"SemiColor{intent}Pointerover"),
@@ -240,16 +207,11 @@ public static partial class SemiCorrespondence {
         new SemiSlot.Pigment(role, 2, $"SemiColor{intent}LightActive"),
     ];
 
-    // The four severity families ride ONE fold over the status ladder, so a shipped banner, notification, and
-    // toast key set costs one row apiece; the affix pair is the whole difference between the families.
     static Seq<SemiSlot> Severity(string prefix, string suffix, int rung) =>
         Seq((Role: PaintRole.Info, Level: "Information"), (Role: PaintRole.Success, Level: "Success"),
             (Role: PaintRole.Warning, Level: "Warning"), (Role: PaintRole.Error, Level: "Error"))
             .Map(row => (SemiSlot)new SemiSlot.Pigment(row.Role, rung, $"{prefix}{row.Level}{suffix}"));
 
-    // ONE slot per generated rung: a shipped ramp longer than the role's ladder leaves its tail unclaimed on
-    // the conformance rail rather than clamping several slots onto the last rung, which resolves cleanly while
-    // flattening the top of the ramp.
     static Seq<SemiSlot> Numbered(PaintRole role, string prefix, int count) =>
         ThemeCatalog.Steps(Math.Min(count, role.Rungs))
             .Map(index => (SemiSlot)new SemiSlot.Pigment(role, index, $"{prefix}{index}"));
@@ -267,25 +229,19 @@ public static partial class SemiCorrespondence {
 - Boundary: the walk needs a live application, so conformance splits — `SemiMints` costs one pass over the correspondence and runs where a generation gap must be a typed fault at boot, while the roster-dependent halves fold in the headless proof lane beside the accessibility sweep; the two minted Dock keys are absent from every shipped partition ON PURPOSE, so the rail admits a claimed key with no shipped definition only when it appears in `SemiRoster.Minted`.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record SemiRosterReading(
     FrozenSet<string> Tokens,
     FrozenDictionary<ThemeVariant, FrozenSet<string>> Variants,
     FrozenSet<Type> ControlThemes);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class SemiRoster {
-    // The two Dock chrome keys the skin binds through DynamicResource and no shipped dictionary defines: the
-    // correspondence MINTS them, and the conformance rail admits a claimed-but-undefined key only from here.
     public static readonly FrozenSet<string> Minted =
         FrozenSet.Create(StringComparer.Ordinal, "DockSurfaceWorkbenchBrush", "DockSeparatorBrush");
 
-    // `MergedDictionaries` and `ThemeDictionaries` live on the CONCRETE ResourceDictionary, not on the
-    // IResourceDictionary the style surfaces hand back, so the descent pattern-matches the concrete type at
-    // every hop; walking the interface alone reaches the top-level keys and silently misses every merged and
-    // variant-scoped partition, which is the whole palette.
     public static SemiRosterReading Walk(Seq<IStyle> chain) =>
         chain.Fold((Reading: Empty, Seen: new HashSet<IResourceDictionary>(ReferenceEqualityComparer.Instance)),
                 static (state, style) => (Style(state.Reading, style, state.Seen), state.Seen))
@@ -296,8 +252,6 @@ public static class SemiRoster {
         FrozenDictionary<ThemeVariant, FrozenSet<string>>.Empty,
         FrozenSet<Type>.Empty);
 
-    // `StyleBase.Children` is an `IList<IStyle>` and `Styles` a framework collection, so every descent lifts
-    // into the carrier before folding — the fold is the carrier's member, not the list's.
     static SemiRosterReading Style(SemiRosterReading reading, IStyle style, HashSet<IResourceDictionary> seen) => style switch {
         Styles styles => toSeq(styles).Fold(Dictionary(reading, styles.Resources, None, seen), (state, child) => Style(state, child, seen)),
         ControlTheme theme => toSeq(theme.Children).Fold(
@@ -307,9 +261,6 @@ public static class SemiRoster {
         _ => reading,
     };
 
-    // A key is recorded against the variant it was reached UNDER. The visited set is reference-keyed: merged
-    // partitions may SHARE a dictionary instance, and an unguarded descent re-walks the shared subtree once
-    // per sharer — or forever, where a merge chain reaches itself.
     static SemiRosterReading Dictionary(SemiRosterReading reading, IResourceDictionary dictionary, Option<ThemeVariant> variant, HashSet<IResourceDictionary> seen) =>
         dictionary switch {
             ResourceDictionary concrete when seen.Add(concrete) => toSeq(concrete.Keys).Fold(
@@ -345,18 +296,12 @@ public static class SemiRoster {
 }
 
 public static partial class SemiCorrespondence {
-    // The BOOT half: every authored row mints from the resolve. This needs no roster, so it runs on the mount
-    // path where a generation gap must be a typed fault rather than a control silently keeping its shipped
-    // pigment.
     public static Fin<Unit> SemiMints(ResolvedTheme resolved) =>
         Slots.Filter(slot => slot.Mint(resolved).IsNone).Map(static slot => slot.Slot) switch {
             { IsEmpty: true } => Fin.Succ(unit),
             var unminted => Fin.Fail<Unit>(new ThemeFault.PaletteRejected(Report("unminted", unminted))),
         };
 
-    // The PROOF half: three independent bands ACCUMULATE, so one lane run reports the unminted rows, the dead
-    // claims, and the unclaimed remainder together as typed members of one ManyErrors — a joined string was a
-    // report a reader had to re-parse and a rail nothing could Filter.
     public static Fin<Unit> SemiCovered(ResolvedTheme resolved, SemiRosterReading roster) =>
         (Band(SemiMints(resolved).Match(Succ: static _ => Seq<string>(), Fail: static error => Seq(error.Message)), "unminted"),
          Band(Slots.Map(static slot => slot.Slot).Filter(slot => !roster.Tokens.Contains(slot) && !SemiRoster.Minted.Contains(slot)), "undefined"),

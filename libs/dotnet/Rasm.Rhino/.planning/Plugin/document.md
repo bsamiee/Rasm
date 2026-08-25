@@ -25,7 +25,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.Text`); `Persistence/dictionary` (`ArchiveMap.Detach`); RhinoCommon file I/O (`Rasm.Rhino/.api/api-rhinocommon-fileio.md` — the seventeen `FileWriteOptions` and eight `FileReadOptions` reads, `ArchivableDictionary`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence;
@@ -36,7 +36,7 @@ using Rhino.PlugIns;
 
 namespace Rasm.Rhino.Plugin;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WriteToggle : ICapability<WriteToggle> {
@@ -78,7 +78,7 @@ public sealed partial class ReadToggle : ICapability<ReadToggle> {
     internal partial bool Reads(FileReadOptions value);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WriteIntent(
     CapabilitySet<WriteToggle> Toggles,
     int FileVersion,
@@ -106,8 +106,6 @@ public sealed record WriteIntent(
             Options: payload)))
         select intent;
 
-    // A host `Guid.Empty` is absence at both correlation seams; the projection has ONE spelling here because
-    // neither coordinate has a value object of its own to carry a `Maybe`.
     internal static Option<Guid> Held(Guid value) => Optional(value).Filter(static id => id != Guid.Empty);
 }
 
@@ -142,10 +140,7 @@ public sealed record ReadIntent(
 - Packages: LanguageExt.Core (`Fin`, `Unit`); kernel `Domain/rails` (`Op`); `Persistence/userdata` (`ArchiveSchema`, `ArchiveEnvelope`), `Persistence/dictionary` (`ArchiveMap`); `Document/session` (`DocKey`).
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The implementation arrives from another plug-in's assembly, so the seam is an instance floor with the
-// participant's own lifetime — a `[ComplexValueObject]` of four delegates carried the same shape while adding a
-// null guard for every column the type already forbids.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IParticipant {
     ArchiveSchema Schema { get; }
     Fin<bool> Declares(WriteIntent intent, Op key);
@@ -168,7 +163,7 @@ public interface IParticipant {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`); LanguageExt.Core (`Fin`, `Seq`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`); `Persistence/userdata` (`ArchiveIo.Cross`, `ArchiveIntegrity`, `ArchiveEnvelope`); `Document/session` (`DocKey.Of`); RhinoCommon file I/O (`.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `FileWriteOptions`, `FileReadOptions`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ParticipationAsk {
     private ParticipationAsk() { }
@@ -188,14 +183,12 @@ public abstract partial record ParticipationAsk {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ParticipationAnswer {
     private ParticipationAnswer() { }
-    // The host's own `ShouldCallWriteDocument` answer crossing straight back out: one axis, no sibling column,
-    // and the case it rides names the question it answers.
     public sealed record DeclaredCase(bool Writes) : ParticipationAnswer;
     public sealed record WrittenCase(ArchiveIntegrity.WrittenCase Integrity) : ParticipationAnswer;
     public sealed record ReadCase(ArchiveIntegrity.ReadCase Integrity) : ParticipationAnswer;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Participation {
     public static Fin<ParticipationAnswer> Cross(ParticipationAsk ask, Op? key = null) {
         Op op = key.OrDefault();
@@ -245,14 +238,13 @@ public static class Participation {
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<bool>]`, `[SmartEnum<string>]` with `[UseDelegateFromConstructor]`, `[Union]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` tuple `.Apply`); kernel `Domain/rails` (`Op.Need`, `Op.Catch`, `Op.AcceptValidated`); `Persistence/settings` (`SettingKey`, `SettingPath`, `SettingsRoot.PlugInCase`, `SavedSettingsRoot`, `SettingsTree`, `SettingsSaved`, `SettingStore.Observe`), `Document/lifetime` (`Subscription`); `Plugin/census` (`PluginCensus.Ask`, `PluginQuery.Keyed`, `PluginRead.Presence`, `PluginPresence`, `PluginState`); RhinoCommon plug-ins (`.api/api-rhinocommon-plugins.md` — `GetPluginSettings`, `SavePluginSettings`, `SaveSettings`, `FlushSettingsSavedQueue`, `RaiseOnPlugInSettingsSavedEvent`, `SettingsSaved`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public sealed partial class SettingsLoad {
     public static readonly SettingsLoad Deferred = new(false);
     public static readonly SettingsLoad Forced = new(true);
 }
 
-// Two host queues, two rows, one drain case — the verb is the row's own column, so a third queue is one line.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SettingsQueue {
@@ -284,8 +276,6 @@ public abstract partial record SettingsBridgeAnswer {
     public sealed record WatchCase(Subscription Watch) : SettingsBridgeAnswer;
     public sealed record DrainedCase(SettingsQueue Queue) : SettingsBridgeAnswer;
 
-    // The typed accessor for the one answer a caller consumes by shape: the request case determines the answer
-    // case, so a consumer reads its own product in one hop instead of probing a closed union it already decided.
     public Fin<SettingPath> Path(Op key) => Switch(
         key,
         pathCase: static (_, row) => Fin.Succ(value: row.Path),
@@ -297,14 +287,12 @@ public abstract partial record SettingsBridgeAnswer {
         error: new KernelFault.InvalidValue(nameof(SettingPath), "a root request"));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PluginSettings {
     public static Fin<SettingsBridgeAnswer> Commit(SettingsBridge bridge, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(bridge).Bind(request => request.Switch(
             op,
-            // The host answers null for an unloaded plug-in under `Deferred`; that absence is the whole point of
-            // the member, so it refuses here and the caller either forces the load or asks the census instead.
             root: static (held, row) =>
                 from _ in row.Plugin.Admit(held)
                 from load in held.Need(row.Load)

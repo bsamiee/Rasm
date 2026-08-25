@@ -21,7 +21,7 @@ Gesture, projection, stack, framing, named-view, clipping, convention, and pose 
 - Boundary: gestures are relative host edits with no meaningful inverse value; their receipt evidence is the post-edit `ChangeCounter` delta, not a pose echo.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Numerics;
@@ -34,7 +34,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Viewport;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class KeyGesture {
     public static readonly KeyGesture RotateInPlace = new(key: 0,
@@ -77,7 +77,7 @@ public sealed partial class DragGesture {
     internal partial Fin<Unit> Apply(RhinoViewport viewport, System.Drawing.Point previous, System.Drawing.Point current, Op key);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
@@ -141,7 +141,7 @@ public abstract partial record GestureRequest {
 - Boundary: every stack arm runs inside `Op.Catch`, so a host throw rides the rail the arm's own `Fin<StackMove>` promises; the stack DEPTH is host state this rail never mirrors.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class FrustumForm {
     public static readonly FrustumForm Symmetric = new(key: 0, isSymmetric: true);
@@ -165,8 +165,6 @@ public sealed partial class CPlaneProjectionPolicy {
     internal bool ShouldUpdate { get; }
 }
 
-// The host answers `false` at the stack boundary AND when the popped projection equals the current one, so `Held`
-// carries both causes in ONE case: a third row would claim a separation no host member publishes.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StackMove {
     private StackMove() { }
@@ -188,8 +186,6 @@ public abstract partial record ProjectionChange {
     public sealed record DefinedCase(DefinedView Projection, string ViewName, CPlaneProjectionPolicy CPlane) : ProjectionChange;
     public sealed record IsometricCase(IsoQuadrant Camera, string ViewName, CPlaneProjectionPolicy CPlane) : ProjectionChange;
 
-    // The kernel intent's lowering seats on its CODOMAIN: `Rasm.Drawing` is below this boundary and cannot name a
-    // Rhino request, so the correspondence lives with the family it produces rather than in a rail-private helper.
     public static ProjectionChange Of(ViewProjectionIntent intent, double lens) => intent.Switch(
         parallel: static () => (ProjectionChange)new ParallelCase(Frustum: FrustumForm.Symmetric),
         perspective: () => new PerspectiveCase(TargetDistance: Option<double>.None, Frustum: FrustumForm.Symmetric, LensLength: lens),
@@ -226,7 +222,6 @@ public abstract partial record ProjectionChange {
                 : ctx.Op.Confirm(success: ctx.Viewport.ChangeToTwoPointPerspectiveProjection(
                     lensLength: change.LensLength, up: Vector3d.Zero, targetDistance: change.TargetDistance.IfNone(RhinoMath.UnsetValue))),
             reflectedCase: static (ctx, _) => ctx.Op.Confirm(success: ctx.Viewport.ChangeToParallelReflectedProjection()),
-            // The host slot holds the HALF of the full vertical angle this value states.
             lensCase: static (ctx, change) => ctx.Op.Catch(() => {
                 ctx.Viewport.CameraAngle = (double)change.Angle / 2.0;
                 return Fin.Succ(value: unit);
@@ -296,7 +291,7 @@ public abstract partial record StackVerb {
 - Boundary: `RestoreScope` touches process-global host settings only inside `Cameras.Apply`, whose session demand serializes the capture, body, and restore on the command thread.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CommitPosture {
     public static readonly CommitPosture Deferred = new(key: 0, commits: false);
@@ -460,9 +455,7 @@ public abstract partial record ClipLink {
         Optional(document.Objects.FindId(objectId: id.Value) as DocObjects.ClippingPlaneObject).ToFin(Fail: key.InvalidInput());
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Facet rows own the process-global slot they gate, so `Within` needs no edit per facet and a new defined-view
-// facet is one row.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RestoreFacet {
     public static readonly RestoreFacet CPlane = new(
@@ -515,7 +508,6 @@ public sealed partial class RestoreScope {
                select result;
     }
 
-    // Every row is attempted and refusals ACCUMULATE, so a wedged facet reports beside the rows written after it.
     internal static Fin<Unit> Apply(Seq<(RestoreFacet Facet, bool Value)> rows, Op key) => rows
         .Traverse(row => key.Catch(() => Fin.Succ(value: row.Facet.Write(on: row.Value))).ToValidation())
         .As()
@@ -544,7 +536,7 @@ public sealed partial class RestoreScope {
 - Boundary: every host mutation rides the lease's marshalled borrow, so a background caller pays one crossing per `Apply` while a paced frame pays none — every `FrameClock` row ticks on the UI loop already. No native handle leaves the rail.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class RedrawWhat {
     public static readonly RedrawWhat None = new(
@@ -573,8 +565,6 @@ public sealed partial class RedrawWhat {
     internal partial RedrawTarget Landing(ViewportTarget target);
 }
 
-// An address resolved once and written many times opens a window in which the active view moves under it: `Pinned`
-// keeps the viewport that was active and refuses the migration, `Following` re-resolves it as declared intent.
 [SmartEnum<int>]
 public sealed partial class ActiveBinding {
     public static readonly ActiveBinding Pinned = new(key: 0, follows: false);
@@ -583,8 +573,6 @@ public sealed partial class ActiveBinding {
     internal bool Follows { get; }
 }
 
-// What one borrowed row answered beyond its counter pair. Every receipt column reads this stream, so a summary
-// that no arm fills is an empty projection rather than a declared column nothing writes.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CameraOutcome {
     private CameraOutcome() { }
@@ -596,8 +584,6 @@ public abstract partial record CameraOutcome {
 [ValueObject<double>]
 [ValidationError]
 public readonly partial struct FramePadding {
-    // Framing padding is a declared convention, not a derivation: the host publishes no framing margin, so
-    // breathing room around a zoomed subject — a fraction of the subject's own diagonal — states once here.
     public static FramePadding Default { get; } = Create(value: 0.05);
 
     [BoundaryAdapter]
@@ -613,7 +599,7 @@ public readonly partial struct FramePadding {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CameraTrack(CameraPose From, CameraPose To, Context Context, MotionInterpolation Interpolation) {
     public static Fin<CameraTrack> Of(
         CameraPose from,
@@ -698,8 +684,6 @@ public abstract partial record CameraOp {
         key.OrDefault().AcceptValue(value: pose).Map(static valid => (CameraOp)new ConventionCase(Pose: valid));
 }
 
-// The paced request: a track to sample, the kernel script that paces it, and the clock row the drive attaches to.
-// The timeline is NOT a column — it is the session's one injected `MonotonicTimeline` and arrives at the entry.
 public sealed record CameraDrive(CameraTrack Track, MotionScript Script, Option<FrameClock> Clock) {
     public static Fin<CameraDrive> Of(CameraTrack track, MotionScript script, Option<FrameClock> clock = default, Op? key = null) {
         Op op = key.OrDefault();
@@ -720,8 +704,6 @@ public sealed partial class ApplyPolicy {
 
     internal ApplyPolicy PerFrame() => Create(redraw: RedrawWhat.None, details: Details, active: Active);
 
-    // Commit evidence rides `Op.Confirm` like every other host `bool` on this page: discarding it lets a refused
-    // detail commit return a receipt reporting the operation applied.
     internal Fin<Unit> CommitDetail(ViewportRef row, Op key) => row.Detail.Match(
         Some: detail => Details.Commits
             ? key.Catch(() => key.Confirm(success: detail.CommitViewportChanges()))
@@ -740,10 +722,7 @@ public sealed record CameraReceipt(CameraOp Operation, Seq<RowEvidence> Rows, Re
         row.Outcome is CameraOutcome.StackedCase stacked ? Some(stacked.Move) : Option<StackMove>.None);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// A drive prepares once and ticks thousands of times, so the address census, the lease admission, and the
-// per-frame policy resolve HERE and a frame writes the sampled pose alone. Native rows still never outlive their
-// borrow: a stage pins the durable id address of each resolved row and re-resolves it inside the frame's borrow.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class CameraStage {
     private readonly Seq<StagedRow> rows;
     private readonly ApplyPolicy frame;
@@ -763,12 +742,9 @@ internal sealed class CameraStage {
             .ToFin()
         select new CameraStage(rows: staged.Strict(), frame: plan.PerFrame());
 
-    // Every row seats and the refusals combine: one migrated view never hides another row's host fault.
     internal Fin<Unit> Frame(CameraPose pose, Op key) =>
         rows.Traverse(row => row.Seat(pose: pose, plan: frame, key: key).ToValidation()).As().ToFin().Map(static _ => unit);
 
-    // The guarded seat is ONE member — the projection probe carries the live classification on refusal, then the
-    // pose writes — composed by both the one-shot rail arm and the tick body, so the two paths cannot drift.
     internal static Fin<Unit> Seat(CameraPose pose, RhinoViewport viewport, Op key) =>
         from _projection in CameraSeat.Accepts(projection: pose.Projection, viewport: viewport, key: key)
         from _seated in key.Catch(() => Fin.Succ(value: CameraSeat.Seat(viewport: viewport, pose: pose)))
@@ -776,8 +752,6 @@ internal sealed class CameraStage {
 }
 
 internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> PinnedActive) {
-    // The `(binding, address)` PRODUCT is one pattern: computing a flag and branching on it twice spells the joint
-    // discriminant apart, and the pinned column and the resolved address are decided by the same corner.
     internal static Fin<StagedRow> Of(DocumentSession session, ViewportTarget address, Guid viewportId, ActiveBinding binding, Op key) =>
         (binding.Follows, address) switch {
             (true, ViewportTarget.ActiveCase) => ViewportLease.Of(session: session, target: address, key: key)
@@ -799,8 +773,6 @@ internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> Pinn
                 select unit,
             key: key);
 
-    // A pinned active row proves the viewport it named is STILL active; the migration is a typed context refusal,
-    // never a silent hand-off to whatever the user focused mid-drive.
     private Fin<Unit> Addressed(RhinoDoc document, Op key) => PinnedActive.Match(
         Some: id => guard(
             Optional(document.Views.ActiveView).Map(view => view.ActiveViewport.Id == id).IfNone(noneValue: false),
@@ -808,7 +780,7 @@ internal readonly record struct StagedRow(ViewportLease Lease, Option<Guid> Pinn
         None: static () => Fin.Succ(value: unit));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Cameras {
     public static Fin<CameraReceipt> Apply(
         DocumentSession session,
@@ -826,8 +798,6 @@ public static class Cameras {
                select receipt;
     }
 
-    // The paced entry: the timeline is the session's ONE injected clock and arrives as a required parameter, the
-    // stage prepares once, and the running lease IS the answer — there is no receipt case to match on.
     public static Fin<MotionLease> Drive(
         DocumentSession session,
         ViewportTarget target,
@@ -897,10 +867,6 @@ public static class Cameras {
             key: key)
         select new CameraReceipt(Operation: operation, Rows: rows, Redrew: plan.Redraw);
 
-    // Producing law preserves every finite easing result, overshoot included, so the bounded consumer projects at
-    // its own boundary: a back or elastic curve leaves the unit interval by design and every spring overshoots
-    // before it settles. Admitting the raw sample instead fails `UnitInterval`, lands on the tick rail's terminal
-    // fold, and ends the drive mid-animation on exactly the curves the overshoot guarantee exists to serve.
     private static Fin<UnitInterval> Progressed(MotionSample sample, Op key) =>
         key.AcceptValidated<UnitInterval>(candidate: double.Clamp(
             sample.Switch(

@@ -25,16 +25,8 @@ One fail-closed rail carries this folder: a closed row/ensure vocabulary, one `C
 import { Array, HashSet, Order, Schema, String, pipe } from "effect"
 import { Fault } from "@rasm/core"
 
-// Every refusal on this family raises from the one probe surface, so the leg is one anchor rather than a word each
-// row re-spells; the census reads it back off whichever issue dominates. The anchor is the bare SURFACE SEGMENT — a
-// module path or a section token restates coordinates the page already is, and a census carrying them reads a file
-// tree where it must read a seam.
 const _LEG = "probe"
 
-// One row per reason and the ROW is the whole declaration: the core kind it grades as, the leg it refuses at, the
-// subject record every raise supplies, and the renderer over that record. Retryability, blame, and quarantine are
-// the core Fault.Class row table's — a rank or retry column here would fork that taxonomy into this folder — and a
-// free-string detail column would re-open the subject axis `reason` closes, so each row states its own subjects.
 const _family = Fault.Class.family(["absent", "floor", "schema", "requires", "conflicts", "ungranted"] as const, {
   absent: Fault.Class.row({
     class: "absent",
@@ -86,14 +78,8 @@ const _family = Fault.Class.family(["absent", "floor", "schema", "requires", "co
   }),
 })
 
-// The family's OWN accumulating-admission carrier: rows admitted independently census every offender in one refusal,
-// each issue rendered by the row that declared it, and class, leg, and both recovery axes follow the dominant issue
-// rather than whichever refusal was raised first.
 class CapabilityFault extends _family.census("CapabilityFault") {}
 
-// Both relations carry the SAME triple and differ in one thing — what makes a demand unmet — so the negation lives in
-// a table column and each row also mints its own issue, which is what lets the requires arm and the corner arm share
-// one traversal, one refusal constructor, and one flag-membership test.
 type _Corner = { readonly extension: string; readonly flag: string; readonly grant: string }
 
 const _RELATIONS = {
@@ -138,9 +124,6 @@ declare namespace Capability {
   type Fault = CapabilityFault
 }
 
-// `Order.array` compares LENGTH before elements, so a two-segment `extversion` sorts under an equal-valued
-// three-segment floor and a real `1.6` refuses against `1.6.0`; padding both operands to one width makes the
-// length tiebreak vacuous and leaves segment-wise numeric order deciding, an absent segment reading zero.
 const _WIDTH = 4
 
 const _segments = (version: string): ReadonlyArray<number> =>
@@ -242,20 +225,11 @@ declare namespace Capability {
   }
 }
 
-// One runtime key, one static vocabulary per caller: `Effect.Service` fixes its service type at the class, so a
-// grant union declared on the effect factory never reaches the Tag and every `require` widens to bare `string`,
-// erasing exactly the closure the roster exists to provide. `Capability.of<G>()` re-seats it, so a consumer
-// naming a gate outside its own roster fails to compile instead of failing closed at run time.
 const _KEY = "data/Capability"
 
-// Admitted relation kinds, one roster per dialect: ordinary and partitioned tables, plain views, MATERIALIZED
-// views (which the standard information view omits outright, so an incremental-view ensure verifies here and
-// nowhere else), and foreign tables. Adding a kind is one token.
 const _PG_KINDS = ["r", "p", "v", "m", "f"] as const
 const _SQLITE_KINDS = ["table", "view"] as const
 
-// One traversal answers both relations: flag membership is the row's half of the pair and the relation's own
-// predicate is the grant set's half, so neither arm re-spells the other's negation and neither hard-codes a reason.
 const _unmet = <G extends string, F extends string>(
   demands: ReadonlyArray<Capability.Demand<F, G>>,
   relation: Capability.Relation,
@@ -267,8 +241,6 @@ const _unmet = <G extends string, F extends string>(
     && Array.contains(row.flags ?? [], demand.flag)
     && _RELATIONS[relation].unmet(available, demand.grant))
 
-// The refused row and its unmet demand ARE the corner, and the relation row carries which reason names it, so the
-// starved arm and the excluded arm mint through one constructor instead of forking on a token the row already holds.
 const _refusal = <G extends string, F extends string>(
   row: Capability.Row<G, F>,
   demand: Capability.Demand<F, G>,
@@ -324,8 +296,6 @@ const _capability = <G extends string, F extends string>(
           (found) => HashSet.fromIterable(Array.map(found, (row) => row.relation)),
         ))
     const absent = Array.filter(ensures, (ensure) => !HashSet.has(present, ensure.relation))
-    // Every unensured relation is its own issue carrying its own DDL: the census is the roster, so an operator reads
-    // which relations are missing and what to run for each rather than two joined strings they must re-pair by hand.
     yield* Array.match(absent, {
       onEmpty: () => Effect.void,
       onNonEmpty: (unensured) =>
@@ -337,7 +307,7 @@ const _capability = <G extends string, F extends string>(
           } satisfies Capability.Issue)),
         })),
     })
-    const floored = sql.onDialectOrElse({ orElse: () => false, pg: () => true }) // version floors are pg facts: the sqlite arm admits present modules on membership alone
+    const floored = sql.onDialectOrElse({ orElse: () => false, pg: () => true })
     const [missing, held] = Array.partitionMap(probed, ([row, version]) =>
       Option.match(version, {
         onNone: () =>
@@ -349,11 +319,6 @@ const _capability = <G extends string, F extends string>(
               { reason: "floor", extension: row.extension, installed, floor: row.floor } satisfies Capability.Issue,
             ),
       }))
-    // The HORIZON is what this store can grant at all — core, atomicity, and every row that answered present above
-    // its floor. Corners grade against it ONCE and before admission runs, because an exclusion is a fact of what is
-    // INSTALLED rather than of what the fold happened to accept first: two rows excluding each other therefore both
-    // refuse and the operator repairs the deployment, where a per-pass grading would admit a row the next pass would
-    // have refused and leave the verdict reading off iteration order.
     const horizon = HashSet.union(
       HashSet.fromIterable<Capability.Grant<G>>([...core, atomicity]),
       HashSet.fromIterable(Array.flatMap(held, ([row]) => row.capabilities)),
@@ -363,9 +328,6 @@ const _capability = <G extends string, F extends string>(
         onNone: () => Either.right(entry),
         onSome: (demand) => Either.left(_refusal(entry[0], demand)),
       }))
-    // Partition arms CARRY each starved row's unmet demand, so the terminal pass reports the demand that starved it
-    // without re-running the probe — and a cyclic row is a row whose unmet grant never arrives, so no separate cycle
-    // arm exists for a state the carried demand already names.
     const resolve = (
       accepted: typeof held,
       pending: typeof held,
@@ -466,10 +428,8 @@ import {
 import { CanonicalWriter, Digest, Fault, Format } from "@rasm/core"
 import { Array, DateTime, Duration, Effect, HashSet, Option, Order, Schema, String } from "effect"
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The recovery axes are a closed vocabulary before they are a table: the fault row renders against these tokens and
-// the policy rows below key on them, so an axis exists in exactly one place and both surfaces move with it.
 const _AXES = ["rpo", "rto"] as const
 
 const _codec = {
@@ -477,7 +437,7 @@ const _codec = {
   document: Format.proto.frame(BackendSchema, "json"),
 } as const
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _REQUIRED = FailureRank.REQUIRED satisfies Backend.FailureRank
 const _BACKEND_DOCUMENT_CEILING = 512 * 1024
@@ -486,18 +446,10 @@ const _byRestart: Order.Order<Backend.RestartClass> = Order.number
 const _sameKey = (self: { readonly key: string }, that: { readonly key: string }): boolean =>
   self.key === that.key
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// Contract refusals raise from one surface and probe refusals from another, so the two families carry two legs and a
-// consumer reading `leg` off a census learns which plane refused without re-deriving it from the reason. Both spell
-// the bare surface segment, so the two words partition a seam rather than restating the page's own coordinates.
 const _BACKEND_LEG = "contract"
 
-// One row per reason and the row states its own subjects: the core kind, the leg it refuses at, the subject record
-// every raise supplies, and the renderer over it — so retryability, blame, and quarantine stay the core row table's
-// while the shape of the evidence stays this family's. `dependency` carries both dependency-key refusals — an edge
-// naming no artifact in the set, and a set whose edges admit no order — because each names the same broken payload
-// and the keys name which broke it.
 const _backendFamily = Fault.Class.family(
   ["wire", "identity", "capability", "artifact", "dependency", "collision", "recovery"] as const,
   {
@@ -537,9 +489,6 @@ const _backendFamily = Fault.Class.family(
       detail: Schema.Struct({ keys: Schema.Array(Schema.String) }),
       render: ({ keys }) => `keys claimed twice with differing content: ${Array.join(keys, ",")}`,
     }),
-    // a store carrying the generation on stale data is recoverable by waiting, never by re-composing: this class puts
-    // the refusal on the retry rail instead of the quarantine one, and the row renders the MEASURED bound beside the
-    // declared one so an operator reads the gap rather than an axis name they must go re-measure.
     recovery: Fault.Class.row({
       class: "expired",
       leg: _BACKEND_LEG,
@@ -557,11 +506,9 @@ const _backendFamily = Fault.Class.family(
   },
 )
 
-// The census IS the admission carrier: independent proofs report every offender in one refusal, each issue rendered
-// by the row that declared it, and class, leg, and both recovery axes follow the dominant issue's own class row.
 class BackendFault extends _backendFamily.census("BackendFault") {}
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 declare namespace Backend {
   type Axis = (typeof _AXES)[number]
@@ -578,9 +525,6 @@ declare namespace Backend {
     readonly canonical: string
     readonly local: string
   }
-  // Composition input is a required readonly view of the generated init shape. Field selection is deliberate —
-  // callers cannot smuggle message internals into this boundary — while every selected field's value type still
-  // moves with BackendSchema rather than surviving as a hand-maintained wire twin.
   type Sources = Readonly<Required<Pick<
     MessageInitShape<typeof BackendSchema>,
     "contract" | "artifacts" | "capabilities"
@@ -595,23 +539,14 @@ declare namespace Backend {
     readonly contract: Contract
     readonly files: Files
   }
-  // DECLARED durability window a measured one is graded against — how much data a restore may lose and how long
-  // it may take. It arrives as a value the composition root reads off its consumption profile row, so this
-  // page grades an objective and declares none: a durability table here answers for deployments it never sees.
   type Objective = {
     readonly rpo: Duration.Duration
     readonly rto: Duration.Duration
   }
-  // Each half is optional because each has a real absence a zero forges — a reading that took no frontier, and a
-  // live store that never restored.
   type Window = {
     readonly rpo: Option.Option<Duration.Duration>
     readonly rto: Option.Option<Duration.Duration>
   }
-  // One reading row rather than a positional tail: an adapter states the catalogue it read AND the stamps it took
-  // in one value, so a provider cannot skip the recovery question by omitting an argument. `granted` is the
-  // already-canonical half — provider-shaped custody no SQL catalog can scan, carried as contract keys the way
-  // `artifacts` already is, because no grant vocabulary exists for it to enter through.
   type Reading<G extends string> = {
     readonly generation: Digest.Key<"content">
     readonly report: Capability.Report<G>
@@ -638,20 +573,13 @@ declare namespace Backend {
   }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// One discriminant table carries every contract invariant: each row names the predicate that must hold beside the
-// ISSUE it raises — reason and subjects together — so a new invariant is one row, no reason collapses onto whichever
-// tag an arm happened to carry, and the payload mints on the failing arm alone because the row is a deferred thunk.
 type _Check = {
   readonly holds: () => boolean
   readonly issue: () => Backend.Issue
 }
 
-// Stages sequence, rows accumulate, and the CALL SITE's shape is the whole disposition. Rows inside one stage are
-// independent columns of the same value, so the census names every column that refused instead of the first; a later
-// stage reads a fact an earlier stage proved, so the ladder between stages aborts. An abort spanning independent
-// columns is the deleted form: it makes a store owing three repairs look like a store owing one.
 const _prove = (stages: ReadonlyArray<ReadonlyArray<_Check>>): Effect.Effect<void, BackendFault> =>
   Effect.forEach(
     stages,
@@ -662,7 +590,6 @@ const _prove = (stages: ReadonlyArray<ReadonlyArray<_Check>>): Effect.Effect<voi
     { discard: true },
   )
 
-// Generated ordinals carry the declared disruption order; absence means the gap set owes no restart at all.
 const _worst = (over: ReadonlyArray<Backend.RestartClass>): Option.Option<Backend.RestartClass> =>
   Array.reduce(over, Option.none<Backend.RestartClass>(), (held, next) =>
     Option.some(Option.match(held, {
@@ -670,11 +597,6 @@ const _worst = (over: ReadonlyArray<Backend.RestartClass>): Option.Option<Backen
       onSome: (current) => Order.greaterThan(_byRestart)(next, current) ? next : current,
     })))
 
-// Window derives HERE from the two stamps the observation carries, so no provider hands in a lag it measured
-// against a clock this verdict never saw. The SIGN is the whole discriminant and ZERO sits on the measured side: a
-// frontier stamped at its own reading instant is the freshest store this verdict exists to admit, where a frontier
-// stamped AFTER it is skew rather than recency and owes the unmeasured half. `distanceDurationEither` splits at
-// `> 0` and drops that zero onto its `Left`, so the signed millisecond distance reads directly instead.
 const _recency = (millis: number): Option.Option<Duration.Duration> =>
   millis >= 0 ? Option.some(Duration.millis(millis)) : Option.none()
 
@@ -683,11 +605,6 @@ const _window = (observed: Backend.Observation): Backend.Window => ({
   rto: observed.restoredIn,
 })
 
-// Both halves absorb absence OPPOSITELY, and that split is a COLUMN rather than two hand-written arms: a reading
-// carrying no frontier proves no recency and refuses, where admitting it grades a window nobody took, while an absent
-// restore time is a store that never bounced and owes none. Every admitted generation therefore carries a measured
-// recovery point, and each row names the window half it reads, the objective half it grades against, and its own
-// posture on absence — the two arms differed in nothing else, which is why one table replaces both.
 const _WINDOWS = {
   rpo: { measured: (window) => window.rpo, declared: (objective) => objective.rpo, unmeasured: "refuse" },
   rto: { measured: (window) => window.rto, declared: (objective) => objective.rto, unmeasured: "admit" },
@@ -699,8 +616,6 @@ const _WINDOWS = {
   }
 }
 
-// One check row per axis, so the axes stay INDEPENDENT columns of one verdict: a store both stale and slow to
-// restore reports both, and the issue carries the measured and declared durations as values the family row renders.
 const _breaches = (window: Backend.Window, objective: Backend.Objective): ReadonlyArray<_Check> =>
   Array.map(_AXES, (axis) => {
     const measured = _WINDOWS[axis].measured(window)
@@ -746,9 +661,6 @@ const _documentEncoded = (value: Backend.Document): Effect.Effect<Uint8Array, Ba
     ),
   )
 
-// Kahn peel over the artifact set: each pass releases every row whose dependencies already left, and a pass
-// releasing nothing while rows remain names exactly the cycle members. Acyclicity therefore costs no traversal
-// state and no throw, and the remainder IS the witness the fault reports.
 const _cyclic = (rows: ReadonlyArray<Backend.Artifact>): ReadonlyArray<string> => {
   const peel = (
     held: ReadonlyArray<Backend.Artifact>,
@@ -763,13 +675,8 @@ const _cyclic = (rows: ReadonlyArray<Backend.Artifact>): ReadonlyArray<string> =
   return peel(rows, HashSet.empty())
 }
 
-// `_distinct` marks every row distinct, so two rows sharing one key never agree their way out — a repeated key
-// inside ONE contribution is malformed whatever its content carries, while a cross-contribution scan passes its
-// own content equivalence.
 const _distinct = (): boolean => false
 
-// One key whose rows disagree under the given mark is a collision; deduplication downstream is then safe
-// because every surviving group agrees, so first-wins and last-wins both decide nothing.
 const _collided = <A extends { readonly key: string }>(
   rows: ReadonlyArray<A>,
   same: (self: A, that: A) => boolean,
@@ -786,8 +693,6 @@ const _sameArtifact = (self: Backend.Artifact, that: Backend.Artifact): boolean 
 const _sameCapability = (self: Backend.Capability, that: Backend.Capability): boolean =>
   equals(CapabilitySchema, self, that)
 
-// Repeated fields are ordered protobuf values even where this contract uses them as sets. One generated-message
-// projection owns their published order; local mints pass through it and a foreign document must already equal it.
 const _normalized = (document: Backend.Document): Backend.Document =>
   Format.proto.create(BackendSchema, {
     contract: document.contract,
@@ -802,9 +707,6 @@ const _normalized = (document: Backend.Document): Backend.Document =>
     capabilities: Array.sort(document.capabilities, _byKey),
   })
 
-// The schema fixes semantic field order and the core writer fixes widths, byte order, and every variable boundary.
-// No serialized-message byte enters this stream: protobuf map/unknown ordering and floating encodings therefore
-// cannot become generation inputs now or through an additive field the old reader does not know.
 const _preimage = (document: Backend.Document): Iterable<Uint8Array> =>
   new CanonicalWriter()
     .string(document.contract)
@@ -827,9 +729,6 @@ const _preimage = (document: Backend.Document): Iterable<Uint8Array> =>
     })
     .close()
 
-// Every mint path lands on this one projection. Dependency keys prove closed and acyclic before the map-free
-// binary identity projection, while the peer document remains ordinary ProtoJSON whose transported bytes carry no
-// equality claim.
 const _projection = (
   document: Backend.Document,
   transported: Option.Option<Uint8Array>,
@@ -843,8 +742,6 @@ const _projection = (
       row.dependsOn.filter((key) => !HashSet.has(declared, key)))
     const cyclic = () => _cyclic(document.artifacts)
 
-    // Three stages: claim uniqueness settles both key spaces before dependency closure, and the peel reads only a
-    // closed artifact set.
     yield* _prove([
       [
         {
@@ -947,13 +844,6 @@ const Backend = {
       const document = yield* _document(files.contract)
       return yield* _projection(document, Option.some(files.contract))
     }),
-  // `report.granted` is the one authoritative membership value the PROBE publishes — the closed grant vocabulary
-  // holding core spine keys, primitives, atomicity, and every capability an admitted extension carries.
-  // `versions` keys on the probed EXTENSION name and answers floor evidence alone, so an adapter resolved
-  // against it reports every core-seeded grant missing and every extension whose grant name differs from its
-  // own. An adapter therefore maps the contract's canonical capability key onto the grant that proves it, and
-  // `reading.granted` unions in the keys a probe has no catalog to find — already canonical, so no adapter row
-  // could translate them and no grant row could hold them.
   observe: <G extends string>(reading: Backend.Reading<G>): Backend.Observation => ({
     generation: reading.generation,
     capabilities: HashSet.union(
@@ -983,9 +873,6 @@ const Backend = {
         .map((row) => row.key)
       const missingArtifacts = HashSet.difference(expected.artifacts, observed.artifacts)
 
-      // ONE stage over four independent columns of one store — generation, capabilities, artifacts, and each recovery
-      // axis — so a store carrying the wrong generation on a stale window reports both halves of its own repair, and
-      // the census grades on the dominant issue instead of on whichever proof a ladder happened to seat first.
       yield* _prove([[
         {
           holds: () => expected.id === observed.generation,
@@ -1012,7 +899,7 @@ const Backend = {
     }),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Backend, BackendFault, Capability, CapabilityFault }
 ```

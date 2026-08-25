@@ -31,8 +31,6 @@ from rasm.runtime.faults import Depth
 
 type Leaders = tuple[tuple[int, float], ...]
 type Partition = tuple[tuple[int, ...], ...]
-# the per-hop census a reachability walk COMPUTES, as (node, hop depth) pairs in node order — the evidence a bare
-# reach count and a bare eccentricity both derive from, and which neither of them can reconstruct.
 type Reaches = tuple[tuple[int, int], ...]
 
 
@@ -61,7 +59,6 @@ class AnalyticValue:
         return AnalyticValue(reach=census)
 
     def as_scalar(self) -> float:
-        # Cardinality projection: a scalar carries its value, a board or partition its member count, so a count-keyed analytic reads one float off the flat facts map.
         match self:
             case AnalyticValue(tag="scalar", scalar=v):
                 return v
@@ -70,13 +67,11 @@ class AnalyticValue:
             case AnalyticValue(tag="groups", groups=partition):
                 return float(len(partition))
             case AnalyticValue(tag="reach", reach=census):
-                return float(len(census))  # how many nodes the walk reached — the bare reach, DERIVED off the census
+                return float(len(census))
             case _ as unreachable:
                 assert_never(unreachable)
 
     def peak(self) -> float:
-        # Head-magnitude projection where extremum is the signal: a scalar IS its peak, a board its top score,
-        # a partition its member count — a centrality fact rides its max score.
         match self:
             case AnalyticValue(tag="scalar", scalar=v):
                 return v
@@ -85,14 +80,11 @@ class AnalyticValue:
             case AnalyticValue(tag="groups", groups=partition):
                 return float(len(partition))
             case AnalyticValue(tag="reach", reach=census):
-                # the eccentricity from the walk's own seed set — the deepest hop any reached node sits at.
                 return float(max((depth for _, depth in census), default=0.0))
             case _ as unreachable:
                 assert_never(unreachable)
 
     def tabled(self) -> dict[str, np.ndarray]:
-        # Columnar projection the graduation frame port consumes — dict order IS the column order; the producing
-        # pages key the frame's subject, so this substrate stays receipt- and graduation-free.
         match self:
             case AnalyticValue(tag="scalar", scalar=v):
                 return {"value": np.asarray([v], dtype=np.float64)}
@@ -120,23 +112,11 @@ class AnalyticValue:
 
 @tagged_union(frozen=True)
 class GraphFault(Exception):
-    # the graph band's ONE structured refusal, seated at the substrate both producers already import: raised INTO the
-    # converting fence of whichever producer folded this reducer, so the offending value survives as a kwarg the
-    # boundary fault lifts whole rather than as an f-string a reader re-parses. Both producers fold their reducers
-    # inside an offloaded kernel, and that crossing carries the token as `CrossedFault` DATA, re-minting this family's
-    # own case parent-side per `execution/workers#CROSSING` — the substrate declares the cases and edits nothing.
     tag: Literal["negative_cap", "unreached"] = tag()
-    negative_cap: int = case()  # the board cap a caller supplied below zero
-    unreached: tuple[str, int] = case()  # (the spent bound, the frontier still standing) — a walk that never converged
+    negative_cap: int = case()
+    unreached: tuple[str, int] = case()
 
     def __str__(self) -> str:
-        # `BoundaryFault.of` admits a `Tagged()` token AHEAD of every `CLASSIFY` row, so this family crosses the
-        # conversion door WHOLE on the `domain` case and the catch-all's `str(cause)` half never renders it. A
-        # worker seam carries it whole too: `execution/workers#CROSSING` lowers the token onto `CrossedFault` DATA
-        # at `shipped` and re-mints this family's own case parent-side, so a raise inside a HOSTILE kernel needs no
-        # edit here. `__str__` serves the LOG and HOST edge alone — a token surfacing in a worker traceback or a log
-        # line before the seam lowers it — where `Exception.__str__` answers the EMPTY string for a kwarg-only
-        # union. The law half IS the tag, so no arm re-spells its own case name and a renamed case cannot drift.
         return f"{self.tag}:{self._coordinate()}"
 
     def _coordinate(self) -> str:
@@ -153,29 +133,17 @@ class GraphFault(Exception):
 
 
 def ranked(scores: Mapping[int, float] | Sequence[float], cap: int) -> AnalyticValue:
-    # Node-score mapping (networkx dict) and vertex-ordered score list (topologicpy) both rank through one sort — input shape is the discriminant.
     if cap < 0:
-        raise GraphFault(negative_cap=cap)  # a negative cap slices tail rows off silently instead of bounding the board; cap=0 stays the empty board
+        raise GraphFault(negative_cap=cap)
     pairs = scores.items() if isinstance(scores, Mapping) else enumerate(scores)
     board = sorted(pairs, key=lambda pair: pair[1], reverse=True)[:cap]
     return AnalyticValue.Leaderboard(tuple((int(node), float(score)) for node, score in board))
 
 
 def reached(neighbours: Callable[[int], Iterable[int]], seeds: Iterable[int], bound: Depth) -> AnalyticValue:
-    # the band's ONE reachability walk, layered rather than per-node: seeds enter at depth 0 and each layer expands
-    # the previous one, so the value published IS the per-hop census the walk computed. A reach count and an
-    # eccentricity both DERIVE off that census through `as_scalar` and `peak`, where a walk publishing one scalar
-    # throws away the evidence the other reading needs and hands a reader a number nothing can be recomputed from.
-    # MERGE LAW, stated where the fold runs: a node reachable from two seeds keeps the SMALLEST depth — the first
-    # layer that reaches it — because a multi-seed reach asks how far the NEAREST seed is, and a later layer
-    # re-recording it would publish a distance no shortest path takes. Held membership is that law's own authority:
-    # a node already seated is never re-seated, so the ordering of the seed set cannot change the answer.
-    # Exhaustion is TYPED, never a truncated success: a bounded walk still holding a frontier when its bound runs out
-    # raises the band's own `unreached` token into the producer's converting fence, so an unconverged reach can never
-    # certify as a complete one. `Depth.fixpoint` is the honest case for a walk that converges on its own.
     held: Map[int, int] = Map.of_seq((int(seed), 0) for seed in seeds)
     frontier, hop, budget = Block.of_seq(sorted(held.keys())), 0, bound
-    while not frontier.is_empty():  # Exemption: each layer reads its own predecessor — the walk IS the sequential seam
+    while not frontier.is_empty():
         match budget.stepped():
             case Option(tag="none"):
                 raise GraphFault(unreached=(budget.spelled, len(frontier)))
@@ -191,7 +159,6 @@ def reached(neighbours: Callable[[int], Iterable[int]], seeds: Iterable[int], bo
 
 
 def peak_of[K](values: Map[K, AnalyticValue], key: K) -> float:
-    # Census-peak projection: an absent row folds to 0.0 with no None arm, so census fields stay total.
     return values.try_find(key).map(lambda value: value.peak()).default_value(0.0)
 
 

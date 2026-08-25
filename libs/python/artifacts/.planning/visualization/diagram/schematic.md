@@ -51,7 +51,7 @@ type Direction = Literal["right", "left", "up", "down"]
 type PinSide = Literal["L", "R", "T", "B"]
 
 
-class SchematicKind(StrEnum):  # receipt kind facet — one member per SchematicSpec case
+class SchematicKind(StrEnum):
     CIRCUIT = "circuit"
     FLOW = "flow"
     DSP = "dsp"
@@ -69,9 +69,6 @@ _CANON = json.Encoder(order="deterministic")
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: the authoring+render fold is a single fence, and the `SchematicFault` case already
-# separates an admission set from an element, anchor, parse, render, or provider refusal. TRANSIENT — a backend
-# refusal is a defect a re-issue under repaired inputs may clear.
 SCHEMATIC_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.SCHEMATIC, point="render", arm="boundary", defect="schematic-refused", retriability=TRANSIENT
 )
@@ -79,41 +76,39 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SCHEMATIC_
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class PinRow(Struct, frozen=True):
-    # one named IC pin as data; the placed Ic exposes it as an addressable anchor (`"U1.<name>"`).
     name: str
     side: PinSide = "L"
-    pos: float | None = None  # 0..1 side-relative seat; None = even distribution
-    invert: bool = False  # inversion bubble
+    pos: float | None = None
+    invert: bool = False
 
 
 class SymbolRow(Struct, frozen=True):
-    # one placed symbol as data, chained off a prior row's named anchor; the full fluent surface rides as fields.
-    ref: str  # the row's own reference ("U1", "R3"); anchor addresses compose "<ref>.<anchor>"
-    element: str  # provider catalog name
-    at: str = ""  # "<ref>.<anchor>" placement source; "" = chain off the previous row
-    anchor: str = ""  # which own anchor seats on `at`
+    ref: str
+    element: str
+    at: str = ""
+    anchor: str = ""
     direction: Direction = "right"
-    theta: float | None = None  # arbitrary angle in degrees; set overrides `direction`
-    tox: str = ""  # "<ref>.<anchor>" x-stretch target (two-terminal elements)
-    toy: str = ""  # "<ref>.<anchor>" y-stretch target
-    length: float = 0.0  # two-terminal stretch; 0 = element default
+    theta: float | None = None
+    tox: str = ""
+    toy: str = ""
+    length: float = 0.0
     scale: float = 1.0
     flip: bool = False
     reverse: bool = False
-    dot: bool = False  # connection dot at the end
-    idot: bool = False  # connection dot at the start
+    dot: bool = False
+    idot: bool = False
     label: str = ""
     style: DiagramStyle = DiagramStyle.PRIMARY
-    pins: tuple[PinRow, ...] = ()  # named-pin Ic/Multiplexer construction
+    pins: tuple[PinRow, ...] = ()
 
 
 @tagged_union(frozen=True)
 class SchematicSpec:
     tag: Literal["circuit", "flow", "dsp", "logic", "kmap", "truth_table", "timing", "bitfield"] = tag()
     circuit: tuple[SymbolRow, ...] = case()
-    flow: tuple[SymbolRow, ...] = case()  # flowchart AND state-diagram rows; the element roster carries both
+    flow: tuple[SymbolRow, ...] = case()
     dsp: tuple[SymbolRow, ...] = case()
-    logic: str = case()  # boolean expression -> parsing.logicparse
+    logic: str = case()
     kmap: Mapping[str, object] = case()
     truth_table: Mapping[str, object] = case()
     timing: Mapping[str, object] = case()
@@ -124,31 +119,27 @@ class SchematicSpec:
 @tagged_union(frozen=True)
 class SchematicFault:
     tag: Literal["admission", "element", "anchor", "parse", "render", "provider"] = tag()
-    admission: tuple[str, ...] = case()  # independent row defects accumulated before canvas mutation
-    element: str = case()  # unknown catalog name, or a constructor/verb the element does not own
-    anchor: str = case()  # unresolvable "<ref>.<anchor>" reference
-    parse: str = case()  # logicparse refusal
-    render: str = case()  # backend/validator raise at get_imagedata
+    admission: tuple[str, ...] = case()
+    element: str = case()
+    anchor: str = case()
+    parse: str = case()
+    render: str = case()
     provider: str = case()
 
 
-# --- [SERVICES] ---------------------------------------------------------------------------
+# --- [SERVICES] -------------------------------------------------------------------------
 class Schematic(Struct, frozen=True):
     spec: SchematicSpec
     theme: Theme
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     mode: ThemeMode = ThemeMode.LIGHT
 
     def emit(self, /) -> ArtifactWork:
-        # ONE mint per node, captured into the closure: `_seed` canonically re-encodes the whole spec and `_key`
-        # opens a `content.derive` span, so the node and its receipt must not each pay it.
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _seed(self) -> tuple[bytes, ...]:
-        # RAW semantic fields; `IdentitySource.parts` owns the framing. The lane is execution policy, outside the preimage.
         match self.spec:
             case (
                 SchematicSpec(tag="circuit", circuit=rows)
@@ -167,15 +158,10 @@ class Schematic(Struct, frozen=True):
                 body = _CANON.encode(dict(data))
             case _ as unreachable:
                 assert_never(unreachable)
-        # theme identity enters as the content-addressed fingerprint over every render-affecting field — two themes
-        # sharing one display key never collide, and a styling edit re-keys the diagram.
         return (self.spec.tag.encode(), body, self.theme.fingerprint.encode(), self.mode.value.encode())
 
     @property
     def _key(self) -> ContentKey:
-        # PRE-RUN key over the canonical input; receipt.slot == node.key.
-        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with
-        # no delimiter — right for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
         return ContentIdentity.key("schematic", IdentitySource(parts=self._seed))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
@@ -193,7 +179,6 @@ class Schematic(Struct, frozen=True):
             return Error(SchematicFault(provider=str(bad)))
 
     def _resolved(self) -> Result[tuple[bytes, SchematicKind, int, int], SchematicFault]:
-        # one authoring fold: resolve the spec onto the Drawing canvas, get_imagedata("svg") once.
         _svg_backend()
         match self.spec:
             case SchematicSpec(tag="logic", logic=expr):
@@ -201,8 +186,6 @@ class Schematic(Struct, frozen=True):
                     drawing = logicparse(expr)
                 except ValueError as bad:
                     return Error(SchematicFault(parse=str(bad)))
-                # provider-authored gate networks materialize their connectors as wire/line elements — the tally
-                # reads the RENDERED topology, never a hardcoded zero.
                 wires = sum(1 for element in drawing.elements if isinstance(element, (_elm.Wire, _elm.Line, _elm.Arrow)))
                 return _captured(drawing).map(lambda data: (data, SchematicKind.LOGIC, len(drawing.elements) - wires, wires))
             case (
@@ -227,7 +210,7 @@ class Schematic(Struct, frozen=True):
                 return (
                     Error(SchematicFault(admission=missing))
                     if missing
-                    else _lone(owner, dict(data)).map(lambda drawn: (drawn[0], kind, drawn[1], 0))  # data figures render no connectors — zero is the true tally
+                    else _lone(owner, dict(data)).map(lambda drawn: (drawn[0], kind, drawn[1], 0))
                 )
             case _ as unreachable:
                 assert_never(unreachable)
@@ -239,7 +222,7 @@ class Schematic(Struct, frozen=True):
     def _admitted(self, rows: tuple[SymbolRow, ...], family: object, /) -> Result[tuple[SymbolRow, ...], SchematicFault]:
         refs = tuple(row.ref for row in rows)
         issues = (
-            (("rows:empty",) if not rows else ())  # an empty symbol set is a mis-keyed spec, never a blank drawing
+            (("rows:empty",) if not rows else ())
             + tuple(f"row:{index}:ref" for index, row in enumerate(rows) if not row.ref)
             + tuple(f"ref:duplicate:{ref}" for index, ref in enumerate(refs) if ref and ref in refs[:index])
             + tuple(f"{row.ref}:element:{row.element}" for row in rows if not row.element or getattr(family, row.element, None) is None)
@@ -272,7 +255,7 @@ class Schematic(Struct, frozen=True):
     def _placed(self, rows: tuple[SymbolRow, ...], family: object, /) -> Result["schemdraw.Drawing", SchematicFault]:
         with schemdraw.Drawing(show=False) as drawing:
             placed: dict[str, object] = {}
-            for row in rows:  # Exemption: Drawing is the provider's mutable canvas; += insertion is its one authoring surface
+            for row in rows:
                 match _symbol(row, family, placed, self.theme, self.mode):
                     case Result(tag="error", error=fault):
                         return Error(fault)
@@ -282,7 +265,6 @@ class Schematic(Struct, frozen=True):
         return Ok(drawing)
 
     def layers(self, svg: bytes, /) -> LayerPlan:
-        # schemdraw renders ONE SVG (symbols + lettering fused), so the plan carries one LINEWORK root.
         return LayerPlan(
             schema=EDITORIAL,
             roots=(LayerNode.Leaf(LayerMeta(name="symbols", intent=LayerIntent.LINEWORK), LayerContent.Fragment(svg)),),
@@ -293,7 +275,6 @@ class Schematic(Struct, frozen=True):
 
 
 def _anchored(placed: dict[str, object], address: str, /) -> Result[object, SchematicFault]:
-    # "<ref>.<anchor>" -> the placed element's anchor value; a missing ref or anchor is the typed refusal, never an AttributeError.
     ref, _, anchor = address.partition(".")
     host = placed.get(ref)
     seat = getattr(host, anchor, None) if host is not None else None
@@ -303,7 +284,6 @@ def _anchored(placed: dict[str, object], address: str, /) -> Result[object, Sche
 def _symbol(
     row: SymbolRow, family: object, placed: dict[str, object], theme: Theme, mode: ThemeMode, /
 ) -> Result[object, SchematicFault]:
-    # One row constructs, orients, seats, stretches, and styles one provider element.
     cls = getattr(family, row.element, None)
     if cls is None:
         return Error(SchematicFault(element=row.element))
@@ -327,24 +307,16 @@ def _symbol(
                 symbol = getattr(symbol, verb)(seated.default_value(None))
         return Ok(symbol)
     except (TypeError, AttributeError) as refused:
-        # a pin set on a non-IC element, or a two-terminal verb on a one-terminal element
         return Error(SchematicFault(element=f"{row.ref}:{row.element}:{refused}"))
 
 
 def _connections(rows: tuple["SymbolRow", ...], /) -> int:
-    # anchored-connection tally over the authored program: an explicit `at=` anchor or the default chain off the
-    # previous row (every row past the first) is one connection, and each `tox`/`toy` stretch target adds one —
-    # never a `row.at` presence proxy that misses default chaining.
     chained = sum(1 for index, row in enumerate(rows) if row.at or index > 0)
     return chained + sum(int(bool(row.tox)) + int(bool(row.toy)) for row in rows)
 
 
 @cache
 def _svg_backend() -> None:
-    # process-global backend selection, set ONCE at the diagram-rail boundary and idempotent thereafter — the
-    # standalone SVG engine with font-independent path text. The cache gate keeps the render path free of
-    # repeated global mutation (and of races between concurrent THREAD-lane renders); the values are rail
-    # constants and this worker is the process's only schemdraw consumer, so no restore is owed.
     schemdraw.use("svg")
     schemdraw.svgconfig.text = "path"
 
@@ -352,13 +324,11 @@ def _svg_backend() -> None:
 def _captured(drawing: object, /) -> Result[bytes, SchematicFault]:
     try:
         return Ok(drawing.get_imagedata("svg"))
-    except ValueError as bad:  # backend/validator refusals (color, linestyle, image format) raise ValueError
+    except ValueError as bad:
         return Error(SchematicFault(render=str(bad)))
 
 
 def _lone(owner: type, data: dict[str, object], /) -> Result[tuple[bytes, int], SchematicFault]:
-    # render one data-driven owner (Kmap/Table/TimingDiagram/BitField) on its own canvas; a malformed payload
-    # refuses typed, and the count reads the RENDERED element tally — never the payload's config-key count.
     try:
         with schemdraw.Drawing(show=False) as drawing:
             drawing += owner(**data)

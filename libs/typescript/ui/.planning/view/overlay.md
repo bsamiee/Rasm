@@ -38,7 +38,7 @@ declare namespace Overlay {
   type Detents = {
     readonly points: ReadonlyArray<number | string>
     readonly fadeFrom: number
-    readonly sequential: boolean // velocity-skip disabled where each detent is a semantic stop rather than a waypoint
+    readonly sequential: boolean
   }
   type Dismissal = "close" | "close-silent" | "commit-close" | "ignore"
   type Present =
@@ -122,16 +122,16 @@ const _sheet = (
   root: {
     open: held.open,
     onOpenChange: (open) => drive({ ...held, open }),
-    snapPoints: [...detents.points], // vaul's control surface takes a mutable array: this fold is the one seam the readonly policy row copies at
+    snapPoints: [...detents.points],
     fadeFromIndex: detents.fadeFrom,
     activeSnapPoint: held.at,
     setActiveSnapPoint: (at) => drive({ ...held, at }),
     snapToSequentialPoint: detents.sequential,
     handleOnly: true,
-    ...(nesting === "flat" && { modal: true }), // a nested sheet inherits its parent's modality; only the flat arm states one
+    ...(nesting === "flat" && { modal: true }),
   },
-  content: {}, // Title and Description always mount, so Radix's own aria-labelledby/describedby wiring names live nodes and nothing here overrides it
-  handle: { preventCycle: true }, // the handle drags; detent cycling stays the atom's write
+  content: {},
+  handle: { preventCycle: true },
 })
 ```
 
@@ -176,18 +176,10 @@ const _hosts = {
   anchored: { shell: Command, portal: "floating-ui", trap: "floating-ui", anchor: "reference" },
 } as const
 
-// which surface a row answers on: the palette reads `global`, a positional float reads its own member,
-// and `shell` is the chrome's — view/shell#COMMAND_SEAM contributes its toggle and collapse rows there
 const _scopes = ["global", "mark", "node", "row", "shell"] as const
 
-// what a row NEEDS to be live: every member is a live read some owner already publishes — the machine's admitted
-// signals (advance/revert), the selection fold's present set, the scene's resident graft and its baked acceleration
-// band, and the two capability Tags the browser root satisfies — so composition folds the held set once per render
-// and no row ever stores the verdict this roster derives
 const _grants = ["accelerated", "advance", "clipboard", "egress", "residency", "revert", "selection"] as const
 
-// _ORDER, _MODIFIERS, and _ALIASES restate the shipped matcher's sort order, modifier tokens, and key aliases; `ctrl` is absent
-// from the token table on purpose — that spelling parses as a KEY and its modifier silently disappears
 const _ORDER = ["Alt", "Control", "Meta", "Shift"] as const
 
 const _MODIFIERS: Record.ReadonlyRecord<string, (typeof _ORDER)[number]> = {
@@ -210,10 +202,6 @@ const _ALIASES: Record.ReadonlyRecord<string, string> = {
   up: "arrowup",
 }
 
-// Two legs partition the table gate and each reason renders its OWN subject: a grammar refusal names the binding
-// the shipped parser reads as no chord at all, a census refusal names every row claiming one canonical spelling.
-// The rows column is non-empty by construction on both arms — a refusal naming no row is a verdict about nothing —
-// and the class column is the core lattice's, so no rank or retry literal lands beside it.
 const _commandFamily = Fault.Class.family(["chord", "clash"] as const, {
   chord: Fault.Class.row({
     class: "malformed",
@@ -250,8 +238,6 @@ class CommandFault extends Schema.TaggedError<CommandFault>()("CommandFault", {
 
 declare namespace Overlay {
   type Modifier = "alt" | "control" | "meta" | "mod" | "shift"
-  // a literal binding validates where it is written: every `+`-separated head is a recognized
-  // modifier and the tail is a real key, so a chord whose modifier the shipped parser would swallow never reaches a row
   type Chord<S> = S extends string
     ? S extends `${infer Head}+${infer Rest}`
       ? Lowercase<Head> extends Overlay.Modifier ? ([Overlay.Chord<Rest>] extends [never] ? never : S) : never
@@ -259,17 +245,17 @@ declare namespace Overlay {
     : S
   type Scope = (typeof _scopes)[number]
   type Grant = (typeof _grants)[number]
-  type Missing = Array.NonEmptyReadonlyArray<Overlay.Grant> // a refusal names what it wanted and lacked; an empty miss is admission, never a refusal shaped like one
+  type Missing = Array.NonEmptyReadonlyArray<Overlay.Grant>
   type Register = (typeof _registers)[number]
   type Owner = "cmdk" | "floating-ui" | "vaul"
   type Command<R = never> = {
     readonly icon: LucideIcon
-    readonly label: string // a system/intl catalog key: the scorer reads its RESOLVED text through keywords, never this key
+    readonly label: string
     readonly keywords: ReadonlyArray<string>
     readonly scope: Overlay.Scope
     readonly binding: string | null
-    readonly needs: ReadonlyArray<Overlay.Grant> // what legality REQUIRES; the verdict derives per render and is stored nowhere
-    readonly run: Effect.Effect<void, never, R> // total by construction: the row folds its own refusal into a note
+    readonly needs: ReadonlyArray<Overlay.Grant>
+    readonly run: Effect.Effect<void, never, R>
   }
   type Host = keyof typeof _hosts
   type HostRow = {
@@ -280,8 +266,8 @@ declare namespace Overlay {
   }
   type Entry = {
     readonly item: ComponentProps<typeof Command.Item>
-    readonly chord: ReadonlyArray<string> // display tokens beside the label; empty where the row carries no key
-    readonly missing: ReadonlyArray<Overlay.Grant> // the rendered reason a row is inert; empty where it is live
+    readonly chord: ReadonlyArray<string>
+    readonly missing: ReadonlyArray<Overlay.Grant>
   }
   type Palette = {
     readonly root: ComponentProps<typeof Command>
@@ -290,18 +276,17 @@ declare namespace Overlay {
   type Projection<R> = {
     readonly table: Record.ReadonlyRecord<string, Overlay.Command<R>>
     readonly resolve: (label: string) => string
-    readonly mod: "Control" | "Meta" // the host's `Mod` expansion for DISPLAY only; matching resolves inside useKeyboard
-    readonly held: HashSet.HashSet<Overlay.Grant> // composition's fold over the live reads; the palette derives every verdict against it
+    readonly mod: "Control" | "Meta"
+    readonly held: HashSet.HashSet<Overlay.Grant>
     readonly fork: (run: Effect.Effect<void, never, R>) => void
     readonly remote: boolean
   }
-  type _Rows<T extends Record.ReadonlyRecord<Overlay.Host, Overlay.HostRow> = typeof _hosts> = T // row guard: a host missing its ownership columns fails at the declaration
+  type _Rows<T extends Record.ReadonlyRecord<Overlay.Host, Overlay.HostRow> = typeof _hosts> = T
 }
 
 const _chord = (binding: string, mod: "Control" | "Meta"): Option.Option<ReadonlyArray<string>> => {
   const parts = Array.map(binding.split("+"), (part) => part.toLowerCase())
   const held = Array.filterMap(parts, (part) => (part === "mod" ? Option.some(mod) : Record.get(_MODIFIERS, part)))
-  // every non-modifier token overwrites the shipped parser's key slot, so the LAST one is the chord's key
   return Option.map(
     Array.findLast(parts, (part) => part !== "mod" && !Record.has(_MODIFIERS, part)),
     (key) =>
@@ -321,7 +306,6 @@ const _commands = <R, const T extends Record.ReadonlyRecord<string, Overlay.Comm
   const bound = Array.filterMap(Record.toEntries(table), ([key, row]) =>
     row.binding === null ? Option.none() : Option.some([key, row.binding] as const))
   const malformed = Array.findFirst(bound, ([, chord]) => Option.isNone(_chord(chord, "Meta")))
-  // _commands censuses the two expansions APART: grouping them together reads one `Mod` row as its own rival
   const collided = Array.findFirst(
     Array.flatMap(["Control", "Meta"] as const, (mod) =>
       Record.toEntries(Array.groupBy(bound, ([, chord]) => _canonical(chord, mod)))),
@@ -343,8 +327,6 @@ const _scoped = <R>(
   scope: Overlay.Scope,
 ): Record.ReadonlyRecord<string, Overlay.Command<R>> => Record.filter(table, (row) => row.scope === scope)
 
-// legality is one set difference over declared data, so a row's verdict is recomputed from the live reads on every
-// consultation and the refusal carries WHICH grants were wanted — a bare boolean here would drop exactly that fact
 const _admits = <R>(
   row: Overlay.Command<R>,
   held: HashSet.HashSet<Overlay.Grant>,
@@ -358,9 +340,6 @@ const _bindings = <R>(
   held: HashSet.HashSet<Overlay.Grant>,
   fork: (run: Effect.Effect<void, never, R>) => void,
 ): KeyboardShortcutBindings =>
-  // an action returning nothing counts as HANDLED — the matcher preventDefaults and stops propagation,
-  // which is exactly the command semantics; a row wanting the key to travel on returns `false` instead,
-  // and a row whose grants are unmet never enters the record at all, so its chord reaches whoever else claims it
   Record.fromEntries(Array.filterMap(Record.toEntries(table), ([, row]) =>
     Either.match(_admits(row, held), {
       onLeft: () => Option.none<readonly [string, () => void]>(),
@@ -370,9 +349,6 @@ const _bindings = <R>(
 
 const _registers = ["condensed", "prose", "spoken"] as const
 
-// modifier spellings split by PLATFORM before they split by register — ⌘ means nothing on a Windows keyboard and
-// "Command" misnames its Meta key — so the four modifier rows live in a platform-keyed table the display fold
-// consults ahead of the invariant key table, and _usePlatform's read is consumed here, never decorative
 const _SPELLINGS = {
   apple: {
     Alt: { condensed: "⌥", prose: "Option", spoken: "option" },
@@ -388,8 +364,6 @@ const _SPELLINGS = {
   },
 } as const satisfies Record<"apple" | "other", Record.ReadonlyRecord<string, Record<(typeof _registers)[number], string>>>
 
-// one display table, three registers per platform-invariant token; tokens outside the table answer themselves
-// through the register's own case fold
 const _DISPLAY = {
   arrowdown: { condensed: "↓", prose: "Down", spoken: "down arrow" },
   arrowleft: { condensed: "←", prose: "Left", spoken: "left arrow" },
@@ -418,38 +392,32 @@ const _display = (
       Option.orElse(Record.get(_SPELLINGS[platform], token), () => Record.get(_DISPLAY, token)),
       {
         onSome: (row) => row[register],
-        // an unlisted token is a plain key: the visual registers title-case it, the spoken one keeps it lowercase
         onNone: () => (register === "spoken" ? token.toLowerCase() : token.charAt(0).toUpperCase() + token.slice(1)),
       },
     ))
 
-// rules-of-hooks reads the NAME, so the `use` prefix is load-bearing; the server snapshot answers `other` so
-// prerendered chords spell the non-Apple form and hydration re-reads without a tear
 const _usePlatform = (): "apple" | "other" =>
   useSyncExternalStore(
-    () => () => {}, // a platform never changes mid-session: the subscription is inert
+    () => () => {},
     () => (/mac|iphone|ipad/i.test(globalThis.navigator.platform) ? "apple" : "other"),
     () => "other",
   )
 
 const _virtual = (rect: () => DOMRect): VirtualElement => ({ getBoundingClientRect: rect })
 
-// _point mints the zero-size rect the RAC arm derives from `state.point` through usePopover's own getTargetRect
 const _point = (x: number, y: number): VirtualElement => _virtual(() => new DOMRect(x, y, 0, 0))
 
 const _palette = <R>(projection: Overlay.Projection<R>): Overlay.Palette => ({
-  // an async source hands the store the matching and renders pre-filtered rows; the local table keeps cmdk's scorer
   root: { shouldFilter: !projection.remote, loop: true, filter: defaultFilter },
   entries: Array.map(Record.toEntries(_scoped(projection.table, "global")), ([key, row]) => {
-    // one verdict read twice at one site: cmdk's own `disabled` refuses the selection and the same miss renders the reason
     const missing = Option.getOrElse(
       Either.getLeft(_admits(row, projection.held)),
       (): ReadonlyArray<Overlay.Grant> => [],
     )
     return {
       item: {
-        value: key, // the stable spec key: filtering and selection survive label localization
-        keywords: [projection.resolve(row.label), ...row.keywords], // the localized text enters the scorer HERE, never as the value
+        value: key,
+        keywords: [projection.resolve(row.label), ...row.keywords],
         disabled: !Array.isEmptyReadonlyArray(missing),
         onSelect: () => projection.fork(row.run),
       },
@@ -459,8 +427,7 @@ const _palette = <R>(projection: Overlay.Projection<R>): Overlay.Palette => ({
   }),
 })
 
-// rules-of-hooks reads the NAME, so the `use` prefix is load-bearing: this member holds a cmdk store subscription
-const _useMatched = (): number => useCommandState((state) => state.filtered.count) // the count and empty rows read the store, so the list never re-renders to report its own size
+const _useMatched = (): number => useCommandState((state) => state.filtered.count)
 ```
 
 ## [05]-[PRESENCE_COHORT]
@@ -518,8 +485,6 @@ const _cursors = (
     status === "gone"
       ? Option.none()
       : Option.flatMap(HashMap.get(seen, key), (state) =>
-        // cursor-axis presence marks an actor SIGHTED here; a live actor who has never moved renders nothing,
-        // and an actor whose point no registered space resolves DROPS rather than landing at a guessed pixel
         Option.flatMap(state.cursor, (worn) =>
           Option.map(project(worn.value), ([x, y]) => ({
             key,
@@ -550,7 +515,7 @@ const Overlay: Overlay.Shape = {
   virtual: _virtual,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { CommandFault, Overlay }
 ```

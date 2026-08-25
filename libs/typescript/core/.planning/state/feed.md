@@ -433,7 +433,7 @@ const Feed: Feed.Shape = {
           Chunk.append(Chunk.size(kept) < take ? kept : Chunk.drop(kept, 1), entry)),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Feed }
 ```

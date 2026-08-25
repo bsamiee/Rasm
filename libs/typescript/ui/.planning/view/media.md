@@ -32,16 +32,12 @@ import { Context, Effect, Option, Schema } from "effect"
 
 const _classes = ["image", "video", "audio"] as const
 
-// one row per class: the rendering element, whether playback streams over time, and whether a poster stands in
-// before bytes arrive — every class decision below reads off this table, never a switch beside it
 const _CLASSES = {
   image: { element: "img", timed: false, postered: false },
   video: { element: "video", timed: true, postered: true },
   audio: { element: "audio", timed: true, postered: false },
 } as const
 
-// grade keys transcribe the runtime connection plane's own vocabulary, field-for-field as the cache spells its
-// budget verdicts; each row answers the whole posture so no component ever reads a profile
 const _POLICY = Schema.Struct({
   preload: Schema.Literal("none", "metadata", "auto"),
   autoplay: Schema.Boolean,
@@ -50,12 +46,8 @@ const _POLICY = Schema.Struct({
 
 const _Policy = Shape.Record(Schema.Literal("swift", "steady", "strained", "frugal"), _POLICY)
 
-// the two extended arms that can refuse AT invocation; the media-session arm writes a host register synchronously
-// and carries no refusal, so it is absent here rather than a member nothing ever raises
 const _Grant = Schema.Literal("fullscreen", "pictureInPicture")
 
-// two legs partition the refusal: `source` is byte truth — no lane answers the key, or the bytes will not decode —
-// and `host` is the user agent's own verdict on a command that arrived whole
 const _family = Fault.Class.family(
   ["source-absent", "decode-refused", "playback-denied", "capability-absent"] as const,
   {
@@ -102,11 +94,9 @@ class Source extends Schema.Class<Source>("Source")({
   media: Schema.Literal(..._classes),
   mime: Schema.NonEmptyString,
   extent: Schema.Int.pipe(Schema.nonNegative()),
-  poster: Schema.optionalWith(Digest.Key.content, { as: "Option" }), // a stand-in frame only a postered class carries
+  poster: Schema.optionalWith(Digest.Key.content, { as: "Option" }),
 }).pipe(Schema.filter((source) => _CLASSES[source.media].postered || Option.isNone(source.poster) || "<poster-on-unpostered-class>")) {}
 
-// two lanes, one port: `address` feeds the platform loaders (the element fetches natively), `pull` answers octets
-// for the cache mint and the verified preview; neither lane schedules — the satisfier wraps the runtime depot
 class Serve extends Context.Tag("ui/media/Serve")<Serve, {
   readonly address: (key: Digest.Key<"content">, name: string) => string
   readonly pull: (key: Digest.Key<"content">) => Effect.Effect<Uint8Array<ArrayBuffer>, MediaFault>
@@ -130,8 +120,6 @@ import { type Stream, SubscriptionRef } from "effect"
 
 const _priorities = ["critical", "visible", "deferred"] as const
 
-// one row per priority class: the platform triple travels together, and `fetchpriority` degrades inert on a
-// host predating it — no probe, no branch
 const _LOADING = {
   critical: { loading: "eager", decoding: "sync", fetchpriority: "high" },
   visible: { loading: "eager", decoding: "async", fetchpriority: "auto" },
@@ -146,19 +134,16 @@ declare namespace Media {
   type Coordinator = {
     readonly enroll: Effect.Effect<void>
     readonly settle: Effect.Effect<void>
-    readonly revealed: SubscriptionRef.SubscriptionRef<boolean> // derives as enrolled === settled above zero; the bridge binds it
+    readonly revealed: SubscriptionRef.SubscriptionRef<boolean>
   }
   type Spot = Schema.Schema.Type<typeof _Spot>
-  // this row spells the structural anchor-space contract field-for-field against view/presence#ANCHOR_PLANE's
-  // Anchor.Space<L, C>: the presence plane admits this row at the composition root, so the coupling is a value
-  // handed at assembly and neither view sibling imports the other
   type Space<L, C> = {
     readonly kind: string
-    readonly surface: string // the mounted instance the registry keys on: two images register two lanes of one family
+    readonly surface: string
     readonly locator: Schema.Schema<L>
     readonly resolve: (locator: L) => Option.Option<{ readonly x: number; readonly y: number; readonly width: number; readonly height: number }>
     readonly carry: Option.Option<(locator: L, change: C) => Option.Option<L>>
-    readonly epoch: Stream.Stream<C> // one invalidation emission per content-box change: the overlay re-resolves on it
+    readonly epoch: Stream.Stream<C>
   }
 }
 
@@ -167,14 +152,9 @@ const _Spot = Schema.Struct({
   y: Schema.Number.pipe(Schema.between(0, 1)),
 })
 
-// revealed derives as enrolled === settled above zero, so reveal is a proof over the tally and
-// no timer can fabricate it; a nested coordinator enrolls ONE slot on its parent and settles it when it reveals,
-// so a composed plane reveals as one unit however its tree nests
 const _coordinate: Effect.Effect<Media.Coordinator> = Effect.gen(function* () {
   const tally = yield* SubscriptionRef.make({ enrolled: 0, settled: 0 })
   const revealed = yield* SubscriptionRef.make(false)
-  // this latch is MONOTONIC: a slot enrolling after the plane revealed joins the next paint quietly — flipping a
-  // shown plane back behind the veil re-hides content the user already saw
   const derive = SubscriptionRef.get(tally).pipe(
     Effect.flatMap((held) =>
       SubscriptionRef.update(revealed, (shown) => shown || (held.enrolled > 0 && held.settled >= held.enrolled))
@@ -187,8 +167,6 @@ const _coordinate: Effect.Effect<Media.Coordinator> = Effect.gen(function* () {
   }
 })
 
-// enroll binds the element's own decode proof onto the rail: a refused decode fails visibly and still settles the
-// plane, so the coordinator can never hang on a broken byte stream
 const _enrolled = (held: Media.Coordinator, image: HTMLImageElement): Effect.Effect<void, MediaFault> =>
   Effect.zipRight(
     held.enroll,
@@ -206,13 +184,13 @@ const _space = (surface: string, target: HTMLElement, resized: Stream.Stream<voi
   surface,
   locator: _Spot,
   resolve: (spot) => {
-    const box = target.getBoundingClientRect() // BOUNDARY ADAPTER: the live content box is the platform's own read
+    const box = target.getBoundingClientRect()
     return box.width === 0 || box.height === 0
       ? Option.none()
       : Option.some({ x: box.left + spot.x * box.width, y: box.top + spot.y * box.height, width: 0, height: 0 })
   },
-  carry: Option.none(), // fractions are intrinsic-stable: no mutation maps them, so the arm states its absence
-  epoch: resized, // the element's resize observation as a stream: the caller brackets the observer per the landed pattern
+  carry: Option.none(),
+  epoch: resized,
 })
 ```
 
@@ -232,7 +210,6 @@ const _space = (surface: string, target: HTMLElement, resized: Stream.Stream<voi
 import { cva } from "class-variance-authority"
 import { Array, HashSet, Option, Order } from "effect"
 
-// in this one avatar recipe size rides the token scale, and the identity law fills the ring's CSS custom property
 const _face = cva("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-neutral-surface text-neutral-text", {
   variants: {
     size: { xs: "size-5 text-xs", sm: "size-6 text-xs", md: "size-8 text-sm", lg: "size-10 text-base" },
@@ -241,16 +218,12 @@ const _face = cva("relative inline-flex shrink-0 items-center justify-center ove
   defaultVariants: { size: "md", ringed: false },
 })
 
-// one lightness-chroma pair renders every identity hue in the same perceptual band, so the hue stays the actor's
-// evidence and the band stays this page's one appearance decision
 const _RING = { lightness: 0.72, chroma: 0.14 } as const
 
 const _ring = (hue: Option.Option<number>): Option.Option<string> =>
   Option.map(hue, (held) => `oklch(${_RING.lightness} ${_RING.chroma} ${held})`)
 
-// grapheme-safe initials: the locale segmenter splits name parts, and each part yields its first grapheme whole
 const _initials = (name: string, locale: string): string => {
-  // BOUNDARY ADAPTER: Intl.Segmenter is the platform's grapheme authority; the iterator is consumed at this seam
   const segmenter = new Intl.Segmenter(locale, { granularity: "grapheme" })
   return Array.join(
     Array.map(
@@ -262,16 +235,16 @@ const _initials = (name: string, locale: string): string => {
 }
 
 declare namespace Media {
-  type Stacked<A> = { readonly shown: ReadonlyArray<A>; readonly hidden: ReadonlyArray<A> } // hidden travels whole: the +n list renders without a second fold
+  type Stacked<A> = { readonly shown: ReadonlyArray<A>; readonly hidden: ReadonlyArray<A> }
 }
 
 const _stack = <A, K>(
   faces: ReadonlyArray<A>,
   key: (face: A) => K,
-  rank: Order.Order<A>, // the caller's own rank value: self-first, alphabetical, arrival — domain-blind here
+  rank: Order.Order<A>,
   max: number,
 ): Media.Stacked<A> => {
-  const bound = Math.max(2, max) // one face beside +n reads as nothing: the clamp is structural
+  const bound = Math.max(2, max)
   const unique = Array.reduce(faces, { seen: HashSet.empty<K>(), held: Array.empty<A>() }, (taken, face) =>
     HashSet.has(taken.seen, key(face))
       ? taken
@@ -300,8 +273,8 @@ import { Scope, Stream, SubscriptionRef } from "effect"
 
 declare namespace Media {
   type Transport = {
-    readonly position: number // seconds; the element's own clock, folded on timeupdate
-    readonly duration: Option.Option<number> // absent until metadata lands: a live stream may never answer
+    readonly position: number
+    readonly duration: Option.Option<number>
     readonly playing: boolean
     readonly waiting: boolean
   }
@@ -324,18 +297,15 @@ declare namespace Media {
   }
 }
 
-// this closed track-kind vocabulary is the platform's own, spelled whole; a track row names kind, label key, bytes
 const _trackKinds = ["subtitles", "captions", "descriptions", "chapters", "metadata"] as const
 
 const _Track = Schema.Struct({
   kind: Schema.Literal(..._trackKinds),
-  label: Schema.NonEmptyString, // an intl catalog key: track menus localize like every other string
+  label: Schema.NonEmptyString,
   language: Schema.NonEmptyString,
   key: Digest.Key.content,
 })
 
-// one registration, one scope, one state value: every event family folds into the same SubscriptionRef, and
-// release removes the whole binding — no surface ever holds a second listener on the element
 const _transport = (element: HTMLMediaElement): Effect.Effect<Media.Deck, never, Scope.Scope> =>
   Effect.gen(function* () {
     const state = yield* SubscriptionRef.make<Media.Transport>({ position: 0, duration: Option.none(), playing: false, waiting: false })
@@ -356,8 +326,6 @@ const _transport = (element: HTMLMediaElement): Effect.Effect<Media.Deck, never,
     )
     return {
       state,
-      // hosts refuse play on autoplay policy and unloadable sources: the rail carries that refusal as a typed
-      // affordance, never a silently dead control
       play: Effect.tryPromise({
         try: () => element.play(),
         catch: (defect) => new MediaFault({ case: { reason: "playback-denied", source: element.currentSrc, cause: String(defect) } }),
@@ -368,8 +336,6 @@ const _transport = (element: HTMLMediaElement): Effect.Effect<Media.Deck, never,
     }
   })
 
-// probed once per call against the live host: absence is an Option a consumer renders as a missing affordance,
-// and a present arm still refuses typed when the host revokes at invocation
 const _extended: Effect.Effect<Media.Extended> = Effect.sync(() => ({
   fullscreen: typeof globalThis.document.documentElement.requestFullscreen === "function"
     ? Option.some((target: HTMLElement) =>
@@ -388,7 +354,6 @@ const _extended: Effect.Effect<Media.Extended> = Effect.sync(() => ({
   session: "mediaSession" in globalThis.navigator
     ? Option.some((row: Media.Session, address: (key: Digest.Key<"content">) => string) =>
       Effect.sync(() => {
-        // BOUNDARY ADAPTER: the media session is an imperative host register; artwork resolves through the serve join
         globalThis.navigator.mediaSession.metadata = new MediaMetadata({
           title: row.title,
           artist: Option.getOrElse(row.artist, () => ""),
@@ -420,10 +385,10 @@ declare namespace Media {
   type Strip = {
     readonly target: RefObject<HTMLElement | null>
     readonly count: number
-    readonly extent: (index: number) => number // per-cell size estimate the window corrects by measurement
-    readonly settled: (index: number) => void // the announcement + prefetch seam: fires on snap settle, never per frame
+    readonly extent: (index: number) => number
+    readonly settled: (index: number) => void
   }
-  type Camera = { readonly center: readonly [number, number]; readonly zoom: number } // the lightbox's two axes; bearing stays zero
+  type Camera = { readonly center: readonly [number, number]; readonly zoom: number }
   type Shape = {
     readonly Fault: typeof MediaFault
     readonly Source: typeof Source
@@ -446,8 +411,6 @@ declare namespace Media {
   }
 }
 
-// snap physics live in CSS, windowing here, reveal through the one imperative move; the virtualizer's default
-// scrollToFn stands because the snap container's own smooth scroll is the animation
 const _useStrip = (options: Media.Strip) => {
   const window = useVirtualizer({
     count: options.count,
@@ -456,9 +419,6 @@ const _useStrip = (options: Media.Strip) => {
     horizontal: true,
     overscan: 2,
   })
-  // this settle seam WIRES here — scrollend where the host ships it, a scroll-quiesce window where it does not
-  // (the event sits past the baseline gate), so announcement and prefetch fire once per settle, never per frame;
-  // centered logical index derives from the window's own measurements
   useEffect(() => {
     const host = options.target.current
     if (host === null) return undefined
@@ -511,7 +471,7 @@ const Media: Media.Shape = {
   useStrip: _useStrip,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Media, MediaFault, Serve }
 ```

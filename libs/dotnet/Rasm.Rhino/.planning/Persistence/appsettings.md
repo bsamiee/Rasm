@@ -24,14 +24,14 @@ Owner boundary against the settings tree is settled: `SettingsRoot.ApplicationCa
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[Union]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`, `Op.Catch`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Persistence/presets` (`PersistenceFault`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — the `GetCurrentState`/`GetDefaultState`/`UpdateFromState`/`RestoreDefaults` quartet on every state-carrying owner, `AppearanceSettings.GetDefaultState(bool darkMode)`, `SetToDarkMode`/`SetToLightMode`, `UsingDefaultDarkModeColors`/`UsingDefaultLightModeColors`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Rasm.Domain;
 using Rhino.ApplicationSettings;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FamilyVerb : ICapability<FamilyVerb> {
     public static readonly FamilyVerb Capture = new("capture");
@@ -40,10 +40,7 @@ public sealed partial class FamilyVerb : ICapability<FamilyVerb> {
     public static readonly FamilyVerb Reset = new("reset");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
-// `Shape` is the host's own falloff ordinal. `api-rhinocommon-appsettings.md` names `SoftTransformSettings` as an
-// owner but tables none of its members, so the ordinal roster has no catalogued spelling to key a row family on and
-// the column carries the host's width until the catalogue tables it.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SoftTransformState(
     bool Enabled,
     double Radius,
@@ -57,7 +54,6 @@ public sealed record SoftTransformState(
 [ComplexValueObject]
 [ValidationError]
 public sealed partial record PackageManagerState(Seq<string> Sources) {
-    // The host joins the source roster on this character and splits it back on read.
     internal const char Separator = ';';
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<string> sources) {
@@ -68,8 +64,6 @@ public sealed partial record PackageManagerState(Seq<string> Sources) {
     }
 }
 
-// Each case declares its payload, the family that owns it, and the boxed carrier the family lowers through, so the
-// two projections every consumer reads are base columns rather than two parallel folds kept aligned by hand.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AppState(object Payload, AppSettingsFamily Family) {
     public sealed record AppearanceCase(AppearanceSettingsState Value)
@@ -291,8 +285,6 @@ public sealed partial class AppSettingsFamily {
         update: ThicknessAnalysisSettings.UpdateFromState,
         restore: ThicknessAnalysisSettings.RestoreDefaults);
 
-    // The host's own coverage is uneven, so the row states which verbs it answers and admission refuses the rest
-    // before any host static is touched.
     public CapabilitySet<FamilyVerb> Verbs { get; }
 
     [UseDelegateFromConstructor]
@@ -329,8 +321,6 @@ public sealed partial class AppSettingsFamily {
                 ? op => Fin.Fail<AppState>(error: op.Unsupported(
                     inputType: typeof(AppSettingsFamily), outputType: typeof(AppState)))
                 : op => op.Catch(() => Fin.Succ(value: lift(arg: preset()))),
-            // `state.Family` selected this row, so the payload IS `TState` by the case's own declaration and the
-            // cast is total; a lowering probe answering `None` was a branch no call site reaches.
             apply: update is null
                 ? static (_, op) => Fin.Fail<Unit>(error: op.Unsupported(
                     inputType: typeof(AppState), outputType: typeof(Unit)))
@@ -347,8 +337,6 @@ public sealed partial class AppSettingsFamily {
                 }));
 }
 
-// The key IS the host `darkMode` flag, so `GetDefaultState(darkMode)` and `DefaultPaintColor(slot, darkMode)` read
-// the row rather than a mirror column.
 [SmartEnum<bool>]
 public sealed partial class AppTheme {
     public static readonly AppTheme Light = new(
@@ -387,7 +375,7 @@ public sealed partial class AppTheme {
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`Fin`, `Option`, `Seq`); kernel `Domain/rails` (`Op`); `Document/session` (`DocumentPath`), `Persistence/presets` (`PersistenceFault`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — `GetPaintColor`/`SetPaintColor`/`DefaultPaintColor`, `GetWidgetColor`/`SetWidgetColor`/`DefaultWidgetColor`, `GeneralSettings.UseExtrusions`/`SplitCreasedSurfaces`, `CommandAlias`, `KeyboardShortcut`), RhinoCommon UI (`api-rhino-ui.md` — `KeyboardKey`, `ModifierKey`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `Mesh`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -397,7 +385,7 @@ using Rhino.UI;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct AliasName : IDisallowDefaultValue {
@@ -420,7 +408,6 @@ public readonly partial struct MacroText : IDisallowDefaultValue {
     }
 }
 
-// Each row's key IS the host argument or answer it lowers to.
 [SmartEnum<bool>]
 public sealed partial class RegistryMerge {
     public static readonly RegistryMerge Extend = new(key: false);
@@ -439,7 +426,7 @@ public sealed partial class CreasePolicy {
     public static readonly CreasePolicy Split = new(key: true);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record AliasBinding(AliasName Name, MacroText Macro, Option<bool> Instant);
 
 public sealed record ShortcutBinding(KeyboardKey Key, ModifierKey Modifier, MacroText Macro);
@@ -507,7 +494,6 @@ public abstract partial record PathEdit {
     public sealed record DataFolderCase(bool CurrentUser) : PathEdit;
     public sealed record TemplateFolderCase(int LanguageId) : PathEdit;
 
-    // The autosave case is the one read/write pair on this union: an absent command roster reads the seated one.
     internal bool Mutates => Switch<bool>(
         rosterCase: static _ => false,
         addCase: static _ => true,
@@ -529,8 +515,6 @@ public abstract partial record GeneralConduct {
     public sealed record CreaseCase(CreasePolicy Mode) : GeneralConduct;
 }
 
-// The keyed UI-color slot owns its own host reads and writes, so the interpreter threads a slot rather than three
-// delegates and a new color family is one case here.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SwatchSlot {
     private SwatchSlot() { }
@@ -580,7 +564,6 @@ public abstract partial record AppOperation {
     public sealed record WindowPositionCase : AppOperation;
     public sealed record AutoRangeCase(CurvatureAnalysisSettingsState Seed, Seq<Mesh> Meshes) : AppOperation;
 
-    // Growth law: a new case names its own custody side, so a write can never enter the seat gate by omission.
     internal bool Mutates => Switch<bool>(
         captureCase: static _ => false,
         fallbackCase: static _ => false,
@@ -644,7 +627,7 @@ public abstract partial record AppAnswer {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]` with the generated total `Switch`, `[SmartEnum<TKey>]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Atom`, `Traverse`, `Validation`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Op.Side`, `Op.AcceptValidated`, `Op.AcceptText`, `Cell.Seat`, `Cell.Step`, `Transition`), `Domain/validation` (`CapabilitySet`); `Document/events` (`PluginKey`), `Document/lifetime` (`Subscription`), `Document/session` (`DocumentPath`); RhinoCommon application settings (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-appsettings.md` — `CommandAliasList` roster, `ShortcutKeySettings` roster with `IsAcceptableKeyCombo`, `NeverRepeatList`, `FileSettings` path roster, `AppearanceSettings.InitialMainWindowPosition`, `CurvatureAnalysisSettings.CalculateCurvatureAutoRange`, `GeneralSettings.MouseSelectMode`/`MiddleMouseMode`/`UseExtrusions`/`SplitCreasedSurfaces`), RhinoCommon UI (`api-rhino-ui.md` — `KeyboardKey`, `ModifierKey`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Drawing;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -653,10 +636,8 @@ using Rhino.UI;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AppSettings {
-    // The host statics are last-writer-wins PROCESS state, so the single-writer law is a SEAT, not prose. The kernel
-    // transition answers the verdict, so a losing contender never proceeds on a decision it did not win.
     private static readonly Atom<Option<PluginKey>> Seat = Atom(Option<PluginKey>.None);
 
     public static Fin<Subscription> Mount(PluginKey writer, Op? key = null) {
@@ -741,8 +722,6 @@ public static class AppSettings {
             })));
     }
 
-    // A read is seat-free by construction; a write presents the mounted writer, so an unmounted process and a second
-    // composition refuse on the same rail before either reaches a host static.
     private static Fin<AppOperation> Seated(AppOperation operation, Option<PluginKey> writer, Op op) =>
         operation.Mutates
             ? Seat.Value
@@ -900,10 +879,6 @@ public static class AppSettings {
 
     private static bool Defined<T>(T value) where T : struct, System.Enum => System.Enum.IsDefined(value);
 
-    // The admitted mask is a per-type CONSTANT resolved at type init; the per-call rebuild folded the whole value
-    // roster on every shortcut row of every roster read. The fold reads each row through its own underlying width,
-    // because `Convert.ToUInt64` THROWS on a negative row and a throw inside a static initializer poisons the type
-    // for the process rather than refusing on the rail.
     private static class FlagMask<T> where T : struct, System.Enum {
         internal static readonly ulong Admitted = System.Enum.GetValues<T>().Aggregate(0UL, static (mask, item) => mask | Bits(item));
     }
@@ -917,7 +892,6 @@ public static class AppSettings {
         (Bits(value) & ~FlagMask<T>.Admitted) == 0UL;
 
     private static Fin<AppAnswer> Mutated(AppSettingsFamily family, Func<Fin<Unit>> write, Op op) {
-        // Every family captures, so a refused observation is a FAULT with the refusing error on the receipt.
         AppObservation Observe() => family.Capture(op: op).Match(
             Succ: state => (AppObservation)new AppObservation.ObservedCase(State: state),
             Fail: error => new AppObservation.FaultedCase(Family: family, Fault: error));
@@ -931,8 +905,6 @@ public static class AppSettings {
     private static Fin<AppAnswer> Aliases(AliasEdit edit, Op op) => edit.Switch<Op, Fin<AppAnswer>>(
         op,
         rosterCase: static (op, _) => AliasBindings(
-            // ONE FindAlias answers macro and instant together; the name-only fallback covers a row the host
-            // resolver refuses mid-walk, its instant honestly absent.
             source: () => CommandAliasList.GetNames().Select(name =>
                 CommandAliasList.FindAlias(alias: name) is { } found
                     ? (Name: name, Macro: found.Macro, Instant: Some(found.Instant))
@@ -945,8 +917,6 @@ public static class AppSettings {
                 Instant: Option<bool>.None)),
             op: op),
         probeCase: static (op, probe) => op.Catch(() => CommandAliasList.IsAlias(alias: probe.Name.Value)
-            // A blank or malformed macro on an EXISTING alias refuses on the rail — folding it to None would make
-            // a defective alias read as a non-existent one.
             ? op.AcceptValidated<MacroText>(CommandAliasList.GetMacro(alias: probe.Name.Value))
                 .Map(static macro => (AppAnswer)new AppAnswer.MacroCase(Macro: Some(macro)))
             : Fin.Succ(value: (AppAnswer)new AppAnswer.MacroCase(Macro: None))),
@@ -1017,8 +987,6 @@ public static class AppSettings {
             from roster in Roster(op)
             select roster);
 
-    // ONE roster read per answer: the enabled flag and the command names are two reads of a racing process global,
-    // so both land inside one catch frame and one value.
     private static Fin<AppAnswer> Roster(Op op) => op.Catch(() => Fin.Succ(value: (AppAnswer)new AppAnswer.RepeatCase(
         Roster: new RepeatRoster(
             Enabled: NeverRepeatList.UseNeverRepeatList,

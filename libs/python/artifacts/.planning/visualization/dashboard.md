@@ -68,9 +68,6 @@ type Escaper = Callable[[object], str]
 _TRACER: Final = scoped(trace.get_tracer, "rasm.artifacts.visualization.dashboard")
 _CANON: Final = json.Encoder(order="deterministic")
 
-# `</script>` ends the element mid-JSON and `<!--` reframes the remainder as a comment, so both neutralize inside the
-# string literal the JSON already is; U+2028/U+2029 are raw in JSON yet terminate a JavaScript line, so both escape to
-# their `\u` form. Every replacement stays JSON-valid — an HTML entity here would corrupt the value the parser reads.
 _SCRIPT_SAFE: Final[tuple[tuple[str, str], ...]] = (
     ("</", "<\\/"),
     ("<!--", "\\u003c!--"),
@@ -84,8 +81,6 @@ _ATTRIBUTE: Final[tuple[tuple[str, str], ...]] = (*_MARKUP, ('"', "&quot;"), ("'
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor. The pane slot rides as a NAMED coordinate rather than forking the subject per pane,
-# and the pre-pass cause beside it; TRANSIENT, since a refused transform clears once the pane's spec is repaired.
 DASH_PREPASS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.DASHBOARD, point="prepass", arm="boundary", defect="prepass-refused", retriability=TRANSIENT, slots=("pane", "cause")
 )
@@ -93,8 +88,6 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DASH_PREPA
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class Destination(StrEnum):
-    # `Destination` names the grammar an interpolation lands in and `_ESCAPE` rows one fold per member, so a member
-    # naming no row fails at the table read rather than emitting an unescaped splice.
     SLOT = "slot"
     TEXT = "text"
     JSON = "json"
@@ -105,21 +98,15 @@ def _folded(value: str, rows: tuple[tuple[str, str], ...], /) -> str:
     return Block.of_seq(rows).fold(lambda text, pair: text.replace(pair[0], pair[1]), value)
 
 
-# the row VALUE is typed, not erased to `object`: an `object`-valued table makes `_ESCAPE[dest](value)` an unchecked
-# call, so the "an absent row fails at type-check rather than emitting unescaped" guarantee holds for the KEY alone
-# and a row returning the wrong shape splices unescaped past every checker.
 _ESCAPE: Final[frozendict[Destination, Escaper]] = frozendict({
     Destination.SLOT: lambda value: _folded(str(value), _ATTRIBUTE),
     Destination.TEXT: lambda value: _folded(str(value), _MARKUP),
     Destination.JSON: lambda value: _folded(_CANON.encode(value).decode(), _SCRIPT_SAFE),
-    # RAW carries producer-owned markup this page never re-escapes — a great-tables div and a diagram SVG are already
-    # well-formed documents their own owners built, and escaping them would render their source as visible text.
     Destination.RAW: lambda value: value.decode() if isinstance(value, bytes) else str(value),
 })
 
 
 class PaneSlot(Struct, frozen=True):
-    # `slot` is the DOM id every chart mount targets, so admission proves it unique across the deck before render.
     slot: str
     title: str = ""
     span: int = 1
@@ -137,7 +124,6 @@ section{{min-width:0;overflow-x:auto}}section>h2{{font:600 0.95rem system-ui;mar
 
 
 class EmbedOptions(Struct, frozen=True):
-    # vega-embed's own option bag as a typed row: the mount spreads it, so a new knob never widens a signature.
     renderer: Literal["svg", "canvas", "hybrid"] = "svg"
     actions: bool = False
     tooltip: bool = True
@@ -160,8 +146,6 @@ class DashPane:
 
     @property
     def parent(self) -> ContentKey:
-        # `parent` serves as BOTH the plan edge and a preimage chunk, so a re-rendered producer shifts this deck's
-        # own key while a warm pane elides its producer without touching the composition.
         match self:
             case DashPane(tag="chart", chart=(_, key, *_)) | DashPane(tag="table", table=(_, key, _)) | DashPane(tag="figure", figure=(_, key, _)):
                 return key
@@ -170,7 +154,6 @@ class DashPane:
 
 
 class DashRenderPolicy(Struct, frozen=True):
-    # `chart` reuses the export owner's own policy value rather than a twin, so one rename there breaks here.
     chart: ChartRenderPolicy = ChartRenderPolicy()
     transform: TransformPolicy = TransformPolicy()
     retention: Retention = Retention(preserve_interactivity=True)
@@ -182,9 +165,6 @@ class DashRenderPolicy(Struct, frozen=True):
 
 
 def _escaped(rendered: Template, /) -> str:
-    # ONE render-time fold over the template's own segments: a static chunk passes through and every interpolation
-    # crosses the row its `format_spec` names, defaulting to TEXT so an unmarked interpolation escapes rather than
-    # leaks. This is why the whole document is a Template — an f-string renders before any escape point can run.
     return "".join(
         part if isinstance(part, str) else _ESCAPE[Destination(part.format_spec or Destination.TEXT.value)](part.value) for part in rendered
     )
@@ -212,7 +192,6 @@ def _mounted(slot: str, spec: Spec, options: EmbedOptions, /) -> Template:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 class DashboardPlan(Struct, frozen=True):
     panes: Block[DashPane]
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     title: str = ""
     grid: Grid = Grid()
@@ -244,9 +223,6 @@ class DashboardPlan(Struct, frozen=True):
         )
 
     def emit(self, /) -> ArtifactWork:
-        # every pane's producer is a PARENT edge, so the plan fronts them ahead of this node and a warm pane elides.
-        # ONE mint, captured into the closure: `_key` re-walks every pane's preimage and re-opens a `content.derive`
-        # span per access, so a receipt re-deriving it doubles both for one artifact.
         key = self._key
         parents = tuple(pane.parent for pane in self.panes)
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=parents, admission=Admission(keyed=None), cost=float(len(self.panes) or 1))
@@ -261,21 +237,14 @@ class DashboardPlan(Struct, frozen=True):
                 _CANON.encode((pane.tag, structs.asdict(pane.placed))),
             )
         )
-        # the WHOLE policy joins the preimage, never its chart block alone: `transform` and `retention` both reach
-        # `_staged` and change the emitted bytes, so a deck differing only by pre-pass policy would otherwise alias
-        # a cached artifact rendered under the other one — and a new policy field joins by construction.
         bundle = _CANON.encode((self.title, structs.asdict(self.grid), structs.asdict(self.policy)))
         return (*panes, bundle)
 
     @property
     def _key(self) -> ContentKey:
-        # `parts`, never a bare tuple: an `Iterable[bytes]` lifts to `stream`, which concatenates chunk bytes with
-        # no delimiter — right for buffer chunks of ONE payload, wrong for N semantic fields whose boundary IS meaning.
         return ContentIdentity.key("dashboard-html", IdentitySource(parts=self._seed))
 
     def _staged(self, pane: DashPane, /) -> Result[tuple[str, Spec, EmbedOptions, PrePassEvidence], BoundaryFault]:
-        # `VegaTransform`'s `state` arm strips no signal, so an interactive mount keeps every declared selection
-        # while server-evaluated transforms inline as reduced data inside the spec itself.
         match pane:
             case DashPane(tag="chart", chart=(slot, _key, spec, options)):
                 staged = VegaTransform.of(spec.vega, ExportFormat.HTML, self.policy.transform, self.policy.retention).apply(spec.vega)
@@ -286,16 +255,10 @@ class DashboardPlan(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _composed(self) -> Result[tuple[bytes, tuple[PrePassEvidence, ...]], BoundaryFault]:
-        # `traverse` is the substrate's own applicative threader — it short-circuits the whole block on the first
-        # refused pre-pass, so a deck never emits with one pane silently unstaged; the empty-chart deck threads the
-        # empty block and renders table and figure panes with no runtime at all.
         charts = self.panes.filter(lambda pane: pane.tag == "chart")
         return traverse(self._staged, charts).map(self._document)
 
     def _document(self, staged: Block[tuple[str, Spec, EmbedOptions, PrePassEvidence]], /) -> tuple[bytes, tuple[PrePassEvidence, ...]]:
-        # ONE bundle for the whole document — its default snippet publishes `vegaEmbed`/`vega`/`vegaLite` onto
-        # `window`, which is exactly the global every per-pane mount below resolves against. A table-and-figure deck
-        # stages no chart, so the bundle call never runs and the document carries no JavaScript at all.
         runtime = "" if staged.is_empty() else vlc.javascript_bundle(vl_version=pin_version(self.policy.chart.vl_version))
         mounts = "".join(_escaped(_mounted(slot, spec, options)) for slot, spec, options, _evidence in staged)
         sections = "".join(_escaped(_paned(pane)) for pane in self.panes)
@@ -320,9 +283,6 @@ class DashboardPlan(Struct, frozen=True):
             counts = frozendict({kind: sum(1 for pane in self.panes if pane.tag == kind) for kind in ("chart", "table", "figure")})
             span.set_attributes({"panes": len(self.panes), "charts": counts["chart"], "vega": vlc.get_vega_version()})
             built = await self.lane.offload(Kernel.of(self._composed, KernelTrait.HOSTILE))
-            # egress fold closes INSIDE the span scope per the receipt spine's charter: a refused pre-pass or a dead
-            # bundle call otherwise exits an UNSET span with no correlated line, and the deck's one native crossing
-            # is exactly the interior the lane aspect cannot attribute.
             settled = (
                 built.bind(lambda inner: inner)
                 .map(
@@ -332,12 +292,6 @@ class DashboardPlan(Struct, frozen=True):
                 )
                 .map_error(partial(faulted, span, "dashboard.compose"))
             )
-            # ONE durable fact for the whole deck, and the composition's own: each pane's producer already recorded
-            # its artifact, so this diff names the deck's composition — pane, chart, table, and figure counts — and
-            # its byte volume, never a re-statement of what the panes already landed. The pre-pass band never enters
-            # the diff: band leaves are this producer's instrumentation and the receipt owner filters them out by
-            # construction. The seat is this awaitable fold inside the span, because recording suspends on a bounded
-            # intake and `contribute` is the synchronous projection beside it.
             match settled:
                 case Result(tag="ok", ok=receipt):
                     return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -345,7 +299,7 @@ class DashboardPlan(Struct, frozen=True):
                     return Error(refused.error)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ("DashPane", "DashRenderPolicy", "DashboardPlan", "Destination", "EmbedOptions", "Grid", "PaneSlot")
 ```

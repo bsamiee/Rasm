@@ -30,10 +30,7 @@ Rasm.Persistence models the FORM stored bytes take between a caller's plaintext 
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// Stored byte run covering every frame a plaintext window touches. ONE shape both stages return, so the codec
-// directory walk and the seal's constant-overhead arithmetic compose as one arithmetic rather than two
-// conventions, and `Skip` is the intra-frame offset the post-open slice reads.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct FrameWindow(long Start, long End, long Skip);
 
 public readonly record struct Extent(long Stored, long Plain) {
@@ -47,25 +44,15 @@ public readonly record struct Extent(long Stored, long Plain) {
 public sealed partial class ObjectChecksum {
     public static readonly ObjectChecksum XxHash128 = new("xxh128", ChecksumAlgorithm.XXHASH128, StorageChecksumAlgorithm.None, DownloadValidationMode.Never, identity: true);
     public static readonly ObjectChecksum Crc64 = new("crc64", ChecksumAlgorithm.CRC64NVME, StorageChecksumAlgorithm.StorageCrc64, DownloadValidationMode.Never, identity: false);
-    // GCS states its whole-object stance SDK-native through `Object.Crc32c` and exposes NO CRC64; the SDK
-    // verifies that digest internally, so the row supplies no S3 wire algorithm and no `Wire` digest.
     public static readonly ObjectChecksum Crc32c = new("crc32c", null, StorageChecksumAlgorithm.None, DownloadValidationMode.Always, identity: false);
     public static readonly ObjectChecksum None = new("none", null, StorageChecksumAlgorithm.None, DownloadValidationMode.Never, identity: false);
     public ChecksumAlgorithm? S3Algorithm { get; }
-    // Azure's read-side knob rides `Azure.Storage.DownloadTransferValidationOptions` out of
-    // `Azure.Storage.Common` — a DIFFERENT assembly from the one the client comes from — and GCS's is an
-    // options enum; a row arming neither states `None`/`Never` rather than omitting the column
-    // (`docs/laws/topology.md` `[BACKEND_ROW_COLUMN]`).
     public StorageChecksumAlgorithm AzureAlgorithm { get; }
     public DownloadValidationMode GcsValidation { get; }
     public bool Identity { get; }
     private ObjectChecksum(string key, ChecksumAlgorithm? s3Algorithm, StorageChecksumAlgorithm azureAlgorithm, DownloadValidationMode gcsValidation, bool identity) : this(key) =>
         (S3Algorithm, AzureAlgorithm, GcsValidation, Identity) = (s3Algorithm, azureAlgorithm, gcsValidation, identity);
 
-    // `Wire` is the `x-amz-checksum-xxh128` value the S3 seal SUPPLIES on
-    // `CompleteMultipartUploadRequest.ChecksumXXHASH128`, paired with the initiate's `ChecksumType.FULL_OBJECT`
-    // stance, so the provider verifies the sealed object against the content key with ZERO server-side re-hash. A
-    // non-`XxHash128` row supplies `None` and falls back to the provider's SDK-native transfer integrity.
     public Option<string> Wire(ContentAddress key) {
         byte[] digest = new byte[16];
         BinaryPrimitives.WriteUInt128BigEndian(digest, key.Value);
@@ -98,17 +85,8 @@ public sealed partial class ObjectCodec {
     public static readonly ObjectCodec Lz4 = new("lz4",
         static sink => LZ4Stream.Encode(sink, LZ4Level.L09_HC, extraMemory: 0, leaveOpen: true),
         static source => LZ4Stream.Decode(source, extraMemory: 0, leaveOpen: true, interactive: false), level: (int)LZ4Level.L09_HC);
-    // Two provider metadata keys carry the residence form: WHICH row wrote the bytes, and the PLAINTEXT length the
-    // frame arithmetic needs. Stored length alone cannot yield it once a codec sits between plaintext and
-    // seal, so the writer states it rather than a reader inferring it.
     public const string CodecKey = "rasm-codec";
     public const string PlainKey = "rasm-plain";
-    // TRAP, opposite defaults on one seam: `ZstdSharp.CompressionStream` defaults `leaveOpen: true` — the
-    // INVERSE of the BCL convention — while the static `K4os.Compression.LZ4.Streams.LZ4Stream.Encode` defaults
-    // it `false`. A frame walk writes every frame into ONE pooled sink, so both arms SPELL `leaveOpen: true`
-    // and neither reads a default; the decode twins invert the same way. `LZ4Level` carries explicit
-    // NON-CONTIGUOUS values (`L00_FAST=0`, the HC band 3-9, `L10_OPT` through `L12_MAX`), so the level column is the
-    // enum value, never an ordinal the roster renumbers.
     public Func<Stream, Stream> Encoder { get; }
     public Func<Stream, Stream> Decoder { get; }
     public int Level { get; }
@@ -131,7 +109,7 @@ public sealed partial class ObjectCodec {
             (BinaryPrimitives.ReadUInt32BigEndian(directory[(int)(sizeof(ulong) + (ordinal * Entry))..]) & Stored) != 0;
         public FrameWindow Window(ReadOnlySpan<byte> directory, long plainStart, long plainEnd) {
             long first = plainStart / Stride, last = plainEnd / Stride, start = Directory, end = Directory;
-            for (long ordinal = 0; ordinal <= last; ordinal++) {                // Exemption: the prefix sum is the platform-forced statement seam
+            for (long ordinal = 0; ordinal <= last; ordinal++) {
                 if (ordinal < first) start += Length(directory, ordinal);
                 end += Length(directory, ordinal);
             }
@@ -142,9 +120,9 @@ public sealed partial class ObjectCodec {
     public IO<ReadOnlySequence<byte>> Pack(ChunkPolicy policy, ReadOnlySequence<byte> plain) =>
         this == Identity
             ? IO.pure(plain)
-            : IO.lift(() => Op.Of().Catch(() => {                              // Exemption: the frame walk is the platform-forced statement seam
+            : IO.lift(() => Op.Of().Catch(() => {
                 CodecFrame frame = CodecFrame.Of(policy, plain.Length);
-                byte[] packed = new byte[frame.Directory + plain.Length];      // A verbatim frame bounds the body by the plaintext, so this is exact
+                byte[] packed = new byte[frame.Directory + plain.Length];
                 BinaryPrimitives.WriteUInt64BigEndian(packed, (ulong)plain.Length);
                 using ArrayPoolBufferWriter<byte> scratch = new();
                 long at = frame.Directory;
@@ -165,7 +143,7 @@ public sealed partial class ObjectCodec {
     public IO<ReadOnlyMemory<byte>> Unpack(ChunkPolicy policy, long plain, ReadOnlyMemory<byte> directory, long ordinal, ReadOnlySequence<byte> run) =>
         this == Identity
             ? IO.pure(run.IsSingleSegment ? run.First : run.ToArray())
-            : IO.lift(() => Op.Of().Catch(() => {                              // Exemption: the frame walk is the platform-forced statement seam
+            : IO.lift(() => Op.Of().Catch(() => {
                 CodecFrame frame = CodecFrame.Of(policy, plain);
                 long last = ordinal, at = 0L;
                 for (; at < run.Length && last < frame.Count; last++) at += frame.Length(directory.Span, last);
@@ -192,7 +170,6 @@ public sealed partial class StorageTier {
     public static readonly StorageTier Archive = new("archive", S3StorageClass.DeepArchive, AccessTier.Archive, "ARCHIVE");
     public S3StorageClass S3Class { get; }
     public AccessTier AzureTier { get; }
-    // GCS storage classes are protocol strings on the object resource, never an SDK enum.
     public string GcsClass { get; }
     private StorageTier(string key, S3StorageClass s3Class, AccessTier azureTier, string gcsClass) : this(key) =>
         (S3Class, AzureTier, GcsClass) = (s3Class, azureTier, gcsClass);
@@ -225,11 +202,6 @@ public abstract partial record ObjectEncryption {
         EnvelopeAad Aad,
         Func<ContentAddress, IO<(ReadOnlyMemory<byte> Dek, WrappedKey Wrapped)>> Acquire) : ObjectEncryption;
 
-    // Stance APPLIES on the wire at every request-keyed provider, never as a column. Azure SSE is a
-    // CLIENT-construction fact — `CustomerProvidedKey`/`EncryptionScope` are baked into the container the host
-    // dials, NOT a per-request member — so the Azure leg applies nothing and the column is honored at the
-    // client. One method per request TYPE, the request types being categorically distinct so a single signature
-    // is unrepresentable.
     public InitiateMultipartUploadRequest ApplyS3(InitiateMultipartUploadRequest request) => Switch(
         providerManaged: static (r, _) => r,
         managedKey:      static (r, k) => (r.ServerSideEncryptionMethod = ServerSideEncryptionMethod.AWSKMS,
@@ -240,9 +212,6 @@ public abstract partial record ObjectEncryption {
         clientSealed:    static (r, _) => r,
         state: request);
 
-    // GCS: SSE-KMS rides `UploadObjectOptions.KmsKeyName`; SSE-C is a CLIENT-construction fact through
-    // `StorageClient.CreateAsync(GoogleCredential?, EncryptionKey?)` the host dials, so the customer-key arm is a
-    // client no-op here.
     public UploadObjectOptions ApplyGcs(UploadObjectOptions options) => Switch(
         providerManaged: static (o, _) => o,
         managedKey:      static (o, k) => (o.KmsKeyName = k.KeyId, o).Item2,
@@ -250,8 +219,6 @@ public abstract partial record ObjectEncryption {
         clientSealed:    static (o, _) => o,
         state: options);
 
-    // Minio: the stance is the `Minio.DataModel.Encryption.IServerSideEncryption` on the put, applied through the
-    // inherited `EncryptionArgs.WithServerSideEncryption`.
     public PutObjectArgs ApplyMinio(PutObjectArgs args) => Switch(
         providerManaged: static (a, _) => a,
         managedKey:      static (a, k) => a.WithServerSideEncryption(new SSEKMS(k.KeyId)),
@@ -275,7 +242,7 @@ public abstract partial record ObjectEncryption {
 
     public IO<(ReadOnlySequence<byte> Bytes, Option<WrappedKey> Dek)> SealSource(ContentAddress key, ChunkPolicy policy, ReadOnlySequence<byte> plain) =>
         this is ClientSealed sealed_
-            ? sealed_.Acquire(key).Map(minted => {                            // Exemption: the AEAD frame walk is the platform-forced statement seam
+            ? sealed_.Acquire(key).Map(minted => {
                 SealFrame frame = SealFrame.Of(policy);
                 byte[] framed = new byte[frame.Sealed(plain.Length)];
                 try {
@@ -305,7 +272,7 @@ public abstract partial record ObjectEncryption {
                 SealFrame frame = SealFrame.Of(policy);
                 byte[] run = framed.ToArray();
                 byte[] plain = new byte[frame.Plain(run.LongLength)];
-                try {                                                          // Exemption: the AEAD frame walk is the platform-forced statement seam
+                try {
                     using System.Security.Cryptography.AesGcm aead = new(key.Span, tagSizeInBytes: 16);
                     for (long index = 0; index * (frame.Stride + SealFrame.Overhead) < run.LongLength; index++) {
                         int at = (int)(index * (frame.Stride + SealFrame.Overhead));
@@ -367,10 +334,7 @@ public abstract partial record ObjectEncryption {
 - Growth: a new WORM stance is one `ObjectLock` case admitted only where the row's seat can hold it, read by the deadline projection and the GC evict arrow alike with zero new surface; a new enforcement rung is one `StanceSeat` row; a decorative lock column promised only in prose, a per-provider seat roster, or a no-op arm silently dropping a declared column is the deleted form.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// Where a provider ENFORCES a write stance — one roster answering the WORM column and the storage-class column
-// alike, since both ask the same question of the same row and a second two-row roster was a degenerate copy of
-// this one.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StanceSeat {
@@ -408,12 +372,6 @@ public abstract partial record ObjectLock {
         legalHold:  static (s, _) => (s.Request.ObjectLockLegalHoldStatus = ObjectLockLegalHoldStatus.On, s.Request).Item2,
         state: (Request: request, Now: now));
 
-    // TRAP: both Azure writers return a PAYLOAD response — `SetImmutabilityPolicyAsync` yields
-    // `Task<Response<BlobImmutabilityPolicy>>` and `SetLegalHoldAsync` yields
-    // `Task<Response<BlobLegalHoldResult>>` — so the carrier is the non-generic `Task` base and an arm typed to
-    // `Task<Response>` fails to bind. `BlobImmutabilityPolicy` carries only `ExpiresOn` and `PolicyMode`, both
-    // NULLABLE, and `DeleteImmutabilityPolicyAsync` is the release counterpart an unlocked window releases through; a
-    // locked policy has no release verb at all.
     public Option<Func<BlobBaseClient, Instant, Task>> ApplyAzure(Instant now) => Map(
         off:        static (_, _) => Option<Func<BlobBaseClient, Instant, Task>>.None,
         governance: static (at, c) => Some<Func<BlobBaseClient, Instant, Task>>((blob, _) => blob.SetImmutabilityPolicyAsync(
@@ -423,9 +381,6 @@ public abstract partial record ObjectLock {
         legalHold:  static (_, _) => Some<Func<BlobBaseClient, Instant, Task>>((blob, _) => blob.SetLegalHoldAsync(true)),
         state: now);
 
-    // `Object.RetentionData.RetainUntilTime` is `[Obsolete]`; the `DateTimeOffset?` member is the live one. GCS
-    // publishes no indefinite per-object hold on the retention field, so an unbounded hold projects as the
-    // farthest representable retain-until — the same `Instant.MaxValue` the catalog column already carries.
     public Option<Func<StorageClient, Google.Apis.Storage.v1.Data.Object, Instant, Task>> ApplyGcs(Instant now) => Map(
         off:        static (_, _) => Option<Func<StorageClient, Google.Apis.Storage.v1.Data.Object, Instant, Task>>.None,
         governance: (at, c) => Some(Patch(this, at + c.Retain)),
@@ -438,8 +393,6 @@ public abstract partial record ObjectLock {
             (resource.Retention = new Google.Apis.Storage.v1.Data.Object.RetentionData { Mode = stance.GcsMode, RetainUntilTimeDateTimeOffset = until.ToDateTimeOffset() }, resource).Item2,
             new PatchObjectOptions { OverrideUnlockedRetention = stance.Releasable });
 
-    // Minio legal hold IS a put-time member — the inherited `ObjectWriteArgs<T>.WithLegalHold(bool?)` stamps
-    // `x-amz-object-lock-legal-hold` on the write — so the arm applies it here rather than dropping the column.
     public PutObjectArgs ApplyMinio(PutObjectArgs args, Instant now) => Switch(
         off:        static (s, _) => s.Args,
         governance: static (s, c) => s.Args.WithRetentionConfiguration(new ObjectRetentionConfiguration((s.Now + c.Retain).ToDateTimeUtc(), ObjectRetentionMode.GOVERNANCE)),

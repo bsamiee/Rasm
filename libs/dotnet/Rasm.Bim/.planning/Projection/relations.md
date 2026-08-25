@@ -29,7 +29,7 @@ The roster is the ADMISSION for that wire-name — a `WireName` mints from a row
 - Boundary: the wire-name roster is the producer-side ADMISSION for `Relationship.Generic.WireName` and the peer decoders still type it as an unvalidated string — `libs/contracts/proto/rasm/contracts/element/graph.proto` `wire_name` and the TypeScript codec's `NonEmptyString` — so an unrostered name crossing INTO this runtime is refused only when `Admit` is composed at the decode edge. Both decoders now RE-QUOTE that admission at their own field — the proto `wire_name` comment and the TypeScript codec's predicate and edge landings each state the producer's roster as the gate and name `IfcRelKind.Admit` as the refusal on re-entry — so the open column is the wire's own enumeration, which stays unpublished DELIBERATELY: freezing thirty-two keys into the schema forks the roster the moment a row lands, where a re-quote keeps one authority and costs the peers a decode-edge call.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections;
 using System.Collections.Frozen;
 using System.Reflection;
@@ -47,11 +47,7 @@ using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim.Projection;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The reflected surface of ONE IfcRelKind row: the relating slot, the related slot, and — when the related slot is
-// a SET — the EXACT Add(memberType) overload the egress fill invokes. Of resolves all three off the DECLARED
-// property types and answers None on any miss, so the census verdict, the ingest READ, and the egress FILL are one
-// resolution and a census hit proves a call both directions can actually make.
+// --- [MODELS] --------------------------------------------------------------------------
 sealed record RelSlots(PropertyInfo Relating, PropertyInfo Related, Option<MethodInfo> Add) {
     public static Option<RelSlots> Of(IfcRelKind row) =>
         from shape in Optional(typeof(IfcRelationship).Assembly.GetType($"{typeof(IfcRelationship).Namespace}.{row.Key}"))
@@ -62,38 +58,23 @@ sealed record RelSlots(PropertyInfo Relating, PropertyInfo Related, Option<Metho
             : Option<RelSlots>.None
         select resolved;
 
-    // The relating endpoint read through the SAME slot the author fills. Every relating attribute is an IfcRoot or
-    // a SELECT interface over one, so ONE cast serves all thirty-two rows where the hand accessors needed eight
-    // separate `as IfcRoot` spellings and thirty-two `?.GlobalId` reads.
     public Option<string> RelatingId(IfcRelationship rel) => Rooted(Relating.GetValue(rel));
 
-    // The related endpoints: a SET-valued slot yields its members, a single-valued slot the one. Add already
-    // answered which at census time, so ARITY is a row fact rather than a caller's choice between two helpers that
-    // differed in nothing else.
     public Seq<Option<string>> RelatedIds(IfcRelationship rel) =>
         Add.IsSome
             ? toSeq(Optional(Related.GetValue(rel) as IEnumerable)
                 .Map(static members => toSeq(members.Cast<object?>())).IfNone(Seq<object?>())).Map(Rooted)
             : Seq(Rooted(Related.GetValue(rel)));
 
-    // GeometryGym backs a missing endpoint with null, and every earlier read coalesced it to "". None keeps
-    // absence and presence apart so the ONE admission below can give them two faults.
     static Option<string> Rooted(object? value) => Optional(value as IfcRoot).Map(static root => root.GlobalId);
 
-    // A SET-valued slot is a GeometryGym SET<T> — an ICollection<T>, NEVER a System.Collections.IList — so the fill
-    // resolves the TYPED Add(T) overload off the collection interface's own argument. The name-only
-    // GetMethod("Add") this replaces matches several arities and throws AmbiguousMatchException before naming which
-    // one it meant, so a row passed a census whose Add the author then failed to invoke.
     static Option<MethodInfo> Adder(Type slotType) =>
         Optional(slotType.GetInterfaces().FirstOrDefault(static face =>
                 face.IsGenericType && face.GetGenericTypeDefinition() == typeof(ICollection<>)))
             .Bind(face => Optional(slotType.GetMethod(nameof(ICollection<object>.Add), [face.GetGenericArguments()[0]])));
 }
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// No axis enum stands beside the seam's own RelationshipKind: a Bim-side copy of the seam union's discriminant is
-// the parallel-discriminant form the seam accessor law already deleted, and the row's lowering axis, sub-kind, and
-// inversion all read off the ONE arm below.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class IfcRelKind {
@@ -116,8 +97,6 @@ public sealed partial class IfcRelKind {
     public static readonly IfcRelKind SpaceBoundary          = new("IfcRelSpaceBoundary",                "RelatingSpace",             "RelatedBuildingElement",      Passthrough);
     public static readonly IfcRelKind Projects               = new("IfcRelProjectsElement",              "RelatingElement",           "RelatedFeatureElement",       Passthrough);
     public static readonly IfcRelKind Adheres                = new("IfcRelAdheresToElement",             "RelatingElement",           "RelatedSurfaceFeatures",      Passthrough);
-    // GG deviates from the schema attribute pair here (no RelatingFlowElement/RelatedControlElements on the
-    // public surface) — the decompiled members ARE RelatingPort/RelatedElement, so the row records the REAL wire.
     public static readonly IfcRelKind FlowControl            = new("IfcRelFlowControlElements",          "RelatingPort",              "RelatedElement",              Passthrough);
     public static readonly IfcRelKind Positions              = new("IfcRelPositions",                    "RelatingPositioningElement","RelatedProducts",             Passthrough);
     public static readonly IfcRelKind DefinesByObject        = new("IfcRelDefinesByObject",              "RelatingObject",            "RelatedObjects",              Passthrough);
@@ -135,19 +114,12 @@ public sealed partial class IfcRelKind {
     public string Relating { get; }
     public string Related { get; }
 
-    // The row's neutral lowering: the axis it folds onto and the SubKind the typed case takes are spelled once,
-    // HERE, in the arm that builds the edge — never a column a separate dispatch has to keep in step with. Every
-    // Connect arm spells the seam's full five-argument arity with both Options None, so no call site reads a
-    // defaulted slot; a payload-bearing family rides a dedicated arm and never this one.
     [UseDelegateFromConstructor]
     public partial Relationship Lower(WireName wireName, NodeId relating, NodeId related);
 
     static Relationship Passthrough(WireName wireName, NodeId relating, NodeId related) =>
         new Relationship.Generic(wireName, relating, related, Map<PropertyName, PropertyValue>());
 
-    // The wire-name ADMISSION: a Generic edge's name is a ROSTER KEY, minted here and nowhere else, so a name no
-    // row declares cannot be constructed on the producing side. Every Generic construction in this folder — the
-    // row lowering, the ordered nest, the structural and space-boundary arms — reads its name off this member.
     public WireName Wire => WireName.Create(Key);
 
     public static Fin<IfcRelKind> Admit(WireName wireName, Op key) =>
@@ -155,44 +127,26 @@ public sealed partial class IfcRelKind {
             ? Fin.Succ(resolved)
             : Fin.Fail<IfcRelKind>(new BimFault.Refused(key, BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "rel-row-unbound", wireName.Value })));
 
-    // The row's own key IS the wire name, supplied at this ONE call site.
     public Relationship Edge(NodeId relating, NodeId related) => Lower(Wire, relating, related);
 
-    // The two sentinel endpoints every derivation below probes a row's own arm with. They never reach a graph:
-    // only the constructed case's discriminants are read, so the arm stays the ONE owner of the row's identity.
     static readonly NodeId ProbeRelating = NodeId.Create("00000000000000000000000000000001");
     static readonly NodeId ProbeRelated = NodeId.Create("00000000000000000000000000000002");
 
-    // ONE probe pass over the roster yielding BOTH edge-derived answers, run eagerly because the pass is total:
-    // invoking a row's own arm cannot fail. The two Lazy<> that each re-walked the roster after this one ran read
-    // the same delegate for the same reason and are gone.
     static readonly (FrozenSet<IfcRelKind> Inverted, FrozenDictionary<(RelationshipKind, string), IfcRelKind> ByNeutral) Probed = Probe();
 
     static (FrozenSet<IfcRelKind>, FrozenDictionary<(RelationshipKind, string), IfcRelKind>) Probe() {
         Seq<(IfcRelKind Row, Relationship Edge)> rows = Items.AsIterable().ToSeq().Map(static row => (Row: row, Edge: row.Edge(ProbeRelating, ProbeRelated)));
         return (rows.Filter(static probe => probe.Edge is Relationship.Assign).Map(static probe => probe.Row).ToFrozenSet(),
-            // The direct ToFrozenDictionary IS the uniqueness gate — a colliding (kind, sub-kind) pair fails at
-            // type initialization (the FaultBand registry law), never a GroupBy/First mask electing a winner.
             rows.Filter(static probe => probe.Row != ConnectsRealizing)
                 .Choose(static probe => NeutralKey(probe.Edge).Map(neutral => (Neutral: neutral, probe.Row)))
                 .ToFrozenDictionary(static entry => entry.Neutral, static entry => entry.Row));
     }
 
-    // Directionality inversion is DERIVED from the row's own arm, never a hand-kept column: the seam Assign reads
-    // Subject(occurrence)->Definition(type/group) while every IFC assign relation reads
-    // relating(definition)->related(occurrences), so an Assign-producing row is inverted BY CONSTRUCTION and every
-    // other row already reads in IFC orientation. Both the ingest fold and the egress author re-orient on this.
     public bool Inverted => Probed.Inverted.Contains(this);
 
-    // The egress reverse index, keyed on the SEAM's own (RelationshipKind, sub-kind) discriminant so Lower and
-    // ForNeutral cannot drift. A Generic row yields no sub-kind and stays out (it resolves by wire-name through
-    // Admit), as does ConnectsRealizing: it shares the Connect "element" sub-kind with ConnectsElements because
-    // realization is the seam Connect.Realizing FIELD, never a sub-kind row.
     public static Option<IfcRelKind> ForNeutral(RelationshipKind kind, string subKind) =>
         Probed.ByNeutral.TryGetValue((kind, subKind), out IfcRelKind? row) && row is { } resolved ? Some(resolved) : None;
 
-    // The generated TOTAL Switch over the seam union: a new seam edge case breaks the reverse index at COMPILE
-    // time rather than falling into a `_ => None` that silently dropped its whole family from the egress.
     static Option<(RelationshipKind Kind, string SubKind)> NeutralKey(Relationship edge) =>
         edge.Switch<Option<(RelationshipKind Kind, string SubKind)>>(
             compose:   static c => Some((RelationshipKind.Compose, c.SubKind.Key)),
@@ -202,9 +156,6 @@ public sealed partial class IfcRelKind {
             associate: static _ => Option<(RelationshipKind Kind, string SubKind)>.None,
             generic:   static _ => Option<(RelationshipKind Kind, string SubKind)>.None);
 
-    // Author registers the entity through Construct BEFORE either side binds, so a slot miss cannot be undone at the
-    // call site: the writer serializes the half-bound IfcRel* regardless, and a schema-invalid relationship in a
-    // delivered file is indistinguishable from an authoring choice. The FlowControl row proves a pin can move a pair.
     static readonly Lazy<FrozenDictionary<IfcRelKind, RelSlots>> Census = new(static () =>
         Items.AsIterable().Choose(static row => RelSlots.Of(row).Map(slots => (Row: row, Slots: slots)))
              .ToFrozenDictionary(static probe => probe.Row, static probe => probe.Slots));
@@ -214,12 +165,6 @@ public sealed partial class IfcRelKind {
             ? Fin.Succ(resolved)
             : Fin.Fail<RelSlots>(new BimFault.Refused(key, BimScope.Projection, BimReason.Unmapped, string.Join(':', new object?[] { "rel-row-unbound", row.Key })));
 
-    // The EGRESS author; the caller feeds endpoints already in IFC orientation. Fin, never Option: an empty related
-    // set, an unconstructible class, and an unbound row are three distinct authoring failures, where the silent None
-    // left the caller unable to say whether a relationship was written at all. Endpoints are IfcObjectDefinition-wide
-    // — a DefinesByType relating side is an IfcTypeObject and an AssignsToGroup relating side an IfcGroup, neither an
-    // IfcProduct. The refined slot is the SUBTYPE-construct discriminant an edge attr carries and the row cannot; a
-    // rider subtype shares its base's relating/related pair, so the row's names still fill the endpoints.
     public Fin<IfcRelationship> Author(DatabaseIfc db, IfcObjectDefinition relating, Seq<IfcObjectDefinition> related, Op key, Option<string> refined = default) =>
         related.IsEmpty
             ? Fin.Fail<IfcRelationship>(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relation-related-empty", Key })))
@@ -228,9 +173,6 @@ public sealed partial class IfcRelKind {
                   .ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Codec, string.Join(':', new object?[] { "relation-unconstructible", refined.IfNone(Key) })))
               select Filled(rel, slots, relating, related);
 
-    // A SET-valued related side fills member-by-member through the census-resolved Add(memberType); a
-    // single-valued side takes the head through its setter. Insertion order is the fill order, which is what makes
-    // the egress ordered-nest ordinal sort survive into IfcRelNests.RelatedObjects.
     static IfcRelationship Filled(IfcRelationship rel, RelSlots slots, IfcObjectDefinition relating, Seq<IfcObjectDefinition> related) {
         slots.Relating.SetValue(rel, relating);
         slots.Add.Match(
@@ -240,12 +182,8 @@ public sealed partial class IfcRelKind {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EdgeProjection {
-    // One fold over the whole roster: the row-driven generic families, the ordered nests, the realizing fan, and
-    // the dedicated payload folds. The fold RETURNS its fidelity contribution on the writer carrier — the
-    // group-factor riders as a pure tell, the material bag lowering as its own returned log — so no arm holds a
-    // ledger and the ingest half lands one log at the SEMANTIC_PROJECTOR fold edge.
     public static WriterT<FidelityLog, Fin, Seq<Relationship>> All(
         IfcProject project, Map<string, NodeId> rooted, double tolerance, UnitScheme scale,
         Option<EurocodePolicy> eurocode, TemplateScope templates, IIfcProfileStore profiles, Op key) =>
@@ -261,9 +199,6 @@ public static class EdgeProjection {
         from materials in MaterialEdges(project, rooted, tolerance, scale, templates, profiles, key)
         select rows + materials;
 
-    // The group-factor riders as a pure TELL over the same subtype the assignment arm already lands: the ByFactor
-    // Factor has no seam slot on the typed Assign case, so the membership edge lands whole and the rider is a
-    // returned fact on the NestOrdinal precedent, never silent.
     static WriterT<FidelityLog, Fin, Unit> GroupFactors(IfcProject project) =>
         toSeq(project.Extract<IfcRelAssignsToGroupByFactor>().AsIterable())
             .TraverseM(static rel => Fidelity.Drop(FidelityDrop.GroupFactor, Anchor(rel.RelatingGroup), unit)).As()
@@ -273,9 +208,6 @@ public static class EdgeProjection {
 
     // --- [ROW_FOLD]
 
-    // The ONE row-driven fold every generic family takes: the row's census-resolved slots read BOTH endpoints off
-    // the entity, arity is the ROW's (a SET-valued related slot fans one edge per member), and the row's derived
-    // Inverted decides the seam orientation.
     static Validation<Error, Seq<Relationship>> Rows(IEnumerable<IfcRelationship> rels, IfcRelKind kind, Map<string, NodeId> rooted, Op key) =>
         (IfcRelKind.SlotsOf(kind, key)).ToValidation().Bind(slots =>
             Landed(toSeq(rels).Bind(rel => slots.RelatedIds(rel).Map(related =>
@@ -283,12 +215,8 @@ public static class EdgeProjection {
                 from target in Endpoint(rooted, related, kind.Key, kind.Related, key)
                 select kind.Inverted ? kind.Edge(target, source) : kind.Edge(source, target)))));
 
-    // The ONE arm tail: independent rows accumulate into one group verdict.
     static Validation<Error, Seq<Relationship>> Landed(Seq<Validation<Error, Relationship>> rows) => rows.Traverse(identity).As();
 
-    // The endpoint admission, TWO verdicts: an ABSENT attribute is a malformed file (GG backs a missing mandatory
-    // endpoint with null) and an UNROOTED GlobalId is a projection gap. The anchor names the relationship and the
-    // attribute, so a fault says WHICH endpoint of WHICH relationship failed rather than carrying an empty detail.
     static Validation<Error, NodeId> Endpoint(Map<string, NodeId> rooted, Option<string> globalId, string relationship, string attribute, Op key) =>
         (globalId.Match(
             None: () => Fin.Fail<NodeId>(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "edge-endpoint-absent", relationship, attribute }))),
@@ -303,13 +231,9 @@ public static class EdgeProjection {
         Rows(project.Extract<IfcRelReferencedInSpatialStructure>(), IfcRelKind.ReferencedInStructure, rooted, key),
         Rows(project.Extract<IfcRelVoidsElement>(), IfcRelKind.Voids, rooted, key),
         Rows(project.Extract<IfcRelFillsElement>(), IfcRelKind.Fills, rooted, key),
-        // The feature-attachment tail of IfcRelDecomposes: the additive projection (the Voids counterpart) and the
-        // IFC4.3 surface-feature adherence — both Generic rows, neither a new seam case.
         Rows(project.Extract<IfcRelProjectsElement>(), IfcRelKind.Projects, rooted, key),
         Rows(project.Extract<IfcRelAdheresToElement>(), IfcRelKind.Adheres, rooted, key));
 
-    // The running index is PER-PARENT and continuous ACROSS relations, so the egress per-parent merge is total; the
-    // typed Compose{Nest} case keeps its (Compose,"nest") reverse-index row for authored graphs.
     static Validation<Error, Seq<Relationship>> Nests(IfcProject project, Map<string, NodeId> rooted, Op key) =>
         Landed(toSeq(project.Extract<IfcRelNests>().AsIterable()
             .GroupBy(static rel => Anchor(rel.RelatingObject))
@@ -320,16 +244,9 @@ public static class EdgeProjection {
                 select (Relationship)new Relationship.Generic(IfcRelKind.Nests.Wire, parent, part,
                     Map((SemanticProjector.NestOrdinal, (PropertyValue)new PropertyValue.Integer(ordinal))))))));
 
-    // The ONE GG string admission on this page, composed from the Projection/value#PROPERTY_LOWERING owner: GG
-    // backs an optional string with an EMPTY default rather than a null, so blank IS absence and lifts to None
-    // here — a second admission spelling would put the same decision at a second site.
     static Option<string> Stated(string? value) => PropertyLowering.Stated(value);
 
     static Seq<Validation<Error, Seq<Relationship>>> Connections(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles, Op key) => Seq(
-        // Extract<IfcRelConnectsElements> returns its subclasses too — the realizing and path-element joins are
-        // handled by their own arms — so they are excluded here. The arm leaves the row fold because the base
-        // carries the OPTIONAL ConnectionGeometry, the joint's physical interface surface, which PreserveInterface
-        // content-keys onto the seam Connect.Interface slot.
         Landed(toSeq(project.Extract<IfcRelConnectsElements>().AsIterable()
             .Where(static rel => rel is not (IfcRelConnectsWithRealizingElements or IfcRelConnectsPathElements))
             .Select(rel =>
@@ -337,9 +254,6 @@ public static class EdgeProjection {
                 from b in Endpoint(rooted, Stated(rel.RelatedElement?.GlobalId), IfcRelKind.ConnectsElements.Key, IfcRelKind.ConnectsElements.Related, key)
                 select (Relationship)new Relationship.Connect(a, b, ConnectKind.Element, Option<NodeId>.None,
                     PreserveInterface(rel.ConnectionGeometry, profiles, key))))),
-        // IfcRelConnectsPorts carries an OPTIONAL [0:1] RealizingElement (api-geometrygym-ifc :308) — the port join
-        // leaves the row fold so a present realizer lands on the seam Connect.Realizing field; absence is lawful
-        // None, a present-but-unrooted realizer is a projection gap and faults typed like any endpoint.
         Landed(toSeq(project.Extract<IfcRelConnectsPorts>().AsIterable()).Map(rel =>
             from a in Endpoint(rooted, Stated(rel.RelatingPort?.GlobalId), IfcRelKind.ConnectsPorts.Key, IfcRelKind.ConnectsPorts.Relating, key)
             from b in Endpoint(rooted, Stated(rel.RelatedPort?.GlobalId), IfcRelKind.ConnectsPorts.Key, IfcRelKind.ConnectsPorts.Related, key)
@@ -352,16 +266,9 @@ public static class EdgeProjection {
         Rows(project.Extract<IfcRelInterferesElements>(), IfcRelKind.InterferesElements, rooted, key),
         Rows(project.Extract<IfcRelSequence>(), IfcRelKind.Sequence, rooted, key),
         Rows(project.Extract<IfcRelFlowControlElements>(), IfcRelKind.FlowControl, rooted, key),
-        // The 2x3 element-to-idealized-member binding; Extract<IfcRelConnectsStructuralMember> separately returns
-        // IfcRelConnectsWithEccentricity, whose edge rides the Structural fold — its mandatory ConnectionConstraint
-        // content-keys through the store's STEP-fragment lane onto its owner-stamped Eccentricity row [M2].
         Rows(project.Extract<IfcRelConnectsStructuralElement>(), IfcRelKind.ConnectsStructElement, rooted, key),
         Realizing(project, rooted, profiles, key));
 
-    // Realization is the seam Connect.Realizing FIELD, never a sub-kind row [NEUTRAL_EDGE_RULING].
-    // RealizingElements is a SET [1:?], so the fold FANS OUT one edge per member over the same (From, To) pair — a
-    // moment connection realized by a plate AND its bolts lands N edges, where the .Head slice dropped every member
-    // past the first. A schema-invalid EMPTY set faults typed and cannot masquerade as a base connect.
     static Validation<Error, Seq<Relationship>> Realizing(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles, Op key) =>
         Landed(toSeq(project.Extract<IfcRelConnectsWithRealizingElements>().AsIterable().SelectMany(rel =>
             rel.RealizingElements.AsIterable().ToSeq() switch {
@@ -374,16 +281,9 @@ public static class EdgeProjection {
                         PreserveInterface(rel.ConnectionGeometry, profiles, key))),
             })));
 
-    // The connection-interface preservation: an IfcConnectionGeometry is the joint's physical interface surface (a
-    // point, curve, or surface the inline prohibition keeps off the seam [M2]), so it PRESERVES as a STEP fragment
-    // through the store's content-keyed lane and the key alone crosses. The geometry is OPTIONAL on both carriers,
-    // so an absent one is plain topology; a dropped present one left every re-exported joint and every 2nd-level
-    // energy boundary geometrically unlocated.
     static Option<UInt128> PreserveInterface(IfcConnectionGeometry? geometry, IIfcProfileStore profiles, Op key) =>
         Optional(geometry).Map(surface => profiles.Preserve(surface, key));
 
-    // Extract<IfcRelAssignsToGroup> separately returns IfcRelAssignsToGroupByFactor — its membership edge lands here
-    // unchanged and its unslotted Factor is the counted drop above.
     static Seq<Validation<Error, Seq<Relationship>>> Generics(IfcProject project, Map<string, NodeId> rooted, Op key) => Seq(
         Rows(project.Extract<IfcRelDefinesByType>(), IfcRelKind.DefinesByType, rooted, key),
         Rows(project.Extract<IfcRelAssignsToGroup>(), IfcRelKind.AssignsToGroup, rooted, key),
@@ -395,16 +295,9 @@ public static class EdgeProjection {
         Rows(project.Extract<IfcRelAssignsToActor>(), IfcRelKind.AssignsToActor, rooted, key),
         Rows(project.Extract<IfcRelDeclares>(), IfcRelKind.Declares, rooted, key),
         Rows(project.Extract<IfcRelServicesBuildings>(), IfcRelKind.ServicesBuildings, rooted, key),
-        // IFC4.3 linear-referencing placement (alignment/grid to positioned products) and the declaring-object
-        // typing family.
         Rows(project.Extract<IfcRelPositions>(), IfcRelKind.Positions, rooted, key),
         Rows(project.Extract<IfcRelDefinesByObject>(), IfcRelKind.DefinesByObject, rooted, key));
 
-    // The property/quantity ATTACHMENT onto neutral Assign.PropertyDefinition edges the seam Bake reads. Both sides
-    // are SETs — a many-to-many the row fold's single relating slot cannot express — so this arm stays its own:
-    // one edge per (related occurrence, definition) pair, Subject the occurrence and Definition the bag node.
-    // Extract<IfcRelDefinesByProperties> returns the 2x3 IfcRelOverridesProperties subtype too, so an override
-    // binding lands its attachment edge here.
     static Seq<Validation<Error, Seq<Relationship>>> DefinesProperties(IfcProject project, Map<string, NodeId> rooted, Op key) => Seq(
         Landed(toSeq(project.Extract<IfcRelDefinesByProperties>().AsIterable()
             .SelectMany(rel => rel.RelatedObjects.SelectMany(o => rel.RelatingPropertyDefinition.Select(definition =>
@@ -412,11 +305,6 @@ public static class EdgeProjection {
                 from bag in Endpoint(rooted, Stated(definition.GlobalId), IfcRelKind.DefinesByType.Key, "RelatingPropertyDefinition", key)
                 select (Relationship)new Relationship.Assign(subject, bag, AssignKind.PropertyDefinition)))))));
 
-    // Both restraint families and the whole load family lower through the DEDICATED
-    // Model/structural#STRUCTURAL_PROJECTION Attrs owner in ONE call, so a local two-step over the
-    // connection/activity entity is the deleted form. `profiles` is the SAME fragment lane PreserveInterface takes,
-    // so the eccentric subtype's MANDATORY ConnectionConstraint content-keys inside its OWN owner — a second
-    // eccentricity read here would fork one payload across two writers.
     static Seq<Validation<Error, Seq<Relationship>>> Structural(
         IfcProject project, Map<string, NodeId> rooted, UnitScheme scale, Option<EurocodePolicy> eurocode, IIfcProfileStore profiles, Op key) => Seq(
         Landed(toSeq(project.Extract<IfcRelConnectsStructuralMember>().AsIterable().Select(rel =>
@@ -430,20 +318,12 @@ public static class EdgeProjection {
             from attrs in (StructuralProjection.Attrs(rel, scale, eurocode, profiles, key)).ToValidation()
             select (Relationship)new Relationship.Generic(IfcRelKind.ConnectsStructActivity.Wire, item, act, attrs)))));
 
-    // The energy/spatial space-boundary graph onto neutral Generic edges [NEUTRAL_EDGE_RULING], the 1st/2nd-level
-    // discriminant riding the attrs. RelatingSpace is an IfcSpaceBoundarySelect, so its GlobalId reads through the
-    // IfcRoot cast the endpoint admission already performs.
     static Seq<Validation<Error, Seq<Relationship>>> SpatialBoundaries(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles, Op key) => Seq(
         Landed(toSeq(project.Extract<IfcRelSpaceBoundary>().AsIterable().Select(rel =>
             from s in Endpoint(rooted, Stated((rel.RelatingSpace as IfcRoot)?.GlobalId), IfcRelKind.SpaceBoundary.Key, IfcRelKind.SpaceBoundary.Relating, key)
             from e in Endpoint(rooted, Stated(rel.RelatedBuildingElement?.GlobalId), IfcRelKind.SpaceBoundary.Key, IfcRelKind.SpaceBoundary.Related, key)
             select (Relationship)new Relationship.Generic(IfcRelKind.SpaceBoundary.Wire, s, e, BoundaryAttrs(rel, profiles, key))))));
 
-    // THREE-valued because the runtime type is: 2ndLevel derives from 1stLevel, so the 2nd probe runs first and a
-    // level is never upgraded onto a base instance. GeometryGym keeps PhysicalOrVirtualBoundary and
-    // InternalOrExternalBoundary on internal fields with no public getter, so the level is the lone publicly
-    // readable flag and the physical/virtual classification is never fabricated. The level attr is built ONCE and
-    // the optional interface key FOLDS onto it, so the two arms of the geometry Option cannot disagree.
     static Map<PropertyName, PropertyValue> BoundaryAttrs(IfcRelSpaceBoundary rel, IIfcProfileStore profiles, Op key) =>
         PreserveInterface(rel.ConnectionGeometry, profiles, key).Fold(
             Map((BoundaryRows.BoundaryLevel, (PropertyValue)new PropertyValue.Text(BoundaryLevelOf(rel)))),
@@ -454,12 +334,6 @@ public static class EdgeProjection {
 
     // --- [MATERIAL_ARM]
 
-    // The material node and usage bind ONCE PER RELATION and the related objects fan over the pair — the
-    // per-(rel, object) re-projection ran the whole composition fold N times per relation, the deleted quadratic
-    // form. RelatingMaterial is schema-mandatory, so a null read is a malformed file faulting typed HERE: the
-    // node-side Materials fold Optional-skips the same null, and this edge rail is the one fault site. The bag node
-    // id re-derives through the SAME PropertySetNode content mint the node-side fold takes, so both ends key
-    // identically with no shared table.
     static WriterT<FidelityLog, Fin, Seq<Relationship>> MaterialEdges(
         IfcProject project, Map<string, NodeId> rooted, double tolerance, UnitScheme scale, TemplateScope templates,
         IIfcProfileStore profiles, Op key) =>
@@ -468,15 +342,10 @@ public static class EdgeProjection {
                 from relating in Fidelity.Lift(Optional(rel.RelatingMaterial).ToFin(new BimFault.Refused(key, BimScope.Projection, BimReason.Rejected, string.Join(':', new object?[] { "material-relation-unbound", rel.GlobalId }))))
                 from material in Fidelity.Lift(MaterialProjection.Project(relating, tolerance, profiles, scale, key).Map(static node => node.Id))
                 from usage in Fidelity.Lift(UsageOf(relating, scale, key))
-                // The ONE crossing from the retired hand carrier: Semantics/composition#MATERIAL_COMPOSITION still
-                // returns its narrowing facts beside its value, so its log enters through Told at this single site
-                // instead of every consumer re-threading it — and the type never reaches a signature here.
                 from bags in SemanticProjector.DefinitionOf(relating)
                     .Map(definition => Fidelity.Lift(MaterialProjection.ImportedPsets(definition, rooted, scale, templates, key))
                         .Bind(narrowed => Fidelity.Told(narrowed.Log, narrowed.Value)))
                     .IfNone(Fidelity.Clean(Seq<PropertyBag>()))
-                // RelatedObjects is a SET<IfcDefinitionSelect> — a SELECT interface, not an IfcRoot — so the
-                // endpoints read through the SAME admission every other arm takes.
                 from elements in Fidelity.Lift((toSeq(rel.RelatedObjects.AsIterable())
                     .Map(o => Endpoint(rooted, Stated((o as IfcRoot)?.GlobalId), nameof(IfcRelAssociatesMaterial), "RelatedObjects", key))
                     .Traverse(identity).As()).ToFin())
@@ -488,11 +357,6 @@ public static class EdgeProjection {
 
     // --- [USAGE_ADMISSION]
 
-    // The IFC occurrence material usage -> the seam's typed MaterialUsage [OCCURRENCE_USAGE_RULING]: a layer-set
-    // usage lowers all four IFC occurrence parameters, a profile-set usage admits through the seam Of cardinal-point
-    // gate, and a type-level set with no occurrence usage is Unbound. The ReferenceExtent (the layer-set size
-    // perpendicular to the layers, decompile-confirmed at `.api/api-geometrygym-ifc` row 12) is the 4th seam ctor
-    // arg — without it an asymmetric wall finish is dropped at ingest.
     static Fin<MaterialUsage> UsageOf(IfcMaterialSelect select, UnitScheme scale, Op key) => select switch {
         IfcMaterialLayerSetUsage u =>
             from direction in Elected(LayerAxes, u.LayerSetDirection, key)
@@ -508,10 +372,6 @@ public static class EdgeProjection {
         _ => Fin.Succ<MaterialUsage>(new MaterialUsage.Unbound()),
     };
 
-    // The two GG enums -> their seam rows, TOTAL with a typed refusal. The `_ => Axis3` catch-all mapped every
-    // future GG member — and today's NOTDEFINED — onto the third axis, so a layer set that declared no direction
-    // read as a vertically-stacked slab; the sense ternary did the same onto Negative. Both targets are SmartEnum
-    // ROWS rather than enums, so the correspondence is a table and the refusal names the member it could not map.
     static readonly FrozenDictionary<IfcLayerSetDirectionEnum, LayerSetDirection> LayerAxes =
         new Dictionary<IfcLayerSetDirectionEnum, LayerSetDirection> {
             [IfcLayerSetDirectionEnum.AXIS1] = LayerSetDirection.Axis1,
@@ -535,7 +395,6 @@ public static class EdgeProjection {
             ? MeasureValue.OfSi(Dimension.LengthDim, scale.Coerce(native, QuantityType.Length, Dimension.LengthDim), key).Map(Some)
             : Fin.Succ(Option<MeasureValue>.None);
 
-    // MID is the GG "unset" sentinel, so it lifts to None at this boundary rather than crossing as a cardinal point.
     static Option<int> OptionalCardinal(IfcCardinalPointReference point) =>
         point == IfcCardinalPointReference.MID ? Option<int>.None : Some((int)point);
 }

@@ -262,8 +262,6 @@ type GroundRows = Annotated[tuple[GroundRow, ...], Is[lambda rows: len({row.inte
 
 
 def _theme_lowered(raw: object) -> object:
-    # msgpack enc_hook for the fingerprint: a Map lowers key-sorted, a frozendict as its dict view, a frozenset sorts,
-    # a non-str/int enum by value; every other member is a dataclass asdict already lowered, a Struct, or a scalar.
     if isinstance(raw, Map):
         return dict(raw.items())
     if isinstance(raw, frozendict):
@@ -294,9 +292,6 @@ class Theme:
 
     @property
     def fingerprint(self) -> str:
-        # content-addressed theme identity over every render-affecting field — two themes sharing one display `key`
-        # never collide inside a content preimage, and any styling edit re-keys every artifact that composed it;
-        # `key` stays the human label and never enters a hash.
         return hashlib.sha256(_THEME_CANON.encode(asdict(self))).hexdigest()
 
     def role(self, role: ThemeRole, /) -> TypeRow:
@@ -312,11 +307,6 @@ class Theme:
         return self.schemes[mode].palette
 
     def silhouette(self, kind: EntourageKind, scale: Positive, /) -> tuple[str, ...]:
-        # THE ENTOURAGE ROW'S OWN SELECT, and the projection that was missing while every sibling row had one: the
-        # theme carried the silhouettes and no surface could ask for one, so the whole vocabulary sat unreachable
-        # behind a field. A row is stored at its real-world height, so the caller asks in DRAWING units and the
-        # scale factor lands here rather than in each consuming plane — placing a two-metre figure on a 1:50 sheet
-        # is one number, and re-deriving it per consumer is how two planes draw the same figure at two heights.
         return tuple(row.path_d for row in self.entourage if row.kind is kind and row.height_m * scale > 0.0)
 
     def diagram_ink(self, mode: ThemeMode, style: DiagramStyle, /) -> ColorText:

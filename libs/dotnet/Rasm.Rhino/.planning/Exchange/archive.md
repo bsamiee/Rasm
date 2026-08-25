@@ -23,7 +23,7 @@ The rail composes and never re-mints: `OutputPolicy.Land` is the folder's atomic
 - Growth: a new mesh channel is one `MeshChannel` row plus its column in each target's declared set; a new slice is one `ArchiveSlice` row.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -32,7 +32,7 @@ using Rhino.FileIO;
 
 namespace Rasm.Rhino.Exchange;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ArchiveSource {
     private ArchiveSource() { }
@@ -117,7 +117,6 @@ public sealed partial class MeshChannel : ICapability<MeshChannel> {
 
 [SmartEnum<int>]
 public sealed partial class MeshTarget {
-    // The host's own reach: render meshes apply to brep, extrusion, and SubD; analysis meshes extend to mesh.
     public static readonly MeshTarget Brep = new(key: 0, kind: ObjectType.Brep,
         channels: CapabilitySet<MeshChannel>.Of(MeshChannel.Render, MeshChannel.Analysis));
     public static readonly MeshTarget Extrusion = new(key: 1, kind: ObjectType.Extrusion,
@@ -135,16 +134,12 @@ public sealed partial class MeshTarget {
         : CapabilitySet<MeshChannel>.None;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public readonly partial struct FormatVersion {
-    // The host's own sentinel, NAMED: zero means "the version the writing host itself writes", so no policy carries
-    // the bare literal and no reader takes it for revision zero.
     public static FormatVersion Host { get; } = Create(value: 0);
 
-    // Host-free floor: 2 is the oldest archive revision the host writes. The live ceiling is a runtime read `Of`
-    // applies, never a type-init read that would fire `RhinoApp.ExeVersion` on first touch of the type.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
         int candidate = value;
         validationError = candidate == 0 || candidate >= 2
@@ -263,7 +258,7 @@ public sealed partial class ArchiveWritePolicy {
 - Growth: a new resource role is one row carrying its reach; a new relation is one row; neither touches the container, the coverage fold, or the integrity query.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ResourceReach {
     public static readonly ResourceReach Materialized = new(key: 0,
@@ -310,8 +305,6 @@ public sealed partial class ResourceRelation {
     public static readonly ResourceRelation LinksArchive = new(key: 5);
 }
 
-// Three legal states, not a three-boolean product with five illegal corners. Every case IMPLIES the attempt, so a
-// step that never reached its host call emits no mutation row rather than one claiming `Attempted: false`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MutationOutcome {
     private MutationOutcome() { }
@@ -338,7 +331,7 @@ public abstract partial record ExchangeEvidence {
     public sealed record UnitCase(string Surface, LengthUnit Before, LengthUnit After, ArchiveUnitPolicy Policy) : ExchangeEvidence;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ResourceNode(ResourceRole Role, string Name, Option<Guid> Id);
 
 public readonly record struct ResourceLink(ResourceNode From, ResourceNode To, ResourceRelation Relation);
@@ -355,8 +348,6 @@ public sealed record ArchiveGraph(
     Seq<ResourceNode> Nodes,
     Seq<ResourceLink> Links,
     Seq<ResourceCoverage> Coverage) {
-    // ONE container build answers BOTH integrity questions: a link whose endpoint is not a stored node is dangling,
-    // and a stored node no edge touches is an unreferenced resource the roster alone could never surface.
     public (Seq<ResourceLink> Dangling, Seq<ResourceNode> Orphans) Integrity() {
         BidirectionalGraph<ResourceNode, TaggedEdge<ResourceNode, ResourceRelation>> container = new(allowParallelEdges: true);
         _ = container.AddVertexRange(Nodes.AsIterable());
@@ -379,8 +370,6 @@ public sealed record ArchiveMetadata(
     Option<Seq<(string Name, Guid Id)>> Layouts,
     int DimensionStyles,
     Option<(Rasm.Numerics.Dimension Width, Rasm.Numerics.Dimension Height)> Preview) {
-    // The anchor arrives SETTLED because its admission is fallible; every other field is a lazy per-ingress reader,
-    // so the two ingresses share one presence rule per column and cannot drift.
     internal static ArchiveMetadata Of(
         Func<Option<string>> notes,
         Func<int> archiveVersion,
@@ -409,8 +398,6 @@ public sealed record ArchiveMetadata(
     internal static Option<(string, string, string)> Origin(string name, string url, string details) =>
         Text(value: name).Map(admitted => (admitted, url, details));
 
-    // The host hands the caller an owned bitmap; the extent is read and the bitmap released inside one window, so
-    // presence and size answer together and no live GDI handle rides the detached header.
     internal static Option<(Rasm.Numerics.Dimension Width, Rasm.Numerics.Dimension Height)> Previewed(System.Drawing.Bitmap? bitmap) =>
         Optional(bitmap).Bind(static held => {
             using System.Drawing.Bitmap preview = held;
@@ -446,8 +433,6 @@ public sealed record ArchiveDelta(
     }
 }
 
-// Orphans are EVIDENCE, not invalidity: an unreferenced layer or material is legal archive content, and counting it
-// as a defect would refuse every stock template.
 public readonly record struct ArchiveVerdict(int InvalidObjects, int DanglingLinks, int Orphans) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(InvalidObjects == 0, DanglingLinks == 0);
 }
@@ -466,7 +451,7 @@ public readonly record struct ArchiveVerdict(int InvalidObjects, int DanglingLin
 - Boundary: `SetPreviewCase` carries copied `ArchiveBytes`, decodes and clones the bitmap while the stream remains live, and disposes both bitmaps after `SetPreviewImage` copies the pixels. `ClearPreviewCase` passes the host null sentinel.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ArchiveUnitPolicy {
     public static readonly ArchiveUnitPolicy Relabel = new(key: "relabel",
@@ -585,8 +570,6 @@ public abstract partial record ArchivePatch {
         op.Catch(() => Optional(archive.AllNamedViews.FindName(name: name))
             .ToFin(Fail: new KernelFault.InvalidValue(name, string.Join(" | ", new object?[] { op, "a named archive entry" }))));
 
-    // ONE unit fold for both settings surfaces: the policy row decides whether geometry rescales, the ratio applies
-    // before the destination unit lands so a custom unit's own scale survives, and the evidence carries the policy.
     private static Fin<ExchangeEvidence> Units(
         File3dm archive,
         string surface,
@@ -627,7 +610,7 @@ public sealed record ArchiveMutation(ResourceNode Resource, Seq<ExchangeEvidence
 - Boundary: `File3dm`, static-read `ViewInfo`/`DimensionStyle`, `EarthAnchorPoint`, and preview `Bitmap` values live only inside owned lease windows; every yield contains local value shapes, copied byte memory, paths, hashes, or typed faults before release. A static read answering an array of host rows folds through the owned-lease pair — one arm projecting detached values, one arm counting — and both force the fold, because a lazy projection defers the release past the window that owns it.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ArchiveOp {
     private ArchiveOp() { }
@@ -642,7 +625,7 @@ public abstract partial record ArchiveOp {
     public sealed record BatchCase(Seq<ArchiveOp> Program) : ArchiveOp;
 
     public static Fin<ArchiveOp> Batch(params ReadOnlySpan<ArchiveOp> program) {
-        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        Op op = Op.Of();
         return ((ArchiveOp)new BatchCase(Program: toSeq(program.ToArray()))).Admit(op: op);
     }
 
@@ -695,11 +678,9 @@ public abstract partial record ArchiveYield {
     public sealed record ProgramCase(BatchProgram<ArchiveReceipt> Program) : ArchiveYield;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ArchiveReceipt(ArchiveYield Yield, Seq<ExchangeEvidence> Evidence)
     : IDetachedDocumentResult, IBatchYield {
-    // Always absent: `BatchCase` refuses a nested batch at admission, so no archive receipt ever wraps a program
-    // whose verdict an outer fold would have to read through.
     public Option<BatchVerdict> Nested => None;
 
     internal static ArchiveReceipt Of(ArchiveYield yield, Seq<ExchangeEvidence> evidence = default) =>
@@ -709,7 +690,7 @@ public sealed record ArchiveReceipt(ArchiveYield Yield, Seq<ExchangeEvidence> Ev
         new(Yield: new ArchiveYield.ProgramCase(Program: program), Evidence: prelude + program.Evidence);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Archives {
     public static Fin<ArchiveReceipt> Apply(ArchiveSource source, ArchiveOp request, Op? key = null) {
         Op op = key.OrDefault();
@@ -862,8 +843,6 @@ public static class Archives {
                         source: ctx.Source, archive: ctx.Archive, request: inner, index: index, op: ctx.Op)),
                 prelude: ctx.Evidence)));
 
-    // Each row runs against the SHARED materialization under its own residue trace, so a failure names the phase it
-    // reached rather than the modality it requested.
     private static BatchStep<ArchiveReceipt> Step(
         ArchiveSource source, File3dm archive, ArchiveOp request, int index, Op op) {
         MutationTrace trace = MutationTrace.Fresh();
@@ -917,9 +896,6 @@ public static class Archives {
             Detail: text,
             Target: Some(written.Target))).ToSeq();
 
-    // Residue reads the LANDING TRACE, never the request modality: a step that never reached the staging kernel
-    // carries no mutation row, one that failed before the filesystem was touched rolled back, and one that failed
-    // after may have left a committed target or an earlier committed prefix behind.
     private static Seq<ExchangeEvidence> Residue(string surface, MutationPhase phase) =>
         phase.Reaches(floor: MutationPhase.Attempted)
             ? Seq<ExchangeEvidence>(new ExchangeEvidence.MutationCase(
@@ -950,8 +926,6 @@ public static class Archives {
             .Map(value => new Lease<T>.Owned(Value: value).Use(project))
             .Strict();
 
-    // Cardinality needs no projection: the fold releases each host row and carries the running count, so a census
-    // over a static read allocates no per-element result.
     private static int CountOwned<T>(T[]? values) where T : class, IDisposable =>
         toSeq(values ?? Array.Empty<T>()).Fold(0, static (count, value) =>
             new Lease<T>.Owned(Value: value).Use(state: count, project: static (held, _) => held + 1));

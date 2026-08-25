@@ -24,7 +24,7 @@
 - Boundary: the durable lanes (`Family.Durable`) are the exactly-once CDC row source the `Version/egress` pump drains past the `Store/coordination#OUTBOX_CURSOR`, and `ReplayWindow.DurableOps` is that drain's parameterization; the presence/awareness lane (`durable: false`) stays the lossy `DrainSurface` channel and NEVER the exactly-once CDC envelope.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
@@ -42,8 +42,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Version;
 
-// --- [TYPES] -----------------------------------------------------------------------------
-// `{WholeRelation}` without `{Tombstone}` is the corner two bool columns could hold while no merge arm answered it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SyncCapability : ICapability<SyncCapability> {
@@ -58,7 +57,6 @@ public static class SyncOps {
     public static readonly CapabilityLaw<SyncCapability> Law = new(Seq(Live, Retires, Clears));
 }
 
-// `Fact` is a COLUMN, not a derivation: no suffix rule turns every verb here into its own past tense.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -75,7 +73,6 @@ public sealed partial class SyncOpKind {
         toSeq(Items).Traverse(static row => SyncOps.Law.Admit(row.Ops)).As().Map(static _ => unit);
 }
 
-// `Absorb` presupposes `Commute`, so `{Absorb}` alone is barred — what a `(bool, bool)` pair left to inspection.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OpCapability : ICapability<OpCapability> {
@@ -90,8 +87,6 @@ public static class OpLaws {
     public static readonly CapabilityLaw<OpCapability> Law = new(Seq(Sequential, Reorderable, Absorbing));
 }
 
-// ONE commutation vocabulary estate-wide. The ROW names are the cross-runtime contract (`Version/commits` `Crdt.Law`,
-// `typescript:core/state/merge` `Merge.Law`); the capability set is the .NET-side column shape.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -112,7 +107,6 @@ public sealed partial class MergeStance {
     public static readonly MergeStance Crdt = new(OpLaw.Semilattice);
     public static readonly MergeStance FirstWriter = new(OpLaw.Ordered);
     public OpLaw Law { get; }
-    // Derived: a lane carrying both states a stance the fold and the receipt then disagree about.
     public bool Convergent => Law.Ops.Admits(OpCapability.Absorb);
 }
 
@@ -133,9 +127,6 @@ public sealed partial class ColumnFamily {
     private ColumnFamily(string key, MergeStance stance, SnapshotCodec codec, bool durable) : this(key) => (Stance, Codec, Durable) = (stance, codec, durable);
 }
 
-// One sign boundary spans the vector's `long` slots and the feed's `ulong` dots, mirroring the AppHost port-side
-// admission store-side. The cap makes `Signed` TOTAL: the unchecked cast it replaces read NEGATIVE past
-// `long.MaxValue`, so a dominance test answered "applied" for an operation nobody applied.
 [ValueObject<ulong>]
 public readonly partial struct OpSlot {
     public static readonly OpSlot Zero = Create(0UL);
@@ -146,16 +137,12 @@ public readonly partial struct OpSlot {
         if (value > (ulong)long.MaxValue) validationError = new ValidationError($"<op-slot-unsigned:{value}>");
     }
 
-    // Total by construction: a non-negative `long` cast to `ulong` is always inside the validator's cap, which is
-    // exactly why the cap is `long.MaxValue` and not `ulong.MaxValue`.
     public static Validation<Error, OpSlot> Of(long signed) =>
         signed >= 0L
             ? Success<Error, OpSlot>(Create((ulong)signed))
             : Fail<Error, OpSlot>(new SyncFault.SlotOutOfSpace(signed));
 }
 
-// This SLOT stays distinct from the AppHost `Observability/telemetry#CORRELATION_SPINE` PROPAGATION fold: `TraceId`
-// holds the 16-byte id, not the 55-char `traceparent` header.
 [ComplexValueObject]
 public sealed partial class TraceSlot {
     public static readonly TraceSlot Empty = new(ReadOnlyMemory<byte>.Empty, ReadOnlyMemory<byte>.Empty);
@@ -170,8 +157,6 @@ public sealed partial class TraceSlot {
     public static TraceSlot Capture() =>
         Activity.Current is { } a && a.Context.TraceId != default ? From(a.Context, a.TraceStateString) : Empty;
 
-    // TOTAL: the span `OperationStatus` overload reports a partial decode as a VALUE, where the throwing
-    // array-returning overload faults the daemon on a legitimately arbitrary 32-char correlation.
     public static TraceSlot FromHex(string? correlation) {
         if (correlation is not { Length: 32 }) { return Empty; }
         byte[] span = new byte[16];
@@ -191,10 +176,7 @@ public sealed partial class TraceSlot {
             Encoding.ASCII.GetString(Tracestate.Span) is { Length: > 0 } s ? s : null, isRemote: true)) : None;
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
-// Identity derived apart from payload identity. Keying on `ContentKey` makes two peers stamping the identical
-// `Set(field, value)` ONE operation and drops the second edit; keying on a store-local `Sequence` makes two stores
-// mint one id; keying on `(Hlc, Origin)` binds identity to a clock a restart can rewind.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class OperationId {
     public static readonly OperationId Genesis = new(Guid.Empty, OpSlot.Zero, VersionVector.Empty);
@@ -202,7 +184,6 @@ public sealed partial class OperationId {
     public OpSlot Counter { get; }
     public VersionVector Context { get; }
 
-    // Gap-free: a skipped counter is a lost operation refused at admission, never a hole a later test reads as met.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid origin, ref OpSlot counter, ref VersionVector context) {
         if (counter == OpSlot.Zero) {
             validationError = origin == Guid.Empty && context.Slots.IsEmpty
@@ -217,7 +198,6 @@ public sealed partial class OperationId {
 
     public static OperationId Mint(Guid origin, OpSlot prior, VersionVector context) => Create(origin, prior.Next, context);
 
-    // Frontier AFTER this operation: the next id's context, and what a receiver joins once the entry lands.
     public VersionVector Frontier => Context.Advance(Origin, 1L);
     public bool Applied(VersionVector frontier) => frontier.At(Origin) >= Counter.Signed;
 
@@ -229,47 +209,30 @@ public sealed partial class OperationId {
             _ => VectorOrder.Concurrent,
         };
 
-    // `Key` is the INDEX projection and `Wire` the envelope `id`; a digest cannot answer which origin minted.
     public UInt128 Key => ContentHash.Of(this, static (id, writer) => id.CanonicalBytes(writer));
     public string Wire => string.Create(CultureInfo.InvariantCulture, $"{Origin:N}.{Counter.Value}");
 
-    // Framed origin, ONE eight-byte counter word, then the vector through the SAME writer the commit key takes, so a
-    // slot-order edit cannot land on one key and not the other. `Counter.Value` rides `I64` `unchecked` — the
-    // `OpSlot` cap already holds it under `long.MaxValue`, so the reinterpretation is identity — and the parity
-    // corpus pins THIS eight-byte form; a second width beside it was the live divergence this member deletes.
     public void CanonicalBytes(CanonicalWriter writer) {
         writer.String(Origin.ToString("N")).I64(unchecked((long)Counter.Value));
         Context.CanonicalBytes(writer);
     }
 }
 
-// Admitted Marten evidence: every foreign column crosses ONCE on the `Validation` rail, so a malformed event reports
-// every bad column at once and the interior never re-reads a nullable substrate field.
 public readonly record struct EventFacts(
     long Sequence, OperationId Dot, ModelId Model, string EntityKey, SyncOpKind Kind,
     ReadOnlyMemory<byte> Payload, UInt128 ContentKey, TraceSlot Trace, Seq<UInt128> Closure,
     string Actor, Instant Physical, OpSlot Logical);
 
-// One changefeed record carries every projected event. `(Family, Codec)` discriminates the payload shape, so the
-// merge fold reads the lane row and never a per-payload record; `Id` is the operation identity and `ContentKey` the
-// payload identity, and collapsing them turns a repeated edit into a dropped one. No before-image field: the receipt
-// IS the evidence.
 [method: MapperConstructor]
 public sealed record OpLogEntry(
     long Sequence, OperationId Id, ModelId Model, string EntityKey, ColumnFamily Family, SyncOpKind Kind,
     ReadOnlyMemory<byte> Payload, UInt128 ContentKey, TraceSlot Trace, Seq<UInt128> Closure,
     string Actor, Instant Physical, ulong Logical) {
     public Hlc Stamp => new(Physical, Logical);
-    // Identity-derived: a peer resuming a feed and a peer ordering an operation read different columns on purpose.
     public Guid OriginStoreId => Id.Origin;
-    // Family-derived: a payload can never carry a codec its lane disagrees with.
     public SnapshotCodec Codec => Family.Codec;
 }
 
-// The cross-runtime envelope is an explicit primitive MessagePack DTO, not `OpLogEntry` handed to a contractless
-// resolver. Every peer therefore sees the same thirteen positional cells: GUIDs and UInt128 values are sixteen
-// network-order bytes, roster members are their string keys, and the payload remains a bin value no envelope
-// decoder opens. Domain carriers never leak their generated formatter choices into this seam.
 [MessagePackObject]
 public sealed record VectorSlotWire(
     [property: Key(0)] byte[] Origin,
@@ -317,9 +280,6 @@ public static class OpLogWire {
             .Bind(Admit)
             .MapFail(static error => new SyncFault.TransferDecode("oplog", error));
 
-    // The plural forms ACCUMULATE: a peer offering a hundred frames with two bad ones learns both, where a
-    // short-circuiting traverse names the first and hides the rest behind a re-send that fails the same way.
-    // Every frame-bearing crossing — the delta exchange, the push handler, the checkout stream — takes these.
     public static Fin<Seq<ReadOnlyMemory<byte>>> Encode(Seq<OpLogEntry> entries) =>
         entries.Traverse(static entry => Encode(entry).ToValidation()).As().ToFin()
             .Map(static frames => frames.Map(static frame => (ReadOnlyMemory<byte>)frame));
@@ -400,8 +360,6 @@ public static class OpLogWire {
             : Fin.Fail<Unit>(Error.New("<oplog-envelope-contract>"));
     }
 
-    // The ONE `ulong` → `long` gate on this feed: the envelope's own columns and the generated cursor's drain
-    // position both cross here, so a second width check beside it cannot admit what this one refuses.
     public static Fin<long> I63(ulong value, string field) => value <= (ulong)long.MaxValue
         ? Fin.Succ((long)value)
         : Fin.Fail<long>(Error.New($"<oplog-{field}-unsigned:{value}>"));
@@ -418,9 +376,6 @@ public static class OpLogWire {
         toSeq(SyncOpKind.Items).Find(row => string.Equals(row.Key, key, StringComparison.Ordinal))
             .ToFin(Error.New($"<oplog-kind:{key}>"));
 
-    // The ONE 16-byte big-endian store-id correspondence this feed publishes. The MessagePack envelope and the
-    // generated `SyncCursorWire` both fill from here, so a peer reads one origin spelling off either carrier;
-    // the span inverse serves an array column and a `ByteString.Span` with no copy between them.
     public static byte[] Uuid(Guid value) {
         byte[] bytes = new byte[Fixed];
         value.TryWriteBytes(bytes, bigEndian: true, out _);
@@ -435,7 +390,6 @@ public sealed record SyncCursor(Guid OriginStoreId, long Sequence, Instant Physi
     public static readonly SyncCursor Genesis = new(Guid.Empty, 0L, Instant.MinValue, 0UL);
 }
 
-// Three consumers, one case: the AppUi per-doc replay, the AppHost neutral-log read, and the egress CDC drain.
 public readonly record struct ReplayWindow(Option<Guid> Origin, Option<string> EntityKey, Option<ModelId> Model, Seq<ColumnFamily> Families, long AfterSequence, int Take) {
     public static ReplayWindow ForEntity(string entityKey, long afterSequence, int take) => new(None, Some(entityKey), None, Seq<ColumnFamily>(), afterSequence, take);
     public static ReplayWindow ForOrigin(Guid origin, long afterSequence, int take) => new(Some(origin), None, None, Seq<ColumnFamily>(), afterSequence, take);
@@ -448,10 +402,7 @@ public readonly record struct ReplayWindow(Option<Guid> Origin, Option<string> E
         && (Families.IsEmpty || Families.Contains(entry.Family));
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
-// One dot minter per store: the projection and the authoring `Stamp` both reserve through it. The atom seeds from the
-// durable head joined with the tail past the drain cursor, so a restart resumes instead of re-minting dots a peer
-// holds; a caller keeping its own frontier copy diverges on first mint.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DotSource(Guid origin, Atom<VersionVector> frontier) {
     public VersionVector Frontier => frontier.Value;
 
@@ -460,9 +411,6 @@ public sealed class DotSource(Guid origin, Atom<VersionVector> frontier) {
             ? Fin.Fail<DotSource>(Error.New("<dot-source-empty-origin>"))
             : Fin.Succ(new DotSource(origin, Atom(undrainedTail.Fold(durableHead, static (held, entry) => held.Join(entry.Id.Frontier)))));
 
-    // ONE swap per range: a per-entry swap lets the other path interleave a dot into the middle, which is exactly the
-    // gap the id refuses. This is also the ONE place a `long` vector slot admits into the dot space, and BOTH
-    // endpoints admit, so `Next` is total across the run and exhaustion refuses at the boundary.
     public Validation<Error, Seq<OperationId>> Reserve(int count) {
         VersionVector opening = frontier.Swap(held => held.Advance(origin, count)).Advance(origin, -count);
         return (OpSlot.Of(opening.At(origin)), OpSlot.Of(opening.At(origin) + count))
@@ -475,7 +423,6 @@ public sealed class DotSource(Guid origin, Atom<VersionVector> frontier) {
 }
 
 public sealed class ChangefeedSubscription(DotSource dots, Func<Seq<OpLogEntry>, IO<Unit>> drain) : SubscriptionBase {
-    // ONE batched fold per range; the admission `Validation` collapses to `Fin` HERE, at the daemon seam.
     public override async Task<IChangeListener> ProcessEventsAsync(EventRange range, ISubscriptionController controller, IDocumentOperations operations, CancellationToken token) {
         Seq<IEvent<GraphEvent>> events = toSeq(range.Events.OfType<IEvent<GraphEvent>>());
         IO<Unit> landing = (from reserved in dots.Reserve(events.Count)
@@ -493,9 +440,7 @@ public sealed record OpLogRuntime(DotSource Dots, ChangefeedSubscription Subscri
             .Map(dots => new OpLogRuntime(dots, new ChangefeedSubscription(dots, drain)));
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
-// Every interior divergence is one attribute row and zero assignment statements survive. The cross-runtime
-// positional order belongs to `OpLogEntryWire`; Mapperly never decides a wire slot.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 [MapperRequiredMapping(RequiredMappingStrategy.Both)]
 public static partial class OpLogMapper {
@@ -512,13 +457,9 @@ public static class OpLog {
     public static readonly Seq<StoreSlot> Slots = Seq(
         StoreSlot.Create("store.presence.beat"), StoreSlot.Create("store.replication.checkout"));
 
-    // Dots zip positionally so no entry borrows a neighbour's identity; admissions ACCUMULATE across the range.
     public static Validation<Error, Seq<OpLogEntry>> Project(Seq<OperationId> dots, Seq<IEvent<GraphEvent>> events) =>
         events.Zip(dots).Traverse(static pair => Project(pair.Item2, pair.Item1)).As();
 
-    // Every body is a `Element/graph#STREAM_GRAIN` `GraphDelta`, so `Project` produces STRUCTURAL `geometry`-lane
-    // entries alone and never a `crdt` op. That lane encodes `JsonStj`, NOT `MessagePackBinary`: the seam delta is
-    // source-gen-registered on the STJ context and carries no `[MessagePackObject]` for a resolver to find.
     public static Validation<Error, OpLogEntry> Project(OperationId id, IEvent<GraphEvent> e) =>
         OpSlot.Of(e.Version).Map(logical => {
             ReadOnlyMemory<byte> payload = ColumnFamily.Geometry.Codec.Serialize(typeof(GraphDelta), e.Data.Body);
@@ -530,18 +471,14 @@ public static class OpLog {
                 Instant.FromDateTimeOffset(e.Timestamp), logical));
         });
 
-    // Nullable substrate columns admit here and nowhere else.
     static string EntityKey(IEvent<GraphEvent> e) => e.StreamKey ?? e.StreamId.ToString();
 
     static string HeaderValue(IEvent<GraphEvent> e, string key) =>
         e.Headers is { } h && h.TryGetValue(key, out object? value) ? value?.ToString() ?? string.Empty : string.Empty;
 
-    // Composition binds `feed` to the durable row source; every consumer dials a `ReplayWindow` value.
     public static Seq<OpLogEntry> Replay(Seq<OpLogEntry> feed, ReplayWindow window) =>
         toSeq(feed.Filter(window.Admits).OrderBy(static entry => entry.Sequence).Take(window.Take));
 
-    // Closure names the geometry a peer must hold to materialize the change: a non-`Object` node contributes nothing,
-    // so the closure is the BLOB set, never the node set.
     static Seq<UInt128> Closure(GraphDelta delta) =>
         toSeq((delta.AddedNodes + delta.RevisedNodes.Map(static r => r.After))
             .Choose(static n => Optional(n as Node.Object))
@@ -549,8 +486,6 @@ public static class OpLog {
             .Distinct()
             .OrderBy(static key => key));
 
-    // Authoring mints a NON-structural lane entry: one HLC stamp, one dot, one captured trace, the `build`
-    // continuation closing over its owner's lane and payload. A caller minting its own dot invents a causal position.
     public static IO<OpLogEntry> Stamp(ReceiptSinkPort sink, DotSource dots, ProjectionContext frame, Func<(OperationId Id, Instant Physical, ulong Logical, TraceSlot Trace), OpLogEntry> build) =>
         dots.Reserve(1).ToFin().Match(
             Succ: reserved => IO.lift(() => (Wall: frame.Now(), Trace: TraceSlot.Capture()))
@@ -558,8 +493,6 @@ public static class OpLog {
                 .Map(stamped => build((stamped.Id, stamped.Cell.Physical, stamped.Cell.Logical, stamped.Trace))),
             Fail: IO.fail<OpLogEntry>);
 
-    // The sole CRDT authoring path: generated protobuf bytes, their exact seed-zero payload key, then the generic
-    // positional envelope. No caller can select the CRDT lane while supplying MessagePack-union bytes.
     public static IO<OpLogEntry> Crdt(
         long sequence, ModelId model, string entityKey, SyncOpKind kind, CrdtOp op, string actor,
         ReceiptSinkPort sink, DotSource dots, ProjectionContext frame) =>
@@ -605,9 +538,7 @@ public static class OpLog {
 - Boundary: `Maintain` is the one arm whose admissibility outlives its fold — compaction commutes and absorbs as a filter, yet it is a MEET where every sibling is a JOIN, so a horizon its minter never observed reclaims a tombstone a concurrent insert still needs. Only the entry's own `OperationId.Context` evidences that check, so the gate lives at the entry: `Crdt.Apply`, holding no frontier, structurally cannot run it. Family `crdt` routes its `Payload` through `Crdt.Apply` so a concurrent edit converges by the join-semilattice least-upper-bound rather than scalar LWW — the multi-writer offline and IFC three-way merge substrate. Winning whole-relation entries commit through the session `Truncate` delegate, their capability row selecting the relation-wide lane rather than a dead flag.
 
 ```csharp signature
-// --- [MODELS] ----------------------------------------------------------------------------
-// Conflict-side evidence rides an OPTION: `Hlc.Zero`'s physical half is `Instant.MinValue`'s ticks, NEGATIVE and
-// outside the I63 domain the packed slot admits, so absence spelled as a stamp is a value no writer may carry.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ConflictSide(Hlc Stamp, string Actor);
 
 public readonly record struct ConflictReceipt(
@@ -625,12 +556,9 @@ public sealed partial class ConflictVerdict {
     public bool Applies { get; }
 }
 
-// Both an idempotent-replay `LocalWin` and a competitor-free `Merged` carry `Conflicted: false`, keeping the audit
-// exact.
 public readonly record struct ConflictResult(ConflictVerdict Verdict, ConflictReceipt Receipt, bool Conflicted, UInt128 Held);
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// `SyncFault` derives directly from `Rasm.Domain.Fault`; generated case identity proves each offset in-band.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SyncFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Sync;
@@ -666,9 +594,7 @@ public abstract partial record SyncFault : Fault {
         transferEncode:     static c => $"<transfer-encode:{c.Peer}>:{c.Cause.Message}");
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
-// Self-attesting through the kernel receipt-validity floor: a consumer re-proves conservation without the caller's
-// count.
+// --- [SERVICES] ------------------------------------------------------------------------
 public readonly record struct SyncApplyReceipt(
     long Batch, long Applied, long Skipped, long Conflicted, long Converged, long Pushed, long QueueDepth,
     Seq<ConflictReceipt> Conflicts, SyncCursor Cursor, SyncCursor Acked, CorrelationId Correlation, Instant At) : IValidityEvidence {
@@ -676,14 +602,6 @@ public readonly record struct SyncApplyReceipt(
     public bool IsValid => ValidityClaim.All(Batch == Settled, Conflicts.Count == Conflicted);
 }
 
-// Sessions take the injected `Element/graph#STORE_RAIL` frame, carrying clock, correlation, and tenant as VALUES.
-// `Cursor`/`Acked` are TWO cursor spaces — our position in the PEER's feed, and the peer's confirmed position in OURS
-// — and one slot carrying both skips or re-pulls remote entries. `Spool`/`Unspool`/`LocalHas` bind the durable KV
-// floor, because a session whose pending rows live only in memory loses the buffer on process exit. The four DIALED
-// ports carry `Fin` inside the effect because a hop SETTLES rather than throws: the composition root fills each with
-// the matching `SyncWire` method group, so the transport verdict and its value arrive as one value the pump collapses
-// once and no second port set exists beside the generated client. `Fetch` stays the LOCAL entry resolver — the
-// in-process cross-session graft reads it, never the peer-facing checkout.
 public sealed record SyncSession(
     ProjectionContext Frame, ReceiptSinkPort Sink, Guid StoreId, ulong SchemaFingerprint, SyncCursor Cursor, SyncCursor Acked, CancellationToken Token,
     Func<VersionVector> Frontier,
@@ -698,10 +616,9 @@ public sealed record SyncSession(
     Func<string, Seq<OpLogEntry>, IO<(UInt128 RootContentKey, long ConvertedReferences)>> SpeckleSend,
     Func<string, UInt128, IO<Seq<OpLogEntry>>> SpeckleReceive);
 
-// Named once, so the fold's three halves state one type instead of a six-slot tuple at every arrow.
 internal readonly record struct Counts(VersionVector Frontier, long Applied, long Skipped, long Conflicted, long Converged, Seq<ConflictReceipt> Conflicts);
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SyncMerge {
     public static ConflictReceipt Receipt(SyncSession session, OpLogEntry held, OpLogEntry incoming) =>
         new(incoming.Model, incoming.EntityKey, incoming.Family, Some(new ConflictSide(held.Stamp, held.Actor)),
@@ -718,8 +635,6 @@ public static class SyncMerge {
                 : new ConflictResult(Resolve(incoming, held), Receipt(session, held, incoming), Conflicted: true, held.ContentKey)
             : new ConflictResult(ConflictVerdict.Merged, Fresh(session, incoming), Conflicted: false, UInt128.Zero);
 
-    // FirstWriter is earliest-wins, the INVERSE of the LWW default, so the direction flips: the OLDER stamp wins
-    // regardless of arrival. An equal `(stamp, origin)` over divergent content is the fork either stance halts on.
     static ConflictVerdict Resolve(OpLogEntry incoming, OpLogEntry held) =>
         ((incoming.Stamp, incoming.OriginStoreId).CompareTo((held.Stamp, held.OriginStoreId)),
          incoming.Family.Stance == MergeStance.FirstWriter) switch {
@@ -728,16 +643,11 @@ public static class SyncMerge {
             _ => ConflictVerdict.Rejected,
         };
 
-    // Compaction refuses where an entry's causal context fails to dominate the quiescence vector claims a horizon
-    // nobody saw, and applying it resurrects a deleted element on whichever peer folds it.
     public static Fin<Unit> Admissible(OperationId id, CrdtOp op) =>
         op is CrdtOp.Maintain compaction && !id.Context.Dominates(compaction.Quiescent)
             ? Fin.Fail<Unit>(new SyncFault.Unobserved(compaction.Field, id.Origin))
             : Fin.Succ(unit);
 
-    // Composition binds `SyncSession.Converge` through this adapter. Integrity was verified on the held envelope
-    // bytes before parsing; generated-message admission and the entry-level compaction gate both run before the
-    // state owner receives an operation.
     public static IO<ConflictResult> Converged(OpLogEntry entry, Func<OperationId, CrdtOp, IO<ConflictResult>> apply) =>
         entry.Family != ColumnFamily.Crdt
             ? IO.fail<ConflictResult>(new SyncFault.TransferDecode("crdt", Error.New($"<crdt-family:{entry.Family.Key}>")))
@@ -747,9 +657,6 @@ public static class SyncMerge {
                 .Bind(op => Admissible(entry.Id, op).Map(_ => op))
                 .Match(Succ: op => apply(entry.Id, op), Fail: IO.fail<ConflictResult>);
 
-    // Dots under the applied frontier settle `Skipped`, identity-proven: content equality cannot separate a
-    // redelivery from a second real edit carrying identical bytes. Every surviving entry lands through ONE
-    // `ConflictResult` and in EXACTLY ONE counter, which is what makes the conservation fold exact.
     public static IO<SyncApplyReceipt> Apply(SyncSession session, Seq<OpLogEntry> incoming) =>
         incoming.FoldM(
             new Counts(session.Frontier(), Applied: 0L, Skipped: 0L, Conflicted: 0L, Converged: 0L, Conflicts: Seq<ConflictReceipt>()),
@@ -764,17 +671,12 @@ public static class SyncMerge {
             .Bind(receipt => receipt.IsValid ? IO.pure(receipt) : IO.fail<SyncApplyReceipt>(new SyncFault.Unconserved(receipt.Batch, receipt.Settled)))
             .As();
 
-    // The ONE capture of the fold's IO rail onto the value channel. A gRPC handler answers every refusal as a
-    // status, so the push arm binds THIS method group and the fold keeps its own rail untouched — a second
-    // capture at each override, or a merge that returns `Fin` to every in-process caller, are the two forms
-    // this seat deletes.
     public static IO<Fin<SyncApplyReceipt>> Settled(SyncSession session, Seq<OpLogEntry> incoming) =>
         Apply(session, incoming).Map(static receipt => Fin.Succ(receipt)).Bracket(
             Use: static answered => IO.pure(answered),
             Catch: static error => IO.pure(Fin.Fail<SyncApplyReceipt>(error)),
             Fin: static _ => IO.pure(unit));
 
-    // Only a non-convergent applying verdict reaches `Commit`/`Truncate`: `Converge` already landed its own merge.
     static IO<Counts> Landed(SyncSession session, OpLogEntry entry, ConflictResult result, Counts counts) =>
         result.Verdict == ConflictVerdict.Rejected
             ? IO.fail<Counts>(new SyncFault.Forked(result.Receipt, result.Held, entry.ContentKey))
@@ -820,7 +722,7 @@ public static class SyncMerge {
 - Boundary: Speckle's wire leg lives OUTSIDE-RHINO on the companion target, so the in-Rhino assembly composes only the case and the marshal delegate slot and never references the SDK; the DI-resolved INSTANCE `IOperations.Send` returns a root id that projects onto the offered root `ContentKey` with zero second identity, and a drift between the two faults the run. `SpeckleLikeDiff` keeps `HasObjects` and `SpeckleSend` as SDK-shaped ports precisely because a hub's membership answer is not this service's `TransferSet`, and collapsing the two would make one row's marshal answer for the other's rpc.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Google.Protobuf;
 using Grpc.Core;
@@ -832,9 +734,7 @@ using Clock = Rasm.Contracts.Clock;
 
 namespace Rasm.Persistence.Version;
 
-// --- [TYPES] -----------------------------------------------------------------------------
-// Barring the EMPTY corner is the law here: a transport holding neither capability exchanges nothing, which two bools
-// could spell.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FlowCapability : ICapability<FlowCapability> {
@@ -862,7 +762,7 @@ public sealed partial class SyncFlow {
         toSeq(Items).Traverse(static row => SyncFlows.Law.Admit(row.Legs)).As().Map(static _ => unit);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SyncTransport {
     private SyncTransport(SyncFlow flow) => Flow = flow;
@@ -872,36 +772,19 @@ public abstract partial record SyncTransport {
     public sealed record SubtreeCheckout(string Peer, UInt128 Root, SyncFlow Flow) : SyncTransport(Flow);
 }
 
-// A peer is an AUTHORITY paired with the client bound to it. The hop row admits, credentials, and rate-limits by
-// authority, so a client dialed under another peer's row spends a stranger's budget and reads its breaker; the root
-// seats one entry per configured peer and an unnamed peer refuses on the rail rather than dialing a fabricated host.
 public sealed record SyncPeer(Uri Address, SyncService.SyncServiceClient Client);
 
-// The server's dependency record, filled by the composition root exactly as `SyncSession` is: values and delegates
-// alone, so the endpoint holds no container, no store handle, and no clock of its own. Every EFFECTFUL column arrives
-// RAILED, because a handler answers every refusal as a status and the capture belongs at the one binding rather than
-// at four overrides: the root binds `Apply` to `SyncMerge.Settled` closed over the SERVER's own session, and `Fetch`
-// to the store resolver under the same capture. `PageCap` is what THIS store will read, distinct from the page a peer
-// may state; `Feed` stays pure because `OpLog.Replay` windows a row source and refuses nothing.
 public sealed record SyncRuntime(
     ProjectionContext Frame, ReceiptSinkPort Sink, Guid StoreId, ulong SchemaFingerprint, int PageCap,
     Func<Seq<OpLogEntry>> Feed, Func<UInt128, IO<Fin<OpLogEntry>>> Fetch,
     Func<Seq<OpLogEntry>, IO<Fin<SyncApplyReceipt>>> Apply) {
-    // Producer evidence off the ONE frame: the correlation the session carries, the stamp the sink's own HLC mint
-    // last issued, and the tenant that frame admitted — never a second clock read at the throw site.
     public FaultContext Context() => FaultContext.Of(Frame.Correlation, Sink.Hlc.Value, Frame.Tenant);
 }
 
-// --- [BOUNDARIES] ------------------------------------------------------------------------
-// The ONE cursor correspondence. Mapperly owns the OUTBOUND half whole; the inbound half rails, because origin width,
-// drain position, and stamp are three foreign columns that refuse independently and a peer sending a malformed cursor
-// learns every bad column at once.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper]
 [MapperRequiredMapping(RequiredMappingStrategy.Both)]
 public static partial class SyncWireMap {
-    // A whole-source reader is the only shape that folds `Physical` and `Logical` into one `Hlc` member, and any
-    // `[MapPropertyFromSource(Use = …)]` suppresses RMG020 for EVERY source member — so the two ignore rows are
-    // authored inventory, not compiler proof, and a new `SyncCursor` column obligates a row here by inspection.
     [MapProperty(nameof(SyncCursor.OriginStoreId), nameof(SyncCursorWire.OriginStore))]
     [MapPropertyFromSource(nameof(SyncCursorWire.Stamp), Use = nameof(Cell))]
     [MapperIgnoreSource(nameof(SyncCursor.Physical))]
@@ -910,19 +793,12 @@ public static partial class SyncWireMap {
 
     [UserMapping] private static ByteString Origin(Guid store) => ByteString.CopyFrom(OpLogWire.Uuid(store));
 
-    // The drain position crosses the SAME sign boundary every dot takes. A negative is unrepresentable at every
-    // producer — Marten's own sequence, `Genesis`, and this seam's own admission — so the refusing arm answers
-    // GENESIS. NAMED LOSS: a corrupted position re-pulls the peer's feed from its head, the at-least-once cost this
-    // transport already pays, where the unchecked cast it replaces wrapped past the peer's head and skipped the whole
-    // tail while reading as a successful resume.
     [UserMapping]
     private static ulong Position(long sequence) =>
         OpSlot.Of(sequence).Match(Succ: static slot => slot.Value, Fail: static _ => OpSlot.Zero.Value);
 
     private static Clock.Hlc Cell(SyncCursor cursor) => HostWire.Stamp((cursor.Physical, cursor.Logical));
 
-    // `required = true` on both message members already refuses absence at `WireAdmission.Admit`, so the option arms
-    // here collapse the nullable reference the generated getter forces and state no second rule.
     public static Fin<SyncCursor> Admit(SyncCursorWire? wire, Op key) =>
         Optional(wire).ToFin(key.InvalidInput(nameof(SyncCursorWire))).Bind(stated =>
             (Store(stated.OriginStore, key).ToValidation(),
@@ -937,17 +813,11 @@ public static partial class SyncWireMap {
             ? Fin.Succ(OpLogWire.Uuid(origin.Span))
             : Fin.Fail<Guid>(key.InvalidInput(axis: "cursor-origin-width"));
 
-    // Content keys cross as the kernel's own sixteen big-endian bytes in BOTH directions, so no width, order, or
-    // hex spelling exists on this page beside `ContentHash`.
     public static Fin<Seq<UInt128>> Keys(IEnumerable<ByteString> wire, Op key) =>
         toSeq(wire).Traverse(row => ContentHash.Admit(row.Span, key).ToValidation()).As().ToFin();
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
-// The generated client bound to the AppHost hop law: every rpc leaves through `OutboundSurface.Dispatch`, so retry,
-// breaker, rate limit, deadline, and the hop receipt belong to the pipeline and this record owns none of them. The
-// three unary verbs take `OutboundHop.Grpc` under a per-call idempotency key; the checkout takes the streaming row —
-// the discriminant is the call shape itself, never a knob.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record SyncWire(
     OutboundRuntime Runtime, ulong SchemaFingerprint, uint PageSize, Func<string, Fin<SyncPeer>> Peers) {
     public IO<Fin<(ulong SchemaFingerprint, Seq<ReadOnlyMemory<byte>> Frames, SyncCursor Cursor)>> Pull(
@@ -959,8 +829,6 @@ public sealed record SyncWire(
             static reply => SyncWireMap.Admit(reply.Cursor, Op.Of()).Map(next =>
                 (reply.SchemaFingerprint, toSeq(reply.Frames).Map(static frame => frame.Memory), next)));
 
-    // The batch identity is its extent and its terminal frame: the pump always offers a contiguous run past `Acked`,
-    // so that pair names the batch exactly and a re-drive dedups where the next batch does not.
     public IO<Fin<SyncCursor>> Push(string peer, Seq<ReadOnlyMemory<byte>> frames) =>
         Dial(peer, string.Create(CultureInfo.InvariantCulture,
                 $"push:{frames.Count}.{ContentHash.Hex(frames.Last.Map(static frame => ContentHash.Of(frame.Span)).IfNone(UInt128.Zero))}"),
@@ -978,8 +846,6 @@ public sealed record SyncWire(
             }, options).ResponseAsync,
             static reply => SyncWireMap.Keys(reply.Missing, Op.Of()));
 
-    // The streaming row, not the keyed one: a checkout is repeat-safe and its body cannot replay concurrently, which
-    // is exactly the guarantee `OutboundHop.ServerStream` states.
     public IO<Fin<Seq<ReadOnlyMemory<byte>>>> Checkout(string peer, UInt128 root) =>
         Peers(peer).Match(
             Succ: seat => OutboundSurface.Dispatch<Fin<Seq<ReadOnlyMemory<byte>>>>(
@@ -993,9 +859,6 @@ public sealed record SyncWire(
                 .Map(static settled => settled.Carried.Bind(static held => held)),
             Fail: static error => IO.pure(Fin.Fail<Seq<ReadOnlyMemory<byte>>>(error)));
 
-    // ONE dial shape for the unary trio: the hop STATES its own outcome from the ADMITTED reply, so a reply the rule
-    // graph refuses is a hop fact rather than a delivered frame, and the carried value leaves on the settlement the
-    // same run timed — a hop run for its outcome followed by a raw call for its value is the deleted form.
     private IO<Fin<T>> Dial<TReply, T>(
         string peer, string key,
         Func<SyncService.SyncServiceClient, CallOptions, Task<TReply>> call,
@@ -1011,17 +874,12 @@ public sealed record SyncWire(
                 .Map(static settled => settled.Carried.Bind(static held => held)),
             Fail: static error => IO.pure(Fin.Fail<T>(error)));
 
-    // The rail IS the hop outcome, folded once: a refusal rides `Faulted` so the pipeline's own transient predicate
-    // reads the fault's kernel `Retriability`, and the same value leaves beside it so no caller re-folds the verdict.
     private static (HopOutcome Outcome, Fin<T> Value) Stated<T>(Fin<T> admitted) => (
         admitted.Match(
             Succ: static _ => (HopOutcome)new HopOutcome.Delivered(),
             Fail: static error => new HopOutcome.Faulted(error)),
         admitted);
 
-    // Exemption: `IAsyncStreamReader<T>` is a `Task<bool>` pump and the `ReadAllAsync` drain ships in
-    // `Grpc.Net.Common`, a package this folder does not admit — so this is the one client statement body. Frames read
-    // whole before they admit, and the refusals then ACCUMULATE, so one malformed checkout names every bad frame.
     private static async Task<Fin<Seq<ReadOnlyMemory<byte>>>> Drain(
         IAsyncStreamReader<CheckoutResponse> stream, ulong fingerprint, CancellationToken token) {
         Seq<CheckoutResponse> read = Seq<CheckoutResponse>();
@@ -1029,8 +887,6 @@ public sealed record SyncWire(
         return read.Traverse(frame => Frame(frame, fingerprint).ToValidation()).As().ToFin();
     }
 
-    // Every streamed frame carries the peer's generation, so a stream switching generations mid-checkout refuses on
-    // the SAME `SchemaMismatch` a pulled segment takes rather than splicing two schemas into one closure.
     private static Fin<ReadOnlyMemory<byte>> Frame(CheckoutResponse response, ulong fingerprint) =>
         WireAdmission.Admit(response, WireBoundary.InboundPayload, Op.Of())
             .Bind(admitted => admitted.SchemaFingerprint == fingerprint
@@ -1038,8 +894,6 @@ public sealed record SyncWire(
                 : Fin.Fail<ReadOnlyMemory<byte>>(new SyncFault.SchemaMismatch(fingerprint, admitted.SchemaFingerprint)));
 }
 
-// The server half of the same service. Every arm seals its answer on the rail before the platform sees it, and the
-// dependencies arrive on `SyncRuntime`, so a handler holds no session, no store, and no clock.
 public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceBase {
     public override Task<PullResponse> Pull(PullRequest request, ServerCallContext context) =>
         Answer(context, Segment(request));
@@ -1050,9 +904,6 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
     public override Task<TransferSetResponse> TransferSet(TransferSetRequest request, ServerCallContext context) =>
         Answer(context, Manifest(request));
 
-    // Exemption: `IServerStreamWriter<T>.WriteAsync` is the platform's per-message write, so the emission is one
-    // sequential await. The closure resolves and encodes WHOLE on the rail first, so a refusal mid-resolution leaves
-    // the peer with nothing rather than a spliced partial subtree.
     public override async Task Checkout(
         CheckoutRequest request, IServerStreamWriter<CheckoutResponse> responseStream, ServerCallContext context) {
         foreach (ReadOnlyMemory<byte> frame in await Answer(context, Subtree(request)).ConfigureAwait(false)) {
@@ -1063,15 +914,10 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
         }
     }
 
-    // Exemption, stated ONCE for the four overrides: the generated base answers `Task<T>` and gRPC reads a refusal as
-    // a THROW, so `FaultWire.Raise` is the one egress on this class and the typed fault is sealed on the rail before
-    // it — the transport's egress form, never control flow.
     private async Task<T> Answer<T>(ServerCallContext context, IO<Fin<T>> answered) =>
         (await answered.RunAsync(EnvIO.New(token: context.CancellationToken)).ConfigureAwait(false))
             .Match(Succ: static held => held, Fail: error => throw FaultWire.Raise(error, runtime.Context()));
 
-    // `IO.lift` over a `Fin`-returning thunk resolves to the RAILED overload and lands `IO<T>` with the failure folded
-    // onto the error channel, so every pure arm here spells its type argument to carry the `Fin` as its VALUE.
     private IO<Fin<PullResponse>> Segment(PullRequest request) =>
         IO.lift<Fin<PullResponse>>(() => Admitted(request)
             .Bind(stated => Position(stated.Cursor).Map(cursor => (Cursor: cursor, Page: OpLog.Replay(
@@ -1084,8 +930,6 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
                     .IfNone(read.Cursor)),
             })));
 
-    // The acked cursor sits at the last APPLIED entry's real coordinates in the CALLER's own space — its origin, its
-    // sequence, its stamp — never a count added to the position the caller stated.
     private IO<Fin<PushResponse>> Landed(PushRequest request) =>
         IO.lift<Fin<Seq<OpLogEntry>>>(() => Admitted(request).Bind(stated =>
                 stated.SchemaFingerprint == runtime.SchemaFingerprint
@@ -1100,8 +944,6 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
                 })),
                 Fail: static error => IO.pure(Fin.Fail<PushResponse>(error))));
 
-    // The peer resolves the root and runs the ONE set difference against the keys the caller states it holds, so the
-    // algebra runs at the end holding the whole closure and never twice on both sides of the wire.
     private IO<Fin<TransferSetResponse>> Manifest(TransferSetRequest request) =>
         IO.lift<Fin<(UInt128 Root, Seq<UInt128> Held)>>(() => Admitted(request).Bind(stated =>
                 (ContentHash.Admit(stated.Root.Span, Op.Of()).ToValidation(),
@@ -1113,9 +955,6 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
                 })),
                 Fail: static error => IO.pure(Fin.Fail<TransferSetResponse>(error))));
 
-    // Root first, then the entries its closure resolves — ONE level, because `Closure` is already the transitive
-    // descendant set the projection sealed and a recursive walk would re-derive what the entry carries. Unresolved
-    // keys ACCUMULATE, so a peer whose root outran its own store learns every missing coordinate in one answer.
     private IO<Fin<Seq<ReadOnlyMemory<byte>>>> Subtree(CheckoutRequest request) =>
         IO.lift<Fin<UInt128>>(() => Admitted(request).Bind(stated => ContentHash.Admit(stated.Root.Span, Op.Of())))
             .Bind(root => root.Match(
@@ -1126,17 +965,11 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
                     Fail: static error => IO.pure(Fin.Fail<Seq<ReadOnlyMemory<byte>>>(error)))),
                 Fail: static error => IO.pure(Fin.Fail<Seq<ReadOnlyMemory<byte>>>(error))));
 
-    // ONE admission seat for the four overrides: the boundary row and the op key are stated here and nowhere else,
-    // so no arm can admit a request under a different captured-codec site.
     private static Fin<T> Admitted<T>(T request) where T : IMessage =>
         WireAdmission.Admit(request, WireBoundary.InboundPayload, Op.Of());
 
-    // The peer STATES a page and the server CAPS it: the wire rule bounds the request at four thousand ninety-six and
-    // this row bounds what this store will read, so a peer cannot size the server's window.
     private int Bounded(uint stated) => (int)Math.Min(stated, (uint)runtime.PageCap);
 
-    // The cursor names WHICH feed the position lives in, so a cursor naming another store would slice a foreign
-    // origin out of this feed; genesis is the one origin-free spelling a first pull carries.
     private Fin<SyncCursor> Position(SyncCursorWire? wire) =>
         SyncWireMap.Admit(wire, Op.Of()).Bind(cursor =>
             cursor.OriginStoreId == runtime.StoreId || cursor.OriginStoreId == Guid.Empty
@@ -1145,7 +978,7 @@ public sealed class SyncEndpoint(SyncRuntime runtime) : SyncService.SyncServiceB
                     "sync-pull-origin", Error.New($"<foreign-origin:{cursor.OriginStoreId:N}>"))));
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SyncPump {
     public static IO<SyncApplyReceipt> Run(SyncSession session, SyncTransport transport) =>
         transport.Switch(
@@ -1154,9 +987,6 @@ public static class SyncPump {
             speckleLikeDiff: static (s, row) => Offer(s, row),
             subtreeCheckout: static (s, row) => Materialize(s, row));
 
-    // Cross-session checkout: the root entry applies onto the target and the transfer set accounts on the receipt.
-    // `OpLog.TransferSet` is dialed directly — a forwarding static under a second name was the deleted alias. This
-    // arm is IN-PROCESS and reads the LOCAL `Fetch`; the peer-facing shape is `Materialize`.
     public static IO<SyncApplyReceipt> Checkout(SyncSession source, SyncSession target, UInt128 root) =>
         source.Fetch(root).Bind(entry =>
             SyncMerge.Apply(target, Seq(entry)).Map(receipt => receipt with { Pushed = OpLog.TransferSet(entry, target.Holds).Count }));
@@ -1175,9 +1005,6 @@ public static class SyncPump {
             : IO.pure(pulled)
         select receipt;
 
-    // The peer streams the envelopes and the caller applies them; the blob manifest then comes from the PEER, whose
-    // stored root carries the whole closure where this side sees only the frames the stream handed it — so the
-    // manifest is asked for rather than re-derived from a partial view.
     static IO<SyncApplyReceipt> Materialize(SyncSession s, SyncTransport.SubtreeCheckout row) =>
         from frames in Dialed(s.Checkout(row.Peer, row.Root))
         from entries in Railed(OpLogWire.Decode(frames))
@@ -1185,19 +1012,14 @@ public static class SyncPump {
         from missing in Dialed(s.Missing(row.Peer, row.Root, Holdings(s, entries)))
         select receipt with { Pushed = missing.Count };
 
-    // What this store already holds among the keys the applied frames name, ordered and distinct as the wire rule
-    // demands. An empty statement is a caller holding none of the closure, never a caller declining to answer.
     static Seq<UInt128> Holdings(SyncSession s, Seq<OpLogEntry> entries) =>
         toSeq(entries.Fold(Seq<UInt128>(), static (set, entry) => set + entry.Closure.Add(entry.ContentKey))
             .Distinct().Filter(s.Holds).OrderBy(static key => key));
 
-    // A hop SETTLES rather than throws, so the dialed value carries its own `Fin`; this is the ONE place the pump
-    // collapses it back onto the effect rail, and `Railed` is the same collapse for the frame codec.
     static IO<T> Dialed<T>(IO<Fin<T>> dialed) => dialed.Bind(static held => Railed(held));
 
     static IO<T> Railed<T>(Fin<T> held) => held.Match(Succ: IO.pure, Fail: IO.fail<T>);
 
-    // `Acked` advances to the LAST offered entry's real coordinates, never a `Sequence + count` advance.
     static IO<SyncApplyReceipt> Offer(SyncSession s, SyncTransport.SpeckleLikeDiff row) =>
         from pending in IO.pure(s.Pending(s.Acked))
         from held in s.HasObjects(row.Peer, toSeq(pending.Fold(Seq<UInt128>(), static (set, entry) => set + OpLog.TransferSet(entry, static _ => false)).Distinct()))
@@ -1254,7 +1076,7 @@ Where a re-drive resumes, and the honest give-up clause each row carries.
 - Boundary: presence is one ephemeral `Presence`-lane row (`durable: false`, `FirstWriter` stance) that `Present` mints and `Live` sweeps, never a durable event-stream write and never a transport. Awareness rides the fire-and-forget channel that never appends a durable entry, while the converging `Version/commits#CRDT_ALGEBRA` `EphemeralMap` is the durable self-expiring map a late-joining peer reconstructs — two distinct presence forms the one `Awareness` surface owns together, so the durable projection's liveness horizon agrees with the convergent map's. Working-set checkout subscribes its op-stream to changes touching its checked-out keys alone.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AwarenessKind {
@@ -1265,7 +1087,7 @@ public sealed partial class AwarenessKind {
     public static readonly AwarenessKind Follow = new("follow");
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AwarenessBeat(string Actor, AwarenessKind Kind, ReadOnlyMemory<byte> Payload, ulong Seq, Instant At, Option<string> Session) {
     public bool Supersedes(AwarenessBeat prior) => Actor == prior.Actor && Kind == prior.Kind && Seq > prior.Seq;
 }
@@ -1278,7 +1100,7 @@ public readonly record struct ReplicationQuery(Option<string> Region, Option<str
 
 public readonly record struct WorkingSet(Seq<UInt128> Keys, Seq<OpLogEntry> Entries, SyncCursor Cursor, Instant At);
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Awareness {
     public static Fin<DrainQueue<AwarenessBeat>> AwarenessLane(DrainSpec spec, Atom<Seq<AwarenessBeat>> dropped) =>
         spec.Open<AwarenessBeat>(Some<Action<AwarenessBeat>>(beat => dropped.Swap(seq => seq.Add(beat))));
@@ -1286,12 +1108,9 @@ public static class Awareness {
     public static AwarenessBeat Beat(string actor, AwarenessKind kind, ReadOnlyMemory<byte> payload, ulong seq, ProjectionContext frame, Option<string> session = default) =>
         new(actor, kind, payload, seq, frame.Now(), session);
 
-    // Presence seats one durable lane row, distinct from the lossy beat that never appends.
     public static PresenceRow Present(string actor, ReadOnlyMemory<byte> state, Duration ttl, ProjectionContext frame) =>
         new(actor, state, frame.Now(), ttl);
 
-    // One row per actor (the add-wins-LWW the convergent `EphemeralMap` resolves to), every lapsed `Ttl` dropped,
-    // so the durable projection agrees with that map's physical-time liveness horizon.
     public static Seq<PresenceRow> Live(Seq<PresenceRow> rows, Instant now) =>
         toSeq(rows.Filter(row => row.Live(now)).GroupBy(static row => row.Actor).Select(static g => g.MaxBy(static row => row.At)));
 

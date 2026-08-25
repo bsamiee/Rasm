@@ -38,11 +38,8 @@ const _variants = ["sidebar", "floating", "inset"] as const
 const _collapses = ["offcanvas", "icon", "none"] as const
 const _sides = ["start", "end"] as const
 
-// `_LAYOUT` holds for this grain's life while a parcel-shape change bumps the seal's generation, so yesterday's
-// layout refuses on content and the region defaults seat
 const _LAYOUT = Store.key({ domain: "shell", grain: "layout" })
 
-// chrome pins pixels, so the content remainder owns the relative slack above this floor
 const _CONTENT = { id: "content", floor: "20%" } as const
 
 declare namespace Shell {
@@ -72,15 +69,11 @@ declare namespace Shell {
   type Persisted = typeof _Persisted.Type
 }
 
-// react-resizable-panels types Layout as a mutable id-to-percentage record, so the parcel decodes mutable — Grid.Persisted states the same law;
-// stance persists PER REGION KEY — the inspected scaffold already seats two collapsible regions, so one boolean would fork them
 const _Persisted = Schema.Struct({
   layout: Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Number })),
   open: Schema.Record({ key: Schema.String, value: Schema.Boolean }),
 })
 
-// chrome layout is disposable, so `discard` drops a parcel carrying another generation and the region defaults seat;
-// `generation` bumps with the parcel shape while `_LAYOUT` never moves with it
 const _sealed = Store.sealed(_Persisted, { generation: 1, residue: "discard" })
 
 const _rail = (
@@ -92,7 +85,6 @@ const _rail = (
   group: {
     orientation,
     defaultLayout: held,
-    // a restore or constraint recompute reads false, so a hydration write never round-trips as a user edit
     onLayoutChanged: (layout: Layout, meta: LayoutChangedMeta) => {
       if (meta.isUserInteraction) drive(layout)
     },
@@ -105,7 +97,6 @@ const _rail = (
       minSize: region.size.min,
       maxSize: region.size.max,
       defaultSize: region.size.default,
-      // a window resize scales the one relative content panel and holds every pixel-pinned chrome region
       groupResizeBehavior: "preserve-pixel-size",
       ...(region.collapse !== "none" && { collapsible: true }),
       ...Option.match(region.collapsedSize, {
@@ -117,7 +108,6 @@ const _rail = (
   separator: {},
 })
 
-// these attributes ARE the styling contract: recipes select them through cn variants and render branches on none
 const _stamped = (region: Shell.Region, stance: Shell.Stance): Record.ReadonlyRecord<string, string> => ({
   "data-side": region.side,
   "data-variant": region.variant,
@@ -147,7 +137,6 @@ import type { LucideIcon } from "lucide-react"
 
 const _nests = ["disclosure", "tree"] as const
 
-// head and tail survive; the middle folds into one overflow entry — retuning the trail is two numbers
 const _ELIDE = { max: 5, head: 1, tail: 2 } as const
 
 declare namespace Shell {
@@ -155,23 +144,23 @@ declare namespace Shell {
   type Item =
     & {
       readonly key: string
-      readonly label: string // a system/intl catalog key: every renderer resolves it at render
+      readonly label: string
       readonly icon: Option.Option<LucideIcon>
       readonly badge: Option.Option<string>
       readonly children: ReadonlyArray<Shell.Item>
     }
     & (
       | { readonly href: string; readonly command?: never }
-      | { readonly href?: never; readonly command: string } // names a row on the overlay command table; the item embeds no Effect
+      | { readonly href?: never; readonly command: string }
     )
   type Trail = {
     readonly active: Option.Option<string>
-    readonly opened: ReadonlyArray<string> // every ancestor of the active item: collapsed-ancestor emphasis reads this
+    readonly opened: ReadonlyArray<string>
   }
   type Crumb = { readonly key: string; readonly label: string; readonly href: string }
   type Crumbs = {
     readonly kept: ReadonlyArray<Shell.Crumb>
-    readonly folded: ReadonlyArray<Shell.Crumb> // renders as one overflow menu entry between head and tail
+    readonly folded: ReadonlyArray<Shell.Crumb>
   }
 }
 
@@ -185,7 +174,6 @@ const _walk = (
       ? Option.some<Shell.Trail>({ active: Option.some(item.key), opened: ancestors })
       : _walk(live, item.children, Array.append(ancestors, item.key))))
 
-// href equality against the live location string is the WHOLE selection model: no selection cell exists to drift
 const _current = (live: string, items: ReadonlyArray<Shell.Item>): Shell.Trail =>
   Option.getOrElse(_walk(live, items, []), () => ({ active: Option.none(), opened: [] }))
 
@@ -214,7 +202,6 @@ const _crumbs = (trail: ReadonlyArray<Shell.Crumb>): Shell.Crumbs =>
 ```typescript signature
 import { cva } from "class-variance-authority"
 
-// each page shape owns one named-areas string in this closed vocabulary, mapped onto CSS grid-template-areas
 const _AREAS = {
   full: `"header" "content"`,
   docked: `"header header" "nav content"`,
@@ -232,7 +219,6 @@ declare namespace Shell {
   type HeaderSlot = (typeof _HEADER)[number]
 }
 
-// structural alone: tone and fill stay the status and token planes', so a row inherits semantic color from its content
 const _item = cva("grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-md px-3 py-2", {
   variants: {
     density: { comfortable: "min-h-12", compact: "min-h-9 gap-2 px-2 py-1" },
@@ -265,7 +251,6 @@ const _header = cva("grid gap-2 [grid-template-areas:var(--header-areas)]", {
 import type { Effect } from "effect"
 import { PanelLeft, PanelRight } from "lucide-react"
 
-// legislated app-side rows: the table type, scope roster, and census live at view/overlay#PALETTE
 declare const _toggle: Effect.Effect<void>
 declare const _inspect: Effect.Effect<void>
 
@@ -275,8 +260,8 @@ const _rows = {
     label: "shell.toggle",
     keywords: ["sidebar", "rail", "collapse"],
     scope: "shell",
-    binding: "Mod+b", // collides with the editor's bold intent by design: a co-hosting app rebinds this one value
-    needs: [], // chrome answers from mounted state alone: an empty requirement is a STATED answer, never an omitted column
+    binding: "Mod+b",
+    needs: [],
     run: _toggle,
   },
   "shell.inspect": {
@@ -332,7 +317,7 @@ const Shell: Shell.Shape = {
   header: _header,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Shell }
 ```

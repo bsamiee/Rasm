@@ -40,13 +40,12 @@ interface Points {
 declare namespace Hook {
   type Modality = Tap.Modality
   type Point = keyof Points
-  // the contributed key proved against the rail's own four-segment grammar: what `Tap.point` admits as a row name
   type Text<P extends Point = Point> = P & Tap.Text
   type Payload<P extends Point> = Points[P]["payload"]
   type Handler<P extends Point, E = Tap.Fault> = Points[P]["modality"] extends infer M extends Tap.Modality
     ? Extract<Tap.Handler<Payload<P>, E>, { readonly _tag: M }>
     : never
-  type _Rows<T extends Record<`rasm.ui.${string}.${string}`, { readonly modality: Hook.Modality; readonly payload: unknown }> = Points> = T // merged-whole guard: a malformed or foreign-named contribution fails here
+  type _Rows<T extends Record<`rasm.ui.${string}.${string}`, { readonly modality: Hook.Modality; readonly payload: unknown }> = Points> = T
 }
 ```
 
@@ -74,11 +73,8 @@ declare namespace Hook {
   } & (Points[P]["modality"] extends "veto"
     ? { readonly modality: "veto"; readonly consult: (payload: Hook.Payload<P>) => boolean }
     : { readonly modality: Points[P]["modality"] }) : never
-  type Rows = { readonly [P in Hook.Point]: Hook.Row<P> } // one runtime row per contributed point: a missing row fails the mint at compile time
-  // the rail types against the erased point alone, so the roster carries `Tap.Point<unknown>` and each payload family
-  // re-narrows at `Hook.publish` and `Hook.seat` instead of forcing eight rails apart
+  type Rows = { readonly [P in Hook.Point]: Hook.Row<P> }
   type Roster = { readonly [P in Hook.Point]: Tap.Point<unknown> }
-  // this folder's seat on core's one rail: the minted roster, the rows that minted it, and the rail itself
   type Registry = {
     readonly points: Hook.Roster
     readonly rail: Tap.Rail
@@ -92,10 +88,7 @@ const _registry = (
   policy: Tap.Policy,
 ): Effect.Effect<Either.Either<Hook.Registry, Tap.Fault>, never, Scope.Scope> =>
   Effect.gen(function* () {
-    // BOUNDARY ADAPTER: the mapped rows record erases to entry pairs once at the mint, and the merged-whole guard is
-    // what proves each key spells the four-segment point grammar `Tap.point` admits
     const entries = Object.entries(rows) as ReadonlyArray<readonly [Hook.Text, Hook.Row<Hook.Point>]>
-    // `partitionMap` is the accumulate-everything fold: one refused row still reports every other refusal beside it
     const [refused, minted] = Array.partitionMap(entries, ([point, row]) =>
       Either.map(
         Tap.point({ name: point, modalities: [row.modality], depth: row.depth }, Schema.Unknown),
@@ -107,7 +100,6 @@ const _registry = (
     const rail = yield* Tap.rail(app, Array.map(minted, ([, declared]) => declared), policy)
     yield* Effect.forEach(entries, ([point, row]) =>
       Option.match(row.source, {
-        // adopted owner broadcast: one scoped pump per sourced row, so the owner publishes exactly once
         onNone: () => Effect.void,
         onSome: (source) =>
           Effect.asVoid(Effect.forkScoped(Stream.runForEach(source, (fact) => Tap.publish(rail, points[point], fact)))),
@@ -146,9 +138,6 @@ const _publish = <P extends Hook.Point>(
 - Boundary: the atom bridge (`system/atom#LIVE_BRIDGE`) binds any row a component must render — an app-held `Subscribable` over a mounted observe seat — and the component never subscribes a channel directly.
 
 ```typescript signature
-// the one arm this folder keeps off the rail: the row's payload selector folds into the arbiter, so a settled fact
-// answers absence instead of consulting a second gate the rail would have to be taught about
-// BOUNDARY ADAPTER: the contributed row fixes one modality on both halves, so the veto row proves the handler's tag
 const _consulted = <P extends Hook.Point, E>(row: Hook.Row<P>, handler: Hook.Handler<P, E>): Tap.Handler<unknown, E> =>
   row.modality === "veto"
     ? Tap.Handler.veto({
@@ -190,7 +179,7 @@ const Hook: Hook.Shape = {
   seat: _seat,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Hook }
 export type { Points }

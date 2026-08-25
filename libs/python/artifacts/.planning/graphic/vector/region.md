@@ -55,10 +55,10 @@ if TYPE_CHECKING:
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type Glyphs = tuple[tuple[str, float, float, float, float], ...]  # per-glyph (d, x_advance, y_advance, x_offset, y_offset) — PositionedGlyphRun.on_path()
-type Stops = tuple[tuple[float, str], ...]  # gradient (offset 0..1, resolved color value) rows — colors arrive resolved, never literal here
-type Affine = tuple[float, float, float, float, float, float]  # the svgelements 6-tuple (a, b, c, d, e, f); Matrix constructed at the arm
-type Perspective = tuple[float, float, float, float, float, float, float, float, float]  # the full pathops 3x3 row-major coefficients
+type Glyphs = tuple[tuple[str, float, float, float, float], ...]
+type Stops = tuple[tuple[float, str], ...]
+type Affine = tuple[float, float, float, float, float, float]
+type Perspective = tuple[float, float, float, float, float, float, float, float, float]
 type RenderKwargs = dict[str, str | int | float | bool | list[str] | None]
 type ShapeRendering = Literal["optimize_speed", "crisp_edges", "geometric_precision"]
 type TextRendering = Literal["optimize_speed", "optimize_legibility", "geometric_precision"]
@@ -73,8 +73,6 @@ type FragmentTag = Literal["path", "stroke", "filled"]
 type RegionRail = Result[Block[RegionResult], RegionFault | BoundaryFault]
 
 
-# pathops selectors — each member NAME mirrors the pathops.PathOp/LineCap/LineJoin/FillType member
-# resolved through getattr, one derivation, never a parallel map.
 class BooleanOp(StrEnum):
     UNION = "union"
     DIFFERENCE = "difference"
@@ -102,24 +100,22 @@ class WindingRule(StrEnum):
     INVERSE_EVEN_ODD = "inverse-even-odd"
 
 
-class WindingDir(StrEnum):  # target contour winding — maps onto the settable pathops.Path.clockwise
+class WindingDir(StrEnum):
     CW = "cw"
     CCW = "ccw"
 
 
-# --- [CONSTANTS] --------------------------------------------------------------------------
-_RASTER_DEADLINE: Final[float] = 30.0  # wall-clock budget for a rasterize-bearing batch; TERMINAL kills a wedged resvg decode at this bound
+# --- [CONSTANTS] ------------------------------------------------------------------------
+_RASTER_DEADLINE: Final[float] = 30.0
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class PaintSpec:
-    # fill paint a serialized document carries: flat color, or a drawsvg def-tier gradient; color
-    # VALUES arrive resolved from graphic/color/derive, never literal.
     tag: PaintTag = tag()
     flat: str = case()
-    linear: tuple[Stops, tuple[float, float, float, float]] = case()  # stops + (x1, y1, x2, y2) userSpaceOnUse
-    radial: tuple[Stops, tuple[float, float, float]] = case()  # stops + (cx, cy, r)
+    linear: tuple[Stops, tuple[float, float, float, float]] = case()
+    radial: tuple[Stops, tuple[float, float, float]] = case()
 
 
 @tagged_union(frozen=True)
@@ -127,7 +123,7 @@ class Fragment:
     tag: FragmentTag = tag()
     path: str = case()
     stroke: tuple[str, str, float] = case()
-    filled: tuple[str, str] = case()  # (d, fill) — a per-fragment fill overriding the document-wide PaintSpec (the matte band's own color)
+    filled: tuple[str, str] = case()
 
 
 class RegionFacts(Struct, frozen=True):
@@ -168,8 +164,6 @@ class RenderPolicy(Struct, frozen=True):
     log_information: bool = False
 
     def kwargs(self, source: Mapping[str, str]) -> RenderKwargs:
-        # parameterized over the source-keyword mapping ({svg_string} or {svg_path}) the consumer projects;
-        # each ()-default tuple coerces to list(value) or None per the engine's shape.
         rows = {key: (list(value) or None) if isinstance(value, tuple) else value for key, value in asdict(self).items()}
         return {**source, **rows}
 
@@ -178,19 +172,17 @@ class RenderPolicy(Struct, frozen=True):
 @tagged_union(frozen=True)
 class RegionFault:
     tag: RegionFaultTag = tag()
-    geometry: PathFault = case()  # the composed path substrate's fault carried whole, never re-classified
+    geometry: PathFault = case()
     render: str = case()
     empty: None = case()
     contract: str = case()
-    open_path: None = case()  # a pathops boolean/stroke met an unclosed contour (OpenPathError)
-    degenerate: str = case()  # a pathops PathOpsError leaf (NumberOfPointsError/UnsupportedVerbError/root)
+    open_path: None = case()
+    degenerate: str = case()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-# ONE geometry spine: path segments -> pathops.Path -> boolean/simplify/stroke -> drawsvg document,
-# never a re-parsed d between ops, never an f-string tag at egress.
 def _ingest(outline: "SvgPath", target: "pathops.Path", /) -> None:
-    pen = target.getPen()  # the FontTools PathPen the svgelements segment stream draws into
+    pen = target.getPen()
     for segment in outline.segments():
         match segment:
             case Move():
@@ -205,12 +197,12 @@ def _ingest(outline: "SvgPath", target: "pathops.Path", /) -> None:
                 )
             case QuadraticBezier():
                 pen.qCurveTo((float(segment.control.x), float(segment.control.y)), (float(segment.end.x), float(segment.end.y)))
-            case _:  # Line and the arcs pre-flattened to cubics upstream
+            case _:
                 pen.lineTo((float(segment.end.x), float(segment.end.y)))
 
 
 def _admitted(outline: "SvgPath", tolerance: Tolerance = TOLERANCE, /) -> "pathops.Path":
-    outline.approximate_arcs_with_cubics(tolerance.flatten)  # the pen speaks move/line/cubic/quad/close, never an arc/conic verb
+    outline.approximate_arcs_with_cubics(tolerance.flatten)
     target = pathops.Path()
     _ingest(outline, target)
     return target
@@ -221,7 +213,7 @@ def _to_pathops(source: bytes, /) -> Result["pathops.Path", RegionFault]:
 
 
 def _drawn(result: "pathops.Path", tolerance: Tolerance = TOLERANCE, /) -> str:
-    result.convertConicsToQuads(tolerance.conic)  # SVG has no conic verb; round caps/joins emit conics
+    result.convertConicsToQuads(tolerance.conic)
     pen = SVGPathPen(None)
     result.draw(pen)
     return pen.getCommands()
@@ -231,22 +223,18 @@ def _resolved[T](work: Callable[[], T], /) -> Result[T, RegionFault]:
     try:
         return Ok(work())
     except pathops.OpenPathError:
-        return Error(RegionFault(open_path=None))  # named BEFORE the PathOpsError base so the precise cause is not shadowed
+        return Error(RegionFault(open_path=None))
     except pathops.PathOpsError as fault:
         return Error(RegionFault(degenerate=type(fault).__name__))
 
 
 def _filled(shape: "pathops.Path", fill: WindingRule, /) -> "pathops.Path":
-    # canonicalize winding, then resolve the query fill rule BEFORE any area/contains read — the rule
-    # governs "inside", so it is the case's policy value, never an ambient default.
     shape.simplify(fix_winding=True)
     shape.fillType = getattr(pathops.FillType, fill.name)
     return shape
 
 
 def _paint_defs(canvas: "draw.Drawing", paint: PaintSpec | None, /) -> "str | draw.LinearGradient | draw.RadialGradient | None":
-    # register the PaintSpec def ONCE and return the fill; flat returns the color, gradients the
-    # registered def the paths reference — reusable paint, never inline duplication.
     match paint:
         case None:
             return None
@@ -269,8 +257,6 @@ def _paint_defs(canvas: "draw.Drawing", paint: PaintSpec | None, /) -> "str | dr
 
 
 def _document(fragments: Iterable[Fragment], viewbox: Bounds, paint: PaintSpec | None = None, /) -> bytes:
-    # ONE document assembly: a drawsvg canvas framed to the full extent (non-origin geometry framed,
-    # never clipped to 0 0 w h), one draw.Path per fragment; gradient defs registered once.
     xmin, ymin, xmax, ymax = viewbox
     canvas = draw.Drawing(xmax - xmin, ymax - ymin, origin=(xmin, ymin))
     fill = _paint_defs(canvas, paint)
@@ -288,7 +274,7 @@ def _document(fragments: Iterable[Fragment], viewbox: Bounds, paint: PaintSpec |
 
 
 def _framed(result: "pathops.Path", /) -> Result[bytes, RegionFault]:
-    if not len(result):  # len is the contour count; an empty boolean/stroke rails empty rather than an empty bounds read
+    if not len(result):
         return Error(RegionFault(empty=None))
     box = result.bounds
     return Ok(_document((Fragment(path=_drawn(result)),), (float(box[0]), float(box[1]), float(box[2]), float(box[3]))))
@@ -299,13 +285,6 @@ def _boolean(sources: tuple[bytes, ...], op: BooleanOp, fill: WindingRule, /) ->
         def _run() -> "pathops.Path":
             builder, member = pathops.OpBuilder(fix_winding=True, keep_starting_points=True), getattr(pathops.PathOp, op.name)
             for index, operand in enumerate(paths):
-                # MEASURED: `OpBuilder` folds each `add` against an accumulator that starts EMPTY, so applying the
-                # requested operator from the first operand resolved `INTERSECTION`, `DIFFERENCE`, and
-                # `REVERSE_DIFFERENCE` against nothing — a zero-contour path for every input, which `_framed` then
-                # railed as `empty` and which made three of the five members permanently dead (a 5..10 square
-                # against a 0..15 square resolved to bounds `(0, 0, 0, 0)` where the binary `pathops.op` gives
-                # `(5, 5, 10, 10)`). The FIRST operand seeds the accumulator under `UNION` and the requested
-                # operator applies from the second onward, which is the fold the binary entry point performs.
                 builder.add(operand, member if index else pathops.PathOp.UNION)
             return _filled(builder.resolve(), fill)
 
@@ -329,9 +308,6 @@ def _outline(
 
 
 def _warp(source: bytes, coeffs: Perspective, /) -> Result[bytes, RegionFault]:
-    # full 3x3 affine/PERSPECTIVE placement through `pathops.Path.transform` — the keystone dewarp the 6-tuple
-    # affine lacks. MEASURED: `transform` RETURNS a new path and leaves the receiver untouched, so discarding the
-    # return shipped the un-warped input under a warp op — a silent identity on the page's whole dewarp capability.
     def _apply(shape: "pathops.Path", /) -> Result[bytes, RegionFault]:
         def _run() -> "pathops.Path":
             return shape.transform(*coeffs)
@@ -345,7 +321,7 @@ def _wind(source: bytes, direction: WindingDir, /) -> Result[bytes, RegionFault]
     def _orient(shape: "pathops.Path", /) -> Result[bytes, RegionFault]:
         def _run() -> "pathops.Path":
             shape.simplify(fix_winding=True)
-            shape.clockwise = direction is WindingDir.CW  # settable dominant-winding policy; reverses disagreeing contours
+            shape.clockwise = direction is WindingDir.CW
             return shape
 
         return _resolved(_run).bind(_framed)
@@ -367,8 +343,8 @@ def _contains(source: bytes, points: tuple[Point2, ...], fill: WindingRule, /) -
 def _facts(source: bytes, fill: WindingRule, /) -> Result[RegionFacts, RegionFault]:
     def _read(shape: "pathops.Path", /) -> Result[RegionFacts, RegionFault]:
         def _run() -> RegionFacts:
-            ruled = _filled(shape, fill)  # area is fill-rule-governed exactly as contains is
-            box, hull = ruled.bounds, ruled.controlPointBounds  # tight extent + the control-hull extent a layout/collision consumer keys
+            ruled = _filled(shape, fill)
+            box, hull = ruled.bounds, ruled.controlPointBounds
             return RegionFacts(
                 area=abs(float(ruled.area)),
                 bounds=(float(box[0]), float(box[1]), float(box[2]), float(box[3])),
@@ -382,18 +358,12 @@ def _facts(source: bytes, fill: WindingRule, /) -> Result[RegionFacts, RegionFau
                 fill=fill,
             )
 
-        # the EMPTY shape rails as `empty` here and nowhere else: the arm used to build a whole ten-field zero
-        # receipt for that case and this very bind discarded it one line later, so every field was a measurement
-        # nothing took, constructed only to be thrown away. `pathops` answers `(0,0,0,0)` bounds on an empty path,
-        # so the ordinary read is total and the rail owns the refusal.
         return _resolved(_run).bind(lambda read: Ok(read) if read.contours else Error(RegionFault(empty=None)))
 
     return _to_pathops(source).bind(_read)
 
 
 def _clip(source: bytes, rect: Bounds, /) -> Result[bytes, RegionFault]:
-    # per-shape geometric crop: a straddling shape is really severed, not masked, and separate shapes
-    # stay separate fragments, never one merged boolean.
     def _window() -> "pathops.Path":
         x0, y0, x1, y1 = rect
         window = pathops.Path()
@@ -421,23 +391,17 @@ def _clip(source: bytes, rect: Bounds, /) -> Result[bytes, RegionFault]:
 
 
 def _text_path(rows: Glyphs, baseline: bytes, offset: float, /) -> Result[bytes, RegionFault]:
-    # METRIC text-on-path: shape's glyph outlines lay at mid-advance arc-length distances via ONE point_at
-    # call; the tangent-following Matrix rotates each glyph onto the baseline, and the SHAPED x/y offsets plus the
-    # y-advance trajectory translate in the tangent frame — combining marks, mark attachment, kerning
-    # offsets, and vertical runs keep their shaped relationship, never a horizontal-only re-derivation.
     if not rows:
         return Error(RegionFault(empty=None))
     advances = tuple(x_advance for _, x_advance, _y_advance, _xo, _yo in rows)
-    rises = tuple(accumulate((y_advance for _, _x, y_advance, _xo, _yo in rows), initial=0.0))[:-1]  # rise BEFORE each glyph
+    rises = tuple(accumulate((y_advance for _, _x, y_advance, _xo, _yo in rows), initial=0.0))[:-1]
     cursors = tuple(offset + run - advance * 0.5 for run, advance in zip(accumulate(advances), advances, strict=True))
 
     def _thread(oriented: tuple[tuple[Point2, Point2], ...], /) -> Result[bytes, RegionFault]:
         def _run() -> "pathops.Path":
             builder = pathops.OpBuilder(fix_winding=True, keep_starting_points=True)
             for (d, _xa, _ya, x_off, y_off), rise, ((px_, py_), (tx, ty)) in zip(rows, rises, oriented, strict=True):
-                if d:  # each placed glyph is one UNION operand so tight-curve overlaps merge into one outline
-                    # shaped offsets and accumulated vertical advance ride the tangent frame: `along` shifts on the
-                    # baseline direction, `above` on its normal (SVG y grows downward, so +y_off lifts).
+                if d:
                     along, above = x_off, y_off + rise
                     dx, dy = tx * along - ty * above, ty * along + tx * above
                     builder.add(_admitted(SvgPath(d) * Matrix(tx, ty, -ty, tx, px_ + dx, py_ + dy)), pathops.PathOp.UNION)
@@ -492,7 +456,7 @@ class RegionOp:
     contains: tuple[bytes, tuple[Point2, ...], WindingRule] = case()
     facts: tuple[bytes, WindingRule] = case()
     clip: tuple[bytes, Bounds] = case()
-    text_path: tuple[Glyphs, bytes, float] = case()  # (per-glyph (d, advance), baseline SVG, along-path offset)
+    text_path: tuple[Glyphs, bytes, float] = case()
     transform: tuple[bytes, Affine] = case()
     fit: tuple[bytes, Bounds] = case()
     serialize: tuple[tuple[Fragment, ...], Bounds, PaintSpec | None] = case()
@@ -520,8 +484,6 @@ class RegionOp:
 
     @staticmethod
     def Wind(source: bytes, direction: WindingDir) -> "RegionOp":
-        # direction IS the operation — the caller states the target winding; an ambient CW default would silently
-        # reverse contours the caller never asked to normalize.
         return RegionOp(wind=(source, direction))
 
     @staticmethod
@@ -538,12 +500,6 @@ class RegionOp:
 
     @staticmethod
     def TextPath(glyphs: "PositionedGlyphRun | Glyphs", baseline: bytes, offset: float = 0.0) -> "RegionOp":
-        # TWO caller shapes, narrowed structurally: the shaping seam's own run shapes through `on_path()` and an
-        # exported five-field `Glyphs` row passes verbatim. The third arm is deleted whole — a `(d, x_advance)`
-        # pair widened with zero y-advance and zero shaped offsets was a self-declared legacy shape publishing
-        # forged placement for every glyph, and legacy surfaces are refused outright rather than carried. The
-        # narrowing is `isinstance` against the imported owner, never a `hasattr` duck probe: the type is in scope,
-        # so the probe tested for a member the declaration already proves.
         rows = glyphs.on_path() if isinstance(glyphs, PositionedGlyphRun) else tuple(glyphs)
         return RegionOp(text_path=(rows, baseline, offset))
 
@@ -588,8 +544,6 @@ def _contracted(operation: Callable[[RegionOp], Result[RegionResult, RegionFault
 
 @_contracted
 def applied(op: RegionOp, /) -> Result[RegionResult, RegionFault]:
-    # ONE public dispatch: every sibling composes this in-process, the batch rail traverses it;
-    # per-operation kernels stay private so no consumer bypasses the fault or result families.
     match op:
         case RegionOp(tag="boolean", boolean=(sources, kind, fill)):
             return _boolean(sources, kind, fill).map(lambda emitted: RegionResult(document=emitted))
@@ -635,11 +589,6 @@ class Region(Struct, frozen=True):
                 return cls(ops=tuple(ops))
 
     async def of(self, lane: LanePolicy, /) -> RegionRail:
-        # pathops/drawsvg/resvg are synchronous native/CPU work: the whole batch crosses as one HOSTILE kernel
-        # onto the warm process pool — zero folder-minted limiters; the runtime rail flattens onto the
-        # region fault union so the caller reads one Result. A rasterize op decodes caller SVG — untrusted
-        # ingress — so its batch crosses TERMINAL under the wall-clock budget the pebble arm enforces; trusted
-        # pathops/drawsvg batches stay cooperative.
         kernel = (
             Kernel.of(_worked, KernelTrait.HOSTILE, deadline=Some(_RASTER_DEADLINE), enforcement=Enforcement.TERMINAL)
             if any(op.tag == "rasterize" for op in self.ops)

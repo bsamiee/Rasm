@@ -59,13 +59,13 @@ Bar is a fold of `BarItemSpec` rows onto one host `Bar`, a panel is a fold of ca
 - Growth: one case per new family; zero new gates.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct ChromeTag {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -137,7 +137,6 @@ public abstract partial record PanelControl {
     public sealed record CheckCase(string Label, bool Initial, Action<bool> Changed, string Tip) : PanelControl;
     public sealed record TextCase(string Label, Action<string> Changed, string Tip) : PanelControl;
     public sealed record BarCase(bool CategoryLabels, Option<int> RowHeight, Seq<BarItem> Items) : PanelControl;
-    // Kernel control-estate seam: realized at build through ControlForge.Grow, custody on the build's teardown.
     public sealed record SpecCase(ControlSpec Spec, ElementRuntime Runtime) : PanelControl;
     public sealed record HostCase(Control Surface) : PanelControl;
 }
@@ -206,7 +205,7 @@ public abstract partial record ChromeIntent {
     public sealed record FloatCase(FloatingButtonCollection Target, FloatOp Verb) : ChromeIntent;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TooltipContent(
     IIcon Icon, string Title, string Body, TipDetail Detail, CapabilitySet<TipEmphasis> Emphasis);
 
@@ -223,7 +222,6 @@ public sealed record FloatSpec(
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ColourBars(Bar Life, Bar Cool, Bar Warm);
 
-// Standing seat: what Mount built, in mount order, released in reverse.
 public sealed record ChromeSeat(Seq<ChromeReceipt> Receipts);
 
 [Union]
@@ -240,7 +238,7 @@ public abstract partial record ChromeReceipt {
     public sealed record FloatedCase(Lease<Form> Window) : ChromeReceipt;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Painters {
     public static Fin<(Action<Context, Rectangle> Paint, Size Extent)> Shortcut(string lead, Either<Keys, char> chord, string tail, Op? key = null) =>
         key.OrDefault().Catch(body: () => Fin.Succ(chord.Match(
@@ -257,9 +255,6 @@ public static class Chrome {
         Op active = key.OrDefault();
         return active.Need(intent).Bind(valid => UiThread.Run(new UiDispatch<ChromeReceipt>.Blocking(() => valid.Switch(
             state: active,
-            // Item fold is a PARTITION — every row attempts, refusals aggregate with the refused row named,
-            // and the count is the accepted tally. No Bar item-removal member exists: the appended survivors stay,
-            // and the lawful recovery is re-minting the (cheap, anywhere-constructible) bar.
             barCase: static (k, c) => k.Need(c.Target).Bind(bar => {
                 var (fails, done) = c.Items.Map(item => k.Catch(body: () =>
                     Fin.Succ(Op.Side(action: () => Append(bar: bar, item: item))))).Partition();
@@ -312,8 +307,6 @@ public static class Chrome {
             DispatchLane.Interactive, active));
     }
 
-    // Standing mount: traverse in order, unwind on refusal, release in reverse — one owner for the
-    // plugin's whole standing chrome, wired from Platform/composition.md's load roster.
     public static Fin<Lease<ChromeSeat>> Mount(Seq<ChromeIntent> standing, Op? key = null);
 
     private static Fin<ChromeReceipt> Passed(Op key, Op verb, Action action) =>
@@ -343,8 +336,6 @@ public static class Chrome {
             painterCase: d => Op.Side(action: () => Frame.Show(content.Icon, content.Title, content.Body, d.Paint, d.Extent, warnings, errors)));
     }
 
-    // Category build UNWINDS on refusal: every category already opened removes in reverse order, and an
-    // unwind refusal aggregates INTO the fault — live chrome never keeps half a plan.
     private static Fin<ChromeReceipt> Settle(InputPanel panel, PanelOp verb, Op key) => verb.Switch(
         state: (Panel: panel, Key: key),
         buildCase: static (s, c) => Built(panel: s.Panel, plan: c.Plan, key: s.Key),
@@ -368,8 +359,6 @@ public static class Chrome {
             ? Fin.Succ((ChromeReceipt)new ChromeReceipt.PassedCase(Verb: verb))
             : Fin.Fail<ChromeReceipt>((Error)new UiFault.HostRejected(Key: verb, Detail: name)));
 
-    // Fallible fold: SpecCase realizes through the kernel forge (its receipt retained by Built for teardown);
-    // every other row is an infallible host Add.
     private static Fin<Option<ElementReceipt>> Fill(InputPanel panel, PanelControl row, Op key) => row.Switch(
         state: (Panel: panel, Key: key),
         labelCase: static (s, c) => Fin.Succ((Op.Side(action: () => s.Panel.AddLabel(c.Text, c.Italic, c.Tip)), Option<ElementReceipt>.None).Item2),
@@ -401,7 +390,6 @@ public static class Chrome {
                 if (c.Names.IsEmpty) { s.Floats.CloseAll(); } else { s.Floats.Close([.. c.Names.Map(static n => (string)n)]); }
             })))
             .Map(_ => (ChromeReceipt)new ChromeReceipt.PassedCase(Verb: c.SelfOp)),
-        // One dress write applies every present slot — the retitle/reicon/recolour sibling verbs were one fact.
         dressCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => {
                 c.Dress.Info.Iter(value => s.Floats.ModifyInfo((string)c.Name, value));
                 c.Dress.Icon.Iter(value => s.Floats.ModifyIcon((string)c.Name, value));
@@ -411,7 +399,6 @@ public static class Chrome {
         moveCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () =>
                 s.Floats.ModifyAnchor((string)c.Name, c.At, c.Pace.Immediate))))
             .Map(_ => (ChromeReceipt)new ChromeReceipt.PassedCase(Verb: c.SelfOp)),
-        // Absence is DATA: a miss answers None, existence derives as IsSome — no second existence verb.
         probeCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(c.Key.Match(
                 Left: name => Optional(s.Floats.FindByName((string)name)),
                 Right: at => Optional(s.Floats.FindByPoint(at)))))

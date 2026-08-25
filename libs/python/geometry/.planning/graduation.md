@@ -48,9 +48,6 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import propagate, trace
 
-# the frame crossing's own raise root, named at the fence and nowhere else: the Arrow tier is the data folder's to
-# drive, so this page binds `pyarrow` for its exception vocabulary alone and states the deferral as law rather than
-# reifying a native extension into every importer of the folder's S0 spine.
 lazy import pyarrow as pa
 
 from rasm.data.tabular.columnar import arrow_columns
@@ -68,11 +65,6 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Cost, Receipt, ScopeKey, 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-# the folder's ONE raise-leg roster, satisfying the `runtime/reliability/faults#FAULT` `Leg` contract: every geometry
-# page anchors its own `FaultRow` table on a member here, so a free-string subject spells nothing and the `rostered`
-# door proves each member against a real module at import. It seats at S0 because a roster is only cycle-free where every
-# raiser reaches it, and this page is the one geometry module importing no sibling. Member VALUE is the dotted module
-# path beneath `rasm`; the NAME is the module's own, no sub-folder qualifier being owed while every leaf name is unique.
 class GeometryLeg(StrEnum):
     GRADUATION = "geometry.graduation"
     INGESTION = "geometry.scan.ingestion"
@@ -101,16 +93,10 @@ class GeometryLeg(StrEnum):
     STRUCTURAL = "geometry.ifc.structural"
 
 
-# how a crossing left the weave, priced on every exit path: `cleared` returned a value, `refused` returned the rail's
-# fault, `raised` unwound past the geometry layer into the runtime fence. The band a settle-only close-out drops is
-# exactly the expensive one, so the discriminant is a cost column rather than an inference off a missing row. The
-# name spells the crossing it exits rather than a bare outcome, so a page-local arm-payload owner names a distinct
-# bounded concept instead of colliding with this discriminant under one folder-wide spelling.
 type CrossingExit = Literal["cleared", "refused", "raised"]
 
 
 class GeometrySubject(StrEnum):
-    # each member a frozen wire literal compute inherits as decode-only data.
     REGISTRATION_TRANSFORM = "registration-transform"
     SCAN_DEVIATION = "scan-deviation"
     RECONSTRUCTED_MESH = "reconstructed-mesh"
@@ -127,8 +113,6 @@ class GeometrySubject(StrEnum):
 
 
 class EvidenceScope(StrEnum):
-    # one member per weave-returning rail; value the rasm.-prefixed instrumentation scope the weave's tracer mints from —
-    # one spelling law with the runtime SCOPES vocabulary and this owner's own receipt scopes.
     MESH_SERVE = "rasm.geometry.mesh.serve"
     MESH_BREP = "rasm.geometry.mesh.brep"
     MESH_REPAIR = "rasm.geometry.mesh.repair"
@@ -151,24 +135,16 @@ class EvidenceScope(StrEnum):
 
     @property
     def page(self) -> str:
-        # `<domain>.<page>` coordinate the weave's cost rows discriminate on: the instrument name already carries the
-        # `rasm.geometry.` prefix, so re-stamping it inside the attribute value buys a longer series identity and no
-        # discriminant. Derived, so a scope rename cannot leave a hand-spelled kind behind.
         return self.value.split(".", 2)[2]
 
 
 class BenchBand(StrEnum):
-    # the corpus's declared latency budgets: eight roster rows carry THREE reasoned bars rather than eight loose
-    # literals no reader can rank against each other. A band names what a regression COSTS, never how fast a seam
-    # happens to run — WIRE guards a synchronous consumer's request budget, SOLVE a human-attended interactive
-    # fold, BATCH an offline pass whose regression matters only against its own history.
     WIRE = "wire"
     SOLVE = "solve"
     BATCH = "batch"
 
 
 class Aggregation(StrEnum):
-    # dashboard fold per charter row — the compile leg reads it as data, never a panel-side guess.
     MAX = "max"
     MEAN = "mean"
     P95 = "p95"
@@ -177,9 +153,6 @@ class Aggregation(StrEnum):
 
 
 class GeometryPulse(StrEnum):
-    # folder-owned mid-operation HookPoint ids under the runtime rasm.<pkg>.<domain>.<point> grammar; a new
-    # mid-operation fact is one member plus its kernel `pulsed` call — conduit, drop law, serialization, and
-    # `Hooks.fire` dispatch stay the runtime lane spine's.
     TESSELLATION = "rasm.geometry.mesh.tessellation"
     REGISTRATION = "rasm.geometry.scan.registration"
     RECONSTRUCTION = "rasm.geometry.scan.reconstruction"
@@ -189,49 +162,28 @@ class GeometryPulse(StrEnum):
 
 @runtime_checkable
 class SpanFacts(Protocol):
-    # structural close-out conformance the weave reads like the receipt harvest; flat primitives only — the span attribute API refuses a nested mapping.
     @property
     def span_facts(self) -> Mapping[str, object]: ...
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# frozen tuple compute inherits as decode-only wire data; a union change lands as a compute ripple, never a silent admit.
 SUBJECTS: Final[tuple[str, ...]] = tuple(member.value for member in GeometrySubject)
 
-# declared `wire()` key roster and trace-join spelling — producer truths the compute `mirror_aligned` boot gate reads,
-# fed by the composing root beside SUBJECTS; a `wire()` re-shape lands its row here in the same change.
 WIRE_FIELDS: Final[tuple[str, ...]] = ("subject", "key", "measured", "ceilings", "admitted", "trace")
 LINK_KIND: Final[str] = "geometry-graduation"
 
-# the close-out's own span-event dimension, spelled once beside the runtime `FAULT_*` roster it rides with, so the
-# refusing SCOPE and the fault tag join on one attribute vocabulary rather than two literals at one call site.
 EVIDENCE_SCOPE_KEY: Final[str] = "rasm.evidence.scope"
 
-# p95 bar per declared band, in milliseconds — the ONE place the folder's regression policy is stated, so tuning a
-# whole class of seams is one cell rather than a hunt across eight roster rows.
 _CEILING: Final[Map[BenchBand, float]] = Map.of_seq([(BenchBand.WIRE, 250.0), (BenchBand.SOLVE, 2_000.0), (BenchBand.BATCH, 30_000.0)])
 
-# the declared corpus extents the sized subjects key. A grade compares only across runs over the SAME input, and
-# `BenchSubject` carries no input edge by strata law, so the extent joins the subject IDENTITY here and a second
-# extent is a second roster row rather than a silently re-fed thunk under the first row's history.
-CORPUS_POINTS: Final[int] = 250_000  # scan-corpus cloud census the registration and reconstruction feeds bind
-CORPUS_SPACES: Final[int] = 64  # building-corpus space census the model admission feed binds
+CORPUS_POINTS: Final[int] = 250_000
+CORPUS_SPACES: Final[int] = 64
 
-# shielded grace the weave's crossing meter awaits under: a cancelled crossing still burned the cpu it owes, so the
-# charge survives the cancel, while an unbounded shield behind an intake nothing is draining converts a bounded
-# teardown into a hang. One cell, so the whole folder's close-out patience tunes here.
 METER_GRACE: Final[float] = 1.0
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this module's whole raise roster: every explicit refusal and every fenced leg on this page anchors ONE row here, so
-# no call site spells a subject and the `rostered` door seats every row on the branch census, proving `geometry.graduation` against a real module at
-# import.
-# Each row is TERMINAL — a breached ceiling, a ragged frame, a diverged charter descriptor, and a refused close-out
-# all survive any number of re-issues over the same evidence, and the Arrow crossing refuses a schema a re-run rebuilds
-# identically. `CHARTER_DIVERGED` and `CROSSING_BREACHED` take a joined census in one slot, so a refusal names every
-# divergent row at once rather than one row per raise.
 CROSSING_BREACHED: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.GRADUATION, point="crossing", arm="config", defect="ceiling-breached", retriability=TERMINAL, slots=("subject", "over")
 )
@@ -261,30 +213,22 @@ RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([
 
 
 class MeasureRow(Struct, frozen=True, gc=False):
-    measure: str  # rasm.<domain>.<measure> wire-law spelling — no pre-baked unit or _total suffix
-    unit: str  # UCUM
-    field: str  # source receipt field the measure projects from
+    measure: str
+    unit: str
+    field: str
     aggregation: Aggregation
 
     @property
     def domain(self) -> str:
-        # derived exactly as the runtime `InstrumentSpec` derives its own, so a row cannot declare one segment and
-        # spell another, and every charter pair keys the census map by construction rather than by convention.
         return self.measure.split(".", 2)[1]
 
 
-# every subject inherits the weave's cost rows; the subject map adds its own dashboard measures. Fields spell the
-# `EvidenceCost.facts` slots and each unit matches its census row exactly, so the exported descriptor and the
-# recorded magnitude never diverge by a scale factor.
 UNIVERSAL_MEASURES: Final[tuple[MeasureRow, ...]] = (
     MeasureRow("rasm.geometry.evidence.duration", "ms", "wall_ms", Aggregation.P95),
     MeasureRow("rasm.geometry.evidence.cpu_time", "s", "cpu_s", Aggregation.SUM),
     MeasureRow("rasm.geometry.evidence.rss_delta", "By", "rss_bytes", Aggregation.MAX),
 )
 
-# the one domain segment every geometry series carries, DERIVED off the charter's own spelling law rather than
-# re-spelled per producing page: a producer's `<domain>.<operation>` audit verb reads the same segment its metric
-# projection records under, so one grep joins a durable fact to the series its evidence twin emitted.
 EVIDENCE_DOMAIN: Final[str] = UNIVERSAL_MEASURES[0].domain
 
 _MESH_MEASURES: Final[tuple[MeasureRow, ...]] = (
@@ -292,11 +236,6 @@ _MESH_MEASURES: Final[tuple[MeasureRow, ...]] = (
     MeasureRow("rasm.geometry.mesh.aspect", "1", "worst_aspect_ratio", Aggregation.P95),
 )
 
-# A subject earns a row where its producing fold already computes a CONTINUOUS gate-grade scalar a board trends. The
-# four off-charter members are the deliberate complement, recorded rather than left as an unexplained absence:
-# `TOPOLOGY_GRAPH`, `NETWORK_GRAPH`, `NUMERICAL_PRIMITIVE`, and `BIM_LIFECYCLE` gate an empty-fraction alone, which is
-# boolean-shaped — a two-valued 0.0/1.0 series buys a histogram whose quantiles restate a predicate the breach roster
-# already names — so their evidence rides `GeometryHandoff.breaches` and the receipt stream, never a distribution.
 CHARTER: Final[Map[GeometrySubject, tuple[MeasureRow, ...]]] = Map.of_seq([
     (
         GeometrySubject.SCAN_DEVIATION,
@@ -317,15 +256,9 @@ CHARTER: Final[Map[GeometrySubject, tuple[MeasureRow, ...]]] = Map.of_seq([
 
 
 def charter_of(subject: GeometrySubject) -> tuple[MeasureRow, ...]:
-    # geometry dashboard authority: universal cost rows plus the subject's own; the census roster and every
-    # counterpart owner read this fold rather than re-unioning the two tables.
     return (*UNIVERSAL_MEASURES, *CHARTER.try_find(subject).default_value(()))
 
 
-# aggregation-to-instrument correspondence the runtime census projects each charter row onto: a monotonic SUM lands the
-# COUNTER, a LAST intent the synchronous GAUGE, and every quantile or extremum intent the HISTOGRAM whose data point
-# already carries min, max, sum, and count. Total over `Aggregation`, so a charter row's declared dashboard fold is a
-# provable claim against the mounted instrument rather than a column two tables are trusted to have been edited together on.
 _KIND: Final[Map[Aggregation, InstrumentKind]] = Map.of_seq([
     (Aggregation.LAST, InstrumentKind.GAUGE),
     (Aggregation.MAX, InstrumentKind.HISTOGRAM),
@@ -334,18 +267,9 @@ _KIND: Final[Map[Aggregation, InstrumentKind]] = Map.of_seq([
     (Aggregation.SUM, InstrumentKind.COUNTER),
 ])
 
-# derived roster of every charter row the folder records, deduplicated across the subjects sharing one row — the mesh pair
-# rides two subjects and the universal cost rows ride all of them, so the roster carries one entry per spelling and each
-# entry carries the WHOLE descriptor a board reads: name, UCUM unit, and dashboard fold.
 MEASURES: Final[frozenset[MeasureRow]] = frozenset(row for subject in GeometrySubject for row in charter_of(subject))
 
 def _diverged(row: MeasureRow) -> Option[str]:
-    # one descriptor comparison the install gate folds over every charter row, each divergence naming itself: a pair no
-    # mapped row admits under a rostered domain has no slot and kills its producer at the first record; a unit divergence
-    # exports the recorded magnitude against a descriptor scaled differently, which every board silently reads off by that
-    # factor; an aggregation whose census kind disagrees hands the backend a fold the charter never declared. `CENSUS` IS
-    # the runtime `MEASURES` map every `Metrics.record` resolves, imported rather than re-derived here, so the gate proves
-    # against the SAME rows the recording path reads and no local filter can lag the census it gates on.
     match CENSUS.try_find((row.domain, row.measure)):
         case Option(tag="none"):
             return Some(f"uncensused:{row.measure}")
@@ -358,11 +282,6 @@ def _diverged(row: MeasureRow) -> Option[str]:
 
 
 def _recorded(rows: tuple[MeasureRow, ...], source: Mapping[str, object], kind: str, composition: ScopeKey) -> None:
-    # one projection every charter fold shares: a row whose field is absent or non-numeric in the source records
-    # nothing, and rows group by their DERIVED domain, so a measure naming a segment this folder does not own still
-    # records onto its own roster row rather than missing the total lookup under a borrowed domain. The composition
-    # key reaches every series through the runtime attribute fold, so an embedded composition's charter partitions
-    # from the root's exactly as its registered points do — a default-stamped series silently unions the two.
     grouped: Map[str, dict[str, float]] = Block.of_seq(rows).fold(
         lambda held, row: held
         if not isinstance(value := source.get(row.field), (int, float))
@@ -373,9 +292,6 @@ def _recorded(rows: tuple[MeasureRow, ...], source: Mapping[str, object], kind: 
 
 
 def charter_record(subject: GeometrySubject, source: Mapping[str, object], *, composition: ScopeKey = DEFAULT_SCOPE) -> None:
-    # producing-fold projection over the subject's own charter rows — measure spelling and source field stay
-    # single-edit-site, and the SUBJECT is the discriminant a board cuts on, so it derives the recorded kind and no
-    # producing page spells one of its own. The universal cost rows land in the weave's close-out, never here.
     _recorded(CHARTER.try_find(subject).default_value(()), source, subject.value, composition)
 
 
@@ -383,11 +299,6 @@ def charter_record(subject: GeometrySubject, source: Mapping[str, object], *, co
 
 
 class EvidenceCost(Struct, frozen=True, gc=False):
-    # parent-observed crossing cost: geometry's wall clock beside the runtime `Cost` substrate delta, so cpu, rss, io,
-    # and context switches ride the ONE process-sampling owner and this page mints no second bracket, no second
-    # process handle, and no second honest-RSS rationale. An awaited crossing prices whole-process spend across its
-    # await window, so a concurrent task's burn lands in the same band — the crossing price, never isolated kernel
-    # attribution. A `KernelTrait.HOSTILE` kernel's worker-floor burn is the profile lane's evidence.
     scope: EvidenceScope
     operation: str
     outcome: CrossingExit
@@ -401,13 +312,6 @@ class EvidenceCost(Struct, frozen=True, gc=False):
         )
 
     def facts(self) -> dict[str, object]:
-        # charter source and receipt payload in one flat shape composed OFF the substrate fold: `Cost.facts` supplies
-        # every spend column, so a new substrate column reaches the span facts, the cost receipt, and any charter row
-        # naming it with zero edit here, and the one restatement is the UCUM second the census row exports where the
-        # substrate spends milliseconds. `outcome` rides as evidence rather than a measure — a charter row projects
-        # numerics alone, so the discriminant partitions the receipt stream and the span without minting a series.
-        # `io_bytes` and `switches` ride the receipt with no geometry instrument row — worker-crossing byte and
-        # switch metering is the `rasm.cost.*` family's, one measure one owner.
         spend = self.spend.facts()
         return {
             "outcome": self.outcome,
@@ -418,8 +322,6 @@ class EvidenceCost(Struct, frozen=True, gc=False):
 
     @property
     def span_facts(self) -> Mapping[str, object]:
-        # `cost.`-prefixed flat primitives: the span attribute API refuses a nested mapping, so the substrate
-        # struct never crosses whole.
         return {f"cost.{name}": value for name, value in self.facts().items()}
 
     def contribute(self) -> Iterable[Receipt]:
@@ -427,9 +329,6 @@ class EvidenceCost(Struct, frozen=True, gc=False):
 
 
 def _breached(measured: Map[str, float], name: str, limit: float) -> Option[str]:
-    # one ceiling comparison the crossing folds over every declared limit, each breach naming its own class: an
-    # unmeasured row is a producer that never computed the fact its own ceiling demands, while an over-limit row is a
-    # measured result the ceiling refuses — two defects a single `admitted` bool erases into one silent false.
     match measured.try_find(name):
         case Option(tag="none"):
             return Some(f"unmeasured:{name}")
@@ -440,20 +339,14 @@ def _breached(measured: Map[str, float], name: str, limit: float) -> Option[str]
 
 
 class GeometryHandoff(Struct, frozen=True):
-    # `measured`/`ceilings`/`trace` are persistent maps, not dicts: `breaches` derives the crossing verdict from the
-    # first two and `admitted`, `contribute`, and `wire()` each recompute it, so a mutable bag lets one crossing emit
-    # a receipt claiming admission and ship a wire denying it. The carrier takes the same owner for the same reason —
-    # a consumer editing the dict `wire()` handed back otherwise re-writes the frozen crossing's own trace link.
     subject: GeometrySubject
     key: ContentKey
     measured: Map[str, float]
     ceilings: Map[str, float]
-    trace: Map[str, str] | None = None  # full W3C composite carrier; absence means no producer link
+    trace: Map[str, str] | None = None
 
     @classmethod
     def of(cls, subject: GeometrySubject, key: ContentKey, measured: Mapping[str, float], ceilings: Mapping[str, float]) -> "GeometryHandoff":
-        # of runs inside the producer's evidence_run span, so the minted carrier names the producing span and the
-        # crossing lands as one `rasm.geometry.graduation` span event — zero producer edits either way.
         handoff = cls(subject=subject, key=key, measured=Map.of_seq(measured.items()), ceilings=Map.of_seq(ceilings.items()), trace=_trace())
         span = trace.get_current_span()
         if span.is_recording():
@@ -462,11 +355,6 @@ class GeometryHandoff(Struct, frozen=True):
 
     @property
     def breaches(self) -> Block[str]:
-        # residual-over-ceiling, spelled: the ordered breach roster IS the verdict, so the receipt stream names WHICH
-        # ceiling failed and how instead of handing a consumer a bare false it must re-derive the crossing to read.
-        # An EMPTY ceiling roster is the third breach class rather than a clean crossing: a handoff declaring no
-        # requirement proves nothing, so admitting it graduates an unconfigured producer on a fold that never ran —
-        # the one verdict a vacuous `all` reports as success, which is exactly why it names itself here.
         return (
             Block.of("unconfigured")
             if self.ceilings.is_empty()
@@ -479,7 +367,6 @@ class GeometryHandoff(Struct, frozen=True):
 
     @property
     def span_facts(self) -> Mapping[str, object]:
-        # dotted-key flattening: measured/ceilings are nested dicts the span attribute API refuses whole.
         return {
             "subject": self.subject.value,
             "key": self.key.hex,
@@ -489,10 +376,6 @@ class GeometryHandoff(Struct, frozen=True):
         }
 
     def wire(self) -> dict[str, object]:
-        # Trace carrier stays one optional field, so trace context and baggage cannot diverge into parallel knobs. All
-        # THREE ledgers project to plain dicts at the crossing exactly as the compute mirror decodes them; the
-        # persistent owner is interior custody, never a wire re-shape, and projecting rather than handing the carrier
-        # through is what keeps a consumer's edit of the returned mapping off the frozen crossing it came from.
         return {
             "subject": self.subject.value,
             "key": self.key.hex,
@@ -503,28 +386,18 @@ class GeometryHandoff(Struct, frozen=True):
         }
 
     def contribute(self) -> Iterable[Receipt]:
-        # every crossing IS emitted — compute decides on the wire — so the crossing row keeps one phase and a breach
-        # rides BESIDE it as the fault-carrying case the receipt union already owns. Folding a breach onto the phase
-        # instead publishes it under a quieter level than a clean crossing and spells the failing verdict `admitted`.
-        # `breaches` stays producer-side evidence: `wire()` already ships `measured` and `ceilings`, so a consumer
-        # re-derives it whole and the frozen crossing shape gains no field the compute mirror must absorb.
         yield Receipt.of("rasm.geometry.graduation", ("emitted", self.subject.value, self.wire()))
         if not (breaches := self.breaches).is_empty():
             yield Receipt.of("rasm.geometry.graduation", CROSSING_BREACHED.raised(self.subject.value, ";".join(breaches)))
 
 
 def _sealed(values: "Sequence[object] | np.ndarray") -> np.ndarray:
-    # read-only column view: `asarray` hands back the producer's own buffer whenever it already holds an array, so the
-    # frame seals a VIEW rather than the base — the crossing payload stays immutable under the content key naming it
-    # while the producer's array stays writable for its own next fold.
     column = np.asarray(values).view()
     column.flags.writeable = False
     return column
 
 
 class EvidenceFrame(Struct, frozen=True):
-    # subject-keyed columnar egress beside wire(): read-only numpy views are the crossing payload, and the
-    # insertion-ordered `frozendict` keeps the producer's declared column order that `columns` names.
     subject: GeometrySubject
     key: ContentKey
     columns: tuple[str, ...]
@@ -532,11 +405,6 @@ class EvidenceFrame(Struct, frozen=True):
 
     @classmethod
     def of(cls, subject: GeometrySubject, key: ContentKey, table: "Mapping[str, Sequence[object] | np.ndarray]") -> "RuntimeRail[EvidenceFrame]":
-        # a ragged table is a producer defect its own caller reports: construction that can fail returns the rail, so
-        # mismatched widths name their COLUMNS at the `frame()` row instead of raising past it and arriving at a distant
-        # weave fence as an anonymous `boundary` string. Extent reads `shape[0]`, never `len`, because a scalar column seals
-        # to a 0-d array whose `len` raises — a distinct producer defect the `-1` extent spells rather than escapes,
-        # and the only extent set a columnar port admits is one width or none at all.
         arrays = frozendict({name: _sealed(values) for name, values in table.items()})
         extents = Block.of_seq([(name, array.shape[0] if array.ndim else -1) for name, array in arrays.items()])
         widths = frozenset(extent for _, extent in extents)
@@ -548,19 +416,9 @@ class EvidenceFrame(Struct, frozen=True):
 
     @property
     def rows(self) -> int:
-        # `of` is the one mint and refuses a 0-d column, so the first sealed column's leading extent is the frame's.
         return next(iter(self.table.values())).shape[0] if self.table else 0
 
     def crossing(self) -> "RuntimeRail[tuple[bytes, ContentKey]]":
-        # the ONE geometry-to-data columnar crossing every `frame()` producer reaches with zero per-page edit:
-        # `arrow_columns` is the admitting entry the data tier declares for exactly this carrier, so the DECLARED
-        # roster keys the schema and no producer hand-transposes a table around it, and `arrow_bytes` folds the one
-        # canonical IPC-stream serialization a foreign reader opens. The minted key covers the emitted BYTES and is
-        # distinct from `self.key`, which names the evidence the frame projects — one re-projection of stable evidence
-        # therefore still keys its payload honestly instead of asserting the producer's key over foreign octets.
-        # `pa.ArrowException` is the ONE root every Arrow refusal descends from — schema inference, a non-convertible
-        # dtype, and an IPC write fault alike — read as a member of the deferred module at CALL time, so the fence
-        # names the provider set it reaches without reifying the proxy at import.
         return boundary(
             FRAME_CROSSING, lambda: bytes(arrow_bytes(arrow_columns(self.columns, dict(self.table)))), catch=pa.ArrowException
         ).bind(lambda payload: ContentIdentity.of("evidence.frame", payload).map(lambda key: (payload, key)))
@@ -570,9 +428,6 @@ class EvidenceFrame(Struct, frozen=True):
 
 
 class GraduationInstall(Struct, frozen=True, gc=False):
-    # composition-time proof of the folder's whole observability admission — pulse ids now deliverable through the
-    # registry beside charter spellings the runtime census admits. One receipt answers what geometry registered and
-    # what it may record, so a support bundle never reads two half-proofs.
     points: tuple[str, ...]
     measures: tuple[str, ...]
 
@@ -581,31 +436,16 @@ class GraduationInstall(Struct, frozen=True, gc=False):
 
 
 def evidence_key(subject: GeometrySubject, spec: bytes | str) -> ContentKey:
-    # the folder's ONE evidence-key derivation, subject-namespaced so two subjects over identical bytes never collide
-    # and one subject's re-run over identical inputs keys identically. Every graduating producer folds its OWN `spec`
-    # — the bytes or textual discriminant that DEFINE the evidence, source payload beside the op tag — and calls
-    # this, so no `graduates()` takes a key from its caller: a caller-minted key makes the receipt assert a content
-    # identity the producer never computed, and two callers keying one evidence differently fork the namespace. The
-    # mint is TOTAL: `ContentIdentity.key` excludes the fallible `Struct` source so the fold runs no encode, and a
-    # str spec encodes once here so byte payloads and textual discriminants ride one entry, never two spellings.
     return ContentIdentity.key(f"geometry.{subject.value}", spec if isinstance(spec, bytes) else spec.encode())
 
 
 def _trace() -> "Map[str, str] | None":
-    # W3C mint off the live span through the telemetry-installed composite: traceparent, tracestate, and baggage
-    # stay one carrier. An invalid or absent span context emits no traceparent and therefore no linkable crossing.
-    # The injected dict freezes into the crossing's own persistent owner here, so the carrier a frozen handoff holds
-    # is immutable from its mint rather than from whichever projection remembers to copy it.
     carrier: dict[str, str] = {}
     propagate.inject(carrier)
     return Map.of_seq(carrier.items()) if "traceparent" in carrier else None
 
 
 def _linked(upstream: Mapping[str, str] | None) -> None:
-    # producer-chain join on the live measured span: an upstream W3C carrier decodes through the installed global
-    # composite and folds one Link; a missing or malformed carrier folds nothing — an invalid extracted context
-    # proves there is no producer trace to join. Name-mirrors the compute decode arm, so both crossing ends
-    # spell one fold.
     if upstream is None:
         return
     linked = trace.get_current_span(propagate.extract(upstream)).get_span_context()
@@ -614,25 +454,12 @@ def _linked(upstream: Mapping[str, str] | None) -> None:
 
 
 def _outcome(railed: "RuntimeRail[object] | None") -> CrossingExit:
-    # close-out discriminant: absence of a rail IS the unwind, since each arm assigns its local only after its
-    # dispatch returns and `finally` reads whatever the exit path left behind.
     return "raised" if railed is None else "cleared" if railed.is_ok() else "refused"
 
 
 def _priced(
     scope: EvidenceScope, operation: str, started: float, before: Cost, composition: ScopeKey, railed: "RuntimeRail[object] | None"
 ) -> "Option[EvidenceCost]":
-    # geometry close-out on the live measured span — OK status, ERROR marking, and span end stay the runtime weave's.
-    # Reading the RAIL rather than a cleared value puts every arm through here: `None` marks the unwind the runtime
-    # fence is about to convert, an `Error` the refusal, an `Ok` the settle, where a close-out hung off the Ok arm
-    # alone drops the band for exactly the two crossings whose price a reader hunts. Bracket close lands three ways:
-    # deltas as span facts, the universal charter rows through the one `_recorded` projection, and one
-    # Signals-emitted cost receipt; a conforming cleared value annotates its facts, and one carrying a
-    # GeometrySubject renames span `{operation}:{subject}` so trace search keys on subjects. Fencing the body is
-    # mandatory because it also runs inside a `finally`: an unfenced raise there replaces the producer fault this
-    # close-out exists to price, so its refusal lands as a span event — the one sink that cannot re-enter the emit
-    # path it just failed on. The priced ledger returns rather than dying inside the fence, because the async arm's
-    # crossing meter charges the same measured burn and a second sampling bracket there would price a different one.
     def close() -> EvidenceCost:
         cleared = railed.to_option().default_value(None) if railed is not None else None
         ledger = EvidenceCost.of(scope, operation, _outcome(railed), started, before)
@@ -647,10 +474,6 @@ def _priced(
         Signals.emit(ledger, OPEN, scope=composition)
         return ledger
 
-    # the folder's ONE declared catch-all, and the reason `catch` is required everywhere else: this body runs inside a
-    # `finally` over four owners at once — the substrate sampler, the span API, the instrument port, and the receipt
-    # sink — so an unnamed raise here replaces the producer fault the close-out exists to price. The refusing SCOPE
-    # rides the span event, since the roster subject names the close-out rather than the producer it closed.
     priced = boundary(EVIDENCE_PRICED, close, catch=Exception)
     priced.swap().map(
         lambda fault: trace.get_current_span().add_event(
@@ -661,16 +484,7 @@ def _priced(
 
 
 async def _charged(priced: "Option[EvidenceCost]", composition: ScopeKey) -> None:
-    # the folder's ONE `Resource.COMPUTE` seat: every evidence-producing page crosses this weave, so the crossing's
-    # own measured cpu charges here once and a second COMPUTE fact at any page below bills one burn twice. Quantity
-    # floors to whole milliseconds and clamps at zero, because `Quantity` admits `int >= 0` and a sampling boundary
-    # that reads a delta below it would refuse the whole fact at decode rather than under-report one charge; the
-    # surface spells the same `<scope>:<operation>` coordinate the cost receipt keys on, so charge and evidence join.
-    # The scope SHIELDS under one bounded grace — a cancelled crossing still burned the cpu it owes, while an
-    # unbounded shield behind an unrelieved intake converts a bounded teardown into a hang — and the record's rail is
-    # DISCARDED because this runs inside `finally`, where binding it would replace the producer fault being priced.
-    # An unarmed composition costs one map read here and records nothing, exactly as the three-state intake law says.
-    for ledger in priced.to_list():  # Exemption: the charge must suspend, and no expression form awaits
+    for ledger in priced.to_list():
         with anyio.move_on_after(METER_GRACE, shield=True):
             await Journal.record(
                 MeterFact(
@@ -683,14 +497,10 @@ async def _charged(priced: "Option[EvidenceCost]", composition: ScopeKey) -> Non
 
 
 def _flat[T](value: "T | RuntimeRail[T]") -> "RuntimeRail[T]":
-    # a lane-offloaded or rail-returning dispatch already carries a fenced rail; flatten so an offload composes un-nested.
     return value if isinstance(value, Result) else Ok(value)
 
 
 def _awaiting(dispatch: object) -> bool:
-    # declared-modality probe mirroring the runtime `measured` split WHOLE: a callable instance whose `__call__` is a
-    # coroutine function is async-declared, and the narrower name-only probe routes it to the sync arm where the band
-    # closes over the coroutine MINT and prices the awaited body at zero.
     return iscoroutinefunction(dispatch) or iscoroutinefunction(getattr(dispatch, "__call__", None))
 
 
@@ -702,26 +512,16 @@ def evidence_run[T](
     *,
     composition: ScopeKey = DEFAULT_SCOPE,
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
-    # composes the runtime measured weave — span lifecycle, modality probe, boundary fence, conditional receipt
-    # harvest, OK/ERROR close — and adds only geometry's layer inside the live span: the upstream link fold, the
-    # cost bracket, the charter cost record, and the subject rename. `scope.value` is the INSTRUMENTATION scope the
-    # weave's tracer opens under; `composition` is the custody key its harvest emits under, threaded whole, so a
-    # weave line and a `charter_record` series stamp the same composition an app root bound into `LanePolicy.of`. Each arm flattens the dispatch, hands the rail
-    # to the close-out, and closes that bracket in `finally`, so refusal and unwind price exactly as a settle does,
-    # and runtime `_flat` then passes the finished rail through unchanged. The async arm's `finally` also awaits the
-    # crossing charge — the durable seat the sync arm structurally cannot hold, since recording suspends.
     started, before = perf_counter(), Cost.own()
     if _awaiting(dispatch):
 
         async def woven() -> RuntimeRail[T]:
             _linked(upstream)
             railed: RuntimeRail[T] | None = None
-            try:  # Exemption: the measurement kernel brackets the dispatch to capture its own execution evidence.
+            try:
                 railed = _flat(await dispatch())
                 return railed
             finally:
-                # the async arm alone reaches the crossing meter: the sync close below cannot suspend, so its
-                # crossing prices onto the span, the charter rows, and the cost receipt and charges nothing.
                 await _charged(_priced(scope, operation, started, before, composition, railed), composition)
 
         return measured(scope.value, operation, OPEN, woven, composition=composition)
@@ -729,7 +529,7 @@ def evidence_run[T](
     def fold() -> RuntimeRail[T]:
         _linked(upstream)
         railed: RuntimeRail[T] | None = None
-        try:  # Exemption: as above — the sync arm's band must survive the raise the runtime fence converts one level up.
+        try:
             railed = _flat(dispatch())
             return railed
         finally:
@@ -742,33 +542,18 @@ def evidence_run[T](
 
 
 def bench_subject(scope: EvidenceScope, *axes: object) -> str:
-    # the ONE bench-subject spelling both the `CORPUS` roster and every producing page's `bench_seam` call derive
-    # from: the scope's instrumentation name, then the axes that make one measurement comparable to another — the op
-    # tag, the mode, the corpus extent. A page-side f-string beside a roster-side literal is TWO spellings of one
-    # identity, and `Bench.graded` then answers `no kernel covers` for the pair that drifted rather than for a
-    # subject someone actually forgot to bind.
     return ".".join((scope.value, *(str(axis) for axis in axes)))
 
 
 def _bar(band: BenchBand, mode: BenchMode) -> BenchThreshold:
-    # the rate floor DERIVES from the latency ceiling: a throughput bar spelled beside it as a second literal states
-    # one bar twice and the two diverge the moment either is tuned. A latency-graded row leaves the floor at its
-    # vacuous zero, so the runtime grader's uniform conjunction reads exactly one live bar per row either way.
     ceiling = _CEILING[band]
     return BenchThreshold(p95_ceiling_ms=ceiling, floor_hz=1_000.0 / ceiling if mode is BenchMode.THROUGHPUT else 0.0)
 
 
 def _rostered(scope: EvidenceScope, axes: tuple[object, ...], band: BenchBand, mode: BenchMode) -> BenchSubject:
-    # `kind` DERIVES from the scope's own `<domain>.<page>` coordinate, so a board cuts the folder's verdicts by
-    # sub-domain without the roster minting a second vocabulary, and `floor` stays empty because no geometry seam
-    # spawns an external binary — a `TOOLS` id here would declare a provisioning demand no kernel makes and retire
-    # the subject on every host that never installed it.
     return BenchSubject(subject=bench_subject(scope, *axes), kind=scope.page, mode=mode, threshold=_bar(band, mode))
 
 
-# the folder's graded corpus: one row per bench seam whose regression a board must SEE, each at the canonical axis a
-# trend line is read on. Every `bench_seam` composition is MEASURED; a row here is the subset that is also GRADED, so
-# a second op tag, mode, or extent is one more row and no producing page edits.
 CORPUS: Final[Block[BenchSubject]] = Block.of_seq((
     _rostered(EvidenceScope.MESH_SERVE, ("tessellate",), BenchBand.WIRE, BenchMode.THROUGHPUT),
     _rostered(EvidenceScope.MESH_SPATIAL, ("proximity",), BenchBand.WIRE, BenchMode.THROUGHPUT),
@@ -782,12 +567,6 @@ CORPUS: Final[Block[BenchSubject]] = Block.of_seq((
 
 
 def graded(kernels: Map[str, BenchKernel], corpus: Block[BenchSubject] = CORPUS) -> RuntimeRail[Block[BenchVerdict]]:
-    # the folder's ONE grading entry. The roster names WHICH seams are graded and on what bar; the caller binds one
-    # zero-argument thunk per subject id over its own deterministic corpus — the feed vocabulary stays at the binding
-    # page's stratum, which is exactly why `BenchSubject` carries no input edge — and the runtime tier owns every
-    # window, sample, quantile, bar comparison, and verdict counter, so this folder mints no measurement machinery at
-    # all. `corpus` is the ROSTER rather than a knob tail: a deployment tunes bars by handing a rebuilt roster and the
-    # folder's own declaration stays the default a reader finds here.
     return Bench.graded(corpus, kernels)
 
 
@@ -799,11 +578,6 @@ def _benched(receipt: BenchmarkReceipt, composition: ScopeKey) -> BenchmarkRecei
 def bench_seam(
     subject: str, seam: Callable[[], Awaitable[object]], *, rounds: int = 32, warmup: int = 4, composition: ScopeKey = DEFAULT_SCOPE
 ) -> RuntimeRail[BenchmarkReceipt]:
-    # one measured window owns latency and throughput for the whole entry crossing; a mode knob duplicates facts
-    # `BenchmarkReceipt` already holds. `Bench.run` already rails — a refused round count and a window that measured
-    # nothing each arrive as a typed fault — so this entry flattens that rail rather than re-fencing it, and a window
-    # a raising round truncated arrives as an `Ok` receipt carrying its own `refused` slot. Signals harvests the
-    # cleared receipt once, projecting both runtime bench measures under the caller's composition.
     return Bench.run(subject, lambda: anyio.run(seam), rounds=rounds, warmup=warmup).map(lambda receipt: _benched(receipt, composition))
 
 
@@ -818,38 +592,16 @@ def bench_terminal(
     warmup: int = 4,
     composition: ScopeKey = DEFAULT_SCOPE,
 ) -> RuntimeRail[BenchmarkReceipt]:
-    # process-terminal wrap of bench_seam: JobRun.bounded installs the job telemetry resource, runs the whole fold
-    # under the boundary fence, then drives the flush-then-shutdown drain so the domain="bench" projection every
-    # BenchmarkReceipt emits exports before the short-lived process exits — the seam's final leg for a one-shot
-    # bench binary, where an in-daemon run composes bench_seam directly under the standing periodic reader. The
-    # envelope rails its own body, so the inner bench rail flattens rather than nesting two fault layers.
     return JobRun.bounded(
         ctx, endpoint, f"bench.{subject}", run_id, partial(bench_seam, subject, seam, rounds=rounds, warmup=warmup, composition=composition)
     ).bind(lambda inner: inner)
 
 
 def registered(composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[GraduationInstall]:
-    # library-leg admission in two phases, the read-only proof before any registry mutation: every `MEASURES` row
-    # resolves its WHOLE descriptor against the mapped instrument rows under a rostered domain — the pair this gate
-    # resolves IS the `CENSUS` lookup every record performs, and the unit and fold columns the charter declares
-    # are proved rather than trusted, so the two tables cannot drift into a silently rescaled series. Only then does
-    # the WHOLE pulse roster register OBSERVE in the caller's composition through the registry's own atomic roster
-    # arm — one gated transition that swaps the point table only past its last admitted row, so a refusal leaves
-    # custody exactly as it stood and no retire verb is owed against a half-mount; an accumulating per-point
-    # `traversed` fold buys the same joint diagnosis by surrendering exactly that atomicity. A HOSTILE kernel writes
-    # `pulsed(lane.pulses.tap, point, StageMark(...))` and the parent-side lane drain alone invokes `Hooks.fire`, so
-    # taps observe kernel progress with the worker reaching only the queue proxy; delivery is lossy by lane law —
-    # accepted beats arrive in conduit order, a full conduit drops, and no completeness claim rides a pulse. Each
-    # phase reports its own family whole, so one refusal names every divergent descriptor OR every colliding id,
-    # and phase order is load-bearing: registering points against an unproved roster mounts custody the first record
-    # then kills.
     diverged = Block.of_seq(sorted(MEASURES, key=lambda row: row.measure)).choose(_diverged)
     if not diverged.is_empty():
         return Error(CHARTER_DIVERGED.raised(";".join(diverged)))
     roster = Block.of_seq(GeometryPulse).map(lambda point: HookPoint(id=point, payload=StageMark, modality=Modality(observe=None)))
-    # Receipts deposit on the scoped registry inside their own mint: runtime imports no producer folder, so the
-    # `Hooks` ledger is where this install reaches the support bundle at all, and a composition whose root never ran
-    # this leg answers an ABSENT geometry row — the exact diagnosis behind every unregistered-point pulse drop.
     return Hooks.register(roster, scope=composition).map(
         lambda points: Hooks.installed(
             "geometry.graduation",

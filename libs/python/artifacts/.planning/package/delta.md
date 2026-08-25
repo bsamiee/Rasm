@@ -49,14 +49,13 @@ lazy import detools
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-_BSDIFF_MAGIC: Final[bytes] = b"BSDIFF40"  # the classic magic a raw detools bsdiff patch opens on; no detools header follows
+_BSDIFF_MAGIC: Final[bytes] = b"BSDIFF40"
 _TO_SIZE_AT: Final[Map[str, int]] = Map.of_seq([("sequential", 6), ("in-place", 7), ("hdiffpatch", 3)])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Delta(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     bundle: Bundle
     lane: LanePolicy
 
@@ -71,10 +70,6 @@ class Delta(Struct, frozen=True):
         return await self.lane.offload(Kernel.of(Delta.pack, KernelTrait.RELEASING), self.bundle.payloads, self.bundle.profile)
 
     async def _emit(self, /) -> RuntimeRail[ArtifactReceipt]:
-        # The durable seat is this awaitable fold and never `Delta.pack`, which runs in the offloaded worker where
-        # nothing suspends and no journal custody is bound. `OPERATIONAL` comes off the case's own retention row and
-        # the diff names the patch algorithm and the achieved ratio — a delta's whole claim is its size against the
-        # image it reconstructs, so that ratio is the fact a later parent bump is compared against.
         match (await self.packed()).map(lambda pe: pe[1].receipt(self.bundle.key)):
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -134,9 +129,6 @@ class Delta(Struct, frozen=True):
 
 
 def _reconstructed_kind(patch: bytes, /) -> str:
-    # self-describing header names its own kind; a raw bsdiff patch carries the BSDIFF40 magic instead, so the
-    # magic — never a bare `patch_info` refusal — is the bsdiff discriminant, and a blob that satisfies neither
-    # refuses as `<delta-verify:kind>` before any kernel dispatches on it.
     if patch[: len(_BSDIFF_MAGIC)] == _BSDIFF_MAGIC:
         return "bsdiff"
     try:
@@ -147,9 +139,6 @@ def _reconstructed_kind(patch: bytes, /) -> str:
 
 
 def _delta_apply(k: DeltaKnobs, patch: bytes, /) -> bytes:
-    # dispatch is proven against the RECONSTRUCTED patch kind before any kernel touches the from-image, so a blob
-    # whose header disagrees with the knobs — a bsdiff blob smuggled under a sequential profile included — refuses
-    # here rather than reconstructing garbage; each arm keeps its kernel-specific output behavior.
     if (kind := _reconstructed_kind(patch)) != k.patch_type:
         raise ValueError(f"<delta-verify:kind:{kind}>")
     match k:
@@ -166,22 +155,17 @@ def _delta_apply(k: DeltaKnobs, patch: bytes, /) -> bytes:
             detools.apply_patch(BytesIO(k.from_image), BytesIO(patch), sink)
             return sink.getvalue()
         case DeltaKnobs():
-            # reachable only for a bandless in-place knob a hand-built profile smuggled past `_delta_admitted`
             raise ValueError("<delta-band:in-place>")
 
 
 def _proved_size(k: DeltaKnobs, blob: bytes, recovered: bytes, /) -> int:
     if k.patch_type == "bsdiff":
-        # `_delta_apply` already proved the BSDIFF40 magic (the bsdiff discriminant); a raw patch carries no
-        # `to_size` field, so the recovered length is the only size evidence.
         return len(recovered)
     kind, info = detools.patch_info(BytesIO(blob))
     if kind != k.patch_type or kind not in _TO_SIZE_AT or info[1] != k.compression:
         raise ValueError("<delta-verify:header>")
     match kind, k.in_place, k.firmware:
         case "in-place", InPlaceSegments(memory_size=memory, segment_size=segment, minimum_shift_size=shift), None:
-            # header echoes the COMPUTED slide — all whole segments the from-image leaves free, floored at the
-            # minimum (2 * segment default) — never the knob verbatim.
             slide = max(memory - segment * -(-len(k.from_image) // segment), shift if shift is not None else 2 * segment)
             if info[3:6] != (memory, segment, slide):
                 raise ValueError("<delta-verify:header>")

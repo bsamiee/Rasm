@@ -26,21 +26,18 @@ Bindings, filters, subscriptions, and `dataref` residence policy seat at their c
 - Boundary: `EventType.Domain` is the segment `[08]-[OBSERVABILITY_CONFORMANCE]`'s naming gate resolves against the branch roster at the conformance minter, so an unrostered subject refuses at that declaration owner rather than reaching a broker; this page never names that roster, because a kernel page holding an app-platform vocabulary inverts the strata. `subject` is the wire projection of `identity.md`'s `UInt128` currency, so `ContentHash` stays the only digest owner and renderer. `dataref` remains an independent URI-reference on the generated extension message.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Globalization;
 using CloudNative.CloudEvents;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 internal static class EventGrammar {
     private static readonly SearchValues<char> SegmentGlyphs =
         SearchValues.Create("abcdefghijklmnopqrstuvwxyz0123456789-");
 
-    // A segment is one or more lowercase-alphanumeric words separated by one hyphen. Keeping the separator out
-    // of either edge and refusing a repeated separator makes this exactly `[a-z0-9]+(?:-[a-z0-9]+)*`, matching
-    // the Python and TypeScript profile grammar rather than treating hyphen as an arbitrary allowed glyph.
     public static bool Segment(string text) =>
         text.Length > 0
         && text[0] != '-'
@@ -64,8 +61,6 @@ public readonly partial struct EventType {
     public static EventType Of(string domain, string subject, string fact) =>
         Create(value: $"{Prefix}.{domain}.{subject}.{fact}");
 
-    // `ValidateFactoryArguments` fixes the arity in its list pattern, so each projection is total on an
-    // admitted value and forges no fallback arm.
     public string Domain => Part(index: 1);
     public string Subject => Part(index: 2);
     public string Fact => Part(index: 3);
@@ -79,7 +74,6 @@ public readonly partial struct EventType {
 public readonly partial struct EventSource {
     private const string Scheme = "rasm:";
 
-    // The authority is EMPTY by construction, so no host or deployment can enter an identity a consumer keyed on.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = value.StartsWith(Scheme, StringComparison.Ordinal)
             && value[Scheme.Length..].Split('/') is [var domain, var capability]
@@ -94,15 +88,11 @@ public readonly partial struct EventSource {
     public string Domain => Part(index: 0);
     public string Capability => Part(index: 1);
 
-    // `Uri` is the envelope slot, and admission already proved this text parses as one, so the crossing renders
-    // without a rail and no consuming seam re-parses the value.
     public Uri Reference => new(uriString: Value, uriKind: UriKind.Absolute);
 
     private string Part(int index) => Value[Scheme.Length..].Split('/')[index];
 }
 
-// `source` supplies the namespace. Repeating its capability inside `id` makes two spellings for the same
-// source-scoped identity and is therefore not admitted.
 public readonly record struct EventId {
     private EventId(string value) => Value = value;
 
@@ -136,14 +126,10 @@ public readonly record struct EventId {
 |  [04]   | `secret`     | redaction route runs | `barred`  | no binding — reference-only carriage |
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// THREE reaches, three rows: under a bool, `public` and `internal` were byte-identical and `restricted`'s
-// estate-trusted reach had no value to inhabit, so the third case stranded exactly as `bool?` strands one
-// (`Rasm` RULINGS `[02]`). WHICH bindings the trusted row admits is each binding owner's own trust column, because
-// trust is a property of the transport a kernel cannot see; this table fixes how far a class may reach at all.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -187,7 +173,7 @@ public sealed partial class DataGrade {
 - Boundary: `Rasm` still references no sibling. A higher package references `Rasm.Contracts` and constructs `EventExtensionContract<Extensions>` from the generated `Parser`/`Descriptor` plus its process validator; the whole message crosses this kernel API. The generic `CloudEventMint` remains available to future apps whose extension vocabulary is not the Rasm profile.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Net.Mime;
 using Buf.Validate;
 using Celly.Protovalidate;
@@ -200,9 +186,7 @@ using NodaTime;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Ordered equality is DECLARED because a `Seq` member under synthesized record equality compares by REFERENCE, so
-// two structurally identical mint requests would otherwise read unequal.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record CloudEventMint(
     string Type,
@@ -365,7 +349,7 @@ public sealed record EventExtensionContract<TExtensions>(
     };
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class EventEnvelope {
     public static Fin<CloudEvent> Mint(CloudEventMint request, Op key) =>
         from _time in request.Time.Traverse(value => Aligned(value, key)).As()
@@ -398,8 +382,6 @@ public static partial class EventEnvelope {
     public static Fin<CloudEvent> Admit(CloudEvent envelope, Op key) =>
         key.Catch(() => Fin.Succ(envelope.Validate()));
 
-    // A binary-mode binding hands ALREADY-UNPREFIXED pairs, so this owner learns no prefix, header shape, or
-    // placement and no second envelope construction exists inside this branch.
     public static Fin<CloudEvent> Raise(
         Seq<(string Name, string Value)> attributes,
         Seq<CloudEventAttribute> declared,
@@ -417,7 +399,6 @@ public static partial class EventEnvelope {
             static (held, row) => Admitted(envelope: held, name: row.Name, value: row.Value))))
             .Bind(envelope => Admit(envelope, key));
 
-    // Core names resolve on the specification's own set and declared generated extensions resolve on the envelope.
     private static CloudEvent Admitted(CloudEvent envelope, string name, string value) {
         if (name == CloudEventsSpecVersion.SpecVersionAttribute.Name) {
             CloudEventsSpecVersion version = CloudEventsSpecVersion.FromVersionId(value)
@@ -513,8 +494,6 @@ public static class RasmEventEnvelope {
             Extensions: extensions);
 }
 
-// Both halves cross the attribute's OWN canonical codec — `Format` renders a `Timestamp`, a `UriReference`, and a
-// `Binary` row as wire text and `Parse` admits it back; a raw string assignment serves string rows alone.
 public static class EventCarrier {
     public static Option<string> Read(CloudEvent envelope, string field) =>
         Optional(envelope.GetAttribute(field))
@@ -550,7 +529,7 @@ public static class EventCarrier {
 |  [03]   | `avro`     | `+avro`     |     yes      |   no    |
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Net.Mime;
 using System.Text.Json;
 using CloudNative.CloudEvents;
@@ -566,11 +545,7 @@ using ProtoCloudEventBatch = CloudNative.CloudEvents.V1.CloudEventBatch;
 
 namespace Rasm.Domain;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-// `AllowDuplicateProperties` defaults TRUE on both shapes at this runtime, so a producer emitting one attribute
-// twice decodes last-write-wins with nothing raising; both halves refuse here. Converters register rather than
-// re-implement: functional carriers cross through the kernel factory `rails.md` `[08]-[CARRIER_CODEC]` owns,
-// generated owners through Thinktecture's factory, and semantic instants through NodaTime's own configuration.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class EventJson {
     public static readonly JsonDocumentOptions Documents = new() { AllowDuplicateProperties = false };
 
@@ -584,7 +559,7 @@ public static class EventJson {
     }
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -592,8 +567,6 @@ public sealed partial class EventFormat {
     public static readonly EventFormat Json = new(
         "json", "+json", new JsonEventFormatter(EventJson.Options, EventJson.Documents), batches: true);
 
-    // Protobuf libraries themselves pack an `Any` under this default type-URL prefix, so a peer reading the packed
-    // message resolves its type without knowing this estate exists.
     public static readonly EventFormat Protobuf = new(
         "protobuf", "+protobuf", new ProtobufEventFormatter(ProtobufEventFormatter.DefaultTypeUrlPrefix), batches: true);
 
@@ -606,14 +579,10 @@ public sealed partial class EventFormat {
 
     public bool Batches { get; }
 
-    // Framing DERIVES from the package's own media-type constants, so no literal media type is spelled and a
-    // formatter that renames its family moves both spellings at once.
     public string Structured => MimeUtilities.MediaType + Suffix;
 
     public string Batch => MimeUtilities.BatchMediaType + Suffix;
 
-    // A suffix-only probe admits unrelated vendor media types. Both admitted spellings derive from the package
-    // constants and compare as media types, so parameters remain outside the discriminant.
     public static Option<EventFormat> Of(ContentType framing) =>
         toSeq(Items).Find(row =>
             string.Equals(framing.MediaType, row.Structured, StringComparison.OrdinalIgnoreCase)
@@ -623,13 +592,11 @@ public sealed partial class EventFormat {
         toSeq(Items).Exists(row => string.Equals(framing.MediaType, row.Batch, StringComparison.OrdinalIgnoreCase));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Discarding the formatter's `out ContentType` throws away the only evidence distinguishing a structured body from
-// a batch array, so the chosen framing travels with the bytes it framed.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter]
 public readonly record struct EventFrame(ReadOnlyMemory<byte> Body, ContentType Framing);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class EventEnvelope {
     public static Fin<EventFrame> Encode(EventFormat format, Op key, params ReadOnlySpan<CloudEvent> envelopes) =>
         envelopes switch {
@@ -644,9 +611,6 @@ public static partial class EventEnvelope {
         toSeq(rows).TraverseM(envelope => Admit(envelope, key)).As()
             .Bind(admitted => Framed(format: format, rows: admitted.ToArray(), key: key));
 
-    // Exemption: the formatter publishes the framing it chose through an `out` parameter no expression can bind, and
-    // a `ReadOnlySpan` cannot enter a closure, so the arity read materializes first and the statement pair is that
-    // platform boundary whole — nothing else lives inside it.
     private static Fin<EventFrame> Framed(EventFormat format, CloudEvent[] rows, Op key) =>
         key.Catch(() => {
             ContentType framing;

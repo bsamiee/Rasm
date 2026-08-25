@@ -23,7 +23,7 @@
 - Boundary: `DstvBend` remains a typed `KA` rejection until its complete payload is publicly readable; face frames derive wholly from the admitted header so a convention correction is one row; an unlisted DSTV code refuses through the vocabulary's own generated `TryGet` lifted to `Option`, on the rail at the line that read it. The documented `ParseException` hierarchy and BCL file availability lower to caused fabrication cases; every other throw retains the exact exceptional `Error`. `ToSvg()` remains outside fabrication projection.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -36,7 +36,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
 using Rasm.Domain;
-using Rasm.Drawing;                             // SheetNumber, NamingStandard — the ONE drawing-number grammar
+using Rasm.Drawing;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rhino.Geometry;
@@ -48,7 +48,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Ingress;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SteelSource {
     private SteelSource() { }
@@ -97,7 +97,6 @@ public sealed partial class SteelParseKind {
 
     public Type ExceptionType { get; }
 
-    // Specificity ranks by inheritance depth, so a base row never shadows a derived one and declaration order is free.
     public static SteelParseKind Classify(ParseException error) =>
         toSeq(Items)
             .Filter(kind => kind.ExceptionType.IsInstanceOfType(error))
@@ -109,8 +108,6 @@ public sealed partial class SteelParseKind {
         type == typeof(ParseException) ? 0 : 1 + Depth(type.BaseType ?? typeof(ParseException));
 }
 
-// SteelFace row owns its DSTV placement convention, so corrections stay on one row.
-// Part x runs the member length; the section occupies part y and z.
 [SmartEnum<string>]
 public sealed partial class SteelFace {
     public static readonly SteelFace Web = new("V", static (_, local) =>
@@ -128,9 +125,6 @@ public sealed partial class SteelFace {
     public Arr<double> PlaceBulges(Arr<double> bulges) =>
         Reverses ? bulges.Map(static bulge => -bulge) : bulges;
 
-    // Each vocabulary lifts its OWN generated `TryGet` onto `Option`, so a DSTV face code naming no row is an
-    // absent lookup a caller rails on its own line rather than a throw a `Try` capture has to translate back into
-    // back into the block fault it already knew.
     public static Option<SteelFace> Of(string code) =>
         TryGet(code.Trim().ToUpperInvariant(), out SteelFace? row) ? Some(row) : None;
 }
@@ -156,12 +150,7 @@ public sealed partial class SteelProfileCode {
         TryGet(code.ToString().Trim().ToUpperInvariant(), out SteelProfileCode? row) ? Some(row) : None;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// Three SHOP identifiers, each its own value object. One shared identifier type would make an order seated where
-// a phase belongs type-check silently — the exact defect `SteelHeaderRow` exists to close on the twenty-four-column
-// call — so the discriminant lives in the type rather than in the argument position. The DRAWING identifier is NOT
-// one of these: a drawing number is the kernel `SheetNumber` grammar, and this page composes that owner rather than
-// carrying a fourth free-string twin of it.
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct OrderMark {
     [BoundaryAdapter]
@@ -184,7 +173,6 @@ public readonly partial struct PhaseMark {
     public static Fin<PhaseMark> Admit(string value) => Admission.OfValue<PhaseMark, string>(value);
 }
 
-// DSTV always states this one shop identifier; the header refuses without it, so it rides bare rather than optional.
 [ValueObject<string>]
 public readonly partial struct PieceMark {
     [BoundaryAdapter]
@@ -202,10 +190,6 @@ public sealed partial class SteelContourPolicy {
     public Length MinimumLeg { get; }
     public Angle AngularTolerance { get; }
 
-    // Drawing-number grammar the header admits under. It rides HERE because this is the one admitted policy
-    // `SteelImport.Read` already takes, and a second policy value beside it would make every caller carry two values
-    // one admission consumes; a shop with no structured sheet scheme names `NamingStandard.Simple` and the column
-    // costs it nothing.
     public NamingStandard Drawings { get; }
 
     [BoundaryAdapter]
@@ -225,8 +209,6 @@ public sealed partial class SteelContourPolicy {
         Context tolerance, Length minimumLeg, Angle angularTolerance, NamingStandard drawings) =>
         Validate(tolerance, minimumLeg, angularTolerance, drawings, out SteelContourPolicy policy).Admitted(policy);
 
-    // This canonical row NAMES `Simple` rather than defaulting to it: a DSTV file states a free-text drawing field,
-    // so the unstructured standard is the declared canonical choice and a caller wanting NCS or ISO 19650 says so.
     public static Fin<SteelContourPolicy> Canonical(Context tolerance) => Admit(
         tolerance,
         Length.FromMillimeters(tolerance.Absolute.Value),
@@ -234,9 +216,6 @@ public sealed partial class SteelContourPolicy {
         NamingStandard.Simple);
 }
 
-// The transcription target: every ST column lifted onto its canonical unit ONCE, in provider order. Admission takes
-// this row, so the call site names one argument rather than twenty-four positions where a transposed pair — a
-// flange width seated where a flange thickness belongs — type-checks silently.
 public sealed record SteelHeaderRow(
     string OrderIdentification,
     string DrawingIdentification,
@@ -266,13 +245,6 @@ public sealed record SteelHeaderRow(
 
 [ComplexValueObject]
 public sealed partial class SteelHeader {
-    // Four identity columns, four different regimes. Order and phase are shop identifiers a fabricator may leave
-    // blank, so each is its own value object under `Option`; the piece mark is the one DSTV always states, so it
-    // rides bare. The drawing identifier is a SHEET NUMBER — the kernel owns that grammar, its standard, its render,
-    // and its per-field admission — so this column carries the admitted owner and the page declares no fourth
-    // free-string twin. NAMED LOSS: a drawing field the declared standard cannot parse refuses the header rather
-    // than surviving as free text. WITNESS: `NamingStandard.Simple` carries an empty delimiter and no required
-    // sequence, so the loss is real only for a header admitted under a structured standard the caller chose.
     public Option<OrderMark> Order { get; }
     public Option<SheetNumber> Drawing { get; }
     public Option<PhaseMark> Phase { get; }
@@ -339,10 +311,6 @@ public sealed partial class SteelHeader {
             radius.As(LengthUnit.Millimeter), weightByMeter, paintingSurfaceByMeter];
         Seq<double> angles = [webStartCut.As(AngleUnit.Radian), webEndCut.As(AngleUnit.Radian),
             flangeStartCut.As(AngleUnit.Radian), flangeEndCut.As(AngleUnit.Radian)];
-        // Each slot names the invariant it decides, so a rejected header is addressable at its own locus rather
-        // than through one aggregate message a caller has to parse.
-        // Four identity columns prove themselves at their own owners, so this fan keeps only the two free-text
-        // section fields no value object claims.
         Seq<(string Slot, bool Admits)> slots = [
             ("identity", Witness.Keyed(profile) && Witness.Keyed(steelQuality)),
             ("quantity", quantityOfPieces > 0),
@@ -356,14 +324,9 @@ public sealed partial class SteelHeader {
                 None: static () => null);
     }
 
-    // Blank order, phase, and drawing fields are ABSENCE, not defects: DSTV states them only where a shop uses them,
-    // so a present field admits through its own owner and an empty one reads `None` rather than a blank string every
-    // consumer re-tests.
     private static Fin<Option<T>> Stated<T>(string text, Func<string, Fin<T>> admit) =>
         Witness.Keyed(text) ? admit(text.Trim()).Map(Some) : Fin.Succ(Option<T>.None);
 
-    // Identity columns admit BEFORE the aggregate, each naming its own locus, so a malformed order mark and a
-    // malformed drawing number are two addressable refusals rather than one aggregate message a caller parses.
     public static Fin<SteelHeader> Admit(SteelHeaderRow row, NamingStandard drawings) =>
         (from order in Stated(row.OrderIdentification, OrderMark.Admit)
          from drawing in Stated(row.DrawingIdentification, text => SheetNumber.Parse(drawings, text))
@@ -376,8 +339,6 @@ public sealed partial class SteelHeader {
             row.Length, row.SawLength, row.ProfileHeight, row.FlangeWidth, row.FlangeThickness, row.WebThickness,
             row.Radius, row.WebStartCut, row.WebEndCut, row.FlangeStartCut, row.FlangeEndCut,
             row.WeightByMeter, row.PaintingSurfaceByMeter,
-            // A `[ComplexValueObject]` `Validate` takes its members and the out slot alone — the `IFormatProvider`
-            // parameter belongs to the keyed `[ValueObject<T>]` arity and does not exist on this generator.
             row.Text1InfoOnPiece, row.Text2InfoOnPiece, row.Text3InfoOnPiece, row.Text4InfoOnPiece,
             out SteelHeader header).Admitted(header));
 }
@@ -386,11 +347,6 @@ public sealed record SteelBevel(Angle FirstAngle, Length FirstBlunting, Angle Se
 
 public sealed record SteelVertex(Point3d At, bool IsNotch, Length Radius, Option<SteelBevel> Bevel);
 
-// The per-edge preparation demand DSTV states. A skewed contour point carries the groove its edge is cut to, and a
-// receipt that kept it only inside the raw vertex left every downstream plane reading square-edged loops and the
-// source it never receives. `Profile` indexes `SteelPart.Loops` — the same ordinal the run's profile column carries —
-// and the locus is the SOURCE vertex, because corner rounding splits an apex into two loop vertices and an index
-// correspondence across that split would be false.
 public sealed record EdgePreparation(int Profile, Point3d At, SteelFace Face, SteelBevel Bevel);
 
 public sealed record SteelContour(SteelBlockKind Block, SteelFace Face, Loop Loop, Arr<SteelVertex> Vertices) {
@@ -424,8 +380,6 @@ public sealed partial class SteelPart {
     public Seq<SteelFeature> Features { get; }
     public RegionTopology Topology { get; }
 
-    // Each projection reads its OWN case; a shared boolean-parameterized reader made the caller supply a flag the
-    // case discriminant already carries and made both reads look like one operation with two modes.
     [IgnoreMember]
     public Seq<SteelContour> Boundaries => Features
         .Choose(static feature => feature is SteelFeature.Boundary row ? Some(row.Contour) : None);
@@ -437,8 +391,6 @@ public sealed partial class SteelPart {
     [IgnoreMember]
     public Arr<Loop> Loops => Boundaries.Map(static contour => contour.Loop).ToArr();
 
-    // Boundary ordinal is the loop ordinal, so a demand keys onto the profile column a run admits without a second
-    // correspondence; a contour whose vertices state no groove contributes no row rather than an empty one.
     [IgnoreMember]
     public Arr<EdgePreparation> Preparations => Boundaries
         .Map(static (contour, profile) => (Contour: contour, Profile: profile))
@@ -446,8 +398,6 @@ public sealed partial class SteelPart {
             .Map(bevel => new EdgePreparation(row.Profile, vertex.At, row.Contour.Face, bevel))))
         .ToArr();
 
-    // Face-local DSTV coordinates only become part geometry through the header, so placement lives with the aggregate
-    // that owns both and never with the feature case that carries the bare face tag.
     [IgnoreMember]
     public Seq<SteelPlacement> Placed => Features.Map(feature => feature.Switch(
         state: Header,
@@ -468,16 +418,9 @@ public sealed partial class SteelPart {
         Validate(header, features, topology, out SteelPart part).Admitted(part);
 }
 
-// This lane declares its own evidence and nothing else: `Receipt<TEvidence>` owns the key, band, ancestry, warnings,
-// and the stamp, so a page re-declaring any of them mints a second receipt spine beside the settled one. The key is
-// REAL and unchanged — `EgressKind.Nc1` over the received bytes — so a part admitted from an NC1 file and a program
-// posted to the same bytes address one identity rather than two.
 public sealed record SteelImportEvidence(SteelPart Part, int SourceBytes);
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
-// The ONE provider transcription. `Posting/dialect` `Nc1Canonical.Header` composes this configuration as its exact
-// inverse, so the twenty-six-column NC1 header correspondence is declared once and a write-then-read round trip is
-// a build fact rather than two rosters that drift apart.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 internal static partial class DstvMap {
     [MapProperty(nameof(IDstvHeader.CodeProfile), nameof(SteelHeaderRow.ProfileCode), Use = nameof(Profile))]
@@ -523,11 +466,6 @@ internal static partial class DstvMap {
     [MapProperty(nameof(LocatedElement.FlCode), nameof(SteelFeature.Numeration.Face), Use = nameof(Face))]
     public static partial SteelFeature.Numeration Numeration(DstvNumeration source);
 
-    // REFUTED as an `[MapEnum]` row: `EnumMappingStrategy.ByValueCheckDefined` and `MapEnumAttribute.FallbackValue`
-    // govern CLR enum-to-enum mapping, and neither side here is one — the sources are a `string` and a `char`, and
-    // both targets are `[SmartEnum<TKey>]` CLASSES. The rung-3 form is the vocabulary's OWN generated `TryGet`,
-    // lifted to `Option` at each owner, so an unlisted code is a rail refusal at the line that read it; a `Use`
-    // mapping must stay total, so these two adapters name the refusal that lift already proved impossible to reach.
     [UserMapping]
     internal static SteelFace Face(string code) => SteelFace.Of(code)
         .IfNone(() => throw new InvalidDataException($"steel-face:{code}"));
@@ -563,15 +501,12 @@ internal static partial class DstvMap {
 - Boundary: path cancellation remains source data; one `Fault` mint floors every locus at the `ST` line so `SourceKind.Steel` admits it, and every unreadable block fails with its block key and one-based line.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SteelImport {
     private const int HeaderLine = 1;
     private const int FirstFeatureLine = HeaderLine + 1;
     private static readonly Op ReadOp = Op.Of();
 
-    // Clock travels IN because `Receipt<TEvidence>` stamps where it settles: a receipt sealed against an ambient
-    // now is stamped by whoever read it rather than by the run that produced it, which is the one fact a lineage
-    // walk cannot recover afterwards.
     public static Eff<Receipt<SteelImportEvidence>> Read(
         SteelSource source, SteelContourPolicy policy, IClock clock) =>
         from bytes in Payload(source)
@@ -614,7 +549,6 @@ public static class SteelImport {
             Stamped = clock.GetCurrentInstant(),
         };
 
-    // Transcription captures the provider accessor; returned admission failures remain unchanged.
     private static Fin<SteelHeader> Header(IDstvHeader source, NamingStandard drawings) =>
         Op.Of(name: "steel:header").Catch(() => Fin.Succ(DstvMap.Header(source)))
             .Bind(row => SteelHeader.Admit(row, drawings));
@@ -631,14 +565,10 @@ public static class SteelImport {
             : new PolygonOp.Boolean(outers, holes, BooleanOp.Difference, PolygonFill.NonZero);
         return outers.IsEmpty
             ? Fin.Fail<RegionTopology>(Fault(SteelBlockKind.Ak.Key, HeaderLine, "steel-topology:outer-missing"))
-            // Region reads take the trace family's OWN total projection: an `is` test answers false on a widened
-            // family and lands that miss as an AK-block refusal the drawing never earned.
             : PolygonAlgebra.Apply(operation).Bind(static trace => trace.Regioned(
                 new KernelFault.InvalidValue("steel", "steel-topology:projection")));
     }
 
-    // DSTV block positions are one-based; the ordinal converts once here so no fault site can mint the line-zero
-    // locus `SourceKind.Steel` refuses.
     private static Validation<Error, Seq<SteelFeature>> Features(
         IEnumerable<DstvElement> elements,
         SteelHeader header,
@@ -647,7 +577,6 @@ public static class SteelImport {
             .Map(static (element, ordinal) => (Element: element, Line: ordinal + FirstFeatureLine))
             .Traverse(row => Feature(row.Element, row.Line, header, policy).ToValidation()).As();
 
-    // DstvSlot derives from DstvHole and DstvSkewedPoint from DstvContourPoint, so the derived arm precedes its base.
     private static Fin<SteelFeature> Feature(DstvElement element, int line, SteelHeader header, SteelContourPolicy policy) =>
         element switch {
             DstvSlot slot => Capture(() => DstvMap.Slot(slot), SteelBlockKind.Bo, line, header),
@@ -688,8 +617,6 @@ public static class SteelImport {
         int line,
         SteelHeader header,
         SteelContourPolicy policy) =>
-        // Face codes admit on the RAIL here: this site holds the block and the line, so an unlisted code refuses
-        // where it was read rather than as a throw the capture below has to translate back into the same fault.
         SteelFace.Of(contour.FlCode).ToFin(Fault(block.Key, line, "steel-contour:face")).Bind(face => Op.Of(name: block.Key).Catch(() => Fin.Succ((
             Face: face,
             Vertices: toSeq(contour.Points).Map(static point => point switch {
@@ -702,8 +629,6 @@ public static class SteelImport {
             }).ToArr())))
         .Bind(active => Faced(header, active.Face)
             ? Rounded(active.Vertices, policy, block, line)
-                // `AsCcw` returns a Loop, never a rail: re-orientation preserves every admitted invariant, so an
-                // outer contour orients in place rather than through a second admission that could refuse.
                 .Map(loop => block.TopologySign > 0 ? loop.AsCcw() : loop)
                 .Map(loop => block.Boundary
                     ? (SteelFeature)new SteelFeature.Boundary(new SteelContour(block, active.Face, loop, active.Vertices))
@@ -780,7 +705,6 @@ public static class SteelImport {
 
     private static bool Finite(Angle value) => double.IsFinite(value.As(AngleUnit.Radian));
 
-    // SourceKind.Steel admits a DstvBlock only on a positive line, so the one mint floors every locus at the ST block.
     private static Error Fault(string block, int line, string detail) =>
         FabricationFault.Sourced(new SourceLocus.DstvBlock(block, Math.Max(line, HeaderLine)), detail);
 
@@ -804,7 +728,7 @@ public static class SteelImport {
 - Boundary: projection returns settled evidence alone and opens no writer; NC1 emission is `Posting/dialect` work over the same `DstvMap` table this page owns.
 
 ```csharp signature
-// --- [PROJECTION_EGRESS] --------------------------------------------------------------------------------------------------------------------------
+// --- [PROJECTION_EGRESS] ---------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SteelProjection {
     private SteelProjection() { }

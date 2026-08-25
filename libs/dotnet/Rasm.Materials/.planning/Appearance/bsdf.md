@@ -22,7 +22,7 @@ THE FRAME-LOCAL SHADING KERNEL. The closed BSDF lobe family and its frame-local 
 - Boundary: `ShadingFrame` is the page's declared boundary capsule over `Rasm.Numerics` — host `Vector3d`/`Plane` access stays inside it and lobe kernels see only local-frame `LocalVector<T>` triples at the page's own `double` instantiation (z is the surface normal, the half-vector and incident/outgoing live in this basis); the z-up tangent convention is stated here once for every lobe so no lobe re-derives `cosθ = w.Z`; `MaterialFault` closes the appearance recovery vocabulary on `FaultBand.Appearance`, and each direct case lifts onto `Fin<T>` or `Validation<Error,T>` without a wrapper; every refusal constructs `Gamut`, `Parameter`, or `Graph` directly, so a lobe never returns a non-finite shade outward; `ComparerAccessors.StringOrdinal` is the ordinal comparer the `MaterialLibrary` and `ToneOperator` tables key through.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Numerics;
 using LanguageExt;
@@ -38,7 +38,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Appearance.Bsdf;
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 internal static class Scalar<T> where T : INumber<T> {
     public static readonly T Half = T.CreateChecked(0.5);
     public static readonly T Two = T.CreateChecked(2.0);
@@ -53,9 +53,6 @@ public readonly record struct LocalVector<T>(T X, T Y, T Z)
     public T Cos2Theta => Z * Z;
     public T Sin2Theta => T.Max(T.Zero, T.One - (Z * Z));
     public T SinTheta => T.Sqrt(Sin2Theta);
-    // Tan2Theta floors its denominator at the degeneracy tolerance, so the tangent DIVERGES to a large finite value
-    // at grazing and Λ carries the true grazing limit without a discard arm. The prior unguarded quotient answered
-    // +Inf and its consumer's non-finite discard returned Λ = 0 — FULL transmission, the opposite limit.
     public T Tan2Theta => Sin2Theta / T.Max(Scalar<T>.Tolerance, Cos2Theta);
     public T TanTheta => T.CopySign(T.Sqrt(Tan2Theta), Z);
     public T CosPhi => SinTheta <= Scalar<T>.Tolerance ? T.One : T.Clamp(X / SinTheta, -T.One, T.One);
@@ -66,17 +63,12 @@ public readonly record struct LocalVector<T>(T X, T Y, T Z)
     public LocalVector<T> Scale(T s) => new(X * s, Y * s, Z * s);
     public LocalVector<T> Normalize() =>
         T.Sqrt((X * X) + (Y * Y) + (Z * Z)) switch { var n => n > Scalar<T>.Tolerance ? new LocalVector<T>(X / n, Y / n, Z / n) : Normal };
-    // The anisotropy reference rotation: an anisotropic lobe rotates its OWN wo/wi about local Z rather than
-    // rotating the frame, so ShadingFrame stays the geometric basis every lobe shares and the rotation is a pure
-    // lobe fact one lobe may carry and its neighbour may not. Zero leaves the triple bit-identical.
     public LocalVector<T> RotateZ(T radians) =>
         T.IsZero(radians) ? this : T.SinCos(radians) switch { var (s, c) => new LocalVector<T>((X * c) - (Y * s), (X * s) + (Y * c), Z) };
     public bool SameHemisphere(LocalVector<T> o) => Z * o.Z > T.Zero;
     public static readonly LocalVector<T> Normal = new(T.Zero, T.Zero, T.One);
 }
 
-// The 3-band band-centre vocabulary the thin-film lobe (here) and the surface#SPECTRAL_UPSAMPLE curve read; the
-// fast-path band centres the spectral curve reduces to, declared once on the kernel so no second color register.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -88,9 +80,7 @@ public sealed partial class SpectralBand {
     private SpectralBand(string key, double centerNm) : this(key) => CenterNm = centerNm;
 }
 
-// --- [ERRORS] ------------------------------------------------------------------------------
-// MaterialFault closes the appearance recovery vocabulary; generated identity binds each direct leaf's explicit
-// ordinal to FaultBand.Appearance while the authored payload owns rendering and recovery.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MaterialFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Appearance;
@@ -108,10 +98,7 @@ public abstract partial record MaterialFault : Fault {
         graph: static (detail, c) => $"Degenerate shading frame under '{c.Key}': {detail}.");
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The frame is the HOST boundary and therefore double-bound: a Plane's axes are host doubles, so the frame projects
-// at that precision and every lobe on this page instantiates the kernel at it. A narrower instantiation enters
-// through LocalVector<T> directly, never by widening this seam.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ShadingFrame(VectorFrame Frame, Context Context) {
     public static Fin<ShadingFrame> Of(VectorFrame frame, Context context, Direction outgoing, Op key) {
         Plane basis = frame.Value;
@@ -141,7 +128,7 @@ public readonly record struct ShadingFrame(VectorFrame Frame, Context Context) {
 - Boundary: the NDF is GGX/Trowbridge-Reitz in anisotropic form `D = 1 / (π·αx·αy·((hx/αx)² + (hy/αy)² + hz²)²)`, reducing to the isotropic `D = α² / (π·(cos²θh·(α²−1)+1)²)` when `αx==αy` — one body, both modes; the masking-shadowing is the Smith height-correlated `G2 = 1 / (1 + Λ(wo) + Λ(wi))` with the GGX `Λ`, NEVER the separable `G1(wo)·G1(wi)` (separable overestimates correlated occlusion and breaks the white-furnace test); the Fresnel family is lobe-selected — the exact unpolarized dielectric term is SIDE-AWARE (`cosI < 0` flips `η` to `1/η`, so an interior ray reads its true reflectance and interior TIR reads 1 — `|cosI|` under the exterior `η` is the deleted form that missed interior TIR), the per-band conductor term grounds metals and rides the `ComplexIor` carrier that owns the measured pair, and `F0 + (1−F0)(1−cosθ)⁵` Schlick carries the fast coated path; the GGX visible-normal-distribution sample (Heitz 2018) is the one importance-sampling routine the conductor/dielectric/clearcoat/thin-film lobes share and `ReflectPdf` its one paired density, so the four samplers and the four pdf reads cannot drift by a Jacobian.
 
 ```csharp signature
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Microfacet<T>
     where T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T> {
     public static T AlphaOf(T roughness) => T.Max(Scalar<T>.AlphaFloor, roughness * roughness);
@@ -154,8 +141,6 @@ public static class Microfacet<T>
         return T.One / (T.Pi * ax * ay * k * k);
     }
 
-    // Λ needs no non-finite arm: Tan2Theta floors its own denominator, so a grazing direction reads a large finite
-    // tangent, Λ diverges with it, and the Smith term collapses toward zero — the true grazing limit.
     private static T Lambda(LocalVector<T> w, T alphaX, T alphaY) =>
         ((w.CosPhi * w.CosPhi * alphaX * alphaX) + (w.SinPhi * w.SinPhi * alphaY * alphaY)) switch {
             var alpha2 => (T.Sqrt(T.One + (alpha2 * w.Tan2Theta)) - T.One) * Scalar<T>.Half,
@@ -173,7 +158,7 @@ public static class Microfacet<T>
 
     public static T FresnelDielectric(T cosI, T eta) {
         T ci = T.Clamp(cosI, -T.One, T.One);
-        if (ci < T.Zero) { eta = T.One / eta; ci = -ci; }   // interior incidence flips the ratio — |cosI| under the exterior η misses interior TIR
+        if (ci < T.Zero) { eta = T.One / eta; ci = -ci; }
         T sin2T = (T.One - (ci * ci)) / (eta * eta);
         if (sin2T >= T.One) { return T.One; }
         T ct = T.Sqrt(T.One - sin2T);
@@ -182,9 +167,6 @@ public static class Microfacet<T>
         return Scalar<T>.Half * ((rParl * rParl) + (rPerp * rPerp));
     }
 
-    // The exact unpolarized conductor term per band. t3 + t4 floors at the degeneracy tolerance: a vacuum row at
-    // normal incidence drives both to zero and the unguarded quotient answered NaN, which the validated carrier
-    // throws on rather than shading the perfect-transmission limit the row states.
     public static T FresnelConductor(T cosI, T eta, T k) {
         T ci = T.Clamp(T.Abs(cosI), T.Zero, T.One), ci2 = ci * ci;
         T sin2 = T.One - ci2;
@@ -220,8 +202,6 @@ public static class Microfacet<T>
     public static T VisibleNormalPdf(LocalVector<T> wo, LocalVector<T> h, T alphaX, T alphaY) =>
         Masking(wo, alphaX, alphaY) * T.Abs(wo.Dot(h)) * Ndf(h, alphaX, alphaY) / T.Max(Scalar<T>.Tolerance, T.Abs(wo.CosTheta));
 
-    // The half-vector reflect density every VNDF-sampling entry reads: the Jacobian of the reflection about h is
-    // 1/(4|wo·h|) and its denominator floors here rather than at four call sites that each had to remember to.
     public static T ReflectPdf(LocalVector<T> wo, LocalVector<T> h, T alphaX, T alphaY) =>
         VisibleNormalPdf(wo, h, alphaX, alphaY) / (Scalar<T>.Four * T.Max(Scalar<T>.Tolerance, T.Abs(wo.Dot(h))));
 }
@@ -237,7 +217,7 @@ public static class Microfacet<T>
 - Boundary: every lobe `Evaluate` returns the BSDF value times nothing — the cosine-weight and division by pdf live in the integrator (`LayeredBsdf.Sample`), so a lobe is the pure `f(wo, wi)` and never folds in the geometry term twice; the `Conductor` and `ThinFilm` lobes carry one `ComplexIor` `[ComplexValueObject]` band (its `Eta`/`K` two validated `RgbSpectrum` carriers) the carrier's own `ComplexIor.Fresnel(cosI)` per-band read answers from (`FresnelNormal` is that same term at `cosθ = 1`, so no second closed form stands beside it), never a parallel `(Eta, K)`/`(BaseEta, BaseK)` triple pair; the four glossy-reflect lobes (conductor · dielectric-reflect · clearcoat · thin-film) evaluate through ONE `MicrofacetReflect` Cook-Torrance skeleton — the half-vector canonicalized to the geometric upper hemisphere (an interior both-below pair otherwise zeroes the NDF and shades compensation-only), `fresnel(state, wo·h)·D·G₂/(4|cosθo||cosθi|)` over the SIGNED half-vector cosine so the side-aware dielectric term reads interior reflectance, plus a per-lobe compensation policy, hemisphere and grazing degeneracy guarded once — each lobe supplying ONLY its Fresnel term (`ComplexIor.Fresnel`, the white-scaled exact dielectric, the weight-scaled `Schlick` `F0` 0.04 coat, the interference-modulated base-conductor film) and its Kulla-Conty add (`Black` for clearcoat/thin-film), so a per-lobe `D·G₂` re-inline is the deleted form; the conductor and dielectric lobes drive `Microfacet<double>` with their `(alphaX, alphaY)` and the exact conductor/dielectric Fresnel kernels, the clearcoat is a fixed-`Schlick`-`F0`-0.04 dielectric GGX layer over the base reusing that same reflect arm at its own alpha pair, the sheen is the Estevez-Kulla inverted-Gaussian retroreflective fabric lobe, and the thin-film is the Belcour-Barla spectral interference term modulating the base Fresnel; all four glossy-reflect lobes carry their anisotropy REFERENCE as a `Rotation` radian column beside an `(AlphaX, AlphaY)` pair — the coat and its thin-film mix included, so a brushed lacquer keeps its grain at every `thin_film_weight` — and the skeleton rotates `wo`/`wi` by `−Rotation` about local Z at every entry — evaluation, pdf, and the VNDF draw (whose sampled direction rotates back before it leaves) — so the half-vector, the Smith `Λ` azimuth, and the sample share one basis while `ShadingFrame` stays the geometric basis every isotropic sibling reads unrotated, and a per-lobe rotation is a lobe fact rather than a frame the whole stack turns with; the `Dielectric` `SpecularTint` is the OpenPBR `specular_color` and multiplies BOTH the single-scatter Fresnel and its Kulla-Conty compensation (tinting one alone moves energy between the two and the furnace residual then reads as a tint error), while the `Clearcoat` `Tint` is a BODY absorption that never enters the achromatic dielectric reflection and instead rides the `Transmitted` throughput onto every layer beneath — absorption is opt-in on the case that carries a body tint, so the root's `Transmitted` default is `White` rather than six identical `Switch` arms; the AP1 luminance triple is DERIVED once at type init from the kernel `RgbProfile.Acescg.Geometry` chromaticity column through `ImageProcessing.GetLuminanceWeights`, so `RgbSpectrum.LuminanceWeights` is the ONE owner the `texture#TEXTURE_UV` `ShadeVec4` and `graph#MATERIAL_GRAPH` `PortValue` luminance projections read and a hand-typed decimal triple beside it is the deleted form; the diffuse lobe carries the Oren-Nayar roughness term (Lambert is `roughness == 0`, the `a→1/b→0` limit), so one diffuse case spans matte-to-rough, never a separate Lambert and Oren-Nayar type; the `Subsurface` lobe is the in-pixel-footprint diffusion limit Burley refactors the dielectric SSS BRDF into — a Lambert base modulated by the two rough-surface Fresnel transmission factors `(1−0.5·F_L)(1−0.5·F_V)`, reciprocal and energy-bounded, the albedo carrying the scatter colour directly (the normalized-diffusion no-inversion guarantee), and the wide-radius transport is the separable BSSRDF the integrator samples through `MultiScatter.SeparableProfile` (Burley's `Rd(r)` normalized over the disk `∫Rd(r)·2πr dr = 1`) by SURFACE distance — the spatial profile is NEVER multiplied as a directional BRDF, since `Rd(r)` integrates to one over area not solid angle; the multi-scatter energy compensation is the Kulla-Conty term added to the conductor/dielectric single-scatter, recovering the energy the single-scatter Smith model loses at high roughness — without it the white-furnace test fails above α≈0.5, and its Fresnel response is the diffused-bounce geometric series `F_avg·E_avg/(1−F_avg(1−E_avg))`, never `F_avg²·(1−E_avg)/(…)` which destroys energy; the lobe sampler is frame-local and host-free — `LobeSample.Direction` is a `LocalVector<double>`, the dielectric transmission runs the same exact Snell formula `Rasm.Numerics.Direction.Refract` owns (eta·d + (eta·cosI−√k)·n, TIR-rejected) so the math is single-sourced; the WORLD reflected/refracted ray the path tracer needs for the next bounce is the integrator's `ShadingFrame.ToWorld` composition, and when the renderer prefers the host `Direction` it COMPOSES the instance `Direction.Reflect(Direction normal)` and the static `Direction.Refract(Direction incident, Direction normal, double etaIncident, double etaTransmitted, Op key)` at that world seam (the 5-arg Snell — `etaIncident`/`etaTransmitted` are the two media IORs, not an `(eta, cosI, n)` shorthand) — Snell and the mirror are NEVER re-minted as a parallel kernel; the lobe dispatch threads `(wo, wi)`/`(owner, wo, uc, u0, u1)` through the state-passing `Switch` overload with `static` arms so the per-sample integrator loop allocates no closure; `DielectricPdf` keys its reflect/transmit split on the half-vector cosine `wo.Dot(h)` exactly as `DielectricSample` does, never the geometric `wo.CosTheta`; `DielectricSample`'s transmit arm carries the refraction Jacobian `η²·|wi·h|/(wo·h + η·wi·h)²` mirroring `DielectricPdf` (a reflect-form `1/(4|wo·h|)` on the transmit sample de-syncs the sample-local pdf from the balance-heuristic average) and draws its reflect/transmit lottery from the DEDICATED `uc` choice variable, never the consumed `u0` that already fixed the sampled half-vector (reusing it correlates the lottery with the VNDF radial coordinate and biases the estimator), so the balance-heuristic pdf stays unbiased and the white-furnace harness closes for rough glass on both sides of the interface.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct RgbSpectrum {
     public double R { get; }
@@ -251,11 +231,6 @@ public readonly partial struct RgbSpectrum {
 
     public static readonly RgbSpectrum Black = Create(0.0, 0.0, 0.0);
     public static readonly RgbSpectrum White = Create(1.0, 1.0, 1.0);
-    // Map and Zip each carry a STATE-THREADING arity beside the bare one, exactly as the lobe Switch does: the
-    // per-band folds the conductor Fresnel and the Kulla-Conty compensation run sit inside the per-sample integrator
-    // loop, and a lambda closing over the incidence cosine or the compensation scalars allocates there on every
-    // shading sample — the closure-free hot-loop law the lobe dispatch states, held on the carrier too. The bare
-    // arities survive for the genuinely closure-free `static` band maps.
     public RgbSpectrum Map(Func<double, double> f) => Create(f(R), f(G), f(B));
     public RgbSpectrum Map<TState>(TState state, Func<TState, double, double> f) => Create(f(state, R), f(state, G), f(state, B));
     public RgbSpectrum Zip(RgbSpectrum o, Func<double, double, double> f) => Create(f(R, o.R), f(G, o.G), f(B, o.B));
@@ -266,19 +241,6 @@ public readonly partial struct RgbSpectrum {
     public RgbSpectrum Add(RgbSpectrum o) => Create(R + o.R, G + o.G, B + o.B);
     public RgbSpectrum Lerp(RgbSpectrum o, double t) => Create(R + (o.R - R) * t, G + (o.G - G) * t, B + (o.B - B) * t);
 
-    // Ap1 states the primaries and D60 white the graph#MATERIAL_GRAPH PortValue.SceneLinear Acescg working space declares,
-    // and the luminance triple DERIVED from them once at type init through the package's determinant construction —
-    // the ONE luminance-weight owner the texture#TEXTURE_UV ShadeVec4 and graph#MATERIAL_GRAPH PortValue projections
-    // both read. Three hand-typed decimal triples at three pages were the deleted form: nothing forced the third to
-    // move with a working-space change and no reader could check a bare literal against the primaries it claims to
-    // encode. The GEOMETRY itself is the kernel RgbProfile.Acescg row's, so the same defect one level up — a
-    // hand-typed AP1 coordinate table beside the working space that publishes it — is deleted with them, and the
-    // resampler's own struct is filled at this ONE narrowing site. The float widening happens here, at the mint, so
-    // the resolved AP1 spelling stays the value the Raster/gpu#WGSL_KERNEL literal pins as its frozen parity peer
-    // (a shader constant cannot read a managed static).
-    // The eight floats bind POSITIONALLY in the struct's own red, green, blue, white pair order — the constructor
-    // the package declares — so the mint reads the kernel row's geometry in that order and nothing here depends on
-    // a parameter-name spelling the assembly is free to change.
     internal static readonly Chromaticities Ap1 = RgbProfile.Acescg.Geometry switch {
         var g => new Chromaticities(
             (float)g.Red.X, (float)g.Red.Y, (float)g.Green.X, (float)g.Green.Y,
@@ -291,10 +253,6 @@ public readonly partial struct RgbSpectrum {
     public double Luminance => (LuminanceWeights.R * R) + (LuminanceWeights.G * G) + (LuminanceWeights.B * B);
 }
 
-// The measured complex refractive index owns its OWN spectral Fresnel read: the exact per-band conductor term is a
-// property of the (η, k) pair, so the carrier that validated the pair answers it and the scalar kernel stays
-// spectrum-free. FresnelNormal is that same term at cosθ = 1, so the second transcription that stood beside it is
-// deleted and a change to the conductor kernel can no longer leave the multi-scatter proxy behind.
 [ComplexValueObject]
 public readonly partial struct ComplexIor {
     public RgbSpectrum Eta { get; }
@@ -309,11 +267,6 @@ public readonly record struct LobeSample(LocalVector<double> Direction, RgbSpect
     : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(ValidityClaim.Positive(value: Pdf));
 
-    // The ONE sample mint: a drawn direction with a positive FINITE density lands a receipt, anything else rails the
-    // frame fault under the caller's own reason. Six near-identical succeed/fail pairs across the cosine sampler, the
-    // VNDF sampler, the dielectric lottery, and the multi-scatter walk were the construction boilerplate this
-    // collapses, and the density gate rides the mint so no estimator divides by an infinite density the bare
-    // `pdf > 0` test admitted.
     public static Fin<LobeSample> Of(LocalVector<double> direction, RgbSpectrum value, double pdf, bool transmission, Op key, string reason) =>
         new LobeSample(direction, value, pdf, transmission) switch {
             var drawn when drawn.IsValid => Fin.Succ(drawn),
@@ -321,38 +274,19 @@ public readonly record struct LobeSample(LocalVector<double> Direction, RgbSpect
         };
 }
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record BsdfLobe {
     private BsdfLobe() { }
 
     public sealed record Diffuse(RgbSpectrum Albedo, double Roughness) : BsdfLobe;
-    // Rotation is the anisotropy reference azimuth in RADIANS about local Z — the surface#OPENPBR_SLAB lowering
-    // converts the unit-interval OpenPBR column once, so the lobe carries the angle its kernel entries rotate by
-    // and no kernel re-derives a remap. SpecularTint is the OpenPBR specular_color the dielectric interface
-    // reflects through (White the neutral); the conductor's tint is its measured ComplexIor and takes no column.
     public sealed record Conductor(ComplexIor Ior, double AlphaX, double AlphaY, double Rotation) : BsdfLobe;
     public sealed record Dielectric(double Ior, double AlphaX, double AlphaY, double Rotation, RgbSpectrum SpecularTint, RgbSpectrum Transmittance) : BsdfLobe;
     public sealed record Sheen(RgbSpectrum Tint, double Roughness) : BsdfLobe;
-    // Tint is the coloured-lacquer body absorption: it NEVER enters the reflected specular, which a dielectric
-    // interface returns achromatic at every incidence, and instead rides Transmitted — the spectral throughput the
-    // surface#OPENPBR_SLAB cascade hands every slab it places BENEATH this coat. Weight scales it because a
-    // partially-covering coat absorbs proportionally, so a White tint or a zero weight passes White exactly.
-    // The coat carries the SAME anisotropy shape the substrate does — an alpha pair and a rotation radian — because
-    // a brushed lacquer is a real finish and OpenPBR 1.1 states it as coat_roughness_anisotropy. The pair is remapped
-    // once at surface#OPENPBR_SLAB through the ONE Disney aspect owner the base reads, so the coat and the substrate
-    // beneath it can never disagree about what one anisotropy column means; the grain DIRECTION is the rotation
-    // radian this column carries, which is the geometry_coat_tangent channel's Rasm-side shading consumer under the
-    // scalar-rotation law (a tangent-vector plane mips to zero across opposed tangents where a rotation averages).
     public sealed record Clearcoat(double Weight, double AlphaX, double AlphaY, double Rotation, RgbSpectrum Tint) : BsdfLobe {
         public override RgbSpectrum Transmitted => RgbSpectrum.White.Lerp(Tint, Math.Clamp(Weight, 0.0, 1.0));
     }
     public sealed record Subsurface(RgbSpectrum Albedo, double MeanFreePath) : BsdfLobe;
-    // Thickness is NANOMETRES — the graph#MATERIAL_LIBRARY ThinFilm.ThicknessNm carrier feeds it, and FilmInterference
-    // divides the OPD by a SpectralBand wavelength in nm; a metre-scaled thickness silently kills the interference.
-    // The film rides the coat INTERFACE, so it carries the coat's own alpha pair and rotation: an iridescent brushed
-    // topcoat is one row of the coat mix, and a film case that could not turn would have dropped the grain at every
-    // thin_film_weight above zero while its plain-dielectric neighbour kept it.
     public sealed record ThinFilm(double Thickness, double FilmIor, double AlphaX, double AlphaY, double Rotation, ComplexIor BaseIor) : BsdfLobe;
 
     public virtual RgbSpectrum Transmitted => RgbSpectrum.White;
@@ -391,13 +325,6 @@ public abstract partial record BsdfLobe {
         wo.SameHemisphere(wi) ? Math.Abs(wi.CosTheta) / Math.PI : 0.0;
 
     // --- [DIFFUSE]
-    // Qualitative Oren-Nayar: matte-to-rough in ONE case (Lambert is Roughness==0, the a→1/b→0 limit), never a parallel
-    // Lambert type. The BSDF value is the bracket/π scaled by albedo — the cosine weight and pdf division live in the
-    // integrator (LayeredBsdf.Sample), so this is the pure f(wo,wi) with the geometry term folded in nowhere twice.
-    // The tangent of the SHALLOWER of the two directions floors its own cosine at the frame tolerance: both cosines
-    // reach zero at grazing and the unguarded quotient carried a non-finite through the albedo scale into the
-    // validated carrier's throw. The floor answers the physical limit — a grazing pair sees the full retroreflective
-    // bracket — instead of tearing the fold down inside a partitioned sweep.
     private static RgbSpectrum EvalDiffuse(Diffuse d, LocalVector<double> wo, LocalVector<double> wi) {
         if (!wo.SameHemisphere(wi)) { return RgbSpectrum.Black; }
         double s2 = d.Roughness * d.Roughness;
@@ -409,15 +336,6 @@ public abstract partial record BsdfLobe {
         return d.Albedo.Scale((a + (b * maxCos * sinAlpha * tanBeta)) / Math.PI);
     }
 
-    // The LOCAL subsurface lobe is the energy-bounded diffuse-transmission limit Burley refactors the dielectric SSS
-    // BRDF into for the in-pixel-footprint case (§2.3): a Lambert base modulated by the two rough-surface Fresnel
-    // transmission factors (1-0.5*F_L)(1-0.5*F_V), reciprocal and never exceeding the Lambert energy bound — NOT the
-    // spatial Rd(r) profile multiplied as a BRDF (Rd integrates to 1 over SURFACE AREA, not solid angle, so multiplying
-    // it onto a directional lobe is dimensionally incoherent and unbounded as r→0). The BRDF limit is radius-independent
-    // (the in-footprint diffuse is the same shape for any scatter distance), so MeanFreePath is NOT read here — it is the
-    // wide-radius spatial-transport parameter the integrator hands MultiScatter.SeparableProfile to sample the true
-    // BSSRDF by surface distance. Albedo carries the scatter colour directly so no albedo inversion is needed (the
-    // normalized-diffusion guarantee). Subsurface is closed at this one lobe.
     private static RgbSpectrum EvalSubsurface(Subsurface b, LocalVector<double> wo, LocalVector<double> wi) {
         if (!wo.SameHemisphere(wi)) { return RgbSpectrum.Black; }
         double fL = SchlickWeight(Math.Abs(wi.CosTheta)), fV = SchlickWeight(Math.Abs(wo.CosTheta));
@@ -427,15 +345,6 @@ public abstract partial record BsdfLobe {
     private static double SchlickWeight(double cosTheta) { double m = Math.Clamp(1.0 - cosTheta, 0.0, 1.0); double m2 = m * m; return m2 * m2 * m; }
 
     // --- [MICROFACET_REFLECT]
-    // The ONE Cook-Torrance single-scatter skeleton the four glossy-reflect lobes (conductor · dielectric-reflect ·
-    // clearcoat · thin-film) drive by POLICY: fresnel(state, wo·h)·D·G2/(4|cosθo||cosθi|) — h canonicalized up, the
-    // half-vector cosine SIGNED so the side-aware dielectric policy reads interior reflectance — plus the per-lobe
-    // compensation term at the geometric-mean alpha — Kulla-Conty for the energy-compensated lobes, Black for the
-    // uncompensated pair. Hemisphere and grazing degeneracy guard ONCE here, against the frame's own TOLERANCE rather
-    // than an exact zero: a 1e-300 cosine passed the equality test and drove the quotient past the finite range into
-    // the shade the RgbSpectrum gate throws on. static lambdas keep the per-sample loop closure-free. The four
-    // glossy-reflect lobes all rotate into their own grain here, so the skeleton owns the rotation and no arm has to
-    // remember to apply it — the isotropic case passes a zero radian and RotateZ is the identity on it.
     private static RgbSpectrum MicrofacetReflect<TState>(
         TState state, LocalVector<double> outgoing, LocalVector<double> incident, double rotation, double alphaX, double alphaY,
         Func<TState, double, RgbSpectrum> fresnel, Func<TState, double, LocalVector<double>, LocalVector<double>, RgbSpectrum> compensation) {
@@ -443,43 +352,24 @@ public abstract partial record BsdfLobe {
         if (!wo.SameHemisphere(wi)
             || Math.Abs(wo.CosTheta) <= RhinoMath.ZeroTolerance || Math.Abs(wi.CosTheta) <= RhinoMath.ZeroTolerance) { return RgbSpectrum.Black; }
         LocalVector<double> h = wo.Add(wi).Normalize();
-        h = h.CosTheta < 0.0 ? h.Scale(-1.0) : h;   // canonicalize to the geometric upper hemisphere — an interior (both-below) pair otherwise zeroes Ndf and shades compensation-only
+        h = h.CosTheta < 0.0 ? h.Scale(-1.0) : h;
         double single = Microfacet<double>.Ndf(h, alphaX, alphaY) * Microfacet<double>.MaskingShadowing(wo, wi, alphaX, alphaY)
             / (4.0 * Math.Abs(wo.CosTheta) * Math.Abs(wi.CosTheta));
-        return fresnel(state, wo.Dot(h)).Scale(single).Add(compensation(state, Math.Sqrt(alphaX * alphaY), wo, wi));   // SIGNED wo·h — the side-aware dielectric policy reads interior reflectance; conductor/film take |·| internally
+        return fresnel(state, wo.Dot(h)).Scale(single).Add(compensation(state, Math.Sqrt(alphaX * alphaY), wo, wi));
     }
 
     // --- [CONDUCTOR]
-    // Fresnel policy: the measured complex-IOR conductor term. The compensation lobe is azimuthally invariant and its
-    // directional-albedo fit is isotropic, so it reads the geometric-mean alpha the skeleton hands it, and the
-    // diffused-bounce Fresnel is the cosine-weighted AVERAGE — proxied by the measured normal-incidence FresnelNormal
-    // the ComplexIor carries, NOT the per-sample half-vector fr (view-dependent, biasing the multi-bounce term), so a
-    // tinted metal keeps its hue across the rough-surface multi-scatter recovery.
-    // Rotation enters ONCE, in the skeleton: wo and wi turn by −Rotation about local Z so the half-vector, the Smith
-    // Λ azimuth, and the VNDF sample all read the SAME rotated basis, and the frame every other lobe shares stays
-    // untouched. Rotating the ShadingFrame instead would rotate the isotropic siblings with it.
     private static RgbSpectrum EvalConductor(Conductor c, LocalVector<double> wo, LocalVector<double> wi) =>
         MicrofacetReflect(c, wo, wi, c.Rotation, c.AlphaX, c.AlphaY,
             fresnel: static (own, cosH) => own.Ior.Fresnel(cosH),
             compensation: static (own, alpha, o, i) => MultiScatter.KullaConty(alpha, own.Ior.FresnelNormal, o, i));
 
     // --- [DIELECTRIC]
-    // Reflect arm: the SAME Kulla-Conty matte multi-scatter lobe the conductor uses (Turquin §5.6 supports rough
-    // dielectric reflection), the diffused-bounce Fresnel proxied by the normal-incidence reflectance
-    // F0 = ((η−1)/(η+1))² so a rough glass interface conserves energy under the furnace; the
-    // transmit arm carries no compensation lobe (energy lost to reflection is recovered on the reflect arm and the
-    // transmit lobe is the refracted single path). SpecularTint carries the OpenPBR specular_color through BOTH the
-    // single-scatter term and its compensation lobe — tinting only one of the two moves energy between them and the
-    // furnace residual then reads as a tint error; White leaves both bit-identical to the achromatic form.
     private static RgbSpectrum EvalDielectricReflect(Dielectric g, LocalVector<double> wo, LocalVector<double> wi) =>
         MicrofacetReflect(g, wo, wi, g.Rotation, g.AlphaX, g.AlphaY,
             fresnel: static (own, cosH) => own.SpecularTint.Scale(Microfacet<double>.FresnelDielectric(cosH, own.Ior)),
             compensation: static (own, alpha, o, i) => MultiScatter.KullaConty(alpha, own.SpecularTint.Scale(DielectricF0(own.Ior)), o, i));
     private static double DielectricF0(double ior) => (ior - 1.0) / (ior + 1.0) switch { var r => r * r };
-    // The transmit arm's two quotients — the geometry cosines and the half-vector denominator — both floor at the
-    // frame tolerance. A grazing pair drives the first to zero and a perpendicular-incidence configuration collapses
-    // the second, and either unguarded answered a non-finite the Transmittance scale then handed the validated
-    // carrier. Flooring shades the vanishing transmit lobe as zero-weight rather than tearing the fold down.
     private static RgbSpectrum EvalDielectricTransmit(Dielectric g, LocalVector<double> outgoing, LocalVector<double> incident) {
         (LocalVector<double> wo, LocalVector<double> wi) = (outgoing.RotateZ(-g.Rotation), incident.RotateZ(-g.Rotation));
         double eta = wo.CosTheta > 0.0 ? g.Ior : 1.0 / g.Ior;
@@ -496,8 +386,6 @@ public abstract partial record BsdfLobe {
     }
 
     // --- [SHEEN]
-    // The inverted-Gaussian visibility denominator vanishes when BOTH cosines reach zero, so it floors at the frame
-    // tolerance — a fabric seen exactly edge-on reads its bounded retroreflective peak rather than a non-finite one.
     private static RgbSpectrum EvalSheen(Sheen s, LocalVector<double> wo, LocalVector<double> wi) {
         if (!wo.SameHemisphere(wi)) { return RgbSpectrum.Black; }
         LocalVector<double> h = wo.Add(wi).Normalize();
@@ -509,25 +397,19 @@ public abstract partial record BsdfLobe {
     }
 
     // --- [CLEARCOAT]
-    // Fresnel policy: the weight-scaled fixed-Schlick F0 0.04 coat term, ACHROMATIC by physics — a dielectric
-    // interface reflects the incident spectrum unchanged, so Tint never enters here; the coloured-lacquer absorption
-    // rides Transmitted onto the layers beneath. No compensation lobe (the thin smooth coat's multi-scatter loss is
-    // negligible at a coat's own alpha and the base substrate recovers its own energy).
     private static RgbSpectrum EvalClearcoat(Clearcoat c, LocalVector<double> wo, LocalVector<double> wi) =>
         MicrofacetReflect(c, wo, wi, c.Rotation, c.AlphaX, c.AlphaY,
             fresnel: static (own, cosH) => RgbSpectrum.White.Scale(own.Weight * Microfacet<double>.FresnelSchlick(Math.Abs(cosH), 0.04)),
             compensation: static (_, _, _, _) => RgbSpectrum.Black);
 
     // --- [THIN_FILM]
-    // Fresnel policy: the Belcour-Barla interference term IS a Fresnel modifier — the 3-band OPD cosine modulates the
-    // base conductor Fresnel at the half-vector cosine, so the film rides the same skeleton; no compensation lobe.
     private static RgbSpectrum EvalThinFilm(ThinFilm f, LocalVector<double> wo, LocalVector<double> wi) =>
         MicrofacetReflect(f, wo, wi, f.Rotation, f.AlphaX, f.AlphaY,
             fresnel: static (own, cosH) => own.BaseIor.Fresnel(cosH).Mul(FilmInterference(own, cosH)),
             compensation: static (_, _, _, _) => RgbSpectrum.Black);
     private static RgbSpectrum FilmInterference(ThinFilm f, double cosI) {
         double sinT2 = (1.0 - (cosI * cosI)) / (f.FilmIor * f.FilmIor);
-        double opd = 2.0 * f.FilmIor * f.Thickness * Math.Sqrt(Math.Max(0.0, 1.0 - sinT2));   // 2·n·t·cosθt — the film optical path difference
+        double opd = 2.0 * f.FilmIor * f.Thickness * Math.Sqrt(Math.Max(0.0, 1.0 - sinT2));
         return RgbSpectrum.Create(Interference(opd, SpectralBand.Red.CenterNm), Interference(opd, SpectralBand.Green.CenterNm), Interference(opd, SpectralBand.Blue.CenterNm));
     }
     private static double Interference(double opd, double wavelengthNm) => 0.5 * (1.0 + Math.Cos(2.0 * Math.PI * opd / wavelengthNm));
@@ -539,12 +421,6 @@ public abstract partial record BsdfLobe {
         LocalVector<double> wi = new(r * Math.Cos(phi), r * Math.Sin(phi), wo.CosTheta < 0.0 ? -z : z);
         return LobeSample.Of(wi, owner.Evaluate(wo, wi), Math.Abs(wi.CosTheta) / Math.PI, transmission: false, key, "<zero-pdf-cosine-sample>");
     }
-    // Sampling runs wholly in the lobe's ROTATED basis and the drawn direction turns back before it leaves, so the
-    // returned wi is a frame-local direction the integrator transforms exactly as an isotropic lobe's; Evaluate then
-    // re-enters with the caller's own unrotated pair and applies the rotation itself, so the value and the density
-    // read one basis by construction. An isotropic lobe passes rotation 0.0 and RotateZ is the identity on it.
-    // The reflect density is Microfacet<double>.ReflectPdf — the kernel's own paired Jacobian, floored there — so the
-    // sampler, the pdf read, and the dielectric lottery cannot drift by a factor the three would each have to spell.
     private static Fin<LobeSample> ReflectSample(
         LocalVector<double> wo, double rotation, double ax, double ay, double u0, double u1, BsdfLobe owner, Op key) {
         LocalVector<double> local = wo.RotateZ(-rotation);
@@ -559,11 +435,9 @@ public abstract partial record BsdfLobe {
         (LocalVector<double> wo, LocalVector<double> wi) = (outgoing.RotateZ(-rotation), incident.RotateZ(-rotation));
         if (!wo.SameHemisphere(wi)) { return 0.0; }
         LocalVector<double> h = wo.Add(wi).Normalize();
-        h = h.CosTheta < 0.0 ? h.Scale(-1.0) : h;   // matches the sampler's upper-hemisphere h — an interior pair otherwise pdf-zeroes against the nonzero sample
+        h = h.CosTheta < 0.0 ? h.Scale(-1.0) : h;
         return Microfacet<double>.ReflectPdf(wo, h, ax, ay);
     }
-    // The reflect/transmit lottery draws uc — NEVER the consumed u0 that already fixed h (reuse correlates the split
-    // with the VNDF radial coordinate and biases the estimator the balance heuristic assumes independent).
     private static Fin<LobeSample> DielectricSample(Dielectric g, LocalVector<double> outgoing, double uc, double u0, double u1, Op key) {
         LocalVector<double> wo = outgoing.RotateZ(-g.Rotation);
         LocalVector<double> h = Microfacet<double>.SampleVisibleNormal(wo.CosTheta < 0.0 ? wo.Scale(-1.0) : wo, g.AlphaX, g.AlphaY, u0, u1);
@@ -582,10 +456,6 @@ public abstract partial record BsdfLobe {
         double k = 1.0 - (eta * eta * (1.0 - (cosI * cosI)));
         if (k < 0.0) { return Fin.Fail<LobeSample>(new MaterialFault.Graph(key, "<dielectric-refract-tir>")); }
         LocalVector<double> refracted = wo.Scale(-eta).Add(n.Scale((eta * cosI) - Math.Sqrt(k)));
-        // The refraction Jacobian η²·|wi·h|/(wo·h + η·wi·h)² mirroring DielectricPdf's transmit arm (η = 1/eta, the
-        // half-vector ratio) — the reflect-form 1/(4|wo·h|) here de-syncs the sample-local pdf from the balance
-        // average. The denominator floors at the frame tolerance, since a half-vector configuration collapsing it
-        // otherwise minted an infinite density the bare positivity test admitted and the estimator then divided by.
         double etaH = 1.0 / eta;
         double sqrtDenom = wo.Dot(h) + (etaH * refracted.Dot(h));
         double pdf = (1.0 - f) * Microfacet<double>.VisibleNormalPdf(wo, h, g.AlphaX, g.AlphaY)
@@ -610,38 +480,20 @@ public abstract partial record BsdfLobe {
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MultiScatter {
-    // The directional-albedo term is the Karis analytic fit to the GGX split-sum environment BRDF — an EXPRESSION in
-    // (alpha, mu), never a transcribed lattice, so a fit revision is one line and nothing downstream carries a stale
-    // row. Its four coefficients are the fit's own and have no independent derivation; that they are a FIT rather
-    // than a closed form is the fact [07]-[BSDF_GOLDEN] records as furnace residue.
     public static double DirectionalAlbedo(double alpha, double mu) =>
         0.04 + (alpha * (0.31 - (0.28 * alpha))) switch {
             var bias => Math.Clamp(((1.0 - bias) * (1.0 - Math.Pow(1.0 - mu, 5.0 * (1.0 - alpha)))) + bias, 0.0, 1.0),
         };
 
-    // AlbedoNodes is the Legendre order the hemispherical fold runs at and AlbedoLattice the alpha resolution it
-    // runs at, both POLICY CONSTANTS rather than call-site literals because [07]-[BSDF_GOLDEN] pins its furnace
-    // expectation to THIS quadrature on THIS lattice: moving either moves every fixture, and named owners are what
-    // make that coupling visible at both ends.
     internal const int AlbedoNodes = 16;
     internal const int AlbedoLattice = 65;
 
-    // Eavg = 2∫E(μ)μ dμ depends on ALPHA ALONE, so the MathNet fixed-order Legendre rule runs once per lattice node
-    // at type init and every shade reads the lattice — the compensation term previously paid a sixteen-node
-    // quadrature inside the per-sample integrator loop for a value the roughness had already fixed. The lattice is
-    // DERIVED (nothing is transcribed, so a fit revision moves every node with it) and it is the ONE owner
-    // [07]-[BSDF_GOLDEN] pins to, so the fixture and the shading path read one number rather than an exact fold and
-    // an interpolated twin drifting apart inside the tolerance. The integrand is the smooth closed-form fit times μ,
-    // with no endpoint singularity — exactly the class a Gauss rule resolves to near machine precision, where the
-    // midpoint sum it replaced carried a first-order error the furnace had to record as residue.
     private static readonly double[] AlbedoCurve =
         [.. Enumerable.Range(0, AlbedoLattice).Select(static node => node / (AlbedoLattice - 1.0)).Select(static alpha =>
             Math.Clamp(2.0 * Integrate.GaussLegendre(mu => DirectionalAlbedo(alpha, mu) * mu, 0.0, 1.0, AlbedoNodes), 0.0, 1.0))];
 
-    // INTERNAL rather than private: [07]-[BSDF_GOLDEN] asserts the furnace against THIS read, so a fixture
-    // re-deriving nodes beside it would drift the expectation from the term it proves.
     internal static double HemisphericalAlbedo(double alpha) =>
         Math.Clamp(alpha, 0.0, 1.0) * (AlbedoLattice - 1) switch {
             var scaled => Math.Min((int)scaled, AlbedoLattice - 2) switch {
@@ -649,15 +501,6 @@ public static class MultiScatter {
             },
         };
 
-    // The Kulla-Conty multi-scatter lobe (Imageworks 2017; Turquin Eq.6-7; Fdez-Aguera): the matte compensation lobe
-    // fms = (1-E(μo))(1-E(μi)) / (π(1-Eavg)) whose directional albedo EXACTLY complements 1-E(μo), times the diffused
-    // Fresnel response Favg·Eavg / (1 - Favg(1-Eavg)) — the geometric series ∑ Favg^k(1-Eavg)^k of successive microfacet
-    // bounces. The energy-bound numerator is Favg·Eavg (the per-bounce escaped fraction), NOT Favg²·(1-Eavg): the
-    // latter destroys energy and fails the white-furnace balance [07]-[BSDF_GOLDEN] asserts. Reciprocal by
-    // construction (μo↔μi symmetric). Favg uses the per-band FresnelNormal as the diffused-average proxy the conductor
-    // lobe already carries, so a tinted metal (gold/copper) keeps its hue through the multi-bounce term. The band fold
-    // THREADS its two scalars rather than closing over them — this runs per sample, and the capturing lambda it
-    // replaces allocated on every shading tap of every rough metal in the scene.
     public static RgbSpectrum KullaConty(double alpha, RgbSpectrum fresnelAvg, LocalVector<double> wo, LocalVector<double> wi) {
         double eo = DirectionalAlbedo(alpha, Math.Abs(wo.CosTheta));
         double ei = DirectionalAlbedo(alpha, Math.Abs(wi.CosTheta));
@@ -668,22 +511,6 @@ public static class MultiScatter {
     }
 
     // --- [POSITION_FREE_WALK]
-    // The UNBIASED multi-scatter arm beside the closed-form compensation lobe: a random walk between microfacets of
-    // the SAME GGX interface, DRAWN rather than evaluated, so the energy the single-scatter Smith model loses is
-    // recovered exactly instead of approximated. KullaConty stays the fast path every lobe folds by default and this
-    // is the high-fidelity arm the integrator selects when its per-bounce budget affords one.
-    // STATE is (direction, depth) under the position-free solid-angle × line measure — a bounce carries where it
-    // points and how deep it already is — which is what lets the walk run with NO surface position and land on the
-    // same shading point the single-scatter term evaluates at.
-    // The returned density is a STOCHASTIC ESTIMATE: a walk cannot evaluate the density of the path it drew, and
-    // multiple importance sampling against an APPROXIMATE pdf is provably unbiased, so this receipt composes with
-    // the [05] balance heuristic exactly as an exactly-evaluated one does and needs no separate estimator.
-    // The budget is a RUSSIAN-ROULETTE continuation probability, never a bounce cap: a surviving bounce divides its
-    // throughput by the survival probability, so the expectation is identical at every budget and a cheap walk is
-    // NOISIER rather than DIMMER. A hard max-bounce cap is the REJECTED form — it truncates the Neumann series and
-    // drops every deeper path's energy, biasing precisely the high-roughness band this arm exists to resolve, where
-    // nothing distinguishes that loss from a correctly dim answer. The loop therefore carries no bound at all:
-    // roulette and escape are the two absorbing exits and the walk terminates almost surely under either.
     public static Fin<LobeSample> PositionFree(
         double alphaX, double alphaY, ComplexIor ior, LocalVector<double> wo, UnitInterval survival, int seed, int tap, Op key) {
         double live = Math.Clamp(survival.Value, 1e-3, 1.0);
@@ -700,15 +527,8 @@ public static class MultiScatter {
         }
     }
 
-    // Every draw is LANE-KEYED on (tap, depth, axis) through the kernel's one deterministic stream, so a deeper
-    // bounce decorrelates from its parent without the shading point carrying a stream and two runs of one walk agree
-    // bit for bit — the same lane discipline acquisition#ACQUISITION's synthetic capture draws under.
     private static double Draw(int seed, int tap, int depth, int axis) => Deterministic.Unit(lanes: [tap, depth, axis], seed: seed);
 
-    // Burley's normalized diffusion profile Rd(r) = (e^{-r/d}+e^{-r/3d})/(8πdr), intrinsically normalized over the disk
-    // (∫Rd(r)·2πr dr = 1), so the integrated result times albedo IS the diffuse colour with no albedo inversion. This is
-    // the SPATIAL BSSRDF the separable subsurface integrator samples by surface distance r, never a per-sample BRDF
-    // multiplier; d is the per-channel mean-free-path the SubsurfaceRadius carrier supplies (Disney scatterDistance).
     public static double SeparableProfile(double meanFreePath, double r) {
         double d = Math.Max(1e-4, meanFreePath), rr = Math.Max(1e-4, r);
         return (Math.Exp(-rr / d) + Math.Exp(-rr / (3.0 * d))) / (8.0 * Math.PI * d * rr);
@@ -725,12 +545,7 @@ public static class MultiScatter {
 - Boundary: `Evaluate` is the weighted SUM of each lobe's own value under its `Throughput` (each lobe is linear, so the layered BSDF is the convex combination of lobe values by weight, the spectral absorption of the layers above riding the per-row column rather than the scalar weight the normalization owns); the fold carries REFLECTANCE alone — the `surface#OPENPBR_SLAB` collapse returns its accumulated emission BESIDE the `LayeredBsdf` because self-emission is energy the surface ADDS rather than energy it redistributes, so an emission lobe inside this normalized convex sum would be divided by a pdf and multiplied by a cosine that describe scattering, and the integrator adds the emission term exactly ONCE per shading point outside the BSDF estimator; `Sample` is the one-sample MIS — pick a lobe proportionally to weight via `uLobe`, hand it the rescaled remainder `(uLobe − cdfBefore)/weight` as its `uc` choice variable (stratification survives both choices), sample it, then the returned pdf is the WEIGHT-AVERAGED pdf across ALL lobes (the balance heuristic) so the estimator is unbiased and low-variance, and the value re-evaluates the FULL layered BSDF against the sampled direction; `Pdf` mirrors that weighted average exactly; weights are `UnitInterval` and sum-normalized at `Of` (a row whose weights miss [0,1] or sum to zero rails `MaterialFault.Parameter` `<lobe-weights-degenerate>`); the `Of` normalization is the page's one admitted total-construction site — every input `Weight` is already a `UnitInterval` and `total` is their sum, so `weight/total` is in `[0,1]` by construction and the `UnitInterval.Create` throw is statically unreachable, named here as the `[EXPRESSION_SPINE]` exemption rather than exception-style control flow in a fallible path; the boundary projects the final shade to in-gamut at the renderer edge, never inside the fold — a non-finite throughput rails `MaterialFault.Gamut` `<non-finite-shade>` through `Option`/`Fin`, never propagating NaN; this fold is the ONLY place lobe weights live, so the masonry-assignment consumer and every `MaterialLibrary` row drive appearance purely by producing a `Seq<LobeWeight>`.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// Weight is the SCALAR energy share the layering cascade left this lobe and normalizes at Of; Throughput is the
-// SPECTRAL absorption the layers above it impose (the coloured-lacquer body tint a Clearcoat declares through its
-// own Transmitted), carried on its own column because a UnitInterval cannot hold a hue and folding a tint into the
-// weight would re-normalize absorption away as though it were energy the stack redistributed. White is the algebra
-// zero every uncoated row carries, so the pair is behaviour-identical to a bare weight on an untinted stack.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct LobeWeight(BsdfLobe Lobe, UnitInterval Weight, RgbSpectrum Throughput);
 
 public sealed record LayeredBsdf {
@@ -756,17 +571,9 @@ public sealed record LayeredBsdf {
             static (s, lw) => (s.Acc + lw.Weight.Value * lw.Lobe.Pdf(s.Lo, s.Li), s.Lo, s.Li)).Acc;
     }
 
-    // One-sample MIS over the weight CDF: pick a lobe proportionally to weight via uLobe (a state-threaded fold — never
-    // a mutable accumulate-and-break; the interval is HALF-OPEN [cdfBefore, cdfBefore+weight) so uLobe = 0.0 — a value
-    // every stratified/QMC sampler emits — picks the FIRST lobe and a zero-weight lobe is never picked; the fp tail past
-    // the last cumulative defaults to the last lobe), hand the chosen lobe the RESCALED remainder (uLobe − cdfBefore)/weight
-    // as its uc choice variable so stratification survives both choices, then re-weight the returned pdf/value as the
-    // WEIGHT-AVERAGED pdf and the FULL layered value across ALL lobes (the balance heuristic) — unbiased, low-variance.
     public Fin<LobeSample> Sample(ShadingFrame frame, Direction wo, double uLobe, double u0, double u1, Op key) {
         LocalVector<double> lo = frame.ToLocal(wo);
         (double U, double Cumulative, double Before, LobeWeight Pick) pick = Lobes.Fold(
-            // Seq publishes Head/Last as Option properties, so the tail seed is the positional read — total here
-            // because LayeredBsdf.Of already rails an empty lobe set.
             (U: uLobe, Cumulative: 0.0, Before: 0.0, Pick: Lobes[^1]),
             static (s, lw) => s.Cumulative > s.U || s.Cumulative + lw.Weight.Value <= s.U
                 ? (s.U, s.Cumulative + (s.Cumulative > s.U ? 0.0 : lw.Weight.Value), s.Before, s.Pick)
@@ -800,12 +607,11 @@ The lowering/grounding half — `SpectralUpsample` (RGB→SPD + measured-illumin
 - Exemption: the three `Measure` folds are fixed-trip accumulations over the closed-form kernels, and `[04]-[LOBE_FAMILY]` `MultiScatter.PositionFree` is the page's one UNBOUNDED walk kernel — roulette and escape are its only exits, so it carries no trip count to make expression-shaped. `MultiScatter.HemisphericalAlbedo` names no carve: its lattice folds through LINQ at type init and its read is a switch expression.
 
 ```csharp signature
-// (Continues the Rasm.Materials.Appearance.Bsdf compilation unit.)
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BsdfGolden(string Name, BsdfProbe Probe, BsdfLobe Lobe, int Taps, double Expected, double Residue, double Tolerance);
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BsdfProbe {
@@ -817,12 +623,10 @@ public sealed partial class BsdfProbe {
     [UseDelegateFromConstructor] public partial BsdfGolden Fixture(double roughness);
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Energy {
     internal const int Taps = 4096;
     internal static readonly Seq<double> Sweep = Seq(0.1, 0.3, 0.5, 0.7, 0.9);
-    // eta -> 0 with k large drives FresnelConductor to 1 at every incidence, so nothing is absorbed and the
-    // residual measures the Smith-plus-Kulla-Conty balance alone.
     private static readonly ComplexIor Lossless = ComplexIor.Create(RgbSpectrum.Black, RgbSpectrum.White.Scale(1e6));
     private static readonly Op Probe = Op.Of(name: nameof(Energy));
 
@@ -836,10 +640,6 @@ public static class Energy {
                 $"<bsdf-golden:{fixture.Name}:{measured:R}!={fixture.Expected:R}+-{fixture.Tolerance + fixture.Residue:R}>")),
         };
 
-    // FurnaceRow expects the kernel's OWN hemispherical albedo at this alpha and Residue records its gap against
-    // the analytic unit — asserting 1.0 here fails a correct lobe at every roughness. Both values RE-PIN with the
-    // Legendre rule: what the residue now records is the Karis fit's own energy deficit rather than the midpoint
-    // sum's quadrature error, so the pair finally measures the term it names.
     internal static BsdfGolden FurnaceRow(double roughness) =>
         Microfacet<double>.AlphaOf(roughness) switch {
             var alpha => new BsdfGolden($"furnace-a{roughness:F1}", BsdfProbe.Furnace,
@@ -857,8 +657,6 @@ public static class Energy {
                 new BsdfLobe.Conductor(Lossless, alpha, alpha * 0.5, Rotation: 0.0), Taps, Expected: 1.0, Residue: 0.0, Tolerance: 2e-3),
         };
 
-    // Monte-Carlo directional albedo at normal incidence through the lobe's OWN Sample: value·|cosθi|/pdf, so the
-    // estimator exercises the sampler, the pdf, and the evaluation together rather than any one in isolation.
     internal static double Furnace(BsdfLobe lobe, int taps) {
         double acc = 0.0;
         for (int i = 0; i < taps; i++) {
@@ -869,8 +667,6 @@ public static class Energy {
         return acc / taps;
     }
 
-    // Reciprocity measures the worst |f(wo,wi) − f(wi,wo)| over an ANISOTROPIC rotated lobe, because an isotropic pair is
-    // symmetric under any azimuth error and would pass a broken rotation.
     internal static double Reciprocity(BsdfLobe lobe, int taps) {
         double worst = 0.0;
         for (int i = 0; i < taps; i++) {
@@ -881,7 +677,6 @@ public static class Energy {
         return worst;
     }
 
-    // Uniform-hemisphere estimate of ∫ D(h)·cosθh dω, whose closed form is exactly 1 for any (αx, αy) pair.
     internal static double NdfNormal(BsdfLobe lobe, int taps) {
         double acc = 0.0, ax = lobe is BsdfLobe.Conductor c ? c.AlphaX : 1.0, ay = lobe is BsdfLobe.Conductor d ? d.AlphaY : 1.0;
         for (int i = 0; i < taps; i++) {

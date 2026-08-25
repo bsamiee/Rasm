@@ -20,7 +20,7 @@
 - Law: `CommandPolicy` accumulates — an empty need set, an absent notice, and an out-of-band budget are three independent defects one `Validation` reports together, each as its own `DraftFault` clause, where the prior single-message hook collapsed all three onto "policy is incomplete".
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -29,7 +29,7 @@ using Rhino.Commands;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CommandVerdict : IDetachedDocumentResult {
     public static readonly CommandVerdict Completed = new(key: 0, native: Result.Success);
@@ -42,24 +42,17 @@ public sealed partial class CommandVerdict : IDetachedDocumentResult {
 
     public Result Native { get; }
 
-    // `result`, never `native`: `Objects/materials.md:270` names the argument at its call, so the parameter is the
-    // published spelling the composing site binds.
     public static Fin<CommandVerdict> OfNative(Result result, Op? key = null) =>
         Items.AsIterable().Find(verdict => verdict.Native == result)
             .ToFin(Fail: key.OrDefault().InvalidResult(detail: result.ToString()));
 }
 
-// The key IS the host echo flag, so the mirror bool deletes and a call site reads the row it passes.
 [SmartEnum<bool>]
 public sealed partial class ScriptEcho {
     public static readonly ScriptEcho Silent = new(key: false);
     public static readonly ScriptEcho Visible = new(key: true);
 }
 
-// The replay seam is a VALUE at this stratum, not a bare delegate slot: the host's `ReplayHistoryData` is the only
-// shape the override can take, so the admission that a hook exists and is non-null belongs to the type. The one
-// producer is `Objects/history.md`'s `ReplayProgram`, which composes this owner downward — `Commands` is S1 and
-// `Objects` is S2, so the seam type seats HERE and the compiler cannot admit the upward reference.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class ReplayHook {
@@ -74,12 +67,6 @@ public sealed partial class ReplayHook {
             : validationError;
 }
 
-// Command identity as a VALUE at this stratum, seated beside `ReplayHook` for the same reason: `HistoryRecord`
-// keys on `Command.Id` and reads nothing else, so history authoring needs the OWNER, not the host subclass, and
-// `Objects` is S2 while `Commands` is S1 — the seam type seats HERE and `Objects/history.md`'s `HistoryScript`
-// composes it upward, so no Objects signature names `Rhino.Commands.Command`. A command is a process-lifetime
-// plug-in singleton with no document affinity, so one seat admitted at `RunCommand` outlives every grant it
-// mints into; `RasmCommand` supplies `HistoryOwner.Of(this)` and nothing else can construct one.
 public sealed class HistoryOwner {
     private readonly Command owner;
 
@@ -99,9 +86,6 @@ public sealed class HistoryOwner {
             .ToFin(Fail: key.InvalidResult()));
 }
 
-// The console line is a PRESENTATION leg the caller chooses, never a fixed effect the ledger performs: a headless
-// run, a test host, and a scripted lane each want a different one, and a hardcoded `RhinoApp.WriteLine` inside the
-// sink writes to a console that may not exist and cannot be silenced without deleting the ledger entry too.
 [SmartEnum<int>]
 public sealed partial class FaultNotice {
     public static readonly FaultNotice Announce = new(key: 0, report: static message => RhinoApp.WriteLine(message: message));
@@ -126,7 +110,6 @@ public sealed partial class CommandPolicy {
         ref Option<ReplayHook> replay,
         ref FaultNotice notice,
         ref Rasm.Numerics.Dimension stageBudget) =>
-        // Independent defects report TOGETHER through the shared generated-validation substrate.
         validationError = FactoryValidation.Of(FactoryValidation.Violated(
             (needs.IsEmpty, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Needs) }))),
             (notice is null, () => new ValidationClause(string.Join(" | ", new object?[] { Op.Of(), nameof(Notice) }))),
@@ -146,7 +129,7 @@ public sealed partial class CommandPolicy {
 - Law: `Commit.Fold` is railed and rides `Tables.Commit` as its receipt projection inside `DocumentCommit.Sealed`, so a fold refusal fails the commit with the operation faults instead of surviving a sealed record.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct StageKey {
@@ -159,8 +142,6 @@ public readonly partial struct StageKey {
     }
 }
 
-// Successors ride the ROOT as a positional column: each case states its outgoing keys at construction, so the
-// admission walks one column and the flow graph builds from the value rather than from a per-case ladder.
 public abstract record Stage<TState>(Seq<StageKey> Successors) {
     public sealed record Effect(Func<CommandTurn<TState>, Fin<TState>> Run, StageKey Next) : Stage<TState>(Seq(Next));
     public sealed record Prompt(Func<TState, Fin<Acquire>> Request, Func<TState, AcquiredReceipt, Fin<TState>> Fold, StageKey Next) : Stage<TState>(Seq(Next));
@@ -215,7 +196,7 @@ internal abstract record FlowStep<TState> {
     public sealed record Done(CommandVerdict Verdict, TState State) : FlowStep<TState>;
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CommandTurn<TState>(DocumentSession Session, TState State);
 
 internal sealed record FlowCursor<TState>(StageKey Key, TState State, Seq<(StageKey Key, TState State)> Trail, Option<CommandVerdict> Verdict);
@@ -229,10 +210,6 @@ public sealed record CommandFlow<TState> {
     public HashMap<StageKey, Stage<TState>> Rows { get; }
     public StageKey Entry { get; }
 
-    // Topology proves on the GRAPH: the row set builds one AdjacencyGraph and five independent clauses accumulate —
-    // distinct keys, entry membership, resolvable successors, a terminal row, and entry-reachability of every stage.
-    // The prior guard chain reported the first defect alone and never asked reachability, so an orphaned stage rode
-    // every admitted program silently.
     public static Fin<CommandFlow<TState>> Of(StageKey entry, params ReadOnlySpan<(StageKey Key, Stage<TState> Stage)> rows) {
         Op op = Op.Of(name: nameof(CommandFlow<>));
         Seq<(StageKey Key, Stage<TState> Stage)> candidates = toSeq(rows.ToArray());
@@ -255,7 +232,6 @@ public sealed record CommandFlow<TState> {
                 allowParallelEdges: false);
         table.Iter(row => graph.AddVertex(v: row.Key));
         HashSet<StageKey> keys = toHashSet(table.Map(static row => row.Key));
-        // ONE walk answers reachability: BFS from the entry marks every stage a program can visit.
         System.Collections.Generic.HashSet<StageKey> reached = [];
         var search = new QuikGraph.Algorithms.Search.BreadthFirstSearchAlgorithm<StageKey, QuikGraph.SEdge<StageKey>>(graph);
         search.DiscoverVertex += vertex => reached.Add(item: vertex);
@@ -276,8 +252,6 @@ public sealed record CommandFlow<TState> {
             .ToFin();
     }
 
-    // The budget bounds the walk; the PREDICATE ends it. `foldUntil` carries the rail as its state and stops on a
-    // settled verdict or a failed rail; exhausting the range without a verdict is the typed budget refusal.
     public Fin<(CommandVerdict Verdict, TState State)> Drive(DocumentSession session, TState seed, CommandPolicy policy) {
         Op op = Op.Of();
         return op.Catch(() =>
@@ -334,10 +308,8 @@ Both host overrides collapse a typed rail into a bare native verdict, so both pe
 - Law: the process ledger IS the kernel ring. A cap, oldest-first eviction, and a shed counter were this page's hand `FaultLedger` — the kernel `Ring<Error>` is that shape once for the estate, its `Park` verdict is COUNTED (`Lost`) rather than discarded, and the capacity is a named policy row instead of a buried literal. The per-observer twin deletes with the observer plumbing (`[05]`).
 
 ```csharp signature
-// --- [BOUNDARIES] -------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class CommandFaults {
-    // The capacity is a POLICY ROW, not a literal inside a ledger body: 256 refusals of retained history, the same
-    // bound the events journal declares, and a reader tunes it here or nowhere.
     internal static readonly Rasm.Numerics.Dimension Retention = Rasm.Numerics.Dimension.Create(value: 256);
 
     private static readonly Ring<Error> Refusals = new(cap: Retention);
@@ -346,8 +318,6 @@ public static class CommandFaults {
     public static long Shed => Refusals.Shed;
 
     internal static TNative Refused<TNative>(Error error, FaultNotice notice, TNative native) {
-        // The park's own verdict is the ring's business — a declined park increments `Lost`, so the loss reads as a
-        // number rather than as nothing; the notice is presentation and never the sink.
         _ = Refusals.Park(item: error);
         notice.Report(message: error.Message);
         return native;
@@ -363,9 +333,6 @@ public abstract class RasmCommand<TSelf, TState> : Command
     protected sealed override Result RunCommand(RhinoDoc doc, RunMode mode) {
         Op op = Op.Of(name: typeof(TSelf).Name);
         Fin<CommandVerdict> outcome = op.Catch(() =>
-            // The COMMAND thread is Rhino's own affinity axis — the kernel `UiThread` marshal is the S0 dispatch
-            // BELOW it, and the two are different threads by construction on Windows; this probe is the command
-            // lane's own gate, never a re-spelling of the kernel marshal.
             from _ in guard(RhinoApp.IsOnMainThread, op.InvalidContext())
             from policy in op.Need(Policy)
             from flow in Flow
@@ -408,7 +375,7 @@ public abstract class RasmCommand<TSelf, TState> : Command
 - Law: `Activity` is a `CapabilitySet<CommandActivity>` — `InCommand` and `InScript` were two bools whose product is genuinely open (a script runs inside a command), so the set prints its own wire and a third activity axis is one row.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CommandActivity : ICapability<CommandActivity> {
@@ -416,8 +383,6 @@ public sealed partial class CommandActivity : ICapability<CommandActivity> {
     public static readonly CommandActivity InScript = new(key: "in-script");
 }
 
-// SELF-TYPED: the case fixes its answer shape, so no consumer switches an answer union to recover the shape it
-// asked for. The read column is the row's own host projection, run inside the registry's catch.
 public sealed record CommandQuery<TAnswer> {
     internal CommandQuery(Func<Op, Fin<CommandQuery<TAnswer>>> admit, Func<Fin<TAnswer>> read) => (Admit, Read) = (admit, read);
 
@@ -456,7 +421,6 @@ public static class CommandQuery {
     public static CommandQuery<Seq<Guid>> Stack { get; } = Free(
         read: static () => Fin.Succ(value: toSeq(Command.GetCommandStack())));
 
-    // The two live activity bits as ONE set — a script inside a command holds both rows.
     public static CommandQuery<CapabilitySet<CommandActivity>> State { get; } = Free(
         read: static () => Fin.Succ(value: CapabilitySet<CommandActivity>.Of(
             toSeq(new[] {
@@ -473,7 +437,6 @@ public static class CommandQuery {
             read: () => read(admitted))),
         read: () => read(name));
 
-    // The parameterless asks carry nothing to admit and each says so.
     private static CommandQuery<TAnswer> Free<TAnswer>(Func<Fin<TAnswer>> read) =>
         new(admit: op => Fin.Succ(value: Free(read)), read: read);
 }
@@ -488,11 +451,6 @@ public abstract partial record CommandFact : IHookFact<RhinoPoint> {
     public sealed record Escaped(EscapeEvent Value) : CommandFact;
     public sealed record Rejected(Error Value) : CommandFact;
 
-    // Seating spans a roster this folder shares with six other mechanisms: five projected cases sit 1:1 with
-    // whichever `CommandPulse` row mints them, so a command fact can never seat on a document, display, or host
-    // row. `Rejected` is the MAPPER's failure fact, so it fans to exactly those points whose pulse projection can
-    // refuse — read off the pulse roster's own `Point` column rather than a hand-kept list, and excluding escape,
-    // which constructs its fact with no `CommandMap` leg to fail.
     public bool Seats(RhinoPoint at) => Switch(
         state: at,
         started: static (row, _) => row == RhinoPoint.CommandBegin,
@@ -513,9 +471,6 @@ public sealed partial record PromptEvent(
     string Default,
     [property: Generator.Equals.OrderedEquality] Seq<CommandOptionEvent> Options);
 
-// Escape is a bare host signal — no args, no document, no command identity — so the fact carries the two things
-// the signal MEANS on this rail rather than an empty marker: the verdict a cancellable command answers with, and
-// the capability the interruption spends. A consumer folds it onto its own terminal without re-deriving either.
 public sealed record EscapeEvent(CommandVerdict Verdict, SessionNeed Need) {
     internal static EscapeEvent Signalled { get; } =
         new(Verdict: CommandVerdict.Cancelled, Need: SessionNeed.Interrupt);
@@ -558,10 +513,7 @@ public sealed partial class UndoMoment {
     public partial bool Matches(UndoRedoEventArgs value);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// ONE mapper owns the three host-args projections — the field copies generate, the two keyed resolutions ride
-// `[UserMapping]` rows, and the Started/Ended CASE stays on the pulse row because one args type serves both host
-// events: the discriminant is the pulse's, unrecoverable from the value.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Riok.Mapperly.Abstractions.Mapper(
     RequiredMappingStrategy = Riok.Mapperly.Abstractions.RequiredMappingStrategy.Both,
     EnabledConversions = Riok.Mapperly.Abstractions.MappingConversionType.All & ~Riok.Mapperly.Abstractions.MappingConversionType.ExplicitCast)]
@@ -581,8 +533,6 @@ internal static partial class CommandMap {
 
     internal static partial Fin<PromptEvent> ToEvent(CommandPromptChangedEventArgs args);
 
-    // The keyed resolutions the generated copies compose: a verdict resolves on its native row, a moment on the
-    // matching predicate row, an option kind on its host ordinal — each a rail, never a throw.
     [Riok.Mapperly.Abstractions.UserMapping]
     private static Fin<CommandVerdict> Verdict(Result result) =>
         CommandVerdict.OfNative(result: result, key: Op.Of(name: nameof(CommandMap)));
@@ -607,9 +557,6 @@ internal static partial class CommandMap {
                 Toggle: Optional(option.CurrentToggleValue))));
 }
 
-// Each row FIRES the kernel rail at its own `RhinoPoint` command row: the host attach stays the row's data, the
-// projection rides `CommandMap`, and fan-out, isolation, and the bounded fault cell are the rail's — the observer
-// type, its reject sink, and both hand ledgers delete.
 [SmartEnum<int>]
 public sealed partial class CommandPulse {
     public static readonly CommandPulse Begin = new(key: 0, point: static () => RhinoPoint.CommandBegin,
@@ -652,9 +599,6 @@ public sealed partial class CommandPulse {
                     Succ: static value => new CommandFact.PromptChanged(Value: value),
                     Fail: static error => new CommandFact.Rejected(Value: error)),
                 key: op))));
-    // ONE arming seat for escape, and the handler is a per-mount CLOSURE over its rail. `EscapeKeyPressed` is a
-    // bare `EventHandler`, so a static method group would produce the SAME delegate instance for every mount: the
-    // host's `-=` removes by delegate identity, so the second mount's detach would silently unhook the first.
     public static readonly CommandPulse Escape = new(key: 4, point: static () => RhinoPoint.CommandEscape,
         attach: static (rail, op) => Subscription.Attach(
             subscribe: static (EventHandler handler) => RhinoApp.EscapeKeyPressed += handler,
@@ -664,15 +608,12 @@ public sealed partial class CommandPulse {
                 fact: new CommandFact.Escaped(Value: EscapeEvent.Signalled),
                 key: op))));
 
-    // Deferred behind a thunk because a row cannot reference the events roster during its own static init.
     [UseDelegateFromConstructor]
     internal partial RhinoPoint Point();
 
     [UseDelegateFromConstructor]
     internal partial Fin<Subscription> Attach(HookRail<RhinoPoint, CommandFact, PluginKey> rail, Op op);
 
-    // The ONE mount: every named pulse attaches into the SAME rail, so gates, taps, isolation, and the bounded
-    // fault cell serve every row, and `AttachAll` rolls back the admitted prefix on a mid-roster refusal.
     public static Fin<Subscription> Mount(
         HookRail<RhinoPoint, CommandFact, PluginKey> rail,
         Op? key = null,
@@ -702,7 +643,7 @@ public static class CommandRegistry {
 `Scripting.Run` targets the admitted session document and preserves the native terminal. `Scripting.Proxy` dispatches one proxy inside the same document and thread grant: the caller supplies a typed body over the admitted `DocumentSession`, the re-closed `SessionMode`, and its own payload type, and the host `RunCommandDelegate`, `RhinoDoc`, `RunMode`, and `object data` stay inside the adapter. Script text, echo, and MRU display are case evidence; named dispatch validates registry membership before execution.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScriptOp {
     private ScriptOp() { }
@@ -710,7 +651,7 @@ public abstract partial record ScriptOp {
     public sealed record Named(string CommandName) : ScriptOp;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Scripting {
     public static Fin<CommandVerdict> Run(DocumentSession session, ScriptOp script, Op? key = null) {
         Op op = key.OrDefault();
@@ -757,8 +698,6 @@ public static class Scripting {
                                .Bind(lane => run(arg1: target, arg2: lane, arg3: data))
                                .Match(
                                    Succ: static verdict => verdict.Native,
-                                   // The proxy callback is host-invoked and carries no policy of its own, so it
-                                   // announces: a refused proxy that reported nowhere is a silent host no-op.
                                    Fail: error => CommandFaults.Refused(
                                        error: error,
                                        notice: FaultNotice.Announce,

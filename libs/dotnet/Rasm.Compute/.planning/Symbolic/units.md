@@ -22,9 +22,7 @@ Every Compute execution path admitting unit-bearing text — a solver tolerance,
 - Boundary: conversion runs exactly once at admission and interior numerics are raw doubles owned by Rasm core — a quantity type in an interior signature is the seam violation this table deletes. Absence crosses the UnitsNet edge as `Option` and never as a null, so no interior fold owns a null test. Refusals ride the direct `ComputeFault` arms `Symbolic/expression` owns: `ParseRejected`, `DimensionMismatch`, and `SymbolUndefined` retain distinct numeric identities. `UnitsNetSetup.Default` is the single setup root composed once at the composition root: its `UnitParser`, `UnitAbbreviations`, `QuantityParser`, and `UnitConverter` properties are the reads this page spells, because the `UnitParser.Default`/`UnitAbbreviationsCache.Default`/`UnitConverter.Default` facades are shortcuts FORWARDING to that root and a second spelling of one instance is drift waiting for a second setup. One exception survives: `UnitConverter.Convert`/`TryConvert` stay static reads because the root's converter publishes no instance twin, and a second setup instance is rejected. NodaTime owns interior time, so the duration row exists only to canonicalize boundary text to seconds before rail time takes over. `UnitProject` intents enter `Admit` and the `Pipeline` intent case composes it.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
-// A unit ABBREVIATION admitted once: every `Try*` edge below reads a non-blank token, so the four blank tests the
-// admission switch carried per case stop being spellable.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public readonly partial struct UnitToken {
@@ -36,17 +34,10 @@ public readonly partial struct UnitToken {
     }
 }
 
-// Tolerance is ONE concept, not two columns: a relative term deciding at every scale and an absolute floor
-// deciding near zero, with the compare that reads them. Three measured floor CLASSES replace 28 literals — the
-// class names what a row's near-zero noise IS, so a new row elects a class instead of re-spelling a magnitude and
-// a re-measured class moves every row that shares it.
 [ComplexValueObject]
 public sealed partial class Tolerance {
-    // Engineering-scale quantities: lengths, forces, energies, rates.
     public static readonly Tolerance Metric = Create(floor: 1e-9, relative: 1e-12);
-    // Sensor-grade quantities: temperature and the photometric rows, whose instruments read no finer.
     public static readonly Tolerance Sensed = Create(floor: 1e-6, relative: 1e-12);
-    // Quantities whose SI magnitudes are already small: fourth-power section properties, volumetric flow.
     public static readonly Tolerance Sectional = Create(floor: 1e-12, relative: 1e-12);
 
     public double Floor { get; }
@@ -58,9 +49,6 @@ public sealed partial class Tolerance {
 }
 
 // --- [BOUNDARIES] ----------------------------------------------------------------------
-// The five non-throwing UnitsNet verbs are the ONE place a null crosses this boundary, and each lifts to `Option`
-// HERE. Interior code reads presence, never a `bool`-plus-out-param pair and never a null — which is what retires
-// the seven interior null ladders and the four ceremonial capture wrappers around surfaces that do not throw.
 internal static class UnitsEdge {
     public static Option<IQuantity> Parse(UnitPolicy policy, Type valueType, string text) =>
         Quantity.TryParse(policy.Culture, valueType, text, out IQuantity? parsed) ? Optional(parsed) : None;
@@ -82,8 +70,6 @@ internal static class UnitMetadata {
     public static Seq<UnitInfo> ConvertTargets(QuantityInfo info) =>
         toSeq(info.UnitInfos);
 
-    // One of the four composition CENSUS legs: each returns its own drifted keys and `UnitAlgebra.Consistency`
-    // mints the arm, so the four legs report together instead of a leg minting a fault the fold then re-wraps.
     public static Seq<string> Probe() =>
         toSeq(QuantityFamily.Items)
             .Filter(static row => row.Display.GetType() != row.Info.UnitType)
@@ -125,27 +111,16 @@ public sealed partial class QuantityFamily {
 
     public QuantityInfo Info { get; }
 
-    // Each row's OWN declaration of its SI base-dimension vector, in the `BaseDimensions` axis order, stated
-    // independently of `Info` — which is exactly what lets the composition fold catch a row bound to the wrong
-    // `QuantityInfo`, the one drift a metadata-sourced column can never see. The CARRIER is the seam
-    // `Rasm.Element/Properties/quantity#DIMENSION` value, so the vector this owner declares and the vector the
-    // Element admission stores are ONE type with generated structural equality — the hand `SequenceEqual` and the
-    // hand `BaseDimensions` transposition beside it both delete.
     public Dimension Dimension { get; }
 
     public Enum Canonical { get; }
 
     public Enum Display { get; }
 
-    // `QuantityInfo.Name` mints this row's seam `Rasm.Element` identity ONCE — the very name the seam's own
-    // `QuantityType.Create(nameof(X))` roster rows spell — so a Compute admission and an Element admission of
-    // one quantity address ONE family and the receipt they share needs no name translation.
     public QuantityType Type { get; }
 
     public Tolerance Tolerance { get; }
 
-    // The literal stays the row's terse independent declaration; the seam value is what the row HOLDS. Rank is
-    // the seven `SiAxis` rows, so a short literal breaks here rather than in a compare six months later.
     private QuantityFamily(string key, QuantityInfo info, ImmutableArray<int> dimension, Tolerance tolerance, Enum? display = null) : this(key) {
         Info = info;
         Dimension = Dimension.Create(dimension[0], dimension[1], dimension[2], dimension[3], dimension[4], dimension[5], dimension[6]);
@@ -155,11 +130,6 @@ public sealed partial class QuantityFamily {
         Type = QuantityType.Create(info.Name);
     }
 
-    // `QuantityInput` decides the resolution the receipt records: `Typed`, `UnitValue`, and `Abbreviated` each
-    // carry a unit the caller DECLARED beside the magnitude, while `Text` hands one glyph run whose unit the parse
-    // RESOLVES out of the payload — inferred, never declared, and the receipt says which.
-    // Every case payload arrives ADMITTED — a non-blank token, a finite magnitude, a non-nullable unit — so the
-    // switch dispatches and never re-tests; the `Option` the edge returns is the one absence the arms read.
     public Fin<MeasureEvidence> Admit(QuantityInput input, UnitPolicy policy, CorrelationId correlation) =>
         Captured.Of(() => input.Switch(
                 state: (Row: this, Policy: policy, Correlation: correlation),
@@ -174,9 +144,6 @@ public sealed partial class QuantityFamily {
                     Some: typed => state.Row.AdmitQuantity(typed, UnitResolution.Declared, state.Correlation),
                     None: () => Fin.Fail<MeasureEvidence>(new ComputeFault.ParseRejected($"<unit-abbreviation:{state.Row.Key}:{value.Unit.Value}>")))));
 
-    // Aggregation folds boxed quantities at the family's canonical unit through the `AggregateOp` delegate,
-    // then re-enters the same `Admit` rail as a single value. An empty sequence is a REFUSAL, not a seeded zero:
-    // `UnitMath.Min`/`Max` have no identity, so a family `Zero` would answer three of four rows and lie on two.
     public Fin<MeasureEvidence> Aggregate(Seq<IQuantity> parts, AggregateOp op, UnitPolicy policy, CorrelationId correlation) =>
         parts.IsEmpty
             ? Fin.Fail<MeasureEvidence>(new ComputeFault.ParseRejected($"<unit-aggregate-empty:{Key}>"))
@@ -192,12 +159,6 @@ public sealed partial class QuantityFamily {
                 ? Fin.Succ(((IFormattable)Quantity.From(canonicalValue, Canonical).ToUnit(resolved)).ToString(policy.Format.Value, policy.Culture))
                 : Fin.Fail<string>(new ComputeFault.ParseRejected($"<unit-render-target:{Key}:{Info.Name}>")));
 
-    // FAMILY membership proves BEFORE the scalar compare: two quantities of different families are not
-    // "unequal", they are incomparable, and a `false` there reads downstream as a measured difference the caller
-    // then acts on — so it is a DimensionMismatch, while a non-finite canonical is a SymbolUndefined, two
-    // recoveries the one text arm used to merge. The compare itself lives on the row's `Tolerance`; the boxed
-    // `IQuantity.Equals(other, tolerance)` face carries only the absolute form, so the relative rule has no
-    // spelling through it.
     public Fin<bool> Equivalent(IQuantity left, IQuantity right) =>
         !left.QuantityInfo.BaseDimensions.Equals(Info.BaseDimensions) || !right.QuantityInfo.BaseDimensions.Equals(Info.BaseDimensions)
             ? Fin.Fail<bool>(new ComputeFault.DimensionMismatch(
@@ -214,17 +175,11 @@ public sealed partial class QuantityFamily {
                 ? Fin.Fail<MeasureEvidence>(new ComputeFault.SymbolUndefined($"<unit-nonfinite:{Key}>"))
             : Fin.Succ(Evidence(quantity, resolution, correlation)));
 
-    // This row mints the seam receipt `Rasm.Element/Properties/quantity#UNIT_SCHEME` owns, never a Compute twin
-    // of it: `Type` names the family, the caller's own unit and magnitude form the original pair, this row's SI
-    // base forms the canonical pair, and `Resolution` records how the unit was known.
     MeasureEvidence Evidence(IQuantity quantity, UnitResolution resolution, CorrelationId correlation) =>
         new(Type, quantity.Unit.ToString(), (double)quantity.Value,
             Canonical.ToString(), quantity.As(Canonical), resolution, correlation);
 }
 
-// Case payloads are ADMITTED values, so the four per-case blank and finiteness tests inside the switch delete:
-// a blank glyph run, a blank abbreviation, and a non-finite magnitude have no spelling here, and the two boxed
-// foreign carriers (`IQuantity`, `Enum`) are non-nullable references the annotation guards.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record QuantityInput {
     private QuantityInput() { }
@@ -261,9 +216,7 @@ public sealed partial class AggregateOp {
 - Boundary: `UnitPolicy` binds at `Section` through the configuration rail and admits the resolved `CultureInfo` and `FormatSpec` ONCE, so no downstream fold re-tests a null culture or a blank format; a `Baseline` pinning `UnitSystem.SI` with no reader was decoration and is deleted — an `As(UnitSystem)` route is a row this owner adds when a consumer names it. Admission checks `Dimensions.Equals(Info.BaseDimensions)`, and `Consistency` proves declared, compound, and reciprocal claims through UnitsNet `BaseDimensions`, the declared leg comparing seam `Dimension` values so no local transposition exists to fall out of step. Numeric-only conversion rides `UnitsEdge.Convert` over the static `UnitConverter.TryConvert` — the one converter verb the setup root publishes no instance twin of — without constructing an `IQuantity`.
 
 ```csharp signature
-// --- [MODELS] ----------------------------------------------------------------------------
-// Admitted ONCE at the configuration bind: a null culture and a blank format stop being spellable, which is what
-// retires the same two-clause policy test from `Admit`, `Aggregate`, `Render`, `Resolve`, and `AdmitQuantity`.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class UnitPolicy {
     public const string Section = nameof(UnitPolicy);
@@ -291,14 +244,12 @@ public readonly partial struct FormatSpec {
     }
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UnitAlgebra {
     private static readonly Func<BaseDimensions, BaseDimensions, BaseDimensions> Product = static (left, right) => left.Multiply(right);
 
     private static readonly Func<BaseDimensions, BaseDimensions, BaseDimensions> Quotient = static (left, right) => left.Divide(right);
 
-    // CROSS-ROW algebra only: each entry relates two rows to a third, which no single row's own declaration can
-    // state. A relation restating one row's dimension against itself is covered by `Declared` and never listed.
     public static readonly Seq<(QuantityFamily Compound, QuantityFamily Left, QuantityFamily Right, Func<BaseDimensions, BaseDimensions, BaseDimensions> Compose)> Relations = Seq(
         (QuantityFamily.Speed, QuantityFamily.Length, QuantityFamily.Duration, Quotient),
         (QuantityFamily.Acceleration, QuantityFamily.Speed, QuantityFamily.Duration, Quotient),
@@ -312,9 +263,6 @@ public static class UnitAlgebra {
     public static readonly Seq<(QuantityFamily Left, QuantityFamily Right)> Reciprocals = Seq(
         (QuantityFamily.HeatTransferCoefficient, QuantityFamily.ThermalResistance));
 
-    // FOUR independent proofs, so the applicative reports all four: string concatenation left a consumer unable
-    // to tell a declaration drift from a reciprocal drift from a display-unit drift, and the first three legs are
-    // not ordered — none of them informs the next.
     public static Fin<Unit> Consistency() =>
         (Leg(Declared(), static keys => new ComputeFault.DimensionMismatch($"<declared-drift:{keys}>")),
          Leg(Compound(), static keys => new ComputeFault.DimensionMismatch($"<relation-drift:{keys}>")),
@@ -329,10 +277,6 @@ public static class UnitAlgebra {
             ? Success<Error, Unit>(unit)
             : Fail<Error, Unit>(arm(string.Join(",", drift)));
 
-    // TOTAL over `Items`: the row's own declared vector against the metadata it binds, compared through the seam
-    // `Dimension`'s generated structural equality over the ONE `BaseDimensions` transposition
-    // `Symbolic/dimensional#DIMENSION_MONOMIAL` seats on its `SiAxis` rows. This is the leg that catches a row
-    // wired to the wrong `QuantityInfo`, which every metadata-sourced column reads as correct.
     static Seq<string> Declared() =>
         toSeq(QuantityFamily.Items)
             .Filter(static row => DimensionMonomial.From(row.Info.BaseDimensions).ToSeam() != Some(row.Dimension))
@@ -367,16 +311,10 @@ public static class UnitAlgebra {
 - Boundary: boundary text parses culture-scoped through `UnitsEdge.Parse` over `Quantity.TryParse(policy.Culture, Info.ValueType, ...)`, with `Resolve` owning abbreviation→`Enum` resolution through the same edge over `UnitsNetSetup.Default.UnitParser` and that root's `UnitAbbreviations`, whose lookup falls back to the invariant-culture abbreviation set when the policy culture lacks a localized one; both return `Option`, so an unresolvable abbreviation is absence at the boundary rather than a null the interior discovers. `Render` takes a `UnitProject` target unit as the resolved target override and renders through the boxed `IFormattable.ToString(format, culture)` face — the generic `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, …)` cannot bind a runtime-boxed `IQuantity`, so the boxed formattable face IS the dynamic rendering surface; the precision column is the format-string row carried on `UnitPolicy`, never a per-call-site `ToString` overload.
 
 ```csharp signature
-// `QuantityFamily` projects what it admits: a receipt renders through the family that minted it, so no
-// forwarding evidence type stands between the seam receipt and this row's own `Render`.
 public sealed partial class QuantityFamily {
-    // `ByType` indexes every row by its seam identity. Accessor-backed lazy so partial-part static-init order
-    // never reads a null row, the same guard the seam's own roster takes.
     static readonly Lazy<Map<QuantityType, QuantityFamily>> ByType = new(static () =>
         toSeq(Items).Fold(Map<QuantityType, QuantityFamily>(), static (index, row) => index.Add(row.Type, row)));
 
-    // `Of` inverts the `Type` column: a receipt names its family by seam identity, and this entry is the ONE hop
-    // back to the row that admits, renders, and compares it.
     public static Fin<QuantityFamily> Of(QuantityType type) =>
         ByType.Value.Find(type).Match(
             Some: Fin.Succ,
@@ -385,16 +323,10 @@ public sealed partial class QuantityFamily {
     public static Seq<QuantityInfo> Catalogue() =>
         toSeq(Items).Map(static row => row.Info);
 
-    // The picker the `[04]` Law describes, made executable: each conversion target's `UnitInfo` carries its own
-    // glyph and full alias set, resolved through the `UnitInfo`-keyed `GetAbbreviations` overload because the
-    // generic `GetDefaultAbbreviation<TUnit>`/`GetUnitAbbreviations<TUnit>` cannot bind a `TUnit` over a
-    // runtime-enumerated unit. This is what `Catalogue()` and `UnitMetadata.ConvertTargets` produce for.
     public Seq<(UnitInfo Target, Seq<string> Aliases)> Targets(UnitPolicy policy) =>
         UnitMetadata.ConvertTargets(Info).Map(target =>
             (target, toSeq(UnitsNetSetup.Default.UnitAbbreviations.GetAbbreviations(target, policy.Culture))));
 
-    // Total display projection over the seam receipt: the family resolves from `Evidence.Family`, and the SI
-    // magnitude the receipt already carries renders at the row's display unit or the caller's resolved override.
     public static Fin<string> Render(MeasureEvidence evidence, UnitPolicy policy, Option<Enum> target = default) =>
         Of(evidence.Family).Bind(row => row.Render(evidence.CanonicalValue, policy, target));
 }

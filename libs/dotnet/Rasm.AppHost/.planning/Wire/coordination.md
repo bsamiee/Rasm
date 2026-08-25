@@ -20,7 +20,7 @@ One cluster-coordination owner for the runtime spine: one `RoleName` identity is
 - Boundary: the role NAME is the address this page owns and endpoint resolution itself is the PACKAGE's — a hard-coded host string, a second endpoint cache, a hand-rolled instance round-robin, and an explicit resolver call this page then folds are the deleted forms; the prior `cursor % Endpoints.Count` selection re-implemented the package's own internal selector AND assigned member A the endpoint of member B, so a per-member probe graded whichever instance the counter happened to land on; NAMED LOSS — the eager `Resolve` fold and the non-empty `ResolvedRole` carrier it filled, which no consumer ever read: a resolution materialized here is stale the moment the watcher moves, so the two honest addresses a member can hold (the one its contributor supplied and the role's own balanced authority) are what the record carries and the resolution happens at the dial; `Authority` REFUSES an unknown `EndPoint` family instead of stringifying it into a `UriBuilder`, because a fabricated authority dials a host nobody configured and reports the result as that member's health, and the SCHEME falls under that same law — a `DnsEndPoint` and an `IPEndPoint` state none, so the one the composition declared crosses rather than a literal that pinned every cluster to TLS and left the package's ordered-fallback spelling unreachable, while a `UriEndPoint` keeps the scheme its contributor already supplied; the authority feeds the existing outbound hops so the resilience, breaker, and rate-limit stay the `Wire/outbound` hop policy, never a coordination-private client; the in-app companion attach stays the `Wire/companion` `DiscoveryManifest` UDS owner so `ServiceDiscovery` resolves only outbound network endpoints and never the local-IPC peer; the resolver the package registers is `IAsyncDisposable` and owned by the composition root, never seated on a runtime capsule here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
@@ -35,16 +35,11 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.AppHost.Wire;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value")]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct RoleName;
 
-// Scheme is QUERY DATA, not decoration: `ServiceEndpointQuery.TryParse` splits the authority's scheme on `'+'`
-// into an ORDERED `IncludedSchemes` list, and `ServiceDiscoveryOptions.ApplyAllowedSchemes` intersects it once
-// `AllowAllSchemes` goes false. A literal `https` on every projection pinned every role query to one scheme, so
-// a plain-http cluster row resolved nothing and the ordered-fallback spelling stayed unreachable, which is the
-// fabricated-coordinate defect the `NoEndpoint` refusal below exists to prevent, one field over.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -54,13 +49,8 @@ public sealed partial class DialScheme {
     public static readonly DialScheme Plain = new("http");
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// `RoleName` IS the address: `Balanced` hands the resolving handler an authority it resolves per call, and
-// `Authority` projects the one endpoint a contributor supplied for itself. No resolver call, no endpoint set,
-// and no cursor lives here — a set materialized at this seam is stale the instant the package's watcher moves.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RoleResolution {
-    // `UriEndPoint` already STATES its scheme, so the composition value applies to the two families that carry
-    // none — inventing one for a value that has it would overwrite what the contributor supplied.
     public static Validation<Error, Uri> Authority(EndPoint endpoint, DialScheme scheme) =>
         endpoint switch {
             UriEndPoint uri => Success<Error, Uri>(uri.Uri),
@@ -85,7 +75,7 @@ public static class RoleResolution {
 - Boundary: the membership view is the only liveness owner — a gossip membership protocol, a second heartbeat loop, and an Orleans/Consul membership table are the deleted forms; the remote probe is the admitted `UriHealthCheck` graded per member and never a hand-rolled HTTP liveness fold; the cadence is one `SchedulePort` row so the sweep rides the one scheduler and its key is a `LeaseKey` under the `membership:` namespace, never an interpolated literal; REFUSAL NEVER GRADES — a member whose authority does not project or whose route arm refuses keeps its prior state and contributes its fault to the sweep's accumulated `Validation`, because the prior form answered `HealthStatus.Unhealthy` on a resolver failure and departed live nodes on a lookup blip; the `MembershipView.Serving` set is the fleet wave membership `Sandbox/provisioning#ROLLOVER_DRAIN` `FleetRoll.Roll` reads and the lease-eligible set the `role:` namespace gates on, so the three coordination surfaces consult one membership cell; the two-tier law is explicit — companion's `PeerRoster` (LOCAL kernel-credentialed attach) contributes through `Contribute` and this view (CLUSTER probe-driven liveness) is the one truth fleet-wide reads consult, never two membership owners; the durable half is the `Rasm.Persistence` `Store/coordination#COORDINATION_OP` `MembershipUpsert`/`MembershipRelease`/`MembershipScan` triple crossed through the one decode-only PORT the lease already rides — the store owns the TTL-expiring row and the fenced departure, this page owns the in-process view, and a second membership store is the deleted form; the boot rebuild ACCUMULATES — a malformed member key and a lapsed deadline are independent refusals graded per row and reported together, because a first-fail rebuild reported one lapsed row of five and a silent `Choose` drop reported a partial view as a complete one.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -108,7 +98,7 @@ public sealed partial class LivenessRoute {
     public partial IO<Validation<Error, HealthStatus>> Grade(Membership.Runtime runtime, MemberRecord member);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record MemberRecord(
     int NodeId,
     RoleName Role,
@@ -123,8 +113,6 @@ public readonly record struct MembershipStep(int NodeId, NodeState From, NodeSta
 public readonly record struct MembershipReceipt(
     int NodeId, NodeState From, NodeState To, Duration Elapsed, LivenessRoute Route, CorrelationId Correlation);
 
-// The decision RIDES the swapped value: `Settled` is written by the same pure fold that wrote the members, so
-// the winning CAS attempt's prior state is readable off the transition instead of from a second racing read.
 [Equatable]
 public sealed partial record MembershipView(HashMap<int, MemberRecord> Members, Option<MembershipStep> Settled) {
     public static readonly MembershipView Empty = new(HashMap<int, MemberRecord>.Empty, None);
@@ -143,7 +131,7 @@ public sealed partial record MembershipView(HashMap<int, MemberRecord> Members, 
             Some(new MembershipStep(member.NodeId, NodeState.Joining, member.State)));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Membership {
     public sealed record Runtime(
         int NodeId,
@@ -153,8 +141,6 @@ public static class Membership {
         WireHealthRow Local,
         Func<Uri, CancellationToken, Task<HealthStatus>> Remote,
         Func<int, bool> Attached,
-        // Wire-stable primitives only: the group and member cross as string keys and the scan answers keys
-        // beside deadlines, so no Persistence record crosses upward and no AppHost record crosses down.
         Func<string, string, Duration, Fin<Unit>> MemberUpsert,
         Func<string, string, Fin<Unit>> MemberRelease,
         Func<string, Fin<Seq<(string Member, Instant Until)>>> MemberScan,
@@ -176,8 +162,6 @@ public static class Membership {
         IO.lift(() => Success<Error, HealthStatus>(
             runtime.Attached(member.NodeId) ? HealthStatus.Healthy : HealthStatus.Unhealthy));
 
-    // An unprojectable authority is a REFUSAL, not a dead peer: the member keeps the state it held and the
-    // sweep reports why it could not be graded.
     internal static IO<Validation<Error, HealthStatus>> Dialled(Runtime runtime, MemberRecord member) =>
         member.Endpoint.Match(
                 Some: endpoint => RoleResolution.Authority(endpoint, runtime.Scheme),
@@ -210,10 +194,6 @@ public static class Membership {
     public static IO<Validation<Error, MembershipReceipt>> Fold(Runtime runtime, MemberRecord probed) =>
         IO.lift(() => Cell.Commit(runtime.View, view => view.Advance(probed)))
             .Bind(settled => settled.Switch(
-                // Unwrapping happens HERE and once: `Advance` settles a step on every swap, so the empty corner
-                // is the boot view alone and it rails as the seat that never happened. `Fanned` below is total
-                // on the step it receives, where the prior form carried the whole view down and answered that
-                // corner with a contended receipt naming ZERO attempts — a committed swap read as a spent budget.
                 committed: landed => landed.State.Settled.Match(
                     Some: step => Durable(runtime, probed).Bind(_ => Fanned(runtime, step, probed)),
                     None: () => IO.pure(Fail<Error, MembershipReceipt>(
@@ -223,7 +203,6 @@ public static class Membership {
                 contended: spent => IO.pure(Fail<Error, MembershipReceipt>(
                     new CoordinationFault.Contended($"membership:{probed.NodeId}", spent.Attempts.Value)))));
 
-    // The joining row mints ONCE as `Step`'s candidate, so a contended retry cannot re-stamp its join instant.
     public static Transition<MembershipView> Contribute(Runtime runtime, int nodeId, RoleName role, EndPoint endpoint) =>
         Seated(runtime, new MemberRecord(
             nodeId,
@@ -295,9 +274,6 @@ public static class Membership {
             ? Success<Error, Unit>(unit)
             : Fail<Error, Unit>(new CoordinationFault.Stale($"{runtime.Group}:{row.Member}@{row.Until}"));
 
-    // Rebuild reads the VERDICT, never the cell: a ceded seat, a declined step, and a spent CAS budget
-    // each leave the view the swap never wrote, and answering `.Current` there reported an uncommitted read as a
-    // rebuilt cluster — the same four arms `Fold` switches, because one swap has one set of outcomes.
     static Validation<Error, MembershipView> Reseated(Runtime runtime, Seq<MemberRecord> seats) =>
         Cell.Commit(runtime.View, view => seats.Fold(view, static (held, seat) => held.Seat(seat))).Switch(
             committed: landed => Success<Error, MembershipView>(landed.State),
@@ -335,8 +311,7 @@ public static class Membership {
 - Boundary: THE KEY HAS ONE AUTHOR — `LeaseKey` carries every head and every mint, so `$"role:{…}"`, `$"lock:{…}"`, and a bare `"membership:probe"` are unspellable rather than discouraged, and this is the generalized keyed-registry key law `Runtime/laneguard`'s `PipelineKey` and `Runtime/orchestration`'s `WakeKey` read at their own registries; NAMED LOSS — the per-family receipt TYPE. A `LeadershipReceipt` typed its key as `RoleName` and a `LockReceipt` typed its key as a bare `string`; one `FenceReceipt<LeaseKey>` types both as the value object and restores the discrimination through `LeaseKey.Namespace`, which is stronger than the `string` half it replaces and one hop longer than the `RoleName` half; election and lock are TWO NAMESPACES over one algebra — `Runtime/time#FENCING_TOKEN` owns acquire, renew, guard, and release, so a second holding record, a second receipt struct, a second runtime capsule, and a second fan body are all deleted forms; the election shares the one `LeasePolicy.Maintenance` with the scheduler, the provisioning `FleetRoll`, and the sidecar write-forward so the suite has one fenced-election rail aligned to the Persistence store; a leader that loses its lease stops contesting the role and its in-flight fenced writes fail at the resource, so a split-brain write is structurally foreclosed; the distributed quota debit (`Agent/capability#GRANT_BROKER` `DistributedBudget`) reads its own tenant-scoped generation through this store's `BudgetToken` case, so the budget fence, the leadership lease, and the lock hold one fencing identity, never three.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Keyed BY the head itself, so the reverse read on a minted key is the generator's own total lookup.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -369,7 +344,7 @@ public sealed partial class LeaseKey {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record CoordinationSignal {
     private CoordinationSignal() { }
@@ -381,7 +356,7 @@ public abstract partial record CoordinationSignal {
     public sealed record Refused(CoordinationFault Cause) : CoordinationSignal;
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class CoordinationMap {
@@ -393,7 +368,7 @@ internal static partial class CoordinationMap {
     private static ulong Generation(FencingToken token) => (ulong)token;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RoleElection {
     public static IO<Validation<Error, FenceHolding<LeaseKey>>> Elect(
         FencedRuntime runtime, FactSink<CoordinationSignal> fan, MembershipView view, RoleName role) =>
@@ -430,7 +405,6 @@ public static class RoleElection {
 - Boundary: the distributed lock is the only cross-process critical-section owner — an in-process `lock`/`SemaphoreSlim` for a multi-node section, a timeout-only lease without a fenced token, and a second lock store are the deleted forms; `Guard` re-reads the lease after the section so a stolen lock is DETECTED rather than admitted, the write-side reject-lower being the Kleppmann safety itself; FOREIGN ERRORS ARE ADOPTED, NEVER LAUNDERED — `CoordinationFault.Of` passes a coordination fault through untouched and wraps anything else as `Foreign`, carrying the original `Error` so its numeric identity and retry semantics survive instead of being rebuilt from message text, and `DistributedLock.Acquire` preserves the same identity rather than recasting every acquire refusal as a transient `LockHeld`; retriability is DECLARED per case — `LockHeld` and `NotLeader` are `Transient` because the next election window is a real retry, `FenceRejected` inherits the band's `Terminal` default because a fenced write is never retriable at the same generation, and `Foreign` forwards whatever its inner declares; `CoordinationFault` is the PORT-SIDE half of a two-formed pair — the store-side rejection it decodes stays a Persistence name on its own band, and the two never reference each other across the decode seam, which is why the rejected-generation PAIR rides `FenceRejected`'s inner rather than being re-declared here: a port-side case mirroring the store's own `LeaseFenced(Stale, Current)` field-for-field had no seat to fill it, because no delegate on the `LeaseElection.Runtime` returns the store's current generation and the held token alone names half a pair (`LAW_WITHOUT_PRODUCER`); this page authors no TS projection — the membership view and the fence receipts reach the dashboard as this package's composed receipt — the `Runtime/ports#TS_PROJECTION` `ReceiptHeaderWire` beside an AppHost family arm, which the corpus still owes, and the two interfaces once declared here had no C# producer, no manifest row, and no peer decoder, so they crossed nothing and are withdrawn rather than left as a wire face a reader believes in (`LAW_WITHOUT_PRODUCER`).
 
 ```csharp signature
-// Numeric identity is generated from each direct leaf's `[FaultCase]`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CoordinationFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostCoordination;
@@ -455,10 +429,6 @@ public abstract partial record CoordinationFault : Fault {
         public override Retriability Retriability => Retriability.Transient;
     }
 
-    // Fence rejection names the KEY it guarded and carries the store's verdict WHOLE as the inner, so the
-    // rejected generation PAIR the Persistence case already holds crosses with its own band code intact instead
-    // of collapsing into a message. It inherits the band's `Terminal` default: a fenced write is never retriable
-    // at the same generation.
     [FaultCase(3)]
     public sealed partial record FenceRejected : CoordinationFault, ICausedFault {
         public FenceRejected(LeaseKey key, Error cause) : base(key.Value) => Cause = cause;
@@ -491,12 +461,8 @@ public abstract partial record CoordinationFault : Fault {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DistributedLock {
-    // Acquisition ADOPTS whatever the seam decoded: the store answers contention, a lapsed row, and an
-    // unreachable ledger as three different verdicts, and the prior form rebuilt all three as one transient
-    // `LockHeld` carrying the message — so a Terminal refusal was re-published as retriable and the code the
-    // store had just reported was erased at the one hop that could still read it.
     public static IO<Validation<Error, FenceHolding<LeaseKey>>> Acquire(
         FencedRuntime runtime, FactSink<CoordinationSignal> fan, LeaseKey key) =>
         FencedLease<LeaseKey>.Acquire(runtime, key, Correlation.Mint()).Bind(step => RoleElection.Settled(fan, step));

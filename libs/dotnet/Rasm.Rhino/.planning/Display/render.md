@@ -33,7 +33,7 @@
 - Packages: `api-rhinocommon-render.md` (`RenderPipeline`, `RenderWindow`, `RenderWindow.Channel`, `ImageAdjust`, `StandardChannels`, `ComponentOrders`, `RenderReturnCode`, `RenderSuccessCode`, the scene-population virtuals); `api-rhinocommon-render-realtime.md` (`AsyncRenderContext`); `api-languageext.md` (rails, `Seq`, `Atom`); `api-thinktecture-runtime-extensions.md` (unions, rows); kernel `Domain/rails` (`Retriability`, `Transition`/`Cell`, `Op`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`CapabilitySet`, `CapabilityLaw`, `Op.Row`), `Interaction/chrome` (`MountPhase`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;
@@ -64,11 +64,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Display;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// `ICapability` so the job roster IS a kernel `CapabilitySet<RenderChannel>`: admission, membership, wire text, and
-// the host flag word all ride the set algebra, and the former `ChannelSet` carrier is the deleted form. `Order` is
-// the channel's OWN component shape — what sizes a `ChannelView` read — while a caller's conversion order stays the
-// `Read` op's argument, because the host converts a four-component channel into any three-component order on read.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RenderChannel : ICapability<RenderChannel> {
@@ -102,15 +98,11 @@ public sealed partial class RenderChannel : ICapability<RenderChannel> {
     public static readonly RenderChannel WireframeAnnotations = new(key: "wireframe-annotations", native: RenderWindow.StandardChannels.WireframeAnnotationsRGBA, order: static () => ChannelOrder.Rgba);
 
     internal RenderWindow.StandardChannels Native { get; }
-    // Deferred: `ChannelOrder` is a sibling generated roster whose own static constructor may not have run.
     [UseDelegateFromConstructor] internal partial ChannelOrder Order();
 
     internal Guid Id => RenderWindow.ChannelId(ch: Native);
 }
 
-// The three census axes the host answers per channel, with the law the host itself guarantees: a channel cannot be
-// shown or requested without being available, so those corners are BARRED and a census measuring one refuses typed
-// rather than publishing a state no consumer can act on.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FramebufferState : ICapability<FramebufferState> {
@@ -144,10 +136,6 @@ public readonly partial struct GammaValue {
             : new ValidationError(string.Join(" | ", new object?[] { nameof(GammaValue), "a positive finite framebuffer gamma" }));
 }
 
-// Host truth: `ComponentOrders` is an ALIASED enum — `XYZ` is `RGB` and `ZYX` is `BGR` — so the roster carries one row
-// per distinct order under the enum's own primary spelling, and `Components` is what sizes the read buffer: the two
-// three-component orders read three floats per pixel even out of the four-component RGBA channel, and a single-value
-// channel reads one. A row per alias would seat orders no host read could tell apart.
 [SmartEnum<int>]
 public sealed partial class ChannelOrder {
     public static readonly ChannelOrder Single = new(0, ComponentOrders.Irrelevant, 1);
@@ -162,8 +150,6 @@ public sealed partial class ChannelOrder {
     internal int Components { get; }
 }
 
-// Host truth: both framebuffer file writers DISPATCH on the destination extension, so each row names the writer and the
-// alpha policy it carries rather than a caller-side format string the host would re-parse.
 [SmartEnum<int>]
 public sealed partial class ImageEgress {
     public static readonly ImageEgress Dib = new(
@@ -180,9 +166,6 @@ public sealed partial class ImageEgress {
     internal partial Unit Write(RenderWindow window, DocumentPath path);
 }
 
-// The twelve host return codes as a keyed roster, each row CLASSIFYING its retriability as a kernel value: the two
-// modal/start rows are transient-shaped, a user cancel is terminal by definition, and the classification is DATA a
-// root-bound executor reads — this library executes no retry of its own (branch RULINGS [02]).
 [SmartEnum<RenderPipeline.RenderReturnCode>]
 public sealed partial class RenderCode {
     public static readonly RenderCode Ok = new(key: RenderPipeline.RenderReturnCode.Ok, retriability: Retriability.Terminal);
@@ -201,9 +184,6 @@ public sealed partial class RenderCode {
     public Retriability Retriability { get; }
 }
 
-// The settled verdict as a VALUE: `Finished` is the one success and `Halted` carries the row a consumer classifies
-// on, so eleven distinct host failures stop collapsing into one anonymous bool and the rail fails only on a crossing
-// fault. `Of` is total over the roster — an unrostered code is a host contract break and refuses on the row read.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderOutcome {
     private RenderOutcome() { }
@@ -228,13 +208,8 @@ public abstract partial record RenderRun : IValidityEvidence {
         region: static row => ValidityClaim.All(row.Extent.Width > 0, row.Extent.Height > 0));
 }
 
-// The census fact per channel: the three host axes ride ONE admitted set, so an illegal corner — shown or requested
-// without available — is a typed census refusal rather than a value a consumer must re-check.
 public readonly record struct ChannelFact(RenderChannel Channel, CapabilitySet<FramebufferState> States);
 
-// Egress is a CASE, never a second return type: widening, writing, and adjusting answer nothing, a census answers
-// channel rows, a read answers a component block, a snapshot a raster artifact, and a save the settled destination —
-// so one yield union carries every arm and a batch receipt holds the sequence rather than one privileged payload.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WindowYield {
     private WindowYield() { }
@@ -254,8 +229,6 @@ public abstract partial record WindowOp : IValidityEvidence {
     public sealed record Adjust(GammaValue Gamma, DitherMethod Dither) : WindowOp;
     public sealed record Read(RenderChannel Channel, Offset2i Origin, Size2i Extent, ChannelOrder Order) : WindowOp;
     public sealed record Snapshot : WindowOp;
-    // The path arrives SETTLED: `Exchange/publish.md`'s `Landing.Save` arm resolves `OutputPolicy` before building
-    // this op, so the Display fence writes and never re-enters the Exchange settle (E-R8 arms-up).
     public sealed record SaveAs(DocumentPath Target, ImageEgress Egress) : WindowOp;
 
     public bool IsValid => Switch(
@@ -267,9 +240,6 @@ public abstract partial record WindowOp : IValidityEvidence {
         snapshot: static _ => true,
         saveAs: static _ => true);
 
-    // A census, a read, a snapshot, and a save all leave the framebuffer as they found it — a save writes a FILE,
-    // which the document session does not own — so only the widening, pixel-writing, and adjusting arms mutate; the
-    // case test IS the derivation and no stored mirror of it exists.
     internal bool Mutates => this is Add or Write or Adjust;
 
     internal Fin<WindowYield> Apply(RenderWindow window, Op key) => Switch(
@@ -278,16 +248,12 @@ public abstract partial record WindowOp : IValidityEvidence {
         census: static (ctx, row) => Channels.CensusOn(row.Channels, ctx.Window, ctx.Op).Map(static rows => (WindowYield)new WindowYield.ChannelsCase(rows)),
         write: static (ctx, row) => row.Block.Blit(ctx.Window, ctx.Op).Map(static _ => (WindowYield)new WindowYield.SilentCase()),
         adjust: static (ctx, row) => ctx.Op.Catch(() =>
-            // Host truth: `ImageAdjust`'s constructor is internal, so the read is the only way to obtain the carrier.
             Optional(ctx.Window.GetAdjust()).ToFin(ctx.Op.InvalidResult()).Map(held => {
                 held.Gamma = row.Gamma.Value;
                 held.Dither = row.Dither.Native;
                 ctx.Window.SetAdjust(imageAdjust: held);
                 return (WindowYield)new WindowYield.SilentCase();
             })),
-        // The channel borrow is the read: `OpenChannel` vends a disposable cursor, `GetValues` fills a caller-owned
-        // component buffer over the requested rectangle, and the cursor closes on the way out — the buffer is the only
-        // thing that crosses, so no native pixel port outlives the borrow.
         read: static (ctx, row) => ctx.Op.Catch(() => {
             using RenderWindow.Channel channel = ctx.Window.OpenChannel(id: row.Channel.Native);
             return Optional(channel).ToFin(Fail: ctx.Op.InvalidResult()).Bind(open => ctx.Op.Catch(() => {
@@ -303,14 +269,10 @@ public abstract partial record WindowOp : IValidityEvidence {
         snapshot: static (ctx, _) => ctx.Op.Catch(() => Optional(ctx.Window.GetBitmap()).ToFin(Fail: ctx.Op.InvalidResult()))
             .Bind(bitmap => CaptureArtifact.Raster(bitmap: bitmap, key: ctx.Op))
             .Map(static artifact => (WindowYield)new WindowYield.RasterCase(artifact)),
-        // Host truth: both framebuffer writers DISPATCH on the destination extension; the path was settled by the
-        // publish leg before this op existed, so the write is direct and the settled value crosses out as evidence.
         saveAs: static (ctx, row) => ctx.Op.Catch(() => Fin.Succ((row.Egress.Write(ctx.Window, row.Target), row.Target).Item2))
             .Map(settled => (WindowYield)new WindowYield.SavedCase(settled, row.Egress)));
 }
 
-// Pause and resume are ONE axis: the `Gate` case carries the `RunGate` row a caller seats, so the two former cases
-// and their two receipt mirrors collapse and a third gate posture would land as one row.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderRequest : IValidityEvidence {
     private RenderRequest() { }
@@ -326,8 +288,6 @@ public abstract partial record RenderRequest : IValidityEvidence {
             !row.Operations.IsEmpty,
             row.Operations.ForAll(static operation => operation.IsValid)));
 
-    // The need set derives from the case shapes, never a caller flag: only a batch carrying a framebuffer-widening,
-    // pixel-writing, or adjusting op demands mutation, so a census-only window batch and a gate stay read-only.
     internal Seq<SessionNeed> Needs => Switch(
         run: static _ => Seq(SessionNeed.Read),
         gate: static _ => Seq(SessionNeed.Read),
@@ -339,17 +299,10 @@ public abstract partial record RenderRequest : IValidityEvidence {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderReceipt : IDetachedDocumentResult {
     private RenderReceipt() { }
-    // The settled host verdict rides the receipt: a `Halted` run is a MEASURED outcome, not a rail failure, so the
-    // caller reads which code stopped the run and its retriability without the rail conflating it with a crossing fault.
     public sealed record Ran(RenderRun Scope, RenderOutcome Outcome) : RenderReceipt;
     public sealed record Gated(RunGate Posture) : RenderReceipt;
     public sealed record Windowed(int Operations, Seq<WindowYield> Yields) : RenderReceipt;
 
-    // `HostUi` reads this neutral carrier for its completion-notice row, so no render type crosses that seam.
-    // `RunOutcome` spells terminals only — a gate transition is neither a cancellation nor a completion, so it
-    // answers `None` and the notice rail posts nothing rather than announcing a terminal the run never reached.
-    // PROJECTION IS THE WHOLE OBLIGATION: this page never calls `Notices.Announce`; the shell's support surface is
-    // the declared announcer and composes `receipt.Summary(label)` as one line.
     public Option<RunOutcome> Summary(HostText label) => Switch(
         state: label,
         ran: static (text, row) => row.Outcome is RenderOutcome.Finished
@@ -370,9 +323,6 @@ public abstract partial record RenderReceipt : IDetachedDocumentResult {
         }.ToFrozenDictionary(StringComparer.Ordinal));
 }
 
-// RENAMED from `WindowScope`: the prelude imports `Rasm.Rhino.HostUi`, whose `WindowScope` is the host window
-// parent — a bare spelling inside this fence silently bound the local twin, which is the in-assembly STRATA_TWIN
-// form the rename closes.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FramebufferScope : IValidityEvidence {
     private FramebufferScope() { }
@@ -386,9 +336,6 @@ public abstract partial record FramebufferScope : IValidityEvidence {
         detachedCase: static row => ValidityClaim.All(row.Extent.Width > 0, row.Extent.Height > 0));
 }
 
-// The four two-row host-bool vocabularies as ROWS on `Display/modes.md`'s ONE `HostRow<TNative>` owner — a fifth
-// one-column `[SmartEnum]` mirroring one host bool is the deleted form. NAMED LOSS: per-axis compile distinction on
-// the two `SessionCase` columns; bought back by named-argument spelling and each row's own `Key`.
 internal static class FramebufferRow {
     internal static readonly HostRow<bool> Offscreen = new(Key: "offscreen", Native: false);
     internal static readonly HostRow<bool> InWindow = new(Key: "in-window", Native: true);
@@ -400,9 +347,6 @@ internal static class FramebufferRow {
     internal static readonly HostRow<bool> CaptureIntent = new(Key: "capture-intent", Native: true);
 }
 
-// The pause axis as rows a caller seats and the modal poll's verdict as rows the program answers: a user cancel is
-// `Halt`, distinguishable from a fault at the one arm that reads it, and `Continues` is the CONSEQUENCE the host
-// poll projects so no consumer re-branches on the key.
 [SmartEnum<int>]
 public sealed partial class RunGate {
     public static readonly RunGate Running = new(key: 0, paused: false);
@@ -417,7 +361,6 @@ public sealed partial class ContinueVerdict {
     internal bool Continues { get; }
 }
 
-// The two document tables the host walks to feed a batch scene.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SceneTable : ICapability<SceneTable> {
@@ -425,14 +368,9 @@ public sealed partial class SceneTable : ICapability<SceneTable> {
     public static readonly SceneTable Lights = new(key: "lights");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// One mesh intake fact: the host hands the object, its resolved material, and the render mesh together.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SceneMesh(RhinoObject Subject, Material Material, Mesh Geometry);
 
-// The six host scene-population virtuals as ONE optional program: `Tables` names which document tables the host
-// walks, `EmptySceneRenders` is the one independent bit (a scene with no meshes may still render an environment),
-// `Exclude` is the per-object veto, and the two intake folds receive what the walk produced. Absent, the host's own
-// defaults stand — a batch job that cannot populate its scene was the page's largest missing axis.
 public sealed record SceneProgram(
     CapabilitySet<SceneTable> Tables,
     bool EmptySceneRenders,
@@ -440,9 +378,6 @@ public sealed record SceneProgram(
     Func<SceneMesh, Fin<Unit>> Mesh,
     Func<LightObject, Fin<Unit>> Light);
 
-// Pause capability IS the `Pause` hook's presence — `SupportsPause` derives, so the host is never promised a pause
-// the program cannot honour and the `ASSERTED_VALUE` constant answer is unspellable. `BeginQuiet` is the host's own
-// quiet-start variant, one optional column rather than a sibling program.
 public sealed record RenderProgram(
     Func<Fin<Unit>> Begin,
     Func<System.Drawing.Rectangle, Fin<Unit>> BeginRegion,
@@ -462,9 +397,6 @@ public sealed record PixelBlock {
         (Origin, Extent, Pixels) = (origin, extent, pixels);
     public Offset2i Origin { get; }
     public Size2i Extent { get; }
-    // LINEAR scene-referred radiometry stays the host quad on the BULK carrier — a per-texel perceptual round trip
-    // over a framebuffer blit is the conversion this page's colour boundary law refuses; the value-crossing pair
-    // lives on `[04]`'s `ChannelView`.
     public ReadOnlyMemory<Color4f> Pixels { get; }
 
     public bool IsValid => ValidityClaim.All(
@@ -488,9 +420,7 @@ public sealed record PixelBlock {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The former `ChannelSet` carrier's two host folds, now free functions over the kernel set: the roster is a
-// `CapabilitySet<RenderChannel>` and the host flag word derives through the set's own `Mask` arm.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Channels {
     internal static CapabilitySet<RenderChannel> Rgba => rgba.Value;
     private static readonly Lazy<CapabilitySet<RenderChannel>> rgba =
@@ -499,14 +429,10 @@ internal static class Channels {
     internal static RenderWindow.StandardChannels Flags(CapabilitySet<RenderChannel> channels) =>
         (RenderWindow.StandardChannels)channels.Mask(static row => (int)row.Native);
 
-    // `AddChannel` answers `true` for a channel that was added AND for one already present, so the confirmation is a
-    // refusal test, never an added-versus-existing discriminant; the census arm answers that question separately.
     internal static Fin<Unit> AddTo(CapabilitySet<RenderChannel> channels, RenderWindow window, Op key) =>
         toSeq(channels.Held).TraverseM(row => key.Catch(() =>
             key.Confirm(success: window.AddChannel(channel: row.Native)))).As().Map(static _ => unit);
 
-    // The census MEASURES host truth through the law: a shown-but-unavailable answer is an illegal corner the host
-    // guarantees against, so measuring one refuses typed instead of publishing a state no consumer can act on.
     internal static Fin<Seq<ChannelFact>> CensusOn(CapabilitySet<RenderChannel> channels, RenderWindow window, Op key) => key.Catch(() => {
         FrozenSet<Guid> requested = window.GetRequestedRenderChannels().ToFrozenSet();
         return toSeq(channels.Held).TraverseM(row => {
@@ -519,7 +445,7 @@ internal static class Channels {
     });
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record JobAsyncLifecycle {
     private JobAsyncLifecycle() { }
@@ -532,9 +458,6 @@ internal sealed class JobAsync : AsyncRenderContext {
     private readonly AsyncProgram program;
     private readonly CancellationTokenSource halt = new();
     private readonly Func<Error, Unit> record;
-    // Exemption: the host thread join, port close, and stopped-hook run are a SEQUENCE whose every step must run
-    // after an earlier one refused — the one statement-shaped region host teardown forces — so the lock guards it
-    // whole while the lifecycle VALUE stays a closed union read through it.
     private readonly Lock lifecycleGate = new();
     private readonly Op key;
     private JobAsyncLifecycle lifecycle = new JobAsyncLifecycle.Idle();
@@ -559,8 +482,6 @@ internal sealed class JobAsync : AsyncRenderContext {
         }
     }
 
-    // The async protocol CLOSES: the host window learns the outcome the thread measured through `EndAsyncRender`,
-    // so a settled body answers `Completed` and a refused one `Failed` — silence is not a completion signal.
     private void Settled(RenderWindow window, RealtimePort port) {
         Fin<Unit> outcome = key.Catch(() => program.Render(port, halt.Token), token: halt.Token);
         _ = outcome.IfFail(record);
@@ -642,8 +563,6 @@ internal sealed class JobPipeline : RenderPipeline {
 
     protected override void OnRenderEnd(RenderEndEventArgs e) => ignore(Accept(key.Catch(program.End)));
 
-    // Pause capability DERIVES from the program's own shape — a constant `true` advertised a capability the program
-    // may not carry, and the host consults this before ever calling the pause pair.
     public override bool SupportsPause() => program.Pause.IsSome;
 
     public override void PauseRendering() => ignore(Accept(Seat(RunGate.Paused)));
@@ -654,7 +573,6 @@ internal sealed class JobPipeline : RenderPipeline {
         Succ: static verdict => verdict.Continues,
         Fail: failure => { Record(failure); return false; });
 
-    // --- the six scene-population virtuals, standing on the host defaults when no program rides.
     protected override bool NeedToProcessGeometryTable() =>
         program.Scene.Map(static scene => scene.Tables.Admits(SceneTable.Geometry)).IfNone(base.NeedToProcessGeometryTable());
 
@@ -700,17 +618,11 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
     private readonly RenderProgram program;
     private readonly Option<AsyncProgram> render;
     private readonly Option<Func<EffectId, Fin<bool>>> decide;
-    // BOUNDED on the Display retention cap: a fault per failed frame over a job's lifetime is exactly the shape the
-    // kernel ring sheds, and the sheds read as numbers rather than as process memory.
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
-    // Exemption: a disposal racing a configuration demand excludes WHOLE — a host document demand cannot ride a CAS
-    // body — so the lock keeps the exclusion while the one-shot latch below carries the release verdict.
     private readonly Lock lifecycle = new();
     private readonly Atom<MountPhase> phase = Atom(MountPhase.Open);
     private readonly Op key;
     private JobPipeline? pipeline;
-    // The registered gate's managed root: the host holds only a weak reference, so the job owns the strong one and a
-    // collected gate would answer `false` for every effect on every frame.
     private PostEffectGate? gate;
     private uint documentSerial;
 
@@ -778,10 +690,6 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
                 return Fin.Succ(replacement);
             }).Bind(replacement => Arm(replacement, op).Map(_ => replacement)));
 
-    // The gate registers ONCE per pipeline, against the session-lifetime native framebuffer the pipeline vends: the
-    // managed wrapper's disposal is a no-op for a pipeline-vended window, so the registration outlives the borrow while
-    // the gate instance stays rooted on the job. Registration transfers the native to the window — nothing detaches or
-    // disposes it here — and a failed arm fails the demand rather than rendering with an unconsulted policy.
     private Fin<Unit> Arm(JobPipeline current, Op op) => decide.Match(
         Some: predicate => WithWindow(
             current,
@@ -795,8 +703,6 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
             op),
         None: static () => Fin.Succ(unit));
 
-    // The settled host code is a VALUE the receipt carries: `RenderOutcome.Of` reads the row and only a crossing
-    // fault fails the rail, so `Cancel` and `EmptyScene` stop reading as anonymous failures.
     private Fin<RenderOutcome> Run(JobPipeline current, RenderRun scope, Op key) {
         RenderJob self = this;
         return scope.Switch(
@@ -849,11 +755,8 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 
     private Fin<Unit> Retire(Op op) {
         JobPipeline? current = pipeline;
-        // Dropping the root is the whole release: the native control belongs to the window the registration handed it to,
-        // and the host's own delete callback drives the managed disposal when that window dies.
         (pipeline, gate, documentSerial) = (null, null, 0u);
         if (current is null) { return Fin.Succ(unit); }
-        // Both teardown legs run through the kernel fold; a halt refusal never short-circuits disposal.
         return Custody.Release(
             releases: Seq<Func<Fin<Unit>>>(
                 () => op.Catch(() => Fin.Succ(current.Halt())),
@@ -863,8 +766,6 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 
     public void Dispose() {
         lock (lifecycle) {
-            // The one-shot is a guarded TRANSITION: a second release reads `Refused` and disposes nothing, and the
-            // retire verdict PARKS on the job's own bounded ring rather than riding a discard.
             _ = Op.SideWhen(
                 Cell.Step(phase, static held => held.Closes ? None : Some(MountPhase.Released), key.InvalidContext()) is Transition<MountPhase>.Committed,
                 () => ignore(Retire(key).IfFail(failure => ignore(faults.Park(item: failure)))));
@@ -895,11 +796,7 @@ public sealed class RenderJob : IDisposable, IDetachedDocumentResult {
 - Packages: `api-rhinocommon-render-realtime.md` (`RealtimeDisplayMode` and its ~30 members, `RealtimeDisplayModeClassInfo`, `LightManagerSupport`, `LightArray`, `LightMangerSupportCustomEvent`); `api-rhinocommon-render.md` (`RenderWindow.SetProgress`/`SetIsRendering`/`InvalidateArea`); `api-rhinocommon-display.md` (`DisplayPipeline`, `DisplayTechnology`); kernel `Domain/rails` (`FaultBand`, `Cell`/`Transition`, `Op`), `Domain/hooks` (`Ring<T>`), `Domain/validation` (`CapabilitySet`, `ICapability`, `Op.Row`), `Parametric/projections` (`MonotonicTimeline`, `GaugedSpan`), `Interaction/dispatch` (`DispatchLane`); `Display/draw.md` (`Canvas`, `DisplayMark`, `Marks.Paint`, `SpriteSheet`), `Display/conduit.md` (`ConduitFrame`, `ConduitPhase`, `SwitchState`, `DisplayFaults`), `Display/modes.md` (`Appearance`, `HostRow<TNative>`); NodaTime (`Instant`); LanguageExt.Core; Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Host truth: the HUD publishes a CONTROL and a GESTURE, not a flat verb roster — the four transport buttons and the
-// three text fields each publish a press plus left, right, and double click, and the two post-effect toggles publish the
-// three clicks with no press. A case per control collapsed thirty-four host events into four, so the gesture is a column
-// and a consumer that only wants a left click filters on it rather than losing the right click entirely.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class HudControl {
     public static readonly HudControl Play = new(key: 0);
@@ -928,9 +825,6 @@ public abstract partial record HudSignal {
     public sealed record MaxPassesCase(Rasm.Numerics.Dimension Passes) : HudSignal;
 }
 
-// The engine's four declared participation axes. `FastDraw` and `DeferAttributes` are the two the page formerly
-// dropped: the first answers the host's low-latency draw request, the second withholds the display-attribute
-// registration the descriptor would otherwise force at start.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RealtimeFeature : ICapability<RealtimeFeature> {
@@ -940,9 +834,6 @@ public sealed partial class RealtimeFeature : ICapability<RealtimeFeature> {
     public static readonly RealtimeFeature DeferAttributes = new(key: "defer-attributes");
 }
 
-// The five HUD axes the CHROME declares. The host's other three predicates are derived reads, not declarations:
-// `HudRendererPaused`/`HudRendererLocked` answer the engine's own `Paused`/`Locked` state and `HudMaximumPasses`
-// answers `RealtimePassPolicy.MaxPasses`, so seating them here would mirror an authority that already exists.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HudFeature : ICapability<HudFeature> {
@@ -953,8 +844,6 @@ public sealed partial class HudFeature : ICapability<HudFeature> {
     public static readonly HudFeature EditMaxPasses = new(key: "edit-max-passes");
 }
 
-// The host's `forCapture` argument as a keyed row: `key.Row<bool, RenderIntent>(forCapture)` is the read, so the
-// hand `Of(bool)` projection deletes and an intent is recoverable from the value.
 [SmartEnum<bool>]
 public sealed partial class RenderIntent {
     public static readonly RenderIntent Viewport = new(key: false);
@@ -970,16 +859,12 @@ public sealed partial class LightChange {
     public static readonly LightChange Sorted = new(key: LightMangerSupportCustomEvent.light_sorted);
 }
 
-// Host truth: `DeleteLight`'s `bUndelete` INVERTS the verb, so the row keys on the host bool and the call site names
-// the verb it means instead of passing a flag whose polarity a reader must recover from the parameter name.
 [SmartEnum<bool>]
 public sealed partial class LightRetirement {
     public static readonly LightRetirement Retire = new(key: false);
     public static readonly LightRetirement Restore = new(key: true);
 }
 
-// The claim receipt both registries hand back: `Retire` proves it, so a second registrant cannot retire a seat it
-// never claimed and a stale holder cannot retire the current one.
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 [ValidationError]
 public readonly partial struct SeatToken {
@@ -987,8 +872,6 @@ public readonly partial struct SeatToken {
         validationError = value == Guid.Empty ? new ValidationError(string.Join(" | ", new object?[] { nameof(SeatToken) })) : null;
 }
 
-// ONE progressive state authority. `Priming` carries no pass ordinal because none has rendered — the absence is the
-// discriminant the framebuffer latch used to spell as a `bool` beside three predicates that could disagree with it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record RealtimeLifecycle {
     private RealtimeLifecycle() { }
@@ -1010,9 +893,7 @@ internal abstract partial record RealtimeLifecycle {
         settled: static row => row.Pass);
 }
 
-// --- [ERRORS] -------------------------------------------------------------------------------
-// The page's ONE direct host-boundary family on `FaultBand.HostRender 4950/4`; generated-value refusals cross the
-// kernel validation bridge, while these cases preserve the semantic host failure at its owning boundary.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostRender;
@@ -1030,15 +911,13 @@ public abstract partial record RenderFault : Fault {
         hostRefused: static fault => $"Render host member '{fault.Member}' refused '{fault.Key}': {fault.Detail}");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record RealtimePassPolicy {
     private RealtimePassPolicy(Rasm.Numerics.Dimension maxPasses, CapabilitySet<RealtimeFeature> features, GpuTechnology technology) =>
         (MaxPasses, Features, Technology) = (maxPasses, features, technology);
 
     public Rasm.Numerics.Dimension MaxPasses { get; }
     public CapabilitySet<RealtimeFeature> Features { get; }
-    // The descriptor's `RequiredDisplayTechnology` column: an engine demanding Metal states it here, and the class-info
-    // reads it back rather than defaulting to `None` and letting the host pick.
     public GpuTechnology Technology { get; }
 
     public static Fin<RealtimePassPolicy> Of(
@@ -1052,8 +931,6 @@ public sealed record RealtimePassPolicy {
     }
 }
 
-// `Status` is a FUNCTION because the host re-reads the custom status line every HUD paint; its presence IS
-// `HudShowCustomStatusText`, so no separate declaration can disagree with the reader that answers it.
 public sealed record RealtimeChrome {
     private RealtimeChrome(HostText productName, CapabilitySet<HudFeature> features, Option<Func<Fin<HostText>>> status, Option<Instant> started) =>
         (ProductName, Features, Status, Started) = (productName, features, status, started);
@@ -1063,9 +940,6 @@ public sealed record RealtimeChrome {
     public Option<Func<Fin<HostText>>> Status { get; }
     public Option<Instant> Started { get; }
 
-    // The implication clause lives at the mint, not on a `CapabilityLaw`: the law carries exact-corner rosters and
-    // containment bars but no implication arm, and an edit-without-display rule keys on a member's ABSENCE — a
-    // shape only the full legal-complement enumeration could spell, so the one construction states it here.
     public static Fin<RealtimeChrome> Of(
         HostText productName,
         CapabilitySet<HudFeature> features,
@@ -1084,9 +958,6 @@ public sealed record RealtimeChrome {
 public readonly record struct RealtimeStart(
     Size2i Extent, DocKey Document, RenderIntent Intent, RealtimePort Pixels, RealtimeSignal Signal);
 
-// The world-build fact, DETACHED: the host hands a live document, view, and attribute descriptor, and only the
-// document key, the viewport identity, and the whole read-back appearance state cross — `Appearance.Of` is
-// `Display/modes.md`'s one attribute reader, so no second descriptor projection exists on this page.
 public readonly record struct RealtimeWorld(DocKey Document, Guid View, Seq<Appearance> Appearance);
 
 public sealed record RealtimeProgram(
@@ -1101,17 +972,12 @@ public sealed record RealtimeProgram(
     Option<Func<Fin<UnitInterval>>> CaptureProgress = default,
     Option<Func<HudSignal, Fin<Unit>>> Hud = default);
 
-// The view seam the engine binds: `SetView` hands the host's own view in, `GetView` hands the program's back, and
-// `ComputeViewportCrc` is the change key both sides compare — one fact carries all three so a program that never
-// binds a view leaves the host's default standing.
 public readonly record struct ViewFrame(Guid View, uint Crc);
 
 public sealed record RealtimeEnginePlan(
     RealtimeProgram Program,
     RealtimePassPolicy Policy,
     RealtimeChrome Chrome,
-    // The ONE injected session timeline (folder ruling): the shell capsule mints it at plug-in boot and every gauged
-    // leg on this page reads it, because a host-activated engine reaches no constructor of its own.
     MonotonicTimeline Clock) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         Program is not null, Policy is not null, Chrome is not null, Clock is not null);
@@ -1122,8 +988,6 @@ public sealed record LightSolo(
     Func<DocKey, Guid, Fin<SwitchState>> Get,
     Func<DocKey, Fin<Rasm.Numerics.Dimension>> Count);
 
-// Every hook answers a VERDICT: the three host `bool` returns this program used to mirror conflated "answered no"
-// with "the rail refused", so the host scalar is now PROJECTED from a settled rail instead of standing in for one.
 public sealed record LightAuthorityProgram(
     Func<DocKey, Fin<Seq<Light>>> Roster,
     Func<DocKey, Guid, Fin<Option<Light>>> Resolve,
@@ -1140,9 +1004,7 @@ public sealed record LightAuthorityProgram(
         Describe is not null, Edit is not null, Group is not null, Ungroup is not null);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The engine's pixel and progress carrier. `[02]`'s detached batch body writes through this SAME type, so the port
-// is the one framebuffer egress both modalities hold and neither exports `RenderWindow`.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RealtimePort {
     private readonly Atom<Option<RenderWindow>> window;
     private readonly Op key;
@@ -1158,23 +1020,16 @@ public sealed class RealtimePort {
     public Fin<Unit> Rendering(SwitchState state) => Held().Bind(target =>
         key.Catch(() => Fin.Succ(Op.Side(() => target.SetIsRendering(is_rendering: state.Enabled)))));
 
-    // Region-scoped when a block names one, whole-frame otherwise: the host publishes both and a progressive engine
-    // that always invalidates the whole frame pays for every tile it did not touch.
     public Fin<Unit> Invalidate(Option<(Offset2i Origin, Size2i Extent)> region = default) => Held().Bind(target =>
         key.Catch(() => Fin.Succ(region.Match(
             Some: row => Op.Side(() => target.InvalidateArea(row.Origin.Window(extent: row.Extent))),
             None: () => Op.Side(target.Invalidate)))));
 
-    // The close is a TAKE: the drained handle is the transition's payload, so a second close reads an empty take and
-    // no write can race a half-cleared field.
     internal Unit Close() => ignore(Cell.Take(window));
 
     private Fin<RenderWindow> Held() => window.Value.ToFin(Fail: key.InvalidContext());
 }
 
-// The engine-to-program back-channel. Every member the progressive body needs and could not reach lives here:
-// `SignalRedraw` was a public engine member no program held, and the pass ordinal and the completion verdict were
-// polled out of the program instead of driven into the engine that answers the host for them.
 public sealed class RealtimeSignal {
     private readonly Func<Fin<Unit>> redraw;
     private readonly Func<Option<Rasm.Numerics.Dimension>, Transition<RealtimeLifecycle>> step;
@@ -1189,9 +1044,6 @@ public sealed class RealtimeSignal {
     public Transition<RealtimeLifecycle> Settle() => step(Option<Rasm.Numerics.Dimension>.None);
 }
 
-// ONE process-static claim table, instantiated twice. `Claim` seats the payload through the kernel `Cell.Claim`
-// (whose `Ceded` verdict IS the occupied answer), drives the host installation, and rolls the seat back on refusal;
-// the caller receives its token BESIDE the installation's own proof, so neither facade loses what it used to return.
 internal sealed class SeatRegistry<TSeat> where TSeat : notnull {
     private readonly Atom<HashMap<Guid, (SeatToken Token, TSeat Seat)>> seats =
         Atom(HashMap<Guid, (SeatToken Token, TSeat Seat)>());
@@ -1222,21 +1074,14 @@ internal sealed class SeatRegistry<TSeat> where TSeat : notnull {
 
     internal Option<TSeat> Find(Guid engine) => seats.Value.Find(engine).Map(static row => row.Seat);
 
-    // A park that DECLINES is itself evidence — the ring counts it on `Lost`, so a contended sink never silently
-    // loses the fault it was called to record.
     internal Unit Observe(Error failure) => ignore(faults.Park(item: failure));
 
-    // Release is keyed on the TOKEN as well as the engine: a retirement racing a re-claim must not drop the seat the
-    // newcomer just took, so the swap re-tests ownership inside the CAS body.
     private Unit Release(Guid engine, SeatToken token) => ignore(seats.Swap(rows => rows.Find(engine)
         .Filter(row => row.Token == token)
         .Map(_ => rows.Remove(engine))
         .IfNone(rows)));
 }
 
-// Host truth: `RegisterDisplayModes` REFLECTS over the plug-in's exported types and activates both the class-info and
-// the engine itself, admitting each only with a public parameterless constructor — so an engine cannot be handed its
-// program and this registry is the seam that carries it. The static is FORCED by that activation contract.
 public static class RealtimeEngines {
     private static readonly SeatRegistry<RealtimeEnginePlan> Seats = new(Op.Of(name: nameof(RealtimeEngines)));
 
@@ -1273,8 +1118,6 @@ public static class RealtimeEngines {
     internal static Op Anchor => Seats.Anchor;
 }
 
-// The registration descriptor: a concrete info supplies only the engine identity and the engine type it names, and
-// every other column DERIVES from the seated plan, so a descriptor cannot disagree with the engine it registers.
 public abstract class RealtimeEngineInfo : RealtimeDisplayModeClassInfo {
     protected abstract Guid Engine { get; }
 
@@ -1296,9 +1139,6 @@ public abstract class RealtimeEngineInfo : RealtimeDisplayModeClassInfo {
     private TOut Chrome<TOut>(Func<RealtimeChrome, TOut> read, TOut fallback) =>
         Seated(plan => read(plan.Chrome), fallback, member: nameof(Chrome));
 
-    // The host reads a descriptor column DURING the reflective scan, before any plan could be seated by a later
-    // registrant, so an unseated read parks its refusal and answers the host's own default rather than throwing
-    // inside the scan and taking the whole plug-in's registration down with it.
     private TOut Seated<TOut>(Func<RealtimeEnginePlan, TOut> read, TOut fallback, string member) =>
         RealtimeEngines.Plan(Engine).Match(
             Some: read,
@@ -1310,14 +1150,10 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private readonly Atom<Size2i> extent = Atom(Size2i.Create(width: 1, height: 1));
     private readonly Atom<Option<ViewFrame>> viewed = Atom(Option<ViewFrame>.None);
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
-    // Exemption: start and shutdown are SEQUENCES whose every step must run after an earlier one refused — the host
-    // teardown shape — so the lock brackets them whole while the lifecycle VALUE stays a closed union read through it.
     private readonly Lock lifecycleGate = new();
     private readonly Op key = Op.Of(name: nameof(RealtimeEngine));
     private Option<RealtimeEnginePlan> bound;
 
-    // The host activates this type through its parameterless constructor, so the plan arrives at `PostConstruct` —
-    // the one hook the host calls once the native viewport is connected — and every member reads it through `Bound`.
     protected abstract Guid Engine { get; }
 
     public Seq<Error> Faults => faults.Parked;
@@ -1345,10 +1181,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         return ignore(plan.Program.Hud.Iter(WireHud));
     }
 
-    // One row per HUD control, each handing over the subscription its host events publish. The host's own spelling is
-    // IRREGULAR — the four transport buttons carry a `Button` infix the three text fields do not, and the post-effect
-    // toggles publish no press — so binding is a row table over the real events, never a name fold that would
-    // subscribe to members the assembly does not declare. A control's pressability IS its press row's presence.
     private Unit WireHud(Func<HudSignal, Fin<Unit>> signal) {
         Unit Bind(HudControl control, HudGesture gesture, Action<EventHandler> subscribe) => Op.Side(() => subscribe(
             (_, _) => ignore(Observe(key.Catch(() => signal(new HudSignal.TouchCase(control, gesture)))))));
@@ -1412,8 +1244,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 
     public override void ShutdownRenderer() {
         lock (lifecycleGate) {
-            // The step's post-state is `Idle`, so the sprites and the port are read off the PRIOR state under the
-            // same lock — releasing what the transition ANSWERED would release an empty case.
             RealtimeLifecycle prior = lifecycle.Value;
             _ = Step(static held => held is RealtimeLifecycle.Idle ? None : Some<RealtimeLifecycle>(new RealtimeLifecycle.Idle()))
                 is Transition<RealtimeLifecycle>.Committed
@@ -1463,9 +1293,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         Some: read => Observe(key.Catch(read)).Match(Succ: static value => value.Value, Fail: static _ => 0d),
         None: base.CaptureProgress);
 
-    // The view seam settles ONCE: the host's `SetView` seeds the frame, the program's binding reads it back, and
-    // `ComputeViewportCrc` is the change key both compare — a `GetView` answering a view the engine never saw is the
-    // shape this cell forecloses.
     public override void SetView(ViewInfo view) {
         base.SetView(view);
         _ = Observe(
@@ -1500,8 +1327,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
 
     public override int HudLastRenderedPass() => LastRenderedPass();
 
-    // The three the CHROME does not declare: two read the engine's own progressive state and the third the policy's
-    // budget, so a roster row beside them would mirror an authority that already answers.
     public override bool HudRendererPaused() => Paused;
 
     public override bool HudRendererLocked() => Locked;
@@ -1514,8 +1339,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private bool HudFlag(HudFeature feature) => Chrome(chrome => chrome.Features.Admits(feature), false);
 
     // --- [ENGINE_INTERNALS]
-    // Every host override binds the plan through one rail, so an engine the host activated but never bound answers
-    // its declared fallback and parks a typed refusal rather than dereferencing a null program.
     private Fin<TOut> Bound<TOut>(Func<RealtimeProgram, Fin<TOut>> use) =>
         bound.ToFin(Fail: new RenderFault.Unbound(Key: key, Member: nameof(Bound)))
             .Bind(plan => key.Catch(() => use(plan.Program)));
@@ -1530,8 +1353,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
         Some: read,
         None: () => (Observe(new RenderFault.Unbound(Key: key, Member: member)), fallback).Item2);
 
-    // The projection is GAUGED: a framebuffer or middleground pass that overruns the paced lane reads as a breached
-    // span parked beside its own refusals, so a page that carried zero elapsed evidence now measures every draw.
     private Fin<DrawReceipt> Project(
         RealtimeEnginePlan plan, DisplayPipeline pipeline, ConduitPhase phase, Func<ConduitFrame, Fin<Seq<DisplayMark>>> project) {
         RealtimeEngine self = this;
@@ -1548,8 +1369,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
                 Op.SideWhen(measured.Span.Breached, () => ignore(self.Observe(new RenderFault.HostRefused(
                     Key: self.key, Member: nameof(Project), Detail: $"{phase.Key} overran {measured.Span.Overrun}")))),
                 measured.Value).Item2)
-            // A capability-illegal mark is a REFUSAL row on the receipt, not a rail failure — the draw ran, some marks
-            // did not — so each cause parks and the receipt still crosses with its own counts intact.
             .Map(receipt => (receipt.Refused.Iter(cause => ignore(Observe(cause))), receipt).Item2);
     }
 
@@ -1591,9 +1410,6 @@ public abstract class RealtimeEngine : RealtimeDisplayMode {
     private Unit Observe(Error failure) => ignore(faults.Park(item: failure));
 }
 
-// Host truth: the host activates the manager itself and keeps every instance in a private serial-keyed table, so the
-// live one is unreachable from here — `RenderEngineId` is the one member registration is guaranteed to call on the
-// instance it activated, and it seats that instance here, which is why `Notify` can find a host at all.
 public static class LightAuthorities {
     private static readonly SeatRegistry<LightAuthorityProgram> Seats = new(Op.Of(name: nameof(LightAuthorities)));
     private static readonly Atom<HashMap<Guid, LightAuthorityHost>> Hosts = Atom(HashMap<Guid, LightAuthorityHost>());
@@ -1613,18 +1429,11 @@ public static class LightAuthorities {
                select claimed.Token;
     }
 
-    // Retirement drops BOTH rows the engine seated — the program the token claims and the host `RenderEngineId` seated
-    // beside it — because a surviving host row answers `Notify` for a program that no longer exists, and a surviving
-    // program answers host callbacks for an engine that has retired. The host publishes no light-manager unregister,
-    // so the SEAT is what retires.
     public static Fin<Unit> Unregister(Guid engine, SeatToken token, Op? key = null) {
         Op op = key.OrDefault();
         return Seats.Retire(engine, token, () => Fin.Succ(ignore(Hosts.Swap(rows => rows.Remove(engine)))), op);
     }
 
-    // Keyed on the engine exactly as `Answer` is, so the one egress needs no instance the corpus cannot supply. Host
-    // truth: `OnCustomLightEvent` forwards only the document serial and the event selector to native and never reads
-    // the `ref Light`, so the carrier satisfies the signature and no light payload crosses.
     public static Fin<Unit> Notify(DocumentSession session, Guid engine, LightChange change, Op? key = null) {
         Op op = key.OrDefault();
         return from source in Optional(session).ToFin(Fail: op.MissingContext())
@@ -1641,8 +1450,6 @@ public static class LightAuthorities {
                select unit;
     }
 
-    // The ONE resolve rail every host override rides: the program, the detached key, and the body settle together,
-    // and a refusal parks before the host's own scalar answers.
     internal static TOut Answer<TOut>(Guid engine, RhinoDoc document, Func<LightAuthorityProgram, DocKey, Fin<TOut>> body, TOut fallback) =>
         (from program in Seats.Find(engine).ToFin(Fail: new RenderFault.SeatAbsent(Key: Seats.Anchor, Engine: engine))
          from key in DocKey.Of(document, Seats.Anchor)
@@ -1660,15 +1467,13 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 
     public sealed override Guid PluginId() => Plugin;
 
-    // Registration calls this on the instance it activated, so it is the one seam that can hand the live host back to
-    // the engine-keyed registry `Notify` reads; the seat is idempotent and never re-keys.
     public sealed override Guid RenderEngineId() {
         _ = LightAuthorities.Seat(engine: Engine, host: this);
         return Engine;
     }
 
     public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) {
-        LightArray target = light_array;                                     // Exemption: host ref/out fill members are the platform-forced statement seam
+        LightArray target = light_array;
         _ = LightAuthorities.Answer(Engine, doc,
             (program, key) => program.Roster(key).Map(rows => rows.Fold(unit, (_, row) => {
                 target.Append(row);
@@ -1677,8 +1482,6 @@ public abstract class LightAuthorityHost : LightManagerSupport {
             fallback: unit);
     }
 
-    // `Op.Settle` is the ONE `ref`-slot write: a `ref` override cannot capture its slot in a lambda (CS1628), so the
-    // rail's outcome lands through the kernel receiver and a refusal leaves the slot exactly as the host left it.
     public sealed override bool LightFromId(RhinoDoc doc, Guid uuid, ref Light light) => Op.Settle(
         slot: ref light,
         outcome: LightAuthorities.Answer(Engine, doc,
@@ -1771,9 +1574,7 @@ public abstract class LightAuthorityHost : LightManagerSupport {
 - Packages: `api-rhinocommon-render.md` (`PostEffect`, `PostEffectPipeline`, `PostEffectChannel`, `PostEffectState`, `PostEffectUI`, `CustomPostEffectAttribute`, `PostEffectUuids`, `PostEffectExecutionControl`, `RenderTexture`, `TextureEvaluator`, `RenderWindow.Channel`/`ChannelGPU`); `api-rhinocommon-rendersettings.md` (`PostEffectCollection`, `PostEffectData` cursor semantics); `api-rhinocommon-rendercontent.md` (`SimulatedTexture`, `RenderContent.ChangeContexts`); `api-rhinocommon-display.md` (`DisplayTechnology`); kernel `Numerics/atoms` (`PerceptualColor`, `RgbTransfer`, `GamutPolicy`, `UnitInterval`, `Dimension`), `Domain/validation` (`CapabilitySet`, `Op.Row`, `Op.Settle`), `Domain/rails` (`Op`, `Lease`); `Render/content.md` (`ContentRef`, `ChangeReason`); kernel `Domain/rails` (`Custody`); NodaTime (`Duration`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Keyed on the host enum, so the read is `key.Row<PostEffects.PostEffectType, EffectStage>` and the hand
-// `Items.Find` scan the roster once carried deletes.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<PostEffects.PostEffectType>]
 public sealed partial class EffectStage {
     public static readonly EffectStage Early = new(key: PostEffects.PostEffectType.Early);
@@ -1781,9 +1582,6 @@ public sealed partial class EffectStage {
     public static readonly EffectStage Late = new(key: PostEffects.PostEffectType.Late);
 }
 
-// Host truth: `Never` and `None` share an ordinal, so the roster carries one row per DISTINCT timing. `Controlled` is
-// the only row a registered `PostEffectExecutionControl` decides for — every other row runs on the host's cadence,
-// which is what makes `EffectHost.Timing` the gate law's producer rather than prose.
 [SmartEnum<PostEffects.PostEffectExecuteWhileRenderingOptions>]
 public sealed partial class EffectTiming {
     public static readonly EffectTiming Never = new(key: PostEffects.PostEffectExecuteWhileRenderingOptions.Never, gated: false);
@@ -1794,8 +1592,6 @@ public sealed partial class EffectTiming {
     public bool Gated { get; }
 }
 
-// The two axes the SETTINGS cursor publishes and the only two it can write. `IsSelected` and `CanDisplayHelp` are
-// `PostEffect` members a settings walk never holds, so they are not census axes; selection rides the roster.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EffectDisplay : ICapability<EffectDisplay> {
@@ -1815,7 +1611,6 @@ public sealed partial class GpuTechnology {
 
 [SmartEnum<int>]
 public sealed partial class BuiltinEffect {
-    // Host truth: every row below is a get-only property over the native id table, so the read defers behind the delegate column.
     public static readonly BuiltinEffect Glare = new(key: 0, static () => PostEffects.PostEffectUuids.Glare);
     public static readonly BuiltinEffect Bloom = new(key: 1, static () => PostEffects.PostEffectUuids.Bloom);
     public static readonly BuiltinEffect Glow = new(key: 2, static () => PostEffects.PostEffectUuids.Glow);
@@ -1844,13 +1639,10 @@ public sealed partial class BuiltinEffect {
 
     public Fin<EffectId> Address(Op? key = null) => key.OrDefault().Catch(() => Fin.Succ(EffectId.Create(Uuid())));
 
-    // The census composes this on EVERY row, so a shipped effect and a plug-in's own are distinguishable off the fact
-    // rather than through a second table a consumer would keep by hand.
     internal static Option<BuiltinEffect> Named(EffectId effect) =>
         toSeq(Items).Find(row => row.Uuid() == effect.Value);
 }
 
-// A parameter NAME is an admitted token, not a bare string the host re-parses at every call site.
 [ValueObject<string>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError]
@@ -1861,9 +1653,6 @@ public readonly partial struct EffectField {
     }
 }
 
-// A parameter VALUE is a closed vocabulary, never `object`. Host truth bounds it: `GetParameter` answers
-// `IConvertible`, which carries no colour, so a colour parameter rides its packed ARGB word and `PerceptualColor`
-// owns both legs — the erased `object` the old surface threaded had no reader naming what it held.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EffectValue {
     private EffectValue() { }
@@ -1881,8 +1670,6 @@ public abstract partial record EffectValue {
         text: static (_, row) => Fin.Succ<object>(row.Value.Resolve()),
         colour: static (op, row) => row.Value.ToArgb(key: op).Map(static packed => (object)packed));
 
-    // The host answers `IConvertible`, so the case is recovered from the runtime type and an unmapped one refuses
-    // rather than crossing as a box no consumer can open.
     internal static Fin<EffectValue> Of(IConvertible held, Op key) => held switch {
         bool flag => key.Row<bool, SwitchState>(candidate: flag).Map(static row => (EffectValue)new Flag(row)),
         int whole => Fin.Succ<EffectValue>(new Whole(whole)),
@@ -1895,7 +1682,6 @@ public abstract partial record EffectValue {
     };
 }
 
-// A texture id is live only while its owning `ChannelGPU` is: the union is a BORROW payload, never a detached result.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GpuHandle {
     private GpuHandle() { }
@@ -1904,8 +1690,6 @@ public abstract partial record GpuHandle {
     public sealed record UnbackedCase(GpuTechnology Technology) : GpuHandle;
 }
 
-// The borrow's intent as a CASE: `(write: false, commit: true)` — reading a channel and then committing it — was a
-// reachable corner the pair admitted, and the union forecloses it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record ChannelLease {
     private ChannelLease() { }
@@ -1941,8 +1725,6 @@ public abstract partial record PostEffectOp : IValidityEvidence {
     private PostEffectOp() { }
     public sealed record CensusCase : PostEffectOp;
     public sealed record DisplayCase(EffectId Effect, CapabilitySet<EffectDisplay> State) : PostEffectOp;
-    // Host truth: `Guid.Empty` for `id_before` moves the effect to the END, so the anchor's ABSENCE is the tail
-    // request and a caller never spells a sentinel guid to mean "last".
     public sealed record ReorderCase(EffectId Move, Option<EffectId> Before) : PostEffectOp;
     public sealed record SelectCase(EffectStage Stage, EffectId Effect) : PostEffectOp;
     public sealed record TuneCase(EffectId Effect, EffectField Field, EffectValue Value) : PostEffectOp;
@@ -1975,8 +1757,6 @@ public abstract partial record PostEffectOp : IValidityEvidence {
                                            success: data.SetParameter(param_name: row.Field.Value, param_value: native)))
                                        select written);
 
-    // Host truth: `PostEffectDataFromId` constructs a cursor unconditionally and never answers null, so admission is
-    // the cursor's FIRST member read — which throws when the id names no row — and a null-probe is dead code.
     private static Fin<PostEffects.PostEffectData> Data(PostEffects.PostEffectCollection collection, EffectId effect, Op key) =>
         key.Catch(() => {
             PostEffects.PostEffectData cursor = collection.PostEffectDataFromId(id: effect.Value);
@@ -1992,8 +1772,6 @@ public sealed partial class TextureEvaluation : ICapability<TextureEvaluation> {
     public static readonly TextureEvaluation Adjustment = new(key: "adjustment", native: RenderTexture.TextureEvaluatorFlags.DisableAdjustment);
     public static readonly TextureEvaluation ProjectionChange = new(key: "projection-change", native: RenderTexture.TextureEvaluatorFlags.DisableProjectionChange);
 
-    // Host truth: the flag word is the DISABLE set, so a held row SUPPRESSES the axis it names and `Normal` is the
-    // empty set — a roster spelled as enablement would invert every call site.
     internal RenderTexture.TextureEvaluatorFlags Native { get; }
 }
 
@@ -2004,9 +1782,7 @@ public sealed partial class TextureGenerationUse {
     public static readonly TextureGenerationUse Skip = new(key: RenderTexture.TextureGeneration.Skip);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// RENAMED from `PostEffectState`: the prelude imports `Rhino.Render`, whose `PostEffects.PostEffectState` is the host
-// state bag — a bare local of that name is the in-assembly STRATA_TWIN the rename closes.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct EffectFact(
     EffectId Id,
     EffectStage Stage,
@@ -2045,9 +1821,6 @@ public abstract partial record TextureBake : IValidityEvidence {
         liveCase: static row => ValidityClaim.All(row.Texture is not null),
         bakedCase: static row => ValidityClaim.All(row.Texture is not null, row.Size.Value > 0, row.Subject != Guid.Empty));
 
-    // The one texture entry: content resolves inside the demand, the live evaluator is INITIALIZED before the body
-    // sees it, and the baked arm takes the host's RETURN-shaped `SimulatedTexture` sibling, so no `ref`-fill and no
-    // `null!` seed exists. Either resource disposes before the detached result crosses.
     public Fin<TOut> Evaluate<TOut>(
         DocumentSession session,
         Func<TextureEvaluator, Fin<TOut>> live,
@@ -2099,24 +1872,17 @@ public abstract partial record TextureBake : IValidityEvidence {
         select texture;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// EXTENT-BOUND by construction. Host truth: `GetValues` validates its rectangle against the framebuffer and fails
-// when it does not fit, while `GetValue`/`SetValue`/`AddValue` validate NEITHER coordinate — so every member gates
-// its offset here first and the read runs through the validating member over a one-pixel rectangle.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ChannelView {
     private readonly RenderWindow.Channel channel;
     private readonly Op key;
 
-    // `RenderWindow.Channel` publishes no extent — `Width`/`Height` are `ChannelGPU` members — so the frame extent
-    // and the pass's component order both enter from the pass.
     internal ChannelView(RenderWindow.Channel channel, Size2i extent, ChannelOrder order, Op key) =>
         (this.channel, Extent, Order, this.key) = (channel, extent, order, key);
 
     public Size2i Extent { get; }
     public ChannelOrder Order { get; }
 
-    // The framebuffer's own regime: LINEAR scene-referred radiometry, so the raw quad is the fast lane a pixel loop
-    // reads and nothing converts per texel.
     public Fin<Color4f> Read(Offset2i at) =>
         Block(origin: at, extent: Size2i.Create(width: 1, height: 1)).Bind(values => values.Span switch {
             [float r, float g, float b, float a] => Fin.Succ(new Color4f(r, g, b, a)),
@@ -2126,8 +1892,6 @@ public sealed class ChannelView {
                 Key: key, Member: nameof(RenderWindow.Channel.GetValues), Detail: Order.Key.ToString())),
         });
 
-    // The VALUE crossing: the framebuffer is scene light, so the transfer row names `Linear` and the kernel owner
-    // carries every perceptual question from here on.
     public Fin<PerceptualColor> Sample(Offset2i at) =>
         Read(at).Bind(quad => PerceptualColor.OfHost(host: quad, transfer: RgbTransfer.Linear, key: key));
 
@@ -2141,8 +1905,6 @@ public sealed class ChannelView {
 
     public Fin<Unit> Accumulate(Offset2i at, PerceptualColor value) => Lowered(value).Bind(quad => Accumulate(at, quad));
 
-    // The bulk read: the ORDER sizes the buffer, so a three-component order over an RGBA channel allocates three
-    // floats per pixel and the zero-length array once handed to the host `ref`-fill has no spelling left.
     public Fin<ReadOnlyMemory<float>> Block(Offset2i origin, Size2i extent) =>
         from _ in Within(origin)
         from __ in guard(
@@ -2178,8 +1940,6 @@ public sealed class EffectStateBag {
 
     internal EffectStateBag(PostEffects.PostEffectState state, Op key) => (this.state, this.key) = (state, key);
 
-    // `Op.Probe` is the ONE `bool Try*(out T)` lift: absence is ordinary here, so it lands as `Option` and no hand
-    // out-param dance exists on the page.
     public Fin<Option<T>> Read<T>(EffectField field) => key.Catch(() =>
         Fin.Succ(Op.Probe<T>((out T held) => state.TryGetValue(name: field.Value, vValue: out held))));
 
@@ -2200,14 +1960,10 @@ public sealed class EffectPass {
         pipeline.Dimensions() is var frame ? Size2i.Of(width: frame.Width, height: frame.Height, key: key) : Fin.Fail<Size2i>(key.InvalidResult()));
     public bool GpuAllowed => pipeline.GPUAllowed;
     public bool Rendering => pipeline.IsRendering;
-    // The render session this pass belongs to: a chain step that spans several effects keys its own state on it, and
-    // without it an effect could not tell one render's pass from the next's.
     public Fin<Guid> Session => key.Catch(() => Fin.Succ(pipeline.RenderingId));
     public Fin<float> PeakLuminance => key.Catch(() => Fin.Succ(value: pipeline.GetMaxLuminance()));
     public Fin<Seq<EffectId>> Order => key.Catch(() => Fin.Succ(value: toSeq(pipeline.ExecutionOrder()).Map(EffectId.Create)));
 
-    // The host publishes the chain's clock as a millisecond pair, so the span is one NodaTime `Duration` and a
-    // consumer never subtracts two `ulong`s at its own call site; `Restart` re-seats the start the host reads back.
     public Fin<Duration> Elapsed => key.Catch(() => Fin.Succ(Duration.FromMilliseconds(
         (double)pipeline.GetEndTimeInMilliseconds() - pipeline.GetStartTimeInMilliseconds())));
 
@@ -2221,12 +1977,9 @@ public sealed class EffectPass {
     public Fin<TOut> Read<TOut>(RenderChannel channel, Func<ChannelView, Fin<TOut>> borrow, Op? key = null) =>
         Borrowed(channel, new ChannelLease.Reading(), borrow, key ?? this.key);
 
-    // `Commit` alone replaces the written channel's id in the chain, so a failed body leaves the prior channel standing.
     public Fin<Unit> Write(RenderChannel channel, Func<ChannelView, Fin<Unit>> body, Op? key = null) =>
         Borrowed(channel, new ChannelLease.Writing(), body, key ?? this.key);
 
-    // A texture id outlives nothing: the handle is borrowed inside the `ChannelGPU` bracket and only the body's own
-    // value crosses out.
     public Fin<TOut> Handle<TOut>(RenderChannel channel, Func<GpuHandle, Fin<TOut>> borrow, Op? key = null) {
         Op op = key ?? this.key;
         return guard(GpuAllowed, op.InvalidContext()).ToFin().Bind(_ => op.Catch(() => {
@@ -2264,8 +2017,6 @@ public sealed class EffectPass {
         }));
     }
 
-    // Host truth: the progress report is the cancellation channel — a refused report is the user's cancel and halts
-    // the pixel loop through the rail.
     public Fin<Unit> Advance(Rasm.Numerics.Dimension rows, Op? key = null) {
         Op op = key ?? this.key;
         return op.Catch(() => Op.Side(() => ((IProgress<int>)pipeline).Report(value: rows.Value)));
@@ -2288,9 +2039,6 @@ public sealed class EffectPass {
         }));
 }
 
-// Each concrete subclass declares stage, name, styles, timing, and delay on its own `[CustomPostEffect]` attribute,
-// which the host reads at construction, so this base holds behavior alone and a subclass adds only that attribute and
-// its program field.
 public abstract class EffectHost : PostEffects.PostEffect {
     private readonly EffectProgram program;
     private readonly Ring<Error> faults = new(cap: DisplayFaults.Cap);
@@ -2302,16 +2050,12 @@ public abstract class EffectHost : PostEffects.PostEffect {
     public Seq<Error> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    // The gate law's PRODUCER: only a `Controlled` declaration hands its per-frame decision to a registered control,
-    // so a consumer proves which effects `[02]`'s job gate decides for instead of reading prose.
     public EffectTiming Timing => Observe(
         key.Row<PostEffects.PostEffectExecuteWhileRenderingOptions, EffectTiming>(candidate: ExecuteWhileRenderingOption),
         EffectTiming.Always);
 
     public override Guid[] RequiredChannels => toSeq(program.Required.Held).Map(static row => row.Id).ToArray();
 
-    // The admit predicate runs before the host supplies a rectangle, so the frame it sees is the pipeline's own
-    // declared extent — a fabricated 1x1 origin-anchored rect would be a value no producer measured.
     public override bool CanExecute(PostEffects.PostEffectPipeline pipeline) => program.Admits.Match(
         Some: admits => Accept(Frame(pipeline).Bind(rect => Pass(pipeline, rect)).Bind(admits)),
         None: () => true);
@@ -2330,8 +2074,6 @@ public abstract class EffectHost : PostEffects.PostEffect {
     public override void ResetToFactoryDefaults() =>
         ignore(Accept(Amended(ChangeReason.Program, () => key.Catch(program.Reset)).Map(static _ => true)));
 
-    // `Op.Settle` is the ONE `ref`-slot write: the rail's outcome lands through the kernel receiver, so the hand
-    // `object? read = null` / `v = found ? read! : v` dance and its `null!` have no spelling left.
     public override bool GetParam(string param, ref object v) {
         Fin<object> resolved =
             from field in key.AcceptValidated<EffectField>(candidate: param)
@@ -2348,8 +2090,6 @@ public abstract class EffectHost : PostEffects.PostEffect {
         from held in v is IConvertible convertible
             ? EffectValue.Of(convertible, key)
             : Fin.Fail<EffectValue>(new RenderFault.HostRefused(Key: key, Member: nameof(SetParam), Detail: param))
-        // A parameter write is a CONTENT MUTATION: the host content protocol brackets it, so every dependent content
-        // learns the change instead of reading a stale cache the effect silently outran.
         from written in Amended(ChangeReason.Program, () => key.Catch(() => program.Tune(field, held)))
         select true);
 
@@ -2360,9 +2100,6 @@ public abstract class EffectHost : PostEffects.PostEffect {
         Some: show => Accept(key.Catch(show).Map(static _ => true)),
         None: static () => false);
 
-    // The host change protocol as ONE bracket: the scope opens, the body runs, and the close AND the announce both
-    // run even when the body refused, aggregating through `Custody` — an effect that mutates without closing its
-    // scope leaves the RDK holding an open change for the session's life.
     private Fin<Unit> Amended(ChangeReason reason, Func<Fin<Unit>> body) =>
         from _ in key.Catch(() => Op.Side(() => BeginChange(changeContext: reason.Native)))
         from settled in body().Rollback(() => key.Catch(() => Op.Side(() => ignore(EndChange()))), key)
@@ -2373,8 +2110,6 @@ public abstract class EffectHost : PostEffects.PostEffect {
             key)
         select closed;
 
-    // The host publishes its own frame extent, so a pass minted without a supplied rectangle reads that rather than a
-    // fabricated one — the same read `EffectPass.Frame` performs.
     private Fin<System.Drawing.Rectangle> Frame(PostEffects.PostEffectPipeline pipeline) =>
         Optional(pipeline).ToFin(Fail: key.MissingContext()).Bind(active => key.Catch(() =>
             active.Dimensions() is var frame && frame.Width > 0 && frame.Height > 0
@@ -2394,9 +2129,6 @@ public abstract class EffectHost : PostEffects.PostEffect {
         Fail: failure => (ignore(faults.Park(item: failure)), fallback).Item2);
 }
 
-// Host truth: `RegisterPostEffectExecutionControl` calls `Detach()` itself, so registration transfers the native
-// control to the window and the host retains only a WEAK reference to this instance — `[02]`'s `RenderJob` holds the
-// strong one for the job's lifetime, because a collected gate silently answers `false` for every effect.
 internal sealed class PostEffectGate : PostEffects.PostEffectExecutionControl {
     private readonly Func<EffectId, Fin<bool>> decide;
     private readonly Func<Error, Unit> reject;
@@ -2411,7 +2143,7 @@ internal sealed class PostEffectGate : PostEffects.PostEffectExecutionControl {
             Fail: failure => (reject(failure), false).Item2);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Effects {
     public static Fin<EffectRegistry> Register(EffectSource source, Op? key = null) {
         Op op = key.OrDefault();
@@ -2432,7 +2164,6 @@ public static class Effects {
                            .Bind(_ => Roster(collection: collection, op: op));
                    }),
                    key: op,
-                   // The need set derives from the case shapes, never a caller flag: a census-only batch stays read-only.
                    needs: ops.Exists(static row => row.Mutates)
                        ? [SessionNeed.Read, SessionNeed.Mutate]
                        : [SessionNeed.Read])
@@ -2447,8 +2178,6 @@ public static class Effects {
             .ToHashMap()))
         select new EffectRoster(Rows: rows.Strict(), Selected: selected);
 
-    // The collection owns every row and each `PostEffectData` is a non-owning cursor with an inert disposal, so the
-    // walk projects and never disposes; each row's own `DataCRC` rides the projection as the change key a diff folds.
     private static Fin<EffectFact> Detached(PostEffects.PostEffectData data, Op op) => op.Catch(() =>
         from stage in op.Row<PostEffects.PostEffectType, EffectStage>(candidate: data.Type)
         from name in op.AcceptText(value: data.LocalName)
@@ -2464,9 +2193,6 @@ public static class Effects {
             Digest: data.DataCRC(current_remainder: 0u)));
 }
 
-// The authoring half's own producer: a concrete effect is exactly this shape — one `[CustomPostEffect]` declaring
-// stage, name, styles, and timing, one program field, and nothing else. Attribute arguments are compile-time
-// constants, so the host enum literals are spelled HERE and nowhere else; `Timing` reads them back as a row.
 [PostEffects.CustomPostEffect(
     postEffectType: PostEffects.PostEffectType.Late,
     name: "<effect-name>",
@@ -2525,9 +2251,7 @@ public sealed class ChannelEffect() : EffectHost(program: Program) {
 - Packages: `api-rhinocommon-render-realtime.md` (`ChangeQueue` and its 17 `Apply*` hooks, the notify bracket, the policy overrides, the `GetQueue*` pulls, the CRC resolvers, every payload column); `api-bcl-channels.md` (`CreateBounded`, `DropOldest`, `SingleReader`, the drop observer); kernel `Meshing/mesh` (`MeshSpace`), `Spatial/reconciliation` (`Reconciliation`, `ReconcileOp`, `EncodeForm`, `GeometryHash`), `Drawing/pack` (`Encode`, `PackOp`, `PackPolicy`, `EncodedGeometry`), `Domain/rails` (`Lease`, `Cell`, `Transition`, `Op`), `Domain/hooks` (`Ring<T>`), `Domain/context` (`ModelUnit`, `Context`), `Analysis/query` (`Env`), `Interaction/dispatch` (`UiFault`, `DispatchLane`), `Parametric/projections` (`MonotonicTimeline`, `MonotonicStamp`); `Render/settings.md` (`RenderConfig`, `WorkflowEvidence`, `EnvironmentRole`), `Render/content.md` (`ContentRef`, `HashProbe`), kernel `Domain/rails` (`Custody`), `Display/draw.md` (`Canvas`, `DisplayMark`, `Marks.Paint`, `ShadedMaterial`, `SpriteSheet`), `Display/modes.md` (`Appearance`, `HostRow<TNative>`); Riok.Mapperly for `QueueMap`.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The bake axes as an admitted vocabulary: `CapabilitySet<BakeAxis>.Mask` folds the host flag word, so the hand
-// `FrozenSet` + `Fold` pair and the `(BakingFunctions)axis.Key` cast both delete.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BakeAxis : ICapability<BakeAxis> {
@@ -2541,9 +2265,6 @@ public sealed partial class BakeAxis : ICapability<BakeAxis> {
     internal Cq.ChangeQueue.BakingFunctions Bit { get; }
 }
 
-// The three independent host participation switches the queue's own constructors and one override read. `Live` and
-// `Preview` are the canonical rows, so the `= true`/`= false` default arguments that encoded those decisions at a
-// call site are gone; `OriginalObjects` is what makes `Mesh.Object`/`Attributes` readable at all.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class QueueTrait : ICapability<QueueTrait> {
@@ -2552,8 +2273,6 @@ public sealed partial class QueueTrait : ICapability<QueueTrait> {
     public static readonly QueueTrait OriginalObjects = new(key: "original-objects");
 }
 
-// The ground's two remaining switches as one column. Both corners of the pair are legal by host truth — a shadow-only
-// ground can still show its underside — so the set carries no law and the absence is stated rather than fabricated.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GroundTrait : ICapability<GroundTrait> {
@@ -2577,8 +2296,6 @@ public abstract partial record QueueSource {
     internal sealed record PreviewCase(CreatePreviewEventArgs Args) : QueueSource;
 }
 
-// Host truth: `CreateWorld()` and `CreateWorld(bool)` differ only in whether the build flushes on completion, so the
-// flush is a `SwitchState` column on the one case rather than a second world verb.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record QueueDrive {
     private QueueDrive() { }
@@ -2588,8 +2305,6 @@ public abstract partial record QueueDrive {
     public sealed record MaterialsCase : QueueDrive;
 }
 
-// Request and answer are a strict pair over ONE total `Switch`, so a row added to either without its counterpart is
-// a compile break rather than a silent fork; the answer case names the question it settles.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScenePull {
     private ScenePull() { }
@@ -2612,9 +2327,7 @@ public abstract partial record ScenePulse : IDetachedDocumentResult {
     public sealed record GroundPulse(Option<GroundDelta> State) : ScenePulse;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The four host policy overrides the queue used to leave at their defaults, each OPTIONAL: absent means the host's
-// own default stands, which is a different fact from a program that answered.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BakeDemand(Guid Subject, uint Material, HostRow<TextureType> Slot);
 
 public readonly record struct ContentDigest(ContentRef Content, HashProbe Probe, WorkflowEvidence Workflow);
@@ -2637,8 +2350,6 @@ public sealed record QueuePolicy {
     public Option<Func<BakeDemand, Fin<Rasm.Numerics.Dimension>>> BakeSize { get; }
     public Option<Func<ContentDigest, Fin<uint>>> ContentDigest { get; }
 
-    // The two canonical postures: a live viewport queue announces its changes and reads the original objects its
-    // consumer needs, a preview queue neither notifies nor respects the display pipeline it never draws through.
     public static QueuePolicy Live(Rasm.Numerics.Dimension capacity) => new(
         capacity,
         CapabilitySet<BakeAxis>.None,
@@ -2666,8 +2377,6 @@ public sealed record QueuePolicy {
 
 public readonly record struct MappingSlot(int Channel, Transform Local, Option<TextureMapping> Mapping);
 
-// Host truth: `MappingChannelCollection` collapses a single channel onto `SingleMapping`, so the roster carries every
-// channel and a consumer wanting the collapse reads a one-row `Seq` instead of a second column that could disagree.
 
 
 public sealed record MeshPatch(GeometryHash Content, Lease<Mesh> Geometry, Option<EncodedGeometry> Residency);
@@ -2682,8 +2391,6 @@ public sealed record MaterialTouch(uint Material, uint MeshInstance, Seq<Guid> O
 
 public sealed record LightDelta(Guid Id, uint Crc, LightMotion Change, Lease<Light> Data);
 
-// `Enabled` is PRESENCE at the delta, so these carriers hold only measured values; `Crc` is the ground's change key
-// and the one payload with no id of its own, so dropping it left a consumer diffing eight columns by hand.
 public readonly record struct SkyDelta(SwitchState CustomEnvironment, double ShadowIntensity);
 
 public sealed record GroundDelta(
@@ -2695,8 +2402,6 @@ public sealed record GroundDelta(
     double TextureRotation,
     uint Crc);
 
-// `ClipViewports` names which viewports the plane CLIPS as opposed to which merely list it — two viewport rosters the
-// host publishes separately, and folding them lost the distinction the second one exists to draw.
 public sealed record ClipDelta(Guid Id, Plane Plane, SwitchState Enabled, Seq<Guid> Views, Seq<Guid> ClipViewports);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -2711,8 +2416,6 @@ public abstract partial record SceneDelta {
     public sealed record SunCase(Lease<Light> Sun) : SceneDelta;
     public sealed record MaterialCase(Seq<MaterialTouch> Touches) : SceneDelta;
     public sealed record SettingsCase(RenderConfig Config) : SceneDelta;
-    // Host truth: `DisplayRenderSettings`'s three getters THROW, so the payload is delivered and its reads are
-    // unresolved — the case carries the fact that display-render flags moved and nothing it cannot read.
     public sealed record DisplaySettingsCase : SceneDelta;
     public sealed record EnvironmentCase(Seq<EnvironmentRole> Roles) : SceneDelta;
     public sealed record SkylightCase(Option<SkyDelta> State) : SceneDelta;
@@ -2721,12 +2424,8 @@ public abstract partial record SceneDelta {
     public sealed record DynamicClipCase(Seq<ClipDelta> Changed) : SceneDelta;
     public sealed record WorkflowCase(WorkflowEvidence Evidence) : SceneDelta;
     public sealed record AttributesCase(Seq<Appearance> Concerns) : SceneDelta;
-    // The host's own dynamic-update announcement: a consumer switches to its low-latency path on this signal rather
-    // than inferring one from the arrival rate of motion deltas.
     public sealed record DynamicReadyCase : SceneDelta;
 
-    // Release is TOTAL over the family and names every case, so a new case carrying a lease breaks the fold loudly
-    // rather than leaking through a catch-all arm.
     internal Fin<Unit> Release(Op key) => Switch(
         state: key,
         viewCase: static (_, _) => Fin.Succ(unit),
@@ -2750,14 +2449,10 @@ public abstract partial record SceneDelta {
         dynamicReadyCase: static (_, _) => Fin.Succ(unit));
 }
 
-// The staging cell as a CLOSED family: every payload a caller needs rides the transition's own post-state, so the
-// three captured-local writes inside replayable swap bodies — each re-running on every CAS retry — delete whole.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record QueueCell {
     private QueueCell() { }
     internal sealed record Open(Seq<SceneDelta> Staged) : QueueCell;
-    // `Batch` is the cut the seal just took and `Staged` is what arrived during the cut, so a delta racing the seal
-    // lands in the NEXT batch instead of being dropped or double-released.
     internal sealed record Sealing(Seq<SceneDelta> Batch, Seq<SceneDelta> Staged) : QueueCell;
     internal sealed record Closed(Seq<SceneDelta> Stranded) : QueueCell;
 }
@@ -2770,17 +2465,11 @@ public sealed class SceneBatch : IDisposable {
     internal SceneBatch(Seq<SceneDelta> deltas, Option<MonotonicStamp> opened, Option<MonotonicStamp> sealedAt, ModelUnit units, Op key) =>
         (this.deltas, Opened, Sealed, Units, this.key) = (deltas, opened, sealedAt, units, key);
 
-    // Both stamps ride: the host brackets a flush with `NotifyBeginUpdates`/`NotifyEndUpdates`, so the BUILD SPAN is
-    // measurable and a consumer reads how long the scene took to converge rather than only when it stopped.
     public Option<MonotonicStamp> Opened { get; }
     public Option<MonotonicStamp> Sealed { get; }
-    // A PUBLIC detached result carries the regime its world-space geometry, altitudes, and bounds were measured in
-    // (branch RULINGS `[02]`) — a consumer rescaling without it relabels rather than converts.
     public ModelUnit Units { get; }
     public Rasm.Numerics.Dimension Count => Rasm.Numerics.Dimension.Create(value: deltas.Count);
 
-    // The borrow EXCLUDES release: the one-shot is a stepped transition, so a use after release reads a declined step
-    // rather than racing a flag, and a second release strands nothing twice.
     internal Fin<TResult> Use<TResult>(Func<Seq<SceneDelta>, Fin<TResult>> use, Op key) =>
         from _ in guard(!phase.Value.Closes, key.InvalidContext()).ToFin()
         from body in key.Need(use)
@@ -2798,9 +2487,7 @@ public sealed class SceneBatch : IDisposable {
 
 public readonly record struct QueueLoss(Option<MonotonicStamp> At, Rasm.Numerics.Dimension Deltas);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The generated host-payload projections: every pure-shape detach is one mapper row, so the hand copy bodies that
-// re-spelled column names by hand delete and a host column added upstream breaks the mapping loudly.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class QueueMap {
     [MapProperty(nameof(Cq.Skylight.UsesCustomEnvironment), nameof(SkyDelta.CustomEnvironment))]
@@ -2816,8 +2503,6 @@ internal static partial class QueueMap {
 
     internal static partial MappingSlot Detach(Cq.MappingChannel payload);
 
-    // The ground is the one payload a mapping row cannot reach: two host switches FOLD into one capability column,
-    // which is a computation over the whole source rather than a column correspondence.
     internal static GroundDelta Detach(Cq.GroundPlane payload) => new(
         Traits: (payload.IsShadowOnly ? CapabilitySet<GroundTrait>.Of(GroundTrait.ShadowOnly) : CapabilitySet<GroundTrait>.None)
             is var held && payload.ShowUnderside ? held.With(GroundTrait.Underside) : held,
@@ -2838,7 +2523,7 @@ internal static partial class QueueMap {
     private static Seq<Guid> Rows(Guid[] values) => toSeq(values).Strict();
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class SceneQueue : Cq.ChangeQueue {
     private static readonly Seq<(RenderEnvironment.Usage Bit, EnvironmentRole Role)> EnvironmentPolicy = [
         (RenderEnvironment.Usage.Background, EnvironmentRole.Background),
@@ -2871,16 +2556,12 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         (this.policy, this.timeline, this.units, this.context, this.key, lane) =
         (policy, timeline, units, context, key, Open(policy, timeline, losses, key));
 
-    // The mount-facing reader: `HostUi/shell.md`'s capsule publishes this beside the realtime engine plans as
-    // `ShellMount.Engines`, so the hand-off has one declared writer and one declared reader.
     public ChannelReader<SceneBatch> Deltas => lane.Reader;
 
     public Seq<Error> Faults => faults.Parked;
     public Seq<QueueLoss> Losses => losses.Parked;
     public long Shed => faults.Shed + losses.Shed;
 
-    // The regime arrives at the entry because the host's preview constructor reaches no document to read one from,
-    // and a batch that crosses without it cannot be rescaled by any consumer.
     public static Fin<SceneQueue> Of(
         QueueSource source,
         PlugIn owner,
@@ -2964,9 +2645,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                select pulse;
     }
 
-    // Every batch the reader held runs: a refused apply releases its own batch and its cause ACCUMULATES, so a
-    // residue sweep sees every outcome instead of halting on the first and stranding the rest with no owner. The
-    // whole drain is gauged, so a consumer that cannot keep up reads a breached span rather than a growing channel.
     public Fin<Rasm.Numerics.Dimension> Drain(Func<SceneBatch, Fin<Unit>> take, Option<Env> env = default, Op? key = null) {
         Op op = key.OrDefault();
         SceneQueue self = this;
@@ -2984,8 +2662,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                select applied;
     }
 
-    // Close steps the cell to `Closed`, whose POST-STATE carries the stranded set, so the drain of what was never
-    // sealed needs no captured local and a second close reads a declined step rather than stranding twice.
     public Fin<Unit> Close(Op? key = null) {
         Op op = key.OrDefault();
         SceneQueue self = this;
@@ -3055,8 +2731,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     protected override void ApplyMaterialChanges(List<Cq.Material> mats) => ignore(Stage(new SceneDelta.MaterialCase(
         Touches: toSeq(mats).Map(payload => Touch(material: payload.Id, instance: payload.MeshInstanceId)).Strict())));
 
-    // The readable half of the settings pair: `Render/settings.md` owns the whole `RenderSettings` projection, so the
-    // configuration a render must match crosses through ITS reader rather than a second column roster minted here.
     protected override void ApplyRenderSettingsChanges(RenderSettings rs) => ignore(Observe(
         RenderConfig.Of(rs, key).Map(config => Stage(new SceneDelta.SettingsCase(Config: config)))));
 
@@ -3084,8 +2758,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             Removed: toSeq(deleted).Strict(),
             Upserted: toSeq(addedOrModified).Map(QueueMap.Detach).Strict())));
 
-    // A dynamic clip change is a DRAG-time signal a consumer answers with a cheaper path, so folding it into the
-    // batch case with an empty removal list erased which of the two hooks the host raised.
     protected override void ApplyDynamicClippingPlaneChanges(List<Cq.ClippingPlane> changed) =>
         ignore(Stage(new SceneDelta.DynamicClipCase(Changed: toSeq(changed).Map(QueueMap.Detach).Strict())));
 
@@ -3099,8 +2771,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         _ = opened.Swap(_ => timeline.Capture(key: key).ToOption());
     }
 
-    // The seal is a two-step transition whose FIRST post-state carries the cut: `Sealing` holds the batch beside the
-    // deltas that arrived during the cut, so nothing is dropped and nothing is copied out of a replayable swap body.
     protected override void NotifyEndUpdates() {
         base.NotifyEndUpdates();
         _ = Cell.Step(
@@ -3131,8 +2801,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             .Match(Succ: static value => value.Value, Fail: _ => base.BakingSize(obj, material, type)),
         None: () => base.BakingSize(obj, material, type));
 
-    // The digest program composes `Render/content.md`'s `HashProbe` — the folder's ONE content-hash axis owner — so a
-    // consumer states which axes it excludes as a row rather than re-spelling the host flag word here.
     protected override uint ContentRenderHash(RenderContent content, CrcRenderHashFlags flags, string excluded, LinearWorkflow lw) =>
         policy.ContentDigest.Match(
             Some: digest => Observe(
@@ -3156,8 +2824,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
                 SingleReader = true,
                 AllowSynchronousContinuations = false,
             },
-            // The drop observer RELEASES the evicted batch's native custody and receipts the loss, so back-pressure
-            // sheds leases instead of leaking them and the shed reads as a number.
             dropped => {
                 _ = dropped.Release();
                 _ = losses.Park(item: new QueueLoss(At: timeline.Capture(key: key).ToOption(), Deltas: dropped.Count));
@@ -3174,16 +2840,12 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             _ = batch.Release();
             _ = losses.Park(item: new QueueLoss(At: batch.Sealed, Deltas: batch.Count));
         });
-        // The cut CLOSES: whatever arrived during the seal becomes the next open batch, so a delta racing the write
-        // is carried rather than dropped.
         return ignore(Cell.Step(
             cell,
             static held => held is QueueCell.Sealing row ? Some<QueueCell>(new QueueCell.Open(row.Staged)) : None,
             key.InvalidContext()));
     }
 
-    // A delta staged into a closed or sealing cell lands where the transition says it does; a `Refused` step is the
-    // one arm that releases, so no delta is released twice and none is dropped without a receipt.
     private Transition<QueueCell> Stage(SceneDelta delta) {
         Transition<QueueCell> staged = Cell.Step(
             cell,
@@ -3205,8 +2867,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
         Func<Seq<TOut>, SceneDelta> project) =>
         ignore(Observe(DetachAll(source, detach, release)).Map(rows => Stage(project(rows.Strict()))));
 
-    // Reverse custody: a payload minted from an earlier one releases before it, and every release runs even when an
-    // earlier one refused — `Custody` is the package's ONE all-attempted release fold.
     private Fin<Seq<TOut>> DetachAll<TIn, TOut>(Seq<TIn> source, Func<TIn, Fin<TOut>> detach, Func<TOut, Fin<Unit>> release) =>
         source.Fold(
             Fin.Succ(Seq<TOut>()),
@@ -3231,7 +2891,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
 
     private Seq<SceneBatch> Taken() {
         Seq<SceneBatch> held = Seq<SceneBatch>();
-        while (lane.Reader.TryRead(out SceneBatch? batch)) {                    // Exemption: channel drain walks the reader's own terminal grammar
+        while (lane.Reader.TryRead(out SceneBatch? batch)) {
             held = held.Add(batch);
         }
         return held.Strict();
@@ -3266,9 +2926,6 @@ public sealed class SceneQueue : Cq.ChangeQueue {
             Patches: patches.Strict())))
         select delta;
 
-    // The ONE identity chain: duplicate into owned custody, admit as a `MeshSpace`, canonicalize through
-    // `EncodeForm`, digest through `Reconciliation`, and pack only when the policy carries a residency row. A
-    // refusal anywhere releases the duplicate through the same rollback rail every custody site uses.
     private Fin<MeshPatch> Patch(Mesh native) =>
         from geometry in key.Catch(() => Optional(native.Duplicate() as Mesh).ToFin(key.InvalidResult())
             .Map(static duplicate => (Lease<Mesh>)new Lease<Mesh>.Owned(Value: duplicate)))
@@ -3298,9 +2955,7 @@ public sealed class SceneQueue : Cq.ChangeQueue {
     }
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// The batch's one draw path: custody stays HELD across the projection, so a patch's leased mesh cannot be released
-// under the pipeline that is drawing it, and `Marks.Paint` is the same dispatcher every other Display surface uses.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class SceneMarks {
     public static Fin<DrawReceipt> Render(
         SceneBatch batch,

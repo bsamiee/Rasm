@@ -22,7 +22,7 @@ Machine telemetry enters through the AppHost decode lane; this page admits provi
 - Boundary: AppHost owns provider timestamp and enum conversion into `MachineObservationIngress`; consumers hold only admitted union cases. Condition severity keeps the normal edge because a fault episode closes on it — dropping normals leaves every episode open-ended.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
@@ -33,7 +33,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Kinematics;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ExecutionState {
     public static readonly ExecutionState Ready = new("ready", producing: false);
@@ -115,27 +115,17 @@ public abstract partial record MachineObservation {
                 unavailable: static _ => Fin.Succ(Option<MachineObservation>.None),
                 unsupported: static _ => Fin.Succ(Option<MachineObservation>.None)));
 
-    // ONE guard for every scalar the decode admits: the kernel `ValidityClaim` vocabulary decides each predicate,
-    // and this seam only chooses the refusal shape, because the fault is the PAGE's — a typed `PolicyInadmissible`
-    // naming which decoded stream refused, where the kernel guard raises its own scalar-range fault. Three hand
-    // predicates also re-spelled finiteness as `double.IsFinite`, which admits the host unset sentinel the kernel
-    // arm screens; every stream here is decoded shop data for which that value is garbage.
     private static Fin<T> Held<T>(ValidityClaim claim, T value, string locus) =>
         claim
             ? Fin.Succ(value)
             : Fin.Fail<T>(new KernelFault.InvalidValue("observation", locus));
 
-    // Trim-then-nonempty PRODUCES the trimmed value, and no kernel claim row answers over strings, so this one stays.
     private static Fin<string> Text(string value, string locus) =>
         Optional(value).Map(static row => row.Trim()).Filter(static row => row.Length > 0)
             .ToFin(new KernelFault.InvalidValue("observation", locus));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// Coherence is this window's own `IValidityEvidence` fold, so `Ceiling` states only what a fold cannot: whether a
-// READ instant falls inside the sampled span. Each column's `IsFinite`-and-positive pair becomes one
-// `ValidityClaim.Positive` row, and implementing the interface registers this window with the one acceptance oracle
-// rather than leaving it a shape nothing can admit.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct LoadWindow(
     double ObservedFraction,
     double TargetFraction,
@@ -156,8 +146,6 @@ public readonly record struct LoadWindow(
 
 [ComplexValueObject]
 public sealed partial class MachineObservations {
-    // The window is scoped to a physical STATION, so it keys on the S0 `MachineInstanceKey` the fleet registry, the
-    // plan step, and the schedule all key on; a bare string here forks that key space against every consumer.
     public MachineInstanceKey Instance { get; }
     public Seq<MachineObservation> Rows { get; }
     public Instant WindowEnd { get; }
@@ -165,8 +153,6 @@ public sealed partial class MachineObservations {
     public NodaTime.Interval Span => new(Rows.Head.Map(static row => row.At).IfNone(Instant.MinValue),
         WindowEnd);
 
-    // The most recent spindle-load ROW, read once: the fraction projection takes its value and the ceiling takes
-    // its instant too, so one reversal serves both rather than two walks of the same sequence.
     private Option<SpindleLoad> Latest =>
         Rows.Rev().Choose(static row => row is SpindleLoad load ? Some(load) : Option<SpindleLoad>.None).Head;
 
@@ -180,8 +166,6 @@ public sealed partial class MachineObservations {
     public Option<string> ToolNumber => Rows.Rev()
         .Choose(static row => row is ToolInSpindle tool ? Some(tool.ToolNumber) : Option<string>.None).Head;
 
-    // Producing time folds consecutive execution edges: each state holds until the next edge, and the tail
-    // state holds to the window end, so a window with one ACTIVE edge reads fully producing after it.
     public double ActiveFraction =>
         Rows.Choose(static row => row is Execution execution ? Some(execution) : Option<Execution>.None) is { IsEmpty: false } edges
             && (Span.End - Span.Start).TotalSeconds is > 0.0 and var total
@@ -190,8 +174,6 @@ public sealed partial class MachineObservations {
                 .Fold(0.0, static (sum, value) => sum + value) / total
             : 0.0;
 
-    // Each episode opens on a FAULT alarm and closes on the next non-faulted alarm sharing its condition id;
-    // an episode still open at the window end runs to that edge rather than dropping.
     public Seq<NodaTime.Interval> FaultEpisodes {
         get {
             (HashMap<string, Instant> Open, Seq<NodaTime.Interval> Closed) state = Rows
@@ -221,8 +203,6 @@ public sealed partial class MachineObservations {
                 .Filter(window => window.Ceiling(at).IsSome)
             : None;
 
-    // The key admitted at its own owner and the union hands non-null cases, so this gate decides the two invariants
-    // that remain its own: a window carries rows, and its end is not before the last row it holds.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,

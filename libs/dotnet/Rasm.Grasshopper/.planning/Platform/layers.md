@@ -24,7 +24,7 @@
 - Growth: a new layer family is one `LayerNode` case whose native payload enters through the same scope; a new style bit is one `LayerTrait` row; graph lookup, fencing, failure cleanup, and teardown never widen.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using AppKit;
@@ -40,14 +40,13 @@ using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Platform;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayerTrait : ICapability<LayerTrait> {
     public static readonly LayerTrait Clip = new(key: "clip");
     public static readonly LayerTrait Rounded = new(key: "rounded");
 
-    // Every corner is legal — a clipped rounded stroke and a bare layer are both real graphs.
     public static CapabilityLaw<LayerTrait> Law => CapabilityLaw<LayerTrait>.Open;
 }
 
@@ -69,9 +68,7 @@ public abstract partial record LayerNode {
         [property: OrderedEquality] Seq<LayerNode> Children) : LayerNode;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// EDGE is a pair, so a colour with no width and a width with no colour are unrepresentable; `Background` and
-// `StrokePlan.Interior` name the two fills apart, which the twin's shared `Fill` column could not.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayerStyle(
     CGRect Frame,
     Option<Lease<CGColor>> Background,
@@ -80,7 +77,6 @@ public sealed record LayerStyle(
     CapabilitySet<LayerTrait> Traits,
     Option<Lease<CALayer>> Mask);
 
-// Only what a shape ADDS to its style: the owned path, its interior fill, and its stroke edge.
 public sealed record StrokePlan(
     Lease<CGPath> Path,
     Option<Lease<CGColor>> Interior,
@@ -90,14 +86,12 @@ internal readonly record struct LayerEdge(CALayer Parent, CALayer Child);
 
 internal readonly record struct ViewBacking(NSView View, bool WantsLayer, CALayer? Layer);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class LayerMount : IDisposable {
     private readonly ViewBacking backing;
     private readonly LayerEdge[] edges;
     private readonly IDisposable[] owned;
     private readonly FaultCell faults;
-    // Kernel one-shot: a second release reads the step's `Refused` verdict, so the latch is a transition a
-    // caller can discriminate rather than an interlocked int racing the first.
     private readonly Atom<bool> released = Atom(false);
 
     internal LayerMount(
@@ -111,8 +105,6 @@ public sealed class LayerMount : IDisposable {
 
     public Fin<CALayer> Find(int ordinal, Op? key = null);
 
-    // Mount's own resize path: anchor bounds are a snapshot, so a resized canvas re-frames mounted ordinals
-    // through the same fenced mutation every other layer write rides.
     public Fin<Unit> Reframe(int ordinal, CGRect frame, Op? key = null) {
         Op op = key.OrDefault();
         return from layer in Find(ordinal: ordinal, key: op)
@@ -121,14 +113,10 @@ public sealed class LayerMount : IDisposable {
                select settled;
     }
 
-    // Detach edges reverse-order inside one Instant fence, restore backing, release owned natives reverse-order —
-    // every step runs, every refusal aggregates through `Error.Many`, and the whole inverse marshals once.
     public Fin<Unit> Release(Op? key = null);
     public void Dispose() => _ = Release();
 }
 
-// Build-time custody scope: owns until `Transfer`, then the mount owns. `ScopeCustody` names the handoff a
-// bare bool carried; inverse folds compose the kernel `Custody.Release` owner.
 internal sealed class NativeScope {
     [SmartEnum<int>]
     internal sealed partial class ScopeCustody {
@@ -147,11 +135,9 @@ internal sealed class NativeScope {
 
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class LayerPaint {
-    // Prefix-safe: a refused colour or path releases every lease already taken in the same call, and the release
-    // fault AGGREGATES into the refusal — the ruled posture, never `ignore`.
     public static Fin<LayerStyle> Plain(
         CGRect frame, Option<PerceptualColor> background, Option<(PerceptualColor Colour, NFloat Width)> edge,
         NFloat cornerRadius, CapabilitySet<LayerTrait> traits, Option<Lease<CALayer>> mask, Op? key = null);
@@ -175,9 +161,6 @@ public static class Compose {
                select settled;
     }
 
-    // One statement-shaped region this page admits: begin, posture write, body, commit — a sequence whose
-    // every step must run after an earlier one refused, which no fold or expression spine expresses. Contained
-    // here; no consumer writes one.
     internal static Fin<Unit> Fence(Action body, TransactionPosture posture, Option<Action> completed, Op key);
 }
 ```
@@ -189,12 +172,10 @@ public static class Compose {
 - Growth: a third posture is one row; the fence never widens.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Grasshopper.Platform;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Row carries its consequence: `DisableActions` is what the fence writes, so a consumer names the posture and
-// never re-derives the bool the host transaction takes.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TransactionPosture {
     public static readonly TransactionPosture Instant = new(key: 0, disableActions: true);
@@ -217,7 +198,7 @@ public sealed partial class TransactionPosture {
 - Growth: a new sampled modality is one kernel `MotionScript` case; this attachment inherits beat, posture, terminal, and verdict semantics with no arm of its own.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using AppKit;
 using CoreAnimation;
 using Foundation;
@@ -228,10 +209,8 @@ using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Platform;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class MotionAttachment : IDisposable {
-    // NSView.GetDisplayLink carries a macos14.0 availability floor the platform gate cannot see, so the
-    // attachment names its own version gate and refuses below it instead of throwing native.
     public static Fin<Lease<MotionAttachment>> Attach(
         MacAnchor anchor,
         MotionScript script,
@@ -243,8 +222,6 @@ public sealed class MotionAttachment : IDisposable {
 
     public void Dispose();
 
-    // One tick: advance the injected timeline, read the coherent workspace snapshot, retune only on a moved pace,
-    // sample the kernel fold, apply inside the Instant fence, and pause on the terminal or on any fault.
     private Fin<Unit> Tick(Op key) =>
         from beat in clock.Beat(seed: seed.Value, cadence: cadence, key: key)
         from fact in workspace.Value.ToFin(key.InvalidResult())
@@ -257,14 +234,10 @@ public sealed class MotionAttachment : IDisposable {
             body: () => apply(stepped.Sample), posture: TransactionPosture.Instant, completed: terminal, key: key)
         select stepped.Continues ? unit : ignore(Pause(key: key));
 
-    // Callback target's one binding seat: `Cell.Seat` refuses a second claim typed, so the run-loop attach
-    // and the resume both stay behind a target this attachment provably owns.
     private sealed class LinkTarget : NSObject {
         private readonly Atom<Option<Action>> tick = Atom(Option<Action>.None);
         internal static readonly Selector TickSelector = new("pacerTick:");
         internal Transition<Option<Action>> Bind(Action callback) => Cell.Seat(cell: tick, mint: () => callback);
-        // Take is the seat's inverse: the transition answers what was drained, so the release half rides on
-        // exactly the Cell custody the acquisition used.
         internal Transition<Option<Action>> Unbind() => Cell.Take(cell: tick);
         [Export("pacerTick:")]
         public void Tick(CADisplayLink _) => tick.Value.Iter(static callback => callback());
@@ -282,7 +255,7 @@ public sealed class MotionAttachment : IDisposable {
 - Growth: a new standard timing name is one `TimingCurve` row; a new host animation is one `GlidePlan` case on the one attachment lifecycle.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CoreAnimation;
 using Foundation;
 using Rasm.Domain;
@@ -291,9 +264,7 @@ using Thinktecture;
 
 namespace Rasm.Grasshopper.Platform;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Managed animation key admitted ONCE: `AddAnimation` and `RemoveAnimation` both read it, so neither entry
-// re-guards a raw string.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct GlideKey {
@@ -313,8 +284,6 @@ public sealed partial class TimingCurve {
     internal NSString Name { get; }
 }
 
-// Spring motion has ONE source — the kernel SpringShape mint — so a compositor-run spring is the SprungCase
-// projection of that shape, and TimedCase refuses a hand-authored CASpringAnimation at the attach.
 [Union]
 public abstract partial record GlidePlan {
     private GlidePlan() { }
@@ -322,7 +291,7 @@ public abstract partial record GlidePlan {
     public sealed record SprungCase(SpringShape Shape, string KeyPath, double From, double To, SettleBand Band, GlideKey Key) : GlidePlan;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class Glides {
     public static Fin<Unit> Animate(CALayer layer, GlidePlan plan, Op? key = null);
@@ -344,18 +313,16 @@ public static class Curves {
 - Growth: a new display profile is one kernel `RgbProfile` row and a new reproducibility domain one kernel `GamutPolicy` row; the projection is unchanged while the selected rows vary.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CoreGraphics;
 using Rasm.Domain;
 using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Platform;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class WideColor {
-    // Reproducibility domain rides the crossing because the wide-colour path is exactly where it changes the
-    // answer: a chroma the Display-P3 volume holds and sRGB does not renders differently per gamut row.
     public static Fin<Lease<CGColor>> ToLayer(PerceptualColor colour, Option<GamutPolicy> gamut = default, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in MacGate.Demand(key: op)

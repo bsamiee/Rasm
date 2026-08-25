@@ -22,7 +22,7 @@
 - Packages: Thinktecture.Runtime.Extensions carries the row vocabularies and their delegate columns; BCL frozen collections carry the derived indexes; `Domain/validation` carries `ICapability`/`CapabilitySet`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Linq;
@@ -35,7 +35,7 @@ using RhinoPoint = Rhino.Geometry.Point;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Topology {
     public static readonly Topology Unknown = new(key: 0, recover: static (source, key) => Normalization.UnsupportedGeometry(source: source, key: key));
@@ -59,8 +59,6 @@ public sealed partial class Topology {
 public sealed partial class Kind {
     public static readonly Kind Point = new(0, typeof(Point3d), Topology.Point,
         CapabilitySet<Capability>.Of(Capability.Bound, Capability.OrientedBound, Capability.ReadVertices), Some(ObjectType.Point),
-        // Each row keys on the VALUE shape while its native wrapper carries the same identity, so this is the
-        // one row whose bounds answer both shapes; `Of` patches the wrapper's type onto it for the same reason.
         static (value, key) => value switch {
             Point3d point => Fin.Succ(new BoundingBox(point, point)),
             RhinoPoint native => Fin.Succ(native.GetBoundingBox(accurate: true)),
@@ -180,8 +178,6 @@ internal sealed partial class Capability : ICapability<Capability> {
         static type => Universal(type: type) || ClosestTangent.Admits(type: type) || SurfaceForm.Admits(type: type));
     public static readonly Capability SignedDistance = new("signed-distance", FrozenSet<Type>.Empty,
         static type => type == typeof(Plane) || type == typeof(Sphere) || type == typeof(Box) || type == typeof(BoundingBox) || ClosestNormal.Admits(type: type));
-    // Declaration ordinal IS the rank, so the hand-written column deletes: `CapabilitySet.Wire` orders on it, and a
-    // reordered roster that must re-render every wire set had a mirror column to contradict instead.
     public int Rank => RankIndex.Value[Key];
     private static readonly Lazy<FrozenDictionary<string, int>> RankIndex = new(static () =>
         Items.Select(static (row, index) => (row.Key, Index: index)).ToFrozenDictionary(static pair => pair.Key, static pair => pair.Index, StringComparer.Ordinal));
@@ -195,8 +191,6 @@ internal sealed partial class Capability : ICapability<Capability> {
     internal static bool Universal(Type type) => type == typeof(object) || type == typeof(GeometryBase);
     internal static bool Coercible(Type source, Type target) =>
         Universal(type: source) || Kind.Of(type: source).Map(kind => kind.CanCoerceTo(target: target)).IfNone(target.IsAssignableFrom(c: source));
-    // `params ReadOnlySpan` forecloses LINQ, so the pair probe is the named kernel span exemption; the pair
-    // list is the caller's own admitted lattice, never a roster this vocabulary owns.
     internal static bool Native(Type type, Topology topology, params ReadOnlySpan<(Topology Topology, Type Native)> candidates) {
         foreach ((Topology candidate, Type native) in candidates) {
             if (candidate.Equals(topology) && native.IsAssignableFrom(c: type)) { return true; }
@@ -207,15 +201,10 @@ internal sealed partial class Capability : ICapability<Capability> {
     private static FrozenSet<Type> Set(params ReadOnlySpan<Type> natives) => natives.ToArray().ToFrozenSet();
 }
 
-// `IsClosed` is the universal column every case answers, threaded through the base positional parameter each
-// case constructor passes; a base member computed over same-named case payloads suppresses the case property
-// and silently drops the argument.
 [Union]
 public partial record CurveForm(bool IsClosed) {
     public sealed record LineCase(Line Value) : CurveForm(IsClosed: false);
     public sealed record CircleCase(Circle Value) : CurveForm(IsClosed: true);
-    // A full-circle arc IS closed and the value already carries that fact, so this case DERIVES its column where
-    // line, circle, and ellipse are structurally decided and read a constant.
     public sealed record ArcCase(Arc Value) : CurveForm(IsClosed: Value.IsCircle);
 
     public sealed record EllipseCase(Ellipse Value) : CurveForm(IsClosed: true);
@@ -238,7 +227,7 @@ public partial record CurveForm(bool IsClosed) {
 - Boundary: `GeometryRequest` stays in `Analysis/query`, evaluation and sampling in `Domain/evaluation`, and readiness in `Domain/validation`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using Generator.Equals;
 using LanguageExt;
@@ -249,9 +238,7 @@ using RhinoPoint = Rhino.Geometry.Point;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Declaration order is the INFERENCE order and it is load-bearing: `Box` precedes every surface row because a
-// boxy brep satisfies the plane probe on its first face and would infer as a plane if the plane row ran first.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 internal sealed partial class AnalyticForm {
     public static readonly AnalyticForm Line = new(
@@ -317,8 +304,6 @@ internal sealed partial class AnalyticForm {
     internal partial Option<object> Raise(GeometryBase native, Context context);
     internal static Seq<AnalyticForm> Lane(Topology topology) => toSeq(Items).Filter(row => row.Kind.Topology.Equals(topology));
     internal static Option<AnalyticForm> For(Kind kind) => toSeq(Items).Find(row => row.Kind.Equals(kind));
-    // Single-face breps are the analytic surface probes' real ingress: the untrimmed underlying surface answers
-    // every `TryGet*`, so one unwrap serves five rows instead of five identical brep arms.
     private static Option<Surface> Face(GeometryBase native) =>
         native switch {
             Brep { IsSurface: true, Faces.Count: > 0 } brep => Some((Surface)brep.Faces[0]),
@@ -327,16 +312,13 @@ internal sealed partial class AnalyticForm {
         };
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter]
 [Equatable]
 public sealed partial record TopologyProjection : IValidityEvidence, IDisposable {
     private static readonly Op Key = Op.Of(name: nameof(TopologyProjection));
     private readonly Lease<GeometryBase> value;
     private readonly bool detachedSingleFace;
-    // This face-to-brep bridge memoizes on the carrier so repeated `As<Brep>()` hands back one duplicate the
-    // carrier disposes; the write is what makes the carrier single-threaded, and it is excluded from equality
-    // because otherwise two projections over one face compare equal or unequal by whether `As<Brep>` ran.
     [IgnoreEquality]
     private Option<Lease<Brep>> faceBrep;
     private TopologyProjection(Lease<GeometryBase> value, ComponentIndex source, bool reversed, bool detachedSingleFace) {
@@ -357,13 +339,9 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
     public static Fin<TopologyProjection> Of(Mesh? mesh, ComponentIndex source) =>
         Optional(mesh).ToFin(Key.InvalidInput()).Bind(native =>
             Admitted(value: new Lease<GeometryBase>.Borrowed(Value: native), source: source, reversed: false, detachedSingleFace: false));
-    // `reversed` is the one caller-supplied column the value cannot reconstruct: a widened `Lease<GeometryBase>`
-    // may hold the brep a face belongs to, and orientation lives on the face the caller already resolved.
     public static Fin<TopologyProjection> Of(Lease<GeometryBase>? geometry, ComponentIndex source, bool reversed = false) =>
         Optional(geometry).ToFin(Key.InvalidInput()).Bind(lease =>
             Admitted(value: lease, source: source, reversed: reversed, detachedSingleFace: false));
-    // Refused carriers release what they already took: an owned lease minted for a projection nothing admits
-    // leaks, and a borrowed lease disposes as a no-op.
     private static Fin<TopologyProjection> Admitted(Lease<GeometryBase> value, ComponentIndex source, bool reversed, bool detachedSingleFace) {
         TopologyProjection projection = new(value: value, source: source, reversed: reversed, detachedSingleFace: detachedSingleFace);
         if (projection.IsValid) { return Fin.Succ(projection); }
@@ -373,8 +351,6 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
     public GeometryBase Value => value.Resource;
     public ComponentIndex Source { get; }
     public bool Reversed { get; }
-    // This detached clause carries the post-`DetachFrom` invariant: a severed face duplicates into a one-face brep, so the
-    // recorded face index no longer indexes the carrier and only the single-face identity proves it intact.
     public bool IsValid =>
         (Value, Source) switch {
             (Curve { IsValid: true }, _) => true,
@@ -450,7 +426,7 @@ public sealed partial record TopologyProjection : IValidityEvidence, IDisposable
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class Normalization {
     extension(object? geometry) {
@@ -460,7 +436,6 @@ internal static class Normalization {
                 (InferredKind(geometry: g, context: context) | NativeKind(geometry: g) | Kind.Of(type: g.GetType()))
                 .ToFin(key.InvalidInput()));
         }
-        // Kind resolves BEFORE the native borrow; a `GeometryBase` carrying no `Kind` row alone takes the un-rostered arm.
         public Fin<Lease<GeometryBase>> GeometryForm(Op key) =>
             Optional(geometry).ToFin(key.InvalidInput()).Bind(source => Kind.Of(type: source.GetType()).Case switch {
                 Kind kind => key.AcceptInput(value: source).Bind(value => kind.Topology.Recover(source: value, key: key)),
@@ -524,8 +499,6 @@ internal static class Normalization {
         lease.Switch(
             owned: static owned => (Lease<GeometryBase>)new Lease<GeometryBase>.Owned(Value: owned.Value),
             borrowed: static borrowed => (Lease<GeometryBase>)new Lease<GeometryBase>.Borrowed(Value: borrowed.Value));
-    // Reference geometry the host still owns crosses borrowed; a value shape reaching a native-only stratum has
-    // no form recovery and refuses typed, so one member answers both halves of every pass-through row.
     internal static Fin<Lease<GeometryBase>> BorrowedGeometry(object source, Op key) =>
         source is GeometryBase native
             ? Fin.Succ<Lease<GeometryBase>>(new Lease<GeometryBase>.Borrowed(Value: native))
@@ -552,8 +525,6 @@ internal static class Normalization {
             (_, GeometryBase native) => AnalyticForm.For(kind: kind).Bind(row => row.Raise(native: native, context: context)),
             _ => Option<object>.None,
         };
-    // Breps probe the brep lane BEFORE the surface lane, so a boxy single-face brep infers `Box` rather than the
-    // plane its first face also satisfies.
     private static Option<Kind> InferredKind(object geometry, Context context) =>
         geometry switch {
             Curve curve => Inferred(rows: AnalyticForm.Lane(topology: Topology.Curve), native: curve, context: context),

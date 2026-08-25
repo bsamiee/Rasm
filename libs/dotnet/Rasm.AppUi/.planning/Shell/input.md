@@ -21,9 +21,7 @@ One interaction rail owns gesture mechanics for every admitted surface: keyboard
 - Boundary: the command table owns the `Option<KeyGesture>` column as the only key table in the package and the deck's freeze-time conflict fold is the only conflict evidence — a second conflict fold or receipt shape here is the deleted pattern; that fold groups on scope plus chord, so cross-scope chord sharing is legal by law and the scope narrowing here is what keeps the binding table total instead of throwing on a Global-versus-Screen pair Freeze admitted; canonical gestures are authored with the control modifier and `CommandComposition.Chord` swaps it for the platform primary, so one authored chord serves every desktop and a policy-local chord transform beside it is the deleted form — the deck's own column is what `Claimants` and `Contests` already read, and a second transform would contest against a table the freeze never grouped. `Primary` survives as a PUBLISHED value rather than a private input: `Editing/forms#SELECTION_MODEL` reads it so shortcuts and modifier-clicks agree about the platform primary on every desktop. A `HostSurface.None` profile and the `SurfaceMount.Offscreen` mount pin the control modifier for deterministic specs and serialized parity; the panel mount holds the return key inside the shell instead of the host command line, and the host binds no return-key knob for it: a key event carried up a shown host window's responder chain reaches the embedded root as the tunnel-plus-bubble `KeyDown` pair and never reaches the host command prompt, so the shell's own binding table IS the panel row's return policy and `ApplyReturnPolicy` is the seam column that states the posture host-side rather than a key interceptor. The posture crosses as a ROW, never a bit — a bool on that column left each side to re-derive which of the two seats the raised flag meant, and the mount value already reconstructs the posture, so a stored `WantReturnInPanel` column was a knob the mount answered. Delivery itself needs a shown host window, because an unwindowed host view has no responder chain to carry the event at all, which is a mount-visibility fact the `SurfaceSeam.HostFacts` column already publishes, never a condition this rail probes; `KeyGesture` is value-equal with the `(Key, KeyModifiers)` constructor and `Parse`, and bindings attach as `KeyBinding` rows (`Gesture`, `Command`) in the surface root's `KeyBindings` collection.
 
 ```csharp signature
-// --- [TYPES] ---------------------------------------------------------------------------------
-// Where the return key lands, carried as the value the host seam takes. The panel mount holds it inside the
-// shell and every other mount leaves it to the host command line.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ReturnPosture {
@@ -31,14 +29,11 @@ public sealed partial class ReturnPosture {
     public static readonly ReturnPosture Host = new("host");
 }
 
-// --- [MODELS] --------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record GesturePolicy(
     KeyModifiers Primary,
     ReturnPosture Return,
     Func<ReturnPosture, Unit> ApplyReturnPolicy) {
-    // Two axis reads carry the posture the product names once fused: a surfaceless profile and an offscreen
-    // mount both pin the control modifier for deterministic specs and serialized parity, and the panel mount
-    // alone seats the return key in the shell.
     public static GesturePolicy For(ConsumptionProfile profile, SurfaceMount mount, Func<ReturnPosture, Unit> applyReturnPolicy) =>
         new(
             Primary: profile.Surface == HostSurface.None || mount is SurfaceMount.Offscreen || !OperatingSystem.IsMacOS()
@@ -47,12 +42,6 @@ public sealed record GesturePolicy(
             Return: mount is SurfaceMount.Panel ? ReturnPosture.Shell : ReturnPosture.Host,
             ApplyReturnPolicy: applyReturnPolicy);
 
-    // Scope IS the partition, so a separate global/scoped split is the deleted form: the deck's freeze-time
-    // conflict fold groups on (scope, chord), which leaves a Global row and a Screen row free to claim one
-    // chord, and folding both into a single frozen table threw where the entry law promises first-admitted-
-    // wins. Narrowing to the attaching scope removes the collision class and the carrier's own key-distinct
-    // makes the surviving claimant structural rather than dependent on the freeze proof holding for a
-    // grouping it never made.
     public FrozenDictionary<KeyGesture, CommandRow> Bindings(CommandDeck deck, CommandScope scope) =>
         toSeq(deck.Rows.Values)
             .Filter(row => row.Scope == scope)
@@ -74,7 +63,7 @@ public sealed record GesturePolicy(
 - Boundary: the roster IS the admission table — a markdown mirror of it beside the rows was a second authority for the knob and timing columns nothing could read, and `Interval` is the arm that makes the timing column load-bearing rather than declared. The roster excludes `FileSystemWatcherTrigger`, `NetworkInformationTrigger`, `HttpRequestAction`, and `WriteTextToFileAction`; asset reload, connectivity, outbound requests, and export enter through their owning rails. `TimerTrigger` carries surface-local micro-cadence only, while throttle and debounce intervals resolve from `Theme/motion#MOTION_AXIS` through the row's own token at composition. `EventTriggerBehavior` and the catalogued routed-event trigger family own event admission, and `RoutedEventTriggerBehavior` (`Avalonia.Xaml.Interactions.Custom`) carries the `RoutedEvent`, `RoutingStrategies`, and `SourceInteractive` overrides a named-event trigger cannot express. The rail binds the COMMAND alone — `Intent` seats `Command` and pins `PassEventArgsToCommand` false, and the package's own `CommandParameter` and `InputConverter` columns stay unbound, so a per-row or per-field verb resolves its OWN materialized `ReactiveCommand` rather than sharing one command through a parameter an untyped `object` would carry; a rail-supplied parameter column is therefore unspellable by construction and every consumer that needed one — the form chrome's per-field operations first among them — resolves a command per subject instead. Compiled XAML binding and `BehaviorRail.Intent` are the complete view-binding surface; no ceremonial method names rejected ReactiveUI property binders.
 
 ```csharp signature
-// --- [TYPES] ---------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BehaviorRow {
@@ -95,14 +84,11 @@ public sealed partial class BehaviorRow {
     public Option<MotionToken> Timing { get; }
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BehaviorRail {
     public static InvokeCommandAction Intent(ICommand command) =>
         new() { Command = command, PassEventArgsToCommand = false };
 
-    // The timing column's one reader: a row carrying a token answers that token's own duration, and a row
-    // carrying none has no interval to set. The reduction switch reaches it because the duration is the
-    // token's projection, never a literal this rail spelled.
     public static Option<Duration> Interval(BehaviorRow row) =>
         row.Timing.Map(static token => token.Duration);
 }
@@ -118,9 +104,7 @@ public static class BehaviorRail {
 - Boundary: the gesture roster is the ONE gesture ingress for every owner downstream of it, and it carries the precedence algebra the package previously had no owner for: two rows reaching one point compose by RANK through the kernel `InputVerdict` fold, so a marquee sweep and a panel dismissal stop being decided by XAML attach order, and `MarkAsHandled` is the verdict's PROJECTION onto the behavior knob rather than a second bool the roster would have to keep in agreement with it. The drag rows thread each delivered position through `Theme/motion#MOTION_HANDOFF` `MotionTrack.Sample` and the capture-loss row is the release edge `HandoffSpec.Release` folds, so the inertial owner subscribes to nothing and a second pointer subscription beside these rows is the deleted form; the marquee rows deliver the same positions to `Editing/forms#SELECTION_MODEL` `SelectionBand`, whose `BandMode` derives from the drag direction, so a drag that dismisses a panel and a drag that sweeps a selection differ in the fold they feed, never in how they are heard. Every row is a `RoutedEventTriggerBase<TArgs>` over its own `InputElement` event (`.api/api-behaviors.md` `[CUSTOM_GESTURE_TYPES]`), so a hand-wired `GestureEventArgs` listener is the deleted form. One zoom owner per canvas — a chart tile mounted inside a `PanZoomRow` canvas gates its internal zoom off; the row's `MinZoom` and `MaxZoom` land on the control's per-axis `MinZoomX`/`MinZoomY`/`MaxZoomX`/`MaxZoomY` at composition; `Dashboard` animation duration binds `AnimationDuration` from the motion standard row at composition and `Preview` stays animation-free for capture determinism; rotation rides the `EnableRotation` row gate onto the control `Rotate`/`RotateAt` operations with `SnapRotation` quantizing to `Snap` and `ResetRotation` clearing on view reset, so a hand-built rotation matrix on the canvas is the deleted form. `Snap` is the derived authority: a row whose rotation gate is closed has no step to quantize to, so the step reaches every call site as an ABSENT value rather than as a zero each site would have to know was structural, while `RotationStep` stays the raw column the seated canvas writes. The family is a keyed ROSTER rather than a record beside a hand index — `Document/board.md` resolves `PanZoomRow.Dashboard` column by column and the frozen dictionary that stood beside the rows answered no reader at all, so the roster's own lookup is now the one reader-side admission. View state round-trips through the `ZoomBorderState` value — `ExportState()` at capture and `ImportState` at restore, landing in the seat its own canvas persists through: the `Charts/tiles#TILE_SPINE` `DashboardLayout.CanvasState` column for a board and the `Shell/screens#SCREEN_STATE` `ScreenState.Canvas` column for a screen-hosted canvas, the graph viewport being the second seat's own consumer — so the value shape is one and the partition is the canvas's own; named viewports persist through `SaveView`/`RestoreView` with `DeleteSavedView` and `ClearSavedViews` owning the named-view registry as command-table intents, traversal rides `NavigateBack`/`NavigateForward` with `ClearViewHistory` resetting the stack at screen teardown; focus follows pointer press through `Focus` on `IInputElement`, and pointer-capture acquisition on press rides `PointerPressedEventTrigger` while capture-loss rides `PointerCaptureLostEventTrigger`/`PointerCaptureLostEventBehavior` (`Avalonia.Xaml.Interactions.Events`); the dashboard tile canvas and the offscreen-visuals preview canvas consume these rows as settled values. PEN properties are gated on `IPointer.Type` — a mouse reports a constant `Pressure` of 0.5 and zero tilt on every backend, so an ungated read fabricates a pressure curve out of a device that carries none; the whole coalesced burst decodes through `GetIntermediatePoints`, because the platform batches every sample it took between two frames and reading `GetCurrentPoint` alone discards the pressure and tilt of all but the last, which is precisely the detail a stroke is drawn from; the six rows land as `DeviceAxis` values on the same `AxisChannel` grammar the device capsules mint, so `Collab/issues#REDLINE_TOOLS` and `Editing/graph#PALETTE_INGRESS` bind ONE axis resolver whether the level came from a nib or from a MIDI fader, and `IsEraser` and `IsInverted` fold to one eraser channel because a barrel-inverted stylus and an eraser-tipped one report the same intent under different flags. Each row states its own `AxisForm`, so a consumer thresholding `Level(PenAxis.Barrel)` reads a DISCRETE assertion rather than guessing that a bipolar band happens to be binary here. A digitizer overshooting its own declared range CLAMPS rather than dropping the field, since the capsule law of refusing a sample would put a hole in a stroke a user is drawing — but a NON-FINITE reading yields no axis at all, because a NaN and a genuine zero are not one reading and the zero this rail used to substitute made them one. The pen tool writes its own `Theme/assets#POINTER_ROWS` `CursorRow` onto the interaction root through the inherited `InputElement.Cursor`, so no pointer glyph is minted here.
 
 ```csharp signature
-// --- [TYPES] ---------------------------------------------------------------------------------
-// Which reading a level IS. A continuous field spans the bipolar band; a discrete one rests at zero and
-// asserts at one, so a threshold downstream is meaningful without knowing which nib or fader produced it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AxisForm {
@@ -128,9 +112,6 @@ public sealed partial class AxisForm {
     public static readonly AxisForm Discrete = new("discrete");
 }
 
-// The pointer ingress as rows: each names the trigger type it attaches, the strategy that trigger routes on,
-// and the rank it answers a contested point with. The rank is the kernel precedence algebra, so two rows
-// reaching one point compose without an ordering convention at the attach site.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GestureRow {
@@ -156,25 +137,16 @@ public sealed partial class GestureRow {
     public RoutingStrategies Routing { get; }
     public InputVerdict Verdict { get; }
 
-    // The knob is a PROJECTION of the rank, never a column beside it: a row that handles or captures marks the
-    // event handled, and a row that ignores or releases lets it travel on.
     public bool Handled => Verdict.Equals(InputVerdict.Handled) || Verdict.Equals(InputVerdict.Capture);
 
-    // The precedence fold: the highest rank claimed over one point wins, so attach order stops deciding which
-    // of two attached rows a press belongs to.
     public static InputVerdict Resolve(Seq<GestureRow> claimants) =>
         claimants.Fold(InputVerdict.Ignored, static (rank, row) => rank.Fold(row.Verdict));
 }
 
-// The digitizer property family as rows: each names its own channel, the reading form its level carries, and
-// the projection landing its raw property on the canonical bipolar axis, so pressure, tilt, twist, barrel, and
-// the eraser end reach a markup surface as ordinary `DeviceAxis` values on the device fabric's own grammar.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PenAxis {
-    // Each digitizer scalar's own ceiling, stated beside the row that divides by it: the tilt pair is degrees
-    // off vertical and the twist a full clockwise turn, both fixed by the pointer contract, not by a device.
     private const double TiltCeiling = 90d;
     private const double TwistCeiling = 360d;
 
@@ -184,9 +156,6 @@ public sealed partial class PenAxis {
     public static readonly PenAxis Twist = new(AxisControl.Twist, AxisForm.Continuous, static properties => properties.Twist / TwistCeiling);
     public static readonly PenAxis Barrel = new(AxisControl.Barrel, AxisForm.Discrete, static properties => properties.IsBarrelButtonPressed ? 1d : 0d);
 
-    // Inversion and the eraser flag are ONE intent under two spellings — a barrel-inverted stylus reports
-    // inverted and an eraser-tipped one reports eraser — so the routing axis reads their union and a markup
-    // surface switches tool on one channel instead of two it would then have to keep in agreement.
     public static readonly PenAxis Eraser = new(AxisControl.Eraser, AxisForm.Discrete,
         static properties => properties.IsEraser || properties.IsInverted ? 1d : 0d);
 
@@ -196,9 +165,7 @@ public sealed partial class PenAxis {
     public partial double Read(PointerPointProperties properties);
 }
 
-// --- [MODELS] --------------------------------------------------------------------------------
-// The canvas posture family as a keyed roster: the roster's own lookup is the reader-side admission a hand
-// index beside the rows never gave, and every column stays exactly where its seated consumers read it.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanZoomRow {
@@ -206,10 +173,6 @@ public sealed partial class PanZoomRow {
         zoomSpeed: 1.2, minZoom: 0.1, maxZoom: 8.0, enableConstrains: true, enableGestures: true,
         enableAnimations: true, showZoomIndicator: true, enableRotation: true, rotationStep: 15.0);
 
-    // The node canvas. It runs the widest zoom span of the three because a graph is authored at node detail
-    // and read at whole-network scale, keeps animations for the camera verbs the graph deck raises, and holds
-    // rotation OFF because a rotated node graph makes every wire read as a diagonal nothing in the model
-    // justifies.
     public static readonly PanZoomRow Graph = new("graph", StretchMode.None, ButtonName.Middle,
         zoomSpeed: 1.2, minZoom: 0.05, maxZoom: 32.0, enableConstrains: true, enableGestures: true,
         enableAnimations: true, showZoomIndicator: true, enableRotation: false, rotationStep: 0.0);
@@ -230,9 +193,6 @@ public sealed partial class PanZoomRow {
     public bool EnableRotation { get; }
     public double RotationStep { get; }
 
-    // The quantum a rotate gesture snaps to, ABSENT where the gate forecloses every call site that would use
-    // it. A closed gate leaves no step to quantize to, so the two capture-deterministic rows publish absence
-    // rather than a zero each consumer would have to know was structural rather than unmeasured.
     public Option<double> Snap => EnableRotation ? Some(RotationStep) : None;
 }
 
@@ -242,10 +202,8 @@ public readonly record struct PenSample(Point Position, Seq<DeviceAxis> Axes, In
             .Map(static sample => sample.Level);
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PointerTrack {
-    // The channel grammar is the device fabric's own, so a pen axis and a controller axis are one vocabulary
-    // and a markup surface binds one resolver for both.
     public static AxisChannel Channel(PenAxis axis) => new(DeviceClass.Pen, axis.Key, 0);
 
     public static Seq<PenSample> Pen(PointerEventArgs args, Visual? relativeTo, Instant at) =>
@@ -257,10 +215,6 @@ public static class PointerTrack {
     public static Seq<DeviceAxis> Axes(PointerPointProperties properties) =>
         toSeq(PenAxis.Items).Choose(axis => Bounded(axis.Read(properties)).Map(level => new DeviceAxis(Channel(axis), level)));
 
-    // A field outside its own declared range CLAMPS, because a dropped pen field is a gap in a stroke a user
-    // is mid-way through drawing and the capsule law of refusing the sample is wrong on this rail. A
-    // NON-FINITE reading yields NO axis: it is not a level, and the zero it used to rest at made a broken
-    // digitizer and a centred one report the same value to every consumer downstream.
     private static Option<SignedUnit> Bounded(double raw) =>
         double.IsFinite(raw) ? Some(SignedUnit.Create(double.Clamp(raw, -1d, 1d))) : None;
 }
@@ -278,15 +232,11 @@ public static class PointerTrack {
 - Boundary: the format column is the kernel `Mime` value, so a host identifier canonicalizes and admits ONCE at the gate and the interior compares admitted keys — a bare-string roster compared the host's own casing against the page's and missed on a board that reported `TEXT/PLAIN`, and the six literals here admitted by accident rather than by grammar. The rows mint through `Mime.Create` because they are the page's own frozen literals: a defect there is a boot refusal on a value no runtime input can influence. The vendor formats cross a PROCESS boundary, so `application/x-rasm-table-rows+json` rides the case's own `Diagnostics/evidence#DURABLE_PARCEL` seal rather than serializing the union case bare: a column added to `DragPayload.TableRows` broke every previously copied clipboard payload silently, and the generation now rides inside the copied bytes so a payload from another build refuses on content and the paste answers absence. Parallel wire records carrying their own stamped ordinal are the deleted form — they made the case's column roster a fact two declarations had to agree about, and the mapper carving that ordinal was the seam where they disagreed. NAMED LOSS: attribute-rename carry across a generation, which a clipboard payload never needed. Codec rows carry format, copy, and paste alone: the seal reaches `EvidenceOps.Wire` itself, so no row threads a `JsonSerializerOptions` column and none reads one. Transfer attachment is declarative behavior rows, never code-behind: the typed payload rides `TypedDragBehavior` whose `Handler` column carries a `DropHandlerBase`-derived `IDropHandler` routing the admitted payload into the intent's `ReactiveCommand`, data-context transfer rides `ContextDragBehavior`/`ContextDropBehavior`, list reorder rides `ListReorderDragBehavior` with its `PlaceholderTemplate`, external file drop rides `FilesDropBehavior` (or `ContentControlFilesDropBehavior` on a content host) beside `FilesPreviewBehavior` for the drag-hover preview, and `DragDrop.SetAllowDrop(control, true)` with routed `DragDrop.DragOverEvent`/`DropEvent` handlers is the deleted form — `DragEventArgs.DataTransfer` reads and the `DragEventArgs.DragEffects` write live inside the handler alone, never `DragEventArgs.Data`; the behavior owns delivery and the payload rail owns admission, so `Admit` stays the one typed refusal producer and a path the surface accepted but the payload vocabulary refuses still accumulates its own `DropRejected`, with the `admitted` predicate column arriving from the dialogs file-filter vocabulary. The empty drop is its OWN guard rather than an arm nested inside the refusal switch, and every unadmitted path names itself on the applicative — `Error.Many` re-wrapped a sequence `Traverse` already carries, which is the same accumulation the uri-list leg beside it always used. A paste gates through `GetClipboardFormatsAction` into `Decode` so the present data-format identifiers select the matching `ClipboardRow` before any `Paste` runs and an absent format folds to no-op rather than a failed decode; plain-text paste routes to the focused control and never the payload rail, so the text row is copy-only structurally — it carries no paste leg at all, the gate skips it, and `PasteRejected` stays reserved for a genuine malformed decode instead of firing on every ordinary external text paste; every structured `DragPayload` case owns a `ClipboardRow` round-trip — `Files` rides the standard `text/uri-list` grammar and `HostObjects` the `application/x-rasm-host-objects` GUID row, both fail-closed with one accumulated refusal per malformed entry, so a copy-paste cycle preserves the structured case and no generic textual coercion can bypass its row; `TableRows.Tsv` alone supplies the explicit `text/plain` interoperability projection beside its full-fidelity JSON row; the host-objects clipboard leg and the cross-boundary drag leg are both live — the embedded root's native view accepts host drag-type registration additively and `DragDrop.SetAllowDrop(target, true)` reads back true on every admitted embedded host, so the payload rail crosses the foreign-view boundary on the same admission every in-process drop uses; asset keys ride the icons asset-key vocabulary and table-row keys ride the grid row-model identity; structured copy crosses through one clipboard write keyed by the row `Format` identifiers, riding `Avalonia.Input.Platform.IClipboard.SetDataAsync(IAsyncDataTransfer)` with a `DataTransfer` carrying one `DataTransferItem` per `ClipboardRow` keyed by `DataFormat.CreateBytesApplicationFormat`/`CreateStringApplicationFormat`, each item built through `DataTransferItem.Create<T>(DataFormat<T>, T?)`/`CreateText` or `DataTransferItem.Set<T>(DataFormat<T>, T?)`, the read riding `IClipboard.TryGetDataAsync()` with `ClipboardExtensions.GetDataFormatsAsync` as the present-format gate and `ClipboardExtensions.TryGetTextAsync`/`ClipboardExtensions.TryGetValueAsync<T>(DataFormat<T>)` plus `DataTransferItem.TryGetRaw` as the typed extract, the `IAsyncDataTransfer` handed to `SetDataAsync` left undisposed because Avalonia takes ownership and disposes it once off the clipboard (a caller `using`/`Dispose` on the set transfer is the deleted form), and the legacy `DataObject`/`DataFormats`/`IDataObject` surface obsolete in Avalonia 12; the headless drop harness sequences `DragDrop` calls `DragEnter` → `DragOver` → `Drop` (mirroring `DragLeave` on the abort path) because a `DragOver` without a prior `DragEnter` seeds no drop context and fires no routed handler the attached behavior can observe, and headless input modifiers cross as `RawInputModifiers`, never `KeyModifiers`; the cross-boundary host-object drag binds `ManagedDragDropService` with `ManagedContextDropArgs` as its admitted managed transfer surface, registering its drag types onto the embedded root's own native view at mount and unregistering with the capsule teardown; the physical drag gesture across that boundary is the one perceptual remainder on this rail — registration, admission, and the routed drop all read as values, while a pointer actually carrying a payload from a host viewport onto a mounted row is confirmable by a human alone, so no design here waits on it.
 
 ```csharp signature
-// --- [MODELS] --------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DragPayload {
     private DragPayload() { }
 
-    // Only this case crosses a PROCESS boundary as stored bytes, so it declares its own
-    // `Diagnostics/evidence#DURABLE_PARCEL` seal: a payload copied under one column roster and pasted under a
-    // later generation refuses on content, and DISCARDS, because a clipboard payload no build admits has no
-    // second reader and nothing about it is recoverable by hand.
     public sealed record TableRows(Seq<string> Keys, string Tsv) : DragPayload {
         public static readonly StateSeal Seal = StateSeal.Of("input", "table-rows", generation: 1, StateResidue.Discard);
     }
@@ -299,8 +249,6 @@ public abstract partial record DragPayload {
 
     public sealed record Image(ReadOnlyMemory<byte> Png) : DragPayload;
 
-    // The textual projection is TOTAL over the family, so a new case has to state whether it carries an
-    // interoperable text form rather than inheriting absence from a pattern that failed to match it.
     public static Option<string> Textual(DragPayload payload) =>
         payload.Switch(
             tableRows: static rows => Some(rows.Tsv),
@@ -309,8 +257,6 @@ public abstract partial record DragPayload {
             files: static _ => None,
             image: static _ => None);
 
-    // The empty drop guards on its own and every unadmitted path accumulates on the applicative — the same
-    // accumulation the uri-list leg already ran, spelled once instead of hand-folded into a refusal switch.
     public static Validation<Error, DragPayload> Admit(Seq<string> paths, Func<string, bool> admitted) =>
         paths.IsEmpty
             ? (Validation<Error, DragPayload>)new InputDriverFault.DropRejected("empty drop")
@@ -321,17 +267,13 @@ public abstract partial record DragPayload {
                 .Map(static accepted => (DragPayload)new Files(accepted));
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record ClipboardRow(
     Mime Format,
     Func<DragPayload, Option<ReadOnlyMemory<byte>>> Copy,
     Option<Func<ReadOnlyMemory<byte>, Validation<Error, DragPayload>>> Paste) {
     public const int MaxImageBytes = 33_554_432;
 
-    // Two admissions over one row shape: a round-trip row carries both legs, a copy-only row carries no paste
-    // leg at all. Absence as a value is what makes the copy-only law structural — the format gate cannot
-    // select a decoder that does not exist, so an ordinary external text paste is a no-op instead of a
-    // hardcoded refusal the screen fault fold then raises as a failure the user caused by pasting.
     private static ClipboardRow RoundTrip(
         string format,
         Func<DragPayload, Option<ReadOnlyMemory<byte>>> copy,
@@ -346,8 +288,6 @@ public sealed record ClipboardRow(
         "text/plain",
         static payload => DragPayload.Textual(payload).Map(text => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(text)));
 
-    // Seal owns the encode, the ceiling, the generation compare, and the column-roster admission, so this row
-    // carries the two UTF-8 crossings alone and a refused paste answers absence rather than a decode fault.
     public static readonly ClipboardRow Table = RoundTrip(
         "application/x-rasm-table-rows+json",
         copy: static payload => payload is DragPayload.TableRows rows
@@ -377,8 +317,6 @@ public sealed record ClipboardRow(
             ? (Validation<Error, DragPayload>)new DragPayload.AssetKey(key)
             : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("empty asset key"));
 
-    // uri-list is the standard interchange grammar: CRLF-separated absolute URIs, '#' comment lines skipped;
-    // a non-file URI accumulates one refusal per line, so a mixed paste reports every reject.
     public static readonly ClipboardRow Uris = RoundTrip(
         "text/uri-list",
         copy: static payload => payload is DragPayload.Files files
@@ -396,8 +334,6 @@ public sealed record ClipboardRow(
             .As()
             .Map(static paths => (DragPayload)new DragPayload.Files(paths)));
 
-    // Host-object identity round-trips as comma-joined GUIDs; a malformed token accumulates its own refusal,
-    // so a copy-paste cycle preserves the structured case fail-closed, never a text coercion.
     public static readonly ClipboardRow Host = RoundTrip(
         "application/x-rasm-host-objects",
         copy: static payload => payload is DragPayload.HostObjects host ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(string.Join(",", host.Ids))) : None,
@@ -411,11 +347,6 @@ public sealed record ClipboardRow(
     public static readonly FrozenDictionary<Mime, ClipboardRow> Rows =
         new[] { Text, Table, Png, Asset, Uris, Host }.ToFrozenDictionary(static row => row.Format, static row => row);
 
-    // The format gate: the host's raw identifiers admit through the kernel grammar first — an unadmitted
-    // string is a no-op here, which is why the generated error is discarded rather than raised — then the
-    // admitted keys select the FIRST row carrying a paste leg, so a copy-only row is unreachable here by
-    // construction, an unroutable clipboard answers None, and a present-but-unreadable format answers None
-    // too: refusal survives only for a decode that actually ran.
     public static Option<Validation<Error, DragPayload>> Decode(
         Seq<string> formats, Func<Mime, Option<ReadOnlyMemory<byte>>> read) =>
         formats
@@ -467,9 +398,7 @@ flowchart LR
 - Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, haptic, or MIDI sample raises a `CommandRow` exactly as a hotkey does, and the raised key goes through `CommandRow.Admits` so the ONE two-plane availability algebra gates every modality (folder `RULINGS` `[02]` capability admission): a device that reached `deck.Rows` directly raised a host-document verb against a standalone shell the reach plane explicitly denies, and both the degradation plane and the mount reach plane were bypassed by a lookup that only asked whether the key existed. The partition is therefore THREE-way, not two: a key the deck does not carry is UNMAPPED — a driver typo, a renamed command key, an unsupported mapping — while a key it carries whose gate refuses is DENIED, a verb the process was right to withhold; folding the two together left a board unable to tell a defect from correct behaviour. `Raised` rows ride the command receipt family unchanged while both refusal columns fold into the screen fault state and device telemetry. Samples carry the kernel `SignedUnit` atom rather than a raw normalized double, so the `[-1,1]` bound is admitted once at the capsule edge and every fabric signature holds it structurally, and the channel is the typed `AxisChannel` VALUE rather than its rendered key, so an ordinal string compare between a capsule's mint and a projection's lookup is unspellable. Three source cases spelled ONE shape and were read by three byte-identical `Switch` arms, so they collapse to one verb-raising case carrying the class the value itself recovers — NAMED LOSS: per-source compile exhaustiveness on the intent fold, bought back because `DeviceClass` is a closed roster and a new verb-raising backend adds a row there rather than an arm nobody would have written differently; MIDI survives as its own case because a control surface raises PARAMETERS carrying a level, a genuinely different projection. Each `DeviceOutput` case carries its composition-bound channel keys and its delegate closes over the timing policy, so no case column re-states a duration the driver row already declared and no sink column re-states an identity its own receipt carries; the drive fold contains no positional channel or duration literal. Absence is a VALUE on the drive leg: a channel the command never named is not a channel commanded to zero, and the zero that used to stand in drove a motor to rest on every frame the fold happened not to carry it — a paired motor needs BOTH its channels and answers nothing without them, while a fan echo sends what it was given. Controller-rumble, haptic, and MIDI-feedback sinks consume normalized command axes through device delegates, so the fabric's output leg names no SDK type and no wire scalar, and SDK capsules live in `[07]-[DEVICE_DRIVERS]`; mouse, touch, and keyboard stay with the pointer-gesture and hotkey owners, and pen stays there too — its properties ride the pointer contract, not a device enumeration — while its axes mint on this fabric's own channel grammar so both producers reach one consumer shape.
 
 ```csharp signature
-// --- [TYPES] ---------------------------------------------------------------------------------
-// The axis-source vocabulary. The four driver cases and the pointer producer are rows of ONE roster, because
-// a pen axis and a fader axis reach one consumer only if they mint their channel on one driver name.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DeviceClass {
@@ -480,11 +409,7 @@ public sealed partial class DeviceClass {
     public static readonly DeviceClass Pen = new("pen");
 }
 
-// --- [MODELS] --------------------------------------------------------------------------------
-// The bipolar-normal bound is the kernel `SignedUnit` atom seated beside `UnitInterval`, so every capsule
-// admits through the one scalar gate one stratum down and the fabric declares no [-1,1] twin of its own. The
-// channel is the grammar VALUE, so two spellings of one key cannot compare equal by accident or unequal by
-// a rendering difference neither side controls.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DeviceAxis(AxisChannel Channel, SignedUnit Level);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -497,9 +422,6 @@ public abstract partial record InputDevice(string Id) {
 public abstract partial record DeviceOutput {
     private DeviceOutput() { }
 
-    // The pulse is the CAPSULE's, closed over by the drive delegate exactly as the haptic leg already closed
-    // over its own: carried as a column beside the driver row that declared it, one duration was two
-    // authorities the arm copied between. Identity is the sink RECEIPT's for the same reason.
     public sealed record ControllerRumble(
         AxisChannel LowChannel,
         AxisChannel HighChannel,
@@ -507,10 +429,6 @@ public abstract partial record DeviceOutput {
 
     public sealed record HapticRumble(AxisChannel StrengthChannel, Func<double, IO<Unit>> Pulse) : DeviceOutput;
 
-    // The MIDI echo is a FAN, never a per-channel drive: a control surface's motorized faders and lit pads
-    // take one send burst, so the case carries its whole channel roster and the capsule's echo delegate
-    // consumes every resolved level in one pass — driving channel by channel would emit one message per
-    // control per frame onto a wire whose own rate makes that a queue, not a feedback loop.
     public sealed record MidiFeedback(
         Seq<AxisChannel> Channels,
         Func<Seq<(AxisChannel Channel, double Level)>, IO<Unit>> Echo) : DeviceOutput;
@@ -518,8 +436,6 @@ public abstract partial record DeviceOutput {
 
 public readonly record struct DeviceInvocation(CommandRow Intent, CommandPayload Payload);
 
-// Three columns because a device sample yields three genuinely different facts: verbs the deck admitted,
-// verbs it carries but the availability planes withhold, and keys it does not carry at all.
 public readonly record struct DeviceIntentReport(
     Seq<DeviceInvocation> Raised,
     Seq<InputDriverFault> Denied,
@@ -528,9 +444,7 @@ public readonly record struct DeviceIntentReport(
         new(Seq<DeviceInvocation>(), Seq<InputDriverFault>(), Seq<InputDriverFault>());
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------------
-// The per-invocation verdict as a closed family, so the report fold is a total dispatch and a fourth outcome
-// breaks every reader instead of falling into a catch-all column.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IntentRoute {
     private IntentRoute() { }
@@ -539,7 +453,7 @@ public abstract partial record IntentRoute {
     public sealed record Unmapped(InputDriverFault Fault) : IntentRoute;
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class InputFabric {
     public static DeviceIntentReport Map(
         InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck, CommandRow.Availability availability) =>
@@ -551,8 +465,6 @@ public static class InputFabric {
                 denied: static (carried, row) => carried with { Denied = carried.Denied.Add(row.Fault) },
                 unmapped: static (carried, row) => carried with { Unmapped = carried.Unmapped.Add(row.Fault) }));
 
-    // The gate the fabric used to bypass: a row that exists and a row the process will serve are different
-    // questions, and the second is the deck's own two-plane predicate rather than anything this fold re-derives.
     private static IntentRoute Routed(
         InputDevice device,
         (string Key, CommandPayload Payload) invocation,
@@ -575,16 +487,12 @@ public static class InputFabric {
     public static IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command) =>
         output.Switch(
             state: command,
-            // A paired motor needs BOTH channels: the applicative refuses the drive outright rather than
-            // resting the missing half at zero, which is a command nothing sent.
             controllerRumble: static (cmd, controller) =>
                 (Level(cmd, controller.LowChannel), Level(cmd, controller.HighChannel))
                     .Apply(controller.Rumble)
                     .IfNone(IO.pure(unit)),
             hapticRumble: static (cmd, haptic) =>
                 Level(cmd, haptic.StrengthChannel).Match(Some: haptic.Pulse, None: static () => IO.pure(unit)),
-            // A fan sends what it was given: an absent channel is a control this frame carries nothing for,
-            // and an empty burst is no send at all rather than a burst of rests.
             midiFeedback: static (cmd, midi) =>
                 midi.Channels.Choose(channel => Level(cmd, channel).Map(level => (Channel: channel, Level: level))) switch {
                     { IsEmpty: true } => IO.pure(unit),
@@ -608,11 +516,7 @@ public static class InputFabric {
 - Boundary: each capsule is the named boundary admission for its SDK — `Open` and `Arm` pair the SDK's enumerate-and-open with the teardown in one scoped fold and the raw report crosses the boundary exactly once, so a normalized `DeviceAxis` leaves the capsule and a raw HID byte array, a raw `MidiEvent`, or a raw SDL status never propagates into the fabric (the per-SDK `LOCAL_ADMISSION` of each `.api`). Absence and a refused open are the family's TWO transient cases and they carry that transience on the fault itself, so `Reopen` and `Rearm` re-drive on the composition's own `RedrivePolicy` curve while every other refusal exits terminal on the first attempt — without it a device absent at mount stayed absent for the session, because the two polled capsules never re-enumerate at all and the two edge-driven ones only re-open on a bus edge nobody guarantees will arrive. A second stream entry beside `DeviceSession.Samples` is the deleted form because the session column IS the stream, and the actuator leg is SYMMETRIC for the same reason — `DeviceSink` carries receipt, sink, and teardown exactly as the session carries receipt, device, stream, and teardown, so an armed actuator releases with its scope instead of outliving the mount that armed it (folder `RULINGS` `[02]`). Both handles are CLASSES rather than records: nothing in the package compares two sessions or two sinks, and a generated member algebra over an `IObservable` and an `IDisposable` compares by reference — equality no consumer wants and none would read correctly. The session owns its own consumers: `Intents` folds the sample stream onto the deck and `Driven` subscribes the drive leg, so the fabric's two entries have callers scoped to the handle that produced their operand rather than to whichever caller remembered to release them. The sample crossing is where Rx STOPS: the capsule side is Rx by declared spine — the hot-plug `Switch` and the poll interval are both Rx operators with no pulling equivalent — while the consuming side pulls, so the two meet at ONE bounded channel that DROPS THE OLDEST rather than growing an unbounded queue, because a control surface at a kilohertz and a command fold at frame cadence share no clock and a superseded deflection is exactly what a live device would have overwritten anyway. The release is where each SDK's asymmetry shows and each teardown states it: a disposed input context leaves a motor spinning at the last speed set because the release path carries no motor stop, an SDL haptic wants `HapticRumbleStop` and `HapticClose` before the joystick handle it was bridged from closes, and a MIDI surface holds its last echoed value on every fader and pad until `TurnAllNotesOff` runs, so each teardown quiets the device and then releases it — and the QUIET leg alone rides `Try`, because a device departing IS the common reason a teardown runs and a stop, a panic, or a motor write over a departed handle throws, so an untrapped quiet aborted the release beside it and stranded the very handle the teardown exists to close; that pairing is ONE shared fold, not four copies of one three-line body. The `Hid` capsule re-enumerates a whole generation on `DeviceList.Changed` and `Switch` disposes the prior `HidStream` before the next open runs, so a stale handle is unreachable rather than merely unused; the `Midi` capsule takes the identical generation shape over the `DevicesWatcher.Instance` `DeviceAdded`/`DeviceRemoved` pair, whose `DeviceAddedRemovedEventArgs.Device` reaches both input and output devices, so a control surface unplugged and returned mid-session rejoins on one edge rather than staying dead until the shell restarts; both hot-plug rails THROTTLE their edge stream on the row's own `Settle` window before switching generations, because a bus reports one physical plug as a burst and one reconnection reports as a removal beside an addition — every raw edge tore down a live generation the next edge rebuilt, and the edge landing while the OS was still enumerating resolved absent, published an inert generation, and left the device dead until some unrelated later edge arrived — while the initial generation seeds after the throttle so a cold start pays no settle delay; the six-operator chain and its generation body are ONE fold both buses compose, because written twice they drifted on the seed. The `Gamepad` capsule holds exactly one `IInputContext` per view (the SDL2 backend reflection-loaded through `TryAdd("Silk.NET.Input.Sdl")`), the `Haptic` capsule shares the single `Sdl.GetApi()` instance with the `Gamepad` SDL2 backend so no second native bundle loads and opens ONE `Joystick*` its two legs share — the input poll and the `HapticOpenFromJoystick` actuator bridge address one physical device where a joystick ordinal and a haptic ordinal index independent SDL device spaces — and the `Midi` capsule disposes every `InputDevice` and `OutputDevice` it opens. Every SDL entrypoint the capsule reaches returns `int` with `0` success and a negative failure whose text reads off `GetErrorS()`, so the status lifts into a typed refusal at the capsule and never crosses as a number; `JoystickIsHaptic` answers PRESENCE in that same integer, so the capability probe is its own reader — the fused `<= 0` test it replaces read "this stick carries no actuator" and "the driver failed" as one answer and lifted neither, which is why the bridge, the rumble init, and the probe are now three named steps each sealing its own case. The bounded byte discipline holds at the edge — the MIDI control and note rosters ARE `SevenBitNumber` sets so an out-of-range roster entry is unauthorable, data crosses as `SevenBitNumber` on both legs with the two casts the wire arithmetic needs seated at one intake reader and one egress mint, HID axes cross as `GetScaledValue` projections, SDL joystick axes divide by the protocol's own `short` ceiling, and every sample admits through the kernel `SignedUnit.TryCreate` so a refused field counts one rejection instead of entering the fabric. The refusal count is TWO series, not one: a refused FIELD and a refused REPORT are different facts on different grains, and folding both onto one instrument under one driver tag left a board unable to tell one bad axis from one unparseable report (folder `RULINGS` `[02]`, two facts on one dimension) — the field grain lives in the shared `Field` mint that every capsule reaches, the report grain at the HID traverse beside the typed `DecodeFailed` a malformed descriptor earns. Both MIDI rosters GATE: a control and a note the surface row never declared drop with a count, because the note leg passing ungated while the control leg gated was an asymmetry no reader could see and no instrument recorded. The millisecond scalar every haptic SDK speaks exists only inside these bodies, so the driver rows carry `Duration`; the capsule binds the `InputDevice`/`DeviceOutput` union arm's projection delegate at composition so the fabric body of `[06]` names no SDK member; the BUTTON block is the same usage-addressed table its axes are — the HID button page numbers usage n as button n, one-based, so a block is a COUNT rather than a roster and a device growing from two buttons to thirty-one moves one argument, while the descriptor's own `IsBoolean` discriminant picks the projection because a boolean field's 0..1 logical range through the shared bipolar scaling reports a RELEASED button as full negative deflection and makes every discrete threshold a per-device guess; a released button therefore rests at zero, a pressed one at one, and the composition-bound `ToIntents` projection raises the view-preset and mode verbs those buttons name onto the same `CommandRow` table the translation axes reach, so a discrete device verb is a table row and never a second dispatch; the four native SDKs (SDL2 shared between Silk.NET.Input and Silk.NET.SDL, libmpv-independent) provision at the app-host distribution layer, never bundled by the managed packages; the changed-field drain, the receiver-start pairing, the SDL pointer marshalling, and the subscription-scoped open are the named platform-forced statement seams inside these capsules and nowhere else.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------------
-// The control names BOTH producers spell. Every channel key in the package composes one of these, so a
-// capsule and the composition projection that resolves its key cannot drift on a rename — and none of them
-// carries the key separator, because a dotted control name made the grammar unparseable in exactly the
-// direction the admission reads.
+// --- [TYPES] ---------------------------------------------------------------------------
 public static class AxisControl {
     public const string X = "x";
     public const string Y = "y";
@@ -636,10 +540,7 @@ public static class AxisControl {
     public const string Eraser = "eraser";
 }
 
-// --- [MODELS] --------------------------------------------------------------------------------
-// The one channel grammar, with BOTH legs. A capsule mints an axis key and `Of` admits one back, so the
-// composition projection that resolves a key and the capsule that spelled it read one parser; the mint alone
-// was a grammar with no reader, which is what let a `ToIntents` delegate and its capsule drift silently.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AxisChannel(DeviceClass Driver, string Control, int Ordinal) {
     public const char Separator = '.';
 
@@ -655,15 +556,6 @@ public readonly record struct AxisChannel(DeviceClass Driver, string Control, in
 
 public sealed record DeviceReceipt(DeviceClass Driver, string Id, int Axes);
 
-// The HID key half: `DataValue.Usages` yields the PACKED `(page << 16) | usage` word the parsed descriptor
-// carries, so the Channels seed rows one packed usage per axis and a report offset never addresses a field —
-// the six 3Dconnexion axes are the Generic Desktop page's own contiguous X..Rz block. The vendor wire
-// contract is BIMODAL with no vendor-id or product-id rule: classic devices split the block as a relative
-// translation report beside a relative rotation report, current ones pack all six usages in one absolute
-// report, and only the runtime descriptor decides — a per-report usage census (`Report.GetAllUsages`)
-// discriminates, the vendor's own licensed host code keys on report length and never on product id, and
-// `DataItem.IsRelative` separates the two firmware conventions. Usage-addressed decode is invariant to
-// either modality; a positional read transposes translation and rotation on every split-report device.
 public static class HidUsage {
     public const uint GenericDesktop = 0x0001u;
     public const uint Button = 0x0009u;
@@ -677,10 +569,6 @@ public static class HidUsage {
             [Packed(GenericDesktop, 0x0034u)] = AxisControl.RotateY, [Packed(GenericDesktop, 0x0035u)] = AxisControl.RotateZ,
         }.ToFrozenDictionary();
 
-    // The one Channels seed a composition binds: the usage table IS the roster, so a per-device offset map is
-    // unauthorable and a driver renaming its channel grammar moves every key in one argument. The button page
-    // is ORDINAL by construction — usage n is button n, one-based — so a block is a COUNT rather than a
-    // roster and the discrete verbs a device carries join the identical usage-addressed decode its axes take.
     public static FrozenDictionary<uint, AxisChannel> Channels(DeviceClass driver, int buttons) =>
         (toSeq(SixDegree).Map(row => (Usage: row.Key, Channel: new AxisChannel(driver, row.Value, 0)))
             + toSeq(Range(1, buttons)).Map(ordinal =>
@@ -688,8 +576,6 @@ public static class HidUsage {
         .ToFrozenDictionary(static row => row.Usage, static row => row.Channel);
 }
 
-// The scoped source handle. A CLASS, not a record: nothing compares two sessions and a generated equality
-// over an observable and a disposable compares by reference, which is a member algebra no consumer wants.
 public sealed class DeviceSession(
     DeviceReceipt receipt,
     InputDevice device,
@@ -701,9 +587,6 @@ public sealed class DeviceSession(
     public InputDevice Device { get; } = device;
     public IObservable<Seq<DeviceAxis>> Samples { get; } = samples;
 
-    // The fabric fold's caller, scoped to the handle that produces its operand. The lane is where the pushing
-    // capsule meets a pulling consumer and it DROPS THE OLDEST under pressure, because a device that outruns
-    // the fold would otherwise grow a queue of deflections the hardware itself has already superseded.
     public IAsyncEnumerable<DeviceIntentReport> Intents(CommandDeck deck, int depth, CancellationToken cancel) =>
         Lane(depth)
             .ReadAllAsync(cancel)
@@ -724,17 +607,12 @@ public sealed class DeviceSession(
     public void Dispose() => held.Dispose();
 }
 
-// The actuator leg's twin of the session: an armed sink is scoped exactly as an opened source is, because a
-// motor, a rumble effect, and a lit control surface each hold physical state the process set and nothing else
-// will clear — a sink returned bare made the release site the caller's problem and every caller forgot it.
 public sealed class DeviceSink(DeviceReceipt receipt, DeviceOutput output, IDisposable teardown) : IDisposable {
     private readonly CompositeDisposable held = new(teardown);
 
     public DeviceReceipt Receipt { get; } = receipt;
     public DeviceOutput Output { get; } = output;
 
-    // The drive subscription belongs to the sink that armed it: bound anywhere else it outlived the actuator
-    // and wrote to a handle the teardown had already released.
     public DeviceSink Driven(IObservable<Seq<DeviceAxis>> command) {
         held.Add(command.Subscribe(sample => ignore(InputFabric.Drive(Output, sample).Run())));
         return this;
@@ -747,12 +625,6 @@ public sealed class DeviceSink(DeviceReceipt receipt, DeviceOutput output, IDisp
 public abstract partial record DeviceDriver {
     private DeviceDriver() { }
 
-    // Each case carries enumeration coordinates, decode policy, and its fabric projection — never a Bind
-    // delegate standing in for the capsule body, which left the whole raw-report decode unowned.
-    // Devices binds `DeviceList.Local` at composition and Channels binds `HidUsage.Channels(Kind, buttons)`,
-    // so the enumeration root and the whole axis-plus-button roster are composition values this case authors
-    // neither of. Settle is the hot-plug COALESCE window, and it is a column rather than a constant because a
-    // bus reports one physical plug as a burst of list edges.
     public sealed record Hid(
         DeviceList Devices,
         int VendorId,
@@ -769,10 +641,6 @@ public abstract partial record DeviceDriver {
         Duration Pulse,
         Func<Seq<DeviceAxis>, Seq<string>> ToIntents) : DeviceDriver;
 
-    // Index is a JOYSTICK index, not a haptic index: SDL numbers the two device spaces independently, so a
-    // case addressing both legs by one ordinal must address the joystick and reach force feedback through
-    // `HapticOpenFromJoystick` — a `NumHaptics`/`HapticOpen` pair beside a `JoystickOpen` would silently pair
-    // the axes of one device with the actuator of another the moment the machine carries two.
     public sealed record Haptic(
         Sdl Api,
         int Index,
@@ -781,10 +649,6 @@ public abstract partial record DeviceDriver {
         Duration Cadence,
         Func<Seq<DeviceAxis>, Seq<string>> ToIntents) : DeviceDriver;
 
-    // The two device NAMES are separate columns because a MIDI control surface enumerates as two devices: the
-    // port that reports fader motion and the port that drives the motors are independently named, so one name
-    // serving both legs binds the echo to whichever port happened to answer first. Both intake rosters are
-    // bounded sets rather than int sets, so an entry outside the wire's own range is unauthorable.
     public sealed record Midi(
         string DeviceName,
         FrozenSet<SevenBitNumber> Controls,
@@ -801,7 +665,7 @@ public abstract partial record DeviceDriver {
         midi: static _ => DeviceClass.Midi);
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record InputDriverFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.InputDriver;
@@ -811,8 +675,6 @@ public abstract partial record InputDriverFault : Fault {
     public override string Message => Detail;
 
 
-    // A device replugs and a bus settles: absence and a refused open are the family's TWO transient cases, so
-    // the re-drive rail admits exactly them and every other case inherits the terminal default.
     [FaultCase(0)]
     public sealed partial record DeviceAbsent(string Detail) : InputDriverFault(Detail) {
         public override Retriability Retriability => Retriability.Transient;
@@ -837,11 +699,7 @@ public abstract partial record InputDriverFault : Fault {
     public sealed partial record IntentDenied(string Detail) : InputDriverFault(Detail);
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------------
-// The composition-bound driver columns: one count sink taking the instrument ROW and carrying its own
-// dimension slot, one evidence sink for the mint-once receipt, the scheduler every polled backend paces on,
-// and the re-drive law the transient legs run under — the surface-runtime shape one page over, so no capsule
-// reaches a meter, an evidence stream, a clock, or a backoff curve by name.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record DriverRuntime(
     Func<InstrumentSpec, Option<(string Slot, string Value)>, Unit> Count,
     Func<DeviceReceipt, Unit> Evidence,
@@ -849,20 +707,13 @@ public sealed record DriverRuntime(
     IScheduler Sampler,
     RedrivePolicy Reopen);
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class InputDrivers {
-    // Each protocol's own ceiling: the divisor that turns a bounded wire scalar into the canonical axis
-    // range, stated once per protocol because the protocol fixes it — the MIDI data byte and the SDL axis
-    // short are the two, and a capsule dividing by a literal is the deleted form.
     private const double SevenBitCeiling = 127d;
     private const double ShortDeflectionCeiling = 32767d;
 
     // --- [INSTRUMENTS]
 
-    // Every row claims per-case attribution, so each declares the slot its tag lands on. The actuator pair is
-    // SEPARATE from the source pair rather than a second value on one slot, and the two refusal rows are
-    // separate for the same reason at a finer grain: a refused FIELD and a refused REPORT are different facts,
-    // and one series carrying both left a board unable to tell one bad axis from one unparseable report.
     public static readonly InstrumentSpec Resolved = InstrumentSpec.Create(
         "rasm.appui.input.device.resolved", InstrumentKind.Count, MeasureForm.Whole, "{device}",
         "input devices resolved by driver case", Seq(AppUiTelemetry.SourceSlot), None, None, None);
@@ -892,8 +743,6 @@ public static class InputDrivers {
 
     // --- [ENTRY]
 
-    // The two legs of one capsule family: Open owns the source side, Arm the actuator side, and a backend
-    // carrying only one of them seals BindingRejected on the other rather than exposing a half surface.
     public static Fin<DeviceSession> Open(DeviceDriver driver, DriverRuntime runtime) => driver.Switch(
         state: (Runtime: runtime, Kind: driver.Kind),
         hid: static (state, source) => HidOpen(source, state.Runtime, state.Kind),
@@ -908,10 +757,6 @@ public static class InputDrivers {
         haptic: static (state, source) => HapticArm(source, state.Runtime, state.Kind),
         midi: static (state, source) => MidiArm(source, state.Runtime, state.Kind));
 
-    // The re-drive rail both legs share. `Redrive.Run` admits the TRANSIENT cases alone off the fault itself,
-    // so absence and a refused open re-attempt on the composed curve while a binding refusal or a malformed
-    // descriptor exits on the first attempt — a device absent at mount used to stay absent for the session,
-    // because two capsules never re-enumerate and the other two wait on a bus edge nobody guarantees.
     public static IO<DeviceSession> Reopen(DeviceDriver driver, DriverRuntime runtime) =>
         Redrive.Run(runtime.Reopen, Lifted(() => Open(driver, runtime)));
 
@@ -923,9 +768,6 @@ public static class InputDrivers {
 
     // --- [ADMISSION]
 
-    // The one open fold every input capsule shares: a present device mints its receipt ONCE, counts resolved,
-    // and seals the session, while an absent one counts absent on the identical slot and fails the rail — so
-    // the four arms differ only in enumeration, receipt coordinates, and sample source.
     private static Fin<DeviceSession> Admit<TSource>(
         DriverRuntime runtime,
         DeviceClass kind,
@@ -940,10 +782,6 @@ public static class InputDrivers {
             None: () => Fin.Fail<DeviceSession>(
                 Counted(runtime, Absent, kind, (Error)new InputDriverFault.DeviceAbsent(detail))));
 
-    // The actuator twin of `Admit`: presence and binding are DIFFERENT refusals, so the fold takes the found
-    // handle and the bind that may still refuse it — an out-of-range ordinal is absence and a present device
-    // with no actuator is a binding refusal, and each earns its own fault while the receipt and the armed
-    // count mint once, on success alone.
     private static Fin<DeviceSink> Bound<TSource>(
         DriverRuntime runtime,
         DeviceClass kind,
@@ -955,8 +793,6 @@ public static class InputDrivers {
             None: () => Fin.Fail<DeviceSink>(
                 Counted(runtime, Unarmed, kind, (Error)new InputDriverFault.DeviceAbsent(detail))));
 
-    // Count-then-answer and evidence-then-answer, each with ONE seat. Spelled inline, the pairing rode a
-    // tuple index at every drop and every mint — sixteen sites smuggling an effect through a positional read.
     private static T Counted<T>(DriverRuntime runtime, InstrumentSpec row, DeviceClass kind, T answer) {
         ignore(runtime.Count(row, Some((AppUiTelemetry.SourceSlot, kind.Key))));
         return answer;
@@ -967,35 +803,21 @@ public static class InputDrivers {
         return Counted(runtime, row, kind, answer);
     }
 
-    // One axis mint shared by every backend: the channel grammar and the kernel SignedUnit admission are the
-    // same two steps wherever a raw scalar becomes a fabric sample, so a refused value never forms an axis —
-    // and the refusal COUNTS here rather than at each caller, so the poll-driven Gamepad, Haptic, and Midi
-    // capsules and the report-driven Hid decode all satisfy one law at the FIELD grain. A None returned
-    // without a count was the silent drop that let a NaN stick reading leave no evidence at all.
     private static Option<DeviceAxis> Field(DriverRuntime runtime, DeviceClass driver, string control, int ordinal, double raw) =>
         SignedUnit.TryCreate(raw, out SignedUnit level)
             ? Some(new DeviceAxis(new AxisChannel(driver, control, ordinal), level))
             : Counted(runtime, Rejected, driver, Option<DeviceAxis>.None);
 
-    // The bounded-byte intake reader: both MIDI legs divide by the wire's own ceiling through one cast seat.
     private static Option<DeviceAxis> Field(
         DriverRuntime runtime, DeviceClass driver, string control, SevenBitNumber ordinal, SevenBitNumber value) =>
         Field(runtime, driver, control, (byte)ordinal, (byte)value / SevenBitCeiling);
 
     // --- [CAPSULE_FOLDS]
 
-    // The one hot-plug pipeline every edge-reporting bus composes. The edges THROTTLE first because one
-    // physical plug reports as a burst: every raw edge otherwise tore down a live generation to re-open the
-    // same device, and the edge that fired while the bus was still enumerating resolved absent, yielded an
-    // inert generation, and left the device dead until an unrelated later edge happened to arrive. The
-    // initial generation seeds AFTER the throttle so a cold start pays no settle delay, and `Switch` disposes
-    // the prior generation before the next open runs, so a stale handle is unreachable by construction.
     private static IObservable<Seq<DeviceAxis>> Generations(
         IObservable<Unit> edges, Duration settle, IScheduler sampler, Func<IObservable<Seq<DeviceAxis>>> generation) =>
         edges.Throttle(settle.ToTimeSpan(), sampler).StartWith(unit).Select(_ => generation()).Switch();
 
-    // The one generation body: a resolved handle subscribes and composes its release, an absent one counts on
-    // the shared slot and yields the inert generation the next switch replaces.
     private static IObservable<Seq<DeviceAxis>> Generation<THandle>(
         DriverRuntime runtime,
         DeviceClass kind,
@@ -1010,13 +832,9 @@ public static class InputDrivers {
                 Fail: error => Counted(runtime, Absent, kind,
                     (runtime.Fault(error), Disposable.Empty).Item2)));
 
-    // The one poll loop for every backend whose carriers are immutable state rather than an event pump.
     private static IObservable<Seq<DeviceAxis>> Polled(Duration cadence, IScheduler sampler, Func<Seq<DeviceAxis>> read) =>
         Observable.Interval(cadence.ToTimeSpan(), sampler).Select(_ => read()).Where(static axes => !axes.IsEmpty);
 
-    // The one teardown shape for every device holding physical state. The QUIET leg is trapped and the
-    // release is not: a device departing is itself the common reason a teardown runs, a stop or a panic over
-    // a departed handle throws, and an escaping throw strands the very handle this exists to close.
     private static IDisposable Quieted<THandle>(
         THandle handle, Action<THandle> quiet, Action<THandle> release, Action<Error> fault) =>
         Disposable.Create((Handle: handle, Quiet: quiet, Release: release, Fault: fault), static held => {
@@ -1026,8 +844,6 @@ public static class InputDrivers {
             held.Release(held.Handle);
         });
 
-    // One name resolve for both MIDI legs and one trap for every SDK reach that throws on refusal. Absence stays
-    // optional; a thrown provider refusal remains on the rail instead of being collapsed into absence.
     private static Fin<Option<TDevice>> Named<TDevice>(Func<TDevice> resolve) =>
         Op.Of(name: "appui.input.resolve").Catch(() => Fin.Succ(Optional(resolve())));
 
@@ -1049,8 +865,6 @@ public static class InputDrivers {
 
     // --- [HID_CAPSULE]
 
-    // The session owns nothing: the receipt derives from enumeration alone and every native handle belongs
-    // to the generation inside Samples, so a subscriber's dispose IS the teardown.
     private static Fin<DeviceSession> HidOpen(DeviceDriver.Hid source, DriverRuntime runtime, DeviceClass kind) =>
         Admit(runtime, kind, $"{kind.Key}:{source.VendorId:x4}:{source.ProductId:x4}",
             toSeq(source.Devices.GetHidDevices(vendorID: source.VendorId, productID: source.ProductId)).Head,
@@ -1079,11 +893,6 @@ public static class InputDrivers {
 
     private readonly record struct HidPump(HidStream Stream, HidDeviceInputReceiver Receiver, DeviceItemInputParser Parser, byte[] Buffer);
 
-    // The enumerate-describe-open chain on the `Fin` rail: each step names its own refusal and the next never
-    // runs, so no partial open escapes into the generation above — the early-return ladder this replaces was
-    // credited to the platform, but nothing in the SDK forces it. The enumeration passes its filters BY NAME
-    // because the four-slot overload seats a release number and a serial after the two ids, so a positional
-    // pair reads correctly and a positional triple silently does not.
     private static Fin<HidPump> Pumped(DeviceDriver.Hid source, DeviceClass kind) =>
         from device in Present(
             toSeq(source.Devices.GetHidDevices(vendorID: source.VendorId, productID: source.ProductId)).Head,
@@ -1097,19 +906,12 @@ public static class InputDrivers {
             new InputDriverFault.OpenRejected($"{kind.Key}:{source.VendorId:x4}:{source.ProductId:x4}"))
         select Started(stream, descriptor, item);
 
-    // `Start` binds the receiver to an ALREADY-OPEN stream and the buffer sizes off the descriptor's own
-    // maximum report length, so the three are one platform-forced statement seam rather than three steps a
-    // caller could order wrongly.
     private static HidPump Started(HidStream stream, ReportDescriptor descriptor, DeviceItem item) {
         HidDeviceInputReceiver receiver = descriptor.CreateHidDeviceInputReceiver();
         receiver.Start(stream);
         return new HidPump(stream, receiver, item.CreateDeviceItemInputParser(), new byte[descriptor.MaxInputReportLength]);
     }
 
-    // One report decodes as an accumulating fold: an unmapped usage is a field this device does not carry and
-    // drops, while a mapped field whose scaled value refuses [-1,1] is a malformed descriptor and accumulates
-    // DecodeFailed — the one producer that fault has — so a refused report counts on the REPORT grain and
-    // never enters the fabric half-formed.
     private static Seq<DeviceAxis> Decoded(HidPump pump, FrozenDictionary<uint, AxisChannel> channels, DriverRuntime runtime, DeviceClass kind) =>
         pump.Receiver.TryRead(pump.Buffer, 0, out Report report) && pump.Parser.TryParseReport(pump.Buffer, 0, report)
             ? Changed(pump.Parser)
@@ -1123,8 +925,6 @@ public static class InputDrivers {
                     Fail: _ => Counted(runtime, ReportRejected, kind, Seq<DeviceAxis>()))
             : Seq<DeviceAxis>();
 
-    // GetNextChangedIndex dequeues until it answers -1, so the changed-field drain is the parser's own
-    // protocol and stays a statement seam here; no raw index or DataValue leaves the capsule.
     private static Seq<DataValue> Changed(DeviceItemInputParser parser) {
         List<DataValue> fields = [];
         for (int index = parser.GetNextChangedIndex(); index >= 0; index = parser.GetNextChangedIndex()) {
@@ -1133,15 +933,9 @@ public static class InputDrivers {
         return toSeq(fields);
     }
 
-    // `DataValue.Usages` projects its own `DataItem`'s usage set at the field's index, so the lookup key is
-    // the descriptor's packed usage word and the row survives a report split the parser already resolved.
     private static Option<AxisChannel> Channel(DataValue value, FrozenDictionary<uint, AxisChannel> channels) =>
         toSeq(value.Usages).Choose(usage => channels.TryGetValue(usage, out AxisChannel channel) ? Some(channel) : None).Head;
 
-    // The descriptor carries the discriminant, so the projection reads off the field rather than off the
-    // channel name: a boolean button's 0..1 logical range through the bipolar scaling reports a RELEASED
-    // button as full negative deflection, which makes every discrete threshold a per-device guess and puts a
-    // held-down verb on the deck the moment a device is enumerated. Continuous fields keep the scaling.
     private static double Projected(DataValue value) =>
         value.DataItem.IsBoolean ? value.GetLogicalValue() : value.GetScaledValue(-1d, 1d);
 
@@ -1162,9 +956,6 @@ public static class InputDrivers {
     private static Option<IGamepad> Indexed(IInputContext context, int index) =>
         index >= 0 && index < context.Gamepads.Count ? Some(context.Gamepads[index]) : None;
 
-    // Silk's carriers are immutable poll state, so the gamepad source is a cadence projection rather than an
-    // event pump — one pass over sticks, triggers, and buttons, each raw reading recentred by the row's own
-    // Deadzone and admitted through the shared axis mint before it becomes a channel key.
     private static Seq<DeviceAxis> Sampled(IGamepad pad, Deadzone deadzone, DriverRuntime runtime, DeviceClass kind) =>
         (toSeq(pad.Thumbsticks).Bind(stick => Seq(
                 Field(runtime, kind, AxisControl.StickX, stick.Index, deadzone.Apply(stick.X)),
@@ -1182,11 +973,6 @@ public static class InputDrivers {
                 },
                 pad => Fin.Succ(Motorised(pad, source, runtime, kind, context))));
 
-    // Silk's motors carry speed, not duration, so the pulse is the capsule's own schedule and the DELEGATE
-    // closes over it — carried as a column on the output case beside the driver row that declared it, one
-    // duration was two authorities the arm copied between. The teardown stops both motors BEFORE releasing
-    // the context: the SDK's release path carries no motor stop, so a disposed context leaves the pad
-    // vibrating at whatever speed the last drive set, with nothing left in the process able to reach it.
     private static DeviceSink Motorised(
         IGamepad pad, DeviceDriver.Gamepad source, DriverRuntime runtime, DeviceClass kind, IInputContext context) =>
         new(new DeviceReceipt(kind, $"{kind.Key}:{pad.Index}", pad.VibrationMotors.Count),
@@ -1212,13 +998,6 @@ public static class InputDrivers {
 
     // --- [HAPTIC_CAPSULE]
 
-    // The ONE joystick open both legs share. SDL numbers joysticks and haptics as independent device spaces,
-    // so a case addressing both legs by one ordinal must address the joystick and reach force feedback from
-    // that handle — a NumHaptics/HapticOpen pair beside a JoystickOpen pairs one device's axes with another
-    // device's actuator the moment the machine carries two. An out-of-range ordinal or zero handle is absence,
-    // while a thrown provider refusal stays on the rail; the shared Admit fold owns the absence count and the
-    // receipt. The handle crosses outward as an nint because C# forecloses capturing a pointer in a closure, and
-    // arming both subsystems is idempotent per process.
     private static unsafe Fin<Option<nint>> Stick(DeviceDriver.Haptic source) =>
         Named(() => {
             ignore(source.Api.InitSubSystem(Sdl.InitJoystick | Sdl.InitHaptic));
@@ -1228,8 +1007,6 @@ public static class InputDrivers {
         })
         .Map(static found => found.Filter(static stick => stick != nint.Zero));
 
-    // The input leg the fabric's verb-raising case reads: the device's own axis count bounds the poll, so a
-    // controller with four axes and one with eight fold identically and no ordinal roster is authored here.
     private static unsafe Fin<DeviceSession> HapticOpen(DeviceDriver.Haptic source, DriverRuntime runtime, DeviceClass kind) =>
         Stick(source).Bind(found => Admit(runtime, kind, $"{kind.Key}:{source.Index}",
             found,
@@ -1240,9 +1017,6 @@ public static class InputDrivers {
                 Polled(source.Cadence, runtime.Sampler, () => Deflections(source, held, receipt.Axes, runtime, kind)),
                 Disposable.Create(held, stick => source.Api.JoystickClose((Joystick*)stick)))));
 
-    // The clamp is the protocol's own asymmetry, not a guard: SDL's axis short spans -32768..32767, so full
-    // negative deflection divides one ULP past the bound and would count a decode rejection the hardware
-    // never made — the ceiling names the positive extreme and the clamp seats the one extra negative step.
     private static unsafe Seq<DeviceAxis> Deflections(DeviceDriver.Haptic source, nint stick, int axes, DriverRuntime runtime, DeviceClass kind) =>
         toSeq(Range(0, axes))
             .Map(ordinal => Field(runtime, kind, AxisControl.Axis, ordinal,
@@ -1253,10 +1027,6 @@ public static class InputDrivers {
         Stick(source).Bind(found =>
             Bound(runtime, kind, $"{kind.Key}:{source.Index}", found, stick => Actuator(source, stick, kind, runtime)));
 
-    // Three named steps over one handle: the capability PROBE, the bridge, and the rumble init each answer
-    // the rail on their own, so a stick carrying no actuator seals BindingRejected while a driver-level
-    // failure seals OpenRejected carrying SDL's own text. The fused test they replace read "no actuator" and
-    // "the driver failed" as one answer and lifted the status on neither.
     private static unsafe Fin<DeviceSink> Actuator(
         DeviceDriver.Haptic source, nint stick, DeviceClass kind, DriverRuntime runtime) =>
         from capable in Probed(source.Api, source.Api.JoystickIsHaptic((Joystick*)stick), $"{kind.Key}:{source.Index}")
@@ -1266,9 +1036,6 @@ public static class InputDrivers {
         from ready in Status(source.Api, source.Api.HapticRumbleInit((Haptic*)bridged), unit, $"{kind.Key}:{source.Index}")
         select Rumbling(source, stick, bridged, kind, runtime);
 
-    // SDL's whole ABI is one int convention: negative is a failure whose text reads off GetErrorS, zero and
-    // above the answer. `Probed` is its own reader because JoystickIsHaptic answers PRESENCE in the same
-    // integer a failure rides in, so one reader cannot serve both without fusing the two.
     private static Fin<T> Status<T>(Sdl api, int status, T value, string detail) =>
         status < 0 ? Fin.Fail<T>(new InputDriverFault.OpenRejected($"{detail}:{api.GetErrorS()}")) : Fin.Succ(value);
 
@@ -1279,10 +1046,6 @@ public static class InputDrivers {
             ? Fin.Fail<nint>(new InputDriverFault.OpenRejected($"{detail}:{api.GetErrorS()}"))
             : Fin.Succ(handle);
 
-    // A running effect outlives the handle that plays it, so the teardown stops the rumble, closes the haptic
-    // device, and only then releases the joystick it was bridged from — closing the joystick first orphans an
-    // open haptic handle addressed through a device space SDL no longer resolves. The SDK's millisecond count
-    // mints from the row's Duration here, the one place in the package a millisecond scalar exists.
     private static unsafe DeviceSink Rumbling(
         DeviceDriver.Haptic source, nint stick, nint handle, DeviceClass kind, DriverRuntime runtime) =>
         new(new DeviceReceipt(kind, $"{kind.Key}:{source.Index}", 1),
@@ -1300,9 +1063,6 @@ public static class InputDrivers {
 
     // --- [MIDI_CAPSULE]
 
-    // The session owns nothing for the same reason the HID one does not: every device handle belongs to the
-    // generation inside Samples, so a subscriber's dispose IS the teardown and the receipt derives from the
-    // declared rosters rather than from a handle this fold would then have to keep alive.
     private static Fin<DeviceSession> MidiOpen(DeviceDriver.Midi source, DriverRuntime runtime, DeviceClass kind) =>
         Named(() => Melanchall.DryWetMidi.Multimedia.InputDevice.GetByName(source.DeviceName)).Bind(found =>
             Admit(runtime, kind, $"{kind.Key}:{source.DeviceName}",
@@ -1312,9 +1072,6 @@ public static class InputDrivers {
                     receipt,
                     new InputDevice.MidiSurface(receipt.Id, source.ToParameters),
                     Generations(
-                    // The watcher is a process-wide singleton reporting BOTH directions, so one physical
-                    // reconnection delivers a Removed beside an Added and the settle window is what keeps the
-                    // pair from tearing down a generation the next edge immediately rebuilds.
                     Observable.Merge(
                         Edges<DeviceAddedRemovedEventArgs>(
                             handler => DevicesWatcher.Instance.DeviceAdded += handler,
@@ -1342,10 +1099,6 @@ public static class InputDrivers {
             .Bind(found => Present(found, new InputDriverFault.DeviceAbsent($"{kind.Key}:{source.DeviceName}")))
             .Map(static device => Warmed(device, static held => held.StartEventsListening()));
 
-    // Bounded MIDI bytes divide by their own seven-bit ceiling at the edge, and BOTH rosters gate: a control
-    // or a note the surface row never declared drops with a COUNT rather than minting a channel key no
-    // composition projection resolves. The note leg passing ungated beside a gated control leg was an
-    // asymmetry no reader could see and no instrument recorded.
     private static Seq<DeviceAxis> MidiAxes(MidiEvent received, DeviceDriver.Midi source, DriverRuntime runtime, DeviceClass kind) =>
         received switch {
             ControlChangeEvent control when source.Controls.Contains(control.ControlNumber) =>
@@ -1355,17 +1108,12 @@ public static class InputDrivers {
             _ => Counted(runtime, Rejected, kind, Seq<DeviceAxis>()),
         };
 
-    // The actuator leg the MidiFeedback sink drives. The send device warms once, so the first echo of a
-    // gesture pays no allocation inside the gesture.
     private static Fin<DeviceSink> MidiArm(DeviceDriver.Midi source, DriverRuntime runtime, DeviceClass kind) =>
         Named(() => Melanchall.DryWetMidi.Multimedia.OutputDevice.GetByName(source.FeedbackName)).Bind(found =>
             Bound(runtime, kind, $"{kind.Key}:{source.FeedbackName}", found,
                 device => Fin.Succ(Echoing(
                     Warmed(device, static held => held.PrepareForEventsSending()), source, kind, runtime))));
 
-    // The channel-to-control map is built ONCE here rather than re-derived per echo, and it is keyed on the
-    // channel VALUE: the drive fold hands back grammar values, so a per-send re-parse of a rendered key —
-    // the shape that let the two spellings drift — has nothing left to parse.
     private static DeviceSink Echoing(
         Melanchall.DryWetMidi.Multimedia.OutputDevice device, DeviceDriver.Midi source, DeviceClass kind, DriverRuntime runtime) =>
         source.Feedback.ToFrozenDictionary(
@@ -1373,9 +1121,6 @@ public static class InputDrivers {
             var echo => new DeviceSink(
                 new DeviceReceipt(kind, source.FeedbackName, echo.Count),
                 new DeviceOutput.MidiFeedback(toSeq(echo.Keys), levels => IO.lift(() => Echoed(device, echo, levels))),
-                // The panic release runs BEFORE dispose: a control surface holds every echoed value on its
-                // motors and pads until something clears them, so a shell that exits without this leaves the
-                // hardware lit and driven with no owner left to answer for it.
                 Quieted(device,
                     static held => ignore(fun(held.TurnAllNotesOff)()),
                     static held => held.Dispose(),
@@ -1392,9 +1137,6 @@ public static class InputDrivers {
                 : Option<(SevenBitNumber Control, double Level)>.None)
             .Iter(entry => device.SendEvent(new ControlChangeEvent(entry.Control, SevenBit(entry.Level))));
 
-    // The one egress mint: the level multiplies back at the same edge the intake divided at, and it CLAMPS
-    // before the byte forms because SevenBitNumber refuses an out-of-range construction and one overshooting
-    // controller would take down the whole echo burst.
     private static SevenBitNumber SevenBit(double level) =>
         (SevenBitNumber)(byte)Math.Round(double.Clamp(level, 0d, 1d) * SevenBitCeiling);
 }

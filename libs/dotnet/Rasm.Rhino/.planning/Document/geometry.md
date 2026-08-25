@@ -21,7 +21,7 @@
 - Growth: a custody policy is one `CrossingMode` behavior row over the same acquisition rail; a custody phase is one `HandleRelease` case the pure transitions absorb.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Threading;
 using Rasm.Analysis;
 using Rasm.Domain;
@@ -32,9 +32,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] -----------------------------------------------------------------------------
-// No validation hook: every `uint` is a legal running remainder and zero is the host's own chain seed; the
-// attribute keeps this owner's generated plane on the folder fault family with its siblings.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<uint>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 [ValidationError]
 public readonly partial struct GeometryCrc {
@@ -43,8 +41,6 @@ public readonly partial struct GeometryCrc {
     internal static GeometryCrc Of(GeometryBase geometry) => Create(value: geometry.DataCRC(currentRemainder: Zero));
 }
 
-// The row CARRIES the mutation admission: `Immutable` refuses typed and `Mutable` admits, so the change gate reads
-// one rail and no consumer re-branches on a bool restating the row's own key.
 [SmartEnum<int>]
 public sealed partial class CustodyPosture {
     public static readonly CustodyPosture Immutable = new(key: 0,
@@ -93,20 +89,15 @@ public abstract partial record HandleRelease {
     internal bool Active => this is Live;
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
-// The custody TRIPLE as one value: a lease, the losing leases awaiting a retried disposal, and the release phase.
-// Every transition is a pure function of this record landed through `Cell`, so no reader ever sees a torn triple
-// and a lost race reads its `Transition` case.
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record HandleState(
     Lease<GeometryBase> Lease,
     Seq<Lease<GeometryBase>> Pending,
     HandleRelease Release);
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class GeometryHandle : IDisposable {
     private static long sequence;
-    // Exemption: the gate serializes the NATIVE extent alone — RhinoCommon geometry is not safe under concurrent
-    // access and a host call cannot ride a CAS body that retries — while every custody DECISION rides the atom.
     private readonly Lock gate = new();
     private readonly long ordinal = Interlocked.Increment(location: ref sequence);
     private readonly Atom<HandleState> state;
@@ -133,9 +124,6 @@ public sealed class GeometryHandle : IDisposable {
                select receipt;
     }
 
-    // `Measure`, never a second `Bounds`: the kernel query owns the answer type and `NativeBounds` owns the host
-    // box family, so the two never share a name. Agreement between `TOut` and what `AnalysisQuery.Bounds` produces
-    // is proved by `Analyze.Query<GeometryBase, TOut>`'s own admission — this owner supplies custody alone.
     public Fin<Seq<TOut>> Measure<TOut>(Rasm.Analysis.Bounds request, Context context, Op? key = null) where TOut : notnull {
         Op op = key.OrDefault();
         return from query in op.Need(request)
@@ -150,9 +138,6 @@ public sealed class GeometryHandle : IDisposable {
                select result;
     }
 
-    // Release is a guarded STEP: an already-released handle with an empty roster DECLINES rather than re-running a
-    // teardown over leases the first pass already returned, and the settled phase carries every fault the retry
-    // sweep could not clear.
     public void Dispose() {
         lock (gate) {
             Op op = Op.Of(name: nameof(Dispose));
@@ -238,8 +223,6 @@ public sealed class GeometryHandle : IDisposable {
             Succ: admitted => {
                 GeometryCrc after = GeometryCrc.Of(geometry: admitted);
                 Lease<GeometryBase> previous = state.Value.Lease;
-                // The swap is one committed transition: the working lease seats, the losing lease joins the roster,
-                // and the retry sweep runs on the NEW state, so no reader observes the seat without the retain.
                 ignore(Cell.Commit(state, held => held with { Lease = working, Pending = held.Pending.Add(value: previous) }));
                 Seq<Error> cleanup = Sweep(key: key);
                 return Fin.Succ(value: new GeometryReceipt(
@@ -251,8 +234,6 @@ public sealed class GeometryHandle : IDisposable {
             Fail: error => Fin.Fail<GeometryReceipt>(error: Retain(candidate: working, key: key)
                 .Fold(error, static (primary, cleanup) => primary + cleanup)));
 
-    // Retain-and-retry, never discard: a disposal the host refused today may settle on the release path, so every
-    // cleanup fault aggregates into the primary and the failing lease stays on the roster.
     private Seq<Error> Retain(Lease<GeometryBase> candidate, Op key) {
         ignore(Cell.Commit(state, held => held with { Pending = held.Pending.Add(value: candidate) }));
         return Sweep(key: key);
@@ -308,7 +289,7 @@ public sealed class GeometryHandle : IDisposable {
         key.Catch(() => Fin.Succ(value: lease.Dispose()));
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeometryCrossing {
     public static Fin<GeometryHandle> Cross(object source, CrossingMode mode, Op? key = null) {
         Op op = key.OrDefault();
@@ -340,7 +321,7 @@ public static class GeometryCrossing {
 - Growth: a host capability is one case and one exhaustive arm inside the existing operation or motion family; a new routing trait is one `OpTrait` row.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class GeometryComparison {
     public static readonly GeometryComparison Reference = new(compare: static (left, right) => ReferenceEquals(left, right));
@@ -351,16 +332,12 @@ public sealed partial class GeometryComparison {
     internal partial bool Compare(GeometryBase left, GeometryBase right);
 }
 
-// The routing column every operation union answers through one total fold, so `Change`-versus-`With` reads a row
-// and no union carries a `bool Mutates` restating its own cases.
 [SmartEnum<int>]
 public sealed partial class OpTrait {
     public static readonly OpTrait Observes = new(key: 0);
     public static readonly OpTrait Mutates = new(key: 1);
 }
 
-// The host `accurate` flag as a row carrying its own host projection, so a third fidelity lands as one row and no
-// consumer re-branches on a bool restating the row's key.
 [SmartEnum<int>]
 public sealed partial class BoundsFidelity {
     public static readonly BoundsFidelity Accurate = new(key: 0, host: true);
@@ -377,8 +354,6 @@ public abstract partial record BoundsFrame {
     public sealed record Oriented(Plane Value) : BoundsFrame;
 }
 
-// Inflation admits HERE — finite and componentwise nonnegative — so the evidence capture downstream re-checks
-// nothing and an invalid query is unrepresentable.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class GeometryBounds {
@@ -400,7 +375,7 @@ public sealed partial class GeometryBounds {
         key.OrDefault().AcceptValidated<GeometryBounds>(fault: Validate(frame, inflation, out GeometryBounds? admitted), value: admitted);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BoundsEvidence(
     BoundingBox Raw,
     BoundingBox Value,
@@ -478,8 +453,6 @@ public abstract partial record GeometryMotion {
         public Point3d Center { get; }
     }
 
-    // Admission is the FACTORY's: a finite vector, a direction the kernel claim proves, a factor above the neglect
-    // band. The native case ctors are internal, so `Apply` is total on admitted values and re-guards nothing.
     public static Fin<GeometryMotion> Translate(Vector3d vector, Op? key = null) {
         Op op = key.OrDefault();
         return guard(ValidityClaim.Finite(value: vector), op.InvalidInput(axis: nameof(vector))).ToFin()
@@ -522,10 +495,6 @@ public abstract partial record GeometryMotion {
                 translation: out Vector3d rigidTranslation,
                 rotation: out global::Rhino.Geometry.Transform rigidRotation,
                 tolerance: uniformity)
-            // The four-argument overload is `(translation, rotation, orthogonal, diagonal)` — its second transform
-            // is the ORTHOGONAL BASIS, not a linear part, and the overload declares no `linear` parameter at all.
-            // The prior spelling named a parameter that does not exist, so no overload bound and the receipt's
-            // second column claimed a decomposition the host never produced.
             let affine = value.DecomposeAffine(
                 translation: out Vector3d affineTranslation,
                 rotation: out global::Rhino.Geometry.Transform affineRotation,
@@ -577,8 +546,6 @@ public abstract partial record MotionReceipt {
         Vector3d SimilarityTranslation,
         double Dilation,
         global::Rhino.Geometry.Transform SimilarityRotation,
-        // `DecomposeRigid` answers `TransformRigidType`, not an int: widening the host's own three-valued
-        // classification to a bare number erases which of the three it named.
         TransformRigidType Rigidity,
         Vector3d RigidTranslation,
         global::Rhino.Geometry.Transform RigidRotation,
@@ -635,8 +602,6 @@ public abstract partial record TagOp {
             from __ in state.Op.Confirm(success: after.IsEmpty)
             select (TagResult)new TagResult.Cleared(Before: before, After: after));
 
-    // The ONE user-string projection: every tagged host surface — geometry, attribute set, table component —
-    // republishes `GetUserStrings()` as this same collection, so every detached tag read composes this fold.
     internal static HashMap<string, string> Snapshot(System.Collections.Specialized.NameValueCollection native) =>
         toSeq(native.AllKeys)
             .Choose(name => Optional(name).Bind(key => Optional(native[key]).Map(value => (Key: key, Value: value))))
@@ -675,8 +640,6 @@ public abstract partial record GeometryOp {
 public abstract partial record GeometryResult {
     private GeometryResult() { }
     public sealed record Facts(GeometryFacts Value) : GeometryResult;
-    // The POLICY rides the verdict: a reference-equal answer and a CRC-equal answer are two different claims, and
-    // a bare bool forced every reader to remember which question it had asked.
     public sealed record Compared(GeometryComparison Policy, bool Equal) : GeometryResult;
     public sealed record Hashed(GeometryCrc Value) : GeometryResult;
     public sealed record Tagged(TagResult Value) : GeometryResult;
@@ -685,8 +648,6 @@ public abstract partial record GeometryResult {
     public sealed record Clipped(ClipTransition Value) : GeometryResult;
 }
 
-// The custody capability vocabulary: two loose bools were two columns nothing related, and a set prints, greps,
-// and grows by one row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GeometryTrait : ICapability<GeometryTrait> {
@@ -700,8 +661,6 @@ public sealed record GeometryFacts(
     Option<string> Invalidity,
     GeometryCrc Content,
     HashMap<string, string> Tags) : IValidityEvidence {
-    // The fold IS the host's verdict: `Invalidity` carries the diagnostic exactly when the host judged the value
-    // invalid, so validity and its evidence cannot disagree.
     public bool IsValid => Invalidity.IsNone;
 
     internal static GeometryFacts Of(GeometryBase geometry) {
@@ -737,9 +696,7 @@ public sealed record GeometryReceipt(
 - Growth: a clipping capability extends `ClipOp`; a membership modality extends `ClipScope`; an override intention never widens — three states are the whole vocabulary.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
-// The Document-tier three-state override: `Keep` leaves the host baseline standing, `Set` writes gate + value,
-// `Clear` forces the gate off. `Accepts` admits only the `Set` payload, so a consumer never re-probes the case.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldOverride<T> {
     private FieldOverride() { }
@@ -752,8 +709,6 @@ public abstract partial record FieldOverride<T> {
         set: static held => Some(held.Value),
         clear: static _ => Option<T>.None);
 
-    // Railed arm of the gate-plus-value pair: `Keep` runs nothing, `Set` admits then writes and enables,
-    // `Clear` disables — so no site re-spells the three-way branch beside its own enable flag.
     internal Fin<Unit> Apply(Func<T, Fin<T>> admit, Action<T> write, Action clear, Op key) => Switch(
         state: (Admit: admit, Write: write, Clear: clear, Op: key),
         keep: static (_, _) => Fin.Succ(value: unit),
@@ -766,9 +721,6 @@ public abstract partial record FieldOverride<T> {
             return Fin.Succ(value: unit);
         }));
 
-    // Total arm of the gate-plus-value pair: a payload whose own TYPE admitted at construction (a `Tolerance` on
-    // its lane, a `Dimension`, a `DracoDial`) writes without a rail — admission TIMING is the two arms' whole
-    // discriminant, and every Exchange dial site composes this member over its host option object.
     internal Unit Through<THost>(THost host, Action<THost, bool> gate, Action<THost, T> value) => Switch(
         state: (Host: host, Gate: gate, Value: value),
         keep: static (_, _) => unit,
@@ -846,7 +798,7 @@ public abstract partial record ViewportOp {
         select desired;
 
     public static Fin<Seq<Guid>> Proven(RhinoDoc document, params ReadOnlySpan<ViewportTarget> targets) {
-        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        Op op = Op.Of();
         return toSeq(targets.ToArray())
             .Traverse(target => op.Need(target)
                 .Bind(address => address.ResolveViewport(document: document, key: op))
@@ -870,8 +822,6 @@ public abstract partial record ClipOp {
     private ClipOp() { }
     public sealed record Read : ClipOp;
     public sealed record Scope(ClipScope Value) : ClipOp;
-    // Three states, not two: `Keep` leaves `PlaneDepthEnabled`/`PlaneDepth` as found — the state the sheets
-    // composer needs and an `Option` could not spell — `Set` admits a positive depth, `Clear` disables the gate.
     public sealed record Depth(FieldOverride<double> Value) : ClipOp;
     public sealed record Viewports(ViewportOp Value) : ClipOp;
     public sealed record Style(Option<Guid> DimensionStyleId) : ClipOp;
@@ -930,8 +880,6 @@ public abstract partial record ClipOp {
             exclusion ? (ClipScope)new ClipScope.Except(Members: set) : new ClipScope.Only(Members: set));
     }
 
-    // Each membership case writes the host pair with its OWN literal — the case is the exclusion discriminant, so
-    // no shared helper threads a bool the union already states.
     private static Fin<Unit> Scoped(ClippingPlaneSurface surface, ClipScope scope, Op key) =>
         key.Need(scope).Bind(request => request.Switch(
             (Surface: surface, Op: key),
@@ -967,8 +915,6 @@ public abstract partial record ClipOp {
             .TraverseM(id => key.Confirm(success: surface.AddClipViewportId(viewportId: id))).As()
         select unit;
 
-    // `Keep` proves by prior-state equality, so an untouched gate is a CONFIRMED fact; `Set` and `Clear` prove by
-    // the written shape.
     private static Fin<Unit> Confirmed(ClipOp operation, ClipState before, ClipState after, Op key) =>
         operation.Switch(
             (Before: before, After: after, Op: key),
@@ -983,7 +929,7 @@ public abstract partial record ClipOp {
             style: static (state, edit) => state.Op.Confirm(success: edit.DimensionStyleId.Equals(state.After.DimensionStyleId)));
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ClipState(
     ClipScope Scope,
     Option<double> Depth,

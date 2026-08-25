@@ -20,7 +20,7 @@ The diff is the cross-party twin of two same-lineage owners and re-derives neith
 - Boundary: federation joins on `Node.Object.ExternalId`, never the locally minted `NodeId`; content and placement keys compose the seam `ContentAddress`, never another hasher. A `Moved` arm carries the placement keys and the seam `PlacementTransform` options, then `Seal` projects them through the shared generated converter—no `PlacementPose` mirror. `Modified` keeps both content and placement currencies and typed member deltas. `Split`/`Merged` derive from content-key groups. The sole cross-runtime value is generated `ModelDiffWire`; Bim neither serializes JSON nor references AppHost, and no `Payload`, `DiffWire`, hand discriminator family, or transport option exists here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -42,9 +42,7 @@ using Op = Rasm.Domain.Op;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The neutral change-kind token an audit row persists, projected from the ElementChange union. The generated
-// ElementChangeWire oneof owns the wire discriminant separately and no string tag is copied between them.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ChangeKind {
     public static readonly ChangeKind Added = new(nameof(Added));
@@ -55,9 +53,6 @@ public sealed partial class ChangeKind {
     public static readonly ChangeKind Merged = new(nameof(Merged));
 }
 
-// The member-change SHAPE token: the seam projection of the foreign Generator.Equals MemberPathSegmentKind read
-// off a delta path's TERMINAL segment, so a TS/BCF consumer distinguishes an ordered-collection Index, a keyed-bag
-// Key, and a set-membership Added/Removed from a scalar Replace without re-parsing the rendered Path brackets.
 [SmartEnum<string>]
 public sealed partial class DeltaShape {
     public static readonly DeltaShape Replace = new("replace");
@@ -67,11 +62,6 @@ public sealed partial class DeltaShape {
     public static readonly DeltaShape Removed = new("removed");
     public static readonly DeltaShape Unknown = new("unknown");
 
-    // The one seam correspondence, keyed by the kinds the foreign FACTORIES project rather than by transcribed
-    // enum case spellings — a foreign case rename breaks this table at compile time where a transcription would
-    // silently re-route to the wrong shape. Property and Field roster EXPLICITLY as the scalar Replace, so the
-    // table is TOTAL over the vocabulary as it stands and a kind no factory mints reads Unknown: the prior `_`
-    // floor made an unmodelled future shape indistinguishable from a genuine scalar replace.
     static readonly FrozenDictionary<MemberPathSegmentKind, DeltaShape> ByKind =
         new Dictionary<MemberPathSegmentKind, DeltaShape> {
             [MemberPathSegment.Property(string.Empty).Kind] = Replace,
@@ -85,11 +75,6 @@ public sealed partial class DeltaShape {
     public static DeltaShape Of(MemberPathSegment segment) => ByKind.GetValueOrDefault(segment.Kind, Unknown);
 }
 
-// The typed delta leaf. A rendered string destroys exactly the evidence a downstream consumer computes on, so a
-// dimensioned leaf keeps its whole seam MeasureValue and a content-keyed leaf its ContentAddress; only a leaf with
-// no richer carrier falls to the canonical text its own owner publishes. Absent is the TYPED absence a membership
-// delta carries on the side it has no value for, replacing the "<absent>" sentinel a real string could forge — the
-// wire needs a discriminated absence because no LanguageExt Option converter rides this payload.
 [Union]
 public abstract partial record DeltaValue {
     private DeltaValue() { }
@@ -99,10 +84,6 @@ public abstract partial record DeltaValue {
     public sealed record Label(string Value) : DeltaValue;
     public sealed record Absent : DeltaValue;
 
-    // The ONE foreign-leaf admission: the Inequality carries object? because the Generator.Equals comparer walks
-    // every member type, so this is the boundary that re-types it — the page's only coalesce, and the ToString
-    // tail is where the BCL's own nullable contract lands. A PropertyValue.Measure unwraps to its MeasureValue
-    // rather than rendering, because the quantity identity is the whole point of keeping the leaf typed.
     public static DeltaValue Of(object? leaf) => leaf switch {
         null                       => new Absent(),
         MeasureValue measure       => new Measure(measure),
@@ -113,24 +94,11 @@ public abstract partial record DeltaValue {
     };
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// One member-level delta projected from the Generator.Equals Inequalities member diff: Path is the dotted/bracketed
-// MemberPath (e.g. "Properties[Pset_WallCommon].FireRating"), Shape the terminal-segment change-shape token, and
-// Before/After the TYPED leaf values — the typed evidence the Modified arm carries so a BCF topic anchors the exact
-// aspect that changed, how, and with what magnitudes, not "something changed" and never two strings a quantity
-// consumer must re-parse.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AspectDelta(string Path, DeltaShape Shape, DeltaValue Before, DeltaValue After);
 
-// The per-element content fingerprint the join dedups on: the IFC GlobalId plus the seam ContentAddress content
-// and placement keys (the ONE Projection/address#IMPLEMENTATION_LAW codec hashed by the ONE
-// Projection/address#CONTENT_ADDRESS hasher — never a second hasher). Two fingerprints
-// are equal iff the same element addresses identically, so an unchanged element never enters the change set; the
-// SAME carrier the Review/versioning#VERSION_GRAPH BimCommit keys its fingerprint map on.
 public readonly record struct ElementFingerprint(string GlobalId, ContentAddress ContentKey, ContentAddress PlacementKey);
 
-// The closed federation change family — each arm carries the IFC GlobalId and typed evidence. Modified carries
-// BOTH currencies because a content edit that also relocates the element is one change. Generated oneof dispatch
-// is confined to Seal/Admit and the domain union remains serialization-free.
 [Union]
 public abstract partial record ElementChange {
     private ElementChange() { }
@@ -148,13 +116,8 @@ public abstract partial record ElementChange {
     public sealed record Added(string GlobalId, Classification Class, PredefinedType Predefined, ContentAddress Content) : ElementChange;
     public sealed record Removed(string GlobalId, Classification Class, PredefinedType Predefined, ContentAddress Content) : ElementChange;
     public sealed record Modified(string GlobalId, ContentAddress BaselineContent, ContentAddress RevisionContent, ContentAddress BaselinePlacement, ContentAddress RevisionPlacement, ImmutableArray<AspectDelta> Deltas) : ElementChange;
-    // The optional pose is the seam PlacementTransform itself; only the generated PlacementWire projects it.
     public sealed record Moved(string GlobalId, ContentAddress BaselinePlacement, ContentAddress RevisionPlacement,
         Option<PlacementTransform> BaselinePose, Option<PlacementTransform> RevisionPose) : ElementChange;
-    // Re-identification: the CONTENT key excludes geometry, so a source and its fragments share ONE content
-    // signature while their placement keys diverge — that is what makes a split recoverable from the add/remove
-    // partition at all. GlobalId is the SOURCE for a Split and the SURVIVOR for a Merged; the counterpart set is
-    // the other side of the same correspondence, ImmutableArray because the wire carries no LanguageExt converter.
     public sealed record Split(string GlobalId, ContentAddress Content, ImmutableArray<string> Into) : ElementChange;
     public sealed record Merged(string GlobalId, ContentAddress Content, ImmutableArray<string> From) : ElementChange;
 }
@@ -164,12 +127,6 @@ public sealed record ModelDiff(
     ContentAddress Revision,
     Seq<ElementChange> Changes,
     int UnchangedCount) {
-    // The pairwise federation diff: join two ElementGraph snapshots by the Bim-stored Node.Object.ExternalId (the IFC
-    // GlobalId [H6] — the one cross-party identity, the neutral NodeId being local per ingest), classify each matched
-    // pair by the content/placement keys (unchanged when both match, Moved when only the placement key moved, Modified
-    // when the content key moved), and enrich each Modified arm with the Generator.Equals member delta over the two
-    // baked Elements. Fin because the Modified enrichment bakes the changed elements (Bake rails ElementFault on a
-    // corrupt subgraph); an unchanged element (matching content key) never bakes, so a re-check costs only the changes.
     public static Fin<ModelDiff> Between(ElementGraph baseline, ElementGraph revision, Op key) =>
         from prior in Federate(baseline, key)
         from next in Federate(revision, key)
@@ -182,11 +139,6 @@ public sealed record ModelDiff(
         Map<string, (Node.Object Obj, ElementFingerprint Fp)> next, Op key) {
         ContentAddress baselineAddress = ContentAddress.OfGraph(baseline);
         ContentAddress revisionAddress = ContentAddress.OfGraph(revision);
-        // The add/remove partition re-folds by CONTENT key before it lands: the content key excludes geometry, so a
-        // source element and the fragments it became carry ONE content signature while their placement keys diverge
-        // — the only evidence of a split or merge the federation surface holds. One removed to MANY added is a
-        // Split, MANY removed to one added a Merged; every other shape stays a plain add and remove, because a 1:1
-        // content match is a re-identification the pair already states and an N:M group names no source.
         var (added, removed, reidentified) = Reidentify(
             next.Keys.Filter(id => !prior.ContainsKey(id)).ToSeq().Map(id => (Id: id, Entry: next[id])),
             prior.Keys.Filter(id => !next.ContainsKey(id)).ToSeq().Map(id => (Id: id, Entry: prior[id])));
@@ -213,9 +165,6 @@ public sealed record ModelDiff(
                 unchanged));
     }
 
-    // The one re-identification fold: group both partitions by content key, lift the 1:N and N:1 groups onto
-    // Split/Merged, and return the residue as plain adds and removes. The counterpart ids sort ordinal so a
-    // re-diff of one pair of snapshots is byte-stable regardless of map enumeration order.
     static (Seq<ElementChange> Added, Seq<ElementChange> Removed, Seq<ElementChange> Reidentified) Reidentify(
         Seq<(string Id, (Node.Object Obj, ElementFingerprint Fp) Entry)> added,
         Seq<(string Id, (Node.Object Obj, ElementFingerprint Fp) Entry)> removed) {
@@ -235,7 +184,6 @@ public sealed record ModelDiff(
                 splits + merges);
     }
 
-    // The generated message is the crossing. Serialization format and transport framing stay above Bim.
     public static Fin<ModelDiffWire> Seal(ModelDiff diff, Op key) {
         if (diff.UnchangedCount < 0) { return Rejected<ModelDiffWire>(key, "diff-unchanged-count-negative"); }
         ModelDiffWire wire = new() {
@@ -403,17 +351,9 @@ public sealed record ModelDiff(
     static Fin<T> Rejected<T>(Op key, string detail) =>
         Fin.Fail<T>(new BimFault.Refused(key, BimScope.Review, BimReason.Rejected, detail));
 
-    // The per-element content fingerprint over the seam ContentAddress codec: the content key folds the Object's
-    // non-geometry semantics with its bound nodes, the placement key folds its geometry — the split distinguishing a
-    // relocation from a content edit. The SAME content-key the Review/versioning#VERSION_GRAPH commit-DAG keys on, so a
-    // commit, a diff, and the audit chain share one identity. GlobalId falls back to the NodeId string only off the
-    // federation surface (a never-emitted authored Object), the federation diff itself only fingerprinting ExternalId-bearing nodes.
     public static ElementFingerprint Fingerprint(ElementGraph graph, Node.Object node) =>
         new(node.ExternalId.IfNone(node.Id.Value), ContentKey(graph, node), PlacementKey(node, graph.Header.Tolerance));
 
-    // The typed federation-identity admission MIRRORING Review/versioning#VERSION_GRAPH's commit-duplicate-globalid
-    // gate: two federation surfaces carrying ONE IFC GlobalId is a data defect the rail names, never a LanguageExt
-    // ToMap ArgumentException escaping a domain signature — the two owners state one federation-identity law.
     static Fin<Map<string, (Node.Object Obj, ElementFingerprint Fp)>> Federate(ElementGraph graph, Op key) {
         Seq<(string GlobalId, (Node.Object Obj, ElementFingerprint Fp) Entry)> rows = graph.ObjectNodes
             .Choose(node => node.ExternalId.Map(globalId => (globalId, (Obj: node, Fp: Fingerprint(graph, node)))))
@@ -431,13 +371,6 @@ public sealed record ModelDiff(
     static ElementChange Removed(string globalId, (Node.Object Obj, ElementFingerprint Fp) entry) =>
         new ElementChange.Removed(globalId, entry.Obj.Classification, entry.Obj.PredefinedType, entry.Fp.ContentKey);
 
-    // The semantic content key: the Object's non-geometry head plus the order-independent fold of its outgoing edges'
-    // contributions (each = the edge canonical bytes plus, when the far endpoint is a bound NON-Object node, that
-    // node's content address — so a property/material edit moves the key while a part/type Object, diffed
-    // independently, contributes only its binding structure). Geometry is EXCLUDED (it rides the placement key).
-    // The fold writes NO quantized member — the semantic head is strings and the contributions are already
-    // fixed-width addresses — so the mint is the kernel ZeroTolerance streaming hasher, whose bytes are provably
-    // the ones a model-grid writer would emit here. The preimage is unchanged in field, order, and framing.
     static ContentAddress ContentKey(ElementGraph graph, Node.Object node) {
         double tolerance = graph.Header.Tolerance;
         Seq<UInt128> contributions = toSeq(toSeq(graph.EdgesAt(node.Id))
@@ -452,48 +385,25 @@ public sealed record ModelDiff(
         }));
     }
 
-    // Edge identity rides the seam ContentAddress.Of(edge, tolerance) STREAMING arm — the ONE edge-key entry, its
-    // materializing ToCanonicalBytes twin retired at the seam — so both contributions are fixed-width addresses on
-    // one grid. Presence flags the optional bound-node tail explicitly rather than leaving it to buffer length, the
-    // same injectivity law the count-prefixed collection folds observe.
     static UInt128 BoundContribution(ElementGraph graph, NodeId self, Relationship edge, double tolerance) {
         NodeId far = edge.Relating == self ? edge.Related : edge.Relating;
         Option<UInt128> bound = graph.Find(far).Bind(node => node is not Node.Object ? Some(ContentAddress.Of(node, tolerance).Value) : None);
-        // Both operands enter as fixed-width addresses the tolerance-bound Of already minted, so this join fold
-        // quantizes nothing and takes the ZeroTolerance hasher.
         return ContentHash.Of((Edge: ContentAddress.Of(edge, tolerance).Value, Bound: bound), static (state, w) => {
             w.U128(state.Edge).Bool(state.Bound.IsSome);
             state.Bound.IfSome(value => w.U128(value));
         });
     }
 
-    // The geometry/placement key: the Object's PLACEMENT TRANSFORM folded explicitly beside its content-hashed
-    // RepresentationContentHash map. The transform is what makes Moved decidable — an IFC representation is authored
-    // in the element's OWN local space and positioned by IfcLocalPlacement, so a rigid relocation leaves every
-    // representation hash byte-identical and a key over hashes ALONE reads a moved element as unchanged. Both
-    // currencies enter: the transform at model-space tolerance (a sub-tolerance jitter is not a move) and EVERY
-    // geometry hash, the heavy display Body AND the lightweight analytical Axis/FootPrint, so a local re-model with
-    // no relocation still moves this key while the semantic content key stays stable. Geometry is referenced BY
-    // content key, never inline coordinates (the Graph/element#NODE_MODEL M2 seam law), and the projection is
-    // presence-flagged and count-prefixed like every other CanonicalWriter fold.
     static ContentAddress PlacementKey(Node.Object node, double tolerance) =>
-        // The ONE tolerance-bound digest entry: the placement fold writes real doubles, so the model grid must
-        // reach the writer and the kernel's ZeroTolerance hasher cannot carry it.
         ContentAddress.Of(node, tolerance, static (n, w) => {
             w.Bool(n.Placement.IsSome);
-            n.Placement.IfSome(placement => placement.CanonicalBytes(w)); // the carrier's ONE sibling-fold projection
+            n.Placement.IfSome(placement => placement.CanonicalBytes(w));
             w.Ordinal(n.Representations.ByIdentifier.Count);
             foreach (var (slot, hash) in n.Representations.ByIdentifier.OrderBy(static pair => pair.Key.Key)) {
                 w.Ordinal(slot.Key).U128(hash);
             }
         });
 
-    // The Modified delta: the Generator.Equals member diff over the two baked Elements, composed BARE — the
-    // Id/ExternalId/History members and the nested Parts (each part a rooted Object diffed independently by its own
-    // GlobalId) are excluded at the Rasm.Element owner's own [IgnoreEquality] declarations, so every consumer
-    // agrees on the noise axes by construction and no call-site roster exists to drift. The SAME Inequalities
-    // substrate the Rasm.Persistence/Version/merge#STRUCTURAL_DIFF three-way merge reads; an empty path — no member
-    // named — degrades to the scalar Replace.
     static ImmutableArray<AspectDelta> Deltas(Element baseline, Element revision) =>
         [.. Element.EqualityComparer.Default.Inequalities(baseline, revision)
             .Select(static inequality => new AspectDelta(
@@ -516,7 +426,7 @@ public sealed record ModelDiff(
 - Boundary: the audit trail keys on the `[02]-[MODEL_DIFF]` `ElementChange` and the version lineage, explicitly distinct from the Wave A tile-XMP geometry-asset provenance — the two stay separate, the audit trail never keying on the export artifact content-key; the chain is the content-addressed `EntryKey` through the kernel `Rasm/Domain/identity#CONTENT_KEY` `CanonicalWriter` codec hashed by the seam `Projection/address#CONTENT_ADDRESS` `ContentAddress` (the kernel seed-zero `XxHash128`, the ONE hasher), and the retired hand-rolled `XxHash128.HashToUInt128(Encoding.UTF8.GetBytes($"..."))` string-interpolation chain plus a separate stored checksum or a mutable sequence-number beside the `EntryKey` are the deleted forms; the `ChangeKind` is the typed `[SmartEnum<string>]` projected by `ElementChange.Kind` and a stringly `"added"`/`"removed"` literal is the deleted form; the keys are `ContentAddress` values, never raw `UInt128`; the fold consumes the `[02]-[MODEL_DIFF]` `ModelDiff` change-sets as settled vocabulary and mints no second diff or element shape; each version's change set sorts by `GlobalId` ordinal before it chains and folding `ModelDiff.Changes` in its native partition order is the deleted form — the chain is order-dependent, so two folds of one history mint divergent terminal keys and `Verify` reports tampering that never happened; the trail is a pure fold over the version-and-diff sequence, never an imperative append loop with mutable accumulation; the audit trail is the LINEAR per-element who/when/what Merkle chain, distinct from the `Review/versioning#VERSION_GRAPH` branching commit-DAG, neither re-derived from the other, both reading the one content-key space; the durable append-only residence is the `Rasm.Persistence/Version/provenance#ATTESTED_LEDGER` concern joined at the content-key seam and a durable store minted here is the named seam violation; the fold is TOTAL and carries no fault rail — it consumes the `[02]-[MODEL_DIFF]` `ModelDiff` change-sets whose `GlobalId`s the diff already resolved from real graph nodes, so a dangling reference cannot arise at the audit boundary (the diff's `Bake` composition is the one place a corrupt subgraph rails `Rasm.Element/Projection/fault#FAULT_BAND` `ElementFault`), and a fabricated `Fin`/`BimFault` rail the body never produces is the illusory form.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
 using Rasm.Domain;
@@ -529,14 +439,9 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The per-version authoring metadata a folded diff stamps onto each entry — the identity the chain binds.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record AuditVersion(string VersionId, string Author, Instant At);
 
-// One immutable mutation-log row: the element GlobalId, the typed ChangeKind, the baseline/revision content
-// addresses, the version pointer plus author/instant, and the chained EntryKey keyed on the prior row's key so
-// a retroactive edit — the version pointer included — diverges every downstream key. Every key is a seam
-// ContentAddress (the ONE codec), never a raw UInt128.
 public readonly record struct AuditEntry(
     string GlobalId,
     ChangeKind Kind,
@@ -552,11 +457,6 @@ public sealed record AuditTrail(Seq<AuditEntry> Entries) {
     public static readonly AuditTrail Empty = new(Seq<AuditEntry>());
     static readonly ContentAddress Genesis = ContentAddress.Of(UInt128.Zero);
 
-    // Fold a version sequence of ModelDiff change-sets into the chained trail: each ElementChange projects onto one
-    // AuditEntry whose EntryKey chains on the prior row's key, so re-folding a tampered history yields a divergent
-    // terminal key. Each version's change set sorts by GlobalId ORDINAL before it chains, because the chain is
-    // order-dependent and ModelDiff.Changes carries the diff's own partition order — two folds of the SAME history
-    // would otherwise mint divergent terminal keys and Verify would report tampering that never happened.
     public static AuditTrail Fold(Seq<(AuditVersion Version, ModelDiff Diff)> history) =>
         new(history.Fold((Prior: Genesis, Rows: Seq<AuditEntry>()), static (state, step) =>
             toSeq(step.Diff.Changes
@@ -567,14 +467,9 @@ public sealed record AuditTrail(Seq<AuditEntry> Entries) {
                 return (entry.EntryKey, acc.Rows.Add(entry));
             })).Rows);
 
-    // Every entry an element underwent in chain order — its lifecycle history (add -> modify -> move -> remove).
-    // The GlobalId compare pins Ordinal: an IFC GlobalId is a base64 token whose case is significant, and a
-    // culture-sensitive default would join two distinct elements under a locale's casing rules.
     public Seq<AuditEntry> For(string globalId) =>
         Entries.Filter(entry => string.Equals(entry.GlobalId, globalId, StringComparison.Ordinal));
 
-    // Re-derive the chain to witness no retroactive edit broke it: recompute each EntryKey from the recorded parent
-    // through the SAME EntryKey projection Chain used, so a single edited field diverges every downstream key.
     public bool Verify() =>
         Entries.Fold((Prior: Genesis, Ok: true), static (state, entry) => (
             entry.EntryKey,
@@ -588,9 +483,6 @@ public sealed record AuditTrail(Seq<AuditEntry> Entries) {
         return new AuditEntry(change.GlobalId, change.Kind, baseline, revision, version.VersionId, version.Author, version.At, prior, entryKey);
     }
 
-    // The baseline/revision content addresses per arm: an Added has no baseline, a Removed no revision, a Modified its
-    // two content keys (its placement pair stays on the change for a consumer that needs both axes; the audit row
-    // chains the semantic currency), a Moved its two placement keys — the one Switch the audit row decomposes through.
     static (ContentAddress Baseline, ContentAddress Revision) Keys(ElementChange change) => change.Switch(
         added:    static c => (Genesis, c.Content),
         removed:  static c => (c.Content, Genesis),
@@ -599,13 +491,7 @@ public sealed record AuditTrail(Seq<AuditEntry> Entries) {
         split:    static c => (c.Content, Genesis),
         merged:   static c => (Genesis, c.Content));
 
-    // The content-addressed chain link through the seam ContentAddress codec — prior key, GlobalId, typed kind, key
-    // pair, version pointer, and authorship folding into one canonical projection, so a separate stored checksum is
-    // the deleted form. The instant rides the writer's fixed-width I64 lane: ticks are a signed 64-bit quantity, and
-    // the widen-through-unsigned cast that dressed them as a U128 addressed a pre-epoch instant identically to a
-    // far-future one.
     static ContentAddress EntryKey(ContentAddress prior, string globalId, ChangeKind kind, ContentAddress baseline, ContentAddress revision, string versionId, string author, Instant at) =>
-        // Addresses, tokens, and a tick count — nothing quantizes, so the ZeroTolerance hasher is the exact mint.
         ContentAddress.Of(ContentHash.Of(
             (Prior: prior, GlobalId: globalId, Kind: kind, Baseline: baseline, Revision: revision, VersionId: versionId, Author: author, At: at),
             static (s, w) => w.U128(s.Prior.Value).String(s.GlobalId).String(s.Kind.Key).U128(s.Baseline.Value).U128(s.Revision.Value)

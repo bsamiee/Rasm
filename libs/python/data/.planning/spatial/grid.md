@@ -29,10 +29,6 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from opentelemetry import trace
 
-# the compiled DGG band declares once here and reifies on first cell operation: the bare module bindings serve the
-# dynamic `getattr` seams (`{kind}_valid`, the `_BOUNDARY` member NAME), the `lazy from` lists the statically
-# named kernels the `_grid` arms call. Every module-scope row over this band carries a NAME or a thunk — a cell
-# holding a live kernel attribute would reify the whole native band at import.
 lazy import h3ronpy
 lazy import h3ronpy.vector as vector
 lazy import polars as pl
@@ -65,13 +61,6 @@ if TYPE_CHECKING:
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.grid")
 
-# this module's whole raise roster: every construction corner and every fenced kernel on this page resolves ONE
-# anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real module at import.
-# The four construction corners are caller-repairable and TERMINAL — an operand set, an unserved egress pair, a
-# zero extent, and a scheme whose kernel has no wheel all refuse identically on a re-offer. The `cells` and
-# `geometry` kernels are pure in-frame folds and declare the same; only `lift` declares TRANSIENT, its `file` arm
-# reading a source a re-issue may clear. `slots` NAMES each corner's coordinates, so the free-string message bodies
-# these rows replace become fields a consumer gates on rather than prose it parses.
 GRID_ARITY: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GRID, point="geo.arity", arm="config", defect="operand-mismatch", retriability=TERMINAL,
     slots=("verb", "demanded", "supplied"),
@@ -82,8 +71,6 @@ GRID_EGRESS: Final[FaultRow[DataLeg]] = FaultRow(
 GRID_EXTENT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GRID, point="rasterize", arm="config", defect="non-positive-extent", retriability=TERMINAL, slots=("extent",)
 )
-# the scheme gate rides `import_` because the defect IS an absent module: the `xarray-spatial` numba core has no
-# cp315 wheel, so the row this scheme needs is unreachable rather than merely unconfigured.
 GRID_SCHEME: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GRID, point="scheme", arm="import_", defect="scheme-unreached", retriability=TERMINAL, slots=("scheme",)
 )
@@ -162,8 +149,6 @@ class Containment(StrEnum):
     INTERSECTS = "IntersectsBoundary"
 
     def mode(self) -> object:
-        # the StrEnum value MIRRORS the provider member name, so the mode resolves at the call seam and no
-        # module-scope row ever holds a live `ContainmentMode` member.
         return getattr(ContainmentMode, self.value)
 
 
@@ -196,11 +181,6 @@ class GeoLift:
     file: str = case()
 
 
-# the ONE operand-arity correspondence over the `.st` verbs this page speaks, each row reading the accessor
-# signature `data/.api/polars-st.md` declares — nullary measures and derived geometries (:120, :123), the binary
-# predicates and `distance(other)` (:71, :78), the scalar-bearing `buffer`/`simplify` (:90, :94), and the one
-# `dwithin(other, distance)` row (:81). The factories gate on it and `_geo` lowers each carrier straight into the
-# call, so no arm re-decides an arity and no operand slot stands open for a verb that cannot take it.
 _GEO_VERB: Final[Map[str, GeoArity]] = Map.of_seq([
     ("area", "nullary"),
     ("length", "nullary"),
@@ -218,9 +198,6 @@ _GEO_VERB: Final[Map[str, GeoArity]] = Map.of_seq([
 
 
 def _admitted(verb: str, *, column: bool, scalar: bool) -> "RuntimeRail[str]":
-    # ONE gate for every frame-geometry factory: the operand set the caller supplied must EQUAL the set the verb's
-    # row admits, so a distanceless `dwithin` and a distance handed to a geometry-only verb refuse in one
-    # comparison, at construction, where the caller can still repair them.
     supplied: GeoArity = "column_scalar" if column and scalar else "column" if column else "scalar" if scalar else "nullary"
     demanded = _GEO_VERB[verb]
     return (
@@ -260,18 +237,11 @@ class GeoFrameOp:
     def Sjoin(
         other: object, predicate: GeoPredicate = "intersects", how: JoinHow = "inner", distance: Option[float] = Nothing
     ) -> "RuntimeRail[GeoFrameOp]":
-        # the join carries the frame as its column operand, so the same row that gates an expression predicate
-        # gates the join one: `sjoin(predicate="dwithin")` without a distance is the provider corner it closes.
         return _admitted(predicate, column=True, scalar=distance.is_some()).map(
             lambda _row: GeoFrameOp(sjoin=(other, predicate, how, distance))
         )
 
 
-# the data-valued (form, kind) -> vector-member correspondence on the folder's ONE Map rail, and the SOLE legal-corner
-# roster: `GridOp.Boundary` admits through it and `_boundary` reads the row it admitted, so a gate and a fold cannot
-# disagree about which pair the kernel serves. The egress column states the member's own arity — a single-column WKB
-# result attaches to the caller's frame, the multi-column centroid batch derives its own — and `centroid` seats here
-# under `CellKind.CELL` alone, the vertex and edge kinds having no coordinate kernel to answer them.
 _BOUNDARY: Final[Map[tuple[BoundaryForm, CellKind], tuple[str, CellEgress]]] = Map.of_seq([
     (("polygon", CellKind.CELL), ("cells_to_wkb_polygons", "column")),
     (("point", CellKind.CELL), ("cells_to_wkb_points", "column")),
@@ -331,8 +301,6 @@ class GridOp:
 
     @staticmethod
     def Boundary(form: BoundaryForm = "polygon", kind: CellKind = CellKind.CELL, radians: bool = False) -> "RuntimeRail[GridOp]":
-        # the corner refuses HERE, where the caller can still repair it: an unserved (form, kind) pair never reaches
-        # the fold, so `_boundary` holds no refusal arm and no mis-applied `assert_never` stands in for one.
         return _BOUNDARY.try_find((form, kind)).to_result_with(
             lambda: GRID_EGRESS.raised(form, kind.value)
         ).map(lambda _row: GridOp(boundary=(form, kind, radians)))
@@ -347,14 +315,10 @@ class GridOp:
 
     @staticmethod
     def Raster(values: "np.ndarray", transform: tuple[float, ...], nodata: Option[float], resolution: Option[int] = Nothing) -> "GridOp":
-        # `nodata` takes no default: the caller DECLARES the pixel value its scene reserves, or declares `Nothing`
-        # and masks none. `resolution` defaults absent because the raster's own shape and transform derive it.
         return GridOp(raster_index=(values, transform, nodata, resolution))
 
     @staticmethod
     def Rasterize(values: "np.ndarray", size: int | tuple[int, int], nodata: float) -> "RuntimeRail[GridOp]":
-        # a zero-extent raster is the fabricated-size outcome this refusal deletes; the size itself is required, so
-        # an absent one is unrepresentable rather than substituted, and `nodata` is the fill the egress must state.
         extent = size if isinstance(size, tuple) else (size, size)
         return (
             Ok(GridOp(raster_egress=(values, size, nodata)))
@@ -369,10 +333,6 @@ class GridOp:
 
 @tagged_union(frozen=True)
 class GridRequest:
-    # ONE closed request axis behind ONE entry: the plane a request runs on rides the value, so the cell kernel, the
-    # geometry ingress, and the frame-geometry verbs no longer split `GridSystem` into three public entrypoints whose
-    # only discriminant was the method a caller picked. Each case carries exactly its own operands — a lift takes no
-    # frame because it MINTS one, so the frameless corner is unrepresentable rather than gated.
     tag: GridPlane = tag()
     cells: tuple[GridOp, "pl.DataFrame"] = case()
     lift: GeoLift = case()
@@ -397,10 +357,6 @@ class GridResult(Struct, frozen=True):
 
 
 class _Plan(Struct, frozen=True):
-    # the per-request route as one value: what the span and receipt name it, which kernel ran it, the rostered row
-    # that kernel refuses under, that kernel's own raise surface, and the work. Three entrypoints carried these
-    # facts as copied literal sets. `at` joins them for the same reason `catch` did — the request's own arm knows
-    # which leg it is, so the one lift below spells neither a subject nor a provider set of its own.
     step: str
     engine: str
     at: "FaultRow[DataLeg]"
@@ -408,10 +364,6 @@ class _Plan(Struct, frozen=True):
     work: Callable[[], "pl.DataFrame"]
 
 
-# the served-scheme roster IS the capability gate AND the receipt route: `GridSystem.of` admits a scheme only where a
-# row names the kernel serving it, and that same row spells the engine every cell receipt carries, so no second table
-# states which scheme runs. `GridScheme.S2` holds no row — the numba blocker on `xarray-spatial` is the standing
-# deferral — so the refusal lands at construction with its reason, not as a raise five frames inside the fold.
 _SCHEME_ENGINE: Final[Map[GridScheme, str]] = Map.of_seq([(GridScheme.H3, "h3ronpy.h3")])
 _FRAME_ENGINE: Final[str] = "polars-st"
 
@@ -426,8 +378,6 @@ class GridSystem(Struct, frozen=True):
     def of(
         cls, scheme: GridScheme = GridScheme.H3, cell_column: str = DEFAULT_CELL_COLUMN, crs: str = H3_CRS
     ) -> "RuntimeRail[GridSystem]":
-        # one admission gate over the served roster; the admitted system then CARRIES its kernel name as evidence, so
-        # nothing below re-tests the scheme and `engine` has no default a bare construction could forge.
         return _SCHEME_ENGINE.try_find(scheme).to_result_with(
             lambda: GRID_SCHEME.raised(scheme.value)
         ).map(lambda engine: cls(engine=engine, scheme=scheme, cell_column=cell_column, crs=crs))
@@ -445,17 +395,11 @@ class GridSystem(Struct, frozen=True):
             )
 
     def engine_bin(self, table: "pa.Table", geometry_view: str, resolution: int) -> "RuntimeRail[SpatialResult]":
-        # the in-DB half of the two-substrate law: an already-columnar frame bins through the
-        # spatial/query engine's `h3` extension SQL; the in-frame half is the h3ronpy plane above.
         return SpatialEngine.of({geometry_view: table}).run(SpatialQuery.H3Bin(geometry_view, resolution))
 
     def _plan(self, request: GridRequest) -> _Plan:
         match request:
             case GridRequest(tag="cells", cells=(op, frame)):
-                # `h3ronpy` publishes no exception class of its own: an out-of-range resolution, a malformed cell,
-                # and an unlowerable array all raise `ValueError`, an absent column `KeyError`, and the Rust core
-                # surfaces `RuntimeError`. `polars`/`polars_st` answer the same builtins, the `file` arm adding
-                # `OSError` for the source read no other arm performs.
                 return _Plan(
                     step=op.tag, engine=self.engine, at=GRID_CELLS, catch=(ValueError, KeyError, RuntimeError),
                     work=lambda: self._grid(op, frame),
@@ -521,8 +465,6 @@ class GridSystem(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _boundary(self, frame: "pl.DataFrame", cells: object, form: BoundaryForm, kind: CellKind, radians: bool) -> "pl.DataFrame":
-        # total by construction: `GridOp.Boundary` admitted this pair through the same roster, so the read is a
-        # lookup and never a refusal — the egress column decides whether the member's result attaches or derives.
         member, egress = _BOUNDARY[(form, kind)]
         egressed = pl.from_arrow(getattr(vector, member)(cells, radians=radians))
         return frame.with_columns(egressed.rename("boundary")) if egress == "column" else egressed
@@ -538,8 +480,6 @@ class GridSystem(Struct, frozen=True):
     def _raster_index(
         self, values: "np.ndarray", transform: tuple[float, ...], nodata: Option[float], resolution: Option[int]
     ) -> "pa.Table":
-        # the LAST line naming the provider's own null: the declared `Nothing` lowers to `nodata_value=None`, which
-        # masks nothing, so an undeclared reserve never becomes a real pixel value the ingress silently drops.
         return raster_to_dataframe(
             values,
             transform,
@@ -551,8 +491,6 @@ class GridSystem(Struct, frozen=True):
     def _raster_egress(
         self, cells: object, values: "np.ndarray", size: "int | tuple[int, int]", nodata: float
     ) -> "tuple[np.ndarray, tuple[float, ...]]":
-        # the provider's own `nodata_value=0` default fills every unwritten pixel with a real measurement value, so
-        # the fill rides the op as the caller's declaration and this seam never supplies one.
         return rasterize_cells(cells, values, size, nodata_value=nodata)
 
     def _index(self, frame: "pl.DataFrame", resolution: int, source: CellSource) -> object:
@@ -560,9 +498,6 @@ class GridSystem(Struct, frozen=True):
             case CellSource(tag="coordinates", coordinates=(lat_col, lng_col)):
                 return coordinates_to_cells(frame[lat_col], frame[lng_col], resolution, radians=False)
             case CellSource(tag="wkb", wkb=(geometry_col, containment)):
-                # `flatten=False` keeps one per-row cell list so the `cell` column stays 1:1 with the
-                # frame rows the `attach` `with_columns` requires; the exploded form is the engine
-                # `H3Bin` leg on `spatial/query`.
                 return wkb_to_cells(frame[geometry_col], resolution, containment_mode=containment.mode(), compact=False, flatten=False)
             case CellSource(tag="geometry", geometry=(geometry_col, containment)):
                 return geometry_to_cells(frame[geometry_col], resolution, containment_mode=containment.mode(), compact=False)
@@ -587,8 +522,6 @@ def _lift(lift: GeoLift) -> "pl.DataFrame":
 def _geo(op: GeoFrameOp, frame: "pl.DataFrame") -> "pl.DataFrame":
     match op:
         case GeoFrameOp(tag="predicate", predicate=(verb, geometry_col, other_col, distance)):
-            # each carrier lowers straight into the call — the option's own spread IS the argument list — because
-            # the factory already settled which operands the verb takes; no arm re-tests a verb name.
             expr = getattr(pl.col(geometry_col).st, verb)(pl.col(other_col), *distance.to_list())
             return frame.with_columns(expr.alias(verb))
         case GeoFrameOp(tag="measure", measure=(verb, geometry_col, operand_col)):
@@ -598,8 +531,6 @@ def _geo(op: GeoFrameOp, frame: "pl.DataFrame") -> "pl.DataFrame":
             expr = getattr(pl.col(geometry_col).st, verb)(*param.to_list())
             return frame.with_columns(expr.alias(geometry_col))
         case GeoFrameOp(tag="sjoin", sjoin=(other, predicate, how, distance)):
-            # the LAST line naming the provider's own null: `sjoin` declares `distance=None` as its absent form,
-            # and the factory proved the predicate admits the operand this lowering hands it.
             return frame.st.sjoin(other, predicate=predicate, how=how, distance=distance.to_optional())
         case unreachable:
             assert_never(unreachable)

@@ -36,9 +36,6 @@ Each lane is a policy row whose durations are the core budget ledger's: a row na
 - Packages: `effect` (`Cause`, `Clock`, `Context`, `Data`, `Duration`, `Exit`, `MutableHashMap`, `Option`, `Ref`, `Schema`), `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
-// Every row names the lane, and each names the ONE span or number that decided it — the deadline that lapsed, the
-// cool window still open, the peer's own refusal status. The sender-binding row names none, because a proof that
-// cannot be minted spends no span: the `Duration.zero` it used to carry was a slot the raise filled with a lie.
 const _family = Fault.Class.family(['budget', 'break', 'binding', 'credential', 'throttled'] as const, {
     budget: Fault.Class.row({
         class: 'expired',
@@ -64,8 +61,6 @@ const _family = Fault.Class.family(['budget', 'break', 'binding', 'credential', 
         detail: Schema.Struct({ lane: Schema.String }),
         render: ({ lane }) => `${lane} requires a machine credential`,
     }),
-    // The one row whose PRODUCER states the window: a peer answering `Retry-After` measured the wait itself, so this
-    // reason classes `exhausted` — the single `throttled`-capable kind — and its raise fills `after`.
     throttled: Fault.Class.row({
         class: 'exhausted',
         leg: 'dial',
@@ -76,9 +71,6 @@ const _family = Fault.Class.family(['budget', 'break', 'binding', 'credential', 
 
 class Lapse extends Schema.TaggedError<Lapse>()('Lapse', {
     case: _family.payload,
-    // The stated window rides the VALUE under the one word `core/value/fault#CLASS_VOCABULARY` fixes, so
-    // `Fault.Class.statedOf` reads exactly this field and `Fault.Budget.schedule` re-seats its base from it; every
-    // row but `throttled` states absence rather than a zero a gate would re-offer against immediately.
     after: Fault.Class.After,
 }) {
     get class(): Fault.Class.Kind {
@@ -124,25 +116,24 @@ const _reopened = (generation: number, now: number, policy: Breaker.Policy): Bre
     _Cell.Open({ generation: generation + 1, until: now + Duration.toMillis(policy.cool) });
 
 const _verdicts = {
-    // one row per termination class: a fourth class is a row, and the Verdict union derives off this anchor
     passed: (_held, generation) => _Cell.Closed({ generation: generation + 1, faults: 0 }),
     faulted: (held, generation, now, policy) =>
         _Cell.$match(held, {
             Closed: ({ faults }) =>
                 faults + 1 >= policy.trip ? _reopened(generation, now, policy) : _Cell.Closed({ generation, faults: faults + 1 }),
-            Open: (open) => open, // a late loser settles against an already-open cell: the cell holds
+            Open: (open) => open,
             Half: () => _reopened(generation, now, policy),
         }),
     halted: (held) =>
         _Cell.$match(held, {
-            Closed: (closed) => closed, // a closed admission consumed no ration, so an abandoned call charges nothing
+            Closed: (closed) => closed,
             Open: (open) => open,
-            Half: (half) => _Cell.Half({ generation: half.generation, probes: half.probes + 1 }), // the abandoned probe returns to the ration: an interrupt is not evidence about the remote
+            Half: (half) => _Cell.Half({ generation: half.generation, probes: half.probes + 1 }),
         }),
 } as const satisfies Record<string, Breaker.Settle>;
 
 const _verdict: (exit: Exit.Exit<unknown, unknown>) => Breaker.Verdict = Exit.match({
-    onFailure: (cause) => (Cause.isInterruptedOnly(cause) ? 'halted' : 'faulted'), // interrupt-first: a defect is evidence about the remote, an abandoned wait is not
+    onFailure: (cause) => (Cause.isInterruptedOnly(cause) ? 'halted' : 'faulted'),
     onSuccess: () => 'passed',
 });
 
@@ -153,7 +144,7 @@ const _LEDGER = { capacity: 512 } as const;
 
 const _cell = (cells: MutableHashMap.MutableHashMap<string, Ref.Ref<Breaker.Cell>>, key: string): Ref.Ref<Breaker.Cell> =>
     Option.getOrElse(MutableHashMap.get(cells, key), () => {
-        if (MutableHashMap.size(cells) >= _LEDGER.capacity) MutableHashMap.clear(cells); // a mint at capacity flushes the ledger to rest: cold circuits, never unbounded growth
+        if (MutableHashMap.size(cells) >= _LEDGER.capacity) MutableHashMap.clear(cells);
         const minted = Ref.unsafeMake(_REST);
         MutableHashMap.set(cells, key, minted);
         return minted;
@@ -173,7 +164,7 @@ const _guard =
                               _settled(held, admitted.value, globalThis.Number(at / 1_000_000n), policy, _verdict(exit)),
                           ),
                       ),
-                  ) // one emission point, fired uninterruptibly after the outcome settles: an interrupted probe never escapes unaccounted
+                  )
                 : yield* new Lapse({ case: { reason: 'break', lane: key, cool: policy.cool }, after: Option.none() });
         });
 
@@ -222,11 +213,6 @@ import {
 import { Fault, Invoke } from '@rasm/core';
 import type { MachinePrincipal } from '@rasm/security';
 
-// `fits` is the sentence a caller selects a lane on, `admit` the dial modality that lane is entered through,
-// `present` when the credential source is read, and `degrade` what the selection costs, so all four leave prose and
-// become cells a root reads. `feed` is the row that forfeits most and says so: no total budget, no circuit, and one
-// credential read for a response that outlives it, because a long-lived response outlives any deadline and its
-// reconnect pulse already paces re-dials, and its modality is the scoped response for the same reason.
 const _lanes = {
     live: {
         kind: 'pulse',
@@ -254,8 +240,6 @@ const _lanes = {
     },
     feed: {
         kind: 'feed',
-        // Stated ABSENCE, and the one cell the settled modality derives off: lanes declare a body ceiling exactly
-        // where they materialize a body, so `feed` carrying none keeps `dial(lane, request, shape)` from naming it.
         budget: Option.none<Duration.Duration>(),
         body: Option.none<number>(),
         hops: 0,
@@ -270,9 +254,6 @@ const _lanes = {
 
 declare namespace Client {
     type Lane = keyof typeof _lanes;
-    // Lanes that materialize a body are exactly the lanes that declare a ceiling for one, so the settled modality
-    // DERIVES off that cell rather than a second boolean beside it. `admit` said this in prose while the overload
-    // still accepted every lane, leaving `feed`'s body cell a number nothing read and its rule a comment.
     type Settled = { [L in Lane]: (typeof _lanes)[L]['body'] extends Option.None<number> ? never : L }[Lane];
     type Row = {
         readonly kind: Fault.Budget.Kind;
@@ -301,12 +282,8 @@ const WebhookOrigin = Schema.String.pipe(
 const _origin = (request: HttpClientRequest.HttpClientRequest): string => URL.parse(request.url)?.origin ?? request.url;
 
 const _route = (lane: Client.Lane, request: HttpClientRequest.HttpClientRequest): string =>
-    `${lane}:${_origin(request)}`; // one circuit per lane and origin: path and query variants share the cell they share fate with
+    `${lane}:${_origin(request)}`;
 
-// The gated read every wire projects off — the whole principal, because each wire needs a different member of it:
-// the HTTP band takes `credential`, a SASL frame takes the bare `token` beside `clientId` and `expiresAt`. The ONE
-// decision made here is the sender-binding refusal, since `DPoPHandle` publishes `calculateThumbprint()` alone and
-// no proof exists for any of these wires to carry.
 const _at = (lane: string, audience: string): Effect.Effect<Option.Option<MachinePrincipal>, Lapse> =>
     Effect.flatMap(Machine, (source) =>
         Effect.flatMap(
@@ -320,9 +297,6 @@ const _at = (lane: string, audience: string): Effect.Effect<Option.Option<Machin
             }),
         ));
 
-// `credential` already carries the scheme its issuer chose, which is why `bearerToken` — hardcoding `Bearer ` — is
-// the foreclosed member; `authorization` sits in the platform's default redacted-name set, so the one unwrap here is
-// the last place the value is a bare string.
 const _band = (lane: string, audience: string): Effect.Effect<Readonly<Record<string, string>>, Lapse> =>
     Effect.map(
         _at(lane, audience),
@@ -342,11 +316,6 @@ const _requiredBand = (lane: string, audience: string): Effect.Effect<Readonly<R
         }),
     );
 
-// The credential SOURCE, never a credential: an app root fills this with `security:authn/workload`'s `Workload`, so
-// grant grammar, rotation, and client secrets all stay at their owner and this plane holds a read keyed by audience.
-// A Reference rather than a Tag because the default has to be a real posture: an estate with no workload identity
-// dials anonymous exactly as it does today, and `R` never grows on a lane that presents nothing. The two statics
-// seat AFTER their functions because a class body evaluates its statics eagerly.
 class Machine extends Context.Reference<Machine>()('runtime/Machine', {
     defaultValue: (): Machine.Source => ({ held: () => Effect.succeedNone }),
 }) {
@@ -359,8 +328,6 @@ type _RetryAfter =
     | { readonly kind: 'delay'; readonly seconds: number }
     | { readonly kind: 'date'; readonly deadline: DateTime.Utc };
 
-// Parse once: the same admitted grammar decides whether the blind curve excludes the refusal and which duration the
-// typed throttled lapse carries. Header PRESENCE alone proves nothing; malformed text remains an ordinary transient.
 const _retryAfter = (named: string): Option.Option<_RetryAfter> =>
     Option.match(Option.filter(Number.parse(named), (seconds) => globalThis.Number.isInteger(seconds) && seconds >= 0), {
         onNone: () => Option.map(DateTime.make(named), (deadline) => ({ kind: 'date', deadline } as const)),
@@ -383,9 +350,6 @@ const _tempered =
             HttpClient.withTracerPropagation(true),
         );
 
-// `Retry-After` admits the protocol's non-negative INTEGER delay-seconds or an HTTP-date and both spell ONE
-// `Duration`. The date form uses signed distance and clamps an already elapsed deadline to zero: that peer did state
-// a window, and its window has ended. Fractional, negative, and malformed delay-seconds state nothing.
 const _stated = (response: HttpClientResponse.HttpClientResponse): Effect.Effect<Fault.Class.Stated> =>
     Option.match(Option.flatMap(Headers.get(response.headers, 'retry-after'), _retryAfter), {
         onNone: () => Effect.succeedNone,
@@ -397,8 +361,6 @@ const _stated = (response: HttpClientResponse.HttpClientResponse): Effect.Effect
                   ),
     });
 
-// The refusal becomes THIS page's fault only where a window was actually stated; otherwise the platform's own
-// `ResponseError` passes through untouched, so no re-wrap invents evidence the peer never sent.
 const _throttled =
     (lane: Client.Lane) =>
     (refusal: HttpClientError.ResponseError): Effect.Effect<never, Lapse | HttpClientError.ResponseError> =>
@@ -407,10 +369,6 @@ const _throttled =
                 ? Effect.fail(new Lapse({ case: { reason: 'throttled', lane, status: refusal.response.status }, after }))
                 : Effect.fail(refusal));
 
-// One re-offer at the wait the producer named: `Fault.Budget.schedule` re-seats the lane row's `base` from the
-// stated window and the curve grows from there under that row's own attempts, reset, and elapsed ceiling. The
-// predicate re-checks every failure emitted by the re-drive: a later terminal refusal cannot inherit the first
-// response's stated window.
 const _paced =
     (lane: Client.Lane) =>
     <A, E, R>(dial: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
@@ -452,8 +410,6 @@ const _gated = <A, E, R>(
             }),
     );
 
-// The band reads ONCE per dial and outside the client, so a transient retry re-presents the same credential — one
-// call is one attempt at one identity — and the `feed` row's `present` cell is that single read stated as a forfeit.
 const _sentWith = (
     lane: Client.Lane,
     request: HttpClientRequest.HttpClientRequest,
@@ -496,8 +452,6 @@ function dial<A, I, R>(lane: Client.Lane, request: HttpClientRequest.HttpClientR
               lane,
               request,
               Effect.scoped(Effect.flatMap(sent, HttpClientResponse.schemaBodyJson(shape))).pipe(
-                  // Cells ARE the argument here: the member takes the `Option` this row already carries, so no lane
-                  // re-wraps a number and an absent ceiling stays absent rather than becoming a fabricated one
                   HttpIncomingMessage.withMaxBodySize(_lanes[lane].body),
               ),
           );
@@ -520,8 +474,6 @@ function dial<A, I, R>(lane: Client.Lane, request: HttpClientRequest.HttpClientR
 import { NodeHttpClient, Undici } from '@effect/platform-node';
 import { Effect, Layer } from 'effect';
 
-// `[06]`'s Connect arm reads the h2 rows beneath `allowH2`: undici never dispatches that arm's own `node:http2`
-// sessions, so this row writes down the estate's one h2 residency ceiling.
 const _dispatch = {
     connections: 128,
     pipelining: 1,
@@ -544,7 +496,7 @@ const _resident = (policy: Undici.Agent.Options): Layer.Layer<HttpClient.HttpCli
             Layer.scoped(
                 NodeHttpClient.Dispatcher,
                 Effect.acquireRelease(
-                    Effect.orDie(Effect.try(() => new Undici.Agent(policy))), // the constructor refuses an out-of-range option by throwing: a boot-edge misconfiguration dies as a defect, never as a silent agent
+                    Effect.orDie(Effect.try(() => new Undici.Agent(policy))),
                     (agent) => Effect.orDie(Effect.tryPromise(() => agent.close())),
                 ),
             ),
@@ -583,8 +535,6 @@ import {
     type Http2SessionOptions,
 } from '@connectrpc/connect-node';
 
-// PING liveness reads the [05] residency row at the one arm undici never dispatches; `pingTimeoutMs` takes the
-// header-stall bound because both measure the same failure — the remote left a frame unanswered.
 const _KEEPALIVE = {
     pingIntervalMs: _dispatch.keepAliveTimeout,
     pingTimeoutMs: _dispatch.headersTimeout,
@@ -603,7 +553,7 @@ const _session = (baseUrl: string): Effect.Effect<Http2SessionManager, never, Sc
                     }),
             ),
         ),
-        (session) => Effect.orDie(Effect.try(() => session.abort())), // scope closure ends every open stream: an orphaned session outlives the root that opened it
+        (session) => Effect.orDie(Effect.try(() => session.abort())),
     );
 
 const _rpcOptions = (policy: Invoke.Dial.Policy, session: Http2SessionManager) => ({
@@ -619,8 +569,6 @@ const _rpcOptions = (policy: Invoke.Dial.Policy, session: Http2SessionManager) =
     sessionManager: session,
 });
 
-// The transport family is one closed capability record. Every member receives the same core policy, scoped manager,
-// compression posture, and frame ceiling; only the public factory and its HTTP-version spelling differ.
 const _adapter = (config: Invoke.Dial.Config): Effect.Effect<Invoke.Dial.Adapter<'node'>, never, Scope.Scope> =>
     Effect.map(_session(config.baseUrl), (session) => ({
         kind: 'node',
@@ -633,13 +581,8 @@ const _adapter = (config: Invoke.Dial.Config): Effect.Effect<Invoke.Dial.Adapter
 
 const _audience = (url: string): string => URL.parse(url)?.origin ?? url;
 
-// BOUNDARY ADAPTER: an `Interceptor` is promise-shaped, so the captured runtime re-enters the rail here and nowhere
-// else. The band reads per call for the origin the call addresses, which is exactly where a rotation lands; a
-// sender-bound principal refuses as the `binding` `Lapse` the dial's promise seam folds to its `Transport` fault.
 const _credential = (runtime: Runtime.Runtime<never>): Interceptor => (next) => (request) =>
     Runtime.runPromise(runtime)(
-        // Subject is this SEAM, never a lane: no lane transformer brackets a Connect call, so naming one cites a
-        // policy row that decided nothing about the refusal it renders.
         Effect.map(_band('rpc', _audience(request.url)), (band) => {
             Object.entries(band).forEach(([name, value]) => request.header.set(name, value));
             return request;
@@ -652,7 +595,7 @@ const Rpc = {
     credential: _credential,
 } as const;
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Breaker, Client, Lapse, Machine, Rpc, WebhookOrigin };
 ```

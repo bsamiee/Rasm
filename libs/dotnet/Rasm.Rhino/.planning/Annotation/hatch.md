@@ -22,7 +22,7 @@
 - Growth: a pattern attribute lands in `PatternDef`, its validation gate, `Apply`, and `Read`; no mutation case carries a partial parallel definition.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -32,7 +32,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Annotation;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class FillKind {
     public static readonly FillKind Solid = new(key: (int)HatchPatternFillType.Solid);
@@ -48,7 +48,7 @@ public sealed partial class PatternDistance {
     public static readonly PatternDistance ModelUnits = new(key: true);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class LineDef {
@@ -57,8 +57,6 @@ public sealed partial class LineDef {
     public Vector2d Offset { get; }
     public Seq<SegmentRow> Dashes { get; }
 
-    // The angle and every dash are admitted owners, so the only clauses left are the two host structs the seam
-    // cannot type. C# forbids capturing a `ref` parameter, so the roster reads one local copy of those columns.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref DraftAngle angle, ref Point2d @base, ref Vector2d offset, ref Seq<SegmentRow> dashes) {
@@ -79,8 +77,6 @@ public sealed partial class LineDef {
     });
 }
 
-// Equality is the GENERATED one: `ResourceName` declares ordinal-ignore-case, and `Seq`/`HashMap` carry structural
-// equality of their own, so `==` answers exactly what a hand comparison did and cannot fall behind a new column.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class PatternDef {
@@ -121,8 +117,6 @@ public sealed partial class PatternDef {
                 release: () => Custody.Dispose(held: Seq(pattern), key: key), key: key))
         select pattern;
 
-    // The ONE shaping fold: a fresh native from `Mint` and a table duplicate from the grip's revise row reach the
-    // same state, so authoring and amendment cannot disagree on what a definition means.
     internal Fin<Unit> Apply(HatchPattern pattern, Op key) =>
         from lines in Lines.TraverseM(line => line.Mint(key: key)).As()
         from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => {
@@ -183,7 +177,7 @@ public sealed partial class PatternDef {
 - Growth: a construction form is one `HatchSpec` case with its arm; a gradient axis is one `FillGradient` column.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class GradientForm {
     public static readonly GradientForm None = new(key: (int)GradientType.None, draws: false);
@@ -192,8 +186,6 @@ public sealed partial class GradientForm {
     public static readonly GradientForm LinearHeld = new(key: (int)GradientType.LinearDisabled, draws: false);
     public static readonly GradientForm RadialHeld = new(key: (int)GradientType.RadialDisabled, draws: false);
 
-    // The two `*Disabled` rows keep a gradient's stops and geometry on the hatch while suppressing its draw, so a
-    // consumer asks the column instead of testing two enum members it would have to re-spell.
     internal bool Draws { get; }
     internal GradientType Host => (GradientType)Key;
 }
@@ -222,8 +214,6 @@ public sealed partial class GradientStop {
 [ValidationError]
 public sealed partial class FillGradient {
     public GradientForm Form { get; }
-    // `Repeat` is SIGNED: above one it reflects, below minus-one it wraps, so the positive-only `DraftScale` owner
-    // would refuse every wrapped gradient the host writes; the gate here is finiteness alone.
     public double Repeat { get; }
     public Point3d Start { get; }
     public Point3d End { get; }
@@ -296,8 +286,6 @@ public abstract partial record HatchSpec {
         ByName: static (document, name) => document.HatchPatterns.FindName(name: name),
         ByIndex: static (document, index) => document.HatchPatterns.FindIndex(index: index));
 
-    // Admission and construction share ONE borrow scope per arm: a boundary curve lives only inside its handle's
-    // lease, so an area-mass gate run in a prior pass would read natives the scope has already closed.
     internal Fin<Seq<Hatch>> Mint(RhinoDoc document, FillPlacement placement, Op op) =>
         from pattern in placement.Pattern.Resolve(document: document, lens: Lens, key: op)
         from hatches in Switch(
@@ -374,7 +362,7 @@ public abstract partial record HatchSpec {
 - Growth: a verb every component table shares lands on `TableOp`; a hatch-only verb is one case here.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HatchProgram {
     private HatchProgram() { }
@@ -385,9 +373,6 @@ public abstract partial record HatchProgram {
     public sealed record Regrade(TableTarget Target, FillGradient Fill) : HatchProgram;
     public sealed record Rescale(TableTarget Target, Transform Motion) : HatchProgram;
 
-    // `new HatchPattern(other)` copy-constructs the whole native including its name, the same shape the linetype
-    // grip takes for the same reason; the file row canonicalizes and drains its raw batch, so the shared import
-    // arm sees admitted copies alone.
     internal static readonly TableGrip<HatchPattern, PatternDef> Grip = new(
         HatchSpec.Lens, DraftComponentKind.Hatch,
         Named: static def => def.Name,
@@ -425,8 +410,6 @@ public abstract partial record HatchProgram {
     internal Fin<DraftReceipt> Apply(RhinoDoc document, Op op) => Switch(
         (Document: document, Op: op),
         table: static (context, edit) => edit.Verb.Apply(grip: Grip, document: context.Document, op: context.Op),
-        // `GetDefaultHatchPatterns` hands back a whole freshly minted array, so the roster releases the moment the
-        // one row it answers is canonicalized, and the shared author verb takes it from there as an admitted def.
         authorDefault: static (context, edit) =>
             from stock in context.Op.Catch(() => Fin.Succ(value: toSeq(HatchPattern.GetDefaultHatchPatterns()).Strict()))
             from definition in stock
@@ -473,9 +456,6 @@ public abstract partial record HatchProgram {
             change: (hatch, key) => key.Accept(edit.Motion)
                 .Bind(_ => key.Catch(() => Fin.Succ(value: Op.Side(() => hatch.ScalePattern(xform: edit.Motion)))))));
 
-    // The generator list's declared seam: no in-place setter (so `Write` is absent and a replace is a bounded
-    // remove-then-append), a bulk purge the host does publish, and a floor of zero — the fill-kind agreement is a
-    // definition invariant, not a list one, so it is proved after the batch rather than per edit.
     private static ListSurface<LineDef> Generators(HatchPattern pattern) => new(
         Count: () => pattern.HatchLineCount,
         Append: (row, key) =>
@@ -525,7 +505,7 @@ public abstract partial record HatchProgram {
             select new HatchRevision(Id: id, Original: original, Revised: revised);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Hatches {
     public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<HatchProgram> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
@@ -555,7 +535,7 @@ public static class Hatches {
 - Growth: a read is one `HatchAsk` case with its `HatchAnswer` twin; a loop axis is one row carrying its own host reader.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class LoopKind {
     public static readonly LoopKind Perimeter = new(key: true);
@@ -571,7 +551,7 @@ public sealed partial class LoopFrame {
     internal partial Curve[] Read(Hatch hatch, LoopKind kind);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PatternSnapshot(
     ResourceId Key,
     ResourceIndex Index,
@@ -592,7 +572,7 @@ public sealed record HatchDisplay(
     Seq<Line> Lines,
     Option<GeometryHandle> Solid) : IDetachedDocumentResult;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HatchAsk {
     private HatchAsk() { }
@@ -682,8 +662,6 @@ public abstract partial record HatchAsk {
             from handles in DraftCrossing.Crossed(products: products, op: context.Op)
             select (HatchAnswer)new HatchAnswer.Pieces(handles));
 
-    // The verdict-less triple-`out` funnel: one read, presence as evidence, and no null-coalesce standing in for
-    // an answer the host never gave.
     private static Fin<(Seq<Curve> Bounds, Seq<Line> Lines, Option<Brep> Solid)> DisplayGeometry(
         Hatch hatch, HatchPattern pattern, DraftScale scale, Op key) =>
         key.Catch(() => {
@@ -718,8 +696,6 @@ public abstract partial record HatchAnswer : IDetachedDocumentResult {
     public sealed record Solidified(GeometryHandle Region) : HatchAnswer;
     public sealed record Pieces(Seq<GeometryHandle> Products) : HatchAnswer;
 
-    // Custody release on the RAIL: the four handle-bearing cases name themselves and every other answer settles as
-    // success, so no case carries a no-op arm and the release fault reaches the caller typed.
     public Fin<Unit> Release(Op? key = null) => SwitchPartially(
         context: key.OrDefault(),
         @default: static (_, _) => Fin.Succ(value: unit),

@@ -50,7 +50,7 @@ The closed vocabularies a specialized row carries — `ThreadForm`, `ThreadHand`
 - Boundary: `Turning` owns process geometry and semantic directives; posting admits no typed `TurnProgram` counterpart and reads the lowered `MotionDirective` stream alone.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics.Tensors;
 using LanguageExt;
 using LanguageExt.Common;
@@ -69,7 +69,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
-// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CutSide {
     public static readonly CutSide External = new("external", radialSign: 1, ExternalTarget);
@@ -158,8 +158,6 @@ public sealed partial class InfeedMethod {
         * ((pass & 1) == 0 ? -1.0 : 1.0);
 }
 
-// The geometry behind the S0 `ThreadForm` row. Named seeds are DATA over one owner, so a shop form outside the
-// standard roster admits through the same gate the seeds cross and never mints a second form vocabulary.
 [ComplexValueObject]
 public sealed partial class ThreadProfile {
     public ThreadForm Form { get; }
@@ -178,7 +176,6 @@ public sealed partial class ThreadProfile {
         Seed(ThreadForm.Acme, 14.5, 14.5, 0.25, 0.25, 0.0, 0.0, 0.5),
         Seed(ThreadForm.Buttress, 7.0, 45.0, 0.125, 0.25, 0.0, 0.0, 0.6),
         Seed(ThreadForm.Round, 30.0, 30.0, 0.0, 0.0, 0.238, 0.238, 0.55),
-        // Pipe threads carry the Whitworth 55-degree included form, so its flanks are the half-angle of that spec.
         Seed(ThreadForm.Pipe, 27.5, 27.5, 0.0, 0.0, 0.1373, 0.1373, 0.6403))
         .Map(static row => (row.Form, row)));
 
@@ -280,10 +277,7 @@ public sealed partial class TurretChannel {
     public static readonly TurretChannel Lower = new("lower");
 }
 
-// --- [DEMAND] -------------------------------------------------------------------------------------------------------------------------------------
-// The radius FLOOR that keeps a constant-surface solve finite at the rotation axis rides the MODE whose solve needs
-// it, filled as a base column at construction. As a policy knob it was one value threaded through every rpm site as
-// a parameter no caller could vary, and a mode could be constructed without the floor its own arithmetic divides by.
+// --- [DEMAND] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SpindleMode(Length MinimumRadius) {
     public sealed record ConstantSurface(Length MinimumRadius, RotationalSpeed Ceiling) : SpindleMode(MinimumRadius);
@@ -291,8 +285,6 @@ public abstract partial record SpindleMode(Length MinimumRadius) {
 
     public double RpmAt(double radiusMm, double surfaceMetersPerMinute) => Switch(
         state: (Radius: radiusMm, Minimum: MinimumRadius.Millimeters, Surface: surfaceMetersPerMinute),
-        // The forward cutting-speed relation is `Process/physics#BUDGET_FOLD` `SurfaceSpeed.Rpm` over the CUTTING
-        // diameter; the lathe supplies twice its own radius and clamps to the case's ceiling.
         constantSurface: static (state, mode) => double.Min(
             mode.Ceiling.RevolutionsPerMinute,
             SurfaceSpeed.Rpm(state.Surface, 2.0 * double.Max(state.Radius, state.Minimum))),
@@ -371,10 +363,6 @@ public sealed partial class TurnInsert {
         select insert;
 }
 
-// Every magnitude the lathe holds is a DIMENSIONED quantity, so no column spells its unit into a name and a caller
-// handing a bore clearance in inches cannot reach the arithmetic. The chord and biarc gates are absent by law: the
-// admitted profile carries the `Context` those lanes derive from, and a policy column beside it was the same figure
-// declared twice, movable at one owner and frozen at the other.
 [ComplexValueObject]
 public sealed partial class TurnPolicy {
     public Length Approach { get; }
@@ -387,8 +375,6 @@ public sealed partial class TurnPolicy {
     public Length ThreadPullout { get; }
     public int SpringPasses { get; }
 
-    // The traverse rate the lathe rapids at, so a pass prices its own non-cutting legs instead of leaving the
-    // specialized envelope to state a duration only the cutting spans produced.
     public Speed Rapid { get; }
 
     [BoundaryAdapter]
@@ -507,9 +493,6 @@ public sealed partial class ThreadSpec {
         Infeed.Shift(DepthAt(pass), pass, Profile.LoadFlankDeg, Profile.ClearanceFlankDeg, ReliefDeg);
 }
 
-// Every radial operation carries its CUT SIDE, so an internal groove, an internal part-off, and an internal knurl
-// are representable and no body reads an outer radius the row never chose. Centreline operations — axial and tap —
-// bore from the axis by construction and state `CutSide.Internal` on their envelope alone.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LatheOp {
     private LatheOp() { }
@@ -528,8 +511,6 @@ public abstract partial record LatheOp {
     public sealed record Knurl(
         KnurlPattern Pattern, CutSide Side, double AxialStart,
         double AxialEnd, double Radius, double Pressure, double FeedScale) : LatheOp;
-    // One handoff row over the S0 kind vocabulary: transfer and cutoff-transfer differ by whether the row parts the
-    // bar, which is the kind's own column, never a second case carrying identical grip and pull payload.
     public sealed record Handoff(HandoffKind Kind, CutSide Side, double GripPlane, double GripLength, double PullDistance) : LatheOp;
 }
 
@@ -587,13 +568,11 @@ public sealed partial class TurnRequest {
             .Bind(_ => Validate(demand, steps, out TurnRequest request).Admitted(request));
 }
 
-// --- [RECEIPTS] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [RECEIPTS] ------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LatheDirective {
     private LatheDirective() { }
 
-    // Hand is the spindle rotation the mode runs at; the S0 `MotionDirective.Spindle` atom carries it, so the lathe
-    // states it rather than leaving the dialect to infer a direction from the thread it is not reading.
     public sealed record Spindle(SpindleMode Mode, RotationSense Hand, double SurfaceMetersPerMinute, double ResolvedRpm) : LatheDirective;
     public sealed record Dwell(int AfterMove, double Revolutions) : LatheDirective;
     public sealed record Synchronize(int FromMove, int ToMove, double Rpm, double Lead, ThreadHand Hand, int Start, int Pass, ThreadCutRole Role) : LatheDirective;
@@ -623,8 +602,6 @@ public abstract partial record TurnLoad {
     public sealed record Forming(double Pressure, KnurlPattern Pattern) : TurnLoad;
 }
 
-// The emitted trail carries its own ordinals: a directive names the move it follows by the index the trail recorded
-// when that move was emitted, so plunge, axial, tap, and thread share one convention and no stride arithmetic exists.
 public readonly record struct MoveTrail(Seq<Move> Moves, Seq<int> Marks) {
     public static readonly MoveTrail Empty = new(Seq<Move>(), Seq<int>());
 
@@ -632,8 +609,6 @@ public readonly record struct MoveTrail(Seq<Move> Moves, Seq<int> Marks) {
 
     public MoveTrail Then(Seq<Move> moves) => this with { Moves = Moves + moves };
 
-    // `back` counts moves BEFORE the cursor, so a dwell that must precede a retract names the cut it follows rather
-    // than the retract that follows the cut.
     public MoveTrail Mark(int back = 0) => this with { Marks = Marks.Add(Cursor - back) };
 }
 
@@ -651,7 +626,7 @@ public sealed record TurnPass(
 public sealed record TurnResidual(double OuterRadius, double InnerRadius, Arr<RemovalEnvelope> Removed);
 public sealed record TurnProgram(Seq<TurnPass> Passes, Seq<ChannelBarrier> Barriers, TurnResidual Residual, BudgetEvidence Evidence);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Turning {
     public static Fin<TurnProgram> Generate(TurnRequest request) =>
         from profile in Compensate(request.Demand)
@@ -681,7 +656,6 @@ public static class Turning {
             (ValidityClaim.Positive(budget.DepthOfCut), "depth"),
             (budget.NoseRadius >= 0.0, "nose-radius-positive"),
             (Math.Abs(budget.NoseRadius - insert.Form.CornerRadius) <= profile.Tolerance.Absolute.Value, "nose-radius-match"),
-            // The floor is a BASE column, so one slot proves it for every mode rather than each arm restating it.
             (ValidityClaim.Positive(spindle.MinimumRadius.Millimeters), "spindle-minimum-radius")])
         + spindle.Switch(
             constantSurface: static mode => Slots(-1, [(ValidityClaim.Positive(mode.Ceiling.RevolutionsPerMinute), "spindle-css")]),
@@ -772,9 +746,6 @@ public static class Turning {
     private static Seq<K<Validation<Error>, Unit>> Slots(int step, ReadOnlySpan<(bool Ok, string Axis)> facts) =>
         toSeq(facts.ToArray()).Map(fact => AdmissionSlots.Gate(fact.Ok, step, fact.Axis, Refusal));
 
-    // Every turning gate binds this minter as a method group: the step ordinal and the axis token ride the gate's
-    // two identity slots, a negative ordinal names a demand-level axis, and the locus composes on the failing arm
-    // alone.
     private static FabricationFault Refusal(int step, string axis) =>
         FabricationFault.Inadmissible(
             FabConcern.Toolpath, step < 0 ? $"turning:{axis}" : $"turning:step-{step}:{axis}");
@@ -890,8 +861,6 @@ public static class Turning {
         from spans in Range(0, profile.Spans).ToSeq().Map(index => {
             Point3d target = profile.At(index + 1);
             Point3d at = new(target.X + sweep.AxialAllowance, target.Y + sweep.RadialAllowance, 0.0);
-            // Bulge states the included angle exactly (`tan(sweep/4)`), so the span carries its own sweep rather
-            // than leaving a post or simulator to re-solve it from the chord and centre.
             return profile.BulgeAt(index) == 0.0
                 ? Move.Linear.Of(at, Feed(demand, target.Y))
                 : Move.Circular.Of(
@@ -911,9 +880,6 @@ public static class Turning {
             biarc: static state => Biarc(state.Profile, state.Demand, state.Sweep, state.Kind.Side));
     }
 
-    // The fit law is the KERNEL's, minted against the profile's own context under this page's `Op`: consensus floor,
-    // confidence, inlier scale, normal band, and the refine ladder all derive from the tolerance the loop already
-    // carries, so a lathe finish and a probe fit answer to one calibration and neither holds a frozen preset.
     private static Fin<Seq<Move>> Spline(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
         from fit in FitPolicy.Of(context: profile.Tolerance, key: Key)
         let chord = profile.Tolerance.For(ToleranceLane.Chord).Value
@@ -934,11 +900,6 @@ public static class Turning {
         from moves in Native(loop, demand, sweep, side)
         select moves;
 
-    // Residual biarc recovery belongs to the arc-space owner, exactly as spline fitting belongs to the curve owner:
-    // `ArcProjection.Recover` fits the chord run to the requested error under its own probe floor, measures what it
-    // achieved, and answers an arc-native `Loop` the native emitter then walks. A local triple walk re-decided the
-    // fit, its residual probe, and its chord fallback, and it emitted arc spans in a second convention beside the
-    // bulge one every other lathe row already carries.
     private static Fin<Seq<Move>> Biarc(Loop profile, TurnDemand demand, SweepDemand sweep, CutSide side) =>
         from trace in ArcAlgebra.Densify(new ArcProjection.Recover(
             profile, profile.Tolerance.For(ToleranceLane.Arc).Value, demand.Policy.BiarcProbeFloor))
@@ -978,8 +939,6 @@ public static class Turning {
                                   Move.Linear.Of(new Point3d(axial, radius, 0.0), Feed(demand, radius)),
                                   Move.Rapid.Of(new Point3d(axial, op.Side.Clear(radius, demand.Policy.Retract.Millimeters), 0.0)));
                           }).As().Map(static rows => rows.Bind(identity))
-                          // The dwell holds at the band's final cut depth, so the mark names that cut and not the
-                          // retract emitted after it.
                           select walked.Then(approach.Cons(cuts)).Mark(back: 1);
                }).As()
                from pass in Loaded(index, demand, step, trail.Moves,
@@ -1008,8 +967,6 @@ public static class Turning {
                select pass;
     }
 
-    // A drill, ream, counterbore, or countersink bores from the ROTATION AXIS, so its removal side is internal by
-    // construction and the row carries no side column to contradict.
     private static Fin<TurnPass> Axial(int index, TurnDemand demand, TurnStep step, LatheOp.Axial op) {
         double face = demand.Stock.AxialMaximum;
         double start = face + demand.Policy.Approach.Millimeters;
@@ -1031,8 +988,6 @@ public static class Turning {
                select pass;
     }
 
-    // The S0 axial vocabulary decides the peck schedule: an interrupted row breaks chips at the step, a continuous
-    // row reaches full depth in one plunge.
     private static Fin<Seq<double>> Depths(AxialKind kind, double depth, double peckDepth) => kind.Switch(
         state: (Depth: depth, Peck: peckDepth),
         drill: static state => Pecked(state.Depth, state.Peck),
@@ -1131,8 +1086,6 @@ public static class Turning {
             Some<TurnLoad>(new TurnLoad.Forming(op.Pressure, op.Pattern)))
         select pass;
 
-    // A parting handoff cuts the bar before the transfer, so the kind's own `Parts` column decides whether the row
-    // emits a cutting span; a plain transfer emits none and removes nothing.
     private static Fin<TurnPass> Handoff(int index, TurnDemand demand, TurnStep step, LatheOp.Handoff op) {
         double rim = op.Side.StockRadius(demand.Stock);
         double core = op.Side == CutSide.External ? demand.Stock.InnerRadius : demand.Stock.OuterRadius;
@@ -1213,8 +1166,6 @@ public static class Turning {
                     projectedRemoval, seconds)));
     }
 
-    // Pass seconds are MEASURED off the emitted trail: a rapid rides the policy traverse rate and a cutting span its
-    // own admitted feed, so the specialized envelope this pass lowers into states a real duration.
     private static double Elapsed(Seq<Move> moves, TurnDemand demand) => moves
         .Fold(
             (Cursor: Point3d.Origin, Seconds: 0.0),
@@ -1243,17 +1194,12 @@ public static class Turning {
             Speed.FromMillimetersPerMinutes(span.Feed),
             out CutIntent intent).Admitted(intent);
 
-    // A parting handoff cuts the bar before the transfer; the S0 kind roster decides which rows do, so the predicate
-    // reads the vocabulary rather than a column the atom does not carry.
     private static bool Parts(HandoffKind kind) => kind.Switch(
         transfer: static () => false,
         cutoffTransfer: static () => true,
         handoff: static () => false,
         cutoffHandoff: static () => true);
 
-    // A spindle-side flip is an axial mirror, so sense and sweep sign invert together with the point map — the law
-    // `PartTransform.Apply` states for the general mirror, held here on the one-axis case. The projected move
-    // re-enters its own sealed factory, so a mirror that degenerates an arc refuses rather than seating.
     private static Fin<Move> Project(Move move, SpindleSide side) => move.Switch(
         state: side.AxialSign,
         rapid: static (sign, row) => Move.Rapid.Of(
@@ -1288,9 +1234,6 @@ public static class Turning {
             side,
             RemovesMaterial: true);
 
-    // The MATERIAL region is the closed area between the open profile and its side's stock rim; every crossing query
-    // is one open-drive clip against it, so tangency, coincidence, and overlap are the algebra's own verdicts rather
-    // than a parity count a single degenerate vertex could invert.
     private static Fin<Loop> Material(Loop profile, TurnStock stock, CutSide side) {
         double rim = side.Clear(side.StockRadius(stock), profile.Tolerance.Absolute.Value);
         Point3d first = profile.At(0);
@@ -1330,17 +1273,12 @@ public static class Turning {
 
     private static double Surface(TurnDemand demand) => double.Min(demand.Cutting.SurfaceSpeed, demand.Budget.SurfaceSpeed);
 
-    // A right-hand thread cuts with the spindle turning clockwise seen from the tailstock; the hand IS the rotation.
     private static RotationSense Hand(ThreadHand hand) =>
         hand == ThreadHand.Right ? RotationSense.Clockwise : RotationSense.Counterclockwise;
 
-    // A tap and a thread lock the spindle to a solved rpm, and the mode they publish inherits the demand's own
-    // radius floor rather than minting a second one the directive would then contradict.
     private static SpindleMode Held(TurnDemand demand, double rpm) => new SpindleMode.ConstantRpm(
         demand.Spindle.MinimumRadius, RotationalSpeed.FromRevolutionsPerMinute(rpm));
 
-    // The page's one operation key: the kernel fit law, the curve admission, and the chord lowering all raise
-    // against it, so a refusal names the lathe rather than an anonymous solve.
     private static readonly Op Key = Op.Of(name: nameof(Turning));
 
     private const int SingleEdge = 1;

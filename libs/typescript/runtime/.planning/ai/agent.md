@@ -34,23 +34,19 @@ class Session extends Schema.Class<Session>("Session")({
   mode: Schema.Literal("autonomous", "supervised", "locked"),
   idle: Schema.Duration,
 }) {
-  static readonly open = (row: Session) => _open(row) // the restore-or-create recall; the persisted chat is the one durable surface
+  static readonly open = (row: Session) => _open(row)
   static readonly persisted = Chat.layerPersisted
 }
 
 declare namespace Session {
   type Key = Session["key"]
-  type _Modes<K extends Session["mode"] = Safety.Mode> = K // guard: every Safety.Mode row is representable on the session row
+  type _Modes<K extends Session["mode"] = Safety.Mode> = K
 }
 
 const _DIGEST = "<rewrite-the-conversation-above-as-a-memory-block-keeping-decisions-commitments-and-open-threads>"
 
 const _backed = (fault: { readonly _tag: string }): AgentFault => new AgentFault({ case: { reason: "session", detail: fault._tag } })
 
-// Retryability must SURVIVE the fold. Every provider failure landing on one reason hands the class lattice a single
-// verdict for a throttle, a revoked key, and a malformed answer, so whatever retries above this fold either replays a
-// call that can never succeed or abandons one that would. The model page already grades the union on its real axis,
-// so this fold reads that grade and lands each band on the reason carrying the SAME retryability.
 const _bands = {
   exhausted: "budget",
   denied: "refused",
@@ -61,7 +57,6 @@ const _bands = {
 const _folded = (fault: GuardrailFault | AiError.AiError): AgentFault =>
   Match.value(fault).pipe(
     Match.tag("GuardrailFault", (refused) => new AgentFault({ case: { reason: "refused", detail: refused.message } })),
-    // an unbanded grade is terminal by construction: replaying identical octets against the same peer settles nothing
     Match.orElse((held) =>
       new AgentFault({
         case: {
@@ -78,10 +73,6 @@ const _open = (row: Session) =>
     const seeded = (policy: Guardrail.Policy, history: Prompt.Prompt) =>
       Match.value(row.compaction).pipe(
         Match.when("trim", () => Tokens.fit(history, row.budget)),
-        // The digest arm composes what no member ships. The instruction APPENDS to the folded history because a bare
-        // transcript reads as a conversation to continue; the free carrier runs it because a digest routed through
-        // `chat` would append itself to the history it compacts; and the answer seats through `setSystem` because the
-        // constructor's string arm mints a USER message and would file the session's memory as the user's own words.
         Match.when("digest", () =>
           Effect.map(
             Guardrail.generate(policy, {
@@ -95,8 +86,8 @@ const _open = (row: Session) =>
     const compact = (policy: Guardrail.Policy) =>
       Ref.get(chat.history).pipe(
         Effect.flatMap((history) => Effect.mapError(seeded(policy, history), _folded)),
-        Effect.flatMap((folded) => Ref.set(chat.history, folded)), // the ONE history write: both lanes are pure prompt producers
-        Effect.zipRight(Effect.mapError(chat.save, _backed)), // the one save, earned by the hand write above
+        Effect.flatMap((folded) => Ref.set(chat.history, folded)),
+        Effect.zipRight(Effect.mapError(chat.save, _backed)),
       )
     return { chat, compact } as const
   })
@@ -111,12 +102,9 @@ const _open = (row: Session) =>
 
 ```typescript signature
 const _PHASES = ["idle", "thinking", "awaiting", "compacting"] as const
-const _Phase = Schema.Literal(..._PHASES) // the one anchor spread: the receipt literal, the machine's node guard, and the phase refinement all read it
+const _Phase = Schema.Literal(..._PHASES)
 const _isPhase = Schema.is(_Phase)
 
-// Every reason names one operand — the bound, verdict, or peer tag its own band carries — because the provider fold
-// re-keys a graded failure onto whichever reason shares its retryability and a subject that varied by arm could not
-// be filled from one dynamic band. What the rows do NOT share is the sentence, so each renders its own.
 const _LEG = "turn"
 const _Subject = Schema.Struct({ detail: Schema.String })
 
@@ -133,7 +121,6 @@ const _reasons = Fault.Class.family(["budget", "refused", "tool", "session", "pr
     detail: _Subject,
     render: ({ detail }) => `the gate refused this turn — ${detail}`,
   }),
-  // a disposition that contradicts held evidence is caller-malformed and quarantinable: re-driving the identical verdict set can never settle
   tool: Fault.Class.row({
     class: "invalid",
     leg: _LEG,
@@ -146,7 +133,6 @@ const _reasons = Fault.Class.family(["budget", "refused", "tool", "session", "pr
     detail: _Subject,
     render: ({ detail }) => `the session substrate would not answer — ${detail}`,
   }),
-  // a peer answering wrongly is not a session outage: `session` is retryable and would replay a call that cannot settle
   provider: Fault.Class.row({
     class: "malformed",
     leg: _LEG,
@@ -173,7 +159,7 @@ declare namespace Agent {
   type Session = Effect.Effect.Success<ReturnType<typeof _open>>
   type Drive<Tools extends Record<string, Tool.Any>> = {
     readonly actor: Actor
-    readonly charter: string // the agent's identity block: a drive-level fact the weave seeds, never a per-request field on Act
+    readonly charter: string
     readonly policy: Guardrail.Policy
     readonly toolkit: Toolkit.WithHandler<Tools>
     readonly tier: Ladder.Tier
@@ -224,7 +210,7 @@ const _asTool = Tool.fromTaggedRequest(Act)
 const _spent = (fault: Transition.Spent): AgentFault => new AgentFault({ case: { reason: "budget", detail: fault._tag } })
 
 const _landed = (entered: ReadonlyArray<string>): Turn["phase"] =>
-  Option.getOrElse(Array.findFirst(entered, _isPhase), () => "idle" as const) // the machine's own entered node, narrowed by the anchor's derived guard
+  Option.getOrElse(Array.findFirst(entered, _isPhase), () => "idle" as const)
 
 const _cited = (content: ReadonlyArray<Response.AnyPart>): Turn["sources"] =>
   Array.filterMap(content, (part) =>
@@ -255,12 +241,8 @@ const _stepped = <Tools extends Record<string, Tool.Any>>(drive: Agent.Drive<Too
     Effect.flatMap((response) =>
       Effect.all({ spent: Spend.accounted(drive.tier, response), held: _kept(roster, response) }).pipe(
         Effect.map(({ held, spent }) => {
-          // TRAP: the chat rebuilds history from the response parts through a constructor that re-mints each part
-          // with an EMPTY provider slot, so no family's reasoning-continuity carrier reaches the next turn. Google
-          // refuses on the missing signature and the gate's finish reader catches it as a typed refusal; the other
-          // four degrade silently into re-derived thinking. A posture needing the carrier holds the parts itself.
           const advanced: Agent.Turning = {
-            prompt: Prompt.empty, // the chat already merged the assistant message and every resolved tool result into history
+            prompt: Prompt.empty,
             left: state.left - 1,
             spend: BigDecimal.sum(state.spend, spent),
             reply: response.text,
@@ -281,7 +263,7 @@ const _measured = <Tools extends Record<string, Tool.Any>>(opened: Agent.Session
           Effect.zipRight(opened.compact(drive.policy)),
           Effect.zipRight(Effect.mapError(drive.actor.feed("done"), _spent)),
         ),
-        () => gauged > row.budget.window - row.budget.reply, // the same retrieval share Tokens.fit cuts against: one threshold, two readers
+        () => gauged > row.budget.window - row.budget.reply,
       )),
     Effect.asVoid,
   )
@@ -292,9 +274,6 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
     const gate = yield* Effect.mapError(Guardrail.admitted(drive.policy), _folded)
     yield* _measured(opened, act.session, drive)
     const woven = yield* Effect.mapError(Tokens.weave(drive.charter, act.passages, act.session.budget), _folded)
-    // The breakpoint lands where the stable prefix ENDS: the weave has seated charter and passages and the utterance
-    // has not been merged yet, so this is the only point in the turn where the cacheable span is exactly closed. The
-    // tier names the row, the row's cell names the mechanism, and a row marking nothing hands the prompt straight back.
     const primed = Providers.stamp(woven, drive.tier.provider)
     yield* Effect.mapError(drive.actor.feed("act"), _spent)
     const cursor = yield* Effect.iterate(
@@ -312,7 +291,6 @@ const _act = <Tools extends Record<string, Tool.Any>>(act: Act, drive: Agent.Dri
       },
     )
     return yield* Either.match(cursor, {
-      // a Right surviving the gate means the ceiling stopped the loop while it was still advancing: spent, never silently truncated
       onRight: (spentOut) => Effect.fail(new AgentFault({ case: { reason: "budget", detail: `${spentOut.left} steps still advancing at the ceiling` } })),
       onLeft: (settled) =>
         Effect.map(
@@ -373,8 +351,6 @@ const _spec = Transition.spec({
   fuel: 4,
   lag: 32,
   traced: true,
-  // `MachineDefect` is this schedule's sole inhabitant — a serializable machine boots without failure, so `InitError`
-  // resolves `never` and the remaining defect carries `_tag`/`cause` alone, which the default gate refuses
   recover: () => Fault.Budget.schedule("pulse", Function.constTrue),
 })
 
@@ -426,7 +402,7 @@ const _release = <R>(spec: Agent.ReleaseSpec<R>): Effect.Effect<Agent.Release, A
         ({ approve, ...held }) => spec.settle(held, approve),
         { concurrency: 1, discard: true },
       ).pipe(
-        Effect.zipRight(Effect.mapError(spec.actor.feed("release"), _spent)), // the machine's fuel rail folds at its own seam; the settle channel is already typed
+        Effect.zipRight(Effect.mapError(spec.actor.feed("release"), _spent)),
         Effect.as(receipt),
       )
     : Effect.fail(new AgentFault({ case: { reason: "tool", detail: "the disposition is incomplete or differs from held evidence" } }))
@@ -444,7 +420,7 @@ const Agent = {
   held: _pending,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Act, Agent, AgentFault, Session, Turn }
 ```

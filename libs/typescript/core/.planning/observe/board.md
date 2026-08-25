@@ -112,10 +112,6 @@ const _QuerySpan = Schema.DurationFromSelf.pipe(
   Schema.brand("QuerySpan"),
 )
 
-// A series this estate never minted still declares the three columns every render reads — the exported wire form, the
-// published name, and the UCUM code — because a producer pack carries them BESIDE the panel rather than expecting a
-// census seat for a meter this branch cannot reach. Both mints are brands, so a bare string is still unspellable as a
-// series or a break key and admission stays at the one boundary that decodes a producer's declaration.
 const _ForeignKey = Schema.String.pipe(Schema.minLength(1), Schema.brand("ForeignKey"))
 const _Foreign = Schema.Struct({
   by: Schema.Array(_ForeignKey),
@@ -124,8 +120,6 @@ const _Foreign = Schema.Struct({
   unit: Schema.Literal(...Convention.Unit.kinds),
 }).pipe(Schema.brand("ForeignSeries"))
 
-// ONE fold answers the declared row for either arm, so every render site below reads three columns and never learns
-// which side declared them.
 const _declared = (series: _Query.Series): Convention.Row | typeof _Foreign.Type =>
   typeof series === "string" ? Convention.Metric.at(series) : series
 
@@ -188,7 +182,7 @@ const _ENGINES = {
     rank: (inner: string, order: string, count: number, projection: string) =>
       `SELECT ${projection} FROM (SELECT *, row_number() OVER (PARTITION BY ${_COLUMN.at}`
       + ` ORDER BY ${_COLUMN.value} ${order}) AS rn FROM (${inner}) ranked) ordered WHERE rn <= ${count}`,
-    truth: (predicate: string) => `CASE WHEN ${predicate} THEN 1.0 ELSE 0.0 END`, // boolean casts to a number nowhere on this engine
+    truth: (predicate: string) => `CASE WHEN ${predicate} THEN 1.0 ELSE 0.0 END`,
   },
 } as const satisfies Record<string, {
   readonly aggregate: { readonly [F in _Fold]: string }
@@ -235,8 +229,6 @@ const _span = (window: _Query.Window): string =>
 const _bucketed = (window: _Query.Window, resolution: _Query.Span): number =>
   Duration.toMillis(typeof window === "string" ? resolution : window) / 1000
 
-// Suffix translation is a property of the store, not of who declared the series, so both arms hand the SAME declared
-// row to the one naming owner and a producer's exported spelling is derived rather than guessed at.
 const _promSeries = (metric: _Query.Series, row: _Promql): string =>
   `${Convention.translated(_declared(metric), row.translation)}${_declared(metric).kind === "histogram" && row.histogram === "classic" ? "_bucket" : ""}`
 
@@ -485,7 +477,7 @@ const _PanelFields = {
   description: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   links: Schema.optionalWith(Schema.Array(_Link), { default: () => [] }),
   repeat: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
-  source: Schema.NonEmptyString, // the datasource key the rendering target named; the compile leg binds `{ type, uid }` from it
+  source: Schema.NonEmptyString,
   span: _Span,
   title: Schema.NonEmptyString,
   transformations: Schema.optionalWith(Schema.Array(_Transform), { default: () => [] }),
@@ -550,7 +542,7 @@ const Nodes = Schema.TaggedStruct("Nodes", {
   ..._PanelFields,
   edges: Schema.String,
   mapping: Schema.Struct({
-    edgeId: Schema.NonEmptyString, // the edges frame's own REQUIRED id column — an edge row without one never renders
+    edgeId: Schema.NonEmptyString,
     edgeSource: Schema.NonEmptyString,
     edgeTarget: Schema.NonEmptyString,
     nodeColor: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
@@ -666,10 +658,10 @@ class _DashboardModel extends Schema.Class<_DashboardModel>("_DashboardModel")({
 
 declare namespace _DashboardModel {
   type Board = {
-    readonly analytics: Option.Option<_Query.Target> // the columnar residence, absent where the stack installs none
+    readonly analytics: Option.Option<_Query.Target>
     readonly identity: Identity.App
     readonly logs: string
-    readonly target: _Query.Target // the metrics plane every health tile reads
+    readonly target: _Query.Target
   }
   type Page = {
     readonly annotations: ReadonlyArray<typeof _Annotation.Type>
@@ -695,9 +687,6 @@ declare namespace _DashboardModel {
 - Packages: `mitata` (`measure` stats shape); `../value/contentKey.ts` (`Digest`); `../value/schema.ts` (`Shape.Record`).
 
 ```typescript signature
-// Rungs: the branch record keys a band by rung NAME and the wire carries `RungCell{rung: BenchRung, value}` rows, so
-// ONE correspondence declares the name→member pair and both the roster and the inverse read derive from it — a rung
-// the corpus adds lands as one row here and breaks every consumer that enumerates the record.
 type _Defined<E extends { readonly UNSPECIFIED: 0 }> = Exclude<E[keyof E], E["UNSPECIFIED"]>
 const _RUNG_WIRE = {
   min: evidence.BenchRung.MIN,
@@ -736,10 +725,6 @@ const _Grade = Shape.vocabulary(_GRADES, {
   steady: { accepts: (ratio: number, slack: number) => ratio >= 1 - slack && ratio <= 1 + slack },
   regressed: { accepts: (ratio: number, slack: number) => ratio > 1 + slack },
 })
-// Polarity is the branch's grading vocabulary and the wire's `BenchPolarity` enum is its spelling: ONE correspondence
-// declares the pair and the inverse read derives from it, exactly as the rungs do. Modality and the payload band ARE
-// corpus enums with no branch algebra over them, so their schemas take the generated members directly; mitata spells
-// its own modality words, so one correspondence carries them onto the wire's members.
 const _Polarity = Shape.vocabulary(["minimize", "maximize"] as const, {
   minimize: { ratio: (fresh: number, base: number) => fresh / base },
   maximize: { ratio: (fresh: number, base: number) => base / fresh },
@@ -761,8 +746,6 @@ type _MitataStats = Awaited<ReturnType<typeof MitataMeasure>>
 const _BenchAggregate = Schema.Struct({ avg: _BandValue, min: _BandValue, max: _BandValue, total: _BandValue })
 const _BenchCounterValue = Schema.Number.pipe(Schema.finite())
 const _BenchCounters = Shape.Record(Schema.NonEmptyString, _BenchCounterValue)
-// `partialWith` rebuilds the record AST and drops a node annotation, so the closed-key posture cannot ride
-// `Shape.Record` here; it seats on the outermost node instead, which is the one whose excess-property check runs.
 const _BenchRungs = Schema.Record({ key: _Rung.schema, value: _BandValue }).pipe(
   Schema.partialWith({ exact: true }),
   Schema.filter((rungs) => Array.some(_RUNGS, (rung) => rungs[rung] !== undefined) || "<rungless-band>", { identifier: "MeasuredRungs" }),
@@ -776,8 +759,6 @@ const _BenchBand = Schema.Struct({
   heap: Schema.optionalWith(_BenchAggregate, { as: "Option" }),
   counters: Schema.optionalWith(_BenchCounters, { as: "Option" }),
 })
-// The input carries what the producer declares — rank IS `shape.length` and contiguity IS the stride order — so the
-// two derived columns the prior mirror stored are read off the shape they were derived from.
 const _BenchInput = Schema.Struct({
   payloadBytes: Schema.BigIntFromSelf,
   band: Schema.Literal(..._bands),
@@ -821,9 +802,6 @@ const _BenchMetric = Schema.Struct({
   operations: Schema.optionalWith(Schema.BigIntFromSelf, { as: "Option" }),
 })
 
-// The host lands off the generated `HostFingerprintWire`: every scalar rule is protovalidate's at the frame, and what
-// this owner adds is the one law no field rule states — `stamps` cross as label pairs and land as the closed-key
-// record a print is compared against, so a duplicated label refuses rather than last-wins.
 class _BenchHost extends Schema.Class<_BenchHost>("HostFingerprint")({
   print: Schema.String,
   machine: Schema.String,
@@ -870,12 +848,6 @@ class _Claim extends Schema.Class<_Claim>("Claim")({
 
 // --- [CLAIM_WIRE]
 
-// The crossing is total both ways over the generated `BenchmarkClaimWire`: the descriptor proves every column and
-// protovalidate every scalar rule at the frame, so this transform carries only the lifts no rule states — rung
-// cells onto the named record, `Empty`/kernel onto the subject union, artifact oneofs onto tagged structs, sixteen
-// byte keys onto the content brand, optional magnitudes onto the branch carrier, and the instant off the well-known
-// stamp. Decode projects the wire onto the class's ENCODED face and runs the class once, so no domain rule is
-// restated here; encode rebuilds the message through `create` and never a hand object.
 const _Wire: Schema.Schema<MessageShape<typeof evidence.BenchmarkClaimWireSchema>> = Schema.declare(
   (input: unknown): input is MessageShape<typeof evidence.BenchmarkClaimWireSchema> =>
     isMessage(input, evidence.BenchmarkClaimWireSchema),
@@ -1051,9 +1023,6 @@ const _ClaimFromWire: Schema.Schema<_Claim, MessageShape<typeof evidence.Benchma
   },
 )
 
-// `_COUNTER_PATHS` carries BOTH platform planes — linux perf events and darwin kperf publish different leaves, with
-// only `cycles` and `instructions` shared — and the filterMap keeps exactly what the measuring host answered; per-leaf
-// presence is the host's own fact, and a leaf added here joins the series estate-wide.
 const _COUNTER_PATHS = {
   cycles: ["cycles", "avg"],
   cyclesStalls: ["cycles", "stalls", "avg"],
@@ -1104,8 +1073,6 @@ const _fromMitata = (stats: _MitataStats, mint: _Bench.Mint): _Claim =>
         },
         ticks: Option.some(stats.ticks),
         samples: Option.some(stats.samples),
-        // mitata seeds an empty aggregate with ±Infinity/NaN (zero qualifying samples leaves heap `_ === 0`), so
-        // finite decode drops such a band to absence rather than admitting a fabricated point into a finite slot
         gc: Option.flatMap(Option.fromNullable(stats.gc), Schema.decodeUnknownOption(_BenchAggregate)),
         heap: Option.flatMap(Option.fromNullable(stats.heap), Schema.decodeUnknownOption(_BenchAggregate)),
         counters: _mitataCounters(stats),
@@ -1275,7 +1242,6 @@ const _Bench: Data.TaggedEnum.Constructor<_Bench.Verdict> & {
   readonly measured: (metric: _Bench.Metric, rung: _Bench.Rung) => Option.Option<number>
   readonly minSamples: typeof _MinSamples.make
   readonly slack: typeof _Slack.make
-  // `counterLeaves` closes the leaf axis behind `benchCounterKind`: consumers type against the vocabulary the counter-path table declares
   readonly counterLeaves: ReadonlyArray<_Bench.CounterLeaf>
 } = {
   ..._Verdict,
@@ -1374,7 +1340,7 @@ const _burned = (spec: Reliability.Alert.Spec, labels: _Query.Labels): _Query =>
   return _Query.Binary({ left: exceeds(spec.windows.short), op: "and", right: exceeds(spec.windows.long) })
 }
 
-type _Pane = { readonly span: typeof _Span.Type; readonly title: string } // the two literals every pane row carries whatever it renders
+type _Pane = { readonly span: typeof _Span.Type; readonly title: string }
 
 const _legend = (axes: ReadonlyArray<_Query.Key>): Option.Option<string> =>
   Array.match(axes, {
@@ -1395,7 +1361,7 @@ const _TRENDS = {
   formSubmits: { axes: [Convention.rasm.formOutcome], fn: "rate", labels: {}, metric: Convention.metric.formSubmit, span: { h: 8, w: 12 }, title: "submit trips by outcome" },
   gatewayOutcomes: { axes: [Convention.rasm.gatewayOutcome], fn: "rate", labels: {}, metric: Convention.metric.gatewayCommands, span: { h: 8, w: 12 }, title: "gateway outcomes" },
   idempotency: { axes: [Convention.rasm.admitDisposition], fn: "rate", labels: {}, metric: Convention.metric.idempotencyOutcome, span: { h: 8, w: 12 }, title: "idempotency dispositions" },
-  invokeFaults: { axes: [Convention.wire.occurrence], fn: "rate", labels: {}, metric: Convention.metric.invokeFault, span: { h: 8, w: 12 }, title: "fault reasons" }, // the frequency export mints the reason under the owned occurrence axis
+  invokeFaults: { axes: [Convention.wire.occurrence], fn: "rate", labels: {}, metric: Convention.metric.invokeFault, span: { h: 8, w: 12 }, title: "fault reasons" },
   invokeOutcomes: { axes: [Convention.rasm.invokeOutcome], fn: "rate", labels: {}, metric: Convention.metric.invokeCalls, span: { h: 8, w: 12 }, title: "invoke outcomes" },
   objectWrites: { axes: [Convention.rasm.objectOutcome], fn: "rate", labels: {}, metric: Convention.metric.objectWritten, span: { h: 8, w: 12 }, title: "writes by outcome" },
   olapRetries: { axes: [Convention.rasm.olapEngine], fn: "rate", labels: {}, metric: Convention.metric.olapRetried, span: { h: 8, w: 12 }, title: "queries retried" },
@@ -1436,7 +1402,6 @@ const _LEVELS = {
   cacheResidency: { axes: [Convention.rasm.cacheName], metrics: [Convention.metric.cacheEntries], span: { h: 6, w: 12 }, title: "cache residency" },
   derivativePressure: { axes: [], metrics: [Convention.metric.derivativeActive, Convention.metric.derivativeQueued], span: { h: 6, w: 9 }, title: "derivative pressure" },
   laneProgress: { axes: [Convention.rasm.laneName], metrics: [Convention.metric.laneCheckpoint], span: { h: 6, w: 9 }, title: "lane checkpoints" },
-  // one pool answers every scheme, remote origins included, so the full row is one series set rather than two irreconcilable held counts
   poolLeases: { axes: [Convention.rasm.poolScheme], metrics: [Convention.metric.poolHeld], span: { h: 6, w: 24 }, title: "pool leases held" },
   workDepth: {
     axes: [],
@@ -1550,11 +1515,11 @@ const _quantile = (row: { readonly labels: _Query.Labels; readonly metric: Conve
     span: { h: 8, w: 12 },
     steps: [],
     title: `${row.title} p${Number.round(quantile * 100, 0)}`,
-    unit: _display(row.metric, "level"), // a rung IS the quantity, so the level column answers whatever code the histogram declares
+    unit: _display(row.metric, "level"),
   })
 
 const _latency = _quantile({ labels: _tenant, metric: Convention.metric.httpServerDuration, title: "latency" })
-const _invokeLatency = _quantile({ labels: {}, metric: Convention.metric.invokeDuration, title: "invoke" }) // the capability instruments are process-level: no tenant tag exists on their series
+const _invokeLatency = _quantile({ labels: {}, metric: Convention.metric.invokeDuration, title: "invoke" })
 const _gatewayLatency = _quantile({ labels: {}, metric: Convention.metric.gatewayDuration, title: "gateway" })
 const _batchLatency = _quantile({ labels: {}, metric: Convention.metric.batchDuration, title: "batch window" })
 const _transcodeLatency = _quantile({ labels: {}, metric: Convention.metric.assetTranscodeDuration, title: "asset transcode" })
@@ -1564,7 +1529,7 @@ const _lakeProfile = _quantile({ labels: {}, metric: Convention.metric.profileDu
 const _jwksLatency = _quantile({ labels: {}, metric: Convention.metric.securityJwksResolve, title: "JWKS resolve" })
 const _kdfLatency = _quantile({ labels: {}, metric: Convention.metric.securityKdf, title: "key derivation" })
 const _ceremonyLatency = _quantile({ labels: {}, metric: Convention.metric.securityCeremony, title: "credential ceremony" })
-const _remoteLatency = _quantile({ labels: {}, metric: Convention.metric.remoteDuration, title: "remote operation" }) // the windowed row: the rank reads off the export's own quantile label
+const _remoteLatency = _quantile({ labels: {}, metric: Convention.metric.remoteDuration, title: "remote operation" })
 
 const _vitalGauge = (board: _DashboardModel.Board) =>
 (gauge: { readonly ceiling: number; readonly kind: string; readonly metric: Convention.MetricName<"gauge"> }): Panel =>
@@ -1605,7 +1570,7 @@ const _usage = (board: _DashboardModel.Board) => (resource: string): Panel =>
     span: { h: 8, w: 12 },
     steps: [],
     title: `usage ${resource}`,
-    unit: _display(Convention.metric.meterUsage, "level"), // an increase over a window counts, so it reads as the quantity rather than a rate
+    unit: _display(Convention.metric.meterUsage, "level"),
   })
 
 const _crashes = (board: _DashboardModel.Board): Panel =>
@@ -1654,7 +1619,7 @@ const _workFlow = (board: _DashboardModel.Board): Panel =>
     span: { h: 8, w: 12 },
     steps: [],
     title: "relay drain and parked",
-    unit: _display(Convention.metric.relayDrained, "rate"), // both overlaid counters carry the deliverable code, so one answers the axis
+    unit: _display(Convention.metric.relayDrained, "rate"),
   })
 
 const _workAge = (board: _DashboardModel.Board): Panel =>
@@ -1695,7 +1660,7 @@ const _cacheShare = (board: _DashboardModel.Board): Panel => {
   })
 }
 
-const _EVIDENCE = _Query.span(Duration.days(30)) // the residence horizon: the window a metrics store's retention cannot hold
+const _EVIDENCE = _Query.span(Duration.days(30))
 
 const _evidence = (board: _DashboardModel.Board, row: {
   readonly axes: ReadonlyArray<_Query.Key>
@@ -1780,7 +1745,7 @@ const _burnPair = (board: _DashboardModel.Board) => (spec: Reliability.Alert.Spe
     source: board.target.source,
     span: { h: 6, w: 12 },
     steps: [{ at: spec.factor, tone: spec.severity.tone }],
-    title: `${spec.slug} trips at ${spec.factor}x — ${Number.round(spec.spend * 100, 1)}% budget`, // the derived spend prints here: the human figure cannot drift from the row that fires it
+    title: `${spec.slug} trips at ${spec.factor}x — ${Number.round(spec.spend * 100, 1)}% budget`,
     unit: Option.none(),
   })
 
@@ -1841,8 +1806,6 @@ const _PACKS: { readonly [K in _DashboardModel.Pack]: (board: _DashboardModel.Bo
       title: "crash",
       variables: [],
     }),
-  // `flagTracked` is the metric plane's whole flag surface: evaluation and tracking evidence rides span attributes,
-  // which the trace ruling renders through wide-event residence rather than a board query.
   flag: (board) =>
     _DashboardModel.of(board, {
       annotations: [],
@@ -2041,8 +2004,6 @@ const _SUITE: { readonly [K in _DashboardModel.Pack]: (board: _DashboardModel.Bo
 - Boundary: this owner decodes and folds; realizing a board or a rule group is `typescript:iac/operate/observe#BOARD_APPLY`'s, and the producing projection is `dotnet:Rasm.Compute/Runtime/board#TS_PROJECTION`.
 
 ```typescript signature
-// Panel geometry is tier posture, never producer data: a pack declares what to read, and how much board a read
-// occupies is the same answer whichever runtime declared it.
 const _PACK_SPAN = { h: 8, w: 12 } as const
 
 type _Producer = {
@@ -2055,8 +2016,6 @@ type _Producer = {
   readonly unit: Option.Option<string>
 }
 
-// Two reads answer every widget: a rate over the declared break keys for the pushed families and a bare level for
-// the pulled ones, both rendered by the ONE expression owner against the target the pack is compiled for.
 const _producer = (
   board: _DashboardModel.Board,
   panel: producer.PanelWire,
@@ -2079,9 +2038,6 @@ const _producer = (
   unit: Option.map(Option.liftPredicate(panel.unit, Convention.Unit.is), (unit) => Convention.grafanaUnit[unit][display]),
 })
 
-// The generated vocabulary IS the dispatch: one arm per member, typed against the enum, so the corpus adds a widget
-// and this table stops compiling. A gauge needs a ceiling and a heatmap a ladder — both are the producer's own
-// declared columns, and a panel electing either without them refuses here rather than rendering an empty frame.
 const _WIDGETS = {
   [producer.PanelKind.UNSPECIFIED]: () => Either.left("<panel-widget-unset>"),
   [producer.PanelKind.TIMESERIES]: (row: _Producer) =>
@@ -2113,11 +2069,6 @@ const _WIDGETS = {
   [producer.PanelKind.NODES]: () => Either.left("<panel-nodes-unmappable>"),
 } as const satisfies { readonly [K in producer.PanelKind]: (row: _Producer) => Either.Either<Panel, string> }
 
-// A producer's declared row IS the census a foreign series carries, and each row answers BOTH questions its family
-// decides: the exported wire form a store reads it as, and whether the display quantity is the level itself or a
-// rate over it. Every enum table below seats the unset ordinal as ABSENCE rather than aliasing it onto a real row —
-// the corpus rule already refuses ordinal zero at the engine door, and a reader who meets a fabricated default there
-// has no way to question it.
 const _MEASURES = {
   [producer.InstrumentKind.UNSPECIFIED]: Option.none(),
   [producer.InstrumentKind.COUNT]: Option.some({ display: "rate", kind: "counter" }),
@@ -2162,8 +2113,6 @@ const _series = (panel: producer.PanelWire): Either.Either<_Query.Foreign, strin
       (error) => `${panel.instrument}:${String(error.issue)}`,
     ))
 
-// The generated oneof arm IS the indicator case: the table closes against the arm roster both ways, so a sixth
-// corpus arm breaks here instead of landing as an objective this branch silently drops.
 type _Resolve = (name: string) => Either.Either<_Query.Foreign, string>
 
 const _SLIS = {
@@ -2185,8 +2134,6 @@ const _SLIS = {
 
 const _PackWire = Schema.String.pipe(Schema.pattern(/^[a-z]+\.[a-z]+$/), Schema.brand("PackWire"))
 
-// One dashboard per pack: the provenance key IS the slug, the title, and the leading tag, so an operator reads which
-// runtime declared a board off the board itself and two producers never collide on a uid.
 const _paged = (board: _DashboardModel.Board, wire: string, panels: ReadonlyArray<Panel>): _DashboardModel =>
   _DashboardModel.of(board, {
     annotations: [],
@@ -2197,9 +2144,6 @@ const _paged = (board: _DashboardModel.Board, wire: string, panels: ReadonlyArra
     variables: [],
   })
 
-// The pack IS its own declaration roster: every series an objective names must be a panel row in the same pack, so an
-// indicator over a meter the producer never declared refuses here exactly as the kernel's own admission refuses it at
-// the mint — and no series reaches a render without the three columns a render reads.
 const _roster = (panels: ReadonlyArray<producer.PanelWire>): Either.Either<Record.ReadonlyRecord<string, _Query.Foreign>, string> =>
   Either.map(
     Either.all(Array.map(panels, _series)),
@@ -2234,8 +2178,6 @@ const _objective = (roster: Record.ReadonlyRecord<string, _Query.Foreign>) =>
       }),
   )
 
-// Factor, windows, dwell, tone, and urgency are THIS branch's rows read through the wire's enum key; the wire carries
-// the key and the spend it priced, and nothing else about the discipline crosses.
 const _spec = (
   alert: producer.AlertWire,
   objectives: ReadonlyArray<Reliability.Objective>,
@@ -2270,13 +2212,8 @@ const _spec = (
     },
   )
 
-// The landed family: ProtoJSON octets in, the validated generated message out. `interchange/codec#WIRE_REGISTRY`
-// seats THIS value as the family's census row, so the census and the pack door read one schema.
 const _Landed: Schema.Schema<producer.BoardPackWireValid, Uint8Array> = Format.proto.frame(producer.BoardPackWireSchema, "json")
 
-// Panels render against a target the producer never knew, so the fold is parameterized on the board rather than wired
-// into the schema. Each leg VALIDATES rather than short-circuits, so a pack with four broken panels and a collided
-// objective names all five — the same accumulation the producer's own kernel admission runs before it minted the wire.
 const _refused = (wire: producer.BoardPackWireValid, reasons: ReadonlyArray<string>): ParseResult.ParseError =>
   new ParseResult.ParseError({ issue: new ParseResult.Type(_PackWire.ast, wire.wire, Array.join(reasons, "; ")) })
 
@@ -2320,7 +2257,7 @@ const _Pack: {
   readonly decode: (board: _DashboardModel.Board, source: Uint8Array | string) => Effect.Effect<_Pack, ParseResult.ParseError>
 } = { Landed: _Landed, Wire: _PackWire, decode: _decoded }
 
-// --- [EXPORTS] ---
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 declare namespace Board {
   type Claim = _Claim

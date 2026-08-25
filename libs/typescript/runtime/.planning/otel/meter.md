@@ -41,9 +41,6 @@ type _Row<N extends Convention.MetricName> = {
   readonly tags: ReadonlyArray<string>
 }
 
-// Word rosters thread through both builders as a TYPE PARAMETER, exactly as the mount seats them: a bare `Words<N>`
-// leaves the census argument typed at its constraint, so a frequency row's own word axis reaches the instrument
-// erased. No row here names such a family, so every call site passes none and a later frequency row lands typed.
 const _row = <N extends Convention.MetricName, const W extends Convention.Roster>(
   metric: N,
   tags: ReadonlyArray<string>,
@@ -57,7 +54,6 @@ const _level = <N extends Convention.MetricName, const W extends Convention.Rost
 ) => ({ ..._row(metric, [], ...words), read })
 
 const _WORK = {
-  // each Convention row rides beside its instrument, so the board fold reads the row and the mark fold reads the metric
   drained: _row(Convention.metric.relayDrained, [Convention.rasm.workChannel]),
   parked: _row(Convention.metric.queueParked, [Convention.rasm.workChannel]),
 } as const
@@ -79,8 +75,6 @@ declare namespace Pulse {
     readonly cadence: Duration.Duration
     readonly views: {
       readonly engine: { readonly deny: ReadonlyArray<string>; readonly limit: number }
-      // this row selects the raw-provider instrument space, so its name is a foreign glob: every rasm.* distribution
-      // is Effect-minted and fixes its buckets from its own Convention ladder, where a view re-arm governs nothing
       readonly latency: { readonly boundaries: ReadonlyArray<number>; readonly instrument: string }
       readonly tenant: { readonly keys: ReadonlyArray<string>; readonly limit: number }
     }
@@ -114,26 +108,18 @@ class Probe extends Context.Tag("runtime/Pulse/Probe")<Probe, {
 }>() {}
 
 const _GAUGES = {
-  // each level row carries its own census projection, so the sweep is a total fold and growth costs one row; a temporal
-  // row converts through `Convention.duration` because the multiplier belongs to its unit column, never to this call site
   outboxAge: _level(Convention.metric.outboxAge, (census) => Convention.duration(Convention.metric.outboxAge, census.outbox.age)),
   outboxDepth: _level(Convention.metric.outboxDepth, (census) => census.outbox.depth),
   outboxRedelivered: _level(Convention.metric.outboxRedelivered, (census) => census.outbox.redelivered),
   queueDepth: _level(Convention.metric.queueDepth, (census) => census.queue.depth),
 } as const
 
-// Rail tallies are CUMULATIVE and these instruments are counters, so the feeder emits DELTAS against one held
-// sample. The zero rows are what a point first seen this sweep diffs against, and the published shapes keep both
-// total — a tally column added at the owner breaks here rather than reporting as a permanent zero.
 type _Sample = { readonly points: { readonly [point: string]: Tap.Census }; readonly seating: Tap.Seating }
 type _Loss = Extract<keyof Tap.Census, "lost" | "shed">
 
 const _NO_FACTS: Tap.Census = { admitted: 0, lost: 0, shed: 0, vetoed: 0 }
 const _NO_SAMPLE: _Sample = { points: {}, seating: { mounted: 0, refused: 0, released: 0 } }
 
-// Each fact column names the instrument it feeds and, where that instrument splits the loss halves, the tag value it
-// stamps — so one fold serves the whole family and a new column is one entry rather than a fourth increment spelled
-// beside three others; `satisfies` closes the roster against the published census.
 const _FEED = {
   admitted: { at: _TAP.admitted, half: Option.none<_Loss>() },
   lost: { at: _TAP.dropped, half: Option.some<_Loss>("lost") },
@@ -148,8 +134,6 @@ const _stamped = <N extends Convention.MetricName>(row: _Row<N>, point: string, 
       Metric.tagged(Metric.tagged(row.metric, Convention.rasm.tapPoint, point), Convention.rasm.tapLoss, value),
   })
 
-// The seating fold reads its roster off the PRIOR value, so the columns it walks are the published ones and no
-// second literal stands beside `Tap.Seating` waiting to drift from it.
 const _fed = (held: Ref.Ref<_Sample>): Effect.Effect<void, never, Hooks.Dispatch> =>
   Effect.gen(function* () {
     const report = yield* Effect.flatMap(Hooks.Dispatch, Tap.census)
@@ -176,9 +160,7 @@ const _fed = (held: Ref.Ref<_Sample>): Effect.Effect<void, never, Hooks.Dispatch
 const _swept: Effect.Effect<void, never, Probe> = Effect.catchAllDefect(
   Effect.flatMap(Probe, (probe) =>
     Effect.flatMap(probe.census, (census) =>
-      // one census, one sequential fold: every level is a pure local write, so a fiber per row buys nothing and costs scheduling
       Effect.forEach(Record.values(_GAUGES), (row) => Metric.set(row.metric, row.read(census)), { discard: true }))),
-  // one bad sample costs one interval: an unfolded defect ends the repeat and freezes every gauge at its last value
   (defect) => Effect.annotateLogs(Effect.logWarning("<census-sweep>"), { detail: String(defect) }),
 )
 ```
@@ -230,7 +212,6 @@ const _VIEWS = {
   }),
   tenant: (policy: Pulse.Policy) => ({
     aggregationCardinalityLimit: policy.views.tenant.limit,
-    // vocabulary owner IS the roster: every dimension a rasm.* plane declares survives, and the unit carrier is not one
     attributesProcessors: [createAllowListAttributesProcessor([...Convention.dimensions, ...policy.views.tenant.keys])],
     instrumentName: "rasm.*",
   }),
@@ -263,7 +244,7 @@ class _Board extends Schema.Class<_Board>("Pulse/Board")({
   budgets: Schema.Array(Schema.Struct({
     good: Schema.Number,
     kind: Schema.NonEmptyString,
-    metric: Schema.Literal(...Vital.levels), // level series the kind's unit selects; the tuple keeps the decoded union closed
+    metric: Schema.Literal(...Vital.levels),
     poor: Schema.Number,
     unit: Convention.Unit.schema,
   })),
@@ -275,7 +256,6 @@ class _Board extends Schema.Class<_Board>("Pulse/Board")({
 }) {}
 
 const _BURN = [
-  // burn inputs as data: the algebra, objectives, and window ladders are the iac observe plane's
   {
     bad: Convention.metric.vitalObserved,
     slice: Option.some({ tag: Convention.rasm.vitalGrade, value: "poor" }),
@@ -317,8 +297,6 @@ const Pulse: {
   Board: _Board,
   Probe,
   board: _board,
-  // ONE cadence and ONE fiber carry both reads: the level sweep and the rail delta are two projections of the same
-  // instant, so a second repeat would sample them apart and pay scheduling for nothing.
   live: (policy) =>
     Layer.scopedDiscard(Effect.flatMap(
       Ref.make(_NO_SAMPLE),
@@ -327,12 +305,10 @@ const Pulse: {
   mark: _marked,
   verbosity: _verbosity,
   views: _views,
-  // Provenance key minted where the projection earning it lives, so the deploy tuple and this producer hold one
-  // spelling and the app's deploy feed stamps a constant rather than re-typing the literal that admits its pack.
   wire: "runtime.pulse",
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Pulse }
 ```

@@ -30,15 +30,9 @@ import { Profile } from "../otel/profile.ts"
 import { Fanout } from "../net/pubsub.ts"
 import { Principal } from "./api.ts"
 
-// Every refusal on this page names a COORDINATE beside its subject, because a channel, a scope, an actor, and a
-// resume position are four different refusals a caller acts on differently and a free detail string collapsed all
-// four into one word only a human could read.
 const _COORDINATES = ["actor", "channel", "resume", "scope", "topic"] as const
 const _Located = Schema.Struct({ coordinate: Schema.Literal(..._COORDINATES), subject: Schema.NonEmptyString })
 
-// One row per reason: the core kind alone decides policy. Retryability, blame, and the response code stay the core
-// row table's and problem#STATUS_RECORD's, so no local policy column rides beside `class` — what each row owns is
-// its own subject and the sentence it renders over it.
 const _live = Fault.Class.family(["denied", "shed", "lost", "closed"] as const, {
   denied: Fault.Class.row({
     class: "denied",
@@ -61,7 +55,6 @@ const _live = Fault.Class.family(["denied", "shed", "lost", "closed"] as const, 
   closed: Fault.Class.row({
     class: "unavailable",
     leg: "feed",
-    // the transport's own ending, which is foreign text by nature; every other row on this page states coordinates
     detail: Schema.Struct({ detail: Schema.String }),
     render: ({ detail }) => `the live connection ended — ${detail}`,
   }),
@@ -91,9 +84,6 @@ declare namespace Realtime {
     readonly from: (resume: Option.Option<Resume>) => Stream.Stream<A, E, R>
     readonly token: (item: A) => Option.Option<Resume>
   }
-  // Consumption-descriptor columns lead, realtime extensions follow; an `Option.none` is the lane declaring it
-  // decides that coordinate NOTHING, never a zero a caller then reads as a real bound. `tenancy` carries no
-  // column because neither lane resolves one — the cluster lead states the mechanism both ride.
   type Lane = {
     readonly fits: string
     readonly admit: string
@@ -131,8 +121,6 @@ const _lanes = {
     lag: Option.some(64),
     reconnect: Option.some(Duration.seconds(5)),
   },
-  // Socket peers pace their own backoff and frame their own pings, so this lane DECIDES neither; `Ndjson.duplexString`
-  // backpressures the duplex natively, which is why no lag capacity rides here either.
   socket: {
     fits: "<feature-framing-both-directions>",
     admit: "<route-match+HttpServerRequest.upgrade>",
@@ -145,10 +133,6 @@ const _lanes = {
   },
 } as const satisfies Record<string, Realtime.Lane>
 
-// The profile band's channel roster IS this table's keys, so a banded region names a lane this page actually serves or
-// refuses before the engine sees it; the steps are the three regions a live endpoint owns, which bounds this page's
-// profile series by its SHAPE rather than by its traffic — a per-frame step mints one series per frame case, the
-// cardinality defect wearing a profile label.
 const _BAND: Profile.BandVocabulary = {
   channel: ["sse", "socket"],
   step: ["upgrade", "frame", "fold"],
@@ -160,8 +144,6 @@ const _ResumeHeader = Schema.Struct({
 
 const _BEAT: Sse.Event = { _tag: "Event", event: "ping", id: undefined, data: "{}" }
 
-// `Sse.AnyEvent` is the encoder's own union, so the retry directive and the data frames ride ONE stream and one
-// writer; a hand-assembled `retry:` line beside the encoder forks the dialect this page exists to own.
 const _encoded = <E, R>(frames: Stream.Stream<Sse.AnyEvent, E, R>): Stream.Stream<Uint8Array, E, R> =>
   Stream.encodeText(Stream.map(frames, (event) => Sse.encoder.write(event)))
 
@@ -202,26 +184,17 @@ const _sse = <A, I, E, R, R2>(
       Stream.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ case: { reason: "closed", detail: String(cause) } }))),
       Stream.buffer({ capacity: Option.getOrElse(_lanes.sse.lag, () => 1), strategy: "suspend" }),
     )
-    // Admission fences the WHOLE frame stream, heartbeat included: a superseding subscribe settles it and
-    // this response ends, so the plane-level slot the successor took is never held by two live feeds at once
     const beat = Option.match(_lanes.sse.beat, {
       onNone: () => Stream.empty as Stream.Stream<Sse.AnyEvent>,
       onSome: (every) => Stream.repeatEffectWithSchedule(Effect.succeed(_BEAT), Schedule.spaced(every)),
     })
     const framed = Stream.merge(events, beat, { haltStrategy: "left" }).pipe(Stream.interruptWhenDeferred(fence))
-    // Directives lead the response: a client reconnecting off a dropped feed reads its pacing before any datum,
-    // so the interval holds even when the feed refuses on its first pull
     const opened = Stream.concat(_retry(attested["last-event-id"]), framed)
     return HttpServerResponse.stream(Stream.provideContext(_encoded(opened), context)).pipe(
       HttpServerResponse.setHeaders({ "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" }),
     )
   })).pipe(
-    // the band roster is a constant on this page, so its refusal is unreachable at runtime and dies rather than
-    // widening every feed endpoint's error channel with a parse outcome no request can produce
     Effect.catchTag("ParseError", Effect.die),
-    // OUTERMOST, so the span is current when the band reads it. The span ends with the request scope, which on a
-    // streamed response is the whole feed — the writer drains inside it — so the profile window this anchor opens
-    // covers every frame rather than the handler's own construction.
     Effect.withSpanScoped("realtime/sse"),
   )
 ```
@@ -257,16 +230,11 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
         Ndjson.duplexString(),
         ChannelSchema.duplexUnknown({ inputSchema: frames.inbound, outputSchema: frames.outbound }),
         Channel.mapError((cause) => (cause instanceof LiveFault ? cause : new LiveFault({ case: { reason: "closed", detail: String(cause) } }))),
-        // Both endpoint rows honor this same admission fence: one supersede closes the duplex exactly as it closes an SSE
         Channel.interruptWhenDeferred(fence),
       )
     }),
   ).pipe(
-    // the band roster is a constant one line up, so its refusal is unreachable at runtime and dies rather than widening
-    // every socket endpoint's error channel with a parse outcome no request can produce
     Effect.catchTag("ParseError", Effect.die),
-    // OUTERMOST, so the span is current when the band reads it: one span read feeds the correlation attribute here and
-    // the sample labels of every synchronous kernel banded beneath it
     Effect.withSpanScoped("realtime/socket"),
   )
 ```
@@ -278,17 +246,10 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
 - Growth: a new feed family (a flag-verdict stream, a vital fact stream) is one adapter over the same contract; the endpoints never change.
 
 ```typescript signature
-// Every bound's error channel crosses verbatim: a feed carries whatever its query fails with, so hardcoding one
-// relational pair here narrowed every non-relational bound to a shape it never raises. Its requirement is the
-// reactive bus, not a SQL client — the owner re-runs through `Reactivity.stream`, so a serving Layer satisfying this
-// feed with a client alone provides a Tag the stream never asks for and omits the one it does.
 const _query = <A, E, R>(
   bound: Live.Bound<A, E, R>,
 ): Realtime.Source<A, E, Exclude<R, Scope.Scope> | Reactivity.Reactivity> => ({
   from: () => bound.changes,
-  // Emission identity projects off the bound: a durable coordinate (a lane's AsOf sequence) rides as the event
-  // id and a coordinate-free bound answers none — a DEDUPE token the client proves its rendered state against,
-  // never a replay cursor, because every emission already carries the complete answer
   token: (value) => Option.flatMap(bound.coordinate(value), (id) => Schema.decodeOption(_Resume)(id)),
 })
 
@@ -377,8 +338,6 @@ const _guard = (
         ? Effect.fail(new LiveFault({ case: { reason: "denied", coordinate: "actor", subject: op.actor } }))
         : forward(op)
 
-// one atomic verdict over the whole cell: `left` is the refused cap, `right` carries the superseded incumbent's
-// fence when a held key re-reserved and `none` when the slot was fresh — three outcomes one boolean cannot spell
 const _reserved = (
   cell: Ref.Ref<HashMap.HashMap<Fold.Cell, readonly [subject: string, fence: Deferred.Deferred<void>]>>,
   key: Fold.Cell,
@@ -388,7 +347,6 @@ const _reserved = (
 ): Effect.Effect<Either.Either<Option.Option<Deferred.Deferred<void>>, void>> =>
   Ref.modify(cell, (slots) =>
     Option.match(HashMap.get(slots, key), {
-      // a held key re-reserves from ANY session of this principal and never charges the cap twice
       onSome: ([, incumbent]) => [Either.right(Option.some(incumbent)), HashMap.set(slots, key, [subject, fence])] as const,
       onNone: () =>
         HashMap.size(HashMap.filter(slots, ([owner]) => owner === subject)) >= fan
@@ -416,11 +374,7 @@ const _make = (rows: ReadonlyArray<readonly [prefix: Admission.Channel, rule: Ad
           onRight: (incumbent) =>
             Effect.as(
               Effect.zipRight(
-                // settling the predecessor's fence interrupts ITS served stream, so a supersede closes a response
-                // rather than leaving a slot the cap still counts and nothing can reach
                 Option.match(incumbent, { onNone: () => Effect.void, onSome: (spent) => Deferred.succeed(spent, undefined) }),
-                // Slots free on response-scope close, and only while this fence still owns the key — a
-                // successor that already superseded keeps its own reservation
                 Effect.addFinalizer(() =>
                   Ref.update(cell, (slots) =>
                     Option.match(HashMap.get(slots, key), {
@@ -462,8 +416,6 @@ const Admission = { Channel: _Channel, Rule: _Rule, make: _make } as const
 
 ```typescript signature
 declare namespace Mount {
-  // Structural shape every foreign node adapter already answers — `connectNodeAdapter` returns exactly it — so this
-  // page names no adapter package and each satisfier keeps its own at the root.
   type NodeHandler = (request: IncomingMessage, response: ServerResponse) => void
   type Row = { readonly prefix: `/${string}`; readonly app: HttpApp.Default<LiveFault, Mount.Lift | Scope.Scope> }
   type Lift = _Lift
@@ -473,15 +425,9 @@ class _Lift extends Context.Tag("runtime/serve/Mount/Lift")<_Lift, {
   readonly node: (handler: Mount.NodeHandler) => Effect.Effect<void, LiveFault, HttpServerRequest.HttpServerRequest>
 }>() {}
 
-// Rows raising nothing and demanding nothing still inhabit the widened row type, so admitting the lift costs an
-// existing mount no edit while a lifted row stops needing a parallel row family of its own.
 const _mounted = (handler: Mount.NodeHandler): HttpApp.Default<LiveFault, Mount.Lift> =>
   Effect.as(Effect.flatMap(_Lift, (lift) => lift.node(handler)), HttpServerResponse.empty())
 
-// The remote identity and the chunk counter are SERVER facts the built handler closes over, so this row folds the
-// acquisition once and hands the built app to every connection: a row spelled as a per-request `makeHandlerHttp`
-// re-reads `storage.getId` on each socket and restarts the counter beside it. Storage stays a PORT — the row names
-// the Tag and the composition root binds it from the data wave, so no relation is spelled here.
 const _overlay = (prefix: `/${string}`): Effect.Effect<Mount.Row, never, EventLogServer.Storage> =>
   Effect.map(EventLogServer.makeHandlerHttp, (served): Mount.Row => ({
     prefix,
@@ -492,17 +438,12 @@ class Mount extends Context.Tag("runtime/serve/Mount")<Mount, ReadonlyArray<Moun
   static readonly Lift = _Lift
   static readonly node = _mounted
   static readonly overlay = _overlay
-  // Rows are EFFECTS uniformly, because a row that acquires — one server identity, one built handler — cannot be a
-  // value the root already holds, and a pure row answers `Effect.succeed`. Two constructors here would fork the Tag's
-  // one binding into an acquiring form and a pure form the root then has to choose between.
   static readonly of = <R>(...rows: ReadonlyArray<Effect.Effect<Mount.Row, never, R>>): Layer.Layer<Mount, never, R> =>
     Layer.effect(Mount, Effect.all(rows))
 }
 
 const Realtime = {
   Resume: _Resume,
-  // the anchors' own roster publishes beside the lane table, so a frame owner's synchronous kernel bands under the
-  // same vocabulary its endpoint span already declared and the store joins one region name rather than two
   band: _BAND,
   lanes: _lanes,
   query: _query,
@@ -512,7 +453,7 @@ const Realtime = {
   topic: _topic,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Admission, LiveFault, Mount, Realtime }
 ```

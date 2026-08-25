@@ -34,9 +34,6 @@ const Role = {
   viewer: { inherits: [] },
 } as const
 
-// Two legs partition this owner's refusals and each renders its OWN subject — the store leg names the subject whose
-// roles never arrived, the tenancy leg names the string the token asserted — so one census never flattens an
-// unreachable store and an unspellable tenancy into a shared prose line.
 const _claimFamily = Fault.Class.family(["store", "tenant"] as const, {
   store: Fault.Class.row({
     class: "unavailable",
@@ -66,9 +63,6 @@ declare namespace ClaimFault {
 
 class ClaimSet extends Schema.Class<ClaimSet>("ClaimSet")({
   subject: Schema.NonEmptyString,
-  // Tenancy carries its POSTURE: a subject that stated a `tid` and a subject that took this deployment's fallback
-  // bind the same RLS scope and are different claims. One `Some` fuses them at the first hop and nothing downstream
-  // unfuses it, so the audit rail reports a fallback as the subject's own assertion.
   tenant: Shape.posture.of(Identity.Tenant.fields.tenant),
   roles: Schema.HashSet(Schema.Literal(..._roles)),
   scopes: Schema.HashSet(Schema.NonEmptyString),
@@ -108,9 +102,6 @@ class ClaimStore extends Context.Tag("security/access/ClaimStore")<ClaimStore, {
 class Claim extends Effect.Service<Claim>()("security/access/Claim", {
   effect: Effect.gen(function* () {
     const store = yield* ClaimStore
-    // Decoded at the boot line through the tenant key's own schema: `Config.option` folds a MISSING variable to none
-    // and leaves invalid data failing, so an unset default leaves claims untenanted while a misspelled one fails
-    // this root proof rather than handing every untenanted request a key no store matches.
     const fallback = yield* Config.option(Schema.Config("DEFAULT_TENANT", Identity.Tenant.fields.tenant).pipe(
       Config.withDescription("tenant key an absent tid falls to; unset leaves the claim untenanted"),
     ))
@@ -118,11 +109,6 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
       Schema.decode(Identity.Tenant.fields.tenant)(raw).pipe(
         Effect.mapError((issue) => new ClaimFault({ case: { reason: "tenant", tid: raw, cause: issue.message } })),
       )
-    // Silence and nonsense are different claims: a token naming no tenancy accepts this deployment's default, and a
-    // token naming one the estate cannot spell has ASSERTED something, so answering it with the default tenant's
-    // roles serves a claim it never made. Absence takes the fallback, malformation refuses. The two accepting arms
-    // stay TOLD APART on the value: an asserted `tid` decodes `declared` and the fallback decodes `defaulted` naming
-    // the deployment that supplied it, so binding RLS and writing the denial fact both read which one arrived.
     const _tenantOf = (tid: Option.Option<string>): Effect.Effect<Shape.Posture<Identity.Tenant.Key>, ClaimFault> =>
       Option.match(tid, {
         onSome: (raw) => Effect.map(_decoded(raw), (value) => ({ _tag: "declared" as const, value })),
@@ -132,9 +118,6 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
             onSome: (value) => ({ _tag: "defaulted" as const, source: "deployment" as const, value }),
           })),
       })
-    // One entitlement door, discriminated by the CONSTRUCTOR that minted the value: both arms are `Schema.Class`
-    // instances, so `instanceof` names the source. Probing for a `sub` field names a spelling instead, and the day
-    // `ApiKeyRecord` grows a `sub` column every machine key silently routes down the token arm with nothing failing.
     const resolve = (presented: AccessClaims | ApiKeyRecord): Effect.Effect<ClaimSet, ClaimFault> =>
       Effect.gen(function* () {
         const shaped = presented instanceof AccessClaims
@@ -144,8 +127,6 @@ class Claim extends Effect.Service<Claim>()("security/access/Claim", {
         const roles = yield* store.rolesOf(shaped.subject, Shape.posture.value(tenant))
         return new ClaimSet({ subject: shaped.subject, tenant, roles, scopes: HashSet.fromIterable(shaped.scopes) })
       }).pipe(Effect.withSpan("security.claim.resolve"))
-    // Tenancy shape belongs to `access/tenant`, so both members compose its mint: an untenanted claim is the same
-    // `of` call with no context, and every field the `Principal` acquires arrives here without an edit on this page.
     const principal = (identity: Identity.App, claims: ClaimSet): Principal =>
       TenantScope.of(
         Option.getOrUndefined(Option.map(Shape.posture.value(claims.tenant), (tenant) => identity.scoped(tenant))),
@@ -189,8 +170,6 @@ const RolePermission = {
   viewer: ["read"],
 } as const satisfies Record<Role.Kind, ReadonlyArray<Permission.Kind>>
 
-// Delegation bundles are coarser than the action axis and flat: a client asks for one row and spends the cells that
-// row spells out, so a wider bundle repeats them rather than inheriting an edge no credential presented.
 const ScopePermission = {
   "rasm:read": ["read"],
   "rasm:write": ["read", "write"],
@@ -198,8 +177,6 @@ const ScopePermission = {
   "rasm:admin": ["read", "write", "delete", "admin", "invite"],
 } as const satisfies Record<Scope.Kind, ReadonlyArray<Permission.Kind>>
 
-// The two ports fail on their own legs and each names the coordinate its caller can act on — the relation arm names
-// which of the three port arms went dark over which triple, the flag arm names the key whose verdict never arrived.
 const _policyFamily = Fault.Class.family(["store", "flag"] as const, {
   store: Fault.Class.row({
     class: "unavailable",
@@ -223,8 +200,6 @@ declare namespace Relation {
   type Kind = (typeof _relations)[number]
 }
 
-// Namespace membership is the discriminant the ceiling tests a PRESENTED string against, so a row dropping the
-// prefix sits in the table unreachable by any bound: `_Namespaced` fails it at the declaration, never at a verdict.
 declare namespace Scope {
   type Kind = (typeof _scopes)[number]
   type _Namespaced<K extends `${typeof _namespace}${string}` = Kind> = K
@@ -262,8 +237,6 @@ class PolicyFault extends Schema.TaggedError<PolicyFault>()("PolicyFault", {
   }
 }
 
-// The read side of ReBAC is a request family, not a member: structural `Equal` over exactly the triple IS the dedup
-// identity, so two checks of one triple in a request collapse and N checks in a list render fold into one store call.
 class RelationCheck extends Request.TaggedClass("RelationCheck")<boolean, PolicyFault, {
   readonly subject: string
   readonly relation: Relation.Kind
@@ -300,10 +273,6 @@ const _PolicyDecision = Data.taggedEnum<PolicyDecision>()
 
 const _deny = Convention.mount(Convention.metric.securityPolicyDeny)
 
-// Inheritance expansion is a WALK, so it spends the branch's own hop budget rather than a private trail guard whose
-// only answer to a cyclic `inherits` edit was a quietly shorter set. A lawful chain visits each role at most once,
-// so the roster's own length IS the ceiling. The accumulator memoizes a role only AFTER its edges expand, which
-// keeps a diamond one expansion while leaving a cycle descending until the budget is spent and refuses with evidence.
 const _inheritance = Shape.Bound.bounded("hops", _roles.length)
 
 const _closure = (
@@ -326,11 +295,6 @@ const _closure = (
         ),
     })
 
-// A cyclic role table is a source defect this fold proves at module load, and the whole grant table refuses rather
-// than publishing a partial one: the evidence renders through the estate's one exhaustion family, so a spent
-// inheritance walk reads identically to every other spent budget and this page mints no private exhaustion reason.
-// Module evaluation reaches no rail, so the certified value is taken here and every request past it reads a closure
-// the walk proved rather than one a silent trail cut trimmed.
 const RoleGrant: HashMap.HashMap<Role.Kind, HashSet.HashSet<Permission.Kind>> = HashMap.fromIterable(
   Array.map(_roles, (role) =>
     [
@@ -348,20 +312,12 @@ const RoleGrant: HashMap.HashMap<Role.Kind, HashSet.HashSet<Permission.Kind>> = 
 const _granted = (roles: HashSet.HashSet<Role.Kind>, action: Permission.Kind): boolean =>
   HashSet.some(roles, (role) => Option.exists(HashMap.get(RoleGrant, role), (grants) => HashSet.has(grants, action)))
 
-// Ceiling derivation mirrors the grant closure — one flatten per anchor row at module load, one membership read per
-// presented string. Keys widen to `string` at the binding because the LOOKUP side is wire data the issuer filled,
-// so a miss is the whole answer for a bundle no row spells and no decode stands between them.
 const ScopeGrant: HashMap.HashMap<string, HashSet.HashSet<Permission.Kind>> = HashMap.fromIterable(
   Array.map(_scopes, (scope) => [scope, HashSet.fromIterable(ScopePermission[scope])] as const))
 
-// Namespace states the bound, never table membership: `rasm:` names this estate's own delegation and every other
-// string is the issuing IdP's consent evidence (`openid`, `email`) the authority never reads.
 const _bounded = (scopes: HashSet.HashSet<string>): boolean =>
   HashSet.some(scopes, (scope) => scope.startsWith(_namespace))
 
-// Unbounded credentials are first-party: they delegated nothing, so they spend the subject's whole grant. Bounded
-// ones spend the union their rows project, so a namespaced scope the table cannot spell narrows to nothing, where
-// reading the bound off a row match lets one typo restore the entire authority the presentation gave up.
 const _delegated = (scopes: HashSet.HashSet<string>, action: Permission.Kind): boolean =>
   !_bounded(scopes)
   || HashSet.some(scopes, (scope) => Option.exists(HashMap.get(ScopeGrant, scope), (grants) => HashSet.has(grants, action)))
@@ -372,8 +328,6 @@ class Policy extends Effect.Service<Policy>()("security/access/Policy", {
     const flags = yield* FlagGate
     const check = (claims: ClaimSet, request: PolicyRequest): Effect.Effect<PolicyDecision, PolicyFault> =>
       Effect.gen(function* () {
-        // Two independent reads: the fold pays their max, not their sum, and the ReBAC half rides the batch window so
-        // an N-object render issues one store call instead of N round trips.
         const { gate, rebac } = yield* Effect.all({
           gate: Option.match(request.flag, { onNone: () => Effect.succeed(true), onSome: (key) => flags.enabled(key, claims) }),
           rebac: Option.match(request.relation, {
@@ -382,9 +336,6 @@ class Policy extends Effect.Service<Policy>()("security/access/Policy", {
               Effect.request(new RelationCheck({ subject: claims.subject, relation, object: request.object }), relations.resolver),
           }),
         }, { concurrency: 2 })
-        // One entitlement evaluation with three subtractors, ordered so the reason names the narrowest true cause:
-        // a closed flag precedes every grant question, an ungranted action precedes every delegation question, and
-        // ceiling refusal answers last — where the subject HOLDS the authority and the credential never carried it.
         const entitled = _granted(claims.roles, request.action) || rebac
         return !gate
           ? _PolicyDecision.Deny({ reason: "flag-closed" })
@@ -410,7 +361,7 @@ class Policy extends Effect.Service<Policy>()("security/access/Policy", {
   accessors: true,
 }) {}
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Claim, ClaimFault, ClaimSet, ClaimStore, FlagGate, Policy, PolicyFault, PolicyRequest, RelationCheck, RelationStore, RelationTuple, Role, RoleGrant, ScopeGrant }
 export type { Permission, PolicyDecision, Relation, Scope }

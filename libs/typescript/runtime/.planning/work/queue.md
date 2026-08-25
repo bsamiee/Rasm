@@ -57,8 +57,6 @@ const _job = <Name extends string, A, I, S, SI, E extends { readonly class: Faul
   })
   return {
     queue,
-    // `Job.Spec`'s `E` closes the DOMAIN channel on `class`; the PERSISTENCE channel stays open — this schedule sees
-    // `PersistedQueueError`, whose `_tag`/`message`/`cause` carry none, so the default gate refuses every re-drive
     submit: (payload: A) =>
       DurableQueue.process(queue, payload, { retrySchedule: Fault.Budget.schedule(row.budget, Function.constTrue) }),
     worker: <R>(handle: (payload: A) => Effect.Effect<S, E, R>) =>
@@ -94,12 +92,7 @@ const Job = { of: _job }
 ```typescript signature
 declare namespace Throttle {
   type Subject<Axis extends string> = { readonly tenant: string; readonly weight: number } & { readonly [K in Axis]: string }
-  // Receiver-stated ceilings carry this subject: the axis coordinate beside the rate that destination's own
-  // abuse-protection grant named, so the row reads its bound off the value exactly as it reads its key and cost.
   type Granted = Subject<"destination"> & { readonly rate: number }
-  // `limit` is a PROJECTION beside `key` and `cost`, not a constant among them — a ceiling some receiver states per
-  // destination and a ceiling this estate fixes are one row under one spend seam, and a scalar column could only
-  // re-guess the first. A row whose bound this estate owns answers a constant and reads nothing.
   type Row<A> = {
     readonly scope: string
     readonly algorithm: "fixed-window" | "token-bucket"
@@ -110,8 +103,6 @@ declare namespace Throttle {
   }
 }
 
-// Both projections derive from the ONE axis a row fans on: the compound key is always tenant-then-axis and the cost is
-// always the subject's own weight, so a row states its axis and never re-spells the arithmetic or its subject shape.
 const _keyed = <const Axis extends string>(axis: Axis) => ({
   key: (subject: Throttle.Subject<Axis>) => `${subject.tenant}:${subject[axis]}`,
   cost: (subject: Throttle.Subject<Axis>) => subject.weight,
@@ -121,9 +112,6 @@ const _rows = {
   tenantEgress: { scope: "tenant-egress", algorithm: "token-bucket", window: Duration.minutes(1), limit: () => 600, ..._keyed("channel") },
   providerCall: { scope: "provider-call", algorithm: "fixed-window", window: Duration.minutes(1), limit: () => 240, ..._keyed("provider") },
   reportRender: { scope: "report-render", algorithm: "token-bucket", window: Duration.minutes(5), limit: () => 50, ..._keyed("format") },
-  // CloudEvents Webhook grants state a ceiling the RECEIVER owns and this sender promised to pace against, so the
-  // row spends it like any other quota and the promise stops being one nothing keeps. A target granting `*` states
-  // no ceiling, so its registration seats no rate and no subject ever reaches this row.
   webhookGrant: {
     scope: "webhook-grant",
     algorithm: "fixed-window",
@@ -131,13 +119,8 @@ const _rows = {
     limit: (subject: Throttle.Granted) => subject.rate,
     ..._keyed("destination"),
   },
-  // contravariance makes `Row<never>` the shape check that admits every subject: scope, algorithm, window, limit, and
-  // both projections refuse at the table instead of at the one `spend` call that happened to name a broken row
 } as const satisfies { readonly [Name: string]: Throttle.Row<never> }
 
-// `DurableRateLimiter`'s `name` namespaces the ACTIVITY and its DurableClock sleep; the store receives `key` verbatim,
-// so a bare projection lets two rows fanning on different axes spend one bucket the moment their values coincide.
-// Deriving the bucket here is also what joins the arms: one row, one counter, whether a step or a drain spent it.
 const _bucket = <A>(row: Throttle.Row<A>, subject: A): string => `${row.scope}:${row.key(subject)}`
 
 const _spend = <A>(row: Throttle.Row<A>, subject: A) =>
@@ -150,9 +133,6 @@ const _spend = <A>(row: Throttle.Row<A>, subject: A) =>
     tokens: row.cost(subject),
   })
 
-// The arm for every caller outside a durable step. `delay` makes the `Exceeded` fault unreachable while the shipped
-// union still names it, so this arm dies on it exactly as the durable activity does internally — both channels then
-// carry `RateLimitStoreError` alone, which is the one quota fault a lane judge ever grades.
 const _pace = <A>(row: Throttle.Row<A>, subject: A) =>
 <X, E, R>(self: Effect.Effect<X, E, R>): Effect.Effect<X, E | Fleet.RateLimitStoreError, R | Fleet.RateLimiter> =>
   Effect.flatMap(Fleet.makeWithRateLimiter, (limit) =>
@@ -193,10 +173,6 @@ const Throttle = { ..._rows, pace: _pace, spend: _spend }
 - Packages: `@rasm/data` (`Journal` — `claimBatch`, `complete`, `Fence`, `Held`, `Settlement`; `Tenancy`); `@effect/sql` (`SqlClient`, `SqlError`); `effect` (`Array`, `Effect`, `HashMap`, `Match`, `Option`, `ParseResult`, `Schema`); `@rasm/core` (`Fault.Class`); `./entity.ts` (`WorkClass`).
 
 ```typescript signature
-// Every non-settling arm names the class AND the route back: the route is elected from the class row at the one seat
-// below, so a park row leaving the process as evidence carries what a replay must change, and `after` carries the
-// window only where a producer measured one — a lease width standing in for a receiver's stated wait is the guess
-// this column exists to delete, and an unmeasured `Duration.zero` would tell the drain to re-offer immediately.
 type LaneVerdict = Data.TaggedEnum<{
   Settled: {}
   Deferred: {
@@ -209,10 +185,6 @@ type LaneVerdict = Data.TaggedEnum<{
 const LaneVerdict = Data.taggedEnum<LaneVerdict>()
 
 declare namespace Lane {
-  // Claim statements answer this floor, never the whole row: a data-owned claim widens it with its own columns
-  // and `Row` carries them through admission, so no drain re-joins its own batch by identity to recover one.
-  // `held` is the data owner's own projection of the identity beside the generation ITS claim minted, so the
-  // discharge presents one value rather than pairing an id with a lease it re-read from somewhere else.
   type Claim = {
     readonly id: bigint
     readonly sequence: bigint
@@ -223,14 +195,9 @@ declare namespace Lane {
   }
   type Meta<Row extends Claim = Claim> = Omit<Row, "payload">
   type Admit<R, Row extends Claim = Claim> = (claim: Row) => Effect.Effect<LaneVerdict, never, R>
-  // What one claim's pass answers: the verdict it earned beside the fence its discharge read back. `Deferred`
-  // discharges nothing, so its fence is absent by construction rather than a forged `Advanced`.
   type Outcome = { readonly verdict: LaneVerdict; readonly discharge: Option.Option<Journal.Fence<bigint>> }
 }
 
-// The WHOLE fault crosses rather than a rebuilt pair: a family raise carries its `case` and RENDERS its evidence, so
-// the park text is the offending row's own sentence, and `statedOf` recovers a producer-measured window off the same
-// value — a struct rebuilt from two columns at the call site drops the window and re-spells the sentence at once.
 const _judge = (
   meta: Lane.Meta,
   clazz: WorkClass.Kind,
@@ -257,13 +224,8 @@ const _row = <A, I, R, Row extends Lane.Claim = Lane.Claim>(
           route: Fault.Class.reofferOf("invalid"),
           detail: `<${claim.tag}:${fault.message}>`,
         })),
-      // Claims cross whole as `meta`: `Omit` hides the raw column at the type while every other coordinate the
-      // data-owned row decoded travels intact, so a projection reads its own claim rather than a keyed re-join.
       onSuccess: (value) =>
         drain(value, claim).pipe(
-          // drains carry a `never` channel, so their ONLY remaining failure is a defect, and this is the producer that
-          // gives the poison list its `defect` row: uncaught it would kill the pass and strand every peer claim on a
-          // lease. Interrupts pass through untouched — a shutdown is not a poison verdict.
           Effect.catchAllDefect((residue) =>
             Effect.succeed(LaneVerdict.Parked({
               class: "defect",
@@ -275,10 +237,6 @@ const _row = <A, I, R, Row extends Lane.Claim = Lane.Claim>(
     }),
   )
 
-// Claims discharge the outbox row on both terminal verdicts and on neither transient one; `Deferred` writes nothing
-// at all, because the lease IS the backoff and an un-claim write would race the claimant the lease predicate protects.
-// What a discharging verdict yields is the claim's OWN `held` pair — identity beside the generation its claim minted —
-// so the statement fences on what this claimant holds rather than on an identity any lapsed peer can also spell.
 const _landed = <R2, Row extends Lane.Claim>(
   park: (claim: Row, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) => Effect.Effect<void, never, R2>,
   claim: Row,
@@ -313,19 +271,10 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
         }).pipe(Effect.flatMap((verdict) => Effect.map(_landed(park, claim, verdict), (held) => [verdict, held] as const))),
       { concurrency: WorkClass[clazz].concurrency },
     )
-    // ONE discharge statement per pass: `Journal.complete` is a roster write fed by a batched claim read, so a
-    // per-claim mark pays `take` round trips to close one claim set the statement was shaped to close in one. Its
-    // `SqlError` leaves on the error channel — a store fault is no claim's verdict, and every judged claim rides its
-    // unexpired lease into the next pass. The discharge marks rows across every tenant of the app, so it rides the
-    // maintenance-plane transformer: unpinned it updates zero rows under FORCE RLS and every settled claim redelivers.
     const discharged = Array.getSomes(Array.map(judged, ([, held]) => held))
     const settlements = yield* Array.isNonEmptyReadonlyArray(discharged)
       ? Tenancy.sweep(sql)(Journal.complete(sql, discharged))
       : Effect.succeed<ReadonlyArray<Journal.Settlement>>([])
-    // The statement answers a fence per REQUESTED identity, which is evidence no claim carried in — so this keys the
-    // answer rather than re-joining a coordinate the claim already held, and a displaced or groomed row reaches the
-    // relay as data instead of dissolving into an affected-row count. `bigint` hashes by its decimal spelling, so the
-    // identity keys the map directly and no surrogate string travels beside it.
     const fenced = HashMap.fromIterable(Array.map(settlements, (settlement) => [settlement.id, settlement.fence] as const))
     return Array.map(judged, ([verdict, held]): Lane.Outcome => ({
       verdict,
@@ -345,18 +294,10 @@ const _settle = <R, R2, Row extends Lane.Claim = Lane.Claim>(
 - Packages: `@rasm/data` (`AuditFact`, `Fact`, `Journal`); `effect` (`Effect`, `Stream`); `../otel/meter.ts` (`Pulse`).
 
 ```typescript signature
-// Claim tags ARE the announced `type` — `data:journal/append#RELAY_ROWS` mints its envelope with
-// `type: deliverable.tag` — so `rasm.<domain>.<subject>.<fact>` is the one grammar any reader of this column
-// has, and `<subject>` is the channel a drain routes on and a series fans on. `Lane` publishes the read because it
-// owns the column: a second grammar spelled beside it answers the WHOLE tag for every well-formed row, which is one
-// series per event family instead of one per channel and a routing predicate that agrees with nothing.
 const _SUBJECT = 2
 
 const _channel = (tag: string): Option.Option<string> => Array.get(tag.split("."), _SUBJECT)
 
-// Tags outside the grammar name no channel, and answering the tag itself fans this series on every family a
-// producer can spell; the roster stays bounded and the tag itself rides the fact row's own `parent`, which is where
-// an operator reads it without minting a series per spelling.
 const _UNROSTERED = "<unrostered>"
 
 const _park = (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag: "Parked" }>) =>
@@ -368,8 +309,6 @@ const _park = (claim: Lane.Claim, verdict: Extract<LaneVerdict, { readonly _tag:
       change: [
         { _tag: "Assigned", path: "/sequence", next: String(claim.sequence) },
         { _tag: "Assigned", path: "/class", next: verdict.class },
-        // the route travels because the reader does not: operator tooling folds `AuditFact` rows with no access to
-        // the class table, so a re-offer posture re-derived at the fold is a posture the dead set never carries
         { _tag: "Assigned", path: "/route", next: verdict.route },
         { _tag: "Assigned", path: "/attempts", next: String(claim.attempts) },
         { _tag: "Assigned", path: "/detail", next: verdict.detail },
@@ -409,7 +348,7 @@ const Lane = {
   ceiling: (clazz: WorkClass.Kind) => WorkClass[clazz].attempts,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Job, Lane, LaneVerdict, Throttle }
 ```

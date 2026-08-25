@@ -24,7 +24,7 @@ Settled composition: `CapabilitySet<TCapability>`, `ICapability<TSelf>`, and `Ca
 - Boundary: package health types stop at this seam — interiors read `HealthSnapshot` and one level value; a `Driver` case binds the SAME pooled `NpgsqlDataSource`, the one L2 `IDistributedCache` transit, and the pooled `INatsConnection` the production path owns, so a probe shares connection pressure with live traffic and never opens a second out-of-pool connection, and its tag routes a faulted dependency onto an EXISTING degradation rule (`Store` -> `ReadOnly`, `Remote` -> `ReducedRemote`, `Pressure` -> `Degraded`) with zero added `Rule`; the roster is seed DATA tracking the landed Persistence egress sink roster, so the probe axis never drifts beside the roster it probes, and WHICH rows a deployment registers is the composition's own argument list at Runtime/modules#MODULE_LEDGER rather than a `Default` column no fold read — a per-row registration flag and the registration argument that overrides it are two answers to one question; the `Disk`/`Allocations` probes are the discrete hard-ceiling complement to the continuous `Gauge` reading, not a second utilization source — they grade an absolute breach the windowed ratio does not express, both projecting into the one `Pressure`-tagged contributor set; `Peer` cases read a peer process over its wire health service, so cross-process health is a read, never shared state; the `Gauge` case folds CPU, memory, and the `Runtime/profiles#POWER_AND_FIDELITY` fidelity grade onto ONE `Pressure`-tagged row, and `FidelityScale.Grade` is what makes that one row honest — it already folds thermal ahead of power state, so a thermal axis beside the fidelity axis grades one measurement twice and the branch RULINGS `[02]` thermal-and-power clause becomes a structural fact rather than a convention; the fidelity axis inverts against the roster's own top row so pressure rises as fidelity falls, and an unread power authority grades `Balanced` at profiles, one rung below the degraded ceiling, so absence never escalates a health rule; an unreadable source grades `Degraded` with its captured cause as the entry detail, because a void probe's one evidence surface is the result it returns and a zero reading grades healthy. `PressureSource` seats the three arms this branch serves — the `Process` row over BCL counters, `Host` and `Container` over the meter where the package registers a snapshot source; `Container` reads `container.cpu.limit.utilization`/`container.memory.limit.utilization` because `UseLinuxCalculationV2` publishes no `process.cpu.utilization` at all and the non-V2 process gauge scales against the cpu REQUEST, so a container arm reading the process pair grades the wrong ceiling or nothing — and that conditional roster IS the `Host` row's corner law: every `MonitorFeature` set holding `CgroupV2` is barred there, which is the legal-corner statement no bool pair carries, while the `Process` row admits the empty set alone because its arm registers no meter for a feature to shape; the two range flips are one invariant across two platform halves rather than a policy — the Linux flip defaults on and the cross-platform flip defaults OFF, so a Windows host left unflipped emits `[0, 100]` against ratio ceilings and suspends itself at one percent load, and both are pinned in the arm rather than exposed as features; `ResourceQuota` carries the `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings that `ResourceQuotaProvider.GetResourceQuota()` supplies to `PressurePolicy.Quota` as the ceiling evidence the grade detail stamps, never a re-derived second ratio, and that provider registers on every Linux host but only inside a Windows job object; the meter arm's observable instruments deliver nothing until asked, so `Read` drives the listener's own observation and a listener merely started is the silently-dead form the pull deletes; listener mount rides `Of` because a separable attach step left an unlistened meter cell constructible, and a metered `Read` refuses until BOTH named instruments have published, so the package's own no-snapshot-source-outside-Windows-and-Linux return surfaces as a `Degraded` entry carrying its cause; the counter arm refuses on the SAME terms — a span the monotonic timeline has not advanced and a GC memory ceiling that resolves to zero each DECLINE the transition, so the cell keeps its last admitted pair and the read reports absence, where the prior form committed a fabricated zero share and graded a saturated host healthy; NAMED LOSS on the tag column — `HealthReport` hands tags back as the strings the registration wrote, so the snapshot re-admits them once through `ContributorTag.Admit` and a tag no row names cannot key a rule and does not cross, leaving a foreign package's own tags on its own `HealthCheckRegistration` where its own reader takes them.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,7 +35,7 @@ using Sample = (LanguageExt.Option<Rasm.AppHost.Observability.Utilization> Usage
 
 namespace Rasm.AppHost.Observability;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -47,8 +47,6 @@ public sealed partial class ContributorTag : ICapability<ContributorTag> {
 
     public int Rank { get; }
 
-    // Report tags return as the strings the registration wrote, so they re-enter the roster HERE and every rule
-    // below reads set membership with no string compare left.
     public static CapabilitySet<ContributorTag> Admit(IEnumerable<string> keys) =>
         CapabilitySet<ContributorTag>.Of([.. keys.Select(static key => TryGet(key, out ContributorTag? row) ? row : null).OfType<ContributorTag>()]);
 
@@ -119,8 +117,6 @@ public abstract partial record PressureSource {
     public static readonly PressureSource Container = new Metered(
         "container.cpu.limit.utilization", "container.memory.limit.utilization", CapabilityLaw<MonitorFeature>.Open);
 
-    // One barred row: the law bars by containment, so every set holding `CgroupV2` refuses on this row alone —
-    // V2 calculation is what deletes the process gauge this arm reads.
     public static readonly PressureSource Host = new Metered(
         "process.cpu.utilization", "dotnet.process.memory.virtual.utilization",
         CapabilityLaw<MonitorFeature>.Forbidden(Seq(
@@ -175,8 +171,6 @@ public abstract partial record ProbeSource {
         public override IServiceCollection Mount(IServiceCollection services) => services;
     }
 
-    // Synthetic context mints ONCE with the row's own failure status, so the status the package stamps and the
-    // status the registration declares cannot disagree.
     public sealed record Driver(DriverProbe Row, IHealthCheck Check) : ProbeSource {
         private readonly HealthCheckContext seated = new() {
             Registration = new HealthCheckRegistration(
@@ -195,7 +189,7 @@ public abstract partial record ProbeSource {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Utilization(double CpuRatio, double MemoryRatio);
 
 public readonly record struct PressureReading(Utilization Usage, FidelityScale Fidelity);
@@ -214,7 +208,6 @@ public sealed record PressurePolicy(
     Seq<(PressureAxis Axis, Band Band)> Ceilings,
     Option<ResourceQuota> Quota,
     CapabilitySet<MonitorFeature> Features) {
-    // Fidelity ceilings read off the scale's own rungs, so retuning the power ladder moves this band with it.
     public static readonly PressurePolicy Canonical = new(
         Source: PressureSource.Process,
         Window: Duration.FromSeconds(5), Sampling: Duration.FromSeconds(1),
@@ -227,8 +220,6 @@ public sealed record PressurePolicy(
         Quota: None,
         Features: CapabilitySet<MonitorFeature>.None);
 
-    // Quota provider registers on every Linux host and only inside a Windows job object, so taking it as the
-    // argument makes the container arm unconstructible exactly where its ceilings do not resolve.
     public static Fin<PressurePolicy> Container(ResourceQuotaProvider quotas) =>
         Admit(Canonical with {
             Source = PressureSource.Container,
@@ -244,7 +235,6 @@ public sealed record PressurePolicy(
             (Status: HealthStatus.Healthy, Read: Seq<string>()),
             (held, row) => Folded(held, row, row.Axis.Read(reading))));
 
-    // `HealthStatus` ranks unhealthy lowest, so the worst status is the MINIMUM over the ceiling roster.
     static (HealthStatus Status, Seq<string> Read) Folded(
         (HealthStatus Status, Seq<string> Read) held, (PressureAxis Axis, Band Band) row, double value) =>
         (row.Band.Grade(value) is var status && status < held.Status ? status : held.Status,
@@ -292,8 +282,7 @@ public sealed record HealthSnapshot(
         Option<string> Detail = default);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Named boundary capsule for the statement carve-out: listener wiring carries a language-owned statement form.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class UtilizationCell : IDisposable {
     public const string Meter = "Microsoft.Extensions.Diagnostics.ResourceMonitoring";
     private static readonly Error Unobserved =
@@ -323,8 +312,6 @@ public sealed class UtilizationCell : IDisposable {
                 metered: static (cell, row) => cell.Listening(row),
                 runtime: static (cell, _) => cell));
 
-    // Observables deliver nothing until the listener observes them, and that call aggregates every throwing
-    // callback, so the pull is a captured boundary crossing.
     public Fin<Utilization> Read() => source.Switch(
         state: this,
         metered: static (held, _) => Op.Of().Catch(() => Fin.Succ(held.Pulled())).Bind(static usage => usage.ToFin(Unobserved)),
@@ -338,8 +325,6 @@ public sealed class UtilizationCell : IDisposable {
         return held.Cpu.Bind(cpu => held.Memory.Map(memory => new Utilization(cpu, memory)));
     }
 
-    // Marks mint ONCE outside the transition: a CAS body re-runs on every contended retry, so a capture
-    // inside would stamp a later mark per attempt and the committed ratio would not be the sampled one.
     Fin<Utilization> Counted() =>
         line.Capture(key).Bind(now => Settled(Cell.Step(
             counted,
@@ -364,7 +349,6 @@ public sealed class UtilizationCell : IDisposable {
             if (instrument.Meter.Name == Meter && (instrument.Name == row.Cpu || instrument.Name == row.Memory))
                 active.EnableMeasurementEvents(instrument);
         };
-        // Publication filter admits the two named instruments alone, so the callback's two arms are total.
         listener.SetMeasurementEventCallback<double>((instrument, measurement, _, _) =>
             ignore(observed.Swap(current => instrument.Name == row.Cpu
                 ? (Some(measurement), current.Memory)
@@ -374,7 +358,7 @@ public sealed class UtilizationCell : IDisposable {
     }
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class HealthSurface {
     extension(IHealthChecksBuilder builder) {
         public IHealthChecksBuilder Register(params ReadOnlySpan<HealthContributorRow> rows) =>
@@ -411,7 +395,7 @@ using NodaTime.Serialization.Protobuf;
 using Control = Rasm.Contracts.Compute;
 using Host = Rasm.Contracts.Availability;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -478,9 +462,6 @@ public sealed partial class DegradationLevel {
     public CapabilitySet<Faculty> Retains { get; }
     public Control.DegradationLevel Wire { get; }
 
-    // The INVERSE of the row's own `Wire` column, DERIVED from the roster so a new level lands both
-    // directions in one declaration; `Unspecified` and any foreign ordinal answer `None`, so `Force`
-    // re-derives rather than forcing a phantom level.
     static readonly FrozenDictionary<Control.DegradationLevel, DegradationLevel> ByWire =
         Items.ToFrozenDictionary(static row => row.Wire);
 
@@ -488,10 +469,7 @@ public sealed partial class DegradationLevel {
         ByWire.TryGetValue(wire, out var row) ? Optional(row) : None;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Three `Option<T>` slots tail the positional list carrying `= default`: the suite's `OmitAbsent` modifier
-// drops an absent one at write, so a slot without a default reads back wire-required under
-// `RespectRequiredConstructorParameters` and fails the decode of the payload this producer emitted.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DegradationState(
     DegradationLevel Derived,
     int Streak,
@@ -556,7 +534,6 @@ public static class CommandAvailability {
             permitted: toSet(registry.Discover(new DiscoveryQuery.Permitting(state.Level)).Map(static row => row.Descriptor)),
             catalog: toSet(registry.Discover(new DiscoveryQuery.All()).Map(static row => row.Descriptor)));
 
-    // Both queries fold once against each other, so the projection never probes the registry per descriptor.
     static Host.CommandAvailability Deviating(
         DegradationLevel level, Instant since, Set<string> permitted, Set<string> catalog) =>
         level.Access.Admitting
@@ -583,7 +560,7 @@ public static class CommandAvailability {
         });
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class DegradationCell(
     DegradationPolicy policy,
     IClock clock,
@@ -607,12 +584,9 @@ public sealed class DegradationCell(
             Succ: static _ => Task.CompletedTask,
             Fail: static fault => Task.FromException(fault.ToException()));
 
-    // Snapshot mints once outside the cell: a swap fold re-runs on every CAS retry, so a clock read inside would
-    // stamp a later instant per attempt and the published evidence would not be the graded one.
     Fin<DegradationReading> Folded(HealthSnapshot snapshot) =>
         Fired(cell.Swap(reading => new DegradationReading(snapshot, policy.Derive(reading.State, snapshot))));
 
-    // Fans off the swap's OWN return — a prior-value read beside the swap races the operator path.
     Fin<DegradationReading> Fired(DegradationReading reading) => Fanned(reading, new AppHostFact.Degradation(reading));
 
     Fin<DegradationReading> Fanned(DegradationReading reading, AppHostFact fact) =>
@@ -630,13 +604,13 @@ public sealed class DegradationCell(
 - Boundary: the wire predicate is the ONE place a `ContributorTag` renders back to text, because the framework hands its map context and its registration filter raw strings; set-degradation is the service-modality inbound route — the verb admits the wire enum through `DegradationLevel.OfWire`, the roster-derived inverse of the row's own `Wire` column, mapping `Unspecified` and any unlisted ordinal to `None` so `Force` re-derives rather than forcing a phantom level, and lands on `Force`; one override rail serves operator config, wire verbs, and release; `MapGrpcHealthChecksService` is the one wire-health endpoint — a hand-rolled `Grpc.Health.V1.Health.HealthBase` override beside it is the deleted form; `Evaluate` drives the registry live and returns a `HealthSnapshot`, so an HTTP liveness route, an operator verb, and a CLI check read the row set rather than the `DegradationCell`'s published reading — the cell stays the CADENCED truth every interior consumes and `Evaluate` is the on-demand probe path, so a caller wanting the settled level reads `DegradationCell.Read()` and never re-evaluates to derive one.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WireHealthRow(string Service, Option<ContributorTag> Tag) {
     public static readonly WireHealthRow Overall = new(string.Empty, None);
     public bool Admits(IEnumerable<string> tags) => Tag.Map(row => tags.Contains(row.Key)).IfNone(true);
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class WireHealth {
     public static IServiceCollection Register(IServiceCollection services, params ReadOnlySpan<WireHealthRow> rows) {
         Seq<WireHealthRow> set = Iterable<WireHealthRow>.FromSpan(rows).ToSeq();
@@ -644,8 +618,6 @@ public static class WireHealth {
             ignore(set.Iter(row => options.Services.Map(row.Service, context => row.Admits(context.Tags)))));
     }
 
-    // CheckHealthAsync takes a NULLABLE predicate, so Overall passes None and evaluates the whole registry
-    // rather than allocating an all-admitting closure per probe.
     public static IO<HealthSnapshot> Evaluate(
         HealthCheckService service, WireHealthRow row, IClock clock, CorrelationId correlation, CancellationToken token) =>
         IO.liftAsync(async () =>
@@ -670,7 +642,7 @@ public static class WireHealth {
 - Boundary: the alert engine is the only declarative-alerting owner — an ad hoc threshold check, a per-metric alarm, and a parallel alert store are the deleted forms; the sweep seats at `Runtime/modules#MODULE_LEDGER` on the health publish cadence beside `DegradationCell`, reading the cell's own committed value, so the engine and the governor grade one observation of one moment and a `HealthSnapshot`-only entry is the stale-read shape that pair exists to foreclose; `Project` resolves each `HealthSignal` case onto its OWN rank axis — the status cases onto the healthy-through-unhealthy ladder, `Level` onto the five-rung degradation rank — so a bound is authored against the case the rule names and a bound ported across cases is the drift the two axes make visible, while an unmatched selector yields `Option<double>.None` so `Observe` holds the prior state and delivers nothing; the severity vocabulary is the kernel's two-row routing axis — this page carries no ladder, and the rank-ordered incident escalation rides the row's `Rank` and `Escalated` columns; error-budget burn is the SEPARATE concern the kernel `Slo.Specs` compiles onto the deploy plane from an `Objective`, so a burn arm here mints the second metric source this boundary forbids; the alert engine and degradation rail remain distinct — degradation is the host's capability state, while alerting is user-facing notification over continuous queries; hysteresis is the condition's recovery band and dwell is the rule's minimum breach hold, so sampling frequency cannot change a rule's firing threshold; only live `Observe` invokes delivery, so `Backtest` cannot notify operators while replaying history — and `Backtest` seeds `AlertState.Clear` per replay rather than reading the cell, so a historical run can neither observe nor disturb live firing state; rule versioning makes a rule edit a new immutable version so each receipt identifies the rule that fired it; the cell is the roster's own custody and holds nothing for a rule the roster no longer carries, so a retired rule's dwell cannot resurrect it; the delivery column is the typed sink rather than a `Func<>` provider, because delivery is a composed port and not a per-call effect, so no composition root can hand this engine a notifier the receipt estate never sees.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HealthSignal {
     private HealthSignal() { }
@@ -680,7 +652,6 @@ public abstract partial record HealthSignal {
     public sealed record Level : HealthSignal;
 }
 
-// Bands floor at two samples: one point carries no deviation and no slope, so a degenerate window stays inert.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AlertCondition {
     private AlertCondition() { }
@@ -711,7 +682,7 @@ public sealed partial class AlertTransition {
     public static readonly AlertTransition Escalated = new("escalated");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record AlertRule(
     string RuleId,
     int Version,
@@ -720,8 +691,6 @@ public sealed record AlertRule(
     AlertSeverity Severity,
     Duration Debounce,
     Duration EscalationDwell) {
-    // Severity rows fix the hold a rule may raise but never undercut, so a ticketing rule inherits the deploy
-    // plane's flap suppression with no constant restated here.
     public Duration Dwell => Debounce > Severity.Hold ? Debounce : Severity.Hold;
 }
 
@@ -744,9 +713,7 @@ public readonly record struct AlertReceipt(
     Instant At,
     CorrelationId Correlation);
 
-// --- [POLICIES] -----------------------------------------------------------------------------
-// Bounds sit a half step BELOW the trigger rank so `value > Bound` fires exactly AT the trigger on an integer
-// ladder, and the hysteresis band shifts that one threshold alone — widening both sides lets a rank fire and clear.
+// --- [POLICIES] ------------------------------------------------------------------------
 public static class AlertPolicy {
     static readonly Duration Escalation = Duration.FromMinutes(15);
 
@@ -756,8 +723,6 @@ public static class AlertPolicy {
                 $"apphost.health.{rule.Tag.Key}.{rule.Outcome.Key}",
                 new HealthSignal.Tagged(rule.Tag),
                 AlertEngine.Rank(rule.Trigger) - 0.5d,
-                // Outcomes that retire WRITES page; outcomes that only shed remote capability queue, so
-                // routing derives from the faculty the outcome drops rather than a per-row column.
                 rule.Outcome.Retains.Admits(Faculty.StoreWrite) ? AlertSeverity.Ticket : AlertSeverity.Page))
             .Add(Row(
                 "apphost.health.level",
@@ -776,9 +741,7 @@ public static class AlertPolicy {
             EscalationDwell: Escalation);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Keyed beside `DegradationCell` and never inside it: the grader publishes a reading whether or not anything
-// alerts, so folding alert state into that swap makes every rule edit a grader edit.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class AlertCell(Seq<AlertRule> rules) {
     readonly AtomHashMap<string, AlertState> states = AtomHashMap<string, AlertState>();
 
@@ -786,16 +749,13 @@ public sealed class AlertCell(Seq<AlertRule> rules) {
 
     public AlertState Held(string ruleId) => states.Find(ruleId).IfNone(AlertState.Clear);
 
-    // One-key CAS whose insert arm seats a rule's first state with no separate seeding pass.
     public Unit Commit(string ruleId, AlertState state) => states.SwapKey(ruleId, _ => Some(state));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AlertEngine {
     public sealed record Runtime(ReceiptSinkPort Sink, Op Key);
 
-    // Each rule commits its own advanced state before the next reading arrives, which is what makes dwell and
-    // escalation reachable at all.
     public static IO<Seq<AlertReceipt>> Sweep(Runtime runtime, AlertCell cell, DegradationReading reading, Instant at) =>
         cell.Rules
             .TraverseM(rule => Observe(runtime, rule, cell.Held(rule.RuleId), reading, at)
@@ -803,8 +763,6 @@ public static class AlertEngine {
             .As()
             .Map(static fired => fired.Somes().ToSeq());
 
-    // Enum values outside the roster reach this arm, so the floor takes the WORST rank: an unmapped status is
-    // absent evidence, and ranking it healthier than healthy silences the rule that watches it.
     public static double Rank(HealthStatus status) => status switch {
         HealthStatus.Healthy => 1d,
         HealthStatus.Degraded => 2d,
@@ -830,8 +788,6 @@ public static class AlertEngine {
 
     public static (AlertState State, Option<AlertReceipt> Fired) Evaluate(
         AlertRule rule, AlertState state, double value, Instant at, CorrelationId correlation, Op key) {
-        // Held window carries the BASELINE and the tested value stays out-of-sample: a point folded into its own
-        // mean pulls the mean toward itself and inflates the deviation it is measured against.
         var window = (state.Window.Add(value) is var w && w.Count > rule.Condition.Depth ? w.Tail : w).Strict();
         var breached = Breached(rule.Condition, value, state.Window, state.Firing, key);
         Option<Instant> breachedSince = breached && !state.Firing
@@ -841,7 +797,6 @@ public static class AlertEngine {
             (true, false) when breachedSince.Map(since => at - since >= rule.Dwell).IfNone(false) =>
                 (state with { Firing = true, Current = rule.Severity, BreachedSince = None, FiredSince = Some(at), Window = window },
                  Some(Mint(rule, rule.Severity, value, AlertTransition.Fired, at, correlation))),
-            // Top-row escalation returns itself, so the rank walk is the whole guard and no ceiling literal exists.
             (true, true) when state.FiredSince.Map(since => at - since >= rule.EscalationDwell).IfNone(false) && state.Current.Rank < state.Current.Escalated.Rank =>
                 (state with { Current = state.Current.Escalated, FiredSince = Some(at), Window = window },
                  Some(Mint(rule, state.Current.Escalated, value, AlertTransition.Escalated, at, correlation))),
@@ -878,8 +833,6 @@ public static class AlertEngine {
         threshold: static (read, t) => read.Firing
             ? (t.Above ? read.Value >= t.Bound - t.Hysteresis : read.Value <= t.Bound + t.Hysteresis)
             : (t.Above ? read.Value > t.Bound : read.Value < t.Bound),
-        // Kernel Welford carries mean and deviation from one pass and REFUSES an empty or all-sentinel
-        // window, so the cancellation-prone sum-of-squares denominator and the fabricated zero baseline both go.
         anomalyBand: static (read, a) => read.Baseline.Count >= a.Depth
             && Stat<Scalar>.Of(read.Baseline.Map(static v => (Scalar)v), read.Key)
                 .Map(stat => double.Abs(read.Value - stat.Mean) > a.Sigma * stat.Deviation(MomentNormalizer.Population))
@@ -889,8 +842,6 @@ public static class AlertEngine {
                 .Map(fit => double.Abs(read.Value - fit) > f.EnvelopeWidth)
                 .IfNone(false));
 
-    // Kernel packed covariance IS the fit — one vectorized pass over the rows replaces the hand accumulator, and
-    // a two-point slope through the endpoints is the naive form that reads noise as trend.
     static Option<double> Forecast(Seq<double> baseline, Op key) =>
         SampleMoment.Of(baseline.Map(static (value, index) => Seq((double)index, value)), key)
             .ToOption()

@@ -44,18 +44,12 @@ from rasm.runtime.transport.body import AdmissionError
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# The explicit envelope admits the producer's actual domain, not MessagePack's wider integer domain: sequence,
-# vector, physical, and logical cells all refuse above signed-64 max before an interior comparison can narrow them.
 type WireI63 = Annotated[int, Meta(ge=0, le=9_223_372_036_854_775_807)]
 
-# `Dialed` names the one client-edge shape both weaves preserve: `dialed` MINTS it off a bare generated-client call and
-# `custody` PRESERVES it, so an arbitrary-depth stack keeps `**P`, the return rail, and `functools.wraps` identity.
 type Dialed[**P, T] = Callable[P, Awaitable[RuntimeRail[T]]]
 type ClientWeave[**P, T] = Callable[[Dialed[P, T]], Dialed[P, T]]
 type CustodyWeave[**P, T] = ClientWeave[P, T]
 
-# Each weave names the slot coordinate its own token fills, checked at weave time so a token never publishes under a
-# coordinate naming a different closed vocabulary.
 _PHASE_SLOT: Final[tuple[str, ...]] = ("phase",)
 _PROOF_SLOT: Final[tuple[str, ...]] = ("proof",)
 
@@ -67,30 +61,16 @@ class RemoteConflict(BaseException):
     coded: tuple[Code, str] = case()
 
 
-# ONE activation vocabulary carries the `alphas` block, read off the release row that admitted the payload rather than
-# assumed by every consumer: a container publishing the pre-activation logit lands one member here and its readers
-# dispatch on it, where a `bool` or a bare comment leaves each reader guessing which transform already ran.
 class Activation(StrEnum):
-    SIGMOID = "sigmoid"  # the container stores `sigmoid(logit) * 255` and the wire carries the activated [0, 1] value
+    SIGMOID = "sigmoid"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class RecoveryCell:
-    # BOTH directions of the `Recovery` correspondence on the GENERATED `FaultRecovery`, so a forward and an inverse that
-    # drift into two truths have nowhere to live. `reliability/faults#FAULT` owns the interior verdict vocabulary whole and
-    # this owner the cell alone: wire absence is NOT a fourth interior case but the `Option` the INGRESS fold answers, so a
-    # frame minted before the field existed states that it carried no verdict without every interior consumer matching a
-    # state no interior value can hold. Defaulting an unread verdict to `terminal` is what the pair forecloses: it strands
-    # every legacy peer's re-drivable fault as permanent, the drift this slot exists for.
     @staticmethod
     def of(recovery: Recovery) -> FaultRecovery:
-        # ONE total egress fold, TOTAL on a bare verdict rather than on an `Option`: unstated is an INGRESS fact a
-        # legacy peer's frame carries, never a posture this branch may adopt, so every frame this host writes states its
-        # verdict. The oneof constructs on its NAME — `Oneof(field, value)` — and `Duration.from_seconds` keeps the
-        # window's nanos. This is the branch's ONE `RetryInfo` construction site: the throttled arm IS that standard
-        # message, so the generic detail seat reads the instance back through `advice` and never mints a second.
         match recovery:
             case Recovery(tag="terminal"):
                 return FaultRecovery(kind=Oneof("terminal", Empty()))
@@ -103,11 +83,6 @@ class RecoveryCell:
 
     @staticmethod
     def advice(cell: FaultRecovery | None) -> Option[RetryInfo]:
-        # Generic Connect and gRPC peers read the throttled arm ITSELF as their standard detail seat, handed out
-        # whole so that estate cell and top-level detail are one message rather than two projections. Reading an arm
-        # lives HERE beside both folds because arm knowledge scattered to the serve edge is exactly the second truth
-        # this owner forecloses. `FaultDetail.recovery` is a message slot the generator spells nullable, so the seat
-        # widens to it exactly as `stated` does. Every other arm states no window and seats nothing.
         match cell.kind if cell is not None else None:
             case Oneof(field="retry_after", value=RetryInfo() as stated):
                 return Some(stated)
@@ -116,14 +91,6 @@ class RecoveryCell:
 
     @staticmethod
     def stated(cell: FaultRecovery | None) -> RuntimeRail[Option[Recovery]]:
-        # ONE total ingress fold: an absent cell and an unset oneof both answer `Nothing`, one set arm answers its case, and
-        # an unusable window refuses. At-most-one-arm-set holds on the generated class by construction, so the one value
-        # law this fold owes is the window, and the arm being a `RetryInfo` gives that window TWO unusable shapes under one
-        # refusal row. `retry_delay` is a message slot the generator spells `Duration | None`, and the corpus CEL rule
-        # forcing it present evaluates at the body interceptor, never here — so an arm claiming a window while stating
-        # none refuses under its own label. A signed `Duration` admits `-1s`, which names a wait that already elapsed and no
-        # producer states, so it refuses rather than folding to `terminal` — a producer's broken cell can never read
-        # downstream as a producer's terminal verdict. A zero window stays `throttled` and never coalesces onto `transient`.
         match cell.kind if cell is not None else None:
             case None:
                 return Ok(Nothing)
@@ -159,11 +126,6 @@ def remote_fault(terminal: ConnectError, /) -> BoundaryFault:
 
 
 def admitted[**P, T, L: Leg](admission: FaultRow[L], /) -> ClientWeave[P, T]:
-    # `admitted` is the ONE client-edge capture and the RAIL-PRESERVING half of the pair: it takes an already-railed core and
-    # returns one, so it stacks over a seam whose body already composes rails. `slots` is checked HERE, at weave
-    # time, because the `phase` token this arm publishes is meaningless under any other coordinate — the deleted
-    # hand-rolled form published an admission phase into a row whose one slot was named `proof`, and
-    # `zip(strict=True)` waved it through because the arity matched.
     if admission.slots != _PHASE_SLOT:
         raise ValueError(f"{admission.subject}: admitted publishes a phase token and needs slots={_PHASE_SLOT}")
 
@@ -173,12 +135,8 @@ def admitted[**P, T, L: Leg](admission: FaultRow[L], /) -> ClientWeave[P, T]:
             try:
                 return await call(*args, **kwargs)
             except AdmissionError as refused:
-                # CLIENT-side body admission refuses before a socket exists, so the call spends no attempt and the
-                # phase names which half of the exchange Protovalidate refused.
                 return Error(admission.raised(refused.phase.value))
             except ConnectError as refused:
-                # `remote_fault` lifts the peer's OWN typed detail whole: domain, case, correlation, stamp, tenant, and the
-                # producer's recovery verdict survive rather than being re-spelled onto a local row.
                 return Error(remote_fault(refused))
 
         return held
@@ -187,7 +145,6 @@ def admitted[**P, T, L: Leg](admission: FaultRow[L], /) -> ClientWeave[P, T]:
 
 
 def _railed[**P, T](call: Callable[P, Awaitable[T]], /) -> Dialed[P, T]:
-    # `_railed` lifts a bare generated-client call onto the rail every weave above it preserves.
     @wraps(call)
     async def minted(*args: P.args, **kwargs: P.kwargs) -> RuntimeRail[T]:
         return Ok(await call(*args, **kwargs))
@@ -196,17 +153,11 @@ def _railed[**P, T](call: Callable[P, Awaitable[T]], /) -> Dialed[P, T]:
 
 
 def dialed[**P, T, L: Leg](admission: FaultRow[L], /) -> Callable[[Callable[P, Awaitable[T]]], Dialed[P, T]]:
-    # `dialed` is the leaf a bare generated-client call weaves — `admitted` over the lift and nothing else — so the capture
-    # has ONE body and the minting and preserving forms can never drift into two truths.
     weave = admitted(admission)
     return lambda call: weave(_railed(call))
 
 
 def custody[**P, T, L: Leg](integrity: FaultRow[L], /) -> CustodyWeave[P, T]:
-    # `custody` is the artifact-custody twin and the second RAIL-PRESERVING weave: it takes an already-railed core and
-    # returns one, so it stacks OUTSIDE `dialed` wherever a seam brackets a dial in a helper-owned path and the
-    # inner dial's refusal is railed before this bracket unwinds — a custody fault and a dial fault can never
-    # shadow each other. A seam holding no artifact custody never weaves this, so its row is never minted idle.
     if integrity.slots != _PROOF_SLOT:
         raise ValueError(f"{integrity.subject}: custody publishes a proof token and needs slots={_PROOF_SLOT}")
 
@@ -224,22 +175,12 @@ def custody[**P, T, L: Leg](integrity: FaultRow[L], /) -> CustodyWeave[P, T]:
 
 
 class SplatGrounding(Struct, frozen=True, gc=False):
-    # what a PUBLISHED release grounds on the byte columns of the generated `GaussianSplatScan`: the harmonic degree ceiling
-    # its container declares — from which the wire width derives as `(degree + 1)^2 * 3` with the DC triple at its head —
-    # and the activation the `alphas` block already carries. Both columns are READ off the row that admitted the key, never
-    # transcribed at a reader, so the two ends of a release can never hold different band arithmetic for one payload.
     degree: int
     activation: Activation
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# (form, release) grounding as DECLARED cells keyed on the generated `SplatFormat` enum rather than as a sentence: the
-# corpus closes the roster with `enum.defined_only`, so a release this branch has never rowed refuses at DECODE as an
-# undefined member and never reaches this matrix, and the refusal text the retired string roster quoted for releases
-# the wire can no longer carry has nothing left to describe. Every rostered member holds a cell here; growth is one enum
-# member at the corpus and one row here, and a member the corpus admits that this branch cannot yet ground refuses
-# through `splat_form` by NAME, the one spelling both ends already read.
 SPLAT_FORMS: Final[Map[SplatFormat, SplatGrounding]] = Map.of_seq([
     (SplatFormat.SPZ_V4, SplatGrounding(degree=3, activation=Activation.SIGMOID)),
     (SplatFormat.SOG_V2, SplatGrounding(degree=3, activation=Activation.SIGMOID)),
@@ -249,10 +190,6 @@ SPLAT_FORMS: Final[Map[SplatFormat, SplatGrounding]] = Map.of_seq([
 
 
 def splat_form(key: SplatFormat) -> RuntimeRail[SplatGrounding]:
-    # ONE admission read over the matrix, seated here for the reason `RecoveryCell.stated` is: legality of a `format` is
-    # a property of a VALUE and the boot census walks DECLARATIONS, so no gate above can hold it and a consumer
-    # re-reading the member seats a second roster. A rostered member with no cell — the unspecified member the corpus
-    # refuses at decode, or a release admitted at the corpus ahead of this branch's grounding — refuses by name.
     return SPLAT_FORMS.try_find(key).to_result_with(lambda: SHAPES_FORMAT.raised(key.name))
 ```
 
@@ -300,7 +237,6 @@ from rasm.runtime.faults import SHAPES_DOUBLED, SHAPES_DRIFT, SHAPES_SERVICES, R
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# generated application classes a GENERATED service row proves against; each `path` IS the dial spelling.
 type Generated = (
     type[ArtifactServiceASGIApplication]
     | type[CapabilityDiscoveryServiceASGIApplication]
@@ -309,10 +245,6 @@ type Generated = (
 )
 
 
-# Fully-qualified service names this branch dials or serves. `rasm.contracts.compute` is the corpus family package
-# managed mode derives every peer spelling from, and `grpc.health.v1` is the upstream publisher package the vendored
-# `rasm.contracts.grpc.health.v1` module emits unchanged. Each member's text is byte-identical to its
-# application's `path` less the leading slash, which is the key `transport/serve#SERVE` seats its serving map on.
 class WireService(StrEnum):
     COMPUTE = "rasm.contracts.compute.ComputeService"
     ARTIFACT = "rasm.contracts.artifact.ArtifactService"
@@ -321,8 +253,6 @@ class WireService(StrEnum):
     CAPABILITY = "rasm.capability"
 
 
-# rpc names verbatim off the contract's own service table; the dial path concatenates a service with one of these
-# and nothing normalizes case or separators, so the member text IS the wire spelling the descriptor census reads.
 class WireMethod(StrEnum):
     TESSELLATE = "Tessellate"
     FETCH = "Fetch"
@@ -332,35 +262,23 @@ class WireMethod(StrEnum):
 
 
 class ServiceProof(StrEnum):
-    GENERATED = "generated"  # a generated `<Svc>ASGIApplication` and a `REGISTRY` service descriptor stand behind the row
-    BROKERED = "brokered"  # a broker-minted path whose methods are runtime descriptor ids; no generated application stands behind it
+    GENERATED = "generated"
+    BROKERED = "brokered"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Closure(Struct, frozen=True, gc=False):
-    # ONE registration of a closed family against the row table keyed on it. The family and the table sit ABOVE this
-    # module on the import rail, so the composition root that already runs the census hands both down — reaching upward
-    # from here for `BINDINGS`, `CLASSIFICATION_ROWS`, a bound `EventFormat.rows`, `_FAULT_STATUS`, or `POLICY` inverts the rail
-    # this module roots. A DELIBERATELY partial table registers NO row: `CIRCUIT` and `RATES` declare their own
-    # absence as the policy, so folding them in here would refuse the process their landed partiality exists to serve.
     table: str
     members: frozenset[str]
     rostered: frozenset[str]
 
     @staticmethod
     def of(table: str, family: "type[StrEnum] | tuple[str, ...]", rostered: Map[str, object]) -> "Closure":
-        # ONE seat for both closed-family spellings the branch mints — a `StrEnum` iterates its own members and a
-        # `Literal` family arrives as its `get_args` tuple, each a set of `str` either way — so a root registering a
-        # table picks no lifting and two registrations can never disagree about what a family's member set is.
         return Closure(table=table, members=frozenset(family), rostered=frozenset(rostered.keys()))
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# THE descriptor seat: every generated file this branch binds, dependencies first, seated once at import. `Any.pack`
-# needs no registry, but `to_json` over a packed `Any`, `from_json` of a `@type`, `ErrorDetail.value(REGISTRY)`, and
-# `REGISTRY.service(name)` in the census below all resolve here — a second `Registry(...)` anywhere in the branch is a
-# second authority for one type name and the form this seat forecloses.
 REGISTRY: Final[Registry] = Registry(
     *(
         module.desc()
@@ -371,11 +289,6 @@ REGISTRY: Final[Registry] = Registry(
     )
 )
 
-# service full name -> its rpc roster, the proof class, and the generated application standing behind it. A dial is
-# `/{service}/{method}` as ONE path, so the halves seat on one row and resolve in one pass; `WireMethod` members hash as
-# their own text, so the roster reads straight against the descriptor's rpc names with no projection between them. The
-# capability leg's "methods" are the broker's per-capability descriptor ids resolved at discovery, so its roster is
-# empty BY CONSTRUCTION, its application `None`, and the row declares that no generator can prove it.
 SERVICE_VOCABULARY: Final[tuple[tuple[WireService, tuple[WireMethod, ...], ServiceProof, Generated | None], ...]] = (
     (WireService.COMPUTE, (WireMethod.TESSELLATE,), ServiceProof.GENERATED, ComputeServiceASGIApplication),
     (WireService.ARTIFACT, (WireMethod.FETCH, WireMethod.PUT), ServiceProof.GENERATED, ArtifactServiceASGIApplication),
@@ -388,21 +301,12 @@ SERVICE_VOCABULARY: Final[tuple[tuple[WireService, tuple[WireMethod, ...], Servi
 
 
 def _closed(row: Closure) -> Block[str]:
-    # closure coverage, the census this gate owes beside the service rows: a table keyed on a closed family answers a
-    # `try_find` absence or a defaulted status for an unrostered member, so the member that was never rowed surfaces at a
-    # caller's first dial rather than at boot. Both directions read — a rostered key outside the family is the same stale
-    # cell from the other side, which an enum-keyed table forecloses statically and a runtime-built one does not.
     unrostered = Block.of_seq(sorted(row.members - row.rostered)).map(lambda gap: f"{row.table}.{gap}:closure-member-unrostered")
     stale = Block.of_seq(sorted(row.rostered - row.members)).map(lambda gap: f"{row.table}.{gap}:row-outside-closure")
     return unrostered.append(stale)
 
 
 def _service(name: WireService, methods: tuple[WireMethod, ...], proof: ServiceProof, application: Generated | None) -> Block[str]:
-    # TWO proofs per generated row, read off two generated surfaces: the application's `path` property spells
-    # `/{service}` — read off an instance constructed over a stub service, a construction that touches no socket — and
-    # the corpus `DescService` the `REGISTRY` resolves under the row's name carries the rpc roster. Every selected rpc
-    # must be generated; unselected upstream methods remain support closure and do not manufacture a runtime actor. A
-    # BROKERED row short-circuits before any construction: there is nothing generated for it to miss.
     match proof, application, REGISTRY.service(str(name)):
         case (ServiceProof.BROKERED, _, _):
             return Block.empty()
@@ -423,12 +327,6 @@ def _service(name: WireService, methods: tuple[WireMethod, ...], proof: ServiceP
 
 
 def aligned(closed: Block[Closure]) -> RuntimeRail[int]:
-    # ONE boot answer over the service registry and every closed family a caller registers: a service row proves against
-    # the generated application its dial path names and the corpus descriptor the `REGISTRY` resolves, and a `Closure`
-    # row against the table keyed on it. The name spaces stay disjoint, so the duplicate check runs per registry. The
-    # closure roster arrives as an argument because those tables sit above this module on the import rail and only the
-    # composition root reaches all of them; it costs a boot read over a few small tables and reads no installed state,
-    # exactly the price `transport/serve#SERVE` already fixed for seating this census ahead of every install.
     rows = len(SERVICE_VOCABULARY) + len(closed)
     doubled = any(
         unique != len(table)

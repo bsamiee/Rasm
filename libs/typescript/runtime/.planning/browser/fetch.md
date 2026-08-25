@@ -33,8 +33,6 @@ import { Boot, Connect } from "./boot.ts"
 import { Kv, Opfs } from "./persist.ts"
 import { Vault } from "./route.ts"
 
-// Spawning is the platform's own union, so a shared decode pool across a document set and a foreign-host port arrive
-// as spawner values instead of forking this row; `Pool.layer` takes the same alias so both ends admit one vocabulary.
 type _Spawn = (id: number) => globalThis.Worker | globalThis.SharedWorker | MessagePort
 
 const Web = {
@@ -55,10 +53,8 @@ const Web = {
 
 ```typescript signature
 const _MUTATING = ["POST", "PUT", "PATCH", "DELETE"] as const
-const _SETTLE = { probe: "50 millis", probes: 6 } as const // the timing-entry settle window: six spaced probes mirror the reference observer wait
+const _SETTLE = { probe: "50 millis", probes: 6 } as const
 
-// Link rows price the DECLARED rate rows and the concurrent leg budget, never a byte ceiling: `scale` shapes throttled
-// classes and `legs` bounds `[06]`'s intake against the storage verdict's own degree, whichever reads tighter.
 const _LINKS = {
   swift: { scale: 1, legs: 6 },
   steady: { scale: 0.5, legs: 4 },
@@ -73,18 +69,12 @@ const _flows = {
   live: { intake: 16, posture: "suspend", cap: Option.none<number>(), rate: Option.none<_Rate>() },
 } as const
 
-// `saveData` outranks the measured grade because a user declaration is never a measurement, and an unmeasured host
-// takes the unscaled row rather than a defensive floor no reading supports
 const _linked = (profile: Option.Option<Connect.Profile>): Fetch.Link =>
   Option.match(profile, {
     onNone: () => _LINKS.swift,
     onSome: (held) => (held.frugal ? _LINKS.strained : _LINKS[held.grade]),
   })
 
-// One family seam closes the reason set and each row declares its OWN subject: the ceiling refusal is a MEASUREMENT,
-// so it carries the two numbers that decided it rather than the `actual>expected` string a reader had to re-split,
-// while an offline dial names no subject at all — the cell it read is the whole fact. The legs differ because the
-// deciders do: the byte ceiling is a `_flows` row's, the connectivity read is the dial's.
 const _fetchFamily = Fault.Class.family(["offline", "overrun"] as const, {
   offline: Fault.Class.row({
     class: "unavailable",
@@ -110,7 +100,7 @@ declare namespace Fetch {
     readonly rate: Option.Option<_Rate>
   }
   type _Rows<T extends Record<Flow, Row> = typeof _flows> = T
-  type _Links<T extends Record<Connect.Grade, Link> = typeof _LINKS> = T // a new grade on the signal owner breaks here, never as a stranded budget
+  type _Links<T extends Record<Connect.Grade, Link> = typeof _LINKS> = T
 }
 
 class FetchFault extends Schema.TaggedError<FetchFault>()("FetchFault", {
@@ -146,8 +136,6 @@ const _capped = (cap: Option.Option<number>) => <E, R>(bands: Stream.Stream<Uint
       ),
   })
 
-// XHR carries same-origin cookies unconditionally and cross-origin ones only under `withCredentials`, so the posture
-// resolves to one boolean at the factory the platform reads out of the calling fiber's context
 const _wire = (posture: RequestCredentials) => (): globalThis.XMLHttpRequest => {
   const held = new globalThis.XMLHttpRequest()
   held.withCredentials = posture === "include"
@@ -182,7 +170,7 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
             strategy: "shape",
           }),
       })
-    const used = new WeakSet<PerformanceResourceTiming>() // one document-scoped ledger: an entry enriches exactly one span, never a neighbor's
+    const used = new WeakSet<PerformanceResourceTiming>()
     const _enriched = (span: Option.Option<Span>, url: string, opened: HrTime) =>
       Option.match(span, {
         onNone: () => Effect.void,
@@ -192,14 +180,12 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
               Effect.sync(() =>
                 Vital.enrich(live, { url, start: opened, end: closed, initiator: Option.some("xmlhttprequest"), used }),
               ),
-              { until: Option.isSome, schedule: Schedule.spaced(_SETTLE.probe), times: _SETTLE.probes }, // the bounded settle poll: the reference observer wait as spaced probes, a miss forfeits enrichment
+              { until: Option.isSome, schedule: Schedule.spaced(_SETTLE.probe), times: _SETTLE.probes },
             ),
           ).pipe(Effect.asVoid),
       })
     const _stamped = <A, E, R>(dial: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
       Effect.provideService(dial, BrowserHttpClient.XMLHttpRequest, _wire(vault.posture))
-    // one prelude for both modalities: connectivity gate, CSRF decoration, link row, and the timeline window whose
-    // finalizer each arm hands its own terminator, so a decoded request is never the unenriched one
     const _opened = (
       request: HttpClientRequest.HttpClientRequest,
     ): Effect.Effect<
@@ -214,8 +200,8 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
         yield* _gated
         const decorated = yield* _decorated(request)
         const link = _linked(yield* connect.profile.get)
-        const opened = hrTime() // timeline coordinate: getResource matches entries inside this window
-        const span = yield* Effect.optionFromOptional(OtelBridge.currentOtelSpan) // caller-held live span, the enrich target outliving the drain
+        const opened = hrTime()
+        const span = yield* Effect.optionFromOptional(OtelBridge.currentOtelSpan)
         return { decorated, link, settled: _enriched(span, decorated.url, opened) }
       })
     const pull = (
@@ -234,7 +220,7 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
             Stream.buffer({ capacity: row.intake, strategy: row.posture }),
             _capped(row.cap),
             _shaped(row, link.scale),
-            Stream.ensuring(settled), // the projection runs at stream end, inside the caller's still-open window
+            Stream.ensuring(settled),
           )
         }),
       )
@@ -263,11 +249,6 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
 - Boundary: `Frame` owns artifact and residency decoding, `Wire` owns asset-manifest decoding, `Digest` owns minting, and `ui/view/export#SERIALIZER_MATRIX`'s readback arm is the raster consumer that hands `Imprint` its plane.
 
 ```typescript signature
-// Three of the four causes ARE a comparison — a re-derived key against the one its producer sent, a viewpoint
-// version against the successor it owed, a spent extent against its ceiling — so the pair is REQUIRED on those rows
-// and unspellable on `codec`, which never has one. The retired shape hung one `Option` pair off every reason, so a
-// parity refusal could construct without the evidence that IS the refusal while `codec` carried a slot no raise ever
-// filled. Legs mirror the wire owner's, because the deciding surface is the same one on both sides of the port.
 const _Mismatch = Schema.Struct({ detail: Schema.String, actual: Schema.String, expected: Schema.String })
 
 const _poolFamily = Fault.Class.family(["parity", "sequence", "overrun", "codec"] as const, {
@@ -303,21 +284,11 @@ declare namespace PoolFault {
 }
 
 class PoolFault extends Schema.TaggedError<PoolFault>()("PoolFault", {
-  // `case` is the whole refusal and it crosses the port as one schema-admitted value: the reason and exactly the
-  // columns that reason declares, so no arm of the protocol can construct a cause without its own evidence.
   case: _poolFamily.payload,
 }) {
-  // ONE crossing from the wire family into this protocol's own, seated at the family owner because BOTH ends of the
-  // port fold it — the worker grades a decode refusal on its side and `[06]`'s admission grades one on this side, so
-  // a copy at either end would be two spellings of a single correspondence. Reasons the pool declares under the same
-  // word carry across and every other wire reason lands on `codec`, which is the whole of what the serialized edge
-  // preserves; `Wire.Fault`'s `family` column and its per-cause subject columns collapse onto the pair this roster
-  // declares, and the wire's own rendered sentence carries whatever its narrower vocabulary named.
   static readonly of = (fault: Wire.Fault): PoolFault =>
     new PoolFault({
       case: fault.case.reason === "parity" || fault.case.reason === "sequence" || fault.case.reason === "overrun"
-        // the three comparing causes carry their pair on BOTH rosters, so the crossing keeps it; `message` is the
-        // wire owner's own rendered sentence, which names the axis or subject its roster closed and this one does not
         ? {
           reason: fault.case.reason,
           detail: fault.message,
@@ -326,8 +297,6 @@ class PoolFault extends Schema.TaggedError<PoolFault>()("PoolFault", {
         }
         : { reason: "codec", detail: fault.message },
     })
-  // Reason publishes AS A MEMBER because the depot's eviction arm grades on it structurally: a fact reachable only by
-  // re-reading `case` outside this class is a fact that arm cannot spend.
   get reason(): PoolFault.Reason {
     return this.case.reason
   }
@@ -342,8 +311,6 @@ class PoolFault extends Schema.TaggedError<PoolFault>()("PoolFault", {
   }
 }
 
-// The worker crossing carries the protocol identity and raw payload bands only. Frame/reference admission is owned
-// before this boundary; the worker proves ordered raw-octet SHA-256 and performs the single-allocation join.
 const _ArtifactReceipt = Schema.Struct({
   key: Wire.Artifact.identity,
   extent: Shape.Refined.OrdinalKey,
@@ -363,22 +330,16 @@ class VerifyArtifact extends Schema.TaggedRequest<VerifyArtifact>()("VerifyArtif
 
 class Chart extends Schema.TaggedRequest<Chart>()("Chart", {
   payload: { bytes: Transferable.Uint8Array },
-  // the manifest alone: the crossing carries no delta arm, and `Frame.ResidencyView` is a derived record with no
-  // Schema, so grading the budget inside the pool would mint a second `Wire.Fault` vocabulary on the far side
   success: Frame.Residency.Manifest,
   failure: PoolFault,
 }) {}
 
-// the set document crosses the worker as its landed generated shape — the registry row's type side — so the seam
-// re-runs the descriptor guard and no second schema mirrors the set here
 class Survey extends Schema.TaggedRequest<Survey>()("Survey", {
   payload: { bytes: Transferable.Uint8Array },
   success: Schema.typeSchema(Wire.schema("Set")),
   failure: PoolFault,
 }) {}
 
-// `convertToBlob` admits these three raster codecs, and the mime derives from the row rather than a literal, so a new
-// admitted codec is one tuple member and no call site carries an encoder name; quality reaches the lossy rows alone
 const _IMPRINTS = ["png", "jpeg", "webp"] as const
 
 class Imprint extends Schema.TaggedRequest<Imprint>()("Imprint", {
@@ -430,10 +391,6 @@ class Pool extends Context.Tag("runtime/browser/Pool")<
 ```typescript signature
 const _DEGREES = { ample: 6, tight: 2, critical: 1, opaque: 2 } as const
 
-// The haul order reads producer columns alone: bytes ascending fills the cheapest tiles first and the resident count
-// breaks ties toward the tile seating more clusters per byte. No per-tile LOD crosses this wire — `level`, `error`,
-// and `cut` are per-MESHLET figures `frame#RESIDENCY_MANIFEST` deliberately refused to flatten — so a tile-grade LOD
-// key here would be a second derivation of a number the producer never took.
 const _byOrder: Order.Order<Frame.ResidencyTile> = Order.combine(
   Order.mapInput(Order.bigint, (tile: Frame.ResidencyTile) => tile.artifact.artifactBytes),
   Order.mapInput(Order.number, (tile: Frame.ResidencyTile) => tile.residentCount),
@@ -442,9 +399,6 @@ const _byOrder: Order.Order<Frame.ResidencyTile> = Order.combine(
 declare namespace Depot {
   type Pull<E, R> = (reference: Wire.Artifact.Reference) => Stream.Stream<Wire.Artifact.Frame, E, R>
   type Fault<E> = E | PoolFault | ParseResult.ParseError | WorkerError.WorkerError
-  // the held cell: the admitted view exactly as core folded it — its `census` and `resident` total ride along rather
-  // than being re-summed downstream — beside the keys this epoch has already hauled. `epoch` is this depot's own
-  // replacement counter and the ONE ordinal a consumer keys supersession on; `viewpoint.version` restarts per viewpoint key.
   type Residency = {
     readonly view: Frame.ResidencyView
     readonly keyed: ReadonlyArray<readonly [Frame.ResidencyTile, Wire.Artifact.Reference]>
@@ -457,27 +411,18 @@ declare namespace Depot {
     readonly artifact: Wire.Artifact.Reference
     readonly key: Wire.Artifact.Identity
   }
-  // The depot's settled row is exactly the raw artifact proof. No generation survives because ArtifactFrame carries
-  // none; inventing one from stream position would alias transport chunking into application identity.
   type Settled = {
     readonly key: Wire.Artifact.Identity
     readonly extent: number
   }
   type Landed = readonly [Settled, Uint8Array<ArrayBuffer>]
-  // A custody result, not a second environment contract: the generated set remains the document and the verified
-  // byte table backs the app's complete-ArtifactRef `planes` resolver. No source/product metadata is copied.
   type Dome = {
     readonly set: Wire.Decoded<"Set">
     readonly planes: HashMap.HashMap<Wire.Artifact.Identity, Uint8Array<ArrayBuffer>>
   }
-  type _Degrees<T extends Record<Opfs.Verdict, number> = typeof _DEGREES> = T // a new pressure band on the residency owner breaks here, never as a stranded degree
+  type _Degrees<T extends Record<Opfs.Verdict, number> = typeof _DEGREES> = T
 }
 
-// The successor test the wire cannot take for itself: the producer stamps `viewpoint.version` PER viewpoint key, so a
-// re-entered viewpoint restarts its own count and only the pair decides supersession — a same-key arrival must strictly
-// advance the version, while a different key names a subject this depot holds no prior reading on and always admits.
-// Nothing else on the manifest can carry this verdict.
-// the viewpoint is REQUIRED by corpus rule and the generated type still spells presence, so the pair lifts once here
 const _skewed = (held: Option.Option<Depot.Residency>, manifest: Frame.ResidencyManifest): Option.Option<PoolFault> =>
   Option.flatMap(held, (live) =>
     Option.flatMap(Option.all([Option.fromNullable(live.view.manifest.viewpoint), Option.fromNullable(manifest.viewpoint)]), ([prior, next]) =>
@@ -498,8 +443,6 @@ type _EnvironmentSet = Extract<Wire.Decoded<"Set">["product"], { readonly case: 
 type _EnvironmentIbl = Extract<_EnvironmentSet["product"], { readonly case: "ibl" }>["value"]
 type _EnvironmentPlane = _EnvironmentIbl["source"]["equirect"]
 
-// The product oneofs are the only discriminants. Every leaf is hauled because the viewer's root plane resolver may
-// serve any declared environment product; warming only equirect would make the generated IBL arm partly fictional.
 const _environmentPlanes = (set: Wire.Decoded<"Set">): Option.Option<ReadonlyArray<_EnvironmentPlane>> =>
   Match.value(set.product).pipe(Match.discriminatorsExhaustive("case")({
     pbr: () => Option.none(),
@@ -527,18 +470,14 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
     const opfs = yield* Opfs
     const kv = yield* Kv
     const connect = yield* Connect
-    // absence is a real state and spells itself: a fabricated empty manifest would carry the pin and an empty tile
-    // array, which is exactly what a producer emitting an empty viewpoint sends, so no reader could tell them apart
     const _residency = yield* SubscriptionRef.make(Option.none<Depot.Residency>())
-    const _gate = yield* Effect.makeSemaphore(_DEGREES.opaque) // one intake budget spanning every leg; the two governors retune it live
-    // one read per pass, two governors, one gate: storage pressure prices the fill rate and link grade prices the leg
-    // count, so the tighter degree wins and the band's admission row rides into the legs the pass opens
+    const _gate = yield* Effect.makeSemaphore(_DEGREES.opaque)
     const _admitted: Effect.Effect<Opfs.Admission> = Effect.flatMap(opfs.budget, (budget) =>
       Effect.flatMap(connect.profile.get, (profile) =>
         Effect.as(_gate.resize(Math.min(_DEGREES[budget.verdict], _linked(profile).legs)), opfs.band[budget.verdict])))
     const plan: Effect.Effect<ReadonlyArray<Depot.Order>> = Effect.map(SubscriptionRef.get(_residency), (held) =>
       Option.match(held, {
-        onNone: () => Array.empty<Depot.Order>(), // no manifest names anything resident, so nothing is owed
+        onNone: () => Array.empty<Depot.Order>(),
         onSome: (live) =>
           Array.map(
             Array.sort(
@@ -548,8 +487,6 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
             ([tile, artifact]) => ({ epoch: live.epoch, tile, artifact, key: artifact.sha256 }),
           ),
       }))
-    // the epoch is the whole guard: a landing from a superseded plan names a tile the successor may not carry at all,
-    // so it drops rather than seeding the fresh view with a key that view's own manifest never listed
     const landed = (order: Depot.Order): Effect.Effect<void> =>
       SubscriptionRef.update(_residency, Option.map((live) =>
         order.epoch !== live.epoch ? live : { ...live, hauled: HashSet.add(live.hauled, order.key) }))
@@ -569,7 +506,6 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
               })).pipe(
                 Effect.map((receipt) => Option.some([receipt, band] as const)),
                 Effect.catchTags({
-                  // A parity refusal alone evicts the poisoned band; transient worker faults forfeit warmth without evicting.
                   PoolFault: (fault) =>
                     Effect.as(
                       fault.reason === "parity"
@@ -604,8 +540,6 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
               } }))
             : Effect.succeed([next, frame.payload] as const)
       })
-    // One governed, permit-bracketed redemption leg serves residency and appearance refs. The application supplies
-    // validated generated frames; this fold proves repeated-reference parity, bounded extent, and ordered SHA-256.
     const _hauledOne = <E, R>(
       reference: Wire.Artifact.Reference,
       admits: Opfs.Admission,
@@ -622,7 +556,6 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
                   extent: Number(reference.artifactBytes),
                   payloads: Chunk.toReadonlyArray(held),
                 }))),
-                // `warmDepot` prices ADDING residency alone, so a refusing band still serves the scene and still reads what it already holds
                 Effect.tap(({ key: minted, octets }) =>
                   admits.warmDepot
                     ? Effect.ignoreLogged(kv.write("cache", _artifactCache(minted), octets))
@@ -642,14 +575,12 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
       Effect.gen(function* () {
         const orders = yield* plan
         const admits = yield* _admitted
-        // The resolver takes the generated ArtifactRef whole; identity and extent stay coupled while storage
-        // addressing remains an application concern.
         return yield* Effect.partition(orders, (order) =>
           Effect.tap(
             _hauledOne(order.key, admits, pull(order.artifact)),
             () => landed(order),
           ), {
-          concurrency: "unbounded", // the permit budget carries the real bound; the partition owns quarantine alone
+          concurrency: "unbounded",
         })
       })
     const dome = <E, R>(
@@ -658,9 +589,6 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
     ): Effect.Effect<Option.Option<Depot.Dome>, Depot.Fault<E>, R> =>
       Effect.flatMap(_admitted, (admits) =>
         Effect.flatMap(_surveyed(source), (manifest) =>
-          // A non-environment set is a lawful absence on this lane. An environment set is never reduced to a
-          // handwritten dome row: decode each PlaneRef once, deduplicate shared content by its canonical key, and
-          // retain the generated document whole beside the verified bytes its future-app resolver serves.
           Option.match(_environmentPlanes(manifest), {
             onNone: () => Effect.succeedNone,
             onSome: (products) =>
@@ -670,8 +598,6 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
                     reference.artifact.artifactId,
                     reference,
                   ] as const))
-                // Reused product bytes may lawfully ride more than one leaf name, but one content key cannot declare
-                // two extents. Prove that correspondence before collapsing names onto one physical haul.
                 const distinct = yield* Effect.reduce(
                   leaves,
                   HashMap.empty<Digest.Key<"content">, Wire.Texture.Reference>(),
@@ -694,7 +620,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
                           reason: "parity", detail: `environment-plane-landed-extent:${key}`,
                           actual: String(receipt.extent), expected: String(reference.artifact.artifactBytes),
                         } }))), {
-                    concurrency: "unbounded", // the shared permit gate is the actual concurrency governor
+                    concurrency: "unbounded",
                   })
                 return Option.some({ set: manifest, planes: HashMap.fromIterable(planes) })
               }),
@@ -708,10 +634,6 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
       landed,
       haul,
       dome,
-      // Replacement is the whole fold: the manifest names the entire resident set for one viewpoint, so an admitted
-      // arrival REPLACES the cell and clears the hauled set rather than patching rows a delta-less wire never sends.
-      // Supersession grades BEFORE admission, because a superseded arrival costs no census walk; the epoch advances
-      // on the accepted replacement alone and every refusal — skew and admission alike — speaks the one pool family.
       charted: (manifest: Frame.ResidencyManifest): Effect.Effect<Either.Either<Frame.ResidencyView, PoolFault>> =>
         SubscriptionRef.modify(_residency, (held) =>
           Option.match(_skewed(held, manifest), {
@@ -745,7 +667,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
   }),
 }) {}
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Depot, Fetch, FetchFault, Pool, PoolFault, Web }
 ```
@@ -758,7 +680,6 @@ export { Depot, Fetch, FetchFault, Pool, PoolFault, Web }
 - Boundary: the app owns worker script wiring and process boot.
 
 ```typescript signature
-// runtime/src/browser/fetch.worker.ts — the decode-worker terminal entry; its own thread's boot, never part of the browser module
 import { WorkerRunner } from "@effect/platform"
 import { BrowserRuntime, BrowserWorkerRunner } from "@effect/platform-browser"
 import { Digest, Frame, Wire } from "@rasm/core"
@@ -813,7 +734,6 @@ const _handlers = WorkerRunner.layerSerialized(Pool.protocol, {
   Survey: ({ bytes }) => Effect.mapError(Wire.decode("Set", bytes), (fault) => _codec(String(fault))),
   Imprint: ({ codec, pixels, quality }) =>
     Effect.tryPromise({
-      // BOUNDARY ADAPTER: a 2d context is nullable by contract, and the encoder is promise-shaped on both arms
       try: async () => {
         const surface = new OffscreenCanvas(pixels.width, pixels.height)
         const ink = surface.getContext("2d")
@@ -828,9 +748,9 @@ const _handlers = WorkerRunner.layerSerialized(Pool.protocol, {
 
 BrowserRuntime.runMain(WorkerRunner.launch(Layer.provide(_handlers, BrowserWorkerRunner.layer)))
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
-export {} // terminal entry: the empty surface is the structural proof
+export {}
 ```
 
 ## [08]-[RESEARCH]

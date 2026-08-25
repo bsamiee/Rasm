@@ -48,10 +48,6 @@ import { Tenant, Tenancy } from "../lane/tenant.ts"
 import { Live } from "../read/live.ts"
 import { Generation, Payload } from "./generation.ts"
 
-// `SqlClient.SafeIntegers` pins the BIGINT read posture per fiber, so `_safe` brackets every sequence-bearing statement
-// and the journal DECLARES what it reads under rather than discovering it. Union members below stay the honest degrade:
-// a driver ignoring the reference still hands back text or a number, and a codec admitting `bigint` alone fails the
-// read rather than the assumption it was built on.
 const _Sequence = Schema.Union(Schema.BigIntFromSelf, Schema.BigInt, Schema.BigIntFromNumber)
 
 const _safe = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
@@ -64,11 +60,6 @@ const _Version = Schema.Union(
   Schema.NumberFromString.pipe(Schema.int(), Schema.between(0, Number.MAX_SAFE_INTEGER)),
 )
 
-// One spelling and two composition shapes carry the composed identity, because two SQL sites need the same string from
-// different operands: the advisory lock hashes it from a held `StreamKey`'s bound values, the head resolver groups it
-// from the relation's own columns. Separator and join order live here alone, so neither site can desync the lock key
-// from the resolver key — which is exactly the failure a hand-repeated `|| ':' ||` makes invisible until two callers
-// disagree about which stream they hold.
 const _SEPARATOR = ":"
 
 const _joined = (
@@ -84,10 +75,8 @@ class StreamKey extends Schema.Class<StreamKey>("StreamKey")({
     Schema.brand("Aggregate"),
   ),
 }) {
-  // Values: the three brands bind as parameters, so a held key composes with nothing interpolated into statement text.
   static readonly identity = (sql: SqlClient.SqlClient, stream: StreamKey): Statement.Fragment =>
     _joined(sql, [sql`${stream.app}`, sql`${stream.tenant}`, sql`${stream.aggregate}`])
-  // Columns: the same join over the relation's own identifiers, escaped by the compiler rather than spliced as text.
   static readonly identityColumn = (sql: SqlClient.SqlClient): Statement.Fragment =>
     _joined(sql, [sql`${sql("app")}`, sql`${sql("tenant")}`, sql`${sql("aggregate")}`])
 }
@@ -103,21 +92,12 @@ class _Row extends Model.Class<_Row>("JournalEvent")({
   recorded_at: Model.DateTimeInsert,
 }) {}
 
-// Named because the OCC re-spell binds to THIS constraint rather than to the class of every uniqueness refusal: one
-// spelling serves the DDL and the guard, so a second unique constraint landing on this relation cannot silently start
-// answering "version conflict" to a race that has nothing to do with stream version. The KEY roster is the second half
-// of that identity: no sqlite driver reports a constraint name, so the guard reads the columns SQLite prints instead.
-// Its name DERIVES from the relation's own, because pg index names are schema-wide: a cutover shadow minted beside
-// its live log under the live constraint name refuses to exist, and the guard reads the LIVE derivation.
 const _LOG = "journal_event"
 const _STREAM_KEY = ["app", "tenant", "aggregate", "version"] as const
 const _unique = (relation: string): string => `${relation}_stream`
 const _STREAM_UNIQUE = _unique(_LOG)
 
 declare namespace Journal {
-  // Spine names the pg partition posture: `partitioned` parents range on `sequence` and carry NO stream unique,
-  // because PostgreSQL refuses a unique constraint omitting the partition key, so their OCC rests on the advisory
-  // lock and the head read alone; `monolith` is the unpartitioned spine and every sqlite profile.
   type Spine = keyof typeof _SPINES
   type Relation = {
     readonly ensure: Capability.Ensure
@@ -125,9 +105,6 @@ declare namespace Journal {
   }
 }
 
-// One row per spine posture, three pg fragments each: the unique the monolith carries, the range clause the
-// partitioned parent carries, and the DEFAULT child a MINTED partitioned parent needs before any row can land;
-// ensures omit the child because the partition manager owns children on the deploy plane.
 const _SPINES = {
   monolith: {
     unique: (relation: string) => `,
@@ -143,11 +120,6 @@ const _SPINES = {
   },
 } as const
 
-// One body per dialect IS the relation; its two heads are its two postures. `ensure` is the idempotent text the
-// deploy plane plants and the capability census verifies; `mint` is the text a cutover runs ONCE under the shadow
-// name, refusing a leftover shadow instead of copying into it. A structural copy of the live relation — `AS SELECT
-// … WHERE 0`, `LIKE … INCLUDING ALL` — carries neither the keys nor the policy the log rests on, so no such copy
-// exists in this folder.
 const _relation = (relation: string, spine: Journal.Spine): Journal.Relation => {
   const posture = _SPINES[spine]
   const pg = `${relation} (
@@ -216,12 +188,6 @@ const _relation = (relation: string, spine: Journal.Spine): Journal.Relation => 
 - Boundary: encode faults are `ParseError` on the admission rail; the atomic composition is `[5]`'s.
 
 ```typescript signature
-// Every reason refuses about ONE stream and carries the evidence its own site held, so the subject is the record all
-// every row shares and each row renders the sentence its reason means — a free `detail` field standing alone on the
-// raise re-opens the axis `reason` already closes and leaves the message hand-templated at the class. Severity,
-// retryability, blame, and quarantine stay the core Fault.Class row table's — a rank or retry literal here would fork
-// the taxonomy into this folder. Legs partition by the surface that DECIDES: the append transaction admits the batch
-// and lands its rows, and the delivery fold builds the envelope a broker carries.
 const _Subject = Schema.Struct({ stream: StreamKey, detail: Schema.NonEmptyString })
 
 const _family = Fault.Class.family(["landing", "replay", "envelope"] as const, {
@@ -245,39 +211,25 @@ const _family = Fault.Class.family(["landing", "replay", "envelope"] as const, {
   }),
 })
 
-// SQLSTATE and the SQLite result codes are both the specification's own vocabulary rather than package members, so one
-// table transcribes each directly and the two alphabets never collide. The pg-wire family — the spine and every PGlite
-// profile alike, both raising the `NoticeOrError` shape whose `code` and `constraint` fields the embedded build
-// declares — answers on SQLSTATE; the node driver and libSQL raise the extended result-code NAME on the same field,
-// libSQL re-wrapping the local driver's own value and carrying the remote server's verbatim. `refused` stays a CLOSED
-// roster of rejections no schedule can outlast: a missing relation, a violated constraint, an over-long value.
-// Everything unlisted defaults to `transient`, because a retry costs latency where a wrong `refused` verdict parks a
-// row for a human, so the safe default is patience.
 const _SIGNALS = {
-  "22001": "refused", // string_data_right_truncation
-  "23502": "refused", // not_null_violation
-  "23503": "refused", // foreign_key_violation
-  "23514": "refused", // check_violation
-  "23505": "conflicted", // unique_violation — the journal's structural OCC backstop
-  "42703": "refused", // undefined_column
-  "42P01": "refused", // undefined_table
+  "22001": "refused",
+  "23502": "refused",
+  "23503": "refused",
+  "23514": "refused",
+  "23505": "conflicted",
+  "42703": "refused",
+  "42P01": "refused",
   SQLITE_CONSTRAINT_CHECK: "refused",
   SQLITE_CONSTRAINT_DATATYPE: "refused",
   SQLITE_CONSTRAINT_FOREIGNKEY: "refused",
   SQLITE_CONSTRAINT_NOTNULL: "refused",
-  SQLITE_CONSTRAINT_PRIMARYKEY: "conflicted", // the rowid and stream keys are the same race at two depths
+  SQLITE_CONSTRAINT_PRIMARYKEY: "conflicted",
   SQLITE_CONSTRAINT_ROWID: "conflicted",
-  SQLITE_CONSTRAINT_UNIQUE: "conflicted", // the same structural backstop the spine spells 23505
-  SQLITE_ERROR: "refused", // the engine's catch-all for a statement no schedule repairs: absent relation, absent column, bad syntax
+  SQLITE_CONSTRAINT_UNIQUE: "conflicted",
+  SQLITE_ERROR: "refused",
   SQLITE_TOOBIG: "refused",
 } as const satisfies Record.ReadonlyRecord<string, Journal.Signal>
 
-// Code-less channels answer here. `@effect/wa-sqlite` raises the C API's PRIMARY result code as a NUMBER, which
-// separates no constraint from another, and its OPFS worker crosses a `postMessage` boundary that carries no error
-// object at all — the worker posts `e.message` and the client wraps that bare string. D1 wraps the engine's text the
-// same way behind its own prefix. Every one of those channels still carries `sqlite3_errmsg`, whose constraint
-// sentences are engine-fixed, so a substring read is the one total route rather than a convenience. Rows are matched
-// by containment because the wrapping prefixes differ per profile while the sentence does not.
 const _TEXT = {
   "UNIQUE constraint failed": "conflicted",
   "PRIMARY KEY constraint failed": "conflicted",
@@ -289,9 +241,6 @@ const _TEXT = {
   "string or blob too big": "refused",
 } as const satisfies Record.ReadonlyRecord<string, Journal.Signal>
 
-// Drivers hang their own fields on the wrapped cause, so one boundary read serves every field this page names off a
-// record cause: absence, a non-record cause, and a non-string value all fold to none, which is why the pg-wire
-// `code`/`constraint` pair — both declared optional at the source — needs no guard of its own at any call site.
 const _field = (fault: SqlError.SqlError, key: string): Option.Option<string> =>
   pipe(
     Option.liftPredicate(fault.cause, Predicate.isRecord),
@@ -299,14 +248,9 @@ const _field = (fault: SqlError.SqlError, key: string): Option.Option<string> =>
     Option.filter(Predicate.isString),
   )
 
-// Two shapes reach `cause` and only one of them is a record: the node, libSQL, and embedded drivers hand their own
-// error object across, where the OPFS worker hands the message string alone. One read serves both, so the message fold
-// below covers the profiles a code lookup can never reach.
 const _text = (fault: SqlError.SqlError): Option.Option<string> =>
   Predicate.isString(fault.cause) ? Option.some(fault.cause) : _field(fault, "message")
 
-// Code first, prose second: a driver naming its own refusal is never re-read out of a sentence, and a driver naming
-// nothing still classifies rather than defaulting to a patience the OCC backstop cannot afford on a single-writer lane.
 const _signal = (fault: SqlError.SqlError): Journal.Signal =>
   Option.getOrElse(
     Option.orElse(
@@ -318,41 +262,27 @@ const _signal = (fault: SqlError.SqlError): Journal.Signal =>
     (): Journal.Signal => "transient",
   )
 
-// Two answers settle the violated-constraint question under one owner. Pg-wire names the CONSTRAINT, so the guard matches
-// its name; SQLite names the violated index's COLUMNS and no sqlite driver carries a constraint field at all, so the
-// guard matches this relation's own key roster instead. Both routes read values the DDL interpolates, so a renamed
-// constraint or a re-keyed unique moves the guard with it, and neither route admits a bare uniqueness refusal — which
-// on this relation folds a foreign unique onto a version conflict a caller then reload-fold-retries forever.
 const _violated = (fault: SqlError.SqlError): boolean =>
   Option.exists(_field(fault, "constraint"), (name) => name === _STREAM_UNIQUE) ||
   Option.exists(_text(fault), (message) => Array.every(_STREAM_KEY, (column) => message.includes(column)))
 
-// `Fault.Class.of` grades on a `class` PROPERTY and answers `defect` for a value carrying none, and `defect` is
-// non-retryable — so a consumer grading a raw `SqlError` through it refuses every retry and every failover in silence,
-// and `Fault.Budget.schedule` takes that grader as its DEFAULT gate. Statements here fail with exactly that shape, so
-// this owner projects its signal onto the shared class vocabulary rather than leaving each consumer to invent one.
 const _CLASSES = {
-  conflicted: "conflicted", // contention a reload-fold-retry resolves: `transient` recovery, `restart` re-offer, caller-blamed
-  refused: "invalid", // no schedule outlasts it: `terminal` recovery, `rescope` re-offer, quarantine-worthy
-  transient: "unavailable", // the system is momentarily unable: `transient` recovery, `wait` re-offer, system-blamed
+  conflicted: "conflicted",
+  refused: "invalid",
+  transient: "unavailable",
 } as const satisfies Record.ReadonlyRecord<Journal.Signal, Fault.Class.Kind>
 
 const _classOf = (fault: SqlError.SqlError): Fault.Class.Kind => _CLASSES[_signal(fault)]
 
-// The core's own DERIVED projection over the class row's `recovery` band, never a column read: the row table carries
-// `recovery` and `reoffer` and no boolean at all, so a gate reaching for a stored bit reads a field that does not
-// exist — and reading the projection is what moves every gate composed from this when the band edits at its owner.
 const _retryable = (fault: SqlError.SqlError): boolean => Fault.Class.retryable(_classOf(fault))
 
 class VersionConflict extends Schema.TaggedError<VersionConflict>()("VersionConflict", {
   stream: StreamKey,
   expected: _VersionNumber,
-  // Locked arms read the head before refusing; structural arms learn of the race from an aborted statement that can
-  // issue no further read. Absence IS that distinction, and recovery reloads the head regardless.
   actual: Schema.optionalWith(_VersionNumber, { as: "Option" }),
 }) {
   get class(): Fault.Class.Kind {
-    return "conflicted" // the one honest kind: contention a reload-fold-retry resolves
+    return "conflicted"
   }
   override get message(): string {
     const actual = Option.match(this.actual, { onNone: () => "unread", onSome: String })
@@ -385,27 +315,20 @@ declare namespace Journal {
   type Event = { readonly _tag: string }
   type Spec<A extends Event, I> = {
     readonly family: Schema.Schema<A, I>
-    // What the composition root's `Generation.bind` answered: the log this binding writes and the digest it proved.
-    // Every transaction re-proves it at its own guard, so the held value is an anchor rather than a cached verdict.
     readonly generation: Generation.Held
   }
   type Receipt = typeof _Receipt.Type
-  // The verdict a store-validated conditional write hands its writer. `Advanced` says the store now HOLDS the offered
-  // coordinate, `Stale` names the coordinate that beat it beside the one offered, and `Vanished` says the identity no
-  // longer answers at all — three outcomes an `Option` collapses to two, which is why the family carries the cause.
   type Fence<G> = Data.TaggedEnum<{
     Advanced: { readonly held: G }
     Stale: { readonly offered: G; readonly held: G }
     Vanished: {}
   }>
-  // `columns` is the primary correspondence: the accepted row type — and through it the INSERT roster — plus the SET
-  // assignment set derive from it, so `key` and `gate` take check-only positions and an absent column breaks here.
   type Advance<K extends string, G, I> = {
     readonly relation: string
     readonly columns: Array.NonEmptyReadonlyArray<K>
     readonly key: Array.NonEmptyReadonlyArray<NoInfer<K>>
     readonly gate: NoInfer<K>
-    readonly touched: string // the write-time column the WINNING arm restamps; the losing arm keeps the stored value
+    readonly touched: string
     readonly coordinate: Schema.Schema<G, I>
   }
 }
@@ -418,15 +341,7 @@ interface _FenceKind extends Data.TaggedEnum.WithGenerics<1> {
 
 const _Fence = Data.taggedEnum<_FenceKind>()
 
-// ONE monotone conditional upsert serves every gate-column CAS in the folder — the snapshot row's `version`, the
-// frontier ledger's `snapshotted` — because those statements differ in relation, key roster, and payload alone.
-// The gate rides each ASSIGNMENT rather than an `ON CONFLICT … WHERE` arm: a WHERE-gated upsert returns the loser no
-// row, so one empty roster spells "a fresher writer won" and "this identity vanished" alike and the writer is left
-// inferring its own outcome from silence. Spliced per assignment, the engine re-evaluates the whole condition once
-// per conflicting row and `RETURNING` answers the coordinate the store now holds on BOTH arms.
 const _advance = <const K extends string, G extends number | bigint, I>(spec: Journal.Advance<K, G, I>) => {
-  // Arity is the statement's own proof: insert-or-update always leaves exactly one row, so a roster of any other
-  // width fails as `ParseError` at the tuple rather than reaching a head read that would need an absent arm.
   const _Answered = Schema.Tuple(Schema.Struct({ held: spec.coordinate }))
   const carried = Array.difference(spec.columns, spec.key)
   return (sql: SqlClient.SqlClient, row: Record.ReadonlyRecord<K, unknown>, offered: G) => {
@@ -445,16 +360,12 @@ const _advance = <const K extends string, G extends number | bigint, I>(spec: Jo
             RETURNING ${sql(spec.gate)} AS held`,
         Schema.decodeUnknown(_Answered),
       ),
-      // Equality against the OFFERED coordinate is the whole verdict: the gate is strictly monotone, so the store
-      // holding what this writer offered means this writer's fold is the current one — which is the only question a
-      // snapshotter or a handoff can act on, and a same-coordinate no-op answers it as truly as a fresh write.
       ([{ held }]): Journal.Fence<G> =>
         held === offered ? _Fence.Advanced({ held }) : _Fence.Stale({ offered, held }),
     )
   }
 }
 
-// Digests read bytes and the payload column holds text, so one encoder crosses that seam for the whole page.
 const _utf8 = new TextEncoder()
 
 const _Landed = Schema.Struct({ sequence: _Sequence, version: _Version })
@@ -473,13 +384,8 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
     Effect.flatMap(SqlClient.SqlClient, (sql) =>
       sql.withTransaction(
         Effect.gen(function* () {
-          // `Array.ensure` erases the arity the entry's own input union already proves, and the receipt's `rows`
-          // roster is NonEmpty — so the erasure would demand a re-proof no value on this path can supply, and the
-          // publish wake's own last-row read would need a fallback for a batch the signature forbids. `isArray`
-          // narrows the union instead and `Array.of` lifts the singular arm, so arity is proven once at the split
-          // and every downstream roster — landed rows, receipt, deliverables, slot projection — stays total.
           const batch: Array.NonEmptyReadonlyArray<A> = Array.isArray(events) ? events : Array.of(events)
-          yield* Generation.guard(sql, spec.generation) // shared app fence and head proof: a writer across a re-mint refuses here
+          yield* Generation.guard(sql, spec.generation)
           yield* sql.onDialectOrElse({
             orElse: () => sql`SELECT 1`,
             pg: () =>
@@ -514,10 +420,6 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
             sql`INSERT INTO journal_event ${sql.insert(rows)} RETURNING sequence, version`,
             Schema.decodeUnknown(Schema.Array(_Landed)),
           )).pipe(
-            // Where no advisory lock serializes the head read, two writers admit the same `held` and the unique
-            // constraint refuses the loser as a driver fault. Folding it onto the conflict value HERE is what makes
-            // one reload-fold-retry gate serve every profile: gated on the typed arm alone, that recovery never runs
-            // on exactly the lanes whose only OCC enforcement is the constraint.
             Effect.catchTag("SqlError", (fault) =>
               _signal(fault) === "conflicted" && _violated(fault)
                 ? Effect.fail(new VersionConflict({ stream, expected: held, actual: Option.none() }))
@@ -528,9 +430,6 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
             Effect.all({
               sequence: Effect.fromOption(HashMap.get(bySequence, row.version), () =>
                 new JournalFault({ case: { reason: "landing", stream, detail: String(row.version) } })),
-              // This content key addresses the bytes THIS statement wrote: minting it from the encoded text keeps the
-              // announced `subject` byte-true, where a projection-side digest over a re-encoded payload addresses a
-              // spelling no reader ever stored.
               subject: Digest.mint("content", _utf8.encode(row.payload)),
             }).pipe(Effect.map(({ sequence, subject }) => ({
               sequence,
@@ -587,10 +486,6 @@ declare namespace Journal {
   }
 }
 
-// `Model.BooleanFromNumber` already ships the embedded half's `0|1` transform, so only the spine's native boolean is
-// this page's to add. Hand-rolling both arms re-derives a shipped member AND loosens it: a numeric decode written as
-// `raw === 1` reads every other number as `false`, where the shipped literal pair refuses it as a parse fault — a
-// ledger row holding an unexpected number then answers "not the first writer" and replays a publish forever.
 const _Flag = Schema.Union(Schema.Boolean, Model.BooleanFromNumber)
 
 const _Claimed = Schema.Struct({
@@ -684,8 +579,6 @@ sequenceDiagram
 declare namespace Journal {
   type Slot<A> = {
     readonly keys: (stream: StreamKey) => Live.Keys
-    // Arity is proven at the append split and travels: a slot receives the same NonEmpty batch the receipt's rows
-    // align against positionally, so no slot re-proves inhabitance and no slot carries a dead empty-batch arm.
     readonly project: (stream: StreamKey, events: Array.NonEmptyReadonlyArray<A>, receipt: Journal.Receipt) => Effect.Effect<
       void,
       SqlError.SqlError | ParseResult.ParseError,
@@ -697,9 +590,7 @@ declare namespace Journal {
     readonly events: A | Array.NonEmptyReadonlyArray<A>
     readonly occ: Occ
     readonly key: Option.Option<Key>
-    readonly urgency: number // ascending-first claim order; the draining plane's service-class row is what fills it
-    // This grade publishes as `dataclassification`, and a binding reads it to decide whether the payload crosses at
-    // all, so the writer states it once here rather than every egress guessing per destination.
+    readonly urgency: number
     readonly classification: Event.Class
     readonly slots: ReadonlyArray<Slot<A>>
   }
@@ -710,16 +601,13 @@ declare namespace Journal {
   }
 }
 
-const _CHANNEL = { stem: 46, seal: 8 } as const // journal: + stem + "-" + seal hex = 63, the NOTIFY identifier cap — LISTEN truncates and pg_notify errors past it
+const _CHANNEL = { stem: 46, seal: 8 } as const
 
 const _channel = (app: Identity.App.Key): string =>
   app.length <= _CHANNEL.stem + _CHANNEL.seal + 1
     ? `journal:${app}`
-    : `journal:${app.slice(0, _CHANNEL.stem)}-${(Hash.string(app) >>> 0).toString(16).padStart(_CHANNEL.seal, "0")}` // deterministic on both sides; a suffix collision only coalesces a wake, and every listener re-polls scoped rows
+    : `journal:${app.slice(0, _CHANNEL.stem)}-${(Hash.string(app) >>> 0).toString(16).padStart(_CHANNEL.seal, "0")}`
 
-// Losing the LISTEN socket must not retire the accelerator for the process's lifetime. Reconnection jitters so a fleet
-// losing one backend does not re-listen in lockstep, and the terminal catch states the type's floor rather than a
-// reachable arm — the schedule never exhausts, and the lease-width tick carries the drain across every gap meanwhile.
 const _RELISTEN = Schedule.jittered(Schedule.spaced("5 seconds"))
 
 const _wake = (app: Identity.App.Key): Stream.Stream<string> =>
@@ -730,8 +618,6 @@ const _wake = (app: Identity.App.Key): Stream.Stream<string> =>
     })),
   ).pipe(Stream.retry(_RELISTEN), Stream.catchTag("SqlError", () => Stream.empty))
 
-// Each outbox row carries every coordinate the announcement publishes, so the relay projects a message envelope from one
-// claimed row instead of re-reading the journal and the intent to recover two of its attributes.
 const _deliverables = <A extends Journal.Event>(intent: Journal.Intent<A>, receipt: Journal.Receipt) =>
   Array.map(receipt.rows, (row) => ({
     sequence: row.sequence,
@@ -771,12 +657,12 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
               Effect.gen(function* () {
                 const batch: Array.NonEmptyReadonlyArray<A> = Array.isArray(intent.events)
                   ? intent.events
-                  : Array.of(intent.events) // the same split the append runs: one arity proof serves the veto fact, the slots, and the receipt
+                  : Array.of(intent.events)
                 yield* Hook.gated("journalPublish", {
                   stream: intent.stream,
                   count: batch.length,
                   tags: Array.map(batch, (event) => event._tag),
-                }) // pre-commit veto: a refusal rolls the whole transaction back before any row lands
+                })
                 const journal = yield* _append(spec)(intent.stream, intent.events, intent.occ)
                 yield* sql`INSERT INTO outbox ${sql.insert(_deliverables(intent, journal))}`
                 yield* Effect.forEach(intent.slots, (slot) => slot.project(intent.stream, batch, journal), { discard: true })
@@ -806,7 +692,7 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
                       stream: intent.stream,
                       count: published.journal.count,
                       tags: Array.map(published.journal.rows, (row) => row.tag),
-                    }), // observe fan beside the Live stamp: post-durable-completion, never inside the commit
+                    }),
                   ),
                 ))),
       ))
@@ -891,46 +777,28 @@ class _Deliverable extends Model.Class<_Deliverable>("OutboxRow")({
   aggregate: StreamKey.fields.aggregate,
   version: _Version,
   tag: Schema.NonEmptyString,
-  // Two announcement coordinates the write already decided: the content key minted over the stored bytes and the
-  // handling grade a binding gates on.
   subject: Digest.Key.content,
   classification: Event.rasm.classes.schema,
   payload: Schema.String,
   urgency: Schema.Int,
   attempts: Schema.Int,
-  // Two halves of one lease and neither substitutes for the other: `claimed_at` prices the EXPIRY a crashed claimant
-  // redelivers behind, `lease` names the HOLDER as a per-row generation the claim bumps. Its own column rather than a
-  // second read of `attempts`, because a park replay resets attempts by design and a resettable fence is an ABA.
   lease: Model.Generated(_Sequence),
   created_at: Model.DateTimeInsert,
   claimed_at: Model.FieldOption(Schema.DateTimeUtc),
   delivered_at: Model.FieldOption(Schema.DateTimeUtc),
 }) {
-  // This row is the raw payload column's ONE reader, so a claim carries its own announcement and a drain projecting
-  // one never reaches past its admitted value to the undecoded bytes underneath.
   envelope(carrier: Carrier.Context): Effect.Effect<CloudEvent<unknown>, JournalFault> {
     return _envelope(this, carrier)
   }
-  // The fence coordinate a settle carries back, projected off the row that already holds both halves — so a drain
-  // threads one value and never pairs an identity with a generation it re-read from somewhere else.
   get held(): Journal.Held {
     return { id: this.id, lease: this.lease }
   }
 }
 
 declare namespace Journal {
-  // Claims cross as this instance type: a drain names it to widen the lane's claim floor and reads `envelope` off the
-  // row it already holds, so the announcement never travels as a second value beside the claim producing it.
   type Deliverable = _Deliverable
-  // What a claimant HELD, and what its completion has to present to settle: the row identity beside the generation
-  // the claim minted for it. Projected off the claimed row, never assembled at a call site.
   type Held = { readonly id: bigint; readonly lease: bigint }
-  // Total over the requested roster: one row per requested identity, so a drain reads refusal as data rather than
-  // subtracting an affected-row count from a batch size it also has to remember.
   type Settlement = { readonly id: bigint; readonly fence: Fence<bigint> }
-  // The authenticated inverse's whole answer: the tenancy verdict on `context`, the extraction's MEASURED loss on
-  // `dropped`. The census is total because propagation damage is a fact of the announcement rather than of the vote —
-  // a refused announcement is exactly when an operator needs to read what its headers lost.
   type Carried = { readonly context: Option.Option<Carrier.Context>; readonly dropped: Fault.Ledger.Census }
 }
 
@@ -977,7 +845,7 @@ const _now = (sql: SqlClient.SqlClient) =>
 
 const _CensusRow = Schema.Struct({
   depth: Schema.NonNegativeInt,
-  oldest_seconds: Schema.NonNegative, // 0 on an empty outbox: absence of lag, never a sentinel
+  oldest_seconds: Schema.NonNegative,
   redelivered: Schema.NonNegativeInt,
 })
 
@@ -1006,8 +874,6 @@ const _overlay = {
   serverSubtle: SqlEventLogServer.layerStorageSubtle,
 } as const
 
-// One serdes arrow serves the whole outbox — the journal writes JSON text through `Schema.parseJson` — so its media
-// type is row data off THAT arrow, while this opaque payload declares no schema URI or registry coordinate.
 const _SERDES = {
   media: "application/json",
 } as const
@@ -1025,16 +891,14 @@ const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.
       Event.rasm.source(deliverable.tag, _EVENT_CAPABILITY),
       (issue) => fault(issue.message),
     )
-    // Decoding the addressed record into `Event.rasm.Fact` carries the profile proof into the strict SDK mint; the widened
-    // attribute record the mint's own carrier injection returns can no longer discard it on the next expression.
     const fact = yield* Effect.mapError(
       Effect.flatMap(Schema.encode(Digest.codecs.content.wire)(deliverable.subject), (subject) =>
         Schema.decode(Event.rasm.Fact)({
-          id: sequence, // Redelivery keeps the landed sequence as the same consumer-dedup identity.
+          id: sequence,
           source,
           type: deliverable.tag,
           time: DateTime.formatIso(deliverable.created_at),
-          subject: subject.toLowerCase(), // the estate spells `subject` in 32 LOWERCASE hex; this branch's content wire is UPPER, and the envelope edge is the one re-case site
+          subject: subject.toLowerCase(),
 
           datacontenttype: _SERDES.media,
           data: _utf8.encode(deliverable.payload),
@@ -1046,8 +910,6 @@ const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.
       Event.rasm.mint(
         fact,
         {
-          // This stream triple is the ordering domain a partitioning transport keys on, and the same landed sequence
-          // that identifies the operation is this source's position — one number in two declared roles, both text.
           partitionkey: `${deliverable.app}${_SEPARATOR}${deliverable.tenant}${_SEPARATOR}${deliverable.aggregate}`,
           sequence,
           dataclassification: deliverable.classification,
@@ -1058,12 +920,6 @@ const _envelope = (deliverable: _Deliverable, carrier: Carrier.Context): Effect.
     )
   })
 
-// Inbound tenancy must equal the complete authenticated scope; success re-promotes that authority and strips
-// duplicate tenant members, while absence, malformed data, and cross-app or cross-tenant values fail closed. The
-// extraction's own damage crosses BESIDE that verdict rather than under it: a malformed `traceparent` is a measured
-// loss whichever way the tenancy vote lands, and folding it into the refusal would fuse "the peer sent nothing" with
-// "this inverse discarded what it sent". This page mints no instrument, so the census rides the seam and the intake
-// holding the fiber spends it — the same division the outbox census already keeps with the runtime meter bridge.
 const _carrier = (envelope: CloudEventV1<unknown>, scope: Identity.Tenant): Journal.Carried =>
   pipe(Carrier.extract("cloudevents", envelope), (extraction) => ({
     context: Option.map(
@@ -1073,10 +929,6 @@ const _carrier = (envelope: CloudEventV1<unknown>, scope: Identity.Tenant): Jour
     dropped: extraction.dropped,
   }))
 
-// The claim MINTS the fence: `lease + 1` moves once per claim on the row itself, so the returned deliverable carries
-// the generation its own completion later has to present. The two counters move together here and part everywhere
-// else — a park replay resets `attempts` by design, and a fence that resets is an ABA the next lapsed holder walks
-// straight through, so the generation never shares that column.
 const _claimBatch = (sql: SqlClient.SqlClient) =>
   SqlSchema.findAll({
     Request: _ClaimBatch,
@@ -1100,11 +952,6 @@ const _claimBatch = (sql: SqlClient.SqlClient) =>
 
 const _Settled = Schema.Struct({ id: _Sequence, lease: _Sequence })
 
-// The fence rides the ASSIGNMENT and the identity roster rides the WHERE, so EVERY requested row answers with the
-// lease it currently carries: a holder whose generation still stands marks delivered, a displaced one marks nothing
-// and reads the generation that beat it, and an identity the groom already took answers by absence. Spelling the
-// fence as `WHERE … AND lease = held` instead settles the same rows and then reports both refusals as the same empty
-// silence, which is the `[DECISION_UNDERIVABLE_FROM_STATE]` shape one arm over from the lost update it just closed.
 const _complete = (sql: SqlClient.SqlClient, held: Array.NonEmptyReadonlyArray<Journal.Held>) =>
   Effect.map(
     Effect.flatMap(
@@ -1121,7 +968,7 @@ const _complete = (sql: SqlClient.SqlClient, held: Array.NonEmptyReadonlyArray<J
       return Array.map(held, (row): Journal.Settlement => ({
         id: row.id,
         fence: Option.match(HashMap.get(observed, row.id), {
-          onNone: () => _Fence.Vanished(), // groomed away between the claim and the settle: nothing to displace
+          onNone: () => _Fence.Vanished(),
           onSome: (lease) =>
             lease === row.lease
               ? _Fence.Advanced({ held: lease })
@@ -1139,27 +986,27 @@ const Journal = {
     publish: _publish(spec),
   }),
   now: _now,
-  advance: _advance, // the folder's one monotone conditional upsert: `evolve`'s snapshot row and `retain`'s frontier ledger
+  advance: _advance,
   channel: _channel,
   signal: _signal,
   classOf: _classOf,
-  retryable: _retryable, // the gate `Fault.Budget.schedule` takes in place of its inert default
+  retryable: _retryable,
   wake: _wake,
   claimBatch: (sql: SqlClient.SqlClient, request: typeof _ClaimBatch.Type) =>
-    _safe(_claimBatch(sql)(request)), // the claim decodes two BIGINT identities, so it reads under the same pinned posture
-  Deliverable: _Deliverable, // the claimed row and its own `envelope` projection travel under one name
+    _safe(_claimBatch(sql)(request)),
+  Deliverable: _Deliverable,
   carrier: _carrier,
   census: (sql: SqlClient.SqlClient, app: typeof Identity.App.fields.app.Type) =>
     _census(sql)(app),
   complete: (sql: SqlClient.SqlClient, held: Array.NonEmptyReadonlyArray<Journal.Held>) =>
-    _safe(_complete(sql, held)), // the settle reads back two BIGINT columns, so it takes the claim's own pinned posture
-  log: _LOG, // the live relation's one name — the cutover derives its shadow and prior names from it
-  relation: _relation, // the relation's one DDL owner: the ensure the deploy plane plants, the mint a cutover runs
-  unique: _unique, // the stream unique's name derivation the OCC guard and the cutover's rename pair both read
-  ddl: (spine: Journal.Spine) => [_relation(_LOG, spine).ensure, _ledgerDdl, _outboxDdl], // the root names the spine it ships
+    _safe(_complete(sql, held)),
+  log: _LOG,
+  relation: _relation,
+  unique: _unique,
+  ddl: (spine: Journal.Spine) => [_relation(_LOG, spine).ensure, _ledgerDdl, _outboxDdl],
 
   overlay: _overlay,
-  Fence: _Fence, // the verdict every store-validated conditional write in the folder answers with
+  Fence: _Fence,
   Occ: _Occ,
   Key: _IdempotencyKey,
   Sequence: _Sequence,
@@ -1189,13 +1036,6 @@ const _facts = {
   laneEscalate: Schema.Struct({ engine: Schema.String, trigger: Schema.String, delta: Schema.Number }),
 } as const
 
-// `depth` is the point's own channel CAPACITY, and RETENTION is `_retained`'s projection off the modality table's
-// `buffered` column — no modality on any row below carries it, so every replay window here is a structural zero the
-// rail derives and none is declarable: `Tap.Depth` refuses zero at admission, and a row spelling one throws at module
-// init rather than reaching a reader. Two bands and the discriminant is the point's RATE against the act publishing
-// it — a per-write seam bursts with the write path, an operator seam fires at human cadence — because one width for
-// both either sheds the publish fan under load or parks a ring a rare seam never fills. An undersized band surfaces
-// as the rail's own `shed` count rather than as loss nobody sees, so the number is a starting policy, not a measure.
 const _DEPTH = { write: 256, operator: 16 } as const
 
 const _points = {
@@ -1209,7 +1049,6 @@ const _point = <A, I>(row: Tap.PointRow, fact: Schema.Schema<A, I>): Tap.Point<A
   pipe(Tap.point(row, fact), Either.getOrThrowWith((fault) => fault))
 
 const _POINTS = {
-  // Module-init branding surfaces malformed names on the authoring side, never inside dispatch.
   journalPublish: _point(_points.journalPublish, _facts.journalPublish),
   objectAdmit: _point(_points.objectAdmit, _facts.objectAdmit),
   retainErase: _point(_points.retainErase, _facts.retainErase),
@@ -1228,7 +1067,7 @@ class HookVeto extends Data.TaggedError("HookVeto")<{
   readonly veto: InstanceType<typeof Tap.Veto>
 }> {
   get class(): Fault.Class.Kind {
-    return "denied" // an armed app policy refused admission: caller-blamed, never re-driven
+    return "denied"
   }
 }
 
@@ -1239,28 +1078,23 @@ class Hook extends Context.Tag("data/Hook")<Hook, {
   static readonly points = _POINTS
   static readonly gated = <P extends Hook.VetoPoint>(point: P, fact: Hook.Payload[P]): Effect.Effect<void, HookVeto> =>
     Effect.flatMap(Effect.serviceOption(Hook), Option.match({
-      onNone: () => Effect.void, // no mounted engine: no app policy exists and the seam admits
+      onNone: () => Effect.void,
       onSome: (hook) =>
-        // The engine's own verdict crosses WHOLE and this seam reads its arms: a collapsed `Option<Tap.Veto>` drops
-        // the fan arity, the delivery census, and the unrostered case, so a point nothing subscribes to and a point
-        // every subscriber admitted read identically at the one seam that must tell them apart.
         Effect.flatMap(hook.publish(point, fact), (verdict) =>
           Tap.Verdict.$match(verdict, {
             fanned: () => Effect.void,
-            unrostered: () => Effect.void, // a point no subscription seated refuses nothing, and admitting it is the whole meaning of the arm
-            vetoed: ({ veto }) => Effect.fail(new HookVeto({ point: _points[point].name, veto })), // engine verdict re-spelled onto the publish rail
+            unrostered: () => Effect.void,
+            vetoed: ({ veto }) => Effect.fail(new HookVeto({ point: _points[point].name, veto })),
           })),
     }))
   static readonly tapped = <P extends Hook.Point>(point: P, fact: Hook.Payload[P]): Effect.Effect<void> =>
     Effect.flatMap(Effect.serviceOption(Hook), Option.match({
       onNone: () => Effect.void,
-      // an observe point seats no veto arm, so its verdict carries a census this seam spends nowhere; deliveries
-      // fork on the engine's own isolated fibers
       onSome: (hook) => Effect.asVoid(hook.publish(point, fact)),
     }))
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Hook, HookVeto, Journal, JournalFault, StreamKey }
 ```

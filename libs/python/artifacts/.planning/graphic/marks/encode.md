@@ -73,12 +73,10 @@ lazy from barcode.errors import BarcodeNotFoundError, IllegalCharacterError, Num
 lazy from segno import helpers
 
 if TYPE_CHECKING:
-    from segno import QRCode  # a `QRCodeSequence` member IS a `QRCode`, so the fan annotates the member type alone
+    from segno import QRCode
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
-# every operation answers a BLOCK of facts, one per ADDRESSED member: a lone symbol is the one-member case and a
-# structured-append span the N-member case, so no arm carries a second shape for the plural one.
 type MarkRail = Result[Block[RasterFact], MarkFault | BoundaryFault]
 
 
@@ -187,16 +185,11 @@ class Content:
 ```python signature
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: one fence spans every mark op, so the op tag is request data the `MarkFault` case
-# already separates rather than a coordinate the subject forks per op. TRANSIENT — an encode refusal is a defect a
-# re-issue under repaired inputs may clear.
 MARK_ENCODE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.ENCODE, point="encode", arm="boundary", defect="mark-refused", retriability=TRANSIENT
 )
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([MARK_ENCODE]))
 
-# per-class admission adapters and the only arm-local dispatch data; everything else derives
-# from the mark floor's ONE TAXONOMY correspondence.
 _QR_BANDS: frozendict[Symbology, TypeAdapter[OptionBand]] = frozendict({
     Symbology.QR: TypeAdapter(QrPayload),
     Symbology.MICRO_QR: TypeAdapter(MicroQrPayload),
@@ -205,7 +198,7 @@ _QR_BANDS: frozendict[Symbology, TypeAdapter[OptionBand]] = frozendict({
 _CLASS_BANDS: frozendict[MarkClass, TypeAdapter[OptionBand]] = frozendict({
     MarkClass.LINEAR: TypeAdapter(LinearPayload),
     MarkClass.MATRIX: TypeAdapter(MatrixPayload),
-    MarkClass.WRITER: TypeAdapter(LinearPayload),  # the writer family is 1-D, so it admits the linear band
+    MarkClass.WRITER: TypeAdapter(LinearPayload),
 })
 _QR_ROWS: frozendict[Symbology, SegnoFactory] = frozendict({
     Symbology.QR: SegnoFactory.MAKE_QR,
@@ -215,8 +208,6 @@ _QR_ROWS: frozendict[Symbology, SegnoFactory] = frozendict({
 
 
 def _canon_hook(value: object, /) -> object:
-    # frozendict is not a dict subclass, so the canonical-key encoder lowers each band row explicitly; every other payload
-    # member (str/bytes/StrEnum/msgspec Struct) encodes natively.
     match value:
         case frozendict():
             return dict(value)
@@ -229,14 +220,10 @@ _CANON = msgspec.msgpack.Encoder(enc_hook=_canon_hook)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _frozen(value: object, /) -> object:
-    # deep-fold the admitted band to a hashable frozendict tree so lru_cache and the op payload stay immutable
     return frozendict({key: _frozen(inner) for key, inner in value.items()}) if isinstance(value, dict) else value
 
 
 def _admit(symbology: Symbology, content: MarkContent, raw: OptionBand, /) -> Result[tuple[MarkContent, frozendict[str, object]], MarkFault]:
-    # ONE admission seam: the symbology's MarkClass selects the closed per-class band, so a cross-family
-    # knob fails validation here and a factory-scoped key outside its row's accepts fails by name —
-    # every admitted option has an owning arm and stage, never a silently dropped key.
     cls = TAXONOMY[symbology][0]
     if cls is MarkClass.LINEAR and isinstance(content, bytes):
         return Error(MarkFault(content="<binary-linear-content>"))
@@ -277,12 +264,9 @@ def _resolved_content(content: Content, /) -> Result[MarkContent, MarkFault]:
 
 @tagged_union(frozen=True)
 class MarkOp:
-    # `of_encode` and `of_verify` are the ONLY band-carrying mints and both cross `_admit`, so an `encode` or
-    # `verify` payload always holds an ADMITTED band — a bare constructor defaulting an empty band was the
-    # admission bypass under which `_arity`'s required sequence read raised instead of refusing.
     tag: Literal["encode", "decode", "verify"] = tag()
     encode: tuple[MarkContent, Symbology, frozendict[str, object]] = case()
-    decode: tuple[DecodeSource, DecodeScope] = case()  # a read op: data, excluded from emit
+    decode: tuple[DecodeSource, DecodeScope] = case()
     verify: tuple[MarkContent, Symbology, frozendict[str, object], RenderPolicy] = case()
 
     @staticmethod
@@ -299,7 +283,7 @@ class MarkOp:
 
     @staticmethod
     def of_verify(content: Content, symbology: Symbology, render: RenderPolicy, band: OptionBand | None = None, /) -> Result["MarkOp", MarkFault]:
-        if TAXONOMY[symbology][1] is None:  # a carrier-less member can never decode back — refuse at construction
+        if TAXONOMY[symbology][1] is None:
             return Error(MarkFault(unscannable=symbology))
         return _resolved_content(content).bind(
             lambda text: Error(MarkFault(content="<epc-has-no-public-canonical-text>"))
@@ -321,15 +305,8 @@ def _segno(factory: SegnoFactory, content: MarkContent, symbology: Symbology, ba
         return Error(MarkFault(content=str(fault)) if isinstance(content, EpcPayment) else MarkFault(parameter=str(fault)))
     if factory is not SegnoFactory.MAKE_SEQUENCE:
         return _segno_member(render, 1, (0, symbol)).map(Block.singleton)
-    # Structured append IS N documents: `QRCodeSequence.save` writes EVERY member into the one stream it is
-    # handed, and MEASURED a three-symbol span so saved yields 13159 bytes carrying three `<svg` roots — bytes no
-    # SVG reader accepts. Each member scans separately and addresses separately, so the span FANS into one
-    # document per member instead of collapsing into a payload that parses nowhere; every `QRCodeSequence` member
-    # IS a `QRCode`, so one member fold serves the span and the lone symbol alike.
-    declared = cast(int, make["symbol_count"])  # required by the sequence band, so the read is total
+    declared = cast(int, make["symbol_count"])
     if len(symbol) != declared:
-        # Plan nodes already exist one per DECLARED member, so a span segno resolved at another arity would leave
-        # nodes addressing symbols that do not exist; this refusal names both counts rather than truncating.
         return Error(MarkFault(arity=f"<declared-{declared}-resolved-{len(symbol)}>"))
     return traverse(partial(_segno_member, render, len(symbol)), Block.of_seq(enumerate(symbol)))
 
@@ -343,17 +320,11 @@ def _segno_member(render: frozendict[str, object], count: int, row: tuple[int, "
         symbol.save(sink, kind="svg", **writer, **dict(style))
     except ValueError as fault:
         return Error(MarkFault(render=str(fault)))
-    # ONE measure of the module and pixel extent feeds both the fact and its score band: `RasterFact`'s
-    # width/height are the receipt's own `Preview` dimensions, so leaving them at the struct default published
-    # every generated mark as a zero-by-zero raster while the same numbers sat one call away.
     extent = symbol.symbol_size(scale=render.get("scale", 1), border=render.get("border"))
     return Ok(RasterFact(sink.getvalue(), extent[0], extent[1], score=_segno_score(symbol, extent, index, count)))
 
 
 def _segno_score(symbol: "QRCode", extent: tuple[int, int], index: int, count: int, /) -> frozendict[str, str]:
-    # ONE projection over a RESOLVED symbol, span member and lone symbol alike — the fan removed the sequence-only
-    # branch whose `msgspec.json` blob packed every member's facts into one opaque string the receipt band could
-    # neither compare nor measure. Position rides two scalars instead: a lone symbol reads `0` of `1`.
     return frozendict({
         MarkFact.DESIGNATOR: symbol.designator,
         MarkFact.VERSION: str(symbol.version),
@@ -381,9 +352,6 @@ def _barcode(content: MarkContent, symbology: Symbology, band: frozendict[str, o
         return Error(MarkFault(illegal=str(fault)))
     except (NumberOfDigitsError, WrongCountryCodeError) as fault:
         return Error(MarkFault(arity=str(fault)))
-    # the writer's OWN size fold answers the produced extent in millimetres — `calculate_size(modules, lines)`
-    # reads the module width, height, quiet zone, and text band the render band already set — so the fact carries
-    # the symbol's real dimensions instead of the struct default that published every linear mark as zero-by-zero
     modules = symbol.build()
     span, rise = symbol.writer.calculate_size(len(modules[0]), len(modules))
     return Ok(
@@ -406,14 +374,12 @@ def _zxing(content: MarkContent, symbology: Symbology, band: frozendict[str, obj
     make = cast(frozendict[str, object], band.get("make", frozendict()))
     render = cast(frozendict[str, object], band.get("render", frozendict()))
     try:
-        symbol = zxingcpp.create_barcode(content, fmt, **dict(make))  # ec_level the sole genuine creator key; geometry is the writer's
+        symbol = zxingcpp.create_barcode(content, fmt, **dict(make))
     except ValueError as fault:
         return Error(MarkFault(ec_level=str(fault)))
     svg = symbol.to_svg(
         scale=int(render.get("scale", 1)), add_hrt=bool(render.get("add_hrt", False)), add_quiet_zones=bool(render.get("add_quiet_zones", True))
     )
-    # `Barcode.position` is the symbol's own module quad, so the extent reads off the produced symbol rather than
-    # a re-measure of the rendered SVG, and the declared render scale lifts modules to pixels exactly as segno's does
     scale = int(render.get("scale", 1))
     corner = symbol.position.bottom_right
     return Ok(
@@ -422,8 +388,8 @@ def _zxing(content: MarkContent, symbology: Symbology, band: frozendict[str, obj
             (corner.x + 1) * scale,
             (corner.y + 1) * scale,
             score=frozendict({
-                MarkFact.FORMAT: str(symbol.format),  # the precise 3.0 display name ('Data Matrix'/'PDF417'/'Aztec')
-                MarkFact.FAMILY: str(symbol.symbology),  # the rolled-up BarcodeFormat.symbology family (MicroPDF417 -> PDF417) distinct from .format
+                MarkFact.FORMAT: str(symbol.format),
+                MarkFact.FAMILY: str(symbol.symbology),
                 MarkFact.EC_LEVEL: str(dict(make).get("ec_level", "")),
                 MarkFact.CONTENT_KIND: symbol.content_type.name,
             }),
@@ -449,27 +415,18 @@ def _contracted(
 @lru_cache(maxsize=256)
 @_contracted
 def _encode(content: MarkContent, symbology: Symbology, band: frozendict[str, object], /) -> Result[Block[RasterFact], MarkFault]:
-    # class dispatch DERIVES from TAXONOMY — a new symbology is one floor row, zero edits here. The memo is keyed
-    # on the whole request, so every member node of one structured-append span shares ONE solve inside a worker
-    # process rather than re-solving the span per addressed member.
     match TAXONOMY[symbology][0]:
         case MarkClass.QR:
             return _segno(_QR_ROWS[symbology], content, symbology, band)
         case MarkClass.LINEAR:
             return _barcode(content, symbology, band).map(Block.singleton)
         case MarkClass.MATRIX | MarkClass.WRITER:
-            # ONE zxing writer arm for both families: the format member is the taxonomy's own carrier column, so a
-            # 1-D `Code 93` and a 2-D `Data Matrix` differ only in the row they select and never in the code path
             return _zxing(content, symbology, band).map(Block.singleton)
         case _ as unreachable:
             assert_never(unreachable)
 
 
 def _arity(op: MarkOp, /) -> int:
-    # ADDRESSED member count, read off the ADMITTED band before any solve runs — total because the failable
-    # factories are the only op mints and the sequence adapter REQUIRES `make.symbol_count`: the plan mints one
-    # node per member at construction, where the version/EC solve that fixes each member's version runs only
-    # inside the worker. Every other symbology addresses one symbol.
     match op:
         case (
             MarkOp(tag="encode", encode=(_content, Symbology.QR_SEQUENCE, band))
@@ -481,21 +438,11 @@ def _arity(op: MarkOp, /) -> int:
 
 
 def _fragment(scan: RasterFact, content: MarkContent, /) -> RawContent | None:
-    # ONE recovered payload per scanned member — the first VALID symbol's raw bytes or its text, the modality read
-    # off the ADDRESSED content itself rather than a boolean mode knob crossing the seam. Absence spells `None`
-    # because an unrecovered member contributes no fragment to the span reconstruction at all, which is a
-    # different fact from recovering an empty one.
     return next((symbol.raw if isinstance(content, bytes) else symbol.text for symbol in DecodedSymbol.recovered(scan) if symbol.valid), None)
 
 
 @lru_cache(maxsize=256)
 def _verify(content: MarkContent, symbology: Symbology, band: frozendict[str, object], render: RenderPolicy, /) -> Result[Block[RasterFact], MarkFault]:
-    # print-survivability round trip: encode -> region rasterize at the declared resolution -> scan scoped to the
-    # mark's OWN carrier -> grade recovery as evidence; a failed recovery is a graded VERIFIED=0.0 verdict on the
-    # score band, never a fault. The memo mirrors `_encode`'s, keyed on the whole request over hashable frozen
-    # payloads, so the N member nodes of one structured-append span share ONE encode-rasterize-scan-grade round
-    # trip inside a worker process — an unmemoized arm re-verified the WHOLE span once per addressed member,
-    # squaring the native rasterize/scan cost — while each node still selects its own member fact.
     if isinstance(content, EpcPayment):
         return Error(MarkFault(content="<epc-has-no-public-canonical-text>"))
 
@@ -507,13 +454,6 @@ def _verify(content: MarkContent, symbology: Symbology, band: frozendict[str, ob
         )
 
     def _graded(scans: Block[RasterFact], /) -> Block[RasterFact]:
-        # ONE verdict over the WHOLE span: a structured-append member carries a FRAGMENT of the payload, so
-        # equality against the addressed content grades every member of a real sequence as unrecovered, and only
-        # an ORDERED concatenation reproduces what was encoded. A lone symbol is the one-member case, whose
-        # concatenation is its own recovered text. Every member takes that verdict while keeping its own scan
-        # facts and its own `INDEX`/`COUNT` position pair — the same two scalars the encode fold stamps,
-        # re-stamped here because a scan fact carries the decoder's facts and no encode position, and an index
-        # without its span count is a position no receipt reader can place.
         parts = tuple(_fragment(scan, content) for scan in scans)
         whole = (
             None
@@ -541,7 +481,7 @@ def _performed(op: MarkOp, /) -> Result[Block[RasterFact], MarkFault]:
         case MarkOp(tag="encode", encode=(content, symbology, band)):
             return _encode(content, symbology, band)
         case MarkOp(tag="decode", decode=(source, scope)):
-            return scope.scan(source).map(Block.singleton)  # one scan reads one source; its symbols ride the score band
+            return scope.scan(source).map(Block.singleton)
         case MarkOp(tag="verify", verify=(content, symbology, band, render)):
             return _verify(content, symbology, band, render)
         case _ as unreachable:
@@ -551,9 +491,9 @@ def _performed(op: MarkOp, /) -> Result[Block[RasterFact], MarkFault]:
 def _trait(op: MarkOp, /) -> KernelTrait:
     match op:
         case MarkOp(tag="decode", decode=(source, _)):
-            return KernelTrait.HOSTILE if source.tag == "raster" else KernelTrait.RELEASING  # untrusted bytes earn crash isolation
+            return KernelTrait.HOSTILE if source.tag == "raster" else KernelTrait.RELEASING
         case MarkOp(tag="verify"):
-            return KernelTrait.HOSTILE  # pathops + resvg + zxing native CPU round trip
+            return KernelTrait.HOSTILE
         case _:
             return KernelTrait.RELEASING
 
@@ -574,22 +514,15 @@ def _normalized(ops: MarkOp | Iterable[MarkOp], /) -> tuple[MarkOp, ...]:
 
 
 def _mark_bbox(svg: bytes, /) -> Result[tuple[float, float, float, float], MarkFault]:
-    # geometry rides the graphic/vector/path substrate — its memoized `_parsed` core serves repeated bounds reads
-    # over the same bytes, never a second local SVG.parse of the generated mark.
     return bounds(svg).map_error(lambda fault: MarkFault(geometry=str(fault)))
 
 
 def _label(name: str, ops: int, op: int, member: int, members: int, /) -> str:
-    # one stable leaf label per ADDRESSED member: a lone mark keeps the bare name, a multi-mark set indexes by
-    # request, and a structured-append span appends its member ordinal, so no two leaves collide in the tree.
     stem = name if ops == 1 else f"{name}-{op}"
     return stem if members == 1 else f"{stem}-{member}"
 
 
 def _layer(name: str, count: int, index: int, encode: tuple[MarkContent, Symbology, frozendict[str, object]], /) -> Result[Block[LayerNode], MarkFault]:
-    # ONE leaf per addressed member — a structured-append span lands every member on the sheet, never a first
-    # symbol standing for the whole payload. `_mark_bbox` gates each member's SVG well-formedness before the
-    # fragment lands on a layer; the box value itself stays with the placing consumer.
     content, symbology, band = encode
     return _encode(content, symbology, band).bind(
         lambda members: traverse(
@@ -614,11 +547,6 @@ class Mark(Struct, frozen=True):
         return Block.of_seq(handle.return_value for handle in handles)
 
     def emit(self, lane: LanePolicy, /) -> Iterable[ArtifactWork]:
-        # ONE node per ADDRESSED member: a lone symbol mints one node and a structured-append span mints one per
-        # member, since each member is its own scannable product carrying its own artifact identity. The pre-run
-        # key spans `(request, member)` so elision stays per-member — a re-issued sheet re-renders only the rows
-        # that changed — and a malformed mark faults to its own node, never the sheet; a decode row is data and
-        # never an artifact.
         return tuple(
             ArtifactWork(
                 key=ContentIdentity.key(f"mark-{op.tag}", _CANON.encode((op.encode if op.tag == "encode" else op.verify, member))),
@@ -635,11 +563,6 @@ class Mark(Struct, frozen=True):
     @staticmethod
     async def _emit(op: MarkOp, member: int, lane: LanePolicy, /) -> RuntimeRail[ArtifactReceipt]:
         fact = await lane.offload(Kernel.of(_performed, _trait(op)), op)
-        # this node addresses exactly ONE member, and the receipt key is product identity over THAT member's
-        # emitted bytes — distinct from the pre-run `(request, member)` key the emit row minted. The `item` read is
-        # total by construction: `_arity` and `_segno`'s arity refusal both key on the same declared
-        # `symbol_count`. A member's `MarkFault` crosses WHOLE on `BoundaryFault.domain` — `Work[ArtifactReceipt]` forbids an
-        # inner Result.
         return fact.bind(
             lambda res: res.map(lambda members: members.item(member))
             .map(lambda f: ArtifactReceipt.Preview(ContentIdentity.key(f"mark-{op.tag}", f.data), f.width, f.height, len(f.data), f.score))

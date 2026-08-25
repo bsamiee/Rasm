@@ -23,7 +23,7 @@ Rebuilding composes each floor from its owner: the crossing lattice from `Inters
 - Boundary: ONE `ArrangementOp` `[Union]` owns all three modalities, keep and flip DERIVING from the one `Region` column; composition stops at the public seams — `Tessellation.Build`'s op and `Triangles` projection, never the interior `SimplexStore` or a page-local triangulator, and ONE batched `Spatial/index` `Winding` per operand, the 2D ring parity being the overlay's own exact classification owned here; the managed arrangement is the correctness rail, the native route a scale companion only, and the native extraction feeds `ToSpace` with NO re-weld — a tolerance-grid weld over the engine's topologically-welded output destroys the guaranteed-manifold property the route buys; `Apply` is total over the `Fin` rail; `CellComplex` retains classification un-welded while the welded boolean is terminal; shells express disconnection LANE-UNIFORMLY, the managed rail labelling components through the one admitted graph-walk owner and never a page-local flood fill, and governance is one band both routes read — the token gates the managed stage walks and the engine's own context alike, so abandonment never forks into two vocabularies.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -43,7 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Meshing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class BooleanOp {
     public static readonly BooleanOp Union        = new(0, native: 0, static (inA, inB) => inA || inB);
@@ -56,8 +56,6 @@ public sealed partial class BooleanOp {
     [UseDelegateFromConstructor]
     public partial bool Region(bool inA, bool inB);
 
-    // Keep = region-flip ACROSS the patch, so a dangling artifact with equal region on both sides vanishes
-    // without a per-op survivor table; Flip = region on the front side.
     public bool Keep(bool fromA, bool insideOther) =>
         fromA ? Region(true, insideOther) != Region(false, insideOther)
               : Region(insideOther, true) != Region(insideOther, false);
@@ -74,9 +72,6 @@ public sealed partial class BooleanRoute {
     public static readonly BooleanRoute Native  = new("native");
 }
 
-// The admitted native engines, one row each — the kernel's `NativeAssetMissing` names a row, never free text,
-// so a per-RID asset gap reports an engine a consumer can switch on. Package admission is `RULINGS [01]`'s, and
-// a rejected engine never gains a row here.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -95,10 +90,6 @@ public sealed partial class PolygonFill {
     public partial bool Inside(int winding);
 }
 
-// Each KEY is the CrossLattice side ordinal, so the row selects its own lattice column, its own subdivision
-// stage, and — through Facing — the OTHER operand's face on a cut row. The stage vocabulary is the fault
-// owner's AbandonWitness: its row is exactly what in-process diagnostics render, so a page-local keyless roster
-// carrying that text as a hand column gave one reason two homes and let two rows share it.
 [SmartEnum<int>]
 internal sealed partial class Operand {
     public static readonly Operand A = new(key: 0, stage: AbandonWitness.SubdivideA, static cut => cut.FaceB);
@@ -110,14 +101,7 @@ internal sealed partial class Operand {
     public partial int Facing((int A, int B, int FaceA, int FaceB) cut);
 }
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
-// BetaSquared is beta^2 for the Barill-Dickson-Schmidt-Levin-Jacobson fast-winding accuracy parameter at
-// beta = 2 (Barill et al. 2018, sec. 4): the far-field expansion error it bounds sits below the half-integer
-// margin WindingThreshold classifies on, so raising it buys accuracy the threshold cannot use and lowering it
-// puts the expansion error inside that margin. The probe nudge is NOT a column: a distance a consumer can
-// override is a Context read by branch law, and Offset is the lane minted for it — an absolute 1e-7 leaves the
-// probe inside a building-scale patch's own float noise and throws it through the neighbouring shell at
-// jewellery scale.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record ArrangementPolicy(
     PositiveMagnitude BetaSquared, UnitInterval WindingThreshold,
     Dimension ScaleCeiling, TessellationPolicy Substrate, BuildPolicy Broad, IntersectPolicy Narrow,
@@ -132,23 +116,14 @@ public sealed record ArrangementPolicy(
 
     public bool BeyondManaged(long operandFaces) => operandFaces > ScaleCeiling.Value;
 
-    // S3 → S1 governance descends here: an Eff<Env, T> pipeline destructures its ambient Env at the seam and
-    // seats the two values HERE, so no Analysis type enters Meshing and the strata never invert.
     public ArrangementPolicy Governed(Option<IProgress<double>> progress, CancellationToken cancel) =>
         this with { Progress = progress, Cancel = cancel };
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ManifoldEvidence(int Genus, int Vertices, int Edges, int Triangles, double Volume, double SurfaceArea);
 
-// Widths cross the boundary UNEVENLY and are kept, not normalized: the seated read is int (a non-original
-// reads −1) while every run buffer is uint32 and the face-id buffer uint64. Runs sort by original id and
-// cover the result whole, so the face→operand join is one window lookup over the ONE stored correspondence.
 public sealed record ManifoldProvenance(int[] OperandIds, uint[] RunIds, (int From, int To)[] RunFaces, ulong[] FaceIds) {
-    // Runs sort by original id and cover the result whole, so the face-to-run step is a BINARY SEARCH over the
-    // run-start column and the run-to-operand step one frozen read. Bim's reconstruction join calls this once
-    // per output triangle, where the paired linear scans it replaces cost O(F x R x |operands|) for the same
-    // answer the ordering already contains.
     readonly int[] starts = [.. RunFaces.Select(static window => window.From)];
     readonly Lazy<FrozenDictionary<uint, int>> operandOfRun = new(() =>
         RunIds.Index()
@@ -166,16 +141,11 @@ public sealed record ManifoldProvenance(int[] OperandIds, uint[] RunIds, (int Fr
     }
 }
 
-// Census columns are LONG because the gate that feeds them already sums operand faces as long: the scale route
-// exists precisely for meshes past a million faces, so narrowing the tally at publication saturates a number
-// no producer measured.
 public sealed record BooleanReceipt(
     long Classified, long Kept, long Welded, BooleanRoute Route, Option<int> ShellCount = default,
     Option<ManifoldEvidence> Native = default, Option<ManifoldProvenance> Source = default) {
     public static readonly BooleanReceipt Empty = new(0L, 0L, 0L, BooleanRoute.Managed);
 
-    // Census columns SUM under the pairwise fold; a batch is one leg, so the evidence slots stay the last
-    // leg's and the three optional slots merge by "last measurer wins", matching Route.
     public static BooleanReceipt operator +(BooleanReceipt left, BooleanReceipt right) =>
         new(left.Classified + right.Classified, left.Kept + right.Kept, left.Welded + right.Welded,
             right.Route, Last(left.ShellCount, right.ShellCount), Last(left.Native, right.Native),
@@ -186,7 +156,6 @@ public sealed record BooleanReceipt(
 
 public sealed record CellSet((Point3d A, Point3d B, Point3d C)[] Patches, bool[] FromA, bool[] InsideA, bool[] InsideB);
 
-// Single-writer patch arena under the Meshing/edit#ARENA_LAW contract; Freeze() emits the one CellSet.
 public sealed class PatchStore {
     (Point3d A, Point3d B, Point3d C)[] patches;
     bool[] fromA, insideA, insideB;
@@ -219,7 +188,6 @@ public sealed class PatchStore {
         return n.IsTiny() ? centroid : centroid + (offset * (n / n.Length));
     }
 
-    // ONE probe centroid for both classification paths — the volumetric patch probe and the overlay's own.
     internal static Point3d Centroid(Point3d a, Point3d b, Point3d c) =>
         new((a.X + b.X + c.X) / 3.0, (a.Y + b.Y + c.Y) / 3.0, (a.Z + b.Z + c.Z) / 3.0);
 
@@ -235,7 +203,7 @@ public sealed class PatchStore {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ArrangementOp {
     private ArrangementOp() { }
@@ -264,10 +232,6 @@ public static class Arrangement {
             cellComplex:   c => Volumetric(Seq(c.A, c.B), None, c.Policy, site));
     }
 
-    // Managed rail folds the exact pairwise arrangement left-to-right — Difference associates as
-    // first-minus-rest, Xor as pairwise symmetric difference — and decomposes the TERMINAL result alone: an
-    // intermediate leg threads the whole welded soup, severed components and all, because the next operand
-    // acts on every one of them. Route decides once for the whole request off the combined census.
     static Fin<ArrangementResult> Volumetric(Seq<MeshSpace> operands, Option<BooleanOp> keep, ArrangementPolicy policy, Op key) =>
         Gate(operands, policy).Bind(route => (Native: route == BooleanRoute.Native, keep.Case) switch {
             (true, BooleanOp op) => ManifoldGate.Boolean(operands, op, operands.Head.Tolerance, policy, key),
@@ -305,17 +269,11 @@ public static class Arrangement {
     }
 
     // --- [GOVERNANCE]
-    // Stages OPEN by publishing their declared fraction; the bare token read repeats per face inside the walk
-    // where re-publishing would flood the sink. Below the Eff floor the token and the sink ride
-    // ArrangementPolicy, which every fold static already threads.
     static Option<Error> Opened(AbandonWitness stage, ArrangementPolicy policy) {
         stage.Done.Iter(done => policy.Progress.Iter(sink => sink.Report(done)));
         return Cancelled(stage, policy);
     }
 
-    // Progress on the fault is the fraction the abandoning stage MEASURED: a managed stage's own declared Done,
-    // the engine's context read on the native lane. A row declaring no fraction is the native one, which lowers
-    // its abandonment at its own site, so the Option arm is total rather than defaulted.
     static Option<Error> Cancelled(AbandonWitness stage, ArrangementPolicy policy) =>
         policy.Cancel.IsCancellationRequested
             ? stage.Done.Map(done => new GeometryFault.RunAbandoned(Kind.Mesh, UnitInterval.Create(value: done), stage))
@@ -340,8 +298,6 @@ public static class Arrangement {
             .TraverseM(identity).As().Map(static shells => shells.Strict());
     }
 
-    // One arena per bucket, frozen with NO second weld: the soup already welded, and a second tolerance grid
-    // would move the vertices the first pass settled.
     static Fin<MeshSpace> Shell(MeshEdit welded, List<int> bucket, Context context, ArrangementPolicy policy, Op key) {
         Dictionary<int, int> dense = new();
         List<Point3d> vertices = new();
@@ -389,8 +345,6 @@ public static class Arrangement {
         return Fin.Succ(unit);
     }
 
-    // Coplanar sub-segments carry the PERPENDICULAR plane (S, T, S + ê) through their carrier edge — the
-    // coplanar face's own plane would degenerate the delaunay recovery re-anchor.
     static Fin<Unit> FaceBuild(PatchStore store, CrossLattice lattice, (int A, int B, int FaceA, int FaceB)[] cuts, (int A, int B, int FaceA, int FaceB, int CarrierU, int CarrierV, int CarrierSide)[] flush, Operand side, (Point3d A, Point3d B, Point3d C) face, int faceId, MeshEdit soup, MeshEdit other, ArrangementPolicy policy, Op key) {
         List<Implicit> rows = new() { new(face.A), new(face.B), new(face.C) };
         Dictionary<CrossKey, int> slotOf = new();
@@ -414,9 +368,6 @@ public static class Arrangement {
             }
             return Tessellation.Build(
                     new TessellationOp.Points(TessellationKind.Triangulation, new Arr<Implicit>([.. rows]), toSeq(conforms), policy.Substrate, plane, Some((face.A, face.B, face.C))), key)
-                // Substrate failure keeps BOTH causes on the rail: this face's witness leads and the
-                // substrate's own typed case rides behind it under the Error monoid, so a consumer still tells
-                // a spent Steiner budget from a collinear input instead of reading one code for two faults.
                 .MapFail(fail => new GeometryFault.DegenerateArrangement(faceId, ArrangementWitness.Substrate) + fail)
                 .Bind(t => t.Triangles(key))
                 .Map(tris => {
@@ -426,8 +377,6 @@ public static class Arrangement {
         });
     }
 
-    // ONE batched Winding query per operand over every patch probe, so the stage reads the token once at its
-    // head: the walk it governs is two library calls, not a growable loop.
     static Fin<PatchStore> Classify(PatchStore store, MeshEdit ea, MeshEdit eb, Context context, ArrangementPolicy policy, Op key) {
         if (Opened(AbandonWitness.Classify, policy).Case is Error head) { return Fin.Fail<PatchStore>(head); }
         Point3d[] probes = new Point3d[store.Count];
@@ -489,7 +438,7 @@ public static class Arrangement {
             if (ring.Count < 4 || !ring.IsClosed) {
                 return Fin.Fail<ArrangementResult>(new GeometryFault.DegenerateInput(Kind.Polyline, ordinal, "open or degenerate ring"));
             }
-            for (int v = 0; v < ring.Count - 1; v++) {  // rings arrive RAW — this is their one admission seam
+            for (int v = 0; v < ring.Count - 1; v++) {
                 if (!ValidityClaim.Finite(ring[v])) { return Fin.Fail<ArrangementResult>(new GeometryFault.DegenerateInput(Kind.Polyline, ordinal, "non-finite ring vertex")); }
             }
             int baseAt = rows.Count;
@@ -508,16 +457,11 @@ public static class Arrangement {
                         op.Policy.Fill.Inside(winding: Winding(probe, op.A, op.Plane)),
                         op.Policy.Fill.Inside(winding: Winding(probe, op.B, op.Plane)));
                 }
-                // Welded 0 is STRUCTURAL, never an omission: the overlay chains rim edges and runs no weld
-                // pass, and its result is loops, so ShellCount stays None over a census 2D has no shape for.
                 return BoundaryLoops(tris, region).Map(loops => (ArrangementResult)new ArrangementResult.Overlay(
                     loops, new BooleanReceipt(tris.Faces.Count, region.Count(static r => r), 0, BooleanRoute.Managed)));
             });
     }
 
-    // Exact SIGNED winding count: the +U half-line counts edge (a,b) iff its endpoints straddle V HALF-OPEN
-    // (a Zero endpoint counts with the non-negative side, so an on-ray vertex neither double-counts nor
-    // vanishes) at an exact +U side sign; +1 up, -1 down. The count leaves RAW for the PolygonFill row.
     static int Winding(Point3d probe, Seq<Polyline> rings, Axis plane) {
         int v = plane.V;
         int count = 0;
@@ -536,13 +480,6 @@ public static class Arrangement {
     }
 
     // --- [RIM]
-    // Rim of the kept region: kept/unkept edge pairs cancel in opposite orientation, so the survivors are the
-    // oriented boundary. Corners are the substrate's OWN ordinals — Triangles publishes corners beside face
-    // indices — so a shared corner is one ordinal by construction and no re-intern, exact or otherwise, stands
-    // between the projection and the rim. Decomposition is the folder's ONE oriented-edge chain walk, the same
-    // owner the crossing lattice reads, so a rim loop and a section loop are one algorithm rather than two
-    // spellings of one result type; the rim is BALANCED at every vertex (each kept triangle contributes one in
-    // and one out per corner), which is exactly the degree cap that walk admits on.
     static Fin<Seq<Chain>> BoundaryLoops((Arr<Point3d> Corners, Arr<(int A, int B, int C)> Faces) tris, bool[] region) {
         HashSet<(int From, int To)> rim = new();
         for (int i = 0; i < tris.Faces.Count; i++) {
@@ -556,14 +493,8 @@ public static class Arrangement {
     }
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// Tier-3 scale companion (api-manifold.md): capsule-owned manifoldc P/Invoke. Booleans are LAZY CSG
-// upstream, so manifold_status is the eager read surfacing a propagated rejection BEFORE extraction; every
-// alloc pairs with delete on every exit — the memory law, the platform-forced statement seam. Engine output
-// arrives TOPOLOGICALLY WELDED, so extraction feeds ToSpace with no weld pass.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 file static partial class ManifoldGate {
-    // Each alloc_* row mints malloc-backed storage, so each pairs with its delete_* twin and never with the
-    // destruct_* form the catalog also rosters — that path is for caller-owned storage this gate never takes.
     [LibraryImport("manifoldc")] private static partial nint manifold_alloc_meshgl64();
     [LibraryImport("manifoldc")] private static partial nint manifold_alloc_manifold();
     [LibraryImport("manifoldc")] private static partial nint manifold_alloc_manifold_vec();
@@ -612,11 +543,6 @@ file static partial class ManifoldGate {
 
     static bool Free(nint handle) { NativeLibrary.Free(handle); return true; }
 
-    // Context does NOT ride the operands: manifold_batch_boolean is a DEFERRED op, so it ignores any
-    // attached context and returns a result carrying none — an operand-bound context observes nothing. The
-    // context therefore attaches to the RESULT (manifold_with_context returns a NEW handle both generations
-    // delete) and manifold_status on that copy is the single eager force, the one point where Cancel reaches the
-    // evaluation and progress has anything to report.
     internal static Fin<ArrangementResult> Boolean(Seq<MeshSpace> operands, BooleanOp op, Context context, ArrangementPolicy policy, Op key) {
         nint host = manifold_execution_context(manifold_alloc_execution_context());
         using CancellationTokenRegistration cancel = policy.Cancel.Register(() => manifold_execution_context_cancel(host));
@@ -629,9 +555,6 @@ file static partial class ManifoldGate {
             for (int i = 0; i < operands.Count; i++) {
                 using MeshEdit soup = MeshEdit.Of(operands[i]);
                 raised[i] = Raise(soup);
-                // The engine's status is MULTI-VALUED and travels with the verdict: a non-manifold operand, a
-                // self-intersecting one, and an out-of-memory refusal are three answers wearing one code once
-                // the number is discarded.
                 int raisedStatus = manifold_status(raised[i]);
                 if (raisedStatus != 0) {
                     return Fin.Fail<ArrangementResult>(new GeometryFault.DegenerateArrangement(i, ArrangementWitness.OperandRejected, Some(raisedStatus)));
@@ -645,7 +568,6 @@ file static partial class ManifoldGate {
             int status = manifold_status(observed);
             policy.Progress.Iter(sink => sink.Report(manifold_execution_context_progress(host)));
             return status switch {
-                // Welded 0 is a MEASURED zero: the engine welded topologically and the managed weld never runs.
                 0 => Shells(observed, context, policy, key)
                         .Map(shells => (Shells: shells, Evidence: Evidence(observed), Source: Provenance(observed, seated)))
                         .Map(read => (ArrangementResult)new ArrangementResult.Boolean(read.Shells.Solids, new BooleanReceipt(
@@ -665,16 +587,10 @@ file static partial class ManifoldGate {
         }
     }
 
-    // Guarantee reads run off the FORCED handle, eager against an already-read status, so laziness is
-    // undisturbed and the evidence is the engine's own rather than re-derived from the extraction census.
     static ManifoldEvidence Evidence(nint result) =>
         new(Genus: manifold_genus(result), Vertices: (int)manifold_num_vert(result), Edges: (int)manifold_num_edge(result),
             Triangles: (int)manifold_num_tri(result), Volume: manifold_volume(result), SurfaceArea: manifold_surface_area(result));
 
-    // Provenance rides the RESULT mesh, never a per-shell extraction: runs attribute the whole boolean output
-    // while a decomposed shell renumbers its own triangles. run_index is num_run + 1 long and its values
-    // index FLAT tri_verts, every one divisible by three, so the triangle window is the exact /3 — reading a
-    // raw bound as a triangle index is off by that factor at every run.
     static ManifoldProvenance Provenance(nint result, int[] seated) {
         nint mesh = manifold_get_meshgl64(manifold_alloc_meshgl64(), result);
         try {
@@ -692,8 +608,6 @@ file static partial class ManifoldGate {
         finally { manifold_delete_meshgl64(mesh); }
     }
 
-    // This vector is its own allocation and releases through its own delete; every operand handle still dies
-    // on the caller's ladder.
     static nint BatchBoolean(nint[] raised, int op) {
         nint vec = manifold_manifold_vec(manifold_alloc_manifold_vec(), (nuint)raised.Length);
         try {
@@ -703,14 +617,11 @@ file static partial class ManifoldGate {
         finally { manifold_delete_manifold_vec(vec); }
     }
 
-    // Xor's decomposition consumes both intermediates here, so the caller's disposal ladder never sees them.
     static nint Subtract(nint left, nint right) {
         try { return manifold_boolean(manifold_alloc_manifold(), left, right, BooleanOp.Difference.Native); }
         finally { manifold_delete_manifold(left); manifold_delete_manifold(right); }
     }
 
-    // Vector length IS the shell census; the traverse forces inside the borrow, so the vector outlives
-    // every read it feeds.
     static Fin<(Seq<MeshSpace> Solids, int ShellCount)> Shells(nint result, Context context, ArrangementPolicy policy, Op key) {
         nint vec = manifold_decompose(manifold_alloc_manifold_vec(), result);
         try {
@@ -721,9 +632,6 @@ file static partial class ManifoldGate {
         finally { manifold_delete_manifold_vec(vec); }
     }
 
-    // Raise CLOSES on manifold_as_original so the operand becomes its own original and the result's runs
-    // name an operand the kernel declared; without that seat the output ids are the engine's own and
-    // attribute to nothing. as_original returns a COPY, so the pre-seat generation dies here.
     static nint Raise(MeshEdit soup) {
         double[] props = new double[3 * soup.VertexCount];
         for (int v = 0; v < soup.VertexCount; v++) { (props[3 * v], props[(3 * v) + 1], props[(3 * v) + 2]) = (soup.X[v], soup.Y[v], soup.Z[v]); }

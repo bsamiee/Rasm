@@ -24,7 +24,7 @@ Stored `Func<…, bool>` query filters are banned because a delegate is opaque t
 - Boundary: this page is host-neutral vocabulary and projection; graph walks, store lowering, and UI compilation stay with consumers. `Selection<TKey>` carries no model scope because scope belongs to the query input. `PredicateKey` is the sole durable byte projection, and `MatchVerdict` remains distinct from host verdict vocabularies.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -43,11 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Element.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// WalkDepth bounds the transitive walk the Closure arm and a store k-ring both carry: 0 is the seed set itself, Whole the
-// walk-to-fixpoint sentinel row (int.MaxValue — stated, never spelled at a call site). ONE declaration corpus-wide:
-// Persistence Query/lane declares a same-named twin today and recomposes THIS owner at W3, its SelectionFault.Depth
-// band transferring to a wrapper over this admission (consumer-breaks row).
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<int>]
 [ValidationError]
 public readonly partial struct WalkDepth {
@@ -58,8 +54,6 @@ public readonly partial struct WalkDepth {
    : new ValidationError("walk depth must be non-negative");
 }
 
-// MatchVerdict carries faults: a malformed arm is a REFUSAL that survives combination AND negation, where a plain
-// bool silently delivers or silently drops. Named past the Verdict collisions (GH canvas, Rhino SeatVerdict).
 public readonly record struct MatchVerdict(bool Holds, Seq<Error> Faults) {
  public static readonly MatchVerdict Pass = new(true, Seq<Error>());
  public static MatchVerdict Of(bool holds) => new(holds, Seq<Error>());
@@ -68,13 +62,9 @@ public readonly record struct MatchVerdict(bool Holds, Seq<Error> Faults) {
  public MatchVerdict And(MatchVerdict other) => new(Holds && other.Holds, Faults + other.Faults);
  public MatchVerdict Or(MatchVerdict other) => new(Holds || other.Holds, Faults + other.Faults);
 
- // Negate flips only a CLEAN verdict: a faulted arm stays non-matching through any surrounding Not (fail-closed),
- // because "the malformed restriction did not hold" must never read as "its negation delivers".
  public MatchVerdict Negate() => new(!Holds && Faults.IsEmpty, Faults);
 }
 
-// RangeBound admits inclusively or exclusively over a dimensioned measure: a bound only ADMITS a candidate sharing its dimension —
-// a cross-dimension compare answers false rather than comparing raw magnitudes that mean nothing together.
 [Union]
 public abstract partial record RangeBound {
  private RangeBound() { }
@@ -94,9 +84,6 @@ public abstract partial record RangeBound {
   inclusive: static (value, bound) => SameDimension(value, bound.Value) && value.Si <= bound.Value.Si,
   exclusive: static (value, bound) => SameDimension(value, bound.Value) && value.Si < bound.Value.Si);
 
- // Canonical identity writes through the ONE dimensioned writer (quantity#MEASURE_STAT MeasureCanon — type token +
- // SI magnitude + 7-vector + band): a bare-magnitude write minted byte-identical keys for `Length >= 5` and
- // `Mass >= 5`, and generated-total dispatch replaces the hand ternary a third case would silently misfile.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
   state: w,
   inclusive: static (wr, b) => { wr.Ordinal(0).Measure(b.Value); },
@@ -105,30 +92,13 @@ public abstract partial record RangeBound {
  private static bool SameDimension(MeasureValue left, MeasureValue right) => left.Dimension == right.Dimension;
 }
 
-// ValueMatch types the value restriction — the IDS ValueConstraint facet family lowered onto the seam
-// PropertyValue, with the Prefix arm the AppUi search consumer proves. Matches carries the ONE evaluation law:
-// a multi-valued candidate (enumerated/list) SPREADS recursively before the restriction decides (the IDS any-of
-// law — a Pattern never false-matches across a joined-list render, an Exact reaches the member); Present decides
-// on EXISTENCE and short-circuits ahead of the spread; numeric equality decides at the IDS relative tolerance in
-// SI value space — a kernel `Tolerance` minted on the `Relative` lane, never a bare double, a bit compare, or a
-// rendered-string compare.
 [Union]
 public abstract partial record ValueMatch {
- // The IDS relative value-space tolerance ELECTED onto the kernel owner (the last bare tolerance double at this
- // seam — Bim's twin deleted with its page): the lane is `ToleranceLane.Relative` (Band.Ratio, dimensionless) —
- // a RELATIVE compare in SI value space, never a model-scaled distance — so no `Context` threads here and the
- // 1e-6 figure is the IDS standard's OWN (provenance this facet family holds, per the kernel standards-figure
- // law) and a declaration-total value already proven inside the Relative lane's band. A query-bound predicate is
- // context-free by construction; a consumer wanting a project-tightened compare overrides the LANE in its own
- // Context and never this seat.
  private static readonly Tolerance RealTolerance = new(ToleranceLane.Relative, 1e-6);
 
  private ValueMatch() { }
 
  public sealed record Present : ValueMatch;
- // Exact carries a TYPED PropertyValue: equality is the value family's own (an Enumerated, List, Table, or Complex
- // candidate compares structurally), with the Measure pair alone deciding at tolerance in SI value space — a
- // rendered-string ordinal compare collapsed distinct typed evidence sharing one spelling.
  public sealed record Exact(PropertyValue Value) : ValueMatch;
  public sealed record Prefix(string Value) : ValueMatch;
 
@@ -142,11 +112,6 @@ public abstract partial record ValueMatch {
      new Regex($@"\A(?:{pattern})\z", RegexOptions.NonBacktracking | RegexOptions.CultureInvariant))))
     .Map(_ => (ValueMatch)new Pattern(expression));
 
-  // ONE compile site behind the admission (the Bim CompiledPatterns law carried whole): ANCHORED whole-value
-  // (\A(?:…)\z — an IDS/XSD pattern facet is a whole-value match, never a substring), NonBacktracking (linear-time,
-  // so a hostile foreign pattern can never ReDoS-hang the fold and no exception-shaped timeout throws out of a bool
-  // fold), CultureInvariant, cached per expression so Matches never recompiles per candidate. Of is the only
-  // constructor and populates the cache before minting; every held Pattern therefore owns this total read.
   private static readonly ConcurrentDictionary<string, Regex> CompiledPatterns = new();
 
   internal static Regex Compiled(string expression) => CompiledPatterns[expression];
@@ -155,14 +120,10 @@ public abstract partial record ValueMatch {
  public sealed record Range(Option<RangeBound> Lower, Option<RangeBound> Upper) : ValueMatch;
  public sealed record OneOf(Seq<string> Allowed) : ValueMatch;
  public sealed record Length(Option<int> Min, Option<int> Max) : ValueMatch;
- // xs:totalDigits / xs:fractionDigits over the canonical numeric rendering.
  public sealed record Digits(Option<int> Total, Option<int> Fraction) : ValueMatch;
 
  public static readonly ValueMatch Any = new Present();
 
- // Reaches classifies whether this restriction can MEANINGFULLY test a value's case — the picker gate a UI reads before offering an
- // operator, so an unsatisfiable term is unbuildable rather than silently false: Range reaches dimensioned and
- // numeric cases, the text facets reach the rendered cases, and the existence/identity facets reach every case.
  public bool Reaches(PropertyValue value) => Switch(
   state: value,
   present: static (_, _) => true,
@@ -174,19 +135,14 @@ public abstract partial record ValueMatch {
   length: static (v, _) => v is not (PropertyValue.Complex or PropertyValue.Table or PropertyValue.Reference),
   digits: static (v, _) => v is PropertyValue.Measure);
 
- // Matches is the ONE evaluation entry per restriction against one seam value.
  public bool Matches(PropertyValue value) => this is Present || Spread(value).Exists(Decide);
 
- // Spread flattens enumerated/list candidates to members RECURSIVELY (a list nested in an enumerated selection
- // flattens through both); every other case is its own single candidate.
  private static Seq<PropertyValue> Spread(PropertyValue value) => value switch {
   PropertyValue.Enumerated e => e.Selected.Bind(Spread),
   PropertyValue.List l => l.Values.Bind(Spread),
   _ => Seq(value),
  };
 
- // Decide dispatches generated-total (no catch-all over the owned family — Present is its own arm even though the Matches
- // short-circuit makes it unreachable here, the generator-contract totality proof).
  private bool Decide(PropertyValue candidate) => Switch(
   state: candidate,
   present: static (_, _) => true,
@@ -197,17 +153,11 @@ public abstract partial record ValueMatch {
   pattern: static (c, m) => Pattern.Compiled(m.Expression).IsMatch(c.Render()),
   range: static (c, m) => c is PropertyValue.Measure measure
    && m.Lower.ForAll(b => b.AllowsLower(measure.Value)) && m.Upper.ForAll(b => b.AllowsUpper(measure.Value)),
-  // XSD enumeration equality is VALUE-SPACE equality: a Measure candidate parses each allowed literal invariant and
-  // compares SI magnitudes at tolerance; every other candidate compares its Render ordinal, case-SENSITIVE (the
-  // xbim IsSatisfiedBy(ignoreCase: false) default — an ignore-case fold admits a token the schema rejects).
   oneOf: static (c, m) => c is PropertyValue.Measure { Value: var mv }
    ? m.Allowed.Exists(a => double.TryParse(a, NumberStyles.Float, CultureInfo.InvariantCulture, out double d) && Real(d, mv.Si))
    : m.Allowed.Exists(a => string.Equals(a, c.Render(), StringComparison.Ordinal)),
   length: static (c, m) => c.Render().Length is int chars
    && m.Min.ForAll(floor => chars >= floor) && m.Max.ForAll(ceiling => chars <= ceiling),
-  // XSD totalDigits/fractionDigits decide over the CANONICAL numeric rendering — the "R" invariant of the SI
-  // magnitude, sign excluded (Math.Abs), total counting SIGNIFICANT digits (0.123 carries three, not four) — with a
-  // non-measure candidate and a scientific rendering (magnitude past any digits facet) never satisfying.
   digits: static (c, m) => c is PropertyValue.Measure measure
    && Math.Abs(measure.Value.Si).ToString("R", CultureInfo.InvariantCulture) is var text
    && !text.AsSpan().ContainsAny('E', 'e')
@@ -236,11 +186,6 @@ public abstract partial record ValueMatch {
   });
 }
 
-// Predicate<TLeaf> closes the ONE boolean algebra over ANY leaf family. Open is the NAMED vacuous conjunction; Closure the transitive
-// walk no boolean combinator derives (Persistence's recursive CTE, Bim's containment descent, an H3 k-ring — the
-// WALK is the consumer's, the ARM is this owner's, and the answering fold must be a GENUINE bounded transitive
-// walk under the Persistence evaluator law, never an opaque-leaf pass-through). The n-ary combinators coalesce, so
-// chained conjunction stays one All and a byte projection carries the flat operand run.
 [Union]
 public abstract partial record Predicate<TLeaf> where TLeaf : notnull {
  private Predicate() { }
@@ -261,9 +206,6 @@ public abstract partial record Predicate<TLeaf> where TLeaf : notnull {
 
  public Predicate<TLeaf> AndNot(Predicate<TLeaf> other) => And(new Not(other));
 
- // Holds runs the ONE structural fold: the caller supplies the leaf verdict and the closure verdict (each consumer owns its
- // walk), All folds And (empty = Pass, the vacuous conjunction Open exists to name), Any folds Or (empty holds
- // nothing), Not negates fail-closed with faults RETAINED.
  public MatchVerdict Holds(Func<TLeaf, MatchVerdict> leaf, Func<Closure, MatchVerdict> closure) => Switch(
   leaf: l => leaf(l.Value),
   all: all => all.Operands.Fold(MatchVerdict.Pass, (acc, p) => acc.And(p.Holds(leaf, closure))),
@@ -272,8 +214,6 @@ public abstract partial record Predicate<TLeaf> where TLeaf : notnull {
   closure: closure);
 }
 
-// NodeMatch carries an exact join or a nested pattern — the recursion carrier a topological arm (composed-of, connected-to, voided-by)
-// takes so "connected to THIS node" and "connected to anything matching P" are one column.
 [Union]
 public abstract partial record NodeMatch<TLeaf> where TLeaf : notnull {
  private NodeMatch() { }
@@ -282,11 +222,6 @@ public abstract partial record NodeMatch<TLeaf> where TLeaf : notnull {
  public sealed record Where(Predicate<TLeaf> Pattern) : NodeMatch<TLeaf>;
 }
 
-// ElementLeaf closes the Element-payload arms: every payload is a vocabulary THIS folder declares, so the family seats
-// here and every peer reaches it. Bim's BimLeaf wraps it in one Element(...) arm (its IFC-schema arms ride
-// beside); Persistence and AppUi instantiate their own families over the same closure. ByClassification carries
-// its RESOLVED branch closure — hierarchy is bSDD-resolved at Rasm.Bim (E-E15), the seam carries identity never
-// ancestry, so the resolver hands the closed branch IN.
 [Union]
 public abstract partial record ElementLeaf {
  private ElementLeaf() { }
@@ -301,15 +236,8 @@ public abstract partial record ElementLeaf {
  public sealed record ByVoided(VoidKind SubKind, NodeMatch<ElementLeaf> Other) : ElementLeaf;
  public sealed record ByGeneric(WireName Wire, NodeMatch<ElementLeaf> Other) : ElementLeaf;
  public sealed record ByAssessment(Discipline Discipline, Option<AssessmentOutcome> Outcome) : ElementLeaf;
- // ByAssigned parameterizes the Assign-edge incidence on the AssignKind vocabulary (relation#EDGE_ALGEBRA): the
- // type-definition and group rows serve BimLeaf.OfType/InZone (the IDS partOf Grouped lowering at
- // Review/validation.md consumes the Group row), and a kind-suffixed sibling pair was the rejected arity twin.
  public sealed record ByAssigned(AssignKind Kind, NodeMatch<ElementLeaf> Other) : ElementLeaf;
 
- // CanonicalBytes is the Element-vocabulary leaf writer PredicateKey composes: each arm writes its frozen ordinal then its payload
- // through the owning vocabulary's own canonical spelling, so an ElementLeaf predicate keys with zero extra work
- // and a peer family owns exactly one writer of its own. Classification identity is the (System, Code, Edition)
- // TRIPLE, so the branch row writes all three — a two-column write collides two editions of one code.
  public void CanonicalBytes(CanonicalWriter w) => Switch(
   state: w,
   byKind: static (wr, m) => { wr.Ordinal(0).String(m.Kind.Key); },
@@ -333,11 +261,7 @@ public abstract partial record ElementLeaf {
   byAssigned: static (wr, m) => { wr.Ordinal(10).String(m.Kind.Key); PredicateKey.Node(m.Other, wr); });
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Selection<TKey> parameterizes the result identity: Bim instantiates NodeId (its graph-bound wrapper carries the
-// ElementGraph so Bake stays railed), Persistence its content SetKey (its wrapper carries scope + preimage).
-// Receipt is the STORE's certification of a store-answered selection; every set-algebra derivation answers None
-// because the derived set was never store-certified — a consumer wanting a key re-streams PredicateKey.Key.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public readonly partial record struct Selection<TKey>([property: OrderedEquality] Seq<TKey> Keys, Option<UInt128> Receipt) where TKey : notnull {
  public int Count => Keys.Count;
@@ -356,11 +280,7 @@ public readonly partial record struct Selection<TKey>([property: OrderedEquality
  }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// PredicateKey owns the canonical byte projection: the closure frames itself (frozen arm ordinals, count-framed
-// operand runs) and leaf bytes come from the instantiating family's own writer — so any predicate value streams into the
-// seam content key a replayable selection and a memo share, which is the structural proof a stored delegate filter
-// can never join. No generated predicate projection participates.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PredicateKey {
  public static ContentAddress Key<TLeaf>(Predicate<TLeaf> predicate, Action<TLeaf, CanonicalWriter> leaf) where TLeaf : notnull =>
   ContentAddress.Of((predicate, leaf), 0.0, static (state, w) => Write(state.predicate, state.leaf, w));
@@ -368,7 +288,6 @@ public static class PredicateKey {
  public static ContentAddress Key(Predicate<ElementLeaf> predicate) =>
   Key(predicate, static (value, w) => value.CanonicalBytes(w));
 
- // Write dispatches generated-total over the closed closure — no catch-all arm exists to absorb a sixth case silently.
  public static void Write<TLeaf>(Predicate<TLeaf> predicate, Action<TLeaf, CanonicalWriter> leaf, CanonicalWriter w) where TLeaf : notnull =>
   predicate.Switch(
    state: (Leaf: leaf, Writer: w),
@@ -378,7 +297,6 @@ public static class PredicateKey {
    not: static (s, not) => { s.Writer.Ordinal(3); Write(not.Operand, s.Leaf, s.Writer); },
    closure: static (s, walk) => { s.Writer.Ordinal(4).Ordinal(walk.Depth.Value); Write(walk.Seed, s.Leaf, s.Writer); });
 
- // Node writes the NodeMatch half the ElementLeaf topological arms compose.
  internal static void Node(NodeMatch<ElementLeaf> match, CanonicalWriter w) =>
   match.Switch(
    state: w,

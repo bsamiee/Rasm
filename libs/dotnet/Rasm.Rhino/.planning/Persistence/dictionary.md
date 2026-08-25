@@ -22,7 +22,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`, `[ValueObject<T>]`, `[ValidationError]`, `IDisallowDefaultValue`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Atom`, `Traverse`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Confirm`, `Op.AcceptValidated`, `Cell.Claim`, `Transition`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[DICTIONARY_VALUE_WRITE]`/`[DICTIONARY_VALUE_READ]`/`[DICTIONARY_LIFECYCLE]` — the `Set` overload roster, `SetEnumValue<T>`, `TryGetValue`, `Keys`, `Version`, `Name`, `ChangeSerialNumber`, `ParentUserData`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `GeometryBase.Duplicate`, `GeometryBase.GeometryEquals`, `MeshingParameters` copy constructor), RhinoCommon objects (`api-rhinocommon-objects.md` — `ObjRef` copy constructor, `ObjectId`, `GeometryComponentIndex`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Drawing;
 using System.Reflection;
@@ -33,7 +33,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct ArchiveKey : IDisallowDefaultValue {
@@ -54,15 +54,13 @@ public readonly partial struct ArchiveName : IDisallowDefaultValue {
     }
 }
 
-// Which KV boundary a payload row may cross. `ArchivableDictionary` and `PersistentSettings` publish overlapping but
-// unequal write vocabularies, so reach is a held set on the row rather than a nullable write delegate.
 [SmartEnum<string>]
 public sealed partial class ArchiveReach : ICapability<ArchiveReach> {
     public static readonly ArchiveReach Archive = new("archive");
     public static readonly ArchiveReach Settings = new("settings");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ArchiveSlot {
     public static readonly ArchiveSlot Bool = Scalar<bool>("bool", static (t, k, v) => t.Set(k, v));
@@ -104,10 +102,6 @@ public sealed partial class ArchiveSlot {
     public static readonly ArchiveSlot ShortSeq = Rows<short>("short-seq", static (t, k, v) => t.Set(k, v));
     public static readonly ArchiveSlot IntegerSeq = Rows<int>("integer-seq", static (t, k, v) => t.Set(k, v));
     public static readonly ArchiveSlot FloatSeq = Rows<float>("float-seq", static (t, k, v) => t.Set(k, v));
-    // Host one-way door: `ItemType.PlaneEquation` (38) publishes no `Set` overload, no typed getter, and no readable
-    // discriminant, so a loaded plane-equation entry reaches capture as a bare `double[]` indistinguishable from any
-    // other double array and re-mints under `ItemType.DoubleArray`. The row pins the typed carrier it CAN prove and
-    // names the kind change; a refusal here would reject every legitimate double sequence to guard an unreadable one.
     public static readonly ArchiveSlot DoubleSeq = Rows<double>("double-seq", static (t, k, v) => t.Set(k, v));
     public static readonly ArchiveSlot GuidSeq = Rows<Guid>("guid-seq", static (t, k, v) => t.Set(k, v));
     public static readonly ArchiveSlot TextSeq = Rows<string>("text-seq", static (t, k, v) => t.Set(k, v));
@@ -143,8 +137,6 @@ public sealed partial class ArchiveSlot {
         static (left, right) => left.Equals(right),
         static (t, k, v) => t.Set(k, v));
 
-    // Settings-only rows: `PersistentSettings` writes each of these typed while `ArchivableDictionary` publishes no
-    // `Set` overload for any of them, so the archive boundary refuses through the reach column, not through a probe.
     public static readonly ArchiveSlot Char = Held<char>("char");
     public static readonly ArchiveSlot Date = Held<DateTime>("date");
     public static readonly ArchiveSlot OptionalColor = Held<Option<Color>>("optional-color");
@@ -183,10 +175,8 @@ public sealed partial class ArchiveSlot {
             ? ArchiveValue.EnumMint(target, nameof(ArchivableDictionary.SetEnumValue), key.Value, (stored.EnumType, stored.Name), op)
             : Fin.Fail<Unit>(error: op.InvalidInput()));
 
-    // The carrier payload type `ArchiveValue.Shape` reports and `SettingKind.For` matches.
     public Type Shape { get; }
 
-    // Host runtime types resolving to this row — MANY-TO-ONE, because a sequence row admits both `T[]` and `Seq<T>`.
     public Seq<Type> Keys { get; }
 
     public CapabilitySet<ArchiveReach> Reach { get; }
@@ -217,8 +207,6 @@ public sealed partial class ArchiveSlot {
         _ => None,
     };
 
-    // Accessor-backed: folding sixty host-type keys into a frozen projection inside a static field initializer runs
-    // under a type initializer whose failure poisons `ArchiveSlot` for the process. `Lazy` defers the whole fold.
     private static readonly Lazy<FrozenDictionary<Type, ArchiveSlot>> Index = new(static () => toSeq(Items)
         .Bind(static row => row.Keys.Map(key => KeyValuePair.Create(key, row)))
         .ToFrozenDictionary(static row => row.Key, static row => row.Value));
@@ -322,10 +310,6 @@ public sealed record ArchiveValue {
         .ToFin(Fail: op.InvalidInput())
         .Bind(value => value is System.Enum ? Capture(value, op) : Fin.Fail<ArchiveValue>(error: op.InvalidInput()));
 
-    // Host truth: `ArchivableDictionary.SetEnumValue<T>(string, T)` answers `bool` while
-    // `PersistentSettings.SetEnumValue<T>(string, T)` answers `void`, so the verdict is "not an explicit false" — a bool
-    // member reports its own refusal, a void one refuses by throwing onto the `Op.Catch` funnel, and a void invoke boxes
-    // to null. Testing the boxed result FOR `true` reads every settings write as a refusal.
     internal static Fin<Unit> EnumMint(object target, string method, string key, (Type EnumType, string Name) entry, Op op) =>
         Minter(new MintKey(target.GetType(), method, entry.EnumType), op)
             .Bind(closed => op.Catch(() => op.Confirm(success: closed.Invoke(
@@ -336,9 +320,6 @@ public sealed record ArchiveValue {
 
     private static readonly Atom<HashMap<MintKey, MethodInfo>> Minters = Atom(HashMap<MintKey, MethodInfo>());
 
-    // The closed generic handle is minted once per host/method/enum triple; the `GetMethods` scan plus
-    // `MakeGenericMethod` otherwise ran on every enum write against both host targets. `Cell.Claim` owns the
-    // first-writer-wins transition, so a lost race reads the SEATED handle off the post-state rather than a second one.
     private static Fin<MethodInfo> Minter(MintKey row, Op op) =>
         Minters.Value.Find(row).Match(
             Some: static held => Fin.Succ(value: held),
@@ -380,13 +361,13 @@ public sealed record ArchiveValue {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<TKey>]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `HashMap`, `Traverse`, `Fold`, `Choose`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.AcceptValidated`, `KernelFault.InvalidValue`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[DICTIONARY_LIFECYCLE]` — `ArchivableDictionary(int, string)`, `Keys`, `TryGetValue`, `Version`, `Name`, `ChangeSerialNumber`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.Collections;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ArchiveChange {
     private ArchiveChange() { }
@@ -410,7 +391,7 @@ public sealed partial class ArchiveMerge {
     internal partial Fin<ArchiveValue> Resolve(ArchiveValue current, ArchiveValue incoming, Op op);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ArchiveMap {
     private static readonly StringComparer KeyOrder = StringComparer.Ordinal;
 

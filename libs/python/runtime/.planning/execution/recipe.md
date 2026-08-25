@@ -38,20 +38,17 @@ from rasm.runtime.receipts import OPEN, DrainReceipt, Receipt, receipted
 from rasm.runtime.resilience import RetryClass, guarded_sync
 from rasm.runtime.roots import Delivery, ResourceRoot
 
-if TYPE_CHECKING:  # AGPL isolation bans the module-scope binding, so annotations resolve here — this guard binds nothing at runtime
+if TYPE_CHECKING:
     from lbt_recipes.recipe import Recipe
     from lbt_recipes.settings import RecipeSettings
     from queenbee.recipe.recipe import RecipeInterface
 
-# execution tracer minted once: the API caches no handle, so a per-execute mint allocates on the boundary the
-# recipe run already pays a process hop for, and the pre-install proxy upgrades in place at the telemetry install.
 _TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.RECIPE])
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
 class RecipeName(StrEnum):
-    # `Recipe.__init__` normalizes the hyphenated value onto the underscore install folder, so the wire spelling stays hyphenated.
     ANNUAL_DAYLIGHT = "annual-daylight"
     ANNUAL_DAYLIGHT_ENHANCED = "annual-daylight-enhanced"
     ANNUAL_IRRADIANCE = "annual-irradiance"
@@ -76,8 +73,6 @@ class Engine(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# each engine keys its lbt_recipes.version probe name; the gate resolves the callable inside the
-# boundary kernel so the AGPL tree never binds at module scope and a new engine is one row.
 ENGINE_CHECK: Final[Map[Engine, str]] = Map.of_seq([
     (Engine.RADIANCE, "check_radiance_date"),
     (Engine.OPENSTUDIO, "check_openstudio_version"),
@@ -86,8 +81,6 @@ ENGINE_CHECK: Final[Map[Engine, str]] = Map.of_seq([
 
 _COMFORT_ENGINES: Final[frozenset[Engine]] = frozenset({Engine.RADIANCE, Engine.OPENSTUDIO, Engine.ENERGYPLUS})
 _RADIANCE: Final[frozenset[Engine]] = frozenset({Engine.RADIANCE})
-# rosters two or more catalog rows declare identically hoist to one anchor, so the annual-daylight pair and the three
-# comfort maps cannot drift into two spellings of one recipe contract; a per-recipe tail rides the row's own spread.
 _DAYLIGHT_METRICS: Final[tuple[str, ...]] = ("da", "cda", "udi", "udi-lower", "udi-upper", "grid-summary")
 _IRRADIANCE_METRICS: Final[tuple[str, ...]] = ("average-irradiance", "peak-irradiance", "cumulative-radiation")
 _COMFORT_METRICS: Final[tuple[str, ...]] = ("tcp", "csp", "hsp", "condition")
@@ -96,16 +89,14 @@ _COMFORT_METRICS: Final[tuple[str, ...]] = ("tcp", "csp", "hsp", "condition")
 
 
 class AssetFetch(Struct, frozen=True):
-    source: str  # root-relative path resolved against the execution's ResourceRoot
-    relative: str  # project-folder destination the handlers read
+    source: str
+    relative: str
 
 
 class RecipeRow(Struct, frozen=True):
     outputs: tuple[str, ...]
     engines: frozenset[Engine]
     workers: int
-    # run-reuse policy paired with the content-key elision: an identical spec replayed into a
-    # reused project folder lets luigi skip its completed tasks instead of re-running the engine.
     reload: bool = True
 
 
@@ -114,9 +105,9 @@ class RecipeSpec(Struct, frozen=True):
     inputs: Map[str, object] = Map.empty()
     settings: "Option[RecipeSettings]" = Nothing
     assets: Block[AssetFetch] = Block.empty()
-    outputs: tuple[str, ...] = ()  # external-folder readback names; empty derives from the baked contract
-    engines: frozenset[Engine] = frozenset()  # external-folder engine gate; catalog rows carry their own
-    debug: Option[str] = Nothing  # RecipeSettings.debug_folder intermediate-artifact capture
+    outputs: tuple[str, ...] = ()
+    engines: frozenset[Engine] = frozenset()
+    debug: Option[str] = Nothing
 
     def row(self) -> RecipeRow:
         match self.recipe:
@@ -133,12 +124,11 @@ class RecipeReceipt(Struct, frozen=True):
     engines: tuple[Engine, ...]
     summary: str
     failure: Option[str]
-    errors: Option[str]  # parsed err.log error_summary — the failure arm alone pays the log walk
+    errors: Option[str]
     output_count: int
     content_key: ContentKey
 
     def contribute(self) -> Iterable[Receipt]:
-        # full luigi summary stays on this struct; the emitted fact carries the scalar evidence alone.
         yield Receipt.of(
             SCOPES[Scope.RECIPE],
             (
@@ -160,7 +150,6 @@ class RecipeProduct(Struct, frozen=True):
     receipt: RecipeReceipt
 
     def contribute(self) -> Iterable[Receipt]:
-        # product delegates to its receipt so the `@receipted(OPEN)` harvest reads one stream, never a second contributor shape.
         yield from self.receipt.contribute()
 
 
@@ -168,7 +157,7 @@ class _Staged(Struct, frozen=True):
     recipe: "Recipe"
     row: RecipeRow
     settings: "RecipeSettings"
-    outputs: tuple[str, ...]  # the resolved readback roster — row/caller names, else the baked contract's own
+    outputs: tuple[str, ...]
     key: ContentKey
 
 
@@ -186,13 +175,8 @@ class RecipeExecution(Struct, frozen=True):
     async def execute(
         self, spec: "RecipeSpec | Block[RecipeSpec]", cache: Map[ContentKey, RecipeProduct] = Map.empty()
     ) -> "RuntimeRail[RecipeProduct] | DrainReceipt[RecipeProduct]":
-        # the overloads carry the per-modality output so a caller narrows on the SHAPE it hands in; without them both
-        # the plural and the singular caller land on the runtime union and every downstream projection mis-types.
         match spec:
             case Block() as many:
-                # Exemption: async sequential prepare — staging awaits asset IO per spec, so the comprehension is the
-                # one expression that fold admits; the drain below is the concurrent leg. Threading the accumulator
-                # through a per-step `append` instead recopies the whole Block once per spec.
                 units: Block[Admit[RecipeProduct]] = Block.of_seq([await self._admitted(one) for one in many])
                 return await self.lane.drain(units, cache)
             case lone:
@@ -202,7 +186,6 @@ class RecipeExecution(Struct, frozen=True):
                 ).default_with(_refused)
 
     async def interface(self, spec: RecipeSpec) -> "RuntimeRail[RecipeInterface]":
-        # baked-contract folder parse is blocking I/O, so the kernel declares the RELEASING trait and its raises cross the one fence.
         return await self.lane.offload(Kernel.of(_interface, KernelTrait.RELEASING), spec)
 
     async def _admitted(self, spec: RecipeSpec) -> Admit[RecipeProduct]:
@@ -212,12 +195,6 @@ class RecipeExecution(Struct, frozen=True):
         )
 
     async def _prepared(self, spec: RecipeSpec) -> "RuntimeRail[_Staged]":
-        # staging is blocking work (engine probes, handler coercion copying artifact trees), so it declares the RELEASING trait — the
-        # offload fence converts the handler/spawn raises. Project root resolves FIRST, so every asset lands beneath the one
-        # folder the handler chains read and `run` executes in; the acquisition fault short-circuits.
-        # each guard re-mints its fault onto THIS entry's payload type: returning the upstream carrier verbatim ships a
-        # `RuntimeRail[str]` or a `RuntimeRail[int]` under a `RuntimeRail[_Staged]` annotation — it resolves at runtime
-        # and mis-types every downstream projection, the same class the drain-arm overload closes above.
         rooted = await self.lane.offload(Kernel.of(_rooted, KernelTrait.RELEASING), spec)
         if rooted.is_error():
             return Error(rooted.error)
@@ -234,15 +211,10 @@ class RecipeExecution(Struct, frozen=True):
         )
 
     async def _fetched(self, live: ResourceRoot, assets: Block[AssetFetch], root: Path) -> "RuntimeRail[int]":
-        # every destination row confines beneath the resolved project root before the first byte lands, so a
-        # later bad row never strands a half-landed asset set behind a refusal.
         roster = traverse(lambda asset: _confined(root, asset.relative), assets)
         if roster.is_error():
             return Error(roster.error)
         landed: RuntimeRail[int] = Ok(0)
-        # Exemption: async sequential acquisition — each read awaits the roots rail, each landing awaits the
-        # thread-band hop, and the carrier rebinds per step. Every early exit re-mints onto this entry's own payload
-        # type rather than forwarding the upstream `Block[Path]`/`bytes` carrier under an `int` annotation.
         for asset, destination in zip(assets, roster.ok, strict=True):
             match await live.child(asset.source).map(lambda ref: live.read(ref, Delivery.WHOLE)).default_with(_refused):
                 case Result(tag="error", error=fault):
@@ -255,8 +227,6 @@ class RecipeExecution(Struct, frozen=True):
         return landed
 
     async def _observed(self, staged: _Staged) -> "RuntimeRail[RecipeProduct]":
-        # blocking child-process wait crosses on the RELEASING trait under the lane's deadline and limiter; the flatten joins the
-        # offload rail onto the kernel rail, and `_emit` harvests the receipt.
         with _TRACER.start_as_current_span("recipe.execute"):
             return (await self.lane.offload(Kernel.of(_execute, KernelTrait.RELEASING), staged)).bind(lambda rail: rail).map(_emit)
 
@@ -278,10 +248,7 @@ def _emit(product: RecipeProduct) -> RecipeProduct:
 
 
 def _rooted(spec: RecipeSpec) -> str:
-    # project root resolves BEFORE any asset byte lands: the caller's settings folder when supplied, else the recipe's
-    # own default project folder — one folder owns asset landing, handler reads, and the `run` execution alike, where a
-    # cwd-anchored landing strands every asset outside the folder the handler chains read.
-    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
+    from lbt_recipes.recipe import Recipe
 
     root = Path(
         spec.settings.bind(lambda held: Option.of_optional(held.folder)).default_with(lambda: Recipe(str(spec.recipe)).default_project_folder)
@@ -291,8 +258,6 @@ def _rooted(spec: RecipeSpec) -> str:
 
 
 def _confined(root: Path, relative: str) -> "RuntimeRail[Path]":
-    # spec-supplied destinations confine beneath the `_rooted`-resolved project root: an absolute path or a `..`
-    # traversal refuses typed before any byte lands — never a write outside the folder the handler chains read.
     candidate = Path(relative)
     resolved = (root / candidate).resolve()
     return (
@@ -303,7 +268,6 @@ def _confined(root: Path, relative: str) -> "RuntimeRail[Path]":
 
 
 def _landed(destination_path: str, got: Buffer) -> int:
-    # payload lands at the `_confined`-resolved destination; the blocking mkdir/write crosses on the thread band.
     destination = Path(destination_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(bytes(got))
@@ -311,26 +275,18 @@ def _landed(destination_path: str, got: Buffer) -> int:
 
 
 def _declared(recipe: "Recipe") -> tuple[str, ...]:
-    # baked `package.json` contract — never a hand-mirrored list — is the roster's source of truth; the cold schema tree loads
-    # only at this derivation seam.
-    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # ruff:ignore[import-outside-top-level] — boundary import beside the AGPL tree
+    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface
 
     return tuple(out.name for out in RecipeInterface.from_recipe(BakedRecipe.from_folder(recipe.path)).outputs)
 
 
 def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
-    # ONE coercion seam — engine gate, Recipe construction, input assignment, handled inputs.json; the run key derives from the recipe
-    # identity + handled bytes, so an identical simulation elides through the lane cache and the persistence ledger dedupes at the wire.
-    from lbt_recipes import version  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
-    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
-    from lbt_recipes.settings import RecipeSettings  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
+    from lbt_recipes import version
+    from lbt_recipes.recipe import Recipe
+    from lbt_recipes.settings import RecipeSettings
 
     row = spec.row()
     gate = traverse(
-        # ONE anchor spans the engine roster: these are local version probes off one installed distribution, and a
-        # per-engine subject would spell a coordinate no row declares. No `on=` peer rides here and none is owed —
-        # `RetryClass.ENGINE` carries neither a `CIRCUIT` nor a `RATES` row, so both stateful stages no-op on it and
-        # the window-key gate answers `Nothing`; a local import probe faces no dependency instance to key one at.
         lambda engine: guarded_sync(RetryClass.ENGINE, getattr(version, ENGINE_CHECK[engine]), at=RECIPE_ENGINE),
         Block.of_seq(sorted(row.engines)),
     )
@@ -339,11 +295,8 @@ def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
         recipe = Recipe(str(spec.recipe))
         for name, value in spec.inputs.to_seq():
             recipe.input_value_by_name(name, value)
-        # handled inputs and the settings default both pin the `_rooted` folder, so coercion, landed assets, and the
-        # luigi run share one project root; caller-supplied settings already carry the folder `_rooted` read.
         handled = Path(recipe.write_inputs_json(project_folder=root, indent=0))
         key = ContentIdentity.key("recipe", f"{recipe.name}:{recipe.tag}:".encode() + handled.read_bytes())
-        # run policy is data, never a per-call knob; `report_out` stays rejected — `silent=True` owns the report surface, the receipt the evidence.
         settings = spec.settings.default_with(
             lambda: RecipeSettings(folder=root, workers=row.workers, reload_old=row.reload, debug_folder=spec.debug.to_optional())
         )
@@ -353,8 +306,6 @@ def _staged(spec: RecipeSpec, root: str) -> "RuntimeRail[_Staged]":
 
 
 def _execute(staged: _Staged) -> "RuntimeRail[RecipeProduct]":
-    # exit path never decides alone: `failure_message` and the luigi summary are the verdict, `error_summary` the structured
-    # detail the fault carries.
     folder = staged.recipe.run(settings=staged.settings, silent=True)
     failure = Option.of_optional(staged.recipe.failure_message(folder) or None)
     errors = failure.bind(lambda _: Option.of_optional(staged.recipe.error_summary(folder) or None))
@@ -380,16 +331,14 @@ def _execute(staged: _Staged) -> "RuntimeRail[RecipeProduct]":
 
 
 def _interface(spec: RecipeSpec) -> "RecipeInterface":
-    from lbt_recipes.recipe import Recipe  # ruff:ignore[import-outside-top-level] — AGPL isolation bans the module-scope binding
-    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface  # ruff:ignore[import-outside-top-level] — boundary import beside the AGPL tree
+    from lbt_recipes.recipe import Recipe
+    from queenbee.recipe.recipe import BakedRecipe, RecipeInterface
 
     return RecipeInterface.from_recipe(BakedRecipe.from_folder(Recipe(str(spec.recipe)).path))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-# output rows are the recipes' REAL declared output names (each recipe's package.json contract) —
-# a row naming an output the recipe never declares breaks output_value_by_name at readback.
 RECIPES: Final[Map[RecipeName, RecipeRow]] = Map.of_seq([
     (RecipeName.ANNUAL_DAYLIGHT, RecipeRow(outputs=_DAYLIGHT_METRICS, engines=_RADIANCE, workers=2)),
     (RecipeName.ANNUAL_DAYLIGHT_ENHANCED, RecipeRow(outputs=_DAYLIGHT_METRICS, engines=_RADIANCE, workers=2)),

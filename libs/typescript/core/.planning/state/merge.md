@@ -102,7 +102,6 @@ const _mapped = <S extends object, R>(
   fields: Merge.Fields<S>,
   project: (row: Merge.Instance<unknown>) => R,
 ): { readonly [K in keyof S]: R } => {
-  // BOUNDARY ADAPTER: Record.map homogenizes field values; the mapped-key contract restores the exact key census before the value leaves
   return Record.map(
     fields as unknown as Record.ReadonlyRecord<string, Merge.Instance<unknown>>,
     project,
@@ -132,8 +131,6 @@ const _lattice = <A>(bounds: Bounded.Bounded<A>): Merge.Lattice<A> => ({
 })
 
 const _struct = <S extends object>(fields: Merge.Fields<S>): Merge.Instance<Types.Simplify<S>> => ({
-  // BOUNDARY ADAPTER: the typeclass composers state their own record shape, so each rebinding restores the flattened
-  // owner type the mapped-key projection already proved; no asserted value crosses
   combine: Semigroup.struct(_mapped(fields, (row) => row.combine)) as unknown as Semigroup.Semigroup<Types.Simplify<S>>,
   law: _laws(Record.values(_mapped(fields, (row) => row.law))),
   alike: Equivalence.struct(_mapped(fields, (row) => row.alike)) as unknown as Equivalence.Equivalence<Types.Simplify<S>>,
@@ -144,7 +141,6 @@ const _indexed = <T extends ReadonlyArray<unknown>, R>(
   rows: Merge.Slots<T>,
   project: (row: Merge.Instance<unknown>) => R,
 ): { readonly [I in keyof T]: R } => {
-  // BOUNDARY ADAPTER: Array.map homogenizes tuple elements; the mapped-index contract restores the exact arity before the value leaves
   return Array.map(
     rows as unknown as ReadonlyArray<Merge.Instance<unknown>>,
     project,
@@ -152,8 +148,6 @@ const _indexed = <T extends ReadonlyArray<unknown>, R>(
 }
 
 const _tuple = <T extends ReadonlyArray<unknown>>(...rows: Merge.Slots<T>): Merge.Instance<T> => ({
-  // BOUNDARY ADAPTER: the positional twin of the record rebinding — the spread composers homogenize their slots, so
-  // each rebinding restores the arity the mapped-index projection already proved
   combine: Semigroup.tuple(..._indexed<T, Semigroup.Semigroup<unknown>>(rows, (row) => row.combine)) as unknown as Semigroup.Semigroup<T>,
   law: _laws(_indexed<T, Merge.Law>(rows, (row) => row.law)),
   alike: Equivalence.tuple(..._indexed<T, Equivalence.Equivalence<unknown>>(rows, (row) => row.alike)) as unknown as Equivalence.Equivalence<T>,
@@ -184,7 +178,7 @@ const _monoid = <A>(instance: Merge.Instance<A>): Option.Option<Monoid.Monoid<A>
 const _LAWS = ["associativity", "commutativity", "idempotence", "identity"] as const
 
 declare namespace Converge {
-  type Law = (typeof _family.kinds)[number] // the frozen snapshot the family mint publishes, so a caller cannot drift the law roster the witnesses enumerate
+  type Law = (typeof _family.kinds)[number]
   type Sample<A> = { readonly first: A; readonly second: A; readonly third: A }
   type Shape = {
     readonly obligations: <A>(instance: Merge.Instance<A>) => ReadonlyArray<Law>
@@ -199,12 +193,6 @@ declare namespace Converge {
   }
 }
 
-// The refused SAMPLE is the subject every law shares, so one row folds over the whole roster rather than transcribing
-// four identical declarations; a law that later earns its own class or sentence replaces its fold entry with one
-// declaration and no consumer moves. Operand columns admit `Unknown` because they hold the caller's own `A` values a
-// harness shrinks in process and nothing here crosses a wire to earn a codec. A failed merge law is a torn convergence
-// invariant — system-blamed, never re-driven, and no repair report to quarantine into — so retryability and blame read
-// off the core row table and no local rank, retry, or status column rides beside `class`.
 const _Sample = Schema.Struct({ first: Schema.Unknown, second: Schema.Unknown, third: Schema.Unknown })
 const _lawRow = Fault.Class.row({
   class: "breached",
@@ -230,10 +218,6 @@ class Breach extends Schema.TaggedError<Breach>()("Breach", {
   }
 }
 
-// The refusal NAMES the key it refused. The type parameter it used to carry was decorative precision on an error
-// channel: the class stored `key: K`, the constant `<merge:unknown-key>` message never read it, and no consumer ever
-// narrowed on it — so an operator holding the failure could not tell which of a seeded roster the caller offered.
-// One reason, one row, and the same family regime every other refusal on this branch spends.
 const _cellFamily = Fault.Class.family(["unseated"] as const, {
   unseated: Fault.Class.row({
     class: "invalid",
@@ -348,8 +332,6 @@ function _cell<K, S>(
                       }))
                     }), { discard: true }),
                 ),
-                // BOUNDARY ADAPTER: the table's key parameter is unconstrained, so the refusal renders it once here
-                // rather than admitting an unspellable coordinate into a governed subject.
                 onSome: ([key]) => Effect.fail(new _CellFault({ case: { reason: "unseated", key: String(key) } })),
               },
             ),
@@ -430,7 +412,7 @@ const Merge: Merge.Shape = {
   CellFault: _CellFault,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Merge }
 ```

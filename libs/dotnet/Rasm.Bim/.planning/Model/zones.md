@@ -21,7 +21,7 @@ Composition arrives settled. `Projection/semantic#SEMANTIC_PROJECTOR` classifies
 - Boundary: `BimZone` is ONE derived record discriminated by the `BimZoneKind` row data — a `FireZone`/`ThermalZone`/`MepSystem`/`LoadGroup` class family, or one sibling type per grouping row, is the deleted form mirroring the no-per-element-class law at `Model/elements#IFC_CLASS`; this page is the DECLARING owner of the grouping class rows and their `BimGroupFamily` partition, so a sibling view selecting grouping nodes composes `BimZoneKind`/`BimGroupFamily` and a private entity-name `FrozenSet` at a consumer is the deleted form that silently omits every row landing here afterwards; the two IFC membership relationships are the seam's neutral `Assign.Group`/`Compose.Reference` edges, so the retired `ZoneAssignment` `[Union]` — a Bim-side relationship case re-opening the IFC-schema strata leak the `Classification` collapse closed — is the deleted form [NEUTRAL_EDGE_RULING], and a typed `IfcRel*` case on this page is the named seam violation; the retired `BimModel.Zones` `Map<string,Seq<string>>` index, the `BimZone.IndexOf` fold, and the `IfcSemanticModel.ZoneRow` flat-row source are GONE — there is no `BimModel`, the membership reading the seam graph's built-once incidence index and the consumer `Element` deriving from the seam `Bake`; the classification SYSTEM token is `IfcClass.System` read under the roster's `OrdinalIgnoreCase` key space, so a bare `"ifc"` literal beside a `==` is the deleted form that reads two systems where the roster declares one; the grouping vocabulary keys on the LIVE GeometryGym type name (`IfcBuiltSystem`, NOT the pre-IFC4.3 `IfcBuildingSystem` STEP class name the class emits for older schemas) and `Audit` is where a row keyed on a non-rostered entity name surfaces, accumulated rather than thrown; the shared classification axes DERIVE from the one generated roster row and a `BimZoneKind` restating `Domain`/`Span`/`ValidPredefined` beside it is the deleted parallel-roster form, `BimZoneKind` keeping only the grouping semantics the element taxonomy cannot carry — a stored `IsSpatial` column beside the family is the deleted form that can disagree with the axis it restates; the grouping predefined/window egress is the ONE `IfcClass.AdmitPredefined` per-token gate and a kind-keyed second gate re-spelling the same admission idiom is the deleted parallel-gate form; the predefined token is the seam `PredefinedType` value-object and a Bim-owned one is the deleted form; the overlay is HOST-NEUTRAL — it joins by stable seam `NodeId` and a RhinoCommon `Layer`/`InstanceDefinition` binding is the named seam violation, the orthogonal companion to the single-parent `Model/spatial#SPATIAL_STRUCTURE` containment tree (an element's one `Compose.Contain` container versus its arbitrarily many groups, the two coexisting and never collapsed, the spatial-reference `IfcSpatialZone` this page's and the spatial-containment hierarchy the tree's over disjoint whole-class sets); re-deriving the grouping graph in any consumer is the named cross-page drift; the `Parents` column reads only the logical `Assign.Group` `Subject` endpoint and a spatial-reference parent is the `Model/spatial#SPATIAL_STRUCTURE` `Referenced` axis, never re-read here; a grouping rejection lifts `BimFault.Refused` with `BimReason.Unmapped` BARE onto the rail and a `.ToError()` lowering hop OR a hand-built `Error.New(2600, …)` bypassing the typed case is the named defect.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using Rasm.Element.Classification;
@@ -31,34 +31,24 @@ using Rasm.Element.Relations;
 using Thinktecture;
 using Op = Rasm.Domain.Op;
 using static LanguageExt.Prelude;
-using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;   // the Model/query closed-generic alias
+using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Grouping-family PARTITION, DECLARED here because the class rows are — a sibling composes
-// `BimZoneKind.TryGet(code).Exists(k => k.Family == …)` instead of a private entity-name FrozenSet that silently
-// omits every row landing here afterwards. PROVENANCE: Bim-DERIVED — the IFC hierarchy groups by inheritance,
-// which cuts across the analysis question a consumer actually asks.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class BimGroupFamily {
-    public static readonly BimGroupFamily Logical      = new("logical");       // the unpartitioned grouping base and its zone peer
-    public static readonly BimGroupFamily Distribution = new("distribution");  // IfcSystem and its built/distribution/circuit descendants
-    public static readonly BimGroupFamily Structural   = new("structural");    // the analysis load, result, and model groups
-    public static readonly BimGroupFamily Asset        = new("asset");         // inventory, asset, and condition holdings
-    public static readonly BimGroupFamily Spatial      = new("spatial");       // IfcSpatialZone — the Compose.Reference membership modality
+    public static readonly BimGroupFamily Logical      = new("logical");
+    public static readonly BimGroupFamily Distribution = new("distribution");
+    public static readonly BimGroupFamily Structural   = new("structural");
+    public static readonly BimGroupFamily Asset        = new("asset");
+    public static readonly BimGroupFamily Spatial      = new("spatial");
 }
 
-// The IFC grouping-INTERPRETATION overlay over the ONE generated IfcClass taxonomy, keyed on the same seam
-// Classification.Code. PROVENANCE: every key is a LIVE GeometryGym entity-type name off the buildingSMART IFC
-// schema, so the roster's authority is the pinned assembly and Audit is the proof it still holds. The rows own
-// ONLY what the element taxonomy cannot carry; every shared classification axis DERIVES from Taxonomy.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class BimZoneKind {
-    // Retired circuits carry their RemovedIn=Ifc4 windows on the ROSTER's own Retirements rows, never a second
-    // window here; the superseded circuit stays in Distribution because a 2x3 electrical circuit IS one.
     public static readonly BimZoneKind Group                   = new("IfcGroup",                   BimGroupFamily.Logical);
     public static readonly BimZoneKind Zone                    = new("IfcZone",                    BimGroupFamily.Logical);
     public static readonly BimZoneKind System                  = new("IfcSystem",                  BimGroupFamily.Distribution);
@@ -77,13 +67,8 @@ public sealed partial class BimZoneKind {
 
     public BimGroupFamily Family { get; }
 
-    // Members ride IfcRelReferencedInSpatialStructure -> seam Compose.Reference for exactly the spatial family,
-    // IfcRelAssignsToGroup -> seam Assign.Group for every other. Derived, never a stored flag beside the family.
     public bool IsSpatial => Family == BimGroupFamily.Spatial;
 
-    // Accessor-read lazy, never an eager field: the generator fills Items from its own static constructor, so an
-    // eager fold freezes an empty index. A row the roster dropped is simply ABSENT here — Audit turns that absence
-    // into a verdict, so one row's domain read never detonates the type for every consumer that never asked.
     private static readonly Lazy<FrozenDictionary<string, IfcClass>> Rostered = new(
         static () => Items.Choose(static row => IfcClass.TryGet(row.Key).Map(taxonomy => (row.Key, Taxonomy: taxonomy)))
             .ToFrozenDictionary(static hit => hit.Key, static hit => hit.Taxonomy, StringComparer.OrdinalIgnoreCase),
@@ -93,28 +78,20 @@ public sealed partial class BimZoneKind {
 
     public Option<IfcDomain> Domain => Taxonomy.Map(static row => row.Domain);
 
-    // Roster-completeness rail: every dropped row accumulates its own zone-class-miss, so a pin bump that renamed
-    // a grouping entity names EVERY drifted row at once rather than dying on whichever a reader touched first.
     public static Validation<Error, Unit> Audit(Op key) =>
         toSeq(Items).Traverse(row => row.Taxonomy.Match(
                 Some: static _ => Success<Error, Unit>(unit),
                 None: () => Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "zone-class-miss", row.Key })))))
             .As().Map(static _ => unit);
 
-    // The ONE Option-lift over the generated bool TryGet(string?, out BimZoneKind?) — the settled idiom
-    // elements.md/spatial.md declare; every Option-form read rides this overload, never a phantom generated member.
     public static Option<BimZoneKind> TryGet(string entityType) =>
         TryGet(entityType, out BimZoneKind? row) && row is { } hit ? Some(hit) : None;
 
-    // The strict VIEW-side lookup. INGRESS classification is the projector's ONE permissive IfcClass classifier,
-    // so this vocabulary never runs at ingest and never mints a second egress gate.
     public static Fin<BimZoneKind> Resolve(string entityType, Op key) =>
         TryGet(entityType).ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "zone-class-miss", entityType })));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// ONE derived record per grouping Object node; Parents is the IfcRelAssignsToGroup group-in-group nesting (a
-// distribution circuit inside its system). A projection over the seam ElementGraph, never a stored record.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BimZone(
     NodeId Id,
     BimZoneKind Kind,
@@ -123,9 +100,6 @@ public sealed record BimZone(
     Option<string> ExternalId,
     Seq<NodeId> Members,
     Seq<NodeId> Parents) {
-    // Membership is a SET question the ordered column answers only by scan, so the record derives its index from
-    // the column it publishes — Contains is O(1) where a Seq probe made SharedWith quadratic. Derived, so no
-    // `with`-copy can desynchronize it.
     private LanguageExt.HashSet<NodeId> Index { get; } = toHashSet(Members);
 
     public BimGroupFamily Family => Kind.Family;
@@ -134,14 +108,11 @@ public sealed record BimZone(
     public int Count => Members.Count;
     public bool Contains(NodeId member) => Index.Contains(member);
 
-    // Adjacency by member OVERLAP; the boundary-element adjacency is Adjacencies below, never re-derived here.
     public Seq<NodeId> SharedWith(BimZone other) => Members.Filter(other.Contains);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ZoneProjection {
-    // TOTAL — the projector already classified and admitted at ingest; None when the node is not an
-    // IfcClass.System-classified grouping class, so a foreign system can never key-collide into this vocabulary.
     public static Option<BimZone> Of(ElementGraph graph, Node.Object group) =>
         StringComparer.OrdinalIgnoreCase.Equals(group.Classification.System, IfcClass.System)
             ? BimZoneKind.TryGet(group.Classification.Code)
@@ -151,30 +122,20 @@ public static class ZoneProjection {
                     ParentsOf(graph, group.Id)))
             : None;
 
-    // The typed zone family the structural and systems consumers read BY REFERENCE, never re-projecting the graph.
     public static Seq<BimZone> All(ElementGraph graph) =>
         graph.ObjectNodes.Choose(o => Of(graph, o));
 
-    // Dispatched on the kind's membership modality over the built-once EdgesAt index. The projector's Assign is
-    // INVERTED (member -> Subject, group -> Definition) where the spatial Compose is not (Whole = zone), and
-    // pinning the group to that endpoint is what keeps a PARENT group out of its own member set.
     private static Seq<NodeId> MembersOf(ElementGraph graph, NodeId group, BimZoneKind kind) =>
         kind.IsSpatial
             ? toSeq(graph.EdgesAt(group)).Choose(e => e is Relationship.Compose c && c.SubKind == ComposeKind.Reference && c.Whole == group ? Some(c.Part) : Option<NodeId>.None)
             : toSeq(graph.EdgesAt(group)).Choose(e => e is Relationship.Assign a && a.SubKind == AssignKind.Group && a.Definition == group ? Some(a.Subject) : Option<NodeId>.None);
 
-    // The zone as SUBJECT (circuit->system, zone->zone); a spatial zone's referenced-within-structure parents are
-    // the spatial view's Referenced axis, never this column.
     private static Seq<NodeId> ParentsOf(ElementGraph graph, NodeId zone) =>
         toSeq(graph.EdgesAt(zone)).Choose(e => e is Relationship.Assign a && a.SubKind == AssignKind.Group && a.Subject == zone ? Some(a.Definition) : Option<NodeId>.None);
 
-    // The transitive LEAF closure, cycle-guarded by the threaded seen set. Direct membership stays
-    // BimZone.Members; the rollup and the coverage audit read LEAVES, so nesting never zeroes an aggregate.
     public static Seq<NodeId> Closure(ElementGraph graph, BimZone zone) =>
         Expand(graph, zone.Members, HashSet(zone.Id)).Leaves;
 
-    // The nested descent recurses in the ARM BODY over the state the arm already advanced: a `when` guard that
-    // runs the recursion to decide whether its own arm applies does that work twice and discards it once.
     private static (Seq<NodeId> Leaves, LanguageExt.HashSet<NodeId> Seen) Expand(
         ElementGraph graph, Seq<NodeId> frontier, LanguageExt.HashSet<NodeId> seen) =>
         frontier.Fold((Leaves: Seq<NodeId>(), Seen: seen), (state, member) =>
@@ -186,25 +147,17 @@ public static class ZoneProjection {
                     },
                     None: () => (state.Leaves.Add(member), state.Seen.Add(member))));
 
-    // The per-zone ROLLUP over the LEAF closure through the ONE ElementQuery.SumOf composition; None when no leaf
-    // carries the source, so a nested group contributes its held spaces and never a zero row for the sub-zone.
     public static Fin<Option<MeasureValue>> Aggregate(ElementGraph graph, BimZone zone, ValueSource source, Op key) =>
         ElementQuery.SumOf(graph, Closure(graph, zone), source, key);
 
-    // The zone's OWN semantic read through the ONE ElementQuery.ValuesOf exposure, never a re-derived bag merge.
     public static Seq<PropertyValue> Values(ElementGraph graph, BimZone zone, ValueSource source) =>
         graph.Find<Node.Object>(zone.Id).ToSeq().Bind(o => ElementQuery.ValuesOf(graph, o, source));
 
-    // Every candidate object reached by NO zone of the kind — an IfcSpace uncovered by any THERMAL zone surfaces
-    // as a typed gap set, the candidate selection riding the one query algebra.
     public static Seq<NodeId> Uncovered(ElementGraph graph, BimZoneKind kind, BimTerm candidate) {
         LanguageExt.HashSet<NodeId> covered = toHashSet(All(graph).Filter(zone => zone.Kind == kind).Bind(zone => Closure(graph, zone)));
         return ElementQuery.Query(graph, candidate).Ids.Filter(id => !covered.Contains(id)).ToSeq();
     }
 
-    // Each space separation lifts through the zone membership index, emitted once per unordered pair. The index
-    // keys on the LEAF Closure, not direct Members: a compartment grouping floor zones holds its spaces one level
-    // down, so a direct-membership index reports every nested compartment non-adjacent to everything.
     public static Seq<(NodeId ZoneA, NodeId ZoneB, NodeId Separator)> Adjacencies(
         ElementGraph graph,
         SpatialStructure spatial,

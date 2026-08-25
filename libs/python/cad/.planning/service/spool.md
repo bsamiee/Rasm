@@ -66,15 +66,12 @@ from rasm.cad.service.lane import SourceRow
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# unadmitted mapping the composition root reads off its own settings surface
 type PolicyRow = Mapping[str, object]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# corpus `ArtifactRef.artifact_bytes` ceiling: no admitted budget may describe an artifact protovalidate refuses
 CONTRACT_CEILING: Final[int] = 1 << 30
-# finite ceiling that DELETES the `isfinite` probe, because `inf` fails an `le` bound on its own
 CALL_CEILING: Final[float] = 3600.0
 
 
@@ -82,8 +79,6 @@ CALL_CEILING: Final[float] = 3600.0
 
 
 class ProviderPolicy(Struct, frozen=True, gc=False, kw_only=True):
-    # `Meta` guards the CONVERT and never the constructor: `ProviderPolicy(read_max_bytes=-5, ...)` constructs
-    # happily and so does a string in an integer slot, so `admitted` is the one mint and no fence calls this ctor.
     read_max_bytes: Annotated[int, Meta(gt=0, le=CONTRACT_CEILING)]
     artifact_bytes: Annotated[int, Meta(gt=0, le=CONTRACT_CEILING)]
     source_refs: Annotated[int, Meta(gt=0)]
@@ -92,8 +87,6 @@ class ProviderPolicy(Struct, frozen=True, gc=False, kw_only=True):
 
     @staticmethod
     def admitted(row: PolicyRow, /) -> CadRail["ProviderPolicy"]:
-        # admission takes the raw MAPPING: `convert` short-circuits by identity on an already-admitted value and
-        # validates nothing, so passing one back through here certifies a row nothing re-checked.
         try:
             return Ok(convert(row, type=ProviderPolicy))
         except ValidationError as refused:
@@ -102,8 +95,6 @@ class ProviderPolicy(Struct, frozen=True, gc=False, kw_only=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# identity always survives negotiation and an UNSET roster seats gzip beside it alone, so zstd reaches the wire
-# only because this row is passed explicitly to the mount and to every dial that shares the same profile.
 COMPRESSIONS: Final[tuple[Compression, ...]] = (ZstdCompression(level=3), GzipCompression(level=6))
 ```
 
@@ -121,8 +112,6 @@ COMPRESSIONS: Final[tuple[Compression, ...]] = (ZstdCompression(level=3), GzipCo
 
 
 def budget(timeout_ms: float | None, ceiling: float, /) -> float:
-    # `timeout_ms` arrives from the spine's SINGLE read of `ctx.timeout_ms`. It recomputes time REMAINING on each
-    # read with no clamp below zero, so an elapsed budget floors at zero here rather than at a forged millisecond.
     return ceiling if timeout_ms is None else min(ceiling, max(0.0, timeout_ms / 1000.0))
 ```
 
@@ -147,22 +136,17 @@ def budget(timeout_ms: float | None, ceiling: float, /) -> float:
 
 
 class ArtifactPort(Protocol):
-    # generated `ArtifactService` client's own two members, declared structurally because the contracts helper's
-    # client protocol is private; the generated client and a test double both satisfy this shape.
     def fetch(self, request: FetchRequest, *, timeout_ms: int | None = None) -> AsyncIterator[FetchResponse]: ...
 
     async def put(self, request: AsyncIterator[PutRequest], *, timeout_ms: int | None = None) -> PutResponse: ...
 
 
-# every raise the artifact seam can still produce, ordered specific-first at each site that names the tuple
 _TRANSFER_RAISES: Final[tuple[type[Exception], ...]] = (ArtifactError, AdmissionError, ConnectError)
 
 
 def _refusal(refused: ArtifactRefusal, /) -> CadFault:
     match refused:
         case ArtifactOpaque() | ArtifactCycle():
-            # traversal met a foreign-extension slot or a self-referencing message: both are the CALLER's own body
-            # shape, so they grade beside the source rows rather than as a defect of this provider.
             return SOURCE_SHAPE.at(f"cad.sources.{rendered(refused)}")
         case ArtifactResealed():
             return ARTIFACT_ADMISSION.at(f"cad.artifact.{rendered(refused)}")
@@ -177,12 +161,8 @@ def _raised(refused: ArtifactError | AdmissionError | ConnectError, /) -> CadFau
         case ArtifactError(refusal=refusal):
             return _refusal(refusal)
         case AdmissionError(phase=phase):
-            # only the INJECTED client's `BodyAdmission(CLIENT)` reaches here: `BodyAdmission(SERVER)` refuses a
-            # served body as a `ConnectError` the interceptor raises before any handler body runs.
             return ARTIFACT_ADMISSION.at(f"cad.artifact.admission.{phase.value}")
         case ConnectError(code=code):
-            # peer's own code and detail stay on its own span; this leg refuses TERMINAL because narrowing a
-            # re-drive posture is always safe where widening one is not.
             return ARTIFACT_PROOF.at(f"cad.artifact.remote.{code.value}")
 
 
@@ -190,8 +170,6 @@ def _raised(refused: ArtifactError | AdmissionError | ConnectError, /) -> CadFau
 
 
 async def bound[T, R](rail: CadRail[T], arrow: Callable[[T], Awaitable[CadRail[R]]], /) -> CadRail[R]:
-    # `Result.bind` cannot await, so this is the package's one asynchronous kleisli step; each async stage threads
-    # through it instead of unwrapping the carrier into an `if` ladder that re-derives the error arm every time.
     match rail:
         case Result(tag="ok", ok=held):
             return await arrow(held)
@@ -209,8 +187,6 @@ def _budgeted(found: tuple[ArtifactRef, ...], policy: ProviderPolicy, /) -> CadR
 
 
 async def _fetched(artifact: ArtifactRef, artifacts: ArtifactTransfer, stack: AsyncExitStack, /) -> CadRail[OwnedArtifact]:
-    # fetched spools enter the CALL's exit stack, so every input unwinds before the output directory retires;
-    # `fetch` reads the live effective deadline itself and this fence forwards no window of its own.
     try:
         received = await stack.enter_async_context(artifacts.fetch(artifact))
     except _TRANSFER_RAISES as raised:
@@ -230,7 +206,7 @@ async def sources(
             return Error(refused)
         case Result(tag="ok", ok=found):
             rows: list[SourceRow] = []
-            for artifact in found:  # Exemption: each fetch is a context outliving its step, so no fan can own it
+            for artifact in found:
                 held = await _fetched(artifact, artifacts, stack)
                 if held.is_error():
                     return Error(held.error)
@@ -239,8 +215,6 @@ async def sources(
 
 
 async def published(sink: ArtifactSink, artifacts: ArtifactTransfer, /) -> CadRail[ArtifactRef]:
-    # `seal()` takes no source because the native kernel already wrote `sink.path`; `publish` then frames those
-    # sealed octets, re-proves them, and confirms the service echoed the same reference on both axes.
     try:
         match await sink.seal():
             case Result(tag="ok", ok=owned):

@@ -83,7 +83,7 @@ Instrument cells and folder-owned tag cells extend the `rasm.grasshopper.` prefi
 - Growth: a new evidence case is one union case and one arm with its roster row; a new tag axis on an existing write is one `Tag` pair at the arm.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Logging;
@@ -97,10 +97,7 @@ using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Classification VOCABULARY is the kernel `Sensitivity` roster (S1-41 — the folder's byte-identical
-// four-row twin deleted); these four attribute classes are the folder's [LoggerMessage] attach points and
-// derive every value from the kernel rows, so a re-spelling cannot fork the taxonomy.
+// --- [TYPES] ---------------------------------------------------------------------------
 public sealed class UserContentAttribute() : DataClassificationAttribute(
     new DataClassification(Sensitivity.Taxonomy, Sensitivity.UserContent.Key));
 public sealed class HostPathAttribute() : DataClassificationAttribute(
@@ -141,18 +138,13 @@ public abstract partial record GhEvidence {
         hookFaultCase: static _ => Option<Guid>.None);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed class GhInstruments {
     private const string MeterName = "Rasm.Grasshopper";
 
-    // ONE head for the folder's whole vocabulary: every instrument name and every rasm-owned tag key
-    // concatenates it at compile time, so the segment is stated once and the branch naming gate proves it
-    // against the domain roster through this roster's port column.
     private const string Head = "rasm.grasshopper.";
 
-    // Tag keys: `OpSlot` admits a generated `SelfOp` case identity ALONE — a bounded six-value space —
-    // never a caller-minted `Op`, whose value space is every entry point in the boundary.
     private const string DocSlot = "gh.doc";
     private const string OpSlot = Head + "op";
     private const string DispositionSlot = "disposition";
@@ -165,15 +157,10 @@ public sealed class GhInstruments {
     private const string GateSlot = "gate";
     private const string PointSlot = "point";
 
-    // Dimension VALUES an objective partitions on are spellings, exactly as slot keys are.
     private const string DrawnValue = "drawn";
     private const string CulledValue = "culled";
     private const string RefusedValue = "refused";
 
-    // Instrument names: the declaration roster, every write site, and every panel and objective row read
-    // these same consts. The stream constants carry a `Stream` tail wherever the bare name would equal a
-    // feeder type's simple name (a member identifier equal to a type's simple name captures that name inside
-    // its declaring class).
     public const string PaintDuration = Head + "paint.duration";
     public const string PaintMarks = Head + "paint.marks";
     public const string FrameWindowStream = Head + "frame.window";
@@ -190,10 +177,6 @@ public sealed class GhInstruments {
     public const string CaptureBreaches = Head + "capture.breach";
     public const string HookFaults = Head + "hook.faults";
 
-    // Declaration roster on the KERNEL's one Create factory: name, kind, form, unit, description, tag
-    // vocabulary, and bucket advice each live ONCE; the kernel (kind x form) bind derivation mints every
-    // handle and the port publishes the rows. These instruments mint on the injected per-ALC meter this
-    // capsule owns, so `Published` is their column.
     public static readonly Seq<InstrumentSpec> Rows = Seq(
         InstrumentSpec.Create(PaintDuration, InstrumentKind.Distribution, MeasureForm.Real, "s",
             "Paint plan execution wall time per receipt.", Seq(DocSlot), Some(Buckets.CanvasFrameSeconds), None, None),
@@ -215,8 +198,6 @@ public sealed class GhInstruments {
             "Solution lifecycle pulses by signal ordinal.", Seq(DocSlot, SignalSlot), None, None, None),
         InstrumentSpec.Create(DrainDropped, InstrumentKind.Count, MeasureForm.Whole, "{fact}",
             "Evidence facts shed by the bounded drain per source lane.", Seq(SourceSlot), None, None, None),
-        // Marshal budget is FRAME-RELATIVE, so the frame ladder advises it and its objective pins on
-        // Same ladder it advises (S1-43).
         InstrumentSpec.Create(DispatchBody, InstrumentKind.Distribution, MeasureForm.Real, "s",
             "UI-thread marshal body wall time per lane.", Seq(LaneSlot), Some(Buckets.CanvasFrameSeconds), None, None),
         InstrumentSpec.Create(DispatchStalls, InstrumentKind.Count, MeasureForm.Whole, "{stall}",
@@ -229,17 +210,11 @@ public sealed class GhInstruments {
             "Contained hook-subscriber faults by point, allocating owner, and recovery posture.",
             Seq(PointSlot, KernelInstrument.OwnerSlot, KernelInstrument.PostureSlot), None, None, None));
 
-    // Latency ceilings pinned ON the declared ladders (S1-43): the frame ceiling IS the CanvasFrameSeconds
-    // 60 Hz bucket bound and the acknowledgement ceiling IS the AckSeconds perceptual bound — the kernel pack
-    // admission proves membership, so a drifted ladder refuses while the descriptor is still editable.
     private static readonly Duration FrameBound = Duration.FromSeconds(0.017d);
     private static readonly Duration AckBound = Duration.FromSeconds(0.1d);
 
-    // Boards and reliability policy travel WITH the roster they name and prove against this port's OWN
-    // declaration. Widgets stay absent so each row's measurement shape derives the canonical one, and windows
-    // pass `Duration.Zero` to take the kernel compliance default rather than restating a literal per row.
     public static readonly BoardPack Board = new(
-        Wire: "grasshopper.fan", // the provenance key the deploy tuple admits this projection under; pack and key are one value
+        Wire: "grasshopper.fan",
         Panels: Seq(
             new PanelSpec("canvas frame window", FrameWindowStream, Seq(DocSlot), None),
             new PanelSpec("frame cost by phase", FramePhase, Seq(DocSlot, PhaseSlot), None),
@@ -261,24 +236,16 @@ public sealed class GhInstruments {
             Objective.Create("grasshopper.dispatch.body", new Sli.Latency(DispatchBody, FrameBound, 0.99d), 0.99d, Duration.Zero),
             Objective.Create("grasshopper.session.ack", new Sli.Latency(SessionAck, AckBound, 0.99d), 0.99d, Duration.Zero)));
 
-    // Whole handle custody is the kernel `InstrumentSet`: it derives every create from the row's own
-    // (kind x form) pair, de-duplicates by name inside the meter, and returns the typed write rail.
     private readonly InstrumentSet set;
 
     private GhInstruments(InstrumentSet set) => this.set = set;
 
-    // No pulled row declares here, so the cell store mounts empty and stays the kernel's.
     internal static GhInstruments Of(IMeterFactory factory, HookScope plugin, Option<string> version) =>
         new(set: InstrumentSet.Of(new LevelCells(), (factory.Create(new MeterOptions(MeterName) {
             Version = version.Match<string?>(Some: static held => held, None: static () => null),
-            // TENANT-FREE by law (S1-44): plugin identity is the only meter-scope tag this host stamps.
             Tags = [new KeyValuePair<string, object?>("gh.plugin", (string)plugin)],
         }), Rows)));
 
-    // Projection returns the kernel write rail rather than swallowing it: a refused measurement reaches the
-    // composition that subscribed this fold, which hands it straight to the capsule's rail-shaped `Observe`
-    // so a mount defect parks as an `IsolatedFault` beside every other tap fault. Multi-write arms chain on
-    // `Bind`, so the first refusal names the offending row instead of a later write masking it.
     public Fin<Unit> Project(GhEvidence fact) =>
         fact.Switch<GhInstruments, Fin<Unit>>(
             state: this,
@@ -295,8 +262,6 @@ public sealed class GhInstruments {
             captureCase: static (spine, evidence) => spine.Proofed(doc: evidence.DocumentId.ToString("N"), breach: evidence.Breach),
             hookFaultCase: static (spine, evidence) => spine.Hooked(fault: evidence.Fault));
 
-    // `PaintReceipt.Op` is the caller's own `Op`, so it is receipt evidence and a log-line field, never a tag:
-    // one series per calling member is unbounded cardinality on the busiest instrument the roster carries.
     private Fin<Unit> Painted(string doc, PassReceipt receipt) =>
         set.Write(PaintDuration, receipt.Tally.Span.Elapsed.TotalSeconds, InstrumentSet.Tags((DocSlot, doc)))
             .Bind(_ => set.Write(PaintMarks, (long)receipt.Tally.Drawn, InstrumentSet.Tags((DocSlot, doc), (DispositionSlot, DrawnValue))))
@@ -306,17 +271,12 @@ public sealed class GhInstruments {
     private Fin<Unit> Windowed(string doc, FrameWindow window) =>
         set.Write(FrameWindowStream, window.Cost.TotalSeconds, InstrumentSet.Tags((DocSlot, doc)));
 
-    // Seven phase spans ride ONE instrument under a phase axis, so a new phase is one row in this fold and
-    // never a sibling instrument the roster, the board, and the view predicate would each have to learn.
     private Fin<Unit> Pulsed(string doc, FramePulse pulse) =>
         Seq(("grid", pulse.Grid), ("wire", pulse.Wire), ("text", pulse.Text), ("icon", pulse.Icon),
             ("shape", pulse.Shape), ("layout", pulse.Layout), ("full", pulse.FullFrame))
             .TraverseM(row => set.Write(FramePhase, row.Item2.TotalSeconds,
                 InstrumentSet.Tags((DocSlot, doc), (PhaseSlot, row.Item1)))).As().Map(static _ => unit);
 
-    // Tag set binds ONCE for both writes through a single-arm switch. `SessionReceipt.Operation` is the
-    // generated `SelfOp` every `SessionOp` arm returns, so the `op` axis is the six-case command vocabulary
-    // and stays bounded by construction.
     private Fin<Unit> Settled(string doc, SessionReceipt receipt) =>
         InstrumentSet.Tags((DocSlot, doc), (OpSlot, receipt.Operation.ToString()), (DeferredSlot, receipt.Deferred)) switch {
             var tags => set.Write(SessionAck, receipt.Latency.TotalSeconds, tags).Bind(_ => set.Write(SessionCommands, 1L, tags)),
@@ -325,9 +285,6 @@ public sealed class GhInstruments {
     private Fin<Unit> Probed(string doc, RunPulse pulse) =>
         set.Write(SolutionInvalid, (long)pulse.Invalid, InstrumentSet.Tags((DocSlot, doc)));
 
-    // `SolutionRecord` assigns no per-object counters (host structural zeros), so the run write carries the
-    // culmination phase alone; per-object expiry accounting re-enters as one arm over drained expiry rows the
-    // moment a consumer demands it — never off the record's unassigned fields.
     private Fin<Unit> Ran(string doc, SolutionAudit audit) =>
         set.Write(SolutionRuns, 1L, InstrumentSet.Tags((DocSlot, doc), (CulminationSlot, audit.Culmination.ToString())));
 
@@ -338,8 +295,6 @@ public sealed class GhInstruments {
     private Fin<Unit> Dropped(string source, long dropped) =>
         set.Write(DrainDropped, dropped, InstrumentSet.Tags((SourceSlot, source)));
 
-    // Breach counts on the SAME tag set the body write carries, so a stalled lane reads as a slice of its own
-    // duration series; a passing pulse counts nothing, keeping the stall population the breaches alone.
     private Fin<Unit> Marshalled(DispatchPulse pulse) =>
         InstrumentSet.Tags((LaneSlot, pulse.Span.Lane.Key)) switch {
             var tags => set.Write(DispatchBody, pulse.Span.Elapsed.TotalSeconds, tags)
@@ -361,9 +316,6 @@ public sealed class GhInstruments {
             (KernelInstrument.PostureSlot, Redrive.Posture(fault.Cause).Key)));
 }
 
-// Ambient logger seat rides the KERNEL Cell.Seat token custody (S1-42): a free seat commits the factory
-// and hands back the token; a held seat keeps its live binding and answers Ceded; only the holder's token
-// restores the null sink — the hand-rolled Atom + Interlocked seat ladder is unspellable.
 [BoundaryAdapter]
 public static class GhLog {
     private static readonly Atom<Option<(object Token, ILoggerFactory Factory)>> Seat =
@@ -381,8 +333,6 @@ public static class GhLog {
             mint: () => (Value: (Token: token, Factory: factory), Token: token)).Token;
     }
 
-    // Token-guarded release READS its verdict: a foreign token DECLINES and the live binding survives;
-    // its predecessor, a filter-swap that silently kept-or-dropped, is the deleted discard.
     internal static Transition<Option<(object Token, ILoggerFactory Factory)>> Unbind(object token) =>
         Cell.Step(cell: Seat,
             step: held => held.Filter(row => ReferenceEquals(row.Token, token))
@@ -405,13 +355,9 @@ public sealed class GhTelemetry : IDisposable {
         IMeterFactory factory, HookScope plugin,
         Option<ILoggerFactory> logs = default, Option<string> version = default, Op? key = null) {
         Op op = key.OrDefault();
-        // HookScope IS the admission — the typed key arrived trimmed and nonblank through its own factory, and
-        // a default-constructed struct refuses here so an unadmitted scope never reaches the meter tag.
         return from owner in op.Need(factory)
                from identity in op.AcceptValue(value: plugin)
                from telemetry in op.Catch(body: () => {
-                   // only a SUPPLIED factory contends for the ambient seat — an Option-defaulted null sink never binds,
-                   // so a logger-less capsule cannot displace a live binding; the held token is the disposal key.
                    Option<object> seat = logs.Bind(GhLog.Bind);
                    return Fin.Succ(new GhTelemetry(
                        instruments: GhInstruments.Of(factory: owner, plugin: identity, version: version),
@@ -421,8 +367,6 @@ public sealed class GhTelemetry : IDisposable {
                select telemetry;
     }
 
-    // Declined unbind IS the design — a foreign token's dispose leaves the live binding untouched; both
-    // transition cases are terminal here, which is the one reading this verdict admits.
     public void Dispose() => ignore(seat.Map(GhLog.Unbind));
 }
 ```

@@ -40,12 +40,6 @@ type ChartEngineTag = Literal["vega", "lets_plot", "matplotlib"]
 type SpecFault = Literal["<invalid-spec>", "<unknown-engine>", "<engine-unavailable>"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# `lets-plot` carries an interpreter marker no supported floor satisfies, so its distribution stays ADMITTED and
-# UNREACHABLE. A class pattern reifies its `lazy` proxy the moment the arm is REACHED, so an unreachable engine would
-# raise out of a total match instead of railing. Reachability is the IMPORT and never discovery — `find_spec` answers
-# for a distribution whose own submodules then die on an unsatisfied marker or an absent native — so the gate imports
-# the exact modules those proxies name and memoizes the one attempt. It runs from the lets_plot arm alone, whose
-# subject already proves the package loaded, so the module-top deferral survives and no sibling engine touches it.
 @cache
 def _lets_plot() -> bool:
     try:
@@ -56,8 +50,6 @@ def _lets_plot() -> bool:
     return True
 
 
-# vl-convert bundles Vega 6.x plus the 5.8-6.4 Vega-Lite band, so both major schema generations of both dialects render.
-# canonical URLs close the allowlist whole — a suffix test would admit any authority or lookalike path ahead of the tail.
 _SCHEMAS: Final[frozenset[str]] = frozenset(
     f"https://vega.github.io/schema{path}" for path in ("/vega-lite/v6.json", "/vega-lite/v5.json", "/vega/v6.json", "/vega/v5.json")
 )
@@ -70,15 +62,12 @@ class VegaInput(RootModel[dict[str, JsonValue]]):
     @model_validator(mode="after")
     def _known_schema(self) -> "VegaInput":
         schema = self.root.get("$schema")
-        # Provider validation cannot cover full Vega, so admission closes the supported schema families here.
         if not isinstance(schema, str) or schema not in _SCHEMAS:
             raise ValueError("Vega input requires a supported $schema")
         return self
 
 
 def _merged(base: dict[str, JsonValue], override: dict[str, object]) -> dict[str, JsonValue]:
-    # the depth-recursive config weave every theme block rides: a theme value wins its key, a nested consumer mapping
-    # survives beneath it, so an `axis.title`- or `legend`-nested consumer setting outlives the themed override.
     return {
         **base,
         **{
@@ -89,10 +78,6 @@ def _merged(base: dict[str, JsonValue], override: dict[str, object]) -> dict[str
 
 
 class ChartTheme(Struct, frozen=True):
-    # every altair-typed block is a STRING annotation: msgspec resolves a `Struct`'s annotations at class creation,
-    # so a bare `alt.theme.*Kwds` field reifies the `lazy` altair proxy at module import and every downstream
-    # importer (`chart/export`, `visualization/dashboard`) pays the whole altair chain before it names a Vega case.
-    # `@tagged_union` defers its own annotations, so the `ChartSpec` cases below need no such quoting.
     palette: Palette
     axis: "alt.theme.AxisConfigKwds | None" = None
     legend: "alt.theme.LegendConfigKwds | None" = None
@@ -150,11 +135,8 @@ class ChartSpec:
                     lambda admitted: ChartSpec(vega=theme.apply(admitted.root))
                 )
             case Figure() as figure:
-                # publication arm precedes the lets_plot classes: a class pattern reifies the `lazy` proxy on its way
-                # PAST, so a figure dispatched behind them would import an unreachable engine it never named.
                 return Ok(ChartSpec(matplotlib=(figure, theme.palette)))
             case _ if type(engine).__module__.partition(".")[0] != "lets_plot":
-                # module-name read touches no proxy: every non-lets_plot operand leaves here having imported nothing.
                 return Error("<unknown-engine>")
             case _ if not _lets_plot():
                 return Error("<engine-unavailable>")

@@ -22,7 +22,7 @@
 - Boundary: `MeshEdit.Of` owns the kernel's one triangle-soup adapter, every consumer composing it rather than a per-page `Soup(MeshSpace)` copy; the weld kernel lives here and its band is `ToleranceLane.Weld` read off the arena's bound `Context` — dedup-on-arena is an arena op, reached through no healing policy and carrying no tolerance number of its own; the transform pass owns MIRRORED geometry estate-wide, so a consumer needing a reflected part builds it as an admitted mesh through `Kernels.Apply(MeshEdit.Of(space), Transform.Mirror(plane))` and never places an admitted mesh under a reversing transform, which silently inverts the orientation its admission just proved; the arena binds ONE context for its lifetime, so a freeze under a different tolerance regime is a second `MeshSpace.Of` at the mesh owner, never a second context on this seam; in-place span kernels inside `MeshEdit`/`Kernels` are the arena tier's statement exemption, never leaking past the freeze, so every public egress is a span view, a value, or the `Fin<MeshSpace>` rail.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -38,13 +38,13 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Meshing;
 
-// --- [CONSTANTS] ------------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record ArenaPolicy(Dimension Capacity, ToleranceLane Weld, Dimension ParallelFloor) {
     public static readonly ArenaPolicy Canonical = new(
         Capacity: Dimension.Create(value: 1_024), Weld: ToleranceLane.Weld, ParallelFloor: Dimension.Create(value: 4_096));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class MeshEdit : IDisposable {
     double[] x, y, z;
     int[] tri;
@@ -122,7 +122,6 @@ public sealed class MeshEdit : IDisposable {
     public Point3d Position(int v) => new(x[v], y[v], z[v]);
     public (int A, int B, int C) Face(int f) => (tri[3 * f], tri[3 * f + 1], tri[3 * f + 2]);
     public bool Alive(int f) => tri[3 * f] >= 0;
-    // Absence of the wedge column IS the answer — a UV-free arena has no triple to hand back, so no HasUv probe exists.
     public Option<(Point2d A, Point2d B, Point2d C)> CornerUv(int f) =>
         uvU is null ? None
             : Some((new Point2d(uvU[3 * f], uvV![3 * f]), new Point2d(uvU[3 * f + 1], uvV[3 * f + 1]),
@@ -152,7 +151,6 @@ public sealed class MeshEdit : IDisposable {
         BitHelper.SetFlag(ref dirtyVertex[v >> 6], v & 63, true);
     }
 
-    // Face indices stay stable across a corner rewrite, so a face-keyed queue survives the mutation.
     public void SetFace(int f, int a, int b, int c) {
         (tri[3 * f], tri[3 * f + 1], tri[3 * f + 2]) = (a, b, c);
         BitHelper.SetFlag(ref dirtyFace[f >> 6], f & 63, true);
@@ -181,7 +179,6 @@ public sealed class MeshEdit : IDisposable {
     public bool DirtyVertex(int v) => BitHelper.HasFlag(dirtyVertex[v >> 6], v & 63);
     public bool DirtyFace(int f) => BitHelper.HasFlag(dirtyFace[f >> 6], f & 63);
 
-    // Lazy over LIVE arena state: a Seq would snapshot a set the next mutation verb invalidates.
     public IEnumerable<int> DirtyVertices() { for (int v = 0; v < vertexCount; v++) if (DirtyVertex(v)) yield return v; }
     public IEnumerable<int> DirtyFaces() { for (int f = 0; f < faceCount; f++) if (DirtyFace(f)) yield return f; }
 
@@ -190,10 +187,6 @@ public sealed class MeshEdit : IDisposable {
         ParallelHelper.For(0, extent, in action, policy.ParallelFloor.Value);
 
     // --- [FREEZE]
-    // Freeze publishes float32 vertices — the native Mesh vertex list is Point3f — so re-admission quantizes every
-    // coordinate onto a lattice whose spacing at magnitude 1e3 is ~6e-5, COARSER than the Weld lane's band. Two
-    // consequences are page law: a re-admitted vertex can land across a weld class the pre-freeze arena resolved, and a
-    // band overridden below the float32 spacing at working magnitude welds nothing a freeze has already touched.
     public Fin<MeshSpace> ToSpace(Op key) {
         if (NonFinite().Case is int slot) {
             return Fin.Fail<MeshSpace>(new GeometryFault.DegenerateInput(
@@ -214,9 +207,6 @@ public sealed class MeshEdit : IDisposable {
         return MeshSpace.Of(native: mesh, context: context, key: key);
     }
 
-    // Wedge-faithful publish: native texture coordinates are per-vertex, so a vertex whose incident live corners
-    // disagree past Context.Absolute splits at the freeze — one duplicate per distinct corner UV, faces re-pointed,
-    // TextureCoordinates filled per published vertex. The last-island-wins seam loss is unrepresentable past this gate.
     void SplitWedges(Mesh mesh);
 
     public void Dispose() {
@@ -226,7 +216,6 @@ public sealed class MeshEdit : IDisposable {
         ArrayPool<ulong>.Shared.Return(dirtyVertex); ArrayPool<ulong>.Shared.Return(dirtyFace);
     }
 
-    // In-place weld compaction: class centroids overwrite the live columns (write head trails read head).
     internal void Compact(int classes, ReadOnlySpan<double> sumX, ReadOnlySpan<double> sumY, ReadOnlySpan<double> sumZ, ReadOnlySpan<int> classSize, ReadOnlySpan<int> remap) {
         for (int w = 0; w < classes; w++) {
             (x[w], y[w], z[w]) = (sumX[w] / classSize[w], sumY[w] / classSize[w], sumZ[w] / classSize[w]);
@@ -242,7 +231,6 @@ public sealed class MeshEdit : IDisposable {
         vertexCount = classes;
     }
 
-    // Bulk screen first, scan only on refusal — the locator runs once per failed freeze, never per successful one.
     Option<int> NonFinite() {
         if (TensorPrimitives.IsFiniteAll<double>(X) && TensorPrimitives.IsFiniteAll<double>(Y) && TensorPrimitives.IsFiniteAll<double>(Z)) return None;
         for (int v = 0; v < vertexCount; v++) {
@@ -265,15 +253,9 @@ public sealed class MeshEdit : IDisposable {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Kernels {
     // --- [WELD]
-    // ONE pass is not a fixpoint: a class collapses to its centroid, which migrates up to half the band toward a
-    // neighbour and can chain two classes the same pass measured apart, so the sweep repeats until a pass merges
-    // nothing. Every merging pass strictly shrinks the vertex extent, so the measure is the vertex count and the
-    // published arena IS idempotent. QuikGraph's ForestDisjointSet is REFUSED here: the partition lives in a rented
-    // Span the same statement kernel compacts from, and a boxed union-find would re-heap what the arena tier exists
-    // to keep pooled.
     public static MeshEdit WeldDuplicates(MeshEdit edit) {
         while (Merged(edit) > 0) { }
         return edit;
@@ -285,9 +267,6 @@ public static class Kernels {
             Span<int> parent = parentOwner.Span;
             for (int v = 0; v < n; v++) parent[v] = v;
 
-            // Admitted lattice key: the quantum IS the weld band, so a cell diagonal cannot exceed one band and the
-            // 27-cell probe is exhaustive. Exemption: the grid is a mutable span-kernel table, built and dropped inside
-            // one pass, so it never freezes.
             Dictionary<(long, long, long), List<int>> grid = new();
             for (int v = 0; v < n; v++) {
                 (long cx, long cy, long cz) = Cell(edit, v, band);
@@ -331,11 +310,6 @@ public static class Kernels {
     }
 
     // --- [TRANSFORM]
-    // Plane mirrors, handedness swaps, and negative-axis scales are all `Transform` values, so the mirror
-    // capability is this one primitive rather than a plane-shaped sibling and no arm carries a mirror flag beside the
-    // map. A non-finite map needs no verdict here: the arena is total and the freeze's finiteness gate owns it.
-    // The position pass is vertex-DISJOINT, so it runs through the arena's own `Parallel` verb at the policy floor;
-    // the reversal pass below stays serial because it reads and writes the shared `tri` column non-disjointly.
     readonly struct TransformAction(MeshEdit edit, Transform xform) : IAction {
         public void Invoke(int v) => edit.SetPosition(v, xform * edit.Position(v));
     }
@@ -353,8 +327,6 @@ public static class Kernels {
     }
 
     // --- [QUAD_DIAGONAL]
-    // This bool verdict is FROZEN — cross-tier consumers bind it — so a degenerate quad with no dominant axis resolves
-    // to the canonical B-D false here rather than widening the ingress rail to Fin<bool>.
     public static bool QuadDiagonal(Point3d a, Point3d b, Point3d c, Point3d d) =>
         Axis.DominantOf(a, b, c, d).Case is Axis axis
         && Predicate.Orient2D(a, c, b, axis).Times(Predicate.Orient2D(a, c, d, axis)) == Sign.Negative;

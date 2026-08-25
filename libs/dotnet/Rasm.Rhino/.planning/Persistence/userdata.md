@@ -20,7 +20,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[ComplexValueObject]`, `[Union]`, `[ValidationError]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `HashSet`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.InvalidResult`), `Domain/validation` (`IValidityEvidence`, `ValidityClaim`); `Persistence/presets` (`PersistenceFault`), `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[ARCHIVE_IO]` — `WriteDictionary`, `ReadDictionary`, `BeginWrite3dmChunk`/`EndWrite3dmChunk`, `BeginRead3dmChunk`/`EndRead3dmChunk`, `EnableCRCCalculation`, `WriteEmptyCheckSum`, `ReadCheckSum`, `WriteErrorOccured`, `ReadErrorOccured`, `Archive3dmVersion`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino.Collections;
@@ -28,7 +28,7 @@ using Rhino.FileIO;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public readonly partial record struct ArchiveVersion(int Major, int Minor) {
@@ -69,8 +69,6 @@ public sealed partial record ArchiveSchema(
     }
 }
 
-// The shared trio rides the base, so the two cases differ only in the evidence their own direction can observe: a
-// writer publishes an error flag, a reader publishes that flag beside a checksum verdict.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ArchiveIntegrity(uint TypeCode, int Archive3dmVersion, ArchiveVersion Schema)
     : IValidityEvidence {
@@ -91,7 +89,7 @@ public abstract partial record ArchiveIntegrity(uint TypeCode, int Archive3dmVer
 
 public sealed record ArchiveEnvelope(ArchiveMap Payload, ArchiveIntegrity.ReadCase Integrity);
 
-// --- [SERVICES] -------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IArchiveCodec {
     ArchiveSchema Schema { get; }
 
@@ -105,7 +103,7 @@ public interface IArchiveCodec {
             .Bind(envelope => op.Catch(() => Upgrade(envelope)));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ArchiveIo {
     public static Fin<ArchiveIntegrity.WrittenCase> Cross(
         BinaryArchiveWriter archive,
@@ -211,7 +209,7 @@ public static class ArchiveIo {
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Atom`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Cell.Step`, `Transition`); `Persistence/dictionary` (`ArchiveMap`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserData.Description`/`ShouldWrite`/`Transform`/`Write`/`Read`/`OnTransform`/`OnDuplicate`, `ClassIdAttribute`), RhinoCommon file I/O (`api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`), RhinoCommon geometry (`api-rhinocommon-geometry.md` — `Transform`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino.DocObjects.Custom;
 using Rhino.FileIO;
@@ -219,7 +217,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [SERVICES] -------------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
     where TSelf : TypedUserData<TSelf> {
     private readonly Atom<Fin<Option<ArchiveMap>>> held = Atom(Fin.Succ<Option<ArchiveMap>>(None));
@@ -246,8 +244,6 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
         return op.Need(payload).Bind(admitted => Adopt(admitted, op)).Map(static _ => unit);
     }
 
-    // Host truth: `ClassIdAttribute(string) : { Id : Guid }` pins a stable resolution key onto a `UserData` subclass so an
-    // archive written under a prior class name keeps resolving it.
     private static Fin<Guid> Pinned(Op op) =>
         typeof(TSelf).GetCustomAttributes(typeof(ClassIdAttribute), inherit: false) is [ClassIdAttribute pin]
         && pin.Id != Guid.Empty
@@ -308,8 +304,6 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
                 refused: static (_, row) => Fin.Fail<ArchiveMap>(error: row.Cause),
                 contended: static (ctx, _) => Fin.Fail<ArchiveMap>(error: ctx.Op.InvalidResult()));
 
-    // The poison step never declines, so its verdict is always `Committed` and `ignore` discards nothing a caller
-    // could act on; the rail it seats is what every later read collapses on.
     private Unit Poison(Error error, Op op) {
         ignore(Cell.Step(cell: held, step: _ => Some(Fin.Fail<Option<ArchiveMap>>(error)), declined: op.InvalidContext()));
         return Reported(error, op);
@@ -336,7 +330,7 @@ public abstract class TypedUserData<TSelf> : UserData, IArchiveCodec
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<TKey>]`, `[Union]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Validation` accumulation, `TraverseM`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Op.Confirm`, `Custody.Rollback`), `Domain/validation` (`ICapability`, `CapabilitySet`); `Document/facts` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`), `Document/commit` (`DocumentCommit.Sealed`, `RedrawPolicy`), `Document/session` (`DocumentSession`, `SessionNeed`, `UndoCustody`); `Persistence/dictionary` (`ArchiveMap`, `ArchiveChange`, `ArchiveMerge`), `Persistence/presets` (`PersistenceFault`); RhinoCommon persistence (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-persistence.md` `[USERDATA_CUSTODY]` — `UserDataList.Add`/`Remove`/`Find`/`Contains`/`Purge`/`Count`, `UserData.Copy`/`MoveUserDataFrom`/`MoveUserDataTo`/`Dispose`, `CommonObject.UserData`/`UserDictionary`, `ArchivableDictionary.ParentUserData`/`Clear`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using UserDataReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Persistence.UserDataSlot, Rasm.Rhino.Persistence.UserDataBody>;
 
 using Rasm.Domain;
@@ -348,8 +342,7 @@ using Rhino.Runtime;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
-// Each row's key IS the host argument it lowers to, so no member re-states the bool the row already is.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class DisposalPolicy {
     public static readonly DisposalPolicy Detach = new(key: false);
@@ -368,8 +361,6 @@ public sealed partial class WritePosture {
     public static readonly WritePosture Serialized = new(key: true);
 }
 
-// Whether the shared-dictionary read found a carrier or made the host mint one: `CommonObject.UserDictionary` is a
-// lazy MUTATING accessor that attaches its own carrier when absent, so a read can grow the roster.
 [SmartEnum<bool>]
 public sealed partial class SharedOrigin {
     public static readonly SharedOrigin Existing = new(key: false);
@@ -409,7 +400,7 @@ public sealed partial class UserDataSlot : IFactSlot<UserDataBody, UserDataKind>
     public CapabilitySet<UserDataKind> Bodies { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UserDataBody : IFactBody<UserDataKind> {
     private UserDataBody() { }
@@ -490,8 +481,6 @@ public abstract partial record CustodyStep {
     public sealed record ReplaceCase(CommonObject Target, ArchiveMap Payload) : CustodyStep;
     public sealed record MergeCase(CommonObject Target, ArchiveMap Payload, ArchiveMerge Merge) : CustodyStep;
 
-    // The slot and the census subject are the step's OWN facts, so the interpreter reads them off the case rather
-    // than re-deciding both in a second parallel fold.
     internal UserDataSlot Slot => Switch<UserDataSlot>(
         attachCase: static _ => UserDataSlot.Attached,
         removeCase: static _ => UserDataSlot.Removed,
@@ -511,10 +500,9 @@ public abstract partial record CustodyStep {
         mergeCase: static row => row.Target);
 }
 
-// One named program with its redraw posture: the commit envelope reads both, so a program is the WHOLE ask.
 public sealed record CustodyProgram(Seq<CustodyStep> Steps, RedrawPolicy Redraw, Option<string> RecordName);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Custody {
     public static Fin<CustodyAnswer> Ask(CustodyQuery query, Op? key = null) {
         Op op = key.OrDefault();
@@ -558,7 +546,6 @@ public static class Custody {
                 needs: SessionNeed.Mutation(custody: UndoCustody.Recorded, redraw: admitted.Redraw).ToArray()));
     }
 
-    // Independent clauses accumulate: a program whose steps carry several defects reports every one of them.
     private static Fin<CustodyProgram> Admit(CustodyProgram program, Op op) =>
         from steps in program.Steps
             .Map(step => Admit(step, op).ToValidation())
@@ -670,8 +657,6 @@ public static class Custody {
                 .Bind(current => current.Merge(merge.Payload, merge.Merge, op))
                 .Bind(payload => Reseat(merge.Slot, opened, payload, op))));
 
-    // ONE roster fold: the before/after census brackets every roster mutation, and a failed CLOSING census is a
-    // residue fact — the mutation landed, so refusing the whole step would report a rollback that never happened.
     private static Fin<UserDataReceipt> Rostered(CustodyStep step, Func<Fin<UserDataReceipt>> commit, Op op) =>
         from before in op.Catch(() => Fin.Succ(value: step.Subject.UserData.Count))
         from tail in commit()
@@ -706,8 +691,6 @@ public static class Custody {
                 new UserDataBody.Shared(prior, current, changes, opened.Origin),
                 op)
             select receipt)
-            // Kernel `Custody.Rollback` delegate arm: the release is a keyed compensation fold no span can carry —
-            // restore the prior shared dictionary, or detach and dispose the parent this reseat created.
             .Rollback(() => RestoreShared(opened, prior, op))
         select settled;
 

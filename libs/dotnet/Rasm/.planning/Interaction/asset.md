@@ -33,7 +33,7 @@ Both boundaries carried an origin family and an icon record; the AppUi product s
 - Boundary: the kernel never CACHES a resolved asset — a host image cache, a `DisplayBitmap` table, and a platform image list are the boundary's own custody, because their eviction policy is the host's and a kernel cache would outlive the surface that asked.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers;
 using System.Reflection;
 using EtoBitmap = Eto.Drawing.Bitmap;
@@ -43,17 +43,12 @@ using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct AssetKey {
-    // `Band` guards NUMERIC ranges and carries no text row, so the grammar states itself here: a dotted lowercase
-    // token space the host resource paths and the canvas glyph atlas both already spell.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
-        // Canonicalized by `ref` BEFORE the predicate: the one member whose job is refusing cannot dereference a
-        // null, and a host resource path spelled in mixed case is admitted as the token it names rather than
-        // refused for a casing no reader distinguishes.
         value = value?.Trim().ToLowerInvariant() ?? string.Empty;
         validationError = value.Length > 0
             && value.All(static ch => char.IsAsciiLetterLower(ch) || char.IsAsciiDigit(ch) || ch is '.' or '-' or '_')
@@ -66,10 +61,6 @@ public readonly partial struct AssetKey {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct FileLocation {
-    // The DECLARED invariant set, never `Path.GetInvalidPathChars()`: that array is platform-dependent on .NET —
-    // `{'\0'}` on Unix against a control-character set on Windows — so a path admitted on one build host refuses on
-    // another, and the array allocates per validation. The union of both platforms' refusals is stated here as one
-    // frozen set: the C0 control range plus the four glyphs Windows reserves in a path segment.
     private static readonly SearchValues<char> Refused = SearchValues.Create(string.Create(
         length: 36,
         state: unit,
@@ -78,9 +69,6 @@ public readonly partial struct FileLocation {
             "\"<>|".CopyTo(span[32..]);
         }));
 
-    // Ordinal, never culture-folded: a path is matched byte-wise by every platform this branch runs on, and a
-    // culture comparison admits a Turkish-dotless mismatch on an ASCII resource path. ROOTED-OR-RELATIVE is the
-    // second admission — both are real origins and only the empty-after-trim spelling is neither.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value?.Trim() ?? string.Empty;
         validationError = value.Length > 0 && !value.AsSpan().ContainsAny(Refused)
@@ -89,32 +77,20 @@ public readonly partial struct FileLocation {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record AssetAnchor(Assembly Owner, string ResourcePath);
 
-// The scaled extent DERIVES; a consumer multiplying logical extent by surface scale is a second authority. The
-// ceiling is the ALLOCATION guard: a host publishing a large logical extent under a retina scale asks for a buffer
-// nothing consumes, and the two-edge product overflows an `int` long before either edge reads as unreasonable.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct AssetExtent(
     Dimension Width, Dimension Height, PositiveMagnitude Scale, Dimension MaxDimension) : IValidityEvidence {
-    // The DECLARED raster ceiling every absent `max` seeds from, stated with its provenance: 2^14 device pixels is
-    // the tightest maximum bitmap edge the admitted imaging stacks publish (Direct2D at feature level 10_0), while
-    // CoreGraphics and GDI+ bound on allocation alone — so the tightest published cap is the estate's, and a
-    // backend publishing a smaller one lands as a second row rather than as a caller-side literal.
     public static readonly Dimension Ceiling = Dimension.Create(value: 16_384);
 
-    // The ONE admission: both scaled edges are measured against the ceiling and the pixel count is proved inside
-    // `long` before any caller sizes a buffer off it. An absent `max` reads the declared row, never a fabricated
-    // `int.MaxValue`, so every admitted extent carries a ceiling some surface actually allocates under.
     public static Fin<AssetExtent> Of(
         Dimension width, Dimension height, PositiveMagnitude scale, Option<Dimension> max = default, Op? key = null);
 
     public int PixelWidth => (int)Measured(Width);
     public int PixelHeight => (int)Measured(Height);
 
-    // `long`, never `int`: the edge product is exactly the multiplication that wraps, and a wrapped negative count
-    // reads as a small buffer a decode then writes past.
     public long PixelCount => (long)PixelWidth * PixelHeight;
 
     public bool IsValid => ValidityClaim.All(
@@ -123,15 +99,9 @@ public readonly record struct AssetExtent(
         Measured(Width) <= MaxDimension.Value,
         Measured(Height) <= MaxDimension.Value);
 
-    // Measured in `double` and compared against the ceiling BEFORE any cast, so the cast is total on an admitted
-    // extent: an extent past the ceiling REFUSES at `Of` where a clamp would fabricate an edge nobody asked for and
-    // hand a decode a buffer that disagrees with the picture it is filling.
     private double Measured(Dimension edge) => Math.Round(edge.Value * Scale.Value);
 }
 
-// The product shape a caller ASKS for: the imaging stack is the caller's own host contract and never something the
-// resolver picks — a plug-in registry entry takes GDI, an Eto surface takes toolkit bitmaps, and a host
-// display-bitmap upload takes raw straight-alpha rows.
 [SmartEnum<int>]
 public sealed partial class RasterStack {
     public static readonly RasterStack Toolkit = new(key: 0);
@@ -139,21 +109,12 @@ public sealed partial class RasterStack {
     public static readonly RasterStack Pixels = new(key: 2);
 }
 
-// Scale is a COLUMN, never a filename convention: a convention lives in whichever reader parses it, and two
-// readers parse differently the first time a host names a set `@3x` instead of `@2x`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AssetRaster {
     private AssetRaster() { }
 
     public sealed record Toolkit(PositiveMagnitude Scale, Lease<EtoBitmap> Bitmap) : AssetRaster;
-    // The GDI arm answers the host contracts that take `System.Drawing` bitmaps — the Rhino plug-in icon registry
-    // and the licence badge — which no toolkit bitmap satisfies without a conversion the kernel does not own.
     public sealed record Gdi(PositiveMagnitude Scale, Lease<GdiBitmap> Bitmap) : AssetRaster;
-    // Rows tightly packed at `Extent.PixelWidth * Layout.Channels` — the stride is DERIVED from the extent and the
-    // carriage the case carries, so no stride column can disagree with the buffer beside it. The carriage is a
-    // COLUMN and never a comment: `PixelLease.Bytes` publishes `AlphaLayout.Declared`, and a host upload reading a
-    // premultiplied buffer as straight is the silent corruption an asserted layout leaves unrepresentable. This is
-    // the one product carrying no host handle and therefore no lease: the rows are already the caller's own copy.
     public sealed record Pixels : AssetRaster {
         internal Pixels(PositiveMagnitude scale, AssetExtent extent, AlphaLayout layout, Arr<byte> rows) =>
             (Scale, Extent, Layout, Rows) = (scale, extent, layout, rows);
@@ -163,9 +124,6 @@ public abstract partial record AssetRaster {
         public Arr<byte> Rows { get; }
     }
 
-    // The one mint for the lease-free arm, because it is the one arm whose payload can DISAGREE with its own
-    // extent: a public constructor admits a buffer of any length beside a picture of any size, and the disagreement
-    // surfaces as a read past the end at whichever host consumes it.
     public static Fin<AssetRaster> OfPixels(
         PositiveMagnitude scale, AssetExtent extent, AlphaLayout layout, Arr<byte> rows, Op? key = null) =>
         rows.Count == extent.PixelCount * layout.Channels
@@ -180,8 +138,6 @@ public abstract partial record AssetRaster {
         gdi:     static raster => raster.Scale,
         pixels:  static raster => raster.Scale);
 
-    // The row a caller asked for, read back off the answer: `Resolve` refuses rather than answering a shape nobody
-    // asked for, so this fold and the asked row agree by construction and a consumer never re-probes the union.
     public RasterStack Stack => Switch(
         toolkit: static _ => RasterStack.Toolkit,
         gdi:     static _ => RasterStack.Gdi,
@@ -196,16 +152,9 @@ public abstract partial record AssetOrigin {
     public sealed record Stream(Func<System.IO.Stream> Open) : AssetOrigin;
     public sealed record Raster(Seq<AssetRaster> Scales) : AssetOrigin;
     public sealed record Vector(AssetKey Key) : AssetOrigin;
-    // The text alone: the COMPILER is the host's — a Grasshopper2 expression compiler, a boundary's own vector
-    // reader — and so is the dialect, which is why no language column rides here. A host that compiles nothing
-    // refuses this arm by name rather than decoding the text as bytes.
     public sealed record Source(string Text) : AssetOrigin;
-    // The escape that keeps the family closed: an asset no byte source produces is a DRAW, and the draw is the
-    // paint program this sub-domain already owns.
     public sealed record Render(Func<AssetExtent, Fin<PaintProgram>> Draw) : AssetOrigin;
 
-    // The asked `stack` IS the contract: the answered case is that row or the resolve refuses, because converting
-    // between imaging stacks is the ownership this family declined when it split them.
     [BoundaryAdapter] public Fin<AssetRaster> Resolve(AssetExtent extent, RasterStack stack, Op? key = null);
 }
 ```
@@ -227,7 +176,7 @@ public abstract partial record AssetOrigin {
 - Boundary: the FILTER is declarative and the kernel applies none of it — a host draws the disabled state its platform draws, `Custom` hands that host the map it must apply, and the case names which state was asked for rather than prescribing a pixel operation.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
 using System.Text.Json.Serialization;
@@ -236,10 +185,7 @@ using Rasm.Numerics;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The union crosses JSON — a persisted or logged chain is the whole reason `Key` exists — and the generator emits
-// no polymorphic roster, so an undeclared union serializes `{}` per case. The roster is DECLARED here and `Key`
-// PROJECTS it, so the wire token and the rendered token are one fact and a new case cannot land without both.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Disabled), "disabled")]
@@ -253,17 +199,11 @@ public abstract partial record IconFilter {
 
     public sealed record Disabled : IconFilter;
     public sealed record Selected : IconFilter;
-    // The desaturating state both boundaries drew and only one named: a host applies its own greyscale transfer,
-    // and the row exists so a chain can state the step a `Custom` map would otherwise have to carry opaquely.
     public sealed record Greyscale : IconFilter;
     public sealed record Tinted(PerceptualColor Tint) : IconFilter;
     public sealed record Fading(PerceptualColor Tint, UnitInterval Strength) : IconFilter;
-    // The kernel never invokes the map: it travels to the host that draws, which is the same posture every other
-    // case holds — the case names the state, the platform renders it.
     public sealed record Custom(Func<PerceptualColor, PerceptualColor> Map) : IconFilter;
 
-    // Projected off the declared roster ONCE at type init, never a case-to-literal dispatch: a second spelling of
-    // the same token twins the wire vocabulary, and the twin diverges the first time one side gains a case.
     public string Key => Discriminators.Value[GetType()];
 
     private static readonly Lazy<FrozenDictionary<Type, string>> Discriminators =
@@ -274,8 +214,6 @@ public abstract partial record IconFilter {
                 static row => (string)row.TypeDiscriminator!));
 }
 
-// The reflection AXIS a mirrored pose is taken about: a bare bool names no axis at all, so a glyph mirrored about
-// its vertical centre line and one flipped top-to-bottom were one unspellable pair.
 [SmartEnum<int>]
 public sealed partial class MirrorAxis {
     public static readonly MirrorAxis Horizontal = new(key: 0);
@@ -283,15 +221,10 @@ public sealed partial class MirrorAxis {
     public static readonly MirrorAxis Both = new(key: 2);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// A measured angle, not a quadrant roster: a host that draws only quadrants rounds at its own edge and states
-// it, where a quadrant-only kernel cannot serve a surface that draws a dial. Reflection is ABSENT or an axis, so
-// an unmirrored pose carries no axis to misread and a mirrored one names which one it took.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct IconPose(VectorAngle Rotation, Option<MirrorAxis> Mirror, AssetExtent Extent) : IValidityEvidence {
     public static IconPose Upright(AssetExtent extent);
-    // The extent is a non-nullable struct, so wrapping it in `Optional` would report `Some` by construction and
-    // measure nothing; the conjuncts are the two facts this pose actually carries.
     public bool IsValid => ValidityClaim.All(Extent.IsValid, Band.Angle.Admits(value: Rotation.Value));
 }
 ```
@@ -307,15 +240,11 @@ public readonly record struct IconPose(VectorAngle Rotation, Option<MirrorAxis> 
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino bitmap table registration and its `.rui` icon binding, the Grasshopper2 canvas glyph atlas, and the AppUi theme asset cache each keep their own registration and eviction, and each hands this owner a value rather than a name.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Interaction;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// `Filters` is ORDERED and applies head to tail: one filter is a one-element chain, unfiltered is the empty one,
-// and the sequence is the operation rather than a set a host may reorder.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record IconRender(AssetOrigin Origin, IconPose Pose, Seq<IconFilter> Filters) {
-    // The chain's wire form IS its entries' keys in order, so a persisted or logged render round-trips the sequence
-    // rather than a set: a set-shaped read silently reorders, which draws pixels the value never asked for.
     public string Wire => string.Join('+', Filters.Map(static filter => filter.Key));
 }
 ```

@@ -26,10 +26,8 @@ Exact tessellation is the kernel's. `Rasm/Meshing/delaunay#TESSELLATION` owns ex
 - Exemption: the counting-sort index fill, the parity ray, the octree recursion, the wall-normal accumulation, and the layer offset ladder are MEASURED span kernels over pooled planes — each dies with the call that fills it and none crosses a page surface.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Every core reads the ONE inclusion index the entry built, so no fill re-derives the shell's interior test, and
-// every core rails: the kernel tessellation refuses a degenerate operand by name rather than emitting a thin mesh.
 [SmartEnum]
 public sealed partial class MeshStrategy {
     public static readonly MeshStrategy Delaunay = new(static (boundary, index, policy) => DelaunayCore.Fill(boundary, index, policy));
@@ -41,9 +39,6 @@ public sealed partial class MeshStrategy {
     public partial Fin<MeshBuild> Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy);
 }
 
-// PointSource rows are SEEDING-DENSITY gradations of the ONE tessellation fill — `Frontal` densifies to 0.75×
-// spacing and `Front` grades by ratio; neither row evolves a front, queues local features, or recovers boundary
-// facets, and the MeshAlgorithm rows binding them state exactly that.
 [SmartEnum]
 public sealed partial class PointSource {
     public static readonly PointSource Uniform = new(static (target, _) => target);
@@ -68,41 +63,28 @@ public readonly record struct Aabb(Vector3 Lo, Vector3 Hi) {
     }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MeshAlgorithm {
-    // `frontal-delaunay` and `advancing-front` are density presets over the one tessellation core — front-quality
-    // seeding, honest about carrying no front-evolution machinery; a true cavity-scheduled front is a new
-    // MeshStrategy core, never a rename of these rows.
     public static readonly MeshAlgorithm Delaunay = new("delaunay", MeshStrategy.Delaunay, PointSource.Uniform, ElementClass.Tet4);
     public static readonly MeshAlgorithm FrontalDelaunay = new("frontal-delaunay", MeshStrategy.Delaunay, PointSource.Frontal, ElementClass.Tet4);
     public static readonly MeshAlgorithm AdvancingFront = new("advancing-front", MeshStrategy.Delaunay, PointSource.Front, ElementClass.Tet4);
     public static readonly MeshAlgorithm Octree = new("octree", MeshStrategy.Octree, PointSource.Uniform, ElementClass.Hex8);
-    // Sweep and inflation both extrude the ONE triangulated section, so both emit prisms; a hex row over those
-    // cores would demand a quadrangulated section neither core builds.
     public static readonly MeshAlgorithm Sweep = new("sweep", MeshStrategy.Sweep, PointSource.Uniform, ElementClass.Wedge6);
     public static readonly MeshAlgorithm BoundaryLayer = new("boundary-layer", MeshStrategy.Inflation, PointSource.Uniform, ElementClass.Wedge6);
 
     public MeshStrategy Strategy { get; }
     public PointSource Seed { get; }
-    // The base element is the ROW's own column: two rows sharing a core can still emit different topologies, and
-    // deriving the element from the core forces every such row to lie about one of them. A declared conformity
-    // column has no reader — conformity is what the build MEASURES — so the row carries none.
     public ElementClass BaseElement { get; }
 }
 
-// Presence IS the constraint set. The bool it replaces gated the conformity bypass and the closure skip
-// independently, so a mesh could be admitted with hanging nodes while the refinement still closed its edges —
-// the exact "hanging node without a constraint row" the entry exists to refuse.
 public sealed record MortarPolicy(double InterfaceTolerance) {
     public static readonly MortarPolicy Canonical = new(InterfaceTolerance: EpsilonPolicy.SqrtEpsilon);
 }
 
-// Every column is admitted at the mint and no interior fold re-tests one; `with` reaches only the canonical rows
-// inside the type, so a caller holds proven evidence rather than a record it may have skipped validating.
 public sealed record MeshPolicy {
     public static readonly MeshPolicy CanonicalTet = new(
         MeshAlgorithm.Delaunay, ElementClass.Tet4, CellQuality.ScaledJacobian,
@@ -136,12 +118,8 @@ public sealed record MeshPolicy {
     public double QualityFloor { get; init; }
     public Option<MortarPolicy> Mortar { get; init; }
 
-    // The proven rule the mint bound, carried so the pack seals it onto the frozen mesh.
     public QuadratureRule Rule => Element.Quadrature.ThrowIfFail();
 
-    // Six independent numeric invariants, one strategy coherence claim, and the kernel quadrature election
-    // accumulate on ONE pass: the ladder they replace collapsed six facts to whichever failed first, so a caller
-    // repairing an edge length re-ran to learn about the grading ratio.
     public static Fin<MeshPolicy> Of(
         MeshAlgorithm algorithm, ElementClass element, CellQuality metric, double targetEdgeLength, double gradingRatio,
         int boundaryLayerCount, double boundaryLayerGrowth, double firstLayerThickness, double refineFraction,
@@ -169,9 +147,6 @@ public sealed record MeshPolicy {
                 boundaryLayerGrowth, firstLayerThickness, refineFraction, refineAxis, maxRefineLevel, qualityFloor, mortar))
             .ToFin();
 
-    // The refusal names the AXIS that failed and the key it was handed, never the roster sizes: a count tells the
-    // caller nothing it can act on and turns every admitted row into an edit to this message. All three keys
-    // resolve on one pass, so a caller mistyping two learns both.
     public static Fin<MeshPolicy> OfKeys(MeshPolicy template, string algorithm, string element, string metric) =>
         (Resolve(MeshAlgorithm.TryGet, algorithm, "algorithm"),
          Resolve(ElementClass.TryGet, element, "element"),
@@ -211,10 +186,6 @@ public sealed record BoundaryShell {
         return new(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]);
     }
 
-    // Five INDEPENDENT structural claims — buffer shape, coordinate finiteness, index range, facet degeneracy,
-    // and edge manifoldness with consistent winding — accumulate on one pass, so a soup with a bad index and a
-    // sliver reports both. The degeneracy floor is a squared area relative to the shell's own extent, never an
-    // absolute literal: a model in millimetres and one in metres would otherwise refuse at different shapes.
     public static Fin<BoundaryShell> Of(ReadOnlyMemory<float> vertices, ReadOnlyMemory<int> triangles) {
         Aabb bounds = Aabb.Of(vertices.Span);
         double area = Math.Max(bounds.Span.LengthSquared(), EpsilonPolicy.ZeroTolerance) * EpsilonPolicy.SqrtEpsilon;
@@ -243,8 +214,6 @@ public sealed record BoundaryShell {
                     new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Index(facet, TriangleCount)));
         }).As().Map(static _ => unit);
 
-    // Count and winding balance ride ONE fold: a closed consistently-wound soup carries every edge twice with a
-    // zero direction sum, and the two facts fail together far more often than apart.
     Validation<Error, Unit> Manifold() {
         ReadOnlySpan<int> triangles = Triangles.Span;
         Dictionary<(int Lo, int Hi), (int Count, int Balance)> edges = new(triangles.Length);
@@ -268,11 +237,6 @@ public sealed record BoundaryShell {
         held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 }
 
-// ONE inclusion index per Discretize call, threaded to every core. The parity ray runs along +X, so a triangle can
-// only be crossed by probes whose (Y, Z) lies inside that triangle's own (Y, Z) extent: the index bins each
-// triangle into the YZ cells it spans and a probe tests one cell's candidates. Seeding, octree recursion, and
-// section rasterization each drive millions of probes against one shell, so a per-probe scan over every triangle
-// makes generation quadratic in the boundary it is meshing — the cost the index exists to remove.
 public sealed class ShellIndex {
     readonly BoundaryShell shell;
     readonly MemoryOwner<int> cellStart;
@@ -287,9 +251,6 @@ public sealed class ShellIndex {
         (this.cellStart, this.cellTriangles) = (cellStart, cellTriangles);
     }
 
-    // Counting-sort bin fill: one pass counts each triangle's cell span, the prefix sum lays the ranges out, and
-    // the second pass writes ids — so the index is two passes and one flat pair of pooled planes rather than a
-    // list per cell.
     public static ShellIndex Of(BoundaryShell shell) {
         Aabb box = shell.Bounds;
         int side = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(shell.TriangleCount)));
@@ -322,8 +283,6 @@ public sealed class ShellIndex {
         return (loRow, hiRow, loColumn, hiColumn);
     }
 
-    // Ray parity along +X over one bin's candidates. `BoundaryShell.Of` proved the soup closed, manifold, and
-    // consistently wound before any index built, so an odd crossing count IS interiority.
     public bool Encloses(Vector3 p) {
         int row = Cell(p.Z, originZ, cellZ, side), column = Cell(p.Y, originY, cellY, side);
         if (row < 0 || column < 0) { return false; }
@@ -356,9 +315,6 @@ public sealed class ShellIndex {
     }
 }
 
-// A face is keyed by its SORTED node ids packed into a value struct: a face of a supported element carries at most
-// four nodes, so the key is four longs compared by value. Formatting the ids into a string allocates one string
-// and one char buffer per face per cell where the packed key compares in registers.
 public readonly record struct FaceKey(long A, long B, long C, long D) {
     public static FaceKey Of(ReadOnlySpan<long> nodes) {
         Span<long> sorted = stackalloc long[4];
@@ -369,9 +325,6 @@ public readonly record struct FaceKey(long A, long B, long C, long D) {
     }
 }
 
-// The build carrier is the mutable half of the publish-by-freeze pair `Pack` closes. Conformity is not a column:
-// it IS `HangingNodes == 0` by construction, so a build reporting conforming beside a positive count is
-// unrepresentable rather than merely contradictory.
 public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> Cells, long ElementCount, long NodeCount, int Layers) {
     public long BoundaryCount { get; init; }
     public double Quality { get; init; } = 1.0;
@@ -379,8 +332,6 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
 
     public bool Conforming => HangingNodes == 0;
 
-    // One metric fold over one pooled gather plane: the per-cell array this replaced allocated once per cell on a
-    // pass that already visits every cell.
     public MeshBuild Scored(CellQuality metric) {
         if (ElementCount == 0) { return this with { Quality = 0.0, BoundaryCount = BoundaryFold() }; }
         int per = Element.Nodes;
@@ -396,7 +347,6 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
         return this with { Quality = metric.Worst(perElement.Span), BoundaryCount = BoundaryFold() };
     }
 
-    // A facet appearing once is a hull facet; the hull node set is what the boundary station counts.
     long BoundaryFold() {
         Dictionary<FaceKey, (int Count, long[] Nodes)> facets = new(checked((int)ElementCount) * Math.Max(1, Element.Faces.Length));
         int per = Element.Nodes;
@@ -412,18 +362,13 @@ public sealed record MeshBuild(ElementClass Element, float[] Nodes, List<long> C
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class MeshLane {
     private static readonly Op GenerateKey = Op.Of(name: nameof(Discretize));
 
     public static Fin<DiscreteMesh> Discretize(BoundaryShell boundary, MeshPolicy policy, IClock clock) =>
-        // The index builds ONCE and every core probes it — the shell is immutable across the whole generation, so
-        // a core building its own would pay the same fill per strategy leg.
         from built in policy.Algorithm.Strategy.Fill(boundary, ShellIndex.Of(boundary), policy)
-        // Conformity is MEASURED on the built mesh, never inherited from the algorithm row's intent: a graded fill
-        // leaves hanging nodes wherever depth changes, and a mesh carrying them without a mortar constraint row is
-        // a solve whose interface equations are silently absent.
         from conforming in built.Conforming || policy.Mortar.IsSome
             ? Fin.Succ(built)
             : Fin.Fail<MeshBuild>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
@@ -453,9 +398,6 @@ public static partial class MeshLane {
 public static class DelaunayCore {
     private static readonly Op TessellateKey = Op.Of(name: "delaunay-core");
 
-    // The topology is the kernel's: one `Build` over exact `Implicit` carriage with Morton insertion order,
-    // constraint recovery, and typed exhaustion. This core owns the SEEDING and the centroid inclusion filter —
-    // a tet whose centre leaves the shell is not part of the solid — and nothing else.
     public static Fin<MeshBuild> Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
         Seq<Vector3> points = Seed(boundary, index, policy);
         return Tessellation.Build(new TessellationOp.Points(
@@ -493,10 +435,6 @@ public static class DelaunayCore {
                 for (float x = box.Lo.X + offset; x < box.Hi.X; x += edge) { yield return new(x, y, z); }
     }
 
-    // The 2-D specialization is the SAME kernel owner under its triangulation kind, projected onto the build
-    // plane. The section is CONSTRAINED by centroid inclusion — a triangle whose centre lies outside the footprint
-    // is dropped, so a re-entrant footprint loses the triangles spanning its concavity; genuine edge recovery is
-    // the kernel's `Conform` rows, never a rename of this filter.
     public static Fin<(Seq<Vector2> Points, Seq<(int A, int B, int C)> Triangles)> Section(
         BoundaryShell boundary, ShellIndex index, MeshPolicy policy, float z) {
         Aabb box = boundary.Bounds;
@@ -549,11 +487,6 @@ public static class OctreeCore {
         return 1;
     }
 
-    // Weld keys quantize in DOUBLE precision relative to the shell's own origin, so a model far from the world
-    // origin welds by its own extent rather than by absolute coordinate magnitude — a float multiply against a
-    // fixed scale loses the low bits exactly where a building sits in a site coordinate system, and two corners
-    // that must weld then land in different buckets and tear the mesh. The quantum is a fraction of the target
-    // edge, so corners meeting at any recursion depth share a key while distinct corners never collide.
     sealed class Weld(Vector3 origin, float targetEdge) {
         readonly Dictionary<(long X, long Y, long Z), long> ids = [];
         readonly List<float> nodes = [];
@@ -570,9 +503,6 @@ public static class OctreeCore {
             return id;
         }
 
-        // A hanging node is a welded node sitting at the midpoint of another cell's edge: the finer neighbour
-        // minted it and the coarser cell carries no equation for it, so the count IS the conformity measure the
-        // entry gates on rather than the algorithm row's declared intent.
         public int Hanging(List<long> cells, ElementClass element) {
             Set<long> hanging = Set<long>();
             int per = element.Nodes;
@@ -597,10 +527,6 @@ public static class OctreeCore {
 }
 
 public static class SweepCore {
-    // A sweep extrudes the shell's OWN triangulated footprint section, so a non-rectangular plan meshes as its
-    // plan rather than as its bounding box with the outside cells dropped. The section is one kernel triangulation
-    // at mid-height — the height where a prismatic solid's section is unambiguous — and each triangle extrudes to
-    // one prism per layer.
     public static Fin<MeshBuild> Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
         Aabb box = boundary.Bounds;
         int layers = Math.Max(1, (int)Math.Ceiling((box.Hi.Z - box.Lo.Z) / policy.TargetEdgeLength));
@@ -618,9 +544,6 @@ public static class SweepCore {
             plane.Count, index, policy, layers);
     }
 
-    // The prism stack fold both extruding cores share: one layer pair per level, one prism per section facet,
-    // each kept only where its centre lies inside the shell. A second copy of this loop is the twin the two cores
-    // carried before the section owner moved to the kernel.
     internal static MeshBuild Prisms(
         List<Vector3> verts, Seq<int> levels, Seq<int> facets, int stride, ShellIndex index, MeshPolicy policy, int layers) {
         List<long> cells = new(levels.Count * facets.Count * 2);
@@ -646,10 +569,6 @@ public static class SweepCore {
 }
 
 public static class InflationCore {
-    // The boundary layer is built ON the shell's own wall facets, and every wall NODE grows along the area-weighted
-    // average of its incident wall-facet normals. A global-Z grading lays the same first-layer thickness on a
-    // sloped wall as on a flat one — the layer then resolves nothing exactly where the wall turns, which is the
-    // region a boundary layer exists for — and it cannot follow a wall at all once the wall stops being a floor.
     public static Fin<MeshBuild> Fill(BoundaryShell boundary, ShellIndex index, MeshPolicy policy) {
         (Seq<int> facets, List<Vector3> anchors, List<Vector3> normals) = Wall(boundary);
         Seq<float> offsets = Offsets(boundary.Bounds, policy);
@@ -661,10 +580,6 @@ public static class InflationCore {
             anchors.Count, index, policy, policy.BoundaryLayerCount));
     }
 
-    // The wall is the shell's downward-facing facet set — outward normals point out of a closed solid, so a facet
-    // whose normal points down is a floor. Node normals accumulate UNNORMALIZED facet normals, which weights each
-    // contribution by twice its facet area, then normalize once: an unweighted average lets a sliver facet steer
-    // the growth direction as strongly as the facet carrying the wall.
     static (Seq<int> Facets, List<Vector3> Anchors, List<Vector3> Normals) Wall(BoundaryShell boundary) {
         Dictionary<int, int> local = [];
         List<int> facets = [];
@@ -692,8 +607,6 @@ public static class InflationCore {
         return (toSeq(facets), anchors, normals);
     }
 
-    // Graded layers first at their declared thickness and growth, then uniform target-edge steps until the stack
-    // spans the shell; cells whose centre leaves the shell drop, so the stack bounds itself on the geometry.
     static Seq<float> Offsets(Aabb box, MeshPolicy policy) {
         List<float> offsets = [0f];
         float thickness = (float)policy.FirstLayerThickness, reach = box.Span.Length();
@@ -720,14 +633,12 @@ public static class InflationCore {
 - Boundary: order elevation reads the TARGET row's own node budget — corners, edge midpoints, quad-facet centres, interior — so `Tet4 → Tet10`, `Hex8 → Hex20`, `Hex20 → Hex27`, and `Wedge6 → Wedge18` all run one body and none carries a per-pair node count. A terminal row elevates to itself, which is how a fully-elevated mesh stays a mesh instead of failing.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
 public sealed partial class RefineKind {
     public static readonly RefineKind H = new(static (mesh, marked, policy) => MeshLane.Subdivide(mesh, marked, policy));
     public static readonly RefineKind P = new(static (mesh, _, policy) => MeshLane.Elevate(mesh, policy));
-    // hp elects globally where the marked set is broad enough that subdividing it approaches a uniform refinement,
-    // which buys the same cost with a lower convergence rate on a smooth solution.
     public static readonly RefineKind Hp = new(static (mesh, marked, policy) =>
         marked.Count > mesh.ElementCount / 4 ? MeshLane.Elevate(mesh, policy) : MeshLane.Subdivide(mesh, marked, policy));
 
@@ -735,8 +646,6 @@ public sealed partial class RefineKind {
     public partial MeshBuild Route(DiscreteMesh mesh, Set<int> marked, MeshPolicy policy);
 }
 
-// The red template is a TABLE keyed on the element row, so a fourth template is one row rather than a fourth
-// ternary arm at each of the three sites that once tested row identity.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -756,11 +665,8 @@ public sealed partial class RefineTemplate {
         TryGet(element.Key, out RefineTemplate? row) ? Some(row) : None;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One node-minting accumulator both refinement legs share: an edge midpoint is keyed by its edge and a facet
-// centre by its sorted facet, so the same node minted from two neighbouring cells is one node and the interior
-// stays conforming without a second pass to weld it.
 public sealed class Refinement {
     readonly List<float> nodes;
     readonly Dictionary<(long, long), long> edgeMid = [];
@@ -778,9 +684,6 @@ public sealed class Refinement {
         return mid;
     }
 
-    // The pool fills in the CGNS order every reference table already carries — corners, edge midpoints,
-    // quad-facet centres, interior — and the caller's own counts decide how far it fills, so the red template and
-    // the elevation target read one body.
     public Span<long> Pool(ElementClass element, ReadOnlySpan<long> corners, int edges, int faceNodes, bool interior) {
         long[] pool = new long[corners.Length + edges + faceNodes + (interior ? 1 : 0)];
         corners.CopyTo(pool);
@@ -818,7 +721,7 @@ public sealed class Refinement {
     public long Count => count;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class MeshLane {
     public static Fin<DiscreteMesh> Refine(DiscreteMesh mesh, MeshPolicy policy, ReadOnlySpan<double> cellError, IClock clock) {
@@ -839,8 +742,6 @@ public static partial class MeshLane {
                 : Fin.Fail<DiscreteMesh>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(built.Element.Key))));
     }
 
-    // The bulk criterion is a SELECTION, not an ordering, but it is the exact selection: a sorted descending scan
-    // to the bulk fraction names the cut every marked cell sits at or above.
     static double DorflerThreshold(ReadOnlySpan<double> cellError, double bulkFraction) {
         if (cellError.IsEmpty) { return double.MaxValue; }
         double total = TensorPrimitives.Sum(cellError);
@@ -871,8 +772,6 @@ public static partial class MeshLane {
         List<long> cells = new(checked((int)mesh.ElementCount) * elevated.Nodes);
         Span<long> seed = stackalloc long[corners];
         for (int cell = 0; cell < mesh.ElementCount; cell++) {
-            // The elevation reads the source's CORNERS alone and re-mints every midside from them, so a quadratic
-            // source elevating again neither double-counts its existing midsides nor re-derives their ids.
             for (int v = 0; v < corners; v++) { seed[v] = conn[cell * per + v]; }
             foreach (long node in refine.Pool(mesh.Element, seed, elevated.MidEdges, elevated.MidFaces, elevated.MidInterior > 0)) { cells.Add(node); }
         }
@@ -897,8 +796,6 @@ public static partial class MeshLane {
         return new MeshBuild(mesh.Element, refine.Nodes(), cells, count, refine.Count, mesh.BoundaryLayers).Scored(policy.Metric);
     }
 
-    // Edge-conforming closure as a breadth-first walk over the cell adjacency the shared edges induce: splitting a
-    // cell's edges reaches exactly the cells sharing them, and the graph owner colours each cell once.
     static Set<int> Closed(DiscreteMesh mesh, Set<int> marked) {
         ReadOnlySpan<long> conn = mesh.Indices;
         int per = mesh.Element.Nodes, cells = checked((int)mesh.ElementCount);
@@ -947,8 +844,6 @@ public static class MeshTopology {
         }
     }
 
-    // The eight octants over the 27-node red pool, generated rather than typed: the corner, edge, face, and centre
-    // ordinals are the CGNS layout the reference table already carries.
     internal static IEnumerable<ImmutableArray<int>> HexOctants() {
         int[][] octant = [[0, 8, 20, 11, 16, 22, 26, 25], [8, 1, 9, 20, 22, 17, 23, 26], [20, 9, 2, 10, 26, 23, 18, 24], [11, 20, 10, 3, 25, 26, 24, 19],
             [16, 22, 26, 25, 4, 12, 21, 15], [22, 17, 23, 26, 12, 5, 13, 21], [26, 23, 18, 24, 21, 13, 6, 14], [25, 26, 24, 19, 15, 21, 14, 7]];

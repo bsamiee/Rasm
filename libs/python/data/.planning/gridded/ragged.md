@@ -53,11 +53,6 @@ type Fold = Reduction | Paired | Order
 type FoldArm = Callable[[FoldPolicy, ak.Array], ak.Array]
 type Buffers = tuple[ak.forms.Form, int, dict[str, bytes]]
 
-# the in-memory awkward raise surface: `ak.errors` publishes exactly two classes and both are builtin refinements —
-# `AxisError` under `ValueError`/`IndexError`, `FieldNotFoundError` under `IndexError` — so the ancestors admit the
-# whole tree and the set names neither. `NotImplementedError` covers a layout the kernel does not lower, `ImportError`
-# an optional backend (`cuda`/`jax`) the move reaches, and `AttributeError`/`RuntimeError` the behaviour-map and
-# backend-dispatch refusals the C++ layer raises through.
 _RAGGED_RAISES: Final[Catch] = (
     ImportError,
     AttributeError,
@@ -71,19 +66,9 @@ _RAGGED_RAISES: Final[Catch] = (
 
 
 def _parquet_raises() -> Catch:
-    # reified at the call because the parquet arms are the ONE legs reifying the deferred `pyarrow` proxy anyway,
-    # so the carrier stays pyarrow-free at import exactly as the page's Arrow bridge law states. `ArrowException` is
-    # NAMED because `ArrowIOError`, `ArrowCapacityError`, `ArrowSerializationError`, and `ArrowCancelled` root at bare
-    # `Exception` and reach no builtin ancestor — a store or driver fault on a parquet leg escapes the rail without it.
     return (pa.ArrowException, *_RAGGED_RAISES, OSError)
 
 
-# this module's whole raise roster, seated once: every fenced leg on this page resolves ONE anchor here, so no call
-# site spells a subject and `FaultRow.seated` proves the leg against a real module at import. Posture splits on what a
-# re-offer can clear, never on the entrypoint: the in-memory folds declare TERMINAL because a re-run of `ak.from_iter`,
-# a transform, or an IPC serialization over the same layout refuses identically, while the parquet legs declare
-# TRANSIENT for the store or driver fault a re-issue may clear. `RaggedSource.raises`/`RaggedSink.raises` carry the
-# split as a DERIVED column, so one shared posture never certifies half a union wrong.
 RAGGED_ADMIT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.RAGGED, point="admit", arm="boundary", defect="admit-refused", retriability=TERMINAL
 )
@@ -96,8 +81,6 @@ RAGGED_TRANSFORM: Final[FaultRow[DataLeg]] = FaultRow(
 RAGGED_BACKEND: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.RAGGED, point="backend", arm="boundary", defect="backend-move", retriability=TERMINAL
 )
-# ONE row for both Arrow legs: `to_arrow` and `c_stream` lift the SAME `_arrow` fold, and the capsule export the
-# second adds refuses for the same reason the table build does — a layout no Arrow type spells.
 RAGGED_ARROW: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.RAGGED, point="arrow", arm="boundary", defect="arrow-lowering", retriability=TERMINAL
 )
@@ -125,8 +108,6 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
     RAGGED_METADATA,
 ]))
 
-# one row per RaggedOp arm whose call-head is `member(array, axis=)`, dispatched by one guarded `_apply` arm reading `_AXIS_OP[op.tag]`;
-# the guard captures `tag=kind`, never `tag=tag` — a `tag`-capturing pattern shadows the `expression.tag` import.
 _AXIS_OP: "Final[Map[AxisOp, Callable[..., ak.Array]]]" = Map.of_seq([
     ("flatten", ak.flatten),
     ("num", ak.num),
@@ -218,9 +199,6 @@ class RaggedSource:
 
     @property
     def raises(self) -> "tuple[FaultRow[DataLeg], Catch]":
-        # the `parquet` arm is the ONE admission reading a store, so it answers the transient row over the pyarrow-wide
-        # set while every in-memory arm answers the terminal row over the awkward set alone — a re-offer of
-        # `ak.from_iter` over the same values refuses identically, and one shared posture certifies half this union wrong.
         return (RAGGED_INGEST, _parquet_raises()) if self.tag == "parquet" else (RAGGED_ADMIT, _RAGGED_RAISES)
 
 
@@ -293,8 +271,6 @@ class RaggedSink:
 
     @property
     def raises(self) -> "tuple[FaultRow[DataLeg], Catch]":
-        # the egress split mirrors the admission one: only the `parquet` arm crosses a store, so only it declares a
-        # posture a re-issue may clear, and only it carries the pyarrow root a bare-`Exception` IO fault needs.
         return (RAGGED_SINK, _parquet_raises()) if self.tag == "parquet" else (RAGGED_EGRESS, _RAGGED_RAISES)
 
 
@@ -304,22 +280,12 @@ class RaggedReceipt(Struct, frozen=True):
     ndim: int
     nbytes: int
     type_repr: str
-    # the sink that produced the keyed bytes: without it a receipt names the bytes it digested but not the encoding
-    # they carry, and the metered row has no bounded dimension to key on.
     sink: str
-    # `ak.validity_error(exception=False)` answers the EMPTY string for a sound layout, so `Nothing` IS soundness and
-    # `Some` carries the defect text whole. The deleted `or "valid"` minted a literal at the read site, which made a
-    # sound layout and a provider answering nothing report one word, and left the wire edge no way to omit the key.
     validity: Option[str]
     parameters: dict[str, object]
     content_key: ContentKey
 
     def contribute(self) -> "Iterable[Receipt]":
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
-        # the SAME pair handed `Metrics.record` beside the identity this egress minted — so the durable row lands in
-        # the `ragged` partition a predicate prunes and rejoins the live series its twin emitted. ROWS is the metered
-        # quantity because an irregular array's cost tracks its outer length, and `nbytes` stays receipt evidence the
-        # cost fold prices rather than a second distribution over the same egress.
         Metrics.record({"rasm.ragged.rows": float(self.rows)}, domain="ragged", kind=self.sink)
         yield Receipt.of(
             "ragged",
@@ -335,8 +301,6 @@ class RaggedReceipt(Struct, frozen=True):
                     "ndim": self.ndim,
                     "nbytes": self.nbytes,
                 }
-                # the posture collapses HERE and nowhere earlier, in the runtime `facts` idiom: a sound layout omits
-                # the key rather than filling a series with a word no query prunes on.
                 | self.validity.map(lambda report: {"validity": report}).default_value({}),
             ),
         )
@@ -351,10 +315,6 @@ class RaggedArray(Struct, frozen=True):
     @staticmethod
     @beartype(conf=FAULT_CONF)
     def admit(source: RaggedSource) -> "RuntimeRail[RaggedArray]":
-        # admission and egress are the two I/O legs — spanned for trace parity with the gridded plane; the fence
-        # inside marks the span ERROR + record_exception on a failed leg.
-        # the source's own row and catch set: the arm decides its posture and its provider reach, so the entrypoint
-        # carries no per-tag arm and the tag survives on the span dimension rather than inside a minted subject.
         at, catch = source.raises
         with _TRACER.start_as_current_span(f"ragged.admit.{source.tag}", attributes={"rasm.ragged.source": source.tag}):
             return boundary(at, lambda: _admit(_ingest(source)), catch=catch)
@@ -474,10 +434,6 @@ def _to_buffers(array: ak.Array) -> Buffers:
 def _serialize(array: ak.Array, sink: RaggedSink) -> bytes:
     match sink:
         case RaggedSink(tag="arrow"):
-            # the folder's ONE Arrow IPC fold, imported from its owner: it emits a schema message ahead of the record
-            # batch, so `ipc.open_stream` decodes the bytes a consumer holds alone. A bare `read_all().serialize()`
-            # emits the schema-less batch message the columnar owner names as its rejected form, which strands the
-            # schema out of band AND collides two frames differing only in schema onto one content key.
             return bytes(arrow_bytes(_arrow(array)))
         case RaggedSink(tag="parquet", parquet=ref):
             ak.to_parquet(array, str(ref.path))
@@ -489,8 +445,6 @@ def _serialize(array: ak.Array, sink: RaggedSink) -> bytes:
 
 
 def _receipt(ragged: RaggedArray, sink: str, key: ContentKey) -> RaggedReceipt:
-    # the ONE site that reads the provider's empty-string-for-sound convention, projected onto the carrier there and
-    # never re-derived downstream, per `docs/stacks/python/boundaries.md` `[SENTINEL_SITE]`.
     report = ak.validity_error(ragged.array, exception=False)
     return RaggedReceipt(
         rows=len(ragged.array),

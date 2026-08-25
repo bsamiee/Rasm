@@ -21,7 +21,7 @@ Rasm.AppUi quality governance is one stateful fold over one cell: `PerfBudget` f
 - Boundary: `MotionQuality` is the PERFORMANCE motion lever `Theme/motion.md`'s reduced-motion selector composes as the second constraint — the stricter of the user preference and `Tier.Motion` wins, and this page mutates neither.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GovernorFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Governor;
@@ -30,12 +30,11 @@ public abstract partial record GovernorFault : Fault {
     public override string Message => Detail;
     [FaultCase(0)]
     public sealed partial record Policy(string Detail) : GovernorFault(Detail);
-    // The refused sample's own instant; the accepted instant it lost to is the state the cell still holds.
     [FaultCase(1)]
     public sealed partial record Stale(Instant SampleAt) : GovernorFault($"<stale-sample:{SampleAt}>");
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class MotionQuality {
     public static readonly MotionQuality Full = new("full");
@@ -43,8 +42,6 @@ public sealed partial class MotionQuality {
     public static readonly MotionQuality Static = new("static");
 }
 
-// The degraded pass disposition as a ROW: a board renders the row key, a tier elects a row, and the predicate is
-// the row's own delegate column — five per-tier lambdas (three of them identical) collapse onto three rows.
 [SmartEnum<string>]
 public sealed partial class PassCut {
     public static readonly PassCut Full = new("full", static _ => true);
@@ -72,8 +69,6 @@ public sealed partial class QualityTier {
     public double RefreshHz { get; }
     public PassCut Cut { get; }
 
-    // The ladder proves its own CONTIGUITY at type init — the clamp below indexes by rank, and a roster with a
-    // hole would clamp a legal step onto a key no row carries; proving it here turns that latent throw into a build-time refusal at the one place the roster grows.
     private static readonly Lazy<(FrozenDictionary<int, QualityTier> ByRank, int Floor, int Ceiling)> Ranks =
         new(static () => {
             FrozenDictionary<int, QualityTier> byRank = Items.ToFrozenDictionary(static row => row.Rank);
@@ -88,10 +83,6 @@ public sealed partial class QualityTier {
         Ranks.Value.ByRank[Math.Clamp(rank, Ranks.Value.Floor, Ranks.Value.Ceiling)];
 }
 
-// The budget axes are ONE vocabulary carrying both halves of every comparison — what the sample observed and
-// what the budget allows — so breach, recovery, and headroom read one row set. Each axis owns its OWN ceiling:
-// gating GPU and layout on the whole-frame duration makes both terms unreachable. Eviction is a RATE, not a
-// presence — `> 0` would pin the governor at floor for the whole of any fly-through.
 [SmartEnum<string>]
 public sealed partial class BudgetAxis {
     public static readonly BudgetAxis Frame = new("frame", static s => s.FrameElapsed.ToTimeSpan().TotalNanoseconds, static b => b.Frame.ToTimeSpan().TotalNanoseconds);
@@ -103,9 +94,6 @@ public sealed partial class BudgetAxis {
     [UseDelegateFromConstructor] public partial double Observed(PerfSample sample);
     [UseDelegateFromConstructor] public partial double Ceiling(FrameBudget budget);
 
-    // ONE walk answers every axis question a sample raises: the first breaching axis, whether every axis sits
-    // inside the hysteresis band, and the tightest share. An axis whose ceiling is not positive contributes no
-    // tightest candidate, so a zero budget reads ABSENT rather than fabricating `Frame` at headroom 1.0.
     public static AxisSweep Sweep(FrameBudget budget, double hysteresis, PerfSample sample) =>
         toSeq(Items).Fold(
             new AxisSweep(None, Recovered: true, None),
@@ -122,7 +110,7 @@ public sealed partial class BudgetAxis {
             });
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AxisSweep(Option<BudgetAxis> Breach, bool Recovered, Option<(BudgetAxis Axis, double Share)> Tightest);
 
 public readonly record struct PerfSample(Duration FrameElapsed, Duration GpuElapsed, long VramBytes, long ResidencyEvicts, Duration LayoutElapsed, Instant At) {
@@ -145,15 +133,9 @@ public sealed record PerfBudget {
     public FrameBudget Budget { get; }
     public double HysteresisFraction { get; }
     public int CalmWindow { get; }
-    // How many transitions the readout keeps: the depth an operator needs is the depth their HUD renders, and an
-    // unbounded history on a per-frame fold is a leak wearing a diagnostics name.
     public int HistoryDepth { get; }
-    // The projected-to-measured ratio past which a GPU pass counts as diverged; a policy column here, so the
-    // timeline members read one admitted fraction rather than a bare double every caller re-supplies.
     public UnitInterval DivergenceBand { get; }
 
-    // Accumulating admission: every offending column names itself, so a refusal over two bad columns reports two
-    // typed faults rather than one message interpolating all four values.
     public static Fin<PerfBudget> Of(FrameBudget budget, double hysteresisFraction, int calmWindow, int historyDepth, UnitInterval divergenceBand) =>
         (Slot(double.IsFinite(hysteresisFraction) && hysteresisFraction is > 0d and < 1d, $"<hysteresis:{hysteresisFraction}>"),
          Slot(calmWindow > 0, $"<calm-window:{calmWindow}>"),
@@ -170,9 +152,6 @@ public sealed record PerfBudget {
 
     public static TelemetryContributorPort TelemetryRow(string version) => AppUiTelemetry.Contribute(version, Tier);
 
-    // Asymmetric hysteresis: a breach descends one grade immediately and zeroes calm; ascent takes CalmWindow
-    // consecutive within-hysteresis samples, so the tier never oscillates per frame. The FIRST breaching axis
-    // rides the verdict — a tier that fell without naming what it fell on is a number the operator cannot act on.
     public (GovernorState Next, QualityVerdict Verdict) Govern(GovernorState state, PerfSample sample) =>
         (BudgetAxis.Sweep(Budget, HysteresisFraction, sample), state.Calm) switch {
             ({ Breach.IsSome: true } sweep, _) => Stepped(state.Active.Rank - 1, sweep.Breach, sample.At),
@@ -187,15 +166,10 @@ public sealed record PerfBudget {
         };
 }
 
-// One recorded step: where the tier came from, where it landed, and the axis that moved it. Only a RANK CHANGE
-// mints a row — recording the calm-accumulating and holding arms would fill the ring with steps that never happened.
 public readonly record struct TierTransition(QualityTier From, QualityTier To, Option<BudgetAxis> Breach, Instant At) {
     public bool Degraded => To.Rank < From.Rank;
 }
 
-// Headroom reads off the tightest axis's own share of its OWN ceiling — a GPU phase already at its limit inside
-// a frame with slack is exactly the state a whole-frame ratio hides. Both tightest columns are ABSENT where no
-// axis carries a positive ceiling, so a zero-budget governor reports nothing rather than a fabricated axis.
 public readonly record struct GovernorReadout(
     QualityTier Tier,
     Option<BudgetAxis> Breach,
@@ -203,7 +177,6 @@ public readonly record struct GovernorReadout(
     Option<double> Headroom,
     Option<Instant> Since,
     Seq<TierTransition> Recent) {
-    // The chip fact keys the diagnostics HUD binds — declared beside the values that answer them, so a chip row names a fact this owner produces.
     public const string TierFact = "governor.tier";
     public const string BreachFact = "governor.breach";
     public const string HeadroomFact = "governor.headroom";
@@ -213,20 +186,15 @@ public readonly record struct GovernorReadout(
         BudgetAxis.Sweep(policy.Budget, policy.HysteresisFraction, sample) switch {
             var sweep => new GovernorReadout(
                 Tier: state.Active,
-                // The breach the LAST step carried, so a tier holding at conservative still names what put it
-                // there; a per-sample breach would blank the moment the pressure eased.
                 Breach: recent.Head.Bind(static step => step.Breach),
                 Tightest: sweep.Tightest.Map(static row => row.Axis),
                 Headroom: sweep.Tightest.Map(static row => Math.Max(0d, 1d - row.Share)),
-                // The transition's instant rather than the last accepted SAMPLE, so a held tier reads as held instead of refreshing its age every frame.
                 Since: recent.Head.Map(static step => step.At),
                 Recent: recent),
         };
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// The cell holds state, verdict, and the transition ring as ONE value, so the ring can never record a step
-// against a state that did not land and the verdict is the committed state's own column.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record GovernorCell(GovernorState State, QualityVerdict Verdict, Seq<TierTransition> Recent) {
     public static readonly GovernorCell Boot =
         new(GovernorState.Boot, QualityVerdict.Of(GovernorState.Boot.Active, None, Instant.MinValue), Seq<TierTransition>());
@@ -243,8 +211,6 @@ public sealed record GovernorCell(GovernorState State, QualityVerdict Verdict, S
         };
 }
 
-// Transitions answer through the kernel Cell.Step verdict, so a delayed sample REFUSES as GovernorFault.Stale
-// rather than reporting a tier it never moved, and the losing CAS writer re-runs against the winner's state.
 public sealed class Governor {
     private readonly Atom<GovernorCell> cell = Atom(GovernorCell.Boot);
 
@@ -262,7 +228,6 @@ public sealed class Governor {
                 declined is Transition<GovernorCell>.Refused refused ? refused.Cause : new GovernorFault.Stale(sample.At)),
         };
 
-    // ONE cell snapshot serves the whole readout, so the tier an operator sees and the steps that produced it come from the same transition.
     public GovernorReadout Readout(PerfBudget policy, PerfSample sample) =>
         cell.Value switch { var held => GovernorReadout.Of(policy, held.State, sample, held.Recent) };
 }
@@ -303,9 +268,7 @@ flowchart LR
 - Boundary: the pipeline-statistics arm is availability-gated on the WGPU extension probe at device acquisition, and the degrade is a `GpuTimeline` whose `Stats` is empty — `ResolveStats` returns that empty `Seq` off an absent counter buffer, so the gate needs no second arm and `Attributed` answers `None` per pass rather than throwing.
 
 ```csharp signature
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
-// Platform-forced statement seam: stamp pass boundaries, resolve the query set into a mappable read buffer,
-// retire the map through the non-blocking DevicePoll — never a blocking fence on the frame loop.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed unsafe record GpuQuerySeam(WebGPU Api, Wgpu Native) {
     public Unit Stamp(CommandEncoder* encoder, QuerySet* queries, uint index) {
         Api.CommandEncoderWriteTimestamp(encoder, queries, index);
@@ -317,11 +280,8 @@ public sealed unsafe record GpuQuerySeam(WebGPU Api, Wgpu Native) {
         return unit;
     }
 
-    // wait: false — the poll is the frame loop's own non-blocking retire; the scheduled arm below re-runs it.
     public bool Retire(Device* device) => Native.DevicePoll(device, false, (WrappedSubmissionIndex*)null);
 
-    // The retire has a SCHEDULE, so an unfinished resolve re-polls on the declared cadence instead of resting on
-    // a one-shot answer; the device rides as the nint every binder already holds (ONE_WGPU_DEVICE law).
     public static IO<bool> Retired(GpuQuerySeam seam, nint device, Schedule cadence) =>
         IO.lift(() => seam.Retire((Device*)device)).RepeatUntil(cadence, static done => done);
 
@@ -350,8 +310,6 @@ public sealed unsafe record GpuQuerySeam(WebGPU Api, Wgpu Native) {
         return unit;
     }
 
-    // Exemption: the guarded statement IS the native acquire — GetMappedRange/Unmap pair no IDisposable carries,
-    // so the try/finally stays the boundary-capsule statement seam Custody's own law carves out.
     public Seq<ulong> CopyMapped(Buffer* readback, uint values) {
         void* mapped = Api.BufferGetMappedRange(readback, 0, values * (ulong)sizeof(ulong));
         try { return toSeq(new ReadOnlySpan<ulong>(mapped, checked((int)values)).ToArray()); }
@@ -359,9 +317,7 @@ public sealed unsafe record GpuQuerySeam(WebGPU Api, Wgpu Native) {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Column order IS the read-back order: the roster below is the ONE declaration the query-set mint and the
-// resolve fold both read, so the transcription and the stride cannot drift apart.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PipelineStat(
     string Pass,
     long VertexShaderInvocations,
@@ -383,8 +339,6 @@ public readonly record struct PipelineStat(
 public readonly record struct PassTiming(string Pass, int QueryIndex, Duration Projected, Option<Duration> Measured) {
     public Duration Resolved => Measured.IfNone(Projected);
 
-    // The ONE divergence read: guarded against a zero projection, absent where nothing measured — every consumer
-    // (the diverged filter, the distribution write) reads this owner rather than re-spelling the ratio.
     public Option<double> Divergence =>
         Measured.Filter(_ => Projected > Duration.Zero)
             .Map(gpu => Math.Abs((gpu - Projected).ToTimeSpan().TotalNanoseconds) / Projected.ToTimeSpan().TotalNanoseconds);
@@ -392,8 +346,6 @@ public readonly record struct PassTiming(string Pass, int QueryIndex, Duration P
     public bool Diverged(UnitInterval fraction) => Divergence.Exists(ratio => ratio > fraction.Value);
 }
 
-// Pair stride: pass i owns queries (2i, 2i+1) — `Pair` is the one spelling of that arithmetic, so the planner,
-// the resolve fold, and the encoder indices cannot disagree; statistics ride their own per-pass index space.
 public sealed record GpuTimingPass(Seq<string> PassBoundaries, double PeriodNs) {
     public (uint Begin, uint End) Pair(int pass) => ((uint)(pass * 2), (uint)(pass * 2 + 1));
     public uint StatsIndex(int pass) => (uint)pass;
@@ -409,9 +361,6 @@ public sealed record GpuTimingPass(Seq<string> PassBoundaries, double PeriodNs) 
                 : timing,
         }).ToSeq();
 
-    // The counter twin of `Resolve`, and the ONE producer of the attribution rows: a pass whose full column
-    // stride is absent from the read-back yields NO row rather than a zero-filled one, so the extension-absent
-    // degrade and a truncated buffer are the same empty `Seq` and a fabricated bottleneck can never render.
     public Seq<PipelineStat> ResolveStats(ReadOnlyMemory<ulong> resolvedCounters) =>
         PassBoundaries
             .Map((pass, index) => (Pass: pass, Offset: index * PipelineStat.Columns.Length))
@@ -426,7 +375,7 @@ public sealed record GpuTimingPass(Seq<string> PassBoundaries, double PeriodNs) 
             .ToSeq().Strict();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<PipelineStat> Stats) {
     public static readonly InstrumentSpec Divergence = InstrumentSpec.Create(
         "rasm.appui.governor.gpu.divergence", InstrumentKind.Distribution, MeasureForm.Real, "1",
@@ -436,8 +385,6 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
 
     public Seq<double> DivergenceRatios() => Passes.Bind(static pass => pass.Divergence.ToSeq());
 
-    // Composition binds this projection at Resolve; every ratio writes the ONE instrument, so the first refusal
-    // already proves every later one and the traverse short-circuits on the mount defect.
     public Fin<Unit> Observe(InstrumentSet set) =>
         DivergenceRatios().TraverseM(ratio => set.Write(Divergence, ratio)).As().Map(static _ => unit);
 
@@ -448,14 +395,11 @@ public sealed record GpuTimeline(long FrameOrdinal, Seq<PassTiming> Passes, Seq<
 
     public Seq<PassTiming> Divergent(UnitInterval fraction) => Passes.Filter(pass => pass.Diverged(fraction));
 
-    // Each diverging pass carries its own counter row, so a fragment-bound pass and a geometry-bound one read as
-    // different columns at the same duration; the join is one keyed index, not a per-pass scan.
     public Seq<(PassTiming Timing, Option<PipelineStat> Stat)> Attributed(UnitInterval fraction) =>
         Stats.ToHashMap(static stat => stat.Pass, static stat => stat) switch {
             var byPass => Divergent(fraction).Map(timing => (timing, byPass.Find(timing.Pass))),
         };
 
-    // Deepen fills FrameReceipt.Gpu ONLY when every pass resolved its timestamp pair — a mixed projected/measured sum never enters the measured column.
     public FrameReceipt Deepen(FrameReceipt receipt) =>
         FullyResolved
             ? receipt with { Gpu = MeasuredGpu, Passes = Passes.Map(static pass => (pass.Pass, pass.Resolved)) }

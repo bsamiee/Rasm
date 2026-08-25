@@ -26,8 +26,6 @@
 
 ```csharp signature
 
-// Ref capabilities close as a vocabulary. `{Mutable, Annotated}` is the corner two bool columns could hold while no
-// ref shape answers it — an annotated tag is immutable by definition — so the law bars it at type init.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RefCapability : ICapability<RefCapability> {
@@ -71,17 +69,9 @@ public readonly record struct VersionVector(HashMap<Guid, long> Slots) {
     public VersionVector Join(VersionVector other) => new(other.Slots.Fold(Slots, static (acc, s) => acc.AddOrUpdate(s.Key, e => long.Max(e, s.Value), s.Value)));
     public bool Dominates(VersionVector other) => other.Slots.ForAll(s => Slots.Find(s.Key).IfNone(0L) >= s.Value);
     public long At(Guid origin) => Slots.Find(origin).IfNone(0L);
-    // ONE canonical slot order for every byte-deriving reader. `HashMap` enumerates in hash-bucket order, so a commit
-    // preimage, an `OperationId` key, and a `CrdtOpWire` context each hashing their own enumeration mint three byte
-    // strings for one causal position — the exact fork that keeps `CRDT_OP_SET` unfreezable. Ordinal over the
-    // lowercase-N GUID text is the order Python `bytes` and TS `Uint8Array` reproduce; `Guid.CompareTo` sorts by .NET
-    // field layout no peer runtime holds.
     public Seq<(Guid Origin, long Seq)> Ordered =>
         toSeq(Slots.AsIterable().OrderBy(static slot => slot.Key.ToString("N"), StringComparer.Ordinal).Select(static slot => (slot.Key, slot.Value)));
 
-    // Canonical vector cell on the kernel writer: `Rows` count-frames the slots, `String` length-frames the 32-char
-    // lowercase-N GUID text, `I64` fixes the counter. The commit key, the `OperationId` key, and the parity corpus
-    // all call THIS member, so a slot-order edit cannot land on one key and not the other.
     public void CanonicalBytes(CanonicalWriter writer) =>
         writer.Rows(Ordered, static (slot, w) => { w.String(slot.Origin.ToString("N")).I64(slot.Seq); });
 }
@@ -96,12 +86,6 @@ public sealed partial class CommitMessage {
     }
 }
 
-// `BranchRef.Acl` narrows the `Element/authority#GRANT_ALGEBRA` `GrantSet` to the branch lane (`AclScope.Branch`),
-// carrying the ONE object-authorization vocabulary, NOT the disjoint AppHost effect-gating `Capability` (a
-// cross-stratum name the authority owner forbids sharing). `Movable` gates on a `GrantSet` demand the caller selects
-// per operation (`GrantSet.Of(Grant.Write)` for a fast-forward, `Grant.Merge`/`Grant.Rebase`/`Grant.ForcePush`
-// for the wider rewrites) so one polymorphic gate discriminates by the demanded value; `GrantSet.Admits` is
-// `Admin`-superuser-aware.
 public sealed record BranchRef(string Name, RefKind Kind, UInt128 Head, GrantSet Acl, Guid Origin, Instant At, Option<string> Upstream, Option<UInt128> Target, CommitMessage Annotation, string Tagger) {
     public bool Movable(GrantSet actor, GrantSet demand) =>
         Kind.Refs.Admits(RefCapability.Mutable) && actor.Admits(demand) && Acl.Admits(demand);
@@ -122,8 +106,6 @@ public abstract partial record MerkleRange {
     public bool Leaf => Map(empty: static _ => true, bounded: static range => range.Count <= CommitGraph.Fanout);
 }
 
-// `HistoryRewrite` closes the append-only rewrite request family: every rewrite MINTS new commits, history never
-// mutates.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.Default)]
 public abstract partial record HistoryRewrite {
     private HistoryRewrite() { }
@@ -132,12 +114,6 @@ public abstract partial record HistoryRewrite {
     public sealed record Rebase(Seq<UInt128> Chain, UInt128 NewBase) : HistoryRewrite;
 }
 
-// `RewriteSeam` frames the rewrite delegates: `Resolve` the commit reader; `Invert` the inverse op-key set of one
-// commit's delta (the `GraphDelta` inversion behind the ledger/merge owners — added↔removed, revised pairs flipped);
-// `Transplant` one commit's ops replayed onto a new head (three-way against the commit's parent, the `Version/merge`
-// owner behind the delegate); `Stamp` the one HLC atom (`OpLog.Stamp`'s cell, never a second clock). Keys in, keys
-// out — payload replay is the delegate owners' concern, and their typed conflict faults surface BEFORE any commit
-// mints.
 public sealed record RewriteSeam(
     Func<UInt128, Option<CommitNode>> Resolve,
     Func<CommitNode, IO<Seq<UInt128>>> Invert,
@@ -147,23 +123,14 @@ public sealed record RewriteSeam(
 public static class CommitGraph {
     public const int Fanout = 16;
 
-    // `Advance` steps the COMMITTING origin's slot — the writer's store id, never branch.Origin (the ref's minting
-    // peer), so two writers on one branch occupy two causal slots and Order reads Concurrent. The key is the kernel
-    // `ContentHash.Of` over `Fields`: one field-naming site the live mint and the parity corpus both call.
     public static CommitNode Commit(Seq<UInt128> parents, VersionVector inherited, Seq<UInt128> opKeys, BranchRef branch, Guid origin, string actor, Hlc cell, CommitMessage message) {
         CommitNode unkeyed = Unkeyed(parents, opKeys, branch.Name, inherited.Advance(origin, opKeys.Count), actor, cell, message);
         return unkeyed with { ContentKey = ContentHash.Of(unkeyed, Fields) };
     }
 
-    // The node before its key: distinct-sorted parents and sorted op keys beside the vector the caller settled.
-    // `ContentParityCorpus.CommitPreimage` retains the same node's `Fields` bytes, so the fixture and the live key
-    // read one field stream.
     internal static CommitNode Unkeyed(Seq<UInt128> parents, Seq<UInt128> opKeys, string branch, VersionVector vector, string actor, Hlc cell, CommitMessage message) =>
         new(UInt128.Zero, toSeq(parents.Distinct().OrderBy(static k => k)), toSeq(opKeys.OrderBy(static k => k)), branch, vector, actor, cell, message);
 
-    // ONE commit-key field stream over the kernel writer: `Rows` count-frames parents and op keys, `String`
-    // length-frames branch, actor, and message, the vector and cell stream their own `CanonicalBytes`. Every
-    // identity member is named here and `ContentKey` alone is excluded, so the key and the preimage cannot split.
     internal static void Fields(CommitNode node, CanonicalWriter w) {
         w.Rows(node.Parents, static (parent, x) => { x.U128(parent); })
          .Rows(node.OpKeys, static (key, x) => { x.U128(key); })
@@ -182,9 +149,6 @@ public static class CommitGraph {
             _ => VectorOrder.Concurrent,
         };
 
-    // `VectorOrder` reaches its ONE consumer here, dispatched TOTALLY rather than through an equality ladder, so a
-    // fifth order case breaks the build here. A merge demands `Merge`, a fast-forward or equal advance `Write`, and a
-    // non-dominating reset `ForcePush`; the caller gates `branch.Movable(actor, AdvanceDemand(...))`.
     public static GrantSet AdvanceDemand(CommitNode commit, VersionVector head) =>
         commit.IsMerge
             ? GrantSet.Of(Grant.Merge)
@@ -194,19 +158,11 @@ public static class CommitGraph {
                 after:      static _ => GrantSet.Of(Grant.Write),
                 equal:      static _ => GrantSet.Of(Grant.Write));
 
-    // `RewriteDemand` is AdvanceDemand's sibling over the rewrite family: Revert/CherryPick are forward commits
-    // (Grant.Write); Rebase is the history rewrite the Grant.Rebase row exists for. The caller gates
-    // `branch.Movable(actor, RewriteDemand(rewrite))` BEFORE Rewrite runs.
     public static GrantSet RewriteDemand(HistoryRewrite rewrite) => rewrite.Switch(
         revert: static _ => GrantSet.Of(Grant.Write),
         cherryPick: static _ => GrantSet.Of(Grant.Write),
         rebase: static _ => GrantSet.Of(Grant.Rebase));
 
-    // ONE polymorphic rewrite entry — the request case discriminates, never three sibling verbs. Every arm mints NEW
-    // CommitNodes through the one Commit writer: Revert commits the target's inverse op keys onto `onto`; CherryPick
-    // transplants one commit's ops onto `onto`; Rebase FoldM-threads the chain OLDEST-FIRST onto NewBase, each
-    // transplant landing on the previously minted head so the result is a fresh linear lineage. `head` is the vector
-    // at `onto`; an unresolvable key faults CommitFault.RewriteAbsent (8261) typed.
     public static IO<Seq<CommitNode>> Rewrite(HistoryRewrite rewrite, RewriteSeam seam, BranchRef branch, Guid origin, string actor, UInt128 onto, VersionVector head) =>
         rewrite.Switch(
             revert: r => Transplanted(seam, r.Target, onto, head, branch, origin, actor, static (s, node, _) => s.Invert(node), node => new CommitMessage($"revert {node.ContentKey:x32}", string.Empty)).Map(Seq),
@@ -226,10 +182,6 @@ public static class CommitGraph {
                           select Commit(Seq(onto), head, keys, branch, origin, actor, cell, messageOf(node)),
             None: () => IO.fail<CommitNode>(new CommitFault.RewriteAbsent(source)));
 
-    // Near-linear merge-base: two Rank passes (common set + nearest-first metric), then ONE Reach pass seeded with
-    // every common candidate's parents — reached ∩ common IS the dominated set (a common node strictly reachable from
-    // another common node via parent edges). The per-candidate Rank re-walk is the deleted O(candidates × graph)
-    // form; Rasm.Bim MergeBase is the named consumer.
     public static Seq<UInt128> MergeBase(Func<UInt128, Option<CommitNode>> resolve, UInt128 left, UInt128 right) {
         HashMap<UInt128, int> leftRanked = Rank(resolve, left);
         HashMap<UInt128, int> rightRanked = Rank(resolve, right);
@@ -238,9 +190,6 @@ public static class CommitGraph {
         return toSeq(common.Filter(c => !dominated.Contains(c)).OrderBy(c => (leftRanked[c] + rightRanked[c], c)));
     }
 
-    // The range digest is a PEER anti-entropy address, never a content-key mint: the accumulator is this owner's and
-    // the framing is the kernel writer's `Streaming` leg, so the window keys count-framed `U128` rows under the one
-    // alphabet and no second LE word layout exists beside `ContentHash.Of`.
     public static MerkleRange Of(Seq<UInt128> sortedKeys) {
         XxHash128 accumulator = new(seed: 0L);
         UInt128 address = CanonicalWriter.Streaming(EpsilonPolicy.ZeroTolerance, accumulator)
@@ -260,10 +209,6 @@ public static class CommitGraph {
         locals.Find(candidate => (candidate, remote) is (MerkleRange.Bounded local, MerkleRange.Bounded sought)
             && local.Low <= sought.High && sought.Low <= local.High);
 
-    // `Rank` takes the EXPRESSION_SPINE named-kernel exemption: a longest-path BFS over the commit DAG — the
-    // work-queue re-enqueues a node on finding a deeper path so the rank is the MAX generation (the nearest-first
-    // merge-base ordering metric), a memoized traversal a monadic fold cannot express without re-walking, so the
-    // mutable work-list is the kernel.
     static HashMap<UInt128, int> Rank(Func<UInt128, Option<CommitNode>> resolve, UInt128 root) {
         System.Collections.Generic.Dictionary<UInt128, int> depth = [];
         System.Collections.Generic.Queue<(UInt128 Key, int Generation)> queue = new([(root, 0)]);
@@ -275,9 +220,6 @@ public static class CommitGraph {
         return toHashMap(depth.Select(static kv => (kv.Key, kv.Value)));
     }
 
-    // `Reach` runs the ONE reverse-reachability generation-mark pass (EXPRESSION_SPINE named-kernel exemption — a
-    // visited-set BFS work-list): every key reachable via one-or-more parent edges from the seed frontier, O(V+E)
-    // once regardless of candidate count.
     static Set<UInt128> Reach(Func<UInt128, Option<CommitNode>> resolve, Seq<UInt128> frontier) {
         System.Collections.Generic.HashSet<UInt128> seen = [];
         System.Collections.Generic.Queue<UInt128> queue = new(frontier);
@@ -323,8 +265,6 @@ public readonly record struct ElementId(Guid Origin, ulong Logical) : IComparabl
     }
 }
 
-// CrdtBytes is the ONE payload comparer: convergence proves by state equality, and a ReadOnlyMemory member compares
-// by buffer coordinates, so a re-decoded replica of identical bytes reads unequal without it.
 public sealed class CrdtBytes : IEqualityComparer<ReadOnlyMemory<byte>> {
     public static readonly CrdtBytes Default = new();
     public bool Equals(ReadOnlyMemory<byte> left, ReadOnlyMemory<byte> right) => left.Span.SequenceEqual(right.Span);
@@ -369,9 +309,6 @@ public abstract partial record CrdtOp {
     [Equatable] public sealed partial record Write(string Field, [property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value, VersionVector Context, Hlc Cell, Guid Origin) : CrdtOp;
     public sealed record Add(string Field, UInt128 Element, ElementId Tag) : CrdtOp;
     public sealed record Remove(string Field, UInt128 Element, Seq<ElementId> ObservedTags) : CrdtOp;
-    // Per-origin RUNNING TOTALS, not a bare delta: Sequence is the origin's monotone op counter and Positive/Negative
-    // its cumulative sums, so Apply is a max-merge — a replayed or reordered Increment converges identically (the
-    // idempotent join-semilattice law a delta-adding fold cannot satisfy).
     public sealed record Increment(string Field, Guid Origin, long Sequence, long Positive, long Negative) : CrdtOp;
     [Equatable] public sealed partial record InsertAfter(string Field, ElementId Predecessor, ElementId Id, [property: CustomEquality(typeof(CrdtBytes))] ReadOnlyMemory<byte> Value) : CrdtOp;
     public sealed record Delete(string Field, ElementId Id) : CrdtOp;
@@ -409,21 +346,11 @@ public static class Crdt {
         beat: static _ => Fin.Succ<CrdtField>(new CrdtField.EphemeralMap(HashMap<Guid, PresenceCell>(), Instant.MinValue)),
         leave: static _ => Fin.Succ<CrdtField>(new CrdtField.EphemeralMap(HashMap<Guid, PresenceCell>(), Instant.MinValue)));
 
-    // Per-mutation-kind commutation, over the SAME `Version/ledger#CHANGEFEED` `OpLaw` triple the lane stance and the
-    // `typescript:core/state/merge` `Merge.Law` spell — one algebra, three transcriptions. `set` is the lone
-    // `Ordered` arm: two concurrent writers of one cell are a genuine conflict a total order resolves and one value
-    // loses, so `Version/ledger#MERGE_LAW` counts an `Ordered` arm that leaves state unchanged as `Conflicted` rather
-    // than as idempotent replay. `maintain` is `Semilattice` because compaction composes pure filters (`filter(p) ∘
-    // filter(q)` is `filter(p ∧ q)` in either order, idempotent), yet it is a MEET on the tombstone set where every
-    // other arm is a JOIN on state — which is why its admission gate lives on the entry's causal context and not in
-    // this fold.
     public static OpLaw Law(CrdtOp op) => op.Switch(
         set: static _ => OpLaw.Ordered,
         write: static _ => OpLaw.Semilattice,
         add: static _ => OpLaw.Semilattice,
         remove: static _ => OpLaw.Semilattice,
-        // Disjoint per-origin buckets absorbed by sequence-max: commutative and idempotent, yet not a semilattice
-        // over the observable total, which the `Value` projection sums rather than joins.
         increment: static _ => OpLaw.Commutative,
         insertAfter: static _ => OpLaw.Semilattice,
         delete: static _ => OpLaw.Semilattice,
@@ -693,8 +620,6 @@ using Celly.Protovalidate;
 using Google.Protobuf;
 using Rasm.Contracts.Crdt;
 
-// Cell layout remains the kernel's canonical-frame owner for commit and HLC parity. The generated CRDT message
-// composes the corpus Hlc message instead of re-spelling these halves on every operation arm.
 public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable<Hlc> {
     public static readonly Hlc Zero = new(Instant.MinValue, 0UL);
     public int CompareTo(Hlc other) {
@@ -711,19 +636,12 @@ public readonly record struct Hlc(Instant Physical, ulong Logical) : IComparable
             _ => 0UL,
         });
     }
-    // Two fixed-width `I64` words on the kernel writer — the physical ticks, then the logical half reinterpreted
-    // `unchecked` so the monotone `ulong` rides the one signed word the alphabet declares.
     public void CanonicalBytes(CanonicalWriter writer) =>
         writer.I64(Physical.ToUnixTimeTicks()).I64(unchecked((long)Logical));
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-// `[FaultCase]` seats this family on the kernel `[FaultCase]` floor over `Rasm.Domain.Fault` — the SAME
-// template `SyncFault` and `RecoveryFault` realize — so a bare case is an `Error` that lifts onto
-// `Fin`/`Validation` with no `.ToError()` hop. `Code` SEAL to the seated row, so a case past the
-// row's span breaks where the roster proves itself; a bare `Error.New` integer or a literal offset in a `Switch`
-// is the deleted form.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CommitFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Commit;
@@ -752,8 +670,6 @@ public static class CrdtWire {
     const int PayloadLimit = 1 << 20;
     static readonly Validator Rules = new(CrdtReflection.Descriptor);
 
-    // The key hashes the exact held payload bytes. Parsing and re-encoding before this call is forbidden because
-    // protobuf serialization is not the semantic canonical form across runtimes.
     public static UInt128 ContentKey(ReadOnlyMemory<byte> payload) => ContentHash.Of(payload.Span);
 
     public static Fin<ReadOnlyMemory<byte>> Encode(CrdtOp op) =>
@@ -785,10 +701,7 @@ public static class CrdtWire {
     static bool Lawful(CrdtOpWire wire) => Rules.Validate(wire).Count == 0 && CrdtOpMapper.Ordered(wire);
 }
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
-// The generated oneof is the sole wire case owner. This adapter performs only irreducible domain transforms: UUID
-// and UInt128 network-order bytes, HLC construction, and ordered causal rows. No peer-authored DTO or arm hierarchy
-// sits beside the descriptor.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class CrdtOpMapper {
     public static CrdtOpWire Wire(CrdtOp op) => op.Switch<CrdtOpWire>(
         set: static o => new() { Field = o.Field, Set = new SetOp { Value = Octets(o.Value), Stamp = Stamp(o.Cell), Origin = Uuid(o.Origin) } },
@@ -872,19 +785,12 @@ public sealed partial class ParitySlot {
     private ParitySlot(string key, string producer, bool mintedHere) : this(key) => (Producer, MintedHere) = (producer, mintedHere);
 }
 
-// `ParityVector` carries one parity fixture: canonical bytes with the digest ALWAYS derived through the kernel
-// `ContentHash.Of` at mint; libs/contracts/manifest.json alone declares a fixture frozen (HLC_TWO_HALF and CRDT_OP_SET
-// stay DESIGN-PIN until the harness proof) — an unstamped-Option carrier and a corpus-local seed constant are the
-// deleted forms.
 public readonly record struct ParityVector(ParitySlot Slot, ReadOnlyMemory<byte> Canonical, UInt128 Digest) {
     public static ParityVector Of(ParitySlot slot, ReadOnlyMemory<byte> canonical) => new(slot, canonical, ContentHash.Of(canonical.Span));
     public bool Holds(ParityVector pinned) => Slot == pinned.Slot && Digest == pinned.Digest;
 }
 
 public static class ContentParityCorpus {
-    // Every minted-here vector RETAINS the bytes its live digest consumed: `CanonicalWriter.Retaining` is the one
-    // mint whose `ToBytes` close is legal, so a fixture is the exact byte string a peer reproduces and a streaming
-    // writer reaching this seat refuses typed rather than pinning an empty preimage.
     static Fin<ParityVector> Retained<TState>(ParitySlot slot, TState state, Action<TState, CanonicalWriter> fields) {
         CanonicalWriter writer = CanonicalWriter.Retaining(EpsilonPolicy.ZeroTolerance);
         fields(state, writer);
@@ -894,15 +800,12 @@ public static class ContentParityCorpus {
     public static Fin<ParityVector> Cell(Hlc cell) =>
         Retained(ParitySlot.HlcCell, cell, static (held, w) => held.CanonicalBytes(w));
 
-    // The SAME `CommitGraph.Fields` stream the live key hashes, over the same unkeyed node `Commit` builds.
     public static Fin<ParityVector> CommitPreimage(Seq<UInt128> parents, Seq<UInt128> opKeys, string branch, VersionVector vector, string actor, Hlc cell, CommitMessage message) =>
         Retained(ParitySlot.CommitKey, CommitGraph.Unkeyed(parents, opKeys, branch, vector, actor, cell, message), CommitGraph.Fields);
 
     public static Fin<ParityVector> Op(CrdtOp op) =>
         CrdtWire.Encode(op).Map(static bytes => ParityVector.Of(ParitySlot.CrdtOp, bytes));
 
-    // CRDT_OP_SET producer (kernel corpus row [04]): every topological delivery permutation folds twice to prove
-    // replay idempotence, and the vector retains the converged state. A permutation-dependent fold refuses.
     public static Fin<ParityVector> OpSet(Seq<(OperationId Id, CrdtOp Op)> ops) =>
         ops.IsEmpty
             ? Fin.Fail<ParityVector>(new CommitFault.ParityDrift(ParitySlot.CrdtOpSet.Key, "<empty-op-set>"))

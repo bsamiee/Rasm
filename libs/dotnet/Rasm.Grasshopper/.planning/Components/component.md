@@ -18,17 +18,15 @@
 - Boundary: `ProcessScope` is the only step seam into `IDataAccess`; it carries context, cancellation, iteration evidence, typed reads, receipted writes, notices, and the operation key.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// TWO cases: the depth is DATA on the uniform case (the former pear/twig/tree triplet was one case per
-// carrier of identical plumbing), and every step reads/writes through the scope's own typed rails.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Execution {
     private Execution() { }
@@ -63,14 +61,12 @@ public abstract partial record OutputPlan {
     public bool IsRequired => Switch(optional: static _ => false, required: static _ => true);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ProcessReceipt(Op Operation, int Iteration, Seq<OutputPlan> Written, Seq<OutputPlan> MissingRequired);
 
 public sealed record ProcessRun(ProcessReceipt Receipt, Fin<Unit> Result);
 
-// ONE fact stream: process, bake, and fault are cases, the ledger is ordered, and the three parallel
-// columns with their three Add overloads are unspellable. Projections derive.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RunFact {
     private RunFact() { }
@@ -135,11 +131,9 @@ public sealed record ProcessScope {
     public Unit Progress(int percent) => fun(() => Access.SetProgress(percent))();
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Executions {
-    // Both cases run the same shape: the step reads and writes through the scope's typed rails, and the
-    // uniform depth already proved every pin at admission — no per-carrier plumbing survives.
     public static ProcessRun Run(this Execution execution, ProcessScope scope) =>
         Completed(scope, execution.Switch(
             state: scope,
@@ -169,17 +163,15 @@ public static class Executions {
 - Boundary: `OutputPlan` owns output obligation beside its `PinPlan`; no second raw-index emission roster exists. `BakeKey` coordinates, `BakeDataState` re-find filtering, and layer pre-creation stay `Grasshopper2.Bake`'s and are reached through the minted context, never re-derived here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Capability is PRESENCE on the spec's Option — a Capable bool and a "Refused" policy full of unusable
-// attribute defaults are unspellable.
 public sealed record BakePolicy(
     Grasshopper2.Bake.BakeUpdateMode Update,
     Grasshopper2.Bake.UserPattern Defaults, Grasshopper2.Bake.MetaPattern Overrides) {
@@ -287,7 +279,7 @@ public sealed record ComponentSpec {
 - Law: `Connectivity`/`ConnectivityComplete` exist on no live `Component` surface and `ComputeInternal(Solution, CallStack)` is a nonpublic virtual — all three are host plumbing the base owns, so no `Lifecycle` slot projects them and a catalog row claiming component virtuals for the first two is stale against the shipped assembly.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 using Grasshopper2.Data;
 using Grasshopper2.Parameters;
@@ -295,20 +287,16 @@ using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 public interface IComponentDeclaration<TSelf> where TSelf : IComponentDeclaration<TSelf> {
     static abstract ComponentSpec Spec { get; }
 }
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public abstract class SpecComponent<TSelf> : ModularComponent
     where TSelf : SpecComponent<TSelf>, IComponentDeclaration<TSelf> {
-    // Accessor-backed Lazy<Fin<T>> (E-G32 DECIDED): an eager static field runs the admission during type init,
-    // where a declaration fault throws inside the loader's own static-constructor frame and every later read
-    // sees the torn type; the Lazy defers to first USE, the rail HOLDS the admission verdict, and the fault
-    // surfaces on the host failure channel at the base-ctor read.
     private static readonly Lazy<Fin<ComponentSpec>> definition =
         new(static () => TSelf.Spec.Admit().ToFin(), LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -321,8 +309,6 @@ public abstract class SpecComponent<TSelf> : ModularComponent
     private readonly HookId faultPoint;
     private readonly Atom<RunReceipt> run = Atom(RunReceipt.Empty);
 
-    // SAME construction fence attributes.md's resizable shell composes (E-G29): the host base ctor invokes
-    // virtuals before this subclass's fields exist, and the typed phase names why the guard is there.
     private MountState state = MountState.Raw;
 
     protected SpecComponent(FaultCell faults, HookId faultPoint) : base(Admitted(faults, faultPoint).Identity) {
@@ -397,7 +383,6 @@ public abstract class SpecComponent<TSelf> : ModularComponent
             ? Track(Maintained(Op.Of()))
             : Maintained(Op.Of()).Match(Succ: identity, Fail: Panic<Unit>));
 
-    // Visibility is the ports vocabulary, never a bool knob — the row dispatches the Show/Hide pair.
     public Fin<Unit> Flex(PinSide side, int index, PinVisibility visibility, Grasshopper2.Undo.ActionList undo, Op? key = null) {
         ModularList list = side.Switch(state: this, input: static self => self.ModularInputs, output: static self => self.ModularOutputs);
         return HostCall.Run(() => visibility.Switch(
@@ -525,12 +510,12 @@ public abstract class SpecComponent<TSelf> : ModularComponent
 - Boundary: assembly harvesting remains inside `PluginServer`; local reflection is limited to exported-type declaration and persistent-id admission.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PluginSource {
@@ -540,7 +525,7 @@ public abstract partial record PluginSource {
     public sealed record Binary(string Location, System.Reflection.Assembly Value) : PluginSource;
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record PluginSpec(
     Guid Id,
@@ -553,7 +538,7 @@ public sealed record PluginSpec(
 
 public sealed record PluginReceipt(string Location, Option<string> Assembly);
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public abstract class SpecPlugin : Grasshopper2.Framework.Plugin {
     private readonly PluginSpec spec;
@@ -563,7 +548,6 @@ public abstract class SpecPlugin : Grasshopper2.Framework.Plugin {
     protected SpecPlugin(PluginSpec spec, FaultCell faults, HookId faultPoint) : base(spec.Id, spec.Identity, spec.Version) =>
         (this.spec, this.faults, this.faultPoint) = (spec, faults, faultPoint);
 
-    // Root row [01] wire: the audited roster the GH2 loader consumes comes from ONE owner.
     public override IEnumerable<Type> ExportedTypes => Catalogue.Exported(spec, faults, faultPoint);
 
     public override IEnumerable<string> SatelliteAssemblies => spec.Satellites;
@@ -579,8 +563,6 @@ public static class Catalogue {
     public static Validation<Error, PluginSpec> Audit(PluginSpec plugin, Op? key = null) =>
         plugin.Exported.Traverse(type => Exported(type, key.OrDefault())).As().Map(_ => plugin);
 
-    // One exported-type roster the plugin loader consumes (`Platform/composition.md` row [01]): the audit
-    // proves every row, and an unauditable roster surfaces at load, never as a silently short host census.
     public static Seq<Type> Exported(PluginSpec plugin, FaultCell faults, HookId point) => Audit(plugin).Match(
         Succ: static audited => audited.Exported,
         Fail: fault => {

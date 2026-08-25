@@ -24,10 +24,10 @@ Rasm.Persistence reclaims object bytes through the write-blob-first protocol and
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct LifecycleRule(RetentionClass Class, Option<Duration> Expire, Seq<(StorageTier To, Duration After)> Transitions);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LifecycleRules {
     static readonly Seq<StorageTier> Rungs = toSeq(StorageTier.Items)
         .Find(static tier => toSeq(StorageTier.Items).ForAll(other => RetentionCeiling.Demote(other) != Some(tier)))
@@ -42,13 +42,9 @@ public static class LifecycleRules {
     static Seq<StorageTier> Descent(StorageTier from) =>
         RetentionCeiling.Demote(from).Match(Some: colder => colder.Cons(Descent(colder)), None: static () => Seq<StorageTier>());
 
-    // TRAP: `LifecycleRule` and `LifecycleConfiguration` each name three different types across this owner and the
-    // two SDKs, so every arm spells its provider type whole.
     public static IO<Unit> Arm(ObjectClient client, Seq<RetentionClass> classes) {
         Seq<LifecycleRule> rules = Project(classes);
         return rules.IsEmpty ? IO.pure(unit) : client.Map(
-            // `Amazon.S3.Model.LifecycleRule.Prefix` is obsolete in favour of the filter, so the stem rides
-            // `LifecycleFilter.Prefix` and the rule id IS that same stem — one string, no second naming.
             s3: r => ObjectIo.Bound(r, "s3", ObjectVerb.Lifecycle, default, () => r.Client.PutLifecycleConfigurationAsync(r.Bucket, new Amazon.S3.Model.LifecycleConfiguration {
                 Rules = rules.Map(rule => new Amazon.S3.Model.LifecycleRule {
                     Id = BlobName.Prefix(r.Tenant, rule.Class),
@@ -64,7 +60,7 @@ public static class LifecycleRules {
                 Lifecycle = new Google.Apis.Storage.v1.Data.Bucket.LifecycleData { Rule = rules.Bind(rule => Gcs(rule, r.Tenant)).ToList() },
             })).Map(static _ => unit),
             minio: r => rules.Choose(static rule => rule.Expire.Map(after => (rule.Class, After: after))).Match(
-                Empty: static () => IO.pure(unit),                                         // `SetBucketLifecycleAsync` refuses an empty rule set
+                Empty: static () => IO.pure(unit),
                 More: expiring => ObjectIo.Bound(r, "minio", ObjectVerb.Lifecycle, default, async () => {
                     await r.Client.SetBucketLifecycleAsync(new SetBucketLifecycleArgs()
                         .WithBucket(r.Bucket)
@@ -79,8 +75,6 @@ public static class LifecycleRules {
             presigned: static _ => IO.pure(unit));
     }
 
-    // GCS carries ONE action per rule, so the expiry and each transition rung are separate rules under the same
-    // prefix condition — the provider's own shape, never a second policy this owner invents.
     static Seq<Google.Apis.Storage.v1.Data.Bucket.LifecycleData.RuleData> Gcs(LifecycleRule rule, TenantId tenant) =>
         rule.Expire.Map(after => Gcs("Delete", null, after, rule.Class, tenant)).ToSeq() +
         rule.Transitions.Map(t => Gcs("SetStorageClass", t.To.GcsClass, t.After, rule.Class, tenant));
@@ -107,22 +101,19 @@ public static class LifecycleRules {
 - Growth: a new catalog column is one field on the row; a new WORM stance is one `ObjectLock` case both the write and the evict arrow read with zero new surface; a head-only blob GC, a lane-local list-then-filter sweep, a payload re-PUT standing in for a storage-class change, a same-transaction blob write, or a lane-local retention executor re-deciding eviction beside the one sweep is the deleted form.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BlobCatalogRow(ContentAddress Key, ArtifactKind Kind, Extent Extent, StorageTier Tier, ObjectCodec Codec, Option<ContentAddress> Lineage, TenantId Tenant, DataClassification Classification, Option<Instant> WormUntil, Option<WrappedKey> Dek, Instant At) {
     public RetentionClass Class => Kind.Retention;
 }
 
 public readonly record struct PendingWrite(ContentAddress Key, ArtifactKind Kind, long Bytes, Instant Started, Option<string> Session);
 
-// THREE durable marks the write-first protocol needs, composed at the app root as ONE value beside the
-// placement bundle: a write path holding two of the three could open a fence it never closes or commit a
-// catalog row no fence protected, so the marks travel together or not at all.
 public readonly record struct BlobLedger(
     Func<PendingWrite, IO<Unit>> Open,
     Func<BlobCatalogRow, IO<Unit>> Catalog,
     Func<ContentAddress, IO<Unit>> Close);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BlobGc {
     public static IO<BlobResidence> WriteBlobFirst(ObjectStore store, ObjectClient client, BlobAdmission admitted, ArtifactKind kind, ObjectCodec codec, ReadOnlySequence<byte> source, BlobLedger ledger, Func<BlobTransferFact, IO<Unit>> sink, ProjectionContext frame) =>
         from _t in frame.Tenant.TenantId == client.Tenant ? IO.pure(unit) : IO.fail<Unit>(new RemoteStoreFault.Denied(admitted.Key, store.Key, "tenant-mismatch"))

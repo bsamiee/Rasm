@@ -78,18 +78,11 @@ import type { EventName, ShouldPreventSpanCreation } from "@opentelemetry/instru
 import { type Identity, Carrier, Convention, Fault, Tap } from "@rasm/core"
 import { Life } from "../proc/life.ts"
 
-// HostMetrics enables a family only on an exact match and ignores every other entry, so an unrostered spelling
-// disables silently — this roster closes here rather than reaching the package as free strings
 const _GROUPS = ["process.cpu", "process.memory", "system.cpu", "system.memory", "system.network"] as const
 
-// Every `*InstrumentationConfig` inherits `InstrumentationConfig.enabled` (default true), so admission is a column
-// on the roster rather than a construction the node performs unconditionally: these tuples ARE the row vocabulary
-// Both condition nodes' `_rows` folds index this, so a row and its policy cell cannot drift and a misspelling is a compile error
 const _SERVER_ROWS = ["http", "pg", "runtime", "undici"] as const
 const _BROWSER_ROWS = ["document", "fetch", "interaction", "xhr"] as const
 
-// `_DIAGNOSTIC` totally maps the NAME config carries onto the SDK's own numeric enum, so no deployment spells 30 or
-// 9999; this roster IS the policy vocabulary, so a config row and a policy row cannot drift
 const _DIAGNOSTIC = {
   all: DiagLogLevel.ALL,
   debug: DiagLogLevel.DEBUG,
@@ -100,8 +93,6 @@ const _DIAGNOSTIC = {
   warn: DiagLogLevel.WARN,
 } as const
 
-// Roster matching runs first-match-wins and an unmatched scope takes the SDK's UNSPECIFIED default, which is
-// no floor: this catch-all is appended BEHIND every policy row, so the third stream always lands on a stated floor
 const _LOGGING: readonly [LoggerPattern] = [{ pattern: "*", config: { minimumSeverity: SeverityNumber.INFO } }]
 
 declare namespace Export {
@@ -120,7 +111,6 @@ declare namespace Export {
     }
     readonly sampling: { readonly ratio: number }
     readonly transport: { readonly concurrency: number; readonly timeout: Duration.Duration }
-    // every cap set types off the SDK's own record under Required: an upstream field addition breaks here, never defaults away silently
     readonly caps: {
       readonly batch: Required<BatchSpanProcessorBrowserConfig>
       readonly logs: Required<LogRecordLimits>
@@ -131,9 +121,7 @@ declare namespace Export {
     readonly cardinality: Required<NonNullable<PeriodicExportingMetricReaderOptions["cardinalityLimits"]>>
     readonly promote: ReadonlyArray<string>
     readonly diagnostic: keyof typeof _DIAGNOSTIC
-    // Floor for the third log stream: an ordered LoggerPattern roster keyed on instrumentation-scope glob, first match wins
     readonly logging: ReadonlyArray<LoggerPattern>
-    // every non-collector origin this process pushes telemetry to; each condition node folds it with the collector into one self-egress roster
     readonly egress: ReadonlyArray<string>
     readonly placement: {
       readonly cloud: keyof typeof _CLOUD
@@ -142,7 +130,6 @@ declare namespace Export {
     readonly server: {
       readonly comment: boolean
       readonly connect: boolean
-      // engine health, never web vitals: `Vital` owns the Core Web Vitals family and this row binds HostMetrics and runtime-node
       readonly engine: { readonly groups: ReadonlyArray<(typeof _GROUPS)[number]>; readonly precision: number }
       readonly ignore: ReadonlyArray<string>
       readonly orphan: boolean
@@ -152,7 +139,6 @@ declare namespace Export {
       readonly statement: boolean
     }
     readonly browser: {
-      // string entries match a whole URL by equality inside the SDK's own urlMatches, so an origin rides a pattern
       readonly propagate: ReadonlyArray<string | RegExp>
       readonly interaction: {
         readonly events: ReadonlyArray<EventName>
@@ -165,7 +151,6 @@ declare namespace Export {
   }
   type Context = HttpClient.HttpClient | Hooks | Life
   type Live = Layer.Layer<Hooks.Meter, never, Context>
-  // SDK rows publish every Tag their assembly exposes: an under-declared output is a Tag the registration nodes cannot bind
   type Sdk = Layer.Layer<
     Hooks.Meter | OtelBridge.OtelTracer | OtelBridge.OtelTracerProvider | OtelIdentity.Resource | OtelLogger.OtelLoggerProvider,
     never,
@@ -175,7 +160,7 @@ declare namespace Export {
 }
 
 const _signal = (policy: Export.Policy, signal: "logs" | "metrics" | "traces"): string =>
-  `${policy.collector.baseUrl.replace(/\/+$/, "")}/v1/${signal}` // one trailing-slash fold: a collector origin spelled either way resolves identically
+  `${policy.collector.baseUrl.replace(/\/+$/, "")}/v1/${signal}`
 
 const _admitted = (promote: ReadonlyArray<string>) => (key: string): boolean =>
   Array.some(promote, (prefix) => key.startsWith(prefix))
@@ -211,9 +196,6 @@ const _defaults: Redaction.Rules = {
     Convention.attr.clientAddress,
     Convention.attr.userAgent,
     Convention.attr.urlFull,
-    // Platform `Redactable` already masks this roster on any logged `Headers` VALUE; a bag copied
-    // out of that shape keeps the key spelling and loses the protocol, and these rows are that half — `authorization`
-    // and `x-api-key` ride here too because the bearer PATTERN misses a raw api-key value carrying no scheme prefix
     "authorization",
     "cookie",
     "set-cookie",
@@ -239,15 +221,12 @@ const _scrub = (rules: Redaction.Rules, bag: Convention.Bag): Convention.Bag =>
   Record.map(bag, (value, key) => (Array.contains(rules.sealed, key) ? _SEAL : _masked(rules, value)))
 
 const _admits = (bag: Attributes): Convention.Bag =>
-  // BOUNDARY ADAPTER: absent values drop here; the api bag's arrays also admit nullish members the open record's element types never name,
-  // and the mask fold passes a non-string element through untouched, so the re-narrow is sound at the value level.
   Record.filterMap(bag, (value) => Option.fromNullable(value)) as Convention.Bag
 
 const _processor = (rules: Redaction.Rules): SpanProcessor => ({
   forceFlush: () => Promise.resolve(),
   onEnd: () => undefined,
   onEnding: (span: Span) => {
-    // platform statement seam: setAttribute writes back into the live span, so the scrubbed record replays as writes
     Record.toEntries(_scrub(rules, _admits(span.attributes))).forEach(([key, value]) => span.setAttribute(key, value))
   },
   onStart: () => undefined,
@@ -283,7 +262,7 @@ const Redaction: {
 
 ```typescript signature
 declare namespace Hooks {
-  type Dispatch = _Dispatch // the seat's own type, so a consumer names the rail requirement without reaching for the class
+  type Dispatch = _Dispatch
   type Meter = _Meter
   type Rows = {
     readonly detectors: ResourceDetector
@@ -296,15 +275,12 @@ declare namespace Hooks {
   type Drained = { readonly [K in keyof Rows]: ReadonlyArray<Rows[K]> }
 }
 
-// this raw metric plane travels whole: the registration nodes bind the provider and [04]'s scope coordinate spends the version
 class _Meter extends Context.Tag("runtime/Hooks/Meter")<_Meter, {
   readonly provider: MeterProvider
   readonly version: Identity.App.Version
 }>() {}
 
 declare namespace Dispatch {
-  // the app's whole hook plane as one seat row: which app the rail answers for, the roster every registrar publishes
-  // on, and the breach ring's own width — the one accounting width no point's declared depth carries
   type Policy = {
     readonly app: Identity.App.Key
     readonly ledger: number
@@ -312,8 +288,6 @@ declare namespace Dispatch {
   }
 }
 
-// the app-scoped seat for core's one hook mechanism: this service's VALUE IS the rail, so `Tap.mount`, `Tap.publish`,
-// `Tap.breaches`, and `Tap.census` resolve in one hop off the Tag and no runtime member re-spells a delivery verb
 class _Dispatch extends Effect.Service<_Dispatch>()("runtime/Hooks/Dispatch", {
   scoped: (policy: Dispatch.Policy) => Tap.rail(policy.app, policy.points, { ledger: policy.ledger }),
 }) {}
@@ -329,11 +303,10 @@ class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
       views: yield* Ref.make(Chunk.empty<ViewOptions>()),
     }
     return {
-      // one keyed append serves every slot: the mapped cell annotation correlates kind to row type, so the indexed write is cast-free
       add: <K extends keyof Hooks.Rows>(kind: K, row: Hooks.Rows[K]): Effect.Effect<void> =>
         Ref.update(cells[kind], (held) => Chunk.append(held, row)),
       drained: Effect.map(
-        Effect.all(Record.map(cells, Ref.get)), // one mapped read over the cell record: a new slot drains with zero fold edits
+        Effect.all(Record.map(cells, Ref.get)),
         (held): Hooks.Drained => Record.map(held, Chunk.toReadonlyArray) as Hooks.Drained,
       ),
     }
@@ -343,8 +316,6 @@ class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
   static readonly Dispatch = _Dispatch
   static readonly contribute = (tap: (hooks: Hooks) => Effect.Effect<void>): Layer.Layer<never, never, Hooks> =>
     Layer.effectDiscard(Effect.flatMap(Hooks, tap))
-  // This one raw-OTel meter seam: the scope coordinate crosses whole, so a name never reaches getMeter without its
-  // version and schema — the three-argument surface is what carries them, and the module closes against the roster
   static readonly meter = (module: Convention.Module): Effect.Effect<Meter, never, _Meter> =>
     Effect.map(_Meter, ({ provider, version }) =>
       pipe(
@@ -379,10 +350,6 @@ const _selects = (row: ViewOptions, data: MetricData): boolean =>
     || new RegExp(`^${row.instrumentName.replace(_GLOB, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`).test(data.descriptor.name))
   && (row.instrumentUnit === undefined || row.instrumentUnit === data.descriptor.unit)
 
-// Delta ledgers key on the point's ORIGINAL coordinate — producing scope, name, unit, attributes — because the
-// collection below rewrites every scope to the one estate triple: keyed on name and attributes alone, two producers
-// publishing one name under identical attributes share a baseline and each differences against the other's reading,
-// and a same-name pair differing only by unit does the same across two dimensions.
 const _series = (scope: ScopeMetrics["scope"], data: MetricData, attributes: Attributes): string =>
   JSON.stringify([
     scope.name,
@@ -393,7 +360,6 @@ const _series = (scope: ScopeMetrics["scope"], data: MetricData, attributes: Att
   ])
 
 const _FOLD: Partial<Record<DataPointType, (held: number, next: number) => number>> = {
-  // overflow folds by the point's own aggregation: an additive sum accumulates, a level takes the last reading
   [DataPointType.GAUGE]: (_held, next) => next,
   [DataPointType.SUM]: (held, next) => held + next,
 }
@@ -401,7 +367,6 @@ const _FOLD: Partial<Record<DataPointType, (held: number, next: number) => numbe
 const _capped = (data: MetricData, limit: number | undefined): MetricData =>
   Option.match(
     Option.flatMap(
-      // an unfoldable point shape or an absent ceiling collapses here; an under-cap series collapses on the empty tail
       Option.all([Option.fromNullable(_FOLD[data.dataPointType]), Option.fromNullable(limit)]),
       ([fold, cap]) =>
         pipe(Array.splitAt(data.dataPoints, cap), ([kept, excess]) =>
@@ -409,7 +374,6 @@ const _capped = (data: MetricData, limit: number | undefined): MetricData =>
     ),
     {
       onNone: () => data,
-      // BOUNDARY ADAPTER: the fold table carries only the scalar shapes, so the point list re-narrows on its own dataPointType.
       onSome: ({ excess, fold, kept, template }) =>
         ({
           ...data,
@@ -431,7 +395,6 @@ const _shaped = (rows: ReadonlyArray<ViewOptions>, data: MetricData): Option.Opt
       row.aggregation?.type === AggregationType.DROP
         ? Option.none()
         : Option.some(_capped(
-          // BOUNDARY ADAPTER: descriptor and attribute rewrites preserve the point shape, so the union re-narrows on its own tag.
           {
             ...carried,
             descriptor: {
@@ -452,7 +415,6 @@ const _delta = (
   scope: ScopeMetrics["scope"],
   data: MetricData,
 ): MetricData =>
-  // exactly the losslessly convertible shape: a monotonic cumulative sum differenced against its own prior reading
   data.dataPointType !== DataPointType.SUM || !data.isMonotonic
     ? data
     : {
@@ -468,7 +430,6 @@ const _delta = (
 
 const _governed = (producer: MetricProducer, policy: Export.Policy, rows: ReadonlyArray<ViewOptions>): MetricProducer => {
   const readings = new Map<string, { readonly end: MetricData["dataPoints"][number]["endTime"]; readonly value: number }>()
-  // Convention.scope returns the whole InstrumentationScope triple, so the rewrite is one call and no field goes missing
   const scope = Convention.scope("runtime", policy.identity.build.version)
   return {
     collect: async (options): Promise<CollectionResult> => {
@@ -478,12 +439,10 @@ const _governed = (producer: MetricProducer, policy: Export.Policy, rows: Readon
         resourceMetrics: {
           ...collected.resourceMetrics,
           scopeMetrics: collected.resourceMetrics.scopeMetrics.map((held): ScopeMetrics => ({
-            // producer scope is a package constant carrying no version and no schema, so the estate coordinate replaces it
             scope,
             metrics: Array.filterMap(held.metrics, (data) =>
               Option.map(
                 _shaped(rows, data),
-                // ORIGINAL scope keys the ledger, read before the rewrite above replaces it
                 (shaped) => (policy.temporality === "delta" ? _delta(readings, held.scope, shaped) : shaped),
               )),
           })),
@@ -544,12 +503,6 @@ flowchart LR
 ```
 
 ```typescript signature
-// Exporters resolve this per export, so the credential unwraps at send time and no plaintext record outlives the
-// call. Two obligations the package's own contract fixes and this factory satisfies structurally: it MUST NOT throw
-// (the body is a total projection over already-admitted policy values, so no arm can raise) and it MUST NOT reach
-// `http`/`https` — statically or dynamically — because a load before `HttpInstrumentation` patches them silently
-// un-instruments every outbound hop in the process. The native lane keeps the plain record: `Otlp.layer*` takes
-// `Headers.Input`, which admits no factory, so its unwrap stays per-construction.
 const _headers = (policy: Export.Policy): HeadersFactory => () =>
   Promise.resolve(Record.map(policy.collector.headers, Redacted.value))
 
@@ -571,7 +524,7 @@ const _CLOUD = {
 } as const satisfies Record<string, ReadonlyArray<ResourceDetector>>
 
 const _placed = (placement: Export.Policy["placement"]): ReadonlyArray<ResourceDetector> => [
-  ..._CLOUD[placement.cloud], // at most one compute arm: the placement declares its cloud, the row supplies its detector
+  ..._CLOUD[placement.cloud],
   ...(placement.container ? [containerDetector] : []),
 ]
 
@@ -582,7 +535,6 @@ const _rum = (adds: ReadonlyArray<ResourceDetector>): ReadonlyArray<ResourceDete
 
 type _Resource = {
   readonly facade: {
-    // api attribute shape serves both facade legs and the native option bag, so the detected record crosses unprojected
     readonly attributes: Attributes
     readonly serviceName: string
     readonly serviceVersion: string
@@ -602,7 +554,6 @@ const _identity = (
     _Identity,
     Effect.flatMap(_drained, (adds) =>
       Effect.promise(async () => {
-        // one seat per graph: serviceInstanceIdDetector mints a fresh guid per run, so a second detection splits one process in two
         const resource = detectResources({ detectors: [...roster(adds.detectors)] })
           .merge(resourceFromAttributes(Convention.identity(policy.identity), { schemaUrl: Convention.wire.schemaUrl }))
         if (resource.asyncAttributesPending) {
@@ -625,7 +576,6 @@ const _temporality = {
 } as const
 
 const _wire = {
-  // wire framing is a lane column: one table row per serializer, one exporter shape, zero forks
   json: { logs: OTLPLogExporter, metrics: OTLPMetricExporter, traces: OTLPTraceExporter },
   protobuf: { logs: ProtoLogExporter, metrics: ProtoMetricExporter, traces: ProtoTraceExporter },
 } as const
@@ -636,12 +586,6 @@ const _SENDERS = ["browser", "node"] as const
 
 type _Sender = (typeof _SENDERS)[number]
 
-// Node-only exporter columns ride here: the browser build's config accepts neither, and its fetch-only transport
-// compresses nothing. The rows read policy because the agent pool and the emitter coordinate are policy facts —
-// `keepAlive` with a default `maxSockets` holds an unbounded free-socket set across three signal exporters per row
-// while `concurrencyLimit` bounds the exporter's own queue at a number the pool never hears, so the two ceilings are
-// unrelated until one field governs both. `httpAgentOptions` carries `HeadersFactory`'s do-not-load-`http` obligation
-// verbatim, which the plain-options arm satisfies by construction; `userAgent` PREPENDS to the exporter's own value.
 const _sender = (policy: Export.Policy): Readonly<Record<_Sender, Partial<OTLPExporterNodeConfigBase>>> => ({
   browser: {},
   node: {
@@ -652,8 +596,6 @@ const _sender = (policy: Export.Policy): Readonly<Record<_Sender, Partial<OTLPEx
       maxSockets: policy.transport.concurrency,
     },
     keepAlive: true,
-    // Coordinates spend WHOLE here too: `.name` alone reaches the collector carrying no build, which is the same
-    // name-only mint the scope row forbids — a per-build emitter fact is the point, and the product token is `name/version`
     userAgent: pipe(Convention.scope("runtime", policy.identity.build.version), (scope) => `${scope.name}/${scope.version}`),
   },
 })
@@ -664,13 +606,11 @@ const _transport = (
   sender: _Sender,
   selfObs: Option.Option<OtelMeterProvider>,
 ) => ({
-  ..._sender(policy)[sender], // gzip, the bound agent pool, and the emitter coordinate ride the sender row, so no signal on a row carries a field its build drops
+  ..._sender(policy)[sender],
   concurrencyLimit: policy.transport.concurrency,
   headers: _headers(policy),
   timeoutMillis: Duration.toMillis(policy.transport.timeout),
   url: _signal(policy, signal),
-  // Exporter rejected/retried/duration series land on the raw provider under the engine-class view rows;
-  // only the metric exporter passes none, because it is constructed INSIDE the provider it reports to
   ...(Option.isSome(selfObs) && { selfObsMeterProvider: selfObs.value }),
 })
 
@@ -679,14 +619,6 @@ const _aggregation = (policy: Export.Policy) => (instrument: InstrumentType) =>
     ? { type: AggregationType.EXPONENTIAL_HISTOGRAM, options: { maxSize: policy.histogram.maxSize, recordMinMax: true } } as const
     : { type: AggregationType.DEFAULT } as const
 
-// ONE reader carries both metric planes. `setMetricProducer` admits exactly one producer and throws on a second, but
-// `metricProducers` is the additional-source seat beside it: `collect()` awaits the SDK producer concatenated with
-// every additional producer, merges their scopeMetrics, and keeps the SDK's own `Resource`. So the raw provider binds
-// this reader (taking the sdk slot with its `MetricCollector`) while the governed Effect producer rides the seat —
-// one exporter, one interval, one socket pool, both planes. The seat is `@experimental`, riding the
-// `[OTEL_PIN_BLOCK]` watch list exactly as `onEnding` does. `otelComponentType` names this reader in the SDK's own
-// `otel.sdk.metric_reader.collection.duration` series, which reaches a live meter only once the provider below arms
-// `sdkMetricsEnabled` — an unnamed reader defaults to its constructor name and reports through a no-op meter.
 const _reader = (
   policy: Export.Policy,
   framing: _Framing,
@@ -707,9 +639,6 @@ const _reader = (
     otelComponentType: `rasm.otlp.${framing}`,
   })
 
-// This raw provider is an INPUT here, not a sibling: four self-observability seats bind it, so `_meter` builds first and
-// Export-pipeline health — a rejected batch, a dropped queue, a wedged flush, collect duration — lands as
-// `otel.sdk.*` series under the engine-class view rows instead of a `diag` line the `diagnostic` floor may discard.
 const _sdk = (
   policy: Export.Policy,
   adds: Hooks.Drained,
@@ -718,10 +647,7 @@ const _sdk = (
   sender: _Sender,
   meter: MeterProvider,
 ) => ({
-  // every seat is non-empty by construction: the facade legs take a NonEmptyReadonlyArray, never a bare array
   logRecordProcessor: [
-    // log batching declares one options bag as its whole constructor, so exporter, batch record, and the processor's
-    // own self-observability seat are three fields of one bag
     new BatchLogRecordProcessor({
       exporter: new _wire[framing].logs(_transport(policy, "logs", sender, Option.some(meter))),
       selfObsMeterProvider: meter,
@@ -730,7 +656,6 @@ const _sdk = (
     ...adds.logs,
   ] as const satisfies Array.NonEmptyReadonlyArray<LogRecordProcessor>,
   loggerProviderConfig: {
-    // Policy rows lead and the shipped catch-all closes: an unmatched instrumentation scope lands on a stated floor
     loggerConfigurator: createLoggerConfigurator([...policy.logging, ..._LOGGING]),
     logRecordLimits: policy.caps.logs,
     meterProvider: meter,
@@ -738,15 +663,12 @@ const _sdk = (
   },
   resource: resource.facade,
   spanProcessor: [
-    new BaggageSpanProcessor(_admitted(policy.promote)), // promotion precedes the scrub, so a promoted key matching a deny rule still seals
+    new BaggageSpanProcessor(_admitted(policy.promote)),
     Redaction.processor(policy.redaction),
     ...adds.spans,
     new BatchSpanProcessor(new _wire[framing].traces(_transport(policy, "traces", sender, Option.some(meter))), policy.caps.batch),
   ] as const satisfies Array.NonEmptyReadonlyArray<SpanProcessor>,
   tracerConfig: {
-    // `forceFlushTimeoutMillis` rides `TracerProviderOptions`, which BOTH facade rows' `layerTracerProvider` accepts,
-    // so one policy value bounds the provider flush on the web leg exactly as on the node leg; `shutdownTimeout` is the
-    // node leg's own Effect-side release budget, a different seam the web leg's signature does not carry
     forceFlushTimeoutMillis: Duration.toMillis(policy.shutdown),
     meterProvider: meter,
     sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(policy.sampling.ratio) }),
@@ -765,21 +687,15 @@ const _meter = (
     _Meter,
     Effect.acquireRelease(
       Effect.map(Effect.all([_drained, _Identity]), ([adds, resource]) => ({
-        // This one sanctioned raw construction: the third-party instrument plane needs the provider the facade conceals,
-        // and the same provider now carries the governed Effect producer through its one reader's `metricProducers`
-        // seat, so both metric planes leave through one exporter. `sdkMetricsEnabled` is what arms the reader's
-        // `otelComponentType` row — the provider calls `_setSelfObsMeterProvider` on each bound reader only under it,
-        // and an unarmed reader records its collect duration into a no-op meter.
         provider: new MeterProvider({
           readers: [_reader(policy, framing, sender, producers)],
           resource: resource.otel,
           sdkMetricsEnabled: true,
           views: [...adds.views],
         }),
-        version: policy.identity.build.version, // the scope coordinate rides the seat, so no caller re-supplies it
+        version: policy.identity.build.version,
       })),
       ({ provider }) =>
-        // a wedged exporter must not poison the ordered drain: the fault reads on the log rail and the scope still closes
         Effect.catchAll(
           Effect.tryPromise(() => provider.forceFlush().then(() => provider.shutdown())),
           (fault) => Effect.annotateLogs(Effect.logWarning("<meter-drain>"), { detail: String(fault) }),
@@ -802,7 +718,6 @@ const _ambient = (policy: Export.Policy): Layer.Layer<never> =>
       }
       return Effect.acquireRelease(
         Effect.sync(() => {
-          // this one global-propagation seat answers foreign libraries calling propagation.inject/extract with the estate W3C pair
           propagation.setGlobalPropagator(
             new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] }),
           )
@@ -816,12 +731,6 @@ const _ambient = (policy: Export.Policy): Layer.Layer<never> =>
     }),
   )
 
-// Native lanes answer the ambient-continuation asymmetry here: `tracerContext` is the hook Effect runs every traced
-// segment through, handing it the LIVE Effect span, so a foreign library calling `propagation.inject` inside that
-// segment reads the estate's own parent instead of ROOT. The lift is inert until a context manager is installed —
-// `context.with` falls to `NoopContextManager`, which calls the thunk and answers `ROOT_CONTEXT` — which is exactly
-// why `Instrument.ambient` stands apart: a native-lane root composes the manager alone and cannot compose the
-// instrumentation node at all, so this hook and that Layer are one capability in two seats.
 const _tracerContext = <X>(f: () => X, span: Tracer.AnySpan): X =>
   ambient.with(
     trace.setSpan(
@@ -840,10 +749,9 @@ const _native = (framing: _Framing, sender: _Sender) => (policy: Export.Policy):
     _ambient(policy),
     Layer.unwrapEffect(
       Effect.map(_Identity, (resource) =>
-        // Otlp layers already publish nothing: they install Effect's own Tracer/Metric/Logger and require HttpClient alone
         (framing === "protobuf" ? Otlp.layerProtobuf : Otlp.layerJson)({
           baseUrl: policy.collector.baseUrl,
-          headers: _plain(policy), // Headers.Input admits no factory: the native lane's unwrap stays per-construction
+          headers: _plain(policy),
           loggerExportInterval: policy.cadence.logs,
           maxBatchSize: policy.caps.batch.maxExportBatchSize,
           metricsExportInterval: policy.cadence.metrics,
@@ -853,15 +761,9 @@ const _native = (framing: _Framing, sender: _Sender) => (policy: Export.Policy):
           tracerExportInterval: policy.cadence.traces,
         })),
     ),
-    // no governed producer here: the native rows install Effect's own metric bridge, so their Effect plane rides
-    // ungoverned per [05] and this provider carries the third-party instrument plane alone
     _meter(policy, framing, sender, []),
-  ).pipe(Layer.provide(_identity(policy, _grounds(policy)))) // one identity build feeds every merged member; the Tag stays interior
+  ).pipe(Layer.provide(_identity(policy, _grounds(policy))))
 
-// This facade row is a LINEAR build, and the direction is what the self-observability seats fix: the facade `Resource`
-// admits the Effect producer, the governed producer seats the one reader, that reader's provider IS the meter four
-// `_sdk` seats bind, and only then do the tracer and logger providers construct. Every step consumes the previous
-// step's value, so the order is data dependence rather than composition taste.
 const _facade = (
   sdk: typeof NodeSdk | typeof WebSdk,
   roster: (policy: Export.Policy) => (adds: ReadonlyArray<ResourceDetector>) => ReadonlyArray<ResourceDetector>,
@@ -869,8 +771,6 @@ const _facade = (
 ) =>
 (policy: Export.Policy): Export.Sdk => {
   const identity = Layer.unwrapEffect(Effect.map(_Identity, (resource) => OtelIdentity.layer(resource.facade)))
-  // governance rides the producer seam because a producer's CollectionResult reaches the exporter past every
-  // MeterProvider knob; the governed value now enters through the reader's own additional-source seat
   const metering = Layer.unwrapEffect(
     Effect.map(Effect.all([_drained, OtelMetrics.makeProducer]), ([adds, producer]) =>
       _meter(policy, "protobuf", sender, [_governed(producer, policy, adds.views)])),
@@ -881,9 +781,6 @@ const _facade = (
       return Layer.mergeAll(
         OtelBridge.layer,
         OtelLogger.layerLoggerAdd,
-        // a CONTRIBUTED reader is constructed by its contributor, before the producer exists, so its Effect plane can
-        // only arrive through `setMetricProducer` — this seat is exactly that, narrowed to the contributed roster and
-        // empty on every default deployment; the primary reader took the producer at construction instead
         Layer.scopedDiscard(
           Effect.when(
             Effect.flatMap(
@@ -895,7 +792,6 @@ const _facade = (
           ),
         ),
       ).pipe(
-        // every provideMerge keeps its Tag public: registration binds the SAME tracer, meter, and logger providers, never a second set
         Layer.provideMerge(OtelLogger.layerLoggerProvider(config.logRecordProcessor, config.loggerProviderConfig)),
         Layer.provideMerge(sdk.layerTracerProvider(config.spanProcessor, config.tracerConfig)),
       )
@@ -936,7 +832,7 @@ const _facadeLane = <const S extends _Sender, const R extends Convention.Minter>
 })
 
 const _lanes = {
-  local: _nativeLane("json", "node", "process"), // the developer row: JSON frames a human reads off a local collector
+  local: _nativeLane("json", "node", "process"),
   node: _facadeLane(NodeSdk, _grounds, "node", "process"),
   otlp: _nativeLane("protobuf", "node", "process"),
   web: _facadeLane(WebSdk, () => _rum, "browser", "browser"),
@@ -1135,10 +1031,6 @@ class _Promote extends Context.Reference<_Promote>()("runtime/Propagation/Promot
   defaultValue: (): ReadonlyArray<string> => ["rasm."],
 }) {}
 
-// Parse drops are MEASURED loss and this is the one seam that sees them: extraction folds a member no grammar admits
-// out of the surviving band and hands the census beside the context, so the crossing publishes it once rather than
-// letting each transport re-read the extraction and each drop disappear into a silent filter. The gate reads
-// evidence, so a census of monoid zeros — this crossing observed no drop — costs nothing and says so.
 const _dropped = (census: Fault.Ledger.Census): Effect.Effect<void> =>
   Fault.Ledger.quiet(census)
     ? Effect.void
@@ -1154,7 +1046,6 @@ const _ingress: {
   2,
   <A, E, R>(self: Effect.Effect<A, E, R>, { context: carrier, dropped }: Carrier.Extraction): Effect.Effect<A, E, R> =>
     Effect.flatMap(Effect.all([Redaction.Current, _Promote]), ([rules, promote]) => {
-      // baggage is foreign material: it rides the shared scrub before any annotation or promotion lands
       const bag = Redaction.scrub(rules, _baggage(carrier))
       const carried: Carrier.Context = {
         ...carrier,
@@ -1165,7 +1056,7 @@ const _ingress: {
       const promoted = Record.filter(bag, (_, key) => _admitted(promote)(key))
       const noted = pipe(
         Effect.provideService(Effect.annotateLogs(self, bag), Carrier.Current, carried),
-        (held) => (Record.isEmptyRecord(promoted) ? held : Effect.annotateSpans(held, promoted)), // the Effect-side promotion half: admitted pairs ride every span in the region
+        (held) => (Record.isEmptyRecord(promoted) ? held : Effect.annotateSpans(held, promoted)),
       )
       return Effect.zipRight(
         _dropped(dropped),
@@ -1189,7 +1080,7 @@ const Propagation: {
   ingress: _ingress,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Conformance, Export, Hooks, Propagation, Redaction }
 ```
@@ -1207,7 +1098,7 @@ import type { Layer } from "effect"
 
 const dev: Layer.Layer<never> = DevTools.layer()
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { dev }
 ```

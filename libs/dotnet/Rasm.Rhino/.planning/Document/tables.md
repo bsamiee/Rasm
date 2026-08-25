@@ -18,10 +18,7 @@
 - Law: `ModelComponentType.Unset` is the ONE row-side sentinel for absent correspondence, so the expansion arm reads as "every row that has one" and a lookup never manufactures a row it cannot also expand; `Mixed` is a QUERY argument alone and never a row value, because a row carrying it would be excluded by name from its own expansion and unreachable by lookup — an inert correspondence column no input returns.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// `Rasm.Numerics` carries `Dimension` and `Rhino.Geometry` carries a type of the same simple name, so every
-// `Dimension` on this page spells `Rasm.Numerics.Dimension` in full — the alias row the branch rulings own resolves
-// the collision at the project level and the full spelling states which one at each use.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Threading;
@@ -35,7 +32,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TableKind {
     public static readonly TableKind Objects = new(key: 0, componentType: ModelComponentType.ModelGeometry, reclaim: NoReclaim);
@@ -107,7 +104,7 @@ public sealed partial class TableKind {
 - Boundary: `BoundingBox.Inflate` mutates a copied struct, so `Inflated` is the one statement kernel and never mutates request evidence.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ObjectType>]
 public sealed partial class ObjectKind {
     public static readonly ObjectKind Point = new(key: ObjectType.Point);
@@ -138,8 +135,6 @@ public sealed partial class ObjectKind {
     public static readonly ObjectKind Phantom = new(key: ObjectType.Phantom);
     public static readonly ObjectKind ClipPlane = new(key: ObjectType.ClipPlane);
     public static readonly ObjectKind Extrusion = new(key: ObjectType.Extrusion);
-    // The host's own catch-all bit, not the OR of the rows above: a filter meaning "every type" reads this row, so no
-    // caller re-derives an all-mask that silently omits a type the roster has not yet named.
     public static readonly ObjectKind AnyObject = new(key: ObjectType.AnyObject);
 }
 
@@ -148,8 +143,6 @@ public sealed partial class ObjectKind {
 public sealed partial class ObjectKinds {
     public FrozenSet<ObjectKind> Values { get; }
 
-    // `ObjectType` is a flag enum, so a kind set IS its OR-fold; the mask never leaves this owner as a raw host value
-    // except at a host member that takes one, and no caller re-derives the fold.
     internal ObjectType Mask => toSeq(Values).Fold(ObjectType.None, static (mask, kind) => mask | kind.Key);
 
     public static ObjectKinds Any { get; } = Create(values: FrozenSet.ToFrozenSet([ObjectKind.AnyObject]));
@@ -162,10 +155,6 @@ public sealed partial class ObjectKinds {
             ? new ValidationError(message: "Object kind set is empty.")
             : null;
 
-    // A host row answers its type as a FLAG WORD, so decomposition is the read counterpart of `Mask` and a
-    // single-row lookup is the wrong shape: it picks one bit and drops every other the object actually carries.
-    // `AnyObject` is the host's own catch-all bit and matches every row, so it is admitted only when the word IS
-    // that bit — otherwise a two-bit word would answer "every type" plus its two real rows.
     public static Fin<ObjectKinds> OfMask(ObjectType mask, Op? key = null) {
         Op op = key.OrDefault();
         Seq<ObjectKind> rows = mask == ObjectType.AnyObject
@@ -186,9 +175,6 @@ public sealed partial class ObjectKinds {
     }
 }
 
-// `ActiveSpace` is the document's own space partition — `ObjectEnumeratorSettings.SpaceFilter` takes it here, an
-// object attribute set carries it at S2, and a conduit criterion and a gumball seat read it at S4 — so the keyed
-// vocabulary seats on this spine and no folder mints a second one.
 [SmartEnum<ActiveSpace>]
 public sealed partial class ActiveSpaceUse {
     public static readonly ActiveSpaceUse None = new(key: ActiveSpace.None);
@@ -217,9 +203,6 @@ public sealed partial class ObjectRuntime {
     internal static Seq<ObjectRuntime> Canonical(Seq<ObjectRuntime> values) => values.Distinct();
 }
 
-// The fourteen inclusion axes of `ObjectEnumeratorSettings` as a vocabulary whose rows OWN their host writes: the
-// row's `Seat` column threads the settings through, so `QuerySpec.Build` is one fold over `Items` and a fifteenth
-// host axis is one row no consumer edits.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class QueryAxis : ICapability<QueryAxis> {
@@ -241,16 +224,11 @@ public sealed partial class QueryAxis : ICapability<QueryAxis> {
     [UseDelegateFromConstructor]
     internal partial ObjectEnumeratorSettings Seat(ObjectEnumeratorSettings settings, bool held);
 
-    // The host constructor's own posture — normal-or-locked, active — so a caller states only what it narrows.
-    // Accessor-backed: the generated roster fills from its own static constructor.
     public static CapabilitySet<QueryAxis> Baseline => Seed.Value;
     private static readonly Lazy<CapabilitySet<QueryAxis>> Seed =
         new(static () => CapabilitySet<QueryAxis>.Of(Normal, Locked, Active));
 }
 
-// The complete `ObjectEnumeratorSettings` product as a VALUE: the axes ride ONE set column, each sentinel filter is
-// an `Option` whose absence means "every row", the type filter is `ObjectKinds`, the index filters are
-// `ResourceIndex`, and the viewport axis is the stable `ViewportTarget` resolved inside the document callback.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class QuerySpec {
@@ -277,9 +255,6 @@ public sealed partial class QuerySpec {
         validationError = kinds is null
             || space is null
             || name.Exists(static value => string.IsNullOrWhiteSpace(value: value))
-            // The host ignores `UseFastSelection` unless `SelectedObjectsFilter` is set, and its own remark bars it
-            // while the selection is changing. The dependency is a construction fact here, so a spec cannot carry a
-            // knob the host will silently drop.
             || (axes.Admits(capability: QueryAxis.FastSelection) && !axes.Admits(capability: QueryAxis.SelectedOnly))
             || !(axes.Admits(capability: QueryAxis.Normal) || axes.Admits(capability: QueryAxis.Locked)
                 || axes.Admits(capability: QueryAxis.Hidden) || axes.Admits(capability: QueryAxis.InDefinitions)
@@ -318,10 +293,6 @@ public sealed partial class QuerySpec {
         && !Axes.Admits(capability: QueryAxis.Hidden)
         && !Axes.Admits(capability: QueryAxis.InDefinitions);
 
-    // The one place a host settings object exists, minted fresh per execution inside the document callback: the
-    // fourteen inclusion axes land as ONE fold over the vocabulary — each row seats its own host member — the
-    // absent filters write the host's own "everything" sentinels explicitly, the two host slots the domain never
-    // reads back cross through `Op.ToHostSlot`, and nothing the caller holds can reach the result.
     internal Fin<ObjectEnumeratorSettings> Build(RhinoDoc document, Op key) =>
         Viewport
             .Traverse(target => target.ResolveViewport(document: document, key: key))
@@ -340,15 +311,11 @@ public sealed partial class QuerySpec {
                 return settings;
             });
 
-    // The host's own "no filter" sentinels, named once so no arm re-spells a magic number.
     private const int AnyIndex = -1;
     private const int AnyMaterial = int.MinValue + 1;
     private const string AnyName = "*";
 }
 
-// Containment and intersection banded on the kernel `Duplicate` lane: an exact float compare decided a
-// near-coincident box by representation noise, and the lane read is what makes the band one row rather than an
-// epsilon minted per site.
 [SmartEnum]
 public sealed partial class BoundsMatch {
     public static readonly BoundsMatch Intersects = new(static (region, candidate, band) =>
@@ -378,8 +345,6 @@ public abstract partial record TablePredicate {
     public static Fin<TablePredicate> Color(PerceptualColor value, Op? key = null) =>
         key.OrDefault().Need(value).Map(static admitted => (TablePredicate)new ColorCase(Value: admitted));
 
-    // The band admits ONCE from the caller's context — `Context.For` is the branch's one tolerance read — and
-    // rides the case, so the evaluation site holds no context and mints no epsilon.
     public static Fin<TablePredicate> Bounds(BoundingBox region, BoundsMatch match, Context context, double inflation = 0.0, Op? key = null) {
         Op op = key.OrDefault();
         return from _ in guard(region.IsValid, op.InvalidInput()).ToFin()
@@ -407,9 +372,6 @@ public abstract partial record TablePredicate {
                select predicate;
     }
 
-    // A missing attribute set is a HOST FAULT, not a non-match: the object exists, so its attributes must. Folding
-    // both onto `false` made an unreadable object silently drop out of every filtered query and no receipt named it.
-    // Absence of the TAG is the real non-match and stays `false`; absence of the attribute set fails.
     internal Fin<bool> Match(RhinoDoc document, RhinoObject native, Op key) =>
         Switch(
             state: (Document: document, Native: native, Op: key),
@@ -420,9 +382,6 @@ public abstract partial record TablePredicate {
                         .Map(expected => string.Equals(a: stored, b: expected, comparisonType: StringComparison.Ordinal))
                         .IfNone(noneValue: true))
                     .IfNone(noneValue: false)),
-            // `System.Drawing.Color` equality compares NAME before value, so a named row and its literal ARGB twin
-            // compare unequal — the trap a draw-colour filter walks into every time. The kernel colour is the
-            // filter's identity and the comparison lands on the quantized ARGB quadruple both sides agree on.
             colorCase: static (context, predicate) => Optional(context.Native.Attributes)
                 .ToFin(Fail: context.Op.InvalidResult())
                 .Bind(attributes => Shade(color: attributes.DrawColor(document: context.Document), key: context.Op))
@@ -438,8 +397,6 @@ public abstract partial record TablePredicate {
         return expanded;
     }
 
-    // The spine's ONE host-colour crossing. `System.Drawing.Color` reaches this page only as the byte quadruple a
-    // host read answers with; it never becomes a stored column and never crosses a public signature.
     internal static Fin<PerceptualColor> Shade(System.Drawing.Color color, Op key) =>
         PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
 }
@@ -474,7 +431,7 @@ public abstract partial record TableTarget {
     }
 
     public static Fin<TableTarget> Query(QuerySpec spec, params ReadOnlySpan<TablePredicate> predicates) {
-        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        Op op = Op.Of();
         return (
                 op.Need(spec).ToValidation(),
                 Admission.All(values: predicates, key: op).ToValidation())
@@ -555,11 +512,6 @@ public sealed partial class ViewportScope {
 }
 
 
-// The two host projection rosters, seated at the Document tier because Blocks previews and Viewport projection
-// requests admit the SAME host enums. Roster decompile-verified: `Rhino.Display.DefinedViewportProjection` {None,
-// Top, Bottom, Left, Right, Front, Back, Perspective, TwoPointPerspective} and `Rhino.Display.IsometricCamera`
-// {None, Northeast, Northwest, Southeast, Southwest} (since 8.10). `None` carries no row on either — a request
-// naming no projection or no camera is unrepresentable, and a read-back resolves through `Op.Row<THostEnum, TRow>`.
 [SmartEnum<int>]
 public sealed partial class DefinedView {
     public static readonly DefinedView Top = new(key: (int)DefinedViewportProjection.Top);
@@ -692,9 +644,6 @@ public readonly partial struct ResourceIndex {
     internal static Fin<ResourceIndex> Admit(int value, Op key) => Maybe(value).ToFin(Fail: key.InvalidResult());
 }
 
-// The host component tables key their names ordinal-ignore-case, so the comparison POLICY is a declared type
-// argument here and a duplicate probe, a name census, and an occupancy guard read one authority instead of each
-// passing `StringComparer.OrdinalIgnoreCase` at its own call site.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [ValidationError]
@@ -757,9 +706,7 @@ public abstract partial record ResourceRef : IDetachedDocumentResult {
 - Boundary: `AddCustomUndoEvent` has no host remove counterpart, so the document retains a `TableCustomUndo` handler, its whole captured object graph, and its arbitrary `object` tag until the undo record clears — a retention no `Subscription` can shorten, unlike every other host attachment in the slice. A handler therefore captures DETACHED evidence only: runtime pairs, stamps, admitted values. A captured live `RhinoObject`, `ObjectAttributes`, session, or lease outlives the commit that minted it and is the leak this law forecloses; the events page's process-global custody census carries the matching row.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// The single-axis policies key ON their host bool: the row name at the construction site carries the semantics and
-// the mirror property each one carried deletes — `edit.Custody.Key` IS the host argument.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class ObjectCustody {
     public static readonly ObjectCustody Resident = new(key: false);
@@ -790,8 +737,6 @@ public sealed partial class DeletedPolicy {
     public static readonly DeletedPolicy Purge = new(key: true);
 }
 
-// The seven selection-conduct bits as ONE vocabulary: five ride the host's select members and two its census
-// member, and the polarity each row stands for is the row's own key text rather than a `HostValue` mirror bool.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SelectionAxis : ICapability<SelectionAxis> {
@@ -803,16 +748,11 @@ public sealed partial class SelectionAxis : ICapability<SelectionAxis> {
     public static readonly SelectionAxis CensusLights = new(key: "census-lights");
     public static readonly SelectionAxis CensusGrips = new(key: "census-grips");
 
-    // The host's own default posture; accessor-backed because the generated roster fills at static init.
     public static CapabilitySet<SelectionAxis> Baseline => Seed.Value;
     private static readonly Lazy<CapabilitySet<SelectionAxis>> Seed = new(static () =>
         CapabilitySet<SelectionAxis>.Of(SyncHighlight, Persistent, IgnoreGrips, CensusLights, CensusGrips));
 }
 
-// The `Amend` payload as a VALUE at this stratum. `TableOp` is S0 and the typed attribute program is S2, so the
-// program cannot be named downward — the seam type seats HERE and `Objects/attributes.md`'s `AttributeProgram`
-// composes it upward. A bare `Func<ObjectAttributes, Fin<Unit>>` on the case stated no contract at all: nothing
-// said the body may only mutate the duplicate it is handed, and nothing refused a null body until the arm ran.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class AttributeChange {
@@ -1033,8 +973,6 @@ public abstract partial record HistoryRoll {
             }));
 }
 
-// The two derived trait vocabularies: an op row and a program mode each carry their demands as ONE set, so the
-// five parallel bool columns the two rosters held delete and a new demand is one vocabulary row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OpTrait : ICapability<OpTrait> {
@@ -1106,7 +1044,7 @@ public abstract partial record TableOp {
     private sealed record RollCase(HistoryRoll Navigation) : TableOp;
 
     public static Fin<TableOp> Add(ObjectCustody custody, Option<ObjectAttributes> attributes = default, Option<HistoryRecord> history = default, params ReadOnlySpan<object> sources) {
-        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        Op op = Op.Of();
         return (
                 op.Need(custody).ToValidation(),
                 toSeq(sources.ToArray())
@@ -1170,8 +1108,6 @@ public abstract partial record TableOp {
         Admitted(first: target, second: state, third: modes, key: key, mint: static (address, mutation, policy) =>
             new StateCase(Target: address, State: mutation, Modes: policy));
 
-    // The clear carries a census for its RECEIPT alone: the before/after spans read the same two inclusion rows
-    // every other selection op reads, so a clear cannot report a different population than the select before it.
     public static Fin<TableOp> ClearSelection(SelectionClear scope, CapabilitySet<SelectionAxis> census, Op? key = null) =>
         key.OrDefault().Need(scope)
             .Map(value => (TableOp)new ClearSelectionCase(Scope: value, Census: census));
@@ -1306,10 +1242,6 @@ public abstract partial record TableOp {
             (Document: document, Domain: domain, Op: op),
             addCase: static (context, edit) =>
                 from model in context.Domain.ToFin(Fail: context.Op.MissingContext())
-                // `ObjectTable.Add` reports failure as `Guid.Empty`, which a generic value admission accepts —
-                // the receipt then carried an empty id as a created object and `Runtime` failed later with no
-                // trace of which source produced it. `ResourceId.Admit` is the spine's ONE empty-guid projector,
-                // and the two host slots the domain never reads back cross through `Op.ToHostSlot`.
                 from ids in edit.Sources.TraverseM(source => source.Admit(domain: model, key: context.Op)
                     .Bind(lease => lease.Use(native => ResourceId.Admit(
                         value: context.Document.Objects.Add(
@@ -1458,7 +1390,7 @@ public abstract partial record TableOp {
         select receipt;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class TableCustomUndo {
     private TableCustomUndo(string name, EventHandler<CustomUndoEventArgs> handler, Option<object> tag) {
         Name = name;
@@ -1499,7 +1431,7 @@ public abstract partial record TableTransaction {
     private sealed record NavigationCase(TableOp Operation, RedrawPolicy Redraw) : TableTransaction;
 
     public static Fin<TableTransaction> Recorded(string name, RedrawPolicy redraw, Seq<TableCustomUndo> customUndo, params ReadOnlySpan<TableOp> operations) {
-        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        Op op = Op.Of();
         return from admitted in (
                    op.AcceptText(value: name).ToValidation(),
                    Admit(redraw: redraw, operations: operations, op: op).ToValidation(),
@@ -1525,12 +1457,8 @@ public abstract partial record TableTransaction {
                    CustomUndo: admitted.Undo);
     }
 
-    // An immediate program carries EXACTLY ONE operation, and the bound is structural rather than arbitrary: an
-    // immediate op opens no undo record, so a multi-op immediate program that fails midway leaves the completed
-    // prefix landed with no record to roll it back and no compensation the shape can express. A caller wanting two
-    // immediate effects commits two transactions and owns the ordering — which is the honest custody either way.
     public static Fin<TableTransaction> Immediate(RedrawPolicy redraw, params ReadOnlySpan<TableOp> operations) {
-        Op op = Op.Of();   // an optional before `params` forecloses the positional spread — the key mints at the entry
+        Op op = Op.Of();
         return from plan in Admit(redraw: redraw, operations: operations, op: op)
                from _ in guard(
                    plan.Operations.Count is 1
@@ -1580,7 +1508,7 @@ internal readonly record struct TransactionPlan(
     Seq<TableCustomUndo> CustomUndo,
     TransactionUndo Undo);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GeometryIntake {
     private GeometryIntake() { }
@@ -1617,8 +1545,6 @@ public abstract partial record GeometryIntake {
 }
 
 public static class Tables {
-    // ONE projecting entry: the identity projection spells `project: Fin.Succ`, so receipt-shaped rails commit
-    // unchanged and no arity twin exists beside the railed fold.
     public static Fin<TOut> Commit<TOut>(
         DocumentSession session,
         TableTransaction transaction,
@@ -1710,13 +1636,10 @@ public static class Tables {
 - Entry: `Ids(TableSlot, Op?)` and `Runtime(TableSlot, Op?)` fail closed on an invalid slot and project object consequences; `Components`, `Restores`, `HistoryRolls`, `UndoRecords`, and `CustomUndoNames` project the remaining fact cases; a receipt feeds its deleted runtime rows directly into `TableTarget.Deleted`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// `TableReceipt` names the shared stream under this page's own identity: two declarations and an extension block
-// carry the whole join, per the facts page's conformance law. `global using` is a compilation-unit directive and
-// heads the unit — parked past the first declaration it is not an alias, it is a compile error.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 global using TableReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Document.TableSlot, Rasm.Rhino.Document.TableFact>;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TableBodyKind : ICapability<TableBodyKind> {
@@ -1728,8 +1651,6 @@ public sealed partial class TableBodyKind : ICapability<TableBodyKind> {
     public static readonly TableBodyKind Custom = new(key: "custom");
 }
 
-// PUBLIC — the stream's alias is public, so its body family is too; the kind answers through one total fold and a
-// new case cannot land without a kind row and a slot that admits it.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TableFact : IFactBody<TableBodyKind> {
     private TableFact() { }
@@ -1749,8 +1670,6 @@ public abstract partial record TableFact : IFactBody<TableBodyKind> {
         customCase: static _ => TableBodyKind.Custom);
 }
 
-// Conforms to the KINDED slot contract: each row declares the body kinds it emits as one readable set and the
-// admission derives — no per-row predicate, no external gate.
 [SmartEnum<int>]
 public sealed partial class TableSlot : IFactSlot<TableFact, TableBodyKind> {
     public static readonly TableSlot Created = new(key: 0, seated: static () => Objects);
@@ -1781,9 +1700,7 @@ public sealed partial class TableSlot : IFactSlot<TableFact, TableBodyKind> {
     private static CapabilitySet<TableBodyKind> Objects => CapabilitySet<TableBodyKind>.Of(TableBodyKind.Object);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// This page's own mint factories and readers over the closed instantiation — the two-declaration join the stream
-// law promises, with `Runtime` carrying the canonical de-duplication the bespoke receipt once held.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TableFacts {
     extension(TableReceipt receipt) {
         public static Fin<TableReceipt> Objects(TableSlot slot, Seq<ObjectRuntime> values, Op key) =>

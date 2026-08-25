@@ -20,7 +20,7 @@ A declarative constraint-layout engine replaces width-breakpoint knobs with a re
 - Boundary: `LayoutStrength` closing at four rows is a CHOICE against `Strength.Create(a, b, c, w)`, whose lexicographic packing offers a continuum — a strength minted at a call site is a bare `double` no reader can rank against another panel's, and the ordered wire program would have to carry an opaque scalar where it now carries a locked literal the `@lume/kiwi` head re-packs identically; a fifth preference tier is one row added HERE; the constraint algebra is the one layout vocabulary — a parallel layout panel beside this is the `[04]-[BOUNDARIES]` parallel-control-framework rejected form; `LayoutEdge`'s key is the wire edge literal AND the `LayoutVar.Name` suffix, so the interior axis and the wire projection read one symbol source; `Constraint` identity is `Kiwi`-handle-based, so the solver alone owns equality INSIDE the tableau, while the AUTHORED `LayoutConstraint` row is the program-diff key `LayoutSolver.Load` retains beside each minted handle — two equalities on two types; boundary intake of constraint edits uses the `Kiwi` `Try*` family whole so `UnsatisfiableConstraintException` and the duplicate/unknown rails never cross the layout-update boundary as exceptions — they lift onto the `Fin` rail as `LayoutFault`; `VariableEnv` mints every handle through a composition-bound `Func<LayoutVar, Option<IVariableStore>>` column, so the `IVariableStore` observation seam is one composition value, the unbound arm taking `Kiwi`'s own in-memory store that `ValueOf` reads; the variable-introduction order derives from first appearance across the ordered constraint rows, so the program itself is the parity artifact and a stale environment snapshot can never desync the wire.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LayoutRelation {
@@ -80,7 +80,7 @@ public readonly record struct LayoutExpr(Seq<LayoutTerm> Terms, double Constant)
     public LayoutExpr Plus(LayoutVar other, double coefficient = 1d) => this with { Terms = Terms.Add(new LayoutTerm(other, coefficient)) };
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayoutFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Layout;
@@ -96,9 +96,8 @@ public abstract partial record LayoutFault : Fault {
     public sealed partial record UnknownVariable(string Detail) : LayoutFault(Detail);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayoutConstraint(LayoutExpr Left, LayoutRelation Relation, LayoutExpr Right, LayoutStrength Strength) {
-    // The one fault detail every refusing verb reads, so a refused row names the geometry it binds.
     public string Detail =>
         $"{string.Join("+", Left.Terms.Map(static term => term.Variable.Name))} {Relation.Key} {string.Join("+", Right.Terms.Map(static term => term.Variable.Name))}";
 
@@ -106,9 +105,7 @@ public sealed record LayoutConstraint(LayoutExpr Left, LayoutRelation Relation, 
         Constraint.Make(env.Build(Left), Relation.Operator, env.Build(Right), Strength.Value);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Handles mint in constraint-compile order, so the live tableau's variable order IS the program's derived
-// Introduction — no second introduction ledger exists to drift.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class VariableEnv(Func<LayoutVar, Option<IVariableStore>> stores) {
     private readonly Dictionary<string, Variable> handles = new(StringComparer.Ordinal);
 
@@ -130,9 +127,6 @@ public sealed class VariableEnv(Func<LayoutVar, Option<IVariableStore>> stores) 
             ? Fin.Succ(handle.Value)
             : Fin.Fail<double>(new LayoutFault.UnknownVariable(variable.Name));
 
-    // A delta Load compiles arriving rows before the plan stages, so a refused plan leaves handles no live
-    // constraint holds. Retaining exactly the landed program's Introduction drops those and every variable a
-    // departed row alone named; it can never drop a handle a retained row still holds.
     public Unit Retain(Seq<LayoutVar> live) {
         FrozenSet<string> kept = live.Map(static variable => variable.Name).ToFrozenSet(StringComparer.Ordinal);
         toSeq(handles.Keys).Filter(name => !kept.Contains(name)).Iter(name => ignore(handles.Remove(name)));
@@ -153,10 +147,7 @@ public sealed class VariableEnv(Func<LayoutVar, Option<IVariableStore>> stores) 
 - Boundary: presets are constraint-row generators over the one algebra — a flex panel, a grid panel, and a uniform-grid panel beside this are the rejected forms; a wrap flow re-expands only when the width suggestion crosses a line-break boundary of the greedy partition, and the re-expansion lands through `LayoutSolver.Load`, whose delta touches exactly the line-owner rows the new partition moved — a whole-tableau rebuild would recompile every child's geometry rows at pointer rate to change a handful; an empty `Grid` track roster CANONICALIZES at expansion to one `Auto` track — admission canonicalizes at intake so the fold reads one regime and the per-use `Math.Max` guards the empty roster forced are gone; track sizes map onto `Kiwi` coefficient and strength patterns so a `1fr 2fr` split is two `strong` proportional rows against one unit variable, never per-track arithmetic; the gap is a `Theme/tokens` `TokenKey` minted by `MetricFamily.At`, so a preset names a GENERATED metric rung and a composed lookup string is unspellable; the `ChromeProgram` rows this owner publishes are the shell chrome's whole layout vocabulary — `Shell/navigation#SHELL_CHROME` names a program key per slot and hands its resolved children to the one panel, so a rail, a three-zone footer, and a HUD are three `Flow` rows differing in direction, justify, and gap alone, and a chrome-local `StackPanel`, `DockPanel`, or `Grid` is the parallel-panel rejected form; the `ConstraintProgram` is ordered (derived introduction order plus edit-variable set plus suggested-value sequence) so the desktop tableau and the `@lume/kiwi` web tableau converge to identical positions.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The two rail-end pins. Each row carries its own anchor rule, so the justify fold is one Bind over the held
-// set rather than a ladder re-deriving which end pins; share scales the shared spread variable's edge gap.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
+// --- [TYPES] ---------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -174,9 +165,6 @@ public sealed partial class RailAnchor : ICapability<RailAnchor> {
     public partial LayoutConstraint Pin(string owner, string first, string last, FlexDirection axis, LayoutVar spread, double share);
 }
 
-// The cross-axis pins. `Center` is exclusive with the edge pins BY ROSTER — only the four declared FlexAlign
-// rows mint sets, so the illegal corners of the deleted three-bool product are unspellable.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -206,12 +194,9 @@ public sealed partial class FlexDirection {
     public LayoutEdge CrossTrail { get; }
     public LayoutEdge CrossExtent { get; }
     public LayoutEdge CrossCenter { get; }
-    // A genuinely independent single bit stays a bool and says so: reversal flips child order alone.
     public bool Reversed { get; }
 }
 
-// A `Some` spread IS the distributed posture — the deleted `distributed` flag and the dead 0d share columns on
-// the anchored-only rows re-derived exactly this presence.
 public readonly record struct RailSpread(double LeadShare, double TrailShare);
 
 [SmartEnum<string>]
@@ -249,8 +234,6 @@ public abstract partial record TrackSize {
     public sealed record Auto : TrackSize;
 }
 
-// The partition axis carries the split as its own delegate: None answers no partition, Lines the greedy fold —
-// so the generator reads one row and the three parallel `wrap ?` reads the bool column forced are gone.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WrapPolicy {
@@ -261,8 +244,6 @@ public sealed partial class WrapPolicy {
     public partial Option<Seq<Seq<string>>> Split(Seq<string> ordered, Func<string, double> extentOf, double available, double gap);
 }
 
-// One grid fold per axis row, so the column and row halves of the track chain, edits, and measures are one body
-// run twice — `Slot` projects a child's ordinal onto this axis's track index.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GridAxis {
@@ -276,23 +257,19 @@ public sealed partial class GridAxis {
     public partial int Slot(int index, int columns);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record EditRow(LayoutVar Var, LayoutStrength Strength);
 
 public sealed record ValueRow(LayoutVar Var, double Value);
 
 public sealed record ExtentProbe(LayoutVar Target, Seq<LayoutVar> Sources);
 
-// Panel is a DECLARED field, not a head-of-edits fallback: every program names its owner at construction, so
-// the sentinel key an empty edit set once defaulted to is unspellable.
 public sealed record ConstraintProgram(
     string Panel,
     Seq<LayoutConstraint> Constraints,
     Seq<EditRow> Edits,
     Seq<ValueRow> Suggestions,
     Seq<ExtentProbe> Measures) {
-    // Introduction order derives from first appearance across the ordered constraint rows, so the program IS
-    // the parity artifact — a stale env snapshot can never desync the wire.
     public Seq<LayoutVar> Introduction =>
         (Constraints.Bind(static row => row.Left.Terms + row.Right.Terms).Map(static term => term.Variable)
          + Edits.Map(static edit => edit.Var)
@@ -300,8 +277,6 @@ public sealed record ConstraintProgram(
          + Measures.Bind(static probe => probe.Sources.Add(probe.Target)))
         .Distinct();
 
-    // The panel pair LEADS, so the carrier-native key-distinct keeps it and drops any duplicate the program
-    // authored; the LINQ `DistinctBy` twin leaves the carrier and cannot re-enter.
     public ConstraintProgram ForPanel(string panel) => this with {
         Panel = panel,
         Edits = (Seq(
@@ -315,8 +290,6 @@ public sealed record ConstraintProgram(
 public abstract partial record LayoutPreset {
     private LayoutPreset() { }
 
-    // Gap is a Theme/tokens TokenKey minted by MetricFamily.At — the metric resolver supplies the resolved
-    // value at expansion, so a gap naming no minted rung refuses to compile.
     public sealed record Flow(FlexDirection Direction, WrapPolicy Wrap, FlexJustify Justify, FlexAlign Align, TokenKey Gap) : LayoutPreset;
     public sealed record Grid(Seq<TrackSize> Columns, Seq<TrackSize> Rows, TokenKey Gap) : LayoutPreset;
     public sealed record Anchor(Seq<LayoutConstraint> Rules) : LayoutPreset;
@@ -330,12 +303,7 @@ public abstract partial record LayoutPreset {
         .ForPanel(panel);
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
-// The shell chrome's WHOLE layout vocabulary: one Flow row per chrome slot, every row differing in axis,
-// distribution, alignment, and gap alone. `Shell/navigation#SHELL_CHROME` names a program per slot and the
-// responsive tier selects between the rail's two postures through `BreakpointRow.Program`. The three-zone
-// footer is NOT three panels: `SpaceBetween` over a lead/center/trail triple distributes one shared spread
-// variable, so a zone that empties collapses its own slack.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -358,10 +326,8 @@ public sealed partial class ChromeProgram {
     public LayoutPreset.Flow Preset { get; }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LayoutPrograms {
-    // Definitional identities every owner carries once: trailing edges and centers derive from lead plus
-    // extent, extents stay non-negative, so a preset may constrain ANY edge coherently.
     public static Seq<LayoutConstraint> Geometry(string owner) => Seq(
         Rule(LayoutExpr.Of(new(owner, LayoutEdge.Right)), LayoutRelation.Eq, LayoutExpr.Of(new(owner, LayoutEdge.Left)).Plus(new LayoutVar(owner, LayoutEdge.Width)), LayoutStrength.Required),
         Rule(LayoutExpr.Of(new(owner, LayoutEdge.Bottom)), LayoutRelation.Eq, LayoutExpr.Of(new(owner, LayoutEdge.Top)).Plus(new LayoutVar(owner, LayoutEdge.Height)), LayoutStrength.Required),
@@ -370,8 +336,6 @@ public static class LayoutPrograms {
         Rule(LayoutExpr.Of(new(owner, LayoutEdge.Width)), LayoutRelation.Ge, LayoutExpr.Fixed(0d), LayoutStrength.Required),
         Rule(LayoutExpr.Of(new(owner, LayoutEdge.Height)), LayoutRelation.Ge, LayoutExpr.Fixed(0d), LayoutStrength.Required));
 
-    // One flow generator owns stack AND auto-layout: the wrap row answers its own partition, so the unwrapped
-    // stack is the None arm of the same body rather than a parallel builder.
     public static ConstraintProgram Flow(
         string panel, Seq<string> children, FlexDirection direction, WrapPolicy wrap, FlexJustify justify, FlexAlign align,
         double gap, Func<string, double> extentOf, double available) {
@@ -397,8 +361,6 @@ public static class LayoutPrograms {
         return new ConstraintProgram(panel, rows, edits, Seq<ValueRow>(), measures);
     }
 
-    // Greedy line partition over measured main extents — re-partitioned only when the width suggestion crosses
-    // a break boundary, landing through the panel's transactional Load.
     internal static Seq<Seq<string>> Lines(Seq<string> ordered, Func<string, double> extentOf, double available, double gap) {
         var folded = ordered.Fold(
             (Lines: Seq<Seq<string>>(), Line: Seq<string>(), Used: 0d),
@@ -408,8 +370,6 @@ public static class LayoutPrograms {
         return folded.Lines.Add(folded.Line).Filter(static line => !line.IsEmpty);
     }
 
-    // One rail: the pairwise chain, the anchor rules the held set's own rows derive, the center slack equation
-    // as the anchor-free arm, the content hug, and the per-child cross pinning off the pin rows.
     private static Seq<LayoutConstraint> Rail(string owner, Seq<string> line, FlexDirection axis, FlexJustify justify, FlexAlign align, double gap) {
         LayoutVar spread = new($"{owner}.flow", axis.MainExtent);
         LayoutExpr After(string prior) => justify.Spread.Match(
@@ -442,7 +402,6 @@ public static class LayoutPrograms {
                 + Seq(Rule(LayoutExpr.Of(new(owner, axis.CrossTrail)), LayoutRelation.Ge, LayoutExpr.Of(new(child, axis.CrossTrail)), LayoutStrength.Medium)));
     }
 
-    // Wrap line stacking: lines fill the main axis, chain on the cross axis, and the panel hugs the last line.
     private static Seq<LayoutConstraint> Band(string panel, Seq<string> lines, FlexDirection direction, double gap) =>
         lines.Head.ToSeq().Map(head =>
             Rule(LayoutExpr.Of(new(head, direction.CrossLead)), LayoutRelation.Eq, LayoutExpr.Of(new(panel, direction.CrossLead)), LayoutStrength.Required))
@@ -454,8 +413,6 @@ public static class LayoutPrograms {
         + lines.Last.ToSeq().Map(last =>
             Rule(LayoutExpr.Of(new(panel, direction.CrossTrail)), LayoutRelation.Ge, LayoutExpr.Of(new(last, direction.CrossTrail)), LayoutStrength.Medium));
 
-    // Grid: an empty track roster canonicalizes to one Auto track at intake, row completion covers the child
-    // count, so no per-use clamp or Max guard survives; the axis halves are one fold over the GridAxis rows.
     public static ConstraintProgram Cells(string panel, Seq<string> children, Seq<TrackSize> columns, Seq<TrackSize> rows, double gap) {
         Seq<TrackSize> admittedColumns = columns.IsEmpty ? Seq<TrackSize>(new TrackSize.Auto()) : columns;
         int neededRows = children.IsEmpty ? 1 : (int)Math.Ceiling((double)children.Length / admittedColumns.Length);
@@ -518,20 +475,14 @@ public static class LayoutPrograms {
 - Boundary: `LayoutSolver` is the named boundary capsule for the measure/arrange statement carve-out — the `Solver` mutation, the `SuggestValue` edits, and the child-arrange loop carry the only statement bodies, folding into Avalonia's native `Layoutable` pass rather than a parallel layout engine; `Load` is transactional through kernel `Custody.Rollback` over the `TableauEdit` inverse — the applied stack replays backwards on the first refusal, so a rejected program leaves the live system exactly as it stood, while a superseded program's handles retire through `VariableEnv.Retain`; the pass degrades to the LAST SOLVED STATE and never to zero — `Read` stays on the `Fin` rail and `MeasureOverride` falls back to the panel's own prior `DesiredSize`; the fault cell ACCUMULATES first-wins and clears once at `MeasureOverride`, so a successful arrange can never erase a measure-pass fault; relaxation is measured, never inferred — `Kiwi` raises nothing when the dual-simplex leaves a soft row unmet, so the only honest reading is the post-solve scan of each live handle's own `Violated`, taken once after the arrange solve; solved positions read back through `VariableEnv.ValueOf` after `Solve` flushes the row constants, so the panel reads positions by direct value lookup and a per-frame poll is the rejected form; the `ControlFactory` `Panel`/`Dock` intents name their `ConstraintProgram`, hand it to this one panel through `MaterializeContext.Layout`, and stamp `ChildKeyProperty` from each child intent's `Key` in their `Mounted` fold before any child enters `Children` — the one admitted source of the solver's child identity, and the property is nullable so absence is `Option.None`, never an empty-string sentinel; child re-measurement reaches this panel through Avalonia's own desired-size edge — `Layoutable.Measure` notifies the visual parent exactly when the child's `DesiredSize` moved (`.api/api-avalonia.md` `[LAYOUT_PASS_OPERATIONS]`), so an out-of-band content-size change re-solves for free and a child-invalidation subscription beside it is the deleted form, while a solver-visible fact carrying no child-extent delta rides `Load` as a program delta; the panel's own measure stays Avalonia-native so a `LayoutSolver` nests inside ordinary Avalonia layout and an ordinary panel nests inside it.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LayoutReceipt(string Panel, int Constraints, int Violated, Duration Elapsed, Option<Error> Fault, Instant At) {
     public const string Kind = "layout";
 
-    // Relaxation and failure are TWO axes and the receipt carries both: Cassowary relaxing a non-Required row
-    // is the substrate working as designed — it raises nothing and refuses nothing — so the honest measure is
-    // the post-solve count of rows whose own `Violated` reads true, while the fault cell names what REFUSED.
     public bool Relaxed => Violated > 0;
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Every tableau mutation and its own inverse on ONE closed family, so the transactional guarantee is a
-// backwards replay of the applied stack rather than a discarded solver — a new verb breaks both projections
-// at compile time.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TableauEdit {
     private TableauEdit() { }
@@ -562,7 +513,7 @@ public abstract partial record TableauEdit {
             : Fin.Fail<Unit>(new LayoutFault.UnknownVariable(d.Var.Name)));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class LayoutSolver(
     MonotonicTimeline line,
     IClock clock,
@@ -580,18 +531,12 @@ public sealed class LayoutSolver(
 
     public const string Key = "layout-solver";
 
-    // Load is a DELTA, because Cassowary is incremental and a wrap re-expansion moves a handful of line-owner
-    // rows. The AUTHORED LayoutConstraint row is the diff key and the minted Kiwi Constraint the retained
-    // handle; two structurally identical rows constrain the same system, so collapsing them onto one handle is
-    // redundancy removal. Load also enforces the Suggest contract structurally: every variable Suggest later
-    // touches is an edit variable in `wanted`, so TrySuggestValue never addresses an unregistered variable.
     public Fin<Unit> Load(ConstraintProgram next) {
         HashMap<LayoutConstraint, Constraint> incoming = next.Constraints.Fold(
             HashMap<LayoutConstraint, Constraint>(),
             (held, row) => held.ContainsKey(row) ? held : held.Add(row, rows.Find(row).IfNone(() => row.Compile(env))));
         HashMap<LayoutVar, LayoutStrength> wanted = EditRows(next).Fold(
             HashMap<LayoutVar, LayoutStrength>(), static (held, edit) => held.AddOrUpdate(edit.Var, edit.Strength));
-        // Drops precede adds so a re-strengthened edit variable never collides with its own prior row.
         Seq<TableauEdit> plan =
             Delta(rows, incoming, static (row, handle) => new TableauEdit.DropRow(row, handle))
             + Delta(edits, wanted, static (variable, strength) => new TableauEdit.DropEdit(variable, strength))
@@ -605,18 +550,12 @@ public sealed class LayoutSolver(
         });
     }
 
-    // One asymmetric-difference projection serves both map shapes: members `held` carries that `other` does
-    // not carry at the same value, each projected onto its own edit case.
     private static Seq<TableauEdit> Delta<TKey, TValue>(
         HashMap<TKey, TValue> held, HashMap<TKey, TValue> other, Func<TKey, TValue, TableauEdit> edit) where TKey : notnull =>
         toSeq(held.AsIterable())
             .Filter(pair => other.Find(pair.Key).Map(value => EqualityComparer<TValue>.Default.Equals(value, pair.Value)).IfNone(false) is false)
             .Map(pair => edit(pair.Key, pair.Value));
 
-    // The whole plan or none of it: the fold stops at the first refusal and the kernel Rollback replays the
-    // applied stack backwards through each edit's own Inverse on the failure arm alone — every inverse
-    // re-applies an edit the tableau accepted moments earlier, so the rewind cannot refuse the system it
-    // restores, and the hand applied-stack replay this shape used to spell has no spelling left.
     private Fin<Unit> Stage(Seq<TableauEdit> plan) {
         var staged = plan.FoldWhile(
             (Applied: Seq<TableauEdit>(), Rail: Fin.Succ(unit)),
@@ -634,8 +573,6 @@ public sealed class LayoutSolver(
             .Map(static suggestion => new EditRow(suggestion.Var, LayoutStrength.Medium))
             .Filter(row => !next.Edits.Exists(edit => edit.Var == row.Var));
 
-    // The pass-fault cell: first fault of a pass wins, cleared once at the top of MeasureOverride, so one pass
-    // carries one fault across both overrides and a successful arrange can never erase a measure-pass fault.
     private Option<Error> fault = None;
 
     protected override Size MeasureOverride(Size availableSize) {
@@ -644,8 +581,6 @@ public sealed class LayoutSolver(
         ignore(Park(Suggest(availableSize.Width, availableSize.Height)
             .Bind(_ => Measured())
             .Bind(_ => Op.Side(solver.Solve))));
-        // A failed panel-extent read falls back to the panel's own prior DesiredSize — the last solved state
-        // the degrade law names — so an unresolvable variable never measures the panel to zero.
         return new Size(
             Read(new LayoutVar(program.Panel, LayoutEdge.Width)).IfFail(_ => DesiredSize.Width),
             Read(new LayoutVar(program.Panel, LayoutEdge.Height)).IfFail(_ => DesiredSize.Height));
@@ -656,7 +591,6 @@ public sealed class LayoutSolver(
         toSeq(Children).Iter(child => ignore(SolvedRect(child).Match(
             Succ: rect => Op.Side(() => child.Arrange(rect)),
             Fail: error => Fin.Fail<Unit>(Park(error)))));
-        // A broken gauge parks its cause and the elapsed column reads a STRUCTURAL zero — the fault names why.
         Duration elapsed = mark
             .Bind(start => line.Capture(Pass).Bind(end => line.Elapsed(start, end, Pass)))
             .Match(Succ: Duration.FromTimeSpan, Fail: error => (Park(error), Duration.Zero).Item2);
@@ -664,14 +598,8 @@ public sealed class LayoutSolver(
         return finalSize;
     }
 
-    // The relaxation measure, read once per pass after the arrange solve: each live handle evaluates its own
-    // reduced expression against the solved values (`.api/api-kiwi.md` `Constraint.Violated`), so a soft row
-    // the dual-simplex left unmet counts here and a Required row never can.
     private int Slack() => toSeq(rows.Values).Filter(static handle => handle.Violated).Length;
 
-    // Child content sizes suggest onto their Medium edit rows after the panel suggestion; only a registered
-    // edit receives a suggest, so a cell-pinned child (no content edit row) skips structurally. The folded
-    // probe values RETAIN on the panel — they are the design-pinned projection's measurement rows.
     private Fin<Unit> Measured() {
         HashMap<LayoutVar, double> observed = toSeq(Children)
             .Bind(child => Optional(child.GetValue(ChildKeyProperty)).Map(owner => Seq(
@@ -684,8 +612,6 @@ public sealed class LayoutSolver(
         return Suggested(measured.Filter(row => solver.HasEditVariable(env.Resolve(row.Var))));
     }
 
-    // One accumulate with two call shapes: the rail form parks a step outcome, the Error form rides MapFail so
-    // a failed read stays a Fin all the way to its caller-chosen fallback.
     private Error Park(Error error) {
         fault = fault.IsSome ? fault : Some(error);
         return error;
@@ -693,9 +619,6 @@ public sealed class LayoutSolver(
 
     private Unit Park(Fin<Unit> outcome) => ignore(outcome.MapFail(Park));
 
-    // ONE suggest fold serves the panel-bounds pair, the authored suggestion rows, and the measured content
-    // extents — APPLICATIVE, so a pass with four unregistered variables names all four in one refusal while
-    // every registrable suggestion still lands.
     private Fin<Unit> Suggested(Seq<ValueRow> rows) =>
         rows.Traverse(row => solver.TrySuggestValue(env.Resolve(row.Var), row.Value)
                 ? Validation<Error, Unit>.Success(unit)
@@ -710,9 +633,6 @@ public sealed class LayoutSolver(
 
     private Fin<double> Read(LayoutVar variable) => env.ValueOf(variable).MapFail(Park);
 
-    // Solved geometry keys by a REQUIRED child identity: the program child key attached at materialization
-    // (ChildKeyProperty, set from the ControlIntent key). The property is nullable, so an unset key reads
-    // Option.None — never an empty-string sentinel.
     public static readonly AttachedProperty<string?> ChildKeyProperty =
         AvaloniaProperty.RegisterAttached<LayoutSolver, Control, string?>("ChildKey");
 
@@ -736,16 +656,9 @@ public sealed class LayoutSolver(
         "rasm.appui.layout.fault", InstrumentKind.Count, MeasureForm.Whole, "{fault}",
         "layout passes refused, by panel and fault code", Seq(AppUiTelemetry.PanelSlot, AppUiTelemetry.FaultSlot), None, None, None);
 
-    // Three instruments for three facts, because relaxation and refusal are disjoint: a pass may relax a dozen
-    // soft rows and refuse nothing, or refuse a keyless child while relaxing nothing. Relaxation is a
-    // MAGNITUDE — one panel relaxing twelve rows and twelve panels relaxing one each are different systems.
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Solve, Relaxed, Fault);
 
-    // Composition binds the panel's `evidence` column to BOTH legs of one minted receipt — the screen evidence
-    // seal and this projection — so both instruments derive from the pass that produced them; an EvidenceFan
-    // arm over the same receipt would double every count, which is why the layout kind stays receipt-only on
-    // the fan.
     public static Fin<Unit> Observe(InstrumentSet set, LayoutReceipt receipt) {
         TagList tags = InstrumentSet.Tags((AppUiTelemetry.PanelSlot, receipt.Panel));
         return set.Write(Solve, receipt.Elapsed.TotalSeconds, tags)
@@ -791,7 +704,7 @@ flowchart LR
 - Boundary: Positional parity is a producer contract because an under-constrained Cassowary system admits many valid assignments. The projection emits the required nonempty surface identity, structured variable-introduction order, edit variables with generated `LayoutStrength`, authored suggestions, and resolved measurement suggestions in the order the desktop tableau consumed them; solved positions never cross. Interior `LayoutVar`/`LayoutTerm`/`LayoutExpr`/`LayoutConstraint` remain behavioral solver values, while generated messages are the one peer-facing shape. `LayoutRelation` and `LayoutStrength` carry their generated enum coordinate on the same behavioral row, so no string roster, STJ record, TypeScript interface mirror, or second JSON options surface survives. The AppUI contract test compares every such row set to the generated nonzero enum roster. `@rasm\/contracts/rasm/contracts/ui/layout_pb` supplies the peer schema, and `WireJson.Formatter` supplies the only JSON spelling.
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class LayoutMap {
     public static LayoutProgram Emit(ConstraintProgram program, Seq<ValueRow> measured) => new() {
         Surface = program.Panel,
@@ -836,7 +749,6 @@ public static class LayoutMap {
 
 }
 
-// Fixed producer inputs pin program structure rather than host font metrics.
 public static class LayoutWireCases {
     public static readonly Seq<string> Children = Seq("a", "b", "c");
 

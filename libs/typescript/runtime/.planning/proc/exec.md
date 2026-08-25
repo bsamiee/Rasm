@@ -68,9 +68,6 @@ import { Context, Effect, Layer } from 'effect';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 
-// Residency is what a serve row BINDS to, and the forms are not interchangeable: a TCP listener takes a port, a unix
-// listener takes a filesystem path, and a secure listener carries key material beside either. One `port` field
-// expressed the first alone, so every consumer reading it assumed a case its row never stated.
 const _RESIDENCIES = ['tcp', 'unix', 'tls'] as const;
 
 declare namespace InboundHeaders {
@@ -96,14 +93,9 @@ const _bunHeaders = Layer.succeed(InboundHeaders, {
     distinct: Effect.fail(new InboundHeaderFault('bun')),
 });
 
-// `Net.ListenOptions` carries `port`, `host`, and `path` on ONE optional-field record, so the node projection is the
-// residency read straight onto it and needs no second spelling of the same three facts. A secure bind listens on the
-// same coordinates as a plain one — its key material rides the CONSTRUCTOR below, never the listen record.
 const _listen = (bind: Runtime.Bind): { readonly port?: number; readonly host?: string; readonly path?: string } =>
     bind.kind === 'unix' ? { path: bind.path } : { port: bind.port, host: bind.host };
 
-// Bun spells the same three residencies under its own option names — `unix` rather than `path`, `tls` rather than a
-// secure server constructor — so the projection lands here at the row that owns the binding, never at a caller.
 const _served = (bind: Runtime.Bind): Bun.ServeOptions | Bun.TLSServeOptions | Bun.UnixServeOptions =>
     bind.kind === 'unix'
         ? { unix: bind.path }
@@ -117,8 +109,6 @@ const Runtime = {
         context: NodeContext.layer,
         client: NodeHttpClient.layerUndici,
         residency: ['tcp', 'unix', 'tls'] as const,
-        // one layer, two constructors: `https.Server` merges the whole `http.Server` interface, so the secure
-        // listener satisfies the same parameter and only its key material picks a different factory
         serve: (bind: Runtime.Bind) =>
             Layer.merge(
                 NodeHttpServer.layer(
@@ -131,7 +121,7 @@ const Runtime = {
         runner: NodeWorkerRunner.layer,
         cluster: NodeClusterSocket.layer,
         socket: NodeSocket.layerWebSocketConstructor,
-        nats: connect, // native TCP/TLS dial: the broker engine consumes this row binding, never a package import of its own
+        nats: connect,
         kv: (directory: string) => NodeKeyValueStore.layerFileSystem(directory),
     },
     bun: {
@@ -144,15 +134,13 @@ const Runtime = {
         runner: BunWorkerRunner.layer,
         cluster: BunClusterSocket.layer,
         socket: BunSocket.layerWebSocketConstructor,
-        nats: connect, // transport-node's node-API dial serves the bun lane under its node compatibility surface
+        nats: connect,
         kv: (directory: string) => BunKeyValueStore.layerFileSystem(directory),
     },
 } as const;
 
 declare namespace Runtime {
     type Residency = (typeof _RESIDENCIES)[number];
-    // Parameterized by the residencies a row admits, so a row's own `serve` REFUSES a bind it cannot honour at the
-    // call, rather than accepting one shape and discovering the missing field inside a platform option record.
     type Bind<K extends Residency = Residency> = Extract<
         | { readonly kind: 'tcp'; readonly port: number; readonly host?: string }
         | { readonly kind: 'unix'; readonly path: string }
@@ -165,13 +153,7 @@ declare namespace Runtime {
         readonly main: Main;
         readonly context: Layer.Layer<CommandExecutor.CommandExecutor | FileSystem.FileSystem | Path.Path | Terminal.Terminal | Worker.WorkerManager>;
         readonly client: Layer.Layer<HttpClient.HttpClient>;
-        // What a row admits, stated by the row and read at runtime by an ops surface reporting the host's listeners.
         readonly residency: ReadonlyArray<Residency>;
-        // `Core` holds the residency FLOOR at the two every binding has always answered: a row reaching more states it on
-        // `residency` and stays assignable because a function taking more binds satisfies one taking fewer, while a
-        // floor raised to what the present rows happen to reach refuses the first row that binds less. Both bindings
-        // publish `HttpPlatform` and `Etag.Generator` beside the server, so the file-send and validator capabilities
-        // every asset route already spends are PROVEN at this declaration instead of assumed per request.
         readonly serve: (bind: Bind<'tcp' | 'unix'>) => Layer.Layer<
             HttpServer.HttpServer | HttpPlatform.HttpPlatform | Etag.Generator | InboundHeaders,
             unknown
@@ -229,28 +211,20 @@ import { Fault } from '@rasm/core';
 
 const _LEG = 'command';
 
-// One core family mint owns the reason roster, its class column, and each reason's OWN subject, so `class` is a
-// projection of `reason` rather than a second field an instance can contradict, and no arm carries a column its own
-// refusal cannot fill: a budget expiry reached no exit and cancelled the stderr drain with the fiber, so its row
-// declares neither code nor diagnostic and states the bound it broke instead, while the demand arm declares both
-// because a refused exit always holds them. The branch taxonomy stays unforked — no local rank, retry, or status row
-// stands beside it, `Fault.Class` already carrying all three off the kind.
 const _exec = Fault.Class.family(['budget', 'exit'] as const, {
     budget: Fault.Class.row({
-        class: 'expired', // system-blamed and retryable: the core budget gate re-drives it
+        class: 'expired',
         leg: _LEG,
         detail: Schema.Struct({ command: Schema.NonEmptyString, budget: Schema.Duration }),
         render: ({ budget, command }) => `${command} outlived its ${Duration.toMillis(budget)}ms budget`,
     }),
     exit: Fault.Class.row({
-        class: 'invalid', // caller-blamed and terminal: a refused demand is not a transient
+        class: 'invalid',
         leg: _LEG,
         detail: Schema.Struct({
             command: Schema.NonEmptyString,
             code: Schema.Int,
             demanded: Schema.Int,
-            // the child's own diagnostic, drained whole beside the exit wait; the inherit arm left no pipe to read
-            // and lands the empty string, which the renderer omits rather than spelling as an absent message
             detail: Schema.String,
         }),
         render: ({ code, command, demanded, detail }) =>
@@ -276,15 +250,10 @@ class Spec extends Schema.Class<Spec>('Proc/Spec')({
     env: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.String }), { as: 'Option' }),
     cwd: Schema.optionalWith(Schema.String, { as: 'Option' }),
     shell: Schema.optionalWith(Schema.Boolean, { default: () => false }),
-    // stdin admits the platform's whole input vocabulary, not text alone: the text arm keeps `Command.feed`'s UTF-8
-    // encode while `inherit` hands the child the parent's own stdin and a `Stream` feeds a piped archive or a
-    // generated payload — the same widening `capture: "stream"` already grants the read side
     feed: Schema.optionalWith(
         Schema.Union(
             Schema.TaggedStruct('Text', { text: Schema.String }),
             Schema.TaggedStruct('Inherit', {}),
-            // a live stream is process-bound by construction, so the arm is a FromSelf declaration keyed on the
-            // carrier's own nominal symbol — the branded identity the package publishes, never a structural guess
             Schema.TaggedStruct('Bytes', {
                 stream: Schema.declare(
                     (input): input is Stream.Stream<Uint8Array, PlatformError.PlatformError> =>
@@ -295,8 +264,6 @@ class Spec extends Schema.Class<Spec>('Proc/Spec')({
         ),
         { as: 'Option' },
     ),
-    // "capture" holds the child's diagnostic for the receipt fault; "inherit" hands it to the parent's own stderr,
-    // the arm a long-lived child with unbounded diagnostic output takes so no buffer grows behind the wait
     stderr: Schema.optionalWith(Schema.Literal('capture', 'inherit'), { default: () => 'capture' as const }),
     pipes: Schema.optionalWith(Schema.Array(Schema.Tuple(Schema.NonEmptyString, Schema.Array(Schema.String))), { default: () => [] }),
     budget: Schema.optionalWith(Schema.Duration, { as: 'Option' }),
@@ -327,7 +294,7 @@ const _staged = (spec: Spec): Command.Command =>
                     Match.valueTags(input, {
                         Bytes: ({ stream }) => shaped.pipe(Command.stdin(stream)),
                         Inherit: () => shaped.pipe(Command.stdin('inherit')),
-                        Text: ({ text }) => shaped.pipe(Command.feed(text)), // the text arm keeps the encode Command.feed owns
+                        Text: ({ text }) => shaped.pipe(Command.feed(text)),
                     }),
             }),
         (fed) => (spec.stderr === 'inherit' ? fed.pipe(Command.stderr('inherit')) : fed),
@@ -342,8 +309,6 @@ const _budgeted =
             onSome: (budget) =>
                 Effect.timeoutFail(self, {
                     duration: budget,
-                    // a budget expiry reaches no exit and cancels the stderr drain with the fiber, so the row this
-                    // arm raises declares neither column and carries the broken bound in their place
                     onTimeout: () => new ExecFault({ case: { reason: 'budget', command: spec.command, budget } }),
                 }),
         });
@@ -352,11 +317,7 @@ const _settled = (spec: Spec): Effect.Effect<Receipt, Proc.Faults, CommandExecut
     Effect.scoped(
         Effect.gen(function* () {
             const opened = yield* Clock.currentTimeNanos;
-            // the live handle rather than `Command.exitCode`, because the exit code alone is what discards the child's
-            // own message: an ops verb that fails reports a number and the diagnostic is unrecoverable
             const child = yield* Command.start(_staged(spec));
-            // the drain runs CONCURRENTLY with the wait — a child filling its stderr pipe while the parent waits on
-            // exit deadlocks, so the diagnostic is consumed as it is produced; the inherit arm left no pipe to read
             const [code, detail] = yield* Effect.zip(
                 child.exitCode,
                 spec.stderr === 'inherit'
@@ -437,8 +398,6 @@ import { getHeapStatistics } from 'node:v8';
 const _AGGREGATES = ['avg', 'max', 'min', 'total'] as const;
 const _PLANES = ['available', 'declined', 'unsupported', 'denied', 'absent'] as const;
 
-// The host fingerprint's stamp bag is free-form by design, and the counter plane is exactly the kind of fact it holds:
-// a property of the measuring machine that no metric of that run can restate.
 const _STAMP = 'bench.counter.plane';
 
 const _GAUGES = {
@@ -448,9 +407,6 @@ const _GAUGES = {
     time: Convention.mount(Convention.metric.benchTime),
 } as const;
 
-// The engine reads heap growth through a caller-supplied byte reader and omits the band entirely without one. Bun's
-// `node:v8` shim answers the used-heap term and carries no allocator figure, so the missing term is a STRUCTURAL zero
-// on that runtime rather than an unmeasured one — the sum stays every byte the shim can see.
 const _HEAP = (): number => {
     const held = getHeapStatistics();
     return held.used_heap_size + (held.malloced_memory ?? 0);
@@ -459,23 +415,16 @@ const _HEAP = (): number => {
 class TrialSpec extends Schema.Class<TrialSpec>('Trial/Spec')({
     suite: Schema.NonEmptyString,
     label: Schema.NonEmptyString,
-    // convergence: the engine samples until the floor count AND the cpu-time budget are both met, capped by the ceiling
     minSamples: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_min_samples }),
     maxSamples: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_max_samples }),
     minCpuTime: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_min_cpu_time }),
-    // warmup: samples spent unrecorded, and the per-sample ceiling under which the engine bothers to spend them at all
     warmupSamples: Schema.optionalWith(Schema.Int.pipe(Schema.nonNegative()), { default: () => k_warmup_samples }),
     warmupThreshold: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_warmup_threshold }),
-    // batching: a body settling faster than the threshold is unrolled into one timed run and every sample divides by
-    // the batch count, which is what puts a nanosecond-scale body above the clock's own resolution
     batchSamples: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_batch_samples }),
     batchUnroll: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_batch_unroll }),
     batchThreshold: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_batch_threshold }),
-    // past this count the engine drops two samples from each sorted tail before reading any rung
     samplesThreshold: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_samples_threshold }),
     concurrency: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => k_concurrency }),
-    // band switches: heap costs a rescaled cpu budget and gc doubles it, so the expensive one defaults off and each
-    // stays a caller's declaration rather than a silent cost the trial takes on its behalf
     gc: Schema.optionalWith(Schema.Boolean, { default: () => false }),
     heap: Schema.optionalWith(Schema.Boolean, { default: () => true }),
     counters: Schema.optionalWith(Schema.Boolean, { default: () => true }),
@@ -483,8 +432,6 @@ class TrialSpec extends Schema.Class<TrialSpec>('Trial/Spec')({
 
 declare namespace Trial {
     type Stats = Awaited<ReturnType<typeof MitataMeasure>>;
-    // derived off the member rather than named: the package exports no option or result type, so every shape here
-    // rides the signature it came from and a package retune reaches this owner as a type error
     type Knobs = NonNullable<Parameters<typeof MitataMeasure>[1]> & { readonly $counters?: unknown };
     type Plane = (typeof _PLANES)[number];
     type Counters = { readonly plane: Plane; readonly handle: Option.Option<unknown> };
@@ -496,16 +443,12 @@ declare namespace Trial {
     };
 }
 
-// Counters need an optional native addon, a supported platform, and a privilege the addon alone can refuse — three
-// independent refusals, each a fact about the HOST. The module loader caches the import, so resolving per trial costs
-// one map read and buys a registry this owner would otherwise have to keep and invalidate.
 const _plane = (spec: TrialSpec): Effect.Effect<Trial.Counters> =>
     !spec.counters
         ? Effect.succeed({ plane: 'declined' as const, handle: Option.none() })
         : !['darwin', 'linux'].includes(process.platform)
           ? Effect.succeed({ plane: 'unsupported' as const, handle: Option.none() })
-          : // the addon reads darwin's counters through a privileged interface and refuses outright below root, where
-            // linux defers the same refusal to the addon's own load
+          :
             process.platform === 'darwin' && process.getuid?.() !== 0
             ? Effect.succeed({ plane: 'denied' as const, handle: Option.none() })
             : Effect.match(Effect.tryPromise(() => import('@mitata/counters')), {
@@ -529,16 +472,9 @@ const _tuned = (spec: TrialSpec, counters: Trial.Counters): Trial.Knobs => ({
     warmup_threshold: spec.warmupThreshold,
     samples_threshold: spec.samplesThreshold,
     heap: spec.heap ? _HEAP : undefined,
-    // `$counters` is the engine's own internal knob — the published option record omits it, and it is the only route
-    // by which the addon handle reaches the generated loop. Every counter call inside that loop is wrapped in the
-    // engine's own try and the whole block drops when init fails, so a rename degrades to an ABSENT band and can
-    // never produce a wrong number; that failure mode is what makes reaching past the published record admissible.
     ...Option.match(counters.handle, { onNone: () => ({}), onSome: (handle) => ({ $counters: handle }) }),
 });
 
-// The heap accumulator counts only samples whose delta was non-negative and divides by that count, so a workload the
-// collector interleaved throughout leaves the count at zero and the band returns its own seeds. The claim declares
-// every band value finite and non-negative, so the sentinel triple is stripped to the absence it actually means.
 const _honest = (stats: Trial.Stats): Trial.Stats =>
     stats.heap === undefined || Number.isFinite(stats.heap.avg + stats.heap.min + stats.heap.max)
         ? stats
@@ -551,23 +487,17 @@ const _sampled = <A, E, R>(
 ): Effect.Effect<readonly [Trial.Stats, Option.Option<Exit.Exit<never, E>>], never, R> =>
     Effect.gen(function* () {
         const invoke = EffectRuntime.runPromise(yield* Effect.runtime<R>());
-        // the first failure the fold saw, held beside the operation that mutates it: the engine awaits a bare closure,
-        // so a rejection crossing that seam would reach the caller as a defect with its typed fault erased
         let held: Option.Option<Exit.Exit<never, E>> = Option.none();
         const stats = yield* Effect.promise(() =>
             MitataMeasure(async () => {
                 const exit = await invoke(Effect.exit(body));
                 if (Exit.isFailure(exit) && Option.isNone(held)) held = Option.some(exit);
-                // the barrier sinks the settled exit: a body whose result no consumer reads is eliminated outright and
-                // the engine ends up timing an empty loop
                 MitataSink(exit);
             }, knobs),
         );
         return [_honest(stats), held] as const;
     });
 
-// Four gauges share one construction, so the projection is ONE fact stream carrying its gauge slot and its axis values
-// rather than four hand-rolled emitters a new band would have to join by hand.
 const _points = (metric: Board.Bench.Metric): ReadonlyArray<Trial.Point> => [
     ...Array.filterMap(Record.toEntries(metric.band.rungs), ([band, value]) =>
         value === undefined ? Option.none() : Option.some({ band, gauge: 'time' as const, leaf: Option.none(), value })),
@@ -576,8 +506,6 @@ const _points = (metric: Board.Bench.Metric): ReadonlyArray<Trial.Point> => [
             onNone: () => [],
             onSome: (aggregate) => Array.map(_AGGREGATES, (band) => ({ band, gauge, leaf: Option.none(), value: aggregate[band] })),
         })),
-    // every leaf the addon translates is an average, so `benchBand` is constant across the whole counter block and the
-    // leaf stamp is the ONLY axis keeping five independent measures from collapsing onto one line
     ...Option.match(metric.band.counters, {
         onNone: () => [],
         onSome: (counters) =>
@@ -621,8 +549,6 @@ const _bracketed = <A, E, R>(
     Effect.gen(function* () {
         const counters = yield* _plane(spec);
         const [stats, held] = yield* _sampled(spec, body, _tuned(spec, counters));
-        // a fault that entered the sample fold leaves it as the same typed value, before any claim is minted off runs
-        // that were measuring a failure path
         yield* Option.match(held, { onNone: () => Effect.void, onSome: (exit) => exit });
         const minted = yield* DateTime.now;
         const claim = Board.Bench.fromMitata(stats, {
@@ -633,14 +559,8 @@ const _bracketed = <A, E, R>(
             subject: { subject: 'probe' },
             host: new Board.Claim.Host({ ...host, stamps: { ...host.stamps, [_STAMP]: counters.plane } }),
             minted,
-            // the engine spends warmup only where its own threshold gate fires and reports no count, so the declared
-            // ceiling published here would be a figure no run ever took
             warmups: Option.none(),
-            // the measured per-operation heap delta IS the allocation figure this slot names, and it goes absent with
-            // the band rather than reading zero where no reader ran
             allocatedBytes: Option.map(Option.fromNullable(stats.heap), (band) => BigInt(Math.round(band.avg))),
-            // the band's own tick count already carries every operation the engine executed; this slot names the
-            // CALLER's logical work count, which a probe subject does not have one of
             operations: Option.none(),
         });
         return yield* Effect.as(_emitted(claim), claim);
@@ -648,7 +568,7 @@ const _bracketed = <A, E, R>(
 
 const Trial = { Spec: TrialSpec, run: _bracketed } as const;
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { ExecFault, InboundHeaderFault, InboundHeaders, Proc, Runtime, Trial };
 ```

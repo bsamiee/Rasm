@@ -29,13 +29,11 @@ Rasm.Compute owned-build numeric lane for quasi-Monte-Carlo sampling and scatter
 - Boundary — nets are RECTANGULAR planes over one granted rent, never jagged arrays: `[count, dimensions]` is what the data is, so `Span2D<double>` row addressing serves every draw, stratification, discrepancy sweep, and projection, and the per-pair `double[][]` copy the projection scan once made at `d=20` — 190 full copies of the whole sample — is a column pair the plane already addresses. Every rent carries a `Tensor/memory#ALLOCATION_AXIS` `Grant`, because a campaign plane is sized by a caller's replicate policy and not by an admitted kernel operand.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Scramble {
-    // `Identity` is the row's own column, so the fast path a caller once spelled as a reference comparison
-    // against one named row is a fact every row answers — and a fourth identity-preserving row cannot be missed.
     public static readonly Scramble None = new("none", identity: true,
         bits: static (value, _) => value,
         digit: static (digit, _, _, _) => digit);
@@ -48,14 +46,9 @@ public sealed partial class Scramble {
 
     public bool Identity { get; }
 
-    // Binary scrambling transforms a Sobol coordinate; radix scrambling transforms each Halton digit.
     [UseDelegateFromConstructor] public partial uint Bits(uint value, uint key);
     [UseDelegateFromConstructor] public partial uint Digit(uint value, uint key, int radix, int position);
 
-    // Owen nested-uniform scramble: reverse, hash-perturb from the most-significant bit, reverse back — RMSE
-    // decays one half-order faster than the digital shift on a smooth integrand. The PERTURBATION LADDER is the
-    // Owen construction and stays here; the bit reversal it brackets is the kernel's, so no second reversal
-    // survives on this lane.
     static uint OwenNestedUniform(uint value, uint key) {
         unchecked {
             uint x = Deterministic.ReverseBits(value);
@@ -68,10 +61,6 @@ public sealed partial class Scramble {
         }
     }
 
-    // Base-b per-position affine digit permutation d -> (a·d + c) mod radix, a coprime to the prime radix. The
-    // per-position key rides the kernel's lane fold: `(key, position)` as two LANES, never `((ulong)key << 32) ^
-    // position`, whose shifted XOR collides neighbouring pairs — the exact defect the lane fold exists to remove,
-    // and the one that made two positions draw one permutation here.
     static uint RandomLinearDigit(uint digit, uint key, int radix, int position) {
         ulong h = Deterministic.Stream(lanes: [key, position]);
         uint a = (uint)(1UL + h % (ulong)(radix - 1));
@@ -80,10 +69,6 @@ public sealed partial class Scramble {
     }
 }
 
-// Each case IS its generation law AND holds the table that law reads: Sobol owns a Joe-Kuo direction matrix and
-// no bases, Halton owns its own prime bases and no directions, Independent owns neither. Two empty sibling
-// tables and two `[IgnoreEquality]` exemptions rode the OUTER record before, so every generator carried a
-// zero-length array for the leg it was not — and the equality contract had to name them to stay correct.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SequenceFamily {
     private SequenceFamily() { }
@@ -92,23 +77,16 @@ public abstract partial record SequenceFamily {
     public sealed record Halton(int[] Bases) : SequenceFamily;
     public sealed record Independent(ulong Stream) : SequenceFamily;
 
-    // Family axis spelling for the receipt column; the Independent stream and each leg's table are per-generator
-    // STATE, not family identity, so two streams of one family group as one family in the evidence.
     public string Key => Switch(
         sobol: static _ => "sobol",
         halton: static _ => "halton",
         independent: static _ => "independent");
 
-    // Equidistributed legs randomize ONLY through the scramble key, so an unscrambled one repeats one block per
-    // replicate; the independent leg folds `ShiftSeed` into its counter regardless.
     public bool NeedsScramble => Switch(
         sobol: static _ => true, halton: static _ => true, independent: static _ => false);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// A net is a RECTANGULAR `[Count, Dimensions]` plane over one granted rent, because that is what the data is:
-// every consumer reads rows, the discrepancy kernels read column pairs, and a jagged array made the projection
-// scan copy the whole sample once per axis pair.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record NetPlane(MemoryOwner<double> Backing, int Count, int Dimensions, AllocationEvidence Evidence) : IDisposable {
     public Span2D<double> Points => Backing.Span.AsSpan2D(Count, Dimensions);
 
@@ -133,18 +111,12 @@ public sealed record ReplicateFamily(double Mean, double CrossReplicateVariance,
         };
 }
 
-// The corpus target as a VALUE: a campaign either lands its responses or it does not, and passing a sink beside
-// a policy as two loose parameters made two entrypoints of one campaign whose only difference was their arity.
 public sealed record CorpusSink(Stream Sink, HdfArchivePolicy Archive);
 
-// DiscrepancySample bounds the two O(N²·d) net-quality kernels: both figures are ESTIMATED over a subsample of
-// this many points, and a block at or below it is measured whole.
 public sealed record ReplicatePolicy(int BlockExponent, int Replicates, double Confidence, double MaxStarDiscrepancy, double MaxProjection, int DiscrepancySample) {
     public static readonly ReplicatePolicy Default = new(
         BlockExponent: 12, Replicates: 16, Confidence: 0.95, MaxStarDiscrepancy: 0.05, MaxProjection: 0.1, DiscrepancySample: 512);
 
-    // The seven independent policy facts ACCUMULATE, so a caller handed a bad confidence over too few replicates
-    // learns both; one boolean conjunction over nine terms answered with one slug naming none of them.
     internal Validation<Error, Unit> Admits =>
         (Gate(BlockExponent is >= 1 and <= 24, "replicate-block-exponent", BlockExponent),
          Gate(Replicates >= 2, "replicate-count", Replicates),
@@ -158,17 +130,10 @@ public sealed record ReplicatePolicy(int BlockExponent, int Replicates, double C
         held ? unit : TensorReason.PolicyInvalid.Fault(site, Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
 }
 
-// One partial case on the `Runtime/receipts#RECEIPT_UNION`-owned union carries both measured legs of this page:
-// an RQMC campaign and a fitted scattered field are the same fact — a point set of a stated family at a stated
-// dimension — and every column a leg does not measure reports absence rather than a zero it never computed.
 public abstract partial record ComputeReceipt {
     public sealed record Sampling(string Family, int Dimensions, long Points, int? Replicates, double? StarDiscrepancy, double? WorstProjection) : ComputeReceipt;
 }
 
-// Factory-only construction makes a family/table mismatch unmintable, and the table now rides the CASE, so the
-// carrier holds no slot for a leg it is not. `[Equatable]` delivers the checkpoint identity the seed-explicit,
-// state-serializable charter demands: a resumed generator proves equal to its checkpoint by VALUE. `ShiftSeed`
-// carries independent state (`Reseed` advances it while `Seed` stands) and compares ordered.
 [Equatable]
 public sealed partial record LowDiscrepancy {
     public SequenceFamily Family { get; private init; }
@@ -186,8 +151,6 @@ public sealed partial record LowDiscrepancy {
         JoeKuo.Directions(dimensions).Map(directions =>
             new LowDiscrepancy(new SequenceFamily.Sobol(directions), scramble, dimensions, seed, ShiftFor(dimensions, seed), 0L));
 
-    // Per-dimension radix is the `d`-th prime this generator holds (dimension 0 -> 2); the case is the law, the
-    // table is its payload, and the sieve is sized to THIS generator's dimension count.
     public static Fin<LowDiscrepancy> Halton(int dimensions, int seed, Scramble scramble) =>
         dimensions >= 1
             ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Halton(HaltonBases.Primes(dimensions)), scramble, dimensions, seed, ShiftFor(dimensions, seed), 0L))
@@ -198,8 +161,6 @@ public sealed partial record LowDiscrepancy {
             ? Fin.Succ(new LowDiscrepancy(new SequenceFamily.Independent(stream), scramble, dimensions, seed, ShiftFor(dimensions, seed), 0L))
             : TensorReason.EmptyOperand.Fail<LowDiscrepancy>("pseudo-dimensions", dimensions.ToString(CultureInfo.InvariantCulture));
 
-    // Generated total `Switch` folds the family axis without a radix test: Sobol is gray-code XOR over its own
-    // direction table, Halton is radix reversal over its own primes, and Independent is a counter hash.
     public (LowDiscrepancy Next, double[] Point) Draw() {
         double[] point = Family.Switch(
             state: this,
@@ -209,9 +170,6 @@ public sealed partial record LowDiscrepancy {
         return (this with { Drawn = Drawn + 1 }, point);
     }
 
-    // PUBLIC because six consumer sites re-derived this exact accumulator by hand — the optimizer's design
-    // sweeps, the parameter sweep, and the uncertainty lane each threading `(generator, point) = Draw()` through
-    // their own loop, and each one a place the counter could drift from the generator it was drawn with.
     public Fin<(LowDiscrepancy Next, NetPlane Points)> Net(int count, AllocationRequest staging) =>
         NetPlane.Rent(count, Dimensions, staging).Map(plane => {
             LowDiscrepancy generator = this;
@@ -224,21 +182,16 @@ public sealed partial record LowDiscrepancy {
             return (generator, plane);
         });
 
-    // Latin hypercube rank-stratifies one joint Sobol net; Cartesian products destroy its joint discrepancy.
     public static Fin<NetPlane> LatinHypercube(int dimensions, int count, int seed, Scramble scramble, AllocationRequest staging) =>
         Sobol(dimensions, seed, scramble)
             .Bind(generator => generator.Net(count, staging))
             .Map(drawn => { Stratify(drawn.Points); return drawn.Points; });
 
-    // ONE campaign entry: the corpus target is an `Option<CorpusSink>` the caller either has or has not, where a
-    // second overload taking a sink and a policy as two loose parameters made one campaign into two names.
     public static Fin<ReplicateFamily> Replicates(
         LowDiscrepancy generator, ReplicatePolicy policy, Func<ReadOnlyMemory<double>, double> estimator,
         Option<CorpusSink> corpus, AllocationRequest staging) =>
         Admit(generator, policy).Bind(_ => corpus.Match(
             None: () => Campaign(generator, policy, estimator, None, staging),
-            // Admission runs BEFORE the writer opens: the session truncates its sink, so a refused policy must
-            // never destroy a create-only target it will not fill.
             Some: sink => Corpus(generator, policy, sink)
                 .Bind(slot => ArchiveSession.Write(
                     sink.Sink, sink.Archive, Seq<IArchiveSlot>(slot.Slot), slot.Attributes,
@@ -261,9 +214,6 @@ public sealed partial record LowDiscrepancy {
 
     static Fin<Unit> Admit(LowDiscrepancy generator, ReplicatePolicy policy) =>
         policy.Admits.ToFin().Bind(_ =>
-            // Reseed randomizes the equidistributed legs only through the scramble key, so `Scramble.None` draws
-            // byte-identical replicate blocks and both the cross-replicate variance and the Student bound
-            // collapse to a false zero. The leg's own column states which families that reaches.
             generator.Scramble.Identity && generator.Family.NeedsScramble
                 ? TensorReason.PolicyInvalid.Fail<Unit>("replicate-unscrambled-equidistributed", generator.Family.Key)
                 : Fin.Succ(unit));
@@ -273,8 +223,6 @@ public sealed partial record LowDiscrepancy {
         Option<ChunkCursor<double>> corpus, AllocationRequest staging) =>
         toSeq(Enumerable.Range(0, policy.Replicates))
             .Traverse(r => Block(generator.Reseed(r), 1 << policy.BlockExponent, policy.DiscrepancySample, estimator, staging)
-                // The corpus write rides the RAIL, not the success arm of a pure `Map`: a chunk write that fails
-                // must fail the replicate, where a side effect inside a projection announced success regardless.
                 .Bind(block => corpus.Match(
                     None: () => Fin.Succ(block),
                     Some: cursor => cursor.Write(block.Values).Map(_ => block))))
@@ -282,15 +230,11 @@ public sealed partial record LowDiscrepancy {
             .Bind(blocks => Settle(blocks, policy, key));
 
     static Fin<ReplicateFamily> Settle(Seq<ReplicateBlock> blocks, ReplicatePolicy policy, Op key) {
-        // The cross-replicate spread is the kernel `Rasm/Domain/stats#MOMENTS` receipt over the per-replicate
-        // means — one carrier, one recurrence, and the normalizer stated at the read.
         Fin<Stat<Scalar>> folded = Stat<Scalar>.Of(blocks.Map(static block => (Scalar)TensorPrimitives.Average<double>(block.Values)), key);
         if (folded.Case is not Stat<Scalar> stat) { return folded.Map(static _ => default(ReplicateFamily)!); }
         double variance = stat.Variance(MomentNormalizer.Sample);
         double bound = StudentT.InvCDF(0.0, 1.0, policy.Replicates - 1, 0.5 + (policy.Confidence / 2.0)) * Math.Sqrt(variance / policy.Replicates);
         double star = blocks.Map(static block => block.Star).Fold(double.NegativeInfinity, Math.Max);
-        // A one-dimensional net has NO 2-D projection, so the whole campaign reports absence rather than the
-        // zero a `d < 2` early return once published as perfect projected uniformity.
         Option<double> projection = blocks.Map(static block => block.Projection).Somes() is var reported && reported.IsEmpty
             ? None
             : Some(reported.Fold(double.NegativeInfinity, Math.Max));
@@ -306,9 +250,6 @@ public sealed partial record LowDiscrepancy {
     LowDiscrepancy Reseed(int replicate) =>
         this with { ShiftSeed = ShiftFor(Dimensions, unchecked(Seed + replicate)), Drawn = 0L };
 
-    // ESTIMATOR law: every drawn point feeds the mean — the campaign's whole purpose — while the two O(N²·d)
-    // net-quality kernels read the discrepancy subsample alone. The per-point response VECTOR returns beside the
-    // figures so the corpus arm lands it as the replicate's chunk without a second estimator pass.
     static Fin<ReplicateBlock> Block(LowDiscrepancy generator, int count, int sample, Func<ReadOnlyMemory<double>, double> estimator, AllocationRequest staging) =>
         generator.Net(count, staging).Bind(drawn => {
             using NetPlane net = drawn.Points;
@@ -320,11 +261,6 @@ public sealed partial record LowDiscrepancy {
                     new ReplicateBlock(values, StarDiscrepancyL2(gauge.Points), WorstProjection(gauge.Points, staging)));
         });
 
-    // Partial Fisher-Yates prefix keyed on the SAME `Deterministic` lane every draw here crosses, so the estimate
-    // replays exactly; the block size rides the lane vector beside the slot, keeping this stream distinct from the
-    // one-lane per-dimension shift key. The selection is a permutation prefix rather than a leading slice, because
-    // a slice reads the sequence's own initialization transient as net quality. A block at or below the bound
-    // returns whole, and its figures are exact rather than estimated.
     static Fin<NetView> Gauged(NetPlane net, int sample, int seed, AllocationRequest staging) {
         if (net.Count <= sample) { return Fin.Succ(new NetView(net, None)); }
         int[] order = [.. Enumerable.Range(0, net.Count)];
@@ -340,8 +276,6 @@ public sealed partial record LowDiscrepancy {
         });
     }
 
-    // The gauged plane is either the net itself or a rented subsample this view owns; the owned arm disposes and
-    // the borrowed arm does not, so the lifetime is a value rather than a convention each caller re-derives.
     readonly record struct NetView(NetPlane Points, Option<NetPlane> Owned) : IDisposable {
         public void Dispose() => Owned.Iter(static plane => plane.Dispose());
     }
@@ -371,9 +305,6 @@ public sealed partial record LowDiscrepancy {
         return point;
     }
 
-    // Three lanes, one member: stream, draw ordinal, and dimension key the kernel's own fold, replacing a hand XOR
-    // of three shifted multipliers whose collisions are invisible in the output and whose `>> 11` scaling was a
-    // second unit-interval projection beside the owner's.
     double[] FillIndependent(ulong stream) {
         double[] point = new double[Dimensions];
         for (int d = 0; d < Dimensions; d++) {
@@ -383,11 +314,6 @@ public sealed partial record LowDiscrepancy {
         return point;
     }
 
-    // Unscrambled inversion is the KERNEL's — `Deterministic.RadicalInverse(index, radix)` is the base-parameterized
-    // member the equidistribution law names, so the plain Halton coordinate has one owner estate-wide. The digit
-    // ladder below survives only where a `Scramble` row genuinely transforms each position: that transformation IS
-    // randomization, not a second inversion, and folding it into the owner pushes a scramble policy below the
-    // stratum declaring it.
     static double RadicalInverse(ulong index, int radix, uint key, Scramble scramble) {
         if (scramble.Identity) { return Deterministic.RadicalInverse((uint)index, radix); }
         double inverse = 0.0;
@@ -405,8 +331,6 @@ public sealed partial record LowDiscrepancy {
         return inverse;
     }
 
-    // Rank stratification runs IN PLACE over the plane's own rows: the ranked scatter reads one column and writes
-    // it back, so no second jagged plane is minted to hold the result of a per-axis permutation.
     static void Stratify(Span2D<double> net) {
         int count = net.Height, dims = net.Width;
         int[] order = new int[count];
@@ -418,10 +342,6 @@ public sealed partial record LowDiscrepancy {
         }
     }
 
-    // Warnock L2 star-discrepancy of the realized net — the genuine net-quality signal a gate reads (lower is
-    // better): (1/3)^d − 2^(1−d)/N·Σ_i Π_k(1−x_ik^2) + 1/N^2·Σ_i Σ_j Π_k(1−max(x_ik,x_jk)). The pair kernel is
-    // SYMMETRIC, so the walk takes the upper triangle and doubles the off-diagonal mass rather than paying the
-    // full N² square for an answer its own transpose already gave.
     static double StarDiscrepancyL2(NetPlane net) {
         Span2D<double> points = net.Points;
         int n = net.Count, d = net.Dimensions;
@@ -448,11 +368,6 @@ public sealed partial record LowDiscrepancy {
         return Math.Sqrt(Math.Max(0.0, term));
     }
 
-    // Worst 2-D coordinate-pair projection discrepancy — a net can be uniform in full dimension yet degenerate on
-    // a 2-D projection, so the gate reads the worst projection. A ONE-dimensional net has no such pair at all,
-    // which is absence: the receipt column is nullable precisely to spell it, and a `0.0` there read as perfect
-    // uniformity on an axis pair that does not exist. The pair plane is one rent reused across every `(a, b)`,
-    // where a fresh jagged copy per pair meant 190 full copies of the sample at `d = 20`.
     static Option<double> WorstProjection(NetPlane net, AllocationRequest staging) {
         int d = net.Dimensions;
         if (d < 2) { return None; }
@@ -478,28 +393,18 @@ public sealed partial record LowDiscrepancy {
             });
     }
 
-    // Per-dimension scramble key off the ONE draw owner: dimension as the lane, seed as the seed. The prior form
-    // packed both into one shifted-XOR word, so dimension `d` at seed `s` collided with dimension `s` at seed `d`
-    // and two coordinates of one net could share a shift.
     static uint[] ShiftFor(int dimensions, int seed) =>
         toSeq(Enumerable.Range(0, dimensions))
             .Map(d => unchecked((uint)(Deterministic.Stream(lanes: [d], seed: seed) >> 32)))
             .ToArray();
 }
 
-// Halton bases are their OWN owner: reading a prime must never force the Sobol type initializer, which loads an
-// embedded polynomial resource for a leg that touches no direction number. The sieve grows to the REQUESTED
-// dimension count and caches at its high-water mark, so a three-dimension Halton pays three primes where the
-// shared table paid the Sobol dimension cap; the CAS cell keeps the grow pure and re-runnable on a losing swap.
-// There is NO dimension ceiling here — a sieve grows to whatever is asked, and the cap this owner once mirrored
-// from the Sobol resource shared no cause with it and could only ever drift.
 public static class HaltonBases {
     static readonly Atom<int[]> Cached = Atom(Array.Empty<int>());
 
     public static int[] Primes(int dimensions) =>
         Cached.Swap(held => held.Length >= dimensions ? held : Sieve(dimensions));
 
-    // Halton dimension `d` uses the `d`-th prime (dimension 0 -> 2); `p_n ≈ n(ln n + ln ln n)` bounds the ceiling.
     static int[] Sieve(int wanted) {
         int ceiling = wanted < 6 ? 15 : (int)(wanted * (Math.Log(wanted) + Math.Log(Math.Log(wanted)))) + 16;
         bool[] composite = new bool[ceiling + 1];
@@ -514,13 +419,6 @@ public static class HaltonBases {
     }
 }
 
-// Owned Joe-Kuo recurrence over the embedded HDF5 resource — `/degree` int32, `/coefficients` uint32, `/seeds`
-// uint32[dimensions, 32] (seed rows zero-padded past their degree). The read is per Sobol construction through
-// the archive owner as a Payload source, hyperslabs covering exactly the requested dimensions: a three-dimension
-// generator decodes three rows where the retired ASCII form parsed the whole table behind a `Lazy` whose
-// missing-resource throw cached as a fatal type-initialization fault. The dimension CEILING is read off the
-// resource's own dataspace rather than asserted beside it, so a regenerated table of another width refuses a
-// request past its real extent instead of passing an assertion and faulting inside the hyperslab.
 public static class JoeKuo {
     public const int Bits = 32;
 
@@ -532,8 +430,6 @@ public static class JoeKuo {
             : Payload().Bind(bytes => HdfArchive.Session(new HdfSource.Payload(bytes), HdfArchivePolicy.Interchange, handle =>
                 IO.pure(Decode(handle, dimensions))).Run());
 
-    // Every dataset resolve BINDS: the archive publishes them on the rail precisely so a composing page needs no
-    // trap of its own, and a dereference here would reintroduce the throwing boundary that law removed.
     static Fin<uint[,]> Decode(HdfHandle handle, int dimensions) =>
         from degrees in handle.Dataset("degree")
         from ceiling in Ceiling(degrees, dimensions)
@@ -554,15 +450,12 @@ public static class JoeKuo {
         })
         select table;
 
-    // The resource's own extent IS the ceiling, so a table regenerated at another width states its own bound.
     static Fin<Unit> Ceiling(NativeDataset degrees, int dimensions) =>
         (long)dimensions <= (long)degrees.Space.Dimensions[0] + 1
             ? Fin.Succ(unit)
             : TensorReason.StagingOverBound.Fail<Unit>("sobol-dimension-bound",
                 $"{dimensions}>{degrees.Space.Dimensions[0] + 1}");
 
-    // Canonical recurrence operates on scaled 32-bit directions: `v[k]=2^(31−k)` for dimension zero and the
-    // primitive-polynomial XOR recurrence for higher dimensions; unscaled seeds yield a plausible broken net.
     static uint[,] Recur(int dimensions, int[] degree, uint[] coefficients, uint[] seeds) {
         uint[,] v = new uint[dimensions, Bits];
         for (int k = 0; k < Bits; k++) { v[0, k] = 1u << (Bits - 1 - k); }
@@ -583,9 +476,6 @@ public static class JoeKuo {
         return v;
     }
 
-    // Embedded resource bytes stage once per construction; the manifest stream is not a seekable file, so the
-    // Payload case is the one archive source that serves it. An absent manifest entry is a typed refusal on the
-    // rail — the `?? throw` that stood here existed only so the enclosing trap could convert it straight back.
     static Fin<ReadOnlyMemory<byte>> Payload() =>
         Op.Of(name: "joe-kuo-resource").Catch(() =>
             Optional(typeof(JoeKuo).Assembly.GetManifestResourceStream(Resource))
@@ -614,32 +504,23 @@ public static class JoeKuo {
 - Boundary — reconstruction: scattered reconstruction is the owned radial-basis-plus-polynomial design, and the polynomial tail is genuine (`KernelKind.PolynomialOrder` drives the `[Φ P; Pᵀ 0]` saddle augmentation the conditionally-positive-definite kernels require for a unique interpolant) — a bare `Φ` block claiming the polynomial reproduction the prose advertises is the deleted form. The OWNERSHIP holds on three discriminants against the kernel sibling, never on library absence alone, because the kernel `Meshing/reconstruct#RECONSTRUCTION` `ReconstructionPolicy.Sibson` natural-neighbour interpolant IS a landed scattered interpolant — it is `Point3d`-typed host geometry the `ARCHITECTURE.md` `[06]` boundary bars from an interior `Tensor` signature, it is scalar-valued over three coordinates where this design is matrix-valued over `centres.ColumnCount`, and it is EVALUATED per query off two Voronoi duals where this design is FITTED into content-keyable coefficients its one consumer (`Solver/optimizer#OPTIMIZER_LANE` `RbfModel`) predicts through in a search inner loop; the routing is therefore total and needs no row here. The radial VOCABULARY is the kernel's alone, since a package-local `RbfKernel` spelling `Wendland` beside the kernel's own row is a same-named twin between strata peers and forks the profile the moment either end tunes a shape parameter — the kernel row carries first and second derivatives beside a slope bound this lane's Hessian-aware consumers reach without a second family. The reconstruction decomposes the design ONCE into a held SVD and solves the matrix-valued response through the one handle per the `Tensor/blas#DENSE_ALGEBRA` held-handle law — a fresh `DenseRoute.Solve` per response column paying a cubic SVD each time is the deleted form; a `Func<double, double>` riding beside the design is the rejected form because both the profile and its reproduction tier are row data the kernel vocabulary owns; the reconstruction witnesses the Frobenius residual against the original design through the `TolerancePolicy.Admits` gate because the SVD pseudo-inverse certifies only the least-squares minimum, not a usable interpolant, and a rank-deficient design under a loose shape parameter passes the solve while failing the field; the lane is host-local and the radial design composes `MathNet` `Matrix<double>` directly — a package-local matrix wrapper is the deleted form mirroring the blas-lane no-`RasmMatrix` law; the operand gate is the blas lane's own `OperandGate.Admit`, so a design and a response cross the same finite/symmetry gate every dense solve on the branch crosses.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record RbfDesign(Matrix<double> Matrix, int PolynomialTerms, int Centres);
 
-// `PolynomialOrder` is the KERNEL row's own column, so it derives here rather than riding as a copy a caller
-// could set to disagree with the kernel that shaped the design.
 public sealed record RbfFit(Matrix<double> Centres, KernelKind Kernel, double Radius, Matrix<double> Weights, Matrix<double> PolynomialCoefficients) {
     public int PolynomialOrder => Kernel.PolynomialOrder;
 
-    // The fit IS content-keyable and now mints the key: centres, row key, shape, and both coefficient blocks fold
-    // through the one suite digest owner, so a memo, a cache probe, and a re-fit guard compare a value.
     public ContentHash Key =>
         ContentHash.Of(MemoryMarshal.AsBytes<double>([
             .. Centres.ToColumnMajorArray(), Radius,
             .. Weights.ToColumnMajorArray(), .. PolynomialCoefficients.ToColumnMajorArray()]));
 
-    // Fitted fields hold their point set as CENTRES, and their stated family is the radial row that shaped
-    // them, so one partial case carries both legs of this page. Fits run no replicates and gauge no net, so all
-    // three RQMC columns report absence rather than a zero the leg never measured.
     public ComputeReceipt.Sampling Receipt(WorkLane lane, CorrelationId correlation, Duration elapsed) =>
         new(Family: Kernel.Key, Dimensions: Centres.ColumnCount, Points: Centres.RowCount,
             Replicates: null, StarDiscrepancy: null, WorstProjection: null) {
             Scope = new ReceiptScope.Execution(correlation, lane, Substrate.CpuTensor, AllocationClass.PooledMemory, elapsed),
         };
 
-    // Evaluate the fitted field at query rows: Σ_j w_j·φ(‖q − c_j‖) + Σ_t p_t·monomial_t(q). The response
-    // columns reconstruct jointly so a vector-valued field (gradient + flux) evaluates in one pass.
     public Fin<Matrix<double>> Evaluate(Matrix<double> queries) =>
         queries.RowCount == 0 || queries.ColumnCount != Centres.ColumnCount
             ? TensorReason.ShapeMismatch.Fail<Matrix<double>>("rbf-query-shape", $"{queries.RowCount}x{queries.ColumnCount}")
@@ -657,11 +538,8 @@ public sealed record RbfFit(Matrix<double> Centres, KernelKind Kernel, double Ra
                 : TensorReason.NonFinite.Fail<Matrix<double>>("rbf-evaluate"));
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RadialFit {
-    // Augmented design uses `[Φ P; Pᵀ 0]`; sample and centre trend blocks support rectangular regression. The
-    // shape and finiteness facts ACCUMULATE, so a caller handed mismatched widths and a non-finite radius learns
-    // both rather than the first one a conjunction happened to short-circuit on.
     public static Fin<RbfDesign> Design(Matrix<double> centres, Matrix<double> samples, KernelKind kernel, double radius) =>
         (Congruent(centres, samples), Positive(radius))
             .Apply(static (_, _) => unit).As().ToFin()
@@ -672,8 +550,6 @@ public static class RadialFit {
                     (i, j) => kernel.Weight(TensorPrimitives.Distance<double>(samples.Row(i).AsArray(), centres.Row(j).AsArray()), radius));
                 if (kernel.PolynomialOrder <= 0) { return Fin.Succ(new RbfDesign(phi, 0, centres.RowCount)); }
 
-                // Kernel convention: `PolynomialOrder` counts the REPRODUCTION tier — 0 none, 1 constant, 2 linear
-                // — so the monomial basis spans total degree `order − 1`.
                 Seq<int[]> terms = Monomials(samples.ColumnCount, kernel.PolynomialOrder - 1);
                 Matrix<double> pSamples = Matrix<double>.Build.Dense(samples.RowCount, terms.Count, (i, t) => Evaluate(samples.Row(i), terms[t]));
                 Matrix<double> pCentres = Matrix<double>.Build.Dense(centres.RowCount, terms.Count, (j, t) => Evaluate(centres.Row(j), terms[t]));
@@ -685,8 +561,6 @@ public static class RadialFit {
                 ? Fin.Succ(design)
                 : TensorReason.NonFinite.Fail<RbfDesign>("rbf-design"));
 
-    // One held SVD solves the matrix-valued response in one least-squares pass, then witnesses Frobenius
-    // residual against the original design.
     public static Fin<Matrix<double>> Reconstruct(Matrix<double> design, Matrix<double> response, TolerancePolicy tol) =>
         design.RowCount != response.RowCount || response.ColumnCount == 0
             ? TensorReason.ShapeMismatch.Fail<Matrix<double>>("scatter-response-shape", $"{design.RowCount}!={response.RowCount}")
@@ -699,8 +573,6 @@ public static class RadialFit {
                         ? Fin.Succ(solution)
                         : TensorReason.WitnessFail.Fail<Matrix<double>>("scatter-witness", $"r={residual:e3}"));
 
-    // Scattered-field fit pads the response with polynomial side-constraint rows, solves once, and splits the
-    // result into RBF weights and polynomial coefficients.
     public static Fin<RbfFit> Fit(Matrix<double> centres, Matrix<double> samples, Matrix<double> response, KernelKind kernel, double radius, TolerancePolicy tol) =>
         samples.RowCount != response.RowCount
             ? TensorReason.ShapeMismatch.Fail<RbfFit>("rbf-response-shape", $"{samples.RowCount}!={response.RowCount}")
@@ -725,12 +597,8 @@ public static class RadialFit {
     static Matrix<double> Pad(Matrix<double> response, int polynomialTerms) =>
         polynomialTerms == 0 ? response : response.Stack(Matrix<double>.Build.Dense(polynomialTerms, response.ColumnCount));
 
-    // Monomial exponent multi-indices carry total degree ≤ order over `dimension` variables — the polynomial
-    // reproduction basis the conditionally-PD tail spans (order 0 → {constant}, order 1 → {1, x₁ … x_d}).
     public static Seq<int[]> Monomials(int dimension, int order) => toSeq(Compositions(dimension, order));
 
-    // Reproduction tiers reach total degree 1, so every exponent is 0, 1, or 2 and the monomial is a product of
-    // at most two multiplications — `Math.Pow` took the transcendental path for a value the fold already holds.
     public static double Evaluate(Vector<double> point, int[] exponents) {
         double product = 1.0;
         for (int k = 0; k < exponents.Length; k++) {
@@ -741,11 +609,6 @@ public static class RadialFit {
         return product;
     }
 
-    // Bounded ODOMETER over exponent vectors under a running total ≤ the order cap: one mutable cursor advanced
-    // in place, each admitted vector copied out, carry rippling right-to-left so the enumeration order
-    // matches the lexicographic basis the design and evaluation blocks both index. The recursive comprehension
-    // it replaces nested one generator per dimension — a stack frame per axis and a full re-enumeration of
-    // every tail at each head — for a walk whose length is exactly the emitted term count.
     static IEnumerable<int[]> Compositions(int slots, int maxTotal) {
         if (slots <= 0) { yield return []; yield break; }
         int[] cursor = new int[slots];

@@ -58,27 +58,14 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, Ring, ScopeKey, 
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# the mechanism owns the SHAPE of the id vocabulary and never its members: a point id is a member of the owning
-# package's own `StrEnum` roster, so a bare string literal constructs no row and a fire seam cannot re-spell an id its
-# roster already names. Two folders already prove the form — one derives its whole `HookPoint` block by comprehension
-# off its roster — while the `HOOK_ID` gate still proves each member's VALUE, which no enum membership can decide.
 type HookId = StrEnum
 
-# every delivery carries the FIRED POINT beside its payload, because `subscribe` reaches roster grain: one tap fanned
-# across a producer's whole table would otherwise read every point's payload with nothing naming which fired, and the
-# built-in receipt tap would stamp one subject over the lot. The delivery site already holds the id, so carrying it is
-# free and its absence is what a subscriber cannot recover.
 type Tap[P: Struct] = Callable[[HookId, P], object | Awaitable[object]]
 type Veto[P: Struct] = Callable[[HookId, P], RuntimeRail[P]]
 
 
 @tagged_union(frozen=True)
 class Modality:
-    # the closed delivery family, and the retained DEPTH rides the retaining arm alone: a window bound is a fact only
-    # a replay point has, so a flat column on the row spells one on every observe and veto row that never reads it,
-    # while a case payload makes that spelling unrepresentable rather than merely unread. Depth stays a POINT fact —
-    # the branch runs live replay rows at three distinct depths and a folder declares a wider window its own growth
-    # axis — so the arm carries the value each row supplies, never a depth the vocabulary fixes for every point.
     tag: Literal["veto", "observe", "replay"] = tag()
     veto: None = case()
     observe: None = case()
@@ -87,21 +74,10 @@ class Modality:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# package-qualified point grammar; the same uniqueness law SCOPES holds for instrumentation scopes. Anchors are
-# `\A`/`\Z` so one spelling bounds the pattern under every match verb, exactly as the receipts-owned scope grammar does.
 HOOK_ID: Final[re.Pattern[str]] = re.compile(r"\Arasm\.[a-z0-9_-]+\.[a-z0-9_-]+\.[a-z0-9_-]+\Z")
 
-# isolated-fault window per composition: a subscriber fault is evidence the emitter's rail cannot carry by law, so the
-# registry retains the recent ones under one cap and counts what falls past it. The window is a diagnostic TAIL rather
-# than a stream — a composition faulting past this depth already published every earlier fault as its own receipt line.
 FAULT_WINDOW: Final[int] = 64
 
-# the registry's own capability segment and its two counted losses, spelled once. `MEASURES` raises on an
-# unregistered pair, so both rows land at `observability/metrics#METRIC` before a single record fires here; the
-# recording reads the ring's own MOVEMENT, so a fire that shed nothing records nothing and the hot path of a
-# composition losing no fact allocates no series at all. `shed` is what a bounded window EVICTED under pressure and
-# `lost` a fact whose own sink refused it — both authorized drops the emitter's rail cannot carry by law, so an
-# unrecorded one reads to an operator as no loss, which is the exact silence the counted `Ring` exists to end.
 DOMAIN: Final[str] = "runtime"
 HOOK_SHED: Final[str] = "rasm.runtime.hook.shed"
 HOOK_LOST: Final[str] = "rasm.runtime.hook.lost"
@@ -110,14 +86,6 @@ HOOK_LOST: Final[str] = "rasm.runtime.hook.lost"
 
 
 class StageMark(Struct, frozen=True, gc=False):
-    # THE shared long-fold mark every pulse point in the estate carries: which position a fold reached, how many
-    # units it has closed, and how many it expects. `stage` is ERASED here and CLOSED at the producer — each lane
-    # declares its own `<Lane>Stage(StrEnum)` and passes `.value` — so the registry proves ONE payload type per
-    # point while the roster stays a producer-side type fact, and no cross-lane phase ladder forms out of the
-    # union of every lane's positions. `total` rides `Option` because a fold over a stream, a generator, or an
-    # unbounded search KNOWS no total: the retired `total: int = 0` default published a zero every such producer's
-    # reader then took for "no work", the forged reading `docs/laws/scars.md` `[FORGED_ZERO]` names outright, where
-    # absence is the honest answer and a progress consumer renders it as indeterminate rather than as complete.
     stage: str
     done: int
     total: Option[int] = Nothing
@@ -130,11 +98,6 @@ class HookPoint[P: Struct](Struct, frozen=True):
 
 
 class Attachment(Struct, frozen=True):
-    # the DETACHER subscription answers with, holding the exact member attach used — a replay row's barrier, never the
-    # caller's own tap, which the identity filter would leave standing while reading as a clean release. Spelled
-    # `Attachment` because `transport/filter#FILTER` already owns `Subscription` for the CloudEvents resource, and one
-    # package carrying two unrelated concepts under one name is a seating failure rather than a naming coincidence.
-    # The value and the registry are one owner declared in two halves, so `close` reaches the registry's own retire.
     point: HookId
     scope: ScopeKey
     member: Tap[Struct] | Veto[Struct]
@@ -150,10 +113,6 @@ class Attachment(Struct, frozen=True):
 
 
 class Released(Struct, frozen=True):
-    # the retirement VERDICT: what release actually retired, carrying BOTH accounting windows, because a capsule
-    # captured after release reaches no registry at all — the shed and refused-sink counts leave through this value or
-    # they die with the tables that held them. Point and install rosters answer the other shutdown question: which
-    # producer legs this composition was still holding when its root let go.
     scope: ScopeKey
     points: Block[HookId]
     installs: Block[str]
@@ -163,11 +122,6 @@ class Released(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class TapRow:
-    # the registry's OWN taps as rows through the one subscribe door: each case owns its projection, so a built-in
-    # attaches as a NAMED member the returned `Attachment` detaches by identity rather than as the inline lambda a
-    # factory returned and no caller ever held. One `scope` reaches both halves — the subscription's own — where a
-    # second scope argument on the metrics tap could disagree with the point's custody key and partition one fired
-    # fact's two evidence planes across compositions while every line and every series still read as correct.
     tag: Literal["receipts", "metrics"] = tag()
     receipts: str = case()
     metrics: tuple[Callable[[Struct], Mapping[str, float]], str, str] = case()
@@ -177,17 +131,12 @@ class TapRow:
             case TapRow(tag="receipts", receipts=owner):
 
                 def emitted(point_id: HookId, payload: Struct) -> None:
-                    # each line takes the FIRED POINT as its subject and the producer as its owner: one tap over a
-                    # whole roster emits a distinguishable row per point, where repeating the owner into both slots
-                    # collapses a producer's table onto one name and strands the reader with the payload alone.
                     Signals.emit(Receipt.of(owner, ("emitted", point_id, dict(structs.asdict(payload)))), OPEN, scope=scope)
 
                 return emitted
             case TapRow(tag="metrics", metrics=(measures, domain, kind)):
 
                 def recorded(_point_id: HookId, payload: Struct) -> None:
-                    # `kind` stays the caller's rather than the fired point's: a roster fan measures one producing
-                    # subject across its whole table, and the measure NAMES already separate the rows.
                     Metrics.record(measures(payload), domain=domain, kind=kind, scope=scope)
 
                 return recorded
@@ -199,9 +148,6 @@ class TapRow:
 
 
 class _ReplayAttach:
-    # tap-local replay/forward barrier: while the retained window drains outside the registry gate, concurrent
-    # forward payloads queue here in arrival order; `opened` flushes the queue then retires the barrier to a
-    # passthrough, so retained-before-forward holds without any subscriber code executing under `Hooks._gate`.
     __slots__ = ("_gate", "_pending", "_tap")
 
     def __init__(self, tap: Tap[Struct] | Veto[Struct]) -> None:
@@ -210,25 +156,20 @@ class _ReplayAttach:
         self._gate = Lock()
 
     def __call__(self, point_id: HookId, payload: Struct) -> object:
-        with self._gate:  # Exemption: per-subscriber barrier — delivery serializes on the tap-local lock, never the registry gate
+        with self._gate:
             if self._pending is not None:
                 self._pending.append(payload)
                 return None
             return self._tap(point_id, payload)
 
     def opened(self, deliver: Callable[[Struct], object]) -> None:
-        with self._gate:  # Exemption: flush completes under the barrier so no forward payload overtakes the queue
+        with self._gate:
             for fact in self._pending or ():
                 deliver(fact)
             self._pending = None
 
 
 class Hooks:
-    # one free-threading gate serializes each table's read-modify-write; tap execution stays outside the gate.
-    # every table keys first by the receipts-owned ScopeKey: two compositions partition custody structurally, the
-    # DEFAULT_SCOPE keyword default keeps the bare call shape scope-free, and `release` is what makes that keying a
-    # LIFECYCLE rather than a leak — a table nothing ever removes a scope from outlives the composition that filled it,
-    # so an embedded runtime's shutdown leaves its ids claimed and its re-admission collides with its own ghost.
     _points: ClassVar[Map[ScopeKey, Map[HookId, HookPoint[Struct]]]] = Map.empty()
     _taps: ClassVar[Map[ScopeKey, Map[HookId, Block[Tap[Struct] | Veto[Struct]]]]] = Map.empty()
     _rings: ClassVar[Map[ScopeKey, Map[HookId, Ring[Struct]]]] = Map.empty()
@@ -242,8 +183,6 @@ class Hooks:
 
     @staticmethod
     def _dropped[V](held: Map[ScopeKey, V], scope: ScopeKey) -> Map[ScopeKey, V]:
-        # every table retires under ONE spelling, and membership decides first because a retire is total only over a
-        # key the map holds — a scope that claimed points and attached no tap owns no tap row to remove at all.
         return held.remove(scope) if scope in held else held
 
     @overload
@@ -257,12 +196,6 @@ class Hooks:
     def register(
         cls, points: HookPoint[Struct] | Block[HookPoint[Struct]], *, scope: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[HookPoint[Struct] | Block[HookPoint[Struct]]]:
-        # one polymorphic claim over either arity: a roster admits or refuses WHOLE. `claimed` builds off the
-        # immutable held map and `cls._points` takes it only past the last row, so a refusal leaves the standing
-        # roster byte-identical and never the half-mounted custody an accumulating per-point traverse leaves behind.
-        # Breaches report together, so the whole-set transition keeps the accumulating diagnosis a per-point fold
-        # bought by surrendering atomicity, and the single-point arm hands its own point back, so a producer leg
-        # composing one row reads exactly as it did before the roster arm existed.
         def admitted() -> HookPoint[Struct] | Block[HookPoint[Struct]]:
             roster = points if isinstance(points, Block) else Block.singleton(points)
             with cls._gate:
@@ -273,8 +206,6 @@ class Hooks:
                     elif claimed.try_find(point.id).is_some():
                         breaches = breaches.append(Block.singleton(f"{point.id!r} is already owned"))
                     elif point.modality.tag == "replay" and point.modality.replay < 1:
-                        # a retaining row whose window holds nothing sheds every fact it parks and drains an empty
-                        # ring on every attach, so the depth admits with the id rather than reading as a live window.
                         breaches = breaches.append(Block.singleton(f"{point.id!r} retains a window of {point.modality.replay}"))
                     else:
                         claimed = claimed.add(point.id, point)
@@ -287,36 +218,22 @@ class Hooks:
 
     @classmethod
     def points(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> Map[HookId, HookPoint[Struct]]:
-        # membership probe, the point-side twin of `installs`: a producer leg proves its claim landed and the bundle
-        # capsule reads the standing roster, so a mounted roster carrying no install row names the half-run leg.
         with cls._gate:
             return cls._scoped(cls._points, scope)
 
     @classmethod
     def installed[R: Struct](cls, owner: str, receipt: R, *, scope: ScopeKey = DEFAULT_SCOPE) -> R:
-        # producer-install ledger: a producer folder's composition leg registers points UPWARD through this registry,
-        # so its install receipt homes here too rather than in a folder-local global the bundle capsule cannot reach —
-        # runtime imports no producer, and a `GraduationInstall`/`ComputeInstall` typed whole would invert the strata.
-        # Deposits pass the receipt through, so a leg lands one inside its own terminal with no second statement, and
-        # a re-install under one scope REPLACES its row: each receipt names the roster now standing, never a history.
         with cls._gate:
             cls._installs = cls._installs.add(scope, cls._scoped(cls._installs, scope).add(owner, receipt))
         return receipt
 
     @classmethod
     def installs(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> Map[str, Struct]:
-        # total roster read for the bundle capsule: a composition whose producers never ran their install leg answers
-        # EMPTY, which is exactly the diagnosis — every `fired` call took the unregistered-id path.
         with cls._gate:
             return cls._scoped(cls._installs, scope)
 
     @classmethod
     def release(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Released]:
-        # custody retires WHOLE in one gated swap: points, taps, replay windows, install rows, and the fault window
-        # leave together, because a partial retire leaves ids claimed under a scope whose subscribers are gone and the
-        # next admission collides with its own predecessor. The verdict carries both accounting windows out — after
-        # this swap no read reaches them — and an empty scope REFUSES rather than answering a silent no-op, since a
-        # root releasing custody it never claimed is asking about a composition whose producer legs never ran.
         def retired() -> Released:
             with cls._gate:
                 points, installs = cls._scoped(cls._points, scope), cls._scoped(cls._installs, scope)
@@ -344,8 +261,6 @@ class Hooks:
 
     @classmethod
     def _detach(cls, point_id: HookId, member: Tap[Struct] | Veto[Struct], scope: ScopeKey) -> None:
-        # identity filter, which is exactly why `Attachment` carries the ATTACHED member: a replay row attached its
-        # barrier, so a holder handing back its own tap would retire nothing while reading as a clean release.
         with cls._gate:
             taps = cls._scoped(cls._taps, scope)
             survivors = taps.try_find(point_id).default_value(Block.empty()).filter(lambda held: held is not member)
@@ -364,13 +279,6 @@ class Hooks:
     def subscribe[P: Struct](
         cls, points: HookId | Block[HookPoint[Struct]], tap: Tap[P] | Veto[P] | TapRow, *, scope: ScopeKey = DEFAULT_SCOPE
     ) -> RuntimeRail[Attachment] | RuntimeRail[Block[Attachment]]:
-        # subscription reaches the grain registration reaches: one point id attaches to that point, a claimed roster
-        # attaches the same tap across every row of it, and either way the answer is the DETACHER rather than a count
-        # naming nothing a caller could retire. A built-in row binds ONCE here, so the roster fan shares one member
-        # and one composition key. The roster arm is TRANSACTIONAL the way the retained drain below is — a refusal on
-        # any row closes every attachment already opened, so a partial fan-out never stands where a producer asked for
-        # a whole table — and it cannot be one gated swap the way `register` is, because a replay row's retained drain
-        # runs outside the registry gate by construction.
         member: Tap[Struct] | Veto[Struct] = tap.bound(scope) if isinstance(tap, TapRow) else tap
         match points:
             case StrEnum() as point_id:
@@ -382,18 +290,16 @@ class Hooks:
                         case Result(tag="ok", ok=attachment):
                             held = held.append(Block.singleton(attachment))
                         case Result(tag="error") as refused:
-                            for standing in held:  # Exemption: unwind is the transactional half — a partial fan-out never stands
+                            for standing in held:
                                 standing.close()
                             return refused
                 return Ok(held)
 
     @classmethod
     def _subscribed(cls, point_id: HookId, member: Tap[Struct] | Veto[Struct], scope: ScopeKey) -> RuntimeRail[Attachment]:
-        # the per-point attach, answering the detacher over the ATTACHED member: a replay row attaches its barrier
-        # rather than the tap itself, so the value a caller brackets holds the object the identity filter can find.
         def attached() -> Attachment:
             with cls._gate:
-                row = cls._scoped(cls._points, scope)[point_id]  # KeyError converts on the fence: an unregistered point refuses
+                row = cls._scoped(cls._points, scope)[point_id]
                 match row.modality:
                     case Modality(tag="replay", replay=depth):
                         if cls._declared_async(member):
@@ -404,12 +310,8 @@ class Hooks:
                     case _:
                         cls._attach(point_id, member, scope)
                         return Attachment(point=point_id, scope=scope, member=member)
-            # the retained drain runs OUTSIDE the registry gate through the barrier, and attach is transactional:
-            # `_sync_tap` raises on a tap fault or on the sync contract breached by a returned awaitable — a breach a
-            # `_declared_async` probe cannot see — so the fault detaches the barrier before the fence rails the refusal.
-            # An empty window still opens the barrier so the forward contract starts clean.
             try:
-                for fact in retained:  # Exemption: un-fenced drain — a raise must reach the subscribe fence, detaching first
+                for fact in retained:
                     cls._sync_tap(member, point_id, fact)
                 barrier.opened(lambda fact: cls._sync_tap(member, point_id, fact))
             except BaseException:
@@ -417,17 +319,10 @@ class Hooks:
                 raise
             return Attachment(point=point_id, scope=scope, member=barrier)
 
-        # the retained drain runs CALLER code outside the registry gate, so this fence names the two the barrier
-        # itself raises beside the catch-all that covers a subscriber refusing mid-drain; the attach detaches first.
         return boundary(HOOKS_SUBSCRIBE, attached, catch=Exception)
 
     @classmethod
     def _counted[T](cls, point_id: HookId, prior: Ring[T], parked: Ring[T], scope: ScopeKey) -> None:
-        # ONE recording site for BOTH lossy planes — the replay trim and the isolation window alike — reading the
-        # ring's own movement rather than each plane counting for itself beside a trim it does not own. Runs OUTSIDE
-        # `_gate` by law: a record crosses into the metric owner's instrument state, and holding the registry lock
-        # across it would serialize every fire in the process behind one export-side write. A zero delta records
-        # nothing, so the counter carries only real evictions and real sink refusals.
         shed, lost = parked.moved(prior)
         measures = ({HOOK_SHED: float(shed)} if shed else {}) | ({HOOK_LOST: float(lost)} if lost else {})
         if measures:
@@ -452,13 +347,9 @@ class Hooks:
             case Result(tag="error") as refused:
                 return refused
             case Result(tag="ok", ok=row):
-                # the movement crosses the gate as a VALUE so the record lands outside it; a non-retaining point
-                # answers `Nothing` and pays neither the pair nor the fold.
                 moved: Option[tuple[Ring[Struct], Ring[Struct]]] = Nothing
                 with cls._gate:
                     if row.modality.tag == "replay":
-                        # the trim is the window's own arm now, so the oldest fact scrolling out lands on `shed` and a
-                        # capsule reading a full window knows how much fell past it instead of reading it as whole.
                         rings = cls._scoped(cls._rings, scope)
                         prior = rings.try_find(point_id).default_value(Ring(cap=row.modality.replay))
                         parked = prior.park(payload)
@@ -470,11 +361,6 @@ class Hooks:
 
     @staticmethod
     def _veto_tap(veto: Tap[Struct] | Veto[Struct], point_id: HookId, payload: Struct) -> RuntimeRail[Struct]:
-        # VETO admission, twin to `_sync_tap`'s below: a subscriber on a VETO point returns the payload
-        # RAIL, and `bind` over a raw return hands the fold a value carrying no rail members at all — the NEXT
-        # member's `bind` then raises outside every fence, straight into the emitter this registry exists to isolate.
-        # Refusing here converts the breach on the fence, so a malformed veto REJECTS the payload, the one reading a
-        # gate can safely take of a subscriber it could not run.
         returned = veto(point_id, payload)
         if isinstance(returned, Result):
             return returned
@@ -495,12 +381,10 @@ class Hooks:
             case Result(tag="ok", ok=(HookPoint(modality=Modality(tag="veto")), taps)):
                 return cls._vetoed(point_id, payload, taps)
             case Result(tag="ok", ok=(HookPoint(modality=Modality(tag="observe" | "replay")), taps)):
-                for tap in taps:  # Exemption: the sequential tap walk is the isolation seam — each fault parks in the fault window, never out
+                for tap in taps:
                     cls._observed(point_id, tap, payload, scope)
                 return Ok(payload)
             case Result(tag="ok", ok=(HookPoint(modality=unreachable), _)):
-                # `Modality` proves total HERE, so a new case earns its arm above or breaks at this one
-                # rather than falling through and handing a rail-typed caller `None` on the point it just fired.
                 assert_never(unreachable)
 
     @classmethod
@@ -512,7 +396,6 @@ class Hooks:
                 return cls._vetoed(point_id, payload, taps)
             case Result(tag="ok", ok=(HookPoint(modality=Modality(tag="observe" | "replay")), taps)):
                 for tap in taps:
-                    # Exemption: the sequential tap walk is the async fence seam — each fault parks in the fault window, never out.
                     async def awaited(tap: Tap[Struct] | Veto[Struct] = tap) -> object:
                         returned = tap(point_id, payload)
                         return await returned if isawaitable(returned) else returned
@@ -525,9 +408,6 @@ class Hooks:
 
     @classmethod
     def replayed(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> Map[HookId, Ring[Struct]]:
-        # bundle-facing replay projection: every retaining point's window as data — each arrives pre-trimmed to its own
-        # registered depth and carries what that trim shed, so the read is bounded by construction, mutates nothing,
-        # and a capsule reads the retained facts beside the count of facts that scrolled past them.
         with cls._gate:
             points = cls._scoped(cls._points, scope)
             rings = cls._scoped(cls._rings, scope)
@@ -539,17 +419,11 @@ class Hooks:
 
     @classmethod
     def faults(cls, *, scope: ScopeKey = DEFAULT_SCOPE) -> Ring[Receipt]:
-        # bundle-facing isolation window, the twin read to `replayed`: the recent subscriber faults this composition
-        # isolated, beside what the window evicted and what the receipt stream never carried. An empty window is a
-        # composition whose taps never faulted, which is a different fact from a registry whose producer legs never ran.
         with cls._gate:
             return cls._faults.try_find(scope).default_value(Ring(cap=FAULT_WINDOW))
 
     @classmethod
     def _observed(cls, point_id: HookId, tap: Tap[Struct] | Veto[Struct], payload: Struct, scope: ScopeKey) -> None:
-        # the tap runs behind the fence and its fault becomes parked evidence, so the emitter's value returns
-        # untouched. No verdict drops here: `_isolated` carries the whole one — fenced emit, window park, counted
-        # sink refusal — into the composition's fault window, which is where a reader collects it.
         boundary(HOOKS_TAP, lambda: cls._sync_tap(tap, point_id, payload), catch=Exception).swap().map(
             lambda fault: cls._isolated(point_id, fault, scope)
         )
@@ -570,16 +444,6 @@ class Hooks:
 
     @classmethod
     def _isolated(cls, point_id: HookId, fault: BoundaryFault, scope: ScopeKey) -> Receipt:
-        # isolation law: a subscriber fault is evidence, never a break in the emitter — and THE EMISSION RIDES ITS OWN
-        # FENCE, because a closed stream or a refusing processor raising inside this fold would propagate out of the
-        # tap walk and out of `fire` uncaught, destroying exactly the emitter value the isolation exists to protect.
-        # The refusal is counted rather than swallowed: the evidence parks in this composition's window either way,
-        # and `lost` names the faults the receipt stream never carried, which is the one loss no other plane can
-        # reconstruct. Named for the ISOLATION it performs, not for the fault it carries — the
-        # `reliability/faults#FAULT` `faulted` owner is the span-side Error-arm fold that statuses a live span, logs,
-        # and hands the fault back to a rail, where this one opens no span and the emitter's rail stays `Ok` by law.
-        # Two folds with no shared consumer and no shared behaviour, so one spelling over both would read as the
-        # collapsed form and route a tap fault onto a span the fire never opened.
         evidence = Receipt.of(point_id, fault)
         emitted = boundary(HOOKS_ISOLATED, lambda: Signals.emit(evidence, OPEN, scope=scope), catch=Exception)
         with cls._gate:

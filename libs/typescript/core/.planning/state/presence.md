@@ -47,8 +47,6 @@ const _Point3 = Schema.TaggedStruct("Scene", {
 })
 const _Point = Schema.Union(_Point2, _Point3)
 
-// document positions in the surface's own coordinate space; anchor and head are independent, so a backward
-// selection is two integers, never a normalized pair a consumer re-derives direction from
 const _Caret = Schema.Struct({
   surface: _Surface,
   anchor: Schema.Int.pipe(Schema.nonNegative()),
@@ -356,8 +354,6 @@ const _status = (state: Presence.State, horizon: Clock.Hlc, lease: Presence.Leas
     onNone: () => _idled(state, horizon, lease),
   })
 
-// sighting precedence is engagement strength: a pointer position, then a text caret, then bare focus — every
-// surface-carrying axis sights, so an actor typing without a pointer still counts toward the surface's crowd
 const _sighted = (state: Presence.State): Option.Option<Presence.Surface> =>
   Option.orElse(
     Option.map(state.cursor, (worn) => worn.value.surface),
@@ -395,7 +391,7 @@ const Presence: Presence.Shape = {
           })),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Presence }
 ```

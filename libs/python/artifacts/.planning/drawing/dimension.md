@@ -52,7 +52,6 @@ from rasm.artifacts.drawing.standard import DimStyleFamily, Standard, extent
 from rasm.artifacts.graphic.layer import LayerNode, LayerPlan
 from rasm.artifacts.typography.math import Formula, FormulaSpec, LatexSpec, seat
 
-# each proxy reifies on first render-arm use in the offloaded worker
 lazy import drawsvg
 lazy import ezdxf
 lazy import kiwisolver
@@ -75,30 +74,30 @@ type PointRun = tuple[Point, Point, *tuple[Point, ...]]
 type PointSet = tuple[Point, *tuple[Point, ...]]
 type Box = tuple[float, float, float, float]
 type Override = dict[str, object]
-type Fragment = "drawsvg.DrawingElement"  # one authored LAYERED geometry element
+type Fragment = "drawsvg.DrawingElement"
 type DimTag = Literal[
     "linear", "aligned", "angular2l", "angular3p", "angularcra", "radius", "diameter", "ordinate",
     "arc3p", "arccra", "chain", "baseline", "fcf", "datum_feature",
 ]
 type TolTag = Literal["auto", "custom", "symmetric", "deviation", "limits", "basic"]
-type MarkKind = Terminator | Literal["datum"]  # the ISO 129-1 ends plus the ISO 5459 datum triangle, which terminates no dimension line
-type DimArm = Callable[["Dimension"], tuple[tuple[LayerNode, ...], ArtifactReceipt]]  # the target-keyed lowering arm
-type GdtRow = tuple[str, float, "GdtModifier", "tuple[GdtZoneModifier, ...]", "tuple[GdtDatum, ...]"]  # one frame row
+type MarkKind = Terminator | Literal["datum"]
+type DimArm = Callable[["Dimension"], tuple[tuple[LayerNode, ...], ArtifactReceipt]]
+type GdtRow = tuple[str, float, "GdtModifier", "tuple[GdtZoneModifier, ...]", "tuple[GdtDatum, ...]"]
 
 
-class DimTarget(StrEnum):  # the dual-lowering egress — a new target is one `_ENGINES` row, never a subtype
-    DXF = "dxf"  # ezdxf Drawing.write CAD blob
-    SVG = "svg"  # SVGBackend.get_string native render
-    PDF = "pdf"  # PyMuPdfBackend.get_pdf_bytes native render
-    LAYERED = "layered"  # ezdxf.math + drawsvg + ziafont + typography/math Formula named graphic/layer rows
+class DimTarget(StrEnum):
+    DXF = "dxf"
+    SVG = "svg"
+    PDF = "pdf"
+    LAYERED = "layered"
 
 
-class OrdinateAxis(StrEnum):  # the ISO 129-1 ordinate measurement axis routing add_ordinate_{x,y}_dim
+class OrdinateAxis(StrEnum):
     X = "x"
     Y = "y"
 
 
-class GdtChar(StrEnum):  # ISO 1101 geometric characteristics — value is the DXF gdt-font code the TOLERANCE content embeds
+class GdtChar(StrEnum):
     STRAIGHTNESS = "u"
     FLATNESS = "c"
     CIRCULARITY = "e"
@@ -115,17 +114,17 @@ class GdtChar(StrEnum):  # ISO 1101 geometric characteristics — value is the D
     TOTAL_RUNOUT = "t"
 
     @property
-    def glyph(self) -> str:  # the unicode twin the LAYERED text layer outlines
+    def glyph(self) -> str:
         return _GDT_GLYPH[self]
 
 
-class GdtModifier(StrEnum):  # ISO 2692 material-condition modifiers — DXF gdt-font codes
-    NONE = ""  # regardless of feature size, the ISO 1101 default reading, drawing no compartment symbol
+class GdtModifier(StrEnum):
+    NONE = ""
     MMC = "m"
     LMC = "l"
 
 
-class GdtScope(StrEnum):  # the toleranced element a zone applies to — decides how the leader terminates
+class GdtScope(StrEnum):
     SURFACE = "surface"
     AXIS = "axis"
     MEDIAN_LINE = "median-line"
@@ -133,9 +132,7 @@ class GdtScope(StrEnum):  # the toleranced element a zone applies to — decides
     CENTER_POINT = "center-point"
 
 
-# Zone kinds and zone modifiers carry the WIRE key as their value and reach their drawn spelling through a table:
-# three zone kinds draw no prefix at all, so a glyph-valued member would alias them onto one enum row.
-class GdtZone(StrEnum):  # ISO 1101 zone kinds — the prefix rides `_ZONE_PREFIX`, the second dimension `GdtFrame.second`
+class GdtZone(StrEnum):
     BILATERAL = "bilateral"
     UNILATERAL = "unilateral"
     DIAMETER = "diameter"
@@ -149,7 +146,7 @@ class GdtZone(StrEnum):  # ISO 1101 zone kinds — the prefix rides `_ZONE_PREFI
         return _ZONE_PREFIX[self]
 
 
-class GdtZoneModifier(StrEnum):  # ISO 1101 zone modifiers — the compartment glyph rides `_ZONE_MOD_GLYPH`
+class GdtZoneModifier(StrEnum):
     TANGENT_PLANE = "tangent-plane"
     FREE_STATE = "free-state"
     STATISTICAL = "statistical"
@@ -171,16 +168,15 @@ class GdtZoneModifier(StrEnum):  # ISO 1101 zone modifiers — the compartment g
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_PRECISION: Final[int] = 3  # ziafont emitted-d-float places — the content-key determinism lever set once per offloaded arm
-_SAGITTA: Final[float] = 0.05  # LAYERED arc/circle flattening tolerance (mm) — ezdxf.math adaptive `.flattening` chord height
-_ARC_SPAN: Final[float] = 30.0  # reference-arc half-span (deg) a radial dimension draws around its leader angle
-_DIMS: Final[LayerName] = LayerName.of(Discipline.GENERAL, "DIMS")  # the one ISO 13567 layer every dimension row derives from
-_DATUM_LETTERS: Final[frozenset[str]] = frozenset("ABCDEFGHJKLMNPRSTUVWXYZ")  # ISO 5459 reference letters — I, O, Q excluded as digit-confusable
+_PRECISION: Final[int] = 3
+_SAGITTA: Final[float] = 0.05
+_ARC_SPAN: Final[float] = 30.0
+_DIMS: Final[LayerName] = LayerName.of(Discipline.GENERAL, "DIMS")
+_DATUM_LETTERS: Final[frozenset[str]] = frozenset("ABCDEFGHJKLMNPRSTUVWXYZ")
 _SECOND_DIMENSION: Final[frozenset["GdtZone"]] = frozenset({GdtZone.UNILATERAL, GdtZone.UNEQUALLY_DISPOSED, GdtZone.PROJECTED})
 
 
 def _canonized(raw: object) -> object:
-    # msgpack enc_hook: an Option field canonicalizes as its projected list — present `[value]`, absent `[]`.
     match raw:
         case Option():
             return raw.to_list()
@@ -188,25 +184,22 @@ def _canonized(raw: object) -> object:
             raise NotImplementedError(type(raw).__name__)
 
 
-_CANON: Final[Encoder] = Encoder(order="deterministic", enc_hook=_canonized)  # stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final[Encoder] = Encoder(order="deterministic", enc_hook=_canonized)
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class DimTol:
-    # ISO 129-1 dimensional-tolerance family every DimOp facet carries; lowered by mode to native dimtol/dimlim/MTextEditor, never a hand-formatted `± value` string.
     tag: TolTag = tag()
-    auto: None = case()  # the raw `<>` measurement
-    custom: str = case()  # an explicit override string
-    symmetric: float = case()  # a ± symmetric band -> dimtol
-    deviation: tuple[float, float] = case()  # upper/lower -> MTextEditor.stack
-    limits: tuple[float, float] = case()  # stacked max/min -> dimlim
-    basic: float = case()  # a boxed theoretically-exact value -> negative dimgap
+    auto: None = case()
+    custom: str = case()
+    symmetric: float = case()
+    deviation: tuple[float, float] = case()
+    limits: tuple[float, float] = case()
+    basic: float = case()
 
 
 def _admit_label(label: str, /) -> str:
-    # ISO 5459 spelling both ends compile: one reference letter, or a common datum as two DISTINCT letters joined by a
-    # hyphen. A class either end widens alone turns a producer-admitted frame into a consumer refusal.
     letters = label.split("-")
     if not 1 <= len(letters) <= 2 or any(letter not in _DATUM_LETTERS for letter in letters) or len(set(letters)) != len(letters):
         raise ValueError(f"datum label is one ISO 5459 letter, or two distinct letters hyphen-joined: {label!r}")
@@ -214,8 +207,6 @@ def _admit_label(label: str, /) -> str:
 
 
 class GdtDatum(Struct, frozen=True):
-    # one datum reference — its OWN material condition, never the frame's: folding the two drops a datum modifier
-    # off the drawn box, and precedence rides POSITION in `GdtFrame.datums` rather than a field that contradicts it.
     letter: str
     modifier: GdtModifier = GdtModifier.NONE
 
@@ -224,8 +215,6 @@ class GdtDatum(Struct, frozen=True):
 
 
 class GdtSegment(Struct, frozen=True):
-    # composite lower segment — a SECOND ROW inside the same box, carrying no kind of its own because its upper
-    # segment's zone governs both rows; datum letters here refine the upper system and never introduce a new one.
     tolerance: float
     modifiers: tuple[GdtZoneModifier, ...] = ()
     datums: tuple[GdtDatum, ...] = ()
@@ -236,33 +225,24 @@ class GdtSegment(Struct, frozen=True):
 
 
 class GdtOrigin(Struct, frozen=True):
-    # producer identity a DECODED frame carries — the characteristic id and the kind-tagged specification key, whole,
-    # each the corpus's own 16-byte column and the corpus `Egress` member. Kind rides beside the digest because two
-    # egress families mint equal digests over equal bytes, so a digest-only join merges two specifications; a locally
-    # authored frame carries no origin at all.
     characteristic_id: bytes
     source_kind: Egress
     source_digest: bytes
 
 
 class GdtFrame(Struct, frozen=True):
-    # one ISO 1101 feature-control frame — admission target of the corpus `fabrication.FeatureControl` message, and
-    # it carries every fact that message spells: a field the fold cannot seat is a fact dropped onto the drawing.
     characteristic: GdtChar
-    tolerance: float  # zone magnitude in millimetres, exact — decimal presentation is this drawing standard's
+    tolerance: float
     zone: GdtZone = GdtZone.BILATERAL
     scope: GdtScope = GdtScope.SURFACE
     modifier: GdtModifier = GdtModifier.NONE
     modifiers: tuple[GdtZoneModifier, ...] = ()
-    datums: tuple[GdtDatum, ...] = ()  # primary/secondary/tertiary, IN precedence order
-    second: Option[float] = Nothing  # the kind-borne second dimension — projected height or unilateral offset
+    datums: tuple[GdtDatum, ...] = ()
+    second: Option[float] = Nothing
     composite: Option[GdtSegment] = Nothing
     origin: Option[GdtOrigin] = Nothing
 
     def __post_init__(self) -> None:
-        # ISO 1101 admission at mint: a positive zone magnitude, at most three datum references distinct by letter,
-        # and a second dimension present exactly when its zone kind carries one — prefix, material condition, and
-        # zone modifiers ride their own typed fields, so no arm re-parses a joined compartment string.
         if not self.tolerance > 0.0:
             raise ValueError(f"gdt zone value is a positive magnitude: {self.tolerance!r}")
         letters = tuple(datum.letter for datum in self.datums)
@@ -273,11 +253,6 @@ class GdtFrame(Struct, frozen=True):
 
     @staticmethod
     def decode(raw: bytes, /) -> Result["GdtFrame", str]:
-        # ONE reader of the Fabrication wire: `FeatureControl.from_binary` is the whole parse — protobuf-py raises
-        # `ValueError` on a malformed body — and `_framed` the total fold onto this vocabulary, whose `__post_init__`
-        # refuses the one law the corpus rules cannot see, a datum letter outside ISO 5459. A corpus member this
-        # vocabulary has no name for raises `KeyError` off the name correspondence: a corpus edit this page has not
-        # absorbed, refused by name rather than drawn as a neighbour.
         try:
             return Result.Ok(_framed(FeatureControl.from_binary(raw)))
         except (ValueError, KeyError) as fault:
@@ -295,9 +270,6 @@ def _segment(wire: WireSegment, /) -> GdtSegment:
 
 
 def _framed(wire: FeatureControl, /) -> GdtFrame:
-    # the corpus message onto the drawing frame, field for field: every closed column lands by member NAME off the
-    # corpus enum, the kind-gated second dimension reads PRESENCE through `has_field` — the corpus CEL rule and
-    # `__post_init__` agree on exactly when it is set — and the composite lower row is the one `optional Segment`.
     return GdtFrame(
         GdtChar[wire.characteristic.name],
         wire.width_mm,
@@ -313,7 +285,6 @@ def _framed(wire: FeatureControl, /) -> GdtFrame:
 
 
 class DimBackend(Struct, frozen=True):
-    # Native ezdxf egress: the byte emitter over the lowered Drawing plus its receipt-shape discriminant.
     egress: "Callable[[Drawing, Modelspace, float, float], bytes]"
     kind: Literal["drawing", "pdf"]
 
@@ -347,8 +318,6 @@ class DimOp:
 
     @staticmethod
     def Angular2L(base: Point, line1: Segment, line2: Segment, family: DimStyleFamily, *, tol: DimTol = DimTol(auto=None)) -> "DimOp":
-        # parallel construction lines have no vertex to measure from — refused at admission through the page's
-        # ValueError family, so no downstream arm ever fabricates an apex for a measurement that does not exist.
         d1 = (line1[1][0] - line1[0][0], line1[1][1] - line1[0][1])
         d2 = (line2[1][0] - line2[0][0], line2[1][1] - line2[0][1])
         if abs(d1[0] * d2[1] - d1[1] * d2[0]) <= 1e-9 * float(np.hypot(*d1) * np.hypot(*d2)):
@@ -407,13 +376,11 @@ class DimOp:
 
     @staticmethod
     def Fcf(anchor: Point, insert: Point, frame: GdtFrame, family: DimStyleFamily) -> "DimOp":
-        # a GD&T op carries its zone tolerance inside `frame.tolerance` and the native TOLERANCE entity spells no
-        # dimensional DimTol, so neither GD&T constructor admits one — the silent-discard combination is unspellable.
         return DimOp(fcf=(anchor, insert, frame, family, DimTol(auto=None)))
 
     @staticmethod
     def DatumFeature(anchor: Point, insert: Point, letter: str, family: DimStyleFamily) -> "DimOp":
-        _admit_label(letter)  # the ISO 5459 spelling, the one class the frame wire and this symbol both compile
+        _admit_label(letter)
         return DimOp(datum_feature=(anchor, insert, letter, family, DimTol(auto=None)))
 
 
@@ -421,7 +388,6 @@ class DimOp:
 class Dimension(Struct, frozen=True):
     ops: tuple[DimOp, ...]
     standard: Standard
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     target: DimTarget = DimTarget.SVG
 
@@ -430,7 +396,7 @@ class Dimension(Struct, frozen=True):
     def over(
         cls, ops: DimOp | Iterable[DimOp], standard: Standard, /, *, lane: LanePolicy, target: DimTarget = DimTarget.SVG
     ) -> Self:
-        match ops:  # the one modal-arity head — a lone dimension is the singleton, an iterable the multi-dim set
+        match ops:
             case DimOp():
                 return cls(ops=(ops,), standard=standard, target=target, lane=lane)
             case _:
@@ -441,17 +407,10 @@ class Dimension(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key over the frozen INPUT spec, minted pre-run through the bare mint (`.of` is the railed form and never
-        # keys a plan) — never over rendered layer bytes; the lane is execution policy, outside the preimage.
         return ContentIdentity.key(f"drawing-dimension-{self.target}", _CANON.encode((self.ops, self.standard, self.target)))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # offload rails the synchronous fold itself; the returned rail composes — never re-raised for a second boundary.
         settled = (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(lambda pair: pair[1])
-        # one durable fact per produced dimension set, whichever case the target minted: a drawing and a PDF are both
-        # `OPERATIONAL` production trail whose byte volume charges `STORAGE`, and `evidence` is total over the roster
-        # so no arm here spells a kind. Recording suspends, so the seat is this awaitable fold — `layered()` crosses
-        # the lane a second time for the layer tree and records nothing.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -459,7 +418,6 @@ class Dimension(Struct, frozen=True):
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # Engine rows as one LayerPlan tree — substrate data the layered/sheet consumers compose, not the producer rail.
         return (await self.lane.offload(Kernel.of(_layered, KernelTrait.RELEASING), self)).map(
             lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
         )
@@ -467,7 +425,7 @@ class Dimension(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _facets(op: DimOp, /) -> tuple[DimStyleFamily, DimTol]:
-    match op:  # every case's (family, tol) is its last two payload slots; one total projection
+    match op:
         case (
             DimOp(tag="linear", linear=(*_, family, tol))
             | DimOp(tag="aligned", aligned=(*_, family, tol))
@@ -490,13 +448,13 @@ def _facets(op: DimOp, /) -> tuple[DimStyleFamily, DimTol]:
 
 
 def _tol_over(tol: DimTol, /) -> Override:
-    match tol:  # the ISO 129-1 tolerance -> native DIM-variable dict; deviation renders via stacked text
+    match tol:
         case DimTol(tag="symmetric", symmetric=pm):
             return {"dimtol": 1, "dimtp": pm, "dimtm": pm}
         case DimTol(tag="limits", limits=(upper, lower)):
             return {"dimlim": 1, "dimtp": upper, "dimtm": lower}
         case DimTol(tag="basic"):
-            return {"dimgap": -0.9}  # negative DIMGAP boxes the theoretically-exact value
+            return {"dimgap": -0.9}
         case DimTol(tag="auto") | DimTol(tag="custom") | DimTol(tag="deviation"):
             return {}
         case _ as unreachable:
@@ -504,7 +462,7 @@ def _tol_over(tol: DimTol, /) -> Override:
 
 
 def _dim_text(tol: DimTol, /) -> str:
-    match tol:  # the native measurement text; deviation stacks the upper/lower band onto the `<>` measurement
+    match tol:
         case DimTol(tag="custom", custom=text):
             return text
         case DimTol(tag="basic", basic=value):
@@ -518,13 +476,10 @@ def _dim_text(tol: DimTol, /) -> str:
 
 
 def _gdt_datum(datum: GdtDatum, /) -> str:
-    # a datum cell carries its OWN material condition, so a datum at MMC keeps its modifier on the drawn frame.
     return datum.letter + (f"{{\\Fgdt;{datum.modifier.value}}}" if datum.modifier is not GdtModifier.NONE else "")
 
 
 def _gdt_rows(frame: GdtFrame, /) -> tuple[GdtRow, ...]:
-    # upper segment and composite lower segment project onto ONE row shape, so every GD&T render folds one sequence
-    # and no arm can forget the lower row; the upper segment's zone kind governs both, so no row carries a kind.
     return (
         (frame.characteristic.value, frame.tolerance, frame.modifier, frame.modifiers, frame.datums),
         *(("", segment.tolerance, GdtModifier.NONE, segment.modifiers, segment.datums) for segment in frame.composite.to_list()),
@@ -532,9 +487,6 @@ def _gdt_rows(frame: GdtFrame, /) -> tuple[GdtRow, ...]:
 
 
 def _gdt_content(frame: GdtFrame, places: int, /) -> str:
-    # TOLERANCE entity content grammar: {\Fgdt;<char>} symbol cell, %%v compartment separators, ⌀ and material
-    # condition as gdt codes, and the composite lower segment as the `^J` SECOND LINE the entity already spells — a
-    # second entity beside it would draw two boxes where ISO 1101 draws one.
     return "^J".join(
         "%%v".join((
             f"{{\\Fgdt;{symbol}}}" if symbol else "",
@@ -546,7 +498,6 @@ def _gdt_content(frame: GdtFrame, places: int, /) -> str:
 
 
 def _shifted(base: Point, p1: Point, p2: Point, offset: Option[float], /) -> Point:
-    # shift the dimension line perpendicular to the measured direction by the solved stack offset.
     direction = np.asarray(p2) - np.asarray(p1)
     normal = np.array([-direction[1], direction[0]])
     unit = normal / (float(np.hypot(*normal)) or 1.0)
@@ -555,9 +506,6 @@ def _shifted(base: Point, p1: Point, p2: Point, offset: Option[float], /) -> Poi
 
 
 def _stack(dim: Dimension, /) -> Map[int, float]:
-    # one kiwisolver.Solver over the stackable (linear/aligned/baseline) offsets: a required anchor, a required DIMDLI
-    # min-separation, and a custom strength.create equal-gap band above plain weak; a dense chain that collapses the
-    # distribution falls back to fixed DIMDLI stepping.
     lanes = tuple(index for index, op in enumerate(dim.ops) if op.tag in ("linear", "aligned", "baseline"))
     if len(lanes) < 2:
         return Map.empty()
@@ -568,7 +516,7 @@ def _stack(dim: Dimension, /) -> Map[int, float]:
     gap = kiwisolver.strength.create(0.0, 1.0, 0.0, 4.0)
     even = tuple((offsets[upper] - offsets[lower] == step) | gap for lower, upper in pairwise(lanes))
     solver.addConstraint(offsets[lanes[0]] == step)
-    for (lower, upper), soft in zip(pairwise(lanes), even, strict=True):  # Exemption: kiwisolver.Solver is the stateful native sink
+    for (lower, upper), soft in zip(pairwise(lanes), even, strict=True):
         solver.addConstraint(offsets[upper] - offsets[lower] >= step)
         solver.addConstraint(soft)
     solver.updateVariables()
@@ -578,12 +526,10 @@ def _stack(dim: Dimension, /) -> Map[int, float]:
 
 
 def _lower(msp: "Modelspace", op: DimOp, standard: Standard, offset: Option[float], /) -> None:
-    # one total dispatch onto the verified ezdxf ISO 129-1 builder family; every builder but the
-    # self-rendering add_multi_point_linear_dim returns a DimStyleOverride whose .render() authors geometry.
     family, tol = _facets(op)
     over = dict(standard.dimstyle(family)) | _tol_over(tol)
     text, style = _dim_text(tol), family.value
-    match op:  # Exemption: ezdxf Modelspace is the GraphicsFactory sink; add_* + .render() mutate the layout in place
+    match op:
         case DimOp(tag="linear", linear=(base, p1, p2, angle, _family, _tol)):
             msp.add_linear_dim(base=_shifted(base, p1, p2, offset), p1=p1, p2=p2, angle=angle, text=text, dimstyle=style, override=over).render()
         case DimOp(tag="aligned", aligned=(p1, p2, distance, _family, _tol)):
@@ -614,7 +560,7 @@ def _lower(msp: "Modelspace", op: DimOp, standard: Standard, offset: Option[floa
             msp.add_multi_point_linear_dim(base=base, points=list(points), angle=angle, dimstyle=style, override=over)
         case DimOp(tag="baseline", baseline=(base, datum, points, angle, _family, _tol)):
             step = float(over.get("dimdli", 8.0))
-            for index, point in enumerate(points):  # Exemption: baseline has no single ezdxf builder; each line steps by DIMDLI from one datum
+            for index, point in enumerate(points):
                 msp.add_linear_dim(
                     base=_shifted(base, datum, point, Some(offset.default_value(step) + index * step)),
                     p1=datum,
@@ -637,7 +583,6 @@ def _lower(msp: "Modelspace", op: DimOp, standard: Standard, offset: Option[floa
 
 
 def _lowered(dim: Dimension, /) -> tuple["Drawing", "Modelspace", int]:
-    # seed the ISO resources, solve the offset stack once, fold every DimOp onto its builder — the shared native lowering the DXF/SVG/PDF engines egress differently.
     doc = ezdxf.new("R2018", setup=True)
     msp = doc.modelspace()
     families = tuple(dict.fromkeys(_facets(op)[0] for op in dim.ops))
@@ -654,7 +599,7 @@ def _page(width: float, height: float, /) -> "dxflayout.Page":
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 def _endpoints(op: DimOp, /) -> Segment:
-    match op:  # the measured start/finish each case's construction geometry and text anchor read
+    match op:
         case DimOp(tag="linear", linear=(_base, p1, p2, *_)):
             return p1, p2
         case DimOp(tag="aligned", aligned=(p1, p2, *_)):
@@ -693,7 +638,6 @@ def _polar(center: Point, radius: float, angle: float, /) -> Point:
 
 
 def _angle_of(center: Point, point: Point, /) -> float:
-    # CCW degree angle from `center` to `point` — the inverse of `_polar`, feeding the ConstructionArc span
     return float(np.degrees(np.arctan2(point[1] - center[1], point[0] - center[0])))
 
 
@@ -719,12 +663,10 @@ def _tangent(center: Point, point: Point, /) -> Point:
 
 
 def _arc_verts(construction: object, /) -> tuple[Point, ...]:
-    # an ezdxf.math ConstructionArc/ConstructionCircle adaptively flattened to a `(x, y)` polyline — materialized once so the same vertices draw the fragment AND bound the envelope.
     return tuple((float(v.x), float(v.y)) for v in construction.flattening(_SAGITTA))
 
 
 def _measured(op: DimOp, /) -> tuple[Segment, Point]:
-    # Measured segment and its unit normal — the perpendicular the offset stack and witness geometry shift along.
     start, finish = _endpoints(op)
     direction = np.asarray(finish) - np.asarray(start)
     normal = np.array([-direction[1], direction[0]])
@@ -737,8 +679,6 @@ def _offset(point: Point, normal: Point, distance: float, /) -> Point:
 
 
 def _chain_line(op: DimOp, shift: float, /) -> tuple[Point, Point, Point]:
-    # chain dimension-line mirror of native `add_multi_point_linear_dim`: through `base` at the declared `angle`,
-    # shifted by the `_stack`-solved offset along the angle normal — never the raw point run's own direction.
     base, _points, angle, *_ = op.chain
     direction = _polar((0.0, 0.0), 1.0, angle)
     normal = (-direction[1], direction[0])
@@ -746,8 +686,6 @@ def _chain_line(op: DimOp, shift: float, /) -> tuple[Point, Point, Point]:
 
 
 def _chain_anchor(op: DimOp, point: Point, shift: float, /) -> Point:
-    # a measured point's seat ON the chain dimension line — the affine projection, so a pairwise midpoint projects
-    # onto the midpoint of its projected anchors and text, terminators, and construction all share one line.
     origin, direction, _normal = _chain_line(op, shift)
     along = (point[0] - origin[0]) * direction[0] + (point[1] - origin[1]) * direction[1]
     return (origin[0] + direction[0] * along, origin[1] + direction[1] * along)
@@ -794,25 +732,19 @@ def _scene_points(op: DimOp, /) -> tuple[Point, ...]:
 
 
 def _places(over: Override, /) -> int:
-    # decimal presentation is THIS standard's DIMDEC, never a producer-side rounding riding in on the wire.
     return int(over.get("dimdec", 2))
 
 
 def _gdt_magnitude(magnitude: float, places: int, /) -> str:
-    # DIMDEC sets presentation and presentation never destroys the value: a zone that rounds away at the drawing's own
-    # precision renders shortest-round-trip instead, since a drawn zero reads as perfect form rather than as a zone.
     rounded = f"{magnitude:.{places}f}"
     return rounded if float(rounded) > 0.0 else f"{magnitude:g}"
 
 
 def _gdt_zone(zone: GdtZone, magnitude: float, material: GdtModifier, modifiers: tuple[GdtZoneModifier, ...], places: int, /) -> str:
-    # one zone-compartment spelling every GD&T consumer reads — kind prefix, magnitude, material-condition glyph,
-    # then zone modifiers in wire order, each a typed field rather than a substring anyone re-parses.
     return zone.prefix + _gdt_magnitude(magnitude, places) + _MOD_GLYPH[material] + "".join(modifier.glyph for modifier in modifiers)
 
 
 def _gdt_texts(frame: GdtFrame, row: GdtRow, places: int, /) -> tuple[str, ...]:
-    # LAYERED twin of `_gdt_content`'s compartments — outlined glyphs where the entity spells gdt-font codes.
     symbol, magnitude, material, modifiers, datums = row
     return (
         frame.characteristic.glyph if symbol else "",
@@ -822,15 +754,10 @@ def _gdt_texts(frame: GdtFrame, row: GdtRow, places: int, /) -> tuple[str, ...]:
 
 
 def _gdt_widths(texts: tuple[str, ...], cell: float, /) -> tuple[float, ...]:
-    # a compartment is one cell wide unless its text outgrows it, so a long zone or a modifier-bearing datum widens
-    # its own box instead of overflowing a fixed one.
     return tuple(max(len(text) * cell * 0.35, cell) for text in texts)
 
 
 def _gdt_cells(op: DimOp, over: Override, /) -> tuple[tuple[str, Box], ...]:
-    # one ISO 1101 compartment derivation both the construction outlines and the per-cell text seats read: each cell
-    # is (content, box) off a single edge fold, so a compartment gains its frame and its centred text from one row, a
-    # composite frame STACKS its lower segment beneath the upper one, and a non-GD&T case yields no cells.
     cell = float(over.get("dimtxt", 2.5)) * 2.0
     match op:
         case DimOp(tag="fcf", fcf=(_anchor, insert, frame, *_)):
@@ -848,7 +775,7 @@ def _gdt_cells(op: DimOp, over: Override, /) -> tuple[tuple[str, Box], ...]:
 
 
 def _text_anchor(op: DimOp, /) -> Point:
-    match op:  # a GD&T leader seats at the frame insert — per-cell text centres derive through `_gdt_cells`; every dimensional case centres on the measured span
+    match op:
         case DimOp(tag="fcf", fcf=(_anchor, insert, *_)) | DimOp(tag="datum_feature", datum_feature=(_anchor, insert, *_)):
             return insert
         case DimOp(
@@ -878,7 +805,7 @@ def _annotation_text(op: DimOp, tol: DimTol, /) -> str:
 
 
 def _resolved_text(measurement: str, tol: DimTol, /) -> str:
-    match tol:  # an explicit override wins; else the true measured value per case
+    match tol:
         case DimTol(tag="custom", custom=text):
             return text
         case DimTol(tag="basic", basic=value):
@@ -892,12 +819,8 @@ def _resolved_text(measurement: str, tol: DimTol, /) -> str:
 def _annotations(op: DimOp, tol: DimTol, over: Override, /) -> tuple[tuple[str, Point], ...]:
     match op:
         case DimOp(tag="fcf") | DimOp(tag="datum_feature"):
-            # ISO 1101 per-compartment seating: each characteristic, zone, and datum text centres in ITS cell off the
-            # shared `_gdt_cells` fold — never the whole frame string dropped at the insert corner.
             return tuple((text, ((x0 + x1) / 2.0, (y0 + y1) / 2.0)) for text, (x0, y0, x1, y1) in _gdt_cells(op, over))
         case DimOp(tag="chain", chain=(_base, points, angle, *_)):
-            # native chain parity: each segment value is the distance PROJECTED along the angle direction — the
-            # measurement `add_multi_point_linear_dim` renders — never the raw euclidean point spacing.
             direction = _polar((0.0, 0.0), 1.0, angle)
             return tuple(
                 (
@@ -934,15 +857,12 @@ def _annotations(op: DimOp, tol: DimTol, over: Override, /) -> tuple[tuple[str, 
 
 
 def _measurement(op: DimOp, /) -> str:
-    # Layered auto value per case — length, R/⌀, angular degrees, ⌢ arc length — never an empty arm for an admitted case.
     match op:
         case DimOp(tag="radius", radius=(_center, radius, *_)):
             return f"R{radius:g}"
         case DimOp(tag="diameter", diameter=(_center, radius, *_)):
             return f"⌀{radius * 2.0:g}"
         case DimOp(tag="angular2l", angular2l=(_base, line1, line2, *_)):
-            # normalize over the full turn THEN take the smaller ray angle — a bare `% 180` folds antiparallel
-            # lines (spread exactly 180°) onto 0°, erasing the measurement.
             turn = abs(_angle_of(line1[0], line1[1]) - _angle_of(line2[0], line2[1])) % 360.0
             return f"{min(turn, 360.0 - turn):.1f}°"
         case DimOp(tag="angular3p", angular3p=(base, center, p1, p2, *_)):
@@ -955,13 +875,10 @@ def _measurement(op: DimOp, /) -> str:
         case DimOp(tag="arccra", arccra=(_center, radius, start, end, *_)):
             return f"⌢{radius * float(np.deg2rad((end - start) % 360.0)):.1f}"
         case DimOp(tag="fcf", fcf=(_anchor, _insert, frame, *_)):
-            # every row of the frame reads as ONE run here — a composite lower segment dropped from the measured
-            # value reports a looser tolerance than the frame specifies.
             return "  ".join(" ".join(_gdt_texts(frame, row, _PRECISION)).strip() for row in _gdt_rows(frame))
         case DimOp(tag="datum_feature", datum_feature=(_anchor, _insert, letter, *_)):
             return letter
         case DimOp(tag="ordinate", ordinate=(feature, _leader, axis, origin, *_)):
-            # ordinate value IS the datum-relative coordinate along the measured axis — never the leader length
             return f"{(feature[0] - origin[0]) if axis is OrdinateAxis.X else (feature[1] - origin[1]):g}"
         case (
             DimOp(tag="linear")
@@ -976,7 +893,7 @@ def _measurement(op: DimOp, /) -> str:
 
 
 def _tol_latex(tol: DimTol, /) -> Option[str]:
-    match tol:  # every non-auto tolerance mode typesets — symmetric/deviation/limits/basic all reach the math layer
+    match tol:
         case DimTol(tag="symmetric", symmetric=pm):
             return Some(rf"\pm{pm:g}")
         case DimTol(tag="deviation", deviation=(upper, lower)):
@@ -992,17 +909,15 @@ def _tol_latex(tol: DimTol, /) -> Option[str]:
 
 
 def _lines(points: Iterable[Point], /, *, close: bool = False, fill: str = "none") -> Fragment:
-    # one drawsvg polyline author — never a hand-formatted `<path d>` string.
     flat = tuple(coordinate for point in points for coordinate in point)
     return drawsvg.Lines(*flat, close=close, fill=fill)
 
 
 def _layer_bytes(fragments: Iterable[Fragment], box: Box, pen: str, width: float, /) -> bytes:
-    # one penned drawsvg group per layer so the lines actually stroke; a filled mark overrides fill per element.
     xmin, ymin, xmax, ymax = box
     canvas = drawsvg.Drawing(max(xmax - xmin, 1.0), max(ymax - ymin, 1.0), origin=(xmin, ymin))
     group = drawsvg.Group(stroke=pen, stroke_width=width, fill="none")
-    for fragment in fragments:  # Exemption: drawsvg Group is the mutable child-list sink
+    for fragment in fragments:
         group.append(fragment)
     canvas.append(group)
     return canvas.as_svg().encode()
@@ -1016,21 +931,16 @@ def _canvas(box: Box, /) -> Element:
 
 
 def _pen(standard: Standard, /) -> str:
-    # ISO 13567 DIMS-layer discipline pen resolved to sRGB hex through Standard.rgb — the ONE colour every layer shares.
     red, green, blue = standard.rgb(_DIMS)
     return f"#{red:02x}{green:02x}{blue:02x}"
 
 
 def _outline_font(standard: Standard, /) -> "ziafont.Font":
-    # ziafont reads sfnt only — a profile naming an .shx CAD font falls to the bundled face, never a parse fault.
     named = standard.font.to_optional()
     return ziafont.Font(named if named is not None and named.endswith((".ttf", ".otf")) else None)
 
 
 def _terminator_kind(over: Override, /) -> Terminator:
-    # the ISO 129-1 end recovered from the LOWERED variables, so the layered arm draws exactly what the native arm
-    # renders: a positive DIMTSZ is the oblique tick the dimension consumer takes instead of a block, and every other
-    # end matches the regime row whose block name the override carries — an absent DIMBLK IS the filled default.
     if float(over.get("dimtsz", 0.0)) > 0.0:
         return Terminator.OBLIQUE_STROKE
     block = str(over.get("dimblk", ""))
@@ -1038,8 +948,6 @@ def _terminator_kind(over: Override, /) -> Terminator:
 
 
 def _terminator_anchors(op: DimOp, /) -> tuple[tuple[Point, Point], ...]:
-    # per-case (point, outward tangent) pairs — a curved dimension arrows tangent to the arc it measures, a radial
-    # leader arrows at its edge alone, a GD&T frame arrows at its feature anchor.
     match op:
         case DimOp(tag="radius", radius=(center, radius, angle, *_)):
             edge = _polar(center, radius, angle)
@@ -1055,7 +963,6 @@ def _terminator_anchors(op: DimOp, /) -> tuple[tuple[Point, Point], ...]:
         case DimOp(tag="fcf", fcf=(anchor, insert, *_)) | DimOp(tag="datum_feature", datum_feature=(anchor, insert, *_)):
             return ((anchor, _unit(insert, anchor)),)
         case DimOp(tag="chain", chain=(_base, points, angle, *_)):
-            # chain marks align to the base/angle dimension line the anchors project onto, never the raw point-run direction.
             direction = _polar((0.0, 0.0), 1.0, angle)
             return tuple(
                 anchor
@@ -1068,7 +975,7 @@ def _terminator_anchors(op: DimOp, /) -> tuple[tuple[Point, Point], ...]:
                 for point in points
                 for anchor in ((datum, tuple(-axis for axis in _unit(datum, point))), (point, _unit(datum, point)))
             )
-        case DimOp(tag="ordinate"):  # ISO 129-1 ordinate leaders terminate bare — no mark on either end
+        case DimOp(tag="ordinate"):
             return ()
         case DimOp(tag="linear") | DimOp(tag="aligned") | DimOp(tag="angular2l"):
             (start, finish), _normal = _measured(op)
@@ -1079,25 +986,23 @@ def _terminator_anchors(op: DimOp, /) -> tuple[tuple[Point, Point], ...]:
 
 
 def _mark(point: Point, tangent: Point, size: float, width: float, kind: MarkKind, pen: str, /) -> Fragment:
-    # Self-contained ISO 129-1 terminator — filled arrow / oblique tick / dot / origin circle / open chevron /
-    # datum triangle; a tapered variable-width terminator composes region outline, the filled default stays here.
     px, py = point
     normal = (-tangent[1], tangent[0])
     wing1 = (px - tangent[0] * size + normal[0] * size * 0.3, py - tangent[1] * size + normal[1] * size * 0.3)
     wing2 = (px - tangent[0] * size - normal[0] * size * 0.3, py - tangent[1] * size - normal[1] * size * 0.3)
     match kind:
-        case Terminator.OBLIQUE_STROKE:  # the 45-degree architectural tick, stroked
+        case Terminator.OBLIQUE_STROKE:
             lead = (tangent[0] + normal[0], tangent[1] + normal[1])
             return drawsvg.Line(
                 px - lead[0] * size * 0.5, py - lead[1] * size * 0.5, px + lead[0] * size * 0.5, py + lead[1] * size * 0.5, stroke=pen, stroke_width=width
             )
         case Terminator.DOT:
             return drawsvg.Circle(px, py, size * 0.25, fill=pen)
-        case Terminator.ORIGIN_INDICATION:  # the ISO ordinate/chain origin indication — a small open circle
+        case Terminator.ORIGIN_INDICATION:
             return drawsvg.Circle(px, py, size * 0.4, fill="none", stroke=pen, stroke_width=width)
         case Terminator.OPEN_ARROW:
             return _lines((wing1, point, wing2))
-        case "datum" | Terminator.FILLED_ARROW:  # the ISO 5459 datum triangle and the filled arrowhead share one solid
+        case "datum" | Terminator.FILLED_ARROW:
             return _lines((point, wing1, wing2), close=True, fill=pen)
         case Terminator.NONE:
             return drawsvg.Group()
@@ -1106,18 +1011,14 @@ def _mark(point: Point, tangent: Point, size: float, width: float, kind: MarkKin
 
 
 def _construction(op: DimOp, over: Override, shift: float = 0.0, /) -> tuple[Block[Fragment], Box]:
-    # LAYERED geometry from the ezdxf.math construction kernel — never hand-rolled trig. A CURVED dimension
-    # decomposes to the ARC/CIRCLE it MEASURES; an ordinate to its axis dogleg; a GD&T case to leader + frame boxes.
-    # `shift` is the `_stack`-solved dimension-line offset, so the layered target shares the SAME DIMDLI
-    # separation the native target renders — one solved offset map governs every target.
     match op:
         case DimOp(tag="diameter", diameter=(center, radius, angle, *_)):
             edge, far = _polar(center, radius, angle), _polar(center, radius, angle + 180.0)
-            verts = _arc_verts(ezmath.ConstructionCircle(center, radius))  # the ⌀ diametric leader + the measured circle
+            verts = _arc_verts(ezmath.ConstructionCircle(center, radius))
             return Block.of_seq((_lines(verts), _lines((far, edge)))), _bounds((*verts, edge, far))
         case DimOp(tag="radius", radius=(center, radius, angle, *_)):
             edge = _polar(center, radius, angle)
-            verts = _arc_verts(ezmath.ConstructionArc(center, radius, angle - _ARC_SPAN, angle + _ARC_SPAN))  # the R leader + its reference arc
+            verts = _arc_verts(ezmath.ConstructionArc(center, radius, angle - _ARC_SPAN, angle + _ARC_SPAN))
             return Block.of_seq((_lines(verts), _lines((center, edge)))), _bounds((*verts, center, edge))
         case DimOp(tag="angular3p", angular3p=(base, center, p1, p2, *_)) | DimOp(tag="arc3p", arc3p=(base, center, p1, p2, *_)):
             radius = float(np.hypot(p1[0] - center[0], p1[1] - center[1]))
@@ -1130,7 +1031,7 @@ def _construction(op: DimOp, over: Override, shift: float = 0.0, /) -> tuple[Blo
             return Block.of_seq((_lines(verts), _lines((center, lo_pt)), _lines((center, hi_pt)))), _bounds((*verts, center, lo_pt, hi_pt))
         case DimOp(tag="angular2l", angular2l=(_base, line1, line2, *_)):
             vertex = ezmath.ConstructionLine(line1[0], line1[1]).intersect(ezmath.ConstructionLine(line2[0], line2[1]))
-            if vertex is None:  # unreachable past the Angular2L parallel refusal; a numeric near-parallel edge still refuses typed
+            if vertex is None:
                 raise ValueError(f"angular2l lines are parallel: {line1!r} {line2!r}")
             apex = (float(vertex.x), float(vertex.y))
             radius = float(np.hypot(line1[1][0] - apex[0], line1[1][1] - apex[1]))
@@ -1140,23 +1041,17 @@ def _construction(op: DimOp, over: Override, shift: float = 0.0, /) -> tuple[Blo
             knee = (feature[0], leader_end[1]) if axis is OrdinateAxis.X else (leader_end[0], feature[1])
             return Block.singleton(_lines((feature, knee, leader_end))), _bounds((feature, knee, leader_end))
         case DimOp(tag="fcf", fcf=(anchor, insert, *_)) | DimOp(tag="datum_feature", datum_feature=(anchor, insert, *_)):
-            # both GD&T outlines derive from the same `_gdt_cells` fold the per-cell text seats read, so frame
-            # geometry and text placement cannot drift apart.
             cells = _gdt_cells(op, over)
             boxes = Block.of_seq(_lines(((x0, y0), (x1, y0), (x1, y1), (x0, y1)), close=True) for _text, (x0, y0, x1, y1) in cells)
             far = cells[-1][1]
             return boxes.cons(_lines((anchor, insert))), _bounds((anchor, insert, (far[2], far[3])))
         case DimOp(tag="chain", chain=(_base, points, *_)):
-            # native `add_multi_point_linear_dim` parity: chain segments ride the base/angle dimension line at the
-            # solved offset, each measured point contributing one extension line up to its projected anchor plus DIMEXE.
             ext = float(over.get("dimexe", 1.25))
             anchors = tuple(_chain_anchor(op, point, shift) for point in points)
             _origin, _direction, normal = _chain_line(op, shift)
             witnesses = Block.of_seq(_lines((point, _offset(anchor, normal, ext))) for point, anchor in zip(points, anchors, strict=True))
             return witnesses.append(Block.of_seq(_lines(pair) for pair in pairwise(anchors))), _bounds((*points, *anchors))
         case DimOp(tag="baseline", baseline=(_base, datum, points, *_)):
-            # Solved shift plus the DIMDLI lane fan mirror the native per-line stepping, so each layered baseline
-            # lane sits on the parallel dimension line `_lower` renders at that offset.
             step = float(over.get("dimdli", 8.0))
             _, normal = _measured(op)
             lanes = tuple((_offset(datum, normal, shift + rank * step), _offset(point, normal, shift + rank * step)) for rank, point in enumerate(points))
@@ -1171,12 +1066,8 @@ def _construction(op: DimOp, over: Override, shift: float = 0.0, /) -> tuple[Blo
 
 
 def _stack_shift(op: DimOp, shift: float, point: Point, /, *, lane: int = 0, step: float = 0.0) -> Point:
-    # translate a stackable case's anchor along its measured normal by the `_stack`-solved offset — a baseline anchor
-    # adds its `lane` ordinal times DIMDLI, the native per-line stepping; a chain anchor instead PROJECTS onto its
-    # base/angle dimension line — so terminators, measurement text, and tolerance text land on the SAME shifted
-    # dimension line the construction drew.
     if op.tag == "chain":
-        return _chain_anchor(op, point, shift)  # projection, never a bare translation: even at zero shift the anchor seats on the base line
+        return _chain_anchor(op, point, shift)
     if op.tag not in ("linear", "aligned", "baseline"):
         return point
     distance = shift + (lane * step if op.tag == "baseline" else 0.0)
@@ -1187,9 +1078,6 @@ def _stack_shift(op: DimOp, shift: float, point: Point, /, *, lane: int = 0, ste
 
 
 def _terminator_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int, float] = Map.empty(), /) -> bytes:
-    # each terminator drawn as a self-contained mark at the anchor its case terminates on, aligned to that case's tangent;
-    # the caller-computed envelope is the ONE canvas box every sublayer shares, so stacked or extended geometry never clips
-    # and the layers register onto one coordinate frame.
     fragments: Block[Fragment] = Block.empty()
     for index, op in enumerate(dim.ops):
         over = dim.standard.dimstyle(_facets(op)[0])
@@ -1197,7 +1085,7 @@ def _terminator_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int,
         size, width = float(over.get("dimasz", 2.5)), max(float(over.get("dimtxt", 2.5)) * 0.1, 0.13)
         kind: MarkKind = "datum" if op.tag == "datum_feature" else _terminator_kind(over)
         step = float(over.get("dimdli", 8.0))
-        marks = Block.of_seq(  # baseline anchors arrive in datum/point pairs per lane, so `rank // 2` is the lane ordinal
+        marks = Block.of_seq(
             _mark(_stack_shift(op, shift, point, lane=rank // 2, step=step), tangent, size, width, kind, pen)
             for rank, (point, tangent) in enumerate(_terminator_anchors(op))
         )
@@ -1206,10 +1094,8 @@ def _terminator_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int,
 
 
 def _annotation_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int, float] = Map.empty(), /) -> bytes:
-    # ISO 3098 measurement text outlined to font-independent <path> through ziafont; getsize() centres the run on the
-    # anchor and getyofst() lifts its baseline so the text floats ABOVE the dimension line.
     font, canvas = _outline_font(dim.standard), _canvas(envelope)
-    for index, op in enumerate(dim.ops):  # Exemption: ziafont Text.drawon composes <symbol> defs into the mutable ET canvas
+    for index, op in enumerate(dim.ops):
         family, tol = _facets(op)
         over = dim.standard.dimstyle(family)
         shift = offsets.try_find(index).default_value(0.0)
@@ -1222,10 +1108,8 @@ def _annotation_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int,
 
 
 def _tolerance_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int, float] = Map.empty(), /) -> bytes:
-    # every non-auto DimTol typesets through the typography/math Formula owner — never a second ziamath import —
-    # and `seat` resolves the seated origin so the tolerance clears the value to the right, never colliding with it.
     canvas = _canvas(envelope)
-    for index, op in enumerate(dim.ops):  # Exemption: the equation fragments compose into the mutable ET canvas
+    for index, op in enumerate(dim.ops):
         family, tol = _facets(op)
         over = dim.standard.dimstyle(family)
         shift = offsets.try_find(index).default_value(0.0)
@@ -1242,8 +1126,6 @@ def _tolerance_bytes(dim: Dimension, pen: str, envelope: Box, offsets: Map[int, 
                         node.set("y", f"{sy:g}")
                         canvas.append(node)
                     case Result(tag="error", error=fault):
-                        # terminal collapse: the refusal raises so the offload lane folds it onto the owning rail —
-                        # a layered receipt never omits a tolerance the spec demanded.
                         raise ValueError(f"tolerance typeset refused: {op.tag} {expr}: {fault}")
                     case _ as unreachable:
                         assert_never(unreachable)
@@ -1297,9 +1179,6 @@ _ZONE_MOD_GLYPH: Final[Map[GdtZoneModifier, str]] = Map.of_seq([
     (GdtZoneModifier.LEAST_SQUARES, "Ⓖ"),
     (GdtZoneModifier.MINIMAX_TANGENT, "Ⓝ"),
 ])
-# the ONE correspondence the name derivation cannot carry: the corpus `Material` spells the ISO 1101 default reading
-# `REGARDLESS`, which this vocabulary draws as `NONE` with no compartment symbol, so the three rows state it once and
-# every other closed column lands by member name with no table at all.
 _MATERIAL: Final[Map[Material, GdtModifier]] = Map.of_seq([
     (Material.REGARDLESS, GdtModifier.NONE),
     (Material.MAXIMUM, GdtModifier.MMC),
@@ -1334,24 +1213,19 @@ _BACKENDS: frozendict[DimTarget, DimBackend] = frozendict({
 
 def _native(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
     doc, msp, count = _lowered(dim)
-    # the lowered layout IS the whole drawing here, so the measured span stands alone and states no fallback hull.
     width, height = extent(msp)
     backend = _BACKENDS[dim.target]
     data = backend.egress(doc, msp, width, height)
     receipt: ArtifactReceipt = (
         ArtifactReceipt.Pdf(dim._key, len(data), 1)
         if backend.kind == "pdf"
-        # `style` names the LOWERING, not the caller's `DimStyleFamily`: the family is an echoed request knob the
-        # content key already folds, while every native target here renders through the one ezdxf document.
         else ArtifactReceipt.Drawing(dim._key, "dimension", count, "ezdxf", round(width), round(height), len(data))
     )
     return (LayerNode.Annotation(f"dimension.{dim.target.value}", data, aec=Some(_DIMS)),), receipt
 
 
 def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    # decompose each dimension into named editable layers over the component authors — geometry buckets every op's
-    # construction fragments; terminator/text/tolerance ride their own rows in z order.
-    ziafont.config.precision = _PRECISION  # once inside the offload lane — deterministic d-floats -> stable content key; math precision is Formula-owned config
+    ziafont.config.precision = _PRECISION
     geometry, pen = Block.empty(), _pen(dim.standard)
     envelope, offsets = _scene_box(dim), _stack(dim)
     for index, op in enumerate(dim.ops):
@@ -1359,8 +1233,6 @@ def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
         geometry = geometry.append(fragments)
         envelope = _union(envelope, box)
     rows = (
-        # ONE envelope — scene box unioned with every construction box — feeds all four sublayers, so extended
-        # geometry never clips and every layer registers onto the same coordinate frame.
         ("dimension-line", _layer_bytes(geometry, envelope, pen, 0.25)),
         ("dimension-terminator", _terminator_bytes(dim, pen, envelope, offsets)),
         ("dimension-text", _annotation_bytes(dim, pen, envelope, offsets)),
@@ -1371,7 +1243,7 @@ def _layered(dim: Dimension, /) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
         dim._key,
         "dimension",
         len(dim.ops),
-        "drawsvg",  # the LAYERED rows are authored drawsvg geometry, so the lowering the bytes carry is this one
+        "drawsvg",
         round(envelope[2] - envelope[0]),
         round(envelope[3] - envelope[1]),
         sum(len(source) for _name, source in rows),

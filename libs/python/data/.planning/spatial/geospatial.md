@@ -35,10 +35,6 @@ from msgspec import json as msgjson
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
-# the Forge scientific band — GDAL, GEOS, PROJ, and the rust geoarrow kernels — declares once here and reifies on
-# first operation, so an unrelated import of this module pays none of it. Every module-scope row over the band
-# carries a member NAME (`_NATIVE_WRITER`) or a call-time thunk; a cell holding a live provider attribute would
-# reify the proxy at import and re-open the eager band the manifest bans.
 lazy import geopandas as gpd
 lazy import pyarrow as pa
 lazy import pyarrow.feather as paf
@@ -76,26 +72,15 @@ if TYPE_CHECKING:
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.geospatial")
 
-# the raise anchors the retried legs on this page key on: `reliability/resilience#RESILIENCE` `guarded` takes the
-# caller's own rostered `at: FaultRow[L]`, so the breaker arc, the rate bucket, the span, and the lifted fault all
-# derive ONE coordinate the roster proves against a real module — the free `subject=<str>` it retired could spell a
-# leg this package never declares. Both rows are network-bearing legs, so both declare TRANSIENT.
 RASTER_REMOTE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="raster.remote", arm="boundary", defect="raster-read", retriability=TRANSIENT
 )
-# the local twin of the row above: the crossing row elects which one the entry reaches, so the two arms of one
-# dispatch never share a posture the way one subject string made them. A `/vsicurl/` read is a dependency a
-# re-issue may clear; a local GDAL read over the same file refuses identically.
 RASTER_LOCAL: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="raster.local", arm="boundary", defect="raster-read", retriability=TERMINAL
 )
 POSTGIS_QUERY: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="postgis", arm="boundary", defect="postgis-query", retriability=TRANSIENT
 )
-# the rest of this module's raise roster beside them. Posture splits on what a re-offer can clear, never on the
-# entrypoint: every leg crossing a file, a store, or a driver declares TRANSIENT, while the pure in-memory lowerings
-# and every caller-repairable construction gate declare TERMINAL. `slots` NAMES each gate's coordinates, so the
-# semicolon-joined message bodies these rows replace become fields a consumer gates on rather than prose it parses.
 GEO_EGRESS: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="egress", arm="boundary", defect="egress-refused", retriability=TRANSIENT
 )
@@ -105,16 +90,12 @@ GEO_INGRESS: Final[FaultRow[DataLeg]] = FaultRow(
 GEO_WIRE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="wire", arm="boundary", defect="geoarrow-wire", retriability=TERMINAL
 )
-# ONE row for the whole vector axis: every arm walks frames already in memory on one banded hop under one narrowed
-# raise surface, so the op that ran rides `rasm.geo.op` on the span this row's fence opens beneath.
 GEO_VECTOR: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="vector", arm="boundary", defect="vector-op", retriability=TERMINAL
 )
 GEO_DECODE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="georef.decode", arm="boundary", defect="georef-decode", retriability=TERMINAL
 )
-# ONE row for the whole degenerate-coefficient fold: the producer's own `unwirable` census arrives as one subject,
-# so a caller repairing the direction does not discover the scale by decoding again.
 GEO_DEGENERATE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="georef.invert", arm="config", defect="coefficient-degenerate", retriability=TERMINAL,
     slots=("coefficients",),
@@ -122,12 +103,6 @@ GEO_DEGENERATE: Final[FaultRow[DataLeg]] = FaultRow(
 GEO_HANDLE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="raster.handle", arm="config", defect="source-handle-absent", retriability=TERMINAL
 )
-# the `dwithin` distance is a BICONDITIONAL the factory proves before the op exists, exactly as `spatial/query#SPATIAL`
-# `SpatialQuery.Join` proves its own: `dwithin` is the one predicate accessor carrying a radius and no other admits
-# one. The deleted `distance if distance is not None else 0.0` forged a ZERO radius for an undeclared bound, so an
-# unbounded request returned the exactly-touching set and reported it as a within-distance answer — the
-# `docs/laws/scars.md` `[FORGED_ZERO]` class. The `join` arm already degenerated honestly onto `sjoin_nearest`; the
-# predicate accessor has no unbounded counterpart, so its corner refuses where the caller can still repair it.
 GEO_UNBOUNDED: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="predicate", arm="config", defect="distance-mismatch", retriability=TERMINAL, slots=("predicate",)
 )
@@ -140,8 +115,6 @@ COVERAGE_LIFT: Final[FaultRow[DataLeg]] = FaultRow(
 COVERAGE_WRITE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="coverage.write", arm="boundary", defect="cog-write", retriability=TRANSIENT
 )
-# the native gate names the FORMAT beside the capability census it outran, so one row spans every format's corner
-# and the format never has to ride a minted subject to stay recoverable.
 NATIVE_UNSERVED: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.GEOSPATIAL, point="native.gate", arm="config", defect="capability-unserved", retriability=TERMINAL,
     slots=("format", "unserved"),
@@ -255,15 +228,10 @@ class EgressFormat(StrEnum):
         def emit() -> bytes:
             match self:
                 case EgressFormat.GEOARROW:
-                    # native zero-copy geoarrow extension arrays written as Arrow IPC, not a driver write.
                     paf.write_feather(pa.table(frame.to_arrow(geometry_encoding="geoarrow")), path)
                 case _ if self in _NATIVE_WRITER:
-                    # rust-spelled formats write GDAL-free: one from_geopandas crossing, then the native writer —
-                    # write_flatgeobuf packs its R-tree index by default, write_parquet keeps the interoperable
-                    # WKB encoding, and the writer name resolves at the call seam so no table row reifies a proxy.
                     getattr(gio, _NATIVE_WRITER[self])(from_geopandas(frame), path)
                 case _:
-                    # OGR long-tail arm: the member value IS the driver for every format the rust surface does not spell.
                     pyogrio.write_dataframe(frame, path, driver=self.value, use_arrow=True)
             return Path(path).read_bytes()
 
@@ -273,7 +241,6 @@ class EgressFormat(StrEnum):
             )
 
 
-# rust-spelled egress rows: the named GDAL split as data — member -> `geoarrow.rust.io` writer name.
 _NATIVE_WRITER: Final[Map[EgressFormat, str]] = Map.of_seq([
     (EgressFormat.GEOPARQUET, "write_parquet"),
     (EgressFormat.FLATGEOBUF, "write_flatgeobuf"),
@@ -315,9 +282,6 @@ class VectorOp:
 
     @staticmethod
     def Predicate(name: JoinPredicate, other: "GeoDataFrame", distance: Option[float] = Nothing) -> "RuntimeRail[VectorOp]":
-        # the ONE distance corner on this axis, proved where the caller can still repair it: `dwithin` is the only
-        # accessor taking a radius, so presence and predicate must agree or no servable request exists. Below the
-        # gate the arm reads the bound unwrapped and no fold re-decides legality.
         if (name is JoinPredicate.DWITHIN) != distance.is_some():
             return Error(GEO_UNBOUNDED.raised(name.value))
         return Ok(VectorOp(predicate=(name, other, distance)))
@@ -332,29 +296,19 @@ class VectorOp:
 
 
 class Crossing(StrEnum):
-    # `Crossing` names the transport class an arm's OWN value implies, never the caller's entrypoint pick. Every
-    # policy this class carries DERIVES on the member, the way `RetryClass.policy`/`.circuit`/`.rate` derive one
-    # tier down, so no row spells a CLIENT span with no retry envelope; retriability vocabulary itself stays the
-    # runtime resilience owner's, because this enum ELECTS a class and never mints one.
     LOCAL = "local"
     REMOTE = "remote"
 
     @property
     def retry(self) -> Option[RetryClass]:
-        # a class facing no network spends no retry budget, so the envelope is absent by ABSENCE rather than by a
-        # boolean every arm re-reads before deciding which of two call shapes to write.
         return Some(RetryClass.HTTP) if self is Crossing.REMOTE else Nothing
 
     @property
     def span_kind(self) -> SpanKind:
-        # span kind follows the store law: an outbound leg opens CLIENT, an in-process GDAL leg stays INTERNAL.
         return SpanKind.CLIENT if self is Crossing.REMOTE else SpanKind.INTERNAL
 
 
 class NodataSlot(StrEnum):
-    # member value IS the provider keyword spelling the nodata sentinel on that call — `DatasetReader.read` takes
-    # `fill_value`, `WarpedVRT`/`mask.mask`/`merge.merge`/`rasterio.open` take `nodata`, and `warp.reproject` takes
-    # `dst_nodata`. A member-to-keyword table beside this roster is the deleted form.
     FILL = "fill_value"
     NODATA = "nodata"
     DESTINATION = "dst_nodata"
@@ -369,9 +323,6 @@ class CogProfile(Struct, frozen=True):
     predictor: Literal["none", "standard", "floating_point"] = "none"
 
     def creation(self, array: "np.ndarray", crs: str) -> dict[str, object]:
-        # `CogProfile` owns its compression, tiling, and overview knobs ALONE — nodata is the claim's declared
-        # fact and merges in from `RasterGeoClaim._fill` at the write arm, so no profile forges one or holds a
-        # second copy of the one slot five other reads already share.
         return {
             "driver": "COG",
             "dtype": str(array.dtype),
@@ -423,12 +374,6 @@ class RasterOp:
 
     @property
     def peer(self) -> Option[str]:
-        # WHICH ORIGIN this op dials, derived from the op's OWN value exactly as `_row` derives its crossing — the
-        # `reliability/resilience#RESILIENCE` window keys the dependency INSTANCE, so a raw href would mint one arc
-        # per scene and no arc would reach its trip. `mosaic` answers its FIRST source: every member of one mosaic
-        # is read from one archive, so the set shares one arc rather than splitting it per tile. `memory_source`
-        # answers its inner op, since only that arm puts bytes on a wire. Every local arm answers `Nothing`, which
-        # is exactly what the non-retried crossing needs and what `_keyed` no-ops on.
         match self:
             case RasterOp(tag="remote_read", remote_read=(href, _scheme, _bounds, _bidx)):
                 return Some(origin(href))
@@ -460,9 +405,6 @@ class RasterOp:
         bounds: Bounds | None = None,
         res: tuple[float, float] | None = None,
     ) -> "RasterOp":
-        # scheme rides as a COLUMN because this arm opens every source itself, so its crossing must be
-        # recoverable from the op value: a `str.startswith` probe over the paths classifies neither an already
-        # prefixed `/vsis3/` source nor a signed href, and that probe is the discriminant this page refuses.
         return RasterOp(mosaic=(sources, scheme, method, resampling, bounds, res))
 
     @staticmethod
@@ -509,43 +451,24 @@ class RasterOp:
 
 
 class _OpRow(Struct, frozen=True):
-    # ONE dispatch row per `RasterOp` tag — the crossing the arm makes, whether it opens its OWN dataset off the op
-    # value, and whether a tripped deadline may drop the band slot. `apply` reads nothing else to route.
     crossing: Crossing
     opens: bool
-    # a tripped deadline abandons the band slot only where the arm has no half-applied effect to strand; it stays a
-    # per-arm column rather than a `Crossing` derivation so a future REMOTE write row can refuse it by name.
     abandon: bool
 
 
-# raster dispatch rows as DATA: no network-bearing arm reaches an un-retried entry any more, and no local arm
-# pays an HTTP budget, because class rides the op's tag rather than a caller's method pick. Ten caller-handle arms
-# share one row BY CONSTRUCTION — each reads a dataset somebody else opened, so it crosses nothing, opens nothing,
-# and has nothing to abandon — while only the four arms that open a dataset off the op value carry their own.
 _RASTER_ROW: Final[Map[str, _OpRow]] = Map.of_seq([
     *(
         (handled, _OpRow(crossing=Crossing.LOCAL, opens=False, abandon=False))
         for handled in ("window", "stream", "sample", "vrt", "mask", "geometry_mask", "sieve", "vectorize", "rasterize", "reproject")
     ),
-    # opens `vsi_scheme.path(href)` itself under the `EMPTY_DIR` env — a side-effect-free read, so a wedged
-    # `/vsicurl/` socket gives its slot back on the enclosing deadline instead of running out unobserved.
     ("remote_read", _OpRow(crossing=Crossing.REMOTE, opens=True, abandon=True)),
-    # opens every `sources` path itself; this is the un-schemed row and `_row` swaps the crossing when the op
-    # carries a `VsiScheme`.
     ("mosaic", _OpRow(crossing=Crossing.LOCAL, opens=True, abandon=True)),
-    # opens the `MemoryFile` itself and then delegates: `_row` keeps this handle answer and takes the crossing and
-    # abandon posture from the INNER arm, which alone decides whether anything reaches a wire.
     ("memory_source", _OpRow(crossing=Crossing.LOCAL, opens=True, abandon=False)),
-    # opens the destination for WRITE: a half-written COG is state, so the slot is held to the end.
     ("write_cog", _OpRow(crossing=Crossing.LOCAL, opens=True, abandon=False)),
 ])
 
 
 def _row(op: RasterOp) -> _OpRow:
-    # crossing DERIVES from the op's own value. `memory_source` inherits its inner arm's class and abandon
-    # posture — payload is already in hand, so only the inner op puts bytes on a wire — while keeping its own
-    # handle answer, and `mosaic` reads its own `VsiScheme` column. Every other arm's class is fixed by its tag,
-    # so no arm threads a routing flag the value cannot reconstruct.
     row = _RASTER_ROW[op.tag]
     match op:
         case RasterOp(tag="memory_source", memory_source=(_payload, inner)):
@@ -570,13 +493,6 @@ class CoverageResult(Struct, frozen=True):
 
 
 class GeoreferenceFact(Struct, frozen=True):
-    # one decoded model-georeference wire fact — projected CRS, IFC map-conversion helmert, declared north; minted
-    # at the geometry sibling's IFC band, decoded HERE exactly once, never re-derived from geometry. Every field is
-    # REQUIRED: the producer answers an ungeoreferenced model with typed absence, so a defaulted identity abscissa,
-    # ordinate, or scale here would decode a fact declaring NO map conversion identically to one declaring the
-    # identity rotation, and `to_map` would publish site-local engineering coordinates as map coordinates.
-    # `true_north` is a genuine wire null the producer reads off the context's own declaration — three states are
-    # two here, and it enters no transform, the map conversion having already oriented the eastings axis.
     crs: str
     eastings: float
     northings: float
@@ -594,11 +510,6 @@ class GeoreferenceFact(Struct, frozen=True):
 
     @staticmethod
     def _invertible(fact: "GeoreferenceFact") -> "RuntimeRail[GeoreferenceFact]":
-        # with the identity defaults gone every coefficient is a STATED fact, so the two the similarity cannot
-        # invert refuse at this one admission seam rather than being rescued downstream by a fallback that
-        # fabricates exactly the identity the defaults used to forge. ONE refusal names every unusable coefficient
-        # at once — the producer's own `unwirable` fold spelled at the receiving end — so a caller repairing the
-        # direction does not discover the scale by decoding again.
         degenerate = (
             *(("direction:zero-length",) if float(np.hypot(fact.x_axis_abscissa, fact.x_axis_ordinate)) == 0.0 else ()),
             *(("scale:zero",) if fact.scale == 0.0 else ()),
@@ -606,9 +517,6 @@ class GeoreferenceFact(Struct, frozen=True):
         return Error(GEO_DEGENERATE.raised(";".join(degenerate))) if degenerate else Ok(fact)
 
     def to_map(self, frame: "GeoDataFrame") -> "GeoDataFrame":
-        # unnormalized abscissa/ordinate admit — the direction normalizes, so authoring-tool magnitude
-        # noise never scales the map; similarity = scale * rotation + (eastings, northings) translation.
-        # Admission already proved the direction non-degenerate, so the norm divides with no fabricated floor.
         norm = float(np.hypot(self.x_axis_abscissa, self.x_axis_ordinate))
         cos_t, sin_t = self.x_axis_abscissa / norm, self.x_axis_ordinate / norm
         coefficients = [self.scale * cos_t, -self.scale * sin_t, self.scale * sin_t, self.scale * cos_t, self.eastings, self.northings]
@@ -626,17 +534,12 @@ class VectorGeoClaim(Struct, frozen=True):
     precision: int
 
     async def apply(self, op: VectorOp, frame: "GeoDataFrame") -> "RuntimeRail[GeoDataFrame]":
-        # overlay/join/dissolve walk whole frames — a blocking leg riding the banded thread hop, never the loop.
         with _TRACER.start_as_current_span(f"geo.vector.{op.tag}", attributes={"rasm.geo.crs": self.crs, "rasm.geo.op": op.tag}):
             return await async_boundary(
                 GEO_VECTOR, lambda: on_thread(self._vector, op, frame), catch=(ShapelyError, CRSError, KeyError, ValueError)
             )
 
     def reproject(self, frame: "GeoDataFrame", source: Option[GeoreferenceFact] = Nothing) -> "GeoDataFrame":
-        # a model-minted CRS source lifts site-local coordinates through the helmert similarity FIRST, then the
-        # claim prelude below normalizes exactly as for any already-georeferenced operand. The carrier is the
-        # producer's own — `IfcAnalysis.georeference` answers `Option[GeoreferenceFact]`, so the seam threads one
-        # shape end to end and no `None` stands where an ungeoreferenced model is the real answer.
         frame = source.map(lambda fact: fact.to_map(frame)).default_value(frame)
         target = pyproj.CRS.from_user_input(self.crs)
         if frame.crs is not None and pyproj.CRS.from_user_input(frame.crs) == target:
@@ -653,11 +556,8 @@ class VectorGeoClaim(Struct, frozen=True):
                 aligned = self.reproject(other)
                 match predicate, max_distance:
                     case JoinPredicate.DWITHIN, float() as distance:
-                        # DWITHIN with a bound is the within-distance relation `sjoin(predicate="dwithin", distance=)`,
-                        # never `sjoin_nearest` (which returns the single nearest, a different relation).
                         return gpd.sjoin(snapped, aligned, how=how, predicate="dwithin", distance=distance)
                     case JoinPredicate.DWITHIN, None:
-                        # DWITHIN with no bound degenerates to the unbounded nearest-neighbor join.
                         return gpd.sjoin_nearest(snapped, aligned, how=how, distance_col="distance")
                     case _, _:
                         return gpd.sjoin(snapped, aligned, how=how, predicate=predicate.value)
@@ -671,9 +571,6 @@ class VectorGeoClaim(Struct, frozen=True):
                 return snapped.set_geometry(_CONSTRUCT[kind](snapped.geometry, param))
             case VectorOp(tag="predicate", predicate=(name, other, distance)):
                 target = self.reproject(other).union_all()
-                # TOTAL below the factory gate: the option's presence IS the accessor election and its own value IS
-                # the radius, so the two cannot disagree and no fallback stands where an unbounded request is a
-                # refusal the caller already read.
                 hits = distance.map(lambda bound: snapped.geometry.dwithin(target, bound)).default_with(
                     lambda: getattr(snapped.geometry, name.value)(target)
                 )
@@ -683,8 +580,6 @@ class VectorGeoClaim(Struct, frozen=True):
                 target = self.reproject(other).union_all() if other is not None else None
                 match kind:
                     case LinearKind.POLYGONIZE:
-                        # a noded line set rebuilds into its polygon set — a row-count change is
-                        # inherent to the operation, so the result is a fresh polygon frame.
                         polygons = shapely.polygonize(lines)
                         return gpd.GeoDataFrame(geometry=gpd.GeoSeries(list(polygons.geoms), crs=snapped.crs))
                     case LinearKind.LOCATE:
@@ -696,16 +591,10 @@ class VectorGeoClaim(Struct, frozen=True):
                     case LinearKind.SHORTEST_LINE:
                         return snapped.set_geometry(gpd.GeoSeries(shapely.shortest_line(lines, target), crs=snapped.crs))
                     case LinearKind.FRECHET:
-                        # GEOS spells the Fréchet ufunc vectorized, so the trajectory-similarity measure
-                        # stays a shapely arm under the kernel split law — one column per target broadcast.
                         return snapped.assign(frechet=shapely.frechet_distance(lines, target))
                     case unreachable_kind:
                         assert_never(unreachable_kind)
             case VectorOp(tag="geodesic", geodesic=kind):
-                # WGS84 ellipsoid true-earth values a planar CRS transform cannot give; the geodesic runs
-                # over lon/lat geometry, so the claim CRS prelude has already landed 4326. The rust surface
-                # alone vectorizes the ellipsoidal (Karney) metrics, so the whole column rides one geoarrow
-                # export instead of a per-geometry pyproj.Geod scalar loop.
                 ga.register_extension_types()
                 column = pa.table(snapped.to_arrow(geometry_encoding="geoarrow")).column("geometry").combine_chunks()
                 values = np.asarray(
@@ -724,23 +613,12 @@ class RasterGeoClaim(Struct, frozen=True):
     crs: str
     band_count: int
     resampling: Resampling
-    # DECLARED absence, never a fabricated number: an asset that declares no nodata HAS none, and any float
-    # standing in for that — `0.0` above all — masks every genuine pixel equal to it across eight provider reads.
     nodata: Option[float]
-    # source affine — the six coefficients, or ABSENT where the producing asset declared none; each coverage op
-    # REPORTS the transform its own operation derives, so this claim slot is provenance, never a stale substitute
-    # for the op result, and an empty tuple would spell "six coefficients, all missing" instead of "not declared".
     transform: Option[tuple[float, ...]] = Nothing
 
     async def apply(self, op: RasterOp, source: "DatasetReader | None" = None) -> "RuntimeRail[CoverageResult]":
-        # THE raster entry over the whole union: the row the op's own value resolves elects the crossing, so a
-        # network-bearing arm can no longer reach an un-retried leg and a local one can no longer be charged an HTTP
-        # budget because a caller reached for the other method. reproject/mask/warp read full arrays, so every arm
-        # is a blocking leg on the banded thread hop, never the loop.
         row, subject = _row(op), f"geo.raster.{op.tag}"
         if not row.opens and source is None:
-            # handle corner refuses BEFORE the band hop and before any GDAL handle moves: folding the two entries
-            # otherwise admits `apply(RasterOp.Window(...))` with nothing to read, which dies inside the worker.
             return Error(GEO_HANDLE.raised())
         with _TRACER.start_as_current_span(
             subject,
@@ -755,12 +633,6 @@ class RasterGeoClaim(Struct, frozen=True):
         ):
             acquired = await (
                 row.crossing.retry.map(
-                    # `abandon` frees the band slot when an enclosing deadline trips: a wedged `/vsicurl/` read
-                    # otherwise runs out unobserved still holding it.
-                    # the op tag no longer rides a minted subject: the row owns the coordinate and `rasm.geo.op` on
-                    # the span above carries which arm ran, so one leg can never report two ways.
-                    # `at` names WHICH CALL, `on` WHICH PEER — the op's own derived origin, so two fences dialing one
-                    # archive share its arc and one fence dialing two archives keeps them apart.
                     lambda cls: guarded(cls, on_thread, lambda: self._remote_read(op, source), abandon=row.abandon, at=RASTER_REMOTE, on=op.peer)
                 ).default_with(
                     lambda: async_boundary(
@@ -771,15 +643,9 @@ class RasterGeoClaim(Struct, frozen=True):
             return acquired.bind(self._result)
 
     def _fill(self, slot: NodataSlot) -> dict[str, float]:
-        # ONE nodata authority for the whole plane: a declared value spells the provider's own keyword, and an
-        # undeclared one spells NOTHING, so `read`/`WarpedVRT`/`mask`/`merge`/`reproject`/`open` each fall to the
-        # `None` default their own signature documents instead of masking every pixel equal to a fabricated number.
         return self.nodata.map(lambda value: {slot.value: value}).default_value({})
 
     def _remote_read(self, op: RasterOp, source: "DatasetReader | None") -> "_Coverage":
-        # a `/vsicurl/` GDAL transient is a `RasterioIOError` (rooted at `RasterioError`, not a stdlib
-        # transient), so it is re-raised as `ConnectionError` for the `RetryClass.HTTP` `_retry_after`
-        # set rather than the resilience owner growing a `rasterio` provider-introspection target.
         try:
             return self._raster(op, source)
         except RasterioIOError as cause:
@@ -794,9 +660,6 @@ class RasterGeoClaim(Struct, frozen=True):
             case RasterOp(tag="stream", stream=(bidx, tile_shape, resampling)):
                 row_factor, col_factor = (source.height // tile_shape[0], source.width // tile_shape[1]) if tile_shape else (1, 1)
                 shape, dtype = (source.height // row_factor, source.width // col_factor), source.dtypes[bidx - 1]
-                # a declared nodata SEEDS the destination, so a sliver the decimated block grid never covers reads
-                # as absent; with none declared the raster spells no absent pixel at all, and the buffer is then the
-                # uninitialized one the `reproject` arm already allocates, every cell written by a block below.
                 destination = self.nodata.map(lambda fill: np.full(shape, fill, dtype=dtype)).default_with(lambda: np.empty(shape, dtype=dtype))
                 for _, block in source.block_windows(bidx):
                     row0, col0 = block.row_off // row_factor, block.col_off // col_factor
@@ -856,8 +719,6 @@ class RasterGeoClaim(Struct, frozen=True):
                 with ExitStack() as stack:
                     match scheme:
                         case Option(tag="some", some=vsi):
-                            # a schemed mosaic crosses the wire once per source, so it takes the same `EMPTY_DIR`
-                            # env the `remote_read` row takes — GDAL otherwise probes sidecar files on every open.
                             stack.enter_context(rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR"))
                             paths = [vsi.path(href) for href in sources]
                         case _:
@@ -918,9 +779,6 @@ class RasterGeoClaim(Struct, frozen=True):
         return _Coverage(array=array, transform=transform, op_tag=op_tag, source=source.name)
 
     def _result(self, cover: "_Coverage") -> "RuntimeRail[CoverageResult]":
-        # content keys hash the REAL coverage bytes — the C-contiguous pixel buffer, or the
-        # canonical msgspec-JSON row per feature for the object `Vectorize` array (a `repr()` byte
-        # source is the folder key-law deleted form) — never a shape-shaped null placeholder.
         array = cover.array
         payload = (
             b"\x1f".join(msgjson.encode(item) for item in array.reshape(-1).tolist())
@@ -934,8 +792,6 @@ class RasterGeoClaim(Struct, frozen=True):
 
 
 class VectorIngress(Struct, frozen=True):
-    # OGR pushdown ingress row: selection lands in the driver scan (`columns`/`where`/`bbox`/
-    # `mask`/`sql`), never a post-load filter; `use_arrow=True` rides the GDAL Arrow-capable build.
     path: str
     layer: str | None = None
     columns: tuple[str, ...] = ()
@@ -964,8 +820,6 @@ def read_vector(spec: VectorIngress) -> "RuntimeRail[GeoDataFrame]":
 
 
 def geoarrow_wire(frame: "GeoDataFrame") -> "RuntimeRail[tuple[pa.Table, Bounds]]":
-    # exports zero-copy geoarrow extension arrays the `geoarrow-rust-compute` kernel reads natively;
-    # `total_bounds` over the combined-chunk geometry column is the wire-evidence fold.
     def emit() -> "tuple[pa.Table, Bounds]":
         table = pa.table(frame.to_arrow(geometry_encoding="geoarrow"))
         return table, tuple(gac.total_bounds(table.column("geometry").combine_chunks()))
@@ -980,16 +834,10 @@ def geoarrow_wire(frame: "GeoDataFrame") -> "RuntimeRail[tuple[pa.Table, Bounds]
 - Growth: a new CF raster verb is one accessor row; a new COG creation knob threads the `to_raster(**profile)` kwargs; zero new surface.
 
 ```python signature
-# composes the [02]-[GEO] prelude: `rasterio`/`xarray as xr` lazy module-top, `ModuleType`, `Path`, `ContentIdentity`, `boundary`.
 
 
 def _registered() -> "ModuleType":
-    # THE ONE registration seam of the CF plane, and the page's only surviving function-local import: importing
-    # rioxarray IS the `.rio` accessor registration, a module-body side effect no attribute access stands for. A
-    # module-scope binding is refused in BOTH forms — an eager one runs the whole CF band on every import of this
-    # page, and a lazy one never fires for the `lift` leg, which dereferences no rioxarray member at all — so the
-    # effect fires at the call seam every accessor leg crosses first, never at an arbitrary first use.
-    import rioxarray  # ruff:ignore[import-outside-top-level]
+    import rioxarray
 
     return rioxarray
 
@@ -1016,8 +864,6 @@ class CoverageCf(Struct, frozen=True):
 
     def write_cog(self, cube: object, path: str) -> "RuntimeRail[ContentKey]":
         def emit() -> bytes:
-            # a cube minted off-page — the `odc-stac` coverage from `spatial/catalog#ASSETS` — reaches the
-            # accessor only through this same seam, so the write never assumes another owner registered it.
             _registered()
             cube.rio.to_raster(path, driver="COG")
             return Path(path).read_bytes()
@@ -1034,12 +880,9 @@ class CoverageCf(Struct, frozen=True):
 - Growth: a new rust-spelled format is one `NativeFormat` member and one `_NATIVE_ROW` row citing its catalog call shape; a new pushdown mechanism is one `BboxPush` member with one `arguments` arm; a new remote source is the `store` handle row threaded from the runtime store lane; zero new surface.
 
 ```python signature
-# composes the [02]-[GEO] prelude: `pyarrow as pa`, `geoarrow.pyarrow as ga`, `geoarrow.rust.io as gio` lazy module-top,
-# and the runtime `origin` fold beside the `Some`/`Nothing` carriers this section's peer key rides.
 
 
 class NativeFormat(StrEnum):
-    # member value IS the `geoarrow.rust.io` reader name, resolved at the call seam.
     FLATGEOBUF = "read_flatgeobuf"
     GEOPARQUET = "read_parquet"
     GEOJSON = "read_geojson"
@@ -1048,25 +891,17 @@ class NativeFormat(StrEnum):
 
 
 class BboxPush(StrEnum):
-    # HOW a format admits a spatial predicate, read off its own reader signature rather than asserted by a caller.
-    # READER: the reader itself takes `bbox=` — `read_flatgeobuf(file, *, fs=None, batch_size, bbox=None)`.
-    # HANDLE: only the `ParquetFile(path, fs).read(bbox=)` scan handle pushes, and its `fs` is positional-required,
-    # so a bbox on that format demands the store with it. NONE: the reader spells no `bbox` slot at all.
     READER = "reader"
     HANDLE = "handle"
     NONE = "none"
 
 
 class _NativeReader(Struct, frozen=True):
-    # one capability row per format, every column read straight off that reader's `geoarrow-rust-io` catalog shape.
     bbox: BboxPush
     takes_store: bool
     needs_geometry_column: bool
 
     def arguments(self, spec: "NativeIngress") -> tuple[tuple[object, ...], dict[str, object]]:
-        # row PROJECTS its own call shape: a positional geometry column where `read_csv` demands one, `fs` where
-        # that reader spells it, `bbox` only where the reader itself pushes it. Knobs this row does not carry never
-        # reach the call, so no reader is handed a keyword its signature has no slot for.
         return (
             (spec.source, spec.geometry_column) if self.needs_geometry_column else (spec.source,),
             {"batch_size": spec.batch_size}
@@ -1075,31 +910,21 @@ class _NativeReader(Struct, frozen=True):
         )
 
 
-# GDAL-free reader rows: the declared capability set of the native band, each row citing its own catalog call shape.
 _NATIVE_ROW: Final[Map[NativeFormat, _NativeReader]] = Map.of_seq([
-    # `read_flatgeobuf(file, *, fs=None, batch_size=65536, bbox=None)` — the packed R-tree pushes on any source.
     (NativeFormat.FLATGEOBUF, _NativeReader(bbox=BboxPush.READER, takes_store=True, needs_geometry_column=False)),
-    # `read_parquet(path, *, fs=None, batch_size=65536)` spells no bbox; `ParquetFile(path, fs)` plus
-    # `read(*, batch_size, bbox, ...)` is the only row-group pushdown, so a bbox here rides the handle arm.
     (NativeFormat.GEOPARQUET, _NativeReader(bbox=BboxPush.HANDLE, takes_store=True, needs_geometry_column=False)),
-    # `read_geojson(file, *, batch_size=65536)` and `read_geojson_lines(file, *, batch_size=65536)` — neither.
     (NativeFormat.GEOJSON, _NativeReader(bbox=BboxPush.NONE, takes_store=False, needs_geometry_column=False)),
     (NativeFormat.GEOJSON_LINES, _NativeReader(bbox=BboxPush.NONE, takes_store=False, needs_geometry_column=False)),
-    # `read_csv(file, geometry_column_name, *, batch_size=65536)` — the geometry column is positional-required.
     (NativeFormat.CSV, _NativeReader(bbox=BboxPush.NONE, takes_store=False, needs_geometry_column=True)),
 ])
 
 
 class NativeIngress(Struct, frozen=True):
-    # bound through `of` alone: every field below is proved servable against `_NATIVE_ROW` before the value exists,
-    # so `read_native` reads a spec whose corners are already legal instead of re-testing them per arm.
     format: NativeFormat
     source: str
     batch_size: int = 65536
     bbox: Bounds | None = None
     geometry_column: str | None = None
-    # `geoarrow.rust.io.ObjectStore` handle for remote sources; construction takes the branch store
-    # envelope as one pre-constructed config VALUE per the provider-store ruling, never a re-asserted mirror.
     store: object | None = None
 
     @staticmethod
@@ -1112,10 +937,6 @@ class NativeIngress(Struct, frozen=True):
         geometry_column: str | None = None,
         store: object | None = None,
     ) -> "RuntimeRail[NativeIngress]":
-        # ONE gate over the declared capability set, run before the extension-type latch and before any file opens,
-        # so an unservable corner never reaches the reader. Refusal NAMES every capability row the request outran at
-        # once — a caller repairing the bbox does not discover the missing geometry column by calling again — and
-        # `read_native` therefore carries no corner ladder at its own tail.
         row = _NATIVE_ROW[format]
         unserved = (
             *((f"bbox:{row.bbox.value}",) if bbox is not None and row.bbox is BboxPush.NONE else ()),
@@ -1137,7 +958,6 @@ def read_native(spec: NativeIngress) -> "RuntimeRail[pa.Table]":
         row = _NATIVE_ROW[spec.format]
         match row.bbox, spec.bbox:
             case BboxPush.HANDLE, tuple() as bbox:
-                # only pushdown this format spells rides the scan handle, whose `fs` the gate already demanded.
                 table = gio.ParquetFile(spec.source, spec.store).read(bbox=bbox, batch_size=spec.batch_size)
             case _, _:
                 positional, keywords = row.arguments(spec)
@@ -1149,16 +969,11 @@ def read_native(spec: NativeIngress) -> "RuntimeRail[pa.Table]":
 
 
 async def query_postgis(connection_url: str, sql: str) -> "RuntimeRail[pa.Table]":
-    # live PostGIS spatial SQL straight to GeoArrow memory — an outbound network leg: CLIENT span,
-    # HTTP retry class on the banded thread hop, abandon frees the slot when an enclosing deadline trips.
     def emit() -> "pa.Table":
         ga.register_extension_types()
         return pa.table(gio.read_postgis(connection_url, sql))
 
     with _TRACER.start_as_current_span("geo.native.postgis", kind=SpanKind.CLIENT, attributes={"rasm.geo.format": "postgis"}):
-        # the DSN crosses the runtime `origin` fold before it names a peer: that fold builds `scheme://host:port`
-        # off `hostname`/`port` and never the raw netloc, so the `user:password@` userinfo a connection string
-        # carries reaches neither the window key nor the `rasm.peer` span attribute the envelope stamps from it.
         return await guarded(RetryClass.HTTP, on_thread, emit, abandon=True, at=POSTGIS_QUERY, on=Some(origin(connection_url)))
 ```
 

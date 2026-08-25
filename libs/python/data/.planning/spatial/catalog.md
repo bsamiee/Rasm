@@ -35,9 +35,6 @@ from msgspec import Struct, field
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
-# the signing providers declare at the module boundary and reify on first use: every `_SCHEME` cell below holds a
-# call-time thunk over `planetary_computer`, never a live attribute, because a row dereferencing one at module
-# scope would reify the proxy at import and pay the whole signing band for an unsigned catalogue read.
 lazy import planetary_computer
 lazy from obstore.auth.earthdata import NasaEarthdataAsyncCredentialProvider
 lazy from obstore.auth.planetary_computer import PlanetaryComputerAsyncCredentialProvider
@@ -60,11 +57,6 @@ if TYPE_CHECKING:
 
 _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.catalog")
 
-# the raise anchors the retried legs on this page key on: `reliability/resilience#RESILIENCE` `guarded` takes the
-# caller's own rostered `at: FaultRow[L]`, so the breaker arc, the rate bucket, the span, and the lifted fault all
-# derive ONE coordinate the roster proves against a real module — the free `subject=<str>` it retired could spell a
-# leg this package never declares. Every row here is an outbound catalog leg, so each declares TRANSIENT. The table
-# seats in this fence and every section of the module anchors on it.
 STAC_DISCOVER: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CATALOG, point="discover", arm="boundary", defect="discover-refused", retriability=TRANSIENT
 )
@@ -74,10 +66,6 @@ STAC_CLAIM: Final[FaultRow[DataLeg]] = FaultRow(
 STAC_COVERAGE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CATALOG, point="assets.coverage", arm="boundary", defect="coverage-refused", retriability=TRANSIENT
 )
-# the construction and admission corners beside them: each is CALLER-repairable — a colliding subscription key, an
-# unrouted source/sink pair, a column the item never declared, a fold re-entered on a collection surface — so each
-# rides `config` and refuses identically on a re-offer. The signing row carries NO slot: the colliding value is a
-# subscription key, and a secret is the one coordinate a fault must never name.
 STAC_SIGNING: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CATALOG, point="signing", arm="config", defect="key-collision", retriability=TERMINAL
 )
@@ -87,15 +75,9 @@ STAC_ROUTE: Final[FaultRow[DataLeg]] = FaultRow(
 STAC_COLUMN: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CATALOG, point="assets.claim", arm="config", defect="column-undeclared", retriability=TERMINAL, slots=("column",)
 )
-# the fold-surface refusal moves from `boundary` to `config`: a collection discovery re-entered on the asset fold is
-# a caller's own composition error the same inputs refuse identically, never a provider raise a re-issue may clear,
-# and the retriability read the two cases drive apart is exactly what the misfiled arm was inverting.
 STAC_SURFACE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CATALOG, point="assets.surface", arm="config", defect="collection-terminal", retriability=TERMINAL
 )
-# two outcome-shape refusals a provider answered but a consumer cannot use: a byte window the egress keyed nothing
-# for, and an aggregate that yielded no `VirtualReceipt`. Both stay `boundary` — the provider ran and its answer is
-# the defect — and both stay TERMINAL, since re-issuing the same window or the same aggregate answers alike.
 STAC_KEYLESS: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CATALOG, point="assets.egress", arm="boundary", defect="no-content-key", retriability=TERMINAL, slots=("href", "window")
 )
@@ -122,13 +104,7 @@ type SearchParams = dict[str, object]
 type Headers = dict[str, str]
 type Modifier = Callable[[object], object]
 type OpenKwargs = dict[str, object]
-# `Credential` names the PRESENT half of the runtime's `Provider` alias (`Callable[[], Any] | None`). This page carries the
-# credential estate in the branch absence carrier, so `Some(None)` is unrepresentable and the nullable spelling
-# re-appears exactly once — at the `ResourceRef` seam, whose own field IS `Provider` and which owns that admission.
 type Credential = Callable[[], object]
-# first slot: the `ITEM` row's signed `ItemCollection`, or the `COLLECTION` row's `list[Collection]`. Slots three,
-# five, and six are OPTIONAL because only the `ITEM` surface reports them and even it reports the total only where the
-# API declares one — the `COLLECTION` iterator carries no `matched`, no Azure expiry, and no resolved GET url.
 type Materialized = tuple[
     "ItemCollection | list[Collection]", tuple[str, ...], Option[int], int, Option[str], Option[str]
 ]
@@ -139,10 +115,6 @@ _PC_BOUND: list[str] = []
 
 
 def _bind_subscription(key: str) -> "RuntimeRail[None]":
-    # the href-rewrite half has ONE process slot — `planetary_computer.sign` reads the module global and carries no
-    # per-call slot — so the latch is compare-and-refuse under a composition-time lock: the first composition binds
-    # the key, an identical re-bind is a no-op, and a DIVERGENT key refuses typed, because a silent overwrite
-    # re-signs the first app's hrefs under the second app's subscription.
     with _PC_LOCK:
         match _PC_BOUND:
             case []:
@@ -202,10 +174,6 @@ class Signing(Struct, frozen=True):
     headers: Headers = field(default_factory=dict)
     timeout: float | None = None
     scheme: SignScheme = SignScheme.NONE
-    # the store-credential axis, orthogonal to `scheme`: the provider owns token refresh INSIDE the obstore handle
-    # every asset-byte read crosses, so a long fan-out re-signs transparently where a reported expiry horizon could
-    # only be observed. A catalog needing credentials without href rewriting binds this and keeps `SignScheme.NONE`,
-    # and a PUBLIC catalog carries the branch absence carrier rather than a `None` three asset arms each re-tested.
     credentials: Option[Credential] = Nothing
 
     @staticmethod
@@ -220,10 +188,6 @@ class Signing(Struct, frozen=True):
     def planetary_computer(
         subscription_key: str | None = None, headers: Headers | None = None, timeout: float | None = None
     ) -> "RuntimeRail[Signing]":
-        # `planetary_computer.sign` resolves its subscription key off the module global and carries no per-call slot,
-        # so the href-rewrite half rides the ONE process slot behind `_bind_subscription`'s compare-and-refuse latch
-        # while the byte-read half takes the key on its own composition-bound provider — two compositions with
-        # distinct keys collide at the latch as a typed refusal, never as app B silently re-signing app A's hrefs.
         bound = _bind_subscription(subscription_key) if subscription_key is not None else Ok(None)
         return bound.map(
             lambda _none: Signing(
@@ -238,14 +202,9 @@ class Signing(Struct, frozen=True):
     def earthdata(
         credentials_url: str, auth: "tuple[str, str] | str | None" = None, headers: Headers | None = None, timeout: float | None = None
     ) -> "Signing":
-        # NASA Earthdata mints short-lived S3 credentials and rewrites no href, so it earns no `SignScheme` member:
-        # the rewrite axis stays NONE and the credential axis carries the whole estate at zero new surface.
         return Signing(headers=headers or {}, timeout=timeout, credentials=Some(_earthdata_credentials(credentials_url, auth)))
 
     def provider(self) -> Provider:
-        # this projection is the ONE lowering back to the runtime's nullable `Provider` spelling, at the seam that owns
-        # it: three asset arms stamp the same coordinate, so the projection lives here rather than as three
-        # `to_optional()` calls a later arm forgets.
         return self.credentials.to_optional()
 
     def open_kwargs(self) -> OpenKwargs:
@@ -273,20 +232,11 @@ def _materialize_items(search: object, signing: Signing) -> Materialized:
     collection = signing.sign(search)
     item_ids = tuple(item.id for item in collection)
     href_count = sum(len(item.assets) for item in collection)
-    # this horizon is the minimum over the items that CARRY a token expiry; a page whose items carry none reports no
-    # horizon, and the two `None` sentinels this fold sees — an unreported total and an unexpiring page — admit at
-    # this single read site, the last line in the module that names either.
     expiry = min((e for item in collection if (e := item.properties.get("msft:expiry"))), default=None)
-    # `matched()` and this page's own item census are TWO measurements, and the first answers
-    # `int | None` because a STAC API reports the total only where it declares the capability, so an unreported
-    # total stays ABSENT and `item_ids` keeps the local census under its own name. Coalescing them published a page
-    # length as if the server had counted the archive.
     return collection, item_ids, Option.of_optional(search.matched()), href_count, Option.of_optional(expiry), Some(search.url_with_parameters())
 
 
 def _materialize_collections(search: object, _: Signing) -> Materialized:
-    # `CollectionSearch` carries no `matched`, no Azure hrefs, and no resolved-GET url, so this row reports three
-    # absences rather than substituting its own page length for a total the surface never answers.
     collections = search.collection_list()
     return collections, tuple(c.id for c in collections), Nothing, 0, Nothing, Nothing
 
@@ -395,8 +345,6 @@ class StacDiscovery(Struct, frozen=True):
     endpoint: str
     surface: Surface
     collection: "ItemCollection | list[Collection]"
-    # `item_ids` is the LOCAL census — the ids this discovery holds — beside `matched`, the SERVER's declared archive
-    # total. Two measurements, two names, and the second absent on every surface and every API that reports none.
     item_ids: tuple[str, ...]
     matched: Option[int]
     href_count: int
@@ -405,11 +353,6 @@ class StacDiscovery(Struct, frozen=True):
     content_key: ContentKey
 
     def contribute(self) -> "Iterable[Receipt]":
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
-        # this pair goes to `Metrics.record` too, beside the identity this discovery minted, so the durable row lands
-        # in the `catalog` partition a predicate prunes and rejoins the live series its twin emitted. A fact the
-        # surface never reported OMITS its key: `"none"` is a token horizon a dashboard can sort, and the endpoint
-        # standing in for an unresolved url made every collection search look like a GET that happened.
         Metrics.record({"rasm.catalog.items": float(len(self.item_ids))}, domain="catalog", kind=self.endpoint)
         reported = Block.of_seq([
             ("matched", self.matched.map(lambda total: int(total))),
@@ -446,7 +389,6 @@ class StacCatalog(Struct, frozen=True):
         params = reduce(lambda acc, q: acc | q.params(), queries, {})
         surface = Surface.of_queries(queries)
         row = surface.row
-        # discovery is an outbound network leg — kind=CLIENT per the store span-kind law, the guarded child span riding beneath.
         with _TRACER.start_as_current_span(
             f"stac.discover.{surface.value}", kind=SpanKind.CLIENT, attributes={"rasm.geo.remote": True, "rasm.geo.op": f"discover.{surface.value}"}
         ):
@@ -533,9 +475,6 @@ type SchemaInference = Literal["FullFile", "FirstBatch"]
 
 @tagged_union(frozen=True)
 class NdjsonRef:
-    # this carrier admits the network discriminant ONCE, at the source factory, off the uri scheme. Retry election,
-    # span kind, and the traced source attribute all read this one value's tag, so no second `startswith` probe
-    # stands beside the first to drift from it, and a source that is a handle rather than a path is unspellable here.
     tag: Literal["local", "remote"] = tag()
     local: str = case()
     remote: str = case()
@@ -559,9 +498,6 @@ class TableSource:
     tag: Literal["items", "ndjson", "table"] = tag()
     items: "Iterable[object]" = case()
     ndjson: tuple[NdjsonRef, int | None] = case()
-    # an Arrow table or reader already in hand: the INPUT of a write exactly as an item iterable is, which is what
-    # lets one `(source, sink)` roster hold the whole corner law where a table-in surface and a source-to-disk
-    # surface each held half of it and refused the other half at call.
     table: "pa.RecordBatchReader | pa.Table" = case()
 
     @staticmethod
@@ -577,8 +513,6 @@ class TableSource:
         return TableSource(table=table)
 
     def reader(self, schema: SchemaInference) -> "pa.RecordBatchReader":
-        # TOTAL over the source axis, so the parse leg reads no capability roster: a table already in hand streams
-        # back at zero copy rather than re-parsing a format it has already left.
         match self:
             case TableSource(tag="items", items=items):
                 return parse_stac_items_to_arrow(items, chunk_size=DEFAULT_JSON_CHUNK_SIZE, schema=schema)
@@ -590,8 +524,6 @@ class TableSource:
                 assert_never(unreachable)
 
     def emit(self) -> tuple[object, int | None]:
-        # this projection yields the provider-ready first argument and the NDJSON page cap, so each row binds
-        # its one-call surface positionally instead of re-destructuring the pair the roster already proved legal.
         match self:
             case TableSource(tag="items", items=items):
                 return items, None
@@ -603,9 +535,6 @@ class TableSource:
                 assert_never(unreachable)
 
     def remote(self) -> Option[str]:
-        # this projection answers the source's foreign coordinate, or absence. Only a `remote` NDJSON source
-        # names one, so a local parse and a table-in write never elect a network retry budget by which
-        # entrypoint a caller reached for.
         match self:
             case TableSource(tag="ndjson", ndjson=(NdjsonRef(tag="remote", remote=url), _limit)):
                 return Some(url)
@@ -633,7 +562,6 @@ class TableSink:
         return TableSink(delta_lake=table_or_uri)
 
     def emit(self) -> tuple[str, str | None]:
-        # every sink carries exactly ONE destination; only the GeoParquet row carries a schema version beside it.
         match self:
             case TableSink(tag="parquet", parquet=(output_path, version)):
                 return output_path, version
@@ -656,8 +584,6 @@ class _Emit(Struct, frozen=True):
 def _emitted(source: TableSource, sink: TableSink, schema: SchemaInference) -> _Emit:
     payload, limit = source.emit()
     dest, version = sink.emit()
-    # an omitting caller inherits the PACKAGE's own declared GeoParquet schema version, resolved at
-    # call time because a default argument would dereference the lazy `stac_geoparquet` proxy at import.
     return _Emit(payload=payload, dest=dest, schema=schema, schema_version=version or DEFAULT_PARQUET_SCHEMA_VERSION, limit=limit)
 
 
@@ -666,25 +592,15 @@ def _written(emitted: _Emit) -> bytes:
 
 
 def _transit(emitted: _Emit) -> bytes:
-    # a Delta table is a directory the writer owns rather than a file this process can read back, so the identity
-    # preimage is the transit the write performed.
     return f"{emitted.payload}->{emitted.dest}".encode()
 
 
 class _RouteRow(Struct, frozen=True):
-    # ONE legal `(source, sink)` corner: the identity kind, the one-call provider write, and the preimage that write
-    # leaves behind. Both callables are call-time thunks over the lazy `stac_geoparquet` names for the reason every
-    # `_SCHEME` cell is — a row dereferencing one at module scope reifies the proxy at import.
     kind: str
     write: Callable[[_Emit], None]
     preimage: Callable[[_Emit], bytes]
 
 
-# this capability roster IS the corner law: a pair absent here has no one-call `stac-geoparquet` surface at all, and
-# absence alone refuses it — `(table, delta_lake)` because the Delta writer reads an NDJSON file and not an Arrow
-# table, and `(items, ndjson_out)`, `(items, delta_lake)`, `(ndjson, ndjson_out)` because the package publishes no
-# such call. Splitting the same law across two entrypoints taught a caller the delta corner only by calling the
-# wrong one, and a `case _, _` tail taught it only by running the fold.
 _TABLE_ROUTE: Final[Map[tuple[str, str], _RouteRow]] = Map.of_seq([
     (
         ("table", "parquet"),
@@ -727,15 +643,10 @@ class StacTableOp:
 
     @staticmethod
     def Parse(source: TableSource, schema: SchemaInference = "FullFile") -> "StacTableOp":
-        # `FullFile` is the parse default because a heterogeneous multi-collection discovery needs the widest schema
-        # and a first batch cannot supply it; `Write` flips to `FirstBatch`, the one-call latency path.
         return StacTableOp(parse=(source, schema))
 
     @staticmethod
     def Write(source: TableSource, sink: TableSink, schema: SchemaInference = "FirstBatch") -> "RuntimeRail[StacTableOp]":
-        # this factory is the ONE corner gate, read BEFORE the op exists and before any file opens. `Parse` and
-        # `Rehydrate` answer a bare value because they are total over their inputs — each carrier states its own
-        # real outcome, and railing a factory that cannot refuse makes every caller unwrap a decision nobody makes.
         return (
             _TABLE_ROUTE.try_find((source.tag, sink.tag))
             .to_result_with(lambda: STAC_ROUTE.raised(source.tag, sink.tag))
@@ -747,8 +658,6 @@ class StacTableOp:
         return StacTableOp(rehydrate=table)
 
     def remote(self) -> Option[str]:
-        # this projection answers the op's own foreign coordinate: both source-reading cases forward their
-        # source's, and rehydrate reads an in-memory table that can name none.
         match self:
             case StacTableOp(tag="parse", parse=(source, _schema)):
                 return source.remote()
@@ -762,8 +671,6 @@ class StacTableOp:
 class StacPayload:
     tag: Literal["arrow", "written", "items"] = tag()
     arrow: "pa.Table" = case()
-    # `written` pairs the destination a write reached with the key it minted there — one shape for the GeoParquet,
-    # NDJSON, and Delta sinks alike, so the receipt census reads one shape instead of a per-sink column.
     written: tuple[str, ContentKey] = case()
     items: tuple[object, ...] = case()
 
@@ -774,61 +681,34 @@ class StacResult(Struct, frozen=True):
 
 
 class _OpRow(Struct, frozen=True):
-    # `retry` names the class this op's REMOTE arm elects, absent where no payload of the case names a foreign
-    # coordinate — that envelope is then skipped by ABSENCE, exactly as the runtime policy table skips a stage
-    # whose class carries no row.
     retry: Option[RetryClass]
-    # `catch` names the op's provider raise set, read at CALL time so no module-scope tuple dereferences the lazy
-    # `pystac` or `deltalake` proxies at import. An unlisted raise propagates as the defect it is rather than
-    # re-keying beside a real codec failure, which is why the catch-all default is never taken here.
     catch: Callable[[], tuple[type[BaseException], ...]]
 
 
 _STAC_ROW: Final[Map[str, _OpRow]] = Map.of_seq([
-    # an NDJSON read raises `OSError`; a malformed record or a schema conflict raises `ValueError`.
     ("parse", _OpRow(retry=Some(RetryClass.HTTP), catch=lambda: (OSError, ValueError))),
-    # write rows add the Delta corner's own native rail, whose commit conflicts and protocol refusals are seam
-    # failures rather than defects.
     ("write", _OpRow(retry=Some(RetryClass.HTTP), catch=lambda: (OSError, ValueError, DeltaError))),
-    # rehydrate rebuilds the STAC model, so the pystac failure tree root is its real raise surface.
     ("rehydrate", _OpRow(retry=Nothing, catch=lambda: (pystac.STACError, ValueError))),
 ])
 
 
 class StacGeoClaim(Struct, frozen=True):
     async def apply(self, op: StacTableOp) -> "RuntimeRail[StacResult]":
-        # ONE entry over the closed op union in BOTH directions, and the dispatch ROW elects the work class: a row
-        # carrying a retry class over an op whose source names a remote coordinate rides the runtime envelope, and
-        # every other pairing rides the plain banded hop. A caller can no longer force an HTTP budget onto a local
-        # file read by picking a second entrypoint, and a remote NDJSON read can no longer skip one by picking the first.
         row = _STAC_ROW[op.tag]
         match row.retry, op.remote():
             case Option(tag="some", some=cls), Option(tag="some", some=url):
-                # abandon frees the band slot when an enclosing deadline trips — a wedged remote read runs out
-                # unobserved; kind=CLIENT marks the outbound network leg per the store span-kind law.
                 with _TRACER.start_as_current_span(
                     f"stac.claim.{op.tag}",
                     kind=SpanKind.CLIENT,
                     attributes={"rasm.geo.remote": True, "rasm.geo.op": op.tag, "rasm.geo.source": url},
                 ):
-                    # the op tag rides `rasm.geo.op` on the span above, so the row owns the coordinate alone. `on`
-                    # answers the other question: WHICH peer this dial reached. It crosses the runtime `origin` fold
-                    # because the arc is written per ORIGIN — keying it on the whole NDJSON href would mint one window
-                    # per object and no arc would ever reach its trip.
                     acquired = await guarded(cls, on_thread, lambda: self._run(op, row), abandon=True, at=STAC_CLAIM, on=Some(origin(url)))
-                    # `_run` is itself railed, so `guarded` yields a doubled `RuntimeRail`; the identity `bind` is the monadic join.
                     return acquired.bind(lambda inner: inner).bind(lambda payload: self._result(payload, op.tag))
             case _:
-                # arrow parse and parquet writes block on disk — the banded thread hop, never the loop. The hop
-                # re-wraps nothing: `_run` already converted its provider raise on the row's narrowed set, and a
-                # second boundary here would re-widen that set to the `Exception` default it exists to refuse.
                 with _TRACER.start_as_current_span(f"stac.claim.{op.tag}", attributes={"rasm.geo.op": op.tag}):
                     return (await on_thread(self._run, op, row)).bind(lambda payload: self._result(payload, op.tag))
 
     def _run(self, op: StacTableOp, row: _OpRow) -> "RuntimeRail[StacPayload]":
-        # this fence is the ONE fault conversion for the whole leg, narrowed to the row's own raise set; a write
-        # arm returns an already-railed `ContentIdentity.of`, so the self-flatten threads the identity fault
-        # through the single carrier rather than swallowing it in an `Ok`.
         return boundary(STAC_CLAIM, lambda: self._payload(op), catch=row.catch()).bind(lambda rail: rail)
 
     def _payload(self, op: StacTableOp) -> "RuntimeRail[StacPayload]":
@@ -836,8 +716,6 @@ class StacGeoClaim(Struct, frozen=True):
             case StacTableOp(tag="parse", parse=(source, schema)):
                 return Ok(StacPayload(arrow=source.reader(schema).read_all()))
             case StacTableOp(tag="write", write=(source, sink, schema)):
-                # this roster read is a plain index: `StacTableOp.Write` already proved the corner, so no second
-                # refusal arm stands here to re-decide what construction settled.
                 route = _TABLE_ROUTE[(source.tag, sink.tag)]
                 emitted = _emitted(source, sink, schema)
                 route.write(emitted)
@@ -852,11 +730,8 @@ class StacGeoClaim(Struct, frozen=True):
             case StacPayload(tag="arrow", arrow=table):
                 census = table
             case StacPayload(tag="written", written=(dest, key)):
-                # a write moves bytes to a destination this process does not hold, so the census row IS the
-                # destination beside the key the write minted — never a re-read of what was just written.
                 census = pa.table({"target": [dest], "key": [key.hex]})
             case StacPayload(tag="items", items=items):
-                # rehydrate yields `pystac.Item` objects; lower each to a dict for the Arrow receipt table `QueryReceipt` keys.
                 census = pa.Table.from_pylist([item.to_dict() for item in items])
             case unreachable:
                 assert_never(unreachable)
@@ -906,14 +781,11 @@ type Window = tuple[int, int]
 _SOURCE_OWNER: Final[str] = "rasm.data.spatial.catalog"
 
 
-_WINDOW_BAND: Final[int] = 8  # concurrent byte-window reads across every egress fold; the store's own client pools connections under it
-_WINDOW_LIMITER: Final[RunVar[CapacityLimiter]] = RunVar("stac-window-band")  # per-event-loop instance under the one shared band
+_WINDOW_BAND: Final[int] = 8
+_WINDOW_LIMITER: Final[RunVar[CapacityLimiter]] = RunVar("stac-window-band")
 
 
 def _window_band() -> CapacityLimiter:
-    # run-scoped band: an anyio limiter binds to the loop that first uses it, so a module-global instance breaks on a
-    # second loop or backend; RunVar scopes one instance per running loop — concurrent folds within one runtime share
-    # the band and never multiply it, while a later loop mints its own instead of tripping on a dead binding.
     held = _WINDOW_LIMITER.get(None)
     if held is None:
         held = CapacityLimiter(_WINDOW_BAND)
@@ -922,25 +794,16 @@ def _window_band() -> CapacityLimiter:
 
 
 def _raster_hrefs(collection: object) -> "Iterator[tuple[object, str]]":
-    # the media-type gate builds at CALL time — a module-scope `raster` set would dereference the lazy
-    # `MediaType` proxy at import and pay the whole pystac band for a fold no caller has run yet.
     raster = {MediaType.COG, MediaType.GEOTIFF}
     return ((asset, asset.href) for item in collection for asset in item.assets.values() if asset.media_type in raster)
 
 
 class BandSource(StrEnum):
-    # WHICH roster the band census came off. `len(eo.bands or bands)` published a spectral census and a raster
-    # descriptor census under one integer and a forged `0` where the item declared neither, so no reader could tell
-    # a five-band scene from a five-descriptor asset from an item that answered nothing at all.
     SPECTRAL = "eo:bands"
     DESCRIPTOR = "raster:bands"
 
 
 class ClaimBundle(Struct, frozen=True):
-    # `ClaimBundle` holds the ADMITTED coverage facts, each column carrying its own absence. `crs` and the band
-    # census are REQUIRED — a fabricated `EPSG:None` and a zero-band scene are not coverages — and the admission
-    # reports every missing one at once. Every other column is genuinely optional at a STAC boundary and used to
-    # fuse with a measurement: `0.0` is a pixel value a scene may carry, `()` is an affine, a title is not an href.
     crs: str
     band_count: int
     band_source: BandSource
@@ -948,10 +811,6 @@ class ClaimBundle(Struct, frozen=True):
     transform: Option[tuple[float, ...]]
     cloud_cover: Option[float]
     stac_cfg: StacCfg
-    # `claim` is the sibling-owned raster-READ carrier. `spatial/geospatial#GEO` declares `nodata` a required
-    # `float`, and a read claim carrying no fill is not a claim, so an undeclared-nodata scene carries `Nothing`
-    # here and the COG load reads each band's own descriptor rather than a fill this catalogue never measured.
-    # `crs` and `band_count` ride this bundle's own columns, so no arm depends on the claim being present.
     claim: Option[RasterGeoClaim]
 
 
@@ -961,9 +820,6 @@ class _Census(Struct, frozen=True):
 
 
 def _census(spectral: "Option[tuple[object, ...]]", descriptors: "Option[tuple[object, ...]]") -> "Option[_Census]":
-    # this census is DECLARED off `eo:bands`, DEFAULTED off the per-asset `raster:bands` descriptors under their
-    # source name, and ABSENT where the item carries neither — three states the `or` coalesce collapsed into one
-    # integer. The absent state never survives admission, so the bundle carries the count beside its source alone.
     match spectral.filter(lambda bands: bool(bands)), descriptors.filter(lambda bands: bool(bands)):
         case Option(tag="some", some=bands), _:
             return Some(_Census(count=len(bands), source=BandSource.SPECTRAL))
@@ -974,19 +830,10 @@ def _census(spectral: "Option[tuple[object, ...]]", descriptors: "Option[tuple[o
 
 
 def _stac_cfg(named: "Block[tuple[str, object]]", nodata: Option[float]) -> StacCfg:
-    # an asset NAME is the key `odc.stac.load` addresses per-band config by — never a human title, never an href.
-    # Two untitled assets keyed by `title or href` addressed each other's bands, and an href is an address rather
-    # than a name. The `nodata` override is OMITTED where the scene declared none, so the loader reads each band's
-    # own descriptor instead of the fill this fold used to fabricate — and a fabricated `0.0` masked every genuine
-    # zero pixel in the scene across the five reads the claim slot reaches.
     return nodata.map(lambda fill: {"*": {"assets": {name: {"nodata": fill} for name, _asset in named}}}).default_value({})
 
 
 def _window_row(paired: "tuple[tuple[str, Window], EgressReceipt]") -> "RuntimeRail[str]":
-    # one preimage row per read: the href, the byte window, and the payload's OWN content key. A control-plane
-    # receipt mints no key — `tabular/egress#EGRESS` types the slot nullable for exactly that case — and folding
-    # `''` in its place gave two keyless windows one identical row, so the content identity stopped discriminating
-    # content. An absent key REFUSES instead, and the sweep accumulates so one re-run names every keyless window.
     (href, (start, end)), receipt = paired
     return (
         Option.of_optional(receipt.content_key)
@@ -998,9 +845,6 @@ def _window_row(paired: "tuple[tuple[str, Window], EgressReceipt]") -> "RuntimeR
 @tagged_union(frozen=True)
 class FoldTarget:
     tag: Literal["egress", "cube", "coverage"] = tag()
-    # the egress arm names the store ROOT, never a pre-built owner: the fold binds the signing's own credential
-    # provider onto the handle it opens, so an asset read cannot cross a store carrying no token lifetime while the
-    # discovery that produced its hrefs was signed. A caller-supplied owner could silently be that store.
     egress: tuple[ResourceRef, "Mapping[str, Window]"] = case()
     cube: tuple[ResourceRef, str] = case()
     coverage: tuple[str, str, "dict[str, int] | None"] = case()
@@ -1025,27 +869,12 @@ class AssetFold(Struct, frozen=True):
     async def over(self, target: FoldTarget) -> "RuntimeRail[StacDiscovery]":
         if self.discovery.surface is Surface.COLLECTION:
             return Error(STAC_SURFACE.raised())
-        # each asset href becomes a credential-bearing REF stamped with the signing estate's own provider: the byte
-        # reads authenticate and refresh through the same custody that signed discovery, and every downstream
-        # consumer (egress lane, manifest registry) reads that one column instead of taking a provider beside a ref.
-        # hrefs and refs are TWO values one name conflated: the byte-window arm addresses the store by href STRING
-        # (`GetRange` takes a path, `windows` keys by href, and both content preimages spell it), while the manifest
-        # arm needs the credential-bearing coordinate. Folding them onto one tuple left every window lookup missing,
-        # so the egress fan offered zero reads and keyed an empty preimage, and the cube preimage joined structs.
         hrefs = tuple(href for _, href in _raster_hrefs(self.discovery.collection))
         sources = tuple(ResourceRef.admit(href, _SOURCE_OWNER, self.signing.provider()) for href in hrefs)
         match target:
             case FoldTarget(tag="egress", egress=(ref, windows)):
-                # one owner per fold over the signing's own provider: the byte reads authenticate and refresh through
-                # the same credential estate that signed discovery, never a second token custody beside it. The
-                # provider stamps onto the residence COORDINATE — the lane takes no `credential_provider=` beside its
-                # ref, because a lane credentialed apart from its residence is two resolutions one memo key cannot serve.
                 egress = ObjectEgress.of(structs.replace(ref, credentials=self.signing.provider()))
                 windowed = tuple((href, w) for href in hrefs if (w := windows.get(href)) is not None)
-                # byte windows ride the egress owner's awaitable leg as independent reads — a sequential await pays the
-                # store's latency once per window — fanned inside one task group under the run-scoped window band;
-                # each child rails its own outcome so the group exits clean, the handle order preserves the windowed
-                # order, and `traversed(by=ABORT)` still aborts the fold on the first failed read.
                 band = _window_band()
 
                 async def ranged(href: str, start: int, end: int) -> "RuntimeRail[EgressReceipt]":
@@ -1056,22 +885,14 @@ class AssetFold(Struct, frozen=True):
                     handles = tuple(group.start_soon(ranged, href, start, end) for href, (start, end) in windowed)
                 rails = Block.of_seq(handle.return_value for handle in handles)
                 return traversed(rails, by=Disposition.ABORT).bind(
-                    # per-window content identity: each preimage row binds the href, the byte window, and the returned
-                    # payload's operation-bytes ContentKey off the receipt — two folds over one href set with different
-                    # remote content (or different windows) key distinctly; a bare href-plus-total-length preimage is the
-                    # deleted content-blind form, and byte-length accounting stays the folded count. The rows sweep on
-                    # ACCUMULATE, so a fold over several keyless receipts names all of them in one refusal.
                     lambda receipts: traversed(
                         Block.of_seq(tuple(zip(windowed, receipts, strict=True))).map(_window_row), by=Disposition.ACCUMULATE
                     ).bind(lambda rows: self._rekey("egress", "\n".join(rows).encode(), sum(r.byte_length for r in receipts)))
                 )
             case FoldTarget(tag="cube", cube=(ref, concat_dim)):
-                # the manifest walk reads archival headers over the SAME credential estate that signed the hrefs, so a
-                # cube registration over a signed catalog authenticates instead of walking a token-less handle.
                 manifest = ManifestWrite(
                     cube=FieldVirtual(sources=sources, target=structs.replace(ref, credentials=self.signing.provider()), concat_dim=concat_dim)
                 )
-                # icechunk registration and commit block on store I/O — the banded thread hop, never the loop; `apply` is railed, so the hop carries the rail whole.
                 outcome_rail = await on_thread(VirtualReference(sources=sources, ref=ref).apply, VersionOp(aggregate=(manifest, {}, None)))
                 return outcome_rail.bind(
                     lambda outcome: (
@@ -1091,7 +912,6 @@ class AssetFold(Struct, frozen=True):
                 assert_never(unreachable)
 
     def _coverage(self, groupby: str, resampling: Resampling, chunks: "dict[str, int] | None") -> "RuntimeRail[StacDiscovery]":
-        # this extension read is a fallible ADMISSION, so the load runs only behind a bundle that proved its columns.
         return self._claim(next(iter(self.discovery.collection)), resampling).bind(
             lambda bundle: self._loaded(bundle, groupby, resampling, chunks)
         )
@@ -1105,9 +925,6 @@ class AssetFold(Struct, frozen=True):
             resampling=resampling,
             chunks=chunks or {},
         )
-        # preimage rows name the facts this coverage MEASURED. An unmeasured cloud fraction contributes no row
-        # rather than the literal `None` the f-string folded into a content key, so a scene that reported no cloud
-        # measure and a scene whose measure decoded to nothing can never share an identity.
         measured = Block.of_seq([
             Some(f"crs={bundle.crs}"),
             Some(f"sizes={tuple(cube.sizes.values())}"),
@@ -1132,23 +949,13 @@ class AssetFold(Struct, frozen=True):
 
     @staticmethod
     def _claim(sample: object, resampling: Resampling) -> "RuntimeRail[ClaimBundle]":
-        # ONE accumulating admission over the STAC extension surface. Each foreign read lands on its own carrier
-        # first, then the columns a coverage cannot exist without sweep together, so a malformed item reports EVERY
-        # missing one in a single refusal instead of one re-run per repair.
         projection, eo = sample.ext.proj, sample.ext.eo
         named = Block.of_seq(tuple(sample.assets.items()))
         first = named.try_head()
         spectral = Option.of_optional(eo.bands).map(tuple)
-        # raster descriptors ride the FIRST asset, so an item carrying no assets carries no descriptors, and the
-        # indexed read that used to sit here died on an `IndexError` inside the offloaded fold.
         descriptors = first.bind(lambda pair: Option.of_optional(pair[1].ext.raster.bands)).map(tuple)
         census = _census(spectral, descriptors)
-        # this read answers the first DECLARED band fill, or nothing: `next(..., 0.0)` fabricated one for every
-        # scene whose bands declare none, and `0.0` is a measurement — a real zero pixel — so that fabrication
-        # masked live data.
         nodata = descriptors.bind(lambda bands: Block.of_seq(bands).choose(lambda band: Option.of_optional(band.nodata)).try_head()).map(float)
-        # `proj:transform` is optional and a provider may carry a short or empty list; the affine is six
-        # coefficients or it is not an affine, and the empty-tuple slot spelled "unknown" and "identity" alike.
         transform = (
             Option.of_optional(projection.transform)
             .map(lambda affine: tuple(float(value) for value in affine))
@@ -1169,9 +976,6 @@ class AssetFold(Struct, frozen=True):
                     transform=transform,
                     cloud_cover=Option.of_optional(eo.cloud_cover).map(float),
                     stac_cfg=_stac_cfg(named, nodata),
-                    # this sibling declares `transform` empty-when-unknown and `nodata` required, so the affine
-                    # lowers to the owner's own absent form at this one seam and the claim mints only where a fill
-                    # was measured — a fabricated fill is what a required slot with no absent form would demand.
                     claim=nodata.map(
                         lambda fill: RasterGeoClaim(
                             crs=f"EPSG:{epsg}",

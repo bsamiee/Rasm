@@ -18,10 +18,10 @@
 - Boundary: payloads stay host values — `ResponseMouseArgs`, `KeyEventArgs`, `TextInputEventArgs`, `Context`, `Skin`, `Capsule`, `Shade`, `Shape`, `ContextMenu` cross unwrapped because the decision, not the payload, is this page's domain; the input panel projects through `ComponentSpec.Panel`, never a chrome case. `Canvas/paint.md`'s `PathSpec.Hits` answers canvas-owned custom geometry the host publishes no slab for; it never reaches this island, whose region owner is the host `Capsule`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
 public sealed partial class PointerKind {
@@ -41,8 +41,6 @@ public sealed partial class KeyPhase {
     public static readonly KeyPhase Up = new();
 }
 
-// Trace key as a ROW — a GetType().Name string key admits typos, renames silently fork the stream,
-// and LatestByKind cannot be proved total against the event family.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChromeKind {
@@ -93,7 +91,7 @@ public abstract partial record ChromeEvent {
         cursor: static _ => ChromeKind.Cursor);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ChromeState(
     Eto.Drawing.RectangleF Bounds, Eto.Drawing.PointF Pivot,
@@ -101,8 +99,6 @@ public readonly record struct ChromeState(
     public Option<Grasshopper2.UI.Primitives.Capsule> Region =>
         Shape.Map(shape => Grasshopper2.UI.Primitives.Capsule.CreateFromOuter(shape, Bounds));
 
-    // Bounds is the coarse pre-filter and SlabF.Contains answers the rounded capsule exactly; before the
-    // first layout no shape exists, so the rectangle is the whole answer.
     public bool Hits(Eto.Drawing.PointF at) =>
         Bounds.Contains(at) && Region.Map(capsule => capsule.Slab.Contains(at)).IfNone(true);
 }
@@ -130,13 +126,13 @@ public readonly record struct ChromeDecision(
 - Boundary: the cell holds mutable per-instance state and lives on the host attribute instance; the policy value holds none and crosses instances freely.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ResizePolicy(Eto.Drawing.SizeF Minimum, Eto.Drawing.SizeF Maximum);
 
@@ -147,37 +143,27 @@ public sealed record ComponentChrome {
 
     public Option<ResizePolicy> Resize { get; init; } = default;
 
-    // OPT-IN tracing borrows the drain whose lease `PlatformRoot.Hold` owns; this instance can publish but
-    // cannot strand a per-attribute lease on a host type that exposes no disposal edge.
     public Option<EvidenceDrain<ChromeTrace>> Trace { get; init; } = default;
 }
 
 public readonly record struct ChromeTrace(ChromeKind Kind, ChromeDecision Decision) : IUiFact;
 
-// Drain publishes under a SOURCE row; this cell is that one source.
 public sealed class ChromeSource : IUiSource<ChromeTrace> {
     public static readonly ChromeSource Row = new();
     public string Key => "component.chrome";
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class ChromeCell {
     private readonly ComponentChrome chrome;
     private readonly FaultCell faults;
     private readonly HookId faultPoint;
 
-    // Trace is the KERNEL drain, held leased where the policy supplied one: bounded, shed-accounted,
-    // ordinal-minting, channel-shaped — stored history and its projections are the consumer's own fold
-    // over Reader, never a cell member.
     private readonly Option<EvidenceDrain<ChromeTrace>> trace;
 
     private readonly Atom<Option<Grasshopper2.UI.Skinning.Shape>> skinShape = Atom(Option<Grasshopper2.UI.Skinning.Shape>.None);
 
-    // Attach roster is DATA: one row per host hook, folded once — thirteen imperative += statements were
-    // a roster spelled as a body. Pointer, key, text, and focus reach the cell only through the host
-    // responder's hook events, which fire exactly where that responder's own logic would answer Ignored — the
-    // ZUI grip on the component base and the edge grab on the resizable base keep priority over every verdict.
     internal ChromeCell(
         ComponentChrome chrome, Grasshopper2.Doc.IAttributes host,
         Grasshopper2.UI.Flex.Responses responder, FaultCell faults, HookId faultPoint) {
@@ -201,7 +187,6 @@ public sealed class ChromeCell {
         responder => responder.GotFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: true), host)),
         responder => responder.LostFocus += (_, _) => ignore(cell.Decide(new ChromeEvent.Focus(Gained: false), host)));
 
-    // History IS the channel: a consumer that wants receipts or a latest-by-kind view folds Reader itself.
     public Option<ChannelReader<UiEvent<ChromeTrace>>> Traced => trace.Map(static drain => drain.Reader);
 
     public ChromeDecision Decide(ChromeEvent happening, Grasshopper2.Doc.IAttributes host, Op? key = null) {
@@ -248,12 +233,12 @@ public sealed class ChromeCell {
 - Boundary: `ResizableAttributes<T>` implements `ICursorAwareAttributes.CursorAt` EXPLICITLY, so a subclass cannot override it and re-listing the interface re-implements the map and silently deletes the host's edge-resize cursors; the resizable shell therefore carries no cursor arm and `ChromeEvent.Cursor` reaches the component shell alone. Base also owns `ResizingFrame`, `SnappingConstraints.CreateFromDocument`, `SnappingSettings.Current`, `CanvasSnapToObjects` toggling, and the `ResizeAction` undo record; `EdgeSize` is its `public const int` `6`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Components;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed class ChromeHost :
     Grasshopper2.Doc.Attributes.ComponentAttributes,
@@ -299,8 +284,6 @@ public sealed class ChromeHost :
         cell.Decide(new ChromeEvent.Cursor(at), this).Pointer.IfNone(Eto.Forms.Cursors.Default);
 }
 
-// E-G29: the construction fence is a NAMED phase — Raw until the shell's own constructor completes,
-// Mounted after — because the base constructor calls virtual members before derived fields exist.
 [SmartEnum<int>]
 public sealed partial class MountState {
     public static readonly MountState Raw = new(key: 0);
@@ -340,8 +323,6 @@ public sealed class ResizableChromeHost :
         ignore(cell.Laid(shape, this));
     }
 
-    // ResizableAttributes<T> leaves Attributes<T>'s protected Draw open; the base body resolves its shade the
-    // same way, so the chrome sees the identical (capsule, shade) pair the component shell's decoration seam does.
     protected override void Draw(
         Eto.Drawing.Context context, Grasshopper2.UI.Skinning.Skin skin, Grasshopper2.UI.Primitives.Capsule capsule) {
         base.Draw(context, skin, capsule);

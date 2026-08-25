@@ -30,41 +30,28 @@ Composition is downward and sideways inside the sub-domain: `Op`, `Lease<T>`, `A
 - Boundary: HOST-SPECIFIC-STAYS — the AppKit bridge contracts each boundary registers against these rows (`IMacViewHandler`, `IMacWindow`, and the `MacConversions`/`CGConversions` projection owners) stay at the Grasshopper boundary, because they name `Microsoft.macOS` types the kernel does not reference.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto;
 using Rasm.Domain;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Whether the caller may DISPOSE is the whole custody axis, so it is a row and not a case family: the three former
-// arms carried one payload under three names and only this arm differed. `Lease<T>` is not the owner here because a
-// backend handler contract carries no `IDisposable` constraint, so the release is a guarded probe rather than a
-// `using` window — the one place on this sub-domain where the kernel lease cannot bind, stated rather than copied.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class HandlerCustody {
     public static readonly HandlerCustody Owned = new(key: 0, release: static (handler, key) =>
         FaultRail.Host(() => Fin.Succ(Op.Side(() => (handler as IDisposable)?.Dispose())), key));
-    // The platform's cached singleton: disposing it poisons every other consumer that resolved the same contract,
-    // so the release arm is the no-op and the row is what makes that readable at the call site.
     public static readonly HandlerCustody Borrowed = new(key: 1, release: static (_, _) => Fin.Succ(unit));
 
     [UseDelegateFromConstructor] internal partial Fin<Unit> Release(object handler, Op key);
 }
 
-// Ownership going IN is a MODE, never a payload: all three demands were stateless and the type parameter appeared
-// in none of them, so every call site allocated a generic instance to name a mode. Each row carries the host member
-// it composes and the custody its answer travels under, so the demand-and-custody PAIR is one row read twice.
-// NAMED LOSS: the `LookupCase` custody arm — it named a DEMAND rather than a custody, and a registered factory
-// invoked here mints a handler the caller owns exactly as `Create` does.
 [SmartEnum<int>]
 public sealed partial class HandlerDemand {
     public static readonly HandlerDemand Create = new(key: 0, custody: HandlerCustody.Owned,
         mint: static (platform, contract, key) => FaultRail.Host(() => Fin.Succ(Some(platform.Create(type: contract))), key));
     public static readonly HandlerDemand Shared = new(key: 1, custody: HandlerCustody.Borrowed,
         mint: static (platform, contract, key) => FaultRail.Host(() => Fin.Succ(Some(platform.CreateShared(type: contract))), key));
-    // `Find` answers the FACTORY and answers it NULLABLE, so an unregistered contract lowers to absence on the
-    // discovery rail rather than raising, and the invoke that follows is the same mint `Create` performs.
     public static readonly HandlerDemand Registered = new(key: 2, custody: HandlerCustody.Owned,
         mint: static (platform, contract, key) => FaultRail.Host(
             () => Fin.Succ(Optional(platform.Find(type: contract)).Map(static factory => factory())), key));
@@ -74,7 +61,6 @@ public sealed partial class HandlerDemand {
     [UseDelegateFromConstructor] internal partial Fin<Option<object>> Mint(Platform platform, Type contract, Op key);
 }
 
-// The custody-carrying answer: one carrier, one row, and the release the row decides.
 public sealed record HandlerHold<THandler>(HandlerCustody Custody, THandler Handler) where THandler : class {
     public Fin<Unit> Release(Op? key = null) => Custody.Release(handler: Handler, key: key.OrDefault());
 }
@@ -86,17 +72,11 @@ public abstract partial record MintFact {
     public sealed record WidgetCase(Widget Instance) : MintFact;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Generic closes at MINT: the contract type and the two thunks are the host's own registration shape, and
-// nothing past this construction carries an erased factory a consumer could mis-cast.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record HandlerRow(Type Contract, Func<Platform, Op, Fin<Unit>> Seat, Func<Platform, Op, Fin<Unit>> Restore) {
     public static HandlerRow Of<THandler>(Func<THandler> factory) where THandler : class;
 }
 
-// Reads only, never a key: the two opaque slots are host handles the boundary casts at its own edge. Absence is
-// spelled ONE way across every column — an unrealized native handle is `None` and never `nint.Zero`, which is a
-// legal address the moment a platform hands one back — and the measured lifecycle fact reads the sub-domain's own
-// phase row rather than re-minting a second two-state vocabulary beside it.
 [BoundaryAdapter]
 public sealed record HandlerIdentity(
     Type Widget,
@@ -107,30 +87,24 @@ public sealed record HandlerIdentity(
     Option<object> Control,
     MountPhase Phase);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Restores in reverse-seat order, so a row layered over another unwinds to the state it found.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class HandlerSeat : IDisposable {
     public Seq<HandlerRow> Seated { get; }
     public Seq<(HandlerRow Row, Error Cause)> Refused { get; }
     public void Dispose();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Handlers {
     [BoundaryAdapter]
     public static Fin<Lease<HandlerSeat>> Seat(Op? key = null, params ReadOnlySpan<HandlerRow> rows);
 
-    // Gated on `Supports<THandler>` before the mint, so a missing capability answers ABSENCE rather than raising.
-    // The contract type is the member's own type argument and the demand is a VALUE, so a caller selecting a
-    // modality at runtime passes a row instead of allocating a generic instance to name one.
     [BoundaryAdapter]
     public static Fin<Option<HandlerHold<THandler>>> Resolve<THandler>(HandlerDemand demand, Op? key = null)
         where THandler : class;
 
     [BoundaryAdapter] public static Fin<HandlerIdentity> Identity(Widget widget, Op? key = null);
 
-    // Both raises or neither: a census of what the platform produced subscribes the pair, because instrumenting
-    // construction sites is what the two events exist to replace.
     [BoundaryAdapter]
     public static Fin<Lease<IDisposable>> Census(Action<MintFact> observe, FaultCell faults, Op? key = null);
 }
@@ -151,24 +125,22 @@ public static class Handlers {
 - Boundary: HOST-SPECIFIC-STAYS — the AppKit view anchors, the vibrancy panes, the CoreAnimation compositor, and the screen-capture estate at both boundaries construct the platform view and hand this owner a value; the kernel becomes Eto-aware, never AppKit-aware.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NativeMount {
     private NativeMount() { }
     public sealed record Eager(object Native) : NativeMount;
-    // Host creation hooks have no return a refusal rides, so a refused supply RETAINS and reports.
     public sealed record Deferred(Func<object> Supply, FaultCell Faults) : NativeMount;
 
-    // For a caller whose receipt already owns teardown; a standalone crossing takes `PlatformMount.Attach`.
     [BoundaryAdapter] public Fin<Control> Realize(Op? key = null);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PlatformMount : IDisposable {
     [BoundaryAdapter] public static Fin<Lease<PlatformMount>> Attach(NativeMount mount, Op? key = null);
 
@@ -200,15 +172,13 @@ public sealed class PlatformMount : IDisposable {
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino theme-zone swatch feeder that produces a hosted shift and its host UI service resolution stay at that boundary; the Grasshopper session styling target and its accessibility axis stay at that one. Plugin identity is `Domain/frame`'s `PackageIdentity`, never a second identity here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto;
 using Rasm.Domain;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Upstream is the host's own platform feature flag set; each row names the flag it stands for, so the vocabulary
-// derives from a closed external set rather than being authored beside one.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlatformCapability : ICapability<PlatformCapability> {
@@ -230,19 +200,12 @@ public sealed partial class FormFactor {
     public static readonly FormFactor Mobile = new(key: 1);
 }
 
-// The two ambient scopes as ROWS: `Context` folds `Platform.Invoke<T>`, which brackets the platform context around
-// the call, and `Worker` folds `Platform.ThreadStart`, whose scope the base platform answers as null and which
-// therefore lowers that absence rather than dereferencing it. Neither row carries a delegate column, because the
-// crossing is GENERIC in its result and a delegate column would erase the very type the caller is asking for — so
-// `HostPlatform.Scope` folds the row and the generic stays on the member.
 [SmartEnum<int>]
 public sealed partial class PlatformScope {
     public static readonly PlatformScope Context = new(key: 0);
     public static readonly PlatformScope Worker = new(key: 1);
 }
 
-// No synthetic fallback row: an unrecognised platform answers absence on the fact, which is the state a negation
-// row was standing in for.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlatformRow {
@@ -277,9 +240,7 @@ public readonly partial struct StyleKey {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The identity a host platform publishes: non-blank is an ADMISSION the value object holds, so no reader re-checks
-// it and no fact carries a one-conjunct claim restating what construction already proved.
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct PlatformId {
@@ -289,10 +250,6 @@ public readonly partial struct PlatformId {
     }
 }
 
-// Bundle validity refuses at `Snapshot` rather than riding out as a column, and the form factor projects off the
-// row rather than off two host predicates that admit neither and both. The fact carries no evidence fold at all:
-// its `Fin` at `Snapshot` IS the evidence, and a one-conjunct claim re-checking an admitted identity measures
-// nothing the construction did not already refuse.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PlatformFact(
     PlatformId Id,
@@ -301,18 +258,14 @@ public readonly record struct PlatformFact(
     public Option<FormFactor> Factor => Row.Map(static row => row.Factor);
 }
 
-// Seam injects its three ambient functions rather than the row reaching for them, so a row is a value a
-// consumer can build, test, and hand over off the marshal.
 internal sealed record StyleContext(Func<ThemeSnapshot> Snapshot, Action<Control> Track, FaultCell Faults);
 
-// Two mint arms, one row: the widget facade dresses cosmetics and the concrete handler reaches native surgery,
-// and each closes its generic here so the ledger carries no erased dress action.
 public sealed record StyleRow(StyleKey Tag, Action<StyleContext> Seat) {
     public static StyleRow OfWidget<TWidget>(StyleKey tag, Action<TWidget, ThemeSnapshot> dress) where TWidget : Widget;
     public static StyleRow OfHandler<THandler>(StyleKey tag, Action<THandler, ThemeSnapshot> dress) where THandler : class, Widget.IHandler;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class StyleSeat : IDisposable {
     public TelemetrySource Owner { get; }
     public Seq<StyleRow> Claimed { get; }
@@ -320,39 +273,30 @@ public sealed class StyleSeat : IDisposable {
     public void Dispose();
 }
 
-// Registers and never generates: the grid is the frozen value, this seam is the host registry it is injected into.
 public sealed class ThemeSeam {
     public static Fin<ThemeSeam> Of(ThemeGrid grid, Op? key = null);
 
     public ThemeSnapshot Current { get; }
     public Seq<Error> Failures { get; }
 
-    // Duplicate keys in the batch refuse BEFORE anything seats, so the host registry never holds half a ledger.
     [BoundaryAdapter]
     public Fin<Lease<StyleSeat>> Register(TelemetrySource owner, FaultCell faults, Op? key = null, params ReadOnlySpan<StyleRow> rows);
 
     [BoundaryAdapter] public Fin<Unit> Wear(Widget widget, StyleKey style, Op? key = null);
 
-    // Process-wide policy at its own grain: a provider swap replaces the whole registry and is never a per-row act.
     [BoundaryAdapter] public Fin<Unit> Provide(IStyleProvider provider, Op? key = null);
 
     public Unit Track(Control control);
 
-    // Only an ACCEPTED change drives the rebroadcast, so a refused shift never reaches a tracked control; a single
-    // control refusing its restyle lands on the change's failure set and never un-accepts the theme.
     [BoundaryAdapter] public Fin<ThemeChange> Change(ThemeShift shift, Op? key = null);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostPlatform {
     [BoundaryAdapter] public static Fin<PlatformFact> Snapshot(Op? key = null);
 
-    // One capability gate serves three demand shapes behind one entry, so a feature test, a handler-support test,
-    // and a backend test never diverge into three call shapes with three refusal spellings.
     [BoundaryAdapter] public static Fin<Unit> Demand(PlatformClaim claim, Op? key = null);
 
-    // ONE scoped entry over the row that names which scope: the two former members differed by nothing a value
-    // could not carry, so a caller selecting a scope at runtime had to switch to pick a member name.
     [BoundaryAdapter] public static Fin<TResult> Scope<TResult>(PlatformScope scope, Func<Fin<TResult>> body, Op? key = null);
 }
 ```

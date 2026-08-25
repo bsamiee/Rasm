@@ -48,7 +48,6 @@ from rasm.artifacts.drawing.symbol import SymbolKind, SymbolStyle, SymbolTarget
 from rasm.artifacts.graphic.layer import LayerNode, LayerPlan
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
 
-# each proxy reifies on first render-arm use in the offloaded worker
 lazy import drawsvg
 lazy import ezdxf
 lazy from ezdxf import xref
@@ -65,26 +64,22 @@ type Box = tuple[float, float, float, float]
 type Ramp = tuple[str, ...]
 type Engine = Callable[["Detail"], tuple[tuple[LayerNode, ...], ArtifactReceipt]]
 
-_RADIUS: float = 6.0  # the default callout-bubble radius (mm) the SymbolKind projection carries
-# Real engine raise tuple the boundary narrows catch to — a non-engine raise crosses as a defect, never the Exception catch-all.
+_RADIUS: float = 6.0
 _FAULTS: tuple[type[Exception], ...] = (ValueError, OSError)
-_CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgpack.Encoder(order="deterministic")
 
 
-class CalloutKind(StrEnum):  # selects the drawing/symbol#SYMBOL bubble the sheet's Symbol producer draws
-    DETAIL = "detail"  # a detail bubble
-    SECTION = "section"  # a building/wall section cut
-    ELEVATION = "elevation"  # an interior-elevation marker
-    ENLARGEMENT = "enlargement"  # an enlarged-plan window
-    WALL_SECTION = "wall_section"  # a vertical wall-section cut
-    BLOWUP = "blowup"  # a blow-up of a small region
+class CalloutKind(StrEnum):
+    DETAIL = "detail"
+    SECTION = "section"
+    ELEVATION = "elevation"
+    ENLARGEMENT = "enlargement"
+    WALL_SECTION = "wall_section"
+    BLOWUP = "blowup"
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
-# spans every detail target, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
-# TRANSIENT: a DXF write or a render refusal is a defect a re-issue may clear.
 DETAIL_CROSS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.DETAIL, point="cross", arm="boundary", defect="detail-fold", retriability=TRANSIENT
 )
@@ -92,9 +87,8 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([DETAIL_CRO
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class DetailRef(Struct, frozen=True):
-    # Cross-reference endpoint — .cite() is the "3/A-501" both the DAG nodes and the library index key on.
-    designator: str  # the detail number/tag ("3")
-    sheet: str  # the sheet the detail is drawn on ("A-501")
+    designator: str
+    sheet: str
     discipline: Discipline = Discipline.ARCHITECTURAL
 
     def __post_init__(self) -> None:
@@ -107,12 +101,11 @@ class DetailRef(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class CalloutBoundary:
-    # Enlarged-region outline on the host drawing the callout leader runs from to the marker.
     tag: Literal["circle", "rectangle", "polygon", "section_line"] = tag()
-    circle: tuple[Point, float] = case()  # center, radius — the classic detail-boundary bubble
-    rectangle: tuple[Point, Point] = case()  # corner, corner — an enlarged-plan window
-    polygon: tuple[Point, ...] = case()  # a freeform enlarged region
-    section_line: tuple[tuple[Point, ...], float] = case()  # cut-line vertices + bearing — a section-cut boundary
+    circle: tuple[Point, float] = case()
+    rectangle: tuple[Point, Point] = case()
+    polygon: tuple[Point, ...] = case()
+    section_line: tuple[tuple[Point, ...], float] = case()
 
     def __post_init__(self) -> None:
         match self:
@@ -123,7 +116,7 @@ class CalloutBoundary:
             case CalloutBoundary(tag="polygon", polygon=verts) if len(verts) < 3 or abs(self._area(verts)) <= 1e-9:
                 raise ValueError("polygon requires three non-collinear vertices")
             case CalloutBoundary(tag="section_line", section_line=(verts, _)) if len(verts) < 2 or len(set(verts)) < 2 or verts[0] == verts[-1]:
-                raise ValueError("section line requires two distinct vertices")  # a closed path (A, B, A) collapses the anchor onto its start
+                raise ValueError("section line requires two distinct vertices")
             case CalloutBoundary():
                 return
             case _ as unreachable:
@@ -134,7 +127,6 @@ class CalloutBoundary:
         return sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(verts, verts[1:] + verts[:1], strict=True)) / 2.0
 
     def anchor(self) -> Point:
-        # Leader origin — the boundary centroid; one total projection, never a per-tag getattr.
         match self:
             case CalloutBoundary(tag="circle", circle=(center, _)):
                 return center
@@ -171,17 +163,13 @@ class CalloutBoundary:
 
 
 class Callout(Struct, frozen=True):
-    # Reference-bearing mark — `(host, ordinal)` keeps two identical-target callouts from distinct sheets DISTINCT edges.
-    # `host` shares ONE node vocabulary with `DetailRef.cite()`: a sheet root is its sheet number ("A-101"), a callout
-    # drawn INSIDE a detail hosts on that detail's own citation ("3/A-501") — so nested references join into connected
-    # multi-hop chains and rustworkx closures, depth, and cycle evidence read one graph, never disconnected stars.
-    host: str  # a sheet number ("A-101") or a hosting detail's citation ("3/A-501")
-    ordinal: int  # the placement ordinal — the structural edge discriminant
+    host: str
+    ordinal: int
     target: DetailRef
-    anchor: Point  # the marker centre — the leader endpoint AND the bubble centre
-    kind: CalloutKind  # selects the SymbolKind bubble the sheet's Symbol producer draws
+    anchor: Point
+    kind: CalloutKind
     boundary: CalloutBoundary
-    style: SymbolStyle  # the shared drawing/symbol#SYMBOL mark-style, never a DetailStyle
+    style: SymbolStyle
 
     def __post_init__(self) -> None:
         if not self.host.strip() or self.ordinal < 0:
@@ -190,7 +178,6 @@ class Callout(Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class DetailSource:
-    # source payload and payload timing share one closed owner: captured bytes embed, path plus captured fingerprint references.
     tag: Literal["embedded", "referenced"] = tag()
     embedded: bytes = case()
     referenced: tuple[str, ContentKey] = case()
@@ -208,7 +195,6 @@ class DetailSource:
 
 
 class DetailEntry(Struct, frozen=True):
-    # one source payload owns bytes/path axes; `key` is admitted only when it agrees with that payload.
     ref: DetailRef
     title: str
     scale: ScaleRatio
@@ -231,7 +217,6 @@ class DetailEntry(Struct, frozen=True):
 
     @staticmethod
     def source_key(source: DetailSource, /) -> ContentKey:
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         match source:
             case DetailSource(tag="embedded", embedded=block):
                 return ContentIdentity.key("drawing-detail-block", block)
@@ -267,7 +252,6 @@ class DetailEntry(Struct, frozen=True):
 
 
 class DetailLibrary(Struct, frozen=True):
-    # citation claims are primary; block and citation registries derive without losing aliases or placement metadata.
     claims: tuple[DetailEntry, ...] = ()
 
     @classmethod
@@ -280,8 +264,6 @@ class DetailLibrary(Struct, frozen=True):
 
     @property
     def by_ref(self) -> Map[str, DetailEntry]:
-        # FIRST claim wins deterministically — a later claim for the same citation is an alias when its rendered
-        # identity agrees and `_collision` evidence when it diverges, never a silent last-wins overwrite.
         return Block.of_seq(self.claims).fold(
             lambda held, entry: held if held.contains_key(entry.ref.cite()) else held.add(entry.ref.cite(), entry),
             Map.empty(),
@@ -292,16 +274,15 @@ class DetailLibrary(Struct, frozen=True):
 
 
 class ReferenceReport(Struct, frozen=True):
-    # Cross-reference DAG evidence — raw coverage tuples stored, `severed` DERIVES the issue-time verdict, never a fatal rail.
-    order: tuple[str, ...] = ()  # stable tie-broken citation order (lexicographical_topological_sort keyed on .cite())
-    generations: tuple[int, ...] = ()  # per-generation node counts (topological_generations -> index depth)
-    depth: int = 0  # deepest cross-reference chain (dag_longest_path) — the revision-risk sheet-hop metric
+    order: tuple[str, ...] = ()
+    generations: tuple[int, ...] = ()
+    depth: int = 0
     edges: int = 0
-    reduced: int = 0  # transitive-reduction edge count (the minimal cross-ref graph)
-    dangling: tuple[str, ...] = ()  # callout citations the library can't resolve
-    cyclic: tuple[tuple[str, str], ...] = ()  # the cross-reference cycle's (host, target) edges
-    collided: tuple[str, ...] = ()  # designators whose claims disagree on rendered identity (key, title, scale)
-    wire: bytes = b""  # the node_link_json content-key input
+    reduced: int = 0
+    dangling: tuple[str, ...] = ()
+    cyclic: tuple[tuple[str, str], ...] = ()
+    collided: tuple[str, ...] = ()
+    wire: bytes = b""
 
     @property
     def severed(self) -> "Option[DetailFault]":
@@ -317,15 +298,12 @@ class ReferenceReport(Struct, frozen=True):
 
 
 class Resolved(Struct, frozen=True):
-    # one graph build serving every query: the report, the citation index, and the LIVE PyDAG the
-    # revision-impact methods read — never a rebuild per query.
     report: ReferenceReport
-    index: frozendict[str, int]  # citation -> stable rustworkx node index (the join key)
-    reverse: frozendict[int, str]  # node index -> citation, derived once from the index
+    index: frozendict[str, int]
+    reverse: frozendict[int, str]
     graph: "PyDAG"
 
     def impact(self, ref: DetailRef, /) -> frozenset[str]:
-        # Revision-impact closure — every host referencing this detail (ancestors); revise it, and every returned sheet must be reissued.
         cite = ref.cite()
         return frozenset(self.reverse[node] for node in ancestors(self.graph, self.index[cite])) if cite in self.index else frozenset()
 
@@ -334,7 +312,6 @@ class Resolved(Struct, frozen=True):
         return frozenset(self.reverse[node] for node in descendants(self.graph, self.index[cite])) if cite in self.index else frozenset()
 
     def depth_layers(self, ref: DetailRef, /) -> tuple[tuple[str, ...], ...]:
-        # Breadth-first reference-depth layers from a root sheet — the per-nesting-level grouping.
         cite = ref.cite()
         if cite not in self.index:
             return ()
@@ -344,14 +321,11 @@ class Resolved(Struct, frozen=True):
 # --- [ERRORS] ---------------------------------------------------------------------------
 @tagged_union(frozen=True)
 class DetailFault:
-    # Closed COVERAGE family riding `severed` as issue-time evidence plus the `malformed` persisted-wire case
-    # `audit` mints; a provider raise inside the render path stays the runtime `BoundaryFault` the narrowed
-    # `async_boundary` catch converts — never a parallel local channel.
     tag: Literal["dangling", "cyclic", "collided", "malformed"] = tag()
     dangling: tuple[str, ...] = case()
     cyclic: tuple[tuple[str, str], ...] = case()
     collided: tuple[str, ...] = case()
-    malformed: str = case()  # the failing raise's type name — torn bytes, bad JSON, missing attribute, non-integer ordinal
+    malformed: str = case()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -374,35 +348,26 @@ class Detail(Struct, frozen=True):
         *,
         target: SymbolTarget = SymbolTarget.SVG,
     ) -> Self:
-        match callouts:  # the one modal-arity head — a lone callout the singleton, a sheet set the multi-element
+        match callouts:
             case Callout():
                 return cls(callouts=(callouts,), library=library, palette=palette, lane=lane, target=target)
             case _:
                 return cls(callouts=tuple(callouts), library=library, palette=palette, lane=lane, target=target)
 
     def bubbles(self) -> tuple[SymbolKind, ...]:
-        # Callout -> SymbolKind projection: this owner authors the reference apparatus, the sheet's Symbol producer draws the heads.
         return tuple(_BUBBLE[callout.kind](callout) for callout in self.callouts)
 
     def resolved(self) -> Resolved:
-        # one audit-and-query entry — the graph builds ONCE and the returned value answers report, impact,
-        # depends, and depth_layers off the same build.
         return _resolve(self)
 
     @staticmethod
     def audit(wire: bytes, /) -> Option[DetailFault]:
-        # re-audit a PERSISTED wire — the PyDAG(check_cycle=True) gate guards an authored set, this guards an INGESTED
-        # graph whose edges arrive pre-built, so is_directed_acyclic_graph/digraph_find_cycle are the post-hoc audit;
-        # a torn wire — undecodable bytes (UnicodeDecodeError rides ValueError), malformed JSON, a missing cite/host
-        # attribute, a non-integer ordinal — lands on the SAME fault rail as the cycle verdict, never a raw raise
-        # escaping a persisted-input boundary.
         try:
             graph = parse_node_link_json(
                 wire.decode(), node_attrs=lambda data: data["cite"], edge_attrs=lambda data: (data["host"], int(data["ordinal"]))
             )
         except (ValueError, KeyError, TypeError) as torn:
             return Some(DetailFault(malformed=type(torn).__name__))
-        # digraph_find_cycle yields node-INDEX pairs; graph[index] recovers the cite payload the fault vocabulary carries.
         return (
             Nothing if is_directed_acyclic_graph(graph) else Some(DetailFault(cyclic=tuple((graph[a], graph[b]) for a, b in digraph_find_cycle(graph))))
         )
@@ -412,21 +377,12 @@ class Detail(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key over the frozen INPUT spec — the library rides the runtime merkle fold as its entry content keys
-        # (msgpack cannot integer-encode a live u128 `ContentKey.value`), so identical callouts over distinct
-        # libraries never share a key; each claim's DXF-visible metadata (`title`, `scale`) joins the spec
-        # preimage in claim order because it draws into the output without touching the source bytes; the lane
-        # is execution policy and never enters identity.
         claims = tuple((entry.ref.cite(), entry.title, entry.scale.value) for entry in self.library.claims)
         spec = ContentIdentity.key(f"drawing-detail-{self.target}", _CANON.encode((self.callouts, self.palette, self.target, claims)))
         return ContentIdentity.key(f"drawing-detail-{self.target}", (spec, *(entry.key for entry in self.library.claims)))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # Render thunk — the receipt threads the pre-run key; the layer payload is the layered() projection.
         settled = (await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
-        # the reference apparatus is production trail, so the fact is `OPERATIONAL` over the callout count, lowering,
-        # and measured span the receipt declares, its byte volume charging `STORAGE`. Recording suspends, so the seat
-        # is this awaitable fold; `resolved()` is a pure query and `layered()` reads the same crossing, neither recording.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -434,13 +390,11 @@ class Detail(Struct, frozen=True):
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # Engine rows as one LayerPlan tree — substrate data the layered/sheet consumers compose, not the producer rail.
         return (await async_boundary(DETAIL_CROSS, self._crossed, catch=_FAULTS)).map(
             lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
         )
 
     async def _crossed(self) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-        # synchronous native fold — crosses the runtime thread lane.
         crossed = await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)
         return crossed.default_with(self._raise)
 
@@ -451,20 +405,18 @@ class Detail(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _graph(detail: Detail) -> tuple["PyDAG", dict[str, int], tuple[tuple[str, str], ...], tuple[str, ...]]:
-    # build the cross-reference PyDAG(check_cycle=True): a node per host sheet + resolvable citation, an edge per
-    # callout carrying (host, ordinal). DAGWouldCycle captures a cycling edge as evidence and skips it; an unresolvable target is dangling.
     dag = PyDAG(check_cycle=True)
     index: dict[str, int] = {}
     dangling: list[str] = []
     cyclic: list[tuple[str, str]] = []
 
-    def node(cite: str) -> int:  # Exemption: PyDAG is the native stateful sink; add_node mutates in place
+    def node(cite: str) -> int:
         if (found := index.get(cite)) is None:
             found = dag.add_node(cite)
             index[cite] = found
         return found
 
-    for callout in detail.callouts:  # Exemption: the cross-ref graph accretes on the native PyDAG in place
+    for callout in detail.callouts:
         target = callout.target.cite()
         if detail.library.resolve(callout.target).is_none():
             dangling.append(target)
@@ -477,8 +429,6 @@ def _graph(detail: Detail) -> tuple["PyDAG", dict[str, int], tuple[tuple[str, st
 
 
 def _collision(library: DetailLibrary) -> tuple[str, ...]:
-    # repeated aliases remain valid when their rendered identity agrees; distinct content OR divergent
-    # DXF-visible metadata (title, scale) under one citation collides — metadata is never silently discarded.
     claims = Block.of_seq(library.claims).fold(
         lambda held, entry: held.change(
             entry.ref.cite(), lambda current: Some(current.default_value(frozenset()) | {(entry.key, entry.title, entry.scale)})
@@ -493,11 +443,9 @@ def _resolve(detail: Detail) -> Resolved:
     reduced, _ = transitive_reduction(dag)
     wire = (node_link_json(dag, node_attrs=_wire_node, edge_attrs=_wire_edge) or "").encode()
     report = ReferenceReport(
-        # Node data IS the `.cite()`, so lexicographical_topological_sort yields the tie-broken cite order directly —
-        # deterministic where plain topological_sort fragments on ties and the wire inherits the instability.
         order=tuple(lexicographical_topological_sort(dag, key=lambda cite: cite)),
         generations=tuple(len(generation) for generation in topological_generations(dag)),
-        depth=len(dag_longest_path(dag)),  # the deepest citation chain — how many sheet-hops a revision propagates
+        depth=len(dag_longest_path(dag)),
         edges=dag.num_edges(),
         reduced=reduced.num_edges(),
         dangling=dangling,
@@ -508,7 +456,7 @@ def _resolve(detail: Detail) -> Resolved:
     return Resolved(report=report, index=frozendict(index), reverse=frozendict({node: cite for cite, node in index.items()}), graph=dag)
 
 
-def _wire_node(cite: str) -> dict[str, str]:  # MANDATORY node_link_json callback — the bare null-data call collapses glyph-distinct graphs
+def _wire_node(cite: str) -> dict[str, str]:
     return {"cite": cite}
 
 
@@ -536,8 +484,6 @@ def _bbox(detail: Detail) -> Box:
 
 
 def _boundary_svg(callout: Callout, ramp: Ramp) -> "drawsvg.Group":
-    # Enlarged-region boundary + leader to the marker anchor through drawsvg structured primitives (never an
-    # f-string splice); the stroke palette-indexes the ramp, the ISO 128 weight pen sets the width.
     stroke, width = ramp[callout.style.stroke % len(ramp)], callout.style.weight.mm
     group = drawsvg.Group()
     match callout.boundary:
@@ -560,19 +506,16 @@ def _boundary_svg(callout: Callout, ramp: Ramp) -> "drawsvg.Group":
 
 
 def _layer_svg(name: str, groups: tuple["drawsvg.Group", ...], box: Box) -> bytes:
-    # one layer's callouts as child groups under one sized Drawing — never a nested full `<svg>` document per callout.
     canvas = drawsvg.Drawing(box[2] - box[0], box[3] - box[1], origin=(box[0], box[1]))
     layer = drawsvg.Group(id=name)
-    for group in groups:  # Exemption: drawsvg Drawing/Group are the mutable containers; children append in place
+    for group in groups:
         layer.append(group)
     canvas.append(layer)
     return canvas.as_svg().encode()
 
 
 def _dxf_boundary(msp: object, callout: Callout, attribs: dict[str, object]) -> None:
-    # Boundary case geometry on the CAD target — circle radius, rectangle extent, polygon vertices, and
-    # section-line run each survive into the DXF, at parity with `_boundary_svg`.
-    match callout.boundary:  # Exemption: modelspace is the GraphicsFactory sink; add_* mutate in place
+    match callout.boundary:
         case CalloutBoundary(tag="circle", circle=(center, radius)):
             msp.add_circle(center, radius, dxfattribs=attribs)
         case CalloutBoundary(tag="rectangle", rectangle=((x0, y0), (x1, y1))):
@@ -589,7 +532,7 @@ def _dxf_boundary(msp: object, callout: Callout, attribs: dict[str, object]) -> 
     msp.add_line(callout.boundary.anchor(), callout.anchor, dxfattribs=attribs)
 
 
-_ATTDEFS: tuple[tuple[str, Point], ...] = (  # the number/sheet/title/scale ATTRIB placeholders add_auto_blockref fills
+_ATTDEFS: tuple[tuple[str, Point], ...] = (
     ("DETAIL_NO", (0.0, 0.0)),
     ("SHEET", (0.0, -1.0)),
     ("TITLE", (0.0, -2.0)),
@@ -598,34 +541,26 @@ _ATTDEFS: tuple[tuple[str, Point], ...] = (  # the number/sheet/title/scale ATTR
 
 
 def _block_name(key: ContentKey, /) -> str:
-    # DXF block identity IS the content key — one name per authored fact, so every citation resolving to the
-    # shared entry places the one existing block; the citation identity rides the per-placement ATTRIBs instead.
     return f"DTL_{key.hex.replace(':', '_')}"
 
 
 def _author_detail(doc: object, key: ContentKey, source: DetailSource) -> None:
-    # one key-named block per source fact; captured bytes embed and references retain an externally fingerprinted path.
     name = _block_name(key)
-    match source:  # Exemption: doc.blocks / xref are the native block-authoring sinks
+    match source:
         case DetailSource(tag="referenced", referenced=(path, _)):
             xref.attach(doc, block_name=name, filename=path)
-            # parity with the embedded arm: the attached definition gains any missing `_ATTDEFS` rows so
-            # `add_auto_blockref` fills DETAIL_NO/SHEET/TITLE/SCALE on every citation — an external DXF never
-            # silently drops the placement-attribute contract.
             attached = doc.blocks.get(name)
             present = {attdef.dxf.tag for attdef in attached.query("ATTDEF")}
-            for attdef, offset in _ATTDEFS:  # Exemption: ezdxf BlockLayout is the GraphicsFactory sink; attdefs add in place
+            for attdef, offset in _ATTDEFS:
                 if attdef not in present:
                     attached.add_attdef(attdef, offset)
         case DetailSource(tag="embedded", embedded=body):
             block = doc.blocks.new(name)
-            for attdef, offset in _ATTDEFS:  # Exemption: ezdxf BlockLayout is the GraphicsFactory sink; attdefs add in place
+            for attdef, offset in _ATTDEFS:
                 block.add_attdef(attdef, offset)
-            # `embedded` is captured RAW standalone-DXF bytes: `recover.read` is the binary-stream loader that
-            # also salvages non-conforming third-party captures (`decode_base64` ingests only a base64 blob).
             recovered, _auditor = ezdxf_recover.read(io.BytesIO(body))
             reconstruct = Importer(recovered, doc)
-            reconstruct.import_modelspace(block)  # target_layout= retargets the reconstruction into the block
+            reconstruct.import_modelspace(block)
             reconstruct.finalize()
         case _ as unreachable:
             assert_never(unreachable)
@@ -633,13 +568,9 @@ def _author_detail(doc: object, key: ContentKey, source: DetailSource) -> None:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 def _svg_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    # each callout buckets into its SymbolStyle.layer `<g>` group; the bubble is drawing/symbol#SYMBOL's separate
-    # contribution keyed to the same anchor, so this owner authors only the reference apparatus.
     ramp, box = hex_ramp(detail.palette), _bbox(detail)
 
     def bucket(acc: Map[str, tuple[LayerName, tuple["drawsvg.Group", ...]]], callout: Callout, /) -> Map[str, tuple[LayerName, tuple["drawsvg.Group", ...]]]:
-        # Map is an ordered tree, so the composed name (str, ordered) keys the bucket and the unordered LayerName
-        # rides the value; key-sorted Map iteration IS the deterministic layer order.
         layer = callout.style.layer
         return acc.change(
             layer.compose(), lambda held: Some((layer, (*held.map(lambda pair: pair[1]).default_value(()), _boundary_svg(callout, ramp))))
@@ -660,18 +591,13 @@ def _svg_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
 
 
 def _dxf_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    # Detail-library block store — each DISTINCT detail authored ONCE (dedup by content key, the block NAME the
-    # key), each callout's target placed via ONE add_auto_blockref (DETAIL_NO/SHEET/TITLE/SCALE ATTRIBs filled per
-    # placement from the resolved entry) + the case-true boundary/leader entities.
     doc, std = ezdxf.new("R2018", setup=True), Standard.of()
-    # compose()-sorted seed order mirrors the SVG engine's key-sorted Map, so identical inputs yield identical
-    # layer-table order and byte-identical DXF — a bare set iteration reorders per hash seed.
     std.seed(doc, layers=tuple(sorted({callout.style.layer for callout in detail.callouts}, key=LayerName.compose)))
     msp = doc.modelspace()
-    for key, source in detail.library.entries.items():  # Exemption: doc.blocks is the native block table
+    for key, source in detail.library.entries.items():
         _author_detail(doc, key, source)
-    for callout in detail.callouts:  # Exemption: modelspace is the GraphicsFactory sink; add_* mutate in place
-        attribs = std.graphics(callout.style.layer).asdict()  # the discipline pen off the owned LayerName
+    for callout in detail.callouts:
+        attribs = std.graphics(callout.style.layer).asdict()
         match detail.library.resolve(callout.target):
             case Option(tag="some", some=held):
                 msp.add_auto_blockref(
@@ -693,14 +619,12 @@ def _dxf_engine(detail: Detail) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
     stream = io.StringIO()
     doc.write(stream)
     box, data = _bbox(detail), stream.getvalue().encode()
-    # the callout hull is the FALLBACK alone: `extent` measures the placed detail blocks and boundary entities it misses.
     width, height = extent(msp, Some(box))
     return (LayerNode.Annotation("dxf", data),), ArtifactReceipt.Drawing(
         detail._key, "detail", len(detail.callouts), "ezdxf", round(width), round(height), len(data)
     )
 
 
-# Callout-kind -> drawing/symbol#SYMBOL bubble constructor; the single edit site a new callout reaches.
 _BUBBLE: frozendict[CalloutKind, Callable[[Callout], SymbolKind]] = frozendict({
     CalloutKind.DETAIL: lambda c: SymbolKind.Detail(c.anchor, _RADIUS, c.target.designator, c.target.sheet, c.style),
     CalloutKind.SECTION: lambda c: SymbolKind.Section(c.anchor, _RADIUS, c.target.designator, c.target.sheet, 0.0, c.style),

@@ -30,11 +30,6 @@ import { Array, Clock, Context, Data, DateTime, Duration, Effect, Layer, Option,
 import { Alphabet, Crypto, Probe, type SignFault } from "../crypt/sign.ts"
 import { Curb, Reject } from "../crypt/verify.ts"
 
-// Four legs partition the surface and each reason renders the subject its own reader acts on: the digest leg carries
-// only the primitive's cause because the material it handled must never reach a message, the shape leg the same, the
-// record leg names the credential id and its subject, and the throttle leg names the surface and the index whose
-// budget went. The blame split lives in the CLASS column and the leg makes it legible — `malformed` is the caller's
-// token, `verify` this deployment's own material, and one free `detail` string reported both as the same prose.
 const _family = Fault.Class.family(["mint", "verify", "malformed", "notFound", "revoked", "expired", "throttled"] as const, {
   mint: Fault.Class.row({
     class: "defect",
@@ -108,9 +103,6 @@ type _Sealing = {
   readonly probe: (presented: Redacted.Redacted<string>, stored: Redacted.Redacted<string>) => Effect.Effect<boolean, SignFault>
 }
 
-// Two rows, one per entropy class: the KDF row defends a guessable secret against an offline digest-table walk, the
-// fingerprint row is the O(1) constant-time compare a random mint earns. A caller never picks a mechanism — it names
-// what its own mint produced, and the mechanism is the row's.
 const _sealing = (cipher: Context.Tag.Service<Crypto>) =>
   ({
     low: {
@@ -172,15 +164,8 @@ const _DIGITS = 6
 const _RECOVERY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 const _OtpVerdict = Data.taggedEnum<OtpVerdict>()
 
-// ONE clock for the whole TOTP surface. otplib defaults `epoch` to ambient `Date.now()`, so a verify that never
-// passes it reads a different instant than the countdown beside the prompt, and a TestClock moves the countdown
-// while the verification window stays pinned to wall time — the no-drift law held on the step and leaked on the axis.
 const _seconds = Effect.map(Clock.currentTimeMillis, (millis) => Math.floor(millis / 1000))
 
-// otplib raises a 15-class `OTPError` tree and two distinct blames live inside it, so one opaque string was never
-// this fold: `TokenError` names the presented value's own length or charset — the CALLER's, class `malformed` —
-// while a secret, plugin, crypto, period, tolerance, or replay-floor fault names this deployment's stored material
-// or its own policy, class `defect`. Grading five typed digits as a defect pages an operator on user typing.
 const _thrown = (cause: unknown): CredentialFault =>
   new CredentialFault({
     case: {
@@ -189,10 +174,6 @@ const _thrown = (cause: unknown): CredentialFault =>
     },
   })
 
-// Shape gating sits AHEAD of the budget: `validateToken` decides length and charset with no secret, no HMAC, and
-// no bucket spend, so a flood of garbage keyed on a victim's subject cannot burn that subject's window before one
-// real code is ever checked. Refusals still land their ledger row — evidence is free and never gates — and the
-// guard then wraps the verify alone, which is the only leg an attacker can price.
 const _shaped = (token: string): Effect.Effect<void, CredentialFault> =>
   Effect.try({ try: () => validateToken(token, _DIGITS), catch: _thrown }).pipe(
     Effect.tapError(() => Reject.mark("credential", { surface: "otp" })),
@@ -230,10 +211,6 @@ class Otp extends Effect.Service<Otp>()("security/authn/Otp", {
           Effect.tryPromise({
             try: () =>
               Option.match(counter, {
-                // Tolerance pairs spread rather than pass by reference: otplib's option types take a mutable
-                // `[number, number]`. Period, digits, and epoch each ride the leg explicitly, because the library
-                // defaults every one of them off its own constants and its own `Date.now()` — three silent forks
-                // between what the authenticator was provisioned with and what the server checks against.
                 onNone: () => verify({ strategy: "totp", secret: Redacted.value(secret), token, period: _PERIOD, digits: _DIGITS, epoch, epochTolerance: [..._EPOCH_TOLERANCE], ...(Option.isSome(floor) && { afterTimeStep: floor.value }), ...(Option.isSome(hooks) && { hooks: hooks.value }), guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
                 onSome: (at) => verify({ strategy: "hotp", secret: Redacted.value(secret), token, digits: _DIGITS, counter: at, counterTolerance: [..._COUNTER_TOLERANCE], ...(Option.isSome(hooks) && { hooks: hooks.value }), guardrails: _rails, ..._ports } satisfies OTPVerifyFunctionalOptions),
               }),
@@ -390,7 +367,7 @@ class ApiKeyGuard extends HttpApiMiddleware.Tag<ApiKeyGuard>()("security/authn/A
   )
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { ApiKey, ApiKeyGuard, ApiKeyRecord, ApiKeyStore, CredentialFault, CurrentApiKey, MintReceipt, Otp, RecoverySet }
 export type { OtpVerdict }

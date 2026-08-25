@@ -177,12 +177,6 @@ const _invoke = <Id extends string, S extends string, X, A, E>(
     })),
 })
 
-// A spent microstep budget is bound exhaustion, and bound exhaustion is ONE family estate-wide: `Shape.Bound` already
-// closes the unit roster and mints the evidence row, so this owner composes `Fault.Class.spent` rather than declaring
-// a private `fuel` reason a second budget would then have to keep aligned with it. The SIGNAL rides beside the case
-// because it is this owner's own coordinate — which signal the table was folding when the budget ran out — and no
-// bound vocabulary can carry it. Topology refusals stay this owner's own mint below: caller-authored material the
-// compile quarantines into a repair report, with retryability, blame, and quarantine read off the core row table.
 class _Spent extends Schema.TaggedError<_Spent>()("Transition.Spent", {
   case: Fault.Class.spent.payload,
   signal: Schema.String,
@@ -195,14 +189,6 @@ class _Spent extends Schema.TaggedError<_Spent>()("Transition.Spent", {
   }
 }
 
-// Every topology refusal is caller-authored material the compile quarantines into its repair report, so all ten rows
-// grade `invalid` and retryability, blame, and quarantine read off the core row table with no local column beside
-// `class`. The SUBJECT is what varies: six reasons refuse ABOUT a declared node while four refuse about the whole
-// table or a budget scalar, so the `node: Option<string>` column only the first six ever filled collapses into
-// per-reason detail and a row carrying no node can no longer spell one. Each spec-level row carries the MEASURE its
-// own check read — the root count, the collision count, the offered scalar — which is the fact a repair acts on and
-// the fact a bare reason word withheld. `leg` partitions the plane that decides: the declaration tables, or the two
-// scalars bounding a macrostep.
 const _At = Schema.Struct({ node: Schema.NonEmptyString })
 const _Offered = Schema.Struct({ offered: Schema.Number })
 const _definition = Fault.Class.family(
@@ -271,10 +257,6 @@ const _definition = Fault.Class.family(
   },
 )
 
-// Topology columns are admitted INDEPENDENTLY — a cyclic parent chain and a bad initial child decide nothing about
-// each other — so the carrier is the family's OWN census and an author reads every offence of a spec in one pass.
-// Re-declaring `{ issues, class, message }` here forked one taxonomy into two, and the dominance election, the leg,
-// and the joined message all derive from the roster the rows above already close.
 const _DefinitionFault = _definition.census("Transition.DefinitionFault")
 
 const _validated = <Id extends string, S extends string, V extends string, X>(
@@ -449,9 +431,6 @@ const _exits = <Id extends string, S extends string, V extends string, X>(
             })),
       )
 
-// `_addressed` states the one claim test both halves of legality read — source identity beside the signal domain,
-// with the guard deliberately OUTSIDE it: `_selected` adds `when` to reach the taken rows, `_refused` subtracts it
-// to name the rows that claimed the signal and were closed, and a second inline spelling forks the two answers
 const _addressed = <Id extends string, S extends string, V extends string, X>(
   row: Transition.Row<Id, S, V, X>,
   source: Id,
@@ -460,7 +439,6 @@ const _addressed = <Id extends string, S extends string, V extends string, X>(
   row.source === source
   && Option.match(signal, { onNone: () => row.on === undefined, onSome: (held) => row.on === held })
 
-// minted on the refusing arm alone: a routed signal never pays this scan
 const _refused = <Id extends string, S extends string, V extends string, X>(
   spec: Transition.Spec<Id, S, V, X>,
   facts: Transition._Facts<Id, S, V, X>,
@@ -469,9 +447,6 @@ const _refused = <Id extends string, S extends string, V extends string, X>(
 ): Transition.Refusal<Id, S> => {
   const held = Option.some(signal)
   const standing = facts.closure(config.active)
-  // this fold runs only where `_selected` came back empty, so every row the standing closure addresses necessarily
-  // answered false on its own `when` — an addressed row carrying no guard would have been chosen — and the index
-  // set is therefore exactly the guards that closed the door, with an empty one proving the table never claimed it
   const rows = Array.filterMap(spec.rows, (row, index) =>
     Array.some(standing, (id) => _addressed(row, id, held)) ? Option.some(index) : Option.none())
   return Array.isNonEmptyReadonlyArray(rows) ? { _tag: "Guarded", signal, rows } : { _tag: "Unrouted", signal }
@@ -609,8 +584,6 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
       ] as const)
     }
     if (acc.remaining === 0) {
-      // The budget admitted as a positive integer at `spec`, so the branded ceiling mints HERE and nowhere else —
-      // on the refusing arm alone, which is the one path that reads the evidence row.
       return Either.left(new _Spent({
         case: { reason: "fuel", ceiling: Shape.Bound.bounded("fuel", spec.fuel).ceiling, reached: spec.fuel },
         signal: Option.match(signal, { onNone: () => "<eventless>", onSome: (held) => held }),
@@ -628,8 +601,6 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
           onNone: (): ReadonlyArray<Transition.Row<Id, S, V, X>> => [],
           onSome: (next) => _selected(spec, facts, acc.config, Option.some(next)),
         })
-    // an unchosen signal is DROPPED by the transition system's own semantics and RECORDED by this one, so a caller
-    // reads which press the table never carried instead of an empty program indistinguishable from a routed no-emit
     return drain(Array.isEmptyReadonlyArray(chosen)
       ? {
         ...acc,
@@ -675,8 +646,6 @@ const _compile = <Id extends string, S extends string, V extends string, X>(
       ? Either.right(chosen)
       : Either.left(_refused(spec, facts, config, signal))
   }
-  // `legal` draws its signal domain from the row table's own `on` column, so the admitted set grows with a
-  // transition row and no consumer spells a second vocabulary beside the table that drifts from it
   const legal = (config: Transition.Config<Id, X>): HashSet.HashSet<Transition.Signal<Id, S>> =>
     pipe(
       Array.filterMap(spec.rows, (row) => Option.fromNullable(row.on)),
@@ -977,7 +946,7 @@ const Transition: Transition.Shape = {
       })),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Transition }
 ```

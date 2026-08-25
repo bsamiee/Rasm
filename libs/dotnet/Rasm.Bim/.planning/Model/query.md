@@ -27,7 +27,7 @@ Selection composes settled owners. `Model/spatial#SPATIAL_STRUCTURE` owns the co
 - Packages: Rasm.Element (`Query/predicate#ELEMENT_PREDICATE` the whole algebra — `Predicate<TLeaf>`/`ValueMatch`/`RangeBound`/`NodeMatch<TLeaf>`/`MatchVerdict`/`Selection<TKey>`/`WalkDepth`/`ElementLeaf`/`PredicateKey`; `Graph/element#ELEMENT_GRAPH` `ElementGraph`/`View`/`EdgeFilter`/`EdgeOrientation`/`TypedEdge`/`Bake`; `Projection/address#CONTENT_ADDRESS`), QuikGraph (`BreadthFirstSearchAlgorithm` over the memoized view, its `TreeEdge`/`GrayTarget`/`DiscoverVertex` event fan sharing ONE walk), Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Seq`/`Option`/`Fin`/`Error`), Rasm (`Op`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
@@ -42,15 +42,12 @@ using Rasm.Element.Query;
 using Rasm.Element.Relations;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;         // closed-generic aliases: the bare name
-using ElementTerm = Rasm.Element.Query.Predicate<Rasm.Element.Query.ElementLeaf>;   // collides with global-using System.Predicate<T>
+using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
+using ElementTerm = Rasm.Element.Query.Predicate<Rasm.Element.Query.ElementLeaf>;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Each reach row carries its OWN chain projection as delegate data, so the BySpatialContainer arm selects a reach
-// and never spells a walk. Reach is an EDGE-KIND scope no WalkDepth absorbs: Direct is Contain-only at one level
-// where Ancestry is Contain-then-Aggregate to fixpoint.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SpatialReach {
     public static readonly SpatialReach Direct   = new("direct",   static (graph, node) => SpatialStructure.ContainerOf(graph, node).ToSeq());
@@ -60,26 +57,17 @@ public sealed partial class SpatialReach {
     public partial Seq<NodeId> Chain(ElementGraph graph, NodeId node);
 }
 
-// ObjectAttribute closes the queryable direct-attribute vocabulary the seam ByAttribute arm reads off a Node.Object;
-// its Read projection lifts the attribute to the typed PropertyValue a ValueMatch decides. Name/Tag/GlobalId/ObjectType
-// span the COMPLETE seam direct string-column surface — a row lands only when the seam node gains the column.
 [SmartEnum<string>]
 public sealed partial class ObjectAttribute {
     public static readonly ObjectAttribute Name     = new("Name",     static o => o.Name is { Length: > 0 } n ? Some<PropertyValue>(new PropertyValue.Text(n)) : Option<PropertyValue>.None);
     public static readonly ObjectAttribute Tag      = new("Tag",      static o => o.Tag is { Length: > 0 } t ? Some<PropertyValue>(new PropertyValue.Text(t)) : Option<PropertyValue>.None);
     public static readonly ObjectAttribute GlobalId = new("GlobalId", static o => o.ExternalId.Map(static e => (PropertyValue)new PropertyValue.Text(e)));
-    // ObjectType carries the USERDEFINED designation the Projection/semantic UserLabel ingress lands and
-    // Projection/egress StampPredefined re-stamps — queryable because a federation filter selects on the user-defined label a
-    // PredefinedType of USERDEFINED leaves otherwise opaque.
     public static readonly ObjectAttribute ObjectType = new("ObjectType", static o => o.ObjectType.Map(static t => (PropertyValue)new PropertyValue.Text(t)));
 
     [UseDelegateFromConstructor]
     public partial Option<PropertyValue> Read(Node.Object value);
 }
 
-// SetOperation closes the combinator vocabulary over the seam Selection<NodeId>: each row carries its fold as data, so
-// derived same-graph trio and the graph-identity-gated Combine share ONE combination law and a new combinator is
-// one row — never a fourth sibling method body.
 [SmartEnum<string>]
 public sealed partial class SetOperation {
     public static readonly SetOperation Union     = new("union",     static (left, right) => left.Union(right));
@@ -90,10 +78,6 @@ public sealed partial class SetOperation {
     public partial Selection<NodeId> Apply(Selection<NodeId> left, Selection<NodeId> right);
 }
 
-// ValueSource names the axis a cross-page consumer reads an element value by — the direct ObjectAttribute row or the
-// effective (type→occurrence-merged) Pset/Qto property. Review/coordination#COORDINATION Unique carries it; the
-// effective-value merge stays THIS page's one owner, exposed through ElementQuery.ValuesOf, never re-derived
-// at a consumer (the named seam-bag-merge drift).
 [Union]
 public abstract partial record ValueSource {
     private ValueSource() { }
@@ -102,27 +86,17 @@ public abstract partial record ValueSource {
     public sealed record Property(string Set, string Name) : ValueSource;
 }
 
-// BimLeaf instantiates the seam closure over Bim's vocabulary: ONE Element arm wraps the whole seam leaf family so
-// a mixed expression stays one value, and an arm survives beside it only where its payload is an IFC-SCHEMA
-// vocabulary the seam declares out of scope (Classification/classification rules the IfcClass roster and the
-// PredefinedType valid-set Bim's) or a capability the seam ceded (E-E9 spatial ancestry).
 [Union]
 public abstract partial record BimLeaf {
     private BimLeaf() { }
 
     public sealed record Element(ElementLeaf Leaf) : BimLeaf;
-    public sealed record ByClass(IfcClass Class) : BimLeaf;                               // exact IFC entity class — a roster ROW, not a code string
-    public sealed record ByDomain(IfcDomain Domain) : BimLeaf;                            // the IfcClass.Domain discipline partition
-    public sealed record ByPredefinedType(IfcClass Class, PredefinedType Type) : BimLeaf; // entity class + the typed predefined token
-    // System-only membership — classified in the system at ANY code (the IDS no-identification facet). The seam
-    // arm carries a RESOLVED branch closure, so this existential has no closure to hand in and stays here.
+    public sealed record ByClass(IfcClass Class) : BimLeaf;
+    public sealed record ByDomain(IfcDomain Domain) : BimLeaf;
+    public sealed record ByPredefinedType(IfcClass Class, PredefinedType Type) : BimLeaf;
     public sealed record ByClassificationSystem(string System) : BimLeaf;
     public sealed record BySpatialContainer(NodeMatch<ElementLeaf> Container, SpatialReach Reach) : BimLeaf;
 
-    // Derived terms whose seam spelling is a COMPOSITION rather than one arm mint once here, so no consumer
-    // re-derives the correspondence: zone membership is the Assign{Group} logical modality OR the Compose{Reference}
-    // spatial one (the zones MembersOf pair the seam splits across two arms), a type bind is the TypeDefinition
-    // assignment, and a classification branch is the bSDD-resolved closure the seam takes as payload.
     public static BimTerm InZone(NodeMatch<ElementLeaf> group) => new BimTerm.Any(Seq<BimTerm>(
         Of(new ElementLeaf.ByAssigned(AssignKind.Group, group)),
         Of(new ElementLeaf.ByComposed(ComposeKind.Reference, group))));
@@ -133,8 +107,6 @@ public abstract partial record BimLeaf {
 
     public static BimTerm Of(ElementLeaf leaf) => new BimTerm.Leaf(new Element(leaf));
 
-    // CanonicalBytes is the Bim-vocabulary leaf writer the seam PredicateKey composes: its Element arm delegates to the
-    // seam's own writer, so one predicate keys through one projection and ordinals stay frozen per family.
     public void CanonicalBytes(CanonicalWriter w) => Switch(
         state: w,
         element:                static (wr, m) => { wr.Ordinal(0); m.Leaf.CanonicalBytes(wr); },
@@ -147,21 +119,15 @@ public abstract partial record BimLeaf {
     public static ContentAddress Key(BimTerm term) => PredicateKey.Key(term, static (leaf, w) => leaf.CanonicalBytes(w));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// ElementQuery binds one selection to its graph: the seam Selection<NodeId> carries the answer, the ElementGraph the
-// scope Bake and every incidence read need, and Faults the DISTINCT evidence the verdict fold raised. That binding is the named
-// loss the wrapper preserves — a bare Selection<NodeId> could not rail ElementFault on a cyclic Compose at Bake.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ElementQuery {
-    // IfcSystem names the entity-class token the Projection/semantic#SEMANTIC_PROJECTOR Objects fold stamps onto every
-    // Node.Object as Classification("ifc", IfcClass.Key); the seam admission lower-cases the system, so
-    // ByClass/ByDomain/ByPredefinedType match the lower-case token, the IfcClass roster staying the projector's.
     internal const string IfcSystem = "ifc";
 
     static readonly Op Gate = Op.Of(name: nameof(ElementQuery));
 
     private ElementQuery(ElementGraph graph, Selection<NodeId> selection, Seq<Error> faults) {
         (Graph, Selection, Faults) = (graph, selection, faults);
-        members = toHashSet(selection.Keys);   // built ONCE per query — Objects and every consumer membership test read it
+        members = toHashSet(selection.Keys);
     }
 
     readonly LanguageExt.HashSet<NodeId> members;
@@ -172,10 +138,6 @@ public sealed record ElementQuery {
 
     public static ElementQuery Query(ElementGraph graph, BimTerm term) => Fold(graph, graph.ObjectNodes, term);
 
-    // One Where, one modality: refine the current selection by another term — re-folds ONLY the current members,
-    // not the whole graph — so the closed algebra stays the single selection surface; a raw Func<Node.Object, bool>
-    // escape hatch is the deleted form (a refinement the algebra cannot express is one new arm at its owner).
-    // Evidence is CUMULATIVE: a fault the first fold raised survives the refinement that never re-visited its node.
     public ElementQuery Where(BimTerm term) {
         ElementQuery refined = Fold(Graph, Objects, term);
         return new(Graph, refined.Selection, (Faults + refined.Faults).Distinct().Strict());
@@ -187,21 +149,12 @@ public sealed record ElementQuery {
     public Seq<string> GlobalIds => Objects.Choose(static o => o.ExternalId);
     public bool Holds(NodeId id) => members.Contains(id);
 
-    // Bake is the one Fin-railed step: it derives every selected object into the seam Element ("has it all"),
-    // railing ElementFault on a cyclic Compose or an absent root the selection never reaches in a healthy graph.
     public Fin<Seq<Element>> Bake(Op key) => Objects.TraverseM(o => Graph.Bake(o.Id, key)).As();
 
-    // Union/Intersect/Except name one-hop conveniences over the SetOperation rows for the refinement
-    // partitions a policy delegate composes (both operands minted from THIS graph — the IDS cardinality and
-    // coordination Require/Prohibit partition rows); two independently-held queries meet through Combine.
     public ElementQuery Union(ElementQuery other) => Derive(SetOperation.Union, other);
     public ElementQuery Intersect(ElementQuery other) => Derive(SetOperation.Intersect, other);
     public ElementQuery Except(ElementQuery other) => Derive(SetOperation.Except, other);
 
-    // Combine is the one cross-query meet: two independently-minted selections prove they share ONE graph before any
-    // id algebra, because a cross-graph merge mints ids no downstream Objects read could tell from an honest empty
-    // refinement. CONTENT identity decides (ContentAddress.OfGraph), since the reloaded snapshot this meet serves is
-    // a different instance of one graph; reference identity stays a fast path, never the verdict.
     public Fin<ElementQuery> Combine(ElementQuery other, SetOperation operation, Op key) =>
         ReferenceEquals(Graph, other.Graph) || ContentAddress.OfGraph(Graph) == ContentAddress.OfGraph(other.Graph)
             ? Fin.Succ(Derive(operation, other))
@@ -210,8 +163,6 @@ public sealed record ElementQuery {
     ElementQuery Derive(SetOperation operation, ElementQuery other) =>
         new(Graph, operation.Apply(Selection, other.Selection), (Faults + other.Faults).Distinct().Strict());
 
-    // Fold mints every selection: a member is selected on a HOLDING verdict, and every fault any verdict raised
-    // rides out beside the answer deduplicated — total, so one malformed sub-term never refuses the query.
     static ElementQuery Fold(ElementGraph graph, Seq<Node.Object> candidates, BimTerm term) {
         Seq<(NodeId Id, MatchVerdict Verdict)> verdicts = candidates.Map(o => (o.Id, Verdict(graph, o, term))).Strict();
         return new(graph,
@@ -220,23 +171,12 @@ public sealed record ElementQuery {
     }
 
     // --- [PREDICATE_FOLD]
-    // ONE parameterized fold serves BOTH leaf vocabularies: BimLeaf at the top and ElementLeaf inside every nested
-    // NodeMatch. The leaf verdict is the caller's row, the closure verdict is Reach, and the seam Holds owns the
-    // boolean structure — so the All/Any/Not recursion is never re-spelled here.
-    // PUBLIC: the ONE per-node verdict a consumer holding its own candidate reaches (the Projection/semantic
-    // IfcLegality endpoint gate is the standing one — it decides a single resolved node against a rule term and
-    // needs the evidence, not a selection). The graph argument serves the incidence and closure arms alone, so a
-    // node the graph does not yet carry still answers correctly for the payload arms that read it directly.
     public static MatchVerdict Verdict(ElementGraph graph, Node.Object obj, BimTerm term) => Holds(graph, obj, term, BimVerdict);
 
     static MatchVerdict Holds<TLeaf>(ElementGraph graph, Node.Object obj, Predicate<TLeaf> term, Func<ElementGraph, Node.Object, TLeaf, MatchVerdict> leaf)
         where TLeaf : notnull =>
         term.Holds(l => leaf(graph, obj, l), walk => Reach(graph, obj, walk, leaf));
 
-    // Reach answers the seam Closure arm with a GENUINE bounded transitive walk (the Persistence evaluator law binds
-    // every consumer): one BFS over the memoized ascending composition view, TreeEdge folding each vertex's level and
-    // GrayTarget classifying a non-tree edge onto a QUEUED vertex — the cyclic Compose the Bake fold also rails.
-    // Every vertex within the bound tests the seed, the candidate itself at level 0 included.
     static MatchVerdict Reach<TLeaf>(ElementGraph graph, Node.Object obj, Predicate<TLeaf>.Closure walk, Func<ElementGraph, Node.Object, TLeaf, MatchVerdict> leaf)
         where TLeaf : notnull {
         BidirectionalGraph<NodeId, TypedEdge> ascent = graph.View(EdgeFilter.Composition, EdgeOrientation.Ascending);
@@ -260,8 +200,6 @@ public sealed record ElementQuery {
         return cycles.Fold(reached, static (acc, cause) => acc.And(MatchVerdict.Fault(cause)));
     }
 
-    // BimVerdict decides the Bim leaf: its Element arm delegates the whole seam vocabulary to ElementVerdict and the
-    // five IFC-schema arms decide here, so no dimension is spelled twice.
     static MatchVerdict BimVerdict(ElementGraph graph, Node.Object obj, BimLeaf leaf) => leaf.Switch(
         state: (graph, obj),
         element:                static (s, l) => ElementVerdict(s.graph, s.obj, l.Leaf),
@@ -277,9 +215,6 @@ public sealed record ElementQuery {
         bySpatialContainer:     static (s, l) => l.Reach.Chain(s.graph, s.obj.Id)
                                                      .Fold(MatchVerdict.Of(false), (acc, whole) => acc.Or(MatchesNode(s.graph, l.Container, whole))));
 
-    // ElementVerdict decides the seam leaf across eleven arms, every incidence read through the O(degree) EdgesAt
-    // index. ByClassification carries the RESOLVED branch the bSDD resolver hands in, so membership is set
-    // containment over (System, Code, Edition) identity and no ancestry derives here.
     static MatchVerdict ElementVerdict(ElementGraph graph, Node.Object obj, ElementLeaf leaf) => leaf.Switch(
         state: (graph, obj),
         byKind:           static (s, l) => MatchVerdict.Of(s.obj.Kind == l.Kind),
@@ -313,15 +248,10 @@ public sealed record ElementQuery {
                                                    asm.Payload.Discipline == l.Discipline
                                                    && l.Outcome.Match(Some: o => asm.Payload.Outcome == o, None: static () => true)))));
 
-    // ONE incidence decision every edge arm shares: the arm supplies the edge-to-related-endpoint projection and
-    // this fold walks the index once, so the five arms that differed only in which endpoint they read collapse.
     static MatchVerdict Incident(ElementGraph graph, NodeId self, NodeMatch<ElementLeaf> target, Func<Relationship, Option<NodeId>> related) =>
         toSeq(graph.EdgesAt(self)).Choose(related)
             .Fold(MatchVerdict.Of(false), (acc, candidate) => acc.Or(MatchesNode(graph, target, candidate)));
 
-    // MatchesNode decides an incidence target: an Exact id equality, or a Where nested pattern resolved on the related
-    // Object node and recursed through the SAME fold over the SEAM leaf vocabulary — a non-Object target fails the nested
-    // probe structurally, so Where never lies about a bag/material/assessment node.
     static MatchVerdict MatchesNode(ElementGraph graph, NodeMatch<ElementLeaf> target, NodeId candidate) => target.Switch(
         state: (graph, candidate),
         exact: static (s, t) => MatchVerdict.Of(t.Id == s.candidate),
@@ -330,17 +260,12 @@ public sealed record ElementQuery {
                                     .IfNone(MatchVerdict.Of(false)));
 
     // --- [VALUE_READS]
-    // ValuesOf is the PUBLIC effective-value read over one node — the ONE exposure a cross-page consumer composes
-    // instead of re-deriving the seam bag merge.
     public static Seq<PropertyValue> ValuesOf(ElementGraph graph, Node.Object obj, ValueSource source) => source.Switch(
         attribute: a => a.Key.Read(obj).ToSeq(),
         property:  p => EffectiveValues(graph, obj.Id,
                             new ValueMatch.Exact(new PropertyValue.Text(p.Set)),
                             new ValueMatch.Exact(new PropertyValue.Text(p.Name))));
 
-    // SumOf rails the SET-aggregate read over the one ValuesOf exposure — the zone rollup and the system demand
-    // accumulation COMPOSE this fold. None means no value exists; a present non-measure is typed failure, never
-    // silently discarded into a partial sum.
     public static Fin<Option<MeasureValue>> SumOf(ElementGraph graph, Seq<NodeId> ids, ValueSource source, Op key) {
         Seq<PropertyValue> values = ids
             .Bind(id => graph.Find<Node.Object>(id).ToSeq())
@@ -354,9 +279,6 @@ public sealed record ElementQuery {
                 .Bind(measures => MeasureValue.Sum(measures, key).Map(Some));
     }
 
-    // EffectiveValues streams candidate set names from BOTH bag kinds on occurrence AND type under its Set
-    // restriction; each surviving set resolves through the seam ValueBag.Merge under its stamped InheritanceMode, and
-    // a Qto_* quantity wraps as PropertyValue.Measure — so a patterned (SetName, Name) facet reads without a Bake.
     static Seq<PropertyValue> EffectiveValues(ElementGraph graph, NodeId obj, ValueMatch set, ValueMatch name) {
         (Seq<PropertyBag> occProps, Seq<QuantityBag> occQty) = BagsOf(graph, obj);
         (Seq<PropertyBag> typProps, Seq<QuantityBag> typQty) = TypeIdOf(graph, obj).Match(Some: t => BagsOf(graph, t), None: static () => (Seq<PropertyBag>(), Seq<QuantityBag>()));
@@ -371,9 +293,6 @@ public sealed record ElementQuery {
     static Seq<PropertyValue> Named<V>(Map<PropertyName, V> values, ValueMatch name, Func<V, PropertyValue> lift) =>
         toSeq(values.AsIterable()).Choose(pair => name.Matches(new PropertyValue.Text(pair.Key.Value)) ? Some(lift(pair.Value)) : Option<PropertyValue>.None);
 
-    // ONE edge walk gathers BOTH bag kinds a node's own Assign{PropertyDefinition} edges attach — the (Props, Qty)
-    // shape the seam Bake.TypeBagsOf reads — so property and quantity resolution share one walk; a caller reaches a
-    // type object's bags by walking from its TypeIdOf id, under the SAME edge conventions the seam Bake reads.
     static (Seq<PropertyBag> Props, Seq<QuantityBag> Qty) BagsOf(ElementGraph graph, NodeId id) =>
         toSeq(graph.EdgesAt(id)).Fold(
             (Props: Seq<PropertyBag>(), Qty: Seq<QuantityBag>()),
@@ -390,9 +309,6 @@ public sealed record ElementQuery {
             e is Relationship.Assign { SubKind: var k, Subject: var subj, Definition: var def } && k == AssignKind.TypeDefinition && subj == obj
                 ? Some(def) : Option<NodeId>.None).Head;
 
-    // One named bag resolution for BOTH aliases (PropertyBag/QuantityBag are ValueBag<V> global-using aliases): the
-    // occurrence bag matching SetName merges with its type counterpart via the ONE seam ValueBag<V>.Merge (the
-    // occurrence carrying the stamped InheritanceMode), a type-only bag inheriting as-is — never a per-alias pair.
     static Option<ValueBag<V>> Resolve<V>(Seq<ValueBag<V>> occurrence, Seq<ValueBag<V>> type, string setName) =>
         occurrence.Find(b => b.SetName == setName).Match(
             Some: occ => Some(type.Find(b => b.SetName == setName).Match(Some: typ => ValueBag<V>.Merge(typ, occ), None: () => occ)),
@@ -411,7 +327,7 @@ public sealed record ElementQuery {
 - Boundary: the lowering emits SQL TEXT + parameters and never opens a connection — execution is the Persistence analytical lane's (the `ColumnarSession` refcounted anchor, the `Query/lane#READ_ROUTING` staleness gate), so the plan crosses the seam as data on the standing `BimOpenSchema` projection edge; the FACT CONVENTION is Bim's half of that seam — `GlobalId` = the node `ExternalId`, `Category` = the `"ifc"` classification code, a parameter descriptor `Name` = the `{Set}.{Name}` dot-path with `ParameterDouble.Value` the SI magnitude, and every parameter fact the EFFECTIVE value with its type→occurrence merge already resolved under the stamped `InheritanceMode` — the BIM-typed projection `columnar.md` rules Bim-implemented; that materialization is what makes the SQL phase provably a SUPERSET, because an occurrence-only projection puts a `ByProperty` lowering UNDER the in-process answer by dropping every type-inherited value, and a residue narrows but never widens; the table IDENTIFIER is the other half — the `<Stem>_<Ordinal>` name is a serializer emit-order fact the Persistence catalogue owns, so every fragment derives it from a `FactTable` row and a transcribed suffixed literal is the deleted form that survives a re-ordered projection as a name still resolving against the wrong table; the residue split is a correctness law, not an optimization: a lowering that narrows the superset silently drops rows the residue can never recover and is the deleted form — an `Any` lowered as its expressible operands alone, and a `NOT` lowered over a non-total clause, are its two standing instances, the second being why `Fragment` carries a totality verdict rather than a `NOT` wrapper trusting SQL comparison to be two-valued.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using Rasm.Element.Properties;
 using Rasm.Element.Query;
@@ -422,10 +338,7 @@ using BimTerm = Rasm.Element.Query.Predicate<Rasm.Bim.Model.BimLeaf>;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Each row pairs a joined table's stem with the serializer's fixed IDataSet.Tables emit ORDINAL the
-// `<Stem>_<Ordinal>` DuckDB identifier carries, so a re-ordered projection moves ONE row here; a transcribed
-// `Entities_4` literal survives that re-order as a name still resolving, silently skewing the plan.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FactTable {
     public static readonly FactTable Strings          = new("Strings",          1);
@@ -440,16 +353,11 @@ public sealed partial class FactTable {
     private FactTable(string key, int ordinal) : this(key) => (Ordinal, Identifier) = (ordinal, $"{key}_{ordinal}");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// StorePlan carries the store-side evaluation artifact: one parameterized statement, its positional parameter values,
-// and the in-process residue. Sql selects DISTINCT candidate GlobalIds — always a SUPERSET of the final set; the residue
-// re-checks in-process, so store phase + residue == the in-process fold, bit-for-bit.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record StorePlan(string Sql, Seq<object> Parameters, Option<BimTerm> Residue);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StoreLowering {
-    // Total means the clause decides TRUE or FALSE for every row, never SQL's third value — the column that makes
-    // negation soundly lowerable. A None fragment IS the residue verdict for that sub-tree.
     readonly record struct Fragment(string Where, Seq<object> Parameters, bool Total);
 
     public static StorePlan Lower(BimTerm term, Op key) {
@@ -459,9 +367,6 @@ public static class StoreLowering {
             None: () => new StorePlan(EntityScan, Seq<object>(), residue));
     }
 
-    // Split runs the sound two-phase division: All narrows with its expressible conjuncts and parks the rest as
-    // residue; Any lowers only whole; Not lowers only over a lowerable AND total operand; a Closure walk and every
-    // unexpressible leaf ride residue. A composite is total only where BOTH halves are — one UNKNOWN poisons it.
     static (Option<Fragment> Store, Option<BimTerm> Residue) Split(BimTerm term) => term switch {
         BimTerm.All all => all.Operands.Map(Split).Fold(
             (Store: Option<Fragment>.None, Residue: Option<BimTerm>.None),
@@ -478,8 +383,6 @@ public static class StoreLowering {
                     Some: held => Some(new Fragment($"({held.Where}) OR ({next.Where})", held.Parameters + next.Parameters, held.Total && next.Total)),
                     None: () => Some(next))), Option<BimTerm>.None)
                 : (Option<Fragment>.None, Some(term)),
-        // Negation parks a non-total operand WHOLE: a clause answering UNKNOWN drops every row whose fact column
-        // is absent, and those rows are precisely the ones the negation selects.
         BimTerm.Not not => Split(not.Operand) switch {
             ({ IsSome: true } inner, { IsNone: true }) when inner.Case is Fragment { Total: true } fragment =>
                 (Some(new Fragment($"NOT ({fragment.Where})", fragment.Parameters, Total: true)), Option<BimTerm>.None),
@@ -491,16 +394,10 @@ public static class StoreLowering {
         _ => (Option<Fragment>.None, Some(term)),
     };
 
-    // Leaf lowers the expressible leaves over the verified fact columns; every other leaf answers None and rides the
-    // residue. Entity-column comparisons are NON-total (a NULL Category, Name, or GlobalId answers UNKNOWN); every
-    // parameter-fact leaf lowers through EXISTS and is total by construction.
     static Option<Fragment> Leaf(BimLeaf leaf) => leaf switch {
         BimLeaf.ByClass c => Some(new Fragment(CategoryEquals, Seq<object>(c.Class.Key), Total: false)),
         BimLeaf.ByDomain d => Some(InFragment(CategoryColumn,
             toSeq(IfcClass.Items).Filter(row => row.Domain == d.Domain).Map(static row => (object)row.Key))),
-        // ONE row-keyed attribute leaf over the EntityColumns table: the two arms that differed only by which
-        // column they compared collapse, and the key is the ObjectAttribute ROW rather than a "GlobalId"/"Name"
-        // literal a roster rename leaves silently resolving against a column the vocabulary no longer names.
         BimLeaf.Element { Leaf: ElementLeaf.ByAttribute { Name: ValueMatch.Exact { Value: PropertyValue.Text key } } a }
             when EntityColumns.Find(key.Value) is { IsSome: true, Case: string column } => a.Restriction switch {
                 ValueMatch.Exact { Value: PropertyValue.Text t } => Some(new Fragment($"{column} = ?", Seq<object>(t.Value), Total: false)),
@@ -532,25 +429,17 @@ public static class StoreLowering {
                 Total: true));
     }
 
-    // Empty value sets lower to the canonical FALSE predicate: `IN ()` fails the statement, and dropping the
-    // fragment WIDENS the superset into a scan the residue never narrows. That constant IS total; a populated `IN`
-    // over a nullable entity column is not.
     static Fragment InFragment(string column, Seq<object> values) =>
         values.IsEmpty
             ? new Fragment(FalsePredicate, Seq<object>(), Total: true)
             : new Fragment($"{column} IN ({string.Join(",", values.Map(static _ => "?"))})", values, Total: false);
 
-    // Verified fact joins, every table identifier derived from its FactTable row: string-index columns resolve
-    // through the single-column Strings adapter by rowid and parameters join their entity by the append-ordinal
-    // rowid. Interpolated statics rather than consts — the identifier is a derived row read, never a literal.
     const string FalsePredicate = "1 = 0";
     static readonly string EntityScan = $"SELECT DISTINCT e.GlobalId FROM {FactTable.Entities.Identifier} e";
     static readonly string CategoryColumn = $"(SELECT s.Strings FROM {FactTable.Strings.Identifier} s WHERE s.rowid = e.Category)";
     static readonly string CategoryEquals = $"{CategoryColumn} = ?";
     static readonly string NameColumn = $"(SELECT s.Strings FROM {FactTable.Strings.Identifier} s WHERE s.rowid = e.Name)";
 
-    // EntityColumns keys the store-expressible attribute rows by their ObjectAttribute row. Tag and ObjectType hold no
-    // column on the flat projection, so they stay residue by ABSENCE from this table rather than by a match arm.
     static readonly Map<string, string> EntityColumns = toMap(Seq(
         (ObjectAttribute.GlobalId.Key, "e.GlobalId"),
         (ObjectAttribute.Name.Key, NameColumn)));

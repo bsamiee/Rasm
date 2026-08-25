@@ -23,7 +23,7 @@ One immersive owner binds OpenXR stereo design review, `XR_FB_passthrough`, and 
 - Boundary: the session shares the one `Wgpu` device the `Render/pipeline` viewport leases through the branch `ONE_WGPU_DEVICE` `EMBED_CAPSULE` law — a second GPU context for the immersive path is the `[04]-[BOUNDARIES]` rejected form, so the OpenXR session created with the Vulkan binding shares the wgpu device's physical device, queue family, and queue index; `Silk.NET.OpenXR` carries no bundled native runtime so it P/Invokes the host-installed loader (`.api/api-silk-openxr.md` local admission) and the loader-absent case is `Flat(LoaderAbsent)` — macOS ships no Apple OpenXR loader (visionOS uses ARKit/RealityKit), so the immersive session activates on Windows/Linux desktop hosts where the loader is present and lands `Flat(PlatformUnsupported)` on macOS, the session create being a capability probe not a launch precondition, and a rejected XR session (`SessionRejected`/`SwapchainFailed`) stays a distinguishable fault, never conflated with the normal no-loader state; the system id is the `ulong` `GetSystem` writes, never a wrapper type the binding does not declare; all native handles (`Instance`, `Session`, `Swapchain`, `Space`, `ActionSet`, `Action`, and the FB passthrough/foveation set) release through the `UiLease` reverse drain, and the handle-to-destroy correspondence stays RECOVERABLE FROM THE CASE — `XrHandle.Destroy` is one total `Switch` naming each matching `DestroyXxx`/`DestroyXxxFB` entrypoint with its `Result` checked, so an opaque teardown erasing that correspondence is still the deleted form while the one-shot guard, the fault ledger, and the reverse ordering are the base's rather than re-spelled here; `XrExtensions` is the ONE carrier and it rides the session, so a per-extension optional parameter beside the core root is the deleted arity and an unloaded table refuses its own handles with `Result.ErrorHandleInvalid` rather than widening a signature; `ImmersiveSession` is a sealed CLASS because it holds eight live cells and a `with` copy would share every one by reference while duplicating the identity the ledger keys on (folder `RULINGS.md` `[02]`); the runtime arm is SPIKE-gated exactly as the viewport; the `Silk.NET.OpenXR.Extensions.FB` roots ride the same `2.23.0` line as the core (Silk.NET publishes its whole core-plus-extension set from one monorepo release) so no version split.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -35,11 +35,6 @@ public sealed partial class FlatCause {
     public static readonly FlatCause SessionExited = new("session-exited");
 }
 
-// The runtime drives the session and the app answers; both answers ride ONE row keyed on the host enum's own
-// ordinal. Renderable is the ONLY gate the frame loop reads — OpenXR refuses BeginFrame until the app has
-// answered Ready with BeginSession, so a frame loop with no drain leaves the session constructible and
-// permanently unrenderable. Demotion defers behind its delegate: an eager cross-vocabulary field reference
-// captures null before the FlatCause materialization protects it.
 [SmartEnum<int>]
 [ValidationError]
 public sealed partial class XrSessionPhase {
@@ -75,11 +70,6 @@ public sealed partial class XrSessionPhase {
     private static Result End(XR core, Session session, ViewConfigurationType config) => core.EndSession(session);
 }
 
-// The advertised-extension vocabulary: each row carries the NATIVE NAME the instance enables and the reader
-// that answers whether the carrier loaded that root. Presence, the enabled-name list, and the loaded table are
-// therefore ONE declaration with one authority — the carrier's own Option columns — so a set stored beside ten
-// options could never disagree with them, and admitting a further vendor extension is one row plus one column.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -101,9 +91,6 @@ public sealed partial class XrExtension : ICapability<XrExtension> {
     public partial bool Loaded(XrExtensions tables);
 }
 
-// The gauge vocabulary the frame's measured crossings are judged against. A bound is what the lane is JUDGED
-// by, never a timeout the app enforces — the compositor owns every native deadline here — so a breached span
-// is evidence a reviewer's frame overran, not a refusal.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class XrLane : IGaugeLane<XrLane> {
@@ -114,8 +101,7 @@ public sealed partial class XrLane : IGaugeLane<XrLane> {
     public TimeSpan Bound { get; }
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// The native surface is typed payload evidence. It does not allocate identity or mirror the fault band.
+// --- [ERRORS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class XrSurface {
@@ -132,8 +118,6 @@ public sealed partial class XrSurface {
     [UseDelegateFromConstructor]
     public partial Retriability Posture(Result outcome);
 
-    // The two results the runtime uses to say the handle graph is gone; every other refusal leaves something
-    // the next frame or the next redrive can still reach.
     private static bool Lost(Result outcome) => outcome is Result.ErrorInstanceLost or Result.ErrorSessionLost;
 
     private static readonly Func<Result, Retriability> Retires = static _ => Retriability.Terminal;
@@ -150,10 +134,6 @@ public abstract partial record ImmersiveFault : Fault {
     [FaultCase(1)] public sealed partial record SessionRejected(string Detail) : ImmersiveFault(Detail);
     [FaultCase(2)] public sealed partial record SwapchainFailed(string Detail) : ImmersiveFault(Detail);
 
-    // ONE case over every native-entrypoint refusal: the entrypoint name plus its Result is the whole evidence,
-    // and the surface row is what keeps a recoverable frame skip, a retired lever, and a lost session three
-    // readings rather than one stringified stage. Six sibling cases restating one field set is the collapsed
-    // form; the discriminant is the row the site names.
     [FaultCase(3)]
     public sealed partial record NativeRefused(XrSurface Surface, string Entrypoint, Result Outcome)
         : ImmersiveFault($"xr/{Surface.Key} {Entrypoint}: {Outcome}") {
@@ -161,8 +141,6 @@ public abstract partial record ImmersiveFault : Fault {
     }
 }
 
-// The one OpenXR status bridge. Every unsafe capsule names its surface and entrypoint here, so native status never
-// becomes an exception and five per-capsule guard copies cannot drift in classification.
 public static class XrStatus {
     public static Fin<Unit> Admit(Result outcome, XrSurface surface, string entrypoint) =>
         outcome == Result.Success
@@ -170,10 +148,7 @@ public static class XrStatus {
             : Fin.Fail<Unit>(new ImmersiveFault.NativeRefused(surface, entrypoint, outcome));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// Loaded function tables travel as ONE carrier, never as an optional parameter per extension. `Advertised` is
-// DERIVED from these columns rather than stored beside them, so the capability set and the roots it names can
-// never disagree and a further FB or EXT table is one column plus its `XrExtension` row.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record XrExtensions(
     XR Core,
     Option<FBPassthrough> Passthrough,
@@ -194,9 +169,6 @@ public sealed record XrExtensions(
 public abstract partial record XrRuntime {
     private XrRuntime() { }
 
-    // Composition selects the strongest ADVERTISED blend: FB passthrough rides AlphaBlend, an AR runtime's
-    // AdditiveBlend composits over the see-through display, and Opaque is the VR floor — an unadvertised mode
-    // is unrepresentable as the selected composite.
     public sealed record Ready(
         CapabilitySet<XrExtension> Advertised,
         ViewConfigurationType ViewConfig,
@@ -206,18 +178,12 @@ public abstract partial record XrRuntime {
             : BlendModes.Contains(EnvironmentBlendMode.AdditiveBlend) ? EnvironmentBlendMode.AdditiveBlend
             : EnvironmentBlendMode.Opaque;
 
-        // The enabled-extension-name list IS the advertised set read through each row's own native name, so the
-        // instance create and the capability probe cannot name two different extension sets.
         public Seq<string> EnabledNames => toSeq(Advertised.Held).Map(static row => row.Name).Strict();
     }
 
     public sealed record Unavailable(FlatCause Cause) : XrRuntime;
 }
 
-// Native lifetime is the HANDLE-TO-DESTROY correspondence: each acquired handle records as its typed case and
-// `Destroy` is the ONE fan over the family, so a tenth handle edits the case list and this arm alone — the
-// separate key projection its only reader (a joined release message) took with it. The one-shot guard, the
-// fault ledger, and the reverse ordering are the session's `UiLease` base, never re-spelled here.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record XrHandle {
     private XrHandle() { }
@@ -250,9 +216,6 @@ public abstract partial record XrHandle {
         XrStatus.Admit(outcome, XrSurface.State, entrypoint);
 }
 
-// The availability algebra: capability absence is the NORMAL Flat state carrying its cause, and only a
-// present-but-refusing runtime faults — both arms render through the one RenderGraph, so the desktop floor
-// preserves the FrameReceipt family with zero XR session constructed.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ImmersiveMode {
     private ImmersiveMode() { }
@@ -269,16 +232,9 @@ public abstract partial record ImmersiveMode {
             unavailable: static (_, absent) => Fin.Succ<ImmersiveMode>(new Flat(absent.Cause)));
 }
 
-// What one frame handed the observer: the queue the runtime spoke, the answer the frame gave it, and the span
-// the submit took. The three belong to ONE frame and none is recoverable from the others.
 public readonly record struct XrObservation(XrFrameOutcome Outcome, Seq<XrEvent> Drained, GaugedSpan<XrLane> Span);
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// The observation seam is a BOUNDED DROP-OLDEST CHANNEL, not a delegate the frame awaits: a telemetry sink
-// invoked inside the frame comprehension runs on the compositor thread, so one slow write stalls a submit and
-// the runtime reprojects a frame the app was still measuring. A superseded observation is exactly the stale
-// item the bound sheds — the newest frame is the one a board wants — and the shed count is a measured cell.
-// The DRAIN of the event queue stays synchronous by the OpenXR contract; only this fan-out leaves the thread.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class XrObserverLane {
     private readonly Channel<XrObservation> queue;
     private readonly Atom<long> shed;
@@ -294,15 +250,11 @@ public sealed class XrObserverLane {
         return Fin.Succ(new XrObserverLane(queue, shed));
     }
 
-    // Publishing never blocks the frame: a full lane drops oldest by construction, and a refused write (a lane
-    // closed at teardown) counts as shed rather than throwing into the frame fold.
     public Unit Publish(XrObservation observation) =>
         queue.Writer.TryWrite(observation) ? unit : ignore(shed.Swap(static held => held + 1L));
 
     public IAsyncEnumerable<XrObservation> Read(CancellationToken token) => queue.Reader.ReadAllAsync(token);
 
-    // A COUNT reads what happened since the previous seal, so the cell DRAINS at its own write; the taken value
-    // is captured inside the swap because a post-swap read answers only the zero it installed.
     public long Shed() {
         long taken = 0L;
         ignore(shed.Swap(held => { taken = held; return 0L; }));
@@ -312,12 +264,6 @@ public sealed class XrObserverLane {
     public Unit Close() => ignore(queue.Writer.TryComplete());
 }
 
-// The session owner: a sealed CLASS deriving the kernel mount custody, because it holds eight live cells and a
-// record copy would share every one by reference while duplicating the identity the accrued release arms key
-// on. The eye render, the panel raster, and the observation lane are BOUND COLUMNS: composition binds the one
-// `Render/pipeline` RenderGraph whose lease resolves to the acquired XR swapchain image for that eye, the one
-// `ControlFactory`/`PaintCatalog` behind the panel raster, and the one bounded lane the drain consumes, so this
-// owner never re-decides the lease, never re-models the scene, and never names a backend target factory.
 public sealed class ImmersiveSession : UiLease {
     public ImmersiveSession(
         Instance instance,
@@ -346,39 +292,23 @@ public sealed class ImmersiveSession : UiLease {
     public ulong System { get; }
     public Session Session { get; }
 
-    // The tables are the INSTANCE's own and fixed at its creation, so they are a column rather than the
-    // parameter fifteen members used to thread — a caller handing a live session a second table set names an
-    // extension roster the instance never enabled.
     public XrExtensions Tables { get; }
     public ViewConfigurationType ViewConfig { get; }
     public EnvironmentBlendMode Blend { get; }
     public Seq<Swapchain> EyeSwapchains { get; }
     public Extent2Di EyeExtent { get; }
 
-    // The eye swapchains' negotiated format is the format a panel on the same device must take, so it is a
-    // session column rather than a mount parameter a caller could disagree with.
     public long EyeFormat { get; }
     public Space ReferenceSpace { get; }
 
-    // The comfort ROWS a user set and the session negotiated once. The stance's reference-space row is what the
-    // session was created against, so the policy and the space cannot disagree.
     public XrComfortPolicy ComfortPolicy { get; }
     public MonotonicTimeline Line { get; }
     public IClock Clock { get; }
     public XrObserverLane Observer { get; }
     public Func<EyePass, Fin<FrameReceipt>> RenderEye { get; }
 
-    // ONE panel column: composition binds the control factory and the paint catalog behind it, and `XrChrome`
-    // owns the bracket, the gauge, and the pass row — a second `XrPanel -> pass row` delegate beside it was the
-    // same binding stated twice.
     public Func<ControlIntent, SKCanvas, SKImageInfo, Fin<Unit>> PanelRender { get; }
 
-    // Every cell below carries a fact that first exists AFTER this owner does: the phase the runtime drives, the
-    // FB requests awaiting completion, the action set bound against the live session, the comfort value each
-    // frame advances, the passthrough layer started after the session, the locomotion state the movement fold
-    // writes and the eye render reads, the panel roster mount and unmount edit, and the display time WaitFrame
-    // predicts. Absence IS the second state on each optional one — a runtime with no attached action set and one
-    // with neither the refresh-rate nor the foveation root are both complete sessions.
     public Atom<XrSessionPhase> Phase { get; } = Atom(XrSessionPhase.Unknown);
     public Atom<XrRequestLedger> Requests { get; } = Atom(XrRequestLedger.Empty);
     public Atom<Option<XrInput>> Input { get; } = Atom(Option<XrInput>.None);
@@ -387,22 +317,14 @@ public sealed class ImmersiveSession : UiLease {
     public Atom<MotionState> Motion { get; } = Atom(MotionState.Stationary);
     public Atom<Seq<XrPanel>> Panels { get; } = Atom(Seq<XrPanel>());
 
-    // A location resolved against a fabricated instant is a pose at a time the runtime never predicted, so the
-    // reads that consume this answer absence rather than a forged ray before the first frame paces.
     public Atom<Option<long>> Display { get; } = Atom(Option<long>.None);
 
-    // Acquisition and its release arm land in ONE step, so a handle that reached the runtime and one the drain
-    // will destroy are the same set by construction.
     public Fin<Unit> Acquire(XrHandle handle, Op key) => Accrue(() => handle.Destroy(Tables), key);
 
     public static readonly InstrumentSpec Resolved = InstrumentSpec.Create(
         "rasm.appui.immersive.session.resolved", InstrumentKind.Count, MeasureForm.Whole, "{session}",
         "XR sessions resolved against an advertised runtime", Seq<string>(), None, None, None);
 
-    // Absence and demotion both land a Flat mode and the mode ALONE cannot tell them apart — one is a runtime
-    // that never opened, the other a session that opened and was lost — so they are two rows keyed on the same
-    // cause dimension. Resolution carries none: the XR system id is a per-boot handle, and fanning a metric
-    // across it mints one series per launch.
     public static readonly InstrumentSpec Absent = InstrumentSpec.Create(
         "rasm.appui.immersive.session.absent", InstrumentKind.Count, MeasureForm.Whole, "{session}",
         "XR session absences by cause", Seq(AppUiTelemetry.CauseSlot), None, None, None);
@@ -426,7 +348,6 @@ public sealed class ImmersiveSession : UiLease {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Resolved, Absent, Demoted, Drained, Shed, Overrun);
 
-    // The availability arm, bound at the ONE mint of the availability algebra.
     public static Fin<Unit> Observed(InstrumentSet set, ImmersiveMode mode) =>
         mode.Switch(
             state: set,
@@ -434,11 +355,6 @@ public sealed class ImmersiveSession : UiLease {
             flat: static (s, absent) => s.Write(Absent, 1d,
                 InstrumentSet.Tags((AppUiTelemetry.CauseSlot, absent.Cause.Key))));
 
-    // The drain arm, the ONE point holding a frame's queue beside the outcome that queue produced. The fan runs
-    // over the event KIND — the union's own roster projection — so a new case is one arm on that roster and no
-    // write site spells a case-to-literal ladder. Submitted and Idled publish no demotion, because a frame that
-    // drew or paced is not a demotion and a zero write is a measurement the frame never took; the overrun
-    // publishes only where the lane's own bound was breached.
     public static Fin<Unit> Observed(InstrumentSet set, XrObservation observation, long shed) =>
         toSeq(observation.Drained.GroupBy(static drop => drop.Kind))
             .TraverseM(group => set.Write(Drained, group.LongCount(),
@@ -465,10 +381,7 @@ public sealed class ImmersiveSession : UiLease {
 - Boundary: the head pose enters as a RIGID transform of the whole app camera — the located orientation rotates the camera basis and the located position translates the eye through that same basis — so an eye-only translation (a headset that pans while the image holds still) and a position composed with its own accompanying orientation are the two deleted forms; the eye lens crosses as `ViewCamera.Asymmetric` because an XR eye frustum is four signed tangent angles and a symmetric single-scalar camera spells it wrong (`.api/api-silk-openxr.md` reject), so a `Fovf` smuggled beside a `CameraFrame` past the eye seam is the deleted arity; the per-frame obligations ride ONE arrow in the runtime's own order, so an input sync, a comfort step, or an expiry fold left to a caller is the deleted form — declared per-frame law with no per-frame caller is exactly the gap that leaves `SyncAction` never polled and the governor's XR levers never applied; the frame loop runs the runtime-predicted display time so a wall-clock frame pace ignoring the predicted display time is the rejected form (`.api/api-silk-openxr.md` reject); the event drain is a PRECONDITION of the loop, not an optional observer — OpenXR refuses `BeginFrame` until the runtime has driven the session to `SessionState.Ready` and the app has answered with `BeginSession`, so a loop with no drain never renders and decoupling the drain onto an async stream would make the session permanently unrenderable, which is why the ONLY seam that leaves the compositor thread is the observation fan-out; each eye renders through the bound `RenderEye` arrow over the one `Render/pipeline` `RenderGraph` so the immersive path re-models no geometry and re-uses the meshlet/path-trace/residency owners; `EndFrame` submits one `CompositionLayerProjection` with two sub-images so a per-eye separate layer is the deleted form; ONE layer array carries the whole submit in compositing order — the passthrough feed beneath, the projection layer over it so the rendered BIM scene composites onto the camera feed, and the `[06]` mounted panel quads above both — and the projection layer carries `CompositionLayerFlags.BlendTextureSourceAlphaBit` under a non-opaque blend so its alpha reaches the compositor; each mounted panel rasters between the eye loop and the submit through `XrChrome.Paint` over the session's own bound panel renderer, because a quad's swapchain image releases before `EndFrame` reads it exactly as an eye image does, and its pass row folds onto the same `FrameReceipt`; the swapchain images are the shared `Wgpu` device's textures so the eye render and the desktop render share one device lifetime; the acquire/wait/release triple brackets each eye render through ONE swapchain bracket this page owns, so a failing eye pass returns its image before the fault leaves the kernel and the panel raster cannot spell a second bracket.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// Whether this frame is MOVING, as a row rather than a bool parameter: the vignette exists to narrow the
-// peripheral flow field during motion, and the movement fold that knows which state holds is not the eye render
-// that applies it — so the state is a cell one owner writes and the eye pass reads.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MotionState {
@@ -478,9 +391,6 @@ public sealed partial class MotionState {
     public bool Flowing { get; }
 }
 
-// The drained vocabulary: one case per event this session acts on, each carrying exactly its own evidence. A
-// structure type no row claims is dropped — the runtime is free to queue events for extensions this session
-// never enabled.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record XrEvent {
     private XrEvent() { }
@@ -490,17 +400,10 @@ public abstract partial record XrEvent {
     public sealed record RefreshRateChanged(float From, float To) : XrEvent;
     public sealed record ProfileRebound : XrEvent;
     public sealed record Lost(uint Count) : XrEvent;
-    // A request the ledger re-issued and one it gave up on are two runtime signals the composition must be able
-    // to attribute — an extension unloaded mid-flight abandons every pending verb — so both ride the same queue
-    // rather than vanishing into a fold no counter reads.
     public sealed record Redriven(SpatialRequest Request) : XrEvent;
     public sealed record Abandoned(SpatialRequest Request) : XrEvent;
-    // A refused lever leaves the session whole and retires only the lever, so it is neither a frame fault nor a
-    // silent fallback — it is an event the drain counts, which is what makes a degrading headset visible.
     public sealed record LeverRefused(XrSurface Surface, string Entrypoint, Result Outcome) : XrEvent;
 
-    // The case kind every drain count tags with, spelled off the case names themselves so the roster and the tag
-    // vocabulary are one declaration and no write site carries a case-to-literal ladder.
     public string Kind => Switch(
         transitioned:       static _ => nameof(Transitioned),
         spatialCompleted:   static _ => nameof(SpatialCompleted),
@@ -513,10 +416,6 @@ public abstract partial record XrEvent {
         leverRefused:       static _ => nameof(LeverRefused));
 }
 
-// The core drain as a TABLE: each row names the structure type it retires and the reader that decodes that
-// event's payload, so a seventh core event is one row rather than a seventh arm — the same shape the FB half
-// already argued for and reached through `SpatialRequestKind`. The payload address crosses as nint because a
-// row cannot carry a pointer in a delegate column.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class XrEventKind {
@@ -539,24 +438,13 @@ public sealed partial class XrEventKind {
         ByStructure.Value.TryGetValue(structure, out XrEventKind? row) ? Optional(row) : None;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// One eye's whole submit input: the located pose the layer submits back, the eye's OWN camera in the render
-// graph's vocabulary, and the acquired swapchain image the render targets. The camera is `ViewCamera.Asymmetric`
-// because the four signed tangent angles are the eye's frustum — a `Fovf` beside a `CameraFrame` was two halves
-// of one camera crossing the seam apart, and every cull, HZB, and integrator arm already reads the union.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct EyeView(int Eye, Posef Pose, ViewCamera Camera, Swapchain Swapchain, uint ImageIndex);
 
-// ONE carrier crosses the eye-render seam: the eye's own facts beside the per-frame facts the graph consumes,
-// so the arrow is a single-parameter arrow and a clock/budget/quality/comfort parameter tail is the deleted
-// arity. Comfort and its motion state ride here because the peripheral vignette is applied by the eye render
-// and nowhere else — the policy states the strength and the demand, the state states whether this frame moves.
 public readonly record struct EyePass(
     EyeView View, ViewportClock Clock, FrameBudget Budget, QualityVerdict Quality,
     XrComfortPolicy Comfort, MotionState Motion);
 
-// Submitted / Idled / Demoted are three different frame answers with three different evidence shapes, so a
-// nullable receipt cannot state which one happened: Idled names the phase that declined, Demoted the FlatCause
-// and the release outcome the caller must park.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record XrFrameOutcome {
     private XrFrameOutcome() { }
@@ -565,16 +453,10 @@ public abstract partial record XrFrameOutcome {
     public sealed record Demoted(FlatCause Cause, Option<Error> Release) : XrFrameOutcome;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
-// The acquire/wait/render/release triple, once: an eye image and a panel image take the identical native
-// bracket, and release brackets the ACQUISITION so a body that faults mid-render still returns its image rather
-// than stranding the swapchain at its acquired index forever. Kernel `Custody.Settled` owns the opaque native
-// release callback and preserves both the primary refusal and any release refusal.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class XrSwapchain {
     private static readonly Op SwapOp = Op.Of(name: "appui.immersive.swapchain");
 
-    // The compositor owns the image-ready deadline; a finite app-side timeout would race the runtime's own
-    // pacing and refuse a frame it was about to hand back.
     public const long InfiniteDuration = long.MaxValue;
 
     public static unsafe Fin<T> Bracket<T>(XR core, XrSurface surface, Swapchain swapchain, Func<uint, Fin<T>> body) =>
@@ -607,8 +489,6 @@ public static class XrSwapchain {
 }
 
 public static class XrPump {
-    // A runtime queueing faster than the app drains would starve the frame; the ceiling bounds one drain and the
-    // residue rides the next frame, which is exactly the pacing WaitFrame already enforces.
     private const int DrainCeiling = 64;
 
     private static readonly Op DrainKey = Op.Of(name: "appui.immersive.drain");
@@ -617,8 +497,6 @@ public static class XrPump {
         public unsafe IO<Seq<XrEvent>> Pump() => IO.lift(() => DrainKey.Catch(() => Drain(session)));
     }
 
-    // Poll into a stack EventDataBuffer, resolve the row that claims its structure type, apply the state transition
-    // and retire the request ledger in place, and stop on EventUnavailable. Native refusals never leave the Fin rail.
     private static unsafe Fin<Seq<XrEvent>> Drain(ImmersiveSession session) {
         Seq<XrEvent> drained = Seq<XrEvent>();
         for (int pass = 0; pass < DrainCeiling; pass++) {
@@ -638,9 +516,6 @@ public static class XrPump {
         return Fin.Succ(drained);
     }
 
-    // Two tables, one lookup each: the core roster claims the events this session acts on and the FB roster the
-    // async completions its ledger holds. A structure type neither claims is dropped — the runtime queues events
-    // for extensions this session never enabled.
     private static Fin<Option<XrEvent>> Admit(ImmersiveSession session, nint payload, StructureType structure) =>
         XrEventKind.Of(structure).Match(
             Some: row => row.Read(session, payload),
@@ -672,25 +547,15 @@ public static class XrPump {
     internal static unsafe Fin<Option<XrEvent>> ReadEventsLost(ImmersiveSession session, nint payload) =>
         Fin.Succ(Some<XrEvent>(new XrEvent.Lost(((EventDataEventsLost*)payload)->LostEventCount)));
 
-    // The guarded step is what tells an idempotent re-arrival from a real transition: a runtime is free to
-    // re-announce the state it already drove the session to, and a bare swap reports only the post-swap value,
-    // so both readings looked alike from outside. `Committed` is a transition and publishes; `Refused` is the
-    // re-arrival and publishes nothing, because an event the session did not move on is not one.
     private static Option<XrEvent> Publish(ImmersiveSession session, XrSessionPhase phase, long at) =>
         Cell.Step(session.Phase, held => held == phase ? Option<XrSessionPhase>.None : Some(phase), DrainKey.InvalidInput())
             is Transition<XrSessionPhase>.Committed committed
             ? Some<XrEvent>(new XrEvent.Transitioned(committed.State, at))
             : None;
 
-    // The retired ROW is captured INSIDE the transition body — the kernel's own `Cell.Claim` idiom — because a
-    // cell step answers the post-swap state alone, so a ledger that consumed a row and one that found none to
-    // consume read identically from outside. A completion for a request no row holds is dropped: the runtime may
-    // complete a request a prior session minted.
     private static Option<XrEvent> Retire(ImmersiveSession session, SpatialRequestKind kind, nint payload) {
         SpatialOutcome outcome = kind.Read(payload);
         Instant now = session.Clock.GetCurrentInstant();
-        // A minting completion is where the handle first exists — the verb answered with a request id and no
-        // Space — so the release arm accrues here or the world-lock leaks past session teardown.
         if (kind.Payload.Mints && outcome.Outcome == Result.Success) {
             outcome.Space.Iter(space => ignore(session.Acquire(new XrHandle.SpaceHandle(space), DrainKey)));
         }
@@ -711,15 +576,6 @@ public static class XrFrame {
     private static readonly Op FrameKey = Op.Of(name: "appui.immersive.frame");
 
     extension(ImmersiveSession session) {
-        // The WHOLE per-frame obligation runs here, in the one order the runtime contract fixes: the drain
-        // empties the queue and applies every phase transition first, because `BeginFrame` is refused until the
-        // runtime has driven the session to Ready; the stale-request sweep runs beside it on the same ledger the
-        // drain retires against; the action sets sync BEFORE the render so a controller pose the eye pass reads
-        // is this frame's; comfort steps against the frame's own governor verdict and its advanced value swaps
-        // back into the cell so the profile cache survives; then the stereo loop runs under the submit lane's
-        // gauge. The observation PUBLISHES last because it is the one point holding the drained queue beside the
-        // outcome that queue produced — and it publishes to a bounded lane rather than awaiting a sink, so a
-        // slow exporter sheds an observation instead of stalling the compositor.
         public unsafe IO<(XrFrameOutcome Outcome, Seq<XrEvent> Drained)> Frame(
             ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera) =>
             from drained in session.Pump()
@@ -740,14 +596,9 @@ public static class XrFrame {
             let queue = drained + swept + levered
             from _published in IO.lift(() =>
                 session.Observer.Publish(new XrObservation(measured.Outcome, queue, measured.Span)))
-            // The queue leaves BESIDE the answer because the composition root settles what this frame drained —
-            // a root that re-polled would consume a second drain the runtime never queued twice.
             select (measured.Outcome, queue);
     }
 
-    // The span lands whether the submit drew or refused, because a refused frame still took time and a reviewer
-    // reading an overrun needs the frame that caused it — so the body's own verdict rides inside the gauged pair
-    // and only a broken capture fails the outer rail.
     private static (XrFrameOutcome Outcome, GaugedSpan<XrLane> Span) Measured(
         Fin<XrFrameOutcome> value, GaugedSpan<XrLane> span, XrFrameOutcome fallback) =>
         (value.Match(Succ: static outcome => outcome, Fail: _ => fallback), span);
@@ -763,8 +614,6 @@ public static class XrFrame {
             { } phase when phase.Demotion() is { IsSome: true, Case: FlatCause cause } =>
                 Fin.Succ<XrFrameOutcome>(new XrFrameOutcome.Demoted(
                     cause, session.Release(FrameKey).Match(Succ: static _ => Option<Error>.None, Fail: Some))),
-            // A renderable phase whose runtime answered ShouldRender = false paced the frame without drawing it,
-            // so the desktop mirror carries the receipt rather than a zero-ordinal stereo forgery.
             { Renderable: true } renderable => Submit(session, clock, budget, quality, camera).Map(
                 drawn => drawn.Match(
                     Some: XrFrameOutcome (receipt) => new XrFrameOutcome.Submitted(receipt),
@@ -772,9 +621,6 @@ public static class XrFrame {
             var idle => Fin.Succ<XrFrameOutcome>(new XrFrameOutcome.Idled(idle)),
         };
 
-    // ONE statement-bodied unsafe boundary kernel per the boundary-kernel law: stack-allocate every create-info
-    // and out struct, check each Result onto the typed rail, bracket each eye's acquire/wait/render/release
-    // through the one swapchain bracket, and submit one layer array.
     private static unsafe Fin<Option<FrameReceipt>> Submit(
         ImmersiveSession session, ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera) =>
         SubmitKey.Catch(() => Drawn(session, clock, budget, quality, camera));
@@ -786,18 +632,11 @@ public static class XrFrame {
         FrameState state = new();
         Fin<Unit> step = Guard(core.WaitFrame(session.Session, &waitFrame, &state), nameof(XR.WaitFrame));
         if (step.IsFail) { return step.Map(static _ => Option<FrameReceipt>.None); }
-        // The predicted display time publishes the moment the runtime answers it and BEFORE the render gate,
-        // because a paced-but-undrawn frame predicted an instant just as a drawn one did — a pose read resolved
-        // against it is valid whether or not this frame reached an eye pass.
         ignore(session.Display.Swap(_ => Some(state.PredictedDisplayTime)));
         FrameBeginInfo beginFrame = new();
         step = Guard(core.BeginFrame(session.Session, &beginFrame), nameof(XR.BeginFrame));
         if (step.IsFail) { return step.Map(static _ => Option<FrameReceipt>.None); }
 
-        // ShouldRender is the runtime's own answer: a Synchronized-but-not-Visible session still runs the frame
-        // pair so pacing survives, and it submits ZERO layers. Rendering into a swapchain the compositor will
-        // not show is the wasted-eye-pass form, and sealing a receipt for it would publish an ordinal and a pass
-        // fold no eye produced.
         if (state.ShouldRender == 0) {
             FrameEndInfo idle = new(displayTime: state.PredictedDisplayTime, environmentBlendMode: session.Blend, layerCount: 0u, layers: null);
             return Guard(core.EndFrame(session.Session, &idle), nameof(XR.EndFrame))
@@ -839,17 +678,9 @@ public static class XrFrame {
                 subImage: new SwapchainSubImage(swapchain: swapchain, imageRect: imageRect, imageArrayIndex: 0u));
         }
 
-        // Panels raster INSIDE the frame, between the eye passes and the submit, because a quad's swapchain image
-        // must be released before `EndFrame` reads it exactly as an eye image must. The roster PARTITIONS rather
-        // than short-circuits: one stalled panel is a named fault on the receipt, not a demoted submit — a `Map`
-        // over a throwing selector made one panel's refusal end the whole frame.
         Seq<XrPanel> panels = session.Panels.Value;
         (Seq<Error> stalled, Seq<(string Pass, Duration Elapsed)> chrome) = panels.Map(panel => XrChrome.Paint(session, panel)).Partition();
 
-        // ONE layer array, in compositing order: the passthrough feed beneath, the projection layer over it
-        // blending its own alpha so the rendered model composites onto the camera feed, and every world-anchored
-        // quad above both — chrome the model occludes is chrome a reviewer cannot read. A second EndFrame, a
-        // second layer array, and a panel-local frame loop are all the deleted forms.
         CompositionLayerProjection projection = new(
             layerFlags: session.Blend == EnvironmentBlendMode.Opaque ? CompositionLayerFlags.None : CompositionLayerFlags.BlendTextureSourceAlphaBit,
             space: session.ReferenceSpace,
@@ -873,11 +704,6 @@ public static class XrFrame {
         return step.Bind(_ => Seal(session, clock, eyes, chrome, stalled).Map(Some));
     }
 
-    // The eye is the unit of GPU work and the FRAME is the unit of evidence: the eye receipts and the panel
-    // raster rows fold into ONE FrameReceipt whose passes carry their eye ordinal or their panel key, so an
-    // immersive frame mints no second receipt vocabulary. The lead eye owns the ordinal and the backend; an
-    // empty fold is unreachable by the loop above and refuses rather than publishing a zero ordinal no eye
-    // measured. A stalled panel's fault parks here rather than ending the submit that carried it.
     private static Fin<FrameReceipt> Seal(
         ImmersiveSession session, ViewportClock clock, Seq<FrameReceipt> eyes,
         Seq<(string Pass, Duration Elapsed)> chrome, Seq<Error> stalled) =>
@@ -897,19 +723,6 @@ public static class XrFrame {
             None: static () => Fin.Fail<FrameReceipt>(
                 new ImmersiveFault.NativeRefused(XrSurface.Frame, nameof(XR.EndFrame), Result.ErrorValidationFailure)));
 
-    // The head pose is a RIGID TRANSFORM of the whole app camera, never a translation of its eye point: the
-    // located pose carries an orientation AND a position in the reference space, and moving only the eye leaves
-    // `Target`/`Up` pinned to the desktop viewpoint, so the rendered view never turns when the head turns — a
-    // headset that pans while the image holds still, which is the immersive path's whole purpose inverted.
-    // Rotating the position by its OWN orientation is the second half of the same defect: a pose is
-    // orientation-then-translation in ONE frame, so composing a point with the rotation that accompanies it
-    // names no transform at all.
-    //
-    // The reference space is right-handed with +X right, +Y up, and -Z forward; the app camera's basis is the
-    // ONE triad `OracleFrame.OfCamera` derives, so lifting each reference-space axis onto that triad is what
-    // makes the head frame and the desktop frame the same world. The gaze distance carries over so a
-    // `Target`-relative orbit radius survives the lift, and the eye's four signed tangent angles land on the
-    // graph's own asymmetric camera rather than a symmetric stand-in.
     private static ViewCamera EyeCamera(ViewCamera camera, Posef pose, Fovf fov) {
         CameraFrame frame = camera.Frame;
         ((double fx, double fy, double fz), (double rx, double ry, double rz), (double ux, double uy, double uz)) =
@@ -920,8 +733,6 @@ public static class XrFrame {
         System.Numerics.Quaternion head = new(pose.Orientation.X, pose.Orientation.Y, pose.Orientation.Z, pose.Orientation.W);
         System.Numerics.Vector3 Lifted(System.Numerics.Vector3 local) => (right * local.X) + (up * local.Y) - (forward * local.Z);
         System.Numerics.Vector3 eye = frame.Eye + Lifted(new System.Numerics.Vector3(pose.Position.X, pose.Position.Y, pose.Position.Z));
-        // Divisor guard, not a domain tolerance: an eye sitting on its own target yields a zero reach no
-        // direction survives (the `Render/meshlets` cone-reach floor is the same class of guard).
         float reach = MathF.Max(System.Numerics.Vector3.Distance(frame.Target, frame.Eye), ReachFloor);
         return new ViewCamera.Asymmetric(
             frame with {
@@ -938,11 +749,7 @@ public static class XrFrame {
         XrStatus.Admit(outcome, XrSurface.Frame, entrypoint);
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// The one frame entry over the availability algebra: the Immersive arm runs the drain and the stereo loop, the
-// Flat arm runs the desktop RenderGraph.Frame, and BOTH answer with the mode the next frame must use — a
-// demoted session folds to Flat(cause) here and cannot be re-entered, so a lost runtime degrades to the desktop
-// floor rather than faulting every frame forever.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ImmersiveFrame {
     extension(ImmersiveMode mode) {
         public IO<(ImmersiveMode Mode, FrameReceipt Receipt, Seq<XrEvent> Drained)> Frame(
@@ -951,9 +758,6 @@ public static class ImmersiveFrame {
                 immersive: s => s.Session.Frame(clock, budget, quality, camera).Bind(advanced => advanced.Outcome.Switch(
                     submitted: submit => IO.pure((mode, submit.Receipt, advanced.Drained)),
                     idled: _ => graph.Frame(clock, budget, quality, camera).Map(receipt => (mode, receipt, advanced.Drained)),
-                    // The release outcome parks on the frame the demotion produced rather than being discarded:
-                    // a typed rail a seam cannot carry outward lands on the composing evidence cell, and the
-                    // graph's own fault wins where both are present.
                     demoted: fallen => graph.Frame(clock, budget, quality, camera).Map(receipt =>
                         ((ImmersiveMode)new ImmersiveMode.Flat(fallen.Cause),
                          receipt with { Fault = receipt.Fault || fallen.Release }, advanced.Drained)))),
@@ -973,10 +777,7 @@ public static class ImmersiveFrame {
 - Boundary: input rides the action-set model so a raw HID controller read bypassing the action-set is the rejected form (`.api/api-silk-openxr.md` reject — OpenXR owns the device abstraction), and the controller pose resolves through `GetActionStatePose`+`LocateSpace`; the action verbs map onto the `CommandRow` vocabulary so a controller button raises an intent exactly as the input fabric folds (`Shell/input#INPUT_FABRIC`), never a controller-local command; a suggestion that never reaches `AttachSessionActionSets` binds nothing, so attach is part of `Bind` rather than a caller step; the action roster admits on a `Validation` applicative because the handles accrue as they land, so partial progress is already the model and refusing on the first native defect reported one defect per run of a roster that may carry several; passthrough is created against the one session the core owns (`.api/api-silk-openxr-fb.md` reject — a second OpenXR session or instance for passthrough is rejected), the FB layer chained into the same `EndFrame` layer array; a passthrough toggle rides `PassthroughLayerPauseFB`/`PassthroughLayerResumeFB` on the live layer so the feed flips without feature teardown and a per-toggle feature re-create is the deleted form; the env-blend folds to the opaque flat composite when the runtime lacks `XR_FB_passthrough` so the page ships without a passthrough-capable runtime; the style update is a per-frame fold, never a re-created layer, and its edge colour has no page-local default because a pigment is a `Theme/tokens` `TokenKey` the composition reads; `XrComfort` is the XR arm of the ONE quality authority and it MINTS through `Bind` like every other post-session owner here — a lever whose cell has no producer is a declared knob the runtime never receives; the advertised set is the runtime's own truth read capacity-then-fill, a foveation profile is created once per level and cached so a per-frame profile mint that grows the accrued release set without bound is the deleted form, a refused rate request degrades to the running rate AND publishes its refusal on the drained queue rather than vanishing, and a second XR-local quality knob path is the rejected form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// Which of the two live states the feed stands in, carrying the entrypoint that reaches it. The pair used to be
-// two one-line arms over a shared flip, which left the STATE unrepresentable — nothing recorded which one was
-// live, so a resume over a running feed and a pause over a paused one read alike.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PassthroughFeed {
@@ -993,15 +794,9 @@ public sealed partial class PassthroughFeed {
     public PassthroughFeed Flipped => this == Running ? Paused : Running;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// An interaction profile and a component path are two different paths: the profile groups the suggestion array
-// the runtime binds, the component names the physical control. Carrying one string for both is what made the
-// suggestion arity unstatable.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct XrAction(string Name, string Localized, string Profile, string Component, ActionType Type);
 
-// The edge colour is the ONE colour owner and the opacity the ONE unit-interval owner, so a five-float tuple
-// where four were a colour and one a normalized factor has no spelling and the native quantization happens once,
-// at the edge that demands it.
 public readonly record struct PassthroughStyle(PerceptualColor Edge, UnitInterval TextureOpacity);
 
 public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action Handle)> Bound, Space ActionSpace) {
@@ -1009,12 +804,6 @@ public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action H
 
     public IO<Unit> Sync(ImmersiveSession session) => IO.lift(() => InputKey.Catch(() => Synced(session, this)));
 
-    // The controller ray, resolved at the frame's OWN predicted display time READ OFF THE SESSION, and answered
-    // as an OPTION because a pose has three independent absences the runtime and the session state separately:
-    // no frame has yet predicted an instant to resolve against, the action reports whether it is bound and
-    // tracking at all, and the location reports whether this instant's pose is valid. Folding any of them onto
-    // an identity pose would aim a ray down the reference space's forward axis and press whatever panel sits
-    // there, which reads as a phantom click a user cannot attribute.
     public Fin<Option<Posef>> Aim(ImmersiveSession session) => InputKey.Catch(() => Aimed(session, this));
 
     private static unsafe Fin<Option<Posef>> Aimed(ImmersiveSession session, XrInput input) {
@@ -1031,22 +820,14 @@ public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action H
         });
     }
 
-    // The pose action is the roster's own obligation, so the two readers that need it resolve it through ONE
-    // refusal rather than each restating the same absent-action fault.
     private Fin<Action> Pose() =>
         Bound.Find(static row => row.Action.Type == ActionType.PoseInput)
             .Map(static row => row.Handle)
             .ToFin(Fail: new ImmersiveFault.NativeRefused(
                 XrSurface.Input, nameof(ActionType.PoseInput), Result.ErrorActionTypeMismatch));
 
-    // Both halves are demanded: an orientation-only location aims a ray from the reference origin and a
-    // position-only one aims it down a fixed axis, so either alone is a pick at the wrong place.
     private const SpaceLocationFlags Tracked = SpaceLocationFlags.OrientationValidBit | SpaceLocationFlags.PositionValidBit;
 
-    // The roster admits on a VALIDATION applicative: every action creates before any refusal settles, so a
-    // roster carrying three mis-declared actions names three defects rather than the first. Partial progress was
-    // already the model — each created handle accrues its release arm as it lands — so accumulating is what the
-    // custody shape already implied.
     public static unsafe Fin<XrInput> Bind(ImmersiveSession session, Seq<XrAction> actions) =>
         InputKey.Catch(() => Bound(session, actions));
 
@@ -1082,11 +863,6 @@ public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action H
         return (declared, handle);
     }
 
-    // Suggestions group BY PROFILE because the entrypoint takes one profile and its whole binding array; a
-    // per-action call would overwrite the prior suggestion set for that profile. Every array-bearing create-info
-    // on this page spells its COUNT field immediately before its pointer — CountSuggestedBindings then
-    // SuggestedBindings, CountActionSets then ActionSets — so each construction names both halves together and a
-    // stack buffer can never reach the runtime under a count some other line set.
     private static unsafe Fin<XrInput> Attached(
         ImmersiveSession session, XR core, ActionSet set, Seq<(XrAction Action, Action Handle)> bound) {
         foreach (IGrouping<string, (XrAction Action, Action Handle)> profile in bound.GroupBy(static row => row.Action.Profile)) {
@@ -1151,9 +927,6 @@ public sealed record XrInput(ActionSet ActionSet, Seq<(XrAction Action, Action H
         XrStatus.Admit(outcome, XrSurface.Input, entrypoint);
 }
 
-// Passthrough handles accrue their release arms on the ONE session lease, so teardown rides the session's
-// reverse drain and no second lifetime owner exists. `Feed` is the layer's own live state, so a toggle reads
-// what stands rather than guessing which of two entrypoints last ran.
 public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer, PassthroughStyle Style, PassthroughFeed State) {
     private static readonly Op PassKey = Op.Of(name: "appui.immersive.passthrough");
 
@@ -1183,14 +956,11 @@ public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer
             .Bind(_ => new Passthrough(feature, layer, style, PassthroughFeed.Running).Restyle(session, style));
     }
 
-    // The style reapplies on the LIVE layer, so a restyle never recreates the layer and never tears the feed.
     public Fin<Passthrough> Restyle(ImmersiveSession session, PassthroughStyle style) =>
         session.Tables.Passthrough.Match(
             Some: api => PassKey.Catch(() => Restyled(this, api, style)),
             None: () => Fin.Succ(this));
 
-    // ONE flip over the two-row state: the row carries the entrypoint that reaches it, so the pair is a value a
-    // caller names rather than two members whose effect nothing records.
     public Fin<Passthrough> Feed(ImmersiveSession session, PassthroughFeed feed) =>
         feed == State
             ? Fin.Succ(this)
@@ -1202,9 +972,6 @@ public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer
                 None: () => Fin.Fail<Passthrough>(new ImmersiveFault.NativeRefused(
                     XrSurface.Passthrough, feed.Entrypoint, Result.ErrorHandleInvalid)));
 
-    // The colour quantizes ONCE, here, at the native edge that demands four floats — AppUi's scene-linear
-    // coordinate is `RgbProfile.Srgb` read through `RgbTransfer.Linear` under the unbounded domain, so the
-    // compositor receives the light the token declared rather than a companded byte round-trip.
     private static unsafe Fin<Passthrough> Restyled(Passthrough held, FBPassthrough api, PassthroughStyle style) {
         (double red, double green, double blue, double alpha) =
             style.Edge.ToRgb(RgbProfile.Srgb, gamut: Some(GamutPolicy.Unbounded), transfer: Some(RgbTransfer.Linear));
@@ -1219,29 +986,12 @@ public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer
         XrStatus.Admit(outcome, XrSurface.Passthrough, entrypoint);
 }
 
-// XR-native quality levers as PROJECTIONS of the one governor verdict: the tier already publishes its own
-// RefreshHz and FoveationLevel columns, so this owner picks the nearest advertised rate at or below the tier's
-// target and the profile row for the tier's level — a second rate ladder derived from a rank is the deleted
-// form the ONE quality authority forecloses. Profiles cache by level, so at most one release arm per level ever
-// accrues on the session lease.
 public sealed record XrComfort(Seq<float> AdvertisedRates, float ActiveRate, HashMap<int, FoveationProfileFB> Profiles) {
     private static readonly Op ComfortKey = Op.Of(name: "appui.immersive.comfort");
 
-    // The MINT, the sibling of `XrInput.Bind` and `Passthrough.Start`: without it the comfort cell had a `Some`
-    // arm nothing could produce, so `Step` never ran and the tier's refresh and foveation columns reached the
-    // runtime never. The advertised set is a capacity-then-fill enumeration because the rate roster is the
-    // runtime's own truth and a fixed-capacity read silently truncates a headset offering more rates than the
-    // buffer holds; the active rate is READ rather than assumed, since the runtime is already running at one.
     public static unsafe Fin<XrComfort> Bind(ImmersiveSession session) => ComfortKey.Catch(() => Bound(session));
 
-    // ONE statement-bodied boundary kernel per the boundary-kernel law: census the advertised rates at zero
-    // capacity, fill at the count the runtime answered, read the rate it is already running, and seat the empty
-    // profile cache the governor's steps fill. The fill bounds on the FILLED count rather than the probe's,
-    // because the probe's is a prior observation the second call is free to supersede.
     private static unsafe Fin<XrComfort> Bound(ImmersiveSession session) {
-        // A runtime carrying no rate root is a complete session with no lever, so the roster is EMPTY at a zero
-        // rate — the nearest-at-or-below pick then moves nothing, where a fabricated ladder would have it
-        // request rates the runtime never advertised.
         if (session.Tables.RefreshRate.Case is not FBDisplayRefreshRate api) {
             return Fin.Succ(new XrComfort(Seq<float>(), 0f, HashMap<int, FoveationProfileFB>()));
         }
@@ -1262,15 +1012,9 @@ public sealed record XrComfort(Seq<float> AdvertisedRates, float ActiveRate, Has
             .Map(_ => new XrComfort(advertised, active, HashMap<int, FoveationProfileFB>()));
     }
 
-    // The step answers the advanced value BESIDE the levers it could not reach, because a refused rate or
-    // foveation update leaves the session whole and retires only that lever — a fact the frame counts on its own
-    // queue rather than one the fold swallows into an unchanged column.
     public IO<(XrComfort Comfort, Seq<XrEvent> Refusals)> Step(ImmersiveSession session, QualityVerdict quality) =>
         IO.lift(() => Stepped(session, quality));
 
-    // The governor publishes a foveation RANK; this table is the ONLY place that rank meets the FB level
-    // vocabulary, so a level added at either end is one row rather than a cast reinterpreting a rank as an
-    // ordinal the two vocabularies never agreed to share.
     private static readonly FrozenDictionary<int, FoveationLevelFB> Levels =
         new KeyValuePair<int, FoveationLevelFB>[] {
             new(0, FoveationLevelFB.NoneFB),
@@ -1292,11 +1036,6 @@ public sealed record XrComfort(Seq<float> AdvertisedRates, float ActiveRate, Has
         return (this with { ActiveRate = rate, Profiles = profiles }, rateRefusals + foveaRefusals);
     }
 
-    // The advertised set is the runtime's truth: the tier names a target and this picks the STRONGEST advertised
-    // rate that does not exceed it, falling to the weakest advertised where none does — one bounded selection
-    // through the kernel ranker, where a descending order fed into an ascending fallback was two sorts spelling
-    // one pick. The band is a FREQUENCY, not a numeric epsilon: a runtime advertising 89.9 for a 90 tier is
-    // offering that tier's rate.
     private float RateFor(double target) =>
         Ranked.Top(AdvertisedRates.Filter(hz => hz <= target + RateBand.Hertz), 1, static hz => hz, ExtremumDirection.Maximum).Head
             .Match(Some: static hz => hz,
@@ -1318,10 +1057,6 @@ public sealed record XrComfort(Seq<float> AdvertisedRates, float ActiveRate, Has
         Profiles.Find(level).Match(Some: Fin.Succ, None: () => Minted(session, foveation, level)).Match(
             Succ: profile => {
                 SwapchainStateFoveationFB state = new(flags: SwapchainStateFoveationFlagsFB.None, profile: profile);
-                // SwapchainStateBaseHeaderFB is the bare `{ Type, Next }` header every swapchain-state subtype
-                // opens with, and UpdateSwapchainFB dispatches on the Type it reads THROUGH that header — so the
-                // cast is the sanctioned downcast to the common prefix, and the runtime recovers the foveation
-                // payload from the type tag the subtype's own constructor set.
                 Seq<XrEvent> refused = session.EyeSwapchains.Choose(swapchain =>
                     swapchains.UpdateSwapchainFB(swapchain, (SwapchainStateBaseHeaderFB*)&state) switch {
                         Result.Success => Option<XrEvent>.None,
@@ -1334,9 +1069,6 @@ public sealed record XrComfort(Seq<float> AdvertisedRates, float ActiveRate, Has
                 XrSurface.Comfort, nameof(QualityTier.FoveationLevel),
                 fault is ImmersiveFault.NativeRefused named ? named.Outcome : Result.ErrorValidationFailure))));
 
-    // A rank the level table does not carry is a CONTRACT BREAK between the governor's ladder and the FB
-    // vocabulary, not "no foveation" — degrading an unrostered rank onto NoneFB published a lever the runtime
-    // never received and a tier the board read as applied.
     private static unsafe Fin<FoveationProfileFB> Minted(ImmersiveSession session, FBFoveation foveation, int level) {
         if (!Levels.TryGetValue(level, out FoveationLevelFB row)) {
             return Fin.Fail<FoveationProfileFB>(new ImmersiveFault.NativeRefused(
@@ -1370,11 +1102,7 @@ public sealed record XrComfort(Seq<float> AdvertisedRates, float ActiveRate, Has
 - Boundary: the spatial plane lands WITH the session-state machine and never before it — the async request ledger has exactly one retirement point and that point is the `[03]` drain, so a spatial verb reaching a session with no drain mints a request that can never complete; every FB feature is created against the one session the core owns (`.api/api-silk-openxr-fb.md` reject — a second OpenXR session or instance for anchors is rejected); a blocking wait on a save or query is the rejected form the request-id contract exists to delete, so no member here polls for its own completion and `Recalled` reads only against a request id the `XrEvent.QueryResultsReady` signal already delivered; every recalled `Space` accrues its release arm exactly as a minted one does, because a restored world-lock leaks identically; the seven payload readers each cast to their OWN declared event struct and no reader reads a sibling's — the catalog declares eight independently generated completion structs and names a base header for exactly one unrelated family (`.api/api-silk-openxr-fb.md` swapchain-state row), so a shared-prefix cast across four distinct structs would assume an ABI layout nothing publishes; expiry is a REDRIVE DECISION rather than a forget — `Forget` dropped an abandoned `Save` or `Share` with no retry at all — and the policy lives on the row because a user-gesture anchor and a durable share do not deserve the same persistence; anchor `Space` handles release through the session lease like every other handle; the geometry the room model bounds crosses to `Render/pipeline` as `SectionBox`-shaped values, and `Rasm.Bim` owns every model-to-site registration semantic — this page mints the world-lock and reads the runtime's room, never a coordination semantic of its own.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// What a completion CARRIES and whether the handle it names is NEW. Three rows because two facts travel here:
-// an anchor create answers with a Space that exists nowhere until the event arrives, a component-set or save
-// answers with the space the caller already held, and a query, share, or capture answers with neither. A
-// `MintsSpace` bool stated only the first fact and left the second re-derived at every reader.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpatialPayload {
@@ -1384,12 +1112,9 @@ public sealed partial class SpatialPayload {
 
     public bool Anchored { get; }
 
-    // Recording a held space would double-accrue one handle's release arm and destroy it twice.
     public bool Mints { get; }
 }
 
-// Which half of the component status a verb applies, as a row: the `enabled ? 1u : 0u` cast at the native edge
-// was the tell that a bool was standing in for a two-member vocabulary the site already knew by name.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComponentAction {
@@ -1399,17 +1124,10 @@ public sealed partial class ComponentAction {
     public uint Enabled { get; }
 }
 
-// The async contract as data: each row names the completion structure type that retires it, the payload class
-// that decides whether a completion accrues a handle, the redrive law a stale request re-issues under, and the
-// reader that decodes that event's payload — so the drain resolves a completion by ONE table lookup and the
-// next FB async verb is one row rather than a seventh arm in the drain.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpatialRequestKind {
-    // A user-gesture anchor re-issues once — a reviewer who placed a note expects it to land — while a durable
-    // save or share re-issues three times against a store that may be reconnecting, and a query or scan re-issues
-    // never, because the reviewer who asked is standing there and can ask again.
     public static readonly SpatialRequestKind AnchorCreate = new("anchor-create", StructureType.TypeEventDataSpatialAnchorCreateCompleteFB, SpatialPayload.Minted, Gesture, ReadAnchor);
     public static readonly SpatialRequestKind ComponentSet = new("component-set", StructureType.TypeEventDataSpaceSetStatusCompleteFB, SpatialPayload.Held, Gesture, ReadComponent);
     public static readonly SpatialRequestKind Save = new("save", StructureType.TypeEventDataSpaceSaveCompleteFB, SpatialPayload.Held, Durable, ReadSave);
@@ -1422,8 +1140,6 @@ public sealed partial class SpatialRequestKind {
     public SpatialPayload Payload { get; }
     public RedrivePolicy Redrive { get; }
 
-    // The payload address crosses as nint rather than a pointer so the row can carry its reader as a delegate
-    // column; each reader casts to its OWN event struct, so no ABI layout is assumed across rows.
     [UseDelegateFromConstructor]
     public partial SpatialOutcome Read(nint payload);
 
@@ -1456,9 +1172,6 @@ public sealed partial class SpatialRequestKind {
         return new SpatialOutcome(completed->RequestId, completed->Result, Some(completed->Space), Some(completed->Uuid));
     }
 
-    // Query, share, and scene-capture completions carry NO space and NO uuid; the slots stay ABSENT rather than
-    // defaulted, because a zero handle published as a read column is the forged measurement this shape
-    // forecloses — an arm that cannot take a measure rides an optional slot, never a zero.
     private static unsafe SpatialOutcome ReadQuery(nint payload) {
         EventDataSpaceQueryCompleteFB* completed = (EventDataSpaceQueryCompleteFB*)payload;
         return new SpatialOutcome(completed->RequestId, completed->Result, None, None);
@@ -1475,22 +1188,14 @@ public sealed partial class SpatialRequestKind {
     }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SpatialOutcome(ulong Id, Result Outcome, Option<Space> Space, Option<UuidEXT> Uuid);
 
-// The request carries its own INTENT and its attempt count, because a redrive re-issues the verb the caller
-// asked for — a row holding only an id could be retired but never retried.
 public readonly record struct SpatialRequest(SpatialRequestKind Kind, ulong Id, Instant At, SpatialIntent Intent, int Attempt);
 
-// One pending set, one mint, one retire, one expiry sweep. A verb that tracked its own completion would need its
-// own drain, and the drain is the session's — so the ledger is where every async verb meets the event queue.
-// `Retire` answers the CONSUMED ROW beside the next ledger, so a caller reads whether this completion retired
-// anything instead of re-deriving it from a post-swap value that reads alike either way.
 public sealed record XrRequestLedger(HashMap<ulong, SpatialRequest> Pending) {
     public static readonly XrRequestLedger Empty = new(HashMap<ulong, SpatialRequest>());
 
-    // A request older than the ceiling never received its completion — the runtime dropped it or the extension
-    // unloaded — so expiry is the ledger's own read and the row's redrive policy decides what happens next.
     public static readonly Duration Ceiling = Duration.FromSeconds(30);
 
     public XrRequestLedger Mint(SpatialRequest request) => new(Pending.AddOrUpdate(request.Id, request));
@@ -1505,8 +1210,6 @@ public sealed record XrRequestLedger(HashMap<ulong, SpatialRequest> Pending) {
         new(swept.Fold(Pending, static (map, row) => map.Remove(row.Id)));
 }
 
-// Seven async verbs, ONE entrypoint: the intent's case is the discriminant, so a sibling CreateAnchor/SaveAnchor/
-// QueryAnchors family is the collapsed form and a new verb breaks this dispatch at compile time.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SpatialIntent {
     private SpatialIntent() { }
@@ -1532,10 +1235,8 @@ public readonly record struct RoomSurface(UuidEXT Uuid, Option<string> Label, Op
 
 public readonly record struct RoomModel(UuidEXT Floor, UuidEXT Ceiling, Seq<UuidEXT> Walls);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class XrSpatial {
-    // Native timeouts are the RUNTIME's own bound; the app's bound is the ledger sweep, so a query names the
-    // infinite native duration and the ledger decides when a request is stale.
     private const long InfiniteDuration = long.MaxValue;
 
     private static readonly Op SpatialKey = Op.Of(name: "appui.immersive.spatial");
@@ -1548,15 +1249,9 @@ public static class XrSpatial {
 
         public unsafe Fin<RoomModel> Room(Space space) => SpatialKey.Catch(() => Layout(session, space));
 
-        // The recalled anchors are read off the request id the QueryResultsReady event signalled, never polled:
-        // the runtime holds the rows until this call takes them, so a caller that never saw the event has
-        // nothing to retrieve and one that did reads exactly its own query's rows.
         public unsafe Fin<Seq<SpaceQueryResultFB>> Recalled(ulong requestId) =>
             SpatialKey.Catch(() => Retrieved(session, requestId));
 
-        // The stale set is the ledger's own read, swept once per frame beside the drain. Each row's policy
-        // decides between a RE-ISSUE of the intent the caller asked for and a final abandonment — dropping an
-        // unfinished `Save` or `Share` outright was a durable write silently lost.
         public IO<Seq<XrEvent>> Expire() => IO.lift(() => SpatialKey.Catch(() => Swept(session)));
     }
 
@@ -1572,10 +1267,6 @@ public static class XrSpatial {
             .Map(static rows => rows.ToSeq());
     }
 
-    // ONE statement-bodied boundary kernel over the whole verb family: each arm stack-allocates its own
-    // create-info, calls its entrypoint, and writes the returned request id through the one out slot. The slot
-    // crosses as nint because a Switch state tuple cannot carry a pointer type; the arms run synchronously
-    // inside this frame, so the local it addresses outlives every one of them.
     private static unsafe Fin<SpatialRequest> Minted(ImmersiveSession session, SpatialIntent intent, int attempt) {
         ulong id = 0UL;
         SpatialRequestKind kind = intent.Kind;
@@ -1623,8 +1314,6 @@ public static class XrSpatial {
         return Fin.Succ(request);
     }
 
-    // Semantic labels and bounds are capacity-then-fill reads: the first call answers the byte count and the
-    // second fills the buffer. A single fixed-capacity read silently truncates a room with many labels.
     private static unsafe Fin<RoomSurface> Read(ImmersiveSession session, Space space) {
         if (session.Tables.Scene.Case is not FBScene scene) {
             return Fin.Fail<RoomSurface>(new ImmersiveFault.NativeRefused(
@@ -1661,11 +1350,6 @@ public static class XrSpatial {
                 XrSurface.Spatial, nameof(FBScene.GetSpaceBoundingBox3Dfb), bounded));
     }
 
-    // Capacity-then-fill over the runtime's held result set, and each recalled Space accrues a release arm — a
-    // restored world-lock leaks exactly like a freshly minted one. The two-count idiom is the struct's own:
-    // ResultCapacityInput is what the caller offers and ResultCountOutput what the runtime holds, so the
-    // zero-capacity probe is a census rather than a failed read, and the fill bounds on the FILLED struct's
-    // count — the probe's is a prior observation the second call is free to supersede.
     private static unsafe Fin<Seq<SpaceQueryResultFB>> Retrieved(ImmersiveSession session, ulong requestId) {
         if (session.Tables.SpatialQuery.Case is not FBSpatialEntityQuery query) {
             return Fin.Fail<Seq<SpaceQueryResultFB>>(new ImmersiveFault.NativeRefused(
@@ -1753,12 +1437,7 @@ flowchart LR
 - Boundary: panel quads chain into the ONE `EndFrame` layer array the stereo frame already submits — above the projection layer, since chrome the model occludes is chrome a reviewer cannot read — and the mounted roster is the session's own cell, so a mounted panel the frame's array cannot see is unrepresentable and a second `EndFrame`, a second layer array, and a panel-local frame loop are all the deleted forms; each panel owns its own swapchain and takes the SAME bracket an eye pass takes, so a panel that fails mid-raster still returns its image and a second acquire/wait/release spelling has no home; the swapchain FORMAT and the panel renderer are the session's own columns rather than mount parameters, because the format the eye swapchains negotiated is the format a panel on the same device must take and the renderer is already bound — a caller supplying either names a second authority for a fact the session settled; unmount drops the roster row alone and leaves the release arm accrued, because destroying a swapchain the compositor still holds the last image of is the fault the reverse-order session teardown exists to foreclose; the ray pick is a PLANE intersection against panel geometry this owner holds and never a scene pick, so aiming at a panel can never select the model behind it, and it is ONE entry over the session rather than a ray read and a plane fold the caller composes — the ray resolves against the display time the frame publishes, which no caller can produce, so a split chain reads composable and is not; the annotation binds an anchor `Space` the `[05]` plane minted and stores no pose of its own, because a pose beside an anchor is a second world-lock that drifts from the one the runtime maintains; review verbs raise `CommandRow` keys through the command deck, so availability, capability gating, and the payload-kind admission all arrive from the deck and an XR-local verb roster is the deleted form; measurement in a headset is the `Render/measure#MEASURE_MODE` session fed controller-resolved points, so this page mints no measurement vocabulary; the viewpoint the next/previous verbs walk is the `Render/viewpoint#VIEW_REGISTRY` ring, so immersive review and desktop review traverse ONE history.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// The locomotion row states whether a vignette is DEMANDED, because the two modes differ in exactly that:
-// teleport moves the world in one discontinuous step that produces no optical flow at all, while smooth
-// locomotion produces continuous flow the vestibular system has no matching motion for — which is the whole
-// mechanism of simulator sickness. A vignette strength authored against a teleport session is a knob with no
-// effect, so the demand rides the row and the strength column reads through it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class XrLocomotion {
@@ -1768,10 +1447,6 @@ public sealed partial class XrLocomotion {
     public bool Vignette { get; }
 }
 
-// Stance selects the REFERENCE SPACE, which is the fact it exists to carry: a standing session tracks against
-// the runtime's own play-area origin and a seated one against the view pose at recentre, so a stance flip is a
-// space re-creation the session performs and never a translation the app maintains against a space that
-// disagrees with it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class XrStance {
@@ -1781,14 +1456,9 @@ public sealed partial class XrStance {
     public ReferenceSpaceType Space { get; }
 }
 
-// The review verbs a controller can raise, each naming the COMMAND KEY the deck already carries — so a
-// controller button and a keyboard chord reach one verb with one availability rule, and the roster states which
-// verbs are worth a physical button rather than minting verbs of its own.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class XrReviewVerb {
-    // The three verbs this plane OWNS declare their keys here and the deck's immersive projection binds them;
-    // the view verbs name the viewport chrome's own constants, so no key on this roster is a literal.
     public const string CaptureIssueIntent = "review.issue.capture";
     public const string PassthroughIntent = "xr.passthrough.toggle";
     public const string RecenterIntent = "xr.recenter";
@@ -1802,9 +1472,6 @@ public sealed partial class XrReviewVerb {
 
     public string IntentKey { get; }
 
-    // The verb resolves against the FROZEN deck, so a row naming a key the deck does not carry is a roster
-    // defect surfaced at bind rather than a controller button that silently does nothing in a headset where the
-    // user has no console to check.
     public Fin<CommandRow> Bound(CommandDeck deck) =>
         deck.Rows.TryGetValue(IntentKey, out CommandRow? intent)
             ? Fin.Succ(intent)
@@ -1812,10 +1479,7 @@ public sealed partial class XrReviewVerb {
                 XrSurface.Input, $"xr/verb:{Key}", Result.ErrorPathUnsupported));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// Comfort is a POLICY VALUE the user sets and the session negotiates, because comfort tolerance varies by
-// person more than any other setting the product carries: a snap angle that reads as jarring to one reviewer is
-// the only thing that keeps another in the headset.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record XrComfortPolicy(
     XrLocomotion Locomotion,
     UnitInterval VignetteStrength,
@@ -1826,30 +1490,17 @@ public sealed record XrComfortPolicy(
         XrLocomotion.Teleport, UnitInterval.Create(0.6d), UnitsNet.Angle.FromDegrees(30d),
         XrStance.Standing, UnitsNet.Length.FromMeters(1.7d));
 
-    // The vignette a frame actually applies: a teleport session demands none whatever the strength column
-    // holds, and a stationary frame applies none whatever the locomotion row is — the occlusion exists to
-    // narrow the peripheral flow field DURING motion, so applying it while still would darken a static view for
-    // no reason a user could name. Both halves are ROWS, so neither is a bool a caller re-derives.
     public double Occlusion(MotionState motion) =>
         Locomotion.Vignette && motion.Flowing ? VignetteStrength.Value : 0d;
 
-    // Yaw QUANTIZES to the snap angle under a snapping mode and passes through under a smooth one, so the turn
-    // fold reads one member rather than branching on the locomotion row at its own call site.
     public UnitsNet.Angle Turn(UnitsNet.Angle requested) =>
         Locomotion == XrLocomotion.Smooth
             ? requested
             : UnitsNet.Angle.FromDegrees(Math.Round(requested.Degrees / SnapTurn.Degrees) * SnapTurn.Degrees);
 
-    // A seated session's floor is the eye height below the recentred view pose; a standing session's floor is
-    // the runtime's own stage origin and the column is inert there, which is the honest shape — the value is
-    // read exactly where the space cannot supply it.
     public UnitsNet.Length Floor => Stance == XrStance.Seated ? EyeHeight : UnitsNet.Length.Zero;
 }
 
-// A world-anchored panel: its own swapchain, its metre extent, its pose in the reference space, and the SETTLED
-// control tree it renders. The pixel extent DERIVES from the metre extent and the panel's own pixels-per-metre,
-// so a panel resized in world units re-rasters at the density it declared and a pixel extent authored beside a
-// metre extent — two sizes for one surface — is unrepresentable.
 public sealed record XrPanel(
     string Key,
     Swapchain Swapchain,
@@ -1862,9 +1513,6 @@ public sealed record XrPanel(
 
     public SKImageInfo Info => new(Pixels.Width, Pixels.Height);
 
-    // The quad the frame chains: the sub-image is the whole panel image, the layer blends its own source alpha
-    // so a panel's rounded corners and translucent ground composite against the scene, and both eyes see it
-    // because a review panel is world-anchored content rather than a per-eye overlay.
     public CompositionLayerQuad Quad(Space reference) =>
         new(layerFlags: CompositionLayerFlags.BlendTextureSourceAlphaBit,
             space: reference,
@@ -1873,23 +1521,13 @@ public sealed record XrPanel(
             pose: Pose,
             size: Extent);
 
-    // The panel plane in the reference space: its centre is the pose position and its normal is the pose
-    // orientation's own forward, so the ray intersection reads the plane the compositor will actually draw
-    // rather than a plane the app maintains beside it.
     public (System.Numerics.Vector3 Centre, System.Numerics.Quaternion Orientation) Plane =>
         (new System.Numerics.Vector3(Pose.Position.X, Pose.Position.Y, Pose.Position.Z),
          new System.Numerics.Quaternion(Pose.Orientation.X, Pose.Orientation.Y, Pose.Orientation.Z, Pose.Orientation.W));
 }
 
-// The pick: the panel it hit, the panel-local pixel coordinate the control tree receives, and the ray distance
-// the nearest-hit selection reads. The pixel coordinate is what makes the desktop hit-test, hover, and press
-// paths reachable unchanged — a bespoke XR pointer vocabulary would fork every one.
 public readonly record struct XrRayHit(XrPanel Panel, (double X, double Y) Pixel, double Distance);
 
-// A review annotation binds an ANCHOR to a review payload and holds no pose of its own, because a pose beside
-// an anchor is a second world-lock that drifts from the one the runtime maintains across sessions. The payload
-// is the settled review vocabulary — a viewpoint measurement or an issue key — so an annotation placed in a
-// headset opens as an ordinary issue on a desktop.
 public sealed record XrAnnotation(
     string Key,
     Space Anchor,
@@ -1898,15 +1536,10 @@ public sealed record XrAnnotation(
     Option<string> IssueKey,
     Instant At);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class XrChrome {
     private static readonly Op ChromeKey = Op.Of(name: "appui.immersive.chrome");
 
-    // A panel's swapchain is created against the SHARED device in the session's OWN eye format, so panel content
-    // and eye content live on one device lifetime and a caller cannot name a second format for a device the
-    // session already negotiated one for. The release arm accrues at creation, which is the one point at which
-    // the handle first exists, and the panel joins the session's own roster in the same step — a mounted panel
-    // the frame's layer array cannot see is chrome that renders nowhere.
     public static unsafe Fin<XrPanel> Mount(
         ImmersiveSession session, string key, ControlIntent content,
         Posef pose, Extent2Df extent, int pixelsPerMetre) {
@@ -1927,18 +1560,9 @@ public static class XrChrome {
             .Map(_ => { ignore(session.Panels.Swap(held => held.Add(panel))); return panel; });
     }
 
-    // Unmount is the roster's own inverse and nothing more: the release arm stays accrued, because a handle
-    // destroyed while the compositor still holds its last submitted image is exactly the class of fault the
-    // reverse-order session teardown exists to foreclose. A panel dropped from the roster stops compositing on
-    // the very next frame, which is what "unmounted" means to a reviewer.
     public static Unit Unmount(ImmersiveSession session, string key) =>
         ignore(session.Panels.Swap(held => held.Filter(panel => panel.Key != key)));
 
-    // The panel raster is the DESKTOP raster: the control tree materializes through the one factory and inks
-    // through the one paint catalog, so a panel is a surface the shell already knows how to draw and no
-    // XR-specific rendering path exists. The image rides the ONE swapchain bracket an eye pass takes, and the
-    // raster runs under the panel lane's gauge so a stalling panel is measured against a declared bound rather
-    // than a mark-and-subtract pair spelled here.
     public static unsafe Fin<(string Pass, Duration Elapsed)> Paint(ImmersiveSession session, XrPanel panel) =>
         session.Line.Gauged(
             XrLane.Panel, ChromeKey,
@@ -1947,13 +1571,6 @@ public static class XrChrome {
             ChromeKey)
             .Bind(measured => measured.Value.Map(_ => (panel.Key, Duration.FromTimeSpan(measured.Span.Elapsed))));
 
-    // The ONE ray pick, END TO END over the session that already holds both halves: the controller ray at this
-    // frame's own predicted display time, then the nearest panel plane it crosses. A controller aim pose is a
-    // ray in the reference space, the hit is a plane intersection against each panel's own geometry, and the
-    // NEAREST forward hit wins through the one bounded selection: a scene pick would select the model behind a
-    // panel exactly when the user is aiming at the panel, and taking the first panel in the roster would make
-    // roster order decide which of two overlapping panels a user can press. An unbound controller, an untracked
-    // pose, and a session no frame has paced yet all answer the same absence.
     public static Fin<Option<XrRayHit>> Pick(ImmersiveSession session) =>
         session.Input.Value.Match(
             Some: input => input.Aim(session).Map(aim => aim.Bind(pose => Crossed(session.Panels.Value, pose))),
@@ -1967,14 +1584,8 @@ public static class XrChrome {
             static hit => hit.Distance, ExtremumDirection.Minimum).Head;
     }
 
-    // Divisor guard, not a domain tolerance: a ray parallel to the panel plane yields a facing dot no distance
-    // can divide by (the `Render/meshlets` cone-reach floor is the same class of guard).
     private const float FacingFloor = 1e-6f;
 
-    // The panel's local frame is its pose orientation's own axes, so the UV the hit produces is the extent the
-    // compositor draws into and the pixel coordinate scales from it directly. A hit outside the extent answers
-    // `None` rather than clamping to an edge, because a clamped miss presses the control nearest the panel
-    // border on every ray that passes beside the panel.
     private static Option<XrRayHit> Intersect(XrPanel panel, System.Numerics.Vector3 origin, System.Numerics.Vector3 direction) {
         (System.Numerics.Vector3 centre, System.Numerics.Quaternion orientation) = panel.Plane;
         System.Numerics.Vector3 normal = System.Numerics.Vector3.Transform(-System.Numerics.Vector3.UnitZ, orientation);
@@ -1987,8 +1598,6 @@ public static class XrChrome {
         float v = System.Numerics.Vector3.Dot(local, System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitY, orientation));
         return MathF.Abs(u) > panel.Extent.Width * 0.5f || MathF.Abs(v) > panel.Extent.Height * 0.5f
             ? None
-            // Panel-local metres to panel PIXELS with the surface's own Y-down convention, so the coordinate the
-            // control tree receives is the coordinate a desktop pointer would have produced.
             : Some(new XrRayHit(
                 panel,
                 (((u / panel.Extent.Width) + 0.5d) * panel.Pixels.Width,
@@ -1996,31 +1605,20 @@ public static class XrChrome {
                 distance));
     }
 
-    // The quad layers the frame chains ABOVE the projection layer: chrome the model occludes is chrome a
-    // reviewer cannot read, and the whole point of a world-anchored panel is that it stays legible from the pose
-    // it was placed at.
     public static Seq<CompositionLayerQuad> Layers(Seq<XrPanel> panels, Space reference) =>
         panels.Map(panel => panel.Quad(reference));
 
-    // The controller-to-verb mapping: every rostered verb resolves against the frozen deck at bind, so a headset
-    // press and a desktop chord execute ONE bound body under one availability rule and a verb whose intent the
-    // deck refuses lands as a typed casualty rather than a button that does nothing.
     public static Fin<HashMap<XrReviewVerb, CommandRow>> Verbs(CommandDeck deck) =>
         toSeq(XrReviewVerb.Items)
             .Traverse(verb => verb.Bound(deck).Map(intent => (verb, intent))).As()
             .Map(static rows => rows.ToSeq().ToHashMap(static row => row.verb, static row => row.intent));
 
-    // An annotation is minted from a COMPLETED anchor request, so the anchor space it binds is one the runtime
-    // already world-locked and the annotation never holds a pose that could drift from it.
     public static Fin<XrAnnotation> Annotate(
         ImmersiveSession session, SpatialOutcome outcome, Option<ViewMeasurement> measurement, Option<string> issueKey) =>
         (outcome.Space, outcome.Uuid) switch {
             ({ IsSome: true, Case: Space anchor }, { IsSome: true, Case: UuidEXT uuid }) =>
                 Fin.Succ(new XrAnnotation($"{AnnotationPrefix}{uuid}", anchor, uuid, measurement, issueKey,
                     session.Clock.GetCurrentInstant())),
-            // The refusal names the ENTRYPOINT whose completion should have carried the anchor beside the
-            // outcome's own `Result`, so a completion that succeeded with an absent handle and one that failed
-            // outright stay two readings of one row rather than a stringified verdict with no code to read.
             _ => Fin.Fail<XrAnnotation>(new ImmersiveFault.NativeRefused(
                 XrSurface.Spatial, SpatialRequestKind.AnchorCreate.Key, outcome.Outcome)),
         };
@@ -2048,15 +1646,10 @@ public static class XrChrome {
 - Boundary: this owner is the plane's ONE composition root, so every entry `[03]` through `[06]` declares has a caller and a file no owner reaches has no spelling here; it MINTS nothing the sibling sections own — no swapchain, no action, no anchor, no panel geometry — it binds them, which is why it holds arrows rather than natives; the two bound arrows are the shell's own (`Shell/commands#COMMAND_DECK` invoke route and `Shell/input#INPUT_FABRIC` pointer path), so this page raises intents and pointer coordinates and executes neither; the flat mode opens a deck with an empty plane rather than refusing, because a host with no OpenXR loader must compose the same root; the observation drain is the only member here that leaves the compositor thread and it never writes back into session state.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
-// A declared chrome panel: the control tree, where it hangs, and how dense it rasters. The swapchain is the
-// mount's, so a spec names what a reviewer sees and never a native handle.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct XrPanelSpec(string Key, ControlIntent Content, Posef Pose, Extent2Df Extent, int PixelsPerMetre);
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// The ONE composition root over the immersive plane. It is a sealed class because it holds the mode cell every
-// frame advances and the pending-annotation cell the anchor completions retire — a record copy would share both
-// by reference while duplicating the deck identity the drain keys on.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class ImmersiveDeck {
     private static readonly Op DeckKey = Op.Of(name: "appui.immersive.deck");
 
@@ -2072,9 +1665,6 @@ public sealed class ImmersiveDeck {
     public Func<CommandRow, IO<Unit>> Execute { get; }
     public Func<XrPanel, (double X, double Y), IO<Unit>> Press { get; }
 
-    // What the anchor completions are waiting to become, keyed by the request id the verb minted: an annotation
-    // needs the payload the reviewer asked for AND the anchor the runtime has not created yet, and those two
-    // facts arrive at different moments.
     public Atom<HashMap<ulong, (Option<ViewMeasurement> Measurement, Option<string> IssueKey)>> Pending { get; } =
         Atom(HashMap<ulong, (Option<ViewMeasurement>, Option<string>)>());
 
@@ -2084,15 +1674,8 @@ public sealed class ImmersiveDeck {
 
     public Atom<Seq<RoomSurface>> Surfaces { get; } = Atom(Seq<RoomSurface>());
 
-    // The query's held rows, released the moment the runtime says it has them. They are the ONLY source of
-    // anchor `Space` handles a later read can address, which is why the room's semantic surfaces resolve here
-    // and not off the layout's uuid columns — a uuid names a surface, a space is what a read takes.
     public Atom<Seq<SpaceQueryResultFB>> Recalled { get; } = Atom(Seq<SpaceQueryResultFB>());
 
-    // Every post-session owner mints HERE, which is what makes the cells above reachable at all: an input
-    // binding, a comfort negotiation, a passthrough feed, and a panel roster are each a producer the session
-    // declared a cell for, and a plane that opened without them shipped four knobs the runtime never received.
-    // The flat arm opens the same deck over an empty plane, so a loaderless host composes one root.
     public static IO<Fin<ImmersiveDeck>> Open(
         ImmersiveMode mode,
         CommandDeck deck,
@@ -2111,8 +1694,6 @@ public sealed class ImmersiveDeck {
                 flat: static (_, _) => Fin.Succ(unit))
             select new ImmersiveDeck(Atom(mode), verbs, execute, press));
 
-    // The passthrough arm folds out on absence rather than refusing: a runtime with no `XR_FB_passthrough` is a
-    // complete VR session, and the env-blend already answered opaque for it.
     private static Fin<Unit> Bind(ImmersiveSession session, Seq<XrAction> actions, Seq<XrPanelSpec> chrome, PassthroughStyle style) =>
         from input in XrInput.Bind(session, actions)
         from comfort in XrComfort.Bind(session)
@@ -2126,9 +1707,6 @@ public sealed class ImmersiveDeck {
         from seated in feed
         select ignore(session.Passthrough.Swap(_ => seated));
 
-    // The whole per-frame obligation a composition root owes: advance the mode, settle everything the frame's
-    // drain answered, and fold the controller press. The mode swaps because a demoted session must not be
-    // re-entered — the frame arrow answers the mode the NEXT frame takes.
     public IO<(ImmersiveDeck Deck, FrameReceipt Receipt)> Frame(
         RenderGraph graph, ViewportClock clock, FrameBudget budget, QualityVerdict quality, ViewCamera camera) =>
         from advanced in Mode.Value.Frame(graph, clock, budget, quality, camera)
@@ -2137,10 +1715,6 @@ public sealed class ImmersiveDeck {
         from _pressed in Pressed(advanced.Mode)
         select (this, advanced.Receipt);
 
-    // Every asynchronous answer this page can receive arrives on the drained queue and nowhere else, so this is
-    // the ONE fold that reacts to one: a query's held rows release here, a completed scan reads the room and its
-    // surfaces, and a completed anchor becomes the annotation the capture verb was waiting on and persists it.
-    // Redrives and abandonments need no arm — the observer already counts them.
     private IO<Unit> Settle(ImmersiveMode mode, Seq<XrEvent> drained) =>
         mode.Switch(
             state: drained,
@@ -2166,9 +1740,6 @@ public sealed class ImmersiveDeck {
             abandoned: static (_, _) => IO.pure(unit),
             leverRefused: static (_, _) => IO.pure(unit));
 
-    // An anchor completion is where the annotation the reviewer asked for first becomes mintable, so the
-    // payload waiting on this request id retires here and the note persists in the same step — a completion
-    // whose payload nothing claimed is a recalled anchor, not a new note.
     private IO<Unit> Completed(ImmersiveSession session, XrEvent.SpatialCompleted done) =>
         done.Request.Kind == SpatialRequestKind.AnchorCreate ? Annotated(session, done)
         : done.Request.Kind == SpatialRequestKind.SceneCapture ? Scanned(session, done)
@@ -2190,9 +1761,6 @@ public sealed class ImmersiveDeck {
             None: static () => IO.pure(unit));
     }
 
-    // The room layout is read SYNCHRONOUSLY once the scan completes, which is the only moment the runtime has
-    // one to answer with — polling for a layout before then is the rejected form. The layout answers UUIDs, so
-    // the per-surface semantic read waits on the query that hands back `Space` handles.
     private IO<Unit> Scanned(ImmersiveSession session, XrEvent.SpatialCompleted done) =>
         IO.lift(() => done.Outcome.Space.Match(
             Some: space => session.Room(space).Match(
@@ -2200,8 +1768,6 @@ public sealed class ImmersiveDeck {
                 Fail: static _ => unit),
             None: static () => unit));
 
-    // The pick's PIXEL is what reaches the pointer path, so a headset press and a desktop click are one path
-    // through the control tree — an XR-local pointer vocabulary would fork every hover, hit-test, and press.
     private IO<Unit> Pressed(ImmersiveMode mode) =>
         mode.Switch(
             immersive: live => XrChrome.Pick(live.Session).Match(
@@ -2209,8 +1775,6 @@ public sealed class ImmersiveDeck {
                 Fail: static _ => IO.pure(unit)),
             flat: static _ => IO.pure(unit));
 
-    // Four verbs are the shell's and reach it unchanged; two are this plane's own and fold here, because a
-    // passthrough flip and a recentre are runtime state no command body outside this page can reach.
     public IO<Unit> Act(XrReviewVerb verb) =>
         verb == XrReviewVerb.TogglePassthrough ? Flip()
         : verb == XrReviewVerb.Recenter ? Recentre()
@@ -2225,9 +1789,6 @@ public sealed class ImmersiveDeck {
                 None: static () => unit)),
             flat: static _ => IO.pure(unit));
 
-    // A recentre is a SPACE re-creation at the stance's own reference-space row, world-locked with an anchor so
-    // the recentred origin survives the session — a pose offset the app maintained beside a space that disagreed
-    // with it was the deleted form the stance row exists to foreclose.
     private IO<Unit> Recentre() =>
         Mode.Value.Switch(
             immersive: live => live.Session.Display.Value.Match(
@@ -2238,15 +1799,11 @@ public sealed class ImmersiveDeck {
     private static readonly Posef Origin = new(
         orientation: new Quaternionf(0f, 0f, 0f, 1f), position: new Vector3f(0f, 0f, 0f));
 
-    // The movement fold: the yaw quantizes through the comfort policy's own `Turn` and the motion state the eye
-    // pass reads is written HERE, by the one owner that knows whether the reviewer is moving.
     public Unit Move(MotionState motion) =>
         Mode.Value.Switch(
             immersive: live => ignore(live.Session.Motion.Swap(_ => motion)),
             flat: static _ => unit);
 
-    // The capture verb mints the anchor AND parks its payload against the request id, so the completion that
-    // arrives frames later knows what note it is becoming.
     public IO<Unit> Capture(Option<ViewMeasurement> measurement, Option<string> issueKey) =>
         Mode.Value.Switch(
             immersive: live => live.Session.Display.Value.Match(
@@ -2255,9 +1812,6 @@ public sealed class ImmersiveDeck {
                 None: static () => IO.pure(unit)),
             flat: static _ => IO.pure(unit));
 
-    // The ONE observation consumer, off the compositor thread for the process's life: each observation carries
-    // the frame's queue, its answer, and its span, and the shed count drains beside it so a board reads both the
-    // frames it saw and the frames the bound dropped.
     public IO<Unit> Drain(InstrumentSet set, CancellationToken token) =>
         Mode.Value.Switch(
             immersive: live => IO.liftAsync(async () => {

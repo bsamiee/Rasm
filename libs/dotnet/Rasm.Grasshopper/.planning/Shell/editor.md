@@ -41,7 +41,7 @@ Every shell pane is a `ShellSlot` row drained by one generic typed-projection ga
 - Growth: a new shell command is one `ShellOp` case with its `Switch` arm breaking loudly at the gate; zero new entrypoints on any axis.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Document;
 using Rasm.Interaction;
@@ -50,10 +50,7 @@ using Rhino;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Pane heterogeneity is the REASON for a closed family, never the excuse for `object`: an erased column recovers its
-// type through an unconstrained `is TPane`, so `Grab<string, …>` on the tab strip type-checks and refuses at runtime.
-// Union makes every reachable pane shape a case the consumer's total `Switch` must decide at compile time.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record ShellPane {
     private ShellPane() { }
@@ -84,8 +81,6 @@ public sealed partial class ShellSlot {
         read: static () => Editor.ThisOrRhino, pane: static host => new ShellPane.AnchorCase(Host: host));
     [UseDelegateFromConstructor] internal partial Fin<ShellPane> Resolve(Op key);
 
-    // Host read stays typed to its own member and the projection closes it into the family, so the null gate
-    // guards the HOST value and no row ever holds an erased reference.
     private static ShellSlot EditorRow<THost>(int key, Func<Editor, THost?> read, Func<THost, ShellPane> pane)
         where THost : class =>
         new(key: key, resolve: op =>
@@ -98,7 +93,6 @@ public sealed partial class ShellSlot {
         new(key: key, resolve: op => Optional(read()).ToFin(op.MissingContext()).Map(pane));
 }
 
-// Swing NAMES its posture — a bare bool target carries neither the axis polarity nor the caller's intent.
 [SmartEnum<int>]
 public sealed partial class ToggleIntent {
     public static readonly ToggleIntent Hold = new(key: 0, target: static _ => true);
@@ -120,7 +114,6 @@ public sealed partial class ShellToggle : ICapability<ShellToggle> {
     [UseDelegateFromConstructor] internal partial Fin<bool> Read(GhScope scope, Op key);
     [UseDelegateFromConstructor] internal partial Fin<Unit> Write(GhScope scope, bool value, Op key);
 
-    // Two factories, one shape, different scope projections — no row hand-rolls its acquisition.
     private static ShellToggle EditorRow(string key, Func<Editor, bool> read, Action<Editor, bool> write) =>
         new(key: key,
             read: (scope, op) => scope.Editor.ToFin(op.MissingContext()).Bind(shell => op.Catch(body: () => Fin.Succ(read(arg: shell)))),
@@ -142,17 +135,16 @@ public abstract partial record ShellOp {
     public sealed record GetterCase(Option<RhinoDoc> Target) : ShellOp;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ShellFacts(
     CapabilitySet<ShellToggle> Shown, bool HasDocument, int RecentCount) : IValidityEvidence {
     public bool IsValid => RecentCount >= 0;
 }
 
-// What Mount found and what it applied — release restores the found posture.
 public sealed record ShellSeat(ShellFacts Found, Seq<GateReceipt<ShellFacts>> Applied);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class EditorShell {
     public static Fin<TOut> Grab<TOut>(ShellSlot slot, Func<ShellPane, Fin<TOut>> project, Op? key = null) {
@@ -181,7 +173,6 @@ public static class EditorShell {
                 body: () => UiThread.Run(new UiDispatch<ShellFacts>.Blocking(
                     () => ScopeTarget.EditorHost.Acquire(key: active).Bind(scope => valid.Switch(
                         state: (Scope: scope, Key: active),
-                        // Read → intent-derived target → write: the row's own current state feeds Flip.
                         toggleCase: static (s, c) =>
                             from current in c.Row.Read(scope: s.Scope, key: s.Key)
                             from _ in c.Row.Write(scope: s.Scope, value: c.Intent.Target(current: current), key: s.Key)
@@ -199,8 +190,6 @@ public static class EditorShell {
                 Span: gauged.Span, Facts: facts));
     }
 
-    // Standing mount: capture the found posture, apply the standing ops, restore on release or on a
-    // refused traverse — the plugin leaves the shell exactly as it found it.
     public static Fin<Lease<ShellSeat>> Mount(MonotonicTimeline clock, Seq<ShellOp> standing, Op? key = null);
 
     private static Fin<ShellFacts> Project(GhScope scope, Op key) =>
@@ -208,8 +197,6 @@ public static class EditorShell {
         from shown in ShellToggle.Items.Fold(
             Fin.Succ(CapabilitySet<ShellToggle>.None),
             (acc, row) => acc.Bind(held => row.Read(scope: scope, key: key)
-                // ONLY the absent-anchor class reads as disengaged; every other fault keeps the rail — an
-                // untyped swallow here would eat MissingContext and certify a dead scope as an empty shell.
                 .BindFail(cause => cause is KernelFault.MissingContext ? Fin.Succ(false) : Fin.Fail<bool>(cause))
                 .Map(engaged => engaged ? held.With(row) : held)))
         from facts in key.Catch(body: () => Fin.Succ(new ShellFacts(

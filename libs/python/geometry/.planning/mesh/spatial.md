@@ -41,15 +41,13 @@ from rasm.runtime.profiles import BenchmarkReceipt
 from rasm.runtime.receipts import DEFAULT_SCOPE, Phase, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-# the narrow-phase witness tier's provider: interpreter-marked, so the module-scope proxy stays unreified until
-# `ManifoldTier.FCL_WITNESS` is the resolved tier — the probe gates the reference, never a bare import crash.
 lazy import fcl
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type QueryKind = Literal["proximity", "ray", "contains", "bounds", "nearest", "clearance", "sample"]
 type Witness = tuple[tuple[float, float, float], tuple[float, float, float]]
-type Gap = tuple[float, Option[Witness]]  # the measured separation beside the witness pair only the FCL arm carries
+type Gap = tuple[float, Option[Witness]]
 type SpatialArm = ArmOutcome[SpatialResult, SpatialReceipt]
 
 
@@ -71,7 +69,7 @@ class SpatialQuery:
     @staticmethod
     def Ray(
         origins: np.ndarray, directions: np.ndarray, max_distance: float = float("inf")
-    ) -> "SpatialQuery":  # intersects_location casts infinite rays; a finite max_distance clamps a far hit back to a miss
+    ) -> "SpatialQuery":
         return SpatialQuery(ray=(origins, directions, max_distance))
 
     @staticmethod
@@ -79,11 +77,11 @@ class SpatialQuery:
         return SpatialQuery(contains=points)
 
     @staticmethod
-    def Bounds(boxes: np.ndarray) -> "SpatialQuery":  # Nx6 (xmin,ymin,zmin,xmax,ymax,zmax) AABB rows
+    def Bounds(boxes: np.ndarray) -> "SpatialQuery":
         return SpatialQuery(bounds=boxes)
 
     @staticmethod
-    def Nearest(boxes: np.ndarray, num_results: int = 1) -> "SpatialQuery":  # Nx6 AABB probes; k nearest candidate triangles per probe
+    def Nearest(boxes: np.ndarray, num_results: int = 1) -> "SpatialQuery":
         return SpatialQuery(nearest=(boxes, num_results))
 
     @staticmethod
@@ -103,16 +101,11 @@ class SpatialResult:
     contains: np.ndarray = case()
     bounds: tuple[np.ndarray, ...] = case()
     nearest: tuple[np.ndarray, ...] = case()
-    # both slots ride `Option`: a floor resolving no narrow-phase provider and an open pair MEASURE NO GAP, and the
-    # retired `float("nan")` was a magnitude a consumer could compare, sort, and average like a real separation. The
-    # exact `manifold3d` arm measures a gap and carries no witness, so the two absences are independent by construction.
     clearance: tuple[Option[float], Option[Witness]] = case()
     sample: tuple[np.ndarray, np.ndarray, np.ndarray] = case()
 
     @staticmethod
     def Proximity(points: np.ndarray, distances: np.ndarray, triangle_ids: np.ndarray, signed: np.ndarray) -> "SpatialResult":
-        # the third slot IS the per-point on-surface triangle id `closest_point` returns beside the projection, so a
-        # consumer needing the face attribution reads it here rather than paying a second `on_surface` pass.
         return SpatialResult(proximity=(points, distances, triangle_ids, signed))
 
     @staticmethod
@@ -133,8 +126,6 @@ class SpatialResult:
 
     @staticmethod
     def Clearance(gap: Option[float] = Nothing, witness: Option[Witness] = Nothing) -> "SpatialResult":
-        # witness contact pair rides the fcl arm (`DistanceResult.nearest_points`); the exact manifold3d gap carries no
-        # witness, and an invalid verdict carries neither — one case, backend-shaped payload, absence as a carrier.
         return SpatialResult(clearance=(gap, witness))
 
     @staticmethod
@@ -144,21 +135,12 @@ class SpatialResult:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# declared work-class membership: batch-heavy kinds — surface projection, ray casting, containment, sampling, the
-# native narrow-phase gap — offload as HOSTILE process kernels, while `bounds`/`nearest` stay in-process to reuse the
-# capsule mesh's cached `triangles_tree` R-tree a per-hop worker rebuild would forfeit.
 _OFFLOAD: Final[frozenset[QueryKind]] = frozenset(("proximity", "ray", "contains", "clearance", "sample"))
 
-# the numpy/trimesh degenerate-array vocabulary the in-process leg reaches: a zero-cell reduction, an out-of-range
-# probe index, and a non-float box buffer are the three shapes a caller's own query can hand the cached R-tree.
 _INDEX_RAISES: Final[Catch] = (IndexError, TypeError, ValueError)
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this module's whole raise roster: the ONE fenced leg anchors one row — the batch-heavy leg's refusals arrive already
-# railed from the lane crossing — so the sweep spells no subject and the `rostered` door seats the row on the branch
-# census, proving `geometry.mesh.spatial` against a real module at import. TERMINAL: a degenerate query refuses
-# identically on every re-issue.
 SPATIAL_INDEXED: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.SPATIAL, point="indexed", arm="boundary", defect="index-read-refused", retriability=TERMINAL
 )
@@ -169,10 +151,6 @@ RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([SPATIAL_IND
 
 
 class SpatialReceipt(Struct, frozen=True, gc=False):
-    # ABSENT `tier` means the read consulted NO narrow-phase provider at all — every kind but `clearance` answers
-    # without one, and a `clearance` on a floor resolving neither tier answered invalid without one either. The slot
-    # rides the branch's absence carrier rather than a `None` the arm had to manufacture: `_arm` already holds the
-    # tier as an `Option`, so the retired `.default_value(None)` collapsed a carrier the receipt then re-tested.
     kind: QueryKind
     offloaded: bool
     query_count: int
@@ -189,7 +167,7 @@ class SpatialReceipt(Struct, frozen=True, gc=False):
             "hits": self.hit_count,
             "indexed": self.indexed,
         } | self.tier.map(lambda held: {"tier": held.value}).default_value({})
-        return phase, self.kind, facts  # subject is the query kind
+        return phase, self.kind, facts
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -199,7 +177,7 @@ def _f64(a: np.ndarray) -> np.ndarray:
     return np.asarray(a, dtype=np.float64)
 
 
-def _unit(d: np.ndarray) -> np.ndarray:  # a zero-direction row degrades to a zero ray (a downstream miss), never a divide-by-zero
+def _unit(d: np.ndarray) -> np.ndarray:
     norm = np.linalg.norm(d, axis=1, keepdims=True)
     return np.divide(d, norm, out=np.zeros_like(d), where=norm > 0)
 
@@ -207,15 +185,13 @@ def _unit(d: np.ndarray) -> np.ndarray:  # a zero-direction row degrades to a ze
 def _nearest_hits(
     n: int, locations: np.ndarray, ray_idx: np.ndarray, tri_idx: np.ndarray, origins: np.ndarray, max_distance: float
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    # ALL hits per ray reduce to nearest-per-ray via one lexsort and the first-of-group mask, scattered into the
-    # dense ray order — a missed ray keeps tri==-1/NaN, and a hit past max_distance clamps back to a miss.
     face = np.full(n, -1, dtype=np.int64)
     pos = np.full((n, 3), np.nan, dtype=np.float64)
     dist = np.full(n, np.nan, dtype=np.float64)
-    if ray_idx.size == 0:  # every ray missed
+    if ray_idx.size == 0:
         return face, pos, dist
     hit_dist = np.linalg.norm(locations - origins[ray_idx], axis=1)
-    order = np.lexsort((hit_dist, ray_idx))  # primary ray_idx, secondary distance => first-of-group is the nearest hit
+    order = np.lexsort((hit_dist, ray_idx))
     ri = ray_idx[order]
     keep = np.concatenate(([True], ri[1:] != ri[:-1])) & (hit_dist[order] <= max_distance)
     face[ri[keep]], pos[ri[keep]], dist[ri[keep]] = tri_idx[order][keep], locations[order][keep], hit_dist[order][keep]
@@ -223,15 +199,11 @@ def _nearest_hits(
 
 
 def _arm(q: SpatialQuery, result: SpatialResult, queries: int, hits: int, *, valid: bool, tier: "Option[ManifoldTier]" = Nothing) -> SpatialArm:
-    # one construction site for the payload/evidence pair every arm returns: the work class derives `offloaded` and
-    # `indexed` from the kind alone, so no arm threads a routing flag it cannot recover from the query itself.
     offloaded = q.tag in _OFFLOAD
     return ArmOutcome(result, SpatialReceipt(q.tag, offloaded, queries, hits, valid, not offloaded, tier))
 
 
 def _gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh, search_length: float, tier: "Option[ManifoldTier]") -> "Option[Gap]":
-    # tier-selected narrow phase; `Nothing` is the unprovisioned floor, answered as an invalid verdict by the caller.
-    # The exact arm measures a gap and OMITS the witness the FCL arm carries, so the two absences never collapse.
     match tier:
         case Option(tag="some", some=ManifoldTier.EXACT):
             return Some((float(to_manifold(mesh).min_gap(to_manifold(other), search_length)), Nothing))
@@ -241,8 +213,6 @@ def _gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh, search_length: float, ti
             return Nothing
 
 
-# one exhaustive dispatch, module-level and arg-only so REFERENCE shipping resolves it on the worker floor; `tier`
-# selects the clearance kernel, and the capsule's sweep decides sync-vs-offload — never a second dispatch body.
 def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, tier: "Option[ManifoldTier]") -> SpatialArm:
     match q:
         case SpatialQuery(tag="proximity", proximity=(points, signed)):
@@ -252,24 +222,24 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, tier: "Option[ManifoldTier
             return _arm(q, SpatialResult.Proximity(near, _f64(distance), np.asarray(triangle_ids), _f64(signed_field)), len(pts), len(pts), valid=True)
         case SpatialQuery(
             tag="ray", ray=(origins, directions, max_distance)
-        ):  # pure-Python RayMeshIntersector batch; the Embree mirror is a transparent in-process upgrade when embreex resolves
+        ):
             o = _f64(origins)
             locations, ray_idx, tri_idx = mesh.ray.intersects_location(o, _unit(_f64(directions)))
             face, pos, dist = _nearest_hits(len(o), _f64(locations), np.asarray(ray_idx), np.asarray(tri_idx), o, max_distance)
             return _arm(q, SpatialResult.Ray(face, pos, dist), len(o), int((face != -1).sum()), valid=True)
         case SpatialQuery(tag="contains", contains=points):
-            if not mesh.is_watertight:  # inside/outside is meaningless off a watertight solid; gate first, flag the caveat
+            if not mesh.is_watertight:
                 return _arm(q, SpatialResult.Contains(np.zeros(len(points), dtype=bool)), len(points), 0, valid=False)
             mask = np.asarray(mesh.contains(_f64(points)), dtype=bool)
             return _arm(q, SpatialResult.Contains(mask), len(mask), int(mask.sum()), valid=True)
         case SpatialQuery(tag="bounds", bounds=boxes):
             tree, rows = mesh.triangles_tree, _f64(boxes)
-            ids, counts = tree.intersection_v(rows[:, :3], rows[:, 3:])  # ONE vectorized call: flat candidate ids + per-box counts
+            ids, counts = tree.intersection_v(rows[:, :3], rows[:, 3:])
             candidates = tuple(np.asarray(chunk, dtype=np.int64) for chunk in np.split(ids, np.cumsum(counts)[:-1]))
             return _arm(q, SpatialResult.Bounds(candidates), len(rows), int(ids.size), valid=True)
         case SpatialQuery(tag="nearest", nearest=(boxes, num_results)):
             tree, rows = mesh.triangles_tree, _f64(boxes)
-            ids, counts = tree.nearest_v(rows[:, :3], rows[:, 3:], num_results=num_results)  # k nearest candidate triangles per probe box
+            ids, counts = tree.nearest_v(rows[:, :3], rows[:, 3:], num_results=num_results)
             candidates = tuple(np.asarray(chunk, dtype=np.int64) for chunk in np.split(ids, np.cumsum(counts)[:-1]))
             return _arm(q, SpatialResult.Nearest(candidates), len(rows), int(ids.size), valid=True)
         case SpatialQuery(tag="sample", sample=(count, even, attribute)):
@@ -278,8 +248,6 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, tier: "Option[ManifoldTier
             signed = trimesh.proximity.signed_distance(mesh, points) if attribute else np.empty(0)
             return _arm(q, SpatialResult.Sample(np.asarray(points), np.asarray(triangle_ids), _f64(signed)), len(points), len(points), valid=True)
         case SpatialQuery(tag="clearance", clearance=(other, search_length)):
-            # a solid-to-solid gap demands both surfaces close AND a resolved provider; an open pair and an
-            # unprovisioned floor answer the SAME invalid verdict, never an import crash inside the worker.
             gapped = _gap(mesh, other, search_length, tier) if bool(mesh.is_watertight and other.is_watertight) else Nothing
             return gapped.map(
                 lambda pair: _arm(q, SpatialResult.Clearance(Some(pair[0]), pair[1]), 1, int(pair[0] <= search_length), valid=True, tier=tier)
@@ -289,9 +257,6 @@ def _dispatch(mesh: trimesh.Trimesh, q: SpatialQuery, tier: "Option[ManifoldTier
 
 
 def _swept_kernel(mesh: trimesh.Trimesh, queries: tuple[SpatialQuery, ...], tier: "Option[ManifoldTier]") -> tuple[SpatialArm, ...]:
-    # ONE worker hop for the whole batch-heavy leg: `trimesh` caches `triangles_tree` and the proximity index on the
-    # mesh instance, so members 2..N read the index member 1 built and an N-query batch pays one construction where
-    # a per-member offload pays N — the amortization the reference-by-content-key crossing exists to buy.
     return tuple(_dispatch(mesh, one, tier) for one in queries)
 
 
@@ -304,8 +269,6 @@ def _bvh(mesh: trimesh.Trimesh) -> "fcl.CollisionObject":
 
 
 def _fcl_gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh) -> Gap:
-    # DIRECT narrow-phase read: signed separation and the witness pair — richer than the unsigned
-    # CollisionManager.min_distance_single float veneer.
     request = fcl.DistanceRequest(enable_nearest_points=True, enable_signed_distance=True)
     result = fcl.DistanceResult()
     gap = float(fcl.distance(_bvh(mesh), _bvh(other), request, result))
@@ -316,12 +279,12 @@ def _fcl_gap(mesh: trimesh.Trimesh, other: trimesh.Trimesh) -> Gap:
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
+class MeshSpatial:
     def __init__(self, mesh: trimesh.Trimesh, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> None:
         self._mesh = mesh
-        self._lane = lane  # the offload seam; the lane never imports the kernel
-        self._tier = ManifoldTier.resolve()  # the one probe read, taken at repair: tier selection, never offload routing
-        self._composition = composition  # the custody key the bench fold stamps
+        self._lane = lane
+        self._tier = ManifoldTier.resolve()
+        self._composition = composition
         self._receipts: Block[SpatialReceipt] = Block.empty()
 
     @overload
@@ -329,8 +292,6 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
     @overload
     async def query(self, q: Sequence[SpatialQuery]) -> "RuntimeRail[Block[SpatialResult]]": ...
     async def query(self, q: SpatialQuery | Sequence[SpatialQuery]) -> "RuntimeRail[SpatialResult] | RuntimeRail[Block[SpatialResult]]":
-        # arity absorbs at the head: one query is the degenerate one-member sweep, so the interior sees one shape
-        # and the amortized crossing serves both modalities from one body.
         match q:
             case SpatialQuery() as one:
                 return (await self._swept(Block.singleton(one))).map(lambda kept: kept.head())
@@ -338,8 +299,6 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
                 return await self._swept(Block.of_seq(batch))
 
     async def _swept(self, queries: Block[SpatialQuery]) -> "RuntimeRail[Block[SpatialResult]]":
-        # the whole sweep splits ONCE by work class and reassembles by admission ordinal, so a mixed batch pays one
-        # offload plus one in-process fence rather than a crossing per member, and a faulted leg refuses the sweep.
         rows = queries.mapi(lambda i, one: (i, one))
         heavy, light = rows.partition(lambda row: row[1].tag in _OFFLOAD)
         indexed = boundary(
@@ -348,7 +307,6 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
         return (await self._heavy(heavy)).map2(indexed, lambda a, b: Map.of_seq(a.append(b))).map(self._ordered)
 
     async def _heavy(self, rows: Block[tuple[int, SpatialQuery]]) -> "RuntimeRail[Block[tuple[int, SpatialArm]]]":
-        # an empty batch-heavy leg pays no crossing at all; a non-empty one pays exactly one, whatever its length.
         if rows.is_empty():
             return Ok(Block.empty())
         kernel = Kernel.of(_swept_kernel, KernelTrait.HOSTILE)
@@ -356,24 +314,18 @@ class MeshSpatial:  # structural ReceiptContributor conformance — no subclass
         return railed.map(lambda out: Block.of_seq(zip((row[0] for row in rows), out, strict=True)))
 
     def _ordered(self, held: Map[int, SpatialArm]) -> Block[SpatialResult]:
-        # `Map` iterates key-sorted over the int ordinal, so admission order restores with no second sort, and each
-        # arm's own receipt lands in the held block on its way out through the shared cross-cut.
         return Block.of_seq(held.items()).map(lambda row: armed(self._held, row[1]))
 
-    def _held(self, receipt: SpatialReceipt) -> None:  # the capsule's accumulating hold `armed` writes through
+    def _held(self, receipt: SpatialReceipt) -> None:
         self._receipts = self._receipts.append(Block.singleton(receipt))
 
     def contribute(self) -> Iterable[Receipt]:
-        # drain-on-harvest: the snapshot-and-clear swap keeps a re-harvest from re-sending historical evidence, and
-        # an empty block yields nothing rather than a fabricated clean proximity pass.
         drained, self._receipts = self._receipts, Block.empty()
         return drained.map(lambda r: Receipt.of("rasm.geometry.mesh.spatial", r.fact()))
 
     def benched(
         self, q: SpatialQuery | Sequence[SpatialQuery], *, rounds: int = 32, warmup: int = 4
     ) -> "RuntimeRail[BenchmarkReceipt]":
-        # macro-bench over the whole sweep — partition, offload, kernel fold, reassembly — so the amortized batch
-        # crossing prices as one row against the per-member alternative; never an in-kernel probe (the pulse boundary).
         kind = q.tag if isinstance(q, SpatialQuery) else "batch"
         return bench_seam(
             bench_subject(EvidenceScope.MESH_SPATIAL, kind), partial(self.query, q), rounds=rounds, warmup=warmup, composition=self._composition

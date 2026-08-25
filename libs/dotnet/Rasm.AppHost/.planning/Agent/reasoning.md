@@ -22,10 +22,7 @@ Rasm.AppHost owns the in-process reasoning front door beside MCP server projecti
 - Boundary: the reasoning loop is the in-process model-driven command owner — it never executes an op itself, it routes every tool call through the brokered `CommandAIFunction` onto the command algebra, so the transaction, grant, and cost semantics are the command algebra's and the loop is the model-driven dispatch over them; a tool set divorced from the `Agent/mcp#METHOD_AXIS` adoption seam is the deleted form, so the in-process loop and the MCP server share one tool catalog; the `IChatClient` the loop drives is the `MODEL_GOVERNANCE`-wrapped client, never a raw provider client, so an unmetered un-ledgered model draw cannot reach the loop; the loop owns the turn vocabulary and the session-scoped conversation buffer, while `MODEL_GOVERNANCE` owns the metering, caching, tracing, and content-addressing — the two never merge, so the loop stays the orchestration and the middleware stays the policy; a model call that bypasses the function-invocation decorator to invoke a tool directly is the deleted form, because the decorator is the one seam where `ChatOptions.Tools` becomes executed calls.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
-// This record OWNS every loop bound: `MODEL_GOVERNANCE` reads these columns off its `Policy` slot and
-// restates none. `WindowShare` is a FRACTION of the resolved `ModelRoute.Window`, not a message count, so
-// the budget derives from the route the draw actually resolved.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ReasoningPolicy(
     ChatToolMode ToolMode,
     int MaxIterations,
@@ -57,10 +54,7 @@ public abstract partial record ReasoningTurn {
     public sealed record Faulted(Rasm.Contracts.Fault.FaultObservation Fault) : ReasoningTurn;
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// This capsule runs PER-RUN and holds the ADOPTED product, never the projection inputs, so this loop cannot
-// mint a second adoption — the second function identity under one tool name the seam exists to foreclose.
-// Degradation re-gates by re-composing the product.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ReasoningRuntime(
     IChatClient Chat,
     McpAdoption Adopted,
@@ -70,24 +64,19 @@ public sealed record ReasoningRuntime(
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ReasoningSession {
     private static readonly HookId FaultPoint = HookId.Create("rasm.apphost.agent.reasoning-draw");
 
     public static IO<ReasoningTranscript> Reason(ReasoningRuntime runtime, ReasoningPolicy policy, Seq<ChatMessage> conversation) =>
         from tools in IO.lift(() => AdoptedTools(runtime))
         from started in IO.lift(() => runtime.Clocks.Now)
-        // Faulted streams fold to a drawn PAIR rather than escaping: the transcript, its digest,
-        // and its model fan are the evidence a failed run most needs, and an error thrown past this line
-        // deletes all three.
         from drawn in IO.liftAsync(envIO => runtime.Chat
                 .GetStreamingResponseAsync(conversation, policy.Options(tools), envIO.Token)
                 .ToChatResponseAsync())
                 .Map(static response => (Response: response, Fault: Option<Error>.None))
             | @catch<IO, (ChatResponse Response, Option<Error> Fault)>(static _ => true,
                 error => IO.pure((new ChatResponse(), Some(error))))
-        // Brokered typed faults already parked before their mandatory SDK throw. This outer seat parks only
-        // the provider's foreign Error, so one failed draw creates one custody row rather than two.
         from _fault in IO.lift(() => drawn.Fault.Match(
             Some: error => error is Fault
                 ? unit
@@ -99,13 +88,9 @@ public static class ReasoningSession {
         from _ in runtime.Sink.Send(Correlation.Mint(), TenantContext.Current, TelemetrySource.AppHost, ReceiptKind.Model.Key, JsonSerializer.SerializeToElement(transcript, runtime.Wire))
         select transcript;
 
-    // Re-projecting and re-adopting HERE is the deleted form: it mints a second function identity under the
-    // same tool name, and a model tool call and an MCP tool call would then resolve two brokered instances.
     static Seq<AITool> AdoptedTools(ReasoningRuntime runtime) =>
         runtime.Adopted.Tools.Map(static adopted => (AITool)adopted.Function);
 
-    // The terminal row is the disposition the run reached: a drawn response completes, a faulted draw
-    // faults, and the union's Faulted case is reachable exactly here rather than declared and unbuilt.
     static Seq<ReasoningTurn> TranscriptRows(ChatResponse response, Option<Error> fault, JsonSerializerOptions wire) {
         var contents = response.Messages.AsIterable().Bind(static message => message.Contents.AsIterable()).ToSeq();
         var results = contents.OfType<FunctionResultContent>()
@@ -148,7 +133,7 @@ public static class ReasoningSession {
 - Boundary: `Index` and `Rank` take the governed generator alone — a raw provider generator reaching either is the deleted form, because an untraced uncached embedding draw leaves this card's own re-resolution claim with no mechanism; the semantic discovery is the only intent-resolution owner — a keyword-match heuristic, a hand-tuned synonym table, and a per-op intent annotation are the deleted forms, so an agent resolving "diffuse heat across this mesh" to `TensorOpFamily.HeatFlow` reads the one embedding rank; the `ByIntent` case extends the `Agent/capability#DISCOVERY_FOLD` `[Union]` rather than adding a parallel discovery surface, so the registry's `Discover` stays the single discovery entrypoint and the intent path is one fold arm; the embedding index is frozen at composition so a descriptor added after freeze is invisible to intent resolution until re-index, the same read-only-after-freeze contract the registry carries — a runtime descriptor-embedding mutation is the deleted form; the cosine rank is a similarity heuristic, not a guarantee, so an intent below the policy floor returns no match and the agent falls back to the exact-id path rather than dispatching a wrong tool; the embedded text is the op surface's self-description (`{surface}.{op}` and effect/classification), never the op's body or arguments, so the index is metadata-only and an op's payload never leaks into an embedding.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record IntentMatch(string Descriptor, float Score, CapabilityMatch Result);
 
 public sealed record EmbeddingIndex(
@@ -158,10 +143,8 @@ public sealed record EmbeddingIndex(
     public static readonly float DefaultFloor = 0.25f;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SemanticDiscovery {
-    // Freezing UNIT-NORMALIZED vectors makes each rank a DOT PRODUCT rather than a cosine: the
-    // per-candidate norm is a property of the frozen row, computed once at composition.
     public static IO<EmbeddingIndex> Index(CapabilityRegistry registry, IEmbeddingGenerator<string, Embedding<float>> embedder) =>
         registry.Discover(new DiscoveryQuery.All()) is var rows && rows.IsEmpty
             ? IO.pure(new EmbeddingIndex(FrozenDictionary<string, ReadOnlyMemory<float>>.Empty, registry, EmbeddingIndex.DefaultFloor))
@@ -172,8 +155,6 @@ public static class SemanticDiscovery {
                   .ToFrozenDictionary(StringComparer.Ordinal)
               select new EmbeddingIndex(vectors, registry, EmbeddingIndex.DefaultFloor);
 
-    // Divide is the package's own in-place scale over a destination span; a zero-norm row stays zero and
-    // ranks below every floor rather than dividing by nothing.
     static ReadOnlyMemory<float> Normalized(ReadOnlyMemory<float> vector) {
         var unit = new float[vector.Length];
         var norm = TensorPrimitives.Norm(vector.Span);
@@ -198,13 +179,7 @@ public static class SemanticDiscovery {
         $"{row.Surface}.{row.Descriptor} effect={row.Effect.Key} idempotency={row.Idempotency.Key}";
 }
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
-// Composition BINDS `Agent/capability#DISCOVERY_FOLD`'s `byIntent` arm here — one union, one owner, one
-// arm, and this page authors the ranking rather than a second query surface:
-//
-//   new CapabilityRegistry(rows, intentRank: Some<Func<string, Seq<string>>>(intent =>
-//       SemanticDiscovery.Rank(index, embedder, intent, top: 8).Run()
-//           .Map(static match => match.Descriptor).ToSeq()));
+// --- [COMPOSITION] ---------------------------------------------------------------------
 ```
 
 ## [04]-[REPLAYABLE_TRANSCRIPT]
@@ -218,7 +193,7 @@ public static class SemanticDiscovery {
 - Boundary: transcript projection never creates evidence absent from the function result; exact command receipts ride the existing event-log chain, while missing joins remain explicit and block macro completeness; `Macro.Record`/`MacroEngine.Play` reuse the command algebra for every captured receipt; `TranscriptDigest` addresses the observed response and call identities but makes no bit-identical model-replay claim beyond the cache owner's guarantee.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ReasoningTranscript(
     string TranscriptId,
     TranscriptDigest Digest,
@@ -254,8 +229,6 @@ public sealed record ReasoningTranscript(
     public Seq<CommandReceipt> Receipts =>
         Turns.Choose(static turn => turn is ReasoningTurn.ToolCalled called ? called.Receipt : Option<CommandReceipt>.None);
 
-    // Completeness is a transcript fact: every `ToolCalled` row whose exact receipt never joined is named by
-    // call id, so the macro gate and the chain product read one roster.
     public Seq<string> MissingReceipts =>
         Turns.Choose(static turn => turn is ReasoningTurn.ToolCalled { Receipt.IsNone: true } called ? Some(called.CallId) : None);
 
@@ -267,7 +240,6 @@ public sealed record ReasoningTranscript(
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit,
     ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
 public readonly partial struct TranscriptDigest {
-    // Fixed field order and ordinal object-property order make call identity independent of dictionary insertion order.
     public static TranscriptDigest Of(Seq<ReasoningTurn> turns, string responseDigest, JsonSerializerOptions wire) {
         using var bytes = new MemoryStream();
         using (var json = new Utf8JsonWriter(bytes)) {
@@ -317,12 +289,10 @@ public readonly partial struct TranscriptDigest {
     }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TranscriptProjection {
     public static IO<(EventLog.Chain Chain, Seq<LogEntry> Entries, Seq<string> Missing)> Chain(ReasoningRuntime runtime, EventLog.Chain chain, ReasoningTranscript transcript, DeterminismContext context) =>
         from now in IO.lift(() => runtime.Clocks.Now)
-        // Dispatch already fed the durable changefeed once per commit, so this projection
-        // re-chains through the owner's publish-free `Project` rather than double-writing the feed.
         let calls = transcript.Turns.Bind(static turn =>
             turn is ReasoningTurn.ToolCalled { Receipt.IsSome: true } called
                 ? called.Receipt.ToSeq().Map(receipt => (called.Arguments, Receipt: receipt))
@@ -336,8 +306,6 @@ public static class TranscriptProjection {
         })
         select (folded.Chain, folded.Entries, transcript.MissingReceipts);
 
-    // Macro recording demands the complete receipt slice: a receiptless call refuses with the typed
-    // fault naming every gap, so no macro replays a turn whose command evidence never joined.
     public static Fin<Macro> AsMacro(string macroId, ReasoningTranscript transcript, Seq<LogEntry> entries, Seq<MacroParameter> parameters) =>
         transcript.Complete
             ? Fin.Succ(Macro.Record(macroId, entries, parameters))
@@ -358,9 +326,7 @@ public static class TranscriptProjection {
 - Boundary: the middleware fold is the suite's only model-governance owner and it spans BOTH model carriers — a raw `IEmbeddingGenerator` reaching `SemanticDiscovery` is the deleted form, because an untraced uncached embedding draw makes the `#SEMANTIC_DISCOVERY` cache claim mechanismless; routing rewrites `ChatOptions.ModelId` through the one options-configuring decorator, redaction reuses `DataClassification`, metering charges `CostUnit.ModelTokens`, cache storage stays on `HybridCache`, and tracing stays on the GenAI source; the history bound is a TOKEN measurement against the route window, so a message-count literal is the deleted form and the shipped `SummarizingChatReducer` is composed for the summarization it owns rather than for a count it does not measure; `TranscriptProjection` chains exact command receipts only; model response cache identity and event-log identity remain distinct until an admitted response-log owner exists.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// `Window` is load-bearing rather than descriptive: `WindowReducer` measures the live conversation against
-// it, so `LongContext` is a budget the pipeline enforces and not a name.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -376,21 +342,16 @@ public sealed partial class ModelRoute {
 
     public static readonly ModelRoute Default = Balanced;
 
-    // Feature verdict's variant string keys the route; an unknown or below-floor variant
-    // resolves to the policy default, never a hard-coded provider default.
     public static ModelRoute From(FlagVerdict verdict) =>
         TryGet(verdict.Variant, out var row) ? row : Default;
 
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record GovernanceLedger(
     Atom<HashMap<TenantId, MeterVector>> Tally) {
     public static GovernanceLedger Empty => new(Atom(HashMap<TenantId, MeterVector>()));
 
-    // Folding over the CURRENT value is why a bounded commit makes the answer this call's own
-    // total rather than whatever the winning contender left; `Contended` refuses instead of reporting a total
-    // no swap recorded.
     public Fin<MeterVector> Record(TenantId tenant, MeterVector cost) =>
         Cell.Commit(Tally, held => held.AddOrUpdate(tenant, existing => existing.Add(cost), cost), Cell.SwapBudget) switch {
             Transition<HashMap<TenantId, MeterVector>>.Contended spent => Fin.Fail<MeterVector>(new GrantFault.Contended(spent.Attempts)),
@@ -400,14 +361,7 @@ public sealed record GovernanceLedger(
 
 public sealed record GovernedClient(IChatClient Client, GovernanceLedger Ledger);
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// LIFETIME separates this composition-time capsule from `ReasoningRuntime`, never subject —
-// this record builds a client, that one drives it. `Policy` is the ONE authority for the loop bounds (the
-// three columns that used to sit here beside their `ReasoningPolicy` twins derived from nothing and drifted
-// freely). `Modalities` is the ONE admission for which modal arms compose, and a handle absent while its row
-// is admitted refuses at the `Fin` mint rather than weaving a dead arm. `CacheEpoch` carries what the request
-// cannot express — the cache generation and the redaction key id — so a rotation never replays a body
-// redacted under a retired generation. `Tokenizer` is the ONE air-gapped instance `DESCRIPTOR_AXIS` mints.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record GovernanceRuntime(
     IServiceProvider Services,
     IDistributedCache Cache,
@@ -428,13 +382,7 @@ public sealed record GovernanceRuntime(
     IRedactorProvider Redactors,
     FaultCell Faults);
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// This scope seats ABOVE the options decorator so every seat below reads one resolution: the retired
-// form was a bare `AsyncLocal<ModelRoute?>` seated with `??=` and never restored, so a pooled continuation
-// carried the previous draw's route into the next one and a nested draw could not re-resolve at all. The
-// kernel slot is declared ONE-LEVEL, so a nested draw refuses rather than silently shadowing, and disposal
-// restores the frame it displaced. Named boundary capsule: `IChatClient` answers `Task`/`IAsyncEnumerable`,
-// so the scope's lifetime is the framework's statement shape and the rail unwraps at that edge alone.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class TurnScope(IChatClient inner, GovernanceRuntime runtime) : DelegatingChatClient(inner) {
     public override async Task<ChatResponse> GetResponseAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken token = default) {
@@ -454,12 +402,7 @@ public sealed class TurnScope(IChatClient inner, GovernanceRuntime runtime) : De
         runtime.Turn.Enter(ModelRoute.From(runtime.Verdict(runtime.Targeting()))).ThrowIfFail();
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
-// `AnonymousDelegatingChatClient` is internal and uninstantiable from this package, so redaction of both
-// response verbs composes as ONE `DelegatingChatClient` subclass woven through the public `Use` seam.
-// ROUTING IS NOT HERE: a rewrite below the cache leaves `GetCacheKey` hashing the caller's un-routed
-// `ModelId` and two routes collide on one entry; redaction stays BELOW the cache because an HMAC redactor is
-// not idempotent, so a replay would re-tokenize.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class GoverningChatClient(IChatClient inner, GovernanceRuntime runtime) : DelegatingChatClient(inner) {
     Seq<ChatMessage> Guard(Redactor redactor, IEnumerable<ChatMessage> messages) =>
         messages.AsIterable().Map(message => {
@@ -495,8 +438,6 @@ public sealed class GoverningChatClient(IChatClient inner, GovernanceRuntime run
         return response;
     }
 
-    // Metering seats HERE and nowhere else: this is the one decorator that sees a completed draw on BOTH
-    // verbs, so an unmetered un-ledgered draw is structurally unreachable rather than forbidden by prose.
     public override async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) {
         var redactor = runtime.Redactors.GetRedactor(runtime.FilterClassification);
         var response = Redact(redactor, await base.GetResponseAsync(Guard(redactor, messages), options, cancellationToken).ConfigureAwait(false));
@@ -504,8 +445,6 @@ public sealed class GoverningChatClient(IChatClient inner, GovernanceRuntime run
         return response;
     }
 
-    // A streamed draw reports usage on the update that carries it, so the charge rides that content rather
-    // than a re-accumulation of the whole stream this decorator has no reason to hold.
     public override async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default) {
         var redactor = runtime.Redactors.GetRedactor(runtime.FilterClassification);
         await foreach (var update in base.GetStreamingResponseAsync(Guard(redactor, messages), options, cancellationToken).ConfigureAwait(false)) {
@@ -516,14 +455,6 @@ public sealed class GoverningChatClient(IChatClient inner, GovernanceRuntime run
     }
 }
 
-// History bounds by TOKEN measurement, so the reducer measures rather than counts: the shipped
-// SummarizingChatReducer retains a MESSAGE count, which no route window expresses, and a guessed count
-// is a literal wearing a derivation. WindowReducer folds the conversation from the tail through the one
-// composition-built TiktokenTokenizer, finds the largest suffix inside `route.Window * WindowShare`, and
-// delegates the head to the shipped summarizer at exactly that measured retention with threshold 0 — the
-// package owns summarization, this owner owns the measurement the package cannot make. Below-threshold
-// conversations return unchanged, so the summarizer mints only on an overflow turn. Message granularity
-// alone cannot hold the bound, so the newest turn trims in place before the fold reads it.
 public sealed class WindowReducer(GovernanceRuntime runtime, IChatClient summarizer) : IChatReducer {
     public async Task<IEnumerable<ChatMessage>> ReduceAsync(IEnumerable<ChatMessage> messages, CancellationToken cancellationToken) {
         var budget = (int)(ModelGovernance.Route(runtime).Window * runtime.Policy.WindowShare);
@@ -536,11 +467,6 @@ public sealed class WindowReducer(GovernanceRuntime runtime, IChatClient summari
                 .ReduceAsync(held, cancellationToken).ConfigureAwait(false);
     }
 
-    // A single turn wider than the whole budget defeats count retention: the tail fold keeps zero, the summarizer
-    // is handed one message that still breaches, and the declared bound fails silently. The newest turn therefore
-    // folds its OWN carriers from the tail — each text carrier admitted whole while the share holds, the first
-    // breaching one trimmed, and every carrier past an exhausted share dropped — while non-text carriers pass
-    // through untouched, so an over-window turn loses the head of its prose and none of its attachments.
     ChatMessage Bounded(ChatMessage message, int budget) {
         var bounded = message.Clone();
         bounded.Contents = [.. bounded.Contents.AsIterable().ToSeq().Rev()
@@ -555,9 +481,6 @@ public sealed class WindowReducer(GovernanceRuntime runtime, IChatClient summari
         return bounded;
     }
 
-    // GetIndexByTokenCountFromEnd is the package's own window primitive — one encoder pass answering the char
-    // index whose suffix carries the last N tokens, never a re-encode loop. Its out values are the normalized
-    // text and the exact retained count, neither of which this owner reads: the index is the whole answer.
     TextContent Trimmed(TextContent body, int share) =>
         new(body.Text[runtime.Tokenizer.GetIndexByTokenCountFromEnd(body.Text, share, out _, out _)..]) {
             Annotations = body.Annotations,
@@ -565,9 +488,6 @@ public sealed class WindowReducer(GovernanceRuntime runtime, IChatClient summari
             AdditionalProperties = body.AdditionalProperties,
         };
 
-    // Tail-first fold: the newest turn is the one a reduction must never drop, so the scan accumulates
-    // backwards and stops at the first message that would breach the budget. CountTokens over the rendered
-    // text is the same encoder the descriptor's pre-flight price reads, so bound and price never disagree.
     int Retained(Seq<ChatMessage> held, int budget) =>
         held.Rev().Fold((Spent: 0, Kept: 0), (acc, message) =>
             acc.Spent + runtime.Tokenizer.CountTokens(message.Text) is var next && next <= budget
@@ -575,30 +495,6 @@ public sealed class WindowReducer(GovernanceRuntime runtime, IChatClient summari
                 : acc).Kept;
 }
 
-// FunctionInvoker is the seam the carrier question named: the delegate is a public settable property
-// on the SAME configure lambda that bounds the loop — the loop dispatches
-// `FunctionInvoker?.Invoke(context, ct) ?? context.Function.InvokeAsync(...)` — so no collector binds at client
-// construction and FunctionInvocationServices being protected decides nothing. The returned object IS
-// FunctionInvocationResult.Result, which CreateResponseMessages lifts verbatim into FunctionResultContent, so
-// this is the one place the receipt contract is enforceable rather than hoped for: a brokered CommandAIFunction
-// hands back the CommandReceipt its own OutputSchema declares, and one that hands back anything else refuses
-// HERE, naming the tool, instead of producing a receiptless turn that TranscriptProjection.AsMacro later blames
-// on a missing join.
-//
-// The brokered set is recognized through the SDK's approval wrapper, not around it: an irreversible effect is
-// exactly the class whose receipt matters most, and testing the outer function alone exempts that one class
-// from the assertion built for it. A genuinely foreign tool — an MCP client tool the SDK adopted, whose own
-// invoke yields AIContent and never a CLR domain value — passes through untouched and carries None by
-// structure, which is the honest read rather than a gap.
-//
-// The route ceiling lands here for the same reason the receipt does: this is the one seat holding both the
-// resolved route and the tool's declared effect class, so a model routed to a read-ceilinged row cannot invoke
-// an irreversible tool and the Ceiling column stops being a field nothing compares.
-//
-// Exemption: the raise is the delegate's OWN declared error channel — the loop folds it into
-// FunctionInvocationResult.Status/Exception and MaximumConsecutiveErrorsPerRequest bounds it. The typed fault
-// parks on the composition's bounded cell BEFORE its SDK-mandated exception projection crosses that ABI, so
-// the host retains the original identity and cause even when the framework exposes only Exception.
 public static class BrokeredInvoker {
     private static readonly HookId FaultPoint = HookId.Create("rasm.apphost.agent.function-invoker");
 
@@ -619,7 +515,6 @@ public static class BrokeredInvoker {
         throw fault.ToException();
     }
 
-    // The approval wrapper is transparent to the brokered identity: it gates INVOCATION, never carriage.
     static CommandAIFunction? Brokered(AIFunction function) => function switch {
         CommandAIFunction command => command,
         ApprovalRequiredAIFunction { InnerFunction: CommandAIFunction command } => command,
@@ -633,9 +528,6 @@ public static class BrokeredInvoker {
 }
 
 public static class ModelGovernance {
-    // Build composes outermost-last, so this order IS the nesting law: span outermost, then the routing
-    // rewrite, then the cache keyed on the routed options, then redaction, then the gated image arm, then the
-    // tool loop, and the window bound innermost where every loop iteration re-enters it.
     public static GovernedClient Compose(GovernanceRuntime runtime, IChatClient inner) =>
         new(
             runtime.Images.Match(
@@ -646,19 +538,12 @@ public static class ModelGovernance {
                     fi.MaximumIterationsPerRequest = runtime.Policy.MaxIterations;
                     fi.MaximumConsecutiveErrorsPerRequest = runtime.Policy.MaxConsecutiveErrors;
                     fi.TerminateOnUnknownCalls = true;
-                    // The invoker binds HERE, closed over this runtime: a delegate column on the record would
-                    // be a knob whose only legal value is this line, and a root that set it to anything else
-                    // would silently drop both the receipt assertion and the route ceiling.
                     fi.FunctionInvoker = (ctx, ct) => BrokeredInvoker.Invoke(runtime, ctx, ct);
                 })
                 .UseChatReducer(new WindowReducer(runtime, inner))
                 .Build(runtime.Services),
             runtime.Ledger);
 
-    // Embedding arm of the ONE owner: the same trace source and the same store, so an identical intent
-    // re-resolves from the cache with no fresh draw and the #SEMANTIC_DISCOVERY cache claim has a mechanism.
-    // Build hands back the composed pipeline as the ONE generator a composition root binds, so no consumer
-    // resolves the raw generator and neither Compose overload reaches into a service collection.
     public static IEmbeddingGenerator<string, Embedding<float>> Compose(GovernanceRuntime runtime, IEmbeddingGenerator<string, Embedding<float>> embedder) =>
         embedder.AsBuilder()
             .UseOpenTelemetry(runtime.Loggers, runtime.TelemetrySource)
@@ -673,11 +558,6 @@ public static class ModelGovernance {
             .UseDistributedCache(runtime.Cache, cache => cache.CacheKeyAdditionalValues = [.. runtime.CacheEpoch])
             .Use(client => new GoverningChatClient(client, runtime));
 
-    // One resolution per draw, SEATED by the turn decorator and merely READ here: the options decorator takes
-    // the target, the reducer measures against the window, and the invoker gates on the ceiling — three reads
-    // of one row, so a mid-draw variant flip cannot seat a model whose window the reducer never bounded. The
-    // slot is entered immediately above every reader in the same chain, so `None` is unreachable from a
-    // composed client and the fallback names the declared policy default rather than a provider's.
     public static ModelRoute Route(GovernanceRuntime runtime) =>
         runtime.Turn.Current.IfNone(ModelRoute.Default);
 
@@ -686,9 +566,6 @@ public static class ModelGovernance {
             ? new MeterVector(HashMap((CostUnit.ModelTokens, total)))
             : MeterVector.Zero;
 
-    // The ambient tenancy is the charge's tenant because a draw has no caller-supplied arguments to carry
-    // one, and the default payload element is safe by construction: the pricing shim's Variable arm answers
-    // Zero without reading it, so the only estimator that ever sees this element never touches it.
     public static Fin<MeterVector> Charge(GovernanceRuntime runtime, UsageDetails? usage) =>
         Tokens(usage) is var cost && cost.Of(CostUnit.ModelTokens) == 0L
             ? Fin.Succ(MeterVector.Zero)
@@ -704,8 +581,6 @@ public static class ModelGovernance {
             idempotency: Idempotency.NonIdempotent,
             cost: CostModel.Constant(cost),
             permission: new PermissionShape(FrozenSet<string>.Empty, EffectClass.External, DataClassification.Operational),
-            // Pricing shim: the compile arm refuses by construction, so this row never becomes a dispatched
-            // body and has no lane to report from — the draw's own streaming rides the chat client.
             progress: None,
             compile: static _ => Fin.Fail<CommandBody>(new KernelFault.InvalidResult(
                 Op.Of(), Some("<model-draw-is-not-a-dispatched-body>"))));
@@ -746,10 +621,7 @@ flowchart LR
 - Boundary: the modal surface is the only multi-modal agent-intake owner, and it holds exactly one front door — a direct `IImageGenerator.GenerateAsync` call is the DELETED form, because that draw touches no span, no cache, no redaction, and no broker while the page claims it rides the meter "exactly as a chat draw does"; the collapse makes that claim structural, since the image tool cannot execute except inside the pipeline that carries all four; a `[Union]` over two client handles is likewise deleted — one modality is now a decorator arm and the other an entry, so a two-case carrier models a symmetry that does not exist; the modal output is data the descriptor catalog gates by effect class, never a privileged side channel.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// Each row gates COMPOSITION rather than carrying a client: `Image` decides whether `ModelGovernance.Compose`
-// weaves its `UseImageGeneration` arm, `Speech` whether a transcriber resolves at all. The rows are a kernel
-// capability set on the governance capsule, so a handle absent while its row is admitted refuses at the mint.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -760,7 +632,7 @@ public sealed partial class ModalKind : ICapability<ModalKind> {
     static IReadOnlyList<ModalKind> ICapability<ModalKind>.Items => Items;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Experimental("MEAI001")]
 public static class ModalIntake {
     public static IO<string> Transcribe(GovernanceRuntime runtime, Stream audio) =>
@@ -771,9 +643,6 @@ public static class ModalIntake {
                 None: () => IO.fail<string>(new FeatureFault.ProviderNotReady("modal-speech")))
             : IO.fail<string>(new FeatureFault.ProviderNotReady("modal-speech"));
 
-    // Intent seats an image request as a TOOL on the one governed client, never a second front door: this
-    // pipeline's image arm substitutes that hosted tool carrying its generation options, and produced
-    // DataContent lands on response contents the session already folds into turns.
     public static ChatOptions Intent(GovernanceRuntime runtime, Seq<AITool> tools, ImageGenerationOptions options) =>
         runtime.Modalities.Admits(ModalKind.Image)
             ? runtime.Policy.Options(tools.Add(new HostedImageGenerationTool { Options = options }))

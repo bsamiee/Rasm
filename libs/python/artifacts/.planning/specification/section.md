@@ -33,15 +33,15 @@ from msgspec import Struct
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class NumberLevel(IntEnum):  # the CSI PageFormat subordination levels; `ARTICLE` is the part-prefixed head
-    ARTICLE = 0  # `1.01` — part digit + `article_pad`-wide ordinal, UPPERCASE title
-    PARAGRAPH = 1  # `A.`
-    SUBPARAGRAPH = 2  # `1.`
-    CLAUSE = 3  # `a.`
-    SUBCLAUSE = 4  # `1)`
-    ITEM = 5  # `a)`
-    SUBITEM = 6  # `(1)`
-    DETAIL = 7  # `(a)` — the deepest CSI PageFormat level
+class NumberLevel(IntEnum):
+    ARTICLE = 0
+    PARAGRAPH = 1
+    SUBPARAGRAPH = 2
+    CLAUSE = 3
+    SUBCLAUSE = 4
+    ITEM = 5
+    SUBITEM = 6
+    DETAIL = 7
 
 
 class Alphabet(StrEnum):
@@ -51,20 +51,18 @@ class Alphabet(StrEnum):
 
 
 class Decoration(StrEnum):
-    DOT = "dot"  # `A.`
-    CLOSE_PAREN = "close_paren"  # `1)`
-    BOTH_PARENS = "both_parens"  # `(a)`
+    DOT = "dot"
+    CLOSE_PAREN = "close_paren"
+    BOTH_PARENS = "both_parens"
 
 
 class PageSize(StrEnum):
-    LETTER = "letter"  # 8.5x11 in — US project manuals
-    A4 = "a4"  # 210x297 mm — ISO project manuals
+    LETTER = "letter"
+    A4 = "a4"
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# ONE primary correspondence: subordination level -> (glyph alphabet, punctuation). `ARTICLE` is absent
-# (its `1.01` form builds directly), so the table covers the seven sub-article levels.
 _LEVEL_STYLE: Final[Map[NumberLevel, tuple[Alphabet, Decoration]]] = Map.of_seq([
     (NumberLevel.PARAGRAPH, (Alphabet.UPPER, Decoration.DOT)),
     (NumberLevel.SUBPARAGRAPH, (Alphabet.ARABIC, Decoration.DOT)),
@@ -74,13 +72,12 @@ _LEVEL_STYLE: Final[Map[NumberLevel, tuple[Alphabet, Decoration]]] = Map.of_seq(
     (NumberLevel.SUBITEM, (Alphabet.ARABIC, Decoration.BOTH_PARENS)),
     (NumberLevel.DETAIL, (Alphabet.LOWER, Decoration.BOTH_PARENS)),
 ])
-_MAX_LEVEL: Final[int] = NumberLevel.DETAIL.value  # the deepest CSI PageFormat level; admission caps paragraph nesting here
+_MAX_LEVEL: Final[int] = NumberLevel.DETAIL.value
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _alpha(ordinal: int, /, *, upper: bool) -> str:
-    # bijective base-26 (spreadsheet-column) so the 27th sibling is `AA`, never a modulo wraparound colliding on `A`.
     base, letters, remaining = (65 if upper else 97), "", ordinal
     while remaining > 0:
         remaining, digit = divmod(remaining - 1, 26)
@@ -146,12 +143,11 @@ class NumberScheme:
 
 class PageFormat(Struct, frozen=True):
     numbering: NumberScheme = NumberScheme(alphanumeric=2)
-    size: float = 10.0  # ISO 3098 / CSI body-text height in points the emitted section sets
+    size: float = 10.0
     font: str = "body"
     page_size: PageSize = PageSize.LETTER
 
     def __post_init__(self) -> None:
-        # finiteness precedes the range read: an inf satisfies a bare positivity check and admits unbounded type.
         if not isfinite(self.size) or self.size <= 0.0 or not self.font.strip():
             raise ValueError("page typography requires finite positive size and a font key")
 
@@ -159,13 +155,13 @@ class PageFormat(Struct, frozen=True):
         return self.numbering.label(part, path)
 
     def page_footer(self, section: str, page: int, /) -> str:
-        return f"{section} - {page}"  # the CSI PageFormat section-number-page footer
+        return f"{section} - {page}"
 
     def end_of_section(self) -> str:
-        return "END OF SECTION"  # CSI PageFormat places this AFTER (never before) the `SCHEDULES` article
+        return "END OF SECTION"
 
     def uppercase(self, level: NumberLevel, /) -> bool:
-        return level is NumberLevel.ARTICLE  # CSI: PART + article titles UPPERCASE, subordinate titles Title Case
+        return level is NumberLevel.ARTICLE
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -217,7 +213,6 @@ from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.document.model import BlockKind, BlockNode, DocumentNode, NodeMeta, RunNode, SectionNode, encode
 from rasm.artifacts.specification.classify import ClassCode, ClassSystem
 
-# `NumberLevel`/`PageFormat`/`_MAX_LEVEL` are the co-located `[02]-[PAGE]` owners above in this module — in scope directly.
 
 if TYPE_CHECKING:
     from rasm.runtime.receipts import Receipt
@@ -226,41 +221,37 @@ if TYPE_CHECKING:
 
 
 class SectionPart(StrEnum):
-    GENERAL = "general"  # PART 1 — administrative/procedural requirements
-    PRODUCTS = "products"  # PART 2 — materials/products/equipment at the required quality
-    EXECUTION = "execution"  # PART 3 — installation/application + quality-control work
+    GENERAL = "general"
+    PRODUCTS = "products"
+    EXECUTION = "execution"
 
 
-class SpecMethod(StrEnum):  # the four CSI methods of specifying a product/paragraph
-    DESCRIPTIVE = "descriptive"  # exact properties, no product name
-    PERFORMANCE = "performance"  # required results + criteria, means open
-    REFERENCE_STANDARD = "reference"  # by published ASTM/ANSI/UL standard
-    PROPRIETARY = "proprietary"  # named product/manufacturer
+class SpecMethod(StrEnum):
+    DESCRIPTIVE = "descriptive"
+    PERFORMANCE = "performance"
+    REFERENCE_STANDARD = "reference"
+    PROPRIETARY = "proprietary"
 
 
-class SubmittalClass(StrEnum):  # the CSI SubmittalFormat regimes
-    ACTION = "action"  # requires A/E review + approval before proceeding
-    INFORMATIONAL = "informational"  # for record, no approval
-    CLOSEOUT = "closeout"  # project record documents, O&M data, warranties at completion
+class SubmittalClass(StrEnum):
+    ACTION = "action"
+    INFORMATIONAL = "informational"
+    CLOSEOUT = "closeout"
 
 
-class ParagraphRole(StrEnum):  # the editorial disposition every master-spec paragraph carries at edit time
-    CONTENT = "content"  # specification text, retained at issue
-    NOTE = "note"  # specifier note (`SPEC NOTE:`), stripped at issue — audited from the source, never lowered
+class ParagraphRole(StrEnum):
+    CONTENT = "content"
+    NOTE = "note"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# unresolved-fill-in vocabulary: a bracketed blank `[____]` or an insert prompt `<Insert value>` the
-# specifier never resolved — a section issued carrying one is editorially incomplete.
 _FILL_IN: Final[re.Pattern[str]] = re.compile(r"\[_{2,}\]|<[^<>]+>")
 _PART_NUMBER: Final[Map[SectionPart, int]] = Map.of_seq([(SectionPart.GENERAL, 1), (SectionPart.PRODUCTS, 2), (SectionPart.EXECUTION, 3)])
-_CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgpack.Encoder(order="deterministic")
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# CSI MP-2-2 primary article roster per part, in published order (Figure SF-1) — order IS load-bearing:
-# `_audited` canonical-order checks read each title's index. Titles are UPPERCASE, the validated vocabulary.
 _ARTICLES: Final[Map[SectionPart, tuple[str, ...]]] = Map.of_seq([
     (SectionPart.GENERAL, (
         "SUMMARY",
@@ -310,10 +301,7 @@ _ARTICLES: Final[Map[SectionPart, tuple[str, ...]]] = Map.of_seq([
         "SCHEDULES",
     )),
 ])
-# alternative main-work titles an EXECUTION part selects EXACTLY ONE of; `main_works` counts the selection —
-# zero is the `missing_main_work` coverage fault, more than one the `multiple_main_work` fault.
 _MAIN_WORK: Final[frozenset[str]] = frozenset({"ERECTION", "INSTALLATION", "APPLICATION", "CONSTRUCTION"})
-# subordinate paragraph-title checklist each primary article carries (Figure SF-1), keyed by article title.
 _SUBORDINATE: Final[Map[str, tuple[str, ...]]] = Map.of_seq([
     ("SUMMARY", (
         "Section Includes",
@@ -376,27 +364,25 @@ _PART_VALUES: Final[frozenset[str]] = frozenset(part.value for part in SectionPa
 _METHOD_VALUES: Final[frozenset[str]] = frozenset(method.value for method in SpecMethod)
 _SUBMITTAL_VALUES: Final[frozenset[str]] = frozenset(kind.value for kind in SubmittalClass)
 _ROLE_VALUES: Final[frozenset[str]] = frozenset(role.value for role in ParagraphRole)
-_REFERENCES: Final[str] = _ARTICLES[SectionPart.GENERAL][1]  # the `REFERENCES` article title the citation reconciliation lists against
+_REFERENCES: Final[str] = _ARTICLES[SectionPart.GENERAL][1]
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
 class SpecFault:
-    # closed admission-fault vocabulary carrying its offending token; `combined` folds every casualty so a
-    # whole section reports each bad article rather than aborting first.
     tag: Literal[
         "bad_section", "unknown_article", "duplicate_article", "bad_method", "bad_submittal", "bad_role", "depth_overflow", "invalid_payload",
         "aggregate"
     ] = tag()
-    bad_section: str = case()  # the MasterFormat number failed `ClassCode.parse`
-    unknown_article: str = case()  # an article title or part outside the SectionFormat roster
-    duplicate_article: str = case()  # a repeated (part, title) identity in one admitted section
-    bad_method: str = case()  # a paragraph method outside the four SpecMethod cases
-    bad_submittal: str = case()  # a submittal class outside the three SubmittalClass cases
-    bad_role: str = case()  # a paragraph role outside the two ParagraphRole cases
-    depth_overflow: int = case()  # a paragraph nested past the deepest CSI PageFormat level
-    invalid_payload: tuple[str, ...] = case()  # the `ValidationError.errors()` `loc` paths the shape gate reports
+    bad_section: str = case()
+    unknown_article: str = case()
+    duplicate_article: str = case()
+    bad_method: str = case()
+    bad_submittal: str = case()
+    bad_role: str = case()
+    depth_overflow: int = case()
+    invalid_payload: tuple[str, ...] = case()
     aggregate: tuple["SpecFault", ...] = case()
 
     @staticmethod
@@ -412,14 +398,12 @@ class SpecFault:
 
 
 class Paragraph(Struct, frozen=True):
-    # recursive specification content node; a `NOTE` role strips at issue (audited from the source),
-    # numbered by depth in `to_document`.
     text: str
     title: Option[str] = Nothing
     role: ParagraphRole = ParagraphRole.CONTENT
     method: Option[SpecMethod] = Nothing
     submittal: Option[SubmittalClass] = Nothing
-    references: tuple[str, ...] = ()  # cited published standards, e.g. `ASTM C150`
+    references: tuple[str, ...] = ()
     children: tuple["Paragraph", ...] = ()
 
     def __post_init__(self) -> None:
@@ -431,7 +415,7 @@ class Paragraph(Struct, frozen=True):
 
 class Article(Struct, frozen=True):
     part: SectionPart
-    title: str  # one primary title from `_ARTICLES[part]`
+    title: str
     paragraphs: tuple[Paragraph, ...] = ()
 
     def __post_init__(self) -> None:
@@ -443,17 +427,17 @@ class SpecVerdict(Struct, frozen=True):
     parts_present: int
     articles: int
     paragraphs: int
-    notes: int  # specifier-note paragraphs the issue projection strips
-    fill_ins: int  # unresolved `[____]`/`<Insert>` blanks over the CONTENT paragraphs
-    off_checklist: int  # first-level CONTENT paragraph headings off the article's `_SUBORDINATE` checklist
+    notes: int
+    fill_ins: int
+    off_checklist: int
     max_depth: int
-    references: int  # total reference-standard citation occurrences over the paragraph walk
-    standards: int  # distinct reference-standard designations the section invokes
+    references: int
+    standards: int
     methods: frozendict[SpecMethod, int]
     submittals: frozendict[SubmittalClass, int]
-    ordered: bool  # every part's articles appear in canonical `_ARTICLES` order
-    main_works: int  # `_MAIN_WORK` titles the EXECUTION part carries — the exactly-one invariant's count
-    coverage: tuple[str, ...]  # accumulated coverage-fault tags
+    ordered: bool
+    main_works: int
+    coverage: tuple[str, ...]
 
     def facts(self) -> frozendict[str, object]:
         return frozendict({
@@ -472,7 +456,7 @@ class SpecVerdict(Struct, frozen=True):
         })
 
 
-class ParagraphPayload(TypedDict, closed=True):  # the raw content node ingress — codes as strings, admitted once
+class ParagraphPayload(TypedDict, closed=True):
     text: Required[ReadOnly[str]]
     title: NotRequired[ReadOnly[str]]
     role: NotRequired[ReadOnly[str]]
@@ -489,14 +473,12 @@ class ArticlePayload(TypedDict, closed=True):
 
 
 class SpecPayload(TypedDict, closed=True):
-    section: Required[ReadOnly[str]]  # the MasterFormat number, parsed through `ClassCode`
+    section: Required[ReadOnly[str]]
     title: Required[ReadOnly[str]]
     articles: Required[ReadOnly[tuple[ArticlePayload, ...]]]
 
 
 class _Tally(Struct, frozen=True):
-    # one-pass audit seed: every walked-paragraph statistic advances in one step, so the audit never
-    # re-walks the tree per check; histograms and citation partitions ride immutable unions.
     paragraphs: int = 0
     notes: int = 0
     fill_ins: int = 0
@@ -505,8 +487,8 @@ class _Tally(Struct, frozen=True):
     off_checklist: int = 0
     methods: frozendict[SpecMethod, int] = frozendict()
     submittals: frozendict[SubmittalClass, int] = frozendict()
-    listed: frozenset[str] = frozenset()  # citations inside the REFERENCES article
-    cited: frozenset[str] = frozenset()  # citations everywhere else — `cited - listed` is the unlisted gap
+    listed: frozenset[str] = frozenset()
+    cited: frozenset[str] = frozenset()
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -516,9 +498,6 @@ _FAULTS: Final[tuple[type[Exception], ...]] = (RuntimeError, ValueError, KeyErro
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
-# spans every section render, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
-# TRANSIENT: a template or an encode refusal is a defect a re-issue may clear.
 SECTION_ENCODE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.SECTION, point="encode", arm="boundary", defect="section-encode", retriability=TRANSIENT
 )
@@ -528,11 +507,10 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SECTION_EN
 
 
 def _walk(articles: tuple[Article, ...], /) -> Iterator[tuple[Article, Paragraph, int, bool]]:
-    # one flattening carrying the audit discriminants: owning article, depth, and first-level position.
     def down(article: Article, paragraph: Paragraph, depth: int, first: bool, /) -> Iterator[tuple[Article, Paragraph, int, bool]]:
         yield (article, paragraph, depth, first)
         for child in paragraph.children:
-            yield from down(article, child, depth + 1, False)  # bounded by `_MAX_LEVEL`, so native recursion is safe
+            yield from down(article, child, depth + 1, False)
 
     for article in articles:
         for paragraph in article.paragraphs:
@@ -560,15 +538,11 @@ def _stepped(acc: _Tally, walked: tuple[Article, Paragraph, int, bool], /) -> _T
 
 
 def _ordered(part: SectionPart, titles: tuple[str, ...], /) -> bool:
-    # every present article appears in canonical `_ARTICLES[part]` order — strictly increasing, since admission
-    # already refused repeated identities, so an equal position pair is itself an order fault.
     positions = tuple(_ARTICLES[part].index(title) for title in titles if title in _ARTICLES[part])
     return all(earlier < later for earlier, later in zip(positions, positions[1:], strict=False))
 
 
 def _accumulated[T](results: Block[Result[T, SpecFault]], /) -> Result[tuple[T, ...], SpecFault]:
-    # combine every fault through the monoid, return the whole set only when the casualty set is empty — the
-    # `Validation`-style fold `delivery/register#REGISTER` shares.
     faults = results.choose(lambda outcome: outcome.swap().to_option())
     return Ok(tuple(results.choose(lambda outcome: outcome.to_option()))) if faults.is_empty() else Error(faults.reduce(SpecFault.combined))
 
@@ -578,8 +552,6 @@ def _casualties(candidates: Iterable[Option[SpecFault]], /) -> Block[SpecFault]:
 
 
 def _admit_paragraph(payload: ParagraphPayload, depth: int, /) -> Result[Paragraph, SpecFault]:
-    # every independent field check contributes its casualty — a paragraph carrying a bad role AND a bad method
-    # reports both; recursion halts at the depth cap so an adversarial payload never grows the stack past it.
     role = payload.get("role", ParagraphRole.CONTENT.value)
     method = payload.get("method", "")
     submittal = payload.get("submittal", "")
@@ -590,8 +562,6 @@ def _admit_paragraph(payload: ParagraphPayload, depth: int, /) -> Result[Paragra
     )
     faults = _casualties((
         Some(SpecFault(invalid_payload=("text",))) if not payload["text"].strip() else Nothing,
-        # a PRESENT title that strips to nothing is a payload fault, never a silent demotion to omission —
-        # only a genuinely absent key constructs `Nothing` below.
         Some(SpecFault(invalid_payload=("title",))) if "title" in payload and not payload["title"].strip() else Nothing,
         Some(SpecFault(invalid_payload=("references",))) if any(not reference.strip() for reference in payload.get("references", ())) else Nothing,
         Some(SpecFault(depth_overflow=depth)) if depth > _MAX_LEVEL else Nothing,
@@ -616,8 +586,6 @@ def _admit_paragraph(payload: ParagraphPayload, depth: int, /) -> Result[Paragra
 
 
 def _admit_article(payload: ArticlePayload, /) -> Result[Article, SpecFault]:
-    # title roster depends on the part (dependent check), while the paragraph fold is independent of both —
-    # its casualties join the header faults rather than being shadowed by them.
     part_ok = payload["part"] in _PART_VALUES
     title_ok = part_ok and payload["title"] in _ARTICLES[SectionPart(payload["part"])]
     paragraphs = _accumulated(Block.of_seq(_admit_paragraph(entry, 1) for entry in payload.get("paragraphs", ())))
@@ -632,8 +600,6 @@ def _admit_article(payload: ArticlePayload, /) -> Result[Article, SpecFault]:
 
 
 def _audited(spec: "Spec", /) -> SpecVerdict:
-    # ONE seed fold over the flattened walk carries every per-paragraph statistic; only the order, main-work,
-    # and coverage checks read the article roster beside it.
     articles = spec.articles
     tally = reduce(_stepped, _walk(articles), _Tally())
     present = {article.part for article in articles}
@@ -671,8 +637,6 @@ def _audited(spec: "Spec", /) -> SpecVerdict:
 
 
 def submittal_register(specs: "Spec | Iterable[Spec]", /) -> tuple[frozendict[str, str], ...]:
-    # manual-wide CSI submittal log — every submittal-carrying paragraph across the section set as one flat
-    # row stream a `visualization/table#TABLE` `TablePlan.of` frame renders and `delivery/register#REGISTER` keys.
     match specs:
         case Spec() as lone:
             manual: tuple[Spec, ...] = (lone,)
@@ -710,16 +674,12 @@ class Spec(Struct, frozen=True):
 
     @classmethod
     def admit(cls, lane: LanePolicy, page: PageFormat = PageFormat(), /, **payload: Unpack[SpecPayload]) -> Result[Self, SpecFault]:
-        # shape gate through `_PAYLOAD` (the named TypeAdapter statement seam), then the section-number seam
-        # and the article fold accumulated TOGETHER — a bad section number never shadows the article casualties.
         try:
             valid = _PAYLOAD.validate_python(payload)
         except ValidationError as fault:
             return Error(SpecFault(invalid_payload=tuple("/".join(str(at) for at in error["loc"]) for error in fault.errors())))
         parsed = ClassCode.parse(ClassSystem.MASTERFORMAT, valid["section"]).map_error(lambda _cause: SpecFault(bad_section=valid["section"]))
         admitted = _accumulated(Block.of_seq(_admit_article(entry) for entry in valid["articles"]))
-        # (part, title) identity is set-level: a repeat contributes one duplicate_article casualty per identity,
-        # so a doubled main-work article refuses at admission rather than collapsing inside a later audit frozenset.
         repeated = Counter((entry["part"], entry["title"]) for entry in valid["articles"])
         faults = _casualties((
             Some(SpecFault(invalid_payload=("title",))) if not valid["title"].strip() else Nothing,
@@ -732,8 +692,6 @@ class Spec(Struct, frozen=True):
         return parsed.bind(lambda code: admitted.map(lambda arts: cls(section=code, title=valid["title"].strip(), lane=lane, articles=arts, page=page)))
 
     def to_document(self) -> DocumentNode:
-        # ordinal PATH is the numbering; `document/emit#DOCUMENT` folds FROM this tree. The CSI-mandated
-        # `END OF SECTION` marker closes the tree as its terminal block.
         parts = tuple(self._part_node(part) for part in SectionPart if any(article.part is part for article in self.articles))
         close = BlockNode(
             meta=self._meta("P", "END OF SECTION"), block=BlockKind.PARAGRAPH, runs=(self._run(self.page.end_of_section(), weight=700),)
@@ -754,10 +712,6 @@ class Spec(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # ONE identity: the full frozen input spec, minted PRE-RUN — `emit`, `contribute`, and the receipt all
-        # thread it, so a section number shared by two different manuals never collides and no second key regime
-        # hashes the encoded bytes.
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         return ContentIdentity.key(f"spec-{self.section.render()}", _CANON.encode((self.section, self.title, self.articles, self.page)))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
@@ -767,11 +721,6 @@ class Spec(Struct, frozen=True):
                 self._key, self.section.render(), self._division, verdict.parts_present, verdict.articles, len(payload)
             )
         )
-        # A produced section is the OPERATIONAL production trail whose ISSUE the delivery pair attests separately, so
-        # the class comes off the case's own retention row and the diff names the section number, its division, and
-        # the part/article cardinality a later revision compares against. The seat is this awaitable fold because
-        # recording suspends on a bounded intake, which is exactly why the synchronous `contribute` twin below stays
-        # the pure metric projection; construction is the receipt owner's one `evidence` builder either way.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -779,7 +728,6 @@ class Spec(Struct, frozen=True):
                 return Error(refused.error)
 
     async def _encoded_rail(self) -> bytes:
-        # offloaded encode returns the PAYLOAD BYTES the receipt counts; identity stays `_key`'s.
         crossed = await self.lane.offload(Kernel.of(self._encoded, KernelTrait.RELEASING))
         return crossed.default_with(self._raise)
 
@@ -801,7 +749,7 @@ class Spec(Struct, frozen=True):
         return encode(self.to_document())
 
     def contribute(self) -> "Iterable[Receipt]":
-        payload = self._encoded()  # the one encode the byte count derives from; the key is the shared `_key`
+        payload = self._encoded()
         verdict = self.audit()
         receipt = ArtifactReceipt.Spec(self._key, self.section.render(), self._division, verdict.parts_present, verdict.articles, len(payload))
         yield from receipt.contribute()
@@ -815,10 +763,7 @@ class Spec(Struct, frozen=True):
         return SectionNode(meta=self._meta("Sect", part.value), level=2, heading=heading, children=articles)
 
     def _article_node(self, article: Article, part: int, ordinal: int, /) -> DocumentNode:
-        # a NOTE never consumes an ordinal, so the CONTENT ordinal is a running `accumulate` count.
         label = self.page.label(part, (ordinal,))
-        # NOTE guidance STRIPS at issue: specifier notes never enter the issued tree (the audit counts them off
-        # source spec strips them), so no lowering can render them — BlockKind.ARTIFACT is tagging semantics, not elision.
         retained = tuple(paragraph for paragraph in article.paragraphs if paragraph.role is not ParagraphRole.NOTE)
         numbers = tuple(accumulate(int(paragraph.role is ParagraphRole.CONTENT) for paragraph in retained))
         paragraphs = tuple(
@@ -832,7 +777,6 @@ class Spec(Struct, frozen=True):
         numbers = tuple(accumulate(int(child.role is ParagraphRole.CONTENT) for child in kept))
         children = tuple(self._paragraph_node(child, part, (*path, number)) for child, number in zip(kept, numbers, strict=True))
         label = self.page.label(part, path)
-        # a subordinate heading rides its own bold lead run before the body run; a bare paragraph is one run.
         runs = paragraph.title.map(
             lambda title: (self._run(f"{label}  {title}", weight=700), self._run(paragraph.text, anchor=label))
         ).default_value((self._run(f"{label}  {paragraph.text}"),))
@@ -845,12 +789,9 @@ class Spec(Struct, frozen=True):
 
 
     def _run(self, text: str, /, *, weight: int = 400, anchor: str = "") -> RunNode:
-        # `anchor` carries the position label for a bare body run whose text alone repeats across paragraphs
         return RunNode(meta=self._meta("Span", text, anchor), text=text, font_key=self.page.font, size=self.page.size, weight=weight)
 
     def _meta(self, role: str, token: str, /, *content: str, classification: Option[str] = Nothing) -> NodeMeta:
-        # section's CSI ClassCode rides the root SectionNode's NodeMeta.classification so the one lowered
-        # model tree carries the code the classify#CODE ReferenceIndex keys the drawing<->spec cross-ref on.
         match classification:
             case Option(tag="some", some=value):
                 classified = value
@@ -858,9 +799,6 @@ class Spec(Struct, frozen=True):
                 classified = UNSET
             case _ as unreachable:
                 assert_never(unreachable)
-        # preimage joins position AND canonical content under an unambiguous separator: two distinct nodes that
-        # share a generated label (a repeated non-CONTENT ordinal, a duplicated body run) still key apart, and the
-        # `\x1f` join forecloses the ("a","bc") == ("ab","c") concat collision a bare ":" join admits.
         return NodeMeta(
             key=ContentIdentity.key(f"spec-{role}", "\x1f".join((self.section.render(), token, *content)).encode()),
             role=role,

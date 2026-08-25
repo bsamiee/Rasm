@@ -52,10 +52,6 @@ public readonly partial struct ContractKey {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError]
-// `ArtifactPath` coins an `owner/artifact` PATH, never a minted address: `Rasm.Bim`'s `ArtifactKey` is a content address plus an
-// interchange format, and the branch seam map draws that type INTO this namespace region — so the two spellings
-// collided on a name while naming opposite identity regimes, and this side takes the one that states its own
-// shape. The discriminant is the SPLIT arity, named at both sites.
 public readonly partial struct ArtifactPath {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         value = value.Trim().ToLowerInvariant();
@@ -76,7 +72,6 @@ public sealed record SchemaArtifact(
     Seq<Parity.Provider> Providers,
     Seq<ArtifactPath> DependsOn);
 
-// Contract failures own their typed payloads; generated case identity supplies their numeric codes.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContractFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Contract;
@@ -330,10 +325,6 @@ public sealed record ContractProjection(
             .Map(protoJson => new ContractProjection(contract.Generation, "contract.json", protoJson));
 }
 
-// Recovery axes carrying OPPOSITE absence laws, which is the whole split: an observation that took no frontier
-// reading proves no recency and refuses, while a store that never restored owes no bounce time and passes.
-// `Refusing` rides the ROW so a third axis states its own absence law instead of a fold branching on which axis
-// it walks, and the two accessor columns keep the gauge one fold over `Items` rather than a per-axis body.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -353,22 +344,12 @@ public sealed partial class RecoveryAxis {
         (Refusing, Measured, Declared) = (refusing, measured, declared);
 }
 
-// One reading per axis answers BOTH questions an operator asks — whether that half breached, and what headroom it
-// kept — so the verdict and the readout fold ONE row set instead of a hand-written body per answer that a third
-// axis row reaches only half of. `Measured` absent IS the unmeasured state and never a zero, since a constructed
-// zero publishes a reading no provider took, and `Breached` resolves that absence through the axis's own law
-// rather than a branch naming RPO by hand.
 public readonly record struct RecoveryReading(RecoveryAxis Axis, Option<Duration> Measured, Duration Declared) {
     public bool Breached => Measured.Match(Some: held => held > Declared, None: () => Axis.Refusing);
     public Option<Duration> Headroom => Measured.Map(held => Declared - held);
 }
 
-// Measured window the declared objective grades against. Each half is optional because each has a real absence a
-// zero would forge: a provider that took no frontier reading, a live store that was never restored.
 public readonly record struct RecoveryWindow(Option<Duration> Rpo, Option<Duration> Rto) {
-    // `Gauged` carries every axis into one reading set the verdict filters and the operator reads headroom off,
-    // so a third axis row lands in both answers at once. An admitted generation therefore always carries a
-    // measured recency half, while an absent bounce is still the store that never restored.
     public Seq<RecoveryReading> Gauged(RecoveryObjective objective) =>
         toSeq(RecoveryAxis.Items)
             .Map(axis => new RecoveryReading(axis, axis.Measured(this), axis.Declared(objective)));
@@ -377,11 +358,6 @@ public readonly record struct RecoveryWindow(Option<Duration> Rpo, Option<Durati
         Gauged(objective).Filter(static reading => reading.Breached);
 }
 
-// `HeldCapabilities` is the TYPED capability column the verification verdict now carries, so the observation
-// stops erasing a rostered vocabulary into text one hop after the probe minted it; the untrusted side is the
-// CONTRACT's wire rows, and `CapabilitySet.Admits(string)` is exactly the boundary arm that resolves one of those
-// tokens against the vocabulary before any membership test. `HeldArtifacts` stays text because an artifact key is
-// a name a CONTRIBUTOR coins rather than a row this estate declares.
 public sealed record BackendObservation(
     GenerationId Generation,
     CapabilitySet<ServerExtension> HeldCapabilities,
@@ -389,21 +365,10 @@ public sealed record BackendObservation(
     Instant ObservedAt,
     Option<Instant> Frontier,
     Option<Duration> RestoredIn) {
-    // Lag derives HERE off the two stamps this observation carries, so no provider hands in a window it computed
-    // against a clock the verdict never saw. `ObservedAt` is this adapter's own read and never absent, `Frontier`
-    // names the newest datum the store proves durable, and `RestoredIn` names the restore's own span — each one
-    // stated or stated missing, since a default lets a provider skip the question and grade a window nobody took.
-    // Lag SIGN alone discriminates, and ZERO sits on the measured side: a frontier stamped at its own reading
-    // instant is the freshest store this verdict exists to admit, where a frontier stamped AFTER the reading is
-    // skew whose negative lag drops to unmeasured and refuses.
     public RecoveryWindow Window => new(
         Frontier.Map(seen => ObservedAt - seen).Filter(static lag => lag >= Duration.Zero),
         RestoredIn);
 
-    // `Created` is the cluster's realized extension set read in the one verification batch, and contract
-    // capability rows are keyed by that same `ServerExtension.Key` space, so the projection is direct. Artifact
-    // evidence enters as a caller argument because only the generation and storage owners that realized an
-    // artifact can witness it; a desired declaration is not evidence.
     public static BackendObservation Of(
         GenerationId observed,
         ProvisionVerdict.Provisioned cluster,
@@ -425,15 +390,8 @@ public abstract partial record BackendVerdict {
 }
 
 public static class BackendAdmission {
-    // Identity and recency are two proofs on ONE verdict: drift answers whether the store carries the composed
-    // contract, and the window answers whether the data behind it is current. Recency seats LAST, after the
-    // realization arms, because a store missing the artifacts has no window worth grading, and the ladder is
-    // what separates a moved schema from an intact schema behind a stale recovery point. `objective` rides in as
-    // one parameter off the caller's resolved profile row, so this owner reads deployment shape as data.
     public static BackendVerdict Admit(
         SchemaContract expected, BackendObservation observed, RecoveryObjective objective) {
-        // Wire rows carry untrusted key text, so the membership test takes the capability column's BOUNDARY arm,
-        // which resolves that token against the vocabulary first — a key no row names can never read as held.
         Seq<string> requiredCapabilities = toSeq(expected.Document.Capabilities
             .Where(static row => row.FailureRank == Parity.FailureRank.Required)
             .Select(static row => row.Key)
@@ -442,8 +400,6 @@ public static class BackendAdmission {
             .Select(static row => row.Key)
             .Where(key => !observed.HeldArtifacts.Contains(key)));
         Seq<RecoveryReading> breaches = observed.Window.Exceeding(objective);
-        // An observation carrying keys this contract never declares is UNDESCRIBABLE, not distant: the digest
-        // comparison below reports a difference, and only this arm names what the composed binary cannot grade.
         Seq<string> undescribable = toSeq(observed.HeldArtifacts)
             .Filter(key => !expected.Document.Artifacts.Any(row => row.Key == key));
 

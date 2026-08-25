@@ -17,7 +17,7 @@ THE KUBELKA-MUNK PIGMENT/COAT-STACK FINISH ENGINE. One `Finish.Resolve` static f
 - Boundary: `Finish.Resolve` is the ONE finish path — a `PaintFinish`/`StainFinish` type is the deleted form; the `FinishMix` weight vector NORMALIZES at `FinishMix.Of` (Kubelka-Munk mixes concentrations, so an unnormalized vector is a second spelling of one physical paint the admitted value refuses to carry) and resolves to a reflectance EXCLUSIVELY through the admitted `new Unicolour(Configuration, Pigment[], double[])` Kubelka-Munk constructor — whose signature carries NO illuminant slot, the working space being the `Configuration`'s own `XyzConfiguration` — under the `ArtistPaint.Configuration` sRGB/D50 working space the pigments were measured in, then `ConvertToConfiguration(PortValue.SceneLinear)` rebases the mix to the ONE ACEScg scene-linear `Configuration` instance and `surface#SPECTRAL_UPSAMPLE` `SceneLinear` grounds it — the SAME grounding owner `acquisition#ACQUISITION` `GroundSpectral` composes, never a parallel inline scene-linear construction nor a default-D65 mix mislabelled as scene-linear — so Materials NEVER re-derives the FORWARD two-constant `K/S` mix and a finish color IS the Kubelka-Munk mix of measured pigments grounded into the one pipeline, not an authored triple — the INVERSE is the one leg this page owns, because Unicolour carries no member that separates `K` from `S` and `PigmentCapture.Extract` is what turns a two-background capture into the `new Pigment` construction its constructor consumes; that inverse is a 2x2 linear solve in `u = a + b·coth(bSX)`/`v = a − b·coth(bSX)` whose determinant IS the backing-separation admission read at the solver's grain, so the published ideal-black closed form is its `Rg = 0` specialization rather than a second algebra and a real black tile never has to pretend to be an ideal one; layer compositing is `Finish.Composite` — the layer's coverage rides the SOURCE ALPHA into `Unicolour.Blend(backdrop, mode)` so ONE library call runs the named W3C blend AND the alpha-composited coverage (under the linear ACEScg working space the blend's encoded-Rgb domain IS scene-linear, and reflectance channels stay in `[0,1]` where the W3C algebra is total) — the prior `substrate.Mix(pigment, …)` linear lerp that LIGHTENED a translucent stain toward its pigment is the deleted form, a stain/varnish/glaze now `Multiply`-darkens its substrate as the physics demands; the coat stack is admitted ONCE at `AdmitStack` (`BOUNDARY_ADMISSION`: every weight/roughness proven finite in `[0,1]` before the fold, the interior clamp-free), a violation railing `MaterialFault.Parameter` with the layer role — the prior fence that PROMISED an out-of-unit-coat fault while silently clamping is the deleted illusion; the four-gate admission ladder is imported from `graph#MATERIAL_LIBRARY` by domain — MacAdam spectral limit, Pointer real-surface, ColorChecker drift under the ROW'S `DeltaE` policy, Ebner-Fairchild hue constancy — never a second gamut owner, and the drift/hue tolerances are `FinishHandling` POLICY VALUES, never a page-level const; the two APPEARANCE metrics (`Cam16` on the four effect rows) measure under the package-bound `CamConfiguration.StandardRgb` condition and that condition is STATED rather than defaulted-into, because a CAM distance is a function of the observer's adaptation and a tolerance calibrated against an unnamed surround is a number nobody can re-derive — declaring a different surround is a kernel `RgbProfile.Condition`/`Viewed` mint, never a Materials-side `Configuration`, so the row carries the metric and the folder carries the condition once; `FinishKind.Seed` is ONE expression over the handling row — hiding is `BaseWeight` (a translucent kind composites over the substrate ground by its `Substrate` blend row), gloss is the row roughness, the coat is the stack topcoat floored by `ClearcoatBias`, metalness/anisotropy/sheen/specular-tint/transmission-roughness/IOR are row columns — so the fourteen kinds share one derivation and a fifteenth kind is one row with ZERO dispatch edits (the prior four-arm `Switch`, and its hardcoded `Metalness: 0.0`/`Sheen: 0.0` that made metallic, pearlescent, and sheened finishes UNREACHABLE, are the deleted forms — and the same defect wearing a `Subsurface: 0.0`/`SubsurfaceRadius.None` literal is deleted with them, so the three genuinely scattering mineral and flocked rows reach the `surface#OPENPBR_SLAB` `Subsurface` lobe the lowering already routes; only emission stays a Seed literal, and that carve is DECLARED at the derivation because a finish is a reflectance system rather than a light); the substrate enters as `Option<MaterialParameters>` — a stain composites over the row it coats, the `PrimedGround` near-white the named canonical when none is supplied (the prior hardcoded constant that made "rides the substrate" a fiction is the deleted form); the interference film lands on the row's `Film` `ThinFilm` column (topcoat film over kind seed), the `surface#OPENPBR_SLAB` lowering reading it into the `thin_film` group and the `Slab.Coat` interference lobe — the prior path that wrote the film onto a `Slab.Coat` inside a DISCARDED validation binding, so no pearlescent finish could ever reach shading, is the deleted illusion, and the full coat-stack-to-`LayeredBsdf` lowering now happens exactly once downstream of the row, never re-derived here; the coat columns the `weathering#WEATHERING` chalking trajectory raises (`coat_roughness`) are the shared aging target, so a finish ages through the weathering operator over its own row and a per-finish aging variant is the deleted form; the produced row carries the `acquisition#ACQUISITION` `CaptureProvenance` receipt (the pigment count and the resolved-mix evidence a hand-keyed triple lacks) and re-admits through `graph#MATERIAL_LIBRARY` `MaterialParameters.Of` so a finish row passes the same gamut/unit/IOR gate a registered row passes, and an empty mix, a pigment/weight length mismatch, or a non-finite reflectance rails `MaterialFault`, never a sentinel row.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using Rasm.Domain;
@@ -31,9 +31,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Appearance;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// Fourteen architectural finish SYSTEMS as behavior rows. Seed is ONE derivation over the row; a new system is one
-// row, never a Switch arm.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -57,10 +55,6 @@ public sealed partial class FinishKind {
 
     private FinishKind(string key, FinishHandling handling) : this(key) => Handling = handling;
 
-    // ONE derivation over the handling row — no per-kind Switch: hiding is BaseWeight, the coat is the stack topcoat
-    // floored by ClearcoatBias, and the merged film lands on the row's Film column. Emission is the ONE column held
-    // at a literal, a DECLARED BOUND rather than a walled-off axis: a self-luminous coating enters as its own kind.
-    // Every other column is a row value, which is what makes the three mineral/flocked rows reachable at all.
     public MaterialParameters Seed(Unicolour composite, Unicolour substrate, double coatWeight, double coatRoughness, ThinFilm film) =>
         new(BaseColor: Handling.BaseWeight >= 1.0 ? composite : Finish.Composite(substrate, composite, Handling.Substrate, Handling.BaseWeight),
             Metalness: Handling.Metalness, Roughness: Handling.Roughness, SpecularTint: Handling.SpecularTint, Anisotropy: Handling.Anisotropy, Ior: Handling.Ior,
@@ -68,9 +62,6 @@ public sealed partial class FinishKind {
             Clearcoat: Math.Max(coatWeight, Handling.ClearcoatBias), ClearcoatRoughness: coatRoughness,
             Subsurface: Handling.Subsurface, SubsurfaceRadius: Handling.Scatter, Emission: PortValue.Black, EmissionLuminance: 0.0) {
             Film = film,
-            // The grain AZIMUTH rides the row beside its magnitude: an anisotropy weight with no direction is a
-            // brushed finish whose grain the lowering invents, and it always invented zero. The unit convention is
-            // the row's own (1 is a half turn), so the value crosses the wire unconverted.
             AnisotropyRotation = Handling.AnisotropyRotation,
         };
 }
@@ -86,15 +77,12 @@ public abstract partial record FinishLayer {
 
     public string Role => Switch(primer: static _ => "primer", @base: static _ => "base", glaze: static _ => "glaze", topcoat: static _ => "topcoat");
 
-    // The once-at-admission proof AdmitStack reads: every layer weight/roughness finite in [0,1], so Compose is clamp-free.
     public bool Admissible => Switch(
         primer:  static p => Finish.Unit(p.Weight),
         @base:   static b => Finish.Unit(b.Weight),
         glaze:   static g => Finish.Unit(g.Weight),
         topcoat: static t => Finish.Unit(t.Weight) && Finish.Unit(t.Roughness));
 
-    // Substrate-out composite — each layer composites OVER the colour below it, so the left fold applies the topcoat
-    // LAST; the topcoat's weight/roughness/film seed the row coat columns instead of compositing.
     public Unicolour Compose(Unicolour below) => Switch(
         state: below,
         primer:  static (b, p) => Finish.Composite(b, p.Reflectance, BlendMode.Normal, p.Weight),
@@ -103,21 +91,7 @@ public abstract partial record FinishLayer {
         topcoat: static (b, t) => t.Tint.Map(tint => Finish.Composite(b, tint, BlendMode.Multiply, t.Weight)).IfNone(b));
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The config-as-value behavior row — hiding/gloss/transmission/coat-bias/IOR positional, the effect columns, the
-// substrate BlendMode, the per-kind DeltaE drift policy, the hue tolerance, the init-defaulted ThinFilm seed — all
-// POLICY VALUES the one Seed derivation reads, never a literal walling a column off. The four Cam16 rows measure
-// under the package-bound CamConfiguration.StandardRgb the kernel RgbProfile.Condition row publishes; not a column,
-// because that kernel row owns the ONE cam-bearing Configuration mint.
-// THE TWO TOLERANCES ARE POLICY SEEDED FROM PUBLISHED PRACTICE, NEVER MEASUREMENTS: ASTM D2244 standardizes the
-// formulae and leaves the tolerance to buyer-seller agreement outright, so a quoted "ASTM colour tolerance" names
-// something that does not exist. What IS published bounds them — the CIE76 JND near 2.3 (Mahy 1994), ISO 12647-2
-// permitting 5 on a process solid while capping the HUE contribution at 2.5, CGATS TR016 levels 1.4 to 6.0. They
-// are NOT one number twice: DriftTolerance is a PLAUSIBILITY RADIUS to the nearest of twenty-four sparse Macbeth
-// patches, so pulling it to 2.5 rejects every legitimate finish BETWEEN patches, while HueTolerance is a deviation
-// from the mix's own constant-hue locus — the column the published hue cap bounds, held above it because the loci
-// sample hue coarsely and a locus is a curve rather than an aim point. Both cross Tolerance.Of at Finish.Admit.
-// [SPIKE]: refinement converges on a drift census over real samples measured under this surround alone.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FinishHandling(
     double BaseWeight, double Roughness, double Transmission, double ClearcoatBias, double Ior,
     double Metalness = 0.0, double Anisotropy = 0.0, double AnisotropyRotation = 0.0, double Sheen = 0.0, double SheenTint = 0.0, double SpecularTint = 0.0, double TransmissionRoughness = 0.0,
@@ -125,16 +99,10 @@ public readonly record struct FinishHandling(
     BlendMode Substrate = BlendMode.Normal, DeltaE Drift = DeltaE.Ciede2000, double DriftTolerance = 12.0, double HueTolerance = 10.0) {
     public ThinFilm Film { get; init; } = ThinFilm.None;
 
-    // Scatter rides an init property because a value-object instance is no compile-time constant, and it is named
-    // Scatter rather than after its own type so `SubsurfaceRadius.None` inside this struct still resolves to the
-    // TYPE. A weight without a radius scatters at zero magnitude, so the pair is authored together on every row.
     public SubsurfaceRadius Scatter { get; init; } = SubsurfaceRadius.None;
 }
 
 public readonly record struct FinishMix(Seq<FinishPigment> Pigments, Seq<double> Weights) {
-    // The weight vector NORMALIZES at admission — a structural invariant. Kubelka-Munk mixing is defined over
-    // CONCENTRATIONS summing to one, so (1, 1) and (0.5, 0.5) are one physical paint, and normalizing HERE makes
-    // the admitted value canonical so a mix compares, hashes, and prints as itself.
     public static Fin<FinishMix> Of(Seq<FinishPigment> pigments, Seq<double> weights, Op key) =>
         pigments.IsEmpty
             ? new MaterialFault.Parameter(key, "<finish-mix-empty>")
@@ -147,9 +115,6 @@ public readonly record struct FinishMix(Seq<FinishPigment> Pigments, Seq<double>
                         var total => Fin.Succ(new FinishMix(pigments, weights.Map(w => w / total))),
                     };
 
-    // The Kubelka-Munk mix runs under the pigments' OWN measurement working space (ArtistPaint sRGB/D50), rebases to
-    // ACEScg, and grounds through the ONE surface#SPECTRAL_UPSAMPLE SceneLinear owner acquisition#ACQUISITION also
-    // composes — so the reflectance enters gamut-pulled and genuinely Acescg, never a default-D65 mix mislabelled.
     public Fin<Unicolour> Reflectance(Op key) =>
         key.Catch(() => SpectralUpsample.SceneLinear(
                 new Unicolour(FinishPigment.MeasurementSpace, Pigments.Map(static p => p.Reflectance).ToArray(), Weights.ToArray())
@@ -157,11 +122,7 @@ public readonly record struct FinishMix(Seq<FinishPigment> Pigments, Seq<double>
             .Map(static rgb => new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, rgb.R, rgb.G, rgb.B)));
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// FinishPigment is the Golden set as a CLOSED VOCABULARY, one row per shipped handle, so a pigment is a compile-time
-// name a mix composes rather than a string a fold resolves at runtime. The prior reflection-derived dictionary paid
-// a per-call lookup and a Fin rail for a set the package fixes at nineteen, and the whole failure mode it railed
-// was a caller typing a name — which a row makes unspellable. Key IS the wire spelling an interchange row prints.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -186,35 +147,16 @@ public sealed partial class FinishPigment {
     public static readonly FinishPigment PhthaloGreenYellowShade = new("phthalo-green-yellow-shade", ArtistPaint.PhthaloGreenYellowShade);
     public static readonly FinishPigment TitaniumWhite           = new("titanium-white", ArtistPaint.TitaniumWhite);
 
-    // Reflectance carries the package's own measured Kubelka-Munk value; the row is the NAME, the package the data.
-    // A custom pigment enters as one more row over its own `new Pigment(...)`, which is why the column is the VALUE.
     public Pigment Reflectance { get; }
 
-    // The sRGB/D50 working space the Golden pigments were measured under — FinishMix.Reflectance runs under THIS
-    // space so the K/S reflectance reads its measurement white point, never Configuration.Default.
     public static readonly Configuration MeasurementSpace = ArtistPaint.Configuration;
 }
 
-// --- [BOUNDARIES] --------------------------------------------------------------------------
-// The MEASURED-PIGMENT admission. A spectrophotometer reports REFLECTANCE, never the two-constant K and S, so this
-// boundary turns a capture into the `new Pigment(...)` construction the mix consumes and every step is a contract.
-//   GEOMETRY is the authority: a reflectance quoted without its geometry is not a measurement, so a pair captured
-//   under two geometries refuses rather than averaging.
-//   SATURATION is why TWO backgrounds are mandatory. One backing yields the K/S RATIO alone — at complete hiding
-//   (1−R∞)²/(2·R∞), with K and S individually unrecoverable — so the DIFFERENCE between a white and a black reading
-//   is the whole of the separating information and a one-background capture refuses at admission.
-//   The SAUNDERSON CORRECTION IS MANDATORY: a measured reflectance includes surface reflections the layer equations
-//   do not model, so raw R attributes an interface effect to the pigment's own scattering; k1 and k2 ride the
-//   Pigment construction so the pair that corrected the capture reproduces it at render.
-//   The BACKINGS ARE SPECTRA: the equations read the backing AT EACH WAVELENGTH, so a scalar seats its own
-//   spectral error inside every extracted coefficient.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public readonly record struct PigmentCapture(
     int StartNm, int IntervalNm, Seq<double> OverWhite, Seq<double> OverBlack,
     Seq<double> BackingWhite, Seq<double> BackingBlack, double ThicknessMicrons, double K1, double K2) {
 
-    // Admit proves the pair BEFORE any solve: the four series share a grid, every reflectance sits inside the OPEN
-    // unit interval (0 and 1 are both singular for the layer equations), the two backings differ AT EVERY WAVELENGTH
-    // (an identical pair is the one-background refusal renamed), and K1/K2 BIND TO THE INSTRUMENT GEOMETRY.
     public Fin<PigmentCapture> Of(Op key) =>
         from _ in guard(Bands.ForAll(band => band.Count == OverWhite.Count) && !OverWhite.IsEmpty,
                 new MaterialFault.Parameter(key, $"<pigment-capture-grid:{OverWhite.Count},{OverBlack.Count},{BackingWhite.Count},{BackingBlack.Count}>"))
@@ -230,31 +172,15 @@ public readonly record struct PigmentCapture(
 
     Seq<Seq<double>> Bands => Seq(OverWhite, OverBlack, BackingWhite, BackingBlack);
 
-    // The two backings must differ by more than instrument noise; below this they carry one measurement twice.
     const double BackingSeparation = 0.05;
     static bool Interior(double r) => double.IsFinite(r) && r is > 0.0 and < 1.0;
 
-    // The INVERSE Saunderson every reflectance crosses before the layer equations see it — the internal reflectance
-    // the pigment produced, interface terms removed. The ONE place the correction runs, so a capture cannot reach
-    // the solve uncorrected and a render cannot re-apply it.
     public static double Internal(double measured, double k1, double k2) =>
         (measured - k1) / (((1.0 - k1) * (1.0 - k2)) + (k2 * (measured - k1)));
 
-    // The complete-hiding K/S ratio: at full opacity the layer equations collapse to (1−R∞)²/(2·R∞) — the ratio a
-    // single background reaches and the anchor the two-background separation measures against.
     public static double RatioAtHiding(double internalInfinite) =>
         (1.0 - internalInfinite) * (1.0 - internalInfinite) / (2.0 * internalInfinite);
 
-    // Extract separates K from S at every wavelength and lands the two-constant Pigment the mix consumes — the
-    // MEASURED half of the growth path, where ArtistPaint supplies the shipped half.
-    // THE SOLVE IS LINEAR, and that is the whole of its density. The layer equation
-    //   R = [1 − Rg(a − b·coth(bSX))] / [(a + b·coth(bSX)) − Rg]
-    // is hyperbolic in the film yet linear in the PAIR u = a + b·coth(bSX), v = a − b·coth(bSX): substituting them
-    // rearranges to R·u + Rg·v = 1 + R·Rg, so two backings are a 2x2 system rather than the four-equation nonlinear
-    // solve the ratio form suggests, and NEITHER backing need be an ideal black. Its determinant D = Rw·Gb − Rb·Gw
-    // IS the separating information the backing guard states physically, so the admission gate and the solve's
-    // singularity are ONE condition at two grains. From the pair: a = (u+v)/2, b = √(a²−1), K/S = a−1, S·X =
-    // arccoth(c)/b at c = (u−v)/(2b) — spelled atanh(1/c) because coth⁻¹ is singular where the film vanishes.
     public Fin<Pigment> Extract(string name, Op key) =>
         from admitted in Of(key)
         from bands in toSeq(Enumerable.Range(0, OverWhite.Count))
@@ -265,9 +191,6 @@ public readonly record struct PigmentCapture(
         select new Pigment(StartNm, IntervalNm,
             bands.Map(static band => band.K).ToArray(), bands.Map(static band => band.S).ToArray(), K1, K2, name);
 
-    // One wavelength: the 2x2 solve and its three physical-consistency rails, each naming the wavelength it failed
-    // at. a ≤ 1 is a film the layer model cannot describe and c ≤ 1 a coth argument no positive optical thickness
-    // produces, so either refuses rather than seating a fabricated coefficient. Coefficients land PER MILLIMETRE.
     static Fin<(double K, double S)> Separate(double rw, double rb, double gw, double gb, double thicknessMm, int nm, Op key) =>
         from d in Separating((rw * gb) - (rb * gw), nm, key)
         let u = (((1.0 + (rw * gw)) * gb) - ((1.0 + (rb * gb)) * gw)) / d
@@ -285,13 +208,11 @@ public readonly record struct PigmentCapture(
             ? Fin<double>.Succ(d)
             : Fin<double>.Fail(new MaterialFault.Parameter(key, $"<pigment-solve-degenerate:{nm}:{d:R}>"));
 
-    // The determinant floor is the solve's own grain of the backing-separation guard above.
     const double Determinant = 1e-6;
 }
 
 public static class Finish {
     static Unicolour Linear(double r, double g, double b) => new(PortValue.SceneLinear, ColourSpace.RgbLinear, r, g, b);
-    // The named canonical ground the Option substrate defaults to: a primed near-white, never an implicit hardcode.
     internal static readonly Unicolour PrimedGround = Linear(0.92, 0.92, 0.90);
 
     public static Fin<(MaterialParameters Row, CaptureProvenance Provenance)> Resolve(FinishKind kind, FinishMix mix, Seq<FinishLayer> stack, Op key, Option<MaterialParameters> substrate = default) =>
@@ -305,19 +226,12 @@ public static class Finish {
         from row in MaterialParameters.Of(seed, key)
         select (row, MixProvenance(mix));
 
-    // BOUNDARY_ADMISSION: the coat stack is proven once — a non-finite or out-of-unit layer rails with its role,
-    // making the out-of-unit-coat rail REAL (the prior fence promised the fault while silently clamping).
     static Fin<Seq<FinishLayer>> AdmitStack(Seq<FinishLayer> stack, Op key) =>
         stack.Find(static layer => !layer.Admissible)
             .Match(
                 Some: bad => Fin.Fail<Seq<FinishLayer>>(new MaterialFault.Parameter(key, $"<finish-layer-out-of-unit:{bad.Role}>")),
                 None: () => Fin.Succ(stack));
 
-    // The four-gate ladder by domain, tolerances the KIND'S policy row: MacAdam spectral limit → Pointer real-surface
-    // → ColorChecker drift under the row's DeltaE metric → Ebner-Fairchild hue constancy of the composite vs the mix.
-    // BOUNDARY_ADMISSION for the two tolerance numbers: the kernel Tolerance carrier proves each before a gate reads
-    // it, both on ToleranceLane.Spectral — the dimensionless colour lane whose Band.Length window is a delta-E
-    // magnitude's shape — so a NaN or negative tolerance refuses HERE rather than passing every candidate.
     static Fin<Unicolour> Admit(Unicolour composed, Unicolour mix, FinishHandling handling, Op key) =>
         from drift in Tolerance.Of(ToleranceLane.Spectral, handling.DriftTolerance, key)
         from hue in Tolerance.Of(ToleranceLane.Spectral, handling.HueTolerance, key)
@@ -327,16 +241,11 @@ public static class Finish {
         from anchored in MaterialLibrary.HueConstant(surface, mix, hue, key)
         select anchored;
 
-    // The stack is substrate-to-outermost, so the LAST topcoat is the outer coat whose weight/roughness/film seed
-    // the row coat columns — a first-wins Head would silently shade an inner coat under a re-coated stack.
     static (double Weight, double Roughness, ThinFilm Film) TopcoatOf(Seq<FinishLayer> stack) =>
         stack.Fold(Option<(double Weight, double Roughness, ThinFilm Film)>.None,
                 static (outer, l) => l is FinishLayer.Topcoat t ? Some((t.Weight, t.Roughness, t.Film)) : outer)
             .IfNone((0.0, 0.0, ThinFilm.None));
 
-    // W3C blend+composite through the library in ONE call: coverage rides the SOURCE ALPHA into Unicolour.Blend,
-    // which runs B(backdrop, layer) and the alpha-composited lerp together. Under the linear Acescg space the
-    // blend's encoded-Rgb domain IS scene-linear, and coverage is admitted upstream so no interior clamp exists.
     internal static Unicolour Composite(Unicolour below, Unicolour layer, BlendMode mode, double coverage) {
         ColourTriplet lin = layer.ConvertToConfiguration(PortValue.SceneLinear).RgbLinear.Triplet;
         return new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, lin.First, lin.Second, lin.Third, coverage).Blend(below, mode);
@@ -344,8 +253,6 @@ public static class Finish {
 
     internal static bool Unit(double v) => double.IsFinite(v) && v is >= 0.0 and <= 1.0;
 
-    // A Kubelka-Munk mix is a measured-pigment finish, but it produces neither angular sampling nor a numerical fit.
-    // The receipt therefore names its method and device while both evidence slots remain absent.
     static CaptureProvenance MixProvenance(FinishMix mix) =>
         new($"kubelka-munk:{mix.Pigments.Count}-pigment", CaptureMethod.PigmentMix);
 }

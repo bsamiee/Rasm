@@ -164,9 +164,6 @@ type SwLifecycle = Data.TaggedEnum<{
 }>
 const SwLifecycle: Data.TaggedEnum.Constructor<SwLifecycle> = Data.taggedEnum<SwLifecycle>()
 
-// `register` covers both container calls, so the row carries WHICH one refused: a first registration that never took
-// and an update check that failed against a live worker are different repairs, and one free cause string named
-// neither. `unsupported` carries nothing — a host with no `serviceWorker` container is the whole fact.
 const _swFamily = Fault.Class.family(["unsupported", "register", "message"] as const, {
   unsupported: Fault.Class.row({
     class: "absent",
@@ -217,7 +214,6 @@ const _Report = Schema.Union(
 type _Signal = { readonly tag: (typeof _TAGS)[number] | "controlling"; readonly update: boolean }
 
 const _lifecycle = (wb: Workbox): Stream.Stream<_Signal> =>
-  // BOUNDARY ADAPTER: the Workbox event target is the platform-forced statement seam — one listener per lifecycle tag, all released on scope close
   Stream.asyncScoped((emit) =>
     Effect.acquireRelease(
       Effect.sync(() =>
@@ -361,10 +357,6 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
         ),
         Effect.forkScoped,
       )
-      // One request, two refusals held apart: `false` names a host that will never wake this document, so nothing
-      // re-requests and the outbox rides `Connect.redials` for the session, while a `ConnectFault` is the agent's own
-      // decision that the next ceiling hit and the next redial both re-drive. Neither reaches a caller: the enqueue
-      // keeps its storage rail because the entry is already durable, and the merged drain survives the registration.
       const _woken: Effect.Effect<void> = Effect.matchEffect(connect.wake("rasm-outbox"), {
         onFailure: (fault) => Effect.logWarning(`<wake-refused> ${fault.message}`),
         onSuccess: (armed) => (armed ? Effect.void : Effect.logDebug("<wake-absent> the outbox drains on redials alone")),
@@ -394,7 +386,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
                   Effect.partition(held, ([key, entry]) => Effect.mapError(relay(entry), () => [key, entry] as const), {
                     concurrency: 1,
                   }),
-                  ([refused]) => (refused.length === 0 ? Effect.void : kv.write("outbox", refused)), // a failed re-enqueue reaches the wake fold's logged discard, never a silent swallow
+                  ([refused]) => (refused.length === 0 ? Effect.void : kv.write("outbox", refused)),
                 ),
               ),
               Effect.ignoreLogged,
@@ -454,8 +446,6 @@ type InstallStance = Data.TaggedEnum<{
 }>
 const InstallStance: Data.TaggedEnum.Constructor<InstallStance> = Data.taggedEnum<InstallStance>()
 
-// The prompt slot is a one-shot the host mints and this owner drains, so `unavailable` names no subject: an empty
-// slot is the whole fact and the stance cell already says which posture the caller is in.
 const _installFamily = Fault.Class.family(["unavailable", "ceremony"] as const, {
   unavailable: Fault.Class.row({
     class: "absent",
@@ -552,7 +542,7 @@ class Install extends Effect.Service<Install>()("runtime/browser/Install", {
   accessors: true,
 }) {}
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Install, InstallFault, InstallStance, Manifest, Sw, SwFault, SwLifecycle }
 ```

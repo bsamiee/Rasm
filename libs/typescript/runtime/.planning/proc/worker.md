@@ -27,32 +27,21 @@ import { Transferable, Worker, type WorkerError, WorkerRunner } from '@effect/pl
 import { Context, Effect, Layer, type ParseResult, Schema } from 'effect';
 import { Fault } from '@rasm/core';
 
-// The off-thread roster is this protocol's own — the caller's production modality decides WHICH kind crosses, this
-// page decides which kinds exist at all, and the two meet at `work/report`'s modality table rather than through an
-// import this stratum cannot make.
 const _KINDS = ['pdf', 'zip'] as const;
 const _Kind = Schema.Literal(..._KINDS);
 
-// The refusal's subject names WHICH request refused, closed against the protocol's own tag roster rather than left as
-// a free string: a word here the union below never declares fails at this line instead of raising a fault no reader
-// can route back to a handler.
 const _REQUESTS = ['Drop', 'Render'] as const satisfies ReadonlyArray<Bench.Protocol['_tag']>;
 const _Crossing = Schema.Struct({ request: Schema.Literal(..._REQUESTS), detail: Schema.String });
 
-// `class` and `message` both DERIVE from `reason` through one core family mint, so neither can disagree with it. As
-// constructor data `class` was forgeable across the thread seam — a handler could fail `starved` while stamping
-// `invalid`, and the caller's budget gate would honour the stamp; the whole `case` crosses as one declared union and
-// the far side reconstructs class, leg, and rendering off the row, so the seam carries one field and proves three.
-// The engine's own diagnostic rides that subject, which is what a caller re-keying a worker failure had to discard.
 const _bench = Fault.Class.family(['refused', 'starved'] as const, {
     refused: Fault.Class.row({
-        class: 'invalid', // the handler rejected the payload: caller-blamed and terminal
+        class: 'invalid',
         leg: 'runner',
         detail: _Crossing,
         render: ({ detail, request }) => `the ${request} handler refused its payload — ${detail}`,
     }),
     starved: Fault.Class.row({
-        class: 'exhausted', // the member ran out of headroom: system-blamed and retryable
+        class: 'exhausted',
         leg: 'pool',
         detail: _Crossing,
         render: ({ detail, request }) => `the ${request} member ran out of headroom — ${detail}`,
@@ -134,7 +123,7 @@ const RunnerLive = <const Handlers extends Bench.Handlers>(
 ): Layer.Layer<never, WorkerError.WorkerError, WorkerRunner.PlatformRunner | WorkerRunner.SerializedRunner.HandlersContext<Handlers>> =>
     WorkerRunner.layerSerialized(_Protocol, handlers);
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Bench, BenchFault, BenchLive, Drop, Render, RunnerLive };
 ```
@@ -150,7 +139,7 @@ import { Report } from '../work/report.ts';
 
 Runtime.node.main(Effect.provide(WorkerRunner.launch(RunnerLive(Report.worker)), Layer.mergeAll(Runtime.node.runner, Runtime.node.context)));
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export {};
 ```

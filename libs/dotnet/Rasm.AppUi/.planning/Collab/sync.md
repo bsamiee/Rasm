@@ -34,8 +34,6 @@ One CRDT document is the LIVE merge authority for every co-edited AppUi surface,
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// LoroCs.Index collides with System.Index under the implicit System using, so the hop union enters
-// aliased and every hop spells LoroIndex.
 using LoroIndex = LoroCs.Index;
 
 [SmartEnum<string>]
@@ -51,18 +49,9 @@ public sealed partial class CollabContainer {
 
     public ContainerType Type { get; }
 
-    // Anchoring is a row column, not a consumer-side type ladder: the three sequence kinds carry GetCursor
-    // and the keyed kinds refuse, so presence dispatches totally over the closed axis and a new kind cannot
-    // reach the caret path without declaring its own answer. The two list rows stay separate delegates
-    // because the binding gives LoroList and LoroMovableList no common cursor interface to narrow through.
     [UseDelegateFromConstructor]
     public partial Fin<Cursor> Anchored(CollabHandle handle, uint position, PosType source, Side side);
 
-    // Text positions convert source -> Unicode BEFORE GetCursor, so a caret after a supplementary-plane
-    // character resolves identically in the editor and in loro; list ordinals are already container
-    // positions and anchor conversion-free. ConvertPos answers `uint?` — an index outside the container's
-    // own extent in the declared encoding converts to nothing — so the conversion folds into the SAME
-    // absent-anchor arm the null cursor takes rather than reaching GetCursor with a position it refused.
     private static Fin<Cursor> AnchorText(CollabHandle handle, uint position, PosType source, Side side) =>
         handle.Container is LoroText text
             ? Positioned(handle, () => text.ConvertPos(position, source, PosType.Unicode) is { } at
@@ -78,16 +67,12 @@ public sealed partial class CollabContainer {
 
     private static Fin<Cursor> Unanchorable(CollabHandle handle, uint position, PosType source, Side side) => Refused(handle);
 
-    // Two distinct causes stay distinct: GetCursor answers null when no stable anchor exists at the
-    // position (address-level absence), while a kind that carries no cursor at all refuses.
     private static Fin<Cursor> Positioned(CollabHandle handle, Func<Cursor?> anchor) =>
         CollabDoc.Lift(anchor).Bind(cursor => Optional(cursor).ToFin(new CollabFault.Detached($"{handle.Address}")));
 
     private static Fin<Cursor> Refused(CollabHandle handle) => Fin.Fail<Cursor>(new CollabFault.KindMismatch($"{handle.Address}"));
 }
 
-// Roots are rows, never literals: each row carries the container kind its level holds, so an attach
-// composes ONE row and no consumer spells a root name.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -103,21 +88,14 @@ public sealed partial class CollabRoot {
     public static readonly CollabRoot Members = new("members", static () => CollabContainer.Map);
     public static readonly CollabRoot Issues = new("issues", static () => CollabContainer.Map);
 
-    // Row-to-row correspondence defers behind a delegate column, because an eager sibling-vocabulary field
-    // read captures null before materialization protects it.
     [UseDelegateFromConstructor]
     public partial CollabContainer Kind();
 }
 
-// Register columns are rows on one vocabulary, so a write arm and a reading lens cross the same symbol and
-// a column cannot exist at one end only. Rows group by the owner that declares them; a column shared by two
-// owners stays ONE row, because a second spelling of `key` or `at` would let one arm's write read absent at
-// the other arm's lens.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CollabColumn {
-    // Shared identity, provenance, and stamp columns every register level crosses.
     public static readonly CollabColumn Identity = new("key");
     public static readonly CollabColumn Kind = new("kind");
     public static readonly CollabColumn Name = new("name");
@@ -127,7 +105,6 @@ public sealed partial class CollabColumn {
     public static readonly CollabColumn State = new("state");
     public static readonly CollabColumn Role = new("role");
 
-    // Notebook cell and comment thread columns.
     public static readonly CollabColumn Patch = new("patch");
     public static readonly CollabColumn Source = new("source");
     public static readonly CollabColumn Body = new("body");
@@ -137,12 +114,6 @@ public sealed partial class CollabColumn {
     public static readonly CollabColumn EditedAt = new("edited-at");
     public static readonly CollabColumn Topic = new("topic");
 
-    // Graph node columns — the COMPLETE `Editing/graph#GRAPH_MODEL` `GraphNodeRow` shape. Containment,
-    // extent, rotation, lock, and visibility are register columns because the hierarchy-move op commits a
-    // parent and an index onto this tree: a register that stopped at position left a group, a frame, and a
-    // collapsed subgraph durable and unrehydratable, so `ReadNodes` would answer a row the canvas rejects.
-    // The keys are NOT derivable from the record's member names — `Template` reads `TemplateKey` and `Bus`
-    // reads `BusWidth` — so each row states the correspondence its projection depends on.
     public static readonly CollabColumn Template = new("template");
     public static readonly CollabColumn Parent = new("parent");
     public static readonly CollabColumn X = new("x");
@@ -157,9 +128,6 @@ public sealed partial class CollabColumn {
     public static readonly CollabColumn Direction = new("direction");
     public static readonly CollabColumn Bus = new("bus");
 
-    // Edge columns — the pin-qualified endpoint pair as STRUCTURE beside the `GraphWire` presentation row,
-    // so `ReadEdges` rehydrates both `GraphEndpoint` values off declared columns instead of re-parsing the
-    // register key, and a waypoint list rides its own ordinal hop rather than one clobbering leaf.
     public static readonly CollabColumn From = new("from");
     public static readonly CollabColumn To = new("to");
     public static readonly CollabColumn Pin = new("pin");
@@ -172,16 +140,12 @@ public sealed partial class CollabColumn {
     public static readonly CollabColumn Label = new("label");
     public static readonly CollabColumn Waypoints = new("waypoints");
 
-    // Issue board columns — the board-edited coordination axes, each mergeable per column so two triaging
-    // peers assigning and labelling one issue converge instead of overwriting one row.
     public static readonly CollabColumn Status = new("status");
     public static readonly CollabColumn Priority = new("priority");
     public static readonly CollabColumn Assignee = new("assignee");
     public static readonly CollabColumn Labels = new("labels");
     public static readonly CollabColumn Attachment = new("attachment");
 
-    // Presence chrome columns — the structured ephemeral values every overlay and follow reads back through
-    // the same `LoroVal.Field` owner that wrote them.
     public static readonly CollabColumn Color = new("color");
     public static readonly CollabColumn Plane = new("plane");
     public static readonly CollabColumn Anchor = new("anchor");
@@ -189,8 +153,6 @@ public sealed partial class CollabColumn {
     public static readonly CollabColumn Frame = new("frame");
 }
 
-// The document identity the Persistence content-key namespace prefixes: two replicas under one key MUST
-// converge, so the key admits through `Validate` and a blank or untrimmed one never reaches the namespace.
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct DocumentKey {
@@ -200,25 +162,16 @@ public readonly partial struct DocumentKey {
     }
 }
 
-// A member's name INSIDE a mergeable map. It carries no invariant beyond that role, so the generated
-// `Create` is total and the four mints below are the only shapes this package addresses a member by —
-// which is what makes the never-parsed-back exemption a property of ONE type instead of four call sites.
 [ValueObject<string>]
 public readonly partial struct ContainerKey {
     public static ContainerKey Of(Guid member) => Create(member.ToString("N"));
     public static ContainerKey Of(ulong peer) => Create(peer.ToString(CultureInfo.InvariantCulture));
     public static ContainerKey Slot(int ordinal) => Create(ordinal.ToString(CultureInfo.InvariantCulture));
 
-    // The edge key stays the pin-qualified pair because the register level must be ADDRESSABLE by edge
-    // identity, and it is never read back for identity — the endpoint columns own that, so the delimiters
-    // carry no parse obligation and a node key containing one cannot corrupt a rehydrated endpoint.
     public static ContainerKey Edge(GraphEndpoint from, GraphEndpoint to) =>
         Create($"{from.NodeKey}|{from.PinKey.IfNone(string.Empty)}=>{to.NodeKey}|{to.PinKey.IfNone(string.Empty)}");
 }
 
-// CollabPath carries a typed hop sequence, never a slash-built name: Root opens the chain at a declared
-// CollabRoot row and Key/At/Under append the map, sequence, and tree hops the engine's Index union
-// carries, so a nested forest is addressed structurally and the root set stays bounded.
 public readonly record struct CollabPath(Seq<LoroIndex> Hops) {
     public static CollabPath Root(CollabRoot root) => new(Seq<LoroIndex>(new LoroIndex.Key(root.Key)));
 
@@ -229,10 +182,6 @@ public readonly record struct CollabPath(Seq<LoroIndex> Hops) {
     public LoroIndex[] Chain => [.. Hops];
 }
 
-// Four ingresses, one resolution rail, and the address carries the kind its level narrows to — a declared
-// root reads it off the row while a nested hop declares it at the ingress, so no resolve takes a parallel
-// kind that can disagree with the address. Of discriminates on input shape; Parse is the text ingress a
-// link, route, or persisted anchor crosses ONCE.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CollabAddress {
     private CollabAddress() { }
@@ -254,7 +203,7 @@ public abstract partial record CollabAddress {
         id: static a => a.Narrow);
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CollabFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Collab;
@@ -264,10 +213,6 @@ public abstract partial record CollabFault : Fault {
     public override string Message => Detail;
 
 
-    // Absence and wrong-kind are separate causes: Detached states the level is unwritten, so a lens folds it
-    // to an empty answer, while KindMismatch states a container of another kind sits at a written address
-    // and stays on the rail as the register defect it is. Neither re-drives — an unwritten level and a
-    // squatting container are both permanent until someone writes.
     [FaultCase(0)]
     public sealed partial record Detached(string Detail) : CollabFault(Detail);
     [FaultCase(1)]
@@ -276,9 +221,6 @@ public abstract partial record CollabFault : Fault {
     public sealed partial record DecodeCorrupt(Error Cause) : CollabFault(Cause.Message), ICausedFault;
     [FaultCase(3)]
     public sealed partial record ImportIncompatible(Error Cause) : CollabFault(Cause.Message), ICausedFault;
-    // The two RE-DRIVABLE causes, stated on the fault so no consumer classifies: an import whose dependency
-    // span has not arrived converges the moment the missing delta lands, and a compare-and-swap that spent
-    // its attempt budget lands on the next uncontended pass.
     [FaultCase(4)]
     public sealed partial record EpochMismatch(Error Cause) : CollabFault(Cause.Message), ICausedFault {
         public override Retriability Retriability => Retriability.Transient;
@@ -298,9 +240,6 @@ public sealed record CollabDocPolicy(bool RecordTimestamp, Option<long> MergeInt
     public static readonly CollabDocPolicy Live = new(RecordTimestamp: true, None, None);
 }
 
-// The release latch is a TAKE-AND-CLEAR transition, so the drained payload IS the release: a second Dispose
-// reads the empty post-state and a handle the document sweep already released leaves the caller's own
-// Dispose nothing to run twice. No Interlocked latch, no disposed flag, no second answer to reconcile.
 public sealed class CollabHandle {
     private readonly Atom<Option<Func<Unit>>> pending;
 
@@ -308,15 +247,12 @@ public sealed class CollabHandle {
         Address = address; Container = container; pending = Atom(Some(release));
     }
 
-    // Kind rides the address, so the handle holds no second copy to contradict it.
     public CollabAddress Address { get; }
     public IDisposable Container { get; }
 
     public void Dispose() => ignore(Cell.Take(pending).Current.Map(static release => release()));
 }
 
-// Capability class, never a value-equal record: the Rust-pointer document, the handle registry atom, and
-// the custody cell carry identity, not structure — the b0 native-lifetime law.
 public sealed class CollabDoc : IDisposable {
     private static readonly Op LoroBoundary = Op.Of(name: "appui.collab.loro");
     private readonly Atom<Option<LoroDoc>> custody;
@@ -329,8 +265,6 @@ public sealed class CollabDoc : IDisposable {
     public DocumentKey Key { get; }
     public Atom<Seq<CollabHandle>> Handles { get; }
 
-    // The ONE mint: the custody cell and the registry seed HERE, so a fork, a replay hydration, and a live
-    // open cannot each seed a different lifetime shape.
     public static CollabDoc Of(LoroDoc doc, DocumentKey key) => new(doc, key);
 
     public static CollabDoc Open(DocumentKey key, Option<CollabDocPolicy> policy = default) {
@@ -345,26 +279,15 @@ public sealed class CollabDoc : IDisposable {
     public Fin<CollabHandle> Attach(CollabAddress address) =>
         Located(address).Bind(container => Registered(address, container));
 
-    // Use is the transient twin of Attach: resolve, work, release — per-edit applies and per-read
-    // projections ride THIS scope, so a keystroke or board refresh never grows the registry; every
-    // resolution mints a fresh Rust-pointer wrapper that must free with its scope, and the kernel bracket
-    // frees it on the refusal arm too while APPENDING a release fault to the cause it carries.
     public Fin<A> Use<TContainer, A>(CollabAddress address, Func<TContainer, Fin<A>> work) where TContainer : class, IDisposable =>
         Located(address).Bind(container => Custody.Bracket(
             () => container is TContainer typed ? work(typed) : Fin.Fail<A>(new CollabFault.KindMismatch($"{address}")),
             container));
 
-    // Absence policy is the READ's: Use faults Detached so a write path learns its level is unwritten, while
-    // Read folds that ONE fault to the caller's own empty value and leaves KindMismatch on the rail — a lens
-    // whose first read precedes any write reads empty, and another container kind squatting a written hop
-    // still surfaces as the register defect it is. Detached is matched ALONE for exactly that reason.
     public Fin<A> Read<A>(CollabPath path, A absent, Func<LoroMap, Fin<A>> read) =>
         Use(CollabAddress.Of(CollabContainer.Map, path), read)
             .BindFail(fault => fault is CollabFault.Detached ? Fin.Succ(absent) : Fin.Fail<A>(fault));
 
-    // Located is the ONE addressing rail: its Root arm attaches-or-creates a declared root, and its Path,
-    // Text, and Id arms resolve an EXISTING container through GetByPath, GetByStrPath, and GetContainer.
-    // Creation belongs to the root arm and to the parent's EnsureMergeable* hop — a resolve never mints.
     private Fin<IDisposable> Located(CollabAddress address) =>
         address.Switch<CollabDoc, Fin<IDisposable>>(
             state: this,
@@ -383,9 +306,6 @@ public sealed class CollabDoc : IDisposable {
             tree: static state => state.Doc.GetTree(state.Name),
             counter: static state => state.Doc.GetCounter(state.Name)));
 
-    // Resolution yields a ValueOrContainer that is itself a Rust-pointer wrapper, freed the moment its
-    // narrowed handle is taken; an unwritten level faults Detached while a container of another kind at a
-    // written address faults KindMismatch, so no wrapper of the wrong shape reaches a caller.
     private static Fin<IDisposable> Narrowed(Fin<ValueOrContainer?> found, CollabAddress address) =>
         found.Bind(value => Optional(value).ToFin(new CollabFault.Detached($"{address}")))
             .Bind(value => Custody.Bracket(
@@ -405,25 +325,18 @@ public sealed class CollabDoc : IDisposable {
 
     public Fin<Subscription> Changes(Subscriber subscriber) => Lift(() => Doc.SubscribeRoot(subscriber));
 
-    // Positional provenance is exposed by the movable-list container; other container kinds fold to
-    // None because the tree binding carries no positional provenance member.
     public Fin<Option<ulong>> LastEditorAt(CollabHandle handle, uint position) =>
         Lift(() => handle.Container switch {
             LoroMovableList list => Optional(list.GetLastEditorAt(position)),
             _ => Option<ulong>.None,
         });
 
-    // One nested-handle scope for every mint-then-write descent, on the owner that already holds the foreign
-    // lifetime: the child wrapper frees with the write on both arms and its release fault appends to the
-    // write's own cause, so no arm anywhere re-spells the using and no per-edit handle survives the apply.
     internal static Fin<Unit> Nested<TContainer>(Func<TContainer> mint, Func<TContainer, Fin<Unit>> write) where TContainer : class, IDisposable =>
         Lift(mint).Bind(child => Custody.Bracket(() => write(child), child));
 
     internal static Fin<T> Lift<T>(Func<T> act) =>
         LoroBoundary.Catch(() => Fin.Succ(act()), provider: Classify);
 
-    // Op.Catch captures first; the provider fold then reads the retained exception solely to select the semantic
-    // leaf. Every selected leaf carries that SAME Error, so classification never becomes a message remint.
     private static Option<CollabFault> Classify(Error cause) =>
         cause.Exception is { IsSome: true, Case: Exception raised }
             ? raised switch {
@@ -438,9 +351,6 @@ public sealed class CollabDoc : IDisposable {
             }
             : None;
 
-    // Registration COMMITS by snapshot under the kernel swap budget and answers the transition, so a handle
-    // that never reached the registry fails the attach instead of escaping as a pointer the document sweep
-    // will never see. The losing arm rolls the container back, because the caller now owns nothing.
     private Fin<CollabHandle> Registered(CollabAddress address, IDisposable container) {
         CollabHandle handle = new(address, container, () => Released(container));
         return Cell.Commit(Handles, held => held.Add(handle), Cell.SwapBudget) switch {
@@ -450,9 +360,6 @@ public sealed class CollabDoc : IDisposable {
         };
     }
 
-    // Removal is a REFUSABLE step and the free is unconditional: a handle the document sweep already drained
-    // answers Refused because its seat is gone, and the pointer frees either way — the two facts are
-    // separate, which an ignored swap could not state.
     private Unit Released(IDisposable container) {
         ignore(Cell.Step(
             Handles,
@@ -464,9 +371,6 @@ public sealed class CollabDoc : IDisposable {
         return unit;
     }
 
-    // Disposal is ONE take-and-clear per cell: the custody drain makes the whole body run at most once, and
-    // the registry drain hands the sweep the roster it removed rather than reading a live cell it then
-    // clears — the interleave where a concurrent Attach seats a handle between the read and the clear.
     public void Dispose() =>
         ignore(Cell.Take(custody).Current.Map(doc => {
             Cell.Take(Handles).Current.Iter(static held => held.Dispose());
@@ -475,9 +379,6 @@ public sealed class CollabDoc : IDisposable {
         }));
 }
 
-// One owner, both legs of the leaf correspondence: Of mints every shape a register writes and the
-// projections read that shape back, so a read is the declared inverse of its write and a leaf of another
-// shape reads absent rather than throwing. Instant rides the millisecond key it stores.
 public sealed record LoroVal(LoroValue Value) : LoroValueLike {
     public LoroValue AsLoroValue() => Value;
 
@@ -489,13 +390,9 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
     public static LoroVal Of(Instant value) => Of(value.ToUnixTimeMilliseconds());
     public static LoroVal Of(ReadOnlyMemory<byte> value) => new(new LoroValue.Binary(value.ToArray()));
 
-    // A package enum stores as its own ordinal, never its name: a name round-trip is a string parse whose
-    // failure mode is a silently absent column, while an ordinal reads back through the declared-value guard
-    // below and a value the enum no longer spells reads absent instead of casting into an undefined member.
     public static LoroVal Of<TEnum>(TEnum value) where TEnum : struct, Enum =>
         Of(Convert.ToInt64(value, CultureInfo.InvariantCulture));
 
-    // Declared columns mint every nested field map, so no page hands the engine a raw key dictionary.
     public static LoroVal Of(params ReadOnlySpan<(CollabColumn Column, LoroVal Value)> fields) =>
         new(new LoroValue.Map(fields.ToArray().ToDictionary(static cell => cell.Column.Key, static cell => cell.Value.Value)));
 
@@ -506,17 +403,11 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
     public Option<Instant> Stamp => Whole.Map(Instant.FromUnixTimeMilliseconds);
     public Option<ReadOnlyMemory<byte>> Blob => Value is LoroValue.Binary bin ? Some<ReadOnlyMemory<byte>>(bin.Value) : None;
 
-    // The declared inverse of the enum mint: an ordinal the vocabulary no longer spells reads absent, so a
-    // package enum widened or narrowed by a version bump degrades a wire column rather than materializing an
-    // undefined member the package's own switch would fall through. ONE declaration serves every foreign
-    // enum this register crosses, which is why the six connector and pin vocabularies name no arm here.
     public Option<TEnum> Case<TEnum>() where TEnum : struct, Enum =>
         Whole.Map(static held => (TEnum)Enum.ToObject(typeof(TEnum), held)).Filter(static value => Enum.IsDefined(value));
 
-    // Closes the loop the addressing law names: a Container leaf re-enters as an Id address the caller narrows to the kind that level holds.
     public Option<ContainerId> Container => Value is LoroValue.Container c ? Some(c.Value) : None;
 
-    // Field reads one nested column back, the declared inverse of the field mint.
     public Option<A> Field<A>(CollabColumn column, Func<LoroVal, Option<A>> project) =>
         Value is LoroValue.Map { Value: var fields } && fields.TryGetValue(column.Key, out LoroValue? held)
             ? project(new LoroVal(held))
@@ -524,13 +415,8 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// Both directions cross ONE register surface, so a write arm and a reading lens never disagree on a column
-// key and no page re-spells a leaf probe or drops the wrapper that probe mints.
-// Member names avoid the container's own Insert/Get/Delete because an extension member sharing an instance member's name is unreachable at every call site.
 public static class CollabRegister {
     extension(LoroMap row) {
-        // Declared columns: arity rides the span, so one column and a whole row are one call folded through
-        // ONE engine crossing. The span copies to owned storage first — a ref struct cannot cross the lambda.
         public Fin<Unit> Write(params ReadOnlySpan<(CollabColumn Column, LoroVal Value)> cells) {
             (CollabColumn Column, LoroVal Value)[] owned = cells.ToArray();
             return CollabDoc.Lift(() => {
@@ -539,9 +425,6 @@ public static class CollabRegister {
             });
         }
 
-        // Domain-keyed members — a comment guid, a table row id, an annotation target, an edge key — cross the
-        // SAME surface as declared columns through the ONE typed member key, so no arm re-spells the engine
-        // call inside its own Lift and no arm hands the engine a hand-formatted name.
         public Fin<Unit> Write(ContainerKey key, LoroVal value) =>
             CollabDoc.Lift(() => { row.Insert(key.Value, value); return unit; });
 
@@ -549,9 +432,6 @@ public static class CollabRegister {
 
         public Option<A> Read<A>(CollabColumn column, Func<LoroVal, Option<A>> project) => row.Read(column.Key, project);
 
-        // Projection selects the leaf shape and the ValueOrContainer probe frees with the read: an absent key
-        // and a leaf of another shape both read absent, so the CALLER owns the absence policy — which is why
-        // this descent stays a statement scope and never lifts onto the Fin-shaped kernel bracket.
         public Option<A> Read<A>(string key, Func<LoroVal, Option<A>> project) {
             using ValueOrContainer? held = row.Get(key);
             return Optional(held?.AsValue()).Map(static leaf => new LoroVal(leaf)).Bind(project);
@@ -561,11 +441,6 @@ public static class CollabRegister {
 
         public Option<A> Level<A>(ContainerKey key, Func<LoroMap, Option<A>> read) => row.Level(key.Value, read);
 
-        // The nested-level twin of Read, and the only descent a projection takes: AsLoroMap mints its own
-        // Rust Arc, so the narrowed child outlives the probe that produced it and the probe is a second
-        // wrapper the scope must free — a level read spelled as Get(key)?.AsLoroMap() takes the child and
-        // strands the ValueOrContainer for the process lifetime, which is exactly the leak the leaf read
-        // above already forecloses. Both wrappers free here and only the projected value leaves.
         public Option<A> Level<A>(string key, Func<LoroMap, Option<A>> read) {
             using ValueOrContainer? held = row.Get(key);
             using LoroMap? level = held?.AsLoroMap();
@@ -600,10 +475,6 @@ public static class CollabRegister {
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The convergence-probe vocabulary. Each row NAMES the intent arm it claims, so the gate is one fold over
-// the roster rather than a per-arm branch, and the ledger carries the SEALED set rather than a flag per
-// probe. The row's claim is a delegate column, so a new gated arm cannot land without answering it.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -615,20 +486,10 @@ public sealed partial class CollabProbe : ICapability<CollabProbe> {
 
     private static bool ClaimsTextRun(EditIntent intent) => intent is EditIntent.TextRun;
 
-    // The ONE gate fold: the first row claiming this intent whose probe has not sealed is the refusal.
     public static Option<CollabProbe> Outstanding(CapabilitySet<CollabProbe> settled, EditIntent intent) =>
         toSeq(Items).Find(row => row.Claims(intent) && !settled.Admits(row));
 }
 
-// NodeAdd carries the COMPLETE GraphNodeRow so cold replay and remote apply reconstruct template, title,
-// containment, extent, rotation, posture, position, and pins — an id-only add cannot rehydrate the canvas;
-// NodeAt is the canvas position-commit verb (a meta-column write, never a side channel).
-//
-// EdgeAdd carries the whole `Editing/graph#GRAPH_MODEL` `GraphEdge` shape: the pin-qualified endpoint pair
-// IS the edge identity and the `GraphWire` beside it is the presentation the register must rehydrate, so a
-// co-edited waypoint, arrow pair, offset, or label survives cold replay. EdgeRemove keys on the pair alone,
-// because identity is the `GraphLink` and a removal that also named a wire would let two renderings of one
-// wiring read as two removable edges.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GraphOp {
     private GraphOp() { }
@@ -670,22 +531,16 @@ public abstract partial record EditIntent {
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SessionEpoch(DocumentKey Document, Guid Epoch, Instant SeededAt);
 
-// A register read answers BOTH legs: the levels that rehydrated and the accumulated cause of every level
-// that did not. One type serves the node and the edge projection, so the drop law is stated once.
 public readonly record struct RegisterRead<A>(Seq<A> Rows, Seq<Error> Dropped);
 
 public sealed record IntentLedger(
     DocumentKey Document,
-    Func<EditIntent, IO<Fin<Unit>>> LedgerAppend,             // composition-bound: encodes a Persistence CrdtOpWire payload on the crdt lane
-    Func<DocumentKey, IO<Fin<Seq<EditIntent>>>> ReplayWindow, // composition-bound: the Version/ledger windowed read, decoded
-    Func<EditIntent, Fin<EditIntent>> Admit,                  // composition-bound: Collab/session#ADMISSION_GATE — the role-capability fold over the membership register
+    Func<EditIntent, IO<Fin<Unit>>> LedgerAppend,
+    Func<DocumentKey, IO<Fin<Seq<EditIntent>>>> ReplayWindow,
+    Func<EditIntent, Fin<EditIntent>> Admit,
     CapabilitySet<CollabProbe> Settled,
     IClock Clock) {
 
-    // Two guards in one expression, ordered by authority: the session gate answers WHO may commit this intent
-    // and the probe fold answers WHETHER this arm's convergence probe has sealed. Both refuse BEFORE
-    // LedgerAppend, so a refused intent reaches neither durable truth nor the live document, and each keeps
-    // its own registry band rather than collapsing an authorization refusal into the convergence-probe fault.
     public IO<Fin<Unit>> Project(EditIntent intent) =>
         Admit(intent)
             .Bind(admitted => CollabProbe.Outstanding(Settled, admitted).Match(
@@ -693,13 +548,6 @@ public sealed record IntentLedger(
                 None: () => Fin.Succ(admitted)))
             .Match(Succ: LedgerAppend, Fail: static error => IO.pure(Fin.Fail<Unit>(error)));
 
-    // Durable-first: a projection refusal returns before any live mutation, and the live apply is the
-    // SAME total dispatch replay uses, so one register shape serves live edit and rehydration. FinT stacks the
-    // rail over IO, so this sequence reads as one query where a nested Fin fold read as a Match ladder.
-    // Lift shape follows the source carrier: an `IO<Fin<A>>` port IS the transformer's carrier and enters
-    // through the constructor `runFin` inverts, a settled `Fin<A>` step enters through `FinT.lift`, and a
-    // bare `IO<A>` enters through `FinT.liftIO` — one ingress spelling per source shape, held uniform so
-    // no reader adjudicates the overload set per site.
     public IO<Fin<Unit>> Commit(CollabDoc doc, EditIntent intent, string origin) =>
         (from projected in new FinT<IO, Unit>(Project(intent))
          from applied in FinT.lift<IO, Unit>(IntentApply.Apply(doc, intent))
@@ -712,10 +560,6 @@ public sealed record IntentLedger(
          from replayed in Hydrated(doc, intents)
          select (doc, new SessionEpoch(Document, Guid.CreateVersion7(), Clock.GetCurrentInstant()))).runFin.As();
 
-    // TraverseM aborts on the first refused intent and the kernel rollback IS the failure custody: the
-    // half-hydrated document — its handle sweep and its Rust pointer — releases on the refusal arm alone,
-    // a disposer fault APPENDS to the cause on the Error monoid rather than replacing it, and the success
-    // arm passes untouched because the caller now owns the live document. The hand BindFail-plus-Try pair that spelled this by hand is the deleted form.
     static FinT<IO, Unit> Hydrated(CollabDoc doc, Seq<EditIntent> intents) =>
         FinT.lift<IO, Unit>(intents.TraverseM(intent => IntentApply.Apply(doc, intent)).As()
             .Map(static _ => unit)
@@ -724,16 +568,6 @@ public sealed record IntentLedger(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IntentApply {
-    // ONE decode-side dispatch, the generated total Switch over the closed family — a new case breaks
-    // this site at compile time. Register map, every root a CollabRoot row and every level below it a typed
-    // hop: Cells movable-list of cell-id strings; Meta map -> Key(cell) mergeable map (Kind/Patch) whose
-    // Source hop is the per-cell mergeable text container the TextRun arm and the live co-editor share;
-    // Comments map -> Key(topic) -> Key(guid) mergeable map; Notifications map -> Key(peer) inbox of
-    // guid-keyed Topic/At field maps; Rows map -> row JSON; Graph tree whose node meta carries the whole
-    // node row beside a Pins mergeable map of ordinal-keyed pin maps; Edges map -> Key(pair) mergeable map
-    // of endpoint field maps, wire columns, and an ordinal-keyed Waypoints map; Annotations map; Members
-    // map -> Key(peer) mergeable map of Identity/Role/State/Author/At columns; Issues map -> Key(guid)
-    // mergeable map of Status/Priority/Assignee/Attachment columns beside a Labels mergeable set.
     public static Fin<Unit> Apply(CollabDoc doc, EditIntent intent) =>
         intent.Switch(
             state: doc,
@@ -746,7 +580,6 @@ public static class IntentApply {
                 After(cells, m.After).Bind(to => CollabDoc.Lift(() => { cells.Mov(from, to); return unit; })))),
             cellDelete: static (doc, d) => WithCells(doc, cells => IndexOf(cells, d.CellId).Bind(at =>
                 CollabDoc.Lift(() => { cells.Delete(at, 1); return unit; }))),
-            // Optional viewpoint spreads into the same span, so one Write states the whole row and an absent viewpoint writes no key rather than a null one.
             commentAdd: static (doc, c) => WithComment(doc, c.TopicId, c.CommentId, row => row.Write([
                 (CollabColumn.Author, LoroVal.Of(c.Author)),
                 (CollabColumn.Body, LoroVal.Of(c.Body)),
@@ -773,16 +606,9 @@ public static class IntentApply {
                 insert: static (text, op) => CollabDoc.Lift(() => { text.Insert(op.At, op.Text); return unit; }),
                 delete: static (text, op) => CollabDoc.Lift(() => { text.Delete(op.At, op.Len); return unit; }),
                 mark: static (text, op) => CollabDoc.Lift(() => { text.Mark(op.From, op.To, op.Key, LoroVal.Of(op.Value)); return unit; }))),
-            // One hop onto the membership register's own fold, exactly as the graph arm hops onto its own:
-            // the write law lives with the vocabulary that declares it, so this dispatch stays the single
-            // decode-side site while the columns it writes stay readable only through their declaring rows.
             membership: static (doc, m) => MemberRegister.Apply(doc, m.Op),
             issueCommit: static (doc, i) => IssueRegister.Apply(doc, i.IssueGuid, i.Op));
 
-    // Every apply-path access is SCOPED through CollabDoc.Use: the root wrapper and each nested
-    // EnsureMergeable* handle free with the write, so replay and live edits leak no per-edit handles.
-    // Writes descend by hop because each CREATES the level it lands on, while a read of the same level
-    // resolves in one CollabAddress.Of(kind, CollabPath) pass, so only the mutating path re-walks.
     static Fin<Unit> WithCells(CollabDoc doc, Func<LoroMovableList, Fin<Unit>> write) =>
         doc.Use(CollabAddress.Of(CollabRoot.Cells), write);
 
@@ -799,14 +625,9 @@ public static class IntentApply {
         WithChild(doc, CollabRoot.Comments, topicId, topic =>
             CollabDoc.Nested(() => topic.EnsureMergeableMap(ContainerKey.Of(commentId).Value), write));
 
-    // One descent shape for every root -> Key(child) map write: roots ride the scoped resolve and children
-    // mint through EnsureMergeableMap, so no arm re-implements the hop.
     static Fin<Unit> WithChild(CollabDoc doc, CollabRoot root, ContainerKey key, Func<LoroMap, Fin<Unit>> write) =>
         doc.Use<LoroMap, Unit>(CollabAddress.Of(root), map => CollabDoc.Nested(() => map.EnsureMergeableMap(key.Value), write));
 
-    // Ordinal resolution over the id list: the movable list holds cell-id strings, so an id resolves by an
-    // indexed lazy Find over one ToVec pass — a missing id is a typed fault surfacing the divergent window,
-    // never a silent skip, and the search short-circuits at the hit without an index-arithmetic loop.
     static Fin<uint> IndexOf(LoroMovableList list, ContainerKey id) =>
         toSeq(list.ToVec())
             .Map(static (item, ordinal) => (Ordinal: (uint)ordinal, Value: new LoroVal(item)))
@@ -814,26 +635,13 @@ public static class IntentApply {
             .Map(static row => row.Ordinal)
             .ToFin(new KernelFault.InvalidValue("replay ordinal", $"{id.Value} must name an extant replay cell"));
 
-    // An ABSENT predecessor is the head insert: the option itself answers position zero, so no blank-string
-    // sentinel decides ordering and a real id that happened to be empty cannot take the head arm.
     static Fin<uint> After(LoroMovableList list, Option<ContainerKey> after) =>
         after.Match(Some: id => IndexOf(list, id).Map(static i => i + 1), None: () => Fin.Succ(0u));
 }
 
-// The graph correspondence whole, BOTH legs on one owner exactly as the membership and issue registers carry
-// theirs: `Apply` is the decode-side write law the `graphStructure` arm hops onto, and `ReadNodes`/`ReadEdges`
-// are its DECLARED INVERSE — the projections `Editing/graph#COEDIT_BRIDGE` `GraphCoEdit` binds as its read
-// columns, so a remote apply rebuilds the canvas from the same columns the write arm landed and a column written at one leg and unread at the other is unspellable.
 public static class GraphRegister {
     public static Fin<Unit> Apply(CollabDoc doc, GraphOp op) => op.Switch(
         state: doc,
-        // NodeAdd writes EVERY GraphNodeRow column onto the node meta map and each pin into its OWN
-        // mergeable map under the Pins hop, so ReadNodes rehydrates the complete row on cold replay and two
-        // peers editing different pins never collide in one flat key namespace. Containment, extent,
-        // rotation, and posture ride the same span: the hierarchy-move op commits a parent onto this tree,
-        // and a register stopping at position left a group, a frame, and a collapsed subgraph durable and
-        // unrehydratable. An absent parent writes NO key rather than a null one, so a root node and a node
-        // whose parent column was never written read identically.
         nodeAdd: static (doc, n) => WithNode(doc, tree => CollabDoc.Lift(() => tree.Create(new TreeParentId.Root()))
             .Bind(node => Meta(tree, node, meta => meta.Write([
                     (CollabColumn.Identity, LoroVal.Of(n.Row.Key)),
@@ -853,10 +661,6 @@ public static class GraphRegister {
             Meta(tree, target, meta => meta.Write(
                 (CollabColumn.X, LoroVal.Of(m.X)),
                 (CollabColumn.Y, LoroVal.Of(m.Y)))))),
-        // Identity-preserving reparent: MovTo relocates the node under its new parent at the index, so a
-        // co-edited canvas reorder never rides delete-plus-recreate losing node identity. The containment
-        // COLUMN moves with the node, because the tree position and the model row are one fact and a row
-        // still naming its old parent would fail the admission gate the remote apply re-runs.
         nodeMove: static (doc, m) => WithNode(doc, tree => NodeOf(tree, m.NodeId).Bind(target => m.Parent.Match(
             Some: parentId => NodeOf(tree, parentId).Bind(parent =>
                 CollabDoc.Lift(() => { tree.MovTo(target, new TreeParentId.Node(parent), m.Index); return unit; })
@@ -865,10 +669,6 @@ public static class GraphRegister {
                 .Bind(_ => Meta(tree, target, meta => meta.Erase(ContainerKey.Create(CollabColumn.Parent.Key))))))),
         nodeRemove: static (doc, n) => WithNode(doc, tree =>
             NodeOf(tree, n.NodeId).Bind(target => CollabDoc.Lift(() => { tree.Delete(target); return unit; }))),
-        // The edge row is a MERGEABLE MAP under the endpoint-pair key, never a flag leaf: identity keys the
-        // level and the GraphWire presentation writes as columns beside the two endpoint field maps, so
-        // ReadEdges rehydrates both GraphEndpoint values off declared columns instead of re-parsing the key,
-        // two peers restyling and re-labelling one wire converge, and the bends ride their own ordinal hop.
         edgeAdd: static (doc, e) => WithEdges(doc, edges =>
             CollabDoc.Nested(() => edges.EnsureMergeableMap(ContainerKey.Edge(e.From, e.To).Value), row => row.Write([
                     (CollabColumn.From, Endpoint(e.From)),
@@ -884,9 +684,6 @@ public static class GraphRegister {
                     Bends(bends, e.Wire.Waypoints))))),
         edgeRemove: static (doc, e) => WithEdges(doc, edges => edges.Erase(ContainerKey.Edge(e.From, e.To))));
 
-    // The two read columns `GraphCoEdit` binds. Both partition rather than filter: every sound level lands
-    // on Rows and every malformed one lands on Dropped carrying its ACCUMULATED absence, so the view law
-    // (drop the level, keep the canvas) survives while the drop stops being invisible. PartitionFallible runs the whole read in one pass and collects both branches.
     public static Fin<RegisterRead<GraphNodeRow>> ReadNodes(LoroTree tree) =>
         CollabDoc.Lift(() => toSeq(tree.Nodes()).Map(node => Node(tree, node).ToFin()))
             .Bind(static reads => reads.PartitionFallible().As())
@@ -903,14 +700,9 @@ public static class GraphRegister {
     static Fin<Unit> WithEdges(CollabDoc doc, Func<LoroMap, Fin<Unit>> write) =>
         doc.Use(CollabAddress.Of(CollabRoot.Edges), write);
 
-    // GetMeta mints a fresh Rust-pointer map per probe, so every node-column write rides the nested scope.
     static Fin<Unit> Meta(LoroTree tree, TreeId node, Func<LoroMap, Fin<Unit>> write) =>
         CollabDoc.Nested(() => tree.GetMeta(node), write);
 
-    // Each pin is its own ordinal-keyed mergeable map: the ordinal is a typed hop, never a slash-built key,
-    // and a pin column reads back through the same CollabColumn row that wrote it. The two package enums
-    // store as ORDINALS through the one enum leg on `LoroVal`, because `PinAlignment` and `PinDirection` are
-    // package enums carrying no key member and a name round-trip would fail silently as an absent column.
     static Fin<Unit> Slots(LoroMap pins, Seq<GraphPinRow> rows) =>
         rows.Map(static (pin, ordinal) => (Ordinal: ordinal, Pin: pin))
             .TraverseM(slot => CollabDoc.Nested(
@@ -924,8 +716,6 @@ public static class GraphRegister {
             .As()
             .Map(static _ => unit);
 
-    // A wire's bends take the pin shape exactly: an ordered sequence is ordinal-keyed mergeable cells, so a
-    // peer dragging one bend and a peer dragging another converge instead of replacing one waypoint list.
     static Fin<Unit> Bends(LoroMap bends, Seq<(double X, double Y)> points) =>
         points.Map(static (point, ordinal) => (Ordinal: ordinal, Point: point))
             .TraverseM(slot => CollabDoc.Nested(
@@ -936,18 +726,11 @@ public static class GraphRegister {
             .As()
             .Map(static _ => unit);
 
-    // An endpoint is a nested field map, not a delimited string: the pin is optional and an absent pin writes
-    // no key, so the endpoint that carries one and the endpoint that carries none are two shapes of one
-    // declared inverse rather than an empty segment a parser must guess at.
     static LoroVal Endpoint(GraphEndpoint endpoint) =>
         LoroVal.Of([
             (CollabColumn.Identity, LoroVal.Of(endpoint.NodeKey)),
             .. endpoint.PinKey.Map(static pin => (CollabColumn.Pin, LoroVal.Of(pin))).ToSeq()]);
 
-    // Every node op pays ONE linear walk with a GetMeta probe per candidate, because the Loro tree indexes
-    // by its own TreeId and the domain identity is a register column: a 500-node canvas reorder mints 500
-    // transient Rust maps. A domain-keyed index beside the tree is the rejected repair — a remote merge
-    // reparents and removes nodes this replica never asked about, so the index would answer stale on exactly the co-edit the register exists to serve.
     static Fin<TreeId> NodeOf(LoroTree tree, string nodeId) =>
         tree.Nodes().AsIterable()
             .Find(candidate => Identified(tree, candidate).Exists(key => key == nodeId))
@@ -958,10 +741,6 @@ public static class GraphRegister {
         return meta.Read(CollabColumn.Identity, static leaf => leaf.Text);
     }
 
-    // Identity and template JOIN applicatively over the accumulating carrier, so a level missing BOTH
-    // reports both: they are the two columns a row cannot address a palette template or a canvas node
-    // without. Every other column folds its own declared default, so a register written before a column
-    // existed rehydrates as a visible, unrotated, zero-extent node rather than dropping.
     static Validation<Error, GraphNodeRow> Node(LoroTree tree, TreeId node) {
         using LoroMap meta = tree.GetMeta(node);
         return (Required(meta, CollabColumn.Identity, static leaf => leaf.Text),
@@ -994,18 +773,13 @@ public static class GraphRegister {
                     Ordered(live, CollabColumn.Waypoints, Bend)))).As()))
             .IfNone(() => Validation<Error, GraphEdge>.Fail(new CollabFault.Detached($"edge level {key}")));
 
-    // The ONE required-column admission: absence becomes a NAMED cause on the accumulating carrier, so two
-    // missing columns are two causes on one answer where the Option join reported neither.
     static Validation<Error, A> Required<A>(LoroMap row, CollabColumn column, Func<LoroVal, Option<A>> project) =>
         row.Read(column, project).ToValidation<Error>(new CollabFault.Detached($"column {column.Key}"));
 
-    // The nested endpoint map reads back through the same field owner that wrote it, so an endpoint is a structural read and never a delimiter split.
     static Option<GraphEndpoint> End(LoroVal leaf) =>
         leaf.Field(CollabColumn.Identity, static held => held.Text)
             .Map(node => new GraphEndpoint(node, leaf.Field(CollabColumn.Pin, static held => held.Text)));
 
-    // Pins and bends stay on the Option rail: each is subordinate to a row whose own required columns
-    // already reported, so a malformed slot drops inside a level that either landed or is already named.
     static Option<GraphPinRow> Slot(LoroMap cell) =>
         cell.Read(CollabColumn.Identity, static leaf => leaf.Text).Map(key => new GraphPinRow(
             key,
@@ -1018,11 +792,6 @@ public static class GraphRegister {
         (cell.Read(CollabColumn.X, static leaf => leaf.Real),
          cell.Read(CollabColumn.Y, static leaf => leaf.Real)).Apply(static (x, y) => (X: x, Y: y));
 
-    // Ordinal-keyed mergeable levels read back IN ORDINAL ORDER, never in the register's key order: pins and
-    // bends are SEQUENCES, and a lexical key walk seats slot 10 ahead of slot 2 — a pin roster the admission
-    // gate then grades against the wrong direction and a wire whose bends render as a knot. Both descents —
-    // the hop and each ordinal cell under it — ride the register's own `Level` owner, so an absent hop reads
-    // the caller's empty sequence and no probe wrapper survives the walk.
     static Seq<A> Ordered<A>(LoroMap owner, CollabColumn hop, Func<LoroMap, Option<A>> read) =>
         owner.Level(hop, held => Some(toSeq(held.Keys())
                 .Choose(static key => uint.TryParse(key, CultureInfo.InvariantCulture, out uint ordinal)

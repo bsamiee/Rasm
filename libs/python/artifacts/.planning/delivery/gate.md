@@ -40,46 +40,37 @@ from rasm.runtime.identity import ContentKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# Admitted evidence shapes. Raster scores and the PAdES verdict ride their FLOOR receipt cases, so neither the S2
-# raster plane nor the S1 exchange plane is imported to read them; the three document audits and the extraction
-# audit arrive DECODED, because each is content-addressed at its producer and the composition root holds the bytes.
 type GateSource = ArtifactReceipt | StructureAudit | PreflightAudit | ArchiveAudit | TableAudit
 
 
-class Grade(StrEnum):  # the one severity ladder every family folds onto; rank is `_SEVERITY`, never declaration order
-    PASS = "pass"  # every coordinate the kind's policy names was measured and held
-    ADVISORY = "advisory"  # a measured coordinate missed a bar whose row declares the miss soft
-    UNMEASURED = "unmeasured"  # a demanded family never arrived, or a supplied family never carried the axis
-    REFUSE = "refuse"  # a measured coordinate missed a bar whose row declares the miss hard
+class Grade(StrEnum):
+    PASS = "pass"
+    ADVISORY = "advisory"
+    UNMEASURED = "unmeasured"
+    REFUSE = "refuse"
 
 
-class Bound(StrEnum):  # comparison direction, so a threshold literal never encodes its own direction in a name
-    FLOOR = "floor"  # the measured value must REACH the threshold
-    CEILING = "ceiling"  # the measured value must not EXCEED the threshold
+class Bound(StrEnum):
+    FLOOR = "floor"
+    CEILING = "ceiling"
 
 
-class GateFamily(StrEnum):  # the contributing verdict producers; this IS the `GateEvidence` case roster
-    RASTER = "raster"  # `graphic/raster/measure#MEASURE` scores off the `ArtifactReceipt.Preview` band
-    STRUCTURE = "structure"  # `document/tagged#ACCESS` ISO 14289 PDF/UA `StructureAudit`
-    PREFLIGHT = "preflight"  # `document/tagged#ACCESS` ISO 15930 PDF/X `PreflightAudit`
-    ARCHIVE = "archive"  # `document/tagged#ACCESS` ISO 19005 PDF/A `ArchiveAudit`
-    CONFORMANCE = "conformance"  # `exchange/conformance#CONFORMANCE` PAdES `ConformanceVerdict` off `ArtifactReceipt.Verdict`
-    LENS = "lens"  # `document/lens#LENS` `TableAudit` extraction coverage
+class GateFamily(StrEnum):
+    RASTER = "raster"
+    STRUCTURE = "structure"
+    PREFLIGHT = "preflight"
+    ARCHIVE = "archive"
+    CONFORMANCE = "conformance"
+    LENS = "lens"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# The ladder is DATA, so the fold is one `max` over an integer and a new grade is one member with one row. UNMEASURED
-# seats between ADVISORY and REFUSE: an axis nobody measured is a worse epistemic state than a measured miss and a
-# better one than a proved breach, and whether that state SHIPS is `KindPolicy.ships`, never this ordering.
 _SEVERITY: Final[frozendict[Grade, int]] = frozendict({Grade.PASS: 0, Grade.ADVISORY: 1, Grade.UNMEASURED: 2, Grade.REFUSE: 3})
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's whole raise roster, both rows TERMINAL: a source the grader cannot read and a family submitted twice
-# each refuse identically on every re-offer, and the repair is the caller's evidence set. The two stay separate
-# because the repairs differ — remove a duplicate versus supply a gradable source.
 GATE_REPEATED: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.GATE, point="evidence.census", arm="config", defect="repeated-family", retriability=TERMINAL, slots=("families",)
 )
@@ -92,14 +83,11 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([GATE_REPEA
 
 
 class Bar(Struct, frozen=True, gc=False):
-    # ONE threshold row over ONE named numeric axis. A clause failure is the scalar 1.0 under a CEILING of 0.0 and a
-    # boolean verdict field is 1.0/0.0 under a FLOOR of 1.0, so one policy grammar spans four heterogeneous producers.
-    # A graded ramp on one axis is TWO rows — an ADVISORY row beside a REFUSE row — never a second field.
     family: GateFamily
-    axis: str  # the PRODUCER's own field or score name; this page owns the family, never the foreign axis vocabulary
+    axis: str
     bound: Bound
     threshold: float
-    breach: Grade = Grade.REFUSE  # a declared bar states a requirement; softness is named at the row that wants it
+    breach: Grade = Grade.REFUSE
 
     def holds(self, measured: float, /) -> bool:
         match self.bound:
@@ -112,8 +100,6 @@ class Bar(Struct, frozen=True, gc=False):
 
 
 class Coordinate(Struct, frozen=True, gc=False):
-    # One graded axis on one artifact. `bar` rides the value rather than a re-lookup key, so a refusal reports the
-    # direction and threshold that graded it without the consumer re-entering the policy table.
     subject: ContentKey
     kind: ArtifactKind
     family: GateFamily
@@ -127,8 +113,6 @@ class Coordinate(Struct, frozen=True, gc=False):
         return cls(subject=subject, kind=kind, family=family, axis=axis, grade=_grade(bar, measured), measured=measured, bar=bar)
 
     def render(self) -> str:
-        # `family.axis@grade` is the ONE refusal token every consumer reads, so a refusal names the coordinate an
-        # office repairs rather than restating the verdict the caller already holds.
         return f"{self.family.value}.{self.axis}@{self.grade.value}"
 
     def facts(self) -> dict[str, object]:
@@ -145,8 +129,6 @@ class Coordinate(Struct, frozen=True, gc=False):
 
 
 class GateVerdict(Struct, frozen=True, gc=False):
-    # Singular and plural in ONE value: `combine` closes it over the whole issue set, so no `GateReport` sibling
-    # exists over a verdict block and a consumer reads one shape whether it gated one artifact or forty.
     grade: Grade
     subjects: tuple[ContentKey, ...]
     coordinates: tuple[Coordinate, ...]
@@ -154,19 +136,14 @@ class GateVerdict(Struct, frozen=True, gc=False):
 
     @property
     def failing(self) -> tuple[Coordinate, ...]:
-        # EVERY non-passing coordinate survives — the accumulating fold exists so one refusal reports every breach
-        # a single repair pass owes, and a first-failure slice hides the siblings that would fail the next run.
         return tuple(row for row in self.coordinates if row.grade is not Grade.PASS)
 
     @property
     def unmeasured(self) -> frozenset[GateFamily]:
-        # DERIVED off the rows; a stored set beside them is a mirror the next coordinate silently forks.
         return frozenset(row.family for row in self.coordinates if row.grade is Grade.UNMEASURED)
 
     @staticmethod
     def combine(left: "GateVerdict", right: "GateVerdict", /) -> "GateVerdict":
-        # Associative, commutative, idempotent on grade. `ships` CONJUNCTS because a transmittal ships as a unit:
-        # one artifact its own kind row refuses sinks the set, and a sibling's pass vouches for nothing about it.
         return GateVerdict(
             grade=_worst(left.grade, right.grade),
             subjects=(*left.subjects, *right.subjects),
@@ -175,7 +152,6 @@ class GateVerdict(Struct, frozen=True, gc=False):
         )
 
     def facts(self) -> dict[str, object]:
-        # Native scalars the receipts `EventDict` renderer serializes; a pre-`str()` coerce erases comparability.
         return {
             "grade": self.grade.value,
             "subjects": len(self.subjects),
@@ -191,10 +167,8 @@ class GateVerdict(Struct, frozen=True, gc=False):
 
 @tagged_union(frozen=True)
 class GateEvidence:
-    # Each case tag IS its `GateFamily` value — one vocabulary, gated below, so a supplied family resolves by tag
-    # with no second correspondence between the union and the enum.
     tag: Literal["raster", "structure", "preflight", "archive", "conformance", "lens"] = tag()
-    raster: frozendict[str, float | str] = case()  # the `ArtifactReceipt.Preview` scores band, verbatim
+    raster: frozendict[str, float | str] = case()
     structure: StructureAudit = case()
     preflight: PreflightAudit = case()
     archive: ArchiveAudit = case()
@@ -202,8 +176,6 @@ class GateEvidence:
     lens: TableAudit = case()
 
 
-# Load gate: the family vocabulary and the case roster are ONE declaration, so adding a case without its family
-# member (or the inverse) raises at import rather than reading UNMEASURED forever at a fold nobody watches.
 if frozenset(field for field in get_annotations(GateEvidence) if field != "tag") != frozenset(family.value for family in GateFamily):
     raise RuntimeError("GateFamily drifted from the GateEvidence case roster")
 ```
@@ -221,16 +193,10 @@ if frozenset(field for field in get_annotations(GateEvidence) if field != "tag")
 ```python signature
 # --- [POLICIES] -------------------------------------------------------------------------
 
-# ISO 14289, ISO 15930, and ISO 19005 conformance is BINARY, so a clause breach refuses by default. These are the
-# diagnostic clauses beside the normative set: a qpdf structural warning is evidence the audit captured, not a
-# conformance clause the standard names, so it advises the office rather than sinking the issue.
 _SOFT_CLAUSES: Final[frozenset[str]] = frozenset({UaCheck.SYNTAX.value})
 
 
 def _clause_bars(family: GateFamily, vocabulary: type[StrEnum], /) -> tuple[Bar, ...]:
-    # Every clause of the PRODUCER's own vocabulary earns a bar, so a new clause member is governed the moment its
-    # producer declares it. The projection is total — a passing clause reads 0.0 and a failing one 1.0 — so a clean
-    # audit never reads UNMEASURED on a clause the audit actually ran.
     return tuple(
         Bar(family, clause.value, Bound.CEILING, 0.0, Grade.ADVISORY if clause.value in _SOFT_CLAUSES else Grade.REFUSE)
         for clause in vocabulary
@@ -239,8 +205,6 @@ def _clause_bars(family: GateFamily, vocabulary: type[StrEnum], /) -> tuple[Bar,
 
 _STRUCTURE_BARS: Final[tuple[Bar, ...]] = (
     *_clause_bars(GateFamily.STRUCTURE, UaCheck),
-    # `structured_warnings` is the oracle's structure-diagnostic count — richer than any clause and normative in
-    # none of them, so it advises; `oracle_warnings` rides the same footing.
     Bar(GateFamily.STRUCTURE, "structured_warnings", Bound.CEILING, 0.0, Grade.ADVISORY),
     Bar(GateFamily.STRUCTURE, "oracle_warnings", Bound.CEILING, 0.0, Grade.ADVISORY),
 )
@@ -252,8 +216,6 @@ _ARCHIVE_BARS: Final[tuple[Bar, ...]] = (
     *_clause_bars(GateFamily.ARCHIVE, ArchiveCheck),
     Bar(GateFamily.ARCHIVE, "oracle_warnings", Bound.CEILING, 0.0, Grade.ADVISORY),
 )
-# Perceptual bars are THIS page's declared seed — no standard fixes them — laddered advisory-then-refuse per axis so
-# a drifting render warns before it sinks an issue. Axes are the score keys `graphic/raster/measure#MEASURE` folds.
 _RASTER_BARS: Final[tuple[Bar, ...]] = (
     Bar(GateFamily.RASTER, "ssim", Bound.FLOOR, 0.98, Grade.ADVISORY),
     Bar(GateFamily.RASTER, "ssim", Bound.FLOOR, 0.95),
@@ -264,31 +226,21 @@ _RASTER_BARS: Final[tuple[Bar, ...]] = (
     Bar(GateFamily.RASTER, "blur", Bound.CEILING, 0.60, Grade.ADVISORY),
     Bar(GateFamily.RASTER, "blur", Bound.CEILING, 0.75),
 )
-# Boolean verdict fields project as 1.0/0.0, so a FLOOR of 1.0 is "must hold" and a CEILING of 0.0 "must not".
 _CONFORMANCE_BARS: Final[tuple[Bar, ...]] = (
     Bar(GateFamily.CONFORMANCE, "signature_valid", Bound.FLOOR, 1.0),
     Bar(GateFamily.CONFORMANCE, "trusted", Bound.FLOOR, 1.0),
     Bar(GateFamily.CONFORMANCE, "revoked", Bound.CEILING, 0.0),
     Bar(GateFamily.CONFORMANCE, "signatures_broken", Bound.CEILING, 0.0),
-    Bar(GateFamily.CONFORMANCE, "fields_awaiting", Bound.CEILING, 0.0),  # an unsigned reserved field is an unfinished close
+    Bar(GateFamily.CONFORMANCE, "fields_awaiting", Bound.CEILING, 0.0),
     Bar(GateFamily.CONFORMANCE, "docmdp_ok", Bound.FLOOR, 1.0),
     Bar(GateFamily.CONFORMANCE, "seed_value_ok", Bound.FLOOR, 1.0),
     Bar(GateFamily.CONFORMANCE, "timestamp_valid", Bound.FLOOR, 1.0),
-    # eIDAS qualified standing is jurisdictional and archival timestamp renewal is a custody schedule, so neither
-    # sinks an otherwise-valid signature — both advise the office holding the record.
     Bar(GateFamily.CONFORMANCE, "qualified", Bound.FLOOR, 1.0, Grade.ADVISORY),
     Bar(GateFamily.CONFORMANCE, "archival_timestamps_valid", Bound.FLOOR, 1.0, Grade.ADVISORY),
 )
-# ONE row tuned per kind through `structs.replace`: an issue for construction demands long-term validation material
-# because the record outlives every certificate in it, while a bare conformance probe reports its absence.
 _LTV: Final[Bar] = Bar(GateFamily.CONFORMANCE, "ltv_complete", Bound.FLOOR, 1.0)
 _LTV_SOFT: Final[Bar] = structs.replace(_LTV, breach=Grade.ADVISORY)
-# Extraction coverage laddered like the perceptual band: a partially recovered table is a document a downstream
-# consumer silently under-reads, which is why a hard floor exists beneath the advisory one.
 _LENS_BARS: Final[tuple[Bar, ...]] = (
-    # the two RATIO axes `TableAudit` declares: `ruled` is ruling-line coverage (detected edges reaching at least
-    # one intersection) and `filled` the share of extracted cells carrying text — the false-positive guard. The raw
-    # counts (`tables`/`cells`/`intersections`) carry no document-free threshold, so no bar names them.
     Bar(GateFamily.LENS, "ruled", Bound.FLOOR, 0.95, Grade.ADVISORY),
     Bar(GateFamily.LENS, "ruled", Bound.FLOOR, 0.85),
     Bar(GateFamily.LENS, "filled", Bound.FLOOR, 0.98, Grade.ADVISORY),
@@ -297,11 +249,9 @@ _LENS_BARS: Final[tuple[Bar, ...]] = (
 
 
 class KindPolicy(Struct, frozen=True, gc=False):
-    # `families` is the DEMAND — a family named here and never supplied grades UNMEASURED, which is how a policy
-    # states "this kind must be measured" without any producer knowing a gate exists.
     families: frozenset[GateFamily]
     bars: tuple[Bar, ...]
-    ships: Grade = Grade.ADVISORY  # the worst grade this kind may ship; the ONE knob the transmittal gate reads
+    ships: Grade = Grade.ADVISORY
 
 
 _POLICY: Final[frozendict[ArtifactKind, KindPolicy]] = frozendict({
@@ -312,20 +262,13 @@ _POLICY: Final[frozendict[ArtifactKind, KindPolicy]] = frozendict({
     "egress": KindPolicy(frozenset({GateFamily.STRUCTURE}), _STRUCTURE_BARS),
     "document": KindPolicy(frozenset({GateFamily.STRUCTURE, GateFamily.LENS}), (*_STRUCTURE_BARS, *_LENS_BARS)),
     "verdict": KindPolicy(frozenset({GateFamily.CONFORMANCE}), (*_CONFORMANCE_BARS, _LTV_SOFT)),
-    # The issue-for-construction bar: the archival and extraction families are no part of an ISO 19650 issue close,
-    # so demanding them would refuse every honest transmittal — a policy strict past its own domain governs nothing.
     "transmittal": KindPolicy(
         frozenset({GateFamily.RASTER, GateFamily.STRUCTURE, GateFamily.PREFLIGHT, GateFamily.CONFORMANCE}),
         (*_RASTER_BARS, *_STRUCTURE_BARS, *_PREFLIGHT_BARS, *_CONFORMANCE_BARS, _LTV),
     ),
 })
-# DECLARED default, never a silent pass: an unlisted kind demands every family, carries no bar, and therefore grades
-# UNMEASURED — shipping only because its own row admits that grade, under a verdict that publishes its ignorance.
 _DEFAULT: Final[KindPolicy] = KindPolicy(frozenset(GateFamily), (), Grade.UNMEASURED)
 
-# Each STRUCT-backed family's admissible axes derive from the producer's own declaration joined with its clause
-# vocabulary. RASTER is the stated exemption — its score keys are an OPEN vocabulary a `Transform` row mints at fold
-# time — so a raster bar verifies against the live band and an unfolded score reads UNMEASURED, never PASS.
 _AXES: Final[frozendict[GateFamily, frozenset[str]]] = frozendict({
     GateFamily.STRUCTURE: frozenset(field.name for field in structs.fields(StructureAudit)) | frozenset(clause.value for clause in UaCheck),
     GateFamily.PREFLIGHT: frozenset(field.name for field in structs.fields(PreflightAudit)) | frozenset(clause.value for clause in PreflightCheck),
@@ -333,8 +276,6 @@ _AXES: Final[frozendict[GateFamily, frozenset[str]]] = frozendict({
     GateFamily.CONFORMANCE: frozenset(field.name for field in structs.fields(ConformanceVerdict)),
     GateFamily.LENS: frozenset(field.name for field in structs.fields(TableAudit)),
 })
-# Load gate: a bar naming an axis its producer never declares would read UNMEASURED forever, quietly degrading every
-# verdict of that kind. It raises HERE instead, so a renamed producer field breaks at import, never at an issue.
 _UNGOVERNED: Final[frozenset[str]] = frozenset(
     f"{bar.family.value}.{bar.axis}"
     for policy in (*_POLICY.values(), _DEFAULT)
@@ -360,16 +301,12 @@ if _UNGOVERNED:
 
 
 class QualityGate(Struct, frozen=True, gc=False):
-    # PER-ARTIFACT by construction: `subject` is one content key, so a repeated family names two artifacts and
-    # refuses. The issue-wide verdict is `GateVerdict.combine` over the per-artifact grades, never a wider gate.
     kind: ArtifactKind
     subject: ContentKey
     evidence: Block[GateEvidence] = Block.empty()
 
     @classmethod
     def of(cls, kind: ArtifactKind, subject: ContentKey, /, *sources: GateSource) -> RuntimeRail[Self]:
-        # ACCUMULATING admission: every ungradable source and the repeated-family census reduce through the
-        # associative `BoundaryFault.combine`, so one refusal reports the whole evidence set a caller must repair.
         admitted = Block.of_seq(sources).map(_admitted)
         held = admitted.choose(lambda outcome: outcome.to_option())
         repeated = frozenset(family for family, count in Counter(evidence.tag for evidence in held).items() if count > 1)
@@ -381,7 +318,6 @@ class QualityGate(Struct, frozen=True, gc=False):
         return Ok(cls(kind=kind, subject=subject, evidence=held)) if severed.is_empty() else Error(severed.reduce(BoundaryFault.combine))
 
     def graded(self) -> GateVerdict:
-        # TOTAL: every path answers a verdict, because a gate that can fail to grade is a gate a caller routes past.
         policy = _POLICY.get(self.kind, _DEFAULT)
         supplied = Map.of_seq([(evidence.tag, _measured(evidence)) for evidence in self.evidence])
         barred = Block.of_seq(policy.bars).map(
@@ -394,8 +330,6 @@ class QualityGate(Struct, frozen=True, gc=False):
                 supplied.try_find(bar.family.value).bind(lambda axes: Option.of_optional(axes.get(bar.axis))),
             )
         )
-        # A family the row DEMANDS and no evidence supplied is its own bar-less coordinate, so the `_DEFAULT` row —
-        # which carries no bar at all — still publishes absence instead of reducing to an empty PASS.
         unfed = Block.of_seq(sorted(policy.families - frozenset(GateFamily(evidence.tag) for evidence in self.evidence))).map(
             lambda family: Coordinate.of(self.kind, self.subject, family, family.value, Nothing, Nothing)
         )
@@ -410,15 +344,10 @@ class QualityGate(Struct, frozen=True, gc=False):
 
 
 def _worst(left: Grade, right: Grade, /) -> Grade:
-    # The monoid: associative, commutative, idempotent, `PASS` the identity — so no ordering of contributions can
-    # lower a verdict one breach already fixed, and a re-fold over the same coordinates is stable.
     return left if _SEVERITY[left] >= _SEVERITY[right] else right
 
 
 def _grade(bar: Option[Bar], measured: Option[float], /) -> Grade:
-    # ABSENCE at BOTH altitudes reads UNMEASURED: a family the policy demanded and no evidence supplied carries no
-    # bar, and an axis the supplied family never carried carries no measurement. Neither may read PASS — a bar that
-    # never ran certifies nothing, and certifying it would forge the verdict the whole page exists to prevent.
     match bar, measured:
         case Option(tag="some", some=row), Option(tag="some", some=value):
             return Grade.PASS if row.holds(value) else row.breach
@@ -427,9 +356,6 @@ def _grade(bar: Option[Bar], measured: Option[float], /) -> Grade:
 
 
 def _admitted(source: GateSource, /) -> RuntimeRail[GateEvidence]:
-    # Shape dispatch over the closed source union. An ungradable receipt REFUSES by name rather than dropping:
-    # silently ignoring handed evidence reads to the caller exactly like grading it, so the filter belongs at the
-    # composition root that selects an issue's gradable receipts, stated at that call site.
     match source:
         case ArtifactReceipt(tag="preview", preview=(_key, _width, _height, _bytes, scores)):
             return Ok(GateEvidence(raster=scores))
@@ -450,21 +376,14 @@ def _admitted(source: GateSource, /) -> RuntimeRail[GateEvidence]:
 
 
 def _numeric(evidence: Struct, /) -> frozendict[str, float]:
-    # Every native numeric field becomes a thresholdable axis with no per-field arm; `bool` coerces, so a verdict
-    # flag bars under FLOOR 1.0. Non-numeric fields (`level`, `failures`, `pdf_version`, the claim strings) carry no
-    # bar and drop — the import gate proves no policy row names one of them.
     return frozendict({name: float(value) for name, value in structs.asdict(evidence).items() if isinstance(value, float | int)})
 
 
 def _clauses(vocabulary: type[StrEnum], failures: tuple[StrEnum, ...], /) -> frozendict[str, float]:
-    # TOTAL over the vocabulary: a passing clause reads 0.0 and a failing one 1.0, so a clean audit never reads
-    # UNMEASURED on a clause it ran — projecting failures alone would make every pass indistinguishable from absence.
     return frozendict({clause.value: float(clause in failures) for clause in vocabulary})
 
 
 def _measured(evidence: GateEvidence, /) -> frozendict[str, float]:
-    # ONE normalized measurement plane per family. A raster band's string-valued scores (the `shift` tuple render)
-    # drop as unthresholdable, and a barred axis the band never carried grades UNMEASURED at `_grade`.
     match evidence:
         case GateEvidence(tag="raster", raster=scores):
             return frozendict({axis: float(value) for axis, value in scores.items() if isinstance(value, float | int)})
@@ -482,7 +401,7 @@ def _measured(evidence: GateEvidence, /) -> frozendict[str, float]:
             assert_never(unreachable)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ("Bar", "Bound", "Coordinate", "Grade", "GateEvidence", "GateFamily", "GateSource", "GateVerdict", "KindPolicy", "QualityGate")
 ```

@@ -110,23 +110,14 @@ if TYPE_CHECKING:
 type Chunk = Bytes | bytes
 type Acquired = Chunk | AsyncIterator[Chunk]
 type Fetched = tuple["ResourceRef", "RuntimeRail[Acquired]"]
-# both thunks take the acquisition span as a VALUE: the STREAM leg resumes under whichever context its consumer
-# drives it from, so a span read ambiently inside a leg is the consumer's span and not the acquisition's.
 type WholeFetch = Callable[["Span"], Awaitable[Chunk]]
 type StreamOpen = Callable[["Span"], AsyncGenerator[Chunk]]
 type Pool = tuple[str, str]
 
-# `Backend` IS `obstore.parse_scheme`'s own closed return literal, so the classification and the row family's key
-# column are one declaration every consumer imports rather than a second six-member roster to keep aligned.
 type Backend = Literal["s3", "gcs", "azure", "http", "local", "memory"]
-# `Arm` IS `TransportResource`'s own discriminant, so the union tag and the transport row family's key column are one
-# declaration rather than a second two-member roster to keep aligned.
 type Arm = Literal["http", "ssh"]
 type Config = "S3Config | GCSConfig | AzureConfig"
 type Provider = Callable[[], Any] | None
-# `Method` mirrors the obstore `HTTP_METHOD` presign literal (nine members). `Source` is the operation-bytes axis a
-# keying consumer digests: a byte-bearing op emits a zero-copy `Bytes`/`Buffer` whole or a `get_ranges` window tuple,
-# and a control-plane op emits `None` so no consumer mints a key over a path string or a server-opaque `e_tag`.
 type Method = Literal["GET", "PUT", "POST", "HEAD", "PATCH", "TRACE", "DELETE", "OPTIONS", "CONNECT"]
 type Meta = "ObjectMeta | PutResult | None"
 type Source = Buffer | Iterable[bytes] | None
@@ -141,20 +132,12 @@ class Delivery(StrEnum):
 
 
 class CachePosture(StrEnum):
-    # per-DESTINATION cache class, declared by the composition that admits the endpoint: `REVALIDATE` is the long-TTL
-    # RFC-9111 class every catalog root and package index takes, `BODY_KEYED` the same class for a body-varying POST
-    # search whose one URL the default request-identity key would alias into a single wrong entry, and `NEVER` the
-    # presigned-URL and credential class no store may ever hold. One global freshness rule expresses none of the three.
     REVALIDATE = "revalidate"
     BODY_KEYED = "body_keyed"
     NEVER = "never"
 
 
 class StoreRefusal(StrEnum):
-    # every refused `(backend, op)` cell names its own reason and the member value IS the operator-facing evidence
-    # `BoundaryFault` carries, exactly as the `data/tabular/lakehouse#LAKEHOUSE` `_REFUSAL` and
-    # `data/tabular/query#QUERY` `_REMOTE_REFUSAL` matrices state theirs — reject law is data on every owner, so an
-    # unreachable cell never rides out as a provider exception a caller cannot tell from a transport fault.
     SIGN_UNSUPPORTED = "presigning reaches the signing-capable backends alone; this scheme mints no signed url"
 
 
@@ -162,18 +145,6 @@ class StoreRefusal(StrEnum):
 
 
 class StoreBackend(Struct, frozen=True, gc=False):
-    # ONE store vocabulary for the whole branch: `backend` is `obstore.parse_scheme`'s own tag, `aliases` every URL scheme
-    # resolving to it, `kvstore` the native key-value driver name a chunk-store consumer opens under it, `signs`
-    # whether the backend mints presigned URLs, and `remote` whether a residence under it opens a STORE HANDLE at
-    # all. Every roster below is a comprehension over this one table, so a seventh backend is ONE row and no consumer
-    # is edited — the deleted forms are a hand-listed scheme frozenset, a re-declared backend literal, and a two-row
-    # driver map living beside a prose comment at a downstream consumer.
-    # Four further columns carry what a SELECTING reader needs and the mechanical ones never state: `fits` which
-    # residence this row IS, `admit` the entry that puts bytes into it, `lifetime` who ends those bytes, and
-    # `degrade` the honest concession taking it. Absent them every consumer re-derived a selection story out of
-    # `signs`/`remote`, which is how `remote` reads as "signs" at one call site and as "is reachable" at another.
-    # Tenancy is NOT a column here and never becomes one: a store backend isolates no tenant, the residence layout
-    # above it does, and a backend answering tenancy answers it by guess for every residence riding the scheme.
     backend: Backend
     aliases: frozenset[str]
     kvstore: str | None
@@ -182,15 +153,10 @@ class StoreBackend(Struct, frozen=True, gc=False):
     fits: str
     admit: str
     lifetime: str
-    # concessions no capability column expresses; the derived half rides `degrade` below.
     concedes: tuple[str, ...] = ()
 
     @property
     def degrade(self) -> tuple[str, ...]:
-        # DERIVED first and stated second: every cell the reach matrix refuses for this backend reads back as the
-        # capability it gives up, so flipping a capability column re-states the degradation with zero row edits, and
-        # only what no column expresses is spelled by hand. That split is the sibling
-        # `python:data/tabular/lakehouse#LAKEHOUSE` residence rows' own, so one reading serves both families.
         return (*(refusal.value for (backend, _op), refusal in _REFUSAL.items() if backend == self.backend), *self.concedes)
 
 
@@ -209,9 +175,6 @@ STORE_BACKENDS: Final[Block[StoreBackend]] = Block.of_seq([
         lifetime="the bucket's own policy; this branch deletes exactly what a `Delete` op names",
         concedes=("copy and rename cross the rail unretried on the same mutation-ambiguity law S3 takes",),
     ),
-    # `kvstore=None` is a SOURCE-VERIFIED absence, never an unfilled column: the tensorstore kvstore root drivers are
-    # exactly file/gcs/http/memory/s3/tsgrpc_kvstore, so obstore signs and reads Azure while a chunk-store consumer
-    # refuses it BY NAME off this column rather than resolving a phantom driver mid-leg.
     StoreBackend(
         "azure", frozenset({"az", "abfs", "abfss", "azure"}), None, True, True,
         fits="Azure Blob and ADLS residence — a full object plane this branch signs and reads, yet no chunk-store engine opens",
@@ -222,10 +185,6 @@ STORE_BACKENDS: Final[Block[StoreBackend]] = Block.of_seq([
             "copy and rename cross the rail unretried on the same mutation-ambiguity law S3 takes",
         ),
     ),
-    # `http` is the one row whose two boolean columns diverge for a reason rather than by coincidence: an http(s)
-    # residence is reachable, yet it is the `TransportResource` http arm — pooled, cached, proxied, status-hooked —
-    # that reads it, so `remote=False` keeps `read` off a store handle that would answer the same bytes with none of
-    # that policy. `local`/`memory` are process- or disk-local residences the filesystem arm and chunk engine serve.
     StoreBackend(
         "http", frozenset({"http", "https"}), "http", False, False,
         fits="a plain HTTP(S) artifact origin — a catalog root, a package index, a signed asset href — read, never written",
@@ -257,24 +216,11 @@ STORE_BACKENDS: Final[Block[StoreBackend]] = Block.of_seq([
     ),
 ])
 
-# alias -> row: the scheme-shaped resolver every `ResourceRef.scheme` consumer reads, beside `obstore.parse_scheme`
-# which stays the URL-shaped resolver — one vocabulary, two ingress shapes, never a second roster.
 STORE_SCHEMES: Final[Map[str, StoreBackend]] = Map.of_seq((alias, row) for row in STORE_BACKENDS for alias in row.aliases)
-# remote object-store residence set, derived off the column that ASSERTS it: a scheme outside this set never
-# opens a store handle. Deriving it off `signs` instead reads the same six rows today and is a coincidence, not a
-# law — the first signing-incapable remote backend, or the first local backend that mints signed urls, silently
-# re-routes every `read` in the branch with no row admitting it.
 OBJECT_STORE_SCHEMES: Final[frozenset[str]] = frozenset(alias for row in STORE_BACKENDS if row.remote for alias in row.aliases)
 
 
 class TransportArm(Struct, frozen=True, gc=False):
-    # What a SELECTING reader needs off the two `TransportResource` cases, which the `(Endpoint, RetryClass)` tuple
-    # never states: `fits` which origin this arm reaches, `admit` the entry that opens it, `lifetime` who ends the
-    # bytes and whatever connection carried them, `degrade` the honest concession taking it. Both arms answer every
-    # column with their OWN cell, because a pooled, cached, proxied HTTP dial and a per-call SFTP dial share no pool,
-    # no cache, no egress vocabulary, and no session custody. Tenancy is NOT a column here and never becomes one, on
-    # `StoreBackend`'s own reason: an arm isolates no tenant — the endpoint's confined root and its resolved
-    # credential do — so an arm answering tenancy answers it by guess for every endpoint riding it.
     arm: Arm
     fits: str
     admit: str
@@ -319,22 +265,17 @@ FANOUT: Final[int] = 12
 CONNECT_RETRIES: Final[int] = 2
 
 SSH_CONNECT_TIMEOUT: Final[float] = 10.0
-SSH_KEEPALIVE: Final[float] = 15.0  # idle-channel probe cadence: a NAT-dropped peer flips is_closed instead of lingering live
+SSH_KEEPALIVE: Final[float] = 15.0
 SSH_KEEPALIVE_MAX: Final[int] = 3
 
-# filesystem blocking-read bound: every roots thread hop rides this explicit CapacityLimiter, never the ambient default limiter.
 SCAN_BAND: Final[CapacityLimiter] = CapacityLimiter(8)
 TRANSPORT_TIMEOUT: Final[httpx.Timeout] = httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
 TRANSPORT_LIMITS: Final[httpx.Limits] = httpx.Limits(max_connections=16, max_keepalive_connections=8)
 
-# faults-owned scope stamp: `scoped` binds the version and semconv triple, so no page re-spells the pin.
 _TRACER: Final = scoped(trace.get_tracer, "rasm.runtime.transport.roots")
 
 
 class _Bypass(BaseFilter[Request]):
-    # a `FilterPolicy` request filter answering False forwards to the origin and returns AHEAD of the storage lookup,
-    # so one always-false filter IS the never-store posture: a presigned or credential endpoint neither reads nor
-    # writes a row. An empty `supported_methods` also stores nothing but still pays the lookup, so it is the weaker form.
     def needs_body(self) -> bool:
         return False
 
@@ -342,34 +283,19 @@ class _Bypass(BaseFilter[Request]):
         return False
 
 
-# posture -> policy thunk: each client owns its own policy value, so a row's filter list is never shared mutable
-# state across pools; `allow_stale` serves a stale entry when the origin is unreachable, and the POST method joins
-# `supported_methods` only on the body-keyed row, where the body IS the cache key.
 _CACHE_POLICY: Final[Map[CachePosture, Callable[[], CachePolicy]]] = Map.of_seq([
     (CachePosture.REVALIDATE, lambda: SpecificationPolicy(CacheOptions(shared=False, allow_stale=True))),
     (CachePosture.BODY_KEYED, lambda: SpecificationPolicy(CacheOptions(shared=False, allow_stale=True, supported_methods=["GET", "HEAD", "POST"]))),
     (CachePosture.NEVER, lambda: FilterPolicy(request_filters=[_Bypass()])),
 ])
 
-# posture -> the `RequestMetadata` keys every request under it carries. The body-key is a PER-REQUEST lever the proxy
-# reads beside the policy's own class flag (`policy.use_body_key or request.metadata["hishel_body_key"]`), so the
-# posture arms it here rather than through a policy subclass that would body-key every GET sharing the client too;
-# `_CACHE_POLICY` still widens `supported_methods`, because a POST is uncacheable before the key question arises.
-# `hishel_ttl` is the destination's own eviction horizon, so a catalog root outlives a volatile index without a second
-# keyed store, and the refresh flag makes a hot entry's TTL slide on access rather than expiring mid-fan-out.
 _CACHE_EXTENSIONS: Final[Map[CachePosture, dict[str, object]]] = Map.of_seq([
     (CachePosture.REVALIDATE, {"hishel_refresh_ttl_on_access": True}),
     (CachePosture.BODY_KEYED, {"hishel_body_key": True, "hishel_refresh_ttl_on_access": True}),
     (CachePosture.NEVER, {}),
 ])
 
-# reached cache decision as the provider publishes it: hishel stamps its `ResponseMetadata` onto the httpx
-# response extensions, so these three keys ARE the state machine's observable projection and header inference over
-# `Cache-Control`/`Age` is the deleted form.
 _CACHE_STATE: Final[Map[str, str]] = Map.of_seq([("hishel_from_cache", "served"), ("hishel_revalidated", "revalidated"), ("hishel_stored", "stored")])
-# `hishel_created_at` is a float rather than a flag, so it rides its own attribute rather than the state fold: a served
-# entry's own store timestamp is what turns "served" into an AGE a reader thresholds, and a request that reached the
-# origin carries none — absence is the origin reading, never a zero age standing in for one.
 _CACHE_STAMP: Final[str] = "hishel_created_at"
 
 
@@ -377,26 +303,14 @@ _CACHE_STAMP: Final[str] = "hishel_created_at"
 
 
 class TransferPlan(Struct, frozen=True):
-    # `at` is the rostered fence row this acquisition leg raises and retries through, so the span name, the retry
-    # keying, and the fault subject all derive from ONE declaration; the free `subject` string it replaces reached
-    # `guarded` as a raise coordinate no roster declared and spelled the span name a second time beside it.
     at: FaultRow[RuntimeLeg]
     retry_class: RetryClass
-    # the DEPENDENCY this acquisition reaches, at the grain the `CIRCUIT`/`RATES` rows are written at: a residence
-    # root, an HTTP destination identity, an SSH channel identity — never the per-object path. `at` names WHICH CALL
-    # raised and this names WHICH PEER it reached, and the failure window keys on the second alone, so one origin's
-    # arc spans every leg dialing it and one leg's arc never fuses two origins.
     origin: str
     whole: WholeFetch
     stream: StreamOpen
 
 
 class ResourceRef(Struct, frozen=True):
-    # residence coordinate WITH its credential: scheme, root, relative path, owner, and the obstore-native
-    # provider that root's store binds. The provider rides the ref rather than each consumer's own field because it
-    # already joins the store memo key as an axis — two refs differing only in provider ARE two residences, never one
-    # a caller re-credentials at the call site — so a consumer holding a ref holds everything a handle needs and the
-    # three spellings a per-consumer `provider`/`credentials` field grew fold onto this one column.
     scheme: str
     root: str
     relative: str
@@ -405,11 +319,6 @@ class ResourceRef(Struct, frozen=True):
 
     @classmethod
     def admit(cls, uri: str, owner: str, credentials: Provider = None) -> Self:
-        # A whole-object href still admits in ONE hop, but the ref preserves the store/object split `obstore` and
-        # `ObjectStoreRegistry.resolve` consume: the parent is the handle root and the final segment is the non-empty
-        # object key. Collapsing the full href into `root` makes a longest-prefix registry resolve the object to `""`,
-        # which no object store can read. `UPath` keeps a signed query on the final segment, so signed HTTP hrefs retain
-        # their complete request coordinate while rooted stores continue to mint deeper refs through `child`.
         path = UPath(uri)
         return cls(scheme=path.protocol or "file", root=str(path.parent), relative=path.name, owner=owner, credentials=credentials)
 
@@ -419,19 +328,12 @@ class ResourceRef(Struct, frozen=True):
 
 
 class Batch(Struct, frozen=True):
-    # plural acquisition evidence: every requested ref paired with its OWN rail, in request order. A refused
-    # ref carries its fault beside its siblings' payloads rather than collapsing the call, and a consumer wanting one
-    # rail over the whole batch folds these through the faults-owned `combine` monoid, never a second aggregation minted here.
     owner: str
     delivery: Delivery
     fetched: Block[Fetched]
 
 
 class HttpEndpoint(Struct, frozen=True):
-    # HTTP mirror of `RemoteEndpoint`: one destination identity carrying the credential, the declared cache
-    # posture, the egress hop, and the composition-admitted scratch root the keyed store lands under — so cache
-    # location, cache class, and egress policy are destination facts rather than global defaults or a hardcoded
-    # provider path. An absent `proxy` IS direct egress, so one row per destination expresses the whole policy.
     url: str
     cache_root: str
     posture: CachePosture = CachePosture.REVALIDATE
@@ -441,41 +343,23 @@ class HttpEndpoint(Struct, frozen=True):
 
     @property
     def key(self) -> str:
-        # destination grouping, cache class, and egress hop as ONE non-secret identity. `origin` is what makes the
-        # userinfo guard total: destination and proxy read the same projection, so the leak cannot hold on one and
-        # lapse on the other. The posture joins so two declarations over one host pool distinctly instead of
-        # colliding onto whichever landed first.
         return f"{origin(self.url)}:{self.posture}:{self.egress}"
 
     @property
     def egress(self) -> str:
-        # `egress` is a KEY axis because its credential is baked into the `Proxy` the pooled transport holds
-        # rather than passed per request: two callers proxying one hop under different credentials must be two
-        # transports, or the second rides the first's identity. The secret joins as the truncated one-way digest
-        # `RemoteEndpoint.key` uses — a stable non-secret fingerprint — and direct egress names itself.
         hop = Option.of_optional(self.proxy).map(origin).default_value("direct")
         secret = self.proxy_auth.map(lambda held: hashlib.sha256(held.get_secret_value().encode()).hexdigest()[:16]).default_value("-")
         return f"{hop}:{secret}"
 
     @property
     def cache(self) -> str:
-        # keyed store paths derive from the admitted root and a digest of the destination key, so two destinations
-        # never share rows and no path is spelled at a call site; the provider's CWD-relative default is the deleted form.
         return str(UPath(self.cache_root) / f"{hashlib.sha256(self.key.encode()).hexdigest()[:16]}.sqlite3")
 
     @property
     def pool(self) -> Pool:
-        # client memo axes as ONE hashable tuple of PLAIN strings: `key` already spans destination, posture, and
-        # egress, and the admitted store path is the one axis it cannot derive. An `httpx.Proxy` value here keys the
-        # memo by object identity and forks a pool per call site; a bearer or proxy secret here keys it by secret.
-        # `_transport_client` reads the endpoint itself, so neither has to ride the key to reach the constructor.
         return (self.key, self.cache)
 
     def confined(self, relative: str, /) -> "RuntimeRail[str]":
-        # `httpx.URL.join` is RFC 3986, which is exactly why the join alone gates nothing — `../`, a leading `/`, and a whole
-        # absolute URL each REPLACE what they escape — so the resolved child reads back against the root on origin as
-        # well as path. The root normalizes to a directory BEFORE the join, since RFC join otherwise drops the root's
-        # last segment; an empty relative addresses the endpoint URL itself.
         base = httpx.URL(self.url if self.url.endswith("/") else f"{self.url}/")
         target = base.join(relative)
         inside = (target.scheme, target.host, target.port) == (base.scheme, base.host, base.port) and _segmented(base.path, target.path)
@@ -489,36 +373,24 @@ class HttpEndpoint(Struct, frozen=True):
 
 
 class RemoteEndpoint(Struct, frozen=True):
-    # one SSH channel identity for BOTH consumers — the SFTP legs below and the workers REMOTE exec arm; `python`
-    # names the far interpreter the workers floor entry runs, and `known_hosts` is required so a disabled-verification
-    # endpoint is unspellable by construction.
     host: str
     known_hosts: asyncssh.SSHKnownHosts
     port: int = 22
     python: str = "python3"
     password: Option[SecretStr] = Nothing
-    root: str = "."  # the one remote root the SFTP legs may read under; "." confines to the session's landing directory
+    root: str = "."
 
     @property
     def key(self) -> str:
-        # arm identity spans the far interpreter AND the credential/trust posture — two endpoints on one host:port
-        # whose `python`, confinement root, password custody, or trust store differ memoize as distinct pool arms
-        # rather than colliding onto one channel dialed under the OTHER caller's settings. The password axis rides a
-        # truncated one-way digest (a stable non-secret fingerprint, never the raw secret), and the parsed trust
-        # store rides its process-local object identity — the boundaries memo-key law's id() axis for a foreign
-        # value whose content no public surface recovers; distinct-content stores can only over-partition, never alias.
         secret = self.password.map(lambda held: hashlib.sha256(held.get_secret_value().encode()).hexdigest()[:16]).default_value("-")
         return f"{self.host}:{self.port}:{self.python}:{self.root}:{secret}:kh{id(self.known_hosts):x}"
 
     def confined(self, relative: str, /) -> "RuntimeRail[str]":
-        # requests normalize as a POSIX path, so only the root-joined confined path ever reaches an SFTP open and
-        # a refusal costs no dial — never a dialed-then-denied read.
         normalized = posixpath.normpath(relative)
         escaped = relative.startswith("/") or normalized == ".." or normalized.startswith("../")
         return Error(ROOTS_TRAVERSAL.raised(self.key, relative)) if escaped else Ok(posixpath.join(self.root, normalized))
 
     async def dialed(self) -> asyncssh.SSHClientConnection:
-        # one asyncssh dial serves the whole branch; every consumer registers the returned connection on its own lifetime owner.
         return await asyncssh.connect(self.host, port=self.port, options=_ssh_options(self.password, self.known_hosts))
 
 
@@ -609,31 +481,22 @@ class StoreOp:
 
 
 class StoreOutcome(Struct, frozen=True):
-    # payload-agnostic transport evidence: what the operation moved, what the provider reported, the operation bytes
-    # a keying consumer digests, and the handle a streaming caller holds. It carries NO content key, quantity unit,
-    # or reuse verdict — those are the composing tier's, which is exactly where the receipt boundary falls.
     operation: str
     path: str
     quantity: int
     meta: Meta
     source: Source
     payload: Any = None
-    # `gate` settled this call and no provider call ran; the composing tier reads it as its own by-reference verdict.
     settled: bool = False
 
 
 @tagged_union(frozen=True)
 class StoreFault(Exception):
-    # Object absence is a typed provider verdict rather than a message a consumer parses or a generic boundary
-    # failure it aliases to absence. Every other store raise retains the runtime fault classifier's own case.
     tag: Literal["missing"] = tag()
     missing: str = case()
 
 
 class StoreStream:
-    # Managed pull surface over GetResult.stream: the provider iterator never escapes without its fault fence, and
-    # one ResourceGuard rejects overlapping pulls before the foreign iterator reports frame re-entry. Pull returns
-    # Option so exhaustion is data and every provider failure remains a RuntimeRail refusal.
     def __init__(self, chunks: "BytesStream", path: str) -> None:
         self._chunks, self._path, self._guard = chunks, path, anyio.ResourceGuard(action="draining")
 
@@ -647,15 +510,11 @@ class StoreStream:
 
 @tagged_union(frozen=True)
 class StoreAdmission:
-    # two gate answers: DISPATCH the op at the provider, or SETTLE the call with an outcome no provider made — a
-    # by-reference no-op the composing tier already proved against its own prior evidence. Reach refuses ahead of the
-    # gate, so a settled call is always a reachable one.
     tag: Literal["dispatch", "settled"] = tag()
     dispatch: StoreOp = case()
     settled: StoreOutcome = case()
 
 
-# no-policy gate: a consumer owning no mutation semantics binds nothing and every op dispatches.
 _ADMIT: Final[StoreGate] = lambda op, _target: Ok(StoreAdmission(dispatch=op))
 
 
@@ -663,8 +522,6 @@ class _StoreRow(Struct, frozen=True):
     sync: Callable[..., Any]
     aio: Callable[..., Any]
     plan: Callable[[StoreOp, str], Call]
-    # `read`'s `Source` slot is operation bytes for a byte-bearing row, `None` for a control-plane row so no consumer
-    # keys over a path string; its trailing slot is the handle or URL batch the outcome carries as `payload`.
     read: Callable[[StoreOp, str, Any], Read]
     path: Callable[[StoreOp, str], str]
     retry: RetryClass | None = RetryClass.OBJECT_STORE
@@ -674,25 +531,16 @@ class _StoreRow(Struct, frozen=True):
 
 
 def origin(url: str) -> str:
-    # `scheme://host:port` off `hostname`/`port`, NEVER the raw `netloc`: netloc carries `user:password@` userinfo,
-    # which keys a pool by secret rather than by destination. Every url a key axis reads crosses THIS fold — the
-    # pool grouping and egress hop below, and every `reliability/resilience#RESILIENCE` `guarded(on=)` peer, whose
-    # `Dependency.instance` is written at exactly this grain. It is PUBLIC for that reason: a consumer keying an arc
-    # on a raw href splits one origin's window across every object it reads, so no arc reaches its trip; and a
-    # consumer keying one on a DSN publishes the password onto the `rasm.peer` span attribute. One fold forecloses both.
     parsed = urlsplit(url)
     return f"{parsed.scheme}://{parsed.hostname}:{parsed.port}" if parsed.port else f"{parsed.scheme}://{parsed.hostname}"
 
 
 def _segmented(base: str, child: str) -> bool:
-    # `/root-evil/x` carries the `/root` string prefix and none of its segments, so a prefix test admits exactly the
-    # sibling root this fold refuses.
     root = base.rstrip("/").split("/")
     return posixpath.normpath(child).split("/")[: len(root)] == root
 
 
 class _BearerAuth(httpx.Auth):
-    # `.get_secret_value()` runs exactly once, here at the transport seam; the bound `_header` is the only `str` the credential becomes.
     def __init__(self, token: SecretStr) -> None:
         self._header = f"Bearer {token.get_secret_value()}"
 
@@ -706,9 +554,6 @@ def _auth(bearer: Option[SecretStr]) -> httpx.Auth | None:
 
 
 def _proxy(url: str | None, secret: Option[SecretStr]) -> "httpx.Proxy | None":
-    # ONE `Proxy` mint beside the proxy credential's ONE un-mask, seated with `_auth` at the transport seam:
-    # `user:password` splits into the `auth` pair here, so the secret never rides the `proxy` url the key digests, and
-    # `httpx`'s own userinfo strip has nothing left to catch. An absent url IS direct egress.
     pair = secret.map(lambda held: held.get_secret_value().partition(":")).map(lambda split: (split[0], split[2])).to_optional()
     return None if url is None else httpx.Proxy(url, auth=pair)
 
@@ -716,11 +561,6 @@ def _proxy(url: str | None, secret: Option[SecretStr]) -> "httpx.Proxy | None":
 class Transfer:
     @staticmethod
     async def run(plan: TransferPlan, delivery: Delivery) -> RuntimeRail[Acquired]:
-        # ONE acquisition span per plan, opened HERE rather than inside a leg, because the STREAM arm's provider open
-        # runs on a thunk the consumer drives later: a span read ambiently in that leg stamps the cache decision onto
-        # whatever the consumer happens to hold — a fold, an index build, or nothing. The span therefore rides the
-        # thunks as a value and attaches only on the WHOLE leg, whose frame runs straight through so the instrumented
-        # origin call parents beneath it; `_Fenced` ends it for the STREAM leg at exhaustion or `aclose`.
         span = _TRACER.start_span(f"transport.{plan.at.point}", kind=SpanKind.CLIENT)
         match delivery:
             case Delivery.STREAM:
@@ -733,11 +573,6 @@ class Transfer:
 
 
 class _Fenced:
-    # ONE custody-and-span bracket every STREAM leg crosses, so neither fact is spelled at four legs. The guard seats
-    # at `__anext__` AHEAD of the delegation because a leg's own generator frame cannot hold it: a second concurrent
-    # pull re-enters that frame and the interpreter raises an untyped `RuntimeError` naming the frame rather than the
-    # provider session the two pulls interleave on. `ResourceGuard` detects OVERLAP rather than ownership, so a
-    # sequential hand-off between tasks stays lawful and only a live second puller takes `BusyResourceError`.
     def __init__(self, chunks: AsyncGenerator[Chunk], span: "Span") -> None:
         self._chunks, self._span, self._guard = chunks, span, anyio.ResourceGuard(action="draining")
 
@@ -745,15 +580,11 @@ class _Fenced:
         return self
 
     async def __anext__(self) -> Chunk:
-        # two-argument `anext` keeps exhaustion a VALUE, so the terminal span end and the protocol's own
-        # `StopAsyncIteration` compose as one expression instead of an except arm wrapped around the drain.
         with self._guard:
             chunk = await anext(self._chunks, None)
         return chunk if chunk is not None else self._ended()
 
     async def aclose(self) -> None:
-        # an abandoned stream releases the leg's exit stack and the span in ONE hop: `aclose` raises `GeneratorExit`
-        # into the suspended `yield`, the stack unwinds in reverse, and no span outlives the acquisition it timed.
         await self._chunks.aclose()
         self._span.end()
 
@@ -763,8 +594,6 @@ class _Fenced:
 
 
 def _scanned(ref: ResourceRef) -> TransferPlan:
-    # filesystem plan and `scan` band registration are ONE hop, so the band opens on the first acquisition
-    # that will actually borrow the limiter and a process reading only object stores publishes no always-zero level.
     _banded()
     return TransferPlan(
         ROOTS_SCAN,
@@ -776,9 +605,6 @@ def _scanned(ref: ResourceRef) -> TransferPlan:
 
 
 def _listing(store: ObjectStore, prefix: str, *, offset: str | None, delimiter: bool) -> int:
-    # `list_with_delimiter(return_arrow=True)["objects"]` is one arro3 `Table`: its `num_rows` IS the
-    # count, read directly (iterating a `Table` yields `ChunkedArray` COLUMNS, not row batches); the
-    # recursive `list` yields `RecordBatch` chunks summed by `num_rows`.
     if delimiter:
         return obstore.list_with_delimiter(store, prefix, return_arrow=True)["objects"].num_rows
     return sum(batch.num_rows for batch in obstore.list(store, prefix, offset=offset, chunk_size=LIST_CHUNK, return_arrow=True))
@@ -946,23 +772,14 @@ _ROUTE: Final[Map[str, _StoreRow]] = Map.of_seq([
 ])
 
 
-# `(backend, tag)` reach matrix DERIVED off the row family's own capability columns: a backend whose `signs` column is
-# false lands its `sign` refusal without a transcribed cell, so a seventh row arrives already gated. An absent cell is
-# reachable and rides its `_ROUTE` row; a cell no capability column answers lands as one explicit row beside this fold.
 _REFUSAL: Final[Map[tuple[Backend, str], StoreRefusal]] = Map.of_seq(
     ((row.backend, "sign"), StoreRefusal.SIGN_UNSUPPORTED) for row in STORE_BACKENDS if not row.signs
 )
 
-# the store plane's whole raise surface, NAMED rather than funnelled: `BaseError` roots every `obstore.exceptions`
-# leaf, and the two projection classes are the ones the row fold itself can raise — `_ROUTE[op.tag]` is a raw index
-# and `row.plan`/`row.sync` reach provider members by attribute. A bare `Exception` here is the banned funnel, while
-# `BaseError` ALONE lets a row-projection defect escape the rail as a raise no consumer of this surface can carry.
 _STORE_RAISES: Final[Catch] = (BaseError, StoreFault, KeyError, AttributeError)
 
 
 def store_path(op: StoreOp, target: str) -> str:
-    # ONE path projection over the op axis: the outcome reads it and a gate building a pre-flight mutation fact
-    # reads the same fold, so the destination a governance tap sees and the destination the receipt names cannot diverge.
     return _ROUTE[op.tag].path(op, target)
 
 
@@ -978,10 +795,6 @@ class ResourceRoot(Struct, frozen=True):
     scheme: str
     root: str
     owner: str
-    # obstore-native credential provider this root's store binds — `auth.planetary_computer` and `auth.earthdata`
-    # own token refresh inside the handle, so a long fan-out re-signs transparently and no consumer tracks an expiry
-    # it cannot renew. It joins the store memo key, so two roots differing only in provider never share a handle, and
-    # `child` STAMPS it onto every ref this root mints so a consumer downstream of the traversal gate carries it too.
     credentials: Provider = None
 
     @classmethod
@@ -990,8 +803,6 @@ class ResourceRoot(Struct, frozen=True):
         return cls(scheme=path.protocol or "file", root=str(path), owner=owner, credentials=credentials)
 
     def child(self, relative: str) -> RuntimeRail[ResourceRef]:
-        # `resolve` on BOTH sides is what makes the compare honest: a symlink or `..` inside either path resolves
-        # before containment reads it, so the gate answers on the location reached and not the location spelled.
         base = UPath(self.root)
         resolved = (base / relative).resolve()
         return (
@@ -1003,12 +814,6 @@ class ResourceRoot(Struct, frozen=True):
     async def read(
         self, source: ResourceRef | Block[ResourceRef], delivery: Delivery = Delivery.WHOLE, known: Option[str] = Nothing
     ) -> RuntimeRail[Acquired | Batch]:
-        # ONE acquisition entry over both arities, discriminating on the VALUE's own shape: a `read_many` sibling
-        # forks the plan, the delivery axis, and the validator thread at a second site for one concept. `known`
-        # carries the caller's PRIOR provider validator — the `e_tag` its last read reported — threaded as the
-        # `if_none_match` precondition so an unchanged remote answers `NotModifiedError` the fence lifts instead of
-        # re-downloading a payload the identity fold discards. It is the origin's own opaque validator, never a branch
-        # `ContentKey`: our digest names our bytes and no origin ever compares against it.
         match source:
             case Block() as refs:
                 return await self._fan(refs, delivery, known)
@@ -1021,11 +826,6 @@ class ResourceRoot(Struct, frozen=True):
         return await Transfer.run(self._plan(ref, known), delivery)
 
     async def _fan(self, refs: Block[ResourceRef], delivery: Delivery, known: Option[str]) -> RuntimeRail[Batch]:
-        # `_fan` drives the SAME per-ref plan a single acquisition takes through one task group, so filesystem hops
-        # still queue on `SCAN_BAND` and every store hop still crosses its own `OBJECT_STORE` envelope — the batch
-        # buys concurrency and NOT a second bound. Each child answers with its own rail rather than raising, so a
-        # refused ref cancels no sibling and the batch stays TOTAL: partial evidence is what a caller re-drives from,
-        # where an all-or-nothing collapse discards every result the one failure never touched.
         async with anyio.create_task_group() as fan:
             handles = refs.map(lambda ref: fan.start_soon(self._fetch, ref, delivery, known))
         return Ok(Batch(owner=self.owner, delivery=delivery, fetched=refs.zip(handles.map(lambda held: held.return_value))))
@@ -1046,31 +846,19 @@ class ResourceRoot(Struct, frozen=True):
         )
 
     def _store(self, ref: ResourceRef) -> ObjectStore | None:
-        # REF credential, never the root's: `child` stamps the root's provider onto every ref it mints, so the
-        # two agree by construction, and reading the ref is what lets a caller holding one alone open the same handle.
         return _object_store(ref.root, ref.credentials) if ref.scheme in OBJECT_STORE_SCHEMES else None
 
 
 class ObjectStoreLane(Struct, frozen=True):
     ref: ResourceRef
     store: ObjectStore
-    # `backend` holds the provider's OWN closed classification, resolved once beside the handle `store_handle` builds
-    # off the same root — the reach matrix keys on it, so no cell probes a store's runtime class or re-parses the URL.
     backend: Backend = "memory"
 
     @classmethod
     def of(cls, ref: ResourceRef, config: Config | None = None, client_options: "ClientConfig | None" = None) -> ObjectStoreLane:
-        # ONE handle mints per lane, pinned to a single provider attempt, so every row — replay-safe or mutation-
-        # ambiguous — is invoked exactly once inside whatever curve its `retry` column names, and the two-handle split
-        # that existed only to cancel a nested provider schedule is gone. Credentials arrive on the REF and never as a
-        # parameter beside it — a lane credentialed apart from its residence is two credential resolutions the one
-        # memo key cannot serve, which is a second ref rather than a knob on this one.
         return cls(ref=ref, store=store_handle(ref, config=config, client_options=client_options), backend=obstore.parse_scheme(ref.root))
 
     def reached(self, op: StoreOp) -> RuntimeRail[StoreOp]:
-        # capability bound as data: a cell this backend cannot serve answers its own reason ahead of every provider
-        # call, so a `sign` against a local, memory, or http store never reaches the provider's `NotSupportedError`
-        # and surfaces as an untyped boundary fault a caller cannot tell from a transport failure.
         refused = _REFUSAL.try_find((self.backend, op.tag))
         return refused.map(lambda refusal: Error(ROOTS_UNSUPPORTED.raised(op.tag, refusal.value))).default_value(Ok(op))
 
@@ -1082,8 +870,6 @@ class ObjectStoreLane(Struct, frozen=True):
     async def run_async(self, op: StoreOp, path: str = "", *, gate: StoreGate = _ADMIT) -> RuntimeRail[StoreOutcome]:
         target = path or self.ref.relative
         with self._span(op):
-            # prologue crosses a `match` rather than a `bind` because the fenced leg is awaited, and `assert_never`
-            # keeps the arms total over the carrier — an unclosed two-arm match falls through returning `None` past the declared rail.
             match self._admitted(op, target, gate):
                 case Result(tag="error", error=fault):
                     return Error(fault)
@@ -1093,8 +879,6 @@ class ObjectStoreLane(Struct, frozen=True):
                     assert_never(unreachable)
 
     def _admitted(self, op: StoreOp, target: str, gate: StoreGate) -> RuntimeRail[StoreAdmission]:
-        # ONE prologue both entrypoints read: reach answers an unreachable cell BEFORE the caller's gate fires and
-        # before any provider call, then the gate fires its own pre-flight points and may settle the call outright.
         return self.reached(op).bind(lambda admitted: gate(admitted, target))
 
     def _settled(self, admission: StoreAdmission, target: str) -> RuntimeRail[StoreOutcome]:
@@ -1142,7 +926,6 @@ class ObjectStoreLane(Struct, frozen=True):
             raise StoreFault(missing=store_path(op, target)) from cause
 
     def _span(self, op: StoreOp) -> "AbstractContextManager[Span]":
-        # kind=CLIENT: the store transport is the outbound network leg, a local/memory scheme its degenerate client.
         return _TRACER.start_as_current_span(
             f"store.{op.tag}", kind=SpanKind.CLIENT, attributes={"rasm.store.scheme": self.ref.scheme, "rasm.store.backend": self.backend}
         )
@@ -1158,12 +941,7 @@ class TransportResource:
         match self:
             case TransportResource(tag="http", http=(endpoint, retry_class)):
                 client, auth = _transport_client(endpoint), _auth(endpoint.bearer)
-                # posture-owned per-request cache levers ride the httpx extensions the proxy reads as `RequestMetadata`,
-                # so body-keying and TTL refresh are decisions of THIS destination's requests rather than of every
-                # request sharing the pooled client.
                 carry = dict(_CACHE_EXTENSIONS[endpoint.posture])
-                # `confined` gates before any request, exactly as the ssh arm gates before any dial: the http legs
-                # receive only a url resolved under the endpoint's own root.
                 planned = endpoint.confined(relative).map(
                     lambda url: TransferPlan(
                         ROOTS_HTTP,
@@ -1174,7 +952,6 @@ class TransportResource:
                     )
                 )
             case TransportResource(tag="ssh", ssh=(endpoint, retry_class)):
-                # `confined` gates before any dial: the SFTP legs receive only the root-joined validated path.
                 planned = endpoint.confined(relative).map(
                     lambda confined: TransferPlan(
                         ROOTS_SSH,
@@ -1203,12 +980,7 @@ async def _raise_for_status(response: httpx.Response) -> None:
 
 
 def _cached(response: httpx.Response, span: "Span") -> None:
-    # reached cache state stamped on the acquisition span its own plan opened, read off the extensions the cache
-    # proxy publishes: an absent key set means the request reached the origin, so "origin" is a measured reading
-    # rather than a filled zero.
     span.set_attribute("rasm.transport.cache", ",".join(name for key, name in _CACHE_STATE.items() if response.extensions.get(key)) or "origin")
-    # stored-at stamps land ONLY where the provider published one — an origin response carries no entry age, and a
-    # zero there would read to a freshness board as a row stored at the epoch rather than as a row that never existed.
     match response.extensions.get(_CACHE_STAMP):
         case float() | int() as stored_at:
             span.set_attribute("rasm.transport.cache.stored_at", float(stored_at))
@@ -1223,22 +995,12 @@ def store_handle(
     client_options: "ClientConfig | None" = None,
     provider: Provider = None,
 ) -> ObjectStore:
-    # ONE `from_url` spelling in the branch, and ONE handle shape: every store this page opens pins the Rust core to a
-    # single attempt, so `RetryClass` owns the whole curve and no operation is invoked under two schedules whose
-    # effective attempt count is their PRODUCT. `obstore.store.RetryConfig` is a TYPE_CHECKING TypedDict rather than a
-    # runtime constructor, so the pin is the inlined literal. A caller-supplied `retry_config` is the deleted knob,
-    # deleting the zero-retry twin handle it forced with it — a `retry=None` row was already invoked exactly once by
-    # this pin. `ResourceRef` opens off its own two columns — root and credentials — so `provider=` admits only beside
-    # a bare string root: the two-value join re-spells at the call site the custody the ref already carries, and one
-    # handle opened from two values is the form the ref column exists to delete.
     root, bound = (source.root, source.credentials) if isinstance(source, ResourceRef) else (source, provider)
     return from_url(root, config=config, client_options=client_options, retry_config={"max_retries": 0}, credential_provider=bound)
 
 
 @cache
 def _object_store(root: str, provider: Provider = None) -> ObjectStore:
-    # `provider` is the second memo axis and rides its own object identity — a live credential handle whose content
-    # no public surface recovers, the boundaries memo-key law's id() case. Distinct instances can only over-partition.
     return store_handle(root, provider=provider)
 
 
@@ -1248,28 +1010,14 @@ _PROBES: Final[ExitStack] = ExitStack()
 
 @cache
 def _banded() -> None:
-    # `scan` band registration, exactly once per process: `Metrics.occupied` keys on the probe OBJECT, so a
-    # second registration of one module-level probe adds an entry the single retire cannot tell from the first — the
-    # memo IS that once-guard, and `SCAN_BAND` is module-scope with no lifetime a bare `with` could bracket instead.
     _PROBES.enter_context(Metrics.occupied(lambda: SCAN_BAND.borrowed_tokens, band="scan"))
 
 
 def _transport_client(endpoint: HttpEndpoint) -> httpx.AsyncClient:
-    # ONE memo keyed by the endpoint's plain-string `pool`, and the map IS the drainable handle — `functools.cache`
-    # surrenders no value enumeration to `drain`, which is why the pair it forced (a memo beside a live set) folds
-    # onto this one map. The membership guard precedes the mint, since a `setdefault` builds a client per call and
-    # discards every one but the first. The memo rides the TRANSPORT seam, so this long-lived client keeps its
-    # timeout, auth, and status hook while `AsyncCacheTransport` wraps the pooled `AsyncHTTPTransport` beneath it.
     if endpoint.pool not in _CLIENTS:
         _CLIENTS[endpoint.pool] = httpx.AsyncClient(
             timeout=TRANSPORT_TIMEOUT,
             transport=AsyncCacheTransport(
-                # egress seats HERE, on the transport that actually carries the request, and NEVER as
-                # `AsyncClient(proxy=)`: a client-level proxy mounts a FRESH bare `AsyncHTTPTransport` per url
-                # pattern that `_transport_for_url` returns AHEAD of this explicit `transport=`, so every proxied
-                # request would bypass the cache and the connect retries both. That same explicit `transport=` also
-                # sets `allow_env_proxies=False`, so `HTTP_PROXY`/`HTTPS_PROXY` reach nothing and this row is the
-                # whole egress policy — a `None` proxy is direct egress, one row per destination.
                 next_transport=httpx.AsyncHTTPTransport(
                     proxy=_proxy(endpoint.proxy, endpoint.proxy_auth), retries=CONNECT_RETRIES, http2=True, limits=TRANSPORT_LIMITS
                 ),
@@ -1282,10 +1030,6 @@ def _transport_client(endpoint: HttpEndpoint) -> httpx.AsyncClient:
 
 
 async def drain() -> None:
-    # `aclose` every pooled client so no pool reaches the GC. ONE close is total: the client closes its transport, and
-    # `AsyncCacheTransport` closes both the wrapped pool AND its keyed storage, so a second `storage.close()` beside
-    # it is the doubled teardown. The Rust `ObjectStore` has no async pool, so its cache only clears, and the `scan`
-    # band retires with the composition rather than lingering as a level whose limiter no live owner borrows.
     clients = tuple(_CLIENTS.values())
     _CLIENTS.clear()
     async with anyio.create_task_group() as tg:
@@ -1297,7 +1041,6 @@ async def drain() -> None:
 
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
-# Per-provider WHOLE/STREAM legs the `[SERVICES]` `TransferPlan` thunks bind by call-time name.
 
 
 async def _obj_body(store: ObjectStore, relative: str, options: "GetOptions | None") -> Bytes:
@@ -1311,8 +1054,6 @@ async def _obj_chunks(store: ObjectStore, relative: str, options: "GetOptions | 
 
 
 async def _file_chunks(ref: ResourceRef) -> AsyncGenerator[bytes]:
-    # what this frame owns and an abandoned thread would strand: the handle no other closer holds, and the `finally`
-    # close an in-flight read would race.
     handle = await anyio.to_thread.run_sync(ref.path.open, "rb", limiter=SCAN_BAND)
     try:
         while block := await anyio.to_thread.run_sync(handle.read, STREAM_CHUNK, limiter=SCAN_BAND):
@@ -1338,9 +1079,6 @@ async def _http_chunks(
 
 
 def _ssh_options(password: Option[SecretStr], known_hosts: asyncssh.SSHKnownHosts) -> asyncssh.SSHClientConnectionOptions:
-    # one connection-config value object over per-call `connect(...)` keyword soup; the password un-masks only here, and
-    # `known_hosts` is the admission-supplied verified database, never the disabled `None`. An absent password defers to
-    # asyncssh's default key/agent resolution; keepalive keeps the workers arm's `is_closed` liveness read honest between submits.
     return asyncssh.SSHClientConnectionOptions(
         password=password.map(SecretStr.get_secret_value).default_value(None),
         known_hosts=known_hosts,

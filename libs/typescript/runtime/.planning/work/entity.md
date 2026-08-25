@@ -65,7 +65,6 @@ const WorkClass: WorkClass.Shape = {
   ..._classRows,
   kinds: _classes,
   schema: Schema.Literal(..._classes),
-  // this policy grades the raw defect the cluster caught, and no classed shape reaches it, so the default gate refuses every retry
   defectRetry: (kind) => Fault.Budget.schedule(_classRows[kind].budget, Function.constTrue),
 }
 ```
@@ -85,23 +84,16 @@ const WorkClass: WorkClass.Shape = {
 - Packages: `effect` (`Array`, `Option`, `Schema`); `@rasm/core` (`Fault.Class`).
 
 ```typescript signature
-// One warning row for every producer: the class its degradation WOULD have refused under, the producer's own family
-// reason verbatim, and that reason's rendered subject. The class closes against the core vocabulary while `reason`
-// stays the producer's word, because one carrier spanning every work surface cannot close a roster each family owns.
 const _Warning = Schema.Struct({
   class: Fault.Class.schema,
   reason: Schema.NonEmptyString,
   note: Schema.String,
 })
 
-// Payload-free cases, so the vocabulary spreads from one anchor as a literal: a tagged family is unspellable on a
-// field of a class that decodes and encodes, and these three words are the whole discriminant.
 const _partitions = ["whole", "partial", "empty"] as const
 
 class Settled extends Schema.Class<Settled>("Work.Settled")({
   partition: Schema.Literal(..._partitions),
-  // Both directions of one join: what this settlement spent and the one identity it minted. A content key is absent
-  // by law — the data wave's artifact index mints it over landed bytes and no runtime producer ever holds one.
   provenance: Schema.Struct({
     consumed: Schema.Array(Schema.NonEmptyString),
     produced: Schema.NonEmptyString,
@@ -110,8 +102,6 @@ class Settled extends Schema.Class<Settled>("Work.Settled")({
   at: Schema.DateTimeUtc,
   span: Schema.Duration,
 }) {
-  // The band a consumer acts on: the warning set folded through the SAME rank lattice a fault set folds through, so
-  // one order grades a degraded settlement and a refusal alike, and an empty band reads absent rather than benign.
   get degraded(): Option.Option<Fault.Class.Kind> {
     return Array.match(Array.map(this.warnings, (warning) => warning.class), {
       onEmpty: Option.none,
@@ -123,8 +113,6 @@ class Settled extends Schema.Class<Settled>("Work.Settled")({
 declare namespace Settled {
   type Partition = (typeof _partitions)[number]
   type Warning = typeof _Warning.Type
-  // The spine seen WITH a producer's own evidence: a fold generic over producers names this rather than the bare
-  // spine, so an evidence payload never erases to `unknown` on the way through.
   type Of<Evidence> = Settled & { readonly evidence: Evidence }
 }
 ```
@@ -161,19 +149,14 @@ declare namespace Actor {
     readonly ephemeral: ReadonlyArray<Rpcs["_tag"]>
     readonly untraced: ReadonlyArray<Rpcs["_tag"]>
     readonly interrupt: boolean | "client" | "server"
-    // the per-actor external handle: acquired once per live instance, surviving shard-move restarts under the row's own residency
     readonly resource: Option.Option<Effect.Effect<Handle, Fault, Need>>
   }
 }
 
-// The three regions one instance owns. Steps are LIFECYCLE, never message tags: the channel already separates families
-// and a tag-valued step multiplies every family's series by its whole protocol.
 const _PHASES = ["instance", "message", "resource"] as const
 
 const _band = (name: string): Profile.BandVocabulary => ({ channel: [name], step: _PHASES })
 
-// `Pick` names only the members this fold reads, so the resource generics never enter the signature and the call
-// site needs no cast: annotation policy depends on the protocol and its exemption sets alone.
 const _annotated = <Rpcs extends Rpc.Any>(
   spec: Pick<Actor.Spec<string, Rpcs, unknown, unknown, unknown>, "protocol" | "ephemeral" | "untraced">,
 ): RpcGroup.RpcGroup<Rpcs> =>
@@ -188,21 +171,11 @@ const _make = <Type extends string, Rpcs extends Rpc.Any, Handle, Fault, Need>(s
     (e) => e.annotateRpcs(ClusterSchema.ShardGroup, (entityId: string) => spec.tenant(entityId)),
     (e) => e.annotateRpcs(ClusterSchema.Uninterruptible, spec.interrupt),
   )
-  // The handle's residency IS the actor's: one row column prices the mailbox, the fence, and how long the external
-  // handle outlives idleness. `make` mints a FRESH RcRef per call and acquires eagerly, so it belongs in the per-instance
-  // handler BUILDER — the one seat `toLayer` provides `Scope`, `CurrentAddress`, and `CurrentRunnerAddress` to — and a
-  // handler then reads `yield* held.get` per message off that one value.
   const resource = Option.map(spec.resource, (acquire) => EntityResource.make({ acquire, idleTimeToLive: row.idle }))
   const band = _band(spec.name)
-  // The lifetime span rides the SAME builder seat the resource does, so it opens once per live instance and ends when
-  // that instance's scope closes — a per-message span would outlive nothing and anchor no profile window.
   const anchored = <Handlers, RX>(build: Effect.Effect<Handlers, never, RX>): Effect.Effect<Handlers, never, RX | Scope.Scope | Entity.CurrentAddress> =>
     Profile.banded(band, { channel: spec.name, step: "instance" }, build).pipe(
-      // the roster is derived from the spec one line up, so its refusal is unreachable and dies rather than widening
-      // every actor's boot channel with a parse outcome no deployment can produce
       Effect.catchTag("ParseError", Effect.die),
-      // both rostered identity rows ride the lifetime span: family joins the static message-span stamp below, and
-      // shard placement is readable only here, where `toLayer` hands the builder seat the address
       (built) =>
         Effect.zipRight(
           Effect.flatMap(Entity.CurrentAddress, (address) =>
@@ -212,12 +185,8 @@ const _make = <Type extends string, Rpcs extends Rpc.Any, Handle, Fault, Need>(s
             } satisfies Convention.Attributes)),
           built,
         ),
-      // OUTERMOST, so the span is current when the band reads it: one span read feeds the correlation attribute here
-      // and the sample labels of every synchronous kernel a handler bands beneath it
       Effect.withSpanScoped(`actor/${spec.name}`),
     )
-  // The generic mirrors the package's own so an Effect builder keeps its `RX` accounting, which is what makes the
-  // resource seat reachable at all; the class row fixes every geometry option, so the entry takes the build alone.
   const registered = <Handlers extends Entity.HandlersFrom<Rpcs>, RX = never>(build: Handlers | Effect.Effect<Handlers, never, RX>) =>
     entity.toLayer(anchored(Effect.isEffect(build) ? build : Effect.succeed(build)), {
       concurrency: row.concurrency,
@@ -226,8 +195,6 @@ const _make = <Type extends string, Rpcs extends Rpc.Any, Handle, Fault, Need>(s
       defectRetryPolicy: WorkClass.defectRetry(spec.clazz),
       spanAttributes: { [Convention.rasm.workFamily]: spec.name },
     })
-  // `band` publishes so a handler's synchronous kernel bands under the SAME roster the instance span already declared:
-  // a handler minting its own vocabulary forks the family's region names and the store then joins nothing.
   return { band, entity, registered, resource, client: entity.client } as const
 }
 
@@ -256,9 +223,6 @@ declare namespace Mailbox {
   type Tier = "durable" | "memory" | "noop"
 }
 
-// Each tier publishes BOTH stores the durable plane draws on: the cluster envelope store and the queue-item store.
-// `DurableQueue.worker` requires `PersistedQueueFactory`, which `MessageStorage` does not and cannot satisfy, so a tier
-// carrying only the envelope arm leaves every job worker Layer unsatisfiable at the root.
 const _tiers = {
   durable: Layer.mergeAll(
     Layer.provideMerge(SqlMessageStorage.layer, Snowflake.layerGenerator),
@@ -344,7 +308,7 @@ const Grid = {
   metrics: _metrics,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Actor, Grid, Mailbox, Settled, WorkClass }
 ```

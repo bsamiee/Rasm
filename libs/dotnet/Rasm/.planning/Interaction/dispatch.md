@@ -26,13 +26,13 @@ Both host boundaries reach this owner directly and neither adapts it: the Rhino 
 - Boundary: Rhino's command-thread affinity (`HostThread`/`HostWork<T>`) is a DIFFERENT axis over the Rhino command queue and stays plural at that boundary; what re-points here are its marshal lane and its latency gauge, which were this owner's shape all along.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Parametric;
 using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface ISyncCrossing<TResult> { UiDispatch<TResult> Crossing { get; } }
 
 public interface IAsyncCrossing<TResult> { UiDispatch<TResult> Crossing { get; } }
@@ -41,8 +41,6 @@ public interface IAsyncCrossing<TResult> { UiDispatch<TResult> Crossing { get; }
 public abstract partial record UiDispatch<TResult> {
     private UiDispatch() { }
 
-    // The marker's one member is answered ONCE on the root: every case's body was the same identity projection, and
-    // an inherited implementation satisfies both markers, so a case declares only which arity it is.
     public UiDispatch<TResult> Crossing => this;
 
     public sealed record Current(Func<Fin<TResult>> Body) : UiDispatch<TResult>, ISyncCrossing<TResult>;
@@ -89,22 +87,18 @@ public sealed partial class DispatchLane : IGaugeLane<DispatchLane> {
 - Boundary: `Application.Instance` is read at the entry and never stored — a captured instance outlives a host restart and marshals onto a dead context that never re-posts.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Domain;
 using Rasm.Parametric;
 
 namespace Rasm.Interaction;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class UiThread {
-    // The case's static type selects the arity: a synchronous crossing composes inside a caller's `Fin` query and
-    // an asynchronous one awaits, so no host gate blocks on a completed task to reach a value it already has.
     [BoundaryAdapter] public static Fin<T> Run<T>(ISyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
     [BoundaryAdapter] public static ValueTask<Fin<T>> Run<T>(IAsyncCrossing<T> crossing, DispatchLane lane, Op? key = null);
 
-    // PUBLISHED, never inlined: a headless process and a worker thread both answer "not on the marshal", and only
-    // the headless case is recoverable, so the probe rails rather than returning a bare bool.
     [BoundaryAdapter] public static Fin<bool> OnMarshal(Op? key = null);
 
     [BoundaryAdapter] public static Fin<Unit> Tune(StallPolicy policy, Option<MonotonicTimeline> clock = default, Op? key = null);
@@ -130,13 +124,13 @@ public static class UiThread {
 - Boundary: the pulse is EVIDENCE and never a gate — no crossing branches on a prior pulse, because a budget that steers the next crossing turns a measurement into a feedback loop nothing declared.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Parametric;
 
 namespace Rasm.Interaction;
 
-// --- [POLICIES] -----------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record StallPolicy(PaceBand Pace, HashMap<DispatchLane, double> Stretch) {
     public static readonly StallPolicy Portable = new(Pace: PaceBand.Portable, Stretch: HashMap<DispatchLane, double>());
 
@@ -147,13 +141,11 @@ public sealed record StallPolicy(PaceBand Pace, HashMap<DispatchLane, double> St
     internal static Transition<StallPolicy> Seat(StallPolicy policy) =>
         Cell.Commit(seat, _ => policy);
 
-    // One product, one authority: the pace owns the frame period, the lane owns its multiple, and a host widening
-    // states a dimensionless stretch — nothing here can state a budget in absolute time.
     internal TimeSpan Bound(DispatchLane lane) =>
         Pace.Period * lane.Frames * Stretch.Find(lane).IfNone(1d);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DispatchPulse(GaugedSpan<DispatchLane> Span) : IValidityEvidence {
     public Op Operation => Span.Work;
@@ -183,32 +175,30 @@ public readonly record struct DispatchEcho(Op Operation, Fin<Unit> Outcome);
 - Boundary: a documented platform raise funnels through `FaultRail.Host` and lands as `HostRejected` carrying the exact captured `Error` cause; a returned failed rail passes through unchanged.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The refusal vocabulary the whole sub-domain shares. `Key` is what in-process recovery matches; `Requirement` is
-// the sentence a surface renders. The generic wire projects only generated fault code and recovery.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RejectReason {
-    // --- [FUSION] — one row per `BindLaw` clause, and a clause lands with its row in the same edit.
+    // --- [FUSION]
     public static readonly RejectReason SeedFlow = new(key: "seed-flow", requirement: "one-time flow and seed input imply each other");
     public static readonly RejectReason SeedTiming = new(key: "seed-timing", requirement: "seed input admits edit timing alone");
     public static readonly RejectReason DebouncedPath = new(key: "debounced-path", requirement: "debounced timing requires a context path relaying into the control");
     public static readonly RejectReason CommitFlow = new(key: "commit-flow", requirement: "commit timing requires a flow relaying into the source");
     public static readonly RejectReason ManualTiming = new(key: "manual-timing", requirement: "manual flow admits edit timing alone");
 
-    // --- [SEAM] — an ABSENT argument is not a row here: the kernel's own `Op.Need` lowers `InvalidInput` for it, and a second absence vocabulary beside it would be two faults for one fact.
+    // --- [SEAM]
     public static readonly RejectReason NoChildPath = new(key: "no-child-path", requirement: "a source shape carrying a live child path");
     public static readonly RejectReason ControlType = new(key: "control-type", requirement: "a control of the type the plan selects its binding on");
     public static readonly RejectReason EmptyLatch = new(key: "empty-latch", requirement: "a latch holding a pending write");
     public static readonly RejectReason Capacity = new(key: "capacity", requirement: "an admitted positive bound");
 
-    // --- [CHROME] — the print, mount, and presence clauses the chrome and asset projections refuse under.
+    // --- [CHROME]
     public static readonly RejectReason SheetInset = new(key: "sheet-inset", requirement: "margins leaving a drawable extent inside the laid sheet");
     public static readonly RejectReason PageSpan = new(key: "page-span", requirement: "selected pages forming an ordered subset of the job");
     public static readonly RejectReason HostSelection = new(key: "host-selection", requirement: "a host publishing a current selection to print");
@@ -220,7 +210,7 @@ public sealed partial class RejectReason {
     public string Requirement { get; }
 }
 
-// --- [ERRORS] -------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record UiFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Interaction;
@@ -235,10 +225,6 @@ public abstract partial record UiFault : Fault {
     [FaultCase(6)] public sealed partial record HostRejected(Op Key, Error Cause) : UiFault, ICausedFault;
     [FaultCase(7)] public sealed partial record Released(Op Key) : UiFault;
     [FaultCase(8)] public sealed partial record Headless(Op Key) : UiFault;
-    // A HOST MEMBER is absent on this install (E-B3-3) — a named page type, panel factory, or dialog member the
-    // running host does not publish. Distinct from `Unavailable`, whose identity is the Eto `PlatformCapability`
-    // roster (a platform FEATURE), and from `HostRejected`, a raise a live member threw: recovery differs — a
-    // missing member degrades the surface, a raise retries or reports.
     [FaultCase(9)] public sealed partial record Absent(Op Key, string Member) : UiFault;
 
     public sealed override string Message => Switch(
@@ -254,20 +240,15 @@ public abstract partial record UiFault : Fault {
         absent:        static fault => $"Interaction operation '{fault.Key}' requires host member '{fault.Member}'.");
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FaultRail {
     private static readonly HookId Rail = HookId.Create(value: "rasm.kernel.interaction.dispatch");
 
-    // A platform raise crosses ONCE and lands typed with its exact captured cause. A body-returned failure passes
-    // through unchanged, and cancellation proven by the execution token bypasses the provider classifier.
     public static Fin<T> Host<T>(Func<Fin<T>> body, Op key) =>
         key.Catch<T, UiFault.HostRejected>(
             body: body,
             provider: cause => Some(new UiFault.HostRejected(Key: key, Cause: cause)));
 
-    // An observer raise NEVER fails the observed operation: it parks as isolated evidence and the crossing settles.
-    // The park's own settlement discards here because the cell already counted it — a declined park increments the
-    // ring's `Lost`, so the loss reads as a number rather than as nothing.
     public static Unit Isolate(FaultCell faults, Action publish, Op key) =>
         key.Catch(publish).Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Rail, cause: cause)));
 }

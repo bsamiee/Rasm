@@ -25,7 +25,7 @@
 - Boundary: `CoefficientTolerance` is the tableau's own order-condition RESIDUAL band and `ThetaEndpointBand` the separate parameter-domain band the interpolant reads, because one constant serving two unrelated concepts let a change to the transcription band move where an interpolant thinks its endpoints are; the residual band stays a row on the carrier that owns it — exact-rational coefficients evaluate near machine epsilon, so the band catches transcription errors rather than roundoff, and seating it as an `EpsilonPolicy` row or a `ToleranceLane` puts a coefficient-transcription band in the geometry epsilon vocabulary this page carries no `Context` to read; tableau data lives ONLY on the vocabulary rows, and a consumer never spells a coupling coefficient; the recursive tree enumeration and elementary-weight loops are the named statement kernel.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -43,7 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class IntegratorKind {
     public static readonly IntegratorKind Euler = Of(key: 0, order: 1, coupling: [[]], weights: [1.0]);
@@ -75,18 +75,11 @@ public sealed partial class IntegratorKind {
         weights: [35.0 / 384.0, 0.0, 500.0 / 1113.0, 125.0 / 192.0, -2187.0 / 6784.0, 11.0 / 84.0, 0.0],
         errorWeights: [5179.0 / 57600.0, 0.0, 7571.0 / 16695.0, 393.0 / 640.0, -92097.0 / 339200.0, 187.0 / 2100.0, 1.0 / 40.0]);
     public ButcherTableau Tableau { get; }
-    // The order receipt, the verified order, and the dense-output family are PURE functions of the tableau, and
-    // the tableau IS the row — so each derives ONCE at row construction and rides as a column. Reading them as
-    // recomputing properties ran the full rooted-tree walk five times per single `Admit` call.
     public ButcherOrderReceipt OrderReceipt { get; }
     public int VerifiedOrder { get; }
     internal DenseOutputCoefficientFamily DenseFamily { get; }
     internal bool IsAdaptive => Tableau.EmbeddedWeights.IsSome;
-    // ABSENT for a tableau with no embedded order: 0.2 is Dormand-Prince's exponent, and defaulting it applied
-    // that law to Euler. `IsAdaptive` is the honest discriminant and the adaptive arm binds through this Option.
     internal Option<double> AdaptiveExponent => Tableau.EmbeddedOrder.Map(static order => 1.0 / (order + 1.0));
-    // ONE factory: the two twins were character-identical apart from two optionals, which is a per-instance body
-    // differing by a value.
     private static IntegratorKind Of(int key, int order, double[][] coupling, double[] weights, double[]? errorWeights = null, int? embeddedOrder = null) {
         ButcherTableau tableau = ButcherTableau.Of(
             coupling: toSeq(coupling.Select(static row => toSeq(row))), weights: toSeq(weights),
@@ -96,7 +89,7 @@ public sealed partial class IntegratorKind {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ButcherTableau : IValidityEvidence {
     private ButcherTableau(Seq<Seq<double>> coupling, Seq<double> abscissae, Seq<double> weights, Option<Seq<double>> embeddedWeights, int methodOrder, Option<int> embeddedOrder) =>
@@ -109,21 +102,13 @@ public readonly record struct ButcherTableau : IValidityEvidence {
     public int MethodOrder { get; }
     public Option<int> EmbeddedOrder { get; }
 
-    // Abscissae DERIVE as coupling row sums at the one mint, so a caller-built tableau whose abscissae disagree
-    // with its coupling is unrepresentable and the consistency clause below is the transcription witness alone.
     internal static ButcherTableau Of(Seq<Seq<double>> coupling, Seq<double> weights, Option<Seq<double>> embedded, int order, Option<int> embeddedOrder) =>
         new(coupling: coupling, abscissae: coupling.Map(static row => row.Fold(initialState: 0.0, f: static (sum, value) => sum + value)),
             weights: weights, embeddedWeights: embedded, methodOrder: order, embeddedOrder: embeddedOrder);
 
-    // The order-condition RESIDUAL band: exact-rational coefficients evaluate near machine epsilon, so this
-    // catches transcription errors rather than roundoff, and it derives from the stage count against the
-    // binary64 unit roundoff rather than sitting at an underived decade.
     internal const double CoefficientTolerance = 1.0e-9;
-    // The PARAMETER-domain band for theta endpoint detection — a different concept entirely, so a change to the
-    // transcription band can no longer move where an interpolant thinks its endpoints are.
     internal const double ThetaEndpointBand = EpsilonPolicy.ZeroTolerance;
     internal int StageCount => Weights.Count;
-    // FSAL fingerprint — the structure the method-specific dense-output families key on.
     internal bool IsFunctionalSameAsLast =>
         StageCount > 1
         && Coupling.Count == StageCount
@@ -131,8 +116,6 @@ public readonly record struct ButcherTableau : IValidityEvidence {
         && Math.Abs(value: Weights[StageCount - 1]) <= CoefficientTolerance
         && Coupling[StageCount - 1].Count == StageCount - 1
         && Coupling[StageCount - 1].Zip(Weights.Take(StageCount - 1)).ForAll(static pair => Math.Abs(value: pair.First - pair.Second) <= CoefficientTolerance);
-    // The row carries the derived receipt; `IsValid` on a bare tableau derives once into a local rather than
-    // re-walking every rooted tree per conjunct.
     public bool IsValid => Valid(receipt: OrderReceiptOf(weights: Weights, order: MethodOrder, embeddedOrder: EmbeddedOrder));
     internal bool Valid(ButcherOrderReceipt receipt) => ValidityClaim.All(
         StageCount > 0,
@@ -147,8 +130,6 @@ public readonly record struct ButcherTableau : IValidityEvidence {
             && CoefficientsMatch(values: pair.First, expected: pair.Second)).All(static ok => ok),
         EmbeddedWeights is not { IsSome: true, Case: Seq<double> ew } || (ew.Count == StageCount && CoefficientsMatch(values: ew, expected: 1.0) && OrderReceiptOf(weights: ew, order: EmbeddedOrder.IfNone(1), embeddedOrder: EmbeddedOrder).IsValid));
     internal int VerifiedOrderOf() => RootedTree.VerifiedOrder(a: CouplingMatrix(), b: [.. Weights]);
-    // The receipt and the verified order arrive from the ROW that carries them, so one admission runs the walk
-    // once instead of six times through recomputing properties.
     internal Fin<ButcherTableau> Admit(ButcherOrderReceipt receipt, int verifiedOrder, Op key) =>
         Valid(receipt: receipt)
             ? Fin.Succ(this)
@@ -169,8 +150,6 @@ public readonly record struct ButcherTableau : IValidityEvidence {
         (int Count, int Failed, double Max) state = (0, 0, 0.0);
         for (int p = 1; p <= order; p++) {
             foreach (RootedTree tree in RootedTree.OfOrder(order: p)) {
-                // The elementary weight accumulates at 106 bits too: widening the ACCUMULATOR after rounding
-                // every summand buys nothing at the precision the residual band rests on.
                 ddouble[] phi = tree.Weight(a: aWide, stages: StageCount);
                 ddouble lhs = 0.0;
                 for (int i = 0; i < StageCount; i++) lhs += (ddouble)b[i] * phi[i];
@@ -183,9 +162,6 @@ public readonly record struct ButcherTableau : IValidityEvidence {
         }
         return new ButcherOrderReceipt(StageCount: StageCount, MethodOrder: order, EmbeddedOrder: embeddedOrder, CheckedConditionCount: state.Count, FailedConditionCount: state.Failed, MaxResidual: state.Max);
     }
-    // THE one moment fold — Σwᵢ·cᵢ^power; the dense-output moment residuals still read it.
-    // Integral powers raise by repeated ddouble multiplication — `Math.Pow` is a binary64 transcendental that
-    // rounds the summand before the 106-bit accumulator ever sees it.
     internal static double MomentSum(Seq<double> weights, Seq<double> against, int power) =>
         (double)weights.Zip(against).Fold(initialState: (ddouble)0.0, f: (sum, pair) => sum + ((ddouble)pair.First * Raise(value: pair.Second, power: power)));
     internal static ddouble Raise(double value, int power) {
@@ -216,8 +192,6 @@ public readonly record struct ButcherTableau : IValidityEvidence {
 }
 
 public sealed record RootedTree {
-    // Order and density compute ONCE at construction: read as recursive properties they re-descended the whole
-    // subtree per read, inside an enumeration that was itself re-derived at every level.
     public RootedTree(ImmutableArray<RootedTree> children) {
         Children = children;
         Order = 1 + children.Sum(static child => child.Order);
@@ -245,9 +219,6 @@ public sealed record RootedTree {
         return order;
     }
 
-    // Elementary weight Φᵢ(t): a single node weights 1 at every stage; a composite multiplies the stage-local
-    // gᵢ = Σⱼ aᵢⱼ Φⱼ(child) over its child subtrees — so [τ] yields cᵢ and [[τ]] yields Σⱼ aᵢⱼ cⱼ.
-    // The coupling matrix is a row-major PLANE, so each stage's g is one span dot rather than an inner hand loop.
     public double[] Weight(double[,] a, int stages) {
         double[] phi = new double[stages];
         Array.Fill(array: phi, value: 1.0);
@@ -259,8 +230,6 @@ public sealed record RootedTree {
         return phi;
     }
 
-    // The 106-bit twin the order-condition walk reads, so the elementary weight is not rounded before the
-    // ddouble accumulator sums it.
     public ddouble[] Weight(ddouble[,] a, int stages) {
         ddouble[] phi = new ddouble[stages];
         Array.Fill(array: phi, value: (ddouble)1.0);
@@ -275,18 +244,12 @@ public sealed record RootedTree {
         return phi;
     }
 
-    // All rooted trees of exactly `order` nodes: a root over a multiset of subtrees whose orders sum to order − 1,
-    // chosen in non-decreasing pool index so each multiset is emitted once. The pool GENERATES ONCE per order
-    // behind an accessor-forced lazy: the recursive lazy enumeration re-derived every lower order at every level
-    // and again at every `foreach`, which the Auto clause claimed it did not.
     public static ImmutableArray<RootedTree> OfOrder(int order) =>
         order <= 1 ? [Leaf] : Pool.Value.TryGetValue(key: order, value: out ImmutableArray<RootedTree> held) ? held : [];
 
     private static readonly Lazy<FrozenDictionary<int, ImmutableArray<RootedTree>>> Pool =
         new(Generate, LazyThreadSafetyMode.ExecutionAndPublication);
 
-    // Orders 1..PoolCeiling cover every tableau the roster admits and every order a stage count can certify;
-    // an order above it answers empty and `VerifiedOrder` stops there rather than enumerating unboundedly.
     private const int PoolCeiling = 10;
 
     private static FrozenDictionary<int, ImmutableArray<RootedTree>> Generate() {
@@ -330,7 +293,7 @@ public readonly record struct ButcherOrderReceipt(int StageCount, int MethodOrde
 - Boundary: interpolant tables are exact rationals spelled as ratios, never decimal approximations — the moment validation flags the drift; dense output is the event-localization substrate `Processing/flow` binds for root bisection, and a consumer interpolating trajectories by chord instead of `b(θ)` re-derives a capability this owner already proves.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -342,7 +305,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class DenseOutputSource {
     public static readonly DenseOutputSource Published = new("published");
@@ -351,15 +314,11 @@ public sealed partial class DenseOutputSource {
 
 [SmartEnum<int>]
 public sealed partial class DenseOutputCoefficientFamily {
-    // ONE column spells "carries a published continuous extension": the fingerprint and the table travel together
-    // or not at all, and `Source` DERIVES from its presence rather than being a second, weaker encoding of the
-    // same fact that the evaluate guard then reads instead.
     public static readonly DenseOutputCoefficientFamily GenericMomentFit = new(key: 0, fixedDenseOrder: 0, published: None);
     public static readonly DenseOutputCoefficientFamily DormandPrinceShampine = new(key: 1, fixedDenseOrder: 4, published: Some((Fingerprint: DormandPrinceAbscissae, Table: DormandPrinceTable)));
     public static readonly DenseOutputCoefficientFamily BogackiShampine = new(key: 2, fixedDenseOrder: 3, published: Some((Fingerprint: BogackiShampineAbscissae, Table: BogackiShampineTable)));
     public int FixedDenseOrder { get; }
     private Option<(double[] Fingerprint, double[][] Table)> Published { get; }
-    // The wire projection of that one column, kept because the receipt renders it.
     public DenseOutputSource Source => Published.IsSome ? DenseOutputSource.Published : DenseOutputSource.MomentFit;
     private static double[] DormandPrinceAbscissae => [0.0, 1.0 / 5.0, 3.0 / 10.0, 4.0 / 5.0, 8.0 / 9.0, 1.0, 1.0];
     private static double[] BogackiShampineAbscissae => [0.0, 1.0 / 2.0, 3.0 / 4.0, 1.0];
@@ -388,8 +347,6 @@ public sealed partial class DenseOutputCoefficientFamily {
         Published.Filter(held => held.Table.Length == stageCount)
             .Map(held => key.Accept(values: held.Table.Select(row => project(row, theta))))
             .IfNone(() => Fin.Fail<Seq<double>>(key.InvalidInput()));
-    // Descending in place: `Enumerable.Reverse` over an ARRAY buffers the whole row per stage per theta
-    // evaluation, inside the loop a root bisection drives.
     private static double Horner(double[] row, double theta) {
         double accumulated = 0.0;
         for (int index = row.Length - 1; index >= 0; index--) { accumulated = (accumulated * theta) + row[index]; }
@@ -402,11 +359,8 @@ public sealed partial class DenseOutputCoefficientFamily {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-// Every producer fills these four slots from `Math.Abs`/`MaxAbs`, so nonnegativity holds by CONSTRUCTION and
-// the intake canonicalizes anything a producer somehow handed signed — guarding at use an invalid state the
-// mint forecloses is the deleted form, and the `Nonnegative` conjunct deletes with it.
 public readonly record struct EndpointResiduals {
     internal EndpointResiduals(double valueLeft, double valueRight, Option<(double Left, double Right)> derivatives, double coefficient) =>
         (ValueLeft, ValueRight, Derivatives, Coefficient) =
@@ -436,7 +390,7 @@ public readonly record struct DenseOutputReceipt(int StageCount, int MethodOrder
         CorrectionSolve.Map(static solve => solve.IsValid).IfNone(noneValue: true));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class ButcherDenseOutput {
     internal static Fin<DenseOutputReceipt> Receipt(ButcherTableau tableau, DenseOutputCoefficientFamily family, DenseOutputInterpolant interpolant, Op key) {
         int order = DenseOrderFor(family: family, tableau: tableau);
@@ -454,8 +408,6 @@ internal static class ButcherDenseOutput {
                         return receipt.IsValid ? Fin.Succ(receipt) : Fin.Fail<DenseOutputReceipt>(key.InvalidResult());
                     }))));
     }
-    // The family and the interpolant arrive DERIVED from the integrator row, so no interpolant evaluation
-    // re-identifies a family or re-runs a matrix solve.
     internal static Fin<Seq<double>> WeightsAt(ButcherTableau tableau, DenseOutputCoefficientFamily family, DenseOutputInterpolant interpolant, double theta, Op key) =>
         !double.IsFinite(theta) || theta is < 0.0 or > 1.0
             ? Fin.Fail<Seq<double>>(key.InvalidInput())
@@ -465,16 +417,12 @@ internal static class ButcherDenseOutput {
         family.Source == DenseOutputSource.Published
             ? family.FixedDenseOrder
             : Math.Max(val1: 1, val2: Math.Min(val1: tableau.MethodOrder, val2: DistinctAnchors(tableau: tableau).Count));
-    // ONE distinct-abscissa derivation: the stage indices whose abscissae are pairwise separated by more than the
-    // coefficient band, in stage order. The dense-order ceiling reads its Count and the moment preimage its rows.
     private static Seq<int> DistinctAnchors(ButcherTableau tableau) =>
         tableau.Abscissae.AsIterable().Select((c, stage) => (Stage: stage, C: c)).Aggregate(
             seed: Seq<int>.Empty,
             func: (anchors, row) => anchors.Exists(seen => Math.Abs(value: tableau.Abscissae[seen] - row.C) <= ButcherTableau.CoefficientTolerance)
                 ? anchors
                 : anchors.Add(row.Stage));
-    // Per-theta probe carrier — ONLY the facts one theta produces, so validity adjudicates ONCE at the
-    // aggregate receipt rather than on endpoint fields a single theta never measured ([FORGED_ZERO]).
     private readonly record struct ThetaProbe(int CheckedConditionCount, int FailedConditionCount, double MaxResidual, Option<SolveReceipt> CorrectionSolve);
 
     private static Fin<ThetaProbe> ProbeAt(DenseOutputCoefficientFamily family, ButcherTableau tableau, DenseOutputInterpolant interpolant, int order, double theta, Op key) =>
@@ -520,18 +468,12 @@ internal static class ButcherDenseOutput {
                 ? Fin.Succ((Values: toSeq(Enumerable.Repeat(element: 0.0, count: tableau.StageCount)), Solve: Option<SolveReceipt>.None))
                 : 1.0 - theta <= ButcherTableau.ThetaEndpointBand
                     ? Fin.Succ((Values: tableau.Weights, Solve: Option<SolveReceipt>.None))
-                    // The basis is already solved: this is a polynomial evaluation, not two matrix solves.
                     : Fin.Succ((
                         Values: toSeq(tableau.Weights.Map(weight => theta * weight)
                             .Zip(toSeq(interpolant.At(theta: theta, stages: tableau.StageCount)))
                             .Select(pair => pair.First + (theta * (1.0 - theta) * pair.Second))),
                         Solve: interpolant.Solve));
-    // The correction is LINEAR in the moment right-hand side, and that right-hand side is a POLYNOMIAL in theta,
-    // so the whole two-solve chain is theta-INDEPENDENT: one basis column per moment, derived ONCE at admission
-    // against the unit right-hand sides. The page's headline claim — the moment-fit least-squares never running
-    // inside the step loop — was false for the seven rows with no published table until this seat existed.
     internal readonly record struct DenseOutputInterpolant(int Order, ImmutableArray<double[]> Basis, Option<SolveReceipt> Solve) {
-        // correction(theta) = SUM_m rhs_m(theta) * Basis[m], rhs_m(theta) = (theta^(m+1) - theta) / ((m+1)*theta*(1-theta)).
         internal double[] At(double theta, int stages) {
             double endpointScale = theta * (1.0 - theta);
             double[] correction = new double[stages];
@@ -569,16 +511,12 @@ internal static class ButcherDenseOutput {
                 .Map(solved => (Correction: DesignProduct(design: design, solution: solved.Solution, stages: stages, order: order), Solve: solved)));
     }
 
-    // The stage-by-order design is a row-major PLANE, so the per-stage product is one span dot rather than a
-    // hand loop over a flat buffer.
     private static double[] DesignProduct(double[] design, Arr<double> solution, int stages, int order) {
         Span2D<double> rows = design.AsSpan2D(height: stages, width: order);
         double[] correction = new double[stages];
         for (int stage = 0; stage < stages; stage++) { correction[stage] = TensorPrimitives.Dot<double>(rows.GetRowSpan(stage), solution.AsSpan()); }
         return correction;
     }
-    // Running multiply, never `Math.Pow` on a small integer exponent: the Vandermonde and the design are exact
-    // by repeated multiplication where a transcendental rounds each entry.
     private static double[] MomentDesign(ButcherTableau tableau, int stages, int order) {
         double[] design = new double[stages * order];
         for (int stage = 0; stage < stages; stage++) {
@@ -626,7 +564,7 @@ internal static class ButcherDenseOutput {
 - Boundary: no state difference ever appears — only deltas subtract, so the module needs no `TState` subtraction, and the error is measured between the two weight combinations before adding to the state.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -637,9 +575,9 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record IntegrationModule<TState, TDelta>(
-    Func<TState, double, TDelta, TState> Add,      // state + h * delta
+    Func<TState, double, TDelta, TState> Add,
     Func<double, TDelta, TDelta> Scale,
     Func<TDelta, TDelta, TDelta> Sum,
     Func<TDelta, double> Norm,
@@ -653,7 +591,6 @@ public sealed record IntegrationModule<TState, TDelta>(
         Norm: Math.Abs,
         Zero: 0.0);
 
-    // Complex carriers take the modulus as their error norm, so a Hermitian or frequency-domain state needs no mint.
     public static IntegrationModule<Complex, Complex> ComplexScalar { get; } = new(
         Add: static (state, h, delta) => state + (h * delta),
         Scale: static (factor, delta) => factor * delta,
@@ -662,28 +599,20 @@ public sealed record IntegrationModule<TState, TDelta>(
         Zero: Complex.Zero);
 }
 
-// The previous step's error and scale — what a PI or Gustafsson law needs and an elementary one ignores. `Step`
-// stays pure: the DRIVER threads this forward off the outcome it just published, so no state hides in the kernel.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct StepHistory(Option<double> PreviousError, double PreviousScale) {
     public static StepHistory Fresh => new(PreviousError: None, PreviousScale: 1.0);
 }
 
-// The control LAW is a row, not a body: the Growth clause promised "a new control law is one field set — the
-// stepper body never changes", which an inline elementary formula could not keep, because PI and Gustafsson both
-// read the previous step's error. Hairer-Wanner II §IV.2 is the reference for all three.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StepLaw {
-    // I-controller: scale = safety * (tol/err)^exp.
     public static readonly StepLaw Elementary = new("elementary",
         rescale: static (control, history, error, tolerance, exponent) => control.Safety * Math.Pow(x: tolerance / error, y: exponent));
-    // PI-controller (Gustafsson 1991): the integral leg damped by a proportional leg over the previous error.
     public static readonly StepLaw Proportional = new("proportional",
         rescale: static (control, history, error, tolerance, exponent) => control.Safety
             * Math.Pow(x: tolerance / error, y: 0.7 * exponent)
             * history.PreviousError.Map(previous => Math.Pow(x: previous / tolerance, y: 0.4 * exponent)).IfNone(noneValue: 1.0));
-    // Gustafsson's predictive law: the elementary factor times the previous step's realised improvement.
     public static readonly StepLaw Gustafsson = new("gustafsson",
         rescale: static (control, history, error, tolerance, exponent) => control.Safety
             * Math.Pow(x: tolerance / error, y: exponent)
@@ -717,9 +646,6 @@ public readonly record struct DenseOutputSpan<TState, TDelta>(
     TState Start, TState End, double Step, Seq<TDelta> Stages, ButcherTableau Tableau,
     DenseOutputCoefficientFamily Family, ButcherDenseOutput.DenseOutputInterpolant Interpolant,
     DenseOutputReceipt Receipt, IntegrationModule<TState, TDelta> Module) {
-    // Receipt arrives already derived at admission; construction proves only the per-step fact — θ=1
-    // reproduces the declared weights within a SCALE-RELATIVE band on the max stage norm, drift being a
-    // coefficient-error combination of the stages: an absolute gate fails large fields, a combined-norm gate near-cancelling ones.
     internal static Fin<DenseOutputSpan<TState, TDelta>> Of(IntegrationModule<TState, TDelta> module, TState start, TState end, double step, Seq<TDelta> stages, ButcherTableau tableau, DenseOutputCoefficientFamily family, ButcherDenseOutput.DenseOutputInterpolant interpolant, DenseOutputReceipt receipt, Op key) =>
         tableau.DenseWeightsAt(family: family, interpolant: interpolant, theta: 1.0, key: key).Bind(weights => {
             TDelta reconstructed = module.Combine(coefficients: weights, deltas: stages);
@@ -739,7 +665,7 @@ public readonly record struct DenseOutputSpan<TState, TDelta>(
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union]
 public abstract partial record FieldIntegrator {
     public sealed record FixedCase : FieldIntegrator {
@@ -777,9 +703,6 @@ public abstract partial record FieldIntegrator {
                from dense in tableau.DenseOutputReceipt(family: active.DenseFamily, interpolant: interp, key: key)
                select (FieldIntegrator)new AdaptiveCase(kind: active, tolerance: validated, control: law, dense: dense, interp: interp);
     }
-    // `Kind`, `Dense`, and `Interp` are COMMON columns both cases carry, so they are abstract properties on the
-    // root: a total dispatch whose arms do not differ discriminated nothing and threaded a dead `default(...)`
-    // state only to satisfy the generated signature.
     public abstract IntegratorKind Kind { get; }
     internal abstract DenseOutputReceipt Dense { get; }
     internal abstract ButcherDenseOutput.DenseOutputInterpolant Interp { get; }
@@ -787,15 +710,10 @@ public abstract partial record FieldIntegrator {
     internal ButcherTableau Tableau => Kind.Tableau;
     public int MethodOrder => Tableau.MethodOrder;
     public Option<int> EmbeddedOrder => Tableau.EmbeddedOrder;
-    // A `FieldIntegrator` IN HAND is admitted: both case constructors are internal and both factories proved the
-    // tableau, the kind/case agreement, and the dense validity at construction, so re-running the full
-    // order-condition tree walk per use paid the whole admission again for a value that cannot be unproved.
     public static Fin<FieldIntegrator> Admit(FieldIntegrator value, Op key) =>
         Optional(value).ToFin(key.InvalidInput());
     public static Fin<FieldIntegrator> AdmitOrFixed(Option<FieldIntegrator> value, Op key) =>
         value.Match(Some: Fin.Succ, None: () => Fixed(kind: IntegratorKind.RK4, key: key));
-    // `history` is the driver's thread: the previous step's error and scale, which a PI or Gustafsson law reads
-    // and an elementary one ignores. `Step` stays pure — it publishes the outcome and holds nothing.
     public Fin<IntegrationStep<TState, TDelta>> Step<TState, TDelta>(IntegrationModule<TState, TDelta> module, Func<TState, Fin<TDelta>> sample, TState state, double h, Op key, StepHistory history = default) => Switch(
         state: (Module: module, Sample: sample, State: state, H: h, Key: key, History: history),
         fixedCase: static (s, c) =>
@@ -838,7 +756,7 @@ public abstract partial record FieldIntegrator {
 - Boundary: accuracy is the primary decision with order secondary — the three MathNet kernels bind as route rows, never sibling factories, and the finite-guard-then-admit combinator applies once over the uniform `KernelOutcome` column; `KernelOutcome` is the QUADRATURE outcome triple — a value beside the two channels only an adaptive kernel measures — and shares nothing but its arity with any trajectory or solver outcome; infinite bounds route only into `DoubleExponential`/`GaussLegendre`, whose MathNet entries substitute infinity through a baked-in abscissa transform, so `InfiniteBounds` is load-bearing and any 1-D delegate forced through a 2-D rule integrates `(b−a)·∫f` and is rejected; `error`/`L1Norm`/`Ratio` are `Option<double>` because only the adaptive Kronrod row yields them, and `ConvergenceClaim` states that fact as a VERDICT the admission gate reads — absence of an error estimate is not absence of a convergence claim, so `RequireErrorWitness` defaults true and an unwitnessed route is an explicit opt-out rather than a success indistinguishable from a converged one; the reference-element tables integrate the REFERENCE domain — the physical mapping, its Jacobian, and the isoparametric basis stay the consuming element's, so this owner never learns an element topology; a consumer calling `Integrate.GaussLegendre` raw skips the finite guard, the skip budget, and the typed evidence and is the deleted form.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -851,14 +769,11 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct IntervalSpec(double Lower, double Upper) {
     public bool Infinite => double.IsInfinity(Lower) || double.IsInfinity(Upper);
 }
 
-// Absence of an error ESTIMATE is not absence of a convergence claim: a DoubleExponential run that never reached
-// its target and a converged one were indistinguishable `Fin.Succ`. `ConvergenceClaim` states which the kernel
-// made, and `QuadratureControl.RequireErrorWitness` decides whether an unwitnessed one is admissible.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConvergenceClaim {
@@ -870,8 +785,6 @@ public readonly record struct KernelOutcome(double Value, Option<double> Error, 
 
 [SmartEnum<string>]
 public sealed partial class QuadratureRoute {
-    // InfiniteBounds is true for DoubleExponential/GaussLegendre — the MathNet abscissa transform is baked in —
-    // and false for GaussKronrod, which integrates the raw interval and is finite-only.
     public static readonly QuadratureRoute DoubleExponential = new("double-exponential", infiniteBounds: true,
         kernel: static (f, lo, hi, c) => new KernelOutcome(Value: Integrate.DoubleExponential(f, lo, hi, targetAbsoluteError: c.AbsoluteError), Error: None, L1Norm: None, Claim: ConvergenceClaim.Unwitnessed));
     public static readonly QuadratureRoute GaussLegendre = new("gauss-legendre", infiniteBounds: true,
@@ -900,8 +813,6 @@ public abstract partial record IntegrationDomain {
     public sealed record Simplex(Func<double, double, double, double> F, ReferenceElement Element, int Order) : IntegrationDomain;
 }
 
-// Every table builds ONCE at type init from the three canonical 1-D Gauss node sets and freezes into
-// ImmutableArray, so a per-call runtime rule construction is the avoided allocation.
 public readonly record struct QuadratureRule(int Order, int Dimension, ImmutableArray<(double X, double Y, double Z, double Weight)> Points) {
     internal static readonly ImmutableArray<(double Node, double Weight)> Gauss1 = [(0.0, 2.0)];
     internal static readonly ImmutableArray<(double Node, double Weight)> Gauss2 = [(-1.0 / Math.Sqrt(3.0), 1.0), (1.0 / Math.Sqrt(3.0), 1.0)];
@@ -914,8 +825,6 @@ public readonly record struct QuadratureRule(int Order, int Dimension, Immutable
         (1.0 / 6.0, 1.0 / 6.0, 0.0, 1.0 / 6.0), (2.0 / 3.0, 1.0 / 6.0, 0.0, 1.0 / 6.0), (1.0 / 6.0, 2.0 / 3.0, 0.0, 1.0 / 6.0)]);
     public static readonly QuadratureRule Tri7 = new(5, 2, [.. TriDegree5()]);
     public static readonly QuadratureRule Tet1 = new(1, 3, [(0.25, 0.25, 0.25, 1.0 / 6.0)]);
-    // Keast's degree-2 four-point tet rule: a = (5 + 3*sqrt(5))/20, b = (5 - sqrt(5))/20 — the derivation, never
-    // a sixteen-digit copy of it, since the sibling band's own law bans decimal approximations of exact tables.
     public static readonly QuadratureRule Tet4 = new(2, 3, [.. Simplex3(ab: [(5.0 + (3.0 * Math.Sqrt(5.0))) / 20.0, (5.0 - Math.Sqrt(5.0)) / 20.0])]);
     public static readonly QuadratureRule Quad1 = TensorCube(dim: 2, line: Gauss1);
     public static readonly QuadratureRule Quad4 = TensorCube(dim: 2, line: Gauss2);
@@ -936,9 +845,6 @@ public readonly record struct QuadratureRule(int Order, int Dimension, Immutable
         yield return (b, b, b, 1.0 / 24.0);
     }
 
-    // Radau's degree-5 seven-point triangle rule: the centroid at 9/40 with two three-point orbits at
-    // a = (6 ∓ √15)/21 weighted (155 ∓ √15)/1200 — spelled as the derivation, never a sixteen-digit copy, and
-    // halved onto the reference triangle's 1/2 area exactly as every simplex row above.
     private static IEnumerable<(double, double, double, double)> TriDegree5() {
         yield return (1.0 / 3.0, 1.0 / 3.0, 0.0, 9.0 / 80.0);
         foreach ((double a, double w) in new[] {
@@ -962,10 +868,6 @@ public readonly record struct QuadratureRule(int Order, int Dimension, Immutable
         return new(2 * n - 1, dim, [.. rows]);
     }
 
-    // A prism product is exact to min(triangle degree, 2n-1) — the WEAKER leg governs, so a wedge rung above the
-    // triangle leg's degree is earned ONLY by raising that leg: Tri3 caps every prism it seeds at 2 whatever the
-    // line leg carries, which is why the second wedge rung rides the degree-5 seven-point triangle rule and why
-    // `ProveAscending` seals the roster against a rung that re-pairs the same triangle with a longer line.
     private static QuadratureRule PrismProduct(QuadratureRule tri, ImmutableArray<(double Node, double Weight)> line) {
         List<(double, double, double, double)> rows = [];
         foreach ((double X, double Y, double Z, double Weight) point in tri.Points)
@@ -973,12 +875,8 @@ public readonly record struct QuadratureRule(int Order, int Dimension, Immutable
         return new(Math.Min(val1: tri.Order, val2: (2 * line.Length) - 1), 3, [.. rows]);
     }
 
-    // Conical product for the pyramid: the (1−ζ)² collapse factor rides the weight, so the rational apex basis
-    // never evaluates at the singular apex.
     private static QuadratureRule Conical(int n) {
         ImmutableArray<(double Node, double Weight)> baseLine = n == 2 ? Gauss2 : Gauss3;
-        // The collapse direction IS Gauss3 mapped from [-1,1] onto [0,1] — a hand-transcribed decimal copy of a
-        // table declared symbolically fifty lines above is the defect the band's own law names.
         (double Node, double Weight)[] zeta = [.. Gauss3.Select(static g => (Node: (g.Node + 1.0) * 0.5, Weight: g.Weight * 0.5))];
         List<(double, double, double, double)> rows = [];
         foreach ((double z, double wz) in zeta) {
@@ -986,8 +884,6 @@ public readonly record struct QuadratureRule(int Order, int Dimension, Immutable
             foreach ((double bj, double wj) in baseLine)
                 foreach ((double bi, double wi) in baseLine) rows.Add((bi * scale, bj * scale, z, wi * wj * wz * scale * scale));
         }
-        // The conical product's exactness is bounded by its BASE directions, whose collapse-scaled abscissae
-        // integrate to degree n-1 at best after the (1-zeta)^2 weight — never the 5 the summed form published.
         return new(Math.Max(val1: 1, val2: baseLine.Length - 1), 3, [.. rows]);
     }
 }
@@ -1006,9 +902,6 @@ public sealed partial class ReferenceElement {
 
     public int Ceiling => rules[^1].Order;
 
-    // `Find` reads an ASCENDING-declaration invariant nothing proved, and the order formulas above are
-    // hand-reasoned, so the proof forces on the first `Rule` call through the same accessor-backed lazy the
-    // Fault identities force the branch-wide `FaultBand.Disjoint` proof before use.
     public Fin<QuadratureRule> Rule(int order, Op key) {
         _ = Monotone.Value;
         return toSeq(rules).Find(rule => rule.Order >= order).ToFin(Fail: new KernelFault.OutOfRange(
@@ -1029,9 +922,7 @@ public sealed partial class ReferenceElement {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// RequireErrorWitness defaults TRUE: a caller wanting the unwitnessed DoubleExponential, tensor, or sparse route
-// opts out explicitly, so no run reports convergence it never measured.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record QuadratureControl(double AbsoluteError, double RelativeError, double CancellationFloor, int MaxSkipped, int LegendreOrder, int KronrodPoints, int MaximumDepth, int MaxSparseLevel, bool RequireErrorWitness = true) : IValidityEvidence {
     public static readonly QuadratureControl Default = new(AbsoluteError: 1e-8, RelativeError: 1e-8, CancellationFloor: 1e-10, MaxSkipped: 0, LegendreOrder: 128, KronrodPoints: 15, MaximumDepth: 15, MaxSparseLevel: 8);
     public bool IsValid => ValidityClaim.All(
@@ -1044,10 +935,8 @@ public sealed record QuadratureControl(double AbsoluteError, double RelativeErro
 
 public sealed record QuadratureEvidence(double Value, Option<double> Error, Option<double> L1Norm, Option<double> Ratio, int Skipped, ConvergenceClaim Claim);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Quadrature {
-    // The two requirement strings the arms shared verbatim; the case NAMES already carry the identity, so no
-    // arm re-spells a label a rename can silently desync from its own case.
     private const string NaNFreeAscending = "NaN-free ascending interval";
     private const string FiniteOrderedRequirement = "finite ascending intervals and a positive order";
 
@@ -1083,9 +972,6 @@ public static class Quadrature {
                select evidence;
     }
 
-    // ONE mutable skip cell and ONE finiteness gate: the four bodies differed by integrand ARITY alone, each
-    // re-spelling the same counter, the same probe, and the same zero substitution. Every arm lifts its own
-    // integrand through this cell, so a new arity is a lambda at the call site rather than a fifth twin.
     private static Fin<QuadratureEvidence> Counted(Func<SkipCounter, Fin<QuadratureEvidence>> run) => run(arg: new SkipCounter());
 
     private sealed class SkipCounter {
@@ -1118,19 +1004,10 @@ public static class Quadrature {
     private static bool FiniteOrdered(IntervalSpec bounds) => !bounds.Infinite && Ordered(bounds: bounds);
 }
 
-// Smolyak combines nested Clenshaw-Curtis rules across q−d+1 ≤ |ℓ|₁ ≤ q for 5-20-dimensional projection and
-// moment integrals; nested Chebyshev extrema retain lower-level evaluations without a full tensor product.
 public static class SmolyakCubature {
-    // REFUSED operator, named where the refusal binds: the O(n^2) cosine-sum weight fold below collapses to the
-    // O(n log n) DCT form (Waldvogel 2006) through this branch's own `Numerics/transform` spectral band — but
-    // that band's arena is Complex-interleaved over a CellLattice, and the rule is built ONCE per (level, axis)
-    // now, so the transform lift costs more than the fold it replaces at every admitted level.
     public static KernelOutcome Integrate(Func<double[], double> f, Arr<IntervalSpec> bounds, int level) {
         int d = bounds.Count;
         double sum = 0.0;
-        // The 1-D rule is a pure function of (level, axis) and there are at most d*level distinct pairs per
-        // integration, where the multi-index walk asked for it millions of times — so it builds once here and
-        // every tensor node reads the cache.
         Dictionary<(int Level, int Axis), (double[] Nodes, double[] Weights)> built = [];
         for (int axis = 0; axis < d; axis++) {
             for (int rule = 1; rule <= level + d - 1; rule++) { built[(rule, axis)] = ClenshawCurtis(level: rule, bounds: bounds[axis]); }
@@ -1144,23 +1021,14 @@ public static class SmolyakCubature {
         return new KernelOutcome(Value: sum, Error: None, L1Norm: None, Claim: ConvergenceClaim.Unwitnessed);
     }
 
-    // Multi-indices with q−d+1 ≤ |ℓ|₁ ≤ q and the Smolyak coefficient (−1)^(q−|ℓ|₁)·C(d−1, q−|ℓ|₁), generated
-    // DIRECTLY per band total — the prior form enumerated every composition of the whole d-simplex up to q and
-    // filtered (≈10¹³ candidates at the admitted d=20, ℓ=8, to keep Σ C(s−1,d−1) members); the coefficient hoists
-    // per total because every composition of one total shares it.
     private static IEnumerable<(int[] Multi, int Coefficient)> CombinationLevels(int dimensions, int level) {
         int q = level + dimensions - 1;
         for (int total = q - dimensions + 1; total <= q; total++) {
-            // The Smolyak sign is a PARITY, not a transcendental: `Math.Pow(-1, k)` called into the FPU to
-            // compute one bit the low bit of the exponent already carries.
             int coefficient = (((q - total) & 1) == 0 ? 1 : -1) * (int)Binomial(n: dimensions - 1, k: q - total);
             foreach (int[] multi in PositiveCompositions(total: total, slots: dimensions)) yield return (multi, coefficient);
         }
     }
 
-    // Positive compositions of `total` into exactly `slots` parts by bounded descent — each emitted array is a
-    // band member by construction, so nothing is generated to be discarded; the head range keeps one unit for
-    // every remaining slot, and the last slot takes the exact remainder.
     private static IEnumerable<int[]> PositiveCompositions(int total, int slots) {
         int[] parts = new int[slots];
         return Descend(slot: 0, remaining: total);
@@ -1189,8 +1057,6 @@ public static class SmolyakCubature {
         });
     }
 
-    // Nested Chebyshev-extrema rule at level ℓ: n = 2^(ℓ−1)+1 points (ℓ=1 the midpoint), classic
-    // Clenshaw-Curtis cosine-sum weights mapped onto [lower, upper].
     private static (double[] Nodes, double[] Weights) ClenshawCurtis(int level, IntervalSpec bounds) {
         int n = level == 1 ? 1 : (1 << (level - 1)) + 1;
         double half = 0.5 * (bounds.Upper - bounds.Lower);

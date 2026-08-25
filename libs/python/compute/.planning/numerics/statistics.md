@@ -17,7 +17,7 @@ One in-memory classical-statistics owner producing hypothesis-test and distribut
 - Growth: a new `(statistic, pvalue)` test is one `Tag` literal, one `TestIntent` case, one `_SIGNIFICANCE_CALLS` row, and one `_STAT_ROUTES` row; a divergent-shape test adds one dedicated reader instead; a new fittable distribution is one `Distribution` row; a new Anderson-Darling reference is one `Goodness` row only when `scipy.stats.anderson` documents it; a new reject regime is one `Decision` row carrying its own `reject` rule.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Final, Literal, Protocol, assert_never
@@ -33,11 +33,6 @@ from rasm.runtime.identity import CANONICAL_POLICY, ContentIdentity, ContentKey,
 from rasm.runtime.faults import FAULT_CONF, RuntimeRail
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
-# cold scientific dependency: the `lazy` bind defers the whole `scipy.stats` distribution tree to the first
-# route body that fires. No module-scope cell reifies the proxy at import: `_SIGNIFICANCE_CALLS` rows carry
-# entry NAMES inside call-time thunks and `_STAT_ROUTES` rows bind the LOCAL route bodies through
-# `StatRoute.run`, so only a route body's call-time read — the `getattr(stats, entry)` seam and the direct
-# `stats.<member>` calls — touches the live proxy.
 lazy from scipy import stats
 
 if TYPE_CHECKING:
@@ -51,12 +46,12 @@ if TYPE_CHECKING:
         significance_level: np.ndarray
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type Tag = Literal["two_sample_ks", "anderson", "shapiro", "mannwhitneyu", "fit"]
 
 
-class Distribution(StrEnum):  # the MLE-fittable continuous families; the enum value is the `scipy.stats` attribute name
+class Distribution(StrEnum):
     NORM = "norm"
     LOGNORM = "lognorm"
     GAMMA = "gamma"
@@ -67,7 +62,7 @@ class Distribution(StrEnum):  # the MLE-fittable continuous families; the enum v
     WEIBULL_MIN = "weibull_min"
 
 
-class Goodness(StrEnum):  # the Anderson-Darling reference set; the enum value is the `scipy.stats.anderson` reference name
+class Goodness(StrEnum):
     NORM = "norm"
     EXPON = "expon"
     LOGISTIC = "logistic"
@@ -83,11 +78,10 @@ class Alternative(StrEnum):
 
 
 class Decision(StrEnum):
-    SIGNIFICANCE = "significance"  # reject H0 when the criterion (a p-value) falls below alpha
-    CRITICAL = "critical"  # reject H0 when the statistic exceeds the selected critical value
+    SIGNIFICANCE = "significance"
+    CRITICAL = "critical"
 
     def reject(self, statistic: float, criterion: float, alpha: float) -> bool:
-        # total over the closed regime, so a new `Decision` row is a compile-surfaced arm, never silently routed to significance.
         match self:
             case Decision.CRITICAL:
                 return statistic > criterion
@@ -102,11 +96,10 @@ class Verdict(StrEnum):
     RETAIN = "retain"
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Reading(Struct, frozen=True):  # GC-tracked: carries the `parameters` tuple and the `Option` moments container
-    # one per-route projection the unified fold consumes; `parameters` empty and `moments` `Nothing` for a pure hypothesis test.
+class Reading(Struct, frozen=True):
     statistic: float
     criterion: float
     parameters: tuple[float, ...] = ()
@@ -117,10 +110,10 @@ class StatReport(Struct, frozen=True):
     test: Tag
     decision: Decision
     statistic: float
-    criterion: float  # the route's reject yardstick: a p-value (SIGNIFICANCE) or a critical level (CRITICAL)
+    criterion: float
     verdict: Verdict
     parameters: tuple[float, ...]
-    moments: Option[tuple[float, float]]  # fitted (mean, variance) for the MLE fit, Nothing for a pure hypothesis test
+    moments: Option[tuple[float, float]]
     content_key: ContentKey
 
     @staticmethod
@@ -129,10 +122,6 @@ class StatReport(Struct, frozen=True):
         return StatReport(test, decision, reading.statistic, reading.criterion, verdict, reading.parameters, reading.moments, key)
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine. The band names the REJECT verdict rather than leaving a reader to compare a
-        # `verdict` string against a vocabulary it does not hold — this page graduates nothing by charter, so the
-        # band is its only outward finding channel — and absent `moments` OMIT their key where `default_arg(..., ())`
-        # published an empty tuple a consumer could not tell from a fitted pair of zero moments.
         facts: dict[str, object] = {
             "test": self.test,
             "decision": self.decision.value,
@@ -153,7 +142,6 @@ class StatReport(Struct, frozen=True):
 
     @property
     def span_facts(self) -> dict[str, str | int | float]:
-        # exactly the `str | int | float` set `Span.set_attributes` admits; the fitted `parameters`/`moments` ledger rides the receipt facts only.
         return {
             "stat.test": self.test,
             "stat.decision": self.decision.value,
@@ -194,7 +182,6 @@ class TestIntent:
 
     @property
     def samples(self) -> tuple[np.ndarray, ...]:
-        # identity is `identity_source`'s concern, never a second projection here.
         match self:
             case TestIntent(tag="two_sample_ks", two_sample_ks=(a, b)) | TestIntent(tag="mannwhitneyu", mannwhitneyu=(a, b, _)):
                 return (np.asarray(a, dtype=float), np.asarray(b, dtype=float))
@@ -204,10 +191,6 @@ class TestIntent:
                 assert_never(unreachable)
 
     def identity_source(self, alpha: float, fit_sample: int) -> IdentitySource:
-        # sample bytes plus every discriminant the graded verdict reads, so two intents that can grade differently never share a
-        # `ContentKey`. These are N SEMANTIC FIELDS and hand `IdentitySource(parts=...)`, so the `[PREIMAGE_FRAMING]`
-        # count-and-length framing runs at its ONE owner: the retired tail re-spelled that owner's `_framed` fold
-        # verbatim, and a width or byte-order change there would have forked this page's key namespace silently.
         tail: tuple[bytes, ...]
         match self:
             case TestIntent(tag="anderson", anderson=(_, dist)):
@@ -218,23 +201,18 @@ class TestIntent:
                 tail = (dist.value.encode(), fit_sample.to_bytes(8, "big"))
             case _:
                 tail = ()
-        # the sample roster states its own cardinality, so a one-sample and a two-sample intent whose concatenated
-        # bytes coincide under different splits still key apart.
         samples = tuple(np.ascontiguousarray(s).tobytes() for s in self.samples)
         return IdentitySource(parts=(self.tag.encode(), str(len(samples)).encode(), *samples, np.float64(alpha).tobytes(), *tail))
 
 
 class StatRoute(Struct, frozen=True):
-    # `run` takes the report's own `ContentKey` because a route needing a reproducible draw seeds off THAT key rather
-    # than re-deriving a second identity from the same bytes; a route that draws nothing ignores the argument.
-    run: Callable[[TestIntent, float, int, ContentKey], Reading]  # binds the `scipy.stats` entrypoint, projects the typed `Reading`
-    decision: Decision  # the reject-regime the row grades under
+    run: Callable[[TestIntent, float, int, ContentKey], Reading]
+    decision: Decision
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[StatReport]":
-    # a `scipy.stats` raise, the gated `ImportError`, a contract violation, or an in-body digest `Error` all fold onto the ONE rail.
     facts = {"test": intent.tag, "alpha": alpha}
     return evidence_run(EvidenceScope.STATISTICS, f"stat.{intent.tag}", lambda: _stat_report(intent, alpha, fit_sample), facts=facts, composition=composition)
 
@@ -242,29 +220,17 @@ def test(intent: TestIntent, *, alpha: float = 0.05, fit_sample: int = 4096, com
 
 @beartype(conf=FAULT_CONF)
 def _stat_report(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail[StatReport]":
-    # `alpha` threads into `run` (the AD criterion selects its critical value at the configured level) AND into `graded` (every
-    # `Decision.reject` grades against the same level); the `_stat_key` rail is matched HERE inside the already-fenced body so a
-    # digest `Error` re-raises onto the boundary rather than flattening a double rail. The key resolves BEFORE the route runs,
-    # so the one identity the report carries is also the one seed a drawing route replays from — never two derivations over the
-    # same bytes that a later change to either can silently fork.
     route = _STAT_ROUTES[intent.tag]
-    # the digest rail THREADS rather than re-raising: the retired `raise RuntimeError(fault)` smuggled an already-typed
-    # `BoundaryFault` back out through an untyped exception, and the weave fence's catch-all keeps `str(cause)` — so a
-    # digest refusal reached its consumer as a message string with its subject, leg, and case erased. A rail in hand
-    # is returned, never re-raised to be re-classified by a fence that knows less than the value already did.
     return _stat_key(intent, alpha, fit_sample).map(
         lambda key: StatReport.graded(intent.tag, route.decision, route.run(intent, alpha, fit_sample, key), alpha, key)
     )
 
 
 def _stat_key(intent: TestIntent, alpha: float, fit_sample: int) -> "RuntimeRail[ContentKey]":
-    # `CANONICAL_POLICY` default keys the canonical path — an explicit `IdentityPolicy()` allocation keys identically and is ceremony.
     return ContentIdentity.of(f"stat.{intent.tag}", intent.identity_source(alpha, fit_sample))
 
 
 def _significance(intent: TestIntent, _alpha: float, _sample: int, _key: ContentKey) -> Reading:
-    # `_SIGNIFICANCE_CALLS[tag]` projects `(entry_name, kwargs)` off the intent and the gated `getattr(stats, entry_name)` binds
-    # entrypoint inside the boundary; the named result's `.pvalue` is the SIGNIFICANCE criterion.
     entry, kwargs = _SIGNIFICANCE_CALLS[intent.tag](intent)
     result: TestResult = getattr(stats, entry)(*intent.samples, **kwargs)
     return Reading(float(result.statistic), float(result.pvalue))
@@ -274,8 +240,6 @@ def _run_anderson(intent: TestIntent, alpha: float, _sample: int, _key: ContentK
     (x,) = intent.samples
     _, dist = intent.anderson
     result: AndersonResult = stats.anderson(x, dist=dist.value)
-    # criterion is the critical value at the tightest published significance level still at or above `alpha`, picked by masking
-    # sub-`alpha` levels to `+inf` and taking `np.argmin` — never `np.interp` between grid points.
     levels = np.asarray(result.significance_level, dtype=float)
     admissible = np.where(levels >= alpha * 100.0, levels, np.inf)
     pick = int(np.argmin(admissible))
@@ -288,21 +252,14 @@ def _run_fit(intent: TestIntent, _alpha: float, fit_sample: int, key: ContentKey
     frozen = getattr(stats, dist.value)
     params = tuple(float(p) for p in frozen.fit(x))
     estimate = frozen(*params)
-    # reference draw seeds off the report's own 128-bit digest so the GOF p-value is reproducible per input — an unseeded `rvs`
-    # would re-score a fresh verdict on identical data and break the `ContentKey` cache-hit-by-reference contract, while the
-    # digest already folds the samples, `alpha`, `fit_sample`, and every route discriminant the identity buffer names.
-    # Seeding off the raw sample bytes is the deleted form and the cost is QUADRATIC, MEASURED:
-    # `SeedSequence(int.from_bytes(x.tobytes(), "big"))` takes 0.027 s at 512 float64 samples, 0.419 s at 2048, and 7.05 s at
-    # 8192 — the coercion divides a megabit-wide integer down to 32-bit words — where the bounded digest is flat.
     rng = np.random.default_rng(np.random.SeedSequence(key.project("digest")))
     gof: TestResult = stats.ks_2samp(x, estimate.rvs(size=fit_sample, random_state=rng))
     mean, var = estimate.stats(moments="mv")
     return Reading(float(gof.statistic), float(gof.pvalue), parameters=params, moments=Some((float(mean), float(var))))
 
 
-# --- [TABLES] ------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# `ks_2samp`/`shapiro` take only the projected samples; `mannwhitneyu` threads the `Alternative.value` rank-test side.
 _SIGNIFICANCE_CALLS: Map[Tag, Callable[[TestIntent], tuple[str, dict[str, object]]]] = Map.of_seq([
     ("two_sample_ks", lambda _: ("ks_2samp", {})),
     ("shapiro", lambda _: ("shapiro", {})),
@@ -310,7 +267,6 @@ _SIGNIFICANCE_CALLS: Map[Tag, Callable[[TestIntent], tuple[str, dict[str, object
 ])
 
 
-# one route row per tag driving one `_stat_report` fold; `decision` carries the reject regime the row grades under.
 _STAT_ROUTES: Map[Tag, StatRoute] = Map.of_seq([
     ("two_sample_ks", StatRoute(_significance, Decision.SIGNIFICANCE)),
     ("anderson", StatRoute(_run_anderson, Decision.CRITICAL)),

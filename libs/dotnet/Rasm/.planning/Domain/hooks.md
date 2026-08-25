@@ -26,12 +26,12 @@
 - Boundary: `TFact` closes at declaration as the owning folder's closed union, so a stringly payload cannot enter the rail; a subscriber failure is evidence or a refusal, never a broken emitter or a starved sibling, because every tap runs inside its own shield. Evidence cells enter as constructor material from the owning composition, never process-static — two compositions in one process hold two cells.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -56,10 +56,6 @@ public readonly partial struct TraceScope {
             : new ValidationError(message: $"TraceScope requires the rasm.<package>.<plane> grammar: {value}");
 }
 
-// Retention depth rides the row that RETAINS, so a non-retaining point carries no dead capacity column. The
-// vocabulary realizes `ICapability`, so a point's held modalities are ONE `CapabilitySet` column and the parallel
-// bool pair a per-modality probe would want has no spelling; `Rank` DERIVES from declaration order through the
-// `ICapability` default member (E-C3-1 — the hand 0/1/2 mirror reproduced it identically and is the deleted form).
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -75,7 +71,7 @@ public sealed partial class HookModality : ICapability<HookModality> {
     public int Depth { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct IsolatedFault(HookId Point, Error Cause, DateTimeOffset At);
 
@@ -84,9 +80,7 @@ public readonly record struct HookDetacher(Action Detach) : IDisposable {
     public void Dispose() => Detach();
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The census reads IDENTITY and DELIVERY alone: a `Type Fact` column here would be the `object`/`Type` erasure
-// pair `[04]`'s law forbids the sibling mechanism, and the payload type is already the capsule's parameter.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IHookPoint {
     HookId Id { get; }
     CapabilitySet<HookModality> Modalities { get; }
@@ -106,7 +100,6 @@ public sealed class HookPoint<TFact> : IHookPoint {
 
     public Fin<TFact> Fire(TFact fact, Op key) => Fire(fact: fact, key: key, body: Fin.Succ);
 
-    // Guarded bodies receive the ADMITTED fact, so a transforming veto governs the seam and not the taps alone.
     public Fin<T> Fire<T>(TFact fact, Op key, Func<TFact, Fin<T>> body) =>
         from guarded in key.Need(body)
         from _ in Fin.Succ(Retain(fact: fact))
@@ -129,9 +122,6 @@ public sealed class HookPoint<TFact> : IHookPoint {
         return (ignore(buffer.Value.Iter(held => Forked(fact: held, tap: admitted, key: key))), detach).Item2;
     }
 
-    // Rail shape discriminates the subscription: a projection arm returning the typed rail lifts onto the IO
-    // error channel here, so a refused instrument write parks beside every other tap fault and no consuming
-    // folder re-mints this lift as its own aspect.
     public Fin<IDisposable> Observe(Func<TFact, Fin<Unit>> arm, Op key) =>
         Observe(tap: fact => IO.lift(() => arm(fact)), key: key);
 
@@ -150,10 +140,6 @@ public sealed class HookPoint<TFact> : IHookPoint {
 
     private Unit Dispatch(TFact fact, Op key) => ignore(taps.Value.Iter(tap => Forked(fact: fact, tap: tap, key: key)));
 
-    // Fork before forcing: `Run` forces only the fork queue, never the subscriber body; fork and subscriber
-    // faults share one parked-evidence arm, and `Op.Catch` keeps a cancelled subscriber's typed identity. The park's own
-    // settlement discards at these two leaves ALONE, and only because the cell already counted it: a declined park
-    // increments `Lost`, so the shield's loss survives as a number rather than as nothing.
     private Unit Forked(TFact fact, Func<TFact, IO<Unit>> tap, Op key) =>
         key.Catch(() => IO.lift(() => Shielded(fact: fact, tap: tap, key: key)).Fork(None).Run().Map(static _ => unit))
             .Match(Succ: static _ => unit, Fail: cause => ignore(faults.Park(point: Id, cause: cause)));
@@ -187,57 +173,37 @@ public sealed class HookPoint<TFact> : IHookPoint {
 - Boundary: NAMED LOSS (narrowed by E-M16) — folding the per-folder rails onto one mechanism erases the per-point FACT TYPE at compile time: a subscriber to a named `HookPoint<BimFact.Imported>` field could not receive an exported fact, while under one rail every point on a roster shares one `TFact` and subscribers discriminate on the case. What survives is the roster row's modality admission, the union's closure (a foreign case is unspellable), AND per-point fact-CASE narrowing as the RUNTIME `Seats` gate derived from the union's declared correspondence — only the compile-time shape of the narrowing is lost. The roster-COLUMN form was refused: the census view's law bars a `Type` column, and the correspondence is the fact's, not the point's. WITNESS — `Rasm.Bim/Model/observability.md:211-252`'s fourteen `HookPoint<BimFact.*>` columns, its fourteen-line `Live()`, its fourteen-entry census, and its private `Seat<TFact>` mint become one roster, one fact union, and one `HookRail<BimPoint, BimFact, TelemetrySource>.Of(key, taps: taps)`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Numerics;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Folders declare the roster ONLY (branch RULINGS [02]-[SHAPE] `<Package>Point`), so the
-// mechanism takes it as a type parameter and an inline `HookId.Create` literal at a folder stops compiling.
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IHookRoster<TSelf> where TSelf : IHookRoster<TSelf> {
     static abstract IReadOnlyList<TSelf> Items { get; }
     HookId Id { get; }
-    // Set algebra is the capability owner's: `Admits`, `AdmitsAll`, and the rank-ordered `Wire` arrive with the
-    // column, so a roster re-declaring a membership probe beside it publishes a second answer to one question.
     CapabilitySet<HookModality> Modalities { get; }
     Option<TraceScope> Plane { get; }
 }
 
-// The fact-side floor (E-M16): the fact union DECLARES which points each case seats at — the primary
-// correspondence the folded rosters already carry as an `At`/`Point` map — and `Fire` reads it, so per-point
-// fact-CASE narrowing is a runtime gate DERIVED from the union's own declaration. A roster COLUMN was the
-// refused form: the census view's own law bars a `Type` column, one Bim progress case seats at three points,
-// and a boundary broadcast fact seats at every veto point — the correspondence is the FACT's, set-shaped by
-// `Seats`, never a per-point case list a folder hand-mirrors.
 public interface IHookFact<TPoint> where TPoint : IHookRoster<TPoint> {
     bool Seats(TPoint at);
 }
 
-// `IHookSpan` floors the open bracket: `Domain/telemetry`'s `SpanBand` conforms to it, so the rail traces without naming a
-// type declared one page up. This is the instance-interface floor, not a wrapper — the rail never mints one.
-// PLANE rides as a parameter, not a band column: a composition mounting rails over two roster planes would
-// otherwise need one band per plane, and the roster row already answers which plane a point belongs to, so the
-// rail reads `TPoint.Plane` and hands it here rather than making the caller bind a second band.
 public interface IHookSpan {
     Fin<T> Traced<T>(TraceScope plane, Op key, Func<Fin<T>> body);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record HookGate<TPoint, TFact, TOwner>(TPoint Point, Func<TFact, Fin<TFact>> Admit, Option<TOwner> Owner = default)
     where TPoint : IHookRoster<TPoint>
     where TOwner : notnull;
 
-// `Name` is an `Op`, so a parked fault stays attributable through the same key vocabulary every rail fault carries.
 public sealed record HookTap<TPoint, TFact, TOwner>(Op Name, Func<TFact, Fin<Unit>> Observe, Option<Seq<TPoint>> Scope = default, Option<TOwner> Owner = default)
     where TPoint : IHookRoster<TPoint>
     where TOwner : notnull;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// `Ring<T>` bounds any payload: `Park` past `cap` sheds the OLDEST rows and counts them onto `Shed`.
-// `RingSettlement<T>.Landed` carries the already-settled reverse/all-attempted release rail for those rows, so a
-// cleanup failure cannot be mistaken for a park that never landed. Every journal, ledger, or fault cell in the
-// estate that is "a cap, oldest out, a shed counter" IS this type.
+// --- [SERVICES] ------------------------------------------------------------------------
 [Union]
 public abstract partial record RingSettlement<T> {
     private RingSettlement() { }
@@ -260,15 +226,10 @@ public sealed class Ring<T> {
     public Dimension Cap => cap;
     public Seq<T> Parked => held.Value.Items;
     public long Shed => shed.Value;
-    // Declined parks are COUNTED, never silent: `Shed` reads rows the ring evicted, `Lost` reads parks that never
-    // landed. Cleanup failure belongs to the landed receipt because retrying that park would duplicate the item.
     public long Lost => lost.Value;
 
     public RingSettlement<T> Park(T item) => Park(item: item, release: None, key: Boundary);
 
-    // Proposal is pure until the versioned whole-state CAS lands. Only its winner owns the evicted rows and releases
-    // them, newest-first, through Custody's all-attempted fold. A same-count replacement still changes Version, so
-    // ABA cannot authorize a candidate derived from a state another writer already retired.
     public RingSettlement<T> Park(T item, Func<T, Fin<Unit>> release, Op key) {
         ArgumentNullException.ThrowIfNull(release);
         ArgumentNullException.ThrowIfNull(key);
@@ -317,7 +278,6 @@ public sealed class Ring<T> {
         count >= long.MaxValue - delta ? long.MaxValue : count + delta;
 }
 
-// `FaultCell` rings isolated faults: the clock is its ONE stamp source, so `Park` mints the stamped fault and the ring holds it.
 public sealed class FaultCell {
     private readonly TimeProvider clock;
 
@@ -328,8 +288,6 @@ public sealed class FaultCell {
     public long Shed => Ring.Shed;
     public long Lost => Ring.Lost;
 
-    // The park's verdict rides OUT: an evidence sink whose own park declined has lost the fault it was called to
-    // record, so the transition reaches the one seam that can count or report it rather than collapsing to `unit`.
     public RingSettlement<IsolatedFault> Park(HookId point, Error cause) =>
         Ring.Park(item: new IsolatedFault(Point: point, Cause: cause, At: clock.GetUtcNow()));
 }
@@ -346,11 +304,6 @@ public sealed class HookRail<TPoint, TFact, TOwner>
     private HookRail(HashMap<TPoint, HookPoint<TFact>> seats, FaultCell faults, Option<IHookSpan> span) =>
         (this.seats, Faults, this.span) = (seats, faults, span);
 
-    // Seats mint from `TPoint.Items` alone, so a point outside the roster is unrepresentable; gates then taps
-    // subscribe in declaration order, and a refusal rolls back every subscription already taken — reverse
-    // order, every detacher run — so a partially subscribed rail never escapes `Of`.
-    // The evidence cell arrives WHOLE: a clock beside a cap would let one composition hold two rings under one
-    // process, so the composing app hands the cell every rail, tenancy stamp, and shield already park on.
     public static Fin<HookRail<TPoint, TFact, TOwner>> Of(
         Op key,
         Seq<HookGate<TPoint, TFact, TOwner>> gates = default,
@@ -376,10 +329,6 @@ public sealed class HookRail<TPoint, TFact, TOwner>
     public Seq<IHookPoint> Points => toSeq(TPoint.Items).Map(row => (IHookPoint)seats[row]);
     public FaultCell Faults { get; }
 
-    // The E-M16 seating gate rides BOTH arities, entry and veto-product: an emitter pairing a fact with a point
-    // its union does not seat there refuses before any veto runs, and a veto gate rewriting the fact to a sibling
-    // case that does not seat at the point refuses after the fold and before the body or any tap — the residual
-    // hazard the guarded bodies re-checked by hand.
     public Fin<TFact> Fire(TPoint at, TFact fact, Op key) => Fire(at: at, fact: fact, key: key, body: Fin.Succ);
     public Fin<T> Fire<T>(TPoint at, TFact fact, Op key, Func<TFact, Fin<T>> body) =>
         Seated(at: at, fact: fact, key: key).Bind(_ => Seat(at: at, key: key).Bind(seat =>
@@ -387,15 +336,11 @@ public sealed class HookRail<TPoint, TFact, TOwner>
 
     public Seq<TFact> Drain(TPoint at) => seats.Find(at).Map(static seat => seat.Drain()).IfNone(Seq<TFact>());
 
-    // `Replay` RE-FIRES with a verdict rail rather than reading a buffer: `TraverseM` aborts on the first refusal and a point whose
-    // roster row does not retain refuses before the fold starts, so replaying a non-retaining seat is loud.
     public Fin<Unit> Replay(TPoint at, Seq<TFact> captured, Op key) =>
         at.Modalities.Held.Exists(static row => row.Retains)
             ? captured.TraverseM(fact => Fire(at: at, fact: fact, key: key)).As().Map(static _ => unit)
             : Fin.Fail<Unit>(new KernelFault.InvalidValue(Label: at.Id.ToString(), Requirement: "a retaining point"));
 
-    // Reverse registration order, every detacher run inside its own capture; all failures aggregate after every
-    // release has been attempted, so teardown has a rail outcome rather than a parked side channel.
     public Fin<Unit> Detach() {
         Seq<(Option<TOwner> Owner, IDisposable Detach)> snapshot = subscriptions.Value;
         Fin<Unit> released = Unwind(taken: snapshot, key: Op.Of());
@@ -437,17 +382,15 @@ public sealed class HookRail<TPoint, TFact, TOwner>
 - Boundary: keyed instances stay the folder's — a `(point, scope)` seat and a plugin-rider seat are earned by grant custody under branch RULINGS `[02]`, and what those folders need from the kernel is `TOwner` typed once, never a kernel-side registry of their instances.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 namespace Rasm.Domain;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// `IHookBinding` carries only what a heterogeneous census reads; the ask and grant types stay on the row.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal interface IHookBinding<TPoint, TOwner>
     where TPoint : IHookRoster<TPoint>
     where TOwner : notnull {
     TPoint Point { get; }
     TOwner Owner { get; }
-    // One operation rides this floor: a row seats ITSELF through the typed `Mount`, so `MountAll` never erases the row.
     Fin<Lease<IDisposable>> Mount(HookMounts<TPoint, TOwner> mounts, Op key);
 }
 
@@ -465,20 +408,15 @@ public sealed class HookMounts<TPoint, TOwner>
         Atom(HashMap<(TPoint Point, TOwner Owner), (long Ordinal, IHookBinding<TPoint, TOwner> Binding)>());
     private readonly Atom<long> minted = Atom(0L);
 
-    // Mount order is the audit order: the ordinal a claim minted sorts both projections.
     public Seq<IHookBinding<TPoint, TOwner>> Census => toSeq(seats.Value.Values).OrderBy(static row => row.Ordinal).Map(static row => row.Binding).ToSeq().Strict();
     public Seq<(TPoint Point, Seq<TOwner> Riders)> Riders =>
         toSeq(TPoint.Items).Map(point => (Point: point, Riders: Census.Filter(row => row.Point.Equals(point)).Map(static row => row.Owner).ToSeq().Strict()));
 
-    // First writer wins on the `(point, owner)` seat through `Cell.Claim`; the loser reads `Ceded` and refuses
-    // with both identities named instead of re-deriving the outcome from a table both hold.
     public Fin<Lease<IDisposable>> Mount<TAsk, TGrant>(HookBinding<TPoint, TOwner, TAsk, TGrant> binding, Op key) =>
         Cell.Claim(cell: seats, key: (binding.Point, binding.Owner), mint: () => (Ordinal: minted.Swap(static n => n + 1), Binding: (IHookBinding<TPoint, TOwner>)binding)) is Transition<HashMap<(TPoint Point, TOwner Owner), (long Ordinal, IHookBinding<TPoint, TOwner> Binding)>>.Committed
             ? Fin.Succ<Lease<IDisposable>>(new Lease<IDisposable>.Owned(new HookDetacher(Detach: () => ignore(seats.Swap(held => held.Remove((binding.Point, binding.Owner)))))))
             : Fin.Fail<Lease<IDisposable>>(new KernelFault.InvalidValue(Label: $"{binding.Point.Id}/{binding.Owner}", Requirement: "an unclaimed seat"));
 
-    // Rollback is the fold's own arm: a refusal disposes every seat already taken, reverse order, every disposer
-    // running even when one throws, so a partial mount is unrepresentable rather than merely discouraged.
     public Fin<Seq<Lease<IDisposable>>> MountAll(Seq<IHookBinding<TPoint, TOwner>> bindings, Op key) =>
         bindings.Fold(Fin.Succ(Seq<Lease<IDisposable>>()), (held, binding) => held.Bind(taken =>
             Seat(binding: binding, key: key).Match(
@@ -486,17 +424,12 @@ public sealed class HookMounts<TPoint, TOwner>
                 Fail: refusal => Fin.Fail<Seq<Lease<IDisposable>>>(refusal)
                     .Rollback(held: taken, release: static lease => Fin.Succ(lease.Dispose()), key: key))));
 
-    // Typed rows answer the typed ask: the census floor never erases, so a mismatched ask fails HERE by name
-    // and never at a cast.
     public Fin<TGrant> Bind<TAsk, TGrant>(TPoint point, TOwner owner, TAsk ask, Op key) =>
         seats.Value.Find((point, owner)).Map(static row => row.Binding).ToFin(key.InvalidInput()).Bind(row => row switch {
             HookBinding<TPoint, TOwner, TAsk, TGrant> typed => typed.Bind(arg: ask),
-            // This floor stays an OPEN interface, so the fall-through is lawful: a seated row of another ask/grant pair.
             _ => Fin.Fail<TGrant>(new KernelFault.InvalidValue(Label: $"{point.Id}/{owner}", Requirement: $"a binding from {typeof(TAsk).Name} to {typeof(TGrant).Name}")),
         });
 
-    // Heterogeneous census mounts through its floor; each row re-enters the typed `Mount` through its own
-    // static shape, so no `object` crosses this seam.
     private Fin<Lease<IDisposable>> Seat(IHookBinding<TPoint, TOwner> binding, Op key) =>
         binding.Mount(mounts: this, key: key);
 }
@@ -512,15 +445,13 @@ public sealed class HookMounts<TPoint, TOwner>
 - Boundary: the registry is an audit surface, never a dispatch surface — nothing fires through it, and a lookup that returns a point for firing is the deleted form.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 
 namespace Rasm.Domain;
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record HookRegistry(FrozenDictionary<string, IHookPoint> Points) {
-    // Freezing names BOTH owners of a duplicate id on the rail rather than throwing at the frozen build; the
-    // span crosses into the fold through `Iterable.FromSpan` because a span cannot enter a lambda.
     public static Fin<HookRegistry> Mount(params ReadOnlySpan<IHookPoint> points) {
         Seq<IHookPoint> rows = Iterable<IHookPoint>.FromSpan(points).ToSeq();
         Seq<string> collided = rows.Collisions(static row => row.Id.ToString());

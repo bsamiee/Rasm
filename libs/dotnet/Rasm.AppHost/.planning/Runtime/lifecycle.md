@@ -23,7 +23,7 @@ Settled composition: `CorrelationId` arrives from the kernel frame capsule `Rasm
 - Boundary: `PhaseStep` is the primary correspondence and everything else on this page derives from it — `From` is the admitting set, `To` the target, `Free` the evidence-free mint the phase-shaped overload needs, so a phase edge is stated ONCE and the three parallel total switches that restated it (next, derived, key) are gone with the hand-kept transition diagram that mirrored them a fourth time; NAMED LOSS — the rendered edge picture, recovered by the roster's own `From`/`To` columns, which ARE the edge list and cannot drift from the law they are. `Recovered` and `CaptureCompleted` were admitted by the old transition law with no producer anywhere, which made `Degraded` and `SupportCapture` absorbing states in practice; both now have one: the degradation rail through `DegradationTap` and the capture bracket through `Captured`, whose finalizer reads the pre-capture phase off the cell so the resume target is state rather than a caller argument. `Lifecycle` is the named boundary capsule for the statement carve-out — the token registration and trap wiring carry language-owned statement forms while every other member stays expression-shaped; the candidate mints against the held receipt inside `Cell.Step` and the ONE clock read is hoisted outside it, so a contended retry re-derives the receipt from the state it actually lost to and never re-reads the clock; the fire is the SETTLED commit rather than the swap body, so a contended retry never publishes a receipt the cell rejected, and the `Phase` row's Observe modality admits no veto — the only refusal `Fire` can answer is an unseated point, which is a composition defect and rides the rail rather than an `ignore`; subscription is a `HookTap` row the composition hands `HookRail.Of`, so a per-capsule subscribe member and its detacher both delete and `rail.Release(TelemetrySource.AppHost, key)` is the one teardown; evidence-bearing targets (faulted, capture-resume, upgrade) carry no `Free` mint, so the phase-shaped admission cannot reach them and fault evidence is never silently dropped; the boot self-loop row receipts upgrade detection without leaving boot; `PhaseReceipt.Trigger` is the step key, and the six boot events base at `FaultBand.SpineEventsBase` with the registry row `FaultBand.SpineEvents` holding the same value — the dual-owner invariant the kernel band law names, moving as one edit.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -41,9 +41,7 @@ public sealed partial class RuntimePhase {
     public Rasm.Contracts.Compute.RuntimePhase Wire { get; }
 }
 
-// --- [TABLES] ---------------------------------------------------------------------------
-// THE phase correspondence. `To` is `None` on the one row whose target rides its trigger payload, and `Free`
-// answers `None` on every row whose trigger carries evidence a phase name cannot reconstruct.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -80,8 +78,6 @@ public sealed partial class PhaseStep {
     public Option<RuntimePhase> Next(RuntimePhase at, PhaseTrigger trigger) =>
         From.Contains(at) ? To.Match(Some: static row => Some(row), None: () => trigger.Resume) : None;
 
-    // Target alone cannot pick a row: `Running` is reached by `Started` from ready and by `Recovered` from
-    // degraded, so the held phase is half the key and a target-only lookup silently refused every recovery.
     public static Option<PhaseTrigger> Derived(RuntimePhase at, RuntimePhase target) =>
         toSeq(Items).Find(row => row.From.Contains(at) && row.To == Some(target)).Bind(static row => row.Free());
 
@@ -112,15 +108,14 @@ public abstract partial record PhaseTrigger {
     public sealed record DrainCompleted(Option<DrainReceipt> Receipt = default) : PhaseTrigger { public override PhaseStep Step => PhaseStep.DrainCompleted; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PhaseReceipt(RuntimePhase From, RuntimePhase To, string Trigger, Instant At, Duration Held, ConsumptionProfile Profile, CorrelationId CorrelationId);
 
 public readonly record struct PhaseSubscription(Seq<Action> Detachers) : IDisposable {
     public void Dispose() => Detachers.Rev().Iter(static detach => detach());
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// Lifecycle refusals retain the failing cause; text-only admission and category mirrors do not exist.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LifecycleFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Lifecycle;
@@ -139,9 +134,7 @@ public abstract partial record LifecycleFault : Fault {
         : LifecycleFault($"activation:{Module}:{Cause.Message}"), ICausedFault;
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// The `EventId` argument is a compile-time const while the registry row is an instance, so the base const and
-// `FaultBand.SpineEvents` carry the same value and move as one edit; `Code(offset)` is the runtime read.
+// --- [SERVICES] ------------------------------------------------------------------------
 public static partial class LifecycleLog {
     [LoggerMessage(EventId = FaultBand.SpineEventsBase + 0, Level = LogLevel.Information, Message = "boot {Version} on profile {Profile}")]
     public static partial void BootStarted(ILogger logger, Version version, string profile);
@@ -179,8 +172,6 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
             .ToFin(new LifecycleFault.IllegalTransition(cell.Value.To, PhaseStep.DrainRequested))
             .Bind(Transition);
 
-    // The resume phase is READ OFF the cell, so the capture bracket is the whole producer of both capture steps
-    // and a caller cannot name a resume target the process was never in.
     public IO<T> Captured<T>(IO<T> body) =>
         from entered in Railed(Transition(new PhaseTrigger.CaptureStarted()))
         from held in body.Bracket(
@@ -188,8 +179,6 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
             Fin: _ => IO.lift(() => ignore(Transition(new PhaseTrigger.CaptureCompleted(entered.From)))))
         select held;
 
-    // The degradation rail is the ONE producer of the degraded and recovered steps: the reading's own level
-    // decides the step and a refused transition (already at that phase) is the ordinary answer, not a fault.
     public HookTap<AppHostPoint, AppHostFact, TelemetrySource> DegradationTap =>
         new(Name: Op.Of(nameof(DegradationTap)),
             Observe: fact => fact.Switch(
@@ -238,7 +227,7 @@ public sealed class Lifecycle(ConsumptionProfile profile, ClockPolicy clocks, Co
 - Boundary: `TerminationKind` replaces the `bool Terminating` column on the source. Every `Error` enters the kernel's bounded `FaultWire.Observe` at the source mint, so the native fact carries durable evidence without retaining an exception graph or inventing a second support wire. `MarkerDrifted` preserves an unreadable marker's exact cause rather than erasing it into an absent-detail crash. `FaultSpine` owns trap wiring and signal handlers; stale own markers and host markers ride the same native `SupportTrigger.FaultTransition`; marker write, clean-drain removal, upgrade detection, and signal ownership remain one lifecycle rail.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -273,10 +262,10 @@ public abstract partial record FaultSource {
         markerDrifted: static _ => "marker-drifted");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BootMarker(int Pid, RuntimePhase Phase, Version AppVersion, Instant StartedAt);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FaultSpine {
     const string MarkerFile = "boot-marker.json";
 
@@ -295,17 +284,10 @@ public static class FaultSpine {
             };
             AppDomain.CurrentDomain.UnhandledException += unhandled;
             TaskScheduler.UnobservedTaskException += unobserved;
-            // ONE SIGTERM owner per process. Under systemd the host lifetime already registers it and routes to
-            // `StopApplication`, which reaches this cell through the `ApplicationStopping` token.
             var sigterm = SystemdHelpers.IsSystemdService()
                 ? Option<PosixSignalRegistration>.None
                 : Some(PosixSignalRegistration.Create(PosixSignal.SIGTERM, context => Drainward(host, context)));
             var sigquit = PosixSignalRegistration.Create(PosixSignal.SIGQUIT, context => Drainward(host, context));
-            // `Cancel = true` is the whole reason a reload signal is survivable: nothing else registers SIGHUP —
-            // not the runtime, not `SystemdLifetime`, which arms SIGTERM alone — so an unregistered process takes
-            // its inherited default disposition and dies at exit 129, which a service manager books as a CLEAN
-            // exit. This arm ENQUEUES rather than folding a reload inline, because SIGHUP dispatches on the
-            // ThreadPool where the other three get their own signal thread.
             var sighup = PosixSignalRegistration.Create(PosixSignal.SIGHUP, context => {
                 context.Cancel = true;
                 reload.Iter(static enqueue => enqueue());
@@ -324,8 +306,6 @@ public static class FaultSpine {
     public static IO<Unit> ClearMarker(string supportRoot) =>
         IO.lift(fun(() => File.Delete(Path.Join(supportRoot, MarkerFile))));
 
-    // PRESENCE is the crash fact; the parsed marker is its detail and a REFUSED parse is its own case, so the
-    // reason a drifted marker could not be read survives instead of reading as an ordinary detail-free crash.
     public static IO<(Seq<FaultSource> Crashes, Option<PhaseTrigger> Upgrade)> ProbeMarkers(string supportRoot, Version current, JsonTypeInfo<BootMarker> codec, Seq<string> hostMarkers = default) =>
         from path in IO.pure(Path.Join(supportRoot, MarkerFile))
         from own in IO.lift(() => File.Exists(path)
@@ -340,8 +320,6 @@ public static class FaultSpine {
                    .Filter(marker => marker.AppVersion != current)
                    .Map(marker => (PhaseTrigger)new PhaseTrigger.UpgradeDetected(marker.AppVersion, current)));
 
-    // One native fault fact carries both consequences: the capture arm and the phase cell receive the same value.
-    // Identity is the capsule's boot-minted one, never a caller argument.
     static Unit Commit(Lifecycle host, Option<Action<SupportTrigger>> capture, FaultSource source) =>
         (capture.Iter(arm => arm(new SupportTrigger.FaultTransition(host.CorrelationId, source))),
          ignore(host.Transition(new PhaseTrigger.FaultCommitted(source)))).Item2;
@@ -363,7 +341,7 @@ public static class FaultSpine {
 - Boundary: the band's store-dependency bool becomes a `CapabilitySet<DrainCapability>` under a legal-corner law, because the axes are not independent — a band that may write but cannot export publishes a step receipt nothing can read, so `DrainLaw` bars that corner at construction and the Telemetry row's egress-only membership is a data fact rather than a second bool; `DrainOutcome` DELETES onto `DeadlineOutcome` — flushed, escalated, and straggled were met, escalated, and forced under other names, and `Runtime/time#DEADLINE_TAXONOMY` already owns the correspondence including the cooperative-escalates-to-forced arc, so a second three-valued vocabulary was the drift; the caller's strictly positive `DrainRuntimeRequest.cooperative` is an INHERITED REMAINDER, not permission to reset the clock — the conductor computes `min(inherited, local)` once, the cancellation source expires on that result, the total timeout adds only the local forced tail, and the receipt records the same effective bound, so a five-second parent remainder can never become a fresh twenty-second cooperative window; NAMED GAIN — the receipt says WHICH ceiling cut a step, because the gauged lane is `DrainCooperative` when the cooperative token tripped and `DrainForced` when the total ceiling cut it; the fence is IDEMPOTENT on `Draining` and abortive everywhere else — a signal trap and the host stopping token both commit `Draining` before this fold runs and the step law refuses a second `DrainRequested` from `Draining`, so a bare railed transition here aborts the drain on exactly the paths that requested it while a `Boot` or `Unloaded` cell still aborts; the drain duration writes ONE OBSERVATION PER STEP under the band dimension the measure roster declares, so the percentile objective grades a real population rather than one summed point per band; the latency checkpoint records at the fold boundary through the injected token, so no `Stopwatch` appears anywhere below it; registration rows arrive field-identical from the drain-participant port; the maintenance-lease handoff emits as a Stores-band row, graceful handoff distinct from crash reclamation; the finalized Persistence single-`IDocumentSession` same-transaction spine mints no prepared transactions, so NO 2PC in-doubt drain row exists — a prepared-transaction reconciliation row or a managed XA transaction manager beside the spine is dead apparatus; on bundled-companion rows the parent's registration fans the drain signal to the child over the local-ipc hop.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -373,7 +351,7 @@ public sealed partial class DrainCapability : ICapability<DrainCapability> {
     public int Rank { get; }
 }
 
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DrainBand {
     public static readonly DrainBand Interaction = new(100, holds: CapabilitySet<DrainCapability>.All);
@@ -383,16 +361,13 @@ public sealed partial class DrainBand {
     public CapabilitySet<DrainCapability> Holds { get; }
 }
 
-// --- [POLICIES] -------------------------------------------------------------------------
-// A band that may write but cannot export publishes a step receipt nothing reads, and an empty band drains
-// nothing — so the two legal corners are stated and both dead corners refuse at construction rather than being
-// guarded at each site.
+// --- [POLICIES] ------------------------------------------------------------------------
 public static class DrainLaw {
     public static readonly CapabilityLaw<DrainCapability> Bands = new(Legal: Seq(
         CapabilitySet<DrainCapability>.Of(DrainCapability.Egress), CapabilitySet<DrainCapability>.All));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DrainRow(string Name, DrainBand Band, int Rank, Func<CancellationToken, IO<Unit>> Drain);
 
 public readonly record struct DrainStep(string Name, DrainBand Band, DeadlineReceipt Deadline) {
@@ -403,7 +378,7 @@ public readonly record struct DrainStep(string Name, DrainBand Band, DeadlineRec
 
 public readonly record struct DrainReceipt(Seq<DrainStep> Steps, RuntimePhase Final, Instant At, Duration Elapsed, CorrelationId CorrelationId);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DrainConductor {
     extension(Lifecycle host) {
         public IO<DrainReceipt> Drain(Seq<DrainRow> rows, ILatencyContext latency, CheckpointToken checkpoint, InstrumentSet instruments, Duration inherited) =>
@@ -426,15 +401,9 @@ public static class DrainConductor {
         public Seq<DrainStep> Stragglers => receipt.Steps.Filter(static step => step.Outcome == DeadlineOutcome.Forced);
     }
 
-    // Fences ENFORCE, idempotent on the one phase that legitimately precedes this fold: a signal trap and the
-    // host stopping token each commit `Draining` ahead, and the step law refuses a second request from there.
     static Fin<PhaseReceipt> Fence(Lifecycle host) =>
         host.Phase == RuntimePhase.Draining ? Fin.Succ(host.Latest) : host.Transition(RuntimePhase.Draining);
 
-    // The LANE is the classification: both predicates read the package's own error identities rather than a
-    // message match, so `Errors.Cancelled` (a cooperative token trip) leaves the cooperative bound in force
-    // while `Errors.TimedOut` (the total ceiling) re-lanes the span onto the forced row, and the receipt names
-    // the ceiling that actually cut the step instead of the one the caller hoped for.
     static IO<DrainStep> Step(DrainRow row, Lifecycle host, InstrumentSet instruments, Duration cooperative) =>
         from work in IO.pure(Op.Of(row.Name))
         from start in host.Railed(host.Clocks.Line.Capture(work))
@@ -452,9 +421,6 @@ public static class DrainConductor {
             : cooperative.ToTimeSpan() + DeadlineClass.DrainForced.Bound
         let step = new DrainStep(row.Name, row.Band,
             DeadlineReceipt.Of(new GaugedSpan<DeadlineClass>(Lane: lane, Work: work, Elapsed: elapsed, Bound: bound), host.Clocks.Now))
-        // Each completed step contributes ONE observation tagged by its band: a distribution summed to one point
-        // per band publishes a shape no percentile objective can read. Writes ride the typed rail, so a refused
-        // measurement reaches this fold's error channel rather than vanishing beside a receipt claiming success.
         from written in host.Railed(instruments.Write(
             AppHostMeasure.DrainDuration, step.Consumed.TotalSeconds,
             InstrumentSet.Tags((AppHostSlot.Band, step.Band.Key.ToString(CultureInfo.InvariantCulture)))))
@@ -471,7 +437,7 @@ public static class DrainConductor {
 - Boundary: the root lives on the `Lifecycle` capsule and every scope below it derives through linked tokens — a free-floating `CancellationTokenSource` below the spine is the named defect; provenance is a SEQUENCE of `Op` segments rather than a concatenated path string, so a consumer reads the segment it cares about instead of splitting text and `Path` renders once at the boundary that surfaces it in `DrainStep` names and hop receipts; `CancelDeadline` always retains the owning `DeadlineClass` even when its effective allotment is a shorter inherited remainder, and the deadline source binds the policy's `TimeProvider` at construction so fake-clock specs drive expiry deterministically.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CancelDeadline(DeadlineClass Lane, Duration Allotted, CancellationTokenSource Source);
 
 public sealed record CancelScope(Seq<Op> Provenance, CancellationTokenSource Source, Option<CancelDeadline> Deadline = default) : IDisposable {

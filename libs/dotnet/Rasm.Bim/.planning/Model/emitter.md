@@ -19,7 +19,7 @@
 - Boundary: one key carries at most ONE verdict — the arms are chosen so no key needs two, and the retirement window rides the arm rather than a parallel window table; a second membership set beside the index is the retired form, because a set whose presence means "published" and a dictionary whose presence means "pinned" over the SAME dotted keys let a pin exist for an unpublished name with nothing to catch it. The grouping `IfcElectricalCircuit`/`IfcCondition` closed windows are standing rows, so the `Model/zones#ZONE_GRAPH` grouping overlay derives its retired windows from this one roster. `Retirements` derives NO window from an `[Obsolete]` message: the message encodes the DEPRECATION release, not the removal one — `IfcBeamStandardCase` reads `DEPRECATED IFC4` though its window closes at 4X3 — so the mark gates PRESENCE alone.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using QuikGraph;
@@ -30,11 +30,7 @@ using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The ONE verdict per overlay key. Each arm fixes the [Obsolete] mark the census demands of it, so the
-// reflected mark set stops being a second roster the census joins against three exception tiers: the
-// windowless/markless bool pair the tiers forced could not state "a survivor whose mark vanished" or "a bare
-// exception whose mark appeared", and both now refuse.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record OverlayVerdict {
     private OverlayVerdict() { }
@@ -46,9 +42,6 @@ public abstract partial record OverlayVerdict {
     public sealed record Ghost(ReleaseVersion IntroducedIn, ReleaseVersion RemovedIn) : OverlayVerdict;
 }
 
-// The claim ORDER as a value, not as the name of the table a row sits in. Root claims run in topological
-// (base-first) order so the NEAREST root wins by overwrite; Pin re-points one entity and runs last. The key
-// orders the tiers and the delegate carries what each does.
 [SmartEnum<int>]
 public sealed partial class ClaimTier {
     public static readonly ClaimTier Root = new(0, apply: static (dag, map, vertex, domain) => Reach(dag, map, vertex, domain));
@@ -59,37 +52,28 @@ public sealed partial class ClaimTier {
         BidirectionalGraph<Type, SEdge<Type>> dag, HashMap<Type, IfcDomain> map, Type vertex, IfcDomain domain);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DomainClaim(IfcDomain Domain, ClaimTier Tier);
 
-// The emitter's whole input beside the assembly and the Materials stamps: the dotted change index joined with
-// the committed tiers. Spans keys ARE the published membership at both grains, and the Option discriminates
-// the pin from the attribute-sourced span.
 public sealed record IfcVocabulary(
     FrozenDictionary<string, Option<ReleaseVersion>> Spans,
     FrozenDictionary<string, OverlayVerdict> Verdicts,
     FrozenDictionary<string, DomainClaim> Claims);
 
-// --- [TABLES] -----------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 internal static class IfcOverlays {
     public static IfcVocabulary Vocabulary(FrozenDictionary<string, Option<ReleaseVersion>> spans) =>
         new(spans, Verdicts, Claims);
 
-    // 29 of the 30 roster windows carry the [Obsolete] mark; IfcOpeningStandardCase is the one bare window. The
-    // ghost half names published-closure entities GG never ships — IFC4's deletions and the 4X3
-    // IfcBuilding*->IfcBuilt* renames — so the closure sum proves the roster complete.
     public static readonly FrozenDictionary<string, OverlayVerdict> Verdicts = new Dictionary<string, OverlayVerdict> {
-        // EXPRESS ABSTRACT yet CLR-concrete — the sole divergence in the published roster
         ["IfcTransportationDevice"] = new OverlayVerdict.AbstractSupertype(),
 
-        // deprecation-flagged, schema-live: the window stays open
-        ["IfcWallStandardCase"] = new OverlayVerdict.DeprecatedSurvivor(),      // DEPRECATED IFC4, live through Ifc4X3Add2
-        ["IfcFilter"] = new OverlayVerdict.DeprecatedSurvivor(),                // DEPRECATED IFC4 on a live flow-treatment leaf
-        ["IfcVibrationIsolator"] = new OverlayVerdict.DeprecatedSurvivor(),     // DEPRECATED IFC4X4 — a draft-era mark, published-live
+        ["IfcWallStandardCase"] = new OverlayVerdict.DeprecatedSurvivor(),
+        ["IfcFilter"] = new OverlayVerdict.DeprecatedSurvivor(),
+        ["IfcVibrationIsolator"] = new OverlayVerdict.DeprecatedSurvivor(),
         ["IfcVibrationIsolatorType"] = new OverlayVerdict.DeprecatedSurvivor(),
-        ["IfcReinforcedSoil"] = new OverlayVerdict.DeprecatedSurvivor(),        // DEPRECATED IFC4X4 — a draft-era mark, published-live
+        ["IfcReinforcedSoil"] = new OverlayVerdict.DeprecatedSurvivor(),
 
-        // IFC4's deletions over the 2x3-era estate
         ["IfcBuildingElementComponent"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
         ["IfcChamferEdgeFeature"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
         ["IfcCondition"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
@@ -108,7 +92,6 @@ internal static class IfcOverlays {
         ["IfcSpaceProgram"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
         ["IfcStructuralLinearActionVarying"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
 
-        // IFC4X3's *StandardCase/*ElementedCase collapse and the style/proxy removals
         ["IfcBeamStandardCase"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc4, ReleaseVersion.Ifc4X3),
         ["IfcColumnStandardCase"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc4, ReleaseVersion.Ifc4X3),
         ["IfcDoorStandardCase"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc4, ReleaseVersion.Ifc4X3),
@@ -123,7 +106,6 @@ internal static class IfcOverlays {
         ["IfcWindowStyle"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4X3),
         ["IfcProxy"] = new OverlayVerdict.Retired(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4X3),
 
-        // the ghost half — window rows only, no committed IfcClass row
         ["IfcMove"] = new OverlayVerdict.Ghost(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
         ["IfcOrderAction"] = new OverlayVerdict.Ghost(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
         ["IfcRoundedEdgeFeature"] = new OverlayVerdict.Ghost(ReleaseVersion.Ifc2X3, ReleaseVersion.Ifc4),
@@ -135,10 +117,6 @@ internal static class IfcOverlays {
         ["IfcBuildingSystem"] = new OverlayVerdict.Ghost(ReleaseVersion.Ifc4, ReleaseVersion.Ifc4X3),
     }.ToFrozenDictionary();
 
-    // Root claims span the WHOLE IfcObjectDefinition closure — the element disciplines plus the General backbone
-    // crown, the Controls root, and the Construction process/resource roots — and Pin rows re-point single
-    // entities the nearest root would otherwise mis-claim: IfcBearing sits under IfcBuiltElement, so its
-    // Structural verdict is a pin, the tier the MEP duct/pipe/cable splits already prove load-bearing.
     public static readonly FrozenDictionary<string, DomainClaim> Claims = new Dictionary<string, DomainClaim> {
         ["IfcObjectDefinition"] = new(IfcDomain.General, ClaimTier.Root),
         ["IfcProcess"] = new(IfcDomain.Construction, ClaimTier.Root),
@@ -173,11 +151,9 @@ internal static class IfcOverlays {
         ["IfcGeotechnicalElement"] = new(IfcDomain.Geotechnical, ClaimTier.Root),
         ["IfcEarthworksElement"] = new(IfcDomain.Geotechnical, ClaimTier.Root),
 
-        // spatial anchors under the General backbone
         ["IfcBuilding"] = new(IfcDomain.Architecture, ClaimTier.Pin),
         ["IfcBuildingStorey"] = new(IfcDomain.Architecture, ClaimTier.Pin),
 
-        // the MEP splits under IfcDistributionElement — Electrical carve
         ["IfcAudioVisualAppliance"] = new(IfcDomain.Electrical, ClaimTier.Pin),
         ["IfcAudioVisualApplianceType"] = new(IfcDomain.Electrical, ClaimTier.Pin),
         ["IfcCableCarrierFitting"] = new(IfcDomain.Electrical, ClaimTier.Pin),
@@ -228,7 +204,6 @@ internal static class IfcOverlays {
         ["IfcTransformer"] = new(IfcDomain.Electrical, ClaimTier.Pin),
         ["IfcTransformerType"] = new(IfcDomain.Electrical, ClaimTier.Pin),
 
-        // the MEP splits — Plumbing carve
         ["IfcDistributionChamberElement"] = new(IfcDomain.Plumbing, ClaimTier.Pin),
         ["IfcDistributionChamberElementType"] = new(IfcDomain.Plumbing, ClaimTier.Pin),
         ["IfcFlowMeter"] = new(IfcDomain.Plumbing, ClaimTier.Pin),
@@ -250,7 +225,6 @@ internal static class IfcOverlays {
         ["IfcWasteTerminal"] = new(IfcDomain.Plumbing, ClaimTier.Pin),
         ["IfcWasteTerminalType"] = new(IfcDomain.Plumbing, ClaimTier.Pin),
 
-        // built elements re-pinned off the Architecture root
         ["IfcBearing"] = new(IfcDomain.Structural, ClaimTier.Pin),
         ["IfcBearingType"] = new(IfcDomain.Structural, ClaimTier.Pin),
         ["IfcFooting"] = new(IfcDomain.Structural, ClaimTier.Pin),
@@ -286,7 +260,7 @@ internal static class IfcOverlays {
 - Boundary: the emitter never runs at runtime and its output is never hand-edited; the `Model/emitter#VOCABULARY_OVERLAYS` tiers are the sole hand surface. Sourcing eligibility from `!Type.IsAbstract` ALONE is the named defect — the CLR flag misreports EXPRESS abstractness on `IfcTransportationDevice`, and only the overlay carries that one. `IFC4X4_DRAFT` is excluded by law: the membership gate DROPS the draft estate at both grains and never faults, while a PUBLISHED member `ReleaseMap.Lower` omits FAILS the emit, the `?? ReleaseVersion.Ifc4X3Add2` / `GGRelease.IFC4X3_ADD2` silent fallbacks staying the retired forms. The stamp audit reads the Materials seed pairs as DATA (Materials never references `Rasm.Bim`). A per-entity hand base-chain walk beside the `DomainAtlas` DAG is the rejected second walk, and the per-root claim is the `BreadthFirstSearchAlgorithm` `DiscoverVertex` event fold — the all-vertex `TryFunc` path-probe sweep is deleted here as it is at the spatial view.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
 using GeometryGym.Ifc;
@@ -302,13 +276,12 @@ using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 
 namespace Rasm.Bim.Model;
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The emitter row currency — one row renders as one committed IfcClass declaration line.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct VocabularyRow(
     string Entity, IfcDomain Domain, ReleaseVersion IntroducedIn, Option<ReleaseVersion> RemovedIn,
     EgressEligibility Eligibility, Seq<PredefinedRow> Tokens);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IfcVocabularyEmitter {
     public static Fin<string> Emit(
         Assembly gg, IfcVocabulary vocabulary, FrozenSet<(string Entity, string Predefined)> stamps, Op key) =>
@@ -323,12 +296,6 @@ public static class IfcVocabularyEmitter {
 
     // --- [CENSUS]
 
-    // The [Obsolete] tripwire, RUN at Gate 0 so a pin bump's newly-retired entity dies loudly instead of
-    // drifting open-window. Each verdict arm fixes the mark it demands, so the join is one total Switch per
-    // roster member and every disagreement lands: a survivor whose mark vanished and a bare exception whose
-    // mark appeared both refuse, neither of which the windowless/markless pair could express.
-    // NAMED LOSS: the comma-joined subject list one fault used to carry. WITNESS: the accumulation carries one
-    // typed fault per member, which is strictly the same evidence with its members still separable.
     private static Validation<Error, Unit> Census(Seq<Type> roster, IfcVocabulary vocabulary, Op key) =>
         roster.Traverse(entity => Agrees(entity, vocabulary, key)).As().Map(static _ => unit);
 
@@ -353,10 +320,6 @@ public static class IfcVocabularyEmitter {
 
     // --- [DOMAIN_ATLAS]
 
-    // ONE QuikGraph inheritance DAG replaces N per-entity base-chain walks: edges base -> derived over the
-    // reflected roster, then ONE rank-ordered fold over the claiming vertices. TopologicalSort orders base-first
-    // so the NEAREST root wins by overwrite, and the tier sort is STABLE, so ordering by tier preserves that
-    // topological order inside the root tier while pins land last. A vertex no claim reaches FAILS the emit.
     private static Fin<HashMap<Type, IfcDomain>> DomainAtlas(
         Seq<Type> roster, FrozenDictionary<string, DomainClaim> claims, Op key) {
         BidirectionalGraph<Type, SEdge<Type>> dag = new(allowParallelEdges: false);
@@ -371,10 +334,6 @@ public static class IfcVocabularyEmitter {
             : Fin.Succ(resolved);
     }
 
-    // One reachability traversal per root through the BreadthFirstSearchAlgorithm DiscoverVertex event fold —
-    // O(reachable) including the root vertex itself, the SAME accumulation form the spatial view's Reachable
-    // holds. The handler mutation is the event API's own shape (EXPRESSION_SPINE exemption at the QuikGraph
-    // boundary); an all-vertex TryFunc path-probe sweep re-recovering a path per roster member is the deleted form.
     internal static HashMap<Type, IfcDomain> Reach(
         BidirectionalGraph<Type, SEdge<Type>> dag, HashMap<Type, IfcDomain> map, Type root, IfcDomain domain) {
         BreadthFirstSearchAlgorithm<Type, SEdge<Type>> search = new(dag);
@@ -386,11 +345,6 @@ public static class IfcVocabularyEmitter {
 
     // --- [ROW_SOURCING]
 
-    // Class IntroducedIn, ATTRIBUTE-FIRST: 85 roster types carry class-level [VersionAdded], release-exact once
-    // lowered through ReleaseMap, and the change index covers the unattributed majority; a published class with
-    // neither FAILS the emit. Eligibility reads the CLR flag joined with the AbstractSupertype verdict — the CLR
-    // flag mirrors EXPRESS abstractness on every published member but the overlay's one row. RemovedIn is the
-    // verdict's window half; no VersionRemoved attribute exists, and a deprecation-grade mark closes NO window.
     private static Fin<VocabularyRow> RowOf(Type entity, HashMap<Type, IfcDomain> domains, IfcVocabulary vocabulary, Op key) =>
         Introduced(entity.Name, entity.GetCustomAttribute<VersionAddedAttribute>(), vocabulary, inherit: None, key)
             .Bind(introduced => Tokens(entity, introduced, vocabulary, key)
@@ -411,13 +365,6 @@ public static class IfcVocabularyEmitter {
             ? EgressEligibility.Vocabulary
             : EgressEligibility.Authorable;
 
-    // Token rows reflect the entity's NEAREST-declared PredefinedType enum — its own, else the closest base
-    // declaration up the chain (IfcDistributionCircuit and IfcStructuralLoadCase inherit their parent enum; a
-    // DeclaredOnly-only read committed them EMPTY sets, unconstraining every circuit/load-case token at egress) —
-    // walked per level so a subtype SHADOWING the property with a new enum never trips AmbiguousMatchException;
-    // an enum-less chain commits the empty set. A GG enum name absent from every published enum (IfcPlate.LAGGING,
-    // IfcFan.JET, the IfcElementAssembly tunnel additions) fails the membership gate and never commits a row, and
-    // NOTDEFINED/USERDEFINED never commit as rows — AdmitPredefined routes them.
     private static Option<Type> TokenEnum(Type? entity) =>
         Optional(entity).Bind(t =>
             Optional(t.GetProperty(nameof(IfcWall.PredefinedType), BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
@@ -434,10 +381,6 @@ public static class IfcVocabularyEmitter {
                         vocabulary, inherit: Some(classIntroduced), key)
                     .Map(introduced => new PredefinedRow(name, introduced))).As());
 
-    // The ONE span-sourcing rail for class and token alike, over ONE index: the pinned value FIRST (the class
-    // half covers the attribute-less estate, the dotted half outranks a divergent attribute), else the
-    // [VersionAdded].Release lowered through ReleaseMap (live on 85 classes and 224 enum fields; the membership
-    // gate ran first, so an unmapped release here FAILS), else the inherited class span — tokens only.
     private static Fin<ReleaseVersion> Introduced(
         string indexKey, VersionAddedAttribute? attribute, IfcVocabulary vocabulary, Option<ReleaseVersion> inherit, Op key) =>
         (vocabulary.Spans.TryGetValue(indexKey, out Option<ReleaseVersion> pinned) ? pinned : None).Match(
@@ -450,14 +393,6 @@ public static class IfcVocabularyEmitter {
 
     // --- [GATE_ZERO]
 
-    // The emit-time drift audit, defense-in-depth under the composition and egress gates, ACCUMULATING so one
-    // arm never hides another: every overlay key must bind a roster member — a dotted key both halves — EXCEPT
-    // the Ghost arm, whose whole purpose is a closed window with no committed row; every Materials IfcBinding
-    // seed pair must resolve an emitted row with a legal token, so an orphan stamp fails before any graph exists;
-    // and the Ifc-stripped identifier space must stay collision-free, so a colliding pin-bump entity name fails
-    // here rather than committing a region that cannot compile — Render stays a pure total fold. The by-entity
-    // index folds AddOrUpdate and a REPEATED entity name is its own arm: a throwing Add would abort before it
-    // could report which name repeated, hiding a reflection defect behind a crash.
     private static Validation<Error, Seq<VocabularyRow>> Audit(
         Seq<VocabularyRow> rows, FrozenSet<(string Entity, string Predefined)> stamps, IfcVocabulary vocabulary, Op key) {
         HashMap<string, VocabularyRow> byEntity = rows.Fold(HashMap<string, VocabularyRow>(), static (map, row) => map.AddOrUpdate(row.Entity, row));
@@ -469,9 +404,6 @@ public static class IfcVocabularyEmitter {
         Reported("entity-duplicated", toSeq(rows.GroupBy(static row => row.Entity, StringComparer.Ordinal)
             .Where(static group => group.Count() > 1).Select(static group => group.Key)), key);
 
-    // A Ghost key binds no row BY DESIGN; every other overlay key — pinned span, verdict, claim — must, and a
-    // dotted pin must bind its token as well. A stale claim row would otherwise mis-claim its subtree SILENTLY
-    // to a broader root and never surface as a domain-root-miss.
     private static Validation<Error, Unit> Stale(HashMap<string, VocabularyRow> byEntity, IfcVocabulary vocabulary, Op key) =>
         Reported("overlay-stale", (toSeq(vocabulary.Spans).Filter(static row => row.Value.IsSome).Map(static row => row.Key)
                 + toSeq(vocabulary.Verdicts.Keys).Filter(name => !Verdict(vocabulary, name).Exists(static v => v.IsGhost))
@@ -498,7 +430,6 @@ public static class IfcVocabularyEmitter {
 
     // --- [RENDER]
 
-    // Audit proves field identifiers collision-free before this deterministic row fold.
     private static string Identifier(VocabularyRow row) => row.Entity["Ifc".Length..];
 
     private static string Render(IEnumerable<VocabularyRow> rows) =>
@@ -508,13 +439,10 @@ public static class IfcVocabularyEmitter {
             .Fold("    // <generated-rows>", static (region, line) => string.Concat(region, "\n", line))
         + "\n    // <end generated-rows>";
 
-    // Both spellings name the SEAM roster row directly, so the render carries no anchor-name map and a case
-    // drift between an anchor and its release key is unrepresentable.
     private static string Window(VocabularyRow row) => row.RemovedIn.Match(
         Some: removed => $"new SchemaSpan(ReleaseVersion.{row.IntroducedIn.Key}, Some(ReleaseVersion.{removed.Key}))",
         None: () => $"IfcSchema.Of(ReleaseVersion.{row.IntroducedIn.Key})");
 
-    // Token rows sort ordinal by Token so the committed region is diff-stable across regenerations.
     private static string Tokens(Seq<PredefinedRow> tokens) => tokens.IsEmpty
         ? "Seq<PredefinedRow>()"
         : $"Seq({string.Join(", ", tokens.OrderBy(static t => t.Token, StringComparer.Ordinal).Select(static t => $"new PredefinedRow(\"{t.Token}\", ReleaseVersion.{t.IntroducedIn.Key})"))})";
@@ -531,7 +459,7 @@ public static class IfcVocabularyEmitter {
 - Boundary: the exit status is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, and `FaultBand.Bim.Code(offset)` is 2600-decade, so `2600 & 0xFF` is 40 and a run returning its own band code reports an unrelated status to every shell and CI gate reading it; the STATUS carries the verdict (0 written, 1 refused) and the STREAM carries the identity. The runner writes ONE file and only between the markers — regenerating a whole source file, emitting a sidecar, or running at model time are each the deleted form; the committed table stays the system of record.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Reflection;
 using LanguageExt;
@@ -541,12 +469,12 @@ using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 
 namespace Rasm.Bim.Model;
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RegenerationRequest(string Assembly, string Index, string Stamps, string Source);
 
 public readonly record struct RegenerationReceipt(string Assembly, int Rows, UInt128 Region);
 
-// --- [ENTRY] -------------------------------------------------------------------------------
+// --- [ENTRY] ---------------------------------------------------------------------------
 public static class VocabularyRegeneration {
     private static readonly Op Key = Op.Of(name: nameof(VocabularyRegeneration));
 
@@ -576,9 +504,6 @@ public static class VocabularyRegeneration {
             written.Count(c => c == '\n') - 1,
             ContentHash.Of(region, static (text, writer) => writer.String(text)));
 
-    // The splice is POSITIONAL and refuses every ambiguous source rather than guessing: exactly one opening
-    // marker, exactly one closing marker, the close after the open. A regeneration that cannot locate its own
-    // region writes nothing, because the failure mode a silent append carries is a second roster in one class.
     private static Fin<string> Splice(string path, string source, string region, Op key) =>
         (source.IndexOf(Open, StringComparison.Ordinal), source.LastIndexOf(Open, StringComparison.Ordinal),
          source.IndexOf(Close, StringComparison.Ordinal), source.LastIndexOf(Close, StringComparison.Ordinal)) switch {
@@ -598,9 +523,6 @@ public static class VocabularyRegeneration {
             ? Fin.Succ(new RegenerationRequest(assembly, index, stamps, source))
             : Fin.Fail<RegenerationRequest>(new BimFault.Refused(Key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "vocabulary-audit", "argument-arity", string.Join(' ', args) })));
 
-    // The change index crosses as one dotted-key document: a key with no release is published-only, a key with
-    // one is the span pin. An unparsed release name refuses HERE rather than reaching the emit as an absence
-    // indistinguishable from an unattributed member.
     private static Fin<FrozenDictionary<string, Option<ReleaseVersion>>> ChangeIndex(string path, Op key) =>
         Rows(path, key).Bind(rows => rows
             .Traverse(row => row.Split('\t') switch {

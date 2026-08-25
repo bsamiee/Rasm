@@ -57,14 +57,14 @@ lazy from openpyxl import load_workbook
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class ContainerState(StrEnum):  # Four ISO 19650 CDE container states
+class ContainerState(StrEnum):
     WIP = "WIP"
     SHARED = "Shared"
     PUBLISHED = "Published"
     ARCHIVE = "Archive"
 
 
-class SuitabilityCode(StrEnum):  # BS EN ISO 19650-2:2018 NA Table NA.1, exact — S5 withdrawn, kept for cardinality
+class SuitabilityCode(StrEnum):
     S0 = "S0"
     S1 = "S1"
     S2 = "S2"
@@ -75,17 +75,17 @@ class SuitabilityCode(StrEnum):  # BS EN ISO 19650-2:2018 NA Table NA.1, exact �
     S7 = "S7"
 
 
-class PublishedPrefix(StrEnum):  # A authorized-and-accepted, B partially-accepted-with-comments
+class PublishedPrefix(StrEnum):
     AUTHORIZED = "A"
     PARTIAL = "B"
 
 
-class RevisionKind(StrEnum):  # NA.4.3 — P preliminary (WIP/Shared), C contractual (Published)
+class RevisionKind(StrEnum):
     PRELIMINARY = "P"
     CONTRACTUAL = "C"
 
 
-class ClassificationSystem(StrEnum):  # ISO 12006-2 reference; code tables live in the classify owner
+class ClassificationSystem(StrEnum):
     UNICLASS_2015 = "Uniclass 2015"
     ISO_12006_2 = "ISO 12006-2"
     OMNICLASS = "OmniClass"
@@ -93,25 +93,25 @@ class ClassificationSystem(StrEnum):  # ISO 12006-2 reference; code tables live 
     UNIFORMAT = "UniFormat"
 
 
-class ContainerDialect(StrEnum):  # keys the _DIALECT profile rows — each member a distinct XML contract
+class ContainerDialect(StrEnum):
     ISO_19650 = "iso19650"
     BS_1192 = "bs1192"
     COBIE = "cobie"
 
 
-class RenderScope(StrEnum):  # which container set the native register streams
-    FULL = "full"  # every admitted row — the audit-grade history register
-    LATEST = "latest"  # revision-latest per reference — the issued drawing register
+class RenderScope(StrEnum):
+    FULL = "full"
+    LATEST = "latest"
 
 
-class DeltaChange(StrEnum):  # Issue-delta classification vocabulary
+class DeltaChange(StrEnum):
     ADDED = "added"
     REVISED = "revised"
     REGRESSED = "regressed"
     WITHDRAWN = "withdrawn"
 
 
-class AuditRule(StrEnum):  # one closed vocabulary spans container and set-level checks
+class AuditRule(StrEnum):
     STATUS_REVISION = "status_revision"
     WITHDRAWN = "withdrawn"
     UNCLASSIFIED = "unclassified"
@@ -121,7 +121,6 @@ class AuditRule(StrEnum):  # one closed vocabulary spans container and set-level
     GAP = "gap"
 
 
-# `ContainerPayload` admits naming once; suitability/revision remain raw until their closed parsers bind them.
 class ContainerPayload(TypedDict, closed=True):
     project: Required[ReadOnly[str]]
     originator: Required[ReadOnly[str]]
@@ -144,7 +143,7 @@ class ContainerPayload(TypedDict, closed=True):
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_FIELD_SEP: Final[str] = "-"  # BS 1192 container-reference field separator
+_FIELD_SEP: Final[str] = "-"
 _SCHEMATRON_NS: Final[str] = "http://purl.oclc.org/dsdl/schematron"
 _SVRL_NS: Final[str] = "http://purl.oclc.org/dsdl/svrl"
 _COLUMNS: Final[tuple[str, ...]] = (
@@ -166,35 +165,29 @@ _COLUMNS: Final[tuple[str, ...]] = (
     "Approver",
 )
 _FRAME_FIELDS: Final[tuple[str, ...]] = tuple(column.lower().replace(" ", "_") for column in _COLUMNS)
-# `_COL` is the one column-index correspondence every reader derives from `_COLUMNS`.
 _COL: Final[frozendict[str, int]] = frozendict({name: at for at, name in enumerate(_COLUMNS)})
-_A4_PAPER: Final[int] = 9  # XlsxWriter paper-size code for an ISO 5457 A4 register
-_MAX_WIDTH: Final[int] = 48  # `set_column` ceiling under `constant_memory`
+_A4_PAPER: Final[int] = 9
+_MAX_WIDTH: Final[int] = 48
 _PAD: Final[int] = 2
-_CREATED: Final[datetime] = datetime(1980, 1, 1)  # deterministic OOXML package metadata; `Register.issued` carries the legal date
-# `_ASSET_URI` composes each co-identified sheet link from its `asset_key`.
+_CREATED: Final[datetime] = datetime(1980, 1, 1)
 _ASSET_URI: Final[str] = "rasm-artifact://"
-# Module-level grammars compile once.
 _REVISION: Final[re.Pattern[str]] = re.compile(r"^(?P<kind>[PC])(?P<rev>\d{2,})(?:\.(?P<ver>\d{2,}))?$")
 _PUBLISHED: Final[re.Pattern[str]] = re.compile(r"^(?P<prefix>[AB])(?P<ordinal>\d+)$")
 _ORDINAL: Final[re.Pattern[str]] = re.compile(r"^(?P<stem>.*?)(?P<ordinal>\d+)$")
-_ENCODER: Final = json.Encoder()  # Audit-report JSON egress
-_MSGPACK: Final = msgpack.Encoder()  # Canonical key preimage, length/count-framed by the codec
-# `_GUARD` exposes malformed render input to the offload fault classifier — the runtime's own `FAULT_CONF`, not
-# a local re-mint, so the raised violation is the exact one the `CLASSIFY` `api` row folds at the lane boundary.
+_ENCODER: Final = json.Encoder()
+_MSGPACK: Final = msgpack.Encoder()
 _GUARD: Final = beartype(conf=FAULT_CONF)
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
 
-class SuitabilityRow(Struct, frozen=True, gc=False):  # one NA Table NA.1 row — the correspondence the S-band derives from
+class SuitabilityRow(Struct, frozen=True, gc=False):
     state: ContainerState
     description: str
     withdrawn: bool
     revision_kind: RevisionKind
 
 
-# `_SUITABILITY` is the single code-to-state/description/withdrawn/revision correspondence.
 _SUITABILITY: Final[frozendict[SuitabilityCode, SuitabilityRow]] = frozendict({
     SuitabilityCode.S0: SuitabilityRow(ContainerState.WIP, "Initial status", False, RevisionKind.PRELIMINARY),
     SuitabilityCode.S1: SuitabilityRow(ContainerState.SHARED, "Suitable for coordination", False, RevisionKind.PRELIMINARY),
@@ -205,10 +198,8 @@ _SUITABILITY: Final[frozendict[SuitabilityCode, SuitabilityRow]] = frozendict({
     SuitabilityCode.S6: SuitabilityRow(ContainerState.SHARED, "Suitable for PIM authorization", False, RevisionKind.PRELIMINARY),
     SuitabilityCode.S7: SuitabilityRow(ContainerState.SHARED, "Suitable for AIM authorization", False, RevisionKind.PRELIMINARY),
 })
-# Admission membership derives from `_SUITABILITY` without a parallel roster.
 _S_VALUES: Final[frozenset[str]] = frozenset(code.value for code in SuitabilityCode)
 _CLASS_VALUES: Final[frozenset[str]] = frozenset(system.value for system in ClassificationSystem)
-# `_STATE_HEX` keys the publication fill band on CDE state.
 _STATE_HEX: Final[frozendict[ContainerState, str]] = frozendict({
     ContainerState.WIP: "#FEF3C7",
     ContainerState.SHARED: "#DBEAFE",
@@ -226,7 +217,6 @@ _DELTA_SCHEMA: Final[frozendict[str, pl.DataType]] = frozendict({**_FRAME_SCHEMA
 
 
 class DialectProfile(Struct, frozen=True):
-    # `DialectProfile` keeps namespace, structure, mandates, and localname renames inseparable.
     uri: str
     root: str
     container: str
@@ -239,7 +229,6 @@ _DIALECT: Final[frozendict[ContainerDialect, DialectProfile]] = frozendict({
         uri="https://rasm.dev/schema/iso19650/register",
         root="informationContainerSet",
         container="informationContainer",
-        # ISO 19650-2 §5.1.7 mandates status, revision, and classification per container.
         required=("suitability", "state", "revision", "classificationSystem", "classificationCode"),
     ),
     ContainerDialect.BS_1192: DialectProfile(
@@ -261,9 +250,6 @@ _DIALECT: Final[frozendict[ContainerDialect, DialectProfile]] = frozendict({
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-# `RegisterFault` carries offending references/coordinates; `aggregate` is its associative audit combination.
-# `unwired` names the sheet sources admitted without their DATA parent keys; `undated` carries the conflicting
-# container issue dates no single register date resolves.
 @tagged_union(frozen=True)
 class RegisterFault:
     tag: Literal[
@@ -299,7 +285,7 @@ class RegisterFault:
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class PublishedCode(Struct, frozen=True):  # Parametric A1..An / B1..Bn published family
+class PublishedCode(Struct, frozen=True):
     prefix: PublishedPrefix
     ordinal: int
 
@@ -309,7 +295,6 @@ class PublishedCode(Struct, frozen=True):  # Parametric A1..An / B1..Bn publishe
 
 @tagged_union(frozen=True)
 class Suitability:
-    # `Suitability` closes standard bands while admitting documented NA extension codes on one project case.
     tag: Literal["shared", "published", "project"] = tag()
     shared: SuitabilityCode = case()
     published: PublishedCode = case()
@@ -317,7 +302,6 @@ class Suitability:
 
     @classmethod
     def parse(cls, code: str, /, *, documented: frozendict[str, ContainerState] = frozendict()) -> Result[Self, RegisterFault]:
-        # Admission orders the S-band, A/B grammar, then documented NA §NA.4.2 extensions.
         token = code.strip().upper()
         return (
             Ok(cls(shared=SuitabilityCode(token)))
@@ -367,7 +351,6 @@ class Suitability:
 
 
 class RevisionCode(Struct, frozen=True):
-    # NA.4.3 — P{NN}[.{NN}] preliminary (two-integer WIP version suffix, e.g. P02.05), C{NN} contractual.
     kind: RevisionKind
     revision: int
     version: int | None = None
@@ -378,11 +361,6 @@ class RevisionCode(Struct, frozen=True):
 
     @property
     def ordinal(self) -> int:
-        # ONE monotone position per code, packed so lexicographic rank and integer order agree: contractual outranks
-        # preliminary, and within a kind a higher (revision, version) wins. Both digit fields are two-place by the
-        # NA.4.3 grammar the parse gate enforces, so the 16-bit lanes never carry. Every consumer needing an order —
-        # `succeeds` here, the announced `sequence` a subscription reads a gap against — takes THIS value, never a
-        # string compare that mis-sorts C09 before C10 and never a second rank tuple beside it.
         return (int(self.kind is RevisionKind.CONTRACTUAL) << 32) | (self.revision << 16) | (self.version or 0)
 
     def succeeds(self, prior: "RevisionCode", /) -> bool:
@@ -399,7 +377,7 @@ class RevisionCode(Struct, frozen=True):
         )
 
 
-class Classification(Struct, frozen=True):  # Lean ISO 12006-2 reference; code tables live in the classify owner
+class Classification(Struct, frozen=True):
     system: ClassificationSystem = ClassificationSystem.UNICLASS_2015
     code: str = ""
     title: str = ""
@@ -413,7 +391,7 @@ class Classification(Struct, frozen=True):  # Lean ISO 12006-2 reference; code t
         )
 
 
-class NamingContext(Struct, frozen=True):  # Set-level BS 1192 naming fields
+class NamingContext(Struct, frozen=True):
     originator: str = ""
     functional: str = ""
     spatial: str = ""
@@ -421,7 +399,6 @@ class NamingContext(Struct, frozen=True):  # Set-level BS 1192 naming fields
 
 
 class InformationContainer(Struct, frozen=True):
-    # `InformationContainer` joins BS 1192 identity, §5.1.7 metadata, asset identity, and title-block facts.
     project: str
     originator: str
     functional: str
@@ -447,8 +424,7 @@ class InformationContainer(Struct, frozen=True):
 
     @classmethod
     def admitted(cls, documented: frozendict[str, ContainerState] = frozendict(), /, **raw: Unpack[ContainerPayload]) -> Result[Self, RegisterFault]:
-        # Positional-only `documented` cannot collide with the `Unpack` payload and governs project-code admission.
-        try:  # Exemption: the pydantic TypeAdapter admission kernel — the one statement seam, every interior signature past it holding the admitted container.
+        try:
             payload = _PAYLOAD.validate_python(raw)
         except ValidationError as fault:
             at = str(raw.get("number", "?"))
@@ -533,10 +509,10 @@ class InformationContainer(Struct, frozen=True):
             approver=block.approved_by,
         )
 
-    def row(self) -> dict[str, object]:  # Register-frame row consumed by Polars and `TableNode`
+    def row(self) -> dict[str, object]:
         return dict(zip(_FRAME_FIELDS, self.spreadsheet_row(), strict=True))
 
-    def spreadsheet_row(self) -> tuple[object, ...]:  # XlsxWriter row ordered by `_COLUMNS`
+    def spreadsheet_row(self) -> tuple[object, ...]:
         return (
             self.reference,
             self.title,
@@ -584,7 +560,7 @@ class InformationContainer(Struct, frozen=True):
             self.approver,
         )
 
-    def metadata_rows(self) -> tuple[tuple[str, str], ...]:  # Single localname/value correspondence renamed by every dialect
+    def metadata_rows(self) -> tuple[tuple[str, str], ...]:
         return (
             ("project", self.project),
             ("originator", self.originator),
@@ -608,7 +584,7 @@ class InformationContainer(Struct, frozen=True):
 _PAYLOAD: Final = TypeAdapter(ContainerPayload)
 
 
-class SheetContext(Struct, frozen=True):  # Sheet aggregation over `TitleBlock` plus ISO naming context
+class SheetContext(Struct, frozen=True):
     block: TitleBlock
     naming: NamingContext
     suitability: Suitability
@@ -616,13 +592,13 @@ class SheetContext(Struct, frozen=True):  # Sheet aggregation over `TitleBlock` 
     asset_key: str = ""
 
 
-class ContainerMeta(Struct, frozen=True):  # Project-level ISO 19650 XML header
+class ContainerMeta(Struct, frozen=True):
     project: str = ""
     project_id: str = ""
     appointing_party: str = ""
     lead_party: str = ""
-    stage: str = ""  # RIBA / ISO 19650 delivery stage
-    milestone: str = ""  # Information-delivery milestone satisfied by the issue
+    stage: str = ""
+    milestone: str = ""
 
 
 def _sequence(container: InformationContainer, /) -> Option[tuple[str, int]]:
@@ -637,7 +613,6 @@ def _sequence(container: InformationContainer, /) -> Option[tuple[str, int]]:
 
 
 def _regressed(containers: tuple[InformationContainer, ...], /) -> Block[RegisterFault]:
-    # `_regressed` flags any later row that does not succeed its prior reference revision.
     def step(acc: tuple[Map[str, RevisionCode], frozenset[str]], container: InformationContainer, /) -> tuple[Map[str, RevisionCode], frozenset[str]]:
         seen, flagged = acc
         prior = seen.try_find(container.reference)
@@ -703,8 +678,6 @@ def _rule_faults(rule: AuditRule, containers: tuple[InformationContainer, ...], 
 
 
 class RegisterEvidence(Struct, frozen=True, gc=False):
-    # `RegisterEvidence` is the single audit/transmittal coverage projection; `checks` counts the rules that ran,
-    # so `complete` is earned by executed checks and a zero-rule policy can never mint a vacuous pass.
     containers: int
     wip: int
     shared: int
@@ -744,7 +717,7 @@ class RegisterEvidence(Struct, frozen=True, gc=False):
         )
 
     @property
-    def facts(self) -> dict[str, object]:  # native scalars the json.Encoder serializes unstringified, plus the gating cause
+    def facts(self) -> dict[str, object]:
         return {
             "containers": self.containers,
             "wip": self.wip,
@@ -763,18 +736,18 @@ class RegisterEvidence(Struct, frozen=True, gc=False):
         }
 
 
-class Composed(Struct, frozen=True):  # Single evidence struct consumed by `_emit`
+class Composed(Struct, frozen=True):
     data: bytes
     kind: str
     sheets: int
     suitability: str
     revision: str
     classification: str
-    validation: str = "unchecked"  # Container-XML conformance state; non-XML ops remain unchecked
+    validation: str = "unchecked"
 
 
 @tagged_union(frozen=True)
-class RegisterOp:  # Closed delivery vocabulary lowered once into `Composed`
+class RegisterOp:
     tag: Literal["index", "container", "audit", "render", "delta"] = tag()
     index: tuple[Theme, TableFormat] = case()
     container: ContainerDialect = case()
@@ -807,18 +780,15 @@ class RegisterOp:  # Closed delivery vocabulary lowered once into `Composed`
 
 
 class Register(Struct, frozen=True):
-    # `Register` joins its operation, container set, project header, and issue metadata; `lane` arrives projected via
-    # LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     op: RegisterOp
     lane: LanePolicy
     containers: tuple[InformationContainer, ...] = ()
-    parents: tuple[ContentKey, ...] = ()  # upstream sheet keys threaded at construction (DATA edges)
+    parents: tuple[ContentKey, ...] = ()
     meta: ContainerMeta = ContainerMeta()
     suitability: Suitability = Suitability(shared=SuitabilityCode.S2)
     revision: RevisionCode = RevisionCode(kind=RevisionKind.PRELIMINARY, revision=1)
     classification: Classification = Classification()
     issued: str = ""
-    # `documented` governs NA §NA.4.2 project-code admission across every raw-code seam.
     documented: frozendict[str, ContainerState] = frozendict()
 
     @classmethod
@@ -836,12 +806,6 @@ class Register(Struct, frozen=True):
         revision: RevisionCode | None = None,
         classification: Classification | None = None,
     ) -> Result["Register", RegisterFault]:
-        # One shape-dispatched accumulating gate: payload rows and workbook bytes admit per row, `SheetContext`
-        # and `SheetSet.registered()` tuples normalize under the one set-level `naming` policy. `parents` carries
-        # caller-owned DATA edges — a sheet-backed admission with no parent keys accumulates `unwired`, because a
-        # register over sheets the plan cannot see schedules before its producers. `issued` is the caller's legal
-        # register date; omitted, it derives through `_dated` from the admitted containers, exactly as the
-        # suitability/revision/classification issue metadata derives through `_issue_meta` unless stated.
         admitted = Block.of_seq(sources).collect(lambda source: _admitted_source(source, naming, documented))
         sheeted = Block.of_seq(sources).choose(_sheet_reference)
         wired = admitted if parents or sheeted.is_empty() else admitted.cons(Error(RegisterFault(unwired=frozenset(sheeted))))
@@ -861,19 +825,15 @@ class Register(Struct, frozen=True):
         )
 
     def emit(self, /) -> ArtifactWork:
-        # Re-issued sets retain raw `asset_key` boundary evidence for member-level elision.
         return ArtifactWork(
             key=self.key, work=self._emit, parents=self.parents, admission=Admission(keyed=None), cost=float(len(self.containers) or 1)
         )
 
     @property
     def key(self) -> ContentKey:
-        # PRE-RUN input identity stays public because transmittal names it among aggregate parents;
-        # `parents` (plan DATA edges) and `lane` (runtime capacity) are declared derived, outside the preimage.
         return ContentIdentity.key(f"register-{self.op.tag}", _canon(self))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # One instance-lane offload preserves the rail and `receipt.slot == node.key`.
         crossed = await self.lane.offload(Kernel.of(_composed, KernelTrait.RELEASING), self)
         settled = crossed.map(
             lambda composed: ArtifactReceipt.Register(
@@ -887,10 +847,6 @@ class Register(Struct, frozen=True):
                 len(composed.data),
             )
         )
-        # Registers ARE the delivery record's index, so production lands `REGULATORY` durable evidence at this
-        # awaitable fold — the suitability, revision, classification, and Schematron verdict as the audit diff, and the
-        # sheet cardinality as its own `RECORD` charge beside the container volume. Recording suspends, so the seat is
-        # here and never on the synchronous `contribute`, and the rail binds into this emit's verdict.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -907,7 +863,6 @@ class Register(Struct, frozen=True):
         )
 
     def latest(self) -> tuple[InformationContainer, ...]:
-        # `latest` keeps each reference's highest revision for render, delta, and callers.
         return _latest(self.containers)
 
     def audited(self, policy: AuditPolicy = STANDARD_AUDIT, /) -> RegisterEvidence:
@@ -916,7 +871,7 @@ class Register(Struct, frozen=True):
         return RegisterEvidence.of(self, severed, len(policy.rules))
 
     @property
-    def evidence(self) -> RegisterEvidence:  # Default-policy coverage verdict composed by transmittal
+    def evidence(self) -> RegisterEvidence:
         return self.audited()
 
 
@@ -924,7 +879,6 @@ class Register(Struct, frozen=True):
 
 
 def _accumulated(results: Block[Result[InformationContainer, RegisterFault]], /) -> Result[tuple[InformationContainer, ...], RegisterFault]:
-    # `_accumulated` returns all rows or the associative combination of every casualty.
     faults = results.choose(lambda outcome: outcome.swap().to_option())
     return Ok(tuple(results.choose(lambda outcome: outcome.to_option()))) if faults.is_empty() else Error(faults.reduce(RegisterFault.combined))
 
@@ -949,7 +903,6 @@ def _admitted_source(
 def _sheet_reference(
     source: "ContainerPayload | bytes | bytearray | SheetContext | tuple[str, TitleBlock, str, str]", /
 ) -> Option[str]:
-    # Names the sheet-backed sources whose plan DATA edges `admit` requires; payload and workbook rows carry none.
     match source:
         case SheetContext(block=block):
             return Some(block.sheet_number or block.sheet_title)
@@ -966,10 +919,6 @@ def _issue_meta(
     classification: Classification | None,
     /,
 ) -> dict[str, Suitability | RevisionCode | Classification]:
-    # register-level issue metadata derives from the LEADING admitted container — the one whose revision succeeds
-    # every sibling — so the index header, the canon preimage, and the emitted receipt attest the admitted set,
-    # never the class defaults; an explicit caller argument overrides the derivation per axis, and an empty set
-    # keeps the field defaults by omission.
     lead = reduce(lambda held, nxt: nxt if nxt.revision.succeeds(held.revision) else held, containers) if containers else None
     derived: dict[str, Suitability | RevisionCode | Classification] = {} if lead is None else {
         "suitability": lead.suitability, "revision": lead.revision, "classification": lead.classification
@@ -979,8 +928,6 @@ def _issue_meta(
 
 
 def _dated(containers: tuple[InformationContainer, ...], issued: str, /) -> Result[str, RegisterFault]:
-    # One authoritative register issue date: the caller's stated legal date wins, a single container date derives,
-    # a dateless set stays the editable draft, and discordant container dates with no stated date refuse as `undated`.
     dated = frozenset(container.issued for container in containers if container.issued)
     match issued, len(dated):
         case (stated, _) if stated:
@@ -994,7 +941,6 @@ def _dated(containers: tuple[InformationContainer, ...], issued: str, /) -> Resu
 
 
 def _ingested(data: bytes, documented: frozendict[str, ContainerState], /) -> Block[Result[InformationContainer, RegisterFault]]:
-    # Exemption: one provider boundary converts exact workbook-open/read failures into the admission rail.
     try:
         with closing(load_workbook(BytesIO(data), read_only=True, data_only=True)) as book:
             return Block.of_seq(
@@ -1006,8 +952,6 @@ def _ingested(data: bytes, documented: frozendict[str, ContainerState], /) -> Bl
 
 
 def _row_payload(row: tuple[object, ...], at: int, /) -> ContainerPayload:
-    # `_row_payload` splits the reference and assigns `row:{n}` when the required number is blank; `asset_key` round-trips
-    # through its own value column because `values_only` reads drop the presentation hyperlink that also carries it.
     cells = tuple(str(cell) if cell is not None else "" for cell in row)
     padded = (*cells, *("" for _ in range(len(_COLUMNS) - len(cells))))
     parts = padded[0].split(_FIELD_SEP)
@@ -1037,7 +981,6 @@ def _row_payload(row: tuple[object, ...], at: int, /) -> ContainerPayload:
 def _contextual(
     entry: "SheetContext | tuple[str, TitleBlock, str, str]", naming: NamingContext, documented: frozendict[str, ContainerState], /
 ) -> Result[InformationContainer, RegisterFault]:
-    # `_contextual` preserves parsed `SheetContext` values and admits raw `SheetSet.registered()` codes.
     match entry:
         case SheetContext(block=block) as ctx:
             latest = block.revisions[-1].mark if block.revisions else "P01"
@@ -1088,7 +1031,6 @@ def _theme_facet(theme: Theme, /) -> tuple[object, ...]:
 
 
 def _canon(register: "Register", /) -> bytes:
-    # Msgpack length/count framing prevents concatenation ambiguity across the canonical preimage.
     facet: tuple[object, ...]
     match register.op:
         case RegisterOp(tag="index", index=(theme, fmt)):
@@ -1117,20 +1059,19 @@ def _canon(register: "Register", /) -> bytes:
 
 
 @_GUARD
-def _composed(register: "Register", /) -> Composed:  # Single pure render fold
-    validation = "unchecked"  # Non-XML ops mint no validatable container
+def _composed(register: "Register", /) -> Composed:
+    validation = "unchecked"
     match register.op:
         case RegisterOp(tag="index", index=(theme, fmt)):
             data = TablePlan(frame=register.frame, ops=_index_ops(register), fmt=fmt, theme=theme).build()
         case RegisterOp(tag="container", container=dialect):
             profile = _DIALECT[dialect]
             tree = _container_document(register, profile)
-            # per-call validator: the ISO engine is not thread-re-entrant on error_log
             schema = isoschematron.Schematron(etree.fromstring(_container_schema(dialect)), store_report=True)
             valid = schema.validate(tree)
             failed = int(schema.validation_report.xpath("count(//svrl:failed-assert)", namespaces={"svrl": _SVRL_NS}))
             validation = "valid" if valid else f"invalid:{failed}"
-            data = etree.tostring(tree, method="c14n2")  # C14N bytes: the container content-addresses byte-reproducibly run-to-run
+            data = etree.tostring(tree, method="c14n2")
         case RegisterOp(tag="audit", audit=policy):
             data = _ENCODER.encode(register.audited(policy).facts)
         case RegisterOp(tag="render", render=scope):
@@ -1151,7 +1092,6 @@ def _composed(register: "Register", /) -> Composed:  # Single pure render fold
 
 
 def _index_ops(register: "Register", /) -> tuple[TableOp, ...]:
-    # Publication styling groups on discipline and colors the separate state column.
     return (
         TableOp.Header(f"Drawing Register — {register.meta.project}", subtitle=f"{register.revision.render()} · {register.issued}"),
         TableOp.Stub(rowname="reference", group="discipline"),
@@ -1169,8 +1109,6 @@ def _delta_frame(register: "Register", prior: tuple[InformationContainer, ...], 
     now = frozendict({container.reference: container for container in register.latest()})
     rows = (
         *(
-            # a reference that arrives already withdrawn is a withdrawal, never an addition — same suitability
-            # read the revised arm below applies before revision ordering
             now[ref].row()
             | {"change": (DeltaChange.WITHDRAWN if now[ref].suitability.withdrawn else DeltaChange.ADDED).value, "supersedes": ""}
             for ref in now
@@ -1179,7 +1117,6 @@ def _delta_frame(register: "Register", prior: tuple[InformationContainer, ...], 
         *(
             now[ref].row()
             | {
-                # a currently-issued S5/withdrawn container is a withdrawal, read before revision ordering
                 "change": (
                     DeltaChange.WITHDRAWN
                     if now[ref].suitability.withdrawn
@@ -1210,8 +1147,6 @@ def _delta_ops(register: "Register", /) -> tuple[TableOp, ...]:
 
 @cache
 def _container_schema(dialect: ContainerDialect, /) -> bytes:
-    # Immutable Schematron bytes derive one `sch:assert` per renamed profile requirement.
-    # Each render compiles its own validator because provider diagnostic state is not thread-re-entrant.
     profile = _DIALECT[dialect]
     sch = lambda local: etree.QName(_SCHEMATRON_NS, local)
     schema = etree.Element(sch("schema"), nsmap={"sch": _SCHEMATRON_NS})
@@ -1224,7 +1159,6 @@ def _container_schema(dialect: ContainerDialect, /) -> bytes:
 
 
 def _container_document(register: "Register", profile: DialectProfile, /) -> "etree._Element":
-    # Clark-notation `SubElement` nodes keep namespace, structure, and escaping under the dialect profile.
     qname = lambda local: etree.QName(profile.uri, profile.names.get(local, local))
     root = etree.Element(qname(profile.root), nsmap={None: profile.uri})
     header = etree.SubElement(root, qname("project"))
@@ -1249,34 +1183,31 @@ def _container_document(register: "Register", profile: DialectProfile, /) -> "et
 
 
 def _column_widths(containers: tuple[InformationContainer, ...], /) -> tuple[float, ...]:
-    # Column widths derive before `constant_memory` flush because post-write `autofit` cannot recover rows.
     rows = (_COLUMNS, *(tuple(str(cell) for cell in container.spreadsheet_row()) for container in containers))
     return tuple(min(_MAX_WIDTH, max(len(row[col]) for row in rows) + _PAD) for col in range(len(_COLUMNS)))
 
 
 def _running_header(register: "Register", /) -> tuple[str, str]:
-    # Header/footer values escape `&` before XlsxWriter interpolates `&P`/`&N`/`&D` field codes.
     project = register.meta.project.replace("&", "&&")
     return f"&L{project}&RPage &P of &N", f"&L{register.revision.render()}&C&D&R{register.issued}"
 
 
 def _workbook(register: "Register", scope: RenderScope, /) -> bytes:
-    # `constant_memory` streams completed rows to spill and packages the `BytesIO` sink once at close.
     containers = register.latest() if scope is RenderScope.LATEST else register.containers
     header, footer = _running_header(register)
     sink = BytesIO()
-    with xlsxwriter.Workbook(sink, {"constant_memory": True}) as book:  # Context exit packages the ZIP once
+    with xlsxwriter.Workbook(sink, {"constant_memory": True}) as book:
         sheet = book.add_worksheet("Register")
         head = book.add_format({"bold": True, "bg_color": "#1F2937", "font_color": "#FFFFFF", "border": 1})
-        link = book.get_default_url_format()  # Shared hyperlink style
+        link = book.get_default_url_format()
         published = book.add_format({"bg_color": _STATE_HEX[ContainerState.PUBLISHED]})
         archived = book.add_format({"bg_color": _STATE_HEX[ContainerState.ARCHIVE]})
-        for col, width in enumerate(_column_widths(containers)):  # set_column before the streamed rows flush
+        for col, width in enumerate(_column_widths(containers)):
             sheet.set_column(col, col, width)
         sheet.write_row(0, 0, _COLUMNS, head)
         for index, container in enumerate(containers, start=1):
             row = container.spreadsheet_row()
-            if container.asset_key:  # Reference links to the co-identified artifact; remaining cells stream from column 1
+            if container.asset_key:
                 sheet.write_url(index, _COL["Reference"], f"{_ASSET_URI}{container.asset_key}", link, string=container.reference)
                 sheet.write_row(index, _COL["Reference"] + 1, row[_COL["Reference"] + 1 :])
             else:
@@ -1292,7 +1223,6 @@ def _workbook(register: "Register", scope: RenderScope, /) -> bytes:
         sheet.conditional_format(
             1, _COL["State"], last, _COL["State"], {"type": "text", "criteria": "containing", "value": ContainerState.ARCHIVE.value, "format": archived}
         )
-        # Excel validation hard-stops state, soft-checks extensible suitability, and guides revision grammar.
         sheet.data_validation(
             1,
             _COL["State"],
@@ -1340,11 +1270,11 @@ def _workbook(register: "Register", scope: RenderScope, /) -> bytes:
             "author": register.meta.lead_party,
             "created": _CREATED,
         })
-        if register.issued:  # an issued register is read-only; a draft stays editable under the validation dropdowns
+        if register.issued:
             sheet.protect(options={"autofilter": True, "sort": True, "select_locked_cells": True})
     return sink.getvalue()
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = (
     "CONTRACTUAL_AUDIT",

@@ -82,27 +82,15 @@ type ArtifactKind = Literal[
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# two names deliberately apart: `OWNER` labels the receipt stream and the graduation origin this page emits under,
-# where `DOMAIN` is the artifact-kind discriminant serving three vocabularies at once — a reserved `_facts` key the
-# load gate forbids a producer spelling, `rasm.<domain>.<measure>` census segments every `_METRIC` row carries, and
-# `<domain>.<operation>` audit verbs the durable plane greps on — so evidence and its metric twin join on one token.
 OWNER: Final[str] = "artifacts"
 DOMAIN: Final[str] = "artifact"
 
-# every artifacts producer records AS this actor, because a production leg is service work; a leg where a NAMED party
-# acts states its own, and one spelling here forecloses the roster drifting into two renderings of one identity.
 _SERVICE: Final[Party[Actor]] = Party(kind=Actor.SERVICE, key=OWNER)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class MetricRow(Struct, frozen=True, gc=False):
-    # ONE kind's metered surface: which fixed facts project onto which instrument, and which fixed facts fill the
-    # DIMENSIONS those instruments declare. The recording SUBJECT is not a column — it derives from each instrument
-    # name's own middle segment, the same split the runtime `InstrumentSpec.domain` performs — so a measure and the
-    # subject it records under can never disagree and no second table exists to drift from the names it mirrors.
-    # Declaring a dimension nothing fills mints a fan a board groups on and no producer answers, so a `stamps` entry
-    # names the fixed fact filling it and an empty fact spells absence as no key at all.
     measures: Map[str, str] = Map.empty()
     stamps: Map[Dimension, str] = Map.empty()
 
@@ -432,10 +420,6 @@ class ArtifactReceipt:
         governed = (*_METRIC[""].measures.items(), *row.measures.items())
         measures = {name: float(v) for slot, name in governed if isinstance(v := facts.get(slot), int | float) and not isinstance(v, bool)}
         stamps = {dimension: text for dimension, slot in row.stamps.items() if (text := str(facts.get(slot, "")))}
-        # one write per recording SUBJECT, each subject read off its own instrument names: a kind whose rows fan to a
-        # second capability subject issues a second `record`, because the runtime census keys `(domain, name)` and a
-        # texture measure recorded under the artifact subject misses that lookup outright. The kind's own rows carry
-        # its declared dimensions; the universal pair carries none, so no undeclared key ever reaches a view.
         owned = frozenset(_subject(name) for name in row.measures.values())
         Block.of_seq(sorted(frozenset(_subject(name) for name in measures))).fold(
             lambda _, subject: Metrics.record(
@@ -446,9 +430,6 @@ class ArtifactReceipt:
             ),
             None,
         )
-        # ONE fire over the WHOLE roster: this fold sees six settled scalars per case, so a per-kind second fire
-        # here announces a case narrower than the evidence its producer holds. `TRANSMITTAL_ISSUED` therefore fires
-        # at `delivery/transmittal#TRANSMITTAL`'s own close, where the settled `TransmittalEvidence` stands.
         Production.fired(
             ArtifactHook.RECEIPT_EMITTED,
             ReceiptEmitted(kind=self.tag, key=self.slot.hex, scope=scoped(otel_context.get_current())),
@@ -456,14 +437,6 @@ class ArtifactReceipt:
         return (Receipt.of(OWNER, ("emitted", self.slot.hex, {**facts, DOMAIN: self.tag})),)
 
     def evidence(self, /, *change: Change, actor: Party[Actor] = _SERVICE, subjects: tuple[Subject, ...] = ()) -> Block[Fact]:
-        # ONE durable construction for the whole roster, BUILDING and never recording: the journal writer suspends on a
-        # bounded intake and this surface is synchronous, so every `await Journal.record(...)` seats at the producer's
-        # own async `_emit` instead. Change entries carry the DECLARED facts alone — the load gate keeps fixed names
-        # dot-free, so `"." not in name` separates them from the band exactly — because a band leaf set is the
-        # producer's own instrumentation and an audit row whose width tracks it is a diff nothing compares across runs;
-        # a producer whose durable diff is finer than its receipt ledger appends its own entries positionally. The
-        # metering fan reads the same declared facts through `_METERED`, so a zero quantity charges no row at all and
-        # each resource lands on whichever series the journal's `RESOURCES` law names rather than a unit spelled here.
         facts = self._facts()
         declared = tuple((name, value) for name, value in sorted(facts.items()) if "." not in name)
         audited = AuditFact(
@@ -526,18 +499,9 @@ if any("." in name or name == DOMAIN for row in (*_KEYS.values(), tuple(f.name f
 
 
 def _subject(name: str, /) -> str:
-    # `rasm.<domain>.<measure>` seats each instrument's recording subject in its middle segment, and this split
-    # repeats the runtime `InstrumentSpec.domain` derivation exactly, so the two can never disagree.
     return name.split(".", 2)[1]
 
 
-# ONE kind-keyed grammar, the shape `_CEILING` already spells: the `""` row is the universal projection every kind
-# inherits and each governed kind adds its own rows under its tag, `contribute` merging the two. A flat name-keyed
-# table cannot hold a distinguishing measure at all — `pages`, `entities`, `plates`, and `sheets` each recur across
-# kinds that mean different things by them — so the kind key is what makes a per-kind series addable at all. The
-# texture rows name the `texture` subject, so their write is its own `record` call carrying the producing-leg
-# discriminant their runtime rows declare: an encode that spawned the provisioned binary and one that took the
-# in-process binding are different encoders, and one undifferentiated distribution hides a regression in either.
 _UNMETERED: Final[MetricRow] = MetricRow()
 _METRIC: Final[Map[ArtifactKind | Literal[""], MetricRow]] = Map.of_seq([
     ("", MetricRow(measures=Map.of_seq([("bytes", "rasm.artifact.byte_volume"), ("ratio", "rasm.artifact.compression_ratio")]))),
@@ -550,23 +514,12 @@ _METRIC: Final[Map[ArtifactKind | Literal[""], MetricRow]] = Map.of_seq([
     ),
 ])
 
-# Governed residual bars, CEILING-only (`measured[name] <= cap`) and presence-demanding: the hub clears a figure on
-# every barred key being present in the measured ledger, so a row names a fixed fact its kind ALWAYS measures as a
-# non-bool number. Coverage is deliberate rather than uniform — a kind earns a row where it carries a hard numeric
-# invariant, and every other kind graduates its ledger under the caller's own bars.
 _CEILING: Final[Map[ArtifactKind, Map[str, float]]] = Map.of_seq([
     ("color", Map.of_seq([("tac_peak", 320.0)])),
     ("cad", Map.of_seq([("errors", 0.0)])),
     ("verdict", Map.of_seq([("signatures_broken", 0.0)])),
 ])
 
-# Retention class per kind, the ONE column the journal groom reads — the window itself is that owner's `WINDOWS` row,
-# so no duration is spelled here. The class follows what the FACT attests rather than what the artifact is worth: the
-# delivery record and its register, the PAdES verdict, the C2PA credential, the embedded rights metadata, and the PDF
-# security finish are what a dispute, an auditor, or a regulator reads back years later, while a produced drawing,
-# specification, or texture is production trail whose issue the delivery pair attests separately and whose value
-# expires with the operational window. The gate below proves the table TOTAL over the roster, so a new kind refuses at
-# import rather than raising `KeyError` out of the first producer that records.
 _RETENTION: Final[Map[ArtifactKind, Retain]] = Map.of_seq([
     ("pdf", Retain.OPERATIONAL),
     ("office", Retain.OPERATIONAL),
@@ -597,18 +550,13 @@ _RETENTION: Final[Map[ArtifactKind, Retain]] = Map.of_seq([
 if frozenset(_RETENTION.keys()) != frozenset(_CASES):
     raise RuntimeError("a kind carries no retention class")
 
-# Metered fixed facts and the resource each charges; the series a resource projects onto is the journal's `RESOURCES`
-# row, so a unit spelled here forks the census. `bytes` is the universal storage charge every byte-bearing kind
-# already declares as a fixed slot, and `pages`/`sheets` are the delivery cardinality a byte volume cannot state — a
-# hundred-sheet issue and a hundred-megabyte one are different charges. A band fact is unreachable by construction,
-# which is the same rule `_METRIC` holds: a quantity graduates to a fixed slot before it can be charged.
 _METERED: Final[Map[str, Resource]] = Map.of_seq([
     ("bytes", Resource.STORAGE),
     ("pages", Resource.RECORD),
     ("sheets", Resource.RECORD),
 ])
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ("ArtifactKind", "ArtifactReceipt", "ConformanceVerdict")
 ```

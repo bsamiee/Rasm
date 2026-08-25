@@ -17,7 +17,7 @@ One read-only frozen application registry owns the unit vocabulary, shared throu
 - Growth: a new refusal is one `RAISES` row whose `slots` name its coordinates and whose `catch` anchor names the provider set its fence reaches; a new elementary function is one `Umath` member carrying its `(value, arity)` the arity gate consumes for free; a new propagation algebra is one `Propagation` case with its `lifted`/`label` arms; a new cohort construction is one `Covariance` case with its `reconstruct` AND `canonical` arms — the second so the payload participates in the content key as its own framed fields; a new provenance view is one `CohortView` row with its fold arm; a stricter unit bar is one tighter `_UNIT_CEILING` row or the caller's override.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable, Sequence
 from enum import StrEnum
 from math import isqrt
@@ -38,16 +38,13 @@ from rasm.runtime.identity import ContentIdentity, ContentKey, IdentitySource
 from rasm.runtime.faults import TERMINAL, Catch, FaultRow, RuntimeRail, boundary, railed, rostered, traversed
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 
-# read-once handle on the shared application registry; the composition root alone binds a custom registry,
-# so this module runs no import-time `set_application_registry` mutation.
 _UREG: pint.UnitRegistry = pint.get_application_registry()
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class Umath(StrEnum):
-    # `str` value is the `uncertainties.umath` attribute name and `arity` rides each member, collapsing the parallel arity table.
     arity: int
 
     def __new__(cls, fn: str, arity: int) -> "Umath":
@@ -121,12 +118,9 @@ class Magnitude:
                 assert_never(unreachable)
 
     def reseat(self, cell: UFloat, /) -> "Magnitude":
-        # one tag-preserving swap reading `peers` once rather than re-matching the correlated payload.
         return Magnitude.Correlated(cell, self.peers) if self.tag == "correlated" else Magnitude.Scalar(cell)
 
     def join(self, others: "tuple[Magnitude, ...]", apply: Callable[..., UFloat], /) -> "Magnitude":
-        # applied `UFloat` already carries the joint chain-rule gradient against all inputs, so the result is correlated with the
-        # dedup-stable union of every operand's peers, scalar only when none carries peers.
         cohort = (self, *others)
         cell = apply(*(m.cell for m in cohort))
         peers = tuple(dict.fromkeys(p for m in cohort for p in m.peers))
@@ -135,8 +129,6 @@ class Magnitude:
 
 @tagged_union(frozen=True)
 class Covariance:
-    # nested-`tuple` payloads keep the frozen union genuinely immutable and hashable — never a mutable `Sequence` field the freeze
-    # cannot enforce; the factories accept an ergonomic `Sequence` and normalize at the construction edge.
     tag: Literal["full", "norm"] = tag()
     full: tuple[tuple[float, ...], ...] = case()
     norm: tuple[tuple[float, ...], tuple[tuple[float, ...], ...]] = case()
@@ -159,10 +151,6 @@ class Covariance:
                 assert_never(unreachable)
 
     def canonical(self) -> tuple[bytes, ...]:
-        # the discriminant and each matrix block are SEMANTIC FIELDS the cohort preimage frames, never one
-        # concatenated buffer: the retired `b"norm" + stds + corr` form let a std-dev vector one cell longer absorb
-        # the first correlation row and key identically to a shorter vector under a wider block.
-        # `norm` yields BOTH the std-dev vector AND the correlation block, so two cohorts differing only in `std_devs` key distinctly.
         match self:
             case Covariance(tag="full", full=matrix):
                 return (b"full", np.ascontiguousarray(matrix, dtype=np.float64).tobytes())
@@ -197,8 +185,6 @@ class Propagation:
 
     @property
     def arity(self) -> int:
-        # an `Analytic` is exactly `len(partials)`-ary because `wrap(f, derivatives_args=[...])` registers one partial per
-        # positional argument; only a numerically-differentiated `Wrapped` is genuinely variadic (`-1`).
         match self:
             case Propagation(tag="named", named=fn):
                 return fn.arity
@@ -211,7 +197,6 @@ class Propagation:
 
     @property
     def label(self) -> str:
-        # stable function identity `_propagated_key` seeds over: the `Umath` value or the callable's qualified name.
         match self:
             case Propagation(tag="named", named=fn):
                 return fn.value
@@ -245,34 +230,17 @@ class CohortView(StrEnum):
     PSEUDOINVERSE = "pseudoinverse"
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# `unit_law` family's DEFAULT graduation ceiling, governed as a row beside the owner rather than spelled at the
-# `graduates()` call site: a dimensional-consistency claim admits zero inconsistency, and a caller's tighter row
-# overrides at the projection.
 _UNIT_CEILING: Final[Map[str, float]] = Map.of_seq([("consistency", 0.0)])
 
 
-# --- [TABLES] --------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# the two provider raise surfaces this page reaches, named once so six fences read two anchors rather than six inline
-# tuples. `PintError` roots every pint failure and every fault below it (`libs/python/compute/.api/pint.md:33-41`), so
-# a unit spelling the registry never defined, an incompatible-dimension conversion, and an offset-unit multiply all
-# narrow onto that one root. ABSENT: `libs/python/compute/.api/uncertainties.md` rosters no exception family — its
-# three raises are venv-probed (`uv run --no-sync python -c ...`): `uncertainties.core.NegativeStdDev` on a negative
-# standard deviation (an `Exception` subclass the package root does not re-export), a builtin `ValueError` off a
-# `umath` domain breach (`umath.log` of a negative nominal), and a builtin `TypeError` off a `wrap`-lifted arity
-# breach. `numpy.linalg.LinAlgError` SUBCLASSES `ValueError`, and it leads the cohort tuple so the singular-matrix
-# case classifies under its own name rather than under the wider builtin.
 _UNIT_CATCH: Final[Catch] = (pint.errors.PintError, NegativeStdDev)
 _PROPAGATE_CATCH: Final[Catch] = (pint.errors.PintError, NegativeStdDev, TypeError, ValueError)
 _COHORT_CATCH: Final[Catch] = (LinAlgError, NegativeStdDev, ValueError)
 
-# this page's raise-side roster under the hub `ComputeLeg` contract. The retired subject spellings
-# `f"quantity.propagate.{propagation.tag}"` and `f"quantity.cohort.{view.value}"` forked one refusal law into three
-# and five coordinates no roster could enumerate; the propagation label and the view are recoverable from the value
-# and ride the weave span facts, so each fence is ONE point. Every row is TERMINAL: an undefined unit, an
-# incompatible dimension, a negative uncertainty, a singular cohort, and an arity breach all repeat on a re-issue.
 MINT: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.QUANTITY, point="mint", arm="config", defect="mint", retriability=TERMINAL
 )
@@ -282,8 +250,6 @@ CONVERT: Final[FaultRow[ComputeLeg]] = FaultRow(
 PROPAGATE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.QUANTITY, point="propagate", arm="boundary", defect="propagate", retriability=TERMINAL
 )
-# the arity gate is the one EXPLICIT refusal on this page and the only row carrying slots, its two coordinates
-# proved against the roster by `zip(strict=True)` at the raise.
 ARITY: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.QUANTITY, point="arity", arm="config", defect="arity", retriability=TERMINAL, slots=("declared", "supplied")
 )
@@ -293,15 +259,13 @@ COHORT_BUILD: Final[FaultRow[ComputeLeg]] = FaultRow(
 COHORT_READ: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.QUANTITY, point="view", arm="boundary", defect="cohort-view", retriability=TERMINAL
 )
-# the base-unit probe is READ as a bool by `claim`, so its row exists to seat the subject rather than to surface a
-# fault: an offset unit raising under the multiplicative registry is exactly the falsifiable `False` the claim wants.
 CONSISTENT: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.QUANTITY, point="consistent", arm="boundary", defect="offset-unit", retriability=TERMINAL
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([MINT, CONVERT, PROPAGATE, ARITY, COHORT_BUILD, COHORT_READ, CONSISTENT]))
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class QuantityReceipt(Struct, frozen=True, gc=False):
@@ -310,9 +274,6 @@ class QuantityReceipt(Struct, frozen=True, gc=False):
     nominal: float
     std_dev: float
     rel_error: float
-    # the dimensional bar as a BAND rather than a bool: `consistent=False` erased which bar failed, and the band is
-    # the spine column a reader already scans on every other producer. Empty IS consistent, so the graduation ledger
-    # reads the roster's own emptiness rather than a second boolean it would have to keep in step.
     band: Block[str]
     mode: str
     correlated_with: tuple[str, ...]
@@ -320,10 +281,6 @@ class QuantityReceipt(Struct, frozen=True, gc=False):
     content_key: ContentKey
 
     def graduates(self, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
-        # verdict is a `consistency` residual rejected against the governed `_UNIT_CEILING` family row, so an inconsistent
-        # quantity is the `Error(BoundaryFault)` the gate returns; the axis case IS the subject, never a parallel
-        # `subject: str` field, and `composition` is the caller's custody key threaded onto the hub so an embedded
-        # composition's admission and refusal facts key to it rather than firing into the root scope.
         measured = {"consistency": float(len(self.band))}
         return GraduationReceipt.graduates(
             EvidenceScope.QUANTITY.value,
@@ -335,11 +292,6 @@ class QuantityReceipt(Struct, frozen=True, gc=False):
         )
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine: the quantity's key is the produced coordinate — so `content_key` stops riding
-        # the payload as a slot beside the spine column that owns it — and the dimensional bar rides the band.
-        # `consumed` is EMPTY because the value does not retain its operands: `_propagated_key` folds their key
-        # bytes into the produced key and `UncertainQuantity` holds no operand roster to read back, so naming a
-        # lineage here would forge one this owner never carried. A retained-operand roster is its own campaign.
         facts: dict[str, object] = {
             "dim": self.dimensionality,
             "nominal": self.nominal,
@@ -378,18 +330,12 @@ class UncertainQuantity(Struct, frozen=True):
     def correlated(
         cls, nominals: Sequence[float], covariance: Covariance, unit: str, tags: tuple[str, ...], /, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[tuple[UncertainQuantity, ...]]":
-        # a repeated cohort on identical data is a cache hit by reference; the per-member rails fold through `traversed` under the
-        # default `Disposition.ABORT`, the fold `railed` does not subsume. The hub weave wraps the whole build: a cohort
-        # reconstruction is quadratic in the member count and every member re-keys, so this is one of the two entries whose
-        # spend scales with the operand and therefore the two the branch evidence floor prices.
         @railed
         def _build() -> "tuple[UncertainQuantity, ...]":
             cells = covariance.reconstruct(nominals, tags)
             cohort: ContentKey = yield from _cohort_key(nominals, covariance, unit, tags)
             members: Block[UncertainQuantity] = yield from traversed(
                 Block.of_seq(
-                    # `cell`/`self_tag` default-bind per row: `traversed` forces each `.map` after the
-                    # genexpr frame is exhausted, so a free closure would read only the last operand.
                     _member_key(cohort, self_tag).map(
                         lambda key, cell=cell, self_tag=self_tag: cls(
                             _UREG.Measurement(cell.nominal_value, cell.std_dev, unit),
@@ -409,8 +355,6 @@ class UncertainQuantity(Struct, frozen=True):
         )
 
     def convert(self, target_unit: str, /) -> "RuntimeRail[UncertainQuantity]":
-        # pint owns the unit algebra (affine offset units included) and the correlation graph through `Measurement.to`; a zero-nominal
-        # value with finite uncertainty converts without a value-ratio division, and pint's own `DimensionalityError` converts once.
         def _to() -> "RuntimeRail[UncertainQuantity]":
             converted = self.measurement.to(target_unit)
             cell = converted.magnitude
@@ -421,7 +365,6 @@ class UncertainQuantity(Struct, frozen=True):
         return boundary(CONVERT, _to, catch=_UNIT_CATCH).bind(lambda outcome: outcome)
 
     def propagate(self, propagation: Propagation, unit: str, /, *operands: "UncertainQuantity") -> "RuntimeRail[UncertainQuantity]":
-        # `*operands` make the catalogued arity reachable rather than stranded behind a unary signature.
         def _build() -> "RuntimeRail[UncertainQuantity]":
             supplied = 1 + len(operands)
             if propagation.arity >= 0 and supplied != propagation.arity:
@@ -435,11 +378,6 @@ class UncertainQuantity(Struct, frozen=True):
         return boundary(PROPAGATE, _build, catch=_PROPAGATE_CATCH).bind(lambda outcome: outcome)
 
     def claim(self) -> QuantityReceipt:
-        # the dimensional bar is the FENCED base-unit reduction projected onto the BAND — `to_base_units` preserves
-        # dimensionality by construction, so the comparison is tautologically true and an offset unit (`degC`/`degF`)
-        # raising under the multiplicative registry is the one falsifiable outcome. The band carries that fault's own
-        # detail, where the retired `consistent: bool` erased WHICH bar failed and left a reader with a `False` no
-        # projection could explain; `claim` stays total rather than raising the offset-unit fault out of domain code.
         cell = self.magnitude.cell
         rel = float(abs(cell.std_dev / cell.nominal_value)) if cell.nominal_value else (0.0 if cell.std_dev == 0.0 else float("inf"))
         dim = dict(self.measurement.units.dimensionality)
@@ -458,13 +396,10 @@ class UncertainQuantity(Struct, frozen=True):
         )
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[np.ndarray]":
-    # second weave-priced entry: the covariance and correlation views are quadratic in the cohort and the two inverse
-    # views run a CUBIC uncertainty-propagating solve over an n-by-n matrix, so this is the folder's most expensive
-    # numerics kernel and the one whose resource band a reader most needs.
     def _read() -> np.ndarray:
         cells = [q.magnitude.cell for q in quantities]
         match view:
@@ -476,8 +411,6 @@ def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /, *, comp
                 arr = unumpy.uarray([c.nominal_value for c in cells], [c.std_dev for c in cells])
                 return np.stack([unumpy.nominal_values(arr), unumpy.std_devs(arr)])
             case CohortView.INVERSE | CohortView.PSEUDOINVERSE:
-                # uncertainty-propagating inverse keeps linear-system provenance inside the propagation graph, never a bare numpy
-                # solve; the square side is `isqrt`-guarded — a silent `round` would mis-shape the matrix.
                 side = isqrt(len(cells))
                 if side * side != len(cells):
                     raise ValueError(f"non-square cohort: {len(cells)} cells admit no square matrix")
@@ -494,20 +427,12 @@ def cohort(quantities: Sequence[UncertainQuantity], view: CohortView, /, *, comp
     )
 
 
-# every key on this page is a preimage over N SEMANTIC FIELDS, so each hands `IdentitySource(parts=...)` and the
-# `[PREIMAGE_FRAMING]` count-and-length framing runs at its one owner, `runtime/evidence/identity#IDENTITY`. The
-# retired form CONCATENATED the fields — `nominals.tobytes() + canonical() + unit.encode() + "\x00".join(tags)` — and
-# concatenation is not injective across a variable-length boundary: a cohort of three nominals under a two-row
-# covariance keys identically to one of two nominals under a wider block whose bytes absorb the third, and a tag
-# carrying the `\x00` separator moves the boundary the join relied on. No producer spells a width or a separator now.
 def _scalar_key(nominal: float, std_dev: float, unit: str, /) -> "RuntimeRail[ContentKey]":
     cell = np.ascontiguousarray([nominal, std_dev], dtype=np.float64).tobytes()
     return ContentIdentity.of("quantity", IdentitySource(parts=(cell, unit.encode())))
 
 
 def _cohort_key(nominals: Sequence[float], covariance: Covariance, unit: str, tags: Sequence[str], /) -> "RuntimeRail[ContentKey]":
-    # the tag roster states its own cardinality as a field, so a cohort's member count is part of its identity and
-    # two rosters whose concatenated bytes coincide under different splits still key apart.
     return ContentIdentity.of(
         "quantity.cohort",
         IdentitySource(parts=(
@@ -521,15 +446,10 @@ def _cohort_key(nominals: Sequence[float], covariance: Covariance, unit: str, ta
 
 
 def _member_key(cohort: ContentKey, member_tag: str, /) -> "RuntimeRail[ContentKey]":
-    # identical cohort data yields an identical cohort key yields identical per-member keys.
     return ContentIdentity.of("quantity.member", IdentitySource(parts=(cohort.memory, member_tag.encode())))
 
 
 def _propagated_key(propagation: Propagation, unit: str, operands: tuple["UncertainQuantity", ...], /) -> "RuntimeRail[ContentKey]":
-    # a propagated value is a NEW value, so it re-keys over the function label, the result unit, and each
-    # operand's LE-span key bytes; an identical propagation over identical operands keys identically. The `tag`
-    # leaves the `fmt` for the same reason it left the fault subject: it is recoverable from `label`, and a per-tag
-    # `fmt` forks one key namespace three ways under the `KEY_FMT` grammar.
     return ContentIdentity.of(
         "quantity.propagate",
         IdentitySource(parts=(propagation.label.encode(), unit.encode(), *(o.content_key.memory for o in operands))),

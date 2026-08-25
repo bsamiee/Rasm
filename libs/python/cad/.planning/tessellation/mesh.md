@@ -38,8 +38,6 @@ from rasm.cad.faults import MESH_KERNEL, CadRail
 
 
 class Custody(Struct, frozen=True, gc=False):
-    # Sole-occupancy claim, never a preference. `BRepMesh_IncrementalMesh` takes a boolean parallel flag rather than a
-    # thread count, so enabling it hands OCCT every core; only a caller holding the whole lane can honestly assert that.
     parallel: bool
 
 
@@ -51,8 +49,6 @@ WHOLE_LANE: Final[Custody] = Custody(parallel=True)
 
 
 def _meshed(root: TopoDS_Shape, policy: TessellationPolicy, custody: Custody, /) -> CadRail[TopoDS_Shape]:
-    # `isRelative` false pins deflection to absolute metres: the relative form rescales per sub-shape, so one budget
-    # admits a source and refuses its own scaled copy. Triangulation lands in place on `root`, returned for threading.
     mesher = BRepMesh_IncrementalMesh(root, policy.deflection_m, False, policy.angle_tolerance_rad, custody.parallel)
     done, flags = mesher.IsDone(), mesher.GetStatusFlags()
     return Ok(root) if done and flags == 0 else Error(MESH_KERNEL.at(f"BRepMesh_IncrementalMesh:done={done};flags={flags}"))
@@ -90,8 +86,6 @@ from rasm.cad.faults import MESH_BUDGET, MESH_KERNEL, CadRail
 
 
 def _faces(shape: TopoDS_Shape, /) -> Iterator[TopoDS_Face]:
-    # `TopExp_Explorer` is a native cursor, so it yields once here and the traversal above it stays a `Block` fold; a
-    # `while` loop carrying its own accumulator and its own raises is the shape this generator dissolves.
     explorer = TopExp_Explorer(shape, TopAbs_FACE)
     while explorer.More():
         yield TopoDS.Face_s(explorer.Current())
@@ -99,8 +93,6 @@ def _faces(shape: TopoDS_Shape, /) -> Iterator[TopoDS_Face]:
 
 
 def _triangles(face: TopoDS_Face, /) -> CadRail[int]:
-    # `TopLoc_Location()` is filled BY the read-back as the face's placement, never handed in as one; the count is read
-    # off the returned triangulation in its own frame, so placement never scales a triangle total.
     triangulation: Poly_Triangulation | None = BRep_Tool.Triangulation_s(face, TopLoc_Location())
     return Ok(triangulation.NbTriangles()) if triangulation is not None else Error(MESH_KERNEL.at("mesh.face-triangulation"))
 
@@ -143,8 +135,6 @@ from rasm.cad.tessellation.emission import emitted
 
 
 class TessellationEvidence(Struct, frozen=True, kw_only=True):
-    # What the worker returns and nothing more: counts read off the emitted file, the kernel receipt, and the byte
-    # extent the writer admitted. Native handles, the document, and the GLB body never enter this value.
     element_count: int
     triangle_count: int
     artifact_bytes: int
@@ -155,8 +145,6 @@ class TessellationEvidence(Struct, frozen=True, kw_only=True):
 
 
 def _budgeted(census: GlbCensus, budget: int, /) -> CadRail[GlbCensus]:
-    # Second gate, and not a duplicate of preflight: welding and primitive splitting move the emitted total off the
-    # native sum, so the file's own count is what a consumer decodes and what the budget must bind.
     return Ok(census) if census.triangles <= budget else Error(MESH_BUDGET.at(f"emitted:{census.triangles}>{budget}"))
 
 

@@ -22,7 +22,7 @@ Rebuilds compose law legislated elsewhere: ring-metric mathematics is `Spatial/c
 - Boundary: brep/mesh polymorphism lives in one gate — a per-operation `is Mesh`/`is Brep` switch is the deleted repetition, and a fold identical on both families takes the `onAny` arity rather than two drifting delegates; release brackets the ACQUISITION at both piece folds, so a throw mid-projection frees what a failure-rail `BindFail` never reaches; the genus, hole, and Euler family is derived from three primitive rows and a stored genus beside the formula is the killed form; `Capability.EvaluateTopology` is the single topology-evaluation admission row, containment escalating through `Requirement.SolidTopology`; `SolidOrientationOf` maps the mesh orientation int onto `BrepSolidOrientation` so both families answer in one enum, never a mesh-specific parallel vocabulary; component extraction owns its disposal — a piece failing the typed projection is disposed before the fault leaves.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -35,7 +35,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record Topologies {
     private Topologies() { }
@@ -58,8 +58,6 @@ public abstract partial record Topologies {
     public static Topologies FaceCount => new ScalarCase(Scalar: TopologyScalar.FaceCount);
     public static Topologies EdgeCount => new ScalarCase(Scalar: TopologyScalar.EdgeCount);
     public static Topologies VertexCount => new ScalarCase(Scalar: TopologyScalar.VertexCount);
-    // Operation identity derives from the case the build runs, so no arm mints an anonymous `Op.Of()` whose faults,
-    // signal facts, and op costs name nothing and whose cardinality is unbounded across calls.
     internal Op Key => Keys.Value[GetType()];
     private static readonly Lazy<FrozenDictionary<Type, Op>> Keys = new(static () =>
         typeof(Topologies).GetNestedTypes().ToFrozenDictionary(static row => row, static row => Op.Of(name: row.Name)));
@@ -108,14 +106,10 @@ public abstract partial record Topologies {
         OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(m.TopologyVertices.Count - m.TopologyEdges.Count + m.Faces.Count),
             onBrep: b => guard(b.IsManifold, op.Unsupported(typeof(Brep), typeof(int))).ToFin().Map(_ => b.Vertices.Count - b.Edges.Count + b.Faces.Count));
-    // Host refusal is not a boundary-loop count of zero: a fabricated B feeds the genus formula (2C - chi - B)/2 and
-    // the hole count, publishing a wrong topological invariant where refusing states that nothing was measured.
     internal static Fin<int> BoundaryLoopsOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry(geometry: geometry, op: op,
             onMesh: m => Optional(m.GetNakedEdges()).ToFin(op.InvalidResult()).Map(static loops => loops.Length),
             onBrep: static b => Fin.Succ(BoundaryCount(brep: b, predicate: static loop => loop.LoopType is BrepLoopType.Outer or BrepLoopType.Inner)));
-    // Genus is defined on ORIENTABLE surfaces alone, so the gate reads orientation and never bare manifoldness; a
-    // brep is orientable wherever it is manifold, which is why one predicate answers for both families.
     internal static Fin<bool> OrientableOf<TG>(TG geometry, Op op) where TG : notnull =>
         OnGeometry(geometry: geometry, op: op,
             onMesh: static m => Fin.Succ(m.IsManifold(topologicalTest: true, isOriented: out bool oriented, hasBoundary: out bool _) && oriented),
@@ -154,8 +148,6 @@ public abstract partial record Topologies {
         Decomposes<TGeometry, TOut>()
             ? Lift<TGeometry, TOut, Op>(key: key, state: key, extract: static (op, g, _) => ComponentsOf(geometry: g, op: op).Bind(components => ProjectPieces<TOut>(components: components, op: op))).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
-    // Decomposition publishes pieces of the ingress family alone, so the output roster is stated once and the
-    // erased-ingress escape reads the one `Capability.Universal` authority rather than a fourth `typeof(object)` test.
     private static bool Decomposes<TGeometry, TOut>() =>
         (typeof(TOut) == typeof(Brep) || typeof(TOut) == typeof(Mesh))
         && (Capability.Universal(type: typeof(TGeometry)) || typeof(TOut).IsAssignableFrom(c: typeof(TGeometry)));
@@ -184,8 +176,6 @@ public abstract partial record Topologies {
             object brepLike when Capability.BrepForm.Admits(type: brepLike.GetType()) => Normalization.BrepForm(source: brepLike, key: op).Bind(lease => lease.Use(project: onBrep)),
             _ => Fin.Fail<TResult>(op.Unsupported(g.GetType(), typeof(TResult))),
         });
-    // Third arity for folds POLYMORPHIC over the lowered geometry: a body identical on both families forces two
-    // delegates through the pair gate and the mesh copy drifts from the brep copy on the next edit.
     private static Fin<TResult> OnGeometry<TGeometry, TResult>(TGeometry geometry, Op op, Func<GeometryBase, Fin<TResult>> onAny) where TGeometry : notnull =>
         OnGeometry(geometry: geometry, op: op, onMesh: mesh => onAny(arg: mesh), onBrep: brep => onAny(arg: brep));
     private static Fin<Seq<GeometryBase>> BrepPieces(Brep brep, Op op) =>
@@ -194,8 +184,6 @@ public abstract partial record Topologies {
             _ when brep.IsValid => op.AcceptValue(brep).Map(static valid => Seq((GeometryBase)valid.DuplicateBrep())),
             _ => Fin.Fail<Seq<GeometryBase>>(op.InvalidResult()),
         };
-    // Release brackets the ACQUISITION: a throw inside the projection leaks every piece where a failure-rail
-    // `.BindFail` never runs. Survivors transfer to the caller, so the finalizer releases the refused pieces alone.
     private static Fin<Seq<TOut>> ProjectPieces<TOut>(Seq<GeometryBase> components, Op op) =>
         IO.pure(components).Bracket(
             Use: owned => IO.lift(() => owned.TraverseM(component => component is TOut typed
@@ -205,9 +193,6 @@ public abstract partial record Topologies {
             .Run();
     private static int BoundaryCount(Brep brep, Func<BrepLoop, bool> predicate) =>
         toSeq(brep.Loops).Filter(loop => predicate(arg: loop) && toSeq(loop.Trims).Exists(static trim => trim.Edge is { Valence: EdgeAdjacency.Naked })).Count;
-    // Empty decompositions have NO component count: asserting one feeds a fabricated C into the genus formula
-    // (2C - chi - B)/2 and into the hole count, publishing a wrong topological invariant instead of refusing. Only
-    // the count survives the fold, so release brackets every piece on both exits rather than the success arm alone.
     private static Fin<int> PieceCount<TGeometry>(TGeometry geometry, Op op) where TGeometry : notnull =>
         ComponentsOf(geometry: geometry, op: op).Bind(components => IO.pure(components).Bracket(
                 Use: owned => IO.lift(() => owned.Count > 0 ? Fin.Succ(owned.Count) : Fin.Fail<int>(op.InvalidResult())),
@@ -215,8 +200,6 @@ public abstract partial record Topologies {
             .Run());
 }
 
-// Three measure shapes because an inspection row answers a predicate, a tally, or a continuous statistic: an `int`
-// carrier leaves a boolean `1` and a count of `1` indistinguishable and forces a mean through a rounding that lies.
 [Union]
 public abstract partial record MeasuredValue {
     private MeasuredValue() { }
@@ -226,7 +209,6 @@ public abstract partial record MeasuredValue {
     public static MeasuredValue Flag(bool held) => new FlagCase(Value: held);
     public static MeasuredValue Count(int tally) => new CountCase(Value: tally);
     public static MeasuredValue Statistic(double value) => new StatisticCase(Value: value);
-    // ONE box at the output seam, where `OutputBinding` unwraps it — the deleted form boxed at every row.
     internal object Boxed => Switch(
         flagCase: static row => (object)row.Value,
         countCase: static row => (object)row.Value,
@@ -249,8 +231,6 @@ public sealed partial class TopologyScalar {
     public static readonly TopologyScalar VertexCount = new(key: 7, label: nameof(VertexCount), output: OutputBinding.Of<int>(), extract: static (g, op) => Topologies.CountOf(geometry: g, op: op, meshCount: static m => m.Vertices.Count, brepCount: static b => b.Vertices.Count).Map(MeasuredValue.Count));
     public string Label { get; }
     public OutputBinding Output { get; }
-    // Operation identity derives from the row it names, so a caller reading a scalar never mints an anonymous key
-    // and every fault, signal fact, and op cost traces to the scalar that raised it.
     internal Op Op => Keys.Value[this];
     private static readonly Lazy<FrozenDictionary<TopologyScalar, Op>> Keys = new(static () =>
         Items.ToFrozenDictionary(static row => row, static row => Op.Of(name: row.Label)));
@@ -271,7 +251,7 @@ public sealed partial class TopologyScalar {
 - Boundary: a row's band derives from its key decade — the `group:` column beside it was a second authority one edit could contradict, and the index is read through its accessor so the generator has filled `Items` first; defect rows read the one threaded `MeshCheckParameters` capture and a per-row `Mesh.Check` re-run is the killed N-fold host cost; face metrics measure visible polygons through the canonical `ComponentIndex` addressing, never a triangle-level parallel family; ring measurement routes through the `Spatial/cloud` metric surface exclusively, never a local perimeter/skewness/area loop; `AtVisiblePolygon` re-emits the `Domain/normalization` `TopologyProjection` carrier on its `Fin` rail so downstream extraction shares the corpus transfer/disposal protocol.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Linq;
@@ -287,12 +267,10 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CensusSource {
     public static readonly CensusSource Native = new(key: "native", capture: static _ => Fin.Succ(MeshCheckParameters.Defaults()));
-    // Check label is the row's OWN key, read deferred inside the delegate body: stringifying the caller's `Op` fed
-    // an operation identity into a slot that names which check ran, so the report labelled itself per call site.
     public static readonly CensusSource Checked = new(key: "checked", capture: static mesh => Requirement.MeshReport(mesh: mesh, check: Checked.Key));
     [UseDelegateFromConstructor] internal partial Fin<MeshCheckParameters> Capture(Mesh mesh);
 }
@@ -307,7 +285,6 @@ public abstract partial record Meshes {
     public sealed record VisiblePolygonCountCase : Meshes;
     public sealed record NakedEdgesCase : Meshes;
     public sealed record OutlineCase(Plane Plane) : Meshes;
-    // Operation identity derives from the case, so a renamed case renames its key and no hand string drifts from it.
     internal Op Key => Keys.Value[GetType()];
     private static readonly Lazy<FrozenDictionary<Type, Op>> Keys = new(static () =>
         typeof(Meshes).GetNestedTypes().ToFrozenDictionary(static row => row, static row => Op.Of(name: row.Name)));
@@ -375,14 +352,11 @@ public sealed partial class MeshSampleGroup {
     public static readonly MeshSampleGroup Defect = new(key: 3, decade: 2, label: nameof(Defect), source: CensusSource.Checked);
     public static readonly MeshSampleGroup Quality = new(key: 4, decade: 4, label: nameof(Quality), source: CensusSource.Native);
     public string Label { get; }
-    // Sample keys band by DECADE, and this column is where that convention is declared: a kind reads its band off
-    // its own key, so a row cannot be filed under a group its key contradicts. Skipped decades are growth room.
     internal int Decade { get; }
     internal CensusSource Source { get; }
     internal static MeshSampleGroup OfDecade(int decade) => Decades.Value[decade];
     private static readonly Lazy<FrozenDictionary<int, MeshSampleGroup>> Decades = new(static () =>
         Items.ToFrozenDictionary(static row => row.Decade, static row => row));
-    // Band membership is a derived INDEX read through this accessor, never a rescan of all 31 rows per census.
     internal Seq<MeshSampleKind> Kinds => Bands.Value[this];
     private static readonly Lazy<FrozenDictionary<MeshSampleGroup, Seq<MeshSampleKind>>> Bands = new(static () =>
         Items.ToFrozenDictionary(static row => row, static row => toSeq(MeshSampleKind.Items).Filter(kind => kind.Group.Equals(row))));
@@ -394,8 +368,6 @@ public sealed partial class MeshSampleGroup {
                 select samples);
 }
 
-// Upstream of the roster: the RhinoCommon mesh validity surface, the `MeshCheckParameters` defect counter set, the
-// element census, and the valence-quality taxonomy — a closed external set, so the rows stay data.
 [SmartEnum<int>]
 public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind Valid = new(key: 1, label: nameof(Valid), sample: static (m, _, _) => Fin.Succ(MeasuredValue.Flag(m.IsValid)));
@@ -430,15 +402,11 @@ public sealed partial class MeshSampleKind {
     public static readonly MeshSampleKind Genus = new(key: 43, label: nameof(Genus), sample: static (m, _, key) => TopologyScalar.Genus.Extract(geometry: m, op: key));
     public static readonly MeshSampleKind AverageValence = new(key: 44, label: nameof(AverageValence), sample: static (m, _, key) => Valence(mesh: m, key: key, project: static stat => MeasuredValue.Statistic(stat.Mean)));
     public string Label { get; }
-    // Band reads off the key decade — ONE authority, so the eight hand-minted operation statics and the parallel
-    // `group:` column both delete and a row cannot claim a band its key denies.
     internal MeshSampleGroup Group => MeshSampleGroup.OfDecade(decade: Key / 10);
     internal Op Op => Keys.Value[this];
     private static readonly Lazy<FrozenDictionary<MeshSampleKind, Op>> Keys = new(static () =>
         Items.ToFrozenDictionary(static row => row, static row => Op.Of(name: row.Label)));
     [UseDelegateFromConstructor] internal partial Fin<MeasuredValue> Sample(Mesh mesh, MeshCheckParameters parameters, Op key);
-    // Empty topology measures NO valence: a published 0 reads as "every vertex isolated", the inverse of "no vertex",
-    // and the extrema are exact integers because every sample is one, so the narrowing loses nothing the mean keeps.
     private static Fin<MeasuredValue> Valence(Mesh mesh, Op key, Func<Stat<Scalar>, MeasuredValue> project) =>
         toSeq(Enumerable.Range(0, mesh.TopologyVertices.Count).Select(mesh.TopologyVertices.ConnectedEdgesCount)) switch {
             { IsEmpty: true } => Fin.Fail<MeasuredValue>(key.InvalidResult()),
@@ -446,9 +414,6 @@ public sealed partial class MeshSampleKind {
         };
 }
 
-// Run-local per-face moment memo: the dihedral fold reads every NEIGHBOUR's normal and an ngon normal area-weights
-// its constituent faces, so a census re-derives one face's normal and area once per adjacent polygon without it.
-// Seeded per census because the values are mesh-identity-bound and the census owns exactly that lifetime.
 internal readonly record struct FaceMoments(Atom<HashMap<int, (Vector3d Normal, double Area)>> Held) {
     internal static FaceMoments Seeded() => new(Held: Atom(HashMap<int, (Vector3d Normal, double Area)>()));
     internal Fin<(Vector3d Normal, double Area)> At(int face, Func<Fin<(Vector3d Normal, double Area)>> measure) =>
@@ -457,9 +422,6 @@ internal readonly record struct FaceMoments(Atom<HashMap<int, (Vector3d Normal, 
             None: () => measure().Map(moment => Cell.Claim(cell: Held, key: face, mint: () => moment).Current[face]));
 }
 
-// ONE measurement subject: the mesh, the addressed polygon, the boundary ring the caller already resolved, and the
-// run-local memo the ngon and dihedral folds share. Absent vertices are `None` — an EMPTY ring is a measurable
-// degenerate polygon, so a sentinel empty sequence swallowed it into the "not supplied" arm.
 internal readonly record struct PolygonProbe(Mesh Mesh, ComponentIndex Source, Option<Seq<Point3d>> Vertices, FaceMoments Moments) {
     internal PolygonProbe AtFace(int face) => this with { Source = new ComponentIndex(ComponentIndexType.MeshFace, face), Vertices = None };
 }
@@ -472,8 +434,6 @@ public sealed partial class MeshMetric {
     public static readonly MeshMetric Skewness = new(key: 3, measure: static (probe, context, key) => Ring<double>(metric: VectorCloudMetric.Skewness, probe: probe, context: context, key: key));
     public static readonly MeshMetric DihedralAngle = new(key: 4, measure: DihedralOf);
     [UseDelegateFromConstructor] private partial Fin<double> Measure(PolygonProbe probe, Context context, Op key);
-    // Declared outputs of the ONE metric census: the addressed sample sequence, or its moment summary. The binding
-    // decides which terminal runs, so the discrimination lives here and no caller re-derives it on `typeof(TOut)`.
     private static readonly OutputBinding SampleBinding = OutputBinding.Of<MeshMetricSample>();
     private static readonly OutputBinding SummaryBinding = OutputBinding.Of<Stat<Scalar>>();
     internal Operation<TGeometry, TOut> Measure<TGeometry, TOut>(Op key) where TGeometry : notnull =>
@@ -483,8 +443,6 @@ public sealed partial class MeshMetric {
             ? Meshes.Lift<TGeometry, TOut, Stat<Scalar>>(key: key, source: Folded(key: key, terminal: static (samples, op) =>
                 Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Value), key: op).Bind(stat => op.Accept(value: stat))))
         : key.Unsupported<TGeometry, TOut>();
-    // Census plumbing is ONE body — key, readiness, context demand, and runtime bind — and the terminal is the only
-    // axis two outputs differ on; samples already admitted per polygon, so the sample terminal re-admits nothing.
     private Operation<Mesh, TValue> Folded<TValue>(Op key, Func<Seq<MeshMetricSample>, Op, Fin<Seq<TValue>>> terminal) where TValue : notnull =>
         Operation<Mesh, TValue>.Build(key: key, state: (Key: key, Metric: this, Terminal: terminal), requirement: Some(Requirement.MeshCheck), requiresContext: true,
             evaluator: static (state, mesh) =>
@@ -540,8 +498,6 @@ public sealed partial class MeshMetric {
             .Bind(points => VectorCloud.Ring(points: points, context: context, key: key))
             .Bind(cloud => VectorIntent.Cloud(cloud: cloud, metric: metric, key: key))
             .Bind(intent => intent.Project<TOut>(context: context, key: key));
-    // Face moments claim through the run-local memo; the ngon arm holds none of its own because it is derived from
-    // the face moments it sums, and memoizing a derived value beside its parts forks the one authority.
     private static Fin<Vector3d> NormalOf(PolygonProbe probe, Context context, Op key) => probe.Source switch {
         { ComponentIndexType: ComponentIndexType.MeshFace, Index: int face } when face >= 0 && face < probe.Mesh.Faces.Count =>
             probe.Moments.At(face: face, measure: () => FaceMomentOf(probe: probe, face: face, context: context, key: key)).Map(static moment => moment.Normal),
@@ -573,8 +529,6 @@ public sealed partial class MeshMetric {
                     .Map(static moments => moments.Fold(initialState: 0.0, f: static (total, moment) => total + moment.Area)),
             _ => Ring<double>(metric: VectorCloudMetric.Area, probe: probe, context: context, key: key),
         };
-    // Polygon with NO adjacent face has no defined maximum dihedral: a published 0.0 reads as "every neighbour
-    // perfectly coplanar", the inverse of "no neighbour", and the sample receipt admits it as a measurement.
     private static Fin<double> DihedralOf(PolygonProbe probe, Context context, Op key) =>
         NormalOf(probe: probe, context: context, key: key).Bind(normal =>
             (probe.Source switch {
@@ -590,7 +544,7 @@ public sealed partial class MeshMetric {
                     .Head.ToFin(key.InvalidResult()))));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeshSample(MeshSampleKind Kind, MeasuredValue Value) : IValidityEvidence {
     public bool IsValid => Value is MeasuredValue measured && measured.Admissible;

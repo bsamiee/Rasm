@@ -19,7 +19,7 @@ One rail composes `optimistix` over a `lineax` inner linear solve and an `optax`
 - Boundary: the `TOL_ONLY` bracket is the per-solve entry argument (`options=dict(lower=, upper=)`), not a constructor kwarg like the five `SolverPolicy` axes, and rides `NonlinearPolicy` beside `max_steps`/`adjoint`/`has_aux`; a `TOL_ONLY` solve with an absent, non-finite, or unordered bracket raises `NonlinearFault.bracket`, gated in `_dispatch` before the import fork so the gated path and the numpy floor refuse the misconfiguration identically. The numpy central-difference floor is reachable per route when `optimistix` is absent, narrows to `np.ndarray` at its jaxlib-free edge, and REFUSES the two requests it cannot take — a bracketing `TOL_ONLY` search and a `batched` multi-start sweep, neither of which one central-difference probe performs.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -38,16 +38,13 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
-# x0 and every solve value are JAX pytrees Optimistix tracks through iteration; the floor narrows to
-# np.ndarray at its jaxlib-free edge. The minimise scalar is a traced rank-0 Array (`Shaped[Array, '']`), never a Python float.
 type Pytree = object
 type Scalar = Pytree
 type ResidualFn = Callable[[Pytree], Pytree]
 type ObjectiveFn = Callable[[Pytree], Scalar]
 type Route = Literal["root_find", "minimise", "fixed_point", "least_squares"]
-# An inner cell reads the policy tolerance and gated `lx` module, returning the lineax `linear_solver=` the LINEAR profile threads.
 type InnerPick = Callable[["SolverPolicy", object], object]
 
 
@@ -55,14 +52,14 @@ class NonlinearSolver(StrEnum):
     NEWTON = "newton"
     CHORD = "chord"
     BISECTION = "bisection"
-    GOLDEN_SEARCH = "golden_search"  # 1-D golden-section minimiser; tolerance-only like Bisection
+    GOLDEN_SEARCH = "golden_search"
     LBFGS = "lbfgs"
     BFGS = "bfgs"
     DFP = "dfp"
     NONLINEAR_CG = "nonlinear_cg"
     NELDER_MEAD = "nelder_mead"
     GRADIENT_DESCENT = "gradient_descent"
-    OPTAX_LBFGS = "optax_lbfgs"  # optax.lbfgs lifted by OptaxMinimiser into the minimise route
+    OPTAX_LBFGS = "optax_lbfgs"
     OPTAX_ADAM = "optax_adam"
     OPTAX_SGD = "optax_sgd"
     FIXED_POINT_ITERATION = "fixed_point_iteration"
@@ -72,30 +69,28 @@ class NonlinearSolver(StrEnum):
     DOGLEG = "dogleg"
 
 
-# Which keyword surface a solver constructor carries; build_solver assembles the kwargs by profile, not per-solver literals.
 class SolverProfile(StrEnum):
-    TOLERANCE = "tolerance"  # (rtol, atol, norm) — quasi-Newton / derivative-free
-    LINEAR = "linear"  # + linear_solver= from the InnerSolver cell — Newton/Chord/GN/LM/Dogleg
-    LEARNING_RATE = "learning_rate"  # + learning_rate=policy.learning_rate — GradientDescent
-    TOL_ONLY = "tol_only"  # (rtol, atol) only — 1-D Bisection/GoldenSearch, no norm/linear_solver
-    OPTAX = "optax"  # OptaxMinimiser(optim, rtol, atol, norm) — the optax-lifted minimisers
+    TOLERANCE = "tolerance"
+    LINEAR = "linear"
+    LEARNING_RATE = "learning_rate"
+    TOL_ONLY = "tol_only"
+    OPTAX = "optax"
 
 
 class NormKind(StrEnum):
-    MAX = "max"  # optimistix.max_norm — Chebyshev (L-inf) termination
-    RMS = "rms"  # optimistix.rms_norm
-    TWO = "two"  # optimistix.two_norm — Euclidean (L2)
+    MAX = "max"
+    RMS = "rms"
+    TWO = "two"
 
 
-# Spans the lineax linear_solver= surface — tag-dispatched, direct, iterative.
 class InnerSolver(StrEnum):
-    AUTO = "auto"  # lineax.AutoLinearSolver(well_posed=None) — tag-dispatched
-    LU = "lu"  # lineax.LU — square well-posed direct
-    QR = "qr"  # lineax.QR — overdetermined inner system
-    SVD = "svd"  # lineax.SVD — rank-deficient inner system
-    GMRES = "gmres"  # lineax.GMRES — general square non-symmetric Krylov
-    BICGSTAB = "bicgstab"  # lineax.BiCGStab — same Krylov band
-    NORMAL_CG = "normal_cg"  # lineax.Normal(lineax.CG(...)) — SPD normal equations
+    AUTO = "auto"
+    LU = "lu"
+    QR = "qr"
+    SVD = "svd"
+    GMRES = "gmres"
+    BICGSTAB = "bicgstab"
+    NORMAL_CG = "normal_cg"
 
 
 class AdjointMode(StrEnum):
@@ -103,29 +98,16 @@ class AdjointMode(StrEnum):
     RECURSIVE_CHECKPOINT = "recursive_checkpoint"
 
 
-# --- [ERRORS] ------------------------------------------------------------------------------
+# --- [ERRORS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
 class NonlinearFault(BaseException):
-    # this route family's OWN refusal token, raised inside the offloaded kernel and carried WHOLE across the lane
-    # crossing: `BoundaryFault.of` admits a `Tagged` exception ahead of every `CLASSIFY` row, so the case and its
-    # kwargs land on the `domain` arm as structurally addressable evidence. WHOLE is literal across the worker seam
-    # and not merely at the door — a kwarg-only `@tagged_union` reconstructs through no pickler, raised or railed, so
-    # `execution/workers#CROSSING` lowers this token onto `CrossedFault` DATA at `shipped` and re-mints this family's
-    # own case parent-side; the kernel keeps raising its typed case and this page edits nothing. The retired
-    # `raise ValueError(f"...")` reached the crossing's fence as a message string a consumer could only recover by
-    # matching on prose, which `docs/stacks/python/rails-and-effects.md` rejects by name.
     tag: Literal["bracket", "unserved"] = tag()
-    bracket: tuple[str, str] = case()  # (solver, the bracket render the gate refused)
-    unserved: tuple[str, str] = case()  # (route, the request the numpy floor cannot take)
+    bracket: tuple[str, str] = case()
+    unserved: tuple[str, str] = case()
 
     def __str__(self) -> str:
-        # TOTAL collapse keeping the coordinates, serving the LOG and HOST edge alone: `Exception.__str__` renders
-        # EMPTY for a kwarg-only tagged union, so a token surfacing in a worker traceback or a log line before the
-        # seam lowers it would otherwise read as the bare family name. No conversion door reads it — the `Tagged`
-        # arm admits this family ahead of every `CLASSIFY` row and the catch-all's `str(cause)` half is unreachable
-        # here — and no crossing reads it either, `CrossedFault` carrying the case and its kwargs as data.
         match self:
             case NonlinearFault(tag="bracket", bracket=(solver, render)):
                 return f"bracket:{solver}:{render}"
@@ -135,19 +117,17 @@ class NonlinearFault(BaseException):
                 assert_never(unreachable)
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _TOL: float = 1e-8
-_LR: float = 1e-3  # GradientDescent / optax step; the convergence tolerance is never reused as a learning rate
-_FD: float = 1e-6  # central-difference half-step for the numpy floor's gradient/residual probe
+_LR: float = 1e-3
+_FD: float = 1e-6
 
-# default graduation ceiling; a caller's tighter row overrides at the `graduate` projection on `solvers/receipt#RECEIPT`.
 _CEILING: Final[Map[str, float]] = Map.of_seq([("residual", 1e-8)])
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
-# Five orthogonal tuning axes on one value object; `inner` reaches only the LINEAR family.
 class SolverPolicy(Struct, frozen=True):
     rtol: float = _TOL
     atol: float = _TOL
@@ -160,9 +140,8 @@ class SolverPolicy(Struct, frozen=True):
 class NonlinearPolicy(Struct, frozen=True):
     max_steps: int = 256
     adjoint: AdjointMode = AdjointMode.IMPLICIT
-    has_aux: bool = False  # objective returns (value, aux); aux rides through the solve
-    batched: bool = False  # x0 carries a leading sweep axis vmapped through one compiled solve
-    # 1-D bracket the TOL_ONLY profile forwards as the entry options=dict(lower=, upper=); None elsewhere.
+    has_aux: bool = False
+    batched: bool = False
     bracket: tuple[float, float] | None = None
     solver: SolverPolicy = SolverPolicy()
 
@@ -203,11 +182,6 @@ class NonlinearIntent:
         return NonlinearIntent(least_squares=(residual_fn, x0, solver, policy))
 
     async def solve(self, lane: LanePolicy, key: ContentKey, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SolverReceipt]":
-        # one HOSTILE-trait Kernel carries the solve — spec data and operands (`_dispatch` resolves by import in the worker); isolation,
-        # band, and worker-death retry derive at the runtime Kernel crossing. The weave owns span, fence, and the contributor harvest
-        # under the caller's composition key, defaulted so the root call shape stays scope-free.
-        # `key` names the solved system the caller already identified — a convergence verdict keys to what was solved,
-        # never to itself — and crosses as an ordinary kernel argument so the receipt settles carrying it.
         async def dispatch() -> RuntimeRail[SolverReceipt]:
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE), self, key)
 
@@ -216,18 +190,12 @@ class NonlinearIntent:
     def graduates(
         self, receipt: SolverReceipt, ceiling: dict[str, float] | None = None, *, composition: ScopeKey = DEFAULT_SCOPE
     ) -> "RuntimeRail[GraduationReceipt]":
-        # `graduate` projects the receipt's own ledger AND its own key, so the receipt IS the whole evidence and the
-        # retired `key` parameter restated a coordinate the value already reconstructs.
         return graduate(
             EvidenceScope.NONLINEAR.value, f"solve.{self.tag}", receipt.content_key, receipt, ceiling or dict(_CEILING.items()),
             composition=composition,
         )
 
 
-# Seven gated JAX modules folded into one value object; carrier methods read the handles off `self`, never a helper re-import or a
-# loose (lx, optx, optax) triple. `gated()` floats to float64 and imports once. These imports stay function-local against the
-# module-scope `lazy` dialect on the compute RULINGS [04] x64 ruling: the config seam must precede the first jax dereference, and
-# the frozen carrier enforces that structurally — every `self.` handle exists only after `gated()` armed x64.
 @dataclass(frozen=True, slots=True)
 class NonlinearEngine:
     jax: object
@@ -240,16 +208,16 @@ class NonlinearEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax
 
-        jax.config.update("jax_enable_x64", True)  # armed before any dependent import: 1e-8 (rtol, atol) is below float32 eps; JAX defaults to float32
+        jax.config.update("jax_enable_x64", True)
 
-        import equinox as eqx  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import jax.numpy as jnp  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import jax.tree_util as jtu  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import lineax as lx  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import optax  # ruff:ignore[import-outside-top-level] — x64 config seam
-        import optimistix as optx  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import equinox as eqx
+        import jax.numpy as jnp
+        import jax.tree_util as jtu
+        import lineax as lx
+        import optax
+        import optimistix as optx
 
         return cls(jax=jax, jnp=jnp, jtu=jtu, eqx=eqx, optx=optx, lx=lx, optax=optax)
 
@@ -260,14 +228,11 @@ class NonlinearEngine:
         return {AdjointMode.IMPLICIT: self.optx.ImplicitAdjoint, AdjointMode.RECURSIVE_CHECKPOINT: self.optx.RecursiveCheckpointAdjoint}[mode]()
 
     def verdict(self, result: object) -> str:
-        # one-row composition of the receipt-owned enum-verdict fold, parameterized by this carrier's gated handle and optimistix.RESULTS.
         return verdict(self.jnp, self.optx.RESULTS, result)
 
     def route(self, tag: Route, fn: Callable[..., object], policy: NonlinearPolicy) -> tuple[Callable[..., object], Callable[[object], object]]:
         return _route_cells(self, fn, policy)[tag]
 
-    # Assemble the optimistix constructor keywords once by profile. `spec.attr` names an optimistix member for four profiles and an
-    # optax member for OPTAX, resolved per-arm off the owning module — never one eager getattr(self.optx, attr) crashing on an optax name.
     def build_solver(self, tag: Route, solver: NonlinearSolver, policy: SolverPolicy) -> object:
         spec = _SOLVER[solver]
         base, norm = {"rtol": policy.rtol, "atol": policy.atol}, self.norm(policy.norm)
@@ -283,7 +248,6 @@ class NonlinearEngine:
             case SolverProfile.TOL_ONLY:
                 instance = getattr(self.optx, spec.attr)(**base)
             case SolverProfile.OPTAX:
-                # None keeps optax.lbfgs's zoom line search; adam/sgd carry a required scalar, never None.
                 lr = None if solver is NonlinearSolver.OPTAX_LBFGS else (policy.learning_rate if policy.learning_rate is not None else _LR)
                 instance = self.optx.OptaxMinimiser(getattr(self.optax, spec.attr)(learning_rate=lr), **base, norm=norm)
             case _ as unreachable:
@@ -291,11 +255,9 @@ class NonlinearEngine:
         return getattr(self.optx, _BEST[tag])(instance) if policy.best_so_far else instance
 
 
-# --- [TABLES] ------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
 
-# NonlinearSolver -> (optimistix attr, profile); the attr defers behind the gated import, the profile decides which kwargs build.
-# DampedNewtonDescent is absent — a composable AbstractDescent taking linear_solver=, not an AbstractLeastSquaresSolver.
 class _SolverSpec(Struct, frozen=True):
     attr: str
     profile: SolverProfile
@@ -323,7 +285,6 @@ _SOLVER: Map[NonlinearSolver, _SolverSpec] = Map.of_seq([
 ])
 
 
-# InnerSolver -> the lineax linear_solver= the LINEAR profile threads; the iterative cells carry the policy tolerance the Krylov loop reads.
 _INNER: Map[InnerSolver, InnerPick] = Map.of_seq([
     (InnerSolver.AUTO, lambda p, lx: lx.AutoLinearSolver(well_posed=None)),
     (InnerSolver.LU, lambda p, lx: lx.LU()),
@@ -335,7 +296,6 @@ _INNER: Map[InnerSolver, InnerPick] = Map.of_seq([
 ])
 
 
-# Route -> the route-matched BestSoFar* guard applied when SolverPolicy.best_so_far is set.
 _BEST: Map[Route, str] = Map.of_seq([
     ("root_find", "BestSoFarRootFinder"),
     ("minimise", "BestSoFarMinimiser"),
@@ -344,9 +304,6 @@ _BEST: Map[Route, str] = Map.of_seq([
 ])
 
 
-# Route -> (optimistix entry, residual contraction). The optimistix norm is pytree-total over Array leaves, contracting a structured
-# residual to one scalar directly. has_aux: fn/grad return (out, aux), the cell reads only out. The fixed-point residual subtracts
-# leaf-wise via tree_map before the norm, since `-` on two pytrees is undefined.
 def _route_cells(
     e: "NonlinearEngine", fn: Callable[..., object], policy: NonlinearPolicy
 ) -> Map[Route, tuple[Callable[..., object], Callable[[object], object]]]:
@@ -361,11 +318,9 @@ def _route_cells(
     ])
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# One measured kernel returning SolverReceipt — module-level so it crosses the process lane. The import gate brackets
-# the ENGINE MINT alone, never the solve.
 def _dispatch(intent: NonlinearIntent, key: ContentKey) -> SolverReceipt:
     match intent:
         case (
@@ -374,20 +329,10 @@ def _dispatch(intent: NonlinearIntent, key: ContentKey) -> SolverReceipt:
             | NonlinearIntent(tag="fixed_point", fixed_point=(fn, x0, solver, policy))
             | NonlinearIntent(tag="least_squares", least_squares=(fn, x0, solver, policy))
         ):
-            # Bracket invariant is a policy gate held before the import attempt so both paths rail it identically:
-            # finiteness precedes the order check — an infinite bound satisfies a bare inequality, poisons the entry
-            # options and the floor's midpoint probe alike — and a degenerate or inverted bracket brackets no root.
             if _SOLVER[solver].profile is SolverProfile.TOL_ONLY and (
                 policy.bracket is None or not all(np.isfinite(policy.bracket)) or policy.bracket[0] >= policy.bracket[1]
             ):
                 raise NonlinearFault(bracket=(solver.value, repr(policy.bracket)))
-            # ONE bare mint sits inside the `try` — `NonlinearEngine.gated()` IS the seven-module import seam — so the
-            # floor fires on an absent JAX band alone, exactly as the sibling `solvers/field#FIELD` arm scopes its own.
-            # The retired form bracketed the WHOLE gated solve: a jax backend plugin load, an optax sub-import, or an
-            # equinox lazy member raising `ImportError` anywhere inside the build, the `filter_jit`, the `filter_vmap`,
-            # or the verdict fold silently re-routed to the central-difference floor and published an `Iterative`
-            # receipt a caller could not tell from a converged Newton solve. An `ImportError` out of the solve on an
-            # installed band now propagates to the crossing's fence as the defect it is.
             try:
                 engine = NonlinearEngine.gated()
             except ImportError:
@@ -401,16 +346,13 @@ def _optimistix_receipt(
     engine: "NonlinearEngine", key: ContentKey, tag: Route, fn: Callable[..., object], x0: Pytree, solver: NonlinearSolver,
     policy: NonlinearPolicy,
 ) -> SolverReceipt:
-    # the engine arrives ALREADY GATED, so this whole body sits OUTSIDE the import fence and every raise it makes
-    # reaches the crossing as itself.
     jtu = engine.jtu
     op, lift = engine.route(tag, fn, policy)
     instance, adjoint = engine.build_solver(tag, solver, policy.solver), engine.adjoint(policy.adjoint)
-    # TOL_ONLY maps the bracket 2-tuple to the entry options=dict(lower=, upper=); every other solver forwards options=None.
     profile = _SOLVER[solver].profile
     options = {"lower": policy.bracket[0], "upper": policy.bracket[1]} if profile is SolverProfile.TOL_ONLY and policy.bracket is not None else None
     compiled = engine.eqx.filter_jit(lambda y, _: fn(y))
-    lift_x0 = jtu.tree_map(engine.jnp.asarray, x0)  # per-leaf lift, total over a structured x0; a bare jnp.asarray flattens the pytree
+    lift_x0 = jtu.tree_map(engine.jnp.asarray, x0)
 
     def run(start: object) -> object:
         return op(compiled, instance, start, options=options, max_steps=policy.max_steps, adjoint=adjoint, has_aux=policy.has_aux, throw=False)
@@ -418,11 +360,11 @@ def _optimistix_receipt(
     if policy.batched:
         solutions = engine.eqx.filter_vmap(engine.eqx.filter_jit(run), in_axes=0)(lift_x0)
         per_row = engine.eqx.filter_vmap(lift, in_axes=0)(solutions.value)
-        residual = float(engine.jnp.max(engine.jnp.asarray(per_row)))  # worst per-row residual; each is itself a norm over that row's pytree
+        residual = float(engine.jnp.max(engine.jnp.asarray(per_row)))
         steps = int(engine.jnp.max(engine.jnp.asarray(solutions.stats["num_steps"])))
-        result = engine.verdict(solutions.result)  # worst-case verdict: the shared receipt fold reduces the per-row codes
-        width = int(engine.jnp.asarray(jtu.tree_leaves(lift_x0)[0]).shape[0])  # leading sweep width
-        rank = _tree_rank(jtu, solutions.value) // width  # batched leaf count divided back to per-row rank
+        result = engine.verdict(solutions.result)
+        width = int(engine.jnp.asarray(jtu.tree_leaves(lift_x0)[0]).shape[0])
+        rank = _tree_rank(jtu, solutions.value) // width
     else:
         solution = run(lift_x0)
         residual, steps, result = float(lift(solution.value)), int(solution.stats["num_steps"]), engine.verdict(solution.result)
@@ -432,19 +374,10 @@ def _optimistix_receipt(
     return SolverReceipt.Iterative(key, residual, steps, Provider.GATED, tol=policy.solver.rtol, result=result)
 
 
-# Pytree-total element count over tree_leaves, so a structured value reports its true rank where a flat value.size assumes one leaf.
 def _tree_rank(jtu: object, value: object) -> int:
     return int(sum(int(np.asarray(leaf).size) for leaf in jtu.tree_leaves(value)))
 
 
-# Numpy central-difference floor, reachable per route when optimistix is absent. `out` applies the same has_aux unwrap the route
-# cells do; result=None lets the shared receipt residual-floor adjudicate.
-# The floor SERVES what it can measure and REFUSES the two requests it cannot take, on the sibling `solvers/field#FIELD`
-# law: a `TOL_ONLY` solve asks for a bracketing SEARCH and this body takes one central-difference probe at the region
-# centre, so reporting it under a `Bisection`/`GoldenSearch` receipt publishes a converged-or-stagnated verdict on a
-# search that never ran; a `batched` request asks for a multi-start SWEEP and this body probes the whole `x0` as one
-# dense array, so its single figure would ride the worst-case slot a vmapped reduction fills. Both refusals raise the
-# family's own token, which crosses the lane whole on the `domain` arm.
 def _floor_receipt(
     key: ContentKey, tag: Route, fn: Callable[..., object], x0: np.ndarray, solver: NonlinearSolver, policy: NonlinearPolicy
 ) -> SolverReceipt:
@@ -453,7 +386,7 @@ def _floor_receipt(
     if policy.batched:
         raise NonlinearFault(unserved=(tag, "batched"))
     rtol, out = policy.solver.rtol, (lambda v: fn(v)[0]) if policy.has_aux else fn
-    basis = np.eye(x0.size).reshape((x0.size, *x0.shape))  # per-component unit steps reshaped to the single dense leaf the floor narrows to
+    basis = np.eye(x0.size).reshape((x0.size, *x0.shape))
     probe = (
         np.linalg.norm([float(out(x0 + _FD * e)) - float(out(x0 - _FD * e)) for e in basis], np.inf) / (2 * _FD)
         if tag == "minimise"

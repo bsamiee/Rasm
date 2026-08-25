@@ -15,7 +15,7 @@
 - Growth: a new column is one append-only corpus field and one transcription member; a new seated union case also updates the owning parity census.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
@@ -33,15 +33,10 @@ using PerceptualColor = Rasm.Numerics.PerceptualColor;
 
 namespace Rasm.Element.Graph;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// One partial part of the ONE `[Mapper]` WireCodec family — the attribute, the parity census, the key codecs, and
-// the shared decode gates ride `Graph/wire#NODE_CODEC`; this part owns the coverage, lattice, and georeference transcriptions.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class WireCodec {
- // The envelope-side generated transcription of the whole coverage descriptor; the level/band internals below
- // own every hand crossing.
  internal static partial CoverageWire ToWire(CoverageGrid grid);
 
- // Wire epsg/resolution columns are peer-informative derivations; blank ProjectedCrs strings stay unset.
  [UserMapping] internal static GeoReferenceWire ToWire(GeoReference geo) {
   GeoReferenceWire w = new() {
    Eastings = geo.Eastings, Northings = geo.Northings, OrthogonalHeight = geo.OrthogonalHeight,
@@ -65,13 +60,6 @@ internal static partial class WireCodec {
   CoverageBandWire w = new() { Index = band.Index, Name = band.Name, SampleType = band.SampleType.Key, Role = band.Role.Key, Units = band.Units, Offset = band.Offset, Scale = band.Scale };
   band.NoData.IfSome(v => w.NoData = v);
   band.Range.IfSome(r => { w.RangeMin = r.Min; w.RangeMax = r.Max; });
-  // The legend colour crosses through the SAME ToRgb quantizer CanonicalBytes takes, so the wire quadruple and the
-  // content key are one projection — a second quantization here would let two runtimes agree on the key and disagree
-  // on the swatch. The decoder re-admits through PerceptualColor.OfRgb, never a stored perceptual triple, because the
-  // display quadruple is the only form both the key and every host palette surface already speak. Both calls stay
-  // CONDITION-FREE for the same reason coverage#COVERAGE_NODE CanonicalBytes does: the kernel seats a viewing
-  // condition on appearance-case payloads and never on ToRgb, and a gamut or observer argument admitted at either
-  // end alone splits the wire from the key it is defined to agree with.
   w.Palette.AddRange(band.Palette.Map(static c => {
    (byte r, byte g, byte b, byte a) = c.Colour.ToRgb();
    return new ColorBinWire { Index = c.Index, R = r, G = g, B = b, A = a, Category = c.Category };
@@ -79,11 +67,6 @@ internal static partial class WireCodec {
   return w;
  }
 
- // The kernel placement crosses as its twelve index-to-world coefficients plus the census and ceiling the decoder
- // re-admits with — the fourth matrix row is the invariant [0 0 0 1] and carries no information, so twelve IS the
- // whole affine and a thirteenth column would be a value the receiver already knows. The body stays hand because
- // the source is the KERNEL owner: its axis columns lower through .Value reads and its derived affine surface would
- // demote a generated partial to an ignore-roster inventory over a foreign package's members.
  [UserMapping] internal static CellLatticeWire ToWire(CellLattice lattice) {
   CellLatticeWire w = new() { Columns = lattice.Columns.Value, Rows = lattice.Rows.Value, Layers = lattice.Layers.Value, Ceiling = lattice.Ceiling };
   w.Affine.AddRange(lattice.Affine); return w;
@@ -106,15 +89,8 @@ internal static partial class WireCodec {
    bands, crs, key)
   select coverage;
 
- // The wire keeps zero as its untiled sentinel (frozen sint32 columns); the seam carries absence as absence — the
- // boundary maps once, in both directions, and neither regime leaks into the other.
  static Option<(int X, int Y)> Blocked(int x, int y) => x > 0 && y > 0 ? Some((x, y)) : None;
 
- // The placement RE-ADMITS through the kernel's own gate rather than crossing as trusted state: a wire whose affine
- // is non-invertible or whose census breaches the ceiling rails here, so a foreign encoder cannot hand this runtime
- // a lattice its own CellLattice.Of would refuse. The arity gate is the wire's, because a repeated field carries no
- // fixed length and a short affine would otherwise index past its own array; the census crosses the SAME rail through
- // AcceptValidated, because the generated Create THROWS on a non-positive axis and a foreign encoder owns that int.
  static Fin<CellLattice> ToLattice(CellLatticeWire? w, Op key) =>
   w is { Affine.Count: 12 } wire
    ? from columns in key.AcceptValidated<LatticeAxis>(candidate: wire.Columns)
@@ -124,8 +100,6 @@ internal static partial class WireCodec {
      select lattice
    : new KernelFault.InvalidValue("element-wire.lattice.affine", $"carry 12 coefficients; actual={w?.Affine.Count ?? 0}", Some(key));
 
- // The two token gates are INDEPENDENT and accumulate applicatively; the half-open range and palette-overflow
- // gates then read the proved pair.
  static Fin<CoverageBand> ToBand(CoverageBandWire w, Op key) =>
   (key.Row<int, ChannelDtype>(w.SampleType),
    key.Row<string, BandRole>(w.Role))
@@ -135,14 +109,9 @@ internal static partial class WireCodec {
     : toSeq(w.Palette).TraverseM(bin => PerceptualColor
        .OfRgb((byte)bin.R, (byte)bin.G, (byte)bin.B, alpha: bin.A / 255.0, key: key)
        .Map(colour => new ColorBin(bin.Index, colour, bin.Category))).As()
-      // Re-admission through the band's OWN railed Of (the decode distrust posture) — the wire's gates prove the
-      // wire columns, the owner's gates prove the band.
       .Bind(palette => CoverageBand.Of(w.Index, w.Name, t.sampleType, t.role, key,
        Opt(w.HasNoData, w.NoData), w.Units, w.Offset, w.Scale, Opt(w.HasRangeMin, (w.RangeMin, w.RangeMax)), palette))));
 
- // A seam GeoReference is Identity (no CRS) or Admit-resolved (Some CRS) — the wire mirrors the closed pair: an
- // absent crs decodes ONLY to the exact Identity tuple (junk columns rail), a present crs re-admits in full; the
- // wire's derived epsg/resolution columns are peer-informative — the seam re-derives both through Admit.
  static Fin<GeoReference> ToGeoReference(GeoReferenceWire w, Op key) => GeoReference.Admit(
   w.Eastings, w.Northings, w.OrthogonalHeight,
   w.XAxisAbscissa, w.XAxisOrdinate, w.ScaleX, w.ScaleY, w.ScaleZ,

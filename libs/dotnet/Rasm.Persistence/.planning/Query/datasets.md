@@ -27,22 +27,17 @@ Producer-handed DECLARATIONS cross elsewhere and stay elsewhere — `Rasm.Elemen
 ```csharp signature
 using Npgsql;
 using NodaTime;
-using Rasm.Domain;                                // ContentHash.Hex — the key text a content-addressed narrowing carries
-using Rasm.Persistence.Element;                   // ProjectionContext — the ruled time-and-causal frame
+using Rasm.Domain;
+using Rasm.Persistence.Element;
 using System.Globalization;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// One row per Series family; the WHOLE hypertable provisioning set derives from these columns. `Facets` names the
-// ordered text columns a family carries beyond the shared `(series_key, at, value)` spine, so the telemetry stream
-// keys by domain, slot, and measure without a second table and the two AEC families carry none.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SeriesKind {
-    // Spine and facet identifiers lead the rows: a static field initializer runs in DECLARATION order, so a row
-    // reading a facet declared below it would capture an uninitialized `Identifier` and mount a nameless column.
     public static readonly Identifier SeriesColumn = Identifier.Create("series_key");
     public static readonly Identifier AtColumn = Identifier.Create("at");
     public static readonly Identifier ValueColumn = Identifier.Create("value");
@@ -56,31 +51,20 @@ public sealed partial class SeriesKind {
     public static readonly SeriesKind Sensor = new("sensor", "sensor_series",
         Tuned("sensor_series", Duration.FromDays(90), Duration.FromMinutes(15), Duration.FromDays(1), Duration.FromDays(3)),
         Seq<Identifier>());
-    // Receipt-stream measures: the fan projects each numeric receipt field as one point under its domain, slot, and
-    // measure path, so a board tile reads a one-minute continuous aggregate instead of scanning the evidence plane
-    // while the receipt itself stays the truth this projection derives from. The measure facet is what makes a tile
-    // expressible in TEXT — a series key is a content hash no dashboard can spell.
     public static readonly SeriesKind Telemetry = new("telemetry", "telemetry_series",
         Tuned("telemetry_series", Duration.FromDays(90), Duration.FromMinutes(1), Duration.FromHours(6), Duration.FromDays(1)),
         Seq(DomainFacet, SlotFacet, MeasureFacet));
 
     public string Table { get; }
-    // Retention, grain, chunk, and backfill ride the residence family's OWN policy value rather than four columns a
-    // property then re-assembles: the emitter takes a `ResidencePolicy`, so the row that answers it holds one.
     public ResidencePolicy Policy { get; }
     public Seq<Identifier> Facets { get; }
 
     private SeriesKind(string key, string table, ResidencePolicy policy, Seq<Identifier> facets) : this(key) =>
         (Table, Policy, Facets) = (table, policy, facets);
 
-    // Relational tiers rest in their own table, so this residence root IS the relation name and the Lake arm alone
-    // reads the column as a hive generation directory. The mint is named apart from the `Policy` property because a
-    // member group sharing a property's name does not compile.
     static ResidencePolicy Tuned(string table, Duration retain, Duration grain, Duration chunk, Duration backfill) =>
         new(retain, grain, chunk, backfill, StorePath.Create(table));
 
-    // One projection into the residence family's own schema shape, so ONE provisioning emitter serves the hypertable
-    // roster and every producer-handed dataset alike and no second DDL path exists.
     public AnalyticsSchema Schema => new(Table,
         Seq(SeriesColumn) + Facets,
         Seq(new ColumnRow(SeriesColumn, ColumnType.KeyHex, Nullable: false))
@@ -89,10 +73,6 @@ public sealed partial class SeriesKind {
                   new ColumnRow(ValueColumn, ColumnType.Float64, Nullable: false)),
         Time: AtColumn, Spine: TimeSpine.Event, Measure: Some(ValueColumn));
 
-    // Declared shape of the relation `SeriesResidence` materialises, so the rollup read resolves its narrowings and
-    // its ordering against a roster rather than against the raw table's. Weight and sketch columns stay ABSENT by
-    // construction: each holds a toolkit summary the neutral vocabulary carries no token for, which is exactly why
-    // both accessor folds that read them name no column, reaching the provisioning arm's own declaration instead.
     public AnalyticsSchema Rollup => new((string)SeriesResidence.Rollup(Schema),
         Seq(SeriesColumn) + Facets,
         Seq(new ColumnRow(SeriesColumn, ColumnType.KeyHex, Nullable: false))
@@ -104,13 +84,8 @@ public sealed partial class SeriesKind {
         Time: SeriesResidence.Bucket, Spine: TimeSpine.Event, Measure: None);
 }
 
-// Ingest row: `Series` is the content-key identity the source artifact already carries, `At` the sample instant,
-// `Value` the measure, and `Facets` the ordered text values binding positionally against the kind's own roster.
 public readonly record struct SeriesPoint(UInt128 Series, Instant At, double Value, Seq<string> Facets);
 
-// Series selection discriminates on the VALUE's own shape: a caller holding the source artifact's content key
-// names that key, and a board naming its stream names the facet values. Without the facet arm the whole telemetry
-// projection is unreadable from a dashboard, so the two arms are one narrowing roster and neither read forks.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SeriesSelector {
     private SeriesSelector() { }
@@ -118,44 +93,26 @@ public abstract partial record SeriesSelector {
     public sealed record Facets(Seq<string> Values) : SeriesSelector;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// One raw-chunk weighted mean per matching series; `Series` is the identity a facet selection resolves to, so a
-// caller reading a single stream reads one row and a caller reading a family reads each stream apart.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SeriesWeight(UInt128 Series, double Weighted);
 
-// One rollup row per (bucket, series): `Mean` is the time-weighted accessor over the materialised summary, `Tail`
-// names the sketch quantile the read asked for, so a tile's caption and the statistic behind it are one choice.
 public readonly record struct SeriesBucket(Instant Bucket, UInt128 Series, double Mean, double Tail, double Low, double High, long Samples);
 
-// One `job_stats` row per Timescale background job on the kind's hypertable — the WHICH-policy-stalled detail the
-// family `ResidenceHealth` outcome probe cannot name.
 public readonly record struct SeriesJobHealth(string Hypertable, string Status, Option<Instant> LastSuccessfulFinish, long TotalFailures);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SeriesLane {
-    // Provisioning rides the one residence emitter over the kind's own schema projection, and derived steps ride
-    // that same reviewed generation rail every `Store/provisioning#SERVER_EXTENSIONS` admission rides, gated on the
-    // verdict holding the `timescaledb` lane.
     public static Fin<Seq<ProvisionStep>> Provision(SeriesKind kind) =>
         ResidenceDdl.Provision(Residence.Series, kind.Schema, kind.Policy);
 
-    // Hypertable-family ARM of the one residence landing: this projects points into the kind's own declared column
-    // order and `ResidenceLanding.Stage` owns the copy loop, the tenancy lead, and the wire types, so a spine column
-    // add moves the schema projection alone. Facet arity refuses inside the shared conformance gate.
     public static IO<Fin<ResidenceIngestReceipt>> Ingest(NpgsqlDataSource store, SeriesKind kind, Seq<SeriesPoint> points, ProjectionContext frame) =>
         ResidenceLanding.Stage(store, kind.Schema, points.Map(Cells), frame);
 
-    // Declaration order IS the projection order — key, facets, instant, measure — read off `SeriesKind.Schema`
-    // rather than re-spelled, so the DDL, the COPY roster, and this fold cannot disagree on position.
     static Seq<ColumnCell> Cells(SeriesPoint point) =>
         Seq<ColumnCell>(new ColumnCell.Key(point.Series))
         + point.Facets.Map(static facet => (ColumnCell)new ColumnCell.Text(facet))
         + Seq<ColumnCell>(new ColumnCell.Moment(point.At), new ColumnCell.Real(point.Value));
 
-    // Toolkit time-weighted read over RAW chunks, the grain below the rollup's bucket: each sample weighs by its
-    // holding interval, the honest mean for irregular timesteps a naive `avg` over-counts. This fold rides the plan
-    // builder's own `Weighted` row, so the `time_weight` text lives at the lowering that owns it while this arm
-    // names the question alone.
     public static IO<Fin<ResidenceResult<SeriesWeight>>> Weighted(
         ResidenceReach reach, SeriesKind kind, SeriesSelector selector, ResidenceWindow window, ProjectionContext frame) =>
         Served(kind, kind.Schema, selector, window, frame, ResidenceProjection.Aggregate,
@@ -166,10 +123,6 @@ public static class SeriesLane {
                 (row.Key(residence, 0).ToValidation<Error>(), row.Real(residence, 1).ToValidation<Error>())
                 .Apply(static (series, weighted) => new SeriesWeight(series, weighted)).As().ToFin());
 
-    // Pre-bucketed read off the continuous aggregate the Series arm emitted: the relation, the bucket axis, and the
-    // two accessor folds all read that arm's own declaration, so the reader binds by an ordinal the projected name
-    // list owns rather than by a column list two sites spell. Accessors run over the SAME materialised summaries
-    // that the raw-chunk read folds live, so cheap tile and expensive investigation answer one statistic.
     public static IO<Fin<ResidenceResult<SeriesBucket>>> Bucketed(
         ResidenceReach reach, SeriesKind kind, SeriesSelector selector, ResidenceWindow window,
         double quantile, QuantileRule rule, ProjectionContext frame) =>
@@ -191,9 +144,6 @@ public static class SeriesLane {
                 .Apply(static (bucket, series, mean, tail, low, high, samples) =>
                     new SeriesBucket(bucket, series, mean, tail, low, high, samples)).As().ToFin());
 
-    // ONE serving order both reads share: prove the selector's narrowings against the roster, build the plan, and
-    // hand it to the one query entry under the scope that carries tenant and window. Scope is the frame's and the
-    // window's — never a predicate this page writes — so neither read can express an unbounded or cross-tenant scan.
     static IO<Fin<ResidenceResult<T>>> Served<T>(
         SeriesKind kind, AnalyticsSchema schema, SeriesSelector selector, ResidenceWindow window, ProjectionContext frame,
         ResidenceProjection projection, Func<AnalyticsSchema, Seq<(Identifier Column, string Value)>, Fin<Plan>> build,
@@ -204,11 +154,6 @@ public static class SeriesLane {
                 row => shape(Residence.Series, row)),
             Fail: error => IO.pure(Fin<ResidenceResult<T>>.Fail(error)));
 
-    // Selector narrowings as ROWS the plan builder renders, so a facet added to a kind moves the roster and both
-    // reads together. Facet arity the roster does not match refuses BEFORE any plan assembles, where a short row
-    // set lowers a predicate naming fewer columns than the family declares and reads every sibling stream.
-    // Keys cross as hex TEXT because a `KeyHex` column carries no Substrait literal at all — the builder's
-    // own key narrowing then renders it through the residence's `bytea` spelling.
     static Fin<Seq<(Identifier Column, string Value)>> Narrowings(SeriesKind kind, SeriesSelector selector) =>
         selector.Switch(
             state: kind,
@@ -218,11 +163,6 @@ public static class SeriesLane {
                 : Fin.Fail<Seq<(Identifier, string)>>(new ResidenceFault.ReadRefused(
                     Residence.Series.Key, new EngineFault("<facet-arity>", family.Key))));
 
-    // Timescale-ONLY enrichment beside the family probe: `ResidenceRead.Health` measures the expiry OUTCOME every
-    // residence answers, while this reads the bgworker run history only the Timescale catalog publishes — a failed
-    // status, or a `last_successful_finish` older than twice the job's schedule interval, names WHICH policy stalled
-    // where the outcome probe reports only that residue survived. The catalog relation carries no tenant column and
-    // no time spine, so it has no `ResidenceScope` and rides the ordinal reader the boundary carve admits.
     public static IO<Fin<Seq<SeriesJobHealth>>> Jobs(NpgsqlDataSource store, SeriesKind kind) =>
         IO.liftAsync(async () => (await Op.Of().Catch(async token => {
             await using NpgsqlCommand command = store.CreateCommand(
@@ -240,8 +180,6 @@ public static class SeriesLane {
             return Fin<Seq<SeriesJobHealth>>.Succ(toSeq(rows));
         }).ConfigureAwait(false)).MapFail(Residence.Series.ReadRefused));
 
-    // Projected names the two folds carrying no source column bind under, so the reader's ordinals and the plan's
-    // root relation read one roster.
     public static readonly Identifier WeightedColumn = Identifier.Create("weighted");
 }
 ```
@@ -258,11 +196,10 @@ public static class SeriesLane {
 - Boundary: the Fleet leg is READ-side only. `Version/egress`'s ClickHouse sink owns landing under `insert_deduplication_token` dedup, and the two ends meet at this declaration rather than at a table name two sites spell; ClickHouse carries no transaction, so every fleet read is a convergence-consistent view whose staleness the egress cursor bounds.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// ONE warehouse row vocabulary both ends of the Fleet seam read.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WarehouseOpRow(string Id, string Source, string Type, Instant Time, string PartitionKey, long Sequence, ReadOnlyMemory<byte> Data);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class WarehouseSchema {
     public static readonly Identifier TimeColumn = Identifier.Create("time");
 
@@ -280,9 +217,6 @@ public static class WarehouseSchema {
     public static string Table => (string)Dataset.Table;
     public static string Columns => string.Join(", ", Dataset.Columns.Map(static column => (string)column.Name));
 
-    // Ordinals read off the declaration above, so a column insert moves the reader and the DDL together. The seven
-    // reads ACCUMULATE: a row whose id and payload are both empty names both, where a first-defect product would
-    // send the fleet leg back for a second round trip over a batch it already scanned.
     public static Fin<WarehouseOpRow> Shape(Residence residence, ResidenceRow row) =>
         (row.Text(residence, 0).ToValidation<Error>(), row.Text(residence, 1).ToValidation<Error>(),
          row.Text(residence, 2).ToValidation<Error>(), row.At(residence, 3).ToValidation<Error>(),
@@ -306,20 +240,16 @@ public static class WarehouseSchema {
 
 ```csharp signature
 using Apache.Arrow;
-using Rasm.Domain;                                // CanonicalWriter/ContentHash — the framed preimage and its digest
+using Rasm.Domain;
 using System.Text.Json;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Receipt EVIDENCE plane: the kernel `ReceiptEnvelope` flattened to one wide-event row per emission. The payload
-// crosses as its own JSON text, so a residence scan never re-decodes a foreign package's shape.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ReceiptFactRow(
     string Package, string Kind, string Domain, string Correlation, string Tenant,
     Instant At, long Logical, long SkewNanos, string Payload);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ReceiptResidence {
-    // One dataset per CAPABILITY DOMAIN under the `telemetry.<domain>` grammar, so a residence query joins on the
-    // same domain segment a metric name carries and a scan never crosses two subjects.
     public static AnalyticsSchema Dataset(string domain) => new($"telemetry.{domain}",
         Seq(PackageColumn, KindColumn, AtColumn),
         Seq(new ColumnRow(PackageColumn, ColumnType.Utf8, Nullable: false),
@@ -332,13 +262,9 @@ public static class ReceiptResidence {
             new ColumnRow(PayloadColumn, ColumnType.Utf8, Nullable: false)),
         Time: AtColumn, Spine: TimeSpine.Event, Measure: None);
 
-    // Total domain projection: a dotted slot carries its capability domain in the second segment exactly as the
-    // `store.<domain>.<verb>` grammar declares, and a flat kind literal falls to the emitting package id — so every
-    // message envelope resolves a domain and none lands under an empty partition key a scan would then read whole.
     public static string Domain(ReceiptEnvelope envelope) =>
         envelope.Kind.Split('.') is [_, var domain, ..] && domain.Length > 0 ? domain : envelope.Package;
 
-    // One pure fold — every column derives from the message envelope the sink already sealed.
     public static Seq<ReceiptFactRow> Facts(Seq<ReceiptEnvelope> envelopes) =>
         envelopes.Map(static envelope => new ReceiptFactRow(
             envelope.Package, envelope.Kind, Domain(envelope),
@@ -347,13 +273,8 @@ public static class ReceiptResidence {
             (long)envelope.SkewBound.ToInt64Nanoseconds(),
             envelope.Payload.GetRawText()));
 
-    // MEASURE PROJECTION: every numeric leaf of a receipt payload is one point on the `SeriesKind.Telemetry`
-    // hypertable, keyed by the dotted path it sits at, so a board tile filters `(domain, slot, measure)` in TEXT
-    // rather than a content hash no dashboard can spell.
     const int MeasureDepth = 4;
 
-    // Identity FRAMES rather than concatenates: the writer emits each field's UTF-8 byte count ahead of its bytes,
-    // which is the whole reason a dotted measure path cannot merge with the kind segment ahead of it.
     public static Seq<SeriesPoint> Points(Seq<ReceiptEnvelope> envelopes) =>
         envelopes.Bind(static envelope => Measures(envelope.Payload, string.Empty, MeasureDepth)
             .Map(measure => new SeriesPoint(
@@ -371,30 +292,17 @@ public static class ReceiptResidence {
             _ => Seq<(string, double)>(),
         };
 
-    // COLD-TAIL handoff: `Query/lakehouse#FLAT_TABLE_EGRESS`'s `LandingArm.Receipt` generation lands Arrow batches,
-    // so the custodian projects its own evidence rows through the ONE record-batch fold. Column order, field types,
-    // and every conformance proof derive from `Dataset(domain)`, and `metadata` carries the producer's receipt facts
-    // onto the schema — the one seat Arrow's builders expose no property for.
     public static Fin<RecordBatch> Batch(string domain, Seq<ReceiptEnvelope> envelopes, Seq<(string Key, string Value)> metadata) =>
         ArrowLanding.Build(Dataset(domain), Facts(envelopes), Cells, metadata);
 
-    // Declaration order IS the cell order, so the fold that lands a batch and the fold that stages a COPY read one
-    // roster and no per-type builder helper survives beside the row set.
     static Seq<ColumnCell> Cells(ReceiptFactRow fact) => Seq<ColumnCell>(
         new ColumnCell.Text(fact.Package), new ColumnCell.Text(fact.Kind), new ColumnCell.Text(fact.Domain),
         new ColumnCell.Text(fact.Correlation), new ColumnCell.Moment(fact.At), new ColumnCell.Whole(fact.Logical),
         new ColumnCell.Whole(fact.SkewNanos), new ColumnCell.Text(fact.Payload));
 
-    // ONE named question over the evidence plane, composed on the family's own plan builder: consumers name whichever
-    // correlation they reconstruct and take the plan, so no page assembles Substrait relations. Scope — tenant and
-    // window — rides the read frame, so a correlation-free call is exactly the whole-window scan a usage fold reads.
     public static Fin<Plan> Scan(string domain, Option<CorrelationId> correlation) =>
         ResidencePlan.Scan(Dataset(domain), correlation.Map(id => (CorrelationColumn, id.ToString())).ToSeq());
 
-    // DURABLE counterpart to the in-process sink, and the producing half of the `[RECEIPT]: resident ReceiptEnvelope`
-    // seam: the read hands back the SAME message-envelope values the live sink held, so
-    // `Rasm.AppUi/Diagnostics/evidence#CORRELATION_JOIN`'s `EvidenceSource.Resident` arrow binds here and an incident
-    // reconstructs after the process that emitted it is gone.
     public static IO<Fin<ResidenceResult<ReceiptEnvelope>>> Resident(
         ResidenceReach reach, ResidenceScope scope, string domain, Option<CorrelationId> correlation) =>
         Scan(domain, correlation).Match(
@@ -402,8 +310,6 @@ public static class ReceiptResidence {
                 row => Envelope(scope, row)),
             Fail: error => IO.pure(Fin<ResidenceResult<ReceiptEnvelope>>.Fail(error)));
 
-    // Egress rides the ONE `COPY (SELECT) TO` rail: the domain partition key is the artifact class's own row and the
-    // stamp is the caller's content address, so an evidence generation carries its identity in the Parquet footer.
     public static IO<Fin<Unit>> Publish(ColumnarSession session, string domain, StorePath destination, UInt128 stamp) =>
         ArtifactEgress.Publish(session, ArtifactClass.TelemetryEvidence,
             new CopyBody(Dataset(domain).Table, Dataset(domain).Columns.Map(static column => column.Name)),
@@ -418,10 +324,6 @@ public static class ReceiptResidence {
     public static readonly Identifier SkewColumn = Identifier.Create("skew_nanos");
     public static readonly Identifier PayloadColumn = Identifier.Create("payload");
 
-    // Reader inverse over the one row surface: ordinals read off `Dataset`'s own declaration through the root
-    // relation's projected names, so physical residence column order never reaches a consumer. The eight reads
-    // ACCUMULATE, so a corrupt row names every empty column at once. Tenant returns from the frame each read scoped
-    // with — that being the only tenant a tenant-scoped scan can have returned.
     public static Fin<ReceiptFactRow> Shape(ResidenceScope scope, ResidenceRow row) =>
         (row.Text(scope.Residence, 0).ToValidation<Error>(), row.Text(scope.Residence, 1).ToValidation<Error>(),
          row.Text(scope.Residence, 2).ToValidation<Error>(), row.Text(scope.Residence, 3).ToValidation<Error>(),
@@ -431,9 +333,6 @@ public static class ReceiptResidence {
             new ReceiptFactRow(package, kind, domain, correlation, scope.Frame.Tenant.Entry, at, logical, skew, payload))
         .As().ToFin();
 
-    // `Envelope` inverts the flat row rather than the ordinals a second time — the shape a consuming fold declared
-    // against the live sink, so a durable read reaches those folds with no second decode and no ordinal roster that
-    // can drift from the one above it.
     public static Fin<ReceiptEnvelope> Envelope(ResidenceScope scope, ResidenceRow row) =>
         Shape(scope, row).Map(fact => {
             using JsonDocument payload = JsonDocument.Parse(fact.Payload);
@@ -461,28 +360,20 @@ using Apache.Arrow;
 using LanguageExt;
 using NodaTime;
 using Npgsql;
-using Rasm.Domain;                                // ContentHash.Hex, Op — the key text and the operation key
-using Rasm.Element.Classification;                // Discipline — the producer's own roster, read as a row
-using Rasm.Element.Graph;                         // ElementWire — the public door onto the seam's PropertyValue codec
-using Rasm.Element.Properties;                    // PropertyName/PropertyValue/MeasureValue — the fact's typed vocabulary
-using System.Numerics;                            // BigInteger — the Integer arm's exact-magnitude test
+using Rasm.Domain;
+using Rasm.Element.Classification;
+using Rasm.Element.Graph;
+using Rasm.Element.Properties;
+using System.Numerics;
 using static LanguageExt.Prelude;
 using static Rasm.Domain.AdmissionSlots;
 
-// The five coordinates a fact row carries, aliased rather than declared: `Rasm.Compute` owns the `AssessmentRow`
-// record and sits ABOVE this custodian, so a record here would be its unreachable twin, while a tuple alias mints no
-// type at all and every coordinate is vocabulary this package already references.
 using FactRow = (System.UInt128 Key, Rasm.Element.Classification.Discipline Discipline,
     LanguageExt.Seq<string> Facets, Rasm.Element.Properties.PropertyName Name,
     Rasm.Element.Properties.PropertyValue Value);
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Assessment FACT plane: one row per (assessment, discipline, facet path, fact name). The column set is the fact's
-// own algebra — an identity head, the queryable scalar face each `PropertyValue` arm answers, and the whole fact as
-// the seam's canonical text — so a filter narrows on columns while a reader rehydrates the typed value.
+// --- [TYPES] ---------------------------------------------------------------------------
 public static class AssessmentDataset {
-    // Column identifiers LEAD the declarations: a static field initializer runs in DECLARATION order, so `Schema`
-    // reading an identifier declared below it would capture an uninitialized value and mount a nameless column.
     public static readonly Identifier KeyColumn = Identifier.Create("key");
     public static readonly Identifier DisciplineColumn = Identifier.Create("discipline");
     public static readonly Identifier FacetsColumn = Identifier.Create("facets");
@@ -497,25 +388,14 @@ public static class AssessmentDataset {
     public static readonly Identifier TextColumn = Identifier.Create("text");
     public static readonly Identifier ValueColumn = Identifier.Create("value");
 
-    // Retention matches the `SeriesKind.Assessment` window so a stream and its typed rows expire together. `Grain`
-    // and `Backfill` are the continuous-aggregate coordinates a MEASURE-FREE dataset never emits: the row states them
-    // because the policy value is total, and the rollup steps that would read them are absent by declaration.
     public static readonly ResidencePolicy Policy = new(
         Retain: Duration.FromDays(365), Grain: Duration.FromDays(1), Chunk: Duration.FromDays(7),
         Backfill: Duration.FromDays(30), Root: StorePath.Create("assessment_rows"));
 
-    // LANDING spine: a fact carries no observation clock of its own — its instant is the assessment's, already held
-    // by the payload the analysis rail write-backs — so this custodian stamps admission and the seam's own landing
-    // column trails the roster, which is exactly the order `ResidenceLanding.Stage` writes.
-    // The key runs `(key, discipline, name, facets)`: the facet path closes row identity, and ordering on it
-    // co-locates every row sharing a path, which is the run the columnstore compresses. `discipline` and `name` are
-    // the bounded text the segment list carries; `key` and `facets` order inside a segment.
     public static readonly AnalyticsSchema Schema = new("assessment_rows",
         Seq(KeyColumn, DisciplineColumn, NameColumn, FacetsColumn),
         Seq(new ColumnRow(KeyColumn, ColumnType.KeyHex, Nullable: false),
             new ColumnRow(DisciplineColumn, ColumnType.Utf8, Nullable: false),
-            // The ordered facet path is POSITION-SIGNIFICANT and its arity is the discipline's, so it rides the
-            // container the vocabulary already generates rather than a fixed column set no roster can answer.
             new ColumnRow(FacetsColumn, new ColumnShape.List(ColumnType.Utf8), Nullable: false),
             new ColumnRow(NameColumn, ColumnType.Utf8, Nullable: false),
             new ColumnRow(KindColumn, ColumnType.Utf8, Nullable: false),
@@ -526,33 +406,22 @@ public static class AssessmentDataset {
             new ColumnRow(SetPointColumn, ColumnType.Float64, Nullable: true),
             new ColumnRow(FlagColumn, ColumnType.Bool, Nullable: true),
             new ColumnRow(TextColumn, ColumnType.Utf8, Nullable: true),
-            // NOT NULL by declaration: the whole fact rides here and a row whose value column is empty is a fact
-            // nothing can rehydrate, which the scalar face would then misreport as a measurement.
             new ColumnRow(ValueColumn, ColumnType.Utf8, Nullable: false),
             new ColumnRow(AnalyticsSeam.LandedColumn, ColumnType.Timestamp, Nullable: false)),
         Time: AnalyticsSeam.LandedColumn, Spine: TimeSpine.Landing, Measure: None);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssessmentLane {
-    // Provisioning rides the one residence emitter over the declaration and its own policy, so this page assembles
-    // no relation, spells no extension name, and writes no SQL.
     public static Fin<Seq<ProvisionStep>> Provision() =>
         ResidenceDdl.Provision(Residence.Series, AssessmentDataset.Schema, AssessmentDataset.Policy);
 
-    // RELATIONAL arm of the one landing, generic over the PRODUCER's row: the projection hands the five coordinates
-    // and this owner keeps the cell order, the value codec, and the accumulation, so a producer spells no column
-    // position and no record crosses the strata. `ResidenceLanding.Stage` owns the copy loop, the tenancy lead, and
-    // the landing stamp, so a column add moves the declaration alone.
     public static IO<Fin<ResidenceIngestReceipt>> Ingest<TRow>(
         NpgsqlDataSource store, Seq<TRow> rows, Func<TRow, FactRow> fact, ProjectionContext frame) =>
         Staged(rows, fact).Match(
             Succ: staged => ResidenceLanding.Stage(store, AssessmentDataset.Schema, staged, frame),
             Fail: error => IO.pure(Fin<ResidenceIngestReceipt>.Fail(error)));
 
-    // COLD-TAIL arm over the same projection: a batch carries EVERY declared column including the landing stamp the
-    // COPY roster excludes, so the stamp appends here from the frame's own clock, read ONCE per batch exactly as the
-    // relational landing reads it — two arms over one generation cannot then date the same rows apart.
     public static Fin<RecordBatch> Batch<TRow>(
         Seq<TRow> rows, Func<TRow, FactRow> fact, ProjectionContext frame, Seq<(string Key, string Value)> metadata) {
         ColumnCell stamp = new ColumnCell.Moment(frame.Now());
@@ -560,17 +429,11 @@ public static class AssessmentLane {
             ArrowLanding.Build(AssessmentDataset.Schema, staged, cells => cells + Seq(stamp), metadata));
     }
 
-    // ONE named question over the plane, composed on the family's own plan builder: a consumer names the assessment
-    // it holds and optionally the discipline, and takes the plan. Scope — tenant and window — rides the read frame.
-    // The key column carries no Substrait literal at all, so its narrowing falls to the residence's own `bytea`
-    // spelling through the builder's key fold; the discipline narrows as the roster row's own text.
     public static Fin<Plan> Scan(UInt128 key, Option<Discipline> discipline) =>
         ResidencePlan.Scan(AssessmentDataset.Schema,
             Seq((AssessmentDataset.KeyColumn, ContentHash.Hex(key)))
             + discipline.Map(static row => (AssessmentDataset.DisciplineColumn, row.Key)).ToSeq());
 
-    // DURABLE read handing each row to the CALLER's own mint: `Rasm.Compute` re-mints its `AssessmentRow`, a board
-    // mints a tile row, and this custodian keeps the ordinals and the codec while no consumer's record lands here.
     public static IO<Fin<ResidenceResult<T>>> Resident<T>(
         ResidenceReach reach, ResidenceScope scope, UInt128 key, Option<Discipline> discipline, Func<FactRow, T> mint) =>
         Scan(key, discipline).Match(
@@ -579,31 +442,19 @@ public static class AssessmentLane {
             Fail: error => IO.pure(Fin<ResidenceResult<T>>.Fail(error)));
 
     // --- [FACT_PROJECTION]
-    // ONE cell fold both landings read, FALLIBLE because the value column carries the whole fact through the seam's
-    // codec and a value that codec refuses has no text to land. Declaration order IS the cell order: identity head,
-    // the arm's own scalar face, then the canonical text.
     public static Validation<Error, Seq<ColumnCell>> Cells(FactRow row) =>
         ElementWire.Encode(row.Value, Op.Of()).ToValidation<Error>().Map(json =>
             Seq<ColumnCell>(new ColumnCell.Key(row.Key),
                 new ColumnCell.Text(row.Discipline.Key),
                 new ColumnCell.Items(ColumnType.Utf8, row.Facets),
                 new ColumnCell.Text(row.Name.Value),
-                // The union's OWN case token, minted at its owner: `[Union]` emits `Switch`/`Map` dispatch and no
-                // per-case name, ordinal, or discriminator member, so a token spelled at this consumer would answer
-                // a stale name the moment an arm is renamed.
                 new ColumnCell.Text(row.Value.Kind))
             + Face(row.Value)
             + Seq<ColumnCell>(new ColumnCell.Text(json)));
 
-    // Refusals ACCUMULATE across the batch, so a producer handing one generation learns every unencodable fact at
-    // once rather than paying a round trip per row over a batch it already folded.
     static Fin<Seq<Seq<ColumnCell>>> Staged<TRow>(Seq<TRow> rows, Func<TRow, FactRow> fact) =>
         rows.Map(fact).Traverse(Cells).As().ToFin();
 
-    // ONE total projection over the fourteen arms: each case answers the WHOLE scalar face as the seven-cell run the
-    // declaration seats between `kind` and `value`, so a new arm lands one row here instead of one arm inside each of
-    // seven per-column folds that could disagree about which case carries which face. A `Bounded` reads its unit off
-    // the first present bound because the seam's own admission already proved all three share one `QuantityType`.
     static Seq<ColumnCell> Face(PropertyValue value) => value.Switch(
         text:       static v => Scalars(text: Some(v.Render())),
         measure:    static v => Scalars(magnitude: Some(v.Value.Si), unit: v.Value.CanonicalUnit),
@@ -623,9 +474,6 @@ public static class AssessmentLane {
         complex:    static _ => Scalars(),
         temporal:   static _ => Scalars());
 
-    // Named coordinates each defaulting to the ABSENT option its column admits, so an arm names only the columns it
-    // fills and the run's order is this one body's — the declaration, the DDL, and the reader cannot then disagree
-    // on which cell a face slot lands in.
     static Seq<ColumnCell> Scalars(
         Option<double> magnitude = default, Option<string> unit = default,
         Option<double> lower = default, Option<double> upper = default, Option<double> setpoint = default,
@@ -638,25 +486,15 @@ public static class AssessmentLane {
             Cell(flag, static held => new ColumnCell.Flag(held)),
             Cell(text, static held => new ColumnCell.Text(held)));
 
-    // Absence spells the ONE landing cell the vocabulary carries and proves against the column's own `Nullable`, so a
-    // zero magnitude, an empty unit, or a `false` flag standing in for an unfilled face is unrepresentable here — the
-    // three sentinels a board renders indistinguishably from a measured reading.
     static ColumnCell Cell<T>(Option<T> value, Func<T, ColumnCell> present) =>
         value.Match(Some: present, None: static () => (ColumnCell)new ColumnCell.Absent());
 
-    // An `Integer` past the double's exactly-representable range lands ABSENT rather than rounded: a magnitude a
-    // filter compares against must BE the value, and the `value` column carries the integer whole either way.
     static Option<double> Exact(BigInteger value) =>
         (double)value is var magnitude && double.IsFinite(magnitude) && new BigInteger(magnitude) == value
             ? Some(magnitude)
             : None;
 
     // --- [FACT_INVERSE]
-    // Reader inverse over the one row surface. Ordinals resolve through the DECLARATION's own name projection rather
-    // than as literals, so a column insert moves the DDL, the cell fold, and this reader together and the plan's root
-    // relation emits its columns under exactly these names. The five reads ACCUMULATE, so a corrupt row names every
-    // offending column at once. The SCALAR columns are never read back — they are the query projection, and inverting
-    // them would mint a second, lossy truth beside the codec that already rehydrates every arm.
     public static Fin<FactRow> Shape(ResidenceScope scope, ResidenceRow row) {
         AnalyticsSchema declaration = AssessmentDataset.Schema;
         Op key = Op.Of();

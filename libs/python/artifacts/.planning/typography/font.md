@@ -21,7 +21,7 @@
 - Boundary: no PDF authoring (`document/emit#DOCUMENT`), no text shaping (`typography/shape#SHAPE`), no PAdES/PDF security (`exchange/conformance#CONFORMANCE`) — the owner transforms or authors a font binary and proves it embeddable, never producing a document. A post-`SUBSET`/`INSTANCE`/`FREEZE` shaping-regression proof composes `typography/shape#SHAPE`'s `QA` request over the produced binary — the vharfbuzz golden oracle lives there, never a second QA arm here. A hand-walked `glyf`/`CFF`/`GSUB`/`fvar`/`STAT`/outline decode, a hand-assembled static cut or variable font, a Python-list font-merge, hand-built COLR/CPAL tables, and a hand-coded script→OT-tag map are each rejected against the fontTools op that owns them; the uharfbuzz HarfBuzz subsetter loses to fontTools `SUBSET` for Python-native `Options` feature-policy control. A permissive `Mapping[str, object]` option bag, a parallel `_woff` writer, and a `dict` instancer keyword bag collapse into the per-mode `FontJob` case carrying only its op's typed fields.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 import io
 import math
 from builtins import frozendict
@@ -63,7 +63,7 @@ lazy from fontTools.varLib import instancer
 lazy from fontTools.varLib.featureVars import addFeatureVariations
 lazy from opentype_feature_freezer import RemapByOTL
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type AxisPin = float | tuple[float, float] | None
 type AxisValue = float | tuple[float | None, float | None] | None
@@ -121,15 +121,15 @@ class PenCommand:
                 assert_never(unreachable)
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _REQUIRED_TABLES: Final[frozenset[str]] = frozenset({"cmap", "head", "hhea", "hmtx", "maxp", "name", "post"})
 _COMMON_SCRIPTS: Final[frozenset[str]] = frozenset({"Zinh", "Zyyy", "Zzzz"})
 _HIDDEN_AXIS: Final = 0x0001
-_RESTRICTED_EMBED: Final = 0x0202  # OS/2.fsType restricted-license (0x0002) | bitmap-embedding-only (0x0200)
-_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic", enc_hook=dict)  # frozendict fields encode as their dict view
+_RESTRICTED_EMBED: Final = 0x0202
+_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic", enc_hook=dict)
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
@@ -141,8 +141,6 @@ class AxisLimit:
 
     @staticmethod
     def of(raw: AxisPin) -> "AxisLimit":
-        # numeric admission precedes fontTools: a NaN/inf pin or an inverted range would reach instancer.limit as a
-        # silently accepted garbage location, so both refuse here with the page's typed-token raise.
         match raw:
             case None:
                 return AxisLimit(drop=None)
@@ -293,7 +291,6 @@ class EmbedReport(Struct, frozen=True):
         return self.covered == self.requested and not self.missing_tables and not self.embedding_bits & _RESTRICTED_EMBED
 
 
-# runtime decoder follows the model it inspects; the receipt band projects audit coverage through it.
 _REPORT_DECODER: Final = msgspec.msgpack.Decoder(EmbedReport)
 
 
@@ -308,8 +305,6 @@ class ScriptTags(Struct, frozen=True):
 
     @staticmethod
     def runs(text: str) -> tuple[tuple[int, int, str], ...]:
-        # contiguous (start, stop, script) code-point spans covering the whole input: each common/inherited code point
-        # folds onto the preceding concrete script and the seed covers a common prefix, so spans stay ascending and total.
         raw = tuple(unicodedata.script(ch) for ch in text)
         seed = next((script for script in raw if script not in _COMMON_SCRIPTS), "Latn")
         folded = islice(accumulate(raw, lambda held, seen: held if seen in _COMMON_SCRIPTS else seen, initial=seed), 1, None)
@@ -319,7 +314,6 @@ class ScriptTags(Struct, frozen=True):
 
     @staticmethod
     def resolve(text: str) -> tuple[str, ...]:
-        # ordered-unique concrete scripts, derived from the runs primary — one entry per script, so no caller re-dedupes.
         return tuple(dict.fromkeys(script for _start, _stop, script in ScriptTags.runs(text)))
 
     @staticmethod
@@ -344,7 +338,6 @@ class FaceMetrics(Struct, frozen=True):
         return self.cap_height / self.units_per_em if self.units_per_em else 0.7
 
     def point_size(self, nominal_mm: float, /) -> float:
-        # ISO 3098 nominal height is a CAP height; the em point size scales it by the em/cap ratio.
         return nominal_mm / self.cap_fraction
 
     @staticmethod
@@ -445,8 +438,6 @@ class FontJob:
                 assert_never(self)
 
     def receipt(self, key: ContentKey, payload: bytes, /) -> ArtifactReceipt:
-        # `product.*` band carries the job facet, and the audit case surfaces its coverage scalars for the
-        # metrics fold; the rich table rosters stay inside the encoded payload.
         facts: frozendict[str, float | str] = frozendict({"job": self.tag})
         if self.tag == "embed_audit":
             report = _REPORT_DECODER.decode(payload)
@@ -455,22 +446,19 @@ class FontJob:
 
 
 class FontEngineering(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     font: bytes
     job: FontJob
     lane: LanePolicy
 
     def emit(self, /) -> ArtifactWork:
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`).
         key = ContentIdentity.key(f"font-{self.job.tag}", _ENCODER.encode((self.font, self.job)))
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        # pure-Python CPU fold crosses the own-GIL isolate; the admitted key threads the receipt (receipt.slot == node.key).
         return await self.lane.offload(Kernel.of(_rendered, KernelTrait.PURE), self.font, self.job, key)
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _rendered(font: bytes, job: FontJob, key: ContentKey, /) -> ArtifactReceipt:
@@ -478,7 +466,6 @@ def _rendered(font: bytes, job: FontJob, key: ContentKey, /) -> ArtifactReceipt:
 
 
 def _spill(data: bytes, suffix: str, /) -> Path:
-    # handle closes with the block; the path outlives it for the path-only freezer/merger, unlinked by the caller's finally.
     with NamedTemporaryFile(suffix=suffix, delete=False) as handle:
         handle.write(data)
         return Path(handle.name)
@@ -577,7 +564,7 @@ def _freeze(font: bytes, policy: FreezePolicy) -> bytes:
     try:
         engine = RemapByOTL(policy.namespace(str(src), str(dst)))
         engine.run()
-        if not engine.success:  # `RemapByOTL` reports open/save failure through this state instead of raising.
+        if not engine.success:
             raise TTLibError(f"font freeze failed: {policy.features!r}")
         return dst.read_bytes()
     finally:
@@ -620,10 +607,6 @@ def _compile(font: bytes, space: DesignSpace) -> bytes:
 
 
 def _synthesize(spec: FontSynthesis) -> bytes:
-    # identity admission precedes any table build: a duplicate glyph name would silently overwrite its glyf/hmtx
-    # rows while doubling its setupGlyphOrder slot, a duplicate nonzero codepoint would last-win the cmap, and a
-    # nonzero codepoint outside the Unicode scalar range — negative, past U+10FFFF, or a surrogate — would mint an
-    # unencodable cmap slot; each refuses here, and a zero codepoint stays the deliberate unmapped glyph.
     names = tuple(glyph.name for glyph in spec.glyphs)
     if len(set(names)) != len(names) or ".notdef" in names:
         raise ValueError("<synthesize:glyph-name>")
@@ -647,8 +630,6 @@ def _synthesize(spec: FontSynthesis) -> bytes:
     builder.setupHorizontalMetrics(metrics)
     builder.setupHorizontalHeader(ascent=spec.ascent, descent=spec.descent, lineGap=spec.line_gap)
     if any(glyph.vertical_advance for glyph in spec.glyphs):
-        # vmtx covers the FULL setupGlyphOrder set — `.notdef` (a full-em advance) and zero-advance glyphs included —
-        # each glyph keeping its own declared vertical advance.
         builder.setupVerticalMetrics({".notdef": (spec.upem, 0), **{glyph.name: (glyph.vertical_advance, 0) for glyph in spec.glyphs}})
         builder.setupVerticalHeader(ascent=spec.ascent, descent=spec.descent, lineGap=spec.line_gap)
     ps_name = f"{spec.family}-{spec.style}".replace(" ", "-")
@@ -673,8 +654,6 @@ def _synthesize(spec: FontSynthesis) -> bytes:
     )
     builder.setupPost(italicAngle=spec.italic_angle)
     if colr := {glyph.name: list(glyph.layers) for glyph in spec.glyphs if glyph.layers}:
-        # a color face admits only indices every CPAL palette resolves: palettes must exist and each layer's entry
-        # index must sit inside the shortest palette, or the built font ships dangling paint references.
         depth = min((len(palette) for palette in spec.palettes), default=0)
         if depth == 0 or any(not 0 <= index < depth for layers in colr.values() for _layer, index in layers):
             raise ValueError("<synthesize:palette-index>")

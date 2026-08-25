@@ -19,12 +19,12 @@ One polymorphic owner mints, rehydrates, persists, reads, assigns, pulses a butt
 - Boundary: `LoopingAction`, `LoopRepeats`, `Loop`, and `LoopingIteration` are assembly-internal; the public `Cluster.LoopSolution` switch is the only loop state this boundary may assign.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
 public sealed partial class ObjectFamily {
@@ -60,8 +60,6 @@ public sealed partial class BoundaryRole {
     public Grasshopper2.Components.Standard.ClusterBoundary Host { get; }
 }
 
-// Timer's (Running, Manual) pair as four NAMED postures — two independent flags name neither the
-// combination nor its meaning, and TimerMode.Of is the one reverse projection.
 [SmartEnum<int>]
 public sealed partial class TimerMode {
     public static readonly TimerMode Idle = new(key: 0, running: false, manual: false);
@@ -74,8 +72,6 @@ public sealed partial class TimerMode {
         (running, manual) switch { (false, false) => Idle, (true, false) => Auto, (false, true) => Armed, _ => Manual };
 }
 
-// Seven flag families, one shape: string-keyed capability rows under the Open law, projected to host
-// booleans at their row's arms alone.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PanelFacet : ICapability<PanelFacet> {
@@ -154,7 +150,7 @@ public sealed partial class ClusterFlag : ICapability<ClusterFlag> {
 - Boundary: `Empty` selects the row's parameterless constructor; every other value enters through the row's own `Mint`. Four payload columns are read-and-seed only, because the host publishes no public setter: `Slider.Value` and `Number.Value` (`InternalNumber` is derived from the internal slider and picker), `Complexes.Values` and `Moment.Value` (`internal set`), and `Ramp.Value` (`Gradient` projects `GripGradientInteraction.ModifiedGradient`, so `Interaction` is the writable source). `Histogram` carries the integral `BucketCount` and never its `BucketCountText` spelling, which restates the same fact through the negative `Buckets*` sentinel constants.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -162,7 +158,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PersistedValue {
@@ -227,10 +223,8 @@ public abstract partial record PersistedValue {
     public sealed record Grouping(CapabilitySet<ClusterFlag> Flags) : PersistedValue;
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// Property correspondence as GENERATED data: pure-property pairings ride Update/Read pairs; the hand
-// arms that remain each name the host demand that keeps them (ordering, method-call write, reconciliation).
-[Mapper] // conversions ride the assembly MapperDefaults (Canvas/canvas.md) — no per-seam re-spell
+// --- [OPERATIONS] ----------------------------------------------------------------------
+[Mapper]
 internal static partial class ObjectMap {
     [MapProperty(nameof(PersistedValue.Slider.Grip), nameof(Grasshopper2.Parameters.Special.NumberSliderObject.GripDisplay))]
     [MapPropertyFromSource(nameof(Grasshopper2.Parameters.Special.NumberSliderObject.GripColour), Use = nameof(SliderColour))]
@@ -264,14 +258,13 @@ internal static partial class ObjectMap {
     private static Eto.Drawing.Color SliderColour(PersistedValue.Slider value) => Quantized(value.Colour);
     private static Eto.Drawing.Color PickerColour(PersistedValue.Number value) => Quantized(value.Colour);
 
-    // ONE perceptual/host colour crossing for object rows — quantization lives here, never deeper.
     internal static Eto.Drawing.Color Quantized(PerceptualColor colour);
     internal static PerceptualColor Perceptual(Eto.Drawing.Color colour);
     internal static Grasshopper2.Types.Colour.Colour Tinted(PerceptualColor colour);
     internal static PerceptualColor Lifted(Grasshopper2.Types.Colour.Colour colour);
 }
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 [SmartEnum<string>]
 public sealed partial class NativeKind {
@@ -280,7 +273,6 @@ public sealed partial class NativeKind {
         static host => new PersistedValue.Slider(host.InternalNumber, host.GripDisplay, ObjectMap.Perceptual(host.GripColour), host.GripFormat),
         static (name, held) => new Grasshopper2.Parameters.Special.NumberSliderObject(name, held.Value),
         static (host, held, key) => HostCall.Run(() => ObjectMap.Update(held, host), key));
-    // Host picker publishes decimal and constructs from double, so the seed crosses that lossy boundary once.
     public static readonly NativeKind NumberPicker = Seeded<Grasshopper2.Parameters.Special.NumberPickerObject, PersistedValue.Number>(
         "number-picker", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Number(host.InternalNumber, ObjectMap.Perceptual(host.GripColour), host.SnapToTicks),
@@ -295,7 +287,6 @@ public sealed partial class NativeKind {
         static host => new PersistedValue.Momentary(
             host.Action, Optional(host.UpTree), Optional(host.DownTree),
             ObjectMap.Lifted(host.UpColour), ObjectMap.Lifted(host.DownColour), host.UpText, host.DownText),
-        // HAND: the optional trees write only when present — a mapper cannot state the Iter.
         static (host, held, key) => HostCall.Run(() => {
             host.Action = held.Action;
             held.Up.Iter(tree => host.UpTree = tree);
@@ -308,17 +299,13 @@ public sealed partial class NativeKind {
     public static readonly NativeKind Value = Of<Grasshopper2.Parameters.Special.ValueObject, PersistedValue.Parsed>(
         "value", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Parsed(host.Text, host.Notations),
-        // HAND: ordering — notations must land before the parse the assign runs.
         static (host, held, key) => HostCall.Run(() => {
             host.Notations = held.Notations;
             host.AssignTextAndValue(held.Source);
         }, key));
-    // OneEntryPerLine reads public but its setter is host-internal, so the assign leg writes the two
-    // reachable members and the read leg still reports the host's own per-line posture as evidence.
     public static readonly NativeKind TextInput = Of<Grasshopper2.Parameters.Special.TextInputObject, PersistedValue.Text>(
         "text-input", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Text(host.Contents, host.OneEntryPerLine, host.Escaping),
-        // HAND: ordering — escaping before contents.
         static (host, held, key) => HostCall.Run(() => {
             host.Escaping = held.Escaping;
             host.Contents = held.Value;
@@ -326,7 +313,6 @@ public sealed partial class NativeKind {
     public static readonly NativeKind ColourSwatch = Of<Grasshopper2.Parameters.Special.ColourSwatchObject, PersistedValue.Swatch>(
         "colour-swatch", ObjectFamily.ValueInput, static reader => new(reader),
         static host => new PersistedValue.Swatch(ObjectMap.Lifted(host.Colour), Apply: false),
-        // HAND: method-call write.
         static (host, held, key) => HostCall.Run(() => host.SetColour(ObjectMap.Tinted(held.Value), held.Apply), key));
     public static readonly NativeKind GradientEditor = Of<Grasshopper2.Parameters.Special.GradientEditorObject, PersistedValue.Ramp>(
         "gradient-editor", ObjectFamily.Editor, static reader => new(reader),
@@ -337,7 +323,6 @@ public sealed partial class NativeKind {
     public static readonly NativeKind MaterialEditor = Of<Grasshopper2.Parameters.Special.MaterialEditorObject, PersistedValue.Material>(
         "material-editor", ObjectFamily.Editor, static reader => new(reader),
         static host => new PersistedValue.Material(host.Material, host.ForeRotation, host.BackRotation, host.IdenticalForeAndBack),
-        // HAND: ordering — the material lands last.
         static (host, held, key) => HostCall.Run(() => {
             host.ForeRotation = held.Fore;
             host.BackRotation = held.Back;
@@ -363,7 +348,6 @@ public sealed partial class NativeKind {
                 host.Luminance ? Some(SamplerFlag.Luminance) : None,
                 host.DrawSamples ? Some(SamplerFlag.DrawSamples) : None).Somes()]),
             host.LimitBehaviour),
-        // HAND: ordering — the image URI (the load trigger) lands last.
         static (host, held, key) => HostCall.Run(() => {
             host.Normalised = held.Flags.Admits(SamplerFlag.Normalised);
             host.Luminance = held.Flags.Admits(SamplerFlag.Luminance);
@@ -405,7 +389,6 @@ public sealed partial class NativeKind {
                 host.OmitUnaffected ? Some(MappingFlag.OmitUnaffected) : None,
                 host.WarnAboutPaths ? Some(MappingFlag.WarnPaths) : None,
                 host.WarnAboutSites ? Some(MappingFlag.WarnSites) : None).Somes()])),
-        // HAND: ordering — the notation (the parse trigger) lands last.
         static (host, held, key) => HostCall.Run(() => {
             host.OmitUnaffected = held.Flags.Admits(MappingFlag.OmitUnaffected);
             host.WarnAboutPaths = held.Flags.Admits(MappingFlag.WarnPaths);
@@ -423,7 +406,6 @@ public sealed partial class NativeKind {
                 host.ShowItems ? Some(PanelFacet.Items) : None,
                 host.ShowMetas ? Some(PanelFacet.Metas) : None).Somes()]),
             host.VerticalOffset),
-        // HAND: the host writes the six facets through ONE method call.
         static (host, held, key) => HostCall.Run(() => {
             host.ChangeDisplay(
                 held.Shown.Admits(PanelFacet.Columns), held.Shown.Admits(PanelFacet.Paths),
@@ -438,7 +420,6 @@ public sealed partial class NativeKind {
                 host.Paused ? Some(RecorderFlag.Paused) : None,
                 host.MergeTrees ? Some(RecorderFlag.MergeTrees) : None).Somes()]),
             host.FrameLimit),
-        // HAND: ordering — pause posture lands last so a merge-flag flip never records unpaused.
         static (host, held, key) => HostCall.Run(() => {
             host.MergeTrees = held.Flags.Admits(RecorderFlag.MergeTrees);
             host.FrameLimit = held.FrameLimit;
@@ -465,7 +446,6 @@ public sealed partial class NativeKind {
                 host.StreamData ? Some(RoutingFlag.Stream) : None,
                 host.StreamBackup ? Some(RoutingFlag.Backup) : None).Somes()]),
             host.StreamPath),
-        // HAND: ordering — the stream path lands before the stream flag arms it.
         static (host, held, key) => HostCall.Run(() => {
             host.ClusterOutput = held.Flags.Admits(RoutingFlag.ClusterOutput);
             host.StreamPath = held.StreamPath;
@@ -480,7 +460,6 @@ public sealed partial class NativeKind {
             CapabilitySet<ListenerFlag>.Of([.. Seq(
                 host.ClusterInput ? Some(ListenerFlag.ClusterInput) : None,
                 host.ClusterIndex ? Some(ListenerFlag.ClusterIndex) : None).Somes()])),
-        // HAND: ordering — the dependency paths land before the index that selects among them.
         static (host, held, key) => HostCall.Run(() => {
             host.DependencyA = held.A;
             host.DependencyB = held.B;
@@ -510,7 +489,6 @@ public sealed partial class NativeKind {
         "scribble", ObjectFamily.Annotation, static reader => new(reader),
         static host => new PersistedValue.Annotation(
             host.Text, host.TextAngle, host.TextFont, host.TextStyle, host.TextColour, host.TextAlign),
-        // HAND: ordering — the text (the layout trigger) lands last.
         static (host, held, key) => HostCall.Run(() => {
             host.TextAngle = held.Angle;
             host.TextFont = held.Font;
@@ -542,8 +520,6 @@ public sealed partial class NativeKind {
     private static readonly Lazy<FrozenDictionary<Type, NativeKind>> ByHost =
         new(static () => Items.ToFrozenDictionary(static row => row.Host), LazyThreadSafetyMode.ExecutionAndPublication);
 
-    // Host subclass resolves onto the nearest catalogued ancestor; the TryGetValue lifts through the
-    // kernel Op.Probe (S1-24) so no bool-and-out pair survives.
     public static Option<NativeKind> ForHost(Type? host) =>
         Ancestry(host)
             .Choose(static probe => Op.Probe<NativeKind>((out NativeKind row) => ByHost.Value.TryGetValue(probe, out row!)))
@@ -551,7 +527,6 @@ public sealed partial class NativeKind {
 
     private static Seq<Type> Ancestry(Type? host) => host is null ? Seq<Type>() : host.Cons(Ancestry(host.BaseType));
 
-    // Parameterless constructor mints and the write column completes the state.
     private static NativeKind Of<THost, TValue>(
         string key, ObjectFamily family,
         Func<GrasshopperIO.IReader, THost> rehydrate,
@@ -569,7 +544,6 @@ public sealed partial class NativeKind {
                     .Map(_ => host)),
             (host, value, op) => Pair<THost, TValue>(host, value, key, op).Bind(pair => write(pair.Host, pair.Value, op)));
 
-    // Seeding constructor carries the state no setter reaches; the write column completes the rest.
     private static NativeKind Seeded<THost, TValue>(
         string key, ObjectFamily family,
         Func<GrasshopperIO.IReader, THost> rehydrate,
@@ -589,7 +563,6 @@ public sealed partial class NativeKind {
             (host, value, op) => Pair<THost, TValue>(host, value, key, op).Bind(pair => write(pair.Host, pair.Value, op)));
     }
 
-    // Seeding constructor IS the whole write, so assignment from outside the host assembly refuses.
     private static NativeKind Sealed<THost, TValue>(
         string key, ObjectFamily family,
         Func<GrasshopperIO.IReader, THost> rehydrate,
@@ -607,15 +580,12 @@ public sealed partial class NativeKind {
             (_, value, op) => Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Object, new GhEvidence(op, $"{key}:sealed:{value.GetType().Name}"))));
     }
 
-    // Host publishes no readable or writable state, so the row reads Empty rather than falling to a refusal.
     private static NativeKind Inert<THost>(string key, ObjectFamily family, Func<GrasshopperIO.IReader, THost> rehydrate)
         where THost : class, Grasshopper2.Doc.IDocumentObject, new() =>
         Of<THost, PersistedValue.Empty>(key, family, rehydrate,
             static _ => new PersistedValue.Empty(),
             static (_, _, _) => Fin.Succ(unit));
 
-    // One construction per row per process reads the host's OWN default user name, so a seeding constructor
-    // never carries the catalog key into a canvas-visible name and no default is hand-copied.
     private static Lazy<string> Label<THost>() where THost : Grasshopper2.Doc.IDocumentObject, new() =>
         new(static () => new THost().UserName, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -647,12 +617,12 @@ public sealed partial class NativeKind {
 - Boundary: `NumberSliderObject.InternalNumber` and `NumberPickerObject.InternalNumber` are read-only and seed only through their public constructors; the slider preserves its complete non-null `UiNumber`, while the picker carries its public `decimal` read through the host's lossy `double` constructor boundary. `ComplexPickerObject.Values` and `TemporalPickerObject.Date` carry `internal set`, so both rows are `Sealed` and their `Write` refuses rather than silently succeeding. `PresetPickerObject.UserNames`, including its `null` state, owns persisted selection; assignment expires and restarts a solution only when that state changes. `ValueListObject.ItemCount` and `Items` are read-only, so a selection assigns index by index through `SelectItem`/`DeselectItem` under the list's own `Mode` law, and `SelectPrev`/`SelectNext` are cyclic steps carried by `Step`, never a selection set. `DataRecorderObject.Paused` is the recorder's writable state, and its `IsEmpty` answers true when recorded buckets exist — the member name and XML summary invert the installed behavior — so a presence probe reads a true `IsEmpty` as data-present evidence. `DataPanelObject.ChangeDisplay` writes the six display flags in one host call and `VerticalOffset` writes beside it. `FunctionEditorObject`, `QuickGraphObject`, and `Chain` publish no readable or writable value state, so they take the `Inert` arm and read as `Empty`. `Boundary` rejects null pins from the oblivious host arrays. Incomplete host chain ordering and validation members, the internal loop driver, and private `ImageSamplerObject.SampleContinuous` never enter this operation surface.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Components;
 
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum]
 public sealed partial class ListStep {
@@ -663,8 +633,6 @@ public sealed partial class ListStep {
     public partial void Advance(Grasshopper2.Parameters.Special.ValueListObject list);
 }
 
-// Press is a momentary verb with no persisted state, so it rides its own vocabulary rather than a Flag
-// payload the button's Momentary value would collide with.
 [SmartEnum]
 public sealed partial class ButtonPulse {
     public static readonly ButtonPulse Press = new(static button => button.Press());
@@ -674,7 +642,7 @@ public sealed partial class ButtonPulse {
     public partial void Drive(Grasshopper2.Parameters.Special.ButtonObject button);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class NativeObject {
     public static Fin<Grasshopper2.Doc.IDocumentObject> Mint(NativeKind? kind, PersistedValue? seed, Op? key = null) =>
@@ -737,8 +705,6 @@ public static class NativeObject {
             ? Fin.Fail<Unit>(new GhFault.ContractRefused(GhContract.Object, new GhEvidence(key.OrDefault(), nameof(Retarget))))
             : Reconcile(timer, toSeq(desired.Distinct()), key.OrDefault());
 
-    // BOTH legs derive from the ONE snapshot: the former add leg re-queried the live IsTarget after the
-    // removals had mutated it, so the sets it compared were from two different moments.
     private static Fin<Unit> Reconcile(Grasshopper2.Parameters.Special.TimerObject timer, Seq<Guid> desired, Op key) =>
         HostCall.Run(() => toSeq(timer.TargetIds), key)
             .Bind(current => current.Filter(id => !desired.Contains(id))
@@ -778,7 +744,6 @@ public static class NativeObject {
     public static Fin<Unit> Disentangle(Grasshopper2.Components.Standard.Cluster cluster, Grasshopper2.Undo.ActionList actions, Op? key = null) =>
         HostCall.Run(() => cluster.Disentangle(actions), key.OrDefault());
 
-    // Kernel Confirm lifts the host's boolean verb result — an unconfirmed mutation refuses typed.
     private static Fin<Unit> Target(
         Grasshopper2.Parameters.Special.TimerObject timer, Guid id, bool add, Op key) =>
         HostCall.Run(() => add ? timer.AddTarget(id) : timer.RemoveTarget(id), key)
@@ -800,14 +765,9 @@ public static class NativeObject {
                 return;
             }
             picker.UserNames = names;
-            // Expire marks the object stale; the SOLVE is the caller's — the island holds no UI-thread edge, so
-            // launching a run here would be a second SolutionControl owner off-marshal. The document's own
-            // scheduler or the caller's Drive(LaunchCase) picks the expiry up.
             picker.Expire();
         }, key);
 
-    // Mode leads because SelectItem dispatches on it: PickAll admits a set while ShowOne and ShowAll
-    // collapse every selection to the last index the fold touches.
     internal static Fin<Unit> Reselect(
         Grasshopper2.Parameters.Special.ValueListObject list,
         PersistedValue.Listing desired,

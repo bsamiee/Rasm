@@ -30,7 +30,7 @@ Composition takes `DrainSurface`/`DrainKind`/`DrainSpec`/`DrainQueue`/`DrainBand
 - Boundary: the topic fabric is the only in-process pub/sub owner — a per-topic background loop, a hand-rolled fan-out, and a second queue owner are the deleted forms; the fan is a `DrainSurface.Broadcast` builder over the one `DrainKind` union so the Dataflow `BroadcastBlock` reaches this page only through `Runtime/resources#DRAIN_QUEUES`, one Dataflow owner for the whole spine, and the producer reaches the intake through a total arm projection at the publish site rather than a raw block retained beside the queue; the fan spec and the sink spec are PAGE constants rather than a per-topic column, because all six rows named one value each and a column holding one value across its whole roster is a knob wearing a row — a topic that genuinely earns its own back-pressure row takes the column back with the discriminant named; causal ordering is the HLC stamp the suite already carries so the bus and the command log order by one primitive, never a re-minted timeline, while `Offset` is delivery accounting alone and never crosses into ordering — gap detection over HLC `Logical` is the deleted form, because HLC logical is not dense per topic and a normal jump is then indistinguishable from a lost delivery; producer back-pressure is the fan's own `BoundedCapacity` — `Publish`'s `SendAsync` awaits when the bounded head is full — while the `BroadcastBlock` is latest-value to a slow target by construction, so the in-process leg is bounded best-effort fan-out and the AT-LEAST-ONCE guarantee belongs to OUT-OF-PROCESS subscribers alone over the durable `Wire/outbox#DISPATCH_SWEEP` leg (the committed op-log row + watermark + receiving-binding dedup), never to any in-process subscription; a subscription whose bounded consumer declines the fan's offer therefore misses the in-process copy, and that miss is EVIDENCE rather than silence — the gap fold and the drain residual account it at both ends, so no declined delivery leaves the bus unrecorded on any topic; `TopicDurability` declares WHOSE TRANSACTION commits the fact and never a second delivery of it — a `Durable` row's producer commits its op-log entry inside the same transaction as the write it announces, so the FACT reaches out-of-process subscribers through the `Wire/outbox#DISPATCH_SWEEP` relay over `ONE_OUTBOX_EGRESS_SPINE`, while an `Ephemeral` row's fact exists as this broadcast alone; that relay sends the Persistence-minted envelope to its configured binding and republishes onto NO topic (`Wire/outbox#DISPATCH_SWEEP`), because the envelope carries no topic and its `data` may be bytes or a `dataref` no in-process carrier can invert — so a declined in-process offer is FINAL on every row, a receipt column claiming a resend is the deleted form, and the durability arm on the rich `Topic` row every receipt already carries is what separates terminal fact loss from a lost in-process copy; the `Rasm.AppUi` `Collab/sync` live-delta broadcast rides these topic rows as OPAQUE `DomainEvent.Payload` bytes — the session-ephemeral CRDT wire is the subscriber's to decode and never durable truth here — with the document deltas on the `Durable` `Collab` row riding the outbox leg and the `Ephemeral` `Presence` frames staying in-process, so a frame a slow subscriber misses is receipted and final in-process on BOTH rows — the `Durable` row's difference being that its fact still reaches an out-of-process subscriber through the relay — and a second bus for collaboration is the deleted form.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -39,9 +39,6 @@ public sealed partial class TopicDurability {
     public static readonly TopicDurability Ephemeral = new("ephemeral");
 }
 
-// Sheds is the degradation RANK at or above which this topic's delivery is dropped, and None is the arm a
-// topic that never sheds takes — an absent threshold, never a sentinel rank a comparison would still admit.
-// Presence is awareness traffic whose loss is already the design, so it sheds at the first reduced level.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -58,7 +55,7 @@ public sealed partial class Topic {
     public Option<DegradationLevel> Sheds { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record DomainEvent(
     Topic Topic,
     EventType Type,
@@ -69,35 +66,20 @@ public sealed record DomainEvent(
     ulong Logical,
     Instant Physical,
     ulong Offset) {
-    // TWO vocabularies, ONE projection. `Topic` is the in-process ROUTING channel — which fan carries this
-    // delivery, what it sheds at, whether it is durable — while `EventType` is the FACT identity a peer
-    // subscribes on, and neither derives from the other because a channel serves many facts and one fact may
-    // route differently per deployment.
-    //
-    // Minting rails on `Fin` because Tier-0 `[08]-[OBSERVABILITY_CONFORMANCE]` binds EVENT names to the same
-    // capability roster instrument names answer to: an unrostered subject refuses HERE, at its declaration
-    // owner, rather than reaching a broker as a type no board can join to the metrics it is about.
     public static Fin<DomainEvent> Of(
         Topic topic, EventType type, EventSource source, string idempotencyKey, JsonElement payload,
         DataClassification classification, ulong logical, Instant physical) =>
         SignalGovernance.Rostered(type).Map(admitted =>
             new DomainEvent(topic, admitted, source, idempotencyKey, payload, classification, logical, physical, Offset: 0));
 
-    // Clone() detaches the element onto its own storage, discharging the fan's copy guard: JsonElement over a
-    // pooled JsonDocument stays valid only while that document lives, so a subscription outliving the
-    // producer's parse reads a recycled buffer. An identity delegate hands every sink the same borrowed
-    // window and proves no isolation at all.
     public static DomainEvent Detach(DomainEvent evt) => evt with { Payload = evt.Payload.Clone() };
 
-    // Of stays a pure MINT and Publish the one stamper, because an ordinal is a property of ARRIVAL at one
-    // topic's fan rather than of the event a caller composed: two producers building the same event never
-    // agree on a number, and one fan handing out its own always does.
     public static DomainEvent Stamped(DomainEvent evt, ulong offset) => evt with { Offset = offset };
 }
 
 public sealed record TopicHead(Topic Topic, DrainQueue<DomainEvent> Fan, Atom<ulong> Cursor);
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BusFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Bus;
@@ -109,22 +91,15 @@ public abstract partial record BusFault : Fault {
     public sealed partial record TopicUnknown : BusFault { public TopicUnknown(string detail) : base(detail) { } }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TopicFabric {
-    // One fan row and one sink row for the whole roster: every topic declared the same back-pressure value,
-    // so the column was a knob and these are the two policies the bus actually has.
     public static readonly DrainSpec Fan = DrainSpec.ReceiptFanOut;
     public static readonly DrainSpec Sink = DrainSpec.SubscriptionSink;
 
-    // Callers build every subscription consumer BEFORE the fan, so the builder owns every link: the head
-    // links to each sink under the row's PropagateCompletion and exposes itself as intake and Tail.
     public static Fin<TopicHead> Open(Topic topic, Seq<ITargetBlock<DomainEvent>> sinks, Action<FanMiss> missed, CancellationToken token) =>
         Fan.Broadcast(DomainEvent.Detach, sinks, Some(missed), token)
             .Map(fan => new TopicHead(topic, fan, Atom(0UL)));
 
-    // Ordinal burns on the offering arm alone, so a topology mismatch never punches a hole in the sequence
-    // that gap fold reads as loss; Swap returns the POST-swap value, so the first published event carries one
-    // and zero stays the empty seat a subscription opens on rather than a delivered offer.
     public static IO<Unit> Publish(TopicHead head, DomainEvent evt) =>
         head.Fan.Switch(
             state: (Head: head, Event: evt),
@@ -161,36 +136,23 @@ Every row orders on the HLC `(Physical, Logical)` pair, counts deliveries on its
 - Boundary: the subscription is a `DrainSurface` builder over the one `DrainKind` union — a per-subscription background loop, a second queue owner, and a raw `new ActionBlock` mint are the deleted forms, and the public block field this record once published was that last one wearing a capsule: a package handle whose capacity, degree, ordering, and completion no row stated; a bounded `BufferBlock` in front of the consumer is deleted twice over, since `docs/stacks/csharp/domain/concurrency.md` `[BLOCK_ADMISSION]` rejects that block outright and it buys nothing anyway — a bounded `BufferBlock` declines the fan's offer exactly as silently as the bounded sink does, so it adds a waiting room and no evidence; a hand-written receipting `ITargetBlock<DomainEvent>` intercepting each offer is likewise deleted, because it re-implements the `consumeToAccept`, `ConsumeMessage`, and postponement protocol the drain owner deliberately declines to own, against an admission rail that admits blocks on four named capabilities and never on a hand-written target; the bound is the loss boundary, and it closes as a receipted FINAL in-process loss on every row — the `Durable` arm buys the fact an out-of-process reader through the relay and buys this subscription nothing — never unbounded accumulation; the dedupe composes the ONE `DedupeWindow` primitive the delivery fan-out also composes, so the bus dedupe and the notification dedupe are one owner and one window-bound — a local seen-key map beside it is the deleted form; replay ordering is the HLC pair and delivery accounting is the `Offset` seat, two facts one hop apart that never collapse into one column; a correlated join or dual-stream coalesce over two event streams reaches `DrainSurface.Join`/`DrainSurface.Coalesce` at the drain owner directly, so a renaming forward on this page is the deleted form; the durable relay to a persistent subscriber rides the `OutboundHop` so the bus rides the one retry owner, and the durable leg of delivery leaves this bus entirely — `Wire/outbox#DISPATCH_SWEEP` relays the Persistence-minted envelope to its configured binding over `ONE_OUTBOX_EGRESS_SPINE` and republishes onto no topic — so an in-process subscription's miss closes on its own receipt rather than on a resend the relay never makes.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record Subscription(
     string Key,
     DrainQueue<DomainEvent> Consumer,
     Atom<Received> Seat);
 
-// Verdict rides the TRANSITION rather than a read-then-write pair, the shape DedupeWindow.Admit already
-// takes: one compare-and-swap advances the seat, widens the tally, and carries the span its caller receipts.
 public readonly record struct Received(ulong Last, ulong Missed, ulong Reoffered, Option<(ulong First, ulong Last)> Gap) {
     public static readonly Received Empty = new(Last: 0, Missed: 0, Reoffered: 0, Gap: None);
 
-    // Three arms, three facts. A FORWARD jump proves every ordinal between reached the fan and was refused.
-    // Contiguous advances move the seat alone. Repeats and backward arrivals under the ordered single-degree
-    // sink are RE-OFFERS the fan made — the dedupe window absorbs them — and they count on their own column
-    // rather than folding into `ulong.Max`, where a subscription re-offered one ordinal forever reads
-    // byte-identically to one receiving nothing at all.
     public Received Seated(ulong arrived) =>
         arrived > Last + 1 ? new(arrived, Missed + arrived - Last - 1, Reoffered, Some((Last + 1, arrived - 1)))
         : arrived > Last ? new(arrived, Missed, Reoffered, None)
         : this with { Reoffered = Reoffered + 1 };
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SubscriptionFabric {
-    // ONE waiting room per hop: the drain owner's consumer sink IS the fan's sink, so its own row carries the
-    // whole back-pressure and its own decline is the loss the seat accounts. Nothing here intercepts the
-    // offer, because the broadcast head reports no decline to the source it fans from.
-    // Seat and key mint ONCE, outside the consumer the sink runs per delivery — the same
-    // mint-outside-the-transition law the kernel `Cell` family states, and the reason this one member carries
-    // a statement body while every other on the page is an expression.
     public static Subscription Open(
         Topic topic, string name, Func<DomainEvent, IO<Unit>> consume, Action<FanMiss> missed,
         DedupeWindow dedupe, ClockPolicy clocks, CancellationToken token) {
@@ -210,8 +172,6 @@ public static class SubscriptionFabric {
             seat);
     }
 
-    // Total arm projection: a subscription sink is a `Network` queue by construction, and the pipe arm is a
-    // typed rail failure rather than a cast the fan would take on faith.
     public static Fin<Seq<ITargetBlock<DomainEvent>>> Intakes(Seq<Subscription> subs) =>
         subs.Traverse(static sub => sub.Consumer.Switch(
                 pipe: static p => Fin.Fail<ITargetBlock<DomainEvent>>(
@@ -233,10 +193,8 @@ public static class SubscriptionFabric {
 - Boundary: the bus conductor is the only multi-topic bus owner — a per-topic conductor, a parallel drain, and a second bus owner are the deleted forms; the bus drains under the one `DrainConductor` band so the bus completion and the runtime drain are one fold, never a bus-specific shutdown, and the participant registration is one typed `DrainRow` rather than four positional arguments whose rank every call site spelled as a literal — every topic fan is independent inside its band, so the rank is one page constant naming that independence rather than a zero repeated per mount; the cell carries its runtime rather than mirroring two of its columns, because a mirrored level reader and a mirrored drop sink are two facts with two owners that a re-composition can leave disagreeing; loss accounting closes at exactly two ends — a gap in flight and a residual at drain — so an interception layer between them is the deleted form and every declined offer lands on one of the two; the native `DropClass` rows never merge into one tally, so a bus-wide drop counter is the deleted form; the bus dispatch is the one entry every interior producer and the `Wire/companion#EVENT_INGRESS` door invoke, so no second in-process publication path exists; shedding is a per-topic rank comparison against the live level, so a `Suspended` host sheds exactly the topics whose rows declare a threshold and a blanket dispatch gate is the deleted form; the relay to a durable subscriber rides the `OutboundHop` over `OutboundSurface.Run` so the bus rides the one retry owner and the `DeliveryFanout` folds in as one subscriber rather than a parallel sender.
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class EventBus {
-    // Every topic fan is independent inside its band, so all bus participants share one rank and the
-    // conductor may drain them in any order — a per-mount literal asserted an ordering nothing needs.
     public const int FanRank = 0;
 
     public sealed record Runtime(
@@ -247,14 +205,12 @@ public static class EventBus {
         ClockPolicy Clocks,
         CancelScope Spine);
 
-    // Cells carry their runtime rather than two copies of its columns: a mirrored level reader and a
-    // mirrored drop sink are one fact with two owners the moment a composition rebuilds either.
     public sealed record Cell(
         Runtime Runtime,
         HashMap<Topic, TopicHead> Heads,
         Seq<Subscription> Subscriptions);
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
+    // --- [OPERATIONS] ------------------------------------------------------------------
     public static Fin<Cell> Mount(
         Runtime runtime,
         params ReadOnlySpan<(Topic Topic, Seq<(string Name, Func<DomainEvent, IO<Unit>> Consume)> Subscribers)> rows) =>
@@ -286,14 +242,9 @@ public static class EventBus {
             Rank: FanRank,
             Drain: token => Drain(head, subs, missed, token))), head).Item2;
 
-    // ONE projection per topic row, minted before either the subscriptions or the fan exist and threaded to
-    // all three seats that report: gap fold, tail residual, and the drain owner's admission.
     static Action<FanMiss> Missed(Action<DropReceipt> drops, Topic topic) =>
         miss => drops(DropReceipt.Missed(topic, miss));
 
-    // Shedding returns unit rather than a fault: the level ruled the drop, so the producer is not in error
-    // and has nothing to retry. Receipt mints anyway on its own class, because producer-side shed and
-    // consumer-side miss diverge in cause and one merged tally erases the only signal separating them.
     public static IO<Unit> Dispatch(Cell cell, DomainEvent evt) =>
         cell.Heads.Find(evt.Topic).Match(
             Some: head => Shed(head.Topic, cell.Runtime.Level())
@@ -304,8 +255,6 @@ public static class EventBus {
     static bool Shed(Topic topic, DegradationLevel level) =>
         topic.Sheds.Match(Some: threshold => level.Rank >= threshold.Rank, None: static () => false);
 
-    // Conductor tokens bound every await, so the drain-forced escalation reaches an in-flight consumer
-    // instead of waiting on a completion nothing cancels.
     static IO<Unit> Drain(TopicHead head, Seq<Subscription> subs, Action<FanMiss> missed, CancellationToken token) =>
         from _fan in Completed(head.Fan, token)
         from _subs in subs.TraverseM(sub => Completed(sub.Consumer, token)).As()
@@ -318,9 +267,6 @@ public static class EventBus {
             return unit;
         });
 
-    // Tail loss closes HERE and nowhere else: a subscription that missed the final offers never sees a later
-    // ordinal, so the gap fold alone stays blind to them. Cursor reads AFTER every consumer completed, so the
-    // head's ordinal is final and its distance from the seat is exactly what never arrived.
     static Unit Residual(TopicHead head, Subscription sub, Action<FanMiss> missed) =>
         (head.Cursor.Value, sub.Seat.Value.Last) switch {
             var (final, seated) when final > seated => fun(missed)(new FanMiss(TopicFabric.Fan.Name, sub.Key, seated + 1, final)),
@@ -362,7 +308,7 @@ flowchart LR
 - Boundary: loss conservation is process-local folder law. Count derives from the inclusive span, the rich topic row's own `Durability` arm separates terminal fact loss from a lost in-process copy with no mirrored column, and subscription stays absent on a shed row. The app-root `SuiteContracts.Host` serializer carries the receipt to the local instrument fan; no protobuf or TypeScript face exists without a real peer consumer.
 
 ```csharp signature
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -371,10 +317,6 @@ public sealed partial class DropClass {
     public static readonly DropClass Missed = new("missed");
 }
 
-// Receipts carry the RICH topic row, so `Durability` reaches the reader already: a `Durable` row's miss lost
-// an in-process COPY of a fact the op-log still holds, an `Ephemeral` row's miss lost the fact itself. Storing
-// `bool Resent` beside that arm mirrored a column the row carries AND claimed a resend no producer takes —
-// this bus republishes nothing and the outbox relay dials an external binding without returning here.
 public sealed record DropReceipt(
     Topic Topic,
     Option<string> Subscription,

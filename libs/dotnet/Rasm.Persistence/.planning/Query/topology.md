@@ -27,22 +27,17 @@ using System.Globalization;
 using System.Linq;
 using LanguageExt;
 using QuikGraph;
-using Rasm.Domain;                                // FaultBand + [FaultCase]/Fault — the kernel registry and fault floor
-using Rasm.Element.Graph;                         // ElementGraph/EdgeFilter/EdgeOrientation/TypedEdge — the ONE view vocabulary
+using Rasm.Domain;
+using Rasm.Element.Graph;
 using Rasm.Element.Projection;
-using Rasm.Element.Query;                         // WalkDepth — the seam bounded-depth axis
+using Rasm.Element.Query;
 using Thinktecture;
-using Rasm.Persistence.Element;                   // ModelId/ModelLink/LinkKind — the stream and coordination vocabulary
+using Rasm.Persistence.Element;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `TopologyView` binds a MODEL to a seam snapshot: it carries the owning `ModelId`, the snapshot, and the
-// snapshot's content identity, lifts view-local vertices into the model-qualified selection currency, and
-// DELEGATES every view read to the seam memo. It holds no cache of its own — the `(EdgeFilter,
-// EdgeOrientation)` memo is `ElementGraph`'s, and a second one keyed here would have to stay bit-identical to
-// bit-identical to the seam builder across every new filter row.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class TopologyView {
     public ModelId Model { get; }
     public ElementGraph Graph { get; }
@@ -54,20 +49,14 @@ public sealed class TopologyView {
 
     public SetKey Key(NodeId node) => new(Model, node);
 
-    // Single-model results carry a single-model scope, so every `KeySelection` this lane mints declares the
-    // roster its members came from without the caller re-supplying one.
     public SetScope Scope => new(Seq(Model));
 
     public BidirectionalGraph<NodeId, TypedEdge> View(EdgeFilter filter, EdgeOrientation orientation) =>
         Graph.View(filter, orientation);
 
-    // `Advance` admits the next frozen snapshot and re-seats the model onto it. The advanced snapshot carries a
-    // fresh view memo the seam re-materializes per demanded row pair.
     public Fin<TopologyView> Advance(GraphDelta delta, Op key) => Graph.Apply(delta, key).Map(next => Of(Model, next));
 }
 
-// `ProjectTie` carries the federated edge: an in-model seam relationship LIFTED under its owning model, or a
-// durable cross-model `ModelLink` row — the two tie kinds one project walk crosses with no second incidence structure.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectTie {
     private ProjectTie() { }
@@ -77,12 +66,6 @@ public abstract partial record ProjectTie {
 
 public readonly record struct ProjectEdge(SetKey Source, SetKey Target, ProjectTie Tie) : IEdge<SetKey>;
 
-// `ProjectView` COMPOSES the per-model seam views and adds only the durable link rows — it re-derives no
-// per-model incidence (each lifted edge set comes off the seam memo) and mints no second per-model structure,
-// so the seam second-incidence ban holds whole at the federation altitude. This IS the one view build this
-// lane still performs, because a cross-model edge is a Persistence coordination row no seam incidence carries.
-// Callers supply link rows already validity-filtered at the durable read; an undirected `LinkKind` row
-// adds both orientations. Identity is the per-model address roster, so a delta advancing any member re-keys it.
 public sealed class ProjectView {
     private readonly ConcurrentDictionary<(EdgeFilter Filter, EdgeOrientation Orientation), BidirectionalGraph<SetKey, ProjectEdge>> cache = new();
     public Seq<TopologyView> Models { get; }
@@ -114,9 +97,6 @@ public sealed class ProjectView {
         return view;
     }
 
-    // `Expand` is the one-hop expansion the `Query/lane#ELEMENT_SET_ALGEBRA` `Closure` fold threads as
-    // `SetResolve.Expand`: out-neighbours over the full federated view, so a bounded walk crosses models exactly
-    // where a durable link row carries it.
     public Fin<Seq<SetKey>> Expand(Seq<SetKey> frontier) {
         BidirectionalGraph<SetKey, ProjectEdge> all = View(EdgeFilter.All, EdgeOrientation.Forward);
         return Fin.Succ(toSeq(frontier.Filter(all.ContainsVertex).Bind(key => toSeq(all.OutEdges(key).Select(static e => e.Target)))).Distinct());
@@ -147,7 +127,7 @@ public sealed class ProjectView {
 - Boundary: every traversal composes `AlgorithmExtensions`; generated `query.Switch(...)` dispatch remains exhaustive. `Rooted` and `Paired` convert unknown endpoints to `TopologyFault.RootAbsent`, while `IsDirectedAcyclicGraph` gates order, LCA, and reduction. `Placement`, `Members`, `Void`, and symmetric connection adjacency make every seam filter row this lane reads operational. Topological distance remains in-process, metric distance remains in `pgrouting`, and both return `KeySelection`-compatible keys.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TopologyQuery {
     private TopologyQuery() { }
@@ -164,8 +144,6 @@ public abstract partial record TopologyQuery {
     public sealed record Redundant : TopologyQuery;
 }
 
-// `Neighborhood` names one adjacency question as a row over the SEAM's filter and orientation vocabularies —
-// pairing rides the row as data, so a new adjacency is one row and never a second dispatch arm.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Neighborhood {
@@ -194,7 +172,7 @@ public abstract partial record TopologyResult {
     public sealed record Pruned(Seq<(SetKey From, SetKey To)> Redundant) : TopologyResult;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TopologyFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.StoreTopology;
@@ -213,7 +191,7 @@ public abstract partial record TopologyFault : Fault {
         notForest:  static c => $"<topology-multiple-parents:{c.Node}>");
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Traversals {
     public static readonly Seq<StoreSlot> Slots = Seq(
         StoreSlot.Create("store.topology.build"), StoreSlot.Create("store.topology.traverse"),
@@ -232,22 +210,16 @@ public static class Traversals {
         cycles:     _ => Fin.Succ<TopologyResult>(new TopologyResult.Cyclic(Cycles(view, view.View(EdgeFilter.All, EdgeOrientation.Forward)))),
         redundant:  _ => Reduction(view));
 
-    // Rooted-query guard rails `RootAbsent` when a query names a foreign model or a node absent from the
-    // snapshot, rather than returning a silent empty set — a wrong-model root IS absent from this view.
     static Fin<TopologyResult> Rooted(TopologyView view, SetKey root, Func<TopologyResult> run) =>
         root.Model == view.Model && view.Graph.Nodes.ContainsKey(root.Node)
             ? Fin.Succ(run())
             : Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(root.Node.Value));
 
-    // `Paired` rails either absent endpoint before path or ancestor algorithms execute.
-    // Its body retains its own `Fin` so LCA cycle and forest faults compose.
     static Fin<TopologyResult> Paired(TopologyView view, SetKey left, SetKey right, Func<Fin<TopologyResult>> run) =>
         left.Model != view.Model || !view.Graph.Nodes.ContainsKey(left.Node) ? Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(left.Node.Value))
         : right.Model != view.Model || !view.Graph.Nodes.ContainsKey(right.Node) ? Fin.Fail<TopologyResult>(new TopologyFault.RootAbsent(right.Node.Value))
         : run();
 
-    // `TreeBreadthFirstSearch` supplies bounded reachability over a pre-oriented seam view; results lift through
-    // `view.Key` into the model-qualified currency. Roots remain excluded.
     static KeySelection Walk(TopologyView view, EdgeFilter filter, EdgeOrientation orientation, NodeId root, int depth) {
         BidirectionalGraph<NodeId, TypedEdge> graph = view.View(filter, orientation);
         TryFunc<NodeId, IEnumerable<TypedEdge>> paths = graph.TreeBreadthFirstSearch(root);
@@ -255,15 +227,11 @@ public static class Traversals {
         return KeySelection.Of(toSeq(bounded.Select(view.Key)), view.Scope);
     }
 
-    // DIRECTIONAL out-neighbour set resolves a Void host's openings (the Void edge is
-    // directional Host->Feature, so the forward out-edges ARE the openings and an in-edge would be a different host).
     static KeySelection Adjacent(TopologyView owner, BidirectionalGraph<NodeId, TypedEdge> view, NodeId node) =>
         view.ContainsVertex(node)
             ? KeySelection.Of(toSeq(view.OutEdges(node).Select(e => owner.Key(e.Target))), owner.Scope)
             : KeySelection.Empty(owner.Scope);
 
-    // Symmetric connection adjacency unions outgoing targets and incoming sources.
-    // `BidirectionalGraph` supplies both directions without building a reversed view.
     static KeySelection Incident(TopologyView owner, BidirectionalGraph<NodeId, TypedEdge> view, NodeId node) =>
         view.ContainsVertex(node)
             ? KeySelection.Of(toSeq(view.OutEdges(node).Select(e => owner.Key(e.Target)).Concat(view.InEdges(node).Select(e => owner.Key(e.Source)))), owner.Scope)
@@ -274,8 +242,6 @@ public static class Traversals {
         return kind.Symmetric ? Incident(view, graph, node) : Adjacent(view, graph, node);
     }
 
-    // Offline LCA runs only after cycle and multiple-parent gates prove a spatial forest.
-    // Folding every root distinguishes unrelated trees from pairs under later federated roots.
     static Fin<TopologyResult> Lca(TopologyView view, NodeId left, NodeId right) {
         BidirectionalGraph<NodeId, TypedEdge> tree = view.View(EdgeFilter.Spatial, EdgeOrientation.Forward);
         SEquatableEdge<NodeId> pair = new(left, right);
@@ -307,9 +273,6 @@ public static class Traversals {
             : new TopologyResult.Disconnected(view.Key(from), view.Key(to));
     }
 
-    // ONE component-partition body: the labeller and the surviving-partition predicate are its two arguments,
-    // where components, islands, and cycles each spelled their own buffer, call, and grouping. The buffer is a
-    // mutable Dictionary because the QuikGraph labellers take an IDictionary out-parameter by contract.
     static Seq<KeySelection> Grouped(
         TopologyView owner, BidirectionalGraph<NodeId, TypedEdge> graph,
         Func<BidirectionalGraph<NodeId, TypedEdge>, IDictionary<NodeId, int>, int> label,
@@ -329,19 +292,15 @@ public static class Traversals {
         Grouped(view, view.View(EdgeFilter.All, EdgeOrientation.Forward),
             static (graph, labels) => graph.WeaklyConnectedComponents(labels), static _ => true);
 
-    // Cycles are strongly-connected partitions of more than one vertex, or singletons carrying their own self-loop.
     static Seq<KeySelection> Cycles(TopologyView view, BidirectionalGraph<NodeId, TypedEdge> graph) =>
         Grouped(view, graph, static (g, labels) => g.StronglyConnectedComponents(labels),
             members => members.Count > 1 || members.Exists(node => graph.ContainsEdge(node, node)));
 
-    // Spatial anchors are roots and sinks of the full containment-plus-aggregation tree.
     static KeySelection Anchors(TopologyView view) {
         BidirectionalGraph<NodeId, TypedEdge> spatial = view.View(EdgeFilter.Spatial, EdgeOrientation.Forward);
         return KeySelection.Of(toSeq(spatial.Roots().Concat(spatial.Sinks()).Select(view.Key)), view.Scope);
     }
 
-    // `Topological` gates on the DAG check, so source-first sorting never silently drops cyclic remainders and
-    // `SourceFirstTopologicalSort` never raises its `NonAcyclicGraphException` past the rail.
     static Fin<TopologyResult> Topological(TopologyView view) {
         BidirectionalGraph<NodeId, TypedEdge> graph = view.View(EdgeFilter.All, EdgeOrientation.Forward);
         return graph.IsDirectedAcyclicGraph()
@@ -349,8 +308,6 @@ public static class Traversals {
             : Fin.Fail<TopologyResult>(new TopologyFault.Cyclic(Cycles(view, graph).Count.ToString(CultureInfo.InvariantCulture)));
     }
 
-    // Transitive reduction diffs a DAG-gated spatial view against its minimal reachability-equivalent graph.
-    // Removed direct edges return as typed redundant pairs.
     static Fin<TopologyResult> Reduction(TopologyView view) {
         BidirectionalGraph<NodeId, TypedEdge> tree = view.View(EdgeFilter.Spatial, EdgeOrientation.Forward);
         if (!tree.IsDirectedAcyclicGraph()) {

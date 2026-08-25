@@ -87,8 +87,8 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
   ): void =>
     BrowserRuntime.runMain(
       Effect.flatMap(Boot, (spec) => Effect.annotateLogs(app, { app: spec.label })).pipe(
-        Effect.provide(handle), // one graph: the document run resolves through the same handle every call-in holds
-        Effect.ensuring(handle.disposeEffect), // the handle publishes teardown as an effect; a promise round-trip buys a defect
+        Effect.provide(handle),
+        Effect.ensuring(handle.disposeEffect),
       ),
     )
 }
@@ -112,8 +112,6 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
 ```typescript signature
 const _GRADES = { "4g": "swift", "3g": "steady", "2g": "strained", "slow-2g": "strained" } as const
 
-// Only what the agent DECIDED reaches the rail: a surface it never ships stays a value the cell carries, a descriptor
-// it cannot parse blames the caller, and a registration or query it turns down is re-drivable once conditions move.
 const _connectFamily = Fault.Class.family(["unparsed", "refused"] as const, {
   unparsed: Fault.Class.row({
     class: "absent",
@@ -121,8 +119,6 @@ const _connectFamily = Fault.Class.family(["unparsed", "refused"] as const, {
     detail: Schema.Struct({ name: Schema.String }),
     render: ({ name }) => `the agent parses no permission descriptor named ${name}`,
   }),
-  // The refused surfaces are a CLOSED pair — the permission query and the background-sync registration — so the
-  // column is a literal a reader can exhaust rather than a free string every new probe silently widens.
   refused: Fault.Class.row({
     class: "denied",
     leg: "signal",
@@ -170,11 +166,8 @@ const _edged = (feed: Stream.Stream<boolean>, from: boolean): Stream.Stream<void
     ),
   )
 
-// DOM's own interface name is taken by the platform service import, so the host surface reads off `Navigator` itself
 const _permissions = (): Option.Option<Navigator["permissions"]> => Option.fromNullable(globalThis.navigator.permissions)
 
-// `query` rejects `TypeError` for a descriptor the agent cannot parse, so the seam grades that arm against the caller
-// and everything else against the agent; a host shipping no surface at all never reaches here, because absence is data
 const _granted = (name: PermissionName): Stream.Stream<PermissionState, ConnectFault> =>
   Option.match(_permissions(), {
     onNone: () => Stream.empty,
@@ -223,8 +216,6 @@ class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
           Effect.forkScoped,
         ),
     })
-    // `false` carries capability absence alone — no worker container, or a registration without the member; a rejected
-    // registration is the agent's own decision, so it rides the rail instead of reading as an absent capability
     const wake = (tag: string): Effect.Effect<boolean, ConnectFault> =>
       Option.match(Option.fromNullable(globalThis.navigator.serviceWorker), {
         onNone: () => Effect.succeed(false),
@@ -233,7 +224,7 @@ class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
             try: async () => {
               const registration = await container.ready
               if (!("sync" in registration)) return false
-              await (registration as _SyncHost).sync.register(tag) // BOUNDARY ADAPTER: SyncManager is absent from the DOM lib; the refinement is pinned above
+              await (registration as _SyncHost).sync.register(tag)
               return true
             },
             catch: (defect) =>
@@ -272,7 +263,7 @@ class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
 const Capability: Layer.Layer<Clipboard.Clipboard | Geolocation.Geolocation | Permissions.Permissions> =
   Layer.mergeAll(Clipboard.layer, Geolocation.layer, Permissions.layer)
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { AppSpec, Boot, Capability, Connect, ConnectFault }
 ```

@@ -24,7 +24,7 @@
 - Growth: a host callback — or a host pair bracketing one fact — lands as one symbolic `EventFamily` row whose projection expires every callback-owned handle before delivery; a new stream refusal is one `DocumentFault` case and one offset row inside the band's span.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.IO;
 using System.Linq;
@@ -41,7 +41,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class EventBand {
     public static readonly EventBand Lifecycle = new(key: nameof(Lifecycle));
@@ -53,8 +53,6 @@ public sealed partial class EventBand {
     public static readonly EventBand Panels = new(key: nameof(Panels));
 }
 
-// The row CARRIES its refusal: `PerFrame` names the family that demanded frame cadence, so an admission
-// failure is a typed fault a caller matches rather than a boolean the observe entry re-rails.
 [SmartEnum]
 public sealed partial class Cadence {
     public static readonly Cadence Changed = new(static (_, _, _) => Fin.Succ(unit));
@@ -67,9 +65,7 @@ public sealed partial class Cadence {
     public partial Fin<Unit> Admits(Delivery delivery, EventFamily family, Op key);
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
-// The document-stream refusal family on the kernel band registry: generated case identity supplies the code and
-// the root's total switch supplies presentation.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DocumentFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostDocument;
@@ -302,8 +298,6 @@ public sealed partial class EventFamily {
             .ToFin(Fail: key.OrDefault().InvalidInput())
             .Map(active => toSeq(Items).Filter(family => family.Band == active));
 
-    // ONE binder, two arities discriminated by the projection's return shape: a pure projection lifts here and a
-    // fallible one rides its own rail — the former `OnFallible` name deletes for the general arity of one entry.
     private static Func<EventScope, ReceiptJournal, Func<Option<DocKey>, EventPayload, Fin<Unit>>, Action<Error>, Fin<Subscription>> On<TArgs>(
         Action<EventHandler<TArgs>> subscribe,
         Action<EventHandler<TArgs>> unsubscribe,
@@ -328,9 +322,6 @@ public sealed partial class EventFamily {
                         reject(obj: error);
                         return Fin.Fail<Unit>(error: error);
                     });
-                // Recorded, not raised: a projection fault rode `reject` into the journal and a delivery fault
-                // posts at the emission's own arm — a host event handler returns `void`, so the journal row IS
-                // this verdict's record and the discard here reads a verdict the journal already holds.
                 _ = outcome;
             };
             return Subscription.Attach(subscribe: subscribe, unsubscribe: unsubscribe, handler: handler);
@@ -406,8 +397,6 @@ public sealed partial class EventFamily {
                     uint counter = viewport.ChangeCounter;
                     CorrelationMove move = seen.Retain(key: (viewport.Id, document.RuntimeSerialNumber), value: counter);
                     _ = Cleared(journal: journal, family: family, move: move);
-                    // `Held` alone suppresses: an advanced counter delivers and a CONTENDED window delivers too,
-                    // because deduplication is an optimization and a gate that dropped under contention loses a fact.
                     return move is CorrelationMove.Held
                         ? Option<(Option<DocKey> Key, EventPayload Payload)>.None
                         : Gate(document: document, scope: watched, payload: new EventPayload.Projection(ViewportId: viewport.Id, ChangeCounter: counter));
@@ -475,10 +464,6 @@ public sealed partial class EventFamily {
     private static Option<(Guid Id, uint Serial)> DrawSubject(RhinoObject? subject) =>
         Optional(subject).Map(static value => (value.Id, value.RuntimeSerialNumber)).Filter(static value => value.Id != Guid.Empty);
 
-    // The verdict RIDES the transition and the step is snapshot-guarded — the kernel ring's own idiom — so the
-    // former `Lock`-and-`Dictionary` kernel deletes: `Held` answers an unmoved counter with no write at all,
-    // `Advanced` carries the count a capacity clear released, and `Contended` names a window another callback
-    // moved mid-step, which the caller treats as advanced because dedup is an optimization, never a gate.
     [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
     internal abstract partial record CorrelationMove {
         private CorrelationMove() { }
@@ -563,15 +548,12 @@ public sealed partial class EventFamily {
 - Law: no intermediate envelope exists — the projection hands its key-and-payload pair straight to the delivery continuation and `DocEvent` is the ONE carrier adding origin; a second two-field record between them shadowed the kernel `EventEnvelope` inside a namespace whose prelude imports `Rasm.Domain` and carried nothing `DocEvent` does not.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Which halves of a component transition the host publishes: a SET over one vocabulary, because all four
-// corners are real transitions and two parallel bool columns spelled the same fact twice per row.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class TransitionEvidence : ICapability<TransitionEvidence> {
     public static readonly TransitionEvidence Previous = new(key: "previous");
     public static readonly TransitionEvidence Current = new(key: "current");
 
-    // Every corner is legal — `Sorted` carries neither half and `Modified` both — so the law is open and states it.
     public static CapabilityLaw<TransitionEvidence> Law => CapabilityLaw<TransitionEvidence>.Open;
 }
 
@@ -631,8 +613,6 @@ public sealed partial class ViewKind {
     public static readonly ViewKind Page = new(key: 1);
 }
 
-// Presence is the CASE: each case carries the name column the host read for that state — `Name` on a live
-// component, `DeletedName` on a deleted one — so the bool that chose the host member is the discriminant.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ComponentState {
     private ComponentState() { }
@@ -737,10 +717,6 @@ public abstract partial record EventPayload {
     }
     public sealed record Panel(Guid PanelId, PanelState State) : EventPayload;
     public sealed record Files(Seq<FileEdge> Edges, long Overflow) : EventPayload;
-    // What one sealed commit record mutated, in HOST vocabulary alone. No causal identity and no clock: this boundary
-    // holds no store origin slot and no observed frontier, so an operation id minted here is a coordinate two hosts
-    // collide on — the store owning the origin mints it at the seam and maps these rows onto its own lanes. `Serial`
-    // is the host's undo coordinate and stays host-local evidence, because no peer replays another host's undo stack.
     public sealed record Sealed(string Record, uint Serial, Seq<SealedMutation> Mutations) : EventPayload {
         public override Seq<Guid> ObjectIds => Mutations.Map(static mutation => mutation.Id).Distinct();
     }
@@ -748,7 +724,7 @@ public abstract partial record EventPayload {
 
 public readonly record struct SealedMutation(TableKind Kind, Guid Id, ComponentTransition Transition);
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record EventOrigin {
     private EventOrigin() { }
@@ -757,33 +733,14 @@ public abstract partial record EventOrigin {
     public sealed record Commit(string Record) : EventOrigin;
 }
 
-// This host keeps ONE contributor registry over sealed-commit facts, fanned by the
-// `Document/tables#TRANSACTION_RAIL` railed `project` slot. Contributors register through `Observation.Commit`
-// attachment, so a closing watch detaches its own row under the same symmetric release law every host family
-// obeys; a per-folder sink beside this one publishes some commits and not others.
-//
-// Registration stays PROCESS-STATIC by host law rather than by convenience: RhinoCommon's document tables and
-// undo stack are process singletons, so a per-composition registry inside one `Rhino.exe` would let two co-resident
-// plugins each hold a partial view of one document's commits — the exact inverse of the per-composition law that
-// governs host-free packages, and stated here so the divergence reads as a decision.
-//
-// These facts are the host-local half of the estate's `OPLOG_ENTRY` contract: a contributor projecting them onto
-// that contract is a NAMED consumer of it, and the contract's own envelope — `Rasm/Domain/event#ENVELOPE_MINT`
-// minted at the durable owner — is what carries them past this process. This host mints no envelope of its own,
-// because a sealed commit crossing a boundary is an announcement the durable owner already publishes.
 public delegate Fin<Unit> CommitTap(DocKey Document, string Record, uint Serial, Seq<SealedMutation> Mutations);
 
 public static class CommitSink {
-    // Total appends and filters carry no verdict to read, so the plain swap is the lawful spelling and the
-    // former `Lock` gate deletes.
     private static readonly Atom<Seq<CommitTap>> Taps = Atom(Seq<CommitTap>());
 
     internal static void Add(CommitTap tap) => ignore(Taps.Swap(held => held.Add(value: tap)));
     internal static void Remove(CommitTap tap) => ignore(Taps.Swap(held => held.Filter(row => !ReferenceEquals(objA: row, objB: tap))));
 
-    // Composed as the envelope's `project` continuation, so it runs INSIDE the undo bracket after the serial stamp:
-    // one refusing tap fails the publication and the sealed record rolls back, which is exactly why the fan runs
-    // there rather than beside the envelope, where it would publish a record the seal then discarded.
     public static Func<TReceipt, Fin<TReceipt>> Sealing<TReceipt>(
         DocKey document, string record, Func<TReceipt, (uint Serial, Seq<SealedMutation> Mutations)> read) =>
         receipt => {
@@ -834,7 +791,7 @@ public readonly record struct FileEdge(FileChangeKind Kind, string Path, Option<
 - Law: `ReceiptPolicy` owns named operational and maximum rows; generated admission rejects nonpositive values, individual ceiling breaches, and aggregate overcommit.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class StreamLane {
     public static readonly StreamLane Mailbox = new(
@@ -891,9 +848,6 @@ public abstract partial record Delivery {
     public sealed record Paced(StreamLane Lane) : Delivery;
 }
 
-// `StreamBodyKind` states the body kinds this watch emits, so a slot DECLARES its admissible kinds as data.
-// Nine opaque `Func<StreamBody, bool>` type tests carried that fact on the slot rows before — the form the
-// fact-stream contract deletes, because no reader, receipt printer, or census could enumerate them.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StreamBodyKind : ICapability<StreamBodyKind> {
@@ -904,13 +858,8 @@ public sealed partial class StreamBodyKind : ICapability<StreamBodyKind> {
     public static readonly StreamBodyKind Reset = new(key: "reset");
 }
 
-// `StreamSlot` names the watch's consequences under the folder's kinded fact-stream contract: each row states
-// one consequence, its `Bodies` column the kinds it emits, and the kind IS the slot — the eleven former receipt
-// cases each restating the watch identity delete, because the journal already is one watch's.
 [SmartEnum<int>]
 public sealed partial class StreamSlot : IFactSlot<StreamBody, StreamBodyKind> {
-    // Read-before-use: the row initializers consume these sets, so static construction order decides declaration
-    // order here rather than the public-before-private one.
     private static readonly CapabilitySet<StreamBodyKind> Overrun = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Shed);
     private static readonly CapabilitySet<StreamBodyKind> Discarded = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Dropped);
     private static readonly CapabilitySet<StreamBodyKind> Errored = CapabilitySet<StreamBodyKind>.Of(StreamBodyKind.Faulted);
@@ -930,9 +879,6 @@ public sealed partial class StreamSlot : IFactSlot<StreamBody, StreamBodyKind> {
 
     public CapabilitySet<StreamBodyKind> Bodies { get; }
 
-    // `FileOverflow` and `FileFault` emit the SAME `FileTrouble` kind and split on whether its `Cause` carries the
-    // host error — value-dependence the case-keyed `Kind` fold answers only by holding a second authority over that
-    // column, so it stays one clause here and every other slot's admission is its `Bodies` set alone.
     public bool Admits(StreamBody body) =>
         Bodies.Admits(capability: body.Kind)
         && (this != FileFault || body is StreamBody.FileTrouble { Cause.IsSome: true });
@@ -940,10 +886,6 @@ public sealed partial class StreamSlot : IFactSlot<StreamBody, StreamBodyKind> {
     bool IFactSlot<StreamBody>.Admits(StreamBody body) => Admits(body: body);
 }
 
-// `StreamBody` closes the payload family: a fault carries its typed `Error`, so classification, band code, and
-// monoid all survive where a rendered detail string does not, and origin absence is the journal's own posting,
-// never a fabricated source. `Kind` is the total generated fold, so a new case breaks it loudly instead of
-// falling through some slot's type test.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StreamBody : IFactBody<StreamBodyKind> {
     private StreamBody() { }
@@ -961,7 +903,7 @@ public abstract partial record StreamBody : IFactBody<StreamBodyKind> {
         reset: StreamBodyKind.Reset);
 }
 
-// --- [STATE] ------------------------------------------------------------------------------
+// --- [STATE] ---------------------------------------------------------------------------
 [ValueObject<long>]
 public readonly partial struct WatchKey {
     [BoundaryAdapter]
@@ -1037,9 +979,6 @@ public sealed partial class ReceiptPolicy {
             admitted: admitted);
 }
 
-// The kernel ring IS the journal: cap, oldest-first eviction, and the shed counter are that owner's, so the
-// hand overflow accounting and the synthesized overflow row both delete — a reader reads `Shed` and `Lost`
-// beside `Receipts` as numbers.
 internal sealed class ReceiptJournal {
     private readonly Ring<Fact<StreamSlot, StreamBody>> ring;
 
@@ -1055,8 +994,6 @@ internal sealed class ReceiptJournal {
     internal long Shed => ring.Shed;
     internal long Lost => ring.Lost;
 
-    // A pairing the slot does not admit posts as its own journal fault rather than vanishing; the park's
-    // transition discards here because the ring already counted it — a declined park increments `Lost`.
     internal Unit Post(StreamSlot slot, StreamBody body) => ignore(ring.Park(item: slot.Admits(body: body)
         ? new Fact<StreamSlot, StreamBody>(Slot: slot, Body: body)
         : new Fact<StreamSlot, StreamBody>(
@@ -1090,7 +1027,7 @@ internal sealed class ReceiptJournal {
 - Exemption: native attach/detach, timer ownership, `Lock` scopes, and callback `try/finally` blocks are platform-forced lifetime seams.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EventScope {
     private EventScope() { }
@@ -1112,15 +1049,13 @@ public abstract partial record Observation {
         TimeProvider Clock,
         Delivery Delivery,
         ReceiptPolicy Receipts) : Observation;
-    // Sealed-commit source: attachment registers a `CommitTap` rather than a host callback, since the fact this
-    // source carries is minted by the boundary's own commit envelope and no RhinoCommon event reports it.
     public sealed record Commit(
         EventScope Scope,
         Delivery Delivery,
         ReceiptPolicy Receipts) : Observation;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class Watch : IDisposable {
     private readonly Lock gate = new();
     private readonly ReceiptJournal journal;
@@ -1209,7 +1144,6 @@ internal sealed class Emission {
     private readonly Reentrancy gate = new();
     private readonly Option<Channel<DocEvent>> channel;
     private readonly Option<IdlePump<EventOrigin>> idle;
-    // A one-way total set: cancellation carries no verdict a caller could lose, so the plain swap is lawful.
     private readonly Atom<bool> active = Atom(true);
 
     private Emission(
@@ -1236,7 +1170,6 @@ internal sealed class Emission {
                     channel: Option<Channel<DocEvent>>.None,
                     idle: Option<IdlePump<EventOrigin>>.None)),
             deferred: static (state, arm) => state.Op.Need(arm.Sink)
-                // The pump's loss callback posts the WATCH's own rows, so the generic pump stays journal-free.
                 .Bind(_ => IdlePump<EventOrigin>.Open(
                     capacity: Rasm.Numerics.Dimension.Create(value: state.Journal.Policy.DeferredCapacity),
                     lost: (loss, origin) => ignore(state.Journal.Post(
@@ -1282,8 +1215,6 @@ internal sealed class Emission {
                                 slot: StreamSlot.Cancelled,
                                 body: new StreamBody.Dropped(Origin: state.Fact.Origin))));
 
-    // The guard answers a VERDICT and this owner records it: absence posts the suppression, a failed run posts
-    // the sink fault — the guard itself stays journal-free so every composer records its own shape.
     private Fin<Unit> Delivered(DocEvent fact, Func<Fin<Unit>> run) => gate.Guarded(key: EmitKey, run: run).Match(
         Some: outcome => outcome.MapFail(cause => {
             _ = journal.Post(slot: StreamSlot.SinkFault, body: new StreamBody.Faulted(Origin: Some(fact.Origin), Cause: cause));
@@ -1302,10 +1233,8 @@ internal sealed class Emission {
     }
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class DocumentStream {
-    // A monotone counter is a total step: the swap returns the value THIS call installed, so the mint reads its
-    // own ordinal and no interlocked spelling survives beside the folder's one cell vocabulary.
     private static readonly Atom<long> Sequence = Atom(0L);
 
     public static Fin<Watch> Observe(Observation request) {
@@ -1317,8 +1246,6 @@ public static class DocumentStream {
             commit: static (key, observation) => ObserveCommit(request: observation, key: key)));
     }
 
-    // Commit observation admits `Inline` delivery alone: the tap runs inside the undo bracket, so a deferred or paced
-    // arm returns success before any subscriber saw the fact and the bracket's rollback guarantee then means nothing.
     private static Fin<Watch> ObserveCommit(Observation.Commit request, Op key) =>
         from scope in key.Need(request.Scope)
         from delivery in key.Need(request.Delivery)
@@ -1330,9 +1257,6 @@ public static class DocumentStream {
             key: key)
         select watch;
 
-    // Attachment is registration into `CommitSink`, the symmetric pair `Subscription.Attach` releases on close. The
-    // scope filter reads the closed `EventScope` union rather than a nullable key, so an any-document watch and a
-    // per-document watch differ by ROW and never by a null test the fan would have to repeat.
     private static Fin<Subscription> AttachCommit(EventScope scope, Emission emission) {
         CommitTap handler = (document, record, serial, mutations) =>
             scope.Switch(document, document: static (key, arm) => arm.Key == key, anyDocument: static (_, _) => true)
@@ -1352,7 +1276,6 @@ public static class DocumentStream {
             .As()
             .Map(static named => named.Distinct())
             .Bind(named => named.IsEmpty ? Fin.Fail<Seq<EventFamily>>(error: key.InvalidInput()) : Fin.Succ(value: named))
-        // The cadence row carries its own refusal, so the admission is one rail and the fault names the family.
         from _ in families.TraverseM(family => family.Cadence.Admits(delivery: delivery, family: family, key: key)).As()
         from watch in Mount(
             delivery: delivery,
@@ -1598,7 +1521,7 @@ Process-global custody census — collision class, arbitration, and seat cardina
 |  [12]   | `RhinoDoc.AddCustomUndoEvent`              | handler graph retained until cleared | record-scoped; no host detach exists     | host    |
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>]
 public readonly partial struct PluginKey {
     [BoundaryAdapter]
@@ -1614,9 +1537,6 @@ public readonly partial struct PluginKey {
     }
 }
 
-// The roster realizes the kernel floor whole: the modality column is the kernel capability set — the membership
-// probe arrives with it, so no local `Admits` re-answers one question — the `HookId` and the trace plane derive
-// from the key through accessor-backed indexes, and the plane is the key's own `rasm.rhino.<domain>` prefix.
 [SmartEnum<string>]
 public sealed partial class RhinoPoint : IHookRoster<RhinoPoint> {
     public static readonly RhinoPoint DocumentLifecycle = new(key: "rasm.rhino.document.lifecycle", modalities: CapabilitySet<HookModality>.Of(HookModality.Observe));
@@ -1650,7 +1570,6 @@ public sealed partial class RhinoPoint : IHookRoster<RhinoPoint> {
 
     public HookId Id => Ids.Value[this];
 
-    // The plane is the key's own first three segments — `rasm.rhino.<domain>` — derived once behind the accessor.
     public Option<TraceScope> Plane => Some(Planes.Value[this]);
 
     private static readonly Lazy<FrozenDictionary<RhinoPoint, HookId>> Ids =
@@ -1661,10 +1580,7 @@ public sealed partial class RhinoPoint : IHookRoster<RhinoPoint> {
             static row => TraceScope.Create(value: string.Join('.', row.Key.Split('.').Take(3)))));
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Discovery, first-mount-wins custody, and multi-plugin arbitration OVER the kernel seat table: the kernel
-// `HookMounts` holds every TYPED binding and answers every typed bind, this registry holds only custody
-// metadata — the seat owner, the rider map, and the ask/grant TYPE PAIR compared for divergence, never cast.
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class MountRegistry {
     private static readonly HookMounts<RhinoPoint, PluginKey> Kernel = new();
 
@@ -1677,9 +1593,6 @@ public static class MountRegistry {
             ? Some((Point: point!, Owner: row.Value.Owner, Riders: toSeq(row.Value.Riders.Keys).Map(PluginKey.Create).Strict()))
             : None);
 
-    // The kernel mount runs FIRST — an effect never rides a claim's mint — and a ceded claim releases the
-    // surplus kernel seat on the losing arm before riding the standing one, the same posture the paint stock
-    // holds for a surplus resource mint.
     public static Fin<IDisposable> Mount<TAsk, TGrant>(HookBinding<RhinoPoint, PluginKey, TAsk, TGrant> binding, Op? key = null)
         where TAsk : notnull
         where TGrant : notnull {
@@ -1714,14 +1627,9 @@ public static class MountRegistry {
             (held, mount) => op.Need(mount)
                 .Bind(run => op.Catch(run))
                 .Map(seat => held.Add(seat))
-                // The one rollback rail: every seated disposer runs, reverse order, cleanup faults aggregating
-                // into the primary — the hand reverse fold this page carried deletes onto it.
                 .Rollback(held: held, release: seat => op.Catch(() => { seat.Dispose(); return Fin.Succ(value: unit); }), key: op));
     }
 
-    // Name-addressed discovery resolving through the kernel's TYPED bind: the seat names the owner whose kernel
-    // binding answers, so no cast and no `IsAssignableFrom` probe survives — a mismatched ask fails at the
-    // kernel by name.
     public static Fin<TGrant> Bind<TAsk, TGrant>(RhinoPoint point, TAsk ask, Op? key = null)
         where TAsk : notnull
         where TGrant : notnull {
@@ -1732,8 +1640,6 @@ public static class MountRegistry {
                select grant;
     }
 
-    // Divergence and duplication are ARBITRATION over type tokens as data: the tokens compare, nothing casts.
-    // The rider joins through a snapshot-guarded step, so a raced duplicate declines rather than double-seating.
     private static Fin<IDisposable> Ride<TAsk, TGrant>(PointSeat seat, RhinoPoint point, Guid plugin, Op op) =>
         seat.Ask != typeof(TAsk) || seat.Grant != typeof(TGrant)
             ? Fin.Fail<IDisposable>(new DocumentFault.SeatDiverged(Key: op, Point: point))
@@ -1754,9 +1660,6 @@ public static class MountRegistry {
                         refused: static (_, row) => Fin.Fail<IDisposable>(row.Cause),
                         contended: static (ctx, _) => Fin.Fail<IDisposable>(Op.Of(name: nameof(MountRegistry)).InvalidResult()));
 
-    // The rider removal is a total swap; the freed seat's kernel detach is IDEMPOTENT (an atom-remove of an
-    // absent key), so the last-rider race resolves by letting every candidate release — a second dispose is a
-    // no-op, never a double-free.
     private static Unit Unseat(string pointKey, Guid plugin) {
         Option<PointSeat> prior = Seats.Value.Find(pointKey);
         _ = Seats.Swap(held => held.Find(pointKey).Match(
@@ -1808,7 +1711,7 @@ public static class DocumentHooks {
 - Boundary: rows carry dotted `rasm.rhino.*` names with UCUM units and closed dimensions; instrument execution over these declarations is app-root altitude, never a second measurement truth inside the boundary, and provider custody stays with the per-ALC factory owner. The kernel `Sensitivity.Values` roster rides the port's `Classifications` column whole, so every value `Objects/authoring.md`'s four attach attributes stamp is rostered at composition and a value present at the producer and absent at the root refuses at admission instead of erasing at egress.
 
 ```csharp signature
-// --- [TABLES] -----------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 public static class RhinoInstruments {
     public const string Scope = "Rasm.Rhino";
     public const string StreamLoss = "rasm.rhino.stream.loss";

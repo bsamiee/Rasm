@@ -37,10 +37,10 @@ using MessagePack;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Hybrid;
 using NodaTime;
-using Rasm.Domain;                                // TenantId, ContentHash/CanonicalWriter, FaultBand, [FaultCase]/Fault, Retriability
-using Rasm.Element.Projection;                    // AdmissionSlots — the ONE accumulating admission fold, deferred-mint arity
+using Rasm.Domain;
+using Rasm.Element.Projection;
 using Rasm.Persistence.Element;
-using Rasm.Persistence.Store;                     // RollingWindow + StoreProfile (provisioning#SERVER_EXTENSIONS); StoreHop/ColumnVerb/StoreRedrivePort (store/redrive#REDRIVE_SEAM)
+using Rasm.Persistence.Store;
 using Rasm.Persistence.Version;
 using StackExchange.Redis;
 using Thinktecture;
@@ -48,14 +48,8 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TABLES] -----------------------------------------------------------------------------
-// One direct `CacheFault` union owns policy admission and every wide-column provider refusal on offsets 0-9 of
-// `FaultBand.Cache`. `Lift` preserves the captured provider error on every typed boundary case, and generated
-// case identity proves the offsets unique and in-span when the family initializes.
+// --- [TABLES] --------------------------------------------------------------------------
 
-// `CacheSlots` is the page's ONE slot roster the `SlotRegistry.Mounted()` census spreads. It seats here rather
-// than on any single owner because five owners across this page emit — an owner-local roster left the memo
-// slots uncensused and duplicated the two residency rows onto a second list that no compiler kept in step.
 public static class CacheSlots {
     public static readonly StoreSlot Artifact = StoreSlot.Create("store.cache.artifact");
     public static readonly StoreSlot ResultHit = StoreSlot.Create("store.cache.result.hit");
@@ -73,8 +67,7 @@ public static class CacheSlots {
         MemoHit, MemoMiss, MemoPublish, ResidencyClaim, ResidencySweep);
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
-// Policy admission and provider refusals share this one direct family.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CacheFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Cache;
@@ -126,7 +119,7 @@ public abstract partial record CacheFault : Fault {
     };
 }
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>]
 public readonly partial struct CacheToken {
@@ -144,11 +137,8 @@ public readonly partial struct CachePageSize {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Identical recipes and inputs resolve prior assets without importing a Pollination type. The preimage streams
-// through the kernel `CanonicalWriter` — `String` length-frames, `Rows` count-frames the input run, `U128`
-// fixes each key's width — so the framing law has ONE owner and this page hand-builds no buffer.
 public readonly record struct CloudRunKey(string RecipeDigest, Seq<UInt128> InputKeys, string ProjectSlug) {
     public UInt128 Content => ContentHash.Of(this, static (key, writer) => {
         writer.String(key.RecipeDigest)
@@ -197,13 +187,9 @@ public sealed record ArtifactIndexRow(
 - Boundary: this is the ONE cross-process result-reuse recency horizon — the upstream inference cache (`Model/run#RESULT_CACHE`), the distributed solve sub-block reuse (`Tensor/factor#KERNEL_LOWERING` threads it as the `Blocked.Reuse` column and reads RESIDENCE only — `Lookup` resolves the dedup-keyed `ModelResultRow`, the object-store port yields the `SolveResponse` bytes at that residence), the benchmark recency gate (`#BENCHMARK_INDEX` reads `RecencyHorizon`), and the cost-formula reuse (`Symbolic/lowering#LOWERING_CACHE` keyed by its OWN content identity, never a fabricated `ModelResultKey`) all read it by reference and a second `Duration horizon` minted beside it is the named defect; the index is content-addressed by the suite `XxHash128` so a sub-block keyed by the streamed-request hash folded with the provider dedup key and an inference key folded from `ModelResultKey` resolve through the same `Lookup`/`Publish` seam, never two dedup owners, and `Publish` records the RESIDENCE row (the index never holds the payload — a 2-arg `Publish(address, payload)` is the deleted phantom); the reuse read is the synchronous `Query/lane#READ_ROUTING` lane because serving a stale dedup is a correctness fault, never the async columnar lane; the freshness gate lives INSIDE `Lookup` so a consumer cannot reuse a stale row by forgetting a bool — the only correct miss-or-hit is the index's own; the host fingerprint crosses as a string (the AppHost-declared `HostFingerprint.ToString`/`DeterminismTag`) so the index holds no spine or upstream type and the strata dependency stays one-directional; `ModelResultKey` carries ONNX-run identity (model/EP/precision) so a non-ONNX content-keyed reuse (a compiled symbolic formula) keys by its own content identity and never fabricates a `ModelResultKey`.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ModelResultKey(string ModelChecksum, UInt128 InputDigest, string ResultKey) {
-    // Dedup preimages stream the kernel `CanonicalWriter`, whose `String` length-frames both UTF-8 fields and
-    // whose `U128` fixes the digest's width — so a `(checksum, result-key)` boundary shift can never alias two
-    // distinct calls onto one cached result, and the framing law lives at ONE owner rather than in a
-    // hand-written buffer this page kept byte-identical to a sibling by inspection alone.
     public UInt128 Content => ContentHash.Of(this, static (key, writer) => {
         writer.String(key.ModelChecksum).U128(key.InputDigest).String(key.ResultKey);
     });
@@ -213,7 +199,7 @@ public readonly record struct ModelResultKey(string ModelChecksum, UInt128 Input
 
 public readonly record struct ModelResultRow(UInt128 Content, ContentAddress Residence, string Fingerprint, Instant At);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class ModelResultIndex {
     readonly IClock clock;
@@ -225,9 +211,6 @@ public sealed class ModelResultIndex {
     ModelResultIndex(Duration recencyHorizon, IClock clock, Func<UInt128, IO<Option<ModelResultRow>>> resolve, Func<ModelResultRow, IO<Unit>> record) =>
         (RecencyHorizon, this.clock, this.resolve, this.record) = (recencyHorizon, clock, resolve, record);
 
-    // Four INDEPENDENT admissions accumulate: the conjunction they replace reported "recency-horizon" as the
-    // evidence for an absent port, naming a policy that was never the fault, and a composition root wiring three
-    // ports fixed one miss per boot cycle.
     public static Fin<ModelResultIndex> Of(Duration recencyHorizon, IClock clock, Func<UInt128, IO<Option<ModelResultRow>>> resolve, Func<ModelResultRow, IO<Unit>> record) =>
         AdmissionSlots.Accumulate(Seq(
             AdmissionSlots.Gate(recencyHorizon > Duration.Zero, "recency-horizon", recencyHorizon, CacheFault.InvalidPolicy),
@@ -271,11 +254,7 @@ public sealed class ModelResultIndex {
 - Boundary: the row is the AppHost `BenchmarkReceipt` custody projection under the benchmarks claim-field map — measurement and identity columns persist (`Median`, `P95`, `AllocatedBytes`, `Operations`, `Corpus`, `ArtifactKey`), while `Verdict` and `Correlation` are per-run facts that never persist, so a stale verdict cannot masquerade as truth; invalid measurements and blank fingerprints fail the mint and cannot enter persistence; the row holds the fingerprint as a STRING — the AppHost-declared `HostFingerprint.ToString`/`DeterminismTag`, the ONE render every claim store, claim wire, and gate comparison reads, so no row picks between two renders — and the benchmark index carries no spine or upstream type and the strata dependency stays one-directional — the upstream `Rasm.Compute` numeric and SIMD lanes compose `Claim` by reference (`Tensor/blas#PROVIDER_CLAIMS` resolves the winner against the running fingerprint and `ModelResultIndex.RecencyHorizon` then hands it to `LinearProvider.Select`) and a second benchmark store beside this index is the named defect; the claim is fingerprint-gated and recency-bounded so a stale or wrong-host benchmark never wins a route, and the recency horizon is the `ModelResultIndex` owner's, never a second `Duration` minted here; the retention class is the `cache` row because a benchmark claim is re-derivable by re-running the equivalence sweep, so the sweep governs eviction and a never-evict benchmark store is the named defect.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Standing benchmark corpus: one row per hot-path family, its subject owner named as data and its claim
-// keys suite-owned, so a regression gates on a measured fingerprint-matched delta — a slower codec or merge
-// fold FAILS a claim, never a vibe check — and a new hot path is one row, zero index edits. Corpus runs land
-// on the branch test substrate (BenchmarkDotNet); only RESULT rows persist here.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BenchmarkFamily {
@@ -290,25 +269,13 @@ public sealed partial class BenchmarkFamily {
     public string Measures { get; }
     private BenchmarkFamily(string key, string subject, string measures) : this(key) => (Subject, Measures) = (subject, measures);
 
-    // Suite-owned row mint: the generated family instance and admitted case token derive the complete key.
     public Fin<BenchmarkRow> Claim(CacheToken @case, string route, Duration median, Duration p95, long allocatedBytes,
         long operations, Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
         BenchmarkRow.Mint(this, @case, route, median, p95, allocatedBytes, operations, corpus, artifactKey, fingerprint, at);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Custody projection of the AppHost BenchmarkReceipt under the benchmarks claim-field map: Key carries
-// `{Suite}/{Case}/{Route}` (the suite IS a `BenchmarkFamily` key; route joins the durable identity so two
-// routes of one family+case never collide into one latest-wins row), Fingerprint the one host-identity string (the
-// AppHost HostFingerprint.ToString render), Corpus the input identity a corpus-bound family
-// stamps; Verdict and Correlation are per-run facts and never persist. Every measurement column folds from the
-// BenchmarkDotNet `Summary` graph the substrate mints — `Median`/`P95` from
-// `Summary.Reports[case].ResultStatistics.Median`/`.Percentiles.P95`, `AllocatedBytes` from
-// `BenchmarkReport.GcStats`, `Operations` from the result-stage `AllMeasurements` — and `ArtifactKey`
-// content-addresses the `JsonExporter.Full` per-run artifact, so the durable row references the full
-// distribution by key rather than re-embedding it; the transient `Summary` and its child-process artifacts
-// never cross the strata boundary.
 public sealed record BenchmarkRow {
     BenchmarkRow(string key, string route, Duration median, Duration p95, long allocatedBytes, long operations,
         Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
@@ -322,23 +289,11 @@ public sealed record BenchmarkRow {
     public long AllocatedBytes { get; }
     public long Operations { get; }
     public Option<UInt128> Corpus { get; }
-    // DISTINCT-BY-DESIGN against `Rasm.Bim`'s `ArtifactKey` value object — the discriminant is the identity regime.
-    // This column is the harness's own export PATH, the `ExporterBase.GetArtifactFullName(Summary)` string the AppHost
-    // bench edge resolves and hands across as a plain `string`, so it stays an `Option<string>` column three packages
-    // spell alike; Bim's type MINTS a `<content-key:x32>:<format-key>` object-plane address and admits it through its
-    // own gate. A path a run wrote, never a minted address — which is why the schema tier took `ArtifactPath` instead.
     public Option<string> ArtifactKey { get; }
     public string Fingerprint { get; }
     public Instant At { get; }
     public RetentionClass Retention => RetentionClass.Cache;
 
-    // Seven admissions, six of them INDEPENDENT, accumulate through the seam's deferred-mint slot arity — the
-    // `CacheFault.InvalidPolicy` method group runs on the failing arm alone, so a passing mint allocates no fault. A
-    // malformed sweep row reports every offending column in one refusal, where the seven-deep ternary ladder it
-    // replaces surfaced the first miss alone and a corpus run fixed one column per re-run. `p95 >= median` is
-    // this family's one DEPENDENT check, binding inside its own slot rather than reading another's result. `CacheToken`
-    // is a struct value object: null is unrepresentable and zero-init is the admission-bypassing ghost, so the
-    // mint reads the key member before the identity forms.
     internal static Fin<BenchmarkRow> Mint(BenchmarkFamily family, CacheToken @case, string route, Duration median, Duration p95,
         long allocatedBytes, long operations, Option<UInt128> corpus, Option<string> artifactKey, string fingerprint, Instant at) =>
         AdmissionSlots.Accumulate(Seq(
@@ -377,9 +332,7 @@ public sealed record BenchmarkRow {
 - Boundary: identity is the PRODUCER's content key — this band mints no key and decodes no payload, so solver truth round-trips opaque and only its producer reads it; content-exactness is what deletes the recency horizon — the `#MODEL_RESULT_INDEX` horizon governs results whose identity is not total over inputs, and importing it here expires truth that cannot stale; rows derive `RetentionClass.Cache`, so the `Version/retention#SWEEP_AND_GC` sweep alone evicts by budget; the S2-peer law holds whole — Fabrication never references this package, the composition root binds the `HybridCache` L2, and the prefix dispatch is the entire federation seam; tenant scoping rides the same `CachePartition.Scoped` derivation every L2 row takes.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// `SolverMemoKind` rows each producer: the PREFIX is the L2 dispatch discriminant and the producer label names the
-// key mint, so the band's vocabulary and the cache-key spelling cannot drift apart.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SolverMemoKind {
@@ -390,18 +343,16 @@ public sealed partial class SolverMemoKind {
     public string Prefix => $"{Key}:";
     private SolverMemoKind(string key, string producer) : this(key) => Producer = producer;
 
-    // `Of` is the L2 store's routing read: a solver-memo key lands in the durable band, every other key
-    // keeps the deadline-capped generic row.
     public static Option<SolverMemoKind> Of(string cacheKey) =>
         toSeq(Items).Find(kind => cacheKey.StartsWith(kind.Prefix, StringComparison.Ordinal));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SolverMemoRow(SolverMemoKind Kind, UInt128 Identity, ReadOnlyMemory<byte> Payload, Instant At) {
     public RetentionClass Retention => RetentionClass.Cache;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SolverMemo {
     public static IO<Option<SolverMemoRow>> Get(SolverMemoKind kind, UInt128 identity, Func<SolverMemoKind, UInt128, IO<Option<SolverMemoRow>>> resolve) =>
         resolve(kind, identity);
@@ -430,13 +381,9 @@ public static class SolverMemo {
 - Boundary: Persistence contributes exactly ONE L2 store row (the `IBufferDistributedCache` buffer-contract storage that spares the cache-runtime intermediate-array copy, persisting one `byte[]` at the Marten document seam) and ONE `IHybridCacheSerializerFactory` (the MessagePack codec for every payload `T`), registered through the AppHost `CacheSurface.Register(services, contributed)` `AddSerializerFactory` on every keyed builder, never a per-type `AddSerializer<T>`; the AppHost `HybridCache` runtime composes ON TOP — `GetOrCreateAsync` drives stampede-protected single-flight population, `RemoveByTagAsync` cuts a lane by its key tag, and the `HybridCacheEntryFlags` lane axis (`DisableLocalCache` on the `ArtifactBlob` lane so an oversized GLB never pins L1, `None` on the `ModelResult` lane) is the per-lane L1/L2 routing — so the L1+stampede+tag-invalidation half is the AppHost port's and the L2-store+serializer half is this contribution, one cache owner across both and never a second; the L2 wire is the `messagepack` `SnapshotCodec.Binary` row so the durable cache bytes and the snapshot/event bytes share one codec and one `Instant` formatter, never a cache-local serializer; the content-address key partitions by `TenantId` through `Scoped` so the `#MODEL_RESULT_INDEX` `ModelResultKey.ToString` lane key and the `#ARTIFACT_BLOB_INDEX` content key both read one tenant-scoped identity exactly as `Element/identity#ELEMENT_IDENTITY` scopes the durable row by `current_setting('rasm.tenant', true)` over the kernel's canonical tenant text; tag invalidation is an explicit cache capability and never substitutes for durable store integrity — a tag cut is a logical miss-until-expiry, the `RemoveAsync` physical delete its sibling, and the durable reuse rows live on the retention sweep, not the cache TTL; the backplane is LOSSY BY DESIGN — a missed beat is a TTL-bounded stale read, never corruption (the presence-lane precedent), because correctness lives in the durable index rows and the runtime's self-describing expiry message envelope, so the beat channel is a latency optimization the deployment composes only where the Redis `Store` row is live; hardening the backplane into a delivery guarantee creates a second reliability owner beside `Version/egress`, the deleted form; the durable rows here are Marten documents and the backplane needs a live Redis row, so neither realizes on a single-process embedded store — `#INDEX_RESIDENCY` `Admit` is the ONE cache-lane gate covering both halves, refusing at profile selection rather than at the first `TryGetAsync`.
 
 ```csharp signature
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func<DateTimeOffset> now) : IBufferDistributedCache {
-    // `Partition` publishes the L2 row's mapping contribution the composition root folds over the
-    // `Element/graph#STREAM_GRAIN` spine seat: policy stays the `Store/provisioning#SERVER_EXTENSIONS`
-    // `RollingWindow` `cache-blob` row and this publishes only the duplicated key, so a `PartitionOn` carrying its
-    // own period literals is the deleted form. It seats HERE because the S0 spine may not name this S3 type.
     public static StoreOptions Partition(StoreOptions opts) =>
         RollingWindow.CacheBlob.Declare<CacheBlob>(opts, static row => row.Window);
 
@@ -501,12 +448,6 @@ public sealed class CacheL2Store(IDocumentStore store, CacheToken storeKey, Func
     }
 }
 
-// `Window` is the IMMUTABLE admission stamp and the `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow`
-// `cache-blob` partition key — the duplicated `DateTimeOffset` its declaration asserts at configuration time.
-// `ExpiresAt` alone moves under a sliding refresh, so a renewed row stays in the partition it was admitted to
-// and no upsert ever migrates a row across partitions; this family's aged edge sits a day past the `cache`
-// class age bound, so a dropped partition retires only rows the per-row verdict already evicted and a live
-// sliding entry the drop catches is a logical miss the next populate refills.
 public sealed record CacheBlob(string Id, byte[] Payload, DateTimeOffset Window, Option<DateTimeOffset> AbsoluteExpiration, Option<DateTimeOffset> ExpiresAt, Option<TimeSpan> SlidingExpiration);
 
 public sealed class CacheCodecFactory : IHybridCacheSerializerFactory {
@@ -528,28 +469,15 @@ public abstract partial record InvalidationMode {
     public sealed record Tracking : InvalidationMode;
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CachePartition {
-    // `frame.Tenant.TenantId` supplies the injected tenant; no ambient tenant context exists. CacheL2Store
-    // derives every durable row key through THIS scope, and the AppHost `CacheLane.Scoped` folds the same tenant
-    // into the L1/L2 logical key — one tenant-partition law at both seam endpoints, so an equal content key under
-    // two tenants yields two cache identities everywhere. The AppHost `CacheLane.Tag` owner space is the DISJOINT
-    // sibling: lane-framed under `/` where every key space here joins on `:`, it addresses the runtime tag index
-    // alone and never reaches a durable row, so a lane-scoped cut and a stored row can never name each other.
     public static string Scoped(CacheTier tier, TenantId tenant, UInt128 content) =>
         string.Create(CultureInfo.InvariantCulture,
             $"{tier.Key}:{ContentHash.Of(tenant, static (id, w) => { w.U128(id.Value); }):x32}:{content:x32}");
 }
 
-// `InvalidationBackplane` carries one lossy channel per store and tenant; TTL bounds missed beats.
-// RESP3 tracking converts server invalidations into matching `HybridCache` removals.
 public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCache cache, CacheToken storeKey, TenantId tenant) {
-    // `RedisChannel` is the StackExchange.Redis PUB/SUB TOPIC token, not `System.Threading.Channels.Channel<T>`:
-    // those two share a word and nothing else, and the folder's one in-process fan-out rides the changefeed pump
-    // at `Version/egress`. Composition supplies one injected tenant source for channel and key partitioning; the
-    // channel spells the kernel `Text` render, so a beat channel and the durable partition it invalidates name
-    // one tenant alike.
     public RedisChannel Channel =>
         RedisChannel.Literal(string.Create(CultureInfo.InvariantCulture, $"rasm.cache.{storeKey}:{tenant.Text}"));
 
@@ -623,12 +551,7 @@ public sealed class CacheBackplane(IConnectionMultiplexer connection, HybridCach
 - Boundary: the wide-column row is a PROJECTION residence — the DECISION seals the SoR spine SINGULAR (one event store, one materializer, one identity, one changefeed), so the scylla residence holds index ROWS keyed by the SAME kernel content identity and can always be rebuilt from the Marten substrate; the LWT claim gate (`InsertIfNotExistsAsync → AppliedInfo<T>.Applied`) is the distributed write-once admission at federation scale — `Serial`/`LocalSerial` is the LWT consistency, distinct from the quorum levels the reads ride; `CqlVector<T>` is recorded embedding-next-to-row ONLY (the corpus ANN owners stay `Query/retrieval`'s pgvector/pgvectorscale rows — never a fifth vector row); the driver's transitive `Newtonsoft.Json` stays driver-internal and the wire codec transits nothing of the STJ rails; `Unavailable`/`WriteTimeout`/`HostDown` are retry-relevant availability faults a recovery predicate re-drives off the kernel `Retriability` the band overrides from its roster row's `Posture`, while `LwtRefused` is structurally unretriable — the guard the CAS required was refused by a concurrent winner, the same honesty the coordination lease fence carries; that posture is the kernel discriminant, so this band and the object plane fold through the ONE `Store/redrive#REDRIVE_SEAM` `StoreVerdict.Of` with no per-band arm and reach whatever executor the composition root bound through `StoreRedrivePort`, the hop named as `StoreHop.WideColumn(ColumnVerb.Claim)` and `StoreHop.WideColumn(ColumnVerb.Sweep)` — the two op shapes this residence dials — a claim and a sweep cross a PROCESS SEAM, so `docs/stacks/csharp/domain/resilience.md` `[04]-[LAYER_SPLIT]` seats the executor at the root's hop pipeline and this page classifies without executing; the pipeline is admissible because neither dialed op carries a multi-statement transaction — an LWT claim is ONE conditional statement and a page fetch ONE read — so the executor brackets a single unit and replays from the boundary that unit begins at, which is the discriminant `resilience.md` uses to forbid a pipeline around transactional store work; the pinned `FallthroughRetryPolicy` is what makes that layer the SOLE re-drive owner, since a driver-level policy re-issuing the CAS reads back its own committed write, so pinning fallthrough surrenders the driver's claim and leaves exactly one owner above; the CLAIM gate's posture is its `CacheProfile` row's pinned `FallthroughRetryPolicy`, never an inherited cluster default, because `AppliedInfo.Applied` is a typed non-thrown outcome no retry or speculative-execution policy can observe, so a driver-level re-issue of the CAS reads its own committed write and reports the winner refused — `FallthroughRetryPolicy` makes the timeout surface as the transient `WriteTimedOut` a caller re-drives with full knowledge, and re-driving under a policy blind to that verdict is the deleted form; `NoSpeculativeExecutionPolicy.Instance` closes the same blindness on the other axis, since a pre-emptive duplicate of an LWT is a second CAS reading back its own first attempt's committed write; `WriteTimeoutException.WriteType` crosses as the driver's raw `string` (`"BATCH_LOG"` among its values) so `Lift` carries it verbatim and no reader re-parses a message, and a reader that decides on it closes the vocabulary at this ONE boundary; the achieved consistency level is UNREACHABLE on the POCO rail and the roster forecloses the question rather than answering it — `AppliedInfo<T>` carries `Applied` and `Existing` alone, `IPage<T>` carries the two paging states alone, and both discard the `RowSet` whose `ExecutionInfo` held the level, while a level read off a FRESH `ExecutionInfo` answers `ConsistencyLevel.Any`, a coordinator verdict nobody gave — so each receipt publishes the level its bound `CacheProfile` row DECLARED and the roster seats no `DowngradingConsistencyRetryPolicy`, the one policy in the family that completes a request beneath its named level, so achieved cannot fall below requested; `ExecutionInfo.QueriedHost` computes `TriedHosts[Count-1]` and throws `NullReferenceException` on a null roster, so a fence reaching it through `ISession` reads it guarded or not at all; the whole cache lane refuses at PROFILE SELECTION through `Admit`, because the wide-column residence projects the Marten substrate and the `#L2_CONTRIBUTION` rows ARE Marten documents, so a single-process embedded deployment realizes neither and states that at admission instead of at the first claim — the refusal is `CacheFault.InvalidPolicy` carrying the lane and the refusing profile, never a new band row, since the `[FaultCase]` ordinals fills the decade's ten offsets exactly and a lane case here restrides a sibling union to name a policy value the existing case already spells.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// `IndexResidency` is stable deployment identity; admission, content identity, and horizon remain shared.
-// `Degrade` states what each row GIVES UP, because a residence that surrenders a query shape and does not say so
-// leaves every caller to discover the loss at the first predicate the row cannot serve. The wide-column row's
-// partition key is `(tenant, kind)` and its clustering `(at, content)`, so a predicate outside that prefix has no
-// index — the shape the ceiling is bought with, not a defect.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IndexResidency {
@@ -640,14 +563,6 @@ public sealed partial class IndexResidency {
     private IndexResidency(string key, string degrade) : this(key) => Degrade = degrade;
 }
 
-// Execution profiles resolve by NAME, and `IInternalSession.GetRequestOptions` THROWS `ArgumentException` naming
-// that missing profile on the FIRST execute rather than falling back. Closing the roster as rows the `Builder`
-// declaration and every call site share makes an unrostered profile unspellable. `Root` names the driver's OWN base profile,
-// which the cluster already carries: it is the one row `Declare` skips and the base every other row derives
-// from, so `WithDerivedProfile` takes a vocabulary key on both sides and never a naked `"default"`. The six
-// optional columns are the whole `IExecutionProfileBuilder` surface, and an unset column INHERITS from the base
-// by the driver's own derivation — which is why load balancing stays unset on every row and routing keeps the
-// one `TokenAwarePolicy` the `Builder` declares.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CacheProfile {
@@ -655,27 +570,17 @@ public sealed partial class CacheProfile {
     public static readonly CacheProfile Claim = new("cache-claim", Root, ConsistencyLevel.LocalQuorum, ConsistencyLevel.LocalSerial, readTimeoutMillis: 12_000);
     public static readonly CacheProfile Sweep = new("cache-sweep", Root, ConsistencyLevel.LocalQuorum, ConsistencyLevel.LocalSerial, readTimeoutMillis: 30_000);
 
-    // `Root` rides the GENERATED key constructor and seats every column at `None`, which is what makes it the
-    // base rather than a policy of its own.
     public Option<CacheProfile> Base { get; }
     public Option<ConsistencyLevel> Consistency { get; }
     public Option<ConsistencyLevel> Serial { get; }
     public Option<int> ReadTimeoutMillis { get; }
 
-    // Retry and speculation are PINNED across every declared row rather than carried per row: the mapper rail
-    // cannot mark a statement idempotent (`CqlQueryOptions` carries no such member), so an idempotence-gated
-    // policy degrades to rethrow anyway, and an LWT re-issued by either mechanism reads back its own committed
-    // write. Pinning them also seats no `DowngradingConsistencyRetryPolicy`, so no row completes beneath its
-    // declared level. Load balancing is the ONE builder column the roster declines — routing is the cluster-wide
-    // `TokenAwarePolicy` the `Builder` declares once, and a per-profile override forks it per query.
     public IExtendedRetryPolicy Retry => FallthroughRetryPolicy.Instance;
     public ISpeculativeExecutionPolicy Speculative => NoSpeculativeExecutionPolicy.Instance;
 
     private CacheProfile(string key, CacheProfile seat, ConsistencyLevel consistency, ConsistencyLevel serial, int readTimeoutMillis) : this(key) =>
         (Base, Consistency, Serial, ReadTimeoutMillis) = (Some(seat), Some(consistency), Some(serial), Some(readTimeoutMillis));
 
-    // One fold at the composition root: a row naming a base declares, and the base-less `Root` row skips since
-    // cluster configuration already answers it.
     public static IExecutionProfileOptions Declare(IExecutionProfileOptions options) =>
         toSeq(Items).Fold(options, static (acc, row) => row.Base.Match(
             Some: seat => acc.WithDerivedProfile(row.Key, seat.Key, row.Compose),
@@ -689,10 +594,6 @@ public sealed partial class CacheProfile {
     }
 }
 
-// CQL expiry is whole SECONDS bound as `USING TTL ?`, so the horizon crosses as row DATA and never as statement
-// text. `Of` is the ONE derivation site, reading the `#MODEL_RESULT_INDEX` horizon the substrate's own freshness
-// gate reads, so the residence expires exactly where a lookup already misses; seconds round UP because a
-// truncating cast expires rows that gate still serves.
 [ValueObject<int>]
 public readonly partial struct CacheTtl {
     public static Fin<CacheTtl> Of(Duration horizon) =>
@@ -719,25 +620,17 @@ public sealed partial class ClaimVerdict {
     public static readonly ClaimVerdict Duplicate = new("duplicate");
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
-// `Lift` maps documented driver exception families into cause-bearing `CacheFault` cases once. Duplicate claims
-// remain the provider's `Applied=false` verdict, and only a refused required guard rails `LwtRefused`.
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class WideColumnIndex {
     const string Lane = "cache";
 
-    // Lane admission at PROFILE SELECTION: the wide-column residence projects the Marten substrate and the
-    // `#L2_CONTRIBUTION` rows are Marten documents, so a single-process embedded store realizes neither and says
-    // so here rather than at the first claim. The refusal is the direct family's own policy case; a second
-    // wide-column fault union would split one cache lane across two error paradigms.
     public static Fin<IndexResidency> Admit(StoreProfile profile, IndexResidency residency) =>
         profile.Admits(Lane)
             ? Fin.Succ(residency)
             : Fin.Fail<IndexResidency>(new CacheFault.InvalidPolicy(Lane, profile.Key));
 
-    // ONE fluent mapping declaration (Cassandra.Mapping Map<T>): stated once on the composition root's
-    // MappingConfiguration — never attribute scatter beside it, never a second mapping per call site.
     public static void Register(MappingConfiguration mapping) =>
         mapping.Define(new Map<WideColumnRow>()
             .TableName("artifact_index")
@@ -749,20 +642,8 @@ public static class WideColumnIndex {
             .Column(static r => r.SourceKey));
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// `WideColumnLane` binds the residence ONCE at the composition root — the driver mapper, the receipt sink, the
-// root-bound re-drive port, the cluster instance a pipeline row keys on, and the horizon-derived TTL — so a call
-// site names the row it claims and nothing else. The static verbs it replaces took seven and eight arguments,
-// two of which the verb already reconstructs: the execution profile IS the verb's (a claim rides `cache-claim`,
-// a sweep `cache-sweep`) and the TTL is one composition-time derivation, so both were knobs the deletion test
-// removes. `Ttl` seats on the lane rather than per call because `CacheTtl.Of(index.RecencyHorizon)` is the ONE
-// derivation site and a per-call value re-opens the second-number the roster exists to close.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record WideColumnLane(Mapper Mapper, ReceiptSinkPort Sink, StoreRedrivePort Redrive, CacheToken Cluster, CacheTtl Ttl) {
-    // `Dialed` is the ONE crossing shape both verbs take, and its ORDER is load-bearing: the driver's raise folds
-    // to the typed band INSIDE the attempt, so the root-bound executor reads a `Retriability` posture the roster
-    // declared rather than a bare exception it would have to call terminal, and the `Fin` collapse happens once
-    // on the far side. Lifting after the carry — the shape this replaced — made every transient timeout
-    // unretriable while looking retriable on the page.
     IO<Fin<T>> Dialed<T>(ColumnVerb verb, Func<Task<T>> call) =>
         Redrive.Carry(new StoreHop.WideColumn(verb), (string)Cluster,
             IO.liftAsync(async () => (await Op.Of().Catch(async _ => Fin<T>.Succ(await call().ConfigureAwait(false))).ConfigureAwait(false))
@@ -771,13 +652,6 @@ public sealed record WideColumnLane(Mapper Mapper, ReceiptSinkPort Sink, StoreRe
         .Map(Fin.Succ)
         | @catch<IO, Fin<T>>(static _ => true, static error => IO.pure(Fin<T>.Fail(error)));
 
-    // `InsertIfNotExistsAsync` owns the write-once claim gate; `Applied=false` is idempotent replay duplicate
-    // (the object-plane 412-noop analog) — a verdict, never an error. Serial level, retry, and speculation ride
-    // its bound `CacheProfile` row, because that verdict is a RESULT no policy observes: without the pinned
-    // fallthrough a re-issued CAS reads back its own committed write and reports the winner refused. Three
-    // postures ride ONE call through the profile+nulls+TTL overload — the named profile, null-skipping so an
-    // absent `SourceKey` writes no tombstone, and the horizon as a BOUND `USING TTL ?` value — so no per-call
-    // options object re-spells policy the roster already declares.
     public IO<Fin<ClaimVerdict>> Claim(WideColumnRow row, ClaimMode mode, ProjectionContext frame) =>
         Dialed(ColumnVerb.Claim, () => Mapper.InsertIfNotExistsAsync(row, CacheProfile.Claim.Key, insertNulls: false, (int)Ttl))
             .Map(applied => applied.Bind(verdict => Settled(verdict, mode, row)))
@@ -790,10 +664,6 @@ public sealed record WideColumnLane(Mapper Mapper, ReceiptSinkPort Sink, StoreRe
         : mode is ClaimMode.Idempotent ? Fin.Succ(ClaimVerdict.Duplicate)
         : Fin.Fail<ClaimVerdict>(new CacheFault.LwtRefused(row.Key));
 
-    // `FetchPageAsync` and `PagingState` own stateless retention scans by partition — never a full-table read,
-    // and the cursor is a `byte[]` the caller re-presents. The sweep survives the row TTL rather than being
-    // replaced by it: rows the residence admitted before a horizon rode the write carry none, and the Marten
-    // substrate expires nothing of its own, so `Version/retention#SWEEP_AND_GC` stays the ONE deletion executor.
     public IO<Fin<(Seq<WideColumnRow> Rows, Option<byte[]> Cursor)>> Sweep(
         TenantId tenant, ArtifactKind kind, CachePageSize pageSize, Option<byte[]> cursor, ProjectionContext frame) =>
         Dialed(ColumnVerb.Sweep, () => Mapper.FetchPageAsync<WideColumnRow>(
@@ -813,10 +683,6 @@ public sealed record WideColumnLane(Mapper Mapper, ReceiptSinkPort Sink, StoreRe
             JsonSerializer.SerializeToElement(fact, ElementJson.Options)).Map(static _ => unit);
 }
 
-// Residency facts publish the level the bound profile row DECLARED and spell absence where a row inherits it,
-// because the driver's POCO verdicts discard the `RowSet` whose `ExecutionInfo` carried the level a coordinator
-// actually reached — and a level read off a fresh `ExecutionInfo` is `ConsistencyLevel.Any`, a fabricated
-// measurement. `Rows` counts what the page returned; a failed page publishes zero pages, never zero rows.
 public readonly record struct ClaimFact(string Kind, string Key, string Verdict, string Profile, Option<string> Serial, int TtlSeconds);
 
 public readonly record struct SweepFact(string Kind, int Rows, string Profile, Option<string> Consistency);

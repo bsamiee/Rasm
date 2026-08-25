@@ -28,7 +28,7 @@
 - Packages: kernel `Domain/rails` (`Op`, `Fault`, `Fin`, `ValidityClaim`, `Custody`, `Op.Catch`/`Confirm`/`Need`), kernel `Domain/context` (`Context`, `Tolerance`), kernel `Parametric/projections` (`MonotonicTimeline`), `Rasm.Rhino.Document` (`GeometryHandle`, `Lease<T>`, `CrossingMode`, `GeometryCrossing`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Document/facts.md` (the ruled-plural `FactStream<TSlot, TBody>` sibling), RhinoCommon (`Rhino.Runtime.HostUtils`, `Rhino.Geometry` — `.api/api-rhinocommon-solids.md`, `.api/api-rhinocommon-geometry.md`), LanguageExt.Core (`Seq`, `FoldM`, `Traverse`, `Validation`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]` — `libs/dotnet/.api/api-thinktecture-runtime-extensions.md`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -45,7 +45,7 @@ using Rhino.Runtime;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SourceAxis {
     public static readonly SourceAxis Curve = new(key: "curve");
@@ -79,9 +79,7 @@ public abstract partial record BuildBody {
     public sealed record Text(string Value) : BuildBody;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `ModelRuntime` carries the folder's complete execution band. The load root supplies its one timeline and every
-// Modeling entry takes this same value, whether or not its native member consumes cancellation or progress.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ModelRuntime {
@@ -110,7 +108,7 @@ public readonly partial struct ModelRuntime {
     internal IProgress<double>? ScalarReporter => ScalarProgress.ValueUnsafe();
 
     internal Fin<TOut> Await<TOut>(Func<Task<TOut>> work, Op key) => key.Catch(() => {
-        Task<TOut> running = work();                                  // Exemption: the ONE async-to-rail collapse on the folder's synchronous spine
+        Task<TOut> running = work();
         running.Wait(Cancellation);
         return Fin.Succ(running.GetAwaiter().GetResult());
     }, token: Cancellation);
@@ -156,8 +154,6 @@ public sealed record Built<TSlot> where TSlot : notnull {
         Seq<GeometryHandle> products, BuildReceipt<TSlot> evidence, Seq<BuildRun<TSlot>> runs, Option<BenchEvidence> bench) =>
         (Products, Evidence, Runs, Bench) = (products, evidence, runs, bench);
 
-    // No slot carries an `init` accessor: `Stamped` is the one site that seats bench evidence and `Witnessed` the one
-    // site that appends facts, so a call-site `with { … }` can neither fork the harvest nor desync `Runs` from the batch.
     public Seq<GeometryHandle> Products { get; }
     public BuildReceipt<TSlot> Evidence { get; }
     public Seq<BuildRun<TSlot>> Runs { get; }
@@ -166,8 +162,6 @@ public sealed record Built<TSlot> where TSlot : notnull {
     internal Built<TSlot> Stamped(BenchEvidence bench) =>
         new(products: Products, evidence: Evidence, runs: Runs, bench: Some(bench));
 
-    // Arm-local witness append: an arm that harvests a host out-channel AFTER minting its product folds the fact in
-    // here so the batch projection and the run correspondence stay one truth.
     public Built<TSlot> Witnessed(BuildReceipt<TSlot> extra) =>
         new(products: Products,
             evidence: Evidence + extra,
@@ -191,7 +185,7 @@ public sealed record Built<TSlot> where TSlot : notnull {
 
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BenchBand {
     private static readonly Lazy<ProcessFingerprint> Fingerprint = new(static () => {
         HostUtils.GetCurrentProcessInfo(processName: out string process, processVersion: out Version version);
@@ -199,8 +193,6 @@ public static class BenchBand {
             Process: process,
             Version: version,
             PreRelease: HostUtils.IsPreRelease,
-            // BCL process fact, never the `Rhino.UI` host static: an S1 Modeling owner reaching `PlatformServiceProvider`
-            // is a strata breach, and `RuntimeInformation` answers the identical architecture with no host reach.
             Architecture: System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture,
             Processors: HostUtils.GetSystemProcessorCount());
     });
@@ -470,9 +462,7 @@ internal static class ModelGate {
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — `Brep.FilletSurfaceSettings` `[01]` and its four factories `:84`, `Brep.CreateFilletSurface`/`CreateFilletSurfaceCurve` `:80-81`, `SurfaceFilletBase` section family, `Brep.CreateBoolean*`, `Brep.CreatePlanar*`, `Brep.CreatePipe`/`CreateThickPipe`, `Brep.CreateOffsetBrep`, `MatchSrfSettings`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Box`, `Cone`, `Cylinder`, `Torus`, `Sphere`, `ComponentIndex`, `Continuity`, `BlendType`, `RailType`, `PipeCapMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// The two sweep ends five natives name with four different argument spellings — and one, `CreatePipeExtrusion`,
-// with the pair REVERSED. Membership is read by name at every call, so the transposition is unspellable.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CapEnd : ICapability<CapEnd> {
@@ -503,8 +493,6 @@ public abstract partial record SolidBooleanLaw : IValidityEvidence {
     public sealed record Union(Seq<GeometryHandle> Breps, bool ManifoldOnly) : SolidBooleanLaw;
     public sealed record Intersection(Seq<GeometryHandle> First, Seq<GeometryHandle> Second, bool ManifoldOnly) : SolidBooleanLaw;
     public sealed record Difference(Seq<GeometryHandle> First, Seq<GeometryHandle> Second, bool ManifoldOnly) : SolidBooleanLaw;
-    // `Brep.CreateBooleanSplit` publishes no `manifoldOnly` parameter, so the column stops here rather than
-    // riding a base a fourth native cannot honour.
     public sealed record Split(Seq<GeometryHandle> First, Seq<GeometryHandle> Second) : SolidBooleanLaw;
 
     public bool IsValid => Switch(
@@ -517,8 +505,6 @@ public abstract partial record SolidBooleanLaw : IValidityEvidence {
             ModelClaim.Handles(handles: law.First), ModelClaim.Handles(handles: law.Second)));
 }
 
-// Sibling of `SolidBooleanLaw` by name and NOT by payload: the planar natives take exactly two breps where the
-// solid natives take two spreads, so the operand arity is case payload and no generic operand parameter fits.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PlanarBooleanLaw : IValidityEvidence {
     private PlanarBooleanLaw() { }
@@ -543,7 +529,6 @@ public sealed partial class ArcDegree {
 
 [ValueObject<double>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct ArcSlider {
-    // Live-proven effective band: every native slider consumer clamps to [-0.9, 0.9] silently, so wider admission passes dead input.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
         validationError = ValidityClaim.All(ValidityClaim.Finite(value: value), value is >= -0.9 and <= 0.9)
             ? null
@@ -701,7 +686,6 @@ public abstract partial record ConnectSeed : IValidityEvidence {
 public abstract partial record MergeSurfaceLaw : IValidityEvidence {
     private MergeSurfaceLaw() { }
     public sealed record Plain : MergeSurfaceLaw;
-    // `smooth` is the one independent host bool on this native with no adjacent sibling, so it stays named.
     public sealed record AtPoints(Point2d First, Point2d Second, double Roundness, bool Smooth) : MergeSurfaceLaw;
 
     public bool IsValid => Switch(
@@ -727,10 +711,8 @@ public abstract partial record SolidSeed : IValidityEvidence {
     public sealed record CornerPoints(Seq<Point3d> Values) : SolidSeed;
     public sealed record FromSurface(GeometryHandle Source) : SolidSeed;
     public sealed record FromRevolve(GeometryHandle Source, CapabilitySet<CapEnd> Caps) : SolidSeed;
-    // `trimmedTriangles` is a conversion fidelity knob, not a cap end, and stands alone at the native.
     public sealed record FromMesh(GeometryHandle Source, bool TrimmedTriangles = true) : SolidSeed;
 
-    // `Brep.CreateFromCone` publishes `capBottom` alone, so `Upper` names a corner no cone run can honour.
     private static readonly CapabilityLaw<CapEnd> ConeCaps =
         CapabilityLaw<CapEnd>.Forbidden(barred: Seq(CapabilitySet<CapEnd>.Of(CapEnd.Upper)));
 
@@ -799,8 +781,6 @@ public abstract partial record SolidSeed : IValidityEvidence {
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ExtrusionSeed : IValidityEvidence {
     private ExtrusionSeed() { }
-    // The three profile and box natives publish ONE `cap` bool covering both ends, so a two-end set would spell
-    // a distinction the host cannot receive; the cylinder and pipe natives publish the pair and take the column.
     public sealed record Profile(GeometryHandle PlanarProfile, double Height, bool Cap = true) : ExtrusionSeed;
     public sealed record FramedProfile(GeometryHandle PlanarProfile, Plane Frame, double Height, bool Cap = true) : ExtrusionSeed;
     public sealed record OfBox(Box Value, bool Cap = true) : ExtrusionSeed;
@@ -836,8 +816,6 @@ public abstract partial record ExtrusionSeed : IValidityEvidence {
                     capBottom: seed.Caps.Admits(capability: CapEnd.Lower),
                     capTop: seed.Caps.Admits(capability: CapEnd.Upper)),
                 key: op)),
-            // This native REVERSES the pair the cylinder native declares — the set is read by name, so the
-            // reversal is a call-site detail no caller can get wrong.
             ofPipe: static (op, seed) => op.Catch(() => ModelGate.Own(
                 built: Extrusion.CreatePipeExtrusion(
                     cylinder: seed.Value, otherRadius: seed.OtherRadius,
@@ -909,15 +887,12 @@ public abstract partial record SolidEdit : IValidityEvidence {
             ValidityClaim.Finite(value: edit.Parameter)));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct EdgeFillet(int Edge, RadiusLaw Law) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Edge, floor: 0), ValidityClaim.Evidence(evidence: Optional(Law)));
 }
 
-// The surface-fillet policy: ONE profile bound to the grant column all four factories read. The grants left the
-// four profile cases because they are identical on every one of them and because `trim`/`extend` are adjacent
-// positional bools at each factory; `ContinueAcrossTangentFaces` is the post-factory knob, written here once.
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct FilletLaw : IValidityEvidence {
@@ -943,8 +918,6 @@ public readonly partial struct FilletLaw : IValidityEvidence {
         });
 }
 
-// The section family reads the same two adjacent bools off the same vocabulary; `AcrossTangents` is barred
-// because no `SurfaceFilletBase` static publishes the knob.
 public sealed record SectionFilletLaw(
     double Radius,
     int RailDegree,
@@ -1032,7 +1005,7 @@ public sealed record MatchLaw(
 - Packages: RhinoCommon solids (`.api/api-rhinocommon-solids.md` — the `Brep` boolean, fillet, blend, offset, shell, pipe, join, merge, match, split, trim, and extrusion rosters `:44-160`), RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `Extrusion`, `ComponentIndex`, `MeshType`, `ExtrudeCornerType`), kernel `Domain/rails` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/validation` (`CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`, `PairPosture`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SolidSlot {
     public static readonly SolidSlot Booled = new(key: 0);
@@ -1115,16 +1088,12 @@ public abstract partial record SolidOp {
     public sealed record LiteProfiled(GeometryHandle Target, GeometryHandle Outer, Seq<GeometryHandle> Inners, bool Cap, Option<(Point3d A, Point3d B, Vector3d Up)> Path = default) : SolidOp;
     public sealed record LiteRead(GeometryHandle Target, ExtrusionRead Read) : SolidOp;
 
-    // `CreateOffsetBrep` reads solid/extend/shrink and `CreateFromOffsetFace` reads bothSides/createSolid, so each
-    // site bars the rows its native cannot receive rather than accepting a grant nothing reads.
     private static readonly CapabilityLaw<OffsetGrant> SolidOffsetGrants =
         CapabilityLaw<OffsetGrant>.Forbidden(barred: Seq(CapabilitySet<OffsetGrant>.Of(OffsetGrant.BothSides)));
 
     private static readonly CapabilityLaw<OffsetGrant> FaceOffsetGrants = CapabilityLaw<OffsetGrant>.Forbidden(
         barred: Seq(CapabilitySet<OffsetGrant>.Of(OffsetGrant.Extend), CapabilitySet<OffsetGrant>.Of(OffsetGrant.Shrink)));
 
-    // Every nested policy answers its OWN `IsValid` off its generated `Switch`, so a new case breaks its owning
-    // owner's evidence at compile; this arm reads case-local shape and NAMES the axis of every refusal.
     internal Fin<SolidOp> Admitted(Op key) =>
         Switch(
             context: key,
@@ -1287,8 +1256,6 @@ public abstract partial record SolidOp {
                                 Brep[] products = Brep.CreateBooleanUnion(
                                     breps: breps.AsIterable(), tolerance: ctx.Model.Absolute.Value, manifoldOnly: law.ManifoldOnly,
                                     nakedEdgePoints: out Point3d[] naked, badIntersectionPoints: out Point3d[] bad, nonManifoldEdgePoints: out Point3d[] nonManifold);
-                                // A silent diagnostic channel lands NO fact: an absent array and an empty one are
-                                // different answers, and `?? []` certifies the first as the second.
                                 Option<Seq<Brep>> productRows = ModelFact.Answered(channel: products);
                                 Option<Seq<Point3d>> nakedRows = ModelFact.Answered(channel: naked);
                                 Option<Seq<Point3d>> badRows = ModelFact.Answered(channel: bad);
@@ -1720,8 +1687,6 @@ public abstract partial record SolidOp {
                         state: (Source: source, Op: op),
                         heavy: static (ctx, read) => ModelGate.Single(ctx.Op, SolidSlot.Projected, () =>
                             ctx.Source.ToBrep(splitKinkyFaces: read.SplitKinkyFaces)),
-                        // A null wireframe is the native's own failure signal and reaches `Many` unaltered, so the
-                        // rail refuses through `InvalidResult` instead of an empty spread standing in for absence.
                         wireframe: static ctx => ctx.Op
                             .Catch(() => ModelGate.DetachedMany(source: ctx.Source.GetWireframe(), key: ctx.Op))
                             .Bind(detached => ModelGate.Many(
@@ -1856,7 +1821,7 @@ public abstract partial record SolidOp {
 
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Solids {
     public static Fin<Built<SolidSlot>> Build(ModelRuntime runtime, params ReadOnlySpan<SolidOp> operations) =>
         ModelGate.Entry(

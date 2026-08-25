@@ -23,7 +23,7 @@ Rebuilds compose the `Meshing/edit` arena as sole position/face carrier, the `Nu
 - Boundary: the `HausdorffClaim` `BenchClaim` registers the vectorized reduction's speed against its scalar reference lane, so the corpus gate proves it while correctness rides the exact predicates alone. Point-triangle closest refinement is `Rasm.Spatial`'s `SpatialIndex.ClosestOnTriangle` beside the BVH candidate prune — this page composes the broad phase and the exact foot from one owner, never a page-local Ericson body.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,13 +39,12 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
 using IndexSet = System.Collections.Generic.HashSet<int>;
 using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SimplifyTrait : ICapability<SimplifyTrait> {
@@ -56,15 +55,12 @@ public sealed partial class SimplifyTrait : ICapability<SimplifyTrait> {
     public int Rank { get; }
 }
 
-// The quadric solve's two outcomes as a closed row: a degenerate quadric's midpoint fallback reaches the receipt as a
-// count instead of vanishing into a discarded Fail arm no column could witness.
 [SmartEnum<int>]
 public sealed partial class PositionRoute {
     public static readonly PositionRoute Optimal = new(key: 0);
     public static readonly PositionRoute Midpoint = new(key: 1);
 }
 
-// Draw lanes declare as ordinals here — the Hausdorff sampler is this page's one stochastic draw.
 [SmartEnum<int>]
 public sealed partial class DecimateLane : IDrawLane<DecimateLane> {
     public static readonly DecimateLane Hausdorff = new(key: 0, lane: 0L);
@@ -83,12 +79,11 @@ public sealed partial class SimplifyKind {
 
     public CapabilitySet<SimplifyTrait> Traits { get; }
 
-    // Weight law ON the vocabulary: a new kind cannot construct without its weigh row.
     [UseDelegateFromConstructor]
     public partial Fin<Unit> Weigh(SimplifyOp op, Context context, Op key, Memory<double> plane);
 }
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SimplifyBudget {
     private SimplifyBudget() { }
@@ -96,7 +91,6 @@ public abstract partial record SimplifyBudget {
     public sealed record Fraction(UnitInterval Ratio) : SimplifyBudget;
     public sealed record Faces(Dimension Count) : SimplifyBudget;
 
-    // Tetrahedra are the smallest closed surface a collapse sequence reaches, so the fractional arm floors there.
     public int For(int sourceFaces) =>
         Switch(
             state: sourceFaces,
@@ -104,8 +98,6 @@ public abstract partial record SimplifyBudget {
             faces:    static (source, budget) => Math.Min(budget.Count.Value, source));
 }
 
-// Private constructor + admitting Of: an inadmissible policy is unrepresentable, so Apply re-tests nothing and the
-// three claims the carriers now hold are gone from the fold.
 public sealed record SimplifyPolicy {
     private SimplifyPolicy(
         SimplifyBudget budget, Option<PositiveMagnitude> hausdorffCeiling, PositiveMagnitude boundaryPenalty,
@@ -118,8 +110,6 @@ public sealed record SimplifyPolicy {
 
     public SimplifyBudget Budget { get; }
     public Option<PositiveMagnitude> HausdorffCeiling { get; }
-    // Two dimensions, two columns: BoundaryPenalty weights a boundary-constraint PLANE inside the quadric algebra,
-    // FeaturePinWeight weights a VERTEX in the per-face plane mean. One knob could not move either without the other.
     public PositiveMagnitude BoundaryPenalty { get; }
     public PositiveMagnitude FeaturePinWeight { get; }
     public VectorAngle CreaseDihedral { get; }
@@ -127,8 +117,6 @@ public sealed record SimplifyPolicy {
     public Dimension VoxelResolution { get; }
     public Dimension HausdorffSamplesPerFace { get; }
     public Dimension CollapsePasses { get; }
-    // A draw seed is an arbitrary 64-bit pattern `Deterministic.Of` takes whole — no `Band` ranks it, so a guarded
-    // carrier would reject half the key space to state nothing.
     public long Seed { get; }
 
     public static readonly SimplifyPolicy Canonical = new(
@@ -136,8 +124,6 @@ public sealed record SimplifyPolicy {
         hausdorffCeiling: Option<PositiveMagnitude>.None,
         boundaryPenalty: PositiveMagnitude.Create(value: 1.0e3),
         featurePinWeight: PositiveMagnitude.Create(value: 1.0e3),
-        // ONE crease authority for the 30° pair: flatten.md's ParamPolicy states the Botsch-Kobbelt clause and this
-        // row reads it, so a per-model change moves one literal instead of two that only look alike.
         creaseDihedral: VectorAngle.Create(value: ParamPolicy.CreaseDihedralRadians),
         curvatureGain: PositiveMagnitude.Create(value: 4.0),
         voxelResolution: Dimension.Create(value: 128), hausdorffSamplesPerFace: Dimension.Create(value: 1),
@@ -160,8 +146,6 @@ public sealed record SimplifyPolicy {
                from crease in creaseDihedral.Match(
                    Some: value => op.AcceptValidated<VectorAngle>(candidate: value),
                    None: () => Fin.Succ(Canonical.CreaseDihedral))
-               // The two claims no carrier holds: a crease at or past π marks every edge a feature, and a voxel grid
-               // under two cells has no interior for the level set to march.
                from _ in guard(crease.Value < Math.PI, op.InvalidInput())
                let cells = voxelResolution.IfNone(Canonical.VoxelResolution)
                from __ in guard(cells.Value >= 2, op.InvalidInput())
@@ -174,17 +158,13 @@ public sealed record SimplifyPolicy {
     }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct VertexSplit(int Survivor, int Collapsed, Point3d SurvivorAt, Point3d CollapsedAt, double Cost);
 
-// The enqueue's own solve rides the row: the version pair proves it current, so a pop reusing it pays the Cholesky
-// once per edge instead of once per enqueue AND once per drain.
 public readonly record struct EdgeRef(int U, int V, int VersionU, int VersionV, Point3d Target, double Cost, PositionRoute Route);
 
-// Per-face plane row the parallel plane pass writes (disjoint face slots); W = 0 marks dead/degenerate.
 public readonly record struct FacePlane(double A, double B, double C, double D, double W);
 
-// 106-bit coefficients: the plane-sum, the merge, and the near-cancelling xᵀQx lose queue-ordering digits in double.
 public readonly record struct Quadric(
     ddouble A00, ddouble A01, ddouble A02, ddouble A03,
     ddouble A11, ddouble A12, ddouble A13,
@@ -210,17 +190,14 @@ public readonly record struct Quadric(
     }
 }
 
-// Positions and faces live on the MeshEdit arena; this store holds decimation state alone, its incidence indexes answering fan/link/edge in O(degree).
 public sealed class QuadricStore : IDisposable {
     readonly MemoryOwner<Quadric> quadrics;
     readonly MemoryOwner<int> versions;
     readonly MemoryOwner<bool> valid;
     readonly MemoryOwner<bool> boundaryVertex;
-    internal readonly IndexSet[] Ring;        // vertex -> one-ring vertices
-    internal readonly IndexSet[] Incident;    // vertex -> live incident faces
+    internal readonly IndexSet[] Ring;
+    internal readonly IndexSet[] Incident;
     internal readonly List<(int U, int V, int Face)> BoundaryEdges;
-    // K3 exemption: a cost-keyed EVENT stream with lazy staleness rejection, not a graph walk — QuikGraph's
-    // AlgorithmExtensions carry no event queue and a Dijkstra over re-costed edges would re-walk the whole one-ring.
     internal readonly PriorityQueue<EdgeRef, double> Pq = new();
     internal readonly List<VertexSplit> Splits;
     internal int Live;
@@ -276,13 +253,11 @@ public sealed class QuadricStore : IDisposable {
     public bool OnBoundary(int v) => boundaryVertex.Span[v];
     public void Kill(int v) => valid.Span[v] = false;
 
-    // |Lk(u) ∩ Lk(v)| over vertices — the link-condition census, O(min degree).
     public int SharedLink(int u, int v) {
         (IndexSet small, IndexSet large) = Ring[u].Count <= Ring[v].Count ? (Ring[u], Ring[v]) : (Ring[v], Ring[u]);
         return small.Count(large.Contains);
     }
 
-    // Live faces on edge (u,v) — 2 interior, 1 boundary; the incidence intersection, O(min degree).
     public int EdgeFaces(int u, int v) {
         (IndexSet small, IndexSet large) = Incident[u].Count <= Incident[v].Count ? (Incident[u], Incident[v]) : (Incident[v], Incident[u]);
         return small.Count(large.Contains);
@@ -303,22 +278,18 @@ public sealed record DecimationResult(
     CapabilitySet<SimplifyTrait> Traits,
     Seq<FeatureEdge> Features,
     Seq<VertexSplit> Splits) {
-    // THE egress VectorIntent.SimplifyCase folds, so a 682-line owner with four modalities reaches the one kernel
-    // consumer rail on typed rows rather than only through a direct call no intent case names.
     internal Fin<TOut> Project<TOut>(Op key) {
         DecimationResult self = this;
         return AtomProjection.Rows<DecimationResult, TOut>(self: self, key: key,
             ProjectionRow.Of<MeshSpace>(() => Fin.Succ(self.Mesh)),
             ProjectionRow.Of<Seq<FeatureEdge>>(() => Fin.Succ(self.Features)),
-            // The vsplit stream exists only where the run carried Reversible, so an absent stream is a typed refusal
-            // rather than an empty sequence a replay consumer would read as a complete LOD chain.
             ProjectionRow.Of<Seq<VertexSplit>>(() => self.Traits.Admits(SimplifyTrait.Reversible)
                 ? Fin.Succ(self.Splits)
                 : Fin.Fail<Seq<VertexSplit>>(key.Unsupported(inputType: typeof(DecimationResult), outputType: typeof(Seq<VertexSplit>)))));
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SimplifyOp {
     private SimplifyOp() { }
@@ -353,13 +324,12 @@ public static class Simplify {
         ReferenceLane: "scalar Math.Max fold over the same pooled plane",
         SpeedupFloor: 1.0);
 
-    // No policy re-test: SimplifyPolicy.Of is the one construction path and an inadmissible one never reaches a case.
     [BoundaryAdapter]
     public static Fin<DecimationResult> Apply(SimplifyOp op, Op? key = null) {
         Op token = key.OrDefault();
         Context context = op.Mesh.Tolerance;
         return Resample(op, context, token).Bind(space => {
-            MeshEdit edit = MeshEdit.Of(space);   // arena capsule: dispose is the platform-forced lifetime seam
+            MeshEdit edit = MeshEdit.Of(space);
             try {
                 using QuadricStore store = QuadricStore.Seed(edit);
                 int budget = op.Policy.Budget.For(store.Live);
@@ -376,8 +346,6 @@ public static class Simplify {
         op.Kind.Traits.Admits(SimplifyTrait.Resample) ? Voxelize(op.Mesh, op.Policy, context, key) : Fin.Succ(op.Mesh);
 
     // --- [COLLAPSE]
-    // Outer fixpoint under the estate's ONE budget authority: a drained queue re-seeds while an admissible collapse
-    // remains, and a queue that stalls — or a pass count that runs out — lowers typed exhaustion.
     static Fin<Unit> Collapse(QuadricStore store, MeshEdit edit, SimplifyOp op, int budget, Context context, Op key) {
         using MemoryOwner<double> weights = MemoryOwner<double>.Allocate(edit.VertexCount, AllocationMode.Clear);
         return op.Kind.Weigh(op, context, key, weights.Memory).Bind(_ => {
@@ -401,7 +369,6 @@ public static class Simplify {
         });
     }
 
-    // Per-VERTEX sums over the incidence index, never a per-face scatter: a scatter races three vertex slots per face.
     static void Accumulate(QuadricStore store, MeshEdit edit, ReadOnlyMemory<double> weights, SimplifyPolicy policy) {
         using MemoryOwner<FacePlane> planes = MemoryOwner<FacePlane>.Allocate(edit.FaceCount, AllocationMode.Clear);
         edit.Parallel(edit.FaceCount, new PlanePass(edit, weights, planes.Memory));
@@ -435,7 +402,6 @@ public static class Simplify {
         }
     }
 
-    // Boundary constraint quadric: the plane THROUGH the edge PERPENDICULAR to its incident face, penalty-weighted — a rim resists drift.
     static void Boundaries(QuadricStore store, MeshEdit edit, ReadOnlyMemory<FacePlane> planes, SimplifyPolicy policy) {
         foreach ((int u, int v, int face) in store.BoundaryEdges) {
             FacePlane p = planes.Span[face];
@@ -452,8 +418,6 @@ public static class Simplify {
         }
     }
 
-    // ONE live one-ring edge generator every sweep consumes — the enqueue seed and the stall verdict read the same
-    // u < w rule, so the two bodies that used to state it cannot drift apart.
     static IEnumerable<(int U, int V)> LiveEdges(QuadricStore store, MeshEdit edit) {
         for (int u = 0; u < edit.VertexCount; u++) {
             if (!store.Alive(u)) continue;
@@ -473,8 +437,6 @@ public static class Simplify {
         store.Pq.Enqueue(new EdgeRef(u, v, store.Versions[u], store.Versions[v], target, cost, route), cost);
     }
 
-    // The version pair is what proves the enqueued target and cost current, so a pop REUSES the solve it already paid
-    // for rather than re-entering the matrix funnel for an edge nothing has touched since.
     static void Drain(QuadricStore store, MeshEdit edit, int budget, Op key) {
         while (store.Live > budget && store.Pq.TryDequeue(out EdgeRef edge, out double _)) {
             if (Stale(store, edge)) continue;
@@ -487,7 +449,6 @@ public static class Simplify {
         !store.Alive(edge.U) || !store.Alive(edge.V)
         || store.Versions[edge.U] != edge.VersionU || store.Versions[edge.V] != edge.VersionV;
 
-    // Interior edges joining two boundary vertices pinch the rim; the flip guard tests each surviving fan face's MOVED triangle against its ORIGINAL plane.
     static bool CollapseValid(QuadricStore store, MeshEdit edit, int u, int v, Point3d target) {
         int fan = store.EdgeFaces(u, v);
         int shared = store.SharedLink(u, v);
@@ -499,14 +460,13 @@ public static class Simplify {
         if (!link) return false;
         foreach (int f in store.Incident[u].Concat(store.Incident[v]).Distinct()) {
             (int a, int b, int c) = edit.Face(f);
-            if (Touches(a, b, c, u) && Touches(a, b, c, v)) continue;   // the collapsing pair vanishes
+            if (Touches(a, b, c, u) && Touches(a, b, c, v)) continue;
             (Point3d oa, Point3d ob, Point3d oc) = (edit.Position(a), edit.Position(b), edit.Position(c));
-            // Reference point off the ORIGINAL plane — float-constructed (axis-choice class), signs exact.
             Point3d above = oa + Vector3d.CrossProduct(ob - oa, oc - oa);
             Point3d pa = a == u || a == v ? target : oa;
             Point3d pb = b == u || b == v ? target : ob;
             Point3d pc = c == u || c == v ? target : oc;
-            if (Predicate.Orient3D(pa, pb, pc, above) != Sign.Positive) return false;   // flipped or degenerate
+            if (Predicate.Orient3D(pa, pb, pc, above) != Sign.Positive) return false;
         }
         return true;
     }
@@ -515,7 +475,6 @@ public static class Simplify {
 
     static void ApplyCollapse(QuadricStore store, MeshEdit edit, EdgeRef edge, Op key) {
         (int u, int v, Point3d target) = (edge.U, edge.V, edge.Target);
-        // The midpoint fallback is tallied at the collapse that APPLIED it, never at every enqueue that considered it.
         if (edge.Route.Equals(PositionRoute.Midpoint)) { store.Midpoints++; }
         store.Splits.Add(new VertexSplit(u, v, edit.Position(u), edit.Position(v), edge.Cost));
         edit.SetPosition(u, target);
@@ -545,7 +504,6 @@ public static class Simplify {
         }
     }
 
-    // Stall verdict over the SAME generator the enqueue reads, short-circuiting on the first admissible fold.
     static bool NoAdmissibleCollapse(QuadricStore store, MeshEdit edit, Op key) =>
         !LiveEdges(store, edit).Any(row => {
             (Point3d target, double _, PositionRoute __) = OptimalPosition(store.Quadrics[row.U].Add(store.Quadrics[row.V]), edit.Position(row.U), edit.Position(row.V), key);
@@ -553,9 +511,6 @@ public static class Simplify {
         });
 
     // --- [QUADRIC_SOLVE]
-    // SolveReceipt gates the solution all-finite; a degenerate quadric falls to the midpoint arm and SAYS which arm
-    // ran, so the fallback census reaches DecimationResult instead of vanishing into a discarded Fail. The Op threads
-    // into all three funnel entries, so a factorization fault correlates to this edge rather than a default key.
     static (Point3d Target, double Cost, PositionRoute Route) OptimalPosition(Quadric q, Point3d u, Point3d v, Op key) {
         Fin<Arr<double>> solve = SymmetricMatrix.Of(
                 dim: Dimension.Create(3),
@@ -612,7 +567,6 @@ public static class Simplify {
     }
 
     // --- [RESAMPLE]
-    // Self-intersecting scans become a manifold level set here, then decimate like every other kind.
     static Fin<MeshSpace> Voxelize(MeshSpace mesh, SimplifyPolicy policy, Context context, Op key) {
         BoundingBox bounds = mesh.DuplicateNative().GetBoundingBox(accurate: true);
         bounds.Inflate(context.Absolute.Value);
@@ -626,7 +580,6 @@ public static class Simplify {
     static Fin<DecimationResult> Emit(QuadricStore store, MeshEdit edit, SimplifyOp op, int budget, Context context, Op key) =>
         edit.ToSpace(key).Bind(space =>
             Hausdorff(edit, op.Mesh, op.Policy, key).Bind(bound =>
-                // Absent ceilings admit every bound, so the refusal reads the ceiling it breached.
                 op.Policy.HausdorffCeiling.Filter(ceiling => bound > ceiling.Value).Case is not PositiveMagnitude breached
                     ? Preserved(op, context, key).Map(features => new DecimationResult(
                         space,
@@ -640,25 +593,20 @@ public static class Simplify {
                         op.Kind.Traits.Admits(SimplifyTrait.Reversible) ? toSeq(store.Splits).Strict() : Seq<VertexSplit>()))
                     : Fin.Fail<DecimationResult>(key.InvalidResult($"hausdorff {bound:G6} over ceiling {breached.Value:G6}"))));
 
-    // One-sided directed bound d(simplified -> source); sampled distances are raw double, so the vectorized reduction sits outside the exact-predicate lane.
     static Fin<double> Hausdorff(MeshEdit lod, MeshSpace source, SimplifyPolicy policy, Op key) {
         MeshEdit src = MeshEdit.Of(source);
         try {
-            BoundingBox[] boxes = new BoundingBox[src.FaceCount];                       // owned by the index — it retains primitives
+            BoundingBox[] boxes = new BoundingBox[src.FaceCount];
             for (int f = 0; f < src.FaceCount; f++) boxes[f] = src.Bounds(f);
             return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, boxes, BuildPolicy.Canonical), key)
                 .Bind(answer => answer is SpatialAnswer.Index built ? Fin.Succ(built.Value) : Fin.Fail<SpatialIndex>(key.InvalidResult()))
                 .Bind(index => {
-                    int count = lod.FaceCount * policy.HausdorffSamplesPerFace.Value;   // tombstones over-allocate; SamplePoints skips dead
+                    int count = lod.FaceCount * policy.HausdorffSamplesPerFace.Value;
                     using MemoryOwner<Point3d> samples = MemoryOwner<Point3d>.Allocate(count, AllocationMode.Clear);
                     int filled = SamplePoints(lod, policy.HausdorffSamplesPerFace.Value, policy.Seed, samples.Span);
                     using MemoryOwner<double> distances = MemoryOwner<double>.Allocate(Math.Max(1, filled), AllocationMode.Clear);
-                    // Miss ordinals ride the estate's one cell, so a refusal NAMES which samples the index could not
-                    // answer; a total unconditional append is a plain Swap with no verdict to discard.
                     Atom<Seq<int>> misses = Atom(value: Seq<int>());
                     src.Parallel(filled, new DirectedDistance(index, src, samples.Memory, distances.Memory, misses, key));
-                    // A run that sampled nothing HAS no bound: a fabricated 0.0 certified a sample-free decimation
-                    // inside every ceiling and landed as measured evidence a LOD consumer thresholds.
                     return filled == 0
                         ? Fin.Fail<double>(new GeometryFault.DecimationFault(0, lod.FaceCount))
                         : misses.Value.IsEmpty
@@ -669,8 +617,6 @@ public static class Simplify {
         finally { src.Dispose(); }
     }
 
-    // The plane holds MEASURED distances alone: a miss writes nothing and records its ordinal instead, so the
-    // vectorized reduction never folds a fabricated NaN the benchmark lane would then exercise.
     readonly struct DirectedDistance(SpatialIndex index, MeshEdit source, ReadOnlyMemory<Point3d> samples, Memory<double> distances, Atom<Seq<int>> misses, Op key) : IAction {
         public void Invoke(int i) {
             Point3d sample = samples.Span[i];
@@ -688,8 +634,6 @@ public static class Simplify {
         }
     }
 
-    // Barycentric jitter addresses (face, sample, coordinate) lanes off the policy seed, so a tombstoned face never
-    // shifts a later face's draw the way a sequentially advanced generator would, and the pass replays under any partition.
     static int SamplePoints(MeshEdit edit, int perFace, long seed, Span<Point3d> sink) {
         Deterministic.Draw draw = Deterministic.Of(seed, DecimateLane.Hausdorff);
         int at = 0;

@@ -21,13 +21,13 @@ Drain's single compare-and-swap mints the stamp and the ordinal together (kernel
 - Growth: a new GH2 host signal is one row on its signal vocabulary and, where the payload is new, one `GhFact` case breaking every total dispatch loudly; a new Eto fact is the kernel's one case and costs this page nothing.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CanvasSignal {
     public static readonly CanvasSignal DocumentChanged = new(key: 0);
@@ -80,8 +80,6 @@ public sealed partial class UndoSignal {
     public static readonly UndoSignal NodeMoved = new(key: 6);
 }
 
-// Folder band over the kernel floor: five GH2 cases plus the wrap, so one drain and one ordinal serve both
-// bands and a journal keys one `Kind` vocabulary.
 [Union]
 public abstract partial record GhFact : IUiFact {
     private GhFact() { }
@@ -114,24 +112,19 @@ public abstract partial record GhFact : IUiFact {
 - Growth: a new host stream is one row through an existing fold; a new args family is one `Wired` instantiation — the roster's two folds and the kernel gate never change.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Add and remove travel as ONE value (the kernel `EventTable` idiom over GH2 hosts), so no row states a
-// subscription it cannot undo and the two folds below are the only place `+=` is spelled.
+// --- [TYPES] ---------------------------------------------------------------------------
 internal readonly record struct Wired<THost, TArgs>(
     Action<THost, EventHandler<TArgs>> Add, Action<THost, EventHandler<TArgs>> Drop) where TArgs : EventArgs;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// GH2 source roster: canvas rows are STATIC (the canvas arrives as the kernel `OnControl` anchor); document,
-// solution, and history rows close over their subject at `Of`, because the kernel anchor union cannot carry a GH2
-// host object and a folder-local observe twin is the forbidden form.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFact>>>, Op, Fin<IDisposable>> Bind) : IUiSource<GhFact> {
-    // --- [CANVAS] — six rows over the one control-anchored fold; MouseDwell is the one location-bearing row.
+    // --- [CANVAS]
     public static readonly GhSource CanvasDocumentChanged = Canvas(key: "canvas.document-changed",
         wired: new Wired<Canvas, EventArgs>(Add: static (c, h) => c.DocumentChanged += h, Drop: static (c, h) => c.DocumentChanged -= h),
         project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.DocumentChanged, Location: None));
@@ -151,7 +144,6 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
         wired: new Wired<Canvas, ControlDrawEventArgs>(Add: static (c, h) => c.Draw += h, Drop: static (c, h) => c.Draw -= h),
         project: static (_, _) => new GhFact.CanvasCase(Signal: CanvasSignal.Draw, Location: None));
 
-    // Subject-closed row sets: one mint per live host object, the row keys stable across mints.
     public static Seq<GhSource> Of(Document graph) =>
         Seq(Subject(graph, key: "document.modified", new Wired<Document, DocumentModifiedEventArgs>(Add: static (d, h) => d.ModifiedChanged += h, Drop: static (d, h) => d.ModifiedChanged -= h),
                 project: static (d, _) => new GhFact.DocumentCase(Signal: DocumentSignal.Modified, DocumentId: Some(d.Identity))),
@@ -199,8 +191,6 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
     string IUiSource<GhFact>.Key => Key;
     public Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<GhFact>>> emit, Op key) => Bind(anchor, emit, key);
 
-    // ONE control-anchored wire: the canvas is the kernel `OnControl` anchor and the row refuses any other, or a
-    // control of any other type, typed — anchor agreement is admission.
     private static GhSource Canvas<TArgs>(string key, Wired<Canvas, TArgs> wired, Func<Canvas, TArgs, GhFact> project)
         where TArgs : EventArgs =>
         new(Key: key, Bind: (anchor, emit, op) => anchor switch {
@@ -208,7 +198,6 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
             _ => Fin.Fail<IDisposable>(op.InvalidInput()),
         });
 
-    // ONE subject-closed wire: the GH2 host object rides the row and `Ambient` is the admitted anchor spelling.
     private static GhSource Subject<THost, TArgs>(THost host, string key, Wired<THost, TArgs> wired, Func<THost, TArgs, GhFact> project)
         where TArgs : EventArgs =>
         new(Key: key, Bind: (anchor, emit, op) => anchor switch {
@@ -216,7 +205,6 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
             _ => Fin.Fail<IDisposable>(op.InvalidInput()),
         });
 
-    // Three shared-args projections: object-list, solution-pulse, and undo rows differ only in row data.
     private static GhSource Listed(Document graph, string key, GraphSignal signal, Wired<Document, ObjectEventArgs> wired) =>
         Subject(graph, key, wired, project: (_, args) => new GhFact.GraphCase(Signal: signal, SubjectId: Some(args.Object.InstanceId)));
     private static GhSource Pulsed(SolutionServer server, string key, SolutionSignal signal, Wired<SolutionServer, SolutionEventArgs> wired) =>
@@ -224,7 +212,6 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
     private static GhSource Sealed<TArgs>(History ledger, string key, UndoSignal signal, Wired<History, TArgs> wired) where TArgs : EventArgs =>
         Subject(ledger, key, wired, project: (_, _) => new GhFact.UndoCase(Signal: signal));
 
-    // One `+=` site: the handler emits a THUNK the kernel drain admits, and the detacher is the exact `-=`.
     private static IDisposable Hook<THost, TArgs>(
         THost host, Wired<THost, TArgs> wired, Func<THost, TArgs, GhFact> project, Action<Func<Fin<GhFact>>> emit)
         where TArgs : EventArgs {
@@ -244,25 +231,21 @@ public sealed record GhSource(string Key, Func<EventAnchor, Action<Func<Fin<GhFa
 - Growth: a third `CancelEventArgs` surface is one mount arm; the write-back law never widens.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.ComponentModel;
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class HookBridge {
-    // Fires the veto point and writes the refusal back into the host's own cancellation surface — the one place
-    // a rail verdict re-enters an EventArgs, because the host reads `Cancel` after the handler returns.
     public static Fin<Lease<IDisposable>> Closing(
         Window window, HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op? key = null);
 
     public static Fin<Lease<IDisposable>> Terminating(
         HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op? key = null);
 
-    // Fire site for hook rows `window.close` / `shell.terminate` — one raise per bridge handler; the verdict is
-    // CONSULTED, never discarded: a Fail leg writes the host's own cancellation before the handler returns.
     private static void Consult(
         HookRail<GrasshopperPoint, HookSignal, HookScope> rail, GrasshopperPoint at, CancelEventArgs args, Op key) =>
         rail.Fire(at: at, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key)

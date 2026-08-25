@@ -43,8 +43,6 @@ from rasm.contracts.rasm.contracts.cad.types_pb import BooleanProvenance
 
 
 class Grain(StrEnum):
-    # Boolean operators answer history for these sub-shape kinds alone. Selection, never a mirror: `Generated` and
-    # `Modified` return no other `TopAbs_ShapeEnum` member for these operators.
     FACE = "face"
     EDGE = "edge"
 
@@ -65,8 +63,6 @@ _GRAINS: Final[frozendict[Grain, TopAbs_ShapeEnum]] = frozendict({Grain.FACE: To
 
 
 class Trace(Struct, frozen=True, kw_only=True):
-    # `source` is zero-based within the OPERAND's own `TopExp` order and `images` zero-based within the RESULT's, so
-    # a trace is readable only beside the operand roster the same call admitted.
     grain: Grain
     operand: int
     source: int
@@ -80,8 +76,6 @@ class Correspondence(Struct, frozen=True, kw_only=True):
 
     @property
     def projected(self) -> Option[BooleanProvenance]:
-        # One authority: both booleans derive from the trace roster, so the wire pair can never disagree with the
-        # correspondence, and an empty correspondence projects absence rather than two false flags.
         return (
             Nothing
             if not self.traces and not self.section
@@ -141,14 +135,10 @@ def _indexed(shape: TopoDS_Shape, kind: TopAbs_ShapeEnum, /) -> TopTools_Indexed
 
 
 def _shapes(carrier: TopTools_ListOfShape, /) -> Block[TopoDS_Shape]:
-    # [SPIKE:LIST_TRAVERSAL] the folder catalogue publishes `Append`/`Prepend`/`Extent`/`First` on this list and no
-    # ordered reader; the traversal member lands from the open research row before this body settles.
     ...
 
 
 def _ordinal(mapped: TopTools_IndexedMapOfShape, shape: TopoDS_Shape, /) -> Option[int]:
-    # [SPIKE:MAP_REVERSE] the reverse lookup answers one-based with zero for absent; the zero-based shift belongs
-    # here so no downstream reader carries a second regime.
     ...
 
 
@@ -215,8 +205,6 @@ def read(
 
 # --- [ELECTION] -------------------------------------------------------------------------
 
-# Ordered roster, read top down: deletion outranks generation because a consumed sub-shape can also seed new ones,
-# and generation outranks modification because a split face reports both. The fall-through is the survivor.
 _ELECTED: Final[
     tuple[tuple[Relation, Callable[[ShapeHistory, TopoDS_Shape], Option[Block[TopoDS_Shape]]]], ...]
 ] = (

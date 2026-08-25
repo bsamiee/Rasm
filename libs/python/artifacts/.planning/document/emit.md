@@ -183,8 +183,8 @@ class Band(StrEnum):
 
 class ReceiptKind(StrEnum):
     PDF = "pdf"
-    OFFICE = "office"  # workbook/slide/word-processing CONTAINERS alone — the ArtifactReceipt.Office definition
-    DOCUMENT = "document"  # structured-data, introspection, and manuscript outputs — the generic non-PDF document rail
+    OFFICE = "office"
+    DOCUMENT = "document"
 
 
 class SchemaKind(StrEnum):
@@ -281,10 +281,6 @@ _FORMATS: Final[Map[str, frozendict[str, object]]] = Map.of_seq([
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's whole raise roster. The template gate is TERMINAL and caller-repairable — a file whose detected class is
-# not WORD refuses identically on every re-offer, and the detected mime rides as the row's one named coordinate —
-# while the step fold is TRANSIENT, a provider raise or a worker death a re-issue may clear. Every ADMISSION refusal
-# stays `EmitFault`'s closed vocabulary and takes no row here.
 EMIT_TEMPLATE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.EMIT, point="template", arm="config", defect="not-a-word-template", retriability=TERMINAL, slots=("mime",)
 )
@@ -293,10 +289,6 @@ EMIT_STEP: Final[FaultRow[ArtifactsLeg]] = FaultRow(
 )
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([EMIT_TEMPLATE, EMIT_STEP]))
 
-# the fence's whole raise surface: `_stepped` awaits RAILED calls throughout and collapses each terminal fault
-# through the shared `document/model#NODE` carrier, which `BoundaryFault.of` admits ahead of `CLASSIFY` so the fault
-# crosses back WHOLE on `domain` — the template gate's own refusal included. Every backend raise already converted
-# inside the worker or the thread lane, so no backend class rides here.
 _STEP_RAISES: Final[Catch] = (Lapse,)
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -558,7 +550,6 @@ class Backend(Struct, frozen=True):
 
 
 class DocumentPlan(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     mode: DocumentMode
     node: DocumentNode
     lane: LanePolicy
@@ -569,15 +560,11 @@ class DocumentPlan(Struct, frozen=True):
         return Compiler(to_typst_source(self.node, title=title).encode(), font_paths=[], sys_inputs=dict(self.spec.sys_inputs))
 
     def emit(self, /) -> ArtifactWork:
-        # ONE mint per node, captured into the closure: `_key` folds the whole node tree's merkle digest beside the
-        # scoped spec and opens two `content.derive` spans per read.
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=self.spec.parents, admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
-        # `node_digest` joins the tree onto the preimage through the runtime merkle fold — msgpack cannot
-        # integer-encode the live u128 `ContentKey` leaves a `DocumentNode` carries.
         spec = ContentIdentity.key(self.mode.value, _PLAN_ENCODER.encode(self._scoped()))
         return ContentIdentity.key(self.mode.value, (spec, node_digest(self.node)))
 
@@ -589,30 +576,12 @@ class DocumentPlan(Struct, frozen=True):
         settled = crossed.map(lambda live: (live, _RECEIPT[BACKENDS[self.mode].kind](key, live.fact)))
         match settled:
             case Result(tag="ok", ok=(live, receipt)):
-                # `Journal.record` seats the durable evidence for every kind this owner mints — `pdf`, `office`, and
-                # `document` alike: recording SUSPENDS on the journal's bounded intake while `contribute` is a
-                # synchronous projection, so the one `evidence` builder is composed here and nowhere else, under
-                # whichever class the minted case's own `_RETENTION` row names. Re-run idempotency is the plan
-                # owner's, never a journal coordinate: `Admission(keyed=None)` elides a re-issued `(mode, node,
-                # spec)` at its content key before `_emit` runs again, the trait-row worker-death retry re-drives
-                # only the pure `_dispatched` hop upstream of this seat, and `Journal.record` REPLACES each fact's
-                # stamp at admission under the writer-owned stamp law — a caller-threaded stable coordinate is the
-                # journal's named rejected form, collapsing two genuine facts onto one content key, and the drain's
-                # own key already dedups a redelivered row.
                 return (await Journal.record(receipt.evidence(*live._claim))).map(lambda _landed: receipt)
             case refused:
                 return Error(refused.error)
 
     @property
     def _claim(self) -> tuple[Change, ...]:
-        # `_claim` carries the archival/accessibility CLAIM and this emitter's own verdict on it, which `Pdf(key,
-        # bytes, pages)` erases entirely — and a PDF/A or PDF/UA claim is precisely the fact an auditor disputes years later, so it
-        # rides positionally rather than widening a case three receipt kinds share. A claim arrives two ways and the
-        # guard reads BOTH: a spelled `variant`, and the born-tagged `PDF_UA` arm, whose `_SCOPE` row admits no
-        # `variant` at all yet whose builder validates against UA-1 — so a spec-only test would silently drop the
-        # one verdict most worth keeping. `/variant` therefore rides only where the spec named one, while `/tagged`
-        # states the UA claim the arm made. A render claiming neither contributes nothing, keeping a plain
-        # document's audit row exactly its declared facts rather than a row of vacuous passes.
         fact, claimed = self.fact, self.spec.variant is not PdfVariant.NONE
         if fact is None or not (claimed or fact.tagged):
             return ()
@@ -688,7 +657,7 @@ def _admissible(mode: DocumentMode, /) -> frozenset[str]:
 
 def _validated(raw: object, /) -> Result[EmitPayload, EmitFault]:
     try:
-        return Ok(_PAYLOAD.validate_python(raw, strict=True))  # the document folder's one admission strictness — egress/lens/report match
+        return Ok(_PAYLOAD.validate_python(raw, strict=True))
     except ValidationError as fault:
         return Error(EmitFault(payload=tuple(str(error["loc"]) for error in fault.errors())))
 
@@ -835,7 +804,6 @@ class _SheetDocTemplate(BaseDocTemplate):
     def afterFlowable(self, flowable: object, /) -> None:
         style = getattr(getattr(flowable, "style", None), "name", "")
         if isinstance(style, str) and style.startswith("Heading"):
-            # reportlab rejects an outline level that jumps more than one past the previous entry, so a skipped heading rank clamps.
             level = min(int(style.removeprefix("Heading") or "1") - 1, self._last + 1, 6)
             text, key = flowable.getPlainText(), f"h{self._seq}"
             self._seq += 1
@@ -954,7 +922,6 @@ def _ua_block(page: object, node: DocumentNode, spec: EmitSpec, /) -> object:
         case FieldNode() as field:
             return _ua_field(page, field)
         case TableNode(rows=rows, spans=spans, header_rows=head_n) if rows:
-            # one streaming arm serves spanned and span-free tables alike — an empty spans tuple folds to max_rowspan=1
             columns = [OxideColumn(_text(cell)) for cell in rows[0]] if head_n else [OxideColumn("") for _ in rows[0]]
             streaming = page.streaming_table(columns, repeat_header=bool(head_n), max_rowspan=max((s[3] for s in spans), default=1))
             for row in rows[head_n:] if head_n else rows:
@@ -986,11 +953,6 @@ def _pdf_ua_build(plan: DocumentPlan, /) -> EmitFact:
 
 
 def _acroform_applied(data: bytes, fields: tuple[FieldNode, ...], /) -> bytes:
-    # pdf-oxide's fluent constructors carry no flag/tooltip/limit knobs (catalog `FluentPageBuilder` row), so the
-    # model's remaining AcroForm semantics land in ONE post-build pikepdf fold over `/AcroForm/Fields`:
-    # `/Ff` read-only (bit 1) + required (bit 2) + combo Edit (bit 19), `/TU` tooltip, text `/MaxLen`. Signature
-    # signer/reason are SIGNING facts the exchange/conformance PAdES rail applies; button actions ride the
-    # egress annotation pass. A field-free document skips the reopen entirely.
     if not fields:
         return data
     wanted = {node.name: node for node in fields}
@@ -1016,7 +978,6 @@ def _acroform_applied(data: bytes, fields: tuple[FieldNode, ...], /) -> bytes:
 def _conformance(data: bytes, variant: PdfVariant, /) -> tuple[bool, int]:
     if variant is PdfVariant.NONE:
         return (True, 0)
-    # pdf-oxide's Rust handle closes deterministically once the verdicts materialize — never a GC-reaped native document.
     with pdf_oxide.PdfDocument.from_bytes(data) as doc:
         verdicts = (
             *(doc.validate_pdf_a(level) for level in _ORACLE_LEVEL.try_find(variant).to_list()),
@@ -1026,8 +987,6 @@ def _conformance(data: bytes, variant: PdfVariant, /) -> tuple[bool, int]:
 
 
 def _pdf_pages(data: bytes, /) -> int:
-    # terminal page census for the provider arms whose render returns bare bytes (WeasyPrint, the pdf-oxide builder
-    # chain, typst): every ReceiptKind.PDF fact carries a real count, so a zero-page receipt over a non-empty PDF is unmintable.
     with pikepdf.open(io.BytesIO(data)) as pdf:
         return len(pdf.pages)
 
@@ -1105,9 +1064,8 @@ def _pypdfium2_raster(plan: DocumentPlan, /) -> EmitFact:
 
 
 def _pdf_oxide_render(plan: DocumentPlan, /) -> EmitFact:
-    # pdf-oxide's Rust handle closes deterministically once every frame materializes — never a GC-reaped native document.
     with pdf_oxide.PdfDocument.from_bytes(plan.spec.source, password=plan.spec.password or None) as doc:
-        dpi = max(1, int(72 * plan.spec.scale))  # a valid sub-1/72 scale still renders — a zero-dpi request is unspellable
+        dpi = max(1, int(72 * plan.spec.scale))
         indices = plan.spec.pages or tuple(range(doc.page_count))
         if any(index >= doc.page_count for index in indices):
             raise ValueError(f"page index out of range: document holds {doc.page_count} pages")
@@ -1598,10 +1556,6 @@ def _latex_emit(plan: DocumentPlan, /) -> EmitFact:
 
 
 _DTD_EXTERNAL: Final[re.Pattern[str]] = re.compile(r"<!ENTITY\s+%?\s*[^>]*?\b(?:SYSTEM|PUBLIC)\b")
-# libxml2 sniffs an external subset's encoding before parsing, so the refusal scan must read the SAME text the
-# compiler will: the BOM'd UTF-32/16/8 marks and the BOM-less UTF-16 text-declaration patterns decode first-match
-# (32 ahead of its own 16-prefix), everything else parses as UTF-8 — a bytes-only scan reads past a UTF-16-spelled
-# `SYSTEM` that libxml2 honors.
 _DTD_CODECS: Final[tuple[tuple[bytes, str], ...]] = (
     (codecs.BOM_UTF32_LE, "utf-32-le"),
     (codecs.BOM_UTF32_BE, "utf-32-be"),
@@ -1614,20 +1568,11 @@ _DTD_CODECS: Final[tuple[tuple[bytes, str], ...]] = (
 
 
 def _hardened_dtd(source: bytes) -> object:
-    # `etree.DTD` is the one grammar kind `hardened_parse` cannot carry: it compiles its source through a
-    # construction accepting no parser, resolver, or network control at all (the catalog's validator row), so
-    # external ids refuse by inspection beforehand — and the inspection is complete over the declaration grammar:
-    # every ExternalID spells SYSTEM or PUBLIC literally inside an `<!ENTITY` opening, an indirect declaration
-    # nested in a parameter-entity literal still carries that spelling where `search` reaches it, and XML's
-    # space-padded parameter-entity expansion forecloses assembling either keyword from fragments. Decode failure
-    # refuses as the same `ValueError` class — bytes libxml2 could not read either.
     if _DTD_EXTERNAL.search(source.decode(next((codec for mark, codec in _DTD_CODECS if source.startswith(mark)), "utf-8"))):
         raise ValueError("external entity reference in DTD source")
     return etree.DTD(io.BytesIO(source))
 
 
-# a caller-supplied schema or stylesheet is foreign bytes, so all three grammar compiles read the parsed element the
-# model owner's ONE hardened admission returns — never a per-row parser this page would have to re-audit.
 _VALIDATOR: Final[Map[SchemaKind, Callable[[bytes], object]]] = Map.of_seq([
     (SchemaKind.XSD, lambda source: etree.XMLSchema(hardened_parse(source))),
     (SchemaKind.RELAXNG, lambda source: etree.RelaxNG(hardened_parse(source))),
@@ -1677,8 +1622,6 @@ _RECEIPT: Final[Map[ReceiptKind, Callable[[ContentKey, EmitFact], "ArtifactRecei
 ])
 
 BACKENDS: Final[Map[DocumentMode, Backend]] = Map.of_seq([
-    # WeasyPrint layout and the Typst compiler hold the GIL through their native render, so every arm over either body is
-    # native-hostile and rides the WORKER band's process kernel — a RELEASING thread row serializes the whole loop behind it.
     (DocumentMode.PDF_AUTHOR, Backend(Band.CORE, _reportlab_author, ReceiptKind.PDF)),
     (DocumentMode.PDF_HTML, Backend(Band.WORKER, _weasyprint_html, ReceiptKind.PDF)),
     (DocumentMode.PDF_OXIDE, Backend(Band.CORE, _pdf_oxide_create, ReceiptKind.PDF)),

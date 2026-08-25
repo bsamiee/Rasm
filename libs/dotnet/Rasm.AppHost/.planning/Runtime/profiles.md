@@ -44,7 +44,7 @@ Each `isolation` value names the crossing that answers it; an unbound capability
 |  [05]   | `remote`    | `Wire/outbound#HOP_AXIS`           | `Faculty.RemoteCompute` row |
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Text.Json;
 using Generator.Equals;
@@ -52,7 +52,7 @@ using Thinktecture;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -107,8 +107,6 @@ public sealed partial class ShipVehicle {
     public static readonly ShipVehicle Oci = new("oci", readyToRun: false);
     public static readonly ShipVehicle Folder = new("folder", readyToRun: false);
 
-    // Ahead-of-time compilation buys start-up latency on a locally launched bundle alone; a long-lived
-    // container and a host-loaded plugin assembly pay the size for a warm-up they never repeat.
     public bool ReadyToRun { get; }
 }
 
@@ -143,8 +141,6 @@ public sealed partial class HostSurface {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DeploymentTopology {
-    // Unreachable by construction — `Admit` refuses in-host carrying no host descriptor and `ResolvedProfile.Recovery`
-    // prefers the host row's column, so this cell reads the `Relaxed` window both in-host host rows select.
     public static readonly DeploymentTopology InHost = new("in-host", serverGc: false, vehicle: ShipVehicle.Yak, attach: HostAttach.AppRoot, surface: HostSurface.Windowed, durability: RecoveryObjective.Relaxed);
     public static readonly DeploymentTopology Sidecar = new("sidecar", serverGc: true, vehicle: ShipVehicle.DesktopBundle, attach: HostAttach.Quiet, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
     public static readonly DeploymentTopology Companion = new("companion", serverGc: true, vehicle: ShipVehicle.DesktopBundle, attach: HostAttach.Quiet, surface: HostSurface.Windowed, durability: RecoveryObjective.Standard);
@@ -159,8 +155,6 @@ public sealed partial class DeploymentTopology {
     public RecoveryObjective Durability { get; }
 }
 
-// `Unhosted` states what a profile carrying no host descriptor holds, deleting five per-column `IfNone` defaults
-// whose polarity disagreed; accessor-backed, since an eager field folds before the generator fills the roster.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -185,12 +179,11 @@ public abstract partial record RuntimeAttachment {
     public sealed record Integrating(string SharedStoreRoot) : RuntimeAttachment;
 }
 
-// --- [ERRORS] -------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 public sealed record AxisEvidence(ProfileAxis Axis, string Value, string Reason) {
     public string Detail => $"{Axis.Key}={Value}:{Reason}";
 }
 
-// Numeric identity derives from the kernel fault band.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProfileFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Profile;
@@ -210,7 +203,6 @@ public abstract partial record ProfileFault : Fault {
         public AxisEvidence Evidence { get; }
     }
 
-    // Emission sites publish different assertions, so the state that failed to cross rides the case.
     [FaultCase(3)]
     public sealed partial record NotifyRefused : ProfileFault, ICausedFault {
         public NotifyRefused(string state, Error cause) : base($"{state}:{cause.Message}") => Cause = cause;
@@ -220,7 +212,7 @@ public abstract partial record ProfileFault : Fault {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RecoveryObjective(Duration Rpo, Duration Rto) {
     public static readonly RecoveryObjective Strict = new(Duration.FromMinutes(1), Duration.FromMinutes(15));
     public static readonly RecoveryObjective Standard = new(Duration.FromMinutes(5), Duration.FromMinutes(30));
@@ -244,8 +236,6 @@ public sealed partial class HostDescriptor {
     public RecoveryObjective Durability { get; }
     public CapabilitySet<HostCapability> Held { get; }
 
-    // Three representation coordinates admit through generated default evidence; package-semantic profile
-    // refusals remain explicit gates on `ProfileSurface`.
     static partial void ValidateFactoryArguments(
         ref ValidationError? error, ref string key, ref string fits, ref string tenancy, ref DescriptorLifetime lifetime,
         ref Option<string> residual, ref ShipVehicle vehicle, ref HostAttach attach, ref HostSurface surface,
@@ -261,8 +251,6 @@ public sealed partial class ProviderDescriptor {
     public string Tenancy { get; }
     public DescriptorLifetime Lifetime { get; }
     public Faculty Supplies { get; }
-    // Reach is the degradation coordinate: a remote-reaching provider drops out of the retained set the
-    // moment `DegradationLevel` stops retaining `RemoteCompute`, where an in-proc row survives every level.
     public Isolation Reach { get; }
 
     static partial void ValidateFactoryArguments(
@@ -271,7 +259,6 @@ public sealed partial class ProviderDescriptor {
         error = Descriptors.Coordinates(nameof(ProviderDescriptor), key, fits, tenancy, lifetime);
 }
 
-// Both families answer the same four coordinates; a per-family copy is how the two start refusing differently.
 static class Descriptors {
     public static ValidationError? Coordinates(string family, string key, string fits, string tenancy, DescriptorLifetime lifetime) =>
         string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(fits)
@@ -280,10 +267,6 @@ static class Descriptors {
             : null;
 }
 
-// `Host` tails the positional list carrying `= default`: this profile rides `PhaseReceipt` across the suite wire,
-// whose `OmitAbsent` modifier drops an absent `Option<T>` at write, so a slot without a default reads back
-// wire-required under `RespectRequiredConstructorParameters` and fails the decode of its own emission.
-// `Seq<T>` under synthesized record equality compares by REFERENCE, which is what `[Equatable]` repairs here.
 [Equatable]
 public sealed partial record ConsumptionProfile(
     Tenancy Tenancy,
@@ -302,15 +285,12 @@ public sealed partial record ConsumptionProfile(
     public RecoveryObjective Recovery => Host.Map(static host => host.Durability).IfNone(Topology.Durability);
     public bool ServerGc => Topology.ServerGc;
     public bool ReadyToRun => Vehicle.ReadyToRun;
-    // The delivery mandate IS the bound provider: a profile binding no telemetry-export row ships nothing off-box.
     public bool OtlpExport => Supplies(Faculty.TelemetryExport);
     public string HostKey => Host.Map(static host => host.Key).IfNone("none");
 
     public bool Holds(HostCapability capability) => Held.Admits(capability);
     public bool Supplies(Faculty faculty) => Grants.Admits(faculty);
 
-    // Six rows in roster order under an ordinal provider-key sort: the canonical-json preimage the
-    // corpus parity reads, so a set literal reordered at the composition root re-serializes identically.
     public ImmutableArray<KeyValuePair<string, string>> Canonical() => [
         new(ProfileAxis.Tenancy.Key, Tenancy.Key),
         new(ProfileAxis.Topology.Key, Topology.Key),
@@ -320,11 +300,6 @@ public sealed partial record ConsumptionProfile(
         new(ProfileAxis.Providers.Key, string.Join(',', Providers.Map(static row => row.Key).Order(StringComparer.Ordinal))),
     ];
 
-    // `JsonEncodedText` escapes each cell, so a descriptor key carrying a quote renders as an admissible
-    // literal; NON-ASCII does not survive, because this encoder emits `\uXXXX` where the peer branches emit raw
-    // UTF-8 — the printable-ASCII bound `libs/contracts/manifest.json` `CONSUMPTION_PROFILE` states is what makes the three
-    // renders one string, and it bars the branch-owned capability vocabulary from this preimage for the same
-    // reason. Serializing a dictionary is deleted: property order there drifts on rehash.
     public string CanonicalJson() =>
         $"{{{string.Join(',', Canonical().Select(static row =>
             $"\"{JsonEncodedText.Encode(row.Key).Value}\":\"{JsonEncodedText.Encode(row.Value).Value}\""))}}}";
@@ -334,9 +309,7 @@ public sealed record ResolvedProfile(ConsumptionProfile Profile, string Applicat
     public RecoveryObjective Recovery => Profile.Recovery;
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
-// NAMED LOSS — a row now states what it HOLDS and forfeits every capability it does not name, where the prior
-// form spelled all five columns and an unlisted one broke the build rather than reading as a silence.
+// --- [TABLES] --------------------------------------------------------------------------
 public static class HostRows {
     public static readonly HostDescriptor Rhino = HostDescriptor.Create(
         key: "rhino",
@@ -427,12 +400,11 @@ public static class ProviderRows {
         lifetime: new("until the composition root disposes the writer", LifecycleOwner.PackageOwned),
         supplies: Faculty.StoreWrite, reach: Isolation.InProc);
 
-    // Accessor-backed for the same static-initialization reason every roster projection here is.
     public static Seq<ProviderDescriptor> Default =>
         Seq(OtlpCollector, RemoteSolver, LocalSolver, DocumentBridge, StoreReader, StoreWriter);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ProfileSurface {
     public static Validation<Error, ConsumptionProfile> Admit(ConsumptionProfile profile) =>
         (Hosted(profile), Crossing(profile)).Apply(static (_, _) => unit).Map(_ => profile).As();
@@ -472,17 +444,14 @@ public static class ProfileSurface {
 - Boundary: a host holding `CoHostedAssets` crosses in through `external` — its builder is constructed at the web app root, where ASP.NET Core enters as a shared-framework asset only, and the static-file middleware seats there under the capability's gate ahead of endpoint routing; the host registers `ConsoleLifetime` as the default `IHostLifetime` on every builder path including the empty builder, and that default is the ALC-COLLECTIBILITY blocker rather than a console nuisance — `ConsoleLifetime` holds three `PosixSignalRegistration` values (SIGINT, SIGQUIT, SIGTERM), each handing a delegate to a process-global native handler table that roots the lifetime, its service provider, and the whole plugin load context, and its `StopAsync` releases none of them because only `Dispose` unregisters — so a `Foreign` attach swaps in the no-op `DetachedLifetime` through `Detached` to keep those roots unplanted and host-attach trigger injection drives phases; teardown is terminal at `await ((IAsyncDisposable)host).DisposeAsync()`, which also drains the `BackgroundService` tasks the synchronous `Dispose` never awaits, and `await host.StopAsync()` alone releases none of the registrations, since `ConsoleLifetime.StopAsync` is documented to do nothing and only `Dispose` unregisters — the two facts are INDEPENDENT and neither substitutes for the other: the lifetime swap keeps the process-global roots unplanted, so a detached host's load context collects even undisposed, while disposal releases whatever a composition root planted anyway; `AddSystemd` is the one service-manager registration — `SystemdHelpers.IsSystemdService` gates the live `ISystemdNotifier.Notify` emission so the notify socket is written only under systemd on the Linux-server backend; `MirrorService` is a `HookTap` scoped to `AppHostPoint.Phase` that the composition root mounts for the `Managed` row, so `Emit` fires on every committed `PhaseReceipt` — `ServiceState.Ready` mirrors the ready transition and `ServiceState.Stopping` mirrors the draining transition, the two payloads the package names — and the rail's own isolation parks a dead socket as evidence instead of unwinding through the CAS commit; the service-manager liveness keep-alive rides the schedule-port heartbeat row through `Watchdog` writing the `WatchdogPing` payload, its PERIOD derived by `Enrolled` as half the manager's `WATCHDOG_USEC` deadline under the unset-or-equal `WATCHDOG_PID` guard, and an absent `WATCHDOG_USEC` registers no heartbeat row at all — the manager expects no keep-alive there, and a fixed fallback period is the fabricated-measurement form; the miss half is NOT re-derived here, because `Runtime/time#SCHEDULE_PORT` `Heartbeat` already folds a not-met `DeadlineReceipt` into `SupportTrigger.Timed` under the watchdog kind carrying the firing row, so the enrollment answers only what that fold cannot — the dump completeness a hang deserves, which is why `DumpPolicy.Escalated` rides this row alone while every other trigger captures a process still answering its own probes; the watchdog carries a UNIT-side obligation the fence states because the default is a trap — systemd's `WatchdogSignal=` defaults to SIGABRT, which the CoreCLR PAL fully absorbs, so a missed deadline hangs the unit in `deactivating` for the whole `TimeoutStopSec` before the SIGKILL fallback (`Result=watchdog`, witnessed), and the unit therefore declares `WatchdogSignal=SIGKILL` or an explicit SIGABRT disposition so a missed deadline kills promptly; the reload window is `Reloaded`, whose `RELOADING=1` — carrying the mandatory `MONOTONIC_USEC` stamp a bare assertion cannot omit — opens and re-sent `READY=1` closes the `Type=notify-reload` handshake the unit declares beside `ReloadSignal=` (default SIGHUP), so `ExecReload=kill -HUP $MAINPID` is the deleted unit form — asynchronous, unorderable, and carrying no completion notification — while launchd publishes NO reload facility of any kind and its macOS trigger is the operator command `launchctl kill SIGHUP <domain>/<label>`, no plist key declaring it; `HostAbortedException` during build projects through `Aborted` to a boot-fault trigger value consumed by the transition entrypoint, never a second state machine.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting.Systemd;
 using Thinktecture;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Roots and the watchdog enrollment resolve BEFORE any configuration source mounts, so these are not
-// `ConfigSource.Env` rows: two are the manager's own unprefixed names no `RASM_` prefix reaches, and reading an
-// exported blank as absence once is what keeps a `Length > 0` filter off three call sites.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -490,9 +459,6 @@ public sealed partial class BootVariable {
     public static readonly BootVariable QueueRoot = new(ConfigSource.EnvPrefix + "TELEMETRY_QUEUE_ROOT");
     public static readonly BootVariable WatchdogDeadline = new("WATCHDOG_USEC");
     public static readonly BootVariable WatchdogOwner = new("WATCHDOG_PID");
-    // The systemd listen protocol: three coordinates the socket-activation adapter at
-    // `Wire/companion#HOST_BINDING` reads before any configuration source mounts, so the manager's own
-    // handoff variables have one author beside the watchdog pair rather than three bare reads at a boundary.
     public static readonly BootVariable ListenOwner = new("LISTEN_PID");
     public static readonly BootVariable ListenCount = new("LISTEN_FDS");
     public static readonly BootVariable ListenNames = new("LISTEN_FDNAMES");
@@ -500,13 +466,11 @@ public sealed partial class BootVariable {
     public Option<string> Read() => Optional(Environment.GetEnvironmentVariable(Key)).Filter(static held => held.Length > 0);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct WatchdogEnrollment(Duration Period, DumpPolicy Stalled);
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ProfileBoot {
-    // Package names `Ready` and `Stopping` and nothing else; every further assertion mints through its public
-    // `ServiceState(string)` ctor, so this protocol vocabulary reaches whole with no package gap.
     public static readonly ServiceState WatchdogPing = new("WATCHDOG=1");
 
     public static HostApplicationBuilder CreateApp(HostApplicationBuilderSettings settings) => Host.CreateApplicationBuilder(settings);
@@ -524,12 +488,6 @@ public static class ProfileBoot {
     public static IHostApplicationBuilder Service(IHostApplicationBuilder builder) =>
         (builder.Services.AddSystemd(), builder).Item2;
 
-    // MONOTONIC_USEC beside RELOADING=1 is a HARD REQUIREMENT, witnessed on systemd 260: a bare RELOADING=1 is
-    // SILENTLY DISCARDED, so `systemctl reload` blocks to `TimeoutStartSec` and fails (rc=1) while the service
-    // survives, where the stamped pair reloads in rc=0. Stamping reads the INJECTED provider rather than the
-    // `Stopwatch` statics — `TimeProvider.System.GetTimestamp` is the same CLOCK_MONOTONIC source systemd
-    // compares against, the admitted timeline already proved its frequency positive, and a fixture under
-    // FakeTimeProvider stamps its own clock instead of the machine's.
     public static ServiceState Reloading(ClockPolicy clocks) =>
         new($"RELOADING=1\nMONOTONIC_USEC={(clocks.Time.GetTimestamp() * 1_000_000L / clocks.Time.TimestampFrequency).ToString(CultureInfo.InvariantCulture)}");
 
@@ -545,8 +503,6 @@ public static class ProfileBoot {
         faulted: Option<ServiceState>.None,
         supportCapture: Option<ServiceState>.None);
 
-    // `IsEnabled` answers only whether `NOTIFY_SOCKET` was exported, never whether the peer still listens, so
-    // a torn-down socket throws on a send this rail has to carry rather than raise.
     public static Fin<Unit> Notify(ISystemdNotifier notifier, ServiceState state) =>
         notifier.IsEnabled
             ? Op.Of().Catch(() => Fin.Succ(fun(() => notifier.Notify(state))()))
@@ -560,12 +516,6 @@ public static class ProfileBoot {
 
     public static Fin<Unit> Watchdog(ISystemdNotifier notifier) => Notify(notifier, WatchdogPing);
 
-    // sd_watchdog_enabled(3) protocol law: the manager expects keep-alives when `$WATCHDOG_USEC` is set AND
-    // `$WATCHDOG_PID` is UNSET OR names this process — the opposite polarity from the socket-activation guard,
-    // which requires `$LISTEN_PID` to EQUAL the pid and disqualifies on absence. Reading the two alike disables a
-    // watchdog on every unit setting `WatchdogSec=` without exporting a pid; a plain unit always exports it equal
-    // to MainPID (witnessed), so the unset arm serves the sd_notify-from-elsewhere case the law admits. Ticks run
-    // at half the deadline because the manager restarts its countdown from EACH notification.
     public static Option<WatchdogEnrollment> Enrolled() =>
         BootVariable.WatchdogDeadline.Read()
             .Filter(static _ => BootVariable.WatchdogOwner.Read().Match(
@@ -652,22 +602,18 @@ Lifetime signals project into phase-transition trigger values consumed by the tr
 - Boundary: roots are per-user paths off TWO platform bases — `LocalApplicationData` carries the store, support, and queue roots because those are data, and `ApplicationData` carries the config root alone, since the two collapse on darwin but diverge on linux (`$XDG_DATA_HOME` versus `$XDG_CONFIG_HOME`) and roam versus stay local on windows, so a single base lands a document store, a crash marker, and a durable queue in a CONFIG directory on exactly the service and edge rows that only ever run on linux; a host holding `LocalStore` stores under the data base, companion topology scopes its own companion store, and every other row runs scratch-only; Persistence consumes the resolved record and derives no path; host-document identity enters as one extra attribute row where the descriptor holds `HostCapability.Document`; the resource triple is `service.namespace` `rasm`, `service.name` the `TelemetryDomain.Qualify` render of the application row, and `service.instance.id` as pid joined with the start instant — the qualified name is load-bearing because a metrics store maps a subset of resource attributes onto series labels, so a store dropping `service.namespace` still separates this estate's emitters from a foreign `service.name`, and the qualifier rather than a local concatenation owns it so an already-prefixed or PascalCase application id lands one dotted lowercase spelling instead of two; `deployment.environment.name` is the live semconv spelling and the bare `deployment.environment` key is the deprecated form no exporter re-introduces; `QueueRoot` is the ONLY durable-telemetry path any composition reads — an offline queue rooted at a container layer loses its tail on the next reschedule, a queue rooted at a shared store root corrupts on a second live instance, and a queue rooted at a base two co-resident processes share lets each drain the other's batches, so every arm answers residence here rather than at a consumer and `BootVariable.QueueRoot` is the one coordinate a deployment sets to declare the volume that survives it; deriving queue residence from `LocalStore` alone is the deleted form, because that capability answers where a document store lives and disarms durable buffering on exactly the service and edge rows that always export; `HostResourceDetector` is the one resource-discovery seam and a hand-pushed attribute list at a provider builder is the deleted pattern, its `Admitted` narrowing scoped to the ONE collision seat order cannot answer — two rows inside a single detector's own attribute list, where no merge runs — because no pre-build narrowing defends a key the merge fold itself overwrites afterwards, which is exactly the case the prior whole-list scan missed.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using NodaTime.Text;
 using OpenTelemetry.Resources;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ProfileRoots(string AppRoot, string ConfigRoot, Option<string> StoreRoot, string SupportRoot, Option<string> QueueRoot);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ProfileIdentity {
-    // TWO bases, because the platform answers twice: darwin collapses `ApplicationData` and
-    // `LocalApplicationData` onto `~/Library/Application Support`, linux DIVERGES them onto `$XDG_CONFIG_HOME`
-    // and `$XDG_DATA_HOME`, and windows roams the first over a network profile while keeping the second local.
-    // One base for both was the darwin-shaped assumption.
     public static Fin<ProfileRoots> Roots(ConsumptionProfile profile, string applicationName, Option<RuntimeAttachment> attachment) =>
         (Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
          Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData)) switch {
@@ -681,7 +627,6 @@ public static class ProfileIdentity {
     public static string InstanceId(ResolvedProfile resolved) =>
         $"{resolved.ProcessId}:{InstantPattern.ExtendedIso.Format(resolved.StartInstant)}";
 
-    // Triple heads the array so a truncating collector keeps identity.
     public static ImmutableArray<KeyValuePair<string, object>> ResourceAttributes(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra) => Admitted([
         new("service.namespace", TelemetryDomain.Namespace),
         new("service.name", TelemetryDomain.Qualify(resolved.ApplicationName)),
@@ -711,7 +656,6 @@ public static class ProfileIdentity {
             _ => Rooted(profile, baseRoot, configRoot, None, None),
         };
 
-    // Generated projection answers the one question this fold asks — which root, if any, was attached to.
     static Option<string> Shared(Option<RuntimeAttachment> attachment) =>
         attachment.Bind(static held => held.Switch(
             isolated: static _ => Option<string>.None,
@@ -736,7 +680,7 @@ public static class ProfileIdentity {
 - Boundary: the darwin seam admits a CoreFoundation GET through one `Handle` before any read, so the three-way `IntPtr.Zero` ladder the four value readers each carried collapses to one admission whose absence the `Option` rail carries; the COPY handles the seam owns stay raw inside the release-bounded scan, because a lazily projected sequence escaping that scope reads memory the `finally` already freed.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
@@ -744,7 +688,7 @@ using Thinktecture;
 
 namespace Rasm.AppHost.Runtime;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -754,9 +698,6 @@ public sealed partial class PowerState {
     public static readonly PowerState LowBattery = new("low-battery");
 }
 
-// Generated key IS the rank, and its four values are the four IMPLICIT ordinals `NSProcessInfoThermalState`
-// declares — that enum names none explicitly — so the darwin probe casts a raw ordinal straight onto a key
-// rather than mapping through a table nobody can verify, and the operators keep the rank compare at the site.
 [SmartEnum<int>(
     ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
@@ -776,18 +717,15 @@ public sealed partial class ThermalPressure {
 [KeyMemberEqualityComparer<ComparerAccessors.Default<int>, int>]
 [KeyMemberComparer<ComparerAccessors.Default<int>, int>]
 public sealed partial class FidelityScale {
-    // Reserve is the battery share below which a discharging host stops treating charge as spare budget.
     public const double BatteryReserve = 0.2d;
 
     public static readonly FidelityScale Conserve = new(0, parallelismCap: 1);
-    // Halved cap floors at one: a single-core host resolves to zero permits and starves every lane.
     public static readonly FidelityScale Sustained = new(1, parallelismCap: int.Max(1, Environment.ProcessorCount / 2));
     public static readonly FidelityScale Balanced = new(2, parallelismCap: Environment.ProcessorCount);
     public static readonly FidelityScale Burst = new(3, parallelismCap: int.MaxValue);
 
     public int ParallelismCap { get; }
 
-    // Thermal grades FIRST where it was measured, because heat is the ceiling a plugged host still hits.
     public static FidelityScale Grade(PowerReading reading) =>
         (reading.Thermal.Case, reading.Power, reading.BatteryFraction) switch {
             (ThermalPressure heat, _, _) when heat >= ThermalPressure.Critical => Conserve,
@@ -818,7 +756,7 @@ public sealed partial class PowerAuthority {
         : Absent;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PowerReading {
     private PowerReading(PowerState power, Option<ThermalPressure> thermal, double battery) =>
         (Power, Thermal, BatteryFraction) = (power, thermal, battery);
@@ -835,29 +773,20 @@ public readonly record struct PowerReading {
             : Fin.Fail<PowerReading>(new ProfileFault.AttachmentRejected($"power-reading:battery-fraction {battery} outside [0,1]"));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class EnergyCell(PowerAuthority authority) {
     private readonly Atom<Option<PowerReading>> cell = Atom(Option<PowerReading>.None);
 
     public FidelityScale Read() => cell.Value.Map(FidelityScale.Grade).IfNone(FidelityScale.Balanced);
 
-    // Probing runs ONCE outside the transition, because a CAS body re-runs on contention and re-enters a native
-    // read per attempt. A refusal answers `Refused` carrying the HELD reading, so one transient failure can no
-    // longer drop back to absence and grade a critically throttled host unconstrained until the next read.
     public Transition<Option<PowerReading>> Refresh() =>
         authority.Read().Match(
             Succ: reading => Cell.Step(cell, _ => Some(Some(reading)), new ProfileFault.AttachmentRejected($"power-authority:{authority.Key} declined")),
             Fail: cause => new Transition<Option<PowerReading>>.Refused(cell.Value, cause));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Every key string is a named const off its platform's own header or ABI file, so a spelling drifts in one
-// place and a reader diffs the const against the source document.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PowerProbe {
-    // IOKit `ps/IOPowerSources.h` + `ps/IOPSKeys.h`. Charge is DERIVED — the header states clients divide
-    // current by max, so no fraction key exists and both sides are `CFNumber kCFNumberIntType`. `Time to
-    // Empty`/`Time to Full Charge` never enter: they read zero on AC, an unmeasured value indistinguishable
-    // from a measured one, and `IOPSGetTimeRemainingEstimate`'s -1/-2 sentinels this fold wants for nothing.
     public const string AcPowerValue = "AC Power";
     public const string BatteryPowerValue = "Battery Power";
     public const string UpsPowerValue = "UPS Power";
@@ -869,10 +798,6 @@ public static class PowerProbe {
     public const string SourceTypeKey = "Type";
     public const string InternalBatteryType = "InternalBattery";
 
-    // `/sys/class/power_supply/<name>/` and `/sys/class/thermal/`, from the kernel sysfs ABI. `capacity` is the
-    // one percent-native node (0-100 direct); the µAh/µWh `charge_*`/`energy_*` family is a class property the
-    // ABI file does not carry, so a ratio keyed to it reads a node that may not exist. `present` INVERTS the
-    // usual convention — its absence means present — so a missing node is true here and absence everywhere else.
     public const string PowerSupplyRoot = "/sys/class/power_supply";
     public const string ThermalRoot = "/sys/class/thermal";
     public const string TypeNode = "type";
@@ -889,9 +814,6 @@ public static class PowerProbe {
             Some: battery => PowerReading.Of(DarwinState(battery), DarwinPower.Thermal(), DarwinCharge(battery)),
             None: static () => Unresolved(PowerAuthority.Darwin.Key, $"an IOKit power source of {SourceTypeKey} {InternalBatteryType}"));
 
-    // `Is Present && !Is Charging` is the DISCHARGE predicate the low band needs — `Power Source State` alone
-    // reads `AC Power` on a charging laptop. `UPS Power` grades plugged: that buffer's own depletion is a
-    // deployment alarm rather than a compute-fidelity input.
     static PowerState DarwinState(DarwinPower.Source battery) =>
         battery.State != BatteryPowerValue ? PowerState.Plugged
         : battery.Present && !battery.Charging && DarwinCharge(battery) < FidelityScale.BatteryReserve ? PowerState.LowBattery
@@ -900,15 +822,11 @@ public static class PowerProbe {
     static double DarwinCharge(DarwinPower.Source battery) =>
         battery.MaxCapacity > 0 ? (double)battery.CurrentCapacity / battery.MaxCapacity : 0d;
 
-    // `GetSystemPowerStatus` over `SYSTEM_POWER_STATUS` (winbase.h, Kernel32.dll) is the whole windows answer,
-    // a raw interop declaration by necessity: no managed package on any RID reports AC or battery state.
     public static Fin<PowerReading> Windows() =>
         WindowsPower.Status().Match(
             Some: status => PowerReading.Of(WindowsState(status), None, status.BatteryLifePercent / 100d),
             None: static () => Unresolved(PowerAuthority.Windows.Key, "a GetSystemPowerStatus read reporting a known AC state and charge"));
 
-    // `BatteryFlag` is a FLAG WORD, not an enum — it reads 0 when the battery is neither charging nor at a named
-    // band — so the low band tests bits 2 (low) and 4 (critical) rather than comparing the whole value.
     static PowerState WindowsState(WindowsPower.SystemPowerStatus status) =>
         status.ACLineStatus == WindowsPower.AcOnline ? PowerState.Plugged
         : (status.BatteryFlag & (WindowsPower.BatteryLow | WindowsPower.BatteryCritical)) != 0 ? PowerState.LowBattery
@@ -919,8 +837,6 @@ public static class PowerProbe {
             Some: battery => PowerReading.Of(LinuxState(battery), LinuxPower.Thermal(), battery.Capacity / 100d),
             None: static () => Unresolved(PowerAuthority.Linux.Key, $"a {PowerSupplyRoot} row publishing {CapacityNode}"));
 
-    // AC reads off the MAINS side, never inferred from the battery row: `Discharging` on a machine whose mains
-    // row is online is a charge-cycle artifact rather than an unplugged host.
     static PowerState LinuxState(LinuxPower.Supply battery) =>
         !LinuxPower.OnMains() && battery.Present && battery.Status == DischargingStatus
             ? (battery.Capacity < FidelityScale.BatteryReserve * 100 ? PowerState.LowBattery : PowerState.Battery)
@@ -933,7 +849,7 @@ public static class PowerProbe {
         Fin.Fail<PowerReading>(new ProfileFault.AttachmentRejected($"power-authority:{authority} requires {requirement}"));
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [SupportedOSPlatform("macos")]
 public static partial class DarwinPower {
     private const string IOKit = "/System/Library/Frameworks/IOKit.framework/IOKit";
@@ -944,8 +860,6 @@ public static partial class DarwinPower {
 
     public readonly record struct Source(string State, int CurrentCapacity, int MaxCapacity, bool Charging, bool Present);
 
-    // Admitting a CoreFoundation reference ONCE replaces four `!= IntPtr.Zero` tests, three of which folded
-    // absence into the type's own zero.
     private readonly record struct Handle(IntPtr Address) {
         public static Option<Handle> Of(IntPtr address) => address != IntPtr.Zero ? Some(new Handle(address)) : None;
     }
@@ -966,9 +880,6 @@ public static partial class DarwinPower {
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")] private static partial IntPtr Send(IntPtr receiver, IntPtr selector);
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")] private static partial long SendLong(IntPtr receiver, IntPtr selector);
 
-    // Blob and list are COPIES this seam owns and releases on every path; each description dictionary is a GET
-    // no caller may release. Scanning stays a statement body because the decode must COMPLETE inside the release
-    // scope — a lazily projected sequence leaving here reads memory the `finally` already freed.
     public static Option<Source> Battery() {
         IntPtr blob = IOPSCopyPowerSourcesInfo();
         if (blob == IntPtr.Zero) { return None; }
@@ -993,25 +904,18 @@ public static partial class DarwinPower {
         }
     }
 
-    // `NSProcessInfo.processInfo.thermalState` — the sanctioned macOS pressure ladder and the ONLY one: no
-    // public SMC API exists, `pmset -g therm` records nothing on a live device, and no SDK header declares an
-    // AppleSMC key surface. Managed `NSProcessInfo.ThermalState` reads the same value inside this suite's Rhino
-    // bundle, but `Microsoft.macOS.dll` is absent outside it, so this arm stays the portable one.
     public static Option<ThermalPressure> Thermal() =>
         Handle.Of(objc_getClass("NSProcessInfo"))
             .Bind(static cls => ThermalPressure.TryGet((int)SendLong(Send(cls.Address, sel_registerName("processInfo")), sel_registerName("thermalState")), out var row)
                 ? Some(row)
                 : None);
 
-    // Keys cross as CFStrings this seam mints and releases; values are GETs it never owns.
     private static Option<Handle> Value(Handle dictionary, string key) {
         IntPtr name = CFStringCreateWithCString(IntPtr.Zero, key, Utf8Encoding);
         try { return Handle.Of(CFDictionaryGetValue(dictionary.Address, name)); }
         finally { CFRelease(name); }
     }
 
-    // Statement-bodied for the stack buffer alone: a `stackalloc` span cannot live in the lambda the rest of
-    // this seam folds through.
     private static Option<string> Text(Handle dictionary, string key) {
         Span<byte> buffer = stackalloc byte[128];
         return Value(dictionary, key) is { Case: Handle held }
@@ -1036,8 +940,6 @@ public static partial class WindowsPower {
     public const byte BatteryCritical = 4;
     public const byte PercentUnknown = 255;
 
-    // winbase.h `SYSTEM_POWER_STATUS`, field-for-field. `BatteryLifeTime`/`BatteryFullLifeTime` read -1 on AC
-    // and never enter the reading; `SystemStatusFlag` is the battery-saver bit, formerly `Reserved1`.
     [StructLayout(LayoutKind.Sequential)]
     public struct SystemPowerStatus {
         public byte ACLineStatus;
@@ -1052,8 +954,6 @@ public static partial class WindowsPower {
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetSystemPowerStatus(out SystemPowerStatus status);
 
-    // BOTH sentinels refuse. A 255 charge is documented unknown, and rounding it to 2.55 or clamping it to 1.0
-    // hands the grade a full battery it never measured; a 255 AC state is the same absence one field over.
     [SupportedOSPlatform("windows")]
     public static Option<SystemPowerStatus> Status() =>
         GetSystemPowerStatus(out var status)
@@ -1063,11 +963,8 @@ public static partial class WindowsPower {
             : None;
 }
 
-// Pure BCL: every read is a text file under a kernel-published ABI path, so this seam declares no interop.
 [SupportedOSPlatform("linux")]
 public static class LinuxPower {
-    // Cooling bands SHAPE the fallback ladder: a normalized throttle ratio has no natural steps, so these three
-    // fractions state where it climbs and a fourth level is one row, never a new derivation.
     private static readonly Seq<(double Floor, ThermalPressure Level)> CoolingBands =
         Seq((0.9d, ThermalPressure.Critical), (0.6d, ThermalPressure.Serious), (0.3d, ThermalPressure.Fair));
 
@@ -1076,8 +973,6 @@ public static class LinuxPower {
 
     public readonly record struct Supply(string Status, int Capacity, bool Present);
 
-    // `present` INVERTS the usual convention: the ABI states an absent node means the battery IS present, so
-    // only an explicit `0` reads absent, and a row skipping `capacity` is skipped whole.
     public static Option<Supply> Battery() =>
         Rows().Filter(static row => Node(row, PowerProbe.TypeNode).Exists(static kind => kind == PowerProbe.BatterySupply))
             .Map(static row => (Row: row, Capacity: Reading(row, PowerProbe.CapacityNode)))
@@ -1088,15 +983,10 @@ public static class LinuxPower {
                 Present: Reading(pair.Row, PowerProbe.PresentNode).Map(static held => held != 0).IfNone(true)))
             .Head;
 
-    // `online` admits 0 offline, 1 online fixed, 2 online programmable, so any non-zero is powered and a host
-    // with no battery at all still answers here.
     public static bool OnMains() =>
         Rows().Filter(static row => !Node(row, PowerProbe.TypeNode).Exists(static kind => kind == PowerProbe.BatterySupply))
             .Exists(static row => Reading(row, PowerProbe.OnlineNode).Exists(static held => held != 0));
 
-    // TWO derivations, in order, then a refusal. Trip points give the natural escalation but are ABI-OPTIONAL,
-    // so the cooling-device ratio is the fallback every conforming host publishes. Grading a bare temperature
-    // against a hardcoded ceiling is deleted — that ceiling varies per silicon.
     public static Option<ThermalPressure> Thermal() => Tripped() | Cooled();
 
     static Option<ThermalPressure> Tripped() =>
@@ -1113,7 +1003,6 @@ public static class LinuxPower {
             .Bind(static ratio => CoolingBands.Filter(band => ratio >= band.Floor).Map(static band => band.Level))
             .MaxBy(static level => level.Key));
 
-    // Trip pairs are INDEXED, never named, so a band resolves by scanning one zone's own indices.
     static Option<long> Trip(string zone, string kind) =>
         toSeq(Directory.EnumerateFiles(zone, "trip_point_*_type"))
             .Filter(path => Text(path).Exists(band => band == kind))
@@ -1134,8 +1023,6 @@ public static class LinuxPower {
     static Option<long> Reading(string directory, string node) =>
         Node(directory, node).Bind(static text => long.TryParse(text, CultureInfo.InvariantCulture, out var value) ? Some(value) : None);
 
-    // Unreadable nodes are ABSENCE, never an empty string: a permission fault, a racing hot-unplug, and a
-    // driver skipping its property all land here, where an empty file is a node that exists and says nothing.
     static Option<string> Text(string path) =>
         Op.Of().Catch(() => Fin.Succ(File.ReadAllText(path).Trim())).ToOption().Filter(static text => text.Length > 0);
 }

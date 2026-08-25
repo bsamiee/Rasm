@@ -25,7 +25,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Apache.Arrow;
 using Apache.Arrow.Adbc;
-using CommunityToolkit.HighPerformance;            // ReadOnlyMemory<byte>.AsStream — the bridge into CreateWithLimits
+using CommunityToolkit.HighPerformance;
 using FlowtideDotNet.Substrait;
 using FlowtideDotNet.Substrait.Conversion;
 using FlowtideDotNet.Substrait.Exceptions;
@@ -34,27 +34,23 @@ using FlowtideDotNet.Substrait.Expressions.Literals;
 using FlowtideDotNet.Substrait.Relations;
 using FlowtideDotNet.Substrait.Sql;
 using FlowtideDotNet.Substrait.Type;
-using Google.Protobuf;                             // CodedInputStream.CreateWithLimits + JsonParser — the two bounded plan doors
+using Google.Protobuf;
 using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
-using Rasm.Element.Query;                          // Selection<TKey>, WalkDepth — the seam selection vocabulary
-using Rasm.Persistence.Element;                    // ModelId — the stream grain the keyed projection qualifies by
+using Rasm.Element.Query;
+using Rasm.Persistence.Element;
 using Thinktecture;
-// Seam closure instantiated over this folder's store leaf family; this alias resolves the CS0104 ambiguity
-// against the implicitly-imported `System.Predicate<T>` delegate.
 using SetQuery = Rasm.Element.Query.Predicate<Rasm.Persistence.Query.SetPredicate>;
-using WirePlan = Substrait.Protobuf.Plan;          // the generated protobuf message — distinct from the managed FlowtideDotNet.Substrait.Plan IR
+using WirePlan = Substrait.Protobuf.Plan;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// `FederationCapability` governs plan admission, live execution, writeability, and snapshot support.
-// Live sources answer at read time and never claim consistency at the local cut.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record SourceKind {
     private SourceKind() { }
@@ -82,8 +78,6 @@ public abstract partial record SourceKind {
         sqlStaged:     static source => string.Create(CultureInfo.InvariantCulture, $"sql-staged:{(string)source.Binding}"));
 }
 
-// `FederationMode` carries one-shot or materialized cadence on the plan value.
-// Materialized mode retains view identity and primary keys for differential compute.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FederationMode {
     private FederationMode() { }
@@ -95,8 +89,7 @@ public abstract partial record FederationMode {
         materialized: static mode => string.Create(CultureInfo.InvariantCulture, $"materialized:{(string)mode.View}:{string.Join(',', mode.Keys.Map(static key => (string)key))}"));
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// Direct generated union; arm probe: `error.IsType<FederationFault.TicketUnknown>()`.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FederationFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.StoreFederation;
@@ -118,9 +111,6 @@ public abstract partial record FederationFault : Fault {
     public sealed partial record MaterializationRejected(string Detail) : FederationFault();
     [FaultCase(7)]
     public sealed partial record TicketUnknown(UInt128 Ticket) : FederationFault();
-    // `FlightTicket` carries an opaque caller-controlled token, so a wrong-width payload refuses apart from
-    // an unredeemable one: the first never addressed the hold at all, and folding it onto `TicketUnknown`
-    // reported a key the caller never sent.
     [FaultCase(8)]
     public sealed partial record TicketMalformed(int Width) : FederationFault();
 
@@ -136,16 +126,11 @@ public abstract partial record FederationFault : Fault {
         ticketMalformed:         static c => string.Create(CultureInfo.InvariantCulture, $"<federation-ticket-width:{c.Width}!=16>"));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// ONE foreign-plan ceiling, the folder's own decode-budget row on the shape `Rasm.Element` `WireLimits` set. It is
-// declared in THIS namespace so the bound type is the folder's row — a namespace member resolves ahead of the
-// `Rasm.Element.Graph` import, so no alias is owed. `Plan` names both axes: the size ceiling bounds the whole-plan
-// transfer, the recursion ceiling the nested relation/expression tree under protobuf's own default of 100.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
     public static readonly WireLimits Plan = new(SizeLimit: 16 << 20, RecursionLimit: 64);
 }
 
-// `FederationSource` closes registered SQL, normalized plan, and live-source ingress under one admission path.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PlanWire {
     private PlanWire() { }
@@ -154,8 +139,6 @@ public abstract partial record PlanWire {
     public sealed record Sql(string Text, Seq<(Identifier Table, NamedStruct Schema)> Tables) : PlanWire;
 }
 
-// `FederationPlan` owns admitted IR and normalized protobuf or staged-SQL execution forms.
-// JSON ingress transcodes through protobuf parsing without invoking internal serialization.
 public sealed class FederationPlan {
     private FederationPlan(Plan ir, AdbcQuery wire, UInt128 digest, SourceKind source, FederationMode mode) =>
         (Ir, Wire, Digest, Source, Mode) = (ir, wire, digest, source, mode);
@@ -166,9 +149,6 @@ public sealed class FederationPlan {
     public SourceKind Source { get; }
     public FederationMode Mode { get; }
 
-    // Substrait-JSON is a FOREIGN publisher descriptor — its messages ship inside FlowtideDotNet, outside the estate's
-    // `WireAdmission.Registry` — so this is the ONE page-declared parser: unknown fields tolerate (the one admission
-    // posture) and the recursion ceiling is the same `Plan` row the binary door reads.
     static readonly JsonParser PlanJson = new(JsonParser.Settings.Default
         .WithIgnoreUnknownFields(true)
         .WithRecursionLimit(WireLimits.Plan.RecursionLimit));
@@ -178,28 +158,19 @@ public sealed class FederationPlan {
             ? Fin.Fail<FederationPlan>(new FederationFault.MaterializationRejected("<primary-key>"))
             : !source.AcceptsPlan && wire is not PlanWire.Sql
             ? Fin.Fail<FederationPlan>(new FederationFault.SourceUncapable(source.Identity))
-            // The JSON door's size gate sits BEFORE the parser, because a parser bounds depth and never length.
             : wire is PlanWire.Json { Body.Length: > WireLimits.Plan.SizeLimit } oversize
             ? Fin.Fail<FederationPlan>(new FederationFault.InvalidPlan($"<plan-size:{oversize.Body.Length}>"))
             : Op.Of().Catch(() => Fin.Succ(wire.Switch<(Plan Ir, AdbcQuery Wire, UInt128 Digest)>(
-                    // Bounded binary door: the limits entry takes a Stream, so the span bridges through `AsStream`
-                    // with no copy, and an over-ceiling payload throws `InvalidProtocolBufferException` into the
-                    // funnel below rather than allocating past the row.
                     protobuf: static p => {
                         WirePlan parsed = WirePlan.Parser.ParseFrom(CodedInputStream.CreateWithLimits(
                             p.Bytes.AsStream(), WireLimits.Plan.SizeLimit, WireLimits.Plan.RecursionLimit));
                         return (new SubstraitDeserializer().Deserialize(parsed), new AdbcQuery.Plan(p.Bytes.ToArray()), ContentHash.Of(p.Bytes.Span));
                     },
                     json: static j => {
-                        WirePlan twin = PlanJson.Parse<WirePlan>(j.Body);   // Substrait-JSON IS the message's wire-JSON; a JSON plan and its protobuf twin share ONE digest
+                        WirePlan twin = PlanJson.Parse<WirePlan>(j.Body);
                         byte[] wireBytes = twin.ToByteArray();
                         return (new SubstraitDeserializer().Deserialize(twin), new AdbcQuery.Plan(wireBytes), ContentHash.Of(wireBytes));
                     },
-                    // SQL doors hold no wire bytes to hash, so identity IS the STRUCTURE registered — statement
-                    // text beside each table's name and its declared field NAMES, streamed through the kernel
-                    // `CanonicalWriter` under `Sorted` so registration order cannot fork one digest.
-                    // `NamedStruct.ToString()` renders no identity at all — its null
-                    // render collapsed onto the empty string and aliased two distinct schemas onto one plan key.
                     sql: static s => {
                         SqlPlanBuilder builder = new();
                         s.Tables.Iter(table => builder.AddTableDefinition((string)table.Table, table.Schema));
@@ -239,9 +210,7 @@ public sealed class FederationPlan {
 - Boundary: the keyed arm executes only when `SourceKind.IsLive` is false; live sources ship the retained wire to the tabular port. `WriteRelation` refuses fail-closed. `SubstraitToDifferentialCompute.Convert` mutates and returns a `Plan`, and the materialization port must execute that returned plan before a receipt succeeds; a materialized mode without a primary key rails `MaterializationRejected` at `FederationPlan.Admit`. `FederationPlan` and `FederatedResult` expose no public constructor, so admission and success stamping cannot be bypassed; an empty keyed or tabular result remains valid execution evidence. `FederatedResult` frames the complete cut, source, and mode identity into `ReplayKey`, so distinct HLC cells, stream versions, bindings, and materialized views cannot collide.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// `LoweringTarget` separates index-backed keyed selection from tabular ADBC execution.
-// Visitor failures travel inside `Fin<LoweringTarget>` and abort the fold.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LoweringTarget {
     private LoweringTarget() { }
@@ -249,11 +218,7 @@ public abstract partial record LoweringTarget {
     public sealed record Tabular(Relation Subtree) : LoweringTarget;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// `FederationPorts` inject the read scope, selection, tabular, live, watermark, materialization, and clock
-// boundaries. `Scope` is the caller-declared model roster the read-scope law demands — the plan carries
-// filters, projections, and folds alone, never the models it may touch — and tabular execution drains owned
-// record batches before its ADBC statement closes.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record FederationPorts(
     SetScope Scope,
     SetResolve Resolve,
@@ -262,19 +227,13 @@ public sealed record FederationPorts(
     IO<Fin<StalenessWatermark>> Watermark,
     Func<Instant> Now);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// `FederationLowering` implements every catalogued Substrait relation visitor override.
-// Base throws for new relation kinds, and `Execute` converts the failure to `UnsupportedRelation`.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, SetScope> {
     public override Fin<LoweringTarget> VisitRootRelation(RootRelation root, SetScope state) => Visit(root.Input, state);
 
-    // Verified union/intersection variants lower locally; every other operation preserves its full tabular semantics.
     public override Fin<LoweringTarget> VisitSetRelation(SetRelation set, SetScope state) =>
         toSeq(set.Inputs).Map(input => Visit(input, state)).TraverseM(identity).As().Map(lowered =>
             lowered.ForAll(static target => target is LoweringTarget.Keyed)
-                // Seam combinators COALESCE, so an n-way union folds to ONE `Any` node carrying a flat
-                // operand run rather than the left-leaning binary spine the deleted `SetExpr.Union` built —
-                // one evaluator pass instead of a recursion per input, and one association-independent key.
                 ? set.Operation switch {
                     SetOperation.UnionAll or SetOperation.UnionDistinct => (LoweringTarget)new LoweringTarget.Keyed(lowered.Map(static target => ((LoweringTarget.Keyed)target).Query).Reduce(static (left, right) => left.Or(right))),
                     SetOperation.IntersectionPrimary or SetOperation.IntersectionMultiset or SetOperation.IntersectionMultisetAll => new LoweringTarget.Keyed(lowered.Map(static target => ((LoweringTarget.Keyed)target).Query).Reduce(static (left, right) => left.And(right))),
@@ -282,8 +241,6 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Se
                 }
                 : new LoweringTarget.Tabular(set));
 
-    // ReadRelation: the filter pushes down through the expression fold onto a typed SetPredicate leaf where the
-    // store index serves it; an inexpressible filter keeps the whole read in the tabular subtree.
     public override Fin<LoweringTarget> VisitReadRelation(ReadRelation read, SetScope state) =>
         Fin.Succ((SetLowering.IsKeyed(read) ? SetLowering.Predicate(read.Filter, read.BaseSchema.Names) : None).Match(
             Some: static expr => (LoweringTarget)new LoweringTarget.Keyed(expr),
@@ -301,8 +258,6 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Se
             ? SetLowering.Keys(literal, state).Map(keys => (LoweringTarget)new LoweringTarget.Keyed(new SetQuery.Leaf(new SetPredicate.Literal(keys))))
             : Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(literal));
 
-    // Bounded keyed iterations lower to `Closure`; unbounded or seedless iterations remain tabular.
-    // `WalkDepth` admits foreign bounds before the fold.
     public override Fin<LoweringTarget> VisitIterationRelation(IterationRelation iteration, SetScope state) =>
         (Optional(iteration.MaxIterations), Optional(iteration.Input)).Apply((depth, seed) =>
             Visit(seed, state).Bind(lowered => lowered is LoweringTarget.Keyed keyed
@@ -311,8 +266,6 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Se
         .As()
         .IfNone(() => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(iteration)));
 
-    // Conjunction lowers a key-equijoin over two Keyed sides, which is a semijoin on the shared key
-    // space; every other join shape (outer, theta, projection-bearing) belongs to the engine arm.
     public override Fin<LoweringTarget> VisitJoinRelation(JoinRelation join, SetScope state) =>
         (Visit(join.Left, state), Visit(join.Right, state)).Apply((left, right) =>
             (left, right, SetLowering.KeySemijoin(join)) switch {
@@ -328,13 +281,11 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Se
     public override Fin<LoweringTarget> VisitConsistentPartitionWindowRelation(ConsistentPartitionWindowRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
 
     public override Fin<LoweringTarget> VisitWriteRelation(WriteRelation write, SetScope state) =>
-        Fin.Fail<LoweringTarget>(new FederationFault.WriteRejected(Optional(write.NamedObject?.ToString()).IfNone("<write>")));   // fail-closed: federation READS
+        Fin.Fail<LoweringTarget>(new FederationFault.WriteRejected(Optional(write.NamedObject?.ToString()).IfNone("<write>")));
 
     public override Fin<LoweringTarget> VisitExchangeRelation(ExchangeRelation exchange, SetScope state) =>
         Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(exchange));
 
-    // Whole-plan, buffer, exchange, and table-function relations retain tabular execution.
-    // Explicit overrides reserve base throws for uncatalogued relation kinds.
     public override Fin<LoweringTarget> VisitMergeJoinRelation(MergeJoinRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
     public override Fin<LoweringTarget> VisitReferenceRelation(ReferenceRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
     public override Fin<LoweringTarget> VisitTableFunctionRelation(TableFunctionRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
@@ -347,8 +298,6 @@ public sealed class FederationLowering : RelationVisitor<Fin<LoweringTarget>, Se
     public override Fin<LoweringTarget> VisitStandardOutputExchangeReferenceRelation(StandardOutputExchangeReferenceRelation rel, SetScope state) => Fin.Succ((LoweringTarget)new LoweringTarget.Tabular(rel));
 }
 
-// `SetLowering` composes admitted literal and predicate pushdown through catalogued Substrait functions.
-// Only index-servable shapes return a typed seam query; every other expression preserves tabular execution.
 public static class SetLowering {
     static readonly PredicateLowering Pushdown = new();
 
@@ -367,9 +316,6 @@ public static class SetLowering {
     static bool KeySchema(IReadOnlyList<string> fields, int outputLength) =>
         outputLength == 1 && fields.Count == 1 && string.Equals(fields[0], "id", StringComparison.Ordinal);
 
-    // One-column string virtual tables lower to literal key sets, qualified under the execution scope: a
-    // Substrait plan spells no model, so bare ids admit only when the scope names exactly ONE model — a
-    // multi-model scope over a bare-id literal is an ambiguity the lowering refuses rather than guesses.
     public static Fin<Seq<SetKey>> Keys(VirtualTableReadRelation literal, SetScope scope) =>
         scope.Models is [var model]
             ? toSeq(literal.Values.Expressions)
@@ -380,18 +326,13 @@ public static class SetLowering {
                 .As()
             : Fin.Fail<Seq<SetKey>>(new FederationFault.InvalidPlan("<literal-model-ambiguous>"));
 
-    // Equal-key inner semijoins lower to set intersection; every other join remains engine-owned.
     public static bool KeySemijoin(JoinRelation join) =>
         join.Type == JoinType.Inner
         && join.Expression is ScalarFunction { ExtensionUri: FunctionsComparison.Uri, ExtensionName: FunctionsComparison.Equal } condition
         && condition.Arguments is [DirectFieldReference, DirectFieldReference];
 }
 
-// `PredicateLowering` covers comparisons, ranges, LIKE, null tests, and boolean composition.
-// Inexpressible members return `null` and preserve the tabular subtree.
 public sealed class PredicateLowering : ExpressionVisitor<SetQuery?, IReadOnlyList<string>> {
-    // One pattern ladder over the function product — sequential `if (x is P v)` guards would re-declare
-    // pattern locals at method scope (CS0128); the switch expression scopes each arm's bindings.
     public override SetQuery? VisitScalarFunction(ScalarFunction function, IReadOnlyList<string> fields) => function switch {
         { ExtensionUri: FunctionsBoolean.Uri, ExtensionName: FunctionsBoolean.And, Arguments: [Expression left, Expression right] } =>
             Combine(left, right, fields, static (l, r) => l.And(r)),
@@ -450,8 +391,6 @@ public static class Federation {
         StoreSlot.Create("store.federation.admit"), StoreSlot.Create("store.federation.execute"), StoreSlot.Create("store.federation.materialize"),
         StoreSlot.Create("store.federation.flight.describe"), StoreSlot.Create("store.federation.flight.stream"));
 
-    // `Execute` resolves absent cuts from head sequence and injected clock, then dispatches plan cadence.
-    // Callers cannot sequence cut resolution or materialization beside the plan.
     public static IO<Fin<FederatedResult>> Execute(FederationPlan plan, Option<TimeCut> cut, FederationPorts ports) =>
         ports.Watermark.Bind(measured => measured.Match(
             Succ: watermark => {
@@ -472,7 +411,6 @@ public static class Federation {
                 : error))
         .Bind(lowered => lowered.Match(
             Succ: target => target.Switch(
-                // Live sources always ride remote wire execution; only durable and signed sources use local keys.
                 keyed: k => plan.Source.IsLive
                     ? Engine(plan, cut, watermark, ports)
                     : IO.pure(Selections.Evaluate(k.Query, ports.Scope, ports.Resolve)
@@ -480,8 +418,6 @@ public static class Federation {
                 tabular: t => Engine(plan, cut, watermark, ports)),
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
 
-    // `Materialized` lowers the same plan IR into the streaming differential-compute engine.
-    // continuously-maintained view — one plan model for both cadences, never a second IR.
     static IO<Fin<FederatedResult>> Materialized(FederationPlan plan, FederationMode.Materialized mode, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
         IO.lift(() => Op.Of().Catch(() => Fin.Succ(SubstraitToDifferentialCompute.Convert(
                 plan.Ir,
@@ -496,8 +432,6 @@ public static class Federation {
                 .Map(result => result.Map(_ => Stamp(plan, cut, watermark, KeySelection.Empty(ports.Scope), None, ports.Now()))),
             Fail: fault => IO.pure(Fin<FederatedResult>.Fail(fault))));
 
-    // Engine execution uses normalized protobuf plans or staged SQL through one admitted door.
-    // source row, selects the statement form; an unreachable live endpoint lifts into SourceUnreachable here.
     static IO<Fin<FederatedResult>> Engine(FederationPlan plan, TimeCut cut, StalenessWatermark watermark, FederationPorts ports) =>
         ports.Tabular(new AdbcRequest(plan.Wire, None))
             .Map(result => result
@@ -510,9 +444,7 @@ public static class Federation {
         FederatedResult.Of(plan.Digest, cut, watermark, plan.Source, keys, batch, plan.Mode, at);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// `FederatedResult` owns local keys, drained Arrow batches, watermark, complete cut, replay identity, and mode.
-// `IsValid` composes one `ValidityClaim.All` fold.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class FederatedResult : IValidityEvidence {
     private FederatedResult(UInt128 planDigest, TimeCut cut, StalenessWatermark watermark, SourceKind source, KeySelection keys, Option<Seq<RecordBatch>> batch, FederationMode mode, Instant at) =>
         (PlanDigest, Cut, Watermark, Source, Keys, Batch, Mode, At) = (planDigest, cut, watermark, source, keys, batch, mode, at);
@@ -529,17 +461,10 @@ public sealed class FederatedResult : IValidityEvidence {
     internal static FederatedResult Of(UInt128 planDigest, TimeCut cut, StalenessWatermark watermark, SourceKind source, KeySelection keys, Option<Seq<RecordBatch>> batch, FederationMode mode, Instant at) =>
         new(planDigest, cut, watermark, source, keys, batch, mode, at);
 
-    // Bare predicates ride the implicit `bool -> ValidityClaim` conversion the kernel declares, so `ValidityClaim.Of(`
-    // is the deleted spelling corpus-wide and no call site wraps.
     public bool IsValid => ValidityClaim.All(
         PlanDigest != default,
         Watermark.ProjectedSequence <= Watermark.HeadSequence);
 
-    // Replay identity streams the kernel `CanonicalWriter`: `String` length-frames the cut source and the two
-    // identity renders, `I64` fixes the four counters, `Optional` frames the stream version's presence and its
-    // value together — where the hand buffer wrote a presence BYTE beside a zero value, so an absent version and
-    // a version of zero differed by one byte a reader had to know to interpret. Live-source replay remains a
-    // hint because remote rows carry read-time currency.
     public UInt128 ReplayKey => ContentHash.Of(this, static (result, w) => {
         w.U128(result.PlanDigest)
             .String(result.Cut.Source.Key)
@@ -585,26 +510,17 @@ using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Types;
 using Google.Protobuf;
 using Grpc.Core;
-using Rasm.AppHost.Runtime;                        // FaultWire/FaultContext — the ONE producer fault fold (ports#WIRE_LAW)
-using Rasm.Domain;                                 // ContentHash.Wire/Admit — the 16-byte ticket correspondence
-using Rasm.Persistence.Element;                    // ProjectionContext — correlation, tenant, and clock as kernel values
+using Rasm.AppHost.Runtime;
+using Rasm.Domain;
+using Rasm.Persistence.Element;
 
 namespace Rasm.Persistence.Query;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// result half of the federation wire: plans in through PLAN_INGRESS, batches out through DoGet.
-// Composition registers this type through `AddFlightServer<FederationFlight>()` and never
-// `MapGrpcService<FederationFlight>()` — `FlightServer` carries no bind attribute, so that generic map
-// finds no binder and fails at startup; ctor dependencies still resolve because the internal adapter
-// takes `FlightServer` by injection.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class FederationFlight(FederationPorts ports, SourceKind source, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) : FlightServer {
     public override Task<FlightInfo> GetFlightInfo(FlightDescriptor descriptor, ServerCallContext context) =>
         Describe(new PlanWire.Protobuf(descriptor.Command.Memory), descriptor, source, ports, frame, hold);
 
-    // ONE admit-execute-hold-describe chain owns command admission and ticket minting. The verb edge is the one
-    // place a typed fault leaves the rail, because every `FlightServer` base verb returns `Task<T>` with no rail
-    // to fail on — and it leaves through `FaultWire.Raise`, so the status derives from the fault's own case on the
-    // AppHost producer table and a `FaultDetail` packs beside it; a hand status switch here was the second table.
     internal static async Task<FlightInfo> Describe(PlanWire wire, FlightDescriptor descriptor, SourceKind source, FederationPorts ports, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) {
         Fin<FederatedResult> described = await FederationPlan
             .Admit(wire, source, new FederationMode.OneShot())
@@ -626,9 +542,6 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
     public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context) =>
         Redeem(ticket, responseStream, frame, hold);
 
-    // ONE ticket-redemption body: `ContentHash.Admit` is the one 16-byte big-endian decode and its refusal re-keys
-    // onto `TicketMalformed` carrying the width the caller sent — FlightTicket is an opaque caller-controlled token,
-    // so a wrong-width payload stays distinct from an unredeemable one.
     internal static async Task Redeem(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ProjectionContext frame, Atom<HashMap<UInt128, FederatedResult>> hold) {
         Fin<Seq<RecordBatch>> held =
             from key in ContentHash.Admit(ticket.Ticket.Span, Op.Of()).MapFail(_ => (Error)new FederationFault.TicketMalformed(ticket.Ticket.Length))
@@ -640,21 +553,12 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
         }
     }
 
-    // The refusal context is the frame's own causal pair as kernel values — correlation and the partition-aware tenant
-    // read — with the stamp a fresh physical advance at raise (logical zero IS the HLC law for a physical step) and an
-    // empty violations run, since a Flight refusal is a typed case, never a field-level admission report.
     static FaultContext Context(ProjectionContext frame) =>
         new(frame.Correlation,
             new Rasm.Contracts.Clock.Hlc { Physical = frame.Now().ToUnixTimeTicks(), Logical = 0UL },
             frame.Tenant.Key.Map(_ => frame.Tenant.TenantId),
             Seq<Google.Rpc.BadRequest.Types.FieldViolation>());
 
-    // `KeyProjection` is the declared shape of a keyed federation result, so the batch rides the ONE
-    // `ArrowLanding.Build` fold every columnar landing takes rather than a `RecordBatch.Builder` assembly beside
-    // a second hand-built `Schema` that agreed with it only by inspection. It declares MODEL beside id because a
-    // federated selection spans models and the deleted single-`id` projection reached for a `SetKey.Value`
-    // member that does not exist — dropping the model qualification the whole `SetKey` axis carries. `at` is the
-    // landing stamp `TimeSpine.Landing` obliges, so a redeemed batch dates itself.
     static readonly AnalyticsSchema KeyProjection = new(
         Dataset: "federation.keys",
         Key: Seq(Identifier.Create("model"), Identifier.Create("id")),
@@ -666,16 +570,12 @@ public sealed class FederationFlight(FederationPorts ports, SourceKind source, P
         Spine: TimeSpine.Landing,
         Measure: None);
 
-    // Metadata is REQUIRED on the fold and never defaulted: `Schema.Builder` and `RecordBatch.Builder` expose no
-    // metadata seat at all, which is why the deleted assembly could carry none — a redeemed batch reached its
-    // consumer stating no plan, no cut, and no ticket. These four facts are the receipt the ticket redeems.
     static Seq<(string Key, string Value)> Facts(FederatedResult result) => Seq(
         ("plan_digest", result.PlanDigest.ToString("x32", CultureInfo.InvariantCulture)),
         ("replay_key", result.ReplayKey.ToString("x32", CultureInfo.InvariantCulture)),
         ("source", result.Source.Identity),
         ("at", result.At.ToString()));
 
-    // `Batches` streams a tabular result as its drained batches and a keyed result as ONE declared projection.
     static Fin<Seq<RecordBatch>> Batches(FederatedResult result) =>
         result.Batch.Match(
             Some: Fin.Succ,

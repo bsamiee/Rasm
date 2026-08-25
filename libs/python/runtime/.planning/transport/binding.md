@@ -71,16 +71,11 @@ from rasm.runtime.roots import ObjectStoreLane, ResourceRef, ResourceRoot, Store
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# `Message` is the SDK's own per-protocol carrier union beside the two branch-owned shapes, so a lowering answers a
-# transport-neutral value and no adapter type reaches this page.
 type Message = http.HTTPMessage | kafka.KafkaMessage | amqp.AMQPMessage | rabbitmq.RabbitMQMessage | MqttMessage | NatsMessage
 type Settings = Map[str, str]
 
 
 class MqttMessage(Struct, frozen=True, gc=False):
-    # branch-owned, because the distribution ships no MQTT binding: `properties` is the UNPREFIXED User Property pair
-    # list `paho.mqtt.properties.Properties.UserProperty` carries, so an attribute name and a peer's own property name
-    # share one namespace by construction.
     topic: str
     properties: tuple[tuple[str, str], ...]
     content_type: Option[str]
@@ -88,8 +83,6 @@ class MqttMessage(Struct, frozen=True, gc=False):
 
 
 class NatsMessage(Struct, frozen=True, gc=False):
-    # branch-owned on the same reason; `headers` gates on the server's own advertised header support, so binary mode
-    # refuses at admission where that advertisement is absent rather than publishing a headerless message.
     subject: str
     headers: Map[str, str]
     payload: bytes
@@ -108,8 +101,6 @@ class Binding(StrEnum):
 
 
 class Prefix(StrEnum):
-    # distinct families across the SDK bindings, beside the empty one MQTT carries. The member VALUE is the literal, so
-    # no lowering site spells `"ce-"` and a fifth family cannot appear by typo.
     DASH = "ce-"
     UNDERSCORE = "ce_"
     QUALIFIED = "cloudEvents_"
@@ -117,10 +108,6 @@ class Prefix(StrEnum):
 
 
 class Arm(StrEnum):
-    # NO row creates or owns a loop. `THREAD` is the GIL-releasing blocking client on a bounded lane; `PUMP` the
-    # single-threaded client whose one worker owns the connection and whose only inbound door is a threadsafe
-    # callback; `READY` the socket-first client stepped inside the caller's task group with no thread at all;
-    # `NATIVE` the already-async client; `ABSENT` the protocol this branch lowers and cannot dial.
     THREAD = "thread"
     PUMP = "pump"
     READY = "ready"
@@ -129,9 +116,9 @@ class Arm(StrEnum):
 
 
 class Pushdown(StrEnum):
-    BROKER = "broker"      # the routing attribute resolves at the broker: MQTT SUBSCRIBE, NATS wildcards, an exchange binding
-    LINK = "link"          # AMQP link-source filters under a copy or move distribution mode
-    CONSUMER = "consumer"  # no server-side mechanism; every expression evaluates after delivery
+    BROKER = "broker"
+    LINK = "link"
+    CONSUMER = "consumer"
 
 
 class ResidenceProjection(StrEnum):
@@ -172,8 +159,6 @@ class Producing(StrEnum):
 
 
 class ClassificationRow(Struct, frozen=True, gc=False):
-    # handling law per sensitivity grade. `broker` names the bindings a payload at this grade may cross AT ALL;
-    # content transformation remains the typed payload producer's owner and is never a transport-side mutation.
     grade: Classification
     broker: frozenset[Binding]
     carries: str
@@ -207,10 +192,6 @@ CLASSIFICATION_ROWS: Final[Map[Classification, ClassificationRow]] = Map.of_seq(
 
 
 class Dataref(Struct, frozen=True, gc=False):
-    # one row per binding and never a global constant: a threshold fixed estate-wide strands the smallest transport
-    # or wastes the largest. `negotiated` marks the protocols whose limit is read off the LIVE session rather than
-    # this floor — NATS `max_payload`, MQTT 5.0 `Maximum Packet Size`, AMQP `max-frame-size` — so the floor is the
-    # refusal value when no session is open, never the operating value when one is.
     threshold: int
     negotiated: bool
     retain: Retain
@@ -231,8 +212,6 @@ class DataIdentityRow(Struct, frozen=True, gc=False):
 
 
 class DataIdentity(Struct, frozen=True, gc=False):
-    # Event semantics own the content-key namespace and seed. One row per event type binds those producer facts to the
-    # existing identity owner, so residence verification never guesses them from a URI, media type, or payload shape.
     rows: Map[EventType, DataIdentityRow]
 
     def verify(self, event_type: EventType, expected: WireKey, body: bytes, /) -> RuntimeRail[None]:
@@ -254,8 +233,6 @@ class DataIdentity(Struct, frozen=True, gc=False):
 
 
 class Residence(Struct, frozen=True, gc=False):
-    # Concrete composition over the branch's ONE object-store owner. It persists event DATA, not a second envelope,
-    # and the resolver reads the identical object through the same provider/ref admission and retry rail.
     root: ResourceRoot
     identity: DataIdentity
 
@@ -321,10 +298,6 @@ class Residence(Struct, frozen=True, gc=False):
 
 
 class BindingRow(Struct, frozen=True, gc=False):
-    # whole protocol vocabulary in one shape. The `[CONSUMPTION_DESCRIPTOR]` five answer selection — `fits`,
-    # `admit`, `lifetime`, `degrade`, with tenancy foreclosed because a binding isolates no tenant — and the
-    # transport six answer engine behavior. `retry` is FORECLOSED for the family: `retries` names the class that
-    # owns the schedule, since a row carrying its own curve makes the effective attempts a product of two.
     binding: Binding
     modes: frozenset[Content]
     formats: frozenset[Suffix]
@@ -627,8 +600,6 @@ BINDINGS: Final[Map[Binding, BindingRow]] = Map.of_seq(
     )
 )
 
-# derived rosters: a consumer selecting on capability reads THESE and never re-lists a binding set, so a
-# seventh row joins every roster untouched.
 BROKER_FILTERED: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.pushdown is not Pushdown.CONSUMER)
 DIALABLE: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.arm is not Arm.ABSENT)
 NEGOTIATED_BOUND: Final[frozenset[Binding]] = frozenset(row.binding for row in BINDINGS.values() if row.dataref.negotiated)
@@ -640,8 +611,6 @@ JOURNAL_SETTLED: Final[frozenset[Binding]] = frozenset(
 
 
 def _event_data(envelope: MessageEnvelope, /) -> RuntimeRail[bytes]:
-    # The dataref extension references EVENT DATA, never structured envelope bytes. Generated payloads retain their
-    # protobuf bytes and require their existing datacontenttype/dataschema coordinates; opaque Raw remains identical.
     match envelope.payload:
         case Raw() as body:
             return Ok(bytes(body))
@@ -696,8 +665,6 @@ def lower(
     settings: Settings,
     formats: EventFormat,
 ) -> RuntimeRail[Message]:
-    # The mode/suffix pair admits once: binary takes NO structured-format coordinate; structured and batch require one.
-    # That removes "binary Avro" as a spellable request while retaining the binding row's independent mode support.
     row = BINDINGS[binding]
     admitted_settings = _settings(row, settings)
     if admitted_settings.is_error():
@@ -725,9 +692,6 @@ def lower(
 
 
 def raise_(message: Message, /, *, binding: Binding, formats: EventFormat) -> RuntimeRail[Decoded]:
-    # Media type distinguishes structured/batch. A carrier without the application/cloudevents stem is binary and
-    # delegates its attribute mapping to the official SDK, including branch-owned MQTT/NATS normalization into HTTP's
-    # specification-equivalent carrier.
     return boundary(
         BINDING_DECODE,
         lambda: _parts(message, binding),
@@ -747,8 +711,6 @@ def _framed(
     if mode is Content.STRUCTURED:
         if not isinstance(value, MessageEnvelope):
             return Error(BINDING_ADMIT.raised(binding.value, "structured-batch"))
-        # Narrow the structured-single arm before the two-argument profile codec entry. Enum comparison does not
-        # narrow the independent value union, and widening `EventFormat.codec` to batches would weaken its contract.
         if binding in (Binding.HTTP, Binding.KAFKA, Binding.AMQP, Binding.RABBITMQ):
             return formats.codec(suffix, value).bind(
                 lambda codec: value.event().bind(
@@ -780,8 +742,6 @@ def _classified(
 
 
 def _grade(envelope: MessageEnvelope, binding: Binding, /) -> RuntimeRail[Classification]:
-    # ONE explicit-grade admission for both ingress and egress. Presence precedes conversion, and the row gate
-    # precedes lowering, trust, routing, and settlement; no caller can accidentally recover an INTERNAL default.
     if not envelope.extensions.has_field("dataclassification"):
         return Error(BINDING_ADMIT.raised(binding.value, "missing-dataclassification"))
     return boundary(
@@ -928,8 +888,6 @@ def _parts(message: Message, binding: Binding, /) -> tuple[str, bytes]:
 
 
 def _message_body_size(message: Message, binding: Binding, /) -> int:
-    # Protocol binders hand `Client.payload_limit` a safe event-body ceiling with their frame/header reserve already
-    # removed. This fold therefore measures the exact body the selected content mode produced, once.
     return len(_parts(message, binding)[1])
 
 
@@ -1043,8 +1001,6 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, ScopeKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# projections are per FACT family and carry their own grammar decisions, so a new family is one row rather than a
-# branch inside one emitter body.
 type Project[P: Struct] = Callable[[P], RuntimeRail[MessageEnvelope]]
 type ProjectionApply = Callable[[HookId, Struct], RuntimeRail[MessageEnvelope]]
 type Fan = Callable[[HookId, RuntimeRail[MessageEnvelope], frozenset[Binding]], Awaitable["Delivery"]]
@@ -1053,9 +1009,6 @@ type Fan = Callable[[HookId, RuntimeRail[MessageEnvelope], frozenset[Binding]], 
 
 
 class Delivery(Struct, frozen=True, gc=False):
-    # two HALVES, never one count: a matched duplicate under `(source, id)` is not an acceptance, and a single
-    # total erases the exactly-once evidence the composite exists to carry. `externalized` names where a payload
-    # past its row's threshold actually landed, so a consumer resolves the reference without re-deriving the store.
     accepted: Block[Uniqueness]
     duplicate: Block[Uniqueness]
     refused: Block[tuple[Binding, BoundaryFault]]
@@ -1063,9 +1016,6 @@ class Delivery(Struct, frozen=True, gc=False):
 
 
 class Projection(Struct, frozen=True, gc=False):
-    # the generic factory captures point and projector together, then erases only the closed payload parameter after
-    # installing its runtime type proof. Heterogeneous rows therefore share one block without a string key, cast, or
-    # unsound covariant consumer.
     point_id: HookId
     payload: type[Struct]
     apply: ProjectionApply
@@ -1081,18 +1031,11 @@ class Projection(Struct, frozen=True, gc=False):
 
 
 class Emitter(Struct, frozen=True, gc=False):
-    # an OBSERVE subscriber and never an emit inside a domain fold. A veto here would let a broker refusal reject an
-    # operation that already happened, which inverts the law an announcement exists under.
     projections: Block[Projection]
     bindings: frozenset[Binding]
     fan: Fan
 
     def bound(self, points: Block[HookPoint[Struct]], /, *, scope: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[Callable[[], None]]:
-        # one subscription over the producer's WHOLE point table, answering the detacher the composition holds — the
-        # roster-to-subscribe fold lives at the hook registry, so this owner hands it a `Block` and nothing more.
-        # `scope` is the composition the producer REGISTERED under: the registry partitions point custody by that key,
-        # so an emitter bound at the default scope over an embedded composition's roster subscribes to nothing at all
-        # and the fact stream reads as an empty producer rather than as a missed binding.
         claimed = tuple(row.point_id for row in self.projections)
         if len(claimed) != len(frozenset(claimed)):
             return Error(BINDING_ADMIT.raised("emitter", "duplicate-projection"))
@@ -1111,8 +1054,6 @@ class Emitter(Struct, frozen=True, gc=False):
         ).bind(lambda row: row.apply(point_id, payload))
 
     async def _observed[P: Struct](self, point_id: HookId, payload: P, /) -> Delivery:
-        # The fan receives the projection rail WHOLE, so an absent or refusing projector becomes delivery evidence
-        # for every selected binding rather than an isolated hook fault that disappears from the producer receipt.
         return await self.fan(point_id, self.project(point_id, payload), self.bindings)
 
 
@@ -1182,21 +1123,14 @@ from rasm.runtime.faults import (
     boundary,
 )
 
-# `Binding`, `Content`, `Suffix`, `Message`, `BINDINGS`, `CLASSIFICATION_ROWS`, and `lower`/`raise_` are this
-# module's [02]-[BINDING] owners and `Emitter` its [03]-[EMISSION] one — one module, three regions.
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# The protocol package binds these normalized awaitable thunks at composition. Blocking packages cross anyio's
-# limiter inside that binding; native packages await directly. The lane therefore owns one lifetime without a
-# sync/async union or a protocol switch, while each received value retains its opaque settlement handle.
 type Dial = Callable[
     [TaskGroup, "Consumption", Settings, Option[CapacityLimiter], Option[BlockingPortalProvider]],
     Awaitable[object],
 ]
 type Emit = Callable[[object, Message], Awaitable[None]]
-# Protocol binders authenticate their native principal before constructing each `Received`; the generic step sees
-# only the typed scope and never a credential or an optional authority it could default.
 type Step = Callable[[object, float], Awaitable[Block["Received"]]]
 type Empty = Callable[[object, "Received"], Awaitable[None]]
 type Record = Callable[[Block["Delivered"]], Awaitable[Map[Uniqueness, "SettlementVerdict"]]]
@@ -1212,9 +1146,6 @@ type PayloadLimit = Callable[[object], int]
 
 
 class Client(Struct, frozen=True, gc=False):
-    # composition-bound protocol port. It carries thunks rather than a client object because the lane owns
-    # LIFETIME and the package owns MECHANISM: binding a live client here would make the lane's task group the
-    # second owner of a connection something else already opened.
     dial: Dial
     emit: Emit
     step: Step
@@ -1227,25 +1158,17 @@ class Client(Struct, frozen=True, gc=False):
     abort: TransactionThunk
     flush: Flush
     shut: Shut
-    # Safe event-body ceiling off the LIVE connection/session. Protocol binders subtract their frame/header reserve,
-    # so the generic lane compares event bytes rather than re-deriving provider packet arithmetic.
     payload_limit: PayloadLimit
     raises: Catch
 
 
 class Consumption(Struct, frozen=True, gc=False):
-    # caller-supplied subscription coordinate: the addresses this lane reads, the membership name where the row's
-    # `Grouping` takes one, and the dead-letter address a poison message routes to. Everything else about the
-    # subscription is `protocolsettings` on the binding row, so this shape holds only what varies per subscriber.
     addresses: Block[str]
     member: Option[str] = Nothing
     dead_letter: Option[str] = Nothing
 
 
 class Received(Struct, frozen=True, gc=False):
-    # Provider delivery beside its authenticated application-boundary scope and exact opaque settlement handle.
-    # The protocol binder constructs principal, tenant grants, and selection after native authentication; this lane
-    # sees no raw credential and cannot widen authority.
     message: Message
     authority: PrincipalScope
     coordinate: "ProviderCoordinate"
@@ -1253,8 +1176,6 @@ class Received(Struct, frozen=True, gc=False):
 
 
 class ProviderCoordinate(Struct, frozen=True, order=True, gc=False):
-    # provider-native delivery identity rendered at the package boundary: Kafka topic/partition/offset, AMQP delivery
-    # tag, JetStream stream/consumer/sequence, MQTT packet id, or the HTTP request identity.
     value: Annotated[str, Meta(min_length=1)]
 
 
@@ -1265,9 +1186,6 @@ class SettlementVerdict(StrEnum):
 
 
 class Delivered(Struct, frozen=True, gc=False):
-    # one raised message envelope beside the opaque settlement handle its protocol needs to acknowledge it — an offset, a
-    # delivery tag, an ack subject. The handle stays OPAQUE so the lane settles without knowing the protocol, and
-    # `lag` is local arrival minus producer `recordedtime`, measured once; receiver arrival never crosses on the event.
     envelope: MessageEnvelope
     adoption: TenantAdoption
     coordinate: ProviderCoordinate
@@ -1279,8 +1197,6 @@ class Delivered(Struct, frozen=True, gc=False):
 
 
 class Moot(Struct, frozen=True, gc=False):
-    # Expiry is a matched drop rather than a fault. The original delivery stays attached because a batch shares one
-    # provider handle and the caller must settle the complete frame while declining work for this member.
     delivery: Delivered
     expiry: datetime
 
@@ -1300,8 +1216,6 @@ class Prepared(Struct, frozen=True, gc=False):
 
 
 class LaneState(Struct, frozen=True, gc=False):
-    # Immutable state held only by `_lane_state`. Provider coordinates prove frame custody while CloudEvents
-    # uniqueness alone keys dedup and journal verdicts; combining them would make replay identity provider-specific.
     admitting: bool = True
     active: int = 0
     inflight: Map[Uniqueness, Delivered] = Map.empty()
@@ -1321,9 +1235,6 @@ class LaneSnapshot(Struct, frozen=True, gc=False):
 
 
 class Drained(Struct, frozen=True, gc=False):
-    # what the teardown PROVED, so a drain that lost nothing reads differently from one that shed: the facts the
-    # producer flushed, the settlements that landed, the in-flight window that finished, and each shed half with its
-    # cause. A bare success verdict here reports a clean close for a teardown that dropped an accepted fact.
     flushed: int
     accepted: Block[Uniqueness]
     duplicate: Block[Uniqueness]
@@ -1408,8 +1319,6 @@ type LaneCommand = (
 
 
 class LaneAgent(Struct, frozen=True, gc=False):
-    # The only door into delivery custody. Every caller gets a single-slot reply stream; `_lane_state` is the sole
-    # consumer and replaces immutable state after each pure transition, so concurrent handlers never mutate maps.
     door: MemoryObjectSendStream[LaneCommand]
 
     async def enter(self, /) -> bool:
@@ -1636,9 +1545,6 @@ def _settled_block(state: LaneState, verdict: SettlementVerdict, /) -> Block[Uni
 
 
 class BrokerLane(Struct, frozen=True, gc=False):
-    # ONE lane over every protocol, driven by its row and its bound port. `portal` is per LANE: a provider minted
-    # inside a callback is a second loop owner in exactly the shape D16 forecloses, and one provider serves every
-    # callback the client fires for this connection's whole life.
     row: BindingRow
     client: Client
     consumption: Consumption
@@ -1666,9 +1572,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
         residence: Option[Residence],
         /,
     ) -> RuntimeRail[Self]:
-        # ONE composition entry. Every leg starts on the CALLER's group, so the poll loop's lifetime is that
-        # group's and `lifecycle` stays caller-owned — a lane starting its own group or thread would outlive the
-        # scope that opened it and answer a broker nobody is reading.
         match BINDINGS.try_find(binding):
             case Option(tag="none"):
                 return Error(BINDING_ADMIT.raised(binding.value, "provider-unavailable"))
@@ -1711,8 +1614,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
     async def published(
         self, envelope: MessageEnvelope, /, *, mode: Content, suffix: Option[Suffix] = Nothing
     ) -> RuntimeRail[Published]:
-        # One produce arm over every protocol. Preparation measures the selected encoding against the live client
-        # ceiling, externalizes through the bound store when required, and returns the exact residence evidence.
         if not await self.agent.enter():
             return Error(BINDING_DRAIN.raised(self.row.binding.value, "lane-closed"))
         try:
@@ -1790,8 +1691,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
         )
 
     async def consumed(self) -> AsyncIterator[RuntimeRail[DeliveryOutcome]]:
-        # ONE handler surface. Each step is bounded by the row's `pump`, so cancellation reaches a checkpoint
-        # between steps and never inside a provider call; the iterator ends when the caller's scope does.
         while await self.agent.enter():
             try:
                 stepped = await async_boundary(
@@ -1858,9 +1757,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
             await anyio.lowlevel.checkpoint()
 
     async def settled(self, delivered: Block[Delivered], /) -> RuntimeRail[Settlement]:
-        # `Settle.JOURNAL` rows await the durable write FIRST and settle second, so a commit never stands for a fact
-        # no journal took. Committed offsets sit one past the delivered offset, which is why the handle stays the
-        # protocol's own opaque value and never an offset this owner arithmetics.
         if delivered.is_empty():
             return Ok(Settlement(accepted=Block.empty(), duplicate=Block.empty(), moot=Block.empty()))
         live = await self.agent.live(delivered)
@@ -1916,9 +1812,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
     async def transacted[T](
         self, delivered: Block[Delivered], unit: Callable[[Block[Delivered]], Awaitable[RuntimeRail[T]]], /
     ) -> RuntimeRail[T]:
-        # read-process-write bracket, reachable only where the row's `producing` is TRANSACTIONAL: consumed
-        # positions and produced records settle as ONE fact. An abort-requiring raise re-drives the whole unit, a
-        # fatal one tears the lane down, and every other raise rides the `RetryClass.BROKER` curve.
         if self.row.producing is not Producing.TRANSACTIONAL:
             return Error(BINDING_TRANSACTION.raised(self.row.binding.value, self.row.producing.value))
         if delivered.is_empty():
@@ -1976,9 +1869,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
                         return committed if aborted.is_ok() else aborted
 
     async def drained(self, /, *, deadline: float) -> RuntimeRail[Drained]:
-        # FLUSH, never cancel: stop admitting, await the in-flight window, flush the producer until its queue empties
-        # so every delivery report lands, settle what the handlers finished, then close. A cancelled window loses
-        # facts already accepted at the boundary, which is the one loss an acceptance promised against.
         if deadline < 0.0:
             return Error(BINDING_DRAIN.raised(self.row.binding.value, "negative-deadline"))
         until = anyio.current_time() + deadline
@@ -2017,8 +1907,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
     def _admitted(
         self, envelope: MessageEnvelope, authority: PrincipalScope, /
     ) -> RuntimeRail[TenantAdoption]:
-        # Ingress inherits nothing. Tenant authority is the scope the application-owned protocol binder authenticated;
-        # source and grade remain event claims. Missing grade refuses instead of fabricating an INTERNAL claim.
         return _grade(envelope, self.row.binding).bind(
             lambda admitted_grade: TenantAdoption.of(
                 self.context,
@@ -2074,8 +1962,6 @@ class BrokerLane(Struct, frozen=True, gc=False):
                 await self.agent.shed(key, fault)
                 return Ok(None)
             case Option(tag="some", some=address):
-                # This normalized provider thunk publishes the original carrier and settles its original handle only
-                # after the dead-letter publish confirms, keeping poison routing one package-owned atomic mechanism.
                 routed = await async_boundary(
                     BINDING_SETTLE,
                     lambda: self.client.dead_letter(self.connection, address, received, fault),

@@ -51,9 +51,6 @@ const _Clone = Schema.TaggedStruct("Clone", {
   subject: Schema.NonEmptyString,
   passkey: Schema.NonEmptyString,
 })
-// Tenancy on a denial is EVIDENCE, so it crosses as the claim fold's own posture and never as a bare key: a denial
-// against a tenancy the SUBJECT declared and one against the deployment's fallback are different findings, where a
-// single `Some` reports both as the subject's own assertion and hands a reviewer a claim nobody made.
 const _Deny = Schema.TaggedStruct("Deny", {
   subject: Schema.NonEmptyString,
   action: Schema.NonEmptyString,
@@ -111,9 +108,6 @@ const SecurityFact: {
   wire: _Fact,
 }
 
-// Two legs partition this plane's failures and each renders its OWN subject: the rail names the point whose record
-// the journal refused, the egress names nothing but the masker's cause because the subject it was folding is exactly
-// the identifier the projection exists to keep out of a message.
 const _family = Fault.Class.family(["append", "mask"] as const, {
   append: Fault.Class.row({
     class: "unavailable",
@@ -163,9 +157,6 @@ class AuditFault extends Schema.TaggedError<AuditFault>()("AuditFault", {
 
 ```typescript signature
 class AuditRecord extends Schema.Class<AuditRecord>("AuditRecord")({
-  // Branded keys cross here, never bare strings: the data plane keys subject custody on `(app, tenant, subject)` and
-  // indexes the landed row on the same triple, so an unbranded half admits a spelling the index never matches
-  // and strands every sealed field of that subject beyond the reach of its own erasure.
   app: Identity.App.fields.app,
   at: Schema.DateTimeUtc,
   point: Tap.schema,
@@ -183,13 +174,8 @@ class Witness extends Context.Reference<Witness>()("security/access/Witness", {
     Effect.flatMap(Witness, (witness) => witness.publish(fact))
 }
 
-// Lane depths are per-lane facts: `fan` buffers whole records for observe subscribers, while `faults` buffers
-// breach notices `Tap.isolated` mints when a subscriber's own handler dies — a rate orders below the record
-// stream. One constant across both sizes a breach-notification buffer by the traffic of an unrelated lane.
 const _LANES = { breached: 512, fan: 1024, faults: 256, notice: 2048 } as const
 
-// The selection's own shape answers which axis it names — the class rows and the dotted point keys are disjoint
-// literal spaces — so the modality discriminates on the value and each arm is terminal.
 const _selects = (selection: SecurityFact.Class | SecurityFact.Point): Predicate.Predicate<AuditRecord> =>
   selection === "breached" || selection === "notice"
     ? (record) => SecurityFact.classOf(record.fact) === selection
@@ -278,8 +264,6 @@ const _egress = (record: AuditRecord): Effect.Effect<AuditTrace, AuditFault, Pse
 ```typescript signature
 class SnapshotRow extends Schema.Class<SnapshotRow>("SnapshotRow")({
   name: Schema.NonEmptyString,
-  // `Convention.kinds` IS the wire-form roster, decoded closed off the vocabulary rather than re-listed here, so a
-  // form the estate admits reaches this receipt with no schema edit and one it never admits refuses at the decode.
   kind: Convention.Kind.schema,
   labels: Schema.Record({ key: Schema.String, value: Schema.String }),
   value: Schema.optionalWith(Schema.Number, { as: "Option" }),
@@ -293,10 +277,6 @@ class Snapshot extends Schema.Class<Snapshot>("Snapshot")({
   rows: Schema.Array(SnapshotRow),
 }) {}
 
-// Roster is named, never scanned: a prefix walk over `Convention.instrument` reads a FOREIGN registry by spelling,
-// so a core rename drops a series out of the support bundle in silence and any later `securityX` row this plane
-// never emits joins it uninvited. Every entry below is a typed member read, so a row leaving the registry fails at
-// this declaration — the same discipline `_QUANTILES` takes off `_OBJECTIVES` rather than off a literal.
 const _instruments: ReadonlyArray<string> = Array.map([
   Convention.instrument.securityAdmitted,
   Convention.instrument.securityCeremony,
@@ -313,10 +293,6 @@ const _instruments: ReadonlyArray<string> = Array.map([
 const _labels = (bag: Convention.Bag): Record.ReadonlyRecord<string, string> =>
   Record.map(bag, (value) => String(value))
 
-// `kind` reads the signal's own DECLARED wire form on every arm rather than a literal per case: the read plane
-// already carries the vocabulary column, and a hand-spelled kind reports `counter` for every `updown` row Effect
-// stores as a counter state. A state no case shapes yields NO value — a zero written there is a measurement the
-// process never took, and a support receipt is exactly where that forgery survives longest.
 const _rowOf = (signal: Board.DashboardModel.Signal): SnapshotRow =>
   Match.valueTags(signal, {
     Counter: ({ declared, labels, name, value }) =>
@@ -334,9 +310,6 @@ const _rowOf = (signal: Board.DashboardModel.Signal): SnapshotRow =>
   })
 
 const _OBJECTIVES = {
-  // The ceremony row is the plane's user-facing indicator: the two crypto rows grade a dependency (a JWKS fetch, a KDF
-  // pass) while this one grades what a caller actually waits for — a session establish, a refresh rotation, a passkey
-  // assertion, an oauth callback, an api-key resolve — under the SAME kind key its refusals and admissions carry.
   ceremony: new Reliability.Objective({
     name: "security-ceremony",
     sli: Reliability.Sli.Latency({ ceiling: Duration.millis(1000), metric: Convention.metric.securityCeremony, quantile: 0.99 }),
@@ -354,19 +327,12 @@ const _OBJECTIVES = {
   }),
 } as const
 
-// Core's security pack renders one quantile panel per roster entry per graded metric — credential ceremony, JWKS
-// resolve, key derivation — and those are exactly what `_OBJECTIVES` grades, so this roster folds off those rows
-// and dedups rather than restating them. An objective moving its quantile moves the board panel in one edit, where
-// a literal spelled here drifts from the alert it illustrates. Core owns the branded scalar, so this mint crosses
-// at its own constructor.
 const _QUANTILES: ReadonlyArray<Board.Query.QuantileValue> = Array.dedupe(
   Array.filterMap(Record.values(_OBJECTIVES), (objective) =>
     objective.sli._tag === "Latency" ? Option.some(Board.Query.quantile(objective.sli.quantile)) : Option.none()),
 )
 
 declare namespace Audit {
-  // Deploy-plane ingest takes this producer-pack shape: one provenance key beside already-encoded boards and burn
-  // specs, so the compile leg tags what arrived and folds its alerts without decoding a producer-specific census.
   type Pack = {
     readonly wire: typeof Audit.wire
     readonly boards: ReadonlyArray<typeof Board.DashboardModel.Encoded>
@@ -390,10 +356,6 @@ class Audit extends Effect.Service<Audit>()("security/access/Audit", {
               Effect.catchAll((fault) => Effect.logError("audit append exhausted", fault)),
             )),
         )
-      // The breach lane's held records outlive shutdown by construction: `end` closes the mailbox LOSSLESSLY and the
-      // join holds teardown until the drain empties it, where a queue shutdown would cancel pending takes and discard
-      // the buffer — the exact evidence this lane exists to keep. Registration order is the mechanism: this finalizer
-      // is nearer the scope's close than the fork's own interruption, so the flush runs first.
       const breached = yield* Effect.forkScoped(_drained(Mailbox.toStream(evidence)))
       yield* Effect.addFinalizer(() => Effect.zipRight(evidence.end, Fiber.join(breached)))
       yield* Effect.forkScoped(_drained(Stream.fromQueue(notice)))
@@ -428,9 +390,6 @@ class Audit extends Effect.Service<Audit>()("security/access/Audit", {
   static readonly alerts: ReadonlyArray<Reliability.Alert.Spec> = Array.flatMap(Record.values(_OBJECTIVES), Reliability.Alert.of)
   static readonly board = (board: Board.DashboardModel.Board): Board.DashboardModel => Board.DashboardModel.pack("security", board, { quantiles: _QUANTILES })
   static readonly egress = (record: AuditRecord): Effect.Effect<AuditTrace, AuditFault, Pseudonym> => _egress(record)
-  // Deploy-plane ingest takes one encoded value carrying its own provenance key, so this fold seals the folder's board
-  // beside its burn specs and encodes once — the root supplies the plane context it already supplies to `board`, and
-  // nothing downstream re-authors what these two statics already decided.
   static readonly pack = (board: Board.DashboardModel.Board): Audit.Pack => ({
     wire: Audit.wire,
     boards: [Schema.encodeSync(Board.DashboardModel)(Audit.board(board))],
@@ -442,8 +401,6 @@ class Audit extends Effect.Service<Audit>()("security/access/Audit", {
       Audit.Default(identity),
     )
   static readonly objectives: ReadonlyArray<Reliability.Objective> = Record.values(_OBJECTIVES)
-  // Provenance key minted where the projection earning it lives, so the deploy tuple and this producer hold one
-  // spelling and a composing root never re-types the literal that admits its own pack.
   static readonly wire = "security.audit" as const
   static readonly snapshot = (identity: Identity.App): Effect.Effect<Snapshot> =>
     Effect.flatMap(DateTime.now, (at) =>
@@ -456,7 +413,7 @@ class Audit extends Effect.Service<Audit>()("security/access/Audit", {
         })))
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Audit, AuditFault, AuditJournal, AuditRecord, AuditTrace, Pseudonym, SecurityFact, Snapshot, SnapshotRow, Witness }
 ```

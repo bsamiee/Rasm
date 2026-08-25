@@ -24,7 +24,7 @@ Every projection duplicating host geometry travels as a `TopologyProjection` min
 - Boundary: the edge taxonomy is data — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder is the wrong move it forecloses; every duplicate rides `TopologyProjection` with its true `ComponentIndex` so host drains and repair pages address one component space; owned lowering (`Surface`/`SubD` to brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index through the one `IndexSelection.At` fold both the curve and face families dispatch, so a family-local re-spelling of the empty/first/out-of-range arms is the wrong move; every `Curves` fold — `CanProject`, `Feature`, `Matches`, `Select` — is the generated total `Switch`, so a new case breaks all four loudly at compile time where a discard arm answers for it silently, and `EdgeDescriptor.Features` folds the same way with each host-enum tail stating its own emptiness; a projection that DECLINES refuses typed rather than vanishing under a `Choose`, so a caller asking for five curves and receiving three learns which arm refused; the silhouette arm is host capture beside the `Drawing/view` robust owner, so a local hidden-line kernel here is the altitude violation.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -38,7 +38,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CurveFeature {
     public static readonly CurveFeature Input = new(key: 0);
@@ -57,10 +57,6 @@ public sealed partial class CurveFeature {
     public static readonly CurveFeature Draft = new(key: 13);
 }
 
-// The ADJACENCY subset of the provenance vocabulary: exactly the rows an edge descriptor can derive, so an edge
-// request naming `Iso`, `Silhouette`, `Draft`, `Segment`, or `SubCurve` — five corners the build gate used to
-// reject after construction — is unspellable, and `Input`/`Edge` stay the absent-kind derivation they always were.
-// `Provenance` is the ONE direction of the correspondence: the narrow roster derives the published feature.
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EdgeFeature : ICapability<EdgeFeature> {
     public static readonly EdgeFeature Boundary = new(key: "boundary", rank: 0, provenance: CurveFeature.Boundary);
@@ -75,8 +71,6 @@ public sealed partial class EdgeFeature : ICapability<EdgeFeature> {
     public CurveFeature Provenance { get; }
 }
 
-// Host flag word as a rostered capability set: the silhouette kinds a run captures are DATA the case carries, and
-// `Mask` is the one projection back onto `SilhouetteType`, so no call site re-spells a baked `|` chain.
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SilhouetteTrait : ICapability<SilhouetteTrait> {
     public static readonly SilhouetteTrait Projecting = new(key: "projecting", rank: 0, bit: (int)SilhouetteType.Projecting);
@@ -104,32 +98,28 @@ internal abstract partial record EdgeDescriptor {
     public sealed record OfBrep(EdgeAdjacency Valence, Seq<BrepLoopType> Loops) : EdgeDescriptor;
     public sealed record OfMesh(int ConnectedFaces) : EdgeDescriptor;
     public sealed record OfLoop(BrepLoopType LoopType) : EdgeDescriptor;
-    // A face-less mesh edge carries no adjacency, so it is no more selectable than a loop record — the discard arm
-    // that once answered for it published an edge every whole-run request took and no feature test could reject.
     internal bool IsSelectableEdge => Switch(
         ofBrep: static _ => true,
         ofMesh: static mesh => mesh.ConnectedFaces > 0,
         ofLoop: static _ => false);
-    // Generated total Switch: a fourth descriptor shape breaks here rather than answering an empty roster, and the
-    // two host-enum tails (`EdgeAdjacency.Unknown`, an unrostered `BrepLoopType`) state their emptiness on site.
     internal Seq<EdgeFeature> Features => Switch(
         ofBrep: static brep => brep.Valence switch {
             EdgeAdjacency.Naked => Seq(EdgeFeature.Boundary) + brep.Loops.Choose(static loop =>
                 loop == BrepLoopType.Outer ? Some(EdgeFeature.NakedOuter) : loop == BrepLoopType.Inner ? Some(EdgeFeature.NakedInner) : Option<EdgeFeature>.None),
             EdgeAdjacency.Interior => Seq(EdgeFeature.Interior),
             EdgeAdjacency.NonManifold => Seq(EdgeFeature.NonManifold),
-            _ => Seq<EdgeFeature>(),   // EdgeAdjacency.Unknown: the host declined to classify, so no provenance is claimable
+            _ => Seq<EdgeFeature>(),
         },
         ofMesh: static mesh => mesh.ConnectedFaces switch {
             1 => Seq(EdgeFeature.Boundary),
             2 => Seq(EdgeFeature.Interior),
             > 2 => Seq(EdgeFeature.NonManifold),
-            _ => Seq<EdgeFeature>(),   // zero connected faces: an orphan edge IsSelectableEdge already refuses
+            _ => Seq<EdgeFeature>(),
         },
         ofLoop: static loop => loop.LoopType switch {
             BrepLoopType.Outer => Seq(EdgeFeature.OuterLoop),
             BrepLoopType.Inner => Seq(EdgeFeature.InnerLoop),
-            _ => Seq<EdgeFeature>(),   // Slit/Ptonsrf/Unknown carry no selection vocabulary
+            _ => Seq<EdgeFeature>(),
         });
 }
 
@@ -155,8 +145,6 @@ public abstract partial record Curves {
     public static Curves Iso(IsoStatus direction, double normalized = 0.5) => new IsoCase(Direction: direction, Normalized: normalized);
     public static Curves Silhouette(Option<Vector3d> direction = default, Option<CapabilitySet<SilhouetteTrait>> traits = default) =>
         new SilhouetteCase(Direction: direction, DraftAngle: Option<double>.None, Traits: traits.IfNone(CapabilitySet<SilhouetteTrait>.All));
-    // The draft angle is REQUIRED: a zero-angle draft IS a plain silhouette, so an absent angle filled with `0.0`
-    // tagged the run `CurveFeature.Draft` over a computation that never drafted. A caller wanting that run asks for it.
     public static Curves Draft(double angle, Option<Vector3d> direction = default) => new SilhouetteCase(Direction: direction, DraftAngle: Some(angle), Traits: CapabilitySet<SilhouetteTrait>.All);
     public static Curves At(Option<int> index = default) => new AtCase(Value: index);
     public static Curves Form(Option<int> index = default) => new FormCase(Index: index);
@@ -179,13 +167,11 @@ public abstract partial record Curves {
         || Kind.Of(type: type).Map(kind => CanProject(topology: kind.Topology, type: type)).IfNone(noneValue: false);
     private bool CanProject(Topology topology, Type type) => Switch(
         state: (Topology: topology, Type: type),
-        // The narrowed roster makes this ladder TOTAL: the tail carries the two remaining rows by name rather than
-        // rejecting five foreign provenance rows a build gate could no longer be asked about.
         edgesCase: static (state, e) => e.Kind.Case switch {
             null => Capability.CurveForm.Admits(type: state.Type) || Capability.BrepForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Mesh, typeof(Mesh)), (Topology.SubD, typeof(SubD))),
             EdgeFeature feature when feature.Equals(EdgeFeature.Boundary) => Capability.CurveForm.Admits(type: state.Type) || Capability.BrepForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Mesh, typeof(Mesh))),
             EdgeFeature feature when FeatureIsAny(feature, EdgeFeature.NakedOuter, EdgeFeature.NakedInner, EdgeFeature.OuterLoop, EdgeFeature.InnerLoop) => Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep))),
-            _ => Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep)), (Topology.Mesh, typeof(Mesh))),   // Interior, NonManifold
+            _ => Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep)), (Topology.Mesh, typeof(Mesh))),
         },
         segmentsCase: static (state, _) => Capability.CurveForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.SubD, typeof(SubD))),
         isoCase: static (state, _) => Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep))) || Capability.SurfaceForm.Admits(type: state.Type),
@@ -197,8 +183,6 @@ public abstract partial record Curves {
         formCase: static (state, _) =>
             Capability.CurveForm.Admits(type: state.Type) || Capability.Native(state.Type, state.Topology, (Topology.Brep, typeof(Brep)), (Topology.Mesh, typeof(Mesh)), (Topology.SubD, typeof(SubD))));
 
-    // Index narrowing is per-case law, so the generated Switch carries it: an absent At index resolves to the
-    // first projection while an absent Form index classifies the whole run, a distinction a discard arm erases.
     internal Fin<Seq<TopologyProjection>> Select(Seq<TopologyProjection> curves) => Switch(
         state: curves,
         edgesCase: static (items, _) => Fin.Succ(items),
@@ -215,8 +199,6 @@ public abstract partial record Curves {
         silhouetteCase: static (_, s) => s.DraftAngle.IsSome ? CurveFeature.Draft : CurveFeature.Silhouette,
         atCase: static (t, _) => EdgeFeatureFor(topology: t),
         formCase: static (t, _) => EdgeFeatureFor(topology: t));
-    // Segment, iso, and silhouette selection reads a parameter domain rather than adjacency, so each states its
-    // refusal at the arm; the discard tail that once carried them hid three cases behind one edge-family answer.
     internal bool Matches(EdgeDescriptor descriptor) => Switch(
         state: descriptor,
         edgesCase: static (row, e) => e.Kind.Case switch {
@@ -229,17 +211,12 @@ public abstract partial record Curves {
         atCase: static (row, _) => row.IsSelectableEdge,
         formCase: static (row, _) => row.IsSelectableEdge);
 
-    // Each extraction arm names the edge features it SERVES as a set, so the admitted roster is the gate and the
-    // `allowNone` bool disappears: an absent kind asks for the arm's whole run, which a loops-only arm never serves
-    // because `Boundary` is not in its set. `ServesRun` is the same read plus the index family riding that run.
     internal static bool Serves(Curves aspect, CapabilitySet<EdgeFeature> served) =>
         aspect is EdgesCase edges
         && (edges.Kind.Case is EdgeFeature feature ? served.Admits(capability: feature) : served.Admits(capability: EdgeFeature.Boundary));
     internal static bool ServesRun(Curves aspect, CapabilitySet<EdgeFeature> served) =>
         Serves(aspect: aspect, served: served) || aspect is AtCase or FormCase;
 
-    // Served rosters name ROWS, never `Items`, so these carry no accessor-backed lazy: a row read runs its own
-    // owner's static init, where an `Items` fold would freeze the roster the generator has not filled yet.
     private static readonly CapabilitySet<EdgeFeature> BoundaryRun = CapabilitySet<EdgeFeature>.Of(EdgeFeature.Boundary);
     private static readonly CapabilitySet<EdgeFeature> BrepEdgeRun = CapabilitySet<EdgeFeature>.Of(
         EdgeFeature.Boundary, EdgeFeature.NakedOuter, EdgeFeature.NakedInner, EdgeFeature.Interior, EdgeFeature.NonManifold);
@@ -248,8 +225,6 @@ public abstract partial record Curves {
         EdgeFeature.Boundary, EdgeFeature.Interior, EdgeFeature.NonManifold);
 
     // --- [BUILDERS]
-    // The projection rail is `Fin`, not `Fin<Option<…>>`: a decline that vanished under `Choose` left a caller
-    // asking for five curves and receiving three with no count and no evidence, so a partial arm refuses typed.
     internal static Operation<TGeometry, TOut> Project<TGeometry, TOut, TValue>(Op key, Curves aspect, Func<TopologyProjection, CurveFeature, Context, Op, Fin<TValue>> project) where TGeometry : notnull =>
         Analysis.Operation<TGeometry, TValue>.Build(
             key: key, state: (Key: key, Aspect: aspect, Project: project), requiresContext: true,
@@ -309,8 +284,6 @@ public abstract partial record Curves {
         topology == Topology.Curve ? CurveFeature.Input : topology == Topology.Surface ? CurveFeature.Boundary : CurveFeature.Edge;
     private static bool FeatureIsAny(EdgeFeature feature, params ReadOnlySpan<EdgeFeature> features) =>
         features.Contains(feature);
-    // Both lowered ingresses reach the same brep edge walk, so the describe/project pair is stated ONCE — the
-    // character-identical copy behind `Normalization.BrepForm` drifted from this body by a lease and nothing else.
     private static Fin<Seq<TopologyProjection>> BrepEdges(Brep brep, Curves selector) =>
         Matching(source: brep.Edges, selector: selector,
             describe: static edge => new EdgeDescriptor.OfBrep(Valence: edge.Valence, Loops: toSeq(edge.TrimIndices()).Choose(t => Optional(edge.Brep.Trims[t].Loop).Map(static loop => loop.LoopType))),
@@ -353,20 +326,15 @@ public abstract partial record Curves {
                 }).Bind(lease => lease.Use(shape =>
                     Optional(silhouette.DraftAngle.Case switch {
                         double angle => Rhino.Geometry.Silhouette.ComputeDraftCurve(shape, angle, direction, context.For(lane: ToleranceLane.Deviation).Value, context.For(lane: ToleranceLane.Orientation).Value, cancel),
-                        // The captured kinds are the case's own rostered set projected through the ONE `Mask` fold;
-                        // the empty span is the host's absent clipping-plane roster, which the kernel never sets.
                         _ => Rhino.Geometry.Silhouette.Compute(shape, (SilhouetteType)SilhouetteTrait.MaskOf(traits: silhouette.Traits), direction, context.For(lane: ToleranceLane.Deviation).Value, context.For(lane: ToleranceLane.Orientation).Value, [], cancel),
                     }).ToFin(cancel.IsCancellationRequested ? Errors.Cancelled : op.InvalidResult())
                     .Bind(found => toSeq(found).TraverseM(sil => TopologyProjection.Of(curve: sil.Curve, source: sil.GeometryComponentIndex)).As()))));
 }
 
-// One index-reject law both the curve and face selection families dispatch, spelled once here.
 internal static class IndexSelection {
     extension(Seq<TopologyProjection> items) {
         internal Fin<Seq<TopologyProjection>> At(Option<int> index, Op key) =>
             (items.Count, index.Case) switch {
-                // An index ASKED of an empty collection is out of range like every other — answering success there
-                // made the same request read as a refusal at one item and as an empty run at zero.
                 (0, int) => Fin.Fail<Seq<TopologyProjection>>(key.InvalidInput()),
                 (0, _) => Fin.Succ(Seq<TopologyProjection>()),
                 (int count, int at) when at < 0 || at >= count => Fin.Fail<Seq<TopologyProjection>>(key.InvalidInput()),
@@ -388,7 +356,7 @@ internal static class IndexSelection {
 - Boundary: eight outputs ride one builder — a `FacePlanes`/`FaceCentroids`/`FaceNormals` operation family is the proliferation this fan forecloses; the borrowed/owned asymmetry is the resource law, borrowed carriers transferring live faces and owned decompositions detaching so no emitted face dangles after the coerced brep disposes; ranking and index reject an out-of-range index through the same `IndexSelection.At` fold the curve family dispatches; the centroid frame composes `Analysis/measure` and `Domain/evaluation`, so a local mass or frame computation here is the wrong move.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using LanguageExt;
@@ -400,7 +368,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record Faces {
     private Faces() { }
@@ -438,8 +406,6 @@ public abstract partial record Faces {
             },
         };
 
-    // RhinoCommon spells "search the whole face" as a zero maximum distance, a host sentinel no tolerance lane
-    // owns — naming it keeps a reader from reading a zero-radius search where an unbounded one runs.
     private const double UnboundedSearch = 0.0;
 
     internal static Fin<Plane> FrameAt(BrepFace face, Context context, Op op) =>
@@ -494,7 +460,7 @@ public abstract partial record Faces {
 - Boundary: spread mathematics is composed — `SampleMoment` owns the covariance, `SymmetricMatrix` owns the spectrum, `Stat.Extrema` owns the dominant-pair selection; a local covariance accumulation or eigen-ordering assumption is the double-owner defect, and selecting the dominant eigenvalue keeps the result order-independent where a first-returned-pair convention couples correctness to an upstream sort; planar-coordinate projection failures abort the fold, since a zero-row substitution biases the covariance toward the origin; `EdgeMidpoints` composes the `Curves` rail, so a second topology-edge walker is the wrong move; control-point extraction leases every minted NURBS form so conversion never leaks. `Lattice` dispatches an ERASED `TGeometry` runtime value, not a closed family, so its discard arm is the boundary refusal the open ingress owes — it mints the typed `Unsupported` naming both the runtime type and the output, and collapsing it onto a generated `Switch` is unspellable where no union owns the input.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Linq;
@@ -505,15 +471,11 @@ using Rasm.Processing;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the dual usings.
 using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Each row states its own fit AND the binding that admits it: the `Fit` column is the one discrimination site, so
-// the equality ladder with its catch-all is gone and a new aspect cannot land without a body. `OutputBinding`
-// carries the declared type, the caller-type test, and the unbox as one value.
+// --- [TYPES] ---------------------------------------------------------------------------
 [BoundaryAdapter, SmartEnum<int>]
 public sealed partial class SpreadAspect {
     public static readonly SpreadAspect Frame = new(key: 0, output: OutputBinding.Of<Plane>(),
@@ -525,8 +487,6 @@ public sealed partial class SpreadAspect {
         fit: static (points, geometry, context, op) => MassKind.CentroidOf(geometry: geometry, context: context, op: op)
             .Bind(centroid => Stat<Scalar>.Of(values: points.Map(point => (Scalar)point.DistanceTo(other: centroid)), key: op))
             .Map(static stat => Seq<object>(stat)));
-    // Degeneracy decides AHEAD of the fit: two points or fewer are collinear and coplanar by construction, where
-    // reading that verdict off a plane-fit REFUSAL published a vacuous `true` for the zero-point set as well.
     public static readonly SpreadAspect Collinear = new(key: 3, output: OutputBinding.Of<bool>(),
         fit: static (points, _, context, op) => points.Count <= 2
             ? Fin.Succ(Seq<object>(true))
@@ -541,14 +501,11 @@ public sealed partial class SpreadAspect {
     public OutputBinding Output { get; }
     [UseDelegateFromConstructor] internal partial Fin<Seq<object>> Fit(Seq<Point3d> points, object geometry, Context context, Op op);
 
-    // Host plane fit on the `Fin` rail: a refusal is a refusal, never a degenerate-input verdict — the degenerate
-    // cases already answered before this ran, so every reader here holds a MEASURED plane and deviation.
     private static Fin<(Plane Plane, double Deviation)> Fitted(Seq<Point3d> points, Op op) =>
         (Plane.FitPlaneToPoints(points: points.AsIterable(), plane: out Plane fit, maximumDeviation: out double deviation), fit.IsValid) switch {
             (PlaneFitResult.Success, true) => Fin.Succ((Plane: fit, Deviation: deviation)),
             _ => Fin.Fail<(Plane, double)>(op.InvalidResult()),
         };
-    // Dominant eigenpair selected by eigenvalue: correct under any decomposition return order.
     private static Fin<double> Principal(Seq<Point3d> points, Plane fit, Context context, Op op) =>
         points.TraverseM(point => VectorIntent.Components(anchor: fit.Origin, value: point - fit.Origin, frame: fit).Project<(double X, double Y)>(context: context, key: op)).As()
             .Map(static planar => planar.Map(static row => Seq(row.X, row.Y)))
@@ -580,8 +537,6 @@ public abstract partial record Points {
     public sealed record VerticesCase : Points;
     public sealed record ControlPointsCase : Points;
     public sealed record SpreadCase(SpreadAspect Aspect) : Points;
-    // One accessor-backed index DERIVED from the case roster: the operation identity is the case's own name, so a
-    // seventh case carries a key with no edit here and no eager static can mint one ahead of the nested-type scan.
     private static readonly Lazy<FrozenDictionary<Type, Op>> Keys = new(static () =>
         typeof(Points).GetNestedTypes().Where(static shape => shape.IsSubclassOf(c: typeof(Points)))
             .ToFrozenDictionary(static shape => shape, static shape => Op.Of(name: shape.Name)));
@@ -669,8 +624,6 @@ public abstract partial record Points {
                 Normalization.SurfaceForm(source: surfaceLike, key: op).Bind(lease => lease.Use(surface => Lattice(geometry: surface, op: op))),
             _ => Fin.Fail<Seq<Point3d>>(op.Unsupported(g.GetType(), typeof(Point3d))),
         });
-    // Two control-net readings, each stated ONCE: the surface form was transcribed verbatim at three lowering
-    // arms and the curve form at two, so a net-indexing change had five sites to miss.
     private static Seq<Point3d> NetOf(NurbsCurve curve) =>
         toSeq(Enumerable.Range(0, curve.Points.Count).Select(i => curve.Points[i].Location).ToArray());
     private static Seq<Point3d> NetOf(NurbsSurface surface) =>

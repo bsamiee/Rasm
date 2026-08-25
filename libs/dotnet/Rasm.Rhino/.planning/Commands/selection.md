@@ -24,7 +24,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Traverse`, `PartitionFallible`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`, `ValidityClaim`, the `Rollback` custody extension), `Analysis/query` (`AnalysisQuery`, `Analyze`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/geometry` (`GeometryCrossing`, `CrossingMode`, `GeometryHandle`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:217-219` — the `ObjRef` projector roster, `PickContext`, `ObjectTable.PickObjects`, the `GetBaseClass` result reads), RhinoCommon objects (`api-rhinocommon-objects.md:184` — `ObjRef` identity projection).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using Rasm.Analysis;
@@ -39,7 +39,7 @@ using Rhino.Input.Custom;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PickMethod {
     public static readonly PickMethod Other = new(key: (int)SelectionMethod.Other);
@@ -51,9 +51,6 @@ public sealed partial class PickMethod {
         key.Row<int, PickMethod>((int)native);
 }
 
-// The host spells "no component" as the pair (InvalidType, -1) and every real component as a named type at a
-// non-negative ordinal. Those are the only two legal corners, so the pattern is the value's construction law and
-// `Objects/state` composes this owner rather than repeating it at its own census mint.
 [ValueObject<ComponentIndex>]
 [ValidationError]
 public readonly partial struct PartIndex {
@@ -126,8 +123,6 @@ public sealed partial class PickView {
                     () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(DetailSerial), 0d, "a live detail serial" })))));
     }
 
-    // The host answers `0` for "no detail", so the sentinel dies at this ONE admission and every reader downstream
-    // sees presence; a detail serial arriving beside no view refuses on the same line.
     internal static Fin<Option<PickView>> Admit(Option<RhinoView> view, uint detailSerial, Op key) => view.Match(
         Some: live => key.AcceptValidated<PickView>(
                 fault: Validate(
@@ -145,14 +140,12 @@ public sealed partial class PickView {
             .ToFin(Fail: key.MissingContext()));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PickCapture(
     Guid ObjectId,
     PartIndex Component,
     PickOrigin Origin,
     Option<PickView> View) : IDetachedDocumentResult {
-    // `PickOrigin`, `PickView`, and `PartIndex` are ADMITTED owners — none can exist un-admitted — so this entry
-    // admits only what still arrives raw from the host and the interior re-validates nothing.
     internal static Fin<PickCapture> Admit(
         Guid objectId,
         ComponentIndex component,
@@ -177,7 +170,7 @@ public sealed record PickCapture(
 - Law: every part states the CAPABILITY that produced it. `Whole` and `DefinitionPart` were byte-identical single-field wrappers whose only difference was the `PartKind` row that built them, and the three `SubD*Part` wrappers differed only in a payload type every producer erased into `Option<Picked>` before any consumer saw it. One `PartKind Origin` base column carries the discriminant for all four surviving cases. NAMED LOSS: the static payload type on five of the seven former arms; recovered from `Origin`, and the witness is the projector roster below, where each row already knows which member it read.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public abstract record Picked {
     private Picked(PartKind origin) => Origin = origin;
 
@@ -249,7 +242,7 @@ public sealed partial class PartKind {
 - Law: a stale reference does not void the pick. `CaptureOwned` partitions survivors from casualties and the receipt carries both, so a forty-object pick with one dead reference answers thirty-nine captures and one named refusal. NAMED LOSS: whole-batch atomicity — a caller that needs all-or-nothing reads `Rejected.IsEmpty` at the entry, and the release of every owned reference is unchanged on both branches.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PickGesture {
     public static readonly PickGesture None = new(key: (int)PickStyle.None);
@@ -315,8 +308,6 @@ public abstract partial record PickRule : ISlotted<PickSlot> {
         along: static (op, rule) => guard(rule.Value.IsValid, op.InvalidInput(axis: nameof(Along))).ToFin(),
         styled: static (op, rule) => guard(rule.Value is not null, op.InvalidInput(axis: nameof(Styled))).ToFin(),
         rendered: static (op, rule) => guard(rule.Value is not null, op.InvalidInput(axis: nameof(Rendered))).ToFin(),
-        // The two gate sets must be DISJOINT: a gate named on both sides asks the context for two answers and the
-        // fold's write order would decide which one the pick actually ran under.
         gates: static (op, rule) => guard(
             rule.Enabled.Held.All(row => !rule.Disabled.Admits(capability: row)),
             op.InvalidInput(axis: nameof(Gates))).ToFin(),
@@ -338,7 +329,7 @@ public abstract partial record PickRule : ISlotted<PickSlot> {
         refreshClipping: static (state, _) => state.Op.Catch(() => Fin.Succ(Op.Side(state.Target.UpdateClippingPlanes))));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PickPolicy {
     private PickPolicy(RulePlan<PickRule, PickSlot> plan) => Plan = plan;
 
@@ -380,7 +371,7 @@ public sealed partial record PickReceipt(
 `Picks.Capture` projects borrowed references without taking custody. `CaptureOwned` consumes a returned reference sequence, partitions casualties from survivors, and releases every entry on both branches. `Execute` derives and disposes one `PickContext`, projects `GetObjectUsed`, and returns only detached evidence. `Part` is a SCOPED projector: it mints the `Picked` view, hands it to the caller's projection, and lets it die with the call, because the live `RhinoObject`, `GripObject`, `SubDComponent`, and `GeometryBase` it wraps carry no lease — returning the `Picked` itself is the deleted form and `Retain` is the one crossing into owned custody.
 
 ```csharp signature
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Picks {
     public static Fin<PickCapture> Capture(ObjRef reference, Op? key = null) {
         Op op = key.OrDefault(name: nameof(Capture));
@@ -408,12 +399,6 @@ public static class Picks {
                select capture;
     }
 
-    // `ObjRef.CurveParameter`/`SurfaceParameter` do not answer a scalar — each returns a LIVE geometry wrapper
-    // beside its `out` value, and for a non-top-level pointer the host mints a FRESH `ObjRef` as that wrapper's
-    // parent inside `ObjRefToGeometryHelper`. Reading the scalar and dropping the wrapper on the floor therefore
-    // strands one native reference per pick per axis. Each probe brackets its wrapper on the same statement, so
-    // the parent becomes unreachable at once and only the scalar leaves; the parent itself is GC-reclaimed, the
-    // residual this seam cannot close because the host exposes no handle to it.
     private static Fin<Option<double>> CurveAt(ObjRef reference, Op key) => key.Catch(() => {
         using Curve? curve = reference.CurveParameter(parameter: out double parameter);
         return Fin.Succ(value: curve is null ? Option<double>.None : Some(parameter));
@@ -441,9 +426,6 @@ public static class Picks {
                select receipt;
     }
 
-    // Every returned reference is OWNED by this call, so release runs on both branches through the one release
-    // algebra and each disposer fault aggregates rather than the last one winning. The null screen sits at intake,
-    // so no disposer carries a presence test of its own.
     private static Fin<Unit> Released(Seq<ObjRef> owned, Op key) => Custody.Release(
         held: owned,
         release: reference => key.Catch(() => Fin.Succ(value: Op.Side(reference.Dispose))),

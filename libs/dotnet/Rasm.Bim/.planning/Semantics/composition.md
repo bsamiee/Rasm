@@ -20,7 +20,7 @@ Every native-unit magnitude crossing this projector rides the ONE `Projection/va
 - Boundary: the material model is the seam `Node.Material` + `MaterialComposition` and a Bim `BimMaterial`/`BimMaterialComposition`/`MaterialLayer`/`MaterialProfile`/`LayerSetUsage`/`ProfileSetUsage`/`ProfileDefKind`/`ProfileDims` re-declaration is the deleted form — the seam owns the algebra, this page owns only the GeometryGym discrimination that fills it; the occurrence usage rides the `Associate` edge `MaterialUsage` payload [OCCURRENCE_USAGE_RULING] and threading `LayerSetUsage`/`ProfileSetUsage` onto this composition node is the named seam violation — the type-level SET structure is shared, the per-occurrence geometric binding is the edge's; the `ProfileSet` arm carries a neutral `ProfileRef` (`Standard` + `Designation` + content key), NOT a VividOrange section type and NOT inline `IfcParameterizedProfileDef` dimensions — the full parametric section is preserved in the content-addressed store the `ContentKey` keys and the canonical section properties resolve one-hop to the catalog above the seam, so a profile-name-only `ProfileRef` that drops the content key is the deleted form, the content key is the kernel seed-zero `XxHash128` `ContentHash.Of` (the up-stratum `Rasm.Compute` `InterchangeIdentity` being the H7 strata defect), and a compound set preserves BOTH levels — every row's own profile AND the declared `CompositeProfile` as the seam `Composite` — so a `.Head`-only read that drops the trailing rows and a composite-over-primary read that destroys row zero's plate geometry are both deleted forms; every IFC per-row COMPOSITION column the folds carry is a round-trip FIXED POINT, not a one-way read, its egress peer stated at `[03]-[EGRESS]` — the typed-Pset half is a declared ASYMMETRY (typed out, neutral bag back) and claiming a fixed point over it is the overclaim; an imported material Pset lands as a NEUTRAL seam `PropertyBag` under `EvidenceGrade.Import` and never as typed `MaterialPropertySet` columns, because that family is full-vector by construction and a partial foreign Pset folded onto a case fabricates every undeclared column — its values narrow through the ONE `PropertyLowering.Lower`, a second `IfcValue` narrowing on this page being the deleted fork, and its row keys mint through the owner-blessed `PropertyCategory.Seam.Row` EMPTY-prefix category so a round-tripped foreign name stays bare in the one key space every reader shares, a call-site `PropertyName.Create` being the fork the branch row-name custody ruling deletes; the imported-Pset drops RETURN on the `Fidelity` carrier and a mutable log field beside the returned bags is the deleted form that gave one fact two write orders, so `ImportedPsets` neither takes an accumulator parameter nor owns a ledger — the parent fold's `Traverse` `Combine`s it; every GeometryGym nullable name narrows through the ONE `PropertyLowering.Stated` door behind `MaterialShape.Key`/`Label` and a `?? ""` inside a fold body is the deleted form that spelled absence as a blank the seam then read as a declared identity; the GeometryGym `IfcMaterialLayerSet`/`IfcMaterialLayerSetUsage`/`IfcMaterialProfileSet`/`IfcMaterialProfileSetUsage`/`IfcMaterialConstituentSet`/`IfcMaterial` surface (`.api/api-geometrygym-ifc` material families) is consumed as settled vocabulary through the `IfcMaterialSelect` discrimination and a hand-rolled material-assembly reader is the deleted form; the `MaterialLayer` thickness coerces the NATIVE-unit `LayerThickness` through `UnitScheme.Coerce` and admits through the QTO-identity `MeasureValue.OfSi(QuantityType, Dimension, double)` — a bare double, a page-local factor member, the raw `MeasureValue` ctor that bypasses the owner's SI admission, a dimension-anonymous admit that strips the takeoff's QTO identity, OR treating the native length as already-SI (the mm-vs-metre import trap) are the named defects; the section geometry binds by content-hash reference and a RhinoCommon profile field or an in-process BRep evaluation is the named seam violation; an unresolvable material-select entity lifts `Model/faults#FAULT_BAND` `BimFault.Refused` with `BimReason.Rejected` BARE (band 2600 owns the generated `Code`, the ingress on `ctx.Key` and the egress on the page `Egress` gate) and the seam `MaterialComposition` admission lifts `ElementFault.ValueRejected` BARE on a degenerate set, a `.ToError()` lowering hop (or a hand-built `Error.New(2600, …)`) bypassing the typed case being the named seam defect; the mechanical column crossings are ONE `[Mapper]` boundary transcription and a hand-rolled sentinel/logical/substance narrowing beside `MaterialShape` is the deleted form, while a crossing carrying a rail, a store call, or a memo stays hand-written by law — Mapperly transcribes shape, never a `Fin` lane.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using GeometryGym.Ifc;
@@ -40,29 +40,20 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Semantics;
 
-// --- [BOUNDARIES] --------------------------------------------------------------------------
-// [UserMapping] marks ONLY the carriers the generated Row reaches: no seam constituent column carries a priority or
-// a ventilation, so marking those two would declare a generated consumer that does not exist.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class MaterialShape {
-    // PartName is the constituent OWN IFC Name — the part it FORMS, a different axis from its function Category.
     [MapProperty(nameof(IfcMaterialConstituent.Name), nameof(MaterialConstituent.PartName))]
     public static partial MaterialConstituent Row(IfcMaterialConstituent constituent);
 
     [UserMapping]
     internal static MaterialId Substance(IfcMaterial? material) => Key(material?.Name);
 
-    // `fallback` carries the IFC profile-set convention where a row naming no material inherits the set name, so the
-    // two-source choice is ONE admission. The blank MaterialId IS the seam admitted unbound spelling.
     internal static MaterialId Key(string? name, string? fallback = null) =>
         MaterialId.Of(PropertyLowering.Stated(name).IfNone(() => PropertyLowering.Stated(fallback).IfNone("")));
 
-    // [SENTINEL_PROJECTION] site — GeometryGym clamps any priority outside the IFC [0,100] percentage to
-    // int.MinValue and its STEP writer emits `$` for it.
     internal static Option<int> Junction(int priority) => priority == int.MinValue ? None : Some(priority);
 
-    // EN ISO 6946 drops a well-ventilated layer from the series-resistance fold, so an UNKNOWN silently read as FALSE
-    // falsifies every U-value downstream — absence stays a refusal input, never a default.
     internal static Option<bool> Ventilation(IfcLogicalEnum value) => value switch {
         IfcLogicalEnum.TRUE => Some(true),
         IfcLogicalEnum.FALSE => Some(false),
@@ -73,12 +64,8 @@ public static partial class MaterialShape {
     internal static string Label(string? value) => PropertyLowering.Stated(value).IfNone("");
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// MaterialProjection stays partial across its ingress cluster and its [03]-[EGRESS] half, one owner in one file.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class MaterialProjection {
-    // `tolerance` is the seam SI Header.Tolerance (NOT the native db.Tolerance), so the SI-coerced measures quantize
-    // on an SI grid in ToCanonicalBytes — the SemanticProjector coerces db.Tolerance before threading it here.
-    // IfcMaterialList, superseded, also implements the select and lands on the boundary arm BY LAW.
     public static Fin<Node.Material> Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, UnitScheme scale, Op key) =>
         relatingMaterial switch {
             IfcMaterialLayerSetUsage u    => Optional(u.ForLayerSet).ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "material-usage-unbound", "layer-set" }))).Bind(set => LayerSetOf(set, tolerance, scale, key)),
@@ -107,10 +94,6 @@ public static partial class MaterialProjection {
         return Mint(id, tolerance, Fin.Succ<MaterialComposition>(MaterialComposition.OfSingle(id)));
     }
 
-    // GeometryGym stores LayerThickness in the model NATIVE units (mm in most Revit/ArchiCAD exports), never
-    // pre-coerced. An IfcMaterialLayerWithOffsets row folds through these columns alone: the subtype declares no
-    // public constructor and keeps its offset vector on internal fields with no accessor, so the per-LAYER offsets
-    // are unreachable at the GeometryGym public surface while the PROFILE subtype OffsetValues is public.
     static Fin<Seq<MaterialLayer>> LayersOf(IfcMaterialLayerSet set, UnitScheme scale, Op key) =>
         set.MaterialLayers.AsIterable()
             .ToSeq()
@@ -135,26 +118,17 @@ public static partial class MaterialProjection {
     static Option<ProfileRef> CompositeOf(IfcMaterialProfileSet set, IIfcProfileStore profiles, Op key) =>
         Optional(set.CompositeProfile).Map(composite => profiles.Preserve(composite, key));
 
-    // OffsetValues is a public double[] of arity one or two — the ONE per-row offset channel GeometryGym exposes; a
-    // base IfcMaterialProfile yields EMPTY, the IFC LIST[1:2] arity making empty-versus-present a bijection.
     static Fin<Seq<MeasureValue>> OffsetsOf(IfcMaterialProfile row, UnitScheme scale, Op key) =>
         row is IfcMaterialProfileWithOffsets offsets
             ? toSeq(offsets.OffsetValues).TraverseM(value => MeasureValue.OfSi(QuantityType.Length, Dimension.LengthDim, scale.Coerce(value, QuantityType.Length, Dimension.LengthDim), key: key)).As()
             : Fin.Succ(Seq<MeasureValue>());
 
-    // Node cases are class-root [Union] arms with NO compiler-generated `with`, so the content id re-stamps on the
-    // seam Graph/element#NODE_MODEL Node.Relabel — the SAME re-stamp the Rasm.Materials Mint takes.
     static Fin<Node.Material> Mint(MaterialId key, double tolerance, Fin<MaterialComposition> composition) =>
         composition.Map(c => {
             var draft = new Node.Material(NodeId.Of(new NodeSeed.Placement()), key, c, Seq<MaterialPropertySet>());
             return (Node.Material)draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, tolerance)));
         });
 
-    // HasProperties is a public SET<IfcMaterialProperties> the AUTHORED typed lane never fills. Lowering a FOREIGN
-    // value is the one place this owner can narrow, so the reader RETURNS on the Fidelity carrier and the parent
-    // Traverse Combines the children ledgers — an accumulator passed IN reads as a value and behaves as a channel.
-    // No node id rides the bag: an IfcMaterialProperties is not IfcRoot, so the Projection/semantic Materials fold
-    // content-mints the Node.PropertySet and MaterialEdges re-derives that same mint to bind its Assign edge.
     public static WriterT<FidelityLog, Fin, Seq<PropertyBag>> ImportedPsets(
         IfcMaterialDefinition definition, Map<string, NodeId> rooted, UnitScheme scale, TemplateScope templates, Op key) =>
         definition.HasProperties.AsIterable().ToSeq()
@@ -188,10 +162,7 @@ public static partial class MaterialProjection {
 - Boundary: the EGRESS reads the seam `Material` node + the `Associate` edge `MaterialUsage` ONLY — a Materials `MaterialAssignmentWire`/`MaterialPropertyWire` carrier crossing into this owner is the deleted form (those Materials wires are retired, the material egress reading the projected seam subgraph); an unset `Priority` re-authors unwritten (assigning GeometryGym's `int.MinValue` back is the sentinel re-introduction this projection deletes), an `UNKNOWN` ventilation re-authors `IfcLogicalEnum.UNKNOWN`, an absent `CardinalPoint` re-authors `IfcCardinalPointReference.DEFAULT` (the unset member both writers omit — electing `MID` promotes every unset usage into a declared mid-point on re-export), an absent `OffsetFromReferenceLine` RAILS `BimFault.Refused` with `BimReason.Codec` because that attribute is MANDATORY and its writer emits unconditionally (a `double.NaN` into a required real writes a malformed STEP token), and a row with offsets re-authors the `IfcMaterialProfileWithOffsets` subtype at its declared one-or-two arity, never padded; the carried-token authored profile is the SINGLE-row fallback alone, because that token names the whole member and applying it per row of a compound authors one member rectangle N times — a compound row missing its preserved fragment rails `BimFault.Refused` with `BimReason.DanglingReference`; the `IfcMaterialProperties` Pset attaches to the authored `IfcMaterialDefinition` and the `ProfileSet` `IfcProfileDef` reconstitutes one-hop from the content-addressed STEP with a composite def re-stamping `CompositeProfile` on the authored set (a parametric dimension re-folded onto the seam being the deleted form); a store-missed Rasm-authored `ProfileSet` resolves its profile entity from the carried `DetailSchema.Realization` `ProfileSubtype` row and the baked `SectionProperties` dims — never a Materials call, and never a bare voided subtype with unassigned mandatory inner curves; every emitted column — the table's discipline rows AND the shared evidence tail alike — carries the GeometryGym `IfcValue` leaf its datum names into the `IfcPropertySingleValue(DatabaseIfc, string, IfcValue)` ctor, so a `Num`/`Text`/`Flag` rename layer over that surface, a primitive `(…, string)`/`(…, double)` overload that picks the leaf on the column's behalf, and a lossy double flattening of the `FireRating` class or the `Cost` `Currency`/`MeasurementBasis` label are all deleted forms; provenance is single-stored on the seam `PropertyEvidence` (the retired per-case `Environmental` EPD/`ValidUntilYear` double-store and its suppression flag are GONE) and reads through that owner's OWN shapes — `Reference` is an `Option<string>` whose absent column does not emit (a blank `IfcLabel` re-authors a citation the source never declared), `Grade` the `EvidenceGrade.Token` rank so a re-ingest of an authored Pset reads its declared provenance tier rather than inferring one, and the expiry lowers through the ISO-8601 `LocalDatePattern.Iso` so the full date round-trips intact; the egress `AuthorPropertySet` is RAILED and a `void` Pset author sequenced through `Map` is the deleted form that made an uncolumned discipline case indistinguishable from a written one; the `EmitMemo` owner is keyed by the emit `DatabaseIfc` so the cache is emit-scoped and GC-collected with the database, and a durable or process-static material cache is the deleted form.
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Emit runs db-serial (DatabaseIfc is single-threaded) and the inner dictionary guards reentry.
-// EqualityComparer<TKey>.Default IS the ordinal comparison for a string key and the value-ordinal comparison for a
-// tuple key, so no comparer knob exists to get wrong at a call site.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class EmitMemo<TKey, TValue>
     where TKey : notnull
     where TValue : class {
@@ -201,20 +172,13 @@ public sealed class EmitMemo<TKey, TValue>
         tables.GetValue(db, static _ => new ConcurrentDictionary<TKey, TValue>()).GetOrAdd(key, mint);
 }
 
-// --- [MODELS] --------------------------------------------------------------------------------
-// Leaf CONSTRUCTOR declares the row datatype — a parallel DataType string column beside it would be a
-// second spelling of the same fact with nothing reading it. The blanket IfcReal the table formerly emitted made
-// every dimensioned datum indistinguishable from a pure number on re-ingest, so the seam MeasureValue coercion had
-// no declared type to key on and the Semantics/properties#TEMPLATE_AUDIT WrongDimension verdict went dark.
+// --- [MODELS] --------------------------------------------------------------------------
 readonly record struct MaterialColumn(string Set, string Name, Func<MaterialPropertySet, Option<IfcValue>> Read);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class MaterialProjection {
-    // AuthorComposition/Definition are Emit-internal and carry no caller Op, so an egress fault keys on this gate
-    // (the Projection/semantic#GRAPH_LEGALITY IfcLegality.Gate idiom) while the ingress Project threads ctx.Key.
     static readonly Op Egress = Op.Of(name: nameof(MaterialProjection));
 
-    // Materials carry no edition axis, so (db, name) is the whole identity.
     static readonly EmitMemo<string, IfcMaterial> Materials = new();
 
     static IfcMaterial MaterialOf(DatabaseIfc db, string name) => Materials.Of(db, name, n => new IfcMaterial(db, n));
@@ -229,15 +193,11 @@ public static partial class MaterialProjection {
             layerSet:      s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialLayerSet(
                                     s.Layers.Map(l => Layer(db, l, scale)), key.Value)),
             profileSet:    s => Rows(db, s, profiles, profileSubtype, scale).Map(rows => AuthorProfileSet(key, rows, s, profiles)),
-            // Row name is the seam PartName, falling back to the material key when the part is unnamed — exactly the
-            // blank-name convention GeometryGym's own IfcMaterialLayer constructor applies, never an empty IFC Name.
             constituentSet: s => Fin.Succ<IfcMaterialDefinition>(new IfcMaterialConstituentSet(key.Value,
                                     s.Constituents.Map(c => new IfcMaterialConstituent(
                                         string.IsNullOrEmpty(c.PartName) ? c.Material.Value : c.PartName,
                                         MaterialOf(db, c.Material.Value)) { Fraction = c.Fraction, Category = c.Category }))));
 
-    // CompositeProfile lands ONLY on a resolved preserved IfcCompositeProfileDef, so a non-composite set never writes
-    // a null marker and a re-ingest keys the SAME composite CompositeOf preferred.
     static IfcMaterialDefinition AuthorProfileSet(MaterialId key, Seq<IfcMaterialProfile> rows, MaterialComposition.ProfileSet set, IIfcProfileStore profiles) {
         var authored = new IfcMaterialProfileSet(key.Value, [.. rows]);
         set.Composite.Bind(profiles.Find).Bind(static profile => Optional(profile as IfcCompositeProfileDef))
@@ -245,8 +205,6 @@ public static partial class MaterialProjection {
         return authored;
     }
 
-    // Ctor carries material, thickness, and name alone, so every other column re-stamps through the setters.
-    // Priority assigns only when present: a fabricated zero would round-trip as a real junction precedence.
     static IfcMaterialLayer Layer(DatabaseIfc db, MaterialLayer layer, UnitScheme scale) {
         var row = new IfcMaterialLayer(MaterialOf(db, layer.Material.Value), scale.Render(layer.Thickness).Value, layer.LayerName) {
             Category = layer.Category,
@@ -256,8 +214,6 @@ public static partial class MaterialProjection {
         return row;
     }
 
-    // Carried-token authored profiles fall back for a SINGLE-row set only: that token names the whole member
-    // geometry, so applying it per row of a compound would author one member rectangle N times.
     static Fin<Seq<IfcMaterialProfile>> Rows(DatabaseIfc db, MaterialComposition.ProfileSet set, IIfcProfileStore profiles, Option<string> profileSubtype, UnitScheme scale) =>
         set.Profiles.TraverseM(row => profiles.Find(row.Profile)
                 .Match(Some: Some, None: () => set.Profiles.Count == 1 ? AuthoredProfile(db, set, profileSubtype, scale) : None)
@@ -265,8 +221,6 @@ public static partial class MaterialProjection {
                 .Map(profile => Row(db, row, profile, scale)))
             .As();
 
-    // Arity one takes the start-only constructor and arity two the start-and-end pair — two constructors, no padded
-    // third — so the seam LIST[1:2] vector round-trips at its declared arity.
     static IfcMaterialProfile Row(DatabaseIfc db, MaterialProfile row, IfcProfileDef profile, UnitScheme scale) {
         IfcMaterial material = MaterialOf(db, row.Material.Value);
         string name = row.Profile.Designation;
@@ -280,22 +234,11 @@ public static partial class MaterialProjection {
         return authored;
     }
 
-    // IfcRectangleProfileDef completes whole from the baked SectionProperties (XDim the width, YDim the depth); a
-    // token whose mandatory interior geometry only a preserved fragment carries (IfcArbitraryProfileDefWithVoids
-    // inner curves — inline curve geometry never rides the seam) resolves None and the lane keeps its typed fault.
     static Option<IfcProfileDef> AuthoredProfile(DatabaseIfc db, MaterialComposition.ProfileSet s, Option<string> subtype, UnitScheme scale) =>
         subtype.Filter(static name => name == nameof(IfcRectangleProfileDef))
             .Bind(_ => s.Section.Map(section => (IfcProfileDef)new IfcRectangleProfileDef(
                 db, s.Profile.Designation, scale.Render(section.Width).Value, scale.Render(section.Depth).Value)));
 
-    // Two optional occurrence columns take OPPOSITE landings because the schema does: OffsetFromReferenceLine is
-    // MANDATORY and its STEP writer emits it unconditionally through ParserSTEP.DoubleToString, so an absent seam
-    // offset RAILS rather than writing a NaN token into a required real; CardinalPoint is OPTIONAL and
-    // IfcCardinalPointReference.DEFAULT is the package own unset member both the STEP and JSON writers omit.
-    // Layer-usage ReferenceExtent has NO public GG write channel (4-arg ctor only, setter non-public —
-    // decompile-confirmed), so the seam LayerSet.ReferenceExtent is ingest-only; the profile-usage setter is public,
-    // and NaN IS that field own initializer and its DoubleOptionalToString absence sentinel.
-    // Offset arms close over `scale`, so their lambdas are non-static by construction (CS8820).
     public static Fin<IfcMaterialSelect> AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage, UnitScheme scale) => usage.Switch(
         unbound:    _ => Fin.Succ((IfcMaterialSelect)definition),
         layerSet:   u => definition is IfcMaterialLayerSet set
@@ -314,9 +257,7 @@ public static partial class MaterialProjection {
                 })
             : Fin.Fail<IfcMaterialSelect>(new BimFault.Refused(Egress, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "material-usage-on", "profile", definition.GetType().Name }))));
 
-    // --- [COLUMN_TABLE] ------------------------------------------------------------------------
-    // IfcMaterialProperties : IfcExtendedProperties, a NAMED set on the IfcMaterialDefinition. Standard
-    // buildingSMART Psets carry their published names; the seam-native carriers take a Rasm_Material* name.
+    // --- [COLUMN_TABLE] ----------------------------------------------------------------
     static readonly Seq<MaterialColumn> Columns =
         Discipline<MaterialPropertySet.Mechanical>("Pset_MaterialMechanical",
             ("MassDensity", static m => Some<IfcValue>(new IfcMassDensityMeasure(m.Density.Si))),
@@ -342,16 +283,12 @@ public static partial class MaterialProjection {
         + Discipline<MaterialPropertySet.Acoustic>("Pset_MaterialAcoustic",
             ("NoiseReductionCoefficient", static a => Some<IfcValue>(new IfcNormalisedRatioMeasure(a.Nrc))),
             ("SoundAbsorptionAverage", static a => Some<IfcValue>(new IfcNormalisedRatioMeasure(a.Saa))),
-            // Weighted STC is a dimensionless RATING index on no SI scale, so IfcReal is its honest leaf.
             ("SoundTransmissionClass", static a => Some<IfcValue>(new IfcReal(a.StcWeighted))))
         + Discipline<MaterialPropertySet.Fire>("Pset_MaterialFire",
             ("ReactionToFireClass", static f => Some<IfcValue>(new IfcLabel(f.Reaction.Key))),
             ("Combustible", static f => Some<IfcValue>(new IfcBoolean(f.Reaction.Combustible))),
             ("SmokeProduction", static f => Some<IfcValue>(new IfcLabel(f.Smoke.Key))),
             ("FlamingDroplets", static f => Some<IfcValue>(new IfcLabel(f.Droplets.Key))),
-            // R/E/I ratings are the EN 13501-2 MINUTE classes the seam stores and the standard names; an
-            // IfcTimeMeasure leaf would declare SI seconds over a minute magnitude, so the pure number stands and the
-            // column name carries the unit — the one place a rating's own vocabulary outranks an SI measure type.
             ("FireResistanceR", static f => Some<IfcValue>(new IfcReal(f.Resistance.LoadBearingMinutes))),
             ("FireResistanceE", static f => Some<IfcValue>(new IfcReal(f.Resistance.IntegrityMinutes))),
             ("FireResistanceI", static f => Some<IfcValue>(new IfcReal(f.Resistance.InsulationMinutes))))
@@ -366,22 +303,16 @@ public static partial class MaterialProjection {
             ("InstallationCost", static c => Some<IfcValue>(new IfcMonetaryMeasure(c.InstallPerUnit))),
             ("LifeCycleCost", static c => Some<IfcValue>(new IfcMonetaryMeasure(c.LifecyclePerUnit))))
         + Discipline<MaterialPropertySet.Damping>("Rasm_MaterialDamping",
-            // Damping ratio passes unity on an overdamped system, so the POSITIVE ratio is its leaf and the
-            // normalised one (whose GG ctor clamps to [0,1]) would silently cap the overdamped case at critical.
             ("DampingRatio", static d => Some<IfcValue>(new IfcPositiveRatioMeasure(d.DampingRatio))),
             ("StructuralLossFactor", static d => Some<IfcValue>(new IfcPositiveRatioMeasure(d.StructuralLossFactor))),
-            // Rayleigh alpha is per-second (IFC declares no reciprocal-time measure); beta IS seconds.
             ("RayleighAlpha", static d => d.Rayleigh.Map(static r => (IfcValue)new IfcReal(r.AlphaPerS))),
             ("RayleighBeta", static d => d.Rayleigh.Map(static r => (IfcValue)new IfcTimeMeasure(r.BetaS))))
         + Discipline<MaterialPropertySet.Hygrothermal>("Rasm_MaterialHygrothermal",
             ("Porosity", static h => Some<IfcValue>(new IfcNormalisedRatioMeasure(h.Porosity))),
             ("WaterContent80RH", static h => Some<IfcValue>(new IfcMassDensityMeasure(h.WaterContent80Rh.Si))),
             ("FreeWaterSaturation", static h => Some<IfcValue>(new IfcMassDensityMeasure(h.FreeWaterSaturation.Si))),
-            // kg/(m^2 sqrt(s)) — an EN ISO 15148 A-value on no IFC measure scale.
             ("WaterAbsorptionCoefficient", static h => h.WaterAbsorptionKgPerM2SqrtS.Map(static a => (IfcValue)new IfcReal(a))))
         + Discipline<MaterialPropertySet.Durability>("Rasm_MaterialDurability",
-            // mm/sqrt(year), m^2/s diffusivity, and a bare exponent — three fib-34 durability scales IFC declares no
-            // measure type for, so all three stand as pure numbers rather than borrowing an unrelated measure.
             ("CarbonationRate", static u => Some<IfcValue>(new IfcReal(u.CarbonationRateMmPerSqrtYear))),
             ("ChlorideMigrationCoefficient", static u => Some<IfcValue>(new IfcReal(u.ChlorideDiffusion.Si))),
             ("AgeingExponent", static u => Some<IfcValue>(new IfcReal(u.AgeingExponent))))
@@ -396,8 +327,6 @@ public static partial class MaterialProjection {
             ("ThermalIrEmissivityFront", static o => Some<IfcValue>(new IfcNormalisedRatioMeasure(o.ThermalIrEmissivityFront))),
             ("ThermalIrEmissivityBack", static o => Some<IfcValue>(new IfcNormalisedRatioMeasure(o.ThermalIrEmissivityBack))));
 
-    // Each reader is typed to ITS case and the entry closes the type test over it, so a row body never re-tests
-    // and one flat Seq spans the whole discipline family.
     static Seq<MaterialColumn> Discipline<TCase>(string set, params (string Name, Func<TCase, Option<IfcValue>> Read)[] columns)
         where TCase : MaterialPropertySet =>
         toSeq(columns).Map(column => new MaterialColumn(set, column.Name,
@@ -407,16 +336,12 @@ public static partial class MaterialProjection {
         LifecycleStage.Items.AsIterable().ToSeq().Map(stage => new MaterialColumn(set, $"GlobalWarmingPotential_{stage.Module}",
             value => value is MaterialPropertySet.Environmental e ? Some<IfcValue>(new IfcReal(e.StageAt(stage))) : None));
 
-    // Blank IfcLabel over an absent Reference re-authored a citation the source never declared, so the row answers
-    // its own Option; the expiry is the exact EC3 declaration date lowered ISO-8601, never a lossy int year.
     static readonly Seq<(string Name, Func<PropertyEvidence, Option<IfcValue>> Read)> EvidenceRows = Seq<(string, Func<PropertyEvidence, Option<IfcValue>>)>(
         ("DataSource", static e => Some<IfcValue>(new IfcLabel(e.Source))),
         ("DataGrade", static e => Some<IfcValue>(new IfcLabel(e.Grade.Token))),
         ("DataReference", static e => e.Reference.Map(static r => (IfcValue)new IfcLabel(r))),
         ("DataValidUntil", static e => e.ValidUntil.Map(static d => (IfcValue)new IfcLabel(LocalDatePattern.Iso.Format(d)))));
 
-    // Every row of one case shares one set name, so the head row names the Pset. A case NO row answers for is a table
-    // hole — an evidence-only Pset would drop a whole discipline set silently, so it rails.
     static Fin<Unit> AuthorPropertySet(DatabaseIfc db, IfcMaterialDefinition material, MaterialPropertySet set) {
         Seq<(string Set, IfcProperty Column)> typed = Columns.Choose(column =>
             column.Read(set).Map(value => (column.Set, Column: (IfcProperty)new IfcPropertySingleValue(db, column.Name, value))));
@@ -428,8 +353,6 @@ public static partial class MaterialProjection {
     static Seq<IfcProperty> EvidenceColumns(DatabaseIfc db, PropertyEvidence evidence) =>
         EvidenceRows.Choose(row => row.Read(evidence).Map(value => (IfcProperty)new IfcPropertySingleValue(db, row.Name, value)));
 
-    // IfcMaterialProperties(string name, IfcMaterialDefinition) — the material already carries its db, so none is
-    // threaded here; each column keys by its own Name on the inherited Dictionary<string, IfcProperty> Properties.
     static IfcMaterialProperties Pset(IfcMaterialDefinition material, string name, Seq<IfcProperty> columns) {
         var pset = new IfcMaterialProperties(name, material);
         columns.Iter(p => pset.Properties[p.Name] = p);

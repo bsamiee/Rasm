@@ -41,8 +41,6 @@ declare namespace Cadence {
   type Backlog = { readonly ticks: ReadonlyArray<DateTime.Utc>; readonly truncated: boolean }
   type Row = Policy & { readonly name: string }
   type Table = { readonly [name: string]: Policy }
-  // Engine rows answer the consumption descriptor as data, so a root selects on a written guarantee rather than on
-  // folklore: `lifetime` names WHO ends an occurrence, which is exactly what separates the two engines' promises.
   type Descriptor = {
     readonly fits: string
     readonly admit: string
@@ -72,8 +70,6 @@ const _rows = (table: Cadence.Table): ReadonlyArray<Cadence.Row> =>
 - Packages: `@effect/cluster` (`ClusterCron`); `effect` (`Cron`, `Array`, `Iterable`, `Layer`, `DateTime`); `./flow.ts` (`Step`); `@rasm/data` (`Fact` — the backfill meter).
 
 ```typescript signature
-// The pull is `ceiling + 1`: the one element past the posture's admission PROVES the clip while the ceiling still
-// bounds the walk, so a long outage's truncation is a measured fact and never a materialized backlog.
 const _missed = (row: Cadence.Row, lastRun: DateTime.Utc, now: DateTime.Utc): Cadence.Backlog => {
   if (row.catchUp === "skip") return { ticks: [], truncated: false }
   const horizon = DateTime.subtractDuration(now, row.misfire)
@@ -114,8 +110,6 @@ const _caughtUp = <R, R2>(
       Fact.record({
         action: "cadence.backfilled",
         actor: { key: row.name, kind: "system" },
-        // both halves ride the fact: the executed count alone reads identically whether the backlog fit the posture
-        // or the posture clipped an outage, and only the second is a recovery an operator must widen a ceiling for
         change: [
           { _tag: "Assigned", path: "/ticks", next: String(backlog.ticks.length) },
           { _tag: "Assigned", path: "/truncated", next: String(backlog.truncated) },
@@ -180,18 +174,11 @@ const _host = <R, R2>(
         yield* _caughtUp(row, run, marks, booted)
         const driver = yield* Schedule.driver(Schedule.cron(row.cron))
         yield* Stream.runDrain(Stream.repeatEffectOption(
-          // `driver.next` owns the stream's ONE termination channel (`Option<never>`), so a tick's own refusal folds
-          // to the log rail before the zip: a `StepFault` left on the channel neither types as that terminator nor
-          // may end a daemon whose law is at-most-once-per-process, and the tick's durable exit is the real evidence.
           Effect.zipRight(driver.next(undefined), Effect.catchAllCause(_fired(row, run, marks), Effect.logError)),
         ))
       })), { discard: true }),
   )
 
-// Engine selection is DATA the root reads, not folklore it carries: both engines mint the SAME `_fired` pass over the
-// same cadence rows, so their divergence is descriptor columns — `fits` the selection sentence, `admit` the entry that
-// starts a row, `tenancy` the closed axis value each realizes, `lifetime` who ends an occurrence, `degrade` the honest
-// forfeit. Naming the ENDER is the point: an engine's guarantee is exactly who can end a tick before its step exits.
 const _engines = {
   cluster: {
     fits: "<ticks-a-consumer-cannot-afford-to-lose-across-runner-rebalance>",
@@ -209,8 +196,6 @@ const _engines = {
   },
 } as const satisfies { readonly [Name: string]: Cadence.Descriptor }
 
-// Cadence rows carry recurrence alone: WHO runs a tick and WHAT that costs are the tick body's, so a row states no
-// tenancy of its own and the body it names carries whatever scope its own plane declares.
 const Cadence = {
   Backfill,
   rows: _rows,
@@ -219,7 +204,7 @@ const Cadence = {
   host: _host,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Cadence }
 ```

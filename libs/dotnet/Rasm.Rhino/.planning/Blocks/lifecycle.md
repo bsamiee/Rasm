@@ -22,7 +22,7 @@ Preview lifecycle (`Rasm.Rhino.Blocks`) owns bitmap custody, versioned grants, d
 - Packages: Thinktecture.Runtime.Extensions for the rosters and generated admission; NodaTime for the debounce carrier (`libs/dotnet/.api/api-nodatime.md`); LanguageExt.Core for the rails; `Domain/validation` for `ICapability`/`CapabilitySet`/`CapabilityLaw` (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md`, `api-languageext.md`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
@@ -31,16 +31,13 @@ using Rhino.DocObjects;
 
 namespace Rasm.Rhino.Blocks;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The two actions a sweep can take on a GRANTED version. The one illegal corner — regenerate AND retire the same
-// granted version — is a law refusal at the roster, where the two former bool columns admitted it silently.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RefreshAction : ICapability<RefreshAction> {
     public static readonly RefreshAction Rerender = new(key: "rerender");
     public static readonly RefreshAction Retire = new(key: "retire");
 
-    // Accessor-backed: the generated roster fills from its own static constructor.
     public static CapabilityLaw<RefreshAction> Law => Corner.Value;
     private static readonly Lazy<CapabilityLaw<RefreshAction>> Corner = new(static () =>
         CapabilityLaw<RefreshAction>.Forbidden(Seq(CapabilitySet<RefreshAction>.Of(Rerender, Retire))));
@@ -54,16 +51,12 @@ public sealed partial class RefreshPolicy {
 
     public CapabilitySet<RefreshAction> Actions { get; }
 
-    // The refusal DERIVES from the missing link condition: `Regenerates` is one `AdmitsAll` read over the mode's
-    // declared requirement set, and the first missing condition names the cause — no ternary re-derives it.
     public static (RefreshPolicy Effective, Option<RefreshRefusal> Cause) Of(LinkSubject subject, RefreshPolicy requested) =>
         !requested.Actions.Admits(capability: RefreshAction.Rerender) || subject.Mode.Regenerates(held: subject.Conditions)
             ? (requested, Option<RefreshRefusal>.None)
             : (Lazy, Some(RefreshRefusal.For(missing: subject.Missing)));
 }
 
-// Each refusal row names the `LinkCondition` whose absence it stands for, so the degrade evidence and the condition
-// algebra are one vocabulary read twice rather than a cause a ternary re-derives.
 [SmartEnum<int>]
 public sealed partial class RefreshRefusal {
     public static readonly RefreshRefusal DocumentPolicy = new(key: 0, condition: static () => LinkCondition.Styled);
@@ -71,8 +64,6 @@ public sealed partial class RefreshRefusal {
 
     [UseDelegateFromConstructor] internal partial LinkCondition Condition();
 
-    // Style refusal outranks readability: an unstyled document never reads the source at all, so its refusal is the
-    // one a caller can act on first; the full missing set stays readable off the subject.
     internal static RefreshRefusal For(CapabilitySet<LinkCondition> missing) =>
         missing.Admits(capability: LinkCondition.Styled) ? DocumentPolicy : SourceUnreadable;
 }
@@ -83,14 +74,7 @@ public sealed record RefreshDegrade(
     RefreshPolicy Effective,
     RefreshRefusal Cause) : IDetachedDocumentResult;
 
-// `RefreshReceipt` is DELETED — refresh consequences are `BlockReceipt` facts on the folder's one stream
-// (`BlockSlot.PreviewFreed`/`PreviewRetired`/`PreviewRerendered`/`PreviewDegraded`, operations.md), so a refresh
-// reads exactly as every other block consequence and no folder-local receipt stands beside the stream owner. The
-// degrade payload rides `BlockBody.Degrade`; this record is the vault's own pre-receipt resolution row.
 
-// The document-scoped update style is a host enum with three named rows; it re-closes here as the keyed owner every
-// arm reads through its `Updates` column, so an unlisted host ordinal refuses at admission rather than reading as
-// "not NeverUpdate" — the exact silent widening a bare `is not` comparison against one row admits.
 [SmartEnum<LinkedInstanceDefinitionUpdateStyle>]
 public sealed partial class UpdateStyle {
     public static readonly UpdateStyle Prompt = new(key: LinkedInstanceDefinitionUpdateStyle.Prompt, updates: true);
@@ -119,9 +103,6 @@ public sealed partial class LinkSubject {
             ? validationError
             : new ValidationError(string.Join(" | ", new object?[] { nameof(LinkSubject), "an admitted source mode and update style", Option<Op>.None }));
 
-    // `SourceHealth` (model.md) is the branch's ONE archive-status vocabulary and it names no row for
-    // `NotALinkedInstanceDefinition` — an unlinked definition has no source health, which is absence, so the
-    // column is optional and a `Static` subject carries `None` instead of a row meaning "not applicable".
     public static Fin<LinkSubject> Of(InstanceDefinition definition, RhinoDoc document, Op key) =>
         from mode in SourceMode.Of(update: definition.UpdateType, key: key)
         from style in key.Row<LinkedInstanceDefinitionUpdateStyle, UpdateStyle>(document.LinkedInstanceDefinitionUpdate)
@@ -131,8 +112,6 @@ public sealed partial class LinkSubject {
             admitted: subject)
         select admitted;
 
-    // The conditions this subject HOLDS, derived once: the mode's `Requires` set reads against it and the missing
-    // set is one difference — the two derived bools and the arm ladder over their product are the deleted form.
     internal CapabilitySet<LinkCondition> Conditions {
         get {
             CapabilitySet<LinkCondition> held = CapabilitySet<LinkCondition>.Of();
@@ -147,8 +126,6 @@ public sealed partial class LinkSubject {
         Conditions.Missing(required: Mode.Requires);
 }
 
-// Debounce rides the semantic-time carrier and projects to the host span at the ONE observation seam; the clock is
-// a runtime capability the watch entry resolves, never a column a value object retains.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class LinkWatchPolicy {
@@ -181,16 +158,14 @@ public sealed partial class LinkWatchPolicy {
 - Law: a grant's cleanup roster is a total APPEND cell — the S9 carve-out for an unconditional step — so the fault a `Dispose` cannot carry outward parks readable on `CleanupFaults` and no verdict exists to discard.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GdiBitmap = System.Drawing.Bitmap;
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 
 namespace Rasm.Rhino.Blocks;
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The enrolment stamp, not the host serial, is the durable half of a preview address: `DocKey` is recycled, this
-// is not, so structural equality over the pair distinguishes two documents the host gave one serial.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DocSeal(long Value);
 
 public sealed record PreviewKey : IDetachedDocumentResult {
@@ -213,8 +188,6 @@ internal abstract partial record VaultOutcome {
     public sealed record Miss : VaultOutcome;
     public sealed record Granted(int Version, Lease<GdiBitmap> Image) : VaultOutcome;
     public sealed record Committed(int Version, Lease<GdiBitmap> Image, Seq<Lease<GdiBitmap>> Closing) : VaultOutcome;
-    // One `(Key, Action)` roster instead of four parallel sequences: each swept row states what the sweep decided
-    // for it, so the receipt derives per-action counts and no consumer zips four lists positionally.
     public sealed record Swept(Seq<(PreviewKey Key, SweepAction Action, Option<Lease<GdiBitmap>> Closing)> Rows) : VaultOutcome;
     public sealed record Discharged(Option<Watch> Observation) : VaultOutcome;
 
@@ -222,9 +195,6 @@ internal abstract partial record VaultOutcome {
         Rows: Seq<(PreviewKey, SweepAction, Option<Lease<GdiBitmap>>)>());
 }
 
-// What the sweep decided per row — freed a zero-grant image, retired a granted version, marked for re-render, or
-// found an entry the resolver did not answer. The landing slot is the ROW's own column, so the receipt mint reads
-// it instead of re-deriving the correspondence, and `Unresolved` names none: it is a state fault the mint refuses.
 [SmartEnum<int>]
 internal sealed partial class SweepAction {
     internal static readonly SweepAction Freed = new(key: 0, landing: static () => Some(BlockSlot.PreviewFreed));
@@ -243,8 +213,6 @@ internal sealed record RefreshResolution(HashMap<Guid, RefreshPolicy> Rows, Seq<
 
 internal sealed record DocEnrolment(DocSeal Seal, Watch Observation);
 
-// The per-caller PRODUCT rides the STATE: `Cell.Commit` answers the state THIS commit installed, so each caller
-// reads its own `LastReceipt` off its own `Committed` transition — no ticket, no receipt map, no cleanup swap.
 internal sealed record VaultState(
     HashMap<PreviewKey, PreviewEntry> Live,
     HashMap<(PreviewKey Key, int Version), PreviewEntry> Retired,
@@ -255,7 +223,7 @@ internal sealed record VaultState(
         LastReceipt: VaultOutcome.Clean);
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PreviewGrant : IDisposable {
     private readonly LifecycleGate gate;
     private readonly Lease<GdiBitmap> image;
@@ -296,9 +264,6 @@ public sealed class PreviewGrant : IDisposable {
             cleanupFaults: cleanupFaults,
             release: release));
 
-    // The vault owns the image for the whole grant, so the window is a BORROW the CLAIM gate closes: a body in
-    // flight holds a claim, so a concurrent `Dispose` waits on that claim instead of freeing a bitmap the body is
-    // still reading. Handing the bitmap out as a property loses the window entirely.
     public Fin<T> Use<T>(Func<GdiBitmap, Fin<T>> body, Op? key = null) {
         Op op = key.OrDefault();
         return op.Need(body).Bind(run => gate.Within(
@@ -307,8 +272,6 @@ public sealed class PreviewGrant : IDisposable {
             key: op));
     }
 
-    // A total APPEND is the S9 carve-out — no verdict exists to discard — so the park is a plain swap onto the
-    // readable roster; a fault here is never `ignore`d out of existence, it lands where `CleanupFaults` reads it.
     public void Dispose() {
         Op op = Op.Of(name: nameof(Dispose));
         _ = gate.Close(
@@ -336,7 +299,7 @@ public sealed class PreviewGrant : IDisposable {
 - Packages: `Document/lifetime.md` for `LifecycleGate`, `Watch`/`SubscriptionRelease`; kernel `Domain/rails` for `Custody`; `Document/events.md` for `DocumentStream`/`Observation`/`EventFamily`/`Delivery`/`ReceiptPolicy`; `Domain/rails` for `Cell`/`Transition`/`Lease` (`libs/dotnet/.api/api-languageext.md`); NodaTime for `Duration`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GdiBitmap = System.Drawing.Bitmap;
 using NodaTime;
 using Rasm.Domain;
@@ -345,20 +308,16 @@ using Rhino;
 
 namespace Rasm.Rhino.Blocks;
 
-// --- [SERVICES] ----------------------------------------------------------------------------
-// The ALGEBRA: instance state, kernel transitions, zero process-wide fields. The capsule owns the one instance.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class BlockVault {
     private readonly Atom<VaultState> vault = Atom(value: VaultState.Empty);
     private readonly Atom<HashMap<DocKey, DocEnrolment>> enrolled = Atom(HashMap<DocKey, DocEnrolment>());
     private readonly Atom<long> seals = Atom(0L);
 
-    // The one bound a grant's claim gate settles within: a borrow is a synchronous read of an in-memory bitmap, so
-    // a claim outliving this window is a stuck body, not a slow one, and the close reports rather than hangs.
     internal static readonly Duration GrantSettle = Duration.FromSeconds(5);
 
     public static BlockVault Of() => new();
 
-    // First claim wins; the loser's watch is the CEDED arm's surplus, closed by the claimant that minted it.
     internal Fin<DocSeal> Enrol(DocumentSession owner, RefreshPolicy policy, Op op) =>
         from watch in DocumentStream.Observe(request: new Observation.Host(
             Scope: new EventScope.Document(Key: owner.Key),
@@ -374,8 +333,6 @@ public sealed class BlockVault {
             committed: (held, row) => row.State.Find(held.Watch is var _ ? owner.Key : owner.Key)
                 .Map(static entry => entry.Seal)
                 .ToFin(Fail: held.Op.InvalidResult()),
-            // The claim CEDED: another caller seated first — this caller's watch is surplus and closes here, and
-            // the seated peer's seal is the answer.
             ceded: (held, row) => row.State.Find(owner.Key)
                 .Map(static entry => entry.Seal)
                 .ToFin(Fail: held.Op.InvalidResult())
@@ -397,8 +354,6 @@ public sealed class BlockVault {
             ? Lowered(faults: faulted.Errors)
             : Fin.Succ(value: unit));
 
-    // The sink outlives `Engage`, so each delivery mints its OWN key: one captured key would stamp every later
-    // invalidation with one stale provenance and no delivery could be attributed to the fact that raised it.
     private Fin<Unit> Delivered(DocEvent fact, DocumentSession owner, RefreshPolicy policy) {
         Op key = Op.Of(name: nameof(Engage));
         return (fact.Origin switch {
@@ -406,8 +361,6 @@ public sealed class BlockVault {
             EventOrigin.Host { Family: var family }
                 when family == EventFamily.InstanceDefinitionTable || family == EventFamily.WorksessionFile =>
                 Invalidate(document: owner.Key, policy: policy, session: Some(owner), op: key),
-            // The subscription names three families; a fact outside them cannot arrive on this watch, and the
-            // total arm states that rather than silently absorbing a family a later subscription might add.
             _ => Fin.Succ(value: BlockReceipt.Empty),
         }).Map(static _ => unit);
     }
@@ -429,8 +382,6 @@ public sealed class BlockVault {
             None: () => Render(session: owner, target: address, key: key, op: op))
         select grant;
 
-    // Eviction discharges the enrolment WITH the entries: the seal dies here, so a document handed the same
-    // recycled host serial enrols fresh and its keys can never address a row this sweep parked or missed.
     internal Fin<BlockReceipt> Evict(DocKey document, Op op) =>
         from receipt in Invalidate(
             document: document,
@@ -443,7 +394,6 @@ public sealed class BlockVault {
                 op.InvalidResult()).Switch(
             state: (Document: document, Op: op),
             committed: static (held, row) => Fin.Succ(Option<DocEnrolment>.None),
-            // A step that DECLINED means no enrolment existed — a lawful idempotent evict, not a fault.
             ceded: static (_, _) => Fin.Succ(Option<DocEnrolment>.None),
             refused: static (_, _) => Fin.Succ(Option<DocEnrolment>.None),
             contended: static (held, _) => Fin.Fail<Option<DocEnrolment>>(error: held.Op.InvalidResult()))
@@ -461,8 +411,6 @@ public sealed class BlockVault {
         Op op) =>
         DocumentStream.Observe(request: new Observation.File(
             Path: source,
-            // The ONE host-span projection: the policy's semantic Duration crosses to the host observation seam
-            // here and nowhere else.
             Debounce: active.Debounce.ToTimeSpan(),
             Clock: clock.IfNone(TimeProvider.System),
             Delivery: new Delivery.Deferred(Sink: _ =>
@@ -474,11 +422,6 @@ public sealed class BlockVault {
                 select unit),
             Receipts: active.Receipts));
 
-    // `RefreshPolicy.Of` is the PRODUCER the product law demands: the requested row is a REQUEST, and each
-    // definition's own `LinkSubject` decides whether it is admitted or degrades to `Lazy`. The lookup is built
-    // from the host BEFORE the transition, because the transition is pure — so an eviction with no session (the
-    // document is gone) keeps the requested row, which is only ever `Drop`, and every live sweep answers per
-    // definition.
     private Fin<BlockReceipt> Invalidate(
         DocKey document,
         RefreshPolicy policy,
@@ -490,8 +433,6 @@ public sealed class BlockVault {
                 .Filter(pair => pair.Key.Document == document)
                 .Map(static pair => (pair.Key, pair.Value))
                 .ToSeq();
-            // The resolution answers over the LIVE sweep, so a key it does not carry is an entry the sweep did
-            // not see — a state fault, not an occasion to substitute the caller's requested row.
             Seq<(PreviewKey Key, SweepAction Action, Option<Lease<GdiBitmap>> Closing)> rows = hit.Map(row =>
                 resolved.Rows.Find(row.Key.Definition).Match(
                     None: () => (row.Key, SweepAction.Unresolved, Option<Lease<GdiBitmap>>.None),
@@ -513,8 +454,6 @@ public sealed class BlockVault {
                                 Retired = fold.Retired.AddOrUpdate(key: (row.Key, entry.Version), value: entry),
                             },
                             None: () => fold)
-                        // A granted version the row keeps is marked stale in place: the next `TryGrant` misses on
-                        // `Stale`, renders fresh, and `Commit` supersedes it — a declared exit, never a parked row.
                         : fold.Live.Find(row.Key).Match(
                             Some: entry => fold with {
                                 Live = fold.Live.AddOrUpdate(key: row.Key, value: entry with { Stale = true }),
@@ -524,8 +463,6 @@ public sealed class BlockVault {
         }, op: op).Bind(outcome => outcome.SwitchPartially(
             state: (Resolved: resolved, Session: session, Op: op, Cell: this),
             @default: static (held, _) => Fin.Fail<BlockReceipt>(error: held.Op.InvalidResult()),
-            // An `Unresolved` row names no landing slot, so the receipt mint refuses it — the guard that stood
-            // here held a second authority over the same fact.
             swept: (held, swept) => Attempted(held.Op,
                     () => Lowered(faults: ReleaseAll(
                         images: swept.Rows.Choose(static row => row.Closing),
@@ -538,16 +475,11 @@ public sealed class BlockVault {
                         .As()
                         .ToFin()
                         .Map(static _ => unit))
-                // Freed, retired, and re-rendered are DISJOINT slots on the one stream — a consumer counts per
-                // slot through `FactCount`, and a degrade rides its own slot carrying the typed cause.
                 .Bind(_ => BlockReceipt.Refresh(
                     rows: swept.Rows.Map(static row => (row.Key.Definition, row.Action)),
                     degraded: held.Resolved.Degraded,
                     key: held.Op))));
 
-    // One read demand answers the whole sweep: every live preview's definition resolves its `LinkSubject` once, so
-    // the requested row is admitted or degraded per definition and a `NeverUpdate`, embedded, or unreadable-source
-    // definition can never be regenerated from a changed external file.
     private Fin<RefreshResolution> Resolved(
         DocKey document,
         RefreshPolicy requested,
@@ -626,7 +558,6 @@ public sealed class BlockVault {
                     image: committed.Image,
                     cleanupFaults: ReleaseAll(images: committed.Closing, op: held.Op),
                     op: held.Op)))
-            // The uncommitted image releases on the failure arm through the ONE custody rail — never a hand fold.
             .Rollback(release: () => Lowered(faults: ReleaseAll(images: Seq(image), op: op)), key: op);
 
     private Fin<Option<PreviewGrant>> TryGrant(PreviewKey key, Op op) =>
@@ -664,8 +595,6 @@ public sealed class BlockVault {
             release: () => Release(key: key, version: version),
             op: op);
 
-    // `Custody.Release` is the package's ONE all-attempted release fold; this projection keeps the roster shape
-    // the grant retains, so the fold runs once and the faults land readable.
     private static Seq<Error> ReleaseAll(Seq<Lease<GdiBitmap>> images, Op op) =>
         Custody.Release(
                 held: images,
@@ -673,8 +602,6 @@ public sealed class BlockVault {
                 key: op)
             .Match(Succ: static _ => Seq<Error>(), Fail: static error => Seq(error));
 
-    // `Lowered` folds an already-collected fault roster onto the rail; `Attempted` RUNS independent attempts and
-    // accumulates their faults. Two operations, two names — one name over both reads as an overload of one verb.
     internal static Fin<Unit> Lowered(Seq<Error> faults) =>
         faults.IsEmpty ? Fin.Succ(value: unit) : Fin.Fail<Unit>(error: Error.Many(faults));
 
@@ -713,8 +640,6 @@ public sealed class BlockVault {
                 Fail: static error => Seq(error));
     }
 
-    // The per-caller product rides the STATE: `Cell.Commit` answers the state THIS commit installed, so
-    // `Transition.Current.LastReceipt` is this caller's own outcome — no ticket, no map, no cleanup swap.
     private Fin<VaultOutcome> Commit(
         Func<VaultState, (VaultState State, VaultOutcome Outcome)> transition,
         Op op) => op.Catch(() =>
@@ -729,10 +654,7 @@ public sealed class BlockVault {
             contended: static (key, _) => Fin.Fail<VaultOutcome>(error: key.InvalidResult())));
 }
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
-// The mounted facade: ONE process-global — the mount seat — whose sole writer is the shell capsule
-// (`ShellMount.Vault` mints `BlockVault.Of()` and claims it at plug-in load, routed by `Plugin/lifecycle.md`'s
-// load root). A second claimant reads `Refused`; an unmounted process refuses `MissingContext` at every entry.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class BlockLifecycle {
     private static readonly Atom<Option<BlockVault>> Seat = Atom(Option<BlockVault>.None);
 

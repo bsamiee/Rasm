@@ -25,7 +25,7 @@ Input is `surface.md`'s `SurfaceResult.UvTessellation` — mesh + per-vertex `(u
 - Boundary: a straightest-geodesic tracer, window propagation, or vector-heat solve re-derived here is the `geodesics.md` altitude violation; a per-site `ExactExpMapAt` shoot is the rejected mapping default — it re-pays propagation per instance and cannot SEE the cut-locus overlap the field triangulation makes skippable, so the flip census is the exactness evidence; instance lift reads the tessellation's OWN UV column through the locate's barycentric weight, and a `ClosestParameter` round trip on an already-parameterized point is the named re-projection defect; frames transport through vector heat and rotate by seat spin, so a global UV-gradient frame (shears with the parameterization) and an untransported constant axis (ignores holonomy) are the named naive substitutes; the stream is host-neutral SoA data, Rhino block/instance materialization living at the host wire, never this owner; the 2D pattern currency admits and answers in neutral `(U, V)` doubles — a host pair on the plan, a seat, or a 2D stream column is the named boundary regression, and only the `Mapped` world columns carry the kernel's 3D host currency; material legality is DERIVED subgroup containment over the group's own seat set — a hardcoded chiral-safe roster, a bool column pair beside the rights set, or a fold branching on grant identity instead of `Rights.Admits` is the named re-mint; every failure routes `Pattern` with the instance unit and the frame or admission measure as witness, composed rails surfacing their own faults untranslated.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,14 +35,13 @@ using Rasm.Meshing;
 using Rasm.Numerics;
 using Rasm.Processing;
 using Rasm.Spatial;
-using Rhino.Geometry;   // Point3d/Vector3d — the Mapped world lane alone; the 2D pattern currency is neutral (U, V) tuples
+using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Parametric;
 
-// --- [TYPES] ------------------------------------------------------------------------------------
-// Each row PROVES its basis pair through the delegate column, so plan validity is data rather than a switch.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -62,9 +61,6 @@ public sealed partial class PatternLattice {
     static double Dot((double U, double V) a, (double U, double V) b) => (a.U * b.U) + (a.V * b.V);
     static double Len((double U, double V) a) => Math.Sqrt((a.U * a.U) + (a.V * a.V));
 
-    // Every predicate is DIMENSIONLESS: the sine and cosine of the basis angle gate on the orientation lane, the
-    // length disparity as a fraction of |A| on the fraction lane. A degenerate basis divides by zero, answers NaN,
-    // and REFUSES every comparison — the non-degeneracy proof the oblique row used to spell as an area floor.
     static double Sine((double U, double V) a, (double U, double V) b) => Math.Abs(Cross(a, b)) / (Len(a) * Len(b));
     static double SignedCosine((double U, double V) a, (double U, double V) b) => Dot(a, b) / (Len(a) * Len(b));
     static double Cosine((double U, double V) a, (double U, double V) b) => Math.Abs(SignedCosine(a, b));
@@ -73,13 +69,8 @@ public sealed partial class PatternLattice {
     [UseDelegateFromConstructor] public partial bool Admits((double U, double V) a, (double U, double V) b, Tolerance orientation, Tolerance fraction);
 }
 
-// One Seitz operator in LATTICE coordinates: linear part + fractional Shift, Mirror the downstream handedness parity.
 public readonly record struct PatternSeat(double Cos, double Sin, bool Mirror, (double U, double V) Shift);
 
-// CLOSED BY THEOREM: every row is (lattice, order, mirror-axis, glide, centered) DATA feeding ONE Seitz generator.
-// Upstream is IUCr *International Tables for Crystallography* Volume A §1.4, plane groups 1–17; `Number` carries
-// each row's table ordinal, so the roster is checkable row-by-row against the cited table and the classic
-// p3m1/p31m transposition has an external oracle rather than resting on the fence's own angles.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -97,7 +88,6 @@ public sealed partial class WallpaperGroup {
     public static readonly WallpaperGroup P4m  = new("p4m",  number: 11, PatternLattice.Square,      static () => SeatKernel.Rows(order: 4, mirrorAxis: Some(0.0), glide: None, centered: false));
     public static readonly WallpaperGroup P4g  = new("p4g",  number: 12, PatternLattice.Square,      static () => SeatKernel.Rows(order: 4, mirrorAxis: Some(Math.PI / 4.0), glide: Some((0.0, (0.5, 0.5))), centered: false));
     public static readonly WallpaperGroup P3   = new("p3",   number: 13, PatternLattice.Hexagonal,   static () => SeatKernel.Rows(order: 3, mirrorAxis: None, glide: None, centered: false));
-    // Table 13–15: p3 · p3m1 (mirrors THROUGH the lattice vectors, axis 0) · p31m (mirrors BETWEEN them, axis π/6).
     public static readonly WallpaperGroup P3m1 = new("p3m1", number: 14, PatternLattice.Hexagonal,   static () => SeatKernel.Rows(order: 3, mirrorAxis: Some(0.0), glide: None, centered: false));
     public static readonly WallpaperGroup P31m = new("p31m", number: 15, PatternLattice.Hexagonal,   static () => SeatKernel.Rows(order: 3, mirrorAxis: Some(Math.PI / 6.0), glide: None, centered: false));
     public static readonly WallpaperGroup P6   = new("p6",   number: 16, PatternLattice.Hexagonal,   static () => SeatKernel.Rows(order: 6, mirrorAxis: None, glide: None, centered: false));
@@ -110,12 +100,9 @@ public sealed partial class WallpaperGroup {
 }
 
 internal static class SeatKernel {
-    // Seitz composition: Cₙ rotations × mirror coset (axis angle doubled into the linear part) × glide (mirror + shift)
-    // × (½,½) centering coset — deduped modulo lattice translation; the seat set MUST close under composition (group axiom gate).
     internal static Arr<PatternSeat> Rows(int order, Option<double> mirrorAxis, Option<(double Axis, (double U, double V) Shift)> glide, bool centered);
 }
 
-// Keys ARE the crystallographic orders; the wallpaper restriction means no seat carries a fifth fold.
 [SmartEnum<int>]
 public sealed partial class SymmetryFold {
     public static readonly SymmetryFold Free    = new(key: 0, admits: static (_, _) => true);
@@ -127,26 +114,21 @@ public sealed partial class SymmetryFold {
 
     static bool Congruent(double spin, int order, double cone) => Math.Abs(Math.IEEERemainder(spin, Math.Tau / order)) <= cone;
 
-    // Consumers hand `cone`, their own measured angular tolerance — a stock's grain cone — so the fold decides
-    // congruence and never owns a tolerance of its own; the bare arm defaults it to the kernel epsilon.
     [UseDelegateFromConstructor] public partial bool Admits(double spin, double cone);
 
     public bool Admits(double spin) => Admits(spin, EpsilonPolicy.SqrtEpsilon);
 }
 
-// Pair and Merge each presuppose Place, so the legal corners are three, not eight.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MirrorRight : ICapability<MirrorRight> {
-    public static readonly MirrorRight Place = new("place", 0);   // a mirrored seat may be placed at all
-    public static readonly MirrorRight Pair  = new("pair",  1);   // mirrors are obligated in adjacent mates
-    public static readonly MirrorRight Merge = new("merge", 2);   // a mirrored congruence reuses its mould class
+    public static readonly MirrorRight Place = new("place", 0);
+    public static readonly MirrorRight Pair  = new("pair",  1);
+    public static readonly MirrorRight Merge = new("merge", 2);
 
     public int Rank { get; }
 }
 
-// Reflective and Turned hold the SAME rights and stay two rows because the shop floor reads which: Turned
-// realizes a mirror by TURNING THE BLANK, placement legal either way, parity columns the record.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -159,8 +141,6 @@ public sealed partial class MirrorGrant {
     public CapabilitySet<MirrorRight> Rights { get; }
 }
 
-// Admission is SUBGROUP CONTAINMENT over the group's REALIZED seat set — rotations through the fold, mirror and
-// glide seats (both carry Mirror parity) through the grant — so the chiral-safe census is data, never a roster.
 public sealed record MaterialSymmetry(SymmetryFold Fold, MirrorGrant Mirror) {
     public static readonly MaterialSymmetry Free = new(SymmetryFold.Free, MirrorGrant.Reflective);
 
@@ -174,17 +154,12 @@ public sealed record MaterialSymmetry(SymmetryFold Fold, MirrorGrant Mirror) {
     }
 }
 
-// --- [CONSTANTS] --------------------------------------------------------------------------------
-// BasisA/BasisB live in the ROOT TANGENT PLANE (meters); Anchors in cell coordinates [0,1)². Density thins a
-// site when the fields.md sample meets its Deterministic.Unit(lanes: [seat, i, j]) draw, so thinning replays
-// byte-stable. Law refuses an over-symmetric plan at ADMISSION, so an illegal mirrored placement is unspellable.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record PatternPlan(
     WallpaperGroup Group, (double U, double V) BasisA, (double U, double V) BasisB,
     Arr<(double U, double V, double Spin)> Anchors, double Extent, (double U, double V) Root,
     TangentLogMapAlgorithm Algorithm, Option<ScalarField> Density = default,
     Option<MaterialSymmetry> Law = default) : IValidityEvidence {
-    // The basis proof is CONTEXT-BOUND — the lattice predicates read the orientation and fraction lanes — so it
-    // lands once at admission and IsValid, which holds no Context, states only the context-free claims.
     public static Fin<PatternPlan> Of(
         WallpaperGroup group, (double U, double V) basisA, (double U, double V) basisB,
         Arr<(double U, double V, double Spin)> anchors, double extent, (double U, double V) root,
@@ -206,10 +181,6 @@ public sealed record PatternPlan(
         Law.Map(law => law.Admits(group: Group)).IfNone(true));
 }
 
-// HeatTime is MEASURED, never preset: Crane-Weischedel-Wardetzky puts the diffusion time at m·h² on the mean edge
-// length h, so it has units of length² and only a mount sees the mesh that sets it — HeatMultiplier is the
-// dimensionless m a caller tunes. FrameBudget caps the transported axis's |x̂·n̂| defect before re-projection: a
-// sine of the tangency deviation, so it resolves off the ORIENTATION lane and the document sets it.
 public sealed record PatternPolicy(
     double HeatTime, double HeatMultiplier, GeodesicTracePolicy Trace, WindowPropagationPolicy Windows,
     Tolerance FrameBudget) : IValidityEvidence {
@@ -225,16 +196,11 @@ public sealed record PatternPolicy(
         ValidityClaim.Positive(value: HeatTime), ValidityClaim.Positive(value: HeatMultiplier), FrameBudget.IsValid);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------------
-// Algorithm echo names which lane placed the instances — heat and exact log fields differ near the cut locus;
-// Law echoes the resolved legality the plan admitted under (Free when the plan carried none) — the same
-// honesty marker, so a directional-material acceptance audits the grant beside the lane.
-// Radius and Frame are the ONE derivation off the stream's own Radius and FrameDefect columns — a bare maximum
-// beside a column a consumer can read, or summarizing a measurement nothing publishes, is the deleted form.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PatternReceipt(
     int Instances, int Clipped, int Flipped, Stat<Scalar> Radius, Stat<Scalar> Frame, TangentLogMapAlgorithm Algorithm, MaterialSymmetry Law);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PatternOp {
     private PatternOp() { }
@@ -247,14 +213,9 @@ public abstract partial record PatternOp {
 public abstract partial record InstanceStream {
     private InstanceStream() { }
 
-    // Planar orbit — the Generation tiling plane's editable preview; columns index one site; sites are neutral (U, V) pairs.
-    // PairOf is the book-match column — Some(mate ordinal) under a pairing grant, None everywhere else.
     public sealed record Planar(
         Arr<(double U, double V)> Site, Arr<double> Spin, Arr<bool> Mirrored, Arr<int> Anchor, Arr<int> Seat, Arr<Option<int>> PairOf) : InstanceStream;
 
-    // Surface-mapped stream: per-instance frame (y = ±(ZAxis × XAxis), Mirrored the sign), neutral UV provenance, landing face,
-    // radius and tangency-defect evidence; PairOf carries the planar pairing re-linked on survivor ordinals, so a consumer
-    // places book-matched mates as one unit and the receipt's two bands derive off these columns and nothing else.
     public sealed record Mapped(
         Arr<Point3d> Origin, Arr<(double U, double V)> Uv, Arr<Vector3d> XAxis, Arr<Vector3d> ZAxis,
         Arr<double> Spin, Arr<bool> Mirrored, Arr<int> Anchor, Arr<int> Seat, Arr<Option<int>> PairOf, Arr<int> Face,
@@ -271,8 +232,6 @@ public static class Patterning {
                 : OrbitOf(m.Plan, k).Bind(planar => MapOf(m.Source, m.Plan, m.Policy, planar, k)));
 
     // --- [ORBIT]
-    // Under a pairing grant the seat and its mirror mate are ONE placement unit — both inside the extent or
-    // neither — and PairOf links the two ordinals symmetrically; every other instance carries None.
     static Fin<InstanceStream.Planar> OrbitOf(PatternPlan plan, Op key) {
         if (!plan.IsValid) { return Fault<InstanceStream.Planar>(witness: "plan extent", measure: plan.Extent); }
         Arr<PatternSeat> seats = plan.Group.Seats();
@@ -288,7 +247,7 @@ public static class Patterning {
                     (double U, double V) at = Placed(plan, seats[s], (plan.Anchors[a].U, plan.Anchors[a].V), i, j);
                     if (!Inside(at, reach)) { continue; }
                     if (pairing && !Inside(Placed(plan, seats[MateOf(seats, s)], (plan.Anchors[a].U, plan.Anchors[a].V), i, j), reach)) {
-                        continue;   // pair unit: the orphan culls with its mate
+                        continue;
                     }
                     placed[s] = site.Count;
                     site.Add(at);
@@ -308,21 +267,18 @@ public static class Patterning {
                 }
             }
         }
-        // The scratch plane keeps -1 lawfully — it never leaves the member; the PUBLISHED column carries Option.
         return Fin.Succ(new InstanceStream.Planar(
             new([.. site]), new([.. spin]), new([.. mirrored]), new([.. anchor]), new([.. seat]),
             new([.. pair.Select(static p => p < 0 ? Option<int>.None : Some(p))])));
     }
 
     static bool Inside((double U, double V) at, double reach) => (at.U * at.U) + (at.V * at.V) <= reach;
-    static Seq<(int I, int J)> CellWindow(PatternPlan plan);                                                        // lattice cells whose corners intersect the extent disc
-    static (double U, double V) Placed(PatternPlan plan, PatternSeat seat, (double U, double V) anchor, int i, int j);   // (seat linear ∘ (anchor + shift)) in the A/B basis + i·A + j·B
-    static double SpinOf(PatternSeat seat);                                                                         // atan2 of the linear part; a mirror seat contributes its axis-doubled reflection angle
-    static int MateOf(Arr<PatternSeat> seats, int seat);                                                            // the pairing bijection — SeatKernel's mirror coset pairs each rotation with the mirror seat sharing its linear part, so the map is total whenever the group carries mirrors, which the Pair admission claim already proved
+    static Seq<(int I, int J)> CellWindow(PatternPlan plan);
+    static (double U, double V) Placed(PatternPlan plan, PatternSeat seat, (double U, double V) anchor, int i, int j);
+    static double SpinOf(PatternSeat seat);
+    static int MateOf(Arr<PatternSeat> seats, int seat);
 
     // --- [SURFACE_MAP]
-    // Log field inverts piecewise-linearly: one per-vertex TangentLogMapAt sweep triangulates the log image; sites locate by
-    // binned inverse-linear barycentric (flipped images skipped — cut-locus honesty), ONE weight lifting world, UV, and face together.
     static Fin<InstanceStream> MapOf(
         SurfaceResult.UvTessellation source, PatternPlan plan, PatternPolicy policy, InstanceStream.Planar planar, Op key) =>
         RootVertex(source, plan.Root).Bind(root =>
@@ -330,25 +286,13 @@ public static class Patterning {
                 Instances(source, root, planar, log, plan, policy, key)));
 
     static Fin<int> RootVertex(SurfaceResult.UvTessellation source, (double U, double V) rootUv);
-    // Nearest UV-column vertex — the log/transport SOURCE seats on a vertex, the plan's Root names it.
 
     static Fin<Arr<(double U, double V)>> LogField(SurfaceResult.UvTessellation source, int root, PatternPlan plan, PatternPolicy policy, Op key);
-    // Per vertex: TangentLogMapAt(space, root, vertex, policy.HeatTime, plan.Algorithm, policy.Trace, policy.Windows, key) — the
-    // 3D tangent lands in 2D root-basis coordinates as neutral pairs; per-source caches amortize the sweep to k solves + n samples.
 
     static Fin<InstanceStream> Instances(
         SurfaceResult.UvTessellation source, int root, InstanceStream.Planar planar, Arr<(double U, double V)> log,
         PatternPlan plan, PatternPolicy policy, Op key);
-    // Locate: faces register in every integer log-cell their extent overlaps; the 4-bin corner lookup + inverse-linear
-    // barycentric places each site — flipped log-triangles SKIP (counted Flipped), unhit sites count Clipped, and under a
-    // pairing grant a site whose planar mate lands Clipped or Flipped drops with it (both counted), PairOf re-linked on
-    // survivor ordinals. Lift: ONE weight → Origin, Uv, Face; Radius = |site|. Frames: x₀ = ∂S/∂u off Source.RationalDerivatives
-    // at the root UV, ONE cached VectorHeatAt(...) per instance; defect |x̂·n̂| against NormalAt(uv) publishes into FrameDefect and
-    // over policy.FrameBudget.Value routes Pattern naming the instance, the surviving axis re-projecting and rotating by Spin.
-    // The receipt's two bands are Stat<Scalar>.Of over Radius.AsSpan() and FrameDefect.AsSpan(), beside the Algorithm and
-    // plan.Law.IfNone(MaterialSymmetry.Free) echoes.
 
-    // A whole-request refusal names NO instance: `unit` stays None rather than fabricating ordinal 0 as the offender.
     internal static Fin<T> Fault<T>(string witness, Option<int> unit = default, Option<double> measure = default) =>
         Fin.Fail<T>(new GeometryFault.DevelopmentFault(DevelopmentStage.Pattern, unit, witness, measure));
 }

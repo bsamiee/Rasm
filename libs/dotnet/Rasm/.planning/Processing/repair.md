@@ -23,7 +23,7 @@ Rebuilds compose the un-gated Genus-tolerant `TopologyReceipt` projection as the
 - Boundary: crossing, CDT, and boolean classification stay `Intersection`/`Tessellation`/`Arrangement` property, point proximity the `Spatial` neighbor lane. `RepairPolicy.Retile` names the constrained CDT stage, never remeshing; a composed sibling fault propagates unwrapped, and a collapse or re-mesh preserves every load-bearing feature.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -39,17 +39,13 @@ using Rasm.Spatial;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// CS0104 guard: LanguageExt.HashSet collides with the BCL name under the dual usings.
 using FaceKeySet = System.Collections.Generic.HashSet<(int, int, int)>;
 using IndexSet = System.Collections.Generic.HashSet<int>;
 using Dimension = Rasm.Numerics.Dimension;
 
 namespace Rasm.Processing;
 
-// --- [TYPES] ----------------------------------------------------------------------------------
-// THE heal-modality vocabulary: fault payload, op seed, and receipt mint in one owner. Each row states its own
-// evidence through Receipt and stamps ITSELF onto the receipt's Stage column, so the stage/op/receipt correspondence
-// is one table rather than three that only agree by inspection.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -66,8 +62,6 @@ public sealed partial class HealStage {
         mint: Some<Func<HealOp>>(static () => new HealOp.GapClose()),
         receipt: static seed => Fin.Succ<RebuildReceipt>(new RebuildReceipt.GapReceipt(
             HealStage.Gap, seed.Context.For(seed.Policy.Gap), seed.Before, seed.After, seed.Faces, seed.Vertices)));
-    // The split's convergence authority is the arena fold it ALREADY ran and handed forward; re-folding it here would
-    // seat two authorities on one number, so an absent carry lowers typed rather than measuring the arena twice.
     public static readonly HealStage Manifold = new("manifold", rebuildsTopology: true, collects: false,
         mint: Some<Func<HealOp>>(static () => new HealOp.ManifoldRepair()),
         receipt: static seed => seed.Carry.ToFin(seed.Key.InvalidResult()).Map(settled =>
@@ -82,8 +76,6 @@ public sealed partial class HealStage {
         mint: Some<Func<HealOp>>(static () => new HealOp.SelfIntersectResolve()),
         receipt: static seed => Fin.Succ<RebuildReceipt>(new RebuildReceipt.SelfIntersectReceipt(
             HealStage.SelfIntersect, seed.Before, seed.After, seed.Faces, seed.Vertices)));
-    // Boolean seeds no op — its tool is caller data — and its arrangement evidence is REQUIRED, so an absent pair
-    // lowers typed where an empty receipt would have asserted a genus the merge never proved.
     public static readonly HealStage Boolean = new("boolean", rebuildsTopology: true, collects: false, mint: None,
         receipt: static seed => seed.Merge.ToFin(seed.Key.InvalidResult()).Map(merge =>
             (RebuildReceipt)new RebuildReceipt.MergeReceipt(
@@ -98,8 +90,6 @@ public sealed partial class HealStage {
     internal partial Fin<RebuildReceipt> Receipt(ReceiptSeed seed);
 }
 
-// Piercing cuts carry the OTHER face's plane; a coplanar sub-segment carries the perpendicular plane through its
-// carrier edge. Two carriages, so two cases — a shared tuple would spell the absent one as -1.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Cut {
     private Cut() { }
@@ -111,9 +101,7 @@ public abstract partial record Cut {
         Switch(pierced: static p => (p.A, p.B), coplanar: static c => (c.A, c.B));
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------------
-// Every band is a LANE the arena's own bound Context resolves, so this record carries no scalar at all and a
-// per-model override moves one number at the context instead of one literal per policy.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record RepairPolicy(
     ToleranceLane Gap, ToleranceLane Sliver, Dimension MaxManifoldPasses,
     ArenaPolicy Arena, IntersectPolicy Intersect, TessellationPolicy Retile, ArrangementPolicy Arrangement) : IValidityEvidence {
@@ -137,7 +125,7 @@ public sealed record RepairPolicy(
                 retile.IfNone(TessellationPolicy.Constrained), arrangement.IfNone(ArrangementPolicy.Canonical)));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record HealPlan(MeshSpace Input, Seq<HealOp> Ops, RepairPolicy Policy) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(ValidityClaim.CountAtLeast(count: Ops.Count, floor: 1), Policy.IsValid);
 
@@ -151,14 +139,13 @@ public sealed record HealPlan(MeshSpace Input, Seq<HealOp> Ops, RepairPolicy Pol
     }
 }
 
-// Kernels leaving the incidence fold current hand it forward, a mutating one drops it, so a stale fold is unrepresentable.
 internal readonly record struct HealStep(MeshEdit Edit, Option<(BooleanOp Op, BooleanReceipt Receipt)> Merge, Option<Incidence> Carry) {
     public static HealStep Same(MeshEdit edit) => new(edit, None, None);
 
     public static HealStep Carrying(MeshEdit edit, Incidence current) => new(edit, None, Some(current));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HealOp {
     private HealOp() { }
@@ -181,7 +168,6 @@ public abstract partial record HealOp {
             selfIntersectResolve: static _ => HealStage.SelfIntersect,
             boolean:              static _ => HealStage.Boolean);
 
-    // `current` is `edit`'s frozen image at fold entry: self-intersect detection and the boolean A operand ride it.
     internal Fin<HealStep> Apply(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key, Option<Incidence> carry) =>
         Switch(
             state: (Edit: edit, Current: current, Policy: policy, Key: key, Carry: carry),
@@ -194,7 +180,6 @@ public abstract partial record HealOp {
             boolean:              static (s, b) => Heal.Merge(b, s.Current, s.Policy, s.Key));
 }
 
-// One incidence fold shared by gap/manifold/orient, built once per arena state.
 internal readonly struct Incidence {
     internal readonly Dictionary<(int U, int V), List<int>> Edges;
     Incidence(Dictionary<(int U, int V), List<int>> edges) => Edges = edges;
@@ -214,7 +199,6 @@ internal readonly struct Incidence {
 
     internal static (int U, int V) Key(int u, int v) => u < v ? (u, v) : (v, u);
 
-    // Boundary half-edges take direction from face winding, never the index-sorted key.
     internal Arr<(int Tail, int Head, int Face)> Boundary(MeshEdit edit) =>
         toArr(Edges.Where(static row => row.Value.Count == 1).Select(row => {
             (int a, int b, int c) = edit.Face(row.Value[0]);
@@ -226,7 +210,6 @@ internal readonly struct Incidence {
     internal Arr<((int U, int V) Edge, List<int> Fans)> NonManifold() =>
         toArr(Edges.Where(static row => row.Value.Count > 2).Select(static row => (row.Key, row.Value)));
 
-    // Both arcs per interior 2-manifold edge carry the vertex pair; a >2-incident fan propagates no orientation, so Manifold precedes Orient.
     internal AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> Dual(MeshEdit edit) {
         AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> dual = new(allowParallelEdges: true);
         dual.AddVertexRange(Enumerable.Range(0, edit.FaceCount).Where(edit.Alive));
@@ -239,16 +222,11 @@ internal readonly struct Incidence {
 }
 
 public static class Heal {
-    // Declaration order IS the canonical order: manifold precedes orient so the dual BFS walks a 2-manifold graph, and
-    // self-intersect runs last, against the otherwise-healed snapshot. Its retile is the one stage that MINTS debris —
-    // a sub-ulp near-miss splits one crossing into two vertices inside the weld band, spanning a sliver — and no stage
-    // ahead of it can see that, so every Collects row re-runs as the terminal sweep.
     public static readonly Seq<HealOp> Standard = Minted(static _ => true) + Minted(static stage => stage.Collects);
 
     static Seq<HealOp> Minted(Func<HealStage, bool> admits) =>
         toSeq(HealStage.Items).Filter(admits).Bind(static stage => stage.Mint.ToSeq()).Map(static mint => mint());
 
-    // ONE live arena rides the swap-and-dispose seam; the fold threads Space/Status so before[n] = after[n-1] and the last freeze is the healed mesh.
     [BoundaryAdapter]
     public static Fin<HealSession> Repair(HealPlan plan, Op? key = null) {
         Op op = key.OrDefault();
@@ -274,17 +252,12 @@ public static class Heal {
         }
     }
 
-    // Projection stays un-gated, so the heal rail never rejects its input class.
     internal static Fin<ManifoldStatus> Status(MeshSpace space, Context context, Op key) =>
         VectorIntent.Topology(space, key)
             .Bind(intent => intent.Project<(int Euler, int BoundaryComponents, bool IsManifold, bool IsOriented, int NonManifoldEdges, Option<int> Genus)>(context: context, key: key))
             .Map(ManifoldStatus.Of);
 
     // --- [DEGENERATE_COLLAPSE]
-    // Slivers flag on the EXACT Orient2D sign in the dominant-axis plane; the area band is a secondary gate behind an
-    // exact-keep. The plane comes from the Numerics owner, and its refusal IS this kernel's verdict: a face with no
-    // dominant normal has zero projected area in every plane, so the axis rail collects it here rather than failing a
-    // session over the degenerate input class the page exists to admit.
     internal static Fin<HealStep> Collapse(MeshEdit edit, RepairPolicy policy) {
         double areaFloor = edit.Tolerance.For(policy.Sliver).Value;
         FaceKeySet seen = new();
@@ -306,11 +279,10 @@ public static class Heal {
     }
 
     // --- [GAP_CLOSE]
-    // Half-edge (a->b) pairs (c->d) when |b-c| and |d-a| both fit the span: opposite traversal keeps the bridge strip winding-coherent.
     internal static Fin<HealStep> Close(MeshEdit edit, RepairPolicy policy, Op key, Option<Incidence> carry) {
         Incidence incidence = carry.IfNone(() => Incidence.Of(edit));
         Arr<(int Tail, int Head, int Face)> rim = incidence.Boundary(edit);
-        if (rim.Count < 2) return Fin.Succ(HealStep.Carrying(edit, incidence));   // zero mutation: the build stays current
+        if (rim.Count < 2) return Fin.Succ(HealStep.Carrying(edit, incidence));
         double span = edit.Tolerance.For(policy.Gap).Value;
         Point3d[] heads = [.. rim.Map(h => edit.Position(h.Head))];
         return NeighborIndex.Of(new NeighborSource.StaticCase(toSeq(rim.Map(h => edit.Position(h.Tail)))), key)
@@ -328,14 +300,11 @@ public static class Heal {
                 if (backward <= span) pairs.Add((i, j, double.Max(forward, backward)));
             }
         }
-        // List.Sort is unstable introsort, so the rim index pair breaks every Gap tie: without it the greedy `used`
-        // filter consumes equal-span pairs in implementation-defined order and one input bridges two ways.
         pairs.Sort(static (l, r) => l.Gap.CompareTo(r.Gap) is int rank and not 0 ? rank : (l.I, l.J).CompareTo((r.I, r.J)));
         IndexSet used = new();
         foreach ((int i, int j, _) in pairs) {
             if (used.Contains(i) || used.Contains(j)) continue;
             ((int a, int b), (int c, int d)) = ((rim[i].Tail, rim[i].Head), (rim[j].Tail, rim[j].Head));
-            // {b,d} spans the strip; a wedge-corner pair (a==d or b==c) bridges with its single non-degenerate triangle.
             if (a != d) edit.AddFace(b, a, d);
             if (b != c) edit.AddFace(b, d, c);
             used.Add(i); used.Add(j);
@@ -344,14 +313,8 @@ public static class Heal {
     }
 
     // --- [MANIFOLD_REPAIR]
-    // Each pass splits every >2-incident edge into per-extra-face vertex copies; a converged pass re-emits zero and rides its incidence forward.
-    // Copies sit at bit-identical coordinates, and a native topology vertex is a position-keyed equivalence class,
-    // so the freeze re-merges them and the projected NonManifoldEdges never records the split. The ARENA fold is
-    // therefore the single convergence authority — the count this kernel gates on and `ManifoldReceipt.ArenaResidual`
-    // carries — and no arm reads the projected column as the split's witness.
     internal static Fin<HealStep> Split(MeshEdit edit, RepairPolicy policy, Option<Incidence> carry) {
         Dimension passes = policy.MaxManifoldPasses;
-        // Found is Option: "no pass yet" is ABSENCE, never an int.MaxValue a second read has to decode back into one.
         Atom<(Option<int> Found, Incidence Last)> cell = Atom(value: (Found: Option<int>.None, Last: carry.IfNone(() => Incidence.Of(edit))));
         Transition<(Option<int> Found, Incidence Last)> driven = Cell.Converge(
             cell: cell,
@@ -363,7 +326,7 @@ public static class Heal {
             declined: new GeometryFault.UnrepairableMesh(HealStage.Manifold, Some(passes), cell.Value.Last.NonManifold().Count));
         (Option<int> found, Incidence last) = driven.Current;
         if (found == Some(0)) return Fin.Succ(HealStep.Carrying(edit, last));
-        Incidence settled = Incidence.Of(edit);   // budget exhausted: the residual counts against the post-pass arena
+        Incidence settled = Incidence.Of(edit);
         int remaining = settled.NonManifold().Count;
         return remaining == 0
             ? Fin.Succ(HealStep.Carrying(edit, settled))
@@ -386,13 +349,11 @@ public static class Heal {
     }
 
     // --- [ORIENT_NORMALS]
-    // TreeEdge flips a child whose shared-edge traversal AGREES with its parent; winding flips leave the incidence valid, so it rides the carry out.
     internal static Fin<HealStep> Orient(MeshEdit edit, Option<Incidence> carry) {
         Incidence incidence = carry.IfNone(() => Incidence.Of(edit));
         AdjacencyGraph<int, TaggedEdge<int, (int U, int V)>> dual = incidence.Dual(edit);
         Dictionary<int, int> shell = new(edit.FaceCount);
         dual.WeaklyConnectedComponents(shell);
-        // Lowest live face id seeds each shell, so input winding wins deterministically; dictionary-order seeding forks the content hash.
         Dictionary<int, int> seeds = new();
         for (int f = 0; f < edit.FaceCount; f++) {
             if (edit.Alive(f) && shell.TryGetValue(f, out int component)) seeds.TryAdd(component, f);
@@ -417,8 +378,6 @@ public static class Heal {
     }
 
     // --- [SELF_INTERSECT_RESOLVE]
-    // Adjacency-excluded broad-phase and Guigue-Devillers signs belong to the intersection owner; its Chains CrossLattice
-    // carries interned crossing slots and per-segment defining-face pairs.
     internal static Fin<HealStep> Resolve(MeshEdit edit, MeshSpace current, RepairPolicy policy, Op key) =>
         Intersection.Apply(new IntersectOp.SelfMesh(current, policy.Intersect), key)
             .Bind(result => result is IntersectResult.Chains hit
@@ -428,12 +387,6 @@ public static class Heal {
                 ? Fin.Succ(HealStep.Same(edit))
                 : Recut(edit, current, lattice, policy, key));
 
-    // Lattice indexes the FROZEN image — Intersection re-soups `current`, whose faces are the arena's live faces in
-    // ascending order and whose coordinates are the freeze's float32 lattice — so ONE ascending scan carries every
-    // lattice face onto its arena face and the retile measures geometry on the same soup the lattice measured; reading
-    // corners off the live arena instead feeds one constraint set two coordinate namespaces. A crossing interns ONE row
-    // corpus-wide, so two faces sharing a cut carry the same Implicit and their spliced seams meet by construction, and
-    // an interned self-pair is a point touch carrying no constraint.
     static Fin<HealStep> Recut(MeshEdit edit, MeshSpace current, CrossLattice lattice, RepairPolicy policy, Op key) {
         using MeshEdit soup = MeshEdit.Of(current, policy.Arena);
         using MemoryOwner<int> arenaFace = MemoryOwner<int>.Allocate(soup.FaceCount, AllocationMode.Clear);
@@ -445,8 +398,6 @@ public static class Heal {
             if (a == b) continue;
             Note(patches, fa, new Cut.Pierced(a, b, fb)); Note(patches, fb, new Cut.Pierced(a, b, fa));
         }
-        // Coplanar rows define no piercing plane: each carries its CARRIER EDGE, and the self lattice runs both sweeps on
-        // one soup, so the carrier-side column is inert here and the perpendicular plane rides (S, T, S+lift) instead.
         foreach ((int a, int b, int fa, int fb, int cu, int cv, _) in lattice.Coplanar) {
             if (a == b) continue;
             Note(patches, fa, new Cut.Coplanar(a, b, cu, cv)); Note(patches, fb, new Cut.Coplanar(a, b, cu, cv));
@@ -462,14 +413,6 @@ public static class Heal {
             (patches.TryGetValue(face, out List<Cut>? rows) ? rows : patches[face] = []).Add(row);
     }
 
-    // Constrained-only CDT in the dominant-axis plane: three explicit corners plus CrossKey-interned Implicit crossing
-    // rows, every piercing cut carrying the OTHER face's plane, every coplanar sub-segment the PERPENDICULAR plane through
-    // its carrier edge, and Support the face's own corners — the Tpi witness a conform x conform split needs, so a
-    // second-generation crossing is CONSTRUCTED exactly and rounds once at the substrate's emission seam rather than
-    // re-entering a predicate already rounded. The corners ARE the site hull, so a rim-collinear crossing joins that
-    // boundary itself and both incident faces split their shared edge through the one interned row — no rim constraint
-    // battery, no page-local segment x segment pass, and a proper-crossings-only straddle can no longer miss a cut that
-    // ends on another. A negative dominant normal mirrors the spliced winding.
     static Fin<Unit> Subdivide(MeshEdit edit, MeshEdit soup, CrossLattice lattice, int face, int latticeFace, List<Cut> cuts, Dictionary<Point3d, int> minted, RepairPolicy policy, Op key) {
         (int s0, int s1, int s2) = soup.Face(latticeFace);
         (Point3d pa, Point3d pb, Point3d pc) = (soup.Position(s0), soup.Position(s1), soup.Position(s2));
@@ -493,8 +436,6 @@ public static class Heal {
             return Tessellation.Build(new TessellationOp.Points(
                     TessellationKind.Triangulation, [.. rows], toSeq(conforms), policy.Retile, plane, Some((pa, pb, pc))), key)
                 .Bind(tess => tess.Triangles(key))
-                // Triangles publishes corners beside face indices; the splice keys on corner POINTS, so it
-                // re-expands its own triples here rather than the projection handing every consumer one.
                 .Map(tris => Splice(edit, face,
                     toArr(tris.Faces.AsIterable().Map(f => (tris.Corners[f.A], tris.Corners[f.B], tris.Corners[f.C]))),
                     corner, minted, mirrored));
@@ -513,10 +454,6 @@ public static class Heal {
         }
     }
 
-    // Substrate Steiner points are the constrained recovery's own re-anchor over ORIGINAL points, so the splice MINTS one
-    // beside every crossing row instead of refusing it. `minted` spans the whole retile, so two faces meeting at one
-    // crossing or one recovery point reach the same arena vertex and the seam closes by construction. Total: the arena
-    // mutation is the last step of an already-decided patch.
     static Unit Splice(MeshEdit edit, int face, Arr<(Point3d A, Point3d B, Point3d C)> triangles, Dictionary<Point3d, int> corner, Dictionary<Point3d, int> minted, bool mirrored) {
         edit.KillFace(face);
         foreach ((Point3d ta, Point3d tb, Point3d tc) in triangles) {
@@ -532,16 +469,11 @@ public static class Heal {
     }
 
     // --- [BOOLEAN]
-    // Arrangement owns classification, exactness, and the scale gate — NativeAssetMissing propagates from ITS rail,
-    // never a second gate here. Arity rides the operand Seq, and Shells EXPRESS disconnection: a heal session admits
-    // exactly ONE arena, so a severed result fails typed on its shell count — largest-shell selection would publish a
-    // mesh the session never proved, a shell-widened session would index every downstream receipt by shell.
     internal static Fin<HealStep> Merge(HealOp.Boolean op, MeshSpace current, RepairPolicy policy, Op key) =>
         Arrangement.Apply(new ArrangementOp.MeshBoolean(Seq(current, op.Tool), op.Op, policy.Arrangement), key)
             .Bind(result => result switch {
                 ArrangementResult.Boolean { Shells: [MeshSpace solid] } merged =>
                     Fin.Succ(new HealStep(MeshEdit.Of(solid, policy.Arena), Some((op.Op, merged.Receipt)), None)),
-                // No pass budget bounds a boolean, so the budget slot is ABSENT rather than a fabricated single pass.
                 ArrangementResult.Boolean severed =>
                     Fin.Fail<HealStep>(new GeometryFault.UnrepairableMesh(HealStage.Boolean, Option<Dimension>.None, severed.Shells.Count)),
                 _ => Fin.Fail<HealStep>(key.InvalidResult()),

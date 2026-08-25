@@ -21,7 +21,7 @@ Rebuilds compose these seams unchanged: `ClosestHit` conforms to the `Domain/rai
 - Packages: RhinoCommon geometry members, `Rasm.Numerics` `AtomProjection`/`ProjectionRow`, LanguageExt.Core rails, and the Foundation `[BoundaryAdapter]` contract.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Runtime.InteropServices;
 using LanguageExt;
 using Rasm.Numerics;
@@ -30,7 +30,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ClosestHit(
     Point3d Point,
@@ -56,8 +56,6 @@ public readonly record struct ClosestHit(
     internal static Option<Vector3d> Sense(Vector3d value) => value.IsValid && Band.Positive.Admits(value: value.Length) ? Some(value) : Option<Vector3d>.None;
     internal static Option<Plane> Basis(Plane basis) => basis.IsValid ? Some(basis) : Option<Plane>.None;
     internal static Option<Plane> Basis(Point3d origin, Vector3d normal) => Basis(basis: new Plane(origin: origin, normal: normal));
-    // `Distance` is the ONE facet whose absence REFUSES — `At` computes it from the query target on every arm, so a
-    // hit carrying none was minted past the entry; every other facet reads the kernel's absent-tolerant claim.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Finite(Point),
         Distance.Map(static d => ValidityClaim.Nonnegative(d).Holds).IfNone(noneValue: false),
@@ -69,7 +67,6 @@ public readonly record struct ClosestHit(
         ValidityClaim.WhenPresent(Tangent, static v => Sense(value: v).IsSome),
         ValidityClaim.WhenPresent(Frame, static p => p.IsValid));
     internal Fin<TOut> Project<TOut>(Op key) {
-        // C# forbids capturing a `readonly record struct` by lambda from an instance member, so the copy is the platform-forced form that keeps every row closure-free.
         ClosestHit hit = this;
         Fin<TValue> Facet<TValue>(Option<TValue> facet) => facet.ToFin(Fail: key.InvalidResult()).Bind(value => key.AcceptValue(value: value));
         return AtomProjection.Rows<ClosestHit, TOut>(
@@ -105,7 +102,7 @@ public readonly record struct ClosestHit(
 - Growth: a new form is one row placed by its assignability against the rows above it; a form that subclasses an existing row's type places above it or is unreachable.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using LanguageExt;
 using Rhino.Geometry;
@@ -115,10 +112,7 @@ using RhinoPoint = Rhino.Geometry.Point;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// How a runtime type must MEET the type a row names: `Exact` keeps a value shape and its native wrapper on two
-// rows, `Assignable` admits a whole hierarchy under one. The pair is the whole predicate space the lattice uses,
-// so a row states its correspondence as data and no row carries a body to read it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class TypeMatch {
@@ -174,8 +168,6 @@ internal sealed partial class ClosestForm {
                 tangent: tangent,
                 frame: tangent.Bind(sensed => ClosestHit.Basis(origin: closest, normal: sensed))));
         });
-    // Host reads fail only for a plane the oracle gate above already refused, so the refusal is typed rather
-    // than a fall-through to the surface lift that would re-enter this lattice on a lifted plane surface.
     public static readonly ClosestForm Plane = new(
         native: typeof(Plane), match: TypeMatch.Exact,
         recover: static (value, target, key) => ((Plane)value) switch {
@@ -284,8 +276,6 @@ internal sealed partial class ClosestForm {
     [UseDelegateFromConstructor]
     internal partial Fin<ClosestHit> Recover(object value, Point3d target, Op key);
     internal bool Admits(Type type) => Match.Holds(candidate: type, native: Native);
-    // Resolution is a LINEAR scan under a load-bearing declaration order, and it runs per closest-point call, so
-    // the answer seats on the page's own claim transition — including the `None` a type no row admits resolves to.
     private static readonly Atom<HashMap<Type, Option<ClosestForm>>> Resolved = Atom(HashMap<Type, Option<ClosestForm>>());
     internal static Option<ClosestForm> Of(Type type) =>
         Cell.Claim(cell: Resolved, key: type, mint: () => toSeq(Items).Find(row => row.Admits(type: type))).Current[type];
@@ -310,7 +300,7 @@ internal sealed partial class ClosestForm {
 - Boundary: `Evaluation` preserves every recovery the mature kernel performed; the recursion ordering fixes change no terminating input's result, and the `BrepFace` totalization trades one silently-untrimmed underlying-surface point for a typed refusal.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using LanguageExt;
@@ -322,7 +312,7 @@ using RhinoPoint = Rhino.Geometry.Point;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record EvaluationRequest {
     private EvaluationRequest() { }
@@ -346,7 +336,7 @@ public abstract partial record EvaluationResult {
             points: static (op, result) => AtomProjection.Values<Point3d, TOut>(values: result.Value, key: op, owner: typeof(EvaluationResult)));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 internal static class Evaluation {
     extension(object? geometry) {
@@ -384,8 +374,6 @@ internal static class Evaluation {
         guard(count > 0, key.InvalidInput()).ToFin().Bind(_ => source switch {
             Curve curve => CurveSampleParameters(curve: curve, count: count, context: context, key: key).Map(parameters => parameters.Map(curve.PointAt)),
             Surface surface => SurfaceSamplePoints(surface: surface, count: count, context: context, key: key),
-            // Value shapes holding a curve or surface form recover it FIRST, so a line, polyline, or arc yields n
-            // arc-length samples and never its two or three vertices; the vertex arm serves only vertex-only shapes.
             object value when Capability.CurveForm.Admits(type: value.GetType()) || Capability.SurfaceForm.Admits(type: value.GetType()) =>
                 Recovered(source: value, key: key, verb: (inner, op) => Sampled(source: inner, count: count, context: context, key: op)),
             object value when Capability.ReadVertices.Admits(type: value.GetType()) => Vertices(source: value, key: key),
@@ -400,8 +388,6 @@ internal static class Evaluation {
             Polyline polyline => Fin.Succ(toSeq(polyline)),
             BoundingBox box => Fin.Succ(toSeq(box.GetCorners())),
             Box box => Fin.Succ(toSeq(box.GetCorners())),
-            // Closed curves fold start and end onto one point, so the smooth arm yields the seam once rather than
-            // handing a consumer a duplicated vertex it would have to dedupe by coordinate.
             Curve curve => curve.TryGetPolyline(polyline: out Polyline poly)
                 ? Fin.Succ(toSeq(poly))
                 : Fin.Succ(curve.IsClosed ? Seq(curve.PointAtStart) : Seq(curve.PointAtStart, curve.PointAtEnd)),
@@ -415,7 +401,6 @@ internal static class Evaluation {
                 .Bind(lease => lease.Use(key, static (op, brep) => Vertices(source: brep, key: op))),
             _ => Recovered(source: source, key: key, verb: static (value, op) => Vertices(source: value, key: op)),
         };
-    // `Recovered` refuses a native here: leasing it borrows the same object and re-enters the verb forever.
     private static Fin<T> Recovered<T>(object source, Op key, Func<object, Op, Fin<T>> verb) =>
         source switch {
             Curve or Surface or Brep => Fin.Fail<T>(key.InvalidInput()),
@@ -467,8 +452,6 @@ internal static class Evaluation {
                 Fin.Succ((native.ZAxis * normal) >= 0.0 ? native : new Plane(origin: native.Origin, xDirection: native.XAxis, yDirection: -native.YAxis))),
             _ => Fin.Fail<Plane>(key.InvalidResult()),
         };
-    // `PullBack` runs the second face read that lands an exterior grid sample ON the trim: the first tests the grid
-    // parameter, the pull-back moves it, and only the MOVED parameter proves the sample survives the trim.
     private static Option<Point2d> PullBack(BrepFace face, Point2d uv, double tolerance) =>
         face.IsPointOnFace(u: uv.X, v: uv.Y, tolerance: tolerance) != PointFaceRelation.Exterior
             ? Some(uv)
@@ -476,7 +459,6 @@ internal static class Evaluation {
                 && face.IsPointOnFace(u: fu, v: fv, tolerance: tolerance) != PointFaceRelation.Exterior
                 ? Some(new Point2d(x: fu, y: fv))
                 : Option<Point2d>.None;
-    // `Fractions` takes the MIDPOINT for a single sample rather than an endpoint, so one-sample sampling centres on the span instead of degenerate at its start.
     private static Fin<Seq<double>> Fractions(int count, Op key) =>
         count switch {
             1 => Fin.Succ(Seq(0.5)),

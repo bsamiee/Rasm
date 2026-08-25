@@ -53,7 +53,7 @@ Pixel truth closes the paint loop: a capture session and the paint hooks it audi
 - Growth: a new visual claim is one judgment arm over existing evidence; a new correlation family is one fact-pattern filter over the same export pair.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using CoreMedia;
@@ -70,7 +70,7 @@ using ScreenCaptureKit;
 
 namespace Rasm.Grasshopper.Platform;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct CapturePace {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
@@ -90,7 +90,7 @@ public abstract partial record CaptureSubject {
     public sealed record WindowCase(uint WindowId) : CaptureSubject;
 }
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record CapturePlan(
     CapturePace Pace, Option<(int Width, int Height)> Extent, int Queue, bool Cursor, int Capacity, CaptureRetention Retention) {
     public static readonly CapturePlan Default = new(
@@ -98,7 +98,7 @@ public sealed record CapturePlan(
         Queue: 5, Cursor: false, Capacity: 512, Retention: CaptureRetention.Evidence);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DisplayFact(uint DisplayId, RectangleF Frame, int Width, int Height) : IValidityEvidence {
     public bool IsValid => Width > 0 && Height > 0;
@@ -117,7 +117,6 @@ public readonly record struct RasterPane(int Width, int Height, int RowBytes, Op
         ValidityClaim.WhenPresent(facet: Raster, claim: bytes => bytes.Length == (long)RowBytes * Height));
 }
 
-// SEQUENCE is the drain envelope's ordinal — no session counter exists to disagree with it.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CaptureFrame(MonotonicStamp Stamp, Option<RasterPane> Pane) : IUiFact, IValidityEvidence {
     public bool Bearing => Pane.IsSome;
@@ -126,23 +125,19 @@ public readonly record struct CaptureFrame(MonotonicStamp Stamp, Option<RasterPa
         ValidityClaim.Evidence(evidence: Pane));
 }
 
-// Drain publishes under a SOURCE row; the session is that one source.
 public sealed class CaptureSource : IUiSource<CaptureFrame> {
     public static readonly CaptureSource Row = new();
     public string Key => "platform.capture";
 }
 
 public sealed record CaptureStill(RasterPane Pane, MonotonicStamp Captured) : IValidityEvidence {
-    public bool IsValid => Pane.IsValid && Pane.Raster.IsSome;   // a still is always pixel-bearing; Snapshot refuses a non-bearing pane at its binds
+    public bool IsValid => Pane.IsValid && Pane.Raster.IsSome;
 }
 
-// Minted by the exporting consumer from its own Reader fold; the counts are the drain's own.
 [Equatable]
 public sealed partial record CaptureExport(
     [property: OrderedEquality] Seq<UiEvent<CaptureFrame>> Frames, long Published, long Shed, MonotonicStamp Captured);
 
-// Judged lane: its bound derives from the capture pace, so the span carries measurement and bound as
-// one kernel value — the same measured-span carrier BudgetGate answers — and overrun/breach DERIVE.
 [SmartEnum<int>]
 public sealed partial class CaptureLane : IGaugeLane<CaptureLane> {
     public static readonly CaptureLane Frame = new(key: 0);
@@ -160,10 +155,8 @@ public readonly record struct CaptureBreach(long FrameSequence, Op Operation, in
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct CaptureTie(long Row, long Frame, TimeSpan Lag);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class CaptureLog {
-    // Const-beside-row proof: the ids live inside FaultBand.GrasshopperLog's span and the guard throws at
-    // type init when the band moves — the same drift proof PaintLog carries.
     static CaptureLog() => Op.SideWhen(
         condition: FaultBand.GrasshopperLog.Code(offset: 6) != FaultBand.GrasshopperLogBase + 6,
         action: static () => throw new InvalidOperationException("CaptureLog ids drifted from FaultBand.GrasshopperLog."));
@@ -201,16 +194,12 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     private readonly SCStreamConfiguration configuration;
     private readonly FrameSink sink;
     private readonly StreamStop stop;
-    // Caller's drain IS the frame ring: publish mints ordinal-beside-stamp, the bound sheds counted,
-    // Reader is the export path — no state cell, snapshot lock, or sequence counter exists here.
     private readonly EvidenceDrain<CaptureFrame> drain;
     private readonly FaultCell faults;
     private readonly HookId faultPoint;
     private readonly object releaseGate = new();
     private readonly TaskCompletionSource<Unit> deliveriesDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task<Fin<Unit>>? releaseTask;
-    // Quiescence barrier on ONE atom: (accepting, in-flight) steps through the kernel Cell verbs and the
-    // drained latch settles when the pair reads (closed, zero) — no raw Volatile/Interlocked ladder.
     private readonly Atom<(bool Accepting, long Deliveries)> gate = Atom((true, 0L));
 
     private SessionCapture(
@@ -298,10 +287,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
             Fail: static error => Task.FromResult(Fin.Fail<Lease<SessionCapture>>(error: error)));
     }
 
-    // ONE admission stage for both capture modalities: MacGate + operand admission, the shareable survey, the
-    // filter resolve, and the configuration mint, with prefix custody released on every refusal — success hands
-    // Caller a live (filter, config) pair whose release rides the caller's own paths. `requireQueue`
-    // distinguishes the leased stream (queue depth is load-bearing) from the one-shot still (no queue).
     private static async Task<Fin<(SCContentFilter Filter, SCStreamConfiguration Config, MonotonicTimeline Clock)>> Staged(
         CaptureSubject subject, CapturePlan plan, MonotonicTimeline timeline, bool requireQueue, Op key) {
         Fin<(CaptureSubject Subject, CapturePlan Plan, MonotonicTimeline Clock)> admitted =
@@ -361,7 +346,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     private void Deliver(CMSampleBuffer buffer) {
         if (!EnterDelivery()) return;
         try {
-            // Publish mints ordinal-beside-stamp under the drain's one compare-and-swap; the bound sheds counted.
             Fin<Unit> outcome = operation.Catch(body: () =>
                 from valid in guard(buffer.IsValid, operation.InvalidInput()).ToFin()
                 from stamp in timeline.Capture(key: operation)
@@ -377,7 +361,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
         finally { ExitDelivery(); }
     }
 
-    // Closed gate DECLINES the step — the transition's verdict IS the enter answer, atomically.
     private bool EnterDelivery() =>
         Cell.Step(cell: gate, step: static held => held.Accepting ? Some((true, held.Deliveries + 1L)) : None,
             declined: operation.InvalidContext())
@@ -426,8 +409,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
         return released;
     }
 
-    // 6-clause conjunction guard is an accumulating Validation: every violated clause NAMES itself, so a
-    // refused plan reports the whole violation set instead of the first bit of an anded blob.
     private static Fin<Unit> Admitted(CapturePlan plan, bool requireQueue, Op key) =>
         (
             guard(double.IsFinite((double)plan.Pace) && (double)plan.Pace > 0.0, (Error)key.InvalidInput(axis: nameof(CapturePlan.Pace))).ToValidation(),
@@ -486,7 +467,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 .Settled(release: () => released, key: key));
     }
 
-    // Admission already proved the plan (`Admitted`, accumulating); this mint only projects it.
     private static Fin<SCStreamConfiguration> Configure(CapturePlan plan, Op key) =>
         from rate in key.Finite(value: (double)plan.Pace)
         from configured in key.Catch(body: () => {
@@ -494,8 +474,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 MinimumFrameInterval = CMTime.FromSeconds(seconds: 1.0 / rate, preferredTimeScale: 600),
                 QueueDepth = plan.Queue,
                 ShowsCursor = plan.Cursor,
-                // declared wire layout: single-plane BGRA is the one format the raster copy kernel reads, so the
-                // stream requests it here and Geometry's layout gate re-proves it per frame — one contract, two ends.
                 PixelFormat = CVPixelFormatType.CV32BGRA,
             };
             plan.Extent.Iter(extent => {
@@ -519,9 +497,6 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
                 (checked((int)nativeWidth), checked((int)nativeHeight), checked((int)nativeRowBytes));
             if (retention != CaptureRetention.Raster)
                 return Fin.Succ(Some(new RasterPane(Width: width, Height: height, RowBytes: rowBytes, Raster: Option<ImmutableArray<byte>>.None)));
-            // layout gate before any byte reaches RasterPane: the copy kernel reads one contiguous rowBytes*height
-            // window, valid only for the single-plane BGRA layout the configuration declared — a planar or foreign
-            // format's BaseAddress fronts a plane table, so it refuses here and never mints a corrupt pane.
             if (pixels.IsPlanar || pixels.PixelFormatType != CVPixelFormatType.CV32BGRA)
                 return Fin.Fail<Option<RasterPane>>(error: key.InvalidResult());
             long byteCount = checked((long)rowBytes * height);
@@ -547,7 +522,7 @@ public sealed class SessionCapture : IDisposable, IAsyncDisposable {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class CaptureScout {
     public static async Task<Fin<CaptureInventory>> Survey(Op? key = null) {
@@ -568,9 +543,7 @@ public static class CaptureScout {
     }
 }
 
-// Three survey projections as GENERATED data — a binding rename breaks a mapping row, never a body;
-// CGRect frame and the optional owning-application reads are named source columns.
-[Mapper] // conversions ride the assembly MapperDefaults (Canvas/canvas.md) — no per-seam re-spell
+[Mapper]
 internal static partial class CaptureMap {
     [MapPropertyFromSource(nameof(DisplayFact.Frame), Use = nameof(FrameOf))]
     internal static partial DisplayFact Display(SCDisplay display);
@@ -601,9 +574,6 @@ public static class PaintProof {
                from rate in op.Finite(value: (double)pace)
                from lag in clock.Elapsed(start: claim.Settled, end: frame.Fact.Stamp, key: op)
                let window = TimeSpan.FromSeconds(value: 2.0 / rate)
-               // Span is the kernel's own plain carrier — lane, work, elapsed, bound-in-force — so overrun
-               // and breach DERIVE on the record and no local lag/bound pair survives; the recorded bound is the
-               // pace-derived window in force at judgment, exactly as the span contract states.
                let span = new GaugedSpan<CaptureLane>(Lane: CaptureLane.Frame, Work: claim.Op, Elapsed: lag, Bound: window)
                select lag >= TimeSpan.Zero && lag <= window && claim.Drawn > 0 && !frame.Fact.Bearing
                    ? Some(new CaptureBreach(FrameSequence: frame.Ordinal, Operation: claim.Op, Drawn: claim.Drawn, Span: span))

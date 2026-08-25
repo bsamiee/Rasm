@@ -22,7 +22,7 @@ Every column writer here frames over the `Rasm.Element` `CanonicalWriter` compos
 - Growth: a refusal is one `RecordRefusal` row; an outcome is one `EvidenceOutcome` row carrying its rank; a cause category, correction kind, or declaration kind is one row on its own owner; an attestation role is one row at the Element owner.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -46,7 +46,7 @@ using PropertyBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.Pro
 
 namespace Rasm.Fabrication.Documentation;
 
-// --- [VOCABULARY] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [VOCABULARY] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class RecordRefusal {
     public static readonly RecordRefusal Source = new("source-absent");
@@ -141,8 +141,6 @@ public sealed partial class InspectionStage {
     public bool RequiresPrior { get; }
 }
 
-// ISO 2859-1 inspection levels: discrimination is the relative sample size a level draws, and the census level
-// draws the whole lot rather than a sample at all.
 [SmartEnum<string>]
 public sealed partial class InspectionLevel {
     public static readonly InspectionLevel Special1 = new("s-1", census: false);
@@ -154,7 +152,6 @@ public sealed partial class InspectionLevel {
     public static readonly InspectionLevel General3 = new("iii", census: false);
     public static readonly InspectionLevel Total = new("100-percent", census: true);
 
-    // A declared column, never an infinity read back as one: the census level is a KIND of plan, not a limit.
     public bool Census { get; }
 }
 
@@ -182,8 +179,6 @@ public sealed partial class Disposition {
     public bool Accepted { get; }
     public bool Terminal { get; }
 
-    // Material-review authority exists to disposition NONCONFORMING product, so the demand IS the negation and a
-    // stored column beside it would let a future row assert a conforming verdict nobody may sign.
     public bool RequiresAuthority => !Conforming;
 }
 
@@ -225,8 +220,6 @@ public sealed partial class PpapLevel {
     public static readonly PpapLevel Five = new(5);
 }
 
-// Rank orders severity; `Measured` says whether the row carried a reading at all. The bucket a row falls in IS
-// the row, so a census counts rows per outcome and needs no indicator column to add up.
 [SmartEnum<string>]
 public sealed partial class EvidenceOutcome {
     public static readonly EvidenceOutcome Trace = new("trace", rank: 0, measured: false);
@@ -243,8 +236,6 @@ public sealed partial class EvidenceOutcome {
         left.Rank >= right.Rank ? left : right;
 }
 
-// The corrective vocabulary a nonconformance query partitions on. A narrative alone forces every downstream
-// question — which failure mode recurs, which action class actually closed it — back into text search.
 [SmartEnum<string>]
 public sealed partial class RootCauseCategory {
     public static readonly RootCauseCategory Material = new("material");
@@ -269,7 +260,6 @@ public sealed partial class CorrectionKind {
     public static readonly CorrectionKind DesignChange = new("design-change", systemic: true);
     public static readonly CorrectionKind SupplierAction = new("supplier-action", systemic: true);
 
-    // Only a systemic kind can discharge a corrective ACTION; an immediate correction never closes a recurrence.
     public bool Systemic { get; }
 }
 ```
@@ -297,7 +287,7 @@ public sealed partial class CorrectionKind {
 - Boundary: `ProcedureReceipt`, `InspectionRequirement`, and qualification rows enter through `ProcessEvidence`; `MaterialSpec` carries mill-certificate grade identity; `CapabilityReport` remains inspection evidence; `Documentation/passport` composes `QualityEvidence` and authors only the passport column.
 
 ```csharp signature
-// --- [ADMISSION] ----------------------------------------------------------------------------------------------------------------------------------
+// --- [ADMISSION] -----------------------------------------------------------------------
 [ValueObject<string>]
 [ConfidentialData]
 public readonly partial struct HeatNumber {
@@ -347,7 +337,6 @@ public sealed partial class EvidenceId {
     public static Fin<EvidenceId> Admit(string value) => Admission.Of<EvidenceId, string>(value);
 }
 
-// One narrative statement owner: trimmed, non-empty, and never a bare string field a producer can leave blank.
 [ValueObject<string>]
 public sealed partial class Narrative {
     [BoundaryAdapter]
@@ -363,8 +352,6 @@ public sealed partial class Narrative {
 public sealed record RootCause(RootCauseCategory Category, Narrative Statement);
 public sealed record CorrectiveStep(CorrectionKind Kind, Narrative Statement);
 
-// The persisted wire discriminator is the case name under one `kind` property, locked per case so a rename at the
-// type breaks the build rather than the wire, and the roster is what makes the transport rendering round-trip.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Report), "report")]
@@ -393,8 +380,6 @@ public abstract partial record EvidenceRef {
     public sealed record Source(EvidenceId Id) : EvidenceRef(EvidenceRefKind.Source);
     public sealed record Requirement(EvidenceId Id) : EvidenceRef(EvidenceRefKind.Requirement);
 
-    // The identity token every preimage reads: the characteristic arm keys on its own typed id and every other arm
-    // on the evidence id, so the two identity spaces never convert into one another.
     public string Token => Switch(
         report: static row => row.Id.ToValue(),
         characteristic: static row => row.Id.ToValue().ToString("x32"),
@@ -455,7 +440,6 @@ public sealed partial class Measurement {
     public double GuardBand => DecisionRule.GuardBandFactor * ExpandedUncertainty.As(Observed.Unit);
     public double StandardUncertainty => ExpandedUncertainty.As(Observed.Unit) / Coverage.Factor;
 
-    // Absent where the uncertainty is zero: a ratio against nothing is not an unbounded ratio, it is no ratio.
     public Option<double> ToleranceRatio => StandardUncertainty > 0.0
         ? Some((Upper.As(Observed.Unit) - Lower.As(Observed.Unit)) / (2.0 * ExpandedUncertainty.As(Observed.Unit)))
         : None;
@@ -511,10 +495,6 @@ public sealed partial class CharacteristicRow {
     public Measurement Measurement { get; }
     public Disposition Verdict { get; }
 
-    // Present where a tolerance chain governs this characteristic, and present WHOLE: the settled carrier from
-    // `ToleranceChain.Evaluate` already ranks its terms, carries its two worst-case extremes, publishes its own
-    // `Dominant` head, and answers conformance on `Verified`. A local projection of it dropped the extremes, so a
-    // half-range read against the bound here passed every chain whose centre was offset and no reader could see it.
     public Option<Receipt<ChainEvidence>> Stackup { get; }
 
     internal static Fin<CharacteristicRow> Admit(
@@ -533,8 +513,6 @@ public sealed partial class CharacteristicRow {
         ref Option<Receipt<ChainEvidence>> stackup) {
         if (!subject.Class.Quantified
             || (subject.Class.RequiresLocus && measurement.Context.Locus.IsNone)
-            // The chain's own admission ranks and bounds its terms; this gate only refuses a carrier that governs
-            // nothing, because a characteristic naming an empty stackup names a closure no term explains.
             || stackup.Exists(static row => row.Evidence.Contributions.IsEmpty))
             validationError = QualityEvidence.Validation("characteristic-row");
     }
@@ -608,7 +586,7 @@ public sealed partial class TraceEvidence {
     }
 }
 
-// --- [EVIDENCE] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [EVIDENCE] ------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Characteristic), "characteristic")]
@@ -666,9 +644,6 @@ public sealed partial class EvidenceSet {
     }
 }
 
-// One bucket map, one fold. `Count` takes the ROW, so the per-outcome reader is generated by the roster rather
-// than enumerated: a named property per outcome is the hardcoded instance list of exactly this call, and the
-// seventh outcome row would arrive with no seventh property anyone remembered to add.
 public sealed record EvidenceCensus(Map<EvidenceOutcome, int> Buckets, EvidenceOutcome Severity) {
     public int Rows => Buckets.Values.Fold(0, static (sum, count) => sum + count);
     public int Measured => Buckets.Filter(static (outcome, _) => outcome.Measured)
@@ -747,8 +722,6 @@ public abstract partial record CertType {
             new AttestationRequirement.Signer(value.ManufacturerRepresentative, AttestationRole.ManufacturerAuthorized),
             new AttestationRequirement.Signer(value.IndependentRepresentative, AttestationRole.Independent)));
 
-    // The 3.2 certificate's whole point is INDEPENDENCE: one person signing both halves is the condition the
-    // grade exists to forbid, and it is the only cross-field invariant the generated owners cannot state.
     public bool Valid => Switch(
         en10204_2_1: static value => value.Declaration.Valid,
         en10204_2_2: static _ => true,
@@ -772,8 +745,6 @@ public sealed partial class WeldInspectionRow {
     public Instant At { get; }
     public bool Complete => Coverage >= RequiredCoverage;
 
-    // The grain seam is the requirement's own predicate: the family-to-method correspondence lives at
-    // `Joining/procedure` and is read here, never re-derived from a second vocabulary at this stratum.
     internal bool Satisfies(InspectionRequirement demand) =>
         demand.Joint == Joint && demand.Satisfies(Method) && Coverage >= demand.Coverage;
 
@@ -794,8 +765,6 @@ public sealed partial class WeldInspectionRow {
         if (joint < 0 || !QualityEvidence.Fraction(coverage)
             || !QualityEvidence.Fraction(requiredCoverage) || !ValidityClaim.Positive(requiredCoverage.DecimalFractions).Holds
             || !grade.Interprets
-            // A material-review verdict is signed by the grade that may sign it: interpreting findings and
-            // dispositioning nonconforming product are two authorities, and a Level 2 examiner holds only the first.
             || (verdict.RequiresAuthority && !grade.ApprovesProcedure)
             || at == default)
             validationError = QualityEvidence.Validation("weld-inspection-row");
@@ -865,7 +834,7 @@ public sealed partial class CalibrationRow {
     }
 }
 
-// --- [DECLARATIONS] -------------------------------------------------------------------------------------------------------------------------------
+// --- [DECLARATIONS] --------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Conformity), "conformity")]
@@ -926,8 +895,6 @@ public abstract partial record QualityDeclaration {
         specialProcess: static value => Seq<AttestationRequirement>(
             new AttestationRequirement.Signer(value.Operator, AttestationRole.ManufacturerAuthorized)));
 
-    // Only the DIMENSIONED invariants a generated owner cannot state: a coating with no film and a cycle with no
-    // dwell are declarations that assert nothing.
     public bool Valid => Switch(
         conformity: static _ => true,
         productionPartApproval: static _ => true,
@@ -936,7 +903,7 @@ public abstract partial record QualityDeclaration {
         specialProcess: static _ => true);
 }
 
-// --- [RECORDS] ------------------------------------------------------------------------------------------------------------------------------------
+// --- [RECORDS] -------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class SamplingPlan {
     public EvidenceRef.Requirement Requirement { get; }
@@ -978,9 +945,6 @@ public sealed partial class InspectionEvidence {
     public Instant SampledAt { get; }
     public int Nonconforming => Characteristics.Filter(static row => !row.Measurement.Within).Count;
 
-    // The lot's verdict against ITS OWN sampling plan, and the outcome that verdict contributes to the census the
-    // seal publishes. A plan whose accept column decides nothing about the record it produced is a plan the shop
-    // filled in for a reader nobody wrote — so the acceptance number reaches the severity fold the passport reads.
     public Disposition LotVerdict => Nonconforming <= Plan.Accept + Plan.Severity.AcceptanceShift
         ? Disposition.Conform
         : Disposition.PendingReview;
@@ -989,8 +953,6 @@ public sealed partial class InspectionEvidence {
         ? EvidenceOutcome.Conforming
         : EvidenceOutcome.Incomplete;
 
-    // ONE `Missing` per undrawn unit: a plan that drew five of twenty is not the same evidence gap as one that
-    // drew nineteen, and a single row for either flattens every census, severity, and acceptance read off it.
     public Seq<QualityObservation> Observations =>
         Characteristics.Map(static row => (QualityObservation)new QualityObservation.Characteristic(row))
         + Characteristics.Head
@@ -1125,7 +1087,6 @@ public sealed partial class NonconformanceEvidence {
         if (affectedQuantity < 1 || evidence.IsEmpty
             || closedAt.Exists(value => value < openedAt)
             || verdict.Terminal != closedAt.IsSome
-            // A recurrence demands a SYSTEMIC action: repeating a repair is what makes a nonconformance recur.
             || (recurrence.IsSome && !correctiveAction.Exists(static step => step.Kind.Systemic))
             || effectiveness.IsSome != correctiveAction.IsSome)
             validationError = QualityEvidence.Validation("nonconformance-evidence");
@@ -1249,8 +1210,6 @@ public abstract partial record QualityRecord {
                 from row in CharacteristicRow.Admit(
                     subject,
                     measurement,
-                    // No material-review verdict is PENDING, never conforming: a lot whose review nobody ran
-                    // reads as accepted the moment absence borrows the passing row.
                     lot.Mrb.Find(reading.Index).IfNone(Disposition.PendingReview),
                     lot.Chains.Find(reading.Index))
                 select row)
@@ -1290,8 +1249,6 @@ public sealed partial class SampledLot {
     public Map<int, CharacteristicSubject> Subjects { get; }
     public Map<int, Disposition> Mrb { get; }
 
-    // The chain receipt governing a sampled characteristic, keyed by the same index its subject is: a lot whose
-    // closure a stack governs carries that evidence per row rather than re-evaluating a chain per record.
     public Map<int, Receipt<ChainEvidence>> Chains { get; }
 
     public EvidenceContext Context { get; }
@@ -1371,19 +1328,16 @@ public abstract partial record QualitySource {
     public sealed record Record(QualityRecord Value) : QualitySource;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class QualityEvidence {
     internal static readonly Op RecordOp = Op.Of(name: "fabrication:quality-record");
 
     internal static ValidationError Validation(string locus) => new($"quality:{locus}");
 
-    // A fraction is CLOSED on [0, 1]; the strictly-positive demand composes the folder witness rather than riding a
-    // mode flag, because a caller reading `positive: true` learns nothing the predicate name would not have said.
     internal static bool Fraction(Ratio value) =>
         value.As(RatioUnit.DecimalFraction) is var fraction
         && double.IsFinite(fraction) && fraction >= 0.0 && fraction <= 1.0;
 
-    // Operation gates answer on the record op; generated owners keep their diagnostic on the default validation rail.
     internal static Error Refused(RecordRefusal reason) => RecordOp.InvalidResult(detail: reason.Key);
 
     internal static FabricationFault Refusal(string locus) =>
@@ -1392,9 +1346,6 @@ public static class QualityEvidence {
     internal static K<Validation<Error>, Unit> Gate(bool condition, RecordRefusal reason) =>
         AdmissionSlots.Gate(condition, Refused(reason));
 
-    // The record plane's OWN column writers over the shared codec — one per page-owned shape, each an ordinary
-    // extension on the writer, so every preimage site chains and no site re-spells a column order. The seal at
-    // `Documentation/passport` composes these and authors only the passport arm.
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Key(ContentKey key) => key.CanonicalBytes(sink);
 
@@ -1403,8 +1354,6 @@ public static class QualityEvidence {
         internal CanonicalWriter Window(Interval period) => sink
             .I64(period.Start.ToUnixTimeTicks()).I64(period.End.ToUnixTimeTicks());
 
-        // A quantity's family is its `QuantityInfo.Name` and its magnitude its base-unit reading, so the preimage
-        // never depends on the unit a caller constructed with and a unit RENAME cannot re-key a signed report.
         internal CanonicalWriter Amount(IQuantity value) => sink
             .String(value.QuantityInfo.Name)
             .Double(value.As(value.QuantityInfo.BaseUnitInfo.Value));
@@ -1432,8 +1381,6 @@ public static class QualityEvidence {
             .Discriminant(row.Subject.Class)
             .Reading(row.Measurement)
             .Discriminant(row.Verdict)
-            // The chain frames itself through its OWN carrier facade, so the stackup bytes this preimage covers
-            // are byte-identical to the ones its owner keyed and no column order lives at two sites.
             .Maybe(row.Stackup, static (inner, stackup) => stackup.CanonicalBytes(inner, ChainEvidence.Frame));
 
         internal CanonicalWriter Chemistry(ChemistryRow row) => sink
@@ -1525,8 +1472,6 @@ public static class QualityEvidence {
             .Maybe(feature.ToleranceMm, static (row, value) => row.Double(value))
             .Double(feature.UncertaintyMm).Discriminant(feature.Method);
 
-        // An upstream receipt enters by the columns THIS attestation covers: its identity, its verdict, and the
-        // demands it published. Its own owner keys its full shape.
         internal CanonicalWriter Procedure(ProcedureReceipt receipt) => sink
             .String(receipt.WpsId.ToValue()).Ordinal(receipt.Revision).String(receipt.PqrId.ToValue())
             .Discriminant(receipt.Process).Bool(receipt.Qualified).Moment(receipt.At)
@@ -1607,7 +1552,7 @@ public static class QualityEvidence {
 - Boundary: the values stay `PropertyValue` as the seam authored them — this fold selects and groups, it never re-resolves a material, re-derives a quantity, or renders a sheet.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ScheduleRow(PropertyName Row, PropertyValue Value);
 
 public sealed record ScheduleEntry(UInt128 Element, PropertyName Kind, Seq<ScheduleRow> Rows);
@@ -1620,15 +1565,10 @@ public sealed partial class ScheduleKind {
         type: Seq(DetailSchema.BarType, DetailSchema.NominalDiameter, DetailSchema.CrossSectionArea, DetailSchema.BendShapeCode),
         occurrence: Seq(DetailSchema.NominalLength),
         optional: Seq(DetailSchema.BendSchedule));
-    // A THROAT is a line-weld dimension: a plug or slot resists on its hole area and publishes none, so gating the
-    // map on one would delete every hole weld from the deliverable. The connected-part thickness and the run every
-    // weld carries gate instead, and the throat rides the optional block beside the procedure it belongs to.
     public static readonly ScheduleKind WeldMap = Of("weld-map", "WeldMap",
         type: Seq(DetailSchema.JointType, DetailSchema.PartThickness, DetailSchema.NominalLength),
         occurrence: Seq(DetailSchema.CarriedMemberWidth, DetailSchema.CarriedMemberDepth),
         optional: Seq(DetailSchema.EffectiveThroat, DetailSchema.WeldPrep));
-    // The stud names the SAME FastenerType token its kind row already publishes; an AccessoryType demand would force
-    // a welded connector to mint a discrete-accessory value its IFC entity does not carry.
     public static readonly ScheduleKind StudLayout = Of("stud-layout", "StudLayout",
         type: Seq(DetailSchema.FastenerType, DetailSchema.NominalDiameter, DetailSchema.NominalLength, DetailSchema.FieldSpacing),
         occurrence: Seq(DetailSchema.EdgeSpacing),
@@ -1639,18 +1579,14 @@ public sealed partial class ScheduleKind {
     public Seq<PropertyName> OccurrenceRows { get; }
     public Seq<PropertyName> OptionalRows { get; }
 
-    // The gating roster is the two custodies read in order — declared once so no fold site re-spells the union.
     public Seq<PropertyName> RequiredRows => TypeRows + OccurrenceRows;
 
-    // An omitted optional roster is the empty Seq the struct default already is, so a kind with no extension names none.
     private static ScheduleKind Of(string key, string row, Seq<PropertyName> type, Seq<PropertyName> occurrence, Seq<PropertyName> optional = default) =>
         new(key, PropertyCategory.Fabrication.Row(row), type, occurrence, optional);
 
     static Option<ScheduleRow> Read(PropertyBag realization, PropertyName name) =>
         realization.Find(name).Map(value => new ScheduleRow(name, value));
 
-    // A deliverable exists only where the bag carries every REQUIRED input; the optionals then append whatever the
-    // instance actually realized, so absence narrows a schedule row rather than deleting the schedule.
     public Option<ScheduleEntry> Fold(UInt128 element, PropertyBag realization) =>
         RequiredRows
             .Traverse(name => Read(realization, name))
@@ -1659,7 +1595,7 @@ public sealed partial class ScheduleKind {
                 element, Row, required + OptionalRows.Choose(name => Read(realization, name))));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShopSchedule {
     public static Seq<ScheduleEntry> Of(Seq<RealizedDetail> realized) =>
         realized

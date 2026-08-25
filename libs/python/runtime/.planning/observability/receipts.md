@@ -65,7 +65,7 @@ type Phase = Literal["admitted", "planned", "emitted"]
 type LogLevel = Literal["debug", "info", "warning", "error", "critical"]
 type EventDict = dict[str, object]
 type Scrub = Literal["drop", "mask", "hash"]
-type ReceiptEvidence = tuple[Phase, str, dict[str, object]] | BoundaryFault | DrainReceipt[object]  # evidence/evidence owns the branch-facing `Evidence` union
+type ReceiptEvidence = tuple[Phase, str, dict[str, object]] | BoundaryFault | DrainReceipt[object]
 type Streamable = Receipt | Iterable[Receipt] | ReceiptContributor
 type Contributing[**P, R: ReceiptContributor] = Callable[P, R] | Callable[P, Awaitable[R]]
 type BoundLogger = structlog.typing.FilteringBoundLogger
@@ -75,35 +75,20 @@ type LevelBinding = tuple[int, LevelSelector, LevelSelector]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# pinned composition-scope default: every scope-keyed custody surface (hooks tables, metrics state, install-receipt
-# maps, this page's default-sink resolution) imports this one spelling, so the bare call shape stays scope-free.
 DEFAULT_SCOPE: Final[ScopeKey] = "default"
 
-# One literal owns the drain vocabulary and both tuples derive from it, so the drained line, the metrics counter, and the
-# lanes fold can never disagree on a column and a new disposition reaches all three from one member. `accepted` is the
-# ADMITTED TOTAL the terminal columns exactly partition — `DrainReceipt.of` derives `cancelled` as the remainder, so
-# hit + completed + rejected + cancelled == accepted by construction. The line reports both because a reader wants the
-# denominator beside its parts; the tag-partitioned counter folds `DRAIN_DISPOSITIONS` alone, where a total riding as one
-# more dimension VALUE makes every sum across that dimension read twice the work drained.
 ADMITTED: Final[DrainOutcome] = "accepted"
 DRAIN_COLUMNS: Final[tuple[DrainOutcome, ...]] = get_args(DrainOutcome.__value__)
 DRAIN_DISPOSITIONS: Final[tuple[DrainOutcome, ...]] = tuple(column for column in DRAIN_COLUMNS if column != ADMITTED)
 
 PHASE_LEVEL: Final[Map[Phase, LogLevel]] = Map.of_seq([("admitted", "debug"), ("planned", "debug"), ("emitted", "info")])
 
-# instrumentation-scope grammar the whole branch already enforces at its hook, meter, and instrument owners, spelled
-# HERE because `measured` is the one exported ingress carrying a FREE scope a sibling package supplies. Anchors are
-# `\\A`/`\\Z` rather than `^`/`$`, so the pattern bounds itself under every match verb: `$` matches ahead of a
-# trailing newline, handing a `search` or `match` caller two scopes that render alike.
 SCOPE_ID: Final[re.Pattern[str]] = re.compile(r"\Arasm(\.[a-z0-9_]+)+\Z")
 
 REDACTED: Final[str] = "***"
 
-# reserved event key the per-emit Redaction rides so the logging-owned chain processor scrubs the whole line; `apply` strips it pre-render.
 REDACTION_KEY: Final[str] = "_redaction"
 
-# one row per LogLevel carrying (numeric level, sync selector, async mirror) — configure derives the filter floor and both emit arms bind
-# their selector halves; never a stringly `getattr(log, level)` and never a bare numeric floor literal beside the row that owns it.
 LEVEL_METHOD: Final[Map[LogLevel, LevelBinding]] = Map.of_seq([
     ("debug", (10, lambda log: log.debug, lambda log: log.adebug)),
     ("info", (20, lambda log: log.info, lambda log: log.ainfo)),
@@ -112,12 +97,8 @@ LEVEL_METHOD: Final[Map[LogLevel, LevelBinding]] = Map.of_seq([
     ("critical", (50, lambda log: log.critical, lambda log: log.acritical)),
 ])
 
-# enc_hook=repr degrades non-native values instead of raising on the hot path; order="deterministic" fixes key order so the one
-# encoder doubles as the canonical hash-class input and the logging-owned render serializer. encode_into's reused-buffer form
-# stays out: the renderer contract returns each line's own bytes and emit crosses threads, so a shared buffer would race.
 ENCODE: Final[Callable[[object], bytes]] = Encoder(enc_hook=repr, order="deterministic").encode
 
-# own-process handle minted once; the metrics sibling carries its own handle.
 _PROCESS: Final[psutil.Process] = psutil.Process()
 
 PROCESS_FAULTS: Final[tuple[type[psutil.Error], ...]] = (psutil.NoSuchProcess, psutil.ZombieProcess, psutil.AccessDenied)
@@ -126,12 +107,6 @@ PROCESS_FAULTS: Final[tuple[type[psutil.Error], ...]] = (psutil.NoSuchProcess, p
 
 
 class Ring[T](Struct, frozen=True):
-    # bounded evidence window with COUNTED loss, the one owner every retaining plane parks through — a hook replay
-    # window, an isolated-fault window, any bounded fact buffer. `shed` counts what the window EVICTED under
-    # pressure, oldest-out being the retained-window contract, so the trim that used to drop in silence publishes
-    # its own number; `lost` counts facts whose own SINK refused them, which the window still holds as exactly the
-    # evidence that sink could not carry. Both counters are monotonic over the ring's life, so a capsule reading
-    # `facts()` beside the retained block always knows what it is missing rather than reading a full window as whole.
     cap: int
     held: Block[T] = Block.empty()
     shed: int = 0
@@ -143,33 +118,16 @@ class Ring[T](Struct, frozen=True):
         return structs.replace(self, held=filled.skip(evicted), shed=self.shed + evicted)
 
     def refused(self, value: T) -> "Ring[T]":
-        # the parking arm the sink's RAIL selects, never a flag on `park`: whether a fact reached its reader is a
-        # fact about the sink and unrecoverable from the value, so the caller holding that rail picks the arm while
-        # the window retains the evidence either way. A refused fact parks AND counts — dropping it here loses
-        # precisely the fault the sink could not report, which is the one loss no other plane can reconstruct.
         return structs.replace(self.park(value), lost=self.lost + 1)
 
     def moved(self, prior: "Ring[T]") -> tuple[int, int]:
-        # the two counters' DELTA since `prior` — what a COUNTER instrument sums, where the running totals `facts`
-        # publishes would re-add the whole window's history at every record. Generic by construction: the measure
-        # NAMES belong to whichever plane parks through this ring, so the carrier answers the movement and never a
-        # series, exactly as `facts` answers the accounting and never a log line.
         return self.shed - prior.shed, self.lost - prior.lost
 
     def facts(self) -> EventDict:
-        # accounting projection a capsule or a retirement receipt renders beside the retained block; the retained
-        # COUNT rides here and the facts themselves stay the caller's to project under its own key.
         return {"cap": self.cap, "retained": len(self.held), "shed": self.shed, "lost": self.lost}
 
 
 class Cost(Struct, frozen=True, gc=False):
-    # bracket-cheap process-spend evidence: two `sampled` reads per bracket, `spent` the spend between them. `rss_bytes`
-    # is an instantaneous sample whose signed delta attributes retained-memory change without claiming an unobserved peak.
-    # Every measured slot is REQUIRED, so no construction publishes a reading nobody took and the type carries no zeroed
-    # identity a fold could seed from. `io_bytes` alone spells absence, its counter platform-gating whole — macOS binds
-    # no `io_counters` at all — and an unavailable counter erases neither the CPU, RSS, nor switch sample. That absence
-    # rides both projections as an OMITTED key, exactly as an unfilled dimension does, never as the zero a
-    # `rasm.cost.byte_volume` distribution would then trend as a real transfer that moved nothing.
     cpu_ms: float
     rss_bytes: int
     switches: int
@@ -188,11 +146,6 @@ class Cost(Struct, frozen=True, gc=False):
                     io_bytes=_io_volume(process),
                 )
             )
-        # a vanished, zombied, or access-denied process MEASURED NOTHING, and this is the one shape that says so —
-        # `ProcessReading.sample` takes that same absence at the gauge owner, held here for the same reason. A zeroed
-        # `Cost` in its place is not a small error: the reads are CUMULATIVE process counters, so a failed OPENING
-        # read makes the closing one's whole process lifetime read as this bracket's spend, and a failed CLOSING read
-        # publishes zero CPU beside a hugely negative RSS delta. Both land on `rasm.cost.*` as measured facts.
         return Nothing
 
     @classmethod
@@ -201,17 +154,10 @@ class Cost(Struct, frozen=True, gc=False):
 
     @staticmethod
     def _volume(left: int | None, right: int | None, fold: Callable[[int, int], int]) -> int | None:
-        # Gated axes fold only where BOTH ends measured. Counter presence is a platform fact fixed for the whole
-        # process, so this never drops a real reading, and seeding the missing half at zero would report a bracket's
-        # whole transfer as the other half's alone.
         return None if left is None or right is None else fold(left, right)
 
     @staticmethod
     def spent(closing: "Option[Cost]", opening: "Option[Cost]") -> "Option[Cost]":
-        # a bracket has a spend only when BOTH ends read: absence on either side is what forecloses attributing a
-        # cumulative counter's whole history to one window. RSS stays signed because retained-memory change is
-        # legitimately negative; the three monotonic counters floor at zero, where a negative reading can only mean
-        # a replacement process stood between the two reads.
         return opening.bind(
             lambda prior: closing.map(
                 lambda now: Cost(
@@ -225,9 +171,6 @@ class Cost(Struct, frozen=True, gc=False):
 
     @staticmethod
     def combined(left: "Cost", right: "Cost") -> "Cost":
-        # receipts-semigroup cost instance: aggregation over brackets, never a generic accumulator. It carries no
-        # identity element because a zero-filled `Cost` is a reading no bracket took, so a fold over brackets seeds
-        # from its own first member.
         return Cost(
             cpu_ms=left.cpu_ms + right.cpu_ms,
             rss_bytes=left.rss_bytes + right.rss_bytes,
@@ -240,10 +183,6 @@ class Cost(Struct, frozen=True, gc=False):
         return held if self.io_bytes is None else held | {"io_bytes": self.io_bytes}
 
     def measures(self) -> dict[str, float]:
-        # instrument projection keyed by the metrics-owned `rasm.cost.<measure>` rows — the bench correspondence
-        # pattern: the producer spells the mapping, the one `INSTRUMENTS` table owns the rows. A host binding no
-        # I/O counter omits its measure entirely, so `rasm.cost.byte_volume` carries the crossings that measured
-        # transfer and nothing else, where a zeroed reading would drag every percentile of that distribution down.
         held = {
             "rasm.cost.cpu_time": self.cpu_ms,
             "rasm.cost.memory_delta": float(self.rss_bytes),
@@ -261,8 +200,6 @@ class DrainReceipt[T](Struct, frozen=True):
     cache: Map[ContentKey, T] = Map.empty()
     faults: Block[BoundaryFault] = Block.empty()
     hit: int = 0
-    # absent when either end of the drain-window bracket failed to read: a window with no
-    # measurable spend reports none rather than a zero a board reads as a free drain.
     cost: Option[Cost] = Nothing
 
     @staticmethod
@@ -295,9 +232,6 @@ class DrainReceipt[T](Struct, frozen=True):
 
 @tagged_union(frozen=True)
 class Payload:
-    # the EVIDENCE half alone: `owner` and `subject` left every case for the spine's `concern`, so the partition a
-    # reader groups on is one column rather than a slot each case re-spells and a fourth case could omit. A producer
-    # receipt is a case HERE — never a sibling `*Receipt` struct minting its own six columns beside this one.
     tag: Literal["fact", "rejected", "drained"] = tag()
     fact: tuple[Phase, dict[str, object]] = case()
     rejected: BoundaryFault = case()
@@ -305,28 +239,16 @@ class Payload:
 
 
 class Concern(Struct, frozen=True, gc=False):
-    # the partition every receipt names itself by. `subject` is `Option` because a rejection names its subject on the
-    # fault it carries and a drain names a WINDOW rather than a production — spelling either as a literal here would
-    # mint a coordinate no producer took, which is exactly what `docs/laws/scars.md` `[FORGED_ZERO]` rules out.
     owner: str
     subject: Option[str] = Nothing
 
 
 class Provenance(Struct, frozen=True, gc=False):
-    # lineage as KEYS, never names: a walk joins receipts on these and never on a subject string two producers spell
-    # alike. `produced` is required because a provenance row naming no output is the absence the spine's own `Option`
-    # already states, and `consumed` is empty for a source production that read nothing.
     produced: ContentKey
     consumed: Block[ContentKey] = Block.empty()
 
 
 class Receipt(Struct, frozen=True, omit_defaults=True):
-    # THE settled-receipt spine: six columns every producer in the branch settles onto, so a lineage walk, a capsule,
-    # and a log line read ONE shape instead of eleven `*Receipt` structs landing the same columns unevenly. Four of
-    # the six ride ABSENCE-bearing carriers, because a production that keyed nothing, consumed nothing, breached
-    # nothing, and took no clock reading must SAY so — a required slot makes every emitter forge a value, which is
-    # the `byte_length=0`/`descriptor_key` defect this spine exists to foreclose. Per-case field arity stays the
-    # producer's: the payload case owns its own slots table, the spine owns only these six.
     payload: Payload
     concern: Concern
     key: Option[ContentKey] = Nothing
@@ -344,9 +266,6 @@ class Receipt(Struct, frozen=True, omit_defaults=True):
         band: Block[str] = Block.empty(),
         stamp: Option[Hlc] = Nothing,
     ) -> "Receipt":
-        # ONE mint over the whole family: the two positional arguments are the whole obligation, so a producer with no
-        # key, lineage, band, or stamp writes exactly what it always wrote, and one that HOLDS them names them rather
-        # than minting a struct of its own. The evidence shape selects the payload case; nothing here infers a column.
         settled = partial(Receipt, key=key, provenance=provenance, band=band, stamp=stamp)
         match evidence:
             case BoundaryFault() as fault:
@@ -359,15 +278,9 @@ class Receipt(Struct, frozen=True, omit_defaults=True):
                 assert_never(unreachable)
 
     def keyed(self, fmt: str, *parts: bytes) -> RuntimeRail["Receipt"]:
-        # the ONE preimage facade a receipt keys through. `IdentitySource(parts=...)` carries the count-and-length
-        # framing law at its own owner, so no producer spells a `to_bytes` width or a `b"|".join` of its own — a bare
-        # join is not injective and two specs differing by one separator byte collide onto one key. A receipt that
-        # took no key keeps `Nothing`; this mints from real preimage bytes and never from a canon-only value.
         return ContentIdentity.of(fmt, IdentitySource(parts=parts)).map(lambda minted: structs.replace(self, key=Some(minted)))
 
     def project(self) -> tuple[LogLevel, str, EventDict]:
-        # event name is its own slot — never packed under an "event" key the sink re-pops. The four spine columns
-        # OMIT where absent, exactly as an unfilled dimension does, so a line never carries a key or stamp nobody took.
         seat: EventDict = (
             {"owner": self.concern.owner}
             | self.concern.subject.map(lambda held: {"subject": held}).default_value({})
@@ -404,15 +317,6 @@ class Redaction(Struct, frozen=True):
         return {key: redacted for key, value in facts.items() if key != REDACTION_KEY for redacted in self._classify(key, value)}
 
     def _classify(self, key: str, value: object) -> tuple[object, ...]:
-        # classification is by KEY NAME at every depth, never at the top level alone: a collector document nests its
-        # receipt maps and replay rings, and a producer's own fact can carry a mapping or a sequence of them, so a
-        # classified field seated one level down would reach the archive and the wire unscrubbed while its top-level
-        # twin scrubbed. The key's own row is read FIRST, so a classified value reduces WHOLE under its class —
-        # dropped, masked, or hashed alike — and only an UNCLASSIFIED container is descended into; descending first
-        # would hash a container's already-scrubbed projection and mask members the class had settled entire.
-        # Scalars terminate immediately, and every TEXT and BUFFER shape is excluded from the sequence arm: `str`,
-        # `bytes`, and `bytearray` each register as Sequences, so iterating one yields characters or integers rather
-        # than members and a caller's buffer would reach the sink expanded past recognition.
         match self.classified.try_find(key), value:
             case Option(tag="some", some=scrub), _:
                 return self._reduce(scrub, value)
@@ -435,16 +339,12 @@ class Redaction(Struct, frozen=True):
                 assert_never(unreachable)
 
 
-# public keep-all policy a sibling with no classified field threads into @receipted(OPEN); depends on the Redaction model, so it anchors here.
 OPEN: Final[Redaction] = Redaction(classified=Map.empty())
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _io_volume(process: psutil.Process) -> int | None:
-    # gated counter read seated OUTSIDE the bracket's `oneshot`: that block caches the kinfo/taskinfo pair behind cpu
-    # times, RSS, and switches alone, so folding this member in buys batching that is not there. An unbound member and
-    # a denied read alike MEASURED NOTHING on this axis and answer so.
     if not hasattr(process, "io_counters"):
         return None
     with suppress(*PROCESS_FAULTS):
@@ -459,8 +359,6 @@ def _rss() -> EventDict:
     return {}
 
 
-# one default-sink resolution both emit arms share: absent folds to the scope-resolved get_logger fetched per emit, never
-# cached — the default scope keeps the bare global logger (today's line shape), a composition scope binds its own key.
 def _sink(sink: BoundLogger | None, scope: ScopeKey) -> BoundLogger:
     fetched = structlog.get_logger if scope == DEFAULT_SCOPE else partial(structlog.get_logger, composition=scope)
     return Option.of_optional(sink).default_with(fetched)
@@ -476,8 +374,6 @@ def _stream(source: Streamable) -> Iterable[Receipt]:
             return source
 
 
-# one render fold both sinks share — emit/emit_async differ only by which selector half they drive. Redaction is NOT applied here:
-# logging's chain processor runs after the contextvars/trace injectors; this fold only binds it under `REDACTION_KEY`.
 def _render(source: Streamable, redaction: Redaction) -> Iterator[tuple[LevelBinding, str, EventDict]]:
     for receipt in _stream(source):
         level, name, fields = receipt.project()
@@ -502,14 +398,6 @@ class Signals:
 
     @staticmethod
     def continue_inbound(carrier: Mapping[str, str]) -> Context:
-        # `context=` stays UNPASSED by law, and the default is not a convenience: `propagate.extract` forwards `None`
-        # to the composite, whose trace-context leg seeds a FRESH ROOT and returns it untouched when the carrier
-        # holds no `traceparent` — so a crossing that carried no parent attaches a root and runs unparented, which
-        # is exactly what the boundary rules for a pickled worker with no install of its own. Passing
-        # `context=get_current()` here reads as defensive and silently grafts whatever span the EXTRACTING thread
-        # inherited — a thread the instrumentor train may have handed the caller's context — onto the crossing as
-        # its parent, minting a hop that never happened. A malformed or version-refused header takes the same root
-        # path, so a forged carrier can never re-parent this leg either.
         return propagate.extract(carrier)
 
     @staticmethod
@@ -528,8 +416,6 @@ def _tracer(scope: str) -> trace.Tracer:
 
 
 def _marked(fault: BoundaryFault) -> BoundaryFault:
-    # faults-owned conversion marks a raise caught under this span; a pre-railed fault arrives already converted,
-    # so its ERROR status and fault-fact event land here — each path marks the span exactly once, no double-record.
     span = trace.get_current_span()
     if span.is_recording():
         seat = fault.owner.map(lambda leg: {FAULT_OWNER: leg}).default_value({})
@@ -539,21 +425,16 @@ def _marked(fault: BoundaryFault) -> BoundaryFault:
 
 
 def _flat[T](value: "T | RuntimeRail[T]") -> "RuntimeRail[T]":
-    # a rail-returning dispatch (a lane offload, a fenced fold) already carries its rail; a bare value lifts Ok.
-    # a carried Error crossed no fence under this span, so the lift is where its ERROR status lands.
     return value.map_error(_marked) if isinstance(value, Result) else Ok(value)
 
 
 def _harvested[T](value: T, redaction: Redaction, scope: ScopeKey) -> T:
-    # fenced emit step: a ReceiptContributor streams its receipts, a plain value passes through untouched.
     if isinstance(value, ReceiptContributor):
         Signals.emit(value, redaction, scope=scope)
     return value
 
 
 async def _harvested_async[T](value: T, redaction: Redaction, scope: ScopeKey) -> T:
-    # async mirror of the fenced emit step: the woven arm awaits `Signals.emit_async` so a contributor harvest
-    # never runs a sync sink on the event loop.
     if isinstance(value, ReceiptContributor):
         await Signals.emit_async(value, redaction, scope=scope)
     return value
@@ -565,8 +446,6 @@ def _closed[T](span: Span, value: T) -> T:
 
 
 async def _lifted[T](rail: RuntimeRail[T]) -> RuntimeRail[T]:
-    # a settled rail wearing the awaitable shape a declared-async caller awaits, so one refusal site serves both
-    # modalities and neither arm grows a refusal spelling the other lacks.
     return rail
 
 
@@ -574,17 +453,6 @@ def measured[T](
     scope: str, subject: str, redaction: Redaction, dispatch: Callable[[], T] | Callable[[], Awaitable[T]],
     facts: Mapping[str, str | int | float | bool] = Map.empty(), *, composition: ScopeKey = DEFAULT_SCOPE,
 ) -> RuntimeRail[T] | Awaitable[RuntimeRail[T]]:
-    # Exemption: the span lifecycle and the modality probe are the platform-forced seam every evidence producer
-    # composes instead of re-authoring; emission runs inside its own fence, so an emit-time raise folds onto the rail.
-    # Two axes this page mints stay SEPARATE across the weave: `scope` names the INSTRUMENTATION scope of the emitting
-    # library, spent on `_tracer` and on the fence labels alone, while `composition` carries the custody key the harvest
-    # hands `Signals.emit`, where `_sink` binds a `composition`-bound logger. Spending one value on both binds every
-    # producer's harvest under a tracer name no `ScopeKey` vocabulary owns, and leaves a producer holding a real
-    # composition key no parameter to thread it through.
-    # Scope grammar refuses BEFORE any span mints: an off-grammar scope reaching `_tracer` opens a span whose
-    # instrumentation scope no backend joins against its versioned siblings, and no later gate retracts an exported
-    # span. The modality probe hoists so ONE refusal serves both arms — the async caller awaits `_lifted`, the sync
-    # caller reads the rail — where a per-arm refusal lets one modality drift off the other.
     awaiting = iscoroutinefunction(dispatch) or iscoroutinefunction(getattr(dispatch, "__call__", None))
     if SCOPE_ID.fullmatch(scope) is None:
         refusal: RuntimeRail[T] = Error(RECEIPTS_SCOPE.raised(scope))
@@ -597,12 +465,9 @@ def measured[T](
         return span
 
     async def settled(span: Span, pending: Callable[[], Awaitable[T]]) -> RuntimeRail[T]:
-        # one async settle for both modalities: the declared-async arm hands in the span it just opened, the sync arm
-        # hands the SAME still-open span its dispatch ran under — a sync-minted awaitable finishes inside the original
-        # span, never a sibling pair whose first member closed un-statused at the mint.
         with trace.use_span(span, end_on_exit=True):
             rail = (await async_boundary(RECEIPTS_DISPATCH, pending, catch=Exception)).map_error(_marked).bind(_flat)
-            match rail:  # one total carrier match — `expression` ships no async builder, and the harvest awaits emit_async
+            match rail:
                 case Result(tag="ok", ok=value):
                     return (
                         await async_boundary(RECEIPTS_EMIT, lambda: _harvested_async(value, redaction, composition), catch=Exception)
@@ -610,7 +475,6 @@ def measured[T](
                 case _:
                     return rail
 
-    # declared modality routes first: a coroutine function or an async-`__call__` instance never touches the sync arm.
     if awaiting:
         return settled(opened(), dispatch)
     span = opened()
@@ -618,8 +482,6 @@ def measured[T](
         railed = boundary(RECEIPTS_DISPATCH, dispatch, catch=Exception).map_error(_marked).bind(_flat)
         match railed:
             case Result(tag="ok", ok=pending) if isawaitable(pending):
-                # a sync-declared callable can still RETURN an awaitable (a lambda minting a coroutine); the settle
-                # continues under the SAME open span, which ends when the awaited half resolves — Ok(coroutine) never escapes.
                 return settled(span, lambda: pending)
             case _:
                 outcome = railed.bind(

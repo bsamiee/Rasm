@@ -24,7 +24,6 @@ Document egress as one folded `Report.Spec` family: the format discriminant sele
 - Packages: `effect` (`Effect`, `Stream`, `Duration`, `Deferred`, `Ref`, `Clock`, `DateTime`); `../proc/worker.ts` (`Bench`, `Render` — the off-thread crossing); `./entity.ts` (`Settled` — the receipt spine).
 
 ```typescript signature
-// named-only tree: the package ships no default export, so the namespace import is the one admissible spelling
 import * as ExcelJS from "exceljs"
 import { jsPDF } from "jspdf"
 import JSZip from "jszip"
@@ -39,32 +38,13 @@ import { Settled } from "./entity.ts"
 
 const _utf8 = new TextEncoder()
 
-// ONE node-stream lift for this module's two engines, PULLED rather than pushed: iterating a node readable applies
-// that stream's own high-water mark back up the pipe, so an engine deflates at the consumer's pace and the sealed
-// body carries the backpressure its law claims. `Stream.async`/`asyncScoped` default to `Queue.bounded(16)` whose
-// offers run as DETACHED promises, so a synchronous `on("data")` producer never blocks on a full queue and every
-// excess chunk parks a fiber still holding its bytes — the whole artifact on the heap under a bound the page never
-// declared and no reader can see. The shipped `NodeJS.ReadableStream` iterator widens each read to `string | Buffer`
-// whatever type option the generator fixed, so the encode arm narrows on the VALUE rather than casting the widening
-// away, and an option change surfaces as a live branch instead of a lie the compiler already believed.
 const _drained = <E>(readable: NodeJS.ReadableStream, refuse: (cause: unknown) => E): Stream.Stream<Uint8Array, E> =>
   Stream.map(Stream.fromAsyncIterable(readable, refuse), (chunk) => typeof chunk === "string" ? _utf8.encode(chunk) : chunk)
 
-// ONE closed production-modality roster. Four spellings of this set stood apart before — the spec union's `format`
-// field, the fault's own `arm` literal, the worker request's `kind`, and the bundle plan's entry column — and each
-// one now reads this anchor, so a fifth modality lands as one tuple member and every table breaks at compile time.
 const _MODALITIES = ["csv", "xlsx", "pdf", "zip"] as const
 const _Format = Schema.Literal(..._MODALITIES)
 const _Measure = Schema.Literal("bytes", "rows")
 
-// The per-case policy that stood as loose constants and hand-written ternaries.
-//  `offload` is the WHOLE off-thread declaration as one option — the measured threshold, the unit it measures, and
-//  the `proc/worker` request kind that crossing carries — so the three arrive together or not at all and an arm
-//  cannot dial a pool the roster gave it no request kind for. It collapses the module-wide `offloadRows` constant
-//  and the caller-supplied bundle threshold onto one column, because placement is this owner's policy: the caller
-//  states a materialization ceiling on its own spec, never where the work runs.
-//  `compression` is the archive policy a member of this modality takes inside a bundle — already-compressed
-//  containers store, text deflates — read at both the streaming and the off-thread archive folds.
 const _MODALITY: { readonly [K in Report.Format]: Report.Modality } = {
   csv: { compression: "DEFLATE", offload: Option.none() },
   xlsx: { compression: "STORE", offload: Option.none() },
@@ -72,10 +52,6 @@ const _MODALITY: { readonly [K in Report.Format]: Report.Modality } = {
   zip: { compression: "STORE", offload: Option.some({ above: 8_388_608, kind: "zip", unit: "bytes" }) },
 }
 
-// Every reason's subject names the ARM it refused on, closed against the modality roster, so a fault carries a
-// modality a fold reads back rather than a free word beside a free string. The two structural refusals declare their
-// own coordinates instead of rendering them into text: a breached bound carries the number and the unit it measured,
-// and an escaping archive entry carries the path and the anchor it left.
 const _Refused = Schema.Struct({ arm: _Format, detail: Schema.String })
 
 const _family = Fault.Class.family(["engine", "sink", "archive", "slip", "ceiling", "consumed"] as const, {
@@ -128,20 +104,13 @@ class ReportFault extends Schema.TaggedError<ReportFault>()("ReportFault", {
   }
 }
 
-// The settled-work spine with this producer's own evidence column: rows and bytes are what a meter fact and an
-// artifact index read, and the stamp pair, the concern partition, the provenance join, and the warning band arrive
-// from `entity#SETTLED_RECEIPT` rather than being restated as a second receipt vocabulary no consumer could join.
 class Rendered extends Settled.extend<Rendered>("Report.Rendered")({
   evidence: Schema.Struct({ bytes: Schema.Int, format: _Format, rows: Schema.Int }),
 }) {}
 
-// The placement read both offloadable arms take: the row's own threshold against the arm's own measure, answering the
-// request kind that crossing carries and nothing wherever the work stays on this thread.
 const _crossing = (arm: Report.Format, measured: number): Option.Option<Bench.Kind> =>
   Option.map(Option.filter(_MODALITY[arm].offload, (row) => measured > row.above), (row) => row.kind)
 
-// The worker's own faults, the wire decode, and the pool transport all answer `message`, so one projection re-keys
-// every crossing refusal onto the arm that dialled it and no site spells the tag alone.
 const _sank = (arm: Report.Format) => (fault: { readonly message: string }): ReportFault =>
   new ReportFault({ case: { reason: "sink", arm, detail: fault.message } })
 
@@ -204,8 +173,6 @@ declare namespace Report {
     readonly compression: "DEFLATE" | "STORE"
     readonly offload: Option.Option<{ readonly above: number; readonly kind: Bench.Kind; readonly unit: Measure }>
   }
-  // The row-fed subset: `zip` folds an already-gathered entry roster and takes no row stream, so the render dispatch
-  // is total over exactly the modalities a stream can drive and the archive keeps its own entry.
   type Fed = Spec<never>["format"]
   type Rendered = InstanceType<typeof Rendered>
   type Artifact<R> = {
@@ -241,8 +208,6 @@ const _BundlePlan = Schema.Struct({
 type PdfPlan = Schema.Schema.Type<typeof _PdfPlan>
 type BundlePlan = Schema.Schema.Type<typeof _BundlePlan>
 
-// The worker-side plan decode: `class` is DERIVED at the mint, so this refusal states its reason and its evidence and
-// cannot stamp a class the reason contradicts; the parse diagnostic that was discarded whole rides the row's subject.
 const _decodedPlan = <A, I>(schema: Schema.Schema<A, I>, kind: Bench.Kind, bytes: Uint8Array): Effect.Effect<A, BenchFault> =>
   Schema.decodeUnknown(Schema.parseJson(schema))(new TextDecoder().decode(bytes)).pipe(
     Effect.mapError((issue) =>
@@ -329,12 +294,7 @@ const _sealed = <R>(
                     settled,
                     new Rendered({
                       evidence: { bytes: yield* Ref.get(size), format, rows },
-                      // A render either wrote its whole declared column set or wrote nothing at all: this producer
-                      // separates no partial landing, so it states `whole` and forfeits the band rather than minting
-                      // a fourth word, and a zero-row render is the `empty` arm the spine already names.
                       partition: rows === 0 ? "empty" : "whole",
-                      // Runtime mints no content identity, so the produced id is the spec's own name and the data
-                      // wave's artifact-index put is what mints a key over the landed bytes.
                       provenance: { consumed: [], produced: name },
                       warnings: [],
                       at: yield* DateTime.now,
@@ -356,11 +316,6 @@ const _sealed = <R>(
     }
   })
 
-// The render dispatch is the roster's own mapped record over the row-fed cases: a modality without an arm and an arm
-// without a modality are both compile errors at this declaration, where the `Match.when` ladder over a foreign
-// `format` field proved neither and spent an `exhaustive` check re-deriving what the union already stated. Each cell
-// is an arrow rather than a bare reference because the arms are declared in their own sections below this one, so
-// the table names them at CALL time and its declaration order stays the section order.
 const _arms: {
   readonly [K in Report.Fed]: <A, R>(
     spec: Extract<Report.Spec<A>, { readonly format: K }>,
@@ -403,9 +358,6 @@ const _gathered = <R>(artifact: Report.Artifact<R>, ceiling: number): Effect.Eff
 - Packages: `exceljs` (`Workbook`, `stream.xlsx.WorkbookWriter`, `stream.xlsx.WorkbookReader`, `WorkbookStreamReaderOptions`, `WorksheetReader` with the locally declared `id`/`name`/`state` coordinate, `WorksheetState`, the `Style`/`Table`/`ConditionalFormattingRule`/`DataValidation` model); `effect` (`Stream.fromAsyncIterable`, `Stream.zipWithIndex`, `Option.fromNullable`).
 
 ```typescript signature
-// the three members the shipped `WorksheetReader` omits, each traced to the machine that installs it: the
-// constructor assigns `id` from the zip path and `name` as the `Sheet<id>` placeholder, and the workbook
-// registry match reassigns `id`, `name`, and `state` from the sheet row its rel resolves
 declare module "exceljs" {
   namespace stream.xlsx {
     interface WorksheetReader {
@@ -472,15 +424,9 @@ const _xlsxStream = <A, R>(spec: Report.Xlsx<A>, rows: Stream.Stream<A, never, R
           }),
           ({ sink, canonical }) => Effect.sync(() => { sink.destroy(); canonical.destroy() }),
         )
-        // Commit drives the sink while the consumer pulls the canonicalizer, so ExcelJS's own writes
-        // block on a full pipe rather than racing ahead of the drain.
         const driver = yield* Effect.forkScoped(_committed(spec, rows, bridge.sink, counted))
         return _drained(bridge.canonical, (cause) =>
           new ReportFault({ case: { reason: "sink", arm: "xlsx", detail: String(cause) } })).pipe(
-            // Bodies owe a reader the driver's REFUSAL and owe nothing on its success, because the writer
-            // finishing is not the archive finishing — the canonicalizer still holds a flush, and interrupting on
-            // that join truncates exactly the tail that closes the zip. Success therefore parks forever and the
-            // stream ends on the transform's own end, while a failure emits through this arm.
             Stream.interruptWhen(Effect.zipRight(Fiber.join(driver), Effect.never)),
           )
       })),
@@ -560,8 +506,6 @@ const _amended = (
   Stream.unwrap(
     Effect.map(
       Effect.sync(() => new ExcelJS.stream.xlsx.WorkbookReader(input, options)),
-      // two nested generators, one lift each: the workbook yields sheet readers and each sheet reader yields rows,
-      // so a stored artifact of any size crosses the seam a row at a time and never lands on the heap whole
       (reader) =>
         Stream.flatMap(
           Stream.map(
@@ -569,9 +513,6 @@ const _amended = (
               Stream.fromAsyncIterable(reader, (cause) =>
                 new ReportFault({ case: { reason: "engine", arm: "xlsx", detail: String(cause) } })),
             ),
-            // the coordinate mints once per sheet, never per row; the registry match replaced the constructor's
-            // captured zip digits with the workbook's parsed `sheetId`, so a numeric `id` proves the declared name
-            // landed and a surviving string leaves the ordinal as the only coordinate the read can honestly offer
             ([held, ordinal]): readonly [ExcelJS.stream.xlsx.WorksheetReader, Report.Sheet] => [
               held,
               {
@@ -666,8 +607,6 @@ const _pdf = <A, R>(
       return yield* Effect.fail(new ReportFault({ case: { reason: "ceiling", arm: "pdf", bound: spec.rowCeiling, unit: "rows" } }))
     }
     const cells = Array.map(values, (row) => _project(spec, row))
-    // A sealed password never crosses the thread seam, so protection withdraws the crossing rather than lowering the
-    // threshold: the row still owns placement, and the exemption is stated where it is taken.
     const bytes = yield* Option.match(Option.isNone(spec.protect) ? _crossing("pdf", cells.length) : Option.none(), {
       onNone: () => _drawn(spec, cells),
       onSome: (kind) => Effect.mapError(Render.rendered(kind, _planned(spec, cells)), _sank("pdf")),
@@ -721,8 +660,6 @@ const _workerBundle = (plan: BundlePlan): Effect.Effect<Uint8Array, BenchFault> 
     catch: (cause) => new BenchFault({ case: { reason: "starved", request: "Render", detail: `zip deflate — ${String(cause)}` } }),
   })
 
-// The plan handlers are a mapped record over the worker's OWN request roster, so a kind landing without a handler is
-// a compile error here — the ternary's `else` silently answered the wrong plan codec for every kind but one.
 const _plans: { readonly [K in Bench.Kind]: (plan: Uint8Array) => Effect.Effect<Uint8Array, BenchFault> } = {
   pdf: (plan) => Effect.flatMap(_decodedPlan(_PdfPlan, "pdf", plan), _workerPdf),
   zip: (plan) => Effect.flatMap(_decodedPlan(_BundlePlan, "zip", plan), _workerBundle),
@@ -790,10 +727,6 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 - Packages: `jszip` (`JSZip`, `generateNodeStream`, `generateAsync`, `loadAsync`, `JSZipMetadata`).
 
 ```typescript signature
-// `generateNodeStream` is the package's own backpressured form and takes the update callback as its SECOND
-// argument, so the progress projection keeps its seat while the read pulls; the `generateInternalStream` helper
-// beside it hands back a pause/resume handle a push bridge has to drive by hand, and driving it wrong buffers the
-// whole archive under a bound nothing declares.
 const _bundleStream = (spec: Report.Bundle): Stream.Stream<Uint8Array, ReportFault> =>
   Stream.unwrapScoped(Effect.map(
     Effect.acquireRelease(
@@ -837,10 +770,6 @@ const _unbundle = (bytes: Uint8Array, root: string) =>
   }).pipe(
     Effect.flatMap((zip) => {
       const anchor = path.resolve(root)
-      // Folder rows carry no raw name — the loader stamps `unsafeOriginalName` on file rows alone — so they leave
-      // before the guard rather than handing the resolver an absent path it answers by throwing. The claim reads the
-      // RAW name wherever one survives, because the sanitized `name` is the loader's own collapse of exactly the
-      // `..` segments this guard exists to judge.
       return Effect.forEach(Array.filter(Object.values(zip.files), (entry) => !entry.dir), (entry) => {
         const claimed = Option.getOrElse(Option.fromNullable(entry.unsafeOriginalName), () => entry.name)
         const target = path.resolve(anchor, claimed)
@@ -863,7 +792,7 @@ const Report = {
   worker: _worker,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Report, ReportFault }
 ```

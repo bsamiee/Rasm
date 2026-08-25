@@ -112,7 +112,7 @@ lazy from tempfile import NamedTemporaryFile
 type Bounds = tuple[float, float, float, float]
 type Grid = list[list[str | None]]
 type Spans = tuple[tuple[int, int, int, int], ...]
-type Trail = tuple[int, ...]  # structural path from the recovery root — the node's identity axis; synthesized intra-node leaves take negative slots
+type Trail = tuple[int, ...]
 type RecoverArm = Callable[[bytes, "LensProvider", "LensSpec"], tuple[DocumentNode, ...]]
 
 
@@ -120,17 +120,17 @@ class LensOp(StrEnum):
     EXTRACT_TEXT = "extract-text"
     EXTRACT_IMAGES = "extract-images"
     TABLE = "table"
-    TABLE_AUDIT = "table-audit"  # ruled-table extraction QA off the `debug_tablefinder` intermediates — the `delivery/gate#GATE` threshold source
+    TABLE_AUDIT = "table-audit"
     WORDS = "words"
-    CHARS = "chars"  # per-glyph forensic geometry: pdf_oxide TextChar rows carrying font metrics and the marked-content MCID
+    CHARS = "chars"
     REGION = "region"
-    STORY = "story"  # per-page tree recovery: the recover-TO inverse of `document/report#REPORT` REFLOW
-    PATHS = "paths"  # recovered vector geometry (fills/strokes/curves) for the AEC drawing plane
-    LAYOUT = "layout"  # computed per-page layout metrics (columns, medians, gap thresholds) — triage evidence
-    CLASSIFY = "classify"  # document/page classification verdicts (scanned/born-digital/form) — intake triage
-    LAYERS = "layers"  # OCG optional-content layer census
-    INKS = "inks"  # separation-ink (spot/process) census per page — the prepress read-side of `graphic/color/managed#MANAGED`
-    PAGE_LABELS = "page-labels"  # the page-label numbering tree
+    STORY = "story"
+    PATHS = "paths"
+    LAYOUT = "layout"
+    CLASSIFY = "classify"
+    LAYERS = "layers"
+    INKS = "inks"
+    PAGE_LABELS = "page-labels"
     OUTLINE = "outline"
     STRUCTURE = "structure"
     LINK = "link"
@@ -139,7 +139,7 @@ class LensOp(StrEnum):
     OCR = "ocr"
     EMBEDDED = "embedded"
     WIDGET = "widget"
-    FORM_DATA = "form-data"  # FDF/XFDF filled-form export — structured form-data recovery for the delivery plane
+    FORM_DATA = "form-data"
     ANNOTATE = "annotate"
     XLSX_READ = "xlsx-read"
     ODS_READ = "ods-read"
@@ -170,10 +170,10 @@ class InkDepth(StrEnum):
 
 
 class LensProvider(StrEnum):
-    PDFOXIDE = "pdf-oxide"  # MIT/Apache Rust core, ungated CORE — the commercial-safe layout-aware default
+    PDFOXIDE = "pdf-oxide"
     PYPDF = "pypdf"
     PLUMBER = "pdfplumber"
-    MUPDF = "pymupdf"  # AGPL-3.0 — reserved for permissive/internal lanes; PDFOXIDE supersedes it on the closed/distributed path
+    MUPDF = "pymupdf"
     PIKEPDF = "pikepdf"
     ODFPY = "odfpy"
     DOCX = "python-docx"
@@ -191,14 +191,14 @@ class LensProvider(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ORIGIN: Final[Bounds] = (0.0, 0.0, 0.0, 0.0)
-_KEY_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_KEY_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")
 _RECOVERED_FONT: Final[str] = "recovered"
-_VECTOR_MEDIA: Final[str] = "image/svg+xml"  # recovered vector-path FigureNode media type (the PATHS drawing-geometry marker)
+_VECTOR_MEDIA: Final[str] = "image/svg+xml"
 _HEADING_FLOOR: Final[int] = 1
 _HEADING_CEIL: Final[int] = 6
-_BOLD_FLAG: Final[int] = 16  # pymupdf span flag bit 4 — bold
-_ITALIC_FLAG: Final[int] = 2  # pymupdf span flag bit 1 — italic
-_SUPER_FLAG: Final[int] = 1  # pymupdf span flag bit 0 — superscript
+_BOLD_FLAG: Final[int] = 16
+_ITALIC_FLAG: Final[int] = 2
+_SUPER_FLAG: Final[int] = 1
 _GATED_PROVIDERS: Final[frozenset[LensProvider]] = frozenset({LensProvider.OCRMYPDF, LensProvider.CALAMINE, LensProvider.LXML})
 _HEADING: Final[tuple[StructEltKind, ...]] = (
     StructEltKind.H1,
@@ -212,17 +212,11 @@ _HEADING: Final[tuple[StructEltKind, ...]] = (
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE lift anchor. TRANSIENT — a recovery that died on a provider raise or a gated-companion worker death
-# is a defect a re-issue may clear; every op/provider admission refusal is `LensFault.provider`'s, never a row here.
 LENS_RECOVER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.LENS, point="recover", arm="boundary", defect="recover-fold", retriability=TRANSIENT
 )
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([LENS_RECOVER]))
 
-# the fence's whole raise surface: `_recovered` awaits a RAILED offload and collapses its terminal fault through
-# the shared `document/model#NODE` carrier, which `BoundaryFault.of` admits ahead of `CLASSIFY` so the fault crosses
-# back WHOLE on `domain`. Each reader arm's `@beartype` narrowing and every provider raise already converted inside
-# the worker, so no provider class rides here.
 _RECOVER_RAISES: Final[Catch] = (Lapse,)
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -230,31 +224,27 @@ _RECOVER_RAISES: Final[Catch] = (Lapse,)
 
 @tagged_union(frozen=True)
 class LensFault:
-    # Closed ADMISSION vocabulary `of` produces; every arm-level provider raise
-    # (`pymupdf.FileDataError`/`pdfplumber.PdfminerException`/`python_calamine.CalamineError`/
-    # `ocrmypdf.ExitCodeException`/`lxml.etree.XMLSyntaxError`) converts to the runtime `BoundaryFault`
-    # at the `async_boundary` capsule, never into this interior vocabulary.
     tag: Literal["payload", "unsatisfied", "provider"] = tag()
-    payload: tuple[str, ...] = case()  # the rejected LensPayload key paths
-    unsatisfied: tuple[LensOp, str] = case()  # an op whose `_REQUIRED` input field is empty
-    provider: tuple[LensOp, LensProvider] = case()  # a provider outside the op's `Route.providers` admission set
+    payload: tuple[str, ...] = case()
+    unsatisfied: tuple[LensOp, str] = case()
+    provider: tuple[LensOp, LensProvider] = case()
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class LensSpec(Struct, frozen=True, omit_defaults=True):
-    mode: str = "plain"  # pypdf `extract_text(extraction_mode=)`
-    reading_order: str = "column_aware"  # pdf_oxide `extract_spans(reading_order=)` XY-cut column detection ("top_to_bottom" | "column_aware")
-    include_artifacts: bool = False  # pdf_oxide `extract_words(include_artifacts=)`; False drops running header/footer/watermark spans
-    profile: str = ""  # pdf_oxide `extract_words(profile=)` layout-tuning profile — an `ExtractionProfile.available()` name (academic/form/government/scanned_ocr/…); "" keeps the adaptive default heuristics
-    flags: int = 0  # pymupdf `get_text("dict", flags=)`; 0 -> TEXTFLAGS_DICT
+    mode: str = "plain"
+    reading_order: str = "column_aware"
+    include_artifacts: bool = False
+    profile: str = ""
+    flags: int = 0
     x_tolerance: float = 3.0
     y_tolerance: float = 3.0
     use_text_flow: bool = False
     split_at_punctuation: bool = False
     extra_attrs: tuple[str, ...] = ("fontname", "size")
-    vertical: str = "lines"  # pdfplumber/pymupdf `vertical_strategy`
+    vertical: str = "lines"
     horizontal: str = "lines"
     snap_tolerance: float = 3.0
     join_tolerance: float = 3.0
@@ -263,51 +253,42 @@ class LensSpec(Struct, frozen=True, omit_defaults=True):
     text_tolerance: float = 3.0
     explicit_vertical: tuple[float, ...] = ()
     explicit_horizontal: tuple[float, ...] = ()
-    bbox: Bounds | None = None  # REGION crop window
-    repair: bool = False  # pdfplumber Ghostscript pre-repair
-    needle: str = ""  # SEARCH pattern
+    bbox: Bounds | None = None
+    repair: bool = False
+    needle: str = ""
     regex: bool = True
     case_sensitive: bool = True
-    language: tuple[str, ...] = ("eng",)  # OCR Tesseract language packs
+    language: tuple[str, ...] = ("eng",)
     dpi: int = 72
     full: bool = False
     filetype: str = "pdf"
-    output_type: str = "pdfa"  # ocrmypdf PDF/A target
-    ocr_mode: str = "force"  # ocrmypdf processing mode
+    output_type: str = "pdfa"
+    ocr_mode: str = "force"
     deskew: bool = False
     clean: bool = False
     rotate_pages: bool = False
     optimize: int = 1
-    load_tables: bool = False  # python-calamine Excel-table parse
+    load_tables: bool = False
     sheets: tuple[str, ...] = ()
     skip_empty_area: bool = True
-    typ: str = "rt"  # ruamel-yaml round-trip loader
-    recover: bool = True  # lxml recovering parser
-    form_format: Literal["fdf", "xfdf"] = "fdf"  # FORM_DATA pdf_oxide `export_form_data(format=)`; the Literal is the admission bound
-    ink_depth: InkDepth = InkDepth.DIRECT  # INKS selects its catalogued reader through the behavior-bearing policy value
+    typ: str = "rt"
+    recover: bool = True
+    form_format: Literal["fdf", "xfdf"] = "fdf"
+    ink_depth: InkDepth = InkDepth.DIRECT
 
 
 class TableAudit(Struct, frozen=True, gc=False):
-    # ONE page's ruled-table extraction quality, read off the `debug_tablefinder` pipeline's OWN intermediates
-    # (`edges -> intersections -> cells -> tables`) rather than off the tables that survived it — which is the whole
-    # point of a gate: a page whose rulings never cross reports its stray edge count and a zero crossing ratio, where
-    # a `find_tables` result reports nothing at all and a threshold on it cannot tell an unruled page from a clean
-    # one. Every field is a count the finder computed or a ratio over two of them; nothing here is estimated, and no
-    # slot names a quality judgment — the bar belongs to `delivery/gate#GATE`, this value only measures.
     page: int
-    tables: int  # contiguous cell groups the finder resolved into grids
-    cells: int  # rectangles the intersection lattice closed — always >= the cells any one table claims
-    intersections: int  # resolved edge-crossing vertices, the lattice the cells derive from
-    horizontals: int  # detected `orientation == "h"` ruling edges under the requested strategy
-    verticals: int  # detected `orientation == "v"` ruling edges
-    ruled: float  # ruling-line coverage: the share of detected edges reaching at least one intersection
-    filled: float  # the share of extracted table cells carrying text — a closed grid holding no text is a false positive
+    tables: int
+    cells: int
+    intersections: int
+    horizontals: int
+    verticals: int
+    ruled: float
+    filled: float
 
     @classmethod
     def of(cls, page: object, index: int, settings: Mapping[str, object], /) -> Self:
-        # `debug_tablefinder` hands back the `TableFinder` itself, so this reads the same pipeline `find_tables`
-        # runs and adds no second detection pass. Edge identity is the `(x0, top, x1, bottom)` box pdfplumber's own
-        # intersection resolver compares on, spelled from the documented edge-dict keys so no private helper crosses.
         finder = page.debug_tablefinder(dict(settings))
         edges = finder.edges
         crossing = {_edge_box(edge) for vertex in finder.intersections.values() for edge in (*vertex["v"], *vertex["h"])}
@@ -319,16 +300,11 @@ class TableAudit(Struct, frozen=True, gc=False):
             intersections=len(finder.intersections),
             horizontals=sum(edge["orientation"] == "h" for edge in edges),
             verticals=sum(edge["orientation"] == "v" for edge in edges),
-            # both ratios divide by a count that is legitimately zero on an unruled or table-free page, and an
-            # empty-denominator 0.0 is the honest reading: no edge crossed, no cell filled.
             ruled=sum(_edge_box(edge) in crossing for edge in edges) / len(edges) if edges else 0.0,
             filled=sum(bool(cell and cell.strip()) for cell in slots) / len(slots) if slots else 0.0,
         )
 
     def node(self, path: Trail, /) -> DocumentNode:
-        # the field roster IS the projection: every scalar lands as one `FieldNode` under the page's structure node,
-        # so a new audit measure is one field on this owner and zero edits anywhere else. `read` below walks the same
-        # roster, which is why the forward and inverse of this one correspondence cannot drift apart.
         rows = tuple((spec.name, getattr(self, spec.name)) for spec in structs.fields(TableAudit))
         return _node(
             NodeKind.STRUCTURE,
@@ -345,18 +321,12 @@ class TableAudit(Struct, frozen=True, gc=False):
 
     @classmethod
     def read(cls, node: DocumentNode, /) -> Self:
-        # the inverse a gate reads: one recovered structure node back to typed scalars, decoded against this roster's
-        # own annotations so an int stays an int and a ratio a float — a threshold comparing the rendered string
-        # "0.0" against its bar is exactly the defect a projection without an inverse leaves at every call site.
         return msgspec.convert(
             {child.name: field_text(child.field) for child in children(node) if isinstance(child, FieldNode)}, cls, strict=False
         )
 
 
 class Route(Struct, frozen=True):
-    # one row is the whole per-op policy: the arm, the default engine, the admissible provider set, and the spec fields the
-    # arm observes — `of` refuses a provider outside `providers`, so an arm's branch set is total over its admitted engines
-    # by construction, and `_scoped` keys identity over `observed` alone so an unrelated knob edit never forks an op's key.
     arm: RecoverArm
     default: LensProvider
     providers: frozenset[LensProvider]
@@ -364,13 +334,9 @@ class Route(Struct, frozen=True):
 
 
 class DocumentLens(Struct, frozen=True):
-    # `key` is the PRE-RUN mint taken ONCE at `of` and carried: the preimage re-encodes the whole `payload` and
-    # `ContentIdentity.key` opens a `content.derive` span per call, so a property re-read would pay both again at the
-    # receipt and a third time at `contribute` — and the synchronous port reaches no closure to capture it.
     op: LensOp
     payload: bytes
     provider: LensProvider
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     key: ContentKey
     spec: LensSpec = field(default_factory=LensSpec)
@@ -379,7 +345,7 @@ class DocumentLens(Struct, frozen=True):
     def emit(self, /) -> ArtifactWork:
         return ArtifactWork(key=self.key, work=partial(self._emit, self.key), parents=(), admission=Admission(keyed=None), cost=float(len(self.payload)))
 
-    @receipted(OPEN)  # lens facts carry no classified field, so the runtime keep-all `OPEN` policy rides directly, never a re-minted per-file `Redaction`
+    @receipted(OPEN)
     async def _recovered(self) -> Self:
         route = _ROUTES[self.op]
         crossed = (
@@ -390,14 +356,9 @@ class DocumentLens(Struct, frozen=True):
         return structs.replace(self, recovered=crossed.default_with(lapsed))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
         railed = await async_boundary(LENS_RECOVER, self._recovered, catch=_RECOVER_RAISES)
         match railed.map(lambda stepped: stepped._receipt(key)):
             case Result(tag="ok", ok=receipt):
-                # the `introspection` kind's ONE durable seat: recording suspends on the journal's bounded intake and
-                # the synchronous `contribute` port cannot, so the shared `evidence` builder is composed here. The
-                # four `Introspection` counts ARE the whole recovery evidence — no finer diff exists to append, and
-                # an empty change tuple is the honest statement of that rather than an invented positional entry.
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
             case refused:
                 return Error(refused.error)
@@ -482,7 +443,6 @@ class LensPayload(TypedDict, closed=True):
 
 
 _PAYLOAD: Final = TypeAdapter(LensPayload)
-# Per-op precondition: a row's named `LensSpec` fields must be non-empty so the interior is total.
 _REQUIRED: Final[Map[LensOp, tuple[str, ...]]] = Map.of_seq([(LensOp.REGION, ("bbox",)), (LensOp.SEARCH, ("needle",))])
 
 
@@ -490,15 +450,11 @@ _REQUIRED: Final[Map[LensOp, tuple[str, ...]]] = Map.of_seq([(LensOp.REGION, ("b
 
 
 def _minted(op: LensOp, payload: bytes, provider: LensProvider, spec: LensSpec, /) -> ContentKey:
-    # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan. The spec
-    # preimage narrows to the op's `Route.observed` roster, so two lenses differing on a foreign op's knob share one
-    # key and the elision cache never re-renders on an unobserved edit. Called exactly once per owner, at admission.
     scoped = LensSpec(**{name: getattr(spec, name) for name in _ROUTES[op].observed})
     return ContentIdentity.key(f"lens-{op.value}", _KEY_ENCODER.encode((op, payload, provider, scoped)))
 
 
 class NodeSlot(TypedDict, total=False, closed=True):
-    # Closed per-kind construction payload `_node` admits — typed ingress replacing a `**slot: object` bag.
     text: str
     font_key: str
     size: float
@@ -540,8 +496,6 @@ class NodeSlot(TypedDict, total=False, closed=True):
 
 
 def _node(kind: NodeKind, role: str, page: int, payload: bytes, *, path: Trail, bounds: Bounds | None = None, **slot: Unpack[NodeSlot]) -> DocumentNode:
-    # Structural path is the identity axis (`shapes.md` OWNER_COMPOSITION): the key preimage joins path to content,
-    # so identical-content siblings key distinctly and a content change at a fixed path is the separate change axis.
     trail = "-".join(map(str, path)) or "root"
     meta = NodeMeta(key=ContentIdentity.key(f"lens-{role}-{page}-{trail}", payload), role=role, page=page, bounds=bounds)
     match kind:
@@ -550,7 +504,7 @@ def _node(kind: NodeKind, role: str, page: int, payload: bytes, *, path: Trail, 
                 meta=meta,
                 text=slot.get("text", ""),
                 font_key=slot.get("font_key", _RECOVERED_FONT),
-                size=slot.get("size") or 1.0,  # `RunNode.size` is `PositiveFloat`; a provider's absent/zero size lands the recovered floor, never an illegal 0.0
+                size=slot.get("size") or 1.0,
                 weight=slot.get("weight", 400),
                 italic=slot.get("italic", False),
                 direction=slot.get("direction", TextDirection.AUTO),
@@ -568,8 +522,6 @@ def _node(kind: NodeKind, role: str, page: int, payload: bytes, *, path: Trail, 
                 caption=slot.get("caption", ()),
             )
         case NodeKind.TABLE:
-            # every recoverable TableNode band survives construction; an arm that cannot observe a band leaves
-            # its zero default rather than erasing a sibling arm's recovered value.
             return TableNode(
                 meta=meta,
                 rows=slot.get("rows", ()),
@@ -625,14 +577,13 @@ def _rgb(color: int) -> tuple[int, int, int]:
 
 
 def _scale8(color: tuple[float, float, float]) -> tuple[int, int, int]:
-    # pdf_oxide `TextSpan.color`/`PdfAnnotation.color` are 0..1 floats; `RunNode.color` is the model `Rgb` 0..255.
     return (round(color[0] * 255), round(color[1] * 255), round(color[2] * 255))
 
 
 def _table_node(grid: Grid, bbox: Bounds, page: int, path: Trail, *, role: str = "table", spans: Spans = (), header_rows: int = 0) -> TableNode:
     rows = tuple(
         tuple(_node(NodeKind.RUN, "cell", page, (cell or "").encode(), path=(*path, r, c), text=cell or "") for c, cell in enumerate(row))
-        for r, row in enumerate(grid)  # the (r, c) path extension keys identical-content cells (empty, repeated) distinctly
+        for r, row in enumerate(grid)
     )
     return _node(NodeKind.TABLE, role, page, repr(grid).encode(), path=path, bounds=bbox, rows=rows, spans=spans, header_rows=header_rows)
 
@@ -653,10 +604,10 @@ def _link_target(link: Mapping[str, object]) -> AnnotTarget:
     return Uri(href=str(link["uri"])) if "uri" in link else Dest(page=int(link.get("page", 0) or 0))
 
 
-# --- [FRONTIER] ---------------------------------------------------------------------------
+# --- [FRONTIER] -------------------------------------------------------------------------
 
 
-_MAX_NODES: Final[int] = 1_000_000  # frontier expansion budget — an alias bomb or runaway breadth refuses instead of exhausting memory
+_MAX_NODES: Final[int] = 1_000_000
 
 
 @tagged_union(frozen=True)
@@ -674,15 +625,10 @@ def _grown(
     *,
     base: Trail = (),
 ) -> DocumentNode:
-    # one post-order expand/combine marker frontier (`iteration.md`): every untrusted recursive source — the pikepdf
-    # `/K` spine, an XML tree, a YAML graph — rebuilds through it, so adversarial depth never overflows the frame limit
-    # and the frontier itself assigns each child its ordinal path. Two admission fences ride the expansion: a repeated
-    # CONTAINER identity is a cycle or YAML-alias bomb (interned primitive leaves repeat legitimately and never recurse),
-    # and _MAX_NODES caps total expansion so runaway breadth refuses instead of exhausting memory.
     frames, results = Block.singleton(_Frame(expand=(seed, base))), Block.empty()
     seen: set[int] = set()
     expanded = 0
-    while not frames.is_empty():  # Exemption: iterative frontier — the untrusted recursive payload forfeits the recursive form
+    while not frames.is_empty():
         head, frames = frames.head(), frames.tail()
         match head:
             case _Frame(tag="expand", expand=(node, path)):
@@ -710,7 +656,7 @@ def _grown(
 
 @beartype
 def _text_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    if provider is LensProvider.PDFOXIDE:  # commercial-safe default: XY-cut column-order styled spans -> per-page BlockNode of RunNode
+    if provider is LensProvider.PDFOXIDE:
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
                 _node(
@@ -796,10 +742,7 @@ def _images_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tup
 
 @beartype
 def _words_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    if provider is LensProvider.PDFOXIDE:  # commercial-safe default: TextWord geometry -> word RunNode leaves, artifact-tagged spans dropped
-        # Per-document-class layout profile tunes the XY-cut word-margin/space heuristics: an
-        # `ExtractionProfile.available()` name resolves once on the live module (SYMBOLIC_REFERENCE, as `_widget_field`
-        # resolves `PDF_WIDGET_TYPE_*`), "" keeping pdf_oxide's adaptive default rather than a hand-rolled gap table.
+    if provider is LensProvider.PDFOXIDE:
         profile = getattr(pdf_oxide.ExtractionProfile, spec.profile)() if spec.profile else None
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
@@ -847,8 +790,6 @@ def _words_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
 
 @beartype
 def _chars_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # per-glyph forensic geometry: one RunNode per TextChar; the marked-content MCID rides the role
-    # (`mcid-N`) so the tag/emit MCID agreement is auditable from the recovered tree alone.
     with pdf_oxide.PdfDocument.from_bytes(payload) as document:
         return tuple(
             _node(
@@ -871,7 +812,7 @@ def _chars_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tupl
 @beartype
 def _region_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
     bbox = spec.bbox or _ORIGIN
-    if provider is LensProvider.PDFOXIDE:  # commercial-safe default: `(x0,y0,x1,y1)` bounds -> pdf_oxide `(x,y,w,h)` region -> per-line RunNode
+    if provider is LensProvider.PDFOXIDE:
         x0, y0, x1, y1 = bbox
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
@@ -897,8 +838,6 @@ def _region_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple
 
 @beartype
 def _story_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # per-page tree recovery: each page a PageNode carrying its media box + recovered styled content — the recover-TO
-    # inverse of `document/report#REPORT` REFLOW authoring a fresh PageNode, so an authored reflow round-trips through PageNode.
     if provider is LensProvider.MUPDF:
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
@@ -941,7 +880,7 @@ def _story_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
                 )
                 for index, page in enumerate(document)
             )
-    with pdf_oxide.PdfDocument.from_bytes(payload) as document:  # commercial-safe default: media box + column-order spans per page
+    with pdf_oxide.PdfDocument.from_bytes(payload) as document:
         return tuple(
             _node(
                 NodeKind.PAGE,
@@ -974,8 +913,6 @@ def _story_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
 
 @beartype
 def _paths_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # recovered vector geometry (the AEC drawing plane's recovered linework) -> path-keyed FigureNode leaves carrying the
-    # path bbox as `intrinsic` + the vector `media_type`; a recovered drawing is a graphic figure, never a text run.
     if provider is LensProvider.MUPDF:
         with pymupdf.open(stream=payload, filetype="pdf") as document:
             return tuple(
@@ -994,7 +931,7 @@ def _paths_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
                 for ordinal, path in enumerate(page.get_drawings())
                 if (rect := path["rect"])
             )
-    with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:  # curves + rects + lines vector-object dicts (MIT-licensed default)
+    with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
             _node(
                 NodeKind.FIGURE,
@@ -1015,7 +952,6 @@ def _paths_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
 
 @beartype
 def _layout_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # computed per-page layout metrics -> FieldNode rows under one per-page structure node; intake-triage evidence.
     with pdf_oxide.PdfDocument.from_bytes(payload) as document:
         return tuple(
             _node(
@@ -1047,8 +983,6 @@ def _layout_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tup
 
 @beartype
 def _classify_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # document + per-page classification (scanned/born-digital/form …): the engine returns JSON verdict strings,
-    # decoded through the one msgspec codec, never a rendered-string regex; per-page kind/confidence/reason land as fields.
     with pdf_oxide.PdfDocument.from_bytes(payload) as document:
         overall = msgspec.json.decode(document.classify_document())
         verdicts = tuple(msgspec.json.decode(document.classify_page(page.index)) for page in document.pages)
@@ -1070,14 +1004,13 @@ def _classify_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> t
     summary = _node(
         NodeKind.FIELD, "summary", 0, str(overall.get("summary", "")).encode(), path=(-1,), name="summary", field=TextField(value=str(overall.get("summary", "")))
     )
-    needing_ocr = ",".join(str(page) for page in overall.get("pages_needing_ocr", ()))  # the verified document-verdict key naming the pages the intake must OCR
+    needing_ocr = ",".join(str(page) for page in overall.get("pages_needing_ocr", ()))
     ocr_rows = _node(NodeKind.FIELD, "pages_needing_ocr", 0, needing_ocr.encode(), path=(-2,), name="pages_needing_ocr", field=TextField(value=needing_ocr))
     return (summary, ocr_rows, *pages)
 
 
 @beartype
 def _layers_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # OCG optional-content layer census — the read-side counterpart of `export/layered#LAYERED` authoring.
     with pdf_oxide.PdfDocument.from_bytes(payload) as document:
         return tuple(
             _node(NodeKind.FIELD, "layer", 0, name.encode(), path=(ordinal,), name=name, field=TextField(value=name))
@@ -1087,7 +1020,6 @@ def _layers_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tup
 
 @beartype
 def _inks_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # separation-ink census reads the policy-selected direct or nested-content surface without reconstructing a boolean knob.
     with pdf_oxide.PdfDocument.from_bytes(payload) as document:
         return tuple(
             _node(NodeKind.FIELD, "ink", page.index, str(name).encode(), path=(page.index, ordinal), name=str(name), field=TextField(value=str(name)))
@@ -1098,7 +1030,6 @@ def _inks_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[
 
 @beartype
 def _labels_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # Page-label numbering tree ("iii", "A-1" …) — one RunNode per label in page order.
     with pdf_oxide.PdfDocument.from_bytes(payload) as document:
         return tuple(
             _node(NodeKind.RUN, "page-label", ordinal, str(label).encode(), path=(ordinal,), text=str(label))
@@ -1107,16 +1038,10 @@ def _labels_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tup
 
 
 def _edge_box(edge: Mapping[str, object]) -> Bounds:
-    # the edge identity pdfplumber's own intersection resolver compares on, off the documented edge-dict geometry keys.
     return (edge["x0"], edge["top"], edge["x1"], edge["bottom"])
 
 
 def _table_settings(spec: LensSpec, provider: LensProvider, /) -> dict[str, object]:
-    # ONE ruled-table settings projection for the whole family — extraction and audit alike — keyed by the engine
-    # VALUE rather than duplicated per arm: the tolerance band both readers share, plus the explicit-line rows
-    # pdfplumber alone names (`pymupdf.find_tables` spells those `vertical_lines`/`horizontal_lines` and rejects
-    # these keys). An empty explicit tuple stays absent, because an empty list starves the `explicit` strategy of
-    # every edge where omission lets the strategy fall back to the page's own derived lines.
     band: dict[str, object] = {
         "vertical_strategy": spec.vertical,
         "horizontal_strategy": spec.horizontal,
@@ -1137,10 +1062,6 @@ def _table_settings(spec: LensSpec, provider: LensProvider, /) -> dict[str, obje
 
 @beartype
 def _table_audit_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # table-extraction QA as an examination projection: the audit runs the SAME settings the TABLE arm would, so a
-    # gate measures the extraction a caller is about to trust rather than a differently-tuned one. One `TableAudit`
-    # per page, projected through its own roster-derived node fold — the page ordinal is the whole path, matching
-    # every other per-page examination arm.
     settings = _table_settings(spec, provider)
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(TableAudit.of(page, index, settings).node((index,)) for index, page in enumerate(document.pages))
@@ -1150,7 +1071,6 @@ def _table_audit_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> 
 def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
     settings = _table_settings(spec, provider)
     if provider is LensProvider.PDFOXIDE:
-        # native Rust table grid: each row dict carries `rows[].cells[].text` + `is_header`; the `(x, y, w, h)` bbox converts once.
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
                 _table_node(
@@ -1171,7 +1091,7 @@ def _table_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[
                 for index, page in enumerate(document)
                 for ordinal, table in enumerate(
                     page.find_tables(**settings).tables
-                )  # `Table.header` is always a truthy `TableHeader`; `.external` is the real discriminant — an above-body synthesized header is NOT in `extract()` rows (0), an in-grid header row is (1)
+                )
             )
     with pdfplumber.open(BytesIO(payload), repair=spec.repair) as document:
         return tuple(
@@ -1208,7 +1128,7 @@ def _outline_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tup
 
 def _pypdf_outline(items: Iterable[object], /) -> Iterator[DocumentNode]:
     stack, emitted = [(item, _HEADING_FLOOR) for item in reversed(tuple(items))], 0
-    while stack:  # Exemption: iterative flatten of the untrusted nested outline list — adversarial nesting forfeits recursion
+    while stack:
         item, level = stack.pop()
         if isinstance(item, list):
             stack.extend((kid, level + 1) for kid in reversed(item))
@@ -1351,7 +1271,7 @@ def _search_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple
 
 @beartype
 def _ocr_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    if provider is LensProvider.PDFOXIDE:  # commercial-safe in-process OCR (Rust engine), CORE band — no ocrmypdf subprocess, no PDF/A rewrite
+    if provider is LensProvider.PDFOXIDE:
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
                 _node(NodeKind.RUN, "ocr", page.index, line.encode(), path=(page.index, ordinal), text=line)
@@ -1367,8 +1287,8 @@ def _ocr_arm(payload: bytes, provider: LensProvider, spec: LensSpec) -> tuple[Do
                 for index, page in enumerate(document)
                 for ordinal, word in enumerate(page.get_text("words", textpage=page.get_textpage_ocr(language=language, dpi=spec.dpi, full=spec.full)))
             )
-    with pymupdf.open(stream=payload, filetype=spec.filetype) as intake:  # deterministic close, never GC-reaped
-        if not intake.is_pdf:  # Exemption: native single-image intake wraps a raster into a one-page PDF for the OCR feed
+    with pymupdf.open(stream=payload, filetype=spec.filetype) as intake:
+        if not intake.is_pdf:
             with pymupdf.open() as canvas:
                 page = canvas.new_page(width=intake[0].rect.width, height=intake[0].rect.height)
                 page.insert_image(page.rect, stream=payload)
@@ -1431,7 +1351,7 @@ def _embedded_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> t
 
 @beartype
 def _widget_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tuple[DocumentNode, ...]:
-    if provider is LensProvider.PDFOXIDE:  # commercial-safe AcroForm recovery WITH the required/readonly policy pymupdf's widget accessor never exposed
+    if provider is LensProvider.PDFOXIDE:
         with pdf_oxide.PdfDocument.from_bytes(payload) as document:
             return tuple(
                 _node(
@@ -1466,15 +1386,10 @@ def _widget_arm(payload: bytes, provider: LensProvider, _spec: LensSpec) -> tupl
 
 @beartype
 def _form_data_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # FDF/XFDF filled-form export: the structured form-data product a delivery plane hands downstream — the
-    # exported grammar rides one CODE leaf; `export_form_data` is path-shaped, so the tempfile is its one seam.
     with pdf_oxide.PdfDocument.from_bytes(payload) as document, NamedTemporaryFile(suffix=f".{spec.form_format}", delete_on_close=False) as sink:
-        sink.close()  # release the handle first — the provider writes a fresh file at the path, not into the open descriptor
+        sink.close()
         document.export_form_data(sink.name, format=spec.form_format)
         exported = Path(sink.name).read_bytes()
-    # exported octets ride the node payload VERBATIM — the leaf is the delivery product, never a re-encoded projection;
-    # `text` decodes strict UTF-8 (XFDF's XML contract) and falls back to latin-1 for FDF's PDFDoc byte strings, the
-    # bijective single-byte decode whose re-encode reproduces every octet — `errors="replace"` is the deleted lossy form.
     try:
         projected = exported.decode()
     except UnicodeDecodeError:
@@ -1502,27 +1417,20 @@ def _annotate_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> t
 
 
 def _widget_token(module: object, code: int) -> str:
-    # SYMBOLIC_REFERENCE: the catalogued `PDF_WIDGET_TYPE_*` symbol names resolve to their int on the live module,
-    # then land in the same canonical token space the pdf_oxide `field_type` strings inhabit — one builder table serves both engines.
     return {getattr(module, name): token for name, token in _WIDGET_TOKEN.items()}.get(code, "text")
 
 
-# AcroForm `/Ff` bit positions carry a text field's presentation mode; `pdf_oxide.FormField.flags` reflects the raw
-# bitmask and answers `None` only where the field dict omits `/Ff` entirely, so absence and a cleared bit stay distinct.
 _FF_MULTILINE: Final[int] = 1 << 12
 _FF_PASSWORD: Final[int] = 1 << 13
 _FF_MODE: Final[Map[int, TextMode]] = Map.of_seq([(_FF_PASSWORD, TextMode.PASSWORD), (_FF_MULTILINE, TextMode.MULTILINE)])
 
 
 def _text_mode(flags: int | None) -> TextMode:
-    # PASSWORD reads ahead of MULTILINE because a field setting both bits is a masked entry first — rendering it as a
-    # multiline box would echo the very characters the password bit exists to hide.
     return next((mode for bit, mode in _FF_MODE.items() if flags is not None and flags & bit), TextMode.SINGLE)
 
 
 def _field_value(token: str, name: str, value: object, /, *, max_length: int | None = None, flags: int | None = None) -> FieldValue:
     built = _FIELD_BUILDERS.try_find(token).default_value(_FIELD_BUILDERS["text"])(name, value)
-    # `/MaxLen` and the `/Ff` presentation mode are text-field axes alone; a provider `None` keeps each default.
     if not isinstance(built, TextField):
         return built
     bounded = structs.replace(built, max_length=max_length) if max_length is not None else built
@@ -1530,12 +1438,10 @@ def _field_value(token: str, name: str, value: object, /, *, max_length: int | N
 
 
 def _choice(value: object) -> tuple[str, ...]:
-    # a recovered choice field carries its selected value as the one provable option — neither engine exposes the authored option roster.
     return (str(value),) if value not in (None, "") else ("",)
 
 
 def _selected(value: object) -> str:
-    # explicit absence check: a numeric 0 or "0" provider selection survives where a `value or ""` truthiness fold erases it.
     return "" if value is None else str(value)
 
 
@@ -1574,9 +1480,9 @@ def _odt_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple[
 
 def _odt_blocks(nodes: Iterable[object]) -> Iterator[DocumentNode]:
     stack, emitted = list(nodes)[::-1], 0
-    while stack:  # Exemption: iterative flatten of the untrusted ODF container graph — adversarial nesting forfeits recursion
+    while stack:
         node = stack.pop()
-        probe = getattr(node, "isInstanceOf", None)  # `text:p`/`text:h` are Elements; a Text leaf carries no `isInstanceOf`
+        probe = getattr(node, "isInstanceOf", None)
         if probe is None:
             continue
         if probe(H):
@@ -1609,7 +1515,6 @@ def _odt_blocks(nodes: Iterable[object]) -> Iterator[DocumentNode]:
 
 @beartype
 def _xlsx_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # Rust-backed workbook closes deterministically once every selected sheet materializes — never a GC-reaped handle.
     with python_calamine.CalamineWorkbook.from_object(BytesIO(payload), load_tables=spec.load_tables) as workbook:
         sheets = spec.sheets or tuple(workbook.sheet_names)
         return tuple(
@@ -1627,7 +1532,6 @@ def _xlsx_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[
 
 
 def _calamine_spans(ranges: object) -> Spans:
-    # `is_bearable` narrows the provider's untyped merged-range payload once; a foreign shape yields the empty span set.
     if not is_bearable(ranges, list[tuple[tuple[int, int], tuple[int, int]]]):
         return ()
     return tuple((r0, c0, c1 - c0 + 1, r1 - r0 + 1) for (r0, c0), (r1, c1) in ranges if c1 > c0 or r1 > r0)
@@ -1690,7 +1594,7 @@ def _docx_runs(block: object, path: Trail) -> tuple[DocumentNode, ...]:
             run.text.encode(),
             path=(*path, ordinal),
             text=run.text,
-            font_key=run.font.name or (run.style.name if run.style else _RECOVERED_FONT),  # emit writes `font.name`; read its inverse
+            font_key=run.font.name or (run.style.name if run.style else _RECOVERED_FONT),
             size=run.font.size.pt if run.font.size else 0.0,
             weight=700 if run.bold else 400,
             italic=bool(run.italic),
@@ -1702,9 +1606,6 @@ def _docx_runs(block: object, path: Trail) -> tuple[DocumentNode, ...]:
 
 
 def _docx_links(block: object, path: Trail) -> tuple[DocumentNode, ...]:
-    # `Paragraph.hyperlinks` recovery — the inverse of the emit hyperlink lowering; each link an AnnotationNode child.
-    # A fragment-only hyperlink is an internal bookmark anchor with no page geometry, so it recovers as the URI
-    # fragment reference `#<bookmark>` — the model has no named-destination case and a fabricated `Dest(page=0)` lies.
     return tuple(
         _node(
             NodeKind.ANNOTATION,
@@ -1733,7 +1634,6 @@ def _toml_arm(payload: bytes, _provider: LensProvider, _spec: LensSpec) -> tuple
 
 
 def _value_tree(value: object, role: str, page: int, /) -> DocumentNode:
-    # labeled seeds carry each child's mapping key or ordinal into its built node; the frontier owns depth safety.
     return _grown((role, value), _value_kids, lambda seed, path, grown: _value_built(seed, path, grown, page), base=(page,))
 
 
@@ -1761,8 +1661,6 @@ def _value_built(seed: object, path: Trail, grown: tuple[DocumentNode, ...], pag
 
 @beartype
 def _xml_arm(payload: bytes, _provider: LensProvider, spec: LensSpec) -> tuple[DocumentNode, ...]:
-    # an external XML file is the most foreign payload this owner reads, so it admits through the model owner's ONE
-    # hardened fold; `recover` stays the caller's salvage choice over a truncated source and moves no security knob.
     return (_grown(hardened_parse(payload, recover=spec.recover), _xml_kids, _xml_built),)
 
 
@@ -1774,8 +1672,6 @@ def _xml_built(element: object, path: Trail, grown: tuple[DocumentNode, ...]) ->
     name = etree.QName(element).localname if isinstance(element.tag, str) else "comment"
     text = (element.text or "").strip()
     runs = (_node(NodeKind.RUN, name, 0, text.encode(), path=(*path, -1), text=text),) if text else ()
-    # mixed content: each child's `.tail` is the parent's text after that child — woven in sibling order,
-    # a tail run slotted at the negative ordinal past the head run so path slots stay unique and deterministic.
     woven = tuple(
         part
         for ordinal, (child, node) in enumerate(zip(_xml_kids(element), grown, strict=True))
@@ -1833,11 +1729,6 @@ _WIDGET_TOKEN: Final[Map[str, str]] = Map.of_seq([
     ("PDF_WIDGET_TYPE_BUTTON", "button"),
     ("PDF_WIDGET_TYPE_SIGNATURE", "signature"),
 ])
-# canonical token -> model `FieldValue` case builder over `(name, value)`; the pdf_oxide `field_type` strings ARE the token
-# space and `_widget_token` folds pymupdf's int discriminant into it. A raw AcroForm /Btn reads back as the reflection-proven
-# `"button"` token, so the bool-valued button discriminates to `CheckboxField` on the value shape; total `.default_value("text")`.
-# provider values normalize before conversion: a string "false"/"0"/"off"/"no" reads unchecked where `bool(value)`
-# reads any non-empty string as checked, and a numeric zero survives into the text value where `value or ""` erases it.
 _UNCHECKED: Final[frozenset[str]] = frozenset({"", "0", "false", "off", "no"})
 _FIELD_BUILDERS: Final[Map[str, Callable[[str, object], FieldValue]]] = Map.of_seq([
     ("text", lambda _name, value: TextField(value="" if value is None else str(value))),

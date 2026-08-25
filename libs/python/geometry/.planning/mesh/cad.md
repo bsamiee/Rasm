@@ -39,12 +39,6 @@ from rasm.runtime.shapes import Dialed, dialed
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# `RAISES` rosters every route this seam declares. `leg` names the PRODUCING owner and never the declaring module, so
-# `BREP_EXECUTE` keeps the `geometry.mesh.brep.execute` subject the census already seats while its row lives here
-# beside the route it belongs to — the reverse seating would need `mesh/cad` to reach `mesh/brep`, the back-edge the
-# branch roster ruling forbids. Both dial rows declare `slots=("phase",)` because that is the coordinate the shared
-# `dialed` weave's own token fills; the weave refuses any other spelling at import, so an admission phase can never
-# publish under a coordinate naming a different closed vocabulary.
 CAD_TESSELLATE: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.CAD,
     point="tessellate",
@@ -75,8 +69,6 @@ RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([CAD_TESSELL
 
 
 class Deadline(Struct, frozen=True, gc=False):
-    # `Deadline` reads the caller's budget ONCE, projects it into the wire unit, and threads it unchanged. An absent budget
-    # is a caller that stated none, which the transport carries as `None` and no fold re-spells as a zero bound.
     milliseconds: int | None
 
     @staticmethod
@@ -85,8 +77,6 @@ class Deadline(Struct, frozen=True, gc=False):
 
     @staticmethod
     def _spelled(seconds: float, /) -> RuntimeRail["Deadline"]:
-        # Non-finite and sub-millisecond budgets state a bound the wire's integer millisecond unit cannot carry, so
-        # each refuses at the seam rather than being floored into a bound the caller never asked for.
         return (
             Ok(Deadline(milliseconds=int(seconds * 1000.0)))
             if isfinite(seconds) and seconds >= 0.001
@@ -95,9 +85,6 @@ class Deadline(Struct, frozen=True, gc=False):
 
 
 class CadRoute[Q: Message, R: Message](Struct, frozen=True, gc=False):
-    # `CadRoute` carries one generated rpc AS A VALUE: the reply class the rail carries end to end, and the dial woven with the
-    # row it publishes under. Callers hand the route and the entry invokes it, so no branch reconstructs at the
-    # call site what the value already encodes.
     reply: type[R]
     dial: Dialed[[CadServiceClient, Q, int | None], R]
 
@@ -125,9 +112,6 @@ class CadClient:
         self._client = client
 
     async def call[Q: Message, R: Message](self, route: CadRoute[Q, R], request: Q, *, budget: Option[float]) -> RuntimeRail[R]:
-        # `Deadline` reads the budget ONCE and threads it; the woven dial owns the whole refusal surface, so this
-        # entry carries no capture of its own and a third rpc adds no line here. `Result` ships no awaitable bind, so
-        # one total `match` over the admitted value carries the single async continuation.
         match Deadline.of(budget):
             case Result(tag="error") as refused:
                 return refused

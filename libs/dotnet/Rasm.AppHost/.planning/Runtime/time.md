@@ -18,7 +18,7 @@ One temporal law serves the whole suite: kernel `MonotonicTimeline` owns elapsed
 - Boundary: `ClockPolicy` is an APP-stratum record and NEVER crosses the strata DAG downward — a `ClockPolicy` parameter on an AEC-DOMAIN or APP-PLATFORM signature is the named inversion (the deleted form the Bim Exchange rails carried): below the app root a monotonic mark/elapsed pair threads as kernel `MonotonicTimeline`, constructed once off `TimeProvider`; a semantic stamp threads as `IClock`/`Instant`; a bounded latency reading threads as `MonotonicTimeline.Gauged` — and the app composition supplies each off this one record; app-side siblings receive `ClockPolicy` through composition and stamp TTL, retention, lease, and elapsed evidence from it, so `DateTime.UtcNow`, `DateTime.Now`, a direct `Stopwatch`, and a raw `TimeProvider.GetTimestamp`/`GetElapsedTime` pair are the deleted patterns; `InstantPattern.ExtendedIso` and `PeriodPattern.Roundtrip` are the only persisted temporal grammars, invariant-culture only, and they are the one pair every durable stamp and every span text rebuilds through; NAMED LOSS — the `DateTimeOffset`/`DateTime` sentinel admission, the `Interval` radius window, the RFC-3339 and zoned export formatters, and the `GetZoneInterval` DST probe all delete unread, so a foreign BCL temporal shape and a zone-projected export each land their admission at the boundary that first reads one rather than sitting here as an unreached seam; the test row constructs the same record from `FakeTimeProvider` and `FakeClock`, so `Advance`, `SetUtcNow`, `AutoAdvanceAmount`, and `FromUtc` drive schedule, drain, and retry specs deterministically with zero test-only production surface.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ClockPolicy(TimeProvider Time, IClock Clock, MonotonicTimeline Line) {
     public static readonly Fin<ClockPolicy> System = Of(time: TimeProvider.System, clock: SystemClock.Instance);
 
@@ -45,7 +45,7 @@ public sealed record ClockPolicy(TimeProvider Time, IClock Clock, MonotonicTimel
 - Boundary: every duration bound in the suite traces to a row here or to a policy row on its owning page — a bare `TimeSpan` literal anywhere else is the named defect; the row IS the lane, so `Gauged` reads `lane.Bound` and carries no bound parameter and two call sites gauging one deadline cannot disagree; the outcome derives from the span's own `Breached` plus the presence of an escalation arc and never from a caller flag, so a stored breach flag is the deleted form; NAMED LOSS — the profile-override table and its `Resolve` fold delete unread, so profile variance now enters as a row edit at this owner rather than a frozen dictionary no consumer resolved; the cancellation spine, hop registry, work-lane governor, drain conductor, and cache lanes consume these rows as values — drain-cooperative escalates to drain-forced and every other miss is forced; the two lane rows are the in-process axis the transport rows never covered, so a `LanePolicy` reaching for `hop-attempt` prices an in-process fold on a socket's budget and is the substitution this pair deletes, while the interactive-versus-fold split is the lane's own rank and never a profile override; the cooperative allotment is the telemetry-flush budget — a ForceFlush during plugin unload runs inside drain-cooperative and an overrun escalates through the `Escalation` arc to drain-forced, the terminal forced-flush bound past which the drain conductor abandons in-flight export, so the flush latency is one `escalatesTo` arc and never a separate timer.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -57,16 +57,9 @@ public sealed partial class DeadlineClass : IGaugeLane<DeadlineClass> {
     public static readonly DeadlineClass DrainForced = new("drain-forced", Duration.FromSeconds(5), escalatesTo: None);
     public static readonly DeadlineClass HopAttempt = new("hop-attempt", Duration.FromSeconds(10), escalatesTo: None);
     public static readonly DeadlineClass HopTotal = new("hop-total", Duration.FromSeconds(30), escalatesTo: None);
-    // Two in-process rows because one cannot serve both halves of the lane vocabulary: a latency-lane ceiling long
-    // enough for a whole-model fold protects nothing, and a fold ceiling short enough for an interactive lane kills
-    // every fold it guards. Both are ABANDONMENT ceilings rather than expected durations, and neither escalates
-    // because the forced half belongs to the composed fold's own abandonment witness.
     public static readonly DeadlineClass LaneAttempt = new("lane-attempt", Duration.FromSeconds(30), escalatesTo: None);
     public static readonly DeadlineClass LaneFold = new("lane-fold", Duration.FromMinutes(10), escalatesTo: None);
     public static readonly DeadlineClass SupportWindow = new("support-window", Duration.FromSeconds(120), escalatesTo: None);
-    // The durable-OTLP tail drains on the thread an export call already holds, so its ceiling is an ABANDONMENT
-    // bound the gauge measures rather than an expected duration: `Observability/egress#DURABLE_EGRESS` reads the
-    // row for both the per-pass cut and the breach that mints its own timeout disposition.
     public static readonly DeadlineClass OtlpDrain = new("otlp-drain", Duration.FromSeconds(5), escalatesTo: None);
     public static readonly DeadlineClass CacheTtl = new("cache-ttl", Duration.FromMinutes(5), escalatesTo: None);
 
@@ -93,7 +86,7 @@ public sealed partial class DeadlineOutcome {
         : Forced;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DeadlineReceipt(GaugedSpan<DeadlineClass> Span, DeadlineOutcome Outcome, Instant At) {
     public DeadlineClass Class => Span.Lane;
     public Duration Allotted => Duration.FromTimeSpan(Span.Bound);
@@ -104,7 +97,7 @@ public readonly record struct DeadlineReceipt(GaugedSpan<DeadlineClass> Span, De
         new(Span: span, Outcome: DeadlineOutcome.Of(span: span), At: at);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DeadlineOps {
     extension(ClockPolicy clocks) {
         public Fin<(Fin<T> Value, DeadlineReceipt Receipt)> Gauged<T>(DeadlineClass row, Op work, Func<Fin<T>> body) =>
@@ -125,7 +118,7 @@ public static class DeadlineOps {
 - Boundary: this port is the suite's only scheduler — per-package timer loops, host idle hooks, pg_cron, Quartz, Hangfire, and NCrontab are the deleted patterns; occurrence math consumes and emits UTC instants with zone projection confined inside the occurrence call; cron rows persist as expression text and rebuild through `Admit` at composition, so `CronFormatException` never crosses the configuration boundary and a refusal is the banded `TimeFault.CronRejected` rather than a bare `Error.New`; `Admit` is the ONE admission over that concern and discriminates on its input — a `CronCadence` keyword with a seed resolves the matching `{Yearly,Weekly,Monthly,Daily,Hourly,EveryMinute}WithJitter(int)` template, anything else parses through `CronExpression.TryParse` under the declared `CronFormat` with the seed when one is supplied, so second-resolution rows admit through `CronFormat.IncludeSeconds` and `EverySecond` carries no jitter template, which makes a second-resolution fleet row the rejected case at the package rail rather than at a hand branch; `ScheduleEntry.Spread` derives that seed from the schedule key through the kernel `ContentHash` framed writer, so fleet spreading of a shared cron row is one cross-process-stable schedule-key-derived value rather than the per-process-randomized `string.GetHashCode`, the folder's third hash algorithm deletes with it, and a process restart re-parses the identical spread expression; NAMED LOSS — the seed VALUE changes once at this landing and every fleet node moves together, which is exactly the fleet property the row exists to hold; the `Annual` case carries a calendar-recurring `AnnualDate` resolved through `InYear(...).At(...).InZoneStrictly` so a once-a-year rollup maps its local wall-time to a UTC instant under the strict resolver, never a hand-built leap-day branch; `Missed` is the ONE occurrence-window read — every unfired occurrence in the half-open window, ascending, bounded by the entry's own redrive bound and refusing above it as typed `WindowExhausted`, so an outbox sweep reads occurrence history rather than tracking a running counter and a hundred-day second-resolution window reports exhaustion instead of overflowing a narrowed `int` range; NAMED LOSS — the descending audit and the `Period.Between` calendar-gap report delete unread, so a most-recent-first read reverses the bounded ascending answer and a calendar-difference report lands at the owner that first needs one; the occurrence deadline is the retriability seam — a `Timeout` expiry re-codes to the transient `OccurrenceTimedOut` so `Redrive.Run` re-drives it on the entry's own curve while every other refusal stays terminal, and a catch-all predicate that swallowed the timeout beside a genuine fault is the deleted form; lease release has two distinct values — handoff-on-drain releases immediately on the drain conductor's signal, crash-reclaim waits `CrashStaleness` past the holder's last stamp, and `LeasePolicy.Outlasts` proves that window outlasts the drain-cooperative plus drain-forced sum so a draining holder is never reclaimed mid-drain, forced at the `Runtime/modules#MODULE_LEDGER` `coordination-seat` row where the policy meets those bounds, so a refused proof stops boot on the typed rail rather than standing unread; a watchdog is a heartbeat row plus a deadline class, never a service type; the `Heartbeat` crossing into `Observability/bundles#CAPTURE_PIPELINE` binds the wire-stable schedule `Key` and the measured `DeadlineReceipt` as the cross-owner contract, and the trigger's `Timed` case carries BOTH — the receipt is what lets a watchdog bundle name the breached lane and its escalation, where the key alone says only that some occurrence was late — while the live `ScheduleEntry` with its `Func<IO<Unit>> Work` closure stays process-local and never rides into the support owner's manifest or any serialized trigger.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -166,8 +159,7 @@ public abstract partial record OccurrenceSpec {
             None: () => CronExpression.TryParse(text, format, out CronExpression? plain) ? Optional(plain) : None);
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// Schedule owns its issued 1340 decade directly; the former Config-band borrowing is deleted.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TimeFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.HostSchedule;
@@ -184,8 +176,6 @@ public abstract partial record TimeFault : Fault {
             $"Schedule '{Key}' holds more than {Bound} unfired occurrences in the read window.");
     }
 
-    // The one transient case: an occurrence the deadline cut is re-drivable on the entry's own curve, where a
-    // rejected expression and an exhausted window are decisions no re-drive changes.
     [FaultCase(2)]
     public sealed partial record OccurrenceTimedOut(string Key, Duration Allotted) : TimeFault {
         public override string Message => $"Schedule '{Key}' occurrence exceeded its {Allotted} allotment.";
@@ -193,16 +183,10 @@ public abstract partial record TimeFault : Fault {
     }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LeasePolicy(Duration CrashStaleness) {
     public static readonly LeasePolicy Maintenance = new(CrashStaleness: Duration.FromSeconds(120));
 
-    // Composition guard, not rail flow: the reclaim window must outlast a cooperative drain and its forced tail
-    // or a draining holder is reclaimed mid-drain. Accessor read rather than an eager field, so the generated
-    // `DeadlineClass` rows are initialized when the floor is taken — and the FORCING READ is the
-    // `Runtime/modules#MODULE_LEDGER` `coordination-seat` row, the one seat where this policy meets the drain
-    // bounds it is measured against, which rails the throw as a typed boot refusal. A `Lazy` no seat forces is
-    // a guarantee nothing holds.
     public static Unit Outlasts => OutlastsProof.Value;
 
     private static readonly Lazy<Unit> OutlastsProof = new(static () =>
@@ -219,9 +203,6 @@ public sealed record ScheduleEntry(
     Option<LeasePolicy> Lease,
     RedrivePolicy Redrive,
     Func<IO<Unit>> Work) {
-    // The framed canonical writer is the branch's one preimage: a length-framed key through `ContentHash`, one
-    // half projected by the kernel lane. NAMED LOSS — Cronos carries a 32-bit jitter field, so the seed is one
-    // half of a 128-bit digest and the narrowing is the package's own domain, not a hash choice.
     public static int Seed(string key) =>
         unchecked((int)ContentHash.Half(
             digest: ContentHash.Of(key, static (text, writer) => writer.String(text)),
@@ -239,7 +220,7 @@ public sealed record ScheduleEntry(
             .Map(spec => new ScheduleEntry(key, spec, deadline, lease, redrive, work));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SchedulePort {
     const int AnnualLookahead = 2;
 
@@ -260,8 +241,6 @@ public static class SchedulePort {
               Succ: static measured => IO.pure((measured.Value, measured.Receipt)),
               Fail: IO.fail<(Fin<Unit> Outcome, DeadlineReceipt Deadline)>));
 
-    // Both classifier predicates read the package's own error identities rather than a message match, so the
-    // deadline the `Timeout` cut re-codes to the one transient case and a genuine refusal rides through as itself.
     static IO<Unit> Occurrence(ScheduleEntry entry) =>
         entry.Work()
             .Timeout(entry.Deadline.Allotted.ToTimeSpan())
@@ -278,26 +257,18 @@ public static class SchedulePort {
             annual: static (s, a) => AnnualWindow(s.From, s.To, a.Date, a.At, a.Zone),
             state: (From: lastFired, To: now, Bound: entry.Redrive.Bound)));
 
-    // The receipt is both the PREDICATE and the payload: a met crossing mints no trigger, and a missed one
-    // carries the measurement onward so the capture reads which lane was breached and by how much rather than
-    // only that some occurrence was late.
     public static Option<SupportTrigger> Heartbeat(CorrelationId correlation, ScheduleEntry entry, DeadlineReceipt receipt) =>
         receipt.Outcome == DeadlineOutcome.Met
             ? None
             : Some<SupportTrigger>(new SupportTrigger.Timed(
                 correlation, SupportTriggerKind.WatchdogTimeout, entry, receipt));
 
-    // One bound test over a LAZY roster: taking one past the bound decides exhaustion without materializing a
-    // window the entry could never re-drive.
     static Fin<Seq<Instant>> Bounded(string key, int bound, IEnumerable<Instant> occurrences) =>
         toSeq(occurrences.Take(bound + 1)).Strict() switch {
             var taken when taken.Count > bound => Fin.Fail<Seq<Instant>>(new TimeFault.WindowExhausted(Key: key, Bound: bound)),
             var taken => Fin.Succ(taken),
         };
 
-    // Exact integer division on the LOSSLESS nanosecond export, clamped BEFORE the narrowing: a hundred-day
-    // window at one-second period counts here and refuses at `Bounded`, where a `double`-seconds division and an
-    // `int` cast wrapped into a negative range silently.
     static Int128 Counted(Instant from, Instant to, Duration period) =>
         period > Duration.Zero ? (to - from).ToInt128Nanoseconds() / period.ToInt128Nanoseconds() : Int128.Zero;
 
@@ -331,10 +302,7 @@ The watchdog spine composes end to end without a watchdog service type: `Run` em
 - Boundary: the fence is store-validated or it is not fencing — a per-process token mint, an in-memory latest-token cell, and an in-memory fence validation are the DELETED forms (two processes minting independent sequences is zero cross-process safety); the store issues the strictly-increasing generation as its fenced-lease column, so a generation of zero names no issued lease and the factory refuses it rather than seating a genesis row that reads as a held fence to every comparison — NAMED LOSS, the `Zero` row deletes and an unacquired holder carries `Option<FencingToken>` instead; a paused-then-resumed stale holder's late write rejects store-side and surfaces as `Wire/coordination#DISTRIBUTED_LOCK` `CoordinationFault.FenceRejected(key, cause)` carrying the store's verdict as its inner cause — the Persistence-band `LeaseFenced` stays store-side per the two-formed-pair law, never a bare `Error.New` minted here; requests cross as wire-stable primitives and results decode from Persistence-owned types — no AppHost interface or type crosses down; the election reuses the `LeasePolicy.Maintenance` `CrashStaleness` window as the lease timeout but the store-validated token is the correctness proof the timeout alone cannot give; the token crosses the wire as the same decimal-string width as the HLC `Logical` half so the op-log cursor and the fence read one monotone identity; the maintenance-lease election at SCHEDULE_PORT, the `Sandbox/provisioning#ROLLOVER_DRAIN` conductor election, and the sidecar `Wire/companion#PROCESS_MODALITY` write-forward each acquire through this one rail — the store (`Rasm.Persistence` `ONE_FENCED_LEASE_STORE`) fences every token, aligned to a sibling branch, never coupled; a held lease without a store-validated token is the rejected form; `FencedLease` is the ONE acquire-renew-guard-release fold on the spine and every fenced holder threads `FencedRuntime` — a per-consumer election runtime, a per-consumer lock runtime, a second holding record, and a second receipt over these same four store arrows are the deleted forms, and the verb a transition carries is the roster row that performed it rather than a string its caller remembered to pass.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// The four lease transitions as ROWS, each binding its own store arrow: acquire mints a generation, renew
-// re-issues one, guard and release answer none. The delegate column is what makes `Fenced` one fold instead
-// of a verb ladder, and a fifth transition lands as one row with no arm to edit.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -351,14 +319,12 @@ public sealed partial class FenceVerb {
     [UseDelegateFromConstructor]
     public partial Fin<Option<FencingToken>> Fence(LeaseElection.Runtime runtime, string leaseKey, Option<FencingToken> held);
 
-    // Three of the four verbs are authorized BY the token they carry, and only `Acquire` mints one, so the
-    // absent-token arm is unreachable through `FencedLease` and states its refusal once rather than at each row.
     static Fin<Option<FencingToken>> Held(Option<FencingToken> held, Func<FencingToken, Fin<Option<FencingToken>>> arm) =>
         held.Match(Some: arm, None: static () => Fin.Fail<Option<FencingToken>>(
             new KernelFault.InvalidValue(Label: nameof(FencingToken), Requirement: "a held generation")));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<ulong>(
     ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads,
     EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
@@ -368,35 +334,22 @@ public readonly partial struct FencingToken {
             ? new ValidationError(message: "FencingToken requires a store-issued generation above zero.")
             : null;
 
-    // Client-side PRE-CHECK only: short-circuits an obviously-stale retry before the round-trip. Authoritative
-    // fence is the store's row-CAS predicate (WHERE token >= held) — always consulted.
     public bool Admits(FencingToken incoming) => incoming >= this;
 }
 
-// The held evidence of one fenced lease, generic in the caller's namespaced key so the election, the lock,
-// and any later fenced resource share one record and the key's own namespace column carries what a per-holder
-// record used to carry in its type.
 public sealed record FenceHolding<TKey>(TKey Key, int Holder, FencingToken Token, Instant LeaseDeadline, CorrelationId Correlation)
     where TKey : notnull;
 
-// The transition: the holding AFTER the verb, beside the verb that produced it. The receipt projects off this
-// pair, so a fan cannot name a verb the store never ran.
 public readonly record struct FenceStep<TKey>(FenceHolding<TKey> Holding, FenceVerb Verb) where TKey : notnull;
 
 public readonly record struct FenceReceipt<TKey>(TKey Key, int Holder, ulong Token, Instant LeaseDeadline, FenceVerb Verb, CorrelationId Correlation)
     where TKey : notnull;
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// ONE Persistence PORT adapter for lease custody: wire-stable primitives cross down, the store-issued generation
-// decodes back. AppHost mints nothing; the delegates bind the store's coordination op-union at the composition
-// root, their failures the decoded registry-banded CoordinationFault cases constructed at that binding.
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class LeaseElection {
     public sealed record Runtime(
         Func<string, LeasePolicy, Fin<(ulong Generation, Instant Deadline)>> AcquireLease,
         Func<string, LeasePolicy, ulong, Fin<(ulong Generation, Instant Deadline)>> RenewLease,
-        // `LeaseGuard` READ: validates the held generation against the lease row and writes nothing, so its pass
-        // is EVIDENCE and never admission — every guarded write carries its own reject-lower predicate, and only
-        // that predicate settles against a writer racing this read.
         Func<string, ulong, Fin<Unit>> GuardWrite,
         Func<string, ulong, Fin<Unit>> ReleaseLease,
         LeasePolicy Lease);
@@ -414,15 +367,10 @@ public static class LeaseElection {
     public static Fin<Unit> Release(Runtime runtime, string leaseKey, FencingToken held) =>
         runtime.ReleaseLease(leaseKey, (ulong)held);
 
-    // The store's generation is the only mint, so decoding is the ONE place the refused zero surfaces: a grant
-    // the factory rejects names a lease the store never issued and the adapter answers on the rail.
     static Fin<FencingToken> Decoded(ulong generation) =>
         Op.Of().AcceptValidated<FencingToken, ulong>(generation);
 }
 
-// One dependency capsule for every fenced holder on the spine: the election and the lock differed in nothing
-// but the key they held, so a second runtime record was a second answer to one question and the two drifted
-// on the column that was not shared.
 public sealed record FencedRuntime(
     int NodeId,
     LeaseElection.Runtime Lease,
@@ -430,7 +378,7 @@ public sealed record FencedRuntime(
     Duration Staleness,
     ReceiptSinkPort Sink);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FencedLease<TKey> where TKey : notnull, Thinktecture.IConvertible<string> {
     public static IO<Fin<FenceStep<TKey>>> Acquire(FencedRuntime runtime, TKey key, CorrelationId correlation) =>
         Run(runtime, FenceVerb.Acquire, key, None, correlation);
@@ -438,18 +386,12 @@ public static class FencedLease<TKey> where TKey : notnull, Thinktecture.IConver
     public static IO<Fin<FenceStep<TKey>>> Fenced(FencedRuntime runtime, FenceHolding<TKey> holding, FenceVerb verb) =>
         Run(runtime, verb, holding.Key, Some(holding), holding.Correlation);
 
-    // Both brackets are the guard READ: the leading one proves the lease stood when the section opened and the
-    // trailing one turns a lease stolen mid-section into a typed refusal instead of an undisputed success. The
-    // section's own writes each carry their reject-lower predicate, which is where admission actually settles.
     public static IO<Fin<A>> Guard<A>(FencedRuntime runtime, FenceHolding<TKey> holding, IO<A> section) =>
         from opened in Fenced(runtime, holding, FenceVerb.Guard)
         from ran in opened.Match(Succ: _ => section.Map(Fin.Succ), Fail: error => IO.pure(Fin.Fail<A>(error)))
         from closed in Fenced(runtime, holding, FenceVerb.Guard)
         select from value in ran from _ in closed select value;
 
-    // The issued generation WINS over the held one and the deadline extends only where a generation was issued,
-    // so a renew advances both columns and a guard advances neither — the holding a caller threads onward is
-    // always the one the store last agreed to.
     static IO<Fin<FenceStep<TKey>>> Run(
         FencedRuntime runtime, FenceVerb verb, TKey key, Option<FenceHolding<TKey>> prior, CorrelationId correlation) =>
         IO.lift(() => verb.Fence(runtime.Lease, key.ToValue(), prior.Map(static held => held.Token))

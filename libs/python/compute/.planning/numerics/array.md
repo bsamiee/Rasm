@@ -18,7 +18,7 @@ Backend-agnostic array admission over the Array API standard: `ArrayPayload.admi
 - Boundary: no production tensor runtime; the numba LLVM JIT stays a loop-kernel accelerator on the solver owner; scipy 2-D sparse-matrix construction stays on `solvers/linear`; the mutate/copy fork (`is_writeable_array` gating `xpx.at`) belongs to transforming consumers of the same resolved `xp`.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Iterable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Any, Final, Literal, Protocol, Self, assert_never
@@ -38,8 +38,6 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.reproduction import ParityReceipt
 
 if TYPE_CHECKING:
-    # `jax`/`sparse`/`dask`/`xarray` are companion-gated and never import at runtime; every `Array` arm structurally carries the
-    # `shape`/`dtype`/`device` members `array_namespace` admits, read directly off the operand rather than a second Protocol.
     import dask.array as da
     import jax
     import xarray as xr
@@ -51,7 +49,6 @@ if TYPE_CHECKING:
     type LabelledCarrier = xr.DataArray | xr.Dataset
 
     class ArrayNamespace(Protocol):
-        # names the exact standard members the owner reads, so every `xp.<op>` is a typed call rather than a phantom off a bare `object`.
         __name__: str
         bool: object
 
@@ -61,7 +58,7 @@ if TYPE_CHECKING:
         def any(self, x: "Mask", /) -> "Array": ...
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class FiniteGate(StrEnum):
@@ -81,8 +78,6 @@ class FiniteGate(StrEnum):
                 assert_never(unreachable)
 
     def violated(self, xp: "ArrayNamespace", array: "Array") -> bool:
-        # a deferred operand builds mask-then-`any` as one `xpx.lazy_apply` node (scalar `xp.bool` output) materialized once here —
-        # a `bool(xp.any(...))` on a graph backend forces the whole operand graph eager, the deleted form.
         if is_lazy_array(array):
             reduced = xpx.lazy_apply(lambda a: xp.any(self.forbidden(xp, a)), array, shape=(), dtype=xp.bool, xp=xp)
             return bool(np.asarray(reduced))
@@ -90,9 +85,9 @@ class FiniteGate(StrEnum):
 
 
 class AdmitMode(StrEnum):
-    STRICT = "strict"  # admit the resolved operand verbatim under the finite gate
-    SANITIZE = "sanitize"  # replace every non-finite cell through `xpx.nan_to_num` before the gate
-    DENSE_GUARD = "dense-guard"  # route the sparse host transfer through `maybe_densify` under `DenseBound`
+    STRICT = "strict"
+    SANITIZE = "sanitize"
+    DENSE_GUARD = "dense-guard"
 
     def condition(self, xp: "ArrayNamespace", array: "Array") -> "Array":
         match self:
@@ -110,46 +105,33 @@ class SparseLayout(StrEnum):
     DOK = "dok"
 
     def reformat(self, array: "SparseArray") -> "SparseArray":
-        # COO is the build floor; other rows recover through `asformat(format=)`, never a per-class constructor.
         return array if self is SparseLayout.COO else array.asformat(self.value)
 
     @staticmethod
     def recover(array: "SparseArray") -> "SparseLayout":
-        # concrete-class name lowercased IS the `format=` value; there is no `.format` instance attribute to read.
         return SparseLayout(type(array).__name__.lower())
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# `array_layout` family's default graduation ceiling; bit-identity admits zero parity delta.
 _LAYOUT_CEILING: Final[Map[str, float]] = Map.of_seq([("parity_delta", 0.0)])
 
-# --- [TABLES] --------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's raise-side roster under the hub `ComputeLeg` contract: the subject derives from the leg, so admission's
-# two refusals stop spelling their discriminant INTO a subject — `f"non-finite:{finite.value}"` forked one refusal law
-# into three coordinates no roster could enumerate, and the gate class now rides a NAMED slot the arity check proves.
 NON_FINITE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.ARRAY, point="finite", arm="config", defect="non-finite", retriability=TERMINAL, slots=("gate", "dtype")
 )
 AXES_SHAPE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.ARRAY, point="axes", arm="config", defect="axes-shape", retriability=TERMINAL, slots=("declared", "buffer")
 )
-# the admission fence itself: a backend the resolver refuses, a nameless multi-variable carrier, and a densification
-# past its bound are all caller-repairable construction refusals, so the fence row seats `config` beside the two raises.
 ADMIT: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.ARRAY, point="admit", arm="config", defect="admission", retriability=TERMINAL
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([NON_FINITE, AXES_SHAPE, ADMIT]))
 
-# the resolver, the carrier reader, and the densify bound are this fence's WHOLE raise surface: `array_namespace`
-# raises `TypeError` for an unsupported array type and for a multi-namespace input set and `ValueError` for a
-# malformed one (probed by venv reflection over its own source), `labelled_target` raises `ValueError` on a nameless
-# multi-variable `Dataset` and `KeyError` on a named variable the carrier lacks, and `maybe_densify` raises past its
-# size/density bound (`libs/python/compute/.api/sparse.md:100`). Nothing else in the thunk raises, so nothing else catches.
 _ADMIT_CATCH: Final[tuple[type[BaseException], ...]] = (KeyError, TypeError, ValueError)
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class NamedAxis(Struct, frozen=True, gc=False):
@@ -158,13 +140,11 @@ class NamedAxis(Struct, frozen=True, gc=False):
 
 
 class DenseBound(Struct, frozen=True, gc=False):
-    # `Meta`-bounded: a non-positive cap or an out-of-unit-interval density is a decode-time rejection, never a silent blow-through.
     max_size: Annotated[int, Meta(gt=0)] = 1000
     min_density: Annotated[float, Meta(ge=0.0, le=1.0)] = 0.25
 
 
 class SparseFacts(Struct, frozen=True, gc=False):
-    # sparsity as first-class receipt evidence beside the dense facts, projected off the `sparse` properties surface.
     layout: SparseLayout
     fill_value: float
     nnz: int
@@ -202,12 +182,9 @@ class ArraySource:
 
     @classmethod
     def Labelled(cls, carrier: "LabelledCarrier", name: str | None = None) -> Self:
-        # one case for both carrier shapes, discriminated by `labelled_target` — never a per-carrier sibling case.
         return cls(labelled=(carrier, name))
 
     def labelled_target(self) -> "xr.DataArray":
-        # a multi-variable nameless `Dataset` raises HERE inside the admission fence, never passing the carrier on to fail later
-        # on a phantom `.data`; structural `data_vars` read, no runtime `xarray` import.
         carrier, name = self.labelled
         if not hasattr(carrier, "data_vars"):
             return carrier
@@ -223,8 +200,6 @@ class ArraySource:
             case ArraySource(tag="live", live=array):
                 return array
             case ArraySource(tag="sparsify", sparsify=(dense, layout, fill_value)):
-                # `sparse.asarray` carries no `fill_value`; `COO.from_numpy(dense, fill_value=)` is the
-                # densify-to-sparse path that sets the implicit dense value, then `reformat` to layout.
                 return layout.reformat(sparse.COO.from_numpy(dense, fill_value=fill_value))
             case ArraySource(tag="sparse_from", sparse_from=(coords, data, shape, layout, fill_value)):
                 return layout.reformat(sparse.COO(coords, data, shape=shape, fill_value=fill_value))
@@ -234,7 +209,6 @@ class ArraySource:
                 assert_never(unreachable)
 
     def axes_of(self) -> tuple[NamedAxis, ...]:
-        # dims/sizes off the resolved DataArray become the `NamedAxis` rows the admission gate checks; other sources yield ().
         match self:
             case ArraySource(tag="labelled"):
                 target = self.labelled_target()
@@ -251,12 +225,10 @@ class ArrayPayload(Struct, frozen=True):
     axes: tuple[NamedAxis, ...]
     finite: FiniteGate
     mode: AdmitMode
-    # a dense payload has no sparsity to report, which `Option` STATES and `| None` leaves a consumer to test: the
-    # `None` crossed the admission boundary as a bare sentinel every downstream read had to re-guard.
     sparse_facts: Option[SparseFacts]
     content_key: ContentKey
 
-    # --- [OPERATIONS] ----------------------------------------------------------------------
+    # --- [OPERATIONS] -------------------------------------------------------------------
 
     @classmethod
     def admit(
@@ -269,10 +241,6 @@ class ArrayPayload(Struct, frozen=True):
         *,
         composition: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[ArrayPayload]":
-        # a labelled source with no caller axes derives them from its own coords through `axes_of`. The hub weave owns
-        # span, fence, and the resource band: admission is the widest-fanning kernel in the package — every producer
-        # crosses it — and a densification, a lazy-graph materialization, and a whole-buffer canonical encode are
-        # exactly the spends the ledger exists to price, so the branch's universal evidence floor holds here too.
         def rail() -> "RuntimeRail[ArrayPayload]":
             return boundary(
                 ADMIT, lambda: _admit(source.operand(), axes or source.axes_of(), finite, mode, bound), catch=_ADMIT_CATCH
@@ -282,9 +250,6 @@ class ArrayPayload(Struct, frozen=True):
         return evidence_run(EvidenceScope.ARRAY, f"array.{source.tag}", rail, facts=facts, composition=composition)
 
     def graduates(self, parity: ParityReceipt, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[GraduationReceipt]":
-        # verification folds to the `parity_delta` residual the hub clears against the family ceiling; a caller's tighter row overrides.
-        # `composition` is the caller's custody key threaded straight onto the hub, so an embedded composition's admission and
-        # refusal facts reach the points IT registered rather than firing into the root scope.
         ledger = {"parity_delta": 0.0 if parity.verified else 1.0}
         return GraduationReceipt.graduates(
             EvidenceScope.ARRAY.value,
@@ -307,10 +272,6 @@ class ArrayPayload(Struct, frozen=True):
         return base | self.sparse_facts.map(SparseFacts.as_map).default_value({})
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine: the admitted payload's own key is the produced coordinate and the provenance
-        # consumes nothing, admission being the branch's entry kernel rather than a derivation over prior keys. The
-        # band is EMPTY by construction — the finite gate and the axes check are `Error` arms that never reach this
-        # fold — so an admitted payload publishes a cleared band the way the hub's crossing does.
         return (
             Receipt.of(
                 EvidenceScope.ARRAY.value,
@@ -321,21 +282,17 @@ class ArrayPayload(Struct, frozen=True):
         )
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# `@railed` decorates a module-level generator — the builder cannot bind a `@classmethod`-wrapped one off `cls`.
 @railed
 def _admit(array: "Array", axes: tuple[NamedAxis, ...], finite: FiniteGate, mode: AdmitMode, bound: DenseBound) -> ArrayPayload:
     xp = array_namespace(array)
     conditioned = mode.condition(xp, array)
     if finite.violated(xp, conditioned):
-        # `yield from Error(...)` raises `EffectError` so the builder short-circuits; a bare `yield Error(...)` binds the fault as `Ok`.
         yield from Error(NON_FINITE.raised(finite.value, str(conditioned.dtype)))
     sparse_in = is_pydata_sparse_array(conditioned)
-    # `shape`/`count` read off the always-concrete host buffer — a lazy operand's `size` is `None`, so `size(conditioned) or 0` records a `0` lie.
     buffer = _host_buffer(conditioned, sparse_in, mode, bound)
-    # a non-empty `axes` whose sizes disagree with the concrete buffer is a lie the data-branch `Dataset` would inherit; short-circuit it.
     if axes and tuple(axis.size for axis in axes) != buffer.shape:
         yield from Error(AXES_SHAPE.raised(str(tuple(axis.size for axis in axes)), str(buffer.shape)))
     key: ContentKey = yield from ContentIdentity.of("array", buffer)
@@ -352,9 +309,6 @@ def _admit(array: "Array", axes: tuple[NamedAxis, ...], finite: FiniteGate, mode
     )
 
 
-# one backend-residence fold to the canonical C-contiguous host buffer, passed to `ContentIdentity.of` as the PEP 688 `Buffer`
-# (no redundant `.tobytes()`). Residence reads the `is_numpy_array` `TypeIs` — a `Device != "cpu"` compare mis-evaluates the opaque
-# Array-API `Device` object, which is not a string.
 def _host_buffer(array: "Array", sparse_in: bool, mode: AdmitMode, bound: DenseBound) -> np.ndarray:
     if sparse_in:
         densified = array.maybe_densify(max_size=bound.max_size, min_density=bound.min_density) if mode is AdmitMode.DENSE_GUARD else array

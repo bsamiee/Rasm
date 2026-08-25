@@ -34,18 +34,11 @@ import { Crypto, type SingleUse } from "../crypt/sign.ts"
 import { Curb, Reject } from "../crypt/verify.ts"
 import { CredentialRef, type SessionFault, type Subject, Token, type TokenPair } from "./session.ts"
 
-// `Schema.Literal` takes values, so the transport roster is spelled once as a tuple — and the guard pair closes it
-// against the package's own `AuthenticatorTransportFuture` in BOTH directions, so a minor line adding a transport
-// fails this declaration instead of refusing a legitimate enrollment at the `Passkey` schema.
 const _transports = ["ble", "cable", "hybrid", "internal", "nfc", "smart-card", "usb"] as const
 
 type _Transports<T extends AuthenticatorTransportFuture = (typeof _transports)[number]> = T
 type _Future<T extends (typeof _transports)[number] = AuthenticatorTransportFuture> = T
 
-// Anchors resolve by DECODED attestation format, so `mds` — pinning only the metadata BLOB signer — sits as one
-// row beside the chain-bearing formats rather than standing in for them. `none` is absent because its statement
-// carries no chain, and `RootCertIdentifier` bounds the roster against the package in both directions. The tuple
-// anchors the key set so the attestation refusal names a pinned identifier rather than a free string.
 const _anchors = ["android-key", "android-safetynet", "apple", "fido-u2f", "mds", "packed", "tpm"] as const
 
 type _Anchors<T extends Exclude<RootCertIdentifier, "none"> = (typeof _anchors)[number]> = T
@@ -63,15 +56,8 @@ const _ROOTS = {
 
 const _Intent = Schema.Literal("enroll", "assert")
 
-// Ceremony refusal is a CLOSED verdict, never a sentence: the gate asks four questions of the held phase and the
-// first unmet one IS the answer, so an operator reads which check fired instead of re-parsing prose.
 const _refusals = ["absent", "subject", "intent", "expired"] as const
 
-// Six legs partition the server ceremony and each reason renders its OWN subject: a mint refusal names the stage
-// that broke, a gate refusal names the check that fired, a verify refusal names the intent and the credential when
-// one resolved, a replay refusal names both counters, and an anchor refusal names the identifier whose registry
-// answered nothing. One free `detail` string answered all six, and the counter arm in particular carried the passkey
-// id while saying nothing about the regression that condemned it.
 const _family = Fault.Class.family(["ceremony", "challenge", "verification", "counter", "attestation", "throttled"] as const, {
   ceremony: Fault.Class.row({
     class: "defect",
@@ -90,8 +76,6 @@ const _family = Fault.Class.family(["ceremony", "challenge", "verification", "co
     leg: "verify",
     detail: Schema.Struct({
       intent: _Intent,
-      // Registration reaches its refusals before any credential resolves, so the column is absence-shaped rather
-      // than a placeholder id no authenticator ever presented.
       credential: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
       cause: Schema.String,
     }),
@@ -141,9 +125,6 @@ class Passkey extends Schema.Class<Passkey>("Passkey")({
   transports: Schema.optionalWith(Schema.Array(Schema.Literal(..._transports)), { as: "Option" }),
 }) {}
 
-// Phase carries its own subject because the store key is the CHALLENGE, not the subject: no stranger evicts a
-// slot only the holder of a live challenge can name, and subject then rides the value, where the finish gate
-// reads it back against the caller claiming it.
 class CeremonyPhase extends Schema.Class<CeremonyPhase>("CeremonyPhase")({
   intent: _Intent,
   subject: Schema.UUID,
@@ -174,15 +155,11 @@ class WebAuthnStore extends Context.Tag("security/authn/WebAuthnStore")<WebAuthn
 
 class ChallengeStore extends Context.Tag("security/authn/ChallengeStore")<ChallengeStore, SingleUse<CeremonyPhase, WebAuthnFault>>() {}
 
-// The folder's one WEBAUTHN_ decode site: every namespace row resolves in this record at layer construction, so a
-// malformed environment fails the boot line and no second decode site can fork the namespace.
 const _setting = Config.unwrap({
   attestationType: Config.literal("none", "direct", "enterprise")("WEBAUTHN_ATTESTATION").pipe(
     Config.withDefault("none" as const),
     Config.withDescription("attestation posture; direct/enterprise arm MDS and demand a validated cert chain"),
   ),
-  // One PEM list per anchor row, each under its own name, because the verifier looks anchors up by format: a
-  // single flat list would land under one identifier and leave every other format's chain walking nothing.
   roots: Config.all(Record.map(_ROOTS, (name) =>
     Config.array(Config.string(), name).pipe(
       Config.withDefault(Array.empty<string>()),
@@ -225,9 +202,6 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
     WebAuthnTrust,
     Effect.gen(function* () {
       const setting = yield* _setting
-      // Each stated row REPLACES that format's anchor list, so only a non-empty one is written: handing `[]` to
-      // `setRootCertificates` deletes the anchors the package ships for `apple`, `android-key`, and
-      // `android-safetynet`, and the path validator reads an empty set as permission to skip validation.
       yield* Effect.forEach(
         Array.filter(Record.toEntries(setting.roots), ([, certificates]) => Array.isNonEmptyReadonlyArray(certificates)),
         ([identifier, certificates]) => Effect.sync(() => SettingsService.setRootCertificates({ identifier, certificates })),
@@ -269,12 +243,8 @@ class WebAuthnTrust extends Context.Tag("security/authn/WebAuthnTrust")<WebAuthn
 - Packages: `@simplewebauthn/server` (the 2×2 ceremony, `MetadataService.getStatement`, `preferredAuthenticatorType`); `crypt/sign` (`Crypto.token`); `crypt/verify` (`Reject`, `Curb`); `access/audit` (`Witness`, `SecurityFact`); `authn/session` (`Token.establish`, `CredentialRef`).
 
 ```typescript
-// Strict subset of the `Jwt` four-algorithm pin: two COSE identifiers a platform authenticator mints, so an RSA
-// fallback key never enters the ceremony.
 const _ALGORITHMS: ReadonlyArray<number> = [-8, -7]
 
-// WebAuthn wants at least sixteen random bytes behind a challenge; thirty-two is the deployed norm and renders
-// forty-three base64url characters, matching every other value on this wire.
 const _CHALLENGE_BYTES = 32
 const _utf8 = new TextEncoder()
 
@@ -287,19 +257,10 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
     const token = yield* Token
     const curb = yield* Curb
     const { ceremonyTtl, origin, rpID, rpName } = trust
-    // Package's challenge check is a callback wanting a `Promise`, so the gate below needs the CURRENT fiber's
-    // runtime rather than the default one — a test clock, a stubbed store, and every fiber ref this ceremony
-    // runs under reach inside the resolver instead of stopping at its edge.
     const runPromise = Runtime.runPromise(yield* Effect.runtime<never>())
-    // Stash key is the CHALLENGE itself. Keying by subject let anyone naming a subject spend that subject's live
-    // phase, which turned a well-formed forgery — an id, a type, and a hand-built clientDataJSON, none of it
-    // signed — into a denial of service on the ceremony its victim was mid-way through. No stranger reaches a
-    // slot only the holder of the minted challenge can spell.
     const _stash = (subject: string, intent: WebAuthnFault.Intent, challenge: string): Effect.Effect<void, WebAuthnFault> =>
       Effect.flatMap(DateTime.now, (now) =>
         challenges.stash(challenge, new CeremonyPhase({ intent, subject, challenge, expiresAt: DateTime.addDuration(now, ceremonyTtl) }), ceremonyTtl))
-    // The gate's four questions answer in ONE word and the issue mints once around whichever fired, so the refusal
-    // an operator reads is a rostered verdict rather than four sentences no consumer can discriminate on.
     const _refused = (now: DateTime.Utc, subject: string, intent: WebAuthnFault.Intent) =>
       (held: Option.Option<CeremonyPhase>): Option.Option<WebAuthnFault.Case> =>
         Option.map(
@@ -316,14 +277,6 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
           }),
           (refusal): WebAuthnFault.Case => ({ reason: "challenge", subject, intent, refusal }),
         )
-    // ONE ceremony gate for both finishes, and it consumes the phase INSIDE verification: `expectedChallenge`
-    // takes a resolver the package calls only after the response's id, type, and clientDataJSON have parsed, and
-    // it hands over the challenge THAT response carried — which is the key, so a finish naming no live challenge
-    // consumes nothing and the ceremony its victim is still walking survives it. The resolver's own contract is a
-    // bare boolean, so the refusal REASON rides a cell `settled` reads back: a phase the resolver refused settles
-    // `challenge` with that reason, a response that never reached the resolver settles `verification`, and the
-    // ceremony mark and its `Ceremony` fact land on the first arm alone. The cell carries the ISSUE, not a sentence,
-    // so a store refusal on consume arrives under its own reason instead of being relabelled as a gate verdict.
     const _gate = (subject: string, intent: WebAuthnFault.Intent) =>
       Effect.map(Ref.make(Option.none<WebAuthnFault.Case>()), (cell) => ({
         expectedChallenge: (presented: string): Promise<boolean> =>
@@ -346,9 +299,6 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
                 ),
             }))),
       }))
-    // `validateCertificatePath` returns TRUE on an empty anchor list — no anchors, so no path to validate — which
-    // makes a `direct` posture over an unpinned format a chain checked against nothing. The verified format is
-    // read back against the very registry the verifier consulted, so the refusal is spelled where the gap is.
     const _anchored = (fmt: AttestationFormat): Effect.Effect<void, WebAuthnFault> =>
       trust.attestationType === "none" || fmt === "none"
         || Array.isNonEmptyReadonlyArray(SettingsService.getRootCertificates({ identifier: fmt }))
@@ -369,7 +319,7 @@ class WebAuthn extends Effect.Service<WebAuthn>()("security/authn/WebAuthn", {
             attestationType: trust.attestationType, authenticatorSelection: trust.selection,
             ...(Option.isSome(trust.preferred) && { preferredAuthenticatorType: trust.preferred.value }),
             supportedAlgorithmIDs: [..._ALGORITHMS],
-            timeout: Duration.toMillis(ceremonyTtl), // one config value drives both halves of the window; the library default would expire the dialog four minutes before the phase
+            timeout: Duration.toMillis(ceremonyTtl),
             excludeCredentials: existing.map((passkey) => ({ id: passkey.id })),
           }),
           catch: (cause) => new WebAuthnFault({ case: { reason: "ceremony", stage: "options", cause: String(cause) } }),
@@ -510,10 +460,6 @@ import {
 import { Fault } from "@rasm/core"
 import { Array, Effect, Option, Schema } from "effect"
 
-// Two legs partition this half and each reason renders its OWN subject: `ceremony` reasons carry the package's own
-// message for the call that refused, and `capability` reasons carry the closed thing that was missing — the browser
-// feature this page probed for, or the selector it prompts into. A shared free-string `detail` spelled both as prose
-// a caller had to read rather than as a value it could branch on.
 const _CAPABILITIES = ["webauthn", "conditional-ui"] as const
 
 const _family = Fault.Class.family(
@@ -561,8 +507,6 @@ const _family = Fault.Class.family(
       detail: Schema.Struct({ capability: Schema.Literal(..._CAPABILITIES) }),
       render: ({ capability }) => `this browser has no ${capability}`,
     }),
-    // Conditional-UI prompt has nowhere to land: this page armed autofill without the field it anchors to, an
-    // absent affordance a caller fixes by mounting one, never a device or a browser refusal.
     anchorless: Fault.Class.row({
       class: "absent",
       leg: "capability",
@@ -572,8 +516,6 @@ const _family = Fault.Class.family(
   },
 )
 
-// The package's own error-code union governs this record, so a minor line adding a code breaks the mapping loudly at
-// compile time rather than landing as an unmapped free string on a fault a caller must parse.
 const _CODES: Record<WebAuthnErrorCode, PasskeyFault.Reason> = {
   ERROR_CEREMONY_ABORTED: "aborted",
   ERROR_INVALID_DOMAIN: "origin",
@@ -608,22 +550,15 @@ class PasskeyFault extends Schema.TaggedError<PasskeyFault>()("PasskeyFault", {
   }
 }
 
-// Probes answer a capability question, so a rejection IS the negative answer: `Effect.merge` folds the refusal
-// arm back into the value and each gate reads a boolean, where `Effect.promise` escalates that same rejection
-// into a defect on a page whose every other call carries a typed reason.
 const _probed = (ask: () => Promise<boolean>): Effect.Effect<boolean> =>
   Effect.merge(Effect.tryPromise({ try: ask, catch: (): false => false }))
 
-// Selector the package itself matches before arming conditional UI; reading it here keeps the refusal typed
-// rather than letting the package raise a bare `Error` the code map holds no cell for.
 const _ANCHOR = "input[autocomplete$='webauthn']"
 
 type _Gate = { readonly met: boolean; readonly case: PasskeyFault.Case }
 
 const _supported = (): _Gate => ({ met: browserSupportsWebAuthn(), case: { reason: "unsupported", capability: "webauthn" } })
 
-// Gates are stated per entry and the FIRST unmet row is the refusal, so an unsupported browser, a browser without
-// conditional UI, and a page missing its autofill field answer as three acts a caller can take.
 const _lift = <A>(gates: ReadonlyArray<_Gate>, run: () => Promise<A>): Effect.Effect<A, PasskeyFault> =>
   Option.match(Array.findFirst(gates, (gate) => !gate.met), {
     onNone: () =>
@@ -650,8 +585,6 @@ const Passkeys = {
           { met: ready, case: { reason: "unsupported", capability: "conditional-ui" } },
           { met: document.querySelectorAll(_ANCHOR).length > 0, case: { reason: "anchorless", selector: _ANCHOR } },
         ],
-        // `verifyBrowserAutofillInput` stays pinned TRUE behind the anchor gate, so a library default flip drops
-        // neither check and the prompt never arms over a field that is not there.
         () => startAuthentication({ optionsJSON, useBrowserAutofill: true, verifyBrowserAutofillInput: true }),
       )),
   probe: (): Effect.Effect<{ readonly platform: boolean; readonly autofill: boolean }> =>
@@ -659,7 +592,7 @@ const Passkeys = {
   cancel: (): Effect.Effect<void> => Effect.sync(() => WebAuthnAbortService.cancelCeremony()),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { CeremonyPhase, ChallengeStore, Passkey, Passkeys, PasskeyFault, WebAuthn, WebAuthnFault, WebAuthnStore, WebAuthnTrust }
 ```

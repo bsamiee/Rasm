@@ -25,10 +25,8 @@ Ownership is ONE `Context` per CHECK — the AST factory and arena (`IDisposable
 - Boundary: the `Symbolic/lowering#ENCLOSURE` `EnclosureFold.Certify` interval pre-gate answers a rule whose enclosure proves over the declared bounds BEFORE the Z3 context is minted — the COMPLETE `ProvenViolated` roster short-circuits `Unsatisfiable` (a single-rule core hides every other rule the same box already refutes), an all-`ProvenSatisfied` roster short-circuits `Satisfiable`, and every other rule falls through to the exact engine. `Certify`'s typed DECLINE propagates as ABSENCE, never as a fabricated `(double.MinValue, double.MaxValue)` enclosure: the owner refuses to widen precisely so an unbounded node stays distinguishable from a box that straddles zero, and re-minting that interval here discards the proof at the owner's own call site.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Every rule, element, bound, and free symbol admits ONCE here. A tracking literal reserves `@` for its own
-// namespacing, so an admitted name never carries one and `TrackClass.Parse` can split a literal without archaeology.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct TrackedName {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
@@ -38,8 +36,6 @@ public readonly partial struct TrackedName {
             : new ValidationError("TrackedName admits letters, digits, and `_-.` alone, and reserves `@`.");
 }
 
-// Tracking-literal namespaces. Every assertion the solver tracks carries its class in the literal itself, so an
-// unsat core partitions by row — a rule name that reads like a bound name can never be mistaken for one.
 [SmartEnum<string>]
 public sealed partial class TrackClass {
     public static readonly TrackClass Rule = new(key: "rule", prefix: "");
@@ -51,15 +47,12 @@ public sealed partial class TrackClass {
     public string Format(TrackedName name, Option<TrackedName> element) =>
         element.Match(Some: member => $"{Prefix}{name.Value}@{member.Value}", None: () => $"{Prefix}{name.Value}");
 
-    // The class a literal belongs to: longest prefix wins, so `bound@` never resolves as the empty-prefix rule row.
     public static TrackClass Of(string literal) =>
         Items.Filter(row => row.Prefix.Length > 0 && literal.StartsWith(row.Prefix, StringComparison.Ordinal))
             .OrderByDescending(static row => row.Prefix.Length)
             .HeadOrNone()
             .IfNone(Rule);
 
-    // The rule a literal names, absent for the box and assumption namespaces: a rule literal is `<name>` or
-    // `<name>@<element>`, so the name is the head up to the first element separator.
     public Option<TrackedName> Parse(string literal) {
         if (!ReferenceEquals(this, Rule)) { return None; }
         int separator = literal.IndexOf('@', StringComparison.Ordinal);
@@ -67,9 +60,6 @@ public sealed partial class TrackClass {
     }
 }
 
-// The three posture rows are one combinable column, never three defaulted bool parameters whose eight corners the
-// bodies re-derive at three sites. NAMED LOSS: per-flag compile-time exhaustiveness, bought back by the closed
-// roster — no caller constructs a free set, and `Canonical` names the production corner.
 [SmartEnum<string>]
 public sealed partial class SatisfyRight : ICapability<SatisfyRight> {
     public static readonly SatisfyRight WitnessCompletion = new(key: "witness-completion");
@@ -77,8 +67,6 @@ public sealed partial class SatisfyRight : ICapability<SatisfyRight> {
     public static readonly SatisfyRight RequireCoverage = new(key: "require-coverage");
 }
 
-// `Set("timeout", uint)` takes MILLISECONDS as a `uint`, so a duration past `uint.MaxValue` is unrepresentable at
-// the native seam and refuses at construction rather than truncating into a shorter search than the caller asked for.
 [ComplexValueObject]
 public sealed partial class SatisfyPolicy {
     public static SatisfyPolicy Canonical { get; } = Create(
@@ -102,24 +90,15 @@ public sealed partial record ComplianceRule(
     TrackedName Name, SymbolicExpr Constraint, string Citation,
     [property: OrderedEquality] Seq<RuleGrounding> Grounding, bool Hypothesis);
 
-// `[Equatable]`+`[OrderedEquality]`: `Map` under synthesized record equality compares by REFERENCE, so two
-// structurally identical groundings read unequal and the admission's duplicate test would answer on identity alone.
 [Equatable]
 public sealed partial record RuleGrounding(TrackedName Element, [property: OrderedEquality] Map<TrackedName, double> Bindings);
 
-// Search counters read off the solver's own `Statistics` table after the check that produced the verdict. Every
-// column is `Option<long>` because the indexer answers `null` on a key the running tactic never published, and a
-// zero there would read as a solver that decided nothing — the discrimination the whole carrier exists to make.
 public readonly record struct SearchCounters(Option<long> Decisions, Option<long> Conflicts, Option<long> Restarts) {
     public static readonly SearchCounters Absent = new(None, None, None);
 
-    // Z3 publishes its counters under its own names; the roster is closed here so a renamed upstream key surfaces
-    // as absence rather than as a fabricated count.
     public static SearchCounters Of(Microsoft.Z3.Statistics statistics) =>
         new(Counter(statistics, "decisions"), Counter(statistics, "conflicts"), Counter(statistics, "restarts"));
 
-    // `Entry` discriminates its own storage, so a double-valued counter narrows and an unset flag pair answers
-    // absence rather than reading whichever field happens to hold zero.
     static Option<long> Counter(Microsoft.Z3.Statistics statistics, string key) =>
         statistics[key] switch {
             { IsUInt: true } entry => Some((long)entry.UIntValue),
@@ -145,22 +124,14 @@ public abstract partial record WitnessValue {
 public abstract partial record SatisfyVerdict {
     private SatisfyVerdict() { }
 
-    // `Witness` is ONE design that passes; `Implied` is what EVERY passing design must satisfy — the answer a
-    // code-compliance consumer actually asks. The set is empty when the policy declines the extraction, never
-    // absent as a case.
     public sealed record Satisfiable(Map<TrackedName, WitnessValue> Witness, Seq<string> Implied) : SatisfyVerdict;
 
-    // The COMPLETE conflicting set, never its first member: an interval pre-gate that refutes four rules over the
-    // same box and reports one leaves three violations for a second campaign to rediscover.
     public sealed record Unsatisfiable(Seq<string> ViolatedRules) : SatisfyVerdict;
 
-    // `Reason` cannot separate a timeout at three decisions — a lowering pathology a caller fixes by re-encoding —
-    // from one at three million, a genuinely hard NRA fragment where raising `SatisfyPolicy.Timeout` is the only
-    // move; the counters read off the same solver holding are what decide it.
     public sealed record Unknown(SolvePhase Phase, FailureKind Kind, string Reason, SearchCounters Counters) : SatisfyVerdict;
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class RuleSatisfaction {
     public static Fin<SatisfyVerdict> Check(
         Seq<ComplianceRule> rules, Map<TrackedName, (double Lower, double Upper)> bounds, SatisfyPolicy policy,
@@ -171,10 +142,6 @@ public static partial class RuleSatisfaction {
             None: () => CheckExact(rules, bounds, policy))
         select verdict;
 
-    // Interval pre-gate over the SAME admitted rule set: each ungrounded comparison rule adapts to g(x) ≤ 0 and
-    // certifies through EnclosureFold.Certify over the declared box BEFORE any native allocation. A grounded rule,
-    // a non-comparison shape, and a DECLINED certification are all one thing here — absence — and absence sends the
-    // whole set to the exact engine, which is where an undecidable node already routed. Filter, never authority.
     static Option<SatisfyVerdict> Pregate(Seq<ComplianceRule> rules, Map<TrackedName, (double Lower, double Upper)> bounds) {
         Seq<TrackedName> order = toSeq(bounds.Keys);
         ImmutableArray<Interval> box = [.. order.Map(name => Interval.Of(bounds[name].Lower, bounds[name].Upper))];
@@ -189,9 +156,6 @@ public static partial class RuleSatisfaction {
             .Map(static pair => pair.Rule.Name.Value);
         return !violated.IsEmpty
             ? Some((SatisfyVerdict)new SatisfyVerdict.Unsatisfiable(violated))
-            // Implications stay EMPTY on the pre-gate branch: an enclosure proves the box satisfies, never what
-            // every model must carry, so the extraction rides the exact engine alone rather than inventing a
-            // universal claim from an interval bound. The midpoint is a GENUINE witness because every box point is.
             : certified.ForAll(static pair => pair.Verdict.Case is EnclosureVerdict.ProvenSatisfied)
                 ? Some((SatisfyVerdict)new SatisfyVerdict.Satisfiable(
                     order.Fold(Map<TrackedName, WitnessValue>(), (acc, name) =>
@@ -200,7 +164,6 @@ public static partial class RuleSatisfaction {
                 : Option<SatisfyVerdict>.None;
     }
 
-    // Comparison statements adapt to the g(x) ≤ 0 enclosure form; any other statement shape is exact-rail-only.
     static Option<SymbolicExpr> Gform(SymbolicExpr constraint) => constraint.Entity switch {
         Entity.LessOrEqualf le => Some(SymbolicExpr.Of(le.Left - le.Right)),
         Entity.Lessf lt => Some(SymbolicExpr.Of(lt.Left - lt.Right)),
@@ -209,8 +172,6 @@ public static partial class RuleSatisfaction {
         _ => Option<SymbolicExpr>.None,
     };
 
-    // The throw funnel brackets the NATIVE boundary alone; the lowering's own typed refusal rails through the
-    // inner `Fin`, so an unmapped CAS node keeps its name instead of arriving as an exception type string.
     static Fin<SatisfyVerdict> CheckExact(
         Seq<ComplianceRule> rules, Map<TrackedName, (double Lower, double Upper)> bounds, SatisfyPolicy policy) =>
         Op.Of(name: "solver.z3-check").Catch(() => {
@@ -226,8 +187,6 @@ public static partial class RuleSatisfaction {
                    select verdict;
         });
 
-    // The declared box is TRACKED like every rule: a box no rule set can satisfy lands in the core under its own
-    // literal instead of reporting an empty core for an unsatisfiable problem.
     static void Boxed(
         Microsoft.Z3.Solver solver, Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables,
         Map<TrackedName, (double Lower, double Upper)> bounds) =>
@@ -237,9 +196,6 @@ public static partial class RuleSatisfaction {
                 context.MkLe(variables[name], context.MkReal(Exact(window.Upper)))),
             context.MkBoolConst(TrackClass.Bound.Format(name, None))));
 
-    // `Push`/`Pop` is an ACQUIRE/RELEASE pair, so the frame releases on the refusing path too. The flag-tracked form
-    // skipped `Pop` on an early return and leaked the frame — harmless only because the arena died with the call,
-    // which is luck rather than design. An absent hypothesis set opens no frame at all.
     static Fin<SatisfyVerdict> Framed(
         Microsoft.Z3.Solver solver, Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables,
         Seq<ComplianceRule> rules, SatisfyPolicy policy) =>
@@ -252,9 +208,6 @@ public static partial class RuleSatisfaction {
                 .Run()
             : Fin.Succ(Settle(solver, variables, policy));
 
-    // `TraverseM` short-circuits by construction — the first refusing lowering ends the pass — so the mutable
-    // `Option<Error>` cell, the four hand `break`s, and the three nesting levels that carried them all delete. The
-    // pass discriminant is the CALL SITE's `TrackClass` row, never a `bool` iterated as a two-element domain.
     static Fin<Unit> Assert(
         Microsoft.Z3.Solver solver, Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables,
         Seq<ComplianceRule> admitted, TrackClass tracked) =>
@@ -271,16 +224,11 @@ public static partial class RuleSatisfaction {
         Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables, RuleGrounding ground) =>
         ground.Bindings.Fold(variables, (acc, name, value) => acc.AddOrUpdate(name, (Microsoft.Z3.RealExpr)context.MkReal(Exact(value))));
 
-    // `MkReal(string)` is the EXACT crossing for a float bound — the numeric overloads take integers alone, so a
-    // decimal round-trip through invariant text is the honest float encoding rather than a truncation.
     static string Exact(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     static Fin<Unit> Track(Microsoft.Z3.Solver solver, Microsoft.Z3.Context context, Fin<Microsoft.Z3.BoolExpr> lowered, string literal) =>
         lowered.Map(assertion => { solver.AssertAndTrack(assertion, context.MkBoolConst(literal)); return unit; });
 
-    // Counters read from the SAME holding that produced the verdict; a second `Check` would re-run the search and
-    // report a different one. `Map<K,V>.Map` is already a keyed functor, so the witness projection needs no
-    // seq round trip to rebuild the map it started from.
     static SatisfyVerdict Settle(
         Microsoft.Z3.Solver solver, Map<TrackedName, Microsoft.Z3.RealExpr> variables, SatisfyPolicy policy) =>
         solver.Check() switch {
@@ -293,10 +241,6 @@ public static partial class RuleSatisfaction {
             _ => new SatisfyVerdict.Unknown(SolvePhase.Solve, FailureKind.Numeric, solver.ReasonUnknown, SearchCounters.Of(solver.Statistics)),
         };
 
-    // Universal implications over the declared variable set, on the SAME holding the witness came from: the fixed
-    // point every model satisfies, so a rule roster answers "every passing design carries beam depth >= 450" and
-    // not merely "here is one that does". An empty roster is the honest read for a policy that declines the cost,
-    // for a status the extraction cannot settle, and for a rule set implying nothing beyond its own bounds.
     static Seq<string> Implied(
         Microsoft.Z3.Solver solver, Map<TrackedName, Microsoft.Z3.RealExpr> variables, SatisfyPolicy policy) =>
         !policy.Rights.Admits(SatisfyRight.Implications)
@@ -306,9 +250,6 @@ public static partial class RuleSatisfaction {
                 ? toSeq(implied).Map(static literal => literal.ToString())
                 : Seq<string>();
 
-    // The claims here are INDEPENDENT, so they accumulate: a rule set with four bad bindings names four, where the
-    // first-refusal ladder named one and left three for the next round trip. The page's own unsat-core law
-    // ("reports one leaves three violations for a second campaign") is the same argument one fence up.
     static Fin<Unit> Admit(
         Seq<ComplianceRule> rules, Map<TrackedName, (double Lower, double Upper)> bounds, SatisfyPolicy policy,
         Seq<CoverageFact> coverage) =>
@@ -317,9 +258,6 @@ public static partial class RuleSatisfaction {
             Claim(toSet(rules.Map(static rule => rule.Name)).Count == rules.Count, new ComputeViolation.Contract(
                 ComputeContract.Unique,
                 new ContractEvidence.Count(toSet(rules.Map(static rule => rule.Name)).Count, rules.Count))),
-            // A rule quantifying over fewer members than its own class holds answers a NARROWER question than the
-            // one asked, and the verdict reads identically either way — so the gap refuses here rather than
-            // surfacing as a clean SATISFIABLE over a partial population.
             Claim(!policy.Rights.Admits(SatisfyRight.RequireCoverage) || coverage.ForAll(static fact => fact.Complete),
                 new ComputeViolation.Contract(ComputeContract.Complete, new ContractEvidence.Count(coverage.Filter(static fact => fact.Complete).Count, coverage.Count))))
          + toSeq(bounds.AsIterable()).Map(static pair => Claim(
@@ -351,8 +289,6 @@ public static partial class RuleSatisfaction {
     static Validation<Error, Unit> Claim(bool held, ComputeViolation evidence) =>
         held ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(ComputeArea.Solver, evidence));
 
-    // A CAS symbol the name grammar refuses never reaches the solver as an untracked constant: it drops to absence
-    // here and `AdmitRule`'s arity claim turns that absence into a named refusal.
     static Option<TrackedName> SymbolName(string text) =>
         TrackedName.TryCreate(text, out TrackedName admitted) ? Some(admitted) : None;
 
@@ -383,10 +319,6 @@ public static partial class RuleSatisfaction {
 
     static Option<TrackedName> Named(string literal) => TrackClass.Of(literal).Parse(literal);
 
-    // TRI-STATE: the core names the conflicting subset, so a rule outside it was never decided and reports
-    // `unassessed`. A false flag is a proven violation; a true flag exists only where a model witnessed the rule.
-    // A violation carries its CITATION beside the flag — the column the `Implied` law calls actionable is exactly
-    // as actionable as the refusal that publishes it.
     static Seq<AssessmentFact> Assessed(ComplianceRule rule, Seq<string> core) =>
         core.Choose(Named).Exists(name => name == rule.Name)
             ? Seq(AssessmentFact.Flag($"rule:{rule.Name.Value}", false), AssessmentFact.Text($"citation:{rule.Name.Value}", rule.Citation))
@@ -399,8 +331,6 @@ public static partial class RuleSatisfaction {
 }
 
 public static class RuleLowering {
-    // The walk carries the CONSTRAINT and the owning rule NAME; the whole `ComplianceRule` was a parameter the
-    // recursion reconstructed by cloning a record to change one field, five arms deep.
     public static Fin<Microsoft.Z3.BoolExpr> Lower(
         Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables, SymbolicExpr constraint, TrackedName rule) =>
         constraint.Entity switch {
@@ -421,8 +351,6 @@ public static class RuleLowering {
             Entity node => Fin.Fail<Microsoft.Z3.BoolExpr>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None()))),
         };
 
-    // Relate and Connect are the arity-2 folds every binary arm shares: the arm supplies its own `Mk*` combinator
-    // and the walk is written once, so a new relational or connective family is one row on the dispatch above.
     static Fin<Microsoft.Z3.BoolExpr> Relate(
         Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables, Entity left, Entity right,
         Func<Microsoft.Z3.ArithExpr, Microsoft.Z3.ArithExpr, Microsoft.Z3.BoolExpr> relate) =>
@@ -437,8 +365,6 @@ public static class RuleLowering {
         from r in Lower(context, variables, SymbolicExpr.Of(right), rule)
         select connect(l, r);
 
-    // `Rational.Stringize()` emits an exact `num/den`; `Real.Stringize()` emits a decimal. Both are exact against
-    // `MkReal(string)`, which is why the two arms differ in exactness REGIME and not in fidelity.
     static Fin<Microsoft.Z3.ArithExpr> Arith(Microsoft.Z3.Context context, Map<TrackedName, Microsoft.Z3.RealExpr> variables, Entity node) =>
         node switch {
             Entity.Number.Rational rational => Fin.Succ((Microsoft.Z3.ArithExpr)context.MkReal(rational.Stringize())),
@@ -453,8 +379,6 @@ public static class RuleLowering {
             Entity.Powf(Entity left, Entity right) => Combine(context, variables, left, right, static (c, l, r) => (Microsoft.Z3.ArithExpr)c.MkPower(l, r)),
             Entity.Absf(Entity argument) => Arith(context, variables, argument).Map(value => Rectified(context, value)),
             Entity.Signumf(Entity argument) => Arith(context, variables, argument).Map(value => Sign(context, value)),
-            // A CAS node this walk does not map is a NAMED refusal on the verdict rail, so the caller learns which
-            // family to encode away rather than reading an exception type through the native throw funnel.
             Entity node => Fin.Fail<Microsoft.Z3.ArithExpr>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Type(node.GetType())))),
         };
 
@@ -488,14 +412,8 @@ public static class RuleLowering {
 - Boundary: the selector composes the DECLARING package's own row statics — `StructuralRows` for the cross-package structural vocabulary, the owning package's `PropertyCategory` roster otherwise — because a call-site `PropertyName.Create` forks the spelling the declaring package already froze and the fork surfaces only as a rule that silently grounds nothing. Numeric admission is the three scalar `PropertyValue` arms alone: a measured row reads its SI magnitude, a number and an integer read their own value, and every other value case is NOT a rule binding — a text or enumerated row coerced to a double is the deleted form. The assessment spine stays the CALLER'S: this fold derives a rule, never a verdict, and never mints an `AssessmentResult`. Selector validity is a CONSTRUCTION refusal, so no caller mints a blank-classification selector and no fold re-tests one.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// One typed selector over the seam's node classes a rule population is drawn from: the SELECTION half is the
-// Element predicate algebra's own conjunction (`Query/predicate#PREDICATE` `All(ByKind, ByClassification)`) —
-// `Branch` carries the bSDD-RESOLVED classification closure as `Seq<Classification>`, so membership compares the
-// seam's (System, Code, Edition) identity and two editions of one code stop colliding (the edition-blind
-// two-string compare this recompose deletes); the binding roster naming WHICH declared property row feeds each
-// rule symbol stays Compute's own rule-grounding vocabulary, which no seam leaf models.
 [ComplexValueObject]
 public sealed partial class NodeClassSelector {
     public Seq<Classification> Branch { get; }
@@ -509,8 +427,6 @@ public sealed partial class NodeClassSelector {
             ? null
             : new ValidationError("NodeClassSelector requires a resolved classification branch and at least one binding row.");
 
-    // The selection VALUE — the seam algebra owns combination, negation-with-faults, and the canonical
-    // `PredicateKey` byte projection; this selector only supplies the two leaves.
     public Predicate<ElementLeaf> Selection =>
         new Predicate<ElementLeaf>.All(Seq<Predicate<ElementLeaf>>(
             new Predicate<ElementLeaf>.Leaf(new ElementLeaf.ByKind(Kind)),
@@ -531,8 +447,6 @@ public sealed partial class NodeClassSelector {
                 ComputeArea.Solver,
                 new ComputeViolation.Unsupported(ComputeCapability.SelectorClosure))).Holds;
 
-    // ALL-OR-NOTHING per member: a partially bound member grounds nothing, because a rule asserted over a subset of
-    // its own symbols is a different rule. The absence is the coverage evidence `[04]` publishes.
     public Option<Map<TrackedName, double>> Bind(Element member) =>
         Bindings.Fold(Some(Map<TrackedName, double>()), (acc, symbol, row) =>
             acc.Bind(bound => member.Properties
@@ -541,9 +455,6 @@ public sealed partial class NodeClassSelector {
                 .Bind(Numeric)
                 .Map(value => bound.Add(symbol, value))));
 
-    // The three SCALAR arms are the whole numeric vocabulary of a rule binding — a measured row through its SI
-    // magnitude, a number and an integer through their own value. Every other value case answers absent rather than
-    // coercing: a text, enumerated, bounded, or table row read as a double asserts a number the model never carried.
     static Option<double> Numeric(PropertyValue value) => value switch {
         PropertyValue.Measure measure => Some(measure.Value.Si),
         PropertyValue.Number number when double.IsFinite(number.Value) => Some(number.Value),
@@ -552,7 +463,7 @@ public sealed partial class NodeClassSelector {
     };
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class RuleSatisfaction {
     private static readonly Op GroundKey = Op.Of(name: nameof(Ground));
@@ -569,8 +480,6 @@ public static partial class RuleSatisfaction {
                         select new RuleGrounding(element, bindings)),
                 });
 
-    // The class POPULATION: every object node the selector admits, read once and shared by the derivation and the
-    // coverage proof so the two can never disagree about what the class holds.
     internal static Seq<Node.Object> Population(ElementGraph graph, NodeClassSelector selector) =>
         graph.ObjectNodes.Filter(selector.Admits);
 }
@@ -583,10 +492,8 @@ public static partial class RuleSatisfaction {
 - Boundary: `Check` consumes the fact — an incomplete fact refuses under `SatisfyRight.RequireCoverage` and rides the assessment as evidence otherwise — because a SATISFIABLE verdict over a partial population reads identically to one over the whole class, and the difference is exactly what a compliance consumer is asking about. The fact lands beside the verdict facts on the SAME `AssessmentResult`, never as a second receipt. The bound and unbound halves come out of ONE walk, so the three counts can never disagree about the population they measured.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// What the rule ACTUALLY quantified over against what its own class holds. `Missing` names each admitted member the
-// selector could not bind, so a coverage gap is a repairable roster rather than a count a reader cannot act on.
 public readonly record struct CoverageFact(int Population, int Grounded, Seq<string> Missing) {
     public bool Complete => Grounded == Population && Missing.IsEmpty;
 
@@ -595,7 +502,7 @@ public readonly record struct CoverageFact(int Population, int Grounded, Seq<str
         + Missing.Map(static element => AssessmentFact.Text("coverage-missing", element));
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class RuleSatisfaction {
     public static CoverageFact Coverage(ElementGraph graph, NodeClassSelector selector, ComplianceRule rule) {

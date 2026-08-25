@@ -20,16 +20,14 @@ Host absorption owns every solver: the `SnappingAction` factory family owns alig
 - Growth: a new candidate is one row through the one factory; the fold and the evidence never fork.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Delta column is GONE: the align rows compute their own misalignment inside the mint, so a payload cannot
-// carry a delta that disagrees with the edges beside it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record CandidatePayload {
     private CandidatePayload() { }
@@ -39,8 +37,6 @@ public abstract partial record CandidatePayload {
     public sealed record WireCase(PointF Source, PointF Target) : CandidatePayload;
 }
 
-// Twelve rows, ONE factory: the payload case is the row's type argument, a mismatch refuses NAMING both sides,
-// and the misalignment arithmetic lives inside the five align closures — no gauge column, no null miss arm.
 [SmartEnum<int>]
 public sealed partial class CandidateRow {
     public static readonly CandidateRow AlignLeft = Row<CandidatePayload.AlignCase>(key: 0,
@@ -80,9 +76,7 @@ public sealed partial class CandidateRow {
                 Label: typeof(TCase).Name, Requirement: "the payload case this row mints from", Key: Some(op))));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// VALUE-ONLY evidence: the guide half projects as kernel marks below, so no paint intent rides this record and
-// nothing reference-compared crosses onto `CanvasState`.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidence {
     public float Magnitude => float.Hypot(Dx, Dy);
@@ -94,7 +88,6 @@ public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidenc
                 Some: best => Some(SnappingAction.SmallerMagnitude(best, next)),
                 None: () => Some(next)));
 
-    // Guide HALF: host action lines and label project as kernel marks the planned paint window transports.
     public static Seq<Mark> Guides(SnappingAction action, PerceptualColor ink, StrokeSpec stroke, TypeFace face) =>
         toSeq(action.Lines).Map(line => (Mark)new Mark.StrokeCase(
             Path: new PathSpec.LineCase(From: line.From, To: line.To), Stroke: stroke))
@@ -115,14 +108,12 @@ public readonly record struct NudgeVector(float Dx, float Dy) : IValidityEvidenc
 - Growth: a new snap source is one `SnapScope` case; a rounding policy is one row; the verdict shapes never fork.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// EMPTY corner is forbidden by law: a field over neither side snaps against nothing, and the pair of
-// include-bools let every caller construct it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SelectionSide : ICapability<SelectionSide> {
@@ -141,7 +132,6 @@ public abstract partial record SnapScope {
     public sealed record BoxesCase(Seq<RectangleF> Frames) : SnapScope;
 }
 
-// Row carries whether the pixel-alignment pass runs — policy as a row, never a bool parameter.
 [SmartEnum<int>]
 public sealed partial class RoundingPosture {
     public static readonly RoundingPosture Exact = new(key: 0, rounds: false);
@@ -149,7 +139,7 @@ public sealed partial class RoundingPosture {
     internal bool Rounds { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SnapPair(Option<SnappingAction> X, Option<SnappingAction> Y);
 
@@ -170,7 +160,7 @@ public readonly record struct StretchVerdict([property: Generator.Equals.Ordered
     public bool IsValid => Lengths.ForAll(static length => float.IsFinite(length) && length >= 0f);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed class SnapField {
     private readonly SnappingConstraints constraints;
@@ -209,10 +199,9 @@ public readonly record struct Lattice {
     public Fin<SnapVerdict> Fix(double x, double y, Option<double> cutoff, Op key);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class StretchPlan {
-    // Every bad row reports with its ordinal — one InvalidInput for N defects is the deleted form.
     public static Fin<StretchVerdict> Solve(Seq<StretchRow> rows, float target, RoundingPosture rounding, Op key) =>
         from admitted in rows.Zip(toSeq(Range(0, rows.Count))).Traverse(pair => pair.Item1.IsValid
                 ? Validation<Error, StretchRow>.Success(pair.Item1)
@@ -242,7 +231,7 @@ public static class StretchPlan {
 - Growth: a new arrangement is one case whose delta fold breaks the gate loudly — `DocumentMethods.MakeRoom` is the next such case (`RoomCase`, folding the host's own displacement into the same sealed gate); a new undo posture is `Document/history.md`'s row, never a fork here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Document;
 using Rasm.Grasshopper.Shell;
@@ -250,8 +239,7 @@ using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Axis answers every read the distribution fold makes, so no fold body carries a `Vertical ?` ternary.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Axis {
     public static readonly Axis Horizontal = new(key: 0,
@@ -270,7 +258,6 @@ public sealed partial class Axis {
     [UseDelegateFromConstructor] internal partial (float Dx, float Dy) Delta(float dx, float dy);
 }
 
-// RENAMED from `Arrangement`: the kernel owns that simple name and the seating brings it into scope.
 [Union]
 [GenerateUnionOps]
 public abstract partial record CanvasArrangement {
@@ -282,18 +269,15 @@ public abstract partial record CanvasArrangement {
     public sealed record StraightenCase(WireEnds Wire) : CanvasArrangement;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Settlement facts ride the fan's one gauged receipt — the stamp pair, latency, and Op all derive from the
-// span, and the unread stringly verb column has no seat.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ArrangeFacts(int Moved, double Displacement) : IValidityEvidence {
     public bool IsValid => Moved >= 0 && ValidityClaim.Nonnegative(value: Displacement).Holds;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class CanvasLayout {
-    // Clock REQUIRED and injected; the zero-move filter reads the device tolerance lane, never a bare float gate.
     public static Fin<CanvasReceipt<ArrangeFacts>> Arrange(
         VerbNoun label, CanvasArrangement plan, MonotonicTimeline clock, Context context, Op? key = null) {
         Op op = key.OrDefault();
@@ -321,8 +305,6 @@ public static class CanvasLayout {
                         .Map(action => (Target: row, Dx: action.ΔX, Dy: action.ΔY)))
                     .TraverseM(identity).As()
                 select moves.Strict(),
-            // Five row-column reads where five ternaries stood: the axis answers pivot, lead, trail, extent, and
-            // Delta composition.
             distributeCase: static (s, c) =>
                 Resolve(graph: s.Graph, objects: c.Objects, key: s.Key).Map(rows => {
                     Seq<IAttributes> ordered = toSeq(rows.OrderBy(row => c.Along.Pivot(row: row))).Strict();
@@ -360,8 +342,6 @@ public static class CanvasLayout {
         objects.Map(id => Optional(graph.Objects.Find(id)).Bind(static obj => Optional(obj.Attributes)).ToFin(key.InvalidInput()))
             .TraverseM(identity).As().Map(static rows => rows.Strict());
 
-    // Undo-before-move, one ActionList, one seal: a move without its undo record is unconstructible from here.
-    // Below-tolerance filter reads the DEVICE lane — an exact float gate turns sub-pixel drift into churn.
     private static Fin<ArrangeFacts> Commit(
         Document graph, VerbNoun label, Seq<(IAttributes Target, float Dx, float Dy)> moves, Tolerance step, Op key) {
         Seq<(IAttributes Target, float Dx, float Dy)> real = moves

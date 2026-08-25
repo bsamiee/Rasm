@@ -23,11 +23,8 @@ Typed property inspection and value editing for product state: one `InspectorPol
 - Boundary: `Mount` is the page's PropertyGrid boundary capsule; every grid event enters as `RoutedEventArgs` and narrows through the ONE `GridEdge.Admit`, so a mismatch mints one `UnmatchedShape` at one site. `CommandExecuting` is the veto edge and `CommandExecuted` the commit seal: `SetPropertyValue` mints one `GenericCancelableCommand` per changed cell and raises executing, executes, then raises executed inside one synchronous frame; the veto arm cancels through `Canceled`, drives `CellState.Invalid` onto the live editor, and seals `Rejected`; the executed arm seals `Committed`/`Fanned`, drives `CellState.Edited`, and a gate refusing there names a command that ran past the veto edge on the fault rail, never a second rejection. `InspectorChrome`'s three seams exist because a style cannot reach the pixel: the grid pins `Background`/`Margin`/`Padding`/`HeaderTemplate` on its code-built category `Expander` at `BindingPriority.LocalValue`, so the card rides a `ControlTheme` replacing the one unpinned `Template` (header bound through `Header`, own painted surface, presenter named off `PART_ContentPresenter` because the Expander force-writes that part's left margin on every `TemplateApplied`); `CustomNameBlock` is MANDATORY because the shipped row label resolves its foreground once in a static constructor and holds it through every variant change; the operation column takes a whole replacement or the two-stage default-operation edges. The three content slots stay the package's own three `StyledProperty` members — a shell `ChromeSlot` keyed map would map seven shell slots onto three grid properties with four unreachable. Per-row styling rides `[ControlClasses]` unioned onto the materialized editor; `CellState` writes its pseudo-class there, so mixed and invalid presentations are theme rows.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The ONE foreign-event admission: seven package edges, one narrow, one fault mint. Derived-before-base is
-// load-bearing — the executing args EXTEND the executed args, so the veto arm must test first or every
-// refused admission commits.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GridEdge {
     private GridEdge() { }
@@ -51,9 +48,6 @@ public abstract partial record GridEdge {
     };
 }
 
-// Four rows, one axis, each with a producing arm: Mixed from the merged read, Invalid from the veto refusal,
-// Edited from the commit seal, Settled the rest state. The pseudo-class is the row's own column because the
-// presentations are control-theme selectors on the materialized editor.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -65,15 +59,12 @@ public sealed partial class CellState {
 
     public string Pseudo { get; }
 
-    // One write sets this row's class and clears every sibling, so an editor can never wear two states and a
-    // stale `:mixed` cannot survive the write that unified the selection.
     public Unit Apply(Control editor) {
         Items.Iter(row => editor.Classes.Set(row.Pseudo, ReferenceEquals(row, this)));
         return unit;
     }
 }
 
-// The retired bool pair spelled expanded-while-hidden, a corner no grid renders.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CategoryPosture {
     private CategoryPosture() { }
@@ -85,18 +76,11 @@ public abstract partial record CategoryPosture {
     public bool Opened => this is Expanded;
 }
 
-// The DISPLAY-POSTURE reader seat: `Render/viewpoint#VIEWPOINT_CODEC` `DisplayPosture.Project` runs no property
-// query of its own — resolved `(element, value)` pairs come from HERE, over the SAME merged descriptor set the
-// grid renders, so the property a user colours by is a property they can see.
 public static class PostureSource {
-    // A descriptor the merge dropped is unelectable by construction — a posture over a property half the
-    // selection lacks would colour that half by absence.
     public static Seq<(string Key, string LabelKey)> Electable(Seq<MergedCell> cells) =>
         cells.Filter(static cell => cell.Uniform.IsSome || cell.Targets == 1)
             .Map(static cell => (cell.Descriptor.Name, LabelKey: cell.Descriptor.DisplayName));
 
-    // Values cross as their invariant text because the posture's own domain derivation classifies them; an
-    // element whose descriptor answers nothing is DROPPED, since an empty string is a legitimate category.
     public static Fin<Seq<(string ElementId, string Value)>> Read(
         string propertyKey, Seq<(string ElementId, object Target)> scene, ResolvedLocale locale) =>
         scene.Traverse(row => Optional(TypeDescriptor.GetProperties(row.Target)[propertyKey])
@@ -107,15 +91,13 @@ public static class PostureSource {
             .Map(static rows => rows.Choose(static row =>
                 row.Text.Map(text => (row.ElementId, Value: text))));
 
-    // One spelling rail: a quantity crosses through the measurement policy so a posture legend and a
-    // dimension label read the same units.
     static string Spell(object value, ResolvedLocale locale) =>
         value is IQuantity quantity
             ? locale.Quantity(quantity, MeasureRole.Extent).IfFail(_ => string.Empty)
             : Convert.ToString(value, locale.Formats) ?? string.Empty;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct MergedCell(PropertyDescriptor Descriptor, int Targets, Option<object?> Uniform) {
     public CellState State => Targets > 1 && Uniform.IsNone ? CellState.Mixed : CellState.Settled;
@@ -136,7 +118,6 @@ public readonly record struct MergedCell(PropertyDescriptor Descriptor, int Targ
         };
 }
 
-// The header notice as a RECEIPT: both halves of the merge, so a shorter row list explains itself.
 public readonly record struct MergeFacts(int Targets, int Shared, int ReadOnly) {
     public static MergeFacts Of(PropertyDescriptorBuilder builder, int targets) =>
         toSeq(builder.GetProperties().Cast<PropertyDescriptor>()) switch {
@@ -146,9 +127,6 @@ public readonly record struct MergeFacts(int Targets, int Shared, int ReadOnly) 
     public string Notice => $"{Targets} targets · {Shared} shared · {ReadOnly} read-only";
 }
 
-// The three seams a style cannot reach, plus the package's own three content slots. `Relabel` carries no
-// `Option` because the shipped label's foreground freezes in a static constructor — the substitution IS the
-// contract.
 public sealed record InspectorChrome(
     Func<CustomNameBlockEventArgs, Control> Relabel,
     Func<CustomPropertyOperationControlEventArgs, Option<Control>> Operations,
@@ -156,9 +134,6 @@ public sealed record InspectorChrome(
     Option<object> TopHeader,
     Option<object> Middle,
     Option<object> Bottom) {
-    // The stock label re-minted against the token rail: the ink read is DYNAMIC so a variant flip re-tints
-    // every row label; the resolved text row crosses as a value because the block is code-minted outside any
-    // style that could inherit one.
     public static Func<CustomNameBlockEventArgs, Control> TokenLabel(TextStyleRow label) => args => {
         TextBlock block = new() {
             Text = args.Context.Property.DisplayName,
@@ -173,10 +148,6 @@ public sealed record InspectorChrome(
         return block;
     };
 
-    // The category card: `Template` is the ONE unpinned member on the grid's code-built Expander, so the card
-    // is a template replacement — header through `Header` (the pinned `HeaderTemplate` escapes), own painted
-    // surface (the pinned null background escapes), presenter named off `PART_ContentPresenter` (force-written
-    // left margin escapes).
     public const string CategoryPresenter = "PART_CategoryBody";
 
     public static ControlTheme CategoryTheme() => new(typeof(Expander)) {
@@ -216,7 +187,7 @@ public sealed record InspectorPolicy(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class InspectorSurface {
     public static IDisposable Mount(
@@ -231,8 +202,6 @@ public static partial class InspectorSurface {
         grid.AllCategoriesExpanded = policy.Categories.Opened;
         grid.PropertyOperationVisibility = policy.Operations;
         policy.Chrome.TopHeader.Iter(content => grid.TopHeaderContent = content);
-        // The merge notice self-seats: a multi-target mount with an unfilled top slot names its dropped
-        // remainder rather than presenting a shorter row list as a bug.
         if (draft is object[] targets && policy.Chrome.TopHeader.IsNone) {
             grid.TopHeaderContent = MergeFacts.Of(new PropertyDescriptorBuilder(targets), targets.Length).Notice;
         }
@@ -241,7 +210,6 @@ public static partial class InspectorSurface {
         grid.Styles.Add(new Style(static selector => selector.OfType<Expander>()) {
             Setters = { new Setter(StyledElement.ThemeProperty, InspectorChrome.CategoryTheme()) },
         });
-        // ONE admission, one route, every observer: the seven handlers below are attach plumbing alone.
         Func<GridEdge, Unit> route = edge => {
             Routed(edge, policy, clock, correlation, sink, fault);
             tap.Iter(observer => observer(edge));
@@ -268,9 +236,6 @@ public static partial class InspectorSurface {
         });
     }
 
-    // The total edge fold: the veto arm cancels, drives Invalid, and seals Rejected; the commit arm re-reads
-    // the same pure gate — a refusal THERE names a command that ran past the veto edge, a composition defect
-    // on the fault rail, never a second rejection receipt — seals Committed/Fanned, and drives Edited.
     static Unit Routed(
         GridEdge edge, InspectorPolicy policy, IClock clock, CorrelationId correlation,
         Action<EditReceipt> sink, Action<Error> fault) => edge.Switch(
@@ -305,13 +270,9 @@ public static partial class InspectorSurface {
         },
         columnStaging: shape => { policy.Chrome.DefaultOperation(shape.Args); return unit; });
 
-    // Both commit edges seal one shape differing only in outcome and editor key; the executing args bind here
-    // through their base.
     private static EditReceipt Sealed(InspectorPolicy policy, RoutedCommandExecutedEventArgs args, string editor, EditOutcome outcome, IClock clock, CorrelationId correlation) =>
         new(ReceiptKind.Edit, policy.Surface, policy.Target(args.Property), editor, outcome, clock.GetCurrentInstant(), correlation);
 
-    // The outcome discriminates on ARITY: one merged `SetValue` fans across N targets inside the package, so
-    // the fan is one command and one receipt whose case carries the count.
     private static EditOutcome Outcome(RoutedCommandExecutedEventArgs args, string editor) =>
         (args.Property, args.Target) switch {
             (MultiObjectPropertyDescriptor merged, object[] targets) when targets.Length > 1 =>
@@ -319,9 +280,6 @@ public static partial class InspectorSurface {
             _ => new EditOutcome.Committed(editor),
         };
 
-    // ONE write drives the whole fan: the merged descriptor's own `SetValue` loops its child descriptors, so
-    // routing through the cell's factory mints one cancelable command, one veto edge, one recorder entry, one
-    // receipt — a per-target loop would mint N of each for one gesture.
     public static Fin<Unit> ApplyAll(PropertyCellContext context, object? value) =>
         context.Factory is ICellEditFactory factory
             ? Op.Of(name: "appui.inspector.apply").Catch(() => { factory.SetPropertyValue(context, value); return Fin.Succ(unit); })
@@ -351,14 +309,10 @@ public static partial class InspectorSurface {
 - Boundary: the shipped factories under `Builtins` are public and subclassable, so a narrowed editor derives the nearest built-in and raises `ImportPriority`; the product's own rows ride one `EditorRowFactory` registered through `CellEditFactoryService.Default.AddFactory`. `Accept(object accessToken)` gates CLONING, never cell building — the base grid-token predicate is correct and shape selection lives in `HandleNewProperty`; `Clone` MUST be overridden (the base mints through `Activator.CreateInstance`, which throws for a constructor taking the adapter); `HandleReadOnlyStateChanged` wherever a composite editor needs its write leg disabled rather than its whole body greyed; `HandlePropagateVisibility` because the base defers to a default match that cannot see a mixed cell. `PropertyCellContext` carries the descriptor channel, the value channel (`GetValue()` reads `Property.GetValue(Target)`), and the write instance; `SetPropertyValue` is the ONE write channel — it mints the recorder's cancelable command and raises the gate pair, so a control writing `Property.SetValue` directly bypasses admission and undo at once, which is why `Present` receives the channel BOUND. Presentation is DECLARATION-DRIVEN: the row selects the FAMILY and the presentation the FORM, so a knob never becomes a fifteenth row; enum filtering folds the one `IEnumValueAuthorizeAttribute` contract all four permit/prohibit attributes implement; the flags row binds `CheckedMaskModel(masks, all)` through `CheckedListEdit`, deleting a hand-rolled flags editor and per-flag boolean rows; optional admission covers `Option<T>` and `Nullable<T>`, temporal the NodaTime and BCL families, identifier `Guid` and `Uri`; the color row binds `PreviewableColorPicker` against `TokenPalette`, whose swatches carry the product's own roles — resolved values, so the instance rides the swap's rebuild roster rather than re-resolving. Every materialized editor wears its `CellState` pseudo-class.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The drag-track axis as ONE optional value: the retired `Trackable` bool was `Track.IsSome` and the spinner
-// flag meant nothing without it.
 public readonly record struct TrackSpec(double Min, double Max, bool Spinner);
 
-// One value carries every presentation axis the shipped attribute vocabulary spells. Enum filtering folds the
-// one `IEnumValueAuthorizeAttribute` contract, so a fifth filter attribute changes nothing here.
 public readonly record struct Presentation(
     Option<TrackSpec> Track,
     Option<double> Increment,
@@ -393,31 +347,21 @@ public readonly record struct Presentation(
             Browse: One<PathBrowsableAttribute>(declared),
             Preview: One<ImagePreviewModeAttribute>(declared),
             Classes: toSeq(declared.OfType<ControlClassesAttribute>()).Bind(static row => toSeq(row.Classes)).Distinct(),
-            // Permits and prohibits compose as a conjunction; the absent-filter case admits everything.
             AdmitsMember: (owner, member, value) => filters.ForAll(filter => filter.AllowValue(owner, member, value)));
     }
 
-    // `OfType` answers `IEnumerable<T>` — no carrier witness — so ONE `toSeq` re-entry is the whole crossing,
-    // folded here so nine declaration reads spell one thing.
     static Option<TAttribute> One<TAttribute>(Seq<Attribute> declared) where TAttribute : Attribute =>
         toSeq(declared.OfType<TAttribute>()).Head;
 }
 
-// The quick-filter argument as one value, so the row column stays three-wide against a package member that
-// grew two optional parameters.
 public readonly record struct PropertyFilter(IPropertyGridFilterContext Context, string Text, bool ParentMatched);
 
-// Generated-owner recognition is ONE metadata read: the two rows that need it read which generated shape the
-// type is, so two parallel `Func<Type,bool>` probes of one source-generator fact collapse.
 [SmartEnum<string>]
 public sealed partial class GeneratedShape {
     public static readonly GeneratedShape Value = new("value-object");
     public static readonly GeneratedShape Roster = new("smart-enum");
 }
 
-// `Present` receives the BOUND write channel, never the descriptor: a control committing through it mints the
-// recorder's cancelable command and raises the gate pair. `Refresh` re-seeds the live `CellEdit`; `ReadOnly`
-// answers whether the row owns the disable; `Visible` answers the quick filter for mixed and hidden cells.
 public sealed record EditorAdapter(
     Func<Type, Option<GeneratedShape>> Shape,
     Func<EditorFactory, PropertyCellContext, Presentation, Action<object?>, Option<Control>> Present,
@@ -425,11 +369,7 @@ public sealed record EditorAdapter(
     Func<Control, bool, bool> ReadOnly,
     Func<EditorFactory, PropertyCellContext, PropertyFilter, Option<PropertyVisibility>> Visible);
 
-// The swatch source re-cut from the resolve: `IColorPalette` hands back fixed values with no way to observe a
-// dictionary edit, which is exactly why the instance rides `Rematerialize.SwatchSource` — the swap rebuilds it.
 public sealed class TokenPalette(ResolvedTheme resolved, Seq<PaintRole> roles, int rungs) : IColorPalette {
-    // The one product construction the color presenter binds: the semantic roles a swatch row means, at the
-    // ladder depth the resolve carries.
     public static TokenPalette Product(ResolvedTheme resolved) =>
         new(resolved,
             Seq(PaintRole.Accent, PaintRole.Info, PaintRole.Success, PaintRole.Warning, PaintRole.Error, PaintRole.Text, PaintRole.Panel),
@@ -447,10 +387,8 @@ public sealed class TokenPalette(ResolvedTheme resolved, Seq<PaintRole> roles, i
 ```
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The presenting side as a named axis: the product presents its eight custom rows through the adapter, the
-// package presents the rest through its built-ins.
 [SmartEnum<string>]
 public sealed partial class Presenter {
     public static readonly Presenter Product = new("product");
@@ -480,13 +418,9 @@ public sealed partial class EditorFactory {
     public int Rank { get; }
     public Presenter Presenter { get; }
 
-    // The delegate column carries the WHOLE predicate — descriptor and adapter — so every row answers from its
-    // own value and an adapter-dependent row is a row rather than a hand-written identity arm.
     [UseDelegateFromConstructor]
     public partial bool Accepts(PropertyDescriptor descriptor, EditorAdapter adapter);
 
-    // The ordered run re-enters the carrier through `toSeq` before `Find`: `OrderBy` answers an
-    // `IOrderedEnumerable`, which carries no `K<Seq, A>` witness.
     public static Option<EditorFactory> Match(PropertyDescriptor descriptor, EditorAdapter adapter) =>
         toSeq(Items.OrderBy(static row => row.Rank)).Find(row => row.Accepts(descriptor, adapter));
 
@@ -507,8 +441,6 @@ public sealed partial class EditorFactory {
     private static bool AcceptTemporal(PropertyDescriptor row, EditorAdapter _) => TemporalShapes.Contains(row.PropertyType);
     private static bool AcceptIdentifier(PropertyDescriptor row, EditorAdapter _) => IdentifierShapes.Contains(row.PropertyType);
     private static bool AcceptColor(PropertyDescriptor row, EditorAdapter _) => row.PropertyType == typeof(Avalonia.Media.Color);
-    // Flags precedes choice because a `[Flags]` enum satisfies BOTH and only the mask editor expresses a
-    // combination; ranked the other way the mask model is unreachable.
     private static bool AcceptFlags(PropertyDescriptor row, EditorAdapter _) =>
         row.PropertyType.IsEnum && row.PropertyType.IsDefined(typeof(FlagsAttribute), inherit: false);
     private static bool AcceptPath(PropertyDescriptor row, EditorAdapter _) =>
@@ -516,9 +448,6 @@ public sealed partial class EditorFactory {
     private static bool AcceptCollection(PropertyDescriptor row, EditorAdapter _) =>
         row.PropertyType != typeof(string) && typeof(IEnumerable).IsAssignableFrom(row.PropertyType);
     private static bool AcceptBoolean(PropertyDescriptor row, EditorAdapter _) => row.PropertyType == typeof(bool);
-    // The family is the interface's own roster: every CLR numeric implements `INumberBase<TSelf>` and `char`/
-    // `bool` do not, so the fourteen-literal mirror deletes and a conforming width (`BigInteger`, `NFloat`)
-    // admits with no roster edit.
     private static bool AcceptNumeric(PropertyDescriptor row, EditorAdapter _) =>
         row.PropertyType.GetInterfaces().Any(static face =>
             face.IsGenericType && face.GetGenericTypeDefinition() == typeof(System.Numerics.INumberBase<>));
@@ -526,9 +455,6 @@ public sealed partial class EditorFactory {
     private static bool AcceptNested(PropertyDescriptor row, EditorAdapter _) => row.PropertyType is { IsClass: true, IsAbstract: false };
 }
 
-// The ONE public adapter implementing the WHOLE contract: `Accept` stays the base's grid-token predicate
-// (it gates cloning), `Clone` is overridden because the base mints through `Activator.CreateInstance`, and
-// read-only and visibility route through the adapter.
 public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFactory {
     public override int ImportPriority => 200;
 
@@ -540,8 +466,6 @@ public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFa
 
     public override ICellEditFactory Clone() => new EditorRowFactory(adapter);
 
-    // The two `.ValueUnsafe()` returns are the package's own nullable contract: the override's `Control?` /
-    // `PropertyVisibility?` is where `None` lawfully crosses as null — the one admitted narrowing site.
     public override Control? HandleNewProperty(PropertyCellContext context) =>
         EditorFactory.Match(context.Property, adapter)
             .Filter(static row => row.Presenter == Presenter.Product)
@@ -555,14 +479,10 @@ public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFa
             .Exists(row => adapter.Refresh(row, context, Presentation.Read(context.Property))
                 && Optional(context.CellEdit).Map(control => Stated(context, control)).IsSome);
 
-    // The base assigns `IsEnabled` on the returned root, greying a composite editor's label with its write
-    // leg; a row that owns a finer disable answers true and the unowned case falls to the package behaviour.
     public override void HandleReadOnlyStateChanged(Control control, bool readOnly) {
         if (!adapter.ReadOnly(control, readOnly)) { base.HandleReadOnlyStateChanged(control, readOnly); }
     }
 
-    // The base returns null and defers to the default match, which cannot see a mixed cell or a row whose
-    // declaration hid it; the two optional parameters are the package's own and cross as one filter value.
     public override PropertyVisibility? HandlePropagateVisibility(
         object? target, PropertyCellContext context, IPropertyGridFilterContext filterContext,
         string? filterText = null, bool filterMatchesParentCategory = false) =>
@@ -571,8 +491,6 @@ public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFa
             .Bind(row => adapter.Visible(row, context, new PropertyFilter(filterContext, filterText ?? string.Empty, filterMatchesParentCategory)))
             .ValueUnsafe();
 
-    // Every materialized editor wears its cell state as a pseudo-class, so mixed and invalid forms are
-    // control-theme arms and no editor branches on multiplicity while painting.
     private static Control Stated(PropertyCellContext context, Control control) {
         ignore(MergedCell.Read(context).Map(cell => cell.State.Apply(control)));
         return control;
@@ -591,9 +509,8 @@ public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFa
 - Boundary: preview interactions (`PreviewColorChanged`, `PreviewValueChanged`, transient editor state) mutate nothing durable and emit nothing — `ColorChanged` and `RealValueChanged` are the two pickers' commit edges; `InspectorPolicy.Gate` is the composition-bound closure invoking `EditGate` at the veto edge, because a generic self-constrained factory contract cannot bind at an `EventHandler<RoutedEventArgs>` seam and the owner type is known only where the section composes. `Admit` is the page's spelling of the kernel lifter law (`Rasm/Domain/validation.md` `[04]-[FACTORY_BRIDGE]`): the kernel's typed receivers span its own raw shapes under `ValidationError`, and the error-typed, descriptor-erased grid seam — `TOwner` closing only at composition, `TRaw` `allows ref struct` — is the caller-spelled-`Validate` case that law reserves, so the bridge composes `IObjectFactory.Validate` once here and per-call-site error translation stays deleted; the kernel fixes `Validate` under invariant culture, so the CULTURE-SENSITIVE parse lives at the editor's presentation and only `AdmitQuantity` carries an explicit culture (`Quantity.TryParse`; unit lists present through `Quantity.Infos`). `ValidateProperty` text renders through the screen validation rail's own `FieldErrors` slot stream (`Shell/screens#VALIDATION_UX`) — a second validation rail is deleted; a refused admission drives `CellState.Invalid` onto the live editor; host-mutating edits route through the abstract document-transaction port, undo-scoped, `HostRouted` carrying that hop's correlation.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// Numeric identity derives from the kernel fault band.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EditFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Edit;
@@ -626,9 +543,8 @@ public abstract partial record EditFault : Fault {
     }
 }
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// `Fanned` is a CASE, not a count field on `Committed`: the evidence fan routes on outcome alone.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EditOutcome {
     private EditOutcome() { }
@@ -643,7 +559,6 @@ public abstract partial record EditOutcome {
     public sealed record HostRouted(CorrelationId Transaction) : EditOutcome;
 }
 
-// The receipt kind as rows — four loose consts on the record they keyed were a vocabulary with no owner.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ReceiptKind {
@@ -653,7 +568,7 @@ public sealed partial class ReceiptKind {
     public static readonly ReceiptKind Conflict = new("conflict");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record EditReceipt(
     ReceiptKind Kind,
@@ -664,7 +579,7 @@ public sealed record EditReceipt(
     Instant At,
     CorrelationId Correlation);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class EditGate {
     public static Validation<Error, TOwner> Admit<TOwner, TRaw>(string target, TRaw raw)
@@ -678,8 +593,6 @@ public static class EditGate {
                 : new KernelFault.InvalidResult(target);
     }
 
-    // The one culture-bearing admission: quantity TEXT is user input under the resolved locale, so the parse
-    // carries its culture while every generated-owner `Validate` stays invariant per the kernel law.
     public static Validation<Error, IQuantity> AdmitQuantity(string target, Type shape, string text, IFormatProvider culture) {
         bool valid = Quantity.TryParse(culture, shape, text, out IQuantity? parsed);
         return valid && parsed is IQuantity quantity
@@ -692,9 +605,6 @@ public static class EditGate {
             ? (Validation<Error, EditorFactory>)row
             : new EditFault.UnmatchedShape(descriptor.PropertyType.Name);
 
-    // The APPLICATIVE combine the composition's Gate closure runs: row resolution and value admission are
-    // independent columns, so both refusals report together through `Validation<Error, _>` — a sequential
-    // Resolve-then-Admit reported one opaque defect per attempt.
     public static Validation<Error, (EditorFactory Row, TOwner Owner)> Gate<TOwner>(
         PropertyDescriptor descriptor, EditorAdapter adapter, Validation<Error, TOwner> admit) =>
         (Resolve(descriptor, adapter), admit).Apply(static (row, owner) => (row, owner));
@@ -713,8 +623,6 @@ public static class EditGate {
 - Boundary: the draft-versus-record split is structural — `TDraft` is the mutable notifying partial the grid mutates in place, `Commit` rebuilds the immutable `TValue`, and `Persist` writes that rebuilt record, so persisting the draft reference hands the store an instance the next keystroke rewrites (folder `RULINGS` `[02]`). Options monitoring re-validates, its `ReloadReceipt` stream closes the loop, subscription failure enters the same `EditFault` rail; cross-process propagation remains the op-log cursor consequence, and the grid never touches configuration directly.
 
 ```csharp signature
-// The draft and the record are two type parameters because they are two shapes; collapsing them is what let a
-// persist hand the store the very instance the next keystroke rewrites.
 public sealed record OptionsInspector<TDraft, TValue>(
     string Section,
     ReloadClass Reload,
@@ -741,8 +649,6 @@ public static partial class InspectorSurface {
         PropertyGrid grid, OptionsInspector<TDraft, TValue> binding, InspectorPolicy policy, IClock clock,
         CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner, Action<Error> fault)
         where TDraft : PropertyModels.ComponentModel.MiniReactiveObject where TValue : class {
-        // The persist arm is a TAP on the one admitted edge stream: the durable write rides the same executed
-        // edge `Mount` seals its property receipt on, writing the record `Commit` rebuilds — never the draft.
         Func<GridEdge, Unit> persist = edge => {
             if (edge is GridEdge.Committed) {
                 binding.Persist(binding.Commit(binding.Draft)).Match(

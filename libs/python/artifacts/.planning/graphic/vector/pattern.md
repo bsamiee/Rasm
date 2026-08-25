@@ -37,8 +37,8 @@ lazy import drawsvg as draw
 lazy from ezdxf.tools import pattern as _dxfpattern
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type DxfPatternLine = tuple[float, Point2, Point2, tuple[float, ...]]  # ezdxf HatchPatternLineType: [angle, base, offset, dashes] — scale_pattern and set_pattern_fill(definition=) both consume this nested shape
-type Stroke = tuple[tuple[Point2, ...], float]  # one stroke polyline + its dash phase (mm along the stroke) — the generator row
+type DxfPatternLine = tuple[float, Point2, Point2, tuple[float, ...]]
+type Stroke = tuple[tuple[Point2, ...], float]
 type HatchFillTag = Literal["pattern", "solid", "gradient"]
 type MotifTag = Literal["line", "loop"]
 type PatternOpTag = Literal["dxf", "svg", "geometry"]
@@ -46,37 +46,34 @@ type PatternResultTag = Literal["dxf", "svg", "geometry"]
 
 
 class DensityLaw(StrEnum):
-    PAPER = "paper"  # spacing constant on the printed sheet: model spacing = spacing / factor (drafting default)
-    MODEL = "model"  # spacing true in model units: paper spacing = spacing * factor (physically-meaningful courses)
+    PAPER = "paper"
+    MODEL = "model"
 
 
 @tagged_union(frozen=True)
 class Motif:
     tag: MotifTag = tag()
     line: tuple[float, ...] = case()
-    loop: tuple[float, float] = case()  # half-wave amplitude and maximum chord error
+    loop: tuple[float, float] = case()
 
 
-class SectionPattern(StrEnum):  # owned preset names — ISO 128-50 / ANSI / BS conventions under honest spellings, never a borrowed ACAD table
-    GENERAL = "general"  # 45-degree single hatch — the ISO 128-50 general section indication
-    DOUBLE = "double"  # paired 45-degree lines — alloy/reinforced convention
-    CROSS = "cross"  # 0/90 grid
-    CROSS_DIAGONAL = "cross_diagonal"  # 45/135 crosshatch
-    HERRINGBONE = "herringbone"  # alternating dashed diagonals with course stagger — timber grain
-    END_GRAIN = "end_grain"  # tight crossed diagonals — timber end section
-    INSULATION = "insulation"  # LOOP-motif batt wave — thermal batt convention, real loops
-    EARTH = "earth"  # 45-degree dashed tick bands
-    GRAVEL = "gravel"  # phase-staggered short-dash courses — hardcore/fill
-    MASONRY = "masonry"  # continuous coursing plus phase-staggered verticals — running-bond brick/block
-    LIQUID = "liquid"  # staggered dashed pairs
-    GLASS = "glass"  # sparse 135-degree wide lines
+class SectionPattern(StrEnum):
+    GENERAL = "general"
+    DOUBLE = "double"
+    CROSS = "cross"
+    CROSS_DIAGONAL = "cross_diagonal"
+    HERRINGBONE = "herringbone"
+    END_GRAIN = "end_grain"
+    INSULATION = "insulation"
+    EARTH = "earth"
+    GRAVEL = "gravel"
+    MASONRY = "masonry"
+    LIQUID = "liquid"
+    GLASS = "glass"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class StrokeFamily(Struct, frozen=True):
-    # one parallel-stroke set: strokes run at `angle` (degrees) through `origin`; successive strokes
-    # advance by the ROTATED-frame `delta` (multiples of the resolved spacing) — delta[1] the
-    # perpendicular step and delta[0] the along-stroke phase stagger; Motif owns its mode payload.
     angle: float
     origin: tuple[float, float] = (0.0, 0.0)
     delta: tuple[float, float] = (0.0, 1.0)
@@ -85,19 +82,17 @@ class StrokeFamily(Struct, frozen=True):
 
 class PatternSpec(Struct, frozen=True):
     families: tuple[StrokeFamily, ...]
-    spacing: float = 2.0  # nominal stroke separation, paper mm — the DensityLaw scales it, never a per-material fudge
+    spacing: float = 2.0
     law: DensityLaw = DensityLaw.PAPER
-    weight: float = 0.18  # stroke pen width in paper mm; the geometry arm resolves it through RegionOp.Outline
+    weight: float = 0.18
 
 
 @tagged_union(frozen=True)
 class HatchFill:
-    # the ISO 128-50 section-fill regime — a scaled stroke pattern, a solid poche, or a graded fill;
-    # color VALUES arrive resolved, never literal here.
     tag: HatchFillTag = tag()
     pattern: PatternSpec = case()
     solid: str = case()
-    gradient: tuple[Stops, float] = case()  # stop rows + grade angle (degrees)
+    gradient: tuple[Stops, float] = case()
 
 
 @tagged_union(frozen=True)
@@ -133,8 +128,8 @@ class PatternResult:
 class PatternFault:
     tag: Literal["degenerate", "unlowerable", "geometry"] = tag()
     degenerate: tuple[str, ...] = case()
-    unlowerable: tuple[str, str] = case()  # (motif-or-axis, target) the target format cannot express — refused, never degraded
-    geometry: RegionFault = case()  # the region plane's fault carried whole, never re-classified
+    unlowerable: tuple[str, str] = case()
+    geometry: RegionFault = case()
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -168,8 +163,6 @@ PRESETS: Final[frozendict[SectionPattern, PatternSpec]] = frozendict({
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _resolved(spec: PatternSpec, factor: float, /) -> float:
-    # the ONE density fold: PAPER holds sheet density constant, MODEL holds model truth; `factor` is
-    # the ISO 5455 value the regime bind row supplies, never an import.
     return spec.spacing / factor if spec.law is DensityLaw.PAPER else spec.spacing * factor
 
 
@@ -214,7 +207,6 @@ def _admitted(op: PatternOp, /) -> Result[float, PatternFault]:
 
 
 def _looped(a: Point2, b: Point2, loop: tuple[float, float], /) -> tuple[Point2, ...]:
-    # the batt wave: linked semicircles alternating side, sampled to a polyline — the LOOP motif arm.
     (ax_, ay_), (bx, by) = a, b
     amplitude, error = loop
     span = hypot(bx - ax_, by - ay_)
@@ -232,9 +224,6 @@ def _looped(a: Point2, b: Point2, loop: tuple[float, float], /) -> tuple[Point2,
 
 
 def _strokes(family: StrokeFamily, window: Bounds, spacing: float, /) -> tuple[Stroke, ...]:
-    # ONE generative correspondence every lowering projects: strokes run along u(angle); successive
-    # delta[1] advances the line across its normal; delta[0] advances only dash phase because
-    # translation along an infinite line is geometric identity.
     x0, y0, x1, y1 = window
     span = hypot(x1 - x0, y1 - y0)
     ux, uy = cos(radians(family.angle)), sin(radians(family.angle))
@@ -260,8 +249,6 @@ def _strokes(family: StrokeFamily, window: Bounds, spacing: float, /) -> tuple[S
 
 
 def _dashed(points: tuple[Point2, ...], dash: tuple[float, ...], phase: float, /) -> tuple[tuple[Point2, ...], ...]:
-    # the shared dash fold: split one straight run into +draw segments cycling the signed dash row,
-    # entering the cycle at the stroke's phase; geometry composes it and SVG spells it natively.
     (ax_, ay_), (bx, by) = points[0], points[-1]
     span = hypot(bx - ax_, by - ay_)
     ux, uy = (bx - ax_) / span, (by - ay_) / span
@@ -281,8 +268,6 @@ def _d(points: tuple[Point2, ...], /) -> str:
 
 
 def _period(family: StrokeFamily, spec: PatternSpec, spacing: float, /) -> tuple[Fraction, bool]:
-    # a square tile wraps seamlessly only when one side-translation maps the family onto itself; on
-    # the drafting angle set, rows repeat when their phase returns modulo the scaled dash period.
     match family.motif:
         case Motif(tag="line", line=row) if row and family.delta[0] != 0.0:
             repeats = (Fraction(str(abs(family.delta[0]) * spec.spacing)) / Fraction(str(sum(abs(value) for value in row)))).denominator
@@ -293,15 +278,10 @@ def _period(family: StrokeFamily, spec: PatternSpec, spacing: float, /) -> tuple
 
 
 def _to_dxf(spec: PatternSpec, spacing: float, /) -> Result[tuple[DxfPatternLine, ...], PatternFault]:
-    # ezdxf definition rows in [angle, base, offset, *dash] format — angle, origin, rotated-frame delta,
-    # and dash all native to the HATCH grammar; density applied through scale_pattern so ezdxf's own
-    # renderer draws from the SAME correspondence. HATCH pattern lines are straight dashed families
-    # only, so a LOOP motif refuses typed.
     if any(family.motif.tag == "loop" for family in spec.families):
         return Error(PatternFault(unlowerable=("loop", "dxf-pattern-definition")))
 
     def _row(family: StrokeFamily, /) -> DxfPatternLine:
-        # the loop refusal above leaves only line motifs, so the dash payload reads directly off the active case
         return (family.angle, family.origin, (family.delta[0] * spec.spacing, family.delta[1] * spec.spacing), family.motif.line)
 
     scaled = _dxfpattern.scale_pattern([_row(family) for family in spec.families], factor=spacing / spec.spacing)
@@ -314,9 +294,6 @@ def _to_dxf(spec: PatternSpec, spacing: float, /) -> Result[tuple[DxfPatternLine
 
 
 def _to_svg(spec: PatternSpec, spacing: float, stroke: str, /) -> Result["draw.Pattern", PatternFault]:
-    # the def-tier tile: one seamless period sized from the family periods, strokes drawn as typed
-    # draw.Lines with the dash as native stroke_dasharray and the delta stagger as stroke_dashoffset;
-    # a non-45-multiple angle has no finite square period and refuses typed.
     if any(family.angle % 45.0 != 0.0 for family in spec.families):
         return Error(PatternFault(unlowerable=("free-angle", "svg-tile")))
     periods = tuple(_period(family, spec, spacing) for family in spec.families)
@@ -327,8 +304,6 @@ def _to_svg(spec: PatternSpec, spacing: float, stroke: str, /) -> Result["draw.P
     side = float(base) * (_SQRT2 if periods[0][1] else 1.0)
 
     def _tile() -> "draw.Pattern":
-        # side > 0 structurally: base multiplies the admitted delta[1] != 0 by the admitted spacing > 0; a clamp would desynchronize
-        # the tile extent from the (0, 0, side, side) stroke window and corrupt the seam.
         tile = draw.Pattern(side, side, patternUnits="userSpaceOnUse")
         for family in spec.families:
             match family.motif:
@@ -356,9 +331,6 @@ def _to_svg(spec: PatternSpec, spacing: float, stroke: str, /) -> Result["draw.P
 
 
 def _to_geometry(spec: PatternSpec, boundary: bytes, window: Bounds, spacing: float, /) -> Result[bytes, PatternFault]:
-    # REAL clipped hatch: dash the centerlines through the shared fold, stroke every run to a closed
-    # outline, intersect against the boundary through region applied — severed geometry for exact
-    # print/legend/plot; a mask or a tile reference is the rejected form.
     runs = tuple(
         run
         for family in spec.families

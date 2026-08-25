@@ -101,7 +101,6 @@ class SegmentEngine(StrEnum):
 
 
 class NormalForm(StrEnum):
-    # member names key the provider surfaces: `unicodedata.normalize(form.value, ...)` and `Normalizer2.get<form>Instance()`.
     NFC = "NFC"
     NFD = "NFD"
     NFKC = "NFKC"
@@ -141,29 +140,23 @@ _DEFAULT_MARGIN: Final = 20
 
 
 def _canon_hook(value: object, /) -> object:
-    # frozendict is not a dict subclass, so the canonical encoder lowers `ShapeRun.variations`/`features` (and any
-    # future frozendict field) to the dict projection; `order="deterministic"` restores the stable preimage.
     if isinstance(value, frozendict):
         return dict(value)
     raise NotImplementedError(f"unencodable preimage member: {type(value).__name__}")
 
 
-_CANON: Final = msgspec.msgpack.Encoder(order="deterministic", enc_hook=_canon_hook)  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgspec.msgpack.Encoder(order="deterministic", enc_hook=_canon_hook)
 
 
 def _generation(name: str, /) -> str:
     try:
         return f"{name}:{importlib.metadata.version(name)}"
     except importlib.metadata.PackageNotFoundError:
-        return f"{name}:absent"  # an install-extra-gated provider fingerprints as absent, so normalization stays importable without it
+        return f"{name}:absent"
 
 
 @cache
 def _toolchain() -> tuple[str, ...]:
-    # shaped output is a function of the shaping toolchain, not the request alone: the installed provider generations
-    # join the key preimage so a uharfbuzz/fontTools/blackrenderer/Pillow/python-bidi/PyICU upgrade re-keys instead of
-    # replaying a stale cross-run cache hit off the durable artifact index; resolution defers to the first key mint so
-    # module import never pays or trips the metadata walk.
     return tuple(_generation(name) for name in ("uharfbuzz", "fonttools", "blackrenderer", "pillow", "python-bidi", "pyicu"))
 
 
@@ -194,7 +187,7 @@ _BIDI_BASE: Final[Map[WritingDirection, str | None]] = Map.of_seq([
     (WritingDirection.RTL, "R"),
     (WritingDirection.TTB, None),
 ])
-_ICU_DEFAULT_LEVEL: Final = 0xFE  # ICU4C UBIDI_DEFAULT_LTR first-strong autodetect; PyICU exports no constant, so the literal is the spelling
+_ICU_DEFAULT_LEVEL: Final = 0xFE
 _ICU_LEVEL: Final[Map[WritingDirection, int]] = Map.of_seq([
     (WritingDirection.AUTO, _ICU_DEFAULT_LEVEL),
     (WritingDirection.LTR, 0),
@@ -222,7 +215,6 @@ class ItemizedRun(Struct, frozen=True):
 
 
 class PositionedGlyphRun(Struct, frozen=True):
-    # Each glyph row is `(gid, cluster, x_advance, y_advance, x_offset, y_offset, flags)`; clusters index source code points.
     source: str
     glyphs: tuple[tuple[int, int, int, int, int, int, int], ...]
     outline: str
@@ -245,9 +237,6 @@ class PositionedGlyphRun(Struct, frozen=True):
         return self.ascender - self.descender + self.line_gap
 
     def on_path(self) -> tuple[tuple[str, float, float, float, float], ...]:
-        # CANONICAL path-placement projection: (outline, x_advance, y_advance, x_offset, y_offset) — shaped
-        # placement facts survive to the Region baseline so combining marks, kerning offsets, and vertical
-        # advancement lower as the SAME geometry the straight placement renders.
         return tuple(
             (outline, float(glyph[2]), float(glyph[3]), float(glyph[4]), float(glyph[5]))
             for glyph, outline in zip(self.glyphs, self.glyph_outlines, strict=True)
@@ -332,13 +321,10 @@ class ShapeRequest:
 
 
 class Shaping(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     request: ShapeRequest
     lane: LanePolicy
 
     def emit(self, /) -> ArtifactWork:
-        # `ContentIdentity.key` is the bare mint (`of` returns the railed `RuntimeRail[ContentKey]`); the `_toolchain()`
-        # generations ride the preimage beside the request so provider upgrades never replay stale shaped output.
         key = ContentIdentity.key(f"shape-{self.request.tag}", _CANON.encode((_toolchain(), self.request)))
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
@@ -347,13 +333,9 @@ class Shaping(Struct, frozen=True):
         with _TRACER.start_as_current_span(f"shape.{self.request.tag}") as span:
             span.set_attributes({"step": self.request.tag, "trait": trait.value})
             crossed = await self.lane.offload(Kernel.of(acceptor, trait), self.request)
-            # egress fold closes inside the span scope: the Error arm marks ERROR and logs correlated, the Ok path stays silent.
             return crossed.map(partial(self._receipted, key)).map_error(partial(faulted, span, "shape.emit", step=self.request.tag))
 
     def _receipted(self, key: ContentKey, payload: ShapedPayload, /) -> ArtifactReceipt:
-        # seven arms collapse onto two receipt cases, so the arm rides the band: without it a NORMALIZE and a SHAPE
-        # are one indistinguishable `document` row and no `_facts` reader can fan the shaping stream by step. The
-        # discriminant is the whole band — a per-arm scalar would demand re-decoding a payload this fold already sealed.
         facts: frozendict[str, float | str] = frozendict({"step": self.request.tag})
         match payload:
             case ShapedPayload(tag="raster", raster=(data, width, height)):
@@ -366,9 +348,8 @@ class Shaping(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _segment(buffer: object, run: ShapeRun, /) -> None:
-    # Exemption: wiring the native hb.Buffer — pin explicit direction/script/language/cluster-level before `guess` fills the rest
     buffer.flags = hb.BufferFlags.PRODUCE_UNSAFE_TO_CONCAT
-    buffer.cluster_level = hb.BufferClusterLevel[run.cluster_level.value]  # ClusterLevel member names mirror the provider enum
+    buffer.cluster_level = hb.BufferClusterLevel[run.cluster_level.value]
     if run.not_found_glyph is not None:
         buffer.not_found_glyph = run.not_found_glyph
     if (direction := _HB_DIRECTION[run.direction]) is not None:
@@ -418,7 +399,6 @@ def _span(start: int, stop: int, script: str, level: int, /) -> ItemizedRun:
 
 
 def _from_utf16(text: str, /) -> dict[int, int]:
-    # ICU offsets are UTF-16 code units; every boundary the engine yields lands on a code-point edge this table recovers.
     units, table = 0, {0: 0}
     for index, char in enumerate(text, start=1):
         units += 2 if ord(char) > 0xFFFF else 1
@@ -428,7 +408,7 @@ def _from_utf16(text: str, /) -> dict[int, int]:
 
 def _itemized(request: ShapeRequest) -> ShapedPayload:
     text, direction, engine = request.itemize
-    scripts = ScriptTags.runs(text)  # contiguous per-code-point script spans, the font owner's primary — total over the input
+    scripts = ScriptTags.runs(text)
     match engine:
         case SegmentEngine.ICU:
             resolver = Bidi()
@@ -445,10 +425,6 @@ def _itemized(request: ShapeRequest) -> ShapedPayload:
                 if max(v_start, s_start) < min(v_stop, s_stop)
             )
         case SegmentEngine.DEFAULT:
-            # UAX#9 resolved LEVEL RUNS intersect the script partition — a paragraph base level copied across
-            # spans cannot represent nested or opposing embeddings, so each emitted span carries its run's real
-            # resolved level from the bidi.algorithm reference pipeline (the pure-Python stage family the catalog
-            # verifies: get_embedding_levels -> explicit_embed_and_overrides -> weak -> neutral -> implicit).
             storage = bidi_algorithm.get_empty_storage()
             storage["base_level"] = get_base_level(text)
             storage["base_dir"] = ("L", "R")[storage["base_level"]]
@@ -534,7 +510,6 @@ def _shape_text(request: ShapeRequest) -> ShapedPayload:
         (info.codepoint, info.cluster, pos.x_advance, pos.y_advance, pos.x_offset, pos.y_offset, int(info.flags))
         for info, pos in zip(buffer.glyph_infos, buffer.glyph_positions, strict=True)
     )
-    # hb draw funcs decompose components, so the pens need no glyph set — no whole-font parse in the shaping hot path.
     pen, outlines = SVGPathPen(None), []
     cursor_x = cursor_y = 0
     for (
@@ -664,13 +639,10 @@ def _raster_colr(spec: RasterSpec, face: object, hb_font: object) -> ShapedPaylo
                 canvas.transform((1, 0, 0, 1, glyph.xOffset, glyph.yOffset))
                 font.drawGlyph(glyph.name, canvas, palette=palette)
             canvas.transform((1, 0, 0, 1, glyph.xAdvance, glyph.yAdvance))
-    # every blackrenderer Surface.saveImage writes only to a real path (`open(path)`/`os.fspath`), never a file-like
     with tempfile.NamedTemporaryFile(suffix=surface.fileExtension, delete=False) as handle:
         sink = Path(handle.name)
     try:
         surface.saveImage(str(sink))
-        # an all-whitespace or zero-extent glyph line collapses the bounds to nothing; each dimension floors at one
-        # pixel independently — the same floor `_png_canvas` holds — so a degenerate run never mints a 0-dim payload.
         width = max(1, int((x_max - x_min) * scale + 2 * margin))
         height = max(1, int((y_max - y_min) * scale + 2 * margin))
         return ShapedPayload(raster=(sink.read_bytes(), width, height))
@@ -742,7 +714,6 @@ def _raster_cpu(spec: RasterSpec, face: object, hb_font: object) -> ShapedPayloa
 
 
 def _shape_qa(request: ShapeRequest) -> ShapedPayload:
-    # `onchange` records only lookups that mutate the buffer; `buf_to_svg` carries the corresponding visual proof.
     run = request.qa
     with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as handle:
         sink = Path(handle.name)
@@ -753,7 +724,6 @@ def _shape_qa(request: ShapeRequest) -> ShapedPayload:
         def traced(_vhb: object, stage: str, lookup: int, _snapshot: object, /) -> None:
             mutations.append((stage, lookup))
 
-        # golden shapes under the production run's own parameters, so a QA oracle never diverges from the SHAPE arm.
         offered = (
             ("direction", _HB_DIRECTION[run.direction]),
             ("script", run.script),

@@ -23,7 +23,7 @@ Persisted plane bytes are ALWAYS CPU-minted. The `PressBackend.WebGpu` row is an
 - Boundary: `PressBackend` carries `ContentAuthoritative` as a ROW COLUMN rather than as a caller flag, so the content-identity law is data the plan admission reads and `[04]-[PRESS_RECEIPT]` enforces at the type level. Mip policy is a per-binding `Option<MipPolicy>` defaulting to the channel row's own law and spelling `MipPolicy.None` for a single-level plane — a plan-level `Mips` boolean beside a per-binding override is one knob selecting between two bodies, and the row already carries the answer. The plan key is `ContentHash.Of` over the plan's canonical bytes — extent, layer law, the ordered binding rows with their channels, formats, resolved mip policies, pack keys, post chains, and display egress rows, the backend key, the seed, the alpha mode, the height scale, the three `LadderRungs` columns, the tile policy, and the subject's own `UvFrame` digest — and it EXCLUDES the material id and the conductor, which name the subject rather than the bake, so two materials pressed under one plan share a plan key and the receipt separates them by graph key. The UV frame is the one subject-borne column the key ADMITS, and the discriminant is what the column does: a material id and a conductor NAME the subject, while a `UvFrame` offset, scale, or rotation SHAPES the bake — `texture#TEXTURE_UV` `TextureUv.Sample` applies it before the source dispatch, so a re-tiled bake is different bytes, and a frame outside the preimage is a cached plane a second tiling silently inherits. `UvFrame.Digest` reads EMPTY at identity by its owner's construction, so an untransformed bind keys byte-identically to a plan that never knew the axis existed and landing the column re-keys no blob already addressed. `Layers` and `LayerLaw` ride the plan so a cube map, a flipbook, and a volume are one bake shape at different rows; a UDIM set is N plans sharing a key, never one plan carrying a tile list, because a UDIM tile is an independent extent whose planes address independently — the per-tile products assemble at `set#TEXTURE_SET` `UdimSheet.Of`, the one owner proving the tiles agree. A binding naming a channel already inside a requested pack REFUSES at admission — the pack owns those slots and a standalone duplicate keys the set twice for one field — and a binding whose `Format` carries fewer components than its channel declares refuses for the same reason `set#TEXTURE_SET` refuses it later: a three-component normal in a two-component plane is a reconstruction the sampler cannot invert without evidence the plane does not carry. A `Source` subject binds EXACTLY ONE channel, because a procedural field has one value and a second bound channel would silently receive its neutral; a `Mix` subject binds one weight field PER PIGMENT, because a mix whose simplex is short one axis resolves a pigment nothing weights; a `Tile` policy whose guide channel no binding produces refuses, because the synthesizer would rail on a set that admitted cleanly. A binding whose channel carries an OPEN photometric scale — `PlaneQuantity.Light` beside a `ChannelUnit` other than `none`, which is `emission_luminance` alone on the landed roster — stored in a `PlaneFormat` the plane page reports `Normalized` with NO `Display` egress refuses at admission: an unbounded cd/m² value hard-clips at unity in a unorm lane with no tone curve, and a clipped emission plane is indistinguishable from an authored one downstream. The lane test reads `plane#PLANE_FORMAT` `Normalized`, the estate's one unorm-versus-float discriminant, because the kernel `ChannelDtype` roster the format seats onto carries no normalization column of its own. The `webgpu` backend gates TWO independent facts at admission, not at dispatch, and the split is what keeps each honest: the SUBJECT's lowerability is a fact of the subject alone, and the EXTENT is measured against `PressBackend.TexelCeiling`, the conformance FLOOR every device grants, so a bake no device could run refuses before one is rented. That ceiling is arithmetic, not a guess: `134217728` is exactly the guaranteed minimum for `maxStorageBufferBindingSize`, the lane binds ONE storage buffer per plane, and `134217728 / 16 = 8388608` texels — so a square accelerator preview tops out at `2048²` and a `4096²` request refuses at admission rather than at dispatch. A plan clearing the floor can still exceed what a particular adapter negotiated, and that refusal belongs at `gpu#PRESS_DEVICE`'s dispatch gate, which reads the device's own `DeviceGetLimits` block and quotes the granted value; collapsing the two would either rent a device to answer a plan question or assert a ceiling nothing measured. Lowerability itself: a `Source` subject over an `Image` case or a `Triplanar` whose projected source is not a solid `Noise` (the three-plane 2D blend has no kernel arm), or a `Slab`, `Mix`, or `MeshSpace` subject, has no kernel row on `gpu#WGSL_KERNEL` and refuses with the offending case named, so a caller learns the veto before renting a device rather than after. A `Graph` subject LOWERS as a KERNEL CHAIN — one dispatch per node in the compiled topological order over `gpu#KERNEL_CHAIN`'s ping-ponged slot pool, a field kernel per procedural `Texture` node, `mathFold` per `Math` node, `mixFold` per `Mix` node — and its verdict is the ALLOCATOR's rather than a case test: the chain plans by linear-scan live-range analysis over that order, its slot count is the DAG's maximum live width, and `slots × extent × 16` admits against the declared footprint or the accelerator refuses with the slot count and the budget named. Its refusals are NODE-grained, so a caller learns which node vetoed rather than that "the graph" did, and a refused chain refuses the accelerator alone — the CPU lane is content-authoritative anyway, so the recourse costs throughput and nothing else. The two LADDER subjects sit outside the question entirely: each compiles CPU-admitted cells a GPU arm could only rebuild at `f32`, forking the key the veto holds. A `Noise` source — planar OR solid — and a `Triplanar` over a solid `Noise` lower to `noiseField`: the solid family rides the row's `dimension` column, a triplanar's three planes sample one world point for a solid projected noise so the blend IS the 3D field and the world scale folds into the frequency word, and the widening moves no identity law — the accelerator product stays a `Preview`, CPU bytes stay canonical.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Numerics.Tensors;
 using System.Text;
@@ -49,9 +49,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Raster;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// ContentAuthoritative is the content-identity law as ROW DATA: the plan admission reads it and the
-// PressProduct union enforces it at the type level, so no caller flag can promote a GPU plane to a key.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PressBackend {
@@ -59,75 +57,38 @@ public sealed partial class PressBackend {
     public static readonly PressBackend WebGpu = new("webgpu", contentAuthoritative: false, texelCeiling: LoweredFloor / BytesPerTexel);
     public bool ContentAuthoritative { get; }
 
-    // The extent a lane can lower, as a ROW rather than as a device read: gpu#PRESS_DEVICE owns the negotiated
-    // ceilings and this page may not spell a WebGPU type, so the accelerator row carries the CONFORMANCE FLOOR
-    // every device grants and the plan refuses a bake no device could run before renting one. A device granting
-    // more than the floor still refuses at gpu#PRESS_DEVICE's own dispatch gate, which quotes the granted value;
-    // the two gates answer different questions and neither stands for the other.
     public long TexelCeiling { get; }
 
-    // Sixteen bytes per texel is the storage arrangement gpu#WGSL_KERNEL declares — four f32 lanes per RGBA
-    // texel — so the texel ceiling and the buffer floor are one fact read at two scales.
     const long BytesPerTexel = 16;
 
-    // 134217728 is EXACTLY the WebGPU conformance minimum for maxStorageBufferBindingSize, the guaranteed floor
-    // every conformant device grants. The lane binds ONE storage buffer per plane, never a split, so the whole
-    // plane must fit that binding and the plan refuses an oversize extent at admission rather than discovering it
-    // at dispatch — which is what makes a split binding unreachable rather than merely unimplemented. The
-    // arithmetic is the whole ceiling: 134217728 / 16 = 8388608 texels, so a square preview tops out at 2048².
     const long LoweredFloor = 134_217_728;
 }
 
-// The cases are distinct EVALUATION SHAPES, not four names for one. Every spatial input is a TextureSource
-// rather than a channel because nothing is landed when a ladder is read — Compile is the first generator of the
-// fold — and every one of them rides the subject's ONE SamplerState.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PressSubject {
     private PressSubject() { }
     public sealed record Graph(MaterialGraph Program, MaterialParameters Row, ConductorMetal Conductor) : PressSubject;
     public sealed record Source(TextureSource Field, SamplerState Sampler, TextureChannel Target) : PressSubject;
-    // Curvature is a SEPARATE field from cavity because the two are independent: a crevice can sit on a convex
-    // arris and a gutter can be both concave and open, so one occlusion scalar cannot answer both and a `Convex`
-    // row on a cavity-only surface is byte-identical to `Exposed`. An ABSENT curvature field reads 0.0 — the flat
-    // extreme, at which every curvature-keyed row scales at unity, the same degradation law one axis over.
     public sealed record Slab(MaterialParameters Row, ConductorMetal Conductor, Seq<WeatheringDose> Aging,
         Option<TextureSource> AgeField, Option<TextureSource> CavityField, Option<TextureSource> CurvatureField,
         SamplerState Sampler) : PressSubject;
     public sealed record Mix(FinishKind Kind, Seq<FinishPigment> Pigments, Seq<TextureSource> WeightFields,
         Seq<FinishLayer> Stack, Option<MaterialParameters> Substrate, ConductorMetal Conductor, SamplerState Sampler) : PressSubject;
 
-    // A RADIANCE CLOSURE, never a sky type: the appearance frontier is S2 and this owner S1, so a `SkyModel`
-    // may not cross — exactly as `Source` carries a `TextureSource` without the press knowing a noise basis. The
-    // press supplies the direction `LayerLaw.CubeFaces` already derives per texel, so a dome inherits the
-    // partitioning, cancellation, receipt, and accelerator lane rather than carrying a sweep of its own. The
-    // DIFFUSE field alone crosses — folding the solar disc into the dome double-counts the sun.
     public sealed record Sky(Func<Vector3d, RgbSpectrum> Radiance, TextureChannel Target) : PressSubject;
 
-    // The chart set crosses as DATA — the kernel's already-flattened `ChartAtlas` lowered to per-texel evidence —
-    // so no host mesh type enters and no tessellator runs here. That is what makes occlusion, thickness, and
-    // curvature MEASURED rather than approximated off a height plane, and why the derived rows' height folds stay
-    // the FALLBACK origin: a slab subject still has no body to trace against.
     public sealed record MeshSpace(
         ReadOnlyMemory<ChartTexel> Charts, Dimension ChartWidth, MaterialParameters Row, ConductorMetal Conductor,
         double RayDistance, int Rays, int GutterRings) : PressSubject;
 
-    // The one subject-borne fact the plan key admits: a UvFrame SHAPES the bake where a material id and a conductor
-    // merely NAME the subject, so the digest crosses into the preimage while the naming columns stay excluded. A
-    // Graph subject samples through its own node closures and declares no press-level frame.
     public Option<UvFrame> Frame => Switch(
         graph:     static _ => Option<UvFrame>.None,
         source:    static s => Some(s.Sampler.Frame),
         slab:      static b => Some(b.Sampler.Frame),
         mix:       static m => Some(m.Sampler.Frame),
-        // A dome addresses a DIRECTION and a chart set addresses its own parameterization; neither reads a UV
-        // frame at all, so both declare absence rather than a synthetic identity a preimage would then carry.
         sky:       static _ => Option<UvFrame>.None,
         meshSpace: static _ => Option<UvFrame>.None);
 
-    // The case tag every refusal quotes, derived from the union's OWN dispatch. A GetType().Name read answers
-    // the nested record's CLR name, so a rename silently re-spells the token inside every fault detail an
-    // operator greps and every fixture that pins one, while the Switch arm is the same closed vocabulary the
-    // plan gates already discriminate on and the generator proves total.
     public string Case => Switch(
         graph:     static _ => "graph",
         source:    static _ => "source",
@@ -137,26 +98,10 @@ public abstract partial record PressSubject {
         meshSpace: static _ => "meshSpace");
 }
 
-// One texel of an already-flattened chart, the DATA a mesh-space bake consumes in place of a mesh. Position and
-// Frame are the surface point and its shading basis; Coverage separates a texel inside a chart from a gutter
-// texel the dilation will fill, so the bake never traces from a point no chart occupies. This is the whole of the
-// geometry that crosses into this folder, and it crosses as measured values the kernel's own flatten produced —
-// which is exactly the confinement that keeps the host-neutral boundary intact while the fields become real.
 public readonly record struct ChartTexel(Point3d Position, Vector3d Normal, Vector3d Tangent, bool Coverage);
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The quantization carrier every ladder reads: three declared axes on ONE plan column rather than three loose int
-// knobs an admission would guard three times and a preimage would append three times. Each axis is the rung count
-// over its own [0,1] parameter, Degenerate names the first axis below the two-rung floor a lerp needs, and Digest
-// is the one preimage fragment — a quantization that moves the produced bytes enters the plan key exactly as the
-// post chain and the tile fragment do. The canonical row prices the aging product it exists for: 16 age rungs
-// against 8 cavity rungs is 128 fallible admissions per press against sixteen million texels at four thousand
-// square, which is the same three-orders margin the one-dimensional ladder bought, one dimension wider.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct LadderRungs(int Age, int Cavity, int Curvature, int Mix) {
-    // The THIRD AXIS IS PRICED, not assumed: a curvature dimension MULTIPLIES the cell product, so the default
-    // buys it at the cheapest rung count that still interpolates — 512 fallible admissions against sixteen
-    // million texels at four thousand square, three orders of margin still. `Curvature: 1` is the declared
-    // OPT-OUT and is exempt from the two-rung floor because a single column means the axis is never sampled.
     public static readonly LadderRungs Default = new(Age: 16, Cavity: 8, Curvature: 4, Mix: 8);
     const int Floor = 2;
     const int OptOut = 1;
@@ -168,26 +113,15 @@ public readonly record struct LadderRungs(int Age, int Cavity, int Curvature, in
         : Mix < Floor ? Some((nameof(Mix), Mix))
         : Option<(string, int)>.None;
 
-    // The cell product the plan admission prices against its own ceiling: a third axis is a multiplier, so the
-    // budget is read rather than reasoned about at each site that cares.
     public long AgeCells => (long)Age * Cavity * Curvature;
 
     public string Digest => string.Create(CultureInfo.InvariantCulture, $"rungs|{Age}|{Cavity}|{Curvature}|{Mix}");
 }
 
-// The scene-to-display policy a binding declares: the surface#OPENPBR_SLAB ToneOperator row grades the HDR
-// radiance to display-linear, the DisplayEncoding row rebases that triple onto the target primaries and reads its
-// transfer, and Exposure is the multiplicative stop the curve takes first. It is a binding COLUMN rather than a
-// caller convention because the press owns the ONE staging-to-plane crossing, and its digest enters the plan key
-// because a graded plane is different bytes under an otherwise identical request.
 public readonly record struct DisplayEgress(ToneOperator Operator, DisplayEncoding Encoding, double Exposure) {
     public string Digest => string.Create(CultureInfo.InvariantCulture, $"display|{Operator.Key}|{Encoding.Key}|{Exposure:R}");
 }
 
-// Post applies AFTER the shade fold and BEFORE the mip chain builds, so a post-processed plane still carries a
-// coherent pyramid. Mip is a typed override of the channel row's own law — absence takes the row, MipPolicy.None
-// spells a flat plane — and Display the typed absence separating a scene-referred plane written raw from one
-// graded for a display container.
 public sealed record ChannelBinding(
     TextureChannel Channel, PlaneFormat Format, Option<MipPolicy> Mip, Option<ChannelPack> Pack,
     Seq<PlaneOp> Post, Option<DisplayEgress> Display) {
@@ -204,9 +138,6 @@ public sealed record PressPlan(
     PressBackend Backend, ulong Seed, AlphaMode Alpha, Option<double> HeightScaleMm, LadderRungs Rungs,
     Option<TilePolicy> Tile, Option<MaterialId> Material, Option<ConductorMetal> Conductor, UInt128 PlanKey) {
 
-    // The ONE plan admission. Binding order is DERIVED here — sources before derivations, normals before the
-    // roughness rows whose mip fold consumes their variance — so the fold never re-sorts and a caller never
-    // sequences. Subject arity gates here too, so a Source plan cannot silently neutral-fill a second channel.
     public static Fin<PressPlan> Of(PressPlanDraft draft, PressSubject subject, Op key) =>
         Gates(draft, subject, key)
             .Fold(Fin.Succ(unit), static (admitted, gate) => admitted.Bind(_ => gate()))
@@ -216,12 +147,6 @@ public sealed record PressPlan(
                 Mint(draft, ordered, subject)));
 
     // --- [PLAN_ADMISSION]
-    // The gates in ORDINAL order — the sequence IS the ordinal, and the fold stops at the first refusal, so a
-    // caller always reads the narrowest true statement about its draft. Order is earned rather than incidental:
-    // structural shape before roster walks, the roster's own acyclicity before anything that walks it, the
-    // subject before the bindings it has to satisfy, and the lane gates last because a draft malformed for every
-    // backend must not report as a backend problem. A new gate is one row at the position its specificity earns;
-    // the positional bind ladder it replaces numbered its discards instead of naming its steps.
     static Seq<Func<Fin<Unit>>> Gates(PressPlanDraft draft, PressSubject subject, Op key) =>
         Seq<Func<Fin<Unit>>>(
             () => guard(!draft.Bindings.IsEmpty, new MaterialFault.Parameter(key, "<press-plan-no-bindings>")),
@@ -230,8 +155,6 @@ public sealed record PressPlan(
             () => draft.Rungs.Degenerate
                 .Map(bad => Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<ladder-degenerate:{bad.Axis}:{bad.Rungs}>")))
                 .IfNone(Fin.Succ(unit)),
-            // A roster whose Derived.From chain cycles has no fold order — the bounded Depth walk names it here,
-            // where an unbounded recursion inside the bake would stack-overflow instead of railing.
             () => guard(draft.Bindings.ForAll(static b => Depth(b.Channel) >= 0), new MaterialFault.Parameter(key, "<derived-origin-cycle>")),
             () => AdmitSubject(draft, subject, key),
             () => draft.Tile
@@ -240,10 +163,6 @@ public sealed record PressPlan(
             () => draft.Bindings.Fold(Fin.Succ(unit), (acc, b) => acc.Bind(_ => AdmitBinding(draft, b, key))),
             () => AdmitLane(draft, subject, key));
 
-    // TWO independent vetoes, both answered before a device is rented: the SUBJECT must have a kernel chain to
-    // lower onto, and the EXTENT must fit the lane's conformance-floor ceiling. The floor gate refuses what NO
-    // device runs and gpu#PRESS_DEVICE's dispatch gate refuses what THIS one will not — collapsing them would
-    // either rent a device to answer a plan question or assert a ceiling nothing measured.
     static Fin<Unit> AdmitLane(PressPlanDraft draft, PressSubject subject, Op key) =>
         draft.Backend.ContentAuthoritative
             ? Fin.Succ(unit)
@@ -251,18 +170,10 @@ public sealed record PressPlan(
                 ? Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<gpu-unlowerable-subject:{subject.Case}>"))
                 : (long)draft.Width.Value * draft.Height.Value * draft.Layers.Value is var texels && texels > draft.Backend.TexelCeiling
                     ? Fin.Fail<Unit>(new MaterialFault.Parameter(key, $"<gpu-extent-over-floor:{texels}:{draft.Backend.TexelCeiling}>"))
-                    // A Graph subject carries a THIRD fact past lowerability and extent: its chain's slot pool is
-                    // resident all at once, so the footprint gates here beside them rather than at a dispatch that
-                    // would already have rented a device and lowered every node.
                     : subject is PressSubject.Graph graph
                         ? AdmitChain(draft, graph, key)
                         : Fin.Succ(unit);
 
-    // A procedural field has ONE value: a second bound channel would receive its neutral and read as baked. A mix
-    // needs one weight field PER PIGMENT — a short simplex resolves a pigment nothing weights — and its ladder is
-    // the barycentric lattice whose cell count grows combinatorially in the pigment count, so the CELL BUDGET is
-    // the gate rather than the rung count alone: nineteen pigments at eight rungs is not a finer bake, it is an
-    // unbuildable one, and naming it here is what keeps Compile total over an admitted plan.
     static Fin<Unit> AdmitSubject(PressPlanDraft draft, PressSubject subject, Op key) =>
         subject.Switch(
             state:  (Draft: draft, Key: key),
@@ -271,17 +182,10 @@ public sealed record PressPlan(
             source: static (s, f) => s.Draft.Bindings.Count is 1 && s.Draft.Bindings[0].Channel == f.Target
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<source-subject-binds-one-channel:{f.Target.Key}>")),
-            // A dome has ONE radiance per direction, so it binds one channel exactly as a procedural field does —
-            // a second bound channel would receive its neutral and read as baked. The layer law is the gate that
-            // matters beyond arity: the correspondence a texel's direction derives from is `CubeFaces`, so a dome
-            // pressed under any other law has no direction to evaluate and refuses here rather than at the band.
             sky:    static (s, k) => s.Draft.Bindings.Count is 1 && s.Draft.Bindings[0].Channel == k.Target
                 ? guard(s.Draft.Law == LayerLaw.CubeFaces,
                     new MaterialFault.Parameter(s.Key, $"<sky-subject-layer-law:{s.Draft.Law.Key}>")).ToFin()
                 : Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<sky-subject-binds-one-channel:{k.Target.Key}>")),
-            // The chart run must cover the plan's own grid exactly: a short run leaves texels with no surface
-            // point to trace from, and a long one carries charts the bake will never address — both are a chart
-            // set flattened against a different extent than the one being pressed.
             meshSpace: static (s, m) => (long)m.Charts.Length == (long)s.Draft.Width.Value * s.Draft.Height.Value
                 && m.ChartWidth == s.Draft.Width
                 ? guard(m.Rays > 0 && m.RayDistance > 0.0 && m.GutterRings > 0,
@@ -293,11 +197,6 @@ public sealed record PressPlan(
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>(new MaterialFault.Parameter(s.Key, $"<mix-ladder-over-budget:{cells}:{MixLadder.CellCeiling}>")));
 
-    // An OPEN photometric scale — PlaneQuantity.Light beside a declared ChannelUnit — in a NORMALIZED lane with no
-    // Display egress hard-clips at unity, and a clipped emission plane is indistinguishable downstream from an
-    // authored one. A [0,1] weight bounds at unity by its own domain, which is why the UNIT column carries the
-    // discriminant. The lane test reads plane#PLANE_FORMAT's `Normalized` — the estate's one unorm-versus-float
-    // discriminant — never a depth-row probe, the kernel ChannelDtype roster carrying no normalization column.
     static Fin<Unit> AdmitBinding(PressPlanDraft draft, ChannelBinding binding, Op key) =>
         from _ in guard(binding.Format.Components >= binding.Channel.Components, new MaterialFault.Parameter(key, $"<binding-format-narrow:{binding.Channel.Key}>"))
         from __ in guard(binding.Pack.Map(p => p.Slots.Contains(binding.Channel)).IfNone(true), new MaterialFault.Parameter(key, $"<binding-pack-foreign:{binding.Channel.Key}>"))
@@ -310,9 +209,6 @@ public sealed record PressPlan(
                           new MaterialFault.Parameter(key, $"<binding-open-light-clipped:{binding.Channel.Key}:{binding.Format.Key}>"))
         select unit;
 
-    // A refusal here is STRUCTURAL, never unimplemented: the ladder and mesh-space subjects compile CPU-admitted
-    // f64 tables a GPU arm could only rebuild at f32, forking the key the content veto exists to hold. A Graph
-    // answers on its own arm below because its verdict is the ALLOCATOR's rather than a case test.
     static bool Lowerable(PressSubject subject) =>
         subject is PressSubject.Sky or PressSubject.Graph
         || (subject is PressSubject.Source source && source.Field switch {
@@ -321,26 +217,17 @@ public sealed record PressPlan(
             _ => false,
         });
 
-    // The plan half of the two-gate law: node lowerability and the chain's slot footprint answer WITHOUT a device.
-    // The live-range scan runs over the compile's own topological order, so re-deriving it here would compile the
-    // graph twice per press — which is why the device-side half stays at `gpu#KERNEL_CHAIN`.
     static Fin<Unit> AdmitChain(PressPlanDraft draft, PressSubject.Graph subject, Op key) =>
         ChainNodes(subject, key)
             .Bind(nodes => ChainPlan.Of(nodes, key))
             .Bind(plan => plan.Admits((long)draft.Width.Value * draft.Height.Value * draft.Layers.Value, key));
 
-    // Operands are the node indices `MaterialGraph.Compile`'s own answerability proof already reads, so no second
-    // dependency map exists to drift from it, and a node with no kernel row refuses BY NAME. Uniform words ride
-    // the one `KernelUniform` writer — a chain changes what a dispatch reads FROM, never how a block is written.
     static Fin<Seq<ChainNode>> ChainNodes(PressSubject.Graph subject, Op key) =>
         subject.Program.Compile(key).Bind(compiled =>
             compiled.Order.Fold(Fin.Succ(Seq<ChainNode>()), (acc, node) =>
                 acc.Bind(built => ChainKernel(node, key)
                     .Map(kernel => built.Add(new ChainNode(kernel, compiled.Operands(node), ChainWords(node, kernel)))))));
 
-    // The one node-class-to-kernel-row correspondence. A `Graph` subject reaching the accelerator has already
-    // passed `Lowerable`, so this arm's refusals name the NODE rather than the subject — an image-backed texture
-    // node and every node class with no kernel row veto here, one name at a time.
     static Fin<WgslKernel> ChainKernel(AppearanceNode node, Op key) =>
         node switch {
             AppearanceNode.Texture { Source: TextureSource.Noise } => Fin.Succ(WgslKernel.NoiseField),
@@ -351,21 +238,14 @@ public sealed record PressPlan(
             _ => new MaterialFault.Parameter(key, $"<graph-node-unlowerable:{node.Kind}>"),
         };
 
-    // The per-node uniform block through the ONE `KernelUniform` writer in the kernel row's declared order — the
-    // same writer `Stage` uses and every golden fixture builds with, so a chain step and a fixture cannot disagree
-    // about layout and a float carrier over a `u32` slot stays as unrepresentable here as on every other rail.
     static ReadOnlyMemory<uint> ChainWords(AppearanceNode node, WgslKernel kernel);
 
-    // Three ordering keys, one sort: derivation depth (a source before what folds from it), pair dependency (a
-    // normal before the roughness whose variance fold reads it), then the roster ordinal for determinism.
     static Seq<ChannelBinding> Order(Seq<ChannelBinding> bindings) =>
         toSeq(bindings
             .OrderBy(static b => Depth(b.Channel))
             .ThenBy(static b => b.Channel.Pair.IsSome)
             .ThenBy(static b => b.Channel.Ordinal));
 
-    // Bounded by the roster's own count, so a cyclic Derived.From chain returns the -1 sentinel the admission
-    // gate rails on instead of recursing without a floor.
     static int Depth(TextureChannel channel) => Depth(channel, walked: 0);
     static int Depth(TextureChannel channel, int walked) =>
         walked > TextureChannel.Items.Count ? -1
@@ -376,31 +256,17 @@ public sealed record PressPlan(
             _ => 0,
         };
 
-    // Subject-SHAPING columns enter, subject-NAMING columns do not — the discriminant is what a column does to the
-    // produced bytes, which is why the `UvFrame` crosses and the material id and conductor never do. Every piece
-    // appends as a WHOLE UTF-8 string: a fixed buffer under an unchecked TryWrite truncates silently and vanishes
-    // an entry, which is an address fork no diagnostic names. Each shaping column is separately FRAMED so no two
-    // facts share a delimiter run and a count can never stand for the values it counts.
     static UInt128 Mint(PressPlanDraft draft, Seq<ChannelBinding> ordered, PressSubject subject) =>
         ContentHash.Of((Draft: draft, Ordered: ordered, Frame: subject.Frame), static (source, digest) => {
             void Piece(string text) => digest.Append(Encoding.UTF8.GetBytes(text));
             Piece(string.Create(CultureInfo.InvariantCulture,
                 $"{source.Draft.Width.Value}x{source.Draft.Height.Value}x{source.Draft.Layers.Value}|{source.Draft.Law.Key}|{source.Draft.Backend.Key}|{source.Draft.Seed:x16}|{source.Draft.Alpha.Key}"));
-            // The height scale takes its OWN FRAMED FRAGMENT, exactly as the rungs, the tile policy, and each
-            // display row do — riding inside the extent piece made it the one plan column whose value shared a
-            // delimiter run with five unrelated facts, where every other column that moves the produced bytes is
-            // separately framed and separately readable. ABSENCE IS SPELLED: a plan that declares no displacement
-            // amplitude appends `hs:none` and one declaring 12.5 appends `hs:12.5`, so the two are distinguishable
-            // in the address rather than colliding on the zero that used to mean both.
             Piece(string.Create(CultureInfo.InvariantCulture,
                 $"hs:{source.Draft.HeightScaleMm.Map(static mm => mm.ToString("R", CultureInfo.InvariantCulture)).IfNone("none")}"));
             Piece(source.Draft.Rungs.Digest);
             foreach (ChannelBinding binding in source.Ordered) {
                 Piece(string.Create(CultureInfo.InvariantCulture,
                     $"{binding.Channel.Key}|{binding.Format.Key}|{binding.Policy.Key}|{binding.Pack.Map(static p => p.Key).IfNone(string.Empty)}"));
-                // filter#PLANE_OP `Digest` is the canonical per-op spelling: rename-stable case tokens, owned
-                // SmartEnum keys, invariant numerics — a ToString fold here re-keyed every cached plane on a
-                // case rename.
                 foreach (PlaneOp op in binding.Post) { Piece(op.Digest); }
                 binding.Display.Iter(egress => Piece(egress.Digest));
             }
@@ -436,44 +302,23 @@ public sealed record PressPlan(
 - Boundary: GOVERNANCE rides the `filter#PLANE_OP` `BakeGovernance` carrier and never a token tail beside a sink tail — one value through the fold statics, `Opened` publishing-and-checking in one call, default-inert so an unwatched press pays one struct copy. The PROGRESS UNIT is the BINDING, the only boundary whose count the plan declares and whose cost is comparable across a press, so both fold passes and the preview lane walk one running ordinal over `plan.Bindings.Count` and the two backends stay comparable on the one surface a caller sees mid-run. CANCELLATION rides the kernel rail underneath: every band polls the token PER LINE, the fold checks between bindings, and a cancelled press rails `Errors.Cancelled` after DISPOSING every landed plane, the same discipline every failure arm holds through `Released`. Wall time rides the injected `TimeProvider` and every per-channel `PlaneReceipt` rides the same clock. The `[EXPRESSION_SPINE]` exemptions are NAMED PER FAMILY and nothing else on the page carries one: the `PressRows` band arms (each row writes a `Span2D` line a closure cannot cross and polls the cancellation token per line), the two ladder builds with the simplex quantize-and-rank kernel (a composition rank is a positional walk over a caller-owned count run), the pack `Compose` lane seat, and the `Fill` staging write — every one a fixed-extent index fold over a caller-owned buffer where a `Seq` operator would allocate per texel. A loop with an operator IS folded rather than exempted: the parity `Divergence` row comparison is one `TensorPrimitives.Subtract` and one `MaxMagnitude` over the row, its two surviving walks being the plane's own layer and row decode addressing. Every admission, dispatch, and egress surface is expression-bodied except the failure-disposal seams, which are resource boundaries.
 
 ```csharp signature
-// (Continues the Rasm.Materials.Raster compilation unit — the [02] prelude is in scope.)
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The COMPILED subject: one shape per evaluation law, resolved once per press. The band kernel dispatches on
-// this union per PARTITION, so a four-thousand-square plane pays four dispatches per core rather than sixteen
-// million, and each arm owns its own row loop.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PressProgram {
     private PressProgram() { }
     public sealed record Shaded(CompiledGraph Graph, MaterialParameters Row, OpenPbrSurface Constant) : PressProgram;
     public sealed record Field(TextureSource Source, SamplerState Sampler, TextureChannel Target) : PressProgram;
-    // Coverage rides the COMPILED program because the program is minted once per press and reaches every band of
-    // every binding already — a per-band or per-binding cell would fragment the very census it exists to answer,
-    // and a fifth carried tuple field would thread an instrument through four folds that never read it.
     public sealed record Aged(AgeLadder Ladder, Option<TextureSource> AgeField, Option<TextureSource> CavityField,
         Option<TextureSource> CurvatureField, SamplerState Sampler, LadderCoverage Coverage) : PressProgram;
     public sealed record Mixed(MixLadder Ladder, Seq<TextureSource> WeightFields, SamplerState Sampler) : PressProgram;
-    // The dome carries the frontier's closure and nothing else: there is no model, no turbidity, and no solar
-    // position on this side of the strata, so the compile step has nothing to resolve and the program IS the
-    // closure paired with the channel it fills.
     public sealed record Dome(Func<Vector3d, RgbSpectrum> Radiance, TextureChannel Target) : PressProgram;
-    // The surface program holds the chart run and the MEASURE the bound channel demands, resolved ONCE at compile
-    // against the channel's own row rather than re-tested per texel: an occlusion channel casts the hemisphere, a
-    // curvature channel reads the chart's own second fundamental form, a thickness channel casts inward, and every
-    // other channel reads the constant lowered vector — so the band arm is one indexed call and a channel with no
-    // geometric measure is answered at compile rather than discovered at the first texel.
     public sealed record Surface(
         ReadOnlyMemory<ChartTexel> Charts, MaterialParameters Row, OpenPbrSurface Constant,
         Func<ChartTexel, TextureChannel, ShadeVec4> Measure, int GutterRings) : PressProgram;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The quantized aging trajectory over the (age, cavity) PRODUCT. Weathering.Apply is fallible and runs once per
-// CELL, never once per texel, so a spatially-aged 4k bake costs AgeRungs x CavityRungs admissions instead of
-// sixteen million. The second dimension is not a refinement: each dose's effective age is its own row's
-// CavityResponse.Scale(age, occlusion), so a dose set mixing a Crevice row with an Exposed row yields a fold no
-// single scalar indexes. Cells are AGE-MAJOR — the age index runs fastest — so At's one multiply-add addresses
-// the plane, and both rung counts are plan columns entering the plan key.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record AgeLadder(Seq<OpenPbrSurface> Cells, int AgeRungs, int CavityRungs, int CurvatureRungs) {
     public static Fin<AgeLadder> Of(
         MaterialParameters row, ConductorMetal conductor, Seq<WeatheringDose> aging, LadderRungs rungs, Op key) =>
@@ -481,9 +326,6 @@ public sealed record AgeLadder(Seq<OpenPbrSurface> Cells, int AgeRungs, int Cavi
             .Fold(Fin.Succ(Seq<OpenPbrSurface>()), (acc, cell) =>
                 acc.Bind(built => Weathering.Apply(row, aging,
                         AgeParameter.Create((cell % rungs.Age) / (double)(rungs.Age - 1)),
-                        // The exposure PAIR crosses whole, because the two axes are independent and a response row
-                        // reads both: a single-rung curvature axis divides by its own opt-out floor and every cell
-                        // reads the flat middle, which is the two-dimensional ladder exactly as it was.
                         new SurfaceExposure(
                             UnitInterval.Create(((cell / rungs.Age) % rungs.Cavity) / (double)(rungs.Cavity - 1)),
                             rungs.Curvature is 1 ? 0.0 : (((cell / rungs.Age) / rungs.Cavity) / (double)(rungs.Curvature - 1) * 2.0) - 1.0),
@@ -491,43 +333,23 @@ public sealed record AgeLadder(Seq<OpenPbrSurface> Cells, int AgeRungs, int Cavi
                     .Map(aged => built.Add(OpenPbrSurface.Of(aged, conductor)))))
             .Map(built => new AgeLadder(built, rungs.Age, rungs.Cavity, rungs.Curvature));
 
-    // AGE-MAJOR, then cavity, then curvature — one multiply-add per axis, so a texel's three sampled fields address
-    // their cell arithmetically and the coverage census reads the same indices the fold wrote.
     public OpenPbrSurface At(double age, double cavity, double curvature) =>
         Cells[(((Rung(Signed(curvature), CurvatureRungs) * CavityRungs) + Rung(cavity, CavityRungs)) * AgeRungs) + Rung(age, AgeRungs)];
 
-    // Curvature arrives SIGNED on [-1,1] — the `set#TEXTURE_CHANNEL` `curvature` row's own declared range — and the
-    // rung quantizer works on the unit interval, so the lift is stated here rather than at each of the two sites
-    // that would otherwise spell it and could disagree by half a rung.
     internal static double Signed(double curvature) => (Math.Clamp(curvature, -1.0, 1.0) + 1.0) * 0.5;
 
-    // The ONE quantizer both axes and the coverage census read, so a visited-rung tally can never disagree with
-    // the cell a texel actually took.
     public static int Rung(double t, int rungs) => Math.Clamp((int)(t * (rungs - 1) + 0.5), 0, rungs - 1);
 }
 
-// The quantized pigment-weight simplex, the SAME shape one dimension generalized: Finish.Resolve is fallible and
-// runs once per LATTICE POINT of the compositions of `Rungs - 1` into the pigment count, and each texel's sampled
-// weight vector normalizes and quantizes onto that lattice. The cell count grows COMBINATORIALLY in the pigment
-// count where the aging product grows as a plane, which is why the plan admission gates the cell budget rather
-// than the rung count alone — nineteen pigments at eight rungs is not a finer bake, it is an unbuildable one.
 public sealed record MixLadder(Seq<OpenPbrSurface> Cells, int Pigments, int Rungs) {
     internal const int CellCeiling = 4096;
 
-    // C(units + parts - 1, parts - 1) as the running-exact incremental product — every partial product is
-    // divisible by its own step, so no factorial forms. EXACT, never saturating: Rank sums these terms to
-    // address a cell, and a saturation sentinel inside that sum indexes nothing. Every call site sits behind an
-    // admitted ladder, whose whole lattice already fits the budget, so each partial term is bounded by it.
     static int Compositions(int units, int parts) {
         long count = 1L;
         for (int i = 1; i < parts; i++) { count = count * (units + i) / i; }
         return (int)count;
     }
 
-    // The ADMISSION probe, saturating ON PURPOSE and answering a different question: the plan gate asks whether
-    // the lattice fits the budget, and a product already past the ceiling needs no exact value — it needs to
-    // stop multiplying before it overflows. Splitting the probe from the exact count is what keeps the sentinel
-    // out of rank arithmetic, where nineteen pigments once made every cell address int.MaxValue-sized garbage.
     internal static int Budget(int rungs, int pigments) {
         long count = 1L;
         for (int i = 1; i < pigments; i++) {
@@ -548,17 +370,11 @@ public sealed record MixLadder(Seq<OpenPbrSurface> Cells, int Pigments, int Rung
         return built.Map(cells => new MixLadder(cells, parts, rungs.Mix));
     }
 
-    // The counts ARE the weights: FinishMix.Of admits any non-negative vector with a positive sum and the
-    // Kubelka-Munk constructor normalizes, so scaling them back onto [0,1] would only re-derive a ratio the
-    // lattice already states exactly.
     static Fin<OpenPbrSurface> Resolve(PressSubject.Mix mix, int[] counts, Op key) =>
         FinishMix.Of(mix.Pigments, toSeq(counts).Map(static c => (double)c), key)
             .Bind(admitted => Finish.Resolve(mix.Kind, admitted, mix.Stack, key, mix.Substrate))
             .Map(resolved => OpenPbrSurface.Of(resolved.Row, mix.Conductor));
 
-    // Lexicographic advance over the free axes with the last part carrying the remainder: increment the deepest
-    // axis that still has slack, zero every axis after it, and re-seat the remainder. The enumeration order IS
-    // the order Rank inverts, so the two derive from one law rather than agreeing by inspection.
     static bool Advance(Span<int> counts, int units) {
         for (int axis = counts.Length - 2; axis >= 0; axis--) {
             int prefix = 0;
@@ -572,16 +388,11 @@ public sealed record MixLadder(Seq<OpenPbrSurface> Cells, int Pigments, int Rung
         return false;
     }
 
-    // The per-texel read: normalize, quantize by largest remainder into the caller's band-scoped counts, then rank.
     public OpenPbrSurface At(ReadOnlySpan<double> weights, Span<int> counts) {
         Quantize(weights, counts, Rungs - 1);
         return Cells[Rank(counts, Rungs - 1)];
     }
 
-    // Largest-remainder quantization onto the lattice: the floor pass places most units, the residual pass hands
-    // each remaining unit to the largest fractional part with the LOWEST index breaking ties, so one weight vector
-    // always lands on one cell and a band partition cannot produce two answers. A zero-sum vector seats the whole
-    // mass on the first pigment rather than dividing by zero.
     static void Quantize(ReadOnlySpan<double> weights, Span<int> counts, int units) {
         double total = 0.0;
         for (int i = 0; i < weights.Length; i++) { total += Math.Max(0.0, weights[i]); }
@@ -602,8 +413,6 @@ public sealed record MixLadder(Seq<OpenPbrSurface> Cells, int Pigments, int Rung
         }
     }
 
-    // The rank of a composition in Advance's own enumeration: every lattice point whose earlier axes are smaller
-    // precedes it, and the count of those is the composition count over the axes that remain.
     static int Rank(ReadOnlySpan<int> counts, int units) {
         int rank = 0, remaining = units;
         for (int axis = 0; axis < counts.Length - 1; axis++) {
@@ -614,11 +423,6 @@ public sealed record MixLadder(Seq<OpenPbrSurface> Cells, int Pigments, int Rung
     }
 }
 
-// The band-shared ladder census: two visited-rung bitsets sized from the plan's own rung columns plus the sampled
-// age extrema as raw bits, every word advanced with Interlocked so a band partition contributes without a lock,
-// one word wider per sixty-four rungs, so a ladder of any declared depth counts exactly rather than saturating.
-// An unvisited cell reports ABSENCE: the extrema seed at the infinities, so a program that never sampled reads a
-// coverage nothing measured. The mutating members stay internal, so a consumer reads the census and never advances it.
 public sealed class LadderCoverage(LadderRungs rungs) {
     readonly ulong[] words = new ulong[Words(rungs.Age) + Words(rungs.Cavity) + Words(rungs.Curvature) + 2];
     readonly int cavityAt = Words(rungs.Age);
@@ -655,8 +459,6 @@ public sealed class LadderCoverage(LadderRungs rungs) {
         return seen;
     }
 
-    // The extremum commits by compare-exchange over the raw bits, re-reading the loser and retrying — a bare read
-    // then write loses every concurrent band but the last, which is a coverage span narrower than the press took.
     static void Extremum(ref ulong cell, double value, bool lower) {
         ulong candidate = BitConverter.DoubleToUInt64Bits(value);
         ulong seen = Volatile.Read(ref cell);
@@ -668,10 +470,8 @@ public sealed class LadderCoverage(LadderRungs rungs) {
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TexturePress {
-    // Bands sized so one rent serves a partition rather than a row — the same grain filter#PLANE_FOLD takes,
-    // because both fold the same planes through the same rail and a second sizing law would diverge.
     const int BandFloor = 16;
 
     public static Fin<PressProduct> Press(PressSubject subject, PressPlan plan, Op key, TimeProvider? clock = null, BakeGovernance governance = default) {
@@ -682,21 +482,9 @@ public static class TexturePress {
             : Accelerate(subject, plan, key, ticks, opened, governance);
     }
 
-    // THE PROGRESS UNIT IS THE BINDING, because that is the only boundary whose count the plan already declares and
-    // whose cost is comparable across a press: every binding folds one whole plane through one band partition, and a
-    // derived binding folds its source first. Both passes walk the SAME roster, so the fraction is one running
-    // ordinal over plan.Bindings.Count and a chain of two hundred channels reports the same shape as a chain of one.
-    // Publishing per band or per line would flood a sink that has one number to show, and the per-line token read
-    // inside PressRows is what keeps a cancelled sixteen-million-texel pass from running to completion regardless.
     static Fin<T> Staged<T>(BakeGovernance governance, int done, int total, HashMap<TextureChannel, TexturePyramid> landed, Func<Fin<T>> body) =>
         governance.Opened(total <= 0 ? 1.0 : done / (double)total).Map(_ => Surrender<T>(landed)).IfNone(body);
 
-    // The CPU lane. Each binding's staging arena lives exactly one Finish and disposes at its fold step, so a
-    // press never holds N arenas at once, and the set mints LAST so a failed stage leaves no half-keyed bundle.
-    // A DIRECT binding is a non-derived one OR the field subject's own target — a Source plan targeting `height`
-    // bakes the field INTO height rather than synthesizing a normal and integrating it back out. Cancellation
-    // rails between bindings and inside every band, surrendering no partial product, and every landed plane
-    // disposes on the failure and cancellation arms alike.
     static Fin<PressProduct> Mint(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
         from program in Compile(subject, plan, key)
         from folded in plan.Bindings.Filter(b => Direct(program, b))
@@ -724,18 +512,13 @@ public static class TexturePress {
             derived.Evidence, derived.Downgraded, derived.Faulted, GpuDeltaMax: Option<double>.None,
             Aging: Coverage(program)));
 
-    // Only the aged program measures a ladder, so every other program reports absence rather than a zero span a
-    // gate would read as a real one-cell census — the same typed-absence law GraphKey and GpuDeltaMax hold.
     static Option<AgeCoverage> Coverage(PressProgram program) =>
         program is PressProgram.Aged aged ? aged.Coverage.Read() : Option<AgeCoverage>.None;
 
-    // A direct binding folds the program itself: every non-derived channel, plus the field subject's OWN
-    // target even when that target is roster-derived — the field IS the channel's bytes there.
     static bool Direct(PressProgram program, ChannelBinding binding) =>
         binding.Channel.Origin is not ChannelOrigin.Derived
             || (program is PressProgram.Field field && field.Target == binding.Channel);
 
-    // One binding's landing: fold the band kernel, cross into the plane substrate, thread the band tally.
     static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted)> Land(
         PressProgram program, PressPlan plan, ChannelBinding binding,
         (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried,
@@ -755,12 +538,6 @@ public static class TexturePress {
     static Fin<T> Surrender<T>(HashMap<TextureChannel, TexturePyramid> landed) =>
         Fin.Fail<T>(Errors.Cancelled).Rollback([.. landed.Values]);
 
-    // The packs the plan requested become pack planes: packed channels leave the standalone roster, each lane
-    // composes PER LEVEL from its slot channel's own already-folded chain — which is what makes the frozen
-    // per-component mip law hold by construction — and an absent slot carries its channel's own neutral at
-    // every level. Slots packed together must agree on chain depth; divergent per-slot mip overrides refuse
-    // by name rather than truncating a chain silently. The carrier's Policy column records the box floor —
-    // the per-component truth is the slot rows' own Mip columns, roster data every reader already holds.
     static Fin<(HashMap<TextureChannel, TexturePyramid> Channels, Seq<ChannelPackPlane> Packs)> Packed(
         PressPlan plan, HashMap<TextureChannel, TexturePyramid> landed, Op key, CancellationToken cancel) =>
         cancel.IsCancellationRequested
@@ -782,11 +559,6 @@ public static class TexturePress {
                                   carried.Packs.Add(new ChannelPackPlane(pack, new TexturePyramid(levels, MipPolicy.Box, Coupled: false), present)));
                 }));
 
-    // One pack level: read each present lane's own level row, seat absent lanes at their channel neutral, write
-    // through the plane's ShadeVec4 rail — raw transfer, no alpha, the frozen pack law, lane index IS slot order.
-    // The level roster is an ITEM fold: every target mints on the rail FIRST so the parallel walk is total, then
-    // ParallelHelper.ForEach hands each worker its own ref job carrying the slot planes and neutrals whole — no
-    // worker indexes a captured array by slot number.
     static Fin<Seq<TexturePlane>> Compose(
         ChannelPack pack, HashMap<TextureChannel, TexturePyramid> landed, int depth, PlaneFormat format, Op key, CancellationToken cancel) {
         Option<TexturePyramid> reference = pack.Slots.Choose(slot => landed.Find(slot)).Head;
@@ -799,10 +571,6 @@ public static class TexturePress {
                             target,
                             [.. pack.Slots.Map(slot => landed.Find(slot).Case is TexturePyramid chain ? chain.Levels[levelIndex] : null)],
                             [.. pack.Slots.Map(static slot => slot.Neutral.X)])))
-                        // Custody rides the rail's own Rollback: a level that fails to rent mid-chain leaves every
-                        // level already minted holding a pooled arena the rail cannot see, and the composed carrier
-                        // never reaches a caller to dispose. The disposer runs over the targets, not the sources —
-                        // the landed channel chains belong to the fold above and are borrowed here.
                         .Rollback([.. jobs.Map(static job => job.Target)]);
                 }))
             .Bind(jobs => key.Catch(() => {
@@ -816,8 +584,6 @@ public static class TexturePress {
                 .Rollback([.. jobs.Map(static job => job.Target)]));
     }
 
-    // One level job whole per worker: the target plane, the per-slot source level (null seats the neutral),
-    // and the per-slot neutral scalar — every field the band needs rides the item, never a closure.
     readonly record struct PackLevelJob(TexturePlane Target, TexturePlane?[] Slots, double[] Neutrals);
 
     readonly struct PackCompose(CancellationToken cancel) : IRefAction<PackLevelJob> {
@@ -828,10 +594,6 @@ public static class TexturePress {
                 for (int row = 0; row < job.Target.Height.Value && !cancel.IsCancellationRequested; row++) {
                     for (int x = 0; x < texels.Span.Length; x++) { texels.Span[x] = new ShadeVec4(0.0, 0.0, 0.0, 1.0); }
                     for (int slotIndex = 0; slotIndex < job.Slots.Length; slotIndex++) {
-                        // NULL is the absent-slot signal and the probe is the read: the job carries a fixed-arity
-                        // slot array because a worker takes its item whole and may capture nothing, and a
-                        // `TexturePlane?[]` is the one shape that carries "this lane has no chain" inside a value a
-                        // `ref` fold can hand across a partition — an `Option` array would box per slot per level.
                         if (job.Slots[slotIndex] is TexturePlane source) {
                             source.ReadShade(row, layer, lane.Span);
                             for (int x = 0; x < texels.Span.Length; x++) { texels.Span[x] = Seat(texels.Span[x], slotIndex, lane.Span[x].X); }
@@ -849,15 +611,8 @@ public static class TexturePress {
     static ShadeVec4 Seat(ShadeVec4 texel, int lane, double value) =>
         lane switch { 0 => texel with { X = value }, 1 => texel with { Y = value }, _ => texel with { Z = value } };
 
-    // The GPU lane returns a Preview: planes and a receipt, NO TextureSet, therefore NO key. The
-    // content-identity veto is the union's shape, not a runtime check any consumer could skip. It runs no post
-    // chain and no derivation — the accelerator lowers field kernels alone, which is exactly what the plan
-    // admission already proved before a device was rented.
     static Fin<PressProduct> Accelerate(PressSubject subject, PressPlan plan, Op key, TimeProvider ticks, long opened, BakeGovernance governance) =>
         from lease in PressDevice.Acquire(DevicePolicy.Default, key)
-        // The preview lane reports on the SAME binding unit the CPU lane does, so a caller watching a bake sees one
-        // series whichever backend served it — an accelerator that reported a different unit would make the two
-        // lanes incomparable on the one surface a caller can see mid-run.
         from planes in lease.Use((Subject: subject, Plan: plan, Key: key, Governance: governance), static (state, device) =>
             state.Plan.Bindings.Fold(Fin.Succ((Rows: HashMap<TextureChannel, TexturePyramid>.Empty, Done: 0)), (acc, binding) =>
                 acc.Bind(carried => Staged(state.Governance, carried.Done, state.Plan.Bindings.Count, carried.Rows, () =>
@@ -872,11 +627,6 @@ public static class TexturePress {
             HashMap<TextureChannel, PlaneReceipt>.Empty, Seq<TextureChannel>(), HashMap<TextureChannel, ulong>.Empty,
             GpuDeltaMax: Option<double>.None, Aging: Option<AgeCoverage>.None));
 
-    // One compile per press. The graph arm freezes its order AND its constant lowered vector, so an unslotted
-    // channel reads a real OpenPBR column rather than a re-lowering per texel; the two ladder arms build their
-    // whole tables here, so every cell's fallible admission is paid once and the band arms are TOTAL over an
-    // admitted plan. The aged arm seats its coverage census with the table, so the census and the table it
-    // measures are minted together and no band can observe one without the other.
     static Fin<PressProgram> Compile(PressSubject subject, PressPlan plan, Op key) =>
         subject.Switch(
             state:  (Plan: plan, Key: key),
@@ -887,31 +637,17 @@ public static class TexturePress {
                     ladder, b.AgeField, b.CavityField, b.CurvatureField, b.Sampler, new LadderCoverage(s.Plan.Rungs).Seeded())),
             mix:    static (s, m) => MixLadder.Of(m, s.Plan.Rungs, s.Key)
                 .Map(ladder => (PressProgram)new PressProgram.Mixed(ladder, m.WeightFields, m.Sampler)),
-            // A dome resolves NOTHING at compile: the frontier already resolved its model, so the program is the
-            // closure paired with its target and the compile step is the identity that says so.
             sky:    static (_, k) => Fin.Succ<PressProgram>(new PressProgram.Dome(k.Radiance, k.Target)),
-            // The mesh-space arm resolves the per-channel MEASURE once against the bound roster, so the band arm
-            // is one indexed call and a channel with no geometric producer is answered here — at compile, against
-            // the plan's own bindings — rather than discovered at the first texel of the first band.
             meshSpace: static (s, m) => GeometricMeasure(m, s.Plan.Bindings, s.Key)
                 .Map(measure => (PressProgram)new PressProgram.Surface(
                     m.Charts, m.Row, OpenPbrSurface.Of(m.Row, m.Conductor), measure, m.GutterRings)));
 
-    // The per-channel geometric measure, resolved ONCE against the plan's own bindings. `ChannelOrigin.Geometric`
-    // gains REAL producers here: occlusion casts the hemisphere against the chart set, curvature reads the chart's
-    // own frame differential, and thickness casts inward — three measurements a height-field derivation can only
-    // approximate. Every other bound channel reads the constant lowered vector, exactly as a graph subject's
-    // unslotted channels do, so the arm is total over an admitted plan and no texel discovers a missing producer.
     static Fin<Func<ChartTexel, TextureChannel, ShadeVec4>> GeometricMeasure(
         PressSubject.MeshSpace subject, Seq<ChannelBinding> bindings, Op key) =>
         bindings.Exists(static b => b.Channel.Origin is ChannelOrigin.Geometric or ChannelOrigin.Derived)
             ? Fin.Succ<Func<ChartTexel, TextureChannel, ShadeVec4>>((texel, channel) => Measured(subject, texel, channel))
             : Fin.Succ<Func<ChartTexel, TextureChannel, ShadeVec4>>(static (_, channel) => channel.Neutral);
 
-    // The cast itself. It reads the chart run the subject carries and NOTHING else — no host geometry, no
-    // tessellator, no acceleration structure this folder would have to own — because the chart entry already
-    // carries the surface point and its frame. A channel with no geometric meaning answers its own neutral rather
-    // than a fabricated measurement, which is the same typed-absence discipline every measured column here takes.
     static ShadeVec4 Measured(PressSubject.MeshSpace subject, ChartTexel texel, TextureChannel channel) =>
         channel == TextureChannel.Occlusion ? Scalar(Hemisphere(subject, texel, inward: false))
         : channel == TextureChannel.Curvature ? Scalar(Bend(subject, texel))
@@ -920,12 +656,6 @@ public static class TexturePress {
 
     static ShadeVec4 Scalar(double value) => new(value, 0.0, 0.0, 1.0);
 
-    // The band fold. ParallelHelper.For over a SEEDED struct IAction allocates nothing, inlines, clamps to the
-    // processor count, and invokes inline for a single partition; the unseeded overload default-constructs the
-    // action and would hand every band an empty program. The arena is one pooled MemoryOwner per binding. The
-    // anchor mints ONCE on the rail — a per-band `.IfFail(default)` forced a null into a class-typed cell and
-    // hid the one refusal the fixed axes make unreachable — and the fault tally crosses the partition as one
-    // Interlocked cell, so a neutral-filled band failure is COUNTED evidence, never a silent success.
     static Fin<(MemoryOwner<ShadeVec4> Arena, ulong Faulted)> Fold(PressProgram program, PressPlan plan, ChannelBinding binding, Op key, CancellationToken cancel) =>
         key.Catch(() => ShadePoint.Of(Point3d.Origin, Vector3d.ZAxis, Vector3d.ZAxis, Some(Vector3d.XAxis), 0.0, 0.0, Context.Canonical, key)
             .Bind(anchor => {
@@ -940,12 +670,6 @@ public static class TexturePress {
                 }).Rollback(arena);
             }));
 
-    // Staging crosses into the plane substrate ONCE, through the plane's own row Write rail: alpha
-    // association, transfer encode, and depth narrowing all happen at their owner, so the press encodes no
-    // texel itself. The post chain then runs as ONE filter#PLANE_OP Apply over the admitted plane, whose
-    // PlaneReceipt reaches the press receipt with the height solver's residual intact. A paired mip policy
-    // resolves its companion from the landed map, downgrading to Box (the declared quality floor) and naming
-    // the channel when the plan bound none — refusing the whole press for a floor is the deleted response.
     static Fin<(TexturePyramid Pyramid, PlaneReceipt Receipt, bool Downgraded)> Finish(
         PressPlan plan, ChannelBinding binding, Memory2D<ShadeVec4> staging, HashMap<TextureChannel, TexturePyramid> landed, Op key, TimeProvider ticks) =>
         from blank in TexturePlane.Of(binding.Format, plan.Width, plan.Height, binding.Channel.Transfer,
@@ -960,18 +684,8 @@ public static class TexturePress {
     static Option<TexturePyramid> Companion(TextureChannel channel, HashMap<TextureChannel, TexturePyramid> landed) =>
         channel.Pair.Bind(name => TextureChannel.TryGet(name, out TextureChannel? row) ? landed.Find(row) : Option<TexturePyramid>.None);
 
-    // Row-wise write through the plane's OWN ShadeVec4 rail over EVERY layer, so the lane-to-register
-    // correspondence has one owner and the press encodes no texel itself. A declared DisplayEgress grades the row
-    // BEFORE that crossing — the surface#OPENPBR_SLAB ToneMap operator per texel at the row's exposure, then the
-    // span encode into the target's own primaries and transfer — so scene-referred radiance reaches an integer
-    // lane through the corpus's one tone-map owner rather than through the transfer clip a raw narrow performs.
-    // Both lanes call this rail, so the preview inherits the grade and the two still differ only in authority.
     static TexturePlane Fill(TexturePlane plane, Memory2D<ShadeVec4> texels, Option<DisplayEgress> display) {
         ReadOnlySpan2D<ShadeVec4> source = texels.Span;
-        // The PASS-THROUGH lane rents nothing at all and takes its own walk, because a zero-length rental is a
-        // rental that exists only to be skipped — it declared two buffers a caller has to reason about and a
-        // reader has to check the width of, to express "this binding grades nothing". The two walks share the row
-        // read and diverge exactly where they differ, which is the whole of the difference.
         if (display.Case is not DisplayEgress egress) {
             for (int layer = 0; layer < plane.Layers.Value; layer++) {
                 for (int row = 0; row < plane.Height.Value; row++) {
@@ -980,7 +694,6 @@ public static class TexturePress {
             }
             return plane;
         }
-        // The grade takes TWO buffers rather than aliasing one, so no unstated in-place contract binds ToneMap.
         using SpanOwner<ShadeVec4> toned = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value);
         using SpanOwner<ShadeVec4> encoded = SpanOwner<ShadeVec4>.Allocate(plane.Width.Value);
         for (int layer = 0; layer < plane.Layers.Value; layer++) {
@@ -992,8 +705,6 @@ public static class TexturePress {
                     toned.Span[x] = new ShadeVec4(graded.R, graded.G, graded.B, line[x].W);
                 }
                 ToneMap.Encode(toned.Span, egress.Encoding, encoded.Span);
-                // COVERAGE never grades: the encode owns the colour lanes and the press restores the alpha it
-                // staged, so an associated-alpha plane still associates once, at the plane's own Write rail.
                 for (int x = 0; x < line.Length; x++) { encoded.Span[x] = encoded.Span[x] with { W = line[x].W }; }
                 plane.WriteShade(row, layer, encoded.Span);
             }
@@ -1001,16 +712,8 @@ public static class TexturePress {
         return plane;
     }
 
-    // The validated reflectance carrier REFUSES a non-finite or negative channel at Create, so the display seam
-    // seats a dead lane at black rather than throwing past the rail — the band arm already tallied into Faulted,
-    // so the evidence survives where an escaping throw would take the press.
     static double Lane(double value) => double.IsFinite(value) ? Math.Max(0.0, value) : 0.0;
 
-    // A derived channel folds through the ROSTER's own declared step, composed BEFORE the caller's post chain,
-    // so no caller can omit the operation that makes the channel what it is. `Ensure` produces a MISSING source
-    // as an intermediate first — occlusion without height presses height from geometry_normal, which itself folds
-    // off the shade point — so the recursion grounds at the roster's non-derived origins and an unbound
-    // intermediate is dropped at the set filter rather than keyed.
     static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted)> Derive(
         PressProgram program, PressPlan plan, ChannelBinding binding,
         (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried,
@@ -1029,24 +732,12 @@ public static class TexturePress {
             : Fin.Fail<(HashMap<TextureChannel, TexturePyramid>, HashMap<TextureChannel, PlaneReceipt>, Seq<TextureChannel>, HashMap<TextureChannel, ulong>)>(
                 new MaterialFault.Parameter(key, $"<derived-origin-unresolved:{binding.Channel.Key}>"));
 
-    // A missing source materializes through an IMPLICIT solver-grade binding — float storage, no pyramid, no
-    // post, no display grade, because an intermediate feeds a derivation rather than a container — recursing
-    // through Derive for a derived source and through the band fold for a shaded or geometric
-    // one. The intermediate joins the landed map so a second consumer reuses it, and the set filter drops it.
-    // The recursion needs no visited set of its own: the plan admission's Depth gate already refused a cyclic
-    // Derived.From chain, so the walk grounds at a non-derived origin within the roster's own count.
     static Fin<(HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted)> Ensure(
         PressProgram program, PressPlan plan, TextureChannel channel,
         (HashMap<TextureChannel, TexturePyramid> Planes, HashMap<TextureChannel, PlaneReceipt> Evidence, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted) carried,
         Op key, TimeProvider ticks, CancellationToken cancel) =>
         carried.Planes.ContainsKey(channel)
             ? Fin.Succ(carried)
-            // The implicit format is a ROSTER READ on the rail, never a substitution: PlaneFormat.For answers
-            // the float row for THIS channel's component count, and an absent answer is a roster gap the fold
-            // names. The fallback it replaces was worse than unreachable — a one-component height intermediate
-            // would have materialized as a four-component plane and every derivation reading it would have
-            // folded three fabricated lanes, with the roster totality that makes the case dead standing one
-            // roster edit away from no longer making it dead.
             : from format in PlaneFormat.For(channel.Components, ChannelDtype.Float32)
                   .ToFin(new MaterialFault.Parameter(key, $"<implicit-format-absent:{channel.Key}:{channel.Components}>"))
               let implicitBinding = new ChannelBinding(channel, format, Some(MipPolicy.None),
@@ -1056,10 +747,6 @@ public static class TexturePress {
                   : Land(program, plan, implicitBinding, carried, key, ticks, cancel)
               select landed;
 
-    // The GPU lowering gate mirrors the plan admission exactly, so a caller that passed admission cannot fail
-    // here for a reason admission could have named. It carries the PROVEN field forward beside the kernel: the
-    // proof that this subject lowers is exactly the evidence Stage needs, and re-testing the union there would
-    // mint an arm the admission already made unreachable.
     static Fin<(WgslKernel Kernel, TextureSource Field)> Lower(PressSubject subject, ChannelBinding binding, Op key) =>
         subject is PressSubject.Source source
             ? source.Field switch {
@@ -1072,11 +759,6 @@ public static class TexturePress {
             }
             : Fin.Fail<(WgslKernel, TextureSource)>(new RasterFault.Device(key, $"<gpu-unlowerable-subject:{binding.Channel.Key}>"));
 
-    // Every append names its OWN WIDTH through the one `KernelUniform` writer, so this dispatch and the row's
-    // golden fixture build one layout: a float carrier over the noise block's octave-count slot hands the shader
-    // 0x40000000, read as a billion octaves. Codes come from `WgslOpCode` over the vocabulary's own key, and the
-    // write sizes through the kernel's OWN `WriteElements`, so no basis is re-numbered and no reduction row gets
-    // a texel-count buffer three orders too large.
     static KernelBinding Stage(PressPlan plan, WgslKernel kernel, TextureSource field) =>
         Seat(plan, kernel, Words(plan, field), Reads(field), kernel.Groups(plan.Width, plan.Height, plan.Layers));
 
@@ -1085,11 +767,6 @@ public static class TexturePress {
                 .Add(new KernelBuffer.Write(kernel.WriteElements(plan.Width, plan.Height, plan.Layers))),
             groups.X, groups.Y, groups.Z);
 
-    // The lowerable sources, each in its own Params order. Low and High cross as FOUR lanes because the CPU arm
-    // lerps the source's own colours — a scalar pair previews every authored ramp as grey. The dimension word
-    // selects the noiseField 3D lattice: a solid Noise crosses with the plan's layer count so the kernel derives
-    // the layer-centre depth the CPU volume law reads, and a triplanar over a solid Noise folds its world scale
-    // into the frequency word, its three planes sampling one world point so the blend IS the 3D field.
     static KernelUniform Words(PressPlan plan, TextureSource field) => field switch {
         TextureSource.Noise noise => NoiseWords(plan, noise, noise.Frequency, noise.Solid),
         TextureSource.Triplanar { Projected: TextureSource.Noise noise } triplanar =>
@@ -1112,10 +789,6 @@ public static class TexturePress {
             .U32(solid ? 1 : 0).U32(plan.Layers.Value)
             .Vec4(ShadeVec4.FromColor(noise.Low)).Vec4(ShadeVec4.FromColor(noise.High));
 
-    // Only the gradient row is SAMPLED, and its read plane is the LUT the source already resolved in Oklch at
-    // Gradient.Of — the perceptual hue path is priced once, host-side, and the shader reads an index lerp. The
-    // flattening is four lanes per texel because a storage vec4<f32> imposes a sixteen-byte stride the host
-    // unpacks anyway, so the buffer is a flat f32 run on both ends.
     static Seq<ReadOnlyMemory<float>> Reads(TextureSource field) {
         if (field is not TextureSource.Gradient gradient) { return Seq<ReadOnlyMemory<float>>(); }
         float[] lut = new float[gradient.Lut.Count * 4];
@@ -1127,12 +800,6 @@ public static class TexturePress {
         return Seq<ReadOnlyMemory<float>>(lut);
     }
 
-    // The readback widens back into the ShadeVec4 staging the CPU lane writes, so the preview crosses into the
-    // plane substrate through exactly the same Fill rail and the plane's own Write quantizes it — the two lanes
-    // differ in AUTHORITY, never in encoding. A short readback rails rather than filling the tail with zeros: a
-    // truncated dispatch that reads as a black band is the failure a preview is least likely to be checked for.
-    // A COUPLED mip policy downgrades to the box floor because the preview lane lands no companion plane to read
-    // the variance from, which is the same floor the CPU lane records when a plan binds no companion.
     static Fin<TexturePyramid> Lift(PressPlan plan, ChannelBinding binding, KernelReceipt receipt, Op key) {
         int rows = plan.Height.Value * plan.Layers.Value;
         long texels = (long)plan.Width.Value * rows;
@@ -1152,11 +819,6 @@ public static class TexturePress {
             .Bind(filled => TexturePyramid.Of(filled, binding.Policy.Coupled ? MipPolicy.Box : binding.Policy, key));
     }
 
-    // The graph key is the COMPILED ORDER, absent for a graphless subject — a zero would read as a real key
-    // shared by every field and slab press ever taken. Each node enters as its port id and its CASE TAG off
-    // the union's own exhaustive Switch — a reflection Type.Name would silently re-key every graph ever
-    // pressed on a case-record rename, and a trimmed/AOT rename would fork federation reproducibility; the
-    // generated Switch instead breaks the build the day the union grows a case this tag fold does not name.
     static Option<UInt128> GraphKey(PressProgram program) =>
         program is PressProgram.Shaded shaded
             ? Some(ContentHash.Of(shaded.Graph, static (graph, digest) =>
@@ -1173,12 +835,7 @@ public static class TexturePress {
             normal:     static _ => "normal",
             bsdfOutput: static _ => "bsdf-output");
 
-    // Texels counts what was actually SHADED: every level of every pyramid at its own extent. Multiplying the
-    // base extent by the level count over-counts a full chain by roughly three, and a throughput number built
-    // on that reads faster than the press ran.
     static ulong Texels(TextureSet set) =>
-        // HashMap<K,V> publishes no pair-shaped Fold — a 2-arg lambda binds the Foldable extension over VALUES
-        // alone — so the pair walk re-enters through AsIterable.
         toSeq(set.Channels.AsIterable()).Fold(0UL, static (acc, pair) => acc + Levels(pair.Value)) + set.Packs.Fold(0UL, static (acc, pack) => acc + Levels(pack.Plane));
 
     static ulong Texels(PressPlan plan, HashMap<TextureChannel, TexturePyramid> planes) =>
@@ -1188,13 +845,6 @@ public static class TexturePress {
         pyramid.Levels.Fold(0UL, static (acc, level) => acc + ((ulong)level.Width.Value * (ulong)level.Height.Value * (ulong)level.Layers.Value));
 }
 
-// The band kernel: ONE dispatch on the compiled program per partition, then that arm's own row loop. Every span
-// rents ONCE PER BAND. Jitter mints a texel-local state through Deterministic.Stream over the (x, y, layer,
-// ordinal) lanes and the FULL 64-bit plan seed — a truncated half made two plans differing above bit 31
-// unreplayable — so partitioning cannot reorder a draw. The LAYER axis is the plan's own
-// LayerLaw evaluated per line: cubeFaces derives the frozen per-face DIRECTION into Position, volume the
-// depth coordinate, frames the frame coordinate, so the layer rows are real evaluation shapes rather than
-// near-identical copies wearing a law's name.
 internal readonly struct PressRows(
     PressProgram program, PressPlan plan, TextureChannel channel, ShadePoint anchor,
     Memory2D<ShadeVec4> target, int band, int rows, ulong[] faulted, CancellationToken cancel, Op key) : IAction {
@@ -1210,17 +860,10 @@ internal readonly struct PressRows(
             case PressProgram.Mixed mixed: MixedBand(mixed, start, end, points.Span, write.Span); break;
             case PressProgram.Dome dome: DomeBand(dome, start, end, points.Span, write.Span); break;
             case PressProgram.Surface surface: SurfaceBand(surface, start, end, start, write.Span); break;
-            // The union is closed and every arm binds above; this tail exists only because the compiler cannot see
-            // that closure. The arena is rented UNCLEARED, so an arm returning without writing would publish the
-            // pool's last tenant as texels — the neutral fill is what makes the unreachable arm harmless.
             default: NeutralBand(start, end, write.Span); break;
         }
     }
 
-    // The DOME band evaluates the frontier's radiance closure at each texel's own world direction. `Points` already
-    // derived that direction into `Position` through the plan's `CubeFaces` law — the one frozen face
-    // correspondence the CPU bake and the `equirectToCube` kernel both pin to — so this arm reads the point rather
-    // than re-deriving a mapping, and the two lanes cannot disagree about which texel is which direction.
     void DomeBand(PressProgram.Dome dome, int start, int end, Span<ShadePoint> points, Span<ShadeVec4> write) {
         for (int line = start; line < end; line++) {
             if (cancel.IsCancellationRequested) { return; }
@@ -1233,12 +876,6 @@ internal readonly struct PressRows(
         }
     }
 
-    // The SURFACE band traces the chart set. A gutter texel — one no chart covers — writes its channel NEUTRAL and
-    // is traced from nothing, because a ray cast from a point that is not on the body measures the body's absence
-    // rather than its occlusion; the `Dilate` rings the subject declares then fill those texels from their own
-    // chart, which is what keeps the gutter from bleeding a neighbour's relief across a chart boundary at every
-    // mip level. The cast itself reads the chart run directly rather than through `Points`, because a mesh-space
-    // texel's position IS its chart entry and a jittered UV would sample a surface point it does not own.
     void SurfaceBand(PressProgram.Surface surface, int start, int end, int line, Span<ShadeVec4> write) {
         for (; line < end; line++) {
             if (cancel.IsCancellationRequested) { return; }
@@ -1260,16 +897,10 @@ internal readonly struct PressRows(
         }
     }
 
-    // The five sink columns vary per texel through the slot's OWN SurfaceShade reader; every other bound
-    // channel reads the constant lowered vector, so a coat-roughness plane from a graph subject is honestly
-    // constant rather than the base-colour column wearing another channel's name. A ShadeSpan failure fills
-    // the row with the channel neutral AND tallies its texels — counted evidence, never a silent success.
     void ShadedBand(PressProgram.Shaded shaded, int start, int end, Span<ShadePoint> points, Span<ShadeVec4> write) {
         using SpanOwner<PortValue> scratch = SpanOwner<PortValue>.Allocate(shaded.Graph.ScratchWidth);
         using SpanOwner<SurfaceShade> shades = SpanOwner<SurfaceShade>.Allocate(points.Length);
         Span2D<ShadeVec4> plane = target.Span;
-        // The slot probes ONCE per band, imperatively — a Match lambda cannot capture a stack-only SpanOwner,
-        // so the arm branches on the probed row and the rentals stay band-scoped.
         SinkSlot? slot = channel.Slot.Case as SinkSlot;
         for (int line = start; line < end && !cancel.IsCancellationRequested; line++) {
             Points(line, points);
@@ -1287,10 +918,6 @@ internal readonly struct PressRows(
         }
     }
 
-    // The field writes ONLY its own target — the plan admission binds a Source subject to one channel, and
-    // this arm re-proves it per band so an Ensure intermediate for a DIFFERENT channel takes its origin law
-    // (a geometric row reads the point's frame, anything else its neutral) instead of wearing the field's
-    // bytes. A sample fault seats the neutral and tallies.
     void FieldBand(PressProgram.Field field, int start, int end, Span<ShadePoint> points, Span<ShadeVec4> write) {
         Span2D<ShadeVec4> plane = target.Span;
         bool targeted = channel == field.Target;
@@ -1310,11 +937,6 @@ internal readonly struct PressRows(
         }
     }
 
-    // Both spatial fields read Luminance, so a single-lane and an RGB plane both answer, and both share ONE fault
-    // tally because a texel is one sample point whichever field refused. Each absent field reads the column at
-    // which its axis collapses to what a caller who never bound it expects — age 0.0 the authored state, cavity
-    // 1.0 the uniform trajectory — never the opposite pole, which silently deletes every Crevice row. The arm is
-    // TOTAL because the ladder's cells were admitted at compile, and each visited cell folds into the census.
     void AgedBand(PressProgram.Aged aged, int start, int end, Span<ShadePoint> points, Span<ShadeVec4> write) {
         Span2D<ShadeVec4> plane = target.Span;
         for (int line = start; line < end && !cancel.IsCancellationRequested; line++) {
@@ -1323,8 +945,6 @@ internal readonly struct PressRows(
             for (int x = 0; x < write.Length; x++) {
                 double age = Field(aged.AgeField, aged.Sampler, points[x], fallback: 0.0, ref faults);
                 double cavity = Field(aged.CavityField, aged.Sampler, points[x], fallback: 1.0, ref faults);
-                // Curvature is the third field and its own absence extreme is FLAT — the middle of the signed
-                // axis, at which every curvature-keyed row scales at unity and the axis contributes nothing.
                 double curvature = Field(aged.CurvatureField, aged.Sampler, points[x], fallback: 0.0, ref faults);
                 (double clampedAge, double clampedCavity) = (Math.Clamp(age, 0.0, 1.0), Math.Clamp(cavity, 0.0, 1.0));
                 double clampedCurvature = Math.Clamp(curvature, -1.0, 1.0);
@@ -1338,10 +958,6 @@ internal readonly struct PressRows(
         }
     }
 
-    // The weight simplex samples one field PER PIGMENT into the band's own scratch, quantizes onto the barycentric
-    // lattice, and reads the resolved cell — the same shape the age ladder takes, one dimension generalized. The
-    // weights and counts rent ONCE PER BAND like every other span here, and a refused field seats a zero weight
-    // and tallies, so a wholly-refused vector falls to the pure-first-pigment cell rather than a NaN mix.
     void MixedBand(PressProgram.Mixed mixed, int start, int end, Span<ShadePoint> points, Span<ShadeVec4> write) {
         Span2D<ShadeVec4> plane = target.Span;
         using SpanOwner<double> weights = SpanOwner<double>.Allocate(mixed.WeightFields.Count);
@@ -1360,9 +976,6 @@ internal readonly struct PressRows(
         }
     }
 
-    // The ONE spatial-field read both ladder arms take: an absent field answers its own declared fallback, a
-    // refused sample answers the same fallback and tallies, and a landed sample answers its luminance — so the
-    // absence law and the fault law are stated once rather than per field per arm.
     double Field(Option<TextureSource> source, SamplerState sampler, ShadePoint point, double fallback, ref ulong faults) {
         if (source.Case is not TextureSource field) { return fallback; }
         Fin<ShadeVec4> sampled = TextureUv.Sample(field, Sample(point, 0.0), sampler, key);
@@ -1371,18 +984,9 @@ internal readonly struct PressRows(
         return fallback;
     }
 
-    // One line of points: both-axis coordinate-keyed jitter, Position in agreement with the jittered UV, and
-    // the LAYER coordinate the plan's own law derives. The per-texel state mints through Deterministic.Stream
-    // over the (x, y, layer, ordinal) lanes and the FULL 64-bit plan seed — lane-exact, so the receipt replays
-    // the draw with no half-splitting across two int salts — and the state derives from the COORDINATE rather
-    // than a sequential stream, so a band partition cannot reorder a draw.
     void Points(int line, Span<ShadePoint> points) {
         int width = plan.Width.Value, height = plan.Height.Value;
         int layer = line / height, y = line % height;
-        // The two LINE-INVARIANT reads hoist out of the texel walk: `Ordinal` is a dictionary probe behind a lazy
-        // accessor and the seed cast a conversion, each otherwise paid on sixteen million texels for a value that
-        // cannot change across a row. What stays inside is arithmetic over a stack-allocated lane span. Deriving a
-        // per-texel state by advancing a LINE state would re-transcribe the owner's private gamma — the deleted form.
         int ordinal = channel.Ordinal;
         long seed = unchecked((long)plan.Seed);
         for (int x = 0; x < width; x++) {
@@ -1396,15 +1000,11 @@ internal readonly struct PressRows(
         }
     }
 
-    // volume: the depth coordinate at the layer's own slab centre; frames: the frame coordinate on [0,1];
-    // array/none: the layer index normalized — three laws, one column, each a real fact of its row.
     double LayerCoord(int layer) =>
         plan.Law == LayerLaw.Volume ? (layer + 0.5) / plan.Layers.Value
         : plan.Layers.Value > 1 ? layer / (double)(plan.Layers.Value - 1)
         : 0.0;
 
-    // The FROZEN cube-face mapping, transcribed from the gpu#WGSL_KERNEL faceDir fragment — both texts pin to
-    // the freeze [06] equirect correspondence, so the CPU cube bake and the GPU cube kernel address one law.
     static Point3d Face(int face, double u, double v) {
         double s = (2.0 * u) - 1.0, t = (2.0 * v) - 1.0;
         (double x, double y, double z) = face switch {
@@ -1419,8 +1019,6 @@ internal readonly struct PressRows(
         return new Point3d(x / length, y / length, z / length);
     }
 
-    // One channel-value projection over the roster's own origin law: a shaded row reads its lens, a geometric
-    // row reads the point's frame, a derived row is produced by filter#PLANE_OP and never reaches this kernel.
     ShadeVec4 Constant(OpenPbrSurface vector, ShadePoint point) =>
         channel.Origin switch {
             ChannelOrigin.Shaded shaded => shaded.Lens.Read(vector),
@@ -1444,11 +1042,8 @@ internal readonly struct PressRows(
 - Boundary: the `Preview` case carries planes and a receipt and NOTHING addressable — no set, no key, no digest — so a GPU result cannot be persisted, wired, or content-addressed by accident, and the structural veto costs no runtime check anywhere downstream. Every measured column is a TYPED ABSENCE where nothing measured it: `GraphKey` is absent for a field or slab subject rather than a zero every graphless press would share, `GpuDeltaMax` — the frozen `[04.4]` spelling, carried under the wire's own name so the `interchange#MATERIAL_WIRE` `[Mapper]` that projects this receipt needs no rename row and this page mints no mapper of its own — is absent for a single-lane press rather than a zero the parity gate reads as a perfect match, and `Aging` is absent for every program but the aged one rather than a zero-span census a gate reads as a one-cell ladder, exactly the forged-zero the corpus refuses on every tally, level, and receipt field; the declared-versus-visited pair on that census is what makes an over-quantized ladder and an unexercised cavity dimension legible from the receipt rather than from a second press; at the wire the interior lowers once, preserving both `GpuDeltaMax` and `GraphKey` as protobuf absence where their domain options are absent. `PressProduct.Parity` is the ONE producer that fills the delta — it folds the per-channel maximum over both lanes' base-level decoded rows and stamps the minted receipt — and the `Projection/benchmarks` parity workload COMPOSES it by pressing one plan on both lanes; a measurement fold living only inside a benchmark leaves the receipt column with no owner in the engine that declares it. `GraphKey` folds the COMPILED ORDER — each node's port id then its case name — because the frozen topological sort is what the bake evaluated, so a re-authored graph whose nodes reorder textually but compile to one order keys identically, and a graph whose evaluation order genuinely changed keys differently. `Texels` sums every level's own extent rather than multiplying the base by the level count, so texels-per-second is a throughput number rather than one inflated threefold by a full chain — and `TexelsPerSecond` is itself an `Option<double>`, because an unclocked run measured no rate and a `0.0` reads to a benchmark as sixteen million texels produced infinitely slowly, the same forged zero every other column here refuses. `Planes` carries each channel's own `PlaneReceipt`, so the height solver's true relative residual reaches the benchmark rather than dying inside the fold — and `Residual` selects it DETERMINISTICALLY, the height channel first then roster order, where a hash-order enumeration handed a different channel's number per run; `Downgraded` names every channel whose paired mip policy fell back to the box floor, and `Faulted` every channel whose band kernel neutral-filled under a failure with its texel tally, so both quality decisions the press made silently become decisions the receipt reports. `IsValid` reads what the receipt alone can prove: `webgpu` beside a graph key or an aging census is invalid evidence, because the accelerator lane refuses both graph and ladder subjects at plan admission and a receipt contradicting that law was forged, and a census claiming more visited rungs than the plan declared or an inverted age span is a fabricated column rather than a measured one — the STRONGER Minted-authority gate lives where the set meets the wire, `interchange#MATERIAL_WIRE` `AppearanceEgress.Set` proving every press receipt content-authoritative, and this page names that owner rather than claiming a check the receipt's own columns cannot see.
 
 ```csharp signature
-// (Continues the Rasm.Materials.Raster compilation unit.)
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The content-identity veto AS A TYPE: the GPU arm has no TextureSet to return, so a GPU-keyed plane has no
-// spelling. Amendment-grade law that costs zero runtime checks downstream.
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PressProduct {
     private PressProduct() { }
@@ -1457,11 +1052,6 @@ public abstract partial record PressProduct {
 
     public PressReceipt Evidence => Switch(minted: static m => m.Receipt, preview: static p => p.Receipt);
 
-    // The ONE producer of GpuDeltaMax, over the BASE level's DECODED rows — the decoded rail measures the quantity
-    // the lanes disagree about rather than an f32-versus-unorm storage difference. A channel the preview lane never
-    // produced contributes NOTHING (a difference against a neutral plane reports full-scale divergence for a channel
-    // nobody dispatched), an empty intersection leaves the column ABSENT, and an extent disagreement REFUSES rather
-    // than resampling, since a delta across two grids measures the resampler.
     public static Fin<PressReceipt> Parity(Minted minted, Preview preview, Op key) =>
         minted.Receipt.PlanKey != preview.Receipt.PlanKey
             ? new MaterialFault.Parameter(key, $"<parity-plan-mismatch:{minted.Receipt.PlanKey:x}:{preview.Receipt.PlanKey:x}>")
@@ -1473,12 +1063,6 @@ public abstract partial record PressProduct {
                         .IfNone(Fin.Succ(carried))))
                 .Map(delta => minted.Receipt with { GpuDeltaMax = delta });
 
-    // One streaming pass over both planes' decoded rows, no arena beyond the three row scratches, and no sampler
-    // anywhere — the comparison is texel-for-texel over the same lattice or it is a refusal.
-    // KERNEL-EXEMPTION on the two OUTER walks alone: layer and row are the plane's own decode addressing, and
-    // `Read` fills a caller-owned scratch a closure cannot cross. The per-lane comparison is NOT exempt — the
-    // difference and its worst magnitude are one `Subtract` and one `MaxMagnitude` over the row, so the row width
-    // never spells a third index loop and the widest plane in the estate folds at SIMD width.
     static Fin<double> Divergence(TexturePlane cpu, TexturePlane gpu, Op key) {
         if (cpu.Width != gpu.Width || cpu.Height != gpu.Height || cpu.Layers != gpu.Layers || cpu.Lanes != gpu.Lanes) {
             return new MaterialFault.Parameter(key, $"<parity-extent-mismatch:{cpu.Width.Value}x{cpu.Height.Value}x{cpu.Layers.Value}:{gpu.Width.Value}x{gpu.Height.Value}x{gpu.Layers.Value}>");
@@ -1499,12 +1083,6 @@ public abstract partial record PressProduct {
     }
 }
 
-// The member carries the FROZEN [04.4] wire spelling `gpuDeltaMax`, so the interchange#MATERIAL_WIRE `[Mapper]`
-// that projects this receipt needs no rename row and this page declares no mapper of its own. Faulted names every
-// channel whose band kernel neutral-filled under a failure with its texel tally — the one column separating a
-// genuinely-neutral plane from one whose evaluation died and dressed as one. The ladder census pairs each DECLARED
-// rung count with its VISITED count: the ratio names an over-quantized ladder and a visited count of one names an
-// axis the fields never drove, so neither half derives from the other.
 public readonly record struct AgeCoverage(
     int AgeRungs, int CavityRungs, int CurvatureRungs, int AgeRungsVisited, int CavityRungsVisited,
     int CurvatureRungsVisited, double AgeMin, double AgeMax);
@@ -1514,16 +1092,11 @@ public sealed record PressReceipt(
     HashMap<TextureChannel, PlaneReceipt> Planes, Seq<TextureChannel> Downgraded, HashMap<TextureChannel, ulong> Faulted,
     Option<double> GpuDeltaMax, Option<AgeCoverage> Aging)
     : IValidityEvidence {
-    // Bare predicates and claim rows sit side by side: the kernel's implicit bool conversion binds a comparison,
-    // an Option quantifier, and a count test at every arity, so no call site wraps and `ValidityClaim.Of(` — the
-    // deleted spelling corpus-wide — appears nowhere on this page.
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast((int)Math.Min(Texels, int.MaxValue), 1),
         ValidityClaim.Nonnegative(ElapsedMs),
         GpuDeltaMax.ForAll(static d => double.IsFinite(d) && d >= 0.0),
         Backend.ContentAuthoritative || GraphKey.IsNone,
-        // A census claiming more visited rungs than the plan declared, or an inverted age span, is a forged
-        // column rather than a measured one — the two facts the receipt alone can prove about its own ladder.
         Aging.ForAll(static c =>
             c.AgeRungsVisited is > 0 && c.AgeRungsVisited <= c.AgeRungs
             && c.CavityRungsVisited is > 0 && c.CavityRungsVisited <= c.CavityRungs
@@ -1532,14 +1105,7 @@ public sealed record PressReceipt(
 
     public bool ContentAuthoritative => Backend.ContentAuthoritative;
 
-    // ABSENCE, never a zero: an unclocked run measured no elapsed time, and a `0.0` throughput reads to a
-    // benchmark as a press that produced sixteen million texels infinitely slowly — the same forged zero every
-    // other column on this receipt already refuses. The divisor guard IS the absence test, so no caller
-    // re-derives one and no consumer has to know that zero here means unmeasured.
     public Option<double> TexelsPerSecond => ElapsedMs > 0.0 ? Some(Texels / (ElapsedMs / 1000.0)) : None;
-    // DETERMINISTIC selection: the height solve is the residual that matters, so the height channel answers
-    // first and the roster order breaks every remaining tie — hash-order enumeration handed a different
-    // channel's residual per run, which is a benchmark reading noise as signal.
     public Option<double> Residual =>
         Planes.Find(TextureChannel.Height).Bind(static receipt => receipt.Residual)
             .Match(

@@ -42,12 +42,6 @@ const _kinds = [
   "defect",
 ] as const
 
-// Retriability is TWO axes and never one bit. `recovery` bands what a re-drive can reach — `terminal` (no schedule
-// outlasts it), `transient` (a blind curve reaches it), `throttled` (a producer states the window and the raised VALUE
-// carries it) — and `reoffer` names the ROUTE the caller takes to make the next offer: `wait` re-invokes identically
-// under the budget, `restart` re-establishes the dependency handle first, `rescope` hands the caller a narrowed offer
-// to re-author. Both vocabularies rank ascending — recovery by finality, reoffer by disruption — so a fold over a
-// mixed set answers the most final band and the widest route rather than whichever member iteration reached last.
 const _recoveryKinds = ["throttled", "transient", "terminal"] as const
 const _recoveryRows = { throttled: {}, transient: {}, terminal: {} } as const
 const _recoveries = Shape.vocabulary(_recoveryKinds, _recoveryRows)
@@ -56,13 +50,6 @@ const _reofferKinds = ["wait", "restart", "rescope"] as const
 const _reofferRows = { wait: {}, restart: {}, rescope: {} } as const
 const _reoffers = Shape.vocabulary(_reofferKinds, _reofferRows)
 
-// Every column is elected from the kind's own semantics, never from a blanket blame read. `conflicted` and `expired`
-// re-drive only after the handle is re-taken — a lost CAS re-reads before it re-folds and a lapsed lease re-mints
-// before it re-presents — so both take `restart` rather than a blind `wait`. `exhausted` is the ONE band whose
-// producers state their window (a quota refusal, a gate window, a peer's own wire arm), so it alone is
-// `throttled`-capable and its raise carries `Fault.Class.After`. The caller-blamed terminal kinds take `rescope`
-// because the material itself is what a lawful next offer must change; `breached` and `defect` take `restart` because
-// a torn invariant and an ungraded failure are both re-offered only from a fresh handle, never from narrower input.
 const _classRows = {
   absent: { recovery: "terminal", reoffer: "rescope", blame: "caller", quarantine: false },
   conflicted: { recovery: "transient", reoffer: "restart", blame: "caller", quarantine: false },
@@ -116,18 +103,11 @@ function _dominant(input: Array.NonEmptyReadonlyArray<_FaultKind> | Cause.Cause<
   return Cause.isCause(input) ? _harvest(input) : Array.max(input, _classes.order)
 }
 
-// `throttled` on a class row says only that this kind MAY carry a producer-stated window; the raise carries a
-// measured value or nothing at all, so no policy row holds a slot only a mount can fill. `Fault.Budget.schedule`
-// reads it back off the refusal; a raise that measured none stays `Option.none()` and spends the curve unchanged.
 const _After = Schema.optionalWith(Schema.DurationFromSelf, { as: "Option" })
 const _Stated = Schema.Struct({ after: Schema.OptionFromSelf(Schema.DurationFromSelf) })
 const _isStated: (input: unknown) => input is typeof _Stated.Type = Schema.is(_Stated)
 const _statedOf = (fault: unknown): Option.Option<Duration.Duration> => _isStated(fault) ? fault.after : Option.none()
 
-// One row declares the whole reason: its class, the owning surface leg, the SUBJECT record a raise must supply, and
-// its renderer over that record. `render` is exact against its own `detail` at the declaration — a row taking
-// `{ origin, path }` cannot be rendered against `{ mesh }` — and the constraint below takes `never` so contravariance
-// admits every exact row without an erased parameter. Free-string `detail` re-opens the axis `reason` already closed.
 type _FamilyRow = {
   readonly class: _FaultKind
   readonly leg: string
@@ -159,35 +139,22 @@ const _family = <
   rows: Shape.ExactRows<Reasons, Rows>,
 ) => {
   const vocabulary = Shape.vocabulary(reasons, rows)
-  // Variadic union carries per-arm precision the spread cannot infer, and the correlated renderer cannot be proved
-  // reason-by-reason inside a generic fold, so this body pays both narrowings ONCE and every consumer reads the
-  // exact published type — the same seat `Shape.vocabulary` gives its own row snapshot.
   const payload = Schema.Union(
     ...Array.map(vocabulary.kinds, (reason) =>
       Schema.Struct({ reason: Schema.Literal(reason), ...vocabulary.at(reason).detail.fields })),
   ) as unknown as Schema.Schema<_Issue<Reasons, Rows>>
   const render = (issue: _Issue<Reasons, Rows>): string =>
     (vocabulary.at(issue.reason).render as (subject: typeof issue) => string)(issue)
-  // Rank lattice lifts from classes to ISSUES, so a census recovers the dominant issue WHOLE — its row, its leg, and
-  // its class all follow one election rather than the bare kind `Fault.Class.dominant` answers over a class array.
   const dominance: Order.Order<_Issue<Reasons, Rows>> = Order.mapInput(
     _classes.order,
     (issue: _Issue<Reasons, Rows>) => vocabulary.at(issue.reason).class,
   )
-  // The family IS its roster: spreading the snapshot publishes `kinds`, `order`, and `is` beside `schema` and `at`,
-  // which is exactly the shape a word-counting instrument's census parameter takes, so a consumer hands the family
-  // itself to the aspect rather than restating the tuple as a second static nothing keeps aligned with this mint.
   return Object.freeze({
     ...vocabulary,
     payload,
     render,
     classOf: <Reason extends Reasons[number]>(reason: Reason): Rows[Reason]["class"] => vocabulary.at(reason).class,
     legOf: <Reason extends Reasons[number]>(reason: Reason): Rows[Reason]["leg"] => vocabulary.at(reason).leg,
-    // Rows admitted INDEPENDENTLY census every offender in one refusal. Carrier is total at this owner — its only
-    // fields are the issues — so the caller supplies the tag and everything else derives: class and leg elect on the
-    // rank lattice and the message joins each issue through its OWN row renderer, which is what keeps a family
-    // whose arms carry different subjects (one naming an expected/actual pair, another a bare detail) renderable
-    // from one declaration. Tag doubles as the message prefix because `catchTag` already discriminates on that word.
     census: <const Tag extends string>(tag: Tag) => {
       class Census extends Schema.TaggedError<Census>()(tag, {
         issues: Schema.NonEmptyArray(payload),
@@ -210,12 +177,6 @@ const _family = <
   })
 }
 
-// Bound exhaustion is ONE family estate-wide, never a per-owner reason. `Shape.Bound` (`value/schema`) already closes
-// the unit roster and mints the evidence row, so the UNITS ARE THE REASONS and every spent budget refuses through
-// this mint. `unit` is OMITTED from the subject because `reason` already carries it — spreading the produced row
-// whole would let a `fuel` reason ride a `hops` unit, exactly the invalid state a discriminant exists to foreclose.
-// Every unit refuses identically today, so the roster folds one row rather than transcribing three; a unit that
-// later earns its own class or renderer replaces its fold entry with one declaration and no consumer moves.
 const _spentRow = _row({
   class: "breached",
   leg: "bound",
@@ -242,8 +203,6 @@ const _class = {
   blameOf: (fault: unknown): _Blame => _classes.at(_of(fault)).blame,
   recoveryOf: (fault: unknown): _Recovery => _classes.at(_of(fault)).recovery,
   reofferOf: (fault: unknown): _Reoffer => _classes.at(_of(fault)).reoffer,
-  // DERIVED, never a stored bit: the column is gone from the row table and this projection is the whole survivor, so
-  // a consumer wanting the band reads `recoveryOf` and a consumer wanting only a gate keeps one boolean.
   retryable: (fault: unknown): boolean => _classes.at(_of(fault)).recovery !== "terminal",
   statedOf: _statedOf,
   dominant: _dominant,
@@ -268,13 +227,9 @@ const _Evidence = Schema.Struct({
   message: Schema.String,
   stacktrace: Schema.optionalWith(Schema.String, { as: "Option" }),
   type: Schema.NonEmptyString,
-  frame: Schema.optionalWith(_Frame, { as: "Option" }), // the parsed top frame: a minified or native stack lawfully yields none
+  frame: Schema.optionalWith(_Frame, { as: "Option" }),
 })
 
-// ONE correspondence, proven key-exact against the field records that declare the columns: each map is closed by
-// `satisfies` over its own struct's keys, so a column added to `_Evidence` or `_Frame` lands unmapped at the compiler
-// rather than unstamped at the exporter, and a semconv constant with no declared column cannot be spelled at all.
-// `errorType` is the single stamped dimension no evidence field carries — it reads the capture's own class column.
 type _Stamped<Fields> = { readonly [Key in keyof Fields]: string }
 const _EVIDENCE_ATTRIBUTE = {
   message: ATTR_EXCEPTION_MESSAGE,
@@ -300,8 +255,6 @@ const _Band: Monoid.Monoid<_AttributeBand> = Monoid.fromSemigroup(
 
 const _isAttribute: (input: unknown) => input is _AttributeValue = Schema.is(_Attribute)
 
-// One fold serves both column tables: an `Option`-carried column contributes only when the producer filled it, and a
-// column carrying a shape no attribute band admits drops rather than encoding an object into a telemetry value.
 const _carried = (value: unknown): Option.Option<_AttributeValue> =>
   Option.flatMap(Option.isOption(value) ? value : Option.some(value), (held) =>
     _isAttribute(held) ? Option.some(held) : Option.none())
@@ -335,7 +288,7 @@ class _Capture extends Schema.Class<_Capture>("Fault.Capture")({
   }
   forensic(evidence: typeof _Evidence.Type): _Capture {
     return this.enriched(_Band.combineAll([
-      { [_FORENSIC.errorType]: this.class }, // the bounded dimension: the class column, never a second copy of the free-form type
+      { [_FORENSIC.errorType]: this.class },
       _stamped(_EVIDENCE_ATTRIBUTE, evidence),
       Option.match(evidence.frame, {
         onNone: (): _AttributeBand => ({}),
@@ -424,10 +377,6 @@ const _schedules: { readonly [Kind in _BudgetKind]: _BudgetSchedule } = Record.m
 
 const _budget = {
   ..._budgetVocabulary,
-  // Band selects and the VALUE times: a producer-stated window re-seats the row's `base` so the next step waits
-  // exactly what the refusal named, and the curve grows from there under the row's own factor, attempts, window, and
-  // reset — those bounds still terminate the loop and no hand sleep sits beside the policy value. Blind curves
-  // compile once at module evaluation; only a stated re-offer pays a compile, and it pays it once per refusal.
   schedule: (
     kind: _BudgetKind,
     gate: Predicate.Predicate<unknown> = _class.retryable,
@@ -490,9 +439,6 @@ const _degrade = {
 - Law: every bounded loss names the subject it dropped and the extent it dropped, so an operator reads damage, not silence.
 
 ```typescript signature
-// `class` grades what the loss WAS — lawful duplication, a spent bound, unadmitted material — so a reader banding
-// drops by severity spends the same lattice every refusal does. The roster is CLOSED estate-wide, so a future silent
-// drop has no row to hide in and a new loss kind lands as one row every consumer already renders.
 const _dropKinds = ["coalesced", "replayed", "truncated", "oversize", "unanchored", "foreign", "unparsed"] as const
 type _DropReason = (typeof _dropKinds)[number]
 const _dropRows = {
@@ -505,10 +451,6 @@ const _dropRows = {
   unparsed: { class: "malformed", lost: "entries no grammar admits" },
 } as const satisfies { readonly [Reason in _DropReason]: { readonly class: _FaultKind; readonly lost: string } }
 
-// One occurrence shape serves every reason, so the roster folds one row rather than transcribing the whole set; a reason that
-// later earns its own subject replaces its fold entry with one declaration and no consumer moves. `extent` is the
-// MEASURE the reason's own sentence names — entries for a ceiling, bytes for a budget, readings for a coalesce — so
-// no second column exists to disagree with the word.
 const _Occurrence = Schema.Struct({
   key: Schema.NonEmptyString,
   extent: Schema.Int.pipe(Schema.positive()),
@@ -527,10 +469,6 @@ type _DropFact = Schema.Schema.Type<typeof _dropFamily.payload>
 const _fact = (reason: _DropReason, key: string, extent: number): _DropFact => ({ reason, key, extent })
 const _drop = { ..._dropFamily, fact: _fact } as const
 
-// `Semigroup.struct` sums each reason's own cell and `Monoid.fromSemigroup` seats the identity, so a stream fold and
-// an array fold reach the same value through one instance and no page spells a hand `concat` beside it. Zero here is
-// the monoid IDENTITY over a folded band rather than a stand-in for an unmeasured tally: a reason reading `count: 0`
-// states that THIS fold observed no such drop, which is exactly the reading a silent filter could never publish.
 const _Cell = Schema.Struct({
   count: Schema.Int.pipe(Schema.nonNegative()),
   extent: Schema.Int.pipe(Schema.nonNegative()),
@@ -552,9 +490,7 @@ const _ledger = {
   Cell: _Cell,
   monoid: _censusMonoid,
   of: _counted,
-  // Both producer shapes fold through the SAME instance: a stream runs the monoid step, a settled roster runs this.
   from: (facts: ReadonlyArray<_DropFact>): _Census => _censusMonoid.combineAll(Array.map(facts, _counted)),
-  // Consumers gate on EVIDENCE rather than on a length, so a clean census and an unread one cannot read alike.
   quiet: (census: _Census): boolean => Array.every(_dropKinds, (reason) => census[reason].count === 0),
 } as const
 
@@ -614,7 +550,7 @@ declare namespace Fault {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Fault }
 ```

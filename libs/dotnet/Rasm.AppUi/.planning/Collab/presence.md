@@ -33,10 +33,6 @@ Everything a co-edit session broadcasts and nothing it persists. `CollabWire` fr
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// Back-pressure is ROW DATA, so the durability posture the AppHost topic states in prose is a value this
-// side reads: the durable lane WAITS because the outbox redelivers a frame the fan could not take, and the
-// ephemeral lane DROPS OLDEST because holding the producer would stall the Rust callback thread that
-// published it and an awareness frame a slow subscriber missed is lost by design.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TransportLane {
@@ -46,9 +42,6 @@ public sealed partial class TransportLane {
     public int Capacity { get; }
     public BoundedChannelFullMode Full { get; }
 
-    // Single-writer by construction, because each lane is fed by exactly ONE foreign callback. Continuations
-    // never inline: a completion resumed on the engine's callback thread would run a consumer's whole
-    // projection inside the publish frame, which is the stall the channel exists to remove.
     public Channel<CollabFrame> Open(Action<CollabFrame> shed) =>
         Channel.CreateBounded(
             new BoundedChannelOptions(Capacity) {
@@ -66,8 +59,6 @@ public static class CollabPoints {
     public static readonly HookId Signals = HookId.Create(value: "rasm.appui.collab.signals");
 }
 
-// The import answer. Pending carries the PEERS whose deltas have not arrived, not their count — the count is
-// what a board renders and the peer set is what a stalled session is diagnosed from.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MergeVerdict {
     private MergeVerdict() { }
@@ -78,8 +69,6 @@ public abstract partial record MergeVerdict {
     public HashMap<ulong, CounterSpan> Spans =>
         Switch(applied: static _ => HashMap<ulong, CounterSpan>(), pending: static row => row.Spans);
 
-    // The engine answers an absent dictionary AND an empty one for the same fact, so admission collapses both
-    // to Applied and the pending case is non-empty by construction.
     public static MergeVerdict Of(ImportStatus status) =>
         Optional(status.Pending)
             .Map(static pending => toHashMap(toSeq(pending).Map(static entry => (entry.Key, entry.Value))))
@@ -89,13 +78,10 @@ public abstract partial record MergeVerdict {
 
 // --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, long Bytes, ReadOnlyMemory<byte> Blob) {
-    // ContentHash.Of is the kernel Rasm.Domain one-hasher entry (seed zero); hex encoding stays a boundary projection.
     public static CollabSnapshot Of(DocumentKey key, ReadOnlyMemory<byte> blob) =>
         new(key.Value, ContentHash.Of(blob.Span), blob.Length, blob);
 }
 
-// The verdict is the stored answer and the two wire columns are its projections, so the boolean and the
-// count cannot drift apart and the `EvidenceMap` projection reads the same shape it always did.
 public readonly record struct CollabSyncReceipt(
     string Key,
     int Deltas,
@@ -108,11 +94,6 @@ public readonly record struct CollabSyncReceipt(
     public int Pending => Verdict.Spans.Count;
 }
 
-// The string-map carrier the frame serializes: AppUi owns the VALUE and its adapter bodies while AppHost
-// `TraceContext` owns the propagation mechanics, so this page names no propagator and no transport.
-// `TenantContext.TenantSlot` is the promoted tenant baggage key this carrier reads, so a merge applied on
-// one client joins the originating client's correlation and tenant, and a package-local key const re-mints
-// the sentinel the kernel already owns.
 public sealed record CollabWireContext(Map<string, string> Carrier) {
     public static readonly CollabWireContext Empty = new(Map<string, string>.Empty);
 
@@ -120,19 +101,13 @@ public sealed record CollabWireContext(Map<string, string> Carrier) {
     public CollabWireContext With(string key, string value) => this with { Carrier = Carrier.AddOrUpdate(key, value) };
 }
 
-// CollabFrame carries the injected W3C carrier beside the opaque Loro delta bytes, so the context is
-// frame metadata the transport serializes, never a field inside the Loro op-log.
 public readonly record struct CollabFrame(CollabWireContext Context, ReadOnlyMemory<byte> Delta);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-// One bounded lane, its channel, and the sink every refusal on it parks under. The owner retains the writer
-// and hands out the reader alone, so a consumer cannot publish onto or complete the lane it drains.
 public sealed record CollabTransport(TransportLane Lane, Channel<CollabFrame> Frames, HostSink Sink) {
     public static CollabTransport Of(TransportLane lane, HostSink sink) =>
         new(lane, lane.Open(_ => ignore(sink.Faults.Park(sink.Point, new CollabFault.Detached($"{lane.Key}: frame shed at capacity")))), sink);
 
-    // Publication is NON-BLOCKING at the callback edge: a refusal here is a COMPLETE channel, because a full
-    // one either waits or sheds through the observer above — two facts the same boolean used to blur.
     public Unit Publish(CollabFrame frame) =>
         Frames.Writer.TryWrite(frame)
             ? unit
@@ -140,29 +115,16 @@ public sealed record CollabTransport(TransportLane Lane, Channel<CollabFrame> Fr
 
     public IAsyncEnumerable<CollabFrame> Drain(CancellationToken stopping = default) => Frames.Reader.ReadAllAsync(stopping);
 
-    // Idempotent by the writer's own contract, so a second teardown answers false rather than raising.
     public Unit Close() => ignore(Frames.Writer.TryComplete());
 }
 
-// Frames carry their OWN getter/setter pair, seated beside the consuming egress leg exactly as the NATS pair
-// seats at its egress owner — the AppHost spine is generic over the carrier, so concrete bodies belong with a
-// consumer while an adapter row inside the propagation owner is the rejected form. CloudEvents envelopes
-// take the other seating for the opposite reason: their attribute space has ONE kernel owner, and this frame
-// has no such owner to seat at. Injection writes into a mutable cell because the carrier value is immutable,
-// then freezes it; both read legs cross one getter, so extraction and continuation project the same key set.
 public static class CollabCarrier {
-    // Broadcast runs inside the originating edit's own ambient scope, so the active Activity and Baggage
-    // already carry this frame's trace, correlation, and tenancy — injection READS that frame through the
-    // spine and never re-stamps what the caller's scope established.
     public static CollabWireContext Inject() =>
         new(toMap(toSeq(TraceContext.Inject(
                 new Dictionary<string, string>(StringComparer.Ordinal),
                 static (cell, key, value) => cell[key] = value))
             .Map(static entry => (entry.Key, entry.Value))));
 
-    // The ADOPTING leg: a collab frame is an intra-estate carrier whose tenancy this estate already admitted,
-    // so the extracted entry seats rather than clears. An absent or unparsable correlation reads the local
-    // session's — a fabricated root would join the remote edit to nothing while reading well-formed.
     public static (CorrelationId Correlation, Option<TenantContext> Tenant) Extract(CollabWireContext carrier, CorrelationId local) =>
         TraceContext.Extract(carrier, Read).Baggage switch {
             var baggage => (
@@ -172,8 +134,6 @@ public static class CollabCarrier {
                 TenantAdoption.Adopted.Adopt(baggage)),
         };
 
-    // The inbound continued span: a merge runs under the ORIGINATING client's parent context, so applying a
-    // remote delta is a child hop of the edit that produced it rather than a fresh root beside it.
     public static IDisposable Continue(ActivitySource source, CollabFrame frame, string name) =>
         TraceContext.Continue(source, frame.Context, Read, name, TenantAdoption.Adopted, ActivityKind.Consumer);
 
@@ -189,9 +149,6 @@ public sealed record CollabWire(
     Func<CollabSyncReceipt, IO<Unit>> Publish,
     HostSink Sink) {
 
-    // Merge, delta, and byte counts ride the evidence fan's collab-sync arm; pending levels read the
-    // fan-swapped keyed family, so a stalled peer surfaces as a standing per-document gauge, never a stale
-    // count. Size, never bytes: the estate name grammar carries no unit suffix and the UCUM By unit states the measure.
     public static readonly InstrumentSpec Applied = InstrumentSpec.Create(
         "rasm.appui.collab.merge.applied", InstrumentKind.Count, MeasureForm.Whole, "{merge}",
         "collab merges applied by document", Seq(AppUiTelemetry.DocSlot), None, None, None);
@@ -211,17 +168,10 @@ public sealed record CollabWire(
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Applied, Rejected, Deltas, Size, Pending);
 
-    // Each local delta frames with the injected W3C carrier and SEATS in the lane, so the engine's callback
-    // thread returns immediately and the consumer projects at its own cadence; the injection reads the
-    // ambient frame the originating edit already scoped, so this owner names no propagator.
     public IDisposable Broadcast(CollabTransport transport) =>
         Document.Doc.SubscribeLocalUpdate(new LocalSink(Sink,
             delta => IO.lift(() => transport.Publish(new CollabFrame(CollabCarrier.Inject(), delta)))));
 
-    // Input shape discriminates arity: one framed delta rides the origin-tagged ImportWith (the session
-    // epoch is the origin), a reconnect burst rides ImportBatch. The lead frame's carrier extracts the
-    // ORIGINATING correlation and tenant, so the sealed receipt joins the remote edit onto the
-    // originating client's timeline rather than the local session's.
     public IO<CollabSyncReceipt> Merge(params CollabFrame[] frames) =>
         (from receipt in FinT.lift<IO, CollabSyncReceipt>(
                              Imported(frames, [.. frames.AsIterable().Map(static frame => frame.Delta.ToArray())]))
@@ -229,10 +179,6 @@ public sealed record CollabWire(
          select receipt).runFin.As().Bind(static result => result.Match(
             Succ: IO.pure, Fail: IO.fail<CollabSyncReceipt>));
 
-    // The RE-DRIVING twin every live subscriber composes: a pending verdict raises the transient fault whose
-    // Retriability column the kernel executor reads, so the same bytes re-import on the policy's own schedule
-    // once the missing peer's delta lands, and the exhausted bound abandons with the spans still named. The
-    // receipt seals on every pass, so a pended merge is evidence rather than a hole.
     public IO<CollabSyncReceipt> Merged(RedrivePolicy redrive, params CollabFrame[] frames) =>
         Redrive.Run(redrive, Merge(frames).Bind(receipt => receipt.Verdict.Switch(
             applied: _ => IO.pure(receipt),
@@ -240,9 +186,6 @@ public sealed record CollabWire(
                 new CollabFault.EpochMismatch(new KernelFault.InvalidValue(
                     "collaboration epoch", $"{receipt.Key} has {row.Spans.Count} outstanding span(s)"))))));
 
-    // Arity discriminates on the delta array's own shape: the empty spread refuses before touching the
-    // engine, a single delta rides the origin-tagged ImportWith, and a reconnect burst rides ImportBatch —
-    // no count or mode parameter restates what the array answers.
     private Fin<CollabSyncReceipt> Imported(CollabFrame[] frames, byte[][] deltas) => deltas switch {
         [] => Fin.Fail<CollabSyncReceipt>(new CollabFault.Detached("live merge requires at least one framed delta")),
         [var single] => CollabDoc.Lift(() => Document.Doc.ImportWith(single, Epoch.Epoch.ToString("N")))
@@ -250,8 +193,6 @@ public sealed record CollabWire(
         _ => CollabDoc.Lift(() => Document.Doc.ImportBatch(deltas)).Map(status => Sealed(frames, deltas, status)),
     };
 
-    // The carrier statics are taken DIRECTLY: a delegate column bound to a static on this same page forwards
-    // and nothing else, and the session's fallback correlation the closure captured rides the argument here.
     private CollabSyncReceipt Sealed(CollabFrame[] frames, byte[][] deltas, ImportStatus status) =>
         (frames is [var lead, ..] ? CollabCarrier.Extract(lead.Context, Correlation) : (Correlation, Tenant)) switch {
             var origin => new CollabSyncReceipt(
@@ -264,14 +205,9 @@ public sealed record CollabWire(
                 origin.Tenant),
         };
 
-    // Pre-commit forensics tap: SubscribePreCommit fires BEFORE each change seals, so a pending commit
-    // surfaces as a PreCommitFact for the dev-loop evidence stream; the ChangeModifier is left untouched
-    // (observation, never rewrite). The Subscription is the caller's lifetime handle.
     public IDisposable TapPreCommit(Func<PreCommitFact, IO<Unit>> sink) =>
         Document.Doc.SubscribePreCommit(new PreCommitSink(Document.Key, Correlation, Sink, sink));
 
-    // Readable op-window export: ExportJsonUpdates renders the ops between two version vectors as JSON
-    // for cross-implementation comparison and the REPL/support bundle; a corrupt window folds through Lift.
     public Fin<string> ExportJson(VersionVector from, VersionVector to) =>
         CollabDoc.Lift(() => Document.Doc.ExportJsonUpdates(from, to));
 
@@ -280,18 +216,13 @@ public sealed record CollabWire(
             Some: cut => Document.Doc.ExportShallowSnapshot(cut),
             None: () => Document.Doc.Export(new ExportMode.Snapshot())));
 
-    // Active-session join: live-peer state sync over the in-session wire, never persisted.
     public byte[] SessionStateFor(VersionVector peerFrontier) =>
         Document.Doc.Export(new ExportMode.Updates(peerFrontier));
 
-    // Foreign callbacks are one-line adapters over the ONE collapse: the interface a binding demands cannot
-    // be a type argument, so each row states only which interface it satisfies and which payload it lifts.
     private sealed record LocalSink(HostSink Sink, Func<ReadOnlyMemory<byte>, IO<Unit>> Body) : LocalUpdateCallback {
         public void OnLocalUpdate(byte[] update) => ignore(Sink.Collapse(Body(update)));
     }
 
-    // ChangeMeta primitives read before payload disposal, because disposing the payload frees ChangeMeta.Deps
-    // and the Modifier; the modifier stays untouched, so the tap never mutates the pending commit.
     private sealed record PreCommitSink(DocumentKey Document, CorrelationId Correlation, HostSink Sink, Func<PreCommitFact, IO<Unit>> Body) : PreCommitCallback {
         public void OnPreCommit(PreCommitCallbackPayload payload) =>
             ignore(Custody.Bracket(() => {
@@ -302,38 +233,21 @@ public sealed record CollabWire(
     }
 }
 
-// The PRODUCER end of the `Editing/livedata#OVERLAY_SPINE` acknowledgment vocabulary. That owner declares
-// the three-armed echo and consumes it; this owner is the merge authority's side of the same contract, so
-// an optimistic row on any co-edited surface clears against real convergence evidence instead of a timer.
-// The row decoder is composition-bound because each plane knows its own register shape — the echo owner
-// knows only that a diff carries values and a receipt carries a verdict.
 public sealed record CollabEcho<TRow, TKey>(
     CollabDoc Document,
-    Func<ContainerDiff, Option<(TKey Key, TRow Value)>> Decode, // composition-bound: the plane's own register-to-row projection
+    Func<ContainerDiff, Option<(TKey Key, TRow Value)>> Decode,
     HostSink Sink)
     where TRow : notnull where TKey : notnull {
 
-    // IMPORT diffs alone carry converged values, which is exactly why the livedata ledger's CRDT arm takes a
-    // value rather than a revision: a Local diff is this session's own mutation echoing back — its ticket
-    // settles on the receipt instead — and a Checkout diff is time travel, where the read state is a
-    // historical cut and clearing a pending mutation against it would drop a row the live state still owes.
     public Seq<OverlayEcho<TRow, TKey>> Imported(DiffEvent diff) =>
         diff.TriggeredBy == EventTriggerKind.Import
             ? toSeq(diff.Events).Choose(Decode)
                 .Map(static row => (OverlayEcho<TRow, TKey>)new OverlayEcho<TRow, TKey>.Converged(row.Key, row.Value))
             : Seq<OverlayEcho<TRow, TKey>>();
 
-    // The receipt answers WHETHER the merge landed and the outstanding ticket answers WHICH local mutation it
-    // settles, so the two join here rather than at a consumer that would have to remember both. The verdict's
-    // own total Switch decides: a new verdict case breaks this site at compile time rather than falling
-    // through the acknowledged arm, which is what a derived boolean could not do.
     public OverlayEcho<TRow, TKey> Sealed(OverlayTicket<TKey> ticket, CollabSyncReceipt receipt) =>
         receipt.Verdict.Switch(
             applied: _ => (OverlayEcho<TRow, TKey>)new OverlayEcho<TRow, TKey>.Acked(ticket.Key, ticket.Revision),
-            // A pending span means the delta's dependency has not arrived, so the row is REFUSED and renders
-            // under its refusal chrome for the policy linger — acknowledging it would clear a mutation no
-            // peer can yet observe. The fault carries the transient column, so a redriving subscriber and a
-            // refused overlay row read the SAME classification.
             pending: row => new OverlayEcho<TRow, TKey>.Refused(ticket.Key, ticket.Revision,
                 new CollabFault.EpochMismatch(new KernelFault.InvalidValue(
                     "collaboration epoch", $"{receipt.Key} has {row.Spans.Count} pending span(s) at merge"))));
@@ -343,8 +257,6 @@ public sealed record CollabEcho<TRow, TKey>(
 
     public Fin<Subscription> Bind(OverlayLedger<TRow, TKey> ledger) => Document.Changes(new EchoSink(this, ledger, Sink));
 
-    // The diff payload and every ContainerId it carries are Rust-pointer wrappers freed with the callback
-    // frame, so the projection runs inside the scope and only owned values leave it.
     private sealed record EchoSink(CollabEcho<TRow, TKey> Owner, OverlayLedger<TRow, TKey> Ledger, HostSink Sink) : Subscriber {
         public void OnDiff(DiffEvent diff) =>
             ignore(Custody.Bracket(
@@ -395,9 +307,6 @@ flowchart LR
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The CHANNEL axis: each row is a transport with its own store, its own encode, and its own TTL sweep. The
-// SURFACE axis a mark is drawn on is `PresencePlane` in `[04]` — one word, `viewport`, appears in both
-// vocabularies and means a store here and a render target there.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -415,7 +324,6 @@ public sealed record CollabCursor(Cursor Anchor, PosType Encoding) : IDisposable
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-// Three native channel handles: identity-owned capability class per the same native-lifetime law.
 public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore cursors, Awareness peers, EphemeralStore viewport) : IDisposable {
     public CollabDoc Document { get; } = document;
     public ulong Peer { get; } = peer;
@@ -426,15 +334,10 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
     public static Presence Open(CollabDoc document, ulong peer, long timeoutMs) =>
         new(document, peer, new EphemeralStore(timeoutMs), new Awareness(peer, timeoutMs), new EphemeralStore(timeoutMs));
 
-    // Anchoring dispatches on the address's own kind row, so the per-kind narrow lives once on the closed
-    // container axis instead of a structural ladder here whose default arm would swallow a new kind: a kind
-    // that carries no cursor refuses KindMismatch and an unanchorable position answers Detached.
     public Fin<CollabCursor> Anchor(CollabHandle handle, uint position, PosType source, Side side) =>
         handle.Address.Kind.Anchored(handle, position, source, side)
             .Map(static cursor => new CollabCursor(cursor, PosType.Unicode));
 
-    // Post-merge caret read-back; a gc'd anchor (CannotFindRelativePosition) folds to None, never a throw.
-    // The query result is a disposable pair, so the read and its release aggregate on one rail.
     public Option<(uint Pos, Side Side)> Locate(CollabCursor cursor) =>
         CollabDoc.Lift(() => Document.Doc.GetCursorPos(cursor.Anchor))
             .Bind(static at => Custody.Bracket(() => Fin.Succ((at.Current.Pos, at.Current.Side)), at))
@@ -458,9 +361,6 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
                 AwarenessPeerUpdate changed = state.Self.Peers.Apply(state.Update.ToArray());
                 return new PresenceDelta(PresenceKind.Awareness, changed.Updated.Length + changed.Added.Length);
             }),
-            // The spatial arm sweeps beside the caret arm: a departed peer's camera, section, or presenter
-            // playhead is exactly as stale as its caret, and a slot left standing would keep driving every
-            // follower that reads it long after the peer's TTL lapsed.
             viewport: static state => CollabDoc.Lift(() => {
                 state.Self.Viewport.Apply(state.Update.ToArray());
                 state.Self.Viewport.RemoveOutdated();
@@ -473,17 +373,11 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
     public Fin<byte[]> PublishViewport(string key, LoroVal state) =>
         CollabDoc.Lift(() => { Viewport.Set(key, state); return Viewport.Encode(key); });
 
-    // The read sweeps FIRST because the channel keeps a lapsed peer until eviction, and a roster returning
-    // that peer would hand every projection above a stale seat to render live. The awareness sweep is the
-    // one that ANSWERS its evicted ids, and they are the apply arm's delta concern rather than this read's —
-    // one caller wanting both reads the delta off ApplyRemote.
     public HashMap<ulong, LoroValue> Roster() {
         ignore(Peers.RemoveOutdated());
         return toHashMap(Peers.GetAllStates().AsIterable().Map(static entry => (entry.Key, entry.Value.State)));
     }
 
-    // The ephemeral adapter, sweeping before it hands the update on so a publish never carries a lapsed
-    // neighbour's slot; the collapse is the same one every other callback on this page takes.
     private sealed record EphemeralSink(EphemeralStore Store, HostSink Sink, Func<ReadOnlyMemory<byte>, IO<Unit>> Body) : LocalEphemeralListener {
         public void OnEphemeralUpdate(byte[] update) {
             Store.RemoveOutdated();
@@ -514,9 +408,6 @@ public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore curs
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The co-edited SURFACE axis — what a mark is drawn ON, as against `[03]`'s `PresenceKind`, which is the
-// channel a value travels over. The overlay a plane renders is the ROW's own answer, so a new plane declares
-// its mark instead of adding an arm to a ladder whose default case would silently render nothing.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -528,8 +419,6 @@ public sealed partial class PresencePlane {
     [UseDelegateFromConstructor]
     public partial Option<PresenceMark> Shape(Presence presence, PeerLocation at, Color tint);
 
-    // The anchor decodes to a live Cursor, resolves against THIS replica's document, and frees inside the
-    // read: a gc'd anchor answers None, so a caret whose text was deleted disappears rather than landing on whatever glyph now sits at its old ordinal.
     private static Option<PresenceMark> Carets(Presence presence, PeerLocation at, Color tint) =>
         at.Anchor
             .Bind(static bytes => CollabDoc.Lift(() => Cursor.Decode(bytes.ToArray())).ToOption())
@@ -547,9 +436,6 @@ public sealed partial class PresencePlane {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// The decoded per-peer slot. The VIEW is the one portable view-state receipt, so camera, section, and
-// selection travel as one encoded value; the ANCHOR is the loro cursor's own bytes, because a raw editor
-// ordinal published across replicas names a position the receiver's document never had.
 public readonly record struct PeerLocation(ulong Peer, PresencePlane Plane, Option<Viewpoint> View, Option<ReadOnlyMemory<byte>> Anchor);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -559,35 +445,21 @@ public abstract partial record PresenceMark(ulong Peer, Color Tint) {
     public sealed record Frustum(ulong Peer, Color Tint, ViewCamera Camera) : PresenceMark(Peer, Tint);
 }
 
-// The follow lease. Ungated by the settled presence-is-display ruling, and it carries its start instant
-// because the banner states how long the follow has run, never a re-derived duration.
 public readonly record struct FollowLease(ulong Target, Instant Since);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// Replica-stable per-peer colour: the tint is a pure function of the peer identity through the kernel
-// one-hasher, so peer N paints identically on every client. A join-ordinal tint would repaint every caret,
-// halo, and frustum on every board the moment anyone arrived, and two clients would disagree about who is
-// which colour for as long as their join orders differed.
 public static class PeerTint {
     public static Fin<Color> Of(ulong peer) =>
         Colormap.Tableau.Sample(Unit(ContentHash.Of(BitConverter.GetBytes(peer))));
 
-    // The digest folds to the unit interval by its own width through the kernel's declared lane row, so the
-    // projection carries no modulus and no call here spells a shift the identity owner already owns.
     private static double Unit(UInt128 digest) => (double)ContentHash.Half(digest, Lane.High) / ulong.MaxValue;
 }
 
 public sealed record PresenceOverlay(Presence Presence, CollabDoc Document) {
-    // The slot is PEER-QUALIFIED under its own prefix, so the viewport channel carries this overlay beside
-    // the review tour's playhead without either clobbering the other and without a second store — the
-    // prefix, not the plane vocabulary, is what separates two writers on one channel.
     public const string LocatePrefix = "locate/";
 
     public static string LocateKey(ulong peer) => $"{LocatePrefix}{peer.ToString(CultureInfo.InvariantCulture)}";
 
-    // ONE structured write per plane change. Absent legs write no key, so a peer on a plane with no camera
-    // and a peer with no caret are two shapes of one slot rather than a slot carrying nulls the read would
-    // have to interpret. The encode crosses the package's one options owner, never a threaded knob.
     public Fin<byte[]> Publish(PresencePlane plane, Option<Viewpoint> view, Option<CollabCursor> caret) =>
         Presence.PublishViewport(LocateKey(Presence.Peer), LoroVal.Of([
             (CollabColumn.Identity, LoroVal.Of(Presence.Peer.ToString(CultureInfo.InvariantCulture))),
@@ -595,9 +467,6 @@ public sealed record PresenceOverlay(Presence Presence, CollabDoc Document) {
             .. view.Map(static held => (CollabColumn.Viewpoint, LoroVal.Of(held.Encode()))).ToSeq(),
             .. caret.Map(static held => (CollabColumn.Anchor, LoroVal.Of(held.Anchor.Encode().AsMemory()))).ToSeq()]));
 
-    // The ONE read every plane surface binds. It sweeps FIRST, because the ephemeral store keeps a lapsed
-    // peer until eviction and a mark for a departed peer would render a caret nobody owns. The local peer
-    // drops out by identity: the editor already draws its own cursor, and a second one at the same position reads as a merge defect.
     public Fin<Seq<PresenceMark>> Marks(PresencePlane plane) =>
         CollabDoc.Lift(() => {
             Presence.Viewport.RemoveOutdated();
@@ -607,8 +476,6 @@ public sealed record PresenceOverlay(Presence Presence, CollabDoc Document) {
             .Filter(at => at.Peer != Presence.Peer && at.Plane == plane)
             .Choose(at => PeerTint.Of(at.Peer).ToOption().Bind(tint => at.Plane.Shape(Presence, at, tint))));
 
-    // A slot whose key carries another prefix, whose peer will not parse, or whose plane the vocabulary no
-    // longer spells reads absent rather than faulting the overlay: one malformed publisher must not blank every collaborator on the plane.
     static Option<PeerLocation> Located(string key, LoroValue state) =>
         key.StartsWith(LocatePrefix, StringComparison.Ordinal)
         && ulong.TryParse(key.AsSpan(LocatePrefix.Length), CultureInfo.InvariantCulture, out ulong peer)
@@ -624,9 +491,6 @@ public sealed record PresenceOverlay(Presence Presence, CollabDoc Document) {
             : None;
 }
 
-// Ad-hoc follow. UNGATED by the settled ruling that presence is display: following renders a camera the
-// target already published, so a capability read here would gate a read the channel already grants and would
-// be the first place a presence value decided authority.
 public sealed class PresenceFollow(PresenceOverlay overlay, Atom<Option<FollowLease>> lease, IClock clock) {
     public const string BannerKey = "collab.following";
     public const string ReleaseIntent = "collab.follow.release";
@@ -635,25 +499,14 @@ public sealed class PresenceFollow(PresenceOverlay overlay, Atom<Option<FollowLe
     public PresenceOverlay Overlay { get; } = overlay;
     public Atom<Option<FollowLease>> Lease { get; } = lease;
 
-    // The lease value is minted BEFORE the transition, because a compare-and-swap body re-runs on contention
-    // and reading the clock inside it would re-stamp the lease and make the banner's own elapsed span a
-    // function of contention. The verdict LEAVES: a follow that ceded to a concurrent request and a follow
-    // that landed are different facts, and the caller reads which one it got.
     public Transition<Option<FollowLease>> Follow(ulong peer) =>
         Cell.Commit(Lease, _ => Some(new FollowLease(peer, clock.GetCurrentInstant())), Cell.SwapBudget);
 
-    // Release DRAINS: the Committed payload is the lease that was held, so a caller that wants to know what
-    // it stopped following reads it off the transition instead of re-reading a cell it just cleared.
     public Transition<Option<FollowLease>> Release() => Cell.Take(Lease);
 
     public Unit Intercept(CommandRow intent) =>
         intent.Key.StartsWith(ViewportPrefix, StringComparison.Ordinal) ? ignore(Release()) : unit;
 
-    // The camera and the selection a follower adopts are the TARGET's own published receipt, so mirroring is
-    // one viewpoint apply through the boundary the viewport owns and never a second camera write. The sweep
-    // runs FIRST and on its own, exactly as every other read of this channel does: a departed target's slot
-    // would otherwise keep driving the follower's camera past its TTL, and reaching that sweep by projecting
-    // every peer's mark and discarding the result would pay the whole overlay fold for one store eviction.
     public Fin<Option<Viewpoint>> Mirrored() =>
         Lease.Value.Match(
             Some: held => CollabDoc.Lift(() => {
@@ -664,8 +517,6 @@ public sealed class PresenceFollow(PresenceOverlay overlay, Atom<Option<FollowLe
                 .Bind(static blob => Viewpoint.Decode(blob).ToOption())),
             None: static () => Fin.Succ(Option<Viewpoint>.None));
 
-    // The one surface stating an active follow, on the family every persistent condition takes: the
-    // condition ends when the user stops following, which is exactly why it is a banner and not a toast.
     public Option<ControlIntent> Banner() =>
         Lease.Value.Map(static held => (ControlIntent)new ControlIntent.Banner(
             BannerKey, $"{BannerKey}.headline", $"{BannerKey}.body",
@@ -677,19 +528,10 @@ public sealed class PresenceFollow(PresenceOverlay overlay, Atom<Option<FollowLe
             IntentBinding.Of(PaintRole.Info)));
 }
 
-// The two subscriptions presence chrome needs from the document store itself, so no surface polls a roster
-// or filters a root feed to reach a scoped one.
 public sealed record PresenceSignals(CollabDoc Document, HostSink Sink) {
-    // A peer becomes visible on its FIRST DURABLE ACT rather than on a polled roster diff, so the arrival
-    // handoff fires once per peer per session and carries the peer the document itself observed.
     public Fin<Subscription> Joined(Func<ulong, IO<Unit>> arrived) =>
         CollabDoc.Lift(() => Document.Doc.SubscribeFirstCommitFromPeer(new JoinSink(Sink, arrived)));
 
-    // A scoped feed is a SUBSCRIPTION on the addressed container, never a filter over the root feed: an
-    // issue thread, a notebook cell, or a graph subtree subscribes to its own level, so a busy document
-    // costs a scoped surface nothing per unrelated edit. The container identity is itself a Rust-pointer
-    // wrapper freeing with the subscribe call, while the returned Subscription — the caller's own lifetime
-    // handle — outlives both the id and the level wrapper.
     public Fin<Subscription> Scoped(CollabAddress address, Func<DiffEvent, IO<Unit>> changed) =>
         Document.Use<LoroMap, Subscription>(address, level =>
             CollabDoc.Lift(level.Id).Bind(id =>

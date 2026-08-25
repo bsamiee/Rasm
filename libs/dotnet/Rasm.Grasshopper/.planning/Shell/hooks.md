@@ -29,15 +29,13 @@ Every declared point lands its FIRE SITE in the same estate (branch RULINGS `[02
 - Growth: a new hook point is one row with its ruled modality set and its fire site landed in the same change; a mis-ruled modality is a defect against the host surface, never a configuration choice.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Roster realizes the kernel floor, so the rail takes it as a type parameter and an inline `HookId.Create`
-// literal at a raise site does not compile; modality is a SET column read by the kernel's own gates.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class GrasshopperPoint : IHookRoster<GrasshopperPoint> {
     public static readonly GrasshopperPoint DocumentMutate = new(key: "rasm.grasshopper.document.mutate", modalities: Veto);
@@ -50,7 +48,6 @@ public sealed partial class GrasshopperPoint : IHookRoster<GrasshopperPoint> {
 
     public HookId Id => HookId.Create(value: Key);
     public CapabilitySet<HookModality> Modalities { get; }
-    // One plane for the whole boundary roster: the span bracket and the instrument mount both read it.
     public Option<TraceScope> Plane => Some(TraceScope.Create(value: "rasm.grasshopper.host"));
 
     private static CapabilitySet<HookModality> Veto => CapabilitySet<HookModality>.Of(HookModality.Veto);
@@ -74,14 +71,14 @@ public sealed partial class GrasshopperPoint : IHookRoster<GrasshopperPoint> {
 - Growth: zero on the mechanism — new capability lands as `GrasshopperPoint` rows and `HookSignal` cases, a case declaring the arm of the seating fan it answers to; the kernel rail never widens per folder.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Thinktecture;
 
 namespace Rasm.Grasshopper.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 public readonly partial struct HookScope {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
@@ -95,15 +92,8 @@ public abstract partial record HookSignal : IHookFact<GrasshopperPoint> {
     private HookSignal() { }
     public sealed record EventCase(UiEvent<GhFact> Fact) : HookSignal;
     public sealed record EvidenceCase(GhEvidence Evidence) : HookSignal;
-    // Identity is the host's own `Document.Identity` Guid, read at the raise site — absence is a raise no
-    // document owns (an application-scope veto).
     public sealed record IntentCase(Op Operation, Option<Guid> DocumentId) : HookSignal;
 
-    // Seating fans BROADCAST here rather than 1:1: every fire site the `[02]` census names raises an
-    // `IntentCase`, so intent seats at the whole roster, while both journal cases reach the rail ONLY through
-    // `rail.Replay` over an export's signals and therefore seat where the row RETAINS. Retention is the same
-    // column the kernel's own replay gate reads, so a case that cannot replay and a point that refuses replay
-    // never disagree, and no row is named here by identity.
     public bool Seats(GrasshopperPoint at) => Switch(
         state: at,
         eventCase: static (row, _) => Replayable(at: row),

@@ -90,11 +90,6 @@ class _Receipt extends Schema.Class<_Receipt>('Life/Receipt')({
 
 const _LEG = 'registry';
 
-// Both reasons are one refusal shape — a contribution arriving after its phase closed — so both carry `invalid`:
-// caller-blamed and terminal, since re-driving a late registration against a draining graph cannot succeed. Both sit
-// on one leg because one semaphore and one cell refuse both, and each row renders the phase it closed against, so the
-// class, the surface, and the message all project off the roster rather than standing as fields an instance can
-// contradict.
 const _Closed = Schema.Struct({ phase: Schema.Literal(..._PHASES) });
 
 const _life = Fault.Class.family(['probe', 'register'] as const, {
@@ -333,15 +328,14 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
                     ),
                 { concurrency: 1, discard: true },
             );
-            yield* advance('halt'); // the phase stamps before the receipt settles: landed equals the cell the moment it is observable
+            yield* advance('halt');
             yield* Effect.flatMap(receipt('drained'), (evidence) => Deferred.succeed(settled, evidence));
-            yield* Effect.forEach(report, ran, { concurrency: 1, discard: true }); // post-receipt forensics: reporters read life.settled, their rows never join it
+            yield* Effect.forEach(report, ran, { concurrency: 1, discard: true });
         }).pipe(
             Effect.disconnect,
             Effect.timeoutOption(setting.life.drain),
             Effect.asVoid,
             Effect.ensuring(
-                // the total-budget expiry path: phase and receipt settle unconditionally with the rows graded so far — Deferred.succeed is a no-op on the normal path
                 Effect.zipRight(
                     advance('halt'),
                     Effect.flatMap(receipt('expired'), (evidence) => Deferred.succeed(settled, evidence)),
@@ -429,7 +423,7 @@ class Life extends Effect.Service<Life>()('runtime/Life', {
     static readonly Receipt = _Receipt;
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { BackendMountFault, Life, LifeFault };
 ```

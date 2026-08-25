@@ -54,14 +54,6 @@ type Staged = tuple[tuple[ArtifactWork, ...], frozenset[ContentKey]]
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this root's whole raise roster: every refusal here resolves ONE anchor, so no arm spells a subject and the four
-# empty-deliverable arms collapse onto ONE parameterized row — an aggregate over zero members, a suite over zero
-# layouts, a package over zero modes, and a bare work set over zero nodes are the same law reading a different
-# coordinate, and the slots carry which modality and which member set the caller left empty. Every row is TERMINAL
-# because a re-issue of the identical request refuses identically. `ISSUE_PACKAGE` carries no defect a raise site
-# reads — it names the coordinate the format planner's own typed fault crosses under as `BoundaryFault.domain`. The
-# cancelled-front deadline holds no row here: `execution/lanes#LANE` `driven` owns that refusal, so it owns its
-# coordinate, and a mirror row at this page would let one cancellation report two subjects.
 ISSUE_EMPTY: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.ISSUE, point="stage", arm="config", defect="empty-deliverable", retriability=TERMINAL, slots=("modality", "member")
 )
@@ -173,7 +165,6 @@ class ArtifactIssue(Struct, frozen=True):
     async def _nodes(self, request: IssueRequest, /) -> RuntimeRail[Staged]:
         match request:
             case IssueRequest(tag="sheet_set", sheet_set=(_transmittal, ())):
-                # every sibling arm carries this empty-set refusal — an aggregate over zero members would emit anyway
                 return Error(ISSUE_EMPTY.raised(request.tag, "members"))
             case IssueRequest(tag="sheet_set", sheet_set=(transmittal, members)):
                 aggregate = transmittal.emit()
@@ -181,8 +172,6 @@ class ArtifactIssue(Struct, frozen=True):
             case IssueRequest(tag="diagram_suite", diagram_suite=(_palette, ())):
                 return Error(ISSUE_EMPTY.raised(request.tag, "layouts"))
             case IssueRequest(tag="diagram_suite", diagram_suite=(palette, layouts)):
-                # ONE root lane spans the whole suite: each layout's lane is rebound to the issue's, so
-                # placement, drawing, and plan draining share capacity, deadline, and retry scope.
                 assigned = traversed(Block.of_seq([await structs.replace(laid, lane=self.lane).assign() for laid in layouts]))
                 return assigned.map(
                     lambda suites: (
@@ -207,14 +196,6 @@ class ArtifactIssue(Struct, frozen=True):
                 assert_never(unreachable)
 
     async def _driven(self, plan: PipelinePlan, /) -> RuntimeRail[Block[ArtifactReceipt]]:
-        # the DRIVE is `execution/lanes#LANE` `LanePolicy.driven`; what stays here is the composition. The CPM ladder
-        # is already resolved, so it admits through the `resolved` arm labelled with this plane's own stage member,
-        # and the accumulator is the receipt block. The three refusals this page used to re-spell are the drive's
-        # own — a front's fault block reduces through `BoundaryFault.combine`, a cancelled front rails the lane's
-        # declared deadline, and the gate fires between waves — so a hand-rebuilt loop can no longer drift out of
-        # any of them, and the sequential-front exemption is stated once at the owner rather than here. The gate id
-        # is claimed under the LANE's composition key first: the drive fires through the registry directly, so an
-        # unregistered point would rail the whole issue on its first wave.
         match Production.registered(scope=plan.lane.scope):
             case Result(tag="error") as refused:
                 return refused
@@ -231,7 +212,6 @@ class ArtifactIssue(Struct, frozen=True):
 
     @contextmanager
     def _scoped(self, /) -> Iterator[str]:
-        # Exemption: the attach/detach token pair and the bound_contextvars bracket are the platform's scoped-context seam.
         scope = uuid7().hex
         held = baggage.set_baggage(ISSUE_BAGGAGE, scope, otel_context.get_current())
         carried = baggage.get_baggage(TENANT_BAGGAGE, held)
@@ -248,7 +228,7 @@ class ArtifactIssue(Struct, frozen=True):
             otel_context.detach(token)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ("ArtifactIssue", "IssueRequest")
 ```

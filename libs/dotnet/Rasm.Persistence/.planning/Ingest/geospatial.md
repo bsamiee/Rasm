@@ -24,7 +24,7 @@ Every ingested feature lands as ONE `GeoFeatureRow`: decoded `Geometry`, canonic
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -50,8 +50,6 @@ public sealed partial class GeoFormat {
     public static readonly GeoFormat Wkt = new("wkt", CapabilitySet<GeoCapability>.Of(
         GeoCapability.Measures, GeoCapability.CrsFree, GeoCapability.Streamable));
 
-    // GeoPackage rides a SQLite FILE whose spine tables cannot sit on an unseekable stream, so this corner bars
-    // once at the vocabulary instead of re-checking at every container leg.
     public static readonly CapabilityLaw<GeoCapability> Law = CapabilityLaw<GeoCapability>.Forbidden(
         Seq(CapabilitySet<GeoCapability>.Of(GeoCapability.Layers, GeoCapability.Streamable)));
 
@@ -71,7 +69,7 @@ public sealed partial class GeoOrdinateRule {
     public static readonly GeoOrdinateRule Optional = new(2);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record GeoAdmission(GeometryFactory Factory, Ordinates Cap, Func<Geometry, Geometry> ToCellFrame) {
     public static readonly GeoAdmission Canonical = new(GeoJsonProjection.Default.Geometry, Ordinates.XYZ, static shape => shape);
@@ -86,8 +84,6 @@ public sealed record GeoAdmission(GeometryFactory Factory, Ordinates Cap, Func<G
     public WKTWriter WktOut => new() { OutputOrdinates = Cap };
     public GeoPackageGeoReader GpkgIn => new() { HandleSRID = true, RepairRings = false, HandleOrdinates = Cap };
     public GeoPackageGeoWriter GpkgOut => new() { HandleOrdinates = Cap };
-    // `GeoWire` absorbs an unlocated feature under THIS posture's factory, so the mapper binds to an admission
-    // rather than standing static — one instance per read, never a second empty-geometry mint.
     public GeoWire Wire => new(this);
 
     public Geometry Collected(Seq<GeoPayload> features) =>
@@ -109,8 +105,6 @@ public sealed partial class GeoSpec {
     public int CellResolution { get; }
     public Option<string> Layer { get; }
 
-    // `Capabilities` narrows the format row by the posture a read takes: an XY-only ordinate cap cannot carry
-    // a measure the wire declares. Every downstream capability read takes this set, never the raw row.
     public CapabilitySet<GeoCapability> Capabilities => Effective(Format, Admission);
 
     static CapabilitySet<GeoCapability> Effective(GeoFormat format, GeoAdmission admission) =>
@@ -143,14 +137,9 @@ public abstract partial record GeoProperties {
     public sealed record Bare : GeoProperties;
 }
 
-// `GeoDecoded` carries what both the container and text legs deliver and what the mapper targets: a positional
-// tuple erased its member names at every seam it crossed.
 public readonly record struct GeoDecoded(Geometry Shape, GeoProperties Properties);
 
 public readonly record struct GeoFeatureRow(Geometry Shape, ReadOnlyMemory<byte> Wkb, ContentAddress Content, Seq<H3Cell> Cells, GeoProperties Properties) {
-    // ONE applicative admission per feature: payload CRS, topology, cell-frame CRS, and cell shape are four
-    // INDEPENDENT columns, so a malformed feature reports all four at once; the bucket derivation DEPENDS on a
-    // framed, coverable shape and therefore sequences behind them.
     public static Validation<Error, GeoFeatureRow> Of(GeoSpec spec, GeoDecoded feature) =>
         GeoSource.Capture(spec.Format, () => spec.Admission.ToCellFrame(feature.Shape)).Bind(indexed =>
             AdmissionSlots.Accumulate(Seq(
@@ -172,8 +161,6 @@ public readonly record struct GeoFeatureRow(Geometry Shape, ReadOnlyMemory<byte>
 
 public readonly record struct GeoPayload(Geometry Shape, HashMap<string, object?> Properties);
 
-// `GeoInsert` carries one admitted write — the payload with the column roster the spine registered for it — so
-// binding parameters is all the transaction does, and it never re-reads a schema.
 public readonly record struct GeoInsert(GeoPayload Feature, Seq<string> Columns);
 
 public readonly record struct GeoLayer(
@@ -202,7 +189,7 @@ public abstract partial record GeoYield {
     public sealed record Roster(Seq<GeoLayer> Layers) : GeoYield;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GeoIngestFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.GeoIngest;
@@ -254,15 +241,12 @@ public sealed partial class GeoFactKind {
 
 public readonly record struct GeoFact(GeoFactKind Kind, string Format, long Features, long Cells, Instant At);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class GeoSource {
-    // `Slots` censuses off the kind vocabulary; the `store.geo.` prefix declares once here.
     public static readonly Seq<StoreSlot> Slots =
         toSeq(GeoFactKind.Items).Map(static kind => StoreSlot.Create($"store.geo.{kind.Key}"));
 
-    // Demand rows read the payload's OWN shape, so a new capability is one row and no leg re-spells a
-    // per-capability refusal.
     static readonly Seq<(GeoCapability Capability, Func<GeoPayload, bool> Evidence)> Demands = Seq(
         (GeoCapability.Properties, (Func<GeoPayload, bool>)(static f => !f.Properties.IsEmpty)),
         (GeoCapability.Measures, static f => f.Shape.Coordinates.Any(static c => !double.IsNaN(c.M))));
@@ -297,8 +281,6 @@ public static class GeoSource {
         from _ in done.Match(Succ: _ => sink(new GeoFact(GeoFactKind.Egress, spec.Format.Key, features.Count, 0L, at)), Fail: _ => IO.pure(unit))
         select done.Map(_ => (GeoYield)new GeoYield.Written(features.Count));
 
-    // ONE admission policy for ingest AND egress: no writer runs until every payload passes, so invalid topology
-    // can never serialize and the no-repair byte-identity posture holds on the egress side too.
     static Validation<Error, Seq<GeoPayload>> Payload(GeoSpec spec, Seq<GeoPayload> features) =>
         (features.Traverse(feature => Feature(spec, feature)).As(), Capable(spec, features))
             .Apply(static (admitted, _) => admitted).As();
@@ -352,9 +334,6 @@ public static class GeoSource {
     static byte[] Bytes(Origin source) => source.Read(path: File.ReadAllBytes, stream: static s => { using MemoryStream buffered = new(); s.CopyTo(buffered); return buffered.ToArray(); });
     static string Text(Origin source) => source.Read(path: File.ReadAllText, stream: static s => new StreamReader(s).ReadToEnd());
 
-    // `Capture` maps the documented STJ, NTS parse, and SQLite exception types into a cause-bearing codec failure;
-    // every other error remains exact. Every refusal this page AUTHORS is a `Validation` value, so a body already
-    // carrying the rail flattens through `Bind`.
     internal static Validation<Error, TValue> Capture<TValue>(GeoFormat format, Func<TValue> codec) =>
         Op.Of().Catch(() => Fin.Succ(codec())).Match(
             Succ: static value => (Validation<Error, TValue>)value,
@@ -372,7 +351,6 @@ public static class GeoCells {
         MultiLineString lines => Parts(lines).Bind(part => part is LineString line
             ? toSeq(line.Fill(resolution))
             : Seq<H3Index>()).Filter(static cell => cell != H3Index.Invalid).Distinct(),
-        // Fill splits an antimeridian-crossing polygon internally (IsTransMeridian -> lon±360 SplitGeometry) — a caller-side split re-derives the package.
         Polygon or MultiPolygon => toSeq(shape.Fill(resolution)).Filter(static c => c != H3Index.Invalid),
         GeometryCollection collection => Parts(collection).Bind(part => Of(part, resolution)).Distinct(),
         _ => Seq<H3Index>(),
@@ -421,7 +399,7 @@ public static class GeoCells {
 - Boundary: GPB headers own payload SRID and must equal the registered spine SRID; `HandleSRID` stamps the admitted value onto geometry. `GeoWire` absorbs a null GeoJSON geometry into the empty collection under the one factory, so properties survive without an interior null, while a null DOCUMENT refuses typed rather than reading as an empty collection. `Store/provisioning#EMBEDDED_FLOOR` owns database lifecycle; this page mounts an existing `.gpkg` read-only for ingest/probe or read-write for an attributed layer transaction. `data-interchange`'s reader carve keeps the ordinal `SqliteDataReader` read hand-bound — a reader is not a mappable source — while the GeoJSON feature model, an object pair, generates.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class GeoRows {
     extension(GeoFeatureRow row) {
@@ -434,10 +412,8 @@ public static class GeoRows {
     }
 }
 
-// --- [BOUNDARIES] ------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 
-// GeoJSON4STJ derives the bbox from the geometry on write, so it rides neither direction here — carrying it
-// forks the envelope authority the geometry already holds.
 [Mapper]
 [MapperRequiredMapping(RequiredMappingStrategy.Both)]
 public sealed partial class GeoWire(GeoAdmission admission) {
@@ -456,12 +432,9 @@ public sealed partial class GeoWire(GeoAdmission admission) {
     [MapProperty(nameof(GeoPayload.Properties), nameof(Feature.Attributes))]
     public partial Feature Featured(GeoPayload payload);
 
-    // `Located` absorbs the host's ONE null: an unlocated feature keeps its properties as the empty collection
-    // under this read's factory, so no null and no second factory crosses inward.
     [UserMapping]
     Geometry Located(Geometry? shape) => shape ?? admission.Empty();
 
-    // Only a GeoJSON4STJ table carries the element backing `Bind<T>` reifies from; any other table shape is bare.
     [UserMapping]
     static GeoProperties Held(IAttributesTable? table) =>
         table is IPartiallyDeserializedAttributesTable deferred ? new GeoProperties.Deferred(deferred) : new GeoProperties.Bare();
@@ -486,8 +459,6 @@ public sealed partial class GeoWire(GeoAdmission admission) {
         Features(spec).Map(static rows => Seq(new GeoLayer(
             "features", 4326, "geometry", nameof(FeatureCollection), GeoOrdinateRule.Optional, GeoOrdinateRule.Forbidden, false, rows.Count)));
 
-    // `Collection` refuses a `null` document as a codec fault rather than reading it as an empty collection:
-    // zero features from a document that declared nothing forges a successful read.
     static Validation<Error, FeatureCollection> Collection(GeoSpec spec) =>
         GeoSource.Capture(GeoFormat.GeoJson, () => Optional(spec.Source.Read(
             path:   static p => JsonSerializer.Deserialize<FeatureCollection>(File.ReadAllBytes(p), Options),
@@ -523,16 +494,12 @@ public static class GeoContainer {
                 .Map(static _ => unit);
         });
 
-    // `Streamable` is the capability the gpkg row withholds and `GeoSpec` admission already refused a stream
-    // source, so this arm is the interior's total-function witness — one declaration, never three gates.
     static Validation<Error, TValue> Pathed<TValue>(GeoSpec spec, Func<string, Validation<Error, TValue>> read) =>
         GeoSource.Capture(spec.Format, () => spec.Source.Read(
             path:   read,
             stream: static _ => (Validation<Error, TValue>)new GeoIngestFault.PayloadRejected("gpkg", "<container-needs-a-path>")))
         .Bind(static railed => railed);
 
-    // `Admitted` SEQUENCES ahead of the row scan: a layer whose registered SRID is inadmissible holds no
-    // admissible row, while the per-row header refusals inside it stay independent and accumulate.
     static Validation<Error, Unit> Admitted(GeoSpec spec, int srid) =>
         AdmissionSlots.Gate(spec.Crs.Admits(srid), new GeoIngestFault.CrsUnsupported(srid));
 
@@ -545,8 +512,6 @@ public static class GeoContainer {
 
     static Validation<Error, Seq<GeoLayer>> Roster(SqliteConnection container) {
         List<(string Name, int Srid, string Column, string Type, long Z, long M)> declared = [];
-        // `Roster` closes the spine reader BEFORE the per-layer probes run: an index or count command issued
-        // while the roster reader is still walking shares the connection's statement path.
         using (SqliteCommand spine = container.CreateCommand()) {
             spine.CommandText = """
                 SELECT c.table_name, g.srs_id, g.column_name, g.geometry_type_name, g.z, g.m
@@ -567,8 +532,6 @@ public static class GeoContainer {
                 row.Name, row.Srid, row.Column, row.Type, z, m, Exists(container, $"rtree_{row.Name}_{row.Column}"), features))
             .As();
 
-    // Thinktecture generates the keyed lookup this reads, so a hand map beside it re-derives the generator and
-    // hands a malformed container column to an indexer that throws unbanded.
     static Validation<Error, GeoOrdinateRule> Ordinate(string layer, string column, long wire) =>
         GeoOrdinateRule.TryGet((int)wire, out GeoOrdinateRule? rule) && rule is not null
             ? rule
@@ -604,8 +567,6 @@ public static class GeoContainer {
     static Validation<Error, Unit> Registered(int registered, int payload) =>
         AdmissionSlots.Gate(registered == payload, new GeoIngestFault.CrsMismatch(registered, payload));
 
-    // Admission FIRST, mutation second: every feature's SRID and every property column resolve against the
-    // registered schema before the transaction opens, so a refusal costs a rollback and names every bad column.
     static Validation<Error, Unit> Bound(SqliteConnection container, GeoSpec spec, GeoLayer layer, Seq<GeoPayload> features, Instant at) {
         FrozenSet<string> schema = Columns(container, layer.Name);
         return features.Traverse(feature => Admissible(layer, schema, feature)).As()
@@ -623,8 +584,6 @@ public static class GeoContainer {
         return unknown.IsEmpty ? columns : new GeoIngestFault.ColumnUnknown(layer.Name, unknown);
     }
 
-    // `Committed` never reaches `Commit` on a failed insert, so disposal rolls the unit back: accumulation
-    // costs one aborted transaction and buys every offending row in one report.
     static Validation<Error, Unit> Committed(SqliteConnection container, GeoSpec spec, GeoLayer layer, Seq<GeoInsert> admitted, Instant at) {
         using SqliteTransaction commit = container.BeginTransaction(deferred: false);
         return admitted.Traverse(row => Inserted(container, commit, spec, layer, row)).As().Map(bounds => {

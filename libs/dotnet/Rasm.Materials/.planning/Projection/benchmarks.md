@@ -22,7 +22,7 @@ Settled composition: Materials owns workload vocabulary and content-bound identi
 - Boundary: workload rows pin inputs and derive identity — kernel bodies stay on their owning pages and a workload never re-implements the kernel it measures. `PressGpuParity` is the one workload whose INTEREST is not its own duration: it presses one plan on both lanes and COMPOSES `press#PRESS_RECEIPT` `PressProduct.Parity`, which the gate reads as evidence and NEVER as a content input — persisted plane bytes are CPU-minted by structure, so grading that divergence against a tolerance proposes exactly the equivalence the content-identity veto denies.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using LanguageExt;
 using Rasm.AppHost.Observability;
@@ -35,7 +35,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Projection;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -64,9 +64,6 @@ public sealed partial class BenchKernel {
     public string Suite => $"rasm.materials.{Key}";
 }
 
-// The program an extent workload measures, CLOSED over the four vocabularies that name one. Each case reads its
-// OWN key, so a strategy rename re-spells the case exactly where the roster moved. SIBLING of BenchInput rather
-// than nested: every composition site spells `ProgramPin.Container` bare, which a nested declaration unresolves.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProgramPin {
     private ProgramPin() { }
@@ -91,17 +88,10 @@ public abstract partial record BenchInput {
     public sealed record LibraryRow(string MaterialKey) : BenchInput;
     public sealed record Synthetic(int Seed, int Count) : BenchInput;
 
-    // Roster pins a CLOSED SWEEP sized by the vocabulary rather than by a caller's number, and carries NO count
-    // column — copying the population here would freeze a number the kernel table moves.
     public sealed record Roster : BenchInput;
 
-    // Extent pins the PLANE workloads, which no seed-and-count expresses: a 4096-square press of one library row
-    // and a 4096-square press of another are different programs at the same magnitude, and folding them onto one
-    // synthetic token lets a held claim judge one against the other.
     public sealed record Extent(int Width, int Height, ProgramPin Program) : BenchInput;
 
-    // The throughput denominator as a COLUMN: a reader splitting an extent token to recover a magnitude binds to a
-    // string form the token is free to re-spell, and the first program key carrying a colon reads back wrong.
     public long Magnitude =>
         Switch(
             catalogueLeast: static _ => 1L,
@@ -111,16 +101,11 @@ public abstract partial record BenchInput {
             extent: static e => (long)e.Width * e.Height);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BenchWorkload(BenchKernel Kernel, BenchInput Input, UInt128 ContentKey);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The pin RESOLVERS — a pin is a DECLARATION until something turns it into the subject a harness measures, and
-// each resolution rails rather than answering a default: a benchmark measuring a substituted subject reports a
-// number under a case token naming the subject it did not measure.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BenchPin {
-    // The LEAST designation of the family's Sectioned rows in the family's own ordering, so a reseed shifts the pin
-    // visibly through the content key rather than by luck of enumeration order.
     public static Fin<ComponentRow> CatalogueLeast(ComponentCatalogue catalogue, string familyKey, Op key) =>
         ComponentFamily.TryGet(familyKey, out ComponentFamily? family)
             ? toSeq(catalogue.Rows.Filter(row => row.Item.Family == family! && row.Sectioned)
@@ -129,21 +114,14 @@ public static class BenchPin {
                 .ToFin(new ProjectionFault.Unresolved(key, $"<bench-catalogue-least-empty:{familyKey}>"))
             : new ProjectionFault.Unresolved(key, $"<bench-family-unknown:{familyKey}>");
 
-    // Serves the FIT pin alone — the sampling and prove workloads that once shared this producer named subjects it
-    // does not build, and each now pins the shape it actually measures.
     public static Fin<Seq<BrdfSample>> SyntheticGrid(BenchInput.Synthetic pin, Op key) =>
         Acquisition.SyntheticGrid(pin.Seed, pin.Count, key);
 
-    // Reading the roster here rather than pinning its size keeps a fixture the kernel table adds inside the
-    // measurement; an empty sweep grades as the fastest row in the corpus.
     public static Fin<Seq<GoldenVector>> Golden(Op key) =>
         Raster.Golden.All is { IsEmpty: false } fixtures
             ? Fin.Succ(fixtures)
             : new ProjectionFault.Unresolved(key, "<bench-golden-roster-empty>");
 
-    // Three ProgramPin cases carry a typed vocabulary row and are live by construction — a container, a strategy,
-    // and a solver cannot dangle. `Library` alone carries a material key a library edit can retire, so it alone is
-    // proved, through an INJECTED admission rather than a catalogue surface this roster would otherwise bind.
     public static Fin<ProgramPin> Program(ProgramPin program, Func<string, Op, Fin<Unit>> library, Op key) =>
         program.Switch(
             library:   p => library(p.MaterialKey, key).Map(_ => program),
@@ -164,7 +142,7 @@ public static class BenchPin {
 - Boundary: raw BenchmarkDotNet artifacts stay at the bench-project edge, which supplies `harness` and `claim` — this page composes the gate and never opens a measurement session, a durable claim store, or an `ActivitySource`. No statistical fold lands here: `BenchMeasurement.Of` already admits the harness sample into exact order statistics over one `Distribution<Elapsed>`, so a folder-local moment mint states a second answer to a measurement the AppHost carrier owns.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using LanguageExt;
@@ -175,69 +153,36 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Projection;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MaterialsBench {
     public static Seq<BenchWorkload> Corpus(Func<BenchInput, UInt128> contentKey) =>
         Seq<(BenchKernel Kernel, BenchInput Input)>(
             (BenchKernel.SectionSolve, new BenchInput.CatalogueLeast("steel")),
-            // The interaction sweep pins reinforcement because the hull builds from the RC section.
             (BenchKernel.InteractionSweep, new BenchInput.CatalogueLeast("reinforcement")),
             (BenchKernel.GgxFit, new BenchInput.Synthetic(Seed: 7, Count: 4096)),
-            // Compile and eval share ONE library pin so both measure one program.
             (BenchKernel.GraphCompile, new BenchInput.LibraryRow("paint.car-metallic")),
             (BenchKernel.GraphEval, new BenchInput.LibraryRow("paint.car-metallic")),
             (BenchKernel.SpectralUpsample, new BenchInput.LibraryRow("wood.oak")),
-            // TextureSample sizes by EXTENT: the sampling fold runs per texel across a named source, so the
-            // synthetic pin it once carried resolved through the acquisition grid — a goniophotometer capture the
-            // texture fold never touches — and graded a subject this row does not measure. The square holds the
-            // magnitude the count pinned, so the reading stays comparable while the case token forks visibly.
             (BenchKernel.TextureSample, new BenchInput.Extent(256, 256, CarMetallic)),
             (BenchKernel.KubelkaMunkMix, new BenchInput.LibraryRow("paint.clearcoat")),
-            // ShadeSpan shares its program with the press rows, so the span rail's own cost separates from the
-            // plane write and the channel fold rather than hiding inside a press number.
             (BenchKernel.ShadeSpan, new BenchInput.Extent(4096, 4096, CarMetallic)),
             (BenchKernel.TexturePress, new BenchInput.Extent(4096, 4096, CarMetallic)),
-            // PressGpuParity is EXTENT-BOUND BY THE DEVICE: the `gpu#PRESS_DEVICE` storage-buffer floor over a
-            // sixteen-byte texel admits 8388608 texels, so the four-thousand square its CPU siblings measure asks
-            // for twice the largest guaranteed buffer and refuses at dispatch instead of measuring. It holds the
-            // SHARED PROGRAM and departs on EXTENT ALONE, so the lane comparison runs at a legal extent.
             (BenchKernel.PressGpuParity, new BenchInput.Extent(2048, 2048, CarMetallic)),
-            // PlaneCodec pins its CONTAINER over two cost classes one row would average into a number describing
-            // neither: a managed float container encodes in-process, while the block-compressed container's floor
-            // is a spawned tool whose process cost dominates its coder. The smaller square prices the coder rather
-            // than the arena walk.
             (BenchKernel.PlaneCodec, new BenchInput.Extent(1024, 1024, new ProgramPin.Container(RasterFormat.Exr))),
             (BenchKernel.PlaneCodec, new BenchInput.Extent(1024, 1024, new ProgramPin.Container(RasterFormat.Ktx2))),
-            // The graphCut/offsetHeal pair is the routing decision `tile#TILE_SYNTH` names: both walk the same
-            // `lines × (2·Overlap + 1)` band, but the cut runs an augmenting search superlinear in vertices and
-            // arcs where the heal is that many dynamic-programming evaluations with no graph. The crossing reads
-            // only when both rows run at ONE extent and ONE overlap. The histogram blend is a third cost class.
             (BenchKernel.TileSynth, new BenchInput.Extent(4096, 4096, new ProgramPin.Tiling(TileStrategy.GraphCut))),
             (BenchKernel.TileSynth, new BenchInput.Extent(4096, 4096, new ProgramPin.Tiling(TileStrategy.OffsetHeal))),
             (BenchKernel.TileSynth, new BenchInput.Extent(4096, 4096, new ProgramPin.Tiling(TileStrategy.HistogramBlend))),
-            // TileGrade is the gate's OWN cost: an ingested third-party set is graded without ever being
-            // synthesized, so the population that pays grading alone has no row inside a synthesis measurement.
             (BenchKernel.TileGrade, new BenchInput.Extent(4096, 4096, new ProgramPin.Tiling(TileStrategy.OffsetHeal))),
-            // Convolve separates by construction rather than by size: a separable pass is O(2r) per texel where a
-            // square window is O(r²) — at the three-sigma radius, 98 taps against 2401.
             (BenchKernel.Convolve, new BenchInput.Extent(4096, 4096, CarMetallic)),
             (BenchKernel.ConvolveSquare, new BenchInput.Extent(4096, 4096, CarMetallic)),
-            // MipFold pins the KAISER row rather than the box floor, the windowed sinc every colour channel takes.
             (BenchKernel.MipFold, new BenchInput.Extent(4096, 4096, CarMetallic)),
-            // GoldenProve pins the ROSTER: the sweep's size is the fixture population the kernel table declares,
-            // so the seed-and-count it once carried both named a grid this workload never builds and froze a count
-            // the roster is free to grow past.
             (BenchKernel.GoldenProve, new BenchInput.Roster()),
-            // HeightSolve straddles filter#HEIGHT_FIELD's own DirectCeiling: 2048-square seats under it on the
-            // exact Cholesky factor and 4096-square above it on the preconditioned Krylov lane.
             (BenchKernel.HeightSolve, new BenchInput.Extent(2048, 2048, new ProgramPin.Height(HeightSolver.Poisson))),
             (BenchKernel.HeightSolve, new BenchInput.Extent(4096, 4096, new ProgramPin.Height(HeightSolver.Poisson))),
-            // IblPrefilter rides a 2:1 equirect by construction, its cost the specular level set's own sweep.
             (BenchKernel.IblPrefilter, new BenchInput.Extent(2048, 1024, CarMetallic)))
         .Map(pin => new BenchWorkload(pin.Kernel, pin.Input, contentKey(pin.Input)));
 
-    // The ONE program every plane row that measures a bake shares, spelled once: a second spelling of the key is
-    // how two readings of one workload silently become two workloads.
     static readonly ProgramPin CarMetallic = new ProgramPin.Library("paint.car-metallic");
 
     public static string CaseOf(BenchWorkload workload) => $"{workload.Input.Switch(
@@ -247,22 +192,15 @@ public static class MaterialsBench {
         synthetic: static s => $"synthetic:{s.Seed}x{s.Count}",
         extent: static e => $"extent:{e.Width}x{e.Height}:{e.Program.Key}")}@{workload.ContentKey:x32}";
 
-    // Corpus identity is bound, so Corpus is Some on every row — a workload with no corpus key would let a held
-    // claim judge a different program under the same case token.
     public static BenchmarkReceipt Fresh(
         BenchWorkload workload, BenchMeasurement measured, CorrelationId correlation,
         FrozenDictionary<string, string> stamps) =>
         BenchmarkReceipt.Of(suite: workload.Kernel.Suite, @case: CaseOf(workload),
             corpus: Some(workload.ContentKey), measured: measured, correlation: correlation, stamps: stamps);
 
-    // COMPOSED from the press page's producer: PressProduct.Parity owns the CPU-versus-GPU per-channel maximum and
-    // stamps the minted receipt's GpuDeltaMax, so the divergence a receipt carries and the divergence a benchmark
-    // reports are one number. It stays TELEMETRY and never reaches the gate.
     public static Fin<PressReceipt> Parity(PressProduct.Minted minted, PressProduct.Preview preview, Op key) =>
         PressProduct.Parity(minted, preview, key);
 
-    // Applicative Traverse, never TraverseM: short-circuiting on first regression leaves every later kernel
-    // ungraded and unfanned.
     public static IO<Seq<Validation<Error, BenchmarkReceipt>>> Gate(
         ReceiptSinkPort sink,
         Func<BenchInput, UInt128> contentKey,

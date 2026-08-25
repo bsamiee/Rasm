@@ -33,9 +33,7 @@ Typed attribute mutation belongs to `Rasm.Rhino.Objects`. `AttributeEdit` closes
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `HashMap`, `Traverse`/`TraverseM`, `guard`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Text`, `Op.Catch`, `Op.Confirm`), `Numerics/atoms` (`PerceptualColor.OfRgb`/`ToRgb`), `Drawing/sheet` (`LineWidth` behind `PrintPen`); `Document/session` (`DraftFault`, `DocumentSession`, `SessionNeed`), `Document/layers` (`PrintPen`), `Document/tables` (`AttributeChange`, `ResourceIndex`, `TableTarget`), `Document/geometry` (`TagOp`), `Annotation/linetype` (`LinetypeSource`); RhinoCommon objects (`Rasm.Rhino/.api/api-rhinocommon-objects.md:147-177` — the attribute reads and writes, `Decals`, `MaterialRefs`, `File3dmMeshModifiers`, the decal latitude/longitude and material-ref swap traps).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// `Rasm.Numerics` carries the kernel colour owner, so every host colour on this page spells
-// `System.Drawing.Color` in full and appears only inside the two crossing helpers.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Annotation;
@@ -47,12 +45,7 @@ using Rhino.Render;
 
 namespace Rasm.Rhino.Objects;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Every host attribute discriminant re-closes as a keyed row keyed on the host ordinal, so a raw host enum never
-// crosses a public signature, a roster that grows in a Rhino release refuses at admission instead of widening
-// silently, and each source axis reads its own `FromObject` question off a column rather than an `is` comparison
-// repeated at every admission and apply arm. `ObjectLinetypeSource` is the one axis that does NOT mint here:
-// `Annotation/linetype.md` already owns `LinetypeSource`, so this page composes it at both touch points.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ObjectColorSource>]
 public sealed partial class ColorOrigin {
     public static readonly ColorOrigin ByLayer = new(key: ObjectColorSource.ColorFromLayer, fromObject: false);
@@ -139,10 +132,6 @@ public sealed partial class DecalFacing {
     public static readonly DecalFacing Both = new(key: DecalProjection.Both);
 }
 
-// Spelled in full by necessity: `Document/tables` declares a row type ALSO named `ObjectMode` over the host's
-// `ignoreModes` argument and both namespaces are imported here, so the unqualified name is ambiguous. Four derived
-// host predicates read this one word; a bool per predicate admitted the corner — hidden AND locked — the word
-// cannot hold, and re-derived the same read four times per object.
 [SmartEnum<Rhino.DocObjects.ObjectMode>]
 public sealed partial class ObjectStance {
     public static readonly ObjectStance Normal = new(key: Rhino.DocObjects.ObjectMode.Normal);
@@ -164,9 +153,6 @@ public sealed partial class ShadowRole : ICapability<ShadowRole> {
     }
 }
 
-// Eight rows, one question — what foreign-owned carrier hangs off this attribute set. Each row OWNS the host read
-// that proves it, so the census is one fold over `Items` and a ninth carrier is one row; the two handle-returning
-// probes dispose inside their own row rather than leaking the carrier the presence fact came from.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AttachedModifier : ICapability<AttachedModifier> {
@@ -180,8 +166,6 @@ public sealed partial class AttachedModifier : ICapability<AttachedModifier> {
         key: "curve-piping", held: static attributes => attributes.File3dmMeshModifiers.CurvePiping is not null);
     public static readonly AttachedModifier ShutLining = new(
         key: "shut-lining", held: static attributes => attributes.File3dmMeshModifiers.ShutLining is not null);
-    // Both carrier types are spelled in full: a row named for its carrier shadows that carrier's type name inside
-    // this body, and a field used where a type belongs is a compile error, not a silent read.
     public static readonly AttachedModifier SectionStyle = new(
         key: "section-style", held: static attributes => {
             using Rhino.DocObjects.SectionStyle? style = attributes.GetCustomSectionStyle();
@@ -201,9 +185,6 @@ public sealed partial class AttachedModifier : ICapability<AttachedModifier> {
         CapabilitySet<AttachedModifier>.Of([.. toSeq(Items).Filter(row => row.Held(attributes: attributes))]);
 }
 
-// Two host-colour crossings, and no third: `System.Drawing.Color` reaches the boundary as the byte quadruple a host
-// read answers with and leaves as the quadruple a host write takes; no stored column and no public signature
-// carries it, so the named-colour equality trap and the sRGB component arithmetic both die at this seam.
 public static class AttributeShade {
     internal static Fin<PerceptualColor> Of(System.Drawing.Color color, Op key) =>
         PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
@@ -214,10 +195,6 @@ public static class AttributeShade {
         };
 }
 
-// Payload rides the case, so a grow move CARRIES values and a retract move CARRIES keys — no arm sniffs a
-// sibling roster and no move/payload coherence guard exists to drift. Hand-rolled with a private constructor
-// because the generated union stamps `allows ref struct` onto its own type parameters, which `Seq<T>` payloads
-// refuse; the terminal switch arm is the closed-set discharge the generator would otherwise prove.
 public abstract record RosterMove<TGrow, TCut> {
     private RosterMove() { }
     public sealed record Impose(Seq<TGrow> Values) : RosterMove<TGrow, TCut>;
@@ -265,8 +242,6 @@ public sealed partial class DecalSeed {
     public double MaxU { get; }
     public double MaxV { get; }
 
-    // Clause ACCUMULATION replaces one conjunction: three violated axes named "decal seed is invalid" once and
-    // taught the caller nothing, so each axis mints its own `DraftFault` case and `Of` combines the survivors.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -428,12 +403,8 @@ public abstract partial record AttributeEdit {
                 .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
             plot: static (key, edit) => key.Need(edit.Source)
                 .Bind(source => SourceValue(source.FromObject, edit.Value, edit, key)),
-            // Pens arrive ADMITTED — a ladder rung or a named host posture — so the weight bound a millimetre
-            // double needed is now the carrier's own construction law and no arm re-screens a scalar.
             plotWeight: static (key, edit) => key.Need(edit.Source)
                 .Bind(source => SourceValue(source.FromObject, edit.Pen, edit, key)),
-            // `LinetypeSource` is Annotation's owner composed, not a second wrap: the linetype axis has ONE
-            // vocabulary and this page reads its `FromObject` column exactly as it reads the four minted axes.
             linePattern: static (key, edit) =>
                 from source in key.Need(edit.Source)
                 from admitted in SourceValue(source.FromObject, edit.Index, edit, key)
@@ -474,7 +445,6 @@ public abstract partial record AttributeEdit {
             sectionFace: static (_, edit) => Fin.Succ<AttributeEdit>(edit),
             label: static (key, edit) => key.Need(edit.Style).Map(_ => (AttributeEdit)edit),
             hatchFill: static (key, edit) => guard(edit.Fill.IsSome || edit.Print.IsSome, key.InvalidInput()).ToFin().Map(_ => (AttributeEdit)edit),
-            // `Option` payloads admit no null value, so presence and the weight bound are the whole admission.
             hatchBoundary: static (key, edit) => guard(
                 edit.Visible.IsSome || edit.Color.IsSome || edit.PlotColor.IsSome || edit.ColorSource.IsSome
                 || edit.PlotColorSource.IsSome || edit.Pen.IsSome,
@@ -686,7 +656,7 @@ public abstract partial record AttributeEdit {
 - Growth: a new edit case rides every existing program untouched; a program-level policy is a field on this record, never a parallel program type.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class AttributeProgram {
     private AttributeProgram(Seq<AttributeEdit> edits) => Edits = edits;
 
@@ -700,10 +670,6 @@ public sealed class AttributeProgram {
                select new AttributeProgram(edits: admitted);
     }
 
-    // Egress rides the spine's `AttributeChange`, not a bare delegate: `Commands` and `Objects` both
-    // sit above `Document`, so the payload TYPE seats on the spine and this owner composes it upward. `Apply`
-    // stays `internal` because the change value is the only thing that leaves — a public `Apply` IS exactly that
-    // deleted in-place live-set mutation wearing a supported spelling.
     public Fin<AttributeChange> Change =>
         AttributeChange.Validate(Apply, out AttributeChange? admitted) is null && admitted is not null
             ? Fin.Succ(value: admitted)
@@ -730,7 +696,7 @@ public sealed class AttributeProgram {
 - Boundary: `ComputedSectionStyle` demands a sectioner's attributes and stays a direct host call at the display seam; this page resolves the three display scalars every consumer needs.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AttributeAsk {
     private AttributeAsk() { }
@@ -753,19 +719,13 @@ public abstract partial record AttributeAnswer : IDetachedDocumentResult {
     public sealed record Effective(Seq<EffectiveDisplay> Rows) : AttributeAnswer;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record OverrideCensus(
     Seq<Guid> HiddenInDetails,
     Option<(Seq<Guid> Viewports, ObjectSignal Signal)> Activity,
     ObjectSignal DetailBackgroundVisible);
 
-// Reads carry the WRITE payload beside what only a live decal answers: content hash and visibility.
-// Eighteen columns restating `DecalSeed` verbatim made the snapshot a second authority on decal shape — a column
-// added to one side silently dropped from the other — and a round trip re-spelled every one of them by hand.
 public readonly record struct DecalSnapshot(int Crc, ObjectSignal Visible, DecalSeed Seed) {
-    // Railed for the HOST CALL, not for the axis reads: `GetUVBounds`/`HorzSweep`/`VertSweep` are three native
-    // crossings the bracket owns. Both axis rows mirror their host enum completely, so `Get` is total over
-    // anything the host returns — the same total-roster property the space partition already declares.
     internal static Fin<DecalSnapshot> Of(Decal decal, Op key) => key.Catch(() => {
         decal.GetUVBounds(out double minU, out double minV, out double maxU, out double maxV);
         decal.HorzSweep(out double horzStart, out double horzEnd);
@@ -797,8 +757,6 @@ public readonly record struct DecalSnapshot(int Crc, ObjectSignal Visible, Decal
     });
 }
 
-// Same correspondence on the material side: the dictionary key is the live fact, the rest IS the seed. The host's
-// own front/back swap stays inside `MaterialRefSeed.Build`, so a read-then-write pair cannot double-correct it.
 public readonly record struct MaterialRefSnapshot(Guid DictionaryKey, MaterialRefSeed Seed) {
     internal static Fin<MaterialRefSnapshot> Of(Guid key, MaterialRef live, Op op) =>
         op.AcceptValidated<MaterialRefSeed>(
@@ -859,18 +817,9 @@ public sealed record AttributeSnapshot(
     internal static Fin<AttributeSnapshot> Of(ObjectAttributes attributes, Op key) =>
         key.Catch(() => {
             bool overrides = attributes.GetActiveInViewportOverrides(viewportIds: out Guid[] viewports, active: out bool active);
-            // No `using`: the getter hands back a wrapper over the attribute set's OWN stored parameters and
-            // `MeshingParameters.Dispose` unconditionally frees the pointer it holds, so bracketing this read
-            // would free host-owned memory the attribute set still indexes. The encoded value detaches instead.
             MeshingParameters? customMesh = attributes.EnableCustomMeshingParameters
                 ? attributes.CustomMeshingParameters
                 : null;
-            // Each keyed row mirrors its host enum COMPLETELY, so `Get` is total over anything the host returns
-            // and reads inline — the same total-roster property `ActiveSpaceUse` already declares. What DOES bind
-            // on the rail is what can genuinely refuse: the layer index, which a live object always holds, and
-            // every colour, which crosses the kernel gate rather than quantizing silently. The linetype, material,
-            // and section-style indexes carry the host's `-1` as an ordinary by-layer/no-style absence, so each
-            // projects through `ResourceIndex.Maybe` instead of refusing the default-attributed object.
             return from layer in ResourceIndex.Admit(value: attributes.LayerIndex, key: key)
                 from print in PrintPen.OfHost(weight: attributes.PlotWeight, key: key)
                 from boundaryPen in PrintPen.OfHost(weight: attributes.HatchBoundaryPlotWeightMillimeters, key: key)
@@ -941,8 +890,6 @@ public readonly record struct EffectiveDisplay(
     PrintPen Print,
     Option<Guid> ModeOverride,
     Option<ObjectSignal> ActiveOverride) : IDetachedDocumentResult {
-    // Scoped and document-wide reads differ only in which host overload answers, so the raw quadruple
-    // resolves in one viewport dispatch and the kernel colour gate and constructor run exactly once.
     internal static Fin<EffectiveDisplay> Of(RhinoObject native, Rhino.RhinoDoc document, Option<Guid> viewport, Op key) =>
         key.Catch(() => {
             ObjectAttributes attributes = native.Attributes;
@@ -963,8 +910,6 @@ public readonly record struct EffectiveDisplay(
                     Active: Option<ObjectSignal>.None);
             return from draw in AttributeShade.Of(color: resolved.Draw, key: key)
                    from plot in AttributeShade.Of(color: resolved.Plot, key: key)
-                   // Source dispatch answers a layer's or a parent's posture, sentinels included, so a RESOLVED
-                   // weight is the same three-state host scalar a stored one is and admits through one ingress.
                    from print in PrintPen.OfHost(weight: resolved.Weight, key: key)
                    select new EffectiveDisplay(
                        Id: native.Id,
@@ -976,7 +921,7 @@ public readonly record struct EffectiveDisplay(
         });
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Attributes {
     public static Fin<AttributeAnswer> Ask(DocumentSession session, TableTarget target, AttributeAsk ask) {
         Op op = Op.Of();

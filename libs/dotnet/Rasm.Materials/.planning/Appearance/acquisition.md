@@ -29,7 +29,7 @@
 - Boundary: `CaptureProvenance` carries the MEASUREMENT half of custody and composes the seam shapes for the rest — third-party custody rides the `Raster/set#SET_INGEST` `IngestProvenance` shape ITSELF rather than a second source/licence/reference spelling, so a capture's custody and an ingested set's are ONE question read at two grains. It does NOT delete onto the seam `Rasm.Element` `PropertyEvidence`: that carrier models CITATION (source, reference, expiry, grade, attestation, run) and holds no column for an instrument, a sample count, a fit residual, a conditioning witness, a chromaticity readout, a chart delta, or a model attribution. Two carriers, two questions, one composed shape where they meet.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Linq;
@@ -58,9 +58,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Appearance;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// A Kubelka-Munk pigment mix is a MEASURED-pigment finish (its pigments carry measured K/S reflectance), so it
-// stamps PigmentMix and reads as measured (!= Authored), never the authored sentinel.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -74,9 +72,6 @@ public sealed partial class CaptureMethod {
     public static readonly CaptureMethod Authored = new("authored");
 }
 
-// A reflectance and an emission spectrum are the SAME sampled shape under different physical claims, and the
-// container records that claim in its own channel-name prefix. A reflective-only Freeze left the estate's other
-// measured spectrum with no durable form at all while the emissive part sat catalogued and unconsumed, which is the gap the second row closes.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpectralKind {
@@ -92,15 +87,12 @@ public sealed partial class SpectralKind {
         toSeq(Items).Find(row => row.Container == container);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BrdfSample(double IncidentZenith, double OutgoingZenith, double AzimuthDelta, RgbSpectrum Reflectance);
 
-// SpectralCurve carries a durable sampled spectrum — start wavelength, sample interval, and the non-negative
-// coefficient grid, admitted ONCE at Of so the interior never re-checks and Spd never sees a rejected grid. It
-// crosses to Wacton at the point of integration through ToSpd.
 public readonly record struct SpectralCurve(int StartNm, int IntervalNm, ReadOnlyMemory<double> Coefficients) {
     public static Fin<SpectralCurve> Of(int startNm, int intervalNm, ReadOnlyMemory<double> coefficients, Op key) =>
-        intervalNm is not (0 or 1 or 5)                                                    // the Spd.IsValid interval domain, proven BEFORE construction
+        intervalNm is not (0 or 1 or 5)
             ? new MaterialFault.Parameter(key, $"<spectral-curve-interval:{intervalNm}>")
             : startNm <= 0 || coefficients.Length < 2
                 ? new MaterialFault.Parameter(key, $"<spectral-curve-extent:{startNm}@{coefficients.Length}>")
@@ -111,31 +103,15 @@ public readonly record struct SpectralCurve(int StartNm, int IntervalNm, ReadOnl
     public Spd ToSpd() => new(StartNm, IntervalNm, Coefficients.ToArray());
     public double WavelengthAt(int index) => StartNm + (index * IntervalNm);
 
-    // LuminousEfficacy folds the photopic-band radiant-power fraction the photometric#PHOTOMETRIC luminous divide
-    // scales by: ∫V(λ)S(λ)dλ / ∫S(λ)dλ over this curve's OWN sampling grid, which is why it lives on the curve and
-    // not on the gate that consumes it. The ratio is SCALE-INVARIANT — both integrals are linear in S, so a common
-    // factor cancels — and therefore a RELATIVE captured spectrum answers it exactly; an absolute SPD is NOT
-    // required. The absolute premise held only for a tristimulus readout, whose Y the package normalizes against the
-    // reference white and which consequently cannot recover the fraction at any scale, and that is exactly why the
-    // fold reads these samples rather than crossing a Unicolour conversion to reach them.
-    // Exemption: a span fold crosses no lambda, so the accumulation has no expression form.
     public double LuminousEfficacy() {
         ReadOnlySpan<double> samples = Coefficients.Span;
         (double weighted, double total) = (0.0, 0.0);
         for (int i = 0; i < samples.Length; i++) {
             (weighted, total) = (weighted + (Photopic(WavelengthAt(i)) * samples[i]), total + samples[i]);
         }
-        // The gate's own contract is (0,1] by physics, so a degenerate all-zero curve reports the declared unity
-        // idealization rather than a zero that would divide the luminous coercion by nothing.
         return total > 0.0 ? Math.Clamp(weighted / total, double.Epsilon, 1.0) : 1.0;
     }
 
-    // V(λ) is the CIE photopic luminosity function, DERIVED from its own two-lobe analytic form rather than carried
-    // as a transcribed lattice: each lobe is a Gaussian whose width differs either side of its own peak — the
-    // asymmetry is what lets two lobes carry a curve a symmetric sum cannot — so the whole weighting is four
-    // constants per lobe a reader checks against the definition instead of against a table nothing regenerates.
-    // Past the visible band both lobes have already decayed, so a sample outside it contributes nothing and the fold
-    // needs no domain gate; the peak evaluates to unity at 555 nm, which is the anchor the 683 lm/W divide assumes.
     static double Photopic(double nm) =>
         (0.821 * Lobe(nm, peak: 568.8, lower: 46.9, upper: 40.5)) + (0.286 * Lobe(nm, peak: 530.9, lower: 16.3, upper: 31.1));
 
@@ -143,9 +119,6 @@ public readonly record struct SpectralCurve(int StartNm, int IntervalNm, ReadOnl
         (nm - peak) / (nm < peak ? lower : upper) switch { var t => Math.Exp(-0.5 * t * t) };
 }
 
-// CaptureCalibration holds the twenty-four patch triples a ColorChecker photograph yields, in the SAME order Macbeth.All
-// publishes — order IS the correspondence, so a shuffled roster solves a matrix onto the wrong references and no
-// residual can detect it, which is why the arity gate names the count rather than trusting a caller's zip.
 public readonly record struct CaptureCalibration(Seq<Unicolour> Patches) {
     public static Fin<CaptureCalibration> Of(Seq<Unicolour> patches, Op key) =>
         patches.Count == toSeq(Macbeth.All).Count
@@ -153,9 +126,6 @@ public readonly record struct CaptureCalibration(Seq<Unicolour> Patches) {
             : new MaterialFault.Parameter(key, $"<capture-calibration-arity:{patches.Count}>");
 }
 
-// Assessment closes the two numerical result shapes a capture can actually produce. A fit carries solver rank and
-// finite conditioning only when it is full-rank; neural inference carries its own tile census and golden delta.
-// Neither shape impersonates the other through zero-filled columns or a non-finite condition-number sentinel.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CaptureAssessment {
     private CaptureAssessment() { }
@@ -163,8 +133,6 @@ public abstract partial record CaptureAssessment {
     public sealed record Inference(int Tiles, double GoldenDeltaMax) : CaptureAssessment;
 }
 
-// ChromaticityEvidence preserves two independently-observable package projections. Dominance is absent for an
-// achromatic colour; Temperature is absent when Unicolour marks the CCT/Duv projection invalid.
 public sealed record ChromaticityEvidence(
     Option<(double WavelengthNm, double Purity)> Dominance,
     Option<Temperature> Temperature) {
@@ -192,33 +160,14 @@ public sealed record CaptureProvenance(string Device, CaptureMethod Method) {
     public Option<CaptureAssessment> Assessment { get; init; }
     public Option<ChromaticityEvidence> Chromaticity { get; init; }
 
-    // Calibrated says a chart-solved matrix corrected this capture and CalibrationDeltaE reports
-    // the mean CIEDE2000 residual it left over the twenty-four patches. Both matter because a capture that reads
-    // MEASURED on the strength of a photograph nothing white-balanced is an authored guess wearing a receipt, and a
-    // solved matrix with a large residual is a chart photographed under conditions the linear model cannot correct.
-    // Explicit presence rides the residual: an uncalibrated capture measures no residual, and a zero on a required
-    // slot reads to a grader as a perfect chart solve. Its python peer already declares this column
-    // `float | None` for exactly that reason, so a bare double here emits a proto zero that peer's absent arm can
-    // never see, and both sides then disagree on what an uncalibrated capture reports.
     public Option<double> CalibrationDeltaE { get; init; }
     public bool Calibrated { get; init; }
 
-    // ModelCard/License carry the attribution a neural capture holds and every other capture genuinely lacks — TYPED ABSENCE,
-    // never an empty-string sentinel: a goniophotometer row has no model card, and Option collapses the reader's "no model" vs
-    // "a model whose id happened to be blank" distinction. Both columns travel together because a licence is meaningless
-    // without the model card it governs.
     public Option<ModelCardId> ModelCard { get; init; }
     public Option<LicenseClass> License { get; init; }
 
-    // Typed absence is the honest default: an estate-produced goniophotometer capture has no third-party custody to
-    // declare, and a row that filled the shape with its own device name would forge provenance out of a measurement it performed itself.
     public Option<IngestProvenance> Ingest { get; init; }
 
-    // Measured reads the METHOD, the one column that says what took the measurement — never a whole-record compare
-    // against the authored default. Record equality made every enrichment column part of the answer, so a genuine
-    // goniophotometer capture whose device, counts, and residual happened to match the default read AUTHORED, and a
-    // new receipt column silently changed the predicate. One discriminant, one reading, and the wire mirror composes
-    // this member rather than restating the comparison.
     public bool Measured => Method != CaptureMethod.Authored;
 
     public static readonly CaptureProvenance Authored = new("authored", CaptureMethod.Authored);
@@ -232,34 +181,16 @@ public abstract partial record CaptureSource {
     public sealed record SvbrdfMap(Seq<MaterialParameters> Texels) : CaptureSource;
     public sealed record SpectralReflectance(SpectralCurve Reflectance, double Metalness, double Roughness) : CaptureSource;
 
-    // Fallback supplies the caller's own base row for every column the set does not carry, so the arm names no library key and hardcodes no neutral.
     public sealed record NeuralPlanes(TextureSet Planes, Seq<StageResult> Stages, MaterialParameters Fallback) : CaptureSource;
 
-    // GlossMeter carries the cheapest real measurement in the estate: a handheld tri-angle gloss meter reads
-    // specular reflectance at 20, 60, and 85 degrees in GLOSS UNITS against a polished black-glass standard, and
-    // those three numbers are genuine instrument evidence a specification already records for coatings, panels, and
-    // finishes. The triple crosses whole rather than as one number because the ANGLES discriminate: 20 degrees
-    // separates the high-gloss band the 60 reading saturates on, 85 separates the matte band it bottoms out on, and
-    // a single-angle reading cannot tell a satin coating from a semi-gloss one. Base carries the caller's own row so
-    // the arm answers roughness alone and invents no colour a gloss meter never measured.
     public sealed record GlossMeter(double Gu20, double Gu60, double Gu85, GlossCurve Curve, MaterialParameters Base) : CaptureSource;
 }
 
-// GlossCurve is the GU-to-roughness CALIBRATION as a caller-supplied policy row, not a table this page transcribes:
-// the correspondence depends on the instrument's aperture, the standard it zeroes against, and the coating family
-// being read, so an estate that ships one curve as law states a number nobody measured. The row carries the
-// SELECTION band each angle governs and the monotone map itself as a delegate, so a lab that characterizes its own
-// meter lands one row and every consumer of that lab's captures reads its calibration rather than a default.
-// Angles are the instrument's, so the band edges are GU on the SAME scale the reading is.
 public readonly record struct GlossCurve(double HighBand, double MatteBand, Func<double, double> Roughness) {
     public double Of(double gu20, double gu60, double gu85) =>
         Roughness(gu60 >= HighBand ? gu20 : gu60 <= MatteBand ? gu85 : gu60);
 }
 
-// What an import PRODUCES: the parameter row every arm yields, its measured receipt, and — for a plane-bearing
-// capture — the admitted set itself. The set is Option-typed rather than a fourth arm on a widened tuple because
-// four of the five capture arms genuinely produce no planes, and a caller reading Planes.IsSome learns exactly
-// whether a shadeable spatially-varying material came back or only its summary row.
 public sealed record AcquiredMaterial(MaterialParameters Row, CaptureProvenance Provenance, Option<TextureSet> Planes) {
     public static AcquiredMaterial Summary(MaterialParameters row, CaptureProvenance provenance) => new(row, provenance, None);
 }
@@ -281,10 +212,6 @@ public sealed partial class CaptureField {
     public int Rank { get; }
 }
 
-// TensorDtype closes the container's element vocabulary. Each row carries BOTH its stored width and the WIDENING that lifts its
-// run to the ONE interior scalar, so the reader never switches on a dtype key and a container carrying an unadmitted
-// dtype names itself at the field gate rather than at a cast that produced numbers. Coupling the two columns is what
-// keeps a width and its reader from disagreeing: a row admitted at four bytes that decoded as a double read every second element and reported a plausible measurement.
 [SmartEnum<byte>]
 public sealed partial class TensorDtype {
     public static readonly TensorDtype UInt8 = new(key: 1, width: 1, widen: static run => Lift<byte>(run, static v => v));
@@ -299,22 +226,16 @@ public sealed partial class TensorDtype {
     [UseDelegateFromConstructor]
     public partial ReadOnlyMemory<double> Widen(ReadOnlyMemory<byte> run);
 
-    // ONE lift over the six rows: the stored element type is the type parameter and the row's own projection the
-    // only per-row datum, so a seventh dtype is a row and never a second cast body.
     static ReadOnlyMemory<double> Lift<TStored>(ReadOnlyMemory<byte> run, Func<TStored, double> project) where TStored : struct =>
         (ReadOnlyMemory<double>)[.. MemoryMarshal.Cast<byte, TStored>(run.Span).ToArray().Select(project)];
 }
 
-// Both derived facts have their reader in Lower, so neither is a decorative accessor.
 public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> Fields, HashMap<CaptureField, Seq<int>> Extents) {
-    // Magic spells the container's own leading word, "TLB_FSDF" little-endian.
     public const ulong Magic = 0x00465344425F4C54;
 
     public bool Isotropic => Fields.Find(CaptureField.PhiI).Map(static phi => phi.Length <= 2).IfNone(true);
     public int WavelengthCount => Fields.Find(CaptureField.Wavelengths).Map(static grid => grid.Length).IfNone(0);
 
-    // Every payload widens to double at admission, so the interior holds ONE scalar type and no read re-decides what a field's bytes meant.
-    // Exemption: the header walk is a boundary container kernel — a length-prefixed field run with no rail inside it.
     public static Fin<BrdfArchive> Of(ReadOnlyMemory<byte> payload, Op key) {
         if (payload.Length < 12 || BinaryPrimitives.ReadUInt64LittleEndian(payload.Span) != Magic) {
             return new MaterialFault.Parameter(key, $"<brdf-archive-magic:{payload.Length}>");
@@ -328,16 +249,11 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
             }
             (fields, extents, cursor) = (fields.AddOrUpdate(row, lanes), extents.AddOrUpdate(row, shape), next);
         }
-        // Two fields carry every lowering: the incident zenith grid the samples index and the measured triple
-        // they carry. An archive missing either is not a partial capture to salvage — it is a container this reader
-        // cannot lower at all, so it refuses at admission rather than at the first empty walk.
         return fields.Find(CaptureField.ThetaI).IsSome && fields.Find(CaptureField.Rgb).IsSome
             ? Fin.Succ(new BrdfArchive(fields, extents))
             : new MaterialFault.Parameter(key, "<brdf-archive-incomplete>");
     }
 
-    // A field the roster does not carry is a typed refusal naming the offending key, never a silently skipped run,
-    // and a rank the row contradicts refuses BY NAME rather than reading its neighbour's stride.
     static Fin<(CaptureField Row, Seq<int> Shape, ReadOnlyMemory<double> Payload, int Next)> Field(
         ReadOnlyMemory<byte> payload, int at, Op key) {
         ReadOnlySpan<byte> bytes = payload.Span;
@@ -360,12 +276,6 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
                     };
     }
 
-    // Lower turns the admitted archive into the two shapes the import arms consume, and it is where ISOTROPY earns
-    // its keep: an isotropic measurement sweeps ONE incident azimuth, so the relative-azimuth column is the outgoing
-    // azimuth alone and the grid carries no second alpha to fit — which is exactly the degenerate spread the fit's
-    // own observability witness then reports rather than fabricating a grain. An anisotropic archive sweeps its
-    // declared phi_i slices and the samples span the azimuth the anisotropy lives on.
-    // Exemption: the lattice walk is a boundary container kernel — a declared-extent product with no rail inside it.
     public Fin<Seq<BrdfSample>> Lower(Op key) =>
         (Fields.Find(CaptureField.ThetaI), Fields.Find(CaptureField.PhiI), Fields.Find(CaptureField.Rgb)) switch {
             (var thetaI, var phiI, var rgb) when thetaI.IsSome && rgb.IsSome =>
@@ -390,9 +300,6 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
         }
     }
 
-    // Spectra lowers the per-band half the SpectralReflectance arm grounds: the wavelength grid is the FILE's own,
-    // so the curve's start and interval derive from the first two samples rather than from a constant this reader
-    // would have to keep in step with a dataset it does not own.
     public Fin<SpectralCurve> Spectra(Op key) =>
         (Fields.Find(CaptureField.Wavelengths), Fields.Find(CaptureField.Spectra)) switch {
             (var grid, var spectra) when grid.IsSome && spectra.IsSome && WavelengthCount > 1 =>
@@ -403,11 +310,10 @@ public sealed record BrdfArchive(HashMap<CaptureField, ReadOnlyMemory<double>> F
         };
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Acquisition {
     static Acquisition() => Control.UseManaged();
 
-    // Every non-fitting arm carries the Context inertly, so widening a second arm onto the solver ladder is a body edit and never a signature one.
     public static Fin<AcquiredMaterial> Import(
         CaptureSource source, CaptureProvenance provenance, Context context, Op key, Option<CaptureCalibration> calibration = default) =>
         source.Switch(
@@ -422,9 +328,6 @@ public static class Acquisition {
         .Bind(acquired => MaterialParameters.Of(acquired.Row, key).Map(row => acquired with { Row = row, Provenance = acquired.Provenance with {
             Chromaticity = ChromaticityEvidence.Of(row.BaseColor) } }));
 
-    // Writing a colour, a metalness, or an anisotropy here would fabricate the columns the instrument is silent
-    // about. The mapped roughness carries NO residual, because a calibrated single-point reading has no fit to leave
-    // one, so the assessment remains absent rather than reporting a perfect zero-residual fit.
     static Fin<AcquiredMaterial> FitGloss(CaptureSource.GlossMeter c, CaptureProvenance provenance, Op key) =>
         double.IsFinite(c.Gu20) && double.IsFinite(c.Gu60) && double.IsFinite(c.Gu85)
         && c.Gu20 >= 0.0 && c.Gu60 >= 0.0 && c.Gu85 >= 0.0
@@ -441,7 +344,6 @@ public static class Acquisition {
             }
             : new MaterialFault.Parameter(key, $"<gloss-reading-out-of-range:{c.Gu20:R},{c.Gu60:R},{c.Gu85:R}>");
 
-    // A goniophotometer capture simply passes None.
     static Fin<AcquiredMaterial> Calibrate(AcquiredMaterial acquired, Option<CaptureCalibration> calibration, Op key) =>
         calibration
             .Map(chart => Solve(chart, key).Map(fit => acquired with {
@@ -449,7 +351,6 @@ public static class Acquisition {
                 Provenance = acquired.Provenance with { Calibrated = true, CalibrationDeltaE = Some(fit.DeltaE) } }))
             .IfNone(Fin.Succ(acquired));
 
-    // The residual is the mean CIEDE2000 the corrected patches still carry, which is the number that separates a usable chart shot from a hopeful one.
     static Fin<(Matrix<double> Matrix, double DeltaE)> Solve(CaptureCalibration chart, Op key) {
         Seq<Unicolour> reference = toSeq(Macbeth.All).Map(static patch => patch.ConvertToConfiguration(PortValue.SceneLinear));
         Matrix<double> measured = Matrix<double>.Build.Dense(chart.Patches.Count, 3, (row, band) => Band(chart.Patches[row], band));
@@ -473,8 +374,6 @@ public static class Acquisition {
                 (t.First * fit[0, 2]) + (t.Second * fit[1, 2]) + (t.Third * fit[2, 2])),
         };
 
-    // The durable form is a wavelength-sampled EXR part, one texel wide, whose channel names ARE the sampling grid.
-    // CaptureProvenance.WavelengthCount becomes the round-trip WITNESS rather than a bare count: a thaw whose decoded grid disagrees with the receipt refuses.
     public static Fin<ReadOnlyMemory<byte>> Freeze(SpectralCurve curve, SpectralKind kind, Op key) {
         float[] wavelengths = [.. Enumerable.Range(0, curve.Coefficients.Length).Select(i => (float)curve.WavelengthAt(i))];
         float[] samples = [.. curve.Coefficients.ToArray().Select(static v => (float)v)];
@@ -486,8 +385,6 @@ public static class Acquisition {
             : new MaterialFault.Parameter(key, $"<spectral-freeze:{written.Status}>");
     }
 
-    // Thaw returns the KIND beside the curve, so the round trip preserves the physical claim rather than the claim
-    // surviving only in whichever caller happened to know it.
     public static Fin<(SpectralCurve Curve, SpectralKind Kind)> Thaw(ReadOnlyMemory<byte> payload, int wavelengthCount, Op key) {
         ReaderResult<TinyEXR.V3.Image> read = ExrFile.LoadFromMemory(payload, options: null);
         return read is { IsSuccess: true, Value: { } file } && toSeq(file.Parts).Head.Case is Part part && Spectral.IsSpectral(part.Header)
@@ -500,8 +397,6 @@ public static class Acquisition {
             : new MaterialFault.Parameter(key, $"<spectral-thaw:{read.Status}>");
     }
 
-    // A non-zero Stokes component is DROPPED rather than summed into an unpolarised sample it is not. Ordering is by
-    // parsed wavelength, so the grid the header declares and the samples this returns index the same spectrum by construction.
     static Fin<ReadOnlyMemory<double>> Samples(Part part, Op key) =>
         part.GetLevel(0, 0) switch {
             var level => toSeq(level.Channels)
@@ -518,7 +413,6 @@ public static class Acquisition {
             },
         };
 
-    // The bind target's measured per-channel fold runs over each plane's BASE level — never a pyramid tail, never a re-derivation here.
     static Fin<AcquiredMaterial> ImportPlanes(TextureSet planes, Seq<StageResult> stages, MaterialParameters fallback, CaptureProvenance provenance, Op key) =>
         stages.IsEmpty
             ? new MaterialFault.Parameter(key, "<neural-planes-no-stage-evidence>")
@@ -528,10 +422,6 @@ public static class Acquisition {
                   : Fin.Fail<MaterialParameters>(new MaterialFault.Graph(key, "<neural-planes-summary-not-a-row>"))
               select new AcquiredMaterial(row, Attributed(provenance, planes, stages), Some(planes));
 
-    // The grant a consumer must honour is the strictest one any contributing model imposes, and a set is only as
-    // trustworthy as its weakest stage. A stage whose card left the registry contributes its result without an
-    // attribution rather than blocking the import — the plan already gated the grant at request construction, and
-    // this column is evidence rather than a second gate.
     static CaptureProvenance Attributed(CaptureProvenance provenance, TextureSet planes, Seq<StageResult> stages) {
         Option<ModelCard> governing = stages
             .Choose(static result => ModelRegistry.Rows.TryGetValue(result.ModelCardId, out ModelCard? card) ? Some(card!) : Option<ModelCard>.None)
@@ -548,14 +438,10 @@ public static class Acquisition {
         };
     }
 
-    // Geometry is a ⌈√count⌉-lane stratified (θi, θo) grid with Δφ swept uniformly over [0, π) so alphaX ≠ alphaY
-    // stays observable, each zenith jittered inside its cell by a SplitMix64 stream off the seed.
     public static Fin<Seq<BrdfSample>> SyntheticGrid(int seed, int count, Op key) {
         if (count < 1) { return new MaterialFault.Parameter(key, $"<synthetic-grid-count:{count}>"); }
         var (alphaX, alphaY) = (0.1 + 0.4 * Draw(seed, 0), 0.1 + 0.4 * Draw(seed, 1));
-        double rotation = Draw(seed, 2) * double.Pi;                                   // ground-truth grain azimuth the fit must recover
-        // ⌈√count⌉ lanes: count ≤ lanes² makes index / lanes < lanes by construction, so the row index needs no
-        // modulo wrap — the floor-lane form aliased the overflow row onto row 0 and double-filled one stratum.
+        double rotation = Draw(seed, 2) * double.Pi;
         int lanes = int.Max((int)double.Ceiling(double.Sqrt(count)), 1);
         return Fin.Succ(toSeq(Enumerable.Range(0, count).Select(index => {
             double thetaI = (index / lanes + Draw(seed, 2L * index + 3L)) / lanes * (double.Pi / 2.0 - 0.02);
@@ -566,13 +452,8 @@ public static class Acquisition {
         })));
     }
 
-    // Draw defers to the KERNEL — Rasm.Domain Deterministic owns the one splitmix64 stream, and its lane fold
-    // mixes each lane into the state where a local multiply-then-use folded them by one multiply and lost the
-    // finalizer's avalanche. The seed rides the dedicated seed argument rather than a leading lane, so a full
-    // 64-bit policy seed stays one value and two captures never collide by re-packing seed and lane into one span.
     static double Draw(int seed, long lane) => Deterministic.Unit(lanes: [lane], seed: seed);
 
-    // The underdetermined gate reads the ARM's own widened unknown count, so a conductor capture with four samples fits and a dielectric one with four refuses.
     static Fin<AcquiredMaterial> FitBrdf(
         Seq<BrdfSample> samples, double ior, Option<ComplexIor> conductor, CaptureProvenance provenance, Context context, Op key) =>
         guard(samples.Count > (conductor.IsSome ? 3 : 4), new MaterialFault.Parameter(key, $"<measured-brdf-underdetermined:{samples.Count}>")).ToFin()
@@ -593,7 +474,6 @@ public static class Acquisition {
         double Roughness, double Anisotropy, double Rotation, double Eta,
         double Residual, Option<double> ConditionNumber, int Rank, int ParameterCount);
 
-    // Every iteration mechanic belongs to Rasm/Solving/solver and none of it is respelled here.
     static Fin<BrdfFit> SolveGgx(Seq<BrdfSample> samples, double ior0, Option<ComplexIor> conductor, Context context, Op key) =>
         new BrdfResidual(samples, ior0, conductor) switch {
             var residual => SolvePolicy.Of(context: context, key: key)
@@ -601,52 +481,38 @@ public static class Acquisition {
                 .Bind(result => residual.Project(result, key)),
         };
 
-    // Stating the residual ROW AT A TIME in dual arithmetic lets DualModel derive the exact Jacobian — the
-    // differencing step this page used to choose is gone, and with it the question of what step size an anisotropic
-    // GGX surface tolerates. The box map is p = Lo + (Hi − Lo)·σ(u) with σ the logistic, so the solver optimizes an UNCONSTRAINED u.
     sealed class BrdfResidual(Seq<BrdfSample> samples, double ior0, Option<ComplexIor> conductor) : IDualResidual {
         static readonly (double Lo, double Hi)[] AlphaPhi = [(1e-4, 1.0), (1e-4, 1.0), (0.0, Math.PI)];
         static readonly (double Lo, double Hi)[] AlphaPhiEta = [.. AlphaPhi, (1.0, 2.5)];
 
         internal (double Lo, double Hi)[] Bounds => conductor.IsSome ? AlphaPhi : AlphaPhiEta;
-        public int Dof => Bounds.Length;             // [alphaX, alphaY, phi(, eta)] — the conductor Fresnel is measured, not fit
+        public int Dof => Bounds.Length;
         public int Rows => samples.Count;
 
-        // The seed is the BOUNDED parameter inverted through the reparameterization, so the solver starts from an
-        // unconstrained coordinate whose image is the physical seed rather than from a raw value the box would clip.
         public double[] Seed => [.. Bounds.Zip(
             conductor.IsSome
                 ? [Microfacet<double>.AlphaOf(0.3), Microfacet<double>.AlphaOf(0.3), 0.0]
                 : [Microfacet<double>.AlphaOf(0.3), Microfacet<double>.AlphaOf(0.3), 0.0, Math.Clamp(ior0, 1.0, 2.5)],
             static (box, value) => Free(value, box))];
 
-        // Each row is the LOG residual: reflectance spans decades across a capture, so a linear residual lets the
-        // near-specular geometries dominate every step and the grazing tail contributes nothing to the fit.
         public Dual<ddouble> Row(int index, ReadOnlySpan<Dual<ddouble>> parameters) =>
             Dual<ddouble>.Of(ddouble.Log(ddouble.Max(Floor, (ddouble)samples[index].Reflectance.Luminance)))
             - Dual<ddouble>.Log(Model(samples[index], parameters));
 
-        // The bounded parameter vector, reconstructed from the solver's unconstrained coordinates inside the dual
-        // arithmetic so the box map itself differentiates rather than sitting outside the derivative chain.
         Dual<ddouble> Model(BrdfSample sample, ReadOnlySpan<Dual<ddouble>> u) =>
             Reflectance(sample,
                 alphaX:   Bound(u[0], Bounds[0]), alphaY: Bound(u[1], Bounds[1]), rotation: Bound(u[2], Bounds[2]),
                 eta:      u.Length == 4 ? Bound(u[3], Bounds[3]) : Dual<ddouble>.Of((ddouble)1.5),
                 conductor: conductor);
 
-        // Project reads the ladder's receipt onto the row: the parameters bound back through the same map, and the
-        // witnessed relative residual off the functor's OWN 106-bit objective rather than a norm recomputed here.
         internal Fin<BrdfFit> Project(LmResult result, Op key) =>
             result.IsValid
                 ? [.. Bounds.Zip(result.Parameters, static (box, free) => Bound(free, box))] switch {
                     var p => Fin.Succ(new BrdfFit(
-                        Roughness: Math.Sqrt(Math.Sqrt(p[0] * p[1])),  // alpha_geo = √(αx·αy) = roughness²
-                        Anisotropy: Math.Clamp((1.0 - (Math.Min(p[0], p[1]) / Math.Max(p[0], p[1]))) / 0.9, 0.0, 1.0),  // inverse Disney aspect² = min/max
-                        // Rotation projects the fitted azimuth onto the row's UNIT column (1 is a half turn), taken
-                        // from the ALPHA-X axis: when the fit lands alphaY as the rougher of the pair the rougher
-                        // axis is a quarter turn away, so the projection adds that quarter rather than reporting the smooth axis as the grain.
+                        Roughness: Math.Sqrt(Math.Sqrt(p[0] * p[1])),
+                        Anisotropy: Math.Clamp((1.0 - (Math.Min(p[0], p[1]) / Math.Max(p[0], p[1]))) / 0.9, 0.0, 1.0),
                         Rotation: Math.Clamp(((p[2] + (p[0] >= p[1] ? 0.0 : Math.PI / 2.0)) / Math.PI) % 1.0, 0.0, 1.0),
-                        Eta: p.Length == 4 ? p[3] : 1.5,   // conductor rows keep the coat-side Disney default — Ior is unread at Metalness 1
+                        Eta: p.Length == 4 ? p[3] : 1.5,
                         Residual: result.Norm / Math.Max(1e-6, Scale),
                         ConditionNumber: Observable
                             ? Some(Math.Max(1.0, 1.0 / Math.Max(1e-12, AzimuthSpread)))
@@ -656,21 +522,17 @@ public static class Acquisition {
                 }
                 : new MaterialFault.Parameter(key, "<ggx-fit-diverged>");
 
-        // Deriving the witness from the capture is what lets the kernel functor own the numerics whole: the ladder
-        // already regularizes a deficient system into SOME answer, and what a reader needs is the reason that answer is not evidence.
         double AzimuthSpread => samples.Fold((Lo: double.MaxValue, Hi: double.MinValue),
             static (span, s) => (Math.Min(span.Lo, s.AzimuthDelta), Math.Max(span.Hi, s.AzimuthDelta))) switch {
             var span => span.Hi - span.Lo,
         };
         bool Observable => AzimuthSpread > 1e-3;
 
-        // The log-measured magnitude the relative residual normalizes against — the capture's own scale, folded once.
         double Scale => Math.Sqrt(samples.Fold(0.0, static (sum, s) =>
             Math.Log(Math.Max(1e-6, s.Reflectance.Luminance)) switch { var l => sum + (l * l) }));
 
         static readonly ddouble Floor = (ddouble)1e-6;
 
-        // The logistic box and its inverse: one pair, so a bound and a seed can never disagree about the same box.
         static Dual<ddouble> Bound(Dual<ddouble> free, (double Lo, double Hi) box) =>
             Dual<ddouble>.Of((ddouble)box.Lo)
             + (Dual<ddouble>.Of((ddouble)(box.Hi - box.Lo))
@@ -680,11 +542,6 @@ public static class Acquisition {
             Math.Clamp((bounded - box.Lo) / (box.Hi - box.Lo), 1e-9, 1.0 - 1e-9) switch { var t => Math.Log(t / (1.0 - t)) };
     }
 
-    // alphas are GGX alphas directly (roughness² per the Disney remap); the per-cell evaluation rides the SolveGgx
-    // kernel carve-out. The deleted form was a re-minted D/G/F with a cos((θi−θo)/2) specular-plane half-angle that
-    // drops the azimuth, and Δφ is what makes alphaX ≠ alphaY observable. The conductor arm lifts the measured bands
-    // into the scalar and folds them through the kernel's own luminance weights, so the Fresnel discriminant stays
-    // the capture's own fact rather than a branch the solver has to see through.
     static T Reflectance<T>(BrdfSample s, T alphaX, T alphaY, T rotation, T eta, Option<ComplexIor> conductor)
         where T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T> {
         (T zi, T zo, T dphi) = (T.CreateChecked(s.IncidentZenith), T.CreateChecked(s.OutgoingZenith), T.CreateChecked(s.AzimuthDelta));
@@ -703,17 +560,12 @@ public static class Acquisition {
         return T.Max(floor, d * g * f / denom);
     }
 
-    // The measured conductor's per-band Fresnel reduced to the ONE luminance the log residual reads, folded through
-    // the bsdf#LOBE_FAMILY luminance-weight owner so the reduction follows a working-space change rather than pinning a triple this page would have to maintain.
     static T Luminance<T>(ComplexIor ior, T cosI)
         where T : INumber<T>, IRootFunctions<T>, IPowerFunctions<T>, IExponentialFunctions<T>, ILogarithmicFunctions<T>, ITrigonometricFunctions<T> =>
         (T.CreateChecked(RgbSpectrum.LuminanceWeights.R) * Microfacet<T>.FresnelConductor(cosI, T.CreateChecked(ior.Eta.R), T.CreateChecked(ior.K.R)))
         + (T.CreateChecked(RgbSpectrum.LuminanceWeights.G) * Microfacet<T>.FresnelConductor(cosI, T.CreateChecked(ior.Eta.G), T.CreateChecked(ior.K.G)))
         + (T.CreateChecked(RgbSpectrum.LuminanceWeights.B) * Microfacet<T>.FresnelConductor(cosI, T.CreateChecked(ior.Eta.B), T.CreateChecked(ior.K.B)));
 
-    // The base/emission average runs in RgbLinear (the shading-truth channel) so two texels' colors blend
-    // physically, not in a display-encoded space. Averaged rows re-admit through MaterialParameters.Of (the Import
-    // Bind), so a degenerate mean rails the row gate rather than passing a bad scatter band.
     static Fin<AcquiredMaterial> AverageField(Seq<MaterialParameters> texels, CaptureProvenance provenance, Op key) =>
         texels.IsEmpty
             ? new MaterialFault.Parameter(key, "<svbrdf-map-empty>")
@@ -721,7 +573,6 @@ public static class Acquisition {
                         texels.Fold(FieldSum.Zero, static (acc, t) => acc.Add(t)).Mean(texels.Count),
                         provenance with { Method = CaptureMethod.NeuralSvbrdf, AngularSamples = Some(texels.Count) }));
 
-    // Film is NOT averaged: a neural field carries no interference column, so the mean row keeps the init-defaulted ThinFilm.None.
     readonly record struct FieldSum(
         double BaseR, double BaseG, double BaseB, double EmitR, double EmitG, double EmitB,
         double Metalness, double Roughness, double SpecularTint, double Anisotropy, double Ior,
@@ -746,11 +597,6 @@ public static class Acquisition {
         }
     }
 
-    // GroundSpectral resolves measured Spd to a scene-linear Acescg base color through the ONE
-    // PortValue.SceneLinear working space (a re-minted inline Configuration forks the Unicolour lazy-conversion cache).
-    // Gamut admission rejects FIRST (an out-of-gamut capture faults, never a silent chroma reduction), then the SceneLinear
-    // grounding is CONSUMED — the finite-gated grounded triple IS the row base color, never a discarded validation binding.
-    // Named-arg construction over the closed positional core makes a column reorder break loudly at compile time; every init-defaulted enrichment column takes its own default, which is what a spectrophotometer capture genuinely measures.
     static Fin<MaterialParameters> GroundSpectral(Spd reflectance, double metalness, double roughness, Op key) =>
         from color in Fin.Succ(new Unicolour(PortValue.SceneLinear, reflectance))
         from _ in guard(GamutPolicy.Perceptual.Contains(color), new MaterialFault.Gamut(key, "<acquired-color-out-of-gamut>"))
@@ -760,9 +606,6 @@ public static class Acquisition {
             Transmission: 0.0, TransmissionRoughness: 0.0, Sheen: 0.0, SheenTint: 0.0, Clearcoat: 0.0, ClearcoatRoughness: 0.0,
             Subsurface: 0.0, SubsurfaceRadius: SubsurfaceRadius.None, Emission: Linear(0.0, 0.0, 0.0), EmissionLuminance: 0.0);
 
-    // Linear is the one scene-linear Unicolour constructor — graph#MATERIAL_GRAPH PortValue.SceneLinear (the one
-    // Acescg working space), so every base/emission color this page mints reads the same scene-linear channel basis the
-    // library rows do, never a second ColourSpace wrapper or a re-minted Configuration.
     static Unicolour Linear(double r, double g, double b) => new(PortValue.SceneLinear, ColourSpace.RgbLinear, r, g, b);
 }
 ```

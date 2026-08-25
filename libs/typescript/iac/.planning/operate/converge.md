@@ -27,20 +27,14 @@ import { Backend } from "@rasm/data"
 import { Array, Data, Duration, Effect, Encoding, Record } from "effect"
 import { StackOutputs, Tier, type StackSpec } from "../program/spec.ts"
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 const _PHASES = ["materialize", "hydrate", "prove"] as const
-// `_PROOF` names the gating phase, so appending a phase never re-points publication, and a rename
-// breaks at this binding because the literal must inhabit the tuple.
 const _PROOF = "prove" satisfies Converge.Phase
 const _GENERATION = "RASM_BACKEND_GENERATION"
 const _FENCE = "RASM_BACKEND_DEPLOYMENT_FENCE"
-// Recovery OBJECTIVE crosses as data the deploy plane supplies, never a runner default: `Backend.admit`
-// grades the measured window against it, so a runner inventing one grades against a target nobody set.
 const _RPO = "RASM_BACKEND_RPO_MILLIS"
 const _RTO = "RASM_BACKEND_RTO_MILLIS"
-// Convergence realizes onto a cluster, so the deploy plane serves the two topology values that
-// carry one; the roster stays whole in the type so a rejected value is representable in the fault.
 const _TOPOLOGY = {
   "in-host": "refuse",
   sidecar: "refuse",
@@ -54,11 +48,6 @@ declare namespace Converge {
   type Phase = (typeof _PHASES)[number]
   type Step = Phase
   type Topology = StackSpec.Topology
-  // Two members, structurally satisfied rather than imported: `StackSpec.Profile` carries `topology` as a field
-  // and `objective` as the getter resolving `runtime/proc/config`'s topology table, so a `StackSpec` deployment
-  // passes its profile row straight in while a foreign composition root states the same pair. Naming
-  // `StackSpec.Profile` here instead would bind this tier to one spec shape, and `Backend.Objective` keeps the
-  // grader's own spelling on the member `Backend.admit` reads.
   type Profile = {
     readonly topology: Topology
     readonly objective: Backend.Objective
@@ -90,24 +79,19 @@ declare namespace Converge {
   }
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class ConvergeRefused extends Data.TaggedError("ConvergeRefused")<{
   readonly axis: "topology"
   readonly value: Converge.Topology
 }> {}
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// `binaryData` takes standard-alphabet base64; the codec rides the substrate rail, so the deploy
-// plane composes on no host global and stays admissible in every runtime an operator drives it from.
 const _contractFiles = (files: Backend.Files): Record.ReadonlyRecord<string, string> => ({
   "contract.json": Encoding.encodeBase64(files.contract),
 })
 
-// Server-assigned `ObjectMeta` fields are optional in the input schema and always present on a
-// created resource; one projection states that once, so no evidence row defaults to an empty
-// string and records a proof that never ran.
 const _meta = <K extends "name" | "uid">(
   resource: { readonly metadata: pulumi.Output<k8s.types.output.meta.v1.ObjectMeta> },
   field: K,
@@ -138,7 +122,6 @@ const _runner = (
   args: Converge.Args,
   contract: k8s.core.v1.ConfigMap,
   after: pulumi.Resource,
-  // Phase-local coordinates stay on the one env list, so a runner-specific value never leaks into a sibling phase.
   carried: ReadonlyArray<k8s.types.input.core.v1.EnvVar>,
   opts: pulumi.CustomResourceOptions,
 ): k8s.batch.v1.Job =>
@@ -170,8 +153,6 @@ const _runner = (
         spec: {
           restartPolicy: "Never",
           serviceAccountName: args.runner.serviceAccountName,
-          // The one pod family holding DDL authority over the target, so it carries the estate's own posture
-          // rather than the API's defaults; the anchor's scratch pair keeps the read-only root survivable.
           securityContext: Tier.harden.pod,
           containers: [{
             name: step,
@@ -215,15 +196,13 @@ const _runner = (
 - Boundary: this tier ends at the retained pointer. Workload mounting is deploy-owned; local decode, generation comparison, and readiness admission belong to the application runtime and are not claimed by this page.
 
 ```typescript signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 class Converge extends Tier {
   readonly contract: k8s.core.v1.ConfigMap
   readonly pointer: k8s.core.v1.ConfigMap
   readonly evidence: k8s.core.v1.ConfigMap
 
-  // `admit` is the one entry: the axis proof and the backend fold run on the typed rail before a
-  // single resource is declared, so an unserved topology never half-constructs a tier.
   static admit(
     name: string,
     args: Converge.Args,
@@ -251,8 +230,6 @@ class Converge extends Tier {
       immutable: true,
       binaryData: _contractFiles(projection.files),
     }, retained)
-    // mapAccum threads readiness and returns [threadedState, mappedArray]; the accumulator is the
-    // readiness resource, which carries no ObjectMeta, so the mapped pairs are the whole product.
     const [, ordered] = Array.mapAccum(
       _PHASES,
       args.target.ready,
@@ -292,7 +269,7 @@ class Converge extends Tier {
   }
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Converge, ConvergeRefused }
 ```

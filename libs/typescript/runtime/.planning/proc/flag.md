@@ -267,11 +267,6 @@ const _Shift = Schema.Union(
     Schema.TaggedStruct('Reset', { ruleset: Ruleset }),
 );
 
-// The peer verdict's reason roster is the corpus's `FlagReason` enum, and it is neither of the two this page already
-// holds: it spells `TARGETING` where the SDK spells `TARGETING_MATCH` and rows no staleness word at all. Deriving it
-// from either neighbour would refuse every real targeting document, so the crossing is one total map keyed by the
-// generated members — a member added at the corpus breaks this table instead of arriving as an unroutable number —
-// and the producer's own `UNKNOWN` arm is the typed fall-through for the open-enum value the generated type admits.
 type _WireReason = Exclude<FlagReason, UnknownEnum | typeof FlagReason.UNSPECIFIED>;
 const _WIRE_REASON = {
     [FlagReason.CACHED]: 'CACHED',
@@ -300,14 +295,12 @@ class Verdict extends Schema.Class<Verdict>('Verdict')({
     static readonly Ruleset = Ruleset;
     static readonly Shift = _Shift;
     static readonly codes = _CODES;
-    // The one admission decodes the direct family at first sight and projects its result without another wire shape.
     static readonly admitted = (bytes: Uint8Array, at: DateTime.Utc) =>
         Effect.map(Wire.decode('FlagVerdictWire', bytes), (wire) =>
             new Verdict({
                 flag: wire.flag,
                 kind: 'boolean',
                 value: wire.value,
-                // proto3 spells an unset singular string as `""`, so absence lifts to the branch carrier at this one seat
                 variant: Option.liftPredicate(wire.variant, String.isNonEmpty),
                 reason: _wireReason(wire.reason) ? _WIRE_REASON[wire.reason] : 'UNKNOWN',
                 code: Option.none(),
@@ -383,9 +376,6 @@ import { Feed } from '../net/channel.ts';
 const _shifted = Schema.decodeUnknown(Schema.parseJson(_Shift));
 const _heldKey = Schema.encodeSync(Schema.parseJson(Schema.Tuple(Schema.String, Schema.String)));
 
-// The tracking remainder is caller-keyed and admits instants, nested records, and arrays no attribute value accepts, so
-// the fused codec renders it whole and `Schema.Date` is where an instant becomes its ISO spelling. Encode-only by
-// construction: the string arm would swallow a rendered instant on the way back, and nothing here decodes.
 interface _DetailEncoded {
     readonly [key: string]: boolean | null | number | string | ReadonlyArray<_DetailEncoded[string]> | _DetailEncoded;
 }
@@ -411,8 +401,6 @@ type _Probe = {
 const _isReason = Schema.is(Schema.Literal(...Rollout.reasons));
 const _isCode = Schema.is(Schema.Literal(...Verdict.codes));
 
-// This owner crosses the two reason dialects: OpenFeature spells resolution reasons uppercase, the semconv value
-// family spells them lowercase, and the convention owner holds the spec vocabulary without either translation.
 const _SPEC: { readonly [R in Rollout.Reason]: Convention.FlagReason } = {
     CACHED: Convention.value.flagCached,
     DEFAULT: Convention.value.flagDefault,
@@ -425,8 +413,6 @@ const _SPEC: { readonly [R in Rollout.Reason]: Convention.FlagReason } = {
     UNKNOWN: Convention.value.flagUnknown,
 };
 
-// The return annotation closes the record: a key outside the convention vocabulary cannot ride the span. Every optional
-// coordinate folds to an OMITTED key rather than an empty one, so a query never reads absence as a value.
 const _attributed = (provider: string, event: string, context: EvaluationContext, details: TrackingEventDetails): Convention.Attributes => ({
     [Convention.incubating.flagProvider]: provider,
     [Convention.rasm.flagEvent]: event,
@@ -511,7 +497,7 @@ const _resolved =
                         onNone: () => ({ value: fallback, reason: 'ERROR', errorCode: 'PARSE_ERROR' }),
                         onSome: (resolved) =>
                             def.kind === kind && _guards[kind](resolved)
-                                ? { value: resolved, reason: outcome.reason, variant } // the mapped guard narrowed resolved to _Value[K]: the correlation is checker-proven
+                                ? { value: resolved, reason: outcome.reason, variant }
                                 : { value: fallback, reason: 'ERROR', errorCode: 'TYPE_MISMATCH' },
                     });
                 },
@@ -519,9 +505,6 @@ const _resolved =
         });
 
 class Flags extends Effect.Service<Flags>()('runtime/Flags', {
-    // The tracking counter is a WORD-counting frequency row, so its mount takes the roster's own published census —
-    // the ordered vocabulary its owner minted, where a duplicate word already refused at the mint — never a bare
-    // tuple a caller assembled and no owner keeps aligned.
     scoped: <const Outcomes extends Convention.Roster>(
         digest: (text: string) => number,
         mode: Sticky.Mode,
@@ -558,24 +541,14 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
                             Effect.tap(([shift, changed]) =>
                                 Effect.zipRight(
                                     announce(ProviderEvents.ConfigurationChanged, { flagsChanged: [...changed] }),
-                                    // an accepted Reset is the plane's own recovery edge: the document is whole again,
-                                    // so the SDK's readiness signal closes the Stale it opened
                                     shift._tag === 'Reset' ? announce(ProviderEvents.Ready, {}) : Effect.void,
                                 ),
                             ),
-                            // a malformed patch is one skipped row, and the SDK hears it: consumers see a provider in
-                            // error rather than a cell that silently stops advancing
                             Effect.tapErrorCause((cause) => announce(ProviderEvents.Error, { message: Cause.pretty(cause) })),
                             Effect.ignoreLogged,
                         ),
                     ),
-                    // the feed DIED: the cell freezes at its last epoch and every later read is CACHED/STATIC off a
-                    // document nobody refreshes, so the SDK's own staleness signal fires before the reconnect budget
                     Effect.tapErrorCause((cause) => announce(ProviderEvents.Stale, { message: Cause.pretty(cause) })),
-                    // the reconnect burst rides the core `feed` budget — jittered exponential, attempt-bounded,
-                    // elapsed-ceilinged, reset after quiet — then phases into the steady cadence, so a transient blip
-                    // backs off against a fleet-decorrelated curve while a long outage keeps re-opening forever;
-                    // a bare `spaced` pace re-derives the compile and synchronizes every replica onto one instant
                     Effect.retry(Schedule.andThen(Fault.Budget.schedule('feed', Function.constTrue), pace)),
                     Effect.forkScoped,
                 );
@@ -588,11 +561,7 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
                 resolveStringEvaluation: (flag, fallback, context) => Runtime.runPromise(runtime)(resolve('string', flag, fallback, context)),
                 resolveNumberEvaluation: (flag, fallback, context) => Runtime.runPromise(runtime)(resolve('number', flag, fallback, context)),
                 resolveObjectEvaluation: <T extends JsonValue>(flag: string, fallback: T, context: EvaluationContext) =>
-                    // BOUNDARY ADAPTER: the SDK's object generic promises the caller's T with no runtime witness; the guard proved the JSON-object shape, this pin crosses the SDK's own unsound seam
                     Runtime.runPromise(runtime)(resolve('object', flag, fallback as _Value['object'], context)) as Promise<ResolutionDetails<T>>,
-                // the SDK's one synchronous member: it answers void, so the bridge runs sync against a total effect
-                // rather than stranding a promise off the caller's stack, and the client's own try swallows a throw
-                // from here into a debug log — a failure the seat could raise would vanish as silent evidence loss
                 track: (event, context, details) =>
                     Runtime.runSync(runtime)(
                         Effect.zipRight(Effect.annotateCurrentSpan(_attributed(metadata.name, event, context, details)), Metric.update(tally, event)),
@@ -603,12 +572,9 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
                 after: (hooked, details) =>
                     Runtime.runPromise(runtime)(
                         Effect.annotateCurrentSpan({
-                            // Convention.Attributes closes the record: a key outside the vocabulary cannot ride the span
                             [Convention.incubating.flagKey]: hooked.flagKey,
                             [Convention.incubating.flagProvider]: metadata.name,
                             [Convention.incubating.flagReason]: _SPEC[_isReason(details.reason) ? details.reason : 'UNKNOWN'],
-                            // the join a tracked outcome lands against: the identity pairs the two planes and the
-                            // variant names the arm the outcome is attributed to
                             ...Option.match(Option.fromNullable(hooked.context.targetingKey), {
                                 onNone: () => ({}),
                                 onSome: (subject) => ({ [Convention.incubating.flagContext]: subject }),
@@ -741,7 +707,7 @@ class Flags extends Effect.Service<Flags>()('runtime/Flags', {
     );
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Flags, Rollout, Sticky, Verdict };
 ```

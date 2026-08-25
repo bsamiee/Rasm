@@ -25,9 +25,7 @@ using Rasm.Persistence.Element;
 
 namespace Rasm.Persistence.Ingest;
 
-// --- [TYPES] ----------------------------------------------------------------------------
-// `IssueVersion` is the wire-dialect provenance axis the facts stamp. Which residence a dialect's vocabulary
-// parses from — and every other container concern — belongs to the custodian codec, never a column here.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IssueVersion {
@@ -35,8 +33,6 @@ public sealed partial class IssueVersion {
     public static readonly IssueVersion Bcf30 = new("3.0");
 }
 
-// `VocabularyAxis` closes the extensible-axis vocabulary: BCF projects declare their own value sets per axis,
-// so the axis is closed and the VALUES are runtime data — the OWNER_CHOOSER runtime-sourced-vocabulary row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VocabularyAxis {
@@ -49,9 +45,7 @@ public sealed partial class VocabularyAxis {
     public static readonly VocabularyAxis SnippetType = new("SnippetTypes");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// `IssueVocabulary` freezes the per-project registry handed as data off the custodian's declared extensions; a
-// value outside a declared set is a carried FACT, never a mutation — round-trip fidelity outranks local taste.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record IssueVocabulary(HashMap<VocabularyAxis, FrozenSet<string>> Declared) {
     public static readonly IssueVocabulary Empty = new(HashMap<VocabularyAxis, FrozenSet<string>>());
     public bool Admits(VocabularyAxis axis, string value) =>
@@ -66,8 +60,6 @@ public sealed record IssueVocabulary(HashMap<VocabularyAxis, FrozenSet<string>> 
             .Count(cell => !Admits(cell.Axis, cell.Value));
 }
 
-// `IssueSpec` carries what the SEAM decides — dialect provenance, the declared vocabulary, the correlation
-// port. Rows arrive handed from the root, so a source column here names a door this owner never opens.
 public sealed record IssueSpec(IssueVersion Dialect, IssueVocabulary Declared, Func<string, Option<SetKey>> Resolve);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -84,7 +76,7 @@ public abstract partial record IssueYield {
     public sealed record Released(int Count) : IssueYield;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IssueFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.StoreIssue;
@@ -100,15 +92,13 @@ public abstract partial record IssueFault : Fault {
         topicRejected: static c => $"<issue-topic:{c.Topic:D}:{c.Detail}>");
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class IssueFactKind {
     public static readonly IssueFactKind Ingest = new("ingest");
     public static readonly IssueFactKind Egress = new("egress");
 }
 
-// `IssueCensus` folds all five receipt counts in a single traversal of the handed rows: four independent `Sum`
-// chains walked the topic set four times and buried the unresolved count three levels deep at the fact mint.
 public readonly record struct IssueCensus(int Topics, int Comments, int Viewpoints, int Unresolved, int Foreign) {
     public static readonly IssueCensus Empty = new(0, 0, 0, 0, 0);
 
@@ -125,42 +115,31 @@ public readonly record struct IssueCensus(int Topics, int Comments, int Viewpoin
 public readonly record struct IssueFact(IssueFactKind Kind, IssueVersion Dialect, IssueCensus Census, Instant At);
 
 public static class IssueSource {
-    // `Slots` censuses off the kind vocabulary; the `store.issue.` prefix declares once here.
     public static readonly Seq<StoreSlot> Slots =
         toSeq(IssueFactKind.Items).Map(static kind => StoreSlot.Create($"store.issue.{kind.Key}"));
 
-    // ONE polymorphic entry; per-topic admission faults accumulate through `Validation<Error, …>`, and every
-    // arm lands one kind-discriminated fact on the sink.
     public static IO<Validation<Error, IssueYield>> Run(IssueOp op, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink) =>
         op.Switch(
             ingest: handed => Admitted(handed.Spec, handed.Rows, frame, sink),
             egress: handed => Released(handed.Spec, handed.Rows, frame, sink));
 
-    // Row admission: keys prove unique, every comment's viewpoint join resolves inside its own topic,
-    // and each component correlates through the injected port — the applicative fold accumulates.
     static IO<Validation<Error, IssueYield>> Admitted(IssueSpec spec, Seq<IssueTopic> rows, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink) =>
         Keyed(rows).Bind(unique => unique.Traverse(topic => Admit(topic, spec.Resolve)).As()).Match(
             Succ: held => sink(Fact(IssueFactKind.Ingest, spec, held, frame))
                 .Map(_ => Validation<Error, IssueYield>.Success(new IssueYield.Topics(held))),
             Fail: fault => IO.pure(Validation<Error, IssueYield>.Fail(fault)));
 
-    // Release re-proves key uniqueness on the held set and emits the egress fact; the container write
-    // is the composition root's custodian call, never a member here.
     static IO<Validation<Error, IssueYield>> Released(IssueSpec spec, Seq<IssueTopic> rows, ProjectionContext frame, Func<IssueFact, IO<Unit>> sink) =>
         Keyed(rows).Match(
             Succ: held => sink(Fact(IssueFactKind.Egress, spec, held, frame))
                 .Map(_ => Validation<Error, IssueYield>.Success(new IssueYield.Released(held.Count))),
             Fail: fault => IO.pure(Validation<Error, IssueYield>.Fail(fault)));
 
-    // Every duplicate reports, not the first: the applicative fold accumulates directly as `Error.Many`,
-    // so no family aggregate or hand `Reduce`/`Combine` chain re-derives it.
     static Validation<Error, Seq<IssueTopic>> Keyed(Seq<IssueTopic> rows) =>
         toSeq(rows.GroupBy(static topic => topic.Key).Where(static group => group.Count() > 1).Select(static group => group.Key))
             .Traverse(static key => (Validation<Error, Guid>)new IssueFault.TopicRejected(key, "<duplicate-key>")).As()
             .Map(_ => rows);
 
-    // One topic's admission: EVERY orphaned comment-to-viewpoint join reports, then every component across
-    // selection, visibility exceptions, and coloring correlates through the port.
     static Validation<Error, IssueTopic> Admit(IssueTopic topic, Func<string, Option<SetKey>> resolve) =>
         topic.Comments
             .Filter(comment => comment.Viewpoint.Map(view => !topic.Viewpoints.Exists(v => v.Key == view)).IfNone(false))
@@ -200,7 +179,7 @@ public static class IssueSource {
 - Boundary: rows are the Persistence half of the coordination-review cycle — `Rasm.Bim` clash/IDS surfaces mint topics from their `KeySelection` results and read `Reconcile`'s partitions for review-state drift, the AppUi viewport consumes `IssueCamera`/`IssueComponent` to restore a view, and the app composition root owns both mappings; `Status`/`Type`/`Priority`/`Stage` carry the custodian's VERBATIM project-vocabulary tokens (the `StatusToken` election), never a compiled enum a foreign project breaks; the snapshot bytes live in the blob plane under their content address (this row carries the ADDRESS; a byte copy beside it forks residence); `RelatedTopics` cross-references stay topic GUIDs because the BCF wire owns that identity; container-only ornament — reference links, document references, BIM snippets, header files — stays the custodian's family and never grows a durable column here.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct IssueVector(double X, double Y, double Z);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -210,14 +189,10 @@ public abstract partial record IssueCamera {
     public sealed record Orthogonal(IssueVector ViewPoint, IssueVector Direction, IssueVector Up, double ViewToWorldScale) : IssueCamera;
 }
 
-// `IssueComponent` is the element reference: the wire IfcGuid keys the correlation, the resolved model-qualified
-// SetKey is the durable outcome, and None is carried review reality — never a fault, never a dropped component.
 public readonly record struct IssueComponent(string IfcGuid, Option<SetKey> Node, Option<string> OriginatingSystem, Option<string> AuthoringToolId);
 
 public sealed record IssueVisibility(bool DefaultVisibility, Seq<IssueComponent> Exceptions, HashMap<string, bool> ViewSetupHints);
 
-// Camera rides Option: a selection-only viewpoint is legal BCF, its absence typed per the custodian's
-// camera-XOR admission — the identity-orthogonal default frame is the deleted fabricated form.
 public sealed record IssueViewpoint(
     Guid Key, Option<int> Index, Option<IssueCamera> Camera,
     Seq<IssueComponent> Selection, IssueVisibility Visibility, Seq<(string Color, Seq<IssueComponent> Components)> Coloring,
@@ -225,9 +200,6 @@ public sealed record IssueViewpoint(
 
 public sealed record IssueComment(Guid Key, Instant Date, string Author, string Body, Option<Guid> Viewpoint, Option<(Instant Date, string Author)> Modified);
 
-// Status/Type/Priority/Stage carry the custodian's verbatim project-vocabulary tokens (the
-// StatusToken election), so a round trip never rewrites a foreign band; stamps are the custodian's
-// Instant — one stamp law per wire.
 public sealed record IssueTopic(
     Guid Key, string Title, Option<string> ServerAssignedId,
     Option<string> Type, Option<string> Status, Option<string> Priority, Option<string> Stage,
@@ -236,17 +208,14 @@ public sealed record IssueTopic(
     Option<Instant> Due, Option<string> AssignedTo, Option<string> Description,
     Seq<Guid> RelatedTopics, Seq<IssueComment> Comments, Seq<IssueViewpoint> Viewpoints);
 
-// `IssueDelta` carries the cycle diff: opened/removed partition by GUID presence, the move partitions diff
-// shared GUIDs field-wise — the issue sibling of the schedule baseline/update Reconcile discipline.
 public sealed record IssueDelta(
     Seq<IssueTopic> Opened, Seq<IssueTopic> Removed,
     Seq<(IssueTopic Held, IssueTopic Update)> StatusMoved, Seq<(IssueTopic Held, IssueTopic Update)> Reassigned,
     Seq<(IssueTopic Held, Seq<IssueComment> Added)> Commented);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IssueRows {
     extension(IssueTopic topic) {
-        // Every RESOLVED component across the topic's viewpoints, minted into the one selection currency.
         public KeySelection Referenced() => KeySelection.Of(toSeq(
             topic.Viewpoints.Bind(static view => view.Selection + view.Visibility.Exceptions + view.Coloring.Bind(static group => group.Components))
                 .Choose(static component => component.Node)));

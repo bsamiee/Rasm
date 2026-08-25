@@ -31,8 +31,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Persistence.Element;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// Wire-keyed rows: the jsonb `ElementIdentity.Acl` column round-trips each grant as its bare key through the
-// generated Thinktecture converters. Combinable authority is the GrantSet value below, never a [Flags] enum.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Grant {
@@ -65,9 +63,6 @@ public sealed partial class Grant {
     public static readonly Grant Admin = new("admin");
 }
 
-// Set-algebra value, value-equal by SET membership through Generator.Equals `[SetEquality]` — `[Equatable]`, NOT
-// a Thinktecture key owner (the two equality models never stack). HASH-0: `[SetEquality]` contributes 0 to
-// `GetHashCode`, so a GrantSet NEVER keys a dictionary/HashMap/HashSet — key by subject string, set as value.
 [Equatable]
 public sealed partial record GrantSet([property: SetEquality] FrozenSet<Grant> Grants) {
     public static readonly GrantSet None = new(FrozenSet<Grant>.Empty);
@@ -78,11 +73,6 @@ public sealed partial record GrantSet([property: SetEquality] FrozenSet<Grant> G
     public GrantSet Without(GrantSet other) => new(Grants.Except(other.Grants).ToFrozenSet());
     public bool Admits(GrantSet demand) => Grants.Contains(Grant.Admin) || demand.Grants.IsSubsetOf(Grants);
     public bool Blocks(GrantSet demand) => Grants.Contains(Grant.Admin) || Grants.Overlaps(demand.Grants);
-    // EVIDENCE complement of `Admits`, the kernel `CapabilitySet.Missing` law realized on this algebra: a refusal
-    // names WHICH grants the demand lacked instead of echoing the whole demand back, so a caller repairs the two
-    // rows it is short rather than re-probing one grant per round trip. Superuser-aware, exactly as `Admits` is —
-    // which is also why this set is NOT a `CapabilitySet<Grant>`: `Admin` containment is a DOMAIN rule that plain
-    // set containment cannot state, and the kernel column would silently drop it.
     public GrantSet Missing(GrantSet demand) =>
         Grants.Contains(Grant.Admin) ? None : new(demand.Grants.Except(Grants).ToFrozenSet());
 }
@@ -111,21 +101,15 @@ public sealed partial class AclScope {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// `GrantedBy` is the Persistence-owned `StoreActor` — the AppHost `Principal` never crosses down.
 public sealed record AclEntry(GrantSet Allow, GrantSet Deny, StoreActor GrantedBy, Instant At, Option<Instant> From, Option<Instant> Until) {
     public bool WindowValid => From.Match(Some: from => Until.Match(Some: until => from < until, None: static () => true), None: static () => true);
     public bool Live(Instant now) => WindowValid && From.Match(Some: f => now >= f, None: static () => true) && Until.Match(Some: u => now < u, None: static () => true);
     public bool Lapsed(Instant now) => WindowValid && Until.Match(Some: u => now >= u, None: static () => false);
 }
 
-// Plain record: LanguageExt HashMap/Option give structural value equality, so no Generator.Equals or Thinktecture
-// owner stacks here and the recursive Inherited chain compares whole. Subject-string keys are the hash-safe shape.
 public sealed record ObjectAcl(
     UInt128 Scope, AclScope Kind, StoreActor Owner,
     HashMap<string, AclEntry> Principals, HashMap<string, AclEntry> Roles, Option<ObjectAcl> Inherited) {
-    // Both integrity projections ACCUMULATE down the whole chain rather than stopping at the first offender: the
-    // altitudes are independent, so a break at `document` says nothing about `branch` above it, and an operator
-    // repairing ACL data reads the whole gap in one verdict instead of one broken row per admission.
     public Seq<ObjectAcl> InvalidLadder =>
         (Inherited.Match(
             Some: parent => Kind.Parent == Some(parent.Kind) ? Seq<ObjectAcl>() : Seq(this),
@@ -149,31 +133,22 @@ public sealed record ObjectAcl(
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// Authz half of the fissioned decision union; the crypto half is the identity-tier `CustodyVerdict` — the two never re-fuse.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AuthDecision {
     private AuthDecision() { }
     public sealed record Granted(GrantSet Effective) : AuthDecision;
-    // `Missing` is the refusal's EVIDENCE — the grants the demand lacked, never the demand echoed back.
     public sealed record Denied(StoreActor Actor, GrantSet Demand, GrantSet Missing, UInt128 Scope) : AuthDecision;
     public sealed record ScopeMismatch(UInt128 Demanded, UInt128 Actual) : AuthDecision;
-    // Both integrity verdicts carry EVERY offender, not the first: malformed ACL data is repaired by an operator
-    // reading the whole gap, and a first-defect probe costs one admission round trip per broken row.
     public sealed record InvalidInheritance(UInt128 Scope, Seq<(AclScope Kind, Option<AclScope> ActualParent)> Broken) : AuthDecision;
     public sealed record InvalidWindow(UInt128 Scope, Seq<AclEntry> Entries) : AuthDecision;
     public sealed record Expired(StoreActor Actor, Instant LapsedAt) : AuthDecision;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// One grant-membership delta off the `[SetEquality]` member diff — `Granted: true` is an Added segment, `false` Removed.
 public readonly record struct AclShift(Grant Grant, bool Granted);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Authority {
-    // Deny-over-allow at EVERY altitude: allow and deny ACCUMULATE separately down the inheritance chain and the
-    // subtraction runs ONCE at the root — a per-level `Without` re-orders precedence and lets a child direct allow
-    // re-grant a parent's explicit deny (the lost-inherited-deny defect this split fold forecloses). Owner
-    // recognition compares Subject only and short-circuits BEFORE the fold, so a creator keeps `GrantSet.Owner` past every explicit deny.
     public static GrantSet Effective(ObjectAcl acl, StoreActor actor, Instant now) =>
         string.Equals(acl.Owner.Subject, actor.Subject, StringComparison.Ordinal)
             ? GrantSet.Owner
@@ -195,7 +170,6 @@ public static class Authority {
                 inherited.Item2.Union(role.Deny).Union(direct.Map(static e => e.Deny).IfNone(GrantSet.None)));
     }
 
-    // Resolves the LATEST lapse instant across direct, role, and inherited entries, so `Expired.LapsedAt` is the real `Until`.
     static Option<Instant> LapsedFor(ObjectAcl acl, StoreActor actor, GrantSet demand, Instant now) {
         Seq<AclEntry> local = acl.Principals.Find(actor.Subject).ToSeq() + actor.Roles.Bind(role => acl.Roles.Find(role).ToSeq());
         Seq<Instant> lapses = local.Filter(e => e.Lapsed(now) && e.Allow.Admits(demand)).Bind(static e => e.Until.ToSeq())
@@ -203,10 +177,6 @@ public static class Authority {
         return lapses.Fold(Option<Instant>.None, static (acc, at) => Some(acc.Match(Some: held => Instant.Max(held, at), None: () => at)));
     }
 
-    // Integrity precedes authorization; a live explicit deny precedes expiry diagnosis. The three integrity reads
-    // are ordered rather than accumulated because they are DEPENDENT, not independent: a scope mismatch means this
-    // ACL is not the object's at all, so its ladder and windows describe a different subject and reporting them
-    // would name defects in data the caller never asked about. WITHIN each read the offenders accumulate.
     public static AuthDecision Admit(ObjectAcl acl, StoreActor actor, GrantSet demand, UInt128 scope, Instant now) =>
         acl.Scope != scope ? new AuthDecision.ScopeMismatch(scope, acl.Scope)
         : acl.InvalidLadder is { IsEmpty: false } broken
@@ -215,9 +185,6 @@ public static class Authority {
         : acl.InvalidWindow is { IsEmpty: false } lapsed ? new AuthDecision.InvalidWindow(acl.Scope, lapsed)
         : Graded(acl, actor, demand, scope, now);
 
-    // `Graded` decides the grant verdict: a granted demand carries the effective set, and EVERY refusal carries
-    // every missing row the demand went short — one verdict holding the whole gap, since a caller repairing one
-    // grant per round trip pays exactly the first-defect cost this evidence deletes.
     static AuthDecision Graded(ObjectAcl acl, StoreActor actor, GrantSet demand, UInt128 scope, Instant now) =>
         Effective(acl, actor, now) is { } effective && effective.Admits(demand)
             ? new AuthDecision.Granted(effective)
@@ -227,12 +194,6 @@ public static class Authority {
                     Some: at => new AuthDecision.Expired(actor, at),
                     None: () => new AuthDecision.Denied(actor, demand, effective.Missing(demand), scope));
 
-    // Audit-lane grant diff: the generated `[SetEquality]` member diff reports Added/Removed segments, each a typed
-    // AclShift row. In-memory projection only — tamper evidence stays `Version/provenance`.
-    // `Inequalities` hands back `object?` on both sides and populates only the side its segment kind names, so
-    // this row admits FOREIGN material ONCE: `Choose` over an option-shaped read drops a delta carrying no
-    // `Grant` on either side rather than forcing one through a null-forgiving cast, and the two `??`-plus-`!`
-    // pairs that stood here — each asserting a non-null the payload's own contract never promised — delete whole.
     public static Seq<AclShift> Shift(GrantSet before, GrantSet after) =>
         toSeq(GrantSet.EqualityComparer.Default.Inequalities(before, after))
             .Choose(static delta => delta.Path.Segments[^1].Kind switch {
@@ -241,8 +202,6 @@ public static class Authority {
                 _ => None,
             });
 
-    // One admission for both arms: the segment's OWN side reads first and the opposite side is the fallback the
-    // generator populates on a whole-set replacement, so the arm names its side rather than repeating the pair.
     static Option<AclShift> Row(object? side, object? fallback, bool Granted) =>
         (side ?? fallback) is Grant grant ? Some(new AclShift(grant, Granted)) : None;
 }

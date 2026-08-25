@@ -117,9 +117,6 @@ const Transport: {
 const _webProtocols = ["connect", "grpc-web"] as const
 const _nodeProtocols = ["connect", "grpc-web", "grpc"] as const
 
-// The schema union IS the support matrix. There is no generic protocol field paired with a generic host field, so
-// a browser or Bun lane can never carry `grpc`; adding a host or protocol widens one owned arm and breaks every
-// adapter capability that has not supplied its public factory.
 const _WebLane = Schema.Struct({
   adapter: Schema.Literal("web"),
   protocol: Schema.Literal(..._webProtocols),
@@ -136,9 +133,6 @@ const _PositiveDuration = Schema.DurationFromMillis.pipe(
   Schema.filter((duration) => Duration.toMillis(duration) > 0, { identifier: "PositiveDialDuration" }),
 )
 
-// Each lane names its retry OWNER and carries no curve: `budget` is the `value/fault#RETRY_BUDGET` row whose
-// compiled schedule and attempt ceiling this ladder spends, so a proxy row and a direct row differ by which row
-// they name.
 const _LanePolicy = Schema.Union(_WebLane, _NodeLane)
 
 const _TransportPolicy = Schema.Struct({
@@ -269,9 +263,6 @@ const _openStream = <O>(
     ),
   )
 
-// Remote recovery spends attempts on the current lane only. Transport is the sole topology signal, while malformed
-// detail is terminal; no remote domain case is interpreted as a route decision. A transport hop re-drives on the
-// ONE code table's class — `Wire.Hops` — so a caller-blamed code spends no attempt on any lane.
 const _failsOver = (fault: Wire.InvokeFault): boolean => fault instanceof Wire.Transport
 const _retries: Predicate.Predicate<unknown> = (fault) =>
   (fault instanceof Wire.Remote && fault.retryable)
@@ -329,9 +320,6 @@ class Dial extends Effect.Service<Dial>()("@rasm/core/Dial", {
   static readonly Context: typeof _CONTEXT = _CONTEXT
   static readonly Lane: typeof Lane = Lane
   static readonly web: typeof _web = _web
-  // `admitted` rides FIRST because it is the precondition, not a decoration: a caller holding
-  // only raw descriptor bytes cannot reach this entry at all, so the canonical-pin proof rides in through the value's
-  // own provenance rather than as a guard every composition root must remember to run.
   static readonly sdk = <T extends DescService>(admitted: Capability.Admitted, service: T): Effect.Effect<
     Dial.Sdk<T>, ParseResult.ParseError | Wire.Fault, Dial
   > => _sdkOf(admitted, service)
@@ -366,7 +354,6 @@ const _capabilityUnits = ["cpu-millis", "wall-millis", "bytes-egress", "model-to
 const _strictlyOrdered = (values: ReadonlyArray<string>): boolean =>
   Array.every(Array.zip(values, Array.drop(values, 1)), ([was, is]) => was < is)
 
-// One canonical capability-document row: per-row unit order is the ROW's own filter, so no consumer restates it.
 const _DescriptorRow = Schema.Struct({
   descriptor: Schema.NonEmptyString,
   surface: Schema.NonEmptyString,
@@ -378,31 +365,19 @@ const _DescriptorRow = Schema.Struct({
   ),
 })
 
-// DOCUMENT-level half of canonicality — the pin's own descriptor count and the roster ordering no single row can
-// witness; the per-row half is `_DescriptorRow`'s own filter, so the admission class below spends each half once.
 const _canonical = (pin: Wire.Decoded<"DescriptorPinWire">, rows: ReadonlyArray<typeof _DescriptorRow.Type>): boolean =>
   rows.length === pin.descriptors && _strictlyOrdered(Array.map(rows, (row) => row.descriptor))
 
 const _descriptorDocument = Format.json.schema(Schema.Array(_DescriptorRow))
 const _descriptorBytes = new TextEncoder()
 
-// Every field arrives ALREADY decoded — the pin through `Wire.decode`, the rows through `_descriptorDocument`, the
-// contract as the peer's advertised package and service family — so each re-reads its owner's TYPE side rather than minting
-// a second encoded shape nothing writes. This value is an in-process admission witness that crosses no wire, and
-// `typeSchema` states that at the field instead of in prose.
 const _admission = Schema.Struct({
   pin: Schema.typeSchema(Wire.schema("DescriptorPinWire")),
   descriptors: Schema.Array(Schema.typeSchema(_DescriptorRow)),
   contract: Schema.Struct({ package: Schema.NonEmptyString, family: Schema.NonEmptyString }),
 })
 
-// THE resolved type. Evaluation takes this owner and nothing else, so a descriptor that never met the network step is
-// unrepresentable at `Dial.sdk` rather than refused by a guard a caller could skip. The class is the nominal identity
-// this branch admits — `docs/stacks/typescript/shapes.md` makes a standalone exported brand the named defect, so the
-// admission fact rides the owner, whose constructor and decode both re-run the filter set below.
 class CapabilityAdmitted extends Schema.Class<CapabilityAdmitted>("Capability.Admitted")(
-  // Canonicality has ONE owner: `_canonical` relates the pin's count and ordering to the rows, so this class spends it
-  // once at construction and at decode alike and restates no predicate.
   _admission.pipe(Schema.filter(
     ({ descriptors, pin }) => _canonical(pin, descriptors) || "<noncanonical-descriptor-pin>",
     { identifier: "CanonicalAdmission" },
@@ -441,8 +416,6 @@ declare namespace Dial {
   }
 }
 
-// `identifier` carries the derivation's PROVENANCE: a service name alone answers for every generation that ever
-// shipped it, so a binding refusal could not say which pinned document its members were derived against.
 const _sdkSchema = <T extends DescService>(admitted: Capability.Admitted, service: T): Schema.Schema<Dial.Sdk<T>> =>
   Schema.declare(
     (input: unknown): input is Dial.Sdk<T> =>
@@ -451,20 +424,11 @@ const _sdkSchema = <T extends DescService>(admitted: Capability.Admitted, servic
     { identifier: `${service.typeName}Sdk@${admitted.pin.digest}` },
   )
 
-// Closed boundary rosters preregister, so a posture nothing has raised yet reports zero rather than a panel hole.
-const _calls = Convention.mount(Convention.metric.invokeCalls) // module scope: Effect keys an instrument by name and tag set, so a mount inside a fold re-derives one registry entry per call
+const _calls = Convention.mount(Convention.metric.invokeCalls)
 const _clock = Convention.mount(Convention.metric.invokeDuration)
-// `owner` is the ARM that raised, read off the same closed union the reason projection dispatches on, so a governed
-// dimension carries a rostered word rather than a coinage: a fourth arm breaks HERE instead of stamping `admission`,
-// a name no member of `Wire.InvokeFault` answers to and no query resolves.
 const _faultOwner = (fault: Wire.InvokeFault): "malformed-detail" | "remote" | "transport" =>
   fault instanceof Wire.Remote ? "remote" : fault instanceof Wire.Transport ? "transport" : "malformed-detail"
 
-// `domain` plus `case` is the generated fault identity and `posture` the producer's own re-drive verdict, so the
-// compact detail publishes exactly the columns a reader dispatches or re-drives on and nothing beside them. Connect
-// `Code` remains the transport classification on `Wire.Transport` and never aliases either semantic identity column.
-// Every key comes off `Convention.rasm`, so an unrostered `rasm.fault.*` spelling is unspellable at this raise and the
-// record types as `Convention.Attributes` rather than as a free string map a sink cannot resolve.
 const _faultEvidence = (fault: Wire.InvokeFault): Convention.Attributes =>
   fault instanceof Wire.Remote
     ? {
@@ -475,11 +439,6 @@ const _faultEvidence = (fault: Wire.InvokeFault): Convention.Attributes =>
       }
     : { [Convention.rasm.faultOwner]: _faultOwner(fault) }
 
-// Both census aspects take the raiser's OWN published roster and mount INSIDE the aspect, so no page spells the
-// tracking operator beside its own mount and a word no arm produces has no spelling here. `Wire.invokeReason` is the
-// one projection every lane reads: the `rejected:` prefix it used to wear said nothing the roster does not already
-// say, since `Convention.Fused` proves these words disjoint from the three exit rows rather than a reader stripping
-// a decoration to compare them.
 const _tracked = Convention.tracked(Convention.metric.invokeFault, Wire.invokeReasons, Wire.invokeReason)
 const _counted = Convention.outcome(
   Convention.metric.invokeCalls,
@@ -488,8 +447,6 @@ const _counted = Convention.outcome(
   Wire.invokeReason,
 )
 
-// Stream carries no `onExit` aspect, so the feed lane folds the SAME anchor at its own scope exit; one reason
-// projection serves both lanes, so the two exits can never disagree on a word.
 const _streamOutcome = (exit: Exit.Exit<unknown, Wire.InvokeFault>): Dial.Outcome =>
   Exit.match(exit, {
     onFailure: (cause) =>
@@ -513,8 +470,6 @@ const _observed = (span: string, tags: Convention.Attributes) =>
 const _observedStream = (span: string, tags: Convention.Attributes) =>
   <A, R>(self: Stream.Stream<A, Wire.InvokeFault, R>): Stream.Stream<A, Wire.InvokeFault, R> =>
     self.pipe(
-      // Stream holds no error-census aspect, so the tap re-offers each fault as a one-shot effect through the SAME
-      // `Convention.tracked` operator the rail lane spends — one mount, one projection, no second instrument here.
       Stream.tapError((fault) => Effect.all([
         Effect.ignore(_tracked(Effect.fail(fault))),
         Effect.annotateLogs(_faultEvidence(fault)),
@@ -523,9 +478,6 @@ const _observedStream = (span: string, tags: Convention.Attributes) =>
       Stream.withSpan(span, { attributes: tags }),
     )
 
-// Method kinds Connect cannot bind are drift between the generated service and the capability that admitted it, so the
-// refusal names BOTH coordinates. Naming the method alone leaves an operator holding the failure without the pinned
-// document that declared the surface it failed against, which is the one fact a re-pin acts on.
 const _unbindable = (admitted: Capability.Admitted, method: DescMethod): Wire.Fault =>
   new Wire.Fault({
     family: "FaultDetail",
@@ -539,9 +491,6 @@ const _unbindable = (admitted: Capability.Admitted, method: DescMethod): Wire.Fa
     },
   })
 
-// Contract identity is package plus service family under the admitted generation digest. Both coordinates compare
-// before one method derives; every peer regenerates from the one live shape, so no descriptor walk or CloudEvents
-// `dataschema` vocabulary enters this handshake.
 const _diverged = (admitted: Capability.Admitted, service: DescService): Wire.Fault =>
   new Wire.Fault({
     family: "FaultDetail",
@@ -624,9 +573,6 @@ const _sdkOf = <T extends DescService>(admitted: Capability.Admitted, service: T
       return yield* Schema.decodeUnknown(_sdkSchema(admitted, service))(Record.fromEntries(rows))
     })
 
-// `Capability` publishes its resolved type beside its mint: a caller with no live peer — a test double, a loopback —
-// declares a fixture through `Capability.Admitted` and dials on it, which is a visible act at a named decode rather
-// than an admission step quietly skipped.
 abstract class Capability {
   static readonly Admitted: typeof CapabilityAdmitted = CapabilityAdmitted
   static readonly admit: typeof _admitCapability = _admitCapability
@@ -642,10 +588,6 @@ abstract class Capability {
 - Boundary: `Invoke.AvailabilityGate` supplies verdicts, and the runtime supplies socket acquisition and serving lifetime.
 
 ```typescript signature
-// The invocation is the GENERATED `CommandInvocation` — its payload the corpus's five-arm `CommandPayloadWire`
-// oneof, whose `fields` arm is the one open `Struct` on this plane — decoded through its generated descriptor under
-// the JSON posture every contract document shares. A row's own payload schema decodes that generated face into the
-// row's domain, so the hand five-arm union that once restated the oneof is gone and a sixth arm lands at the corpus.
 const CommandInvocation = ui.CommandInvocationSchema
 type CommandInvocation = MessageValidType<typeof CommandInvocation>
 type CommandPayload = MessageValidType<typeof ui.CommandPayloadWireSchema>
@@ -657,7 +599,7 @@ type Dispatched<A> = Data.TaggedEnum<{
 interface DispatchedDefinition extends Data.TaggedEnum.WithGenerics<1> {
   readonly taggedEnum: Dispatched<this["A"]>
 }
-const _Dispatched = Data.taggedEnum<DispatchedDefinition>() // interior constructor: the annotation gate reaches the merged name, so only the type exports
+const _Dispatched = Data.taggedEnum<DispatchedDefinition>()
 
 class AvailabilityGate extends Context.Tag("@rasm/core/AvailabilityGate")<AvailabilityGate, {
   readonly admits: (verb: string) => Effect.Effect<Evidence.Availability.Verdict>
@@ -692,8 +634,6 @@ class SupportIntake extends Context.Tag("@rasm/core/SupportIntake")<SupportIntak
 
 declare namespace Gateway {
   type Row<B, A, I> = {
-    // the row decodes the generated payload face; an unset oneof arm refuses here because the row's own schema
-    // admits no `undefined`, and the corpus rule already refused it at the frame
     readonly invocation: Schema.Schema<B, CommandPayload>
     readonly output: Schema.Schema<A, I>
     readonly handler: (invocation: CommandInvocation, payload: B) => Effect.Effect<A, Wire.Fault>
@@ -733,8 +673,6 @@ declare namespace Gateway {
   }
 }
 
-// Socket frames carry the invocation as its ProtoJSON tree — the same document the bytes arm reads — so one
-// generated codec serves the byte seam and both socket dialects.
 const _frames = {
   msgpack: <A>(invocation: Schema.Schema<CommandInvocation, JsonValue>, output: Schema.Schema<Dispatched<A>, unknown>) =>
     (socket: Socket.Socket): Gateway.Duplex<A> =>
@@ -784,8 +722,6 @@ const _make = <
         return [key, compiled] as const
       }),
     )
-    // ONE decoder for every verb: the verb roster gates at `dispatch`, where an unrostered key is the `drift` fault
-    // below, so the invocation schema admits the generated message and re-spells no per-verb union beside it.
     const invocation: Schema.Schema<CommandInvocation, JsonValue> = Format.proto.json(CommandInvocation)
     const output: Schema.Schema<Dispatched<A[Kinds[number]]>, unknown> = Schema.Union(...Array.map(keys, (key) => Schema.Union(
       Schema.Struct({ _tag: Schema.Literal("Granted"), verb: Schema.Literal(key), receipt: rows[key].output }),
@@ -861,11 +797,6 @@ import { timestampFromMs, timestampMs } from "@bufbuild/protobuf/wkt"
 import { ProgressPhase, ProgressService, WatchRequestSchema, WatchResponseSchema } from "@rasm\/contracts/rasm/contracts/compute/progress_pb"
 import { DateTime } from "effect"
 
-// The GENERATED enum is the primary correspondence and this table its ONE branch projection. `_Defined` drops the
-// zero member the corpus rule already refuses; `_OrdinalOf` resolves a lowered member name back to that member's own
-// ordinal; the contract then forces exactly one row per surviving member carrying exactly that ordinal. A tenth
-// `ProgressPhase` member fails at this declaration and a mis-paired cell fails beside it, so no hand (word, ordinal)
-// pairing survives anywhere — the rows are transcription and runtime, never the correspondence.
 type _Defined = Exclude<keyof typeof ProgressPhase, "UNSPECIFIED">
 type _OrdinalOf<Word extends string> = {
   [Member in _Defined]: Lowercase<Member> extends Word ? (typeof ProgressPhase)[Member] : never
@@ -883,14 +814,10 @@ const _phases = {
   faulted: ProgressPhase.FAULTED,
 } as const satisfies { readonly [Word in Lowercase<_Defined>]: _OrdinalOf<Word> }
 
-// Both directions read the one table: the word schema off its keys, the inbound narrowing off its entries. Ordinal
-// ascent IS the producer's rank ladder, so declaration order carries rank and no rank column restates it here.
 const _PhaseWord: Schema.Schema<Progress.Phase> = Schema.Literal(...Record.keys(_phases))
 const _worded = (ordinal: ProgressPhase): Option.Option<Progress.Phase> =>
   Option.map(Array.findFirst(Record.toEntries(_phases), ([, member]) => member === ordinal), ([word]) => word)
 
-// The mark carries the producer's five columns and nothing beside them. Absence rides `Option` at construction, so
-// no consumer reads `undefined` and no fabricated zero makes an unmeasured phase look measured.
 class ProgressMark extends Schema.Class<ProgressMark>("Progress.Mark")({
   phase: _PhaseWord,
   fraction: Schema.OptionFromSelf(Schema.Number),
@@ -899,11 +826,6 @@ class ProgressMark extends Schema.Class<ProgressMark>("Progress.Mark")({
   correlation: Schema.Uint8ArrayFromSelf,
 }) {}
 
-// ONE bidirectional owner over the generated response. `Format.proto.message` runs the corpus rules first — defined
-// non-zero phase, the `[0, 1]` fraction bound, the sixteen-byte correlation, the required stamp — so this transform
-// lifts columns and re-judges none of them; `valid_types=protovalidate_required` is why `at` reads present without a
-// nullish arm. The encode arm exists so a loopback or fixture mints a response through the same declaration the live
-// peer's frames land through, rather than through a second shape a test writes by hand.
 const _MarkFromWire: Schema.Schema<Progress.Mark, MessageShape<typeof WatchResponseSchema>> = Schema.transformOrFail(
   Format.proto.message(WatchResponseSchema),
   ProgressMark,
@@ -941,11 +863,6 @@ const _MarkFromWire: Schema.Schema<Progress.Mark, MessageShape<typeof WatchRespo
   },
 )
 
-// `admitted` rides first for the reason `Dial.sdk` takes it first: the pin is the precondition, not a decoration.
-// Derivation happens INSIDE the stream's own scope, so opening a watch is one act — the alternative hands every
-// composition root an sdk mint to sequence, and a caller that forgets it holds a descriptor that met no peer. The
-// request is minted and admitted through the generated descriptor's own rule, so the sixteen-byte width refuses on
-// the parse rail before a transport is touched rather than at the peer after a round trip.
 const _watch = (
   admitted: Capability.Admitted,
   correlation: Uint8Array,
@@ -1004,7 +921,7 @@ declare namespace Invoke {
   type Invocation = CommandInvocation
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Invoke }
 ```

@@ -38,10 +38,10 @@ using NetTopologySuite.Geometries;
 using NetTopologySuite.IO;
 using NodaTime;
 using Npgsql;
-using Rasm.Domain;                                 // TenantId — the S0 tenancy key the RLS column carries
+using Rasm.Domain;
 using Rasm.Element.Graph;
 using Rasm.Element.Projection;
-using Rasm.Persistence.Store;                      // StoreProfile/StoreCapability — the engine row owning Model/Capabilities/Ef
+using Rasm.Persistence.Store;
 using Thinktecture;
 using Thinktecture.EntityFrameworkCore;
 using static LanguageExt.Prelude;
@@ -49,18 +49,12 @@ using static LanguageExt.Prelude;
 namespace Rasm.Persistence.Element;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// `H3Cell` is the immutable durable spatial key: the pocketken.H3 `H3Index` is a MUTABLE class wrapping a `ulong`,
-// so the tier stores the cell as the `long` reinterpretation (the `bigint`/`h3-pg` convention, bit-exact round-trip)
-// and never shares a live `H3Index` across a fold. `Of` reinterprets the cell `ulong`; `Live` rehydrates the managed
-// instance for an algebra call. A zero cell is `H3Index.Invalid` and never persists (it rails CellUnresolvable at mint).
 [ValueObject<long>]
 public readonly partial struct H3Cell {
     public static H3Cell Of(H3.H3Index cell) => Create(unchecked((long)(ulong)cell));
     public H3.H3Index Live => new((ulong)Value);
 }
 
-// Provider row the one converter rail discriminates: postgres is the SoR spine, sqlite the embedded
-// relational identity floor (`Store/provisioning#STORE_AXIS_MAP` `StoreProfile.Embedded` binds it; raw ADO keeps EngineOps).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StoreBinding {
     private StoreBinding() { }
@@ -68,12 +62,6 @@ public abstract partial record StoreBinding {
     public sealed record Embedded(DbConnection Connection) : StoreBinding;
 }
 
-// Provider divergence as ROW DATA, keyed on the SAME vocabulary `Store/provisioning#SERVER_EXTENSIONS`
-// `StoreProfile` uses, so `Of` joins the two axes through one generated lookup and a profile row landed without
-// its shape row fails that lookup loudly at composition. Absent slots are the divergence: no geometry slot drops
-// both the WKB `byte[]` conversion and the GiST index, and no vector slot leaves `Embedding` unmapped.
-// `Design` binds the provider WITHOUT a connection because a scaffold reaches no server, and `Emission` names the
-// per-profile generation namespace both the design emission and the runtime options bind.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IdentityShapeRow {
@@ -100,23 +88,12 @@ public sealed partial class IdentityShapeRow {
     public static IdentityShapeRow Of(StoreProfile profile) => Get(profile.Key);
 }
 
-// `CompiledModels` holds what `Optimize` emits, one run per profile under `IdentityDesignFactory`. `StoreProfile.Model`
-// reads these slots, so the profile row IS the model identity and `UseModel` never consults the framework cache.
-// Generated type names fix off the context, so each profile emits into its OWN generation namespace (the
-// `Emission` column above) — a shared namespace collides two engines on one `IdentityContextModel`.
 public static class CompiledModels {
     public static IModel Server => Rasm.Persistence.Generations.Server.Compiled.IdentityContextModel.Instance;
     public static IModel Embedded => Rasm.Persistence.Generations.Embedded.Compiled.IdentityContextModel.Instance;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// `Bounds` is a nullable CLR `Polygon` (SRID 4326): the PostGIS translators bind the CLR geometry type
-// directly in LINQ predicates, so an Option wrapper would forfeit server-side translation — null IS the
-// absent-bounds state at this EF boundary (embedded floor / pre-bounds rows).
-// `ZMin`/`ZMax` are the vertical-span columns beside the XY footprint — the third spatial plane (cells for
-// bucket joins, footprint for exact XY predicates, z-span for storey banding), so two elements stacked on
-// different storeys stop being server-indistinguishable; null means no vertical extent recorded (the same
-// absent-state law as `Bounds`).
 public sealed record ElementIdentity(
     ModelId Model,
     TenantId Tenant,
@@ -133,27 +110,12 @@ public sealed record ElementIdentity(
     public int NodeCount => Roots.Count;
 }
 
-// `NodeCell` rows the per-ELEMENT fine cell: one rooted `NodeId` -> its own fine-resolution H3 cell (the element
-// bounding-envelope centroid cell), the element-DISTINCT vertex the `Query/cypher#GRAPH_QUERY` `pgrouting`
-// `network_edge` source/target carries and `NodeAt` resolves back to a `NodeId`. Distinct in grain from the per-MODEL
-// `ElementIdentity.Cell` locator — this is the per-element routing vertex, that the model bounding-envelope locator.
-// `Z` is the element centroid elevation (meters), so a storey-banded spatial join is one indexed range predicate
-// beside the cell equality — never a client-side elevation scan.
 public sealed record NodeCell(ModelId Model, NodeId Node, TenantId Tenant, H3Cell Cell, double Z);
 
 public sealed record IdentityWriter(string Sql, Func<ElementIdentity, object?[]> Binds);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-// `ConverterRail` composes the ONE options set: generated Thinktecture converters (bounded Configuration.Default key
-// width) + snake-case naming + the provider plugin stack — NTS geometry, NodaTime Instant, and pgvector all mount on
-// one UseNpgsql options row. Hand `HasConversion` on a Thinktecture type and hand `HasColumnName` are the deleted
-// forms; `ThinktectureValueConverterFactory.Create<T,TKey>` covers the residual EF-cannot-resolve case. The compiled
-// model (`Optimize`) mounts back through this same rail byte-identically.
 public static class ConverterRail {
-    // `Tenant` is the ONE tenant column conversion every tenant-bearing relation binds: the pair is the kernel's own
-    // `TenantId.Text`/`Of`, so the column stores the exact fixed-width `x32` text the RLS predicate compares
-    // against `current_setting('rasm.tenant', true)` — no fictional `UInt128`->`uuid` provider mapping, and no
-    // entity shape re-spelling the format. A `TenantId` column also makes a cross-key mix-up unrepresentable.
     public static readonly ValueConverter<TenantId, string> Tenant = new(
         static tenant => tenant.Text, static text => TenantId.Of(text));
 
@@ -165,10 +127,6 @@ public static class ConverterRail {
         .UseThinktectureValueConverters(Configuration.Default);
 }
 
-// ONE context type, two engines: at RUNTIME the profile row's compiled model mounts through `UseModel`, so
-// `OnModelCreating` NEVER executes and the shape slot is structurally absent — an executed model build at runtime
-// IS the defect the refusal names, since it proves `UseModel` never mounted. `IdentityDesignFactory` supplies the
-// row on the design path. Options-only construction stays the sole ctor `PooledDbContextFactory<T>` can reach.
 public sealed class IdentityContext : DbContext {
     readonly Option<IdentityShapeRow> shape;
 
@@ -178,31 +136,19 @@ public sealed class IdentityContext : DbContext {
     public DbSet<ElementIdentity> Identities => Set<ElementIdentity>();
     public DbSet<NodeCell> Cells => Set<NodeCell>();
 
-    // Provider divergence is model DATA on the shape row — never a `Database.IsSqlite()` probe, a second context,
-    // or a second mapping.
     protected override void OnModelCreating(ModelBuilder model) {
         ArgumentNullException.ThrowIfNull(model);
-        // Exemption: `OnModelCreating` is void by EF's own signature, so no rail exists to refuse onto. The row is
-        // absent ONLY on the runtime ctor, and the runtime mounts a compiled model through `UseModel` — which
-        // bypasses this method whole — so reaching here at runtime is a composition that cannot serve, not a
-        // state to absorb: a silent default would build a model against the wrong engine's divergence columns.
         IdentityShapeRow row = shape.IfNone(static () => throw new InvalidOperationException("<identity-shape:runtime-model-build>"));
         model.ApplyConfiguration(new IdentityShape(row));
         model.ApplyConfiguration(new NodeCellShape());
     }
 }
 
-// Per-profile design-time seam: `dotnet ef … -- <profile-key>` selects the row, so the scaffold, the `Optimize`
-// compiled model, and the idempotent script each emit ONCE PER PROFILE off the one context type. Absent argument
-// refuses rather than defaulting.
 public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<IdentityContext> {
     public IdentityContext CreateDbContext(string[] args) {
         ArgumentNullException.ThrowIfNull(args);
         IdentityShapeRow row = args is [string key, ..]
             ? IdentityShapeRow.Get(key)
-            // Exemption: `IDesignTimeDbContextFactory` returns the context bare, so the design-time tooling entry
-            // carries no rail. Defaulting a profile here would emit one engine's generation into another's
-            // namespace, so the absent argument refuses at the tool.
             : throw new InvalidOperationException("<identity-design-profile:absent>");
         return new IdentityContext(
             (DbContextOptions<IdentityContext>)row.Design(new DbContextOptionsBuilder<IdentityContext>())
@@ -211,16 +157,9 @@ public sealed class IdentityDesignFactory : IDesignTimeDbContextFactory<Identity
     }
 }
 
-// ONLY the residual set the conventions cannot derive: LanguageExt carrier conversions, the JSON columns, the
-// geometry column, and the indexes. Every scalar/[ValueObject]/[SmartEnum] column (Model, Tenant, Cell,
-// Classification, At, NodeCell.Node) converts and names through the rail — zero HasColumnName, zero hand
-// converter on a Thinktecture type. Divergence reads off `shape` COLUMNS, never a provider probe.
 public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfiguration<ElementIdentity> {
     public void Configure(EntityTypeBuilder<ElementIdentity> identity) {
         ArgumentNullException.ThrowIfNull(identity);
-        // `element_identity` is the ONE declared physical relation both sides name: EF owns its DDL and every read lane targets it,
-        // and `IdentityStore.Stamp` queues its model-derived upsert against THIS table — explicit, so the
-        // write rail and the query surface can never resolve to two convention-divergent relations.
         identity.ToTable("element_identity");
         identity.HasKey(static e => e.Model);
         identity.Property(static e => e.Roots)
@@ -239,12 +178,7 @@ public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfigura
         identity.Property(static e => e.Acl).HasColumnType(shape.Json)
             .HasConversion(
                 static acl => System.Text.Json.JsonSerializer.Serialize(acl, ElementJson.Options),
-                // Exemption: an EF `ValueConverter` delegate returns the converted value bare and has no rail. A
-                // null ACL cannot fold to the empty grant either — that is FAIL-OPEN on the fine within-tenant
-                // authority — so the decode refuses and the read fails closed.
                 static json => System.Text.Json.JsonSerializer.Deserialize<ObjectAcl>(json, ElementJson.Options) ?? throw new System.Text.Json.JsonException("<object-acl:null>"));
-        // Absent geometry slot IS the embedded floor: bounds degrade to WKB bytes beside the H3 bigint and no
-        // spatial index exists, because no PostGIS operator class does. Present slot names both column and method.
         shape.Geometry.Match(
             Some: geometry => {
                 identity.Property(static e => e.Bounds).HasColumnType(geometry.Column);
@@ -254,8 +188,6 @@ public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfigura
                 .HasConversion(new ValueConverter<Polygon?, byte[]?>(
                     static g => g == null ? null : new WKBWriter().Write(g),
                     static b => b == null ? null : (Polygon)new WKBReader().Read(b))));
-        // Some -> the vector, None -> a NULL column; the column sizes by the row's declared metadata. An absent
-        // slot IGNORES the member, so the floor carries no ANN column at all.
         shape.Vector.Match(
             Some: column => identity.Property(static e => e.Embedding).HasColumnType(column)
                 .HasConversion(
@@ -266,10 +198,6 @@ public sealed class IdentityShape(IdentityShapeRow shape) : IEntityTypeConfigura
                         static (x, y) => x == y, static v => v.GetHashCode(), static v => v)),
             None: () => identity.Ignore(static e => e.Embedding));
         identity.HasIndex(static e => e.Cell);
-        // Covering prefix for the `#STORE_OPERATION_BRACKET` keyset page: the page op's ordering tuple and this
-        // index are ONE declaration, tenant leading so the partition prunes before the seek, and the unique
-        // `Model` tiebreaker closing the tuple so no page boundary repeats or skips a row. Its leading column
-        // subsumes the standalone tenant index the RLS predicate seeks on, so no second tenant index exists.
         identity.HasIndex(static e => new { e.Tenant, e.At, e.Model });
     }
 }
@@ -280,7 +208,6 @@ public sealed class NodeCellShape : IEntityTypeConfiguration<NodeCell> {
         node.ToTable("node_cell");
         node.HasKey(static n => new { n.Model, n.Node });
         node.Property(static n => n.Tenant).HasColumnType("text").HasConversion(ConverterRail.Tenant);
-        // Composite (Cell, Z): the storey-banded join is cell-equality + z-range, served index-only.
         node.HasIndex(static n => new { n.Cell, n.Z });
         node.HasIndex(static n => n.Tenant);
     }
@@ -289,18 +216,6 @@ public sealed class NodeCellShape : IEntityTypeConfiguration<NodeCell> {
 public static class IdentityStore {
     static readonly GeometryFactory Wgs84 = new(new PrecisionModel(), 4326);
 
-    // Marten documents live in an `mt_doc_*` id+jsonb table, so no EF-shaped relational row can BE a Marten
-    // document and the co-transactional stamp is ONE model-derived upsert QUEUED on the session
-    // (`QueueSqlCommand` rides the same transaction `SaveChangesAsync` commits with the appended events).
-    // `Bind` derives the statement ONCE at boot from the compiled EF model — table, column names, column-type
-    // casts, and the `model` conflict key all read off `IEntityType`, and each parameter runs the property's
-    // own EF value converter — so EF names the ONE physical relation for DDL and every read lane while holding
-    // ZERO write authority: the Marten session is the only writer, and hand-spelled column SQL never exists.
-    // `Bind` admits the compiled model ONCE onto the rail — EF returns every metadata slot nullably, so this
-    // boundary carries foreign material across and the statement builder below never re-tests a slot. Entity and table
-    // SEQUENCE, because a table read has no entity to read from until the first lands; every column and key read
-    // is INDEPENDENT and ACCUMULATES, so a model missing three column names names all three in one refusal
-    // instead of one per rebuild cycle — the producer cannot see the second defect after the first.
     public static Fin<IdentityWriter> Bind(StoreProfile profile) {
         ArgumentNullException.ThrowIfNull(profile);
         return profile.Model().FindEntityType(typeof(ElementIdentity)) is { } entity
@@ -317,7 +232,6 @@ public static class IdentityStore {
             Optional(entity.FindPrimaryKey()).Map(key =>
                 toSeq(key.Properties).Map(property => (property, Optional(property.GetColumnName(table)))));
 
-        // ONE absence roster over every independent read, so the refusal names the whole gap in the model.
         Seq<string> absent =
             properties.Filter(static row => row.Column.IsNone).Map(static row => $"<column:{row.Property.Name}>")
             + keyed.Match(
@@ -325,7 +239,6 @@ public static class IdentityStore {
                 None: static () => Seq("<key:absent>"));
         if (!absent.IsEmpty) { return Fin<IdentityWriter>.Fail(new IdentityFault.ModelIncomplete(absent)); }
 
-        // Past the admission every slot is PRESENT by construction, so the builder reads values and never options.
         Seq<(string Name, string Cast, Func<ElementIdentity, object?> Read, ValueConverter? Convert)> columns =
             properties.Choose(static row => row.Column.Map(name => (
                 Name: name,
@@ -345,8 +258,6 @@ public static class IdentityStore {
 
     static string Quote(string identifier) => $"\"{identifier.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 
-    // Member access off the model's own `IProperty.PropertyInfo` — the same metadata the statement derived
-    // from, so column order and value order can never skew; no second naming convention exists.
     static Func<ElementIdentity, object?> MemberReader(IProperty property) =>
         property.PropertyInfo is { } member ? member.GetValue : static _ => null;
 
@@ -357,10 +268,6 @@ public static class IdentityStore {
         return session;
     }
 
-    // Mint the cell through the managed pocketken.H3 entry that mirrors `h3_latlng_to_cell` — the NTS `Point` overload
-    // (SRID 4326, the package owning the degree->radian conversion), NOT a hand-built radian LatLng. The cell is durable
-    // as the `long` reinterpretation; an out-of-range centroid decodes to the `H3Index.Invalid` zero sentinel, which
-    // never persists (it rails CellUnresolvable instead of a stored 0 cell).
     public static Fin<H3Cell> Cell(Envelope bounds, int resolution) {
         ArgumentNullException.ThrowIfNull(bounds);
         H3.H3Index index = H3.H3Index.FromPoint(new Point(bounds.Centre.X, bounds.Centre.Y) { SRID = 4326 }, resolution);
@@ -369,10 +276,6 @@ public static class IdentityStore {
             : Fin<H3Cell>.Fail(new IdentityFault.CellUnresolvable($"<centroid:{bounds.Centre.X},{bounds.Centre.Y}@{resolution}>"));
     }
 
-    // PER-ELEMENT FINE cell mint (same entry, finer resolution) and the exact-bounds polygon mint — `Rasm.Element`
-    // projects the seam-stable representation-bounds Envelope the `Bounds` producer contract names. Read lanes
-    // live at `#STORE_OPERATION_BRACKET`: a static returning a live `IQueryable` over a caller-owned context
-    // enumerates reclaimed state once that context pools, so every predicate composes INSIDE the bracket instead.
     public static Polygon BoundsOf(Envelope bounds) => (Polygon)Wgs84.ToGeometry(bounds);
 }
 ```
@@ -400,7 +303,7 @@ public static class IdentityStore {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using Rasm.Domain;                                 // ContentHash — the ONE kernel digest entry
+using Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
@@ -419,8 +322,6 @@ public abstract partial record StoreKey {
     public sealed record Content(UInt128 Value) : StoreKey;
     public sealed record Natural(string Value) : StoreKey;
 
-    // The content row spells through the kernel's ONE 16-byte correspondence, so a persisted content key and a
-    // wired one are byte-identical by construction (`docs/laws/patterns.md` `[CONTENT_KEY]`).
     public byte[] Spelled() => this.Switch(
         surrogate: static s => s.Value.ToByteArray(bigEndian: true),
         content:   static c => ContentHash.Wire(c.Value).ToByteArray(),
@@ -460,10 +361,6 @@ public sealed partial class IdentityPolicy {
         naturalKey: static s => new StoreKey.Natural(System.Text.Encoding.UTF8.GetString(s.Material.Span)),
         namespaceKey: static s => new StoreKey.Surrogate(NamespaceUuid(Namespace, s.Material.Span)));
 
-    // ONE dispatch, and the width law is a per-ROW fact rather than a guard ahead of the fold: a natural key is
-    // variable-width by construction while every surrogate and content row is exactly sixteen bytes. The pre-fold
-    // `this == NaturalKey` short-circuit that stood here made the fold's OWN natural arm unreachable — a dead arm
-    // inside a total switch, which is the one shape a generated exhaustiveness proof cannot catch.
     public Fin<StoreKey> Decode(ReadOnlySpan<byte> spelled) =>
         Switch<(byte[] Bytes, string Row), Fin<StoreKey>>(
             state: (spelled.ToArray(), Key),
@@ -476,14 +373,11 @@ public sealed partial class IdentityPolicy {
 
     static readonly System.Text.UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-    // Fixed-width rows: the sixteen-byte law is theirs, and the refusal names the row it refused for.
     static Fin<StoreKey> Sized((byte[] Bytes, string Row) state, Func<byte[], StoreKey> read) =>
         state.Bytes.Length == 16
             ? Fin<StoreKey>.Succ(read(state.Bytes))
             : Fin<StoreKey>.Fail(new IdentityFault.KeyMalformed($"<key-width:{state.Row}:{state.Bytes.Length}>"));
 
-    // Strict UTF-8 IS the natural row's width law — any length admits and invalid bytes refuse. The decoder throws
-    // by construction (`throwOnInvalidBytes`), so the crossing rides the kernel capture boundary.
     static Fin<StoreKey> Text((byte[] Bytes, string Row) state) =>
         Op.Of().Catch(() => Fin.Succ((StoreKey)new StoreKey.Natural(StrictUtf8.GetString(state.Bytes))));
     }
@@ -518,12 +412,10 @@ public sealed partial class IdentityPolicy {
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq.Expressions;
 using LinqToDB.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;       // IExecutionStrategy/ExecutionResult — retry owns this tier, never the hop law
-using Rasm.Persistence.Store;                      // StoreProfile/StoreSlot — the engine row and the frozen slot grammar
+using Microsoft.EntityFrameworkCore.Storage;
+using Rasm.Persistence.Store;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// Tracking posture rides a codec ROW, never a free knob: read arities resolve repeated aliases without the
-// tracked path, and the tracked path exists only where a unit of work ends in a save the Marten session commits.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TrackingCodec {
@@ -533,9 +425,6 @@ public sealed partial class TrackingCodec {
     private TrackingCodec(string key, QueryTrackingBehavior tracking) : this(key) => Tracking = tracking;
 }
 
-// Copy-lane row selected by the profile's `StoreCapability.BulkCopy` membership: a holding engine takes the
-// provider-specific COPY, absence routes the multi-row batch — absence, never a not-supported throw. `KeepIdentity` is mandatory under the `#IDENTITY_POLICY` client-minted key
-// row — without it the store re-mints and admission identity is lost.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NodeCellBulkPolicy {
@@ -549,9 +438,6 @@ public sealed partial class NodeCellBulkPolicy {
         profile.Capabilities.Admits(StoreCapability.BulkCopy) ? Server : Embedded;
 }
 
-// Predicate SHAPE, disjoint from arity so pagination, batching, and streaming reuse one predicate vocabulary and
-// a new predicate mints no entrypoint. `Key` is the SECOND `TagWith` line, so one frozen arity slot carries many
-// plans and the plan harvest still reads which predicate produced the shape it digested.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IdentityFilter {
     private IdentityFilter() { }
@@ -562,20 +448,11 @@ public abstract partial record IdentityFilter {
     public string Key => this.Switch(all: static _ => "all", near: static _ => "near", within: static _ => "within");
 }
 
-// Keyset cursor: the projected ordering tuple of the last row, opaque to callers. `(At, Model)` inside one tenant
-// ends in the unique primary key, and `#ELEMENT_IDENTITY` declares the covering `(Tenant, At, Model)` prefix
-// in the same breath. Comparison and ordering BOTH run server-side, since PostgreSQL orders `uuid` as 16
-// big-endian bytes while .NET orders `Guid` field-wise: a client tiebreaker skips and repeats rows across pages.
 public readonly record struct IdentityCursor(Instant At, ModelId Model);
 
-// Commit probe a non-idempotent tail carries: `Some(outcome)` states the tail already landed and carries its
-// MEASURED result, `None` re-drives. A fabricated zero-row success spells a measurement no probe took.
 public delegate Task<Option<IdentityOutcome>> CommitProbe(IdentityContext store, CancellationToken cancellationToken);
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Value projections ops return: `ElementIdentity` and `NodeCell` never leave the bracket. `Roots`, `GlobalIds`,
-// `Bounds`, and `Embedding` stay out because a carrier conversion, a geometry, and a vector each materialize
-// client-side, which is exactly the egress this projection deletes.
 public sealed record IdentityView(ModelId Model, TenantId Tenant, H3Cell Cell, double? ZMin, double? ZMax, DataClassification Classification, Instant At);
 public sealed record NodeCellView(ModelId Model, NodeId Node, H3Cell Cell, double Z);
 
@@ -601,9 +478,6 @@ public abstract partial record IdentityOutcome {
 public readonly record struct IdentityReceipt(StoreSlot Slot, string Tag, long Rows, Duration Elapsed, Instant At, CorrelationId Correlation);
 public sealed record IdentityResult(IdentityOutcome Outcome, IdentityReceipt Receipt);
 
-// ONE fact stream per op: the receipt slot, the plan-harvest predicate tag, the replay posture the strategy gate
-// reads, and the commit probe a mutating tail carries. Three separate `Switch` overrides over the same family
-// re-walk the union three times and drift the moment a case lands in two of them.
 public readonly record struct IdentityOpFacts(StoreSlot Slot, string Tag, bool Replayable, Option<CommitProbe> Verify);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -612,7 +486,6 @@ public abstract partial record IdentityOp {
 
     public sealed record Point(ModelId Model) : IdentityOp;
     public sealed record Batch(Seq<ModelId> Models) : IdentityOp;
-    // Pagination adds ZERO entrypoints: absent cursor IS the first page.
     public sealed record Page(IdentityFilter Filter, int Width, Option<IdentityCursor> After) : IdentityOp;
     public sealed record Drain(IdentityFilter Filter, Func<IdentityView, CancellationToken, ValueTask> Sink) : IdentityOp;
     public sealed record Route(H3Cell Cell, Option<(double Min, double Max)> Band) : IdentityOp;
@@ -629,10 +502,6 @@ public abstract partial record IdentityOp {
         maintain: static m => new IdentityOpFacts(IdentityRail.MaintainSlot, "raw", Replayable: false, m.Verify));
 }
 
-// Composed acquisition value the bracket folds: pooled factory, the profile row whose columns the bracket reads
-// (the `StrategyRedrive` capability gates the verify obligation, `BulkCopy` selects the copy lane, `Model` mounted the
-// compiled model these ops query), declared write authority, and the tracking codec. `StoreBinding` names the
-// PROVIDER row on this page and never this value — one concept keeps one name.
 public sealed record IdentityLease(IDbContextFactory<IdentityContext> Pool, StoreProfile Profile, Placement Placement, TrackingCodec Codec);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -645,12 +514,9 @@ public static class IdentityRail {
     public static readonly StoreSlot IngestSlot = StoreSlot.Create("store.identity.ingest");
     public static readonly StoreSlot MaintainSlot = StoreSlot.Create("store.identity.maintain");
 
-    // `Slots` censuses every receipt kind this tier emits, registry-mounted (`Store/observability#SLOT_REGISTRY`).
     public static readonly Seq<StoreSlot> Slots = Seq(
         PointSlot, BatchSlot, PageSlot, DrainSlot, RouteSlot, IngestSlot, MaintainSlot, IdentitySpine.InterceptSlot);
 
-    // ONE projection expression every read leg composes, so entity egress is unrepresentable and one spelling
-    // fixes the column set the server returns rather than one spelling per leg.
     static readonly Expression<Func<ElementIdentity, IdentityView>> Projection =
         static e => new IdentityView(e.Model, e.Tenant, e.Cell, e.ZMin, e.ZMax, e.Classification, e.At);
 
@@ -664,13 +530,6 @@ public static class IdentityRail {
                select result;
     }
 
-    // Admission refuses BEFORE acquisition: a non-writing placement never opens a mutating lane, and a re-driving
-    // profile never re-drives a tail whose commit it cannot read back, because an ambiguous commit double-applies
-    // delta-shaped work. The placement refusal takes the kernel `Require` door in its TYPED arm, so the refusal
-    // ALWAYS names WHICH authority the placement lacked — a bare-label refusal discarding that evidence is
-    // unspellable through it — and `Some` IS the refusal, never a rail wrapper to unpick. The re-drive refusal is
-    // a plain capability READ because its posture is not refuse-for-absence but refuse-for-PRESENCE: a profile
-    // that re-drives needs the probe, a profile that does not is admitted by the same absence.
     static Fin<IdentityOpFacts> Admit(IdentityLease lease, IdentityOp op) =>
         op.Facts is { Replayable: false } tail
             ? lease.Placement.Held
@@ -683,14 +542,10 @@ public static class IdentityRail {
                         : Fin<IdentityOpFacts>.Succ(tail))
             : Fin<IdentityOpFacts>.Succ(op.Facts);
 
-    // Pool acquisition, execution strategy, transaction posture, and fault conversion live HERE and nowhere else.
-    // Inputs travel as `TState` through STATIC lambdas, so a retry re-runs a closed value rather than a captured
-    // closure. `AutoTransactionBehavior.WhenNeeded` keeps implicit save transactions while `AutoSavepointsEnabled`
-    // nests a failed leg inside a caller-owned scope, so a rejection rolls back to its savepoint alone.
     static IO<Fin<IdentityResult>> Bracket(IdentityLease lease, IdentityOp op, IdentityOpFacts facts, ProjectionContext frame, long mark, CancellationToken cancellationToken) =>
         IO.liftAsync(async () => await Op.Of().Catch(async token => {
             await using IdentityContext store = await lease.Pool.CreateDbContextAsync(token).ConfigureAwait(false);
-            store.ChangeTracker.QueryTrackingBehavior = lease.Codec.Tracking;              // Exemption: per-acquisition stamping is the platform-forced statement seam
+            store.ChangeTracker.QueryTrackingBehavior = lease.Codec.Tracking;
             store.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
             store.Database.AutoSavepointsEnabled = true;
             Fin<IdentityOutcome> outcome = await store.Database.CreateExecutionStrategy().ExecuteAsync(
@@ -702,9 +557,6 @@ public static class IdentityRail {
                 facts.Slot, facts.Tag, landed.Rows, frame.Elapsed(mark), frame.Now(), frame.Correlation)));
         }, error => IdentityFault.Rejected(facts.Slot, error), cancellationToken).ConfigureAwait(false));
 
-    // `verifySucceeded` lifts the op's own probe: `Some` reports the tail already landed and carries its MEASURED
-    // outcome, `None` reports nothing landed so the strategy re-drives. Read arities supply no probe at all,
-    // and no caller reads the unsuccessful arm's carrier value — EF re-drives instead of publishing it.
     static Func<(IdentityContext Store, IdentityOp Op, IdentityOpFacts Facts, StoreProfile Profile), CancellationToken, Task<ExecutionResult<Fin<IdentityOutcome>>>>? Probe(IdentityOpFacts facts) =>
         facts.Verify.Match(
             Some: probe => async ((IdentityContext Store, IdentityOp Op, IdentityOpFacts Facts, StoreProfile Profile) state, CancellationToken token) =>
@@ -718,17 +570,13 @@ public static class IdentityRail {
             ? Leg(store, op, facts, profile, token)
             : Enlisted(store, op, facts, profile, token);
 
-    // Mutating tails open and commit their transaction INSIDE the strategy callback: a transaction opened outside
-    // it survives no retry, because the retry re-runs the body against a connection whose transaction already died.
     static async Task<Fin<IdentityOutcome>> Enlisted(IdentityContext store, IdentityOp op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) {
         await using IDbContextTransaction transaction = await store.Database.BeginTransactionAsync(token).ConfigureAwait(false);
         Fin<IdentityOutcome> outcome = await Leg(store, op, facts, profile, token).ConfigureAwait(false);
-        if (outcome.IsSucc) { await transaction.CommitAsync(token).ConfigureAwait(false); }   // Exemption: transaction bracketing is the platform-forced statement seam
+        if (outcome.IsSucc) { await transaction.CommitAsync(token).ConfigureAwait(false); }
         return outcome;
     }
 
-    // Generated total `Switch` — a new op breaks the build HERE, never a runtime-silent `_` arm. State threads as
-    // a closed tuple through STATIC arms, so a retry re-runs the value rather than whatever a closure captured.
     static Task<Fin<IdentityOutcome>> Leg(IdentityContext store, IdentityOp op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) => op.Switch(
         state: (Store: store, Facts: facts, Profile: profile, Token: token),
         point:    static (s, p) => Resolve(s.Store, p, s.Facts, s.Token),
@@ -745,16 +593,12 @@ public static class IdentityRail {
             .FirstOrDefaultAsync(token).ConfigureAwait(false))));
 
     static async Task<Fin<IdentityOutcome>> Collect(IdentityContext store, IdentityOp.Batch op, IdentityOpFacts facts, CancellationToken token) {
-        ModelId[] keys = op.Models.ToArray();                                              // Exemption: parameter materialization is the platform-forced statement seam
+        ModelId[] keys = op.Models.ToArray();
         return Fin<IdentityOutcome>.Succ(new IdentityOutcome.Batched(toSeq(await Tagged(store.Identities
             .Where(e => keys.Contains(e.Model)).Select(Projection), facts)
             .ToArrayAsync(token).ConfigureAwait(false))));
     }
 
-    // Keyset window: cursor values bind as PARAMETERS so page depth never changes the SQL shape, and the predicate
-    // spells the LEXICOGRAPHIC EXPANSION because tuple row-value comparison does not translate. A short window
-    // reports exhaustion by an absent next cursor; an empty window under a supplied cursor probes the anchor,
-    // because a vanished anchor leaves no resumable position and reads as exhaustion to every caller otherwise.
     static async Task<Fin<IdentityOutcome>> Window(IdentityContext store, IdentityOp.Page op, IdentityOpFacts facts, CancellationToken token) {
         IQueryable<ElementIdentity> rows = Shaped(store, op.Filter);
         IQueryable<ElementIdentity> seeded = op.After.Match(
@@ -774,20 +618,16 @@ public static class IdentityRail {
             Some: anchor => store.Identities.AnyAsync(e => e.Model == anchor.Model, token),
             None: static () => Task.FromResult(true));
 
-    // Stream arity folds INSIDE the bracket, so no live enumerable outlives the pooled context. `Within` ranks
-    // nearest-first here.
     static async Task<Fin<IdentityOutcome>> Stream(IdentityContext store, IdentityOp.Drain op, IdentityOpFacts facts, CancellationToken token) {
         long rows = 0L;
         await foreach (IdentityView view in Tagged(Ordered(Shaped(store, op.Filter), op.Filter).Select(Projection), facts)
             .AsAsyncEnumerable().WithCancellation(token).ConfigureAwait(false)) {
-            await op.Sink(view, token).ConfigureAwait(false);                              // Exemption: streaming hand-off is the platform-forced statement seam
+            await op.Sink(view, token).ConfigureAwait(false);
             rows++;
         }
         return Fin<IdentityOutcome>.Succ(new IdentityOutcome.Drained(rows));
     }
 
-    // Cell probe is polymorphic over the band: absent band is the flat cell-equality join, present band the
-    // storey-banded join the composite `(Cell, Z)` index serves end to end.
     static async Task<Fin<IdentityOutcome>> Vertices(IdentityContext store, IdentityOp.Route op, IdentityOpFacts facts, CancellationToken token) {
         IQueryable<NodeCell> cells = store.Cells.Where(n => n.Cell == op.Cell);
         return Fin<IdentityOutcome>.Succ(new IdentityOutcome.Routed(toSeq(await Tagged(op.Band
@@ -796,9 +636,6 @@ public static class IdentityRail {
             .ToArrayAsync(token).ConfigureAwait(false))));
     }
 
-    // Copy lane lifts the ONE `IdentityContext` through the linq2db bridge, so thousands of per-element rows land
-    // in one round trip rather than a per-row save loop. Lane selection reads the profile, never a caller knob,
-    // and a short receipt is a typed rejection because silently losing rows is invisible to every later read.
     static async Task<Fin<IdentityOutcome>> Copy(IdentityContext store, IdentityOp.Ingest op, IdentityOpFacts facts, StoreProfile profile, CancellationToken token) {
         LinqToDB.Data.BulkCopyRowsCopied receipt = await store
             .BulkCopyAsync(NodeCellBulkPolicy.Of(profile).Options, op.Cells, token).ConfigureAwait(false);
@@ -807,18 +644,11 @@ public static class IdentityRail {
             : Fin<IdentityOutcome>.Fail(new IdentityFault.WriteRefused($"<{facts.Slot}:lost:{op.Cells.Count - receipt.RowsCopied}>"));
     }
 
-    // Maintenance rides the SAME bracket: `ExecuteSql` parameterizes every interpolation hole, so a maintenance
-    // statement inherits this tier's transaction, retry, provenance, and fault conversion instead of opening its
-    // own connection. `ExecuteSqlRaw` never appears — its only admission is a sanitized fragment no op carries.
-    // Tag prefixing rebuilds the `FormattableString` from format and arguments: interpolating one INTO another
-    // collapses it to a single parameter and ships the caller's whole statement as a literal string.
     static async Task<Fin<IdentityOutcome>> Raw(IdentityContext store, IdentityOp.Maintain op, IdentityOpFacts facts, CancellationToken token) =>
         Fin<IdentityOutcome>.Succ(new IdentityOutcome.Affected(await store.Database.ExecuteSqlAsync(
             System.Runtime.CompilerServices.FormattableStringFactory.Create($"-- {facts.Slot}\n{op.Statement.Format}", op.Statement.GetArguments()),
             token).ConfigureAwait(false)));
 
-    // Slot lands as the FIRST tag line and the predicate discriminant as the second, so the wire tap and the plan
-    // harvest each read the owning slot off the statement text without parsing SQL.
     static IQueryable<T> Tagged<T>(IQueryable<T> rows, IdentityOpFacts facts) =>
         rows.TagWith(facts.Slot.ToString()).TagWith(facts.Tag);
 
@@ -828,15 +658,11 @@ public static class IdentityRail {
         near:   static (rows, n) => Disk(rows, n),
         within: static (rows, w) => Band(Exact(rows, w), w.Band));
 
-    // Grid disk is the filled `IN`/`= ANY` membership the `h3_cell` index answers, never a per-row distance scan;
-    // `GridDiskDistancesSafe` yields each ring cell and the durable `long` reinterpretation is what binds.
     static IQueryable<ElementIdentity> Disk(IQueryable<ElementIdentity> rows, IdentityFilter.Near near) {
         H3Cell[] disk = toSeq(near.Cell.Live.GridDiskDistancesSafe(near.Ring)).Map(static ring => H3Cell.Of(ring.Index)).ToArray();
-        return rows.Where(e => disk.Contains(e.Cell));                                     // Exemption: disk materialization is the platform-forced statement seam
+        return rows.Where(e => disk.Contains(e.Cell));
     }
 
-    // `IsWithinDistance` translates to ST_DWithin over the GiST bounds index SERVER-side, and the vertical clause
-    // is the third spatial plane — a storey-scoped query stops matching every stacked element sharing a footprint.
     static IQueryable<ElementIdentity> Exact(IQueryable<ElementIdentity> rows, IdentityFilter.Within within) =>
         rows.Where(e => e.Bounds != null && EF.Functions.IsWithinDistance(e.Bounds!, within.Probe, within.Range, false));
 
@@ -845,8 +671,6 @@ public static class IdentityRail {
             Some: span => rows.Where(e => e.ZMin != null && e.ZMax != null && e.ZMin <= span.Max && e.ZMax >= span.Min),
             None: () => rows);
 
-    // Ordering belongs to the arity, not the filter, everywhere except the unpaged stream: `DistanceKnn`
-    // translates to a `<->` KNN order that ranks yet cannot resume, so only `Drain` may spell it.
     static IQueryable<ElementIdentity> Ordered(IQueryable<ElementIdentity> rows, IdentityFilter filter) => filter.Switch(
         state: rows,
         all:    static (ordered, _) => ordered.OrderBy(static e => e.At).ThenBy(static e => e.Model),
@@ -885,11 +709,9 @@ using System.Data.Common;
 using System.Text;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Rasm.Domain;                                 // ContentHash — the ONE kernel digest entry the plan harvest shares
+using Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// Tracker disposition rides a delegate-bearing ROW, never three `if` arms: a suppressing gate that leaves the
-// tracked graph dirty hands the next bracket phantom state, and the pool returns EF-owned state alone.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TrackerDisposition {
@@ -902,8 +724,6 @@ public sealed partial class TrackerDisposition {
     public partial Unit Settle(ChangeTracker tracker);
 }
 
-// Tracked-conflict policy selects the BUILT-IN pair as ONE row: ignoring keeps the tracked instance, updating
-// overwrites it from the incoming one. Hand-rolled resolution re-implements a framework walk it cannot observe.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ResolutionPolicy {
@@ -915,21 +735,11 @@ public sealed partial class ResolutionPolicy {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Composition input the profile row fills once: declared write authority, the suppressing gate's tracker
-// policy, its built-in resolution pair, and one sink the interception tap emits each statement fact to.
 public sealed record SpineMount(Placement Placement, TrackerDisposition Disposition, ResolutionPolicy Resolution, Func<InterceptFact, Unit> Emit);
 
-// Per-statement interception evidence: the owning slot read off the leading tag line, a statement key digested
-// through one kernel seed-zero entry — byte-identical to the key `Store/observability#PLAN_PROFILE` mints over that
-// same text — plus the provider-measured span and the failure flag. Absent slot states a statement no rail leg
-// issued, so the owner rides `Option` rather than a fabricated attribution. This is a HAND projection of an EF
-// interception altitude, so it takes no `Wire` name — that suffix is the generated corpus messages' alone.
 public readonly record struct InterceptFact(Option<StoreSlot> Slot, UInt128 Statement, Duration Elapsed, bool Failed);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-// Three altitudes, ONE spine. Compilation mounts an EMPTY roster on this tier: ops return value projections so
-// no entity materializes, and no rewrite here is a pure function of expression shape, which is the only kind
-// `IQueryExpressionInterceptor` may carry because its output caches with the query.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpineAltitude {
@@ -942,9 +752,6 @@ public sealed partial class SpineAltitude {
     public partial Seq<IInterceptor> Mount(SpineMount mount);
 }
 
-// Save altitude: the placement's `Writes` authority becomes the refusal rather than a column each call site honors. `HasResult`
-// reads first so a later interceptor never re-suppresses. BOTH twins land — every member carries a pass-through
-// default, so a sync-only gate compiles and leaves the async path, which every rail leg takes, ungated.
 public sealed class IdentityWriteGate(Placement placement, TrackerDisposition disposition) : ISaveChangesInterceptor {
     public InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result) => Gate(eventData, result);
 
@@ -952,16 +759,12 @@ public sealed class IdentityWriteGate(Placement placement, TrackerDisposition di
         ValueTask.FromResult(Gate(eventData, result));
 
     InterceptionResult<int> Gate(DbContextEventData eventData, InterceptionResult<int> result) {
-        if (placement.Held.Admits(PlacementAxis.Writes) || result.HasResult || eventData.Context is not { } store) { return result; }   // Exemption: interceptor members are the platform-forced statement seam
+        if (placement.Held.Admits(PlacementAxis.Writes) || result.HasResult || eventData.Context is not { } store) { return result; }
         _ = disposition.Settle(store.ChangeTracker);
         return InterceptionResult<int>.SuppressWithResult(0);
     }
 }
 
-// Interception altitude: engine variance is observable HERE alone, and statement provenance REACHES the harvest
-// here. Every executed command digests through the kernel seed-zero entry over its own command text, so an
-// intercept fact and a plan capture over the same statement share one key with no second hashing path. All six
-// executed twins and both failure twins land, because an unpaired twin leaves the async half of every leg unobserved.
 public sealed class IdentityTap(Func<InterceptFact, Unit> emit) : IDbCommandInterceptor {
     public DbDataReader ReaderExecuted(DbCommand command, CommandExecutedEventData eventData, DbDataReader result) => Observe(command, eventData, result);
 
@@ -981,12 +784,12 @@ public sealed class IdentityTap(Func<InterceptFact, Unit> emit) : IDbCommandInte
     public void CommandFailed(DbCommand command, CommandErrorEventData eventData) => Fact(command, eventData, failed: true);
 
     public Task CommandFailedAsync(DbCommand command, CommandErrorEventData eventData, CancellationToken cancellationToken = default) {
-        Fact(command, eventData, failed: true);                                            // Exemption: interceptor members are the platform-forced statement seam
+        Fact(command, eventData, failed: true);
         return Task.CompletedTask;
     }
 
     TResult Observe<TResult>(DbCommand command, CommandEndEventData eventData, TResult result) {
-        Fact(command, eventData, failed: false);                                           // Exemption: interceptor members are the platform-forced statement seam
+        Fact(command, eventData, failed: false);
         return result;
     }
 
@@ -1000,13 +803,8 @@ public sealed class IdentityTap(Func<InterceptFact, Unit> emit) : IDbCommandInte
 public static class IdentitySpine {
     public static readonly StoreSlot InterceptSlot = StoreSlot.Create("store.identity.intercept");
 
-    // Registration order IS execution order, so the roster is DECLARED here rather than read off the generated
-    // item list — an ordering nobody spells is an ordering the next row silently changes.
     static readonly Seq<SpineAltitude> Order = Seq(SpineAltitude.Compilation, SpineAltitude.UnitOfWork, SpineAltitude.Interception);
 
-    // `ConfigureWarnings` escalates at the SAME options row the spine mounts on: a row-limiting page with no
-    // ORDER BY, a first-without-order read, an ambient-transaction enlistment, and a pending model change each
-    // fail typed rather than logging a line that reaches nobody at the hour it matters.
     public static DbContextOptionsBuilder Compose(DbContextOptionsBuilder options, SpineMount mount) {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(mount);
@@ -1044,21 +842,10 @@ public static class IdentitySpine {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
-using Rasm.Domain;                                 // CorrelationId/TenantId — the causal and tenancy entries; CanonicalWriter/ContentHash — the AAD preimage and its admission
-using Rasm.Numerics;                               // EpsilonPolicy.ZeroTolerance — the grid-free writer lane
+using Rasm.Domain;
+using Rasm.Numerics;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// `KmsProvider` is the Persistence-side provider axis BOTH the signing surface (`SigningKeyring`/`SignedAuthorship`)
-// AND the DEK envelope surface (`EnvelopeKeyring`, this cluster's owner) resolve against — the concrete SDK binding
-// stays Persistence-side per the AppHost `Runtime/secrets#SECRET_LEASE` seam, AppHost surfacing only the
-// `SecretLease`-class handle. `None` is the local/Personal tier: `Custody.Attest`/`Verify` short to
-// `CustodyVerdict.Unsigned` so a store with no KMS still records the delta->actor binding, never a fabricated
-// signature. The held set gates both arms — Azure wraps through the native
-// `CryptographyClient.WrapKey`/`UnwrapKey` verb while Aws/Gcp encrypt-as-wrap, so the keyring `Mint`/`Rewrap`
-// arm reads the `NativeWrap` capability rather than hardcoding one provider's spelling.
-// `KmsCapability` names the custody authorities a provider holds: `Signs` gates the signing arm and
-// `NativeWrap` the wrap MECHANISM, and `Barred` states the one illegal corner a bool pair could not — native
-// wrapping without signing names a CMK binding no attestation can anchor.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class KmsCapability : ICapability<KmsCapability> {
@@ -1075,8 +862,6 @@ public sealed partial class KmsProvider {
     public static readonly KmsProvider Gcp = new("gcp", KmsCapability.Signs);
     public CapabilitySet<KmsCapability> Held { get; }
 
-    // `None` holds NOTHING and that empty corner is LAWFUL here — the local tier records the delta-to-actor
-    // binding unsigned — so the law bars by CONTAINMENT rather than enumerating legal corners.
     public static readonly CapabilityLaw<KmsCapability> Law =
         CapabilityLaw<KmsCapability>.Forbidden(Seq(CapabilitySet<KmsCapability>.Of(KmsCapability.NativeWrap)));
 
@@ -1089,9 +874,6 @@ public sealed partial class KmsProvider {
         toSeq(Items).TraverseM(static row => Law.Admit(row.Held)).As().Map(static _ => unit);
 }
 
-// `KeyState` names the cloud-key lifecycle the `EnvelopeKeyring.Probe` arm resolves (AWS `DescribeKey` `KeyState`, Azure
-// `KeyProperties`, GCP `CryptoKeyVersionState`): only `Enabled` admits a wrap, so a `Mint`/`Rewrap` against a
-// non-`Enabled` key rejects `CustodyVerdict.KeyUnusable` at admission rather than deep in the provider call.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class KeyState {
@@ -1139,9 +921,6 @@ public readonly partial struct OpDigest {
     public bool Fits(SigningAlgorithm algorithm) => ByteLength == algorithm.DigestWidth;
 }
 
-// `WrapForm` carries the mint modality as a policy row, never a boolean: `Bound` returns the plaintext DEK for the local cipher
-// bind (zeroized after); `Remote` is the wrapped-only mint (AWS `GenerateDataKeyWithoutPlaintext`) for a
-// minting node that never encrypts locally — the plaintext first materializes at the read-path `Unwrap`.
 [SmartEnum]
 public sealed partial class WrapForm {
     public static readonly WrapForm Bound = new();
@@ -1152,23 +931,9 @@ public sealed partial class WrapForm {
 public sealed record SigningKeyring(SigningAlgorithm Algorithm, Func<ReadOnlyMemory<byte>, IO<ReadOnlyMemory<byte>>> Sign, Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, IO<bool>> Verify);
 public sealed record SignedAuthorship(StoreActor Actor, KmsProvider Provider, string SigningKeyId, SigningAlgorithm Algorithm, OpDigest Digest, ReadOnlyMemory<byte> Signature, Instant At, CorrelationId Correlation);
 
-// `EnvelopeAad` binds the additional-authenticated data every wrap/unwrap carries: the store partition and (under RLS) the
-// tenant id digested through the admitted SHA-256 rail so the AAD is a fixed-width opaque value, never a raw
-// tenant uuid on the wire. It rides the provider `EncryptionContext` (AWS) / `AdditionalAuthenticatedData` (GCP)
-// exact-match and is compared application-side on the Azure native-wrap arm (which carries no per-call AAD), so
-// a DEK wrapped for one (partition, tenant) cannot be unwrapped under another.
 [ComplexValueObject]
 public sealed partial class EnvelopeAad {
     public string Partition { get; }
-    // `TenantDigest` carries a cryptographic AUTHENTICITY claim, so it mints on `CryptographicOperations.HashData`
-    // rather than on the kernel content-identity entry: the whole separation this AAD exists for is that two
-    // distinct (partition, tenant) pairs cannot render one value, and the non-cryptographic identity digest
-    // admits a chosen-slug collision that unwraps a neighbouring tenant's DEK under its own AAD. The PREIMAGE,
-    // though, is the kernel alphabet's — `String` length-frames the free partition and the tenant text, so the
-    // injectivity the separator join borrowed from the tenant's fixed width is now the writer's law — and the
-    // leading half admits through `ContentHash.Admit`, the one 16-byte read. It never round-trips to a `TenantId`
-    // and never keys a partition, so it stays the raw `UInt128` while the tenant it binds arrives typed and
-    // renders through the kernel's one `Text` spelling.
     public UInt128 TenantDigest { get; }
     public FrozenDictionary<string, string> Context => new Dictionary<string, string> { ["partition"] = Partition, ["tenant"] = TenantDigest.ToString(TenantId.Wire, CultureInfo.InvariantCulture) }.ToFrozenDictionary();
     public static Fin<EnvelopeAad> Of(string partition, TenantId tenant, Op key) =>
@@ -1180,18 +945,8 @@ public sealed partial class EnvelopeAad {
             });
 }
 
-// `WrappedKey` persists the DEK-envelope carrier: the wrapped DEK bytes, the wrapping key id, and the exact key
-// version the wrap used (the AWS `KeyMaterialId`, the Azure key version, the GCP `CryptoKeyVersionName`), so a
-// `Rewrap` advances the version and an `Unwrap` resolves the embedded version without a second lookup. The plaintext
-// DEK is NEVER a field.
 public readonly record struct WrappedKey(ReadOnlyMemory<byte> Ciphertext, string WrappingKeyId, string Version);
 
-// `EnvelopeKeyring` is the provider-neutral DEK-envelope family, seated beside `SigningKeyring` on the one
-// `KmsProvider` axis: `Mint` wraps a fresh DEK returning the plaintext for local AES use beside the `WrappedKey`
-// to persist; `MintSealed` is the wrapped-only arm (`GenerateDataKeyWithoutPlaintext`; GCP sources DEK bytes
-// from `GenerateRandomBytesAsync`); `Unwrap` recovers the plaintext; `Rewrap` advances the wrapping-key version
-// with the plaintext never crossing the wire; `Probe` resolves the `KeyState`. Each delegate closes over the
-// provider arm's concrete client so `Custody` composes one shape across all providers. The AAD binds every arm.
 public sealed record EnvelopeKeyring(
     KmsProvider Provider,
     Func<EnvelopeAad, IO<(ReadOnlyMemory<byte> Dek, WrappedKey Wrapped)>> Mint,
@@ -1200,9 +955,6 @@ public sealed record EnvelopeKeyring(
     Func<WrappedKey, EnvelopeAad, IO<WrappedKey>> Rewrap,
     Func<IO<KeyState>> Probe);
 
-// `CustodyVerdict` is the custody half of the fissioned decision union (the authz half is `Element/authority`
-// `AuthDecision`): `Wrapped` carries the freshly-minted plaintext DEK (empty on the Remote/rewrap paths) and the `WrappedKey`
-// to persist; `Unwrapped` the recovered DEK; `KeyUnusable` the `Probe`-rejected non-`Enabled` `KeyState`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CustodyVerdict {
     private CustodyVerdict() { }
@@ -1234,10 +986,6 @@ public static class Custody {
         : authorship.Digest != digest ? IO.pure<CustodyVerdict>(new CustodyVerdict.Unauthored(digest, authorship.Digest))
         : keyring.Verify(digest.Bytes, authorship.Signature).Map(valid => valid ? (CustodyVerdict)new CustodyVerdict.Authentic(authorship.Actor, authorship.SigningKeyId) : new CustodyVerdict.Forged(authorship.Actor, authorship.SigningKeyId));
 
-    // `Wrap` folds DEK envelopes beside the signing fold: it PROBES the key lifecycle first so a wrap against a
-    // non-`Enabled` key rejects `KeyUnusable` at admission (never deep in the provider call), then mints per the
-    // `WrapForm` row — `Bound` returns the plaintext for the local cipher bind, `Remote` the wrapped-only
-    // DEK envelope (`Wrapped.Dek` empty; the plaintext first materializes at the read-path `Unwrap`).
     public static IO<CustodyVerdict> Wrap(EnvelopeKeyring keyring, EnvelopeAad aad, WrapForm form) =>
         from state in keyring.Probe()
         from verdict in state.Usable
@@ -1247,15 +995,9 @@ public static class Custody {
             : IO.pure<CustodyVerdict>(new CustodyVerdict.KeyUnusable("<mint>", state))
         select verdict;
 
-    // `Unwrap` recovers the plaintext DEK bound to the persisted `WrappedKey` under the SAME `EnvelopeAad` (the
-    // provider exact-match on AWS/GCP, the application-side compare on Azure) — the caller zeroizes the returned
-    // DEK through `CryptographicOperations.ZeroMemory` after the local cipher bind.
     public static IO<CustodyVerdict> Unwrap(EnvelopeKeyring keyring, WrappedKey wrapped, EnvelopeAad aad) =>
         keyring.Unwrap(wrapped, aad).Map(static dek => (CustodyVerdict)new CustodyVerdict.Unwrapped(dek));
 
-    // `Rewrap` advances the wrapping-key version (AWS `ReEncrypt`, GCP `UpdateCryptoKeyPrimaryVersion` primary
-    // repoint, Azure re-`WrapKey` against the new version) with the plaintext DEK never crossing the wire —
-    // gated on the same `Probe`, returning `Wrapped` carrying the new `WrappedKey` (Dek empty on this path).
     public static IO<CustodyVerdict> Rewrap(EnvelopeKeyring keyring, WrappedKey wrapped, EnvelopeAad aad) =>
         from state in keyring.Probe()
         from verdict in state.Usable
@@ -1276,15 +1018,11 @@ public static class Custody {
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-using Microsoft.EntityFrameworkCore.Infrastructure;   // AccessorExtensions.GetService
-using Microsoft.EntityFrameworkCore.Storage;          // IRelationalDatabaseCreator — the materialization arm
-using Rasm.Domain;                                    // SessionCoordinate — the [SESSION_GUC] policy-arm anchors
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+using Rasm.Domain;
 
 // --- [TYPES] ---------------------------------------------------------------------------
-// `PlacementAxis` names the three authorities a placement holds, as the kernel capability VOCABULARY rather than
-// a bool triple: that triple spanned eight corners while exactly three are legal, and the corner law is the fact a boolean product
-// cannot state — `materializes` without `writes` is a member building DDL it may not write, and `readsAhead`
-// beside `writes` is a replica admitting a generation it also mutates. Both are unspellable now.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PlacementAxis : ICapability<PlacementAxis> {
@@ -1293,12 +1031,6 @@ public sealed partial class PlacementAxis : ICapability<PlacementAxis> {
     public static readonly PlacementAxis ReadsAhead = new("reads-ahead");
 }
 
-// Write-authority axis the route-owned `docs/stacks/csharp/domain/persistence#GENERATION_ALGEBRA` prescribes,
-// declared here as the Persistence-Element owner: single-writer materializes both DDL owners, the fleet member
-// asserts-only, the reader serves-behind. NAMED LOSS: per-authority compile-time exhaustiveness — narrowing a
-// row's held set is now a data edit no consumer breaks on. WITNESS: `Law` refuses an illegal corner at
-// construction and every consuming seam states the set it needs as a VALUE, so a narrowed row fails at its own
-// admission instead of mis-answering at a call site — which a bool column bought back nowhere.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Placement {
@@ -1307,24 +1039,17 @@ public sealed partial class Placement {
     public static readonly Placement Reader = new("reader", PlacementAxis.ReadsAhead);
     public CapabilitySet<PlacementAxis> Held { get; }
 
-    // `Law` declares the three legal corners and `Admit` runs at construction, so a fourth row minting an
-    // illegal combination refuses where it is written rather than at the seam that later reads it.
     public static readonly CapabilityLaw<PlacementAxis> Law = new(Seq(
         CapabilitySet<PlacementAxis>.Of(PlacementAxis.Writes, PlacementAxis.Materializes),
         CapabilitySet<PlacementAxis>.Of(PlacementAxis.Writes),
         CapabilitySet<PlacementAxis>.Of(PlacementAxis.ReadsAhead)));
 
-    // Consuming seams state these two demands as VALUES: the mutating lane and the materializing leg.
     public static readonly CapabilitySet<PlacementAxis> Mutating = CapabilitySet<PlacementAxis>.Of(PlacementAxis.Writes);
     public static readonly CapabilitySet<PlacementAxis> Materializing = CapabilitySet<PlacementAxis>.Of(PlacementAxis.Materializes);
 
     private Placement(string key, params ReadOnlySpan<PlacementAxis> held) : this(key) =>
         Held = CapabilitySet<PlacementAxis>.Of(held);
 
-    // Composition-time corner proof over the whole axis — the reader that makes `Law` load-bearing rather than
-    // declared, and the sibling form `Store/provisioning#SERVER_EXTENSIONS` `StoreProfile.Lawful` already takes.
-    // It stays on the RAIL: a generated key-only ctor gives the validation hook nothing to see, so a roster
-    // proof a composition root reads is the honest gate and a construction throw would be unreachable law.
     public static Fin<Unit> Lawful =>
         toSeq(Items).TraverseM(static row => Law.Admit(row.Held)).As().Map(static _ => unit);
 }
@@ -1340,8 +1065,6 @@ public abstract partial record SchemaVerdict {
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
-// `IdentityFault` derives compact case identity from `FaultBand.StoreIdentity`; each leaf lifts directly onto
-// `Fin<T>` or `Validation<Error,T>`, and `SchemaAhead` remains distinct from `ModelStale` because their repairs differ.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record IdentityFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.StoreIdentity;
@@ -1354,17 +1077,12 @@ public abstract partial record IdentityFault : Fault {
     [FaultCase(4)] public sealed partial record CellUnresolvable(string Detail) : IdentityFault;
     [FaultCase(5)] public sealed partial record KeyMalformed(string Detail) : IdentityFault;
     [FaultCase(6)] public sealed partial record ModelStale(UInt128 Mounted, UInt128 Published) : IdentityFault;
-    // Each provider refusal carries its CLASS, so the execution strategy above the bracket reads a posture
-    // this rail STATES rather than re-deriving one from a message. `Throttled` is unspellable here — a relational
-    // refusal carries no server-stated delay — so the two-case split the driver reports is the whole vocabulary.
     [FaultCase(7)] public sealed partial record StoreRejected(StoreSlot Slot, Error Cause, Retriability Class) : IdentityFault, ICausedFault {
         public override Retriability Retriability => Class;
     }
     [FaultCase(8)] public sealed partial record CursorStale(string Detail) : IdentityFault;
     [FaultCase(9)] public sealed partial record WriteRefused(string Detail) : IdentityFault;
 
-    // `ModelStale` renders BOTH digests because a recovery re-generates against the one that moved; a single
-    // digest names a mismatch nobody can act on.
     public override string Message => Switch(
         schemaAhead:      static c => $"<schema-ahead:{c.Unknown.Count}>",
         applyFailed:      static c => $"<apply-failed:{c.Cause.Message}>",
@@ -1377,10 +1095,6 @@ public abstract partial record IdentityFault : Fault {
         writeRefused:     static c => $"<write-refused:{c.Detail}>",
         modelIncomplete:  static c => $"<model-incomplete:{string.Join(',', c.Absent)}>");
 
-    // ONE provider-throw conversion for the whole rail, and it CLASSIFIES at the crossing: `DbException.IsTransient`
-    // is the DRIVER's own verdict on whether a re-drive can succeed — one BCL-level read both Npgsql and the
-    // embedded provider answer, so no per-provider SQLSTATE roster exists here to drift against either driver.
-    // This is the same upstream classification `Store/coordination#COORDINATION_OP` `CoordinationFault.Lift` takes.
     public static Option<StoreRejected> Rejected(StoreSlot slot, Error error) =>
         error.Exception.Case is DbException failure
             ? Some(new StoreRejected(slot, error,
@@ -1390,11 +1104,6 @@ public abstract partial record IdentityFault : Fault {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// Compiled-model fingerprint: a MEASURED digest over the model's OWN metadata, so a mounted compiled model proves
-// it describes the schema it serves. Framing is the kernel writer's — `String` length-frames every name, `Sorted`
-// and `Rows` count-frame every collection — so a table named `a` with a column `bc` and one named `ab` with a
-// column `c` never render one digest and no separator scheme exists to collide on; `Sorted` PUBLISHES the ordinal
-// order for entity types, properties, keys, and indexes, so metadata enumeration order never moves the digest.
 public static class ModelFingerprint {
     public static UInt128 Of(IModel model) {
         ArgumentNullException.ThrowIfNull(model);
@@ -1402,12 +1111,6 @@ public static class ModelFingerprint {
             w.Sorted(toSeq(mounted.GetEntityTypes()), static type => type.Name, StringComparer.Ordinal, Entity));
     }
 
-    // Types carrying no table store-object state a model FACT this digest MOVES on, never a throw aborting the
-    // very fold whose job is to answer "did the model move" — an unmapped type framed as two empty names and three
-    // empty counts stays distinguishable from a mapped one, and a model that gains or loses a mapping shifts the
-    // digest either way. `?? string.Empty` is the preimage's DECLARED absent encoding, never a sentinel past a
-    // boundary: a length-framed empty field cannot collide with a present name, and an absent slot still MOVES the
-    // digest when it appears or disappears.
     static void Entity(IEntityType type, CanonicalWriter w) {
         w.String(type.Name);
         if (StoreObjectIdentifier.Create(type, StoreObjectType.Table) is not { } table) {
@@ -1423,22 +1126,11 @@ public static class ModelFingerprint {
             (index, x) => Columns(x.String(index.GetDatabaseName(table) ?? string.Empty).Bool(index.IsUnique), table, toSeq(index.Properties)));
     }
 
-    // Key and index property lists keep DECLARED order through `Rows`: order IS semantics for a composite prefix, so
-    // sorting them reads two differently-ordered covering indexes as one and passes a page whose seek no longer works.
     static CanonicalWriter Columns(CanonicalWriter w, StoreObjectIdentifier table, Seq<IProperty> properties) =>
         w.Rows(properties, (property, x) => { x.String(property.GetColumnName(table) ?? string.Empty); });
 }
 
-// Generation owner's non-modelable rows: EF.Design EMITS the schema (`GenerateCreateScript` off that profile's own
-// compiled model, reviewed as generated shape); these are ONLY the facts the model cannot express — RLS enable+force
-// with the two-arm tenant policies, the frozen `ServerExtension.CreateSql` install rows, and the generation stamp
-// whose value is the digest of the very model that would otherwise declare it. The script appends them as raw
-// statements inside the one materialization transaction; an assembly of hand-authored deltas is the deleted form.
 public static class IdentityDdl {
-    // Two-arm `[SESSION_GUC]` policies off the kernel `SessionCoordinate` anchors: the tenant arm admits pinned
-    // request work, the plane arm admits the stated maintenance posture, and FORCE keeps the table owner inside the
-    // policy — an unpinned session matches neither arm and reads zero rows fail-closed, so the missing_ok read is
-    // load-bearing (a strict `current_setting` raises mid-predicate on any session pinning only the sibling arm).
     public static readonly Seq<string> Rls = toSeq(new[] {
         "ALTER TABLE element_identity ENABLE ROW LEVEL SECURITY",
         "ALTER TABLE element_identity FORCE ROW LEVEL SECURITY",
@@ -1448,12 +1140,8 @@ public static class IdentityDdl {
         $"CREATE POLICY node_cell_tenant ON node_cell USING (tenant = current_setting('{SessionCoordinate.Tenant.Guc}', true) OR current_setting('{SessionCoordinate.Plane.Guc}', true) = '{SessionCoordinate.Maintenance}') WITH CHECK (tenant = current_setting('{SessionCoordinate.Tenant.Guc}', true) OR current_setting('{SessionCoordinate.Plane.Guc}', true) = '{SessionCoordinate.Maintenance}')",
     });
 
-    // `Extensions` commits extension DDL on the postgres arm only: the frozen provisioning row vocabulary
-    // supplies the SQL, the generation script executes it — never a second install path.
     public static Seq<string> Extensions(Seq<ServerExtension> required) => required.Map(static ext => ext.CreateSql);
 
-    // `SchemaGate` reads this stamp back as the published generation: the cutover transaction writes the mounted
-    // model's own measured digest, so the store names its shape with the one value the model itself can mint.
     public static Seq<string> Stamp(UInt128 digest) => toSeq(new[] {
         "CREATE TABLE IF NOT EXISTS schema_generation (digest TEXT PRIMARY KEY)",
         $"INSERT INTO schema_generation (digest) VALUES ('{digest:x32}')",
@@ -1461,10 +1149,6 @@ public static class IdentityDdl {
 }
 
 public static class SchemaGate {
-    // `Admit` is the EF half of the boot fold over the relational identity DDL: the PUBLISHED generation digest
-    // graded against the mounted compiled model's own measured digest, classified by the route-owned `Placement`
-    // write authority. The census carries evidence alone — an undescribable relation is a typed rejection, the
-    // single-writer materializes an absent generation, every other placement waits. One typed IdentityFault band.
     public static Fin<SchemaVerdict> Admit(DbContext store, Placement placement, FrozenSet<string> census, Option<UInt128> published) {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(placement);
@@ -1476,8 +1160,6 @@ public static class SchemaGate {
         return published.Case switch {
             null when placement.Held.Admits(PlacementAxis.Materializes) => Materialized(store),
             null => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Absent()),
-            // Digest equality is the WHOLE grade: the fingerprint measures the mounted model itself, so a match IS
-            // serving, any other value is a difference, never a distance, and no arm ranks two generations.
             UInt128 held when held == compiled => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving()),
             _ when unknown.IsEmpty => Fin<SchemaVerdict>.Succ(
                 new SchemaVerdict.Behind(declared.Filter(name => !census.Contains(name)))),
@@ -1486,27 +1168,12 @@ public static class SchemaGate {
         };
     }
 
-    // Materialization arm: the creator builds every artifact into the namespace this session's `search_path` pins,
-    // which the deploy plane's rename publishes. It is ONE transaction, so a torn build publishes nothing and the
-    // successor re-runs whole — resume from a partial build is the loss this transactional shape buys out.
     static Fin<SchemaVerdict> Materialized(DbContext store) =>
         Op.Of().Catch(() => Fin.Succ(fun(() => store.GetService<IRelationalDatabaseCreator>().CreateTables())))
             .Match(
                 Succ: _ => Fin<SchemaVerdict>.Succ(new SchemaVerdict.Serving()),
                 Fail: error => Fin<SchemaVerdict>.Fail(new IdentityFault.ApplyFailed(error)));
 
-    // Marten's DDL leg runs here: the single-writer placement APPLIES the document/event schema through the runtime
-    // `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync` (the fleet member instead carries the
-    // host-registered `AssertDatabaseMatchesConfigurationOnStartup` gate whose throw lifts to MartenMismatch
-    // BEFORE this runs), then rolls the `Store/provisioning#SERVER_EXTENSIONS` `RollingWindow` roster in the SAME
-    // leg — materialization provisions a leading edge (purely additive, so the generation carries it) but never
-    // removes data, so retiring the trailing edge is exactly the half a materialization cannot do and belongs
-    // to the write authority that just built. `ApplyRollingPartitionsAsync` is the both-halves verb (roll forward AND drop
-    // aged), idempotent and multi-node safe, and it runs BEFORE any configuration assertion because once the clock
-    // crosses a period boundary the database legitimately lacks the partition this pass is about to create. The
-    // fleet member runs NEITHER half: partition rotation is a destructive DDL act and the assert-only posture owns
-    // no destructive act. A reader/fleet member returns Serving without touching DDL; a throw from either half
-    // lifts to ApplyFailed, the SAME band the EF leg uses.
     public static IO<SchemaVerdict> AdmitMarten(IDocumentStore store, Placement placement) =>
         placement.Held.Admits(PlacementAxis.Materializes)
             ? IO.liftAsync(async () => await Op.Of().Catch(async _ => {

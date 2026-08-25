@@ -27,7 +27,7 @@
 - Boundary: a boolean returns SHELLS, so a severing operand refuses typed mid-fold rather than silently framing one component of a disconnected model; silhouette, crease, and intersection loci are whole-model reads and projecting the first shell would drop geometry the operand legitimately produced.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
@@ -47,9 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Documentation;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// One view identity for the roster, the hatch rows, the runs, and the anchors, so a join is an equality on an
-// admitted owner rather than an ordinal string comparison every site has to spell identically.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct ViewKey {
     [BoundaryAdapter]
@@ -60,7 +58,7 @@ public readonly partial struct ViewKey {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ProjectionCharacteristic {
     public FeatureFrame Frame { get; }
@@ -86,20 +84,11 @@ public sealed partial class ProjectionCharacteristic {
         Validate(frame, modelLocus, provenance, out ProjectionCharacteristic characteristic).Admitted(characteristic);
 }
 
-// MeshSpace is a readonly record struct whose private factory alone assigns Native, so an
-// un-admitted default carries a null Native — the probe every operand gate spells.
 public readonly record struct BooleanOperand(MeshSpace Other, BooleanOp Operation, ContentKey Source);
 
-// The kernel attributes to its OWN leg-local operand ordinals and knows nothing of content identity, so this row is
-// the lineage carrier. Ordinal is fixed at one — the accumulated model is always operand zero — because a running
-// count would exceed every ordinal the provenance can return and strand every leg past the first. The row carries no
-// leg index: attribution walks the sequence in reverse, so position IS the leg and a stored copy of it is a second
-// truth about the same order.
 public readonly record struct BooleanComposition(ContentKey Source, BooleanReceipt Receipt) {
     public const int OperandSlot = 1;
 
-    // The join reaches only the NATIVE route: `Receipt.Source` is populated off the engine's run windows and is
-    // `None` on every managed fold under the arrangement's scale ceiling, so absence is the honest answer there.
     public Option<int> OperandOf(int face) => Receipt.Source.Bind(provenance => provenance.OperandOf(face));
 }
 
@@ -130,10 +119,6 @@ public abstract partial record ProjectionView {
         projected: static value => value.Direction,
         section: static value => value.Direction);
 
-    // A projected row carrying the section kind has no cut plane to lower, and admission already refuses it; the
-    // arm answers a typed refusal so no plane is forged for a case the roster cannot hold.
-    // The composed solid enters as a roster of one — the kernel's union solve is the same walk either way,
-    // and a future multi-part traveler view is roster data here, never a second lowering.
     internal Fin<ViewOp> Lower(MeshSpace model, Camera camera, ViewPolicy policy) => Switch(
         state: (Parts: Seq(ViewSubject.Of(model)), Camera: camera, Policy: policy),
         projected: static (state, view) => view.Operation.Switch(
@@ -151,15 +136,8 @@ public sealed partial class ProjectionPolicy {
     public Seq<ProjectionView> Views { get; }
     public ViewConvention Convention { get; }
 
-    // The ISSUED SHEET, whole. `PlotPolicy.Of` already gates its scale against `ScaleLadder.For(size.Standard)`
-    // and derives frame and line group from the size inside a private mint, so a free positive `Ratio` — under
-    // which `1:7.3` passed — is unrepresentable here rather than refused later, and the projection cannot claim a
-    // sheet convention the plot it feeds does not use. `PlotPolicy.Issue(size, key)` mints the whole value from
-    // the size alone, so the consumer that used to author angle and scale separately now authors one row.
     public PlotPolicy Plot { get; }
 
-    // Crease is an ANGLE and the silhouette tolerance a squared ratio the kernel's own crease test consumes; both
-    // enter typed, so a caller cannot hand degrees where radians are read or a raw ratio where its square is.
     public Angle CreaseDihedral { get; }
     public double BetaSquared { get; }
 
@@ -212,8 +190,6 @@ public sealed partial class ProjectionPolicy {
             hatching, characteristics, out ProjectionPolicy policy).Admitted(policy);
 }
 
-// The anchor republishes the frame's own LAYOUT-FREE symbol rows beside the screen locus, so a drafting consumer
-// places a feature-control frame from this row alone and never re-opens specification geometry to rebuild it.
 public sealed record ProjectionAnchor(
     ViewKey View,
     ProjectionCharacteristic Characteristic,
@@ -222,12 +198,6 @@ public sealed record ProjectionAnchor(
     public Seq<FrameSymbolRow> Symbols => Characteristic.Frame.Annotation;
 }
 
-// Parts-list anchor: the arc-length midpoint of the part's longest visible chain in THIS view, so a leader
-// terminates on the outline stretch the view draws longest. `RunLength` and `Segments` are that chain's
-// own evidence — a drafting consumer ranks callouts and detects crowding from them without re-walking the
-// projection — and `Depth` is the cue at the midpoint itself, interpolated across the bracketing segment's
-// endpoint pair. The row carries no leader direction and no circle: seating a callout on the sheet is the
-// drafting plane's, and a layout decided here would be a second sheet authority over one figure.
 public sealed record BalloonAnchor(
     ViewKey View,
     int Part,
@@ -247,23 +217,14 @@ public sealed record ProjectionEvidence(
     PlotPolicy Plot,
     Seq<ProjectionRun> Runs,
     Seq<ProjectionAnchor> Characteristics,
-    // Balloons are EVIDENCE, minted once inside the solve beside the characteristic anchors rather than derived
-    // on read: the fold reads the run's own visible set and its per-part histogram, both of which the record
-    // already carries, so a lazily-derived member would re-walk one settled projection per consumer.
     Seq<BalloonAnchor> Balloons,
     Seq<BooleanComposition> Composition,
     Seq<ContentKey> Sources) {
-    // The placement law as data, DERIVED off the sheet this projection was issued to: a third-angle view lands on
-    // the side it looks from, a first-angle view on the opposite side, so the drafting owner that seats these runs
-    // folds one signed column instead of branching, and it never re-derives the convention off a standard name.
     public ProjectionAngle Quadrant => ProjectionAngle.For(Plot.Size.Standard);
 
     public Option<DrawingProjection> View(ViewKey key) =>
         Runs.Find(run => run.Key == key).Map(static run => run.Projection);
 
-    // Attribution walks the legs in REVERSE because the last boolean's provenance describes the final faces: an
-    // operand-one hit names that leg's own source, an operand-zero hit falls through to the leg that produced the
-    // accumulated model, and exhaustion is the honest answer for a managed run or a face the fold generated.
     public Option<ContentKey> Attribute(int face) => Composition
         .Rev()
         .Fold(
@@ -278,7 +239,7 @@ public sealed record ProjectionEvidence(
         .Resolved;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Hlr {
     private static readonly Op HlrOp = Op.Of(name: "fabrication:hidden-line");
 
@@ -305,8 +266,6 @@ internal static class Hlr {
                 .OrderBy(static value => value.Kind.Key)
                 .ThenBy(static value => value.Digest))));
 
-    // A locus behind the camera or on its plane has no place on a sheet, so the depth gate is what decides whether
-    // a characteristic anchors in THIS view rather than a cross product that places every callout everywhere.
     private static Seq<ProjectionAnchor> Anchors(
         ViewKey key,
         Camera camera,
@@ -317,11 +276,6 @@ internal static class Hlr {
                 : Seq<ProjectionAnchor>();
         });
 
-    // Parts-list derivation, whole. The successor walk runs ONCE over the run's own visible set, because
-    // `Next` indexes within that set and a per-part filter ahead of the walk would strand every ordinal; the
-    // resulting chains partition by their head's `Part` afterwards. The best chain per part is the one with the
-    // greatest summed screen length, ties resolving on the lowest head ordinal so an unordered group still
-    // yields one deterministic anchor, and the `Map` fold hands the anchors back in part order.
     private static Seq<BalloonAnchor> Balloons(ProjectionRun run) => toSeq(
         SuccessorChain.Walk(run.Projection.Visible, static row => row.Next)
             .Bind(chain => Called(run.Projection, chain[0])
@@ -341,9 +295,6 @@ internal static class Hlr {
             .Map((part, seated) => Anchor(run.Key, part, run.Projection.Visible, seated.Chain, seated.Run))
             .Values);
 
-    // Absence is the HISTOGRAM's: the kernel already tallies a visible count per part, so a part it drew nothing
-    // of is uncalled without this fold recounting one, and a chain head carrying no part ordinal — an inter-part
-    // seam or a section row — names nothing the parts list holds.
     private static Option<int> Called(DrawingProjection projection, int head) =>
         projection.Visible[head].Part.Filter(part =>
             part >= 0 && part < projection.Parts.Count && projection.Parts[part].VisibleCount > 0);
@@ -351,11 +302,6 @@ internal static class Hlr {
     private static double Drawn(Seq<ProjectedSegment> rows, Seq<int> chain) =>
         chain.Sum(index => rows[index].ScreenA.DistanceTo(rows[index].ScreenB));
 
-    // ARC-LENGTH midpoint, never a segment-count one: a tessellated run's segments are uneven, so counting to
-    // the middle segment drifts the anchor toward wherever the emission split most finely. The fold advances
-    // until the travelled distance reaches half the run and then FREEZES, so the seat is the first point at half
-    // length and the clamp covers the span that overshoots it; a chain of zero drawn length freezes on its own
-    // head, which is the honest degenerate answer rather than a division.
     private static BalloonAnchor Anchor(ViewKey key, int part, Seq<ProjectedSegment> rows, Seq<int> chain, double run) {
         double half = run * 0.5;
         (Point3d Locus, double Depth) seat = chain.Fold(
@@ -371,9 +317,6 @@ internal static class Hlr {
         return new BalloonAnchor(key, part, seat.Locus, seat.Depth, run, chain.Count);
     }
 
-    // `ProjectedSegment` carries a depth PER ENDPOINT, so an interior anchor's cue interpolates at the same
-    // parameter its locus does — taking one endpoint's depth would report a cue the anchor does not sit at, and
-    // on a long silhouette run that is exactly the segment a consumer sorts callouts by.
     private static (Point3d Locus, double Depth) Seat(ProjectedSegment row, double at) => (
         new Point3d(
             row.ScreenA.X + ((row.ScreenB.X - row.ScreenA.X) * at),
@@ -384,8 +327,6 @@ internal static class Hlr {
     private static Fin<Sourced> Source(MeshSpace model, ProjectionSource source) => source.Switch(
         state: model,
         model: static (state, _) => Fin.Succ(new Sourced(state, Seq<BooleanComposition>())),
-        // `FoldM` returns the erased `K<M, S>`; the carrier is named at the call and re-anchored by `.As()`,
-        // so the arm answers the `Fin<Sourced>` its sibling arm does.
         boolean: static (state, request) => request.Operands.FoldM<Fin, Sourced>(
             new Sourced(state, Seq<BooleanComposition>()),
             (current, operand) =>
@@ -408,8 +349,6 @@ internal static class Hlr {
         MeshSpace model,
         ProjectionDir direction,
         ProjectionPolicy policy) =>
-        // Fast bounds are exact enough for camera framing: Pose reads only Center and Diagonal to
-        // seat the standoff, so an accurate walk buys no framing precision at a full-mesh cost.
         from bounds in HlrOp.Catch(() => Fin.Succ(model.Native.GetBoundingBox(accurate: false)))
         from _ in guard(bounds.IsValid, HlrOp.InvalidInput()).ToFin()
         from forward in Direction.Of(direction.Forward, model.Tolerance, HlrOp)
@@ -421,9 +360,6 @@ internal static class Hlr {
             ViewPolicy.Canonical with {
                 CreaseDihedralRadians = policy.CreaseDihedral.As(AngleUnit.Radian),
                 BetaSquared = policy.BetaSquared,
-                // The broad phase reads `Context.For(ToleranceLane.MeshIntersection)` off the OPERAND's own bound
-                // context now, so the sweep band scales with the model and a caller wanting a wider sweep widens
-                // that context rather than pinning an absolute inflation on a policy row every view shared.
                 Narrow = IntersectPolicy.Canonical,
                 Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
             });
@@ -445,7 +381,6 @@ internal static class Hlr {
          select (new ProjectionRun(view.Key, lowered.Pose, view.Kind, projection, hatch), lowered.Camera))
         .ToValidation();
 
-    // Hatch lanes ride the SAME admitted exactness rows Lower binds for the view solve.
     private static HatchPolicy HatchLane(ProjectionPolicy policy) =>
         HatchPolicy.Canonical with {
             Narrow = IntersectPolicy.Canonical,

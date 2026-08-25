@@ -26,7 +26,7 @@ Former local vocabulary — `PathSpec`, `FillSource`, `TransformSpec`, `StrokeSp
 - Growth: a host layer addition is one `PaintPhase` row; a new mount payload is one `TFacts` instantiation — attachment, containment, and release stay one gate.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Microsoft.Extensions.Logging;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -36,7 +36,7 @@ using HostCanvas = Grasshopper2.UI.Canvas.Canvas;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PaintPhase {
     public static readonly PaintPhase BeforeBackground = BackgroundFence(key: 0, attach: static (s, h) => s.BeforePaintBackground += h, detach: static (s, h) => s.BeforePaintBackground -= h);
@@ -48,9 +48,6 @@ public sealed partial class PaintPhase {
     public static readonly PaintPhase BeforeObjects = Fence(key: 6, attach: static (s, h) => s.BeforePaintObjects += h, detach: static (s, h) => s.BeforePaintObjects -= h);
     public static readonly PaintPhase AfterObjects = Fence(key: 7, attach: static (s, h) => s.AfterPaintObjects += h, detach: static (s, h) => s.AfterPaintObjects -= h);
 
-    // One contained hook per fence family: the handler builds the scene, runs the body under `Op.Catch`, emits
-    // `PaintLog.PaintFault` then parks the refusal on the composition cell, and the returned action is the
-    // exact `-=` inverse.
     [UseDelegateFromConstructor]
     internal partial Action Hook(HostCanvas surface, Func<PaintScene, Fin<Unit>> body, Op operation, FaultCell faults);
 
@@ -64,7 +61,7 @@ public sealed partial class PaintPhase {
         Action<HostCanvas, EventHandler<CanvasPaintEventArgs>> detach);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PaintFrame(Skin Skin, RectangleF Visible, float PointsPerPixel, AppearanceRow Appearance) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -74,8 +71,6 @@ public readonly record struct PaintFrame(Skin Skin, RectangleF Visible, float Po
         Visible.Width >= 0f && Visible.Height >= 0f);
 }
 
-// Event-scoped capability: every live read RAILS on a closed scene, so a stale handle refuses typed instead of
-// throwing through the host callback that recycled it.
 public sealed class PaintScene : IDisposable {
     private readonly Atom<bool> live = Atom(true);
 
@@ -84,7 +79,6 @@ public sealed class PaintScene : IDisposable {
     [BoundaryAdapter] public Fin<HostCanvas> Surface(Op? key = null);
     [BoundaryAdapter] public Fin<ControlGraphics> Graphics(Op? key = null);
 
-    // Background suppression action — a veto on the paint.background hook row settles through this seam.
     public Fin<Unit> SuppressDefault(Op? key = null);
 
     public void Dispose();
@@ -93,11 +87,7 @@ public sealed class PaintScene : IDisposable {
         live.Value && held is not null ? Fin.Succ(held) : Fin.Fail<T>(new UiFault.Released(Key: op));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Fan's ONE release capsule: latest facts, the composition's bounded fault cell, and a redrivable release.
-// Latch seats ONLY on a settled release — a failed teardown leaves it open, parks the refusal, and the
-// redrive posture is the capsule's law rather than a hand `0/1/2` integer ladder; a second successful-path call
-// reads the step's `Refused` and no-ops. `Canvas/interaction.md` and `Canvas/wires.md` compose this type.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Mounted<TFacts> : IDisposable {
     private readonly Atom<Option<TFacts>> facts = Atom(Option<TFacts>.None);
     private readonly Atom<bool> released = Atom(false);
@@ -108,10 +98,8 @@ public sealed class Mounted<TFacts> : IDisposable {
     internal Mounted(Func<Fin<Unit>> release, FaultCell faults, Op operation);
 
     public Option<TFacts> Latest => facts.Value;
-    // Liveness read: a consumer gating work on the capsule reads the latch, never a tautology or a fault census.
     public bool IsReleased => released.Value;
 
-    // Commit verb, verdict read: a refused/contended write on the facts cell is a real signal, not a discard.
     internal Transition<Option<TFacts>> Record(TFacts value) => Cell.Commit(facts, _ => Some(value));
 
     public Fin<Unit> Release(Op? key = null);
@@ -119,7 +107,6 @@ public sealed class Mounted<TFacts> : IDisposable {
 }
 
 internal static partial class PaintLog {
-    // Const-beside-row (kernel S1-58): the pair proves equal at type init and drift throws at load.
     internal const int CallbackFault = 4701;
     internal const int ReleaseFault = 4703;
     static PaintLog() => Op.SideWhen(
@@ -133,11 +120,9 @@ internal static partial class PaintLog {
     internal static partial void HookReleaseFault(ILogger logger, [UserContent] string detail);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class PaintAnchor {
-    // Planned mount: plan → kernel/host execution → receipt on the capsule; the background fences consult the
-    // veto before the plan runs, and a Fail verdict suppresses the host default through the scene.
     public static Fin<Lease<Mounted<PassReceipt>>> Mount(
         PaintPhase phase,
         Func<PaintFrame, GhPlan> plan,
@@ -146,13 +131,10 @@ public static class PaintAnchor {
         FaultCell faults,
         Op? key = null);
 
-    // Fire site for hook row `paint.background` (Veto) — raised only inside the two background fences; layer
-    // fences raise nothing (the post-facto stream is the drain's `CanvasSignal.Draw` row, not rail governance).
     private static Fin<HookSignal> Herald(
         HookRail<GrasshopperPoint, HookSignal, HookScope> rail, Op key) =>
         rail.Fire(at: GrasshopperPoint.PaintBackground, fact: new HookSignal.IntentCase(Operation: key, DocumentId: None), key: key);
 
-    // Budget-invisible by declaration: no clock, no receipt — a painter wanting judgment mounts the planned form.
     public static Fin<Lease<Mounted<PassReceipt>>> MountRaw(
         PaintPhase phase, Func<PaintScene, Fin<Unit>> painter, FaultCell faults, Op? key = null);
 }
@@ -171,7 +153,7 @@ public static class PaintAnchor {
 - Growth: a new host-drawn species is one `GhMark` case with one draw arm and one cull arm; every kernel-expressible addition is the kernel's one case and costs this band nothing.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -180,7 +162,7 @@ using Thinktecture;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 [GenerateUnionOps]
 public abstract partial record GhMark {
@@ -189,37 +171,25 @@ public abstract partial record GhMark {
     public sealed record IconCase(IIcon Icon, Rectangle Frame, int Pad, PerceptualColor Backdrop) : GhMark;
     public sealed record CapsuleCase(Capsule Body, Shade Shade, Option<Parts> Elements) : GhMark;
     public sealed record WireGhostCase(WireShape Route, StrokeSpec Stroke) : GhMark;
-    // Wire PASS row: `Canvas/wires.md` produces ONE per wire — the executor draws `Ink.Outer` always and
-    // `Ink.Inner` on presence, and its pass-local pen stock keys on (ink ends, edge), so at most the palette's
-    // four corners per edge mint a pen. Equal ends draw solid; unequal ends draw the source-to-target gradient.
     public sealed record WireCase(WireShape Route, WirePens Ink) : GhMark;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record GhPlan(Seq<GhMark> Marks);
 
-// Rhino's DrawReceipt form: the kernel receipt counts what SETTLED, the refusal lane rides beside it — a
-// refused host case is typed evidence, never a Culled row.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PassReceipt(PaintReceipt Tally, Seq<Error> Refused) : IValidityEvidence {
     public bool IsValid => Tally.IsValid;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class GhPaint {
-    // `Runs` is the batching fold: each maximal `Kernel` run mints ONE `PaintProgram.Of(marks, key)` and every host
-    // case rides between them in plan order, so `Execute` replays each program once and draws each host case once.
     internal static Fin<Seq<Either<PaintProgram, GhMark>>> Runs(GhPlan plan, Op key);
 
-    // One fold over `Runs`: programs replay through the kernel executor (stock, cull, tally, identity skip all the
-    // kernel's); host cases draw per-case with conservative culls and contained raises; the whole pass gauges once.
     internal static Fin<PassReceipt> Execute(
         PaintScene scene, GhPlan plan, MonotonicTimeline clock, FaultCell faults, Op key);
 
-    // Read twin: back-to-front, kernel segments through `PaintProgram.Hit(at, stock, density)` — the stock
-    // is the pass's own, so the executor's shaping memo answers the probe — host cases through their own
-    // containment (`Capsule.Slab.Contains`, icon frame, route bounds) — topmost wins.
     public static Fin<Option<GhMark>> Probe(
         GhPlan plan, PointF at, PaintStock stock, PositiveMagnitude density, Op? key = null);
 }
@@ -238,7 +208,7 @@ public static class GhPaint {
 - Growth: a new decoration species is one `OverlayNode` case with its projection arm; a new motion modality is a `GlidePlan` case at its Platform owner.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using CoreAnimation;
 using CoreGraphics;
 using Rasm.Domain;
@@ -249,12 +219,10 @@ using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record OverlayNode {
     private OverlayNode() { }
-    // Edge is a colour-and-width pair and the style bits ride the layers vocabulary — a border with no width
-    // and a bare Clip/Rounded bool pair are both unrepresentable.
     public sealed record PanelCase(
         RectangleF Frame, Option<PerceptualColor> Fill, Option<(PerceptualColor Colour, float Width)> Edge,
         float CornerRadius, CapabilitySet<LayerTrait> Traits, Seq<OverlayNode> Children) : OverlayNode;
@@ -263,9 +231,7 @@ public abstract partial record OverlayNode {
         CapabilitySet<LayerTrait> Traits, Seq<OverlayNode> Children) : OverlayNode;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Compositor-resident decoration: one mount per tree, ordinals preorder over the projected graph, motion and
-// re-frame addressed through the mount so no borrowed CALayer handle escapes this capsule.
+// --- [SERVICES] ------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed class CanvasOverlay : IDisposable {
     private readonly Lease<LayerMount> mount;
@@ -278,8 +244,6 @@ public sealed class CanvasOverlay : IDisposable {
 
     public void Dispose() => mount.Dispose();
 
-    // Preorder projection into the layers vocabulary: panels mint through LayerPaint.Plain, strokes bracket the
-    // two-lease path hand-off — Build's Eto lease releases the moment Stroked owns its CGPath.
     private static Fin<LayerNode> Project(OverlayNode node, Op op);
 }
 ```

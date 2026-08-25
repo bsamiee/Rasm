@@ -72,8 +72,6 @@ type ProducerTag = Literal["ifc"]
 type KernelYield = tuple[str, str, int, int]
 type TessellateKernel = Callable[..., KernelYield]
 
-# the two custody body shapes `ArtifactRepository.opened` discriminates on: a rail-returning body takes the held arm
-# and an async-generator body takes the streamed arm, so the modality is recoverable from the value itself.
 type Held[T] = Callable[[OwnedArtifact], Awaitable[RuntimeRail[T]]]
 type Streamed[T] = Callable[[OwnedArtifact], AsyncGenerator[T]]
 
@@ -203,14 +201,10 @@ async def _store_chunks(stream: StoreStream) -> AsyncGenerator[bytes]:
 
 
 async def _witnessed(_owned: OwnedArtifact, /) -> RuntimeRail[bool]:
-    # the custody body a presence probe needs: reaching it IS the proof, so the probe carries no second read.
-    # Named apart from the slot probe `_present` below — two concepts, two names; the shared spelling let the
-    # later module-scope definition shadow this one at call time with the wrong arity.
     return Ok(True)
 
 
 def _absent(fault: BoundaryFault, /) -> RuntimeRail[bool]:
-    # a store MISS is the answer this probe exists to give and never a refusal; every other fault stays the fault.
     match fault:
         case BoundaryFault(tag="domain", domain=(_, StoreFault(tag="missing"))):
             return Ok(False)
@@ -238,15 +232,6 @@ class ArtifactRepository:
         return (await self.opened(artifact, _witnessed)).or_else_with(_absent)
 
     def opened[T](self, expected: ArtifactRef | bytes, use: Held[T] | Streamed[T], /) -> Awaitable[RuntimeRail[T]] | AsyncGenerator[T]:
-        # the ONE artifact-custody entry, and the rail never leaves the rail: the resolve, the staged proof, and the
-        # claim proof (`claim=expected` — identity for a bare digest, identity AND extent for a full reference) all
-        # land inside, so no consumer re-rails a raise or re-confirms a reference by hand. The deleted
-        # `@asynccontextmanager` form un-railed a rail — it raised the store's own `BoundaryFault` out of a generator
-        # that could not carry one — and every one of its four consumers paid the same two `except` arms to undo it.
-        # Modality discriminates on the SHAPE of `use`, the branch's own `trapped` law: a rail-returning body takes
-        # the held arm, an async-generator body takes the streamed arm, and no `stream: bool` knob restates what the
-        # value already answers. `isasyncgenfunction` unwraps a `functools.partial`, so a bound held body still reads
-        # as the coroutine it wraps and the `partial` every caller threads its captures through costs no arm.
         sha256 = expected if isinstance(expected, bytes) else expected.sha256
         return self._streamed(expected, sha256, use) if isasyncgenfunction(use) else self._held(expected, sha256, use)
 
@@ -257,9 +242,6 @@ class ArtifactRepository:
                 return refused
             case Result(tag="ok", ok=StoreOutcome(payload=StoreStream() as stream)):
                 try:
-                    # `claim=expected` hands the WHOLE claim to the seal: a bare digest proves identity, a full
-                    # reference proves identity and extent, and the refusal rides the yielded `Result` — the
-                    # discarded hand `confirm` this replaces proved nothing.
                     async with stage(_store_chunks(stream), claim=expected) as sealed:
                         match sealed:
                             case Result(tag="ok", ok=owned):
@@ -269,15 +251,11 @@ class ArtifactRepository:
                             case _ as unreachable:
                                 assert_never(unreachable)
                 except BoundaryFault as refused:
-                    # Exemption: `_store_chunks` feeds an async-iterator protocol that carries no rail, so the store's
-                    # own typed fault crosses it as a raise and is re-railed HERE, once, for every consumer.
                     return Error(refused)
             case _ as unreachable:
                 assert_never(unreachable)
 
     async def _streamed[T](self, expected: ArtifactRef | bytes, sha256: bytes, use: Streamed[T], /) -> AsyncGenerator[T]:
-        # the server-stream arm: the custody bracket stays open across every yield, which is exactly why the held
-        # arm cannot serve it and why the discriminant is the body's own shape rather than a second public entry.
         match await self._lane.run_async(StoreOp.Stream(self.path(sha256))):
             case Result(tag="error", error=fault):
                 raise fault
@@ -288,8 +266,6 @@ class ArtifactRepository:
                             async for item in use(owned):
                                 yield item
                         case Result(tag="error", error=refusal):
-                            # Exemption: the generator arm carries no rail, so a seal refusal crosses it as the
-                            # library's own egress carrier and the serve edge re-rails it once.
                             raise ArtifactError(refusal)
                         case _ as unreachable:
                             assert_never(unreachable)
@@ -353,16 +329,10 @@ def _phase(result: TessellationResult, warm: Map[ContentKey, TessellationResult]
 
 
 def _present[T](slot: T | None, coordinate: str, /) -> RuntimeRail[T]:
-    # `has_field` is the generator's own presence probe and a message slot reads `None` when unset; this is the one
-    # place that reads it, so every fold past the admission holds a proved value.
     return Option.of_optional(slot).to_result_with(lambda: DAEMON_SLOT.raised(coordinate))
 
 
 class TessellationUnit(Struct, frozen=True, gc=False):
-    # every required slot of the generated request, PROVED PRESENT ONCE: `from_binary` runs no protovalidate, so the
-    # decode carries no proof of its own and every fold downstream reads this frozen owner instead of casting away a
-    # `None` nothing established. Growth is one slot beside one admitted line, and a required slot the corpus adds
-    # breaks the admission loudly instead of surfacing as a worker crash.
     request: TessellateRequest
     policy: TessellationPolicy
     scope: TessellationScope
@@ -372,10 +342,6 @@ class TessellationUnit(Struct, frozen=True, gc=False):
     @staticmethod
     @effect.result[TessellationUnit, BoundaryFault]()
     def of(request: TessellateRequest, /):
-        # ONE admission over BOTH crossings — the parent's own value and the worker's `from_binary` decode — because
-        # no envelope stands between the rpc verb and its payload and both crossings hand this one type, so nothing
-        # here discriminates. Do-notation is earned on value re-use, never chain length: `scope` feeds `kind` and the
-        # constructor both, the intermediate a point-free `pipeline` could not name.
         policy = yield from _present(request.policy, "policy")
         scope = yield from _present(request.scope, "scope")
         kind = yield from _present(scope.kind, "scope.kind")
@@ -451,9 +417,6 @@ def _tessellate_ifc(
 ) -> KernelYield:
     match TessellationUnit.of(TessellateRequest.from_binary(payload)):
         case Result(tag="error", error=refused):
-            # Exemption: the worker floor carries no rail home, so an admitted refusal crosses as the raise
-            # `execution/workers#CROSSING` lowers to data and re-mints parent-side — exactly as the budget refusal
-            # below does. This is the only unproved decode in the fold and it is now proved before any native call.
             raise refused
         case Result(tag="ok", ok=unit):
             pass
@@ -499,9 +462,6 @@ def _field_number(message: type[Message], local_name: str) -> int:
 
 
 def _source_key(unit: TessellationUnit) -> ContentKey:
-    # Field NUMBERS this writer emits ARE the cross-language parity contract: the peer at
-    # `dotnet:Rasm.Bim/Exchange/tessellation#TESSELLATION_BRIDGE@Plan` writes this identical ordinal chain, so a
-    # coordinate added, dropped, or renumbered here forks the key silently unless that peer moves in the same change.
     source = unit.source
     return (
         CanonicalWriter()
@@ -521,8 +481,6 @@ def _scope_tokens(kind: Oneof) -> RuntimeRail[tuple[int, tuple[str, ...]]]:
         case Oneof(value=Message() as payload):
             field = payload.desc().fields[0]
             values = payload[field]
-            # the descriptor names a repeated string column; the shape probe REFUSES anything else rather than
-            # asserting it away, so a corpus edit that re-types the column breaks here instead of inside the digest.
             return (
                 Ok((field.number, tuple(sorted(set(values)))))
                 if isinstance(values, Sequence) and not isinstance(values, (str, bytes))
@@ -550,8 +508,6 @@ def _content_key(unit: TessellationUnit) -> RuntimeRail[ContentKey]:
 
 
 def _framed(writer: CanonicalWriter, framed: tuple[int, tuple[str, ...]]) -> CanonicalWriter:
-    # Exemption: `CanonicalWriter` is an ordered imperative sink whose count-then-member framing the estate preimage
-    # law fixes; the loop is that framing and carries no branch beyond the whole-model arm's zero token field.
     token_field, tokens = framed
     if token_field:
         writer.ordinal(token_field).ordinal(len(tokens))
@@ -588,8 +544,6 @@ class TessellationDaemon:
         *,
         budget: "Option[float]",
     ) -> RuntimeRail[Block[TessellationResult]]:
-        # arity absorbs at the head and admission runs BEFORE the drain: a malformed unit refuses the whole batch
-        # rather than reaching the lane as a half-proved row the worker would crash on.
         warm = self._cache
         railed = (Block.singleton(request) if isinstance(request, TessellateRequest) else Block.of_seq(request)).map(
             lambda one: self._admit(one, budget)
@@ -624,9 +578,6 @@ class TessellationDaemon:
         budget: "Option[float]",
     ) -> tuple[ContentKey, ProducerTag, Admit[TessellationResult]]:
         async def work(grant: LaneGrant) -> RuntimeRail[TessellationResult]:
-            # the replay arm short-circuits and every remaining step is one rail hop. `opened` holds the source
-            # custody AND its refusal, so this body carries no `try`, no second context manager for the source, and
-            # none of the three nested `match` ladders the deleted four-deep form needed to say the same thing.
             match await self._replayed(key):
                 case Option(tag="some", some=held):
                     return Ok(held)
@@ -667,9 +618,6 @@ class TessellationDaemon:
     async def _published(
         self, key: ContentKey, sink: ArtifactSink, semantic: Semantic, elements: int, triangles: int, /
     ) -> RuntimeRail[TessellationResult]:
-        # publication is correctness-mandatory, so the seal and the put share one arm and no unresolved reference
-        # can escape onto a receipt; the seal RAILS, so its refusal lands here as the custody row's proof token
-        # rather than crossing into `put` as a `Result` wearing an artifact's shape.
         match await sink.seal():
             case Result(tag="error", error=refusal):
                 return Error(DAEMON_ARTIFACT.raised(rendered(refusal)))

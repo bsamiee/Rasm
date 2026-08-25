@@ -23,13 +23,12 @@ Identity text federates rather than being re-rendered: the tenant reads `Content
 - Boundary: the roster is the branch package census and nothing else — a runtime-discovered source, a foreign exporter identity, and a resource attribute set are the app platform's composition rows.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Minted rows alone: a foreign meter or source this branch never authors is an app-platform admission row.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -55,8 +54,6 @@ public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormat
 
     public static readonly CorrelationId None = Create(Guid.Empty);
 
-    // `IFormattable` belongs to the generator unless `SkipIFormattable` opts out, so a hand-written twin
-    // collides on the partial; the two span writers are this declaration's because the generator emits neither.
     public bool TryFormat(Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider? provider) => ((Guid)this).TryFormat(destination, out charsWritten, format);
     public bool TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider) => ((Guid)this).TryFormat(utf8Destination, out bytesWritten, format);
 }
@@ -79,28 +76,22 @@ public readonly partial struct CorrelationId : ISpanFormattable, IUtf8SpanFormat
 - Boundary: tenancy rides an `AsyncLocal` slot rather than a named process-wide registry, so two compositions in one process — an app root beside a plugin load-context capsule — each hold their own tenancy with no duplicate-name registration fault. Foreign-source rows, resource lacing, exporter wiring, and the OpenTelemetry baggage mirror stay at the app platform, which binds its registered mirror set behind one stamping surface so a kernel caller spells `Stamp()` bare.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using System.Threading;
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<UInt128>(
     KeyMemberName = "Value",
     KeyMemberAccessModifier = AccessModifier.Public,
     ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit,
     ConversionFromKeyMemberType = ConversionOperatorsGeneration.None)]
 public readonly partial struct TenantId {
-    // ONE identity text for the whole federation: `ContentHash.Hex` renders and `ContentHash.Admit` gates, so the
-    // width, the alphabet, and the CASE are decided at the identity owner and this seam re-spells none of them.
-    // `Text` and `ContentHash.Admit` share ONE alphabet, so a round trip preserves the spelling every
-    // ambient store, RLS predicate, object prefix, and meter tag compares against.
     public string Text => ContentHash.Hex(Value);
 
-    // TRUSTED-TEXT entry by argument contract — the composition's own frozen literal — so the one raise sits here;
-    // foreign text enters through `TryOf` and never reaches it.
     public static TenantId Of(ReadOnlySpan<char> text) => Create(ContentHash.Admit(text, Op.Of()).ThrowIfFail());
 
     public static Option<TenantId> TryOf(ReadOnlySpan<char> text) => ContentHash.Admit(text, Op.Of()).ToOption().Map(Create);
@@ -118,12 +109,8 @@ public sealed partial class SessionCoordinate {
     public const string Maintenance = "maintenance";
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// One ambient store per row: `Read` snapshots the prior entry, `Write` seats it or clears it. The OpenTelemetry
-// baggage store is the app platform's, so its row registers there and no OpenTelemetry type enters this assembly.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TenantMirror(string Store, Func<Option<string>> Read, Action<Option<string>> Write) {
-    // Activity baggage clears an entry the current activity itself added; an entry inherited from a parent stays the
-    // parent's to own, which is why the span mirror RESTORES rather than deleting unconditionally.
     public static readonly TenantMirror Span = new(
         Store: nameof(Activity),
         Read: static () => Optional(Activity.Current?.GetBaggageItem(TenantContext.TenantSlot)),
@@ -145,23 +132,14 @@ public sealed record TenantContext(TenantId TenantId, string Slug) {
 
     public string Entry => TenantId.Text;
 
-    // `Key` is the ONE optional-key read: absence IS the root row, so every store write, GUC bind, partition predicate,
-    // and series key folds this Option instead of re-deriving the ternary at its own seam.
     public Option<string> Key => Partitions ? Some(Entry) : None;
 
     public Seq<KeyValuePair<string, object?>> Tags =>
         Key.Map(static entry => Seq(new KeyValuePair<string, object?>(TenantSlot, entry))).IfNone(Seq<KeyValuePair<string, object?>>());
 
-    // Stamping is ALL-OR-NOTHING on the RAIL: a mirror write that fails after the ambient slot and its
-    // predecessors already moved leaves a scope no caller holds, so the partial fold rolls back through the same
-    // reverse-order restore disposal runs and reports every restoration failure beside the original cause.
     public Fin<Lease<IDisposable>> Stamp(FaultCell residue, params ReadOnlySpan<TenantMirror> mirrors);
-    // `StampPoint` parks every restore residue — the cell stamps and orders it; disposal idempotence is the lease's.
     private static readonly HookId StampPoint = HookId.Create(value: "rasm.domain.frame.stamp");
 
-    // ONE restore fold both the failed stamp and disposal read: every row is attempted in reverse admission order
-    // even when one raises, and each restoration failure appends onto the error the fold carries in, so the caller
-    // reads the original cause and every secondary fault on one value rather than the first raise winning.
     private static Option<Error> Restored(TenantContext? prior, Seq<(TenantMirror Row, Option<string> Prior)> held, Option<Error> carried);
 }
 ```
@@ -178,13 +156,13 @@ public sealed record TenantContext(TenantId TenantId, string Slug) {
 - Boundary: a clock, a hybrid-logical cell, and an emit delegate are constructor material this port never mints.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Text.Json;
 using NodaTime;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ReceiptEnvelope(
     CorrelationId Correlation,
     TenantContext Tenant,
@@ -195,15 +173,11 @@ public sealed record ReceiptEnvelope(
     ulong Logical,
     Duration SkewBound);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record ReceiptSinkPort(
     IClock Clock,
     Atom<(Instant Physical, ulong Logical)> Hlc,
     Func<ReceiptEnvelope, IO<Unit>> Emit) {
-    // Bounded logical half: an exhausted counter advances the physical component by ONE NodaTime tick — a hundred
-    // nanoseconds, the exact resolution the packed Unix-tick physical half carries — rather than wrapping, because a
-    // wrap re-issues a stamp the stream already carried. `Duration.Epsilon` is one NANOSECOND and packs to the value
-    // it escaped, so the quantum is the pack's, never the `Duration` type's.
     private const long TickQuantum = 1L;
 
     public static (Instant Physical, ulong Logical) Advance(
@@ -234,13 +208,13 @@ public sealed record ReceiptSinkPort(
 - Boundary: the assembly, its load context, and its host snapshot are the boundary's material — this owner reads them and holds none of them live, so a retired plugin's identity carries no reference keeping its context alive.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Reflection;
 using System.Runtime.Loader;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PackageIdentity<TKey, THostFact>(
     TKey Plugin,
     Version Version,
@@ -249,11 +223,8 @@ public sealed record PackageIdentity<TKey, THostFact>(
     Option<THostFact> Host)
     where TKey : notnull {
 
-    // `PluginSlot` seats the dimension key beside `CorrelationId.Slot` and `TenantContext.TenantSlot`: owner-declared, never a bare noun a distant emitter re-spells.
     public const string PluginSlot = "rasm.plugin";
 
-    // Host probes ride OPTIONAL and railed: a boundary with no host facts passes nothing and lands `None`,
-    // while a boundary whose probe refuses fails the whole resolve rather than publishing a half identity.
     [BoundaryAdapter]
     public static Fin<PackageIdentity<TKey, THostFact>> Resolve(
         Assembly pluginRoot,
@@ -261,7 +232,6 @@ public sealed record PackageIdentity<TKey, THostFact>(
         Option<Func<Op, Fin<Option<THostFact>>>> host = default,
         Op? key = null);
 
-    // ONE spelling of the directory read both boundaries hand-wrote byte-identically.
     public static string ContentRoot(Assembly pluginRoot) =>
         Path.GetDirectoryName(pluginRoot.Location) is { Length: > 0 } held ? held : AppContext.BaseDirectory;
 }

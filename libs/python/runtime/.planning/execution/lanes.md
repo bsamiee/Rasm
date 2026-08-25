@@ -88,8 +88,8 @@ type GrantedWork[T] = Callable[[LaneGrant], Awaitable[RuntimeRail[T]]]
 type Trigger = CronTrigger | IntervalTrigger | DateTrigger | CalendarIntervalTrigger | AndTrigger | OrTrigger
 type AdmitTag = Literal["bare", "keyed", "retried", "whole"]
 type IsolationArm = Callable[..., Awaitable[object]]
-type PulseFact = tuple[HookId, Struct]  # registered HookPoint member + its payload — `StageMark` for every long-fold pulse point
-type Front[T] = tuple[str, Block[Admit[T]]]  # a LABELLED front: the label names the wave a gate mark and a deadline refusal both carry
+type PulseFact = tuple[HookId, Struct]
+type Front[T] = tuple[str, Block[Admit[T]]]
 
 
 @tagged_union(frozen=True)
@@ -110,21 +110,12 @@ class LaneWork[T]:
 
 @tagged_union(frozen=True)
 class Fronts[T]:
-    # the ONE front-source discriminant every dependent drive admits through. A caller holding a dependency GRAPH
-    # hands its stage roster, its edges, and the per-stage unit projection, and the drive resolves the topological
-    # waves itself; a caller holding an ALREADY-RESOLVED ladder — a CPM pass, a hand-ordered wave set — hands the
-    # labelled fronts whole. Two admissions and ONE drive: a sibling method per source forks the per-front gate, the
-    # fault short-circuit, and the deadline rail three ways and lets one arm silently drift out of the other's
-    # guarantees, which is exactly the hand-rebuilt drive this union exists to retire.
     tag: Literal["graph", "resolved"] = tag()
     graph: tuple[tuple[tuple[str, RetryClass], ...], tuple[tuple[str, str], ...], Callable[[str, RetryClass], Sequence[Admit[T]]]] = case()
     resolved: Block[Front[T]] = case()
 
     @property
     def declared(self) -> Option[int]:
-        # total ADMITTED units where the source can answer honestly: a resolved ladder holds every front already, so
-        # it sums; a graph runs its projection per wave, so it knows none until the walk reaches one and says so
-        # rather than publishing a count a progress reader would take for the whole job.
         match self:
             case Fronts(tag="resolved", resolved=fronts):
                 return Some(sum(len(units) for _label, units in fronts))
@@ -134,10 +125,6 @@ class Fronts[T]:
                 assert_never(unreachable)
 
     def walked(self) -> Iterator[Front[T]]:
-        # the graph arm's `done` runs when the DRIVE resumes this generator, which is after that front's drain
-        # returned, so the stateful graphlib walk stays a front source and the drive holds no second graph; loop
-        # depth is fronts, never nodes. The label carries the wave's own stage names, so a gate mark and a deadline
-        # refusal both name which wave they answered.
         match self:
             case Fronts(tag="resolved", resolved=fronts):
                 yield from fronts
@@ -166,19 +153,12 @@ class LaneSource[T]:
 
 FIRE_MASK: Final[int] = EVENT_JOB_EXECUTED | EVENT_JOB_ERROR | EVENT_JOB_MISSED
 FIRE_BUFFER: Final[int] = 64
-PULSE_BUFFER: Final[int] = 256  # bounds the conduit proxy and the drain stream alike; overflow is the authorized lossy drop
-CLOSE_GRACE_S: Final[float] = 2.0  # bounded close window: a live pump admits the control token well inside it; expiry proves the pump dead
+PULSE_BUFFER: Final[int] = 256
+CLOSE_GRACE_S: Final[float] = 2.0
 
-# Process-wide crossing bands: a plain thread/guest hop and a subinterpreter hop consume distinct runtime resources,
-# while `WORKER_BAND` lives with the process-pool owner at execution/workers#POOL. Consumers arrive as ledger
-# `python:` rows, never as sibling-minted limiters beside these bands.
 THREAD_BAND: Final[CapacityLimiter] = CapacityLimiter(2 * (process_cpu_count() or 4))
 INTERPRETER_BAND: Final[CapacityLimiter] = CapacityLimiter(process_cpu_count() or 4)
 
-# the two raise surfaces this page fences, each named once. Span export reaches the shared-memory allocator and the
-# buffer protocol, so its classes enumerate. A kernel body does NOT: it is caller-supplied work whose raise surface no
-# runtime can roster, and an unclassified raise crossing an offload loses the whole lane's receipt, so the guest fences
-# carry the ONE catch-all this producer plane is allowed and every other fence on the page names its provider set.
 _EXPORT_RAISES: Final[Catch] = (OSError, BufferError, TypeError, ValueError)
 _GUEST_RAISES: Final[Catch] = Exception
 
@@ -205,11 +185,6 @@ class LaneCapacity(Struct, frozen=True):
 
     @asynccontextmanager
     async def claim(self, width: int) -> AsyncIterator[LaneGrant]:
-        # The gate serializes ACQUISITION only. A whole-lane claimant therefore waits for existing shared holders
-        # while preventing a later one-token claimant from cutting in; two whole claimants can never each retain a
-        # partial width and deadlock. Once acquired, the gate opens and the CapacityLimiter remains the one live
-        # capacity truth. Distinct borrower tokens let one task hold the declared width through AnyIO's supported
-        # on-behalf-of surface; cancellation during acquisition releases the prefix already held.
         borrowers = tuple(object() for _ in range(width))
         held: list[object] = []
         try:
@@ -224,7 +199,6 @@ class LaneCapacity(Struct, frozen=True):
 
 
 class Watch(Struct, frozen=True):
-    # filter and the debounce/step batching axis are case DATA, so a consumer tunes batching without a new source case.
     paths: tuple[str | PathLike[str], ...]
     filter: BaseFilter | None = None
     debounce: int = 1600
@@ -232,7 +206,6 @@ class Watch(Struct, frozen=True):
 
     @staticmethod
     def facts(batch: set[tuple[Change, str]]) -> Block[tuple[str, str]]:
-        # watch-fact receipt form is the lowercase `raw_str()` member name — never `str(change)` or the IntEnum value.
         return Block.of_seq(sorted((change.raw_str(), path) for change, path in batch))
 
 
@@ -241,25 +214,17 @@ class Watch(Struct, frozen=True):
 
 @cache
 def _pulse_manager() -> SyncManager:
-    # one spawn-context broker per interpreter: every lane conduit's proxy rides this manager process, and spawn pins
-    # crossing semantics exactly as the worker pools do — never a platform-defaulted fork.
     return get_context("spawn").Manager()
 
 
 # --- [CROSSING_BAND_CUSTODY]
 
-# `THREAD_BAND` and `INTERPRETER_BAND` are each ONE process-wide limiter, so exactly one probe may hold each series:
-# a per-lane registration would sum the SAME borrowed count once per live lane and publish saturation no limiter is
-# carrying. Custody refcounts across concurrent lanes: the first lane opens both series, the last retires them, and a
-# band nobody bounds publishes no point. Neither registration takes `scope` because both levels belong to the process.
 _BAND_GATE: Final[threading.Lock] = threading.Lock()
 _BAND_PROBES: Final[ExitStack] = ExitStack()
 _BAND_HOLDERS: Final[list[object]] = []
 
 
 def _thread_occupancy() -> int:
-    # the one probe OBJECT this band ever registers: `occupied` keys registration on identity, so a module-level read
-    # is what keeps the single registration single no matter how many lanes open under it.
     return THREAD_BAND.borrowed_tokens
 
 
@@ -269,8 +234,6 @@ def _interpreter_occupancy() -> int:
 
 @contextmanager
 def _crossing_bands() -> Iterator[None]:
-    # lane-entry refcount under a plain thread lock, not an anyio primitive: sibling daemons can open lanes from
-    # distinct event loops while the process-wide thread and interpreter bands remain one shared resource pair.
     token = object()
     with _BAND_GATE:
         _BAND_HOLDERS.append(token)
@@ -283,15 +246,10 @@ def _crossing_bands() -> Iterator[None]:
         with _BAND_GATE:
             _BAND_HOLDERS.remove(token)
             if not _BAND_HOLDERS:
-                _BAND_PROBES.close()  # the stack empties rather than dies; the next first lane re-enters it
+                _BAND_PROBES.close()
 
 
 class LanePolicy(Struct, frozen=True):
-    # `slots` is lane-LIFETIME state exactly as `pulses` is, so it mints at the scoped constructor and rides the
-    # value — never a `@cache` keyed on this struct. That memo pinned the whole policy, its conduit, and its manager
-    # queue proxy for the process's life: `of`'s `finally` retired the actor while the cache still held the proxy, so
-    # every lane a daemon opened leaked one limiter and one live broker handle with no eviction and no drain row. It
-    # also made hashability load-bearing on a struct carrying a proxy object, which is a constraint the field deletes.
     pulses: "PulseConduit"
     slots: LaneCapacity
     deadline: Option[float] = Nothing
@@ -299,16 +257,6 @@ class LanePolicy(Struct, frozen=True):
     @classmethod
     @asynccontextmanager
     async def of(cls, context: RuntimeContext, *, scope: ScopeKey = DEFAULT_SCOPE) -> AsyncIterator[Self]:
-        # one scoped lane constructor: capacity, deadline, the single lane-lifetime pulse actor, and the occupancy
-        # registration derive together; `scope` is the composition identity the conduit binds so drained pulses fire
-        # on the registering scope. `occupied` hands the metrics owner this lane's borrowed-slot read for exactly the
-        # lane's lifetime under the `lane` band, so `rasm.band.in_flight` samples live lane concurrency on the export
-        # cycle instead of replaying a finished drain's remainder, concurrent lanes under one composition sum into
-        # that band alone, and a retired lane leaves none. Naming the band is what keeps a saturated lane readable
-        # beside a saturated worker pool rather than folded into one number. The lane bracket is also where the
-        # branch's WIDEST bound gets its series: `THREAD_BAND` bounds every THREAD-kind crossing, every guest, and
-        # every `on_thread` hop, yet owns no lifecycle of its own, so its custody refcounts here — one registration
-        # for the one limiter, opened by the first lane and retired by the last.
         capacity = context.policy.lane_capacity
         policy = cls(pulses=PulseConduit.opened(scope), slots=LaneCapacity.of(capacity), deadline=context.budget)
         with _crossing_bands(), Metrics.occupied(lambda: policy.slots.borrowed, band="lane", scope=scope):
@@ -321,13 +269,10 @@ class LanePolicy(Struct, frozen=True):
 
     @property
     def scope(self) -> ScopeKey:
-        # `scope` reads the lane's composition identity, held once on the conduit the scoped constructor opened.
-        # Metric observation and receipt emission in the drained aspect both land under it, so an embedded
-        # composition's lane evidence stays partitioned instead of merging into the default sink.
         return self.pulses.scope
 
     async def drain[T](self, units: Block[Admit[T]], cache: Map[ContentKey, T] = Map.empty()) -> DrainReceipt[T]:
-        opened = Cost.own()  # drain-window envelope: two own-process reads bracket the whole drain, never a sampling loop
+        opened = Cost.own()
         send, receive = anyio.create_memory_object_stream[tuple[Option[ContentKey], RuntimeRail[T]]](max_buffer_size=len(units) or 1)
         probed = units.map(lambda unit: probe(ADMIT_TABLE[unit.tag], unit, cache))
         hits, live = probed.partition(lambda p: p[1].is_some())
@@ -351,8 +296,6 @@ class LanePolicy(Struct, frozen=True):
             async with anyio.create_task_group() as group, send:
                 for key, _, fn in live:
                     group.start_soon(lane, key, fn, send.clone())
-        # every eagerly-minted clone is adopted by exactly one child whose `async with sink` closes it even on the cancellation unwind,
-        # so the post-scope drain reaches `EndOfStream` — the deadline-trip case sends the buffered partial, not a hang.
         resolved = Block.of_seq([item async for item in receive])
         return DrainReceipt.of(len(units), len(replayed), resolved, replayed, cache, cost=Cost.spent(Cost.own(), opened))
 
@@ -365,19 +308,10 @@ class LanePolicy(Struct, frozen=True):
         gate: Option[HookId] = Nothing,
         cache: Map[ContentKey, T] = Map.empty(),
     ) -> RuntimeRail[A]:
-        # THE dependent-front drive for the whole branch: each front drains under THIS lane with the prior front's
-        # `DrainReceipt.cache` threaded forward, and every axis a consumer varies is a parameter rather than a
-        # re-spelled loop — where fronts come from (`Fronts`), what accumulates beside the cache (`fold`), and
-        # whether a composition gets a say between waves (`gate`). Three refusals are the drive's OWN and settle
-        # per front through `_settled`, so no caller re-derives them: a front's fault block, the lane deadline, and
-        # the registered gate. One sequential `for` is the async-front exemption — each front reads the preceding
-        # drain's cache, and neither `anyio` nor `expression` exposes a dependent async fold.
-        # the FIRST front probes the seed, never an empty cache: a warm caller's prior run already keyed work this
-        # drive would otherwise recompute, and only the entry front can elide it.
         carried: Map[ContentKey, T] = cache
         held: RuntimeRail[A] = Ok(seed)
         closed, total = 0, fronts.declared
-        for label, units in fronts.walked():  # Exemption: dependent fronts — the next front is a function of the prior drain's cache
+        for label, units in fronts.walked():
             match held:
                 case Result(tag="error"):
                     return held
@@ -392,13 +326,6 @@ class LanePolicy(Struct, frozen=True):
         return held
 
     def _settled[T](self, label: str, receipt: DrainReceipt[T], gate: Option[HookId], mark: StageMark) -> RuntimeRail[DrainReceipt[T]]:
-        # the three refusals a front can answer, in the order their evidence settles. The fault block reads FIRST
-        # because a front that refused is a dependency the NEXT front reads through the threaded cache — draining
-        # past it computes on evidence that never landed — and it reduces through `BoundaryFault.combine`, so the
-        # caller receives the whole wave's refusal rather than its first member. `cancelled` counts admissions the
-        # deadline scope KILLED rather than units that failed, so a tripped budget rails as the deadline it is over
-        # the lane's own declared bound. The gate fires LAST and only where a composition registered one: a VETO
-        # point between waves is the one arm a subscriber decides, and an absent gate costs a single branch.
         if not receipt.faults.is_empty():
             return Error(receipt.faults.reduce(BoundaryFault.combine))
         if receipt.cancelled:
@@ -406,10 +333,6 @@ class LanePolicy(Struct, frozen=True):
         return gate.map(lambda point: Hooks.fire(point, mark, scope=self.scope)).default_value(Ok(mark)).map(lambda _passed: receipt)
 
     async def whole[T](self, work: GrantedWork[T]) -> RuntimeRail[T]:
-        # Direct native work enters the same allocator as drain admissions. The lane deadline spans BOTH the wait
-        # for whole-lane custody and the work, so a saturated lane cannot consume the entire budget in admission and
-        # then start a fresh full-budget kernel. The grant is the only public inner-width fact: callers never read
-        # the allocator total and cannot multiply outer slots by an independently copied thread count.
         with move_on_after(self.deadline.default_value(float("inf"))):
             async with self.slots.claim(self.slots.total) as grant:
                 return await work(grant)
@@ -418,12 +341,9 @@ class LanePolicy(Struct, frozen=True):
     async def offload[T](self, work: "Kernel[T] | Callable[..., T]", *args: object) -> RuntimeRail[T]:
         kernel = work if isinstance(work, Kernel) else Kernel.of(work)
         if (gated := admitted(kernel)).is_some():
-            # host-side crossing admission precedes the span export and every arm, so a guest module the host refuses
-            # never reaches a worker, a store, or a band token; every other shipping form answers Nothing at one branch.
             return Error(gated.value)
         budget = _tighter(self.deadline, kernel.deadline)
         match boundary(LANES_EXPORT, lambda: exported(kernel.wire, args), catch=_EXPORT_RAISES):
-            # span allocation is fenced: an export raise (ENOSPC, an unmappable dtype) rails instead of escaping the offload.
             case Result(tag="error") as refused:
                 return refused
             case Result(tag="ok", ok=(crossed, blocks)):
@@ -437,19 +357,13 @@ class LanePolicy(Struct, frozen=True):
     async def _crossed[T](self, kernel: "Kernel[T]", budget: Option[float], crossed: tuple[object, ...]) -> RuntimeRail[T]:
         match (kernel.enforcement, kernel.row.kind):
             case (Enforcement.TERMINAL, _):
-                # terminal enforcement forces the pebble arm regardless of trait — process isolation is the one kill-capable
-                # substrate — and the tightened budget rides schedule(timeout=), so no outer scope doubles the bound; the kill's
-                # TimeoutError classifies with the budget-unknown 0.0 floor, so the re-stamp restores the real tightened bound.
                 pool = WorkerPool.acquire(WorkerKind.PROCESS, Enforcement.TERMINAL)
                 return (await pool.submit(replace(kernel, deadline=budget), *crossed)).map_error(
                     lambda fault: expired(LANES_OFFLOAD, budget, f"terminal-kill:{kernel.name}") if fault.tag == "deadline" else fault
                 )
             case (_, Option(tag="none")):
-                # INLINE trait: a sub-quantum body runs on the loop with no crossing and no band.
                 return boundary(LANES_INLINE, lambda: shipped(kernel, *crossed), catch=_GUEST_RAISES)
             case (_, Option(tag="some", some=WorkerKind.PROCESS)):
-                # cooperative process crossing rides the warm loky pool — carrier stitch, WORKER_BAND, and the in-band
-                # worker-death retry live in submit; a tripped budget abandons the settle and the fault carries the real budget.
                 pool = WorkerPool.acquire(WorkerKind.PROCESS)
                 with move_on_after(budget.default_value(float("inf"))):
                     return await pool.submit(kernel, *crossed)
@@ -462,16 +376,12 @@ class LanePolicy(Struct, frozen=True):
                 async def run() -> T:
                     return await arm(traced_kernel, carrier, kernel, *crossed, limiter=limiter)
 
-                # trait-supplied `guard(cls)` leg retries a transient worker cold-start crash BEFORE `async_boundary`
-                # converts the terminal raise; a `Nothing` retry runs bare, and a tripped budget rails with the real bound.
                 with move_on_after(budget.default_value(float("inf"))):
                     return await async_boundary(
                         LANES_OFFLOAD, lambda: kernel.retry.map(lambda cls: guard(cls)(run)).default_with(run), catch=_GUEST_RAISES
                     )
                 return Error(expired(LANES_OFFLOAD, budget, f"anyio-arm-cancel:{kernel.name}"))
             case (_, Option(tag="some", some=kind)):
-                # loud witness for a kind without a crossing arm: a new WorkerKind lands as one _ISOLATION row or one
-                # pool arm, and until it does every offload of it rails this typed refusal instead of a KeyError.
                 return Error(LANES_ISOLATION.raised(kernel.name, kind.value))
             case _ as unreachable:
                 assert_never(unreachable)
@@ -489,11 +399,6 @@ class StagePlan(Struct, frozen=True):
         gate: Option[HookId] = Nothing,
         cache: Map[ContentKey, T] = Map.empty(),
     ) -> RuntimeRail[Block[DrainReceipt[T]]]:
-        # a `graph` admission and a total fold: the plan carries the dependency edges and the drive resolves the
-        # waves, so this entry is one `Fronts` construction rather than a driver of its own. The rail is the RETURN
-        # now, because the drive refuses a faulted, cancelled, or vetoed front — collapsing that to a bare tuple
-        # would launder exactly the refusal the three arms exist to surface. Both drive keywords pass THROUGH rather
-        # than defaulting here, so the graph entry warm-starts and gates exactly as a resolved-ladder caller does.
         return await self.lane.driven(
             Fronts(graph=(self.stages, self.edges, work)),
             Block.empty(),
@@ -504,11 +409,6 @@ class StagePlan(Struct, frozen=True):
 
 
 class PulseConduit(Struct, frozen=True):
-    # one conduit per lane: the spawn-context manager proxy pickles into every crossing arm as an ordinary kernel
-    # argument — THREAD, INTERPRETER, and both process arms share one worker-side spelling, so the spine carries no
-    # per-arm conduit and no offload signature changes; None is the close signal because broker round trips
-    # preserve its identity where a module sentinel would not. `scope` binds the owning composition parent-side, so
-    # each pulse fires on the ScopeKey its points registered under — a worker never carries scope.
     tap: Queue[PulseFact | None]
     scope: ScopeKey = DEFAULT_SCOPE
 
@@ -517,10 +417,6 @@ class PulseConduit(Struct, frozen=True):
         return cls(tap=_pulse_manager().Queue(maxsize=PULSE_BUFFER), scope=scope)
 
     async def close(self) -> None:
-        # composition-side retire is shielded and BOUNDED: producers have stopped under the scoped-owner contract, so a
-        # live pump admits the control token inside the grace window while data is never evicted for it; grace expiry
-        # proves the pump dead — its full conduit never drains — so the terminal arm evicts one pulse as the authorized
-        # counted drop and lands the token non-blocking. Teardown always returns; no shielded await parks forever.
         def retired() -> None:
             try:
                 self.tap.put(None, timeout=CLOSE_GRACE_S)
@@ -539,28 +435,25 @@ class PulseConduit(Struct, frozen=True):
             pass
 
     async def drain(self) -> None:
-        # parent-side serialized pulse actor: ONE consumer folds every pulse into Hooks.fire, so hook taps observe
-        # pulses in conduit order and no worker kernel reaches the registry or a live span; the anyio single-consumer
-        # drain is the ruled stand-in for the asyncio-bound expression MailboxProcessor the serialized-agent law rejects.
         send, receive = anyio.create_memory_object_stream[PulseFact](max_buffer_size=PULSE_BUFFER)
 
         def pumped() -> None:
-            while True:  # Exemption: blocking manager-relay kernel — the platform-forced pump seam between the process conduit and the loop.
+            while True:
                 match self.tap.get():
                     case None:
                         return
                     case fact:
                         try:
                             anyio.from_thread.run_sync(send.send_nowait, fact)
-                        except WouldBlock:  # authorized lossy drop: telemetry never back-pressures the conduit
+                        except WouldBlock:
                             Metrics.record({"rasm.runtime.pulse.dropped": 1.0}, domain="runtime", kind=fact[0].value, scope=self.scope)
-                        except BrokenResourceError:  # drain consumer gone: the pump retires itself
+                        except BrokenResourceError:
                             return
 
         async with anyio.create_task_group() as group:
             group.start_soon(_pulse_fold, receive, self.scope)
-            await on_thread(pumped)  # LanePolicy.close releases the broker read before the composing task group exits
-            send.close()  # loop-side close ends the consumer's fold once the pump has returned on the close token
+            await on_thread(pumped)
+            send.close()
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -572,42 +465,28 @@ def probe[T](row: AdmitRow[T], unit: Admit[T], cache: Map[ContentKey, T]) -> tup
 
 
 def _tighter(lane: Option[float], unit: Option[float]) -> Option[float]:
-    # deadline fold: whichever of the lane budget and the per-offload budget is sooner bounds the hop; one absent side defers.
     return lane.map(lambda held: unit.map(lambda own: min(held, own)).default_value(held)).or_else(unit)
 
 
 def pulsed(tap: Queue[PulseFact | None], point_id: HookId, payload: Struct) -> None:
-    # worker-side pulse write — a kernel's WHOLE reach into observability: lossy by design, a full conduit or dead
-    # broker drops the pulse, so telemetry never back-pressures or faults a kernel mid-operation; the payload struct
-    # is the folder-owned HookPoint vocabulary, pickled whole across the proxy. `point_id` is a ROSTER member and never
-    # a literal — the manager proxy pickles an enum member by identity, so the id arrives worker-side as its member.
     try:
         tap.put_nowait((point_id, payload))
-    except (Full, OSError, EOFError):  # Exemption: fire-and-forget conduit — every refusal is the authorized drop
+    except (Full, OSError, EOFError):
         pass
 
 
 async def _pulse_fold(receive: MemoryObjectReceiveStream[PulseFact], scope: ScopeKey) -> None:
-    # Serialized consumer relies on Hooks.fire's boundary fence to isolate a raising tap, and an unregistered point id
-    # rails there — counted here as producer drift, never a silent drop and never a drain fault. Each fire carries the
-    # conduit's composition scope, so a non-default composition's registered points receive their own beats.
     async for point_id, payload in receive:
         if Hooks.fire(point_id, payload, scope=scope).is_error():
             Metrics.record({"rasm.runtime.pulse.rejected": 1.0}, domain="runtime", kind=point_id.value, scope=scope)
 
 
 async def on_thread[T](fn: Callable[..., T], *args: object, abandon: bool = False, **kwargs: object) -> T:
-    # band-bound raw thread hop: a resilience-enveloped blocking leg outside a lane rides this arm, so THREAD_BAND
-    # bounds every plain thread crossing in the branch — `guarded(cls, on_thread, fn, ...)` is the composed spelling.
-    # `abandon=True` frees the band slot when an enclosing deadline trips a side-effect-free read; the abandoned
-    # thread runs to completion unobserved, so a wedged network read never parks a slot past its scope.
     return await anyio.to_thread.run_sync(lambda: fn(*args, **kwargs), abandon_on_cancel=abandon, limiter=THREAD_BAND)
 
 
 def _fire_seam(scheduler: AsyncIOScheduler, send: MemoryObjectSendStream[JobExecutionEvent]) -> Callable[[JobExecutionEvent], None]:
     def on_fire(event: JobExecutionEvent) -> None:
-        # two distinct dispositions, never one collapsed arm: WouldBlock is the authorized missed-fire drop (the scheduler's own
-        # coalesce policy), BrokenResourceError means the feed consumer is gone and the listener retires itself.
         try:
             send.send_nowait(event)
         except WouldBlock:
@@ -621,13 +500,6 @@ def _fire_seam(scheduler: AsyncIOScheduler, send: MemoryObjectSendStream[JobExec
 def drained[**P, T](
     owner: str, redaction: Redaction, *, scope: ScopeKey = DEFAULT_SCOPE
 ) -> Callable[[Callable[P, Awaitable[DrainReceipt[T]]]], Callable[P, Awaitable[DrainReceipt[T]]]]:
-    # Both egress legs carry the lane's composition scope: drain counts land on the scope-stamped counter and each
-    # drained line resolves that composition's own bound logger, so one embedded lane's evidence never reads as
-    # another's. `feed` binds it off `policy.scope`, so a caller never re-supplies an identity the lane already holds.
-    # Reporting stops at what FINISHED — `cancelled` is already a column on the drain counter, and occupancy is the
-    # standing `Metrics.occupied` probe the scoped constructor registered, sampled on the export cycle.
-    # Emission rides the async mirror because this aspect wraps a coroutine on the running loop: the sync sink renders
-    # and writes inline, so a fast feed stalls its own next drain behind every line it just produced.
     def aspect(fn: Callable[P, Awaitable[DrainReceipt[T]]]) -> Callable[P, Awaitable[DrainReceipt[T]]]:
         @wraps(fn)
         async def observed(*args: P.args, **kwargs: P.kwargs) -> DrainReceipt[T]:
@@ -679,11 +551,6 @@ ADMIT_TABLE: Final[Map[AdmitTag, AdmitRow[object]]] = Map.of_seq([
     ("whole", AdmitRow(key=lambda unit: unit.whole[0], make=lambda unit: LaneWork(whole=unit.whole[1]))),
 ])
 
-# anyio isolation arms as data: one row binds each anyio-substrate `WorkerKind` to its own runtime band. PROCESS rides the workers pool capsule, DAEMON is spawned and
-# supervised, never called, and REMOTE and GPU are fleet/device placement acquired on the pool arms, never trait-derived,
-# so none carries a row here; WASM rides the thread band because the guest arm's own epoch deadline is its in-process kill.
-# A deadline-free guest runs on `UNBOUNDED_TICKS` and parks its THREAD_BAND token for as long as it runs, and the band's own
-# level series is the ONLY reading that exposes it — no arm, receipt, or fault reports a crossing that never terminates.
 _ISOLATION: Final[Map[WorkerKind, tuple[IsolationArm, CapacityLimiter]]] = Map.of_seq([
     (WorkerKind.INTERPRETER, (anyio.to_interpreter.run_sync, INTERPRETER_BAND)),
     (WorkerKind.THREAD, (anyio.to_thread.run_sync, THREAD_BAND)),

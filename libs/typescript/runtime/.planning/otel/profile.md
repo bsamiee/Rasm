@@ -28,15 +28,10 @@ import { Duration, Effect, Exit, Layer, Match, Option, type ParseResult, Record,
 import { type Identity, Convention } from "@rasm/core"
 import { Life } from "../proc/life.ts"
 
-// this package root re-exports its three config interfaces and nothing else, so every other type reads off the
-// record or default-export object carrying it — an import of the bare name resolves nowhere
 type _Strip = NonNullable<PyroscopeConfig["stripFilenames"]>
 type _Mapper = InstanceType<typeof Pyroscope.SourceMapper>
 type _Logger = Parameters<typeof Pyroscope.setLogger>[0]
 
-// One row per NATIVE sampler. The package's `cpu` pair resolves the wall profiler under an older name, so seating it
-// here would arm one engine twice and hand its drain to whichever row released first; the aggregate `start`/`stop`
-// takes both rows together and can express no subset, which is what this roster buys.
 const _PROFILERS = {
   heap: { start: Pyroscope.startHeapProfiling, stop: Pyroscope.stopHeapProfiling },
   wall: { start: Pyroscope.startWallProfiling, stop: Pyroscope.stopWallProfiling },
@@ -87,7 +82,6 @@ declare namespace Profile {
 ```typescript signature
 const _credential = (row: Profile.Credential): Partial<PyroscopeConfig> =>
   Match.value(row).pipe(
-    // secrets unwrap exactly once, here: the tag fixes the field set the backend actually reads
     Match.tag("Basic", ({ secret, user }) => ({ basicAuthPassword: Redacted.value(secret), basicAuthUser: user })),
     Match.tag("Token", ({ secret }) => ({ authToken: Redacted.value(secret) })),
     Match.exhaustive,
@@ -99,7 +93,7 @@ const _config = (policy: Profile.Policy, mapper: Option.Option<_Mapper>): Pyrosc
   ..._credential(policy.backend.credential),
   flushIntervalMs: Duration.toMillis(policy.flush),
   shortenPaths: policy.shorten,
-  tags: Convention.profiled(policy.identity), // the profile-store dialect: service_name, never the OTLP resource spelling
+  tags: Convention.profiled(policy.identity),
   wall: {
     samplingDurationMs: policy.wall.durationMs,
     samplingIntervalMicros: policy.wall.intervalMicros,
@@ -112,7 +106,6 @@ const _config = (policy: Profile.Policy, mapper: Option.Option<_Mapper>): Pyrosc
 })
 
 const _LOG = {
-  // this table maps the engine six-level sink onto the process rail, so a rejected push reads beside every other record
   debug: Effect.logDebug,
   error: Effect.logError,
   fatal: Effect.logError,
@@ -121,17 +114,10 @@ const _LOG = {
   warn: Effect.logWarning,
 } as const
 
-// Release seat for the process-global sink: the engine's own null logger sits behind its package root, so the
-// same table spells a no-op of the shape its interface fixes.
 const _silent = Record.map(_LOG, () => (..._args: Array<{}>): void => {}) satisfies _Logger
 
-// This sink stays PROCESS-GLOBAL and closes over this runtime, so it BRACKETS: an unbracketed install outlives its
-// scope and keeps forking records onto a runtime the graph already disposed, and the next composition then
-// inherits a logger nothing owns. Release re-seats the no-op, so the engine falls back to silence rather than
-// to a dead handle.
 const _bridged = <R>(runtime: Runtime.Runtime<R>): Effect.Effect<void, never, Scope.Scope> =>
   Effect.asVoid(Effect.acquireRelease(
-    // BOUNDARY ADAPTER: the engine's Logger declares mutable rest arrays, so the bridge spells the parameter its interface fixes
     Effect.sync(() =>
       Pyroscope.setLogger(
         Record.map(_LOG, (run) => (...args: Array<{}>): void => {
@@ -141,10 +127,6 @@ const _bridged = <R>(runtime: Runtime.Runtime<R>): Effect.Effect<void, never, Sc
     () => Effect.sync(() => Pyroscope.setLogger(_silent)),
   ))
 
-// `[04]`'s band reads this one bit before it touches the engine. Every label op resolves the singleton profiler and
-// THROWS when `init` never ran, so an unarmed deployment — the boundary above, where the root composes nothing here —
-// would turn a banded kernel into a defect. The cell is this bracket's own fact: written where `init` seats the
-// engine, cleared where the scope closes, and never a policy a caller passes.
 let _seated = false
 
 const _armed = (policy: Profile.Policy): Effect.Effect<void, never, Scope.Scope> =>
@@ -152,7 +134,7 @@ const _armed = (policy: Profile.Policy): Effect.Effect<void, never, Scope.Scope>
     yield* _bridged(yield* Effect.runtime<never>())
     const mapper = yield* policy.roots.length === 0
       ? Effect.succeedNone
-      : Effect.map(Effect.promise(() => Pyroscope.SourceMapper.create([...policy.roots])), Option.some) // symbolication completes before init seats it
+      : Effect.map(Effect.promise(() => Pyroscope.SourceMapper.create([...policy.roots])), Option.some)
     yield* Effect.sync(() => init(_config(policy, mapper)))
     yield* Effect.acquireRelease(
       Effect.sync(() => {
@@ -163,15 +145,12 @@ const _armed = (policy: Profile.Policy): Effect.Effect<void, never, Scope.Scope>
           _seated = false
         }),
     )
-    // arm and drain are ONE row: only a sampler this fold actually started ever stops, so a fault partway through the
-    // roster releases exactly what it armed instead of calling stop on an engine that never ran
     yield* Effect.forEach(
       policy.profilers,
       (sampler) =>
         Effect.acquireRelease(
           Effect.sync(() => _PROFILERS[sampler].start()),
           () =>
-            // a wedged sampler must not poison the ranked drain: the fault reads on the rail and the fold continues
             Effect.catchAll(
               Effect.tryPromise(() => _PROFILERS[sampler].stop()),
               (fault) => Effect.annotateLogs(Effect.logWarning("<profile-drain>"), { detail: String(fault), sampler }),
@@ -188,10 +167,10 @@ const _live = (policy: Profile.Policy): Layer.Layer<never, never, Life> =>
         Scope.make(),
         (held) => Scope.close(held, Exit.void),
       )
-      yield* Scope.extend(_armed(policy), scope) // the armed rows release with the child scope the ranked drain closes
+      yield* Scope.extend(_armed(policy), scope)
       yield* Life.register({
         label: "profile",
-        rank: 91, // one step after the rank-90 telemetry scope: spans flush first, the last profile still lands in-window
+        rank: 91,
         budget: Option.some(policy.drain),
         run: Scope.close(scope, Exit.void),
       }).pipe(Effect.orDie)
@@ -229,8 +208,6 @@ const _bandSchema = (vocabulary: Profile.BandVocabulary) =>
     }),
   )
 
-// Schema compiles its parser once per instance, so a per-call mint throws that cache away on every banded region;
-// vocabularies are the caller's own values, so this table keys on them weakly and dies with the roster
 const _SCHEMAS = new WeakMap<Profile.BandVocabulary, ReturnType<typeof _bandSchema>>()
 
 const _admits = (vocabulary: Profile.BandVocabulary): ReturnType<typeof _bandSchema> =>
@@ -247,11 +224,7 @@ const _labels = (
   admitted: { readonly channel?: string; readonly step?: string },
   live: Option.Option<Tracer.Span>,
 ): Record<string, string> => ({
-  // one store-dialect key: the caller's bounded vocabulary is input, the region label is the projection. An all-absent
-  // band OMITS the key on the same conditional spread `_config` uses, rather than writing "": both spellings are a
-  // distinct series to the store, and one of them is a dimension named nothing every unbanded region joins.
   ...(_region(admitted).length > 0 && { [Convention.profile.span]: _region(admitted) }),
-  // `spanId` and `traceId` carry the identifier half a region label cannot, so a profile query joins its span on them
   ...Option.match(live, {
     onNone: () => ({}),
     onSome: (span) => ({ [Convention.profile.spanId]: span.spanId, [Convention.profile.traceId]: span.traceId }),
@@ -269,7 +242,6 @@ const _banded: {
   Effect.flatMap(
     Schema.decodeUnknown(_admits(vocabulary), { errors: "all", onExcessProperty: "error" })(labels),
     (admitted) =>
-      // ONE span read feeds both ends of the join; outside a span region it answers none and correlation stays silent
       Effect.flatMap(Effect.option(Effect.currentSpan), (live) =>
         Effect.zipRight(
           Option.match(live, {
@@ -277,15 +249,10 @@ const _banded: {
             onSome: (span) => Effect.annotateCurrentSpan(Convention.profile.id, span.spanId),
           }),
           Effect.isEffect(work)
-            ? work // the ambient label set is thread-global: an interleaving region takes the stamp alone, never a band
+            ? work
             : !_seated
-              ? Effect.sync(work) // unarmed: the engine throws on any label op, so the kernel runs bare and the stamp above still lands
+              ? Effect.sync(work)
               : Effect.sync(() => {
-                // BOUNDARY ADAPTER: the engine callback returns void, so the thunk's OUTCOME crosses through this cell.
-                // Pprof restores the prior label set after the callback returns and outside any `finally`, so a
-                // thunk throwing through the band would leak these labels onto every later sample on the thread —
-                // permanently, since nothing else rewrites them. Catching inside and re-raising outside keeps the
-                // restore on the engine's own path while the defect still reaches the caller unchanged.
                 let held: _Held<A> = { ok: false, cause: new Error("<band-callback-unreached>") }
                 wrapWithLabels(_labels(admitted, live), () => {
                   try {
@@ -310,7 +277,7 @@ const Profile: {
   live: _live,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Profile }
 ```

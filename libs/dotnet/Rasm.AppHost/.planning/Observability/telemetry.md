@@ -23,17 +23,13 @@ Telemetry identity, correlation, log projection, signal governance, latency, dat
 - Boundary: a process-static `Meter` field outliving its provider is the named defect — minted pairs are `IMeterFactory`-owned and unload with the host ALC; the host builder registers the metrics services on every path including the empty builder, so `IMeterFactory` arrives with zero registration row; every instrument enters through its `InstrumentSpec` declaration on the contributor row set, so the minted pair is the registration payload `TelemetryContributorPort` carries inward, deleting handler-local `ActivitySource` and `Meter` owners; package self-identity is the kernel capsule's, so re-listing a Rasm scope here forks the vocabulary an emitter beyond this platform's reach already spells through the string-typed port seam.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Foreign scopes only: a Rasm-minted meter is a kernel `TelemetrySource` row, and a copy here forks the
-// identity vocabulary the string-typed contributor seam already carries.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ForeignSource {
     public static readonly ForeignSource SystemRuntime = new("System.Runtime", FrozenSet.Create(TelemetrySignal.Metric));
     public static readonly ForeignSource SystemNetHttp = new("System.Net.Http", FrozenSet.Create(TelemetrySignal.Metric, TelemetrySignal.Trace));
-    // Polly's meter is a library-static singleton keyed on a wire name, so ONE process-wide scope carries every
-    // pipeline's streams and `AddMeter` subscribes it by name in any order — the discriminant seating it here.
     public static readonly ForeignSource Polly = new("Polly", FrozenSet.Create(TelemetrySignal.Metric));
 
     public FrozenSet<TelemetrySignal> Signals { get; }
@@ -57,7 +53,7 @@ public sealed partial class ForeignSource {
 - Boundary: the composite registers as `Propagators.DefaultTextMapPropagator` and crosses every hop through `TextMapPropagator.Inject` and `TextMapPropagator.Extract`, riding gRPC metadata on the local-ipc leg; `TraceContext` is the seam owner of every crossing — the propagation mechanics live here while each transport boundary consumes its adapter pair, so a per-transport hand-rolled `traceparent` header write is the deleted form; MQTT publish writes v5 user properties through the catalogued non-obsolete `WithUserProperty(string name, ReadOnlyMemory<byte> value)` builder overload and receive reads them through the `MqttApplicationMessage` `Continue` overload whose ordinal-matched getter decodes `MqttUserProperty.ValueBuffer` — both legs on the buffer pair the package's own obsolescence notes point at, so the carrier adapter family closes in both directions on one transport and no leg hand-formats a header; the CloudEvents carrier is the kernel's own `EventCarrier.Read`/`.Write` pair, so an envelope crossing any binding reaches this propagator through the ONE accessor the envelope owner publishes and no consuming folder re-spells a field name — an unrostered field DROPS on write there rather than minting an attribute every decode reads untyped; the NATS adapter alone composes egress-side because NATS carries no OTel instrumentation by design — manual inject and extract are the contract — and its concrete setter and getter land beside that leg, never a second spine; immutable `Baggage.Current` is the one ambient correlation owner and `OtelBaggage` is its ONE tenancy writer — a page reading tenancy off a raw store rather than the kernel `TenantContext.Current` accessor reads whichever of the three stores that page happens to know, which is the split-brain this row closes, and a second `TenantMirror` registration over the same store double-writes and double-restores one entry; ingress tenancy is ADMITTED, never inherited — `TenantAdoption` carries no default because trust is a property of the carrier a transport owner alone knows, an adopting leg seats the wire entry into the kernel slot so span promotion and the metric fold answer one tenant, and a refusing leg CLEARS that entry from the seated baggage so a foreign claim tags no span with a tenant every RLS predicate and receipt answers root for; a request value placed in `RootEnricher` is a bug and an identity constant placed in `CausalEnricher` is waste — the cost-class split is structural, and the captured frame, never ambient state read at execution time, seeds deferred children; every stamp, restore, and continuation scope restores prior baggage on dispose and releases exactly once; every continuation receives its minted source, and a process-static source bypassing the factory scope is forbidden.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -69,23 +65,19 @@ public sealed partial class TenantAdoption {
     public partial Option<TenantContext> Adopt(Baggage extracted);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CorrelationFrame(ILogEventEnricher Log, Baggage Baggage, TenantContext Tenant) {
     public static CorrelationFrame Live => new(LogContext.Clone(), Baggage.Current, TenantContext.Current);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class Correlation {
     public static readonly TextMapPropagator Spine =
         new CompositeTextMapPropagator([new TraceContextPropagator(), new BaggagePropagator()]);
 
-    // Depth is the hand-off chain the spine can reach — command to hop to relay to capture — so a ninth nested
-    // restore is a leak at the seam that nested it, which the slot refuses rather than shadows.
     public static readonly AmbientSlot<CorrelationFrame> Frame =
         AmbientSlot<CorrelationFrame>.Of(name: "rasm.correlation", depth: 8);
 
-    // Composition supplies the OTel store an OTel-free S0 assembly cannot name. Null values REMOVE on
-    // `SetBaggage`, so restore and clear are one call and an emptied entry never lingers on a pooled thread.
     public static readonly TenantMirror OtelBaggage = new(
         Store: nameof(Baggage),
         Read: static () => Optional(Baggage.GetBaggage(TenantContext.TenantSlot)),
@@ -93,8 +85,6 @@ public static class Correlation {
             TenantContext.TenantSlot,
             entry.Match<string?>(Some: static held => held, None: static () => null))));
 
-    // Boot roots are IDENTITY minted once, never a draw: a seeded id collides across two runs of one
-    // recorded log, which is the property the determinism kernel pins for draws and deliberately refuses here.
     public static CorrelationId Mint() => CorrelationId.Create(Guid.CreateVersion7());
 
     public static IDisposable Stamp(CorrelationId root) =>
@@ -105,14 +95,10 @@ public static class Correlation {
 
     public static CorrelationFrame Capture() => Frame.Current.IfNone(static () => CorrelationFrame.Live);
 
-    // Baggage seats FIRST so the tenancy stamp writes into the restored value rather than whatever the pooled
-    // thread carried: the snapshot holds the tenant TEXT, the kernel slot the tenant VALUE every receipt reads.
     public static Fin<IDisposable> Restore(CorrelationFrame captured) =>
         Frame.Enter(captured).Map(seat => Scope(
             Seated(captured.Baggage), seat, LogContext.Push(captured.Log), Stamp(captured.Tenant)));
 
-    // Admission is the kernel's OWN non-throwing peer, so width and alphabet read from one predicate — a local
-    // hex gate beside the kernel's `SearchValues` alphabet agrees today and forks on any kernel narrowing.
     internal static Option<TenantContext> Tenanted(Baggage extracted) =>
         Optional(extracted.GetBaggage(TenantContext.TenantSlot))
             .Bind(static text => TenantId.TryOf(text).Map(id => new TenantContext(id, text)))
@@ -121,8 +107,6 @@ public static class Correlation {
     internal static IDisposable Scope(Baggage prior, params ReadOnlySpan<IDisposable?> held) =>
         new CorrelationScope(prior, toSeq(held.ToArray()).Choose(Optional));
 
-    // Seating a settable ambient property and reading what it displaced is a write followed by a capture no
-    // expression form carries — the one named statement carve-out, and every ambient seat here routes through it.
     internal static Baggage Seated(Baggage next) {
         Baggage prior = Baggage.Current;
         Baggage.Current = next;
@@ -130,8 +114,6 @@ public static class Correlation {
     }
 }
 
-// Take-and-clear: a second disposal reads an empty transition, so the `Interlocked.Exchange` latch deletes.
-// Reverse order releases inner before outer and the baggage restore runs in the finally whatever raises.
 file sealed class CorrelationScope(Baggage prior, Seq<IDisposable> held) : IDisposable {
     readonly Atom<Option<(Baggage Prior, Seq<IDisposable> Held)>> release = Atom(Some((prior, held)));
 
@@ -148,8 +130,6 @@ file sealed class CorrelationScope(Baggage prior, Seq<IDisposable> held) : IDisp
 }
 
 public static class TraceContext {
-    // Void SDK calls cannot sit in a tuple slot, so every site sequencing one before returning a value spells
-    // this ONE lift; each transport adapter is a getter/setter pair over these three members, never a tracer.
     public static TCarrier Inject<TCarrier>(TCarrier carrier, Action<TCarrier, string, string> set) =>
         (fun(() => Correlation.Spine.Inject(
             new PropagationContext(Activity.Current?.Context ?? default, Baggage.Current),
@@ -159,12 +139,9 @@ public static class TraceContext {
     public static PropagationContext Extract<TCarrier>(TCarrier carrier, Func<TCarrier, string, IEnumerable<string>> get) =>
         Correlation.Spine.Extract(default, carrier, get);
 
-    // Adoption has NO default: a defaulted arm makes every new transport inherit whichever answer read safer.
     public static IDisposable Continue<TCarrier>(ActivitySource source, TCarrier carrier, Func<TCarrier, string, IEnumerable<string>> get, string name, TenantAdoption adoption, ActivityKind kind = ActivityKind.Server) =>
         Continued(source, Extract(carrier, get), name, adoption, kind);
 
-    // Refusal REMOVES the entry: promotion processors read baggage where the fold reads the kernel slot, so an
-    // unadopted entry tags spans with a tenant its metrics answer root for. Activity starts before the stamp.
     static IDisposable Continued(ActivitySource source, PropagationContext parent, string name, TenantAdoption adoption, ActivityKind kind) =>
         adoption.Adopt(parent.Baggage) switch {
             var admitted => Correlation.Scope(
@@ -175,7 +152,6 @@ public static class TraceContext {
                 admitted.Match<IDisposable?>(Some: static tenant => Correlation.Stamp(tenant), None: static () => null)),
         };
 
-    // gRPC metadata adapter rows — the local-ipc control hop the Wire/companion handler reads.
     static IEnumerable<string> Get(Metadata carrier, string key) =>
         carrier.GetAll(key).Select(static entry => entry.Value);
 
@@ -187,8 +163,6 @@ public static class TraceContext {
     public static IDisposable Continue(ActivitySource source, Metadata carrier, string name, TenantAdoption adoption) =>
         Continue(source, carrier, Get, name, adoption);
 
-    // Both v5 legs ride the non-obsolete buffer pair — `MqttUserProperty.Value` and the `(string, string)` ctor
-    // carry `[Obsolete]` pointing here; an absent collection yields the empty extraction the propagator roots.
     public static MqttApplicationMessageBuilder Inject(MqttApplicationMessageBuilder carrier) =>
         Inject(carrier, static (c, key, value) =>
             ignore(c.WithUserProperty(key, new ReadOnlyMemory<byte>(Encoding.UTF8.GetBytes(value)))));
@@ -196,13 +170,12 @@ public static class TraceContext {
     public static IDisposable Continue(ActivitySource source, MqttApplicationMessage carrier, string name, TenantAdoption adoption) =>
         Continue(source, carrier, Get, name, adoption, ActivityKind.Consumer);
 
-    // Ordinal match, one decode per hit: a decode-then-compare fold pays UTF-8 work per unasked entry.
     static IEnumerable<string> Get(MqttApplicationMessage carrier, string key) =>
         (carrier.UserProperties ?? []).Where(entry => string.Equals(entry.Name, key, StringComparison.Ordinal))
             .Select(static entry => entry.ReadValueAsString());
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class RootEnricher(ImmutableArray<KeyValuePair<string, object>> identity) : IStaticLogEnricher {
     public void Enrich(IEnrichmentTagCollector collector) =>
         ignore(toSeq(identity).Iter(row => collector.Add(row.Key, row.Value)));
@@ -239,7 +212,7 @@ public sealed class CausalEnricher : ILogEnricher {
 - Boundary: `Rasm.AppHost` IS the branch's telemetry composition owner and holds Serilog, exporter, and SDK types by charter — the no-exporter-below-composition law scopes to the S0-S2 library tiers, where a package emits `ILogger` and its minted `Meter` alone and a Serilog type, an exporter, or an ambient sink is the app-coupling defect that law forecloses; static `Log` facade CALLS are deleted at every tier while the `Log.Logger` SLOT is written exactly once, by `SerilogHost.Boot`, because the bridge reads that slot to find the reloadable logger it reconfigures; the host bridge is the service-aware `AddSerilog(IServiceCollection, Action<IServiceProvider, LoggerConfiguration>)` overload whose configuration action runs `SerilogProjectionPolicy.Shape`, and `UseSerilog` is the `IHostBuilder`-era spelling no fence here composes; `Shape` takes the ONE `SerilogSinks` record rather than its six legs spread as parameters, so the record's own construction is the only place a leg can be omitted and the shaping surface cannot be called with a set the arbitration never minted — the seven-argument twin and its `SerilogHost.Shaped` relay both delete; every sink is an app-root pin carried on that record — `WriteTo.Console(ITextFormatter)` under a display template on the hot error tier, `WriteTo.File(ITextFormatter, path, shared: true, flushToDiskInterval, rollingInterval)` on the fallback leg because co-resident processes under one mount must both append and an exclusive handle loses every record of whichever opened second, and `AuditTo.Console(ITextFormatter)` on the audit leg because a batched sink is structurally incompatible with an audit guarantee — with the durable file scoped by HOST KEY under the same rule the durable OTLP queue's residence row carries, so two hosts on one volume never append into each other's file; that residence is ADMITTED at the mint rather than guarded at the shaping call, because an empty root or host key resolves a path under the process working directory, which is the collision the host-keyed rule exists to foreclose, and a null-argument guard on a parameter the SDK itself supplies proved nothing; every leg is a rail ARROW rather than a constructed instance, so the record holds no handle and owns no disposal — `SharedFileSink` is the constructed spelling of the same sharing contract and carries `[Obsolete]` pointing back at this arrow, which returns no sink, so `flushToDiskInterval` and the ranked `CloseAndFlush` participant are the durability seats and a caller-held `IFlushableFileSink.FlushToDisk` is unreachable at this pin; the boot window logs through `CreateBootstrapLogger()`, frozen into the host pipeline when that bridge registers, so no startup fault predates the pipeline; the loss fact reaches the receipt rail under `ReceiptKind.Loss` and no other consumer — a sink failure logged through the pipeline whose sink just failed reports on the leg it names as down; destructuring pins all three caps — depth, string length, collection count — because a pipeline accepting foreign graphs is a payload-bomb seam; `CloseAndFlush` is a ranked drain participant; exactly one pipeline owner per profile row, never both on one signal; `Filter.ByExcluding` holds lifetime-noise categories out of the pipeline by `Matching.FromSource` construction, `Destructure.With` binds the redaction-preserving `IDestructuringPolicy` so a custom shaper never strips classification, and `ForContext` is the emission-side source-keyed derivation the generated delegates ride, never a second `Shape` call; `SpineLossFold` implements `ILoggingFailureListener.OnLoggingFailed(object sender, LoggingFailureKind kind, string message, IReadOnlyCollection<LogEvent>? events, Exception? exception)` and projects only the exception type, numeric code, and redacted bounded detail into `SpineLossFact`; the raw exception remains callback-local and never enters the receipt-backed fact stream; `SelfLog.Enable` is the never-throwing floor beneath the rail; the two producing arms on this page write through the `AppHostMeasure` rows and their `AppHostSlot` keys rather than re-spelling a dimension key — one spelling serves the declaring roster row and the arm that stamps it, and a telemetry-local literal beside it is the fork those rosters exist to delete; `WriteTo.Fallible(configureSink, listener)` wraps the wire-sink fallback chain in a `FailureListenerSink`, and a sink outside `Fallible` is unobserved best-effort; the test row installs `AddFakeLogging` and asserts through `FakeLogCollector` snapshots, never sink text.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -247,7 +220,6 @@ public sealed partial class LogPipeline {
     public static readonly LogPipeline SerilogProjection = new("serilog-projection");
     public static readonly LogPipeline OtelExport = new("otel-export");
 
-    // Arbitration reads one axis fact — the delivery mandate IS the bound provider.
     public static LogPipeline Owner(ConsumptionProfile profile) =>
         profile.OtlpExport ? OtelExport : SerilogProjection;
 }
@@ -260,8 +232,6 @@ public sealed partial class BufferScope {
     public static readonly BufferScope Operation = new("operation");
 }
 
-// Declared lanes under the kernel law, so no sampler spells a positional constant and scar
-// `SEEDED_FROM_STRING_HASH` has nothing to bite.
 [SmartEnum<int>]
 public sealed partial class TelemetryLane : IDrawLane<TelemetryLane> {
     public static readonly TelemetryLane Sampler = new(key: 0);
@@ -270,7 +240,7 @@ public sealed partial class TelemetryLane : IDrawLane<TelemetryLane> {
     public long Lane => Key;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SpineLossFact(
     string Sink,
     LoggingFailureKind Kind,
@@ -279,7 +249,7 @@ public sealed record SpineLossFact(
     Option<string> ExceptionType,
     Option<int> ExceptionCode);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class SpineLog {
     [LoggerMessage(EventId = 1000, EventName = nameof(ReloadApplied), Level = LogLevel.Information, Message = "configuration reload applied")]
     public static partial void ReloadApplied(ILogger logger, [LogProperties(OmitReferenceName = true, SkipNullProperties = true)] ReloadReceipt receipt);
@@ -305,10 +275,8 @@ public static class HostTags {
         collector.Add("host.generation", value.Major);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class SpineSampler(Func<DegradationLevel> level, Func<double> draw) : LoggingSampler {
-    // Audit exclusion DERIVES from the band registry rather than a literal stride, so a new event band takes
-    // that exclusion with no edit here.
     public override bool ShouldSample<TState>(in LogEntry<TState> entry) =>
         (Audited(entry.EventId.Id), entry.LogLevel) switch {
             (true, _) => true,
@@ -318,12 +286,9 @@ public sealed class SpineSampler(Func<DegradationLevel> level, Func<double> draw
 
     static bool Audited(int eventId) => FaultBand.OwnerOf(kind: BandKind.Event, code: eventId).IsSome;
 
-    // Rank rises as capability degrades, so the retained share falls with it; Full keeps the whole floor.
     static double Floor(DegradationLevel current) => 1d / (1 << current.Rank);
 }
 
-// `Kind` renders the framework enum's own NAME: the arm partitions on a text dimension like every sibling,
-// and a numeric ordinal keys the series on a value that re-numbers on any framework addition.
 public sealed class SpineLossFold(Action<SpineLossFact> emit, Redactor redactor) : ILoggingFailureListener {
     const int DetailCap = 512;
 
@@ -336,8 +301,6 @@ public sealed class SpineLossFold(Action<SpineLossFact> emit, Redactor redactor)
             Optional(exception?.GetType().FullName),
             exception is null ? None : Some(exception.HResult)));
 
-    // Each part redacts on its own — concatenating first tokenizes the separator into the pseudonym, so two
-    // failures differing only in their join would hash alike; the cap applies to the composed redacted text.
     static string Bounded(Redactor redactor, string message, Exception? exception) {
         var composed = RedactedText.Appended(new StringBuilder(DetailCap), redactor, message);
         if (exception is not null) {
@@ -348,21 +311,18 @@ public sealed class SpineLossFold(Action<SpineLossFact> emit, Redactor redactor)
 }
 
 public sealed record IncidentBuffers(GlobalLogBuffer Process, Option<PerRequestLogBuffer> Operation) {
-    // Flushes count SCOPES: `LogBuffer.Flush` returns void and replays through the pipeline's own
-    // `IBufferedLogger`, so a record count here is a measurement no surface took.
     public Fin<Unit> Flush(InstrumentSet signals) =>
         Replayed().TraverseM(scope => signals.Write(
                 AppHostMeasure.LogsFlushed.Row, 1L, InstrumentSet.Tags((AppHostSlot.Scope, scope.Key))))
             .As().Map(static _ => unit);
 
-    // Replay runs INSIDE this projection, so no caller can write a point for a ring it never flushed.
     Seq<BufferScope> Replayed() =>
         (Seq((Scope: BufferScope.Process, Flush: (Action)Process.Flush))
             + Operation.Map(static held => (Scope: BufferScope.Operation, Flush: (Action)held.Flush)).ToSeq())
             .Map(static row => (fun(row.Flush)(), row.Scope).Item2);
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class SerilogProjectionPolicy {
     public static readonly LoggingLevelSwitch Floor = new(LogEventLevel.Information);
 
@@ -373,8 +333,6 @@ public static class SerilogProjectionPolicy {
         QueueLimit = 10_000,
     };
 
-    // Record construction is the only place a leg is chosen, so the shaping surface cannot be called
-    // with a set the arbitration never minted.
     public static LoggerConfiguration Shape(LoggerConfiguration configuration, SerilogSinks sinks) =>
         sinks.Audit((fun(() => SelfLog.Enable(Console.Error))(), configuration).Item2
             .MinimumLevel.ControlledBy(Floor)
@@ -405,12 +363,8 @@ public sealed record SerilogSinks(
 
     static readonly MessageTemplateTextFormatter Rendered = new(Display, CultureInfo.InvariantCulture);
 
-    // Arrows take no handle, so this interval is the seat landing a tail between drains.
     static readonly TimeSpan FileFlush = TimeSpan.FromSeconds(2);
 
-    // `shared: true` is the only non-obsolete spelling of the co-resident append contract — `SharedFileSink`
-    // carries `[Obsolete]` pointing at this arrow, and the arrow returns no sink, so the flush INTERVAL rather
-    // than `IFlushableFileSink.FlushToDisk` is the durability seat.
     public static Fin<Option<SerilogSinks>> For(ConsumptionProfile profile, IBatchedLogEventSink wire, string durableRoot,
         string hostKey, long fileCapBytes, IDestructuringPolicy classification, ILoggingFailureListener loss) =>
         LogPipeline.Owner(profile).Switch(
@@ -438,17 +392,12 @@ public sealed record SerilogSinks(
 }
 
 public static class SerilogHost {
-    // `AddSerilog` reads `Log.Logger as ReloadableLogger` to choose between reconfiguring in place and building
-    // a rival, so an unseated bootstrap logger silently takes the rival branch and abandons every boot record.
-    // Doctrine forbids static facade CALLS, never a composition root seating the slot the bridge reads.
     public static Option<ReloadableLogger> Boot(Option<SerilogSinks> sinks) =>
         sinks.Map(static held => Seated(
             SerilogProjectionPolicy.Shape(new LoggerConfiguration(), held).CreateBootstrapLogger()));
 
     static ReloadableLogger Seated(ReloadableLogger boot) => (fun(() => Log.Logger = boot)(), boot).Item2;
 
-    // Registration runs its action under the built provider, so a sink needing a resolved dependency reaches
-    // one and the seated boot logger reconfigures in place rather than being replaced.
     public static IServiceCollection Compose(IServiceCollection services, Option<SerilogSinks> sinks) =>
         sinks.Match(
             Some: held => services.AddSerilog((_, configuration) =>
@@ -472,9 +421,7 @@ public static class SerilogHost {
 - Swap: this owner holds the branch's profiles swap point, so the swap off vendor push onto the OTLP profiles signal replaces rows rather than redesigning a lane — the `AddProcessor<PyroscopeSpanProcessor>()` seat and the agent environment rows give way to one OTLP profiles exporter row on the same otelExport arm, armed only once that signal reaches stable across the SDK trains; the span-profile stamp, tenant and phase projections, and every flamegraph query survive untouched.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Rows name the capability SUBJECT a query joins on, so two packages serving one subject share the row
-// while `service.name` separates their series and a package spanning two subjects emits under both.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -496,21 +443,16 @@ public sealed partial class TelemetryDomain {
     public static readonly TelemetryDomain Rhino = new("rhino", "document, display, and bench surfaces of the modeling host");
     public static readonly TelemetryDomain Slo = new("slo", "objective burn and severity axes");
 
-    // Reach stops at the metric plane by the Boundary's own carve — hook-point ids are a package-keyed space
-    // this grammar never reaches and the kernel capsule holds its own literal, so a rename is two edits.
     public const string Namespace = "rasm";
 
     public const string Prefix = Namespace + ".";
 
     public string Subject { get; }
 
-    // Declaring rosters concatenate at compile time; `Measure` is the mint wherever a name assembles at runtime.
     public string Head => Prefix + Key + ".";
 
     public string Measure(string measure) => Head + measure;
 
-    // Compositions supplying an already-qualified id never double the prefix, and a PascalCase assembly id
-    // never lands a `service.name` no dotted-grammar query matches its domain segments against.
     public static string Qualify(string service) => Qualified(service.ToLowerInvariant());
 
     static string Qualified(string lowered) => lowered.StartsWith(Prefix, StringComparison.Ordinal) ? lowered : Prefix + lowered;
@@ -521,8 +463,6 @@ public sealed partial class TelemetryDomain {
             None: () => Fin.Fail<TelemetryDomain>(new TelemetryFault.Unrostered(name)));
 }
 
-// Buffering, redaction, and egress are independent grants a reader asks for by name, so the Tier-0 profiles
-// swap is one `With(Exported)` edit rather than a fourth boolean nobody remembers to thread.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -546,7 +486,6 @@ public sealed partial class TelemetrySignal {
         CapabilitySet<SignalCapability>.Of(SignalCapability.Redacted, SignalCapability.Exported), SampleRatio);
     public static readonly TelemetrySignal Metric = new("metric",
         CapabilitySet<SignalCapability>.Of(SignalCapability.Exported), static _ => 1d);
-    // Profiles ride the Pyroscope agent's own push, so the queue set folds over the `Exported` grant.
     public static readonly TelemetrySignal Profile = new("profile", CapabilitySet<SignalCapability>.None, SampleRatio);
 
     public CapabilitySet<SignalCapability> Capabilities { get; }
@@ -554,15 +493,13 @@ public sealed partial class TelemetrySignal {
     [UseDelegateFromConstructor]
     public partial double Ratio(ConsumptionProfile profile);
 
-    // Sampling pays only where an export provider ships spans off the process, and only an unattended long-lived
-    // topology carries the volume worth thinning.
     private static double SampleRatio(ConsumptionProfile profile) =>
         profile.OtlpExport
             ? profile.Topology.Map(inHost: 1d, sidecar: 0.1d, companion: 0.1d, service: 0.1d, edge: 0.1d, cli: 1d)
             : 1d;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TelemetryFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Telemetry;
@@ -582,10 +519,8 @@ public abstract partial record TelemetryFault : Fault {
     public sealed partial record Composition : TelemetryFault { public Composition(string detail) : base(detail) { } }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class TelemetryComposition : IDisposable {
-    // Exporters never dispose an export client they were handed, so registering every minted transport makes
-    // this drain band the ONE seat closing durable egress whole.
     readonly ConcurrentBag<HttpClient> transports = [];
     readonly Atom<Option<Unit>> released = Atom(Option<Unit>.None);
 
@@ -600,39 +535,24 @@ public sealed class TelemetryComposition : IDisposable {
 
     public CorrelationId Root { get; }
 
-    // Sampling draws from the SEED rather than process entropy, so a recorded run reproduces its retained
-    // record set exactly — a property an ambient generator cannot offer however the sampler is written.
     public DeterminismContext Determinism { get; }
 
-    // Both governance and the fan read this set, so neither governs a roster the other never mounted.
     public Seq<TelemetryContributorPort> Contributors { get; }
 
-    // Folded from the SAME contributed set the meter side reads; this platform references no emitting package,
-    // so the port column is the only carriage that reaches the rosters at all.
     public SpanBand Band { get; }
 
-    // Plain text this assembly resolves without referencing the package that minted it, where the port's
-    // `Planes` roster carries types it cannot.
     public Seq<LatencyRoster> Latency { get; }
 
-    // DERIVED rather than supplied beside the ports: a classifications argument was the twin carriage this
-    // derivation deleted, and the port's own `Scope` is the provenance a refusal names.
     public Seq<ClassificationRoster> Classifications { get; }
 
     public OtlpOfflinePolicy Offline { get; }
 
     public Action<OtlpOfflineFact> Emit { get; }
 
-    // Queues gauge their drain on the kernel timeline: a wall deadline on the one thread an export holds moves
-    // in either direction under an NTP correction.
     public ClockPolicy Clocks { get; }
 
-    // Sections reached from inside the logging chain resolve past the collection the fold registers into, and
-    // malformed key material would surface at the first redaction rather than at boot.
     public IConfigurationSection HmacKeys { get; }
 
-    // Captured levels freeze the floor at composition, so a host degrading afterwards keeps shipping the floor
-    // it was thinning to spare.
     public Func<DegradationLevel> Level { get; }
 
     public FrozenDictionary<string, OtlpOfflineQueue> Queues { get; }
@@ -659,8 +579,6 @@ public sealed class TelemetryComposition : IDisposable {
         return client;
     }
 
-    // Release runs after provider flush and shutdown: transports close before stores, and the band closes between
-    // them so its sources outlive the flush that drained their spans and die before the queues holding it.
     public void Dispose() =>
         ignore(Cell.Seat(released, static () => unit) is Transition<Option<Unit>>.Committed ? Released() : unit);
 
@@ -671,18 +589,13 @@ public sealed class TelemetryComposition : IDisposable {
     }
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ResourceIdentity {
-    // Containerization is the ship vehicle's own fact; every other vehicle resolves no container id.
     static readonly Func<ConsumptionProfile, bool> Containerized = static profile => profile.Vehicle == ShipVehicle.Oci;
 
-    // Identity mints first and the contrib rows ENRICH the same builder — never a `SetResourceBuilder` swap
-    // — with extra facts riding the detector as data.
     public static Action<ResourceBuilder> Compose(ResolvedProfile resolved, params ReadOnlySpan<KeyValuePair<string, object>> extra) =>
         Composed(resolved, [.. extra]);
 
-    // Merge order IS precedence and the LAST contributor wins, so the deployment override TAILS the chain: the
-    // default builder seats its environment detector ahead of every row, inverting the Tier-0 rule.
     static Action<ResourceBuilder> Composed(ResolvedProfile resolved, ImmutableArray<KeyValuePair<string, object>> extra) =>
         resource => ignore((Containerized(resolved.Profile)
             ? Detected(resource, resolved, extra).AddContainerDetector()
@@ -699,16 +612,12 @@ public static class ResourceIdentity {
 }
 
 public static class SignalGovernance {
-    // Tenancy dominates every row's product, so a per-row literal sized off declared dimensions
-    // prices the classification key at its own row count and drops every tenant past the first few.
     public const int SeriesCap = 256;
 
     public const int BufferRecordCapBytes = 128 * 1024;
     public const int BufferCapBytes = 64 * 1024 * 1024;
     public static readonly TimeSpan BufferFlushWindow = TimeSpan.FromSeconds(30);
 
-    // Refusals ACCUMULATE: the prior fold short-circuited on the first bad spelling, so a composition carrying
-    // four took four boots to admit. Promoted keys and semconv-owned names carve out by construction.
     public static Validation<Error, TelemetryContributorPort> Rostered(TelemetryContributorPort port) =>
         port.Declared.Bind(static spec => spec.Name.Cons(spec.Dimensions))
             .Filter(static name => name.StartsWith(TelemetryDomain.Prefix, StringComparison.Ordinal)
@@ -716,34 +625,23 @@ public static class SignalGovernance {
             .Traverse(static name => TelemetryDomain.Resolve(name).ToValidation()).As()
             .Map(_ => port);
 
-    // One name carries one refusal, so this arity stays on `Fin` while the port arity accumulates — the carrier
-    // follows the refusal count, not the entrypoint name.
     public static Fin<EventType> Rostered(EventType type) => TelemetryDomain.Resolve(type.Domain).Map(_ => type);
 
-    // SDK views mint a stream per MATCH, so a named row beside a trailing wildcard exports one instrument
-    // twice and the projection guarantees nothing; the predicate form is the only per-instrument resolution.
     public static Func<Instrument, MetricStreamConfiguration?> Views(Seq<TelemetryContributorPort> contributors) =>
         Projected(contributors.Bind(static port => port.Declared)
             .ToFrozenDictionary(static spec => spec.Name, static spec => spec, StringComparer.Ordinal));
 
     static Func<Instrument, MetricStreamConfiguration?> Projected(FrozenDictionary<string, InstrumentSpec> rostered) =>
         instrument => rostered.TryGetValue(instrument.Name, out InstrumentSpec? spec)
-            // Tenancy appends rather than declaring per row and DEDUPES, because a level family already declares that
-            // slot; the projection ALLOWLISTS, so a sometimes-keyed family stays ONE stream under one budget.
             ? Shaped(spec.Kind == InstrumentKind.Distribution && spec.Bounds.IsNone,
                 [.. spec.Dimensions.Add(TenantContext.TenantSlot).Distinct()])
-            // Foreign streams keep their convention-owned vocabulary — projecting them erases route and pool keys.
             : Shaped(Distributed(instrument), null);
 
-    // No provider-wide aggregation default is published and neither assembly carries the environment key other
-    // SDK trains read, so a view row is the only seat; a row declaring `Bounds` keeps its own advice.
     static MetricStreamConfiguration Shaped(bool exponential, string[]? tags) =>
         exponential
             ? new Base2ExponentialBucketHistogramConfiguration { TagKeys = tags, CardinalityLimit = SeriesCap }
             : new MetricStreamConfiguration { TagKeys = tags, CardinalityLimit = SeriesCap };
 
-    // Generic DEFINITION is the test: a roster of closed forms drops a stream the moment a package mints a
-    // numeric argument this branch never enumerated.
     static bool Distributed(Instrument instrument) =>
         instrument.GetType() is { IsGenericType: true } shape && shape.GetGenericTypeDefinition() == typeof(Histogram<>);
 
@@ -756,21 +654,16 @@ public static class SignalGovernance {
                 .ConfigureResource(ResourceIdentity.Compose(composition.Resolved))
                 .WithTracing(tracing => program.Bind(tracing
                     .SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(TelemetrySignal.Trace.Ratio(composition.Resolved.Profile))))
-                    // Two grammars: PascalCase package identities against the dotted `rasm.<package>.<plane>` band roster.
-                    // Registering one alone strands every span of the other on the arm an untraced composition takes.
                     .AddSource([.. ForeignSource.Admitting(TelemetrySignal.Trace)])
                     .AddSource([.. composition.Band.Names])
                     .AddHttpClientInstrumentation(static http => {
                         http.FilterHttpRequestMessage = static request => request.RequestUri is { IsLoopback: false };
-                        // RecordException stays OFF: both active writes two exception events per hop under two attribute grammars.
                         http.EnrichWithException = static (activity, exception) =>
                             ignore(activity.AddException(exception));
                     })
                     .AddGrpcClientInstrumentation(static grpc => grpc.SuppressDownstreamInstrumentation = true)))
                 .WithMetrics(metrics => program.Bind(metrics
                     .AddMeter([.. ForeignSource.Admitting(TelemetrySignal.Metric)])
-                    // Package instruments exist only on the meter its registered instrumentation constructs, so a
-                    // `ForeignSource` row subscribes an empty scope and double-admits the name besides.
                     .AddProcessInstrumentation(), Views(composition.Contributors))),
             serilogProjection: static builder => builder,
             otelExport: builder =>
@@ -782,8 +675,6 @@ public static class SignalGovernance {
                             otlp.BatchExportProcessorOptions = program.SpanBatch;
                             ignore(Egress(composition, program, TelemetrySignal.Trace, otlp));
                         }))
-                    // Metric-side AspNetCore mounts the server RED family; the trace-side row alone leaves an inbound request
-                    // with spans and no latency histogram, which is the half every board tile reads.
                     .WithMetrics(metrics => metrics
                         .AddAspNetCoreInstrumentation()
                         .AddOtlpExporter((otlp, reader) => {
@@ -806,14 +697,9 @@ public static class SignalGovernance {
                             ignore(options.AttachLogsToActivityEvent());
                         }), builder).Item2);
 
-    // Registration makes the injected composite and the global one the SAME value — an equivalent-but-distinct
-    // pair drifts the moment a leg is added to the program.
     static IServiceCollection Propagated(IServiceCollection services, ProviderProgram program) =>
         (fun(() => Sdk.SetDefaultTextMapPropagator(program.Propagator))(), services).Item2;
 
-    // Armed policy replaces the transport on one signal; an unarmed one leaves the exporter's own factory, which
-    // binds its timeout AND its mutual-auth client. The queue set is READ here and never minted, because this
-    // delegate runs past the sealed collection — the same lateness that lets the pins outrank the env parse.
     static Unit Egress(TelemetryComposition composition, ProviderProgram program, TelemetrySignal signal, OtlpExporterOptions otlp) =>
         (program.Egress(otlp),
             Optional(composition.Queues.GetValueOrDefault(signal.Key)).Match(
@@ -839,13 +725,9 @@ public static class SignalGovernance {
                 .AddKafkaProducerInstrumentation<TKey, TValue>()
                 .AddKafkaConsumerInstrumentation<TKey, TValue>());
 
-    // Chains sealing the seam without that fold resolve EVERY set through the erasing fallback, including the
-    // operational dimensions the pass rows exist to spare.
     public static ILoggingBuilder GovernLogs(ILoggingBuilder logging, TelemetryComposition composition) =>
         RedactionRegistration.Bind(logging, composition.HmacKeys)
             .AddTraceBasedSampler()
-            // Level IS the filter row — selection matches at and BELOW it, so omitting it builds a rule matching every
-            // level and ships one error in ten off an unattended host.
             .AddRandomProbabilisticSampler(TelemetrySignal.Log.Ratio(composition.Resolved.Profile), LogLevel.Warning)
             .AddSampler(new SpineSampler(composition.Level, Deterministic.Supplier(
                 seed: unchecked((long)composition.Determinism.Seed), purpose: TelemetryLane.Sampler.Lane)))
@@ -860,14 +742,11 @@ public static class SignalGovernance {
                 buffer.Rules.Add(new LogBufferingFilterRule(logLevel: LogLevel.Warning));
             });
 
-    // Caller-supplied enrichers force every root to hand-spell the triple and drift it from the resource; the
-    // shipped application enricher is DELETED rather than configured off, since left on it doubles a dimension.
     public static IServiceCollection EnrichContext(IServiceCollection services, TelemetryComposition composition) =>
         LatencySpine.Register(LogPipeline.Owner(composition.Resolved.Profile).Switch(
             state: services
                 .AddLogEnricher<CausalEnricher>()
                 .AddStaticLogEnricher(new RootEnricher(ProfileIdentity.ResourceAttributes(composition.Resolved)))
-                // Process id rides the resource; THREAD id is the per-record dimension no resource can carry.
                 .AddProcessLogEnricher(static process => {
                     process.ProcessId = false;
                     process.ThreadId = true;
@@ -899,9 +778,7 @@ public static class SignalGovernance {
 - Boundary: `Mark` is the single checkpoint recorder and the three phase folds thread ONE `ILatencyContext` parameter — `DrainConductor.Drain(...)` at `Runtime/lifecycle#DRAIN_CONDUCTOR`, `OutboundSurface.Run(...)` at `Wire/outbound#OWNERSHIP_LAW`, and `SupportCapture.Capture(...)` at Observability/bundles#CAPTURE_PIPELINE, which opens its OWN ledger because it IS the operation rather than a fold inside one — so a phase boundary records through a resolved token rather than a per-fold `Stopwatch`, and `Seal` exports each frozen ledger at the telemetry drain band; a context threaded as a runtime-record COLUMN instead is the rejected placement, because the record outlives the operation while the ledger is one operation's and a pooled context returned at a fold's own `using` cannot be a field of a value that survives it; the recorder is cheaper than child spans and free of sampling coupling; the frozen spans read through the `ILatencyContext.LatencyData` accessor and `ILatencyDataExporter.ExportAsync(LatencyData, CancellationToken)` exports at the telemetry drain band; `AddLatencyContext` registers the context once and the consuming folds thread it; the NAME registration is one folded table over this root's roster and every contributor's, across checkpoints, measures, and tags alike, because an unregistered name resolves to a positionless token whose writes drop with nothing raised — a contributor recording under its own unfolded roster is instrumented in prose and silent on the wire, which is why `ThrowOnUnregisteredNames` makes the omission a boot failure and why no contributor reaches its own `RegisterCheckpointNames` call to split the table.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Checkpoints registered without their tag leave every dimension a reader groups the phase on resolving a
-// positionless token, so one column answers both planes and no second tag vocabulary mints.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -913,9 +790,7 @@ public sealed partial class LatencyCheckpoint {
     public AppHostSlot Pivot { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Unregistered names resolve to a POSITIONLESS token whose writes drop with nothing raised, so a
-// contributor whose roster never joins reads as instrumented and reports nothing.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct LatencyRoster(Seq<string> Checkpoints, Seq<string> Measures, Seq<string> Tags) {
     public static readonly LatencyRoster Empty = new(Seq<string>(), Seq<string>(), Seq<string>());
 
@@ -923,10 +798,8 @@ public readonly record struct LatencyRoster(Seq<string> Checkpoints, Seq<string>
         new(left.Checkpoints + right.Checkpoints, left.Measures + right.Measures, left.Tags + right.Tags);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class LatencySpine {
-    // All THREE axes fold: a tag or measure name is as droppable as a checkpoint, and registering checkpoints
-    // alone left every pivot dimension a contributor keys on unregistered.
     public static IServiceCollection Register(IServiceCollection services, params ReadOnlySpan<LatencyRoster> contributed) {
         LatencyRoster folded = Iterable<LatencyRoster>.FromSpan(contributed).Fold(Own, static (all, next) => all + next);
         return services
@@ -936,15 +809,11 @@ public static class LatencySpine {
             .RegisterTagNames([.. folded.Tags.Distinct()]);
     }
 
-    // Measures stay empty by MEASUREMENT rather than omission — this root records phase boundaries and no
-    // accumulated quantity, so a name minted here registers a token nothing writes through.
     static LatencyRoster Own =>
         toSeq(LatencyCheckpoint.Items) is var phases
             ? new(phases.Map(static row => row.Key), Seq<string>(), phases.Map(static row => row.Pivot.Key))
             : LatencyRoster.Empty;
 
-    // Issuers resolve the phase name ONCE at the seam owning the fold, so each fold threads a resolved token
-    // rather than re-resolving a name per boundary.
     public static (ILatencyContext Context, CheckpointToken Phase) Open(
         ILatencyContextProvider provider, ILatencyContextTokenIssuer issuer, LatencyCheckpoint phase) =>
         (provider.CreateContext(), issuer.GetCheckpointToken(phase.Key));
@@ -952,8 +821,6 @@ public static class LatencySpine {
     public static ILatencyContext Mark(ILatencyContext context, CheckpointToken phase) =>
         (context.AddCheckpoint(phase), context).Item2;
 
-    // Exporting before the freeze ships a span set the next mark would still widen; the context returns to its
-    // pool at the caller's own `using`, so this seat exports and never releases.
     public static IO<Unit> Seal(ILatencyDataExporter exporter, ILatencyContext context) =>
         IO.liftAsync(async envIO => {
             context.Freeze();
@@ -976,16 +843,12 @@ public static class LatencySpine {
 - Boundary: an unredacted classified value reaching any exporter is a seam violation; classification attributes annotate shapes at definition time as `DataClassificationAttribute` subclasses through the transitively arriving compliance-abstractions surface, with `NoDataClassificationAttribute` and `UnknownDataClassificationAttribute` the two shipped seals that make a reviewed-public member and a never-reviewed member declare their status instead of sharing the absence of an annotation; redactor binding rides `AddRedaction(Action<IRedactionBuilder>)` over the DERIVED closure — every non-empty subset of the roster, grouped into one `SetRedactor<NullRedactor>` call on the pass sets, one `SetHmacRedactor(IConfigurationSection, params DataClassificationSet[])` on the pseudonym sets, and one `SetRedactor<ErasingRedactor>(params DataClassificationSet[])` on the erase sets — closing on `SetFallbackRedactor<ErasingRedactor>()`, which stays the fail-closed default for a set outside the closure rather than the working path for sets inside it, and the fold registers with no suppression; that bind is reached from `[05]`'s `GovernLogs` and from nowhere else, because a chain sealing the seam without it resolves EVERY set through the fallback and erases the pass rows this fold exists to spare — the failure reads as a working redaction plane and surfaces only when a dashboard's operational dimension is missed; hmac rows pseudonymize while preserving cross-event correlation, erase rows destroy the value, and credential and secret material never persists in any signal; the log seam governs the log path while the HTTP route-parameter path is a prevention row at the instrumentation root — `RequestMetadata` declares route-template parameters and `HttpRouteParameterRedactionMode` erases them so an outgoing-request span never carries an unredacted route segment, crossing to Persistence as VALUE fields on the landed rows (`Element/codec` `SnapshotCatalogRow.Classification`, `Element/identity`) — never a guard symbol and never a second registration; one redaction policy serves logs, traces, support capture, and the route-parameter prevention row, deleting call-site string scrubbing; metric tags ride the `[05]` view seam instead — the one `AddView` predicate projects each rostered stream onto its declaring row's `Dimensions` beside the tenancy key alone, so a contributor evidence-string tag reaches an exporter only by being DECLARED on the row that mints it, where this taxonomy grades it; a foreign instrumentation stream keeps its convention-owned tags because no row of this branch declares them and none carries branch evidence.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Rank makes a composite set's treatment derivable, so no hand-authored composite table exists.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class RedactorKind {
     public static readonly RedactorKind None = new(rank: 0);
     public static readonly RedactorKind Hmac = new(rank: 1);
     public static readonly RedactorKind Erase = new(rank: 2);
-    // "Reviewed and erased" and "nobody looked" are different facts and rank differently: a composite carrying an
-    // unreviewed member grades unreviewed, which is why the never-reviewed arm is its own row rather than a second
-    // spelling of erase. Both bind `ErasingRedactor`, so the TREATMENT is identical and the GRADE is not.
     public static readonly RedactorKind Unknown = new(rank: 3);
 
     public int Rank { get; }
@@ -993,10 +856,6 @@ public sealed partial class RedactorKind {
     public static RedactorKind Strongest(RedactorKind left, RedactorKind right) => left.Rank >= right.Rank ? left : right;
 }
 
-// Disclosure GRADE is the branch's one narrowing authority: a durable row, an outbox envelope, and a retention
-// tier all ask how far a value may travel, and each derived that answer from the redactor column plus an
-// is-none probe until this column landed. Treatment answers what happens at egress; grade answers where the
-// value may rest, and the two are not the same question.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1018,28 +877,20 @@ public sealed partial class DataClassification {
     public static readonly DataClassification Operational = new("operational", redactor: RedactorKind.None, grade: DisclosureGrade.Operational);
     public static readonly DataClassification Internal = new("internal", redactor: RedactorKind.None, grade: DisclosureGrade.Operational);
     public static readonly DataClassification HostIdentity = new("host-identity", redactor: RedactorKind.Hmac, grade: DisclosureGrade.Restricted);
-    // Producers alone know a payload embeds a host path (branch RULINGS), so this bit stays producer-only;
-    // Rasm.Rhino Objects/authoring.md emits it — an unrostered value reaches the fail-closed fallback and ERASES.
     public static readonly DataClassification HostPath = new("host-path", redactor: RedactorKind.Hmac, grade: DisclosureGrade.Restricted);
     public static readonly DataClassification UserContent = new("user-content", redactor: RedactorKind.Erase, grade: DisclosureGrade.Secret);
     public static readonly DataClassification Personal = new("personal", redactor: RedactorKind.Hmac, grade: DisclosureGrade.Restricted);
     public static readonly DataClassification Confidential = new("confidential", redactor: RedactorKind.Hmac, grade: DisclosureGrade.Restricted);
     public static readonly DataClassification Credential = new("credential", redactor: RedactorKind.Erase, grade: DisclosureGrade.Secret);
     public static readonly DataClassification Secret = new("secret", redactor: RedactorKind.Erase, grade: DisclosureGrade.Secret);
-    // Unknown declares the never-reviewed arm rather than inferring it from absence: [UnknownDataClassification]
-    // seals a member onto it and the erase treatment makes that seal fail closed by law, where relying on the
-    // fallback makes "nobody looked" and "no row matched" indistinguishable at review time.
     public static readonly DataClassification Unknown = new("unknown", redactor: RedactorKind.Unknown, grade: DisclosureGrade.Secret);
 
     public RedactorKind Redactor { get; }
 
     public DisclosureGrade Grade { get; }
 
-    // ONE projection every classification-keyed map consumes, never a hand-built pair at a call site.
     public Microsoft.Extensions.Compliance.Classification.DataClassification Marker => new(nameof(DataClassification), Key);
 
-    // Taxonomy is checked BEFORE value, because a pair naming a foreign taxonomy whose value matches a row here
-    // would otherwise admit under a vocabulary this suite never governs.
     public static Fin<DataClassification> Resolve(string taxonomy, string value) =>
         string.Equals(taxonomy, nameof(DataClassification), StringComparison.Ordinal)
             ? Op.Of().AcceptValidated<DataClassification>(
@@ -1047,17 +898,13 @@ public sealed partial class DataClassification {
             : Fin.Fail<DataClassification>(new TelemetryFault.Taxonomy($"{taxonomy}:{value}"));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Carried as TEXT because the federation ruling is that pairs cross and no type reference forms; it rides the
-// composition beside `LatencyRoster` rather than the port, whose every column is a kernel-resolved TYPE.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ClassificationRoster(string Package, Seq<(string Taxonomy, string Value)> Values) {
     public static readonly ClassificationRoster Empty = new(string.Empty, Seq<(string, string)>());
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class RedactedText {
-    // Masked columns must report whether they CHANGED, and a length compare answers wrongly for every
-    // length-preserving redactor; the comparison is ordinal because the verdict is byte identity.
     public static Masked Mask(Redactor redactor, string value) =>
         redactor.Redact(value) switch {
             var masked when string.Equals(masked, value, StringComparison.Ordinal) => new Masked.Unchanged(masked),
@@ -1073,31 +920,22 @@ public static class RedactedText {
         into.AppendRedacted(redactor, value);
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class RedactionRegistration {
-    // Lookup keys on WHOLE-SET equality, so a member annotated {Personal, Confidential} resolves neither member's
-    // row and falls to the erasing fallback — silent until the dimension it erased is missed. Nothing bounds how
-    // many repeatable annotations one member carries, so the closure is the full subset lattice and one taxonomy
-    // row DOUBLES it. The bind runs three calls because both mapping verbs take their whole set list at once.
     public static ILoggingBuilder Bind(ILoggingBuilder logging, IConfigurationSection hmacKeys) {
         logging.Services.AddRedaction(redaction => ignore(
             toSeq(Closure().GroupBy(static row => row.Kind))
                 .Fold(redaction, (seam, treatment) =>
-                    // Pass rows bind `NullRedactor` EXPLICITLY: unbound they erase every operational dimension.
                     treatment.Key.Switch(
                         state: (Seam: seam, Keys: hmacKeys, Sets: treatment.Select(static row => row.Set).ToArray()),
                         none: static bound => bound.Seam.SetRedactor<NullRedactor>(bound.Sets),
                         hmac: static bound => bound.Seam.SetHmacRedactor(bound.Keys, bound.Sets),
                         erase: static bound => bound.Seam.SetRedactor<ErasingRedactor>(bound.Sets),
-                        // Same TREATMENT as erase, separate row: the grade a never-reviewed member carries is the
-                        // fact this arm exists to keep, and folding it into erase loses it at every downstream read.
                         unknown: static bound => bound.Seam.SetRedactor<ErasingRedactor>(bound.Sets)))
                 .SetFallbackRedactor<ErasingRedactor>()));
         return logging.EnableRedaction(static options => options.ApplyDiscriminator = true);
     }
 
-    // Without it the federation closes by COINCIDENCE — a sibling's unrostered value compiles, ships, and erases
-    // at the fallback, arriving through the one door the closure cannot reach.
     public static Validation<Error, Unit> Federated(params ReadOnlySpan<ClassificationRoster> contributed) =>
         Iterable<ClassificationRoster>.FromSpan(contributed).ToSeq()
             .Bind(static roster => roster.Values.Map(pair => (roster.Package, pair.Taxonomy, pair.Value)))
@@ -1112,7 +950,6 @@ public static class RedactionRegistration {
             ? toSeq(Range(1, (1 << rows.Count) - 1)).Map(mask => Composed(rows, mask))
             : Seq<(DataClassificationSet, RedactorKind)>();
 
-    // `Strongest`'s `None` rank is the fold's own identity, so the composite verdict DERIVES from the rank column.
     static (DataClassificationSet Set, RedactorKind Kind) Composed(Seq<DataClassification> rows, int mask) =>
         Sealed(rows.Map(static (row, index) => (Row: row, Index: index))
             .Filter(pair => (mask & (1 << pair.Index)) != 0)
@@ -1150,8 +987,6 @@ public sealed record ConformanceRow(string Key, string Owner, ConformanceDisposi
 public sealed record ConformanceReceipt(string Role, string SchemaUrl, Seq<ConformanceRow> Rows);
 
 public static class ConformanceMint {
-    // Every value reads off its owner, so a policy edit moves the row with it and the render can never restate a
-    // const that changed underneath it.
     public static ConformanceReceipt Of(TelemetryComposition composition) =>
         Built(composition, ProviderProgram.Canonical,
             composition.Contributors.Bind(static port => port.Declared));
@@ -1165,14 +1000,10 @@ public static class ConformanceMint {
             Row("scope.coordinate", "package-id + version + schema-url, one per contributor port", nameof(TelemetryContributorPort)),
             Row("schema.coordinate", TelemetryIdentity.SchemaUrl, $"{nameof(TelemetryIdentity)}.{nameof(TelemetryIdentity.SchemaUrl)}"),
             Row("metric.grammar", TelemetryDomain.Prefix + "<domain>.<measure>", $"{nameof(TelemetryDomain)}.{nameof(TelemetryDomain.Head)}"),
-            // The PAIR is what the estate's byte-identity clause grades: two minters claiming one segment carry one
-            // subject spelling or fail the digest, and a segment-only roster proves nothing about that spelling.
             Row("metric.subjects", Joined(toSeq(TelemetryDomain.Items).Map(static row => $"{row.Key}={row.Subject}")),
                 $"{nameof(TelemetryDomain)}.{nameof(TelemetryDomain.Subject)}"),
             Row("metric.units", Joined(declared.Map(static row => row.Unit)), $"{nameof(InstrumentSpec)}.Unit"),
             Row("metric.temporality", program.Temporality.ToString(), $"{nameof(ProviderProgram)}.{nameof(ProviderProgram.Temporality)}"),
-            // No provider-wide aggregation seat exists at this pin, so the digest reads a stated ceiling rather than a
-            // dropped row and a pin bump that opens the seat fails here until this row re-values.
             Ceiling("metric.aggregation", "base2-exponential", "no provider-wide aggregation seat", $"{nameof(SignalGovernance)}.{nameof(SignalGovernance.Views)}"),
             Row("metric.exemplar", program.Exemplar.ToString(), $"{nameof(ProviderProgram)}.{nameof(ProviderProgram.Exemplar)}"),
             Row("metric.viewcap", SignalGovernance.SeriesCap.ToString(CultureInfo.InvariantCulture), $"{nameof(SignalGovernance)}.{nameof(SignalGovernance.SeriesCap)}"),
@@ -1188,9 +1019,6 @@ public static class ConformanceMint {
             Row("sample.log.verdict", "event-kind bands unconditional, chatty floor thins by degradation rank", nameof(SpineSampler)),
             Row("sample.log.draw", "seeded supplier off the run determinism context", $"{nameof(Deterministic)}.{nameof(Deterministic.Supplier)}"),
             Row("signal.capabilities", Joined(toSeq(TelemetrySignal.Items).Map(static row => $"{row.Key}={row.Capabilities.Wire}")), $"{nameof(TelemetrySignal)}.{nameof(TelemetrySignal.Capabilities)}"),
-            // The one ROLE-absent row this minter carries: interaction vitals are a browser-plane signal and a
-            // process minter reaches no seat for them. Marking the row rather than dropping it is what lets a
-            // reader tell a role that cannot carry a signal from a branch that quietly stopped carrying one.
             Role("signal.vitals", nameof(TelemetrySignal)),
             Row("buffer.posture", string.Create(CultureInfo.InvariantCulture,
                 $"{SignalGovernance.BufferCapBytes}/{SignalGovernance.BufferRecordCapBytes}/{SignalGovernance.BufferFlushWindow:c}"), "AddGlobalBuffer"),

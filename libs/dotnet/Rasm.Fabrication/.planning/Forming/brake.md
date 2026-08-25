@@ -25,7 +25,7 @@
 - Boundary: Forming owns sequence feasibility and evolving part geometry; flat development, machine capacity, polygon topology, process physics, posting text, and artifact identity remain at their canonical owners; punch body profile is `BrakeTool.ForbiddenSections` geometry, so `PunchKind` states only the turn window and nose-radius floor a section cannot. `PriorityQueue<TElement, TPriority>`, its canonical composite priority, structural dominance map, and frontier loop are the statement-kernel exemptions — and the QuikGraph exemption is MEASURED at the frontier: every shortest-path extension binds a materialized vertex and edge set, while this space is implicit and its transition cost state-dependent, so the two graphs this page genuinely holds (`LinkOrder` at `Forming/sheet`, `ClosureOf` beside it) are the ones QuikGraph owns.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
@@ -43,10 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Forming;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Bottoming and air bending load a V-die (force scales as `t^2 / V`), coining loads the full contact width
-// (force scales as `V`), and hemming flattens over the material thickness — one shared expression cannot carry
-// all three, so each row owns its own force law beside its calibration factor.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class BendMethod {
     public static readonly BendMethod Air = new("air", 1.0, 1.0, 1.0,
@@ -79,10 +76,6 @@ public sealed partial class BendMethod {
     public partial double FormingForce(double flowStressMpa, double thicknessMm, double lengthMm, double dieOpeningMm);
 }
 
-// Punch body profile is `BrakeTool.ForbiddenSections` geometry, so a punch row owns only what the section
-// cannot state: the turn window it can reach and the forming radius its nose imposes on the work. The window is
-// stated over the SWEPT turn its family executes, so the hemming row reaches the rolled hem's 270 and the radius
-// row the full turn a curl declares — a window closed at the flat refuses every form past it by construction.
 [SmartEnum<string>]
 public sealed partial class PunchKind {
     public static readonly PunchKind Straight = new("straight", Angle.FromDegrees(180.0), Angle.FromDegrees(0.0), noseRadiusFactor: 0.0);
@@ -168,10 +161,6 @@ public sealed partial class BrakePolicy {
     public Arr<Loop> CellForbiddenSections { get; }
     public Arr<SupportRule> Supports { get; }
     public double GaugeResolutionMm { get; }
-    // The angular grid two poses must agree on to BE one search state, paired with the gauge resolution the same
-    // key quantizes translation on. It is not the root finder's convergence band: a solver tolerance answers when an
-    // inversion has converged, and reading it as a state resolution ties how coarsely the frontier deduplicates
-    // to how precisely one springback command was solved, so tightening the solver silently widens the search.
     public double AngularResolutionDeg { get; }
     public double SectionClearanceMm { get; }
     public int SearchExpansions { get; }
@@ -266,16 +255,10 @@ public abstract partial record BrakeRejection {
     public sealed record Evaluation(int Bend, string ToolKey, Error Fault) : BrakeRejection;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The settled search census beside the frozen step wire, so the engine fact rows read settled evidence and no
-// per-expansion write leaves the kernel. NOT a receipt and not named one: it carries no content key, no evidence
-// band, and no stamp — the artifact identity a formed part addresses by is minted at `Forming/sheet`, where the
-// flat pattern and this step wire lower together onto the run spine.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record BendPlan(Seq<BendStep> Steps, int Expansions, int Rejected);
 
 public static class BendSequence {
-    // The engine tap threads through the entry the run spine already holds, defaulting silent for headless callers,
-    // and the exact execution token rides the frontier, lowering the kernel cancellation singleton when requested.
     public static Fin<BendPlan> Plan(
         UnfoldResult unfold,
         FormPolicy policy,
@@ -290,19 +273,6 @@ public static class BendSequence {
               let _engine = FabricationFact.Engine.Of(result).Map((tap ?? FabricationTap.Silent).Fire).Strict()
               select result;
 
-    // `PriorityQueue`, the dominance map, and the expansion counters are the named statement kernel: a best-first
-    // frontier cannot fold without materializing every unexpanded state, and the recursive spelling grows one
-    // stack frame per expansion. Frontier exhaustion alone proves infeasibility; budget exhaustion is a distinct
-    // fault carrying the unfinished frontier, because a computational limit never proves a physical one.
-    // MEASURED EXEMPTION from the branch's QuikGraph rule: `ShortestPathsAStar` and every sibling shortest-path
-    // extension binds an `IVertexAndEdgeListGraph` — a MATERIALIZED vertex and edge set. This state space is
-    // implicit and combinatorial (the done-set powerset crossed with poses, tools, and quantized panel frames),
-    // generated one expansion at a time and pruned by dominance before its successors are ever built, so handing
-    // it to a graph algorithm means enumerating exactly the space `SearchExpansions` exists to keep unenumerated.
-    // The transition cost is also state-dependent — reorientation, tool change, gauge travel, and handling price
-    // against the state ARRIVED IN, not the edge — which no static edge weight carries. QuikGraph still owns every
-    // materialized graph on this page's siblings: `LinkOrder`'s acyclicity and root proof and `ClosureOf`'s
-    // reverse-topological descent both run on it, and a hand walk beside either would be the defect this is not.
     private static Fin<BendPlan> Search(
         BrakeContext context,
         UnfoldResult unfold,
@@ -333,10 +303,6 @@ public static class BendSequence {
                     state, row.Bend, row.Tool, row.Pose, context, unfold, policy, envelope)
                     .Match(
                         Succ: identity,
-                        // A typed geometry or policy fault is EVIDENCE, not an evaluation rejection: downgrading it
-                        // to `BrakeRejection.Evaluation` erased which band refused and made a degenerate profile
-                        // read as an infeasible bend. The rejection carries the fault itself, so the census
-                        // partitions by band and `Search` returns the first structural failure whole.
                         Fail: error => Structural(error)
                             ? new BrakeCandidate.Refused(error)
                             : new BrakeCandidate.Rejected(Seq<BrakeRejection>(
@@ -363,8 +329,6 @@ public static class BendSequence {
         return Fin.Fail<BendPlan>(new FabricationFault.BendSequenceInfeasible(rejected, expanded));
     }
 
-    // Blank weight and the per-bend descendant closure are state-invariant, so they resolve once instead of per
-    // candidate: the inner loop evaluates them across every state, tool, and pose the frontier ever expands.
     private static Fin<BrakeContext> Prepare(UnfoldResult unfold, BrakePolicy policy) =>
         from measures in unfold.Evidence.Topology.Nodes
             .Traverse(node => node.Boundary.Apply(new ProfileOp.Measure())
@@ -493,8 +457,6 @@ public static class BendSequence {
         let axis = (active.B - active.A) / active.A.DistanceTo(active.B)
         let rotation = Transform.Rotation(
             Angle.FromDegrees(bend.AngleDeg + Math.CopySign(overbend, bend.AngleDeg)).Radians, axis, active.A)
-        // `HashMap<K,V>` declares no fold of its own — the carrier-generic `Fold` reaches it through `K<HashMap<K>, V>`,
-        // whose element is `V` alone. A key-bearing fold runs over `AsIterable()`, which yields the pair.
         let transforms = state.PanelTransforms.AsIterable().Fold(
             HashMap<int, Transform>(),
             (held, row) => held.Add(row.Key, descendants.Contains(row.Key) ? rotation * row.Value : row.Value))
@@ -654,9 +616,6 @@ public static class BendSequence {
         forbidden.IsEmpty
             ? Fin.Succ(Option<double>.None)
             : from trace in PolygonAlgebra.Apply(new PolygonOp.Boolean(material, forbidden, BooleanOp.Intersection, PolygonFill.NonZero))
-              // The total projection, not a single-case probe: reading a non-region trace as an EMPTY-region
-              // failure scored a feasible candidate at zero clearance and scrapped it for a trace shape that says
-              // nothing about geometry. A wrong trace shape is a refusal; only a genuine overlap is a collision.
               from regions in trace.Regioned(Refusal("bend-sequence:clearance-trace"))
               from clear in regions.Nodes.IsEmpty
                 ? from materialToForbidden in BoundaryClearance(material, forbidden)
@@ -679,9 +638,6 @@ public static class BendSequence {
                 .Map(low => nearest.Fold(low, Math.Min))
                 .ToFin(new GeometryFault.DegenerateInput(Kind.Polyline, None, "bend-sequence:clearance-empty")));
 
-    // The sheet-bend instance of the folder's ONE elastic-recovery law: the neutral fibre sits at `k·t` inside the
-    // punch working radius and the elastic index normalizes on thickness. Absence is the bracket refusing to
-    // straddle, which this lane reads as a springback rejection of the candidate rather than a run failure.
     private static Option<double> Overbend(BendLine bend, BrakeTool tool, ProcessBudget.Formed forming, FormPolicy policy) {
         double target = Math.Abs(bend.AngleDeg);
         double fibre = bend.K * policy.ThicknessMm;
@@ -696,14 +652,9 @@ public static class BendSequence {
             .Map(commanded => commanded - target);
     }
 
-    // Line forms whose geometry demands dedicated tooling override the policy default, so one part mixes hemmed,
-    // curled, and ordinary bends without a second policy.
     private static (BendMethod Method, PunchKind Punch) Tooling(BendLine bend, FormPolicy policy) =>
         bend.Form.Tooling.IfNone((policy.Method, policy.Punch));
 
-    // Punch reach gates on the turn the form EXECUTES, never its nominal bend angle: a teardrop hem sweeps 210 and a
-    // rolled one 270 past a line whose `AngleDeg` reads 180, so an angle-gated window admitted a punch that cannot
-    // reach the commanded sweep and the failure landed as a collision or a scrapped part instead of a rejection.
     private static bool Compatible(BrakeTool tool, FormPolicy policy, BendLine bend, double lengthMm) =>
         Tooling(bend, policy) is var demand
             && tool.Punch == demand.Punch && tool.Methods.Contains(demand.Method) && tool.SegmentLengthMm >= lengthMm
@@ -820,12 +771,6 @@ public static class BendSequence {
     private static Point3d Closest(Edge3 edge, Point3d point) =>
         new Line(edge.A, edge.B).ClosestPoint(point, limitToFiniteSegment: true);
 
-    // Dominance keys on the QUANTIZED state, on the same grid the frontier priority already uses. A key over exact
-    // `Transform` equality never matches two states the search reaches by different arithmetic paths, so the map
-    // never fires and the "dominance" pruning is structurally dead — the frontier then expands the whole reachable
-    // state space under its own budget. Two states agreeing to the admitted gauge and angular resolution ARE the
-    // same state for every future feasibility and cost question, which is exactly what the key must say — and both
-    // resolutions are STATE policy, never the root finder's convergence band wearing a second meaning.
     private static SearchKey Key(BrakeState state, BrakePolicy policy) {
         double angular = Math.Sin(Angle.FromDegrees(policy.AngularResolutionDeg).Radians);
         return new SearchKey(
@@ -863,10 +808,6 @@ public static class BendSequence {
 
     private static FrontierPriority Priority(BrakeState state, BrakePolicy policy) {
         double angularResolution = Math.Sin(Angle.FromDegrees(policy.AngularResolutionDeg).Radians);
-        // The frontier tie-break is a canonical preimage like every other on the branch, so it frames and closes at
-        // the S0 `FabricationCanon`: a page-local `double` framing would rank two states differing only in the sign
-        // of a zero ordinate as distinct search nodes, and `Ordered` is the close that reads a TOTAL ORDER off the
-        // writer's own digest rather than materializing a fresh preimage array per enqueued state.
         return new FrontierPriority(state.Cost, FabricationCanon.Ordered(policy.GaugeResolutionMm, writer => {
             _ = writer.Ordinal(state.Done.Count);
             toSeq(state.Done.Order()).Iter(value => writer.Ordinal(value));
@@ -902,8 +843,6 @@ public static class BendSequence {
         }));
     }
 
-    // The quantized search vocabulary is this page's OWN, so its two writers stay here; points, optional slots,
-    // and row counts frame at the S0 `FabricationCanon` family every fabrication preimage composes.
     private static void Write(CanonicalWriter writer, QuantizedTransform value) {
         _ = writer.Ordinal(value.Panel);
         Write(writer, value.X); Write(writer, value.Y); Write(writer, value.Z); Write(writer, value.Origin);
@@ -912,8 +851,6 @@ public static class BendSequence {
     private static void Write(CanonicalWriter writer, QuantizedVector value) =>
         _ = writer.I64(value.X).I64(value.Y).I64(value.Z);
 
-    // This lane's refusal mint: every raise site names its own locus and no body interpolates a slug into a fault
-    // message a consumer would have to read back out.
     private static FabricationFault Refusal(string locus) =>
         FabricationFault.Inadmissible(FabConcern.Forming, locus);
 
@@ -930,12 +867,9 @@ public static class BendSequence {
         public sealed record Accepted(BrakeState State) : BrakeCandidate;
         public sealed record Rejected(Seq<BrakeRejection> Rejections) : BrakeCandidate;
 
-        // A structural fault is not a bend the search may try elsewhere: it names geometry or policy the whole run
-        // carries, so it leaves the frontier on the rail it arrived on rather than joining the rejection census.
         public sealed record Refused(Error Fault) : BrakeCandidate;
     }
 
-    // Geometry and policy bands refuse the RUN; every other band refuses this candidate.
     private static bool Structural(Error fault) =>
         fault.IsType<GeometryFault>() || fault.IsType<FabricationFault.PolicyInadmissible>();
 
@@ -987,8 +921,6 @@ public static class BendSequence {
         string Orientation,
         QuantizedTransform Setup,
         string ToolKey,
-        // The QUANTIZED gauge ordinal, not a millimetre: a double slot re-admits float equality into the dominance
-        // map's hash and names a count in a unit it does not carry.
         long GaugeX,
         SearchGeometry Geometry);
     private readonly record struct FrontierPriority(double Cost, UInt128 Canonical);
@@ -1027,12 +959,6 @@ public static class BendSequence {
     }
 }
 
-// The bend-search measuring case for the FabricationBenchClaims.BendSearch no-regression claim: the machine
-// envelope pins as one literal row so every measured run prices the same capacity, and workload admission
-// proves the frontier genuinely searches — bend and tool floors plus both bend signs present, so pose
-// branching and reorientation cost are live rather than degenerate. The unfold and policy arrive admitted
-// through their own factories; the measured fold is the exact entry the claim's lane columns spell, and
-// measurement stays the bench edge's under the AppHost claim-field map.
 public static class BrakeBench {
     public const int BendFloor = 4;
     public const int ToolFloor = 2;

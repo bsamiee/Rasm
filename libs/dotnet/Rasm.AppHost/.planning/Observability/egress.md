@@ -21,13 +21,13 @@ Settled composition: `TelemetrySignal`, `TelemetryComposition`, and `TelemetryFa
 - Boundary: durable egress has exactly ONE owner per exporter — the branch-typed queue installs through `OtlpExporterOptions.HttpClientFactory`, so the exporter's own `OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY=disk` pair stays unset wherever the handler leg is selected, and arming both gives one batch two independent persistence owners writing two directories with no shared accounting; a replaced factory DISPLACES the shipped one whole, and the shipped one is the sole application point for both the option timeout and the mutual-auth client the `OTEL_EXPORTER_OTLP_*` trust rows arm — `OtlpMtlsOptions` is internal at this pin — so the egress seat carries both halves and a durable profile exporting unauthenticated against a mutual-auth collector is the defect that row forecloses; durable-transport LIFETIME is the composition's, never the exporter's — the SDK hands its export client an `HttpClient` it never disposes and its shutdown only cancels pending requests, so neither the handler chain nor the provider directory reaches a release seat of its own and `TelemetryComposition.Dispose` at the telemetry drain band is the one seat closing both, which is also why the set opens at composition rather than inside an options delegate the SDK invokes past a sealed service collection; credential material never reaches disk because a stored blob carries the request BODY alone and the replay copies its headers off the live request that just succeeded, so a rotated ingest token applies to the whole tail and a stolen queue directory yields payloads and no key; queue DEPTH is the disposition ledger's own arithmetic — neither storage tier publishes a count or size accessor and its directory field is internal, so a depth level costs an O(n) directory walk per collection while the `queued`-minus-`replayed`-minus-`corrupt` gap answers the same question off counters already mounted; retention-expiry reclamation is the provider's own maintenance timer surfacing on the package `EventSource` alone, so an aged-out tail widens that same gap rather than minting a disposition row; plugin ALC capsules open no disk queue, so an unloaded capsule's failed batches die with it and never outlive the load context that minted them; one directory per signal, because the drain replays a blob through the live request that just proved the endpoint and a shared directory posts a metrics batch at `/v1/traces`; queue residence reads the deploy-declared volume rather than the local document store, since that column answers document residence and is false where export runs.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 
 namespace Rasm.AppHost.Observability;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -40,8 +40,6 @@ public sealed partial class OfflineDisposition {
     public static readonly OfflineDisposition DrainTimeout = new("drain-timeout");
 }
 
-// `Settled` carries an OPTIONAL disposition because an empty queue and a head another export holds are the
-// absence of a queue outcome rather than one of them, while a deferred batch carries its own.
 [Union]
 public abstract partial record DrainPass {
     private DrainPass() { }
@@ -49,7 +47,7 @@ public abstract partial record DrainPass {
     public sealed record Settled(Option<OfflineDisposition> Disposition, long Bytes) : DrainPass;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record OtlpOfflineFact(string Signal, OfflineDisposition Disposition, long Bytes);
 
 public sealed record OtlpOfflinePolicy(
@@ -60,12 +58,9 @@ public sealed record OtlpOfflinePolicy(
     Duration WriteBound,
     Duration LeaseWindow,
     int DrainBatch) {
-    // Absent root is the DEFAULT, so every unanswered composition refuses structurally rather than by omission.
     public static readonly OtlpOfflinePolicy None =
         new(Option<string>.None, 0L, Duration.Zero, Duration.Zero, Duration.Zero, Duration.Zero, 0);
 
-    // Disk alone opens a directory and a maintenance timer per exported signal on every desktop launch and never
-    // writes a byte; a provider alone reports a durability it never had.
     public static OtlpOfflinePolicy For(ResolvedProfile resolved) =>
         (resolved.Profile.OtlpExport ? resolved.Roots.QueueRoot : Option<string>.None).Match(
             Some: static root => new OtlpOfflinePolicy(
@@ -80,12 +75,9 @@ public sealed record OtlpOfflinePolicy(
 
     public bool Armed => Root.IsSome;
 
-    // Conformance reads its bounds here, so a retune moves the policy and the published table together.
     public string Bounds => string.Create(CultureInfo.InvariantCulture,
         $"{CapBytes}/{Retention:c}/{Maintenance:c}/{WriteBound:c}/{LeaseWindow:c}/{DrainBatch}");
 
-    // Calling `Open` from inside an exporter's options delegate runs AFTER the provider is built, so nothing
-    // outside that closure could drain or dispose the queue and an unwritable root surfaces at the first drop.
     public FrozenDictionary<string, OtlpOfflineQueue> Open(Action<OtlpOfflineFact> emit, MonotonicTimeline line) =>
         Root.Match(
             Some: root => toSeq(TelemetrySignal.Items)
@@ -105,8 +97,6 @@ public sealed record OtlpOfflinePolicy(
             None: static () => FrozenDictionary<string, OtlpOfflineQueue>.Empty);
 }
 
-// `OtlpMtlsOptions` is internal at this pin and the exporter mounts its client certificate inside the factory
-// a durable composition replaces, so this row re-reads the same three variables to keep trust armed.
 public readonly record struct OtlpTrust(Option<string> Authority, Option<string> Certificate, Option<string> Key) {
     public const string AuthorityVariable = "OTEL_EXPORTER_OTLP_CERTIFICATE";
     public const string CertificateVariable = "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE";
@@ -118,8 +108,6 @@ public readonly record struct OtlpTrust(Option<string> Authority, Option<string>
     static Option<string> Path(string variable) =>
         Optional(Environment.GetEnvironmentVariable(variable)).Filter(static value => value.Length > 0);
 
-    // Half-configured deployments mount no identity rather than exporting unauthenticated under a configuration
-    // that reads as armed. A CA row NARROWS the anchor and never widens it, so revocation stays ONLINE.
     public SocketsHttpHandler Mount(SocketsHttpHandler handler) {
         SslClientAuthenticationOptions ssl = handler.SslOptions;
         ignore((Certificate, Key)
@@ -135,7 +123,7 @@ public readonly record struct OtlpTrust(Option<string> Authority, Option<string>
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class OtlpOfflineQueue(
     TelemetrySignal signal,
     FileBlobProvider store,
@@ -144,12 +132,9 @@ public sealed class OtlpOfflineQueue(
     MonotonicTimeline line) : IDisposable {
     static readonly Op DrainWork = Op.Of(nameof(Drain));
 
-    // Content-Length measures the batch that went out, so copying it truncates the replay. This
-    // carve is a DENYLIST, since an allowlist drops every authentication coordinate it never anticipated.
     static readonly FrozenSet<string> FramingHeaders =
         FrozenSet.Create(StringComparer.OrdinalIgnoreCase, ["Content-Length", "Transfer-Encoding"]);
 
-    // Bodiless requests take the transport's own failure rather than a durability receipt over zero bytes.
     public HttpResponseMessage Accept(HttpRequestMessage request, CancellationToken token) {
         byte[] body = Body(request, token);
         bool stored = body.Length > 0 && store.TryCreateBlob(body.AsSpan(), out _);
@@ -157,8 +142,6 @@ public sealed class OtlpOfflineQueue(
         return new HttpResponseMessage(stored ? HttpStatusCode.Accepted : HttpStatusCode.ServiceUnavailable);
     }
 
-    // Batch bound is the fold's length and time bound is the lane row; a broken gauge drains nothing and
-    // leaves the tail whole, a refusal the queued-minus-replayed gap already reports.
     public Unit Drain(HttpRequestMessage template, Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> forward, CancellationToken token) =>
         line.Gauged<Unit, DeadlineClass>(
                 lane: DeadlineClass.OtlpDrain,
@@ -169,15 +152,12 @@ public sealed class OtlpOfflineQueue(
                 Succ: measured => measured.Span.Breached ? Fact(OfflineDisposition.DrainTimeout, 0L) : unit,
                 Fail: static _ => unit);
 
-    // Capture refusals read SPENT, which makes a broken timeline drain nothing rather than unbounded.
     Func<bool> Spent() =>
         line.Capture(DrainWork).Match(
             Succ: opened => () => line.Capture(DrainWork).Bind(now => line.Elapsed(opened, now, DrainWork))
                 .Match(Succ: elapsed => elapsed >= DeadlineClass.OtlpDrain.Bound, Fail: static _ => true),
             Fail: static _ => static () => true);
 
-    // Folding halts on the first `Settled` state, so the hand loop's counter, wall deadline, and five early
-    // returns are one bounded range, one predicate, and one carrier.
     Unit Passes(Func<bool> spent, HttpRequestMessage template, Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> forward, CancellationToken token) =>
         ignore(Range(0, policy.DrainBatch).AsIterable().FoldUntil(
             Option<DrainPass>.None,
@@ -186,7 +166,6 @@ public sealed class OtlpOfflineQueue(
 
     static DrainPass Stalled => new DrainPass.Settled(Option<OfflineDisposition>.None, 0L);
 
-    // Dispositions ride the carrier, so a new outcome is one case column rather than a third emit call.
     DrainPass Emitted(DrainPass pass) =>
         (pass.Switch(
             moved: row => Fact(row.Disposition, row.Bytes),
@@ -197,13 +176,11 @@ public sealed class OtlpOfflineQueue(
         Leased() switch {
             { Case: PersistentBlob blob } => Read(blob) switch {
                 { Case: byte[] body } => Forwarded(blob, body, template, forward, token),
-                // Unreadable blobs DELETE: a leased-and-failed head the maintenance timer promotes back wedges the tail.
                 _ => (fun(() => ignore(blob.TryDelete()))(), (DrainPass)new DrainPass.Moved(OfflineDisposition.Corrupt, 0L)).Item2,
             },
             _ => Stalled,
         };
 
-    // Empty queues and heads another export holds answer one absence, because neither moves the tail.
     Option<PersistentBlob> Leased() =>
         store.TryGetBlob(out PersistentBlob? blob) && blob is not null
         && blob.TryLease((int)policy.LeaseWindow.TotalMilliseconds)
@@ -213,8 +190,6 @@ public sealed class OtlpOfflineQueue(
     static Option<byte[]> Read(PersistentBlob blob) =>
         blob.TryRead(out byte[]? body) && body is not null ? Some(body) : None;
 
-    // Transports dying mid-drain defer their leased body exactly as a non-success status does; disposal
-    // boundaries are why this arm is statement-shaped: response and replay request both release on every arm.
     DrainPass Forwarded(PersistentBlob blob, byte[] body, HttpRequestMessage template, Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> forward, CancellationToken token) {
         using HttpRequestMessage replay = Rebuild(template, body);
         Option<HttpResponseMessage> response = Attempt(replay, forward, token);
@@ -228,8 +203,6 @@ public sealed class OtlpOfflineQueue(
 
     public void Dispose() => store.Dispose();
 
-    // Transport faults and non-success statuses are one condition — the batch did not land. Tokens the caller
-    // tripped stay a raise, and absence is the carrier rather than a `null` every caller re-tests.
     internal static Option<HttpResponseMessage> Attempt(HttpRequestMessage request, Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> forward, CancellationToken token) {
         try {
             return Some(forward(request, token));
@@ -240,8 +213,6 @@ public sealed class OtlpOfflineQueue(
         }
     }
 
-    // Both shipped content shapes override the synchronous serializer, so a failed send's payload replays with no
-    // async hop and no second whole-batch buffer.
     static byte[] Body(HttpRequestMessage request, CancellationToken token) {
         if (request.Content is not { } content) { return []; }
         using var buffer = new MemoryStream();
@@ -249,8 +220,6 @@ public sealed class OtlpOfflineQueue(
         return buffer.ToArray();
     }
 
-    // Exporter content is memory-backed and therefore re-readable, which lets `Accept` read a body a failed
-    // send already streamed under whatever compression the live request applied.
     static HttpRequestMessage Rebuild(HttpRequestMessage template, byte[] body) {
         var content = new ByteArrayContent(body);
         ignore(Optional(template.Content).Iter(source => ignore(Carried(toSeq(source.Headers)).Iter(
@@ -268,17 +237,14 @@ public sealed class OtlpOfflineQueue(
         (fun(() => emit(new OtlpOfflineFact(signal.Key, disposition, bytes)))(), unit).Item2;
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class PersistentOtlpHandler(OtlpOfflineQueue queue) : DelegatingHandler {
-    // HTTP+protobuf reaches `HttpClient.Send`, which dispatches to `Send` and NEVER to `SendAsync`, so a
-    // queue on the async override alone is dead on every desktop and server host; one core carries both.
     protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken token) =>
         Routed(request, base.Send, token);
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) =>
         Task.FromResult(Routed(request, Awaited, token));
 
-    // Failed responses release on their own arm — a disposal boundary is this page's named carve-out.
     HttpResponseMessage Routed(HttpRequestMessage request, Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> forward, CancellationToken token) {
         Option<HttpResponseMessage> live = OtlpOfflineQueue.Attempt(request, forward, token);
         return live.Filter(static held => held.IsSuccessStatusCode).Match(

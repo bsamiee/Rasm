@@ -65,19 +65,11 @@ _BUDGET: Final[int] = 1 << 20
 _CAPTURE_NAME: Final[str] = "name"
 _GROUP_IMPORT: Final[str] = "import"
 _GROUP_MEMBER: Final[str] = "member"
-# a nested row's symbol is the DOTTED spelling a citation writes, so its group is distinct from a root member's: a
-# consumer asking whether `msgspec.msgpack.Encoder` exists reads one row rather than joining a module to a leaf.
 _GROUP_NESTED: Final[str] = "nested"
-# submodule-walk ceiling, counted in dot depth from the distribution root: level one is the package's own submodule
-# set, level two the members each exports, which together spell every `pkg.mod.Member` citation this corpus makes.
-# Deeper forfeits the claim it would widen — a distribution re-exports its dependencies' surfaces, so an unbounded
-# descent reports another project's members as this one's and the absence claim stops being about this distribution.
 _DEPTH: Final[int] = 2
-# span names ARE receipt subjects — one symbol keeps the trace leg and the receipt row correlated, never two literals drifting apart.
 _SPAN_QUERY: Final[str] = "code.query"
 _SPAN_SCAN: Final[str] = "code.scan"
 
-# type-alias pattern anchors `left:` so the aliased VALUE identifier in `type Alias = int` never emits as a declared binding.
 _BINDING_PY: Final[str] = "[(class_definition name: (identifier) @name) (type_alias_statement left: (type (identifier) @name))] @decl"
 _BINDING_TS: Final[str] = (
     "[(class_declaration name: (type_identifier) @name)"
@@ -165,8 +157,6 @@ class CompiledProbe(Struct, frozen=True):
 
     @staticmethod
     def _pruned(query: Query, kept: Option[frozenset[str]]) -> Query:
-        # `disable_capture` mutates in place ONCE at build — a pruned capture never allocates a node list at run
-        # time, while the id table still enumerates it.
         kept.map(
             lambda keep: Block.of_seq(query.capture_name(i) for i in range(query.capture_count))
             .filter(lambda cap: cap not in keep)
@@ -177,13 +167,10 @@ class CompiledProbe(Struct, frozen=True):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# each capsule wraps exactly once through `Language(capsule)`; the deprecated int-pointer and `Language.query` forms are refused.
 GRAMMARS: Final[Map[Lang, Grammar]] = Map.of_seq(
     (lang, Grammar.of(lang, capsule))
     for lang, capsule in (("python", ts_py.language()), ("typescript", ts_ts.language_typescript()), ("tsx", ts_ts.language_tsx()))
 )
-# `locals` is the live partial-coverage column — TypeScript ships the source, Python does not — so the
-# `Map.filter`-total compile is exercised, never just claimed.
 PROBE_SOURCES: Final[Map[Probe, Map[Lang, str]]] = Map.of_seq(
     (name, Map.of_seq(rows))
     for name, rows in (
@@ -193,13 +180,10 @@ PROBE_SOURCES: Final[Map[Probe, Map[Lang, str]]] = Map.of_seq(
         ("locals", (("typescript", ts_ts.LOCALS_QUERY), ("tsx", ts_ts.LOCALS_QUERY))),
     )
 )
-# binding emits only the bound name: the `@decl` whole-declaration span prunes at build, so the drift scan never
-# materializes captures it only filters away.
 PROBE_KEEP: Final[Map[Probe, frozenset[str]]] = Map.of_seq((("binding", frozenset((_CAPTURE_NAME,))),))
 PROBES: Final[Map[Probe, CompiledProbe]] = PROBE_SOURCES.map(
     lambda name, sources: CompiledProbe.of(name, sources, GRAMMARS, PROBE_KEEP.try_find(name))
 )
-# capture name -> id resolved once at registry build; the drift fold compares integers per fact.
 _BINDING_NAME_ID: Final[Map[Lang, int]] = PROBES["binding"].captures.map(lambda _lang, table: table[_CAPTURE_NAME])
 
 
@@ -212,9 +196,6 @@ _TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.EVIDENCE])
 
 
 def _flattened[R](nested: Block[Block[R]]) -> Block[R]:
-    # the per-file rails come back one `Block` per source, and both dispositions join them the same way; the fold is
-    # named at module scope because a lambda bound to a local is the assigned-lambda form the gate rejects, and one
-    # named spelling keeps the ACCUMULATE and PARTITION arms from drifting to two joins.
     return nested.collect(identity)
 
 
@@ -233,11 +214,7 @@ class GrammarRegistry:
         probed = PROBES[probe]
         if lang not in probed.queries:
             return Error(EVIDENCE_GRAMMAR.raised(probe, lang))
-        # `match_limit=budget` makes `did_exceed_match_limit` a LIVE truncation grade — on the default `0xFFFFFFFF` cap the `resource`
-        # arm is dead and a match-explosion returns silently clipped captures as a clean `Ok`.
         cursor = QueryCursor(probed.queries[lang], match_limit=budget)
-        # Exemption: `QueryCursor` takes `match_limit` alone at construction, so depth and range scoping are
-        # post-build setters — the package's own imperative seam, and the one statement kernel this entry admits.
         if max_depth is not None:
             cursor.set_max_start_depth(max_depth)
         if byte_range is not None:
@@ -248,14 +225,8 @@ class GrammarRegistry:
             if scope.is_recording():
                 scope.set_attributes({"evidence.probe": probe, "evidence.lang": lang})
             tree = GRAMMARS[lang].parser.parse(source)
-            # `descendant_count` is a static pre-gate — the query never starts on an oversized tree. `progress_callback` fires with the
-            # cursor's BYTE OFFSET and returning True CANCELS, so the hang guard keys on the tick count, never the offset (a
-            # continue-shaped `step < budget` predicate cancels every healthy run at its first tick); a cancel surfaces as bounded
-            # partial captures, not a grade, and the size pre-gate keeps it unreachable in practice.
             visited = tree.root_node.descendant_count
             if visited >= budget:
-                # the deadline arm constructs EXPLICITLY because only this fence holds the real budget; the subject still
-                # derives from a rostered row, and the tripped axis carries the probe/language pair as its own coordinates.
                 fault = BoundaryFault(deadline=(EVIDENCE_BUDGET.subject, float(budget), f"descendant-count:{probe}:{lang}"))
                 scope.set_status(Status(StatusCode.ERROR, fault.tag))
                 return Error(fault)
@@ -267,7 +238,6 @@ class GrammarRegistry:
                     "evidence.nodes": visited,
                     "evidence.captures": sum(map(len, captures.values())),
                     "evidence.truncated": truncated,
-                    # `parse` never raises: a broken source yields a Tree with error nodes, so parse health is a traced fact, never a rail fault.
                     "evidence.flawed": tree.root_node.has_error,
                 })
             if truncated:
@@ -316,7 +286,6 @@ class GrammarRegistry:
 
     @staticmethod
     def drift(corpus: Corpus, canonical: frozenset[str]) -> RuntimeRail[Block[Evidence]]:
-        # capture filter compares the build-resolved integer id — the belt on the build prune that already scopes binding to `@name`.
         return GrammarRegistry.scan("binding", corpus, SpanFact.of).map(
             lambda spans: GrammarRegistry._cross(
                 spans.filter(lambda fact: fact.capture_id == _BINDING_NAME_ID[fact.locus.lang] and fact.text in canonical)
@@ -336,7 +305,6 @@ class ApiCatalogue:
     @staticmethod
     @trapped(EVIDENCE_REFLECT, catch=ImportError)
     def reflect(distribution: str) -> Block[Evidence]:
-        # import roots are metadata facts off the reversed `packages_distributions` rows; the dash-to-underscore guess is only the no-row fallback.
         dist = metadata.distribution(distribution)
         version = dist.version
         mapped = Block.of_seq(sorted(mod for mod, dists in metadata.packages_distributions().items() if distribution in dists))
@@ -348,8 +316,6 @@ class ApiCatalogue:
 
     @staticmethod
     def _exported(surface: ModuleType) -> Block[str]:
-        # the module's own declared surface where it publishes one, its public bindings otherwise — the one roster
-        # every walked module level reads, so the package root and each submodule are mined by identical law.
         return (
             Option.of_optional(getattr(surface, "__all__", None))
             .map(Block.of_seq)
@@ -358,18 +324,6 @@ class ApiCatalogue:
 
     @staticmethod
     def _mined(distribution: str, version: str, root: str) -> Block[Evidence]:
-        # reflection's ONE dynamic-import site: a broken root or submodule raises inside `reflect`'s trapped fence, the
-        # same `import_` row a missing distribution lands.
-        # DEPTH is the whole point of this walk. A root-only mine sees `msgspec` and not `msgspec.msgpack.Encoder`,
-        # `obstore` and not `obstore.store.from_url`, `opentelemetry` and not `opentelemetry.trace.Status` — every
-        # dotted member this corpus actually cites — so the boundary claim that a source cannot name a member absent
-        # from the catalogue could not be backed against any nested spelling, which is the only kind that gets cited.
-        # The walk is BOUNDED at `_DEPTH` levels for a reason a deeper one forfeits: level one is the package's own
-        # submodule set and level two the members exported from each, which together cover the `pkg.mod.Member`
-        # spelling every citation takes, while an unbounded descent walks the transitive dependency surface a
-        # distribution merely re-exports and reports another project's members as this one's. `walk_packages` is the
-        # metadata-driven enumeration rather than a filesystem scan, and it never imports a module the roster does not
-        # name; a non-package root carries no `__path__` and yields its own level alone.
         surface = import_module(root)
         rooted = Evidence(member=MemberFact(distribution, version, root, _GROUP_IMPORT, root))
         own = ApiCatalogue._exported(surface).map(lambda symbol: Evidence(member=MemberFact(distribution, version, root, _GROUP_MEMBER, symbol)))
@@ -380,9 +334,6 @@ class ApiCatalogue:
 
     @staticmethod
     def _nested(distribution: str, version: str, module: str) -> Block[Evidence]:
-        # one submodule level: its own import fact plus each exported symbol under the dotted spelling a citation
-        # writes, so `symbol` IS what a source names and the catalogue answers a membership question by equality
-        # rather than leaving a consumer to reassemble the qualified name from a root and a leaf.
         loaded = import_module(module)
         return ApiCatalogue._exported(loaded).map(
             lambda symbol: Evidence(member=MemberFact(distribution, version, module, _GROUP_NESTED, f"{module}.{symbol}"))
@@ -397,7 +348,6 @@ class EvidenceScan(Struct, frozen=True):
     evidence: Block[Evidence]
 
     def contribute(self) -> Iterable[Receipt]:
-        # disjoint `count.*`/`drift.*` prefixes keep a symbol literally named for a tag from colliding with a tally key in the flat map.
         counts = self.evidence.fold(lambda acc, ev: acc.change(f"count.{ev.tag}", lambda n: Some(n.default_value(0) + 1)), Map.empty())
         drifts = self.evidence.choose(
             lambda ev: Some((f"drift.{ev.drift.name}", ",".join(sorted(ev.drift.bindings)))) if ev.tag == "drift" else Nothing

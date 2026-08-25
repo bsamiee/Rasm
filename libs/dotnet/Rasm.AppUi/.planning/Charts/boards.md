@@ -22,9 +22,7 @@ The board-scoped context and its survivals: one typed variable-and-range value e
 - Boundary: a variable is a BOUNDED vocabulary by construction — the row carries its domain and admission refuses a value outside it, so a free-text variable interpolated into a feed key is unspellable and a deep link cannot smuggle one in; cardinality is the `VariableArity` row, so a single-select holding two values refuses at the same gate that proves domain membership. `Relative` resolves against the injected time at read, so a board left open overnight re-resolves rather than pinning the window it opened with; `Absolute` pins deliberately; the two are union arms because a range with a back-duration AND two instants is a state no reader could rank. Refresh cadence is board POLICY, not a feed column — a board refreshing every minute over a feed sampling every quarter-second are two independent facts — and the tick's ONE clock is the surface scheduler, so a proof lane's virtual time advances a board's refresh deterministically and the wall clock enters nowhere on this page. The deep link is the QUERY half alone — scheme, verb, and route key stay the navigation owner's grammar — and a decoded variable outside its declared domain refuses the whole link, because a link that quietly renders a different board than it names is worse than one that refuses; a link carrying both an absolute pair and a back-duration is ambiguous by construction and refuses.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// Cardinality as a row, so a single-select holding two values refuses at admission and the arity a picker
-// renders and the arity the gate proves are one declaration.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -36,8 +34,7 @@ public sealed partial class VariableArity {
     public partial bool Admits(int count);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// The domain IS the dropdown: admission and presentation are one declaration.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BoardVariable(string Key, string Label, Seq<string> Domain, Set<string> Current, VariableArity Arity) {
     public static Fin<BoardVariable> Admit(BoardVariable candidate) =>
         (Gate(!string.IsNullOrWhiteSpace(candidate.Key), $"variable/{candidate.Key}: blank key"),
@@ -53,8 +50,6 @@ public sealed record BoardVariable(string Key, string Label, Seq<string> Domain,
         holds ? unit : (Validation<Error, Unit>)(Error)new ChartFault.ContextRejected(detail);
 }
 
-// Relative resolves against the clock at READ; absolute pins deliberately. The wire roster is the union's own,
-// because a persisted board carries this range and a roster-less union serializes as an empty object.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(Absolute), "absolute")]
@@ -65,8 +60,6 @@ public abstract partial record BoardRange {
     public sealed record Relative(Duration Back) : BoardRange;
 }
 
-// The shift is what makes period comparison a column rather than a second range: a ghost layer reads the same
-// window shifted back one period, so the two windows cannot drift apart on the next range change.
 public sealed record TimeRange(BoardRange Window, Duration Shift) {
     public static readonly TimeRange LastHour = new(new BoardRange.Relative(Duration.FromHours(1)), Duration.Zero);
 
@@ -88,7 +81,6 @@ public sealed record TimeRange(BoardRange Window, Duration Shift) {
     public TimeRange Shifted(Duration by) => this with { Shift = Shift + by };
 }
 
-// The board-scoped value every feed, title, and link reads: variables, one range, one refresh cadence.
 public sealed record BoardContext(string Key, Seq<BoardVariable> Variables, TimeRange Range, Duration Refresh) {
     public static Fin<BoardContext> Admit(BoardContext candidate) =>
         (Gate(!string.IsNullOrWhiteSpace(candidate.Key), $"{candidate.Key}: blank key"),
@@ -101,12 +93,9 @@ public sealed record BoardContext(string Key, Seq<BoardVariable> Variables, Time
 
     public Option<Set<string>> Value(string key) => Variables.Find(row => row.Key == key).Map(static row => row.Current);
 
-    // A tile's own window is the board range under the tile's declared shift.
     public (Instant From, Instant To) Window(Instant now, Option<TimeRange> tile) =>
         tile.IfNone(Range).Resolve(now);
 
-    // The board's re-query tick on the scheduler's OWN time — virtual when the surface supplies it — never the
-    // wall clock beside it; the tick is the board's cadence and never the feed's sampling cadence.
     public IObservable<Instant> Ticks(SurfaceScheduler scheduler) =>
         Observable.Interval(Refresh.ToTimeSpan(), scheduler.Ui)
             .Select(_ => Instant.FromDateTimeOffset(scheduler.Ui.Now));
@@ -115,8 +104,7 @@ public sealed record BoardContext(string Key, Seq<BoardVariable> Variables, Time
         holds ? unit : (Validation<Error, Unit>)(Error)new ChartFault.ContextRejected(detail);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
-// The QUERY half of a board deep link; the scheme, verb, and route key are the navigation owner's grammar.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BoardLink {
     const string FromKey = "from";
     const string ToKey = "to";
@@ -128,8 +116,6 @@ public static class BoardLink {
     public static string Encode(BoardContext context) =>
         string.Join('&', Pairs(context).Map(static pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
 
-    // The DECLARED context is the domain authority: a link may choose among a variable's own values and move
-    // the window, and nothing else.
     public static Fin<BoardContext> Decode(string query, BoardContext declared) =>
         Parsed(query) switch {
             var fields => Window(fields, declared.Range)
@@ -161,8 +147,6 @@ public static class BoardLink {
                 _ => None,
             }));
 
-    // A link carrying BOTH an absolute pair and a back-duration is ambiguous by construction and refuses; the
-    // shift folds onto whichever window survived, so the parse is one fold with one refusal grammar.
     static Fin<TimeRange> Window(HashMap<string, string> fields, TimeRange declared) =>
         ((fields.Find(FromKey), fields.Find(ToKey), fields.Find(BackKey)) switch {
             ({ IsSome: true }, _, { IsSome: true }) or (_, { IsSome: true }, { IsSome: true }) =>
@@ -207,8 +191,7 @@ public static class BoardLink {
 - Boundary: placement is BREAKPOINT-INDEXED over the settled `BreakpointRow` vocabulary rather than a second responsive axis, and the widest declared tier at or below the active one wins, so a board declaring one tier renders at every width; the grid's column count is positive BY CONSTRUCTION — the ctor is private and the frozen roster is the only mint — so the `int.Max` floor guards the retired public record needed are gone; `Equal` derives its span from the key count and falls through to single-column wrapping where the tier cannot hold one column per key, so two tiles are halves and four are quarters at whatever width the tier declares, and the retired `Band`/`Flow` twins — one fold reachable from the other at a derived span — are one fold under one policy row.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
-// Mintable only through the frozen roster, so `Columns` is positive by construction and no consumer guards it.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PlacementGrid {
     private PlacementGrid(BreakpointRow at, int columns) { At = at; Columns = columns; }
 
@@ -224,8 +207,6 @@ public sealed record PlacementGrid {
     public static PlacementGrid For(BreakpointRow at) => Rows.Find(row => row.At == at).IfNone(Rows[0]);
 }
 
-// Equal splits the tier's width by the key count; Fixed wraps at a declared span. One policy row, so the two
-// retired sibling folds — reachable from each other at a derived span — are one fold.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SpanPolicy {
     private SpanPolicy() { }
@@ -233,11 +214,8 @@ public abstract partial record SpanPolicy {
     public sealed record Fixed(int Span) : SpanPolicy;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PlacementFlow {
-    // The ONE placement fold: the policy resolves a span, the span resolves a wrap width, and the keys flow.
-    // An equal split too narrow for one column per key wraps at a single column rather than refusing, because
-    // a board with more tiles than columns is an arrangement, not a defect.
     public static (Seq<TilePlacement> Placements, int Next) Flow(
         PlacementGrid grid, Seq<string> keys, SpanPolicy policy, int rowSpan, int from) {
         if (keys.IsEmpty) { return (Seq<TilePlacement>(), from); }
@@ -252,8 +230,6 @@ public static class PlacementFlow {
             from + (((keys.Count + perRow - 1) / perRow) * rowSpan));
     }
 
-    // The whole-board fold: a board declares its bands in reading order and every tier derives its own rows,
-    // so a responsive board is one declaration rather than one arrangement per width.
     public static Fin<DashboardLayout> Layout(string key, Seq<(Seq<string> Keys, int RowSpan)> bands, Option<string> canvasState = default) =>
         DashboardLayout.Admit(key,
             toSeq(PlacementGrid.Rows).Bind(grid =>
@@ -275,10 +251,8 @@ public static class PlacementFlow {
 - Boundary: a board's stored shape carries no forward ladder, no per-generation step, and no version ordinal in its key — the seal proves the generation inside the bytes and the board rebuilds from its declared default where they disagree, because a step table translating one authored arrangement into another is a second authority on what the arrangement meant and a build reading its output renders a board nobody arranged while every gate passes. NAMED LOSS: attribute-rename carry — a placement or context column renamed across a generation reaches no reader under the next, and the residue is where that arrangement survives. The snapshot rides `EvidenceOps.Wire` through the seal, the ONE composition-seated options every AppUi durable payload crosses: it carries the NodaTime registration and the `Option`/`Seq`/`Set`/`HashMap` converters this record cannot self-describe, while the generated owners round-trip on their own stamped converters — the dock serializer's package-internal options can carry none of those, which is why handing this record that rail was a silent default round-trip no decode refused. `Capture` IS the admission the seal runs, so a parcel that decoded into the shape still proves overlap, window order, and variable domains before a tile reads it. Restore is a DELTA like every other change, pushed under the board key, so a side door writing the brush subject directly cannot seat a state no brush could produce.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BoardState(DashboardLayout Layout, FilterState Filter, BoardContext Context) {
-    // Boards hold what a person ARRANGED, so a refused parcel HOLDS: bytes stay beside the seeded default,
-    // visible and hand-recoverable, where a shape move outran the arrangement.
     public static readonly StateSeal Seal = StateSeal.Of("chart", "board", generation: 2, StateResidue.Hold);
 
     public static Fin<BoardState> Capture(DashboardLayout layout, FilterState filter, BoardContext context) =>
@@ -289,13 +263,9 @@ public sealed record BoardState(DashboardLayout Layout, FilterState Filter, Boar
 
     public Fin<string> Save() => Seal.Write(this);
 
-    // Seal answers the whole refusal space and re-runs THIS admission inside it, so the caller reads one
-    // value: the restored board, or the default it opens on with the refused bytes held beside it.
     public static Restored<BoardState> Open(string blob) =>
         Seal.Read<BoardState>(blob, static state => Capture(state.Layout, state.Filter, state.Context));
 
-    // Restore is a DELTA pushed under the board key: a side door writing the subject directly would skip the
-    // admission the push owns.
     public IO<Fin<Unit>> Reapply(CrossFilter crossFilter) =>
         crossFilter.Push(Layout.Key, new FilterDelta.Snapshot(Filter));
 }
@@ -310,12 +280,11 @@ public sealed record BoardState(DashboardLayout Layout, FilterState Filter, Boar
 - Boundary: instrument declarations are `InstrumentSpec` ROWS and every write passes the row, so a write against an undeclared name has no spelling; tags cross as the kernel's stack-allocated `InstrumentSet.Tags` projection, so a brush push measured on every drag allocates no per-write array; the severity dimension is the row key on the crossing count, so warn volume and critical volume separate on one series; the named-board roster is `Charts/telemetry.md`'s tile registry and the render-hash proof lane's `RenderReceipt` seals through the message envelope — this owner contributes the meter rows and projects, and measures nothing itself.
 
 ```csharp signature
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class BoardTelemetry {
     public static readonly InstrumentSpec Render = InstrumentSpec.Create(
         "rasm.appui.chart.render.elapsed", InstrumentKind.Distribution, MeasureForm.Real, "s",
         "board and chart render wall duration", Seq<string>(), Some(Buckets.InteractionSeconds), None, None);
-    // Size, never bytes: the estate name grammar carries no unit suffix and the UCUM By unit states the measure.
     public static readonly InstrumentSpec FrameSize = InstrumentSpec.Create(
         "rasm.appui.chart.frame.size", InstrumentKind.Count, MeasureForm.Whole, "By",
         "encoded board-frame payload size", Seq<string>(), None, None, None);
@@ -338,8 +307,6 @@ public static class BoardTelemetry {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Render, FrameSize, OverlaySwaps, OverlayLands, FilterApplies, FilterTiles, WatchCrossings);
 
-    // Composition binds each projection onto the fold that already holds the typed fact — the proof-lane
-    // RenderReceipt, the GeoLandFold change-set fold, the CrossFilter push, and the watch raise.
     public static Fin<Unit> Observe(InstrumentSet set, RenderReceipt receipt) =>
         set.Write(Render, receipt.Elapsed.TotalSeconds)
             .Bind(_ => set.Write(FrameSize, receipt.Bytes));
@@ -370,7 +337,7 @@ public static class BoardTelemetry {
 - Boundary: filter and highlight are ONE question at two intensities — remove the non-matching, or dim it — so `Highlight` sits beside the filter columns and a second subject would let a hovered category and a brushed category disagree about which rows they mean; equality over the state is the collections' own — `Set`, `HashMap`, and `Seq` are value-semantic carriers whose `Equals` is structural, so a distinct-until-changed consumer reads real state identity with no generated comparer; the lens is one VALUE per tile rather than four optional delegate parameters threaded through every call, so a tile's brushable axes are stated once and every reader sees the same set — `Key` is the identity the highlight set names, so a highlight published by a table row and consumed by a chart mark resolve one vocabulary; containment rides the ADMITTED geometry engine's indexed locator built once per brush — a lasso over ten thousand scatter points costs one interval-tree query per point, boundary points classify by the engine's own `Location` vocabulary (a lasso drawn through a point selected it), and a page-local even-odd ray cast beside an admitted robust locator is the deleted form; the ring closes at this owner because the geometry factory refuses an unclosed linear ring, so no caller repeats the first coordinate.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FilterState(
     Option<Instant> From,
     Option<Instant> To,
@@ -382,7 +349,6 @@ public sealed record FilterState(
     public static readonly FilterState Empty =
         new(None, None, Set<string>(), HashMap<string, Set<string>>(), None, Set<string>(), None);
 
-    // Accumulating admission: a restore carrying an inverted window AND a blank dimension key names both.
     public static Fin<FilterState> Admit(FilterState candidate) =>
         (Gate(candidate.From.Match(Some: lo => candidate.To.ForAll(hi => lo <= hi), None: static () => true), "window inverted"),
          Gate(candidate.Tags.ForAll(static tag => !string.IsNullOrWhiteSpace(tag)), "blank tag"),
@@ -404,8 +370,6 @@ public sealed record FilterState(
         holds ? unit : (Validation<Error, Unit>)(Error)new ChartFault.BrushRejected(detail);
 }
 
-// The ONE mutation vocabulary: each arm carries its own state fold, so writing a brushed column happens in
-// exactly one place per column.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FilterDelta {
     private FilterDelta() { }
@@ -418,8 +382,6 @@ public abstract partial record FilterDelta {
     public sealed record Snapshot(FilterState State) : FilterDelta;
     public sealed record Cleared() : FilterDelta;
 
-    // The source stamp rides HERE, so no arm can forget it. A highlight does not stamp: the hovered surface
-    // stays lit, where a filter must exclude the tile that raised it or a brush would empty its own tile.
     public FilterState Apply(FilterState held, string source) => Switch(
         state: (Held: held, Source: source),
         time: static (s, row) => s.Held with { From = row.From, To = row.To, Source = Some(s.Source) },
@@ -434,9 +396,6 @@ public abstract partial record FilterDelta {
         cleared: static (_, _) => FilterState.Empty);
 }
 
-// One tile's projector set as a VALUE, read by the predicate, the emphasis, and the bitmap index alike. The
-// `Index` column is the tile's categorical accelerator: present, the dimension fold resolves through it once
-// per state change; absent, the per-row linear predicate carries the tile.
 public sealed record BrushLens<TRow>(
     Func<TRow, string> Key,
     Func<TRow, Instant> At,
@@ -445,9 +404,6 @@ public sealed record BrushLens<TRow>(
     Option<Func<TRow, (double X, double Y)>> Point,
     Option<DimensionIndex<TRow, string>> Index = default);
 
-// Containment rides the admitted geometry engine's indexed locator, built ONCE per brush: every degenerate
-// case a hand even-odd cast got wrong — a vertex on the ray, a horizontal edge at the query ordinate, a
-// self-touching ring — is the engine's own robust crossing count.
 public sealed record PolygonBrush(string DimensionKey, Seq<(double X, double Y)> Ring) {
     private readonly Lazy<Option<IPointOnGeometryLocator>> locator =
         new(() => Locate(Ring), LazyThreadSafetyMode.ExecutionAndPublication);
@@ -457,7 +413,6 @@ public sealed record PolygonBrush(string DimensionKey, Seq<(double X, double Y)>
             Some: found => found.Locate(new Coordinate(x, y)) is Location.Interior or Location.Boundary,
             None: static () => false);
 
-    // The ring closes here rather than at every caller: a linear ring requires its first coordinate repeated.
     static Option<IPointOnGeometryLocator> Locate(Seq<(double X, double Y)> ring) =>
         ring.Count < 3
             ? None
@@ -477,7 +432,7 @@ public sealed record PolygonBrush(string DimensionKey, Seq<(double X, double Y)>
 - Boundary: consumption is ONE projection per question — `Predicate` removes and `Emphasis` dims off the identical state, so a scene ghosting to a hovered category, a chart dimming non-matching marks, and a table bolding its hovered row are three readers of one channel; the source tile is excluded from its own brush by the `FilterState.Source` key so a self-filter loop is structurally impossible, and it is NOT excluded from its own highlight. `Push` answers the ADMISSION's verdict on the rail — a rejected delta names its defect and writes nothing, so the subject's value is admitted state by construction; the Rx `BehaviorSubject` stays the carrier because the board's whole spine is the declared Rx/DynamicData fabric and its consumers subscribe the state as an observable — the discriminant over a kernel `Atom` is that the CELL here IS the subscription surface, not a guarded transition whose verdict a contender re-reads. The categorical fold is RESOLVED ONCE per state change: a lens carrying its `DimensionIndex` folds the brushed dimension members into one survivor set through the bitmap AND — `O(words)` per push — and the per-row read is one frozen-set membership test, so no brush path performs an `O(rows)` re-scan; a lens without the index takes the per-row linear predicate, which is the honest cost for a tile too small to earn a bitmap. The index's package census is settled and the verdict is composition: `BitHelper` carries every per-bit read and write at both machine widths but owns no bitmap, no set algebra, and no iteration; `BitArray` allocates per element and cannot walk set bits; nothing else admitted reaches further — so the ordinal registry, the per-cell bitmaps, and the word loops mutate in place as the NAMED statement exemption, narrowed to exactly those members plus the two growth allocations (`Union`'s live-set clone on the empty-value arm and `Grow`'s resize), while every bit operation rides the admitted helper and the survivor walk rides the in-box `BitOperations.TrailingZeroCount`. An EMPTY brushed value set constrains nothing and unions the live set — the same sense the predicate fold gives it, so bitmap-indexed and predicate-filtered tiles answer one brush identically. PIXEL-TO-DATA mapping reads the chart's own `ScalePixelsToData` at the layer's declared axis indices for both corners — a board-local pixel-per-unit reconstruction would silently disagree after any pan — and the gesture edge that raises it is the chart pointer bind at the composing surface, which hands the decoded delta to `Push` like every other arm; corners order after conversion because an inverted axis maps a top-left drag onto a bottom-right domain rectangle. `CrossFilter.Dispose` completes and disposes the subject at the board activation boundary. The brushed-dimension VALUE vocabulary is the Element seam's: a brush a query lane must replay crosses as the seam predicate keyed by `PredicateKey.Key`, so a stored delegate filter — unreplayable, unhashable, receipt-less — has no spelling on this channel.
 
 ```csharp signature
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class CrossFilter : IDisposable {
     private readonly BehaviorSubject<FilterState> state = new(FilterState.Empty);
 
@@ -485,14 +440,9 @@ public sealed class CrossFilter : IDisposable {
 
     public FilterState Current => state.Value;
 
-    // The ONE mutation: every brush, highlight, restore, and reset crosses here, so the admission runs exactly
-    // once per change and the source stamp cannot be forgotten by an arm.
     public IO<Fin<Unit>> Push(string source, FilterDelta delta) => IO.lift(() =>
         FilterState.Admit(delta.Apply(state.Value, source)).Map(admitted => fun(() => state.OnNext(admitted))()));
 
-    // The ONE removing consumption. The categorical fold resolves ONCE per state emission: an indexed lens
-    // answers the brushed dimensions through the bitmap AND into one survivor set, and the per-row test is a
-    // membership probe; an index-less lens takes the per-row linear fold.
     public IObservable<Func<TRow, bool>> Predicate<TRow>(string tile, BrushLens<TRow> lens) =>
         state.Select(filter => {
             Option<FrozenSet<string>> survivors = lens.Index
@@ -507,14 +457,10 @@ public sealed class CrossFilter : IDisposable {
                         && RegionAdmits(filter, row, lens)));
         });
 
-    // The dimming half over the same state and the same lens: an opacity multiplier, so a scene ghosts, a mark
-    // dims, and a table row bolds off ONE number. An empty highlight set means nothing is hovered and
-    // everything reads at full strength — absence, not a filter.
     public IObservable<Func<TRow, double>> Emphasis<TRow>(string tile, BrushLens<TRow> lens) =>
         state.Select(filter => (Func<TRow, double>)(row =>
             filter.Highlight.IsEmpty || filter.Highlight.Contains(lens.Key(row)) ? 1d : Dimmed));
 
-    // The one dimming coverage every ghosting surface reads, so three planes fade by one amount.
     public const double Dimmed = 0.25d;
 
     private static bool DimensionsAdmit<TRow>(FilterState filter, TRow row, BrushLens<TRow> lens) =>
@@ -537,13 +483,6 @@ public sealed class CrossFilter : IDisposable {
     }
 }
 
-// Measured bitset kernel — the named statement exemption, narrowed to the ordinal registry, the per-cell
-// bitmaps, the word loops, and the two growth allocations (`Union`'s live-set clone on the empty-value arm,
-// `Grow`'s resize): brush latency is O(changed-words) only because these mutate in place, and the
-// immutable-fold form re-scans O(rows) per brush. Every per-bit read and write composes the admitted
-// `BitHelper`; the survivor walk composes the in-box `BitOperations.TrailingZeroCount`. State never escapes:
-// every public member returns Unit or a detached projection, and the one live consumer is the lens column
-// `CrossFilter.Predicate` resolves through.
 public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
     private readonly Func<TRow, TKey> key;
     private readonly FrozenDictionary<string, Func<TRow, string>> dimensions;
@@ -559,8 +498,6 @@ public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
         foreach (string dimension in dimensions.Keys) { words[dimension] = new Dictionary<string, ulong[]>(StringComparer.Ordinal); }
     }
 
-    // `Ingest` first clears an ordinal's prior memberships before replacement, so reuse cannot resurrect stale
-    // categorical membership.
     public Unit Ingest(TRow row) {
         TKey k = key(row);
         if (!ordinals.TryGetValue(k, out int ordinal)) {
@@ -596,8 +533,6 @@ public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
                     Some: held => Some(And(held, Union(entry.Key, entry.Value))),
                     None: () => Some(Union(entry.Key, entry.Value)))));
 
-    // An EMPTY value set constrains nothing and unions the live set — the same sense the predicate fold gives
-    // it, so a cleared dimension reads identically on both paths.
     private ulong[] Union(string dimension, Set<string> values) {
         if (values.IsEmpty) { return (ulong[])live.Clone(); }
         ulong[] result = new ulong[capacityWords];
@@ -616,7 +551,6 @@ public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
         return result;
     }
 
-    // Output-sensitive terminal projection: only set bits enumerate, so projection cost tracks the selection.
     private Seq<TKey> Materialize(Option<ulong[]> bits) =>
         bits.Match(
             Some: chosen => {
@@ -650,9 +584,6 @@ public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
     }
 }
 
-// The pixel-to-data brush: both corners read the CHART's own scale at the layer's declared axis indices, so
-// the data rectangle is the one the measure pass computed. The gesture edge — the chart pointer bind at the
-// composing surface — hands the decoded delta to `Push` like every other arm.
 public static class ChartBrush {
     public static Fin<FilterDelta> From(
         SourceGenCartesianChart chart, LvcPointD from, LvcPointD to, int scalesXAt, int scalesYAt,
@@ -663,8 +594,6 @@ public static class ChartBrush {
             var (a, b) => (Low: Math.Min(a.X, b.X), High: Math.Max(a.X, b.X)) switch {
                 var span when span.High <= span.Low =>
                     Fin.Fail<FilterDelta>(new ChartFault.BrushRejected($"{dimension}: degenerate drag")),
-                // A drag on an INSTANT axis is a time brush; on any other scale it is a value brush on the
-                // named dimension — two questions one row shape cannot carry.
                 var span => axis == ChartAxisKind.Instant
                     ? Fin.Succ<FilterDelta>(new FilterDelta.Time(
                         Some(Instant.FromDateTimeUtc(DateTime.SpecifyKind(span.Low.AsDate(), DateTimeKind.Utc))),

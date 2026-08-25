@@ -25,7 +25,7 @@ Block operations (`Rasm.Rhino.Blocks`) own one closed mutation family, one close
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinitionTable` authoring, linked-source, lifecycle, and instance members; `FileReference`), `Rasm.Rhino.Document` (`DocumentCommit`, `HostInteraction`, `ResourceRef`/`ResourceId`/`ResourceIndex`/`ResourceName`, `DocumentPath`, `GeometryIntake`), kernel `Domain/rails` (`Op`, `Lease<T>`, `Fault`, `Custody`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using Rasm.Domain;
@@ -39,9 +39,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Blocks;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// What a commit owes an operation. The two bool columns this replaces spelled four corners on three rows, and
-// the unreachable one — kernel context demanded without an undo record — had nothing forbidding it.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class CommitDemand : ICapability<CommitDemand> {
@@ -80,8 +78,6 @@ public sealed partial class BlockHyperlink {
             fault: Validate(url, tag, out BlockHyperlink? admitted),
             admitted: admitted);
 
-    // The host's `Modify` takes both columns positionally and reads empty text as "no hyperlink", so absence
-    // projects HERE once instead of an unnamed empty-string tuple standing inside the amend arm.
     internal static (string Url, string Tag) Host(Option<BlockHyperlink> value) => value.Match(
         Some: static held => (held.Url, held.Tag),
         None: static () => (string.Empty, string.Empty));
@@ -118,8 +114,6 @@ public abstract partial record SourceReference {
     private SourceReference() { }
     public sealed record Absolute(DocumentPath Full) : SourceReference;
 
-    // `DocumentPath` admits only a fully qualified path, so the host's relative leg keeps admitted text: the
-    // relative anchor is a genuinely distinct address shape, not a second spelling of the absolute one.
     public sealed record Anchored(DocumentPath Full, string Relative) : SourceReference;
 
     public static Fin<SourceReference> Of(string full, Option<string> relative, Op? key = null) {
@@ -135,8 +129,6 @@ public abstract partial record SourceReference {
         absolute: static row => row.Full,
         anchored: static row => row.Full);
 
-    // Exemption: `FileReference : IDisposable`, so each mint enters an owned lease whose `Use` disposes it
-    // the moment the host call returns — the one native carrier this operation family holds.
     internal Fin<T> Use<T>(Func<FileReference, Fin<T>> body, Op op) =>
         op.Catch(() => Switch(
             context: (Body: body, Op: op),
@@ -176,8 +168,6 @@ public sealed partial class LinkMode {
     public InstanceDefinitionUpdateType UpdateType { get; }
 }
 
-// The three rosters below each carry ONE bool column: a single independent axis projected straight into one
-// host argument, with no second column to combine and no illegal corner, so the set idiom would buy nothing.
 [SmartEnum<int>]
 public sealed partial class LinkTraversal {
     public static readonly LinkTraversal Current = new(key: 0, nestedLinks: false);
@@ -258,9 +248,6 @@ public abstract partial record BlockOp {
     internal Fin<BlockReceipt> Apply(RhinoDoc document, Option<Context> domain, Op op) =>
         Switch(
             context: (Document: document, Domain: domain, Op: op),
-            // One level over the joint discriminant the arm holds together: whether the requested name collides,
-            // and which conflict row the caller elected. The prior form nested the collision probe, the conflict
-            // dispatch, and a reuse re-test three deep over facts available at once.
             author: static (context, edit) =>
                 from _ in guard(edit.BasePoint.IsValid, context.Op.InvalidInput()).ToFin()
                 from receipt in Optional(context.Document.InstanceDefinitions.Find(edit.Metadata.Name.Value)).Match(
@@ -270,8 +257,6 @@ public abstract partial record BlockOp {
                         fail: static held => Fin.Fail<BlockReceipt>(error: held.Held.Op.InvalidInput()),
                         reuse: static held => BlockReceipt.Definition(
                             slot: BlockSlot.Reused, definition: held.Existing, key: held.Held.Op),
-                        // `ResourceName.Create` cannot throw here: `AcceptText` already proved the one invariant
-                        // the owner states, so the generated factory runs on admitted text.
                         mint: static held => held.Held.Op.AcceptText(value: held.Held.Document.InstanceDefinitions
                                 .GetUnusedInstanceDefinitionName(root: held.Edit.Metadata.Name.Value))
                             .Bind(minted => Authored(
@@ -346,8 +331,6 @@ public abstract partial record BlockOp {
                 from definition in Definitions.Resolve(target: edit.Target, document: context.Document, key: context.Op)
                 from mode in SourceMode.Of(update: definition.UpdateType, key: context.Op)
                 from _ in guard(mode.Facets.Admits(capability: SourceFacet.Reads), context.Op.InvalidInput()).ToFin()
-                // The one arm with no host-returned verdict: `LayerStyle` is a settable property whose write the
-                // host silently ignores on an unlinked definition, so the read-back IS the confirmation.
                 from __ in context.Op.Catch(() => {
                     definition.LayerStyle = edit.LayerStyle.Host;
                     return context.Op.Confirm(success: definition.LayerStyle == edit.LayerStyle.Host);
@@ -404,8 +387,6 @@ public abstract partial record BlockOp {
                         add: () => ctx.Document.Objects.AddInstanceObject(
                             instanceDefinitionIndex: ctx.Index, instanceXform: request.Motion,
                             attributes: request.Attributes)),
-                    // The history record is single-use host custody: it threads into exactly one `AddInstanceObject`
-                    // and is released the moment that call returns, so it never survives as a durable payload.
                     recorded: static (ctx, request) => request.History.Use(
                         body: record => Place(motion: request.Motion, op: ctx.Op,
                             add: () => ctx.Document.Objects.AddInstanceObject(
@@ -457,8 +438,6 @@ public abstract partial record BlockOp {
             domain: context.Domain,
             op: context.Op,
             run: (geometry, attributes) =>
-                // The host answers a negative index on refusal, which is exactly the sentinel the spine's index
-                // owner refuses, so the admission and the guard are one read.
                 from index in context.Op.Catch(() => ResourceIndex.Admit(
                     value: edit.Metadata.Hyperlink.Match(
                         Some: held => context.Document.InstanceDefinitions.Add(
@@ -495,8 +474,6 @@ public abstract partial record BlockOp {
             .ToFin(Fail: op.InvalidResult()))
         select id;
 
-    // Release brackets ACQUISITION, not outcome: every admitted lease closes on both exits through the folder's
-    // one release fold, and a disposer refusal appends to the primary rather than vanishing inside a `finally`.
     private static Fin<BlockReceipt> Admitted(
         Seq<BlockMember> members,
         Option<Context> domain,
@@ -545,7 +522,7 @@ public abstract partial record BlockOp {
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceObject.Explode` overloads, `TextFields.GetInstanceAttributeFields`, `TextFields.BlockAttributeText`), `Rasm.Rhino.Document` (`GeometryCrossing`/`GeometryHandle`, `DocumentCommit`, `TableTarget`, `ResourceRef`), kernel `Domain/rails` (`Custody`), Riok.Mapperly (`[Mapper]`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldSource {
     private FieldSource() { }
@@ -621,15 +598,13 @@ public abstract partial record BlockAnswer : IDetachedDocumentResult {
             held: answer.Products, release: piece => piece.Release(op), key: op));
 }
 
-// What the explode fold does with the products it holds: a settled explode RETAINS them for the caller, and
-// every failure arm RELEASES them with the capture.
 [SmartEnum<int>]
 internal sealed partial class ProductCustody {
     internal static readonly ProductCustody Retained = new(key: 0);
     internal static readonly ProductCustody Released = new(key: 1);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BlockField(
     string Key,
     string Prompt,
@@ -654,7 +629,7 @@ public sealed class ExplodedPiece {
             key: key);
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 internal static partial class FieldMap {
     internal static partial BlockField From(TextFields.InstanceAttributeField descriptor);
@@ -672,7 +647,7 @@ internal static partial class FieldMap {
 - Packages: `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `UndoCustody`, `RedrawPolicy`, `DocumentCommit`, `Admission`), kernel `Domain/rails` (`Op`, `Context`, `Fault`, `Custody`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class BlockTransaction {
@@ -695,7 +670,6 @@ public sealed partial class BlockTransaction {
             ? null
             : new ValidationError(string.Join(" | ", new object?[] { nameof(BlockTransaction), "a nonempty program whose operations share one undo posture", Option<Op>.None }));
 
-    // Derived, never stored: the factory proved the posture uniform, so the head states it for the program.
     internal UndoCustody Custody =>
         Operations.Head.Exists(static operation => operation.Traits.Demands.Admits(capability: CommitDemand.Undo))
             ? UndoCustody.Recorded
@@ -713,7 +687,7 @@ public sealed partial class BlockTransaction {
     }
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class Blocks {
     public static Fin<BlockReceipt> Commit(DocumentSession session, BlockTransaction transaction) {
         Op op = Op.Of();
@@ -788,9 +762,6 @@ public static class Blocks {
             op: op)
         select receipt;
 
-    // Three targeted custody points, three rail calls: the capture releases whole if the zip refuses, the
-    // compensation fold rolls back only the detached geometry a partial prefix minted, and the settling sweep
-    // releases the products it was retaining if its own release refuses.
     private static Fin<Seq<ExplodedPiece>> Exploded(InstanceObject instance, ExplodePolicy policy, Op key) =>
         policy.Switch(
             state: (Instance: instance, Op: key),
@@ -833,8 +804,6 @@ public static class Blocks {
                     key: key)
             select products);
 
-    // One zip proves the native triple's cardinality and carries it, so no later step re-indexes three parallel
-    // arrays and no step re-proves the count the boundary already settled.
     private static Fin<Seq<(RhinoObject Piece, ObjectAttributes Attributes, Transform Motion)>> Paired(
         (RhinoObject[] Pieces, ObjectAttributes[] Attributes, Transform[] Motions) captured,
         Op key) =>
@@ -855,8 +824,6 @@ public static class Blocks {
         from handle in GeometryCrossing.Cross(source: geometry, mode: CrossingMode.Detach, key: key)
         select new ExplodedPiece(geometry: handle, attributes: attributes, motion: row.Motion);
 
-    // Reference identity is the whole question: an attribute set a surviving product took is the product's, and
-    // every other captured set is still the capture's, so each disposes exactly once whichever arm runs.
     private static Fin<Unit> Discarded(
         (RhinoObject[] Pieces, ObjectAttributes[] Attributes, Transform[] Motions) captured,
         Seq<ExplodedPiece> products,
@@ -879,8 +846,6 @@ public static class Blocks {
             key: key);
     }
 
-    // Exemption: the native explode publishes its whole result through three `out` arrays and returns `void`, so
-    // the two overloads are statement-shaped at the seam and both collapse onto the same tuple on the next line.
     private static Fin<(RhinoObject[] Pieces, ObjectAttributes[] Attributes, Transform[] Motions)> Capture(
         InstanceObject instance,
         ExplodeDepth depth,
@@ -920,10 +885,7 @@ public static class Blocks {
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), `Document/tables.md` (`ResourceId`, `ResourceIndex`, `DocumentPath`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// This folder's whole contribution to the shared stream: a kind vocabulary, a keyed slot roster, and a body
-// union. The accumulation, the gate, the undo projection, and the slot-keyed readers live once on the Document
-// spine's `FactStream<TSlot, TBody>`, which this page closes as `BlockReceipt`.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BlockBodyKind : ICapability<BlockBodyKind> {
@@ -938,8 +900,6 @@ public sealed partial class BlockBodyKind : ICapability<BlockBodyKind> {
 
 [SmartEnum<int>]
 public sealed partial class BlockSlot : IFactSlot<BlockBody, BlockBodyKind> {
-    // Read-before-use: the row initializers consume these sets, so static construction order decides the
-    // declaration order here, not the public-before-private one.
     private static readonly CapabilitySet<BlockBodyKind> Named = CapabilitySet<BlockBodyKind>.Of(BlockBodyKind.Definition);
     private static readonly CapabilitySet<BlockBodyKind> Sourced = CapabilitySet<BlockBodyKind>.Of(
         BlockBodyKind.Definition, BlockBodyKind.Path);
@@ -978,10 +938,6 @@ public sealed partial class BlockSlot : IFactSlot<BlockBody, BlockBodyKind> {
     public CapabilitySet<BlockBodyKind> Bodies { get; }
 }
 
-// Every address column takes its spine owner. The path column already did; the other four carried raw primitives
-// whose invalid values are exactly the ones a host failure answers with — an empty definition guid, a `-1` table
-// index, an empty object id, a zero undo serial — so a receipt could publish a "created" fact naming nothing and
-// no reader could tell it from a real one.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BlockBody : IFactBody<BlockBodyKind> {
     private BlockBody() { }
@@ -991,8 +947,6 @@ public abstract partial record BlockBody : IFactBody<BlockBodyKind> {
     public sealed record Path(DocumentPath Value) : BlockBody;
     public sealed record Record(UndoSerial Serial) : BlockBody;
     public sealed record Signal : BlockBody;
-    // The refresh degrade the preview lifecycle resolves per definition: requested row, effective row, and the
-    // link condition whose absence caused the fall-back, so a degrade reads as evidence beside every other fact.
     public sealed record Degrade(
         ResourceId Definition,
         RefreshPolicy Requested,
@@ -1009,19 +963,11 @@ public abstract partial record BlockBody : IFactBody<BlockBodyKind> {
         degrade: BlockBodyKind.Degrade);
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------------
-// The folder's receipt IS the spine's stream closed over this folder's two vocabularies; the aliases carry the
-// domain names call sites already read. These are `.cs` `global using` rows in a namespace-scoped file of their
-// own — a file-scoped namespace forecloses them — so no consumer spells the instantiation and no folder-local
-// receipt type exists to drift from the owner.
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using BlockFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody>;
 global using BlockReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Blocks.BlockSlot, Rasm.Rhino.Blocks.BlockBody>;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------------
-// The folder's mint surface rides an extension block over the closed instantiation, so every `BlockReceipt.*`
-// call site reads as it did while the accumulation and the gate stay on the one owner. The address admissions
-// stay HERE, because they are this folder's evidence law: a host member reporting failure as an empty guid or a
-// `-1` index must refuse before its value reaches a body.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BlockReceipts {
     extension(BlockReceipt) {
         public static Fin<BlockReceipt> Definition(
@@ -1061,8 +1007,6 @@ public static class BlockReceipts {
         public static Fin<BlockReceipt> Signal(BlockSlot slot, Op key) =>
             BlockReceipt.Of(slot: slot, body: new BlockBody.Signal(), key: key);
 
-        // The preview sweep's ingress: each swept row lands on the slot its own action names, and a row whose
-        // action names none — the resolver answered for no entry — refuses here rather than passing silently.
         internal static Fin<BlockReceipt> Refresh(
             Seq<(Guid Definition, SweepAction Action)> rows,
             Seq<RefreshDegrade> degraded,

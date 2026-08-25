@@ -27,7 +27,7 @@ Rasm.Compute owns the gRPC channel MECHANICS the suite wire moves over: the `Rem
 - Boundary: `GrpcChannelPolicy` is the canonical channel-tuning owner and `WireChannels` the named boundary capsule consuming it — keepalive, pooled-idle, multiplexing, reconnect-backoff, the HTTP-version posture, and the send/receive caps read from `GrpcChannelPolicy.Canonical` and are never re-declared. `KeepAlivePingDelay`/`KeepAlivePingTimeout`/`EnableMultipleHttp2Connections` and `KeepAlivePingPolicy = HttpKeepAlivePingPolicy.WithActiveRequests` are BCL `SocketsHttpHandler` members, not `Grpc.Net.Client`, so idle-pool connections never burn pings without an in-flight request and a redeclared gRPC-package keepalive member is the deleted form. HTTP-version selection is the `HttpVersion`/`HttpVersionPolicy` `GrpcChannelOptions` pair projected from `GrpcChannelPolicy.Canonical.Version.Wire`, self-resolved through the ONE `QuicCapable` predicate — a static OS carve beside it restates the verdict in a second alphabet and drifts the moment a platform ships the asset; a per-call version knob, a handler-level `GrpcWebHandler.HttpVersion` override, and a forced `Version30` on a QUIC-absent host are the deleted forms. Client-side HTTP/2 flow-control windows are the app-root Kestrel `Http2Limits` SERVER leg, so the only client stream knob here is `EnableMultipleHttp2Connections`. The generated artifact fetch is server-streaming and therefore fits the GrpcWeb row; any later client- or duplex-stream call remains structurally excluded by `Needs` at endpoint admission. Reconnect on UnixDomainSocket is redial-only with the storeEpoch re-handshake; a failed attach folds to the LocalOnly consequence, substrate predicates reading the retained Capability set rather than a second health probe. `NodeSelection.ModelWarmupAffinity` populates the endpoint affinity column from the warm-start session fingerprint so a cold companion routes to the node holding the matching EP-context blob — this endpoint affinity is the single warm-start column `SubstrateSelection.Plan` reads, never a second affinity notion parallel to endpoint identity, never a rank override, never a `ServiceConfig` load-balancing policy. Absence in the load reading is a TIER, not a magnitude: an unmeasured endpoint ranks below every measured one and orders by rotation inside its tier, where the prior `double.PositiveInfinity` fill made every unmeasured roster tie at one score and silently collapsed `LeastLoaded` onto "always the first endpoint". [SPIKE]: dialing this axis from inside the live integrated-host ALC converges on running-plugin evidence alone; the deterministic floor is the landed row set, the `WarmProbe` mechanism law, and the redial fold, each standing without it.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HttpVersionPosture {
     private HttpVersionPosture() { }
@@ -35,11 +35,6 @@ public abstract partial record HttpVersionPosture {
     public sealed record Http2Default : HttpVersionPosture;
     public sealed record Http3Forward : HttpVersionPosture;
 
-    // ONE predicate gates the posture AND the `Http3` dial. `IsSupported` probes the resolved msquic asset at
-    // runtime: the runtime ships it in-box on win-x64/win-arm64 alone, a linux host answers true only where the
-    // distro's own libmsquic is installed, and a darwin host answers FALSE on every arch. The probe also tests
-    // IPv6 FIRST, so an IPv6-disabled host answers false with the asset present — the verdict is the host's whole
-    // QUIC posture, stack and asset together, which is precisely what a static RID table gets wrong.
     public static readonly bool QuicCapable = QuicConnection.IsSupported && !OperatingSystem.IsBrowser();
 
     public static HttpVersionPosture ForHost() => QuicCapable ? new Http3Forward() : new Http2Default();
@@ -57,10 +52,6 @@ public sealed partial class StreamShape {
     public static readonly StreamShape Bidi = new();
 }
 
-// `Absorbing` is a ROW column rather than a caller's `is Shutdown` test: the pump's termination is then a type
-// fact, and a second observer that forgets the test cannot park forever on a state change no channel will send.
-// `Unknown` carries the OBSERVED value because the source enum is foreign and grows outside this package — the
-// prior catch-all folded an unrecognized state onto `Idle`, a real state a recovery arm acts on.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WireTransition {
     private WireTransition() { }
@@ -92,7 +83,7 @@ public abstract partial record WireTransition {
         unknown: static u => $"<unknown:{u.Prior}:{u.Observed}>");
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record GrpcChannelPolicy(
     TimeSpan PooledConnectionIdle,
     TimeSpan KeepAlivePingDelay,
@@ -115,19 +106,13 @@ public sealed record GrpcChannelPolicy(
         Version: HttpVersionPosture.ForHost());
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// `Needs` states the call shapes the composition intends over this endpoint, so the `Streams` column on the row
-// is CONSUMED at admission instead of decorating it: a browser endpoint asking for duplex refuses where it is
-// dialed rather than at the first `AsyncDuplexStreamingCall` that lands an opaque `Unimplemented`.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ComputeEndpoint(
     Uri Address, RemoteTransport Transport, CredentialPolicy Credential, CorrelationId Correlation,
     Seq<StreamShape> Needs = default,
     Option<DiscoveryManifest> Peer = default, Option<string> WarmFingerprint = default, Option<Func<HttpMessageHandler>> Handler = default,
     Seq<AsyncAuthInterceptor> Mints = default, Option<X509Certificate2> ClientCertificate = default);
 
-// A load reading is MEASURED or ABSENT and the two never share a scale. An absent reading previously filled as
-// `double.PositiveInfinity`, which made every unmeasured endpoint compare equal and collapsed `LeastLoaded` onto
-// the roster's first element for the whole window before any measurer bound.
 public readonly record struct EndpointLoad(HashMap<Uri, double> Measured) {
     public static readonly EndpointLoad Unmeasured = new(HashMap<Uri, double>());
 
@@ -135,10 +120,7 @@ public readonly record struct EndpointLoad(HashMap<Uri, double> Measured) {
         Measured.Find(address).Filter(static value => double.IsFinite(value) && value >= 0d);
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
-// ONE inbound funnel for the package's foreign gRPC boundary: a raised `RpcException` reaches the rail through
-// `WireFault.Classify` with the original error retained as its cause, and every other raised error passes through
-// unchanged, so no rail site spells its own per-status branch or erases captured transport evidence.
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class RpcEdge {
     public static Error Rpc(Error raised) =>
         raised.Exception.Bind(static held => held is RpcException call ? Some(call) : None)
@@ -151,11 +133,6 @@ public static class RpcEdge {
                 None: () => raised);
 }
 
-// Warm and observe are ONE capability under ONE precondition, so they ride ONE row rather than a bool column and
-// a second unguarded member. `ConnectAsync`, `State`, and `WaitForStateChangedAsync` read the channel's OWN
-// `SocketsHttpHandler` dial: a handler carrying a `ConnectCallback` (UDS), a caller-supplied handler (InProcess),
-// and a wrapping web handler (GrpcWeb) each put the channel outside that dial, and EVERY member of the
-// connectivity family throws `InvalidOperationException` there.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -170,9 +147,6 @@ public sealed partial class WarmProbe {
             },
             envIO.Token).ConfigureAwait(false)));
 
-    // The health round trip pays the connection latency the state machine rendered for the other rows. Its STATUS
-    // is classified, never discarded: an `Unimplemented` proves the connection exactly as `Serving` does, while a
-    // classified `Unreachable` is the one outcome the probe exists to detect and rails as a cold channel.
     public static readonly WarmProbe RoundTrip = new("round-trip", observable: false, warm: static (services, call) =>
         IO.liftAsync(async envIO => {
             Fin<HealthCheckResponse> outcome = (await WarmEdge.Catch(
@@ -188,12 +162,10 @@ public sealed partial class WarmProbe {
 
     public Func<WireServices, WireCall, IO<Fin<WireServices>>> Warm { get; }
 
-    // A round-trip row reports no `ConnectivityState`, so `Observe` is a no-op there and the receipt carries dial
-    // and redial evidence alone rather than a transition the channel structurally cannot answer.
     public bool Observable { get; }
 }
 
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -223,9 +195,6 @@ public sealed partial class NodeSelection {
 
     public Fin<ComputeEndpoint> Select(Seq<ComputeEndpoint> endpoints, EndpointLoad loads, int rotation) =>
         endpoints.IsEmpty
-            // An empty roster is a COMPOSITION fact, so it lands a terminal arm: the transient
-            // `EndpointUnreachable` it carried before invited the re-drive rail to re-select against a roster
-            // that answers empty forever.
             ? Fin.Fail<ComputeEndpoint>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Required(ComputeSubject.Input)))
             : Fin.Succ(toSeq(endpoints.Zip(Enumerable.Range(0, endpoints.Count)))
                 .Map(candidate => (Endpoint: candidate.First, Score: Score(candidate.First, candidate.Second, endpoints.Count, rotation, loads)))
@@ -234,9 +203,6 @@ public sealed partial class NodeSelection {
                 .ThenBy(static ranked => ranked.Score.Rotation)
                 .First().Endpoint);
 
-    // Tier is the DISCRIMINANT and load the ordering inside it, so an unmeasured endpoint never compares against a
-    // measured magnitude and a wholly unmeasured roster degrades to the rotation ordering rather than to arrival
-    // order — the failure mode a shared infinite sentinel produced silently.
     private (int Tier, double Load, int Rotation) Score(
         ComputeEndpoint endpoint, int ordinal, int count, int rotation, EndpointLoad loads) {
         int turn = (int)((((long)ordinal - rotation) % count + count) % count);
@@ -253,7 +219,7 @@ public sealed partial class NodeSelection {
     }
 }
 
-// --- [BOUNDARIES] -----------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class WireChannels {
     public static GrpcChannelOptions Canonical(ComputeEndpoint endpoint) => new() {
         Credentials = endpoint.Credential.Channel(endpoint.Mints),
@@ -269,8 +235,6 @@ public static class WireChannels {
             KeepAlivePingTimeout = GrpcChannelPolicy.Canonical.KeepAlivePingTimeout,
             KeepAlivePingPolicy = HttpKeepAlivePingPolicy.WithActiveRequests,
             EnableMultipleHttp2Connections = GrpcChannelPolicy.Canonical.EnableMultipleHttp2Connections,
-            // Absence rides the Option to an EMPTY collection, never to `null`: the admission below already
-            // refused an `Mtls` endpoint carrying no certificate, so the None arm here is the non-mutual row.
             SslOptions = {
                 ClientCertificates = endpoint.ClientCertificate.Match(
                     Some: static cert => new X509CertificateCollection { cert },
@@ -286,8 +250,6 @@ public static class WireChannels {
         HttpHandler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, endpoint.Handler.IfNone(static () => new HttpClientHandler())()),
     };
 
-    // `ContractGeneration.Compute` is the local contract generation, derived once off the committed emission; the peer's
-    // manifest carries the same `Subject`, and `Compatible` admits on equality alone — a retired field lands in the unknown set, never here.
     public static Fin<ComputeEndpoint> Attach(ProfileRoots roots, int pid, JsonTypeInfo<DiscoveryManifest> contract, CorrelationId correlation) =>
         Discovery.Read(roots, pid, contract)
             .Bind(peer => ContractGeneration.Compute.Bind(local => Discovery.Compatible(peer, local)))
@@ -295,8 +257,6 @@ public static class WireChannels {
                 new UriBuilder(Uri.UriSchemeHttp, "localhost").Uri, RemoteTransport.UnixDomainSocket, CredentialPolicy.InsecureLoopback,
                 correlation, Needs: Seq(StreamShape.Unary, StreamShape.ServerStream, StreamShape.ClientStream, StreamShape.Bidi), Peer: peer));
 
-    // The handler factory is a composition-supplied port value, so this package names no in-host server type: the
-    // proof estate binds `TestServer.CreateHandler` onto it and a production in-host root binds its own.
     public static ComputeEndpoint InMemory(Func<HttpMessageHandler> handler, CorrelationId correlation, Seq<StreamShape> needs) =>
         new(new UriBuilder(Uri.UriSchemeHttp, "localhost").Uri, RemoteTransport.InProcess, CredentialPolicy.InsecureLoopback,
             correlation, Needs: needs, Handler: Some(handler));
@@ -306,9 +266,6 @@ public static class WireChannels {
             ? endpoint with { WarmFingerprint = Some(warmStartFingerprint) }
             : endpoint;
 
-    // Three INDEPENDENT columns, so the applicative accumulates and one `ToFin` widens: a browser endpoint asking
-    // for duplex under an unadmitted credential reports both, where a `Fin` chain reported whichever gate the
-    // author happened to write first and hid the rest until the next dial.
     public static Fin<ComputeEndpoint> Admit(ComputeEndpoint endpoint) =>
         (Credentialed(endpoint), Shaped(endpoint), Certified(endpoint))
             .Apply((_, _, _) => endpoint)
@@ -329,8 +286,6 @@ public static class WireChannels {
             ? Validation<Error, Unit>.Success(unit)
             : Validation<Error, Unit>.Fail(new HopFault.Excluded($"<mutual-auth-uncertified:{endpoint.Address.AbsoluteUri}>"));
 
-    // The boot call bundle mints BEFORE the warm leg because the round-trip probe dials through its explicitly
-    // correlated interceptor; the returned singleton retains only the raw invoker/channel, never that boot identity.
     public static IO<Fin<WireServices>> Open(ComputeEndpoint endpoint, CallSpine spine) =>
         Admit(endpoint).Bind(admitted => admitted.Transport.Dial(admitted)).Match(
             Succ: channel => {
@@ -342,8 +297,6 @@ public static class WireChannels {
     public static IO<Unit> Observe(ComputeEndpoint endpoint, GrpcChannel channel, Func<WireTransition, IO<Unit>> record) =>
         endpoint.Transport.Probe.Observable ? Pump(channel, channel.State, record) : IO.pure(unit);
 
-    // ACQUIRE-then-RELEASE: the stale capsule is disposed on the success arm alone, so a transient manifest miss
-    // leaves the caller the working channel it already had instead of a disposed capsule beside a `Fail`.
     public static IO<Fin<WireServices>> Redial(ComputeEndpoint endpoint, WireServices stale, CallSpine spine, Func<DiscoveryManifest, Fin<DiscoveryManifest>> rehandshake) =>
         endpoint.Peer.ToFin(new HopFault.StaleManifest(endpoint.Address.AbsoluteUri))
             .Bind(rehandshake)
@@ -354,8 +307,6 @@ public static class WireChannels {
                         Fail: _ => IO.pure(opened))),
                 Fail: error => IO.pure(Fin.Fail<WireServices>(error)));
 
-    // Termination reads the transition's own `Absorbing` column, so the recursion stops where the family says the
-    // channel stops rather than where a comment says a caller must remember to.
     private static IO<Unit> Pump(GrpcChannel channel, ConnectivityState prior, Func<WireTransition, IO<Unit>> record) =>
         IO.liftAsync(async () => { await channel.WaitForStateChangedAsync(prior).ConfigureAwait(false); return channel.State; })
             .Bind(next => record(WireTransition.Of(prior, next)).Map(_ => WireTransition.Of(prior, next)))
@@ -401,7 +352,7 @@ sequenceDiagram
 - Boundary: `Options` reads the admitted `DeadlineAt`; raw deadline parameters never cross the client edge. `CallSpineFactory` is singleton-safe because it retains only the immutable composition `ClockPolicy`; each call supplies its own `CorrelationId` to `Create`, so neither dependency injection nor an `Op`-derived surrogate can freeze correlation across calls. `Budgeted` applies the `DeadlineClass.HopTotal` row bound only to interceptor calls that lack admitted intent evidence. `Awaited` classifies once through the ONE `RpcEdge.Rpc` funnel, while `CredentialPolicy.Mint` creates each bearer token per call. `DisableResolverServiceConfig` excludes resolver retry, hedging, and load balancing, and AppHost remains the one hop retry owner. `grpc-internal-encoding-request` selects only a provider registered on `GrpcChannelOptions.CompressionProviders`. Propagation is the spine's seam whole: `TraceContext.Inject(Metadata)` writes every field the registered composite propagator declares, so a `traceparent` const, a `tracestate` twin, and a `Func<string>` handing this interceptor a pre-rendered header are all deleted forms — each stamps one propagator's shape at one moment and silently drops whatever the composite gains afterward. Every protocol header name this interceptor spells is a `const` beside its siblings, because a default-parameter string literal is the same coordinate spelled where no reader can find it. [SPIKE]: the `Composed` row's dial through a running plugin channel converges on live-ALC evidence alone; the deterministic floor is that row's stacked `CallCredentials.Compose` shape and its `ChannelCredentials.Create` composition seam, both settled here.
 
 ```csharp signature
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -450,7 +401,7 @@ public sealed partial class CompressionProviders {
             .Filter(static row => row != Identity);
 }
 
-// --- [MIDDLEWARE] -----------------------------------------------------------------------
+// --- [MIDDLEWARE] ----------------------------------------------------------------------
 public sealed class CallSpineFactory(ClockPolicy clocks) {
     public CallSpine Create(CorrelationId correlation) => new(correlation, clocks);
 }
@@ -469,9 +420,6 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
             .WithDeadline(intent.DeadlineAt.ToDateTimeUtc())
             .WithCancellationToken(token);
 
-    // A generated service call that is not a ComputeIntent carries no lawful AdmittedIntent. Caller cancellation
-    // enters here and `Stamped` applies the canonical hop-total deadline, so the call receives the same bounded
-    // transport posture without manufacturing dispatch evidence for work that never crossed that algebra.
     public CallOptions Options(CancellationToken token) =>
         new CallOptions().WithCancellationToken(token);
 
@@ -490,15 +438,11 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
             : Fin.Fail<T>(new ComputeFault.PayloadOverBounds($"<payload-over-bounds:{bytes}:{GrpcChannelPolicy.Canonical.MaxSendBytes}>"));
     }
 
-    // `Op.Catch` sees the exact execution token before LanguageExt can normalize a cancellation or aggregate;
-    // `RpcEdge.Rpc` then classifies only the captured exceptional error and preserves every non-gRPC error.
     public static IO<Fin<T>> Awaited<T>(Func<Task<T>> call, CancellationToken token) =>
         IO.liftAsync(async _ => (await GrpcAwait.Catch(
             async _ => Fin.Succ(await call().ConfigureAwait(false)),
             token).ConfigureAwait(false)).MapFail(RpcEdge.Rpc));
 
-    // The REST leg's budget is the SAME `hop-total` row the gRPC edge reads. Caught cancellation retains its exact
-    // cause through `KernelFault.Cancelled`; every other transport or decode failure retains its original `Error`.
     public IO<Fin<T>> AwaitedHttp<T>(string subject, CancellationToken token, Func<string, CancellationToken, Task<Fin<T>>> exchange) =>
         IO.liftAsync(async envIO => {
             using CancellationTokenSource budget = new(DeadlineClass.HopTotal.Bound);
@@ -519,11 +463,6 @@ public sealed class CallSpine(CorrelationId correlation, ClockPolicy clocks) : I
     public override AsyncClientStreamingCall<TRequest, TResponse> AsyncClientStreamingCall<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context, AsyncClientStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(Stamped(context));
     public override AsyncDuplexStreamingCall<TRequest, TResponse> AsyncDuplexStreamingCall<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context, AsyncDuplexStreamingCallContinuation<TRequest, TResponse> continuation) => continuation(Stamped(context));
 
-    // The correlation key is this spine's own dimension and stamps here; the W3C pair is NOT — the propagation
-    // owner writes every field its registered composite declares onto the gRPC `Metadata` carrier through one
-    // `TraceContext.Inject` call. A hand-built pair stamps whatever the propagator happened to carry the day it
-    // was written: it drops `tracestate` silently, freezes the version byte, and skips every carrier field a
-    // later propagator row adds.
     private ClientInterceptorContext<TRequest, TResponse> Stamped<TRequest, TResponse>(ClientInterceptorContext<TRequest, TResponse> context) where TRequest : class where TResponse : class =>
         new(context.Method, context.Host,
             Budgeted(context.Options)
@@ -570,10 +509,7 @@ using System.Security.Cryptography;
 using Google.Protobuf;
 using Rasm.Contracts.Artifact;
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
-// ONE hostile-parse ceiling record for this folder, modelled on `Rasm.Element`'s: every `CreateWithLimits` on the
-// branch reads a row, never a literal. `Artifact` derives from the pool the reassembly rents from, so the two
-// cannot disagree; `Inbound` derives from the channel receive cap `ParseGuard` gates on.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
     public const int Recursion = 100;
 
@@ -581,7 +517,7 @@ public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
     public static readonly WireLimits Inbound = new(GrpcChannelPolicy.Canonical.MaxReceiveBytes, Recursion);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FrameSeed(ArtifactRef Artifact, ReadOnlyMemory<byte> Body);
 
 public sealed record FramePartition(Seq<ArtifactFrame> Frames);
@@ -590,8 +526,7 @@ public sealed record FrameCopy(ReadOnlyMemory<byte> Payload, AllocationEvidence 
 
 internal readonly record struct FrameState(ByteString Sha256, ulong Extent, ulong Received, ulong Previous);
 
-// --- [BOUNDARIES] -----------------------------------------------------------------------
-// ONE construction of the frame message: the copies generate and the zero-copy wrap rides a `Use =` transform.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper]
 public static partial class WireFrames {
     [MapProperty(nameof(FrameSeed.Body), nameof(ArtifactFrame.Payload), Use = nameof(Wrapped))]
@@ -600,7 +535,7 @@ public static partial class WireFrames {
     private static ByteString Wrapped(ReadOnlyMemory<byte> body) => UnsafeByteOperations.UnsafeWrap(body);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FrameEdge {
     public const int FrameBytes = 64 * 1024;
 
@@ -614,8 +549,6 @@ public static class FrameEdge {
         return Fin.Succ(live);
     }
 
-    // One typed request names the artifact. The response stream carries frames only, so zero-length control frames
-    // and upload-shaped aliases cannot enter frame admission.
     public static IO<Fin<FrameCopy>> Fetch(
         WireCall calls, CallSpine spine, StreamPool pool,
         ArtifactRef artifact, CancellationToken token) =>
@@ -687,16 +620,11 @@ public static class FrameEdge {
                 }, token).Map(result => result.Bind(static admitted => admitted)),
             Fail: error => IO.pure(Fin.Fail<ArtifactRef>(error)));
 
-    // Arrival order is the stream's order, so the received sequence admits as-is: the frames the stream delivered
-    // are the frames the artifact is, and the whole-artifact digest is the proof.
     public static Fin<T> Reassemble<T>(StreamPool pool, CorrelationId correlation, MessageParser<T> parser, Seq<ArtifactFrame> frames) where T : class, IMessage<T> =>
         Admit(frames).Bind(ordered => Drain(
             pool, correlation, ordered.Head.Artifact.Sha256, ordered,
             staged => pool.Read(staged, parser, WireLimits.Artifact)));
 
-    // Raw artifacts cannot leave as a view over the disposable pooled stream. The exact-size flatten is the one
-    // unavoidable edge copy, admitted on the copy-receipted allocation row before `ToArray` fires the manager's
-    // realized-copy event; both facts carry the same correlation and no untracked byte[] allocation enters.
     public static Fin<FrameCopy> Bytes(StreamPool pool, CorrelationId correlation, Seq<ArtifactFrame> frames) =>
         Admit(frames).Bind(ordered => Drain(
             pool, correlation, ordered.Head.Artifact.Sha256, ordered,
@@ -719,8 +647,6 @@ public static class FrameEdge {
                     payload.Slice(offset, Math.Min(FrameBytes, payload.Length - offset))))))));
     }
 
-    // Id and extent agree on every frame and the payload lengths sum to the stated extent in ARRIVAL order; the
-    // accumulator carries the descriptor's own width, so a near-4 GiB artifact never wraps a signed cursor.
     private static Fin<Seq<ArtifactFrame>> Admit(Seq<ArtifactFrame> frames) =>
         frames.Head.ToFin(new ComputeFault.WireDecodeRejected("<reassemble-empty>"))
             .Bind(head => frames.Fold(
@@ -731,8 +657,6 @@ public static class FrameEdge {
                     : Fin.Fail<Seq<ArtifactFrame>>(new ComputeFault.WireDecodeRejected(
                         $"<frame-length:{state.Received}:{state.Extent}>"))));
 
-    // One incremental invariant serves the live stream and every local reassembly: generated message rules first,
-    // then request identity, stable extent, bounded frame width, canonical nonterminal width, and cumulative extent.
     private static Fin<FrameState> Advance(FrameState state, ArtifactFrame frame) =>
         ParseGuard.Validated(frame).Bind(admitted => {
             ulong payloadBytes = (ulong)admitted.Payload.Length;
@@ -768,8 +692,6 @@ public static class FrameEdge {
             .Bind(evidence => Op.Of(name: "frame.artifact-copy").Catch(() =>
                 Fin.Succ(new FrameCopy(new ReadOnlyMemory<byte>(staged.ToArray()), evidence))));
 
-    // One reassembly body owns write, whole-artifact identity, and pool custody. The final projection is the only
-    // divergence: bounded protobuf parse or explicitly granted raw edge copy.
     private static Fin<T> Drain<T>(
         StreamPool pool,
         CorrelationId correlation,

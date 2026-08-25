@@ -21,24 +21,14 @@ Layer identity, line rhythm, and line width are all `Rasm/Drawing/sheet`'s: an `
 - Boundary: sheet space is Y-DOWN — the frame the Skia canvas draws in and the one the title block anchors in — while CAD model space is Y-UP, so the flip lives at THIS one boundary exactly as the millimetre-to-point scale lives at the PDF one; the same projection carries the sheet's model-space origin, so a second placement rule per entity arm cannot exist. Writing sheet ordinates raw into a `CadDocument` mirrors the whole drawing against its own PDF while every congruence claim still reads true, so a second pre-reframed entity run and a per-format projection are both the deleted forms. Arc bounds negate AND swap, because an ACadSharp `Arc` always sweeps start to end COUNTER-clockwise in a Y-up frame while `Math.Atan2` over Y-down deltas measured clockwise — negating alone draws the complementary arc and leaving both sweeps the wedge the opposite way from the PDF. The solid line type is the document's OWN registered entry read off its table; the static `LineType.Continuous` is a factory property minting a fresh unregistered entry on every read, so binding it per layer seats one distinct "Continuous" instance per style and the writers reject the duplicate table rows (`RULINGS.md:146`). Text lands as `MText` at the entity's own kernel `TextHeight` in millimetres on the annotation style's layer.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CadDraw {
-    // ONE CadDocument entity fold every writer row consumes — a DWG, a DXF, and an SVG of one set carry
-    // identical entities by construction. Layers and line types register per DISTINCT seat ONCE for the whole
-    // set, because a per-sheet or per-entity registration mints duplicate table entries the writers reject; the
-    // mutable dictionary and the closure that used to carry that discipline are replaced by a distinct roster
-    // resolved before the first table write.
     public static Fin<CadDocument> Build(SheetSize size, Seq<Seq<SheetEntity>> pages, Op? key = null) {
         Op seat = key.OrDefault();
         CadDocument doc = new();
-        // `LineType` is a TWO-OWNER name in this compilation unit — the kernel ISO 128-2 row family and the
-        // ACadSharp symbol-table entry — so every declaration here spells its namespace and no `using` hides
-        // which one a member takes.
         ACadSharp.Tables.LineType solid = doc.LineTypes.Continuous;
         Fin<SheetMargin> margin = SheetFrame.For(size.Standard).Margin(size: size, key: seat);
-        // The map keys on the SEAT, never on the projected path: the placement pass then reads a layer by the
-        // pair each entity already carries, so a dense run re-admits no layer grammar per stroke.
         Fin<HashMap<(EdgeStyle Style, Option<int> Part), Layer>> registered = Seats(pages)
             .Traverse(row => Minted(doc, solid, size, row, seat)).As()
             .Map(static rows => rows.Fold(
@@ -54,8 +44,6 @@ public static class CadDraw {
                select doc;
     }
 
-    // The seat is (style, part) and nothing else: a chrome stroke measures no part and every text run and glyph
-    // lands on the annotation style, so the roster is exactly the layers this set needs and no more.
     private static Seq<(EdgeStyle Style, Option<int> Part)> Seats(Seq<Seq<SheetEntity>> pages) =>
         pages.Bind(static page => page).Map(static entity => entity.Switch(
             stroke: static s => (s.Style, s.Part),
@@ -64,9 +52,6 @@ public static class CadDraw {
             glyph: static _ => (EdgeStyle.Annotation, Option<int>.None),
             fill: static f => (f.Style, Option<int>.None))).Distinct();
 
-    // The seat's kernel layer name and its ISO 128-24 width resolve together, because the line type a layer binds
-    // is a function of BOTH — a dashed row at 0.25 mm and the same row at 0.7 mm are two distinct table entries
-    // and both are the standard's.
     private static Fin<((EdgeStyle Style, Option<int> Part) Seat, Layer Layer)> Minted(
         CadDocument doc, ACadSharp.Tables.LineType solid, SheetSize size,
         (EdgeStyle Style, Option<int> Part) seat, Op key) =>
@@ -74,10 +59,6 @@ public static class CadDraw {
         from width in seat.Style.Width(size: size, key: key)
         select (Seat: seat, Layer: Registered(doc, HostLayerScheme.AutoCadFlat.Path(name), seat.Style.Type, width, solid));
 
-    // ISO 128-2 element lengths are multiples of the line WIDTH d, so `Rhythm` derives the absolute drawn-and-gap
-    // pairs for the sheet's own line group and `LineType.Segment.Length` signs them — positive draws, negative
-    // spaces. The one hand-authored `"DASHED"` entry with its 3 mm dash and 2 mm gap, shared by hidden lines and
-    // centrelines alike, deletes with the private table it belonged to.
     private static Layer Registered(
         CadDocument doc, string path, Rasm.Drawing.LineType type, LineWidth width, ACadSharp.Tables.LineType solid) {
         if (type.IsContinuous) {
@@ -97,16 +78,11 @@ public static class CadDraw {
         return row;
     }
 
-    // One sheet's entities at its own model-space origin. The origin threads through the ONE `Cad` projection
-    // every arm already reads, so no arm carries a second placement rule and a sheet's arcs, text, and fills
-    // travel with its linework by construction.
     private static Fin<Unit> Placed(
         CadDocument doc, double heightMm, double originX, Seq<SheetEntity> entities,
         HashMap<(EdgeStyle Style, Option<int> Part), Layer> layers) =>
         entities.Traverse(entity => entity.Switch(
             state: (Doc: doc, Height: heightMm, Origin: originX, Layers: layers),
-            // Each stroke hands its carried Part to the layer resolver, so a model edge lands on its part's
-            // fielded layer and chrome linework on the style layer — one resolver, no second axis.
             stroke: static (ctx, s) => Seated(ctx.Layers, s.Style, s.Part).Map(layer => Added(
                 ctx.Doc, new Line(Cad(ctx.Height, ctx.Origin, s.A), Cad(ctx.Height, ctx.Origin, s.B)) { Layer = layer })),
             sweep: static (ctx, s) => Seated(ctx.Layers, s.Style, None).Map(layer => Added(ctx.Doc, new Arc {
@@ -128,16 +104,10 @@ public static class CadDraw {
                 Height = g.Height.Height.Millimeters,
                 Layer = layer,
             })),
-            // A fill lands as one polyline per chained course, every course on the one fill layer, so a layer
-            // toggle hides the whole pattern and the entity count tracks the kernel's chaining rather than its
-            // segment count.
             fill: static (ctx, f) => Seated(ctx.Layers, f.Style, None).Map(layer =>
                 f.Courses.Fold(unit, (_, course) => Added(ctx.Doc, Polyline(ctx.Height, ctx.Origin, course, layer))))))
             .As().Map(static _ => unit);
 
-    // The registration pass walked the same distinct seats this lookup asks for, so a miss names a fold that
-    // placed an entity the seat roster never saw — a defect in this page, which is why it rails rather than
-    // fabricating a default layer the writers would happily accept.
     private static Fin<Layer> Seated(
         HashMap<(EdgeStyle Style, Option<int> Part), Layer> layers, EdgeStyle style, Option<int> part) =>
         layers.Find((style, part))
@@ -148,9 +118,6 @@ public static class CadDraw {
         return unit;
     }
 
-    // `LwPolyline.Vertices` is the entity's OWN get-only list, so the course pours into it rather than being
-    // assigned: a collection initializer admits elements one at a time and takes no spread, and the vertex
-    // carries the reframed `CSMath.XY` the one `Cad` convention already fixes for every other arm.
     private static Entity Polyline(double heightMm, double originX, Seq<(double X, double Y)> course, Layer layer) {
         LwPolyline poly = new() { Layer = layer };
         course.Iter(point => poly.Vertices.Add(new LwPolyline.Vertex(new CSMath.XY(originX + point.X, heightMm - point.Y))));
@@ -172,11 +139,8 @@ public static class CadDraw {
 - Boundary: the version policy is ROW-THREADED — each writer row names the version column it reads and no writer arm carries a call-site literal, so the hardcoded `AutoCad2018` this replaces is the deleted form; the DXF serialization form is a `DxfEncoding` ROW rather than a `bool` on a policy record, and its `Binary` column is the HOST projection read at exactly one call, which is where boundary spellings belong; the SVG writer's `Configuration` is the `CadWriterBase<SvgConfiguration>` slot, so the policy row's line-weight ratio lands on the writer's own config rather than on a constructed one, and the `SKSvgCanvas` presentation arm is the deleted second-SVG-semantic form; all three rows fold the SAME document, so the three formats cannot carry different entities.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// DXF ships in two serializations and a caller picks one; the `bool BinaryDxf` this replaces named the axis
-// only at its own call site and left the ASCII form unnamed. The `Binary` column is the HOST projection, read at
-// exactly one seam.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DxfEncoding {
@@ -185,18 +149,15 @@ public sealed partial class DxfEncoding {
     internal bool IsBinary { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record CadVersionPolicy(ACadVersion Dwg, ACadVersion Dxf, DxfEncoding Encoding, double SvgLineWeightRatio) {
     public static readonly CadVersionPolicy Default =
         new(Dwg: ACadVersion.AC1032, Dxf: ACadVersion.AC1032, Encoding: DxfEncoding.Ascii, SvgLineWeightRatio: 1d);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// One row per serialization over ONE document fold. The three near-identical writer bodies this replaces each
-// rebuilt the document, each set its own version column, and each opened its own stream; here the shared build
-// runs once per emit and the row contributes exactly the writer call that differs.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CadWriter {

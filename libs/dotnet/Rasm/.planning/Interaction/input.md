@@ -30,7 +30,7 @@ The estate is GENERIC over the fact band it carries. `IUiFact` is the floor, `Ui
 - Boundary: HOST-SPECIFIC-STAYS — the Rhino viewport pointer seam keeps its whole family, because `MouseCallbackEventArgs` carries a VETO the host reads back and `RhinoView`'s static event tables have no host-neutral form; the Grasshopper canvas keeps its hit plane for the same reason.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using EtoImage = Eto.Drawing.Image;
 using EtoPointF = Eto.Drawing.PointF;
@@ -42,7 +42,7 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DisplayQuery {
     private DisplayQuery() { }
@@ -52,8 +52,6 @@ public abstract partial record DisplayQuery {
     public sealed record Covering(EtoRectangleF Region) : DisplayQuery;
 }
 
-// The whole built-in roster: the provenance is the platform's own closed cursor set, so a partial mirror is what
-// sends a boundary back to naming host handles by hand.
 [SmartEnum<int>]
 public sealed partial class CursorRow {
     public static readonly CursorRow Default = new(key: 0, resolve: static () => Cursors.Default);
@@ -77,13 +75,11 @@ public sealed partial class CursorRow {
 
     [UseDelegateFromConstructor] internal partial Cursor Resolve();
 
-    // Both verbs write the control tree, so both cross the marshal and answer a rail rather than a `Unit` that cannot report an off-marshal write.
     [BoundaryAdapter] public Fin<Unit> Apply(Control control, Op key);
     [BoundaryAdapter] public Fin<Unit> Override(Op key);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Logical AND real scale both ride: the two disagree on exactly the displays a hairline is drawn wrong on, and a snapshot carrying one of them makes the other unrecoverable.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DisplayFacts(
     EtoRectangleF Bounds,
@@ -101,18 +97,15 @@ public readonly record struct DisplayFacts(
         ValidityClaim.Positive(value: WorkingArea.Width), ValidityClaim.Positive(value: WorkingArea.Height));
 }
 
-// A captured FRAME, never the live device: the button mask answers what was true when the frame was taken.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PointerSnapshot(EtoPointF Position, MouseButtons Buttons, Keys Modifiers) {
     public bool Holds(MouseButtons buttons) => (Buttons & buttons) == buttons;
 }
 
-// Both frames ride the fact: a consumer re-deriving the content point from the local one needs the scroll offset and the density, and every consumer that guessed produced a hit test off by the scroll.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PointerFact(
     EtoPointF Local, EtoPointF Content, MouseButtons Buttons, Keys Modifiers,
     EtoSizeF Delta, Option<UnitInterval> Pressure) : IValidityEvidence {
-    // The ONE admission: the host argument is read here and the content frame is resolved off the source's own scroll origin, so no consumer past this seam re-checks a coordinate or guesses an offset.
     [BoundaryAdapter] public static Fin<PointerFact> Of(MouseEventArgs args, Control source, Op key);
 
     public bool IsValid => ValidityClaim.All(
@@ -120,15 +113,11 @@ public readonly record struct PointerFact(
         ValidityClaim.Finite(value: Content.X), ValidityClaim.Finite(value: Content.Y));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The Eto-geometry claim arms: `Domain/rails` owns the scalar rows and stays host-neutral, so the point and frame
-// folds seat HERE, where the geometry types already ride — ten per-page private `Finite` duplicates across both
-// boundaries were re-spelling exactly these two members.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UiClaim {
     extension(ValidityClaim) {
         public static ValidityClaim Finite(EtoPointF point) =>
             ValidityClaim.All(ValidityClaim.Finite(value: point.X), ValidityClaim.Finite(value: point.Y));
-        // A frame is finite AND non-negatively extended — the one shape every boundary guard re-derived.
         public static ValidityClaim Finite(EtoRectangleF frame) => ValidityClaim.All(
             ValidityClaim.Finite(value: frame.X), ValidityClaim.Finite(value: frame.Y),
             ValidityClaim.Finite(value: frame.Width) && frame.Width >= 0f,
@@ -136,17 +125,15 @@ public static class UiClaim {
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class Displays {
     [BoundaryAdapter] public static Fin<Seq<DisplayFacts>> Resolve(DisplayQuery query, Op? key = null);
-    // The ONE member minting a host resource on this page, so it is the one that leases.
     [BoundaryAdapter] public static Fin<Lease<EtoImage>> Capture(EtoRectangleF bounds, Op? key = null);
 }
 
 public static class InputState {
     [BoundaryAdapter] public static Fin<PointerSnapshot> Snapshot(Op? key = null);
     [BoundaryAdapter] public static Fin<bool> Held(MouseButtons buttons, Op? key = null);
-    // Absence, never `false`: a platform that does not report a lock key has taken no measurement.
     [BoundaryAdapter] public static Option<bool> Locked(Keys key);
     [BoundaryAdapter] public static Fin<Lease<IDisposable>> Observe(Action<Keys> publish, Op? key = null);
 }
@@ -173,7 +160,7 @@ public static class InputState {
 - Boundary: `KeyEventArgs` and `TextInputEventArgs` cross as host types on the responder slots ALONE, because their veto members are read back by the host after the handler returns — a projected copy would drop the veto the host is waiting for.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Eto.Forms;
 using EtoPointF = Eto.Drawing.PointF;
 using EtoRectangleF = Eto.Drawing.RectangleF;
@@ -185,13 +172,10 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Add and remove travel as ONE value, so a row cannot state a subscription it cannot undo and no consumer can pass
-// one half without the other. This carrier is what lets a phase row and a source row read the SAME host event table instead of spelling it twice and drifting.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct EventTable<TOwner, TArgs>(
     Action<TOwner, EventHandler<TArgs>> Add, Action<TOwner, EventHandler<TArgs>> Drop) where TArgs : EventArgs;
 
-// Rank IS the fold: two responders over one point compose without an ordering convention at the call site.
 [SmartEnum<int>]
 public sealed partial class InputVerdict {
     public static readonly InputVerdict Ignored = new(key: 0);
@@ -202,9 +186,6 @@ public sealed partial class InputVerdict {
     public InputVerdict Fold(InputVerdict other) => Key >= other.Key ? this : other;
 }
 
-// The event table is the row's own DATA and this roster is the ONE place a pointer event is named: the responder
-// attach and the source roster both read `Table`, so a host pair cannot be spelled twice and cannot drift between
-// the two readers. `Admit` is the row's raise filter, so a phase narrower than its host event is data, not a body.
 [SmartEnum<int>]
 public sealed partial class PointerPhase {
     public static readonly PointerPhase Over = new(key: 0,
@@ -231,10 +212,6 @@ public sealed partial class PointerPhase {
         table: new EventTable<Control, MouseEventArgs>(
             Add: static (c, h) => c.MouseWheel += h, Drop: static (c, h) => c.MouseWheel -= h),
         admit: static _ => true);
-    // The platform raises no click event and its pointer args carry NO click count, so this row is the primary
-    // release the double-click event does not claim: the button set is the one discrimination the args admit, and
-    // it lives here on the row rather than in a fold; a double-click rides its own host event on the row below,
-    // because `MouseEventArgs` is Eto.Forms-level — no backend can add a count member to it (decompile-verified).
     public static readonly PointerPhase SingleClick = new(key: 6,
         table: new EventTable<Control, MouseEventArgs>(
             Add: static (c, h) => c.MouseUp += h, Drop: static (c, h) => c.MouseUp -= h),
@@ -248,8 +225,6 @@ public sealed partial class PointerPhase {
 
     [UseDelegateFromConstructor] internal partial bool Admit(MouseEventArgs args);
 
-    // One table, one filter, one binder: the admitted fact reaches the responder and the verdict rides back onto
-    // the host args the platform reads, and a raise the row does not admit never reaches either.
     internal Fin<IDisposable> Attach(Control control, Func<PointerFact, InputVerdict> respond, Op key) =>
         Bind(control: control, respond: respond, key: key, table: Table, admit: Admit);
 
@@ -277,8 +252,6 @@ public sealed partial class KeyPhase {
         EventTable<Control, KeyEventArgs> table);
 }
 
-// The transfer phases carry their table for the same reason the pointer phases do: the five drag events were named
-// once here and once on the source roster, and a marker row with no column buys a name and nothing else.
 [SmartEnum<int>]
 public sealed partial class DragPhase {
     public static readonly DragPhase Enter = new(key: 0,
@@ -310,8 +283,6 @@ public sealed partial class LifecycleStage {
     public static readonly LifecycleStage Terminating = new(key: 5);
 }
 
-// The floor every band shares. `Kind` is the ONE column a wire, a journal, and a replay all read; demanding more
-// would force a host band to fabricate a coordinate its own events never measured.
 public interface IUiFact { string Kind { get; } }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -319,9 +290,6 @@ public abstract partial record UiFact : IUiFact {
     private UiFact() { }
     public sealed record GestureCase(GestureFact Fact) : UiFact;
     public sealed record KeyCase(Keys Key, Keys Modifiers, KeyPhase Phase) : UiFact {
-        // Shortcut acceptability is ONE admission, not a per-host predicate: a combo binds when it carries a
-        // non-modifier key and either a command-class modifier or a function/navigation key that stands alone —
-        // the `IsAcceptableKeyCombo` law the Rhino settings page hand-rolled, seated on the fact it judges.
         public bool BindsShortcut =>
             (Key & ~Keys.ModifierMask) is not Keys.None and var bare
             && ((Modifiers & (Keys.Application | Keys.Control | Keys.Alt)) != Keys.None
@@ -356,27 +324,20 @@ public abstract partial record UiFact : IUiFact {
         faultCase:    static _ => "fault");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Travel and engagement DERIVE from the two frames and the slop: a stored engaged flag disagrees with its own
-// threshold the first time a platform changes the radius.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DragEvidence(PointerFact Origin, PointerFact Current, Tolerance Slop) : IValidityEvidence {
-    // The slop is the Device band's `Hit` lane read off the live context — `Context.For` is the ONE tolerance read,
-    // so a platform publishing its own radius moves one row and no page mints a pixel literal.
     public static DragEvidence Of(PointerFact origin, PointerFact current, Context context) =>
         new(Origin: origin, Current: current, Slop: context.For(lane: ToleranceLane.Hit));
 
     public EtoSizeF Travel => new(width: Current.Local.X - Origin.Local.X, height: Current.Local.Y - Origin.Local.Y);
 
-    // SQUARED on both sides: the comparison is the same predicate in the same units and the root is a cost the
-    // threshold never needed.
     public bool Engaged => (Travel.Width * Travel.Width) + (Travel.Height * Travel.Height) > Slop.Value * Slop.Value;
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.Evidence(evidence: Optional(Origin)),
         ValidityClaim.Evidence(evidence: Optional(Current)));
 }
 
-// The phase is the vocabulary the responder already owns, so a recognized gesture mints no second roster.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct GestureFact(PointerPhase Phase, PointerFact Fact, Option<DragEvidence> Drag) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -384,8 +345,6 @@ public readonly record struct GestureFact(PointerPhase Phase, PointerFact Fact, 
         ValidityClaim.Evidence(evidence: Drag));
 }
 
-// Keyed rather than defaulted: an ABSENT key inherits the host's own behaviour, and a no-op default silently
-// consumes the event the host would otherwise have handled.
 public sealed record ResponderSpec(
     HashMap<PointerPhase, Func<PointerFact, InputVerdict>> Pointer,
     HashMap<KeyPhase, Func<KeyEventArgs, InputVerdict>> Keys,
@@ -393,8 +352,6 @@ public sealed record ResponderSpec(
     Option<Func<EtoPointF, bool>> Region,
     Option<Func<PointerFact, bool>> Filter,
     Option<Func<InputVerdict, Unit>> Effected) : IValidityEvidence {
-    // A responder that names neither a region nor a filter applies everywhere, and one that binds no slot at all
-    // responds to nothing — both are the unfinished spec this fold exists to catch, so both are conjuncts.
     public bool IsValid => ValidityClaim.All(
         Region.IsSome || Filter.IsSome,
         Pointer.Count + Keys.Count > 0 || Text.IsSome);
@@ -428,7 +385,7 @@ public readonly record struct UiEvent<TFact>(IUiSource<TFact> Source, TFact Fact
 - Boundary: a host event table is named on a ROW and nowhere else — the phase rosters own every pointer, key, and drag pair, and this roster owns the rest — so a consumer subscribes by row and never by `+=`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.ComponentModel;
 using System.Threading.Channels;
 using Eto.Forms;
@@ -439,7 +396,7 @@ using Thinktecture;
 
 namespace Rasm.Interaction;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PickAxis : ICapability<PickAxis> {
@@ -460,8 +417,6 @@ public sealed partial class GripEdge {
     public static readonly GripEdge Bottom = new(key: 3);
 }
 
-// Four legal corners, each carrying its two edges: a corner spelled as two independent edge values admits
-// left-with-right, and that is eight of the sixteen corners a mask offered.
 [SmartEnum<int>]
 public sealed partial class GripCorner {
     public static readonly GripCorner TopLeft = new(key: 0, across: GripEdge.Left, down: GripEdge.Top);
@@ -496,15 +451,11 @@ public abstract partial record EventAnchor {
     public sealed record OnClock(UiClock Value) : EventAnchor;
 }
 
-// The floor a host roster implements: a boundary declaring its own rows over its own fact band rides the same
-// subscription, drain, and total order the Eto rows do.
 public interface IUiSource<TFact> where TFact : IUiFact {
     string Key { get; }
     Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<TFact>>> emit, Op key);
 }
 
-// The ONE place a host event table is named: a consumer subscribes by ROW and never by `+=`. Every row states its
-// add and its remove together, so an add with no matching remove is unspellable.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class UiSource : IUiSource<UiFact> {
@@ -592,8 +543,6 @@ public sealed partial class UiSource : IUiSource<UiFact> {
             new EventTable<Window, EventArgs>(
                 Add: static (w, h) => w.WindowStateChanged += h, Drop: static (w, h) => w.WindowStateChanged -= h),
             static (window, _, _) => Fin.Succ<UiFact>(new UiFact.StateCase(State: window.WindowState))));
-    // `Validate` onto the DOMAIN fault, never `TryCreate`: the generated validation error names which invariant the
-    // host reading refused, and a bare `InvalidInput` downgrades that evidence to "something was wrong".
     public static readonly UiSource DensityChanged = new(key: "window.density",
         attach: static (anchor, emit, key) => OnWindow(anchor, key, emit,
             new EventTable<Window, EventArgs>(
@@ -634,8 +583,6 @@ public sealed partial class UiSource : IUiSource<UiFact> {
             static _ => Fin.Succ<UiFact>(new UiFact.ModifierCase(Modifiers: Keyboard.Modifiers))));
 
     // --- [CLOCK]
-    // The clock anchor's ONE row: `UiClock.Tap` is a lease rather than an event pair, so the beat rides the drain's
-    // total order beside every host raise instead of reaching consumers on a channel of its own.
     public static readonly UiSource Beat = new(key: "clock.beat",
         attach: static (anchor, emit, key) => OnClock(anchor, key, emit,
             static (clock, observer, op) => clock.Tap(observer: observer, key: op),
@@ -644,10 +591,6 @@ public sealed partial class UiSource : IUiSource<UiFact> {
     [UseDelegateFromConstructor]
     public partial Fin<IDisposable> Attach(EventAnchor anchor, Action<Func<Fin<UiFact>>> emit, Op key);
 
-    // Five binders, one per anchor shape: each takes the whole `EventTable` — add and remove as one value — and
-    // answers the detacher, so a row cannot state a subscription it cannot undo; each refuses a mismatched anchor
-    // typed, and every attach and detach crosses `UiThread`. The clock binder takes a LEASE rather than a table,
-    // because its anchor publishes through a leased tap and has no host event pair to name.
     private static Fin<IDisposable> OnControl<TArgs>(
         EventAnchor anchor, Op key, Action<Func<Fin<UiFact>>> emit,
         EventTable<Control, TArgs> table,
@@ -673,7 +616,6 @@ public sealed partial class UiSource : IUiSource<UiFact> {
         Func<UiClock, Action<PulseBeat>, Op, Fin<Lease<IDisposable>>> tap,
         Func<PulseBeat, Fin<UiFact>> project);
 
-    // Five projections serve the thirty rows: the row supplies its phase or stage and the body is written once.
     private static Func<Control, MouseEventArgs, Op, Fin<UiFact>> Gesture(PointerPhase phase) =>
         (control, args, key) => PointerFact.Of(args: args, source: control, key: key)
             .Map(fact => (UiFact)new UiFact.GestureCase(
@@ -692,9 +634,7 @@ public sealed partial class UiSource : IUiSource<UiFact> {
         (_, _, _) => Fin.Succ<UiFact>(new UiFact.FocusCase(Gained: gained));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Accessor-backed: the generated roster fills from its own static constructor, so an eager static field would
-// freeze an EMPTY set at type init.
+// --- [MODELS] --------------------------------------------------------------------------
 public static class PickGates {
     public static CapabilitySet<PickAxis> Whole => whole.Value;
     public static CapabilitySet<PickAxis> Bodies => bodies.Value;
@@ -707,9 +647,6 @@ public static class PickGates {
         CapabilitySet<PickAxis>.Of(PickAxis.Wires));
 }
 
-// The canonical row the absent-policy arm resolves through: a capacity nothing declares is whatever the
-// implementation picked, which is an unanchored literal at the one place a bound is load-bearing. The seat is one
-// second of the portable pace band's paced-lane frames, so a reader who never tunes still drops on a stated budget.
 public sealed record DrainPolicy(Dimension Capacity, BoundedChannelFullMode Full) {
     public static DrainPolicy Default => Seed.Value;
 
@@ -718,25 +655,19 @@ public sealed record DrainPolicy(Dimension Capacity, BoundedChannelFullMode Full
         Full: BoundedChannelFullMode.DropOldest));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The subscription carries the rows it actually seated, so a partial attach is READABLE rather than inferred
-// from a count: a host table that refuses one source leaves the others live, and the caller reads which.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class UiSubscription<TFact> : IDisposable where TFact : IUiFact {
     public Seq<IUiSource<TFact>> Seated { get; }
     public Seq<(IUiSource<TFact> Row, Error Cause)> Refused { get; }
     public void Dispose();
 }
 
-// Bounded by construction: a UI event storm drops evidence rather than growing a queue for process lifetime, and
-// the two counts are what make each loss observable. The ordinal is minted HERE and nowhere else, so two sources
-// publishing in one frame serialize into one replayable order.
 public sealed class EvidenceDrain<TFact> : IDisposable where TFact : IUiFact {
     private readonly Atom<long> ordinal = Atom(0L);
 
     [BoundaryAdapter]
     public static Fin<Lease<EvidenceDrain<TFact>>> Open(
         MonotonicTimeline clock,
-        // Absent resolves through `DrainPolicy.Default`, the policy owner's own canonical row.
         Option<DrainPolicy> policy = default,
         Option<Action<UiEvent<TFact>>> onShed = default,
         Op? key = null);
@@ -745,20 +676,15 @@ public sealed class EvidenceDrain<TFact> : IDisposable where TFact : IUiFact {
     public long Shed { get; }
     public long Refused { get; }
 
-    // One compare-and-swap mints the order beside the stamp; a spent counter REFUSES rather than wrapping, because
-    // a wrapped ordinal reorders a journal silently.
     public Fin<UiEvent<TFact>> Publish(IUiSource<TFact> source, Func<Fin<TFact>> fact, Op key);
 
-    // Idempotent: every detach path may reach it and the reader's loop terminates exactly once.
     [BoundaryAdapter] public Fin<Unit> Complete(Op? key = null);
 
     public void Dispose();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class UiEvents {
-    // The drain is the sink, so no row can publish outside the one minter of the total order; `Atomicity` names
-    // which of the two lawful seating postures the caller wants.
     [BoundaryAdapter]
     public static Fin<Lease<UiSubscription<TFact>>> Observe<TFact>(
         EventAnchor anchor,

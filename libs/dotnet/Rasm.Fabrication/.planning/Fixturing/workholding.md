@@ -24,7 +24,7 @@
 - Boundary: template cases survive beside realized elements because their payload arrives before geometry realization and aggregate admission; provider geometry never reaches this cluster.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
@@ -48,7 +48,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Fixturing;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FixtureRole {
     public static readonly FixtureRole Locate = new("locate");
@@ -69,8 +69,6 @@ public sealed partial class FixtureState {
     public bool Cutting { get; }
 }
 
-// A bound is the admissibility of ONE scalar axis, so every metric on every mechanism proves itself through
-// the same fold and a per-column predicate ladder has nothing left to say.
 [SmartEnum<string>]
 public sealed partial class MetricBound {
     public static readonly MetricBound Positive = new("positive", static value => double.IsFinite(value) && value > 0.0);
@@ -83,8 +81,6 @@ public sealed partial class MetricBound {
     public Func<double, bool> Admits { get; }
 }
 
-// Millimetre, newton, pascal, decimal-fraction, and degree readings under one keyed carrier; the unit basis is
-// the row's own and a consumer reads it through the named projection rather than a constructor position.
 [SmartEnum<string>]
 public sealed partial class FixtureMetric {
     public static readonly FixtureMetric Radius = new("radius", MetricBound.Positive);
@@ -110,17 +106,12 @@ public sealed partial class FixtureMetric {
     public MetricBound Bound { get; }
 }
 
-// What a mechanism demands of the form it is admitted with. `Rank` stays the kernel's derived declaration order,
-// which fixes the wire rendering an admission refusal prints; `Key` is the wire token. A demand is a ROW because the
-// next one — a vacuum circuit, a thermal loop, a probe reference — lands as one entry and changes no signature.
 [SmartEnum<string>]
 public sealed partial class FixtureDemand : ICapability<FixtureDemand> {
     public static readonly FixtureDemand Actuator = new("actuator");
     public static readonly FixtureDemand Anchor = new("anchor");
 }
 
-// The zone body set is the mechanism's own loops, its contact footprints, or nothing at all — optical alignment
-// occupies no space. The row carries the projection, so zone construction reads one expression.
 [SmartEnum<string>]
 public sealed partial class KeepoutSource {
     public static readonly KeepoutSource Bodies = new("bodies", static form => form.Bodies);
@@ -131,9 +122,6 @@ public sealed partial class KeepoutSource {
     public Func<ElementForm, Seq<Loop>> Loops { get; }
 }
 
-// Preload custody as data: an admitted contact keeps the preload it arrived with, a driven mechanism takes its
-// actuator's whole or divided force, and a field mechanism derives it from pressure over area or pull-off scaled
-// by its own coupling fraction. `Axis` names which metric drives the field rules and is absent otherwise.
 [SmartEnum<string>]
 public sealed partial class PreloadRule {
     public static readonly PreloadRule Admitted = new("admitted", static seat => seat.Patch.Preload);
@@ -146,8 +134,6 @@ public sealed partial class PreloadRule {
     public Func<PreloadSeat, Force> Preload { get; }
 }
 
-// One row per holding mechanism. Every fold below reads these columns, so a new mechanism is one row and no
-// consumer, admission clause, projection, or preimage changes.
 [SmartEnum<string>]
 public sealed partial class WorkholdingKind {
     public static readonly WorkholdingKind LocatingPlane = Of("locating-plane", FixtureRole.Locate, HoldingClass.Mechanical,
@@ -223,15 +209,10 @@ public sealed partial class WorkholdingKind {
     public KeepoutSource Keepout { get; }
     public PreloadRule Rule { get; }
 
-    // Cardinality floors bind the mechanism's physics: two opposed jaws, three chuck jaws, one nest with at
-    // least two seating contacts. A ceiling is present only where the mechanism forbids a wider set.
     public int ContactFloor { get; }
     public int BodyFloor { get; }
     public Option<int> BodyCeiling { get; }
 
-    // What the mechanism DEMANDS of the form handed to it, as the kernel capability column rather than a pair of
-    // positional booleans. The demand is EXACT: a drive supplied to a mechanism that never actuates is as
-    // inadmissible as a missing one, so admission compares sets and names both shortfalls off the same column.
     public CapabilitySet<FixtureDemand> Demands { get; }
     public Option<FixtureMetric> Axis { get; }
     public Set<FixtureMetric> Metrics { get; }
@@ -252,10 +233,6 @@ public sealed partial class WorkholdingKind {
             CapabilitySet<FixtureDemand>.Of(demands ?? []), Optional(axis), toSet(metrics));
 }
 
-// What holds the workpiece when the drive's energy source fails, as a ROW naming the MECHANISM a shop reads off a
-// setup sheet. `Retains` is the one column the cutting-custody gate reads, and four per-case booleans spelling
-// that one question — self-locking, clamps-on-loss, accumulator-held, brake-held — forced a six-arm switch to
-// re-ask it and left the two cases that answer unconditionally saying so in code rather than in data.
 [SmartEnum<string>]
 public sealed partial class EnergyCustody {
     public static readonly EnergyCustody SelfLocking = new("self-locking", retains: true);
@@ -269,8 +246,6 @@ public sealed partial class EnergyCustody {
     public bool Retains { get; }
 }
 
-// The custody column seats on the ROOT because every drive answers it, so a new drive case cannot arrive without
-// stating what it holds on loss of energy, and no arm re-derives the answer.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Actuation(EnergyCustody Custody) {
     public sealed record Manual(Torque Torque, Length MeanRadius, Ratio Efficiency, EnergyCustody custody)
@@ -292,8 +267,6 @@ public abstract partial record Actuation(EnergyCustody Custody) {
         electric: static row => row.Force.As(ForceUnit.Newton),
         field: static row => row.PullOff.As(ForceUnit.Newton)), ForceUnit.Newton);
 
-    // The corpus validity floor: every claim states its own requirement and the fold reports the conjunction, so
-    // a new drive column is one claim row rather than a hand-chained comparison ladder.
     public bool IsValid => Switch(
         manual: static row => ValidityClaim.All(
             Fixtures.Positive(row.Torque), Fixtures.Positive(row.MeanRadius), Fixtures.Fraction(row.Efficiency)),
@@ -303,8 +276,6 @@ public abstract partial record Actuation(EnergyCustody Custody) {
         electric: static row => ValidityClaim.All(Fixtures.Positive(row.Force), Fixtures.Positive(row.Stroke)),
         field: static row => ValidityClaim.All(Fixtures.Positive(row.PullOff), Fixtures.Nonnegative(row.Release)));
 
-    // ONE-TIME RE-KEY: the custody row frames ONCE at the root where four per-case presence bits stood, so the
-    // layout gets shorter and every drive addresses under a named mechanism rather than a positional flag.
     public CanonicalWriter CanonicalBytes(CanonicalWriter writer) => Switch(
         state: writer.Discriminant(Custody),
         manual: static (held, row) => held.String(nameof(Manual)).Double(row.Torque.As(TorqueUnit.NewtonMeter))
@@ -321,7 +292,7 @@ public abstract partial record Actuation(EnergyCustody Custody) {
             .Double(row.Release.As(DurationUnit.Second)));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct ContactLaw {
     public Ratio Friction { get; }
@@ -381,8 +352,6 @@ public readonly record struct ContactReaction(
         .Double(AreaWeight);
 }
 
-// The seat a preload rule reads: the patch it seats on, how many patches share the mechanism's actuator, the
-// drive itself where the mechanism has one, and the mechanism's own driving metric where a field rule needs it.
 public readonly record struct PreloadSeat(ContactPatch Patch, int Contacts, Actuation Drive, double Axis);
 
 public sealed record ContactPatch(
@@ -392,15 +361,10 @@ public sealed record ContactPatch(
     Vector3d Normal,
     ContactLaw Law,
     Force Preload) : IValidityEvidence {
-    // Geometry alone: the preload arrives from the mechanism's own `PreloadRule` at element admission, so a
-    // patch handed to `FixtureElement.Admit` carries a placeholder and the seated value is gated there.
     public bool IsValid => ValidityClaim.All(
         Fixtures.Profile(Footprint), Footprint.Bulges.ForAll(static bulge => bulge == 0.0),
         Fixtures.Finite(Center), Fixtures.Unit(Normal));
 
-    // Exemption: the tributary fold is a measured reaction kernel. Footprint is admitted already lowered, so
-    // vertices are the true reaction stations and a bulged pad cannot degenerate to three; tributary edge length
-    // is the weight, because uniform weighting gives a corner between two short edges the same reaction as a far one.
     public Seq<ContactReaction> Field {
         get {
             Seq<Point3d> ring = Footprint.Vertices.ToSeq();
@@ -420,11 +384,6 @@ public sealed record ContactPatch(
             .Double(Preload.As(ForceUnit.Newton));
 }
 
-// Bodies, contacts, the optional locating anchor, and the keyed metric stream — the whole shape of every
-// mechanism. `Anchor` carries a pin, mandrel, centre, or optical datum as ONE plane rather than a point and an
-// axis spelled per mechanism: the plane's origin is the locating point, its normal the locating axis, and its
-// X axis the free direction a diamond pin leaves unconstrained. `Bodies` arrives RESOLVED — a vacuum bed enters
-// with its leak windows already subtracted, so no mechanism carries a second geometry pass past admission.
 public sealed record ElementForm(
     Seq<Loop> Bodies,
     Seq<ContactPatch> Contacts,
@@ -467,10 +426,6 @@ public sealed partial class FixtureElement {
             validationError = new ValidationError("fixture-contacts");
     }
 
-    // ONE admission for every mechanism: cardinality, the demand correspondence, metric roster, and contact
-    // validity accumulate, then the row's own preload rule seats each contact so no caller distributes force.
-    // The demand gate is ONE comparison over the capability column and its refusal names BOTH shortfalls off the
-    // kernel's own `Missing` — required minus held in each direction — so no site hand-spells a complement.
     public static Fin<FixtureElement> Admit(int element, WorkholdingKind kind, ElementForm form, Option<Actuation> actuator) =>
         (Gate(element, kind, kind.Metrics.ForAll(axis => form.Metrics.Find(axis).Exists(axis.Bound.Admits)), nameof(FixtureMetric)),
          Gate(element, kind, form.Metrics.ForAll(static row => row.Key.Bound.Admits(row.Value)), nameof(ElementForm.Metrics)),
@@ -486,19 +441,11 @@ public sealed partial class FixtureElement {
             .ToFin()
             .Bind(_ => Validate(element, kind, Seated(kind, form, actuator), actuator, out FixtureElement seated).Admitted(seated));
 
-    // The form supplies exactly what it carries; the mechanism demands exactly what it needs. Set EQUALITY is the
-    // whole law, so this is the kernel `CapabilitySet` value comparison and NOT the `Require` door: `Require` is the
-    // SUPERSET gate, and taking it in both directions split one verdict into two refusals a reader had to rejoin —
-    // a form short one demand while carrying one nobody asked for is ONE inadmissible correspondence, not two. The
-    // two `Missing` reads are the kernel's own evidence wires, so the single refusal still names both directions and
-    // no site derives a complement; they run on the failing arm alone because a passing admission owes no rendering.
     private static K<Validation<Error>, Unit> Demanded(
         int element, WorkholdingKind kind, ElementForm form, Option<Actuation> actuator) {
         CapabilitySet<FixtureDemand> supplied = CapabilitySet<FixtureDemand>.Of(
             Seq(actuator.Map(static _ => FixtureDemand.Actuator), form.Anchor.Map(static _ => FixtureDemand.Anchor))
                 .Somes().ToArray());
-        // Both arms reach the CONCRETE carrier by user-defined implicit conversion, which C# cannot target at the
-        // `K` interface this method publishes, so the local IS the lift rather than ceremony around one.
         Validation<Error, Unit> correspondence = supplied == kind.Demands ? unit : Refuse(element, kind, supplied);
         return correspondence;
     }
@@ -525,8 +472,6 @@ public sealed partial class FixtureElement {
             .Maybe(Actuator, static (held, drive) => drive.CanonicalBytes(held));
 }
 
-// A template is pre-geometry: it carries the mechanism law a synthesis pass realizes against a part silhouette,
-// so its payload arrives before contact geometry exists and cannot be a `FixtureElement`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClampTemplate {
     private ClampTemplate() { }
@@ -592,7 +537,6 @@ public abstract partial record ClampTemplate {
 
 public sealed record SoftJawInsert(Seq<Loop> Blanks, Seq<Loop> Negative, Length Clearance);
 
-// The search shape: what to place, what it must survive, and the one budget triple that bounds enumeration.
 public readonly record struct SynthesisBudget(int Samples, int MinimumTemplates, int MaximumTemplates, int CandidateBudget);
 
 public sealed record FixtureSynthesis(
@@ -647,7 +591,7 @@ public sealed record FixtureCandidate(
 - Boundary: `FixturingWitness` closes the admission rejection reasons and lowers through the `Process/faults` offset-54 `FabricationFault.FixtureInadmissible` case; degenerate geometry stays on `GeometryFault.DegenerateInput`.
 
 ```csharp signature
-// --- [FIXTURE] ------------------------------------------------------------------------------------------------------------------------------------
+// --- [FIXTURE] -------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct FixtureStage {
     [BoundaryAdapter]
@@ -665,8 +609,6 @@ public readonly record struct FixtureStep(FixtureStage Stage, FixtureState State
         .Double(Settle.As(DurationUnit.Second));
 }
 
-// The walk's own outputs as named columns: the topological order every fold consumes, the stages the opening
-// stage reaches, and the element set live at each stage. The container never leaves the admission fold.
 public sealed record StageLifecycle(Seq<FixtureStage> Order, Set<FixtureStage> Reachable, Map<FixtureStage, Set<int>> Active) {
     public Map<FixtureStage, int> Ordinal => Order.Fold(
         Map<FixtureStage, int>(), static (index, stage) => index.Add(stage, index.Count));
@@ -692,15 +634,10 @@ public readonly record struct DatumFrame(
         .Double(Repeatability.As(LengthUnit.Millimeter));
 }
 
-// The setup half of the ONE `Joining/sequence` displacement receipt: a member's measured displacement consumes
-// the repeatability budget the datum frame promises, so a setup whose datum moved more than it can hold refuses
-// on evidence the weld plane produced rather than on a second estimate minted here.
 public sealed record DatumTransfer(Length Budget, Length Consumed, Seq<DistortionSource> Sources) {
     public Length Remaining => Budget - Consumed;
     public bool Holds => Consumed <= Budget;
 
-    // A setup holds the WHOLE assembly, so its budget spends against every measured member; a joint holds its own
-    // members, so the subset arity narrows to those. Both read the ONE receipt the weld plane produced.
     public static DatumTransfer Of(Length budget, DistortionField displacement) =>
         Of(budget, displacement, static _ => true);
 
@@ -738,8 +675,6 @@ public sealed record ExclusionZone(
     public Fin<CollisionZone> Collision =>
         Fixtures.ZoneIdentity(this).Bind(key => CollisionZone.Admit(key, Bounds));
 
-    // The height band is the only test this record answers alone; planar membership and crossing belong to the
-    // `Geometry2D` owner and run BATCHED over every segment of every zone at the call site.
     public Option<Edge3> Banded(Edge3 segment, FixtureState state) => !Active.Contains(state)
         ? None
         : Fixtures.Slab(segment, Lower.As(LengthUnit.Millimeter), Upper.As(LengthUnit.Millimeter));
@@ -769,9 +704,7 @@ public sealed partial class CorridorKind {
 
 public sealed record ToolCorridor(CorridorKind Kind, Seq<CorridorStation> Stations);
 
-// --- [ERRORS] -------------------------------------------------------------------------------------------------------------------------------------
-// The folder's own evidence vocabulary for the offset-54 band case `Process/faults` declares. The witness family
-// homes here because its axes are fixturing's; the CASE homes there because the offset ledger is whole on one page.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FixturingWitness {
     private FixturingWitness() { }
@@ -796,8 +729,6 @@ public abstract partial record FixturingWitness {
     public sealed record Residual(int Completed, int Blocked, int Joints) : FixturingWitness;
 }
 
-// `Visibility` names a MALFORMED sight census — a row addressing a corridor outside the joint's own roster — and
-// `Sight` names a corridor demanding line of sight that an occlusion row blocks; two different faults, two rows.
 [SmartEnum<string>]
 public sealed partial class JoinRejection {
     public static readonly JoinRejection Fit = new("fit");
@@ -810,7 +741,7 @@ public sealed partial class JoinRejection {
     public static readonly JoinRejection Access = new("access");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FixtureSpec(
     int Operation,
     Seq<FixtureElement> Elements,
@@ -873,8 +804,6 @@ public sealed partial class Fixture {
             validationError = new ValidationError("fixture-closure");
     }
 
-    // Independent aggregate gates accumulate, the derived members build once, and the stock witness closes last
-    // because it is the only gate needing the fully seated zone set.
     public static Fin<Fixture> Admit(FixtureSpec? candidate) =>
         Optional(candidate)
             .ToFin(FabricationFault.Fixture(new FixturingWitness.Absent()))
@@ -937,7 +866,7 @@ public sealed partial class FixtureSet {
 - Boundary: geometry, aggregate, and stability failures remain typed; no failure becomes an empty fixture, a clear path, or a passing margin.
 
 ```csharp signature
-// --- [EVALUATION] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [EVALUATION] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FixtureProjection {
     public static readonly FixtureProjection Machine = new("machine");
@@ -1003,8 +932,6 @@ public abstract partial record LoadCase : IValidityEvidence {
         thermal: static row => Fixtures.Finite(row.At),
         pressure: static row => ValidityClaim.All(Fixtures.Finite(row.Center), Fixtures.Profile(row.Region)));
 
-    // Only the cutting case names an operation, so operation correspondence is one read rather than a second
-    // seven-arm switch whose other six arms answer `true`.
     public Option<int> Operation => Switch(
         state: unit,
         cutting: static (_, row) => Some(row.Operation),
@@ -1032,9 +959,6 @@ public readonly record struct AxisMargin(Vector3d Capacity, Vector3d Demand) {
         Demand.Z > 0.0 ? Capacity.Z / Demand.Z : double.PositiveInfinity).Min(double.PositiveInfinity);
 }
 
-// The solve's own outputs as named columns. `Utilization` is the per-reaction demand fraction the normalized
-// solve returned, `Scale` its reciprocal maximum, and `Residual` the normal-equation witness the kernel receipt
-// carried — an equilibrium the contact set cannot represent shows here rather than as a silently small margin.
 public sealed record RestraintSolution(
     double Scale,
     double Residual,
@@ -1104,7 +1028,7 @@ public abstract partial record WorkholdingResult {
     public sealed record Projected(FixtureArtifact Artifact) : WorkholdingResult;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Workholding {
     public static Fin<WorkholdingResult> Apply(WorkholdingOp? candidate) =>
         Optional(candidate).ToFin(FabricationFault.Fixture(new FixturingWitness.Absent()))
@@ -1141,8 +1065,6 @@ internal static class Fixtures {
                 spec.Elements.Count - spec.Elements.Map(static element => element.Element).Distinct().Count)))
             .Map(_ => spec);
 
-    // The stage sequence is a DAG, so acyclicity rails BEFORE the sort throws, the topological order is the
-    // authority every later fold reads, and unreachable stages are named on the witness rather than skipped.
     internal static K<Validation<Error>, StageLifecycle> GateLifecycle(FixtureSpec spec) {
         BidirectionalGraph<FixtureStage, SEdge<FixtureStage>> stages = new(allowParallelEdges: false);
         stages.AddVertexRange(spec.Sequence.Map(static step => step.Stage));
@@ -1215,8 +1137,6 @@ internal static class Fixtures {
         spec.Elements.Traverse(element => Zone(spec, element).ToValidation()).As().ToFin()
             .Map(static rows => rows.Choose(identity));
 
-    // A zone is the element's own keep-out loops offset by its margin, banded between the footprint floor and
-    // the mechanism height, and active across every stage that holds it — one body for every mechanism.
     private static Fin<Option<ExclusionZone>> Zone(FixtureSpec spec, FixtureElement element) {
         Seq<Loop> shape = element.Keepouts;
         if (shape.IsEmpty) return Fin.Succ(Option<ExclusionZone>.None);
@@ -1241,9 +1161,6 @@ internal static class Fixtures {
     }
 
     // --- [CONSTRAINT]
-    // The empty reaction set refuses HERE. A locating-only roster — every `WorkholdingKind` declaring zero contacts —
-    // clears spec, lifecycle, and datum admission and reaches this kernel before the fixture's own contact gate ever
-    // runs, and the rank fold's scale is a selector `Max` that throws on an empty sequence rather than railing.
     internal static Fin<ConstraintCensus> Constraint(Seq<ContactPatch> contacts) {
         Seq<ContactReaction> reactions = contacts.Bind(static contact => contact.Field);
         if (reactions.IsEmpty)
@@ -1257,8 +1174,6 @@ internal static class Fixtures {
             rank, ConstraintRank(normal, lever), Math.Max(0, closure.Count - rank), reactions));
     }
 
-    // Frictional contact spans three wrench directions, not one: dropping the tangential pair caps an opposed-jaw
-    // fixture at rank 3 and reports every valid vise as underconstrained.
     private static Seq<Wrench> Friction(ContactReaction reaction) {
         if (!Positive(reaction.TangentialCapacity)) return Seq<Wrench>();
         Vector3d normal = Unitized(reaction.Normal);
@@ -1266,8 +1181,6 @@ internal static class Fixtures {
         return Seq(Wrench.Of(reaction.At, first), Wrench.Of(reaction.At, Unitized(Vector3d.CrossProduct(normal, first))));
     }
 
-    // The moment normalizer is the station extent, read from ONE bounding pass — the pairwise maximum it replaces
-    // computed the same span in quadratic time.
     private static double Lever(Seq<ContactReaction> reactions) {
         BoundingBox stations = reactions.Fold(BoundingBox.Empty, static (box, reaction) => { box.Union(reaction.At); return box; });
         return Math.Max(EpsilonPolicy.SqrtEpsilon, Meters(stations.Diagonal).Length);
@@ -1318,8 +1231,6 @@ internal static class Fixtures {
             new AxisMargin(Scaled(forceDemand, solution.Scale), Abs(forceDemand)),
             new AxisMargin(Scaled(momentDemand, solution.Scale), Abs(momentDemand)),
             solution,
-            // Pressure x Area closes to Force in the dimensioned algebra, so the mm2 footprint reaches a newton
-            // through the package's own scale and no transcribed conversion sits between a pascal limit and a preload.
             contacts.Min(contact => Ratio(
                 (contact.Law.PressureLimit * Area.FromSquareMillimeters(Math.Abs(contact.Footprint.Area()))).Newtons,
                 contact.Preload.As(ForceUnit.Newton))),
@@ -1333,10 +1244,6 @@ internal static class Fixtures {
             reactions));
     }
 
-    // Exemption: the triplet assembly is a measured numeric kernel. Each reaction contributes three columns —
-    // normal, and two friction tangents — scaled by that reaction's own capacity, so the minimum-norm solution
-    // the kernel returns is DIMENSIONLESS: coefficient magnitude IS the fraction of capacity the distribution
-    // spends, and the admissible load factor is the reciprocal of the largest one.
     private static Fin<RestraintSolution> Utilization(Seq<ContactReaction> reactions, Wrench demand) {
         double lever = Lever(reactions);
         Seq<(Vector3d Direction, double Capacity, int Axis)> columns = reactions.Bind((reaction, index) => {
@@ -1355,8 +1262,6 @@ internal static class Fixtures {
                 (3, index, wrench.Moment.X / lever), (4, index, wrench.Moment.Y / lever), (5, index, wrench.Moment.Z / lever));
         }).Bind(identity);
 
-        // `Dimension` is a kernel `[ValueObject<int>]`: its generated factory is `Create` and returns the bare
-        // value, so both extents bind above the query rather than as monadic clauses that have no carrier.
         Dimension rows = Dimension.Create(6);
         Dimension cols = Dimension.Create(columns.Count);
         return from matrix in SparseMatrix.FromTriplets(rows, cols, triplets)
@@ -1375,8 +1280,6 @@ internal static class Fixtures {
             .Map((column, slot) => (column, slot))
             .Filter(row => row.column.Axis == index)
             .Fold(Vector3d.Zero, (sum, row) => sum + (row.column.Direction * row.column.Capacity * coefficients[row.slot])));
-        // A tensile reaction is bounded by PULL-OFF, not by normal capacity, so the compressive coefficient
-        // re-scales against the pull-off column before it enters the utilization census.
         Seq<double> normal = reactions.Map((reaction, index) => coefficients[index * 3] switch {
             >= 0.0 and var push => push,
             var pull => Math.Abs(pull) * Ratio(
@@ -1396,9 +1299,6 @@ internal static class Fixtures {
             Invert(normal.Filter(static value => value > 0.0).Max(0.0)));
     }
 
-    // Tipping is overturning about a SUPPORT-REGION edge, not general moment capacity: the restoring term is the
-    // normal reaction's own lever about that edge, so a load inside the region is stable while the same magnitude
-    // outside it tips. The region is the union of contact footprints, so a concave seat under-reports its lever.
     private static double TipMargin(Seq<Loop> support, Seq<ContactReaction> reactions, Vector3d force, Vector3d moment, Point3d at) {
         Seq<Edge3> edges = support.Bind(static loop =>
             toSeq(Enumerable.Range(0, loop.Count)).Map(index => new Edge3(loop.At(index), loop.At(index + 1))));
@@ -1449,8 +1349,6 @@ internal static class Fixtures {
             : Fin.Fail<Option<ExclusionZone>>(FabricationFault.Fixture(
                 new FixturingWitness.Corridor(corridor.Kind, corridor.Stations.Count)));
 
-    // ONE open-path clip per zone over the WHOLE banded path: a per-segment membership walk re-entered the same
-    // overlay once per edge and per wall, and the densified wall ring it needed disappears with it.
     private static Fin<Option<ExclusionZone>> Blocked(Seq<ExclusionZone> zones, Seq<Edge3> path, FixtureState state) =>
         zones.Fold(Fin.Succ(Option<ExclusionZone>.None), (rail, zone) => rail.Bind(found => found.IsSome
             ? Fin.Succ(found)
@@ -1471,9 +1369,6 @@ internal static class Fixtures {
                 .Map(static node => node.Boundary.At(0)));
 
     // --- [SYNTHESIS]
-    // Programs enumerate directly at the admitted cardinalities: the powerset over the template roster is 2^n
-    // candidates for an n the seed never bounds, and each survivor costs a full admission, restraint, and
-    // corridor pass.
     internal static Fin<Seq<FixtureCandidate>> Synthesize(FixtureSynthesis seed) {
         SynthesisBudget budget = seed.Budget;
         if (!Profile(seed.Part) || budget.Samples <= 0 || seed.Templates.IsEmpty || seed.Loads.IsEmpty
@@ -1559,8 +1454,6 @@ internal static class Fixtures {
     }
 
     // --- [LIFECYCLE]
-    // Reachability answers off the built order, so a transition between stages the sequence never connects
-    // refuses instead of returning the active set of an unrelated step.
     internal static Fin<(FixtureState State, Arr<int> Active)> Transition(Fixture fixture, FixtureStage from, FixtureStage to) =>
         fixture.Lifecycle.Covers(from, to)
             ? fixture.Spec.Sequence.Find(step => step.Stage == to)
@@ -1580,10 +1473,6 @@ internal static class Fixtures {
             inspection: () => new FixtureArtifact.Inspection(key, fixture.Contacts, fixture.Spec.Datum, fixture.Constraint),
             evidence: () => new FixtureArtifact.Evidence(key, fixture)));
 
-    // Every preimage frames and closes at `FabricationCanon` over the ONE `Rasm.Element` `CanonicalWriter`:
-    // `Double` normalizes `-0.0` and every NaN payload before framing the IEEE bits, `String` length-prefixes
-    // UTF-8 so no delimiter can forge equality, `Rows` writes the count ahead of its rows, and `Keyed` opens the
-    // retaining mint and closes it on the rail so no artifact addresses under bytes no writer held.
     private static Fin<ContentKey> Keyed(Fixture fixture, FixtureProjection projection) =>
         FabricationCanon.Keyed(
             EgressKind.Plan,
@@ -1617,7 +1506,6 @@ internal static class Fixtures {
             linear: static (state, row) => Fin.Succ(Seq(new Edge3(state.From, row.Target))),
             circular: static (state, row) => ArcSegments(state.From, row.Target, row.Arc, state.Error));
 
-    // Exemption: chord subdivision is a measured geometric kernel bounded by the admitted chord error.
     private static Fin<Seq<Edge3>> ArcSegments(Point3d from, Point3d to, ArcCenter arc, double error) {
         Vector3d start = from - arc.Center;
         Vector3d end = to - arc.Center;
@@ -1640,7 +1528,6 @@ internal static class Fixtures {
         return Fin.Succ(toSeq(Enumerable.Range(0, count)).Map(index => new Edge3(points[index], points[index + 1])));
     }
 
-    // Exemption: the height band is a one-dimensional interval clip with no planar owner.
     internal static Option<Edge3> Slab(Edge3 segment, double lower, double upper) {
         double rise = segment.B.Z - segment.A.Z;
         if (Math.Abs(rise) < EpsilonPolicy.ZeroTolerance)
@@ -1707,8 +1594,6 @@ internal static class Fixtures {
         return unit;
     }
 
-    // A ratio whose denominator vanishes is UNBOUNDED, not a large number: one reciprocal owner keeps every
-    // margin on one convention and no call site re-spells a guard against its own divisor.
     private static double Ratio(double capacity, double used) =>
         used <= EpsilonPolicy.SqrtEpsilon ? double.PositiveInfinity : capacity / used;
 

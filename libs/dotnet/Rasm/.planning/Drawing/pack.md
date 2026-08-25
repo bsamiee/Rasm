@@ -24,7 +24,7 @@
 - Boundary: one `PackOp` `[Union]` folds through `Apply` with no per-kind encoder class; reconciliation owns the content digest, so the page binds `(form, digest)` pairs and cloud, mesh, and parametric byte layouts share one digest owner rather than crossing as raw bytes; raw `float`/`byte` stay inside the pack loop, and the only public residency seam is the `Payload`/descriptor pair. `ScalarField` cases the policy already vetted are constructed DIRECTLY — `PackPolicy.Of` admitted the curvature step and iteration count into their band owners, so a re-admitting factory re-gates proven values; raw-ingress siblings keep their `Fin` factory. A lane whose source column is ABSENT refuses typed rather than filling a constant: an opaque-white colour plane and a fabricated (0, 0) UV plane both pass the round-trip witness exactly, so the witness can never be the gate that catches them. Digest provenance splits TWO ways — `Apply` roots `Witness.ContentHash` on the SOURCE, `Of` on the PACKED PAYLOAD through `ContentHash.Of`; the source root runs through reconciliation's `EncodeForm` for every case that HAS one, and `Toolpath` is the single exception, a line/arc span stream with no canonical byte layout there, rooting on its own framed `CanonicalWriter` preimage — and no validity claim can adjudicate which is right, so `RoundTripWitness.Root` names the root and a consumer keying dedup or lake identity MUST read it: a source-rooted and a payload-rooted digest of ONE geometry differ by construction.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
 using System.Runtime.CompilerServices;
@@ -43,9 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Drawing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The encoding steps that can refuse, one row each — the kernel's `EncodingFault` names a row and carries the
-// two magnitudes the numeric stages measured, so a consumer switches on the step instead of parsing prose.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -59,17 +57,12 @@ public sealed partial class EncodingStage {
     public static readonly EncodingStage MissingColumn    = new("missing-column");
 }
 
-// A float row publishes a RELATIVE precision fact — a mantissa width — while a fixed row publishes an ABSOLUTE
-// one, the rounding half-ULP of its own grid. One normalizer over both divided a genuine 0.5 integer rounding
-// by a 30 000-magnitude lane and certified it lossless, so the mode is a column and the screen reads it.
 [SmartEnum<int>]
 public sealed partial class ToleranceMode {
     public static readonly ToleranceMode Absolute = new(0);
     public static readonly ToleranceMode Relative = new(1);
 }
 
-// Width counts bytes per SCALAR — a complex row's width already spans its (re, im) pair. Generated Switch
-// cannot carry ref-struct operands, so the storage-grouped if-chain IS the dispatch.
 [SmartEnum<int>]
 public sealed partial class ChannelDtype {
     public static readonly ChannelDtype Float32  = new(key: 0,  width: 4,  tolerance: 0.0,           complex: false, mode: ToleranceMode.Relative);
@@ -88,8 +81,6 @@ public sealed partial class ChannelDtype {
     public static readonly ChannelDtype CInt32   = new(key: 13, width: 8,  tolerance: 0.5,           complex: true,  mode: ToleranceMode.Absolute);
     public static readonly ChannelDtype CFloat32 = new(key: 14, width: 8,  tolerance: 0.0,           complex: true,  mode: ToleranceMode.Relative);
     public static readonly ChannelDtype CFloat64 = new(key: 15, width: 16, tolerance: 0.0,           complex: true,  mode: ToleranceMode.Relative);
-    // UInt8 is the RAW unsigned byte row (GDAL GDT_Byte, the dominant ortho type) — value-preserving 0..255,
-    // never Unorm8's unit-scaled quantization; CFloat16 (GDT_CFloat16) shares Float16's component arms.
     public static readonly ChannelDtype UInt8    = new(key: 16, width: 1,  tolerance: 0.5,           complex: false, mode: ToleranceMode.Absolute);
     public static readonly ChannelDtype CFloat16 = new(key: 17, width: 4,  tolerance: 9.77e-4,       complex: true,  mode: ToleranceMode.Relative);
 
@@ -100,17 +91,12 @@ public sealed partial class ChannelDtype {
 
     public int Components => Complex ? 2 : 1;
 
-    // Any dtype row extending neither arm packs nothing and the witness routes `EncodingFault` — no silent fall-through.
-    // Every integer and unorm arm rounds, scales, and converts through TensorPrimitives: the lattice owns that
-    // arithmetic and a per-element loop re-derives it once per row.
     public void Pack(ReadOnlySpan<float> raw, Span<byte> stored) {
         if (this == Float32 || this == CFloat32) { MemoryMarshal.Cast<float, byte>(raw).CopyTo(stored); return; }
         if (this == Float16 || this == CFloat16) { TensorPrimitives.ConvertToHalf(raw, MemoryMarshal.Cast<byte, Half>(stored)); return; }
         if (this == Float64 || this == CFloat64) { TensorPrimitives.ConvertChecked<float, double>(raw, MemoryMarshal.Cast<byte, double>(stored)); return; }
         using SpanOwner<float> staging = SpanOwner<float>.Allocate(raw.Length);
         Span<float> quantized = staging.Span;
-        // Unorm rows scale the unit domain before rounding; every other integer row rounds in place. One staging
-        // pass, then ONE saturating conversion per row — saturation IS the clamp the loops spelled by hand.
         if (this == Unorm8 || this == Unorm16) {
             TensorPrimitives.Clamp<float>(raw, 0f, 1f, quantized);
             TensorPrimitives.Multiply<float>(quantized, this == Unorm8 ? 255f : 65535f, quantized);
@@ -127,8 +113,6 @@ public sealed partial class ChannelDtype {
         if (this == UInt64) { TensorPrimitives.ConvertSaturating<float, ulong>(quantized, MemoryMarshal.Cast<byte, ulong>(stored)); }
     }
 
-    // Every integer arm widens through ConvertChecked, so a stored value outside the float domain raises rather
-    // than folding silently; the two unorm rows divide their grid back onto the unit domain afterwards.
     public void Unpack(ReadOnlySpan<byte> stored, Span<float> restored) {
         if (this == Float32 || this == CFloat32) { MemoryMarshal.Cast<byte, float>(stored).CopyTo(restored); return; }
         if (this == Float16 || this == CFloat16) { TensorPrimitives.ConvertToSingle(MemoryMarshal.Cast<byte, Half>(stored), restored); return; }
@@ -152,8 +136,6 @@ public sealed partial class ChannelDtype {
     }
 }
 
-// One geometry keys TWO digests by construction and no claim can adjudicate which is right, so the root rides the
-// witness and a dedup or lake-identity consumer dispatches on it.
 [SmartEnum<int>]
 public sealed partial class DigestRoot {
     public static readonly DigestRoot Source  = new(0);
@@ -175,10 +157,7 @@ public sealed partial class PackKind {
     public Seq<EncodingChannel> Channels { get; }
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// Mask names the lane whose validity column governs this one — a foreign decode's sparse accessor arrives with
-// its mask channel beside it, and that Option IS the schema's nullability discriminant, so `SchemaNullability`
-// carries a producer instead of a row nothing ever constructs.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record EncodingChannelDescriptor(
     EncodingChannel Channel, int Count, int ByteOffset, ChannelDtype Dtype, Option<EncodingChannel> Mask = default) {
     public int Floats => Count * Channel.Arity;
@@ -186,10 +165,6 @@ public sealed record EncodingChannelDescriptor(
     public SchemaNullability Nulls => Mask.IsSome ? SchemaNullability.Masked : SchemaNullability.Dense;
 }
 
-// Root rides beside the digest because ContentHash alone is ambiguous currency; no consumer re-derives it. The
-// census keys on the TYPED channel — the roster's own ordinal comparer supplies the hash — so no reader round
-// trips through a string, and the verdict is not a column here: the errors and the descriptor dtypes already
-// decide it, and the carrier that HOLDS both is the one that answers.
 [Equatable]
 public sealed partial record RoundTripWitness(
     GeometryHash ContentHash, DigestRoot Root, [property: UnorderedEquality] HashMap<EncodingChannel, double> ChannelError) {
@@ -198,8 +173,6 @@ public sealed partial record RoundTripWitness(
         new(digest, root, errors.Fold(HashMap<EncodingChannel, double>(), static (acc, e) => acc.Add(e.Channel, e.Error)));
 }
 
-// Payload leaves equality by law — ReadOnlyMemory compares by buffer coordinates. Descriptors is attributed
-// because an unattributed collection member compares BY REFERENCE and two identical arenas read unequal.
 [Equatable]
 public sealed partial record EncodedGeometry(
     [property: OrderedEquality] Seq<EncodingChannelDescriptor> Descriptors,
@@ -210,8 +183,6 @@ public sealed partial record EncodedGeometry(
         Descriptors.Map(static d => d.Channel).Distinct().Count == Descriptors.Count,
         ValidityClaim.CountExactly(count: Witness.ChannelError.Count, expected: Descriptors.Count),
         Descriptors.ForAll(static d => (long)d.Count * d.Channel.Arity * d.Dtype.Width is > 0 and <= int.MaxValue),
-        // The DESCRIPTOR's dtype is the instance truth, never the roster's: a re-typed arena is exactly the
-        // capability the schema keys, so pinning the descriptor to the channel row leaves it no producer.
         Descriptors.Fold((Offset: 0L, Holds: true), static (acc, d) => {
             long bytes = (long)d.Count * d.Channel.Arity * d.Dtype.Width;
             return (acc.Offset + bytes, acc.Holds && d.ByteOffset == acc.Offset && d.Count == Count);
@@ -219,8 +190,6 @@ public sealed partial record EncodedGeometry(
         Witness.ChannelError.Values.AsIterable().ForAll(static error => double.IsFinite(error) && error >= 0.0),
         Lossless);
 
-    // The verdict DERIVES from the census against each DESCRIPTOR's own dtype — the instance truth — so no
-    // stored bool can disagree with the numbers it summarizes and a re-typed arena is judged by what it carries.
     public bool Lossless => Descriptors.ForAll(d => Witness.ChannelError.Find(d.Channel).Match(
         Some: error => error <= d.Dtype.Tolerance,
         None: static () => false));
@@ -228,13 +197,10 @@ public sealed partial record EncodedGeometry(
     public Option<ReadOnlyMemory<byte>> Channel(EncodingChannel channel) =>
         Descriptors.Find(d => d.Channel == channel).Map(d => Payload.Slice(d.ByteOffset, d.Bytes));
 
-    // Ref-struct returns carry neither Option nor Fin, so `default` for an absent channel or a mismatched
-    // width read as a legitimately empty channel at every call site — the split moves that onto the rail.
     public Fin<EncodingChannelDescriptor> Lane<T>(EncodingChannel channel) where T : unmanaged =>
         Descriptors.Find(d => d.Channel == channel && Unsafe.SizeOf<T>() == d.Dtype.Width)
             .ToFin(new GeometryFault.EncodingFault(channel, channel.Dtype, EncodingStage.LaneWidth, Actual: Unsafe.SizeOf<T>()));
 
-    // Dtype row names the one legal T: float32→float · float16→Half · unorm8→byte, over [Count × Arity].
     public ReadOnlyTensorSpan<T> View<T>(EncodingChannelDescriptor lane) where T : unmanaged {
         ReadOnlySpan<T> cast = MemoryMarshal.Cast<byte, T>(Payload.Span.Slice(lane.ByteOffset, lane.Bytes));
         return TensorMarshal.CreateReadOnlyTensorSpan(
@@ -242,16 +208,11 @@ public sealed partial record EncodedGeometry(
     }
 }
 
-// Reserve sums count·arity·width per active channel — the residency arithmetic lives on the descriptor row.
-// The arena is the pack loop's own scratch and INTERNAL, so an unattributed array member never reaches an
-// equality question. The payload array is not a pooled rental: it IS what leaves as EncodedGeometry.Payload,
-// and a pooled buffer either aliases a returned rental or pays a second full-size copy at the freeze.
 internal sealed record EncodedStore(int Count, byte[] Payload, EncodingChannelDescriptor[] Descriptors) {
     internal static EncodedStore Reserve(int count, Seq<EncodingChannel> channels) =>
         new(count, new byte[channels.Fold(0, static (acc, c) => acc + (count * c.Arity * c.Dtype.Width))], new EncodingChannelDescriptor[channels.Count]);
 }
 
-// Each lane carries its own descriptor, so the round-trip screen never re-finds it in a parallel array.
 internal readonly record struct PackedLane(EncodingChannelDescriptor Descriptor, float[] Raw);
 
 internal sealed record PackedChannels(EncodedStore Store, Seq<PackedLane> Lanes);
@@ -277,9 +238,6 @@ public abstract partial record ToolpathSpan {
 public sealed record ToolpathPath(Point3d Start, Seq<ToolpathSpan> Spans) {
     public Seq<Point3d> Vertices => Start.Cons(Spans.Map(static span => span.Target));
 
-    // Framed preimage through the kernel's ONE canonical writer: the span kind rides an ORDINAL frame and an arc
-    // carries centre and sense as their own fields, so a line no longer pads absence with Point3d.Origin and a
-    // sense no longer travels as an x coordinate. Two paths differing only in arc sense key apart by construction.
     public UInt128 Digest => ContentHash.Of(this, static (path, sink) => sink
         .Doubles([path.Start.X, path.Start.Y, path.Start.Z])
         .Rows(path.Spans, static (span, row) => span.Switch(
@@ -291,13 +249,11 @@ public sealed record ToolpathPath(Point3d Start, Seq<ToolpathSpan> Spans) {
                 .Ordinal(hop.Sense.Key))));
 }
 
-// --- [POLICIES] ------------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record PackPolicy(
     Seq<int> GeodesicSources, PositiveMagnitude CurvatureStep, Dimension CurvatureRounds,
     SdfMeshPolicy Sdf, Option<CloudMetricPolicy> Cloud, Context Tolerance) {
 
-    // Round count is an explicit anchor with no lane to derive from; the diffusion step is a MOLLIFICATION
-    // length and derives from that lane, so no untraced literal sits beside the row.
     public static readonly Dimension Rounds = Dimension.Create(value: 1);
 
     [BoundaryAdapter]
@@ -308,26 +264,21 @@ public sealed record PackPolicy(
         return curvatureStep.Match(
                 Some: static row => Fin.Succ(row),
                 None: () => op.AcceptValidated<PositiveMagnitude>(candidate: tolerance.For(ToleranceLane.Mollification).Value))
-            // Dimension's own Count band holds positivity, so the fold guards nothing a band already does.
             .Map(step => new PackPolicy(geodesicSources, step, curvatureRounds.IfNone(Rounds), sdf, cloud, tolerance));
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PackOp {
     private PackOp() { }
 
-    // Colour is an ATTRIBUTE block beside the cloud, exactly as a splat's scale and rotation blocks are: the
-    // cluster carries geometry and mass alone, so a cloud with no colour column says so and the lane refuses.
     public sealed record PointCloud(VectorCloud.ClusterCase Source, Option<Arr<float>> Colors, PackPolicy Policy) : PackOp;
     public sealed record MeshPatch(MeshSpace Source, PackPolicy Policy) : PackOp;
     public sealed record VoxelGrid(MeshSpace Source, CellLattice Grid, PackPolicy Policy) : PackOp;
     public sealed record BrepPatch(MeshSpace Source, PackPolicy Policy) : PackOp;
     public sealed record Field(MeshSpace Source, ScalarField Values, PackPolicy Policy) : PackOp;
     public sealed record Toolpath(ToolpathPath Source, PackPolicy Policy) : PackOp;
-    // Splat attributes arrive per point beside the cluster: lengths validate against the source count at the
-    // lane, so a torn attribute set routes `EncodingFault` instead of packing a misaligned block.
     public sealed record GaussianSplat(VectorCloud.ClusterCase Source, Arr<float> Scales, Arr<float> Rotations, Arr<float> Harmonics, Arr<float> Colors, PackPolicy Policy) : PackOp;
 
     public PackKind Kind => Switch(
@@ -344,8 +295,6 @@ public abstract partial record PackOp {
         brepPatch:  static b => b.Policy, field:     static f => f.Policy, toolpath:  static t => t.Policy,
         gaussianSplat: static g => g.Policy);
 
-    // One total Switch rides this page: an eighth case breaks the build HERE and nowhere else. Under the
-    // previous per-channel readers a new case fell through fourteen catch-all tails and nothing broke.
     internal HashMap<EncodingChannel, Func<Fin<float[]>>> Lanes(Op key) => Switch(
         state: key,
         pointCloud: static (k, c) => HashMap(
@@ -398,16 +347,10 @@ public static class Encode {
             .Bind(geometry => k.AcceptValue(geometry));
     }
 
-    // Raw-lane mint — the interchange seam's entry and the mint MeshDraft.Close composes: a decode already
-    // holding per-lane floats reserves, packs, and witnesses through the SAME tail Apply runs once its lanes
-    // resolved; the digest folds the packed payload itself because a foreign decode carries no kernel source.
     [BoundaryAdapter]
     public static Fin<EncodedGeometry> Of(int count, Seq<(EncodingChannel Channel, float[] Raw, Option<EncodingChannel> Mask)> lanes, Op? key = null) {
         Op k = key.OrDefault();
         if (count <= 0 || lanes.IsEmpty) return Fin.Fail<EncodedGeometry>(k.InvalidInput());
-        // Foreign lanes are caller-shaped where Apply's channels are declaration rosters, so the doubled-channel
-        // lane refuses HERE: the witness keys per-channel error by channel, and a duplicate would otherwise
-        // throw at that persistent map Add instead of routing `EncodingFault`.
         Option<EncodingChannel> doubled = lanes.Fold(
             (Seen: Set<EncodingChannel>.Empty, Dup: Option<EncodingChannel>.None),
             static (acc, lane) => acc.Seen.Contains(lane.Channel)
@@ -432,8 +375,6 @@ public static class Encode {
     }
 
     // --- [PACK]
-    // Every channel PackKind.Channels declares resolves against the case's own lane map — a declared channel the
-    // case cannot fill routes `EncodingFault` naming the pair, never a silently absent column.
     static Fin<PackedChannels> PackChannels(PackOp op, PackKind kind, int count, Op key) {
         HashMap<EncodingChannel, Func<Fin<float[]>>> lanes = op.Lanes(key);
         return Extent(count, kind.Channels)
@@ -467,20 +408,13 @@ public static class Encode {
     }
 
     // --- [WITNESS]
-    // Source-rooted digest chain: EncodeForm.Of(source) → Reconciliation.Apply(Encode) → ReconcileAnswer.Digest,
-    // stamped DigestRoot.Source; reconciliation owns the canonical byte layout of every form it HAS one for, and
-    // Toolpath — which it does not — roots on its own framed preimage. Of's payload root is the OTHER.
     static Fin<RoundTripWitness> Witness(PackOp op, PackedChannels packed, Op key) =>
         SourceDigest(op, key).Bind(digest => Screened(packed, digest, DigestRoot.Source));
 
-    // One round-trip screen serves both digest roots — per-channel error against Dtype.Tolerance, the first
-    // breach routing `EncodingFault`, the clean set folding into the witness under the root the mint stamps.
     static Fin<RoundTripWitness> Screened(PackedChannels packed, GeometryHash digest, DigestRoot root) {
         Seq<(EncodingChannel Channel, double Error)> errors = packed.Lanes.Map(lane => (
             lane.Descriptor.Channel,
             Error(lane.Raw, packed.Store.Payload.AsSpan(lane.Descriptor.ByteOffset, lane.Descriptor.Bytes), lane.Descriptor.Dtype)));
-        // Finiteness screens FIRST: a NaN delta compares false against every tolerance, so a NaN round trip
-        // certified itself lossless through the same expression that keeps an infinite delta loud.
         return errors.Find(e => !double.IsFinite(e.Error) || e.Error > e.Channel.Dtype.Tolerance).Match(
             Some: breach => Fin.Fail<RoundTripWitness>(new GeometryFault.EncodingFault(
                 breach.Channel, breach.Channel.Dtype, EncodingStage.RoundTrip,
@@ -488,10 +422,6 @@ public static class Encode {
             None: () => Fin.Succ(RoundTripWitness.Of(digest, root, errors)));
     }
 
-    // The dtype row says which error model it publishes. A Relative row divides the max delta by max(1, ‖raw‖∞)
-    // because an absolute bound would fault every real-scale float channel above magnitude one; an Absolute row
-    // must NOT be normalized, because dividing a genuine 0.5 integer rounding by a 30 000-magnitude lane reports
-    // 1.7e-5 and certifies the rounding as lossless.
     static double Error(float[] raw, ReadOnlySpan<byte> stored, ChannelDtype dtype) {
         using SpanOwner<float> staging = SpanOwner<float>.Allocate(raw.Length);
         Span<float> restored = staging.Span;
@@ -509,14 +439,9 @@ public static class Encode {
         voxelGrid:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
         brepPatch:     static (k, s) => Digest(EncodeForm.Of(s.Source), k),
         field:         static (k, s) => Digest(EncodeForm.Of(s.Source), k),
-        // Toolpath is the ONE source with no reconciliation form: a line/arc span stream has no canonical byte
-        // layout there, and the polyline round trip it used to take laundered the spans through fabricated
-        // points. Its digest is the framed CanonicalWriter preimage on the path itself.
         toolpath:      static (_, s) => Fin.Succ(GeometryHash.Create(s.Source.Digest)),
         gaussianSplat: static (k, s) => Digest(EncodeForm.Of(s.Source), k));
 
-    // Answer union reads TOTAL: a reconcile answer of the wrong shape is inconsistent state on the Op
-    // admission channel, and a fourth answer case breaks here rather than falling through a `_` tail.
     static Fin<GeometryHash> Digest(EncodeForm form, Op key) =>
         Reconciliation.Apply(new ReconcileOp.Encode(form), key)
             .Bind(answer => answer.Switch(
@@ -529,8 +454,6 @@ public static class Encode {
     static Fin<int> Census(PackOp op) => op.Switch(
         pointCloud: static c => Elements(c.Source.Vertices.Count, 1, Kind.PointCloud),
         meshPatch:  static m => Elements(m.Source.Native.Vertices.Count, 1, Kind.Mesh),
-        // Lattice ceiling gates the census at admission; the int narrowing is re-proven here because the
-        // descriptor arena's byte extents are int-bounded by its own validity claims.
         voxelGrid:  static v => v.Grid.CellCount <= int.MaxValue
             ? Elements((int)v.Grid.CellCount, 1, Kind.BoundingBox)
             : Fin.Fail<int>(new GeometryFault.DegenerateInput(Kind.BoundingBox, None, "cell-census-over-int")),
@@ -545,9 +468,6 @@ public static class Encode {
             : Fin.Fail<int>(new GeometryFault.DegenerateInput(kind, None, $"under {floor} elements"));
 
     // --- [LANES]
-    // ONE interleave over three ordinates: five lanes differed by their ACCESSOR alone, so the accessor is the
-    // parameter and the strided buffer walk has a single owner. Each caller takes the CASE payload the lane map
-    // discriminated, so none carries a refusal arm it cannot reach.
     internal static float[] Interleave3(int count, Func<int, (double X, double Y, double Z)> read) {
         float[] buffer = new float[count * 3];
         for (int i = 0; i < count; i++) {
@@ -560,7 +480,6 @@ public static class Encode {
     internal static float[] Points(Seq<Point3d> points) =>
         Interleave3(points.Count, i => (points[i].X, points[i].Y, points[i].Z));
 
-    // Read-only channel lanes ride space.Native; ONLY Normals duplicates, because ComputeNormals mutates.
     internal static float[] Vertices(MeshSpace space) {
         Mesh native = space.Native;
         return Interleave3(native.Vertices.Count, i => {
@@ -570,8 +489,6 @@ public static class Encode {
     }
 
     internal static float[] Normals(MeshSpace space) {
-        // Scoped disposal returns the native copy the moment the buffer fills; an undisposed duplicate per pack
-        // call leaked its unmanaged mesh.
         using Mesh native = space.DuplicateNative();
         if (native.Normals.Count != native.Vertices.Count) native.Normals.ComputeNormals();
         return Interleave3(native.Normals.Count, i => {
@@ -580,7 +497,6 @@ public static class Encode {
         });
     }
 
-    // Meshes without the per-corner UV column REFUSE — a fabricated (0,0) plane passes the witness trivially.
     internal static Fin<float[]> Uvs(MeshSpace space) {
         Mesh native = space.Native;
         if (native.TextureCoordinates.Count != native.Vertices.Count) {
@@ -601,9 +517,6 @@ public static class Encode {
             return (c.X, c.Y, c.Z);
         });
 
-    // A cloud with no per-point colour column REFUSES: an opaque-white fill passes the round-trip witness
-    // exactly, which is the fabrication `Uvs` already refuses one member over. The block arrives beside the
-    // cluster on the op case, so a caller that HAS colour states it and a caller that does not cannot pretend.
     internal static Fin<float[]> Colors(Option<Arr<float>> block, int count) =>
         block.Match(
             Some: rows => Block(rows, count, EncodingChannel.ColorRgba),
@@ -613,8 +526,6 @@ public static class Encode {
     internal static float[] Vectors(Vector3d[] vectors) =>
         Interleave3(vectors.Length, i => (vectors[i].X, vectors[i].Y, vectors[i].Z));
 
-    // The vertical component of an ESTIMATED normal is orientation consistency, never return intensity — the
-    // wire token says so, so a viewer reading _INTENSITY never receives a quantity nothing measured.
     internal static float[] Consistency(Vector3d[] normals) {
         float[] values = new float[normals.Length];
         for (int i = 0; i < normals.Length; i++) values[i] = (float)Math.Abs(normals[i].Z);
@@ -631,8 +542,6 @@ public static class Encode {
             line: static _ => 0f,
             arc:  static row => (float)row.Sense.Key))).ToArray();
 
-    // The span DISCRIMINANT a reader needs: 0 = line, 1 = arc. With it on the wire, ArcCenter and ArcSense carry
-    // the line rows' values as declared-unread rather than as a fabricated degenerate arc at the origin.
     internal static float[] Kinds(ToolpathPath path) =>
         0f.Cons(path.Spans.Map(static span => span.Switch(
             line: static _ => 0f,
@@ -676,7 +585,6 @@ public static class Encode {
         return Normalize(weight);
     }
 
-    // No Normalize operator exists on the lattice — MaxMagnitude + Divide IS the spelling.
     static float[] Normalize(float[] values) {
         float max = TensorPrimitives.MaxMagnitude<float>(values);
         if (!(max > 0f)) return values;
@@ -686,12 +594,9 @@ public static class Encode {
     }
 
     // --- [FIELDS]
-    // Direct case construction: PackPolicy.Of already admitted both values into their band owners.
     internal static ScalarField Curvature(MeshSpace space, PackPolicy policy) =>
         new ScalarField.MeanCurvatureFlowCase(Space: space, TimeStep: policy.CurvatureStep, Iterations: policy.CurvatureRounds);
 
-    // The abort-traversal operator carries the rail, so no Fin allocates and no Bind runs per vertex; a
-    // per-sample early return over a forged default read an unsampled zero as a legitimate field value.
     internal static Fin<float[]> Vertexwise(ScalarField field, MeshSpace space, Context tolerance, Op key) {
         Mesh native = space.Native;
         return toSeq(Enumerable.Range(0, native.Vertices.Count))
@@ -700,8 +605,6 @@ public static class Encode {
             .Map(static values => values.ToArray());
     }
 
-    // SignedDistanceFromMeshCase admits only vetted payloads by direct case construction; the iso-band is the
-    // declared PackPolicy.Tolerance read, so the occupancy threshold has the producer the entry line promises.
     internal static Fin<float[]> Occupancy(MeshSpace space, CellLattice grid, PackPolicy policy, Op key) {
         ScalarField field = new ScalarField.SignedDistanceFromMeshCase(Space: space, Policy: policy.Sdf);
         double isoBand = policy.Tolerance.For(ToleranceLane.PlaneDistance).Value;
@@ -762,13 +665,12 @@ flowchart LR
 - Boundary: this owner declares wire IDENTITY, never wire MACHINERY — no meshopt encoder, no glTF document model, and no `EXT_meshopt_compression` fallback-buffer policy lives in the kernel; the `Rasm.Element` interchange writer and the TypeScript `viewer/scene` decoder gate consume these rows, and the kernel's `Directory.Packages.props` carries no meshopt reference precisely because the rows are tokens and laws rather than a codec.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Thinktecture;
 
 namespace Rasm.Drawing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Key IS the wire token the `filter` property carries; Ordinal is the bitstream filter index.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MeshoptFilter {
@@ -783,11 +685,6 @@ public sealed partial class MeshoptFilter {
     [UseDelegateFromConstructor] public partial bool Admits(int arity, int width);
 }
 
-// ChannelPlacement names how a lane responds to a RIGID placement — positional points transform whole, directional
-// vectors rotate only, every other attribute copies rigid-invariant — so a flatten dispatches ONCE per descriptor
-// instead of name-testing channels per vertex (the Element ImportedGeometry.Bake consumer). Rotation/Scale ride
-// Invariant deliberately: a rigid flatten never composes a splat orientation — that pipeline bakes through its own
-// kernel, and a placement row claiming otherwise would certify math this column does not own.
 [SmartEnum<string>]
 public sealed partial class ChannelPlacement {
     public static readonly ChannelPlacement Positional = new("positional");
@@ -806,17 +703,12 @@ public sealed partial class EncodingChannel {
     public static readonly EncodingChannel Curvature = new("curvature",  arity: 1, dtype: ChannelDtype.Float16, wire: "_CURVATURE", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Geodesic  = new("geodesic",   arity: 1, dtype: ChannelDtype.Float16, wire: "_GEODESIC",  filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Intensity = new("intensity",  arity: 1, dtype: ChannelDtype.Float16, wire: "_INTENSITY", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
-    // Consistency is the vertical component of an ESTIMATED normal, not a measured return: _INTENSITY names a
-    // quantity a sensor reports and every glTF viewer reads it that way, so the estimate carries its own token.
     public static readonly EncodingChannel Consistency = new("consistency", arity: 1, dtype: ChannelDtype.Float16, wire: "_CONSISTENCY", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Occupancy = new("occupancy",  arity: 1, dtype: ChannelDtype.Float16, wire: "_OCCUPANCY", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Weight    = new("weight",     arity: 1, dtype: ChannelDtype.Float16, wire: "_WEIGHT",    filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel ArcCenter = new("arc-center", arity: 3, dtype: ChannelDtype.Float32, wire: "_ARCCENTER", filter: MeshoptFilter.Exponential, placement: ChannelPlacement.Positional);
     public static readonly EncodingChannel ArcSense  = new("arc-sense",  arity: 1, dtype: ChannelDtype.Float32, wire: "_ARCSENSE",  filter: MeshoptFilter.Exponential, placement: ChannelPlacement.Invariant);
-    // SpanKind discriminates the toolpath row (0 = line, 1 = arc) so ArcCenter and ArcSense carry the line rows'
-    // values as declared-unread rather than as a degenerate arc a reader cannot tell from a real one.
     public static readonly EncodingChannel SpanKind  = new("span-kind",  arity: 1, dtype: ChannelDtype.Unorm8,  wire: "_SPANKIND",  filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
-    // Harmonic is the SH3 block — 16 coefficients x 3 channels; a different degree is a descriptor column.
     public static readonly EncodingChannel Scale     = new("scale",      arity: 3,  dtype: ChannelDtype.Float32, wire: "_SCALE",    filter: MeshoptFilter.Exponential, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Rotation  = new("rotation",   arity: 4,  dtype: ChannelDtype.Float32, wire: "_ROTATION", filter: MeshoptFilter.Exponential, placement: ChannelPlacement.Invariant);
     public static readonly EncodingChannel Harmonic  = new("harmonic",   arity: 48, dtype: ChannelDtype.Float16, wire: "_HARMONIC", filter: MeshoptFilter.None, placement: ChannelPlacement.Invariant);
@@ -838,7 +730,7 @@ public sealed partial class EncodingChannel {
 - Boundary: `SchemaId` is `UInt128` identity currency, its hex, two-lane `ulong`, and byte-order encodings consuming-seam projections; schema identity binds the representation vocabulary declared here, so a consumer-side roster re-declaring field rows diverges. Each derived-stride column stays contiguous at its descriptor offset, so a consumer wraps every field zero-copy while the kernel never touches a columnar client — `Rasm.Compute` `Runtime/codecs#ARROW_BATCH` borrows those slices into record-batch columns and `Rasm.Persistence` `Query/lakehouse#FLAT_TABLE_EGRESS` owns the writers, hive generation, and Flight serving beneath them; the kernel reaches neither, and `SchemaId` is the identity the lake generation keys its tree on. `PackEvidenceContext` declares the kernel evidence payload alone and folds into the app-root suite as one `SuiteContracts.Wire` context argument — the kernel mints no second suite and admits no reflection resolver.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.IO;
 using System.Text.Json;
@@ -853,23 +745,17 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Drawing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Dense carries no null sentinel — absence is COLUMN absence; a mask is one Masked row, never a magic value.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SchemaNullability {
     public static readonly SchemaNullability Dense = new(0);
     public static readonly SchemaNullability Masked = new(1);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The field keys on the TYPED channel, so no schema read round trips through a string; the digest writer below
-// is the one place the text appears, because a wire preimage is bytes and a roster ordinal is not.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PackSchemaField(
     EncodingChannel Channel, int Arity, ChannelDtype Dtype, int ElementStride, SchemaNullability Nulls, string WireName, MeshoptFilter Filter) {
 
-    // Declaration read takes the channel's own dtype and dense nulls; the packed-instance read overrides with
-    // the dtype and the mask-derived nullability the descriptor actually carries, so a re-typed or masked arena
-    // keys distinct from the roster that declared it.
     public static PackSchemaField Of(EncodingChannel channel, ChannelDtype dtype, SchemaNullability nulls) =>
         new(Channel: channel, Arity: channel.Arity, Dtype: dtype, ElementStride: channel.Arity * dtype.Width,
             Nulls: nulls, WireName: channel.WireName, Filter: channel.Filter);
@@ -882,9 +768,6 @@ public sealed partial record PackSchema(
     public bool IsValid => ValidityClaim.All(
         ValidityClaim.CountAtLeast(count: Fields.Count, floor: 1),
         Fields.Map(static field => field.Channel).Distinct().Count == Fields.Count,
-        // Nullability is a closed two-row enum, so membership is the type's own guarantee and stating it here
-        // was a vacuous conjunct; the id agreement below is against THIS field roster alone, because pinning it
-        // to the kind declaration made the re-typed-arena read structurally unreachable.
         Fields.ForAll(static field =>
             field.Arity > 0
             && field.ElementStride == field.Arity * field.Dtype.Width
@@ -908,8 +791,6 @@ public sealed partial record PackSchema(
 
     public string Tag => ContentHash.Hex(SchemaId);
 
-    // Framed writer is the canonical projection: String frames its own byte count, so no separator joins
-    // and no invariant-culture line format can collide two distinct field rosters onto one id.
     private static PackSchema Of(PackKind kind, Seq<PackSchemaField> fields) =>
         new(SchemaId: ContentHash.Of(
                 state: (Kind: kind, Fields: fields),
@@ -921,19 +802,14 @@ public sealed partial record PackSchema(
             Kind: kind, Fields: fields);
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// Kernel declares its evidence payload alone; the app-root suite folds this context in as one argument, so no
-// reflection resolver and no second suite ever reach the kernel.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [JsonSerializable(typeof(ddouble[]))]
 public sealed partial class PackEvidenceContext : JsonSerializerContext;
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class EvidenceCodec {
     public static readonly JsonSerializerOptions Json = Sealed();
 
-    // Options-level converters outrank resolver metadata, so the exact hi/lo codec wins over any generated
-    // ddouble contract; MakeReadOnly runs before the field publishes, so no caller observes a mutable instance
-    // and a post-seal Converters or TypeInfoResolver write throws at the write.
     private static JsonSerializerOptions Sealed() {
         JsonSerializerOptions wire = new(JsonSerializerOptions.Strict) {
             TypeInfoResolver = PackEvidenceContext.Default,
@@ -944,18 +820,13 @@ public static class EvidenceCodec {
         return wire;
     }
 
-    // Both arms ride the SAME rail: a write that raises mid-block leaves a truncated evidence stream a reader
-    // cannot tell from a short one, so the codec pair refuses typed at both ends rather than one throwing and
-    // its inverse catching. `Write(BinaryWriter, ddouble)` and `ReadDDouble` are DoubleDoubleIOExpand's own
-    // exact hi/lo extensions — the pair is the package's, never hand-assembled off the internal component split.
-    // The span copies because a ref struct cannot cross into the catch closure; the block is evidence-sized.
     [BoundaryAdapter]
     public static Fin<Unit> WriteBlock(BinaryWriter writer, ReadOnlySpan<ddouble> evidence, Op? key = null) {
         Op k = key.OrDefault();
         ddouble[] block = evidence.ToArray();
         return k.Catch(() => {
             writer.Write(block.Length);
-            foreach (ddouble value in block) { writer.Write(value); }   // exact hi/lo pair per value
+            foreach (ddouble value in block) { writer.Write(value); }
             return Fin.Succ(unit);
         });
     }

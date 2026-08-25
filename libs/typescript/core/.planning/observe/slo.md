@@ -25,10 +25,6 @@ import { Array, Duration, Number, Option, Order, Record, Schema } from "effect"
 import { Shape } from "../value/schema.ts"
 import { Convention } from "./convention.ts"
 
-// Each SLI case keys its own admission row, so the case tag and the metric role are ONE vocabulary rather than two
-// spellings a guard has to reconcile. The two columns are already ON the instrument row — the exported kind a reader
-// sums or buckets, and whether the row's UCUM code is a time code — so a metric set derives from the deciding member
-// and every row landed after this table is nameable by construction.
 const _roleKinds = ["Freshness", "Latency", "Partition", "Ratio", "Saturation"] as const
 const _roleRows = {
   Freshness: { kind: "gauge", temporal: true },
@@ -39,9 +35,6 @@ const _roleRows = {
 } as const
 const _Role = Shape.vocabulary(_roleKinds, _roleRows)
 
-// The runtime refinement reads the row's own columns and the admitted TYPE derives from the same pair, so the literal
-// metric union survives without a roster: `Convention.DurationMetric` is the temporal carve, and the convention owner's
-// own two-way census proves it equal to the rows whose unit is a time code.
 const _admits = <R extends Reliability.Role>(role: R): Schema.Schema<Reliability.RoleMetric<R>, Convention.MetricName> =>
   Convention.Metric.schema.pipe(
     Schema.filter(
@@ -58,10 +51,6 @@ const _PartitionMetric = _admits("Partition")
 const _RatioMetric = _admits("Ratio")
 const _SaturationMetric = _admits("Saturation")
 
-// Filterable keys ARE the mounted rows' own declared fan: `Convention.dimensions` folds every instrument's fan beside
-// the estate coordinates and the one exported word axis, so an objective can slice exactly what a series carries and
-// a row minted after this page stays filterable. The derived roster is an array, so admission rides the same
-// row-reading refinement the metric sets take rather than a literal union restated here.
 const _Key: Schema.Schema<Convention.Dimension, string> = Schema.String.pipe(
   Schema.filter(
     (key): key is Convention.Dimension => Array.some(Convention.dimensions, (dimension) => dimension === key),
@@ -105,7 +94,7 @@ const _Latency = Schema.TaggedStruct("Latency", {
   quantile: Schema.Number.pipe(Schema.greaterThan(0), Schema.lessThan(1)),
 })
 const _Saturation = Schema.TaggedStruct("Saturation", {
-  bound: Schema.Number.pipe(Schema.finite()),   // the level's own unit: a rank, a depth, and a fraction all bound here
+  bound: Schema.Number.pipe(Schema.finite()),
   breach: Schema.Literal("ceiling", "floor"),
   metric: _SaturationMetric,
 })
@@ -149,7 +138,7 @@ const _SliOwner: {
   Saturation: _Saturation.make,
   Sample: _Sample,
   breached: _breached,
-  rate: ({ breaching, total }) => Option.map(Number.divide(breaching, total), _Rate.make), // the branded sample proof bounds every non-empty quotient
+  rate: ({ breaching, total }) => Option.map(Number.divide(breaching, total), _Rate.make),
 }
 
 class _Objective extends Schema.Class<_Objective>("Objective")({
@@ -219,7 +208,7 @@ const _evaluate = (objective: _Objective, readings: Reliability.Slo.Readings): R
   const fired = Array.filter(Record.values(rows), (verdict) => verdict.fired)
   return {
     rows,
-    severity: Array.match(fired, {                             // the ceiling is one Order policy value: the dominant fired severity, never a branch ladder
+    severity: Array.match(fired, {
       onEmpty: Option.none,
       onNonEmpty: (verdicts) => Option.some(Array.max(Array.map(verdicts, (verdict) => verdict.row.severity), _bySeverity)),
     }),
@@ -272,7 +261,7 @@ const _of = (objective: _Objective): ReadonlyArray<Reliability.Alert.Spec> =>
       filters: objective.filters,
       severity: { ..._Severity.at(row.severity), kind: row.severity },
       sli: objective.sli,
-      slug: `${objective.name}:${row.key}`,                     // the row's own wire key, never the record identifier
+      slug: `${objective.name}:${row.key}`,
       spend: _SloOwner.share(burn, objective),
       target: objective.target,
       windows: { long: row.long, short: row.short },
@@ -291,8 +280,6 @@ declare namespace Reliability {
   type Filter = typeof _Filter.Type
   type Objective = InstanceType<typeof _Objective>
   type Role = (typeof _roleKinds)[number]
-  // the admitted set for one case, derived from the SAME two columns its runtime refinement reads: `DurationMetric`
-  // is the convention owner's own temporal carve, proved equal in both directions to the rows carrying a time code
   type RoleMetric<R extends Role = Role> = (typeof _roleRows)[R]["temporal"] extends true
     ? Extract<Convention.MetricName<(typeof _roleRows)[R]["kind"]>, Convention.DurationMetric>
     : Exclude<Convention.MetricName<(typeof _roleRows)[R]["kind"]>, Convention.DurationMetric>
@@ -300,7 +287,7 @@ declare namespace Reliability {
   type _Roles<
     Missing extends never = Exclude<Sli["_tag"], Role>,
     Excess extends never = Exclude<Role, Sli["_tag"]>,
-  > = [Missing, Excess] // the case tag IS the role key: a case with no admission row, or a row no case reads, refuses here
+  > = [Missing, Excess]
   namespace Slo {
     type Sample = typeof _Sample.Type
     type Rate = typeof _Rate.Type

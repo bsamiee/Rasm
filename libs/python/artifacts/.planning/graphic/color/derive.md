@@ -17,7 +17,7 @@ Color arity is ruled at two pages: measurement, the `Metric` family, and spectra
 - Packages: `colour-science` (the colorimetric-truth engine — `convert`/`chromatic_adaptation`/`delta_E`/`temperature`/colorimetric-index/`colour_correction`/`matrix_cvd_Machado2009`/`XYZ_to_sd`/`munsell_colour_to_xyY` and the `SpectralDistribution`+`align` resample surface per the fence imports), `coloraide` (`everything.ColorAll`, the all-plugins engine — gamut fit, CVD+W3C filters, palette interpolation including the mixbox pigment curves, mask/layer/weighted-mix compositing, harmony, blackbody, OKLab-perceptual difference, WCAG contrast, CSS notation), `colour-cxf` (`read_cxf` → the `cxf3.CxF` graph for the CxF3 spot-library intake; `write_cxf` over the built `cxf3` dataclass graph — `Object`/`ColorSpecification`/`ReflectanceSpectrum`/`ColorCielab` — for the `cxf_book` egress), with `expression`/`numpy`/`beartype` and the runtime `LanePolicy`/`Kernel`/`KernelTrait`; the full member surface lives in the package `.api` catalogs.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, StrEnum
@@ -45,7 +45,7 @@ lazy from colour_cxf import (
     write_cxf,
 )
 
-# --- [TYPES] ------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 type Tristimulus = Annotated[
     NDArray[np.float64],
     Is[lambda value: value.ndim == 1 and value.shape == (3,) and bool(np.isfinite(value).all())],
@@ -86,12 +86,6 @@ type DeriveFault = Literal[
 
 
 class ModelNames(NamedTuple):
-    # Three independent engine columns, each naming the row in ITS registry: `science` the `colour.convert` graph node,
-    # `aide` the ColorAide space id, `rgb` the `colour.RGB_COLOURSPACES` primaries-and-cctf record. A model reaches a
-    # registry only where its column is filled — an RGB colourspace is not a `convert` node and a `convert` node
-    # carries no primaries — so a caller refuses on the column its route needs, never on a membership set kept beside
-    # this vocabulary. Consumers whose own engine spells these models differently lower by member at their own page,
-    # exactly as `graphic/raster/io#IO` lowers `BlendMode` and `PorterDuff` onto libvips nicknames.
     science: str | None
     aide: str | None
     rgb: str | None = None
@@ -296,13 +290,10 @@ class PorterDuff(StrEnum):
     LIGHTER = "lighter"
     PLUS_LIGHTER = "plus-lighter"
     PLUS_DARKER = "plus-darker"
-    SATURATE = "saturate"  # Porter and Duff's own extended operator beside `plus`, which the CSS compositing set drops
+    SATURATE = "saturate"
 
     @property
     def composited(self) -> bool:
-        # ColorAide's compositing registry carries the twelve basic operators and the three CSS extensions, so
-        # `saturate` refuses there by name while libvips composites it — the algebra is the vocabulary's, the reach
-        # is each engine's, and the member answers reach rather than a membership set kept beside the roster.
         return self is not PorterDuff.SATURATE
 
 
@@ -373,11 +364,11 @@ class MetricSpec(NamedTuple):
         return self.space is ColorModel.SPECTRAL
 
 
-# --- [CONSTANTS] --------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 _WORKING_SHAPE: Final[SpectralShape] = SpectralShape(360.0, 830.0, 1.0)
 
 
-# --- [MODELS] -----------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 @dataclass(frozen=True, slots=True, kw_only=True)
 class GamutFit:
     in_gamut: bool
@@ -427,7 +418,7 @@ class Derivation:
                 assert_never(unreachable)
 
 
-# --- [TABLES] -----------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 _WHITEPOINT: Final[Map[Observer, Map[Illuminant, Tristimulus]]] = Map.of_seq(
     (
         observer,
@@ -559,8 +550,6 @@ class ColorOp:
     def Adapt(
         value: Tristimulus, source: Illuminant, target: Illuminant, method: CamMethod = CamMethod.VON_KRIES, observer: Observer = Observer.CIE_1931_2
     ) -> Result["ColorOp", DeriveFault]:
-        # `_WHITEPOINT` is total over Observer x Illuminant by construction, so admission holds no residual
-        # refusal today; the rail is uniform with every sibling factory so a future refusal lands with zero caller churn.
         return Ok(ColorOp(adapt=(value, source, target, method, observer)))
 
     @staticmethod
@@ -640,9 +629,6 @@ class ColorOp:
         observer: Observer = Observer.CIE_1931_2,
         illuminant: Illuminant = Illuminant.D65,
     ) -> Result["ColorOp", DeriveFault]:
-        # `illuminant` is the measurement context, never a constant: whiteness, yellowness, CRI, and CFI are
-        # illuminant-relative by definition, so a reference-free index resolved against a fixed white reports a
-        # different number under the same sample the moment the press, booth, or display white moves.
         spectral_sample = isinstance(sample, SpectralDistribution)
         return (
             Error("<non-spectral-sample>")
@@ -686,8 +672,6 @@ class ColorOp:
         observer: Observer = Observer.CIE_1931_2,
         illuminant: Illuminant = Illuminant.D65,
     ) -> Result["ColorOp", DeriveFault]:
-        # seed is a tristimulus, so a spectral source model contradicts it and an engine-less model
-        # cannot reach the XYZ hop `_resolved`'s recover arm takes.
         return (
             Error("<source-model>")
             if source.spectral
@@ -702,16 +686,13 @@ class ColorOp:
         return Error("<empty-notation>") if isinstance(value, str) and not value.strip() else Ok(ColorOp(notate=value))
 
 
-# --- [SERVICES] ---------------------------------------------------------------------------
+# --- [SERVICES] -------------------------------------------------------------------------
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Colorimetry:
     op: ColorOp
     lane: LanePolicy
 
     async def derive(self) -> RuntimeRail[Derivation]:
-        # synchronous colour-science/ColorAide CPU kernels: numpy-band natives bar the subinterpreter arm, so the
-        # HOSTILE process pool owns isolation — one kernel per worker at a time keeps the non-thread-local
-        # domain_range_scale global race-free; runtime owns the bound, no folder limiter.
         return await self.lane.offload(Kernel.of(Colorimetry._resolved, KernelTrait.HOSTILE), self.op)
 
     # --- [OPERATIONS]
@@ -900,8 +881,6 @@ class Colorimetry:
 
     @staticmethod
     def _aligned(value: ColorSource, /) -> ColorSource:
-        # measurement-side resample: an arbitrary-grid measured spectrum aligns to the working shape
-        # once at ingress (copy-then-align — colour mutates in place); non-spectral sources pass through.
         match value:
             case SpectralDistribution() | MultiSpectralDistributions():
                 return value.copy().align(_WORKING_SHAPE)
@@ -917,8 +896,6 @@ class Colorimetry:
         illuminant: Illuminant,
         adapt: AdaptMethod = AdaptMethod.BRADFORD,
     ) -> MetricInput | ColorMatrix | MultiSpectralDistributions:
-        # `observer` and `illuminant` are the one measurement context every spectral ingress and every reference white
-        # reads: the CMFS pair the cone fundamentals come from and the SPD a measured reflectance integrates under.
         aligned = Colorimetry._aligned(value)
         if target.spectral:
             return aligned
@@ -931,8 +908,6 @@ class Colorimetry:
                     np.asarray(colour.msds_to_XYZ(aligned, cmfs, colour.SDS_ILLUMINANTS[illuminant.value]), dtype=np.float64), target
                 )
             case _ if source.aide is not None and target.aide is not None and (source.science is None or target.science is None):
-                # a science=None endpoint (wide-gamut/HSL/HWB) colour-science has no node for rides the ColorAide
-                # gateway so Convert is total over every ColorModel pair; coords enter in source.aide, leave in target.aide.
                 return np.asarray(
                     Color(source.aide, list(np.ravel(np.asarray(aligned, dtype=np.float64)))).convert(target.aide).coords(), dtype=np.float64
                 )
@@ -943,8 +918,6 @@ class Colorimetry:
 
     @staticmethod
     def _landed(xyz: Coordinates, target: ColorModel) -> Coordinates:
-        # spectral intake lands in XYZ; a science-named target continues on the colour graph, an aide-only
-        # (wide-gamut/HSL/HWB) target rides the ColorAide gateway so Convert is total over every spectral ingress.
         if target.science is not None:
             return np.asarray(colour.convert(xyz, "CIE XYZ", target.science), dtype=np.float64)
         rows = xyz if xyz.ndim == 2 else xyz[np.newaxis, :]
@@ -953,8 +926,6 @@ class Colorimetry:
 
     @staticmethod
     def _white(space: ColorModel, observer: Observer, illuminant: Illuminant) -> Coordinates:
-        # Reference-free measures take the op's OWN declared white as their second operand, read off the total
-        # Observer x Illuminant table — never a fixed row, because every illuminant-relative index moves with it.
         if space.spectral:
             return np.empty(0, dtype=np.float64)
         return np.asarray(Colorimetry._resolve(_WHITEPOINT[observer][illuminant], ColorModel.XYZ, space, observer, illuminant), dtype=np.float64)
@@ -1029,8 +1000,6 @@ class Colorimetry:
 
     @staticmethod
     def _cxf_context(spec: "cxf3.ColorSpecification | None") -> tuple[Observer, Illuminant, int]:
-        # CxF measurement admission kernel: a spectrum is interpretable only against its ColorSpecification
-        # illuminant/observer/grid; a missing spec folds to D65 / 2-degree / 10nm.
         if spec is None:
             return Observer.CIE_1931_2, Illuminant.D65, 10
         tri = spec.tristimulus_spec
@@ -1046,7 +1015,7 @@ class Colorimetry:
         return observer, illuminant, int(increment or 10)
 
 
-# --- [OPERATIONS] -------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 def hex_ramp(palette: Palette, /) -> tuple[str, ...]:
     rows = palette if palette.ndim == 2 else palette[np.newaxis, :]
     return tuple(Color("srgb", list(row)).clip().to_string(hex=True) for row in rows)
@@ -1062,29 +1031,20 @@ def cxf_book(
     creator: str = "rasm.artifacts",
     stamp: str = "1970-01-01T00:00:00Z",
 ) -> Result[bytes, DeriveFault]:
-    # Spot intake's inverse: a named swatch set serialized as one CxF3 ink book. Each entry references the
-    # specification matching its own evidence — a reflectance spectrum the measurement-bearing `cs0`, a bare
-    # tristimulus the tristimulus-only `cs1` — so the book never declares a `Spectrum_Reflectance` measurement
-    # for a swatch that carries none, and a partner press re-resolves each spectrum against the exact context.
     if not swatches:
         return Error("<empty-document>")
     if source.science is None:
         return Error("<source-model>")
     if any(isinstance(value, SpectralDistribution) and not bool(np.all((value.values >= 0.0) & (value.values <= 1.0))) for _, value in swatches):
-        return Error("<source-model>")  # an emissive or unbounded distribution is not the reflectance the book declares
+        return Error("<source-model>")
     spectral_id, tristimulus_id = "cs0", "cs1"
 
     def _lab(xyz: Tristimulus, spec_id: str) -> "cxf3.ColorCielab":
-        # Lab is illuminant-relative: the conversion reads the BOOK's declared illuminant under its declared observer
-        # (a bare convert would default to D65), so the emitted Lab values agree with the TristimulusSpec a partner
-        # press re-resolves against — both entry branches converge here, one white point for the whole book.
         white = colour.CCS_ILLUMINANTS[observer.value][illuminant.value]
         lab = np.asarray(colour.XYZ_to_Lab(xyz, illuminant=white), dtype=np.float64)
         return cxf3.ColorCielab(l=float(lab[0]), a=float(lab[1]), b=float(lab[2]), color_specification=spec_id)
 
     def _entry(ordinal: int, name: str, value: SpectralDistribution | Tristimulus) -> "cxf3.Object":
-        # ONE scale context spans both branches — `sd_to_XYZ` and every `convert` hop read the same reference
-        # domain, so spectral and tristimulus swatches land Lab values on one scale with no manual rescale.
         with colour.domain_range_scale("reference"):
             if isinstance(value, SpectralDistribution):
                 aligned = value.copy().align(_CXF_EXPORT_GRID)
@@ -1140,7 +1100,7 @@ def cxf_book(
     return Ok(write_cxf(book))
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 __all__ = [
     "AdaptMethod",
     "Amount",

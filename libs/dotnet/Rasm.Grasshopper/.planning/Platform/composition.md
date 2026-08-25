@@ -48,7 +48,7 @@ Mount roster is what makes `ARCHITECTURE.md`'s S2 claim a producer rather than p
 - Growth: a new mounted family is one roster row naming its entry; a new process-wide registry is one cell on this capsule, never a static on a library page.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Reflection;
 using Rasm.Domain;
 using Rasm.Grasshopper.Components;
@@ -58,9 +58,7 @@ using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Platform;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// One in-package composition capsule: identity, session time, fault custody, and the broker registry live HERE, so a
-// library page holds no process-wide static and a collectible plugin ALC drops its whole estate with this lease.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class PlatformRoot : IDisposable {
     private static readonly HookId ReleasePoint = HookId.Create(value: "rasm.grasshopper.platform.root");
     private static readonly Op ReleaseOp = Op.Of(name: nameof(Dispose));
@@ -74,18 +72,12 @@ public sealed class PlatformRoot : IDisposable {
 
     public PackageIdentity<HookScope, Unit> Identity { get; }
 
-    // Folder's ONE timeline: every gate below takes it REQUIRED, and `MonotonicTimeline.Of` is unspellable
-    // outside this mint (folder RULINGS [02]).
     public MonotonicTimeline Clock { get; }
 
-    // ONE bounded cell crosses every retained callback and hook mount; no owner takes the kernel default.
     public FaultCell Faults { get; }
 
-    // Conversion-broker registry `Components/data.md` reads; rows register at load and release with the lease.
     public BrokerLedger Brokers { get; }
 
-    // Mount ownership transfers here as each roster row settles. Commit contention is visible on the rail;
-    // a dropped release action would make root disposal certify a still-live host attachment.
     public Fin<Unit> Hold<T>(Lease<T> mount, Op? key = null) where T : class, IDisposable {
         Op op = key.OrDefault();
         return op.Need(mount).Bind(held => Cell.Commit(mounts, rows => rows.Add(() => Fin.Succ(held.Dispose()))).Switch(
@@ -119,9 +111,6 @@ public sealed class PlatformRoot : IDisposable {
                    faults: new FaultCell(cap: capacity, clock: provider)));
     }
 
-    // Evidence fan — the folder's ONE GhEvidence egress: the instruments fold AND the journal's EvidenceCase
-    // partition see the same fact, which is what pairs capture frames to journal rows in `CaptureTie.Correlate`;
-    // a fact projected but not journaled (or the reverse) is the torn form this entry makes unspellable.
     public static Fin<Unit> Evidence(GhInstruments instruments, SessionJournal journal, GhEvidence fact, Op? key = null) =>
         instruments.Project(fact: fact)
             .Bind(_ => journal.Append(fact: new JournalFact.EvidenceCase(Evidence: fact), document: fact.Document, key: key)

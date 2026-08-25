@@ -35,14 +35,10 @@ from rasm.runtime.faults import TERMINAL, FaultRow, RuntimeRail, boundary, roste
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait
 
-# cold scientific dependencies: the `lazy` binds defer both scipy trees to the first route body. `_proximity` keeps its
-# `try`/`except ImportError` around the `sp.cKDTree` dereference ALONE, so an absent scipy falls to `NEIGHBOUR_FLOOR`
-# while a raise out of the query it guards stays the defect it is.
 lazy import scipy.spatial as sp
 lazy from scipy.optimize import linprog
 
 if TYPE_CHECKING:
-    # declared here so the `KdReduction` signature names the real carrier rather than degrading to a bare `object`.
     from scipy.spatial import cKDTree
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -52,15 +48,15 @@ type NeighbourReduction = Callable[[np.ndarray, np.ndarray, float], "SpatialEvid
 type KdReduction = Callable[["cKDTree"], "SpatialEvidence"]
 
 
-class Metric(StrEnum):  # the scipy.spatial.distance metric= argument as a bounded vocabulary, never a string knob
-    EUCLIDEAN = "euclidean"  # Minkowski p=2
-    CITYBLOCK = "cityblock"  # Minkowski p=1
-    CHEBYSHEV = "chebyshev"  # Minkowski p=inf
+class Metric(StrEnum):
+    EUCLIDEAN = "euclidean"
+    CITYBLOCK = "cityblock"
+    CHEBYSHEV = "chebyshev"
     COSINE = "cosine"
     CORRELATION = "correlation"
 
 
-class Tessellation(StrEnum):  # the Voronoi backend selector; the value is the scipy carrier name lowercased
+class Tessellation(StrEnum):
     VORONOI = "voronoi"
     SPHERICAL = "spherical"
     HALFSPACE = "halfspace"
@@ -72,9 +68,7 @@ class Tessellation(StrEnum):  # the Voronoi backend selector; the value is the s
 @tagged_union(frozen=True)
 class SpatialEvidence:
     tag: Literal["proximity", "complex_", "boundary", "alignment"] = tag()
-    # a kNN read has no radius and a radius read has no mean: both are ABSENT on the arm that never measured them,
-    # and the retired `0.0` defaults published a coincident-point mean and a zero-radius ball as measured values.
-    proximity: tuple[int, Option[float], Option[float]] = case()  # (count, mean_distance, radius)
+    proximity: tuple[int, Option[float], Option[float]] = case()
     complex_: tuple[str, int, float] = case()
     boundary: tuple[int, float] = case()
     alignment: tuple[float, float] = case()
@@ -96,10 +90,8 @@ class SpatialEvidence:
         return SpatialEvidence(alignment=(rmsd, disparity))
 
     def facts(self) -> dict[str, object]:
-        # native scalars only — a `str()`/`f""` coerce erases comparability at the receipt layer; rendering is the export layer's.
         match self:
             case SpatialEvidence(tag="proximity", proximity=(count, mean_distance, radius)):
-                # each unmeasured column OMITS its key rather than reporting a zero every aggregation folds as a reading.
                 return {
                     "count": count,
                     **mean_distance.map(lambda mean: {"mean_distance": mean}).default_value({}),
@@ -116,9 +108,6 @@ class SpatialEvidence:
 
 
 class SpatialReceipt(Struct, frozen=True):
-    # `lineage` carries the admitted point-set key beside the result key as ONE value, because the spine reads exactly
-    # that pair: a receipt naming what it produced without naming what it consumed strands every downstream walk at
-    # one hop, and two loose key slots are what lets one drift past the other.
     query: str
     points: int
     lineage: Provenance
@@ -133,9 +122,6 @@ class SpatialReceipt(Struct, frozen=True):
         return self.lineage.produced
 
     def contribute(self) -> Iterable[Receipt]:
-        # ONE settled-receipt spine: the result key IS the spine's `key` column and its `produced` provenance, so no
-        # payload slot re-spells the hex render the spine carries, and the admitted point set is the `consumed`
-        # roster. The evidence union stays on the payload — the spine owns its six columns and nothing else.
         facts = {"query": self.query, "points": self.points, **self.evidence.facts()}
         yield Receipt.of(
             EvidenceScope.SPATIAL.value,
@@ -172,8 +158,6 @@ class SpatialQuery:
 
     @staticmethod
     def Distances(left: np.ndarray, right: np.ndarray | None = None, metric: Metric = Metric.EUCLIDEAN) -> "SpatialQuery":
-        # `right=None` is the self-distance discriminant (condensed `pdist`); a real `right` is the
-        # cross matrix (`cdist`) — never a mutable `np.empty` class-definition-time default.
         return SpatialQuery(distances=(left, right, metric))
 
     @staticmethod
@@ -198,8 +182,6 @@ class SpatialQuery:
 
     @property
     def points(self) -> np.ndarray:
-        # OPERAND buffer the ArrayPayload admits, recovered from every case so admission stays one path; the two-set routes stack
-        # both operands so both coordinate buffers seed the operand key and a shared-`left` query with a distinct `right`/`target` never collides.
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(pts, qs, _)) | SpatialQuery(tag="radius", radius=(pts, qs, _)):
                 return np.concatenate([pts, qs])
@@ -220,10 +202,6 @@ class SpatialQuery:
                 assert_never(unreachable)
 
     def identity_parts(self, operand_key: ContentKey) -> tuple[bytes, ...]:
-        # N SEMANTIC fields, handed to the identity owner AS fields: enum rows serialize by value and numeric rows as
-        # canonical float64 bytes, and the count-and-length framing that makes the preimage injective rides
-        # `IdentitySource(parts=...)` at its one owner. The retired form spelled a local `len(part).to_bytes(8, "big")`
-        # prefix here — a width chosen at a call site forks the key namespace with no surface able to report it.
         row: tuple[object, ...]
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(_, _, k)):
@@ -248,9 +226,6 @@ class SpatialQuery:
 
     @property
     def cardinality(self) -> int:
-        # Receipt's reference-set count — the leading coordinate buffer's row count. `query.points.shape[0]` reports
-        # `len(pts) + len(queries)` on the two-set routes, conflating the query set into the reference count; the two concerns
-        # stay split across the identity operand and this receipt count.
         match self:
             case (
                 SpatialQuery(tag="neighbours", neighbours=(pts, *_))
@@ -263,28 +238,20 @@ class SpatialQuery:
                 return int(self.points.shape[0])
 
     def resolve(self, workers: int) -> SpatialEvidence:
-        # `workers` is the whole-lane grant width both KD-tree scans bind — `-1` creates an unbounded nested team.
         match self:
             case SpatialQuery(tag="neighbours", neighbours=(pts, qs, k)):
-                # admission precedes the clamp: a non-positive `k` and an empty reference set are caller defects the
-                # `spatial.neighbours` boundary fence converts — clamped or floored past this point, each emits a nan Proximity
-                # mean as valid evidence instead of a typed refusal, the raise-at-the-fence contract the align arm also rides.
                 if k < 1 or pts.shape[0] == 0:
                     raise ValueError(f"neighbours requires k >= 1 and a non-empty reference set, got k={k}, points={int(pts.shape[0])}")
-                # `k` clamps to the point count at the ONE dispatch site, so the cKDTree route and the numpy floor
-                # aggregate identical slot counts — an unclamped `k > n` query pads inf distances that poison the
-                # Proximity mean on one path while the floor's slice silently narrows on the other.
                 kth = min(k, int(pts.shape[0]))
                 return _proximity(
                     "neighbours", pts, qs, float(kth), lambda tree: _knn_distances(np.asarray(tree.query(qs, k=kth, workers=workers)[0], dtype=float))
-                )  # a kNN read measures a mean and no radius, so the radius column stays ABSENT
+                )
             case SpatialQuery(tag="radius", radius=(pts, qs, r)):
                 return _proximity(
                     "radius",
                     pts,
                     qs,
                     r,
-                    # a radius read COUNTS hits and measures no mean, so the mean column stays ABSENT rather than zero.
                     lambda tree: SpatialEvidence.Proximity(int(sum(len(hit) for hit in tree.query_ball_point(qs, r=r, workers=workers))), radius=Some(r)),
                 )
             case SpatialQuery(tag="pairs", pairs=(pts, r)):
@@ -307,18 +274,11 @@ class SpatialQuery:
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's raise-side roster under the hub `ComputeLeg` seat. ONE row spans every query and declares NO slots,
-# because nothing raises through it — it names a lift FENCE whose detail the classifier supplies. The retired
-# `f"spatial.{query.tag}"` subject forked one refusal law into nine coordinates no shared census read could seat; the
-# query discriminant rides the weave's own span facts, where a trace already filters on it.
 SPATIAL_RESOLVE: Final[FaultRow[ComputeLeg]] = FaultRow(
     leg=ComputeLeg.SPATIAL, point="resolve", arm="boundary", defect="kernel-refused", retriability=TERMINAL
 )
 RAISES: Final[Block[FaultRow[ComputeLeg]]] = rostered(Block.of_seq([SPATIAL_RESOLVE]))
 
-# Data-driven numpy proximity floor: the ImportError arm reads its row and folds the same Proximity evidence the cKDTree path
-# produces, so the floor is table membership rather than per-route try/except blocks. A tag absent from this table has no floor —
-# Qhull, the BLAS distance kernel, and the rotation SVD are the gated capability itself.
 NEIGHBOUR_FLOOR: Final[Map[Tag, NeighbourReduction]] = Map.of_seq([
     ("neighbours", lambda pts, qs, k: _floor_knn(pts, qs, int(k))),
     ("radius", lambda pts, qs, r: _floor_radius(pts, qs, r)),
@@ -329,11 +289,6 @@ NEIGHBOUR_FLOOR: Final[Map[Tag, NeighbourReduction]] = Map.of_seq([
 
 
 def _proximity(tag: Tag, pts: np.ndarray, qs: np.ndarray, scale: float, reduce: "KdReduction") -> SpatialEvidence:
-    # one symmetric fold for both KD-tree proximity routes: run the scipy reduction, or fall to this tag's floor row when the
-    # package is absent — both terminate in `Proximity`, so the body carries no per-tag ternary. The `try` scopes the
-    # IMPORT SEAM ALONE — the lazy proxy reifies at this one dereference — because a whole-fold funnel re-routes an
-    # `ImportError` raised anywhere inside a scipy KD-tree query onto the numpy floor and publishes floor evidence a
-    # caller cannot tell from a tree scan; a raise out of the query itself is the defect the fence converts.
     try:
         tree = sp.cKDTree(pts)
     except ImportError:
@@ -342,23 +297,15 @@ def _proximity(tag: Tag, pts: np.ndarray, qs: np.ndarray, scale: float, reduce: 
 
 
 def _pairwise_sq(pts: np.ndarray, qs: np.ndarray) -> np.ndarray:
-    # One squared-distance kernel both floor rows read: the kNN floor sorts+`sqrt`s it, the radius floor thresholds it against
-    # `r**2` with no per-pair `sqrt`.
     diff = qs[:, None, :] - pts[None, :, :]
     return np.einsum("qnd,qnd->qn", diff, diff)
 
 
 def _knn_distances(distances: np.ndarray) -> SpatialEvidence:
-    # One Proximity mean both the cKDTree `query` distances and the floor's sorted block fold, so the two paths
-    # terminate identically; an EMPTY query set has no mean and says so. The retired `else 0.0` was not vacuous
-    # evidence — a zero mean distance is the reading that every point coincides, which is exactly the claim an
-    # unmeasured fold must not make, and every aggregation downstream folded the fabricated cell as data.
     return SpatialEvidence.Proximity(int(distances.size), Some(float(np.mean(distances))) if distances.size else Nothing)
 
 
 def _floor_knn(pts: np.ndarray, qs: np.ndarray, k: int) -> SpatialEvidence:
-    # `kth` clamps to the point count so a `k >= n` request mirrors the cKDTree tolerance rather
-    # than slicing past the column count; `sqrt` lands only on the retained k-nearest columns.
     kth = min(k, pts.shape[0])
     return _knn_distances(np.sqrt(np.sort(_pairwise_sq(pts, qs), axis=1)[:, :kth]))
 
@@ -377,14 +324,11 @@ def _hull(pts: np.ndarray) -> SpatialEvidence:
 
 
 def _triangulate(pts: np.ndarray) -> SpatialEvidence:
-    # Delaunay carries no `.volume` the way ConvexHull does, so `measure` reads the triangulated point cardinality — a real fact,
-    # never a simplex-count echo.
     tri = sp.Delaunay(pts)
     return SpatialEvidence.Complex("delaunay", int(tri.simplices.shape[0]), float(pts.shape[0]))
 
 
 def _distances(left: np.ndarray, right: np.ndarray | None, metric: Metric) -> SpatialEvidence:
-    # self-distance reduces the condensed `pdist` vector directly, never a dense squareform materialized only to mean over it.
     pairwise = sp.distance.pdist(left, metric=metric.value) if right is None else sp.distance.cdist(left, right, metric=metric.value)
     return SpatialEvidence.Complex(f"distance-{metric.value}", int(pairwise.size), float(np.mean(pairwise)))
 
@@ -398,9 +342,6 @@ def _tessellate(points: np.ndarray, kind: Tessellation, radius: float) -> Spatia
             sphere = sp.SphericalVoronoi(points, radius=radius)
             return SpatialEvidence.Complex("spherical-voronoi", int(sphere.vertices.shape[0]), float(len(sphere.regions)))
         case Tessellation.HALFSPACE:
-            # Operand is the `(N, d+1)` halfspace stack `[A | b]`, not a point set; `HalfspaceIntersection` needs a strictly
-            # feasible interior point, so the `linprog` Chebyshev centre replaces an `np.zeros` Qhull rejects as infeasible for any
-            # stack not straddling the origin.
             verts = sp.HalfspaceIntersection(points, _interior_point(points)).intersections
             return SpatialEvidence.Complex("halfspace", int(verts.shape[0]), float(np.linalg.norm(verts.max(axis=0) - verts.min(axis=0))))
         case _ as unreachable:
@@ -411,17 +352,12 @@ def _interior_point(halfspaces: np.ndarray) -> np.ndarray:
     a, b = halfspaces[:, :-1], halfspaces[:, -1]
     norms = np.linalg.norm(a, axis=1, keepdims=True)
     result = linprog(np.concatenate([np.zeros(a.shape[1]), [-1.0]]), A_ub=np.hstack([a, norms]), b_ub=-b, bounds=(None, None))
-    # an INFEASIBLE stack carries `x=None`, and the retired unconditional `result.x[:-1]` read it as a subscript —
-    # a bare `TypeError` from inside the kernel rather than the refusal the caller can act on. The raise lands at the
-    # fence exactly as the `neighbours` admission does, so an empty intersection reports itself as one.
     if not result.success:
         raise ValueError(f"halfspace stack admits no strictly feasible interior point: {result.message}")
     return np.asarray(result.x[:-1], dtype=float)
 
 
 def _align(source: np.ndarray, target: np.ndarray) -> SpatialEvidence:
-    # `align_vectors` returns the rotation and the root-sum-square deviation; the per-vector RMSD
-    # is rssd / sqrt(n), so the evidence reports a sample-independent fit error, not a raw sum.
     _, rssd = sp.transform.Rotation.align_vectors(target, source)
     _, _, disparity = sp.procrustes(target, source)
     return SpatialEvidence.Alignment(float(rssd / np.sqrt(source.shape[0])), float(disparity))
@@ -431,8 +367,6 @@ def _alpha_shape(points: np.ndarray, alpha: float) -> SpatialEvidence:
     tri = sp.Delaunay(points)
     radii = np.asarray([_circumradius(simplex) for simplex in points[tri.simplices]])
     retained = tri.simplices[kept := radii < alpha]
-    # each (d+1)-simplex contributes its (d+1) facets — the (d)-vertex subsets `combinations`
-    # enumerates; a facet shared by two retained simplices is interior, one in exactly one is boundary.
     facets = np.sort(np.concatenate([retained[:, list(combo)] for combo in combinations(range(retained.shape[1]), retained.shape[1] - 1)]), axis=1)
     unique, counts = np.unique(facets, axis=0, return_counts=True)
     return SpatialEvidence.Boundary(int(unique[counts == 1].shape[0]), float(np.sum(radii[kept])))
@@ -445,14 +379,6 @@ def _circumradius(simplex: np.ndarray) -> float:
 
 
 def _spatial_kernel(query: SpatialQuery, workers: int) -> "RuntimeRail[SpatialReceipt]":
-    # module-level so REFERENCE shipping resolves it by import — a closure pays an eager cloudpickle round-trip
-    # no thread arm needs; SYNCHRONOUS by contract, an async def hands the worker a bare coroutine object.
-    # `catch` names the scipy.spatial raise surface this body reaches, probed against the installed band: every
-    # degenerate Qhull tessellation raises `QhullError`, a `RuntimeError` subclass rather than a `ValueError` one, so
-    # `RuntimeError` is what admits it WITHOUT naming `sp.QhullError` — evaluating that attribute in the tuple would
-    # reify the lazy proxy at every call and defeat the `NEIGHBOUR_FLOOR` an absent scipy depends on. Ragged operands,
-    # refused metrics, correspondence mismatches, the two admission raises, and `np.linalg.LinAlgError` — the narrower
-    # subclass, leading so the classifier reads the precise type — cover the rest.
     return ArrayPayload.admit(ArraySource.Live(query.points), (), FiniteGate.REJECT).bind(
         lambda payload: ContentIdentity.of(f"spatial.{query.tag}", IdentitySource(parts=query.identity_parts(payload.content_key))).bind(
             lambda result_key: boundary(
@@ -469,9 +395,7 @@ def _spatial_kernel(query: SpatialQuery, workers: int) -> "RuntimeRail[SpatialRe
 
 
 async def solve(query: SpatialQuery, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> "RuntimeRail[SpatialReceipt]":
-    # Weave owns span, fence, and the fenced contributor harvest; the whole-lane grant bounds the KD-tree scan team.
     async def dispatch() -> RuntimeRail[SpatialReceipt]:
-        # One flatten from `RuntimeRail[RuntimeRail[SpatialReceipt]]` to `RuntimeRail[SpatialReceipt]`.
         return (
             await lane.whole(
                 lambda grant: lane.offload(Kernel.of(_spatial_kernel, KernelTrait.RELEASING), query, grant.width)

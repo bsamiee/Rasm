@@ -22,7 +22,7 @@ Edition is identity; resolved annotations are not. `Edition` joins the `(System,
 - Boundary: `Classification` is ONE generic value-object — a per-system type or an `IfcClass`-style entity-class roster on the seam is the deleted form (the `IfcClass` roster and the `PredefinedType` valid-set are `Rasm.Bim`'s IFC-schema concern, never lowered into the seam); the `System` is an opaque token the seam never validates against a roster, the projector validating the code shape and resolving the bSDD class + `Source`/`Edition`/`Title` at ingest before lowering; identity is the `(System, Code, Edition)` triple — `Edition` is IDENTITY because a publisher re-editions a code's MEANING under one token (a `Source`/`EditionDate`/`Title` difference, by contrast, never fragments a node's content key), so the `Graph/element#NODE_MODEL` `CanonicalBytes` projection writes `System`/`Code`/`Edition` (for the primary `Classification` AND each deterministically-ordered member of the `Classifications` set, never the annotation bundle) and identity stays annotation-stable across runtimes; the `Object` node carries the typed triple with the `Classifications` set so a query matches a code (the `Query/predicate#ELEMENT_PREDICATE` `ByClassification` leaf over the co-applied set, its branch closure Bim-resolved) rather than a stringly-keyed property lookup — a free `string` classification field on a node is the named defect; the `Code` parent-derivation is a pure projection over the admitted code, never a stored parent edge or a per-call regex; the `IfcClassificationReference.Location` dictionary URI is NOT a seam member — it is fully derivable from `(System, Code)` through the projector's roster, so lowering it as a stored annotation duplicates the roster.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Runtime.InteropServices;
 using LanguageExt;
 using LanguageExt.Common;
@@ -35,23 +35,11 @@ using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Classification;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// SkipFactoryMethods: the generated throwing Create/TryCreate/Validate trio is NOT emitted, so Of below is the
-// ONLY door — the corpus held 6 throwing-Create sites beside 5 railed ones for the same value, two admissions for
-// one concept. The generated private ctor stays reachable from inside the type alone.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ComplexValueObject(SkipFactoryMethods = true)]
 [ValidationError]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct Classification {
-    // Identity is the (System, Code, Edition) TRIPLE under SPLIT comparer policy (ordinal System — already lowercased
-    // at admission — and ordinal-ignore-case Code/Edition); marking these three opts equality IN to them, so the
-    // unmarked Source/EditionDate/Title are materialized but excluded from equality/hashing/diagnostics. Edition is
-    // IDENTITY because a publisher re-editions a code's MEANING under one token (IfcClassification.Edition,
-    // decompile-confirmed settable) — ("uniclass2015","Ss_25_10","") and ("uniclass2015","Ss_25_10","2") are distinct
-    // concepts a re-ingest must not collide; "" is the edition-unspecified default the common author path mints. The
-    // Source publisher, the EditionDate, and the Title are the Rasm.Bim-resolved annotations lowered from the bSDD /
-    // IfcClassification record, so identity (and the System+Code+Edition-only Graph/element#NODE_MODEL canonical projection)
-    // stays annotation-stable while a consumer still reads the name/publisher/date flat.
     [MemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
     public string System { get; }
     [MemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -62,14 +50,8 @@ public readonly partial struct Classification {
     public Option<LocalDate> EditionDate { get; }
     public Option<string> Title { get; }
 
-    // A struct always HAS a default and admission cannot forbid it, so the presence read is one law at the owner —
-    // never a `!= default` sentinel compare re-derived per consumer.
     public Option<Classification> Admitted => System is { Length: > 0 } ? Some(this) : None;
 
-    // Of is the ONE seam-rail admission a Rasm.Bim projector or author path takes: an author path supplies the
-    // (system, code, key) triple alone (Edition "", annotations None), and the projector leg also lowers the resolved
-    // (edition, source, date, title) off the IfcClassification / bSDD record — one entry discriminating on supplied
-    // members, never an edition-arity overload pair. The two blank gates accumulate under the caller's operation key.
     public static Fin<Classification> Of(
         string system, string code, Op key, string edition = "",
         Option<string> source = default, Option<LocalDate> editionDate = default, Option<string> title = default) =>
@@ -96,31 +78,27 @@ public readonly partial struct Classification {
 - Boundary: `Discipline` is the ONE analysis axis — a `StructuralDiscipline`/`ThermalDiscipline` parallel enum or a per-consumer discipline string is the deleted form; the rows are the closed roster BOTH consumers key into: the `Composition/material#MATERIAL_PROPERTY` `MaterialPropertySet` `[Union]` maps its twelve cases onto eleven rows (`Mechanical` and `Orthotropic` share `Structural`; `Damping` keys `Dynamic`; `Optical` keys `Energy`; `Hygrothermal`/`Durability`/`Electrical` their namesake rows) and the `Assessment/assessment#ASSESSMENT_NODE` payload keys on ANY row; the case-to-discipline correspondence is owned ONCE by `MaterialPropertySet.Discipline` (`Composition/material#MATERIAL_PROPERTY`), this axis carrying only the neutral row and never re-stating the map, so a future material-borne discipline (a `Water` absorption case, a `Circularity` disassembly case) is one `MaterialPropertySet` case carrying its existing row — zero edits here; the row carries NO aggregation/solver-route policy, NO display/banding columns, and NO governing-standard roster — the standards ride each row's declaration comment as provenance, the route roster (`"iso-6946-u"`, `"en1998-response"`) staying `Rasm.Compute`'s, so a column encoding "how this discipline aggregates across plies" or "which standard solves it" is a strata leak the seam refuses, the axis staying the pure neutral routing vocabulary.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Declaration order groups the roster semantically (structural mechanics → building physics → lifecycle);
-// wire identity is the KEY token and the Graph/element#NODE_MODEL Material projection orders by Key ordinal,
-// so declaration order is content-key-inert and a new row lands in its group with zero key drift.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class Discipline {
-    public static readonly Discipline Structural = new("structural"); // static/FEA
-    public static readonly Discipline Seismic = new("seismic"); // EN 1998 / ASCE 7 action
-    public static readonly Discipline Wind = new("wind"); // EN 1991-1-4 / ASCE 7 load
-    public static readonly Discipline Dynamic = new("dynamic"); // EN 1998-1 response-spectrum, ISO 10137 / EN 1990-A1.4.4 vibration serviceability — the row MaterialPropertySet.Damping keys
-    public static readonly Discipline Thermal = new("thermal"); // ISO 6946
-    public static readonly Discipline Hygrothermal = new("hygrothermal"); // EN 15026 / EN 13788 moisture
-    public static readonly Discipline Energy = new("energy"); // whole-building simulation
-    public static readonly Discipline Daylight = new("daylight"); // EN 17037 / LM-83
-    public static readonly Discipline Acoustic = new("acoustic"); // ISO 12354
-    public static readonly Discipline Fire = new("fire"); // EN 199x-1-2
-    public static readonly Discipline Circulation = new("circulation"); // IBC Ch.10 / EN egress life-safety
-    public static readonly Discipline Water = new("water"); // EN 806 demand/drainage
-    public static readonly Discipline Electrical = new("electrical"); // IEC 60364 / NEC installation sizing
-    public static readonly Discipline Durability = new("durability"); // ISO 15686 service life
-    public static readonly Discipline Circularity = new("circularity"); // ISO 20887 disassembly/reuse, EN 15804 module D
-    public static readonly Discipline Environmental = new("environmental"); // EN 15978 LCA
+    public static readonly Discipline Structural = new("structural");
+    public static readonly Discipline Seismic = new("seismic");
+    public static readonly Discipline Wind = new("wind");
+    public static readonly Discipline Dynamic = new("dynamic");
+    public static readonly Discipline Thermal = new("thermal");
+    public static readonly Discipline Hygrothermal = new("hygrothermal");
+    public static readonly Discipline Energy = new("energy");
+    public static readonly Discipline Daylight = new("daylight");
+    public static readonly Discipline Acoustic = new("acoustic");
+    public static readonly Discipline Fire = new("fire");
+    public static readonly Discipline Circulation = new("circulation");
+    public static readonly Discipline Water = new("water");
+    public static readonly Discipline Electrical = new("electrical");
+    public static readonly Discipline Durability = new("durability");
+    public static readonly Discipline Circularity = new("circularity");
+    public static readonly Discipline Environmental = new("environmental");
     public static readonly Discipline Cost = new("cost");
 
-    // Parse is the seam-rail admission a wire/route token takes; Get/TryGet stay the trusted-token resolvers.
     public static Fin<Discipline> Parse(string token, Op key) =>
         key.AcceptValidated<Discipline>(token);
 }

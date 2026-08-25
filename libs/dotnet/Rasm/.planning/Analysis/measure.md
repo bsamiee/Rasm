@@ -25,7 +25,7 @@ Every native mass-properties handle leases through the `Domain/rails` `Lease<T>`
 - Boundary: eleven measures are three cases over two policy enums — a `MeasureLength`/`MeasureArea`/`MeasureVolume` sibling-operation family is the proliferation this coordinate design deletes; every mass handle is leased and an escaped `Compute` handle is the resource-leak defect; the demand set requests exactly the moments the extraction reads; the area path threads model tolerances and a hardcoded tolerance literal is the deleted form. `GeometryMeasures` carries `Kind` beside one `Magnitude` because `Kind` already names WHICH domain answered — three mutually exclusive length, area, and volume COLUMNS re-derived that discriminant, left `Kind = Area` holding a volume representable, and stay the deleted form; the clause once read further — that every multi-kind need decomposes into repeated single-domain asks — and that premise fell to four consumers needing SIMULTANEOUS multi-kind takeoff (`Rasm.Compute` `Analysis/aggregator`'s per-ply area+volume distribution and `Analysis/lifecycle`'s `TakeoffOf`, `Rasm.Bim` `Semantics/properties`' base-quantity derivation and `Planning/cost`'s 5D/6D quantity joins), where one-bundle-per-domain re-paid the mass computation per domain and every per-domain `Option` collapse forged a zero at the absent-kind edge; the lawful multi-kind form is `MeasureBundle`'s kind-keyed pair set — the `Kind` discriminant survives on EVERY row, reads are `Option`, and sibling per-kind columns remain unrepresentable; every `GeometryMeasures` slot is measured, so a refused principal-frame solve refuses the bundle rather than publishing an absence. Measures leave as bare `double` — `MeasureValue` is Element's dimensioned carrier and the `Domain/context` unit bridge stays orthogonal.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -39,7 +39,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MomentDemand : ICapability<MomentDemand> {
     public static readonly MomentDemand First = new(key: "first", rank: 0);
@@ -70,16 +70,11 @@ public abstract partial record Measure {
         spatialMidpointCase: static _ => Midpoint<TGeometry, TOut>(),
         massPropertyCase: static p => Mass<TGeometry, TOut>(mass: p.Mass, property: p.Property));
 
-    // Operation identity DERIVES off the coordinate roster instead of concatenating two columns at each build:
-    // one frozen index over `MassKind × MassProperty` names every mass key, and the two scalar cases key off
-    // their own member names, so a fault reports an identity no hand string mints.
     private static readonly Lazy<FrozenDictionary<(MassKind Mass, MassProperty Property), Op>> MassKeys = new(static () =>
         MassKind.Items.SelectMany(static _ => MassProperty.Items, static (mass, property) => (Mass: mass, Property: property))
             .ToFrozenDictionary(static row => row, static row => Op.Of(name: $"{row.Mass.Label}{row.Property.Label}")));
     private static readonly Op ExtentKey = Op.Of(name: nameof(Extent)), MidpointKey = Op.Of(name: nameof(Midpoint));
 
-    // `Capability.CurveForm` and `Capability.Bound` already carry the erased-ingress arm and every curve and
-    // bounded `Kind` row, so the hand type ladders they replace were a second roster of the same admission.
     private static Operation<TGeometry, TOut> Extent<TGeometry, TOut>() where TGeometry : notnull =>
         typeof(TOut) == typeof(double) && Capability.CurveForm.Admits(type: typeof(TGeometry))
             ? Analysis.Operation<TGeometry, double>.Build(key: ExtentKey, requirement: Some(Requirement.CurveLength), requiresContext: true, state: ExtentKey,
@@ -146,20 +141,11 @@ public sealed partial class MassKind : ICapability<MassKind> {
     private readonly Func<object, Context, CapabilitySet<MomentDemand>, Op, Fin<IDisposable>> compute;
     private readonly Func<MassKind, IEnumerable<object>, Context, CapabilitySet<MomentDemand>, Op, Fin<IDisposable>> aggregate;
     public string Label { get; }
-    // The int-keyed roster satisfies the capability floor's text key through its Label column, so
-    // `CapabilitySet<MassKind>` types with no second roster and rank derives from declaration order.
     string ICapability<MassKind>.Key => Label;
     internal Requirement Requirement { get; }
-    // Which extra moments this domain's host handle needs before its derived slots read: `Length` fills centroid
-    // and error only under second moments, so the escalation is the DOMAIN's fact and the property row states
-    // which of its own reads that escalation serves — the product replaces one `Equals(Length)` ternary per row.
     internal CapabilitySet<MomentDemand> Escalation { get; }
-    // Host-handle discrimination has ONE site: the domain row already knows which mass-properties shape it mints,
-    // so every read is a column and no consumer re-spells the three-arm type switch.
     [UseDelegateFromConstructor] internal partial Fin<Point3d> CentroidOf(IDisposable handle, Op key);
     [UseDelegateFromConstructor] internal partial Fin<Seq<(double Moment, Vector3d Axis)>> AxesOf(IDisposable handle, Op key);
-    // Undemanded host slots read as the shape's own defaults; the projecting row selects exactly the slot its
-    // demand set bought, so no unmeasured moment reaches a consumer.
     [UseDelegateFromConstructor] internal partial Fin<MassMoments> MomentsOf(IDisposable handle, Op key);
     internal Fin<IDisposable> Aggregate(IEnumerable<object> geometry, Context context, CapabilitySet<MomentDemand> demands, Op op) =>
         aggregate(this, geometry, context, demands, op);
@@ -252,10 +238,6 @@ public sealed partial class MassKind : ICapability<MassKind> {
                 Done(LengthMassProperties.Compute(curves: items.AsIterable().Cast<Curve>(), length: true, firstMoments: demands.Admits(MomentDemand.First), secondMoments: demands.Admits(MomentDemand.Second), productMoments: demands.Admits(MomentDemand.Product))),
             Seq<object> items => SumBatch<LengthMassProperties>(geometry: items.AsIterable(), context: context, mass: self, demands: demands, op: op, sum: static (total, summands) => total.Sum(summands: summands, bAddTo: true)),
         };
-    // Release brackets the ACQUISITION, never the outcome rail: the host `Sum` mutator throws on a mis-shaped
-    // summand, and a release seated in a result-rail `.Map` leaked every handle on exactly that path. The cell
-    // carries the ONE handle whose ownership transferred to the caller's lease, so the bracket's release arm
-    // spares that handle and reclaims every other on all three exits — success, refusal, and throw.
     private static Fin<IDisposable> SumBatch<TMass>(IEnumerable<object> geometry, Context context, MassKind mass, CapabilitySet<MomentDemand> demands, Op op, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable {
         Atom<Option<IDisposable>> transferred = Atom(value: Option<IDisposable>.None);
         return IO.lift(() => Acquire(geometry: geometry, context: context, mass: mass, demands: demands, op: op))
@@ -271,8 +253,6 @@ public sealed partial class MassKind : ICapability<MassKind> {
                 }))
             .Run();
     }
-    // Acquisition runs to completion and reports its first refusal as DATA, so every handle it minted is in the
-    // bracket's hands before any consumer reads the outcome — a first-refusal abort strands the earlier mints.
     private static (Seq<IDisposable> Owned, Option<Error> Refused) Acquire(IEnumerable<object> geometry, Context context, MassKind mass, CapabilitySet<MomentDemand> demands, Op op) =>
         toSeq(geometry).Fold(
             (Owned: Seq<IDisposable>(), Refused: Option<Error>.None),
@@ -281,9 +261,6 @@ public sealed partial class MassKind : ICapability<MassKind> {
                 : mass.compute(item, context, demands, op).Match(
                     Succ: computed => state with { Owned = state.Owned.Add(computed) },
                     Fail: error => state with { Refused = Some(error) }));
-    // `bAddTo: true` accumulates into the HEAD handle, so the head is the survivor by the host's own contract.
-    // An empty geometry set and a refused host summation are separate refusals: the first is a caller defect,
-    // the second a computation the domain row names.
     private static Fin<IDisposable> Summed<TMass>((Seq<IDisposable> Owned, Option<Error> Refused) batch, MassKind mass, Op op, Func<TMass, IEnumerable<TMass>, bool> sum) where TMass : class, IDisposable =>
         batch.Refused.Match(
             Some: Fin.Fail<IDisposable>,
@@ -325,32 +302,20 @@ public sealed partial class MassProperty {
     public OutputBinding Output { get; }
     internal CapabilitySet<MomentDemand> BaseDemands { get; }
     internal CapabilitySet<MomentDemand> Escalates { get; }
-    // Each row reads exactly the domain column its own answer needs — the moment bundle or the eigen axes —
-    // so the eigen solve is never paid by a row projecting a moment slot.
     [UseDelegateFromConstructor] private partial Fin<Seq<object>> Project(MassKind mass, IDisposable handle, Op key);
-    // Escalation is the DOMAIN's fact and the served reads are the PROPERTY's, so the demand set is one product
-    // of two columns — no row re-spells a `mass.Equals(MassKind.Length)` test.
     internal CapabilitySet<MomentDemand> Demands(MassKind mass) =>
         mass.Escalation.Held.Where(demand => Escalates.Admits(capability: demand))
             .Aggregate(seed: BaseDemands, func: static (set, demand) => set.With(capability: demand));
-    // Values box ONCE at the erased roster column, and `OutputBinding.Admit` is the one unbox — no arm re-spells
-    // the type test beside its own cast.
     internal Fin<Seq<TValue>> Extract<TValue>(Op key, MassKind mass, IDisposable handle) =>
         Project(mass: mass, handle: handle, key: key).Bind(values => Output.Admit<TValue>(values: values, key: key));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// One handle projection carrying every moment slot the host shape publishes: the domain row reads it once and
-// each property row selects the slot its own demand set bought, so no consumer re-spells the shape discrimination.
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct MassMoments(
     double Magnitude, double MagnitudeError, Point3d Centroid, Vector3d CentroidError,
     Vector3d Radii, Vector3d Inertia, Vector3d Products);
 
-// `Kind` names WHICH domain answered and `Magnitude` carries that domain's own measure — three mutually
-// exclusive length/area/volume columns re-derived the discriminant beside it and left `Kind = Area` with a
-// volume representable. A consumer wanting one domain's full moment set takes this bundle; a consumer
-// distributing SEVERAL domains at once takes `MeasureBundle` below.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct GeometryMeasures(
     MassKind Kind, double Magnitude, double MagnitudeError, Point3d Centroid,
@@ -365,8 +330,6 @@ public readonly record struct GeometryMeasures(
         ValidityClaim.Finite(InertiaProducts),
         PrincipalFrame.IsValid);
 
-    // Every slot is MEASURED: a refused principal-frame solve refuses the bundle rather than publishing an
-    // absence a geometry with no frame reads identically.
     public static Fin<GeometryMeasures> Of(GeometryBase geometry, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return MassKind.KindOf(geometry: geometry).ToFin(op.Unsupported(inputType: geometry.GetType(), outputType: typeof(GeometryMeasures)))
@@ -382,10 +345,6 @@ public readonly record struct GeometryMeasures(
     }
 }
 
-// Multi-kind takeoff is a KIND-KEYED pair set, never parallel per-kind columns: each held row carries the
-// `MassKind` that answered beside its one magnitude, `Coverage` DERIVES from the held rows rather than riding
-// a hand-kept mirror, and an unheld kind reads `None` — so a consumer distributing area and volume in one fold
-// reads one value per domain and an absent domain can never surface as a fabricated zero.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude)> Measures) : IValidityEvidence {
     public CapabilitySet<MassKind> Coverage => CapabilitySet<MassKind>.Of([.. Measures.Map(static row => row.Kind)]);
@@ -395,15 +354,9 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
         Measures.Map(static row => row.Kind).Distinct().Count == Measures.Count,
         Measures.ForAll(static row => row.Kind is not null && ValidityClaim.Nonnegative(row.Magnitude).Holds));
 
-    // Data mint for consumers holding already-resolved magnitudes — a baked quantity row, a declared takeoff —
-    // admitted through the same oracle the geometry mint re-enters.
     public static Fin<MeasureBundle> Of(Seq<(MassKind Kind, double Magnitude)> measures, Op? key = null) =>
         key.OrDefault().AcceptValue(value: new MeasureBundle(Measures: measures));
 
-    // Geometry mint: every DEMANDED kind measures through its own leased mass handle, rows land in roster
-    // declaration order — the owner-published canonical order a byte-deriving reader needs — and a demanded
-    // kind the geometry cannot answer refuses the bundle whole: the caller lowers its demand, and absence is
-    // never minted as a zero row.
     public static Fin<MeasureBundle> Of(GeometryBase geometry, CapabilitySet<MassKind> kinds, Context context, Op? key = null) {
         Op op = key.OrDefault();
         return toSeq(MassKind.Items).Filter(kinds.Admits).Fold(
@@ -428,7 +381,7 @@ public readonly record struct MeasureBundle(Seq<(MassKind Kind, double Magnitude
 - Boundary: fifteen modalities live on one union under one `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the fragmentation this owner deletes; every box metric reads the length band the model carries, so the aspect denominator floors on a lane and the tightness gate compares a volume against that band CUBED rather than a length-scale anchor; `CornerSet.Unique` deduplicates at `ToleranceLane.Weld`, never a literal epsilon or a bare model tolerance; enclosing fits are measured approximations by contract, every sample enclosed rather than a minimal-ball claim, and the provenance rides out beside the sites so a corner-derived fit is never mistaken for a sampled one; box-metric ops accept box VALUES while recovery ops accept geometry, the gate roster keeping the two altitudes disjoint.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -442,7 +395,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CornerSet {
     public static readonly CornerSet All = new(key: "all", read: static (box, _) => toSeq(box.GetCorners()));
@@ -450,9 +403,6 @@ public sealed partial class CornerSet {
     [UseDelegateFromConstructor] internal partial Seq<Point3d> Read(BoundingBox box, Tolerance band);
 }
 
-// Sampling provenance IS the fallback vocabulary: the case declares which sources it admits and the fold reports
-// which one answered, so an enclosure fitted from eight box corners is never indistinguishable downstream from
-// one fitted from measured surface sites, and a caller wanting the measured fit alone gets a refusal.
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SampleSource : ICapability<SampleSource> {
     public static readonly SampleSource Measured = new(key: "measured", rank: 0);
@@ -498,9 +448,6 @@ public abstract partial record Bounds {
         new EnclosingCylinderCase(Axis: axis, Count: count, Sources: sources.IfNone(MeasuredOnly));
     private static CapabilitySet<SampleSource> MeasuredOnly => CapabilitySet<SampleSource>.Of(SampleSource.Measured);
 
-    // One admission row per case carrying the declared output, the ingress predicate, and the operation key its
-    // faults report — the three facts every arm hand-paired, and the roster deriving each key off the case name
-    // so a new case cannot ship keyless or gate on a type its identity never names.
     private readonly record struct BoundsGate(OutputBinding Output, Func<Type, bool> Ingress, Op Key);
     private static readonly Lazy<FrozenDictionary<Type, BoundsGate>> Gates = new(static () => new Dictionary<Type, BoundsGate> {
         [typeof(AxisAlignedCase)] = Gate<BoundingBox>(name: nameof(AxisAlignedCase), ingress: static type => Capability.Bound.Admits(type: type)),
@@ -519,12 +466,9 @@ public abstract partial record Bounds {
         [typeof(EnclosingCircleCase)] = Gate<Circle>(name: nameof(EnclosingCircleCase), ingress: static type => Capability.Bound.Admits(type: type)),
         [typeof(EnclosingCylinderCase)] = Gate<Cylinder>(name: nameof(EnclosingCylinderCase), ingress: static type => Capability.Bound.Admits(type: type)),
     }.ToFrozenDictionary());
-    // Every case name ends in `Case` by the union's own convention, so the key is the name minus that suffix.
     private static BoundsGate Gate<TOut>(string name, Func<Type, bool> ingress) =>
         new(Output: OutputBinding.Of<TOut>(), Ingress: ingress, Key: Op.Of(name: name[..^"Case".Length]));
     private static bool BoxValue(Type type) => type == typeof(BoundingBox) || type == typeof(Box);
-    // ONE gate for fifteen arms: each arm keeps its evaluator alone and the roster decides admission, so an
-    // output type, an ingress class, and a key can no longer drift apart per arm.
     private Operation<TGeometry, TOut> Admitted<TGeometry, TOut>(Func<Op, Operation<TGeometry, TOut>> build) where TGeometry : notnull =>
         Gates.Value[GetType()] switch {
             BoundsGate gate when gate.Output.Serves<TOut>() && gate.Ingress(arg: typeof(TGeometry)) => build(arg: gate.Key),
@@ -575,8 +519,6 @@ public abstract partial record Bounds {
                     from frame in MassKind.PrincipalFrameOf(geometry: native, context: context, key: state).ToEff()
                     from obb in state.AcceptValue(value: new Box(frame, native)).ToEff()
                     from aabb in native.BoundsOf(key: state).ToEff()
-                    // Volume compares against the CUBED length lane: an area- or length-scaled anchor read against
-                    // a volume is the dimensional mismatch a degenerate box then passes.
                     let floor = Math.Pow(x: context.For(lane: ToleranceLane.Length).Value, y: 3.0)
                     from result in (obb.Volume > floor ? state.Accept(value: aabb.Volume / obb.Volume) : Fin.Fail<Seq<double>>(state.InvalidResult())).ToEff()
                     select result)),
@@ -617,8 +559,6 @@ public abstract partial record Bounds {
                     from result in state.Key.Accept(value: new Cylinder(baseCircle: new Circle(plane: new Plane(origin: disc.Center + (axis * extent.Min), normal: axis), radius: disc.Radius), height: extent.Max - extent.Min)).ToEff()
                     select result).As<TGeometry, TOut>(key: key)));
 
-    // Band rides EVERY box metric, not the aspect ratio alone: a degenerate extent makes an area and a volume as
-    // meaningless as a ratio, so the projection takes it and the metrics that ignore it discard it on site.
     private Operation<TGeometry, TOut> Metric<TGeometry, TOut>(Func<BoundingBox, Tolerance, double> boundingBox, Func<Box, Tolerance, double> box) where TGeometry : notnull =>
         Admitted<TGeometry, TOut>(build: key => typeof(TGeometry) == typeof(BoundingBox)
             ? Analysis.Operation<BoundingBox, double>.Build(key: key, requiresContext: true, state: (Key: key, Project: boundingBox),
@@ -637,9 +577,6 @@ public abstract partial record Bounds {
         double ax = Math.Abs(extents.X), ay = Math.Abs(extents.Y), az = Math.Abs(extents.Z);
         return Math.Max(Math.Max(ax, ay), az) / Math.Max(Math.Min(Math.Min(ax, ay), az), band.Value);
     }
-    // Absent budget derives off the chord lane against the bound diagonal, so sampling density follows the
-    // model's own resolution rather than a pinned literal; the floor is the arity a ball fit determines and the
-    // ceiling the host traffic one enclosure may spend.
     private const int SampleFloor = 4, SampleCeiling = 4096;
     private static Fin<(Seq<Point3d> Sites, SampleSource Source)> Enclosing<TGeometry>(TGeometry geometry, Option<int> count, CapabilitySet<SampleSource> sources, Context context, Op key) where TGeometry : notnull =>
         geometry.BoundsOf(key: key)
@@ -660,10 +597,6 @@ public abstract partial record Bounds {
                 double sq when sq > state.SqDist => state with { Best = p, SqDist = sq },
                 _ => state,
             }).Best;
-    // Construction and admission fold onto ONE rail: a validity predicate beside a total constructor let a fit
-    // the caller's own factory would refuse reach the accept gate unexamined. A single sample determines a
-    // radius-zero ball exactly — that zero is the structural answer, and the caller's constructor refuses it
-    // wherever a degenerate solid is inadmissible.
     private static Fin<T> RitterFit<T>(Seq<Point3d> samples, Op key, Func<Point3d, double, Fin<T>> construct) =>
         (samples.Count switch {
             0 => Fin.Fail<(Point3d Center, double Radius)>(key.InvalidResult()),
@@ -695,7 +628,7 @@ public abstract partial record Bounds {
 - Boundary: the residual pipeline is one fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` family, or a residual-stream entrypoint beside the pair one, are the deleted forms; distance routes through the `Spatial/support` projection gate exclusively, a local closest-point switch beside it the killed parallel proximity rail; every sample's `WithinBand` is DERIVED from the `Tolerance` it carries, so the evidence law makes an inconsistent sample unrepresentable past the oracle; the BAND is the stream's own, so a tranche measured against a probe band summarizes against that band and a tranche mixing bands refuses rather than folding two populations under one verdict; `Maximum` ranks on `|Distance|` because the band the sample carries is the same magnitude claim; percentiles reach only the `Distribution` row.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -709,7 +642,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ResidualTrait : ICapability<ResidualTrait> {
     public static readonly ResidualTrait Signed = new(key: "signed", rank: 0);
@@ -736,15 +669,10 @@ public sealed partial class ConformanceMetric {
         projection: static (residuals, _, _, _) => Fin.Succ(residuals.Map(static sample => (object)sample)));
     public static readonly ConformanceMetric Distribution = new(key: 7, output: OutputBinding.Of<Distribution<Scalar>>(), traits: CapabilitySet<ResidualTrait>.None,
         projection: static (residuals, percentiles, band, key) => Spread(samples: residuals, percentiles: percentiles, band: band, key: key).Map(static result => Seq((object)result)));
-    // Slot three carries the BAND the stream was measured against, derived in Project off the admitted samples,
-    // never the ambient model tolerance a probe tranche measured against its own spec band never held.
     internal delegate Fin<Seq<object>> ConformanceProjection(Seq<ResidualSample> residuals, Seq<double> percentiles, Tolerance band, Op key);
     public OutputBinding Output { get; }
     internal CapabilitySet<ResidualTrait> Traits { get; }
     internal ConformanceProjection Projection { get; }
-    // Every disjunct reads a live `Capability` row: `EvaluateTopology` is the Brep-and-Mesh topology class a
-    // containment residual demands, and `CurveForm` already admits `Line`, `Circle`, `Arc`, and `Polyline`
-    // through their own `Kind` rows, so the hand type rosters beside it were a second, drifting authority.
     internal bool AcceptsTarget(Type geometry, Type target) =>
         (Traits.Admits(ResidualTrait.Containment) && Capability.EvaluateTopology.Admits(type: target))
         || (Traits.Admits(ResidualTrait.Signed) && !Traits.Admits(ResidualTrait.Containment) && Capability.SignedDistance.Admits(type: target))
@@ -764,8 +692,6 @@ public sealed partial class ConformanceMetric {
             (not int, _) => Analysis.Operation<(TGeometry Geometry, TTarget Target), TOut>.Reject(key: key, fault: key.InvalidInput()),
             _ => key.Unsupported<(TGeometry Geometry, TTarget Target), TOut>(),
         };
-    // No sampling budget and no context enter this arity: input length answers the count and the samples carry the
-    // band, so one aggregate fold consumes the whole prepared stream.
     internal static Operation<TGeometry, TOut> Measured<TGeometry, TOut>(ConformanceMetric metric, Seq<double> percentiles, Op key) where TGeometry : notnull =>
         (typeof(TGeometry) == typeof(ResidualSample) && metric.Output.Serves<TOut>())
             ? Analysis.Operation<ResidualSample, TOut>.Aggregate(key: key,
@@ -780,8 +706,6 @@ public sealed partial class ConformanceMetric {
         };
     private static Fin<Stat<Scalar>> Moments(Seq<ResidualSample> samples, Tolerance band, Op key) =>
         Stat<Scalar>.Of(values: samples.Map(static sample => (Scalar)sample.Distance), key: key, context: Some(StatContext.Band(band: band)));
-    // Ranking on the signed value returns the most POSITIVE residual, which on a signed or containment stream is
-    // not the worst one.
     private static Fin<ResidualSample> Worst(Seq<ResidualSample> samples, Tolerance band, Op key) =>
         Stat.Extrema(items: samples, projection: static sample => Math.Abs(sample.Distance), band: band, direction: ExtremumDirection.Maximum)
             .Head.ToFin(key.InvalidResult());
@@ -833,7 +757,7 @@ public sealed partial class ConformanceMetric {
                 select result);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct ResidualSample(int Index, Point3d Location, double Distance, Tolerance Band) : IValidityEvidence {
     public ValidityClaim WithinBand => Math.Abs(Distance) <= Band.Value;

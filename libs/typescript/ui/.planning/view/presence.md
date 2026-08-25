@@ -41,8 +41,8 @@ declare namespace Anchor {
   type Rect = { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
   type Posture = (typeof _postures)[number]
   type Space<L, C> = {
-    readonly kind: string // the codec family the locators speak: "content", "canvas", "media", "scene"
-    readonly surface: string // the mounted instance the registry and every Presence.Point key on
+    readonly kind: string
+    readonly surface: string
     readonly locator: Schema.Schema<L>
     readonly resolve: (locator: L) => Option.Option<Anchor.Rect>
     readonly carry: Option.Option<(locator: L, change: C) => Option.Option<L>>
@@ -62,7 +62,6 @@ declare namespace Anchor {
     readonly locator: Anchor.Held
     readonly posture: Anchor.Posture
   }
-  // the persisted half of an anchor: the surface it was taken on beside the locator its lane's codec re-admits
   type Anchored = { readonly space: string; readonly locator: unknown }
   type Card = { readonly key: string; readonly top: number; readonly height: number }
   type Cluster =
@@ -80,8 +79,6 @@ declare namespace Anchor {
 
 const _postures = ["pin", "float", "rail"] as const
 
-// two legs partition the refusal: `registry` refuses the assembled lane set at composition, `anchor` refuses one
-// durable record re-entering afterwards — and each reason renders the subject its own half actually holds
 const _family = Fault.Class.family(["space-absent", "space-doubled", "locator-refused"] as const, {
   "space-absent": Fault.Class.row({
     class: "absent",
@@ -114,10 +111,6 @@ class AnchorFault extends Schema.TaggedError<AnchorFault>()("AnchorFault", {
   }
 }
 
-// BOUNDARY ADAPTER: the lane closes the space's generics — TypeScript carries no existential, so the brand erases
-// L at this constructor and every re-assertion below is the erasure's own inverse; no cast exists past this kernel.
-// decode/encode ride the row's own codec, track folds carry over epoch, and every downstream consumer holds the
-// opaque brand — no per-space arm exists past this constructor
 const _space = <L, C>(row: Anchor.Space<L, C>): Anchor.Lane => ({
   kind: row.kind,
   surface: row.surface,
@@ -132,8 +125,6 @@ const _space = <L, C>(row: Anchor.Space<L, C>): Anchor.Lane => ({
   }),
 })
 
-// keying runs by SURFACE — the instance grain Presence.Point.surface joins on — and doubling a surface refuses
-// with evidence; two lanes of one kind are two mounted instances sharing a codec family, which is the normal case
 const _spaces = (
   lanes: ReadonlyArray<Anchor.Lane>,
 ): Either.Either<Record.ReadonlyRecord<string, Anchor.Lane>, AnchorFault> =>
@@ -149,10 +140,6 @@ const _spaces = (
     },
   )
 
-// the durable anchor's ONE re-entry: a persisted `{ space, locator }` becomes a held locator or a refusal naming
-// which half failed — the registry holding no lane for that surface, or the lane's own codec refusing the payload.
-// A locator that decodes and resolves to nothing is the PARKED posture `locate` already answers; a locator that
-// cannot decode at all is damage in the record, so the two never arrive on one channel
 const _admit = (
   lanes: Record.ReadonlyRecord<string, Anchor.Lane>,
   anchored: Anchor.Anchored,
@@ -168,8 +155,6 @@ const _admit = (
 
 const _byTop: Order.Order<Anchor.Card> = Order.mapInput(Order.number, (card: Anchor.Card) => card.top)
 
-// two passes, one Mealy step each: descending pushes every card below its predecessor's bottom, ascending pulls the
-// tail back inside the ceiling — deterministic placement any rail (threads, review echoes) replays identically
 const _swept = (
   cards: ReadonlyArray<Anchor.Card>,
   gap: number,
@@ -188,7 +173,6 @@ const _swept = (
 
 const _CELL = 48
 
-// Array.groupBy answers non-empty member arrays, so the head read and the crowd keys need no witness beyond the type
 const _clustered = (
   resolved: ReadonlyArray<{ readonly key: string; readonly rect: Anchor.Rect }>,
   cap: number,
@@ -248,8 +232,6 @@ const _tone = {
   gone: { tone: "removed" },
 } as const satisfies Record<Presence.Status, { readonly tone: Theme.Tone }>
 
-// physical halves are bigint tick counts, so the order maps onto Order.bigint and the absent-join seed is 0n —
-// a number seed beside bigint stamps would mix the two primitives inside one comparator
 const _byJoined: Order.Order<readonly [Presence.Key, Presence.State]> = Order.mapInput(
   Order.reverse(Order.bigint),
   ([, state]) => Option.match(state.joined, { onNone: () => 0n, onSome: (joined) => joined.physical }),
@@ -299,10 +281,6 @@ const _stacked = (
 import { Presence } from "@rasm/core"
 import { HashMap, Option, Record } from "effect"
 
-// a point resolves through the lane registered under its OWN surface name — the registry's key IS
-// Presence.Point.surface — and the point's coordinate pair decodes through that lane's locator codec, so the
-// broadcasting surface and the rendering lane speak one shape by construction; an unregistered surface answers
-// none and its actors leave the cohort rather than landing at a guessed pixel
 const _project = (
   lanes: Record.ReadonlyRecord<string, Anchor.Lane>,
 ) =>
@@ -311,8 +289,6 @@ const _project = (
     Option.flatMap(lane.decode(point), (held) =>
       Option.map(lane.locate(held), (rect) => [rect.x, rect.y] as const)))
 
-// `_sighted` narrows the roster to actors whose point resolves — a rendering convenience over the cohort's
-// own Option-returning projection (an unresolvable actor already drops there), so the two never disagree on a coordinate
 const _sighted = (
   seen: HashMap.HashMap<Presence.Key, Presence.State>,
   project: (point: Presence.Point) => Option.Option<readonly [number, number]>,
@@ -345,7 +321,7 @@ import { Array, Data, Effect, Option, Schema, Stream, type Types } from "effect"
 
 const _Anchored = Schema.Struct({
   space: Schema.NonEmptyString,
-  locator: Schema.Unknown, // re-enters through the named lane's own codec; opaque here by design
+  locator: Schema.Unknown,
 })
 
 class Comment extends Schema.Class<Comment>("Face.Comment")({
@@ -391,7 +367,6 @@ declare namespace Face {
 
 const _Compose = Data.taggedEnum<Face.Compose>()
 
-// `_WINDOWS` keys the window variation, so a new show policy is one row every consumer resolves by lookup
 const _WINDOWS: Record<
   Face.Clamp["show"],
   (comments: ReadonlyArray<Comment>, max: number, hidden: number) => Face.Window
@@ -410,7 +385,6 @@ const _clamped = (comments: Array.NonEmptyReadonlyArray<Comment>, clamp: Face.Cl
     ? { lead: comments, hidden: 0, tail: [] }
     : _WINDOWS[clamp.show](comments, clamp.max, comments.length - clamp.max)
 
-// `_unread` pins the divider at the MINIMUM first-unread index across arrivals, so live landings never push it mid-read
 const _unread = (
   comments: ReadonlyArray<Comment>,
   since: Option.Option<Clock.Hlc>,
@@ -429,12 +403,10 @@ const _unread = (
       ),
   })
 
-// one observation bracket: registration is the acquisition, disconnect the release — an unmounted thread observes nothing
 const _watched = (marker: HTMLElement): Stream.Stream<boolean> =>
   Stream.asyncScoped<boolean>((emit) =>
     Effect.acquireRelease(
       Effect.sync(() => {
-        // BOUNDARY ADAPTER: the observer's push callback is the platform seam; emissions are void-discarded
         const observer = new IntersectionObserver((entries) => {
           for (const entry of entries) void emit.single(entry.isIntersecting)
         })
@@ -457,7 +429,7 @@ const Face: Face.Shape = {
   watched: _watched,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Anchor, AnchorFault, Face }
 ```

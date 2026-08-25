@@ -58,9 +58,6 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, OPEN, Receipt, ScopeKey, receip
 from rasm.runtime.shapes import admitted, custody
 from rasm.runtime.workers import Kernel, KernelTrait
 
-# the compiled reconstruction band: `open3d` is interpreter-marked and `trimesh` is only reached at the GLB lift,
-# so both defer through the module-scope proxy and the loop floor importing this module for the method vocabulary
-# loads neither.
 lazy import open3d as o3d
 lazy import trimesh
 
@@ -68,8 +65,7 @@ lazy import trimesh
 
 
 class ReconstructionStage(StrEnum):
-    # this producer's one CLOSED mark position; `StageMark.stage` is erased at the point and closed HERE.
-    CLUSTER = "cluster"  # one beat per DBSCAN cluster solved
+    CLUSTER = "cluster"
 
 
 class ReconstructionMethod(StrEnum):
@@ -78,18 +74,12 @@ class ReconstructionMethod(StrEnum):
     ALPHA_SHAPE = "alpha-shape"
 
 
-# solver-output density; a degenerate solve's `NaN`/`±inf` would silently corrupt the sort/mask, so the trim gates on finiteness under `FAULT_CONF`.
 type DensityField = Annotated[np.ndarray, Is[lambda a: bool(np.isfinite(a).all())]]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# zero ceiling per closure residual.
 _CEILING: Final[dict[str, float]] = {"nonwatertight": 0.0, "noncontiguous": 0.0}
-# TWO rows because two different closed vocabularies publish here: `ArtifactProof` names which aggregate artifact
-# law failed and `AdmissionPhase` names which half of the exchange Protovalidate refused. One row served both and
-# published the admission phase under a coordinate spelled `proof`; arity matched, so `zip(..., strict=True)`
-# waved it through and every receipt read a phase token as an artifact proof.
 RECON_INTEGRITY: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.RECONSTRUCTION,
     point="artifact",
@@ -137,22 +127,20 @@ class ReconReceipt(Struct, frozen=True):
     method: ReconstructionMethod
     input_points: int
     clusters: int
-    quality: QualityMetrics  # the composed mesh/quality closure fold
-    source_key: ContentKey  # the input cloud's own content digest, the evidence key's other half
+    quality: QualityMetrics
+    source_key: ContentKey
 
     @staticmethod
     def of(method: ReconstructionMethod, *, source: Cloud, body: "trimesh.Trimesh", clusters: int) -> "ReconReceipt":
         return ReconReceipt(method, len(source), int(clusters), closure_fold(body), source.digest)
 
     @staticmethod
-    @receipted(OPEN)  # reconstruction facts carry no secret field, so the runtime keep-all policy binds
+    @receipted(OPEN)
     def _emit(receipt: "ReconReceipt") -> "ReconReceipt":
         return receipt
 
     @property
     def residuals(self) -> dict[str, float]:
-        # `abs(components - 1)` deviation from the one-shell target off the quality fold's component count: an empty
-        # body (zero components) fails the gate exactly as a split shell does, never a negative residual passing a zero ceiling.
         return {"nonwatertight": 0.0 if self.quality.watertight else 1.0, "noncontiguous": float(abs(self.quality.components - 1))}
 
     def facts(self) -> dict[str, object]:
@@ -177,8 +165,6 @@ class ReconReceipt(Struct, frozen=True):
 
     @property
     def spec(self) -> bytes:
-        # the byte projection that DEFINES this evidence: the source cloud's own digest and the method that built
-        # the surface from it, so the crossing key derives from the inputs rather than arriving from a caller.
         return f"{self.method.value}|{self.source_key.hex}".encode()
 
     def graduates(self) -> GeometryHandoff:
@@ -192,11 +178,11 @@ class ReconReceipt(Struct, frozen=True):
 
 @beartype(conf=FAULT_CONF)
 def _trim_poisson(mesh: "o3d.geometry.TriangleMesh", density: DensityField, quantile: float) -> "o3d.geometry.TriangleMesh":
-    if density.size == 0:  # a degenerate solve emits an empty mesh; the order-statistic index would IndexError
+    if density.size == 0:
         return mesh
-    samples = np.sort(density)  # the catalogued sort owns the quantile; `numpy.quantile` is uncatalogued
+    samples = np.sort(density)
     cutoff = samples[int(quantile * (samples.size - 1))]
-    mesh.remove_vertices_by_mask(density < cutoff)  # drop the low-density balloon artifacts past the sample support
+    mesh.remove_vertices_by_mask(density < cutoff)
     return mesh
 
 
@@ -213,8 +199,6 @@ def _alpha_shape(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> "o3d.
     return o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(cloud, policy.alpha)
 
 
-# one row per method, the constructor itself — the Poisson row owns the density-trim, its constructor alone
-# returning the density array.
 _CONSTRUCT: Final[Map[ReconstructionMethod, Callable[["o3d.geometry.PointCloud", ReconPolicy], "o3d.geometry.TriangleMesh"]]] = Map.of_seq([
     (ReconstructionMethod.POISSON, _poisson),
     (ReconstructionMethod.BALL_PIVOTING, _ball_pivoting),
@@ -233,7 +217,7 @@ def _estimate(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> "o3d.geo
 
 def _cluster(cloud: "o3d.geometry.PointCloud", policy: ReconPolicy) -> tuple["o3d.geometry.PointCloud", ...]:
     labels = np.asarray(cloud.cluster_dbscan(policy.dbscan_eps, policy.dbscan_min_points))
-    if labels.size == 0:  # an empty cloud yields empty labels; `.max()` has no identity, so return the cloud whole
+    if labels.size == 0:
         return (cloud,)
     return tuple(cloud.select_by_index(np.where(labels == label)[0]) for label in range(int(labels.max()) + 1))
 
@@ -246,8 +230,6 @@ def _beat_built(
     index: int,
     total: int,
 ) -> "o3d.geometry.TriangleMesh":
-    # per-cluster convergence beat ahead of each constructor solve — lossy by lane law, the kernel's whole
-    # observability reach staying the pickled queue proxy.
     pulsed(tap, GeometryPulse.RECONSTRUCTION, StageMark(stage=ReconstructionStage.CLUSTER.value, done=index + 1, total=Some(total)))
     return build(part, policy)
 
@@ -259,8 +241,6 @@ def _reconstruct_kernel(
     tap: "Queue[PulseFact | None]",
     target: str,
 ) -> ReconReceipt:
-    # module-level HOSTILE kernel: the Cloud arrays cross the pickle seam, the legacy handle rebuilds here, and the
-    # fold accumulates over the immutable open3d `+` merge, never the in-place `+=` that mutates the seed.
     oriented = _estimate(cloud.legacy(), policy)
     clusters = _cluster(oriented, policy) if policy.dbscan_eps > 0.0 else (oriented,)
     build = _CONSTRUCT[method]
@@ -278,7 +258,7 @@ class ScanReconstruction(Struct, frozen=True):
     lane: LanePolicy
     artifacts: ArtifactTransfer
     policy: ReconPolicy = ReconPolicy()
-    composition: ScopeKey = DEFAULT_SCOPE  # the custody key every weave, charter, and bench emission stamps
+    composition: ScopeKey = DEFAULT_SCOPE
 
     @custody(RECON_INTEGRITY)
     @admitted(RECON_ADMISSION)
@@ -309,9 +289,6 @@ class ScanReconstruction(Struct, frozen=True):
         )
 
     def bench(self, cloud: Cloud, method: ReconstructionMethod, *, rounds: int = 32, warmup: int = 4) -> "RuntimeRail[BenchmarkReceipt]":
-        # cloud-size-parameterized macro-bench per _CONSTRUCT row: the subject keys the method and the input point
-        # count; each round drives the whole reconstruct crossing — normal estimation, constructor row, closure
-        # fold, weave — never an in-kernel probe (the pulse boundary).
         return bench_seam(
             bench_subject(EvidenceScope.SCAN_RECONSTRUCTION, method, f"p{len(cloud)}"),
             partial(self.reconstruct, cloud, method),

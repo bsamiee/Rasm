@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. `WearState`, `ConsumableRow`, and `CriticalWear` remai
 - Boundary: a consumer-side serviceability dispatch beside the disposition column, and a CLR case-type name serving as a wire or dimension key, are deleted forms.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using System.Threading;
@@ -44,7 +44,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Tooling;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class WearMechanism {
     public static readonly WearMechanism Flank = new("flank");
@@ -112,9 +112,6 @@ public sealed partial class ConsumableKind {
     public static readonly ConsumableKind BrakeTooling = new("brake-tooling");
 }
 
-// Dispositions carry the wire-keyed half of the maintenance decision, and `Serviceable` decides whether the edge
-// stays cutting: retirement and replacement end an edge's service, every other row leaves it in service. That
-// column makes the good half of a disposition-keyed population derivable from the population itself.
 [SmartEnum<string>]
 public sealed partial class MaintenanceDisposition {
     public static readonly MaintenanceDisposition Continue = new("continue", serviceable: true);
@@ -148,7 +145,7 @@ public sealed partial class MaintenanceDisposition {
 - Boundary: mechanism-to-signal guesswork, a hand-written channel-by-signal switch beside the generated channel vocabulary, value-kind-per-criterion sibling cases, zero-filled modality fields, and untyped edges are deleted forms.
 
 ```csharp signature
-// --- [SIGNALS] ------------------------------------------------------------------------------------------------------------------------------------
+// --- [SIGNALS] -------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConditionSignal {
     private ConditionSignal() { }
@@ -167,15 +164,11 @@ public abstract partial record ConditionSignal {
     public sealed record Dimensional(Length Drift) : ConditionSignal;
     public sealed record Status(Seq<ToolAvailability> States) : ConditionSignal;
 
-    // Decoded machine telemetry lowers into the signal family only where a case maps losslessly — thermal is its
-    // slice-supplied signal; an unmapped observation projects None, never a zero-filled modality row.
     public static Option<ConditionSignal> Of(MachineObservation observation) =>
         observation is MachineObservation.Temperature thermal
             ? Some<ConditionSignal>(new Thermal(UnitsNet.Temperature.FromDegreesCelsius(thermal.Celsius)))
             : None;
 
-    // The ONE discriminant every channel keys on. Each case answers its own row through the generated total
-    // switch, so a new signal case cannot reach the channel table unnamed.
     public SignalKind Kind => Switch(
         flank: static _ => SignalKind.Flank,
         crater: static _ => SignalKind.Crater,
@@ -190,7 +183,6 @@ public abstract partial record ConditionSignal {
         dimensional: static _ => SignalKind.Dimensional,
         status: static _ => SignalKind.Status);
 
-    // The admitted invariant per case, stated where the case is declared rather than at every reading site.
     public bool Wellformed => Switch(
         flank: static row => row.Average >= Length.Zero && row.Maximum >= row.Average,
         crater: static row => row.Depth >= Length.Zero && row.Width >= Length.Zero,
@@ -225,9 +217,6 @@ public sealed partial class SignalKind {
     public static readonly SignalKind Status = new("status");
 }
 
-// Each row names the signal it reads and the component it takes off that case. The KIND gate runs first, so the
-// reader is only ever handed the case it was declared against and the twenty-two independent type tests that used
-// to stand between a channel and its value collapse to one equality.
 [SmartEnum<string>]
 public sealed partial class WearChannel {
     public static readonly WearChannel FlankAverage = Of<ConditionSignal.Flank>("flank-average",
@@ -280,8 +269,6 @@ public sealed partial class WearChannel {
     public SignalKind Source { get; }
     public Func<ConditionSignal, double> Read { get; }
 
-    // ONE kind equality decides whether this channel can read the signal at all; the reader is then handed the
-    // case its own row was declared against.
     public Option<double> Project(ConditionSignal signal) =>
         signal.Kind == Source ? Some(Read(signal)) : None;
 
@@ -305,7 +292,6 @@ public abstract partial record WearCriterion {
     public bool Grounded => Switch(
         threshold: static row => double.IsFinite(row.Warning) && double.IsFinite(row.Limit)
             && row.Warning >= 0.0 && row.Limit > row.Warning
-            // A count channel measures whole events, so a fractional threshold names a chip that cannot occur.
             && (row.Channel.Kind != WearValueKind.Count
                 || (double.IsInteger(row.Warning) && double.IsInteger(row.Limit))),
         terminalStatus: static row => !row.States.IsEmpty);
@@ -323,7 +309,7 @@ public abstract partial record WearCriterion {
 - Boundary: applicability cases that differ only by which half is empty, hardcoded consumable limits, and uncovered-process empty success are deleted forms.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WearSample {
     public ToolTarget Target { get; }
@@ -364,7 +350,6 @@ public sealed partial class ConsumableSpec {
         evidence = evidence.Trim();
         validationError = !double.IsFinite(warning) || !double.IsFinite(limit)
             || warning < 0.0 || warning > limit || limit <= 0.0
-            // A non-reconditionable consumable that declares reconditioning cycles states two contradictory facts.
             || maximumReconditions < 0 || (!reconditionable && maximumReconditions != 0)
             || !Witness.Keyed(evidence)
             ? ToolKey.Validation("consumable-spec") : null;
@@ -439,7 +424,7 @@ public sealed record ConsumableReading(ConsumableKey Key, ToolLifeBasis Basis, d
 - Boundary: point-estimate scheduling, infinite fallback life, invented zero budgets, a line fitted to a resampled spline rather than the observations, and swallowed fit failures are deleted forms.
 
 ```csharp signature
-// --- [FORECAST_MODELS] ----------------------------------------------------------------------------------------------------------------------------
+// --- [FORECAST_MODELS] -----------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class TaylorModel {
     public ToolLifeBasis Basis { get; }
@@ -453,8 +438,6 @@ public sealed partial class TaylorModel {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ToolLifeBasis basis,
         ref double constant, ref double speedExponent, ref double feedExponent, ref double depthExponent,
         ref double loadExponent) =>
-        // Every exponent is strictly positive because each term SHORTENS life: a non-positive exponent would make
-        // a faster, deeper, or harder cut extend the tool's life.
         validationError = !ValidityClaim.Positive(constant).Holds
             || !Seq(
                 speedExponent, feedExponent, depthExponent, loadExponent)
@@ -471,10 +454,6 @@ public sealed partial class TaylorModel {
             * Math.Pow(depth.Millimeters, DepthExponent) * Math.Pow(load.Newtons, LoadExponent));
 }
 
-// Trajectory partition, admitted ONCE as a row and carrying its own classification. Break-in ends before
-// acceleration begins and both sit inside the consumed range, so ordering is an admitted invariant rather than a
-// clause a policy restates and a fold re-reads: a schedule that exists at all is ordered, and a consumed fraction
-// paired with a curvature ratio reads its phase off this row instead of off a consumer's switch over its columns.
 [ComplexValueObject]
 public sealed partial class PhaseSchedule {
     public double BreakIn { get; }
@@ -492,8 +471,6 @@ public sealed partial class PhaseSchedule {
     public static Fin<PhaseSchedule> Admit(double breakIn, double accelerated, double curvatureBand) =>
         Validate(breakIn, accelerated, curvatureBand, out PhaseSchedule schedule).Admitted(schedule);
 
-    // Consumed fraction and curvature classify JOINTLY, so a curve that steepens reads accelerated before its limit
-    // fraction says so; a forecast carrying no curvature reads unity and the consumed fraction alone answers.
     public WearPhase At(double consumedFraction, Option<double> curvature) =>
         (Consumed: consumedFraction, Curvature: curvature.IfNone(1.0)) switch {
             { Consumed: >= 1.0 } => WearPhase.Terminal,
@@ -524,8 +501,6 @@ public sealed partial class WearPolicy {
             || !Seq(outlierSigma, minimumRSquared, confidenceMultiplier, inspectionFraction).ForAll(double.IsFinite)
             || !ValidityClaim.Positive(outlierSigma).Holds || minimumRSquared is < 0.0 or > 1.0
             || !ValidityClaim.Positive(confidenceMultiplier).Holds
-            // Inspection is a REMAINING fraction, so it names no boundary on the consumed-fraction partition and
-            // orders against nothing there; it bounds itself and `PhaseSchedule` proves its own ordering.
             || inspectionFraction is <= 0.0 or >= 1.0
             ? ToolKey.Validation("wear-policy") : null;
 
@@ -544,8 +519,6 @@ public sealed record ForecastBand(double Consumed, double WarningAt, double Limi
             Math.Max(0.0, estimate - confidenceMultiplier * standardError), basis, phase);
 }
 
-// The trajectory diagnostic COMPOSES the package's one least-squares receipt and adds only what a monotone spline
-// over the same samples reports: the derivative at each end, whose ratio names whether the curve is steepening.
 public sealed record ModelDiagnostic(Regression Fit, double SlopeFirst, double SlopeLast,
     Instant First, Instant Last) {
     public double Slope => Fit.Slope;
@@ -557,8 +530,6 @@ public sealed record ModelDiagnostic(Regression Fit, double SlopeFirst, double S
     public double LastExposure => Fit.LastAbscissa;
     public double LastValue => Fit.LastOrdinate;
 
-    // A flat or falling opening slope carries no curvature signal, so the ratio reads unity and the phase falls to
-    // the consumed fraction alone rather than to a quotient the data never supported.
     public double Curvature => SlopeFirst <= 0.0 ? 1.0 : SlopeLast / SlopeFirst;
 }
 
@@ -585,8 +556,6 @@ public abstract partial record WearState {
         WearEvidence Evidence) : WearState;
     public sealed record Unconsumed(ProcessKind Process, string Reason) : WearState;
 
-    // The remaining-life reading a criticality census orders on, stated once per case: a tool and a consumable
-    // carry a forecast band, a terminal status carries an exhausted one, and an unconsumed process carries none.
     public Option<(ToolLifeBasis Basis, double Conservative, double Fraction)> Remaining => Switch(
         tool: static row => Some(Fraction(row.Remaining)),
         consumable: static row => Some(Fraction(row.Remaining)),
@@ -616,9 +585,6 @@ public abstract partial record MaintenanceAction {
     public sealed record Retire(CriticalWear Critical) : MaintenanceAction;
     public sealed record NotApplicable(ProcessKind Process, string Reason) : MaintenanceAction;
 
-    // Case identity IS the disposition, so this total projection is the one place the payload family and the
-    // wire-keyed vocabulary meet: a ninth case breaks here at compile time rather than reaching a consumer as an
-    // unadmitted key, and serviceability rides the disposition's own column rather than a second dispatch.
     public MaintenanceDisposition Disposition => Switch(
         @continue: static _ => MaintenanceDisposition.Continue,
         monitor: static _ => MaintenanceDisposition.Monitor,
@@ -656,8 +622,6 @@ public sealed partial class TaylorCondition {
             || depth <= Length.Zero || load.Newtons <= 0.0
             || !double.IsFinite(current) || current < 0.0
             || (channel.Kind == WearValueKind.Count && current != Math.Truncate(current))
-            // A relative uncertainty at or above one puts the conservative bound at or below zero for every
-            // forecast, which schedules replacement regardless of what the tool actually carries.
             || !double.IsFinite(relativeUncertainty) || relativeUncertainty is < 0.0 or >= 1.0
             ? ToolKey.Validation("taylor-condition") : null;
 
@@ -740,8 +704,6 @@ public sealed partial class TaylorCalibration {
             || !Seq(feedExponent, depthExponent, loadExponent, maximumResidual).ForAll(static value => ValidityClaim.Positive(value).Holds)
             || !double.IsFinite(minimumRSquared) || minimumRSquared is < 0.0 or > 1.0
             || minimumSpeedSpan.MetersPerSecond <= 0.0
-            // A calibration over a speed span narrower than the caller's floor fits noise rather than the Taylor
-            // exponent it claims to measure.
             || samples.Max(static row => row.Speed.MetersPerSecond)
                 - samples.Min(static row => row.Speed.MetersPerSecond) < minimumSpeedSpan.MetersPerSecond
             ? ToolKey.Validation("taylor-calibration") : null;
@@ -753,16 +715,12 @@ public sealed partial class TaylorCalibration {
             minimumRSquared, minimumSpeedSpan, out TaylorCalibration calibration).Admitted(calibration);
 }
 
-// The law's own construction columns, so the terminal projection generates rather than transcribing the model and
-// its domain by hand.
 public sealed record TaylorLawIngress(
     TaylorModel Model,
     Regression Fit,
     Speed SpeedMinimum,
     Speed SpeedMaximum);
 
-// `TaylorLaw` names what it IS the way `cuttingdata` names `Regression` and `PowerLaw`: a Taylor model bound to the
-// regression that fitted it and to the speed span that regression covered.
 [ComplexValueObject]
 public sealed partial class TaylorLaw {
     public TaylorModel Model { get; }
@@ -778,9 +736,6 @@ public sealed partial class TaylorLaw {
             || fit.Samples < LinearFit.MinimumSamples
             ? ToolKey.Validation("taylor-law") : null;
 
-    // Fit-quality floors from the caller admit the LAW, so a regression its own study rejects never becomes a law
-    // that exists and is refused afterwards. Residual, determination, and sample reads live here — the one place
-    // anything asks them — rather than as a re-exported mirror of columns `Regression` already publishes.
     public static Fin<TaylorLaw> Admit(TaylorLawIngress ingress, TaylorCalibration under) =>
         ingress.Fit.RootMeanSquareResidual <= under.MaximumResidual
         && ingress.Fit.RSquared >= under.MinimumRSquared
@@ -790,8 +745,6 @@ public sealed partial class TaylorLaw {
             : Fin.Fail<TaylorLaw>(ToolKey.Tooling("taylor-law:unfit"));
 }
 
-// The terminal projection. Every column transcribes unchanged, so the copy generates and a column added to the
-// ingress cannot reach the law half-filled.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.None)]
 public static partial class TaylorLawMap {
@@ -824,9 +777,8 @@ public abstract partial record WearResult {
 - Boundary: a current value taken outside the admitted rows, status-only spent inference, phase read from the limit fraction alone while the page claims trajectory classification, a mean-and-dispersion pair folded beside the kernel moment owner, and bare `Seq.Last` reads are deleted forms.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToolWear {
-    // Every kernel moment fold reaches under this page's own op, so a refusal names the plane that asked.
     private static readonly Op WearOp = Op.Of(name: "fabrication:tool-wear");
 
     public static Fin<WearResult> Apply(WearRequest request, FabricationTap? tap = null) => request.Switch(
@@ -855,7 +807,6 @@ public static class ToolWear {
             toolStates.Choose(static state => state is WearState.Tool tool
                 && tool.Evidence is WearEvidence.Measured measured ? Some(measured.Diagnostic) : None),
             life, request.AssessedAt)
-        // The settled receipt IS the fact; an assessment reaching no critical state projects `None` and writes nothing.
         let _fact = FabricationFact.ToolWear.Of(receipt).Map(tap.Fire)
         select receipt;
 
@@ -869,9 +820,6 @@ public static class ToolWear {
         _ => Fin.Succ(unit),
     };
 
-    // Coverage is a COVERING relation: every observed target reaches a criterion, and the resolved pair count is
-    // the census the fold actually ran. A criterion declared for a target this run never observed is evidence
-    // still to come, not a refusal — demanding the reverse direction rejected every valid partial assessment.
     private static Fin<Seq<WearState>> ToolStates(WearApplicability applicability, WearAssessment request) {
         Seq<WearCriterion> criteria = applicability.Criteria;
         if (criteria.IsEmpty)
@@ -970,8 +918,6 @@ public static class ToolWear {
         from reading in request.Consumables.Find(row => row.Key == spec.Key && row.Basis == spec.Basis)
             .ToFin(new FabricationFault.WearEstimateUnfit(request.Assembly.Tool, request.Consumables.Count))
         let remaining = Math.Max(0.0, spec.Limit - reading.Used)
-        // A consumable budget is a declared limit against a measured count, so its forecast carries no regression
-        // error of its own; the standard error is structurally zero rather than an invented dispersion.
         let forecast = ForecastBand.Of(reading.Used, spec.Warning, spec.Limit, remaining, 0.0,
             request.Policy.ConfidenceMultiplier, spec.Basis,
             remaining <= 0.0 ? WearPhase.Terminal : WearPhase.Steady)
@@ -990,12 +936,6 @@ public static class ToolWear {
             ? Fin.Succ(values)
             : Fin.Fail<Seq<(double Exposure, double Value, Instant At)>>(ToolKey.Tooling("wear:channel-signal"));
 
-    // The trajectory rides the package's ONE regression owner and adds only the monotone spline's endpoint
-    // derivatives, so the slope this diagnostic publishes and the slope a Taylor calibration publishes come from
-    // the same body. Mean and dispersion ride the KERNEL's one moment owner: `Stat<Scalar>`'s span leg folds both
-    // in a centred pass and refuses a non-finite plane outright, retiring the separate finiteness sweep that stood
-    // beside an average and a deviation over that same span. NAMED LOSS: none — this page re-spells the refusal as
-    // its own `wear:samples` instead of surfacing the kernel op's, and one pass replaces three.
     private static Fin<ModelDiagnostic> FitTrajectory(Seq<(double Exposure, double Value, Instant At)> raw,
         WearPolicy policy) =>
         raw.Count < policy.MinimumSamples
@@ -1004,8 +944,6 @@ public static class ToolWear {
                 Succ: spread => Windowed(raw, policy, spread),
                 Fail: _ => Fin.Fail<ModelDiagnostic>(ToolKey.Tooling("wear:samples")));
 
-    // Outlier removal reads ONE receipt. A zero dispersion means every observation sits on the mean, so the window
-    // is the whole run rather than an empty filter against a zero band.
     private static Fin<ModelDiagnostic> Windowed(Seq<(double Exposure, double Value, Instant At)> raw,
         WearPolicy policy, Stat<Scalar> spread) {
         double sigma = spread.Deviation(MomentNormalizer.Population);
@@ -1036,16 +974,12 @@ public static class ToolWear {
         ModelDiagnostic fit, WearPolicy policy) {
         double limitAt = Math.Max(fit.LastExposure, (limit - fit.Intercept) / fit.Slope);
         double estimate = Math.Max(0.0, limitAt - fit.LastExposure);
-        // The exposure uncertainty is the value residual carried back through the slope, so a shallow trajectory
-        // widens the band the way its own fit says it should.
         double standard = fit.RootMeanSquareResidual / fit.Slope;
         return ForecastBand.Of(fit.LastExposure, (warning - fit.Intercept) / fit.Slope,
             limitAt, estimate, standard, policy.ConfidenceMultiplier, basis,
             policy.Phases.At(limit <= 0.0 ? 0.0 : fit.LastValue / limit, Some(fit.Curvature)));
     }
 
-    // The criticality census reads each state's own remaining column, so a new state case answers once at the
-    // union rather than in a pattern this fold would have to be found and widened in.
     private static Option<CriticalWear> Critical(Seq<WearState> states) =>
         toSeq(states
                 .Choose(static state => state.Remaining
@@ -1088,9 +1022,6 @@ public static class ToolWear {
                 Some(policy.Window))).As();
 
     private static Fin<TaylorLaw> Calibrate(TaylorCalibration request) =>
-        // The Taylor relation is a power law in cutting speed once the feed, depth, and load terms are divided
-        // out, so the shared log-log fit reads the speed exponent directly. The study's own quality floors ride
-        // into the law's admission, so an unfit regression never reaches a law a caller then has to reject.
         from fit in PowerLawFit.Apply(request.Samples.Map(row => (row.Speed.MetersPerSecond,
             row.Life * Math.Pow(row.Feed.MetersPerSecond, request.FeedExponent)
                 * Math.Pow(row.Depth.Millimeters, request.DepthExponent)

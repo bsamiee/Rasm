@@ -36,10 +36,7 @@ Owned surfaces: the relay vocabulary, the `OutboxOrdinal` sign boundary, the dia
 - Boundary: Persistence alone owns the transactional message and its one CloudEvent mint. The committed op-log is the outbox, the per-binding `OutboxCursor` is dispatch state, and `RelayEntry` is only the AppHost's in-process carrier over the exact envelope returned by `Egress.Envelope`; a second envelope table, a second event mint, or a durable AppHost row is the deleted parallel store. The envelope id remains `OpLogEntry.Id.Wire`, its subject remains `ContentHash.Hex(OpLogEntry.ContentKey)`, and its sequence is the op-log sequence encoded as canonical fixed-width `D20`; none is repurposed as another. The binding subscription supplies the consumer key and configured `OutboundHop`, so semantic subject never becomes routing metadata. The store's arrows take a `long` sequence while the relay ordinal is a `ulong`, and `OutboxOrdinal` is the one checked crossing. The outbox and workflow step-state rows share the producing tenant-scoped transaction, while each durable binding advances its own fenced cursor over the one egress spine. `Redrive.Settle` owns retry disposition against this lane's bound: a non-transient fault dead-letters on its first attempt, and a transient fault retains its earned attempt across sweeps.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// One column carries the whole lifecycle. `Pending` holds no stamp and no ordinal because a row nothing has
-// attempted has neither; `DeadLettered` holds the fault that spent the bound, which the relay-exhausted
-// string discarded at the one seam an operator reads to decide whether a replay can succeed.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RelayState {
     private RelayState() { }
@@ -59,8 +56,6 @@ public abstract partial record RelayState {
         deadLettered: static row => Some(row.At));
 }
 
-// Sign boundary admits ONCE. The generated extension carries the op-log sequence as `uint64` while store arrows
-// take `long`; the checked crossing happens here and every downstream arrow reads the admitted `Sequence`.
 [ValueObject<ulong>(KeyMemberName = "Value")]
 public sealed partial class OutboxOrdinal {
     public static Fin<OutboxOrdinal> Admit(string text, Op key) =>
@@ -72,7 +67,6 @@ public sealed partial class OutboxOrdinal {
     public static Fin<OutboxOrdinal> Admit(ulong ordinal, Op key) =>
         key.AcceptValidated<OutboxOrdinal, ulong>(ordinal);
 
-    // Checked once at construction, so this projection is total by the validator above it.
     public long Sequence => checked((long)Value);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref ulong value) {
@@ -82,11 +76,6 @@ public sealed partial class OutboxOrdinal {
     }
 }
 
-// Kernel policy fixes how far a CLASS may reach and leaves which bindings the trusted row admits to each binding
-// owner, because trust is a property of the transport a kernel cannot see; this relay is that owner for the one
-// hop it dials, so its trust is a composition VALUE. Reach rides as a SET per row rather than a rank compare:
-// `BrokerReach.Barred` sits in no row, so a reference-only fact is unrelayable by construction and no call site
-// guards for it, and a third trust class lands as one row naming the reaches it admits.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -99,8 +88,7 @@ public sealed partial class BindingTrust {
     public bool Admits(DataGrade grade) => Reaches.Contains(grade.Broker);
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
-// the kernel discriminant each case declares.
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OutboxFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Outbox;
@@ -109,8 +97,6 @@ public abstract partial record OutboxFault : Fault {
     public sealed override string Message => Detail;
 
 
-    // Relay refusals default to transient, so `Redrive.Settle` defers them until the bound is spent; a hop
-    // stating a terminal fault of its own overrides that through its own case and dead-letters on attempt one.
     [FaultCase(0)]
     public sealed partial record RelayRejected : OutboxFault {
         public RelayRejected(string detail) : base(detail) { }
@@ -120,7 +106,6 @@ public abstract partial record OutboxFault : Fault {
     [FaultCase(1)]
     public sealed partial record Exhausted : OutboxFault { public Exhausted(string detail) : base(detail) { } }
 
-    // Cursor reads refuse transiently: the store is momentarily unreadable, not permanently wrong.
     [FaultCase(2)]
     public sealed partial record WatermarkStale : OutboxFault, ICausedFault {
         public WatermarkStale(string detail, Error cause) : base(detail) => Cause = cause;
@@ -134,9 +119,6 @@ public abstract partial record OutboxFault : Fault {
         public Error Cause { get; }
     }
 
-    // Terminal by the band's default and never overridden: no number of re-drives makes a barred class crossable
-    // on a hop whose trust the deployment already declared, so this row quarantines on its first pass and the
-    // cursor advances past it instead of parking a fact the binding will refuse for as long as it is configured.
     [FaultCase(4)]
     public sealed partial record ClassificationBarred : OutboxFault {
         public ClassificationBarred(string detail) : base(detail) { }
@@ -162,9 +144,7 @@ public static class OutboxEventExtensions {
 
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Rows retain the exact Persistence envelope plus the admitted ordinal, time, and trace the sweep reads.
-// Generic data, dataref, subject, and schema never cross through an AppHost interior model.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PendingRelay(CloudEvent Envelope, RelayState State);
 
 public sealed record RelayEntry(
@@ -174,19 +154,12 @@ public sealed record RelayEntry(
     Instant Physical,
     DataGrade Grade,
     TraceCarrier Trace) {
-    // This lane contributes the re-drive BOUND and the composition supplies the LAW: when to stop trying
-    // forever is a poison-quarantine threshold, while when to try again belongs to the hop pipeline
-    // `OutboundSurface.Run` already brackets. `Bounded` is the only seat a relay policy is minted at —
-    // `OutboxRelay.Runtime` takes the curve and derives its policy here — so the ceiling the disposition
-    // column is proven against cannot be overridden by a composition that carried its own policy value.
     public const int PoisonCeiling = 8;
 
     public static RedrivePolicy Bounded(Schedule law) => RedrivePolicy.Of(law, PoisonCeiling);
 
     public string Dedup => $"{Envelope.Source}\0{Envelope.Id}";
 
-    // Subject stays the Persistence content-key coordinate and Data stays whatever the binding framed (JSON,
-    // bytes, or dataref); this admission reads only scheduling metadata from the exact envelope.
     public static Fin<RelayEntry> Admit(PendingRelay pending, Op key) =>
         from state in pending.State switch {
             RelayState.Pending { } when pending.State.Attempt == 0 => Fin.Succ(pending.State),
@@ -199,8 +172,6 @@ public sealed record RelayEntry(
             ? Fin.Succ(extensions.Sequence)
             : Fin.Fail<string>(key.InvalidInput(nameof(global::Rasm.Contracts.Event.Extensions.Sequence)))
         from ordinal in OutboxOrdinal.Admit(sequence, key)
-        // Absence reads as the empty string no `DataGrade` key spells, so an ungraded envelope and a foreign
-        // key take ONE arm and neither reaches a hop — the permissive default this gate exists to deny.
         from grade in DataGrade.Validate(
                 extensions.Dataclassification, provider: null, out DataGrade? admittedGrade) is null
                 && admittedGrade is { } handling
@@ -210,9 +181,6 @@ public sealed record RelayEntry(
             admitted.Envelope, state, ordinal, admitted.Time, grade,
             OutboxEventExtensions.Trace(extensions));
 
-    // Kernel verdicts ARE the transition: `Deferred` re-stamps and increments, `Abandoned` dead-letters with
-    // whatever fault spent the bound, and `Terminal` dead-letters on attempt one — a non-transient refusal
-    // burning eight sweeps and eight durable park writes reaches a conclusion its discriminant carried.
     public RelayEntry Settled(RedrivePolicy policy, Error cause, Instant at) =>
         Redrive.Settle(policy, cause, State.Attempt).Switch(
             deferred: next => this with { State = new RelayState.Deferred(at, next.Attempt) },
@@ -235,69 +203,37 @@ public sealed record RelayEntry(
 - Boundary: each drain is a fan-in, so its span links every admitted envelope's producing trace and parents on none. A pending read refusal remains a typed failure rather than an empty healthy sweep. The store read returns the first due unsettled row, including its persisted deferred attempt, and never skips that row to expose a later sequence. This is the only durable AppHost relay: it neither re-mints the Persistence envelope nor republishes it on EventBus. The fenced `OutboxAdvance` CAS moves the binding cursor after delivery; the Persistence dead-letter arrow quarantines and advances one terminal row in the same fenced transaction. A deferred row stops the loaded suffix, so no later success can move the monotone cursor past a gap. Receiving bindings dedupe at-least-once replay by the conserved operation id; a relay-local seen-key cache is the deleted loss window. Barred classes never reach a binding at all, so no receiver sees a fact its own trust class forbids and no downstream filter re-decides what this gate settled. The dead-letter content key uses a framed `(consumer, dedup)` preimage so separate bindings cannot alias the same failed delivery.
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class OutboxRelay {
     public sealed record Runtime(
         OutboundRuntime Outbound,
-        // Consumer is this relay's OWN key, one value per runtime, because the relay registers as ONE keyed
-        // `OutboundHop` consumer over the op-log: a per-row column would hand one consumer many cursors, and
-        // deriving the key from semantic subject would seat a second content-to-sink table beside the binding.
         string Consumer,
         int Batch,
         ScheduleEntry Cadence,
-        // Composition owns the re-drive LAW and this row owns its BOUND, so this column carries the CURVE
-        // alone and `Redrive` derives: a deployment retunes the backoff without touching the quarantine
-        // threshold, where a whole `RedrivePolicy` here was a slot seating any ceiling a composition liked
-        // beside a `PoisonCeiling` no runtime read.
         Schedule Backoff,
-        // Returns the first due unsettled row and its ordered suffix. A deferred head stays the head until due;
-        // its persisted state carries the earned attempt back into `Redrive.Settle` instead of resetting at read.
         Func<string, long, int, Fin<Seq<PendingRelay>>> Pending,
         Func<string, long, ulong, Fin<OutboxOrdinal>> Advance,
-        // Park writes attempt and store-local status onto the row the committed op-log ALREADY owns. Any shape
-        // implying its own park table is the second envelope table the package ruling forecloses.
         Func<string, long, int, string, Fin<Unit>> Park,
-        // Poison arrows speak WIRE-STABLE PRIMITIVES, the same decode-only shape `LeaseElection` and
-        // `StepStateSeam` take. `DeadLetter` persists quarantine and advances that exact row in one fenced
-        // Persistence transaction; recovery remains `EgressPump.Replay` until a real public boundary consumes it.
         Func<UInt128, string, long, Rasm.Contracts.Fault.FaultObservation, int, ulong, Fin<OutboxOrdinal>> DeadLetter,
-        // Fence reads the tenant-scoped generation through the coordination `BudgetToken` case — the SAME
-        // read `Agent/capability#GRANT_BROKER` `DistributedBudget.Token` takes, composed rather than
-        // re-minted, so a watermark advance and a budget debit present one generation identity.
         Func<TenantId, Fin<FencingToken>> Fence,
         OutboundHop Hop,
-        // Composition declares the dialled hop's own trust class, one value per runtime because one runtime
-        // dials one hop: a per-row column would let one configured binding grade two facts against two trusts
-        // with nothing reconciling them.
         BindingTrust Trust,
         Func<CloudEvent, Func<CancellationToken, Task<HopOutcome>>> Send,
         ClockPolicy Clocks,
         ILatencyContext Latency,
         ReceiptSinkPort Sink,
         Option<SpanBand> Band = default) {
-        // One policy serves every settlement on this lane: the composed curve under this page's own ceiling.
         public RedrivePolicy Redrive => RelayEntry.Bounded(Backoff);
     }
 
-    // --- [OPERATIONS] -------------------------------------------------------------------------
-    // This relay opens one drain plane, travelling inward on the platform's contributor port beside the
-    // instrument rows. Admission and registration fail separately and silently: an unadmitted scope refuses
-    // on its kernel rail at the first sweep, while an admitted-but-unregistered one strands its source
-    // listenerless and every sweep takes the null-span arm an untraced composition takes.
+    // --- [OPERATIONS] ------------------------------------------------------------------
     public static readonly TraceScope Scope = TraceScope.Create(value: "rasm.apphost.outbox");
 
-    // Link-edge attribution rides the package's own dotted namespace; these key SPAN LINKS rather than a
-    // metric series, so no census row or view tag-key is owed for either.
     public const string OutboxSinkSlot = "rasm.apphost.outbox.sink";
     public const string OutboxDedupSlot = "rasm.apphost.outbox.dedup";
 
-    // `LeaseKey` names the ONE namespaced registry key every keyed registry on the spine reads, so the role a
-    // sweep holds is a value the coordination owner resolves rather than an interpolated string two pages
-    // spell differently.
     public static readonly LeaseKey SweepRole = LeaseKey.Role("outbox-sweep");
 
-    // `Settlement = None` is a delivered row. A settled row retains the exact Deferred/DeadLettered state
-    // the summary counts, while `Cursor` is present only when this row joined the contiguous settled prefix.
     public sealed record RelayResult(
         DeliveryReceipt Receipt,
         Option<RelayEntry> Settlement,
@@ -308,14 +244,9 @@ public static class OutboxRelay {
         Seq<RelayResult> Results,
         bool Open);
 
-    // Nodes resuming after a pause read their own occurrence HISTORY rather than a running counter, and each
-    // entry's re-drive bound caps the window — a hundred-day second-resolution gap reports typed exhaustion
-    // instead of a silently narrowed count.
     public static Fin<Seq<Instant>> Missed(Runtime runtime, Instant lastFired, Instant now) =>
         SchedulePort.Missed(runtime.Cadence, lastFired, now);
 
-    // Refusing pending reads fail the sweep on its own rail. An empty successful sweep and an unreadable
-    // store read byte-identically on every gauge the receipt feeds, so the store's refusal rides the rail out.
     public static IO<Fin<Seq<DeliveryReceipt>>> Sweep(Runtime runtime, TenantContext tenant, OutboxOrdinal watermark) =>
         runtime.Pending(runtime.Consumer, watermark.Sequence, runtime.Batch).Match(
             Succ: pending => pending.Traverse(row => RelayEntry.Admit(row, Op.Of())).As().Match(
@@ -327,9 +258,6 @@ public static class OutboxRelay {
                     new OutboxFault.EnvelopeRejected(fault.Message, fault)))),
             Fail: fault => IO.pure(Fin.Fail<Seq<DeliveryReceipt>>(new OutboxFault.WatermarkStale(fault.Message, fault))));
 
-    // Fan-in carriage, one edge per relayed row: the sweep descends from no single producing transaction, so
-    // each row's persisted carrier becomes a link and the batch states exactly which writes caused it. An
-    // unparseable or absent carrier drops ITS edge alone and the sweep keeps every edge it could reconstruct.
     static SpanEdge Edges(Runtime runtime, Seq<RelayEntry> rows) =>
         SpanEdge.FanIn(
             rows.Choose(row => row.Trace.Link(
@@ -350,8 +278,6 @@ public static class OutboxRelay {
         .Bind(state => Evidence(runtime, tenant, state, watermark)
             .Map(_ => state.Results.Map(static result => result.Receipt).Strict()));
 
-    // Sweep seal: the lane rows carry the census and the two totals derive off them, so the gauges read the
-    // sweep's own evidence rather than a second store scan or a stored sum that can disagree with its rows.
     static IO<ReceiptEnvelope> Evidence(
         Runtime runtime, TenantContext tenant, DrainState state, OutboxOrdinal floor) =>
         from now in IO.lift(() => runtime.Clocks.Now)
@@ -365,29 +291,16 @@ public static class OutboxRelay {
             JsonSerializer.SerializeToElement(sweep, SuiteContracts.Host))
         select envelope;
 
-    // Classification gates the DIAL: a grade the configured binding cannot honor refuses before any byte moves
-    // and settles TERMINAL, so a barred fact neither leaves the process nor wedges the cursor behind it —
-    // `Redrive.Settle` reads the case's terminal posture, quarantines on attempt one, and advances that exact
-    // row inside the same fenced transaction every other terminal row takes.
     static IO<RelayResult> Relay(Runtime runtime, TenantContext tenant, RelayEntry row) =>
         runtime.Trust.Admits(row.Grade)
             ? Dialled(runtime, tenant, row)
             : Barred(runtime, tenant, row);
 
-    // `Unbound` is the receipt a refusal before the dial earns: it carries `Some(HopVerdict.Refused)` beside the
-    // fault observation, and this page's own reading of the disposition is "no hop measure was taken", which is
-    // exactly true here. `Suppressed` carries NO verdict and would erase a barred fact from the outcome rows.
     static IO<RelayResult> Barred(Runtime runtime, TenantContext tenant, RelayEntry row) =>
         IO.lift(() => (Error)new OutboxFault.ClassificationBarred(
                 $"{row.Grade.Key}@{runtime.Trust.Key}:{row.Dedup}"))
             .Bind(cause => Settle(runtime, tenant, row, cause, DeliveryReceipt.Unbound(runtime.Consumer, cause)));
 
-    // Fenced advance THREADS: the store-validated watermark lands IN the returned receipt (Some on a
-    // delivered advance, None on a settlement), so accounting derives from the wired value. Fence loss on a
-    // DELIVERED row lands in neither half under a naive fold — the advance answers Fail, the receipt reads no
-    // watermark, and the row's attempt never increments — so binding that loss RE-ENTERS the settlement, the
-    // one arm persisting an attempt. A retry always sends the same envelope again; only the receiving binding
-    // can safely decide whether an ambiguous prior attempt was already applied.
     static IO<RelayResult> Dialled(Runtime runtime, TenantContext tenant, RelayEntry row) =>
         from settled in OutboundSurface.Dispatch<Unit>(runtime.Outbound, runtime.Hop,
             async token => (await runtime.Send(row.Envelope)(token).ConfigureAwait(false), unit), runtime.Latency)
@@ -407,9 +320,6 @@ public static class OutboxRelay {
                 DeliveryReceipt.Dialed(runtime.Consumer, settled, Option<ulong>.None))
         select result;
 
-    // Deferred settlement parks the earned attempt and stops the suffix. Terminal settlement quarantines and
-    // advances atomically, so removing a poison row from the pending set cannot leave the cursor stranded behind
-    // it. The kernel verdict decides the arm; a non-transient fault reaches terminal on its first pass.
     static IO<RelayResult> Settle(
         Runtime runtime,
         TenantContext tenant,
@@ -437,8 +347,6 @@ public static class OutboxRelay {
                 _ => IO.fail<RelayResult>(new OutboxFault.RelayRejected(row.Dedup)),
             });
 
-    // One seat for the store-local deferred spelling. Terminal status belongs to the atomic dead-letter arrow;
-    // no peer contract publishes either internal lifecycle as a generated enum.
     static Fin<Unit> Parked(Runtime runtime, RelayEntry settled) =>
         settled.State.Switch(
             pending: _ => Fin.Fail<Unit>(new OutboxFault.RelayRejected(settled.Dedup)),
@@ -480,7 +388,7 @@ sequenceDiagram
 - Boundary: no per-row, per-topic, or sweep projection exists here. The exact Persistence envelope carries content-key subject and operation id, not an AppHost topic. Dead-letter rows, replay receipts, and sweep evidence remain native until a real serialized peer consumer lands; a producer-only protobuf family is deleted rather than registered as dormant wire.
 
 ```csharp signature
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record OutboxSweep(
     uint Examined,
     ulong Watermark,

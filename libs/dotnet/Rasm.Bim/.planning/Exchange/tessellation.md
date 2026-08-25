@@ -21,7 +21,7 @@ Two injected ports carry the policy: the content-addressed `ITessellationStore` 
 - Boundary: this companion bridge is the single imported-geometry-to-GLB path for anything requiring an evaluator — GeometryGym and the in-process `import#IMPORT_RAIL` `StepReader` carry no tessellation kernel, no in-process arm64 solid evaluator is admitted, and `IfcConvert`/ifcopenshell stays the permanent default because the only .NET web-ifc binding is Windows C++/CLI; an ALREADY-tessellated IFC face set never reaches here at all, decoding in process at `import#EXPLICIT_TESSELLATION` and handing its `Deferred` GlobalId set straight to `TessellationScope.Elements` so the cross narrows to the residue. Both content keys derive from the kernel `ContentHash` and the kernel `CanonicalWriter` (`Rasm/Domain/identity#CONTENT_KEY`), so this AEC-DOMAIN owner mints no `Rasm.Compute.InterchangeIdentity` call. `SourceKey` is the cross-projection join the app-platform artifact-index projection owns, so the IFC semantic graph and the tessellated geometry stay two projections of one content-keyed source. Store failures retain their original `Error`; a non-companion source format is the terminal `Refused`/`BimReason.Capability` verdict, while a failed companion cross is `BoundaryFailed(BimBoundary.TessellationCompanion, error)` and inherits the boundary's transient posture; direct or caught cancellation retains its kernel identity. RE-DRIVE is PUBLISHED, never executed: the root-bound executor reads that posture and drives the one declared cadence; a tier-local `Redrive.Run` here forks the estate's one schedule. Governance rides the PORT CONTRACT in BCL currency alone: the token is a `System` type the binding already speaks, so the out-of-process companion carries it into its own transport without this owner minting a cancellation type; an `IProgress<double>` beside it is the SINK WITH NO FEEDER the port equally forecloses, because the transport publishes no progress channel in either direction and a managed progress lane lands as a transport row FIRST. `import#IMPORT_RAIL` `FrameNormalization` coerces the glTF-canonical Y-up GLB to the kernel Z-up frame by the `InterchangeFormat.Glb` row, so this page mints no frame transform. This bridge reaches the `python:geometry/ifc-companion` IfcOpenShell package only through Compute's companion rpc, which owns the `geom.settings` argument mapping, the `IfcConvert` filter grammar, and the GLB stream-back.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Linq;
 using System.Threading;
@@ -34,20 +34,16 @@ using NodaTime;
 using Rasm;
 using Rasm.Domain;
 using System.Security.Cryptography;
-using Rasm.Bim.Model;                       // BimFault and its compact scope/reason/boundary axes
+using Rasm.Bim.Model;
 using Rasm.Element.Projection;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// ifcopenshell `dimensionality` value (CURVES=0, SURFACES_AND_SOLIDS=1 default, CURVES_SURFACES_AND_SOLIDS=2).
-// The generated enum reserves zero, so TessellationWire maps these names explicitly rather than ordinal-casting.
+// --- [TYPES] ---------------------------------------------------------------------------
 public enum Dimensionality : byte { Curves = 0, SurfacesAndSolids = 1, CurvesSurfacesAndSolids = 2 }
 
-// The ifcopenshell geom.settings key space as a capability vocabulary: each NAME and KEY retain the exact foreign
-// semantics. DisableOpeningSubtractions therefore stays negatively named instead of growing an inverse alias.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GeomSetting : ICapability<GeomSetting> {
@@ -58,16 +54,10 @@ public sealed partial class GeomSetting : ICapability<GeomSetting> {
     public static readonly GeomSetting DisableOpeningSubtractions = new("disable-opening-subtractions");
     public static readonly GeomSetting ElementGuids = new("use-element-guids");
 
-    // The two capabilities a legal corner ALWAYS holds: a GLB with no material serialises nothing a viewer can
-    // shade, and a GLB whose nodes carry no GlobalId joins to no element metadata.
     public static readonly CapabilitySet<GeomSetting> Required =
         CapabilitySet<GeomSetting>.Of(DefaultMaterials, ElementGuids);
 }
 
-// Tessellation scope is the IfcConvert geometry filter: whole model, an explicit GlobalId set (--include attribute
-// GlobalId, the per-element modality), an entity-type set to keep (--include entities), or one to drop (--exclude
-// entities — IfcSpace/IfcOpeningElement/IfcAnnotation off the tessellation, the dominant IFC-to-GLB cull). Case IS
-// the modality; a layer filter or an exclude-by-GlobalId set is one further case, never a filter-mode flag.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TessellationScope {
     private TessellationScope() { }
@@ -87,7 +77,7 @@ public sealed partial class TessellationOrigin {
     public static readonly TessellationOrigin Tessellated = new("tessellated");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record TessellationSettings {
     private TessellationSettings(CapabilitySet<GeomSetting> flags, Dimensionality dimensionality) =>
         (Flags, Dimensionality) = (flags, dimensionality);
@@ -100,17 +90,12 @@ public sealed record TessellationSettings {
             GeomSetting.DefaultMaterials, GeomSetting.ElementGuids),
         Dimensionality.SurfacesAndSolids);
 
-    // ONE refusal door: Require hands the refuse arm the MISSING set, so a caller learns which capabilities its
-    // corner lacked instead of reading a bare label. A legal-corner law enumerating sixteen of sixty-four corners
-    // would restate exactly this one demanded subset.
     public static Fin<TessellationSettings> Of(CapabilitySet<GeomSetting> flags, Dimensionality dimensionality, Op key) =>
         flags.Require(GeomSetting.Required, missing => new BimFault.Refused(key, BimScope.Tessellation, BimReason.Capability, string.Join(':', new object?[] { "tessellation-settings-incomplete", missing.Wire })))
             .Map(admitted => new TessellationSettings(admitted, dimensionality));
 
 }
 
-// Mesh evidence (VertexCount/TriangleCount/GlbByteCount) rides typed receipt columns readable without the Geometry
-// payload or the store-resident GLB; Took is the monotonic timestamp/elapsed pair over the whole Resolve.
 public sealed record TessellationOutcome(
     ImportedGeometry Geometry,
     ArtifactKey Address,
@@ -126,14 +111,8 @@ public sealed record TessellationOutcome(
     Duration Took,
     Instant At);
 
-// SourceBytes under synthesized record equality compares the HANDLE — reference, offset, length — so two
-// byte-identical requests would read UNEQUAL; the column seats the package's ONE ReadOnlyMemory<byte> comparer,
-// span-equal over the payload and hashing through the same kernel digest the dual keys already mint.
 [Equatable]
 public sealed partial record TessellationRequest {
-    // Both keys are folds only Keyed computes, so a public constructor would mint a request whose Address reads the
-    // wrong store row and whose Admit proof can never hold. Sealing the door behind Plan is also what retires every
-    // interior format re-check: past this constructor the request IS the proven IFC request.
     private TessellationRequest(
         UInt128 sourceKey, UInt128 contentKey, ReadOnlyMemory<byte> sourceBytes,
         InterchangePolicy policy, TessellationSettings settings, TessellationScope scope) =>
@@ -150,16 +129,10 @@ public sealed partial record TessellationRequest {
     public TessellationSettings Settings { get; }
     public TessellationScope Scope { get; }
 
-    // The PUBLISHED re-drive cadence for the companion hop — a jittered exponential curve under a bound, declared as
-    // ONE policy VALUE the root-bound executor drives. A tier-local Redrive.Run here would fork the estate's one
-    // schedule, so this owner classifies (the unreachable cross publishes Transient below) and executes nothing.
     public static readonly RedrivePolicy CompanionRedrive = RedrivePolicy.Of(
         (Schedule.exponential(Duration.FromMilliseconds(250)) | Schedule.jitter(0.1)) & Schedule.spaced(Duration.FromSeconds(20)),
         bound: 4);
 
-    // ONE format door for the whole bridge: InterchangeFormat arrives as foreign material here and refuses once, so
-    // Keyed, TessellationWire.ContentKey, and TessellationWire.Project past it read a proven IFC request and
-    // re-validate nothing. The refusal names the rejected format, since the caller holds no other diagnosis.
     public static Fin<TessellationRequest> Plan(
         InterchangeFormat source, ReadOnlyMemory<byte> sourceBytes, InterchangePolicy policy, Op key,
         Option<TessellationSettings> settings = default, Option<TessellationScope> scope = default) =>
@@ -172,8 +145,6 @@ public sealed partial record TessellationRequest {
                 key, BimScope.Tessellation, BimReason.Capability,
                 string.Join(':', new object?[] { "tessellation-ifc-required", source.Key })));
 
-    // SourceKey is the pure source-artifact identity under the same generated coordinates the Python peer writes —
-    // one request-level source-artifact ordinal, then the nested ref's digest and extent ordinals.
     static Fin<TessellationRequest> Keyed(
         ReadOnlyMemory<byte> sourceBytes, InterchangePolicy policy,
         TessellationSettings settings, TessellationScope scope, Op key) {
@@ -191,14 +162,8 @@ public sealed partial record TessellationRequest {
             new TessellationRequest(sourceKey, contentKey, sourceBytes, policy, settings, scope));
     }
 
-    // Store addresses MINT through the grammar owner off the two facts each IS, so this bridge holds no separator
-    // position, hex width, or format token of its own and a grammar change lands in exactly one place.
     public ArtifactKey Address => ArtifactKey.Of(ContentKey, InterchangeFormat.Glb);
 
-    // Cache-before-cross-and-store-before-return. TWO time parameters BY KERNEL LAW (Parametric/projections
-    // MonotonicTimeline Boundary): no joint invariant binds a wall instant to a monotonic mark, so a carrier fusing
-    // IClock with the timeline is REFUSED — the clock gives the receipt's Instant, the timeline the monotonic leg,
-    // and each answers its own kernel owner. A raw TimeProvider mark/elapsed pair is the deleted form.
     public IO<Fin<TessellationOutcome>> Resolve(
         ITessellationStore store, ITessellationCompanion companion,
         CorrelationId correlation, CancellationToken cancel,
@@ -213,10 +178,6 @@ public sealed partial record TessellationRequest {
                         .Bind(geometry => Outcome(
                             geometry, glb.Length, None, None,
                             TessellationOrigin.Cached, timeline, at, mark, key))),
-                    // Store writes are the RELEASE half of the cross's bracket, so they run on the ABANDONMENT path too:
-                    // a caller who walked away still paid for the companion round trip, and discarding the GLB there
-                    // makes the next Resolve pay it again. Cancellation is read AFTER the write, so an abandoned request
-                    // lands its cache and then stops.
                     None: () =>
                         from crossed in new FinT<IO, TessellationCross>(Crossed(companion, correlation, cancel, key))
                         from geometry in FinT.lift<IO, ImportedGeometry>(Decode(crossed.Glb, clock, key))
@@ -231,10 +192,6 @@ public sealed partial record TessellationRequest {
                 select outcome).runFin.As();
     }
 
-    // The classification half of the re-drive contract: the companion boundary owns its TRANSIENT posture, the
-    // returned Error remains its cause, and cancellation keeps the kernel identity established by the caller token.
-    // The port is the declared companion boundary, so either its returned refusal or a captured invocation throw
-    // becomes the same cause-bearing case; neither is re-rendered or mistaken for cancellation.
     IO<Fin<TessellationCross>> Crossed(
         ITessellationCompanion companion, CorrelationId correlation, CancellationToken cancel, Op key) =>
         companion.Cross(this, correlation, cancel, key)
@@ -281,11 +238,6 @@ public sealed partial record TessellationRequest {
                     "tessellation-peer-count-mismatch", coordinate, reported, decoded,
                 })));
 
-    // Three INDEPENDENT claims accumulate, so a caller learns every way a re-imported GLB is unsound rather than the
-    // first: emptiness, the arena's own validity claim, and coordinate finiteness. The arena's IsValid already proves
-    // descriptor/payload agreement and a lossless witness, so the third conjunct adds only the check IsValid does not
-    // make, reading the position lane through its typed view rather than a raw span. The boundary-validation scan is
-    // the named statement exemption.
     static Validation<Error, ImportedGeometry> Sound(ImportedGeometry geometry, Op key) =>
         (Claim(geometry is { VertexCount: > 0, TriangleCount: > 0 }, key, "empty"),
          Claim(geometry.Lanes.IsValid, key, "arena-invalid"),
@@ -309,12 +261,7 @@ public sealed partial record TessellationRequest {
 
 }
 
-// One owner carries the whole correspondence: Project writes the generated request, Admit reads its response, and
-// ContentKey folds the SAME generated coordinates the Python peer writes, so a field-number move breaks all three at
-// one declaration instead of drifting the cross-language cache key silently.
 public static class TessellationWire {
-    // Cross-language cache identity is the semantic generated request, not protobuf serialization: required scalar
-    // fields retain generated field order; unordered settings and scope payloads are sorted, distinct, and framed.
     internal static Fin<UInt128> ContentKey(
         UInt128 sourceKey, InterchangePolicy policy,
         TessellationSettings settings, TessellationScope scope, Op key) =>
@@ -333,9 +280,6 @@ public static class TessellationWire {
                         .Double(s.policy.Distance.Value), s.settings, s.dimensionality),
                     s.scope)).Value);
 
-    // ONE construction: the generated request IS the IFC request, so the projection makes one object and the
-    // repeated settings column fills through the same collection initializer every scope arm already uses. Member
-    // order tracks generated field number, the order ContentKey folds, so the two readings never drift apart.
     public static Fin<global::Rasm.Contracts.Compute.TessellateRequest> Project(
         TessellationRequest request, global::Rasm.Contracts.Artifact.ArtifactRef source, Op key) =>
         Dimension(request.Settings.Dimensionality, key).Map(dimensionality =>
@@ -352,8 +296,6 @@ public static class TessellationWire {
                 SourceArtifact = source,
             });
 
-    // The peer reports the policy-folded key it evaluated. The product adapter proves that coordinate before the
-    // payload crosses back into Bim, while FrameEdge independently proves the raw artifact hash.
     public static Fin<TessellationCross> Admit(
         TessellationRequest request, global::Rasm.Contracts.Compute.TessellateResponse receipt,
         ReadOnlyMemory<byte> glb, Op key) =>
@@ -468,11 +410,7 @@ public static class TessellationWire {
     }
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Injected ports the app-platform binds at the composition edge. Bim mints no Persistence or Compute reference; it
-// owns the cache/cross/store POLICY through these contracts while durable residence and transport are the bound
-// implementations. Lookup separates a store fault (Fin failure) from a normal miss (None); Store is the
-// write-blob-first put.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface ITessellationStore {
     Fin<Option<ReadOnlyMemory<byte>>> Lookup(ArtifactKey address);
     Fin<Unit> Store(ArtifactKey address, ReadOnlyMemory<byte> glb);
@@ -488,9 +426,6 @@ public sealed record TessellationPeerEvidence(
 
 public sealed record TessellationCross(ReadOnlyMemory<byte> Glb, TessellationPeerEvidence Peer);
 
-// Crosses carry the logical app call's correlation, caller token, and existing operation identity. Correlation enters
-// Resolve explicitly: deriving it from Op or capturing one in a singleton binding would join unrelated calls. A
-// Bim-minted lane, progress, or cancellation type crossing here is the AEC-DOMAIN leak the port exists to foreclose.
 public interface ITessellationCompanion {
     IO<Fin<TessellationCross>> Cross(
         TessellationRequest request, CorrelationId correlation, CancellationToken cancel, Op key);

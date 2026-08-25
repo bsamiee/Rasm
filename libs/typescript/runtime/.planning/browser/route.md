@@ -37,7 +37,7 @@ declare namespace Router {
   type Row<P, Q extends ParserMap = ParserMap> = {
     readonly path: string
     readonly query: Q
-    readonly urlKeys: UrlKeys<Q> // the rename axis lives beside the map, so loader, serializer, and standard view read one value
+    readonly urlKeys: UrlKeys<Q>
     readonly policy: P
     readonly title: Option.Option<string>
   }
@@ -100,7 +100,6 @@ const _matched = (template: string, pathname: string): Option.Option<Record<stri
 }
 
 const _located = <Rows extends Router.Rows>(rows: Rows, url: URL): Option.Option<Router.Location<Rows>> =>
-  // BOUNDARY ADAPTER: the key/row pairing is evidence the checker cannot carry across the distributed union; the cast asserts the proven correlation
   Array.head(
     Array.filterMap(Record.toEntries(rows), ([key, row]) =>
       Option.map(_matched(row.path, url.pathname), (segments) =>
@@ -115,7 +114,6 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
   segments: Record<string, string>,
   query: Partial<inferParserType<Rows[K]["query"]>>,
 ): string =>
-  // BOUNDARY ADAPTER: the walk extracts exactly the names `Router.Params` proved present, so the capture read asserts that invariant
   createSerializer(rows[key].query, { urlKeys: rows[key].urlKeys })(
     rows[key].path.split("/").map((part) => (part.startsWith(":") ? segments[part.slice(1)]! : part)).join("/"),
     query,
@@ -160,7 +158,7 @@ const _routeFamily = Fault.Class.family(["unsupported"] as const, {
   unsupported: Fault.Class.row({
     class: "absent",
     leg: "traversal",
-    detail: Schema.Struct({}), // a host missing the Navigation API is the whole fact; no column narrows it further
+    detail: Schema.Struct({}),
     render: () => "the host carries no Navigation API, so no intercept seam exists to mount",
   }),
 })
@@ -213,7 +211,6 @@ const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
               onNone: () => Effect.void,
               onSome: (title) => Effect.sync(() => void (globalThis.document.title = title)),
             })),
-            // the last-good persist is write-or-drop: a non-empty search remembers, an empty one clears the memory; its fault logs, never blocks the commit
             Effect.zipRight(Effect.ignoreLogged(url.search === "" ? kv.drop("route", target.key) : kv.write("route", target.key, url.search))),
           )
         const _admitted = (target: Router.Location<Rows>, url: URL): Effect.Effect<void> =>
@@ -232,7 +229,6 @@ const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
           )
         yield* Effect.acquireRelease(
           Effect.sync(() => {
-            // BOUNDARY ADAPTER: intercept must occur before the native callback returns; only its handler crosses into the Effect runtime
             const listener = (raw: Event): void => {
               const event = raw as _NavigateEvent
               const url = new URL(event.destination.url)
@@ -250,7 +246,7 @@ const _make = <const Rows extends Router.Rows>(spec: Router.Spec<Rows>) => {
           }),
           (listener) => Effect.sync(() => navigation.removeEventListener("navigate", listener)),
         )
-        const held = yield* Effect.orElseSucceed(kv.read("route", seeded.key), Option.none<string>) // a poisoned last-good row folds to a cold start, never a dead router
+        const held = yield* Effect.orElseSucceed(kv.read("route", seeded.key), Option.none<string>)
         yield* Effect.when(
           Effect.sync(() => navigation.navigate(`${origin.pathname}${Option.getOrElse(held, () => "")}`, { history: "replace" })),
           () => origin.search === "" && Option.isSome(held),
@@ -277,7 +273,7 @@ const Router: {
 } = {
   Admission,
   param: _param,
-  standard: (row) => createStandardSchemaV1(row.query, { urlKeys: row.urlKeys, partialOutput: true }), // the row, never a bare map: the egress view inherits the same renames the loader decoded under
+  standard: (row) => createStandardSchemaV1(row.query, { urlKeys: row.urlKeys, partialOutput: true }),
   table: _table,
   make: _make,
 }
@@ -320,9 +316,6 @@ type SessionStatus = Data.TaggedEnum<{
 }>
 const SessionStatus: Data.TaggedEnum.Constructor<SessionStatus> = Data.taggedEnum<SessionStatus>()
 
-// `replay` guards TWO forgeries against one live flow — a callback arriving with nothing pending and a callback whose
-// state never matched — so the row carries a closed `mismatch` column rather than a free string that named neither.
-// `lapsed` carries the measured age beside the grace it outran, which is what an operator widening the window reads.
 const _flowFamily = Fault.Class.family(["replay", "lapsed", "skew", "malformed"] as const, {
   replay: Fault.Class.row({
     class: "conflicted",
@@ -381,7 +374,6 @@ declare namespace Vault {
 }
 
 const _cookie = (name: string): Option.Option<string> =>
-  // BOUNDARY ADAPTER: the one sanctioned document.cookie touch in the branch — the CSRF double-submit read
   Array.findFirst(globalThis.document.cookie.split("; "), (row) => row.startsWith(`${name}=`)).pipe(
     Option.flatMap((row) => Option.getRight(Encoding.decodeUriComponent(row.slice(name.length + 1)))),
   )
@@ -390,7 +382,7 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
   scoped: (spec: Vault.Spec) =>
     Effect.gen(function* () {
       const kv = yield* Kv
-      const _status = yield* SubscriptionRef.make<SessionStatus>(SessionStatus.Authenticating()) // cold boot opens in-flight: the boot probe settles it, and guards wait out the phase
+      const _status = yield* SubscriptionRef.make<SessionStatus>(SessionStatus.Authenticating())
       const sleeper = yield* FiberHandle.make()
       const channel = yield* Effect.acquireRelease(
         Effect.sync(() => new globalThis.BroadcastChannel(_CHANNEL)),
@@ -442,8 +434,6 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
       )
       yield* _status.changes.pipe(Stream.runForEach(_armed), Effect.forkScoped)
       yield* spec.refresh.pipe(
-        // cold-boot reconstruction: the HttpOnly session cookie is invisible to script, so the one edge round-trip is the only probe —
-        // a live cookie session lands Authenticated (arming the sleeper), an absent one lands Anonymous, and no guard reads a guessed status
         Effect.flatMap(Option.match({
           onNone: () => SubscriptionRef.set(_status, SessionStatus.Anonymous()),
           onSome: (fresh) => SubscriptionRef.set(_status, SessionStatus.Authenticated(fresh)),
@@ -451,7 +441,6 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
         Effect.forkScoped,
       )
       const _departed = (target: URL): Effect.Effect<never> =>
-        // BOUNDARY ADAPTER: location.assign unloads the document — nothing sequences after it
         Effect.zipRight(Effect.sync(() => globalThis.location.assign(target.toString())), Effect.never)
       const depart = (plan: Vault.Plan): Effect.Effect<never, KvFault> =>
         SubscriptionRef.set(_status, SessionStatus.Authenticating()).pipe(
@@ -474,8 +463,6 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
             onSome: Effect.succeed,
           })
           const now = yield* DateTime.now
-          // The age and the grace are measured ONCE and both ride the refusal: the guard that decides and the row
-          // that renders read the same two values, so a widened window can never disagree with what the fault reported.
           const distance = DateTime.distance(flow.minted, now)
           yield* Effect.when(
             Effect.fail(new FlowFault({ case: { reason: "skew", minted: flow.minted, observed: now } })),
@@ -518,8 +505,6 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
         cleared: SubscriptionRef.set(_status, SessionStatus.Anonymous()).pipe(
           Effect.zipRight(_publish({ _tag: "Cleared" })),
         ),
-        // the pair is one row read twice: `name` names the cookie the scan reads, `header` names the echo the dial
-        // stamps and the serve gate reads — the cookie name standing in for the header is the forked spelling
         csrf: Effect.sync(() =>
           Option.map(_cookie(CookieSpec.csrf.name), (token) => [CookieSpec.csrf.header, token] as const),
         ),
@@ -667,7 +652,7 @@ class Guard extends Effect.Service<Guard>()("runtime/browser/Guard", {
   static readonly policy = (overrides: Partial<Guard.Policy>): Guard.Policy => ({ ..._OPEN, ...overrides })
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Confirm, FlowFault, Guard, RouteFault, Router, SessionStatus, Vault }
 ```

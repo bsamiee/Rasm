@@ -27,7 +27,7 @@
 - Growth: a new Rhino-only interrogation is one `Inquiry` case, one answer case, and one arm; a new toolkit prompt is one `PickerSpec` case at the kernel and no edit here; a message roster the toolkit gains moves OUT of `VerdictRoster` and into the kernel policy.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Interaction;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -39,10 +39,7 @@ using GdiBitmap = System.Drawing.Bitmap;
 
 namespace Rasm.Rhino.HostUi;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The two rosters `MessageBoxButtons` has no member for — the whole reason a Rhino message inquiry survives beside
-// the kernel prompt. `Answers` is the closed set each roster settles into, so a host result outside its own roster
-// refuses by name instead of reaching a caller as an unmapped ordinal.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ShowMessageButton>]
 public sealed partial class VerdictRoster {
     public static readonly VerdictRoster AbortRetryIgnore = new(
@@ -56,8 +53,6 @@ public sealed partial class VerdictRoster {
 
     internal int Capacity { get; }
 
-    // Accessor-backed through the delegate column: a set built into an eager field reads the verdict roster's own
-    // `Items` before that generated static constructor has filled it.
     internal CapabilitySet<HostVerdict> Answers => Admitted();
 
     [UseDelegateFromConstructor]
@@ -74,8 +69,6 @@ public sealed partial class HostVerdict : ICapability<HostVerdict> {
 
     internal ShowMessageResult Host { get; }
 
-    // The ONE ingress off the host result, gated by the roster that was presented: a dialog answering outside its
-    // own button set is a host read that went wrong, not a caller value that was refused.
     internal static Fin<HostVerdict> OfHost(ShowMessageResult host, VerdictRoster roster, Op key) =>
         key.Row<ShowMessageResult, HostVerdict>(candidate: host, column: static row => row.Host)
             .Bind(row => roster.Answers.Admits(row)
@@ -107,8 +100,6 @@ public sealed partial class LayerCreation {
     public static readonly LayerCreation Available = new(true);
 }
 
-// Read at THREE host slots — the seed gate, the dialog's own display flag, and the result gate — so the row owns
-// the sentinel it means rather than handing a bare key back to three branching call sites.
 [SmartEnum<bool>]
 public sealed partial class LinetypeByLayer {
     public static readonly LinetypeByLayer Hidden = new(false, sentinel: static () => Option<int>.None);
@@ -118,8 +109,6 @@ public sealed partial class LinetypeByLayer {
     internal partial Option<int> Sentinel();
 }
 
-// The ANSWER's own axis: the request offers the set-current button under a three-corner row and the operator
-// answers a two-state fact, so reusing the request row here would make `Hidden` and `Offered` one answer.
 [SmartEnum<bool>]
 public sealed partial class LayerCurrency {
     public static readonly LayerCurrency Unchanged = new(false);
@@ -132,8 +121,6 @@ public sealed partial class RangeEdge {
     public static readonly RangeEdge Adjustable = new(true);
 }
 
-// Three of four corners, and the missing one is stated rather than mintable: an offer that is initially selected
-// but never shown makes the layer current under a button the operator can neither see nor revoke.
 [SmartEnum]
 public sealed partial class CurrentLayerChoice {
     public static readonly CurrentLayerChoice Hidden = new(show: false, initial: false);
@@ -173,8 +160,6 @@ public abstract partial record LinetypeInquiry {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record InquiryRow {
     private InquiryRow() { }
-    // `Selected` and `Checked` are the payload STATE a roster carries in and harvests out, not a policy: each is one
-    // independent axis with no second to pair against, which is the law the kernel edit prompt's one bit holds.
     public sealed record Choice(InquiryKey Key, HostText Caption, bool Selected) : InquiryRow;
     public sealed record Check(InquiryKey Key, HostText Caption, bool Checked) : InquiryRow;
     public sealed record Property(InquiryKey Key, HostText Caption, string Value) : InquiryRow;
@@ -199,8 +184,6 @@ public sealed partial class ChoiceMultiplicity {
     internal partial Fin<InquiryAnswer> Pick(
         HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows, Op op);
 
-    // The host answers the SELECTED CAPTION, so the admitted pairs are both the ordered roster the dialog draws and
-    // the map its answer resolves through — the linear rescan the two arms once shared has no site left.
     private static Fin<InquiryAnswer> SelectScalar(
         HostText title, HostText prompt, Seq<(string Caption, InquiryRow.Choice Row)> rows, Op op) =>
         from _ in guard(
@@ -252,8 +235,6 @@ public abstract partial record Inquiry {
     public sealed record Linetype(LinetypeInquiry Request) : Inquiry;
     public sealed record PrintWidth(HostText Title, HostText Prompt, Option<PrintPen> Selected = default) : Inquiry;
     public sealed record Sun : Inquiry;
-    // The palette and the live preview are what make this a different host dialog rather than a narrower one; a
-    // colour ask carrying neither is `PickerSpec.Shade` and never reaches this union.
     public sealed record Shade(
         PerceptualColor Seed,
         AlphaMode Alpha,
@@ -282,11 +263,7 @@ public abstract partial record InquiryAnswer {
     public sealed record Shade(PerceptualColor Value, Seq<Error> PreviewFaults) : InquiryAnswer;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Traits, delivery, and modality are the KERNEL vocabularies and only the roster and the icon are Rhino's, so this
-// posture is not a second knob set: it is the one message knob set with the button column replaced by the roster
-// the toolkit cannot present. The single admission is the pairing the host silently loses — a default naming a
-// button past the roster's arity falls back to the host's own first button and the declared default is gone.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class VerdictPolicy {
     public VerdictRoster Roster { get; }
@@ -296,12 +273,8 @@ public sealed partial class VerdictPolicy {
     public AskDelivery Delivery { get; }
     public AskModality Modality { get; }
 
-    // Every presentation corner is legal — a topmost right-to-left foreground box is a real dialog — so the law is
-    // open and says so rather than leaving a reader to infer it from an absent gate.
     public static CapabilityLaw<AskTrait> Law => CapabilityLaw<AskTrait>.Open;
 
-    // The host flag word carries the EXCLUSIVE delivery target and the INCLUSIVE traits in one argument, so the
-    // fold seats here where both vocabularies are read and never at a call site holding one of them.
     internal ShowMessageOptions HostOptions =>
         toSeq(Traits.Held).Fold(HostDelivery, static (all, trait) => all | HostTrait(trait));
 
@@ -337,9 +310,6 @@ public sealed partial class VerdictPolicy {
             : null;
 }
 
-// The per-column invariants ride their carriers — a non-negative decimal count and a step count are both
-// `Dimension` — so this owner gates only what no carrier can hold, and it states EVERY violated clause rather than
-// the first, because the generator's one refusal slot is a message and not a reason to report one fault of two.
 [ComplexValueObject]
 public sealed partial class RangeInquiry {
     public double Minimum { get; }
@@ -371,10 +341,8 @@ public sealed partial class RangeInquiry {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Inquiries {
-    // The preview raises once per pointer move inside one dialog, so the ledger is BOUNDED and its shed count is a
-    // number a caller can read rather than a frame-local sequence that grows with the operator's hand.
     private static readonly Rasm.Numerics.Dimension PreviewCap = Rasm.Numerics.Dimension.Create(value: 64);
 
     public static Fin<InquiryAnswer> Ask(DocumentSession session, Inquiry request, Op? key = null) {
@@ -489,8 +457,6 @@ public static class Inquiries {
                         Some: pen => Dialogs.ShowPrintWidths(
                             title: ask.Title.Resolve(), message: ask.Prompt.Resolve(), selectedWidth: pen.ToHost()),
                         None: () => Dialogs.ShowPrintWidths(title: ask.Title.Resolve(), message: ask.Prompt.Resolve()));
-                    // The cancel verdict rides an UNSET double, so it is read here and never at the pen ingress,
-                    // where it would surface as an out-of-range width rather than as a dismissal.
                     return Settled(
                         probe: () => Fin.Succ(value: RhinoMath.IsValidDouble(width)),
                         op: held.Op,
@@ -505,9 +471,6 @@ public static class Inquiries {
             op: op));
     }
 
-    // The SAME frame under the same grant: a kernel demand needs the document's own anchor and the dialog need, and
-    // the toolkit marshal it opens for itself nests INSIDE this command frame — the only order in which the anchor
-    // exists before the dialog that parents to it.
     public static Fin<Option<TResult>> Ask<TResult>(DocumentSession session, PickerDemand<TResult> demand, Op? key = null) {
         Op op = key.OrDefault();
         return op.Accept<object>(session, demand).Bind(_ => Framed<Option<TResult>>(
@@ -529,15 +492,11 @@ public static class Inquiries {
                     .Bind(parent => body((Model: model, Session: session), parent))),
             key: op);
 
-    // The host verdict is READ inside the catch, so a raising host member lands as a typed refusal rather than as an
-    // exception crossing the fold that was about to interpret its answer; only a `false` verdict is a dismissal.
     private static Fin<InquiryAnswer> Settled(Func<Fin<bool>> probe, Op op, Func<Fin<InquiryAnswer>> answer) =>
         op.Catch(probe).Bind(accepted => accepted
             ? op.Catch(answer)
             : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: op)));
 
-    // ONE admission carries three refusals — a blank roster, a duplicate key, and a duplicate caption — and the
-    // caption the host answers with is exactly the one this admission proved unique, in the order it drew them.
     private static Fin<Seq<(string Caption, TRow Row)>> Keyed<TRow>(Seq<TRow> rows, Op op) where TRow : InquiryRow =>
         from _ in guard(flag: !rows.IsEmpty, False: op.InvalidInput()).ToFin()
         from keys in rows.TraverseM(row => op.AcceptValidated<InquiryKey>(row.Identity.ToValue())).As()
@@ -552,9 +511,6 @@ public static class Inquiries {
             ? Fin.Succ(value: rows.Map(static pair => pair.Row.Identity).Zip(settled).Strict())
             : Fin.Fail<Seq<(InquiryKey Key, TValue Value)>>(error: op.InvalidResult());
 
-    // The ONE host-table admission: a live count bounds the ordinals, an optional sentinel admits the by-layer row
-    // the host spells as `-1`, and EMPTINESS is the caller's own clause — a multi-select seed admits an empty set
-    // and its result does not, which is one `guard` at each site rather than a knob on this gate.
     private static Fin<Seq<int>> Roster(Seq<int> values, int count, Option<int> sentinel, Error failure) =>
         count >= 0
             && values.Distinct().Count == values.Count
@@ -564,8 +520,6 @@ public static class Inquiries {
 
     private static Fin<InquiryAnswer> SelectLayer(
         Inquiry.Layers request, RhinoDoc model, LayerInquiry.One scope, int seed, Op op) {
-        // `ShowSelectLayerDialog` takes `initialSetCurrentState` as BOTH the seed and the result on one `ref`, so
-        // the request row supplies the seed and the same slot answers the operator's own verdict.
         bool setCurrent = scope.Current.Initial;
         int index = seed;
         bool accepted = Dialogs.ShowSelectLayerDialog(
@@ -666,9 +620,7 @@ public static class Inquiries {
 - Boundary: the host image cache, the `DisplayBitmap` table, and the plug-in icon registry keep their own custody — this owner mints, answers, and never retains.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The host reads a trailing channel on the linetype preview: dashes fill, curve shapes stroke, and text shapes fill
-// even-odd (`api-rhino-ui.md`), so the row carries paint semantics a bare integer would not.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PreviewChannel {
     public static readonly PreviewChannel Dashes = new(key: 0);
@@ -683,8 +635,6 @@ public abstract partial record PreviewInk {
     public sealed record Uniform(PerceptualColor Value) : PreviewInk;
     public sealed record PerMesh(Seq<PerceptualColor> Values) : PreviewInk;
 
-    // The pairing is the ONE clause this family carries and it needs the roster it pairs against, so it is admitted
-    // at the request rather than restated inside the production that already holds an admitted ink.
     internal Fin<Unit> Admit(Rasm.Numerics.Dimension meshes, Op op) => Switch(
         (Meshes: meshes, Op: op),
         document: static (_, _) => Fin.Succ(value: unit),
@@ -699,13 +649,9 @@ public abstract partial record PreviewInk {
         perMesh: static (_, row) => row.Values);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The pattern pair the extended host member reads; its PRESENCE selects that member over the plain one, so two host
-// overloads are one case rather than two cases differing by a scale no reader could see in the name.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PatternPass(PositiveMagnitude Scale, PreviewChannel Channel);
 
-// The ground the pixel rasterizer composites onto, under the coverage carriage its rows are packed at; both are
-// parameters the bitmap rasterizer does not publish, which is why their presence is the overload discriminant.
 public readonly record struct PixelGround(PerceptualColor Ground, AlphaLayout Layout);
 
 public readonly record struct PaletteEntry(string Name, PerceptualColor Value);
@@ -749,10 +695,8 @@ public abstract partial record HostProduct {
     public sealed record Palette(Seq<PaletteEntry> Entries) : HostProduct;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostAssets {
-    // The boundary's own supplier of the kernel variant: the probe is read where the host publishes it, so no
-    // consumer of this page carries a second polarity vocabulary.
     public static ThemeVariant Polarity => HostUtils.RunningInDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
 
     public static Fin<HostProduct> Render(HostAsset request, Op? key = null) {
@@ -815,8 +759,6 @@ public static class HostAssets {
                 .As()
                 .Map(static entries => (HostProduct)new HostProduct.Palette(Entries: entries.Strict())));
 
-    // The rasterizer reads SVG document TEXT, so `Source` is the one origin it takes; every other case names a byte
-    // source `AssetOrigin.Resolve` already answers, and routing one here would decode what the kernel owns.
     private static Fin<string> Source(AssetOrigin origin, Op op) => origin.Switch(
         state: op,
         resource: static (op, _) => Refused(nameof(AssetOrigin.Resource), op),
@@ -856,8 +798,6 @@ public static class HostAssets {
             scale: ask.Extent.Scale, extent: ask.Extent, layout: ground.Layout, rows: toArray(rows), key: op)
         select (HostProduct)new HostProduct.Raster(Value: raster);
 
-    // The host preview members take a pixel pair the extent already derived against its own ceiling; a second
-    // multiplication here would be the authority that extent exists to hold.
     private static DrawingSize Extent(AssetExtent extent) =>
         new(width: extent.PixelWidth, height: extent.PixelHeight);
 }

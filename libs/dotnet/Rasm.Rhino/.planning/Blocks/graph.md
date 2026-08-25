@@ -20,7 +20,7 @@ Live placement evidence comes from `GetReferences(0)` and retains every instance
 `GraphFold` canonicalizes vertices through an admitted order before grouping, component ranking, and condensed-edge ordering; equivalent graphs therefore emit identical component and edge sequences.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -37,7 +37,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Blocks;
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(
     SwitchMapStateParameterName = "context",
     ConversionFromValue = ConversionOperatorsGeneration.None,
@@ -55,16 +55,7 @@ public sealed partial class GraphEvidence {
     public static readonly GraphEvidence OpaqueLinks = new(key: 1);
 }
 
-// The three policy vocabularies close over `GraphFold`, which is vertex-generic, so pinning them to `Guid` made
-// the definition rail the only consumer a shared fold could serve: Chronicle's `Guid` web and the closure walk's
-// `ArchivePath` graph both read these rows. Thinktecture REFUSES a generic owner — the generated roster lives on
-// one closed type — so each vocabulary is the hand form of a keyless behavior row: a private ctor seals the set,
-// static rows close over each instantiation, and the delegate column IS the behavior; nothing here needs the
-// roster, the wire key, or the validation a generated owner would add.
 public sealed record GraphBoundary<TVertex> where TVertex : notnull {
-    // Edges orient used -> container, so semantic ROOTS (definitions nothing uses) carry zero OUTGOING edges and
-    // bind the catalog's `Sinks` (zero-outdegree) — and semantic LEAVES (definitions containing nothing) carry
-    // zero INCOMING edges and bind the catalog's `Roots` (zero-indegree). The prior binding was inverted.
     public static readonly GraphBoundary<TVertex> Roots = new(select: static graph => toSeq(graph.Sinks()));
     public static readonly GraphBoundary<TVertex> Leaves = new(select: static graph => toSeq(graph.Roots()));
 
@@ -96,10 +87,7 @@ public sealed record GraphProjection<TVertex> where TVertex : notnull {
     internal Func<BidirectionalGraph<TVertex, SEdge<TVertex>>, Op, Fin<BidirectionalGraph<TVertex, SEdge<TVertex>>>> Project { get; }
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The source axis and the unit crossed as RAW host enums on a public record, so a consumer read an ordinal the
-// folder already owns a vocabulary for — including the retired update ordinal `SourceMode` folds away, which no
-// caller could know to fold itself. Both columns take their boundary owner.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record DefinitionNode(
     Guid Key,
     Option<int> Index,
@@ -117,9 +105,6 @@ internal sealed record Topology(
     GraphEvidence Evidence) : IDetachedDocumentResult {
     internal Fin<BidirectionalGraph<Guid, SEdge<Guid>>> Fold(Op key) {
         Seq<Guid> nodes = Nodes.Map(static node => node.Key);
-        // Endpoint proof is SET containment: the `Seq` scan ran the whole node roster twice per edge, so a
-        // document whose definitions and nesting edges both grow linearly paid quadratically for a check that is
-        // one hash lookup. The set is built once from the same roster the distinctness guard just proved.
         LanguageExt.HashSet<Guid> keys = nodes.ToHashSet();
         return from _present in guard(!nodes.IsEmpty, key.InvalidResult()).ToFin()
                from _ in nodes
@@ -151,7 +136,7 @@ internal sealed record Topology(
 `GraphFold` is the one vertex-generic `QuikGraph` fold surface — cycles, weak components, DAG-guarded order and reduction, and condensation — consumed by every graph projection in the assembly; a sibling rail re-deriving one of its folds is the deleted form. `GraphGrouping<TVertex>.Cycles` includes multi-vertex components and one-vertex components containing a self-edge, and reduction refuses a cyclic graph with the cycle detail. `GraphBoundary<TVertex>`, `GraphGrouping<TVertex>`, and `GraphProjection<TVertex>` carry paired algorithm choice as delegate rows over the same vertex parameter `GraphFold` takes — hand rows with sealed constructors, because the row generator refuses a generic owner — so the definition rail's `Guid` graph and the closure walk's `ArchivePath` graph read one vocabulary; a request case per algorithm, or a policy pinned to one vertex type, is the deleted form. The boundary rows bind against the catalog's own degree semantics: under used-to-container orientation, semantic roots are the ZERO-OUTDEGREE vertices (`Sinks`) and semantic leaves the zero-indegree ones (`Roots`). `Containers`, `References`, `Nesting`, and `Tally` retain the host members that answer them directly and reject non-live sources.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BlockGraphAsk {
     private BlockGraphAsk() { }
@@ -216,7 +201,7 @@ public abstract partial record BlockGraphAnswer : IDetachedDocumentResult {
     public sealed record Archives(ClosureReport Report) : BlockGraphAnswer;
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static partial class BlockGraph {
     public static Fin<BlockGraphAnswer> Ask(GraphSource source, BlockGraphAsk question) {
         Op op = Op.Of();
@@ -388,9 +373,6 @@ public static partial class BlockGraph {
     private static Fin<Topology> Offline(File3dm archive, Op op) =>
         ModelUnit.Of(value: archive.Settings.ModelUnitSystem, key: op).Bind(units => op.Catch(() => {
             Seq<InstanceDefinitionGeometry> roster = toSeq(archive.AllInstanceDefinitions);
-            // ONE owner map replaces the per-definition roster scan: each reference resolves its containing
-            // definition in one hash read, so a document whose definitions and references both grow linearly
-            // stops paying quadratically for a membership fact the map states once.
             HashMap<Guid, Guid> owners = roster.Fold(
                 HashMap<Guid, Guid>(),
                 (held, definition) => toSeq(definition.GetObjectIds())
@@ -427,8 +409,6 @@ public static partial class BlockGraph {
                     : GraphEvidence.Complete));
         }));
 
-    // Both narrow reads ride the GENERATED partial dispatch: a type test and a `_ =>` switch each stop matching
-    // silently the day a fourth source case lands, where `SwitchPartially`'s `@default` is a declared posture.
     private static Fin<BlockGraphAnswer> Live(
         GraphSource source,
         Op op,
@@ -484,10 +464,6 @@ internal static class GraphFold {
             ? Fin.Succ(value: graph.ComputeTransitiveReduction())
             : Fin.Fail<BidirectionalGraph<TVertex, SEdge<TVertex>>>(error: op.InvalidResult(detail: nameof(Cycles))));
 
-    // `CondensateStronglyConnected` is the catalog's own condensation — the hand SCC-plus-rank fold was rung 1
-    // beside it. NAMED LOSS: the condensation returns components in discovery order, so the canonical ranking
-    // re-derives from the returned graph — each component sorts its members and components rank by least member
-    // under the admitted order — and equivalent graphs still emit identical sequences.
     internal static (Seq<Seq<TVertex>> Components, Seq<(int From, int To)> Edges) Condensed<TVertex>(
         BidirectionalGraph<TVertex, SEdge<TVertex>> graph,
         IComparer<TVertex>? order = null) where TVertex : notnull {
@@ -546,11 +522,7 @@ The walk is a state-threaded fold, not a loop: `ClosureWalk` carries the frontie
 The walk pins the canonical root directory and opens each dependency segment relative to that handle without following links. Handle length gates bytes before an exact owned snapshot reaches the native reader; link count and depth gate expansion. The snapshot copies through a pool lease sized from a declared chunk policy clamped to the archive's own extent, never a one-byte rent whose smallest bucket turns a real `.3dm` into millions of syscall pairs. Each rejected native read preserves its log beside the broken-link detail without aborting independent traversal; SCC analysis distinguishes shared dependencies from circular links after the bounded walk settles.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// The plane-canonical archive identity, admitted ONCE at `Canonical` and keying EVERY container: the walk's seen
-// set, the failed map, the cycle graph, and the unit roster all compare the plane's own fold, so an archive
-// reached under two spellings on a case-insensitive volume is ONE vertex everywhere rather than one at the sites
-// that remembered to pass a comparer. `Value` keeps the resolved spelling for display and equality ignores it.
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable(Explicit = true)]
 public sealed partial record ArchivePath : IComparable<ArchivePath> {
     private ArchivePath(string key, string value) => (Key, Value) = (key, value);
@@ -564,9 +536,6 @@ public sealed partial record ArchivePath : IComparable<ArchivePath> {
     public int CompareTo(ArchivePath? other) => string.CompareOrdinal(strA: Key, strB: other?.Key);
 }
 
-// One link row carries BOTH facts a traversal states about a stored link — where it resolved and whether it
-// failed — so the edge-and-broken pair one site had to append as two rows is one row with two columns, and the
-// report's `Edges`/`Broken` read as projections with one authority under them.
 public sealed record ClosureLink(
     ArchivePath From,
     string StoredLink,
@@ -583,10 +552,6 @@ public sealed partial class ClosureLimit {
     public static readonly ClosureLimit Bytes = new(key: nameof(Bytes));
 }
 
-// A REFUSED target is a hole in the answer, not a footnote: an archive that would not open contributes no links,
-// so every edge beyond it is absent from a report that still called itself `Complete`. `Truncated` carries no
-// census of its own — `ClosureUsage` already holds offered, opened, and refused, and a second copy on the
-// terminal is two authorities over one count.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClosureTerminal {
     private ClosureTerminal() { }
@@ -604,7 +569,6 @@ public sealed record ClosureReport(
     Seq<string> NativeLog,
     ClosureUsage Usage,
     ClosureTerminal Terminal) : IDetachedDocumentResult {
-    // Projections over ONE roster: an edge is a link however it settled, a broken link is one carrying a fault.
     public Seq<ClosureLink> Edges => Links;
     public Seq<ClosureLink> Broken => Links.Filter(static link => link.Fault.IsSome);
 
@@ -613,14 +577,6 @@ public sealed record ClosureReport(
 
 [SmartEnum<string>]
 public sealed partial class ArchivePlane {
-    // Flag columns are the platform's own `<fcntl.h>` ABI bits, declared per servable RID at this seam: they are
-    // compile-time kernel ordinals no managed surface publishes, and they differ per plane, which is the whole
-    // reason the plane owns them instead of a shared constant block.
-    // Path comparison is a PLANE column beside the flags, for the same reason the flags are: APFS is
-    // case-insensitive at its default configuration, so an ordinal containment test reads `/Blocks/a.3dm` as
-    // outside a root spelled `/blocks` and refuses a dependency that resolves fine — and the cycle grouping keyed
-    // on the same comparer splits one archive reached under two spellings into two vertices. Linux keeps ordinal
-    // because ext4 and its peers are case-sensitive; a shared constant could only be wrong on one of them.
     public static readonly ArchivePlane Darwin = new(
         key: "darwin",
         read: 0x00000000,
@@ -644,16 +600,12 @@ public sealed partial class ArchivePlane {
     public int CloseOnExec { get; }
     public StringComparison Comparison { get; }
 
-    // The canonical-key fold `ArchivePath.Of` admits through: the plane's comparison policy, materialized once at
-    // admission so every container downstream keys plane-correct under DEFAULT equality.
     [UseDelegateFromConstructor] internal partial string Fold(string text);
 
     internal int Walk => Read | NoFollow | DirectoryOnly | CloseOnExec;
 
     internal int Leaf => Read | NoFollow | CloseOnExec;
 
-    // A plane with no `openat` peer cannot serve a symlink-safe segment walk, so selection refuses rather
-    // than binding a `libc` entry point the platform does not export.
     internal static Fin<ArchivePlane> Current(Op op) =>
         OperatingSystem.IsMacOS() ? Fin.Succ(value: Darwin)
         : OperatingSystem.IsLinux() ? Fin.Succ(value: Linux)
@@ -662,7 +614,7 @@ public sealed partial class ArchivePlane {
             outputType: typeof(ClosureReport)));
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class BlockGraph {
     private sealed record ArchiveTarget(ArchivePath From, string StoredLink, ArchivePath Path, int Depth);
 
@@ -673,10 +625,6 @@ public static partial class BlockGraph {
         internal sealed record Rejected(Error Error, string NativeLog) : ArchiveScan;
     }
 
-    // Exemption: both `Open` bodies are the symlink-safe segment walk itself. Each step must open one segment
-    // relative to the handle the PREVIOUS step produced and dispose that handle only after the next one lands, so
-    // the loop, the running handle, and the `finally` are the algorithm — a fold would either hold every
-    // intermediate handle open or drop one before its successor exists, which is the race the walk defeats.
     private sealed class ArchiveRoot : IDisposable {
         private readonly Microsoft.Win32.SafeHandles.SafeFileHandle directory;
         private readonly ArchivePlane plane;
@@ -782,9 +730,6 @@ public static partial class BlockGraph {
         public void Dispose() => Handle.Dispose();
     }
 
-    // Exemption: the two `[LibraryImport]` declarations are the platform-forced POSIX seam `ArchivePlane` gates —
-    // no managed surface offers a relative-to-handle open, and no arm reaches them before `Current` admits a plane.
-    // The BCL `LibraryImport` source generator emits the marshalling; no NuGet package exists to register.
     [BoundaryAdapter]
     [System.Runtime.InteropServices.LibraryImport(
         "libc",
@@ -832,8 +777,6 @@ public static partial class BlockGraph {
             Usage: new ClosureUsage(Offered: 1, Archives: 0, Refused: 0, Links: 0, Depth: 0, Bytes: 0),
             Terminal: new ClosureTerminal.Complete());
 
-        // One appender for the one link roster: where a site once appended an edge AND a broken row for one
-        // stored link, the row now carries resolution and fault as two columns of one fact.
         internal ClosureWalk Linked(ArchivePath from, string link, Option<ArchivePath> resolved, Option<Error> fault) =>
             this with {
                 Links = Links.Add(value: new ClosureLink(
@@ -859,10 +802,6 @@ public static partial class BlockGraph {
             };
     }
 
-    // The drive is a bounded fixpoint whose HALT is the fold's own predicate: enqueue-side deduplication makes
-    // every frontier entry a fresh archive, so `MaxArchives + 1` ticks strictly cover the walk (the extra tick is
-    // the one that exhausts), and `foldWhile` stops the moment the terminal settles or the frontier drains — the
-    // walk carries no `Running` mirror of a fact its own columns already state.
     private static Fin<ClosureReport> ArchiveClosure(string rootPath, ClosureBudget budget, Op op) =>
         from plane in ArchivePlane.Current(op: op)
         from root in Canonical(path: rootPath, plane: plane, op: op)
@@ -898,7 +837,6 @@ public static partial class BlockGraph {
                 Fail: error => walk.Refused(target: target, fault: error),
                 Succ: input => Measured(walk: walk, input: input, target: target, scope: scope));
 
-    // Exemption: the input handle's `using` is the platform-forced disposal seam bracketing one archive read.
     private static ClosureWalk Measured(ClosureWalk walk, ArchiveInput input, ArchiveTarget target, ClosureScope scope) {
         using (input) {
             long extent = input.Length;
@@ -978,8 +916,6 @@ public static partial class BlockGraph {
                     resolved: Some(resolved),
                     fault: Some(scope.Op.InvalidContext())));
 
-    // Deduplication is enqueue-side: a link onto an already-failed archive receipts its broken re-reference here,
-    // a link onto a live shared dependency records its edge and stops, and only a fresh path joins the frontier.
     private static ClosureWalk Frontier(
         ClosureWalk walk,
         ArchivePath from,
@@ -1004,10 +940,6 @@ public static partial class BlockGraph {
                 },
             };
 
-    // A budget terminal outranks truncation — it already names the exact ceiling that stopped the walk — but an
-    // otherwise-clean walk that refused even one target settles `Truncated`, never `Complete`; the counts a
-    // consumer reads live on `Usage` alone. The cycle graph keys `ArchivePath` under its own canonical equality,
-    // so no per-call comparer exists to forget.
     private static ClosureReport Reported(ClosureWalk walk) {
         BidirectionalGraph<ArchivePath, SEdge<ArchivePath>> graph = new(allowParallelEdges: false);
         walk.Links
@@ -1055,20 +987,11 @@ public static partial class BlockGraph {
             && !relative.StartsWith(value: $"..{System.IO.Path.AltDirectorySeparatorChar}", comparisonType: comparison);
     }
 
-    // The chunked copy is the snapshot itself — the offset loop and rented buffer form the native reader's PATH
-    // boundary, while deletion settles on the same rail so cleanup cannot replace or erase the scan fault.
-    //
-    // `Guid.NewGuid` here is I/O UNIQUENESS, not identity: the name exists only to keep two concurrent snapshots
-    // from colliding in the temp directory and is deleted by the same settled bracket, so it never enters a stamp, a
-    // receipt, or any replayed preimage — the determinism carve that bars a random guid elsewhere does not reach
-    // a filename with a lifetime shorter than the call that made it.
     private static Fin<ArchiveScan> InspectArchive(ArchiveInput input, Op op) => op.Catch(() => {
         string snapshot = System.IO.Path.Combine(
             path1: System.IO.Path.GetTempPath(),
             path2: $"{Guid.NewGuid():N}.3dm");
         Fin<ArchiveScan> primary = op.Catch(() => {
-            // Pooled, sized from the declared chunk policy clamped to the archive's own extent, returned by disposal:
-            // the raw rent-and-return pair is the toolkit owner's own concern now.
             using SpanOwner<byte> lease = SpanOwner<byte>.Allocate(
                 size: checked((int)long.Clamp(value: input.Length, min: 1, max: SnapshotChunkBytes)));
             using (Microsoft.Win32.SafeHandles.SafeFileHandle output = System.IO.File.OpenHandle(

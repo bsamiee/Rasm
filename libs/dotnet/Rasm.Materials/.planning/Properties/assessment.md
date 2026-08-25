@@ -22,7 +22,7 @@ The `EpdRow` shape lands here rather than on the sustainability roster because a
 - Boundary: an `AssessmentRecord` is INGRESS DATA, not a domain owner — `Admit` is its one `BOUNDARY_ADMISSION` and the interior sees only `Assessed`; generated contract values cross once onto `EpdRow`, and no generated message survives that projection. Every scalar rides `Published<T>`, so an assessed column and a seed column are ONE type at the seam. Expiry is a HARD gate at RESOLUTION and never at admission — an expired certificate is a historical record that stops overriding — and a record with no expiry never expires. `Attested` and `Run` stay absent: the contract declares neither, and filling either attributes a review nobody performed. The assessable axis is CARVED, not thin: a row needs a `QuantityRow`, so the seam's fractional-exponent columns — carbonation rate mm/sqrt-year, the ageing exponent — are unassessable, sqrt-time being inexpressible in the integer dimension vector; a durability survey assesses the chloride diffusivity and the seat carries those two untouched.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -49,27 +49,21 @@ public sealed record WireLimits(int SizeLimit, int RecursionLimit) {
     public static readonly WireLimits Declaration = new(4 << 20, 100);
 }
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// Rank and Grade are DIFFERENT axes on purpose — Rank orders assessments against each other inside this page's
-// resolution, Grade is the estate-wide attributable ladder ValueBag.Merge and PropertyEvidence.Citable read — so
-// neither is derivable from the other and collapsing them would let a seam precedence decide an in-situ contest.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AssessmentModality {
-    public static readonly AssessmentModality Survey         = new("survey",         rank: 1, relative: 0.30, grade: EvidenceGrade.Measured);   // visual/condition survey — the widest band
-    public static readonly AssessmentModality NonDestructive = new("non-destructive", rank: 2, relative: 0.20, grade: EvidenceGrade.Measured);   // rebound hammer, UPV, cover meter
-    public static readonly AssessmentModality Core           = new("core",           rank: 3, relative: 0.12, grade: EvidenceGrade.Measured);   // extracted core / in-situ coupon
-    public static readonly AssessmentModality Laboratory     = new("laboratory",     rank: 4, relative: 0.05, grade: EvidenceGrade.Measured);   // certified batch test to the standard's own method
-    // This row's grade is what a declaration with no stated class wears; a classed one reads DeclarationProfile.Grade.
+    public static readonly AssessmentModality Survey         = new("survey",         rank: 1, relative: 0.30, grade: EvidenceGrade.Measured);
+    public static readonly AssessmentModality NonDestructive = new("non-destructive", rank: 2, relative: 0.20, grade: EvidenceGrade.Measured);
+    public static readonly AssessmentModality Core           = new("core",           rank: 3, relative: 0.12, grade: EvidenceGrade.Measured);
+    public static readonly AssessmentModality Laboratory     = new("laboratory",     rank: 4, relative: 0.05, grade: EvidenceGrade.Measured);
     public static readonly AssessmentModality Declaration    = new("declaration",    rank: 5, relative: 0.05, grade: EvidenceGrade.Import);
     public int Rank { get; }
     public double Relative { get; }
     public EvidenceGrade Grade { get; }
 }
 
-// A survey observes deterioration against the material's own basis rather than measuring a new value; the retention
-// factor is the capacity fraction the grade admits.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConditionGrade {
@@ -83,8 +77,6 @@ public sealed partial class ConditionGrade {
 public delegate Fin<Seq<MaterialPropertySet>> PropertyLanding(
     Seq<MaterialPropertySet> sets, MeasureValue measure, PropertyEvidence evidence, Op key);
 
-// The seat helpers resolve at first use, so declaring them on the resolution owner below is legal and keeps the
-// case-rebuild shape with the law that owns it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AssessedProperty {
@@ -98,17 +90,13 @@ public sealed partial class AssessedProperty {
         static (sets, measure, evidence, key) => AssessmentResolution.SeatMechanical(sets, evidence, key, youngs: measure));
     public static readonly AssessedProperty Conductivity = new("conductivity", QuantityRow.ThermalConductivity,
         static (sets, measure, evidence, key) => AssessmentResolution.SeatThermal(sets, evidence, key, measure));
-    // The fib Model Code D_RCM a chloride-profile survey returns — the durability column an assessment measures most
-    // often after strength, and the one seam Durability column the MeasureValue axis can carry at all.
     public static readonly AssessedProperty ChlorideDiffusion = new("chloride-diffusion", QuantityRow.ChlorideDiffusivity,
         static (sets, measure, evidence, key) => AssessmentResolution.SeatDurability(sets, evidence, key, measure));
-    public QuantityRow Row { get; }         // the ONE typed-mint owner the seam MeasureValue rides — never a local triple
+    public QuantityRow Row { get; }
     public PropertyLanding Landing { get; }
 }
 
-// --- [CONTRACT_PROJECTION] -----------------------------------------------------------------
-// The generated enums own the contract rosters. This projection declares only what the Materials domain adds:
-// which declared units its four-basis seam can seat, which revision owns the A2 matrix, and attribution grade.
+// --- [CONTRACT_PROJECTION] -------------------------------------------------------------
 public static class DeclarationProfile {
     public static Option<MeasurementBasis> Basis(DeclaredUnit unit) => unit switch {
         DeclaredUnit.Kg => Some(MeasurementBasis.PerKg),
@@ -127,22 +115,9 @@ public static class DeclarationProfile {
         : EvidenceGrade.Catalogue;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The registry provenance an ingested declaration carries and an in-process one does not: the registry-native pair is
-// the key two registries republishing ONE declaration differ on, which the programme pair cannot separate. The
-// registry's own revision string is NOT carried — Issued is the revision discriminant the tie law already reads and
-// Uuid the identity a join uses, so a version column would be a third spelling nothing consults. The generated source
-// message projects once into these two domain columns; no peer schema or serialization annotation sits beside it.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record DeclarationOrigin(Registry Registry, string Uuid);
 
-// WHAT a producer declared, as a CLOSED TWO-CASE FAMILY rather than a vector-and-matrix pair guarded against holding
-// both. The carbon arm carries the per-EN-15978-module GWP vector beside the census of which modules the declaration
-// actually DECLARES — a zero in an undeclared module is ABSENCE, and reading it as a measured zero is the
-// fabricated-tally defect the census exists to prevent, while a parallel bool span rather than an Option per cell
-// keeps the vector one contiguous read. The full arm carries the whole thirteen-indicator declaration. The
-// vector-XOR-matrix invariant every earlier shape re-guarded at admission is now UNREPRESENTABLE: a row declaring its
-// GWP twice cannot be built, so no rule has to guess which the producer meant, and a third declaration granularity
-// lands as one case the generated Switch compiler-forces at every reader.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeclaredImpacts {
     private DeclaredImpacts() { }
@@ -150,14 +125,6 @@ public abstract partial record DeclaredImpacts {
     public sealed record Full(ImmutableArray<double> Matrix) : DeclaredImpacts;
 }
 
-// The product-declaration row: the EPD facts a curated industry average cannot carry. Issuer and Registration are the
-// declaration's PROGRAMME identity (the pair a procurement filter keys on), DeclaredUnit / Standard / Subtype the
-// generated contract values projected directly into the domain (an EPD is published per functional unit and is
-// admitted at THAT unit, never renormalized), Impacts the declared family whole, ValidUntil the calendar
-// expiry the resolution law compares. The two resource fractions are Option — scenario data many declarations omit,
-// absence never a fabricated fraction — mirroring the seam OfEnvironmental's own Option pair rather than forcing a
-// zero the producer never declared. The declared PRODUCT NAME is deliberately not mirrored: it is a display fact this
-// consumer joins on nowhere, and a column no arm reads is decorative.
 public sealed record EpdRow(
     string Issuer,
     string Registration,
@@ -168,7 +135,7 @@ public sealed record EpdRow(
     DeclaredImpacts Impacts,
     Option<double> RecycledContent,
     Option<double> EndOfLifeRecovery,
-    LocalDate Issued,          // the declaration's own issue date — the tie key two revisions of one registration differ on
+    LocalDate Issued,
     LocalDate ValidUntil) {
     public string Reference => Origin.Match(
         Some: static origin => $"{origin.Registry}:{origin.Uuid}",
@@ -198,11 +165,6 @@ public abstract partial record AssessmentRecord {
         declared: static r => Some(r.Epd.ValidUntil));
 }
 
-// The identity every admitted record carries, minted ONCE at admission and passed whole. Taken rides here because
-// the tie law needs it on every shape: two records of equal rank are separated by which was DECLARED later, and an
-// EXPIRY is not that date — two certificates issued a decade apart carry one expiry as easily as not, and a record
-// with no expiry has none to compare at all, which is exactly the population an expiry-keyed tiebreak sorted to
-// the bottom.
 public readonly record struct AssessedIdentity(
     MaterialId Material,
     AssessmentModality Modality,
@@ -210,11 +172,6 @@ public readonly record struct AssessedIdentity(
     LocalDate Taken,
     Option<LocalDate> Expiry);
 
-// The ADMITTED record as a CLOSED UNION over the three EVIDENCE SHAPES, each carrying exactly the columns its own
-// resolution arm consumes. The three-optional-slot carrier this replaces made a record with two slots present and a
-// record with none equally representable, so the resolution had to re-discriminate on IsSome probes over a fact the
-// admission had already decided — and its fallthrough arm silently applied nothing to a record that admitted
-// cleanly.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Assessed {
     private Assessed(AssessedIdentity identity) => Identity = identity;
@@ -228,20 +185,14 @@ public abstract partial record Assessed {
         AssessedIdentity Identity, MeasurementBasis Basis, DeclaredImpacts Impacts,
         Option<Published<double>> Recycled, Option<Published<double>> Recovery) : Assessed(Identity);
 
-    // The AXIS a record claims — the resolution's exclusion key, so a lower-ranked record cannot re-claim what a
-    // higher-ranked one already took. A column claims its OWN property, so two measured records over two different
-    // properties BOTH apply while two over one property do not; retention and lifecycle each claim one axis whole.
     public string Axis => Switch(
         column:    static r => $"column:{r.Property.Key}",
         retention: static _ => "retention",
         lifecycle: static _ => "lifecycle");
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssessmentAdmission {
-    // The three arms accumulate nothing across each other (a record is one modality), but each arm's own independent
-    // columns accumulate applicatively so a malformed EPD reports its arity, its tokens, AND its fractions together.
-    // Band.Positive IS the finite-and-strictly-positive row: a hand double.IsFinite beside it re-spells the kernel.
     public static Fin<Assessed> Admit(AssessmentRecord record, Op key) => record.Switch(
         state: key,
         measured: static (k, r) => AdmissionSlots
@@ -253,12 +204,6 @@ public static class AssessmentAdmission {
             Identity(r.Material, AssessmentModality.Survey, r.Reference, r.Taken, r.ValidUntil), r.Grade.Retention)),
         declared: static (k, r) => Declared(r.Material, r.Epd, k));
 
-    // The EPD arm's own admission. The vector-XOR-matrix guard every earlier shape spent a slot on is GONE — the
-    // DeclaredImpacts union makes the both-declared state unbuildable — so what survives is per-arm ARITY, and each
-    // arm's expectation is read off a ROW rather than restated: the carbon arm owes LifecycleStage arity on vector and
-    // census alike (a short vector zero-pads downstream, publishing undeclared modules as measured zeros), the full
-    // arm owes exactly the arity ITS OWN standard revision declares, so an A1 declaration reaches the matrix arm
-    // through no arity at all. The generated enums already crossed the descriptor gate before this domain projection.
     static Fin<Assessed> Declared(MaterialId material, EpdRow epd, Op key) =>
         (Arity(epd, key),
          DeclarationProfile.Basis(epd.DeclaredUnit).Match(
@@ -284,10 +229,6 @@ public static class AssessmentAdmission {
             None: () => Fail<Error, Unit>(new ElementFault.ValueRejected(key,
                 $"<epd-matrix-under-standard:{epd.Reference}:{epd.Standard}>"))));
 
-    // The identity mint: the evidence, the band, and the tie key are all decided HERE, so no later arm re-derives
-    // provenance and no record carries two spellings of one fact. ONE PropertyEvidence.Of threads the expiry Option
-    // straight through — the present/absent Match this replaces spelled the same fact twice and reached a positional
-    // constructor the seam has since closed.
     static AssessedIdentity Identity(MaterialId material, AssessmentModality modality, string reference, LocalDate taken, Option<LocalDate> validUntil) =>
         new(material, modality,
             PropertyEvidence.Of(modality.Key, modality.Grade, Some(reference), validUntil),
@@ -302,16 +243,11 @@ public static class AssessmentAdmission {
             recycled.Map(f => Published.Of(f, identity.Modality.Relative, identity.Evidence)),
             recovery.Map(f => Published.Of(f, identity.Modality.Relative, identity.Evidence)));
 
-    // Provenance is SINGLE-stored on the seam evidence exactly as the sibling catalogues store theirs: the modality
-    // key is the source, the registry-native or programme reference the identity, the expiry the LocalDate — never a
-    // parallel per-record provenance column the seam would have to carry twice. The general Of carries the grade the
-    // SUBTYPE row decides, where the sibling roster's PropertyEvidence.Declaration shorthand fixes it at Import for
-    // rows whose representativeness the curator already settled.
     static PropertyEvidence EpdEvidence(EpdRow epd) =>
         PropertyEvidence.Of("epd", DeclarationProfile.Grade(epd.Subtype), Some(epd.Reference), Some(epd.ValidUntil));
 }
 
-// --- [DECLARATION_WIRE] --------------------------------------------------------------------
+// --- [DECLARATION_WIRE] ----------------------------------------------------------------
 public static class DeclarationWire {
     public static Fin<AssessmentRecord> Decode(ReadOnlyMemory<byte> record, Op key) =>
         key.Catch(() => Fin.Succ(DeclarationRecord.Parser.ParseFrom(
@@ -334,8 +270,6 @@ public static class DeclarationWire {
         wire.Issued.ToLocalDate(),
         wire.ValidUntil.ToLocalDate());
 
-    // The generated enum ordinals are the schema's canonical indicator order. Module ordinals collapse the fifteen
-    // EN 15978 cells onto the seam's six lifecycle bands; no token roster or string parser stands beside the schema.
     static DeclaredImpacts Banded(IEnumerable<ImpactCell> cells) {
         double[] matrix = new double[MaterialPropertySet.Environmental.MatrixArity];
         bool[] covered = new bool[matrix.Length];
@@ -374,7 +308,7 @@ public static class DeclarationWire {
 - Boundary: this page never writes a catalogue row. A measured column REPLACES its named column by RE-ADMITTING through the same `Of*` family the catalogue used, so an assessed value crosses the identical band guard; the record's evidence replaces the case's whole evidence, because leaving the catalogue's transcription evidence on it attributes a field reading to a standards table. A material carrying no case for the named column returns UNCHANGED — inventing a thermal case for a measured conductivity publishes columns nothing measured. A graded record SCALES rather than replaces: modulus, yield, and ultimate scale while DENSITY and the two dimensionless ratios do not, since deterioration does not change what a material weighs and scaling Poisson's ratio is dimensionally meaningless. An EPD's UNDECLARED modules stay absent under its coverage census and fall back to the curated industry-average cell — the whole reason the curated rows are DEMOTED to fallback rather than deleted.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record AssessmentSet(FrozenDictionary<MaterialId, Seq<Assessed>> ByMaterial) {
     public static readonly AssessmentSet Empty = new(FrozenDictionary<MaterialId, Seq<Assessed>>.Empty);
 
@@ -383,11 +317,6 @@ public sealed record AssessmentSet(FrozenDictionary<MaterialId, Seq<Assessed>> B
             .Map(static admitted => new AssessmentSet(
                 admitted.GroupBy(static a => a.Identity.Material).ToFrozenDictionary(static g => g.Key, static g => toSeq(g))));
 
-    // The LIVE selection at an instant, RANKED. Crossing to the BCL to compare two calendar dates is the phantom
-    // this deletes: ToDateTimeUnspecified invents a midnight instant with no zone and a DateTime.MinValue sentinel
-    // for the absent case, which sorted every record carrying no expiry beneath every record carrying one — and the
-    // whole reason Taken exists is that expiry was never the tie key. ForAll over the absent expiry is what makes a
-    // record with none unconditionally live rather than unconditionally stale.
     public Seq<Assessed> Live(MaterialId material, LocalDate at) =>
         ByMaterial.TryGetValue(material, out Seq<Assessed> records)
             ? toSeq(records.Filter(a => a.Identity.Expiry.ForAll(until => until >= at))
@@ -396,7 +325,7 @@ public sealed record AssessmentSet(FrozenDictionary<MaterialId, Seq<Assessed>> B
             : Seq<Assessed>();
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AssessmentResolution {
     public static Fin<Seq<MaterialPropertySet>> Resolve(MaterialId id, AssessmentSet assessed, LocalDate at, Op key) =>
         from engineering in MaterialPropertyCatalogue.Lookup(id, key)
@@ -404,7 +333,6 @@ public static class AssessmentResolution {
         from resolved in Overlay(engineering + lifecycle, assessed.Live(id, at), key)
         select resolved;
 
-    // Live hands the records in rank order, so the first record to reach an axis is the winner by construction.
     static Fin<Seq<MaterialPropertySet>> Overlay(Seq<MaterialPropertySet> published, Seq<Assessed> live, Op key) =>
         live.IsEmpty
             ? Fin.Succ(published)
@@ -414,8 +342,6 @@ public static class AssessmentResolution {
                         : Apply(carried.Sets, record, key).Map(sets => (Sets: sets, Claimed: carried.Claimed.Add(record.Axis)))))
                 .Map(static carried => carried.Sets);
 
-    // The property-probe switch this replaces carried a fallthrough arm that applied NOTHING, so a new shape landed
-    // as a silent no-op rather than as a build break.
     static Fin<Seq<MaterialPropertySet>> Apply(Seq<MaterialPropertySet> sets, Assessed record, Op key) =>
         record.Switch(
             state: (Sets: sets, Key: key),
@@ -447,9 +373,6 @@ public static class AssessmentResolution {
                 conductivity, thermal.SpecificHeat, thermal.UValue, thermal.VapourResistanceFactor,
                 key, evidence, thermal.ConductivityCurve), key);
 
-    // The fib Model Code service-life case. OfDurability declares ONE raw-double arity — the chloride column mints on
-    // its L2T-1 signature INSIDE that admission — so the seat hands the admitted SI magnitude across rather than
-    // re-minting a MeasureValue the factory would mint again.
     internal static Fin<Seq<MaterialPropertySet>> SeatDurability(
         Seq<MaterialPropertySet> sets, PropertyEvidence evidence, Op key, MeasureValue chlorideDiffusion) =>
         Rebuild(sets, static set => set as MaterialPropertySet.Durability, durability =>
@@ -457,8 +380,6 @@ public static class AssessmentResolution {
                 durability.CarbonationRateMmPerSqrtYear, chlorideDiffusion.Si, durability.AgeingExponent,
                 key, evidence), key);
 
-    // A graded record scales on the SI magnitude and re-mints through the same QuantityRow, so the scaled value
-    // carries the same dimension and content-key shape as the value it replaced.
     static Fin<Seq<MaterialPropertySet>> ScaleMechanical(Seq<MaterialPropertySet> sets, Assessed.Retention record, Op key) =>
         Rebuild(sets, static set => set as MaterialPropertySet.Mechanical, mechanical =>
             from modulus in QuantityRow.Pressure.OfNative(mechanical.YoungsModulus.Si * record.Factor)
@@ -476,22 +397,12 @@ public static class AssessmentResolution {
                 record.Recycled.Map(static p => p.Central), record.Recovery.Map(static p => p.Central), key, record.Identity.Evidence)
             .Map(environmental => sets.Filter(static set => set is not MaterialPropertySet.Environmental).Add(environmental));
 
-    // The impact matrix a declaration lands, on the DECLARED family's own generated Switch. A full thirteen-indicator
-    // declaration passes STRAIGHT through — CarbonMatrix is the partial-EPD embedding and running it over an
-    // already-complete matrix would zero every indicator but GWP. A carbon row whose census covers EVERY module
-    // already carries its own complete row and reads no curated cell, so the merge is what a PARTIAL census earns;
-    // folding a full census through the curated row makes a complete declaration depend on a fallback it can never
-    // reach. The disposition ladder an Option probe used to spell is now two total arms plus one census test.
     static ImmutableArray<double> Impacts(Option<MaterialPropertySet.Environmental> curated, Assessed.Lifecycle record) =>
         record.Impacts.Switch(
             full: static f => f.Matrix,
             carbon: c => MaterialPropertySet.Environmental.CarbonMatrix(
                 c.Coverage.Span.IndexOf(false) < 0 ? c.Modules : Merged(curated, c)));
 
-    // The per-module carbon row the coverage census decides, ordered by the stage's OWN Index so the vector aligns
-    // with the row-major matrix offset the seam CarbonMatrix writes — never the roster's declaration order. A
-    // covered module reads its declared cell, an uncovered one the curated industry average, and an uncurated
-    // material its own declared zero, which is the honest floor when no curated cell exists to fall back to.
     static ReadOnlyMemory<double> Merged(Option<MaterialPropertySet.Environmental> curated, DeclaredImpacts.Carbon declared) =>
         LifecycleStage.Items
             .OrderBy(static stage => stage.Index)

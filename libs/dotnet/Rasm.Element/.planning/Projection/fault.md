@@ -21,15 +21,15 @@
 - Boundary: the typed leaf lifts bare; `.ToError()`, `Error.New(code, message)`, category mirrors, and compatibility factories are deleted forms. Foreign exceptions enter only through the capture funnel and retain their opaque message as evidence.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt.Common;
 using Rasm.Domain;
 using Thinktecture;
 
 namespace Rasm.Element.Projection;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// --- [ERRORS] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Element;
@@ -44,8 +44,6 @@ public abstract partial record ElementFault : Fault {
     [FaultCase(2)] public sealed partial record DeltaConflict(Op Key, string Detail) : ElementFault(Key, Detail);
     [FaultCase(3)] public sealed partial record ValueRejected(Op Key, string Detail) : ElementFault(Key, Detail);
     [FaultCase(4)] public sealed partial record ProjectionFailed(Op Key, string Detail) : ElementFault(Key, Detail);
-    // Explicit documented projector-contract refusal; Cause retains the exact captured evidence and supplies
-    // Fault.Inner. Unknown throws never enter this case, and retryable provider faults retain their owner case.
     [FaultCase(5)] public sealed partial record ProjectorFaulted(Op Key, Error Cause)
         : ElementFault(Key, $"projector failed: {Cause.Message}"), ICausedFault;
     [FaultCase(6)] public sealed partial record AddressUnstable(Op Key, string Detail) : ElementFault(Key, Detail);

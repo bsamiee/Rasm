@@ -53,7 +53,6 @@ from rasm.artifacts.typography.math import Formula, FormulaSpec, Fragment, Mixed
 from rasm.artifacts.typography.shape import PositionedGlyphRun
 from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
 
-# each proxy reifies on first render-arm use in the offloaded worker
 lazy import drawsvg
 lazy import ezdxf
 lazy import kiwisolver
@@ -71,33 +70,32 @@ type Ramp = tuple[str, ...]
 type AnnotateTag = Literal["leader", "textnote", "revcloud"]
 type Engine = Callable[[Annotate], tuple[tuple[LayerNode, ...], ArtifactReceipt]]
 type LeaderLanding = str | tuple[str, BubbleShape, Option[str], Masking] | tuple[str, BubbleShape, Masking]
-type NoteSource = str | ParagraphSpec | tuple[PositionedGlyphRun, LineBrokenRun]  # ParagraphSpec is the canonical prose shape
+type NoteSource = str | ParagraphSpec | tuple[PositionedGlyphRun, LineBrokenRun]
 type AnnotateSpec = (
     tuple[tuple[Point, ...], Point, LeaderPath, LeaderContent, SymbolStyle]
     | tuple[Point, NoteBody, SymbolStyle]
     | tuple[tuple[Point, ...], float, Option[str], SymbolStyle]
 )
 
-_SHOULDER: float = 2.0  # landing-shoulder length, in text-height multiples (ISO 128-2 leader landing)
-_BUBBLE: float = 1.4  # keynote/flag bubble radius, in text-height multiples
-_MIN_SEP: float = 8.0  # keynote/flag-column minimum vertical separation (drawing units)
-_PRECISION: int = 3  # ziafont emitted-d-float places — the content-key determinism lever set once per offloaded arm
-# Engine raises cross through exact provider categories; unlisted defects propagate.
+_SHOULDER: float = 2.0
+_BUBBLE: float = 1.4
+_MIN_SEP: float = 8.0
+_PRECISION: int = 3
 _FAULTS: tuple[type[Exception], ...] = (ValueError, OSError)
-_CANON: Final = msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_CANON: Final = msgpack.Encoder(order="deterministic")
 
 
-class LeaderPath(StrEnum):  # ISO 128-2 leader reference-line geometry (ezdxf `render.mleader.LeaderType` twin)
-    STRAIGHT = "straight"  # straight polyline — the drawing-office default
-    SPLINE = "spline"  # smoothed spline leader through the elbow
+class LeaderPath(StrEnum):
+    STRAIGHT = "straight"
+    SPLINE = "spline"
 
 
-class BubbleShape(StrEnum):  # the keynote/flag landing-mark outline
-    CIRCLE = "circle"  # keynote circle bubble
+class BubbleShape(StrEnum):
+    CIRCLE = "circle"
     HEXAGON = "hexagon"
-    TRIANGLE = "triangle"  # flag-note delta
+    TRIANGLE = "triangle"
     DIAMOND = "diamond"
-    RECTANGLE = "rectangle"  # boxed keynote
+    RECTANGLE = "rectangle"
 
 
 class Masking(StrEnum):
@@ -107,9 +105,6 @@ class Masking(StrEnum):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE lift anchor. The per-request infix leaves the SUBJECT and stays request data — one fence
-# spans every annotation target, so the coordinate is the fence rather than N subjects a reader cannot enumerate.
-# TRANSIENT: a DXF write or a render refusal is a defect a re-issue may clear.
 ANNOTATE_CROSS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.ANNOTATE, point="cross", arm="boundary", defect="annotate-fold", retriability=TRANSIENT
 )
@@ -118,9 +113,8 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([ANNOTATE_C
 # --- [VOCABULARY] -----------------------------------------------------------------------
 @tagged_union(frozen=True)
 class LeaderContent:
-    # Landing payload selects the `ezdxf` mtext or block builder.
     tag: Literal["note", "keynote", "flag"] = tag()
-    note: str = case()  # MTextEditor-formatted mtext content
+    note: str = case()
     keynote: tuple[str, BubbleShape, Option[str], Masking] = case()
     flag: tuple[str, BubbleShape, Masking] = case()
 
@@ -150,10 +144,9 @@ class LeaderContent:
 
 @tagged_union(frozen=True)
 class NoteBody:
-    # Each note mode carries only its own payload.
     tag: Literal["prose", "math"] = tag()
     prose: tuple[PositionedGlyphRun, LineBrokenRun] = case()
-    math: str = case()  # mixed text + $math$ source the typography/math Formula owner typesets
+    math: str = case()
 
     def __post_init__(self) -> None:
         match self:
@@ -170,8 +163,6 @@ class NoteBody:
             case str() as math:
                 return cls(math=math)
             case ParagraphSpec() as spec:
-                # CANONICAL prose ingress: layout's public total-fit projection derives the breaks from the
-                # spec's own inputs; the precomputed pair below stays admitted only as the already-shaped working set.
                 return cls(prose=(msgpack.decode(spec.run, type=PositionedGlyphRun), broken(spec)))
             case (PositionedGlyphRun() as run, LineBrokenRun() as fitted):
                 return cls(prose=(run, fitted))
@@ -222,7 +213,7 @@ class Annotate(Struct, frozen=True):
     @classmethod
     @beartype(conf=INGRESS)
     def over(cls, marks: AnnotateOp | Iterable[AnnotateOp], palette: Palette, lane: LanePolicy, /, *, target: SymbolTarget = SymbolTarget.SVG) -> Self:
-        match marks:  # the one modal-arity head — a lone mark is the singleton, an iterable the multi-mark sheet
+        match marks:
             case AnnotateOp():
                 return cls(marks=(marks,), palette=palette, lane=lane, target=target)
             case _:
@@ -233,17 +224,10 @@ class Annotate(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key over the frozen INPUT spec, minted pre-run through the bare `ContentIdentity.key` (`of` returns the
-        # railed `RuntimeRail[ContentKey]`) — never over rendered layer bytes; the lane never enters identity.
         return ContentIdentity.key(f"drawing-annotate-{self.target}", _CANON.encode((self.marks, self.palette, self.target)))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # Receipt and layer projections thread one pre-run key.
         settled = (await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)).map(lambda pair: pair[1])
-        # A drawn annotation set is production trail, so the fact is `OPERATIONAL` and its diff is the mark count,
-        # lowering, and measured span the receipt already declares, with the byte volume charging `STORAGE`.
-        # Recording SUSPENDS, so the seat is this awaitable fold and never `contribute`; `layered()` shares the same
-        # crossing and records nothing, because one produced artifact owes one durable fact, not one per projection.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -251,13 +235,11 @@ class Annotate(Struct, frozen=True):
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # Engine rows project into one layer tree.
         return (await async_boundary(ANNOTATE_CROSS, self._crossed, catch=_FAULTS)).map(
             lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
         )
 
     async def _crossed(self) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-        # synchronous native fold — crosses the runtime thread lane.
         crossed = await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)
         return crossed.default_with(self._raise)
 
@@ -268,13 +250,11 @@ class Annotate(Struct, frozen=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _math_raise(fault: object) -> NoReturn:
-    # a Formula typeset refusal re-raises as the engine fault the `_FAULTS` async_boundary folds onto the
-    # runtime rail, so the original failure reaches the caller and never degrades into a silent render.
     raise ValueError(f"math note typeset: {fault}")
 
 
 def _math_note(mark: AnnotateOp, /) -> Option[tuple[str, SymbolStyle]]:
-    match mark:  # the mixed-math notes alone; every other mark measures and draws without a typeset
+    match mark:
         case AnnotateOp(tag="textnote", textnote=(_insert, NoteBody(tag="math", math=source), style)):
             return Some((source, style))
         case AnnotateOp(tag="textnote") | AnnotateOp(tag="leader") | AnnotateOp(tag="revcloud"):
@@ -284,10 +264,6 @@ def _math_note(mark: AnnotateOp, /) -> Option[tuple[str, SymbolStyle]]:
 
 
 def _typeset(marks: tuple[AnnotateOp, ...], ramp: Ramp, lane: LanePolicy, /) -> Map[int, Fragment]:
-    # ONE typeset per math note for the whole render, laid BEFORE either consumer runs and keyed by mark index: the
-    # span fold measures this fragment and the SVG group draws this same fragment, where a per-consumer typeset ran
-    # the heavy layout twice and could disagree with itself on the colour the pen resolves. The refusal raises here,
-    # ahead of any authored geometry, so `_FAULTS` folds it onto the rail rather than a half-drawn layer.
     return Map.of_seq(
         (
             index,
@@ -301,11 +277,11 @@ def _typeset(marks: tuple[AnnotateOp, ...], ramp: Ramp, lane: LanePolicy, /) -> 
 
 
 def _lw(weight: LineWeight, /) -> int:
-    return round(weight.mm * 100)  # the DXF 1/100 mm integer the `GfxAttribs.lineweight` carries
+    return round(weight.mm * 100)
 
 
 def _style(mark: AnnotateOp, /) -> SymbolStyle:
-    match mark:  # every case's style is its last payload slot; one total projection, never a per-tag getattr
+    match mark:
         case (
             AnnotateOp(tag="leader", leader=(*_, style))
             | AnnotateOp(tag="textnote", textnote=(*_, style))
@@ -322,8 +298,6 @@ def _text_span(mark: AnnotateOp, laid: Option[Fragment], /) -> Option[Box]:
             width = max((line.advance for line in broken.lines), default=0.0)
             return Some((insert[0], insert[1], insert[0] + width, insert[1] + len(broken.lines) * style.text_height.mm * 1.4))
         case AnnotateOp(tag="textnote", textnote=(insert, NoteBody(tag="math"), _style)):
-            # the span reads the `_typeset` fragment this note already laid — the measured box and the drawn glyphs
-            # are one layout, never two; an index the total fold missed refuses instead of measuring a zero span.
             width, height = laid.map(lambda frag: (frag.width, frag.height)).default_with(lambda: _math_raise("note missing from the typeset fold"))
             return Some((insert[0], insert[1], insert[0] + width, insert[1] + height))
         case AnnotateOp(tag="leader") | AnnotateOp(tag="revcloud"):
@@ -338,13 +312,11 @@ def _union(boxes: Iterable[Box], /) -> Box:
 
 
 def _bubble_box(at: Point, style: SymbolStyle, /) -> Box:
-    # `_bubble_group` translates the disc by +radius, so the footprint spans one diameter right of the seat.
     radius = _BUBBLE * style.text_height.mm
     return (at[0], at[1] - radius, at[0] + 2.0 * radius, at[1] + radius)
 
 
 def _reach(content: LeaderContent, home: Point, style: SymbolStyle, /) -> Box:
-    # landing-content footprint past the shoulder: measured note text or the keynote/flag bubble disc.
     match content:
         case LeaderContent(tag="note", note=text):
             width, height = _drawing_font(style.face).text(text, size=style.text_height.mm).getsize()
@@ -356,12 +328,10 @@ def _reach(content: LeaderContent, home: Point, style: SymbolStyle, /) -> Box:
 
 
 def _extent(mark: AnnotateOp, landing: Option[Point], laid: Option[Fragment], /) -> Box:
-    # one total per-mark extent over the FULL rendered geometry — routed landing, shoulder run, landing content,
-    # terminator pad, scallop bulge, and delta tag — never the bare defining points a canvas clip then truncates.
     match mark:
         case AnnotateOp(tag="leader", leader=(targets, home, _, content, style)):
             seat = landing.default_value(home)
-            pad = style.weight.mm  # SVG marker units default to strokeWidth, so the terminator box spans one pen weight
+            pad = style.weight.mm
             shoulder = (seat[0] + _SHOULDER * style.text_height.mm, seat[1])
             return _union((
                 *((p[0] - pad, p[1] - pad, p[0] + pad, p[1] + pad) for p in (*targets, seat)),
@@ -377,14 +347,11 @@ def _extent(mark: AnnotateOp, landing: Option[Point], laid: Option[Fragment], /)
 
 
 def _bbox(marks: tuple[AnnotateOp, ...], routed: Map[int, Point], typeset: Map[int, Fragment], /) -> Box:
-    # marks are non-empty by construction (`Annotate.__post_init__`), so the union always has an operand.
     return _union(_extent(mark, routed.try_find(index), typeset.try_find(index)) for index, mark in enumerate(marks))
 
 
 @lru_cache(maxsize=4)
 def _drawing_font(face: str = "") -> "ziafont.Font":
-    # Style-carried face identity resolves BOTH lowerings — "" selects the bundled default here and isocp on the
-    # DXF arm, so the same logical text never diverges on an ambient pick.
     return ziafont.Font(face or None)
 
 
@@ -402,23 +369,21 @@ def _routable(index: int, mark: AnnotateOp, /) -> Option[tuple[int, Point]]:
 
 
 def _route(marks: Block[AnnotateOp], /) -> Map[int, Point]:
-    # Required anchors and `_MIN_SEP` prevent overlap; weak equal gaps regularize the column.
     column = marks.mapi(_routable).choose(lambda held: held)
     if len(column) < 2:
         return Map.empty()
     solver = kiwisolver.Solver()
     ys = tuple(kiwisolver.Variable(f"y{index}") for index, _ in column)
     x0 = sum(landing[0] for _, landing in column) / len(column)
-    solver.addConstraint(ys[0] == column[0][1][1])  # required: anchor the first landing at its own y
-    for lo, hi in pairwise(ys):  # Exemption: kiwisolver Solver is the stateful native sink; constraints add in place
-        solver.addConstraint(hi - lo >= _MIN_SEP)  # required: hard no-overlap between adjacent landings
-        solver.addConstraint((hi - lo == ys[1] - ys[0]) | kiwisolver.strength.weak)  # weak: even distribution
+    solver.addConstraint(ys[0] == column[0][1][1])
+    for lo, hi in pairwise(ys):
+        solver.addConstraint(hi - lo >= _MIN_SEP)
+        solver.addConstraint((hi - lo == ys[1] - ys[0]) | kiwisolver.strength.weak)
     solver.updateVariables()
     return Map.of_seq((index, (x0, var.value())) for (index, _), var in zip(column, ys, strict=True))
 
 
 def _marker(term: Terminator, /) -> "drawsvg.Marker":
-    # `context-stroke` inherits the leader pen while `orient="auto"` follows its tangent.
     marker = drawsvg.Marker(-1.0, -1.0, 1.0, 1.0, orient="auto", id=f"term-{term.value}")
     match term:
         case Terminator.FILLED_ARROW:
@@ -439,7 +404,6 @@ def _marker(term: Terminator, /) -> "drawsvg.Marker":
 
 
 def _polygon(sides: int, radius: float, /) -> tuple[float, ...]:
-    # Side count generates the flat `drawsvg.Lines` coordinate run.
     return tuple(
         coord
         for i in range(sides)
@@ -448,7 +412,7 @@ def _polygon(sides: int, radius: float, /) -> tuple[float, ...]:
 
 
 def _bubble_outline(shape: BubbleShape, radius: float, *, fill: str, stroke: str, width: float) -> "drawsvg.DrawingBasicElement":
-    match shape:  # the keynote/flag mark outline; a filled `stroke="none"` backing is the SVG wipeout-mask twin
+    match shape:
         case BubbleShape.CIRCLE:
             return drawsvg.Circle(0.0, 0.0, radius, fill=fill, stroke=stroke, stroke_width=width)
         case BubbleShape.RECTANGLE:
@@ -460,7 +424,6 @@ def _bubble_outline(shape: BubbleShape, radius: float, *, fill: str, stroke: str
 
 
 def _outlined(text: str, at: Point, style: SymbolStyle, ramp: Ramp, *, anchor: str = "left") -> "drawsvg.Group":
-    # `getyofst()` seats the provider-generated outline's baseline on the leader shoulder or bubble center.
     run = _drawing_font(style.face).text(text, size=style.text_height.mm, halign=anchor, color=ramp[style.stroke % len(ramp)])
     return drawsvg.Group(drawsvg.Raw(run.svg()), transform=f"translate({at[0]},{at[1] - run.getyofst()})")
 
@@ -497,7 +460,7 @@ def _bubble_group(
 
 
 def _content_group(content: LeaderContent, at: Point, style: SymbolStyle, ramp: Ramp) -> "drawsvg.Group":
-    match content:  # the leader-landing content; the total sub-match over `LeaderContent`
+    match content:
         case LeaderContent(tag="note", note=text):
             return _outlined(text, at, style, ramp)
         case LeaderContent(tag="keynote", keynote=(code, bubble, sheet_ref, masking)):
@@ -514,18 +477,18 @@ def _leader_group(
     stroke = ramp[style.stroke % len(ramp)]
     home = (landing[0] + _SHOULDER * style.text_height.mm, landing[1])
     group = drawsvg.Group()
-    for target in targets:  # one ISO 128-2 reference line per pointed feature (multileader), terminator at the point
+    for target in targets:
         line = drawsvg.Path(stroke=stroke, stroke_width=style.weight.mm, fill="none", marker_start=f"url(#term-{style.terminator.value})")
         line.M(target[0], target[1])
         _elbow(line, target, landing, path)
-        line.L(home[0], home[1])  # the horizontal landing shoulder
+        line.L(home[0], home[1])
         group.append(line)
     group.append(_content_group(content, home, style, ramp))
     return group
 
 
 def _elbow(line: "drawsvg.Path", target: Point, landing: Point, path: LeaderPath, /) -> None:
-    match path:  # Exemption: drawsvg.Path is the stateful cursor builder; the reference line appends in place
+    match path:
         case LeaderPath.SPLINE:
             line.Q(landing[0], target[1], landing[0], landing[1])
         case LeaderPath.STRAIGHT:
@@ -535,11 +498,10 @@ def _elbow(line: "drawsvg.Path", target: Point, landing: Point, path: LeaderPath
 
 
 def _note_group(insert: Point, body: NoteBody, style: SymbolStyle, ramp: Ramp, laid: Option[Fragment]) -> "drawsvg.Group":
-    match body:  # the standalone note body; the total sub-match over `NoteBody`
+    match body:
         case NoteBody(tag="prose", prose=(run, broken)):
             return _prose_group(run, broken, insert, style, ramp)
         case NoteBody(tag="math"):
-            # the `_typeset` fragment the span already measured, drawn here — `seat` resolves its baseline origin.
             frag = laid.default_with(lambda: _math_raise("note missing from the typeset fold"))
             sx, sy = seat(frag, insert[0], insert[1])
             return drawsvg.Group(drawsvg.Raw(frag.svg), transform=f"translate({sx},{sy})")
@@ -555,7 +517,6 @@ def _prose_group(run: PositionedGlyphRun, broken: LineBrokenRun, insert: Point, 
 
 
 def _revcloud_group(region: tuple[Point, ...], radius: float, mark: Option[str], style: SymbolStyle, ramp: Ramp) -> "drawsvg.Group":
-    # One `drawsvg.Path` carries the scallop chain.
     band = drawsvg.Path(stroke=ramp[style.stroke % len(ramp)], stroke_width=style.weight.mm, fill="none")
     _scallop_path(band, region, radius)
     group = drawsvg.Group()
@@ -571,7 +532,6 @@ def _revcloud_group(region: tuple[Point, ...], radius: float, mark: Option[str],
 
 
 def _scallop_path(path: "drawsvg.Path", region: tuple[Point, ...], radius: float, /) -> None:
-    # Exemption: drawsvg.Path is the stateful cursor builder; the scallop chain appends convex arc bumps in place
     path.M(*region[0])
     for a, b in zip(region, (*region[1:], region[0]), strict=True):
         bumps = max(1, round(math.dist(a, b) / (2.0 * radius)))
@@ -595,9 +555,8 @@ def _svg_mark(mark: AnnotateOp, ramp: Ramp, landing: Option[Point], laid: Option
 
 
 def _layer_svg(name: str, groups: Block["drawsvg.Group"], box: Box) -> bytes:
-    # one layer's marks into a named Group under one Drawing carrying the shared Marker defs the leader marker_start resolves against.
     canvas = drawsvg.Drawing(box[2] - box[0], box[3] - box[1], origin=(box[0], box[1]))
-    for term in Terminator:  # Exemption: drawsvg Drawing is the mutable def/child container; defs and groups append in place
+    for term in Terminator:
         if term is not Terminator.NONE:
             canvas.append_def(_marker(term))
     layer = drawsvg.Group(id=name)
@@ -619,11 +578,8 @@ def _dxf_leader(
 ) -> None:
     match content:
         case LeaderContent(tag="note", note=text):
-            # the composed ISO 13567 layer rides dxfattribs — an attribs-less multileader lands on layer 0 and breaks the schema.
-            builder = msp.add_multileader_mtext("Standard", dxfattribs=GfxAttribs(layer=style.layer.compose()).asdict())  # Exemption: the mleader builder is the stateful sink; leader lines add in place
+            builder = msp.add_multileader_mtext("Standard", dxfattribs=GfxAttribs(layer=style.layer.compose()).asdict())
             builder.set_content(str(MTextEditor().font(style.face or "isocp").append(_mtext_safe(text))), char_height=style.text_height.mm)
-            # SVG/DXF parity: the palette stroke and the admitted Terminator land natively — leader color through
-            # set_leader_properties(color=RGB), the arrowhead through set_arrow_properties over the ARROWS names.
             builder.set_leader_properties(color=_dxf_rgb(ramp[style.stroke % len(ramp)]), lineweight=_lw(style.weight), leader_type=_leader_type(path))
             builder.set_arrow_properties(name=style.terminator.lowering.block, size=style.text_height.mm)
             for target in targets:
@@ -651,9 +607,9 @@ def _dxf_bubble_leader(
     ramp: Ramp,
 ) -> None:
     block = _bubble_block(doc, shape)
-    attribs = GfxAttribs(layer=style.layer.compose()).asdict()  # one composed layer serves the builder and its wipeout twin
-    builder = msp.add_multileader_block("Standard", dxfattribs=attribs)  # Exemption: the block mleader builder is the stateful sink; leader lines add in place
-    builder.set_content(block, scale=style.text_height.mm)  # the ONE scale application over the unit-coordinate block
+    attribs = GfxAttribs(layer=style.layer.compose()).asdict()
+    builder = msp.add_multileader_block("Standard", dxfattribs=attribs)
+    builder.set_content(block, scale=style.text_height.mm)
     builder.set_attribute("LABEL", label)
     match sheet_ref:
         case Option(tag="some", some=reference):
@@ -678,7 +634,7 @@ def _dxf_bubble_leader(
 
 def _dxf_note(msp: object, insert: Point, body: NoteBody, style: SymbolStyle) -> None:
     attribs = GfxAttribs(layer=style.layer.compose(), lineweight=_lw(style.weight)).asdict()
-    match body:  # Exemption: ezdxf MText is the stateful entity; the location/width set in place
+    match body:
         case NoteBody(tag="prose", prose=(run, broken)):
             content = str(MTextEditor().font(style.face or "isocp").height(style.text_height.mm).append(_mtext_safe(run.source)))
             note = msp.add_mtext(content, dxfattribs=attribs)
@@ -693,7 +649,6 @@ def _dxf_note(msp: object, insert: Point, body: NoteBody, style: SymbolStyle) ->
 def _dxf_revcloud(
     doc: "ezdxf.document.Drawing", msp: object, region: tuple[Point, ...], radius: float, mark: Option[str], style: SymbolStyle
 ) -> None:
-    # `xyseb` carries each semicircle bulge, and `Some` places the delta-tag block at SVG parity.
     points = tuple(
         (a[0] + (b[0] - a[0]) * i / bumps, a[1] + (b[1] - a[1]) * i / bumps, 0.0, 0.0, 1.0)
         for a, b in zip(region, (*region[1:], region[0]), strict=True)
@@ -704,8 +659,6 @@ def _dxf_revcloud(
     msp.add_lwpolyline(points, format="xyseb", close=True, dxfattribs=attribs)
     match mark:
         case Option(tag="some", some=number):
-            # SVG/DXF parity: the SVG lowering backs the delta tag with PAPER masking, so the wipeout lands first and the
-            # unit-coordinate block scales once through the blockref xscale/yscale pair.
             scale = style.text_height.mm
             msp.add_wipeout(_polygon_at(BubbleShape.TRIANGLE, region[0], _BUBBLE * scale), dxfattribs=attribs)
             msp.add_auto_blockref(
@@ -730,22 +683,16 @@ def _dxf_mark(doc: "ezdxf.document.Drawing", msp: object, mark: AnnotateOp, land
 
 
 def _bubble_block(doc: "ezdxf.document.Drawing", shape: BubbleShape) -> str:
-    # one reusable keynote/flag block placed by N `add_blockref`, never a per-placement geometry copy; geometry is
-    # UNIT-coordinate (radius `_BUBBLE`) so one shared per-shape block serves every style and the placement scale
-    # (`set_content(scale=)` / blockref `xscale`) applies the text height exactly once.
     name = f"ANNOT_{shape.value}"
     if name not in doc.blocks:
-        block = doc.blocks.new(name)  # Exemption: ezdxf BlockLayout is the GraphicsFactory sink; the outline + attdefs add in place
+        block = doc.blocks.new(name)
         block.add_lwpolyline(_polygon_at(shape, (0.0, 0.0), _BUBBLE), close=True)
         block.add_attdef("LABEL", (0.0, 0.0))
-        block.add_attdef("REF", (0.0, -_BUBBLE * 0.5))  # the keynote sheet/legend caption slot
+        block.add_attdef("REF", (0.0, -_BUBBLE * 0.5))
     return name
 
 
 def _mtext_safe(text: str, /) -> str:
-    # writer-side MTEXT literalizer — backslash first, then the group braces — because ezdxf ships only the read-side
-    # `plain_mtext` strip; prose entering inline-code position carries no live control sequences. The math body stays
-    # raw by design: its source IS the markup.
     return text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
 
 
@@ -754,8 +701,6 @@ def _side(target: Point, landing: Point, /) -> "ConnectionSide":
 
 
 def _leader_type(path: LeaderPath, /) -> "LeaderType":
-    # LeaderPath -> the multileader's native leader-line kind, the DXF half of the SVG `_elbow` split — resolved
-    # inside the worker so the lazy ezdxf proxy never reifies at import.
     match path:
         case LeaderPath.SPLINE:
             return LeaderType.splines
@@ -766,7 +711,7 @@ def _leader_type(path: LeaderPath, /) -> "LeaderType":
 
 
 def _polygon_at(shape: BubbleShape, at: Point, radius: float, /) -> tuple[tuple[float, float], ...]:
-    match shape:  # the closed vertex ring an `add_lwpolyline`/`add_wipeout` takes
+    match shape:
         case BubbleShape.CIRCLE:
             return tuple((at[0] + radius * math.cos(math.tau * i / 16), at[1] + radius * math.sin(math.tau * i / 16)) for i in range(16))
         case BubbleShape.RECTANGLE:
@@ -788,21 +733,18 @@ _SIDES: frozendict[BubbleShape, int] = frozendict({BubbleShape.TRIANGLE: 3, Bubb
 
 
 def _dxf_rgb(ink: str, /) -> tuple[int, int, int]:
-    # a hex_ramp entry onto the ezdxf RGB triple `set_leader_properties(color=)` admits.
     value = int(ink.removeprefix("#"), 16)
     return ((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF)
 
 
 def _svg_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    ziafont.config.precision = _PRECISION  # once inside the offload lane — same d-floats -> same content key; math precision is Formula's own config
+    ziafont.config.precision = _PRECISION
     ramp = hex_ramp(annotate.palette)
     routed = _route(Block.of_seq(annotate.marks))
     typeset = _typeset(annotate.marks, ramp, annotate.lane)
     box = _bbox(annotate.marks, routed, typeset)
 
     def bucket(acc: Map[str, tuple[LayerName, Block["drawsvg.Group"]]], indexed: tuple[int, AnnotateOp], /) -> Map[str, tuple[LayerName, Block["drawsvg.Group"]]]:
-        # Map is an ordered tree, so the composed name (str, ordered) keys the bucket and the unordered LayerName
-        # rides the value; key-sorted Map iteration IS the deterministic layer order.
         layer = _style(indexed[1]).layer
         mark = Block.singleton(_svg_mark(indexed[1], ramp, routed.try_find(indexed[0]), typeset.try_find(indexed[0])))
         return acc.change(layer.compose(), lambda held: Some((layer, held.map(lambda pair: pair[1]).default_value(Block.empty()).append(mark))))
@@ -824,12 +766,10 @@ def _svg_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactRece
 def _dxf_engine(annotate: Annotate) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
     doc = ezdxf.new("R2018", setup=True)
     msp = doc.modelspace()
-    ramp = hex_ramp(annotate.palette)  # SVG/DXF parity: both engines resolve the SAME palette
+    ramp = hex_ramp(annotate.palette)
     routed = _route(Block.of_seq(annotate.marks))
-    # the mark hull is this arm's FALLBACK span alone: the typeset measures math notes the DXF arm lands as raw
-    # MTEXT, so `extent` reports the placed blocks and wipeouts the hull cannot see and the hull covers an empty layout.
     box = _bbox(annotate.marks, routed, _typeset(annotate.marks, ramp, annotate.lane))
-    for index, mark in enumerate(annotate.marks):  # Exemption: ezdxf Modelspace is the GraphicsFactory sink; add_* mutate the layout in place
+    for index, mark in enumerate(annotate.marks):
         _dxf_mark(doc, msp, mark, routed.try_find(index), ramp)
     width, height = extent(msp, Some(box))
     stream = io.StringIO()

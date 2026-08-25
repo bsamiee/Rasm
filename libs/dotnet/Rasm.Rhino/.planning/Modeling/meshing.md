@@ -19,7 +19,7 @@
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters` and its factories, `MeshingParameterTextureRange`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/rails` (`ValidityClaim`, `Op`, `Fin`), kernel `Domain/context` (`Context`, `Tolerance`, `ToleranceLane`), `Modeling/solids.md` (`ModelGate`, `BuildBody`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Linq;
@@ -36,7 +36,7 @@ using Rhino.Render;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MeshPreset {
     public static readonly MeshPreset Minimal = new(key: 0, static () => MeshingParameters.Minimal);
@@ -105,7 +105,7 @@ public sealed partial class MeshFidelityFeature : ICapability<MeshFidelityFeatur
     public static readonly MeshFidelityFeature ClosedObjectPostProcess = new(key: "closed-post-process");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct MeshLaw : IValidityEvidence {
@@ -136,7 +136,6 @@ public readonly partial struct MeshLaw : IValidityEvidence {
     public bool IsValid => Admits(
         GridMinCount, GridMaxCount, GridAspectRatio, GridAmplification, MinimumEdgeLength, MaximumEdgeLength);
 
-    // `MaximumEdgeLength` 0.0 is the host's unbounded sentinel, so the ordering claim applies to a positive bound alone.
     private static ValidityClaim Admits(
         int gridMinCount, int gridMaxCount, double gridAspectRatio,
         double gridAmplification, double minimumEdgeLength, double maximumEdgeLength) => ValidityClaim.All(
@@ -183,7 +182,7 @@ public readonly partial struct MeshLaw : IValidityEvidence {
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `QuadRemeshParameters`, `ShrinkWrapParameters`, `ReduceMeshParameters`, `MeshExtruder`, `QuadRemeshSymmetryAxis`, `MeshExtruderParameterMode`, `MeshExtruderFaceDirectionMode`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/solids.md` (`ModelRuntime`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MeshCount {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
@@ -223,7 +222,7 @@ public sealed partial class MeshExtrusionFrame {
     internal (bool UVN, bool EdgeUVN) Native { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct QuadLaw : IValidityEvidence {
@@ -362,7 +361,6 @@ public readonly partial struct ReduceLaw : IValidityEvidence {
 public readonly partial struct ExtrudeLaw : IValidityEvidence {
     public Transform Motion { get; }
     public MeshExtrusionFrame Frame { get; }
-    // `keepOriginalFaces` is the one independent extruder bit with no adjacent sibling at the native.
     public bool KeepOriginalFaces { get; }
     public MeshExtruderParameterMode TextureCoordinates { get; }
     public MeshExtruderParameterMode SurfaceParameters { get; }
@@ -406,7 +404,7 @@ Frozen capability sets carry fidelity, remesh, wrap, reduction, shut-line, smoot
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshCheckParameters`, `MeshClash` and `ClashPoint`, `RTree`, `PointCloud`, `RhinoList` and its `Point3f`/`Point2d` families, `TextLog`), RhinoCommon intersection (`Rhino.Geometry.Intersect` — `Intersection.MeshMeshPredicate`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MeshSlot {
     public static readonly MeshSlot Meshed = new(key: 0);
@@ -450,7 +448,6 @@ public readonly partial struct MeshCheckLaw : IValidityEvidence {
 
     public bool IsValid => Admits(axes: Axes);
 
-    // A check hunting no defect runs the natives and answers a verdict that measured nothing.
     private static ValidityClaim Admits(CapabilitySet<MeshCheckAxis> axes) =>
         ValidityClaim.CountAtLeast(count: axes.Held.Count, floor: 1);
 
@@ -499,7 +496,6 @@ public abstract partial record NeighbourSearch : IValidityEvidence {
     public sealed record CountTree(MeshCount Amount) : NeighbourSearch;
     public sealed record RadiusTree(double LimitDistance) : NeighbourSearch;
 
-    // The two count cells admit through `MeshCount`'s own factory, so the claim here is the radius alone.
     public bool IsValid => Switch(
         countLinear: static _ => (ValidityClaim)true,
         countTree: static _ => (ValidityClaim)true,
@@ -532,9 +528,6 @@ public abstract partial record NeighbourQuery : IValidityEvidence {
             ValidityClaim.CountAtLeast(count: row.Haystack.Count, floor: 1),
             ValidityClaim.CountAtLeast(count: row.Needles.Count, floor: 1)));
 
-    // Every reachable (carrier x search) cell is a case payload, so no arm refuses a product hole at runtime: the
-    // R-tree family serves `Point3d` and `PointCloud` alone and the host publishes no linear radius search, so the
-    // reduced-precision carriers take a bare count and only the two double-precision carriers take a `NeighbourSearch`.
     internal Fin<Seq<Seq<int>>> Rows(Op op) =>
         Switch(
             state: op,
@@ -600,8 +593,6 @@ public sealed partial class MeshSplitPolicy {
     internal (bool Coplanar, bool Ngons) Native { get; }
 }
 
-// The seed natives put `circumscribe`/`quadCaps` and `solid`/`quadCaps` beside the cap pair as adjacent bools,
-// so they take their own set: two typed columns cannot transpose across each other.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SeedGrant : ICapability<SeedGrant> {
@@ -622,7 +613,6 @@ public sealed partial class MeshEdgeSoftenFeature : ICapability<MeshEdgeSoftenFe
 public readonly partial struct MeshEdgeSoftenLaw : IValidityEvidence {
     public double Radius { get; }
     public CapabilitySet<MeshEdgeSoftenFeature> Features { get; }
-    // `faceted` sits between two set members at the native and is the whole fact on its own.
     public bool Faceted { get; }
     public double AngleThreshold { get; }
 
@@ -677,10 +667,6 @@ public readonly partial struct SmoothLaw : IValidityEvidence {
 
     public bool IsValid => Admits(Factor, Axes, System, Frame);
 
-    // `Curve.Smooth` and `Mesh.Smooth` publish the IDENTICAL five knobs — factor, the three axis bits, the boundary
-    // bit, the coordinate system, and the frame — so one law feeds both carriers and `Modeling/curves.md` composes
-    // this owner rather than spelling the same five as loose payload fields. Only the mesh member takes a pass count
-    // and a vertex selection, which is why those two ride the mesh case instead of the shared value.
     internal bool Apply(Mesh target, int steps, Option<Seq<int>> vertices = default) =>
         vertices.Case switch {
             Seq<int> selected => target.Smooth(
@@ -695,8 +681,6 @@ public readonly partial struct SmoothLaw : IValidityEvidence {
                 coordinateSystem: System, plane: Frame),
         };
 
-    // The curve member answers a NEW curve where the mesh member mutates in place and answers a verdict; the frame is
-    // always seated because the law admits only a valid one, so the plane-less short overload is never reached.
     internal Curve? Apply(Curve target) => target.Smooth(
         smoothFactor: Factor,
         bXSmooth: Axes.Admits(capability: SmoothAxis.X), bYSmooth: Axes.Admits(capability: SmoothAxis.Y),
@@ -739,8 +723,6 @@ public readonly partial struct MeshMatchLaw : IValidityEvidence {
     public double Distance { get; }
     public CapabilitySet<MeshMatchPolicy> Capabilities { get; }
 
-    // `Mesh.MatchEdges` runs every corner of the four grants, the empty set included: no split, no ratchet, no
-    // average, no join is the plain vertex-snap pass. The set is therefore Open and only the distance gates.
     private static readonly CapabilityLaw<MeshMatchPolicy> MatchGrants = CapabilityLaw<MeshMatchPolicy>.Open;
 
     static partial void ValidateFactoryArguments(
@@ -771,7 +753,7 @@ public readonly partial struct MeshMatchLaw : IValidityEvidence {
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` weld, offset, heal, collapse, normal, shut-lining, and displacement members; `MeshDisplacementInfo`, `ShutLiningCurveInfo`, `Polyline`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), kernel `Domain/rails` (`ValidityClaim`, `IValidityEvidence`, `Op`, `Fin`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MeshEditIntent : IValidityEvidence {
@@ -802,9 +784,6 @@ public abstract partial record MeshEditIntent : IValidityEvidence {
     public sealed record ShutLine(Seq<ShutLineProfile> Profiles, bool Faceted) : MeshEditIntent;
     public sealed record Displace(DisplacementLaw Law) : MeshEditIntent;
 
-    // Every nested policy answers its OWN evidence off the same fold its generated factory ran, so this fold
-    // reads case-local shape alone and the generated total `Switch` breaks at compile when a case lands — the
-    // `_ => false` catch-all it replaces admitted every unhandled case silently.
     public bool IsValid => Switch(
         reduce: static edit => (ValidityClaim)edit.Law.IsValid,
         weld: static _ => (ValidityClaim)true,
@@ -842,8 +821,6 @@ public abstract partial record MeshEditIntent : IValidityEvidence {
             (Working: working, Runtime: runtime, Op: op),
             reduce: static (ctx, edit) =>
                 from parameters in edit.Law.Rig(runtime: ctx.Runtime, key: ctx.Op)
-                // RhinoCommon declares `threaded: true` as "run inside a worker thread and ignore any provided
-                // CancellationTokens and ProgressReporters", so rigged controls demand the main-thread path.
                 from _ in ctx.Op.Catch(
                     () => ctx.Op.Confirm(success: ctx.Working.Reduce(parameters: parameters, threaded: false)),
                     token: ctx.Runtime.Cancellation)
@@ -962,7 +939,7 @@ public sealed partial class ShutLineFeature : ICapability<ShutLineFeature> {
     public static readonly ShutLineFeature Enabled = new(key: "enabled");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ShutLineProfile : IValidityEvidence {
@@ -1119,7 +1096,7 @@ public sealed partial class ClosedPolyline : IValidityEvidence {
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — the `Mesh` construction, seed, remesh, wrap, boolean, split, partition, match, and projection rosters; `MeshBooleanOptions`, `MeshRefinements`, `MeshExtruder`, `TextLog`), RhinoCommon intersection (`Rhino.Geometry.Intersect`), kernel `Domain/rails` (`Op`, `KernelFault.InvalidInput(Key, Axis)`, `Fin`), kernel `Domain/validation` (`CapabilitySet`, `CapabilityLaw`), kernel `Domain/context` (`Context`, `ToleranceLane`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `ModelRuntime`, `CapEnd`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), LanguageExt.Core (`Eff.runtime`, `Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MeshOp {
@@ -1174,17 +1151,12 @@ public abstract partial record MeshOp {
     public sealed record Edit(GeometryHandle Target, MeshEditIntent Verb) : MeshOp;
     public sealed record Extrude(GeometryHandle Target, Seq<ComponentIndex> Components, ExtrudeLaw Law) : MeshOp;
 
-    // `Mesh.CreateFromCylinder` reads `circumscribe`/`quadCaps` and `Mesh.CreateFromCone` reads `solid`/`quadCaps`,
-    // so each seed bars the row its own native never receives.
     private static readonly CapabilityLaw<SeedGrant> CylinderGrants =
         CapabilityLaw<SeedGrant>.Forbidden(barred: Seq(CapabilitySet<SeedGrant>.Of(SeedGrant.Solid)));
 
     private static readonly CapabilityLaw<SeedGrant> ConeGrants =
         CapabilityLaw<SeedGrant>.Forbidden(barred: Seq(CapabilitySet<SeedGrant>.Of(SeedGrant.Circumscribe)));
 
-    // Counts admit through `MeshCount`'s own factory and every nested policy answers its own `IsValid`, so this
-    // fold reads case-local shape and NAMES the axis of each refusal; the generated total `Switch` replaces a
-    // `_ => false` catch-all that silently refused any case the roster grew.
     internal Fin<MeshOp> Admitted(Op key) =>
         Switch(
             context: key,
@@ -1475,7 +1447,7 @@ public abstract partial record MeshOp {
             check: static (_, edit) => {
                 Op op = Check.SelfOp;
                 return ModelGate.Borrow<Mesh, Built<MeshSlot>>(handle: edit.Source, key: op, body: mesh => op.Catch(() => {
-                    using TextLog log = new();                                 // Exemption: host out-channel bracket, the text detaches below
+                    using TextLog log = new();
                     MeshCheckParameters rig = edit.Law.Rig();
                     bool verdict = mesh.Check(textLog: log, parameters: ref rig);
                     return Fin.Succ(Built<MeshSlot>.Of(
@@ -1494,7 +1466,7 @@ public abstract partial record MeshOp {
                         edit.Law.Switch(
                             state: (First: first, Second: second, Op: op),
                             probe: static (ctx, law) => ctx.Op.Catch(() => {
-                                using TextLog log = new();                     // Exemption: host out-channel bracket
+                                using TextLog log = new();
                                 bool hit = Intersection.MeshMeshPredicate(
                                     meshes: (ctx.First + ctx.Second).AsIterable(),
                                     tolerance: law.Distance,
@@ -1508,8 +1480,6 @@ public abstract partial record MeshOp {
                                             .Map(static rows => (BuildBody)new BuildBody.Components(Indices: rows)))
                                         + BuildReceipt<MeshSlot>.Of(slot: MeshSlot.Clashed, body: new BuildBody.Text(Value: log.ToString()))));
                             }),
-                            // `maxEventCount` is live-proven dead: the native answers every event whatever the cap,
-                            // one per clashing PAIR, so the tally is complete pair evidence by construction.
                             detect: static (ctx, law) => ctx.Op.Catch(() => Fin.Succ(ModelFact.Answered(channel: MeshClash.Search(
                                 setA: ctx.First.AsIterable(),
                                 setB: ctx.Second.AsIterable(),
@@ -1747,7 +1717,7 @@ public abstract partial record MeshOp {
                     ModelGate.BorrowMany<Mesh, Built<MeshSlot>>(handles: edit.Cutters, key: op, body: cutters =>
                         op.Catch(() => {
                             (bool coplanar, bool ngons) = edit.Policy.Native;
-                            using TextLog log = new();                         // Exemption: host out-channel bracket, the text detaches below
+                            using TextLog log = new();
                             return ModelGate.Many(op, MeshSlot.SplitApart, () => mesh.Split(
                                     meshes: cutters.AsIterable(),
                                     tolerance: model.Domain.For(lane: ToleranceLane.MeshIntersection).Value,
@@ -1900,7 +1870,7 @@ public abstract partial record MeshOp {
         Op op, ModelRuntime model,
         Func<MeshBooleanOptions, (Mesh[] Products, Rhino.Commands.Result Verdict, int[][] Map)> run) =>
         op.Catch(() => {
-            using TextLog log = new();                                        // Exemption: host out-channel bracket, the text detaches below
+            using TextLog log = new();
             (Mesh[] products, Rhino.Commands.Result verdict, int[][] map) = run(new MeshBooleanOptions {
                 Tolerance = model.Domain.For(lane: ToleranceLane.MeshIntersection).Value,
                 TextLog = log,
@@ -1917,10 +1887,10 @@ public abstract partial record MeshOp {
         }, token: model.Cancellation);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostMeshes {
     public static Eff<ModelRuntime, Built<MeshSlot>> Build(params ReadOnlySpan<MeshOp> operations) {
-        Seq<MeshOp> captured = toSeq(operations.ToArray());   // materialized ahead of the runtime bind: a span cannot cross the effect lambda
+        Seq<MeshOp> captured = toSeq(operations.ToArray());
         return Eff.runtime<ModelRuntime>().Bind(runtime =>
             ModelGate.Entry(
                 runtime: runtime,

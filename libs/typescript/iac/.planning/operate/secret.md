@@ -43,7 +43,7 @@ import { Array, Data, Effect, Hash, Option, Predicate, Record, Schema } from "ef
 import { LeaseSpec } from "@rasm/security"
 import { StackOutputs, Tier, type StackSpec } from "../program/spec.ts"
 
-// --- [ERRORS] ----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 class SecretAbsent extends Data.TaggedError("SecretAbsent")<{
   readonly axis: "config"
@@ -61,27 +61,17 @@ const _Policy = Schema.Struct({
 
 const _TOKEN_NAME = { max: 100, hashWidth: 7 } as const
 
-// The custody roster is the spec plane's, shared with the tier that stamps the cell's rows into a container:
-// this plane mints the keys and that one reads them, so the spelling lives below both rather than twice.
 const _CUSTODY = StackOutputs.custody
 
-// `LeaseSpec` composes here as deploy DATA and `parseJson` names the one wire form the cell carries, so the
-// string this plane stamps and the string the custodian re-decodes are one encoding rather than two hand-matched
-// serializers that agree until a field moves. Composing the struct is what keeps ttl grammar and posture
-// vocabulary unspellable on this side — a locally restated shape is the drift the seam exists to refuse.
 const _Lease = Schema.parseJson(LeaseSpec)
 
 declare namespace Secrets {
   type Policy = typeof _Policy.Type
   type Entry = { readonly generate: Partial<Policy>; readonly digest?: boolean } | { readonly value: pulumi.Input<string> }
-  // Callers hand the security-owned struct's ENCODED row itself: a hand-assembled coordinate record beside an
-  // opaque encoded string lets one scope be named and another carried, and only a booted pod discovers the pair.
   type Lease = typeof LeaseSpec.Encoded
   type Args = { readonly spec: StackSpec; readonly entries: Record.ReadonlyRecord<string, Entry> }
 }
 
-// `apply` executes inside the engine's Output graph, which no Effect rail reaches from outside, so
-// `Record.get` mints the refusal typed and `runSync` carries it out.
 const _plucked = (map: Record.ReadonlyRecord<string, string>, key: string): string =>
   Effect.runSync(Effect.mapError(Record.get(map, key), () => new SecretAbsent({ axis: "config", key })))
 
@@ -126,20 +116,11 @@ class Secrets extends Tier {
       ...(args.secret !== undefined && { secret: args.secret }),
       ...(args.payload !== undefined && { payload: args.payload }),
     }, child)
-  // One lease, three resources and nothing re-derived: a branch config carrying exactly the allowlisted names,
-  // a read-only token scoped to that config alone, and the namespace cell the app root reads both variables from.
-  // `scope + epoch` names every one of them, so an epoch bump mints the successor set before Pulumi retires the
-  // prior token and the workload's own graph edge carries it across — the same replacement discipline the tier's
-  // standing token rides. Lease semantics — value renewal, cache expiry, revocation — stay the security branch's;
-  // this plane owns the Doppler and Kubernetes resources and reads the boundary for its own coordinates alone.
   static readonly lease = (
     owner: Secrets,
     args: { readonly lease: Secrets.Lease; readonly namespace: pulumi.Input<string> },
     child: pulumi.CustomResourceOptions,
   ): StackOutputs.Cell => {
-    // Graph construction hosts this plane's ONE decode: whole-second ttl, a unique non-empty allowlist, and an
-    // admitted renewal posture prove before the first resource mints, so a malformed row fails the deploy
-    // rather than the custodian's boot with the cell already live in a namespace.
     const lease = Schema.decodeSync(LeaseSpec)(args.lease)
     const slug = `${lease.scope}-${lease.epoch}`
     const scoped = new doppler.BranchConfig(slug, {
@@ -147,9 +128,6 @@ class Secrets extends Tier {
       environment: owner.config.environment,
       name: pulumi.interpolate`${owner.config.environment}_${slug}`,
     }, child)
-    // The allowlist IS the config: each admitted name lands as its own row reading the canonical value through
-    // the tier's one pluck, so a key outside `LeaseSpec.keys` has no row to read and the token that opens this
-    // config reaches nothing else in the store.
     Array.map(lease.keys, (key) =>
       new doppler.Secret(`${slug}-${key}`, {
         project: owner.project.name,
@@ -165,8 +143,6 @@ class Secrets extends Tier {
     }, child).key
     const cell = new k8s.core.v1.Secret(slug, {
       metadata: { namespace: args.namespace },
-      // Re-encoding the PROVED value is what crosses, so the custodian re-decodes this plane's own bytes and no
-      // unvalidated string reaches a process through the one variable its whole scope resolves out of.
       stringData: { [_CUSTODY.token]: token, [_CUSTODY.lease]: Schema.encodeSync(_Lease)(lease) },
     }, child)
     return { secret: cell.metadata.name, carries: ["token", "lease"] }
@@ -475,7 +451,7 @@ const Certs = {
     tls.getCertificateOutput({ url, verifyChain: true }, opts),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Certs, SecretAbsent, Secrets }
 ```

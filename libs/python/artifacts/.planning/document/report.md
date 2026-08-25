@@ -103,13 +103,13 @@ class ReportKind(StrEnum):
     COMPOSE = "compose"
     TEMPLATE = "template"
     NOTEBOOK = "notebook"
-    REFLOW = "reflow"  # AGPL pymupdf.Story HTML-into-PDF authoring
-    AUTHOR = "author"  # MIT/Apache pdf_oxide markdown/HTML/office authoring — the commercial-safe REFLOW peer
+    REFLOW = "reflow"
+    AUTHOR = "author"
 
 
 class TemplateRender(StrEnum):
-    STRING = "string"  # jinja `Environment` -> HTML `BlockKind.CODE` leaf
-    NATIVE = "native"  # jinja `NativeEnvironment` -> a computed Python value -> deterministic structured-data leaf; trusted sources only
+    STRING = "string"
+    NATIVE = "native"
 
 
 class TemplateTrust(StrEnum):
@@ -118,18 +118,17 @@ class TemplateTrust(StrEnum):
 
 
 class AuthorSource(StrEnum):
-    # pdf_oxide's authoring-source vocabulary; each source's `Pdf`/`OfficeConverter` build entry lives in `_AUTHOR_BUILD`.
     MARKDOWN = "markdown"
     HTML = "html"
-    SHEET = "sheet"  # markdown + a running-header/footer `PageTemplate` — the AEC titled-sheet report
-    DOCX = "docx"  # `OfficeConverter.from_docx(path)` office-source report
+    SHEET = "sheet"
+    DOCX = "docx"
     PPTX = "pptx"
     XLSX = "xlsx"
 
 
 class ReflowLayout(StrEnum):
-    DIRECT = "direct"  # `Story.write` one-shot page sweep
-    STABILIZED = "stabilized"  # `Story.write_stabilized` re-lays regenerated HTML until stable, its `add_header_ids=True` default injecting navigable header anchors — the TOC/cross-reference-convergence layout
+    DIRECT = "direct"
+    STABILIZED = "stabilized"
 
 
 class ReportLoader(StrEnum):
@@ -166,10 +165,8 @@ type ComposeArm = Callable[["ReportPlan"], Awaitable["ReportFact"]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# strict native-output encoding rejects an unsupported Python object rather than admitting a process-specific `repr`.
 _NATIVE: Final[Encoder] = Encoder()
-_KEY_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")  # the stable preimage encoding the bare `ContentIdentity.key` mint addresses
-# `TemplateExporter` content-exclusion traits project through their class-keyed `Config` row.
+_KEY_ENCODER: Final = msgspec.msgpack.Encoder(order="deterministic")
 _EXCLUDE_TRAITS: Final[tuple[str, ...]] = (
     "exclude_input",
     "exclude_output",
@@ -180,8 +177,6 @@ _EXCLUDE_TRAITS: Final[tuple[str, ...]] = (
     "exclude_raw",
     "exclude_unknown",
 )
-# ISO 216 / ANSI portrait point boxes keyed by `ReflowPaper` — the non-reflow `media_box` source, so the COMPOSE/
-# TEMPLATE/NOTEBOOK/AUTHOR paths never load AGPL pymupdf for a constant; the REFLOW worker alone reads `pymupdf.paper_rect`.
 _PAPER: Final[Map[ReflowPaper, Rect]] = Map.of_seq([
     (ReflowPaper.A4, (0.0, 0.0, 595.0, 842.0)),
     (ReflowPaper.A3, (0.0, 0.0, 842.0, 1191.0)),
@@ -189,7 +184,6 @@ _PAPER: Final[Map[ReflowPaper, Rect]] = Map.of_seq([
     (ReflowPaper.LETTER, (0.0, 0.0, 612.0, 792.0)),
     (ReflowPaper.LEGAL, (0.0, 0.0, 612.0, 1008.0)),
 ])
-# Display-output MIME map the notebook-figure splice keys each extracted `resources['outputs']` filename by suffix.
 _FIGURE_MEDIA: Final[Map[str, str]] = Map.of_seq([
     ("png", "image/png"),
     ("jpg", "image/jpeg"),
@@ -203,16 +197,11 @@ _FIGURE_MEDIA: Final[Map[str, str]] = Map.of_seq([
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-# Notebook-parameter value space: any name, every value a kernel-serializable `ParamScalar`,
-# admitted once through `_PAYLOAD`. A notebook with a strict declared-parameter set subclasses with
-# `Required[]` keys; the bare band rejects a non-scalar value `papermill` could not codify.
 class ReportParams(TypedDict, extra_items=ParamScalar):
     pass
 
 
 class NotebookEngine(Struct, frozen=True):
-    # Lifecycle-hook traits (`on_cell_executed`/...) stay off: a `Callable` is a per-run observation channel the
-    # runtime observability owner holds, never a serializable reproducibility fact the keyed plan carries.
     timeout: int | None = 600
     startup_timeout: int = 60
     allow_errors: bool = False
@@ -232,9 +221,6 @@ class NotebookEngine(Struct, frozen=True):
     kernel_name: str = "python3"
 
     def client_kwargs(self) -> dict[str, object]:
-        # nbclient boundary view: a `traitlets.Dict` rejects a `frozendict` (no `dict` subclass),
-        # so the one map field projects to a real `dict` (empty -> the client's `None` default); the
-        # tuple fields ride as-is because `traitlets.List` coerces a tuple.
         return {**asdict(self), "error_on_timeout": dict(self.error_on_timeout) or None}
 
 
@@ -277,9 +263,6 @@ class ExportPolicy(Struct, frozen=True):
     reveal_scroll: bool = False
 
     def exporter_kwargs(self) -> dict[str, object]:
-        # each provider family receives one class-keyed `Config` row; inactive families stay absent. Tag bands
-        # dedupe through `dict.fromkeys` keeping declaration order — a `set` cast iterates seed-randomized, so the
-        # active configuration (and any key preimage over it) would drift run-to-run.
         bands = frozendict({
             "remove_cell_tags": tuple(dict.fromkeys(self.remove_cell_tags)),
             "remove_input_tags": tuple(dict.fromkeys(self.remove_input_tags)),
@@ -334,7 +317,6 @@ class ExportPolicy(Struct, frozen=True):
 
 
 class FigureRef(Struct, frozen=True):
-    # `media_type`/`intrinsic` ride through so the lowered `FigureNode` carries the producer's MIME and dimensions.
     asset_key: ContentKey
     alt: str = ""
     caption: str = ""
@@ -343,47 +325,39 @@ class FigureRef(Struct, frozen=True):
 
 
 class Placement(Struct, frozen=True, gc=False):
-    # ONE placed element as the `Story` position callback reports it, projected to native scalars because the
-    # callback fires inside the HOSTILE worker and a MuPDF position object crosses no process seam. What the stream
-    # actually reports bounds what the sheet can deposit, and it reports LESS than the layout draws: a position
-    # fires for a heading, for an anchor, and for an id-bearing element, and never for an anonymous paragraph — and
-    # `text` is filled for a HEADING alone, so an id-bearing paragraph arrives as a box with no content in it.
-    page: int  # 0-based, matching the lens `PageNode.meta.page` the STORY inverse assigns
-    heading: int  # 1..6 for an <h1>..<h6>, 0 for every other element — the `SectionNode.level` discriminant
-    anchor: str  # the element's HTML id; `add_header_ids=True` synthesizes one per header on the STABILIZED layout alone, so a DIRECT heading's is empty
-    href: str  # the anchor target `Story.add_pdf_links` resolves — the `AnnotationNode` discriminant
-    text: str  # the heading's own text; empty on every other kind, which is why only a heading deposits content
+    page: int
+    heading: int
+    anchor: str
+    href: str
+    text: str
     rect: Rect
 
 
 class TableData(Struct, frozen=True):
-    # a row-major grid of cell texts plus the `TableNode` band/span/caption metadata.
     rows: tuple[tuple[str, ...], ...] = ()
-    header_rows: int = 0  # leading `THead` rows -> `TableNode.header_rows`
-    footer_rows: int = 0  # trailing `TFoot` rows -> `TableNode.footer_rows`
-    header_cols: int = 0  # leading row-header columns -> `TableNode.header_cols`, the PDF/UA `scope` axis a keyed schedule needs
+    header_rows: int = 0
+    footer_rows: int = 0
+    header_cols: int = 0
     spans: tuple[
         tuple[int, int, int, int], ...
-    ] = ()  # (row, present-cell index, col_span, row_span) merged-cell quads a schedule's grouped header needs
-    caption: str = ""  # the "Table N: …"/"DOOR SCHEDULE" title -> the `#figure(kind: table)`/`<caption>` the `TableNode` lowers
+    ] = ()
+    caption: str = ""
 
 
 @tagged_union(frozen=True)
 class SectionBlock:
-    # a new body concern is one case, never a parallel field beside `blocks`.
     tag: Literal["prose", "listing", "figure", "table"] = tag()
-    prose: tuple[BlockKind, tuple[str, ...]] = case()  # (PARAGRAPH/HEADING/QUOTE/CODE/CAPTION, body lines)
-    listing: tuple[ListKind, tuple[str, ...]] = case()  # (ORDERED/UNORDERED/DESCRIPTION, item texts)
-    figure: FigureRef = case()  # an inline figure placed IN flow -> a `FigureNode` between its sibling blocks
-    table: TableData = case()  # an inline data table/schedule -> a `TableNode` in flow between its sibling blocks
+    prose: tuple[BlockKind, tuple[str, ...]] = case()
+    listing: tuple[ListKind, tuple[str, ...]] = case()
+    figure: FigureRef = case()
+    table: TableData = case()
 
 
 class Section(Struct, frozen=True):
-    # `classification` lands on the `SectionNode` `NodeMeta`; nested subsections carry the full hierarchy.
     level: int
     heading: str
     blocks: tuple[SectionBlock, ...] = ()
-    classification: str = ""  # CSI/OmniClass code -> `NodeMeta.classification`, the specification/section#SECTION consumer
+    classification: str = ""
     children: tuple["Section", ...] = ()
 
 
@@ -397,8 +371,6 @@ class ReportFact:
 
 
 class ReportSpec(Struct, frozen=True, omit_defaults=True):
-    # `source` is the per-kind material (template/notebook/HTML); `sections` the COMPOSE content; `figures` the
-    # TEMPLATE render context alone — a COMPOSE figure rides in flow as a `SectionBlock.figure` case.
     source: str = ""
     sections: tuple[Section, ...] = ()
     figures: tuple[FigureRef, ...] = ()
@@ -409,30 +381,30 @@ class ReportSpec(Struct, frozen=True, omit_defaults=True):
     package_path: str = "templates"
     module_path: str = ""
     loader: ReportLoader = ReportLoader.DICT
-    trust: TemplateTrust = TemplateTrust.UNTRUSTED  # safe default: kernel execution, NATIVE render, fs/package loaders, caches, extensions all demand an explicit TRUSTED
-    render: TemplateRender = TemplateRender.STRING  # TEMPLATE: `Environment` HTML string vs `NativeEnvironment` computed value
+    trust: TemplateTrust = TemplateTrust.UNTRUSTED
+    render: TemplateRender = TemplateRender.STRING
     context: frozendict[str, ParamScalar] = field(
         default_factory=frozendict
-    )  # TEMPLATE: the jinja render-context data band spread through `render_async(**context)`
+    )
     template_globals: frozendict[str, ParamScalar] = field(
         default_factory=frozendict
-    )  # TEMPLATE: report-scoped jinja `Environment.globals` injections
-    bytecode_cache: str = ""  # TEMPLATE: `FileSystemBytecodeCache` directory for repeated reproducible renders
-    extensions: tuple[str, ...] = ()  # jinja2 `Environment(extensions=)` dotted-path rows (`jinja2.ext.do`/`loopcontrols`/`i18n`)
+    )
+    bytecode_cache: str = ""
+    extensions: tuple[str, ...] = ()
     report_source: ReportSource = ReportSource.IPYNB
-    resource_path: str = ""  # NOTEBOOK: cwd seeded into `NotebookClient(resources=)` so a relative-asset notebook resolves
+    resource_path: str = ""
     engine: NotebookEngine = field(default_factory=NotebookEngine)
     export: ReportExport = "html"
     export_policy: ExportPolicy = field(default_factory=ExportPolicy)
     paper: ReflowPaper = ReflowPaper.A4
     user_css: str = ""
     em: float = 12.0
-    layout: ReflowLayout = ReflowLayout.DIRECT  # REFLOW: `Story.write` one-shot vs `Story.write_stabilized` convergence
-    author_source: AuthorSource = AuthorSource.MARKDOWN  # AUTHOR: the commercial-safe pdf_oxide source kind
-    title: str = ""  # AUTHOR: pdf_oxide document title metadata
-    author: str = ""  # AUTHOR: pdf_oxide document author metadata
-    header: str = ""  # AUTHOR SHEET: running-header center text for the titled sheet
-    footer: str = ""  # AUTHOR SHEET: running-footer center text
+    layout: ReflowLayout = ReflowLayout.DIRECT
+    author_source: AuthorSource = AuthorSource.MARKDOWN
+    title: str = ""
+    author: str = ""
+    header: str = ""
+    footer: str = ""
     toc: bool = True
     toc_title: str = "Contents"
 
@@ -442,13 +414,11 @@ class ReportSpec(Struct, frozen=True, omit_defaults=True):
 
 @tagged_union(frozen=True)
 class ReportFault:
-    # Closed ADMISSION vocabulary `of` produces; arm-level provider raises convert to the runtime `BoundaryFault`
-    # at the `async_boundary` capsule, never into this vocabulary.
     tag: Literal["payload", "unsatisfied", "irrelevant", "sandboxed_native", "unsafe", "export"] = tag()
-    payload: tuple[str, ...] = case()  # the rejected ReportPayload key paths
-    unsatisfied: tuple[ReportKind, str] = case()  # a kind whose `_REQUIRED` input field is empty
+    payload: tuple[str, ...] = case()
+    unsatisfied: tuple[ReportKind, str] = case()
     irrelevant: tuple[ReportKind, tuple[str, ...]] = case()
-    sandboxed_native: None = case()  # `trust=UNTRUSTED` with `render=NATIVE`
+    sandboxed_native: None = case()
     unsafe: tuple[str, str] = case()
     export: str = case()
 
@@ -480,7 +450,7 @@ class ReportPayload(TypedDict, closed=True):
     export_policy: NotRequired[ReadOnly[ExportPolicy]]
     paper: NotRequired[ReadOnly[ReflowPaper]]
     user_css: NotRequired[ReadOnly[str]]
-    em: NotRequired[ReadOnly[Annotated[float, Field(gt=0, allow_inf_nan=False)]]]  # the story's base font size becomes every recovered `RunNode.size`, which the model bounds positive
+    em: NotRequired[ReadOnly[Annotated[float, Field(gt=0, allow_inf_nan=False)]]]
     layout: NotRequired[ReadOnly[ReflowLayout]]
     author_source: NotRequired[ReadOnly[AuthorSource]]
     title: NotRequired[ReadOnly[str]]
@@ -492,17 +462,14 @@ class ReportPayload(TypedDict, closed=True):
 
 
 _PAYLOAD: Final = TypeAdapter(ReportPayload)
-# Per-kind precondition: a kind's named `ReportSpec` field must be non-empty so the interior is total.
 _REQUIRED: Final[Map[ReportKind, tuple[str, ...]]] = Map.of_seq([
     (ReportKind.COMPOSE, ("sections",)),
     (ReportKind.TEMPLATE, ("source",)),
     (ReportKind.NOTEBOOK, ("source",)),
     (ReportKind.REFLOW, ("source",)),
-    (ReportKind.AUTHOR, ("source",)),  # markdown/HTML text or an office file path
+    (ReportKind.AUTHOR, ("source",)),
 ])
 _ALLOWED: Final[Map[ReportKind, frozenset[str]]] = Map.of_seq([
-    # COMPOSE admits no trailing `figures` channel — an in-flow figure is a `SectionBlock.figure` case, so an
-    # admitted payload never carries figure content the composed tree cannot observe.
     (ReportKind.COMPOSE, frozenset({"sections", "paper", "toc", "toc_title"})),
     (
         ReportKind.TEMPLATE,
@@ -537,10 +504,6 @@ _ALLOWED: Final[Map[ReportKind, frozenset[str]]] = Map.of_seq([
 
 
 def _meta(role: str, label: str, path: tuple[int, ...], classification: str = "", /, *, bounds: Rect | None = None) -> NodeMeta:
-    # key by structural PATH joined to the label, so identical-heading siblings under distinct parents never collapse;
-    # an empty classification rides `UNSET` so an unclassified node's digest stays omit-defaults-stable. `bounds` is
-    # GEOMETRIC evidence and never an identity input — only a laid-out node (the reflow placement sweep) knows its
-    # rectangle, and an authored one leaves it absent rather than inventing a box the composition never computed.
     trail = "-".join(map(str, path)) or "root"
     return NodeMeta(
         key=ContentIdentity.key(f"report-{role}-{trail}", label.encode()),
@@ -552,24 +515,12 @@ def _meta(role: str, label: str, path: tuple[int, ...], classification: str = ""
 
 
 def _runs(role: str, path: tuple[int, ...], *lines: str, size: float = 11.0, bounds: Rect | None = None) -> tuple[RunNode, ...]:
-    # `size` is the composition's body point size by default and the story's own `em` on the reflow path, because a
-    # laid-out run's size is a MEASURED fact there; `RunNode.size` is `PositiveFloat`, which `em` admits bounded to.
     return tuple(
         RunNode(meta=_meta(f"{role}-run", line, path, bounds=bounds), text=line, font_key="body", size=size) for line in lines if line
     )
 
 
 def _deposits(stream: tuple[Placement, ...], /) -> Iterator[Placement]:
-    # `_deposits` folds the raw position stream to the placements that DEPOSIT something a recovery reads back, and
-    # two stream facts drive the whole fold. First, MuPDF reports one entry position per element per layout rect, so
-    # STABLE element identity alone is the union axis: placements sharing an authored or `add_header_ids`-synthesized
-    # id union their fragment boxes into the one element that id spells, while an anonymous placement — empty
-    # `anchor`, keyed apart by its own stream ordinal — deposits per occurrence, because two same-page links on one
-    # href are distinct links only an identity could merge, and a bare (href, text) coalesce fuses them into one box
-    # spanning both — a link the `document/lens#LENS` LINK arm never finds in the rendered bytes it recovers
-    # page-for-page. Second, an id-bearing paragraph or image reports a box and an id and NO text, and no recovery
-    # arm reads a contentless node, so it is dropped rather than deposited empty — a node the inverse never visits is
-    # decoration, and the sheet's real content still rides the emitted bytes.
     keyed = groupby(
         enumerate(stream),
         key=lambda slot: (slot[1].page, slot[1].anchor or f"\x00{slot[0]}", slot[1].href, slot[1].heading, slot[1].text),
@@ -585,14 +536,6 @@ def _deposits(stream: tuple[Placement, ...], /) -> Iterator[Placement]:
 
 
 def _placed_node(ordinal: int, placed: Placement, em: float, /) -> DocumentNode:
-    # ONE deposit, ONE node, discriminated by what MuPDF reported rather than by any caller knob: a heading rank
-    # authors a `SectionNode` carrying its recovered text, and a rank-less survivor is the anchor a link
-    # `AnnotationNode` carries — the two shapes the STORY and LINK recovery arms rebuild off these same bytes.
-    # Deposits carrying BOTH facts — an href reported on a heading element — drop neither: the heading arm nests
-    # its link node as the one child, so the section keeps its rank and the LINK arm still recovers the target.
-    # `size` is the story's base `em` because the position stream reports no per-element size at all: the rendered
-    # heading's CSS-resolved size is MuPDF-internal, and the lens reads the REAL per-span size back off the output.
-    # Id and href join the text in the key preimage, so two identically-worded headings never collapse.
     path, label = (placed.page, ordinal), f"{placed.anchor}\x1f{placed.href}\x1f{placed.text}"
     linked = (
         (
@@ -604,7 +547,7 @@ def _placed_node(ordinal: int, placed: Placement, em: float, /) -> DocumentNode:
                 link=Uri(href=placed.href),
             ),
         )
-        if placed.href  # `Uri.href` admits one-plus characters, so the link node mints only on a real target
+        if placed.href
         else ()
     )
     match placed:
@@ -616,11 +559,10 @@ def _placed_node(ordinal: int, placed: Placement, em: float, /) -> DocumentNode:
                 children=linked,
             )
         case _:
-            return linked[0]  # `_deposits` admits a rank-less deposit only with an href, so the link node is always minted here
+            return linked[0]
 
 
 def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
-    # list items are `LI`-role `BlockNode`s under a real `ListNode`, never a phantom list block kind.
     match block:
         case SectionBlock(tag="prose", prose=(kind, lines)):
             return BlockNode(meta=_meta("block", kind.value, path), block=kind, runs=_runs("body", path, *lines))
@@ -633,7 +575,7 @@ def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
                     for ordinal, item in enumerate(items)
                 ),
             )
-        case SectionBlock(tag="figure", figure=ref):  # an inline figure lands as a `FigureNode` at its own path slot, in flow between its siblings
+        case SectionBlock(tag="figure", figure=ref):
             return FigureNode(
                 meta=_meta("figure", ref.alt, path),
                 asset_key=ref.asset_key,
@@ -644,7 +586,7 @@ def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
             )
         case SectionBlock(
             tag="table", table=data
-        ):  # an inline data table/schedule -> a `TableNode` in flow; each cell one `TD`-role paragraph `BlockNode`
+        ):
             return TableNode(
                 meta=_meta("table", data.caption or "table", path),
                 rows=tuple(
@@ -669,7 +611,6 @@ def _block_node(path: tuple[int, ...], block: SectionBlock, /) -> DocumentNode:
 
 
 def _section_node(path: tuple[int, ...], section: Section, /) -> SectionNode:
-    # every child keys by its own path extension so the whole hierarchy carries distinct content slots.
     blocks = tuple(_block_node((*path, index), block) for index, block in enumerate(section.blocks))
     kids = tuple(_section_node((*path, len(blocks) + index), child) for index, child in enumerate(section.children))
     return SectionNode(
@@ -710,7 +651,6 @@ def _output_page(
     media_type: str = "application/octet-stream",
     /,
 ) -> PageNode:
-    # text lowers as a semantic block; binary output remains a content-addressed asset instead of materializing as hex text.
     primary: DocumentNode = (
         BlockNode(meta=_meta(role, role, (0,)), block=BlockKind.CODE, runs=_runs(role, (0,), output))
         if isinstance(output, str)
@@ -729,7 +669,6 @@ def _output_page(
 
 
 def _notebook_figures(resources: object, /) -> tuple[FigureNode, ...]:
-    # `resources['outputs']` is the filename->bytes display-figure map; each keys by content and splices as a `FigureNode`.
     outputs: dict[str, bytes] = resources.get("outputs", {}) if isinstance(resources, dict) else {}
     return tuple(
         FigureNode(
@@ -754,7 +693,6 @@ async def _compose_arm(plan: "ReportPlan") -> "ReportFact":
 
 
 def _loader(spec: ReportSpec, /) -> BaseLoader:
-    # `ChoiceLoader` fallback applies at the environment, so every loader row composes the same fallback chain.
     match spec.loader:
         case ReportLoader.DICT:
             return DictLoader({"<root>": spec.source, **spec.section_templates})
@@ -771,9 +709,6 @@ def _loader(spec: ReportSpec, /) -> BaseLoader:
 
 
 def _environment(spec: ReportSpec, /) -> Environment:
-    # sandbox wins FIRST: an untrusted source always renders inside `ImmutableSandboxedEnvironment`, and the
-    # untrusted+NATIVE pair is already admission-refused, so the native engine is reachable from trusted specs alone;
-    # `_REPORT_FILTERS`, the serializable `template_globals`, and the deterministic JSON policy install onto the ONE engine.
     factory = (
         ImmutableSandboxedEnvironment
         if spec.trust is TemplateTrust.UNTRUSTED
@@ -791,36 +726,30 @@ def _environment(spec: ReportSpec, /) -> Environment:
     )
     env.filters.update(dict(_REPORT_FILTERS.items()))
     env.globals.update(dict(spec.template_globals))
-    env.policies["json.dumps_kwargs"] = {"sort_keys": True}  # deterministic in-template JSON for a reproducible render
+    env.policies["json.dumps_kwargs"] = {"sort_keys": True}
     return env
 
 
 async def _template_arm(plan: "ReportPlan") -> "ReportFact":
     spec = plan.spec
-    # one strict-undefined async render; the `context` band spreads the pipeline's bound render values into the
-    # jinja context beside `sections`/`figures`, so a missing key is a `jinja2.UndefinedError` fault, never a blank.
     output = await _environment(spec).from_string(spec.source).render_async(sections=spec.sections, figures=spec.figures, **dict(spec.context))
     match spec.render:
         case TemplateRender.STRING:
-            page = _output_page(spec, "template", output)  # the rendered HTML string -> `CODE` leaf
+            page = _output_page(spec, "template", output)
         case TemplateRender.NATIVE:
-            page = _output_page(spec, "template", _NATIVE.encode(output).decode())  # the computed Python value -> deterministic JSON leaf
+            page = _output_page(spec, "template", _NATIVE.encode(output).decode())
         case _ as unreachable:
             assert_never(unreachable)
     return ReportFact(template=(page, encode(page), spec.loader))
 
 
 def _exported(spec: ReportSpec, executed: object, /) -> tuple[object, object, str]:
-    # Blocking nbconvert render — a PDF/WEBPDF export spawns a LaTeX/headless-Chromium subprocess — crosses the
-    # thread seam so it never stalls the loop; the `(output, resources)` pair feeds the `_output_page` partition.
     exporter = nbconvert.get_exporter(spec.export)(**spec.export_policy.exporter_kwargs())
     output, resources = exporter.from_notebook_node(executed)
     return output, resources, type(exporter).__qualname__
 
 
 def _resources(spec: ReportSpec, /) -> dict[str, object]:
-    # nbclient's `resources` dict seeding `metadata.path=cwd` so a notebook referencing a relative asset resolves
-    # it against `resource_path`; empty when unset, exactly the one-shot `execute(cwd=)` seed the async rail omits.
     return {"metadata": {"path": spec.resource_path}} if spec.resource_path else {}
 
 
@@ -833,11 +762,11 @@ async def _notebook_arm(plan: "ReportPlan") -> "ReportFact":
     )
     executed = await NotebookClient(parameterized, resources=_resources(spec), **spec.engine.client_kwargs()).async_execute()
     archive = jupytext.writes(executed, fmt="ipynb").encode()
-    exported = await plan.lane.offload(Kernel.of(_exported, KernelTrait.RELEASING), spec, executed)  # blocking nbconvert render off the loop, runtime-owned lane
+    exported = await plan.lane.offload(Kernel.of(_exported, KernelTrait.RELEASING), spec, executed)
     output, resources, exporter_type = exported.default_with(lapsed)
     if not isinstance(output, str | bytes):
         raise TypeError(f"exporter {spec.export!r} returned {type(output).__name__}, expected str or bytes")
-    figures = _notebook_figures(resources)  # the `ExtractOutputPreprocessor` display figures, spliced rather than discarded
+    figures = _notebook_figures(resources)
     extension = str(resources.get("output_extension", "")) if isinstance(resources, dict) else ""
     media_type = _FIGURE_MEDIA.try_find(extension.removeprefix(".").lower()).default_value("application/octet-stream")
     page = _output_page(spec, "notebook", output, figures, media_type)
@@ -858,17 +787,9 @@ async def _notebook_arm(plan: "ReportPlan") -> "ReportFact":
 
 
 async def _reflow_arm(plan: "ReportPlan") -> "ReportFact":
-    # AGPL pymupdf.Story sweep is CPU-bound native work isolated on the runtime process lane through the bound `lane`.
-    # Each sheet DEPOSITS the structure its inverse recovers, page boundaries included: the `document/lens#LENS` STORY
-    # inverse rebuilds one `PageNode` per laid-out page, so the deposit tree is a `StructureNode` DOCUMENT root over
-    # exactly `count` pages — a deposit-less page rides as an empty `PageNode` rather than vanishing — and each page
-    # keys over its OWN deposit rows while the root keys the whole rendered bytes, so two reflows differing on one
-    # page re-key that page alone.
     spec = plan.spec
     crossed = await plan.lane.offload(Kernel.of(_reflow, KernelTrait.HOSTILE), spec.source, spec.user_css, spec.em, spec.paper.value, spec.layout)
     pdf, count, box, placed = crossed.default_with(lapsed)
-    # deposits arrive already page-then-flow ordered, so the enumeration ordinal is a monotone identity slot
-    # joined to each placement's own page — every child keys apart with no second pass.
     deposits = tuple(enumerate(_deposits(placed)))
     pages = tuple(
         PageNode(
@@ -895,11 +816,6 @@ async def _reflow_arm(plan: "ReportPlan") -> "ReportFact":
 
 
 def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayout) -> tuple[bytes, int, Rect, tuple[Placement, ...]]:
-    # one `Story.write`/`write_stabilized` entry lays the whole HTML; `positionfn` collects placed positions and
-    # `add_pdf_links` injects live links from them (a no-op when the HTML has no `<a>`), so the returned bytes are the
-    # link-enriched reflowed PDF the receipt keys. The SAME callback projects each placement to native scalars: the
-    # raw position is a MuPDF object bound to this worker process, so evidence leaves as data and the node authoring
-    # happens back on the arm — the folder's standing rule that no durable construction seats in a worker callback.
     rect = pymupdf.paper_rect(paper)
     buffer = io.BytesIO()
     writer = pymupdf.DocumentWriter(buffer)
@@ -911,17 +827,12 @@ def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayou
         return (rect, rect, None)
 
     def pagefn(page_number: int, mediabox: object, device: object, after: int, /) -> None:
-        nonlocal pages  # Exemption: the writer's page callback threads the count through the one imperative page sweep
+        nonlocal pages
         if after:
             pages = page_number + 1
 
     def positionfn(position: object, /) -> None:
         positions.append(position)
-        # `open_close` is a bit pair — 1 on entry, 2 on exit, 3 for an atomic element reporting both at once — and the
-        # ENTRY bit selects the event carrying the element's text and its place in flow, so testing the bit
-        # rather than the value keeps atomic elements while the exit-only event (which reports empty text over the
-        # same box) never doubles a child. `rectfn` answers a mediabox for EVERY rect, so `page_num` counts from 1
-        # across the whole sweep and lands 0-based here. Shaping stays on the arm: this callback only collects.
         if position.open_close & 1:
             placed.append(
                 Placement(
@@ -959,7 +870,6 @@ def _reflow(html: str, user_css: str, em: float, paper: str, layout: ReflowLayou
 
 
 async def _author_arm(plan: "ReportPlan") -> "ReportFact":
-    # pdf_oxide's Rust core releases the GIL, so the AUTHOR arm crosses the runtime thread lane, never the process hop.
     spec = plan.spec
     crossed = await plan.lane.offload(Kernel.of(_authored, KernelTrait.RELEASING), spec)
     pdf, count = crossed.default_with(lapsed)
@@ -969,16 +879,12 @@ async def _author_arm(plan: "ReportPlan") -> "ReportFact":
 
 
 def _authored(spec: ReportSpec, /) -> tuple[bytes, int]:
-    # dispatch the source through the derived `_AUTHOR_BUILD` row to its pdf_oxide entry, then read the bytes and the
-    # native page count off the built `Pdf` — one row per source, never an `if source == ...` construction ladder.
     pdf = _AUTHOR_BUILD[spec.author_source](spec)
     return pdf.to_bytes(), len(pdf)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# Report-scoped scientific/AEC formatting filters installed on EVERY report `Environment` (never registered
-# per call), so a template renders `{{ load | sigfig }}` / `{{ span | dimension }}` without a bespoke filter map.
 _REPORT_FILTERS: Final[Map[str, Callable[..., str]]] = Map.of_seq([
     ("sigfig", lambda value, digits=3: f"{float(value):.{digits}g}"),
     ("si", lambda value, unit="": f"{float(value):.3g} {unit}".rstrip()),
@@ -986,9 +892,6 @@ _REPORT_FILTERS: Final[Map[str, Callable[..., str]]] = Map.of_seq([
     ("dimension", lambda value, unit="mm": f"{float(value):.0f} {unit}"),
 ])
 
-# Commercial-safe pdf_oxide authoring dispatch: one row per `AuthorSource` binding it to its `Pdf`/
-# `OfficeConverter` entry, the SHEET row composing a running-header/footer `PageTemplate` for the AEC titled sheet, the
-# office rows reading `spec.source` as a file path — a new source is one member plus one row, zero body edit.
 _AUTHOR_BUILD: Final[Map[AuthorSource, Callable[[ReportSpec], Pdf]]] = Map.of_seq([
     (AuthorSource.MARKDOWN, lambda spec: Pdf.from_markdown(spec.source, title=spec.title or None, author=spec.author or None)),
     (AuthorSource.HTML, lambda spec: Pdf.from_html(spec.source, title=spec.title or None, author=spec.author or None)),
@@ -1003,8 +906,6 @@ _AUTHOR_BUILD: Final[Map[AuthorSource, Callable[[ReportSpec], Pdf]]] = Map.of_se
     (AuthorSource.XLSX, lambda spec: OfficeConverter.from_xlsx(spec.source)),
 ])
 
-# this page's ONE lift anchor. TRANSIENT — a kernel death, a timed-out cell, and a template render that reached a
-# missing key are each defects a re-issue under repaired inputs may clear; every ADMISSION refusal is `ReportFault`'s.
 REPORT_COMPOSE: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.REPORT, point="compose", arm="boundary", defect="compose-fold", retriability=TRANSIENT
 )
@@ -1012,14 +913,6 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([REPORT_COM
 
 
 def _compose_raises() -> Catch:
-    # the composer's real raise surface, resolved at FIRST FENCE ENTRY rather than at import: every provider named
-    # here rides a module-scope `lazy` binding, and a module-scope tuple would reify jinja2, jupytext, papermill, and
-    # nbclient for a caller composing a plain section tree that reaches none of them. `CellTimeoutError` leads its
-    # family because it also subclasses the stdlib `TimeoutError` the runtime `CLASSIFY` table lands on `deadline`.
-    # `CellControlSignal` is deliberately absent — it is nbclient's own loop control, never a fault. `Lapse` is the
-    # offloaded REFLOW and AUTHOR arms' collapse, carrying their terminal `BoundaryFault` WHOLE across the fence
-    # rather than as a re-converted string; `TypeError` is the exporter's non-text return, and `ValueError`/`OSError`
-    # the in-process jupytext and nbconvert reads this arm runs on the loop.
     return (
         Lapse, TemplateError, JupytextFormatError, PapermillException,
         CellTimeoutError, CellExecutionError, DeadKernelError, TypeError, ValueError, OSError,
@@ -1038,7 +931,6 @@ COMPOSE_ARMS: Final[Map[ReportKind, ComposeArm]] = Map.of_seq([
 
 
 class ReportPlan(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     kind: ReportKind
     lane: LanePolicy
     spec: ReportSpec = field(default_factory=ReportSpec)
@@ -1046,35 +938,22 @@ class ReportPlan(Struct, frozen=True):
 
     @receipted(
         OPEN
-    )  # report facts carry no classified field, so the runtime keep-all `OPEN` policy rides directly, never a re-minted per-file `Redaction`
+    )
     async def _composed(self) -> Self:
         return structs.replace(self, fact=await COMPOSE_ARMS[self.kind](self))
 
     def emit(self, /) -> ArtifactWork:
-        # ONE mint per node, captured into the closure: `_key` re-encodes the whole spec and opens a
-        # `content.derive` span per read.
         key = self._key
         return ArtifactWork(key=key, work=partial(self._emit, key), parents=(), admission=Admission(keyed=None), cost=1.0)
 
     @property
     def _key(self) -> ContentKey:
-        # `ContentIdentity.key` mints the bare `ContentKey`; `.of` is the railed form and never keys a plan.
-        # `kind`/`spec` are immutable across the compose fold, so the standalone `contribute` port's own read
-        # answers the SAME key the plan node carries — the derivation is safe there where a closure cannot reach.
         return ContentIdentity.key(f"report-{self.kind.value}", _KEY_ENCODER.encode((self.kind, self.spec)))
 
     async def _emit(self, key: ContentKey, /) -> RuntimeRail[ArtifactReceipt]:
-        # Terminal receipt threads the PRE-RUN key the closure captured, so receipt.slot == node.key.
         settled = (await async_boundary(REPORT_COMPOSE, self._composed, catch=_compose_raises())).map(lambda done: (done, done._receipt(key)))
         match settled:
             case Result(tag="ok", ok=(done, receipt)):
-                # `Journal.record` seats the durable evidence for both kinds this owner mints, `report` and the
-                # REFLOW/AUTHOR `pdf`: recording suspends and `contribute` is synchronous, so the shared `evidence`
-                # builder is composed here alone. One NOTEBOOK plan produces TWO addressed artifacts, so BOTH ledgers
-                # ride the one write — the archive's
-                # bytes are a real storage charge, and a second artifact whose durable fact never lands is a gap the
-                # metering cannot see. Every kind here retains OPERATIONAL, and the declared facts are the whole
-                # evidence, so no positional diff is appended.
                 facts = receipt.evidence()
                 archive = done._archive
                 return (await Journal.record(facts if archive is None else facts.append(archive.evidence()))).map(lambda _landed: receipt)
@@ -1083,8 +962,6 @@ class ReportPlan(Struct, frozen=True):
 
     @property
     def _archive(self) -> ArtifactReceipt | None:
-        # `_archive` derives the NOTEBOOK plan's SECOND addressed artifact — the `jupytext` source archive beside the
-        # rendered body — ONCE here, so the durable seat and the synchronous port can never address it two ways.
         match self.fact:
             case ReportFact(
                 tag="notebook",
@@ -1112,7 +989,7 @@ class ReportPlan(Struct, frozen=True):
                 assert_never(unreachable)
 
     def contribute(self) -> Iterable[Receipt]:
-        if self.fact is None:  # rides the stepped owner the fold returned, never a re-run
+        if self.fact is None:
             return
         yield from self._receipt(self._key).contribute()
         if (archive := self._archive) is not None:
@@ -1150,9 +1027,6 @@ class ReportPlan(Struct, frozen=True):
 
     @classmethod
     def matrix(cls, grid: tuple[ReportParams, ...], /, *, lane: LanePolicy, **raw: Unpack[ReportPayload]) -> Result[Block[Self], ReportFault]:
-        # Parameter-grid family: one NOTEBOOK spec fanned across N cells, each cell's parameters merged over the
-        # base band into its OWN content-keyed plan — unchanged cells replay through the `core/plan` elision, and the
-        # grouped drain stays `core/issue`'s construction; the `matrix_comparison` sibling composes the cross-cell section over the fanned keys.
         base = raw.get("notebook_parameters", {})
         return traverse(
             lambda cell: cls.of(ReportKind.NOTEBOOK, lane=lane, **{**raw, "notebook_parameters": {**base, **cell}}),
@@ -1163,10 +1037,6 @@ class ReportPlan(Struct, frozen=True):
     def matrix_comparison(
         cls, grid: tuple[ReportParams, ...], cells: tuple[ContentKey, ...], /, *, lane: LanePolicy, title: str = "Parameter matrix"
     ) -> Result[Self, "ReportFault"]:
-        # Comparison half of the parameter-grid family: the fanned cells' pre-run keys and grid coordinates
-        # compose ONE keyed COMPOSE plan whose `TableData` reads across the matrix — column per swept parameter,
-        # row per cell, the artifact key binding each row to its executed notebook — so the study's cross-cell
-        # section is an ordinary schedulable plan, never a hand-assembled side document.
         if len(grid) != len(cells):
             return Error(ReportFault(unsatisfied=(ReportKind.COMPOSE, "matrix grid and cell keys differ in length")))
         names = tuple(sorted({name for cell in grid for name in cell}))

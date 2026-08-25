@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. These axes cross only the in-process `FabricationInput
 - Boundary: process, machine, modality, strategy, kinematics, holding, and dialect remain independent axes.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
@@ -43,7 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Process;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CutDimensionality {
     public static readonly CutDimensionality Planar = new("2.5d");
@@ -51,8 +51,6 @@ public sealed partial class CutDimensionality {
     public static readonly CutDimensionality MultiAxis = new("multi-axis");
 }
 
-// Toolpath strategy names are this package's OWN vocabulary — CAM vendors publish no shared roster — so a
-// strategy is one row here carrying the dimensionality that decides which tool forms can answer it.
 [SmartEnum<string>]
 public sealed partial class CutStrategy {
     public static readonly CutStrategy BoundaryPass = new("boundary-pass", CutDimensionality.Planar);
@@ -136,10 +134,6 @@ public sealed partial class InteractionKind {
     public static readonly InteractionKind AdhesiveBond = new("adhesive-bond");
 }
 
-// `ThermalCoupling` is the share of a cut's engaged seconds that reaches the part as heat, so one exposure law
-// serves every modality: a plasma or arc pass couples its whole dwell, an abrasive jet carries its own coolant and
-// couples almost none, and a cold form couples nothing. The column is what lets `ElementVariant.Of` derive one
-// comparable thermal term for every element instead of gating the measurement on the modality and publishing zero.
 [SmartEnum<string>]
 public sealed partial class ProcessModality {
     public static readonly ProcessModality Subtractive = new("subtractive", ModalityClass.Removal, Set(InteractionKind.SolidContact),
@@ -213,8 +207,6 @@ public sealed partial class CapacityKind {
     public static readonly CapacityKind Robot = new("robot");
 }
 
-// Operating-envelope dimensions are this package's OWN vocabulary — machine spec sheets share no rostered set —
-// so a new envelope dimension is one row every consumer reaches through `MachineCapacity.Facts`.
 [SmartEnum<string>]
 public sealed partial class CapacityAxis {
     public static readonly CapacityAxis TravelX = new("travel-x");
@@ -242,7 +234,6 @@ public sealed partial class CapacityAxis {
     public static readonly CapacityAxis StrokeEnergy = new("stroke-energy");
     public static readonly CapacityAxis Payload = new("payload");
 
-    // A signed axis is a level, not a magnitude: a chilled chamber or cryogenic bed is a valid capacity below zero.
     public bool Signed { get; }
 }
 
@@ -253,10 +244,6 @@ public sealed partial class CapacityFold {
     public static readonly CapacityFold Total = new("total");
     public static readonly CapacityFold Mean = new("mean");
 
-    // `UnitMath.Min`/`Max` are PAIRWISE over two quantities; only `Sum`/`Average` take the sequence-and-unit form.
-    // The extremum therefore folds the tail onto the admitted head, and the `Head` option property is what admits
-    // it — the empty sequence has no extremum to report and leaves through the same `None` every other row's
-    // absence takes.
     public Option<TQuantity> Apply<TQuantity>(Seq<TQuantity> values, Enum unit)
         where TQuantity : IQuantity =>
         values.Head.Map(head => Switch(
@@ -267,9 +254,6 @@ public sealed partial class CapacityFold {
             mean: static state => UnitMath.Average(state.All, state.Unit)));
 }
 
-// Pressure, temperature, and concentration IDENTIFY the medium; the speed, life, and evacuation factors are what
-// that medium does to the cut. Both live on the row, so `Process/physics` reads a column instead of a parallel
-// table keyed by this vocabulary — a table has to restate every row and silently defaults the one it forgot.
 [SmartEnum<string>]
 public sealed partial class CoolantDelivery {
     public static readonly CoolantDelivery Dry = new("dry",
@@ -304,12 +288,6 @@ public sealed partial class AxisKind {
     public static readonly AxisKind Auxiliary = new("auxiliary");
 }
 
-// Addresses federate the ISO 841 coordinate-and-motion nomenclature BY VALUE — primary `X`/`Y`/`Z`, rotary
-// `A`/`B`/`C`, secondary `U`/`V`/`W`, tertiary `R` — beside the ISO 6983 spindle address `S`; the `J` joint and
-// `E` auxiliary rows are this package's own robot vocabulary. `Order` is the posting block rank and it is TOTAL:
-// every row holds a distinct ordinal, families are spaced so a new axis lands between its neighbours without
-// renumbering, and a gantry duplicate ranks immediately after the axis it duplicates. Only `Address` is
-// wire-bearing; `Order` is emission policy this page owns.
 [SmartEnum<string>]
 public sealed partial class MachineAxis {
     public static readonly MachineAxis X = new("x", AxisKind.Linear, address: 'X', order: 0);
@@ -343,8 +321,6 @@ public sealed partial class MachineAxis {
     public int Order { get; }
     public bool Wraps { get; }
 
-    // A synchronized gantry pair: two rows carrying one controller address. The pairing DERIVES from the roster,
-    // so no row spells its partner's key and no lookup of that key can miss.
     public bool Duplicated { get; }
 
     public bool Rotary => Kind == AxisKind.Rotary;
@@ -440,7 +416,7 @@ public sealed partial class DialectFeature {
 - Boundary: machine topology and physical axes are authoritative for motion; dialect rows contain capability data only.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WcsRoster {
     public int Slots { get; }
@@ -462,9 +438,6 @@ public sealed partial class WcsRoster {
         Validate(slots, extendedBase, extended, out WcsRoster roster).Admitted(roster);
 }
 
-// The feature sets controllers SHARE, named once. A dialect row states the bundle it belongs to plus what it adds
-// or lacks, so the seventeen-row full-mill set is one declaration rather than five transcriptions that drift.
-// These fields seat before the dialect rows because a static initializer reading a later field captures its default.
 public static class DialectFeatures {
     public static readonly Set<DialectFeature> Base = Set(
         DialectFeature.Metric, DialectFeature.Absolute, DialectFeature.Incremental,
@@ -482,10 +455,6 @@ public static class DialectFeatures {
     public static readonly Set<DialectFeature> Streaming = Base + Set(DialectFeature.Checksum);
 }
 
-// The command key a dialect override is looked up by. A bare string spelled at the reader forks the moment one copy
-// is edited, so every key is a declared constant the override map and every reader share. A reader either RAILS on a
-// missing entry — the controller never declared that capability — or renders the bare key, which is visibly wrong in
-// the emitted record rather than silently absent from it.
 public static class CommandKeys {
     public const string WcsExtended = "wcs-extended";
     public const string WcsDynamic = "wcs-dynamic";
@@ -561,16 +530,11 @@ public sealed partial class PostDialect {
         Set(ProcessModality.Formed),
         DialectFeatures.Imperial - Set(DialectFeature.PlaneSelection), Codes.None);
 
-    // The two compensation postures every controller row takes; a bare `Set(...)` literal at thirteen rows is the
-    // same transcription defect the feature bundles delete.
     private static class Compensation {
         public static readonly Set<CutterCompKind> Full = Set(CutterCompKind.Radius, CutterCompKind.Length);
         public static readonly Set<CutterCompKind> None = Set<CutterCompKind>();
     }
 
-    // The vendor spellings controllers SHARE, named once for the reason the feature bundles are: the ISO subprogram
-    // quintet is ONE declaration across every `M98` row and the label quartet one across the control languages that
-    // call a label, so a row states its bundle plus only the spellings it alone carries.
     private static class Codes {
         public static readonly Map<string, string> IsoSubprogram = Map(
             (CommandKeys.SubprogramCall, "M98"), (CommandKeys.SubprogramLabel, "P"), (CommandKeys.SubprogramRepeat, "L"),
@@ -580,9 +544,6 @@ public sealed partial class PostDialect {
             (CommandKeys.SubprogramCall, "CALL LBL"), (CommandKeys.SubprogramRepeat, "REP"),
             (CommandKeys.SubprogramDefine, "LBL"), (CommandKeys.SubprogramReturn, "LBL 0"));
 
-        // The Fanuc-lineage extended and dynamic work-offset codes. A controller spelling either differently carries
-        // its own pair, and one with no dynamic frame carries NO entry, so the slot refuses rather than degrading to
-        // a base offset that means a different frame.
         public static readonly Map<string, string> IsoOffsets = Map(
             (CommandKeys.WcsExtended, "G54.1"), (CommandKeys.WcsDynamic, "G54.2"));
 
@@ -611,10 +572,6 @@ public sealed partial class PostDialect {
     public Option<string> CodeOverride(string commandKey) => CodeOverrides.Find(commandKey);
 }
 
-// Seven additive rows federate the ISO/ASTM 52900 process categories BY VALUE — binder jetting, directed energy
-// deposition, material extrusion, material jetting, powder-bed fusion, sheet lamination, and vat
-// photopolymerization — so a category rename lands as one key; every other row is this package's own routing
-// vocabulary, each carrying the five axes its consumers read and no physics table of its own.
 [SmartEnum<string>]
 public sealed partial class ProcessKind {
     public static readonly ProcessKind Mill = new("mill", ProcessModality.Subtractive, InteractionKind.SolidContact, PhysicsKind.Subtractive, KinematicClass.CartesianGantry, CapacityKind.Removal);
@@ -788,8 +745,6 @@ public abstract partial record MachineCapacity(CapacityKind Kind) {
         Length Reach,
         Arr<AxisLimit> Joints) : MachineCapacity(CapacityKind.Robot);
 
-    // Each case folds its OWN (axis, reader) row table: one row per envelope dimension, so a new dimension is one
-    // pair rather than a re-spelled fact construction, and every case's stream is built by one lift.
     public Seq<CapacityFact> Facts() => Switch(
         removal: static v => Quantities(
             (CapacityAxis.TravelX, v.X), (CapacityAxis.TravelY, v.Y), (CapacityAxis.TravelZ, v.Z),
@@ -850,8 +805,6 @@ public abstract partial record MachineIngress {
         KinematicClass Topology,
         Set<CoolantDelivery> Coolant,
         Seq<MachineCapacity> Capacities) : MachineIngress;
-    // Joint ordinals stay the axis correspondence's own key, so the `RobotAxes` roster below remains the single
-    // seating law and no row spells an axis name a lookup could miss.
     public sealed record Robot(
         string Key,
         RobotManufacturer Manufacturer,
@@ -876,9 +829,6 @@ public sealed partial class Machine {
     public Seq<MachineCapacity> Capacities { get; }
     public int AxisCount => Axes.Count;
 
-    // One fact stream per machine, held on first read. Admission, the quantity fold, and the joint lookup all read
-    // it, so an envelope query costs a filter rather than a rebuild of every capacity's row table. The slot is
-    // DERIVED from the admitted capacities, so it stays out of construction, equality, and every codec.
     [IgnoreMember]
     private Seq<CapacityFact>? facts;
 
@@ -926,10 +876,6 @@ public sealed partial class Machine {
         Validate(seed.Key, seed.Processes, seed.Holding, seed.Axes, seed.Topology, seed.Coolant, seed.Capacities,
             out Machine machine).Admitted(machine);
 
-    // Out-parameter seam: the ObjectFactory contract fixes the shape. The registry holds machines already admitted,
-    // so the keyed boundary is a lookup, never a second admission — re-validating here would re-decide an invariant
-    // the mint already settled and would keep the resolution space frozen at the archetypes. This is the ONE
-    // resolution path: a sibling key lookup that scans a caller-held machine sequence forks the space.
     [BoundaryAdapter]
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out Machine? item) {
         item = Optional(value).Bind(key => Registry.Value.Find(key)).Match<Machine?>(static machine => machine, static () => null);
@@ -1075,20 +1021,10 @@ public sealed partial class Machine {
         MachineAxis.J1, MachineAxis.J2, MachineAxis.J3, MachineAxis.J4, MachineAxis.J5, MachineAxis.J6, MachineAxis.J7,
         MachineAxis.X, MachineAxis.Y, MachineAxis.Z, MachineAxis.A, MachineAxis.B, MachineAxis.C);
 
-    // The arm block's width in the seating roster, so a projector seats external mechanisms (tracks, positioners)
-    // on the trailing rows without re-declaring the roster — a duplicated private roster is the forked truth.
     internal static readonly int RobotArmSeats = 7;
 
-    // `Seeds` are the BUILT-IN ROWS, never the resolution space: real shop equipment enters through
-    // `Fleet.AdmitInstance` and must resolve by key afterwards, so the keyed boundary reads a registry the admission
-    // fold populates and the archetypes are only its opening rows. This field seats AFTER `Seeds` because a static
-    // initializer reading a later field captures the uninitialized default. Registration is first-writer-wins by key,
-    // so a second admission of one key resolves to the machine already registered rather than forking the vocabulary.
     private static readonly Atom<HashMap<string, Machine>> Registry = Atom(SeededRows);
 
-    // A seed that fails admission is a DEFECT in the archetype roster, not a row to skip: swallowing it leaves the
-    // registry silently short and every key lookup against it answers `UnknownAxis` for a machine the page declared.
-    // The refusal surfaces at type initialization, where the roster is authored, rather than at a caller's lookup.
     private static HashMap<string, Machine> SeededRows => Seeds
         .Traverse(AdmitSeed)
         .As()
@@ -1121,7 +1057,7 @@ public sealed partial class Machine {
 - Packages: `QuikGraph` (`BidirectionalGraph`, `UndirectedGraph`, `SEdge`, `Edge`, `ShortestPathsDijkstra`, `ConnectedComponents`, `TopologicalSort`, `MaximumBipartiteMatchingAlgorithm`).
 
 ```csharp signature
-// --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FamilyNode {
     private FamilyNode() { }
@@ -1132,8 +1068,6 @@ public abstract partial record FamilyNode {
     public sealed record Dialect(PostDialect Value) : FamilyNode;
 }
 
-// Hop prices are this page's OWN roster — no standard rosters a shop's routing preference — so a preference is one
-// row here carrying the three node-kind weights the route fold reads.
 [SmartEnum<string>]
 public sealed partial class RouteBias {
     public static readonly RouteBias Balanced = new("balanced", equipment: 1.0, strategy: 1.0, dialect: 1.0);
@@ -1144,8 +1078,6 @@ public sealed partial class RouteBias {
     public double Strategy { get; }
     public double Dialect { get; }
 
-    // Every weight is FINITE and every route transits a process node, so a pivot costs nothing to enter. Pricing a
-    // transited node at infinity made every total weight infinite and every ranked route indistinguishable.
     public double Weight(FamilyNode relation) => relation.Switch(
         state: this,
         process: static (_, _) => 0.0,
@@ -1204,9 +1136,6 @@ public abstract partial record FamilyResult {
 public sealed class ProcessFamily {
     private readonly BidirectionalGraph<FamilyNode, SEdge<FamilyNode>> _graph;
 
-    // ONE symmetric container. Reachability, weighted routing, and component labelling all read against edge
-    // direction, and the shipped Dijkstra takes an undirected graph, so a second container built by duplicating
-    // every edge in reverse is a third copy of one relation.
     private readonly UndirectedGraph<FamilyNode, SEdge<FamilyNode>> _undirected;
 
     private ProcessFamily(Seq<Machine> machines, BidirectionalGraph<FamilyNode, SEdge<FamilyNode>> graph) =>
@@ -1227,9 +1156,6 @@ public sealed class ProcessFamily {
         components: static (family, _) => Fin.Succ<FamilyResult>(new FamilyResult.Components(family.Components())),
         allocate: static (family, value) => family.Allocate(value.Demand));
 
-    // Every textual key admits through the ONE generated-owner bridge, and the machine key resolves through the
-    // registry the `[ObjectFactory<string>]` boundary owns — a linear scan of the caller's own machine sequence is
-    // a second resolution space that answers differently for a registered machine the caller did not hold.
     private Fin<FamilyResult> Select(ProcessSelection selection) =>
         (Admission.Of<ProcessKind, string>(selection.Process).ToValidation(),
          Machine.Resolve(selection.Machine).ToValidation(),
@@ -1279,8 +1205,6 @@ public sealed class ProcessFamily {
         return graph;
     }
 
-    // The matching solver's own vertex. Super-source and super-sink are SOLVER state, so widening the domain family
-    // with a synthetic case would force every consumer's switch to answer for a vertex no domain fact names.
     private abstract record MatchVertex {
         private MatchVertex() { }
 
@@ -1293,8 +1217,6 @@ public sealed class ProcessFamily {
         if (demand.IsEmpty)
             return Fin.Fail<FamilyResult>(new KernelFault.InvalidValue("family", "process-family:allocation"));
 
-        // `Edge<T>` carries REFERENCE identity: a value edge makes the forward and reverse edges of one pair equal,
-        // so the residual network hands the solver twice the capacity the graph actually has.
         AdjacencyGraph<MatchVertex, Edge<MatchVertex>> graph = new(allowParallelEdges: false);
         Seq<MatchVertex> sources = demand.Map(static (process, slot) => (MatchVertex)new MatchVertex.Slot(slot, process));
         Seq<MatchVertex> targets = Machines.Map(static machine => (MatchVertex)new MatchVertex.Station(machine));
@@ -1347,8 +1269,6 @@ public sealed class ProcessFamily {
         strategy: static (source, value) => source.Modality.Admits(value.Value),
         dialect: static (source, value) => value.Value.Admits(source.Modality));
 
-    // The gated mint runs the pair's own predicate, so a correspondence that actually holds cannot be raised as an
-    // inadmissible pairing.
     private static K<Validation<Error>, Unit> Relation(bool admits, RelationFault fault) =>
         AdmissionSlots.Gate(admits, FabricationFault.Pairing(fault));
 }

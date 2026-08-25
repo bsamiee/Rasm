@@ -48,11 +48,10 @@ declare namespace Gesture {
     readonly onMove?: (event: MoveEvent) => void
     readonly onKey?: (key: string) => void
     readonly shortcuts?: KeyboardShortcutBindings
-    readonly allowRepeats?: boolean // gates the shortcut matcher only; the raw onKey arm is untouched
+    readonly allowRepeats?: boolean
     readonly allowComposing?: boolean
     readonly disabled?: boolean
   }
-  // iOS answers a context menu THROUGH useLongPress, so one element can carry only one of the two arms
   type Invocation =
     | { readonly onLongPress?: (event: LongPressEvent) => void; readonly onContextMenu?: never }
     | { readonly onContextMenu?: (event: ContextMenuEvent) => void; readonly onLongPress?: never }
@@ -73,8 +72,7 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
   const press = usePress({ isDisabled: disabled, onPress: (event) => options.onPress?.(event.pointerType) })
   const hover = useHover({ isDisabled: disabled, onHoverChange: (hovering) => options.onHoverChange?.(hovering) })
   const long = useLongPress(disabled || options.onLongPress === undefined ? {} : { onLongPress: options.onLongPress })
-  const move = useMove(disabled || options.onMove === undefined ? {} : { onMove: options.onMove }) // useMove carries no isDisabled knob: the arm withholds instead
-  // `shortcuts` matches modifier combinations itself, leaving onKey the raw arm for a bare unbound key
+  const move = useMove(disabled || options.onMove === undefined ? {} : { onMove: options.onMove })
   const keyboard = useKeyboard({
     isDisabled: disabled,
     onKeyDown: (event) => options.onKey?.(event.key),
@@ -82,9 +80,6 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
     ...(options.allowRepeats !== undefined && { allowRepeats: options.allowRepeats }),
     ...(options.allowComposing !== undefined && { allowComposing: options.allowComposing }),
   })
-  // useContextMenu carries two platform traps in its own arms: the macOS Ctrl+Enter keydown path answers the TARGET'S
-  // CENTRE rather than a pointer position on a 10ms de-dupe against the real event, and every arm stops
-  // propagation, so nested context-menu targets resolve innermost-wins with no ordering knob
   const context = useContextMenu(
     disabled || options.onContextMenu === undefined ? {} : { onContextMenu: options.onContextMenu },
   )
@@ -137,7 +132,6 @@ const _clamp = (bounds: { readonly min: number; readonly max: number }, zoom: nu
 const _useCanvasGesture = createUseGesture([dragAction, pinchAction, wheelAction])
 
 declare namespace Gesture {
-  // exactly the axes a drag, a pinch, and a wheel produce — never a camera
   type Reading = { readonly center: readonly [number, number]; readonly zoom: number; readonly bearing: number }
   type CanvasOptions<W> = {
     readonly target: RefObject<HTMLElement | null>
@@ -157,7 +151,6 @@ const Gesture: Gesture.Shape = {
   useDiscrete: _useDiscrete,
   useCanvas: <W,>(options: Gesture.CanvasOptions<W>) => {
     const bounds = options.zoomBounds ?? _CANVAS.zoom
-    // one seam: every arm hands its reading to the owning plane's intent mint, so no arm writes a camera
     const commit = useEffectEvent((reading: Gesture.Reading) => options.write(options.emit(reading)))
     _useCanvasGesture(
       {
@@ -174,7 +167,6 @@ const Gesture: Gesture.Shape = {
         target: options.target,
         eventOptions: { passive: false },
         ...(options.transform !== undefined && { transform: options.transform }),
-        // spread copies the readonly axis tuple into the mutable Vector2 the engine's origin slot takes
         drag: { from: () => [...options.read().center], preventDefault: true, filterTaps: true },
         pinch: { from: () => [options.read().zoom, options.read().bearing], scaleBounds: bounds, pinchOnWheel: true },
         wheel: { preventDefault: true },
@@ -208,7 +200,6 @@ declare namespace Motion {
   type Hold = keyof typeof _holds
 }
 
-// hold loops while its condition stands; Row fires once per presence edge
 const _holds = {
   pulse: "motion-reduce:animate-none animate-pulse",
   spin: "motion-reduce:animate-none animate-spin",
@@ -350,7 +341,7 @@ const Transition: Transition.Shape = {
       : Effect.sync(() => flushSync(commit)),
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Gesture, Motion, Transition }
 ```

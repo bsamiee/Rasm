@@ -26,9 +26,6 @@ import { Cause, Context, Data, Duration, Effect, Exit, Function, Match, Schema }
 import { Fault } from "@rasm/core"
 import { WorkClass } from "./entity.ts"
 
-// One row per refusal the durable altitude can raise, and each row states the WINDOW its refusal broke beside the
-// name it broke it on: the class derives, so no mint can name a class its reason contradicts, and the two legs
-// partition the census — a budget geometry the step mint owns against a hold the signal gate owns.
 const _Lapsed = Schema.Struct({ step: Schema.String, window: Schema.Duration })
 
 const _family = Fault.Class.family(["attempt", "total", "hold"] as const, {
@@ -83,7 +80,6 @@ const _run = <A, AI, AR, E extends { readonly class: Fault.Class.Kind }, EI, ER,
         onTimeout: () => new StepFault({ case: { reason: "attempt", step: name, window: row.attempt } }),
       }),
     ),
-    // interrupt-only `Cause` values carry no failure the class rail reads, so the default gate refuses every replay
     interruptRetryPolicy: Fault.Budget.schedule(WorkClass[clazz].budget, Function.constTrue),
   }).pipe(Effect.timeoutFail({
     duration: row.total,
@@ -123,14 +119,11 @@ const _Verdict = Data.taggedEnum<FlowVerdictDefinition>()
 
 const _verdict = <A, E>(executionId: string, result: Workflow.Result<A, E> | undefined): FlowVerdict<A> =>
   result === undefined
-    ? _Verdict.Unknown({ executionId }) // poll's own partiality: no run under this id — folded here so no consumer meets undefined
+    ? _Verdict.Unknown({ executionId })
     : Match.value(result).pipe(
       Match.tag("Complete", (complete) =>
         Exit.match(complete.exit, {
           onSuccess: (value) => _Verdict.Settled({ value }),
-          // interrupt-first: `interrupt` on this page's own drive is an operator act, not a fault; the surviving arm
-          // hands the WHOLE cause to `Fault.Class.of`, which harvests every node through the severity lattice — a
-          // squash upstream picks one node arbitrarily and spends the dominance fold before it runs.
           onFailure: (cause) =>
             Cause.isInterruptedOnly(cause)
               ? _Verdict.Interrupted({ executionId })
@@ -232,7 +225,7 @@ const _contribution = <const Flows extends readonly [Workflow.Any, ...ReadonlyAr
 
 const FlowSurface = { contribution: _contribution }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Flow, type FlowVerdict, FlowSurface, Signal, Step, StepFault }
 ```

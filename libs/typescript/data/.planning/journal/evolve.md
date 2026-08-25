@@ -62,7 +62,6 @@ import { Digest, Identity } from "@rasm/core"
 import { Journal } from "./append.ts"
 import { Generation, Payload } from "./generation.ts"
 
-// Digests read bytes and the payload column holds text, so one encoder crosses that seam for the whole fold.
 const _utf8 = new TextEncoder()
 
 const _NEXT = `${Journal.log}_next`
@@ -72,26 +71,17 @@ declare namespace Cutover {
   type Plan<A, I> = {
     readonly app: Identity.App.Key
     readonly family: Schema.Schema<A, I>
-    // ONE transition's total transform over an encoded entry, never a chain: the deployment that runs this cutover
-    // owns the value and deletes it with itself, so no accumulated history of shapes exists to index or complete.
     readonly recast: (entry: Payload.Raw) => Payload.Raw
   }
 }
 
-// Every column the cutover CARRIES rather than rewrites. Identity crosses whole, so the subject index, the projection
-// checkpoints, and every forensic join still resolve; `tag` and `payload` are the two the fold owns and neither
-// appears here. A wider entry coordinate lands as one name on this roster.
 const _CARRIED = ["sequence", "app", "tenant", "aggregate", "version", "recorded_at"] as const
 
-// Decoding covers what the fold READS and nothing more: the envelope it recasts and the app that selects recasting.
-// Carried columns copy raw, so the spine's timestamp never crosses a runtime date on its way back in.
 const _Entry = Schema.Struct({
   ...Payload.Envelope.fields,
   app: Identity.App.fields.app,
 })
 
-// Catalog relation kind selects the spine, so the shadow spells whatever the deploy plane realized rather than a
-// posture this page asserts; every sqlite profile is a monolith by construction.
 const _KIND = { r: "monolith", p: "partitioned" } as const satisfies Record<string, Journal.Spine>
 
 const _Kind = Schema.Struct({ relkind: Schema.Literal(...Record.keys(_KIND)) })
@@ -110,8 +100,6 @@ const _spine = (sql: SqlClient.SqlClient): Effect.Effect<Journal.Spine, SqlError
       ),
   })
 
-// Every app the ledger knows fences exclusive, in sorted order: the swap replaces the relation for all of them, and
-// sorted acquisition keeps two concurrent cutovers from deadlocking on each other's second lock.
 const _fenceAll = (sql: SqlClient.SqlClient) =>
   Effect.flatMap(
     SqlSchema.findAll({
@@ -122,8 +110,6 @@ const _fenceAll = (sql: SqlClient.SqlClient) =>
     (rows) => Effect.forEach(rows, (row) => Generation.fence(sql, row.app, "exclusive"), { discard: true }),
   )
 
-// Minting spells the relation's OWN body under the shadow name — the mint posture, which refuses a leftover instead
-// of copying into it; a structural copy of the live relation carries neither the keys nor the policy the log rests on.
 const _mint = (sql: SqlClient.SqlClient, spine: Journal.Spine) => {
   const { mint } = Journal.relation(_NEXT, spine)
   return sql.onDialectOrElse({
@@ -132,10 +118,6 @@ const _mint = (sql: SqlClient.SqlClient, spine: Journal.Spine) => {
   })
 }
 
-// Counter carry reads the LIVE log's own ledger before any row copies. pg's identity advances on nothing an
-// `OVERRIDING SYSTEM VALUE` copy writes, so `setval` seeds it from the live sequence's `last_value`; sqlite's counter
-// is `max(seq, rowid)`, so a row seeded at the live `seq` survives the copy and renames with the table. Never-written
-// logs have neither, both arms select nothing, and the first append is one.
 const _carry = (sql: SqlClient.SqlClient) =>
   sql.onDialectOrElse({
     orElse: () =>
@@ -148,17 +130,12 @@ const _carry = (sql: SqlClient.SqlClient) =>
             AND s.last_value IS NOT NULL`,
   })
 
-// Copying the log means copying its identity column, so the insert states `OVERRIDING SYSTEM VALUE` on the spine —
-// an `ALWAYS AS IDENTITY` column silently substitutes a fresh value otherwise, and the re-minted log then holds
-// sequences no checkpoint, subject row, or announcement can find. SQLite's rowid takes the explicit value directly.
 const _copy = (sql: SqlClient.SqlClient, rows: Array.NonEmptyReadonlyArray<Record.ReadonlyRecord<string, unknown>>) =>
   sql.onDialectOrElse({
     orElse: () => sql`INSERT INTO ${sql(_NEXT)} ${sql.insert(rows)}`,
     pg: () => sql`INSERT INTO ${sql(_NEXT)} OVERRIDING SYSTEM VALUE ${sql.insert(rows)}`,
   })
 
-// Unique renaming runs as a pair because pg index names are schema-wide and the OCC guard matches the live name;
-// partitioned spines carry no unique, and sqlite's constraint name is inert beside its column-named refusal.
 const _RENAMES = {
   monolith: (sql: SqlClient.SqlClient): ReadonlyArray<Statement.Statement<unknown>> => [
     sql`ALTER TABLE ${sql(_PRIOR)} RENAME CONSTRAINT ${sql(Journal.unique(Journal.log))} TO ${sql(Journal.unique(_PRIOR))}`,
@@ -177,7 +154,7 @@ const _remint = <A, I>(plan: Cutover.Plan<A, I>) =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     sql.withTransaction(
       Effect.gen(function* () {
-        yield* _fenceAll(sql) // in-flight commits drain here; every later append refuses at its own guard
+        yield* _fenceAll(sql)
         const target = yield* Generation.of(plan.family)
         const head = yield* Generation.head(sql, plan.app)
         const spine = yield* _spine(sql)
@@ -194,8 +171,6 @@ const _remint = <A, I>(plan: Cutover.Plan<A, I>) =>
               entry.app === plan.app
                 ? Effect.gen(function* () {
                   const recast = plan.recast({ tag: entry.tag, payload: entry.payload })
-                  // Admission proves the landing: a recast answering a shape the current schema refuses fails the
-                  // cutover here, inside the fence, with the live log untouched.
                   const payload = yield* encode(yield* admit(recast.payload))
                   yield* _copy(sql, [{
                     ...Record.filter(raw, (_value, column) => Array.contains(_CARRIED, column)),
@@ -207,7 +182,6 @@ const _remint = <A, I>(plan: Cutover.Plan<A, I>) =>
                     entries: fold.entries + 1n,
                   }
                 })
-                // Sibling apps' rows cross verbatim under their own unchanged generation and enter no receipt.
                 : Effect.as(_copy(sql, [raw]), fold)),
         )
         const custody = {
@@ -219,16 +193,11 @@ const _remint = <A, I>(plan: Cutover.Plan<A, I>) =>
         } satisfies Generation.Custody
         yield* Generation.seal(sql, plan.app, custody)
         yield* Effect.forEach(_SWAP(sql, spine), (statement) => statement, { discard: true })
-        // Derived planes carry zero authority and rebuild from the log, so the cutover drops their held folds rather
-        // than leaving state the live log never produced to answer a reader that outlives the swap.
         yield* sql`DELETE FROM journal_snapshot`
         return custody
       }),
     ))
 
-// Retirement is the deployment's own declaration that no process binds the superseded generation — the custody row
-// outlives the relation, so the lineage a later audit reads survives the bytes it describes. A partitioned prior
-// drops with its children, which frees the child names the partition manager mints for the live parent.
 const _retire = (sql: SqlClient.SqlClient) => sql`DROP TABLE IF EXISTS ${sql(_PRIOR)}`
 
 const Cutover = {
@@ -289,10 +258,6 @@ const _ddl: Capability.Ensure = {
     PRIMARY KEY (app, tenant, aggregate));`,
 }
 
-// `Journal.advance` instantiates the folder's ONE conditional-write owner on this relation: `columns`
-// declares the write roster the row type and the assignment set both derive from, `version` is the gate, and
-// `taken_at` is the column the winning arm restamps. Nothing here spells a statement — a second spelling beside the
-// frontier ledger's is exactly how one of them would keep a `WHERE`-gated arm that reports its loser nothing.
 const _ADVANCE = Journal.advance({
   relation: "journal_snapshot",
   columns: ["app", "tenant", "aggregate", "version", "shape", "body"],
@@ -317,8 +282,6 @@ const _save = <S, I>(spec: Snapshot.Spec<S, I>, shape: Generation.Key) =>
     }, version)
   })
 
-// Snapshots carry no tag and their state rides `body`, so this row keeps its own declaration and reuses the column
-// codec alone — an entry envelope's coordinate says nothing about a folded projection.
 const _SnapshotRow = Schema.Struct({
   version: Journal.Version,
   shape: Digest.Key.content,
@@ -337,8 +300,6 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>, shape: Generation.Key) => (strea
     })
     return yield* Effect.transposeOption(
       Option.map(
-        // Rows folded under a superseded state shape read as ABSENCE, so the lane replays from origin exactly as
-        // it does for a stream nobody has snapshotted — one honest reaction a rebuildable projection has.
         Option.filter(yield* found(stream), (row) => row.shape === shape),
         (row) =>
           Effect.map(
@@ -367,8 +328,6 @@ const _Cadence = Schema.Struct({ every: Schema.Int.pipe(Schema.positive()) })
 declare namespace Snapshot {
   type Cadence = typeof _Cadence.Type
   type Bound<S> = {
-    // Verdicts ride the swapped value: a lane that snapshots on cadence learns whether its fold is the stored one,
-    // and a `void` here reports the losing writer's discarded fold as a landed snapshot.
     readonly save: (stream: StreamKey, state: S, version: number) => Effect.Effect<
       Journal.Fence<number>,
       SqlError.SqlError | ParseResult.ParseError,
@@ -382,11 +341,6 @@ declare namespace Snapshot {
   }
 }
 
-// Batch appends move the head by their own length, so asking whether the HEAD is a multiple fires only when a batch
-// happens to LAND on one: writers whose batch size shares no factor with the cadence cross multiple after multiple
-// without ever answering true, and their streams replay from an ever-older snapshot with nothing reporting the drift.
-// Reading the SPAN each receipt already carries answers whether a multiple lies inside it, so one cadence holds for
-// every batch shape and singular appends stay the degenerate one-wide span.
 const _due = (receipt: Journal.Receipt, cadence: Snapshot.Cadence): boolean =>
   Math.floor(receipt.version / cadence.every) > Math.floor((receipt.first - 1) / cadence.every)
 
@@ -418,7 +372,7 @@ const Snapshot = {
   ddl: [_ddl],
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Cutover, Snapshot }
 ```

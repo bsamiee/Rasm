@@ -25,8 +25,6 @@ The hook rail lives here too, because a hook point is an evidence surface a boar
 
 ```csharp signature
 public sealed record FactSelector(Func<ComputeReceipt, bool> Holds) {
-    // Exemption: the registry read is a construction-time PROOF whose value nothing consumes — the frozen lookup
-    // throws on an unregistered case, so the statement seam is what makes the proof precede the mint.
     public static FactSelector Of<TCase>(Func<TCase, bool>? holds = null) where TCase : ComputeReceipt {
         ignore(ReceiptSurface.KindOf(typeof(TCase)));
         return new(fact => fact is TCase held && (holds is null || holds(held)));
@@ -49,8 +47,6 @@ public sealed record FactSelector(Func<ComputeReceipt, bool> Holds) {
 - Boundary: `Slo.Specs` is the kernel's compilation-ready projection and this owner forwards nothing to it — a consumer holding the pack reads `BoardPack.Alerts` in one hop, so the two zero-caller forwarding members that stood between them are retired.
 
 ```csharp signature
-// Compute's evidence plane is its own fact stream, so the sampler is a selector pair while the burn windows,
-// factors, severity routing, budget share, and spec derivation stay the kernel's single discipline.
 public sealed record ComputeObjective {
     private ComputeObjective(Objective objective, FactSelector population, FactSelector breach) =>
         (Objective, Population, Breach) = (objective, population, breach);
@@ -91,9 +87,6 @@ public sealed record ComputeObjective {
 - Boundary: omitting the window canonicalizes it at the kernel to the estate compliance default, so no calendar literal lands in a descriptor row and a shortened window still refuses below the longest burn row; a hand-typed window, factor, or severity beside the kernel table is the forked form that silently diverges from every sibling descriptor plane on the next tuning.
 
 ```csharp signature
-// Wire projection of one pack panel: the kernel `PanelSpec` carries the policy half — which instrument, broken
-// on which keys, under which widget — and these columns carry the instrument facts a renderer needs beside it,
-// so the deploy plane renders from one row and resolves nothing against a meter it cannot reach.
 public sealed record PanelRow(
     string Title, string Instrument, string Unit, InstrumentKind Measure, PanelKind Panel,
     Seq<string> By, Option<Buckets> Ladder);
@@ -116,17 +109,11 @@ public static class ComputeDescriptors {
             new Sli.Ratio(ComputeInstrument.TrajectoryResolved.Key, ComputeInstrument.TrajectoryRuns.Key), 0.99d,
             static run => !run.Resolved));
 
-    // One derivation from the spec roster: the kernel policy row and its wire projection are two reads of the
-    // same pair, so a panel cannot sit on the pack and be missing from the wire or carry a different widget on
-    // each side. Every panel breaks on its declaring row's own `Dimensions`, so the break vocabulary IS the
-    // declaration and a hand-kept break list beside it has nothing to hold.
     static readonly Seq<(PanelSpec Panel, InstrumentSpec Row)> Descriptors =
         ComputeInstrument.Rows.Map(static row => (PanelSpec.Of(row.Description, row.Name, [.. row.Dimensions]), row)).Strict();
 
-    // Panels and objectives travel as one kernel pack, so a roster change re-derives panels, alerts, and the
-    // whole admission proof in one diff and no descriptor plane re-mints a panel carrier.
     public static readonly BoardPack Board = new(
-        Wire: "compute.receipt", // the provenance key the deploy tuple admits this projection under; pack and key are one value
+        Wire: "compute.receipt",
         Panels: Descriptors.Map(static entry => entry.Panel).Strict(),
         Objectives: Objectives.Map(static row => row.Objective).Strict());
 
@@ -135,12 +122,8 @@ public static class ComputeDescriptors {
             entry.Panel.Title, entry.Panel.Instrument, entry.Row.Unit, entry.Row.Kind,
             entry.Panel.Widget.IfNone(PanelKind.For(entry.Row.Kind)), entry.Panel.By, entry.Row.Bounds)).Strict();
 
-    // The ONE cross-process door: the policy half and the instrument half are two reads of `Descriptors`, so the
-    // wire message composes from both here rather than at a composing root holding one of them.
     public static BoardPackWire Wire => BoardWireMap.ToWire(Board, Panels);
 
-    // The scored case is the ONE type argument every row states, so the objective's two selectors cannot name two
-    // cases; the window stays `default` so the kernel canonicalizes it to the estate compliance default.
     static ComputeObjective Bound<TCase>(
         string name, Sli sli, double target, Func<TCase, bool> breached, Func<TCase, bool>? within = null)
         where TCase : ComputeReceipt =>
@@ -184,8 +167,6 @@ public sealed record ComputeHookRail(
 
     public Seq<IHookPoint> Points => Seq<IHookPoint>(Admit, Dispatch, Iteration, Writeback, Control);
 
-    // The isolation cell's ONE reader: a pulled probe over the cell publishes the parked census without a push at
-    // any fire site, and retiring the returned scope drops exactly this registration.
     public Fin<IDisposable> Isolated(InstrumentSet set) =>
         set.Bind(ComputeInstrument.HookIsolated.Row, () => Faults.Value.Count, Op.Of(name: "compute.hook.isolated"));
 
@@ -217,9 +198,7 @@ public sealed record ComputeHookRail(
 - Boundary: the consumer fence is `typescript:core/observe/board#PACK_WIRE`, which lands `BoardPackWire` through the branch's one ProtoJSON arm and folds it into the value `typescript:iac/operate/observe#BOARD_APPLY` ingests; `compute.receipt` is the pack's FIRST column at both ends, so the provenance key and the pack are one value and no consumer tier originates a key its producer cannot stamp.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// The generated board vocabulary collides with the kernel's on five enum names, so each takes the `Wire` alias
-// suffix; the messages carry the suffix in the proto and alias to break the namespace import, never to rename.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime.Serialization.Protobuf;
 using Riok.Mapperly.Abstractions;
 using AlertSeverityWire = Rasm.Contracts.Board.AlertSeverity;
@@ -235,11 +214,9 @@ using PanelKindWire = Rasm.Contracts.Board.PanelKind;
 using PanelWire = Rasm.Contracts.Board.PanelWire;
 using SliWire = Rasm.Contracts.Board.SliWire;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class BoardWireMap {
-    // Repeated fields are generated read-only, so the entry seeds the message and appends; the three collections
-    // are the pack's own three rosters and nothing else on the message is settable.
     public static BoardPackWire ToWire(BoardPack pack, Seq<PanelRow> panels) {
         BoardPackWire wire = new() { Wire = pack.Wire };
         wire.Panels.AddRange(panels.Map(Panel));
@@ -254,16 +231,12 @@ public static partial class BoardWireMap {
     [MapperIgnoreSource(nameof(Objective.Budget))]
     private static partial ObjectiveWire Objective(Objective objective);
 
-    // Every derived column the severity and burn rows already own is ignored BY NAME, so the mapper states the
-    // no-cross decision as a compiler-checked row rather than leaving it to a silent absence.
     [MapperIgnoreSource(nameof(AlertSpec.Hold))]
     [MapperIgnoreSource(nameof(AlertSpec.Sli))]
     [MapperIgnoreSource(nameof(AlertSpec.Target))]
     [MapperIgnoreSource(nameof(AlertSpec.Annotations))]
     private static partial AlertWire Alert(AlertSpec spec, string objective);
 
-    // The union's generated total switch IS the oneof arm table: a sixth kernel case breaks here before it can
-    // reach a peer as an unset oneof the required rule refuses at admission.
     [UserMapping]
     private static SliWire Sli(Sli sli) => sli.Switch(
         ratio: static row => new SliWire { Ratio = new SliWire.Types.Ratio { Good = row.Good, Total = row.Total } },
@@ -282,8 +255,6 @@ public static partial class BoardWireMap {
             Freshness = new SliWire.Types.Freshness { Metric = row.Metric, Horizon = row.Horizon.ToProtobufDuration() },
         });
 
-    // A ladder crosses WITH the unit its boundaries measure, because the kernel proved that unit against the
-    // declaring instrument row and a bare boundary array leaves a renderer guessing the quantity.
     [UserMapping]
     private static BucketsWire? Ladder(Option<Buckets> ladder) => ladder.Match(
         Some: static row => new BucketsWire { Unit = row.Unit, Bounds = { row.Bounds } },

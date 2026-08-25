@@ -64,22 +64,19 @@ from rasm.artifacts.package.bundle import (
 )
 
 lazy import py7zr
-lazy from zlib_ng import zlib_ng  # shared SIMD substrate on the ZIP arm: raw-DEFLATE compressobj + stored-member crc32
+lazy from zlib_ng import zlib_ng
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# one bomb ceiling, two enforcement seams: 7z caps the streamed decode via `max_extract_size`; the ZIP drain
-# spends the same value as an aggregate output budget across every member.
 _ARCHIVE_CEILING: Final[int] = 1 << 31
-_MEMBER_CEILING: Final[int] = 1 << 16  # ZIP central-directory bound: a metadata bomb of empty members exhausts CPU/memory before any byte budget bites
-_METADATA_OVERHEAD: Final[int] = 128  # per-record charge (name bytes ride on top) debited from the same aggregate budget
+_MEMBER_CEILING: Final[int] = 1 << 16
+_METADATA_OVERHEAD: Final[int] = 128
 _CONTAINERS: Final[frozenset[CompressionAlgo]] = frozenset({CompressionAlgo.SEVEN_Z, CompressionAlgo.ZIP_STREAM})
-_PRESETABLE: Final[frozenset[SevenZFilter]] = frozenset({"lzma", "lzma2"})  # LZMA-family entries that take a preset
+_PRESETABLE: Final[frozenset[SevenZFilter]] = frozenset({"lzma", "lzma2"})
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Archive(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     bundle: Bundle
     lane: LanePolicy
 
@@ -94,14 +91,9 @@ class Archive(Struct, frozen=True):
         return ArtifactWork(key=self.bundle.key, work=self._emit, parents=self.bundle.parents, admission=Admission(keyed=None), cost=self._cost)
 
     async def packed(self, /) -> RuntimeRail[tuple[bytes, BundleEvidence]]:
-        # both container arms are in-wheel GIL-releasing native, so the kernel crosses RELEASING on the thread arm.
         return await self.lane.offload(Kernel.of(Archive.pack, KernelTrait.RELEASING), self.bundle.payloads, self.bundle.profile)
 
     async def _emit(self, /) -> RuntimeRail[ArtifactReceipt]:
-        # The durable seat is this awaitable fold and never `Archive.pack`, which runs in the offloaded worker where
-        # nothing suspends and no journal custody is bound. `OPERATIONAL` comes off the case's own retention row and
-        # the diff names the container algorithm, its member count, and the genuinely-verified tally beside it — the
-        # per-member proof count is the one fact a container claim is later challenged on.
         match (await self.packed()).map(lambda pe: pe[1].receipt(self.bundle.key)):
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -136,11 +128,7 @@ class Archive(Struct, frozen=True):
                     "powerpc": py7zr.FILTER_POWERPC,
                     "sparc": py7zr.FILTER_SPARC,
                     "ia64": py7zr.FILTER_IA64,
-                }  # arm-scope row: the lazy py7zr proxy reifies here, never at module load — which is also why this
-                # one table takes NO import-time `_COVERED` witness: proving it against `SevenZFilter` at module
-                # scope would reify the proxy on the parse floor and defeat the deferral. The bundle page's own
-                # codec/preprocessor partition gate already proves every `SevenZFilter` token is admitted somewhere,
-                # so a token reaching `ident[f]` unruled needs a drift in TWO places rather than one.
+                }
                 preset = {"default": py7zr.PRESET_DEFAULT, "extreme": py7zr.PRESET_EXTREME}[k.preset]
                 codecs = [{"id": ident[f], "preset": preset} if f in _PRESETABLE else {"id": ident[f]} for f in k.filters]
                 crypto = [{"id": py7zr.FILTER_CRYPTO_AES256_SHA256}] if k.password is not None else []
@@ -179,7 +167,6 @@ class Archive(Struct, frozen=True):
                     if len(frozenset(info.filename for info in infos)) != len(infos):
                         raise ValueError("<7z-unpack:duplicate-name>")
                     if any(unsafe_member(info.filename) for info in infos):
-                        # hostile-blob names cross the same relative-POSIX law Bundle.of imposes on authored names
                         raise ValueError("<7z-unpack:unsafe-name>")
                     reader.extractall(factory=sinks)
                 return tuple((info.filename, info.uncompressed, sinks.get(info.filename).read()) for info in infos)
@@ -240,8 +227,6 @@ def _zip_members(payloads: tuple[bytes, ...], knobs: ZipStreamKnobs) -> Iterable
         name = knobs.names[index] if index < len(knobs.names) else f"payload-{index}"
         match knobs.method:
             case "auto":
-                # ZIP_AUTO ignores the function-level get_compressobj and binds its own stdlib raw-DEFLATE at this
-                # same `level` — level parity across every member; substrate parity holds on the forced/stored rows.
                 method = ZIP_AUTO(len(payload), knobs.level)
             case "zip64":
                 method = ZIP_64
@@ -267,14 +252,9 @@ def _zip_drain(blob: bytes, password: bytes | None, mechanisms: frozenset[object
             if name in seen:
                 raise ValueError("<zip-unpack:duplicate-name>")
             seen.add(name)
-            # hostile-blob names cross the same relative-POSIX law Bundle.of imposes on authored names — decode
-            # first (the UnicodeDecodeError arm below classifies a torn name), then refuse absolute, traversal,
-            # NUL, backslash, and empty forms before any budget or payload work is spent on the member.
             decoded = name.decode()
             if unsafe_member(decoded):
                 raise ValueError("<zip-unpack:unsafe-name>")
-            # metadata bomb gate: a flood of empty members costs no payload bytes, so the record count caps hard and
-            # each entry debits its name plus record overhead from the same aggregate budget the chunks drain.
             budget -= len(name) + _METADATA_OVERHEAD
             if len(seen) > _MEMBER_CEILING or budget < 0:
                 raise ValueError("<zip-unpack:bomb>")

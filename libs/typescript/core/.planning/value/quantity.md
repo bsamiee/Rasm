@@ -73,16 +73,10 @@ class _Dimension extends Schema.Class<_Dimension>("Quantity.Dimension")(_fields)
   }
 }
 
-// Operand magnitudes stay unrefined because the value a `range` refusal reports IS the non-finite one the arithmetic
-// reached, so a `finite` refinement here would refuse the very evidence the raise exists to carry.
 const _Operand = Schema.Struct({ magnitude: Schema.Number, dimension: _Dimension })
 const _Factor = Schema.Union(Schema.BigIntFromSelf, Schema.Number)
 const _shown = (operand: typeof _Operand.Type): string => `${operand.magnitude}:${operand.dimension.symbol}`
 
-// Each reason declares the SUBJECT its own raise holds: a dimension mismatch is a PAIR, an exponent refusal is one
-// operand beside the power that would not round-trip, and a range refusal is the magnitude the arithmetic produced
-// beside every input that produced it. One free evidence array over all three renders `vs` between an operand and a
-// scale factor — the sentence a per-row renderer exists to foreclose — and re-opens the axis `reason` already closes.
 const _reasonKinds = ["dimension", "exponent", "range"] as const
 const _family = Fault.Class.family(_reasonKinds, {
   dimension: Fault.Class.row({
@@ -133,8 +127,6 @@ const _mismatch = (left: Quantity, right: Quantity): _QuantityFault =>
   })
 const _pair = (left: Quantity, right: Quantity): readonly [typeof _Operand.Type, typeof _Operand.Type] =>
   [_operand(left.magnitude, left.dimension), _operand(right.magnitude, right.dimension)]
-// Scalars ride their own column rather than the operand list: a factor and a power carry no dimension, so folding
-// them into the operand array is what forced the old renderer to probe each element's runtime shape before printing.
 const _admit = (
   magnitude: number,
   dimension: _Dimension,
@@ -195,7 +187,7 @@ namespace Quantity {
   export type Reason = (typeof _reasonKinds)[number]
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Quantity }
 ```

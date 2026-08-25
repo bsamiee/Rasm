@@ -31,14 +31,7 @@ Row law:
 - The `Scan` column is `Option`-typed: a row constructed with `Scan: default` composes through explicit descriptor rows alone. The web and AOT module tables construct every row that way — the same table, zero parallel composition system, and the column flip is the growth proof.
 
 ```csharp signature
-// --- [TABLES] -------------------------------------------------------------------------------
-// The descriptor algebra as DATA. Each row names the admission its descriptors cross and the collection
-// member that takes them, so the composition fold is one ordinal pass and a fifth regime is one row here.
-// `Service` and `Keyed` share an apply member and stay apart on their AUTHORING regime — a keyed row's key is
-// a smart-enum policy value some vocabulary page owns — and the discriminant is ENFORCED rather than asserted:
-// each row admits only descriptors whose own `IsKeyedService` matches its regime, so a keyed descriptor
-// authored into the unkeyed slot (or the reverse) refuses by service-type name while the collection is still
-// editable, and the two rows are no longer behavioural twins wearing different keys.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -47,14 +40,8 @@ public sealed partial class DescriptorSlot {
         admits: static row => Slotted(row, keyed: false), admit: static services => services.Add);
     public static readonly DescriptorSlot Keyed = new("keyed", rank: 1,
         admits: static row => Slotted(row, keyed: true), admit: static services => services.Add);
-    // `Default` is the ONE row spanning both regimes by construction: `TryAdd` compares `(ServiceType,
-    // ServiceKey)` and takes keyed and unkeyed descriptors alike, so a regime test here would refuse a
-    // descriptor the apply member admits.
     public static readonly DescriptorSlot Default = new("default", rank: 2,
         admits: static _ => Validation<Error, Unit>.Success(unit), admit: static services => services.TryAdd);
-    // The `Runtime/ports#PORT_RECORDS` eighth-port refusal rides HERE as the contributor row's own admission:
-    // every fan-in descriptor resolves a cardinality row by service-type name while the collection is still
-    // editable, so the mandate and its enforcement are one declaration rather than a fold-body special case.
     public static readonly DescriptorSlot Contributor = new("contributor", rank: 3,
         admits: static row => PortCardinality.Of(row.ServiceType.Name).ToValidation().Map(static _ => unit),
         admit: static services => services.TryAddEnumerable);
@@ -67,8 +54,6 @@ public sealed partial class DescriptorSlot {
     [UseDelegateFromConstructor]
     public partial Action<ServiceDescriptor> Admit(IServiceCollection services);
 
-    // The regime test PARAMETERIZED, so the two rows differ in one boolean rather than in two bodies and the
-    // refusal names the service type an authoring mistake put in the wrong slot.
     static Validation<Error, Unit> Slotted(ServiceDescriptor row, bool keyed) =>
         row.IsKeyedService == keyed
             ? Validation<Error, Unit>.Success(unit)
@@ -77,7 +62,7 @@ public sealed partial class DescriptorSlot {
                 Requirement: keyed ? "<a keyed descriptor>" : "<an unkeyed descriptor>");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ModuleContribution(
     string Module,
     Assembly Assembly,
@@ -85,7 +70,6 @@ public sealed record ModuleContribution(
     HashMap<DescriptorSlot, Seq<ServiceDescriptor>> Descriptors,
     Seq<Func<IServiceCollection, IServiceCollection>> Registrars,
     Seq<DecorationRow> Decorations) {
-    // Total over the roster: an unfilled slot reads empty, so the fold never asks whether a module declared one.
     public Seq<ServiceDescriptor> this[DescriptorSlot slot] => Descriptors.Find(slot).IfNone(Seq<ServiceDescriptor>());
 
     public Seq<ServiceDescriptor> Rows => toSeq(DescriptorSlot.Items).Bind(slot => this[slot]);
@@ -93,12 +77,6 @@ public sealed record ModuleContribution(
 
 public readonly record struct DecorationRow(Type Service, Type Decorator, bool Conditional);
 
-// Three counts, and the receipt states WHICH question each answers rather than reading as one derivation.
-// `Scanned` and `Slots` are ADMITTED censuses read off the collection itself — the scan delta and the
-// per-slot apply delta — because `TryAdd` and `TryAddEnumerable` are idempotent and a declared row count
-// therefore answers what a module asked for, not what the graph took. `Lifetimes` partitions the DECLARED
-// carrier and says so: it is the lifetime mix the module authored, the one question the collection delta
-// cannot answer, since a re-declared row that landed nothing still carries the lifetime it asked for.
 public readonly record struct ContributionReceipt(
     string Module,
     int Scanned,
@@ -132,8 +110,6 @@ public static class CompositionSurface {
     extension(ServiceCollection services) {
         public Fin<Seq<ContributionReceipt>> Compose(params ReadOnlySpan<ModuleContribution> modules) =>
             Iterable<ModuleContribution>.FromSpan(modules)
-                // The self-flattening bind collapses the capture rail into the module's own admission rail, so
-                // a thrown scan conflict and a railed cardinality refusal both leave carrying the module key.
                 .TraverseM(module => Op.Of().Catch(() => Fin.Succ(Applied(services, module)))
                     .Bind(static admitted => admitted)
                     .MapFail(error => (Error)new LifecycleFault.ModuleRejected(module.Module, error)))
@@ -148,9 +124,6 @@ public static class CompositionSurface {
         return toSeq(DescriptorSlot.Items)
             .OrderBy(static slot => slot.Rank)
             .ToSeq()
-            // ACCUMULATES across slots as well as within one: a module whose keyed rows and whose contributor
-            // rows both carry a refusal names both on one boot, so the slot pass answers the whole module's
-            // admission rather than whichever slot the rank order reached first.
             .Traverse(slot => Seated(services, slot, module[slot])
                 .Map(landed => (Slot: slot, Landed: landed))
                 .ToValidation())
@@ -171,25 +144,17 @@ public static class CompositionSurface {
                 Lifetimes: Lifetimes(module)));
     }
 
-    // One slot, one shape: accumulate the row's own admission, apply through the member the row names, and
-    // answer what the COLLECTION took. A fifth admission regime lands as one roster row and this body never moves.
     private static Fin<int> Seated(IServiceCollection services, DescriptorSlot slot, Seq<ServiceDescriptor> rows) =>
         rows.Traverse(slot.Admits)
             .As()
             .ToFin()
             .Map(_ => Landed(services, rows, slot.Admit(services)));
 
-    // The APPLIED count, never the declared one: `TryAdd` and `TryAddEnumerable` compare before they add, so a
-    // module re-declaring a default a host already seated asks for a row and lands none — the collection delta
-    // across the apply is the only number the receipt can defend.
     private static int Landed(IServiceCollection services, Seq<ServiceDescriptor> rows, Action<ServiceDescriptor> admit) =>
         services.Count is var before && rows.Iter(admit) is var _
             ? services.Count - before
             : 0;
 
-    // The decoration proof: an unconditional row whose contract the frozen collection does not wrap is a
-    // composition defect, so the pass yields a refusal and the confirmed count in one fold rather than a
-    // number a reader compares against the declaration by hand.
     private static Fin<int> Decorated(IServiceCollection services, Seq<DecorationRow> rows) =>
         rows.Traverse(row => row.Conditional || services.IsDecorated(row.Service)
                 ? Validation<Error, Unit>.Success(unit)
@@ -198,10 +163,6 @@ public static class CompositionSurface {
             .Map(_ => rows.Filter(row => services.IsDecorated(row.Service)).Count)
             .ToFin();
 
-    // Lifetime partitions read the WHOLE folded carrier rather than three named columns, so a lifetime the
-    // contributor slot carries is counted where the prior three-column fold silently dropped it. This one IS
-    // the declared mix by design — the question is what the module authored, which the collection delta the
-    // slot tally reads cannot answer.
     private static HashMap<ServiceLifetime, int> Lifetimes(ModuleContribution module) =>
         module.Rows.Fold(
             HashMap<ServiceLifetime, int>(),
@@ -289,22 +250,15 @@ public static class BoundaryActivation {
 - Boundary: the verb table is a BOUNDARY ADAPTER — every row's body is one projection into a composed owner (`CommandDispatch.Run`, the determinism port, the capture trigger) and a verb carrying domain logic of its own is the deleted form; `AppRootVerbs.Mount` is the named boundary capsule for the statement carve-out (the `RootCommand` mutation seam); a rejected parse never reaches a row's action because a non-empty `ParseResult.Errors` blocks invocation by the package's own contract, so parse failure is DATA the host entry projects to an exit code and a thrown parse has no spelling here; `Exit` is the ONE exit projection every row leaves through and the status it answers is BINARY — a POSIX wait status keeps the low eight bits of what a process returns, so a banded fault code CANNOT be one: `FaultBand.Config.Code(offset: 0)` is 4100, `4100 & 0xFF` is 4 — a number naming no verdict — and any code ≡ 0 mod 256 reports SUCCESS outright to every shell, supervisor, and CI gate that reads it, which is why `(int)error.Code` as a status is the deleted form — the STATUS carries the verdict (0 admitted, 1 refused); the STREAM renders a typed fault's band code and message, an uncoded foreign error's message, or the located refusal columns; these remain local CLI projections and do not imply a ControlService RPC.
 
 ```csharp signature
-// Seed DATA: one verb row per operator concern, each a projection onto an existing owner.
 public sealed record VerbRow(Command Command, Func<ParseResult, CancellationToken, Task<int>> Project);
 
 public static class AppRootVerbs {
-    // Named boundary capsule: RootCommand mutation is the host-owned statement seam.
     public static RootCommand Mount(string description, Seq<VerbRow> rows) {
         var root = new RootCommand(description);
         rows.Iter(row => { row.Command.SetAction(row.Project); root.Add(row.Command); });
         return root;
     }
 
-    // The ONE exit projection every row leaves through. The status is BINARY by construction: a POSIX wait
-    // status keeps the low eight bits of what a process returns, so a banded fault code cannot BE one —
-    // `FaultBand.Config.Code(offset: 0)` is 4100, truncated to 4, and any code ≡ 0 mod 256 reports a refusal
-    // as SUCCESS to every shell and supervisor reading it. The status answers admitted-or-refused; the stream renders a
-    // typed fault's band code and message, an uncoded foreign error's message, or the located refusal columns.
     static int Exit(Fin<Option<string>> located) =>
         located.Match(
             Succ: static found => found.Match(
@@ -342,12 +296,6 @@ public static class AppRootVerbs {
                     Fail: error => Task.FromResult(Exit(Fin.Fail<Option<string>>(error)))));
     }
 
-    // The bisect row rides the SAME windowed read the replay row does — one durable ingress, two probes — so
-    // an operator narrowing a divergence never re-records a run to find it. The verdict is the CARRIER: a
-    // clean chain answers `None` and a real divergence answers `Some`, so sequence zero is an ordinary finding
-    // and the retired genesis-pair sentinel — a legal shape a divergence at sequence zero produces — is gone
-    // with the hash comparison that read it. The located `Divergence` RENDERS: a status alone tells an operator
-    // a chain diverged and nothing about where, which is the whole answer the narrowing computed.
     public static VerbRow Bisect(ChangefeedPort port, Func<LogEntry, ChainHash> rederive) {
         var origin = new Option<Guid>("--origin");
         var from = new Option<long>("--from");
@@ -358,16 +306,10 @@ public static class AppRootVerbs {
                 .Map(log => AdversarialProbe.Bisect(log, rederive).Map(Located)))));
     }
 
-    // The divergence's own typed columns, tab-separated for a line-oriented operator read: the sequence the
-    // narrowing pinned, the recorded and re-derived hashes that disagreed there, and the steps it took.
     static string Located(Divergence divergence) =>
         string.Create(CultureInfo.InvariantCulture,
             $"{divergence.Sequence}\t{divergence.Recorded.Hex}\t{divergence.Rederived.Hex}\t{divergence.Steps}");
 
-    // The operator's review arm: `QuotaControl.Release` is the ONE path a quarantined plugin takes back into
-    // service, so this row projects onto it and re-seats no disposition of its own. The roster it addresses is
-    // the SAME cell the epoch pacer sweeps, so an operator and the pacer read one live set and a plugin this
-    // host never hosted refuses by name rather than answering a silent no-op.
     public static VerbRow SandboxRelease(Atom<Seq<HostedSolver>> hosted, ClockPolicy clocks) {
         var plugin = new Argument<string>("plugin");
         var command = new Command("sandbox-release", "return one quarantined plugin to service") { plugin };
@@ -433,11 +375,6 @@ public sealed record RootInputs(
     Seq<LanePolicy> LaneRows,
     ChangefeedPort Changefeed,
     Func<CompanionPeer, IO<int>> ChildResidual,
-    // The resolved posture and the boot identity every seam stamps, the UNDECORATED receipt port, the folder's
-    // operation key, and the configuration the lane rows read. The rail is a composed VALUE rather than a
-    // resolved service because the capsule that fires its phase point and the fan that taps its receipt point
-    // are both constructed by rows in this same fold, and `HookRail.Of` seats every subscription at
-    // construction and rolls the whole set back on the first refusal.
     ConsumptionProfile Profile,
     ClockPolicy Clocks,
     CorrelationId Correlation,
@@ -445,10 +382,6 @@ public sealed record RootInputs(
     ReceiptSinkPort Sink,
     Op Key,
     IConfiguration Configuration,
-    // This node's own cluster identity — the `Services` config key the endpoint resolver keys on and the
-    // membership group its durable rows live under. Both are deploy-declared values no service can produce,
-    // which is why they seat here rather than resolving; a companion attaching over the control hop
-    // contributes under THIS role, because it is a local process of this role and not a peer of its own.
     RoleName Role,
     string Group,
     CoordinationArrows Coordination,
@@ -459,13 +392,6 @@ public sealed record RootInputs(
     SandboxSeed Sandbox,
     HookRail<AppHostPoint, AppHostFact, TelemetrySource> Rail);
 
-// The WHOLE Persistence coordination port, decoded to WIRE-STABLE PRIMITIVES at this root: the membership half
-// — group and member cross as their string keys and the scan answers keys beside deadlines — and the lease
-// half, the four store arrows `Runtime/time#FENCING_TOKEN` `LeaseElection.Runtime` binds, whose issued
-// generation crosses as the bare `ulong` the adapter decodes into `FencingToken`. Both halves sit on ONE record
-// because they are one port; a second seed for the lease arrows would let a deployment wire membership against
-// one store and fencing against another. Every column is a `Func<>` because every column is a PER-CALL store
-// effect no service produces, and no store record crosses upward into the cluster view.
 public sealed record CoordinationArrows(
     Func<string, string, Duration, Fin<Unit>> MemberUpsert,
     Func<string, string, Fin<Unit>> MemberRelease,
@@ -475,23 +401,13 @@ public sealed record CoordinationArrows(
     Func<string, ulong, Fin<Unit>> GuardWrite,
     Func<string, ulong, Fin<Unit>> ReleaseLease);
 
-// The half of `ControlRuntime` this ledger does not own: the degradation, support, source, and wire values.
 public sealed record ControlSeed(
     DegradationCell Degradation,
     ActivitySource Source,
     SupportRuntime Support,
     JsonSerializerOptions Wire);
 
-// The four module seeds, the same shape `ControlSeed` is: deploy-declared values no service produces and no
-// fold derives — WHICH probe rows this deployment binds, WHICH hops it dials, WHICH categories it hosts,
-// WHICH manifests it declares — beside the projections their owning pages fill. The contributed port rosters
-// ride here for the reason the module table does: the root's own seams seat AHEAD of the table, so a
-// contributed row resolved from the graph would not yet exist at the seat that folds it.
 public sealed record ObservabilitySeed(
-    // The mounted receipt fan, minted through `CompositionRoot.Metered` BEFORE this fold runs, because
-    // `InstrumentFan.Tap` is a subscription `HookRail.Of` seats at construction and the rail arrives on
-    // `RootInputs` already composed — so the fan is the same kind of pre-`Arm` composed value the rail is, and
-    // this seat REGISTERS it rather than minting a second one whose meters would double every stream.
     ReceiptFan Fan,
     Seq<(DriverProbe Row, IHealthCheck Check)> Probes,
     EnergyCell Energy,
@@ -506,10 +422,6 @@ public sealed record ObservabilitySeed(
 
 public sealed record WireSeed(
     Seq<(OutboundHop Hop, Seq<WeightedUriEndpoint> Routes)> Lanes,
-    // Which authority each lease authenticates hops to — a deploy fact no service produces, because only the
-    // deployment knows that this object store answers to that registration. An authority absent from the map
-    // dials ANONYMOUS: the empty map is the honest spelling of an unauthenticated estate, where a per-lane
-    // credential flag would need a second column stating whether the flag was ever set.
     HashMap<Uri, string> Credentials,
     Seq<(Topic Topic, Seq<(string Name, Func<DomainEvent, IO<Unit>> Consume)> Subscribers)> Subscriptions,
     KeyedLane.Composition Keyed,
@@ -533,9 +445,6 @@ public sealed record AgentSeed(
     FederationRuntime Federation,
     Seq<(FederatedServer Server, string Uri, BindingSpec Spec)> Subscriptions,
     IdentityRuntime Identity,
-    // The BOOT-DECLARED credential cells, not lease values: `agent-boot` arms their occurrences and every
-    // later reader — the membership probe, the HTTP lane's per-send link — dereferences this one roster, so a
-    // refreshed lease is visible at every consumer with no second registration and no held copy to go stale.
     LeaseRoster Leases);
 
 public sealed record SandboxSeed(
@@ -548,9 +457,6 @@ public sealed record SandboxSeed(
     Duration EpochPeriod,
     CapabilitySet<SolverKind> Hosted,
     Seq<SolverManifest> Solvers,
-    // The plugin registry as a LISTING and the version this host already runs — never a resolver's own pick.
-    // Ranking is `Sandbox/admission#SUPPLY_CHAIN_GATE` `SupplyChainGate.Best`'s policy over the contract range,
-    // so a registry handing back the version it liked is the second policy for one contract that gate deletes.
     Func<SolverManifest, Fin<Seq<(NuGetVersion Version, PluginArtifact Artifact)>>> Catalog,
     Func<string, Option<NuGetVersion>> Installed,
     Func<Seq<CapabilityDescriptor>, IO<Seq<DescriptorReceipt>>> Project,
@@ -559,14 +465,8 @@ public sealed record SandboxSeed(
     FleetRuntime Fleet);
 
 public static class CompositionRoot {
-    // The must-bind roster in DEPENDENCY ORDER. Every entry is one composed call, so the row names the seam
-    // and the delegate is its whole body — a row growing logic of its own is the composition root absorbing a
-    // page's law.
     public static readonly Seq<RootBinding> Ledger =
     [
-        // FIRST, and the rail is why: the census a module row fires against must be frozen and the receipt
-        // port decorated before any fold registers a producer, so every later row resolves ONE rail, one
-        // fault cell, and one decorated sink rather than each composing its own.
         new RootBinding.Seated("hooks-mount", static (services, inputs) =>
             HookRegistry.Mount([.. inputs.Rail.Points]).Map(census => services
                 .Add(ServiceDescriptor.Describe(
@@ -602,9 +502,6 @@ public static class CompositionRoot {
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(Func<CompanionPeer, IO<int>>), _ => inputs.ChildResidual, ServiceLifetime.Singleton)))),
 
-        // The tail is MINTED here, not handed in: each drain opens its own context and token and carries the
-        // mounted instrument set and the ledger exporter the terminal `Seal` feeds, so the conductor's whole
-        // telemetry tail derives from the one root and no call site assembles a partial one.
         new RootBinding.Seated("drain-thread", static (services, _) =>
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(Func<DrainThread>),
@@ -617,42 +514,22 @@ public static class CompositionRoot {
                     provider.GetRequiredService<ILatencyDataExporter>())),
                 ServiceLifetime.Singleton)))),
 
-        // Participants that come into being AFTER the build — a bus subscription's sink, an epoch lease —
-        // register into this cell, which the conductor folds beside the contributed port fan. Without it a
-        // runtime-born participant has no seat, because the contributor fan closed at the freeze.
         new RootBinding.Seated("drain-rows", static (services, _) =>
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(Atom<Seq<DrainRow>>), static _ => Atom(Seq<DrainRow>()), ServiceLifetime.Singleton)))),
 
-        // The capsule takes the rail WHOLE — it fires the phase point itself and owns the `DegradationTap` the
-        // composition seats — so constructing it over a single point would leave the rail's own teardown and
-        // fault custody unreachable from the one capsule that publishes to it.
         new RootBinding.Seated("lifecycle", static (services, inputs) =>
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(Lifecycle),
                 _ => new Lifecycle(inputs.Profile, inputs.Clocks, inputs.Correlation, inputs.Rail, inputs.Key),
                 ServiceLifetime.Singleton)))),
 
-        // The no-provider arm of the features rail. `Evaluate` re-keys the same constant when a seated provider
-        // reports itself unready, so absence and unreadiness answer ONE shape and a consumer never carries a
-        // fallback verdict of its own — the deleted form is a per-consumer default that drifts from this one.
-        // `TryAdd`, so a host that DOES seat a provider registers its own verdict function ahead of the table
-        // and this row is the additive floor rather than the value that displaces it.
         new RootBinding.Seated("verdict-fallback", static (services, _) =>
             Fin.Succ((services.TryAdd(ServiceDescriptor.Describe(
                 typeof(Func<EvaluationContext, FlagVerdict>),
                 static _ => (Func<EvaluationContext, FlagVerdict>)(static _ => FlagVerdict.Inert),
                 ServiceLifetime.Singleton)), services).Item2)),
 
-        // The cluster view. Its `Attached` arrow resolves the roster and the roster's `contribute` resolves
-        // this runtime — both reads sit INSIDE lambdas the fold never runs, so the mutual reference resolves
-        // after both rows are registered and neither factory reads a graph still being written. `Remote` dials
-        // the NAMED client alone, because the round-robin instance selector is the package's own internal
-        // default and reaches this probe through `AddServiceDiscovery` on that client's builder; the hand
-        // cursor that stood in for it is deleted, and a client without that registration resolves one authority
-        // forever. The shared resilience handler rides the same builder so probe and live traffic share one
-        // breaker state. The check constructs PER probed authority, because it grades the URI set fixed at ITS
-        // construction and a shared instance would accumulate every peer ever probed.
         new RootBinding.Seated("membership", static (services, inputs) =>
             Fin.Succ(services
                 .Add(ServiceDescriptor.Describe(
@@ -663,11 +540,6 @@ public static class CompositionRoot {
                         Group: inputs.Group,
                         Health: provider.GetRequiredService<HealthCheckService>(),
                         Local: provider.GetRequiredService<WireHealthRow>(),
-                        // The probe reads its bearer PER PROBE off the lease cell, so a peer whose credential
-                        // renewed between two rounds is probed with the live one and never re-registered.
-                        // `AddCustomHeader` is an `IUriOptions` member, so the header seats inside the
-                        // per-URI override callback rather than on the group options; an authority the
-                        // deployment declared no credential for adds no header and probes anonymously.
                         Remote: async (authority, token) =>
                             (await new UriHealthCheck(
                                     new UriHealthCheckOptions().UseGet().AddUri(authority, uri =>
@@ -683,9 +555,6 @@ public static class CompositionRoot {
                         MemberRelease: inputs.Coordination.MemberRelease,
                         MemberScan: inputs.Coordination.MemberScan,
                         View: Atom(MembershipView.Empty),
-                        // Scheme is the resolver QUERY's own ordered preference, so it lands as a declared
-                        // composition value rather than a literal inside the projection: `Secure` states TLS
-                        // only, and a deployment wanting the package's ordered fallback flips one row.
                         Scheme: DialScheme.Secure,
                         Clocks: inputs.Clocks,
                         Staleness: LeasePolicy.Maintenance.CrashStaleness,
@@ -696,14 +565,6 @@ public static class CompositionRoot {
                 .AddStandardResilienceHandler()
                 .Services)),
 
-        // The local kernel-credentialed attach set. `contribute` is the two-tier edge as a BOUND delegate:
-        // every admitted peer enters the cluster view as a Joining row the sweep then grades, so the law that
-        // was prose becomes a call site. The endpoint projects from the manifest's own `SocketPath` through
-        // `UnixDomainSocketEndPoint` rather than a second column on `DiscoveryManifest` — the manifest is the
-        // UDS contract under a 104-byte `sun_path` cap behind a checksum gate, so a parallel endpoint encoding
-        // would put one address on the wire twice and oblige both copies to agree, where the BCL's own
-        // projection of exactly that string obliges nothing. The pid is the KERNEL-reported one the credential
-        // read produced, never the manifest's self-asserted field.
         new RootBinding.Seated("peer-roster", static (services, inputs) =>
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(PeerRoster),
@@ -719,13 +580,11 @@ public static class CompositionRoot {
                     key: inputs.Key),
                 ServiceLifetime.Singleton)))),
 
-        // Control-hop dependency frame: this row binds the drain arrow beside the composed seed.
         new RootBinding.Seated("control-inbound", static (services, inputs) =>
             Fin.Succ(services.Add(ServiceDescriptor.Describe(
                 typeof(ControlRuntime),
                 provider => new ControlRuntime(
                     Degradation: inputs.Control.Degradation,
-                    // The admitted peer remainder reaches the one conductor; it intersects local policy once.
                     Drain: inherited => Conducted(provider, inherited),
                     Clocks: inputs.Clocks,
                     Correlation: inputs.Correlation,
@@ -735,12 +594,7 @@ public static class CompositionRoot {
                     Wire: inputs.Control.Wire),
                 ServiceLifetime.Singleton)))),
 
-        // --- [MODULE_SEATS] ---------------------------------------------------------------------
-        // The federated classification registry is a boot GATE ahead of every provider mount: a redactor set
-        // that refuses after a provider is live leaves the erasing fallback grading the tags the pass rows
-        // exist to spare, so the refusal lands before the composition is registered at all. An UNARMED offline
-        // policy registers no queue-release participant, because a drain row over a queue set nothing opened
-        // reports a flush that moved no bytes.
+        // --- [MODULE_SEATS] ------------------------------------------------------------
         new RootBinding.Seated("telemetry-seat", static (services, inputs) =>
             RedactionRegistration.Federated([.. inputs.Telemetry.Classifications]).ToFin().Map(_ => services
                 .Add(ServiceDescriptor.Describe(typeof(TelemetryComposition), _ => inputs.Telemetry, ServiceLifetime.Singleton))
@@ -753,18 +607,9 @@ public static class CompositionRoot {
                         : Seq<ServiceDescriptor>(),
                     static (current, row) => current.Add(row)))),
 
-        // Every observability owner this deployment binds, in ONE row: the utilization cell refuses at
-        // composition when its provider's timestamp frequency does not admit, so a boot proves the pressure
-        // authority rather than discovering absence at the first sample. WHICH driver rows register is this
-        // seed's argument list and never a per-row flag — a registration flag beside the registration argument
-        // is two answers to one question. The health fold is one call, and that call is also what mounts the
-        // resource monitor the Gauge row's policy reads, so no separate monitor registration exists here.
         new RootBinding.Seated("observability-seat", static (services, inputs) =>
             UtilizationCell.Of(PressurePolicy.Canonical.Source, inputs.Clocks.Line, inputs.Key).Map(utilization => services
                 .Add(ServiceDescriptor.Describe(typeof(UtilizationCell), _ => utilization, ServiceLifetime.Singleton))
-                // The mounted fan and the instrument set it carries are ONE value registered twice under the
-                // two contracts their readers spell: the drain thread and the capability-registry mount resolve
-                // `InstrumentSet`, the receipt projection resolves the fan, and neither mints a meter.
                 .Add(ServiceDescriptor.Describe(typeof(ReceiptFan), _ => inputs.Observability.Fan, ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(InstrumentSet), _ => inputs.Observability.Fan.Set, ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(AlertCell), _ => new AlertCell(AlertPolicy.Canonical), ServiceLifetime.Singleton))
@@ -794,11 +639,6 @@ public static class CompositionRoot {
                 .Configure<HealthCheckPublisherOptions>(static options =>
                     options.Period = DegradationPolicy.Canonical.PublishPeriod.ToTimeSpan()))),
 
-        // The ONE schedule arrow every consumer resolves — `SchedulePort` publishes no `Register` member, so
-        // the composition supplies the registration this row seats. Registration is IDEMPOTENT BY KEY: a
-        // fresh key seats the row and arms its occurrence loop once; a held key replaces the row and forks
-        // nothing, and the loop reads the CURRENT row each pass — so a renewed lease's fresh closure takes
-        // effect on the standing loop and a boot row re-registered at runtime cannot double-fire.
         new RootBinding.Seated("schedule-arrow", static (services, inputs) =>
             Fin.Succ(services
                 .Add(ServiceDescriptor.Describe(
@@ -810,11 +650,6 @@ public static class CompositionRoot {
                         provider.GetRequiredService<Atom<HashMap<string, ScheduleEntry>>>(), inputs.Clocks, entry)),
                     ServiceLifetime.Singleton)))),
 
-        // The orchestration capsule and the two runtime-band participants. `Redrive` is the composition's own
-        // policy unless a deployment declares one, so a step that exhausts its schedule surfaces as an
-        // exhaustion fault rather than a retry loop no bound closes. The permit reclaim is a CADENCE row on the
-        // telemetry band beside the permit drain, never a boot gate: a limiter retired mid-run is reclaimed on
-        // the same pass that flushes the band it belongs to.
         new RootBinding.Seated("runtime-seat", static (services, inputs) =>
             Fin.Succ(services
                 .Add(ServiceDescriptor.Describe(
@@ -836,18 +671,8 @@ public static class CompositionRoot {
                 .Add(Participant("lane-permits", DrainBand.Telemetry, 0, static provider => _ =>
                     provider.GetRequiredService<LanePermits>().Reclaim()
                         .Bind(_ => provider.GetRequiredService<LanePermits>().Drain())))
-                // An absent watchdog enrollment registers NO heartbeat and NO process-dump contributor, so a
-                // host the supervisor never enrolled carries neither a cadence nothing reads nor a dump policy
-                // no trigger can reach.
                 .Fold(Enrolled(inputs), static (current, row) => current.Add(row)))),
 
-        // One `HttpLane.Wire` per `SocketsHttpHandler`-borne hop case, each with the deployment's own weighted
-        // route span — a route span is genuine deployment data and stays a parameter. `KeyedLane.Register`
-        // folds `HopRows.Items` itself, so no row span crosses here, and the one `HopEvidence` the composition
-        // minted rides on both the keyed composition and the outbound runtime rather than on process statics
-        // that could not reset between compositions. The bearer crosses as an ARROW closing over the roster,
-        // so the lane's link resolves the live cell at send time; a bearer resolved here would freeze the
-        // credential every registered client carries at the instant the collection was still editable.
         new RootBinding.Seated("wire-seat", static (services, inputs) =>
             inputs.Wire.Lanes
                 .Fold(Fin.Succ(services), (held, lane) => held.Bind(current =>
@@ -863,23 +688,16 @@ public static class CompositionRoot {
                         provider => new EventBus.Runtime(
                             Delivery: provider.GetRequiredService<DeliveryRuntime>(),
                             Level: () => provider.GetRequiredService<DegradationCell>().Level,
-                            // The drop sink FANS: a drop that terminates in process is a loss no operator can
-                            // count and no dashboard can show, so it crosses the receipt estate under its own
-                            // kind exactly as every other settled fact does.
                             Drops: drop => ignore(provider.GetRequiredService<ReceiptSinkPort>().Send(
                                 inputs.Correlation, TenantContext.Current, TelemetrySource.AppHost,
                                 ReceiptKind.Drop.Key,
                                 WireJson.Element(drop)).Run()),
-                            // Bus subscriptions open after the build, so their drain rows land in the late cell
-                            // the conductor folds rather than on a contributor fan that closed at the freeze.
                             Register: row => ignore(provider.GetRequiredService<Atom<Seq<DrainRow>>>().Swap(held => held.Add(row))),
                             Clocks: inputs.Clocks,
                             Spine: provider.GetRequiredService<Lifecycle>().Spine),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
                         typeof(Atom<Option<EventBus.Cell>>), static _ => Atom(Option<EventBus.Cell>.None), ServiceLifetime.Singleton))
-                    // The detach rail was STORED and never invoked: every channel the process opened outlived
-                    // it, so release rides the interaction band where the sockets it holds belong.
                     .Add(Participant("live-wire", DrainBand.Interaction, 0, static provider => _ =>
                         provider.GetRequiredService<LiveWireRuntime>() is var runtime
                             ? runtime.Bound().TraverseM(handle => LiveWire.Release(runtime, handle)).As().Map(static _ => unit)
@@ -890,22 +708,12 @@ public static class CompositionRoot {
                             provider.GetRequiredService<LiveWireRuntime>(), inputs.Observability.ProbeCadence),
                         ServiceLifetime.Singleton)))),
 
-        // ONE fenced runtime serves both namespaces: `RoleElection` and `DistributedLock` each take it beside
-        // the coordination fan, so the two seated runtime records the split demanded collapse to one value and
-        // a lease acquired under one is fenced under the other by construction. This is also the seat where
-        // staleness config MEETS the drain bounds it must outlast, so `LeasePolicy.Outlasts` is FORCED here as
-        // a boot claim: the guard is a `Lazy` that throws on a reclaim window shorter than the cooperative plus
-        // forced drain sum, and a proof nothing forces is a guarantee nothing holds — a draining holder would
-        // be reclaimed mid-drain and the fence would read perfectly armed.
         new RootBinding.Seated("coordination-seat", static (services, inputs) =>
             Op.Of().Catch(static () => Fin.Succ(LeasePolicy.Outlasts))
                 .MapFail(static _ => (Error)new KernelFault.InvalidValue(
                     Label: $"{nameof(LeasePolicy)}.{nameof(LeasePolicy.Maintenance)}",
                     Requirement: "<a crash-staleness window outlasting the cooperative and forced drain bounds>"))
                 .Map(_ => services
-                    // The lease adapter's four store arrows arrive DECODED on the coordination seed exactly as
-                    // the membership three do, so the runtime every fenced holder resolves is constructed here
-                    // rather than resolved from a registration no fold performs.
                     .Add(ServiceDescriptor.Describe(
                         typeof(LeaseElection.Runtime),
                         _ => new LeaseElection.Runtime(
@@ -929,8 +737,6 @@ public static class CompositionRoot {
                         provider => Fanned<CoordinationSignal>(provider, inputs, static signal => new AppHostFact.Coordination(signal)),
                         ServiceLifetime.Singleton)))),
 
-        // Both gRPC services mount on the SAME served-plane fold, so the control verbs and the diagnostic
-        // verbs share one `ControlRuntime` and an operator over either hop invokes one semantics.
         new RootBinding.Seated("companion-seat", static (services, inputs) =>
             Fin.Succ(ServiceHost.Register(services, [.. inputs.Wire.Planes])
                 .Add(ServiceDescriptor.Describe(
@@ -939,12 +745,8 @@ public static class CompositionRoot {
                     ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(IngressPolicy), _ => inputs.Wire.Ingress, ServiceLifetime.Singleton))
                 .Add(ServiceDescriptor.Describe(typeof(ModalityRow), _ => inputs.Wire.Modality, ServiceLifetime.Singleton))
-                // The bound listener releases on the interaction band, because the acquisition IS the modality
-                // transition and a socket set held past the drain outlives the process that owns it.
                 .Add(Participant("host-binding", DrainBand.Interaction, 1, static provider => _ =>
                     HostBinding.Release(provider.GetRequiredService<BoundEndpoint>())))
-                // The cascade is the WRITE half of the degradation seam: a parent's forced level enters the
-                // child's cell as a floor, so a degraded parent never leaves a child serving above it.
                 .Add(Participant("degradation-cascade", DrainBand.Interaction, 2, static provider => _ =>
                     provider.GetRequiredService<PeerRoster>().Attached
                         .TraverseM(entry => DegradationCascade.Cascade(
@@ -953,11 +755,6 @@ public static class CompositionRoot {
                             nameof(DrainBand.Interaction), provider.GetRequiredService<ModalityRow>()))
                         .As().Map(static _ => unit)))),
 
-        // The consent roster is the ONE seat that makes all four `Consent` cases producible: the broker's
-        // `ConsentOf` closes over the roster AND the clock, because the roster grades a standing scope's window
-        // against an instant while the broker's own column carries the tenant alone. Federation lands in this
-        // seat rather than after the build because `Federate` REGISTERS one descriptor per peer, and the
-        // capability registry freezes at the module fold — a peer opened later reaches no catalog.
         new RootBinding.Seated("agent-seat", static (services, inputs) =>
             FederationProjection.Federate(
                     inputs.Agent.Federation,
@@ -977,14 +774,8 @@ public static class CompositionRoot {
                             ConsentOf: tenant => provider.GetRequiredService<ConsentRoster>().Of(tenant, inputs.Clocks.Now),
                             Clocks: inputs.Clocks),
                         ServiceLifetime.Singleton))
-                    // ONE chain cell the dispatch front door and the reasoning transcript projection both
-                    // advance, so two heads can never fork off one command log.
                     .Add(ServiceDescriptor.Describe(
                         typeof(Atom<EventLog.Chain>), _ => Atom(EventLog.Chain.Genesis), ServiceLifetime.Singleton))
-                    // `Lanes` is the runtime `lane-closure` proved, so every brokered dispatch crosses the
-                    // governor. The cell is filled by the FIRST `Proven` row and this factory runs no earlier
-                    // than the first resolve after the build, so the ordering is the roster's, not a race —
-                    // and an empty cell here is a ledger that lost its own order rather than a runtime state.
                     .Add(ServiceDescriptor.Describe(
                         typeof(CommandRuntime),
                         provider => new CommandRuntime(
@@ -1011,8 +802,6 @@ public static class CompositionRoot {
                             Rail: inputs.Rail,
                             Key: inputs.Key),
                         ServiceLifetime.Singleton))
-                    // A handle absent while its modality row is admitted REFUSES at the mint, so a governance
-                    // runtime claiming a modality it cannot serve never reaches a caller.
                     .Add(ServiceDescriptor.Describe(
                         typeof(GovernanceRuntime), provider => Governed(provider, inputs), ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(
@@ -1026,9 +815,6 @@ public static class CompositionRoot {
                             Sink: provider.GetRequiredService<ReceiptSinkPort>(),
                             Wire: inputs.Control.Wire),
                         ServiceLifetime.Singleton))
-                    // ONE adoption per composition, its halves handed to the two front doors: the MCP server
-                    // takes the adopted server tools and the reasoning loop takes the AI functions, so a tool
-                    // projected twice is unspellable and the plugin route takes neither.
                     .Add(ServiceDescriptor.Describe(
                         typeof(McpAdoption),
                         provider => ToolProjection.Adopt(
@@ -1041,20 +827,12 @@ public static class CompositionRoot {
                         provider.GetRequiredService<GovernanceRuntime>(), inputs.Agent.Chat(provider)).Client)
                     .Services)),
 
-        // The trust anchor admits at COMPOSITION: a refused root stops boot on the typed rail naming it, and
-        // both the sandbox runtime's gate and the update rail's read this ONE value rather than each admitting
-        // its own copy. The anchor crosses as a `TrustAnchor` CASE rather than a bare file handle, so the
-        // hermetic pinned root and the connected TUF root are two shapes of one argument and this deployment
-        // states which it holds at the seat instead of a provider choice buried inside the gate.
         new RootBinding.Seated("sandbox-seat", static (services, inputs) =>
             SupplyChainGate.Runtime.Of(
                     new TrustAnchor.PinnedCase(inputs.Sandbox.TrustRoot), inputs.Sandbox.PolicyOf,
                     inputs.Sandbox.Staging, inputs.Sandbox.ContractVersion, inputs.Clocks)
                 .Bind(gate => FeedBinding.Of(inputs.Sandbox.Channel, inputs.Configuration).Map(feed => services
                     .Add(ServiceDescriptor.Describe(typeof(SupplyChainGate.Runtime), _ => gate, ServiceLifetime.Singleton))
-                    // The engine is ONE per host and both preemption mechanisms are unsettable after it exists,
-                    // so `Preempting` mints it whole — an engine composed without epoch interruption renders
-                    // the entire kill rail inert while every deadline still reads as armed.
                     .Add(ServiceDescriptor.Describe(
                         typeof(SandboxRuntime),
                         provider => new SandboxRuntime(
@@ -1075,16 +853,10 @@ public static class CompositionRoot {
                             provider.GetRequiredService<IMeterFactory>().Create(nameof(UpdateRail))),
                         ServiceLifetime.Singleton))
                     .Add(ServiceDescriptor.Describe(typeof(FleetRuntime), _ => inputs.Sandbox.Fleet, ServiceLifetime.Singleton))
-                    // The hosted roster is a CELL rather than a sequence the pacer closes over, because two
-                    // readers need it: the epoch ticker sweeps the live set every tick and the operator's
-                    // `sandbox-release` verb addresses one member of it by plugin id. `sandbox-boot` fills it.
                     .Add(ServiceDescriptor.Describe(
                         typeof(Atom<Seq<HostedSolver>>), static _ => Atom(Seq<HostedSolver>()), ServiceLifetime.Singleton))))),
 
-        // --- [MODULE_BOOTS] ---------------------------------------------------------------------
-        // Proven, not seated: the pipelines exist only after the build, and the RUNTIME the probe returns is
-        // the value `CommandRuntime.Lanes` carries — so the roster probe and the governor seat are one act,
-        // and a brokered dispatch cannot reach the graph past a lane this probe never proved.
+        // --- [MODULE_BOOTS] ------------------------------------------------------------
         new RootBinding.Proven("lane-closure", static (provider, inputs) =>
             LaneGuard.Proven(
                     provider.GetRequiredService<ResiliencePipelineProvider<string>>(), inputs.Lanes, [.. inputs.LaneRows])
@@ -1093,12 +865,6 @@ public static class CompositionRoot {
         new RootBinding.Proven("hop-closure", static (provider, _) =>
             KeyedLane.Proven(provider.GetRequiredService<ResiliencePipelineProvider<string>>())),
 
-        // Proven, not seated: the issuer exists only after the build, and the token's POSITION is the fact worth
-        // proving — an unfolded roster answers a positionless token whose writes drop with nothing raised, while
-        // the name echoes back whatever string was handed in and proves nothing. The capture is here because
-        // `ThrowOnUnregisteredNames` makes the same omission a throw, so both shapes of the one defect leave on
-        // this rail naming this seam, and the outbound runtime then carries the resolved token rather than a
-        // name it re-resolves per hop.
         new RootBinding.Proven("hop-checkpoint", static (provider, _) =>
             Op.Of().Catch(() => Fin.Succ(provider.GetRequiredService<ILatencyContextTokenIssuer>()
                     .GetCheckpointToken(LatencyCheckpoint.Hop.Key)))
@@ -1108,9 +874,6 @@ public static class CompositionRoot {
                         Label: LatencyCheckpoint.Hop.Key,
                         Requirement: "<a checkpoint name the folded latency roster carries>")))),
 
-        // Both sweeps are CADENCES, never boot gates: the alert sweep rides the health publish period so the
-        // engine reads the reading the publisher just committed and the two grade one observation of one
-        // moment, and the retention sweep rides the bundles policy row.
         new RootBinding.Proven("observability-boot", static (provider, inputs) =>
             Scheduled(provider,
                 Cadence("alert-sweep", DegradationPolicy.Canonical.PublishPeriod, DeadlineClass.HealthProbe, () =>
@@ -1123,12 +886,6 @@ public static class CompositionRoot {
                 Cadence("support-sweep", inputs.Observability.RetentionSweep, DeadlineClass.SupportWindow, () =>
                     SupportLedger.Sweep(provider.GetRequiredService<SupportRuntime>()).Map(static _ => unit)))),
 
-        // The features rail seats FOUR concerns in one call and the module HOLDS the returned provider, because
-        // `FlagCompilation.Reload` is the re-fold leg and a compile with no handle has nowhere to land — a
-        // compile no module reaches leaves the whole rail unregistered while every consumer reads
-        // `FlagVerdict.Inert` as policy. Recovery is a boot gate and reclamation a cadence under the
-        // reclaim-role lease, so an interrupted workflow resumes on THIS node's boot while an orphan left by a
-        // dead node is reclaimed by whichever node holds the lease.
         new RootBinding.Proven("runtime-boot", static (provider, inputs) =>
             FlagCompilation.Register(
                     provider.GetRequiredService<FeaturesRuntime>(), provider.GetRequiredService<FlagRegistry>(),
@@ -1144,10 +901,6 @@ public static class CompositionRoot {
                         CrashResume.Reclaim(provider.GetRequiredService<OrchestrationRuntime>(), TenantContext.Current)
                             .Map(static _ => unit))))),
 
-        // `Seat` runs `HopRows.Admitted` ahead of its claim fold, so an authored row carrying an illegal corner
-        // refuses at boot rather than at the hop that first dials it; `Enforce` then folds the faculty groups
-        // against the live level, because a group narrowed at boot and never re-read holds the boot posture
-        // through every level change after it.
         new RootBinding.Proven("wire-boot", static (provider, inputs) =>
             OutboundSurface.Seat(provider.GetRequiredService<OutboundRuntime>())
                 .Bind(_ => OutboundSurface
@@ -1157,9 +910,6 @@ public static class CompositionRoot {
                     .Run())
                 .Bind(_ => EventBus.Mount(provider.GetRequiredService<EventBus.Runtime>(), [.. inputs.Wire.Subscriptions]))
                 .Map(bus => ignore(provider.GetRequiredService<Atom<Option<EventBus.Cell>>>().Swap(_ => Some(bus))))
-                // The sweep is FENCED: the election names the outbox role and the cadence renews under the
-                // holding it returns, so exactly one node sweeps a shared outbox and a lease lost mid-cadence
-                // stops the next pass rather than racing the node that took it.
                 .Bind(_ => Scheduled(provider,
                     Cadence("outbox-sweep", inputs.Wire.Outbox.Cadence, () =>
                         RoleElection.Elect(
@@ -1178,32 +928,18 @@ public static class CompositionRoot {
                                             .Sweep(inputs.Wire.Outbox, TenantContext.Current, watermark)
                                             .Map(static _ => unit),
                                         Fail: IO.fail<Unit>)),
-                                // A contended election is the ordinary answer on every node but one, so the
-                                // cadence completes rather than reporting a refusal an operator would read as
-                                // a fault.
                                 Fail: static _ => IO.pure(unit))))))),
 
-        // The durable member set reseats BEFORE the first sweep, so a node returning after a restart grades
-        // against the members the store holds rather than probing an empty view back into existence.
         new RootBinding.Proven("coordination-boot", static (provider, _) =>
             Membership.Rebuild(provider.GetRequiredService<Membership.Runtime>()).Run()
                 .Bind(static view => view.ToFin())
                 .Bind(_ => Scheduled(provider, Membership.Cadence(provider.GetRequiredService<Membership.Runtime>())))),
 
-        // The listener bind IS the modality transition, so its `BindReceipt` fans off the acquisition rather
-        // than off a caller that observed one — which is why the fan enters the arity and the unread roots
-        // parameter left it.
         new RootBinding.Proven("companion-boot", static (provider, inputs) =>
             HostBinding.Acquire(inputs.Wire.Listener, provider.GetRequiredService<FactSink<CompanionSignal>>()).Run()
                 .Bind(static bound => bound)
                 .Map(static _ => unit)),
 
-        // The registry census is the one descriptor claim the contributor-port fold cannot carry, so it mounts
-        // against the instrument set after the build; the resource subscriptions bind with the spec their own
-        // live-wire channel already holds, and the BOOT-DECLARED token CELLS register their refresh cadence
-        // here — constructed at input assembly ahead of the provider, they cannot self-register — while every
-        // runtime acquisition registers inside `Acquisition.Acquire`; the keyed arrow makes the two seats one
-        // idempotent registration, so a boot row later re-acquired replaces rather than double-arms.
         new RootBinding.Proven("agent-boot", static (provider, inputs) =>
             provider.GetRequiredService<CapabilityRegistry>()
                 .Mount(provider.GetRequiredService<InstrumentSet>())
@@ -1214,11 +950,6 @@ public static class CompositionRoot {
                     .As().Run().Map(static _ => unit))
                 .Bind(_ => Scheduled(provider, [.. inputs.Agent.Leases.Refreshes]))),
 
-        // Every declared solver hosts under one ACCUMULATING traversal, so a boot naming two bad plugins names
-        // both; the epoch ticker opens ONCE and its lease closes on the compute band, because `SetEpochDeadline`
-        // arms a counter no store consults until something increments it and the whole wall guarantee is inert
-        // without this ticker. A staged release resumes before normal startup, so a rollover interrupted by a
-        // process bounce finishes from its staged phase rather than re-staging bytes the gate already admitted.
         new RootBinding.Proven("sandbox-boot", static (provider, inputs) =>
             Hosting(provider, inputs)
                 .Bind(hosting => SolverHost
@@ -1228,14 +959,6 @@ public static class CompositionRoot {
                 .Map(hosted => Paced(provider, hosted, inputs.Key))
                 .Bind(_ => Resumed(provider))),
 
-        // Unload is a MEMBERSHIP question, never a disposal sweep. Measured on a live collectible host: a
-        // process-global registrant pins the load context only when it holds a delegate or an object typed
-        // inside that context — an undisposed `PosixSignalRegistration` pins across repeated collection, an
-        // observable instrument whose observe callback closes over context-typed state pins, while an
-        // instrument-free `Meter` collects undisposed and an undisposed `ActivitySource` does not pin at all.
-        // So the roster below is the pin set and this row proves each member is container-OWNED, which is what
-        // makes provider disposal the release; a blanket dispose-everything claim would report a guarantee the
-        // runtime does not give, and a count would not name the member that failed to register.
         new RootBinding.Proven("capsule-unload", static (provider, inputs) =>
             inputs.Topology != DeploymentTopology.InHost
                 ? Fin.Succ(unit)
@@ -1248,13 +971,6 @@ public static class CompositionRoot {
                     .ToFin()),
     ];
 
-    // The measured pin set: the container-owned members that hold a context-typed delegate or object and so
-    // keep a collectible load context alive until released — the utilization listener's observe callbacks and
-    // the telemetry composition's transports and queue set. A type joins on a live-host measurement, never on
-    // suspicion, so members proven not to pin stay off and an unload waits on no release that buys nothing. The
-    // signal-trap `PhaseSubscription` is the third pin and is NOT here because its owner holds it directly: the
-    // capsule disposes the composite `ArmTraps` returned, which is what releases the `PosixSignalRegistration`
-    // this roster's probe would otherwise have to reach through a service the container never registered.
     public static readonly Seq<Type> CapsulePins = [typeof(UtilizationCell), typeof(TelemetryComposition)];
 
     public static Fin<(IServiceProvider Provider, Seq<ContributionReceipt> Receipts)> Arm(
@@ -1265,11 +981,6 @@ public static class CompositionRoot {
             .Map(receipts => (Provider: (IServiceProvider)services.BuildServiceProvider(options), Receipts: receipts))
             .Bind(built => Built(built.Provider, inputs).Map(_ => built));
 
-    // One ledger, two folds, and a row cannot run at the altitude its case forbids: the opposite arm is a
-    // no-op rather than a filter, so the roster stays one ordered declaration and neither fold re-derives it.
-    // Both ACCUMULATE on the Validation applicative, which is what makes the roster's own claim true — one
-    // boot names every unbound seam. A monadic fold here would sequence the rows and answer the first refusal
-    // alone, turning a boot that should report four missing bindings into four boots reporting one each.
     static Fin<ServiceCollection> Seated(ServiceCollection services, RootInputs inputs) =>
         Ledger.Traverse(row => row.Switch(
                 state: (Services: (IServiceCollection)services, Inputs: inputs),
@@ -1289,26 +1000,13 @@ public static class CompositionRoot {
             .ToFin();
 
     // --- [INSTRUMENT_MOUNT]
-    // The one `InstrumentFan.Mount` call site, and it runs BEFORE `Arm`: the fan's `Tap` is a subscription
-    // `HookRail.Of` seats at construction, and this fold receives that rail already composed on `RootInputs`,
-    // so the mount cannot be a ledger row without the rail depending on a value the rail's own consumer mints.
-    // The result rides back in on `ObservabilitySeed.Fan`, which the observability seat registers. The
-    // CONTRIBUTOR ROSTER is this member's own declaration: a package that DECLARES an instrument family hands
-    // its port here, and a family declared on a port no roster names mints instruments the view predicate, the
-    // board, and the governance roster never reach — which is exactly what a source-generated instrument
-    // partial with no port row buys.
     public static Fin<ReceiptFan> Metered(
         IMeterFactory factory, CorrelationId root, LevelCells cells, string version,
         Seq<HashMap<ArmKey, InstrumentArm>> contributed, params ReadOnlySpan<TelemetryContributorPort> external) =>
         InstrumentFan.Mount(factory, root, cells, contributed,
             [AppHostMeasure.Telemetry(version), UpdateMetrics.Port(version), .. external]);
 
-    // --- [COMPOSITION] --------------------------------------------------------------------------
-    // Drain arrow the control hop takes, COMPOSED rather than re-implemented: participant rows arrive
-    // field-identical off the `DrainParticipantPort` contributor fan, the late cell carries the participants
-    // born after the freeze, and one `DrainThread` mint per drain carries the conductor's whole telemetry
-    // tail. `Seal` belongs to the act, not to a caller after it — that context is minted per drain, so
-    // draining without exporting its frozen ledger discards exactly the checkpoints the phase recorded.
+    // --- [COMPOSITION] -----------------------------------------------------------------
     static IO<DrainReceipt> Conducted(IServiceProvider provider, Duration inherited) =>
         from thread in IO.lift(provider.GetRequiredService<Func<DrainThread>>())
         from receipt in provider.GetRequiredService<Lifecycle>().Drain(
@@ -1323,8 +1021,6 @@ public static class CompositionRoot {
         (ILatencyContext Context, CheckpointToken Phase) opened, InstrumentSet instruments, ILatencyDataExporter exporter) =>
         new(opened.Context, opened.Phase, instruments, exporter);
 
-    // One fan mint per signal family, so a producing page's durable receipt and its in-process rail point are
-    // two readers of ONE fact and no seat pairs a sink with a point the fact's own `At` did not project.
     static FactSink<TSignal> Fanned<TSignal>(
         IServiceProvider provider, RootInputs inputs, Func<TSignal, AppHostFact> fact) where TSignal : notnull =>
         new(provider.GetRequiredService<ReceiptSinkPort>(), inputs.Rail, fact, inputs.Key);
@@ -1336,9 +1032,6 @@ public static class CompositionRoot {
             provider => new DrainParticipantPort(name, band, rank, drain(provider)),
             ServiceLifetime.Singleton);
 
-    // The deployment's own probe list, folded with the continuous gauge row: the discrete disk and allocation
-    // ceilings are the hard-breach complement to the windowed ratio, and both project onto the one
-    // `Pressure`-tagged contributor set rather than two utilization sources.
     static Seq<HealthContributorRow> Probed(RootInputs inputs, UtilizationCell utilization) =>
         inputs.Observability.Probes
             .Map(row => HealthContributorRow.Of(
@@ -1347,8 +1040,6 @@ public static class CompositionRoot {
                 new ProbeSource.Gauge(utilization, inputs.Observability.Energy, PressurePolicy.Canonical),
                 inputs.Observability.ProbeCadence));
 
-    // An absent enrollment registers nothing at all — no keep-alive cadence and no dump contributor — because
-    // a heartbeat nothing supervises and a dump policy no trigger reaches are both apparatus without a reader.
     static Seq<ServiceDescriptor> Enrolled(RootInputs inputs) =>
         (from notifier in inputs.Observability.Notifier
          from enrollment in ProfileBoot.Enrolled()
@@ -1371,8 +1062,6 @@ public static class CompositionRoot {
                  ServiceLifetime.Singleton)))
         .IfNone(Seq<ServiceDescriptor>());
 
-    // The governance capsule is minted ONCE: an admitted modality whose handle is absent refuses here, so the
-    // conditional corner the folder RULINGS name is a construction fact rather than a per-call branch.
     static GovernanceRuntime Governed(IServiceProvider provider, RootInputs inputs) =>
         new(Services: provider,
             Cache: provider.GetRequiredService<IDistributedCache>(),
@@ -1393,11 +1082,6 @@ public static class CompositionRoot {
             Redactors: provider.GetRequiredService<IRedactorProvider>(),
             Faults: provider.GetRequiredService<FaultCell>());
 
-    // The solver hosting capsule, and the one seat that closes the compile column: `CompileOf` takes the
-    // LOADED instance because the closure it builds dispatches INTO that guest, and the instance is resolved
-    // inside the hosting fold after the sandbox load — a closure minted at this root without it could only
-    // have compiled against a plugin it has no handle on. `SandboxRows.Enter` is the one guest crossing, so
-    // the closure never re-narrows the boundary the sandbox already owns.
     static Fin<SolverHostRuntime> Hosting(IServiceProvider provider, RootInputs inputs) =>
         Isolation.Wasm.Row.Map(row => new SolverHostRuntime(
             Sandbox: provider.GetRequiredService<SandboxRuntime>(),
@@ -1406,10 +1090,6 @@ public static class CompositionRoot {
             Hosted: inputs.Sandbox.Hosted,
             Resolve: manifest => Ranked(inputs, manifest),
             CompileOf: (instance, negotiation, op) => arguments =>
-                // The ONE guest crossing, and the reason this column takes the instance: `Enter` is where a
-                // `TrapException` is observable at all, so the trap seats on the capsule here and no caller
-                // downstream re-classifies it. An op the guest never exported rides the Option out as a
-                // contract refusal rather than a null nothing checked.
                 SandboxRows.Enter(instance, guest => Optional(guest.GetFunction(op.OpId)))
                     .Run()
                     .ToFin(new SolverFault.ContractRejected($"{instance.PluginId}.{op.OpId}: <no guest export>"))
@@ -1419,11 +1099,6 @@ public static class CompositionRoot {
                             export.Invoke(arguments.Payload.GetRawText(), negotiation.Tolerance), SuiteContracts.Host))),
             Project: inputs.Sandbox.Project));
 
-    // The registry resolve RANKS before it presents: `SupplyChainGate.Best` is the one candidate policy over a
-    // contract range, so the chosen version is the gate's answer and the artifact behind it is what
-    // `AdmissionSubject.Plugin` then carries into `Admit` — ranking and admission read one contract in one
-    // order, and a registry picking its own newest is unspellable at this seat. The policy row resolves off any
-    // offered candidate because the ranking is over versions of ONE plugin identity, never across subjects.
     static Fin<PluginArtifact> Ranked(RootInputs inputs, SolverManifest manifest) =>
         inputs.Sandbox.Catalog(manifest)
             .Bind(offered => offered.Head
@@ -1438,10 +1113,6 @@ public static class CompositionRoot {
                     .ToFin(new SupplyChainFault.VersionIncompatible(
                         $"{manifest.PluginId}: {best.ToNormalizedString()} <left the catalog>"))));
 
-    // The hosted roster lands in the CELL first, and the ticker reads the cell rather than closing over the
-    // sequence: the pacer's sweep and the operator's release verb then address ONE live set. The ticker's own
-    // lease is a DRAIN ROW at the compute band, because closing it is what stops the epoch advancing under a
-    // host that is shutting down.
     static Unit Paced(IServiceProvider provider, Seq<HostedSolver> hosted, Op key) =>
         provider.GetRequiredService<Atom<Seq<HostedSolver>>>() is var roster
             && ignore(roster.Swap(_ => hosted)) is var _
@@ -1453,8 +1124,6 @@ public static class CompositionRoot {
                 new DrainRow(nameof(EpochPacer), DrainBand.Compute, 0, _ => IO.lift(lease.Dispose)))))
             : unit;
 
-    // A staged release resumes through the SAME drain-gated rollover a fresh one takes, so the handoff has one
-    // path and the bare apply-and-exit forms have none.
     static Fin<Unit> Resumed(IServiceProvider provider) =>
         provider.GetRequiredService<UpdateRail>() is var rail
             ? rail.Pending.Match(
@@ -1462,8 +1131,6 @@ public static class CompositionRoot {
                 None: static () => Fin.Succ(unit))
             : Fin.Succ(unit);
 
-    // Cadences register through the schedule port rather than through a timer of their own, so every recurring
-    // act on this root shares one missed-occurrence law and one deadline taxonomy.
     static Fin<Unit> Scheduled(IServiceProvider provider, params ReadOnlySpan<ScheduleEntry> entries) =>
         Iterable<ScheduleEntry>.FromSpan(entries)
             .Traverse(entry => provider.GetRequiredService<Func<ScheduleEntry, IO<Unit>>>()(entry).Run().ToValidation())
@@ -1471,20 +1138,12 @@ public static class CompositionRoot {
             .Map(static _ => unit)
             .ToFin();
 
-    // The arrow's registration body: first writer per key ARMS the loop, a later writer replaces the row.
-    // `Cell.Claim` is the same first-writer-wins transition the federation session seat rides, so a racing
-    // double-registration commits one loop and the ceding caller lands its row for that loop to read.
     static IO<Unit> Armed(Atom<HashMap<string, ScheduleEntry>> roster, ClockPolicy clocks, ScheduleEntry entry) =>
         Cell.Claim(roster, entry.Key, () => entry) switch {
             Transition<HashMap<string, ScheduleEntry>>.Committed => Occurring(roster, clocks, entry.Key).Fork(None).Map(static _ => unit),
             _ => IO.lift(() => ignore(roster.Swap(held => held.SetItem(entry.Key, entry)))),
         };
 
-    // One occurrence loop per armed key, riding the composition EnvIO whose token is the lifecycle spine, so
-    // drain cancels every loop at one seat. Each pass re-reads the roster's CURRENT row — a replaced entry's
-    // fresh spec and closure take effect without a second fork, a removed key retires its loop, and a grammar
-    // answering no next occurrence retires the row; `SchedulePort.Run` carries the deadline gauge and the
-    // redrive curve, and a leased row gates inside its own `Work` through its consumer's election law.
     static IO<Unit> Occurring(Atom<HashMap<string, ScheduleEntry>> roster, ClockPolicy clocks, string key) =>
         roster.Value.Find(key).Match(
             None: () => IO.pure(unit),
@@ -1518,8 +1177,6 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Product;
 
-// The product root is the only assembly that may name both sides. This adapter is a typed projection and owns no
-// request vocabulary, transport policy, retry, frame admission, artifact identity, or re-import logic.
 public sealed class BimComputeCompanion(
     WireServices services,
     CallSpineFactory spines,

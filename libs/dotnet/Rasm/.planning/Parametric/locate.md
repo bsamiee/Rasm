@@ -30,8 +30,7 @@ Structural law is the (value × locator) matrix as CASE-OWNED rows: each `Locati
 - Boundary: the output-type gates are COMPILE-SHAPE capability gates on a generic operation — the legitimate generic-dispatch idiom, never the runtime raw→typed projection dispatch the `Numerics/atoms` `ProjectionRow` rail owns; selecting WHICH measured column a station publishes is value dispatch and has exactly one owner, `SampleColumn`, so no arm re-discriminates `TOut` beside another; `Sweep` is the one native-sampling builder, a per-row bespoke `Operation.Build` the spam it absorbs; requirement values arrive from locator columns or family builders, never inline per arm.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// Rhino.Geometry, the LanguageExt prelude, and Thinktecture are global usings; the Rasm.* namespaces are explicit.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 
 using System.Runtime.InteropServices;
 using Rasm.Analysis;
@@ -43,7 +42,7 @@ using Rhino;
 
 namespace Rasm.Parametric;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record Locator {
     private Locator() { }
@@ -56,8 +55,6 @@ public abstract partial record Locator {
 
     public static Locator NormalizedMid => new NormalizedLength(S: 0.5);
 
-    // Both columns close on the generated total Switch: a seventh address breaks the build rather than defaulting
-    // into the basic requirement or an anonymous InvalidInput, and the three non-curve arms refuse EXPLICITLY.
     internal Requirement CurveRequirement => Switch(
         curveParameter: static _ => Requirement.Basic,
         arcLength: static _ => Requirement.CurveLength,
@@ -105,7 +102,6 @@ public abstract partial record LocationValue {
     public sealed record NormalCase : LocationValue {
         internal override Op Key => LocationKeys.NormalAt;
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Normal);
-        // Curve normal IS the RMF frame's Y axis — the projections FrameNormal row, never a second path.
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, Vector3d>(key: LocationKeys.NormalAt, locator: locator, project: static (key, curve, t, context) =>
                 VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.FrameNormal, key: key)
@@ -131,7 +127,6 @@ public abstract partial record LocationValue {
                 VectorIntent.Curve(source: curve, parameter: t, mode: CurveProjection.Curvature, key: key)
                     .Bind(intent => intent.Project<Vector3d>(context: context, key: key))
                     .Bind(curvature => key.Accept(value: curvature)));
-        // Output IS the disposable bundle: success transfers disposal to the caller, the unset path disposes inside the lease.
         internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
             Locate.Surface<TGeometry, TOut, SurfaceCurvature>(key: LocationKeys.CurvatureAt, uv: uv, project: static (key, surface, p) =>
                 Optional(surface.CurvatureAt(u: p.X, v: p.Y)).ToFin(key.InvalidResult())
@@ -139,13 +134,8 @@ public abstract partial record LocationValue {
                         ? Fin.Succ(Seq(bundle))
                         : new Lease<SurfaceCurvature>.Owned(Value: bundle).Use(_ => Fin.Fail<Seq<SurfaceCurvature>>(key.InvalidResult()))));
     }
-    // Order is a Dimension, so a non-positive order is unrepresentable and both arms lose their guard — the two
-    // regimes this case used to carry (`Order < 0` on the curve arm, `Order < 1` on the surface arm) had no
-    // consumer that could tell them apart. A zeroth derivative is `LocationValue.Point`, an explicit route.
     public sealed record DerivativeCase(Dimension Order) : LocationValue {
         internal override Op Key => LocationKeys.DerivativeAt;
-        // Triangular jet block offset and width have ONE spelling each: the guard and the slice read the same
-        // pair, so a change to the block arithmetic cannot desynchronize them.
         internal int JetOffset => ((Order.Value - 1) * (Order.Value + 2)) / 2;
         internal int JetWidth => Order.Value + 1;
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
@@ -153,8 +143,6 @@ public abstract partial record LocationValue {
                 Optional(curve.DerivativeAt(t: t, derivativeCount: Order.Value)).Filter(derivatives => Order.Value < derivatives.Length)
                     .ToFin(key.InvalidResult())
                     .Bind(derivatives => key.Accept(value: derivatives[Order.Value])));
-        // Order-n surface jet block ∂ⁿS/∂uᵏ∂vⁿ⁻ᵏ (k = n..0) off the host order-n evaluate; the order-1 pair
-        // is the projections Jacobian's columns.
         internal override Operation<TGeometry, TOut> OnSurface<TGeometry, TOut>(Point2d uv) =>
             Locate.Surface<TGeometry, TOut, Vector3d>(key: LocationKeys.DerivativeAt, uv: uv, project: (key, surface, p) =>
                 surface.Evaluate(u: p.X, v: p.Y, numberDerivatives: Order.Value, point: out Point3d _, derivatives: out Vector3d[] derivatives)
@@ -165,7 +153,6 @@ public abstract partial record LocationValue {
     public sealed record ParameterCase : LocationValue {
         internal override Op Key => LocationKeys.ParameterAt;
         internal override Option<SupportProjection> Closest => Some(SupportProjection.Parameter);
-        // Resolved address IS the value: At(ArcLength(d), Parameter) answers the arc-length→parameter query resolution already computed.
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, double>(key: LocationKeys.ParameterAt, locator: locator, project: static (key, _, t, _) => key.Accept(value: t));
     }
@@ -174,14 +161,11 @@ public abstract partial record LocationValue {
         internal override Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) =>
             Locate.Curve<TGeometry, TOut, double>(key: LocationKeys.LengthAt, locator: locator, requirement: Some(Requirement.CurveLength), project: static (key, curve, t, context) =>
                 curve.GetLength(fractionalTolerance: context.Fractional, subdomain: new Interval(t0: curve.Domain.T0, t1: t)) switch {
-                    // Host-read scalar: IsValidDouble screens Rhino's unset sentinel.
                     double length when RhinoMath.IsValidDouble(x: length) && length >= 0.0 => key.Accept(value: length),
                     _ => Fin.Fail<Seq<double>>(key.InvalidResult()),
                 });
     }
 
-    // Stateless rows are SEATED once, matching the sibling vocabularies on this page; only the payload-carrying
-    // row stays a factory, because a per-query record mint on the hot path buys nothing a shared row lacks.
     public static readonly LocationValue Point = new PointCase();
     public static readonly LocationValue Frame = new FrameCase();
     public static readonly LocationValue Normal = new NormalCase();
@@ -191,7 +175,6 @@ public abstract partial record LocationValue {
     public static readonly LocationValue Length = new LengthCase();
     public static LocationValue Derivative(Dimension order) => new DerivativeCase(Order: order);
 
-    // Matrix rows live on the cases; the fold discriminates only the locator FAMILY.
     internal abstract Op Key { get; }
     internal virtual Option<SupportProjection> Closest => None;
     internal virtual Operation<TGeometry, TOut> OnCurve<TGeometry, TOut>(Locator locator) where TGeometry : notnull => Key.Unsupported<TGeometry, TOut>();
@@ -203,7 +186,6 @@ public abstract partial record LocationValue {
             Some: projection => Locate.Closest<TGeometry, TOut>(key: Key, target: ct.Probe, projection: projection),
             None: () => Key.Unsupported<TGeometry, TOut>()),
         Locator.PerpendicularParameters ps => OnPerpendicular<TGeometry, TOut>(parameters: ps.Ts),
-        // Curve family rides the default: Locator is closed and every non-curve case peels above, so a new curve address is one ResolveParameter arm and a non-curve address adds its arm HERE.
         _ => OnCurve<TGeometry, TOut>(locator: locator),
     };
 }
@@ -213,13 +195,8 @@ public abstract partial record Division {
     private Division() { }
     public sealed record ByCount(int Count) : Division;
     public sealed record ByLength(double Length) : Division;
-    // Equal STRAIGHT-LINE chord spacing — a distinct division law from arc-length ByLength.
     public sealed record ByChord(double Distance) : Division;
-    // Contour-plane stations along an axis pair — its own law and payload, so a case, never a spacing column.
     public sealed record AsContour(Point3d Start, Point3d End, double Interval) : Division;
-    // Admission runs where the runtime Context is in hand — inside the lease, not at the fold, which holds none.
-    // A segment length, a chord distance, a contour interval, and a contour axis span are all MODEL-SPACE, so each
-    // gates on its own lane and no dimensionless anchor decides which spacing a document can realize.
     internal Fin<Unit> Admit(Context context, Op key) => Switch(
         state: (Context: context, Key: key),
         byCount: static (s, c) => guard(c.Count > 0, s.Key.InvalidInput()).ToFin(),
@@ -234,35 +211,26 @@ public abstract partial record Division {
     static Fin<Unit> Spacing(double value, Tolerance band, Op key) =>
         guard(double.IsFinite(value) && value > band.Value, key.InvalidInput()).ToFin();
 
-    // The generated TOTAL Switch: a fifth division case breaks the build where the deleted catch-all compiled it
-    // into a silent reject, and the ONE refusal site now lives behind Admit's own bind.
     internal Operation<TGeometry, TOut> Operation<TGeometry, TOut>() where TGeometry : notnull => Switch(
         byCount: c => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, division: c, requirement: None,
             divide: curve => curve.DivideByCount(segmentCount: c.Count, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None }),
         byLength: l => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, division: l, requirement: Some(Requirement.CurveLength),
             divide: curve => curve.DivideByLength(segmentLength: l.Length, includeEnds: true, points: out Point3d[] points) switch { double[] => Optional(points), _ => Option<Point3d[]>.None }),
-        // ByChord binds the parameter-returning overload, matching the sibling arms — stations keep their parameter
-        // channel live at the seam even though the aspect emits points.
         byChord: c => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, division: c, requirement: Some(Requirement.CurveLength),
             divide: curve => curve.DivideEquidistant(distance: c.Distance, curveParameters: out double[] _) switch { Point3d[] points => Optional(points), _ => Option<Point3d[]>.None }),
         asContour: a => Locate.Divide<TGeometry, TOut>(key: LocationKeys.Divide, division: a, requirement: None,
             divide: curve => Optional(curve.DivideAsContour(contourStart: a.Start, contourEnd: a.End, interval: a.Interval)).Filter(static points => points.Length > 0)));
 }
 
-// The (mode x aggregation x output) matrix lives on the ROWS, exactly as LocationValue's does: each mode row owns
-// its curve and surface lanes and answers None where the combination is unservable, so `Locate.Curvature` holds a
-// family resolve and ONE Unsupported site instead of the central tuple-switch this page's own boundary forbids.
 [Union]
 public abstract partial record CurvatureMode {
     private CurvatureMode() { }
     public sealed record VectorCase : CurvatureMode {
-        // The curve vector column is this row's own reading; every scalar output falls to the shared magnitude lane.
         internal override Option<Func<Op, Curve, int, Context, Fin<Seq<TOut>>>> OnCurve<TOut>(CurvatureAggregation aggregation) =>
             typeof(TOut) == typeof(Vector3d) && aggregation is CurvatureAggregation.SamplesCase
                 ? Some<Func<Op, Curve, int, Context, Fin<Seq<TOut>>>>(static (op, curve, n, ctx) =>
                     Locate.CurveCurvatures(key: op, curve: curve, count: n, context: ctx).Bind(values => op.AcceptResults<Vector3d, TOut>(values: values)))
                 : Locate.CurveLane<TOut>(aggregation: aggregation, metric: ScalarMetric.Magnitude);
-        // The surface vector column is the live bundle set; the derived pair rides the multi-metric Stat lane.
         internal override Option<Func<Op, Surface, int, Context, Fin<Seq<TOut>>>> OnSurface<TOut>(CurvatureAggregation aggregation) =>
             typeof(TOut) == typeof(SurfaceCurvature) && aggregation is CurvatureAggregation.SamplesCase
                 ? Some<Func<Op, Surface, int, Context, Fin<Seq<TOut>>>>(static (op, surface, n, ctx) =>
@@ -278,8 +246,6 @@ public abstract partial record CurvatureMode {
     public static CurvatureMode Vector => new VectorCase();
     public static CurvatureMode Scalar(ScalarMetric metric) => new ScalarCase(Metric: metric);
 
-    // Both derivation columns close on the generated total Switch — a third mode breaks the build rather than
-    // reading `false` and an empty metric set.
     internal bool IsCurveMagnitude => Switch(
         vectorCase: static _ => true,
         scalarCase: static scalar => scalar.Metric.Equals(ScalarMetric.Magnitude));
@@ -305,9 +271,6 @@ public abstract partial record CurvatureAggregation {
         samplesCase: static _ => LocationKeys.Curvature,
         extremaCase: static _ => LocationKeys.CurvatureExtrema);
 
-    // Stations to output: Samples publishes the column TOut names, Extrema runs the banded plateau first and then
-    // publishes the SAME column — so the station→output projection has one owner and a new aggregation moves no
-    // mode row. The metric rides through because a surface Stat carries the metric it was measured under.
     internal Option<Func<Op, Seq<Locate.CurvatureSample>, Context, Fin<Seq<TOut>>>> Reduce<TOut>(ScalarMetric metric) => Switch(
         samplesCase: _ => Locate.SampleColumn<TOut>(metric: metric),
         extremaCase: extrema => Locate.SampleColumn<TOut>(metric: metric).Map(column =>
@@ -348,8 +311,7 @@ public abstract partial record Location {
         shortPathCase: static sp => Locate.ShortPath<TGeometry, TOut>(start: sp.Start, end: sp.End));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// One nameof-derived operation-key table; per-arm Op literals are the named defect.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class LocationKeys {
     internal static readonly Op PointAt = Op.Of(name: nameof(PointAt));
     internal static readonly Op FrameAt = Op.Of(name: nameof(FrameAt));
@@ -369,9 +331,6 @@ internal static class LocationKeys {
 }
 
 internal static class Locate {
-    // ONE native-family resolve. The capability lattice already admits the universal widenings — every row's Reach
-    // opens with `Capability.Universal` — so the two hardcoded `object`/`GeometryBase` escapes were re-deriving
-    // what the row answers, and a third native family is one arm here rather than a new clause in a ladder.
     private static Option<Capability> FamilyOf(Type native) =>
         native == typeof(Curve) ? Some(Capability.CurveForm)
         : native == typeof(Surface) ? Some(Capability.SurfaceForm)
@@ -431,8 +390,6 @@ internal static class Locate {
                         .Bind(planes => state.Key.Accept(values: planes)))).ToEff()).As<TGeometry, TOut>(key: key)
             : key.Unsupported<TGeometry, TOut>();
 
-    // The division ADMITS inside the lease, where Env carries the runtime Context its lane reads — the fold that
-    // builds this operation holds no Context, which is why the spacing gates cannot live there.
     internal static Operation<TGeometry, TOut> Divide<TGeometry, TOut>(Op key, Division division, Option<Requirement> requirement, Func<Curve, Option<Point3d[]>> divide) where TGeometry : notnull =>
         Admits<TGeometry, TOut, Curve, Point3d>()
             ? Operation<TGeometry, Point3d>.Build(
@@ -484,9 +441,6 @@ internal static class Locate {
             : LocationKeys.ShortPath.Unsupported<TGeometry, TOut>();
 
     // --- [CURVATURE_SWEEP]
-    // Family resolve, row-owned lane, ONE Sweep, ONE Unsupported. The deleted body was an eight-arm tuple switch
-    // over (mode, aggregation, typeof(TOut)) whose arms differed only in native, requirement, and project — the
-    // exact collapse-regression this page's own boundary names, and the one LocationValue already solved by rows.
     internal static Operation<TGeometry, TOut> Curvature<TGeometry, TOut>(int count, CurvatureMode mode, CurvatureAggregation aggregation) where TGeometry : notnull {
         Op key = aggregation.Key;
         return count <= 0
@@ -502,9 +456,6 @@ internal static class Locate {
                     : key.Unsupported<TGeometry, TOut>();
     }
 
-    // The two scalar lanes are ONE station sweep each, the aggregation deciding whether the output is the station
-    // column or the banded plateau over it — so neither mode row spells a reduction and neither aggregation spells
-    // a sampling.
     internal static Option<Func<Op, Curve, int, Context, Fin<Seq<TOut>>>> CurveLane<TOut>(CurvatureAggregation aggregation, ScalarMetric metric) =>
         aggregation.Reduce<TOut>(metric: metric).Map(reduce =>
             (Func<Op, Curve, int, Context, Fin<Seq<TOut>>>)((op, curve, n, ctx) =>
@@ -515,16 +466,12 @@ internal static class Locate {
             (Func<Op, Surface, int, Context, Fin<Seq<TOut>>>)((op, surface, n, ctx) =>
                 SurfaceSamples(key: op, surface: surface, count: n, context: ctx, metric: metric).Bind(samples => reduce(op, samples, ctx))));
 
-    // The multi-metric Stat set is the vector mode's surface reading: one sampling pass, metrics transposed, so an
-    // extremum over a derived pair has no single quantity to rank and answers None rather than a wrong plateau.
     internal static Option<Func<Op, Surface, int, Context, Fin<Seq<TOut>>>> SurfaceStatLane<TOut>(CurvatureAggregation aggregation, Seq<ScalarMetric> metrics) =>
         metrics.IsEmpty || aggregation is not CurvatureAggregation.SamplesCase || typeof(TOut) != typeof(Stat<Scalar>)
             ? Option<Func<Op, Surface, int, Context, Fin<Seq<TOut>>>>.None
             : Some<Func<Op, Surface, int, Context, Fin<Seq<TOut>>>>((op, surface, n, ctx) =>
                 SurfaceStats(key: op, surface: surface, count: n, context: ctx, metrics: metrics).Bind(stats => op.AcceptResults<Stat<Scalar>, TOut>(values: stats)));
 
-    // ONE station→output column resolver. The point, the measured scalar, and the whole-batch Stat all read the
-    // same carrier here, so no arm re-discriminates TOut beside another and a new column is one row in this member.
     internal static Option<Func<Op, Seq<CurvatureSample>, Context, Fin<Seq<TOut>>>> SampleColumn<TOut>(ScalarMetric metric) =>
         typeof(TOut) == typeof(Point3d)
             ? Some<Func<Op, Seq<CurvatureSample>, Context, Fin<Seq<TOut>>>>(static (key, samples, _) =>
@@ -549,7 +496,6 @@ internal static class Locate {
                     .Bind(lease => lease.Use((State: state, Context: context), static (s, native) => s.State.Project(arg1: s.State.Key, arg2: native, arg3: s.State.Count, arg4: s.Context))).ToEff()
                 select result);
 
-    // Station carrier on the rails validity fold: the acceptance oracle gates every station, so a NaN curvature or unset point faults the sweep instead of riding into Stat.Extrema.
     [StructLayout(LayoutKind.Auto)]
     internal readonly record struct CurvatureSample(Point3d Point, double Curvature) : IValidityEvidence {
         public bool IsValid => ValidityClaim.All(ValidityClaim.Finite(value: Point), ValidityClaim.Nonnegative(value: Curvature));
@@ -558,26 +504,20 @@ internal static class Locate {
     internal static Fin<Seq<Vector3d>> CurveCurvatures(Op key, Curve curve, int count, Context context) =>
         Evaluation.CurveSampleParameters(curve: curve, count: count, context: context, key: key)
             .Bind(parameters => key.Accept(values: parameters.Map(t => curve.CurvatureAt(t: t))));
-    // The station's scalar is the MODE's metric, so the magnitude fold and the sample fold are one member.
     private static Fin<Seq<CurvatureSample>> CurveSamples(Op key, Curve curve, int count, Context context, ScalarMetric metric) =>
         Evaluation.CurveSampleParameters(curve: curve, count: count, context: context, key: key)
             .Bind(parameters => parameters.TraverseM(t => metric.Of(value: curve.CurvatureAt(t: t), key: key)
                 .Map(value => new CurvatureSample(Point: curve.PointAt(t: t), Curvature: value))).As())
             .Bind(samples => key.Accept(values: samples));
 
-    // Every scalar-projecting bundle read is lease-scoped with the IsSet gate INSIDE the lease — an unset bundle disposes on the refusal path, never projected.
     private static Fin<T> WithBundle<T>(Op key, Surface surface, Point2d uv, Func<SurfaceCurvature, Fin<T>> project) =>
         Optional(surface.CurvatureAt(u: uv.X, v: uv.Y)).ToFin(key.InvalidResult())
             .Bind(bundle => new Lease<SurfaceCurvature>.Owned(Value: bundle)
                 .Use(scoped => scoped.IsSet ? project(arg: scoped) : Fin.Fail<T>(key.InvalidResult())));
-    // Output IS the live bundle seq: acquisition is total then IsSet-gated, and a refused batch disposes in full before the fault leaves — a TraverseM abort would leak the acquired prefix.
     internal static Fin<Seq<SurfaceCurvature>> SurfaceBundles(Op key, Surface surface, int count, Context context) =>
         Evaluation.SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
             .Map(uvs => uvs.Map(uv => surface.CurvatureAt(u: uv.X, v: uv.Y)))
             .Bind(bundles => {
-                // Release binds to the REFUSAL branch as a statement, never to a wildcard switch arm sitting in
-                // value position beside the result. A bracket over the acquisition would be wrong here: on success
-                // the batch's ownership TRANSFERS to the caller by this row's contract.
                 if (bundles.ForAll(static bundle => bundle is { IsSet: true })) { return Fin.Succ(bundles.Map(static bundle => bundle!)); }
                 foreach (SurfaceCurvature? bundle in bundles) { bundle?.Dispose(); }
                 return Fin.Fail<Seq<SurfaceCurvature>>(key.InvalidResult());
@@ -587,7 +527,6 @@ internal static class Locate {
             .Bind(uvs => uvs.TraverseM(uv => WithBundle(key: key, surface: surface, uv: uv,
                 project: bundle => metric.Of(value: bundle, key: key).Map(value => new CurvatureSample(Point: bundle.Point, Curvature: value)))).As())
             .Bind(samples => key.Accept(values: samples));
-    // One sampling pass for the multi-metric Stat set: per-station lease-scoped metric rows, then a per-metric transpose.
     internal static Fin<Seq<Stat<Scalar>>> SurfaceStats(Op key, Surface surface, int count, Context context, Seq<ScalarMetric> metrics) =>
         Evaluation.SurfaceSampleUv(surface: surface, count: count, context: context, key: key)
             .Bind(uvs => uvs.TraverseM(uv => WithBundle(key: key, surface: surface, uv: uv,

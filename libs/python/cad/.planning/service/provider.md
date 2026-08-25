@@ -69,9 +69,6 @@ from rasm.cad.service.spool import COMPRESSIONS, ArtifactPort, ProviderPolicy, b
 
 
 class Rpc[Q: Message, S: Message, E, C: Sources](Struct, frozen=True, kw_only=True):
-    # five axes the two hand-written methods duplicated twenty-two lines to express. `C` names the source shape
-    # this rpc admits and `E` the marshalled evidence its kernel answers, so the spine stays generic over both
-    # and names neither native leg; a sixth axis lands as a sixth column, never a branch inside `_served`.
     coordinate: str
     suffix: str
     resolve: Callable[[tuple[SourceRow, ...]], CadRail[C]]
@@ -128,8 +125,6 @@ class CadProvider(CadService):
         ctx: RequestContext[ExecuteRequest, ExecuteResponse],
         /,
     ) -> ExecuteResponse:
-        # this is the call's ONE read of `ctx.timeout_ms`: it recomputes time REMAINING on every read and goes
-        # negative past the deadline, so every inner window derives from the scope this one read opens.
         return self._settled(await self._served(_EXECUTE, request, ctx.timeout_ms))
 
     @override
@@ -153,8 +148,6 @@ class CadProvider(CadService):
                 async with AsyncExitStack() as stack, output(suffix=row.suffix) as sink:
                     return await self._driven(row, request, stack, sink)
         except TimeoutError:
-            # `fail_after` bounds the whole call, so by the time this arm runs the sink context has already retired
-            # its operation directory under a shielded scope and no fetched input path survives the elapsed budget.
             return Error(CALL_DEADLINE.at(f"{row.coordinate}.deadline"))
 
     async def _driven[Q: Message, S: Message, E, C: Sources](
@@ -167,8 +160,6 @@ class CadProvider(CadService):
     ) -> CadRail[S]:
         prepared = (await sources(request, self._artifacts, stack, self._policy)).bind(row.resolve).map(
             lambda shape: NativeCall(
-                # Connect decoded this body and `BodyAdmission(SERVER)` admitted it, so the re-encode that carries
-                # it across the pickle seam is total and needs no separate proto-plane encode fence.
                 payload=request.to_binary(),
                 sources=shape,
                 target=str(sink.path),
@@ -195,9 +186,6 @@ class CadProvider(CadService):
                 raise self._connect(fault)
 
     def _connect(self, fault: CadFault, /) -> ConnectError:
-        # `_settled` raises here and nowhere else — the package's ONE outbound raise site, and the only seat a
-        # foreign caller's demand for an exception has. A refused stamp crosses DETAIL-LESS under its own row's
-        # code rather than borrowing another call's correlation: absence answers, and absence forges no verdict.
         match self._stamp():
             case Result(tag="ok", ok=stamp):
                 code, message, details = refused(fault, stamp)
@@ -233,9 +221,6 @@ def application(
     interceptors: tuple[Interceptor, ...] = (),
     compressions: tuple[Compression, ...] = COMPRESSIONS,
 ) -> CadServiceASGIApplication:
-    # ONE mount policy for the whole service: the app root's metadata interceptors lead so they wrap outermost,
-    # body admission sits innermost against the body, and the body ceiling and codec roster read the admitted
-    # policy row rather than literals, so a profile change moves one row instead of every mount and dial.
     return CadServiceASGIApplication(
         CadProvider(policy, artifacts, stamp),
         interceptors=(*interceptors, BodyAdmission(AdmissionSide.SERVER)),

@@ -27,12 +27,10 @@ Solar position is the kernel's: `Rasm/Numerics/calculus#SOLAR_EPHEMERIS` `SolarS
   - Weather records are `Rasm.Compute Analysis/daylight`'s: this page carries the coordinate a study is read AT, never the climate data read there. A file reader on this page would be a second ingestion path the sealed receipts already own.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 
 
-// Every case is raised on this page: the lattice and estimate cases carry the columns a reader needs
-// to act, which is why a bare detail string does not serve them.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContextFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.UiContext;
@@ -58,15 +56,8 @@ public abstract partial record ContextFault : Fault {
 ```
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The span posture a grain row elects — the two decisions the grain vocabulary actually carries, seated on
-// THREE rows rather than as two independent bools on four grains. `Sweeps` gates the scrub affordance: an
-// instant is a selected moment and every other grain is a span, and the day row's endpoints are equal too yet
-// it is a sweep, so the distinction cannot be re-derived from the endpoints. `Declares` decides whether the
-// coordinate carries an explicit month pair, and `Admits`/`Requires` both derive from it, so the admission
-// gate and the refusal wording are one authority. The unspellable fourth combination — declaring a month
-// range that cannot be swept — has no row, which is what makes it unrepresentable rather than guarded.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -84,11 +75,6 @@ public sealed partial class GrainSpan {
     public string Requires => Declares ? "a declared month range" : "no month range";
 }
 
-// The four selection grains. Each row carries the WINDOW it spans off a civil date and the months that date is
-// read against, so the span a shadow study integrates, the span a radiation accumulation sums, and the span a
-// chart axis bounds are one fold at four column values and the ranged arithmetic lives on the row that
-// declares it. The season row floors to the meteorological quarter the calendar reshape already groups on, so
-// a season selected here and a season faceted on a board are the same three months.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -101,8 +87,6 @@ public sealed partial class TemporalGrain {
         static (date, _) => new LocalDate(date.Year, (((date.Month - 1) / 3) * 3) + 1, 1) switch {
             var start => (From: start, To: start.PlusMonths(3).PlusDays(-1)),
         });
-    // The whole anchor year is the row's window when no pair is seated. The mint refuses that state, so this
-    // arm is what keeps `Dates` TOTAL rather than a second admission the projections would each have to take.
     public static readonly TemporalGrain Range = new("range", GrainSpan.Declared,
         static (date, months) => months
             .Map(span => (
@@ -116,10 +100,6 @@ public sealed partial class TemporalGrain {
     public partial (LocalDate From, LocalDate To) Dates(LocalDate anchor, Option<(int From, int To)> months);
 }
 
-// The climate-scenario column: the measured baseline beside the projected horizons a design brief is graded
-// against. `OffsetYears` is the year shift the record read moves by; the SUN does not move, because orbital
-// mechanics carry no emissions pathway, so a scenario changes which weather record a study reads and leaves
-// the solar geometry exactly where the almanac puts it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -131,16 +111,9 @@ public sealed partial class ClimateScenario {
 
     public int OffsetYears { get; }
 
-    // The projected civil date a record read resolves at. A baseline row shifts nothing, so the measured
-    // record and its own year stay identical and no arm special-cases the present.
     public LocalDate Horizon(LocalDate at) => at.PlusYears(OffsetYears);
 }
 
-// The three context verbs as ONE closed family, each carrying exactly the payload its intent row addresses.
-// Four optional columns on a re-seat let a caller spell a scrub that also flips the scenario and a grain flip
-// carrying no grain; the union spells neither, and the total `Switch` breaks every arm the moment a fourth
-// verb lands. The grain case carries its months BESIDE the grain because electing a ranged grain and
-// declaring the range it reads are one operator gesture, not two that can arrive out of order.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ContextEdit {
     private ContextEdit() { }
@@ -152,13 +125,8 @@ public abstract partial record ContextEdit {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The ONE environmental coordinate. `At` is civil rather than absolute because every selection an operator
-// makes — a date, an hour, a season — is civil, and resolving to an instant through the calendar policy's own
-// zone is what keeps a scrub, a chart axis, and a calendar reshape reading one civil day. `Months` is present
-// exactly when the grain's span posture declares one, which the mint enforces, so an inconsistent pair is
-// unrepresentable.
 public sealed record AnalysisContext(
     SolarSite Site,
     CalendarPolicy Calendar,
@@ -166,11 +134,6 @@ public sealed record AnalysisContext(
     TemporalGrain Grain,
     Option<(int From, int To)> Months,
     ClimateScenario Scenario) {
-    // The one mint, and every column refuses TOGETHER: a coordinate carrying a mismatched grain, an inverted
-    // month pair, and a site on a foreign clock names all three faults once rather than teaching the operator
-    // one defect per round trip. A range grain with no months and a non-range grain carrying months are both
-    // refused rather than silently normalized, because a silently dropped range is a study over a span the
-    // operator asked for and never got.
     public static Fin<AnalysisContext> Of(
         SolarSite site,
         CalendarPolicy calendar,
@@ -186,9 +149,6 @@ public sealed record AnalysisContext(
                     new ContextFault.ContextRejected(months.Match(
                         Some: static span => $"months {span.From}..{span.To} outside an ascending 1..12",
                         None: static () => "months"))),
-                // The site's STANDARD offset, never the zone's current one: daylight saving is a civil clock
-                // convention and the almanac reads solar time, so comparing against the savings-bearing
-                // offset would refuse every summer coordinate in a DST zone.
                 Gate(interval.StandardOffset == site.Timezone,
                     new ContextFault.SiteRejected(
                         $"site {site.Timezone} against {calendar.Zone.Id} standard {interval.StandardOffset}")))
@@ -198,11 +158,6 @@ public sealed record AnalysisContext(
 
     public Instant Moment => At.InZoneLeniently(Calendar.Zone).ToInstant();
 
-    // The one re-seat, TOTAL over the edit family and re-entering the one admission on every arm — three
-    // verbs over three constructors is how a grain flip comes to carry a month range it cannot read. The
-    // months column DERIVES off the elected grain's posture, so a flip to a non-declaring grain drops its
-    // range at the seat instead of failing a mint the operator never asked for, and a flip back carries the
-    // range they last declared.
     public Fin<AnalysisContext> Seated(ContextEdit edit) => edit.Switch(
         state: this,
         moment: static (held, row) => Of(held.Site, held.Calendar, row.At, held.Grain, held.Months, held.Scenario),
@@ -211,22 +166,10 @@ public sealed record AnalysisContext(
             held.Scenario),
         scenario: static (held, row) => Of(held.Site, held.Calendar, held.At, held.Grain, held.Months, row.Elected));
 
-    // The CIVIL date pair the grain declares, read straight off the row that owns the arithmetic. Both
-    // projections below resolve from this one pair, so the span a study integrates and the span a record is
-    // read at cannot drift apart into two date arithmetics.
     public (LocalDate From, LocalDate To) Dates() => Grain.Dates(At.Date, Months);
 
-    // The window every SOLAR and civil consumer bounds on — the sun sweep, the chart axis, the scrub. The end
-    // is EXCLUSIVE at the following midnight, so a day window covers its whole day and two consecutive day
-    // windows neither overlap nor leave a gap.
     public Interval Window() => Dates() switch { var span => Spanned(span.From, span.To) };
 
-    // The same civil span at the scenario's own HORIZON — the coordinate a weather-record read takes, and the
-    // one place the emissions pathway is allowed to move anything. The dates move by the row's YEAR offset and
-    // the zone resolve runs again over the shifted dates, so a projected read lands on the civil days the
-    // record actually carries rather than on the anchor span displaced by a fixed tick count a leap day would
-    // put off by one. The baseline row shifts nothing, so a measured read and its window are one value and no
-    // arm special-cases the present.
     public Interval Record() =>
         Dates() switch { var span => Spanned(Scenario.Horizon(span.From), Scenario.Horizon(span.To)) };
 
@@ -234,23 +177,13 @@ public sealed record AnalysisContext(
         new(from.AtStartOfDayInZone(Calendar.Zone).ToInstant(),
             to.PlusDays(1).AtStartOfDayInZone(Calendar.Zone).ToInstant());
 
-    // The kernel ephemeris at this coordinate, composed and never re-derived. The angles arrive in the
-    // almanac's own survey convention and each consumer projects them into its own frame, which is exactly
-    // the boundary the almanac states.
     public SunPosition Sun() => SolarPosition.At(Site, Moment);
 
-    // One day's sweep, which the sun-path diagram, the shadow-hours accumulation, and the scrub all read —
-    // three consumers, one sampler, so a diagram and a study can never disagree about where the sun was.
     public Seq<(Instant At, SunPosition Sun)> Path(Duration step, Dimension samples) =>
         SolarPosition.SunPath(Site, At.Date.AtStartOfDayInZone(Calendar.Zone).ToInstant(), step, samples);
 
-    // The civil cell a calendar reshape groups this coordinate into, so a context selection and a board facet
-    // partition on one civil calendar rather than on two zone reads that agree until a DST boundary.
     public string Cell(CalendarAxis axis) => axis.Group(Calendar.Civil(Moment));
 
-    // The coordinate as evidence, under the intent that seated it. `Count` is whole civil DAYS off the date
-    // pair rather than a duration narrowed to an hour count, so the checked narrowing states the wire's bounded
-    // per-event posture exactly once at this projection.
     public EvidenceReceipt ToEvidence(string intent) =>
         Dates() switch {
             var span => new EvidenceReceipt.Effect(
@@ -263,8 +196,6 @@ public sealed record AnalysisContext(
         holds ? unit : (Validation<Error, Unit>)(Error)fault;
 }
 
-// An admitted re-seat and the receipt that records it as ONE value, so a verb cannot land the new coordinate
-// on the surfaces bound to it and forget the evidence row — the two arrive together or neither does.
 public sealed record ContextChange(AnalysisContext Context, EvidenceReceipt Evidence);
 ```
 
@@ -293,7 +224,7 @@ public sealed record ContextChange(AnalysisContext Context, EvidenceReceipt Evid
   - The three intent keys and the TRACK key are four DISTINCT literals under one plane prefix. The track and the scrub intent previously shared one string under two names, which is a latent cross-registry hit: a command key and an animation track id are two address spaces, and one literal in both binds them by accident on the first registry that scans either.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ContextChannel {
     public const string Plane = "analysis.context";
@@ -303,30 +234,16 @@ public static class ContextChannel {
     public const string GrainIntent = "analysis.context.grain";
     public const string ScenarioIntent = "analysis.context.scenario";
 
-    // The variable's own caption, declared here because it is a REGISTRY key this surface resolves against —
-    // and it is not any row's label: the dropdown is captioned once and its members are captioned by the
-    // board's own domain rendering.
     public static readonly string ScenarioLabel = LocaleStrings.Key(nameof(ClimateScenario), "label");
 
-    // The one seat: every `Shell/commands#INTENT_TABLE` row this owner declares lands HERE, so a scrub, a
-    // grain flip, and a scenario election share one admission, one evidence row, and one refusal vocabulary.
-    // The intent key rides the receipt rather than being re-derived by the caller that dispatched it.
     public static Fin<ContextChange> Seat(AnalysisContext current, ContextEdit edit) =>
         current.Seated(edit).Map(next => new ContextChange(next, next.ToEvidence(Intent(edit))));
 
-    // The intent row an edit answers — the union names which, the consts name what, and neither is spelled
-    // twice.
     public static string Intent(ContextEdit edit) => edit.Switch(
         moment: static _ => ScrubIntent,
         grain: static _ => GrainIntent,
         scenario: static _ => ScenarioIntent);
 
-    // The scrub track: one parameter channel whose keyframes are second offsets into the context's own
-    // window, evenly spaced across the requested frame count. The two refusals are SEQUENTIAL by design and
-    // that is the named exemption to the accumulating form: a grain that names one moment makes the frame
-    // count moot, so reporting both would name a defect in a request that was never a sweep. Without the
-    // grain refusal the sweep posture decides nothing at the one site it exists to decide, and an instant
-    // selection silently sweeps the whole civil day it happens to sit inside.
     public static Fin<Timeline> Scrubbable(AnalysisContext context, int frames, double frameRate) =>
         !context.Grain.Span.Sweeps
             ? Fin.Fail<Timeline>(new ContextFault.GrainMismatch(context.Grain.Key, "names one moment and sweeps none"))
@@ -343,24 +260,14 @@ public static class ContextChannel {
                     .Bind(track => Timeline.Of($"{Plane}.{context.Grain.Key}", Seq(track), frameRate, PlaybackMode.Once)),
             };
 
-    // The instant a scrub frame names. A sample carrying no parameter for this track answers the context's own
-    // moment rather than an epoch zero, because an unbound scrub is the un-scrubbed context and never 1970.
     public static Instant Sampled(AnalysisContext context, TimelineSample sample) =>
         sample.Parameters.Find(TrackKey)
             .Map(seconds => context.Window().Start + Duration.FromSeconds(seconds))
             .IfNone(context.Moment);
 
-    // The board window: one of the context's own spans as an ABSOLUTE range, because an analysis window is a
-    // chosen period rather than a rolling one — a relative range would silently slide a design-day study
-    // forward every time an operator left the board open. The span is an ARGUMENT rather than a column here,
-    // so a solar series binds `Window` and a climate series binds `Record` through one lowering: a channel
-    // that lowered only one of them would caption a projected-horizon chart with the anchor year.
     public static Fin<TimeRange> Range(Interval window) =>
         TimeRange.Admit(new TimeRange(new BoardRange.Absolute(window.Start, window.End), Duration.Zero));
 
-    // The scenario as a BOARD VARIABLE, admitted through the board owner's own accumulating gate: the
-    // variable's domain is the roster, which means a deep link cannot smuggle in a horizon the vocabulary
-    // never declared, and a scenario ghost is `CompareOffset.Scenario` over one member of it.
     public static Fin<BoardVariable> Variable(ClimateScenario current) =>
         BoardVariable.Admit(new BoardVariable(
             ScenarioVariable,
@@ -418,14 +325,8 @@ flowchart LR
   - The lattice preview is the settled `FieldSites.Declared` vocabulary and it is bounded by ONE TOTAL POINT BUDGET rather than a per-axis cap, because a per-axis cap multiplies into its own cube — sixty-four per axis draws 262,144 points, which is exactly the frame cost the meter exists to protect. The walk strides the kernel's own linear index, so the preview is a uniform subsample of the WHOLE lattice under a fixed cost at any census and at any anisotropy, and it reaches the scene through the same declaration a streamline seed or a glyph site takes. A preview drawing its own dots would be a picture of a lattice rather than the lattice.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The named tiers, and every column is a recorded choice rather than a hint. `Pitch` multiplies the requested
-// lattice spacing, so electing a coarser tier re-previews the lattice at the resolution the solve will
-// actually take; `Share` is the fraction of the device ceiling the tier may claim, so an interactive tier
-// cannot consume the budget a production run needs to finish; `Surrogate` states whether the run answers
-// through the reduced model, which is the single fact a reader of a result most needs and the one a checkbox
-// would have thrown away the moment the study sealed.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -443,9 +344,6 @@ public sealed partial class FidelityTier {
 
     public string LabelKey => LocaleStrings.Key(nameof(FidelityTier), Key);
 
-    // The boundary read-back: a study form's choice input, a deep link, and a persisted provenance row all
-    // carry a tier as TEXT, and a key no row answers refuses BY NAME here rather than defaulting — a silent
-    // default re-grades a result at whatever tier happens to be first.
     public static Fin<FidelityTier> Elect(string key) =>
         TryGet(key, out FidelityTier? row) && row is not null
             ? Fin.Succ(row)
@@ -454,18 +352,12 @@ public sealed partial class FidelityTier {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The whole pre-solve readout: the lattice the solve will take, which tier stamps the answer, and how long
-// prior runs took. One value, so the panel, the launch gate, and the provenance stamp read the same fact and
-// no surface re-derives any of them. There is no `Requested` column beside `Solved`: the authored pitch is the
-// caller's own argument and the tier's multiplier is a declared row, so a panel captioning "0.25 m at 4x" is
-// reading two values it already holds rather than a second minted lattice the solve never takes.
 public sealed record BudgetMeter(
     CellLattice Solved,
     FidelityTier Tier,
     Option<Distribution<Elapsed>> Estimate) {
-    // One total point budget for the preview, divided by the lattice rather than by its axes.
     const int PreviewPoints = 4096;
 
     static readonly Op MeterKey = Op.Of(name: "appui.analysis.budget");
@@ -482,25 +374,16 @@ public sealed record BudgetMeter(
         from ceiling in Ceiling(budget, quality, row, bytesPerCell)
         from spacing in MeterKey.AcceptValidated<PositiveMagnitude>(candidate: pitch.Value * row.Pitch)
             .MapFail(_ => (Error)new ContextFault.LatticeRejected($"pitch {pitch.Value} at {row.Key} x{row.Pitch}"))
-        // The kernel's own budget gate IS the admission: an over-budget census refuses here, so nothing
-        // downstream re-compares a count against a ceiling the lattice already carries.
         from solved in CellLattice.Of(extent, spacing, ceiling, MeterKey)
         from estimate in Estimated(priorRuns)
         select new BudgetMeter(solved, row, estimate);
 
-    // The cell ceiling. The BYTE bound is the residency owner's own — one authority, so the meter and the
-    // frame can never disagree about what the device can hold. The share multiply runs in the real domain
-    // before the integral divide, which loses precision only above 2^53 bytes and is therefore exact at every
-    // budget a device carries this decade.
     static Fin<long> Ceiling(ResidencyBudget budget, QualityVerdict quality, FidelityTier tier, int bytesPerCell) =>
         bytesPerCell <= 0
             ? Fin.Fail<long>(new ContextFault.LatticeRejected($"cell cost {bytesPerCell}"))
             : budget.EffectiveBytes(quality)
                 .Map(bytes => (long)(bytes * tier.Share) / bytesPerCell);
 
-    // Durations onto the kernel measurement carrier, then the ONE exact order-statistic reader. An empty
-    // prior roster is ABSENT rather than a distribution over nothing, and the sample count the old shape
-    // carried as its own column is the summary's.
     static Fin<Option<Distribution<Elapsed>>> Estimated(Seq<Duration> priorRuns) =>
         priorRuns.IsEmpty
             ? Fin.Succ(Option<Distribution<Elapsed>>.None)
@@ -508,15 +391,8 @@ public sealed record BudgetMeter(
                 .Bind(runs => Distribution<Elapsed>.Of(runs, Seq<double>(), MeterKey))
                 .Map(Some);
 
-    // The fraction of the tier's own ceiling the request consumes — the number the meter's gauge reads. No
-    // clamp and no zero guard: the lattice mint proved the census inside a positive ceiling, so the ratio is
-    // in (0, 1] by construction and a guard here would be a second admission of a value already admitted.
     public double Fill => Solved.CellCount / (double)Solved.Ceiling;
 
-    // The preview IS the declaration the solve takes. The stride divides the census by the point budget and
-    // the walk multiplies back through the kernel's own linearization, so the drawn count never exceeds the
-    // budget at any census or any anisotropy and the highest index is inside the lattice by arithmetic —
-    // a one-layer work plane and a tall single column are bounded by the same total a cube is.
     public FieldSites Preview() =>
         (Stride: Math.Max(1L, Solved.CellCount / PreviewPoints),
          Count: (int)Math.Min(PreviewPoints, Solved.CellCount)) switch {
@@ -527,17 +403,11 @@ public sealed record BudgetMeter(
                     .Select(static point => (point.X, point.Y, point.Z)))),
         };
 
-    // The estimate a caller that MUST have one asks for: a scheduling admission cannot queue a production run
-    // into a window it cannot size, so the absence the readout renders honestly refuses by name here rather
-    // than resolving to a zero the queue would treat as instant.
     public Fin<Duration> Expected(string study) =>
         Estimate.Match(
             Some: static spread => Fin.Succ(spread.Median.ToDuration()),
             None: () => Fin.Fail<Duration>(new ContextFault.EstimateAbsent(study, Tier.Key)));
 
-    // The provenance stamp the adoption fold seats on the layer, so a result always names how it was computed
-    // and a rapid-surrogate reading can never be mistaken for a detailed one anywhere it is later read. The
-    // tier crosses as its ROW and the census as its own width, so neither narrows at the seam.
     public LayerProvenance Stamp(StudySubmission submission, ContentHash digest, Instant sealedAt) =>
         new(submission, digest, Tier, Solved.CellCount, sealedAt);
 }

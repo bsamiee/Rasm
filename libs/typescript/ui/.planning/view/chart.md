@@ -44,29 +44,22 @@ declare namespace Chart {
   type RegimeRow = {
     readonly mount: "plot" | "series" | "pivot"
     readonly bus: "table" | "aligned" | "ipc"
-    // three color paths, never a canvas boolean: a canvas reads no custom property and takes resolved values, an SVG
-    // surface takes `cn` classes, and a shadow-DOM element reaches neither and takes a loaded theme NAME
     readonly ink: "resolved" | "class" | "themed"
-    readonly addressable: boolean // per-datum DOM addressability: the one condition [3]'s bespoke lane is earned by
-    readonly summary: boolean // the regime owes an accessible summary row beside the chart
+    readonly addressable: boolean
+    readonly summary: boolean
   }
   type Aligned = uPlot.AlignedData
   type Column = uPlot.AlignedData[number]
   type Frame = { readonly width: number; readonly height: number }
   type Sizing = { readonly debounceTime: number; readonly enableDebounceLeadingCall: boolean }
   type Panel = { readonly parentRef: (node: HTMLDivElement | null) => void; readonly frame: Chart.Frame }
-  type Source = RecordBatch | Table // both carry getChild(name) — the batch lane projects with zero Table construction
-  type _Rows<T extends Record<Regimes[number], RegimeRow> = typeof _regimeRows> = T // row guard: a missing regime or a malformed column fails at the declaration with zero widening
-  type _Keys<K extends Regimes[number] = Regime> = K // key guard: a regime row outside the tuple fails here
+  type Source = RecordBatch | Table
+  type _Rows<T extends Record<Regimes[number], RegimeRow> = typeof _regimeRows> = T
+  type _Keys<K extends Regimes[number] = Regime> = K
 }
 
-// Absent alias renders as nothing at all, so one renderer serves both grains without a placeholder column.
 const _named = (alias: Option.Option<string>): string => Option.getOrElse(Option.map(alias, (held) => ` ${held}`), () => "")
 
-// One row per reason carrying the core kind, the leg it refuses at, and the subject it alone renders: severity,
-// blame, retryability, and quarantine stay the core Fault.Class row table's, so a rank or retry column here would
-// fork the branch lattice per folder. The alias rides as absence-shaped because the two gates refuse at two
-// grains — the engine refusing to answer at all names no column, each rejected column names itself.
 const _family = Fault.Class.family(
   ["engine-lost", "frame-refused", "expression-refused", "window-refused", "view-lost"] as const,
   {
@@ -92,8 +85,6 @@ const _family = Fault.Class.family(
       }),
       render: ({ alias, cause, feed }) => `${feed} expression${_named(alias)} refused: ${cause}`,
     }),
-    // windows carry their own reason because they refuse at a DIFFERENT gate: expressions clear an engine
-    // validator before shipping, windows clear only the local alias fold this folder owns
     "window-refused": Fault.Class.row({
       class: "invalid",
       leg: "window",
@@ -132,15 +123,9 @@ class ChartFault extends Schema.TaggedError<ChartFault>()("ChartFault", {
   }
 }
 
-// Both gates admit their columns INDEPENDENTLY — a colliding window alias decides nothing about a sibling's alpha,
-// and the engine reports every refused expression in one verdict record — so each names every offender in one
-// refusal through the family's own census carrier. Joining them into one sentence hands an author the first
-// column and hides the rest until the next round trip.
 const ChartCensus = _family.census("ChartCensus")
 type ChartCensus = InstanceType<typeof ChartCensus>
 
-// a 64-bit Arrow lane (Int64, Timestamp, Duration) backs on `BigInt64Array`, which uPlot's own arithmetic and the
-// ring kernel's Float64 draft both refuse at runtime, so the widening lands ONCE here and no downstream lane meets a bigint
 const _numeric = (column: ArrayLike<number> | ArrayLike<bigint>): Chart.Column =>
   column.length > 0 && typeof column[0] === "bigint"
     ? Float64Array.from(column as ArrayLike<bigint>, Number)
@@ -149,7 +134,6 @@ const _numeric = (column: ArrayLike<number> | ArrayLike<bigint>): Chart.Column =
 const _project = (source: Chart.Source, x: string, series: ReadonlyArray<string>): Option.Option<Chart.Aligned> =>
   Option.map(
     Option.all(Array.map([x, ...series], (name) => Option.fromNullable(source.getChild(name)))),
-    // BOUNDARY ADAPTER: Vector.toArray answers the column's own backing array, which AlignedData admits element-wise
     (children) => Array.map(children, (child) => _numeric(child.toArray() as ArrayLike<number> | ArrayLike<bigint>)) as Chart.Aligned,
   )
 
@@ -164,7 +148,6 @@ function _columns(
   x: string,
   series: ReadonlyArray<string>,
 ): Option.Option<Chart.Aligned> {
-  // each value's own container evidence decides the arity: no mode flag, no sibling join export
   return isArrowTable(input) || isArrowRecordBatch(input)
     ? _project(input, x, series)
     : Option.map(Option.all(Array.map(input, (one) => _project(one, x, series))), (lanes) => uPlot.join([...lanes]))
@@ -172,7 +155,7 @@ function _columns(
 
 const _useFrame = (sizing: Chart.Sizing): Chart.Panel => {
   const measured = useParentSize(sizing)
-  return { parentRef: measured.parentRef, frame: { width: measured.width, height: measured.height } } // the observer's own top/left/node/resize stay behind this seam: a chart reads extent, never the panel's box or its ref handle
+  return { parentRef: measured.parentRef, frame: { width: measured.width, height: measured.height } }
 }
 ```
 
@@ -225,8 +208,6 @@ declare namespace Chart {
     readonly slots: ReadonlyArray<Chart.Slot>
     readonly ink: Option.Option<(count: number) => string>
   }
-  // `opacity` and `clipPath` alone hand off to WAAPI on SVG, so a reveal and a selection echo
-  // cost no rAF frame, while the geometry change rides the re-domained scale instead of a `d` interpolation
   type Target = {
     readonly initial: { readonly opacity: number; readonly clipPath: string }
     readonly animate: { readonly opacity: number; readonly clipPath: string }
@@ -259,7 +240,7 @@ const _legend = (
   figure: ReturnType<typeof Plot.plot>,
   scale: Parameters<ReturnType<typeof Plot.plot>["legend"]>[0],
   options: Parameters<ReturnType<typeof Plot.plot>["legend"]>[1],
-): Option.Option<HTMLElement | SVGSVGElement> => Option.fromNullable(figure.legend(scale, options)) // a scale the spec never inferred answers nothing: absence is the legend's own verdict
+): Option.Option<HTMLElement | SVGSVGElement> => Option.fromNullable(figure.legend(scale, options))
 
 const _pointed = <A, I>(
   figure: ReturnType<typeof Plot.plot>,
@@ -269,8 +250,6 @@ const _pointed = <A, I>(
   Effect.acquireRelease(
     Effect.sync(() => {
       const decode = Schema.decodeUnknownOption(schema)
-      // BOUNDARY ADAPTER: the figure's input event is the platform push seam — `figure.value` is the nearest-datum
-      // row typed `unknown`, and `null` once the pointer leaves, so ONE decode here answers both absences alike
       const listen = (): void => sink(decode(figure.value))
       figure.addEventListener("input", listen)
       return listen
@@ -286,7 +265,7 @@ const _spanned = <Datum,>(data: ReadonlyArray<Datum>, read: (datum: Datum) => nu
 const _scaled = (held: Option.Option<Chart.Scale>, span: Chart.Span): Chart.Scale =>
   Option.match(held, {
     onNone: () => scaleLinear<number>(span),
-    onSome: (scale) => updateScale(scale, span), // the instance survives the data change: the axes and the path hold one reference, so no consumer re-reads a fresh scale
+    onSome: (scale) => updateScale(scale, span),
   })
 
 const _fold = <Datum,>(data: ReadonlyArray<Datum>, lens: Chart.Lens<Datum>): Chart.Fold =>
@@ -306,23 +285,18 @@ const _inner = (frame: Chart.Frame, margin: Chart.Margin): Chart.Frame => ({
   height: frame.height - margin.top - margin.bottom,
 })
 
-// motion drives the visx component itself, so the mounted mark IS the shape and no animated copy stands beside it
 const _MARK = motion.create(LinePath)
 
-// every prop the engine consumes: `isValidProp` is the SOLE gate a `motion.create` wrapper forwards through, so a
-// key on this row must never reach the SVG element visx spreads its rest props onto
 const _ENGINE: ReadonlyArray<string> = [
   "initial", "animate", "exit", "variants", "transition", "layout", "layoutId",
   "drag", "whileHover", "whileTap", "whileFocus", "whileDrag", "whileInView",
 ]
 
 const _MOTION = {
-  reducedMotion: "user", // the subtree owns the preference read, so no mark queries the platform itself
+  reducedMotion: "user",
   isValidProp: (key: string): boolean => !_ENGINE.includes(key),
 } as const satisfies ComponentProps<typeof MotionConfig>
 
-// this wipe closes over the INNER frame the margin already carved, so a reveal is one accelerated property and the
-// mark's geometry never recomputes per frame
 const _target = (inner: Chart.Frame): Chart.Target => ({
   initial: { opacity: 0, clipPath: `inset(0 ${inner.width}px 0 0)` },
   animate: { opacity: 1, clipPath: "inset(0 0 0 0)" },
@@ -337,8 +311,6 @@ const _marked = <Datum,>(
   inner: Chart.Frame,
 ): ReadonlyArray<Chart.Mark<Datum>> =>
   Array.map(
-    // BOUNDARY ADAPTER: the group answers one FRESH mutable array per series key, which is exactly the shape visx
-    // props take — this fold is the one seam the readonly interior copies at
     Record.toEntries(Array.groupBy(data, lens.series)),
     ([key, rows]): Chart.Mark<Datum> => ({
       key,
@@ -363,7 +335,7 @@ const _bespoke = <Datum,>(
     const up = yield* _spanned(data, lens.y)
     const inner = _inner(frame, lens.margin)
     const x = _scaled(Option.map(held, (spec) => spec.bottom.scale), { domain: across, range: [0, inner.width], nice: true, clamp: true })
-    const y = _scaled(Option.map(held, (spec) => spec.left.scale), { domain: up, range: [inner.height, 0], nice: true, clamp: true }) // the inverted range IS the SVG y flip, stated once at the owner
+    const y = _scaled(Option.map(held, (spec) => spec.left.scale), { domain: up, range: [inner.height, 0], nice: true, clamp: true })
     return {
       group: { top: lens.margin.top, left: lens.margin.left },
       bottom: { scale: x, top: inner.height, numTicks: lens.ticks },
@@ -413,7 +385,6 @@ function _write(chart: uPlot, payload: Chart.Aligned, frame: Chart.Frame): void
 function _write(chart: uPlot, payload: Chart.Aligned): void
 function _write(chart: uPlot, payload: Chart.Frame): void
 function _write(chart: uPlot, payload: Chart.Aligned | Chart.Frame, frame?: Chart.Frame): void {
-  // BOUNDARY ADAPTER: uPlot mutates through set* calls alone; the shape the payload already carries selects the write
   return Predicate.hasProperty(payload, "width")
     ? chart.setSize(payload)
     : frame === undefined
@@ -443,8 +414,6 @@ const _options = (frame: Chart.Frame, cohort: string, series: ReadonlyArray<Char
 })
 
 const _tail = (held: Chart.Aligned, next: Chart.Aligned, points: number): Chart.Aligned => {
-  // BOUNDARY ADAPTER: measured ring kernel — the streaming regime's per-frame cost IS its reason to exist, so each
-  // column copies once into a preallocated draft and every draft detaches immutable at the return
   const window: Array<Chart.Column> = []
   for (let rank = 0; rank < held.length; rank += 1) {
     const prior = held[rank] as ArrayLike<number>
@@ -468,11 +437,10 @@ const _sourced = (
   feed: Chart.Feed,
   source: Stream.Stream<Uint8Array, ChartFault> | ReadableStream<Uint8Array>,
 ): Stream.Stream<Option.Option<Chart.Aligned>, ChartFault> =>
-  // platform class decides the lane: a continuous body IS a ReadableStream, and everything else is the frame lane
   !(source instanceof ReadableStream)
     ? Stream.mapEffect(source, (frame) =>
       Effect.map(
-        Effect.try({ try: () => tableFromIPC(frame), catch: _refused(feed) }), // a malformed frame is admission failure, never a defect
+        Effect.try({ try: () => tableFromIPC(frame), catch: _refused(feed) }),
         (table) => _columns(table, feed.x, feed.series),
       ))
     : Stream.unwrap(
@@ -480,7 +448,7 @@ const _sourced = (
         Effect.tryPromise({ try: () => RecordBatchReader.from(source), catch: _refused(feed) }),
         (reader) =>
           Stream.map(
-            Stream.fromAsyncIterable(reader, _refused(feed)), // one reader over the whole body: each batch projects with zero Table construction
+            Stream.fromAsyncIterable(reader, _refused(feed)),
             (batch) => _columns(batch, feed.x, feed.series),
           ),
       ),
@@ -492,11 +460,9 @@ function _stream(
   feed: Chart.Feed,
   source: Stream.Stream<Uint8Array, ChartFault> | ReadableStream<Uint8Array>,
 ): Stream.Stream<Chart.Aligned, ChartFault> {
-  // one window law, two byte sources: the discrete lane decodes a whole frame, the continuous lane pulls batches
-  // off one reader, and both hand the SAME Option projection to the SAME ring step
   return Stream.mapAccum(_sourced(feed, source), feed.seed, (held, projected) =>
     Option.match(projected, {
-      onNone: () => [held, held] as const, // a frame missing a named column advances nothing: the prior window re-emits
+      onNone: () => [held, held] as const,
       onSome: (columns) => {
         const next = _tail(held, columns, feed.points)
         return [next, next] as const
@@ -544,24 +510,17 @@ import { Data, Effect, HashSet, Match, Record, Schema, type Scope, Stream } from
 import { Store } from "../system/atom.ts"
 
 declare namespace Chart {
-  // this narrows the package's own thunk source to the deferred arm: a thunk is the ONLY form whose losing bitness
-  // never downloads, so the boot cell admits no eager buffer
   type Wasm = () => Promise<ArrayBuffer | Response | WebAssembly.Module>
   type Bitness = { readonly wasm32: Option.Option<Chart.Wasm>; readonly wasm64: Option.Option<Chart.Wasm> }
-  // `@perspective-dev/client` re-exports neither window alias, so each reads off the config type that owns it
   type Windows = NonNullable<ViewConfigUpdate["windows"]>
   type Window = NonNullable<Chart.Windows[string]>
-  // `ViewerConfigInitial` is unexported, and `addPanel` is the one member that names it
   type Initial = Parameters<HTMLPerspectiveViewerElement["addPanel"]>[0]
   type Json = null | boolean | number | string | Array<Chart.Json> | { [key: string]: Chart.Json }
-  // this mirrors the `regular-layout` tree the workspace token carries; both arms recurse, so the codec suspends
   type Layout =
     | { readonly type: "split-layout"; children: Array<Chart.Layout>; sizes: Array<number>; readonly orientation: "horizontal" | "vertical" }
     | { readonly type: "tab-layout"; tabs: Array<string>; readonly selected?: number }
   type Config = Schema.Schema.Type<typeof _Config>
   type Board = { readonly panels: ReadonlyArray<string>; readonly active: Option.Option<string> }
-  // package types spell the callback `Function`, so the borrow's shape states here; the element class follows the
-  // column type and the window's `float32` row, which is why the numeric arms stay `ArrayLike` rather than one class
   type Lend = (
     names: ReadonlyArray<string>,
     values: ReadonlyArray<ArrayLike<number> | ArrayLike<bigint>>,
@@ -576,11 +535,10 @@ declare namespace Chart {
   type Origin = Data.TaggedEnum<{
     Ingest: {
       readonly frame: ArrayBuffer
-      readonly name: string // every origin is NAMED: a panel resolves its `table` field by name against the element's default client
+      readonly name: string
       readonly index: Option.Option<string>
       readonly limit: Option.Option<number>
-      readonly spill: boolean // page_to_disk: the WASM worker's own OPFS-backed canonical store past the memory ceiling
-      // `@perspective-dev/client` exports no `ListFlatten` alias, so the mode reads off the options type owning it
+      readonly spill: boolean
       readonly lists: Option.Option<NonNullable<TableInitOptions["list_flatten"]>>
     }
     Hosted: { readonly name: string }
@@ -639,8 +597,6 @@ declare namespace Chart {
 const _Origin = Data.taggedEnum<Chart.Origin>()
 const _Move = Data.taggedEnum<Chart.Move>()
 
-// BOUNDARY ADAPTER: engine registration is module-global state the package holds, so the idempotence latch is too —
-// a second registration after the first `worker()` has selected would swap the engine under a live client
 let _registered = false
 
 const _boot = (bitness: Chart.Bitness): Effect.Effect<void> =>
@@ -649,7 +605,6 @@ const _boot = (bitness: Chart.Bitness): Effect.Effect<void> =>
       return
     }
     _registered = true
-    // thunks defer selection AND download to the first `worker()` call, so the bitness the probe loses never fetches
     perspective.init_server({
       ...Option.match(bitness.wasm32, { onNone: () => ({}), onSome: (wasm32) => ({ wasm32 }) }),
       ...Option.match(bitness.wasm64, { onNone: () => ({}), onSome: (wasm64) => ({ wasm64 }) }),
@@ -659,7 +614,6 @@ const _boot = (bitness: Chart.Bitness): Effect.Effect<void> =>
 const _ingest = (origin: Extract<Chart.Origin, { readonly _tag: "Ingest" }>): TableInitOptions => ({
   format: "arrow",
   name: origin.name,
-  // each mode is Option-carried, so an unset mode omits its key rather than writing undefined into the options value
   ...Option.match(origin.index, { onNone: () => ({}), onSome: (index) => ({ index }) }),
   ...Option.match(origin.limit, { onNone: () => ({}), onSome: (limit) => ({ limit }) }),
   ...Option.match(origin.lists, { onNone: () => ({}), onSome: (list_flatten) => ({ list_flatten }) }),
@@ -670,7 +624,6 @@ const _opened = (client: Client, origin: Chart.Origin): Promise<PerspectiveTable
   Match.valueTags(origin, {
     Ingest: (row) => client.table(row.frame, _ingest(row)),
     Hosted: ({ name }) => client.open_table(name),
-    // a LIVE reactive table: either side's update re-derives it, and the name is what a panel binds against
     Joined: ({ name, left, right, on, kind }) => client.join(left, right, on, { join_type: kind, name }),
   })
 
@@ -678,8 +631,6 @@ const _opened = (client: Client, origin: Chart.Origin): Promise<PerspectiveTable
 
 const _Scalar = Schema.Union(Schema.Number, Schema.String, Schema.Boolean, Schema.Null)
 
-// engine config types take MUTABLE arrays, tuples, and maps, so every leaf of the persisted codec is minted
-// mutable once here — the readonly interior crosses at this schema and at no call site
 const _Strings = Schema.mutable(Schema.Array(Schema.String))
 const _Filter = Schema.mutable(
   Schema.Tuple(Schema.String, Schema.String, Schema.Union(_Scalar, Schema.mutable(Schema.Array(_Scalar)))),
@@ -690,8 +641,6 @@ const _Sorts = Schema.mutable(Schema.Array(Schema.mutable(Schema.Tuple(
   Schema.Literal("none", "desc", "asc", "col desc", "col asc", "desc abs", "asc abs", "col desc abs", "col asc abs"),
 ))))
 
-// plugin config is `JsonValue` by the package's own declaration — opaque to the viewer, defined by the ACTIVE
-// plugin — so the codec admits the whole JSON algebra and forks no plugin's key roster
 const _Json: Schema.Schema<Chart.Json> = Schema.suspend(() =>
   Schema.Union(
     Schema.Null,
@@ -704,11 +653,10 @@ const _Json: Schema.Schema<Chart.Json> = Schema.suspend(() =>
 )
 
 const _Window = Schema.Struct({
-  column: Schema.String, // a real Table column OR a same-config expression alias
+  column: Schema.String,
   aggregate: Schema.String,
   partition_by: Schema.optional(_Strings),
   order_by: Schema.optional(Schema.NullOr(Schema.mutable(Schema.Tuple(Schema.String, Schema.Literal("asc", "desc"))))),
-  // engine rules make this frame trio mutually exclusive, and NOT encoded here, which is why the gate counts them
   rows: Schema.optional(Schema.NullOr(Schema.Number)),
   range: Schema.optional(Schema.NullOr(Schema.Number)),
   cumulative: Schema.optional(Schema.NullOr(Schema.Boolean)),
@@ -717,11 +665,11 @@ const _Window = Schema.Struct({
 })
 
 const _Panel = Schema.Struct({
-  table: Schema.String, // REQUIRED by the engine's own creation type: a placed panel with no binding renders permanently blank
+  table: Schema.String,
   version: Schema.optional(Schema.String),
   plugin: Schema.optional(Schema.String),
   title: Schema.optional(Schema.String),
-  theme: Schema.optional(Schema.String), // a theme NAME the token stylesheet already loaded, never a CSS value
+  theme: Schema.optional(Schema.String),
   plugin_config: Schema.optional(Schema.mutable(Schema.Record({ key: Schema.String, value: _Json }))),
   columns_config: Schema.optional(Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.mutable(Schema.Record({ key: Schema.String, value: _Json })) })),),
   group_by: Schema.optional(_Strings),
@@ -751,7 +699,6 @@ const _Layout: Schema.Schema<Chart.Layout> = Schema.suspend(() =>
     }),
     Schema.Struct({
       type: Schema.Literal("tab-layout"),
-      // panel ids: the ONE place a saved workspace names panels outside `panels`, and exactly what a restore remaps
       tabs: _Strings,
       selected: Schema.optional(Schema.Number),
     }),
@@ -759,16 +706,14 @@ const _Layout: Schema.Schema<Chart.Layout> = Schema.suspend(() =>
 )
 
 const _Config = Schema.Struct({
-  version: Schema.optional(Schema.String), // Perspective's own workspace-token field, transcribed verbatim: the engine stamps it on save and reads it back, and a caller never sets it
+  version: Schema.optional(Schema.String),
   active: Schema.optional(Schema.String),
-  layout: Schema.optional(_Layout), // absent-or-present, never null: the save seam folds the emitted null away
+  layout: Schema.optional(_Layout),
   panels: Schema.mutable(Schema.Record({ key: Schema.String, value: _Panel })),
   global_filters: Schema.optional(_Filters),
   masters: Schema.optional(_Strings),
 })
 
-// this grain mints through the one key member and holds; the seal's generation bumps with the workspace shape, so
-// yesterday's token refuses on content and `discard` seats the seed
 const _CONFIG = Store.key({ domain: "chart", grain: "workspace" })
 const _sealed = Store.sealed(_Config, { generation: 1, residue: "discard" })
 
@@ -785,7 +730,6 @@ const _workspace = (
   config: Chart.Config,
 ): Effect.Effect<void, ChartFault> =>
   Effect.tryPromise({
-    // strict by construction: every `panels` entry mints a NEW panel, so a viewer token handed here REJECTS
     try: (): Promise<void> => element.restoreWorkspace(config satisfies WorkspaceConfigUpdate),
     catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
   })
@@ -797,7 +741,6 @@ const _panel = (
   update: ViewerConfigUpdate,
 ): Effect.Effect<void, ChartFault> =>
   Effect.tryPromise({
-    // an absent id UPSERTS; `suppress_errors` keeps the refusal on THIS rail instead of the viewer's visible error
     try: (): Promise<void> => element.restore(update, { panel, suppress_errors: true }),
     catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
   })
@@ -810,16 +753,14 @@ const _saved = (element: HTMLPerspectiveViewerElement, feed: string): Effect.Eff
     }),
     (token) =>
       Effect.mapError(
-        // one grain asymmetry stands: `save` emits `layout: null` for an unlaid element while the restore field is
-        // absent-or-present, so the null folds away here and never crosses back as an empty tree
         Schema.decodeUnknown(_Config)({ ...token, layout: token.layout ?? undefined }),
         (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
       ),
   )
 
 const _board = (element: HTMLPerspectiveViewerElement): Chart.Board => ({
-  panels: element.getPanelNames() as ReadonlyArray<string>, // insertion order, and the only honest evidence a move landed
-  active: Option.fromNullable(element.getActivePanel() as string | null), // null at zero panels
+  panels: element.getPanelNames() as ReadonlyArray<string>,
+  active: Option.fromNullable(element.getActivePanel() as string | null),
 })
 
 const _moved = (
@@ -832,7 +773,7 @@ const _moved = (
       try: () =>
         Match.valueTags(move, {
           Add: ({ config }) => element.addPanel(config),
-          Drop: ({ panel }) => element.removePanel(panel), // the LAST remaining panel resolves as a no-op
+          Drop: ({ panel }) => element.removePanel(panel),
           Focus: ({ panel }) => element.setActivePanel(panel),
         }),
       catch: (defect) => new ChartFault({ case: { reason: "frame-refused", feed, cause: String(defect) } }),
@@ -846,8 +787,6 @@ const _echo = (
 ) =>
   Effect.acquireRelease(
     Effect.sync(() => {
-      // BOUNDARY ADAPTER: the event's `getConfig` closure releases the instant dispatch returns, so the thunk AND
-      // active-panel read both happen inside this turn — the patch has no other synchronous carrier
       const listen = (event: Event): void => {
         const patch = (event as CustomEvent<PerspectiveConfigUpdateEventDetail>).detail.getConfig()
         const panel = element.getActivePanel() as string | null
@@ -856,8 +795,6 @@ const _echo = (
         }
         commit((config) =>
           Option.match(Record.get(config.panels, panel), {
-            // a patch for a panel the persisted grain never held is a DEFERRED upsert's echo: the atom adopts it at
-            // that next save rather than inventing the table binding the panel is still missing
             onNone: () => config,
             onSome: (held) => ({ ...config, panels: { ...config.panels, [panel]: { ...held, ...patch } } }),
           })
@@ -889,7 +826,7 @@ const _pivot = (
         try: () => element.load(table),
         catch: (defect) => new ChartFault({ case: { reason: "engine-lost", feed, cause: String(defect) } }),
       })
-      yield* _workspace(element, feed, config) // the persisted grain lands whole: panels, layout, overlay, masters
+      yield* _workspace(element, feed, config)
       return {
         client,
         table,
@@ -905,7 +842,6 @@ const _pivot = (
       Effect.annotateLogs({ pivot: feed }),
     ),
     (pivot) =>
-      // release is total by signature: teardown resolves its own faults so the primary outcome survives it
       Effect.promise(async () => {
         await element.delete()
         await pivot.table.delete()
@@ -913,7 +849,6 @@ const _pivot = (
       }),
   )
 
-// Engine answers a verdict record rather than throwing, and each refusal entry carries `error_message` — the gate decodes before it reads.
 const _Validated = Schema.Struct({
   errors: Schema.Record({ key: Schema.String, value: Schema.Struct({ error_message: Schema.String }) }),
 })
@@ -931,8 +866,6 @@ const _expressions = (
     Effect.flatMap(Schema.decodeUnknown(_Validated)),
     Effect.mapError((defect) =>
       new ChartFault({ case: { reason: "expression-refused", feed, alias: Option.none(), cause: String(defect) } })),
-    // One verdict record answers EVERY refused column, so the census carries every one of them and an
-    // author repairing a board reads its whole damage in one round trip rather than the first alias iteration met.
     Effect.flatMap((report) => {
       const refused = Record.toEntries(report.errors)
       return Array.isNonEmptyReadonlyArray(refused)
@@ -948,13 +881,11 @@ const _expressions = (
     }),
   )
 
-// `cumulative: false` is the omitted default, so only a TRUE cumulative counts against the trio
 const _framed = (spec: Chart.Window): number =>
   (spec.rows === undefined || spec.rows === null ? 0 : 1) +
   (spec.range === undefined || spec.range === null ? 0 : 1) +
   (spec.cumulative === true ? 1 : 0)
 
-// `alias` rides the issue's own column, so this answers the refusal alone and no site re-prefixes it.
 const _refusal = (taken: HashSet.HashSet<string>, alias: string, spec: Chart.Window): Option.Option<string> => {
   const alpha = spec.alpha === undefined || spec.alpha === null ? 1 : spec.alpha
   return HashSet.has(taken, alias)
@@ -970,8 +901,6 @@ const _windows = (
   pivot: Chart.Pivot,
   feed: string,
   exprs: Record.ReadonlyRecord<string, string>,
-  // ORDERED ENTRIES, never a record: a `Windows` literal has already collapsed its duplicates through JSON
-  // last-wins, so this is the one shape where a repeated alias is still evidence
   rows: ReadonlyArray<readonly [string, Chart.Window]>,
 ): Effect.Effect<Chart.Windows, ChartFault | ChartCensus> =>
   Effect.flatMap(
@@ -981,8 +910,6 @@ const _windows = (
         new ChartFault({ case: { reason: "window-refused", feed, alias: Option.none(), cause: String(defect) } }),
     }),
     (schema) => {
-      // Each alias admits against the taken set alone, so the fold censuses EVERY offending window rather than the
-      // first one iteration reached, and a board author repairs the whole config in one pass.
       const gated = Array.reduce(
         rows,
         {
@@ -1025,7 +952,7 @@ const _snapshot = <A>(
     ),
     (view) =>
       Effect.tryPromise({
-        try: () => read(view), // the ONLY axis a one-shot serializer varies: the bracket never forks per format
+        try: () => read(view),
         catch: (defect) => new ChartFault({ case: { reason: "view-lost", feed, cause: String(defect) } }),
       }),
   )
@@ -1037,7 +964,6 @@ const _derive = (pivot: Chart.Pivot, feed: string, config: ViewConfigUpdate): St
     Effect.acquireRelease(
       Effect.tryPromise({
         try: async (): Promise<View> => {
-          // BOUNDARY ADAPTER: on_update is the engine's push seam — the seed frame emits before the delta subscription arms
           const view = await pivot.table.view(config)
           void emit.single(new Uint8Array(await view.to_arrow()))
           await view.on_update(({ delta }) => {
@@ -1058,8 +984,6 @@ const _borrow = (
   window: TypedArrayWindow,
   consume: Chart.Lend,
 ): Effect.Effect<void, ChartFault, Scope.Scope> =>
-  // this snapshot lane IS the borrow: `with_typed_arrays` is one more `read`, so the lend inherits the one view
-  // lifetime and the callback settles inside it — the borrow can never outlive the bracket that opened it
   _snapshot(pivot, feed, config, (view) => view.with_typed_arrays(window, consume))
 
 const Chart: Chart.Shape = {
@@ -1099,7 +1023,7 @@ const Chart: Chart.Shape = {
   borrow: _borrow,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Chart, ChartCensus, ChartFault }
 ```

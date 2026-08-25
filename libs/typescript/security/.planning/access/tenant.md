@@ -33,8 +33,6 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
     Option.map(principal.context, (context) => context.scope)
   static readonly bind = <A, E, R>(principal: Principal, effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
     Effect.provideService(effect, TenantScope, principal)
-  // Both axes are optional because the sites differ on each: an explicit-tenant transaction names a context with no
-  // subject, a machine key names a subject with no context, and a resolved claim carries either. One mint holds them.
   static readonly of = (context?: Identity.Tenant, subject?: string): Principal => ({
     context: Option.fromNullable(context),
     subject: Option.fromNullable(subject),
@@ -79,8 +77,6 @@ const SessionCoordinate = {
   plane: {
     guc: "rasm.plane",
     value: "maintenance",
-    // Principals never carry a plane: the None projection keeps every principal-pinned transaction plane-free,
-    // and the row anchors the GUC name and its one live value for the data wave's maintenance transformer.
     read: (): Option.Option<string> => Option.none(),
   },
 } as const
@@ -91,7 +87,7 @@ declare namespace SessionCoordinate {
   type _Rows<T extends Record<string, { readonly guc: string; readonly read: (principal: Principal) => Option.Option<string> }> = typeof SessionCoordinate> = T
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { SessionCoordinate, TenantScope }
 export type { Principal }

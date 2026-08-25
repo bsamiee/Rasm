@@ -23,14 +23,12 @@ The boundary-condition family owns constraint application on both sides: elimina
 - Exemption: the `Bᵀ·D·B` accumulation, the strain-row scatter, the flow advection, and the mass terms are MEASURED span kernels over fixed small arities — each dies with the cell that fills it and none crosses a page surface.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class OperatorAssembly {
     public static Fin<SparseCompressedRowMatrixStorage<double>> Assemble(SolveProblem problem, DiscreteMesh mesh, LanePolicy policy) {
         int dim = problem.Dof * checked((int)mesh.NodeCount);
         return problem.Payload switch {
-            // The row's own `Dense` column already gated the node count at admission, so the two network arms
-            // build their operator whole instead of staging a quadratic triplet set to describe it.
             PhysicsPayload.Radiosity radiosity => Network(dim, (row, column) =>
                 (row == column ? 1.0 : 0.0) - radiosity.Reflectance.Span[row] * radiosity.ViewFactors.Span[row * dim + column]),
             PhysicsPayload.EnergyNetwork energy => Network(dim, (row, column) => energy.Conductance.Span[row * dim + column]),
@@ -56,9 +54,6 @@ public static partial class OperatorAssembly {
             .Map(_ => (fan.assembly.Rows, fan.assembly.Cols, fan.assembly.Vals)).As());
     }
 
-    // The FAMILY chooses the local body and the coefficient binds ONCE: a frame cell reads its member row and its
-    // mechanical properties, a continuum cell its quadrature and its coefficient matrix, and neither re-runs a
-    // payload dispatch per Gauss point.
     static Fin<LocalBlock> Local(DiscreteMesh mesh, SolveProblem problem) =>
         mesh.Element.Family == ShapeFamily.Frame
             ? Fin.Succ<LocalBlock>((cell, block) => problem.Field.MechanicalAt(cell).Bind(properties =>
@@ -94,9 +89,6 @@ public static partial class OperatorAssembly {
         }
     }
 
-    // One Gauss-point fold: the strain rows, the `Bᵀ·D·B` accumulation, and whatever operator term the payload
-    // case adds. The strain plane rents ONCE per cell rather than per Gauss point, which is the difference
-    // between one rental and a rental per point per cell over the whole mesh.
     static void LocalStiffness(DiscreteMesh mesh, SolveProblem problem, double[] material, int cell, Span<double> local) {
         ElementClass element = mesh.Element;
         int per = element.Nodes, dof = problem.Dof, strain = problem.Physics.StrainDim, cols = per * dof;
@@ -149,7 +141,6 @@ public static partial class OperatorAssembly {
                 }
     }
 
-    // The strain-displacement rows a form declares, written into the caller's plane so the fold owns one rental.
     internal static void Strain(MaterialForm form, ReadOnlySpan<double> grad, int per, int dof, int cols, Span<double> b) {
         for (int a = 0; a < per; a++) {
             double gx = grad[a * 3], gy = grad[a * 3 + 1], gz = grad[a * 3 + 2];
@@ -209,7 +200,7 @@ public static partial class OperatorAssembly {
 - Boundary: contact contributes NOTHING to the linear system: it is nonlinear-only, enforced per residual evaluation through the constitutive `ContactEnforcement` owner with current kinematics and the step's committed multipliers — a precomputed constant force is the deleted form.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BoundaryCondition {
@@ -244,9 +235,6 @@ public abstract partial record BoundaryCondition {
                 Claim(bc.Master.Length > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Master.Length, 1L))),
                 Claim(InRange(bc.Master, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Master.Length))),
                 Claim(InRange(bc.Slave, n), new ComputeViolation.Range(RangeRequirement.WithinBounds, new ScalarEvidence.Sequence(bc.Slave.Length)))),
-            // Contact ids name the base dof of a translational triple, so the whole triple must lie in range rather
-            // than the one row the id spells — a pair passing an index check on its base alone scatters its normal
-            // components off the end of the operator.
             contact: static (n, bc) => Admit(
                 Claim(bc.Master.Length == bc.Slave.Length, new ComputeViolation.Shape(ShapeRequirement.Arity, new ShapeEvidence.Count(bc.Slave.Length, bc.Master.Length))),
                 Claim(bc.Master.Length > 0, new ComputeViolation.Capacity(CapacityRequirement.NonEmpty, new CapacityEvidence.Count(bc.Master.Length, 1L))),
@@ -267,8 +255,6 @@ public abstract partial record BoundaryCondition {
             neumann: static (s, bc) => s.System with { Rhs = Loaded(s.System.Rhs, bc.Faces, index => bc.Flux[index]) },
             robin: static (s, bc) => s.System with { Rhs = Loaded(s.System.Rhs, bc.Faces, _ => bc.Coefficient * bc.Ambient) },
             periodic: static (s, bc) => Tied(s.System, bc),
-            // Contact contributes NOTHING to the linear system: it is nonlinear-only, enforced per residual
-            // evaluation through the constitutive owner with current kinematics and committed multipliers.
             contact: static (s, _) => s.System);
 
     static ConstrainedSystem Penalized(ConstrainedSystem system, Dirichlet bc) {
@@ -284,9 +270,6 @@ public abstract partial record BoundaryCondition {
         return system with { Operator = Rebuilt(system.Operator, values), Rhs = rhs, Constrained = prescribed };
     }
 
-    // ONE CSR pass over the whole operator, with the prescribed set as a membership test. The pair-of-loops form
-    // walked every row and slot ONCE PER PRESCRIBED NODE, which is quadratic in `constrained × nnz` — at building
-    // scale that is the dominant cost of admitting a support condition, for an answer one pass gives.
     static ConstrainedSystem Eliminated(ConstrainedSystem system, Dirichlet bc) {
         double[] rhs = (double[])system.Rhs.Clone();
         double[] values = (double[])system.Operator.Values.Clone();
@@ -366,8 +349,6 @@ public abstract partial record BoundaryCondition {
             .Map(operatorCsr => system with { Operator = operatorCsr, Rhs = rhs });
     }
 
-    // The kernel writer frames every run with its own count and quantizes each coordinate to the key's tolerance,
-    // so two conditions a tolerance apart address one identity and two adjacent index runs never read as one.
     public void WriteCanonical(CanonicalWriter sink) =>
         Switch(
             state: sink,
@@ -384,9 +365,6 @@ public abstract partial record BoundaryCondition {
         sink.Doubles(values);
     }
 
-    // The ONE pattern-preserving scatter: the CSR row slice binary-searches the sorted column, and connectivity
-    // guarantees the slot exists for every add the constraint application makes. The linear row scan that stood
-    // beside it was the same operation spelled twice.
     internal static void AddAt(SparseCompressedRowMatrixStorage<double> csr, double[] values, int row, int column, double delta) {
         int index = Array.BinarySearch(csr.ColumnIndices, csr.RowPointers[row], csr.RowPointers[row + 1] - csr.RowPointers[row], column);
         if (index >= 0) { values[index] += delta; }
@@ -412,7 +390,7 @@ public sealed record ConstrainedSystem(
     LanguageExt.HashSet<long> Constrained,
     double Penalty);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class OperatorAssembly {
     public static Fin<ConstrainedSystem> Constrained(SparseCompressedRowMatrixStorage<double> operatorCsr, Seq<BoundaryCondition> conditions, LanePolicy policy) =>
@@ -433,15 +411,13 @@ public static partial class OperatorAssembly {
 - Exemption: the per-cell inertia scatter is a measured span kernel over the connectivity the mesh already carries.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class OperatorAssembly {
     internal const double InertiaFraction = 1e-12;
 
     internal static double InertiaFloor(ReadOnlySpan<double> mass) => TensorPrimitives.Max(mass) * InertiaFraction;
 
-    // First free row whose inertia sits at or under the floor — the row an inertia-dividing march cannot advance
-    // and a mass-normalizing pencil cannot scale. Prescribed rows are excluded because they carry no free amplitude.
     internal static Option<long> MassSingular(double[] mass, LanguageExt.HashSet<long> constrained, double floor) =>
         toSeq(Enumerable.Range(0, mass.Length)).Find(dof => !constrained.Contains(dof) && mass[dof] <= floor).Map(static dof => (long)dof);
 
@@ -481,10 +457,6 @@ public static partial class OperatorAssembly {
         return extent;
     }
 
-    // Storage per row by payload: an energy network carries its measured nodal capacity vector, a mixed-flow row
-    // zeroes the pressure slot because the pressure equation has no storage term, and the continuum-scalar row
-    // reads the capacity-scaled lumped vector `Lumped` already built from `CapacityAt` — no arm re-derives a
-    // capacity the material owner already answered.
     internal static double[] Capacity(SolveProblem problem, double[] lumped) => problem.Payload switch {
         PhysicsPayload.EnergyNetwork energy => energy.Capacity.ToArray(),
         PhysicsPayload.Flow => [.. lumped.Select((value, index) => index % 4 == 3 ? 0.0 : value)],

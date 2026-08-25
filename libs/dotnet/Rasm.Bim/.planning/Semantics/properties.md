@@ -19,15 +19,15 @@ The IFC Pset/Qto TEMPLATE authority over the `Rasm.Element` seam graph: the offl
 - Boundary: there is ONE property model and it is the seam graph — a property is a seam `PropertyValue` keyed by `PropertyName` in a `PropertySet` bag node, and a per-Pset `WallProperties`/`SlabProperties` class family is the deleted form; the typed `PropertyValue`/`MeasureValue`/`Dimension` value family is seam-owned and re-declaring it here is the deleted form — this page owns the TEMPLATE (`DataType`/value-type kind) and the PRECEDENCE policy, the seam owns the value; the offline standard template is the `Xbim.Properties` `Definitions<T>` catalogue read as the canonical floor and a hand-coded `Pset_*` property table beside it is the deleted form; the `PropertyKey` roster names sets and windows recognition only — a renamed standard set carries TWO windowed rows (`Pset_ElectricDistributionBoardTypeCommon` closing at `Ifc4X3`, its successor `Pset_DistributionBoardTypeCommon` opening there — the `IfcClass` retirement idiom), and an unwindowed anchor offering a dead name to a schema-scoped authoring surface is the deleted form; the definition-set choice is the `TemplateScope` policy value the memo key carries, so a `LoadAllDefault`/`LoadIFC4COBie`/`LoadIFC4AndCOBie` selector at a call site or a second cache keyed by `Version` alone (whose second load evicts the first scope's dataset) is the deleted form, and a COBie-scoped resolution reads its row's pinned `IFC4` dataset whatever the model's `ReleaseVersion` rather than claiming a schema its definitions do not ship; applicability matches BOTH `ApplicableClass.ClassName` and its `PredefinedType` scope; the constraint surface lowers from the CURRENT value-type kinds alone (`TypePropertyEnumeratedValue.EnumList`/`ConstantList`, `TypePropertyBoundedValue.ValueRangeDef`, the `UnitType` axis), so a set whose only min/max/default lived on the retired slot resolves an ABSENT constraint and a suppression-scoped read of a retired member is the deleted form; the live bSDD dictionary unions OVER the catalogue with dictionary-wins, never the SOLE source and never a fault on a service miss; the type-vs-occurrence precedence is the IFC `IfcPropertySetTemplate.templatetype` the catalogue declares, lowered to the seam `InheritanceMode` at ingest and applied once in the seam `Bake`, never a per-call-site merge, never a stored-twice type→occurrence fold, and never a fragile set-name suffix heuristic; the classifier's binding input is the closed `TypeBinding` row family — a `bool typeBound` parameter is the deleted form, because a boolean forced every call site to re-decide what its two states meant and left the structural inference spelled beside the flag instead of on the row; the `PropertyKey` roster carries no per-row provenance column, every row sharing ONE upstream (the bundled definition sets under the caller's scope) and a live bSDD anchor never entering the roster at all — the mirror proves itself through `Unbacked` instead, and an asserted per-row dictionary name nothing reads is the decorative form; every nullable column the `Xbim.Properties` surface publishes admits ONCE at `Token`/`Rows` and a `?? ""`/`?? []` beside them is the deleted duplicate, a second string-admission owner in this folder the named twin; `Xbim.Properties` is a TEMPLATE source only (no IFC entity graph, no property values, no IDS engine) and consuming it as a model reader or value store is the rejected form; every bag key this page writes or reads mints through the owner-blessed `PropertyCategory.Seam.Row` EMPTY-prefix category (a round-tripped IFC/bSDD code stays bare) and a call-site `PropertyName.Create` in the derivation writer or the audit reader is the key-space fork the branch row-name custody ruling deletes; requiredness rides the classification-owned `CapabilitySet<TemplateTrait>` and a `bool`/`Option<bool>` column beside it is the deleted form — the offline dataset never states the axis, so a floor row lands the EMPTY set, only a dictionary that answered holds `Declared`, and a `Missing` verdict traces to a stated requirement rather than to a `false` this page supplied on the catalogue's behalf; `SiDimension` merges under the same dictionary-wins-when-SPEAKING law as every other narrowing, an unconditional dictionary take stripping the quantity floor's own `QtoTypeEnum`-derived dimension and darkening `TemplateVerdict.WrongDimension`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
-using IdsLib.IfcSchema;                        // SchemaInfo — the ids-lib measure/datatype authority every declared IFC data type resolves its SI exponents through
+using IdsLib.IfcSchema;
 using LanguageExt;
-using Rasm.Analysis;                           // MassKind, MeasureBundle — the kernel kind-keyed multi-domain takeoff carrier this fold reads
+using Rasm.Analysis;
 using Rasm.Bim;
 using Rasm.Bim.Projection;
 using Rasm.Domain;
@@ -38,16 +38,12 @@ using Rasm.Element.Properties;
 using Thinktecture;
 using Xbim.Properties;
 using static LanguageExt.Prelude;
-using Op = Rasm.Domain.Op;                     // the kernel operation key the audit Bake rail threads
-using Version = Xbim.Properties.Version;       // the Xbim schema enum (IFC2x3/IFC4/IFC4x3); aliased off System.Version, which ImplicitUsings imports
+using Op = Rasm.Domain.Op;
+using Version = Xbim.Properties.Version;
 
 namespace Rasm.Bim.Semantics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The two loader columns are the C#-forced shape: Definitions<PropertySetDef> and Definitions<QtoSetDef> are distinct
-// closed generics over one instance method and no delegate spans both, so the pair is one row's data rather than a
-// switch at For. LoadIFC4COBie and LoadIFC4AndCOBie carry IFC4 definitions alone, which is what Schema pins; Standard
-// leaves the pin absent so the seam release lowers.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class TemplateScope {
@@ -67,43 +63,24 @@ public sealed partial class TemplateScope {
         (Schema, LoadPsets, LoadQtos) = (schema, psets, qtos);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Traits carries the requiredness axis as the classification-owned CapabilitySet<TemplateTrait>, so the offline
-// buildingSMART floor — whose PropertyDef and QuantityPropertyDef base publish Name/Definition/aliases/PropertyType
-// and nothing more — lands the EMPTY set and only a dictionary that answered holds Declared. A bare `false` asserted
-// "optional" on the floor's behalf and a presence audit then read every unstated property as satisfied. Bounds reuses
-// the classification-owned BsddBounds carrier and SiDimension IS the seam Dimension both sources build directly, so
-// no consumer re-projects an exponent vector.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PropertyTemplate(
     string Set, string Code, string DataType, BsddValueKind Kind, CapabilitySet<TemplateTrait> Traits,
     Seq<string> AllowedValues, Option<BsddBounds> Bounds, Option<string> Pattern,
     Seq<string> Units, Option<Dimension> SiDimension, Option<string> Predefined,
     Map<string, string> Aliases) {
-    // A dataset states at most one unit token where a bSDD row may state several spellings of one unit, so Units is
-    // the vocabulary and Unit the single declared token a renderer reads; the seam Dimension.SiSymbol is the canonical
-    // emit unit when neither source declared one.
     public Option<string> Unit => Units.Head;
 }
 
-// A RECOGNITION roster, never the authoritative catalogue: it names the common sets and fabricates no property. Two
-// mints own the standard spellings, so the applicable entity stays recoverable as Ifc{stem} on every entity-scoped
-// row; the material-scoped and non-conforming spellings state their own literals, and ReinforcingBarBendings mints by
-// name alone with no Ifc{stem} entity behind it. Domain is the curated authoring discipline, not a re-derivation of
-// the IfcClass census — the spatial rows read Architecture where the census seats IfcSite/IfcSpace on the General
-// backbone, and the vent StackTerminal reads Plumbing where the census leaves it on the HvacFire root. Span narrows
-// ONLY where the bundled dataset proves a constraint, because an unwindowed roster offers a dead name to every
-// schema-scoped authoring surface.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class PropertyKey {
-    // ONE mint per spelling family: the stem is the whole literal, the window defaulting to the open floor.
     private static PropertyKey Common(string stem, IfcDomain domain, Option<SchemaSpan> span = default) =>
         new($"Pset_{stem}Common", domain, span.IfNone(IfcSchema.Ifc2X3));
     private static PropertyKey TypeCommon(string stem, IfcDomain domain, Option<SchemaSpan> span = default) =>
         new($"Pset_{stem}TypeCommon", domain, span.IfNone(IfcSchema.Ifc2X3));
 
-    // [ARCHITECTURE] — built cores, envelope, circulation, and the spatial anchors.
     public static readonly PropertyKey WallCommon = Common("Wall", IfcDomain.Architecture);
     public static readonly PropertyKey SlabCommon = Common("Slab", IfcDomain.Architecture);
     public static readonly PropertyKey BeamCommon = Common("Beam", IfcDomain.Architecture);
@@ -125,7 +102,6 @@ public sealed partial class PropertyKey {
     public static readonly PropertyKey SiteCommon = Common("Site", IfcDomain.Architecture);
     public static readonly PropertyKey BuildingStoreyCommon = Common("BuildingStorey", IfcDomain.Architecture);
 
-    // [STRUCTURAL] — concrete/steel/masonry material sets, reinforcing, and the foundation pair.
     public static readonly PropertyKey ConcreteElementGeneral = new("Pset_ConcreteElementGeneral", IfcDomain.Structural, IfcSchema.Ifc2X3);
     public static readonly PropertyKey MaterialSteel = new("Pset_MaterialSteel", IfcDomain.Structural, IfcSchema.Ifc2X3);
     public static readonly PropertyKey MaterialMasonry = new("Pset_MaterialMasonry", IfcDomain.Structural, IfcSchema.Ifc2X3);
@@ -133,7 +109,6 @@ public sealed partial class PropertyKey {
     public static readonly PropertyKey FootingCommon = Common("Footing", IfcDomain.Structural, IfcSchema.Ifc4);
     public static readonly PropertyKey PileCommon = Common("Pile", IfcDomain.Structural, IfcSchema.Ifc4);
 
-    // [HVAC_FIRE] — the complete bundled flow-device census on the distribution root, fire suppression included.
     public static readonly PropertyKey AirTerminalTypeCommon = TypeCommon("AirTerminal", IfcDomain.HvacFire);
     public static readonly PropertyKey AirTerminalBoxTypeCommon = TypeCommon("AirTerminalBox", IfcDomain.HvacFire);
     public static readonly PropertyKey AirToAirHeatRecoveryTypeCommon = TypeCommon("AirToAirHeatRecovery", IfcDomain.HvacFire);
@@ -162,7 +137,6 @@ public sealed partial class PropertyKey {
     public static readonly PropertyKey TubeBundleTypeCommon = TypeCommon("TubeBundle", IfcDomain.HvacFire);
     public static readonly PropertyKey UnitaryEquipmentTypeCommon = TypeCommon("UnitaryEquipment", IfcDomain.HvacFire, IfcSchema.Ifc4);
 
-    // [PLUMBING] — piped distribution, storage, metering, and the terminal family.
     public static readonly PropertyKey PipeFittingTypeCommon = TypeCommon("PipeFitting", IfcDomain.Plumbing);
     public static readonly PropertyKey PipeSegmentTypeCommon = TypeCommon("PipeSegment", IfcDomain.Plumbing);
     public static readonly PropertyKey PumpTypeCommon = TypeCommon("Pump", IfcDomain.Plumbing);
@@ -174,8 +148,6 @@ public sealed partial class PropertyKey {
     public static readonly PropertyKey StackTerminalTypeCommon = TypeCommon("StackTerminal", IfcDomain.Plumbing, IfcSchema.Ifc4);
     public static readonly PropertyKey WasteTerminalTypeCommon = TypeCommon("WasteTerminal", IfcDomain.Plumbing, IfcSchema.Ifc4);
 
-    // [ELECTRICAL] — fixtures, machines, protection, containment, and the one renamed standard set: the IFC4 name
-    // closes at Ifc4X3, where the renamed entity's successor set opens (the IfcClass retirement idiom).
     public static readonly PropertyKey LightFixtureTypeCommon = TypeCommon("LightFixture", IfcDomain.Electrical);
     public static readonly PropertyKey LampTypeCommon = TypeCommon("Lamp", IfcDomain.Electrical);
     public static readonly PropertyKey OutletTypeCommon = TypeCommon("Outlet", IfcDomain.Electrical);
@@ -200,7 +172,6 @@ public sealed partial class PropertyKey {
     public static readonly PropertyKey ElectricDistributionBoardTypeCommon = TypeCommon("ElectricDistributionBoard", IfcDomain.Electrical, new SchemaSpan(ReleaseVersion.Ifc4, Some(ReleaseVersion.Ifc4X3)));
     public static readonly PropertyKey DistributionBoardTypeCommon = TypeCommon("DistributionBoard", IfcDomain.Electrical, IfcSchema.Ifc4X3);
 
-    // [CONTROLS] — the building-automation branch on the distribution-control root.
     public static readonly PropertyKey ActuatorTypeCommon = TypeCommon("Actuator", IfcDomain.Controls);
     public static readonly PropertyKey ControllerTypeCommon = TypeCommon("Controller", IfcDomain.Controls);
     public static readonly PropertyKey SensorTypeCommon = TypeCommon("Sensor", IfcDomain.Controls, IfcSchema.Ifc4);
@@ -208,32 +179,19 @@ public sealed partial class PropertyKey {
     public static readonly PropertyKey FlowInstrumentTypeCommon = TypeCommon("FlowInstrument", IfcDomain.Controls, IfcSchema.Ifc4);
     public static readonly PropertyKey UnitaryControlElementTypeCommon = TypeCommon("UnitaryControlElement", IfcDomain.Controls, IfcSchema.Ifc4);
 
-    // [INFRASTRUCTURE] — the transportation-device branch.
     public static readonly PropertyKey TransportElementCommon = Common("TransportElement", IfcDomain.Infrastructure);
 
     public IfcDomain Domain { get; }
     public SchemaSpan Span { get; }
 
-    // The key-chaining ctor the [SmartEnum<string>] generator's this(key) overload completes (the corpus
-    // SmartEnum-with-fields shape).
     private PropertyKey(string key, IfcDomain domain, SchemaSpan span) : this(key) => (Domain, Span) = (domain, span);
 
-    // Span gates recognition, so an IFC2x3 palette never offers a set its dataset does not carry and an IFC4x3 palette
-    // never offers the retired distribution-board name.
     public static Seq<PropertyKey> TemplatesFor(IfcDomain domain, ReleaseVersion schema) =>
         toSeq(Items).Filter(row => row.Domain == domain && row.Span.Covers(schema));
 
-    // Every row's upstream is the SAME one — the bundled definition sets under the caller's scope — so a per-row
-    // provenance column would be one constant repeated across the roster, and a bSDD anchor never enters here at all
-    // (the live dictionary resolves per class in Resolve, named by its own URI there). The mirror proves itself
-    // instead: a dataset revision that renames or retires a set surfaces as rows rather than as an anchor silently
-    // offering a dead name.
     public static Seq<PropertyKey> Unbacked(ReleaseVersion schema, TemplateScope scope) =>
         toSeq(Items).Filter(row => row.Span.Covers(schema) && !PropertyCatalog.Declares(row.Key, schema, scope));
 
-    // The catalogue floor is deterministic, schema-versioned and network-free, so an unreachable dictionary still
-    // resolves — never a fabricated anchor. A bSDD row lowers its FULL class-scoped constraint and the class-level
-    // narrowing wins over the property master by contract (.api/api-xbim-properties + .api/api-bsdd).
     public static Map<string, PropertyTemplate> Resolve(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope, Option<BsddClass> dictionary) =>
         dictionary.Map(static d => d.Properties).IfNone(Seq<BsddProperty>())
             .Filter(static p => p.PropertySet.Length > 0)
@@ -242,11 +200,6 @@ public sealed partial class PropertyKey {
                       Some: existing => Lower(p, Some(existing)),
                       None: () => Lower(p, None)));
 
-    // Dictionary-wins-when-SPEAKING: a declared narrowing wins, a SILENT axis keeps the floor's, and the localized
-    // Aliases only the catalogue carries always survive — so a terse dictionary row never ERASES a floor constraint it
-    // merely failed to restate. SiDimension follows that law because the floor DOES carry one on every quantity row,
-    // and an unconditional take strips a Qto_* dimension and darkens TemplateVerdict.WrongDimension. Traits is the ONE
-    // axis with no floor to preserve, the floor's own set being empty.
     static PropertyTemplate Lower(BsddProperty p, Option<PropertyTemplate> floor) =>
         new(p.PropertySet, p.Code, p.DataType, p.ValueKind, p.Traits,
             p.AllowedValues.IsEmpty ? floor.Map(static f => f.AllowedValues).IfNone(Seq<string>()) : p.AllowedValues.Map(static v => v.Value),
@@ -258,16 +211,10 @@ public sealed partial class PropertyKey {
             floor.Map(static f => f.Aliases).IfNone(Map<string, string>()));
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// The CDDL-1.0 dataset binary is REFERENCED, never vendored, and it declares templates alone — no IFC entity graph
-// and no property value.
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class PropertyCatalog {
-    // The memo key is (schema, scope) so a standard and a COBie handover catalogue coexist, where one Version key let
-    // the second load evict the first.
     static readonly ConcurrentDictionary<(Version Schema, TemplateScope Scope), (Definitions<PropertySetDef> Psets, Definitions<QtoSetDef> Qtos)> Catalogues = new();
 
-    // The scope's OWN pin outranks the caller's release — a COBie dataset ships IFC4 definitions and nothing else — so
-    // the resolution order is stated ONCE here and every entry composes it rather than re-deciding at its own call.
     static (Definitions<PropertySetDef> Psets, Definitions<QtoSetDef> Qtos) For(ReleaseVersion schema, TemplateScope scope) =>
         For(scope.Schema.IfNone(() => Lower(schema)), scope);
 
@@ -278,10 +225,6 @@ public static class PropertyCatalog {
             return (psets, qtos);
         });
 
-    // Templates exist for three published schemas, so a finer seam release folds onto its base rather than missing the
-    // catalogue. The fold is ORDERED through the roster-derived IfcSchema.Rank (a bare comparison over the SmartEnum is
-    // the elements-page named defect) and names only the two live boundary members, so a new enum member lands on the
-    // right side by its own rank where an equality ladder silently fell through to the tail.
     static Version Lower(ReleaseVersion schema) =>
         IfcSchema.Rank(schema) <= IfcSchema.Rank(ReleaseVersion.Ifc2X3)  ? Version.IFC2x3
         : IfcSchema.Rank(schema) < IfcSchema.Rank(ReleaseVersion.Ifc4X3) ? Version.IFC4
@@ -299,10 +242,6 @@ public static class PropertyCatalog {
             .Aggregate(Map<string, PropertyTemplate>(), static (template, p) => template.AddOrUpdate($"{p.Set}.{p.Code}", p));
     }
 
-    // The CURRENT value-type kinds are the whole constraint surface, so a set whose only constraint lived on the
-    // retired min/max/default slot resolves an ABSENT constraint — the honest reading of a source that no longer
-    // states one. The dataset states the property's IFC DATA TYPE and a data type determines its dimension, so
-    // DimensionOf supplies the dimension the WrongDimension verdict grades against.
     static PropertyTemplate TemplateOf(string setName, PropertyDef p) {
         var (dataType, kind, allowed, bounds, units) = LowerValue(p.PropertyType?.PropertyValueType);
         return new PropertyTemplate(
@@ -312,9 +251,6 @@ public static class PropertyCatalog {
             Rows(p.NameAliases).Fold(Map<string, string>(), static (acc, alias) => acc.AddOrUpdate(Token(alias.Lang), Token(alias.Value))));
     }
 
-    // A quantity row DOES carry a dimension — its QtoTypeEnum names an IFC measure type and that type publishes the
-    // exponents — which is why the bSDD merge preserves the floor's SiDimension. A Count/Time quantity resolves no
-    // geometry-derivable dimension and drops.
     static Option<PropertyTemplate> QuantityTemplate(string setName, QtoDef quantity) =>
         QuantityDataType(quantity.QuantityType) is var dataType && DimensionOf(dataType).Case is Dimension dimension
             ? Some(new PropertyTemplate(
@@ -331,19 +267,10 @@ public static class PropertyCatalog {
         _                    => "IfcCountMeasure",
     };
 
-    // The authoritative source for the seam InheritanceMode [H1]. The bundled datasets split hard on this axis: the
-    // IFC4 dataset declares NOTDEFINED on every set it ships and ONLY the IFC4x3 dataset declares real template types,
-    // so a scope PINNED to IFC4 — Cobie and Handover both — always resolves None and rides the structural inference.
-    // QtoSetDef carries no templatetype at all, so a Qto set name resolves None here too. A scope-pinned dataset
-    // answers from its own schema, the same precedence For(ReleaseVersion, ...) applies.
     internal static Option<templatetype> TemplateTypeOf(string setName, TemplateScope scope) =>
         For(scope.Schema.IfNone(Version.IFC4x3), scope).Psets[setName] is { } set && set.templatetype is var t and not templatetype.NOTDEFINED
             ? Some(t) : None;
 
-    // MethodOfMeasurement is EMPTY on every set the bundled dataset ships, so it surfaces as advisory display evidence
-    // and no 5D read keys on it. The MOST-SPECIFIC applicable set is elected — a declaration-order FirstOrDefault let
-    // a predefined-scoped set lose to whichever sibling the dataset listed first. The declared names ride along so a
-    // derived quantity always keys by a member the standard set declares, never a fabricated suffix.
     public static Option<(string Set, string Method, Seq<(string Name, Dimension Dimension)> Quantities)> BaseQuantitySet(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope) =>
         For(schema, scope).Qtos.DefinitionSets
             .Where(set => Applies(set, cls, predefined))
@@ -354,25 +281,18 @@ public static class PropertyCatalog {
                 .Filter(static row => row.Name.Length > 0)))
             : None;
 
-    // The specificity probe the election orders on: an ApplicableClass row that names BOTH the entity and the node's
-    // PredefinedType token is the narrower declaration.
     static bool ScopedMatch(QuantityPropertySetDef set, IfcClass cls, Option<string> predefined) =>
         set.ApplicableClasses.Any(c =>
             string.Equals(c.ClassName, cls.Key, StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrEmpty(c.PredefinedType)
             && predefined.Exists(token => string.Equals(c.PredefinedType, token, StringComparison.OrdinalIgnoreCase)));
 
-    // ApplicableClass carries BOTH the entity name AND an optional PredefinedType scope — a scoped row matches only
-    // its token (the retired ClassName-only match over-applied a predefined-scoped set to its whole class), a blank
-    // scope matches every token.
     static bool Applies(QuantityPropertySetDef set, IfcClass cls, Option<string> predefined) =>
         set.ApplicableClasses.Any(c =>
             string.Equals(c.ClassName, cls.Key, StringComparison.OrdinalIgnoreCase)
             && (string.IsNullOrEmpty(c.PredefinedType)
                 || predefined.Exists(token => string.Equals(c.PredefinedType, token, StringComparison.OrdinalIgnoreCase))));
 
-    // ONE lowering over the FULL constraint surface — the former parallel switches over the same IPropertyValueType
-    // stay collapsed. The composite kinds carry no scalar token, so the token is empty and the IDS facet reads the kind.
     static (string DataType, BsddValueKind Kind, Seq<string> Allowed, Option<BsddBounds> Bounds, Seq<string> Units) LowerValue(IPropertyValueType? valueType) => valueType switch {
         TypePropertySingleValue single   => (Token(single.DataType?.Type), BsddValueKind.Single, Seq<string>(), None, UnitOf(single.UnitType)),
         TypePropertyBoundedValue bounded => (Token(bounded.DataType?.Type), BsddValueKind.Range, Seq<string>(), RangeOf(bounded.ValueRangeDef), UnitOf(bounded.UnitType)),
@@ -385,12 +305,10 @@ public static class PropertyCatalog {
         _                                => ("", BsddValueKind.Single, Seq<string>(), None, Seq<string>()),
     };
 
-    // The enumerated kind's allowed-value catalogue: EnumList.Items plus the richer ConstantDef names, blank-pruned.
     static Seq<string> Allowed(TypePropertyEnumeratedValue enumerated) =>
         (Rows(enumerated.EnumList?.Items) + Rows(enumerated.ConstantList).Map(static c => Token(c.Name)))
             .Filter(static v => v.Length > 0);
 
-    // IfcPropertyBoundedValue bounds are INCLUSIVE by schema; the dataset stores them as strings, parsed invariant.
     static Option<BsddBounds> RangeOf(ValueRangeDef? range) =>
         BoundsOf(Parse(range?.LowerBoundValue?.Value), Parse(range?.UpperBoundValue?.Value));
 
@@ -400,29 +318,16 @@ public static class PropertyCatalog {
     static Option<double> Parse(string? value) =>
         double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) ? Some(parsed) : None;
 
-    // UnitType carries the IFC unit token (Type when the enum member parsed, _Value the raw dataset text); a
-    // unit-less template defers to the seam Dimension.SiSymbol canonical emit unit.
     static Seq<string> UnitOf(UnitType? unit) =>
         (PropertyLowering.Stated(unit?.Type?.ToString()) | PropertyLowering.Stated(unit?._Value)).ToSeq();
 
-    // The Xbim.Properties dataset surface publishes nullable string columns and nullable backing lists alike, and BOTH
-    // admit exactly once here: a string through the folder's ONE blank-or-absent entry
-    // (Projection/value#PROPERTY_LOWERING Stated), a list through Rows. No member below re-tests for absence, and no
-    // second string-admission owner exists in this folder to drift from that one.
     static string Token(object? declared) => PropertyLowering.Stated(declared?.ToString()).IfNone("");
 
     static Seq<T> Rows<T>(IEnumerable<T>? source) => source is null ? Seq<T>() : toSeq(source);
 
-    // The roster-mirror probe PropertyKey.Unbacked reads: whether the scope's dataset declares a set name at all.
     internal static bool Declares(string setName, ReleaseVersion schema, TemplateScope scope) =>
         For(schema, scope).Psets[setName] is not null;
 
-    // ids-lib publishes every measure's SI base-dimension exponent vector and SchemaInfo.TryGetMeasureInformation
-    // upper-cases its argument, so the match is case-insensitive by construction and the seven integers build the seam
-    // Dimension through its own generated factory — the SAME concept the bSDD wire columns build. A pure-number
-    // datatype (IfcLabel, IfcBoolean, IfcCountMeasure) is dimensionless and lowers None, so the seam MeasureValue
-    // coercion never fires on a count or a label. The memo is keyed by token because the resolution is a linear scan
-    // over the published measure set and a graph-wide audit resolves the same handful of tokens per element otherwise.
     static readonly ConcurrentDictionary<string, Option<Dimension>> Dimensions = new(StringComparer.OrdinalIgnoreCase);
 
     internal static Option<Dimension> DimensionOf(string dataType) =>
@@ -435,18 +340,12 @@ public static class PropertyCatalog {
                     : Option<Dimension>.None)
             : None;
 
-    // An unparseable token is a template the audit cannot grade, so it agrees. The value-type Kind cannot decide this
-    // — BsddValueKind.Single spans a label, a boolean, and a thermal transmittance alike — so a Pset declaring
-    // IfcThermalTransmittanceMeasure and carrying the U-value as a Text row passed every other axis while being
-    // unreadable to every downstream measure consumer.
     internal static bool DataTypeAgrees(string dataType, PropertyValue value) =>
         !SchemaInfo.TryParseIfcDataType(dataType, out _)
         || DimensionOf(dataType).IsSome == (value is PropertyValue.Measure);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The structural inference rides as a ROW COLUMN, so the classifier's fallback reads a declared policy rather than
-// re-deciding what a boolean meant at each call site.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TypeBinding {
@@ -459,15 +358,12 @@ public sealed partial class TypeBinding {
 }
 
 public static class PropertyInheritance {
-    // NOTDEFINED never reaches here — TemplateTypeOf maps it to None.
     static InheritanceMode FromTemplate(templatetype t) => t switch {
         templatetype.PSET_TYPEDRIVENONLY or templatetype.QTO_TYPEDRIVENONLY         => InheritanceMode.TypeDrivenOnly,
         templatetype.PSET_TYPEDRIVENOVERRIDE or templatetype.QTO_TYPEDRIVENOVERRIDE => InheritanceMode.TypeDrivenOverride,
         _                                                                           => InheritanceMode.OccurrenceWins,
     };
 
-    // A Qto set is type-driven-override by STRUCTURE whatever its bag (QtoSetDef declares no templatetype at all), so
-    // that arm is the set's own property; every other undeclared set reads the binding row's own inference.
     public static InheritanceMode ModeOf(string setName, TypeBinding binding, TemplateScope scope) =>
         PropertyCatalog.TemplateTypeOf(setName, scope).Match(
             Some: FromTemplate,
@@ -487,32 +383,13 @@ public static class PropertyInheritance {
 - Boundary: base-quantity derivation runs from the kernel `Analysis/measure` `MeasureBundle` the kernel/Compute resolve from the `RepresentationContentHash` geometry and inject into `Derive`, so a Bim-local `MeasureBundle` re-declaration or an in-owner geometry-measure computation is the deleted form (Bim depends UP on the kernel and never owns geometry measurement); every read is `Magnitude(MassKind)` answering `Option<double>`, so a re-spelled `measures.Length`/`.Area`/`.Volume` column read and a `?? 0` collapse at the unheld-domain edge are the deleted forms — one bundle derives EVERY declared dimension the mint held, and the single-domain `GeometryMeasures` carrier this owner retired is the deleted form because a `Qto_*` set declaring Length, Area and Volume derived one of the three, left the other two on their occurrence values indistinguishably from a member the table cannot answer, and re-paid the mass computation for each domain the caller then asked for separately; the kernel refuses a bundle WHOLE on a demanded kind the geometry cannot measure, so `Demand` publishes the declared ceiling and the geometry-side resolver lowers it — a caller demanding `CapabilitySet<MassKind>.All` refuses every solid on the curve-length solve, and a caller hand-listing kinds beside the catalogue is the second roster `Demand` deletes; Bim reads no moment slot, so a `Centroid`/`Radii`/`Inertia`/`InertiaProducts`/`PrincipalFrame` read in this folder is the seam violation naming `GeometryMeasures`' structural consumers' business; a re-tessellation in this owner is the named seam violation (geometry realization routes the `Exchange/tessellation#TESSELLATION_BRIDGE` companion rail); the derived value is a seam `MeasureValue` admitted through `MeasureValue.OfSi` under its QTO `QuantityType` (the seam owns the typed quantity over `Dimension` + UnitsNet), so a Bim-local `MeasureValue` re-declaration, a dimension-anonymous derived takeoff, a hand-stamped unit string drifting from the seam canonical `Dimension.SiSymbol`, and a bare-`double` product standing in for the seam `Multiply`/`WithType` algebra are the deleted forms; `NetWeight` is the homogeneous-element takeoff (`NetVolume × Mechanical.Density`, the material's `Composition/material#MATERIAL_PROPERTY` `Mechanical.Density` resolved One-Hop from the `Associate` material edge) and the multi-ply/layered weight is the `Rasm.Compute` `AssemblyAggregator`'s richer fold, never re-modeled here; the base-quantity SET and its declared quantity names/dimensions come from the `Xbim.Properties` `QtoSetDef` catalogue and a hand-listed per-class `BaseQuantityTable` that slices the standard is the deleted form; a derived value keys ONLY by a quantity name the standard set declares (the fold walks the declared members and looks each up — the dataset's own `Qto_BuildingStoreyBaseQuantities` `NetHeigtht` misspelling included, the proof that a hand-spelled mirror forks on the first divergence) and a fabricated `{Set}.{suffix}` non-member key — one the `Review/validation#IDS_FACETS` Property facet and a downstream `Qto` reader never match — is the deleted form; the ONE `(Dimension, member)`-keyed `Derivations` frozen table owns the per-member election, and a dimension-keyed row that lands one measure on whichever member a set declared first is the deleted form that fabricated a gross takeoff from a net solid and a plan area from a surface area; the derived-wins precedence is applied once in `Derive`, never a per-call-site merge; the per-material `Decompose` reads the seam composition rows ONLY (thickness share, declared fraction, baked section area) — re-deriving a composition here, re-tessellating per material, or fabricating a mass split the composition cannot carry is the deleted form, the weight decomposition staying `Rasm.Compute`'s.
 
 ```csharp signature
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class QuantityDerivation {
-    // ONE domain row per kernel MassKind carrying the seam Dimension and QuantityType its magnitude admits under plus
-    // the standard member NAMES that magnitude honestly answers, so a newly answerable member is one string on its
-    // row rather than a copied body. Area publishes ONE magnitude — the realized solid's total surface area — so it
-    // answers only the members asking for exactly the realized body's whole surface, the realized body BEING the net
-    // solid with its processings resolved; GrossArea, NetArea, GrossSideArea, NetFootprintArea and CrossSectionArea
-    // are PROJECTIONS along an axis the bundle does not carry, GrossSurfaceArea the pre-void magnitude the net body
-    // cannot separate, OuterSurfaceArea the lateral envelope the total cannot isolate — none is named and each
-    // occurrence value survives derived-wins. Volume answers NetVolume and the validation set's bare Volume for the
-    // same reason, GrossVolume being the pre-void magnitude the same geometry cannot separate.
     static readonly Seq<(MassKind Domain, QuantityType Type, Dimension Dimension, Seq<string> Members)> Takeoffs = Seq(
         (MassKind.Length, QuantityType.Length, Dimension.LengthDim, Seq("Length")),
         (MassKind.Area, QuantityType.Area, Dimension.AreaDim, Seq("SurfaceArea", "TotalSurfaceArea", "NetSurfaceArea")),
         (MassKind.Volume, QuantityType.Volume, Dimension.VolumeDim, Seq("Volume", "NetVolume")));
 
-    // Every row admits through MeasureValue.OfSi(QuantityType, Dimension, double) carrying its QTO IDENTITY: the
-    // dimension-only overload stamps the dimension-anonymous QuantityType, and a derived-wins merge then REPLACED an
-    // occurrence-stored QuantityType.Volume with an anonymous one, voiding the As(QuantityType) read and failing the
-    // Type-equality gate on any Sum against a stored quantity. NetWeight is the DIMENSIONED product — Multiply over
-    // the density carrier (VolumeDim x DensityDim IS MassDim) re-stamped through the band-preserving WithType — where
-    // a bare `volume * density.Si` discards every declared uncertainty; its guard stays on the INPUT, so the product's
-    // dimension is right by construction.
-    // Demands rides BESIDE its projector as the same row's second column, so the demand a caller mints the bundle
-    // under and the magnitude the projector reads resolve from ONE correspondence — a member demanding a domain the
-    // projector never reads, and a projector reading a domain nothing demanded, are both unspellable.
     static readonly FrozenDictionary<(Dimension Dimension, string Member),
         (CapabilitySet<MassKind> Demands, Func<MeasureBundle, Option<MeasureValue>, Op, Option<Fin<MeasureValue>>> Project)> Derivations =
         Takeoffs
@@ -530,11 +407,6 @@ public static class QuantityDerivation {
                      select volume.Bind(admitted => admitted.Multiply(carrier, key)).Bind(mass => mass.WithType(QuantityType.Mass, key))))))
             .ToFrozenDictionary();
 
-    // Demand names the mass domains a class's DECLARED members can answer, so the geometry-side resolver mints the
-    // bundle over exactly those kinds. Kernel law refuses a bundle WHOLE on a demanded kind the geometry cannot
-    // measure, so this set is the declared ceiling that resolver lowers against the geometry it holds: demanding
-    // every kind refused a solid's whole bundle on the curve-length solve, and demanding none re-paid the mass
-    // computation once per domain the fold asked for separately.
     public static CapabilitySet<MassKind> Demand(IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope) =>
         PropertyCatalog.BaseQuantitySet(cls, predefined, schema, scope).Match(
             None: static () => CapabilitySet<MassKind>.None,
@@ -543,9 +415,6 @@ public static class QuantityDerivation {
                     ? row.Demands.Held.Aggregate(demand, static (held, kind) => held.With(kind))
                     : demand));
 
-    // Decompose demands off the SAME discriminant its Shares fold reads — the seam MaterialComposition case — so the
-    // two never disagree about which domain a composition needs, and a new modality breaks BOTH total Switches at
-    // compile time rather than silently under-demanding a magnitude the split then reads as absent.
     public static CapabilitySet<MassKind> Demand(Seq<BakedMaterial> materials) =>
         materials.Fold(CapabilitySet<MassKind>.None, static (demand, baked) => demand.With(baked.Material.Composition.Switch(
             single: static _ => MassKind.Volume,
@@ -553,19 +422,6 @@ public static class QuantityDerivation {
             profileSet: static _ => MassKind.Length,
             constituentSet: static _ => MassKind.Volume)));
 
-    // The fold walks the set's DECLARED MEMBERS and asks the table for each by NAME, so a member the table does not
-    // answer derives NOTHING and leaves whatever the occurrence stored. That per-member keying is the whole election:
-    // the retired dimension-keyed table plus its "first-declared quantity of this dimension" fallback stamped ONE
-    // takeoff onto whichever member a set happened to list first, so a class declaring only GrossArea received the
-    // total surface area under that name and a class declaring only GrossVolume received the net solid volume under
-    // that one — both reading as measured takeoffs and neither being one. The emitted key is a standard-set member BY
-    // CONSTRUCTION because the key IS the member the catalogue declared; the QuantitySet bag node carries the set
-    // name, so a `{Set}.{name}`-prefixed PropertyName is a NON-MEMBER key that never collides with the occurrence rows
-    // and never matches the IDS facet. massDensity is the material's Mechanical.Density resolved One-Hop from the
-    // Associate edge, absent which the weight rows skip rather than fabricate. One bundle answers EVERY declared
-    // dimension at once: a Qto_*BaseQuantities set naming Length, SurfaceArea and NetVolume together derives all
-    // three off the kind-keyed rows, where the retired single-domain bundle derived whichever one domain it carried
-    // and left the rest standing on their occurrence values while the caller re-measured for each.
     public static Fin<Map<PropertyName, MeasureValue>> Derive(
         IfcClass cls, Option<string> predefined, ReleaseVersion schema, TemplateScope scope, MeasureBundle measures,
         Option<MeasureValue> massDensity, Map<PropertyName, MeasureValue> occurrence, Op key) =>
@@ -578,10 +434,6 @@ public static class QuantityDerivation {
                         None: () => Fin.Succ(acc))
                     : Fin.Succ(acc))));
 
-    // A colliding MaterialId (occurrence + type-inherited bindings naming one substance) sums through the seam
-    // MeasureValue.Sum; an absent element measure yields no row, never a fabricated zero. Volume only: the multi-ply
-    // WEIGHT fold stays the Rasm.Compute AssemblyAggregator's, the frozen boundary being that volume splits are
-    // composition-derivable in full and mass is not.
     public static Fin<Map<MaterialId, MeasureValue>> Decompose(
         MeasureBundle measures, Seq<BakedMaterial> materials, Func<ProfileRef, Option<SectionProperties>> sections, Op key) =>
         materials.TraverseM(baked => Shares(measures, baked.Material.Composition, sections, key)).As()
@@ -590,15 +442,6 @@ public static class QuantityDerivation {
                     Some: existing => MeasureValue.Sum(Seq(existing, row.Share), key).Map(sum => acc.SetItem(row.Material, sum)),
                     None: () => Fin.Succ(acc.Add(row.Material, row.Share))))));
 
-    // The generated TOTAL Switch, so a new composition modality breaks this at compile time. LayerSet's thickness
-    // total is > 0 by the seam OfLayerSet admission; Multiply is dimension-anonymous by seam law, so the
-    // QuantityType.Volume re-stamp through the band-preserving WithType is the consumer's. ProfileSet folds PER
-    // COMPOUND ROW because a ProfileSet carries EVERY IfcMaterialProfile row with its own material and its own
-    // content-keyed section — the retired single-section read multiplied ONE section area by the member length and
-    // attributed the whole swept volume to the set's head material, which is exactly the takeoff a composite member is
-    // asked for and exactly the one it got wrong. `sections` is the caller's one-hop resolution (the Rasm.Materials
-    // catalog lookup the seam deliberately does not store), so an unresolved row contributes NO share rather than
-    // borrowing a sibling plate's area.
     static Fin<Seq<(MaterialId Material, MeasureValue Share)>> Shares(
         MeasureBundle measures, MaterialComposition composition, Func<ProfileRef, Option<SectionProperties>> sections, Op key) =>
         composition.Switch(
@@ -645,9 +488,7 @@ public static class QuantityDerivation {
 - Boundary: the audit READS the resolved `PropertyTemplate` map and the baked element — it re-derives neither the template union (that is `PropertyKey.Resolve`'s) nor the type→occurrence merge (the seam `Bake`'s under the stamped mode [H1]); the verdict vocabulary mirrors the seam `Rasm.Element/Query/predicate#ELEMENT_PREDICATE` `ValueMatch` restriction family but stays a SEPARATE closed vocabulary because the finding names the failing axis where `ValueMatch` answers only membership — the IDS lane keeps `ValueMatch`, this lane keeps the axis-named verdict, and collapsing the two erases the axis evidence; the audit is spec-FREE (the buildingSMART templates ARE the spec) and a user-authored requirement routes the `Review/validation#IDS_FACETS` owner, never a template-audit extension; the finding stream surfaces only through the `Review/validation#MODEL_HEALTH` composition — a second report consumer forked off this stream is the deleted form; the `Pattern` compiles once per template row (`RegexOptions.NonBacktracking`, whole-value anchored — the untrusted-grammar law), never per element; the fold is SPAN-grade under [MODEL_SLOT_RULING] — one span over the whole graph pass carrying the package namespace slot, never a per-element or per-template instrument, because occurrences and resolved template rows are both unbounded in model size and a metric keyed on either multiplies every series by that count; the span itself is `Observability`'s to open around this entry and a telemetry mint inside this fold is the deleted form, the audit returning findings alone.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// One verdict row per PropertyTemplate constraint axis: the finding names WHICH axis failed (a QA report acts per
-// axis), where the IDS ValueMatch family answers only membership — two consumers, two shapes, one template source.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TemplateVerdict {
@@ -660,17 +501,12 @@ public sealed partial class TemplateVerdict {
     public static readonly TemplateVerdict WrongDimension   = new("wrong-dimension");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct TemplateFinding(NodeId Element, string Set, string Code, TemplateVerdict Verdict, Option<PropertyValue> Actual);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// The zero-configuration model-QA fold: templates resolve ONCE per distinct (class, predefined) pair and every
-// element of the pair checks the SAME map; the per-template Pattern compiles once (NonBacktracking, whole-value
-// anchored). The Bake rail is the only fault channel — the audit itself is total.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TemplateAudit {
     public static Fin<Seq<TemplateFinding>> Run(ElementGraph graph, TemplateScope scope, Func<IfcClass, Option<BsddClass>> dictionary, Op key) {
-        // The entity-type classification is the roster row's OWN key compared in the roster's OWN key space — a bare
-        // token literal forks the system vocabulary and an ordinal compare reads a re-cased export as a foreign system.
         Seq<Node.Object> occurrences = graph.ObjectNodes
             .Filter(static o => o.Kind == ObjectKind.Occurrence
                 && string.Equals(o.Classification.System, ClassificationSystem.IfcSystem.Key, StringComparison.OrdinalIgnoreCase))
@@ -691,11 +527,8 @@ public static class TemplateAudit {
             .Map(static findings => findings.Flatten().ToSeq());
     }
 
-    static Option<string> Token(string token) => Optional(token).Filter(static t => t.Length > 0 && t != PredefinedType.NotDefined.Token); // the seam roster row, never a literal twin of it
+    static Option<string> Token(string token) => Optional(token).Filter(static t => t.Length > 0 && t != PredefinedType.NotDefined.Token);
 
-    // PropertyCategory.Seam.Row is the owner-blessed EMPTY-prefix category the round-tripped
-    // IFC/bSDD template code lands under, so this reader shares one key space with every writer of the same rows
-    // rather than spelling PropertyName.Create at a call site the seam declarer never sees.
     static Seq<TemplateFinding> Check(NodeId element, Map<string, (PropertyTemplate Template, Option<Regex> Pattern)> templates, Element baked) =>
         templates.Values.ToSeq().Bind(row => {
             PropertyName code = PropertyCategory.Seam.Row(row.Template.Code);
@@ -708,16 +541,10 @@ public static class TemplateAudit {
                 .Map(verdict => new TemplateFinding(element, row.Template.Set, row.Template.Code, verdict, actual)).ToSeq();
         });
 
-    // One arm per constraint axis, most-specific first; a value passing every declared axis yields None — no finding.
-    // Absence grades against a DECLARED requiredness alone: an undeclared axis (every offline-floor row, since the
-    // buildingSMART dataset carries no requiredness column) yields no verdict, so a presence finding always traces to
-    // a dictionary that actually stated the requirement rather than to a literal this fold supplied on its behalf.
     static Option<TemplateVerdict> Verdict(PropertyTemplate template, Option<Regex> pattern, Option<PropertyValue> actual) =>
         actual.Match(
             None: () => template.Traits.Admits(TemplateTrait.Required) ? Some(TemplateVerdict.Missing) : None,
             Some: value => !Compatible(template.Kind, value) ? Some(TemplateVerdict.KindMismatch)
-                // A second, finer axis than Kind, which spans IfcLabel, IfcBoolean and IfcThermalTransmittanceMeasure
-                // alike; an unparseable or unstated token grades nothing.
                 : !PropertyCatalog.DataTypeAgrees(template.DataType, value) ? Some(TemplateVerdict.DataTypeMismatch)
                 : value switch {
                 PropertyValue.Text t when !template.AllowedValues.IsEmpty && !template.AllowedValues.Contains(t.Value) => Some(TemplateVerdict.NotAllowed),

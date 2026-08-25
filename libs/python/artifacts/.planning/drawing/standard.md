@@ -51,11 +51,11 @@ if TYPE_CHECKING:
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type DimVar = str | int | float  # the DXF dimstyle-variable value domain — dimpost/dimtxsty/dimblk are strings beside the numeric variables
-type Box = tuple[float, float, float, float]  # a producer's own point-hull span (lo x, lo y, hi x, hi y), the extent fallback
+type DimVar = str | int | float
+type Box = tuple[float, float, float, float]
 
 
-class DimStyleFamily(StrEnum):  # ISO 129-1 dimension-style families
+class DimStyleFamily(StrEnum):
     ARCHITECTURAL = "architectural"
     ENGINEERING = "engineering"
     CIVIL = "civil"
@@ -72,13 +72,13 @@ class DimUnit(StrEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 class DimStyleFamilyRow(Struct, frozen=True):
     terminator: Terminator
-    height: TextHeight  # DIMTXT base
-    arrow_size: float  # DIMASZ base (mm)
-    extension: float  # DIMEXE
-    offset: float  # DIMEXO
-    gap: float  # DIMGAP
-    baseline: float  # DIMDLI
-    decimals: int  # DIMDEC
+    height: TextHeight
+    arrow_size: float
+    extension: float
+    offset: float
+    gap: float
+    baseline: float
+    decimals: int
     unit: DimUnit
 
     def override(self, scale: ScaleRatio, text: Option[TextHeight] = Nothing) -> "frozendict[str, DimVar]":
@@ -107,7 +107,7 @@ class DimStyleFamilyRow(Struct, frozen=True):
             "dimlunit": linear_unit,
             "dimlfac": factor,
             "dimdec": self.decimals,
-            "dimdsep": ord("."),  # $DIMDSEP is group-code 70: ezdxf stores the separator as its int char code, never the str
+            "dimdsep": ord("."),
             "dimzin": 8,
             "dimpost": suffix,
             "dimalt": 0,
@@ -117,19 +117,12 @@ class DimStyleFamilyRow(Struct, frozen=True):
             "dimscale": 1.0,
             "dimtxsty": "ISO-3098",
             "dimtol": 0,
-            # this consumer's half of the regime row: a positive DIMTSZ draws the oblique tick and supersedes DIMBLK
-            # outright, so the tick arm writes the CLEARED name; every other end writes its block, the closed-filled
-            # arrow's "" being that cleared name itself (`ezdxf.ARROWS.closed_filled`). Every row states DIMBLK
-            # because `seed` re-asserts the override onto existing styles — an omitted key would let a persisted
-            # block survive a zeroed DIMTSZ and render a stale terminator under a standard family name.
             "dimblk": "" if end.tick else end.block,
         }
         return frozendict(base)
 
 
 class SwatchSpec(Struct, frozen=True):
-    # `SwatchSpec` is the entity-free legend projection — the resolved fill beside its DXF poché/grade sRGB; a
-    # schedule legend or keyplan key draws this value without ever holding a live Drawing.
     fill: HatchFill
     poche: Option[tuple[int, int, int]] = Nothing
     grade: Option[tuple[int, int, int]] = Nothing
@@ -137,15 +130,13 @@ class SwatchSpec(Struct, frozen=True):
 
 class Standard(Struct, frozen=True):
     scale: ScaleRatio = ScaleRatio.FULL
-    font: Option[str] = Nothing  # Textstyle font (shx/ttf); Nothing -> ezdxf isocp default
+    font: Option[str] = Nothing
 
     @classmethod
     def of(cls, scale: ScaleRatio = ScaleRatio.FULL, font: Option[str] = Nothing) -> Self:
         return cls(scale=scale, font=font)
 
     def seed(self, doc: "Drawing", layers: tuple[LayerName, ...] = (), families: tuple[DimStyleFamily, ...] = ()) -> "Drawing":
-        # Exemption: the ezdxf symbol-table builder mutates the native Drawing in place — one imperative
-        # fold over regime's closed vocabulary, no per-resource method family.
         doc.units = _units.MM
         for lt in LineType:
             if lt is not LineType.CONTINUOUS and lt.value not in doc.linetypes:
@@ -170,23 +161,18 @@ class Standard(Struct, frozen=True):
                     lineweight=round(pen.lineweight.mm * 100),
                 )
             else:
-                # a name match is not a seed proof — an existing layer reconciles to the standard pen and colour,
-                # so a drifted import never survives under a standard name.
                 held = doc.layers.get(layer_name)
                 held.color = aci
                 held.rgb = _colors.aci2rgb(aci)
                 held.dxf.linetype = pen.linetype.value
                 held.dxf.lineweight = round(pen.lineweight.mm * 100)
         for family in families:
-            # every override re-asserts on the existing style as on the fresh one — seeding converges the
-            # document to the Standard instead of trusting the name.
             dimstyle = doc.dimstyles.add(family.value) if family.value not in doc.dimstyles else doc.dimstyles.get(family.value)
             for key, value in _DIMSTYLE[family].override(self.scale).items():
                 dimstyle.dxf.set(key, value)
         return doc
 
     def graphics(self, layer: LayerName) -> GfxAttribs:
-        # `graphics` projects the one uniform bundle every add_* entity carries as dxfattribs=.
         pen = layer.pen
         return GfxAttribs(
             layer=layer.compose(),
@@ -202,7 +188,6 @@ class Standard(Struct, frozen=True):
         return _DIMSTYLE[family].override(scale.default_value(self.scale))
 
     def hatch(self, entity: "Hatch", material: HatchMaterial, factor: Option[float] = Nothing) -> "Result[Hatch, PatternFault]":
-        # Exemption: the ezdxf Hatch fill setters mutate the native entity in place — one total dispatch over HATCH_BIND.
         fill: HatchFill = HATCH_BIND[material]
         f = factor.default_value(self.scale.factor)
         match fill:
@@ -236,7 +221,6 @@ class Standard(Struct, frozen=True):
                 assert_never(unreachable)
 
     def swatch(self, material: HatchMaterial) -> SwatchSpec:
-        # `swatch` is hatch()'s entity-free legend twin: one resolved value per material, drawn by schedule/keyplan legends.
         codes = _FILL.try_find(material)
         return SwatchSpec(
             fill=HATCH_BIND[material],
@@ -245,28 +229,15 @@ class Standard(Struct, frozen=True):
         )
 
     def rgb(self, layer: LayerName) -> tuple[int, int, int]:
-        # discipline ACI pen sRGB; a CMYK/spectral swatch routes regime's LCh value through derive.
         return tuple(_colors.aci2rgb(_ACI[layer.discipline]))
 
     def paper_factor(self, model_units: Option[int] = Nothing) -> float:
-        # paper mm per model unit: ISO 5455 factor over the model->mm conversion.
         unit = model_units.default_value(_units.MM)
         return self.scale.factor * _units.conversion_factor(unit, _units.MM)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def extent(msp: "Modelspace", fallback: Option[Box] = Nothing, /) -> tuple[float, float]:
-    # `bbox.extents` measures the ONE span every DXF-authoring producer reports, walking the LIVE layout so placed
-    # block references, hatches, and wipeouts all count where a producer's own defining-point hull sees none of
-    # them; the exact `fast=False` walk flattens every Bézier curve where the fast control-point box overshoots the
-    # rendered span — an authoritative dimension never carries a fast-mode overshoot, and the pin holds the exact
-    # arm against a speed-minded drift. MODEL-SPACE MILLIMETRES is the unit contract on both arms: the span converts
-    # once through the document's own declared `units` (`seed` pins MM so the factor is 1.0, a foreign document's
-    # declaration converts rather than leaking its drawing units, and a unitless `0` reads as the seeded MM regime),
-    # while the caller's fallback hull — stated in that same layout's drawing units — rides the identical factor,
-    # and paper conversion stays `Standard.paper_factor`'s at the consumer. An empty layout has no measured span at
-    # all, so the fallback rides in and a caller holding none reports zero rather than a fabricated size; rounding
-    # stays at the receipt seam.
     factor = _units.conversion_factor(msp.doc.units, _units.MM) if msp.doc.units else 1.0
     box = bbox.extents(msp, fast=False)
     return (
@@ -277,7 +248,6 @@ def extent(msp: "Modelspace", fallback: Option[Box] = Nothing, /) -> tuple[float
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# DXF-native discipline pen codes (ACI); regime's LCh rows are the color truth.
 _ACI: Final[Map[Discipline, int]] = Map.of_seq([
     (Discipline.ARCHITECTURAL, 7),
     (Discipline.CIVIL, 3),
@@ -298,12 +268,10 @@ _ACI: Final[Map[Discipline, int]] = Map.of_seq([
     (Discipline.OTHER, 250),
     (Discipline.CONTRACTOR, 253),
 ])
-# DXF fill codes per material (solid poché ACI, gradient light ACI) — exactly the non-pattern HATCH_BIND rows.
 _FILL: Final[Map[HatchMaterial, tuple[int, int]]] = Map.of_seq([
     (HatchMaterial.STEEL, (250, 250)),
     (HatchMaterial.EARTH, (43, 8)),
 ])
-# ISO 129-1 family base parameters (mm at 1:1).
 _DIMSTYLE: Final[Map[DimStyleFamily, DimStyleFamilyRow]] = Map.of_seq([
     (DimStyleFamily.ARCHITECTURAL, DimStyleFamilyRow(Terminator.OBLIQUE_STROKE, TextHeight.H2_5, 2.5, 1.25, 0.625, 0.625, 7.0, 0, DimUnit.MILLIMETRE)),
     (DimStyleFamily.ENGINEERING, DimStyleFamilyRow(Terminator.FILLED_ARROW, TextHeight.H3_5, 3.5, 1.25, 0.625, 0.9, 8.0, 1, DimUnit.MILLIMETRE)),

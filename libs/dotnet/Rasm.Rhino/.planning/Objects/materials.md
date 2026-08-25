@@ -20,7 +20,7 @@ Object render support belongs to `Rasm.Rhino.Objects`. `MaterialScope` discrimin
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<T>]`, `[Union]`, `[ValueObject<T>]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Riok.Mapperly (`libs/dotnet/.api/api-mapperly.md` — `[Mapper]`, `[MapProperty]`, `[UserMapping]`, `RequiredMappingStrategy.Target`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `RhinoObject.GetMaterial`/`GetRenderMaterial`, `MeshType`, `GetRenderMeshParameters`, `SetRenderMeshParameters`); RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `MeshingParameters.FromEncodedString`/`ToEncodedString`); `Document/session.md` (`DraftFault`); `Document/tables.md` (`ResourceId`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document;
@@ -34,15 +34,13 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Objects;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class SurfaceSide {
     public static readonly SurfaceSide Front = new(key: true);
     public static readonly SurfaceSide Back = new(key: false);
 }
 
-// The folder's ONE crossing of the host mesh discriminant, named by `Document/tables.md`'s type law. `Host` is
-// read at the host call and nowhere else, so the raw enum reaches no signature this package declares.
 [SmartEnum<int>]
 public sealed partial class MeshKind {
     public static readonly MeshKind Default = new(key: (int)MeshType.Default, wire: "default");
@@ -131,11 +129,9 @@ public abstract partial record MaterialScope {
             }));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct MaterialStamp(Guid Id, Option<string> Name) : IDetachedDocumentResult;
 
-// Channel is the mapping owner's `[ValueObject<int>]`: the reserved OCS channel and the negative miss are its
-// admission law, so this page composes the value and never re-guards an integer.
 public readonly record struct MappingStamp(MappingChannel Channel, Guid Id, Transform ObjectTransform) : IDetachedDocumentResult;
 
 [ValueObject<string>]
@@ -153,8 +149,6 @@ public sealed partial class RenderMeshPolicy {
         }
     }
 
-    // Refusal names WHICH encoding the host answered with; folding it to a bare fault deletes the one datum
-    // separating "the host handed back an unparseable policy" from every other failure.
     internal static Fin<RenderMeshPolicy> Capture(MeshingParameters native, Op key) =>
         key.Catch(() => key.AcceptValidated<RenderMeshPolicy>(
             fault: Validate(native.ToEncodedString(), out RenderMeshPolicy? admitted),
@@ -314,11 +308,6 @@ public abstract partial record MeshBatch : IDetachedDocumentResult {
             key: op);
 }
 
-// The batch mesher answers TWO parallel host arrays plus the modality it actually ran, and a bare tuple made
-// that pairing the caller's problem: every consumer re-derived which array indexes which and every failure arm
-// had to remember both. The run OWNS the pair until detachment crosses it or `Release` frees it, and its
-// `Settled` column is the same `MeshBatch` family the request used, carrying the ref-updated dialog and style
-// values back — so a new batch modality is one case and cannot land in the request without landing in the fact.
 internal sealed record MeshRun(
     CommandVerdict Verdict,
     Mesh[] Meshes,
@@ -327,11 +316,7 @@ internal sealed record MeshRun(
     internal Fin<Unit> Release(Op op) => ObjectPiece.Release(geometry: Meshes, attributes: Attributes, key: op);
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// The two host material families project field-for-field onto one detached stamp, so the transcription is
-// generated and a renamed column breaks the build. `MappingStamp` stays hand-built: two of its three columns —
-// the requested channel and the `out Transform` — come from the CALL, not from `TextureMapping`, so a generated
-// target-complete mapping has no source member to read them from.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
 public static partial class MaterialMap {
     internal static Fin<MaterialStamp> Detach(Material? native, Op key) =>
@@ -344,8 +329,6 @@ public static partial class MaterialMap {
 
     private static partial MaterialStamp Stamp(RenderMaterial native);
 
-    // Host names arrive blank rather than absent, so the one text projection admits through the rail's own
-    // trim-and-empty read and every stamp column reads the same absence.
     [UserMapping]
     private static Option<string> Label(string value) => Op.Text(value);
 }
@@ -367,15 +350,13 @@ public static partial class MaterialMap {
 - Packages: LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `Traverse`); Thinktecture.Runtime.Extensions (`[SmartEnum<bool>]`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `MeshCount`, `GetMeshes`, `IsMeshable`, `GetTextureChannels`, `GetTextureMapping`, `GetCustomRenderMeshParameter`, `RhinoObject.MeshObjects`); `Objects/state.md` (`ObjectPiece.Paired`, `ObjectPiece.Acquire`, `ObjectPiece.Release`); kernel `Domain/rails` (`Lease<T>`).
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class MeshFallback {
     public static readonly MeshFallback Document = new(key: true);
     public static readonly MeshFallback ObjectOnly = new(key: false);
 }
 
-// The request FIXES its answer: `Admit` re-admits the payload before any live read and `Read` folds the resolved
-// roster into the caller's own type. The nine-case answer union and its nine casts delete with it.
 public sealed record MaterialAsk<TAnswer> {
     internal MaterialAsk(
         Func<Op, Fin<MaterialAsk<TAnswer>>> admit, Func<Seq<RhinoObject>, Op, Fin<TAnswer>> read) =>
@@ -385,9 +366,7 @@ public sealed record MaterialAsk<TAnswer> {
     internal Func<Seq<RhinoObject>, Op, Fin<TAnswer>> Read { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The only two answers that OWN anything. Every other read hands back plain rows, so `using` on a material
-// census no longer reads as custody nobody holds.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record MeshPieces(Seq<(Guid Id, Seq<ObjectPiece> Products)> Rows) : IDetachedDocumentResult {
     public Fin<Unit> Release(Op op) => ObjectPiece.Release(rows: Rows, key: op);
 }
@@ -396,7 +375,7 @@ public sealed record MeshHarvest(Seq<(Guid Id, ObjectPiece Product)> Rows, MeshB
     public Fin<Unit> Release(Op op) => ObjectPiece.Release(rows: Rows, key: op);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MaterialAsk {
     public static MaterialAsk<Seq<(Guid Id, MaterialStamp Stamp)>> Resolve(MaterialRealm realm, MaterialScope scope) => new(
         admit: op =>
@@ -447,9 +426,6 @@ public static class MaterialAsk {
                 key: op)
             .Map(static rows => new MeshPieces(Rows: rows)));
 
-    // Ownership splits by ARGUMENT, not by member: the `true` overload fills a freshly minted caller-owned
-    // carrier, while the `false` overload hands back a wrapper over the object's own stored parameters —
-    // disposing that one frees host-owned memory, so the per-object read encodes inside the borrow.
     public static MaterialAsk<Seq<(Guid Id, Option<RenderMeshPolicy> Value)>> CachePolicy(MeshFallback fallback) => new(
         admit: op => op.Need(fallback).Map(row => CachePolicy(fallback: row)),
         read: (natives, op) => natives
@@ -485,7 +461,6 @@ public static class MaterialAsk {
                     .Traverse(value => ProviderValue.Of(value, op)).As()
                     .Map(value => (native.Id, value)))).As());
 
-    // The parameterless reads carry nothing to admit and each says so.
     private static MaterialAsk<TAnswer> Free<TAnswer>(Func<Seq<RhinoObject>, Op, Fin<TAnswer>> read) =>
         new(admit: _ => Fin.Succ(value: Free(read)), read: read);
 
@@ -498,8 +473,6 @@ public static class MaterialAsk {
     private static Fin<Option<RenderMeshPolicy>> Stored(MeshingParameters? policy, Op key) =>
         Optional(policy).Traverse(value => RenderMeshPolicy.Capture(value, key)).As();
 
-    // The owner ids are read and FORCED before the shared custody fold runs, because that fold releases the
-    // source attribute arrays on its way out and a lazy projection would read `ObjectId` off freed native memory.
     private static Fin<Seq<(Guid Id, ObjectPiece Product)>> Harvested(
         Mesh[]? meshes, ObjectAttributes[]? attributes, Op key) =>
         from owners in Optional(attributes).ToFin(Fail: key.InvalidResult())
@@ -523,7 +496,7 @@ public static class MaterialAsk {
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[SmartEnum<int>]`, `[ComplexValueObject]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`, `ForAll`); RhinoCommon objects (`SetTextureMapping`, `CreateMeshes`, `DestroyMeshes`, `SetRenderMeshParameters`, `SetCustomRenderMeshParameter`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`); `Objects/state.md` (`ObjectSpine.Commit`, `Objects.Resolve`); `Render/mapping.md` (`MappingChannel`, `MappingSpec`, `MappingProfile`).
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CommitDemand : ICapability<CommitDemand> {
@@ -544,8 +517,6 @@ public abstract partial record MaterialEdit {
     public sealed record SetCachePolicy(RenderMeshPolicy Policy) : MaterialEdit;
     public sealed record SetKnob(Guid Provider, string Name, ProviderValue Value) : MaterialEdit;
 
-    // Recorded writes roll back; regenerable effects do not and must run alone, so the one-at-a-time rule is a
-    // row the edit declares rather than a count the commit remembers.
     internal CapabilitySet<CommitDemand> Demands => Map(
         setMapping: CapabilitySet<CommitDemand>.Of(CommitDemand.Undo),
         buildCache: CapabilitySet<CommitDemand>.Of(CommitDemand.Solo),
@@ -627,9 +598,7 @@ public abstract partial record MaterialEdit {
                 select receipt));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The homogeneity law states HERE, on the value the caller builds, so the commit body carries no roster guard
-// and a mixed program cannot be constructed to hand it.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class MaterialProgram {
@@ -715,7 +684,7 @@ public abstract partial record MaterialBody : IFactBody<MaterialBodyKind> {
         record: MaterialBodyKind.Record);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Materials {
     public static Fin<TAnswer> Ask<TAnswer>(
         DocumentSession session, TableTarget target, MaterialAsk<TAnswer> ask, Op? key = null) {
@@ -753,9 +722,7 @@ public static class Materials {
     }
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------------
-// The rail's receipt IS the Document spine's stream closed over this page's two vocabularies; the aliases are
-// `.cs` `global using` rows in the project manifest, so no consumer spells the instantiation.
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using MaterialFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody>;
 global using MaterialReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.MaterialSlot, Rasm.Rhino.Objects.MaterialBody>;
 ```

@@ -27,9 +27,8 @@ The spine is `bodong.PropertyModels`, the `CommandRow`/`EditReceipt` rails, the 
 - Boundary: the package-owned `ICancelableCommand` Boolean delegate is the sole narrowing boundary for the typed application rail, and the narrow ROUTES its discarded `Error` to the lane's fault sink, so the client arm reports the real cause instead of inventing one from the target. Durable replay preserves the exact failure. The `Composite` case makes a batch one revertible unit so partial-batch undo is structurally absent.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
-// Numeric identity derives from the kernel fault band.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record HistoryFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.History;
@@ -50,8 +49,6 @@ public abstract partial record HistoryFault : Fault {
     [FaultCase(4)]
     public sealed partial record CursorUnreachable(string Detail) : HistoryFault(Detail);
 
-    // The ledger hop is a NETWORK call, so this case alone declares itself re-drivable and the kernel
-    // `Redrive.Run` admits exactly it; every sibling inherits `Terminal` without spelling it.
     [FaultCase(5)]
     public sealed partial record StoreUnreachable(string Detail) : HistoryFault(Detail) {
         public override Retriability Retriability => Retriability.Transient;
@@ -61,10 +58,8 @@ public abstract partial record HistoryFault : Fault {
     public sealed partial record PayloadUndecodable(string Detail) : HistoryFault(Detail);
 }
 
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The ledger entity a lane reverts against, admitted ONCE. Every interior member takes this type, so the
-// blank-identity test that used to stand at both `RevertibleOp.Admit` and `RevertScope.Revert` has no site.
 [ValueObject<string>]
 [ValidationError]
 public readonly partial struct ContentIdentity {
@@ -83,9 +78,6 @@ public readonly partial struct ActorKey {
     }
 }
 
-// The DOMAIN step space, distinct from the fabric's row address by declaration (folder RULINGS [02]): a
-// disclosed composite contributes one row per child and no child is a revert step of its own, so the two
-// agree only while nothing expands. `Jump`, `OrdinalAt`, and `TimelineKey` all speak this one.
 [ValueObject<int>]
 [ValidationError]
 public readonly partial struct RevertOrdinal {
@@ -96,8 +88,6 @@ public readonly partial struct RevertOrdinal {
     }
 }
 
-// The kind row READS its glyph off the `Theme/assets` declaration rather than transcribing its text, so the
-// asset roster is the one authority and a sixth kind lands its catalogue row and its key in one edit.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -108,8 +98,6 @@ public sealed partial class RevertKind {
     public static readonly RevertKind Move = new("move", AssetDeclaration.HistoryMove.Asset);
     public static readonly RevertKind Composite = new("composite", AssetDeclaration.HistoryComposite.Asset);
 
-    // The chip's static caption before its first per-row bind; the per-row value rides `LabelKey` through the
-    // row's own value slot, so both halves derive from the one key mint and neither is a call-site literal.
     public static readonly string LabelRoot = LocaleStrings.Key(nameof(RevertKind), "kind");
 
     public AssetKey Glyph { get; }
@@ -117,10 +105,8 @@ public sealed partial class RevertKind {
     public string LabelKey => LocaleStrings.Key(nameof(RevertKind), Key);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Each delta case carries exactly its payload and its own inverse; kind derives from the case, so the
-// kind key and the payload shape can never disagree.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(RevertDelta.Set), "set")]
@@ -150,8 +136,6 @@ public abstract partial record RevertDelta {
         move: static m => new Move(m.To, m.From),
         composite: static c => new Composite(c.Children.Rev().Map(static child => child.Inverse())));
 
-    // The disclosure children a timeline row expands into. Every non-composite case answers empty, so the
-    // flatten walks one total projection rather than a case test at the surface.
     public Seq<RevertibleOp> Children => Switch(
         set: static _ => Seq<RevertibleOp>(),
         insert: static _ => Seq<RevertibleOp>(),
@@ -159,8 +143,6 @@ public abstract partial record RevertDelta {
         move: static _ => Seq<RevertibleOp>(),
         composite: static c => c.Children);
 
-    // Admission is APPLICATIVE per case: a composite reports every malformed child in one refusal, so a
-    // batch of five bad deltas is one report rather than five successive round trips.
     public Validation<Error, RevertDelta> Admit() => Switch(
         set: static delta => Defined(delta, delta.Before, "before").Apply(
             Defined(delta, delta.After, "after"), static (_, _) => (RevertDelta)delta).As(),
@@ -188,9 +170,6 @@ public abstract partial record RevertDelta {
         delta.From != delta.To ? unit : (Error)new HistoryFault.ApplyRejected($"move/{delta.From}: endpoints equal");
 }
 
-// Target, actor, and stamp are COLUMNS rather than a timeline-side lookup: the durable arm lifts all three
-// off the ledger entry it already read, so a rendered row never re-queries the stream that produced it and a
-// client row is never reduced to the command name the recorder retained.
 public sealed record RevertibleOp(
     string Target,
     ContentIdentity ContentIdentity,
@@ -203,9 +182,6 @@ public sealed record RevertibleOp(
 
     public RevertibleOp Inverse() => this with { Delta = Delta.Inverse() };
 
-    // Boundary admission on the ACCUMULATING carrier: the target, the two identities, the delta, and the
-    // composite's identity closure are five INDEPENDENT gates, so a malformed op reports every violated
-    // invariant in one refusal instead of the first clause a sequential `&&` ladder happened to test.
     public static Fin<RevertibleOp> Admit(string target, string identity, string actor, RevertDelta delta, Hlc at) =>
         (Named(target),
          Admission.AcceptValidated<ContentIdentity>(identity).ToValidation(),
@@ -216,9 +192,6 @@ public sealed record RevertibleOp(
         .Bind(static op => Closed(op).Map(_ => op))
         .ToFin();
 
-    // A composite's children must all address the parent's own content identity, because the parent is what
-    // the durable arm keys its ledger window on — a child under a foreign identity would revert a document
-    // the walk never windowed.
     static Validation<Error, Unit> Closed(RevertibleOp op) =>
         op.Delta.Children.Filter(child => child.ContentIdentity != op.ContentIdentity) switch {
             { IsEmpty: true } => unit,
@@ -231,23 +204,15 @@ public sealed record RevertibleOp(
             ? (Error)new HistoryFault.ApplyRejected("target: blank")
             : target.Trim();
 
-    // The element ids this op touched: a composite answers its children's targets, so the highlight raise
-    // and the linked-lane probe read one projection and never special-case the batch.
     public Seq<string> Touched =>
         Delta.Children.IsEmpty ? Seq(Target) : Delta.Children.Bind(static child => child.Touched);
 
-    // The package boundary narrows the typed rail onto a Boolean pair, so the `Error` the fold produced has
-    // nowhere to go IN the delegate — `refuse` is where it goes instead, and the client arm reports the real
-    // cause rather than reconstructing one from the target it still happens to hold.
     public ICancelableCommand ToCommand(string name, Func<RevertibleOp, Fin<Unit>> apply, Func<Error, Unit> refuse) =>
         new GenericCancelableCommand(name,
             executeFunc: () => apply(this).IfFail(refuse).IsSucc,
             cancelFunc: () => apply(Inverse()).IfFail(refuse).IsSucc);
 }
 
-// The durable half an `OpLogEntry` carries in its bytes: the element the op touched beside the delta it
-// applied. Every other column of the op is a ledger column, so this record is exactly what the entry cannot
-// answer and the correspondence below flattens both halves into one generated projection.
 public sealed record RevertPayload(string Target, RevertDelta Delta);
 ```
 
@@ -273,10 +238,8 @@ public sealed record RevertPayload(string Target, RevertDelta Delta);
 - Boundary: `Walk` is TOTAL rather than `Fin` because a halted walk that already applied three of five steps is real mutation the cursor must reflect — a failure carrier discarding the applied prefix would leave the surface's cursor addressing a state the document had left. Its step count is a `Dimension`, so the clamp the fold used to spell has no site. `ContentIdentity` aligns client and durable operations across the seam, while a host-mutating revert routes through the abstract `DocumentTransaction` port so host and client undo remain one transaction.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The arm OWNS its half of the traversal: each row carries the coordinate it deepens and the whole
-// fetch-and-apply fold that half runs.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -289,9 +252,6 @@ public sealed partial class RevertArm {
                 : Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.ApplyRejected(op.Target)),
             None: () => Fin.Fail<(RevertibleOp, RevertCursor)>(direction.Absent(identity)))));
 
-    // The durable arm reads the SAME bounded ledger window the timeline renders, projects the entry through
-    // the direction's own inversion, and applies before the cursor advances — a fetch-only durable success
-    // is the deleted form.
     public static readonly RevertArm Durable = new("durable",
         static cursor => cursor with { DurableOffset = Dimension.Create(cursor.DurableOffset.Value + 1) },
         static (scope, direction, cursor, identity) => direction.Offset(cursor) switch {
@@ -309,10 +269,6 @@ public sealed partial class RevertArm {
     public partial IO<Fin<(RevertibleOp Op, RevertCursor Next)>> Turn(RevertScope scope, RevertDirection direction, RevertCursor cursor, ContentIdentity identity);
 }
 
-// Undo walks DEEPER and inverts what the ledger holds; redo walks back SHALLOWER and re-applies the forward
-// op it left. Every difference between the two traversals is a column here, so one entry serves both and a
-// direction-named sibling method is the deleted form. `Verb` is the deck key the row DECLARES — the two
-// consts that used to hold it were unread while the projection interpolated a third spelling.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -336,16 +292,11 @@ public sealed partial class RevertDirection {
         static identity => new HistoryFault.NothingToRedo(identity.Value),
         static kind => new EditOutcome.Redone(kind));
 
-    // The direction and the distance of an absolute jump are ONE resolution off two ordinals, so the `>=`
-    // law lives on the axis it decides instead of being spelled twice inside a single jump expression.
     public static (RevertDirection Direction, Dimension Steps) Toward(RevertOrdinal from, RevertOrdinal to) =>
         (to.Value >= from.Value ? Undo : Redo, Dimension.Create(int.Abs(to.Value - from.Value)));
 
     public string Verb { get; }
 
-    // The arm DERIVES: the durable half owns the turn whenever the step addresses a durable position the
-    // client window cannot serve. Inversion lives at `RevertDelta.Inverse` alone — the ledger hands forward
-    // ops and `Project` inverts them, so no seam holds a second inversion law.
     public RevertArm Arm(RevertCursor cursor, CancelableCommandRecorder recorder) =>
         Offset(cursor) >= 0 && !(cursor.InClientWindow(recorder.MaxCommand) && Ready(recorder))
             ? RevertArm.Durable
@@ -354,8 +305,6 @@ public sealed partial class RevertDirection {
     [UseDelegateFromConstructor] public partial bool Ready(CancelableCommandRecorder recorder);
     [UseDelegateFromConstructor] public partial bool Drive(CancelableCommandRecorder recorder);
     [UseDelegateFromConstructor] public partial int Offset(RevertCursor cursor);
-    // How far back into the client roster this direction's head sits: undo addresses the op one step deeper
-    // than the live depth, redo the op the previous undo left one step shallower. One roster, two reaches.
     [UseDelegateFromConstructor] public partial int Reach(RevertCursor cursor);
     [UseDelegateFromConstructor] public partial RevertibleOp Project(RevertibleOp op);
     [UseDelegateFromConstructor] public partial RevertCursor After(RevertArm arm, RevertCursor cursor);
@@ -363,39 +312,25 @@ public sealed partial class RevertDirection {
     [UseDelegateFromConstructor] public partial EditOutcome Outcome(string kind);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Both coordinates are non-negative counts by construction, so the guard head that re-tested them at the
-// traversal entry has no site left to stand at.
 public readonly record struct RevertCursor(Dimension ClientDepth, Dimension DurableOffset) {
     public static readonly RevertCursor Start = new(Dimension.Create(0), Dimension.Create(0));
 
     public bool InClientWindow(int maxCommand) => DurableOffset.Value == 0 && ClientDepth.Value < maxCommand;
 
-    // The unified ordinal the timeline addresses: one axis over both halves, so an absolute jump computes a
-    // step count by subtraction rather than by branching on which arm currently owns the position.
     public RevertOrdinal Position => RevertOrdinal.Create(ClientDepth.Value + DurableOffset.Value);
 
-    // Deepening is the ARM's move — each arm owns the coordinate it advances — while shallowing is one walk
-    // back through whichever coordinate is live, so the durable-to-client return resumes the real recorder
-    // depth instead of inventing `MaxCommand`.
     public RevertCursor Shallower() => DurableOffset.Value > 0
         ? this with { DurableOffset = Dimension.Create(DurableOffset.Value - 1) }
         : this with { ClientDepth = Dimension.Create(int.Max(0, ClientDepth.Value - 1)) };
 }
 
-// A walk is TOTAL: the applied prefix and the reached cursor stand whether or not the traversal halted, so a
-// three-of-five jump leaves the surface addressing the state the document holds. A `Fin` carrier
-// here discards exactly the ops the document already applied.
 public readonly record struct RevertWalk(Seq<RevertibleOp> Ops, RevertCursor Next, Option<Error> Halt);
 
-// The admitted ledger row: the entry's structural half beside the payload half decoded off its bytes, as ONE
-// value, so the correspondence below is one generated method rather than a hand join over two sources.
 public readonly record struct RevertRow(OpLogEntry Entry, RevertPayload Payload) {
     static readonly Op Decode = Op.Of(name: "history.decode");
 
-    // Multi-column admission on the ACCUMULATING carrier: an undecodable payload, a blank entity key, and a
-    // blank actor are three independent defects one ledger row can carry at once.
     public static Fin<RevertRow> Of(OpLogEntry entry) =>
         (Decoded(entry),
          Decode.AcceptValidated<ContentIdentity>(entry.EntityKey).ToValidation(),
@@ -405,9 +340,6 @@ public readonly record struct RevertRow(OpLogEntry Entry, RevertPayload Payload)
         .Map(payload => new RevertRow(entry, payload))
         .ToFin();
 
-    // The ledger's bytes are foreign material, so the payload admits HERE and the interior sees only
-    // admitted ops; the crossing rides the composition-seated `EvidenceOps.Wire` options, so the converter
-    // factories and the Option-omission modifier the package registered reach this decode too.
     static Validation<Error, RevertPayload> Decoded(OpLogEntry entry) =>
         Decode.Catch(() => Fin.Succ(Optional(
                 JsonSerializer.Deserialize<RevertPayload>(entry.Payload.Span, EvidenceOps.Wire))))
@@ -416,18 +348,14 @@ public readonly record struct RevertRow(OpLogEntry Entry, RevertPayload Payload)
             .ToValidation();
 }
 
-// The window's two-column answer.
 public readonly record struct RevertPage(Seq<RevertibleOp> Ops, Seq<Error> Refused) {
     public static readonly RevertPage Empty = new(Seq<RevertibleOp>(), Seq<Error>());
 
     public static RevertPage Of(Error cause) => new(Seq<RevertibleOp>(), Seq(cause));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The typed-op roster beside the recorder it mirrors. The recorder owns the queue, its window, and the
-// delegate pair it pops; this holds the `RevertibleOp` each queued command was minted from. A sealed CLASS
-// because it holds a live cell — a `with`-copy would have handed two lanes one roster.
 public sealed class ClientLog {
     private ClientLog(Atom<Seq<RevertibleOp>> ops) => Ops = ops;
 
@@ -437,13 +365,9 @@ public sealed class ClientLog {
 
     public Seq<RevertibleOp> Live(RevertCursor cursor) => Retained(Ops.Value, cursor);
 
-    // The push ANSWERS the roster it settled on, so the caller reads the truncation it performed instead of
-    // discarding the verdict and re-reading a cell a concurrent push may already have moved.
     public Transition<Seq<RevertibleOp>> Push(RevertibleOp op, RevertCursor cursor) =>
         Cell.Commit(Ops, held => Retained(held, cursor).Add(op));
 
-    // ONE head read for both directions: the reach column places the index and the `Option` answers absence,
-    // so a direction-named roster read and a throwing positional index are both unspellable here.
     public Option<RevertibleOp> Head(RevertDirection direction, RevertCursor cursor) =>
         Head(Ops.Value, direction, cursor);
 
@@ -452,8 +376,6 @@ public sealed class ClientLog {
             ? ops.Skip(ops.Count - 1 - back).Head
             : None;
 
-    // The roster's own change stream, seeded with the live snapshot so a late timeline subscription renders
-    // the history already recorded instead of waiting for the next edit to reveal it.
     public IObservable<Seq<RevertibleOp>> Changes =>
         Observable.FromEvent<AtomChangedEvent<Seq<RevertibleOp>>, Seq<RevertibleOp>>(
             handler => value => handler(value),
@@ -461,44 +383,26 @@ public sealed class ClientLog {
             handler => Ops.Change -= handler)
             .StartWith(Ops.Value);
 
-    // The retained prefix a cursor names: everything the cursor has not undone. Both the live read and the
-    // truncating push take this one projection, so a push and a render can never disagree about the tail.
     static Seq<RevertibleOp> Retained(Seq<RevertibleOp> ops, RevertCursor cursor) =>
         ops.Take(int.Max(0, ops.Count - cursor.ClientDepth.Value));
 }
 
-// One scope per revert LANE. The roster is a VALUE rather than a head delegate because the head a direction
-// addresses is derivable from the cursor the arm already holds — a delegate column would let a lane bind a
-// head answering from a roster its own pushes never reached.
 public sealed record RevertScope(
     CancelableCommandRecorder Recorder,
     ClientLog Log,
     Func<ReplayWindow, IO<Seq<OpLogEntry>>> Ledger,
     Func<RevertibleOp, Fin<Unit>> Apply) {
-    // A window opened at the feed head: the `Take` bounds it, so the offset arithmetic is the caller's dial
-    // rather than a second window shape.
     public const long FromHead = 0L;
 
-    // A session lane binds this port: the durable half answers empty by construction, so a turn past the
-    // client window seals the direction's absent fault instead of walking into the document's ledger.
     public static readonly Func<ReplayWindow, IO<Seq<OpLogEntry>>> SessionLedger =
         static _ => IO.pure(Seq<OpLogEntry>());
 
-    // The frozen seam crosses WHOLE. `AfterSequence` is what lets a deep scrub page rather than re-reading
-    // the same head window, and it had no spelling at all while the read was a two-argument delegate.
     public IO<RevertPage> Window(ContentIdentity identity, long afterSequence, int take) =>
         Ledger(ReplayWindow.ForEntity(identity.Value, afterSequence, take)).Map(Admitted);
 
-    // ONE traversal carries both directions: the direction row supplies the deck verb, the recorder verb,
-    // the ledger offset, the roster reach, the projection, the cursor advance, and the absent fault, and the
-    // arm it derives owns the fetch-and-apply fold. The IO terminates at the caller's edge.
     public IO<Fin<(RevertibleOp Op, RevertCursor Next)>> Revert(RevertDirection direction, RevertCursor cursor, ContentIdentity identity) =>
         direction.Arm(cursor, Recorder).Turn(this, direction, cursor, identity);
 
-    // The absolute jump is N single steps under ONE law — the same `Revert` a chord takes — so a scrub and a
-    // keystroke can never diverge in what they apply. The fold stops at the first halt and KEEPS everything
-    // applied before it, and it never inverts the halt into an IO failure, which is what lets a solve gate
-    // resume unconditionally around it.
     public IO<RevertWalk> Walk(RevertDirection direction, RevertCursor cursor, ContentIdentity identity, Dimension steps) =>
         toSeq(System.Linq.Enumerable.Range(0, steps.Value)).Fold(
             IO.pure(new RevertWalk(Seq<RevertibleOp>(), cursor, None)),
@@ -508,20 +412,14 @@ public sealed record RevertScope(
                     Succ: step => walk with { Ops = walk.Ops.Add(step.Op), Next = step.Next },
                     Fail: error => walk with { Halt = Some(error) }))));
 
-    // `PartitionFallible` splits the admitted ops from the refused entries in ONE traversal, so a page keeps
-    // both halves and a single bad row never blanks the history around it.
     static RevertPage Admitted(Seq<OpLogEntry> entries) =>
         entries.Map(static entry => RevertRow.Of(entry).Map(OpLogMap.ToOp)).PartitionFallible() switch {
             var split => new RevertPage(split.Succs, split.Fails),
         };
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The page's ONE seam mapper. The entry's structural columns and the decoded payload flatten through the
-// segment overload, the two identity value objects mint through per-TYPE non-generic user mappings, and
-// `ExplicitCast` is withdrawn because LanguageExt and Thinktecture carriers cross here and their throwing
-// explicit conversions would otherwise be preferred over these mints.
 [Mapper(
     RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
@@ -533,9 +431,6 @@ public static partial class OpLogMap {
     [MapProperty([nameof(RevertRow.Entry), nameof(OpLogEntry.Stamp)], [nameof(RevertibleOp.At)])]
     public static partial RevertibleOp ToOp(RevertRow row);
 
-    // Both strings admitted at `RevertRow.Of` before the row existed, so these mints are total on every value
-    // that reaches them; a generic `TVo Map<TVo>(string)` is refused by the generator (RMG001) and would erase
-    // exactly the per-type refusal the admission above paid for.
     [UserMapping] private static ContentIdentity Identity(string raw) => ContentIdentity.Create(raw);
     [UserMapping] private static ActorKey Author(string raw) => ActorKey.Create(raw);
 }
@@ -560,19 +455,14 @@ public static partial class OpLogMap {
 - Boundary: the row projection declares each verb as a `Shell/commands` `FamilyRow` and takes its `Mint` rather than constructing `CommandRow` positionally — eight of ten arguments were the same default at both sites, so a column added to the row shape broke this page twice for a fact it never varied, and the shape row now decides the admitted payload domain that two hand-written accepts arrays used to spell.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The regeneration axis as rows: single-step undo re-solves per step because that IS the operation, while a
-// scrub folds its whole distance inside one suspend/resume. A caller branch spelling the same choice at two
-// call sites is what let a thirty-entry scrub issue thirty solves.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SolvePosture {
     public static readonly SolvePosture Live = new("live", static (_, walk) => walk);
 
-    // The BRACKET, not a hand pair: release rides the rail, so resume is unconditional by construction
-    // rather than by a totality argument about the body it wraps.
     public static readonly SolvePosture Gated = new("gated", static (gate, walk) =>
         gate.Suspend().Bracket(Use: _ => walk, Fin: _ => gate.Resume()));
 
@@ -580,22 +470,16 @@ public sealed partial class SolvePosture {
     public partial IO<RevertWalk> Around(SolveGate gate, IO<RevertWalk> walk);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Deferred factories, not effects: an eager suspend would fire at composition and leave the solver parked
-// for the surface's lifetime. The posture rides the gate so a caller batches by handing the walk over,
-// never by remembering to bracket it.
 public sealed record SolveGate(Func<IO<Unit>> Suspend, Func<IO<Unit>> Resume, SolvePosture Posture) {
     public static readonly SolveGate Open = new(static () => IO.pure(unit), static () => IO.pure(unit), SolvePosture.Live);
 
     public IO<RevertWalk> Batch(IO<RevertWalk> walk) => Posture.Around(this, walk);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The content-space point codec. `Fields` is the erased keyed case the command rail already carries, so the
-// point crosses the one payload union rather than widening it — and the SAME codec reads it back, so the
-// mint and the read can never disagree about the two field keys.
 public static class ScrubPoint {
     public const string XField = "x";
     public const string YField = "y";
@@ -614,10 +498,6 @@ public static class ScrubPoint {
             : Fin<Point>.Fail(new HistoryFault.ApplyRejected($"{payload.Kind}: content-space point absent"));
 }
 
-// The lane's own history owner: its recorder, its roster (through the scope), its gate, its actor, and its
-// bounded fault cell. `Actor` is a column because a client op has no ledger entry to read one off, and a
-// timeline that renders an empty author for every local edit is exactly the surface the durable half makes
-// honest.
 public sealed record EditHistory(
     CancelableCommandRecorder Recorder,
     RevertScope Scope,
@@ -629,11 +509,6 @@ public sealed record EditHistory(
 
     public const string ScrubVerb = "history.scrub";
 
-    // One enqueue, one push: the recorder takes the delegate pair it drives and the roster takes the op the
-    // timeline renders, so the two can never describe different edits. The cursor the caller gets back is
-    // the push's OWN settled position — a fresh op invalidates every redo position the previous traversal
-    // left behind, and reading that from the transition rather than re-reading the cell means a concurrent
-    // push cannot slip between the write and the answer.
     public IO<(EditReceipt Receipt, RevertCursor Next)> Record(
         RevertibleOp op, RevertCursor cursor, IClock clock, CorrelationId correlation) =>
         IO.lift(() => {
@@ -644,8 +519,6 @@ public sealed record EditHistory(
             Sealed(op.Target, op.Kind.Key, new EditOutcome.Committed(op.Kind.Key), clock, correlation),
             settled is Transition<Seq<RevertibleOp>>.Committed ? RevertCursor.Start : cursor));
 
-    // One projection serves both directions: the direction row seals its own outcome case, so the receipt
-    // is a row value rather than a second place the undo/redo split is spelled.
     public IO<(EditReceipt Receipt, RevertCursor Next)> Revert(
         RevertDirection direction, ContentIdentity identity, RevertCursor cursor, IClock clock, CorrelationId correlation) =>
         Scope.Revert(direction, cursor, identity).Map(outcome => outcome.Match(
@@ -657,9 +530,6 @@ public sealed record EditHistory(
                     new EditOutcome.Rejected(error), clock, correlation),
                 cursor)));
 
-    // The absolute jump: `RevertDirection.Toward` fixes both the direction and the distance from the two
-    // ordinals, so the whole scrub is one gated walk and a per-step regeneration is unreachable from here.
-    // Ordinal zero is the newest op, which is the order the timeline renders and the roster holds.
     public IO<(EditReceipt Receipt, RevertCursor Next)> Jump(
         RevertOrdinal target, ContentIdentity identity, RevertCursor cursor, IClock clock, CorrelationId correlation) =>
         RevertDirection.Toward(cursor.Position, target) switch {
@@ -668,14 +538,9 @@ public sealed record EditHistory(
                 .Map(walk => Sealed(walk, move.Direction, identity, cursor, clock, correlation)),
         };
 
-    // ONE availability oracle. `RevertDirection.Ready` reads the live recorder and the recorder's own four
-    // lifecycle events are its change edge, so a per-direction view-model property publishing a second
-    // answer has no seat and a stale button is unrepresentable.
     public IObservable<bool> Ready(RevertDirection direction) =>
         Turned.Select(_ => direction.Ready(Recorder)).StartWith(direction.Ready(Recorder)).DistinctUntilChanged();
 
-    // Enqueue, redo, cancel, and clear are the WHOLE set of moves that change what the queue can serve, so
-    // one merged edge serves every reader and a per-event subscription at each of them is the deleted form.
     private IObservable<Unit> Turned =>
         Observable.Merge(
             Edge(handler => Recorder.OnNewCommandAdded += handler, handler => Recorder.OnNewCommandAdded -= handler),
@@ -686,16 +551,11 @@ public sealed record EditHistory(
     private static IObservable<Unit> Edge(Action<EventHandler> add, Action<EventHandler> drop) =>
         Observable.FromEvent<EventHandler, Unit>(handler => (_, _) => handler(unit), add, drop);
 
-    // The halt lands on the bounded cell BEFORE the receipt projects, so the seal below is a pure read of
-    // the walk and the refusal is counted evidence with a visible shed rather than a discarded tuple slot.
     private IO<RevertWalk> Parked(RevertWalk walk) =>
         IO.lift(() => walk.Halt.Iter(Park)).Map(_ => walk);
 
     internal Unit Park(Error cause) => ignore(Faults.Park(point: Point, cause: cause));
 
-    // A walk that moved the document seals its direction's outcome; a walk that moved nothing is the only
-    // refusal, because a receipt reading `rejected` over three applied steps would describe a document state
-    // the surface no longer holds.
     private (EditReceipt Receipt, RevertCursor Next) Sealed(
         RevertWalk walk, RevertDirection direction, ContentIdentity identity,
         RevertCursor cursor, IClock clock, CorrelationId correlation) =>
@@ -713,9 +573,6 @@ public sealed record EditHistory(
     private EditReceipt Sealed(string target, string editor, EditOutcome outcome, IClock clock, CorrelationId correlation) =>
         new(ReceiptKind.Edit, Surface.Value, target, editor, outcome, clock.GetCurrentInstant(), correlation);
 
-    // The three instrument ROWS. `Reverted` and `Redone` stay two rows because the evidence fan routes on
-    // the receipt's own outcome spelling and reads these two names — a single row carrying a direction tag
-    // would put a dimension where the fan reads a route.
     public static readonly InstrumentSpec Reverted = InstrumentSpec.Create(
         "rasm.appui.edit.reverted", InstrumentKind.Count, MeasureForm.Whole, "{edit}",
         "undo reverts by surface", Seq(AppUiTelemetry.SurfaceSlot), None, None, None);
@@ -732,11 +589,6 @@ public sealed record EditHistory(
         AppUiTelemetry.Contribute(version, Reverted, Redone, Scrubbed);
 }
 
-// ONE `FamilyRow` per RevertDirection and one scrub row, each minted through the deck's one `FamilyRow.Mint`:
-// the intent key is the direction row's DECLARED verb — the same string the localization and icon catalogs
-// resolve — availability is that direction's `Ready` column read off the live recorder as the row's one
-// override, and `RowShape.Bare` states the empty payload domain because a traversal takes its coordinate
-// from the screen. `turn` and `jump` bind the screen's content identity and cursor custody at composition.
 public static class HistoryIntents {
     public static Seq<CommandRow> Rows(
         EditHistory history,
@@ -755,9 +607,6 @@ public static class HistoryIntents {
                 Succ: ordinal => jump(ordinal, cancellation),
                 Fail: static error => IO.fail<Unit>(error))));
 
-    // The point-lifting arrow the strip binds. The verb stays a deck row and this arrow is the only place a
-    // gesture VALUE becomes a payload — handing the row's own materialized command to a control that
-    // publishes a `Point` throws on the first drag, because the command's parameter type is the payload.
     public static Fin<ICommand> Scrub(CommandDeck deck) =>
         deck.Rows.TryGetValue(EditHistory.ScrubVerb, out CommandRow? row)
             ? Fin<ICommand>.Succ(ReactiveCommand.CreateFromTask<Point, DeckReceipt>(
@@ -790,11 +639,8 @@ public static class HistoryIntents {
 - Boundary: the strip binds `OverviewAxis.Vertical`, whose `Tracks` capability set holds the horizontal component at its prior value BY THE ROW, so a drag moves the timeline alone and no consumer spells a discard.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// One row owns presentation, interaction, and decoration: the ink the theme selector matches, the inertness
-// every per-row verb gates on, and the lane the strip paints it into. Three parallel tables keyed by the
-// same phase is the deleted form — a fourth phase would have to be spelled in all three.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -804,11 +650,6 @@ public sealed partial class RevertPhase {
     public static readonly RevertPhase Suppressed = new("suppressed", PaintRole.Disabled, inert: true, OverviewLane.Change);
     public static readonly RevertPhase Refused = new("refused", PaintRole.Error, inert: false, OverviewLane.Error);
 
-    // The roll-to-here derivation: ordinal zero is the newest op and the cursor's position is the marker, so
-    // everything above it has been rolled back. A stored suppressed-set beside the cursor is the second
-    // state this subtraction deletes. `halted` is the ordinal the last walk could not pass, which is the
-    // only refusal the timeline can render — a refusal set the surface accumulated would outlive the walk
-    // that produced it and mark rows a later successful pass had already crossed.
     public static RevertPhase At(RevertOrdinal ordinal, RevertOrdinal marker, Option<RevertOrdinal> halted) =>
         halted.Map(at => at == ordinal).IfNone(false) ? Refused
             : ordinal.Value < marker.Value ? Suppressed
@@ -822,9 +663,6 @@ public sealed partial class RevertPhase {
     public OverviewLane Lane { get; }
 }
 
-// The strip lanes as rows over the landed `OverviewLane` vocabulary: each carries the lane it paints into
-// and the predicate that admits an entry, so the whole band fold is one map over `Items` and a per-lane
-// materialization is unspellable.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -833,9 +671,6 @@ public sealed partial class TimelineBand {
         static (entry, _) => entry.Phase != RevertPhase.Refused);
     public static readonly TimelineBand Cursor = new("cursor", OverviewLane.Selection,
         static (entry, _) => entry.Phase == RevertPhase.Marker);
-    // The reverse highlight: an element selected in the viewport marks every history entry that touched it,
-    // so the strip answers "when was this changed" without a second index over the ops. This is the ONE band
-    // whose predicate reads something other than the phase, which is why the family survives as rows.
     public static readonly TimelineBand Linked = new("linked", OverviewLane.Search,
         static (entry, picked) => entry.Op.Touched.Exists(picked.Contains));
     public static readonly TimelineBand Refused = new("refused", OverviewLane.Error,
@@ -847,15 +682,8 @@ public sealed partial class TimelineBand {
     public partial bool Admits(TimelineEntry entry, LanguageExt.HashSet<string> picked);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The address every row, mark, and disclosure child shares. Both sentinels live in the CHILD slot, the one
-// coordinate that admits them: `NoChild` marks the op itself and `RootParent` marks a parent key no row
-// holds, which IS the root predicate `TransformToTree` applies — so the ordinal stays the admitted
-// `RevertOrdinal` and a root needs no second marker column.
-// The key ORDERS itself, so the one comparer the fabric sorts and measures by is the key's own law rather
-// than a surface-side comparer a second consumer could spell differently; ordering is also what the
-// expansion `Set<TimelineKey>` the flatten threads requires of its member type.
 public readonly record struct TimelineKey(RevertArm Arm, RevertOrdinal Ordinal, int Child) : IComparable<TimelineKey> {
     public const int NoChild = -1;
     public const int RootParent = -2;
@@ -870,16 +698,10 @@ public readonly record struct TimelineKey(RevertArm Arm, RevertOrdinal Ordinal, 
             : Child.CompareTo(other.Child);
 }
 
-// The op is carried WHOLE rather than flattened into kind/target/actor/stamp columns: the row renders four
-// projections of one value, and a re-projected copy is four fields a later widening would have to chase.
 public sealed record TimelineEntry(TimelineKey Key, RevertibleOp Op, RevertPhase Phase);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The surface composes the settled fabric and owns no window, scale, or scroll of its own. `Picked` is a
-// STREAM because the viewport selection moves with no edit behind it, and a decoration that only re-derived
-// on the op stream would leave the linked lane stale for the whole selection. `Take` is the ledger's own
-// word for the bound it dials, so the seam and the column name one thing.
 public sealed record TimelineSurface(
     EditHistory History,
     VirtualWindow<FlatNode<TimelineEntry>, TimelineKey> Window,
@@ -888,11 +710,6 @@ public sealed record TimelineSurface(
     Func<Seq<string>, IO<Unit>> Highlight,
     ContentIdentity ContentIdentity,
     int Take) {
-    // Every key derives from the surface's own root, so a rename is one edit and the producer key, the
-    // control keys, and the verb keys cannot drift apart. The strip's SOURCE key and its intent KEY stay
-    // DISTINCT because they address two registries — the named frame producer the materialize resolves and
-    // the control identity the solver stamps — and one literal serving both lets a second producer bind the
-    // control by accident.
     public const string BodyKey = "history.timeline";
     public const string RowsKey = $"{BodyKey}.rows";
     public const string StripSource = $"{BodyKey}.overview";
@@ -900,24 +717,14 @@ public sealed record TimelineSurface(
     public const string ExpandVerb = $"{BodyKey}.expand";
     public const string RowProgram = $"{BodyKey}.row";
 
-    // The value slots the row template binds. A slot is a NAMED property the composition registers, so the
-    // recycled template resolves four live values per realized row and no arm reflects over a string path.
-    // Each derives from the row program the template already names, so a fifth column carries no second
-    // literal and a rename of the surface root moves the slot registry with it.
     public const string KindSlot = $"{RowProgram}.kind";
     public const string TargetSlot = $"{RowProgram}.target";
     public const string ActorSlot = $"{RowProgram}.actor";
     public const string StampSlot = $"{RowProgram}.stamp";
 
-    // The durable read is a network hop: a transient store refusal re-drives on the kernel curve, and only
-    // `HistoryFault.StoreUnreachable` declares itself transient, so a decode refusal never re-drives a read
-    // that would decode identically.
     static readonly RedrivePolicy Redrives = RedrivePolicy.Of(
         law: Schedule.exponential(Duration.FromMilliseconds(80)) | Schedule.recurs(3), bound: 3);
 
-    // One ordinal axis over both halves: the client roster leads newest-first and the durable window
-    // continues beneath it, so `RevertCursor.Position` addresses the marker directly and no consumer has to
-    // know which arm currently owns the cursor.
     public IObservable<IChangeSet<TimelineEntry, TimelineKey>> Entries(IObservable<RevertCursor> cursor) =>
         Observable.CombineLatest(
                 History.Scope.Log.Changes,
@@ -927,16 +734,6 @@ public sealed record TimelineSurface(
                 Rows)
             .EditDiff(static entry => entry.Key);
 
-    // The durable half re-reads on the SAME roster edge the client half publishes, because a push past the
-    // recorder window is exactly what moves an op from one half to the other; the read is the ledger's one
-    // bounded case, deferred until subscription so a composed-but-unmounted pane queries nothing.
-    //
-    // A refused read answers the EMPTY page carrying its typed cause rather than faulting the stream: the
-    // inner effect terminates at a Task boundary that can only throw, and `Switch` propagates that throw as
-    // the outer sequence's terminal error — so one ledger outage ended `Entries`, and with it the lease, the
-    // strip feed, and every later client push, for the whole life of the surface. `Do` is the DECLARED sink
-    // seam: every refusal the page carries parks on the lane's bounded cell as counted evidence, so a bad
-    // entry is a number rather than a silently dropped row.
     private IObservable<RevertPage> Durable =>
         History.Scope.Log.Changes
             .Select(_ => Observable.FromAsync(token =>
@@ -948,8 +745,6 @@ public sealed record TimelineSurface(
             .Do(page => page.Refused.Iter(History.Park))
             .StartWith(RevertPage.Empty);
 
-    // Every op yields its own row and, for a composite, its children beneath it — the SAME children the
-    // inverse folds — so disclosure renders the batch the undo would apply and never a re-derived list.
     private static Seq<TimelineEntry> Rows(
         Seq<RevertibleOp> client, RevertPage durable, RevertCursor cursor, Option<RevertOrdinal> halted) =>
         (client.Rev() + durable.Ops).Map(static (op, index) => (Ordinal: RevertOrdinal.Create(index), Op: op))
@@ -958,14 +753,10 @@ public sealed record TimelineSurface(
                 TimelineKey.Root(row.Ordinal.Value < client.Count ? RevertArm.Client : RevertArm.Durable, row.Ordinal),
                 RevertPhase.At(row.Ordinal, cursor.Position, halted)));
 
-    // A child inherits its parent's phase, so an expanded suppressed batch dims whole and a per-child phase
-    // derivation that could disagree with its parent is unspellable.
     private static Seq<TimelineEntry> Seated(RevertibleOp op, TimelineKey key, RevertPhase phase) =>
         new TimelineEntry(key, op, phase)
             .Cons(op.Delta.Children.Map((child, at) => new TimelineEntry(key with { Child = at }, child, phase)));
 
-    // The flatten is the fabric's, so a composite collapses by retiring its children's ordinals exactly as a
-    // removal does and the strip's content extent shrinks with no timeline-side branch.
     public WindowLease<RealizedItem<FlatNode<TimelineEntry>>> Lease(
         IObservable<ViewportRange> viewport,
         IObservable<Set<TimelineKey>> expansion,
@@ -980,17 +771,9 @@ public sealed record TimelineSurface(
             viewport,
             static realized => realized);
 
-    // Newest-first by ordinal, parent before its disclosure children: the comparer defers to the key's own
-    // ordering, so the sequence the window realizes and the sequence the ledger measures are one law.
-    //
-    // The order is FIXED and therefore publishes exactly ONE comparer: the window sorts off a comparer stream
-    // so a column-sort flip costs a delta rather than a re-subscription, and a surface whose ordering never
-    // moves states that by emitting once. Ordinal is the timeline's only axis.
     private static IObservable<IComparer<FlatNode<TimelineEntry>>> Order =>
         Observable.Return(Comparer<FlatNode<TimelineEntry>>.Create(Ranked));
 
-    // TOTAL over the union without a sentinel: the timeline groups nothing, so the band arm answers ABSENCE
-    // and absence sorts last. An `int.MaxValue` address was a position a real ordinal can reach.
     private static int Ranked(FlatNode<TimelineEntry> left, FlatNode<TimelineEntry> right) =>
         (Addressed(left), Addressed(right)) switch {
             ({ IsSome: true, Case: TimelineKey l }, { IsSome: true, Case: TimelineKey r }) => l.CompareTo(r),
@@ -1002,8 +785,6 @@ public sealed record TimelineSurface(
     private static Option<TimelineKey> Addressed(FlatNode<TimelineEntry> node) =>
         node.Switch(row: static n => Some(n.Item.Key), band: static _ => Option<TimelineKey>.None);
 
-    // The strip feed. Content bounds and viewport rectangle come from the fabric's ledger, and the bands are
-    // one map over the lane vocabulary — so a resize re-projects one frame and no lane re-emits.
     public IObservable<OverviewFrame> Frames(IObservable<ViewportRange> viewport, IObservable<RevertCursor> cursor) =>
         Window.Overview(
             viewport,
@@ -1014,39 +795,22 @@ public sealed record TimelineSurface(
                     band.Lane,
                     toSeq(entries).Filter(entry => band.Admits(entry, picked)).Map(Mark)))));
 
-    // A mark is a CONTENT-SPACE span read off the same ledger the rows realize from, so the strip and the
-    // rows address one offset model; the cross axis spans the unit width the vertical fit fills. The seat's
-    // own breach needs no sink here — the realize fold already parked it on the window's fault cell when it
-    // admitted the change-set this key came from, and a second park would count one absence twice.
     private Rect Mark(TimelineEntry entry) =>
         Window.Ledger.SeatOf(entry.Key).Seat switch {
             var seat => new Rect(0d, seat.Offset, 1d, seat.Extent),
         };
 
-    // The scrub conversion: one content-space offset to one REVERT ordinal, both hops through the ledger so
-    // a strip-local index arithmetic is deleted. The seek answers a ROW address over the flattened stream,
-    // where a disclosed composite contributes one row per child and no child is a revert step of its own —
-    // a batch undoes whole — so handing that address straight to `Jump` spent one step per disclosed child
-    // and stopped the document short of the entry the reader pointed at, silently and only under disclosure.
-    // The key AT that address is the conversion: a root key carries its own ordinal and a child key carries
-    // its parent's, so one read answers both row kinds. An address the ledger cannot name refuses rather
-    // than jumping, which is exactly why `KeyAt` is total by ABSENCE where `SeatOf` is total by repair.
     public Fin<RevertOrdinal> OrdinalAt(double offset) =>
         Window.Ledger.Window(new ViewportRange(offset, 0d, 0d))
             .Bind(bounds => Window.Ledger.KeyAt(bounds.Start)
                 .ToFin(new HistoryFault.CursorUnreachable($"timeline offset {offset}"))
                 .Map(static key => key.Ordinal));
 
-    // The entry-to-element direction of the one highlight channel: a composite raises every element its
-    // children touched, so a batch highlights what it changed rather than the parent's own target alone.
     public IO<Unit> Link(TimelineEntry entry) =>
         entry.Phase.Inert
             ? IO.fail<Unit>(new HistoryFault.EntryInert($"{entry.Key.Arm.Key}/{entry.Key.Ordinal.Value}"))
             : Highlight(entry.Op.Touched);
 
-    // The body is a splitter over the virtualized tree and the strip: the tree carries the window spec and
-    // materializes the flatten's own `FlatNode` stream while the strip names its producer by key, so neither
-    // half carries geometry and both cross the intent wire unchanged.
     public ControlIntent Body(VirtualWindowSpec window) =>
         new ControlIntent.Splitter(
             BodyKey,
@@ -1056,10 +820,6 @@ public sealed record TimelineSurface(
             Orientation.Horizontal,
             IntentBinding.Of(PaintRole.Panel));
 
-    // The row template: the kind chip leads, then the target, the actor, and the stamp, each a value slot the
-    // recycled control rebinds per realized row. The phase's ink rides each column's semantic role, so the
-    // suppressed tail dims through the control theme's own selectors and this projection resolves no brush;
-    // the constraint program owns the column geometry, so no metric is spelled here.
     private static ControlIntent Row() =>
         new ControlIntent.Panel(
             $"{RowsKey}.row",
@@ -1075,10 +835,6 @@ public sealed record TimelineSurface(
             RowProgram,
             IntentBinding.Of(PaintRole.Panel));
 
-    // The four values those slots resolve to. The template names the KEYS and the screen seats them through
-    // `MaterializeContext.Value`, so without this projection the four columns had a registry and no producer
-    // — the kind carries its locale key because the materialize `Label` resolver takes a key, and the stamp
-    // carries the ledger's own instant text so a row and a receipt read one spelling.
     public static Seq<(string Slot, string Value)> Slots(TimelineEntry entry) => Seq(
         (KindSlot, entry.Op.Kind.LabelKey),
         (TargetSlot, entry.Op.Target),

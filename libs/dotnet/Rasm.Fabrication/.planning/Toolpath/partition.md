@@ -27,7 +27,7 @@
 - Boundary: QuikGraph construction and the observed walk are the one statement-bearing foreign-mutation seam; aggregate admission, domain computation, and egress remain expression-shaped. Diagrams are never minted here — a page-local tessellator, relaxation loop, draw stream, or volumetric dual is the deleted form, the planar complex routing `PolygonOp.Cells` and the 3D complex `VectorIntent.Voronoi`. Every `PolygonAlgebra.Apply` call carries its `Op` key, so a trace-shape refusal names the calling operation instead of a hand-written axis literal. No absence rides a sentinel count or an infinite length: an unreachable cell leaves the tour and the closure census refuses.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
@@ -47,10 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Toolpath;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Each row IS its candidate law: a lane-addressed draw over the admitted box, so a cloud replays from
-// (seed, index) alone with no stream position to preserve and no fourth draw owner beside the kernel's.
-// Gaussian folds two unit lanes through Box-Muller and clamps into the box, keeping the row total.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SiteDistribution {
     public static readonly SiteDistribution Uniform = new("uniform", static (box, seed, index) => new Point3d(
@@ -67,11 +64,6 @@ public sealed partial class SiteDistribution {
             box.Min.Z);
     });
 
-    // The planar rows rest every site on the box floor; this is the row that spends the third axis, and it is the
-    // one a volumetric projection draws through. Depth rides lane 3 rather than lane 2 because the acceptance draw
-    // already owns lane 2, so appending leaves every planar strategy's accepted field byte-identical. Over a flat
-    // box the row degenerates onto the floor exactly as `Uniform` does, so the distribution and the projection stay
-    // orthogonal: a planar projection over this row is the uniform field, never a fault.
     public static readonly SiteDistribution Volumetric = new("volumetric", static (box, seed, index) => new Point3d(
         box.Min.X + (Deterministic.Unit(lanes: [index, 0L], seed: seed) * box.Diagonal.X),
         box.Min.Y + (Deterministic.Unit(lanes: [index, 1L], seed: seed) * box.Diagonal.Y),
@@ -80,11 +72,6 @@ public sealed partial class SiteDistribution {
     [UseDelegateFromConstructor] internal partial Point3d Draw(BoundingBox box, long seed, long index);
 }
 
-// Density is a WEIGHT FIELD over the admitted box, never a caller callback. A strategy row is static declaration
-// data, so an `Option<Func<Point3d, double>>` slot no row could fill is what left the index-addressed rejection
-// draw, the acceptance column, and the `[0,1]` gate dead for every producer. Each row states its own normalized
-// weight, so a graded field declares its grading, a uniform field declares `Flat`, and the acceptance test reads a
-// real value on both — and a new grading law is one row with every consumer untouched.
 [SmartEnum<string>]
 public sealed partial class DensityField {
     public static readonly DensityField Flat = new("flat", static (_, _) => 1.0);
@@ -99,7 +86,6 @@ public sealed partial class DensityField {
     [UseDelegateFromConstructor]
     public partial double Weight(BoundingBox box, Point3d point);
 
-    // Normalized distance from the box centre to its corner, so every row reads one bounded axis.
     private static double Radial(BoundingBox box, Point3d point) =>
         box.Diagonal.Length > 0.0 ? 2.0 * box.Center.DistanceTo(point) / box.Diagonal.Length : 0.0;
 }
@@ -129,19 +115,12 @@ public abstract partial record PartitionProjection {
     public sealed record Classify(Seq<Edge3> Strokes) : PartitionProjection;
     public sealed record Volumetric(double DepthMm) : PartitionProjection;
 
-    // Depth is the ONE column the site box, the anchor gate, and the sift containment test all read, so the planar
-    // cases answer zero and every one of those folds stays branch-free — a zero-depth band collapses onto the
-    // boundary plane exactly as the coplanar gate spelled it before this case existed.
     public double DepthMm => Switch(
         regions: static _ => 0.0,
         classify: static _ => 0.0,
         volumetric: static row => row.DepthMm);
 }
 
-// The boundary-resolved run geometry: how many sites this area admits at the declared density, the cell area that
-// count realizes, the pitch that area implies, the separation the sift enforces, and the merge floor the diagram
-// coalesces under. Every one of the four derives from the realized cell area, so a floored or capped count carries
-// spacing that matches the field it actually produced.
 public readonly record struct PartitionField(
     int Sites,
     double CellAreaMm2,
@@ -155,9 +134,6 @@ public sealed partial class PartitionStrategy {
     public SamplingField Sampling { get; }
     public Arr<Point3d> Anchors { get; }
 
-    // Target sites per square millimetre — the axis a stippling, pocketing, or plotting consumer actually states.
-    // Each preset declares it as the reciprocal of its nominal cell pitch, so the number a reader recognizes stays
-    // visible while the value the algebra consumes is the density the boundary area multiplies against.
     public double SiteDensityPerMm2 { get; }
     public int SiteFloor { get; }
     public int SiteCeiling { get; }
@@ -219,8 +195,6 @@ public sealed partial class PartitionStrategy {
         attemptFactor: 16,
         mergeAreaRatio: 0.15);
 
-    // The density map: area in, run geometry out. Pitch is the root of the REALIZED cell area rather than a stored
-    // constant, so separation and the merge floor follow a clamped count instead of the count that was requested.
     public PartitionField Resolve(double boundaryAreaMm2) {
         int sites = checked((int)Math.Clamp(
             Math.Ceiling(boundaryAreaMm2 * SiteDensityPerMm2),
@@ -289,8 +263,6 @@ public sealed partial class PartitionRequest {
         ref PartitionStrategy strategy,
         ref Loop boundary,
         ref PartitionProjection projection) {
-        // Anchor separation reads the RESOLVED field, so an anchor set is judged against the spacing the boundary
-        // area actually admits rather than a nominal pitch the run may never reach.
         double separation = Partition.MeasuredArea(boundary)
             .Map(area => strategy.Resolve(Math.Abs(area)).SeparationMm)
             .IfFail(0.0);
@@ -323,7 +295,7 @@ public sealed partial class PartitionRequest {
 
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PartitionCell(
     int Index,
     Seq<Loop> Regions,
@@ -336,12 +308,8 @@ public sealed record PartitionCell(
     public double LloydResidualMm => Site.DistanceTo(Centroid);
 }
 
-// The walk's own outputs, published rather than consumed and dropped: which spanning component the cell fell in,
-// how many hops the breadth-first walk reached it in, and the path length those hops accumulated.
 public readonly record struct PartitionVisit(int Cell, int Component, int Depth, double LengthMm);
 
-// The inverse the strategy's density opened. Target against realized, so a consumer reads whether the clamp, the
-// sift, or the merge moved the field away from the density it asked for instead of inferring it from cell counts.
 public readonly record struct PartitionDensity(
     double TargetPerMm2,
     double AchievedPerMm2,
@@ -349,10 +317,6 @@ public readonly record struct PartitionDensity(
     double MeanCellAreaMm2,
     double LloydResidualMm);
 
-// `Partitioned` publishes the decomposition and every measure taken over it. It carries no content key, evidence
-// band, or stamp, so it takes no `*Receipt` name: that name belongs to the `Process/owner#RECEIPT`
-// `Receipt<TEvidence>` carrier under this folder's own ruling, and a lane output wearing it while holding none of
-// the three required columns is the deleted form.
 public sealed record Partitioned(
     PartitionStrategy Strategy,
     Loop Boundary,
@@ -377,12 +341,6 @@ public sealed record Partitioned(
     public Seq<PartitionSolid> Bounded => Solids.Filter(static solid => solid.VolumeMm3.IsSome);
 }
 
-// The volumetric decomposition is the kernel `CloudVoronoiCell` read WHOLE — site ordinal into the accepted set,
-// generating seed, bound species, and the three measures the kernel publishes as `Option` because an unbounded or
-// degenerate cell measured none of them. Re-deriving a volume, a centroid, or an adjacency here would mint a second
-// dual beside the one the page already forbids, and a zero on an unbounded cell would spell a measurement no fold
-// took. Neighbours are the kernel's natural-neighbour sites, so a support-cell or fracture consumer reads its
-// stolen-volume neighbourhood off the retained row instead of re-tessellating.
 public sealed record PartitionSolid(
     int Site,
     Point3d Seed,
@@ -401,16 +359,13 @@ file sealed record SiteDiagram(
     int Anchor,
     Seq<PartitionSolid> Solids);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Partition {
     public static Fin<Partitioned> Seed(PartitionRequest request) =>
         from boundaryArea in MeasuredArea(request.Boundary).Map(Math.Abs)
         let field = request.Strategy.Resolve(boundaryArea)
         from diagram in Tessellate(request, field)
         from cells in LowerCells(diagram.Diagram, request.Boundary)
-        // Adjacency is retained WHOLE. The algebra owner's `SiteEdge` already carries the shared dual segment and
-        // derives its midpoint and length off it, so a page-local twin was a second name for the same fact whose
-        // only divergence was storing what the owner computes.
         let links = diagram.Diagram.Adjacency.ToSeq()
         from topology in Topology(cells, links, diagram.Anchor)
         from _ in Census(diagram, cells, boundaryArea)
@@ -437,15 +392,6 @@ public static class Partition {
             diagram.Admitted - diagram.Diagram.Cells.Count,
             diagram.Anchor);
 
-    // One request closes the diagram: the sifted seed field, the admitted boundary ring, and the relaxation and
-    // merge rows the resolved field already carries. Nothing here mints a tessellator, a relaxation loop, a
-    // nearest-site index, or a volumetric dual — the algebra owner lowers the planar three onto the kernel dual and
-    // hands back the clipped rings whole, and the kernel `VectorIntent.Voronoi` rail owns the 3D complex.
-    //
-    // The planar leg tessellates the accepted sites' FOOTPRINTS, deduplicated at the admitted grain: a volumetric
-    // field separates in depth, so two sites may share a footprint, and a duplicate seed is a degenerate point set
-    // to the constrained substrate. Under a planar projection every site already rests on the plane and the
-    // deduplication is the identity, so the two lanes run one expression.
     private static Fin<SiteDiagram> Tessellate(PartitionRequest request, PartitionField field) =>
         from candidates in Candidates(request, field)
         from accepted in Accept(request, field, candidates)
@@ -472,16 +418,6 @@ public static class Partition {
         select new SiteDiagram(
             diagram, request.Strategy, field, candidates.Count, accepted.Count, request.Boundary, anchor, solids);
 
-    // The 3D complex is the kernel's whole: a cluster cloud over the accepted sites, `VectorIntent.Voronoi` the one
-    // public rail, and the projected `CloudVoronoiCell` rows read column for column. `CloudVoronoiCell.Site` is the
-    // ordinal the seed entered on, so the retained rows address the accepted set directly — which is exactly why
-    // they are NOT joined to `PartitionCell`: the planar diagram relaxes its seeds and re-indexes across its merge
-    // pass, so a planar cell ordinal names a survivor, never an accepted site. The two decompositions answer
-    // different planes and stay unjoined rather than sharing a key one of them cannot honour.
-    //
-    // The projection takes the WHOLE success-only `CloudVoronoiResult` — cells and census arrive from ONE fold and
-    // no second dual runs. A degenerate site set stays the exact failure captured by the kernel rail and therefore
-    // never reaches this projection; the empty success arm below remains reserved for an explicit no-depth request.
     private static Fin<Seq<PartitionSolid>> Solids(PartitionRequest request, Seq<Point3d> accepted) =>
         request.Projection.DepthMm <= 0.0
             ? Fin.Succ(Seq<PartitionSolid>())
@@ -491,8 +427,6 @@ public static class Partition {
               select dual.Cells.Map(static cell => new PartitionSolid(
                   cell.Site, cell.Seed, toSeq(cell.Neighbors), cell.Volume, cell.Centroid, cell.Extent));
 
-    // Cloud draws are lane-addressed, so candidate i is a pure function of (seed, i) and the box — a rejected
-    // candidate never shifts the ones after it, which a stream-positioned provider draw could not promise.
     private static Fin<Seq<Point3d>> Candidates(PartitionRequest request, PartitionField field) {
         BoundingBox box = Box(request.Boundary, request.Projection.DepthMm);
         SamplingField sampling = request.Strategy.Sampling;
@@ -505,10 +439,6 @@ public static class Partition {
             .ToFin();
     }
 
-    // The site box is the boundary footprint inflated by the projection's depth; a planar projection carries zero
-    // depth, so it IS the flat bound the planar distribution rows already read their floor off. ONE box serves the
-    // draw and the acceptance weight — a weight graded against the flat bound under a depth-bearing draw asked the
-    // field a question about a box no candidate came from.
     internal static BoundingBox Box(Loop boundary, double depthMm) {
         BoundingBox flat = boundary.Bound();
         return depthMm > 0.0
@@ -516,10 +446,6 @@ public static class Partition {
             : flat;
     }
 
-    // A site admits by its FOOTPRINT against the boundary ring and its ELEVATION against the projection's depth
-    // band. A planar projection carries zero depth, so the band collapses onto the boundary plane and this is
-    // exactly the coplanar containment the page held before the volumetric case existed — one predicate serving
-    // anchor admission and the sift, so the two can never drift apart.
     internal static bool Covers(Loop boundary, Point3d site, double depthMm) {
         double slack = boundary.Tolerance.Absolute.Value;
         return site.IsValid
@@ -529,9 +455,6 @@ public static class Partition {
     }
 
     private static Fin<Seq<Point3d>> Accept(PartitionRequest request, PartitionField field, Seq<Point3d> candidates) =>
-        // Rejection draws ride their own lane, so they neither consume nor perturb the cloud lanes: candidate i's
-        // draw is a pure function of (seed, i) and its acceptance a pure function of the field row and the box, so
-        // the whole sift replays from the strategy alone.
         Op.Of(name: "partition:accept").Catch(() => {
                 BoundingBox box = Box(request.Boundary, request.Projection.DepthMm);
                 return Fin.Succ(candidates.Map((point, index) => (
@@ -543,8 +466,6 @@ public static class Partition {
                 ? Fin.Succ(Sift(request, field, rows))
                 : Degenerate<Seq<Point3d>>(request.Strategy, rows.Count));
 
-    // The fold STOPS at the resolved count: a strategy whose attempt budget is twenty-four times its site count
-    // walked the whole budget to place the last site it needed, so the bounded fold is the batch's own bound.
     private static Seq<Point3d> Sift(
         PartitionRequest request,
         PartitionField field,
@@ -561,9 +482,6 @@ public static class Partition {
             pair => pair.Item1.Accepted.Count < field.Sites)
             .Accepted;
 
-    // The separation index keys on all three axes, so a volumetric field separates in depth on the same structure
-    // the planar field separates in plane. A planar field puts every site in one Z bucket, so the generalization
-    // costs it two constant-miss shift planes rather than a second index shape.
     private static (int X, int Y, int Z) Bucket(Point3d point, double separation, int shiftX = 0, int shiftY = 0, int shiftZ = 0) =>
         separation > 0.0
             ? ((int)Math.Floor(point.X / separation) + shiftX, (int)Math.Floor(point.Y / separation) + shiftY,
@@ -590,10 +508,6 @@ public static class Partition {
     private static readonly Arr<(int X, int Y, int Z)> Neighbourhood = Range(-1, 3)
         .Bind(x => Range(-1, 3).ToSeq().Bind(y => Range(-1, 3).ToSeq().Map(z => (X: x, Y: y, Z: z)))).ToArr();
 
-    // Diagram clipping seeds from the boundary ring through half-planes, which is exact on a convex ring and
-    // conservative on a re-entrant one, so the exact Boolean still runs here — and it is also what splits a cell a
-    // concave boundary severs into its disconnected regions. A cell whose clipped area differs from its ring area
-    // touches the boundary, which is the border verdict lead-in and stipple-density consumers read.
     private static Fin<Seq<PartitionCell>> LowerCells(CellDiagram diagram, Loop boundary) =>
         diagram.Cells.ToSeq().Traverse(cell =>
             from measured in Intersect(cell.Ring, boundary).Bind(pieces => pieces.Traverse(piece => Measure(Seq(piece))
@@ -641,8 +555,6 @@ public static class Partition {
                 .Runs(new KernelFault.InvalidValue("partition", "partition:classify-trace"))
                 .Map(static split => (split.Inside.Bind(static run => run), split.Outside.Bind(static run => run))));
 
-    // Both containers project from their own edge set: the undirected one Kruskal spans, and the directed forest
-    // the rooted walk descends, each carrying the full vertex range so an isolated cell stays a component of one.
     private static Fin<(Seq<SiteEdge> Spanning, Seq<int> Tour, Seq<PartitionVisit> Traversal)> Topology(
         Seq<PartitionCell> cells,
         Seq<SiteEdge> links,
@@ -672,9 +584,6 @@ public static class Partition {
                 new GeometryFault.DegenerateInput(Kind.Curve, None, "partition:topology"));
     }
 
-    // ONE walk, two recorders: hop depth rides unit weights and path length rides the link measure, so the tour
-    // order, the published depth, and the published length all come from the same descent. A vertex the walk never
-    // reached leaves the tour rather than entering it under a sentinel depth, and the closure census refuses.
     private static Seq<PartitionVisit> Breadth(
         BidirectionalGraph<int, TaggedEdge<int, SiteEdge>> forest,
         int root,
@@ -698,7 +607,6 @@ public static class Partition {
             .ThenBy(static row => row.Cell));
     }
 
-    // The closure the density opened: what the strategy asked for against what the retained cells realized.
     private static PartitionDensity Closure(
         PartitionStrategy strategy,
         PartitionField field,
@@ -710,8 +618,6 @@ public static class Partition {
             cells.Fold(0.0, static (sum, cell) => sum + cell.AreaMm2) / cells.Count,
             cells.Fold(0.0, static (bound, cell) => Math.Max(bound, cell.LloydResidualMm)));
 
-    // The area closure reads the boundary's own tolerance on both terms — a diagonal-scaled slack for the clipped
-    // perimeter and a squared floor for a boundary small enough that the scaled term vanishes.
     private static Fin<Unit> Census(SiteDiagram diagram, Seq<PartitionCell> cells, double boundaryArea) {
         double slack = diagram.Boundary.Tolerance.Absolute.Value;
         double cellArea = cells.Fold(0.0, static (sum, cell) => sum + cell.AreaMm2);

@@ -189,7 +189,7 @@ const Environments = {
     Effect.asVoid(_call(env, (api) => api.createEnvironmentRevisionTag(org, project, env, tag, revision))),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { CloudPlane, Environments }
 ```

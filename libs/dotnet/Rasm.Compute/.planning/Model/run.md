@@ -27,13 +27,11 @@
 - Boundary: `RunOps` extends `Model/sessions#SESSION_CAPSULE` with bracketed native disposal. `CreateTensorValueFromMemory` binds rented staging without a copy; input ownership transfers at the run, and `Bracket` disposes every admitted input beside the result collection. The bracket's ACQUIRE leg is rail-shaped and carries NO custody of its own: it hands back exactly what the run produced, the bracket seats it in its custody cell before the projection runs, and every post-run native read — `SynchronizeBoundOutputs` among them — happens inside the projection where the cell already covers it. The one `try`/`finally` here is the boundary-capsule statement exemption `rails-and-effects.md` `[RESOURCE_BOUNDARY]` names; it never appears in domain flow, and it is unconditional release where `Custody.Rollback` is failure-release. `InferBound` calls the `OrtValue`-only `RunWithBoundResults` member directly; its named arm zips `GetOutputNames()` against that same collection and never materializes `DisposableNamedOnnxValue`. Every projection proves a nonempty output collection before `First()`. `BoundFlow` binds input and sink from `ModelSessions.SharedAllocator`, and `Pulse` writes through the mutable native span without staging, taking ONE `FlowPayload` whose case owns its own `Write` arm rather than re-spelling the overload `BoundFlow.Write` already carries. `Chunked` yields one `StreamSegment` per completed run through `StreamReceipt`. `Embed` derives its final axis from output shape and L2-normalizes the pooled vector; `Classify` derives class width, proves row divisibility for the logit head and delegates the sequenced head to `CustomOps.Egress` under the slot the identity snapshot declared. `Profile` admits its artifact through `ArtifactIndexRow.Admit(kind, key, bytes, classification, at, sourceKey)`, grouping the trace under the profiled model checksum, and mints the typed `ProfileArtifact.ChromeTrace` evidence from the admitted row's `ContentAddress` and the `ProfilingStartTimeNs` epoch in the same pass — the index row is custody, the union case is receipt evidence, one identity joining both — while handing the trace BYTES out beside them so a reader wanting the events back takes what admission already read instead of re-reading a file whose path it would need separately; retention derives from `ArtifactKind.Retention`; the `Model/sessions#SESSION_CAPSULE` options fold sets `ProfileOutputPathPrefix` BEFORE `EnableProfiling` because the setter reads the prefix at flip time and discards a later assignment silently. `WarmPulse` composes that pair into the session capsule's injected warm-pulse shape: the caller supplies the bound run for its own bucket, because only the surface that built the flow knows this model's input roster, and the fold owns closing profiling, admitting the trace, and reading the census — `JsonDocument.Parse` over caller-owned memory, `EnumerateArray` over the events, `TryGetProperty` by UTF-8 key on every read, and the document disposed inside the fold so no `JsonElement` view outlives its pooled rental. Bounded selection composes the kernel `Rasm/Domain/stats#ORDER_STATISTICS` `Ranked` cell at both classification arms, so this page declares no heap of its own and the direction is stated rather than encoded as a negated key.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Pooling {
-    // Token-major reduction over a `[tokens, hidden]` plane: the row projection is the `Span2D` view's, so the
-    // `token * hidden` arithmetic no arm ever spelled differently is gone from every arm at once.
     public static readonly Pooling Mean = new("mean", static (states, hidden) => {
         float[] pooled = new float[hidden];
         ReadOnlySpan2D<float> plane = ReadOnlySpan2D<float>.DangerousCreate(in states[0], states.Length / hidden, hidden, pitch: 0);
@@ -54,10 +52,6 @@ public sealed partial class Pooling {
     public partial float[] Apply(ReadOnlySpan<float> states, int hidden);
 }
 
-// The admitted operand family. `Admit` stays an ABSTRACT member rather than a generated `Switch` fold because two
-// cases carry their OWN type parameter: a generated arm is a non-generic delegate and cannot bind `T`, so the
-// dispatch the generator would emit is unspellable for this family. That is a language constraint, not the
-// manual-hierarchy form reserved for foreign extension — nothing outside this package derives here.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RunInput {
     private RunInput() { }
@@ -79,10 +73,6 @@ public abstract partial record RunInput {
     public abstract Fin<(string Name, OrtValue Value)> Admit();
 }
 
-// The write-admissible payload family a bound pulse takes. `BoundFlow.Write` already overloads on payload, so a
-// `Pulse` overload pair re-spelled that decision at a second surface and made the discriminant unrecoverable from
-// the value; each case carries its own write arm instead. `ReadOnlyMemory<float>` rather than a span because a
-// closed family holds no ref struct — every producer here already owns a `MemoryOwner<float>` or a `float[]`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FlowPayload {
     private FlowPayload() { }
@@ -96,13 +86,8 @@ public abstract partial record FlowPayload {
     public abstract Fin<Unit> Write(BoundFlow flow);
 }
 
-// Index-keyed span filler — the provider seam for corpus-backed streaming: `fill` lands window `index` into the
-// reused staging span, an HDF5 response corpus filling it with one hyperslab read, so PureHDF appears on no
-// Compute signature because the delegate IS the seam.
 public delegate Fin<Unit> WindowFill(int index, Span<float> window);
 
-// Two window providers, one streaming entry. Both answer a frame count and a per-index window, so the frame
-// arithmetic that both overloads spelled separately folds onto the family and the discriminant rides the value.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChunkSource {
     private ChunkSource() { }
@@ -111,8 +96,6 @@ public abstract partial record ChunkSource {
 
     public sealed record Filler(int Frames, WindowFill Fill) : ChunkSource;
 
-    // ONE frame-count admission for both providers: a nonpositive width, a ragged byte length, a window past the
-    // addressable ceiling, and a nonpositive frame count all refuse here, before any window is read.
     public Fin<int> Admit(int windowFloats) {
         long frameBytes = (long)windowFloats * sizeof(float);
         return windowFloats <= 0 || frameBytes > int.MaxValue
@@ -128,17 +111,12 @@ public abstract partial record ChunkSource {
     }
 }
 
-// Classification carries two MODALITIES under one entry: a numeric logit tensor this page softmaxes, and the
-// `ZipMap` sequence-of-maps head the numeric egress cannot carry at all. Both rank `(class, probability)` rows,
-// so a sibling entrypoint would fork one ranked-output concept across two names whose `top` arities then drift.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClassHead {
     private ClassHead() { }
 
     public sealed record Logits(string Tensor, int Top = 1) : ClassHead;
 
-    // The declared slot rides in because `CustomOps.Egress` proves the value against it — a `seq(map(int64,float))`
-    // head admitted by the identity snapshot and read with no slot is exactly the coverage asymmetry that owner closes.
     public sealed record Sequenced(string Tensor, SlotShape Declared, int Top = 1) : ClassHead;
 
     public string Tensor => Switch(logits: static head => head.Tensor, sequenced: static head => head.Tensor);
@@ -146,7 +124,7 @@ public abstract partial record ClassHead {
     public int Top => Switch(logits: static head => head.Top, sequenced: static head => head.Top);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record RunConfig(FrozenDictionary<string, string> Entries, OrtAllocatorType Arena) {
     public static readonly RunConfig Steady = new(FrozenDictionary<string, string>.Empty, OrtAllocatorType.ArenaAllocator);
     public static RunConfig Bulk(string arenaShrinkDevice) => new(new Dictionary<string, string>(StringComparer.Ordinal) {
@@ -162,8 +140,7 @@ public sealed record PlannedRun(RunOptions Options, CancellationTokenRegistratio
     }
 }
 
-// --- [ERRORS] ------------------------------------------------------------------------------
-// Named sites select bounded contracts directly; no string-key roster survives beneath the shared violation.
+// --- [ERRORS] --------------------------------------------------------------------------
 public static class RunRefusal {
     public static readonly ContractRefusal SparseInput = new(ComputeArea.Model, ComputeContract.Supported);
     public static readonly ContractRefusal BoundOutputCardinality = new(ComputeArea.Model, ComputeContract.Compatible);
@@ -179,7 +156,7 @@ public static class RunRefusal {
 
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class RunOps {
     public static PlannedRun Plan(CancelScope scope, RunConfig config, Option<OrtLoraAdapter> lora = default) {
         RunOptions options = new();
@@ -188,9 +165,6 @@ public static partial class RunOps {
         return new PlannedRun(options, scope.Source.Token.Register(() => options.Terminate = true));
     }
 
-    // Abort-first traversal with failure-release custody on the rail: the first refusal releases every value
-    // already admitted and leaves carrying its OWN error, where the hand fold re-mapped the failed rail through
-    // `Map` to change its type and discarded the refusal's identity in the process.
     public static Fin<Seq<(string Name, OrtValue Value)>> Bind(params ReadOnlySpan<RunInput> inputs) {
         Seq<RunInput> roster = toSeq(inputs.ToArray());
         Seq<OrtValue> admitted = Seq<OrtValue>();
@@ -204,10 +178,6 @@ public static partial class RunOps {
         public Fin<T> Infer<T>(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, Seq<string> outputs, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project) =>
             Bracket(scope, inputs, project, () => session.Run(options, inputs.Map(static row => row.Name), inputs.Map(static row => row.Value), outputs));
 
-        // `SynchronizeBoundOutputs` moved INTO the projection: it is a post-run native read, so it belongs where
-        // the bracket's custody cell already covers the produced collection. In the acquire leg it needed a bare
-        // `catch { results.Dispose(); throw; }` to cover the window between production and seating — a window that
-        // does not exist once the leg hands back exactly what the run produced.
         public Fin<T> InferBound<T>(RunOptions options, CancelScope scope, OrtIoBinding binding, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project, Option<Func<Seq<(string Name, OrtValue Value)>, Fin<T>>> named = default) {
             binding.SynchronizeBoundInputs();
             return Bracket(
@@ -224,16 +194,6 @@ public static partial class RunOps {
                 () => session.RunWithBoundResults(options, binding));
         }
 
-        // TRACE SCHEMA (measured at the pin, and only the facts no signature can show): the emitted profile is a
-        // BARE JSON ARRAY — no `traceEvents` wrapper. Array order is COMPLETION order, so node events precede the
-        // `Session` spans enclosing them: join on `ts`/`dur`, never on position, and read `args` BY KEY because the
-        // bag carries no fixed member order. `provider` spells the full EP class name (the `GetAvailableProviders`
-        // vocabulary, 1:1 onto the `ExecutionProvider` rows); a non-CPU EP fuses its subgraph, so `op_name` becomes
-        // the synthesized fusion name `<hash>_<EP>_<hash>_<n>` — opaque to per-op-type aggregation — and
-        // `node_index` indexes the POST-PARTITION graph rather than any stable model-authoring identity.
-        // The trace BYTES ride out beside the row and the evidence: admission already read them whole, so a reader
-        // that wants the events back — the warm pulse's partition census is the one — takes what this member holds
-        // instead of re-reading a file whose path it would have to be handed separately.
         public Fin<(ArtifactIndexRow Row, ProfileArtifact Artifact, ReadOnlyMemory<byte> Trace)> Profile(SessionPolicy policy, UInt128 sourceKey, DataClassification classification, CancelScope scope, Instant at) =>
             !policy.Profiling
                 ? RunRefusal.ProfilingDisabled.Fault<(ArtifactIndexRow, ProfileArtifact, ReadOnlyMemory<byte>)>()
@@ -250,23 +210,12 @@ public static partial class RunOps {
                         (ProfileArtifact)new ProfileArtifact.ChromeTrace(admitted.Row.Content, session.ProfilingStartTimeNs),
                         admitted.Trace));
 
-        // The warm PULSE the composition injects into `Model/sessions#SESSION_CAPSULE` `Warmup`. The caller supplies
-        // the one bound run for its own bucket shape — only the surface that built the flow knows this model's input
-        // roster and dtypes — and this fold owns everything after it: close profiling, admit the trace, read the
-        // partition census out of it, because NO managed session member exposes that census at all. Evidence lands
-        // as `Some` only on a trace that actually parsed, so a `None` partition column stays an unmeasured column
-        // rather than a zero a consumer would read as an observation.
         public Fin<ModelSessions.WarmEvidence> WarmPulse(SessionPolicy policy, UInt128 sourceKey, DataClassification classification, CancelScope scope, Instant at, Func<Fin<Unit>> run) =>
             run()
                 .Bind(_ => session.Profile(policy, sourceKey, classification, scope, at))
                 .Bind(profiled => Op.Of(name: "model.warm-trace").Catch(() => Fin.Succ(Partitions(profiled.Trace)))
                 .Map(static partitions => new ModelSessions.WarmEvidence(Some(partitions)));
 
-        // Partition count is the DISTINCT provider set over node events PLUS one per fused node: a non-CPU EP
-        // collapses each claimed subgraph into a single synthesized `<hash>_<EP>_<hash>_<n>` op, so counting
-        // distinct providers alone reports one partition for a graph an EP cut into several — which is exactly the
-        // number the stage's own partition cap gates on. `cat` discriminates node events from the `Session` spans
-        // sharing the array, and the document disposes inside this fold so no view outlives its pooled rental.
         static int Partitions(ReadOnlyMemory<byte> trace) {
             using JsonDocument document = JsonDocument.Parse(trace, default);
             HashSet<string> providers = new(StringComparer.Ordinal);
@@ -285,8 +234,6 @@ public static partial class RunOps {
             return providers.Count + fused;
         }
 
-        // A fused op names its own EP INSIDE the synthesized identity, which is the one signal separating a claimed
-        // subgraph from an ordinary node the same EP happened to run under its own operator name.
         static bool Fused(string? opName, string provider) =>
             opName is not null && opName.Contains($"_{provider}_", StringComparison.Ordinal);
 
@@ -314,10 +261,6 @@ public static partial class RunOps {
                     ? RunRefusal.OutputMissing.Fault<TResult>()
                     : project(results.First().GetTensorDataAsTensorSpan<T>()));
 
-        // ONE ranked-output entry over both classification modalities. The logit arm softmaxes and ranks integer
-        // ordinals; the sequenced arm hands the value to `CustomOps.Egress` under the declared slot and reads the
-        // `OpOutput.Sequence` of `Mapping` rows the `ZipMap` head produced — the reader `Model/extension` owns and
-        // this page composes rather than re-deriving a second structured extraction.
         public Fin<Seq<Seq<(OpOutput.MapKey Class, double Probability)>>> Classify(RunOptions options, CancelScope scope, Seq<(string Name, OrtValue Value)> inputs, ClassHead head) =>
             session.Infer(options, scope, inputs, Seq(head.Tensor), results =>
                 results.Count is 0
@@ -336,10 +279,6 @@ public static partial class RunOps {
                     : Fin.Succ(scores[0]);
             });
 
-        // The lane is a PARAMETER: a warm-sweep cold open and an interactive lease run on different lanes, and a
-        // hardwired row publishes one call site's context on every run — the law `Model/identity` already holds for
-        // the load half. The profile column and the allocator name cross as the `Option`s the receipt case
-        // declares, so nothing collapses a carrier at this edge and no unsafe extraction re-enters the domain.
         public ComputeReceipt.ModelRun RunReceipt(ModelIdentity model, ExecutionProvider ep, string mode, int batch, OrtValue output, CorrelationId correlation, WorkLane lane, Option<ProfileArtifact> profile, Duration elapsed) =>
             new(model.Key, ep, mode, batch, checked((long)output.GetTensorSizeInBytes()),
                 Optional(output.GetTensorMemoryInfo().Name), profile) {
@@ -355,15 +294,9 @@ public static partial class RunOps {
     }
 
     extension(BoundFlow flow) {
-        // ONE pulse over the payload family; the case owns its write arm, so no overload pair re-states a decision
-        // `BoundFlow.Write` already made.
         public Fin<T> Pulse<T>(RunOptions options, CancelScope scope, FlowPayload payload, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project) =>
             payload.Write(flow).Bind(_ => Bracket(scope, Seq<(string Name, OrtValue Value)>(), project, () => flow.Run(options)));
 
-        // LAZY and ORDERED: the frame arithmetic admits once on the outer rail — a malformed request refuses before
-        // any run — and each window then yields as it completes, so a corpus of N windows costs one window of
-        // results. The cursor is one bound staging value and every read is synchronous, so there is nothing between
-        // windows to await; ordering is the cursor's own rather than a second writer's index law.
         public Fin<IEnumerable<Fin<T>>> Chunked<T>(RunOptions options, CancelScope scope, ChunkSource source, int windowFloats, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project) =>
             source.Admit(windowFloats).Map(frames => Windows(flow, options, scope, source, windowFloats, frames, project));
 
@@ -401,9 +334,6 @@ public static partial class RunOps {
         return Fin.Succ(toSeq(ranked));
     }
 
-    // The structured head reads through the ONE non-tensor reader: `Egress` projects the value onto `OpOutput` and
-    // proves it against the slot the identity snapshot declared, so a `seq(map(int64,float))` head that admission
-    // accepted has a reader here rather than an unexplained refusal, and a head shaped otherwise names its slot.
     static Fin<Seq<Seq<(OpOutput.MapKey Class, double Probability)>>> Sequenced(OrtValue value, SlotShape declared, int top) =>
         value.Egress(declared).Bind(output => output is OpOutput.Sequence rows
             ? rows.Elements
@@ -414,15 +344,6 @@ public static partial class RunOps {
                 .ToFin()
             : RunRefusal.ClassifyHead.Fault<Seq<Seq<(OpOutput.MapKey, double)>>>());
 
-    // Bounded top-`k` composes the kernel `Ranked` cell; no heap declares here. The STREAMING arm takes the dense
-    // probability row, because offering per index never materializes a `(class, probability)` pair per class of a
-    // wide taxonomy, and the ONE-SHOT fold takes the `ZipMap` roster, which arrives as a `Seq` already. Direction
-    // is STATED at both sites. NAMED LOSS on the collapse: the local heap's `(Probability, -index)` composite key
-    // deletes — a negated ordinal is not an ordering, and the only thing it bought was the class stability the
-    // cell's strictly-better admission gives by keeping the first arrival among bound-ties.
-    // Both members spell `Best` rather than `Ranked`: a local named for the kernel owner would SHADOW it under
-    // simple-name lookup and make `Ranked.Top` bind a method group — the same interior-versus-owner split the
-    // stage wire takes for `Pad`.
     static Seq<(OpOutput.MapKey Class, double Probability)> Best(ReadOnlySpan<float> probability, int top) {
         Ranked<int, double> cell = new(keep: top, direction: ExtremumDirection.Maximum);
         for (int index = 0; index < probability.Length; index++) { cell.Offer(index, probability[index]); }
@@ -438,18 +359,6 @@ public static partial class RunOps {
             key: static row => row.Probability,
             direction: ExtremumDirection.Maximum);
 
-    // Ownership transfers at the run: the bracket's completion is the ONE deterministic release for admitted inputs
-    // and produced results alike. The acquire leg carries NO custody of its own — it hands back exactly what the run
-    // produced and the cell seats it before the projection runs — so every post-run native read happens where the
-    // cell already covers it and the nested `catch { results.Dispose(); throw; }` has no window left to guard.
-    // `ModelSessions.Faulted` classifies EVERY throw, so cancellation, artifact unreadability, and a native
-    // rejection each land on their own fault and no fourth throw class escapes the way a `when` roster let it.
-    // The `finally` is the boundary-capsule statement exemption: release here is unconditional, where
-    // `Custody.Rollback` is failure-release and cannot express it.
-    // Custody discriminant, stated: `owned` inputs ride the kernel UNCONDITIONAL span arm (spent whether the run
-    // succeeds or not), the native result collection rides the ACQUIRE arm (produced inside the window) — the
-    // kernel resource rail owns both LIFO disposals and their fault aggregation, and `ModelSessions.Faulted`
-    // stays the ONE classifier on the way out.
     static Fin<T> Bracket<T>(CancelScope scope, Seq<(string Name, OrtValue Value)> owned, Func<IDisposableReadOnlyCollection<OrtValue>, Fin<T>> project, Func<IDisposableReadOnlyCollection<OrtValue>> run) =>
         Custody.Bracket(
                 () => Custody.Bracket(run, project, Op.Of(nameof(RunOps))),
@@ -475,13 +384,11 @@ public static partial class RunOps {
 - Boundary: `BatchGate` composes the shared `BoundFlow` and opens no session. The channel mint here is the ONE place this page spells `BoundedChannelOptions`, and it reads its capacity, full-mode, and reader arity off the declared `LaneBound.Parked` row rather than off literals; the lane owner's `LaneProfile.Open` is `WorkItem`-typed, so the two mints stay separate until that member widens to carry an element type. Disposal completes the writer, cancels the fork, awaits its harvest, and answers every still-parked and still-queued row with the stop fault, so no submitter is left holding a promise nothing completes.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class BatchPolicy {
     public int MaxRows { get; }
 
-    // The queue's bound as the LANDED closed family's parked case, not a loose capacity int: the case type is the
-    // column, so a shedding or ranked bound is unspellable here rather than refused at admission.
     public LaneBound.Parked Queue { get; }
 
     public Duration MaxDelay { get; }
@@ -496,7 +403,7 @@ public sealed partial class BatchPolicy {
             : new ValidationError(message: $"<batch-policy:{maxRows}:{queue.Capacity}:{maxDelay}>");
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class BatchGate : IAsyncDisposable {
     readonly record struct Pending(float[] Row, TaskCompletionSource<Fin<float[]>> Reply);
 
@@ -516,8 +423,6 @@ public sealed class BatchGate : IAsyncDisposable {
             SingleReader = true,
             SingleWriter = false,
         })
-        // The pump is FORKED, so its failure is a value disposal harvests rather than a silently faulted task
-        // field that leaves every later `Submit` parked on a promise no reader will ever complete.
         from forked in Pump(queue, flow, options, scope, rowWidth, policy).Fork().Run()
         select new BatchGate(flow, options, scope, rowWidth, policy, timeline, pressure, forked, queue);
 
@@ -526,9 +431,6 @@ public sealed class BatchGate : IAsyncDisposable {
             return RunRefusal.ChunkShape.Fault<float[]>();
         }
         TaskCompletionSource<Fin<float[]>> reply = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        // The writer POLLS rather than throwing: `WaitToWriteAsync` answers `false` on a completed channel, which
-        // folds onto this gate's own stop fault, so shutdown needs no `OperationCanceledException` arm and no
-        // `ChannelClosedException` arm. The park it measures is the wait alone.
         return await Parked()
             .Bind(admitted => admitted
                 ? Fin.Succ(unit)
@@ -553,11 +455,6 @@ public sealed class BatchGate : IAsyncDisposable {
         }
     }
 
-    // The window is a CAS-batched cell, so a drain step lands every read row in one swap rather than mutating a
-    // `List` a reader could observe half-filled; the fill REPEATS on a schedule spaced by the policy's own delay
-    // and bounded by it, so the batching cadence and the latency ceiling are one declared value. The reader takes
-    // the DEFAULT token: this gate owns the only reader and completion is its shutdown signal, where a cancelable
-    // token would forfeit the pooled parked-operation fast path on every wait.
     static IO<Unit> Pump(Channel<Pending> queue, BoundFlow flow, RunOptions options, CancelScope scope, int rowWidth, BatchPolicy policy) =>
         IO.liftAsync(async _ => await queue.Reader.WaitToReadAsync().ConfigureAwait(false))
             .Bind(open => open
@@ -583,8 +480,6 @@ public sealed class BatchGate : IAsyncDisposable {
                 held => held.Count < policy.MaxRows);
     }
 
-    // Bind shapes the bound input `[MaxRows, rowWidth]` ONCE: a partial window zero-pads the tail rows and fans
-    // back only the submitted ones, so a variable-shape rebind per window never re-plans the arena.
     static IO<Unit> Emit(Seq<Pending> window, BoundFlow flow, RunOptions options, CancelScope scope, int rowWidth, BatchPolicy policy) =>
         IO.lift(() => {
             if (window.IsEmpty) { return unit; }
@@ -610,8 +505,6 @@ public sealed class BatchGate : IAsyncDisposable {
     public async ValueTask DisposeAsync() {
         queue.Writer.TryComplete();
         await pump.Cancel.RunAsync().ConfigureAwait(false);
-        // The harvest is where a pump failure becomes visible: awaiting the fork answers its own `Fin`, so a
-        // faulted drain names itself at disposal instead of dying inside an unobserved task.
         _ = await pump.Await.RunAsync().ConfigureAwait(false);
     }
 }
@@ -632,10 +525,7 @@ public sealed class BatchGate : IAsyncDisposable {
 - Boundary: `CacheOps` extends the `Rasm.AppHost` cache boundary; Compute owns keys and policy rows, never a cache instance — `CacheSurface` over `CacheLane.ModelResult` is the single owner and a hand-rolled `ConcurrentDictionary` memoization beside it is the named defect. Cached payloads ride the `Cached<Fin<T>>` typed envelope whose `Echo` is `key.ModelChecksum`, so `Validated` catches a cross-checksum L2 corruption the content key alone cannot; a value stored without the echo is rejected. `ReadThrough` caches success and failure under one lane-TTL entry while `Negative` caches only the failure at `ModelPrecision.NegativeTtl` and re-produces every success — behaviourally distinct rows, so an identical-column twin of `ReadThrough` is the named defect. Content-addressed dedup folds the input digest into the stored key so identical-input runs across callers coalesce; a second dedup owner is rejected. Cross-process result-reuse recency horizons read by reference from the Persistence `ModelResultIndex` owner — a second `Duration horizon` parameter beside the policy rows is the named defect. Every verdict whose severity invalidates is consumed as reuse invalidation — the lane purges the model's whole tag group and the run faults `ComputeFault.EquivalenceMiss` — so a graduated model whose serving population leaves its `GraduationEnvelope` never keeps serving cached verdicts under ANY input digest, provider row, or precision; cutting the requested key alone was the invalidation that left the rest of the model serving, and a drift monitor beside the identity sentinel is the rejected sibling. Owner keys cross the lane seam and tags mint at `CacheLane.Tag` alone; ZERO hand-framed keys remain — `CacheSurface.Read` now carries the entry-options tail its `Write` sibling always had, so the negative probe rides the surface and a `CacheLane.Scoped` spelling on this page is the deleted form.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// Reach is combinable capability as vocabulary, not four parallel bools spanning sixteen corners of which five
-// are inhabited. The serve leg has NO local/distributed split: `CacheLane.Capsuled` gates both legs together at
-// the composed runtime, so a per-leg member here would declare a posture the topology overrides.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -662,17 +552,10 @@ public sealed partial class CachePolicy {
 
     public bool Reaches(CacheReach member) => Reach.Contains(member);
 
-    // The one posture that rides the runtime's own entry options untouched: it serves both legs, stores both
-    // outcomes, and cuts nothing, so its derived suppression set is empty by construction rather than by a row
-    // author remembering to leave four flags alone.
     public bool ReadThroughStore =>
         Reaches(CacheReach.Serve) && Reaches(CacheReach.StorePositive)
         && Reaches(CacheReach.StoreNegative) && !Reaches(CacheReach.CutFirst);
 
-    // Four per-call suppression flags DERIVE from the membership that already decides the posture: a row that
-    // serves nothing closes both read legs, a row that stores nothing closes both write legs. Deriving is what
-    // keeps a posture and the flags it sends from ever disagreeing — an enumerated column is one more place a new
-    // row gets filled in wrong.
     public HybridCacheEntryFlags Flags =>
         (Reaches(CacheReach.Serve)
             ? HybridCacheEntryFlags.None
@@ -682,22 +565,14 @@ public sealed partial class CachePolicy {
             : HybridCacheEntryFlags.DisableLocalCacheWrite | HybridCacheEntryFlags.DisableDistributedCacheWrite);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Cached<T>(string Echo, T Value);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CacheOps {
-    // The SELECTED device joins result identity: `AutoSelect` ranks by affinity, so one provider key spans two
-    // adapters on a dual-GPU host and a result produced on one is not a result the other would have produced.
     public static ModelResultKey Key(ModelIdentity model, UInt128 inputDigest, ExecutionProvider ep, ModelPrecision precision, Option<OrtEpDevice> device) =>
         new(model.Key, inputDigest, ep.ResultKey(OrtEnv.Instance().GetVersionString(), precision, device));
 
-    // The one fold that SUPPLIES `Through`'s drift slot. A graduated model arrives with its own envelope and the
-    // caller's serving window is the population that model is now seeing, so the headline verdict — the worst
-    // covered feature — is what gates reuse; the per-feature verdicts and the uncovered roster stay on the report
-    // for the surface that reads evidence rather than the one that invalidates. A model carrying NO envelope was
-    // never graduated, so it has no population to leave and the slot answers `None` rather than a fabricated
-    // `Stable` a purge would then read as evidence of health.
     public static Fin<Option<DriftVerdict>> Sentinel(
         Option<GraduationEnvelope> envelope, Seq<FeatureSample> serving, DriftPolicy policy) =>
         envelope.Match(
@@ -711,9 +586,6 @@ public static class CacheOps {
 
     extension(CacheRuntime runtime) {
         public async ValueTask<Fin<T>> Through<T, TState>(CachePolicy policy, ModelResultKey key, ModelPrecision precision, Option<DriftVerdict> drift, TState state, Func<TState, CancellationToken, ValueTask<Fin<T>>> produce, CancellationToken token = default) {
-            // Severity carries its own invalidation posture, so a fourth band declaring itself invalidating lands
-            // at the identity owner and this gate never moves — where a `Breached` case read would silently keep
-            // serving it.
             if (drift.Case is DriftVerdict verdict && verdict.Severity.Invalidates) {
                 await runtime.Invalidate(CacheLane.ModelResult, Seq(key.ModelChecksum), token);
                 return Fin.Fail<T>(new ComputeFault.EquivalenceMiss(
@@ -725,9 +597,6 @@ public static class CacheOps {
         }
     }
 
-    // OWNER keys cross the lane seam, never tags: the surface frames the checksum through `CacheLane.Tag`, adds
-    // the bare lane key, and resolves the entry options through `CacheRuntime.Entry` — which the capsule topology
-    // swaps for `Capsuled`, the one read a call site could not reproduce by naming `lane.Entry` itself.
     static async ValueTask<Fin<T>> ServeStore<T, TState>(CacheRuntime runtime, ModelResultKey key, TState state, Func<TState, CancellationToken, ValueTask<Fin<T>>> produce, CancellationToken token) =>
         Validated(key, await runtime.Read(
             CacheLane.ModelResult, key.ToString(),
@@ -741,9 +610,6 @@ public static class CacheOps {
             await runtime.Remove(CacheLane.ModelResult, $"neg:{key}", token);
         }
         if (policy.Reaches(CacheReach.Serve)) {
-            // Cache-only probe: `DisableUnderlyingData` suppresses the factory, so the None arm writes nothing
-            // and the empty owner set never mints a tag — the whole read rides the AppHost surface now that
-            // `Read` takes the entry-options tail its `Write` sibling always carried.
             Option<Cached<Fin<T>>> probed = await runtime.Read(
                 CacheLane.ModelResult, $"neg:{key}", unit,
                 static (_, _) => new ValueTask<Option<Cached<Fin<T>>>>(Option<Cached<Fin<T>>>.None),
@@ -765,9 +631,6 @@ public static class CacheOps {
         return value;
     }
 
-    // ONE options mint for every write and probe this page makes: the runtime's OWN entry options — capsule-aware
-    // by construction — with the row's derived suppression folded in, so a posture can never store through a leg
-    // it declared closed and a probe adds only the cache-only bit on top of what its row already says.
     static HybridCacheEntryOptions Options(CacheRuntime runtime, CachePolicy policy, HybridCacheEntryFlags probe = HybridCacheEntryFlags.None, TimeSpan? expiration = null) =>
         runtime.Entry(CacheLane.ModelResult) switch {
             var seated => new HybridCacheEntryOptions {

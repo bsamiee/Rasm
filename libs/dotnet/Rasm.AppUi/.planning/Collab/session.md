@@ -27,8 +27,7 @@ Presence is ephemeral and admission is durable: a role never persists in the op-
 - Boundary: `SessionFault` owns session refusals and `CollabFault` owns merge refusals through separate direct generated unions. The grant column is a `CapabilitySet`, never a `Seq` the caller scans: `Require` carries the MISSING rows into the refusal, so an evidence-free "not authorized" is unspellable. The role axis is closed and generated so a new role breaks the grant declaration at compile time, and a role-shaped string travelling as a bare literal is the rejected form at every level — the register stores the row's `Key` and reads it back through `Of`.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Rank derives from declaration order so this vocabulary composes into CapabilitySet directly.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -41,11 +40,6 @@ public sealed partial class SessionCapability : ICapability<SessionCapability> {
     public static readonly SessionCapability Govern = new("govern");
 }
 
-// Rank orders governance over the ROSTER and the grant set answers authority over the DOCUMENT — two axes,
-// deliberately non-monotone: a presenter drives the review tour a higher-ranked reviewer cannot, and a
-// reviewer authors the model a presenter must not touch. Collapsing them into one ordinal would make every
-// capability a consequence of rank and delete exactly that distinction. Rank itself is the floor's
-// declaration-order projection: the retired hand column published a second answer that drifted on insertion.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -64,9 +58,6 @@ public sealed partial class SessionRole : ICapability<SessionRole> {
 
     public CapabilitySet<SessionCapability> Rights { get; }
 
-    // The register-decode ingress: a stored key the vocabulary no longer spells is a typed fault, never a
-    // silent demotion to the least-privileged row — a roster reading a retired role as Observer would lock
-    // its own author out while every read still returned a well-formed member.
     public static Fin<SessionRole> Of(string key) =>
         TryGet(key, out SessionRole? row) ? Fin.Succ(row) : Fin.Fail<SessionRole>(new SessionFault.RoleUnknown($"session/role:{key}"));
 }
@@ -81,9 +72,6 @@ public abstract partial record SessionFault : Fault {
     public override string Message => Detail;
 
 
-    // Four distinct refusal causes stay distinct because each drives a different repair: Unknown states the
-    // actor holds no register row at all, Pending that an invite is outstanding, Evicted that a governing
-    // member removed it, and Unauthorized that the row exists and the grant does not cover the intent.
     [FaultCase(0)]
     public sealed partial record Unknown(string Detail)      : SessionFault(Detail);
     [FaultCase(1)]
@@ -114,10 +102,6 @@ public abstract partial record SessionFault : Fault {
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// Two row columns close the lifecycle: Follows answers whether this state may be reached from a prior, and
-// Authoring answers whether an actor sitting in it may commit at all. Absent is only ever a PRIOR, so its
-// Follows refusing every source is the law, not a dead arm. The predicate defers behind a delegate column
-// because an eager SAME-ROSTER field read captures null before materialization protects it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -125,7 +109,6 @@ public sealed partial class MembershipState {
     public static readonly MembershipState Absent = new("absent",
         follows: static _ => false,
         authoring: static detail => Fin<Unit>.Fail(new SessionFault.Unknown(detail)));
-    // A re-invite IS the role change, so every prior enters here and the verb family needs no fifth case.
     public static readonly MembershipState Invited = new("invited",
         follows: static _ => true,
         authoring: static detail => Fin<Unit>.Fail(new SessionFault.Pending(detail)));
@@ -142,13 +125,9 @@ public sealed partial class MembershipState {
     [UseDelegateFromConstructor]
     public partial bool Follows(MembershipState prior);
 
-    // Only Joined authors. The refusal CASE rides the row, so each state answers why it refuses and the gate
-    // reads one value instead of re-deriving the cause per site.
     [UseDelegateFromConstructor]
     public partial Fin<Unit> Authoring(string detail);
 
-    // The kernel transition verdict is what a lifecycle attempt OWES its caller: the refused case carries the
-    // prior state beside the cause, so the write arm reports what it declined and from where in one value.
     public Transition<MembershipState> Enter(MembershipState prior, ContainerKey subject) =>
         Follows(prior)
             ? new Transition<MembershipState>.Committed(this)
@@ -162,9 +141,6 @@ public sealed partial class MembershipState {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record MembershipOp {
     private MembershipOp() { }
-    // The invite alone carries the HANDLE, because the inviter is the one who knows who this peer is: a peer
-    // ordinal is not a thing anyone types into a comment or reads off a roster, so a mention picker with no
-    // handle column would have to offer numbers and a route would resolve tokens nobody could have written.
     public sealed record Invite(ulong Peer, SessionRole Role, string Handle, string By, Instant At) : MembershipOp;
     public sealed record Join(ulong Peer, Instant At) : MembershipOp;
     public sealed record Leave(ulong Peer, Instant At) : MembershipOp;
@@ -172,9 +148,6 @@ public abstract partial record MembershipOp {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// Role, actor, and stamp are the evidence a WRITTEN row carries, so they ride Options that read None exactly
-// when no row was written — an absent member reading a default role and a zero stamp would publish values no
-// write ever took, and a gate reading that role would grant on fabricated evidence.
 public readonly record struct MemberRow(
     ulong Peer,
     MembershipState State,
@@ -184,8 +157,6 @@ public readonly record struct MemberRow(
     Option<Instant> At) {
     public static MemberRow Absent(ulong peer) => new(peer, MembershipState.Absent, None, None, None, None);
 
-    // The member's own label: a handle where the inviter supplied one, the invariant peer key otherwise, so
-    // every chrome surface renders one spelling instead of each re-deciding the fallback.
     public string Label => Handle.IfNone(ContainerKey.Of(Peer).Value);
 }
 
@@ -193,18 +164,9 @@ public readonly record struct MemberRow(
 public static class MemberRegister {
     public const string GovernOrigin = "session";
 
-    // The ONE write ingress: a governance verb becomes an EditIntent.Membership row on the single durable
-    // union and commits through the one ledger rail — durable-first, live apply through the same dispatch
-    // replay uses — so the ledger's own composition-bound Admit column grades it and the origin tags the
-    // commit for the local undo manager's exclusion prefix. No gate stands here: a second grade at the mint
-    // would either restate Project's fold or drift from it.
     public static IO<Fin<Unit>> Govern(CollabDoc doc, IntentLedger ledger, MembershipOp op) =>
         ledger.Commit(doc, new EditIntent.Membership(doc.Key, op), GovernOrigin);
 
-    // The prior state resolves ONCE ahead of the dispatch, so no arm re-reads what the fold already holds.
-    // Each arm names its destination row, its stamp, and the columns ITS case alone carries — the state and
-    // the timestamp are the verb-invariant half and land in the shared write law below, so the self-service
-    // arms carry nothing at all rather than re-spelling a state key already passed as an argument.
     public static Fin<Unit> Apply(CollabDoc doc, MembershipOp op) =>
         Read(doc, Subject(op)).Bind(prior => op.Switch(
             state: (Doc: doc, Prior: prior),
@@ -213,16 +175,11 @@ public static class MemberRegister {
                 (CollabColumn.Name, LoroVal.Of(i.Handle)),
                 (CollabColumn.Role, LoroVal.Of(i.Role.Key)),
                 (CollabColumn.Author, LoroVal.Of(i.By)))),
-            // The granted role is the INVITER's decision, so a self-service verb carrying one would let the invitee widen its own grant.
             join: static (ctx, j) => Land(ctx.Doc, ctx.Prior, MembershipState.Joined, j.At, Seq<(CollabColumn, LoroVal)>()),
             leave: static (ctx, l) => Land(ctx.Doc, ctx.Prior, MembershipState.Left, l.At, Seq<(CollabColumn, LoroVal)>()),
             evict: static (ctx, e) => Land(ctx.Doc, ctx.Prior, MembershipState.Evicted, e.At, Seq(
                 (CollabColumn.Author, LoroVal.Of(e.By))))));
 
-    // ONE write law: legality is the DESTINATION row's own verdict, so this fold carries no transition table
-    // and a new state lands its whole legality in one row; the refused verdict already carries the cause, so
-    // nothing here re-derives a message from a discarded prior. The write descends the Members root through
-    // the scoped resolve and the document owner's one mint-then-write scope, so the peer level frees with it.
     static Fin<Unit> Land(
         CollabDoc doc, MemberRow prior, MembershipState next, Instant at,
         Seq<(CollabColumn Column, LoroVal Value)> carried) =>
@@ -237,9 +194,6 @@ public static class MemberRegister {
                 : new SessionFault.Conflict($"session/{prior.Peer}: {declined.Current.Key} unsettled")),
         };
 
-    // Absence folds through the document owner's own Read twin, so an unwritten peer reads the Absent STATE
-    // row rather than a fabricated member, while a WRITTEN row missing its state or role stays a typed fault —
-    // the two are different defects and a lens collapsing them would read a corrupt row as a stranger.
     public static Fin<MemberRow> Read(CollabDoc doc, ulong peer) =>
         doc.Read(CollabPath.Root(CollabRoot.Members).Key(ContainerKey.Of(peer)), MemberRow.Absent(peer), row => Admitted(peer, row));
 
@@ -247,16 +201,12 @@ public static class MemberRegister {
         doc.Read(CollabPath.Root(CollabRoot.Members), Seq<MemberRow>(), members =>
             CollabDoc.Lift(() => members.Keys().AsIterable().Choose(key => Seated(members, key)).ToSeq()));
 
-    // The subject peer is the op's own field, so the prior read happens once and the gate's rank check reads the same value the write arm will land on.
     public static ulong Subject(MembershipOp op) => op.Switch(
         invite: static i => i.Peer,
         join: static j => j.Peer,
         leave: static l => l.Peer,
         evict: static e => e.Peer);
 
-    // One column projection for BOTH reads: the gate's single-peer authority read and the roster view cross
-    // the same declared rows, so the register shape cannot drift between the decision and its display. The
-    // two required columns join applicatively, so a half-written row reads absent whole.
     static Fin<MemberRow> Admitted(ulong peer, LoroMap row) =>
         (row.Read(CollabColumn.State, static leaf => leaf.Text),
          row.Read(CollabColumn.Role, static leaf => leaf.Text)).Apply((state, role) =>
@@ -268,9 +218,6 @@ public static class MemberRegister {
                 row.Read(CollabColumn.At, static leaf => leaf.Stamp)))
         .IfNone(Fin.Fail<MemberRow>(new SessionFault.Conflict($"session/{peer}: register row omits state or role")));
 
-    // The peer key admits BEFORE the descent, so an unparsable key costs no resolve at all, and the row rides
-    // the document owner's own `Level` twin so both foreign wrappers free under the sync handle law. A row
-    // whose state or role fails to admit DROPS here — the roster is a view, so one malformed row must not hide every sound row beside it.
     static Option<MemberRow> Seated(LoroMap members, string key) =>
         ulong.TryParse(key, CultureInfo.InvariantCulture, out ulong peer)
             ? members.Level(key, live => Admitted(peer, live).ToOption())
@@ -291,9 +238,6 @@ public static class MemberRegister {
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The governance laws, as ROWS rather than a chain of Bind steps: a verb names the subset it demands, the
-// gate accumulates every breach, and the roster panel filters its affordances through the identical rows —
-// one law, read at the decision and at the affordance that leads to it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RosterInvariant : ICapability<RosterInvariant> {
@@ -310,9 +254,6 @@ public sealed partial class RosterInvariant : ICapability<RosterInvariant> {
             ? Success<Error, Unit>(unit)
             : Fail<Error, Unit>(new SessionFault.Unauthorized($"session/{probe.Actor}: self-service verb names peer {probe.Subject}"));
 
-    // An unwritten subject outranks nothing, so an invite of a peer the register never held passes here and
-    // its legality falls to the transition row alone. Equal rank REFUSES, because a govern grant is authority
-    // over lower ranks and an equal-rank ejection is two owners racing to remove each other.
     private static Validation<Error, Unit> Outranks(RosterProbe probe) =>
         probe.View.Members.Find(probe.Subject).Bind(static row => row.Role)
             .Filter(held => held.Rank >= probe.Role.Rank)
@@ -320,18 +261,12 @@ public sealed partial class RosterInvariant : ICapability<RosterInvariant> {
                 Some: held => Fail<Error, Unit>(new SessionFault.Unauthorized($"session/{probe.Role.Key} cannot govern {held.Key}")),
                 None: static () => Success<Error, Unit>(unit));
 
-    // The GRANTED rank, which only the invite arm names — `Outranks` reads the subject's CURRENT row and
-    // passes an unwritten peer, so without this a govern holder could mint a stranger above itself. An absent
-    // grant ADMITS, because the affordance grades before a role is picked and the gate grades again after.
-    // Equal rank ADMITS, because `Retention` demands a second governing member before a sole governor may leave and only a peer grant can supply one.
     private static Validation<Error, Unit> Grants(RosterProbe probe) =>
         probe.Granted.Filter(granted => granted.Rank > probe.Role.Rank)
             .Match(
                 Some: granted => Fail<Error, Unit>(new SessionFault.Unauthorized($"session/{probe.Role.Key} cannot grant {granted.Key}")),
                 None: static () => Success<Error, Unit>(unit));
 
-    // The list pattern names the sole survivor from the match itself, so the count guard and the indexed read
-    // a separate test would need collapse into the shape the filter already answers.
     private static Validation<Error, Unit> Retained(RosterProbe probe) =>
         probe.View.Governing is [{ Peer: var only }] && only == probe.Subject
             ? Fail<Error, Unit>(new SessionFault.Sole($"session/{probe.Subject} is the last governing member"))
@@ -339,9 +274,6 @@ public sealed partial class RosterInvariant : ICapability<RosterInvariant> {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// ONE roster observation: the peer-keyed index every subject read crosses and the governing subset retention
-// tests, both folded once — a thirty-member panel pays one filter rather than thirty, and a governing
-// decision grades against one observation rather than two reads a concurrent merge can separate.
 public readonly record struct RosterView(HashMap<ulong, MemberRow> Members, Seq<MemberRow> Governing) {
     public static RosterView Of(Seq<MemberRow> roster) =>
         new(toHashMap(roster.Map(static row => (row.Peer, row))),
@@ -349,7 +281,6 @@ public readonly record struct RosterView(HashMap<ulong, MemberRow> Members, Seq<
                 && row.Role.Exists(static held => held.Rights.Admits(SessionCapability.Govern))));
 }
 
-// The graded question. Granted is Some on the invite arm alone, because it is the one verb naming a rank the register does not yet hold.
 public readonly record struct RosterProbe(
     ulong Actor, SessionRole Role, ulong Subject, Option<SessionRole> Granted, RosterView View);
 
@@ -363,8 +294,6 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
     public static readonly CapabilitySet<SessionCapability> AuthorGrant = CapabilitySet<SessionCapability>.Of(SessionCapability.Author);
     public static readonly CapabilitySet<SessionCapability> GovernGrant = CapabilitySet<SessionCapability>.Of(SessionCapability.Govern);
 
-    // The verb-to-law correspondence, seated HERE because the roster panel grades the same sets: a second
-    // spelling at the affordance is what lets a hidden verb and a refused verb disagree.
     public static readonly CapabilitySet<RosterInvariant> Delegation =
         CapabilitySet<RosterInvariant>.Of(RosterInvariant.Outranking, RosterInvariant.Granting);
     public static readonly CapabilitySet<RosterInvariant> SelfOnly =
@@ -374,9 +303,6 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
     public static readonly CapabilitySet<RosterInvariant> Removal =
         CapabilitySet<RosterInvariant>.Of(RosterInvariant.Outranking, RosterInvariant.Retention);
 
-    // Admissions count by document and outcome, a refusal carrying the generated code; the joined
-    // roster reads as a standing per-document level off the keyed family, so a session that empties surfaces
-    // as a falling gauge rather than a stale count.
     public static readonly InstrumentSpec Admission = InstrumentSpec.Create(
         "rasm.appui.collab.session.admission", InstrumentKind.Count, MeasureForm.Whole, "{admission}",
         "session admissions by document and outcome",
@@ -386,11 +312,6 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
         "rasm.appui.collab.session.members", InstrumentKind.Levels, MeasureForm.Whole, "{peer}",
         "joined session members by document", Seq<string>(), None, Some(AppUiTelemetry.DocSlot), None);
 
-    // The total generated Switch over the closed intent family: a new case breaks THIS site until its
-    // capability row lands, so an unclassified intent cannot fall through a default arm into an implicit
-    // grant. The membership arm recurses onto the verb family because Join and Leave are self-service reads
-    // of the roster while Invite and Evict are governing writes — one grant for both would either lock every
-    // invitee out of joining or hand every observer the eviction verb.
     public static CapabilitySet<SessionCapability> Required(EditIntent intent) => intent.Switch(
         cellInsert: static _ => AuthorGrant,
         cellEdit: static _ => AuthorGrant,
@@ -409,10 +330,6 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
             join: static _ => ReadGrant,
             leave: static _ => ReadGrant,
             evict: static _ => GovernGrant),
-        // Board triage recurses onto its own verb family for the same reason membership does: a transition's
-        // authority is the DESTINATION status row's own column, so closing an issue takes the resolve grant
-        // while reopening one takes authoring, and attaching evidence is the commenting act rather than a
-        // model edit. Apply and clear are two verbs on that family, so neither reads a mode flag here.
         issueCommit: static i => i.Op.Switch(
             transition: static t => t.To.Needs,
             assign: static _ => AuthorGrant,
@@ -421,10 +338,6 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
             rank: static _ => AuthorGrant,
             attach: static _ => CommentGrant));
 
-    // One expression over three DEPENDENT reads and two ACCUMULATING joins: the register row, the seated
-    // role, and the roster each need the last, while the state refusal and the missing role are independent
-    // of one another, as are the grant demand and the roster invariants. The required set binds once —
-    // evaluating it twice would let a vocabulary change split the refusal message from the grade it reports.
     public Fin<EditIntent> Admit(EditIntent intent) =>
         from row in MemberRegister.Read(Document, Actor)
         let need = Required(intent)
@@ -433,14 +346,11 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
         from _held in Held(intent, role, need, roster)
         select intent;
 
-    // A member whose state forbids authoring AND whose admitted row carries no role reports both: repairing
-    // one and rediscovering the other is two round trips through a governance surface for one broken row.
     Fin<SessionRole> Seated(MemberRow row, CapabilitySet<SessionCapability> need) =>
         (row.State.Authoring($"session/{Actor}:{need.Wire}").ToValidation(),
          row.Role.ToFin(new SessionFault.Conflict($"session/{Actor}: admitted row carries no role")).ToValidation())
         .Apply(static (_, held) => held).As().ToFin();
 
-    // Only a governance verb pays the roster read: a keystroke on a notebook cell grades against its own row.
     Fin<Seq<MemberRow>> Rostered(EditIntent intent) =>
         intent is EditIntent.Membership ? MemberRegister.Roster(Document) : Fin.Succ(Seq<MemberRow>());
 
@@ -449,8 +359,6 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
          Governed(intent, role, roster))
         .Apply(static (_, _) => unit).As().ToFin();
 
-    // The demanded rows traverse in DECLARATION order, so a verb breaching two laws reports them in the one
-    // order every message, board, and test reads them in.
     Validation<Error, Unit> Governed(EditIntent intent, SessionRole role, Seq<MemberRow> roster) =>
         intent is EditIntent.Membership { Op: var op }
             ? Probed(op, role, RosterView.Of(roster)) switch {
@@ -479,9 +387,6 @@ public sealed record SessionGate(CollabDoc Document, ulong Actor) {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Admission, Members);
 
-    // The composition-bound Observe modality: the gate holds the typed verdict in hand, so the fact enters
-    // here rather than through a receipt-fan arm minted to carry it. A refusal tags the generated
-    // code, which is the reverse index back to this page — a rendered message never crosses.
     public static Fin<Unit> Observe(InstrumentSet set, DocumentKey document, Fin<EditIntent> verdict) =>
         set.Write(Admission, 1d, verdict.Match(
             Succ: _ => InstrumentSet.Tags(
@@ -544,9 +449,6 @@ flowchart LR
 
 ```csharp signature
 // --- [MODELS] --------------------------------------------------------------------------
-// The GRANTED authority beside the CLAIMED role, typed apart: Granted is a capability SET a gate reads and
-// Claimed is a role a badge renders, so a decision reaching for the claimed column finds no set to demand
-// against. Live is the awareness channel's own answer, never a stored flag.
 public readonly record struct SessionSeat(ulong Peer, MemberRow Member, Option<SessionRole> Claimed, bool Live) {
     public CapabilitySet<SessionCapability> Granted =>
         Member.Role.Map(static role => role.Rights).IfNone(CapabilitySet<SessionCapability>.None);
@@ -554,10 +456,6 @@ public readonly record struct SessionSeat(ulong Peer, MemberRow Member, Option<S
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record SessionPresence(Presence Presence, CollabDoc Document) {
-    // The one AWARENESS write a capability gates: a role without Present publishes no claim at all, so the
-    // badge a view renders and the grant the register holds cannot disagree. The claimed role is the actor's
-    // own granted row — the caller reads it from the register, never from a channel — and the tour's viewport
-    // publish carries the same capability read at ITS producer. The value is column-keyed, so it reads back through the owner that wrote it.
     public Fin<byte[]> Claim(SessionRole role) =>
         role.Rights.Require(
             CapabilitySet<SessionCapability>.Of(SessionCapability.Present),
@@ -566,9 +464,6 @@ public sealed record SessionPresence(Presence Presence, CollabDoc Document) {
             (CollabColumn.Identity, LoroVal.Of(ContainerKey.Of(Presence.Peer))),
             (CollabColumn.Role, LoroVal.Of(role.Key)))));
 
-    // The register drives the seat set and the channel decorates it, never the reverse: a peer publishing
-    // presence without a member row seats nowhere, so a stranger cannot appear in the roster by broadcasting.
-    // A claimed role the vocabulary no longer spells reads None rather than faulting the whole view.
     public Fin<Seq<SessionSeat>> Seats() =>
         MemberRegister.Roster(Document).Map(roster => Presence.Roster() switch {
             var live => roster.Map(row => new SessionSeat(
@@ -598,9 +493,6 @@ public sealed record SessionPresence(Presence Presence, CollabDoc Document) {
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// Lifetime and handoff are ROW DATA, so a notice's whole behaviour is recoverable from its declaration and
-// no consumer times a notice or decides where it leads. A join lingers longest because arriving is the fact a
-// late-looking collaborator most needs; a resolution is the shortest because its own board row is permanent.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -613,15 +505,9 @@ public sealed partial class NoticeKind {
 
     public Duration Lifetime { get; }
 
-    // The handoff is the ROW's whole projection — verb and payload together — because a notice whose
-    // destination varied per construction site is a notice two surfaces would route differently, and a verb
-    // paired with the wrong payload shape refuses at the deck rather than at the row that meant it.
     [UseDelegateFromConstructor]
     public partial CommandHandoff Handoff(ActivityNotice notice);
 
-    // An arrival and an edit both answer "who", so both reveal the acting peer's seat; a comment and a
-    // resolution both answer "where", so both open the issue the notice names. Each key is its owning
-    // surface's own constant, so a rename there moves this row with it.
     private static CommandHandoff Seat(ActivityNotice notice) =>
         new(SeatCluster.RevealIntent, new CommandPayload.Single(ContainerKey.Of(notice.Peer).Value));
 
@@ -633,9 +519,6 @@ public sealed partial class NoticeKind {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// A handoff is a command KEY beside the payload that verb accepts, and it RAISES through the deck's own row:
-// the payload admission and the execute arrow are the deck's, so chrome reaches no verb the palette and the
-// chord cannot reach, and a key no deck carries refuses typed instead of navigating nowhere.
 public readonly record struct CommandHandoff(string Intent, CommandPayload Payload) {
     public IO<Fin<Unit>> Raise(CommandDeck deck, CancellationToken stopping = default) =>
         deck.Row(Intent).ToFin(new SessionFault.Unknown($"session/handoff:{Intent}"))
@@ -645,22 +528,14 @@ public readonly record struct CommandHandoff(string Intent, CommandPayload Paylo
                 Fail: static error => IO.pure(Fin.Fail<Unit>(error)));
 }
 
-// The notice carries its MONOTONIC MINT STAMP, never a countdown and never a wall-clock instant: the
-// remaining fraction is then a pure read at any moment that a suspend, a resume, or an NTP step cannot move,
-// so a rebuilt list shows the truth and no notice owns a timer.
 public readonly record struct ActivityNotice(NoticeKind Kind, ulong Peer, string Handle, string Target, MonotonicStamp At) {
     public static Fin<ActivityNotice> Of(NoticeKind kind, MemberRow member, string target, MonotonicStamp at) =>
         member.State == MembershipState.Joined
             ? Fin.Succ(new ActivityNotice(kind, member.Peer, member.Label, target, at))
             : Fin.Fail<ActivityNotice>(new SessionFault.Unknown($"session/{member.Peer}: notice for a peer that has not joined"));
 
-    // The visible decay the motion row binds: one at the mint, zero at expiry, absent past it — so a lapsed
-    // notice reads as gone rather than as a bar pinned at zero the sweep still has to remove. The span is the
-    // timeline's own answer, so a broken capture refuses on the rail rather than rendering a plausible bar.
     public Fin<Option<UnitInterval>> Remaining(MonotonicTimeline line, MonotonicStamp now) =>
         line.Elapsed(At, now).Map(elapsed =>
-            // The guard is what keeps the projection total: the fraction is in (0, 1] exactly when the
-            // elapsed span sits inside the lifetime, so the admitted construction cannot refuse.
             elapsed >= Kind.Lifetime.ToTimeSpan() || elapsed < TimeSpan.Zero
                 ? Option<UnitInterval>.None
                 : Some(UnitInterval.Create(1d - elapsed.TotalMilliseconds / Kind.Lifetime.TotalMilliseconds)));
@@ -669,14 +544,10 @@ public readonly record struct ActivityNotice(NoticeKind Kind, ulong Peer, string
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// The register drives the cluster and the channel decorates it: a peer broadcasting presence with no member
-// row seats nowhere, so a stranger cannot appear in the faces by publishing.
 public sealed record SeatCluster(Seq<SessionSeat> Seats) {
     public const string ClusterKey = "session.faces";
     public const string RevealIntent = "session.reveal";
 
-    // ONE avatar case carrying its members and its visible limit: overflow is the control's own `+N` form, so
-    // a cluster never transports a truncated roster and the count it hides is the control's arithmetic.
     public Fin<ControlIntent> Faces(int visibleLimit) =>
         visibleLimit > 0
             ? Fin.Succ<ControlIntent>(new ControlIntent.Avatar(
@@ -686,30 +557,21 @@ public sealed record SeatCluster(Seq<SessionSeat> Seats) {
                 IntentBinding.Of(PaintRole.Accent) with { Command = Some(RevealIntent) }))
             : Fin.Fail<ControlIntent>(new SessionFault.Unknown($"session/cluster-visible:{visibleLimit}"));
 
-    // Liveness is the CHANNEL's answer, already swept by the seat join, and membership is the register's:
-    // both must hold, so a joined member who closed their laptop leaves the faces while their roster row and
-    // every grant it carries stand.
     public Seq<SessionSeat> Live() =>
         Seats.Filter(static seat => seat.Live && seat.Member.State == MembershipState.Joined);
 
-    // The join handoff: the arriving peer's own seat is what the reveal verb addresses, so clicking a newly
-    // arrived face lands on that peer rather than on a roster the user must then search.
     public Option<CommandHandoff> Arrival(ulong peer) =>
         Live().Find(seat => seat.Peer == peer)
             .Map(static seat => new CommandHandoff(
                 RevealIntent, new CommandPayload.Single(ContainerKey.Of(seat.Peer).Value)));
 }
 
-// The scoped activity feed. The SUBSCRIPTION is the scope — an issue thread, a notebook cell, or a graph
-// subtree watches its own container level — and the channel is the seam between the engine's callback thread
-// and the notice list: the diff arm seats and returns, and a burst sheds oldest because a notice a slow
-// surface never rendered is stale by the time it would.
 public sealed record ActivityFeed(
     PresenceSignals Signals,
     CollabDoc Document,
     NoticeKind Kind,
     MonotonicTimeline Line,
-    Func<DiffEvent, Option<(ulong Peer, string Target)>> Attribute, // composition-bound: the plane's own diff-to-provenance projection
+    Func<DiffEvent, Option<(ulong Peer, string Target)>> Attribute,
     Channel<ActivityNotice> Notices,
     HostSink Sink) {
     public const int Depth = 32;
@@ -734,7 +596,6 @@ public sealed record ActivityFeed(
 
     public IAsyncEnumerable<ActivityNotice> Drain(CancellationToken stopping = default) => Notices.Reader.ReadAllAsync(stopping);
 
-    // A refusal here is a COMPLETE channel, because a full one sheds through the observer above — two facts the same boolean used to blur.
     Unit Seat(ActivityNotice notice) =>
         Notices.Writer.TryWrite(notice)
             ? unit
@@ -742,12 +603,6 @@ public sealed record ActivityFeed(
 
     public Unit Close() => ignore(Notices.Writer.TryComplete());
 
-    // Attribution is COMPOSITION-BOUND because only the changed plane knows which register key its diff
-    // touched and therefore whose per-key provenance to read: the diff itself carries a trigger, an origin,
-    // and a container identity, never a peer. Reading the roster for "whoever is joined" would name an
-    // arbitrary member, and reading the awareness channel would name whoever last published a claim — both are attributions no edit supports.
-    //
-    // The MEMBER still resolves off the durable register, so a notice names a peer the roster admitted and a stranger's imported op raises nothing.
     Option<ActivityNotice> Noticed(DiffEvent diff) =>
         diff.TriggeredBy == EventTriggerKind.Import
             ? Attribute(diff).Bind(row => MemberRegister.Read(Document, row.Peer).ToOption()
@@ -769,17 +624,10 @@ public sealed record ActivityFeed(
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// The three keys a connection state resolves against the chrome registries. They DERIVE from one stem at the
-// owning row rather than composing at the pane and the banner, so a rename is one edit and no materialize
-// site builds a key it cannot be held to.
 public readonly record struct SyncKeys(string Pane, string Headline, string Body) {
     public static SyncKeys Of(string stem) => new(stem, $"{stem}.headline", $"{stem}.body");
 }
 
-// Six columns close the axis: the feed correspondence keeps the board's severity ladder the board's, the
-// banner severity states how loudly the condition speaks, the overlay posture states how a queued intent
-// renders, the degradation successor states which row a governor tier promotes this one to, the re-drive law
-// states whether reconnecting means anything here, and the keys state what the chrome resolves.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -793,8 +641,6 @@ public sealed partial class SyncHealth {
         overlay: static () => OverlayPosture.Pending, degraded: static () => Reconnecting,
         redrive: Some(RedrivePolicy.Of(law: Schedule.exponential(Duration.FromSeconds(1)) | Schedule.recurs(4), bound: 4)),
         keys: SyncKeys.Of("collab.connection.reconnecting"));
-    // A degraded render tier speaks only where the TRANSPORT is sound, so this row is where a governor
-    // degradation lands and it promotes no further.
     public static readonly SyncHealth Degraded = new("degraded",
         feed: static () => FeedHealth.Degraded, severity: static () => BannerSeverity.Warning,
         overlay: static () => OverlayPosture.Pending, degraded: static () => Degraded,
@@ -808,8 +654,6 @@ public sealed partial class SyncHealth {
     public Option<RedrivePolicy> Redrive { get; }
     public SyncKeys Keys { get; }
 
-    // Row-to-row correspondences defer behind delegate columns, because an eager sibling-vocabulary field
-    // read captures null before materialization protects it.
     [UseDelegateFromConstructor]
     public partial FeedHealth Feed();
 
@@ -819,27 +663,18 @@ public sealed partial class SyncHealth {
     [UseDelegateFromConstructor]
     public partial OverlayPosture Overlay();
 
-    // The row a governor degradation promotes THIS row to. A conditional naming `Degraded` outside the roster
-    // was the same defect a hand transition table is: the successor is the row's own answer.
     [UseDelegateFromConstructor]
     public partial SyncHealth Degrades();
 
-    // The correspondence the rows ALREADY declare, indexed once rather than scanned per fold: an equality
-    // ladder would restate that column in a second place and disagree with it the first time either moved.
     private static readonly Lazy<FrozenDictionary<FeedHealth, SyncHealth>> ByFeed =
         new(static () => Items.ToFrozenDictionary(static row => row.Feed()));
 
-    // The ONE fold. An unmapped feed grade resolves OFFLINE rather than live, so a vocabulary this axis has
-    // not caught up with under-promises instead of certifying a connection nobody measured.
     public static SyncHealth Of(FeedFreshness freshness, Option<QualityTier> degradation) =>
         (ByFeed.Value.TryGetValue(freshness.Health, out SyncHealth? row) ? row : Offline) switch {
             var carried => degradation.IsSome ? carried.Degrades() : carried,
         };
 }
 
-// The banner verbs as rows: each carries the key its owner registers, the label key the chrome resolves, its
-// emphasis, and the condition under which it is worth offering. A retry appears exactly where the health row
-// declares a re-drive law, so the affordance and the transport's own policy are one fact.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConnectionVerb {
@@ -855,9 +690,6 @@ public sealed partial class ConnectionVerb {
     public partial bool Offered(ConnectionState state);
 }
 
-// Each verb carries the capability set that REVEALS it and the roster invariants the gate will grade, so a
-// roster row offers exactly what admission would accept and adding a role never touches the panel. The
-// retired `Retains` bool named ONE law by hand; the set names every law a verb answers to.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -871,40 +703,24 @@ public sealed partial class SessionAction {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// The seat plus the actions THIS actor may take on it. Actions are computed once per row against one grant
-// read and one roster observation, so a panel of thirty members folds the governing subset once.
 public readonly record struct RosterRow(SessionSeat Seat, Seq<SessionAction> Actions);
 
-// The unified connection value. Queued is the overlay ledger's OWN pending gauge, so the count the strip
-// shows and the rows rendering provisionally are one set rather than two counters that can disagree.
 public readonly record struct ConnectionState(SyncHealth Health, int Queued, Option<QualityTier> Degradation, Option<Instant> LastRefresh) {
     public static ConnectionState Of(FeedFreshness freshness, int queued, Option<QualityTier> degradation) =>
         new(SyncHealth.Of(freshness, degradation), queued, degradation, freshness.LastRefresh);
 
-    // The strip speaks its own state: a healthy live session with nothing outstanding says nothing at all,
-    // which is exactly why the banner is optional and the pane is not.
     public bool Quiet => Health == SyncHealth.Live && Queued == 0;
 
-    // A queued intent presents as its OWN optimistic row under the health row's posture, so the answer to
-    // "what happens to my edits offline" is the same chrome that answers it online — one presentation, one
-    // reconciliation path, and no offline-only rendering to keep in step. Editing itself is never refused
-    // here: a local edit is a typed intent that queues, and the ledger's own gate grades authority.
     public OverlayPosture Presents => Health.Overlay();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public sealed record RosterPanel(Seq<SessionSeat> Seats, ulong Actor, SessionRole Role) {
-    // One roster observation and one grant read for the whole panel, and every invariant is graded through
-    // the SAME rows the gate accumulates — so the panel never offers an action admission is bound to refuse
-    // and never hides one it would have admitted. The projection is TOTAL over seats the register already
-    // admitted: a rail here would advertise a refusal no roster can produce.
     public Seq<RosterRow> Rows() =>
         RosterView.Of(Seats.Map(static seat => seat.Member)) switch {
             var view => Seats.Map(seat => new RosterRow(seat, Offered(view, seat))),
         };
 
-    // The granted role is unknown until the user picks one, so the probe carries no grant and `Granting`
-    // admits here; the gate grades it again once the invite names a rank.
     Seq<SessionAction> Offered(RosterView view, SessionSeat seat) =>
         new RosterProbe(Actor, Role, seat.Peer, None, view) switch {
             var probe => toSeq(SessionAction.Items)
@@ -915,26 +731,17 @@ public sealed record RosterPanel(Seq<SessionSeat> Seats, ulong Actor, SessionRol
         };
 }
 
-// Both chrome surfaces off ONE state, because a pane and a banner answer different questions: the pane states
-// the standing condition at a glance and the banner appears only when the condition demands an action.
 public sealed record ConnectionStrip(ConnectionState State) {
     public const string QueuedFactKey = nameof(ConnectionState.Queued);
 
-    // The footer pane is a READOUT on the trail zone: a connection state is a standing fact, so it takes the
-    // pane family every standing fact takes and the chrome fold materializes it like every other pane. The
-    // count is a bare tally rather than a dimensioned quantity, so the pane names no measure role.
     public ChromeContent Pane() =>
         new ChromeContent.Pane(PaneKind.Readout, StatusZone.Trail, State.Health.Keys.Pane, Badge(), None);
 
-    // The queued count badges the pane, so outstanding work is visible without opening anything — and a
-    // session with nothing outstanding carries no badge rather than a zero. The count RIDES the fact key the
-    // badge names, so the badge and the readout read one value and the package's own overflow form renders the cap rather than a locally clamped string.
     Option<BadgeMark> Badge() =>
         State.Queued > 0
             ? Some<BadgeMark>(new BadgeMark.Counted(CornerPosition.TopRight, Overflow: 99, CountKey: QueuedFactKey))
             : None;
 
-    // A quiet session produces NO banner: a persistent notice restating that everything is fine is the shape that trains a user to stop reading banners.
     public Option<ControlIntent> Banner() =>
         State.Quiet
             ? None
@@ -943,8 +750,6 @@ public sealed record ConnectionStrip(ConnectionState State) {
                 State.Health.Severity(), BannerPlacement.Page,
                 Actions(), None, IntentBinding.Of(PaintRole.Info)));
 
-    // One filtered fold over the verb roster: the two conditional singletons a concatenation used to build
-    // are the rows' own offer predicates, so a third verb costs one row and no edit here.
     Seq<ControlIntent> Actions() =>
         toSeq(ConnectionVerb.Items)
             .Filter(verb => verb.Offered(State))

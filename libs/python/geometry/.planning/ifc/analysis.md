@@ -34,10 +34,6 @@ from expression.collections import Block, Map
 from msgspec import Struct
 from msgspec.json import decode
 
-# Provider band, deferred at module scope: the manifest roster bans the EAGER form alone, and every dereference sits
-# inside a verb body, so no constant or table row reifies a proxy at import. The `ifcopenshell.util` members and the
-# `ifctester` reporters ride `lazy from`, binding each consumed name directly — sibling `lazy import <pkg>.<mod>`
-# lines reify independently off `sys.lazy_modules`; `open as open_ids` keeps the builtin unshadowed.
 lazy import ifc5d.qto
 lazy import ifcopenshell
 lazy from bcf.v3.bcfxml import BcfXml
@@ -81,7 +77,7 @@ from rasm.runtime.receipts import DEFAULT_SCOPE, Receipt, ScopeKey
 from rasm.runtime.resilience import RetryClass, guarded_sync
 from rasm.runtime.roots import Acquired, TransportResource
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 
 class AnalysisKind(StrEnum):
@@ -94,7 +90,6 @@ class AnalysisKind(StrEnum):
 
 
 class ClashRow(TypedDict):
-    # `ifcclash.ClashResult` shape and the derived spatial-cluster index the grouper writes.
     a_global_id: str
     b_global_id: str
     distance: float
@@ -108,9 +103,9 @@ class AnalysisRow:
     tag: Literal["quantity", "pset", "compliance", "clash", "topic"] = tag()
     quantity: tuple[str, dict[str, float]] = case()
     pset: tuple[str, dict[str, object]] = case()
-    compliance: tuple[str, float, int] = case()  # subject, passing-ratio, failing-check count
-    clash: tuple[str, str, float, int] = case()  # a-guid, b-guid, penetration, cluster index
-    topic: tuple[str, str, str, bool] = case()  # guid, title, authored-from finding kind, snapshot bound
+    compliance: tuple[str, float, int] = case()
+    clash: tuple[str, str, float, int] = case()
+    topic: tuple[str, str, str, bool] = case()
 
     @staticmethod
     def of_quantity(element: str, quantities: dict[str, float]) -> "AnalysisRow":
@@ -149,17 +144,12 @@ class AnalysisRow:
                 assert_never(unreachable)
 
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 ANALYSIS_SUBJECT: Final[GeometrySubject] = GeometrySubject.BIM_COMPLIANCE
 
-# this owner's one name, DERIVED off the leg roster member every raise on this page seats under, so the receipt
-# stream, the durable audit actor, and the fault subject cannot drift apart under three transcribed spellings.
 OWNER: Final[str] = f"{PACKAGE}.{GeometryLeg.ANALYSIS.value}"
 
-# One delimiter row per kind, read ONCE at the `_dispatch` head so every row governs the arm it keys — the four
-# empty-delimiter rows the no-split path and the `BCF` row the BCF arm, where a hardcoded `CLASH` key leaves five of six
-# rows spelling nothing. Mirrors the sibling `PHASE_DELIMITER` fold, never a `.get` default that drops a kind.
 QUERY_SPLIT: Final[Map[AnalysisKind, str]] = Map.of_seq([
     (AnalysisKind.QUANTITY, ""),
     (AnalysisKind.PSET, ""),
@@ -169,28 +159,19 @@ QUERY_SPLIT: Final[Map[AnalysisKind, str]] = Map.of_seq([
     (AnalysisKind.BCF, "#"),
 ])
 
-# The `ifc5d.qto` cell the space-program grade reads off the `ResultsDict` (`element -> qto -> quantity -> float`);
-# a miss on this pair IS the unquantified case, never a zero area. One row, so a second quantity axis is one row.
 SPACE_AREA: Final[tuple[str, str]] = ("Qto_SpaceBaseQuantities", "NetFloorArea")
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 class AnalysisResult(Struct, frozen=True, gc=False):
     kind: AnalysisKind
-    # run identity — the kind plus the validated query projection (canonical `filter_string`, spec path, program table,
-    # or side pair) — from which `graduates`/`frame` derive their own `ContentKey` through the spine.
     spec: str
     subjects: tuple[str, ...]
     rows: tuple[AnalysisRow, ...]
-    checks_pass: float | None = None  # IDS arm's Json-report root percent_checks_pass roll-up; None elsewhere
-    # IDS facets a registry expanded before grading: an audit that resolved NONE against a URI-bearing spec graded a
-    # narrower applicable set than its author declared, and this is the column that makes that visible.
+    checks_pass: float | None = None
     resolved: int = 0
-    # SPACE_PROGRAM spaces the take-off measured NO area cell for: their own axis against their own ceiling, because a
-    # 0.0 area grades as total non-compliance and spells a measurement no producer took.
     unquantified: tuple[str, ...] = ()
-    # BCF arm's authored `.bcfzip` archive bytes, the wire carry the data seam persists; empty on every other kind.
     product: bytes = b""
 
     def evidence(self) -> dict[str, float]:
@@ -201,9 +182,6 @@ class AnalysisResult(Struct, frozen=True, gc=False):
                 check_fail = 1.0 - self.checks_pass / 100.0 if self.checks_pass is not None else 0.0
                 return {"non-compliant": entity_fail, "check-fail": check_fail}
             case AnalysisKind.SPACE_PROGRAM:
-                # an empty `ratios` is "no compliance signal" keyed 0.0 — never a fabricated total-non-compliance mean —
-                # and the unmeasured set rides its OWN key, so a model before take-off reads "N spaces unquantified"
-                # rather than "0% compliant" against a mean nothing measured.
                 ratios = tuple(r.compliance[1] for r in self.rows if r.tag == "compliance")
                 return {"non-compliant": 1.0 - sum(ratios) / len(ratios) if ratios else 0.0, "unquantified": float(len(self.unquantified))}
             case AnalysisKind.CLASH:
@@ -215,10 +193,6 @@ class AnalysisResult(Struct, frozen=True, gc=False):
                 assert_never(unreachable)
 
     def contribute(self) -> Iterable[Receipt]:
-        # census, never the rows: a whole-model QUANTITY take-off carries one fact key per element per quantity, which
-        # makes the runtime receipt a hundred-thousand-key dict per run. Per-row evidence crosses as `frame()`; the
-        # receipt keeps the counts and the residual ledger the ceiling gates on, and the archive extent only where one
-        # exists, so a kind that authored nothing publishes no zero-length claim.
         yield Receipt.of(
             OWNER,
             (
@@ -235,10 +209,6 @@ class AnalysisResult(Struct, frozen=True, gc=False):
         return GeometryHandoff.of(ANALYSIS_SUBJECT, evidence_key(ANALYSIS_SUBJECT, self.spec), self.evidence(), ceiling)
 
     def frame(self) -> "RuntimeRail[EvidenceFrame]":
-        # rows are kind-homogeneous, so the first row's fact keys ARE the column set; the folder's largest row sets —
-        # one quantity or pset row per element — cross the geometry-to-data seam as one columnar frame per run instead
-        # of a flattened fact map. An empty result frames zero rows rather than faulting, and a row set that is NOT
-        # homogeneous rails on the port's own width check at this producer rather than raising past its consumer.
         names = tuple(self.rows[0].facts) if self.rows else ()
         table: dict[str, list[object]] = {
             "kind": [self.kind.value] * len(self.rows),
@@ -248,10 +218,6 @@ class AnalysisResult(Struct, frozen=True, gc=False):
 
 
 class PendingFacet(Struct, frozen=True, gc=False):
-    # ONE unresolved registry axis with every anchor an operator acts on: which specification carries it, which of the
-    # two clauses it sits in, which facet class declares it, and the URI nothing dereferenced. `ifctester` depends on
-    # `ifcopenshell` and `xmlschema` alone and ships no HTTP client, so a `Classification`/`Property`/`Material` facet
-    # carrying a `uri` and an unexpanded value is a real axis the parse can see and the validation cannot close.
     specification: str
     clause: Literal["applicability", "requirement"]
     facet: str
@@ -259,16 +225,10 @@ class PendingFacet(Struct, frozen=True, gc=False):
 
 
 class RegistryTerms(Struct, frozen=True, gc=False):
-    # THIS owner's declared contract for a registry destination: an expansion answers the enumerated terms its URI
-    # names, and the composition that admits the endpoint is what maps a dictionary's own payload onto this shape.
-    # Declaring it here keeps the decode a closed local type rather than a dict the resolve leg re-parses per facet.
     values: tuple[str, ...] = ()
 
 
 class IdsDocument(Struct, frozen=True, gc=False):
-    # what PARSE mints, synchronously, off bytes that reached no network: the `ifctester` handle beside the TYPED
-    # unresolved axis. An empty `pending` is the already-resolved document, so the resolved case is a VALUE `settled`
-    # projects rather than a flag a caller remembers to test.
     document: "Ids"
     pending: "Block[PendingFacet]"
 
@@ -278,26 +238,11 @@ class IdsDocument(Struct, frozen=True, gc=False):
 
 
 class IdsResolved(Struct, frozen=True, gc=False):
-    # the distinct NOMINAL type one `resolve` mints, never a copy of `IdsDocument` with a cleared roster: a separate
-    # type is what makes an unresolved evaluation unrepresentable rather than caller-disciplined, and `resolved`
-    # carries how many facets a registry actually expanded so the receipt can say the audit ran against live terms.
     document: "Ids"
     resolved: int
 
 
 class GeoreferenceFact(Struct, frozen=True):
-    # ONE wire fact DECLARES the model's map georeference here, mirrored arm-for-arm by the data geospatial decoder:
-    # `crs` off the projected-CRS name, the six transform fields off the one `HelmertTransformation` — `scale`
-    # carrying the provider's `scale * factor` product, the lossless single-scale spelling of a uniform per-axis
-    # triple — and `true_north` off the context's own declaration. Transform fields are the similarity the data seam
-    # composes — the abscissa/ordinate pair is a DIRECTION its consumer normalizes, so an authoring tool's
-    # unnormalized magnitude crosses unedited rather than being pre-scaled into a second producer's job.
-    # `true_north` rides as DECLARED evidence and never enters that transform, the map conversion having already
-    # oriented the eastings axis.
-    # No field carries a default: an identity abscissa/ordinate pair, a unit scale, and a `None` north are exactly
-    # the fabricated values a partial decode would publish as read facts, and this producer already answers typed
-    # ABSENCE for a model carrying no coordinate operation at all — so every one of the eight is REQUIRED and the
-    # decoder that mirrors this roster cannot admit a wire missing one under a value nobody measured.
     crs: str
     eastings: float
     northings: float
@@ -308,13 +253,8 @@ class GeoreferenceFact(Struct, frozen=True):
     true_north: float | None
 
 
-# --- [ERRORS] --------------------------------------------------------------------------
+# --- [ERRORS] ---------------------------------------------------------------------------
 
-# Every domain refusal this module mints is an `IfcFault` CASE, so these rows spend ONE coordinate per raise POINT and
-# no fence spells a subject string. `IDS_PARSE` and `GEOREFERENCE` are TERMINAL — an XSD failure and a malformed
-# coordinate operation refuse identically on every re-read — while `IDS_REGISTRY` and `CLASH_TREE` declare TRANSIENT:
-# a dictionary host that did not answer and an OCC tree that died mid-build are both dependencies a re-issue may
-# clear, and `CLASH_TREE` is the row the runtime-pinned `OCC_NATIVE` envelope re-offers against.
 ANALYSIS_REFUSED: Final[FaultRow[GeometryLeg]] = FaultRow(
     leg=GeometryLeg.ANALYSIS, point="analysis", arm="boundary", defect="analysis-refused", retriability=TERMINAL
 )
@@ -332,27 +272,17 @@ CLASH_TREE: Final[FaultRow[GeometryLeg]] = FaultRow(
 )
 RAISES: Final[Block[FaultRow[GeometryLeg]]] = rostered(Block.of_seq([ANALYSIS_REFUSED, IDS_PARSE, IDS_REGISTRY, GEOREFERENCE, CLASH_TREE]))
 
-# `util.geolocation` is pure Python over the coordinate-operation entities, so its raise set is the builtin one those
-# attribute walks surface; `open_ids` parses through `xmlschema` and wraps its failure in the package's own error,
-# which leads the set because it is the precise class. Neither admits a bare `Exception`.
 _GEO_RAISES: Final[Catch] = (AttributeError, IndexError, KeyError, TypeError, ValueError)
 
 
 def _domain(fault: IfcFault) -> BoundaryFault:
-    # ONE door for every domain refusal this module mints, and the ONE site binding the raise row. The band's typed
-    # token rides the runtime's own `domain` case WHOLE — `BoundaryFault.of` admits a `Tagged` token ahead of every
-    # `CLASSIFY` row — so case and coordinate cross the funnel as structured evidence rather than a rendered cause a
-    # consumer re-parses; the render the wire edge reads stays `IfcFault.__str__` at the family owner.
     return BoundaryFault.of(ANALYSIS_REFUSED, fault)
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _archived(document: "BcfXml") -> bytes:
-    # `BcfXml.save(filename)` writes the zip and returns None, so the authored archive rides home as bytes through one
-    # scoped temp path — the sibling lifecycle owner's SPF `write`-then-read shape. Without this carry the document is
-    # dropped at function exit and the `.bcfzip` the page promises the data seam never crosses at all.
     with TemporaryDirectory(prefix="ifc-bcf-") as work:
         path = Path(work, "topics.bcfzip")
         document.save(path)
@@ -360,22 +290,11 @@ def _archived(document: "BcfXml") -> bytes:
 
 
 def _distributed(result: AnalysisResult, composition: ScopeKey) -> AnalysisResult:
-    # BIM_COMPLIANCE charter projection at the producing fold, off the one `evidence()` ledger the receipt, the frame,
-    # and the handoff already read — the IDS and space-program `non-compliant` fraction IS the
-    # `rasm.geometry.compliance.noncompliant` measure, so the spelling derives from the charter row and no producing
-    # arm picks one. The cluster-count and empty-fraction keys name no charter row, so the projection skips them: a
-    # count or boolean-shaped gate earns no histogram. Every verb runs caller-floor, so this is already the parent side.
     charter_record(ANALYSIS_SUBJECT, result.evidence(), composition=composition)
     return result
 
 
 def _evidence(result: AnalysisResult) -> "Block[Fact]":
-    # `_distributed`'s durable twin, and the BCF arm alone reaches it: that arm AUTHORS a `.bcfzip` the data seam
-    # persists, so the issue set it opened against a model is a record an audit reads back, where every other kind
-    # reads the model and produces a verdict nothing keeps. `OPERATIONAL` is the class — an issue log is the routine
-    # project trail, not the disposal evidence a mutation leaves. Topic GUIDs are the subject index, this producer's
-    # one honest source. No meter rides here: the archive crosses as receipt payload and the data seam charges the
-    # write it actually performs, so a byte count on both tiers bills one artifact twice.
     if result.kind is not AnalysisKind.BCF:
         return Block.empty()
     return Block.singleton(
@@ -391,14 +310,7 @@ def _evidence(result: AnalysisResult) -> "Block[Fact]":
 
 
 def _restricted(parsed: IdsDocument, payloads: "Block[Acquired]") -> "RuntimeRail[IdsResolved]":
-    # the ONE write-back: each acquisition decodes to this owner's declared `RegistryTerms` and becomes the facet's
-    # own enumeration restriction, so the applicable set the grade runs against is the one the spec's author declared
-    # rather than the narrower one an unexpanded `uri` left behind. The whole-delivery arm answers a chunk, never an
-    # iterator, so the decode reads bytes directly; the roster and the payload block are index-aligned by the fold
-    # that produced them, and a payload the destination shaped differently refuses HERE with its own row.
     def written() -> IdsResolved:
-        # the facets index ONCE on the same `(specification, uri)` key the pending roster carries, so the write-back
-        # is a keyed lookup per payload rather than a re-walk of every clause per facet.
         seated: "Map[tuple[str, str], Facet]" = Map.of_seq(
             ((spec.name, getattr(facet, "uri", None) or ""), facet)
             for spec in parsed.document.specifications
@@ -413,23 +325,8 @@ def _restricted(parsed: IdsDocument, payloads: "Block[Acquired]") -> "RuntimeRai
 
 
 def _georeferenced(helmert: "HelmertTransformation | None", crs: str, true_north: float | None) -> "RuntimeRail[Option[GeoreferenceFact]]":
-    # ABSENCE, never a fabricated identity: `get_helmert_transformation_parameters` answers `None` for a model
-    # carrying no coordinate operation at all, and every `auto_*` sibling folds that `None` into the identity
-    # transform — which reports site-local engineering coordinates AS map coordinates the instant the data seam's
-    # `reproject` prelude composes the fact. Typed absence crosses instead, and a refusal is equally the deleted
-    # form: a model that is merely un-georeferenced is not a malformed one, and its analysis rows still stand.
     if helmert is None:
         return Ok(Nothing)
-    # one refusal names EVERY fact the eight-field wire cannot carry. `IfcMapConversionScaled` publishes THREE
-    # per-axis factors against the wire's single `scale`; the provider's own algebra multiplies `scale * factor_*`
-    # on every axis — `xyz2enh`'s eastings/northings legs, the `z2e` height leg, and `local2global`'s diagonal
-    # alike — so a UNIFORM triple folds losslessly into the one wire scale as `scale * factor`, and only a
-    # non-uniform triple refuses BY NAME rather than crossing as a uniform similarity with two axes silently
-    # dropped — the [DISCARDED_DISCRIMINANT] scar exactly, and one no downstream `pyproj` call can detect. The
-    # factors decode straight off the coordinate operation's literal attributes, so uniformity is exact equality,
-    # never an epsilon a near-uniform triple would silently collapse through. A coordinate operation whose target
-    # CRS names nothing fills no `crs` a consumer resolves, so it refuses on the same roster rather than crossing
-    # as an empty sentinel.
     factors = (helmert.factor_x, helmert.factor_y, helmert.factor_z)
     unwirable = (
         *(((GeoDrop.NON_UNIFORM_FACTORS, ",".join(map(str, factors))),) if len(set(factors)) > 1 else ()),
@@ -465,9 +362,6 @@ class IfcAnalysis:
         resolved: "Option[IdsResolved]" = Nothing,
         composition: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[AnalysisResult]":
-        # weave flatten absorbs the rail-returning `_dispatch`, so a selector parse fault meets the converted provider
-        # fault on one carrier; graduation stays the caller's own step on the returned receipt. The head carries no
-        # decorator — `_dispatch` is the one innermost untrusted seam the capsule fences, as its two peers hold.
         return evidence_run(
             EvidenceScope.IFC_ANALYSIS,
             f"run.{kind}",
@@ -484,11 +378,6 @@ class IfcAnalysis:
         resolved: "Option[IdsResolved]" = Nothing,
         composition: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[AnalysisResult]":
-        # the awaitable twin over the band hop: every verb runs caller-floor on a live pybind11 handle, so `run` is
-        # synchronous whole and recording — which SUSPENDS — cannot land inside it or inside `_distributed`, the sync
-        # charter projection this leg pairs with. The twin runs the same fold and records the BCF arm's authored
-        # issue set past it; every other kind mints an empty block and this leg costs one map read. The record rail
-        # BINDS into the verdict, so an armed plane refusing an issue-log fact reaches the caller that owns it.
         match IfcAnalysis.run(model, kind, query, resolved=resolved, composition=composition):
             case Result(tag="ok", ok=result):
                 return (await Journal.record(_evidence(result), scope=composition)).map(lambda _landed: result)
@@ -497,11 +386,6 @@ class IfcAnalysis:
 
     @staticmethod
     def parse(spec_path: str) -> "RuntimeRail[IdsDocument]":
-        # PARSE is synchronous and reaches no network by construction — `ifctester` depends on `ifcopenshell` and
-        # `xmlschema` alone — so this step answers the document beside the TYPED roster of facets whose `uri` nothing
-        # dereferenced. `validate=True` is what makes the XSD failure the package's own `IdsXmlValidationError`
-        # instead of a schema error surfacing three frames deeper, and the census walks both clauses of every
-        # specification, so the clause a facet sits in reaches the operator rather than being inferred from position.
         def read() -> IdsDocument:
             document = open_ids(spec_path, validate=True)
             pending = Block.of_seq(
@@ -518,13 +402,6 @@ class IfcAnalysis:
 
     @staticmethod
     async def resolve(spec_path: str, registry: "TransportResource") -> "RuntimeRail[IdsResolved]":
-        # RESOLVE is this owner's ONE network step and takes a BUILT `TransportResource`, so no page here mints a
-        # handle — the same law the sibling lifecycle owner holds taking a built `LanePolicy`. Every pending facet
-        # acquires under `ACCUMULATE`, so ONE refusal names every unresolvable URI rather than costing one run per
-        # registry miss, and the expanded terms land on the facet's own `Restriction(options=..., base=...)` slot
-        # through the provider's own constructor rather than a value this page formats. A spec carrying no `uri`
-        # parses to an empty roster and this leg is a TOTAL no-op issuing not one request, so the common case pays
-        # nothing for the gate that makes an unresolved evaluation unrepresentable.
         match IfcAnalysis.parse(spec_path):
             case Result(tag="ok", ok=parsed):
                 acquired = Block.of_seq([await registry.acquire(facet.uri) for facet in parsed.pending])
@@ -536,19 +413,6 @@ class IfcAnalysis:
 
     @staticmethod
     def georeference(model: "ifcopenshell.file") -> "RuntimeRail[Option[GeoreferenceFact]]":
-        # `georeference` is the branch's ONE model CRS source, and a SHORT PURE DECODE: `util.geolocation` is pure Python over the
-        # coordinate-operation entities, so this needs neither the native wrapper nor a band hop and stays
-        # caller-floor beside the dispatch. It grades nothing and graduates nothing — the decoded fact IS the
-        # evidence, crossing one-way to the data geospatial plane — so it takes no kind, no `spec`, and no weave.
-        # It IS reachable outside `run`, so the three provider reads ride the `boundary` fence and this projection
-        # returns the rail rather than raising past a caller no weave covered; every wire decision is the pure fold
-        # above, and `get_crs` is read for its `Name` alone, the one attribute a `pyproj` consumer resolves —
-        # it answers `None` outright for a model declaring no CRS, which folds onto the same named `crs:unnamed`
-        # refusal rather than surfacing as an attribute fault the fence can only classify blind. `get_true_north`
-        # is TOTAL — an undeclared `TrueNorth` answers `0`, its bare-except floor included — so declaredness reads
-        # off the same context roster the provider itself walks: a declared north converts to float, an undeclared
-        # one crosses as `None` onto the wire's own absence arm, never a fabricated due-north `0.0` a solar
-        # consumer would read as the model's declaration.
         return boundary(
             GEOREFERENCE,
             lambda: (
@@ -566,10 +430,6 @@ class IfcAnalysis:
     def _dispatch(
         model: "ifcopenshell.file", kind: AnalysisKind, query: str, resolved: "Option[IdsResolved]" = Nothing
     ) -> "RuntimeRail[AnalysisResult]":
-        # ONE `QUERY_SPLIT` read at the head partitions the query for every kind — the empty-delimiter rows passing the
-        # whole query through — so each row governs by being read and the `CLASH`/`BCF` legs consume an already-split
-        # pair rather than reaching for another kind's key. Each arm derives its own `spec` from the VALIDATED
-        # projection it holds, so two spellings of one query key one piece of evidence.
         delimiter = QUERY_SPLIT[kind]
         head, _, tail = query.partition(delimiter) if delimiter else (query, "", "")
         match kind:
@@ -586,12 +446,6 @@ class IfcAnalysis:
             case AnalysisKind.SPACE_PROGRAM:
                 return Ok(IfcAnalysis._space(model, head, f"{kind.value}|{head}"))
             case AnalysisKind.IDS:
-                # EVALUATE accepts `IdsResolved` ALONE, so an audit graded against an unexpanded registry axis is
-                # unrepresentable rather than caller-disciplined. A caller holding a resolved document hands it in; a
-                # caller handing a path parses here, and `settled` mints the resolved value for free when the document
-                # carries no `uri` at all — the common case, which issues no request and pays nothing for the gate. A
-                # URI-bearing spec reaching this SYNC entry unresolved refuses BY NAME, naming every pending URI,
-                # instead of grading a narrower applicable set than its author declared and reporting it clean.
                 return (
                     resolved.map(Ok)
                     .default_with(
@@ -608,11 +462,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _space(model: "ifcopenshell.file", table: str, spec: str) -> AnalysisResult:
-        # Program-table decode runs under the weave fence, so a malformed JSON table is a BoundaryFault classified at
-        # the seam, never an inline try/except in domain logic. Measurement is the PACKAGE'S — `qto.quantify` folds the
-        # shared `RuleSet` base-quantity table over the space set and the grade reads its `SPACE_AREA` cell off the
-        # returned `ResultsDict` — so no `get_psets(qtos_only=True)` key fold survives here and no unit scale either:
-        # the take-off already converts SI to the model's declared project units, the ONE regime the table is read in.
         program = decode(table.encode(), type=dict[str, float])
         spaces = model.by_type("IfcSpace")
         qto, quantity = SPACE_AREA
@@ -623,9 +472,6 @@ class IfcAnalysis:
             for area in (results.get(space, {}).get(qto, {}).get(quantity),)
             if isinstance(area, (int, float))
         }
-        # two exclusions, both named: a space absent from the program table carries no program signal and never grades,
-        # while a targeted space the take-off could not measure lands on the `unquantified` axis — a `0.0` area
-        # fallback spells total non-compliance for a measurement no producer took.
         targeted = tuple((space, program[name]) for space in spaces for name in (space.LongName or space.Name or "",) if program.get(name, 0.0) > 0.0)
         graded = tuple((space, target, measured[space]) for space, target in targeted if space in measured)
         rows = tuple(AnalysisRow.of_compliance(s.GlobalId, area / target, 0 if area >= target else 1) for s, target, area in graded)
@@ -647,8 +493,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _parse_settled(spec_path: str, subject: str) -> "RuntimeRail[IdsResolved]":
-        # the sync path's whole admission: parse, then demand the document already carry nothing pending. The refusal
-        # names every unresolvable anchor at once, so an operator supplies one registry rather than re-running per URI.
         return IfcAnalysis.parse(spec_path).bind(
             lambda parsed: parsed.settled.to_result(
                 _domain(IfcFault(unresolved_slots=(subject, tuple(facet.uri for facet in parsed.pending))))
@@ -657,8 +501,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _validate(model: "ifcopenshell.file", ready: IdsResolved, spec: str) -> AnalysisResult:
-        # the signature IS the gate: this leg never opens a path, so PARSE and EVALUATE cannot fuse back together and
-        # no caller can hand it a document a registry never expanded.
         document = ready.document
         document.validate(model)
         rows = tuple(
@@ -676,9 +518,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _clash_sides(head: str, tail: str) -> "RuntimeRail[tuple[str, str]]":
-        # the pair arrives PRE-SPLIT from the one head read, so this leg neither re-partitions nor reaches for another
-        # kind's delimiter row; an empty query defaults both sides to whole-model mode and a bare `a` side clashes
-        # against itself. One polymorphic batch parse validates both and aborts on the first malformed member.
         return (
             Ok(("", ""))
             if not head and not tail
@@ -698,8 +537,6 @@ class IfcAnalysis:
 
     @staticmethod
     def _author(model: "ifcopenshell.file", sides: tuple[str, str], spec: str) -> "RuntimeRail[AnalysisResult]":
-        # this leg authors the archive, reads its topic GUIDs back, AND carries the archive bytes on the receipt, so the
-        # durable `.bcfzip` write is the data seam's own step over a payload that actually crossed.
         def compose(run: "tuple[Clasher, tuple[ClashRow, ...], ClashSet]") -> AnalysisResult:
             clasher, clashes, clash_set = run
             document = BcfXml.create_new("rasm.ifc.analysis")
@@ -720,12 +557,9 @@ class IfcAnalysis:
     @staticmethod
     def _run_clash(model: "ifcopenshell.file", sides: tuple[str, str]) -> "RuntimeRail[tuple[Clasher, tuple[ClashRow, ...], ClashSet]]":
         def source(selector: str) -> ClashSource:
-            # `file` is a required ClashSource key; the pre-loaded `ifc` model makes the empty path inert. Mode
-            # 'e' consumes the validated `filter_string`, mode 'a'-all the whole-model default.
             base: ClashSource = {"file": "", "ifc": model}
             return {**base, "selector": selector, "mode": "e"} if selector else {**base, "mode": "a"}
 
-        # returned rail carries the live Clasher and the clash set so the BCF arm binds snapshots.
         def solve() -> tuple[Clasher, tuple[ClashRow, ...], ClashSet]:
             clasher = Clasher(ClashSettings())
             clash_set: ClashSet = {"name": "ifc.clash", "a": [source(sides[0])], "b": [source(sides[1])], "mode": "intersection", "tolerance": 0.001}

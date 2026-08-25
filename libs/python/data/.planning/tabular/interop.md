@@ -41,9 +41,6 @@ from msgspec import Struct, defstruct
 from narwhals.exceptions import NarwhalsError
 from nanoarrow._utils import NanoarrowException
 
-# the whole-table IPC fold and the DoeDataset build are the two pyarrow legs this page holds, and the transport-band
-# codec pair is the one arro3 leg; the module-scope `lazy` bind states each deferral as law where a function-local
-# import carrying a suppression states it nowhere — the carrier hop dereferences neither.
 lazy import pyarrow as pa
 lazy from arro3.io import exceptions as arro3_exceptions, read_ipc_stream, write_ipc_stream
 
@@ -54,12 +51,6 @@ from rasm.runtime.receipts import Receipt
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-# the folder's ONE raise-leg roster, satisfying the `runtime/reliability/faults#FAULT` `Leg` contract: every data
-# page anchors its `FaultRow` table on a member here, so the 197 free-string subjects the branch carried collapse
-# onto a vocabulary `FaultRow.seated` proves against a real module at import. It seats at the tier-0 base because a
-# roster is only cycle-free where every raiser can reach it, and this page is the one module in `rasm.data` importing
-# no sibling. Member VALUE is the dotted module path beneath `rasm`; the NAME is the module's own, sub-qualified
-# only where two subfolders spell one module — `query` alone does.
 class DataLeg(StrEnum):
     INTEROP = "data.tabular.interop"
     COLUMNAR = "data.tabular.columnar"
@@ -91,11 +82,6 @@ class DataLeg(StrEnum):
     SCENARIO = "data.impact.scenario"
 
 
-# the folder's ONE hook-id roster, seated beside `DataLeg` for the identical reason and proved by the identical
-# argument: `runtime/observability/hooks#HOOKS` types `HookId` as the enum SHAPE and leaves the members to the owning
-# package, `DATA_HOOK_POINTS` at `tabular/materialize#MATERIALIZE` composes rows declared at four sibling pages, and
-# materialize already imports all four — so a roster seated there would invert every one of those edges. Member VALUE
-# is the registry's `HOOK_ID` grammar (`rasm.<package>.<module>.<point>`), the one spelling the registrar proves.
 class DataHook(StrEnum):
     LAKE_COMMIT = "rasm.data.lakehouse.commit"
     EGRESS_PUT = "rasm.data.egress.put"
@@ -106,17 +92,11 @@ class DataHook(StrEnum):
     CONTRACT_VERDICT = "rasm.data.contract.verdict"
 
 
-# which surface STATED a field's nullability, the axis the free-form `source_evidence` string carried by convention:
-# `schema_of` reads the live null MASK and `ArrowCStream.negotiate` reads the Arrow-C declared flag, and comparing an
-# observed `True` against a declared `False` is a breach only where the reader knows which is which. There is no
-# `absent` member: a field nothing stated has no `FieldShape` at all and rides `Nothing` out of the live roster, so a
-# third member would be a shape asserting a source it does not have.
 class ShapeSource(StrEnum):
     DECLARED = "declared"
     OBSERVED = "observed"
 
 
-# the closed breach vocabulary `FieldShape.resolve` answers on, one member per structural LAW the contract holds.
 class BreachKind(StrEnum):
     ABSENT = "absent"
     LOGICAL_TYPE = "logical-type"
@@ -139,23 +119,12 @@ class Backend(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# one provider raise set per plane this page reaches, named once so no fence re-spells a tuple. `NarwhalsError`
-# subclasses `ValueError` and roots the WHOLE narwhals rail — `ColumnNotFoundError` included, whose `KeyError` bases
-# sit ahead of it in the MRO without escaping it — while `from_native` handed a non-frame raises a bare `TypeError`
-# outside that root (`libs/python/data/.api/narwhals.md` typed-failure rows). `ArrowIOError` derives from `OSError`
-# ALONE and never from `ArrowException` (`.api/pyarrow.md` `[CORE_ERRORS]`), so every leg touching an IPC sink names
-# both. nanoarrow publishes no top-level exception namespace: its one class is `NanoarrowException` in the Cython
-# utility submodule, and a non-exporting object refuses with `TypeError` before the C core is ever entered
-# (`.api/nanoarrow.md` failure-rail rows).
 _NARWHALS_RAISES: Final[Catch] = (NarwhalsError, TypeError)
 _CARRIER_RAISES: Final[Catch] = (NanoarrowException, TypeError, ValueError)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-# one structural divergence, keyed on the column it belongs to. The joined `", ".join(token …)` breach STRING this
-# replaces erased every column code at the seam `docs/stacks/python/rails-and-effects.md` forbids it at, so a
-# consumer could read that admission failed and never which column to repair or re-declare.
 class FieldBreach(Struct, frozen=True):
     field: str
     kind: BreachKind
@@ -167,13 +136,6 @@ class FieldBreach(Struct, frozen=True):
         return f"{self.field}:{self.kind.value}:{self.declared}!={self.observed}"
 
 
-# ONE declaration per DURABLE column, seated beside `FieldShape` and never fused with it: `FieldShape` is the probe
-# a contract compares (a logical type plus the posture that stated its nullability), while this row is the generator
-# a durable plane builds FROM — the Arrow field, the row projection, the struct field, and the reader key are four
-# transcriptions of one declaration everywhere it is spelled four times. `lift` is the producer projection and `kind`
-# the struct field type, so `column_schema`/`column_frame`/`column_struct`/`column_rows` each derive off this roster
-# and a new column is ONE row, never one edit in each of four places three of which still compile when the fourth
-# is missed. Seated here for the same tier-0 reason `DataLeg` is: every durable plane in the folder reaches it.
 class ColumnSpec[R, T](Struct, frozen=True):
     name: str
     arrow: "pa.DataType"
@@ -182,8 +144,6 @@ class ColumnSpec[R, T](Struct, frozen=True):
     nullable: bool = False
 
 
-# `FieldShape` is the structural field this minter DECLARES; `schema_of` builds it off the live null-mask and
-# `ArrowCStream.negotiate` off the Arrow-C declared flag, `source` naming WHICH of the two every row came from.
 class FieldShape(Struct, frozen=True):
     field: str
     logical_type: str
@@ -191,10 +151,6 @@ class FieldShape(Struct, frozen=True):
     source: ShapeSource
 
     def resolve(self, live: "Map[str, FieldShape]") -> Option[FieldBreach]:
-        # `Nothing` IS conformance, so a caller folds the breaches with `Block.choose` and never filters an empty
-        # token out of a stream of strings. The nullability arm is DIRECTIONAL — a contract demanding non-null over a
-        # column carrying nulls breaches, the converse does not — and it reads only where the two rows disagree on
-        # posture, so a declared flag compared against an observed mask states both sides in the breach it answers.
         match live.try_find(self.field):
             case Option(tag="none"):
                 return Some(FieldBreach(field=self.field, kind=BreachKind.ABSENT, declared=self.logical_type, observed=""))
@@ -223,13 +179,6 @@ class InteropReceipt(Struct, frozen=True):
         return cls(source=source, target=target, rows=frame.shape[0], columns=len(frame.columns), content_key=key)
 
     def contribute(self) -> Iterable[Receipt]:
-        # no `Metrics.record` here: a translation hop moves no measured resource — it reads one in-memory frame and
-        # writes another — so this receipt carries evidence alone and the metric spine stays free of a series whose
-        # every value is the calling owner's own span already timing it, the same stated abstention `tabular/cost#COST`
-        # carries. `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence
-        # reads, and `domain` is that plane's partition column — a contributor omitting it lands every translation row
-        # in one nameless partition no predicate ever prunes. The TARGET backend keys the row: a translation is named
-        # by where it lands, and the source survives in the subject beside it.
         yield Receipt.of(
             "frame-interop",
             (
@@ -240,13 +189,11 @@ class InteropReceipt(Struct, frozen=True):
         )
 
 
-# backend-native object the `Map[Backend, _Lowering]` dispatch erases per row; `Any` is the honest wire floor, not weak typing.
 class FrameTranslation(Struct, frozen=True):
     frame: Any
     receipt: InteropReceipt
 
 
-# lowered once so `translate` never re-lowers per rail arm: native frame, agnostic frame (receipt counts), IPC bytes (key).
 class _Lowered(Struct, frozen=True):
     frame: Any
     agnostic: nw.DataFrame[Any]
@@ -257,23 +204,13 @@ class _Lowered(Struct, frozen=True):
 
 
 def _arrow_raises() -> Catch:
-    # reified at the CALL, never at module scope: naming `pa.ArrowException` in a `Final` tuple would dereference the
-    # `lazy pyarrow` proxy at import and retire the deferral this page declares as law. `ArrowIOError` derives from
-    # `OSError` alone and never from `ArrowException` (`.api/pyarrow.md` `[CORE_ERRORS]`), so an IPC sink names both.
     return (pa.ArrowException, OSError)
 
 
 def _wire_raises() -> Catch:
-    # same deferral for the arro3 leg: `BaseError` roots the whole store-and-codec tree (`.api/arro3-io.md` rows), and
-    # a malformed payload refuses as `ValueError` before the reader reaches the store surface at all.
     return (arro3_exceptions.BaseError, OSError, ValueError)
 
 
-# this module's whole raise roster, seated once for both sections: every fenced leg and every explicit refusal on this
-# page resolves ONE anchor here, so no call site spells a subject and `FaultRow.seated` proves the leg against a real
-# module at import. Every row declares TERMINAL — this page opens no store and holds no clock: a translation, a schema
-# fold, a cohort build, and a carrier hop are pure in-memory transforms over one already-held frame, so a re-issue over
-# the same input refuses identically. That is the same abstention the page's `Entry` bullet states for `stamina`.
 DOE_EXTENT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.INTEROP, point="doe.extent", arm="config", defect="mask-extent", retriability=TERMINAL, slots=("mask", "points")
 )
@@ -289,9 +226,6 @@ COHORT_EXTENT: Final[FaultRow[DataLeg]] = FaultRow(
 COHORT_BUILD: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.INTEROP, point="cohort.build", arm="boundary", defect="cohort-build", retriability=TERMINAL
 )
-# one row per LAW, not per call site, and a FENCE row declares NO slots: `raised` is the explicit-refusal door and a
-# converted provider raise fills its detail from the cause, so the backend pair, the source spelling, and the codec the
-# retired free-form subjects carried now ride the caller's own receipt rather than the fault coordinate.
 FRAME_LOWER: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.INTEROP, point="translate", arm="boundary", defect="lowering", retriability=TERMINAL
 )
@@ -304,9 +238,6 @@ FRAME_NAMESPACE: Final[FaultRow[DataLeg]] = FaultRow(
 CARRIER_EXPORT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.INTEROP, point="carrier", arm="boundary", defect="capsule-export", retriability=TERMINAL
 )
-# a nameless Arrow-C schema child is an IDENTITY refusal, not a shape with an empty name: the `""` this replaces keyed
-# every unnamed child onto one slot of the live roster, so a second one shadowed the first and the contract gate
-# reported one column's breach against another's declaration.
 CARRIER_UNNAMED: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.INTEROP, point="carrier.field", arm="boundary", defect="unnamed-child", retriability=TERMINAL, slots=("ordinal",)
 )
@@ -329,7 +260,6 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# one row per backend: the lowering head plus the eager/lazy admission flag.
 _BACKEND: Final[Map[Backend, _Lowering]] = Map.of_seq([
     (Backend.POLARS, _Lowering(lambda f: f.to_polars(), True)),
     (Backend.PANDAS, _Lowering(lambda f: f.to_pandas(), True)),
@@ -343,12 +273,6 @@ _BACKEND: Final[Map[Backend, _Lowering]] = Map.of_seq([
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-# dotnet:Rasm.Compute/Solver/sweep DoeDataset wire — the graduation loop's training leg (C# sweep -> DoeDataset ->
-# Python fit -> graduated ONNX -> neural-field surrogate). Coordinates are row-major (points x axes), Responses
-# row-major (points x objectives), OnFront the per-point Pareto-membership mask — dominated rows are training
-# corpus the front alone would lose, so the mask crosses as a label column, never a filter; admission is
-# exact-extent, and the frame keys by the wire's OWN content key so the fit's provenance joins the C# receipt
-# spine — never a re-hash.
 class DoeDataset(Struct, frozen=True):
     content_key: str
     axes: tuple[str, ...]
@@ -362,10 +286,6 @@ class DoeDataset(Struct, frozen=True):
 
     def frame(self) -> RuntimeRail["Any"]:
         """The ONE Doe Arrow schema both ends declare: cohort columns, the `on_front` mask, wire provenance as metadata."""
-        # arm-for-arm with the `LakeDataset.Doe` arm of `ArrowBatch.Landing`: the mask extent is the point count and
-        # `on_front` is the reserved column name — the same two refusals the C# emit runs before any column builds.
-        # Both are THIS owner's laws over its own already-held wire record, so they answer on the rail ahead of the
-        # fence rather than as a `ValueError` a provider fence re-keys under a hand-spelled detail token.
         if len(self.on_front) != self.points:
             return Error(DOE_EXTENT.raised(str(len(self.on_front)), str(self.points)))
         if "on_front" in self.axes or "on_front" in self.objectives:
@@ -389,8 +309,6 @@ class FrameInterop(Struct, frozen=True):
         return cls(source=source)
 
     def translate(self, frame: Any, target: Backend) -> RuntimeRail[FrameTranslation]:
-        # the lowering reaches BOTH provider planes — `from_native` and the collect refuse through narwhals, the
-        # `to_arrow` leg and the IPC sink through pyarrow — so one fence names both raise sets and neither escapes.
         return boundary(FRAME_LOWER, lambda: self._lowered(frame, target), catch=(*_NARWHALS_RAISES, *_arrow_raises())).bind(
             lambda lowered: ContentIdentity.of("interop", lowered.ipc).map(
                 lambda key: FrameTranslation(frame=lowered.frame, receipt=InteropReceipt.of(self.source, target, lowered.agnostic, key))
@@ -401,8 +319,6 @@ class FrameInterop(Struct, frozen=True):
         return boundary(FRAME_SCHEMA, lambda: _shapes(_eager(self._admit(frame))), catch=_NARWHALS_RAISES)
 
     def namespace(self) -> RuntimeRail[Any]:
-        # `to_native_namespace` imports the backend module, so an uninstalled backend refuses as `ModuleNotFoundError`
-        # under the `import_` arm this row declares; a member narwhals maps to no namespace refuses as `ValueError`.
         return boundary(FRAME_NAMESPACE, self.source.implementation.to_native_namespace, catch=(ImportError, *_NARWHALS_RAISES))
 
     def c_stream(self, frame: Any) -> RuntimeRail["ArrowCStream"]:
@@ -416,7 +332,6 @@ class FrameInterop(Struct, frozen=True):
         admitted = self._admit(frame)
         eager = _eager(admitted)
         ipc = arrow_bytes(eager.to_arrow())
-        # reuse the collected `eager` for an eager target; a lazy target keeps `admitted` to preserve the deferred plan.
         row = _BACKEND[target]
         return _Lowered(frame=row.lower(eager if row.eager else admitted), agnostic=eager, ipc=ipc)
 
@@ -425,13 +340,6 @@ class FrameInterop(Struct, frozen=True):
 
 
 def arrow_bytes(table: "pa.Table") -> Buffer:
-    # canonical whole-table IPC STREAM bytes — the ONE serialization the `ContentIdentity` `whole` arm folds and every
-    # foreign reader opens, declared at the folder floor so the scan plane, the commit plane, the cost ledger, and the
-    # ragged Arrow sink all key one byte stream. `RecordBatch.serialize()` and the `nanoarrow.ArrayStream(...).read_all()
-    # .serialize()` twin are the rejected forms: each emits a bare batch message carrying NO schema message, so
-    # `ipc.open_stream` refuses it outright, only `read_record_batch(obj, schema)` decodes it, and two frames differing
-    # in schema alone key IDENTICALLY. `combine_chunks` coalesces every column first so the stream carries one batch;
-    # an empty table keys off `b""`.
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, table.schema) as writer:
         writer.write_table(table.combine_chunks())
@@ -441,11 +349,6 @@ def arrow_bytes(table: "pa.Table") -> Buffer:
 def _cohort_table(
     axes: tuple[str, ...], objectives: tuple[str, ...], coordinates: "Iterable[float]", responses: "Iterable[float]", points: int
 ) -> RuntimeRail["pa.Table"]:
-    # ONE strided cohort build: row-major (points x names) vectors stride into named columns, axis columns ahead
-    # of objective columns; exact-extent admission refuses ON THE RAIL before any column builds, so the extent law
-    # this owner holds carries its three measured coordinates rather than riding a `ValueError` a provider fence
-    # re-keys. `DoeDataset.frame` and the public `cohort_bytes` projection both fold through here, so the C# sweep
-    # wire and the compute study emit produce one table shape and one byte stream for identical content.
     xs, ys = tuple(coordinates), tuple(responses)
     if len(xs) != points * len(axes) or len(ys) != points * len(objectives):
         return Error(COHORT_EXTENT.raised(str(len(xs)), str(len(ys)), f"{points}x{len(axes)}x{len(objectives)}"))
@@ -458,36 +361,24 @@ def _cohort_table(
 def cohort_bytes(
     axes: tuple[str, ...], objectives: tuple[str, ...], coordinates: "Iterable[float]", responses: "Iterable[float]", points: int
 ) -> RuntimeRail[Buffer]:
-    # the public cohort-to-bytes projection: a sibling emits canonical Arrow cohort bytes with zero pyarrow
-    # construction imports; the caller keys the returned bytes through its own `ContentIdentity` mint.
     return _cohort_table(axes, objectives, coordinates, responses, points).bind(
         lambda table: boundary(COHORT_BUILD, lambda: arrow_bytes(table), catch=_arrow_raises())
     )
 
 
 def column_schema(specs: "Block[ColumnSpec[Any, Any]]") -> "pa.Schema":
-    # the ARROW half of the roster; `pa.schema(fields)`/`pa.field(name, type)` per `.api/pyarrow.md:91`.
     return pa.schema([pa.field(spec.name, spec.arrow, nullable=spec.nullable) for spec in specs])
 
 
 def column_frame[R](specs: "Block[ColumnSpec[R, Any]]", rows: "Block[R]") -> "pa.Table":
-    # the BUILDER half: column-wise by construction off each spec's own `lift`, bound to the schema the same roster
-    # generated, so a builder and a schema cannot disagree about a column's presence, order, or type
-    # (`.api/pyarrow.md:89` `Table.from_pydict`).
     return pa.Table.from_pydict({spec.name: [spec.lift(row) for row in rows] for spec in specs}, schema=column_schema(specs))
 
 
 def column_struct(name: str, specs: "Block[ColumnSpec[Any, Any]]") -> "type[Struct]":
-    # the STRUCT half: `msgspec.defstruct` mints the in-memory shape off the same roster (`.api/msgspec.md:98`), so a
-    # hand-written twin restating every field cannot drift from the schema it is supposed to mirror. Declaration
-    # order IS roster order, which `Struct.__struct_fields__` then republishes (`.api/msgspec.md:59`).
     return defstruct(name, [(spec.name, spec.kind) for spec in specs], frozen=True)
 
 
 def column_rows[S: Struct](table: "pa.Table", specs: "Block[ColumnSpec[Any, Any]]", shape: type[S]) -> "Block[S]":
-    # the READER half: every column resolves through its spec's own name and each row assembles into the generated
-    # struct, so a free `row["at"]` subscript is unspellable and a renamed column breaks at the roster rather than
-    # reading empty. `zip(strict=True)` refuses a ragged column set the provider could otherwise hand back.
     names = tuple(spec.name for spec in specs)
     columns = tuple(table.column(spec.name).to_pylist() for spec in specs)
     return Block.of_seq(shape(**dict(zip(names, values, strict=True))) for values in zip(*columns, strict=True))
@@ -498,9 +389,6 @@ def _eager(frame: nw.DataFrame[Any] | nw.LazyFrame[Any]) -> nw.DataFrame[Any]:
 
 
 def _shapes(frame: nw.DataFrame[Any]) -> tuple[FieldShape, ...]:
-    # every row here is OBSERVED: `nullable` is the live null MASK, never a declared flag, which is the whole reason
-    # the posture is a column — the contract gate compares one of these against a `negotiate` row and a reader that
-    # cannot tell which side stated what reads a conforming pair as a breach.
     schema = frame.collect_schema()
     nulls = frame.null_count()
     return tuple(
@@ -526,44 +414,32 @@ class ArrowCStream(Struct, frozen=True):
 
     @classmethod
     def of(cls, exporter: Any) -> "ArrowCStream":
-        # read `schema` BEFORE exporting: `__arrow_c_stream__()` moves the stream out (consume-once) — schema captured first, capsule single-handoff.
         stream = nanoarrow.ArrayStream(exporter)
         schema_repr = repr(stream.schema)
         return cls(capsule=stream.__arrow_c_stream__(), schema_repr=schema_repr)
 
     @staticmethod
     def chunks(exporter: Any) -> Iterator[Any]:
-        # chunked over the C-level stream: each `CArray` crosses without whole-stream materialization —
-        # `read_all()` here is the deleted form.
         yield from nanoarrow.c_array_stream(exporter)
 
     @staticmethod
     def negotiate(exporter: Any) -> RuntimeRail[tuple[FieldShape, ...]]:
-        # schema-only, no batch moves; every row is DECLARED — the Arrow-C nullability FLAG, never an observed mask —
-        # so `source` states which side of the contract comparison this tuple stands on. A nameless child REFUSES at
-        # its ordinal: the `or ""` this deletes keyed every unnamed child onto one slot of the `field -> FieldShape`
-        # roster `tabular/contract#ADMISSION` builds, so a second one silently shadowed the first and the gate
-        # reported one column's breach under another column's declaration.
         return boundary(CARRIER_EXPORT, lambda: nanoarrow.ArrayStream(exporter).schema, catch=_CARRIER_RAISES).bind(
             lambda schema: traversed(Block.of_seq([_declared(ordinal, child) for ordinal, child in enumerate(schema.fields)])).map(tuple)
         )
 
     @staticmethod
     def device_of(exporter: Any) -> Any:
-        # C Device Data Interface array row: a `CDeviceArray` with `__arrow_c_device_array__`, host resolving `DEVICE_CPU`; array-level only, no device-stream constructor.
         return nanoarrow.device.c_device_array(exporter)
 
 
 class WireCodec(StrEnum):
-    # transport-band body compression; the member value IS the `arro3.io` compression spelling, `NONE` mapping to None.
     LZ4 = "LZ4"
     ZSTD = "ZSTD"
     NONE = "none"
 
 
 def _declared(ordinal: int, child: Any) -> RuntimeRail[FieldShape]:
-    # ONE admission per Arrow-C schema child, keyed on its ORDINAL so a nameless child names where it sits rather
-    # than what it is called: forward (schema -> shape) and inverse (refusal -> position) share this one owner.
     return (
         Ok(FieldShape(field=child.name, logical_type=str(child.type), nullable=child.nullable, source=ShapeSource.DECLARED))
         if child.name
@@ -572,8 +448,6 @@ def _declared(ordinal: int, child: Any) -> RuntimeRail[FieldShape]:
 
 
 def wire_bytes(exporter: Any, codec: WireCodec = WireCodec.LZ4) -> RuntimeRail[bytes]:
-    # transport-band ONLY: standard Arrow IPC body compression a pyarrow or C# Arrow reader opens directly;
-    # never a key source — content identity stays the uncompressed `arrow_bytes` fold by the folder key law.
     def emit() -> bytes:
         sink = io.BytesIO()
         write_ipc_stream(exporter, sink, compression=None if codec is WireCodec.NONE else codec.value)
@@ -583,8 +457,6 @@ def wire_bytes(exporter: Any, codec: WireCodec = WireCodec.LZ4) -> RuntimeRail[b
 
 
 def wire_table(payload: bytes) -> RuntimeRail[Any]:
-    # the inverse leg: decompression rides the IPC reader off the stream's own body-compression header, so one
-    # entry serves every `WireCodec` member and the caller never re-states which codec the producer chose.
     def emit() -> Any:
         return read_ipc_stream(io.BytesIO(payload)).read_all()
 

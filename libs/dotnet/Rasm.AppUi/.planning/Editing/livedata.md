@@ -31,12 +31,8 @@ The predicate algebra is NOT this page's: `Rasm.Element` `Query/predicate#PREDIC
 - Boundary: FRESHNESS is projected here and consumed at the board. The sample stream is probed on the bounds' own cadence so age advances WITHOUT the feed — a feed that stops emitting produces no delta and therefore no age signal, the same silent-stall hole the `Charts/tiles#WATCH_RULES` stale comparator closes on the watch side. `FeedHealth` is the board's vocabulary because its severity ladder is the board's, so this page produces values on it and derives none of the ladder: the grade is a RANKED ROW TABLE whose rows ARE `FeedHealth` values under first-match resolution, never a nested ternary that hides its precedence in parenthesization. Every subscription failure lands in the one `Action<Error>` rail — a rail that reaches the screen fault state and the fault instrument, which the kernel `FaultCell` isolation ring deliberately is not: that cell parks a foreign callback's fault under a `HookId` for later inspection, and a live surface needs the refusal now.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Two ingress postures, each a channel policy rather than a knob at the pump. A DOCUMENT fact must not be
-// lost — the projection write that follows it is how a model change reaches a screen — so its lane blocks the
-// producer at capacity; a RECEIPT frame is a sample of a running stream, so its lane sheds oldest and the shed
-// is counted rather than silently absorbed.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class IngressLane {
@@ -46,9 +42,6 @@ public sealed partial class IngressLane {
     public int Capacity { get; }
     public BoundedChannelFullMode Full { get; }
 
-    // Single-writer and single-reader by construction: one drain loop feeds one cache. Continuations never
-    // inline, because a completion resumed on the host's publishing thread would run the whole cache edit
-    // inside the publish frame — the stall the channel exists to remove.
     public Channel<T> Open<T>(Action<T> shed) =>
         Channel.CreateBounded(
             new BoundedChannelOptions(Capacity) {
@@ -60,9 +53,6 @@ public sealed partial class IngressLane {
             shed);
 }
 
-// The seed-versus-delta distinction as a ROW: a snapshot REPLACES the cache contents and an invalidation delta
-// MERGES into them. The row owns the whole edit, so the branch lives once inside the owner and every call site
-// names the mode it means rather than passing a positional flag whose default reads as neither.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AdmitMode {
@@ -79,16 +69,12 @@ public sealed partial class AdmitMode {
     }
 }
 
-// Pacing is a CHANGE-SET fold, never a value-stream rate limiter: `Batch` is `Buffer(window).FlattenBufferResult`,
-// which merges the window's deltas into one change-set with nothing dropped.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FeedPace {
     private FeedPace() { }
 
     public sealed record Coalesced(Duration Window) : FeedPace;
 
-    // The hold is the surface's own visibility or gate signal, and the ceiling releases anyway, so a hold left
-    // asserted by a stuck surface cannot starve the feed forever.
     public sealed record Gated(IObservable<bool> Hold, Duration Ceiling) : FeedPace;
 
     public Validation<Error, FeedPace> Admit() =>
@@ -106,12 +92,10 @@ public abstract partial record FeedPace {
             gated: static (s, row) => s.Source.BatchIf(row.Hold, timeOut: row.Ceiling.ToTimeSpan(), scheduler: s.Scheduler));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct HostDocumentFact(int PhaseKey, uint DocumentSerial, Seq<Guid> ObjectIds, uint ChangeCounter);
 
-// Admission ACCUMULATES: five independent bounds refused as one message named none of them, so a caller with
-// two bad axes learned about one, fixed it, and was refused again. The applicative refuses all defects at once.
 public sealed record SourcePolicy(
     IScheduler Source,
     IngressLane Lane,
@@ -134,20 +118,11 @@ public sealed record SourcePolicy(
         holds ? unit : (Validation<Error, Unit>)(Error)new LiveDataFault.Source(detail);
 }
 
-// The facts a health grade reads, held as a VALUE so the ladder below folds one argument and the probe tick,
-// the last arrival, and the transport flag cannot be graded in three different combinations at three sites.
 public readonly record struct FreshnessFacts(Option<Instant> Last, Duration Age, bool Retrying);
 
-// The freshness ladder as a row rather than two literals at the projection: `Fresh` is the age a live feed
-// stays under and `Stale` the age past which a silent feed is a stall, and `Probe` is the cadence age advances
-// on WITHOUT a delta, because a stopped feed emits nothing to measure against.
 public readonly record struct FreshnessBounds(Duration Fresh, Duration Stale, Duration Probe) {
     private sealed record GradeRow(FeedHealth Health, Func<FreshnessBounds, FreshnessFacts, bool> Holds);
 
-    // Ranked predicate rows under FIRST-MATCH resolution. The rows ARE `Charts/tiles` `FeedHealth` values, so
-    // this page grades and never re-declares the ladder: retry OUTRANKS age because a feed known to be
-    // re-establishing is not the same fact as one gone quiet, and a feed that never delivered has no age to
-    // grade — a live posture over zero arrivals would report health for a stream nothing has measured.
     private static readonly Seq<GradeRow> Ladder = Seq(
         new GradeRow(FeedHealth.Reconnecting, static (_, facts) => facts.Retrying),
         new GradeRow(FeedHealth.Stalled, static (_, facts) => facts.Last.IsNone),
@@ -172,8 +147,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
     private static readonly Op Ingress = Op.Of(name: "appui.livedata.ingress");
     private DataSource() { }
 
-    // The activation-scope handle is `Scope`, never `Feed`: the consumer connect is the `Feed()` fold below,
-    // and an instance column of that name shadows every extension member spelling it.
     public sealed record Opened(
         IObservableCache<TRow, TKey> Cache,
         Option<IObservableList<TRow>> Ordered,
@@ -181,9 +154,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         SourcePolicy Policy,
         IDisposable Scope);
 
-    // Every pushed source hands an ASYNC STREAM the drain loop pulls, never a callback registration: a
-    // registration inverts control so the host decides the rate and the only place backpressure could act sits
-    // downstream of the cache it was meant to protect.
     public sealed record HostDocumentEvents(
         Func<CancellationToken, IAsyncEnumerable<HostDocumentFact>> Facts,
         Func<HostDocumentFact, Seq<TRow>> Project) : DataSource<TRow, TKey>;
@@ -207,11 +177,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
 
     public sealed record OrderedList(Func<ISourceList<TRow>, IDisposable> Bind) : DataSource<TRow, TKey>;
 
-    // Optional axes are case-scoped: each axis names its readers as a row, so a value a case cannot consume
-    // refuses at Open instead of sitting inert, and a new axis is one row rather than another guard clause.
-    // The cache bounds carry rows too — a TTL sweep or a size eviction over a fixed seed roster silently
-    // empties a cache no producer will refill, which the two-row roster admitted by omission. Pacing carries
-    // no row because every case can be high-rate.
     private sealed record AxisRow(string Axis, string Cases, Func<SourcePolicy, bool> Carried, Func<DataSource<TRow, TKey>, bool> Reaches);
 
     private static readonly Seq<AxisRow> Axes = Seq(
@@ -237,8 +202,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
             new CompositeDisposable(cache, source.Subscription, Bounds(cache, policy, fault)));
     }
 
-    // The policy operators live at the owning cache: ExpireAfter sweeps TTL leavers and LimitSizeTo evicts
-    // oldest-first past the bound, both on the policy scheduler.
     private static IDisposable Bounds(ISourceCache<TRow, TKey> cache, SourcePolicy policy, Action<Error> fault) =>
         new CompositeDisposable(
             policy.Expiry.Match(
@@ -263,8 +226,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                     .With(Refreshed(s.policy, "query-refresh", s.fault,
                         () => Seed(s.cache, c.Snapshot(), AdmitMode.Replace, s.fault))),
             },
-            // One serial slot holds the live chase: a refresh tick REPLACES it, so the prior walk cancels and
-            // releases its staging cache instead of stacking one orphaned chase per interval.
             cursorQuery: static (s, c) => new SerialDisposable { Disposable = CursorSnapshot(s.cache, s.key, c.Fetch, s.policy, s.fault) } switch {
                 var chase => DataFeed.Quiet(new CompositeDisposable(
                     chase,
@@ -282,8 +243,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                     .Subscribe(_ => Seed(s.cache, Fin.Succ(step.Rows), AdmitMode.Merge, s.fault), raw => s.fault(Error.New(raw.Message, raw)))))),
             orderedList: static (s, c) => Ordered(s.cache, s.key, c.Bind, s.fault));
 
-    // Seeding is an effect on the owning cache and carries no lifetime — a disposable return here would
-    // promise a teardown the batch edit does not own.
     private static Unit Seed(ISourceCache<TRow, TKey> cache, Fin<Seq<TRow>> rows, AdmitMode mode, Action<Error> fault) =>
         rows.Match(
             Succ: admitted => fun(() => cache.Edit(updater => mode.Seat(updater, admitted)))(),
@@ -295,9 +254,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                 .Subscribe(_ => tick(), raw => fault(Error.New(raw.Message, raw))),
             None: static () => Disposable.Empty);
 
-    // The ONE ingress pump. A bounded channel separates the foreign producer from the cache edit, the drain
-    // loop is the only writer into that cache, and the redrive attempt state publishes the transport flag the
-    // freshness projection reads — so the retry law, the reconnect signal, and the ingress bound have one owner.
     private static DataFeed Pump<T>(
         Func<CancellationToken, IAsyncEnumerable<T>> stream, SourcePolicy policy, string edge, Action<Error> fault, Action<T> admit) {
         CancellationTokenSource life = new();
@@ -312,9 +268,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
             retrying.DistinctUntilChanged());
     }
 
-    // The async iterator executes inside the kernel catch; caller cancellation is therefore classified from the
-    // exact token while every other foreign raise stays the captured Error. A completed stream ends the lane;
-    // an exhausted redrive faults once and stops.
     private static async Task Redrive<T>(
         Func<CancellationToken, IAsyncEnumerable<T>> stream, Option<RedrivePolicy> redrive,
         ChannelWriter<T> writer, IObserver<bool> transport, string edge, Action<Error> fault, CancellationToken life) {
@@ -343,9 +296,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         await foreach (T item in reader.ReadAllAsync(life).ConfigureAwait(false)) { admit(item); }
     }
 
-    // The chase is SCHEDULED on the policy scheduler and the walk is an async stream, so a ceiling of a few
-    // thousand pages costs one loop frame rather than one stack frame per page. Pages stage into a keyed cache
-    // as they arrive and swap into the live cache once; a failed page leaves the prior live snapshot.
     private static IDisposable CursorSnapshot(
         ISourceCache<TRow, TKey> cache,
         Func<TRow, TKey> key,
@@ -367,14 +317,9 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
                     raw => fault(Error.New(raw.Message, raw)));
             }
         }, life.Token));
-        // Disposal order is the teardown order: cancel the walk, release the swap subscription, then the cache
-        // the walk was staging into.
         return new CompositeDisposable(Disposable.Create(() => { life.Cancel(); life.Dispose(); }), walk, swap, staging);
     }
 
-    // Two bounds guard the walk: the visited set catches a repeating cursor and the admitted PageCeiling
-    // catches a fresh non-repeating one, which no cycle guard can see. The iterator body is statement-shaped
-    // by language constraint — `yield` cannot cross a lambda — so each refusal yields itself and stops.
     private static async IAsyncEnumerable<Fin<Seq<TRow>>> Pages(
         Func<Option<string>, Fin<(Seq<TRow> Rows, Option<string> Next)>> fetch,
         Option<int> ceiling,
@@ -400,9 +345,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         }
     }
 
-    // Incremental list-to-cache fold: every SourceList delta lands as its own keyed delta — Add-class reasons
-    // upsert, Remove-class reasons remove by key, Clear clears once; the clear-then-reinsert cache rewrite that
-    // turned one ordered edit into a full reset is the deleted form.
     private static DataFeed Ordered(ISourceCache<TRow, TKey> cache, Func<TRow, TKey> key, Func<ISourceList<TRow>, IDisposable> bind, Action<Error> fault) {
         SourceList<TRow> list = new();
         return new DataFeed(
@@ -422,8 +364,6 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         public DataFeed With(IDisposable more) => this with { Subscription = new CompositeDisposable(Subscription, more) };
     }
 
-    // `ListChangeReason` is DynamicData's OPEN foreign family, so the catch-all arm is lawful here and it
-    // FAULTS rather than passing — a reason this fold cannot lower is a refusal, never a silent drop.
     private static Unit Fold(ISourceUpdater<TRow, TKey> updater, Func<TRow, TKey> key, Change<TRow> change, Action<Error> fault) =>
         change.Reason switch {
             ListChangeReason.Add or ListChangeReason.Replace or ListChangeReason.Refresh or ListChangeReason.Moved =>
@@ -436,21 +376,15 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
         };
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class SourceFolds {
     extension<TRow, TKey>(DataSource<TRow, TKey>.Opened opened) where TRow : notnull where TKey : notnull {
-        // The ONE consumer connect. Pacing composes here rather than at each subscriber, so a high-rate feed
-        // is paced once for every downstream chain instead of once per consumer that remembered to ask.
         public IObservable<IChangeSet<TRow, TKey>> Feed() =>
             opened.Policy.Pace.Match(
                 Some: pace => pace.Apply(opened.Cache.Connect(), opened.Policy.Source),
                 None: opened.Cache.Connect);
 
-        // The staleness projection the watch rows and the connection strip read. The PROBE tick is what makes a
-        // stalled feed observable: age is measured against the last arrival on the probe's own cadence, so a
-        // feed that stops emitting climbs through degraded into stalled while a delta-driven projection alone
-        // would sit forever on its last emission.
         public IObservable<FeedFreshness> Watch(SlotKey streamKey, FreshnessBounds bounds, IScheduler scheduler) =>
             Observable.CombineLatest(
                 opened.Feed().Select(_ => Optional(Instant.FromDateTimeOffset(scheduler.Now))).StartWith(Option<Instant>.None),
@@ -508,11 +442,8 @@ flowchart LR
 - Boundary: CHIP presentation stops at the label projection — this owner answers each term's key, label key, and rendered arguments, and `Shell/controls#CONTROL_INTENT` materializes them as `ControlIntent.Chip` rows under `ChipPosture.Removable` with its own intent binding. Filter EDIT cadence rides `FilterPace`: one shared edit stream throttled on the quiet span and merged with a sampled emission on the ceiling span, so a held key never starves a surface of a refresh and a burst of keystrokes costs one compile rather than one per character.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The stream identity every audit, freshness projection, and instrument dimension addresses. The wire columns
-// it crosses — `EvidenceReceipt.LiveData.Slot` and `FeedFreshness.StreamKey` — are frozen `string`, so `.Value`
-// spells the two egress points and every interior member carries the type.
 [ValueObject<string>]
 [ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -524,9 +455,6 @@ public readonly partial struct SlotKey {
     }
 }
 
-// The kind is the PARSE half of one correspondence whose inverse is the seam's own `PropertyValue.Render`, so
-// a rendered operand and a decoded one round-trip through two members that cannot drift. `Probe` is the sample
-// value `ValueMatch.Reaches` and `ValueOrder` classify against, so a picker asks the kind and never a roster.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -576,16 +504,11 @@ public sealed partial class FilterArity {
 
     public bool Admits(int operands) => operands >= Least && operands <= Most;
 
-    // The arity-correct probe roster a picker gate needs: a sense is offered for a kind only if the gate it
-    // would build over that kind's own probe can meaningfully test it.
     public Seq<PropertyValue> Probes(FilterKind kind) => Seq.repeat(kind.Probe, int.Min(Least, 2)).Strict();
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// What a sense builds. RESTRICTED is the seam's own facet family and it decides; BOUNDED is the ordering this
-// page owns, because the seam's Range facet bounds a dimensioned MeasureValue and a live-data column orders
-// Number, Integer, Temporal, Boolean, and Text cases that arm never reaches.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ValueGate {
     private ValueGate() { }
@@ -593,8 +516,6 @@ public abstract partial record ValueGate {
     public sealed record Restricted(Seq<ValueMatch> Rows) : ValueGate;
     public sealed record Bounded(Option<PropertyValue> Lower, Option<PropertyValue> Upper) : ValueGate;
 
-    // A multi-valued cell matches when ANY of its values satisfies ANY restriction, so a labels column and a
-    // single-valued status column read one fold and the arity morph needs no second body.
     public bool Holds(Seq<PropertyValue> cell) => Switch(
         state: cell,
         restricted: static (values, gate) => gate.Rows.Exists(row => values.Exists(row.Matches)),
@@ -602,17 +523,12 @@ public abstract partial record ValueGate {
             gate.Lower.ForAll(edge => ValueOrder.Compare(value, edge).Exists(static order => order >= 0))
             && gate.Upper.ForAll(edge => ValueOrder.Compare(value, edge).Exists(static order => order <= 0))));
 
-    // The picker gate. The restricted arm asks the seam's own `Reaches` classification; the bounded arm asks
-    // whether the ordering fold has an answer for the case at all, so the reach is DERIVED from the comparison
-    // rather than restated as a second roster that could disagree with it.
     public bool Reaches(PropertyValue probe) => Switch(
         state: probe,
         restricted: static (value, gate) => gate.Rows.ForAll(row => row.Reaches(value)),
         bounded: static (value, _) => ValueOrder.Compare(value, value).IsSome);
 }
 
-// The sense vocabulary: band, polarity, and one gate build. `Affirms` is the negation half of each mirror pair
-// — blank is present under a false polarity, inequality is equality under one — so nine senses spell six builds.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -629,8 +545,6 @@ public sealed partial class FilterSense {
 
     private const string Singular = "one";
     private const string Plural = "many";
-    // Anchored whole-value by the seam's own pattern law, so substance is "carries a non-whitespace character"
-    // and a cell of empty strings reads blank exactly as an absent cell does.
     private const string Substantial = @"(?s)\s*\S[\s\S]*";
 
     public FilterArity Arity { get; }
@@ -639,8 +553,6 @@ public sealed partial class FilterSense {
     [UseDelegateFromConstructor]
     public partial Fin<ValueGate> Build(Seq<PropertyValue> operands);
 
-    // The cardinality morph in one expression: the row is unchanged and only its label reads plural, so a
-    // picker that adds a second value never leaves a stale sense behind it.
     public string LabelKey(int operands) => $"filter.sense.{Key}.{(operands > 1 ? Plural : Singular)}";
 
     public bool Reaches(FilterKind kind) =>
@@ -649,9 +561,6 @@ public sealed partial class FilterSense {
     private static Fin<ValueGate> Exacts(Seq<PropertyValue> operands) =>
         Fin.Succ<ValueGate>(new ValueGate.Restricted(operands.Map(static value => (ValueMatch)new ValueMatch.Exact(value))));
 
-    // Containment and prefix lower onto the seam's text facets. The infix build carries an inline case-fold
-    // because a filter chip reading "contains draft" that missed "Draft" is a refusal a user cannot see; the
-    // seam's `Prefix` arm is ORDINAL by declaration, so a case-folded prefix is a containment the caller elects.
     private static Fin<ValueGate> Infixes(Seq<PropertyValue> operands) =>
         operands.TraverseM(static value =>
                 ValueMatch.Pattern.Of($"(?i).*{Regex.Escape(value.Render())}.*", Op.Of(name: nameof(FilterSense))))
@@ -671,8 +580,6 @@ public sealed partial class FilterSense {
     private static Fin<ValueGate> UpperBound(Seq<PropertyValue> operands) =>
         Fin.Succ<ValueGate>(new ValueGate.Bounded(None, operands.Head));
 
-    // The pair needs no ordering from the author: the bracket admits between the two edges whichever way they
-    // were written, so a range authored high-then-low means what it reads rather than matching nothing.
     private static Fin<ValueGate> Brackets(Seq<PropertyValue> operands) =>
         operands.Count == 2 && ValueOrder.Compare(operands[0], operands[1]) is { IsSome: true, Case: int order }
             ? Fin.Succ<ValueGate>(order <= 0
@@ -681,8 +588,6 @@ public sealed partial class FilterSense {
             : Fin.Fail<ValueGate>(new LiveDataFault.Filter("a range brackets two comparable operands"));
 }
 
-// A property carrying a non-empty Domain is a bounded vocabulary — simultaneously the value picker and the
-// admission rule, so an operand outside it refuses rather than matching nothing.
 public sealed record FilterProperty(PropertyName Key, string LabelKey, FilterKind Kind, Seq<PropertyValue> Domain) {
     public static Validation<Error, FilterProperty> Admit(FilterProperty candidate) =>
         (Gate(!string.IsNullOrWhiteSpace(candidate.LabelKey), $"property/{candidate.Key}: blank label key"),
@@ -694,8 +599,6 @@ public sealed record FilterProperty(PropertyName Key, string LabelKey, FilterKin
         holds ? unit : (Validation<Error, Unit>)(Error)new LiveDataFault.Filter(detail);
 }
 
-// The LEAF this page instantiates the seam closure over. Operands are the ONE authority: the gate, the chip
-// arguments, the canonical bytes, and the encoded text all derive from them, so nothing mirrors them.
 public readonly record struct FilterTerm(PropertyName Key, FilterSense Sense, Seq<PropertyValue> Operands) {
     public Validation<Error, FilterTerm> Admit(FilterProperty property) =>
         (FilterProperty.Gate(Sense.Arity.Admits(Operands.Count), $"term/{Key}:{Sense.Key}: operand count outside the {Sense.Arity.Key} band"),
@@ -707,24 +610,18 @@ public readonly record struct FilterTerm(PropertyName Key, FilterSense Sense, Se
 
     public Fin<ValueGate> Gate() => Sense.Build(Operands);
 
-    // The cardinality edit: operands change, the row does not, and admission re-proves the band. A picker
-    // adding or removing a value calls exactly this and cannot desynchronize the sense from the count.
     public Validation<Error, FilterTerm> With(Seq<PropertyValue> operands, FilterProperty property) =>
         (this with { Operands = operands }).Admit(property);
 
     public FilterChip Chip() =>
         new($"{Key.Value}:{Sense.Key}", Key, Sense.LabelKey(Operands.Count), Operands.Map(static value => value.Render()));
 
-    // The leaf writer `PredicateKey.Key` composes, so an authored filter keys into the seam content address
-    // with zero extra work and a memo, a cross-filter lens, and a replayable selection share one identity.
     public void CanonicalBytes(CanonicalWriter w) =>
         w.String(Key.Value).String(Sense.Key).Rows(Operands, static (value, x) => value.CanonicalBytes(x));
 }
 
 public readonly record struct FilterChip(string Key, PropertyName PropertyKey, string SenseLabelKey, Seq<string> Arguments);
 
-// The filter cadence as a ROW, not a literal: the quiet span is the debounce a typist feels and the ceiling
-// span is the guarantee a held key still refreshes, so a burst costs one compile and a long burst still lands.
 public readonly record struct FilterPace(Duration Quiet, Duration Ceiling) {
     public static readonly FilterPace Typing = new(Duration.FromMilliseconds(180d), Duration.FromMilliseconds(600d));
 
@@ -738,15 +635,10 @@ public readonly record struct FilterPace(Duration Quiet, Duration Ceiling) {
             .DistinctUntilChanged();
 }
 
-// The three bounds a hostile or merely large input must land inside, held as one row so a decode, a suggestion
-// list, and a nesting depth are declared once rather than as literals at three call sites.
 public readonly record struct FilterPolicy(int GroupCeiling, int TermCeiling, int SuggestCeiling) {
     public static readonly FilterPolicy Standard = new(GroupCeiling: 8, TermCeiling: 64, SuggestCeiling: 12);
 }
 
-// The schema's own identity, streamed through the kernel content writer over the roster's keys and kinds. A
-// link carries it so a fragment authored on one surface cannot decode against another whose property keys
-// happen to overlap — the failure the codec's type-tag-free design otherwise admits by construction.
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct LinkFingerprint {
@@ -758,12 +650,8 @@ public readonly partial struct LinkFingerprint {
 
 public sealed record FilterField<TRow>(FilterProperty Property, Func<TRow, Seq<PropertyValue>> Read) where TRow : notnull;
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The ONE ordering fold over the seam value family. It exists because the seam's own `Range` facet is
-// DIMENSIONED — its bounds are `MeasureValue` — while a live-data column orders numbers, moments, flags, and
-// text; the same fold therefore answers the ordering senses and the sort comparer, so a column a user can
-// bound is a column they can sort by construction. Cross-case comparison has no answer, not a wrong one.
 public static class ValueOrder {
     public static Option<int> Compare(PropertyValue left, PropertyValue right) => (left, right) switch {
         (PropertyValue.Number a, PropertyValue.Number b) => Some(a.Value.CompareTo(b.Value)),
@@ -778,9 +666,6 @@ public static class ValueOrder {
     };
 }
 
-// The ONE compiler. A roster of fields answers four questions off one declaration — which rows pass, in what
-// order, under what grouping, and against which link identity — so a surface that filters can sort, group, and
-// share by construction and a second per-surface accessor set cannot drift from the first.
 public sealed record FilterSchema<TRow>(Seq<FilterField<TRow>> Fields) where TRow : notnull {
     private static readonly Func<Predicate<FilterTerm>.Closure, MatchVerdict> Unwalkable =
         static _ => MatchVerdict.Fault(new LiveDataFault.Filter("a live-data row model carries no transitive closure"));
@@ -796,9 +681,6 @@ public sealed record FilterSchema<TRow>(Seq<FilterField<TRow>> Fields) where TRo
 
     public LinkFingerprint Fingerprint() => LinkFingerprint.Of(Fields.Map(static field => field.Property));
 
-    // Type-ahead ranks PREFIX hits above infix hits and keeps the policy ceiling through the kernel bounded
-    // selection, so a picker over a hundred-property model pays O(n log k) per keystroke rather than a full
-    // sort for a twelve-row list. The tuple key orders rank first, then key, under one ascending direction.
     public Seq<FilterProperty> Suggest(string prefix, FilterPolicy policy) =>
         Ranked.Top(
             Fields.Map(static field => field.Property).Filter(property =>
@@ -808,15 +690,9 @@ public sealed record FilterSchema<TRow>(Seq<FilterField<TRow>> Fields) where TRo
             property => (property.Key.Value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? 0 : 1, property.Key.Value),
             ExtremumDirection.Minimum);
 
-    // Compilation PROVES the tree once and then answers. Every leaf is bound to a live field and re-admitted
-    // against its property here, so the per-row verdict can only answer — a refusal at row time would be a
-    // fault raised once per element of a change set on a question the boundary already settled.
     public Fin<Func<TRow, bool>> Compile(Predicate<FilterTerm> expr) =>
         Prove(expr).Map(_ => fun((TRow item) => expr.Holds(term => Verdict(term, item), Unwalkable).Holds));
 
-    // Ordering folds the SAME reads the predicate uses, so a column a user can filter on is a column they can
-    // sort on without a parallel comparer roster. A row whose property carries no value sorts last on ascent,
-    // because an absent value has no rank and burying it is the only honest placement.
     public Fin<IComparer<TRow>> Comparer(ViewState view) =>
         view.Order.TraverseM(row => Field(row.Key)
                 .Match(
@@ -827,8 +703,6 @@ public sealed record FilterSchema<TRow>(Seq<FilterField<TRow>> Fields) where TRo
             .Map(static keys => (IComparer<TRow>)Comparer<TRow>.Create((left, right) =>
                 keys.Fold(0, (held, key) => held != 0 ? held : Rank(key.Field, left, right) * key.Direction.Sign)));
 
-    // Grouping projects the declared group properties' rendered values, so header identity and the encoded
-    // link agree; a multi-property grouping is a composed key on the same projection, never a second fold.
     public Option<Func<TRow, string>> Grouping(ViewState view) =>
         view.Group.IsEmpty
             ? None
@@ -867,13 +741,8 @@ public sealed record FilterSchema<TRow>(Seq<FilterField<TRow>> Fields) where TRo
         };
 }
 
-// The folds a consumer takes over the INSTANTIATED seam closure. They live here because the leaf vocabulary is
-// this page's; the closure walk itself is the seam's generated total `Switch`, so a sixth arm on the seam
-// breaks all three at compile time.
 public static class FilterFolds {
     extension(Predicate<FilterTerm> expr) {
-        // Chip projection stops at the label: the key identifies the term for removal, the label key resolves
-        // through the locale, and the arguments are the operands' own rendered values.
         public Seq<FilterChip> Chips() => expr.Switch(
             leaf: static node => Seq(node.Value.Chip()),
             all: static node => node.Operands.Bind(static part => part.Chips()),
@@ -881,8 +750,6 @@ public static class FilterFolds {
             not: static node => node.Operand.Chips(),
             closure: static node => node.Seed.Chips());
 
-        // Term count is TREE-wide, which is the whole point: a per-group count let eight groups of sixty-four
-        // pass a stated ceiling of sixty-four.
         public int Terms() => expr.Switch(
             leaf: static _ => 1,
             all: static node => node.Operands.Sum(static part => part.Terms()),
@@ -897,13 +764,10 @@ public static class FilterFolds {
             not: static node => 1 + node.Operand.Depth(),
             closure: static node => 1 + node.Seed.Depth());
 
-        // The seam content key every memo, cross-filter lens, and replayable selection shares.
         public ContentAddress Key() => PredicateKey.Key(expr, static (term, w) => term.CanonicalBytes(w));
     }
 }
 
-// The one codec. Structural characters are safe delimiters because `Uri.EscapeDataString` escapes every
-// character outside the RFC 3986 unreserved set, so an escaped key or operand can never carry one.
 public static class FilterLink {
     public const char Open = '(';
     public const char Close = ')';
@@ -915,9 +779,6 @@ public static class FilterLink {
     public const char AnyHead = 'o';
     public const char NotHead = 'n';
 
-    // Encode is FALLIBLE and bounded by the same policy Decode reads. An unbounded encode wrote a tree its own
-    // decode refused, so a saved view could be persisted and never recalled; the closure arm has no head token
-    // because this page refuses the walk it names.
     public static Fin<string> Encode(LinkFingerprint print, Predicate<FilterTerm> expr, FilterPolicy policy) =>
         expr.Depth() > policy.GroupCeiling
             ? Fin.Fail<string>(new LiveDataFault.Filter($"filter nesting exceeds {policy.GroupCeiling} groups"))
@@ -942,8 +803,6 @@ public static class FilterLink {
 
     private sealed record HeadRow(char Token, Func<Seq<Predicate<FilterTerm>>, Fin<Predicate<FilterTerm>>> Build);
 
-    // The group heads as rows: a new connective is one row, and negation's own arity check rides its build
-    // arm rather than a guard clause in the parser.
     private static readonly Seq<HeadRow> Heads = Seq(
         new HeadRow(AllHead, static parts => Fin.Succ<Predicate<FilterTerm>>(new Predicate<FilterTerm>.All(parts))),
         new HeadRow(AnyHead, static parts => Fin.Succ<Predicate<FilterTerm>>(new Predicate<FilterTerm>.Any(parts))),
@@ -973,8 +832,6 @@ public static class FilterLink {
                 .Bind(group => row.Build(group.Parts).Map(node => new Parsed(node, group.Next, group.Terms)))
             : Term(query, from, schema, terms + 1, policy);
 
-    // Sibling recursion threads the cursor AND the running tree-wide term total, so the ceiling counts what it
-    // names rather than the width of whichever group happens to be open.
     private static Fin<(Seq<Predicate<FilterTerm>> Parts, int Next, int Terms)> Parts<TRow>(
         string query, int from, FilterSchema<TRow> schema, FilterPolicy policy, int depth, int terms, Seq<Predicate<FilterTerm>> held)
         where TRow : notnull =>
@@ -1004,15 +861,12 @@ public static class FilterLink {
                 },
             };
 
-    // A single `IndexOfAny` over a span is the vectorized BCL primitive and nothing deeper exists for it.
     private static int Extent(string query, int from) =>
         query.AsSpan(from).IndexOfAny(Sibling, Close) switch {
             < 0 => query.Length,
             var offset => from + offset,
         };
 
-    // Operands parse through the PROPERTY's declared kind, so the link carries no kind tag and a value that
-    // does not parse under that kind refuses the whole link rather than decoding into an untestable term.
     private static Fin<FilterTerm> Row<TRow>(string property, string sense, string[] operands, FilterSchema<TRow> schema)
         where TRow : notnull =>
         Op.Of(name: nameof(PropertyName)).AcceptValidated<string, PropertyName>(property)
@@ -1041,10 +895,8 @@ public static class FilterLink {
 - Boundary: a COMPILE failure mid-stream is a fault on the rail with the last good predicate HELD, never a silent fall-back to the open filter: a view that quietly showed every row after a bad edit reports success for a question nobody asked, while a held predicate plus a raised fault leaves the surface honest and the banner accurate. Visibility is the DOMAIN axis and lives here — `Editing/tables#VIEW_STATE` keeps only the grid-mechanism cells its control owns (display index and resolved pixel width), so a column hidden on a board and hidden on a grid is one fact.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Direction carries the multiplier the comparer fold reads, so the descending ternary and the anonymous
-// `(string, bool)` tuple that re-derived it at two sites both delete.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1058,12 +910,10 @@ public sealed partial class SortDirection {
 [ValueObject<Guid>]
 public readonly partial struct SavedViewId;
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct SortKey(PropertyName Key, SortDirection Direction);
 
-// The domain view axis. Column WIDTH and display index are not here: those are one control's mechanism, while
-// group, order, and visibility are what a user means by "the view" on every surface that has no columns at all.
 public sealed record ViewState(
     Seq<PropertyName> Group,
     Seq<SortKey> Order,
@@ -1071,9 +921,6 @@ public sealed record ViewState(
     Option<SavedViewId> Saved) {
     public static readonly ViewState Plain = new(Seq<PropertyName>(), Seq<SortKey>(), Seq<PropertyName>(), None);
 
-    // An EMPTY visible set means every property, so a schema that grows a field shows it rather than hiding it
-    // behind a snapshot taken before the field existed. Six independent proofs accumulate: a saved view naming
-    // three retired properties named all three at once rather than sending its owner back three times.
     public Validation<Error, ViewState> Admit<TRow>(FilterSchema<TRow> schema) where TRow : notnull =>
         (Gate(Group.Distinct().Count == Group.Count, "grouping repeats a property"),
          Gate(Group.ForAll(key => schema.Field(key).IsSome), "grouping names a property the schema does not carry"),
@@ -1089,16 +936,10 @@ public sealed record ViewState(
         holds ? unit : (Validation<Error, Unit>)(Error)new LiveDataFault.View(detail);
 }
 
-// The durable artifact: an ENCODED filter beside the view axes, so a shared link, a stored row, and a session
-// checkpoint carry one representation and the store never holds a tree it would have to version.
 public sealed record SavedView(SavedViewId Id, string Name, string Filter, ViewState View, Instant At);
 
-// --- [BOUNDARIES] -----------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 
-// The ONE durable named-artifact port. Composition binds all five delegates to the Persistence snapshot
-// vocabulary; `Admit` is the RE-ADMISSION against whatever shape is live at recall — a saved view against the
-// current property roster, a selection set against the open document — so the load-then-prove step every
-// consumer needs is a column rather than a fold each caller re-spells.
 public sealed record SnapshotPort<TScope, TKey, TValue>(
     Func<TScope, IO<Seq<TValue>>> Roster,
     Func<TScope, TKey, IO<Option<TValue>>> Load,
@@ -1117,13 +958,10 @@ public sealed record SnapshotPort<TScope, TKey, TValue>(
             Fail: error => IO.pure(Fin.Fail<TValue>(error)));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed record ViewBinding<TRow>(FilterSchema<TRow> Schema, FilterPace Pace, FilterPolicy Policy, Func<Instant> Clock)
     where TRow : notnull {
-    // The one producer of the shaping streams. The predicate stream HOLDS its last good value across a failed
-    // compile and routes the fault to the rail, so a surface never silently widens; the comparer stream folds
-    // the same roster, so order and filter can never disagree about what a property is.
     public Fin<PipelineInputs<TRow, TKey>> Inputs<TKey>(
         IObservable<Predicate<FilterTerm>> filters,
         IObservable<ViewState> views,
@@ -1153,8 +991,6 @@ public sealed record ViewBinding<TRow>(FilterSchema<TRow> Schema, FilterPace Pac
                 Succ: row => store.Seat(scope, row),
                 Fail: error => IO.pure(Fin.Fail<SavedView>(error)));
 
-    // Recall re-admits against the LIVE schema and the LIVE fingerprint: a saved view naming a property the
-    // model no longer carries refuses rather than restoring an order nothing can rank.
     public IO<Fin<(Predicate<FilterTerm> Filter, ViewState View)>> Recall(
         SnapshotPort<SlotKey, SavedViewId, SavedView> store, SlotKey scope, SavedViewId id) =>
         store.Recall(scope, id, new LiveDataFault.View($"saved view {id} is absent"))
@@ -1163,8 +999,6 @@ public sealed record ViewBinding<TRow>(FilterSchema<TRow> Schema, FilterPace Pac
                 from view in row.View.Admit(Schema).ToFin()
                 select (Filter: filter, View: view)));
 
-    // The port's own admission column for this consumer, bound at composition: the schema the binding holds is
-    // the shape a recalled row must prove against, so the port carries the proof and no caller re-spells it.
     public Func<SlotKey, SavedView, Fin<SavedView>> Gate =>
         (_, row) => row.View.Admit(Schema).ToFin().Map(admitted => row with { View = admitted });
 }
@@ -1179,10 +1013,6 @@ public sealed record ViewBinding<TRow>(FilterSchema<TRow> Schema, FilterPace Pac
 - Boundary: predicates and comparers arrive as streams from `[04]` `ViewBinding.Inputs` and `Refresh` composes the catalogued `AutoRefresh` shape only when the row model admits it. Re-filtering pushes a predicate and grouping remains one projection-policy choice; repository layers, per-screen pipeline classes, and a second cache are rejected. SNAPSHOT sources lower through `EditDiff(keySelector)`, which diffs each emission against the held set and emits the removals that reconcile them, while `ToObservableChangeSet` upserts and removes NOTHING — a query-superseding source lowered through it keeps every row of every earlier answer alive, so it is the deleted form on every successive-snapshot fold in this package and survives only where the source is genuinely append-shaped. DELIVERY is not shaped here — the `Page` and `Virtualise` rows below are composed by the surface that owns the window, `Editing/tables#TREE_FLATTEN` `TableProjection` for the grid and `Shell/virtualization#WINDOW_OWNER` `VirtualWindow` for the extent-ledger fabric, so a live-data delivery union beside them is a second windowing owner the per-surface-virtualizer law rejects.
 
 ```csharp signature
-// Refresh stays a composition-supplied FOLD rather than a row vocabulary, and the discriminant is a type
-// constraint this owner cannot carry: `AutoRefresh` binds `TObject : INotifyPropertyChanged` while
-// `PipelineInputs` admits any notnull row model, so a refresh case here would constrain every non-notifying
-// consumer out of the pipeline. The caller that knows its row model notifies supplies the operator.
 public sealed record PipelineInputs<TRow, TKey>(
     IObservable<Func<TRow, bool>> Predicates,
     IObservable<IComparer<TRow>> Comparers,
@@ -1239,10 +1069,8 @@ The delivery table routes each change-set operator to the ONE owner that compose
 - Boundary: BACKPRESSURE never reaches this cache: the pending set is bounded by outstanding local mutations, and the authoritative leg arrives already paced by `SourcePolicy.Pace`. KEY authority is the ledger's own row selector — the same shape `[02]` `Open` takes — so a projection's ticket and the cell its cache seats cannot address different keys. LINGER custody is per key: one serial slot across the ledger let the second refusal cancel the first one's scheduled fallback, leaving that row refused forever above the settled truth, so each key arms and retires its own slot and the drop retires the slot with the row. TEARDOWN rides kernel `Custody.Bracket`, which is reverse-order and ALL-ATTEMPTED with an accumulating ledger — the hand sweep that iterated, cleared, and then disposed lost the pending cache entirely if any slot threw.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Rank is the merge order and the visibility order at once: a pending value outranks a refused one, which
-// outranks the settled truth, so the newest thing the user did is the thing they see.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1254,7 +1082,7 @@ public sealed partial class OverlayPosture {
     public int Rank { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct OverlayRow<TRow>(TRow Value, OverlayPosture Posture, long Revision, Option<Error> Refusal)
     where TRow : notnull, IEquatable<TRow> {
@@ -1263,9 +1091,6 @@ public readonly record struct OverlayRow<TRow>(TRow Value, OverlayPosture Postur
 
 public readonly record struct OverlayTicket<TKey>(TKey Key, long Revision) where TKey : notnull;
 
-// The merge tracker replaces an incumbent only when the candidate compares BELOW it, so ascending rank is
-// exactly "pending wins". The revision tie-break makes the comparer total for the equal-posture case a
-// keyed cache cannot otherwise reach.
 public sealed class OverlayRank<TRow> : IComparer<OverlayRow<TRow>> where TRow : notnull, IEquatable<TRow> {
     public static readonly OverlayRank<TRow> Instance = new();
 
@@ -1280,11 +1105,8 @@ public abstract partial record OverlayEcho<TRow, TKey>
     where TRow : notnull, IEquatable<TRow> where TKey : notnull {
     private OverlayEcho() { }
 
-    // The merge authority round-tripped the ticket: the revision names exactly which local mutation landed.
     public sealed record Acked(TKey Key, long Revision) : OverlayEcho<TRow, TKey>;
 
-    // The authority answered with a VALUE and no revision — the CRDT shape, where an imported diff carries
-    // the converged state rather than the local op it descends from.
     public sealed record Converged(TKey Key, TRow Value) : OverlayEcho<TRow, TKey>;
 
     public sealed record Refused(TKey Key, long Revision, Error Reason) : OverlayEcho<TRow, TKey>;
@@ -1297,24 +1119,17 @@ public readonly record struct OverlayPolicy(Duration Linger, IScheduler Schedule
             : (Error)new LiveDataFault.Overlay("refusal linger must be positive");
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed class OverlayLedger<TRow, TKey> : IDisposable
     where TRow : notnull, IEquatable<TRow> where TKey : notnull {
     private readonly SourceCache<OverlayRow<TRow>, TKey> pending;
-    // Linger custody is PER KEY. One serial slot for the whole ledger let a second refusal cancel the first
-    // one's scheduled fallback, so that row stood refused forever above a key the authority had already
-    // answered; each key holds its own slot and the drop retires the slot with the row.
     private readonly ConcurrentDictionary<TKey, SerialDisposable> sweeps = new();
     private readonly Atom<long> revision = Atom(0L);
     private readonly Func<TRow, TKey> key;
     private readonly OverlayPolicy policy;
     private readonly Action<Error> fault;
 
-    // ONE key authority: the selector reads the ROW, and the pending cache derives its own key through it, so
-    // the ticket a projection answers and the cell the cache seats cannot address different keys. A selector
-    // over the overlay wrapper beside a caller-supplied key was two authorities that agree only by
-    // convention, and their disagreement is a pending row no echo can ever reach.
     public OverlayLedger(Func<TRow, TKey> key, OverlayPolicy policy, Action<Error> fault) {
         this.key = key;
         this.pending = new SourceCache<OverlayRow<TRow>, TKey>(row => key(row.Value));
@@ -1322,9 +1137,6 @@ public sealed class OverlayLedger<TRow, TKey> : IDisposable
         this.fault = fault;
     }
 
-    // The stamp is the CELL's swap value, so the monotone claim is the cell's law rather than a comment beside
-    // an interlocked field: a swap that loses re-runs against the value that won and no two projections on one
-    // key can read the same revision.
     public OverlayTicket<TKey> Project(TRow value) =>
         revision.Swap(static held => held + 1L) switch {
             var stamped => new OverlayTicket<TKey>(key(value), stamped) switch {
@@ -1337,29 +1149,20 @@ public sealed class OverlayLedger<TRow, TKey> : IDisposable
 
     public Unit Reconcile(OverlayEcho<TRow, TKey> echo) => echo.Switch(
         state: this,
-        // An echo at or past the outstanding revision acknowledges it; an OLDER one acknowledges nothing, so a
-        // late server echo of a superseded value cannot clear a mutation the user has already replaced.
         acked: static (ledger, row) => ledger.Held(row.Key)
             .Filter(held => row.Revision >= held.Revision)
             .Match(Some: _ => ledger.Drop(row.Key), None: static () => unit),
-        // Value convergence is the CRDT arm: the pending row clears once the authority's own value equals it,
-        // because an imported diff carries state rather than the local op it descends from.
         converged: static (ledger, row) => ledger.Held(row.Key)
             .Filter(held => held.Value.Equals(row.Value))
             .Match(Some: _ => ledger.Drop(row.Key), None: static () => unit),
         refused: static (ledger, row) => ledger.Refuse(row));
 
-    // The merged stream. Removing the pending row makes the tracker re-look-up the best remaining value across
-    // both legs and republish the authoritative one, so acknowledgment and rollback are the same mechanism and
-    // this owner never restores a value it would have had to remember.
     public IObservable<IChangeSet<OverlayRow<TRow>, TKey>> Merged(IObservable<IChangeSet<TRow, TKey>> authoritative) =>
         authoritative.Transform(static value => OverlayRow<TRow>.Settled(value))
             .MergeChangeSets(pending.Connect(), OverlayRank<TRow>.Instance);
 
     public IObservable<int> Pending => pending.CountChanged;
 
-    // Reverse-order and ALL-ATTEMPTED through the kernel custody fold: the sweeps drain first because they
-    // schedule against the cache, and a slot that throws no longer strands the cache it was scheduled over.
     public void Dispose() =>
         ignore(Custody.Bracket(
             () => fun(() => { sweeps.Clear(); return Fin.Succ(unit); })(),
@@ -1368,17 +1171,12 @@ public sealed class OverlayLedger<TRow, TKey> : IDisposable
     private Option<OverlayRow<TRow>> Held(TKey held) =>
         pending.Lookup(held) is { HasValue: true } found ? Some(found.Value) : None;
 
-    // The drop retires the key's linger slot with its row, so a scheduled fallback for a key already dropped
-    // cannot fire against a row a later projection has since re-seated.
     private Unit Drop(TKey held) =>
         fun(() => {
             if (sweeps.TryRemove(held, out SerialDisposable? sweep)) { sweep.Dispose(); }
             pending.RemoveKey(held);
         })();
 
-    // A refusal RENDERS before it rolls back: the refused posture still outranks settled, so the rejected value
-    // stays on screen under its refusal chrome for the linger span and then falls back through the same merge
-    // path an acknowledgment takes.
     private Unit Refuse(OverlayEcho<TRow, TKey>.Refused row) =>
         Held(row.Key)
             .Filter(held => row.Revision >= held.Revision)
@@ -1426,7 +1224,7 @@ flowchart LR
 - Boundary: recovery selects a concrete `LiveDataFault` case through `error.IsType<LiveDataFault.Filter>()`.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LiveDataFault : Fault {
@@ -1449,13 +1247,10 @@ public abstract partial record LiveDataFault : Fault {
 
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault, SortAndBindOptions Bind) {
     private static readonly Op Observe = Op.Of(name: "appui.livedata.observe");
-    // Two named postures close the axis: Batched fires one collection reset past the threshold — the
-    // virtualization-friendly batch path — and Incremental never resets, for a control that mishandles it.
-    // Binary search rides both because the capsule binds a comparer stream, which is pure by contract.
     public static readonly SortAndBindOptions Batched = new() { UseBinarySearch = true };
     public static readonly SortAndBindOptions Incremental = Batched with { ResetThreshold = int.MaxValue, ResetOnFirstTimeLoad = false };
 
@@ -1465,8 +1260,6 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault, SortAndB
         Option<IObservable<IComparer<TRow>>> order = default)
         where TRow : notnull where TKey : notnull =>
         (order.Case switch {
-            // The unsorted arm's BindingOptions is DERIVED, never a second declaration: its three columns are
-            // exactly the three the posture already carries, so one policy value governs both bind shapes.
             IObservable<IComparer<TRow>> comparers => pipeline.ObserveOn(Ui).SortAndBind(target, comparers, Bind),
             _ => pipeline.ObserveOn(Ui).Bind(target, new BindingOptions(Bind.ResetThreshold, Bind.UseReplaceForUpdates, Bind.ResetOnFirstTimeLoad)),
         }).Subscribe(static _ => { }, raw => Fault(Error.New(raw.Message, raw)));
@@ -1479,8 +1272,6 @@ public sealed record BindingCapsule(IScheduler Ui, Action<Error> Fault, SortAndB
             .BindToObservableList(target)
             .Subscribe(static _ => { }, raw => Fault(Error.New(raw.Message, raw)));
 
-    // AsyncDisposeMany disposes IAsyncDisposable leavers itself; the accessor receives the one
-    // disposals-completed stream the activation scope awaits before teardown.
     public IDisposable Drained<TRow, TKey>(
         IObservable<IChangeSet<TRow, TKey>> pipeline,
         Action<IObservable<Unit>> drainHook)
@@ -1515,10 +1306,6 @@ public static class LiveDataOps {
         "rasm.appui.live.faults", InstrumentKind.Count, MeasureForm.Whole, "{fault}",
         "live-data faults by slot and fault code",
         Seq(AppUiTelemetry.SlotSlot, AppUiTelemetry.FaultSlot), None, None, None);
-    // Both standing facts are PUSHED gauges rather than pulled level families: each arrives on an Rx emission
-    // the projection below writes at, and each carries dimensions the pulled family's one key cannot express —
-    // declaring these there would leave the health facet unwritable and route every write onto the pushed-row
-    // refusal, which reports a rail that carried while the series stays permanently empty.
     public static readonly InstrumentSpec Age = InstrumentSpec.Create(
         "rasm.appui.live.age", InstrumentKind.Reading, MeasureForm.Real, "s",
         "live feed age since last delivery by slot and health",
@@ -1531,19 +1318,12 @@ public static class LiveDataOps {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Changes, Faults, Age, Pending);
 
-    // The one `Action<Error>` rail IS the producer this row's description names: composition binds the
-    // projection at the capsule's fault edge, so every LiveDataFault the Rx-to-rail fold raises counts once
-    // under the pipeline slot that raised it. A generated code writes the FAULT slot, never the
-    // outcome slot every other producer fills with a domain key — one dimension carries one scalar type across
-    // the whole package or a board grouping on it renders two vocabularies as one column.
     public static Fin<Unit> Faulted(InstrumentSet set, SlotKey slot, Error fault) =>
         FaultObservation.Of(fault).Code.Match(
             Some: code => set.Write(Faults, 1d, InstrumentSet.Tags(
                 (AppUiTelemetry.SlotSlot, slot.Value), (AppUiTelemetry.FaultSlot, code))),
             None: () => set.Write(Faults, 1d, InstrumentSet.Tags((AppUiTelemetry.SlotSlot, slot.Value))));
 
-    // Age carries its HEALTH as a dimension, so a dashboard reads how long a feed has been quiet and under
-    // which posture on one series rather than joining two.
     public static Fin<Unit> Aged(InstrumentSet set, FeedFreshness freshness) =>
         set.Write(Age, freshness.Age.TotalSeconds, InstrumentSet.Tags(
             (AppUiTelemetry.SlotSlot, freshness.StreamKey), (AppUiTelemetry.SeveritySlot, freshness.Health.Key)));
@@ -1552,10 +1332,6 @@ public static class LiveDataOps {
         set.Write(Pending, (double)pending, InstrumentSet.Tags((AppUiTelemetry.SlotSlot, slot.Value)));
 
     extension(BindingCapsule capsule) {
-        // The StatFold ROW crosses this edge, never a fold lambda: the row owns the DynamicData aggregation
-        // (including the `ForAggregation` scan the weighted mean reduces two accumulators in) and the value
-        // selector projects the measured scalar off each StatSample, so a bound statistic is recoverable
-        // from its declaration and one entrypoint serves every scalar and gauge consumer.
         public IDisposable Scalar(
             IObservable<IChangeSet<StatSample, string>> pipeline,
             StatFold fold,
@@ -1563,8 +1339,6 @@ public static class LiveDataOps {
             Action<double> render) =>
             fold.Fold(pipeline, value).ObserveOn(capsule.Ui).Subscribe(render, raw => capsule.Fault(Error.New(raw.Message, raw)));
 
-        // The seal IS the producer of `Changes`, which the evidence fan writes off this one case, so no
-        // instrument write is spelled at this edge.
         public IDisposable Audit<TRow, TKey>(
             IObservable<IChangeSet<TRow, TKey>> pipeline,
             SlotKey slot,
@@ -1572,8 +1346,6 @@ public static class LiveDataOps {
             where TRow : notnull where TKey : notnull =>
             pipeline.CollectUpdateStats()
                 .Select(static summary => summary.Latest)
-                // A delta with nothing measured on any of the four axes seals nothing — a receipt reading zero
-                // across the row set spells a measurement no change-set took.
                 .Where(static latest => latest.Adds + latest.Updates + latest.Removes + latest.Refreshes > 0)
                 .Select(latest => seal(new EvidenceReceipt.LiveData(
                     slot.Value, latest.Adds, latest.Updates, latest.Removes, latest.Refreshes)))
@@ -1600,7 +1372,7 @@ public static class LiveDataOps {
 - Boundary: PER-OPTION KPI columns fold through the live `Group` form, whose `IGroup` carries its own `Cache`, so editing one option's candidates re-emits that option's readings alone and every other column stands — `GroupWithImmutableState` would re-snapshot every group per delta and a per-option subscription roster would re-subscribe on every roster change. A candidate MISSING a KPI's metric contributes nothing rather than a zero, the same law the scorecard holds. A DUPLICATE and a REGENERATE both record their source on `DesignOption.Parent`, so lineage is one field; the preferred option is one key on the set, so preference is a total fact and two preferred options are unrepresentable.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(EmptyStringInFactoryMethodsYieldsNull = false)]
 [ValidationError]
@@ -1616,14 +1388,10 @@ public readonly partial struct OptionKey {
         Op.Of(name: nameof(OptionKey)).AcceptValidated<string, OptionKey>(candidate);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Lineage is ONE field: a duplicate and a regenerate both name their source, so "regenerate similar from the
-// preferred option" reads off the roster and no side ledger tracks where an option came from.
 public sealed record DesignOption(OptionKey Key, string Name, Option<OptionKey> Parent, Instant At);
 
-// The generator request this owner DECLARES and never runs: the knobs are the source option's own and the
-// spread is how far a similar candidate may wander from them.
 public sealed record OptionRequest(OptionKey Source, OptionKey Minted, string GeneratorKey, Map<string, double> Knobs, double Spread);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1637,12 +1405,8 @@ public abstract partial record OptionVerb {
     public sealed record Prefer(OptionKey Key) : OptionVerb;
 }
 
-// One candidate under its option, carrying its measured metrics and the population one reduced metric stands
-// for, so a KPI over pre-reduced candidates weights and a KPI over raw ones does not.
 public sealed record CandidateRow(string Key, OptionKey Option, HashMap<PropertyName, double> Metrics, double Weight);
 
-// One measured column: the StatFold row owns the aggregation and the polarity states which direction reads as
-// better, so a KPI table sorts and colours off its declaration.
 public sealed record OptionKpi(PropertyName Key, string LabelKey, StatFold Fold, DeltaPolarity Polarity) {
     public StatSample Sample(CandidateRow candidate) =>
         new(candidate.Metrics.Find(Key).IfNone(0d), candidate.Weight);
@@ -1650,10 +1414,8 @@ public sealed record OptionKpi(PropertyName Key, string LabelKey, StatFold Fold,
 
 public readonly record struct OptionReading(OptionKey Option, PropertyName KpiKey, double Value, DeltaPolarity Polarity);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Preference is ONE key on the set rather than a flag per option, so two preferred options cannot be spelled
-// and "the preferred option" is a total question.
 public sealed record OptionSet(
     PropertyName VariableKey,
     string LabelKey,
@@ -1670,8 +1432,6 @@ public sealed record OptionSet(
         duplicate: static (set, row) => from source in set.Present(row.Source)
                                         from _ in set.Absent(row.Minted)
                                         select set.Seated(row.Minted, row.Name, Some(source.Key)),
-        // The verb mints the option AND its request in one fold, so a regenerated option always carries the
-        // request that produced it and a request never names an option the roster does not hold.
         regenerate: static (set, row) => from source in set.Present(row.Source)
                                          from _ in set.Absent(row.Minted)
                                          from spread in set.Spread(row.Spread)
@@ -1683,9 +1443,6 @@ public sealed record OptionSet(
                                          },
         prefer: static (set, row) => set.Present(row.Key).Map(_ => set with { Preferred = Some(row.Key) }));
 
-    // The board variable whose DOMAIN is the live roster: an option added here becomes a selectable member on
-    // every board reading this variable, with no second registration. Arity is the board's own row and the
-    // board's own accumulating admission proves the domain, so a degenerate roster refuses here.
     public Fin<BoardVariable> Variable() =>
         BoardVariable.Admit(new BoardVariable(
             VariableKey.Value, LabelKey,
@@ -1693,13 +1450,9 @@ public sealed record OptionSet(
             Preferred.Match(Some: static key => Set(key.Value), None: Set<string>),
             VariableArity.Multi));
 
-    // The comparison join: an option-versus-option read is the scenario ghost the board already renders, so
-    // the comparison layer, the compare scene, and the compare session address options by this one key.
     public Fin<CompareOffset> Against(OptionKey member) =>
         Present(member).Map(_ => (CompareOffset)new CompareOffset.Scenario(VariableKey.Value, member.Value));
 
-    // Each KPI becomes a `number` property and the option key a bounded `text` property, so option scoping,
-    // KPI bounds, and KPI ordering are the one filter surface rather than a vocabulary minted here.
     public Fin<FilterSchema<CandidateRow>> Schema(Seq<OptionKpi> kpis) =>
         new FilterSchema<CandidateRow>(
             Seq(new FilterField<CandidateRow>(
@@ -1713,15 +1466,11 @@ public sealed record OptionSet(
                         .ToSeq())))
             .Admit().ToFin();
 
-    // Per-option KPI columns over the LIVE group form: each group carries its own cache, so editing one
-    // option's candidates re-emits that option's reading alone and every other column stands.
     public IObservable<IChangeSet<OptionReading, OptionKey>> Readings(
         IObservable<IChangeSet<CandidateRow, string>> candidates, OptionKpi kpi) =>
         candidates.Group(static candidate => candidate.Option)
             .TransformOnObservable(group => kpi.Fold
                 .Fold(group.Cache.Connect()
-                        // A candidate missing this metric contributes NOTHING: a mean that counted it as zero
-                        // would render a measurement no candidate took.
                         .Filter(candidate => candidate.Metrics.ContainsKey(kpi.Key))
                         .Transform(candidate => kpi.Sample(candidate)),
                     static sample => sample.Value)

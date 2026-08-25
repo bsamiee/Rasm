@@ -42,16 +42,8 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.graph.network")
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# the flow lane's raise set: every networkx fault roots at `NetworkXException` (`libs/python/.api/networkx.md:37`),
-# which is what carries `NetworkXUnfeasible` on an unbalanced demand set — the refusal this owner's whole law is
-# written around — beside `NodeNotFound` for a source or sink the admitted rows never named. `msgspec`'s canonical
-# roster encoding roots at `MsgspecError`, and `TypeError` covers a non-encodable edge payload reaching it.
 _FLOW_RAISES: Final[Catch] = (nx.NetworkXException, msgspec.MsgspecError, TypeError, ValueError)
 
-# this module's raise roster under its one `DataLeg` member. Both rows are TERMINAL: a build folds admitted rows in
-# memory and a flow kernel is a deterministic solve over them, so a re-issue over the same network refuses
-# identically — an infeasible demand set stays infeasible. Both are fence anchors alone and declare no `slots`,
-# since a converted provider raise carries its own detail and the algorithm rides the span attribute beside it.
 NETWORK_BUILD: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.NETWORK, point="build", arm="boundary", defect="network-build", retriability=TERMINAL
 )
@@ -65,8 +57,6 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([NETWORK_BUILD, 
 
 
 class FlowEdge(Struct, frozen=True, gc=False):
-    # one capacity-annotated directed edge: `capacity` the arc bound, `weight` the per-unit cost (free by default),
-    # both projected onto the provider's `capacity`/`weight` attribute vocabulary at the ONE build site.
     source: NodeId
     target: NodeId
     capacity: float
@@ -91,18 +81,11 @@ class FlowNetwork(Struct, frozen=True):
 
     @classmethod
     def of(cls, edges: tuple[FlowEdge, ...], demands: "Map[NodeId, float]" = Map.empty()) -> "RuntimeRail[FlowNetwork]":
-        # the graph builds HERE from admitted rows — attribute names are this owner's projection, and demands
-        # follow the provider's sign convention: negative supplies, positive demands, absent nodes balanced. An
-        # unsupplied demand roster is the EMPTY roster, not an absent one: `Map.empty()` is immutable and every
-        # node balances by the provider's own default, so there is no third state for a `| None` slot to carry and
-        # the two falsy-coalescing reads it forced — each of which read an empty roster and an absent one alike —
-        # have no reason to exist.
         def build() -> "tuple[Any, bytes]":
             graph = nx.DiGraph()
             graph.add_weighted_edges_from(((e.source, e.target, e.capacity) for e in edges), weight="capacity")
             nx.set_edge_attributes(graph, {(e.source, e.target): e.weight for e in edges}, name="weight")
             nx.set_node_attributes(graph, dict(demands), name="demand")
-            # canonical roster bytes: sorted edge tuples beside the sorted demand pairs, one msgspec codec.
             wire = msgspec.json.encode((
                 sorted((e.source, e.target, e.capacity, e.weight) for e in edges),
                 sorted(demands.to_list()),
@@ -116,8 +99,6 @@ class FlowNetwork(Struct, frozen=True):
         )
 
     def analyze(self, algo: FlowAlgorithm) -> "RuntimeRail[GraphResult]":
-        # one span per run — the flow kernel's whole observability, exactly the sibling kernel's law; an
-        # unbalanced demand set raises `nx.NetworkXUnfeasible`, railed by the fence into the typed fault.
         with _TRACER.start_as_current_span(
             f"network.analyze.{algo.tag}",
             attributes={"rasm.graph.algorithm": algo.tag, "rasm.graph.backend": "networkx", "rasm.graph.nodes": self.node_count},
@@ -149,9 +130,6 @@ def _run_flow(graph: Any, algo: FlowAlgorithm) -> GraphResult:
             _value, assignment = nx.maximum_flow(graph, source, sink, capacity="capacity")
             return _flows(assignment)
         case FlowAlgorithm(tag="min_cut", min_cut=(source, sink)):
-            # the cut VALUE rides the scalar case; the reachable/unreachable halves ride partition — two calls
-            # answer one question only when both halves are asked, so this arm answers the partition and the
-            # cut value stays recoverable as the capacity sum over the crossing edges the flows frame carries.
             _value, (reachable, unreachable) = nx.minimum_cut(graph, source, sink, capacity="capacity")
             return GraphResult(partition=(tuple(sorted(reachable)), tuple(sorted(unreachable))))
         case FlowAlgorithm(tag="min_cost"):

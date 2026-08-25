@@ -23,28 +23,25 @@ IFC presentation colours are display-referred sRGB; the projector lowers each ch
 - Boundary: the appearance model is the seam `Node.Appearance` + `AppearanceSummary` and a Bim `BimAppearance`/`AppearanceColor`/`RenderingAppearance`/`ShadingAppearance`/`TexturedAppearance` re-declaration is the deleted form — the seam owns the neutral PBR record, this page owns only the GeometryGym discrimination that fills it, so the appearance lowers onto the one seam summary with the absent channels defaulted, never a parallel per-style class; the retired `BimAppearance` record and the `Semantics/composition#MATERIAL_COMPOSITION` `BimMaterial.Option<BimAppearance>` carrier are GONE, appearance being element-scoped (a seam `Node.Appearance` the `Object` carries through the `Associate` edge the `Bake` fold reads into `element.Appearance`), never a record nested in a material; the projection rides the GeometryGym `IfcStyledItem`/`IfcSurfaceStyle`/`IfcSurfaceStyleRendering`/`IfcColourRgb` surface consumed as settled vocabulary (`.api/api-geometrygym-ifc` presentation rows) through `BaseClassIfc.Extract<IfcSurfaceStyle>()`, and a hand-rolled STEP presentation-style reader is the deleted form; the page is HOST-NEUTRAL — a `Rhino.Geometry` colour, a `System.Drawing.Color` (the `IfcColourRgb.Color()`/`IfcColourRgb(DatabaseIfc, Color)` host-coupled members), or a `Unicolour` object crossing a signature is the named host-coupling defect, only the `Red`/`Green`/`Blue` scene-linear doubles cross; the ONE exception is a construction argument, not a crossing — `IfcColourRgbList` publishes no neutral author at all, so `IndexedColour.Author` spells `System.Drawing.Color.FromArgb` fully qualified at that single site inside the value that owns the palette, and the discriminant is exact: a host colour type is forbidden where a neutral member exists (`IfcColourRgb` has its double triple) and confined to the boundary owner where it is the only expression that constructs the entity; IFC presentation colour is display-referred sRGB lowered to scene-linear through the `Linearize` EOTF and encoded back through the `Encode` OETF, and BOTH read the kernel `RgbProfile.Srgb` row's own transfer rather than spelling the curve — a raw-channel pass-through that calls the unlinearized value "scene-linear" and a hand-written piecewise IEC 61966-2-1 body beside the row that publishes the same curve are the two deleted forms; the working-space PRIMARIES conversion stays the `Rasm.Materials` Unicolour owner's concern, never re-derived here; the OpenPBR reconciliation rides the `AppearanceKey` content key — a re-mint of the `Rasm.Materials/Appearance/surface#OPENPBR_SLAB` `OpenPbrSurface` vector, the `surface#CONDUCTOR_IOR` conductor-IOR table, or the OpenPBR slab algebra in this owner is the named cross-folder seam violation; the rich IFC rendering channels (`SpecularColour`/`TransmissionColour`/`ReflectionColour`/`DiffuseTransmissionColour`, the `IfcSurfaceStyleRefraction` IOR/dispersion MAGNITUDE) are NOT retained by the thin seam summary — a Bim-imported style collapses DELIBERATELY to base colour/metalness/roughness/opacity + a transmissive flag (the refraction PRESENCE is kept as the transmissive bit DISTINCT from the opacity/alpha channel so opaque-alpha glass round-trips, its IOR/dispersion magnitude dropped; the seam's chosen shape, lossy by design, NOT an unintended gap), and full specular/reflection/transmission-colour + dispersion BSDF fidelity exists ONLY when the `Rasm.Materials` owner AUTHORS the appearance and holds the lobe graph keyed by the shared `AppearanceKey` (claiming a Bim round-trip preserves the dropped colour/IOR channels is the deleted overclaim); TEXTURES and the `IfcSurfaceStyleLighting` four-colour coefficient set are the FIELD-valued presentation facts this projector retains, and both retain BESIDE the summary, never inside it — `StyledAppearance` pairs the content-keyed node with the `SurfaceTexture` roster and the `Option<SurfaceLighting>` carrier, the lighting egress landing in the `IfcSurfaceStyle` lighting slot, the frozen seven-value `AppearanceSummary` preimage stays sealed (an eighth column re-keys every stored `Node.Appearance` and forks the dedup key this page mints against), and folding a map mean into a scalar channel is the averaged-map defect the roster exists to refuse; the roster row is TYPED at its seam owner and this producer mints it in the seam own vocabulary — `TextureMode.Polarity` is `Rasm.Element/Projection/projection#PROJECTION_CONTRACT` `ChannelPolarity` and the `SurfaceTexture` axis pair is that owner `TextureWrap`, so a Bim-local `WrapMode` or invert-bool twin beside them is the deleted form that lets one edit fork two packages that never reference each other; NAMED LOSS on the wrap axis, one-way only — IFC states addressing as a single two-state repeat flag per axis, so `MirroredRepeat` is unreachable from an IFC ingest and reaches the seam row only from the glTF/USD producers it also serves, and the inverse folds it back onto the repeating flag with the mirror dropped AT THE FILE; a texture rows onto the seam when its `CapabilitySet<TextureTrait>` admits `Rowable` (`Classified` + `Addressable`) and a compound case-and-derived-predicate test at each gate is the deleted form the roster filter and this boundary already drifted apart under — the drop of a short texture is DELIBERATE and diagnostic-free because the seam `TextureRoster` row carries no refusal channel, `Missing(Rowable)` naming the shape such a channel takes when the seam grows one; the surviving `bool` columns are seam-fixed and stay: `ReflectanceModel.Transmissive` feeds the frozen `AppearanceSummary.Of` transmissive slot, `StyledAppearance.DoubleSided` is the whole admitted domain after the `NEGATIVE` filter and the `DetailSchema.DoubleSided` bag row it reconciles with, and `IfcInternals.StiffnessFixed` is a GeometryGym field this capsule detaches and never widens; this leaf CLASSIFIES and CARRIES alone — it opens no image, so a texel decode, the `TextureMode` gloss/transparency inversion, and any resampling ride the texture-set owner the seam `TextureRoster` row hands the classifiable roster to, and an `IfcPixelTexture` egresses its declared extent with an empty pixel run because GeometryGym exposes that run only through its constructor; `IfcInternals` is the ONLY place in this branch that names a GeometryGym `internal` member, and it binds through `[UnsafeAccessor]` alone — compile-time, reflection-free, trim- and AOT-safe, and loud at the first call when a release moves a member — pinned to the `Directory.Packages.props` `GeometryGymIFC_Core` version so a bump re-probes every binding; a hand-emitted STEP fragment injected beside the authored database, a reflection or IL-emit path, and a vendored fork are each the deleted form because each mints a second IFC reader or writer inside the package that owns exactly one, and a second copy of any accessor it carries is the divergence this single capsule exists to foreclose; the `ReflectanceModel` keys its `FromIfc` resolution through the `Items`-derived frozen index on the typed `Method` constant — no `switch` over the enum, no `ToString` hop, `NotDefined` the total fallback, and `TextureMode.From` mirrors that admission through the generated `Validate` with `NotDefined` the unresolved row rather than a guessed channel; faults route through the `Fin` rail and lift BARE (the `Fault`-derived `BimFault.Refused` with `BimReason.Rejected` IS the `Error`, never a `.ToError()` hop and never an exception across a domain signature).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
-using System.Globalization;                       // CultureInfo — the invariant parse the baked-set address admission takes
-using System.Numerics;                            // Vector2 — the UV offset/scale frame both projector halves carry
-using System.Runtime.CompilerServices;            // [UnsafeAccessor] — the pinned GeometryGym internal-member binding
+using System.Globalization;
+using System.Numerics;
+using System.Runtime.CompilerServices;
 using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.Drawing;                               // EncodingChannel — the seam lane vocabulary the binding table keys on
+using Rasm.Drawing;
 using Rasm.Element.Graph;
-using Rasm.Element.Projection;                    // ContentAddress — the baked-set address the Materials appearance bag carries
-using Rasm.Element.Properties;                    // DetailSchema, PropertyName, PropertyValue — the seam-owned appearance-bag vocabulary the Materials-link readers key on
-using Rasm.Numerics;                              // RgbProfile + PerceptualColor + RgbTransfer — the kernel colour row, the railed ingress, and the ONE federation byte leg this page's crossing composes
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Numerics;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Each row carries its metalness, its roughness fallback (read when the style supplies no IfcSpecularHighlight),
-// and whether the method is transmissive — the IFC reflectance vocabulary PBR meaning captured once as
-// POLICY_VALUES, so import folds the method onto metalness/roughness and ForPbr picks it back at egress.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -65,13 +62,9 @@ public sealed partial class ReflectanceModel {
     public double RoughnessHint { get; }
     public bool Transmissive { get; }
 
-    // Keys chain through the [SmartEnum<string>] generator this(key) overload, and the row carries its typed
-    // IfcReflectanceMethodEnum so ToIfc is a field read, never an Enum.Parse over the key.
     private ReflectanceModel(string key, IfcReflectanceMethodEnum method, double metalness, double roughnessHint, bool transmissive) : this(key) =>
         (Method, Metalness, RoughnessHint, Transmissive) = (method, metalness, roughnessHint, transmissive);
 
-    // Indexing Items on the typed schema constant resolves without the enum-to-string hop — the method value IS the
-    // symbol — with NotDefined the total fallback for a future schema member.
     private static readonly Lazy<FrozenDictionary<IfcReflectanceMethodEnum, ReflectanceModel>> ByMethod =
         new(static () => Items.ToFrozenDictionary(static row => row.Method));
 
@@ -80,8 +73,6 @@ public sealed partial class ReflectanceModel {
 
     public IfcReflectanceMethodEnum ToIfc() => Method;
 
-    // Author emits ONLY this modern subset — a superseded BLINN/PHONG/STRAUSS is import vocabulary the neutral
-    // vector absorbs, never re-authored — and an imported MATT/FLAT round-trips MATT via its 1.0 RoughnessHint.
     public static ReflectanceModel ForPbr(double metallic, double roughness, bool transmissive) =>
         transmissive          ? Glass
         : metallic >= 0.5     ? (roughness <= 0.05 ? Mirror : Metal)
@@ -89,12 +80,6 @@ public sealed partial class ReflectanceModel {
         : Plastic;
 }
 
-// IFC4 types Mode as a free IfcIdentifier while IFC2x3 constrained it to IfcSurfaceTextureEnum, so the roster spans
-// BOTH under one case-insensitive key. Exchange/export#EXPORT_RAIL GltfChannel.From resolves the SAME canonical
-// names onto its glTF targets, so an IFC mode token reaches a glTF slot through two rosters over one name and never
-// through a call-site correspondence either roster could contradict.
-// Polarity TRAVELS on the row because inversion evaluates in the LINEAR domain over decoded texels — this page
-// opens no image, so applying it here is unspellable and dropping it is the silent-roughness-fork defect.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -105,8 +90,6 @@ public sealed partial class TextureMode {
     public static readonly TextureMode Reflection       = new("REFLECTION",       channel: "specular_color",      polarity: ChannelPolarity.Direct);
     public static readonly TextureMode Shininess        = new("SHININESS",        channel: "specular_roughness",  polarity: ChannelPolarity.Inverted);
     public static readonly TextureMode Roughness        = new("ROUGHNESS",        channel: "specular_roughness",  polarity: ChannelPolarity.Direct);
-    // Packed resolves the glTF-aligned spelling to the ORM pack name, not a channel — the pack roster owns the
-    // slot order, so a packed stem never resolves to one of its components.
     public static readonly TextureMode Packed           = new("METALLICROUGHNESS", channel: "orm",                polarity: ChannelPolarity.Direct);
     public static readonly TextureMode Normal           = new("NORMAL",           channel: "geometry_normal",     polarity: ChannelPolarity.Direct);
     public static readonly TextureMode Bump             = new("BUMP",             channel: "height",              polarity: ChannelPolarity.Direct);
@@ -123,22 +106,12 @@ public sealed partial class TextureMode {
 
     private TextureMode(string key, string channel, ChannelPolarity polarity) : this(key) => (Channel, Polarity) = (channel, polarity);
 
-    // From admits a raw IFC token in one hop through the generated keyed lookup under the row comparer's own
-    // case-insensitivity; an unmatched token is NotDefined, never a fabricated channel — a guessed binding
-    // lights the wrong slot with no diagnostic and no consumer can tell it from a correct one.
     public static TextureMode From(string mode) => TryGet(mode, out TextureMode? row) && row is not null ? row : NotDefined;
 }
 
-// LocalOrigin is the offset, Scale the uniform scale, and Axis1 the rotated U direction whose atan2 IS the
-// rotation. This carrier is not a STRATA_TWIN of the Materials `texture#TEXTURE_UV` `UvFrame` it lowers onto: it
-// holds the IfcCartesianTransformationOperator2D decode Materials never sees, and a texture transform is a binding
-// fact rather than a Materials set-payload column.
 public readonly record struct UvTransform(Vector2 Offset, Vector2 Scale, double Rotation) {
     public static readonly UvTransform Identity = new(Vector2.Zero, Vector2.One, 0d);
 
-    // GeometryGym leaves Axis1/Axis2/LocalOrigin null on an unconstrained operator and Scale 0 when the STEP
-    // field was unset, so the absent-axis default is +U and a non-positive scale reads as unity — a raw 0 scale
-    // would collapse every texel of a texture whose author simply omitted the optional field.
     public static UvTransform Of(IfcCartesianTransformationOperator2D operatorRef) {
         double scale = operatorRef.Scale > 0d ? operatorRef.Scale : 1d;
         Vector2 offset = Optional(operatorRef.LocalOrigin)
@@ -150,16 +123,10 @@ public readonly record struct UvTransform(Vector2 Offset, Vector2 Scale, double 
         return new UvTransform(offset, new Vector2((float)scale, (float)scale), Math.Atan2(v, u));
     }
 
-    // Frame lands the five DOUBLES in the exact column order and sign convention the Materials `UvFrame` declares,
-    // so the RosterOf mint lowers in ONE hop and a call site destructuring the Vector2 pair by hand is the
-    // divergence this member deletes. Rotation is the SAME angle both sides read: the operator Axis1 atan2 and the
-    // sampler forward rotation share one sense, so a round-tripped frame re-samples the texels it started on.
     public (double OffsetU, double OffsetV, double ScaleU, double ScaleV, double Rotation) Frame =>
         (Offset.X, Offset.Y, Scale.X, Scale.Y, Rotation);
 }
 
-// TextureTrait is the capability vocabulary a carried texture answers over — the four facts a downstream gate asks
-// before it acts, held as ONE combinable column rather than as a case test plus a derived predicate at each site.
 [SmartEnum<string>]
 public sealed partial class TextureTrait : ICapability<TextureTrait> {
     public static readonly TextureTrait Classified = new("classified");
@@ -168,12 +135,6 @@ public sealed partial class TextureTrait : ICapability<TextureTrait> {
     public static readonly TextureTrait Transformed = new("transformed");
 }
 
-// Cases declaring a same-named column instead of forwarding the root positional suppress the root property and
-// silently drops the argument, which is the one shape this family forecloses by construction. An IfcPixelTexture
-// own pixel run stays behind a GeometryGym ctor-only field, so the Pixels case declares the grid EXTENT alone.
-// CoordinateSet is the ordinal of the representation-item map that CLAIMS this texture — a GEOMETRY-side fact this
-// style-side projector cannot see — so `Of` admits the DECLARED set 0 and `At` re-stamps it once
-// `Exchange/import#EXPLICIT_TESSELLATION` resolves the join.
 [Union]
 public abstract partial record SurfaceTexture(TextureMode Mode, TextureWrap WrapU, TextureWrap WrapV, Option<UvTransform> Uv, int CoordinateSet) {
     public sealed record Url(TextureMode Mode, TextureWrap WrapU, TextureWrap WrapV, Option<UvTransform> Uv, int CoordinateSet, string Reference)
@@ -183,15 +144,12 @@ public abstract partial record SurfaceTexture(TextureMode Mode, TextureWrap Wrap
     public sealed record Pixels(TextureMode Mode, TextureWrap WrapU, TextureWrap WrapV, Option<UvTransform> Uv, int CoordinateSet, int Width, int Height, int Components)
         : SurfaceTexture(Mode, WrapU, WrapV, Uv, CoordinateSet);
 
-    // Consumers state a requirement as a VALUE instead of re-spelling the compound case-and-derived-property
-    // test each gate grew, so a new payload subtype declares its own traits and every gate holds.
     public CapabilitySet<TextureTrait> Traits =>
         Shared.With(Switch<TextureTrait>(
             url:    static _ => TextureTrait.Addressable,
             blob:   static _ => TextureTrait.Embedded,
             pixels: static _ => TextureTrait.Embedded));
 
-    // Universal columns answer their own traits, so a case row states only what its PAYLOAD adds.
     CapabilitySet<TextureTrait> Shared =>
         (Mode.Resolved, Uv.IsSome) switch {
             (true, true)   => CapabilitySet<TextureTrait>.Of(TextureTrait.Classified, TextureTrait.Transformed),
@@ -200,15 +158,9 @@ public abstract partial record SurfaceTexture(TextureMode Mode, TextureWrap Wrap
             (false, false) => CapabilitySet<TextureTrait>.None,
         };
 
-    // Seam rosters demand BOTH: a channel token the classifier keys on and a reference an app root resolves.
-    // Missing(Rowable) names the diagnostic shape the seam TextureRoster row carries no channel for.
     public static readonly CapabilitySet<TextureTrait> Rowable =
         CapabilitySet<TextureTrait>.Of(TextureTrait.Classified, TextureTrait.Addressable);
 
-    // Concrete subtype IS the discriminant, so an unrecognized future subtype is None rather than a lossy Url
-    // with an empty reference. GeometryGym spells the URL field UrlReference (never URLReference) and types
-    // RasterCode as IfcBinary whose `Binary` member is the raw byte[] — the ValueString hex render is the STEP wire
-    // form, so lifting it as text would re-parse bytes the decoder already holds.
     public static Option<SurfaceTexture> Of(IfcSurfaceTexture texture) {
         TextureMode mode = TextureMode.From(texture.Mode);
         Option<UvTransform> uv = Optional(texture.TextureTransform).Map(UvTransform.Of);
@@ -221,21 +173,12 @@ public abstract partial record SurfaceTexture(TextureMode Mode, TextureWrap Wrap
         };
     }
 
-    // IFC states addressing as ONE two-state repeat flag per axis, so the seam three-row TextureWrap is WIDER than
-    // this ingest and MirroredRepeat is unreachable from an IFC file. NAMED LOSS on the inverse: Repeats folds
-    // MirroredRepeat back onto the repeating flag, so a mirrored wrap round-trips as plain repeat.
     static TextureWrap Wrap(bool repeat) => repeat ? TextureWrap.Repeat : TextureWrap.ClampToEdge;
 
     static bool Repeats(TextureWrap wrap) => wrap != TextureWrap.ClampToEdge;
 
-    // Roots are RECORD `[Union]`s, so `with` regenerates the active case whole — the one expression that re-seats
-    // a universal column without a per-case ladder. The composition edge calls it once, folding the
-    // `Exchange/import#EXPLICIT_TESSELLATION` map ordinal on before the texture-set owner reads it.
     public SurfaceTexture At(int coordinateSet) => this with { CoordinateSet = coordinateSet };
 
-    // Total over the closed family, so a new case breaks the build. A Pixels case re-authors its EXTENT with an
-    // empty pixel run — GeometryGym exposes the run only through the ctor and this page never held the texels — so
-    // a pixel-texture round-trip claiming the raster back is the deleted overclaim.
     public IfcSurfaceTexture Author(DatabaseIfc db) {
         IfcSurfaceTexture authored = Switch<IfcSurfaceTexture>(
             url:    u => new IfcImageTexture(db, Repeats(u.WrapU), Repeats(u.WrapV), u.Reference),
@@ -243,15 +186,10 @@ public abstract partial record SurfaceTexture(TextureMode Mode, TextureWrap Wrap
             pixels: p => new IfcPixelTexture(db, Repeats(p.WrapU), Repeats(p.WrapV), p.Width, p.Height, p.Components, []));
         authored.Mode = Mode.Key;
         Uv.IfSome(uv => authored.TextureTransform = Operator(db, uv));
-        // Parameter is the schema ONLY per-texture record of which parameterization a style samples, so writing the
-        // canonical U/V variable names round-trips the binding even where a reader never reaches the item.
         authored.Parameter = [$"U{CoordinateSet}", $"V{CoordinateSet}"];
         return authored;
     }
 
-    // IfcCartesianTransformationOperator2D(DatabaseIfc) seeds an origin-anchored operator, so the frame writes
-    // through the mutable Axis1/LocalOrigin/Scale members; a uniform Scale is the whole IFC 2D affine axis, so a
-    // non-uniform glTF scale narrows to its U component here and the divergence rides the texture-set owner.
     static IfcCartesianTransformationOperator2D Operator(DatabaseIfc db, UvTransform uv) =>
         new(db) {
             LocalOrigin = new IfcCartesianPoint(db, uv.Offset.X, uv.Offset.Y),
@@ -260,10 +198,6 @@ public abstract partial record SurfaceTexture(TextureMode Mode, TextureWrap Wrap
         };
 }
 
-// All four attributes are MANDATORY on IfcSurfaceStyleLighting — its own STEP writer dereferences each
-// unconditionally — so a body missing one is malformed and reads None rather than lowering a fabricated black
-// coefficient a renderer cannot distinguish from a declared one. Channels are SCENE-LINEAR here and
-// display-referred sRGB on the wire, the same transfer pair every other colour on this page crosses.
 public readonly record struct SurfaceLighting(
     (double R, double G, double B) DiffuseTransmission,
     (double R, double G, double B) DiffuseReflection,
@@ -278,8 +212,6 @@ public readonly record struct SurfaceLighting(
                 (AppearanceProjection.Linearize(r.Red), AppearanceProjection.Linearize(r.Green), AppearanceProjection.Linearize(r.Blue))))
             : Option<SurfaceLighting>.None;
 
-    // Four-colour ctor is the entity ONLY public author and it resolves its database from the first colour, so
-    // every triple encodes back through the sRGB OETF and the four IfcColourRgb entities are built here in order.
     public IfcSurfaceStyleLighting Author(DatabaseIfc db) =>
         new(Colour(db, DiffuseTransmission), Colour(db, DiffuseReflection), Colour(db, Transmission), Colour(db, Reflectance));
 
@@ -287,18 +219,8 @@ public readonly record struct SurfaceLighting(
         new(db, AppearanceProjection.Encode(c.R), AppearanceProjection.Encode(c.G), AppearanceProjection.Encode(c.B));
 }
 
-// StyledAppearance is the INGEST product: the content-keyed seam node with the three facts frozen AppearanceSummary
-// cannot carry, each riding BESIDE it because widening that preimage re-keys every stored Node.Appearance.
-// DoubleSided is the discriminant the ingest filter already computes and threw away: `Side` distinguishes BOTH from
-// POSITIVE and the filter admitted both alike, so a single-sided IFC style imported and re-authored came back
-// double-sided and its glTF material rendered its interior faces. Three consumers read the bit — the egress `Side`
-// write, the glTF `MaterialBuilder.WithDoubleSide` stamp, and the `DetailSchema.DoubleSided` bag row `DoubleSidedOf`
-// answers from — so none re-derives sidedness from a geometry probe.
 public readonly record struct StyledAppearance(Node.Appearance Appearance, Seq<SurfaceTexture> Textures, Option<SurfaceLighting> Lighting, bool DoubleSided);
 
-// Rows are TYPED at the seam and this mint fills them in the seam own vocabulary, the UvTransform lowered onto the
-// neutral frame columns AT THIS MINT so no IfcCartesianTransformationOperator2D decode crosses. An Embedded
-// Blob/Pixels payload stays on StyledAppearance for the root own byte admission.
 public static TextureRoster RosterOf(StyledAppearance styled) =>
     new(styled.Appearance.Id, styled.Textures.Choose(static texture =>
         texture.Traits.AdmitsAll(SurfaceTexture.Rowable) && texture is SurfaceTexture.Url url
@@ -313,13 +235,7 @@ static TextureCandidate Candidate(SurfaceTexture.Url url) {
         offsetU, offsetV, scaleU, scaleV, rotation);
 }
 
-// Index runs are ONE-BASED with one entry per FACE and one Alpha the schema applies to every face alike. The seam
-// carries colour PER VERTEX and IFC has no per-vertex form, so the correspondence is stated once here: the ingest
-// broadcasts a face colour onto that face own corners and the fold reads a face FIRST corner back — exact for the
-// unwelded emit a colour map already forces, per-face by the schema own limit for a welded gradient.
 public readonly record struct IndexedColour(Seq<(double R, double G, double B)> Palette, Seq<int> Face, double Alpha) {
-    // Of reads the map: MappedTo/Colours/Opacity resolve the slot publicly and the two payload runs cross IfcInternals.
-    // Opacity is GeometryGym's NaN unset sentinel, which the schema defines as fully opaque.
     public static Option<IndexedColour> Of(IfcTessellatedFaceSet faceSet) =>
         Optional(faceSet.HasColours)
             .Bind(static map => Optional(map.Colours).Map(list => new IndexedColour(
@@ -329,11 +245,6 @@ public readonly record struct IndexedColour(Seq<(double R, double G, double B)> 
                 double.IsNaN(map.Opacity) ? 1.0 : Math.Clamp(map.Opacity, 0.0, 1.0))))
             .Filter(static colour => !colour.Palette.IsEmpty && !colour.Face.IsEmpty);
 
-    // Memo keys on the SAME AppearanceProjection.Bytes quantizer that writes the palette out, so two triangles
-    // collapse EXACTLY when they will emit identical bytes; a SECOND quantizer on a different curve let a highlight
-    // pair the egress collapses hold two rows. A failed byte projection keys on its own row so the palette never
-    // merges values the egress could not measure. Alpha takes the first face: IFC publishes ONE opacity slot per
-    // map, so per-face varying alpha collapses by the schema limit.
     public static Option<IndexedColour> Of(float[] lane, long[] corners, Op key) {
         var memo = new Dictionary<(byte R, byte G, byte B), int>();
         var run = new List<int>(corners.Length / 3);
@@ -365,18 +276,9 @@ public readonly record struct IndexedColour(Seq<(double R, double G, double B)> 
         return palette.Count;
     }
 
-    // Rgba resolves one FACE's colour for the per-vertex lane: the run's one-based ordinal indexes the palette and the
-    // map's single Opacity is the alpha every corner shares. An ordinal past the palette or a run shorter than the face
-    // count is a malformed file and throws inside the caller's own Op.Catch envelope.
     public (double R, double G, double B, double A) Rgba(int face) =>
         Palette[Face[face] - 1] switch { var (r, g, b) => (r, g, b, Alpha) };
 
-    // IfcColourRgbList own ctor divides each channel by 255 and IfcIndexedColourMap three-argument ctor
-    // self-registers through its MappedTo setter, so this writes through PUBLIC surface alone. The rail is real
-    // admission: the palette holds RAW decoded file floats, so a NaN or out-of-range channel faults typed here
-    // instead of silently clamping into a byte that renders. System.Drawing.Color is spelled HERE and nowhere else
-    // and stays fully qualified — a construction argument inside a boundary owner because that ctor is the list
-    // ONLY public author, never a type crossing a projector signature.
     public Fin<IfcIndexedColourMap> Author(IfcTessellatedFaceSet faceSet, Op key) =>
         Palette
             .TraverseM(c => AppearanceProjection.Bytes(c.R, c.G, c.B, Alpha, key)
@@ -386,13 +288,7 @@ public readonly record struct IndexedColour(Seq<(double R, double G, double B)> 
 
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
-// Every binding is an [UnsafeAccessor] extern the COMPILER resolves — no reflection, no IL emit, trim-safe and
-// AOT-safe — and a release renaming a member fails at the FIRST call with MissingFieldException/
-// MissingMethodException, so drift is a caught break rather than a silent wrong render. It is PINNED to the
-// Directory.Packages.props GeometryGymIFC_Core version and a bump re-probes it. Callers receive DETACHED VALUES:
-// a palette and an index run lift to immutable Seq before returning, so no live List<T> field escapes and the
-// Tuple<> shapes GeometryGym stores those fields as are named here and nowhere else.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 internal static class IfcInternals {
     [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "mColourList")]
     static extern ref List<Tuple<double, double, double>> ColourList(IfcColourRgbList list);
@@ -415,35 +311,19 @@ internal static class IfcInternals {
     [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "mStiffness")]
     static extern ref double StiffnessValue(IfcWarpingStiffnessSelect select);
 
-    // IfcColourRgbList stores its triples ALREADY on the unit interval — its own Color ctor divides each channel by
-    // 255 on the way in — so the palette crosses UNSCALED and a second /255 here would black every ingested colour.
     public static Seq<(double R, double G, double B)> Palette(IfcColourRgbList list) =>
         toSeq(ColourList(list)).Map(static triple => (triple.Item1, triple.Item2, triple.Item3));
 
-    // ColourIndex is ONE-BASED with one entry per FACE, and the run crosses exactly as the schema spells it — the
-    // decrement to a palette ordinal belongs to the fold that indexes, never to a reader that would hide the origin.
     public static Seq<int> ColourRun(IfcIndexedColourMap map) => toSeq(ColourIndex(map));
 
-    // TexCoordIndex is one triple per TRIANGLE, each ordinate a one-based index into the map's TexCoords list, so a
-    // triangulated face set carries a per-CORNER parameterization the per-coordinate form cannot express.
     public static Seq<(int A, int B, int C)> TexCoordRun(IfcIndexedTriangleTextureMap map) =>
         toSeq(TexCoordList(map)).Map(static triple => (triple.Item1, triple.Item2, triple.Item3));
 
-    // READ projection only: IfcBoundaryNodeConditionWarping seals mWarpingStiffness AND every
-    // IfcWarpingStiffnessSelect constructor is internal, so the select cannot be built from outside the assembly at
-    // all — its public 9-argument condition constructor demands a value no caller can construct. A null field (a
-    // base IfcBoundaryNodeCondition parsed under the warping subtype, or an unset optional) reads None rather than
-    // a fabricated free end. The magnitude is NATIVE-unit: coercion belongs to the structural reader that threads a
-    // UnitScheme, never to this capsule, which detaches values and converts nothing.
     public static Option<(bool Rigid, double Native)> Warping(IfcBoundaryNodeConditionWarping condition) =>
         WarpingStiffness(condition) is { } select
             ? Some((StiffnessFixed(select), StiffnessValue(select)))
             : Option<(bool, double)>.None;
 
-    // Maps is a read-only LIST mutated through AddRange, TexCoords a public setter, and MappedTo the setter that
-    // SELF-REGISTERS the map into the face set HasTextures — so it lands LAST and the face set never observes a
-    // half-filled map. IfcTextureVertexList(DatabaseIfc, IEnumerable<Tuple<double, double>>) is public, so only the
-    // mint and the triple list ride accessors.
     public static IfcIndexedTriangleTextureMap Bind(
         IfcTriangulatedFaceSet faceSet, Seq<IfcSurfaceTexture> textures,
         Seq<(double U, double V)> coordinates, Seq<(int A, int B, int C)> triples) {
@@ -456,19 +336,10 @@ internal static class IfcInternals {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// Rasm.Element OWNS the AppearanceSummary PBR vocabulary and its content-key derivation; this projector
-// discriminates the IFC presentation graph and folds it onto the neutral vector, never re-minting the Materials OpenPBR
-// vector, conductor-IOR table, or slab algebra (the named cross-folder seam violation).
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AppearanceProjection {
-    // DefaultRefractionIndex is the egress optical index for a transmissive style whose summary carries no IOR (the thin seam
-    // drops the magnitude — a Rasm.Materials BSDF concern): crown-glass 1.5, the conventional neutral.
     const double DefaultRefractionIndex = 1.5;
 
-    // BOTH and POSITIVE are NOT interchangeable, so reading `Side` as a predicate and dropping its value is the
-    // discarded-discriminant defect: the projector already touched the one attribute that answers sidedness.
-    // NEGATIVE styles paint the back face alone and stay filtered out — admitting one hands an element the colour
-    // of a face no viewer shows.
     public static Fin<StyledAppearance> Project(IfcStyledItem styledItem, double tolerance, Op key) =>
         styledItem.Extract<IfcSurfaceStyle>().AsIterable()
             .Filter(static surface => surface.Side is IfcSurfaceSide.BOTH or IfcSurfaceSide.POSITIVE)
@@ -477,29 +348,18 @@ public static class AppearanceProjection {
             .Bind(surface => SummaryOf(surface, key).Map(summary =>
                 new StyledAppearance(Mint(summary, tolerance), TexturesOf(surface), LightingOf(surface), surface.Side is IfcSurfaceSide.BOTH)));
 
-    // Styles declare at most one lighting item, so the first is the whole read; a body missing one of the four
-    // mandatory colours reads None through SurfaceLighting.Of.
     static Option<SurfaceLighting> LightingOf(IfcSurfaceStyle surface) =>
         toSeq(surface.Styles)
             .Choose(static style => style is IfcSurfaceStyleLighting lighting ? Some(lighting) : Option<IfcSurfaceStyleLighting>.None)
             .Head
             .Bind(SurfaceLighting.Of);
 
-    // Multiple texture styles on one surface concatenate in Styles order, and an
-    // unclaimed Mode rides its NotDefined row so the seam projection rows nothing for it rather than
-    // binding a guessed channel.
     static Seq<SurfaceTexture> TexturesOf(IfcSurfaceStyle surface) =>
         toSeq(surface.Styles)
             .Choose(static style => style is IfcSurfaceStyleWithTextures textured ? Some(textured) : Option<IfcSurfaceStyleWithTextures>.None)
             .Bind(static textured => toSeq(textured.Textures))
             .Choose(SurfaceTexture.Of);
 
-    // Walking OWNER-WARD is the only shape the edge algebra admits: an Object ASSOCIATES the
-    // appearance (Relating the Object, Related the appearance — an Appearance may never relate an edge), and the
-    // Materials bag ASSIGNS off that same Object under PropertyDefinition, so the reader steps appearance -> owning
-    // Object(s) -> Assigned Appearance-set bag through the uniform Kind/Relating/Related accessors. Every owner of
-    // one content-keyed appearance carries the same refinement bag, so first evidence answers, and absence is the
-    // ordinary case an IFC-imported appearance takes.
     static Option<PropertyValue> AppearanceRow(ElementGraph graph, NodeId appearance, PropertyName row) =>
         toSeq(graph.EdgesAt(appearance))
             .Filter(edge => edge.Kind == RelationshipKind.Associate && edge.Related == appearance)
@@ -519,40 +379,25 @@ public static class AppearanceProjection {
                     ? Optional(admitted)
                     : None);
 
-    // PRECEDENCE is by ORIGIN, not by rank: an appearance this projector minted carries the IfcSurfaceSide bit on
-    // its own StyledAppearance and stays authoritative for that node, while the bag row answers for a
-    // Materials-authored appearance no IFC style ever described, so the two never contend over one node. Option is
-    // an honest return: defaulting an absent row to false asserts single-sided over a producer that wrote nothing.
     public static Option<bool> DoubleSidedOf(ElementGraph graph, NodeId appearance) =>
         AppearanceRow(graph, appearance, DetailSchema.DoubleSided)
             .Bind(static value => value is PropertyValue.Boolean flag ? Some(flag.Value) : Option<bool>.None);
 
-    // IfcSurfaceStyleRendering is itself an IfcSurfaceStyleShading, so it supplies the colour/transparency base
-    // beside the reflectance method and specular highlight; a bare shading supplies colour/transparency alone.
     static Fin<AppearanceSummary> SummaryOf(IfcSurfaceStyle surface, Op key) {
-        // First<IfcSurfaceStyleShading> resolves the rendering as the shading fallback when no bare shading is present.
         Option<T> First<T>() where T : class =>
             surface.Styles.AsIterable().Choose(static s => s is T t ? Some(t) : Option<T>.None).Head;
         Option<IfcSurfaceStyleRendering> rendering = First<IfcSurfaceStyleRendering>();
         Option<IfcSurfaceStyleShading> shading = First<IfcSurfaceStyleShading>();
         Option<IfcSurfaceStyleRefraction> refraction = First<IfcSurfaceStyleRefraction>();
 
-        // SurfaceColour is MANDATORY on IfcSurfaceStyleShading, and a substituted mid-grey does not degrade
-        // gracefully because it enters the FROZEN AppearanceSummary preimage: a truncated style and a genuine
-        // 0.5-linear grey would mint ONE AppearanceKey and dedup together across the whole content space.
         return shading.Bind(static sh => Optional(sh.SurfaceColour)).Map(Lin)
             .ToFin(new BimFault.Refused(key, BimScope.Semantics, BimReason.Rejected, string.Join(':', new object?[] { "surface-slot-miss", "colour", surface.StepId.ToString(CultureInfo.InvariantCulture) })))
             .Bind(surfaceBase => Neutral(rendering, shading, refraction, surfaceBase, key));
     }
 
-    // Past admission, every remaining PBR channel reads off the three style selects and the admitted base.
     static Fin<AppearanceSummary> Neutral(
         Option<IfcSurfaceStyleRendering> rendering, Option<IfcSurfaceStyleShading> shading,
         Option<IfcSurfaceStyleRefraction> refraction, (double R, double G, double B) surfaceBase, Op key) {
-        // IfcColourOrFactor is a TWO-arm select: an IfcColourRgb REPLACES the surface colour, an
-        // IfcNormalisedRatioMeasure SCALES it — reflectance is linear-domain energy, so the ratio (GG-clamped
-        // [0,1] at its ctor) multiplies the linearized triple; the `as IfcColourRgb` cast that silently ignored the
-        // factor arm is the deleted form.
         (double R, double G, double B) baseColor = rendering.Bind(static r => Optional(r.DiffuseColour)).Map(diffuse => diffuse switch {
             IfcColourRgb rgb                => Lin(rgb),
             IfcNormalisedRatioMeasure ratio => (surfaceBase.R * ratio.Measure, surfaceBase.G * ratio.Measure, surfaceBase.B * ratio.Measure),
@@ -562,27 +407,17 @@ public static class AppearanceProjection {
         ReflectanceModel reflectance = rendering.Map(static r => ReflectanceModel.FromIfc(r.ReflectanceMethod)).IfNone(ReflectanceModel.NotDefined);
         double opacity = shading.Map(static sh => double.IsNaN(sh.Transparency) ? 1.0 : 1.0 - Math.Clamp(sh.Transparency, 0.0, 1.0)).IfNone(1.0);
         double roughness = rendering.Bind(static r => RoughnessOf(r.SpecularHighlight)).IfNone(reflectance.RoughnessHint);
-        // IfcSurfaceStyleShading.Transparency IS the alpha/opacity channel carried by `opacity`, physically distinct
-        // from transmission — conflating the two is the deleted form, since a half-alpha plastic is not glass.
         bool transmissive = reflectance.Transmissive || refraction.IsSome;
 
-        // AppearanceSummary.Of owns the whole key derivation and its writer runs at raw IEEE bits because PBR
-        // scalars are not Header-quantized measures, so no tolerance argument exists here to fork the shared key.
         return AppearanceSummary.Of(baseColor.R, baseColor.G, baseColor.B, reflectance.Metalness, Math.Clamp(roughness, 0.0, 1.0), opacity, transmissive, key);
     }
 
-    // IfcSpecularRoughness is a [0,1] roughness read directly; IfcSpecularExponent is a Phong exponent converted
-    // through the standard alpha = sqrt(2/(n+2)).
     static Option<double> RoughnessOf(IfcSpecularHighlightSelect? highlight) => highlight switch {
         IfcSpecularRoughness r => Some(Math.Clamp(r.SpecularRoughness, 0.0, 1.0)),
         IfcSpecularExponent e  => Some(Math.Clamp(Math.Sqrt(2.0 / (Math.Max(0.0, e.SpecularExponent) + 2.0)), 0.0, 1.0)),
         _                      => Option<double>.None,
     };
 
-    // Node cases are class-root [Union] arms generating no `with`, so the content id re-stamps on the seam
-    // Node.Relabel — the SAME Mint the Rasm.Materials ComponentProjector composes, so two structurally-identical
-    // appearances dedup to one node. `tolerance` threads because the seam `ToCanonicalBytes(tolerance)` arity
-    // demands it: the appearance ARM writes only the raw-bit AppearanceKey, so it cannot fork this node identity.
     static Node.Appearance Mint(AppearanceSummary summary, double tolerance) {
         Node.Appearance draft = new(NodeId.Of(new NodeSeed.Placement()), summary);
         return (Node.Appearance)draft.Relabel(NodeId.Of(new NodeSeed.Content(draft, tolerance)));
@@ -590,19 +425,10 @@ public static class AppearanceProjection {
 
     static (double R, double G, double B) Lin(IfcColourRgb c) => (Linearize(c.Red), Linearize(c.Green), Linearize(c.Blue));
 
-    // --- [EGRESS] -------------------------------------------------------------------------
-    // Neutral summaries carry no IOR, so a transmissive appearance authors its IfcSurfaceStyleRefraction at
-    // DefaultRefractionIndex and only the transmissive SIGNAL round-trips — the precise index and dispersion are a
-    // Rasm.Materials BSDF concern the thin summary deliberately drops.
-    // ONE ctor spelling, always the 5-arg overload: transmission and texturing are INDEPENDENT axes, so a ternary
-    // ladder grows an arm per combination while the 5-arg form takes each axis as a null-or-value slot and stays one
-    // expression as the axes grow. GeometryGym resolves the ctor DatabaseIfc from the first non-null slot, so the
-    // rendering leads and every other slot may be null. `doubleSided` arrives REQUIRED beside the roster because the
-    // caller holding a roster holds the StyledAppearance that carries both: a defaulted slot re-mints the hardcoded
-    // BOTH that re-authored every single-sided style as two-sided, which neither a round-trip nor a diff detects.
+    // --- [EGRESS] ----------------------------------------------------------------------
     public static IfcStyledItem Author(DatabaseIfc db, AppearanceSummary summary, Seq<SurfaceTexture> textures, Option<SurfaceLighting> lighting, bool doubleSided) {
         IfcColourRgb surfaceColour = new(db, Encode(summary.BaseColorR), Encode(summary.BaseColorG), Encode(summary.BaseColorB));
-        bool transmissive = summary.Transmissive;  // the refractive signal, DISTINCT from the opacity/alpha channel
+        bool transmissive = summary.Transmissive;
         ReflectanceModel reflectance = ReflectanceModel.ForPbr(summary.Metallic, summary.Roughness, transmissive);
         IfcColourRgb specular = summary.Metallic >= 0.5 ? surfaceColour : new IfcColourRgb(db, 1.0, 1.0, 1.0);
         IfcSurfaceStyleRendering rendering = new(surfaceColour) {
@@ -614,10 +440,7 @@ public static class AppearanceProjection {
         };
         IfcSurfaceStyle style = new(
             rendering,
-            // Appearances carrying no lighting leave the slot null rather than authoring a fabricated black
-            // lighting model a receiving renderer would apply.
             lighting.Match(Some: row => row.Author(db), None: static () => (IfcSurfaceStyleLighting?)null),
-            // IfcSurfaceStyleWithTextures admits only a NON-EMPTY list (its ctor reads textures[0] for the database).
             textures.IsEmpty ? null : new IfcSurfaceStyleWithTextures([.. textures.Map(texture => texture.Author(db))]),
             null,
             transmissive ? new IfcSurfaceStyleRefraction(db) { RefractionIndex = DefaultRefractionIndex } : null) {
@@ -626,15 +449,8 @@ public static class AppearanceProjection {
         return new IfcStyledItem(style);
     }
 
-    // Bind is a second call rather than a column on Author because every one of these payloads binds to the
-    // REPRESENTATION ITEM: a surface style knows its texture bytes and nothing about the mesh that samples them. The
-    // receipt is the bound pairs, so the egress reads which lanes survived onto the file instead of inferring it
-    // from the roster it passed in. The colour arm palette holds RAW decoded floats whose kernel-quantizer
-    // admission can refuse, so Bind rides Fin.
     public static Fin<Seq<(EncodingChannel Channel, IfcPresentationItem Item)>> Bind(
         IfcStyledItem styled, IfcTriangulatedFaceSet faceSet, Seq<(EncodingChannel Channel, float[] Lane)> attributes, long[] corners, Op key) =>
-        // Corner MAXIMUM folds ONCE in the guard that already walks the run shape and threads into every lane
-        // arity check — a per-lane Max re-scanned the whole run once per bound channel for an unchanging number.
         corners.Length >= 3 && corners.Length % 3 == 0
             ? corners.Max() switch { var reach => attributes
                 .TraverseM(entry => Optional(Binders.Value.GetValueOrDefault(entry.Channel)).Match(
@@ -644,17 +460,12 @@ public static class AppearanceProjection {
                 .Map(static bound => bound.Somes()) }
             : Fin.Succ(Seq<(EncodingChannel Channel, IfcPresentationItem Item)>.Empty);
 
-    // Rows are frozen once because the channel vocabulary is closed at composition; every row rides the
-    // Fin-in-Option shape — Fin the admission rail, Option the ordinary lane-binds-nothing case.
     static readonly Lazy<FrozenDictionary<EncodingChannel, Func<IfcStyledItem, IfcTriangulatedFaceSet, float[], long[], long, Op, Fin<Option<IfcPresentationItem>>>>> Binders =
         new(static () => new Dictionary<EncodingChannel, Func<IfcStyledItem, IfcTriangulatedFaceSet, float[], long[], long, Op, Fin<Option<IfcPresentationItem>>>> {
             [EncodingChannel.Uv] = static (styled, faceSet, lane, corners, reach, _) => Fin.Succ(Mapped(styled, faceSet, lane, corners, reach).Map(static map => (IfcPresentationItem)map)),
             [EncodingChannel.ColorRgba] = static (_, faceSet, lane, corners, reach, key) => Coloured(faceSet, lane, corners, reach, key).Map(static map => map.Map(static item => (IfcPresentationItem)item)),
         }.ToFrozenDictionary());
 
-    // Rasm-authored meshes are per-VERTEX parameterized, so the corner run IS the UV index run and the vertex list
-    // is the lane in vertex order — no re-index and no vertex split. IfcSurfaceTexture rows come back off the
-    // styled item through the same BaseClassIfc.Extract<T> traversal the ingest reads, so no roster threads twice.
     static Option<IfcIndexedTriangleTextureMap> Mapped(IfcStyledItem styled, IfcTriangulatedFaceSet faceSet, float[] lane, long[] corners, long reach) =>
         toSeq(styled.Extract<IfcSurfaceTexture>()) is { IsEmpty: false } textures && Indexable(lane, reach, arity: 2)
             ? Some(IfcInternals.Bind(faceSet, textures, Pairs(lane), Triples(corners)))
@@ -667,13 +478,9 @@ public static class AppearanceProjection {
                 None: static () => Fin.Succ(Option<IfcIndexedColourMap>.None))
             : Fin.Succ(Option<IfcIndexedColourMap>.None);
 
-    // Every corner the run names must index a whole tuple inside the lane: a lane shorter than its own index run is
-    // a producer defect, and binding it authors a map whose indices walk off the end in the RECEIVING application.
     static bool Indexable(float[] lane, long reach, int arity) =>
         lane.Length >= arity && reach < lane.Length / arity;
 
-    // IFC index attributes are ONE-BASED, so every corner ordinal increments exactly here — the one site in this
-    // page that knows the schema index origin.
     static Seq<(double U, double V)> Pairs(float[] lane) =>
         toSeq(Enumerable.Range(0, lane.Length / 2).Select(v => ((double)lane[v * 2], (double)lane[(v * 2) + 1])));
 
@@ -681,21 +488,12 @@ public static class AppearanceProjection {
         toSeq(Enumerable.Range(0, corners.Length / 3)
             .Select(t => ((int)corners[t * 3] + 1, (int)corners[(t * 3) + 1] + 1, (int)corners[(t * 3) + 2] + 1)));
 
-    // Numerics/atoms#SCALAR_FLOOR RgbProfile.Srgb carries the working-space Configuration whose own Rgb transfer
-    // pair IS the IEC 61966-2-1 curve, so this package holds the estate one sRGB spelling by READING the row — a
-    // hand-written piecewise body clamped to [0,1] flattened the negative-input reflection the row models, so an
-    // extended-range channel silently read zero. Both stay TOTAL and per-channel because the unit-range gate is the
-    // seam factory own at AppearanceSummary.Of; ALPHA never takes the curve, coverage being linear by definition.
     public static double Linearize(double channel) =>
         RgbProfile.Srgb.Configuration.Rgb.ToLinear(channel, RgbProfile.Srgb.Configuration.DynamicRange);
 
     public static double Encode(double channel) =>
         RgbProfile.Srgb.Configuration.Rgb.FromLinear(channel, RgbProfile.Srgb.Configuration.DynamicRange);
 
-    // Bytes IS the kernel federation quantizer: raw file floats fault typed on a non-finite or out-of-range channel
-    // and quantize through PerceptualColor.ToRgb, whose byte leg is the content-key quantizer the federation
-    // addresses against — so an IFC palette byte, a dotbim colour byte, and a content-key byte agree bit for bit by
-    // CONSTRUCTION. Decode is its inverse, the dotbim import lane typed re-entry.
     public static Fin<(byte Red, byte Green, byte Blue, byte Alpha)> Bytes(double r, double g, double b, double alpha, Op key) =>
         PerceptualColor.OfRgb(r, g, b, RgbProfile.Srgb, alpha, key).Map(static colour => colour.ToRgb());
 

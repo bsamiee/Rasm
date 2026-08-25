@@ -55,17 +55,8 @@ type Inclusive = Literal["both", "neither", "left", "right"]
 
 
 def _collect_raises() -> Catch:
-    # reified at the CALL so the module-scope `lazy polars` proxy stays deferred for a caller that never validates.
-    # `SchemaError`/`SchemaErrors` derive from pandera's own `ReducedPickleExceptionBase` and never from a builtin, so
-    # neither is caught here — and neither needs to be: `_validate` catches the pandera pair INSIDE the fence, because
-    # a schema breach is a recorded VERDICT on this page and never a rail refusal. This set names what the
-    # `frame.collect()` under that verdict can still raise, and `PolarsError` roots the whole polars rail.
     return (pl.exceptions.PolarsError,)
 
-# this module's whole raise roster, seated once for all three sections: every fenced leg and every explicit refusal on
-# this page resolves ONE anchor here. The gate and the covenant declare TRANSIENT — both reach a provider write, a
-# scan, or a collect a re-issue may clear — while the admission breach declares TERMINAL, since a frame whose columns
-# do not match the declaration matches no better on a second read.
 QUALITY_COLLECT: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.CONTRACT, point="quality", arm="boundary", defect="collect", retriability=TRANSIENT
 )
@@ -119,23 +110,12 @@ class ContractClaim(Struct, frozen=True):
         return cls(subject, ClaimStatus.PASSED if not breaches else ClaimStatus.FAILED, shape, breaches, key)
 
     def contribute(self) -> Iterable[Receipt]:
-        # receipts stay truth, instruments stay projections: the breach COUNT lands on the metric spine under
-        # domain="contract" keyed by the verdict, so a schema or covenant regression alerts on the same spine its
-        # sibling quality plane grades on rather than waiting for someone to read a log. The record rides the
-        # generator's own advance, exactly as every sibling `contribute` emits, so a receipt built and discarded
-        # records nothing and a drained one records once.
-        # `domain`/`kind`/`key` are the lifted evidence contract the `tabular/lakehouse#LAKEHOUSE` residence reads —
-        # the SAME pair handed `Metrics.record` beside the minted key — and `domain` is that plane's partition column,
-        # so a contributor omitting it lands every admission row in one nameless partition no predicate ever prunes.
-        # The verdict rides `kind` ALONE: spelling it a second time under its own name stores one value in a lifted
-        # column and again in the open map beside it.
         scope = "/".join(map(str, self.shape))
         facts: dict[str, object] = {"domain": "contract", "kind": self.status, "key": self.content_key.hex, "breaches": len(self.breaches)}
         Metrics.record({"rasm.contract.breaches": float(len(self.breaches))}, domain="contract", kind=self.status)
         yield Receipt.of(self.subject, ("emitted", f"{self.subject}[{scope}]", facts))
 
 
-# verdict observe edge: every settled claim fires in its composition scope; the data composition fold registers the row.
 VERDICT_POINT: Final[HookPoint[ContractClaim]] = HookPoint(id=DataHook.CONTRACT_VERDICT, payload=ContractClaim, modality=Modality(observe=None))
 
 
@@ -208,8 +188,6 @@ class DataQuality(Struct, frozen=True):
         return pap.DataFrameSchema({r.column: r.to_column() for r in self.rules}, strict=False, coerce=False)
 
     def _wire(self) -> bytes:
-        # canonical fingerprint: a policy header (lazy/sample/seed) ahead of one key-sorted
-        # msgspec-JSON row per rule, so owners differing only in policy never share a key.
         header = msgjson.encode((self.lazy, self.sample, self.seed), order="deterministic")
         rows = sorted(
             msgjson.encode(
@@ -221,7 +199,6 @@ class DataQuality(Struct, frozen=True):
         return b"\n".join((header, *rows))
 
     def validate(self, frame: pl.LazyFrame) -> "RuntimeRail[ContractClaim]":
-        # the settled claim fires the verdict OBSERVE point — the fired fact passes through untouched on the rail.
         schema = self._schema()
         return (
             ContentIdentity.of("schema", self._wire())
@@ -230,7 +207,6 @@ class DataQuality(Struct, frozen=True):
         )
 
     def _validate(self, schema: pap.DataFrameSchema, frame: pl.LazyFrame, key: ContentKey) -> ContractClaim:
-        # pandera.polars defers a LazyFrame validation unraised, so the lazy plan collects once here.
         try:
             schema.validate(frame.collect(), lazy=self.lazy, sample=self.sample, random_state=self.seed)
             return ContractClaim.of("data-quality", (len(self.rules),), (), key)
@@ -291,12 +267,6 @@ class FrameAdmission(Struct, frozen=True):
         return self.interop.translate(admitted.frame, Backend.POLARS).bind(lambda lowered: self.quality.validate(lowered.frame.lazy()))
 
     def _resolve(self, frame: Any, shapes: tuple[FieldShape, ...]) -> RuntimeRail[AdmittedFrame]:
-        # every required column is an INDEPENDENT admission, so the census accumulates: `Disposition.ACCUMULATE`
-        # folds one `ADMIT_BREACH` raise per divergent column into one combined fault naming every one of them, where
-        # the joined `", ".join(token …)` breach STRING this deletes collapsed the whole census into a single detail
-        # slot — `docs/stacks/python/rails-and-effects.md` names that erasure by shape, and a caller could read that
-        # admission failed and never which column to repair. `FieldBreach` carries the keyed divergence as a VALUE,
-        # so the four coordinates the fault spells are the same four a consumer matches on.
         live = Map.of_seq((s.field, s) for s in shapes)
         censused = Block.of_seq(
             required.resolve(live).map(_breached).default_value(Ok(required)) for required in self.required
@@ -365,28 +335,18 @@ class RelationCardinality(StrEnum):
 
 
 class ContractIo(StrEnum):
-    # Each direction owns its OWN round trip: a module-scope row table both restates these cases and dereferences the
-    # lazy `dataframely`/`polars` proxies at import, reifying two heavy providers for a covenant that never persists.
     PARQUET = "parquet"
-    # `DatasetKind.RECEIPTS` names Delta as the evidence residence's commit format, so a covenant over frames that LIVE
-    # in Delta proves the round trip it will really run rather than one through a format the proven system never uses.
     DELTA = "delta"
 
     def round_trip(self, validated: "dy.Collection", directory: str, probe: bool) -> "tuple[Frames, bool]":
-        # Answers the restored members beside whether the artifact's OWN metadata proves this covenant. Synthesized
-        # covenants annotate every member required, so each leaf exists and no arm guards an absent optional member.
         covenant = type(validated)
         match self:
             case ContractIo.PARQUET:
                 validated.write_parquet(directory)
-                # Generator, never a tuple: `probe=False` short-circuits before the first footer read, which is the
-                # whole cost `Restore.SKIP` declines to pay over a collection of many members.
                 stamps = (dy.read_parquet_metadata_collection(f"{directory}/{name}.parquet") for name in covenant.member_schemas())
                 proven = probe and all(stamp is not None and stamp.matches(covenant) for stamp in stamps)
                 return _members(covenant.scan_parquet(directory, validation="skip")), proven
             case ContractIo.DELTA:
-                # polars owns the Delta commit, so no serialized covenant rides it and `probe` buys nothing here: every
-                # Delta restore faces an unproven artifact and answers to `Restore` alone.
                 for name, frame in _members(validated).items():
                     frame.write_delta(f"{directory}/{name}")
                 return {name: pl.scan_delta(f"{directory}/{name}") for name in covenant.member_schemas()}, False
@@ -395,9 +355,6 @@ class ContractIo(StrEnum):
 
 
 class Restore(StrEnum):
-    # Owns what the deleted read-time `validation=` argument decided. Grading left this axis: `_claim` runs the
-    # member-schema and cross-member algebra over every restored frame unconditionally, so this axis spends itself on
-    # metadata alone — whether to pay for the stamp, and what an unproven artifact costs the claim.
     SKIP = "skip"
     ALLOW = "allow"
     WARN = "warn"
@@ -411,9 +368,6 @@ class Restore(StrEnum):
             case Restore.SKIP | Restore.ALLOW:
                 return restored, ()
             case Restore.WARN:
-                # Stderr carried the provider's whole signal; on this spine an unproven restore is one point on the
-                # `domain="contract"` series the verdict rides, visible to a board without a breach row that would
-                # flip an otherwise passing claim to FAILED.
                 Metrics.record({"rasm.contract.unproven": 1.0}, domain="contract", kind=self)
                 return restored, ()
             case Restore.FORBID:
@@ -457,13 +411,7 @@ class CovenantOp:
     consistent: tuple[CovenantMember, ...] = case()
     restrict: tuple[str, tuple[CovenantMember, ...]] = case()
     extend: tuple[tuple[CovenantMember, ...], ...] = case()
-    # `(io, directory, sink, members)`: `sink` lands every member's REJECTED rows beside the accepted ones under one
-    # `_failures/<member>` leaf of that same directory, so an incident reconstruction reads the rows behind the breach
-    # tallies instead of counts with nothing under them. It is a slot rather than a second verb because the rejects
-    # are a property of the persistence this op already runs.
     persist: tuple[ContractIo, str, bool, tuple[CovenantMember, ...]] = case()
-    # Proving the serialized covenant reaches no directory and sinks no rejects, so it is its own verb over members
-    # alone rather than a `persist` direction whose arm silently ignores two of that case's four slots.
     contract: tuple[CovenantMember, ...] = case()
     sample: tuple[int, tuple[CovenantMember, ...]] = case()
 
@@ -513,7 +461,6 @@ class FrameCovenant(Struct, frozen=True):
 
     @beartype(conf=FAULT_CONF)
     def run(self, op: CovenantOp) -> "RuntimeRail[ContractClaim]":
-        # both contract entrypoints converge on one verdict fire — the covenant claim rides the same OBSERVE point.
         return (
             ContentIdentity.of("covenant", tuple(m.content_key for m in op.members))
             .bind(
@@ -547,8 +494,6 @@ class FrameCovenant(Struct, frozen=True):
                         key,
                     )
                 case CovenantOp(tag="persist", persist=(io, directory, sink, members)):
-                    # `eager=True` is load-bearing rather than a repeated default: both directions hand materialized
-                    # frames to a provider writer, and the restored halves come back lazy off the scan either way.
                     covenant = self._collection(members)
                     validated = covenant.validate(dict(pairs), cast=self.cast, eager=True)
                     restored, unproven = self.restore.prove(io, validated, directory)
@@ -595,12 +540,7 @@ class FrameCovenant(Struct, frozen=True):
         sink: str | None = None,
         prior: tuple[tuple[str, ...], ...] = (),
     ) -> ContractClaim:
-        # Callers hand the covenant type already synthesized: re-deriving it here re-ran the metaclass once per arm,
-        # letting a grading pass drift from the very type its own arm validated against.
         result = covenant.filter(data, cast=self.cast, eager=True)
-        # the rejected ROWS beside their tallies: `Block.choose` is the atomic single-pass filter-map, so a member
-        # rejecting nothing writes nothing and contributes no row — a `sunk` row beside zero rejects would flip a
-        # passing claim to FAILED, since this breach stream IS the status discriminant.
         sunk = Block.empty() if sink is None else Block.of_seq(sorted(result.failure)).choose(lambda name: _sunk(sink, name, result.failure[name]))
         breaches = tuple(
             row
@@ -624,21 +564,10 @@ class FrameCovenant(Struct, frozen=True):
 
 
 def _covenant_raises() -> Catch:
-    # reified at the CALL: naming these in a module-scope tuple would dereference the `lazy dataframely`/`lazy polars`
-    # proxies at import and reify two heavy providers for a composition that never runs a covenant — the same deferral
-    # `ContractIo`/`Restore` carry behavior as methods to preserve. The four `dataframely` failure classes each derive
-    # from `Exception` DIRECTLY with no shared root (`.api/dataframely.md` failure rows), so the set names the three
-    # this owner's arms reach rather than a root that does not exist; `deserialize_collection` answers `None` on a
-    # restore miss and raises nothing, so the round-trip verb reads the value and needs no member here. `OSError`
-    # covers the `Persist` directory legs, which the `dataframely` and `polars` rails both let through untouched.
     return (dy.exc.ValidationError, dy.exc.SchemaError, dy.exc.ImplementationError, pl.exceptions.PolarsError, OSError)
 
 
 def _sunk(sink: str, name: str, failure: "dy.FailureInfo") -> "Option[tuple[str, str, str, str]]":
-    # Exemption: `write_parquet` is a void provider write over a live handle, so the landed LEAF is the value this
-    # projection answers — the rejected rows behind the counts `_claim` already folds, under one `_failures/<member>`
-    # leaf of the very directory the accepted halves wrote to. One artifact carries both sides, and a breach stream
-    # carrying tallies with nothing behind them is half the evidence an incident reconstruction reads.
     rejected = failure.invalid()
     if not rejected.height:
         return Nothing

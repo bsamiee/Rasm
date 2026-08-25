@@ -18,7 +18,7 @@ Every payload arrives settled from `scene/spec#SPEC` — `SceneGrid` admission e
 - Boundary: `_emit` runs the arm under `async_boundary` anchored on the `SCENE_RENDER` row and flattens the boundary-faulted offload rail exactly once, so the composed signature stays one `RuntimeRail` and a worker raise lands as that row's fault, never a custom exception re-crossed inward. The frames egress refuses a non-frames op by RETURNING `SCENE_EGRESS`, never by raising into a fence that would convert it back.
 
 ```python signature
-# --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from typing import Final, Literal, assert_never
 
 from beartype.roar import BeartypeCallHintViolation
@@ -38,25 +38,18 @@ from rasm.artifacts.core.plan import Admission, ArtifactWork
 from rasm.artifacts.core.receipt import ArtifactReceipt
 from rasm.artifacts.scene.spec import BoolOp, CANON, Frames, OrbitPath, RenderSpec, SceneGrid, SceneSource, SceneTarget, WORKER_MODULE, framed
 
-# --- [TYPES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 type SceneOpTag = Literal["image", "export", "frames", "ingest", "compose"]
 
-# --- [CONSTANTS] -----------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FRAME_FORMAT = "rgb24"
 
-# the RESIDUAL raise surface the render fence narrows over: every arm crosses through `_offload`, whose worker-death
-# retry, isolation, and terminal kill all convert at the runtime lane, so what remains is the in-process key mint —
-# its `FAULT_CONF` contract weave and the canonical fold beneath it — and the receipt projection over it.
 _RESIDUE: Final[Catch] = (BeartypeCallHintViolation, ValueError, OSError)
 
-# --- [TABLES] --------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's whole raise roster. The egress refusal is TERMINAL and caller-repairable — a non-frames op asked for the
-# frames egress and will refuse identically forever — while the render fold is TRANSIENT, a worker death or a native
-# capture a re-issue may clear. The op tag rides `SCENE_EGRESS` as a NAMED coordinate rather than forking the subject
-# five ways, since one law covers every non-frames modality.
 SCENE_EGRESS: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.RENDER, point="egress", arm="config", defect="not-a-frames-op", retriability=TERMINAL, slots=("modality",)
 )
@@ -65,7 +58,7 @@ SCENE_RENDER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
 )
 RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SCENE_EGRESS, SCENE_RENDER]))
 
-# --- [MODELS] --------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @tagged_union(frozen=True)
@@ -99,7 +92,6 @@ class SceneOp:
 
 
 class Scene3d(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     op: SceneOp
     lane: LanePolicy
     parents: tuple[ContentKey, ...] = ()
@@ -112,29 +104,17 @@ class Scene3d(Struct, frozen=True):
             case SceneOp(tag="frames", frames=(grid, orbit, spec)):
                 return await self._offload("render_frames", grid, orbit, spec, enforcement=Enforcement.TERMINAL)
             case _:
-                # the refusal is caller data, so it RETURNS on the rail: raising it inside a fence to have that
-                # fence convert it back spelled exception control flow at a seam that already holds the answer.
                 return Error(SCENE_EGRESS.raised(self.op.tag))
 
     @property
     def _key(self) -> ContentKey:
-        # Canonical admitted buffers mint the bare input key before work, so keyed admission probes warm state first;
-        # a parented node merkle-folds its producer keys per core/plan#PLAN.
         minted = ContentIdentity.key(f"scene-{self.op.tag}", _canon(self.op))
         return minted if not self.parents else ContentIdentity.key(f"scene-{self.op.tag}", (minted, *self.parents))
 
     async def _offload[T](self, kernel: str, /, *args: object, enforcement: Enforcement = Enforcement.COOPERATIVE) -> RuntimeRail[T]:
-        # one crossing spelling: the (module, name) pair rides the runtime Kernel — trait supplies isolation and the
-        # worker-death retry, the explicit idempotent declaration gates it, and TERMINAL routes the pebble kill arm.
         return await self.lane.offload(Kernel.of((WORKER_MODULE, kernel), KernelTrait.HOSTILE, enforcement=enforcement, idempotent=True), *args)
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # ONE durable seat for every arm, placed above the render fan rather than inside it: each arm returns the
-        # same settled `Scene` case, so a per-arm record would be five copies of one fold and a sixth arm would land
-        # without one. A produced scene is `OPERATIONAL` under the case's own retention row, its diff naming the
-        # render target and byte volume — the band carrying extent, frame count, and content address never enters,
-        # because a band leaf set is this producer's own instrumentation. Recording suspends, so the seat is here
-        # and `contribute` stays the synchronous projection.
         railed = await async_boundary(SCENE_RENDER, self._rendered, catch=_RESIDUE)
         match railed.bind(lambda rail: rail):
             case Result(tag="ok", ok=receipt):
@@ -159,7 +139,6 @@ class Scene3d(Struct, frozen=True):
                     lambda pair: ArtifactReceipt.Scene(key, target.value, len(pair[0]), frozendict({**pair[1], "address": ContentIdentity.key(target.value, pair[0]).hex}))
                 )
             case SceneOp(tag="frames", frames=(grid, orbit, spec)):
-                # TERMINAL: a hung native orbit capture dies at the caller's wall-clock budget and reclaims its worker.
                 return (await self._offload("render_frames", grid, orbit, spec, enforcement=Enforcement.TERMINAL)).map(
                     lambda sequence: ArtifactReceipt.Scene(
                         key,
@@ -177,7 +156,6 @@ class Scene3d(Struct, frozen=True):
                     lambda pair: ArtifactReceipt.Scene(key, target.value, len(pair[0]), frozendict({**pair[1], "address": ContentIdentity.key(target.value, pair[0]).hex}))
                 )
             case SceneOp(tag="compose", compose=(grid_a, grid_b, op, spec)):
-                # TERMINAL: a boolean fold spinning on coincident surfaces dies at the kill budget the manifold refusal cannot preclude.
                 return (await self._offload("render_compose", grid_a, grid_b, op.value, spec, enforcement=Enforcement.TERMINAL)).map(
                     lambda data: ArtifactReceipt.Scene(
                         key,
@@ -186,7 +164,7 @@ class Scene3d(Struct, frozen=True):
                         frozendict({
                             "boolean": op.value,
                             **_sized(spec),
-                            "address": ContentIdentity.key(SceneTarget.PNG.value, data).hex,  # the Scene band admits float|str — a scalar hex address, never a structured key
+                            "address": ContentIdentity.key(SceneTarget.PNG.value, data).hex,
                         }),
                     )
                 )
@@ -194,11 +172,10 @@ class Scene3d(Struct, frozen=True):
                 assert_never(self.op)
 
 
-# --- [OPERATIONS] ----------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _sized(spec: RenderSpec) -> frozendict[str, float]:
-    # one dims fact stream for every raster arm: capture rasterizes at window-times-scale, so the receipt reports the rasterized dims, never the request
     factor = float(spec.scale or 1)
     return frozendict({"width": spec.window[0] * factor, "height": spec.window[1] * factor})
 

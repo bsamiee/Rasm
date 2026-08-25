@@ -20,7 +20,7 @@ Every mode resolves through one engine stacking `jax`, `equinox`, and `findiff`:
 - Boundary: the implicit-adjoint solves are the solver routes' — `solvers/linear#LINEAR`, `solvers/nonlinear#NONLINEAR`, and `solvers/differential#DIFFERENTIAL` carry the autodifferentiable adjoints (each `optimistix` solve `ImplicitAdjoint` by default, one `lineax` solve per backward pass) this owner consumes, so reverse mode over a function that solves pulls back through the converged solution. `optimization/design#DESIGN` reads this owner's `Gradient`/reverse-mode gradient over an inner-solve objective for inverse design (its `filter_value_and_grad` pass is the `(PYTREE, gradient)` cell). `experiments/study#STUDY` owns a DISJOINT sampled-DGSM rail over `SALib.analyze.dgsm` and never calls this owner — the shared concept is the `∂y/∂x` field, not a wire (the `[DGSM_SEAM]` row carries the boundary).
 
 ```python signature
-# --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+# --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -38,23 +38,15 @@ from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.receipts import DEFAULT_SCOPE, Provenance, Receipt, ScopeKey
 from rasm.runtime.workers import Kernel, KernelTrait, Wire
 
-# cold finite-difference dependency: the `lazy` bind defers `findiff` to the floor body, which needs no jaxlib
-# backend. The jax family is NOT here — it rides the `DiffEngine` carrier behind its x64 config seam.
 lazy from findiff import coefficients
 
 
-# --- [TYPES] -------------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
-# `Pytree` stays `object`: the directional tangent and differentiation point ride the transform as
-# arbitrary pytrees, and narrowing to `np.ndarray` would flatten a structured leaf.
 type ArrayFn = Callable[[np.ndarray], np.ndarray]
 type Pytree = object
 type DiffModeTag = Literal["gradient", "forward_jacobian", "reverse_jacobian", "hessian", "jvp", "vjp", "hvp", "finite_difference"]
-# A directional applicator reads the carrier, objective, `(primal, tangent)` pytree pair, and projected
-# keywords (the HVP cell threads them into its inner `jax.grad`; JVP/VJP ignore them), returning `(value, product)`.
 type Applicator = Callable[["DiffEngine", Callable, tuple[Pytree, Pytree], dict[str, object]], tuple[float | None, object]]
-# A transform selector reads the jax/equinox modules off the carrier and returns the
-# `jax.*`/`equinox.filter_*` transform the analytic modes call under the spec's keywords.
 type TransformPick = Callable[["DiffEngine"], Callable[..., object]]
 
 
@@ -63,15 +55,12 @@ class DiffTarget(StrEnum):
     PYTREE = "pytree"
 
 
-# OUTPUT-shape discriminant `_summary` keys its shape-aware facts off, not one Frobenius+max.
 class DiffProduct(StrEnum):
-    SCALAR = "scalar"  # gradient / JVP / VJP / HVP — a flat vector, no matrix structure
-    JACOBIAN = "jacobian"  # forward/reverse Jacobian / finite-difference — an (out, in) matrix
-    HESSIAN = "hessian"  # second derivative — a square (in, in) matrix carrying a symmetry residual
+    SCALAR = "scalar"
+    JACOBIAN = "jacobian"
+    HESSIAN = "hessian"
 
 
-# Exactness vocabulary, a value object with behavior mirroring `SolveStatus.converged`: `exact`
-# tests `_EXACT` membership so the autodiff-vs-truncation witness lives once on the vocabulary.
 class DiffStatus(StrEnum):
     EXACT = "exact"
     TRUNCATION_BOUNDED = "truncation_bounded"
@@ -83,15 +72,10 @@ class DiffStatus(StrEnum):
         return self in _EXACT
 
 
-# --- [CONSTANTS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Exact-derivative class `DiffStatus.exact` folds: the JAX/Equinox modes are machine-exact,
-# finite-difference floor `TRUNCATION_BOUNDED`.
 _EXACT: frozenset[DiffStatus] = frozenset({DiffStatus.EXACT})
 
-# Per-mode OUTPUT-shape class the `_summary` fold reads, target-independent (a Jacobian is a Jacobian for an
-# array or a PyTree). `_summary` reads it for every mode including the UNSUPPORTED pairing that has no `_SPEC`
-# row, so the shape vocabulary lives here, not only on the spec.
 _PRODUCT: Map[DiffModeTag, DiffProduct] = Map.of_seq([
     ("gradient", DiffProduct.SCALAR),
     ("forward_jacobian", DiffProduct.JACOBIAN),
@@ -104,36 +88,26 @@ _PRODUCT: Map[DiffModeTag, DiffProduct] = Map.of_seq([
 ])
 
 
-# --- [MODELS] ------------------------------------------------------------------------------
+# --- [MODELS] ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
 class DiffPolicy:
-    # `argnums` is bare-jax only (`filter_*` peers reject it): `int` yields one product, and `tuple[int, ...]`
-    # yields the per-argument tuple `_summary` concatenates.
     argnums: int | tuple[int, ...] = 0
-    holomorphic: bool = False  # complex-holomorphic differentiation; jax.grad/jacfwd alone carry it
-    allow_int: bool = False  # integer-input differentiation; jax.jacrev/grad alone carry it
-    has_aux: bool = False  # objective returns (value, aux); _split peels the shifted return, aux flag rides the receipt
+    holomorphic: bool = False
+    allow_int: bool = False
+    has_aux: bool = False
 
-    # Reads the `DiffPolicy` fields the cell's transform admits off the `keywords` tuple rather than
-    # re-branching on target; total over any tuple the row supplies — no `KeyError` on an unkeyed mode.
     def projected(self, keywords: tuple[str, ...]) -> dict[str, object]:
         return {name: getattr(self, name) for name in keywords}
 
 
-# ONE dispatch row each `(DiffTarget, DiffModeTag)` cell resolves to: `keywords` projects the
-# `DiffPolicy` fields the transform admits, `apply` is a `TransformPick` (analytic), an `Applicator`
-# (directional), or `None` (finite-difference, whose body reads `step`/`acc` off the case). The mode tag
-# IS the kind discriminant, so the spec carries no `kind` field.
 @dataclass(frozen=True, slots=True)
 class DiffSpec:
     keywords: tuple[str, ...]
     apply: TransformPick | Applicator | None
 
 
-# Directional cases carry a `Pytree` tangent/cotangent/vector, not `np.ndarray`: a PYTREE JVP/VJP rides a
-# structured tangent, and narrowing to `np.ndarray` would force the forbidden flatten. ARRAY lifts via `jnp.asarray`.
 @tagged_union(frozen=True)
 class Differentiation:
     tag: DiffModeTag = tag()
@@ -178,31 +152,17 @@ class Differentiation:
     def FiniteDifference(cls, step: float = 1e-6, acc: int = 2) -> Self:
         return cls(finite_difference=(step, acc))
 
-    # One `async` entry composes the runtime crossing on the HOSTILE trait (the x64 mutation is process-global)
-    # under the hub weave; isolation, band, and worker-death retry derive at the runtime Kernel crossing owner.
     async def differentiate(
         self, lane: LanePolicy, fn: Callable, x: Pytree, key: ContentKey, target: DiffTarget = DiffTarget.ARRAY,
         policy: DiffPolicy = DiffPolicy(), *, composition: ScopeKey = DEFAULT_SCOPE,
     ) -> "RuntimeRail[DiffReceipt]":
-        # `key` names the DIFFERENTIATED function-and-point the caller already identified, so the receipt settles on
-        # the runtime spine carrying its own coordinate. This page graduates nothing by charter, which is exactly why
-        # the key must ride the receipt: no `graduate` call downstream would otherwise ever supply one.
         async def dispatch() -> RuntimeRail[DiffReceipt]:
-            # SHARED_MEMORY lifts a bare-ndarray `x` across the process seam at zero payload bytes; a nested pytree passes
-            # through the pickle wire unchanged, so the upgrade costs the structured case nothing.
             return await lane.offload(Kernel.of(_dispatch, KernelTrait.HOSTILE, wire=Wire.SHARED_MEMORY), fn, x, self, target, policy, key)
 
         facts = {"mode": self.tag, "target": target.value, "aux": policy.has_aux}
         return await evidence_run(EvidenceScope.SENSITIVITY, f"diff.{self.tag}", dispatch, facts=facts, composition=composition)
 
 
-# Gated jax/equinox modules built ONCE per solve, so the import and float64 promotion fire once. `gated()`
-# runs `jax_enable_x64` — a reverse-mode adjoint through a `lineax`/`optimistix`/`diffrax` solve assumes float64;
-# x32 silently degrades it. That silent degradation is why these imports stay function-local against the module-scope
-# `lazy` dialect (compute RULINGS [04]): the config seam must precede the first jax dereference, and the frozen carrier
-# enforces the ordering structurally rather than by convention. `flatten` owns the array/pytree product-read fork: `_leaf` reads one product (the
-# inexact-array `tree_leaves` partition for a pytree, a bare `np.asarray` for an array), wrapped by the
-# tuple-`argnums` block fold concatenating the per-argument product tuple by the receipt's index set.
 @dataclass(frozen=True, slots=True)
 class DiffEngine:
     jax: object
@@ -210,16 +170,14 @@ class DiffEngine:
 
     @classmethod
     def gated(cls) -> Self:
-        import jax  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import jax
 
-        jax.config.update("jax_enable_x64", True)  # armed before any dependent import
+        jax.config.update("jax_enable_x64", True)
 
-        import equinox as eqx  # ruff:ignore[import-outside-top-level] — x64 config seam
+        import equinox as eqx
 
         return cls(jax=jax, eqx=eqx)
 
-    # A bare `int` argnums yields one product `_leaf` reads; a `tuple[int, ...]` yields the per-argument tuple
-    # concatenated blockwise into `[∂y/∂x₀ | ∂y/∂x₁ | ...]`, the tuple fold riding once on the leaf read.
     def flatten(self, product: object, target: DiffTarget, argnums: int | tuple[int, ...] = 0) -> np.ndarray:
         if isinstance(argnums, tuple):
             blocks = [self._leaf(part, target) for part in product]
@@ -234,14 +192,11 @@ class DiffEngine:
         return np.concatenate([np.ravel(np.asarray(leaf)) for leaf in leaves]) if leaves else np.asarray([])
 
 
-# Typed AD receipt; `rows`/`cols` the matrix extent, `symmetry` the Hessian residual (`0.0` off Hessian).
 class DiffReceipt(Struct, frozen=True):
     content_key: ContentKey
     mode: DiffModeTag
     target: DiffTarget
     shape: DiffProduct
-    # differentiated positional argument(s) — intrinsic product provenance, never a demultiplex key;
-    # `PYTREE` filter modes report `0`, the first-arg leaf.
     argnums: int | tuple[int, ...]
     value: float | None
     aux: bool
@@ -273,11 +228,6 @@ class DiffReceipt(Struct, frozen=True):
             "status": self.status,
             "implicit_adjoint": self.implicit_adjoint,
         }
-        # ONE settled-receipt spine: the key, the provenance pair, the warning band, and the stamp are the runtime
-        # owner's columns. The band IS the exactness roster — a finite-difference product is an APPROXIMATION and says
-        # so, where an exact AD product publishes an empty band — so a consumer reading the two apart needs no
-        # per-field comparison. Provenance names the produced key alone: this owner differentiates a caller's own
-        # function at a caller's own point and derives neither key itself.
         return (
             Receipt.of(
                 EvidenceScope.SENSITIVITY.value,
@@ -289,13 +239,8 @@ class DiffReceipt(Struct, frozen=True):
         )
 
 
-# --- [TABLES] ------------------------------------------------------------------------------
+# --- [TABLES] ---------------------------------------------------------------------------
 
-# ONE `(target, mode)` dispatch table. The directional PYTREE rows thread the tree straight into `filter_*`
-# (a `jnp.asarray` over a PYTREE tangent flattens a non-array leaf). The HVP `keywords` is the inner-`grad`
-# surface the applicator threads — never `has_aux`, whose `(grad, aux)` head breaks the outer `jvp`.
-# `(ARRAY, finite_difference)` carries `apply=None`, routing to `_finite_difference` before any carrier build.
-# Directional cells hold `()` keywords because a `(value, aux)` head would shift the return tuple they unpack.
 _SPEC: Map[tuple[DiffTarget, DiffModeTag], DiffSpec] = Map.of_seq([
     ((DiffTarget.ARRAY, "gradient"), DiffSpec(("argnums", "has_aux"), lambda e: e.jax.value_and_grad)),
     ((DiffTarget.ARRAY, "forward_jacobian"), DiffSpec(("argnums", "has_aux", "holomorphic"), lambda e: e.jax.jacfwd)),
@@ -323,12 +268,9 @@ _SPEC: Map[tuple[DiffTarget, DiffModeTag], DiffSpec] = Map.of_seq([
 ])
 
 
-# --- [OPERATIONS] --------------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# Module-level import-resolvable kernel so it crosses the process lane as spec data plus operands.
-# `_dispatch` resolves the `_SPEC` row first — an absent cell is the single UNSUPPORTED verdict — then a total
-# mode-tag `match` selects the rail, the finite-difference floor short-circuiting BEFORE any `gated()` carrier build.
 def _dispatch(fn: Callable, x: Pytree, mode: Differentiation, target: DiffTarget, policy: DiffPolicy, key: ContentKey) -> DiffReceipt:
     if (spec := _SPEC.try_find((target, mode.tag)).to_optional()) is None:
         return _summary(key, np.asarray([]), mode.tag, target, status=DiffStatus.UNSUPPORTED, accuracy=0, implicit=False)
@@ -343,9 +285,6 @@ def _dispatch(fn: Callable, x: Pytree, mode: Differentiation, target: DiffTarget
             assert_never(unreachable)
 
 
-# One receipt fold for every mode: the product flattens, the status refines to NONFINITE on a non-finite
-# product, and `_PRODUCT[mode]` resolves the extent and Hessian symmetry residual — the 2-D product as-is for a
-# JACOBIAN/HESSIAN, a `(1, n)` lift for a SCALAR/directional vector.
 def _summary(
     key: ContentKey,
     product: np.ndarray,
@@ -363,7 +302,6 @@ def _summary(
     flat = np.ravel(arr)
     shape = _PRODUCT[mode]
     verdict = DiffStatus.NONFINITE if not np.all(np.isfinite(flat)) else status
-    # A JACOBIAN/HESSIAN product arrives 2-D; a scalar/directional vector arrives 1-D and lifts to `(1, n)`.
     matrix = arr if arr.ndim >= 2 else flat.reshape(1, -1)
     symmetry = float(np.linalg.norm(matrix - matrix.T, np.inf)) if shape is DiffProduct.HESSIAN and matrix.shape[0] == matrix.shape[1] else 0.0
     return DiffReceipt(
@@ -386,17 +324,12 @@ def _summary(
     )
 
 
-# Analytic rail over the prebuilt carrier: read the transform off `spec.apply`, call it under the
-# `keywords` projection, read the product back through flatten — the ARRAY branch keeps the 2-D extent so
-# `_summary` recovers `(rows, cols)`. `_split` peels the value/aux/product triple off the has_aux return shape.
 def _transformed(
     key: ContentKey, engine: DiffEngine, spec: DiffSpec, fn: Callable, x: Pytree, mode: DiffModeTag, target: DiffTarget, policy: DiffPolicy
 ) -> DiffReceipt:
     transform = cast(TransformPick, spec.apply)(engine)
     primal = engine.jax.numpy.asarray(x) if target is DiffTarget.ARRAY else x
     out = transform(fn, **policy.projected(spec.keywords))(primal)
-    # value_and_grad returns `((value, aux), grad)` under has_aux else `(value, grad)`; the Jacobian/Hessian
-    # transforms `(product, aux)` else the bare product — `_split` peels the triple off `(mode, has_aux)`.
     value, product, aux = _split(out, mode, policy.has_aux)
     return _summary(
         key,
@@ -412,8 +345,6 @@ def _transformed(
     )
 
 
-# Transform-return peel over the `(mode-carries-value, has_aux)` axes: a `gradient` head is the scalar
-# value (its `(value, aux)` pair under has_aux), a Jacobian/Hessian head the bare product (or `(product, aux)`).
 def _split(out: object, mode: DiffModeTag, has_aux: bool) -> tuple[float | None, object, object]:
     match (mode == "gradient", has_aux):
         case (True, True):
@@ -429,31 +360,20 @@ def _split(out: object, mode: DiffModeTag, has_aux: bool) -> tuple[float | None,
             return None, out, None
 
 
-# Directional rail over the prebuilt carrier: the `apply` applicator returns `(value, product)` under the
-# projected keywords, read back through flatten. The UNSUPPORTED short-circuit lives in `_dispatch`, so this
-# rail never receives an absent cell; the tangent stays a pytree for the PYTREE target.
 def _directional(
     key: ContentKey, engine: DiffEngine, spec: DiffSpec, fn: Callable, primals: tuple[Pytree, Pytree], mode: DiffModeTag,
     target: DiffTarget, policy: DiffPolicy,
 ) -> DiffReceipt:
     value, product = cast(Applicator, spec.apply)(engine, fn, primals, policy.projected(spec.keywords))
-    # `jax.jvp`/`vjp` carry no `argnums` keyword — a directional derivative is against the one `(primal, tangent)`
-    # pair, so the product is single-block and the witness is `0` regardless of `policy.argnums`.
     return _summary(key, engine.flatten(product, target), mode, target, status=DiffStatus.EXACT, accuracy=0, implicit=True, value=value)
 
 
-# `jax.jvp` returns `(primal_out, tangent_out)`: the scalar primal rides the receipt value on a singleton
-# output, the tangent is the product. The PYTREE JVP keeps `value=None` — a pytree output has no scalar witness.
 def _read_array_jvp(out_tangent: tuple[object, object]) -> tuple[float | None, object]:
     out, tangent = out_tangent
     value = float(np.asarray(out)) if np.asarray(out).size == 1 else None
     return value, tangent
 
 
-# ARRAY-only finite-difference floor needs no jaxlib backend. The Jacobian columns contract the findiff
-# `coefficients(deriv=1, acc=acc)` `center` stencil over the per-axis grid, honoring the requested accuracy
-# directly — never an `acc` capped to 2, never a fixed three-point stencil. The receipt records the realized
-# order off the `center` `accuracy` entry (an odd `acc` the central scheme rounds to even reaches it truthfully).
 def _finite_difference(key: ContentKey, fn: ArrayFn, x: object, step: float, acc: int) -> DiffReceipt:
     point = np.asarray(x)
     center = coefficients(deriv=1, acc=acc)["center"]

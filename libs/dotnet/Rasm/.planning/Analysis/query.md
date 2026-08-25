@@ -23,7 +23,7 @@
 - Boundary: the row's type gate rejects onto `KernelFault.Unsupported`, the host binding's probe discriminant, while spatial value defects reject `KernelFault.InvalidInput` at build; the geometry band composes the `Domain/normalization` coercion lattice and the `Domain/evaluation` `Evaluate` verb union rather than re-implementing either locally; the spatial band rides one service spine forwarding to the `Spatial/neighbors` owner's `NeighborIndex.Query` and projecting its `NeighborAnswer` through the substrate's own total `Switch`, the `Graph` arm refusing `Unsupported` by name because this spine publishes element sequences — pair-probe admission is the substrate's law, so a query-side probe whitelist, RTree wrapper, or second answer vocabulary is the deleted parallel rail.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -39,7 +39,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AnalysisBand {
     public static readonly AnalysisBand Geometry = new(key: "geometry");
@@ -56,9 +56,6 @@ public sealed partial class QueryArity : ICapability<QueryArity> {
     public int Rank { get; }
 }
 
-// Arity FLOORS, one per dispatcher. A case realizes the floors it can build, so `Conformance` — the one row
-// holding two arities — realizes two, and a case claiming an arity it cannot build fails to COMPILE. Internal,
-// with explicit implementations, so the builders stay off the public surface `Analyze.Query` already fronts.
 internal interface ISingleQuery {
     Operation<TGeometry, TOut> Build<TGeometry, TOut>(Op key) where TGeometry : notnull where TOut : notnull;
 }
@@ -69,8 +66,6 @@ internal interface IServiceQuery {
     Operation<Unit, TOut> Build<TOut>(Op key) where TOut : notnull;
 }
 
-// Delegation is a declared VALUE over a closed family, so a row that FORGOT its gate cannot compile — where a
-// shared `static (_, _) => true` matcher left an unset gate and a deliberately delegated one reading identically.
 [Union]
 public abstract partial record VerbGate {
     private VerbGate() { }
@@ -80,7 +75,6 @@ public abstract partial record VerbGate {
 
 [SmartEnum<string>][KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AnalysisVerb {
-    // Declared ahead of the rows because C# runs static field initializers in textual order and every row reads it.
     private static readonly VerbGate Delegated = new VerbGate.DelegatedCase();
 
     // --- [GEOMETRY_BAND]
@@ -122,21 +116,12 @@ public sealed partial class AnalysisVerb {
         state: (Geometry: geometry, Output: output),
         ownedCase: static (types, owned) => owned.Admits(arg1: types.Geometry, arg2: types.Output),
         delegatedCase: static (_, _) => true);
-    // Arities DERIVE from the floors the case realizes, so a row can no longer claim a shape its case never builds.
     public CapabilitySet<QueryArity> Arities => Coverage.Value[this];
-    // Operation key derives from the row key through an accessor-backed index, never a mirrored column.
     public Op Op => Keys.Value[this];
-    // Reading the roster PROVES it, which is why `Analyze.Rows` and `Arities` both resolve through the index and
-    // no member holds the proof alone: an eager fold over a generator-filled `Items` passes vacuously, and a
-    // `Lazy` behind a readerless static never runs at all (branch ruling).
     public static Seq<AnalysisVerb> Covered => Coverage.Value.Keys.AsIterable().ToSeq();
     private static readonly Lazy<FrozenDictionary<AnalysisVerb, Op>> Keys =
         new(static () => Items.ToFrozenDictionary(static row => row, static row => Op.Of(name: row.Key)));
 
-    // ONE reflected case roster serves the arity derivation AND the coverage proof. Every case's `Verb` getter
-    // returns a roster row and reads no instance state, so an uninitialized instance answers it — which is what
-    // lets the case↔row correspondence be PROVED rather than kept by inspection: a verb row no case names, and
-    // two cases naming one verb, both fail HERE at type init instead of at some caller's `Unsupported`.
     private static readonly Lazy<FrozenDictionary<AnalysisVerb, CapabilitySet<QueryArity>>> Coverage = new(static () => {
         Seq<(AnalysisVerb Verb, CapabilitySet<QueryArity> Arities)> claimed = toSeq(typeof(AnalysisQuery).GetNestedTypes())
             .Filter(static candidate => candidate.IsSealed && typeof(AnalysisQuery).IsAssignableFrom(candidate))
@@ -248,8 +233,6 @@ public abstract partial record AnalysisQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Ray;
         Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) => Relations.Cast<TGeometry, TOut>(query: Query, key: key);
     }
-    // Budgets riding a measured stream and pairs with no budget both reject at BUILD, so neither arity ever
-    // reads a slot the other one filled.
     public sealed record ConformanceCase(ConformanceMetric Metric, Option<int> Count, Seq<double> Percentiles) : AnalysisQuery, ISingleQuery, IPairQuery {
         public override AnalysisVerb Verb => AnalysisVerb.Conformance;
         Operation<TGeometry, TOut> ISingleQuery.Build<TGeometry, TOut>(Op key) =>
@@ -305,8 +288,6 @@ public abstract partial record AnalysisQuery {
     public static AnalysisQuery CurveDeviation => new CurveDeviationCase();
     public static AnalysisQuery SelfIntersection => new SelfIntersectionCase();
     public static AnalysisQuery Ray(RayQuery query) => new RayCase(Query: query);
-    // Percentiles are `Distribution`'s alone, so a caller handing them to a mean or maximum metric asked for an
-    // incoherent measurement and the factory REFUSES — silently dropping the argument answered a question nobody put.
     public static Fin<AnalysisQuery> Conformance(ConformanceMetric metric, Option<int> count = default, params ReadOnlySpan<double> percentiles) {
         Seq<double> requested = Iterable<double>.FromSpan(percentiles).ToSeq();
         return requested.IsEmpty || metric.Equals(ConformanceMetric.Distribution)
@@ -320,9 +301,6 @@ public abstract partial record AnalysisQuery {
         new PointPairsCase(Points: Seq(points), Needles: Seq(needles), Probe: probe);
 
     // --- [ARITY_DISPATCH]
-    // The floor test IS the arity gate, so no second `Arities` membership read stands beside it and a case that
-    // cannot build the shape is unreachable rather than caught: the row's `Arities` column derives from these
-    // same floors, which is what retires the virtual `Build` triple whose fallthrough was a declaration bug.
     internal Operation<TGeometry, TOut> Single<TGeometry, TOut>(Op key) where TGeometry : notnull where TOut : notnull =>
         this is ISingleQuery single && Verb.Admits(geometry: typeof(TGeometry), output: typeof(TOut))
             ? single.Build<TGeometry, TOut>(key: key)
@@ -404,9 +382,6 @@ public abstract partial record AnalysisQuery {
             from answer in index.Query(query: state.Query, anchor: state.Anchor, key: state.Key, cancel: runtime.Cancellation).ToEff()
             from projected in Answer<TOut>(answer: answer, key: state.Key).ToEff()
             select projected);
-    // Total `Switch` over the substrate's owned answer family: a fourth arm breaks HERE at compile time, where a
-    // catch-all turned it into an `InvalidResult` indistinguishable from a genuine read failure. The graph arm
-    // refuses by NAME because this spine projects element sequences and a neighborhood graph is not one.
     private static Fin<Seq<TOut>> Answer<TOut>(NeighborAnswer answer, Op key) => answer.Switch(
         state: key,
         hits: static (op, found) => new AnalysisOutput<TOut>(Key: op).Many(values: found.Values),
@@ -428,7 +403,7 @@ public abstract partial record AnalysisQuery {
 - Boundary: `Analyze.From(RhinoDoc)` is the one document-coupled adapter in the folder, so a second `RhinoDoc` reach anywhere in the analysis surface is the seam violation; a folder-local `ValidityOf` switch re-declaring receipt arms beside `Op.AcceptValue` is the killed parallel oracle; `Build` and `Service` evaluators receive state by value through `static` lambdas over an explicit state record, keeping operations allocation-lean and referentially transparent; the `As` object-lift is the sanctioned type-erasure bridge, rejecting onto `KernelFault.Unsupported` rather than casting unsafely; `OperationLift` is the one host for the rail bridges C# cannot declare inside a generic owner, and host machinery that throws is wrapped at its owning boundary through `Op.Catch`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Diagnostics.Metrics;
 using System.Runtime.InteropServices;
@@ -443,14 +418,12 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Analysis;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed record Env(Context Context, Option<IProgress<double>> Progress, CancellationToken Cancellation, Option<TelemetrySink> Telemetry = default) {
     public static readonly Eff<Env, Env> EnvAsks = Eff.runtime<Env>().As();
     public static readonly Eff<Env, Context> Asks = Eff.runtime<Env>().Map(static env => env.Context).As();
     public static readonly Eff<Env, Option<TelemetrySink>> Taps = Eff.runtime<Env>().Map(static env => env.Telemetry).As();
-    // ONE cancellation gate every body binds: a second `IsCancellationRequested` ladder is a second place the
-    // token can be forgotten, and `Errors.Cancelled` is the single direct-poll arm `Analyze.In(…).With(cancel)` advertises.
     public static readonly Eff<Env, Unit> Live = EnvAsks.Bind(static runtime => (runtime.Cancellation.IsCancellationRequested switch {
         true => Fin.Fail<Unit>(Errors.Cancelled),
         false => Fin.Succ(unit),
@@ -467,7 +440,7 @@ internal readonly record struct AnalysisOutput<TOut>(Op Key) {
             : Fin.Fail<Seq<TOut>>(key.Unsupported(inputType: typeof(TValue), outputType: typeof(TOut)));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnull {
     [Union]
     private abstract partial record Body {
@@ -506,9 +479,6 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
     }
     internal static Operation<TGeometry, TOut> Reject(Op key, Error fault) =>
         new(key: key, requirement: Requirement.None, requiresContext: false, body: new Body.Rejected(Fault: fault));
-    // Service bodies admit no input, so `Prepare` has nothing to gate — yet a body that never reads the token
-    // turns `Analyze.In(…).With(cancel)` into an advertised surface one of the four bodies ignores. Binding the
-    // same `Env.Live` ahead of the evaluator is what makes the refusal one gate rather than a second ladder.
     internal static Operation<TGeometry, TOut> Service<TState>(Op key, TState state, Func<TState, Eff<Env, Seq<TOut>>> evaluate, bool requiresContext = false) =>
         new(key: key, requirement: Requirement.None, requiresContext: requiresContext, body: new Body.Service(Evaluate: () =>
             from _ in Env.Live
@@ -521,9 +491,6 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
                 TNative native => carried.Project(arg1: carried.State, arg2: native),
                 _ => Fin.Fail<Seq<TValue>>(carried.Key.Unsupported(inputType: geometry.GetType(), outputType: typeof(TValue))).ToEff(),
             }).As<TGeometry, TOut>(key: key);
-    // ONE billing exit: `Match` collapses both legs onto the exit VALUE, the outcome row and the fault payload
-    // both read that one rail, and the exit re-raises unchanged — a success-arm charge beside a `MapFail` tuple
-    // projection was two billing bodies free to name different verdicts for one call.
     public Eff<Env, Seq<TOut>> Apply(Seq<TGeometry> geometry) =>
         from runtime in Env.EnvAsks
         from mark in Fin.Succ(CostMark.Start()).ToEff()
@@ -533,9 +500,6 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         from _ in Fin.Succ(Charge(runtime: runtime, key: Key, mark: mark, items: geometry.Count, exit: exit)).ToEff()
         from result in exit.ToEff()
         select result;
-    // A `Tap` refusal is a typed rail this seam cannot carry outward — the value channel is the caller's result,
-    // not the sink's — so it PARKS on the composition's own bounded evidence cell at the fact's declared seat,
-    // where even a declined park counts (branch RULINGS `[02]`); `ignore` on that rail licensed a silent drop.
     private static Unit Charge(Env runtime, Op key, CostMark mark, int items, Fin<Seq<TOut>> exit) =>
         runtime.Telemetry.Match(
             Some: sink => Facts(key: key, mark: mark, items: items, exit: exit)
@@ -556,13 +520,9 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         Execution.Switch(
             state: geometry,
             rejected: static (_, r) => Fin.Fail<Seq<TOut>>(r.Fault).ToEff(),
-            // `TraverseM` over a concatenation yields the concatenation of the per-element results and the outer
-            // `Bind` flattens associatively, so a pure `PerItem` satisfies `Folded(a + b) == Folded(a) + Folded(b)`.
-            // `Apply` deliberately breaks that equation: its cost capsule bills one `OpCost` per call.
             perItem: static (items, i) => items.TraverseM(i.Evaluate).As().Map(static chunks => chunks.Bind(static chunk => chunk)),
             aggregate: static (items, a) => a.Evaluate(arg: items),
             service: static (_, s) => s.Evaluate());
-    // Total over the owned body family: a fifth execution modality breaks HERE rather than passing as supported.
     internal Fin<Operation<TGeometry, TOut>> Supported() =>
         Execution.Switch(
             state: this,
@@ -570,9 +530,6 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
             perItem: static (self, _) => Fin.Succ(self),
             aggregate: static (self, _) => Fin.Succ(self),
             service: static (self, _) => Fin.Succ(self));
-    // An empty requirement still routes GEOMETRY through the validity oracle, so no unvetted `GeometryBase`
-    // reaches an evaluator; a non-geometry payload under an empty requirement is the one pass-through, and the
-    // two `Apply` arms it once stood between were the same call on the same value.
     private static Eff<Env, TGeometry> Prepare(TGeometry geometry, Requirement requirement) =>
         from runtime in Env.EnvAsks
         from _ in Env.Live
@@ -583,7 +540,7 @@ public sealed partial record Operation<TGeometry, TOut> where TGeometry : notnul
         select validated;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class Analyze {
     public sealed record Scope {
@@ -603,7 +560,6 @@ public static class Analyze {
         public Validation<Error, Seq<TOut>> Run<TGeometry, TOut>(Operation<TGeometry, TOut>? operation, params ReadOnlySpan<TGeometry> input) where TGeometry : notnull =>
             Analyze.Run(operation: operation, scope: Some(this), input: input);
     }
-    // Publishing the roster RUNS its coverage proof, so the case↔row bijection cannot sit behind a readerless member.
     public static Seq<AnalysisVerb> Rows => AnalysisVerb.Covered;
     public static Scope From(RhinoDoc? doc) => new(context: Context.Of(doc: doc).ToFin());
     public static Scope In(UnitSystem units) => new(context: Context.Of(units: units).ToFin());
@@ -652,8 +608,6 @@ public static class Analyze {
     }
 }
 
-// C# admits extension blocks only on a non-generic static host, so the three rail bridges the operation algebra
-// needs — the typed refusal, the erased lift, and the Validation-to-Eff hop — share one.
 internal static class OperationLift {
     extension(Op key) {
         internal Operation<TGeometry, TOut> Unsupported<TGeometry, TOut>() where TGeometry : notnull =>
@@ -665,7 +619,6 @@ internal static class OperationLift {
             _ => Operation<TGeometry, TOut>.Reject(key: key, fault: key.Unsupported(inputType: typeof(TGeometry), outputType: typeof(TOut))),
         };
     }
-    // Three facets close the evaluation answer, each a total `Switch` so a fifth result shape breaks here.
     extension(EvaluationResult result) {
         internal Fin<ClosestHit> Hit(Op key) => result.Switch(
             state: key,

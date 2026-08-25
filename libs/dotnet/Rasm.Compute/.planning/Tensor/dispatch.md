@@ -17,7 +17,7 @@ CPU tensor dispatch binds each `TensorOpFamily` row to one arity kernel, claim-g
 - Boundary: arity tables bind only verified `TensorPrimitives` members at compatible generic constraints. Author folds cover activation, complex, and quaternion operations that have no direct member, and vector normalization composes `Norm` then `Divide` against the reduced magnitude rather than binding a row of its own; matrix operations lower through the numeric lane; pooling reduces arbitrary axes through tuple policy rows; predicates, reductions, masks, segments, index gathers/scatters, partitions, and conversions retain their distinct destination and admission shapes. Frozen indexes use ordinal comparison, and ref-struct kernels remain statement-shaped. Kernel-interior `SpanOwner`/`MemoryOwner` scratch is EXEMPT from the `Tensor/memory#ALLOCATION_AXIS` `AllocationClass.Grant` edge by declared law: a rent whose entire life is one kernel body — sized by the operand extent the caller already admitted, released on the same frame, visible to no other lane — produces evidence no receipt reader acts on, and granting it would stamp one `AllocationEvidence` value per elementwise call. `Grant` admits STAGING allocations alone, so an interior rent neither re-grants nor picks a class at the call site. The row/kernel pairing is proved by the `TensorArity` COLUMN the vocabulary row carries, not by a boot-time census: a census re-proving a mapping no type held needed a seven-row identity set to patch its own false gaps, a thirteen-arm owner probe restating which table each kind lives in, and a ten-way disjunction under it — and no composition root ever called it, so the whole scaffold was the cost of the mirror it re-proved. With arity on the row, a family minted under an arity whose table it never entered surfaces as `kernel-row-miss` at its one resolution site with the arity named.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public delegate void UnaryKernel<T>(ReadOnlySpan<T> x, Span<T> destination);
 public delegate void BinaryKernel<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y, Span<T> destination);
 public delegate void TernaryKernel<T>(ReadOnlySpan<T> x, ReadOnlySpan<T> y, ReadOnlySpan<T> z, Span<T> destination);
@@ -32,9 +32,6 @@ public delegate int IndexKernel<T>(ReadOnlySpan<T> x);
 public delegate bool AggregateKernel<T>(ReadOnlySpan<T> x);
 public delegate void MagnitudeKernel(ReadOnlySpan<Complex> x, Span<double> destination);
 
-// The request SHAPE a span entrypoint discriminates on. A row that admits an axis carries its value here rather
-// than in its key, so `Map` stays ONE entrypoint over the whole unary family instead of growing a `Series`, a
-// `Scaled`, and a `Stepped` sibling that differ only by which suffix the old key string spelled.
 [Union]
 public abstract partial record UnaryForm {
     private UnaryForm() { }
@@ -75,7 +72,7 @@ public abstract partial record PairFoldForm {
     public sealed record Combined(PairCombine Combine) : PairFoldForm;
 }
 
-// --- [KERNEL_TABLES] -----------------------------------------------------------------------
+// --- [KERNEL_TABLES] -------------------------------------------------------------------
 public static class Activations<T> where T : IFloatingPointIeee754<T> {
     public static void ReLU(ReadOnlySpan<T> x, Span<T> destination) =>
         TensorPrimitives.Clamp(x, T.Zero, T.PositiveInfinity, destination);
@@ -109,9 +106,6 @@ public static class Activations<T> where T : IFloatingPointIeee754<T> {
     }
 }
 
-// Window and segment folds bind the two POOL rows and the reduction rows a segment lane admits; a global pool is
-// the windowed row at `PoolWindow.Global`, never a fourth reducer, and a segmented sum is the `Sum` row under
-// segment entrypoint, never a `SegmentSum` roster entry.
 public static class PoolReducers<T> where T : IFloatingPointIeee754<T> {
     public static readonly FrozenDictionary<TensorOpFamily, (T Seed, Func<T, T, T> Combine, Func<T, int, T> Final)> Rows =
         new Dictionary<TensorOpFamily, (T, Func<T, T, T>, Func<T, int, T>)> {
@@ -131,11 +125,6 @@ public static class SegmentReducers<T> where T : IFloatingPointIeee754<T> {
     }.ToFrozenDictionary();
 }
 
-// Predicates bind `INumberBase<T>` because that is what the host binds them at — verified on the installed
-// surface, where every predicate but the `IsPow2` triad takes `INumberBase<T>`. The prior `IBinaryNumber<T>`
-// clause on this table made `PredicateKernels<Complex>` uninstantiable and left nine complex-classification rows
-// unreachable for the very domain they classify, because `Complex` implements `INumberBase<Complex>` and not
-// `IBinaryNumber<Complex>`. `IsPow2` carves onto its own table at the constraint the host actually demands.
 public static class PredicateKernels<T> where T : INumberBase<T> {
     public static readonly FrozenDictionary<TensorOpFamily, MaskKernel<T>> Mask = new Dictionary<TensorOpFamily, MaskKernel<T>> {
         [TensorOpFamily.IsNaN] = TensorPrimitives.IsNaN, [TensorOpFamily.IsFinite] = TensorPrimitives.IsFinite,
@@ -149,8 +138,6 @@ public static class PredicateKernels<T> where T : INumberBase<T> {
         [TensorOpFamily.IsRealNumber] = TensorPrimitives.IsRealNumber,
     }.ToFrozenDictionary();
 
-    // The `All`/`Any` reducers ride the SAME row as their mask under an `Aggregation` value, so the eighteen
-    // triples the roster used to spell as `is-nan`/`is-nan-all`/`is-nan-any` are eighteen rows and one axis.
     public static readonly FrozenDictionary<TensorOpFamily, (AggregateKernel<T> All, AggregateKernel<T> Any)> Aggregate =
         new Dictionary<TensorOpFamily, (AggregateKernel<T>, AggregateKernel<T>)> {
         [TensorOpFamily.IsNaN] = (TensorPrimitives.IsNaNAll, TensorPrimitives.IsNaNAny),
@@ -192,8 +179,6 @@ public static class TensorKernels<T> where T : IFloatingPointIeee754<T> {
         [TensorOpFamily.LogSoftMax] = Activations<T>.LogSoftMax,
     }.ToFrozenDictionary();
 
-    // The argument-scaling axis: one trig function per row, two conventions per key. The eight `Pi` companions
-    // the roster used to carry as separate rows are these eight entries under a typed axis value.
     public static readonly FrozenDictionary<(TensorOpFamily Row, AngleScaling Scaling), UnaryKernel<T>> Scaled =
         new Dictionary<(TensorOpFamily, AngleScaling), UnaryKernel<T>> {
         [(TensorOpFamily.Sin, AngleScaling.Radians)] = TensorPrimitives.Sin, [(TensorOpFamily.Sin, AngleScaling.Pi)] = TensorPrimitives.SinPi,
@@ -204,7 +189,6 @@ public static class TensorKernels<T> where T : IFloatingPointIeee754<T> {
         [(TensorOpFamily.Atan, AngleScaling.Radians)] = TensorPrimitives.Atan, [(TensorOpFamily.Atan, AngleScaling.Pi)] = TensorPrimitives.AtanPi,
     }.ToFrozenDictionary();
 
-    // The exponential-base and near-unit axes crossed: six exp members and six log members under two rows.
     public static readonly FrozenDictionary<(TensorOpFamily Row, NumericBase Base, SeriesForm Precision), UnaryKernel<T>> Series =
         new Dictionary<(TensorOpFamily, NumericBase, SeriesForm), UnaryKernel<T>> {
         [(TensorOpFamily.Exp, NumericBase.Natural, SeriesForm.Direct)] = TensorPrimitives.Exp,
@@ -229,8 +213,6 @@ public static class TensorKernels<T> where T : IFloatingPointIeee754<T> {
         [AngleSense.DegreesToRadians] = TensorPrimitives.DegreesToRadians, [AngleSense.RadiansToDegrees] = TensorPrimitives.RadiansToDegrees,
     }.ToFrozenDictionary();
 
-    // `Round` is the ONE row whose midpoint convention is a request value; `Floor`/`Ceiling`/`Truncate` are
-    // separate rows because the mode decides ties alone and never the direction of an ordinary value.
     public static void Rounded(ReadOnlySpan<T> x, MidpointRounding mode, Span<T> destination) => TensorPrimitives.Round(x, mode, destination);
 
     public static readonly FrozenDictionary<TensorOpFamily, BinaryKernel<T>> Binary = new Dictionary<TensorOpFamily, BinaryKernel<T>> {
@@ -256,8 +238,6 @@ public static class TensorKernels<T> where T : IFloatingPointIeee754<T> {
         [AngleScaling.Radians] = TensorPrimitives.SinCos, [AngleScaling.Pi] = TensorPrimitives.SinCosPi,
     }.ToFrozenDictionary();
 
-    // `ILogB` binds `IFloatingPointIeee754<T>` while `Sign` binds `INumber<T>`; the two shared one table under
-    // the narrower clause, so a signed integer span could not reach the sign kernel the host publishes for it.
     public static readonly SignKernel<T> ExponentOf = TensorPrimitives.ILogB;
 
     public static readonly FrozenDictionary<TensorOpFamily, FoldKernel<T>> Fold = new Dictionary<TensorOpFamily, FoldKernel<T>> {
@@ -265,9 +245,6 @@ public static class TensorKernels<T> where T : IFloatingPointIeee754<T> {
         [TensorOpFamily.Norm] = TensorPrimitives.Norm, [TensorOpFamily.Average] = TensorPrimitives.Average, [TensorOpFamily.StdDev] = TensorPrimitives.StdDev,
     }.ToFrozenDictionary();
 
-    // The extremum corner: two rows crossed with the metric and NaN axes the eight `Min`/`Max` keys used to
-    // concatenate. `Index` pairs with the value and magnitude metrics alone because the host publishes no
-    // NaN-missing index search — the corner refuses by name rather than resolving to a neighbouring member.
     public static readonly FrozenDictionary<(TensorOpFamily Row, ExtremumMetric Metric, NanPolicy Nan), FoldKernel<T>> Extremum =
         new Dictionary<(TensorOpFamily, ExtremumMetric, NanPolicy), FoldKernel<T>> {
         [(TensorOpFamily.Min, ExtremumMetric.Value, NanPolicy.Propagate)] = TensorPrimitives.Min,
@@ -319,8 +296,6 @@ public static class IntegerKernels<T> where T : IBinaryInteger<T> {
     public static readonly FrozenDictionary<BitLogic, BinaryKernel<T>> Logic = new Dictionary<BitLogic, BinaryKernel<T>> {
         [BitLogic.And] = TensorPrimitives.BitwiseAnd, [BitLogic.Or] = TensorPrimitives.BitwiseOr, [BitLogic.Xor] = TensorPrimitives.Xor,
     }.ToFrozenDictionary();
-    // A left shift has no arithmetic fill, so that corner is absent from the table and refuses by name rather
-    // than resolving to whichever neighbouring member a five-name roster happened to place beside it.
     public static readonly FrozenDictionary<ShiftForm, CountedKernel<T>> Shift = new Dictionary<ShiftForm, CountedKernel<T>> {
         [new ShiftForm(ShiftDirection.Left, ShiftFill.Logical)] = TensorPrimitives.ShiftLeft,
         [new ShiftForm(ShiftDirection.Right, ShiftFill.Arithmetic)] = TensorPrimitives.ShiftRightArithmetic,
@@ -378,14 +353,8 @@ public static class Projection {
         (x, dst) => { for (int i = 0; i < x.Length; i++) { dst[i] = m(x[i]); } };
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TensorOps {
-    // Span operands are ref structs and cross no closure, so every span entry is the named kernel statement
-    // seam: admit the common extent, resolve the row and its form, invoke in place, convert a throw once. The
-    // filter is NARROW by row family: after the length guard the only host throws are an argument-range refusal
-    // and a checked-conversion overflow, and a blanket `catch (Exception)` turned an `OutOfMemoryException` or a
-    // cancellation into a `kernel-threw` rail verdict — a success-shaped classification of an unrecoverable
-    // condition the caller can no longer distinguish.
     private static Fin<Unit> Mismatch(TensorOpFamily row, int expected, int actual) =>
         TensorReason.ShapeMismatch.Fail<Unit>("length-mismatch", row.Key, $"{expected}!={actual}");
     private static Fin<A> Threw<A>(Exception ex) =>
@@ -393,18 +362,11 @@ public static class TensorOps {
     private static Fin<A> Miss<A>(TensorOpFamily row) => TensorReason.RowMissing.Fail<A>("kernel-row-miss", row.Key);
     private static Fin<A> Corner<A>(TensorOpFamily row, string form) => TensorReason.RowMissing.Fail<A>("kernel-form-miss", row.Key, form);
 
-    // The one RUN-TIME admission for a request that did not come from the interior. A generic-math constraint
-    // gates the (row, element) pair at compile time for every call the interior makes, so no dispatch table can
-    // hold an invalid row — but a request crossing the model boundary carries an op key and a dtype both chosen
-    // at run time, and this is where the row's own arity and domain columns refuse a mismatched entrypoint or a
-    // carrier its kernel cannot bind, rather than the caller discovering either as a missing table entry.
     public static Fin<TensorOpFamily> Admit(TensorOpFamily row, TensorArity arity, TensorDtype dtype) =>
         row.Arity != arity ? TensorReason.OperandDomainMiss.Fail<TensorOpFamily>("op-arity", row.Key, $"{row.Arity.Key}!={arity.Key}")
         : row.Admits(dtype.Domain) ? Fin.Succ(row)
         : TensorReason.OperandDomainMiss.Fail<TensorOpFamily>("op-domain", row.Key, $"{dtype.Key}:{dtype.Domain}");
 
-    // ONE unary entrypoint over the whole family: the form discriminates which table holds the row's kernel, so
-    // a scaled trig call, a near-unit logarithm, and a plain negate are one signature and one prologue.
     public static Fin<Unit> Map<T>(TensorOpFamily row, UnaryForm form, ReadOnlySpan<T> x, Span<T> destination) where T : IFloatingPointIeee754<T> {
         if (x.Length != destination.Length) { return Mismatch(row, x.Length, destination.Length); }
         Fin<UnaryKernel<T>> resolved = form.Switch<Fin<UnaryKernel<T>>>(
@@ -457,8 +419,6 @@ public static class TensorOps {
         catch (ArgumentException ex) { return Threw<Unit>(ex); }
     }
 
-    // `RootN` and `ScaleB` take an integer beside the span; the two-row identity ladder that tested each row by
-    // name inside a `try` is a table like every other arity.
     public static Fin<Unit> Root<T>(TensorOpFamily row, ReadOnlySpan<T> x, int n, Span<T> destination) where T : IFloatingPointIeee754<T>, IRootFunctions<T> {
         if (x.Length != destination.Length) { return Mismatch(row, x.Length, destination.Length); }
         if (TensorKernels<T>.Counted.GetValueOrDefault(row) is not { } kernel) { return Miss<Unit>(row); }
@@ -466,8 +426,6 @@ public static class TensorOps {
         catch (Exception ex) when (ex is ArgumentException or OverflowException) { return Threw<Unit>(ex); }
     }
 
-    // The conversion request is a POLICY and a TARGET; the seven conversion rows the vocabulary used to carry are
-    // three rows, one overflow axis, and the dtype the caller already holds.
     public static Fin<Unit> Convert<TFrom, TTo>(TensorOpFamily row, OverflowPolicy policy, ReadOnlySpan<TFrom> source, Span<TTo> destination) where TFrom : INumberBase<TFrom> where TTo : INumberBase<TTo> {
         if (source.Length != destination.Length) { return Mismatch(row, source.Length, destination.Length); }
         if (ConvertKernels<TFrom, TTo>.Rows.GetValueOrDefault(policy) is not { } kernel) { return Corner<Unit>(row, policy.Key); }
@@ -513,8 +471,6 @@ public static class TensorOps {
         catch (ArgumentException ex) { return Threw<Unit>(ex); }
     }
 
-    // Predicate masks bind `INumberBase<T>`, so the complex lane reaches the three rows that classify it; the
-    // one row the host narrows to `IBinaryNumber<T>` has its own entrypoint at that constraint.
     public static Fin<Unit> Test<T>(TensorOpFamily row, ReadOnlySpan<T> x, Span<bool> destination) where T : INumberBase<T> {
         if (x.Length != destination.Length) { return Mismatch(row, x.Length, destination.Length); }
         if (PredicateKernels<T>.Mask.GetValueOrDefault(row) is not { } kernel) { return Miss<Unit>(row); }
@@ -528,8 +484,6 @@ public static class TensorOps {
         catch (ArgumentException ex) { return Threw<Unit>(ex); }
     }
 
-    // `PerElement` is the mask entrypoint's own aggregation and has no scalar answer, so it refuses BY NAME here
-    // rather than resolving to whichever reducer sits beside it.
     public static Fin<bool> Aggregate<T>(TensorOpFamily row, Aggregation aggregation, ReadOnlySpan<T> x) where T : INumberBase<T> {
         if (PredicateKernels<T>.Aggregate.GetValueOrDefault(row) is not { } pair) { return Miss<bool>(row); }
         Fin<AggregateKernel<T>> kernel = aggregation.Switch<Fin<AggregateKernel<T>>>(
@@ -599,8 +553,6 @@ public static class TensorOps {
         });
     }
 
-    // The index search reads the SAME extremum row through the entrypoint whose RETURN states it; the four `IndexOf*` roster
-    // entries are these four table corners.
     public static Fin<int> IndexOf<T>(TensorOpFamily row, ExtremumMetric metric, ReadOnlySpan<T> x) where T : IFloatingPointIeee754<T> {
         if (x.IsEmpty) { return TensorReason.EmptyOperand.Fail<int>("empty-operand", row.Key); }
         if (TensorKernels<T>.Index.GetValueOrDefault((row, metric)) is not { } kernel) { return Corner<int>(row, metric.Key); }
@@ -618,8 +570,6 @@ public static class TensorOps {
         return Fin.Succ(TensorPrimitives.HammingBitDistance(x, y));
     }
 
-    // Index-driven structural movement: every index admits against the addressed extent before any element
-    // moves; a colliding scatter resolves last-write-wins in index order, so the result is deterministic.
     public static Fin<Unit> Gather<T>(TensorOpFamily row, ReadOnlySpan<T> values, ReadOnlySpan<int> indices, Span<T> destination) {
         if (row != TensorOpFamily.Gather) { return Miss<Unit>(row); }
         if (indices.Length != destination.Length) { return TensorReason.ShapeMismatch.Fail<Unit>("length-mismatch", row.Key, $"{indices.Length}!={destination.Length}"); }
@@ -640,8 +590,6 @@ public static class TensorOps {
         return Fin.Succ(unit);
     }
 
-    // The segmented lane is the REDUCTION row under this entrypoint: a segmented sum is `Sum` with a
-    // segment-id span, not a `SegmentSum` roster entry, and `Count` is the one row that exists here alone.
     public static Fin<Unit> Segment<T>(TensorOpFamily row, ReadOnlySpan<T> values, ReadOnlySpan<int> segments, Span<T> destination) where T : IFloatingPointIeee754<T> {
         if (SegmentReducers<T>.Rows.GetValueOrDefault(row) is not { } reducer) { return Miss<Unit>(row); }
         if (values.Length != segments.Length) { return TensorReason.ShapeMismatch.Fail<Unit>("length-mismatch", row.Key, $"{values.Length}!={segments.Length}"); }
@@ -672,7 +620,6 @@ public static class TensorOps {
         catch (Exception ex) when (ex is ArgumentException or OverflowException) { return Threw<Tensor<T>>(ex); }
     }
 
-    // A global pool is the WINDOW at the axis extent — the two `Global*` roster rows are this one form value.
     public static Fin<Unit> Pool<T>(TensorOpFamily row, Tensor<T> plane, int axis, PoolWindow window, in TensorSpan<T> destination) where T : IFloatingPointIeee754<T> {
         if (PoolReducers<T>.Rows.GetValueOrDefault(row) is not { } reducer) { return Miss<Unit>(row); }
         if (axis < 0 || axis >= plane.Rank) { return TensorReason.AxisOutOfRange.Fail<Unit>("pool-axis", row.Key, $"{axis}/{plane.Rank}"); }
@@ -703,12 +650,6 @@ public static class TensorOps {
         return Fin.Succ(unit);
     }
 
-    // The winning claim is the WHOLE partition gate and the arm READS it: absent, the span kernel runs inline;
-    // present, the claim's own partition column sizes the split it was measured at, so a demotion and a
-    // promotion both name the row that decided them. Testing the claim for PRESENCE and then sizing the split
-    // off an ambient budget published a fast path no measurement covered. A second "plane" route spelling its
-    // launch as `For2D(0, rows, 0, 1)` walked one block per row — this same blocked walk at a caller-supplied
-    // block size — so it published two shapes for one execution and is deleted along with its 2-D action structs.
     public static Fin<Unit> Partition<T>(TensorOpFamily row, ReadOnlyMemory<T> x, Memory<T> destination, CpuBudget budget, Option<BenchmarkRow> claim) where T : IFloatingPointIeee754<T> =>
         claim.Match(
             None: () => Map(row, new UnaryForm.Plain(), x.Span, destination.Span),
@@ -728,11 +669,7 @@ public static class TensorOps {
                 : Miss<Unit>(row));
 }
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
-// ONE partition derivation: block size and block count are two readings of the same division, and computing
-// them at two call sites let a rounding change land on one and not the other. The cap comes from the CLAIM's
-// own partition column where the row carries one and from the lane budget otherwise, so a measured fast path is
-// launched at the shape it was measured at.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public readonly record struct PartitionShape(int BlockSize, int Blocks) {
     public static Fin<PartitionShape> Of(int length, CpuBudget budget, BenchmarkRow claim) {
         int cap = Math.Max(1, claim.Partitions.IfNone(budget.PartitionCap));
@@ -769,9 +706,7 @@ public readonly struct ZipBlock<T>(ReadOnlyMemory<T> x, ReadOnlyMemory<T> y, Mem
 - Boundary: `TensorOps` binds verified span members directly, routes matrix rows through `KernelLowering`, folds arbitrary-axis pooling over dense outer×axis×inner coordinates, and rejects missing geometry or arity before mutation. `EquivalenceLaw` selects its oracle by `TensorOpKind` — pointwise kinds against the scalar tail, reducing kinds against the reassociated order, matrix against `KernelLowering.ProveGemm`, fixture kinds against the recorded `OperatorRow` transpose identity — and shifts the right-operand fill away from zero on the rows whose gap a zero divisor or base would dominate. `SensitivityLaw` composes total forward and reverse maps, matrix-free `JᵀJ·v`, sparse coloring, and hyper-dual scalar derivatives without parallel gradient owners. A reverse sweep over a spilled tape reads each step's primal through `TapeSpill.Replay` in descending ordinal order, rebuilding the `TapeStep` at the span boundary, so the resident set is one step-chunk plus the flowing adjoint whatever the tape length; the spill composes the archive capsule's cursor, filter, and slug law whole and mints no session mechanics of its own.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// The direction a sweep threads. Consumers read it through the generated `Switch` rather than eight `==` tests
-// against a two-row roster with no columns.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -780,10 +715,6 @@ public sealed partial class AdjointMode {
     public static readonly AdjointMode Reverse = new("reverse");
 }
 
-// ONE tape family. `TapeStep` and `GeometryTape` were two record structs a caller had to know in order to pick
-// between two `Chain` overloads and two `Pushforward` overloads — four entrypoints for one fold over a mode the
-// page already carried as a value. The `Spilled` case is what finally lets a reverse sweep read a tape too long
-// to hold: the capsule and the sweep meet here instead of the Boundary claiming a sweep no entrypoint provided.
 [Union]
 public abstract partial record Tape {
     private Tape() { }
@@ -793,12 +724,6 @@ public abstract partial record Tape {
     public sealed record Spilled(SpillCursor Cursor) : Tape;
 }
 
-// ONE tape convention: `Primal` is the forward INPUT on every row without exception, and a derivative body
-// recomputes whatever local value it needs from it. A row recording its OUTPUT (tanh's y, sigmoid's y), its HELD
-// operand (multiply's y), or a precomputed local coefficient under that same slot reads identically at the call
-// site and mis-differentiates the moment its algebra moves. `Payload` is the row's SECOND recorded operand — the
-// held factor, the exponent, the weight block — empty on a row that needs none, so the extra data has its own
-// slot instead of colonizing the primal's.
 public readonly record struct TapeStep(TensorOpFamily Op, ReadOnlyMemory<float> Primal, ReadOnlyMemory<float> Payload) {
     public static TapeStep Of(TensorOpFamily op, ReadOnlyMemory<float> primal) => new(op, primal, ReadOnlyMemory<float>.Empty);
 
@@ -807,15 +732,9 @@ public readonly record struct TapeStep(TensorOpFamily Op, ReadOnlyMemory<float> 
 
 public readonly record struct GeometryTape(TensorOpFamily Op, MeshAdjointSnapshot Snapshot);
 
-// The ordinal-indexed reader over a sealed spill container: the op roster is recorded at spill time because a
-// primal alone cannot say which derivative to apply to it, and the width is the chunk extent every replay reads.
 public readonly record struct SpillCursor(HdfHandle Archive, string Dataset, ImmutableArray<TensorOpFamily> Ops, int Width);
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// `SampleCount` sizes the probe, `Seed` keys the draw, and `Lane` separates the streams one policy draws so two
-// operands of one proof never share a stream. Every oracle that mints its own fixture draws through the kernel
-// `Deterministic.Source(seed, lane)` — an unseeded process RNG made deviation, mass, and cancellation ratio
-// unreplayable, so two runs of one row compared nothing while this record declared the opposite.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount, long Seed) {
     public static EquivalencePolicy For(TensorOpFamily family) => new(family, SampleCount: 256, Seed: 0L);
 
@@ -823,9 +742,6 @@ public sealed record EquivalencePolicy(TensorOpFamily Family, int SampleCount, l
 }
 
 public readonly record struct EquivalenceProof(TensorOpFamily Family, ProofEvidence Evidence, int SampleCount, MonotonicBeat Beat, CorrelationId Correlation) {
-    // `ToleranceClass.Bound(length, mass)` alone owns the error envelope and verdict under the cancellation-ratio
-    // gate, never a stored relative scalar. The deviation is ABSOLUTE (the envelope is N·ε·Σ|x|), so the evidence
-    // carries its own length, mass, and cancellation ratio and an unmeasured run carries none of them.
     public ProofVerdict Verdict => Evidence.Switch(
         measured: m => Family.Tolerance.Verdict(m.Deviation, m.Length, m.Mass, m.CancellationRatio),
         unmeasured: static _ => ProofVerdict.UnprovableUnmeasured);
@@ -833,10 +749,6 @@ public readonly record struct EquivalenceProof(TensorOpFamily Family, ProofEvide
     public bool Holds => Verdict.Certifies;
 }
 
-// Op-agnostic proof evidence funnels every `Prove` arm into `EquivalenceProof`. The non-measurement is a CASE,
-// not a sentinel instance: the prior `Unprovable` was `(+inf, 0, 0.0, 1.0)` — a required deviation slot holding
-// infinity, a required length holding a zero nobody counted — and a consumer reading those fields could not tell
-// them from a measurement that happened to produce them.
 [Union]
 public abstract partial record ProofEvidence {
     private ProofEvidence() { }
@@ -845,10 +757,6 @@ public abstract partial record ProofEvidence {
     public sealed record Unmeasured(string Reason) : ProofEvidence;
 }
 
-// The geometry carries the `ShardDispatch` WHOLE, because the dispatch is the lowering's one argument and an
-// adjoint sweep holds no transport of its own: an operand-shape-derived geometry spells `Local`, and a
-// farm-planned one is constructed by whoever holds the stub, arriving here as a `Farm` already paired with its
-// context. A bare plan riding this slot beside a context threaded down the sweep is the deleted form.
 public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, ShardDispatch Dispatch) {
     public static Fin<MatMulGeometry> Admit(ReadOnlyMemory<float> weights, ReadOnlyMemory<float> direction, AdjointMode mode) {
         int known = direction.Length;
@@ -861,30 +769,22 @@ public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, S
             reverse: _ => new MatMulGeometry(Rows: 1, Inner: other, Columns: known, new ShardDispatch.Local())));
     }
 
-    // `DenseOfRowMajor` takes the flat sequence directly; the prior `Build.Dense(r, c, (r, c) => span[…])` paid a
-    // delegate invocation per CELL to read a contiguous span it already had.
     public Matrix<double> DirectionMatrix(ReadOnlyMemory<float> direction, AdjointMode mode) {
         int width = mode.Switch(forward: _ => Inner, reverse: _ => Columns);
         return Matrix<double>.Build.DenseOfRowMajor(Rows, width, Widened(direction.Span[..(Rows * width)]));
     }
 
-    // The reverse projection is the weight block TRANSPOSED, which `DenseOfRowMajor` states by reading the same
-    // row-major buffer at the transposed extents rather than by a per-cell index inversion.
     public Matrix<double> WeightMatrix(ReadOnlyMemory<float> weights, AdjointMode mode) =>
         mode.Switch(
             forward: _ => Matrix<double>.Build.DenseOfRowMajor(Inner, Columns, Widened(weights.Span)),
             reverse: _ => Matrix<double>.Build.DenseOfRowMajor(Inner, Columns, Widened(weights.Span)).Transpose());
 
-    // The widened buffer is CONSUMED by `DenseOfRowMajor`, which copies it into MathNet's own storage, so it is
-    // an egress array rather than kernel scratch and a pooled rent would be released before the copy completes.
     static IEnumerable<double> Widened(ReadOnlySpan<float> narrow) {
         double[] wide = GC.AllocateUninitializedArray<double>(narrow.Length);
         TensorPrimitives.ConvertChecked<float, double>(narrow, wide);
         return wide;
     }
 
-    // `ToRowMajorArray` hands the whole buffer at once and `ConvertChecked` narrows it span-wise; the nested
-    // per-cell copy this replaces walked a `Matrix<double>` indexer twice per element.
     public MemoryOwner<float> Flatten(Matrix<double> matrix) {
         MemoryOwner<float> flat = MemoryOwner<float>.Allocate(matrix.RowCount * matrix.ColumnCount);
         TensorPrimitives.ConvertChecked<double, float>(matrix.ToRowMajorArray(), flat.Span);
@@ -892,22 +792,8 @@ public readonly record struct MatMulGeometry(int Rows, int Inner, int Columns, S
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
-// One directional-derivative owner for the non-elementwise ops: it carries BOTH the reverse-mode VJP and the
-// forward-mode JVP of each op, sharing one body wherever the two directions coincide, so the prior
-// Forward/Backward class pair — whose SoftMax and MatMul bodies were byte-identical, the illusory-dual form
-// that reads as a rich dual surface yet is copy-paste — is deleted. MatMul picks the weight projection by
-// AdjointMode (Wᵀ reverse for ȳ·Wᵀ, W forward for ẋ·W); SoftMax is direction-blind because its Jacobian
-// diag(y)−y·yᵀ is symmetric so Jᵀ=J and the VJP equals the JVP; the DEC geometry Operator picks
-// OperatorRow.Adjoint (the transpose Aᵀ·ȳ) for reverse and OperatorRow.Apply (a linear operator is its own
-// pushforward A·ṫ) for forward over the recorded mesh snapshot. Every arm answers a POOLED rent the sweep owns.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Directional {
-    // `Directional` is the synchronous Fin family; the lowering IO (shard-dispatch effects) runs exactly once at
-    // this boundary so the directional-derivative rail stays uniform with SoftMax/Sum/Dot/Operator. The geometry
-    // hands the lowering its one `ShardDispatch`, so a local adjoint names no transport and no derivative
-    // signature widens for an ambient it never reads. The lowered result reads its SOLUTION alone — a local
-    // lowering decomposes nothing and carries an empty receipt roster, so an adjoint folding it would publish a
-    // factorization no route ran.
     public static Fin<MemoryOwner<float>> MatMul(ReadOnlyMemory<float> weights, ReadOnlySpan<float> direction, AdjointMode mode) {
         ReadOnlyMemory<float> held = direction.ToArray();
         return MatMulGeometry.Admit(weights, held, mode).Bind(geometry =>
@@ -928,11 +814,6 @@ public static class Directional {
         return Fin.Succ(jacobian);
     }
 
-    // Reduction directional derivatives are non-diagonal vector→scalar maps. Sum reads the forward INPUT for its
-    // extent alone: the reverse VJP broadcasts the scalar cotangent over it (x̄ᵢ = ȳ) and the forward JVP contracts
-    // the tangent to the scalar Σẋ. Dot reads the HELD operand the tape carries as payload: the reverse VJP scales
-    // it by the scalar cotangent (x̄ᵢ = ȳ·yᵢ) and the forward JVP contracts the tangent with it (ẏ = ẋ·y). These are
-    // the dimension-changing reduction adjoints the constitutive strain-energy norm / quadratic-form tapes ride.
     public static Fin<MemoryOwner<float>> Sum(ReadOnlyMemory<float> input, ReadOnlySpan<float> direction, AdjointMode mode) =>
         mode.Switch(
             forward: _ => input.Length != direction.Length
@@ -971,10 +852,6 @@ public static class Directional {
         return Fin.Succ(rent);
     }
 
-    // DEC operators use float64 (`Arr<double>` the Rasm.Numerics carrier) while the autodiff tape is
-    // float32; the impedance converts through `TensorPrimitives.ConvertChecked` at the seam, never the phantom
-    // `Arr.fromSpan`/`Arr.AsSpan` spelling — the verified factory is `Arr.create<T>(ReadOnlySpan<T>)` and the
-    // read-back is `.ToArray()`. A row outside the geometry table returns `no-operator-row`.
     public static Fin<MemoryOwner<float>> Operator(GeometryTape step, ReadOnlySpan<float> direction, AdjointMode mode) {
         if (!GeometryAdjoint.Rows.TryGetValue(step.Op, out OperatorRow? row)) { return TensorReason.RowMissing.Fail<MemoryOwner<float>>("no-operator-row", step.Op.Key); }
         Func<MeshAdjointSnapshot, Arr<double>, Fin<Arr<double>>> apply = mode.Switch(reverse: _ => row.Adjoint, forward: _ => row.Apply);
@@ -989,12 +866,6 @@ public static class Directional {
     }
 }
 
-// Fixed-length spill law — probe-proven: `H5Constants.Unlimited` in a `H5Dataset<T>` fileDims faults the
-// `BeginWrite` encode itself before any chunk write, so an unknown-length reverse-mode tape has NO lawful
-// unbounded container. fileDims declare the step count up front — the fixed-step PDE march declares
-// [steps, width] outright — and a sweep that cannot declare one SEGMENTS: one create-only session per segment
-// at the sweep's own cadence edge, the `Runtime/archive#HDF_ARCHIVE` sanctioned accumulation form, each segment
-// declaring its own step count at `Begin`.
 public sealed class TapeSpill : IDisposable {
     readonly ArchiveSession session;
     readonly ChunkCursor<float> cursor;
@@ -1003,12 +874,6 @@ public sealed class TapeSpill : IDisposable {
     TapeSpill(ArchiveSession session, ChunkCursor<float> cursor, int width) =>
         (this.session, this.cursor, this.width) = (session, cursor, width);
 
-    // One step-chunk per accepted step: chunks are [1, width], so the resident primal is ONE chunk — the spill's
-    // whole memory bound. The extent is SEATED, never re-derived: the step count and width are already declared
-    // here, and `Runtime/archive#CHUNK_CURSOR` owns the ordinal↔hyperslab correspondence they address. The
-    // capsule folds the slot mint, the graph, the typed attribute stamp, and the writer open into one act, and
-    // the cursor comes out ONCE — the forward sweep pushes ordinals in index order through that single cursor,
-    // which holds the ordinal no caller re-passes. A refused extent leaves before the session truncates its sink.
     public static Fin<TapeSpill> Begin(int steps, int width, Stream sink, HdfArchivePolicy policy) =>
         ChunkGrid.Seat(fileDims: [(ulong)steps, (ulong)width], chunks: [1u, (uint)width]).ToFin()
             .Map(static grid => new ArchiveSlot<float>("tape", grid))
@@ -1016,19 +881,10 @@ public sealed class TapeSpill : IDisposable {
                     sink, policy, Seq<IArchiveSlot>(slot),
                     Seq(("steps", (ArchiveAttribute)new ArchiveAttribute.Whole(steps)),
                         ("width", (ArchiveAttribute)new ArchiveAttribute.Whole(width))))
-                // Release binds to BOTH arms: a session that opened and then failed to hand back its cursor has
-                // already truncated the sink, so dropping the handle on the fault arm strands an open writer.
                 .Bind(opened => opened.Cursor(slot).Match(
                     Succ: held => Fin.Succ(new TapeSpill(opened, held, width)),
                     Fail: error => { opened.Dispose(); return Fin.Fail<TapeSpill>(error); })));
 
-    // Two admissions, both plain guards on the rail rather than throws raised so an enclosing lift can convert
-    // them back: an exception minted to be caught two lines later is exception-style control flow wearing a rail.
-    // The width mismatch is a shape refusal; the ordinal mismatch is the ORDER refusal this spill declares — the
-    // sweep's own step index must agree with the ordinal the cursor holds, and disagreement is caught at
-    // admission ahead of the library's mid-encode `Chunks can only be written once.` fault, which throws after
-    // the producing work is already spent. The write passes no ordinal at all, so the chunk address cannot fork
-    // and the failure rides the capsule's own `<hdf5-…>` slug.
     public Fin<Unit> Push(int step, ReadOnlyMemory<float> primal) =>
         primal.Length != width
             ? TensorReason.ShapeMismatch.Fail<Unit>("hdf5-tape-width", primal.Length.ToString(CultureInfo.InvariantCulture), width.ToString(CultureInfo.InvariantCulture))
@@ -1036,9 +892,6 @@ public sealed class TapeSpill : IDisposable {
             ? TensorReason.PolicyInvalid.Fail<Unit>("hdf5-tape-order", step.ToString(CultureInfo.InvariantCulture), cursor.Next.ToString(CultureInfo.InvariantCulture))
             : cursor.Write(primal.ToArray());
 
-    // Reverse sweep reads the SEALED container per step by hyperslab — [step, 0]/[1, width] — into a caller-owned
-    // span, so the backward pass holds one step-chunk resident whatever the tape length; the statement-form catch
-    // preserves the exact PureHDF exception because no documented provider refusal earns a local remint here.
     public static Fin<Unit> Replay(HdfHandle handle, string dataset, int step, Span<float> primal) {
         try {
             NativeDataset source = handle.Dataset(dataset);
@@ -1054,12 +907,6 @@ public sealed class TapeSpill : IDisposable {
     public void Dispose() => session.Dispose();
 }
 
-// Six-row DDG operator table stays Compute-owned; the kernel declares only `DiscreteCalculus` at
-// `Rasm/Numerics/spectral#DEC_CARRIERS` and the `MeshAdjointSnapshot` handle. `Apply` is the forward map,
-// `Adjoint` the plain transpose the ⟨A·x,y⟩ == ⟨x,Aᵀ·y⟩ proof reads: incidence rows pair by transpose (Gradient ↔
-// Divergence over D0, Curl over D1), symmetric weak rows alias `Adjoint` to `Apply`. The kernel `SparseMatrix`
-// now publishes the total `Transpose()` (CSparse raw-buffer wrap over the CSR/CSC duality), so the incidence
-// adjoints compose it and this lane materializes no triplet round trip.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1077,9 +924,6 @@ public sealed partial class OperatorRow {
     [UseDelegateFromConstructor]
     public partial Fin<Arr<double>> Adjoint(MeshAdjointSnapshot snapshot, Arr<double> field);
 
-    // Which field a row consumes is ROW DATA: Gradient/CotangentLaplacian/HeatFlow/Spectral act on the vertex
-    // field (|V|), Divergence/Curl on the edge field (|E|). A helper testing two rows by identity re-derived a
-    // column the roster already had room for, and every later row would have defaulted to the wrong domain.
     public FieldDomain Domain { get; }
 
     private static Fin<Arr<double>> D0Apply(MeshAdjointSnapshot snapshot, Arr<double> field) => snapshot.Calculus.D0.Multiply(field);
@@ -1092,12 +936,9 @@ public sealed partial class OperatorRow {
     private static Fin<Arr<double>> D1TransposeApply(MeshAdjointSnapshot snapshot, Arr<double> field) =>
         snapshot.Calculus.D1.Transpose().Multiply(field);
 
-    // Weak cotangent Laplacian L = D0ᵀ·diag(Star1)·D0 — symmetric by construction, its own transpose.
     private static Fin<Arr<double>> WeakLaplacian(MeshAdjointSnapshot snapshot, Arr<double> field) =>
         D0Apply(snapshot, field).Map(edge => Scaled(edge, snapshot.Calculus.Star1)).Bind(weighted => D0TransposeApply(snapshot, weighted));
 
-    // Unit-step implicit heat operator diag(Star0) + L — SPD, self-adjoint. The fused multiply-add walks the
-    // whole vector once through the span primitive, where the element loop it replaces read three arrays by index.
     private static Fin<Arr<double>> HeatOperator(MeshAdjointSnapshot snapshot, Arr<double> field) =>
         WeakLaplacian(snapshot, field).Map(stiff => {
             using MemoryOwner<double> summed = MemoryOwner<double>.Allocate(stiff.Count);
@@ -1105,8 +946,6 @@ public sealed partial class OperatorRow {
             return Arr.create<double>(summed.Span);
         });
 
-    // Mass-symmetrized pencil diag(Star0)^-1/2 · L · diag(Star0)^-1/2 — the spectral-basis operator form;
-    // Star0 entries are strictly positive under `DiscreteCalculus.IsValid`, so the half-inverse is total.
     private static Fin<Arr<double>> NormalizedLaplacian(MeshAdjointSnapshot snapshot, Arr<double> field) {
         using MemoryOwner<double> halfInverse = MemoryOwner<double>.Allocate(snapshot.Calculus.Star0.Count);
         TensorPrimitives.Sqrt<double>(snapshot.Calculus.Star0.ToArray(), halfInverse.Span);
@@ -1130,9 +969,6 @@ public sealed partial class FieldDomain {
     public static readonly FieldDomain Edge = new("edge");
 }
 
-// The one seeded draw for every oracle that mints its own fixture. The unseeded process RNG this replaces made
-// the deviation, mass, and cancellation ratio of a proof unreplayable, and the same helper existed twice under
-// one name across two pages — one seeded, one not — so a reader could not tell which stream a run drew from.
 public static class ProofDraw {
     public static Arr<double> Gaussian(int length, long seed, long lane) {
         using MemoryOwner<double> values = MemoryOwner<double>.Allocate(length);
@@ -1162,15 +998,6 @@ public static class GeometryAdjoint {
         [TensorOpFamily.Spectral] = OperatorRow.Spectral,
     }.ToFrozenDictionary();
 
-    // Geometry's span-kernel analogue proves the linear-operator transpose identity
-    // ⟨A·x, y⟩ == ⟨x, Aᵀ·y⟩ over a `MeshAdjointSnapshot` FIXTURE (a small canonical mesh, so the accumulation
-    // residual stays inside the family band), composing the page-owned `OperatorRow.Apply`/`Adjoint`
-    // contract — the self-adjoint rows alias `Adjoint` to `Apply`, the incidence rows route the paired transpose
-    // — so the assembled DEC operator pair is certified WITHOUT a per-op reference and WITHOUT re-assembling the
-    // operator (the live `DiscreteCalculus` factor the snapshot already holds). Forward `Apply` consumes a random
-    // domain vector x on ITS OWN lane; `Adjoint` consumes a random codomain vector y on a second lane, so one
-    // seed replays the whole proof and the two operands never share a stream. A fabricated dense Jacobian of the
-    // sparse operator, or a proof that never applies the row, is the deleted hollow form.
     public static Fin<ProofEvidence> ProveAdjoint(OperatorRow row, MeshAdjointSnapshot snapshot, long seed) {
         Arr<double> x = ProofDraw.Gaussian(Domain(row, snapshot), seed, lane: 0L);
         return row.Apply(snapshot, x).Bind(ax => {
@@ -1183,57 +1010,32 @@ public static class GeometryAdjoint {
         });
     }
 
-    // The codomain length falls out of `Apply`, so only the domain length is keyed — off the row's own column.
     static int Domain(OperatorRow row, MeshAdjointSnapshot snapshot) =>
         row.Domain == FieldDomain.Edge ? snapshot.EdgeCount : snapshot.VertexCount;
 }
 
-// Both directional columns are `(step, direction) → Fin`: a derivative reads the tape step and the direction and
-// nothing else, and the MatMul row's `Tensor/factor#KERNEL_LOWERING` GEMM lowers against the `ShardDispatch` its
-// own geometry derives. No row here names transport, so no row carries a column it never reads.
 public sealed record DifferentiableOp(
     TensorOpFamily Forward,
     bool Diagonal,
     Func<TapeStep, ReadOnlySpan<float>, Fin<MemoryOwner<float>>> Vjp,
     Func<TapeStep, ReadOnlySpan<float>, Fin<MemoryOwner<float>>> Jvp) {
     public static readonly FrozenDictionary<TensorOpFamily, DifferentiableOp> Rows = new Dictionary<TensorOpFamily, DifferentiableOp> {
-        // Every diagonal derivative reads the INPUT x and recomputes its own local value: tanh recomputes t=tanh(x)
-        // for 1−t², sigmoid recomputes s for s(1−s), exp recomputes eˣ. Recording those outputs instead would save
-        // one transcendental per element and cost the tape its one readable convention — the trade this owner refuses.
         [TensorOpFamily.Tanh] = Diag(TensorOpFamily.Tanh, static (x, d) => { TensorPrimitives.Tanh(x, d); TensorPrimitives.Multiply(d, d, d); TensorPrimitives.Subtract(1f, d, d); }),
         [TensorOpFamily.Sigmoid] = Diag(TensorOpFamily.Sigmoid, static (x, d) => { TensorPrimitives.Sigmoid(x, d); Complement(d); }),
         [TensorOpFamily.Exp] = Diag(TensorOpFamily.Exp, static (x, d) => TensorPrimitives.Exp(x, d)),
         [TensorOpFamily.Log] = Diag(TensorOpFamily.Log, static (x, d) => TensorPrimitives.Reciprocal(x, d)),
         [TensorOpFamily.ReLU] = Diag(TensorOpFamily.ReLU, static (x, d) => { TensorPrimitives.Max(x, 0f, d); TensorPrimitives.Sign(d, d); }),
-        // Elementwise-ring rows stay diagonal in the flowing operand. Add/Subtract differentiate the addend/minuend
-        // (∂=1); Multiply scales by the held factor (∂=y); Divide by the reciprocal denominator (∂=1/y); Pow needs
-        // BOTH base and exponent (∂=y·x^(y−1)), which is exactly why the exponent rides `Payload` rather than
-        // displacing the input under `Primal`. These supply the constitutive return-map / multi-term stored-energy
-        // tape vocabulary the `Solver/constitutive#CONSTITUTIVE` stress-update and contact tapes compose.
         [TensorOpFamily.Add] = Diag(TensorOpFamily.Add, static (_, d) => d.Fill(1f)),
         [TensorOpFamily.Subtract] = Diag(TensorOpFamily.Subtract, static (_, d) => d.Fill(1f)),
-        // A held-operand row reads BOTH recorded operands, so an absent or mis-sized payload is a MALFORMED tape
-        // and rails `adjoint-payload` — an empty payload silently read as zero returns a derivative of zero, which
-        // the sweep then propagates as a legitimate vanishing gradient. `Diag` and `Held` differed only by the
-        // PRESENCE of that payload, which the step already carries, so one factory reads an empty payload as the
-        // unary case and the pair is one.
         [TensorOpFamily.Multiply] = Diag(TensorOpFamily.Multiply, static (_, y, d) => y.CopyTo(d)),
         [TensorOpFamily.Divide] = Diag(TensorOpFamily.Divide, static (_, y, d) => TensorPrimitives.Reciprocal(y, d)),
         [TensorOpFamily.Pow] = Diag(TensorOpFamily.Pow, static (x, y, d) => { TensorPrimitives.Subtract(y, 1f, d); TensorPrimitives.Pow(x, d, d); TensorPrimitives.Multiply(d, y, d); }),
-        // MatMul is genuinely bilinear: the reverse VJP applies Wᵀ, the forward JVP applies W, so the two
-        // arms are distinct directional maps, not the deleted copy-paste-identical body. The weight block is the
-        // recorded second operand, so it reads from `Payload` like every other held operand.
         [TensorOpFamily.MatMul] = Bilinear(TensorOpFamily.MatMul,
             static (step, seed) => Directional.MatMul(step.Payload, seed, AdjointMode.Reverse),
             static (step, tangent) => Directional.MatMul(step.Payload, tangent, AdjointMode.Forward)),
-        // SoftMax's Jacobian is symmetric, so one body serves both directions — Bilinear with the same map
-        // names the shared identity instead of duplicating it — and it recomputes y from the recorded input.
         [TensorOpFamily.SoftMax] = Bilinear(TensorOpFamily.SoftMax,
             static (step, seed) => Directional.SoftMax(step.Primal, seed),
             static (step, tangent) => Directional.SoftMax(step.Primal, tangent)),
-        // Reduction rows are non-diagonal (vector→scalar), so reverse VJP and forward JVP are genuinely
-        // distinct directional maps routed to the one `Directional` owner: Sum reads the input for its extent,
-        // Dot the held operand from `Payload`.
         [TensorOpFamily.Sum] = Bilinear(TensorOpFamily.Sum,
             static (step, seed) => Directional.Sum(step.Primal, seed, AdjointMode.Reverse),
             static (step, tangent) => Directional.Sum(step.Primal, tangent, AdjointMode.Forward)),
@@ -1242,9 +1044,6 @@ public sealed record DifferentiableOp(
             static (step, tangent) => Directional.Dot(step.Payload, tangent, AdjointMode.Forward)),
     }.ToFrozenDictionary();
 
-    // Diagonal Jacobians collapse an elementwise op's VJP and JVP into the one `direction .* f'(x)` fold, and the
-    // derivative itself is a SPAN kernel: a `Func<float, float>` invoked once per element on the hottest AD path
-    // paid a delegate call for work every one of these rows expresses as a `TensorPrimitives` composition.
     static DifferentiableOp Diag(TensorOpFamily forward, SpanDerivative derivative) =>
         Diag(forward, (x, _, d) => derivative(x, d));
 
@@ -1253,8 +1052,6 @@ public sealed record DifferentiableOp(
             (step, seed) => Pointwise(step, seed, derivative),
             (step, tangent) => Pointwise(step, tangent, derivative));
 
-    // Forward is total over every bound row: each carries a real JVP, so a row either resolves both directions
-    // or is absent (`no-adjoint-row`).
     static DifferentiableOp Bilinear(TensorOpFamily forward, Func<TapeStep, ReadOnlySpan<float>, Fin<MemoryOwner<float>>> vjp, Func<TapeStep, ReadOnlySpan<float>, Fin<MemoryOwner<float>>> jvp) =>
         new(forward, Diagonal: false, vjp, jvp);
 
@@ -1280,10 +1077,6 @@ public delegate void SpanDerivative(ReadOnlySpan<float> primal, Span<float> dest
 public delegate void PairedDerivative(ReadOnlySpan<float> primal, ReadOnlySpan<float> payload, Span<float> destination);
 
 public static class SensitivityLaw {
-    // ONE sweep over one tape family in one direction: `Chain` and `Pushforward` were four entrypoints folding
-    // over a mode the page already carried as a value, and the caller had to know which tape type it held to
-    // pick between them. The fold OWNS every rent it produces and releases each as the flow moves past it —
-    // on the refusal arm as well as the success arm — while the caller keeps the seed it brought.
     public static Fin<MemoryOwner<float>> Sweep(Tape tape, AdjointMode mode, ReadOnlySpan<float> seed) {
         MemoryOwner<float> flow = MemoryOwner<float>.Allocate(seed.Length);
         seed.CopyTo(flow.Span);
@@ -1299,8 +1092,6 @@ public static class SensitivityLaw {
             ? mode.Switch(reverse: _ => differentiable.Vjp, forward: _ => differentiable.Jvp)(step, seed)
             : TensorReason.RowMissing.Fail<MemoryOwner<float>>("no-adjoint-row", step.Op.Key);
 
-    // A spilled step rebuilds at the span boundary: ONE chunk resident whatever the tape length, which is the
-    // memory bound the spill exists for and the sweep the Boundary described but no entrypoint provided.
     static Fin<MemoryOwner<float>> Replayed(SpillCursor cursor, int ordinal, ReadOnlySpan<float> carried, AdjointMode mode) {
         using MemoryOwner<float> primal = MemoryOwner<float>.Allocate(cursor.Width);
         return TapeSpill.Replay(cursor.Archive, cursor.Dataset, ordinal, primal.Span)
@@ -1314,13 +1105,6 @@ public static class SensitivityLaw {
             Succ: next => { carried.Dispose(); return Fin.Succ(next); },
             Fail: error => { carried.Dispose(); return Fin.Fail<MemoryOwner<float>>(error); })));
 
-    // Generalized Gauss-Newton matrix-free product JᵀJ·v: run the forward sweep seeded by `vector` to get J·v,
-    // then the reverse sweep to get Jᵀ·(J·v) — reverse-over-forward of the ONE first-order tape, no dense
-    // matrix materialized. This is the SPD curvature operator Newton-CG / trust-region / Levenberg-Marquardt
-    // consume (SPD by construction, so CG never breaks on an indefinite step). It is NOT the exact Hessian:
-    // Curvature Σ x̄ₖ·f''(xₖ)·ẋₖ is absent because the first-order tape carries neither the flowing activations
-    // nor a second-derivative column — the true Hessian-vector product is a separate second-order capability (an
-    // f'' row on `DifferentiableOp` plus a forward-over-reverse sweep), not this fold.
     public static Fin<MemoryOwner<float>> GaussNewton(Tape tape, ReadOnlySpan<float> vector) {
         ReadOnlyMemory<float> held = vector.ToArray();
         return Sweep(tape, AdjointMode.Forward, held.Span).Bind(forwardDot => {
@@ -1330,12 +1114,6 @@ public static class SensitivityLaw {
         });
     }
 
-    // Hyper-dual scalars form the third `Directional` leg beside geometry and symbolic tapes; a smooth scalar
-    // objective authored once over the HyperJet scalar yields the exact gradient (order 1) or exact gradient +
-    // Hessian (order 2) in ONE evaluation. HyperJet returns PLAIN .NET arrays — `GetGradient()` answers
-    // `double[]` and `GetHessian()` answers `double[,]` — so the MathNet carriers are LIFTED at this seam; the
-    // prior assignment claimed a MathNet export the package does not make and then called MathNet-only members
-    // on the result.
     public static Fin<(double Value, Vector<double> Gradient)> Gradient(Func<DDScalar[], DDScalar> objective, double[] at) =>
         Op.Of(name: "hyperdual-evaluation").Catch(() => {
             DDScalar f = objective(DDScalar.Variables(at, order: 1));
@@ -1359,18 +1137,8 @@ public static class SensitivityLaw {
         TensorPrimitives.IsFiniteAll<double>(MemoryMarshal.CreateReadOnlySpan(ref block[0, 0], block.Length));
 }
 
-// Sparse-Jacobian construction by graph coloring: detect the sparsity pattern, color the structurally
-// orthogonal columns (greedy distance-1 degree-ordered) over a QuikGraph undirected container, then recover the
-// full Jacobian in (#colors) directional-derivative passes instead of (#columns), scattering the compressed
-// columns directly into the `SparseFormat` CSR storage the sparse lane owns. `[Equatable]`: a coloring is
-// deterministic from its sparsity pattern, so caching it across Newton iterations keys on value identity —
-// `Colors` otherwise reference-compares (`Pattern` is a Seq, already structural).
 [Equatable]
 public sealed partial record JacobianColoring(int Rows, int Columns, Seq<(int Row, int Column)> Pattern, [property: OrderedEquality] ImmutableArray<int> Colors, int ColorCount) {
-    // The adjacency is a GRAPH, so it is built by the graph library's own conversion rather than by a
-    // `HashSet<int>[]` beside a `GroupBy` beside a nested pair loop; the assignment is a fold over the
-    // degree-ordered vertices with no `-1` sentinel standing in for an unassigned colour, and the colour count
-    // is the distinct count rather than a maximum that assumed a contiguity nothing stated.
     public static Fin<JacobianColoring> Of(int rows, int columns, Seq<(int Row, int Column)> pattern) {
         if (rows < 0 || columns < 0) { return TensorReason.ShapeMismatch.Fail<JacobianColoring>("jacobian-shape", $"{rows}x{columns}"); }
         if (pattern.Exists(entry => entry.Row < 0 || entry.Row >= rows || entry.Column < 0 || entry.Column >= columns)) {
@@ -1392,13 +1160,6 @@ public sealed partial record JacobianColoring(int Rows, int Columns, Seq<(int Ro
 
     static int Lowest(Seq<int> used) => Enumerable.Range(0, used.Count + 1).First(candidate => !used.Contains(candidate));
 
-    // One seed vector per color probes the structurally-orthogonal column group through the forward sweep (or
-    // the reverse one); each color's directional derivative scatters its pattern entries as COO triplets
-    // accumulated in color order, then handed ONCE to the `Tensor/factor#SPARSE_SOLVE`-owned
-    // `SparseOps.Ingest(Coo)` CSR conversion — never a raw `CoordinateStorage` RowIndices/Values surgery the
-    // sparse owner forbids, and never a second ingestion path beside the one factor.md owns. A probe shorter than
-    // the row count means the tape produced a derivative of another shape, so it refuses: zero-filling the missing
-    // rows publishes structural zeros the pattern declared nonzero, and the solve that reads them cannot tell.
     public Fin<SparseCompressedRowMatrixStorage<double>> Assemble(Func<int, Fin<MemoryOwner<float>>> probeColor) =>
         toSeq(Enumerable.Range(0, ColorCount))
             .Fold(Fin.Succ(Seq<(int Row, int Column, double Value)>()), (acc, seedColor) =>
@@ -1416,35 +1177,13 @@ public sealed partial record JacobianColoring(int Rows, int Columns, Seq<(int Ro
 }
 
 public static class EquivalenceLaw {
-    // `TensorOpKind.Oracle` is the proof-family selector — the reader the vocabulary owner declares its column
-    // for — so the gap kernel comes from the row's KIND through a TOTAL four-arm switch, never from a
-    // thirteen-row map keyed on the same roster and never from probing which arity table happens to hold it: a
-    // scalar-tail kind runs the candidate VECTOR body against the SAME kernel applied element-by-element (the
-    // length-1 tail path the SIMD body must match per the compute length-class law), a reassociated kind runs the
-    // candidate against the SAME reduction over the reversed operands (the reassociation-stability the
-    // `AccumulationScaled` bound certifies), the lowered kind routes to the `Tensor/factor#KERNEL_LOWERING`
-    // GEMM-vs-naive proof (`KernelLowering.ProveGemm`, which OWNS MatMul/Conv admission), and the fixtured kinds
-    // carry no data oracle here so the data-only `Prove` reports `Unmeasured` and their gate is `ProveOperator`
-    // over a `MeshAdjointSnapshot`. Diffing two unrelated random fills without ever running the kernel is the
-    // deleted hollow form.
 
-    // Right-operand fill is a PER-FAMILY PROOF POLICY, not a roster mirror: a divisor, a modulus, or a power base
-    // drawn from the plain uniform [0, 1) reaches zero, where the kernel's own gap explodes and the run grades the
-    // sample rather than the kernel. These rows shift that draw to [0.5, 1.5) — bounded away from zero on both
-    // the value and the derivative — so the measured deviation is the vectorization gap the envelope is
-    // calibrated against. The set lives with the law that reads it, never as a column on the vocabulary row.
     static readonly FrozenSet<TensorOpFamily> BoundedAwayFromZero = new[] {
         TensorOpFamily.Divide, TensorOpFamily.Pow, TensorOpFamily.Remainder,
     }.ToFrozenSet();
 
-    // Span-coupled rows carry no scalar-tail identity — softmax over a length-1 slice is the constant 1 — so
-    // each references the shift invariance f(x + c) == f(x), a real metamorphic oracle at the same envelope.
     static readonly FrozenSet<TensorOpFamily> Coupled = new[] { TensorOpFamily.SoftMax, TensorOpFamily.LogSoftMax }.ToFrozenSet();
 
-    // ONE clock: the kernel `MonotonicTimeline` is built once off the host `TimeProvider` at the app root and
-    // threaded here, so its beat carries the ordinal, the stamp, and the elapsed span together. The raw
-    // timestamp/elapsed pair beside a second `IClock` re-minted temporal identity at four sites and threaded two
-    // clocks where the branch ruling wants one.
     public static Fin<EquivalenceProof> Prove(MonotonicTimeline timeline, CorrelationId correlation, EquivalencePolicy policy) {
         if (policy.SampleCount <= 0) { return TensorReason.BudgetExhausted.Fail<EquivalenceProof>("equivalence-sample-count", policy.Family.Key, policy.SampleCount.ToString(CultureInfo.InvariantCulture)); }
         MonotonicBeat mark = timeline.Capture();
@@ -1455,8 +1194,6 @@ public static class EquivalenceLaw {
             ProofDraw.Fill(bOwner.Span, policy.Seed, lane: 1L, gaussian: false);
             if (BoundedAwayFromZero.Contains(policy.Family)) { TensorPrimitives.Add<double>(bOwner.Span, 0.5, bOwner.Span); }
             ReadOnlySpan<double> a = aOwner.Span, b = bOwner.Span;
-            // An unbounded envelope certifies nothing, so an estimate row never runs a gap at all — it reports
-            // `Unmeasured`, which the verdict fold reads through `ToleranceClass` as `unprovable-estimate`.
             ProofEvidence evidence = !policy.Family.Tolerance.Certifiable
                 ? new ProofEvidence.Unmeasured("estimate-row")
                 : policy.Family.Kind.Oracle.Switch(
@@ -1468,13 +1205,6 @@ public static class EquivalenceLaw {
         });
     }
 
-    // A kind resolves the FAMILY of oracle; the row still resolves its own arity inside that family, and a row
-    // whose element domain this double-typed run cannot instantiate (the integer and complex lanes) reports
-    // `Unmeasured` rather than a gap it never measured. Every FORM of a row is probed and the WORST gap is the
-    // row's evidence: the tolerance band is a per-row column, so a row certified at one form and unmeasured at
-    // another would publish a band its π-scaled or near-unit corner never met — which is exactly what a roster
-    // carrying each corner as its own key hid, by proving twelve rows and grading none of them against the row
-    // whose envelope they share.
     static ProofEvidence ScalarTail(TensorOpFamily row, ReadOnlySpan<double> a, ReadOnlySpan<double> b) {
         Seq<UnaryKernel<double>> unary = UnaryForms(row);
         Seq<BinaryKernel<double>> binary = BinaryForms(row);
@@ -1492,9 +1222,6 @@ public static class EquivalenceLaw {
         return SpanEvidence(Math.Max(Worst(folds, kernel => FoldGap(kernel, a)), Worst(pairs, kernel => PairFoldGap(kernel, a, b))), a);
     }
 
-    // An empty form set contributes NEGATIVE INFINITY, never a zero: a zero is a measured perfect agreement and
-    // an absent arity measured nothing, and folding the two together would certify a row on an oracle that
-    // never ran. The caller has already refused the case where both sets are empty.
     static double Worst<TKernel>(Seq<TKernel> kernels, Func<TKernel, double> gap) =>
         kernels.Fold(double.NegativeInfinity, (peak, kernel) => Math.Max(peak, gap(kernel)));
 
@@ -1517,11 +1244,6 @@ public static class EquivalenceLaw {
         toSeq(TensorKernels<double>.PairFold.Where(pair => pair.Key == row).Select(static pair => pair.Value))
         + (row == TensorOpFamily.ProductOfPairs ? toSeq(TensorKernels<double>.Combined.Values) : Seq<PairFoldKernel<double>>());
 
-    // Geometry and structural rows unreachable by data-only `Prove` certify through the adjoint identity
-    // ⟨A·x, y⟩ == ⟨x, Aᵀ·y⟩ over a `MeshAdjointSnapshot` fixture, composing the page-owned
-    // `OperatorRow.Apply`/`Adjoint` transpose-pair via `GeometryAdjoint.ProveAdjoint` under the SAME policy seed
-    // the data oracles draw from. A row outside the geometry table is `no-adjoint-row` (never silently
-    // admitted), and the verdict reads the same `ToleranceClass` envelope the span and matrix proofs read.
     public static Fin<EquivalenceProof> ProveOperator(MonotonicTimeline timeline, CorrelationId correlation, EquivalencePolicy policy, MeshAdjointSnapshot snapshot) {
         MonotonicBeat mark = timeline.Capture();
         return GeometryAdjoint.Rows.TryGetValue(policy.Family, out OperatorRow? row)
@@ -1530,8 +1252,6 @@ public static class EquivalenceLaw {
             : TensorReason.RowMissing.Fail<EquivalenceProof>("no-adjoint-row", policy.Family.Key);
     }
 
-    // Span deviation is absolute (N·ε·Σ|x|), so evidence carries operand mass Σ|xᵢ| and cancellation ratio.
-    // The accumulation length is the probed operand's own extent, never a separately passed count that drifts.
     static ProofEvidence SpanEvidence(double deviation, ReadOnlySpan<double> input) {
         double mass = double.Abs(TensorPrimitives.SumOfMagnitudes<double>(input));
         double ratio = mass > 0.0 ? double.Abs(TensorPrimitives.Sum<double>(input)) / mass : 1.0;
@@ -1554,7 +1274,6 @@ public static class EquivalenceLaw {
         using MemoryOwner<double> scalarOwner = MemoryOwner<double>.Allocate(input.Length, AllocationMode.Clear);
         Span<double> vectorized = vectorOwner.Span, scalar = scalarOwner.Span;
         kernel(input, vectorized);
-        // The scalar tail MUST be element-by-element: it is the oracle the vector body is graded against.
         for (int i = 0; i < input.Length; i++) { kernel(input.Slice(i, 1), scalar.Slice(i, 1)); }
         return SpanGap(vectorized, scalar);
     }
@@ -1568,8 +1287,6 @@ public static class EquivalenceLaw {
         return SpanGap(vectorized, scalar);
     }
 
-    // Reassociation-stability: the vector reduction over the forward order versus the reversed order — the ABSOLUTE
-    // gap the `AccumulationScaled` envelope (N·ε·Σ|x|) bounds; an order-invariant reduction (`Min`/`Max`) gaps to 0.
     static double FoldGap(FoldKernel<double> kernel, ReadOnlySpan<double> input) {
         using MemoryOwner<double> reverseOwner = MemoryOwner<double>.Allocate(input.Length, AllocationMode.Clear);
         Span<double> reversed = reverseOwner.Span;
@@ -1578,8 +1295,6 @@ public static class EquivalenceLaw {
         return double.Abs(kernel(input) - kernel(reversed));
     }
 
-    // A pair reduction reassociates identically, so its reference reverses BOTH operands together — reversing one
-    // alone compares a different mathematical quantity and grades the misalignment as a vectorization gap.
     static double PairFoldGap(PairFoldKernel<double> kernel, ReadOnlySpan<double> a, ReadOnlySpan<double> b) {
         using MemoryOwner<double> leftOwner = MemoryOwner<double>.Allocate(a.Length, AllocationMode.Clear);
         using MemoryOwner<double> rightOwner = MemoryOwner<double>.Allocate(b.Length, AllocationMode.Clear);
@@ -1591,8 +1306,6 @@ public static class EquivalenceLaw {
         return double.Abs(kernel(a, b) - kernel(left, right));
     }
 
-    // Absolute max gap compares the vector body with its element-by-element scalar tail; operand mass
-    // and the envelope bound live with the `ProofEvidence` the caller folds, never a relative pre-division here.
     static double SpanGap(Span<double> vectorized, ReadOnlySpan<double> scalar) {
         TensorPrimitives.Subtract<double>(vectorized, scalar, vectorized);
         TensorPrimitives.Abs<double>(vectorized, vectorized);
@@ -1613,14 +1326,8 @@ public static class EquivalenceLaw {
 - Boundary: `DeviceKernels.Compile` caches typed compile results by device identity and operation, rejects null native handles, releases partial construction, and exposes device-scoped cache retirement. `DevicePlan` carries ordered kernels, binding slots, and workgroups. `DeviceDispatch.Dispatch` proves non-empty bindings, device residency, binding indexes, workgroup arithmetic, terminal output byte alignment, and one common submission. `WgpuDevice.RecordAndSubmit` admits plan and binding counts against fixed caps before any stack staging, then owns one encoder, timestamped passes, one submit, blocking poll, one mapped readback, and deterministic transient-handle release; shared `Device` and `Queue` remain AppUi-owned. Every submission records inside one `ErrorFilter.Validation` scope drained through `DevicePopErrorScope` before its duration becomes a receipt, so a driver-rejected dispatch rails `device-validation` instead of returning timing for work that never ran. Device-limit negotiation reads `DeviceGetLimits` at admission. Model lane and device lane share one physical device but never one allocation: `OrtValue` imports a foreign pointer and exports none, and the WebGPU binding mints through `DeviceCreateBuffer` with no import entrypoint and no buffer-import `NativeSType` chain tag, so every ORT↔WGPU handoff crosses as the host round trip under an `AllocationClass.EdgeCopy` grant — a zero-copy device-to-device claim between the two is unrepresentable at the admitted binding, and asserting one fabricates a residency neither surface reports.
 
 ```csharp signature
-// --- [CONSTANTS] ---------------------------------------------------------------------------
-// WGSL rows compile one pipeline per grounded op: tiled GEMM, im2col projection, and strided-window pooling.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class WgslSource {
-    // The tile is ONE constant the shader source INTERPOLATES: a C# literal beside a `@workgroup_size` literal
-    // beside a WGSL `const` spelled the same 16 three times in one file, and a launch computed against a tile the
-    // shader no longer used under-dispatches silently, leaving the output tail at whatever the device buffer
-    // already held. The rows are `static readonly` rather than `const` because a compile-time constant cannot
-    // carry an interpolation hole, and the source is read at pipeline build, never at type load.
     public const uint GemmTile = 16;
     public const uint GatherTile = 8;
     public const uint WindowLane = 64;
@@ -1743,32 +1450,15 @@ public static class WgslSource {
         """;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// Roster entry is a wgpu `Buffer*` the device owns, and the ORT↔WGPU crossing is DIRECTIONAL by member truth:
-// `OrtValue` only IMPORTS foreign memory — `CreateTensorValueWithData` takes a trailing `(nint dataPtr, long
-// sizeBytes)` under an `OrtMemoryInfo` naming the foreign device — and hands no pointer OUT, its egress being the
-// managed views `GetTensorMutableRawData()`/`GetTensorDataAsSpan<T>()` sized by `GetTensorSizeInBytes()`. The
-// WebGPU binding mints buffers through `DeviceCreateBuffer` alone: neither `WebGPU` nor the `Wgpu` native table
-// carries an import, adopt, or shared-handle entrypoint, and none of the ten `NativeSType` `next`-chain extras
-// tags a buffer import, so a wgpu allocation cannot enter ORT and a device-resident `OrtValue` cannot bind here.
-// ONE crossing survives — the host round trip this page already owns: `GetTensorMutableRawData()` into
-// `QueueWriteBuffer` inbound, `CommandEncoderCopyBufferToBuffer` into the `MapRead` staging buffer then
-// `BufferGetMappedRange` outbound — each an `AllocationClass.EdgeCopy` grant carrying its copy reason, never a
-// zero-copy claim the two surfaces cannot honour.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct DeviceBuffer(nuint Handle, long ByteLength, OrtResidency Residency);
 
-// `Element` is the shader's OWN declared storage element, carried out of the WGSL row so admission compares the
-// run's dtype against what the pipeline actually indexes rather than trusting a caller's word.
 public sealed record DeviceKernel(TensorOpFamily Op, TensorDtype Element, nuint Pipeline, nuint BindGroupLayout, nuint ShaderModule);
 
 public readonly record struct DeviceStep(DeviceKernel Kernel, ImmutableArray<int> Bindings, (uint X, uint Y, uint Z) Workgroups);
 
-// Launch geometry of the two-dispatch convolution: `Positions` is the output pixel count (out_h·out_w) the Im2Col
-// kernel walks on x with `Channels` on y, and the patch matrix it writes is [Positions × PatchWidth] against a
-// [PatchWidth × Filters] filter block, so the GEMM walks filters on x and positions on y at its own tile.
 public readonly record struct ConvLaunch(uint Positions, uint Channels, uint PatchWidth, uint Filters);
 
-// One command submission carries roster-indexed steps, device-resident intermediates, timestamps, and one readback.
 public sealed record DevicePlan(Seq<DeviceStep> Steps) {
     public static DevicePlan Of(DeviceKernel kernel, ImmutableArray<int> bindings, (uint X, uint Y, uint Z) workgroups) =>
         new(Seq(new DeviceStep(kernel, bindings, workgroups)));
@@ -1776,25 +1466,19 @@ public sealed record DevicePlan(Seq<DeviceStep> Steps) {
     public static DevicePlan Of(params ReadOnlySpan<DeviceStep> steps) => new(toSeq(steps.ToArray()));
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
-// Compute-lane capsule composes AppUi's shared `Device`/`Queue`; compute-only handles release through native calls.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queue* queue, string identity) {
-    // Stackalloc admission caps: a plan is a short kernel chain and a WGSL row binds a handful of buffers, so
-    // caller-controlled counts never size an unbounded stack frame.
     const int MaxPlanSteps = 64;
     const int MaxStepBindings = 8;
 
     static readonly PfnBufferMapCallback MapNoop = new(static (BufferMapAsyncStatus status, void* data) => { });
 
-    // WGPU reports shader, binding, and dispatch validation faults asynchronously, so an unmanaged sink closing over
-    // nothing writes the drained message into a [ThreadStatic] slot the owning submission reads back on its own thread.
     [ThreadStatic] static string? scopeFault;
 
     static readonly PfnErrorCallback ScopeSink = new(static (ErrorType type, byte* message, void* data) => {
         if (type != ErrorType.NoError) { scopeFault = $"{type}:{Marshal.PtrToStringUTF8((nint)message)}"; }
     });
 
-    // Pop drains asynchronously, so one blocking poll settles the scope before the slot is read.
     Fin<Unit> DrainScope(string key) {
         api.DevicePopErrorScope(device, ScopeSink, null);
         ext.DevicePoll(device, true, null);
@@ -1914,10 +1598,6 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
             ulong* ticks = (ulong*)api.BufferGetMappedRange(readback, 0, (nuint)byteCount);
             if (ticks == null) { return TensorReason.NativeRejected.Fail<Duration>("device-map", "range"); }
             Duration elapsed = Duration.FromNanoseconds(checked((long)(ticks[(2 * steps) - 1] - ticks[0])));
-            // Captured validation faults mean the readback ticks describe a dispatch the driver rejected, so the
-            // scope drains BEFORE the duration becomes a receipt — and the flag clears only once that drain
-            // RETURNS, so a throwing drain still meets the finally's retry rather than skipping the cleanup on the
-            // strength of an intent that never completed.
             Fin<Duration> drained = DrainScope(plan.Steps[0].Kernel.Op.Key).Map(_ => elapsed);
             scoped = false;
             return drained;
@@ -1938,11 +1618,8 @@ public sealed unsafe class WgpuDevice(WebGPU api, Wgpu ext, Device* device, Queu
     }
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DeviceKernels {
-    // Device rows cache one grounded WGSL pipeline per `(device identity, op)`; CPU tables stay closed. Every
-    // grounded row declares `array<f32>` storage, so the element column carries that fact into admission instead
-    // of a dtype literal at the receipt, and a widened shader is one row edit here.
     static readonly FrozenDictionary<TensorOpFamily, (string Source, TensorDtype Element)> Wgsl = new Dictionary<TensorOpFamily, (string, TensorDtype)> {
         [TensorOpFamily.MatMul] = (WgslSource.TiledGemm, TensorDtype.Float32),
         [TensorOpFamily.Conv] = (WgslSource.Im2Col, TensorDtype.Float32),
@@ -1958,12 +1635,6 @@ public static class DeviceKernels {
                 () => device.Build(key.Op, wgsl.Element, wgsl.Source), LazyThreadSafetyMode.ExecutionAndPublication)).Value
             : TensorReason.RowMissing.Fail<DeviceKernel>("device-kernel-miss", row.Key);
 
-    // The rank-2 convolution is the canonical multi-step plan and it homes with the registry, because building
-    // it resolves two
-    // compiled rows: the Im2Col kernel gathers the patch matrix into a roster-indexed device-resident intermediate
-    // and the TiledGemm kernel multiplies it by the filter block — one encoder, one submission, no host round trip
-    // between the steps. The intermediate is a roster index like any other binding, so the caller allocates it once
-    // beside the operands and both steps address it by index. Each launch derives from its OWN shader's tile.
     public static Fin<DevicePlan> Convolution(WgpuDevice device, ConvLaunch launch, ImmutableArray<int> gather, ImmutableArray<int> gemm) =>
         launch.Positions == 0 || launch.Channels == 0 || launch.PatchWidth == 0 || launch.Filters == 0
             ? TensorReason.NativeRejected.Fail<DevicePlan>("device-conv-launch", $"{launch.Positions}x{launch.Channels}x{launch.PatchWidth}x{launch.Filters}")
@@ -1975,10 +1646,6 @@ public static class DeviceKernels {
 
     static uint Tiles(uint extent, uint tile) => (extent + tile - 1) / tile;
 
-    // Retirement FORCES each removed entry rather than skipping an uncreated one: a `Lazy` removed while its
-    // compile is in flight still publishes a module, pipeline, and layout to the thread that forced it, and once
-    // the entry has left the cache nothing else holds a handle to release — the drain blocks on the compile,
-    // then releases exactly what it produced.
     public static void Release(WgpuDevice device) {
         foreach (var pair in Compiled.Where(pair => pair.Key.Device == device.Identity).ToArray()) {
             if (Compiled.TryRemove(pair.Key, out Lazy<Fin<DeviceKernel>>? compiled) && compiled.Value.Case is DeviceKernel kernel) {
@@ -1989,8 +1656,6 @@ public static class DeviceKernels {
 }
 
 public static class DeviceDispatch {
-    // Span operands cross no receipt lambda, so element and workgroup facts precompute; singular dispatch is a
-    // one-step plan through DevicePlan.Of — one entrypoint owns both modalities.
     public static Fin<ComputeReceipt.TensorRun> Dispatch(WgpuDevice device, DevicePlan plan, ReadOnlySpan<DeviceBuffer> roster, TensorDtype row, OrtResidency residency, CorrelationId correlation) {
         if (plan.Steps.IsEmpty) { return TensorReason.EmptyOperand.Fail<ComputeReceipt.TensorRun>("empty-plan", "device"); }
         if (!residency.Device) { return TensorReason.ResidencyMismatch.Fail<ComputeReceipt.TensorRun>("device-residency-required", plan.Steps[0].Kernel.Op.Key); }
@@ -2006,19 +1671,12 @@ public static class DeviceDispatch {
                     return TensorReason.ResidencyMismatch.Fail<ComputeReceipt.TensorRun>("device-buffer-residency", step.Kernel.Op.Key, binding.ToString());
                 }
             }
-            // The launch bound is a COMPARISON at the accumulation site, never a checked multiply raising an
-            // exception a bound test two lines later would have caught anyway: three `uint` components multiply
-            // into a `long` without overflow, so the only reachable breach is the running sum, and testing it
-            // here retires both the `checked` block and the trailing re-test that duplicated its verdict.
             long launch = (long)step.Workgroups.X * step.Workgroups.Y * step.Workgroups.Z;
             if (launch > int.MaxValue - workgroups) { return TensorReason.ExtentOverflow.Fail<ComputeReceipt.TensorRun>("device-workgroup-overflow", step.Kernel.Op.Key); }
             workgroups += launch;
         }
         DeviceStep terminalStep = plan.Steps[plan.Steps.Count - 1];
         TensorOpFamily terminal = terminalStep.Kernel.Op;
-        // Element width comes from the RUN's dtype row and must equal the shader's own declared element: a
-        // pipeline indexing `array<f32>` reads a float64 buffer as twice as many wrong values, and a receipt
-        // naming a dtype the pipeline never indexed is worse evidence than the refusal.
         if (row != terminalStep.Kernel.Element) { return TensorReason.DtypeMismatch.Fail<ComputeReceipt.TensorRun>("device-dtype", terminal.Key, $"{row.Key}!={terminalStep.Kernel.Element.Key}"); }
         if (row.Width.Case is not int width || width <= 0) { return TensorReason.DtypeMismatch.Fail<ComputeReceipt.TensorRun>("device-dtype-width", row.Key); }
         long outputBytes = roster[terminalStep.Bindings[^1]].ByteLength;

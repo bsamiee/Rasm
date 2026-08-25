@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. `SliceStack` enters once and `Audit.Preflight` gates g
 - Boundary: `TreeSeed` exists only before global identity and parent admission; every published topology value is one `SupportNode`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using LanguageExt;
 using LanguageExt.Common;
@@ -47,9 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Additive;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Rows carry STRUCTURE alone. Branching decides whether a modality is even representable and BaseAdhesion decides
-// where the family seats, so neither can move to a caller table without renaming the member.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SupportFamily {
     public static readonly SupportFamily Line = new("line", branching: false, baseAdhesion: false);
@@ -103,13 +101,10 @@ public abstract partial record SupportProgram {
     public sealed record Planar : SupportProgram;
     public sealed record Tree : SupportProgram;
     public sealed record Hybrid(Ratio PlanarShare) : SupportProgram;
-    // The generated arm is a chartered EXTENSION point, not an injected hole in a chartered algorithm: the caller
-    // owns a whole support program this page has no algorithm for, and its identity enters the preimage so a
-    // generated plan is content-addressable exactly as a built-in one is.
     public sealed record Generated(ContentKey Identity, Func<SupportContext, Fin<SupportDraft>> Project) : SupportProgram;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct FamilyFactors(Ratio SparseDensity, int InterfaceLayers, Ratio LoadFactor, Ratio RemovalFactor);
 
 public readonly record struct AvoidanceFactors(Ratio DescentScale, Ratio LateralScale, Ratio RadiusScale);
@@ -118,8 +113,6 @@ public readonly record struct RoleFactors(Ratio RadiusScale, Ratio LoadShare);
 
 public readonly record struct RemovalFactors(Ratio ContactScale, Ratio AccessScale);
 
-// The ONE calibration table. Every tuning magnitude on this page resolves through a row here, so a shop replaces
-// its whole calibration with one value and no use site spells a scalar. `Baseline` is the estate preset.
 public sealed record SupportFactors(
     Map<SupportFamily, FamilyFactors> Family,
     Map<AvoidanceState, AvoidanceFactors> Avoidance,
@@ -156,7 +149,6 @@ public sealed record SupportFactors(
             (RemovalClass.Dissolvable, new RemovalFactors(Ratio.FromPercent(35), Ratio.FromPercent(180))),
             (RemovalClass.Machined, new RemovalFactors(Ratio.FromPercent(140), Ratio.FromPercent(65)))));
 
-    // Totality is admitted ONCE, so every read below is a settled lookup rather than a per-site absence arm.
     public bool Total =>
         toSeq(SupportFamily.Items).ForAll(Family.ContainsKey)
         && toSeq(AvoidanceState.Items).ForAll(Avoidance.ContainsKey)
@@ -174,7 +166,7 @@ public sealed record SupportFactors(
 - Boundary: no gate here reads geometry — an admitted policy is a self-consistent constraint set, and geometric contradiction surfaces at the fold that meets it.
 
 ```csharp signature
-// --- [POLICY] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [POLICY] --------------------------------------------------------------------------
 public sealed record ContactPolicy(
     Length Gap,
     Length ToothWidth,
@@ -206,8 +198,6 @@ public sealed record StructuralPolicy(
     Ratio LoadShare,
     Length MaximumBridge);
 
-// Named for the heat law it carries, not for the domain: `Additive/scanpath` owns a `ThermalPolicy` of its own over
-// vector contention, and two records under one name in one namespace are one type the compiler refuses to pick.
 public sealed record ConductionPolicy(
     Power SurfaceHeat,
     Ratio Conductance,
@@ -221,13 +211,8 @@ public sealed record RemovalPolicy(
     Volume MaximumFragment,
     Angle MaximumUndercut);
 
-// NAMED LOSS: the escape-distance ceiling and the share of it a channel actually grows stop being separately
-// statable. WITNESS: the one body reading either reads their PRODUCT, and neither appeared in any gate except its
-// own sign check — two knobs whose only combination the fold re-derived collapse to the reach itself.
 public sealed record DrainPolicy(Area MinimumEscapeArea, Length ChannelReach, Area MaximumTrappedArea);
 
-// One tolerance per DIMENSION: a tree contact set completes a demand when its area, its reaction, and its
-// conducted power each land inside their own bound.
 public sealed record CompletionPolicy(Area AreaTolerance, Force LoadTolerance, Power HeatTolerance);
 
 public sealed record SupportPolicy(
@@ -248,7 +233,7 @@ public sealed record SupportPolicy(
     public RemovalFactors RemovalRow => Factors.Removal[Removal.Class];
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Support {
     public static Fin<SupportPlan> Grow(SliceStack stack, SupportPolicy policy) =>
         from _policy in AdmitPolicy(policy)
@@ -272,8 +257,6 @@ public static partial class Support {
                 Evidence = evidence,
                 Concern = FabConcern.Additive,
                 Key = ContentKey.Of(EgressKind.Plan, bytes.Span),
-                // Ancestry carries the preflight this growth stood on, never a nested column: one key states it and the
-                // consumer that wants the findings addresses them.
                 Consumed = Seq(audit.Key),
                 Stamped = policy.Audit.EvaluatedAt,
             });
@@ -331,7 +314,7 @@ public static partial class Support {
 - Receipt: bridge spans, contact area, trapped area, drain reach, load, heat, and removability remain evidence, never prose-only claims.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BridgeSpan(int Layer, Point3d From, Point3d To, Length Length, Force Load);
 
 public sealed record SupportDemand(
@@ -343,7 +326,7 @@ public sealed record SupportDemand(
     Power Heat,
     Option<BridgeSpan> Bridge);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Support {
     private static Fin<Seq<SupportDemand>> Demand(SliceStack stack, SupportPolicy policy) =>
         toSeq(Range(1, Math.Max(0, stack.LayerCount - 1))).Traverse(layer =>
@@ -379,8 +362,6 @@ public static partial class Support {
             select rows).As()
             .Map(static rows => rows.Bind(static row => row).Filter(static row => !row.Region.IsEmpty));
 
-    // The bearing is the island's own principal direction, so the extremal pair spans the material's long axis
-    // rather than whichever diagonal its enclosing box happens to carry.
     private static (Point3d From, Point3d To, Length Span) Chord(SliceRegion island) {
         Seq<Point3d> rim = island.Outers.Bind(static loop => toSeq(Range(0, loop.Count)).Map(loop.At));
         (double cx, double cy) = (rim.Sum(static point => point.X) / rim.Count, rim.Sum(static point => point.Y) / rim.Count);
@@ -411,7 +392,7 @@ public static partial class Support {
 - Boundary: coverage indexes demand by ordinal, so an out-of-range or duplicate ordinal refuses at admission and no read below carries an absence arm.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SupportLayer(
     int Layer,
     Length Elevation,
@@ -445,10 +426,6 @@ public sealed record SupportCoverage(
     Force TreeLoad,
     Power TreeHeat);
 
-// Every `SupportProgram` case answers with this modality-independent DRAFT: the planar rows, the tree nodes, the
-// bridge spans, and the coverage that discharges each demand, before identity, topology, and the settled receipt.
-// Named `Draft` rather than `Projection` because the kernel `Rasm.Spatial` owner this page imports already holds
-// `SupportProjection` for its closest-hit modality vocabulary — one name, one meaning, package-wide.
 public sealed record SupportDraft(
     Seq<SupportLayer> PlanarRows,
     Seq<SupportNode> SupportNodes,
@@ -457,7 +434,7 @@ public sealed record SupportDraft(
 
 public sealed record SupportContext(SliceStack Stack, Seq<SupportDemand> Demand, SupportPolicy Policy);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Support {
     private static Fin<SupportDraft> Project(SupportContext context) => context.Policy.Program.Switch(
         state: context,
@@ -471,8 +448,6 @@ public static partial class Support {
             select new SupportDraft(rows, nodes, Bridges(state.Demand), Seq<SupportCoverage>()),
         generated: static (state, generated) => Op.Of(name: "support:generated").Catch(() => generated.Project(state)));
 
-    // A base-adhesion family seats under the whole model footprint at the plate layer; every other family seats
-    // under falling demand. The column decides, so a new adhesion family needs no arm here.
     private static Fin<Seq<SupportLayer>> Planar(SupportContext context, Option<Ratio> share = default) =>
         toSeq(Range(0, context.Stack.LayerCount).Reverse()).Fold(
             Fin.Succ((Falling: SliceRegion.Empty, Rows: Seq<SupportLayer>())),
@@ -611,8 +586,6 @@ public static partial class Support {
             .Map(_ => projection);
     }
 
-    // Each comparison projects its own unit and reads its own bound: an area residual measured against a force
-    // tolerance admits a plan whose reaction is short by whatever the area bound happens to allow.
     private static bool TreeComplete(SupportDemand demand, SupportCoverage coverage, CompletionPolicy tolerance) =>
         !coverage.TreeContacts.IsEmpty
         && Math.Abs(coverage.TreeArea.SquareMillimeters - demand.TributaryArea.SquareMillimeters)
@@ -642,7 +615,7 @@ public static partial class Support {
 - Boundary: one `PolygonOp.Cells` request distributes tips over the site cloud `Additive/slicing` `CellPattern` draws — stateless, lane-keyed on the candidate ordinal and axis under `GrowthPolicy.Seed` plus the demand layer — so no relaxation loop, merge callback, draw stream, page-local RNG, or second copy of the placement body is minted here. That owner composes the kernel `Deterministic.Unit` and never forks a draw-law family; a draw-law vocabulary landing at the `Process` atoms floor collapses it to one row read.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record TreeSeed(
     int Layer,
     Point3d At,
@@ -653,7 +626,7 @@ internal sealed record TreeSeed(
     Force Load,
     Power Heat);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Support {
     private static Fin<Seq<SupportNode>> Tree(SupportContext context) =>
         from tips in SupportSites.Tips(context.Demand, context.Policy.Growth)
@@ -671,8 +644,6 @@ public static partial class Support {
 }
 
 internal static class SupportSites {
-    // The ONE spatial composition in this folder. Every neighbour question — merge candidates, parent candidates,
-    // nearest parent — enters here as points and leaves as ordinals into the same sequence.
     internal static Fin<SpatialIndex> Index(Seq<Point3d> sites) =>
         Spatial.Apply(
             new SpatialOp.Build(SpatialKind.Bvh, [.. sites.Map(static at => new BoundingBox(at, at))], BuildPolicy.Canonical),
@@ -709,16 +680,10 @@ internal static class SupportSites {
                     row.Heat / admitted.Count))))).As()
             .Map(static rows => rows.Bind(static row => row));
 
-    // Tip candidates are lane-addressed off the ONE draw owner `Additive/slicing` seats: candidate i is a pure
-    // function of (seed, layer, i) and the demand box, so a re-plan reproduces the same field and a rejected
-    // candidate never shifts the ones after it. Merge distance is DATA on the request, so a tip crowding one already
-    // kept falls into it inside the same tessellation rather than through a caller-supplied decision callback.
     private static Fin<Seq<Point3d>> Sites(SupportDemand row, GrowthPolicy policy) =>
         from boundary in Rectangle(row.Region.Bound())
         let count = Math.Min(policy.MaximumTips, Math.Max(1, (int)Math.Ceiling(
             row.TributaryArea.SquareMillimeters / Math.Pow(policy.TipPitch.Millimeters, 2.0))))
-        // The folder's ONE site-cloud owner draws the field: the lane-keyed kernel draw and its preimage seat on
-        // `CellPattern`, so a second copy of the placement body here is the fork.
         from pattern in CellPattern.Admit(
             new CellSites.Random(count, unchecked(policy.Seed + row.Layer)),
             SitePolicy.Create(
@@ -788,8 +753,6 @@ internal static class SupportSites {
                        depth == 0 ? tip.Heat : Power.Zero);
         }).As();
 
-    // Every arm reads the POINT: whether it sits in material, whether it sits inside the access-clearance band, and
-    // whether it sits deeper than half a maximum bridge from the boundary. The offsets are the measurement.
     private static Fin<AvoidanceState> Avoidance(SliceRegion model, Point3d at, SupportPolicy policy) =>
         model.IsEmpty
             ? Fin.Succ(AvoidanceState.Clear)
@@ -802,8 +765,6 @@ internal static class SupportSites {
                   _ => AvoidanceState.Blocked,
               };
 
-    // The bearing points away from the layer's MEASURED area-weighted centroid, so a detour leaves the material it
-    // detours around; the phase turn keys on the tip ordinal, which is what decorrelates adjacent trunks.
     private static Vector3d Escape(SliceStack stack, int layer, Point3d tip, int ordinal, GrowthPolicy policy) {
         Point3d centroid = stack.CentroidAt(layer);
         Vector3d away = new(tip.X - centroid.X, tip.Y - centroid.Y, 0.0);
@@ -815,8 +776,6 @@ internal static class SupportSites {
             0.0);
     }
 
-    // Broad phase is the kernel's; the exact metric and the layer partition are this page's. SelfOverlap emits each
-    // unordered pair once, so the fused set needs no ordering filter and the relation resolves as components.
     public static Fin<Seq<TreeSeed>> Merge(Seq<TreeSeed> rows, Length distance) => rows.IsEmpty
         ? Fin.Succ(rows)
         : from index in Index(rows.Map(static row => row.At))
@@ -888,9 +847,6 @@ internal static class SupportSites {
                    slot.Seed.Heat)), policy);
     }
 
-    // One index per parent layer answers both questions: the radius query narrows the candidate set the merge
-    // distance admits, and the nearest query answers the single parent a child beyond that radius descends onto.
-    // Both compare HORIZONTALLY, so the index carries the lower layer's points at the lower layer's own elevation.
     private static Fin<Seq<(int Child, Seq<int> Parents)>> ParentsAt(
         Seq<(TreeSeed Seed, int Id)> children,
         Seq<(TreeSeed Seed, int Id)> indexed,
@@ -927,8 +883,6 @@ internal static class SupportSites {
                 : Fin.Succ((child.Id, hits.Ids.Map(slot => lower[slot].Id))));
     }
 
-    // Descending identity is reverse topological order because every parent sits one layer below its child, so a
-    // keyed fold distributes each node's already-complete demand before its own parents are ever read.
     private static Seq<SupportNode> Accumulate(Seq<SupportNode> nodes, SupportPolicy policy) =>
         toSeq(toSeq(nodes.Map(static node => node.Id).OrderByDescending(static id => id))
             .Fold(toMap(nodes.Map(static node => (node.Id, node))), (state, id) => {
@@ -970,9 +924,7 @@ internal static class SupportSites {
 - Packages: QuikGraph (`BidirectionalGraph`, `SEquatableEdge`, `IsDirectedAcyclicGraph`, `Roots`, `Sinks`, `SourceFirstTopologicalSort`, `WeaklyConnectedComponents`, `ComputeTransitiveClosure`, `ComputeTransitiveReduction`, `TreeBreadthFirstSearch`, `DagShortestPathAlgorithm`, `DistanceRelaxers`, `VertexPredecessorRecorderObserver`); `Rasm.Spatial` for the site index.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// The folder's ONE support-edge owner. Edges point PARENT to CHILD, so roots are plate contacts and sinks are the
-// model contacts a demand discharges onto.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class SupportTopology {
     private SupportTopology(
         BidirectionalGraph<int, SEquatableEdge<int>> graph,
@@ -982,14 +934,10 @@ public sealed class SupportTopology {
     public BidirectionalGraph<int, SEquatableEdge<int>> Graph { get; }
     public FrozenDictionary<int, SupportNode> ById { get; }
 
-    // A planar-only program grows no tree, so the site index is genuinely ABSENT rather than an empty structure a
-    // consumer would query for neighbours that cannot exist.
     public Option<SpatialIndex> Sites { get; }
 
     public Seq<SupportNode> Nodes => toSeq(ById.Values.OrderBy(static node => node.Id));
 
-    // Membership makes the read total: an unresolved ordinal answers None instead of throwing out of an indexer
-    // a consumer cannot guard, and identity admission already refuses the case upstream.
     public Option<SupportNode> Node(int id) => ById.TryGetValue(id, out SupportNode? node) ? Some(node) : None;
 
     public static Fin<SupportTopology> Admit(Seq<SupportNode> nodes) =>
@@ -1038,7 +986,7 @@ public sealed record GraphEvidence(
     int CriticalPathNodes,
     Length CriticalPath);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SupportGraph {
     public static Fin<GraphEvidence> Measure(SupportTopology topology) => topology.ById.Count == 0
         ? Fin.Succ(new GraphEvidence(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, Length.Zero))
@@ -1054,7 +1002,6 @@ public static class SupportGraph {
               .ToFin()
           select Projected(topology, facts);
 
-    // `ComputeTransitiveReduction` takes no edge factory; only the closure mints edges it did not already hold.
     private static Fin<GraphFacts> Algorithms(SupportTopology topology) =>
         Op.Of(name: "support:graph-algorithm").Catch(() => {
         Dictionary<int, int> components = [];
@@ -1069,8 +1016,6 @@ public static class SupportGraph {
 
     private static GraphEvidence Projected(SupportTopology topology, GraphFacts facts) {
         Set<int> sinks = toSet(facts.Sinks);
-        // One pass over the closure: an ancestor's sink fan IS its merge ambiguity, so a shared ancestor and the
-        // widest fan both fall out without ever enumerating a sink pair.
         Map<int, int> fan = toSeq(facts.Closure.Edges)
             .Filter(edge => sinks.Contains(edge.Target))
             .Fold(Map<int, int>(), static (counts, edge) =>
@@ -1094,8 +1039,6 @@ public static class SupportGraph {
             Length.FromMillimeters(routes.Fold(0.0, static (longest, route) => Math.Max(longest, route.Millimeters))));
     }
 
-    // The relaxer's own initial distance marks a sink the walk never reached, so the provider sentinel is read
-    // ONCE here and lowered to absence; no unreached sink contributes a zero-length route to the census.
     private static Seq<(int Nodes, double Millimeters)> Critical(SupportTopology topology, Seq<int> sinks, int root) {
         DagShortestPathAlgorithm<int, SEquatableEdge<int>> longest = new(
             topology.Graph,
@@ -1137,9 +1080,7 @@ public static class SupportGraph {
 - Boundary: the receipt never re-enters the payload it seals, and the plan's identity is its receipt's key — `SupportTopology` carries reference identity, so plan equality is the key's, never a graph comparison. A second key column on the plan beside the carrier's own is the deleted duplicate.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// What the growth MEASURED. Plane, key, consumed ancestry, and stamp ride `Receipt<SupportEvidence>`, so the
-// preflight this growth stood on is one `Consumed` key rather than a nested receipt column.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SupportEvidence(
     GraphEvidence Graph,
     Seq<BridgeSpan> Bridges,
@@ -1158,7 +1099,7 @@ public sealed record SupportPlan(
     SupportTopology Topology,
     Receipt<SupportEvidence> Receipt);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Support {
     private static Fin<SupportEvidence> Measured(
         SupportDraft projection,
@@ -1182,7 +1123,6 @@ public static partial class Support {
                     + (pair.First.ContactDuty.DecimalFractions * pair.Second.Contact.SquareMillimeters))))
             .Fold(Volume.Zero, static (sum, volume) => sum + volume)
         let byId = toMap(projection.SupportNodes.Map(static node => (node.Id, node)))
-        // A truncated cone per parent edge: the frustum volume is the span the two admitted radii bound.
         let treeMaterial = projection.SupportNodes
             .Bind(node => node.Parents.Map(parent => (Node: node, Parent: byId[parent])))
             .Map(static edge => Volume.FromCubicMillimeters(
@@ -1218,10 +1158,6 @@ public static partial class Support {
 }
 
 public static class SupportCodec {
-    // The writer opens on a zero grid because every column below projects its own unit explicitly; loop vertices
-    // quantize on the loop's OWN tolerance inside `Loop.CanonicalBytes`, which is where that grid belongs.
-    // `Retaining` is the mint that HOLDS a buffer — the writer publishes no constructor — and `ToBytes` answers on
-    // the rail, so this lane carries the close's own refusal rather than discarding it into an empty payload.
     public static Fin<ReadOnlyMemory<byte>> Write(SupportPolicy policy, SupportDraft projection, Op key) =>
         Bridges(
             Nodes(Layers(Factors(Policy(CanonicalWriter.Retaining(0.0), policy), policy.Factors), projection), projection),
@@ -1238,9 +1174,6 @@ public static class SupportCodec {
     private static CanonicalWriter Policy(CanonicalWriter writer, SupportPolicy policy) => Program(
         writer.Discriminant(policy.Family).Bool(policy.Family.Branching).Bool(policy.Family.BaseAdhesion),
         policy.Program)
-        // The offset policy's SHAPE columns alone. Join and end type are fixed at `SliceRegion.Grow`, not policy
-        // columns; `TimeBudget` and `MaxEvents` abort the wavefront rather than moving it, so two runs that both
-        // succeed under different budgets describe one geometry and a budget in the preimage forks their keys.
         .Double(policy.Offset.CollapseTolerance)
         .Double(policy.Offset.MiterLimit).Double(policy.Offset.ArcTolerance)
         .Rows(toSeq(policy.Offset.EdgeSpeed), static (row, speed) => row.Double(speed))
@@ -1269,8 +1202,6 @@ public static class SupportCodec {
         .Double(policy.Completion.AreaTolerance.SquareMillimeters).Double(policy.Completion.LoadTolerance.Newtons)
         .Double(policy.Completion.HeatTolerance.Watts);
 
-    // The calibration is identity-bearing: two plans with equal geometry and different factor tables are different
-    // artifacts, so the whole table enters under its own vocabulary order rather than the selected rows alone.
     private static CanonicalWriter Factors(CanonicalWriter writer, SupportFactors factors) => writer
         .Rows(toSeq(SupportFamily.Items), (row, family) => row.Discriminant(family)
             .Double(factors.Family[family].SparseDensity.DecimalFractions)
@@ -1322,9 +1253,6 @@ public static class SupportCodec {
         .Rows(Sorted(region.Outers), static (sink, loop) => loop.CanonicalBytes(sink))
         .Rows(Sorted(region.Holes), static (sink, loop) => loop.CanonicalBytes(sink));
 
-    // Both the rotation inside each loop and the rank across siblings are the S0 owner's, so this page declares
-    // neither: `Loop.CanonicalOrder` ranks the same normal form `Loop.CanonicalBytes` frames, which is what keeps a
-    // sort key and a preimage from disagreeing about two loops the codec mints one key for.
     private static Seq<Loop> Sorted(Seq<Loop> loops) => toSeq(loops
         .Map(static loop => loop.Canonical())
         .OrderBy(static loop => loop, Loop.CanonicalOrder));

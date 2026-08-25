@@ -24,7 +24,7 @@ Cross-section algebra is the `Rasm.Element` `Composition/material#SectionPropert
 - Boundary: Forming owns tube mechanics and projection; machine capacity, process material physics, exact intersection, development, planar loop admission, posting text, and content identity remain at their canonical owners.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
@@ -43,17 +43,12 @@ using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
-// The seam centroid is the host-neutral kernel triple, bound by name so the host `Vector3d` beside it stays legible.
 using Vector3 = Rasm.Element.Graph.Vector3;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Forming;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Each row carries the three facts a discrete process changes about one bend: how hard it loads the section, how
-// much of the turn comes back elastically, and how much straight tube it demands before the arc. Stretch bending
-// tensions the whole section past yield against a form die, so it loads hardest, recovers least — the reason the
-// process exists — and demands a grip at BOTH ends rather than one clamp.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class TubeFormKind {
     public static readonly TubeFormKind RotaryDraw = new("rotary-draw", forceFactor: 1.0, recoveryFactor: 1.0, static (tool, _) => tool.ClampLengthMm);
@@ -95,16 +90,12 @@ public sealed partial class CopeEnd {
     public partial Fin<double> Select(int index, bool lower, double lowerZ, bool upper, double upperZ);
 }
 
-// Family admission reads the SHAPE WITNESS alone — vertex and curved-edge census, radial compactness, and the two
-// bounding extents — never a stiffness column, so the discriminant is exactly the geometry that names the family.
 [SmartEnum<string>]
 public sealed partial class TubeSectionFamily {
     public static readonly TubeSectionFamily Circular = new("circular", analyticCope: true, static form =>
         form.CurvedEdges > 0 && form.Major.Si / form.Minor.Si <= 1.01 && form.RadialRatio <= 1.01);
     public static readonly TubeSectionFamily Elliptic = new("elliptic", analyticCope: false, static form =>
         form.CurvedEdges > 0 && form.Major.Si / form.Minor.Si > 1.01);
-    // Structural RHS and SHS carry a formed corner radius on every vertex, so a rectilinear tube admits either a
-    // sharp four-vertex profile or one whose curved-edge count equals its vertex count.
     public static readonly TubeSectionFamily Rectilinear = new("rectilinear", analyticCope: false, static form =>
         form.VertexCount == 4 && form.CurvedEdges is 0 or 4);
     public static readonly TubeSectionFamily Polygonal = new("polygonal", analyticCope: false, static form =>
@@ -128,24 +119,16 @@ public sealed partial class MandrelKind {
 
     public int MinimumBalls { get; }
 
-    // Interior wall support is the mandrel's own law: a plug reaches only its nose, a ball train carries every
-    // ball through the arc, and a bare bend leaves the section wall supporting itself.
     [UseDelegateFromConstructor]
     public partial double InteriorSupport(TubeTool tool, double majorMm);
 }
 
-// The mm-basis reads over the seam's SI-native section columns, named ONCE. This page is millimetre-canonical
-// end to end while `Rasm.Element` `SectionProperties` stores SI, so the powers are the exact inverse of that
-// owner's own admission factors and a per-site `1e-3` literal is the deleted form. RULINGS `[04]` keeps the
-// DIGEST on bare doubles, so the conversion sits here — at the derivation site — and never inside a preimage.
 internal static class SectionMillimetres {
     internal static double Millimetres(this MeasureValue value) => value.Si.Millimetres();
     internal static double SquareMillimetres(this MeasureValue value) => value.Si * 1e6;
     internal static double CubicMillimetres(this MeasureValue value) => value.Si * 1e9;
     internal static double QuarticMillimetres(this MeasureValue value) => value.Si * 1e12;
 
-    // The seam's `Vector3` centroid is a bare SI triple rather than a measured column, so the length inverse
-    // reaches it through the same one member the measured reads take.
     internal static double Millimetres(this double siMetres) => siMetres * 1e3;
 }
 
@@ -157,10 +140,6 @@ public sealed partial class TubeSection {
     public Option<double> WeldSeamDeg { get; }
     public SectionProperties Properties { get; }
 
-    // The shape witness the family, the tool catalogue, and every deformation law read. The seam publishes it as an
-    // OPTION because a catalogue-resolved section carries no measured outline; a tube section is MEASURED, so the
-    // invariant states at both owners and the pair moves as one — `Mechanics` is the single authority deriving it,
-    // and admission proves `Properties.Form` carries exactly this value, so no reader below re-rails an absence.
     public SectionForm Form { get; }
 
     [BoundaryAdapter]
@@ -172,9 +151,6 @@ public sealed partial class TubeSection {
         ref Option<double> weldSeamDeg,
         ref SectionProperties properties,
         ref SectionForm form) =>
-        // `properties` arrives admitted through the seam's own per-column mm gate, so no finiteness or positivity
-        // test repeats here. What survives is the relation between the wall and the section it encloses, the seam
-        // angle window, the witness the two owners share, and the family discriminant that reads it.
         validationError = family is not null && profile is { Closed: true }
             && double.IsFinite(wallMm) && wallMm > 0.0 && wallMm < form.Minor.Millimetres() / 2.0
             && weldSeamDeg.ForAll(static angle => double.IsFinite(angle) && angle is >= 0.0 and < 360.0)
@@ -189,9 +165,6 @@ public sealed partial class TubeSection {
         Loop profile,
         Length wall,
         Option<Angle> weldSeam,
-        // The chord band the station run walks at is the profile's OWN admitted lane, so a caller cannot hand a
-        // band that disagrees with the context the loop was admitted under; the station ceiling stays a caller
-        // budget because it prices the fold, not the geometry.
         Dimension maximumStations) =>
         family is null || profile is null
             ? Fin.Fail<TubeSection>(new KernelFault.InvalidValue("tube", "tube:section"))
@@ -207,17 +180,6 @@ public sealed partial class TubeSection {
               select section;
 
     // --- [SECTION_MECHANICS]
-    // Every column comes off ONE discretized wall run at the admitted chord tolerance — area, both second moments,
-    // the Bredt torsion constant, both elastic and both plastic moduli, both shear areas, both radii of gyration —
-    // so no column is a per-family closed form the neighbours' regime contradicts. The seam owner then admits them
-    // per column on the mm basis, and what it hands back is the evidence carrier every reader below reads.
-    // NAMED LOSS on the shear areas: the projected-wall form reproduces the EN 1993-1-1 §6.2.6(3) rectangular
-    // hollow expression `A·h/(b+h)` exactly, and does NOT apply that clause's circular `2A/π` correction — a round
-    // tube reads `A/2` here, which is the wall genuinely aligned with the shear and not the code's equivalent area.
-    // The seam's `Iw`, `AxisDistance`, and both shear-centre offsets are the columns this lane does not MEASURE:
-    // a single-cell closed tube warps negligibly, carries no concrete cover, and is admitted about its own
-    // centroid, so all four enter zero and the section reads `LtbRoute.Simplified`. A mono-symmetric profile whose
-    // §6.3.2 general route matters resolves through the `Rasm.Materials` catalogue arm, never this fold.
     private static Fin<(SectionProperties Properties, SectionForm Form)> Mechanics(
         Loop profile,
         double wallMm,
@@ -226,8 +188,6 @@ public sealed partial class TubeSection {
         from metric in measured is ProfileResult.Measure value
             ? Fin.Succ(value)
             : Fin.Fail<ProfileResult.Measure>(new KernelFault.InvalidValue("tube", "tube:section-measure"))
-        // The chord band is the loop's own admitted lane, so it needs no finiteness or positivity gate here — the
-        // `ToleranceLane.Chord` row already guarded both where the context derived it.
         let chordToleranceMm = profile.Tolerance.For(ToleranceLane.Chord).Value
         from _budget in maximumStations.Value >= 3
             ? Fin.Succ(unit)
@@ -254,15 +214,10 @@ public sealed partial class TubeSection {
                 (edge.First.X + edge.Second.X) / 2.0,
                 (edge.First.Y + edge.Second.Y) / 2.0,
                 (edge.First.Z + edge.Second.Z) / 2.0);
-            // The wall's own direction is what carries the shear: a segment square to the load takes none of it,
-            // so the shear-area weight is the squared direction cosine and a zero-length pair weighs nothing.
             Vector3d tangent = length > 0.0 ? (edge.Second - edge.First) / length : Vector3d.Zero;
             return (Area: length * wallMm, Midpoint: midpoint, Tangent: tangent);
         })
         let area = weighted.Fold(0.0, static (sum, row) => sum + row.Area)
-        // A zero metal area divides the centroid, every second moment, and the machine-capacity gate that reads
-        // them: the section refuses here, where the degeneracy is, rather than publishing NaN properties a torque
-        // comparison then reads as "within capacity".
         from _area in ValidityClaim.Positive(area) ? Fin.Succ(unit)
             : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Polyline, None, "tube:section-area"))
         let centroid = weighted.Fold(Vector3d.Zero, (sum, row) => sum + ((Vector3d)row.Midpoint * row.Area)) / area
@@ -278,9 +233,6 @@ public sealed partial class TubeSection {
         let height = box.Diagonal.Y
         let major = Math.Max(width, height)
         let minor = Math.Min(width, height)
-        // The plastic moduli are the FIRST moment of the wall about the axis that halves the metal area — the
-        // definition, evaluated on the same station run every other column folds over, so a family branch carrying
-        // two closed forms beside seven discretized ones is the deleted fork.
         let plasticY = EqualAreaAxis(weighted.Map(static row => (Area: row.Area, Ordinate: row.Midpoint.Y)), area)
         let plasticX = EqualAreaAxis(weighted.Map(static row => (Area: row.Area, Ordinate: row.Midpoint.X)), area)
         from extents in (
@@ -311,8 +263,6 @@ public sealed partial class TubeSection {
                 radiusMinorMm: Math.Sqrt(Math.Min(ix, iy) / area),
                 depthMm: height,
                 widthMm: width,
-                // A free-standing tube is exposed on its whole outline, so the fire-exposed perimeter IS the
-                // measured outline; an embedded section whose exposure differs resolves at the catalogue arm.
                 heatedPerimeterMm: metric.Path.Millimeters,
                 axisDistanceMm: 0.0,
                 shearCentreYMm: 0.0,
@@ -323,9 +273,6 @@ public sealed partial class TubeSection {
                 key: Key)
         select (properties, form);
 
-    // The plastic neutral axis of a discretized wall is the AREA-WEIGHTED MEDIAN of its segment ordinates: sort by
-    // ordinate, accumulate, and stop at the segment carrying the half. One monotone scan and no root find, so the
-    // page's iteration budget stays with the transcendental recovery law it is reserved for.
     private static double EqualAreaAxis(Seq<(double Area, double Ordinate)> rows, double area) {
         double half = area / 2.0;
         return toSeq(rows.OrderBy(static row => row.Ordinate))
@@ -335,8 +282,6 @@ public sealed partial class TubeSection {
             .Axis;
     }
 
-    // The seam's extent columns enter through the UnitsNet boundary arity, so the mm basis is stated by the unit
-    // rather than a bare power, and the three independent mints accumulate into one refusal.
     private static Validation<Error, MeasureValue> Measured(double millimetres) =>
         MeasureValue.Of(millimetres, LengthUnit.Millimeter, Key, Some(QuantityType.Length)).ToValidation();
 
@@ -403,11 +348,6 @@ public sealed partial class TubeTool {
                 : new ValidationError("tube:tube-tool");
 }
 
-// Every dimensioned column is a UnitsNet quantity, every counted one the kernel `Dimension`, and every normalized
-// one the kernel `UnitInterval`, so the unit lives in the TYPE and a caller cannot hand a degree window to a
-// millimetre slot. The two tolerance columns this policy used to carry — a chord band and a root-convergence band
-// — DELETE onto the admitting `Context`: `ToleranceLane.Chord` and `ToleranceLane.Root` are the branch's own
-// authorities for both, and a second copy on a policy is a value that drifts from the lane that derives it.
 [ComplexValueObject]
 public sealed partial class TubePolicy {
     public Arr<TubeTool> Tools { get; }
@@ -436,9 +376,6 @@ public sealed partial class TubePolicy {
         ref Length copeAxialSpan,
         ref Dimension maximumCopeStations,
         ref Angle weldSeamExclusion) =>
-        // The carriers already guarded sign, band, and count floor, so what stays is this lane's OWN law: a unique
-        // tool roster, the collinear window, the strictly-open ovality and thinning ceilings a qualified tool
-        // compares against, the seam-exclusion quadrant, and the station floor an analytic cope needs to close.
         validationError = ValidityClaim.All(
             !tools.IsEmpty && tools.ForAll(static tool => tool is not null),
             toSeq(tools.GroupBy(static tool => tool.Key)).ForAll(static group => group.Count() == 1),
@@ -538,9 +475,6 @@ public sealed record TubeBend(
     double BoostMm,
     TubeQuality Quality);
 
-// The LANE columns alone. Plane, content key, ancestry, warnings, and stamp seat on the `Process/owner`
-// `Receipt<TEvidence>` spine, so each of this page's three outputs declares what its own lane MEASURED and
-// inherits every column the carrier already owns; a re-spelled `Key` beside the carrier's is the deleted form.
 public sealed record TubeEvidence(
     TubeFormKind Process,
     TubeSection Section,
@@ -597,9 +531,6 @@ public sealed partial class RollSection {
         ref Loop profile,
         ref SectionProperties properties,
         ref double governingThicknessMm) =>
-        // `properties` is the seam's admitted evidence carrier, so the nine-column positivity sweep this gate
-        // carried repeated the mm admission it already passed; what stays is the roll lane's own pair of facts — the
-        // profile closure its kind demands and the governing thickness the machine window reads.
         validationError = !string.IsNullOrWhiteSpace(key) && kind is not null && profile is not null
             && (kind == RollSectionKind.Open ? !profile.Closed : profile.Closed)
             && double.IsFinite(governingThicknessMm) && governingThicknessMm > 0.0
@@ -621,10 +552,6 @@ public sealed partial class RollSection {
             out RollSection section).Admitted(section);
 }
 
-// The curvature increment is a RECIPROCAL LENGTH and the gap coefficient an AREA — the two columns whose bare
-// doubles read as plain numbers while their dimensions are what makes `gap = curvature × coefficient` close. The
-// root-convergence column deletes onto `ToleranceLane.Relative` off the section's own admitting `Context`, the
-// same authority the tube lane's root band reads.
 [ComplexValueObject]
 public sealed partial class RollPolicy {
     public ReciprocalLength MaximumCurvatureIncrement { get; }
@@ -740,8 +667,6 @@ public abstract partial record TubeResult {
     public sealed record Rolled(Receipt<RollEvidence> Schedule) : TubeResult;
     public sealed record Coped(Seq<Loop> Curves, Receipt<CopeEvidence> Receipt) : TubeResult;
 
-    // The content key every settled tube output carries, read off the ONE carrier rather than three re-spelled
-    // columns — the projection the run spine's own `FabricationResult.Keys` and `Evidence` arms fold over.
     public ContentKey Key => Map(
         formed: static value => value.Program.Key,
         rolled: static value => value.Schedule.Key,
@@ -760,7 +685,7 @@ public abstract partial record TubeResult {
 - Boundary: intersection provenance and atlas provenance stay intact through sectioned cope projection; developed islands carry their chart identity and no arm re-derives a crossing.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using MathNet.Numerics.RootFinding;
@@ -779,17 +704,13 @@ using Rhino.Geometry;
 using Thinktecture;
 using UnitsNet;
 using UnitsNet.Units;
-// The seam centroid is the host-neutral kernel triple, bound by name so the host `Vector3d` beside it stays legible.
 using Vector3 = Rasm.Element.Graph.Vector3;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Forming;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TubeProgram {
-    // The clock rides the ENTRY because `Receipt<TEvidence>` makes `Stamped` required: a settled tube output is
-    // stamped where it settles, so the run spine hands its own `FabricationRuntime.Clock` down and a headless
-    // caller supplies its own — no lane invents an ambient instant behind the carrier's back.
     public static Fin<TubeResult> Apply(TubeOp operation, IClock clock) => operation is null || clock is null
         ? Fin.Fail<TubeResult>(new KernelFault.InvalidValue("tube", "tube:operation"))
         : operation.Switch(
@@ -898,10 +819,6 @@ public static class TubeProgram {
             .ToFin(new KernelFault.InvalidValue("tube", $"tube:tool:{kind.Key}:{run.ClrMm:0.###}"));
     }
 
-    // The tube instance of the folder's ONE elastic-recovery law: the neutral fibre sits `(k - 0.5)·wall` off the
-    // centreline radius and the extreme fibre at half the major dimension, so the elastic index normalizes on the
-    // major rather than a thickness. Absence is the bracket refusing to straddle, which this lane raises as a
-    // typed refusal because a bend it cannot command is not a candidate the caller retries elsewhere.
     private static Fin<double> Springback(double bendDeg, double clrMm, TubeRun run, TubeFormKind kind) {
         double fibre = (run.Forming.KFactor - 0.5) * run.Section.WallMm;
         return new ElasticLaw(
@@ -1006,8 +923,6 @@ public static class TubeProgram {
                     && requiredPasses <= run.Policy.MaximumPasses.Value
                         ? Fin.Succ((int)requiredPasses)
                         : Fin.Fail<int>(new KernelFault.InvalidValue("tube", $"tube:roll-envelope:passes:{requiredPasses:R}"))
-              // Torque is a per-pass fact: a pass below the elastic-limit curvature of the governing axis never
-              // develops the fully plastic moment, so a schedule-constant torque overstates every early pass.
               let yieldCurvature = 2.0 * run.Material.Mechanical.YieldStrengthMpa
                   / (run.Material.Mechanical.ElasticModulusMpa * depth)
               let plasticTorque = Torque.FromNewtonMeters(
@@ -1062,8 +977,6 @@ public static class TubeProgram {
         double yieldCurvature,
         double recovery,
         RollPolicy policy,
-        // The relative convergence band is the section's own admitted `ToleranceLane.Relative` row, so tightening a
-        // run's context tightens this inversion and no policy column drifts from the lane that derives it.
         Context tolerance) {
         if (recovery == 0.0)
             return Fin.Succ(outputCurvature);
@@ -1102,11 +1015,6 @@ public static class TubeProgram {
             double x = branchRadius * Math.Cos(theta);
             double y = branchRadius * Math.Sin(theta);
             double alpha = source.Intersection.Radians;
-            // The cope residual is a QUADRATIC in z: expanding the axial projection leaves
-            // (1 - cos^2)z^2 - 2(x sin)(cos)z + (x^2 + y^2 - (x sin)^2 - R^2), so its two roots are the two branch
-            // ends in closed form. Running a bracketed root-find twice per station over a quadratic burned the
-            // iteration budget the page's own criterion reserves for the genuinely transcendental springback law,
-            // and a bracket that failed to straddle silently dropped a station the algebra always answers.
             double sin = Math.Sin(alpha), cos = Math.Cos(alpha);
             double quadratic = 1.0 - (cos * cos);
             double linear = -2.0 * x * sin * cos;
@@ -1280,10 +1188,6 @@ public static class TubeProgram {
             tolerance).ToValidation()).As().ToFin()
         select loops;
 
-    // A chain point carries the crossing it CAME from: matching it back by exact equality against a ROUNDED
-    // lattice station discarded that provenance and answered "no crossing" wherever the round moved a coordinate,
-    // while a linear rescan ran once per chain point. The station index is built ONCE per cope on the admitted
-    // quantum, so the lookup is a map read and every chain point resolves to the crossing that produced it.
     private static Map<(long X, long Y, long Z), int> Stations(CrossLattice lattice, double quantum) =>
         toSeq(lattice.Rows)
             .Map((crossing, index) => (Station(crossing.Point.Round(), quantum), index))
@@ -1299,8 +1203,6 @@ public static class TubeProgram {
         (long)Math.Round(point.Y / quantum, MidpointRounding.ToEven),
         (long)Math.Round(point.Z / quantum, MidpointRounding.ToEven));
 
-    // Exemption: the two branch ends of a cope station are the roots of one quadratic; the degenerate arm is the
-    // linear case the grazing intersection leaves.
     private static (bool Lower, double LowerZ, bool Upper, double UpperZ) Roots(
         double quadratic,
         double linear,
@@ -1341,10 +1243,6 @@ public static class TubeProgram {
 
     private static Point2d Lerp(Point2d a, Point2d b, double t) => ((1.0 - t) * a) + (t * b);
 
-    // Exemption: the barycentric solve is a bounded numeric kernel. `Rasm.Meshing` publishes no barycentric query
-    // — the `TetInterpolation` receipt it carries is a tetrahedral reconstruction column, not a triangle solve — so
-    // this stays local, and the degeneracy gate is RELATIVE to the triangle's own Gram determinant scale rather
-    // than an exact-zero test that admits a slivered face as invertible.
     private static Fin<(double A, double B, double C)> Barycentric(Point3d point, Point3d a, Point3d b, Point3d c) {
         Vector3d v0 = b - a, v1 = c - a, v2 = point - a;
         double d00 = v0 * v0, d01 = v0 * v1, d11 = v1 * v1, d20 = v2 * v0, d21 = v2 * v1;
@@ -1386,13 +1284,6 @@ public static class TubeProgram {
                 ? Fin.Succ(unit)
                 : Fin.Fail<Unit>(new KernelFault.InvalidValue("tube", "tube:bender-envelope"));
 
-    // ONE frame per lane, published so both preimages read it: `Keyed` folds it through a retaining writer to mint
-    // the content key, and the bend and roll frames match `Receipt<TEvidence>.CanonicalBytes`'s own evidence-first
-    // arity, so a consumer framing a settled receipt behind the spine's plane discriminant and ancestry rows reads
-    // this function rather than a second codec. The cope frame takes its LOOPS beside its evidence because a cope
-    // carries no section, so it stays a key frame alone. Everything a frame writes composes the S0
-    // `FabricationCanon` family and `Loop.CanonicalBytes`, so a bend program keyed here addresses byte-identically
-    // with the same artifact keyed at any sibling page.
     internal static CanonicalWriter Frame(TubeEvidence evidence, CanonicalWriter writer) => Write(
             evidence.Section.Profile.CanonicalBytes(writer
                 .Discriminant(evidence.Process).Discriminant(evidence.Section.Family).Double(evidence.Section.WallMm)
@@ -1432,11 +1323,6 @@ public static class TubeProgram {
             .Double(pass.TorqueNm).Double(pass.SpringbackDeg).Double(pass.Distortion))
         .Double(evidence.DevelopedLengthMm).Double(evidence.MaximumDistortion).Double(evidence.TorqueMarginNm);
 
-    // The cope frame writes its LOOPS first because a cope carries no section of its own to open the grid with;
-    // both callers hold the admitting `Context` and hand it to `Keyed`, so the writer never opens on a fabricated
-    // tolerance. The three distortion columns the kernel publishes as OPTION frame presence-tagged: an unrolled
-    // strip measures no solver residual, holds no Cholesky factor, and reaches no spectral gap, and a written zero
-    // there would alias a genuinely measured zero onto one key.
     internal static CanonicalWriter Frame(Seq<Loop> loops, CopeEvidence evidence, CanonicalWriter writer) => writer
         .Ordinal(evidence.Crossings).Ordinal(evidence.Segments)
         .Rows(loops, static (target, loop) => loop.CanonicalBytes(target))
@@ -1460,29 +1346,19 @@ public static class TubeProgram {
     private static Fin<ContentKey> Canonical(Seq<Loop> loops, CopeEvidence evidence, Context tolerance) =>
         FabricationCanon.Keyed(EgressKind.FlatPattern, tolerance, writer => Frame(loops, evidence, writer), Key);
 
-    // The two vocabularies this page OWNS carry the only writers it declares; points, vectors, loops, optional
-    // slots, row counts, and discriminants all frame at the S0 owner.
     private static CanonicalWriter Write(CanonicalWriter writer, TubeCoordinate coordinate) => writer
         .Double(coordinate.FeedMm).Double(coordinate.RotationDeg)
         .Double(coordinate.CommandDeg).Double(coordinate.RadiusMm)
         .Coords(coordinate.Vertex).Coords(coordinate.Incoming).Coords(coordinate.Outgoing);
 
-    // ONE-TIME RE-KEY: stored tube content keys re-baseline once. Column ORDER is preserved exactly, and the
-    // section columns still frame as bare doubles per RULINGS `[04]` — the seam stores SI, so each column crosses the
-    // mm inverse HERE, at the write site, and that round trip is not bit-identical to the doubles the local
-    // record held. The shape witness frames after the stiffness columns, matching the seam owner's own append law.
     private static CanonicalWriter Write(CanonicalWriter writer, SectionProperties properties) => writer
         .Double(properties.Area.SquareMillimetres())
         .Double(properties.Centroid.X.Millimetres()).Double(properties.Centroid.Y.Millimetres())
         .Double(properties.Iyy.QuarticMillimetres()).Double(properties.Izz.QuarticMillimetres())
         .Double(properties.J.QuarticMillimetres())
         .Double(properties.Wely.CubicMillimetres()).Double(properties.Welz.CubicMillimetres())
-        // A free tube's fire-exposed perimeter IS its outline, so this column holds the outline slot the local
-        // record wrote here and stays present for a catalogue-resolved section that carries no shape witness.
         .Double(properties.HeatedPerimeter.Millimetres())
         .Double(properties.Width.Millimetres()).Double(properties.Depth.Millimetres())
-        // A catalogue-resolved section carries no measured outline, so the witness tail is PRESENCE-TAGGED: a
-        // witnessed section and an unwitnessed one can never mint one key off a defaulted census.
         .Maybe(properties.Form, static (target, form) => target
             .Double(form.Major.Millimetres()).Double(form.Minor.Millimetres())
             .Ordinal(form.VertexCount).Ordinal(form.CurvedEdges).Double(form.RadialRatio));

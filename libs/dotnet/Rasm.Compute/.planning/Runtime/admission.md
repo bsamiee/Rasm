@@ -35,9 +35,6 @@ public abstract partial record ComputeIntent {
 
     public sealed record SymbolicProject(SymbolicExpr Formula, Map<string, string> Dimensions, Map<string, double> Bindings, string TargetUnit) : ComputeIntent;
 
-    // `Runtime/ingest#BROKER_INGEST` mints the case off the pump and `Solver/clash#CLASH_AND_TWIN`
-    // `TwinLoop.Ingest` is the bound lane dispatch — a raw reading pushed onto a channel beside `AdmittedIntent`
-    // forks the lane's admission law and strands the shed evidence the DropOldest lane owes its correlation.
     public sealed record SensorAdmit(SensorReading<TwinSignal> Reading) : ComputeIntent;
 
     public sealed record Pipeline(Seq<ComputeIntent> Stages) : ComputeIntent;
@@ -115,25 +112,14 @@ public sealed record AdmittedIntent {
             bytes,
             clocks.Clock.GetCurrentInstant() + allotted,
             correlation,
-            // Scope binds the deadline ROW — that abandonment ceiling is what the token expires on — while
-            // `DeadlineAt` carries the effective allotment `Budgeted` already clamped to it: one budget, two
-            // expressions, and no child re-arms past the parent ceiling that clamp forecloses.
             parent.Derive(Segment, clocks, Some(spec.Deadline)));
 
-    // ONE key-decode rail for every posture vocabulary the spine crosses as text: the generated owners each
-    // publish the static-abstract `IObjectFactory<T, string, ValidationError>.Validate`, so a fourth posture
-    // axis is one more call rather than a second decode shape with its own idea of a bad key. The substrate
-    // key keeps its own `Substrate.Admit` because an unadmitted substrate is a first-class compute fault the
-    // selection receipt already names, while an unknown posture key is a spec-decode refusal.
     private static Fin<T> Keyed<T>(string axis, string key)
         where T : IObjectFactory<T, string, ValidationError> =>
         T.Validate(key, provider: null, out T? row) is null && row is { } admitted
             ? Fin.Succ(admitted)
             : Fin.Fail<T>(new ComputeFault.Violation(ComputeArea.Runtime, new ComputeViolation.Contract(ComputeContract.Rostered, new ContractEvidence.Keys(axis, key))));
 
-    // Overrides never widen the deadline row they ride under: allotments inherit through nested seams as the
-    // MINIMUM (`docs/stacks/csharp/domain/resilience.md` `[04]-[HOP_TOPOLOGY]`), so a longer budget clamps here
-    // rather than expiring after the cancel token this same admission derives.
     private static Fin<Duration> Budgeted(Spec spec) =>
         spec.Budget.Match(
             Some: budget => budget.Allotted <= Duration.Zero || string.IsNullOrWhiteSpace(budget.Provenance)
@@ -141,8 +127,6 @@ public sealed record AdmittedIntent {
                 : Fin.Succ(budget.Allotted < spec.Deadline.Allotted ? budget.Allotted : spec.Deadline.Allotted),
             None: () => Fin.Succ(spec.Deadline.Allotted));
 
-    // A projected stage inherits the RESOLVED rows rather than re-decoding the parent's keys: the parent's
-    // admission already refused every key no roster issued, so a second decode can only agree or disagree.
     internal Fin<AdmittedIntent> Projected(ComputeIntent child) =>
         Measured(child).Map(measured => new AdmittedIntent(
             child, Spec, Allocation, Cache, Forced, Digest, measured.Bytes, DeadlineAt, Correlation, Scope));
@@ -168,17 +152,11 @@ public sealed record AdmittedIntent {
             unitProject: static _ => Fin.Succ((0L, 1L)),
             symbolicProject: static op => Fin.Succ((0L, (long)Math.Max(1, op.Bindings.Count))),
             generate: static op => Fin.Succ(((long)Encoding.UTF8.GetByteCount(op.Prompt), 0L)),
-            // Broker decode consumed the body, so no byte figure survives to cap here; element count carries
-            // sample width — operating-point dimensions beside one measurement — which is what an element cap
-            // bounds when a mis-shaped publisher floods the capture lane.
             sensorAdmit: static op => Fin.Succ((0L, (long)op.Reading.Data.OperatingPoint.Length + 1L)),
             pipeline: static line => line.Stages.IsEmpty
                 ? Fin.Fail<(long, long)>(new ComputeFault.PayloadOverBounds("<pipeline-empty>"))
                 : line.Stages.TraverseM(static child => Measured(child)).As().Bind(Summed));
 
-    // Axis legality and product overflow are two failures with two recoveries: every axis reports independently
-    // through the same applicative the caps ride, so a rank-3 shape with two bad axes names both, and `Op.Catch`
-    // narrows to the `checked` trap alone — the arithmetic guard it is the only rung for.
     private static Fin<(long Bytes, long Elements)> Shaped(int bytes, ImmutableArray<nint> shape) =>
         toSeq(shape).Traverse(Axis).As().ToFin().Bind(axes => Counted(bytes, axes));
 
@@ -199,10 +177,6 @@ public sealed record AdmittedIntent {
             static (sum, next) => (checked(sum.Bytes + next.Bytes), checked(sum.Elements + next.Elements)))))
             .MapFail(static _ => new ComputeFault.PayloadOverBounds("<pipeline-overflow>"));
 
-    // ONE alphabet: every intent digest is a kernel `ContentHash.Of` fold over `CanonicalWriter` — length-framed
-    // text, count-framed collections, exact double bits — so no interpolated `|`-joined seed, no host-endian byte
-    // view of a double array, and no per-arm seeded accumulator survives beside the federation writer. Map-keyed
-    // members fold through the writer's own `Sorted`, the published order `DIGEST_OVER_UNORDERED_CONTAINER` names.
     private static UInt128 Derived(ComputeIntent intent) =>
         intent.Switch(
             tensorOp: static op => ContentHash.Of(op, static (o, w) => w.String(o.Family.Key).Raw(o.Operands.Span)),
@@ -210,17 +184,12 @@ public sealed record AdmittedIntent {
             remoteCall: static op => ContentHash.Of(op, static (o, w) => w.String(o.Method).Raw(o.Payload.Span)),
             unitProject: static op => ContentHash.Of(op, static (o, w) =>
                 w.String(o.Family.Key).String(o.Unit).String(o.TargetUnit).Bits(o.Value)),
-            // Formula identity folds the canonical expression content key, the ordinal-sorted declarations and
-            // bindings, and the target unit — two structurally identical projections share one digest.
             symbolicProject: static op => ContentHash.Of(op, static (o, w) => w
                 .U128(o.Formula.ContentKey)
                 .Sorted(toSeq(o.Dimensions), static d => d.Key, StringComparer.Ordinal, static (d, x) => x.String(d.Key).String(d.Value))
                 .String(o.TargetUnit)
                 .Sorted(toSeq(o.Bindings), static b => b.Key, StringComparer.Ordinal, static (b, x) => x.String(b.Key).Bits(b.Value))),
             generate: static op => ContentHash.Of(op, static (o, w) => w.U128(o.Model).String(o.Prompt)),
-            // Sensor identity is the sample's own content — signal row, instant, and the operating-point vector
-            // beside the measurement — so a broker replay carries the digest its first delivery carried and the
-            // job graph's content-keyed cone re-scores nothing.
             sensorAdmit: static op => ContentHash.Of(op.Reading.Data, static (d, w) => w
                 .String(d.SignalId).I64(d.At.ToUnixTimeTicks()).Doubles(d.OperatingPoint.AsSpan()).Bits(d.Measured)),
             pipeline: static line => ContentHash.Of(line.Stages.Map(Derived), static (digests, w) =>
@@ -298,8 +267,6 @@ public sealed partial class Substrate {
 
     public bool Sheddable { get; }
 
-    // Absence never has a null spelling, not even privately: the row DECLARES the uncapped case, so no reader
-    // downstream of the roster can meet a sentinel this axis never issued.
     public Option<long> PayloadCap { get; }
 
     public static Fin<Substrate> Admit(string key) =>
@@ -336,15 +303,11 @@ public sealed partial class Substrate {
 - Boundary: every fault case projects through the remote-lane FaultDetail wire family at the server edge, never a bare status-code-plus-string terminal; cancellation classifies in one conversion arm from `CancelScope` provenance and the deadline instant so user cancel, deadline expiry, and shutdown drain stay distinct, drain-derived scopes carrying `RuntimePhase.Draining.Key` as a provenance segment; a detected second retry owner raises RetryOwnerConflict toward the Conflict receipt — the AppHost keyed Polly hop owns retry, stacking never occurs here; forced substrate replaces the ordered preference chain but still rides every capability, shed, payload, and deadline veto, so policy cannot bypass safety; dispatch delegates bind at composition through `DispatchTable` because execution capsules carry runtime state no static row column owns; substrate ranking chooses the execution family only — `Runtime/channels#TRANSPORT_AXIS` owns endpoint selection inside `remote-grpc`, and substrate-keyed load or affinity never claims node-level farm routing.
 
 ```csharp signature
-// The folder's ONE boolean-refusal guard onto the accumulating rail, seated beside the family it mints from —
-// three Solver pages each declared an internal copy and a fourth consumer would have made a fourth.
 public static class Refusal {
     public static Validation<Error, Unit> Unless(bool holds, ComputeArea area, ComputeViolation evidence) =>
         holds ? Success<Error, Unit>(unit) : Fail<Error, Unit>(new ComputeFault.Violation(area, evidence));
 }
 
-// Named admission sites retain only the bounded contract they publish. A generated string-key roster here would
-// be inert: the key crosses neither the fault identity nor its evidence and therefore carries no domain fact.
 public readonly record struct ContractRefusal(ComputeArea Area, ComputeContract Contract) {
     public ComputeFault Fault() =>
         new ComputeFault.Violation(Area, new ComputeViolation.Contract(Contract, new ContractEvidence.None()));
@@ -352,14 +315,10 @@ public readonly record struct ContractRefusal(ComputeArea Area, ComputeContract 
     public Fin<T> Fault<T>() => Fin.Fail<T>(Fault());
 }
 
-// The closed witness vocabulary the 2216 arm carries: an under-specified analysis input is a ROW, so a caller
-// recovers on the reason and the detail carries only the witness (the ply, the route, the sensor) that reason
-// names. A free-form slug read back by prefix is the deleted form — 28 raise sites spelled 26 stems no reader
-// could match without string surgery.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AssessmentInputReason {
-    // --- [COMPOSITION] — `Analysis/aggregator` folds
+    // --- [COMPOSITION]
     public static readonly AssessmentInputReason SiteAbsent           = new("site-absent");
     public static readonly AssessmentInputReason DesignDaysEmpty      = new("design-days-empty");
     public static readonly AssessmentInputReason MemberInputAbsent    = new("member-input-absent");
@@ -371,12 +330,12 @@ public sealed partial class AssessmentInputReason {
     public static readonly AssessmentInputReason CurrencyMismatch     = new("currency-mismatch");
     public static readonly AssessmentInputReason WindowFieldAbsent    = new("window-field-absent");
     public static readonly AssessmentInputReason WindowZeroArea       = new("window-zero-area");
-    // --- [ASSESSMENT] — `Analysis/assessment` ingress and cache
+    // --- [ASSESSMENT]
     public static readonly AssessmentInputReason RouteUnrouted        = new("route-unrouted");
     public static readonly AssessmentInputReason SinkUnbound          = new("sink-unbound");
     public static readonly AssessmentInputReason TargetsEmpty         = new("targets-empty");
     public static readonly AssessmentInputReason CacheRatioAbsent     = new("cache-ratio-absent");
-    // --- [COMMISSIONING] — `Analysis/assessment` measured-versus-predicted gates
+    // --- [COMMISSIONING]
     public static readonly AssessmentInputReason WindowUnbounded      = new("window-unbounded");
     public static readonly AssessmentInputReason AssessmentUnusable   = new("assessment-unusable");
     public static readonly AssessmentInputReason MeasureAbsent        = new("measure-absent");
@@ -386,7 +345,6 @@ public sealed partial class AssessmentInputReason {
     public static readonly AssessmentInputReason UnderCovered         = new("under-covered");
 }
 
-// The typed fault IS the `Error` and lifts bare onto `Fin<T>`/`Validation<Error,T>`.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -560,8 +518,6 @@ public sealed record SelectionReceipt(
     Instant At);
 
 public static class SubstrateSelection {
-    // Every chain is CONSTANT per case and three local folds share one, so each materializes once at type init
-    // and generated `Map` projects a precomputed row — a per-arm lambda re-allocates its chain on every walk.
     static readonly Seq<Substrate> TensorChain = Seq(Substrate.DeviceWgpu, Substrate.CpuTensor, Substrate.RemoteGrpc);
     static readonly Seq<Substrate> ModelChain = Seq(Substrate.Onnx, Substrate.RemoteGrpc);
     static readonly Seq<Substrate> GenerateChain = Seq(Substrate.GenAi, Substrate.RemoteGrpc);
@@ -625,9 +581,6 @@ public static class SubstrateSelection {
                 context.Clock.GetCurrentInstant()));
 }
 
-// Each arm answers the lane's own `ComputeReceipt` case on the rail this spine opened: an `IO<Unit>` arm discarded
-// the verdict, so the receipt a dispatch produced reached the sink by a channel no owner named and `ComputeTraces`
-// bracketed a body whose outcome it could not read.
 public sealed record DispatchTable(
     Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> CpuTensor,
     Func<AdmittedIntent, IO<Fin<ComputeReceipt>>> DeviceWgpu,

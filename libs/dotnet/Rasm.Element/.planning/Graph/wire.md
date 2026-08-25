@@ -31,7 +31,7 @@ The mapping carries `NodeId` and `content_address` as the kernel's canonical 16-
 The corpus owns every field number. The only envelope bracket this projection must know is `NodeWire`: `id = 1`, payload arms `2..9`, and `content_address = 10`. Nested-family number law stays with the corresponding corpus file; this page carries only the arm census consumed by the codec's parity fold.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 using System.Globalization;
 using System.Diagnostics;
@@ -51,14 +51,8 @@ using static Rasm.Element.Graph.SeamConverters;
 
 namespace Rasm.Element.Graph;
 
-// The generated messages arrive by project reference — <ProjectReference Include="../Rasm.Contracts/Rasm.Contracts.csproj" /> —
-// and each generated descriptor reads its ownership-split corpus path under rasm/contracts/element.
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The union-arity OWNER: one row per crossing family carrying the seam arm count AND the generated oneof-enum
-// read, so the [02] roster table, the WireCodec parity fold, and the Graph/corpus forge's family-width arithmetic
-// all read ONE declaration (the forge's hand consts and the ctor's tuple census were two spellings of this
-// invariant). WireArms excludes the generated None member.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class CrossingFamily {
  public static readonly CrossingFamily Node = new("node", 8, static () => Arms<NodeWire.PayloadOneofCase>());
@@ -75,35 +69,13 @@ public sealed partial class CrossingFamily {
  static int Arms<T>() where T : struct, Enum => Enum.GetValues<T>().Length - 1;
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Mapperly transcription family: source-generated per-case field mapping, key codecs hand-owned as
-// [UserMapping] statics so identity NEVER re-derives — Mapperly transcribes shape, the seam owns identity.
-// Encode case dispatch is the union's generated total Switch; decode dispatch is the generated PayloadCase/
-// ValueCase closed enum ([MapDerivedType] is the class-hierarchy rail; a oneof envelope has no case base).
-// RequiredMappingStrategy.Both proves BOTH sides complete — but source-side completeness is compiler-proved only while
-// no [MapPropertyFromSource] reader lands here: one whole-source reader suppresses RMG020 for EVERY source member of
-// that mapping, touched or not, so a reader-bearing mapping demotes its [MapperIgnoreSource] roster from compiler proof
-// to authored inventory. Target-side RMG012 is unaffected.
-// The two NodaTime.Serialization.Protobuf static mappers register the whole ToTimestamp/ToInstant/ToProtobufDuration/
-// ToNodaDuration/ToDate/ToLocalDate family, so every plain temporal crossing generates with NO per-member codec row;
-// the hand bodies below keep their explicit calls because each encodes a CHOICE — an Interval flattened to a bounded
-// column pair, an Option presence write, an ISO pattern the wire fixes — not a plain conversion.
-// EnabledConversions EXCLUDES ExplicitCast as a LOAD-BEARING guard, never hygiene: LanguageExt defines a THROWING
-// explicit Option<T> -> T cast that the default conversion set binds and prefers OVER a registered user mapping,
-// so the narrowed set is the one thing keeping an absent Option from throwing inside a generated body.
-// --- [SERVICES] ---------------------------------------------------------------------------
-// The branch-reachable converter set: identity and the three shared semantic value families cross here once.
-// Outbound legs are total over admitted domain values; inbound legs rail missing generated messages and re-enter
-// the standing domain admissions. WireCodec composes this owner through [UseStaticMapper], while sibling packages call
-// the same public members directly instead of carrying private protobuf mirrors or copied field maps.
+// --- [SERVICES] ------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static partial class SeamConverters {
- // --- [KEY_CODECS] — verbatim crossings, never re-minted
+ // --- [KEY_CODECS]
  [UserMapping] public static ByteString ToWire(NodeId id) =>
   ContentHash.Wire(UInt128.Parse(id.Value, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture));
  [UserMapping] public static string ToWire(MaterialId id) => id.Value;
- // The kernel owns the byte order: `ContentHash.Wire` is the one big-endian projection and `Admit` its one
- // inverse, so this seam spells neither a width nor an endianness — a decoded width other than sixteen rails the
- // kernel's own refusal on the wire operation key.
  [UserMapping] public static ByteString ToWire(UInt128 key) => ContentHash.Wire(key);
 
  public static Fin<UInt128> ToKey(ByteString wire, Op key) => ContentHash.Admit(wire.Span, key);
@@ -112,23 +84,11 @@ public static partial class SeamConverters {
   ContentHash.Admit(wire.Span, key)
    .Map(static value => NodeId.Create(value.ToString("X32", CultureInfo.InvariantCulture)));
 
- // --- [CARRIER_CODECS] — the Option crossings Mapperly bridges are MESSAGE-shaped alone: a protoc message property
- // admits null as unset, so a nullable return that skips assignment IS the absence write. The scalar/string shape
- // owns NO carrier here by law — protoc's Has*/Clear* pattern sits behind a null-rejecting setter, so a nullable
- // return cannot express its absence and every such column writes presence by hand ([PRESENCE_SHELLS] above).
- // Each carrier keeps its per-T Match body: the struct-element rows would read default(T) off ValueUnsafe, and the
- // projections differ per element, so a generic carrier has nothing lawful to collapse onto.
- // Absent measured columns (the product-only U-value) leave their optional message unset, never a zero-SI measure.
+ // --- [CARRIER_CODECS]
  [UserMapping] public static MeasureValueWire? ToWire(Option<MeasureValue> value) => value.Match<MeasureValueWire?>(static m => ToWire(m), static () => null);
- // Absent sampled curves (an undeclared reduction, λ(θ), or hygrothermal table) leave their optional message
- // unset, never an empty run the arity gate would refuse at the far end.
  [UserMapping] public static SampledCurveWire? ToWire(Option<SampledCurve> curve) => curve.Match<SampledCurveWire?>(static c => WireCodec.ToWire(c), static () => null);
- // The absence carrier over the registered NodaExtensions conversion — the presence decision is this seam's, the
- // conversion the static mapper's, so an absent instant leaves its proto3 optional unset.
  [UserMapping] public static Timestamp? ToWire(Option<NodaTime.Instant> at) => at.Match<Timestamp?>(static i => i.ToTimestamp(), static () => null);
 
- // MeasureValue crosses as its identity columns; the wire NEVER carries CanonicalUnit — decode re-mints it
- // through the OfSi registry resolve and re-attaches the band, so wire and canon agree by construction.
  [UserMapping] public static MeasureValueWire ToWire(MeasureValue m) {
   MeasureValueWire w = new() {
    Dimension = new DimensionWire {
@@ -247,9 +207,7 @@ public static partial class SeamConverters {
 [UseStaticMapper(typeof(NodaTime.Serialization.Protobuf.NodaExtensions))]
 [UseStaticMapper(typeof(NodaTime.Serialization.Protobuf.ProtobufExtensions))]
 internal static partial class WireCodec {
- // --- [UNION_PARITY] — one fold over the CrossingFamily roster: a seam case or a corpus oneof arm landing without
- // its counterpart throws at first codec touch instead of skewing silently. The ROWS own the arm counts; this ctor
- // owns only the fold, and the corpus forge reads the same rows (its four hand consts died with the second census).
+ // --- [UNION_PARITY]
  static WireCodec() {
   foreach (CrossingFamily family in CrossingFamily.Items) {
    if (family.Arms != family.WireArms()) {
@@ -263,17 +221,12 @@ internal static partial class WireCodec {
    ? Fin.Succ(parsed.Value)
    : new KernelFault.InvalidValue("element-wire.temporal", $"parse {token}", Some(key));
 
- // ONE half-open gate for every paired presence flag — a window missing one end, a range missing one bound.
  static Fin<Unit> BothOrNeither(bool left, bool right, string column, Op key) =>
   left == right ? Fin.Succ(unit) : new KernelFault.InvalidValue($"element-wire.{column}", "carry both presence columns or neither", Some(key));
 
  static Fin<Option<NodaTime.LocalDate>> ToDate(bool present, string iso, Op key) =>
   Opt(present, iso).Traverse(token => Iso(NodaTime.Text.LocalDatePattern.Iso, token, key)).As();
 
- // Proto3 carries MESSAGE presence as nullness, so a column the schema declares non-optional still arrives unset
- // from a hostile producer and the residual funnel would report its dereference as an opaque throw. Present names
- // the missing column on the rail instead, and ToInterval pairs it with the ORDER proof the flattened window needs:
- // the NodaTime two-Instant constructor throws on a reversed pair and would fire before any seam gate reads it.
  static Fin<T> Present<T>(T? w, string column, Op key) where T : class =>
   w is not null ? Fin.Succ(w) : new KernelFault.InvalidValue($"element-wire.{column}", "required message is absent", Some(key));
 
@@ -286,8 +239,6 @@ internal static partial class WireCodec {
    : new KernelFault.InvalidValue($"element-wire.{column}", "window start must not follow its end", Some(key))
   select window;
 
- // Absence is total through the Option traversal — None yields the rail's own Pure, so no Match arm pair rides
- // mid-pipeline and the presence decision is one lift, never a hand branch per site.
  static Fin<Option<MeasureValue>> OptMeasure(MeasureValueWire? w, Op key) =>
   Optional(w).Traverse(m => ToMeasure(m, key)).As();
 
@@ -296,12 +247,8 @@ internal static partial class WireCodec {
    c.Points.Select(static point => point.At).ToArray(),
    c.Points.Select(static point => point.Value).ToArray(), key)).As();
 
- // ONE presence lift for every generated Has*/value pair — the element type rides the value, never a per-type twin.
  static Option<T> Opt<T>(bool present, T value) => present ? Some(value) : None;
 
- // Wire map keys are ORDINAL-distinct by protobuf's own parse, but PropertyName narrows to ordinal-ignore-case, so
- // two legal wire keys ("Length" beside "length") collide at admission — a REAL key-space narrowing railed typed
- // here rather than surfacing as an opaque residual throw the funnel re-labels.
  static Fin<Map<PropertyName, T>> Named<T>(Seq<(PropertyName Name, T Value)> pairs, Op key) =>
   pairs.Fold(Fin.Succ(Map<PropertyName, T>()), (acc, pair) => acc.Bind(m => m.ContainsKey(pair.Name)
    ? new KernelFault.InvalidValue(
@@ -310,17 +257,11 @@ internal static partial class WireCodec {
 
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// ElementWire boundary: Encode and Decode share one Fin rail over the generated NodeWire support message. Consumers
-// compose Google.Protobuf serialization on the returned message directly; a forwarding byte wrapper is redundant.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementWire {
- // The tolerance belongs to the native graph context. Persistence supplies the held graph's tolerance when it mints
- // the prior and successor NodeWire pair used by its FieldMask diff.
  public static Fin<NodeWire> Encode(Node node, double tolerance, Op key) =>
   WireCodec.ToWire(node, tolerance, key).Bind(wire => WireCodec.Validate(wire, key));
 
- // Decode proves the generated corpus rules and re-enters every native value admission. Address verification remains
- // with the caller that owns the active graph tolerance; this method does not silently label an unchecked value.
  public static Fin<Node> Decode(NodeWire wire, Op key) =>
   WireCodec.Validate(wire, key).Bind(valid => key.Catch(() => WireCodec.ToNode(valid, key)));
 }

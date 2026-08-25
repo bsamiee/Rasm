@@ -24,7 +24,7 @@
 - Growth: a new execution posture is one `SolutionCommand` case breaking the gate's total `Switch` loudly and naming its lane on the column; a new lifecycle stream on `Watch` is one composed `GhSource` row — the gate pair never widens.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Rasm.Domain;
 using Rasm.Grasshopper.Components;
@@ -35,14 +35,13 @@ using HostDocument = Grasshopper2.Doc.Document;
 
 namespace Rasm.Grasshopper.Document;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MarshalLane {
     public static readonly MarshalLane Window = new(key: 0);
     public static readonly MarshalLane Worker = new(key: 1);
 }
 
-// Blocking wait NEEDS a positive budget — the unbounded block is unrepresentable.
 [ValueObject<TimeSpan>]
 public readonly partial struct WaitPosture {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref TimeSpan value) {
@@ -54,7 +53,6 @@ public readonly partial struct WaitPosture {
 [GenerateUnionOps]
 public abstract partial record SolutionCommand {
     private SolutionCommand() { }
-    // Thread custody is a COLUMN read off the value — the gate branches on the lane, never on an is-ladder.
     public MarshalLane Lane => this is AwaitCase ? MarshalLane.Worker : MarshalLane.Window;
     public sealed record LaunchCase(SolutionMode Mode, Option<CancellationTokenSource> Bridle) : SolutionCommand;
     public sealed record AwaitCase(SolutionMode Mode, CancellationTokenSource Bridle, WaitPosture Wait) : SolutionCommand;
@@ -64,7 +62,7 @@ public abstract partial record SolutionCommand {
     public sealed record ExpireCase(Seq<IDocumentObject> Subjects) : SolutionCommand;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static partial class SolutionControl {
     public static Fin<GateReceipt<Seq<UiEvent<GhFact>>>> Drive(
@@ -82,13 +80,10 @@ public static partial class SolutionControl {
                     .Bind(_ => DocumentScope.Observed(
                         document: document, clock: clock, key: active, verb: () => valid.Switch(
                 state: (Key: active, Server: document.Solution),
-                // Dispatched Task<Solution> is deliberately unawaited — the launch answers "dispatched", and
-                // run faults surface on the Watch stream's solution.faulted row, never on this receipt.
                 launchCase: static (frame, c) => Settle(frame.Key, c.SelfOp, () =>
                     (Op.Side(action: () => ignore(c.Bridle.Match(
                         Some: bridle => frame.Server.Start(bridle, c.Mode),
                         None: () => frame.Server.Start(c.Mode)))), (GateOutcome)new GateOutcome.SettledCase()).Item2),
-                // Unreachable by the lane column — the proof the worker case cannot inhabit the shared window.
                 awaitCase: static (frame, _) => Fin.Fail<(Op, Option<VerbNoun>, GateOutcome)>(frame.Key.InvalidContext()),
                 haltCase: static (frame, c) => Settle(frame.Key, c.SelfOp, () =>
                     (Op.Side(action: frame.Server.Stop), (GateOutcome)new GateOutcome.SettledCase()).Item2),
@@ -101,8 +96,6 @@ public static partial class SolutionControl {
                      (GateOutcome)new GateOutcome.CountCase(Touched: c.Subjects.Count)).Item2)))))));
     }
 
-    // Worker path: same lane, same gauge, own thread — marshal held is the refused precondition, and the
-    // wait budget lapsing is the typed overdue refusal (the run keeps running; the bridle owns its death).
     private static Fin<GateReceipt<Seq<UiEvent<GhFact>>>> Blocked(
         SolutionCommand.AwaitCase command,
         MonotonicTimeline clock,
@@ -172,7 +165,7 @@ public static partial class SolutionControl {
 - Growth: a new run metric is one field on the owning receipt with its claim row and its generated map line; a new timeline judgment is one claim inside `SolutionTrace.IsValid` — no new receipt species.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.Doc;
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
@@ -181,9 +174,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Grasshopper.Document;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// RunPulse is `Document/document.md`'s payload record, seated beside the spine that carries it (E-G45);
-// this page PROJECTS into it and defines nothing twice.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SolutionAudit(
     SolutionId Id, SolutionPhase Culmination, DateTime Started, DateTime Ended, TimeSpan Duration) : IValidityEvidence {
@@ -204,8 +195,7 @@ public readonly record struct SolutionTrace(
         Pulses.Choose(static pulse => pulse.Id).Distinct().Count <= 1);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// One projection seam — generated correspondence, single-sourced; every reader composes these two maps.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
 public static partial class SolutionMap {
     [MapProperty(nameof(Solution.ComputableCount), nameof(RunPulse.Computable))]

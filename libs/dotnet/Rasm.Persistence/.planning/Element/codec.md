@@ -26,7 +26,7 @@ Codec, compression, and hash variance are delegate rows on string-keyed smart en
 - Boundary: artifact-kind-to-codec residence is fixed at write — a second codec on one kind is a conflict, not a fallback; the SEAM graph types (`GraphDelta`/`Header`/`Node`/`Relationship` carrying LanguageExt `Seq`/`Option` and Thinktecture `[Union]`/`[SmartEnum]`/`[ValueObject]` members, with NO `[MessagePackObject]` because the seam stays library-neutral) ride the `json-stj` row ONLY — source-gen-registered on `ElementJson` (`GraphEvent`/`GraphProjection`/`GraphDelta` roots, the rest reachable transitively), whose STJ set handles `Seq`/`Option`/`[Union]`/NodaTime — because the `messagepack` row's `GeneratedMessagePackResolver` finds only `[MessagePackObject]` owners and its `StandardResolver` rejects an attribute-free `Seq<Node>`, so MessagePack on the seam graph is the deleted phantom; the `messagepack` row remains the Marten cache/sync codec for Persistence-owned positional records and pairs with the `none` compression row because `Lz4BlockArray` owns compression in-codec (double framing is the deleted pattern). The `proto-binary` row admits generated `IMessage` values on `sync` alone and carries the `Version/commits#CRDT_WIRE` payload; descriptor validation and domain admission stay at that wire owner, while this row only invokes the generated runtime. The `cbor` row is the self-describing IETF blob codec whose `CborConformanceMode.Canonical` map-key order makes the bytes content-stable for the `ContentAddress` and whose `Strict` reader over a FIXED `ReadOnlyMemory` rejects a length bomb and smuggled suffix; the `json-stj` row is the inspector/web wire and Marten event-store serializer; the `file-raw` row is the geometry-blob passthrough. Every `messagepack` decode uses `MessagePackSecurity.UntrustedData.WithMaximumObjectGraphDepth(256)`, and the `#SNAPSHOT_SPINE` `Snapshots.Verify` ladder adds header, length, schema, epoch, checksum, and content-address admission before decode; MemoryPack and protobuf SNAPSHOT encodings stay rejected — proto-binary is a sync payload codec, never a snapshot residence.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 using Google.Protobuf;
 
 [SmartEnum<string>]
@@ -39,7 +39,7 @@ public sealed partial class WireSurface {
     public static readonly WireSurface Web = new("web");
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -56,9 +56,6 @@ public partial class ElementJson : JsonSerializerContext {
         new JsonSerializerOptions(JsonSerializerOptions.Strict) {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             TypeInfoResolver = Default,
-            // `Rasm/Domain/rails#CARRIER_CODEC` mints the carrier factory every `Seq`/`Option` graph member decodes
-            // through; this mint stays explicit-null (no `OmitAbsent` modifier, default ignore condition), so a `None`
-            // writes `null` and every `Option<T>` constructor parameter correctly carries no default.
             Converters = { new ThinktectureJsonConverterFactory(), new LanguageExtJsonConverterFactory(), GeoJsonProjection.Default.Factory },
         }.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
 }
@@ -98,8 +95,6 @@ public sealed partial class SnapshotCodec {
     public int NegotiationRank { get; }
     public FrozenSet<WireSurface> Membership { get; }
 
-    // ONE opaque-payload admission both byte-shaped rows compose: the delegate takes `object?`, so the widening a
-    // caller performs when it skips `Admits` lands here as a typed refusal instead of an escaping cast exception.
     static Fin<ReadOnlyMemory<byte>> Opaque(object? value) => value switch {
         byte[] bytes => Fin.Succ<ReadOnlyMemory<byte>>(bytes),
         ReadOnlyMemory<byte> memory => Fin.Succ(memory),
@@ -115,13 +110,6 @@ public sealed partial class SnapshotCodec {
             ? (message.MergeFrom(payload.Span), Fin.Succ<object?>(message)).Item2
             : Fin.Fail<object?>(new CodecFault.ShapeRefused(shape.Name)));
 
-    // `HeaderId` is a NON-KEY column on a `[SmartEnum<string>]` roster, so the resolve composes the kernel
-    // `Rasm/Domain/validation#FACTORY_BRIDGE` `Op.Row<TColumn, TKey, TRow>` column-type-DECOUPLED arm — the
-    // TKey-homogeneous arm pins the projection to the roster's own key type and cannot carry an `int` column.
-    // One owner performs every by-column roster resolve,
-    // and the refusal names the column and the value instead of collapsing to an absent `Option` a ladder arm
-    // then re-invents a message for. Membership derives from that carrier; a separate `Any` scan re-walks the
-    // roster to answer what the resolve already knows.
     public static Fin<SnapshotCodec> ByHeaderId(int headerId, Op? key = null) =>
         key.OrDefault().Row<int, string, SnapshotCodec>(candidate: headerId, column: static row => row.HeaderId, match: None);
     public bool Serves(WireSurface surface) => Membership.Contains(surface);
@@ -135,12 +123,6 @@ public sealed partial class SnapshotCodec {
     [UseDelegateFromConstructor] public partial Fin<byte[]> Serialize(Type shape, object? value);
     [UseDelegateFromConstructor] public partial Fin<object?> Deserialize(Type shape, ReadOnlyMemory<byte> payload);
 
-    // `Binary` orders the runtime resolver list: the custom `InstantFormatter` prepends as the formatter HEAD (a
-    // standalone `IMessagePackFormatter<Instant>` a generated `[CompositeResolver]` cannot carry), then the
-    // Thinktecture generated-owner resolver, the source-generated `GeneratedMessagePackResolver`, and the reflection
-    // `StandardResolver` BCL fallback. `Aot` carries the single generated `PersistenceResolver` (Thinktecture +
-    // generated, no reflection fallback) under the SAME `InstantFormatter` head, so the published-AOT build never
-    // drops the `Instant` formatting the snapshot/cache `GraphEvent`/`SnapshotCatalogRow` carry.
     public static readonly MessagePackSerializerOptions Binary = BuildBinary(
         ThinktectureMessageFormatterResolver.Instance, GeneratedMessagePackResolver.Instance, StandardResolver.Instance);
     public static readonly MessagePackSerializerOptions Aot = BuildBinary(PersistenceResolver.Instance);
@@ -152,13 +134,7 @@ public sealed partial class SnapshotCodec {
             .WithCompression(MessagePackCompression.Lz4BlockArray);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// Canonical CBOR blob — `Canonical` reorders map keys + emits shortest-form integers so the bytes are
-// content-stable for the `ContentAddress`. The frame is one tagged byte string (a flat data item, no nesting),
-// so the untrusted-egress guard is structural, not a depth count: the `Strict` reader over the FIXED
-// `payload` buffer rejects a malformed/indefinite-length frame and an over-declared byte-string length raises
-// `CborContentException` rather than over-reading the buffer (a `CurrentDepth` cap would be inert — a byte
-// string never nests), and the trailing-bytes check rejects a smuggled suffix so a torn frame self-faults.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CborBlob {
     public static byte[] Encode(ReadOnlyMemory<byte> payload) {
         CborWriter writer = new(CborConformanceMode.Canonical);
@@ -166,10 +142,6 @@ public static class CborBlob {
         writer.WriteByteString(payload.Span);
         return writer.Encode();
     }
-    // Decode is the UNTRUSTED-egress leg, so it answers on the rail: a malformed frame and a smuggled suffix are
-    // the two refusals this guard exists for, and raising them as exceptions asked every caller to re-catch what
-    // the page's own `CodecFault` band already carries. `Op.Catch` funnels the reader's own `CborContentException`
-    // (a length bomb over the fixed buffer) onto that same rail, so both refusals arrive as one shape.
     public static Fin<byte[]> Decode(ReadOnlyMemory<byte> payload, Op? key = null) {
         Op op = key.OrDefault();
         return op.Catch(() => {
@@ -183,31 +155,13 @@ public static class CborBlob {
     }
 }
 
-// `GeoJsonProjection` owns the ONE GeoJSON converter FACTORY — the codec's closed source-generated options and the
-// `Ingest/geospatial` open-resolver `GeoWire.Options` are two options VIEWS over this single factory (feature
-// reification needs an open resolver the closed `ElementJson` resolver cannot serve), so geometry conversion and the
-// WGS84 factory never fork while each options set keeps its own resolver posture.
-// The bounding-box and attribute-mutability postures are DECLARED LAW of the one shared factory, not ctor knobs:
-// `Default` is the only mint in the corpus and `Ingest/geospatial` composes that same value, so neither slot ever
-// carried a second setting. NAMED LOSS: a second factory posture is now an edit to this declaration rather than a
-// caller argument. WITNESS: bbox emission and the no-mutate posture are stated once here and hold at both options
-// views, where a defaulted parameter let a future call site quietly hand the shared factory a caller's attribute
-// table to write through.
 public sealed record GeoJsonProjection(GeometryFactory Geometry, string IdProperty = GeoJsonConverterFactory.DefaultIdPropertyName) {
-    // GeoJSON is FIXED WGS84 (RFC 7946), so the shared factory carries SRID 4326 — the geospatial admission
-    // rejects a factory whose SRID disagrees with the canonical CRS, and a bare GeometryFactory.Default (SRID 0)
-    // cannot express that law.
     public static readonly GeoJsonProjection Default = new(NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326));
     public GeoJsonConverterFactory Factory =>
         new(Geometry, writeGeometryBBox: true, IdProperty, RingOrientationOption.EnforceRfc9746, allowModifiedAttributes: false);
 }
 
-// --- [COMPOSITION] ------------------------------------------------------------------------
-// `GeneratedMessagePackResolver` discovers every `[MessagePackObject]` owner at compile time; `PersistenceResolver`
-// is the AOT landmark composing the Thinktecture + generated resolvers (no reflection `StandardResolver`), and `Aot`
-// prepends `InstantFormatter` to it so the custom NodaTime `Instant` formatter survives the runtime→AOT swap.
-// `[CompositeResolver]` composes resolver TYPES, never a standalone `IMessagePackFormatter`, so the `Instant`
-// formatter rides the `BuildBinary` head in both chains.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 [GeneratedMessagePackResolver] public partial class GeneratedMessagePackResolver;
 [CompositeResolver(typeof(ThinktectureMessageFormatterResolver), typeof(GeneratedMessagePackResolver))] public partial class PersistenceResolver;
 ```
@@ -245,12 +199,10 @@ public sealed record GeoJsonProjection(GeometryFactory Geometry, string IdProper
 - Boundary: both hash rows are non-cryptographic identity — a security claim on either is the named defect; `Identity` pins the kernel `ContentHash.Of` as the one `ContentAddress` algorithm every snapshot identity, chunk key, and diff reads, so a 64-bit hash standing in for the content address is the deleted form; `Content` is the `XxHash3` 64-bit short tag stamped on every chunk as a bloom/sketch pre-filter ahead of the authoritative 128-bit compare — a chunk-fold datum, never a header hash domain; frame checksums are STRUCTURAL frame facts, not policy rows — the `SnapshotHeader` checksum is a direct `Crc32.HashToUInt32` over the header prefix and a compression frame's own integrity word (`ZstdSharp` `checksumFlag`) belongs to its frame, so the former five-row ladder (`Frame`/`Wide`/`FrameWide`) is the deleted enumeration of call-site facts as vocabulary; the `HashDomain` law: the header byte records `Identity.DomainId`, `Verify` hard-rejects any other domain as `SnapshotTier.HashDomainGap` TODAY, and a future wider address lands as one row whose new `DomainId` the ladder resolves through `ByDomainId` under its epoch gate — never a second ladder arm and never a per-artifact algorithm negotiation; the `messagepack` codec pairs with `none` because `Lz4BlockArray` owns in-codec compression (double framing is the deleted pattern), and a `Cbor`/`JsonStj` blob whose body already rode Arrow-IPC `Zstd` block compression likewise pairs with `none`; `ZstdSharp.Port`'s self-describing frame (`contentSizeFlag`/`checksumFlag`, long-distance matching, `btultra2`) is the higher-ratio path and `LZ4Pickler` the lowest-latency self-describing frame, the policy row selecting one so a payload frames exactly once and the frame checksum complements the snapshot rail's own content hash rather than replacing it; a payload outgrowing the one-shot span rides the zstd rows' `ZstdFrame.PackStream`/`UnpackStream` `CompressionStream`/`DecompressionStream` adapters — the ONE streaming residence, so whole-payload materialization is never the price of a large artifact and an LZ4 streaming sibling is the deleted parallel — and both legs read the row's own `ZstdTuning` rather than a `(level, archival)` pair each re-states, so one policy row cannot frame two ways and a row carrying no tuning has no streaming leg by construction; every codec, compression, and seal transform answers on `Fin`, so `Known`-style membership probes delete with the `Option` they were compensating for — a caller asking whether a header id is rostered takes the resolve that already knows.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Domain;                                 // ContentHash — the ONE kernel digest entry
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+using Rasm.Domain;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Two sibling policy vocabularies — `CompressionPolicy` and `HashPolicy` — with `ZstdFrame` co-located as
-// `CompressionPolicy`'s frame pack/unpack helper (referenced only by its `zstd`/`zstd-high` rows).
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -260,15 +212,9 @@ public sealed partial class CompressionPolicy {
     public static readonly CompressionPolicy Lz4High = new("lz4-high", headerId: 2, tuning: None, pack: static p => Fin.Succ(LZ4Pickler.Pickle(p.Span, LZ4Level.L09_HC)), unpack: static f => Fin.Succ(LZ4Pickler.Unpickle(f.Span)));
     public static readonly CompressionPolicy Zstd = new("zstd", headerId: 3, tuning: Some(ZstdTuning.Fast), pack: static p => Fin.Succ(ZstdFrame.Pack(p.Span, ZstdTuning.Fast)), unpack: static f => Fin.Succ(ZstdFrame.Unpack(f.Span)));
     public static readonly CompressionPolicy ZstdHigh = new("zstd-high", headerId: 4, tuning: Some(ZstdTuning.Archival), pack: static p => Fin.Succ(ZstdFrame.Pack(p.Span, ZstdTuning.Archival)), unpack: static f => Fin.Succ(ZstdFrame.Unpack(f.Span)));
-    // Trained-dictionary regime for the content-defined chunk store: a 2-32KB chunk stored independently pays its
-    // whole window ramp per chunk with no cross-chunk history — the exact case dictionaries exist for. The header
-    // byte stays the one codec discriminant: decode resolves the blob by the dict id the frame itself carries.
     public static readonly CompressionPolicy ZstdDict = new("zstd-dict", headerId: 5, tuning: Some(ZstdTuning.Fast), pack: static p => ZstdFrame.PackDict(p.Span), unpack: static f => ZstdFrame.UnpackDict(f.Span));
 
     public int HeaderId { get; }
-    // The streaming residence reads its tuning off the ROW rather than off a per-call `(level, archival)` pair, so
-    // the one-shot and the stream leg of one policy cannot frame differently; a row with no tuning has no
-    // streaming leg, which is the same fact the `zstd`-only streaming law states.
     public Option<ZstdTuning> Tuning { get; }
     public static Fin<CompressionPolicy> ByHeaderId(int headerId, Op? key = null) =>
         key.OrDefault().Row<int, string, CompressionPolicy>(candidate: headerId, column: static row => row.HeaderId, match: None);
@@ -276,9 +222,6 @@ public sealed partial class CompressionPolicy {
     [UseDelegateFromConstructor] public partial Fin<byte[]> Unpack(ReadOnlyMemory<byte> framed);
 }
 
-// The zstd context parameterization as DATA: `Level` beside the extra parameter rows a tuning turns on. A `bool
-// archival` said "some other parameters, decided in the body" and had to be threaded through `Tuned`, `Pack`, and
-// `PackStream` identically at each; a new tuning is now one value and touches no signature.
 public readonly record struct ZstdTuning(int Level, Seq<(ZSTD_cParameter Key, int Value)> Extra) {
     public static readonly ZstdTuning Fast = new(Level: 3, Extra: Seq<(ZSTD_cParameter, int)>());
     public static readonly ZstdTuning Archival = new(Level: 19, Extra: Seq(
@@ -287,13 +230,8 @@ public readonly record struct ZstdTuning(int Level, Seq<(ZSTD_cParameter Key, in
 }
 
 public static class ZstdFrame {
-    // ONE tuned context both legs build, so the frame facts the boundary law declares mandatory — the decoded size
-    // in the header and the frame integrity word — are a property of the CODEC rather than of which entry a caller
-    // reached. The level-and-archival pair is the whole parameterization; a per-leg parameter fold is what let the
-    // streaming leg frame differently from the one-shot on the same policy row.
     static Compressor Tuned(ZstdTuning tuning) {
         Compressor compressor = new(tuning.Level);
-        // The two frame facts the boundary law declares MANDATORY ride every tuning, so no row can omit them.
         compressor.SetParameter(ZSTD_cParameter.ZSTD_c_contentSizeFlag, 1);
         compressor.SetParameter(ZSTD_cParameter.ZSTD_c_checksumFlag, 1);
         tuning.Extra.Iter(row => compressor.SetParameter(row.Key, row.Value));
@@ -306,10 +244,6 @@ public static class ZstdFrame {
     }
     public static byte[] Unpack(ReadOnlySpan<byte> framed) { using Decompressor decompressor = new(); return decompressor.Unwrap(framed).ToArray(); }
 
-    // Dictionary residence for the `zstd-dict` row: the blob mints ONCE from a chunk sample and registers under
-    // whatever id zstd embeds in the dictionary itself, the SAME id every frame built against it carries — decode
-    // reads the frame's own dict id and resolves the blob with no header field added; an unresolvable id refuses
-    // typed at the Verify ladder, never a silent bare-frame retry decoding garbage.
     static readonly ConcurrentDictionary<uint, byte[]> Trained = new();
     static volatile uint Active;
     public static unsafe uint Train(IEnumerable<byte[]> samples, int capacity = DictBuilder.DefaultDictCapacity) {
@@ -321,16 +255,11 @@ public static class ZstdFrame {
             return id;
         }
     }
-    // Encode always writes the ACTIVE era's dictionary; decode resolves ANY era through the registry, so a
-    // re-train never orphans an archived chunk.
     public static Fin<byte[]> PackDict(ReadOnlySpan<byte> payload) {
         using Compressor compressor = Tuned(ZstdTuning.Fast);
         compressor.LoadDictionary(Trained[Active]);
         return Fin.Succ(compressor.Wrap(payload).ToArray());
     }
-    // An unresolvable era is EVIDENCE, not an exception: a chunk archived against a dictionary this process never
-    // loaded is exactly the condition the `[FaultCase]` ladder exists to name, and raising it here forced the
-    // ladder's own caller to catch beside the rail it was already reading.
     public static unsafe Fin<byte[]> UnpackDict(ReadOnlySpan<byte> framed) {
         uint id;
         fixed (byte* frame = framed) { id = Methods.ZSTD_getDictID_fromFrame(frame, (nuint)framed.Length); }
@@ -340,15 +269,6 @@ public static class ZstdFrame {
         return Fin.Succ(decompressor.Unwrap(framed).ToArray());
     }
 
-    // `PackStream`/`UnpackStream` serve payloads outgrowing the one-shot span (the partitioned-upstream folds): both
-    // adapters take the SAME tuned context the one-shot leg builds, so a streamed artifact carries the decoded size
-    // and the integrity word its policy row declares and `Decompressor.GetDecompressedSize` answers for it — the bare
-    // `CompressionStream(sink, level)` ctor sets neither, which made one `CompressionPolicy` row frame two ways by
-    // payload size, the exact per-call branch the row family exists to delete. `pledged` carries the source length
-    // wherever the caller knows it, written into the frame header before the first chunk. The zstd rows are the ONE
-    // streaming residence (an LZ4-row streaming sibling is the deleted parallel; the lz4 rows stay the
-    // low-latency small-payload pickle). `preserveCompressor: false` hands the adapter the context's disposal, so
-    // one tuned context serves one frame and never outlives it.
     public static long PackStream(Stream source, Stream sink, ZstdTuning tuning, Option<long> pledged) {
         using CompressionStream stream = new(sink, Tuned(tuning), bufferSize: 0, leaveOpen: true, preserveCompressor: false);
         pledged.Iter(length => stream.SetPledgedSrcSize((ulong)length));
@@ -362,10 +282,6 @@ public static class ZstdFrame {
     }
 }
 
-// `HashPolicy` seats two rows: `Identity` IS the kernel content address (the header `HashDomain` byte records its
-// `DomainId`), and `Content` is the chunk short-tag pre-filter. Frame checksums (header `Crc32`, zstd frame word)
-// stay direct structural calls at their frames, never rows — the deleted `Frame`/`Wide`/`FrameWide` rows
-// enumerated call-site facts as vocabulary. A wider address is one new row + `DomainId` under an epoch gate.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -377,10 +293,6 @@ public sealed partial class HashPolicy {
     public int Bits { get; }
     public string HexFormat { get; }
     [UseDelegateFromConstructor] public partial UInt128 Compute(ReadOnlyMemory<byte> payload);
-    // `DomainId` is the header's own forward-compatibility byte and a NON-KEY column, so the resolve rides the
-    // same kernel `Rasm/Domain/validation#FACTORY_BRIDGE` `Op.Row` decoupled arm every by-column roster read on
-    // this page takes — an unrostered domain byte names itself in the refusal instead of arriving as a bare
-    // `None` the `HashDomainGap` tier then re-invents evidence for.
     public static Fin<HashPolicy> ByDomainId(byte domainId, Op? key = null) =>
         key.OrDefault().Row<byte, string, HashPolicy>(candidate: domainId, column: static row => row.DomainId, match: None);
 }
@@ -398,17 +310,10 @@ public sealed partial class HashPolicy {
 - Boundary: the single-pass seal `Clear`s the stack-allocated prefix buffer before both writes so the placeholder header is genuinely zeroed (terminally invalid magic) and no uninitialized padding byte ever persists into the reserved-gap offsets — the CRC is then computed over the same zeroed-gap layout it verifies against, deterministic across runtimes — and both 128-bit digests flow un-truncated to the header (a 64-bit truncation collides distinct contents and is the deleted form); the seal writes the zeroed placeholder header, the stored bytes, then seeks to zero and writes the final header, `Flush(flushToDisk: true)` before `File.Move` does the atomic rename, so a crash leaves the temp swept rather than a torn final; the header is the artifact's ENTIRE trust boundary and `Verify` runs the ordered ladder — magic/identity, the one live layout, header checksum, then, on the now-self-consistent header, hash-domain capability (the `HashDomain` byte must equal `HashPolicy.Identity.DomainId` — any other value is `SnapshotTier.HashDomainGap` until a future row's epoch gate admits it through `ByDomainId`, whose `Fin` refusal carries the offending byte the tier reports), stored-length truncation, the `StoredDigest` over stored bytes through the kernel entry, codec/compression capability, then the epoch-then-fingerprint ratchet — each tier verifying before the next so corrupted or foreign input rejects before any decoder with attack surface binds; the ladder verifies `StoredDigest` and NEVER the plaintext `ContentHash`, because the plaintext does not exist until a decompressor has already run and a ladder claiming to prove it would be asserting a digest it never took — the unpack leg proves that one; epoch and fingerprint are one-way ratchets while the layout byte admits by EQUALITY alone, so any artifact carrying another layout is `SnapshotTier.Foreign` before a field reads at the wrong offset, and a content-keyed snapshot rebuilds from its truth; temp residue and catalog-orphaned payloads leave only through the age-gated `Sweep` (a final artifact lands on disk before its catalog `persist` `Bind` commits, so the sweep reaps only residue older than the grace window) and the swept count is the crash-loop signal.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// `CodecFault` derives from the KERNEL `Fault` floor, whose own base is the federation
-// `Rasm.Domain.Fault` and never the `LanguageExt.Common.Expected` whose `(string,int,Option)` ctor is the
-// deleted form. `ContentHash` is the kernel digest entry — no direct `XxHash128` call site.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// `[FaultCase]` is this family's ONE roster on the kernel `Rasm/Domain/rails#FAULT_BAND` `[FaultCase]`
-// floor: the direct union owns one band and generated case identity proves offset uniqueness and span membership.
-// `SnapshotTier` is the typed verification evidence carried by the single `SnapshotRejected` case; ladder order
-// lives in `Verify`'s executable arm sequence, never in numeric code arithmetic.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SnapshotTier {
@@ -443,15 +348,7 @@ public abstract partial record CodecFault : Fault {
         chunkManifestRejected: static c => $"<codec-manifest:{c.Detail}>");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// TWO digests, because the header answers two questions no single field can. `ContentHash` addresses the
-// PLAINTEXT — the catalog key, the dedup probe, and the `Lineage` chain all read it, and RULINGS `[02]` fixes
-// content keys on plaintext precisely so re-packing unchanged bytes under a newer `CompressionPolicy` row keeps
-// one address. `StoredDigest` proves the bytes ON DISK intact and is the only one `Verify` can check, because
-// `Verify` runs BEFORE any decompressor binds and the plaintext does not exist yet at that point. Sealing one
-// field over stored bytes and calling it the content address made the artifact's identity a function of its
-// framing: a `zstd`→`zstd-high` re-pack minted a fresh key, every chunk re-stored, and `Lineage` chained an
-// edition through an edit that never happened.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SnapshotHeader(
     uint Magic, byte Layout, byte HashDomain, int CodecId, int CompressionId,
     ulong SchemaFingerprint, ulong Epoch, long PlainLength, long StoredLength, UInt128 ContentHash, UInt128 StoredDigest, uint Checksum) {
@@ -459,16 +356,9 @@ public readonly record struct SnapshotHeader(
     public const int ChecksumOffset = Size - 4;
     public const int StoredOffset = ChecksumOffset - 16;
     public const int ContentOffset = StoredOffset - 16;
-    public const uint MagicValue = 0x504E5352;     // RSNP little-endian
-    // ONE live layout: the byte names the header shape this reader was built against, and any other value is
-    // FOREIGN at the first tier — a superseded artifact never reaches a field read at the wrong offset, and a
-    // content-keyed snapshot rebuilds from its truth. Layout 3 carries both digest words big-endian under the one
-    // `[CONTENT_KEY]` correspondence.
+    public const uint MagicValue = 0x504E5352;
     public const byte Layout = 3;
 
-    // `Seal` takes BOTH windows because it mints both digests: the plain bytes carry identity, the packed bytes
-    // carry integrity. A caller holding only one of the two cannot seal, which is the point — the pair is the
-    // header's contract, not an optional enrichment.
     public static SnapshotHeader Seal(SnapshotCodec codec, CompressionPolicy compression, ulong schemaFingerprint, ulong epoch, ReadOnlySpan<byte> plain, ReadOnlySpan<byte> stored) {
         Span<byte> prefix = stackalloc byte[Size];
         prefix.Clear();
@@ -490,8 +380,6 @@ public readonly record struct SnapshotHeader(
         BinaryPrimitives.WriteUInt64LittleEndian(d[28..], Epoch);
         BinaryPrimitives.WriteInt64LittleEndian(d[36..], PlainLength);
         BinaryPrimitives.WriteInt64LittleEndian(d[44..], StoredLength);
-        // Both digests PERSIST, so they take the kernel's one 16-byte correspondence — big-endian, the same bytes a
-        // wire field or a store key carries — never a page-local word order.
         Rasm.Domain.ContentHash.Wire(ContentHash).Span.CopyTo(d[ContentOffset..StoredOffset]);
         Rasm.Domain.ContentHash.Wire(StoredDigest).Span.CopyTo(d[StoredOffset..ChecksumOffset]);
     }
@@ -523,15 +411,10 @@ public sealed record SnapshotRoute(
 
 public readonly record struct SnapshotAdmission(ulong SchemaFingerprint, ulong Epoch, long MaxPlainLength, long MaxStoredLength);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Snapshots {
     public const string Suffix = ".rsnp";
 
-    // The ladder splits at the CRC. Above it nothing about the bytes is trustworthy, so the three raw tiers read
-    // only the two fixed offsets a torn artifact still has to answer for — length, magic, layout, and the checksum
-    // over the prefix. Below it the header is self-consistent, so `Read` materializes it ONCE and every remaining
-    // tier reads a typed field. The former ladder re-decoded four offsets eight times across its arms, which is
-    // how a stated bound and the value it compared could drift apart between two arms of one expression.
     public static Fin<SnapshotHeader> Verify(ReadOnlySpan<byte> artifact, SnapshotAdmission admission) =>
         artifact.Length < SnapshotHeader.Size || BinaryPrimitives.ReadUInt32LittleEndian(artifact) != SnapshotHeader.MagicValue
             ? new CodecFault.SnapshotRejected(SnapshotTier.Foreign, artifact.Length < SnapshotHeader.Size ? "headerless" : "magic")
@@ -539,11 +422,6 @@ public static class Snapshots {
         : BinaryPrimitives.ReadUInt32LittleEndian(artifact[SnapshotHeader.ChecksumOffset..]) != Crc32.HashToUInt32(artifact[..SnapshotHeader.ChecksumOffset]) ? new CodecFault.SnapshotRejected(SnapshotTier.HeaderCorrupt, "crc")
         : Read(artifact).Bind(header => Admit(header, artifact, admission));
 
-    // Typed tiers, in the ONE order the trust boundary demands: reserved-bit drift and hash domain before any
-    // length is believed, lengths before the payload digest reads a span they bound, the payload digest before a
-    // codec is resolved, and the epoch/fingerprint ratchet last because it is the only tier a correct artifact
-    // can fail. `StoredDigest` is what verifies here — the plaintext `ContentHash` addresses bytes that do not
-    // exist until the compressor unwinds, so the unpack leg proves it and this ladder never claims to.
     static Fin<SnapshotHeader> Admit(SnapshotHeader header, ReadOnlySpan<byte> artifact, SnapshotAdmission admission) =>
         artifact[6] != 0 || artifact[7] != 0 || BinaryPrimitives.ReadUInt32LittleEndian(artifact[16..]) != 0 ? new CodecFault.SnapshotRejected(SnapshotTier.HeaderCorrupt, "reserved")
         : header.HashDomain != HashPolicy.Identity.DomainId ? new CodecFault.SnapshotRejected(SnapshotTier.HashDomainGap, $"domain:{header.HashDomain}")
@@ -555,8 +433,6 @@ public static class Snapshots {
         : header.SchemaFingerprint != admission.SchemaFingerprint ? new CodecFault.SnapshotRejected(SnapshotTier.VersionAhead, "fingerprint")
         : Fin.Succ(header);
 
-    // `Write` sends the sealed TYPED `SnapshotHeader` as the sink payload (source-gen-registered on `ElementJson`) —
-    // a bare tuple cannot cross the strict source-gen resolver, so the header IS the seal evidence wire shape.
     public static IO<SnapshotCatalogRow> Write<T>(ReceiptSinkPort sink, ProjectionContext frame, SnapshotRoute route, T value, Func<SnapshotCatalogRow, IO<Unit>> persist) =>
         !route.Format.Admits(typeof(T))
             ? IO.fail<SnapshotCatalogRow>(new CodecFault.NoMutualCodec($"snapshot:{typeof(T).FullName}"))
@@ -564,9 +440,6 @@ public static class Snapshots {
             .Bind(encoded => encoded.LongLength > route.MaxPlainLength
                 ? IO.fail<(Guid Id, SnapshotHeader Header)>(new CodecFault.SnapshotRejected(SnapshotTier.SizeExceeded, $"plain:{encoded.LongLength}>{route.MaxPlainLength}"))
                 : IO.lift(() => Seal(route, Guid.CreateVersion7(), encoded)).Bind(IO.liftFin))
-            // `ReceiptSinkPort.Send` takes the kernel causal pair the frame already seats, so emission passes those
-            // frame values through; an ambient `TenantContext.Current` read here attributes the seal to the calling
-            // thread's tenancy rather than the one the write ran under.
             .Bind(file => sink.Send(frame.Correlation, frame.Tenant, TelemetrySource.Persistence.Key, route.Kind, JsonSerializer.SerializeToElement(file.Header, ElementJson.Options))
                 .Map(envelope => new SnapshotCatalogRow(file.Id, route.Kind, route.Format.Codec, route.Format.Compression, ContentAddress.Of(file.Header.ContentHash), file.Header.PlainLength, file.Header.StoredLength, route.SchemaFingerprint, route.Epoch, route.Lineage, route.RetentionClass, route.Classification, envelope.Physical, envelope.Logical, frame.Correlation)))
             .Bind(row => persist(row).Map(_ => row));
@@ -578,9 +451,6 @@ public static class Snapshots {
             .Bind(static orphans => orphans.TraverseM(static file =>
                 IO.lift(() => Op.Of().Catch(() => { File.Delete(file); return Fin<string>.Succ(file); })).Bind(IO.liftFin)).As());
 
-    // The stored-ceiling refusal is a `Fin`, not a throw: it is the SAME `SnapshotTier.SizeExceeded` the plain
-    // ceiling above already answers with on the rail, and one bound raising while its twin returns is what made
-    // the write fold's failure shape depend on which ceiling the payload happened to cross.
     static Fin<(Guid Id, SnapshotHeader Header)> Seal(SnapshotRoute route, Guid id, byte[] encoded) =>
         route.Format.Compression.Pack(encoded).Bind(packed =>
             packed.LongLength > route.MaxStoredLength
@@ -588,9 +458,6 @@ public static class Snapshots {
                 : Fin.Succ((id, Land(route, id, SnapshotHeader.Seal(
                     route.Format.Codec, route.Format.Compression, route.SchemaFingerprint, route.Epoch, encoded, packed), packed))));
 
-    // The atomic landing: zeroed placeholder header, stored bytes, seek back, final header, flush to disk, rename.
-    // `Seal` mints both digests off the two windows before a byte lands, so the header written second is the same
-    // header the first pass reserved room for and no offset moves between the two writes.
     static SnapshotHeader Land(SnapshotRoute route, Guid id, SnapshotHeader header, byte[] packed) {
         Span<byte> prefix = stackalloc byte[SnapshotHeader.Size];
         prefix.Clear();
@@ -608,13 +475,8 @@ public static class Snapshots {
         return header;
     }
 
-    // The two digest words admit through the kernel `ContentHash.Admit` — the one 16-byte read — on the rail the
-    // ladder already runs; the fixed-offset slices are exactly sixteen bytes, so the refusal arm is unreachable by
-    // construction and stays spelled because the correspondence is the rail's, never this page's.
     static Fin<SnapshotHeader> Read(ReadOnlySpan<byte> a) {
         Op key = Op.Of();
-        // Fixed-width words read into locals FIRST: the span cannot cross into the applicative arm, and every word
-        // is a constant-offset read the layout admission already proved.
         (uint magic, byte version, byte domain, int codec, int compression) = (BinaryPrimitives.ReadUInt32LittleEndian(a), a[4], a[5], BinaryPrimitives.ReadInt32LittleEndian(a[8..]), BinaryPrimitives.ReadInt32LittleEndian(a[12..]));
         (ulong fingerprint, ulong epoch, long plain, long stored) = (BinaryPrimitives.ReadUInt64LittleEndian(a[20..]), BinaryPrimitives.ReadUInt64LittleEndian(a[28..]), BinaryPrimitives.ReadInt64LittleEndian(a[36..]), BinaryPrimitives.ReadInt64LittleEndian(a[44..]));
         uint checksum = BinaryPrimitives.ReadUInt32LittleEndian(a[SnapshotHeader.ChecksumOffset..]);
@@ -638,10 +500,10 @@ public static class Snapshots {
 - Boundary: chunk membership proves only local or peer chunk residence. Remote object-store residence is the provider's exact-object conditional seal; no chunk index can skip or synthesize provider objects. Multipart windows may preserve whole FastCDC cuts as part boundaries without treating their membership as object evidence.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Domain;                                 // ContentHash — the ONE kernel digest entry
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
+using Rasm.Domain;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChunkPolicy {
@@ -653,36 +515,18 @@ public sealed partial class ChunkPolicy {
     public uint Max { get; }
     private ChunkPolicy(string key, uint min, uint avg, uint max) : this(key) => (Min, Avg, Max) = (min, avg, max);
 
-    // `Over` is the one chunker mint: a FastCdc instance is stateful one-shot over a held `byte[]`, so every segment
-    // mints fresh HERE — the policy row owns the ctor spelling and a call-site `new FastCdc(...)` is the deleted
-    // scatter. `eof` carries the segment's TERMINALITY: a non-terminal segment withholds its sub-minimum remainder,
-    // carrying that tail into the next segment's head rather than sealing a short cut at an arbitrary buffer edge,
-    // and only the terminal segment emits it — the `api-fastcdc` streamed-source law made a parameter.
     public FastCdc Over(byte[] segment, bool eof) => new(segment, Min, Avg, Max, eof);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// `Offset` is `long` because the manifest addresses a payload no `ReadOnlySpan<byte>` spans; `Length` stays `int`
-// because one cut caps at `ChunkPolicy.Max` and FastCDC's own `MaximumMax` ceiling is 1 GiB, so the width is a
-// proven bound rather than an inherited assumption.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ContentChunk(UInt128 ContentKey, ulong ShortTag, long Offset, int Length);
 
 public readonly record struct ChunkManifest(ContentAddress WholeArtifact, long Length, Seq<ContentChunk> Chunks);
 
-// `ChunkAssembly` carries the reassembly receipt: the verified whole-artifact address re-derived from the fetched
-// chunks, the byte count drained, and the chunk tally — evidence a caller reads WITHOUT holding the payload, which is what makes
-// an artifact past `int` range representable where a `ReadOnlyMemory<byte>` return structurally could not.
 public readonly record struct ChunkAssembly(ContentAddress WholeArtifact, long Length, int Chunks);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentChunker {
-    // ONE cut over a segmented window. `ReadOnlySequence<byte>` is the BCL's own segmented payload and its
-    // single-segment case IS the ordinary in-memory artifact, so one ingress serves both and the former
-    // `payload.ToArray()` materialization — which existed only to hand the one-shot hash a contiguous span —
-    // deletes with the one-shot. Each segment mints its own chunker under the policy row; the withheld remainder
-    // of a non-terminal segment prepends to the next, so a buffer edge never manufactures a cut the same bytes
-    // would not produce contiguously. The whole-artifact key folds the cut spans IN CUT ORDER through the kernel
-    // streaming leg, whose canonical projection IS that order, so it equals the one-shot key over the same bytes.
     public static ChunkManifest Chunk(ChunkPolicy policy, ReadOnlySequence<byte> payload) {
         ChunkWalk walk = Emit(policy,
             Segments(payload).Fold(ChunkWalk.Empty, (state, segment) => Emit(policy, state, segment, eof: false)),
@@ -696,12 +540,6 @@ public static class ContentChunker {
     public static Seq<ContentChunk> Novel(ChunkManifest manifest, Func<ulong, bool> mayHold, Func<UInt128, bool> holds) =>
         manifest.Chunks.Filter(chunk => !mayHold(chunk.ShortTag) || !holds(chunk.ContentKey));
 
-    // Reassembly drains into a caller-supplied sink and returns the verified receipt, so an artifact past `int`
-    // range is representable: the `> int.MaxValue` refusal and the `ArrayBufferWriter<byte>` staging were the
-    // one-shot hash's contiguity demand wearing a policy's clothes, and both delete with it. Each fetched chunk
-    // verifies against its own key BEFORE it reaches the sink — so a corrupt fetch is localized to the chunk that
-    // carried it and never lands — and appends into the ONE seed-zero accumulator the kernel entry mints, whose
-    // terminal digest proves the assembled whole against the manifest's declared address.
     public static Fin<ChunkAssembly> Reassemble(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch, IBufferWriter<byte> sink) {
         ChunkDrain drain = new(manifest, fetch, sink);
         UInt128 whole = ContentHash.Of(drain, static (state, hash) => state.Take(hash));
@@ -714,12 +552,6 @@ public static class ContentChunker {
                     : Fin<ChunkAssembly>.Fail(new CodecFault.ReassemblyDrift(manifest.WholeArtifact.Value, whole)));
     }
 
-    // `Segments` walks the payload as plain buffers. Terminality is NOT a segment property — it is a property of
-    // the walk's END, which is why it left this carrier: the old `(bytes, terminal)` pair pushed a flag through
-    // the tuple, through the fold, and through the cut signature so that one boundary argument could be set at
-    // the last iteration. `ReadOnlySequence<byte>` advances a by-ref `SequencePosition` cursor no trait carrier
-    // holds, so this is the platform-forced statement seam; the seam-local list freezes once through `toSeq` and
-    // repeated `Seq.Add` forcing is the rejected form.
     static Seq<ReadOnlyMemory<byte>> Segments(ReadOnlySequence<byte> payload) {
         SequencePosition position = payload.Start;
         List<ReadOnlyMemory<byte>> held = [];
@@ -727,12 +559,6 @@ public static class ContentChunker {
         return toSeq(held);
     }
 
-    // ONE cut pass serves both the interior fold and the terminal seal: every segment withholds its trailing
-    // sub-minimum run as the next pass's carry, and the seal runs the SAME pass over an empty segment with the
-    // carry alone, which is exactly the bytes the old terminal call saw — so the cut set is unchanged and `eof`
-    // is now a FastCDC argument at one site rather than a flag three interior surfaces carried. The carry tail
-    // prepends so a cut spanning a buffer edge is the cut contiguous bytes produce, and the FastCDC offsets
-    // rebase onto the running absolute `Base`.
     static ChunkWalk Emit(ChunkPolicy policy, ChunkWalk state, ReadOnlyMemory<byte> segment, bool eof) {
         byte[] source = state.Carry.IsEmpty ? segment.ToArray() : [.. state.Carry.Span, .. segment.Span];
         Seq<(ContentChunk Chunk, ReadOnlyMemory<byte> Span)> cuts = toSeq(policy.Over(source, eof).GetChunks()
@@ -745,18 +571,10 @@ public static class ContentChunker {
     }
 }
 
-// The walk carrier: cuts landed so far, the withheld sub-minimum tail, and the running absolute offset. The
-// anonymous 3-tuple it replaces was respelled at four sites and its members reached positionally (`cut.Item1`),
-// so a member reorder type-checked and mis-summed the consumed length.
 public readonly record struct ChunkWalk(Seq<(ContentChunk Chunk, ReadOnlyMemory<byte> Span)> Cuts, ReadOnlyMemory<byte> Carry, long Base) {
     public static readonly ChunkWalk Empty = new(Seq<(ContentChunk, ReadOnlyMemory<byte>)>(), ReadOnlyMemory<byte>.Empty, 0L);
 }
 
-// `ChunkDrain` carries the drain the kernel streaming entry's callback threads — the callback receives the kernel
-// `CanonicalWriter`, so a chunk appends through `Raw` and no accumulator type crosses this seam. Exemption: that
-// entry takes a `void` chunk callback by contract, so the per-chunk verdict LATCHES on this seam-local carrier and
-// freezes into a rail the instant the entry returns; the carrier never escapes `Reassemble` and the first refusal
-// short-circuits the walk.
 file sealed class ChunkDrain(ChunkManifest manifest, Func<UInt128, ReadOnlyMemory<byte>> fetch, IBufferWriter<byte> sink) {
     public long Offset { get; private set; }
     public Option<CodecFault> Refusal { get; private set; }

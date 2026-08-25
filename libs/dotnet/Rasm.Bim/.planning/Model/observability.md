@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL, BCL-only. Point capsule, rail, mount custody, fault ce
 - Boundary: point ids compose the kernel `HookId` grammar with the package segment pinned `bim`, so a Bim point joins any app-tier registry census unrenamed — Bim declares its points here and the composing app subscribes direct; ids, planes, and modalities derive from the roster row alone, so an inline `HookId.Create` at a fire site does not compile; the payload closes at declaration, so a stringly payload cannot enter the rail; cases carry the CLOSED vocabulary key a sibling owner published (`InterchangeFormat.Key`, `IdsOutcome.Key`, `RuleSeverity.Key`, `ArtifactKey.Value`) rather than that owner's type, so this S0 Model stratum consumes no Exchange, Energy, or Review sibling type and each announcement re-admits the key through its owning gate; telemetry is a tap, never a producer — `[03]-[TELEMETRY_TAP]` subscribes one tap row here and `Exchange/events#EVENT_PROJECTION` subscribes beside it.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Linq;
@@ -35,21 +35,13 @@ using Rasm.Domain;
 using Rasm.Element.Graph;
 using Thinktecture;
 using static LanguageExt.Prelude;
-// The kernel rail closed over this folder's roster/fact/owner triple — one alias set, so every signature reads the
-// domain name and never the three-parameter spelling.
 using BimGate = Rasm.Domain.HookGate<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
 using BimObserver = Rasm.Domain.HookTap<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
 using BimRail = Rasm.Domain.HookRail<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.BimFact, Rasm.Domain.TelemetrySource>;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Point roster keyed rasm.bim.<domain>.<point> — the kernel HookId four-segment grammar, realizing the
-// IHookRoster<BimPoint> floor so the ONE kernel rail takes this roster as its type parameter and seats mint from
-// Items alone. Modalities is the kernel capability set: the two admission points carry Veto BESIDE Observe, since a
-// veto-only set refuses every tap and the instrument projection subscribes unscoped. Each <domain> segment doubles
-// as its `Exchange/events#EVENT_PROJECTION` EventType subject, so a point and the announcement projected off it
-// join one vocabulary rather than two rosters a rename can separate.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class BimPoint : IHookRoster<BimPoint> {
     public static readonly BimPoint ExchangeProgress = new("rasm.bim.exchange.progress", CapabilitySet<HookModality>.Of(HookModality.Observe));
@@ -67,9 +59,6 @@ public sealed partial class BimPoint : IHookRoster<BimPoint> {
     public static readonly BimPoint Textured = new("rasm.bim.exchange.textured", CapabilitySet<HookModality>.Of(HookModality.Observe));
     public static readonly BimPoint ExchangeDegrade = new("rasm.bim.exchange.degrade", CapabilitySet<HookModality>.Of(HookModality.Observe));
 
-    // One materialized index answers the roster floor's Id and Plane reads — the id and its rasm.<pkg>.<domain>
-    // head derive from the key ONCE, so a bracket pays a lookup and a scope can never fork from the point it
-    // brackets. Accessor-backed: the generator fills Items from its own static constructor.
     static readonly Lazy<FrozenDictionary<BimPoint, (HookId Id, TraceScope Plane)>> Index = new(
         static () => Items.ToFrozenDictionary(static row => row, static row =>
             (HookId.Create(value: row.Key), TraceScope.Create(value: string.Join('.', row.Key.Split('.')[..3])))),
@@ -81,14 +70,9 @@ public sealed partial class BimPoint : IHookRoster<BimPoint> {
 
     public Option<TraceScope> Plane => Some(Index.Value[this].Plane);
 
-    // Composing roots admit this roster into SpanBand.Of; points share planes per domain head, so the projection
-    // deduplicates, and an unadmitted scope refuses on the kernel rail rather than dropping every span silently.
     public static Seq<TraceScope> Scopes => toSeq(Index.Value.Values).Map(static entry => entry.Plane).Distinct().Strict();
 }
 
-// The three long-running lanes that share ONE progress case. The lane CARRIES its seat through a deferred
-// accessor, so a fire site names the lane alone and the point it fires derives — where a free-text domain string
-// let a caller spell "exchange" beside a point that was not the exchange one.
 [SmartEnum<string>]
 public sealed partial class ProgressLane {
     public static readonly ProgressLane Exchange = new("exchange", static () => BimPoint.ExchangeProgress);
@@ -99,12 +83,6 @@ public sealed partial class ProgressLane {
     public partial BimPoint At();
 }
 
-// GlobalIdSet closes the IFC GlobalId SET: the lexical law (22 glyphs over the buildingSMART base64 alphabet
-// 0-9, A-Z, a-z, `_`, `$`) AND the set law (sorted, distinct) in ONE owner, so no site re-spells the alphabet
-// beside a length check that drifts from it and no site re-spells the ordering probe beside a distinct probe
-// that disagrees about the comparer. `Of` NORMALIZES for the fire side — a rail holding a bag of ids gets a
-// canonical set — while `Admit` REFUSES for the wire side, because the wire contract IS sorted-distinct and
-// silently sorting a producer's malformed array hides a producer defect behind a well-formed announcement.
 [ValueObject<Seq<string>>]
 public sealed partial class GlobalIdSet {
     const int Glyphs = 22;
@@ -119,9 +97,6 @@ public sealed partial class GlobalIdSet {
 
     public static GlobalIdSet Of(Seq<string> ids) => Create(ids);
 
-    // Wire admission proves ordered-distinct rather than imposing it, and the glyph law rides the same
-    // construction — through the TRY factory, because the throwing `Create` carries a producer's malformed
-    // array out of the typed rail as an exception at the exact boundary the rail exists to answer.
     public static Fin<GlobalIdSet> Admit(ImmutableArray<string> values, Op key) =>
         WireSet.Ordered(values) && TryCreate(toSeq(values), out GlobalIdSet? admitted) && admitted is { } set
             ? Fin.Succ(set)
@@ -132,9 +107,6 @@ public sealed partial class GlobalIdSet {
             glyph is >= '0' and <= '9' or >= 'A' and <= 'Z' or >= 'a' and <= 'z' or '_' or '$');
 }
 
-// ContentKeySet holds that same law over the content-key space: sorted-distinct at construction, with the wire
-// form the fixed-width 32-hex rendering `Rasm/Domain/identity#CONTENT_KEY` `ContentHash` owns — hex-text ordering
-// agrees with the numeric ordering only because that rendering is fixed-width.
 [ValueObject<Seq<UInt128>>]
 public sealed partial class ContentKeySet {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Seq<UInt128> value) =>
@@ -143,17 +115,12 @@ public sealed partial class ContentKeySet {
     public static ContentKeySet Of(Seq<UInt128> keys) => Create(keys);
 }
 
-// Both admissions share ONE wire-side probe: distinct under the ordinal comparer AND already in ordinal order,
-// read on the ARRAY the producer sent — a set the producer sorted differently fails here rather than
-// re-sorting quietly into a shape the sender never emitted.
 static class WireSet {
     public static bool Ordered(ImmutableArray<string> values) =>
         values.Distinct(StringComparer.Ordinal).Count() == values.Length
         && values.SequenceEqual(values.OrderBy(static value => value, StringComparer.Ordinal), StringComparer.Ordinal);
 }
 
-// Issue mutation keys live on one generated owner, so neither a fire site nor an announcement admission can
-// invent a sixth mutation.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -165,32 +132,17 @@ public sealed partial class BimIssueMutation {
     public static readonly BimIssueMutation StatusAdvanced = new("status-advanced");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Every native lane's stage roster projects ONE stage-evidence carrier: Done the published fraction of the
-// whole lane at the mark, Witness the lane-owned stage token. Rosters stay PLURAL per lane (the kernel
-// ArrangeStage is internal to Rasm.Meshing, so a cross-package roster owner would invert strata) — a discrete
-// ladder projects its declared rows, a continuous native callback mints marks with a live Done under one
-// witness. Each mark REQUIRES its fraction, so a free-text stage with no fraction is unrepresentable.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct StageMark(double Done, string Witness);
 
-// One closed payload family every hook point types over: one Op-keyed case per fact shape, so a point's fact is
-// a case and the tap reads typed evidence. Format, codec, leg, tier, outcome, and artifact slots carry each
-// CLOSED vocabulary KEY the firing page projects down — so the S0 Model stratum consumes no Exchange, Energy, or
-// Review sibling type, and tag cardinality stays bounded because every key originates in a closed vocabulary at
-// the fire site. Each case also carries the ADDRESS its announcement subjects on, so the events projection
-// re-derives no identity its emitter already named.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BimFact : IHookFact<BimPoint> {
     private BimFact(Op key) => Key = key;
 
     public Op Key { get; }
 
-    // The kernel floor's gate, DERIVED from the map below rather than a hand-mirrored per-point case list: every
-    // case seats at exactly one row (the shared progress case at whichever lane row its own ProgressLane carries),
-    // so `Fire` refuses an emitter pairing a fact with a foreign point, and refuses again on a veto's product.
     public bool Seats(BimPoint at) => Point.Equals(at);
 
-    // The roster correspondence: the generated Map is total, so a case minted without a row does not compile.
     public BimPoint Point => this.Map(
         progress: static f => f.Lane.At(),
         imported: static _ => BimPoint.Imported,
@@ -210,36 +162,18 @@ public abstract partial record BimFact : IHookFact<BimPoint> {
     public sealed record Exported(Op Key, UInt128 ContentKey, string Format, long Bytes, Duration Elapsed) : BimFact(Key);
     public sealed record Lowered(Op Key, string Projector, int Nodes, int Edges) : BimFact(Key);
     public sealed record Admission(Op Key, GraphDelta Delta) : BimFact(Key);
-    // Egress carries the admission the Emit fold consults BEFORE authoring: format and target schema are the
-    // two facts an app policy refuses on, and Nodes is the scope magnitude a deliverable gate bounds — this
-    // fact is PRE-artifact, disjoint from Exported, which reports the artifact a passed emit produced.
     public sealed record Egress(Op Key, string Format, string Schema, int Nodes) : BimFact(Key);
     public sealed record Committed(Op Key, UInt128 CommitKey, ContentKeySet Parents, string Branch, int Elements) : BimFact(Key);
     public sealed record IssueMutated(Op Key, string Topic, BimIssueMutation Mutation, Option<string> Comment, GlobalIdSet GlobalIds) : BimFact(Key);
-    // Specification and Spec ride together because IDS v1.0 spec names are NOT unique: the ordinal
-    // disambiguates two same-named specifications, and a
-    // name-keyed verdict silently merges their findings into one.
     public sealed record Verdict(
         Op Key, string Specification, int Spec, ContentAddress Model, string Tier, string Outcome, string Severity,
         int Findings, GlobalIdSet GlobalIds) : BimFact(Key);
     public sealed record Emitted(Op Key, string Artifact, string Leg, string Format, int Warnings) : BimFact(Key);
-    // Texture binding is the one exchange leg that drops payload BY DESIGN. The three counts are disjoint by
-    // construction — Bound is what reached the artifact, Dropped is what a target refused, Unresolved is what
-    // never resolved to bytes — so the sum is the authored channel census and a missing texture is attributable
-    // to its cause rather than merely absent.
     public sealed record Textured(Op Key, string Format, int Bound, int Dropped, int Unresolved) : BimFact(Key);
-    // Degraded names a leg that COMPLETED while shedding capability — a codec falling back, a feature the target
-    // format cannot carry, a substituted approximation. Lane and Reason are closed vocabulary keys the firing leg
-    // projects down; Subject names the identifier-grade element the degradation landed on and rides the fact for
-    // a reader, never a metric dimension.
     public sealed record Degraded(Op Key, string Lane, string Reason, string Subject) : BimFact(Key);
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// The composition entry over the KERNEL rail: the folder keeps its roster and fact union and mints ZERO rail
-// mechanism. Live's one domain move is the band lowering onto the rail's IHookSpan floor plus the re-rail — a
-// kernel composition refusal (a gate on an observe-only point, a mid-mount attach failure already rolled back)
-// reads its origin from the Bim band like every other seam entry rather than as a bare kernel fault.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class BimHooks {
     public static Fin<BimRail> Live(
         Op key, Seq<BimGate> gates = default, Seq<BimObserver> taps = default,
@@ -262,7 +196,7 @@ public static class BimHooks {
 - Boundary: library altitude holds zero OpenTelemetry reference and zero span custody — the meter reaches the process only through the composing root's mint, so provider disposal owns instrument lifetime, and the kernel `SpanBand` owns the one `ActivitySource` per admitted scope, its listener gate, its `using` close, and its typed fail-leg status, so this page declares `BimPoint.Scopes` and holds no source, no wrapper, and no disposable; instrument custody is one-per-composition — either the app fan materializes the `Telemetry` port or a root binds `InstrumentSet.Of` locally, never both; subscription law — the tap mounts at `Live` ahead of the first fire, because the rail fans a `Replay` point's held window to each fresh subscriber and a late attach therefore re-counts that window onto the verdict counter; span law — the span name IS the kernel `Op` and the plane the point's own id head, so bracket and fact never name two scopes, and the typed verdict, not a tag, carries the error fact; attribution law — dimension slots carry this package's dotted `rasm.bim.<dimension>` namespace so a concept a sibling package also tags never collides, fault identity stays on the preserved Error as generated numeric code plus locally derived recovery rather than a string owner/category tag, tenancy is the kernel `TenantContext` projection every metric write folds so this page holds no tenant key and no baggage read, and model identity is identifier-grade: it rides the span alone as `Traced`'s own required argument, because one metric series per model is unbounded cardinality no view cap recovers and a slot left to caller discipline is a slot no caller stamps; the span fold never re-stamps the tenant partition the app root's baggage promotion already carries; SDK composition, exporters, exemplars, views, and cardinality caps stay at the app roots.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using LanguageExt;
 using Rasm.Domain;
@@ -273,17 +207,11 @@ using BimRail = Rasm.Domain.HookRail<Rasm.Bim.Model.BimPoint, Rasm.Bim.Model.Bim
 
 namespace Rasm.Bim.Model;
 
-// --- [TABLES] -------------------------------------------------------------------------------
-// Closed roster on the kernel KernelInstrument form: each row CARRIES its InstrumentSpec and Rows derives from
-// Items, so the const-name roster and a hand-listed sequence mirroring it are one declaration, the write plane
-// addresses by ROW, and construction proves the row's name against its key. Kind and MeasureForm are the spec's
-// own columns, so the kernel derives every create body and this page spells none.
+// --- [TABLES] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BimInstrument {
-    // Model identity stays SPAN-only: identifier-grade cardinality is free on a sampler-thinned span and
-    // unbounded on a series. Traced stamps it from its own required argument, so this key has one write site.
     public const string ModelSlot = "rasm.bim.model";
 
     public const string CodecSlot = "rasm.bim.codec";
@@ -293,13 +221,8 @@ public sealed partial class BimInstrument {
     public const string PointSlot = "rasm.bim.point";
     public const string ProjectorSlot = "rasm.bim.projector";
     public const string TierSlot = "rasm.bim.review.tier";
-    // Board mutation is a five-row closed key, so it bands a counter safely; the topic guid it arrives beside
-    // stays identifier-grade and rides the fact alone for the same reason the model identity does.
     public const string MutationSlot = "rasm.bim.review.mutation";
-    // Drop cause is the whole point of that counter: a refused target and an unresolvable image are different
-    // exchange defects, so one counter banded by cause replaces two counters that would drift.
     public const string ChannelSlot = "rasm.bim.exchange.texture.cause";
-    // Degradation bands on two BOUNDED axes. Its Subject stays off the series for the ModelSlot reason.
     public const string LaneSlot = "rasm.bim.exchange.lane";
     public const string ReasonSlot = "rasm.bim.exchange.reason";
 
@@ -309,7 +232,6 @@ public sealed partial class BimInstrument {
             "foreign-bytes decode wall duration per format and codec",
             Seq(TenantContext.TenantSlot, FormatSlot, CodecSlot), Some(Buckets.DecodeSeconds), None, None));
 
-    // Size, never bytes: the estate name grammar carries no unit suffix and the UCUM By unit states the measure.
     public static readonly BimInstrument ImportSize = new(
         "rasm.bim.exchange.import.size",
         InstrumentSpec.Create("rasm.bim.exchange.import.size", InstrumentKind.Distribution, MeasureForm.Whole, "By",
@@ -382,8 +304,6 @@ public sealed partial class BimInstrument {
             "exchange legs completing with shed capability, banded by lane and reason",
             Seq(TenantContext.TenantSlot, LaneSlot, ReasonSlot), None, None, None));
 
-    // The rail's parked-fault depth — the ONE pulled row here, bound per point because a shielded refusal fires
-    // no fact and therefore has no pushed write site at all.
     public static readonly BimInstrument TapFaults = new(
         "rasm.bim.observe.tap.faults",
         InstrumentSpec.Create("rasm.bim.observe.tap.faults", InstrumentKind.Level, MeasureForm.Whole, "{fault}",
@@ -404,17 +324,10 @@ public sealed partial class BimInstrument {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
-// Fact-to-write projection over the composition's InstrumentSet — no minted state, so provider disposal owns
-// instrument lifetime and this owner holds nothing to dispose.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class BimTelemetry {
-    // ONE hook-rail subscription passed into BimHooks.Live beside the app's own taps. Unscoped by construction:
-    // Project owns a TOTAL Switch, so it wants every point and a scope row here would restate that totality.
     public static BimObserver Tap(InstrumentSet set) => new(Op.Of(name: "rasm.bim.instruments"), fact => Project(set, fact));
 
-    // Registration is a SET per row on the kernel cell store, so one probe per point publishes its own depth
-    // under its own tag and the roster's banding survives with no write site. Tenant resolves ONCE at bind, which
-    // is correct where the per-fact read is not: a rail is composition-scoped, not request-scoped.
     public static Fin<Seq<IDisposable>> Depth(InstrumentSet set, BimRail rail, Op key) =>
         toSeq(BimPoint.Items).Traverse(row => set.Bind(
             BimInstrument.TapFaults.Row,
@@ -422,16 +335,9 @@ public static class BimTelemetry {
             key,
             InstrumentSet.Tags(TenantContext.Current, (BimInstrument.PointSlot, (object?)row.Key)))).As();
 
-    // Total generated dispatch — a new BimFact case breaks this projection at compile time, so an unprojected
-    // fact is a build error. Project resolves the ambient partition ONCE per fact and threads it as state:
-    // TenantContext.Current is the kernel's AsyncLocal slot, so a per-write read lets two writes of ONE fact land
-    // under two partitions when a flow re-enters mid-projection. An arm whose writes share a tag set binds it
-    // once at the head, so the shared partition is folded per fact, never per write.
     static Fin<Unit> Project(InstrumentSet set, BimFact fact) =>
         fact.Switch<(InstrumentSet Rows, TenantContext Tenant), Fin<Unit>>(
             state: (set, TenantContext.Current),
-            // The three long-run streams and the two admission points are span-and-cell material by declared
-            // posture: a live fraction is not a bounded series and a refusal parks rather than pushes.
             progress: static (_, _) => Fin.Succ(unit),
             admission: static (_, _) => Fin.Succ(unit),
             egress: static (_, _) => Fin.Succ(unit),
@@ -459,8 +365,6 @@ public static class BimTelemetry {
                 from warned in state.Rows.Write(BimInstrument.EnergyWarnings.Row, f.Warnings,
                     InstrumentSet.Tags(state.Tenant, (BimInstrument.FormatSlot, (object?)f.Format)))
                 select unit,
-            // Only the LOSSES write. A bound channel is the artifact's own evidence; the two loss causes write
-            // under one instrument banded by cause, so the drop total and its attribution are one series.
             textured: static (state, f) =>
                 from refused in state.Rows.Write(BimInstrument.TextureDrops.Row, f.Dropped,
                     InstrumentSet.Tags(state.Tenant, (BimInstrument.FormatSlot, (object?)f.Format), (BimInstrument.ChannelSlot, "target-refused")))
@@ -470,15 +374,6 @@ public static class BimTelemetry {
             degraded: static (state, f) => state.Rows.Write(BimInstrument.ExchangeDegrades.Row, 1d,
                 InstrumentSet.Tags(state.Tenant, (BimInstrument.LaneSlot, (object?)f.Lane), (BimInstrument.ReasonSlot, f.Reason))));
 
-    // Span wrapper every long-running Bim entry composes over the composing root's kernel band, which owns the
-    // source, the listener gate, the ActivityKind.Internal open, and the fail-leg status verdict — this page
-    // adds attribution alone. The band arrives NULLABLE for the same reason the rail slot arrives optional: a
-    // headless or plugin composition admits no scope, and a null receiver runs the identical rail untraced where
-    // a required band would force that composition to mint an ActivitySource its root never disposes. Model
-    // identity is a REQUIRED parameter rather than a caller-chosen mark row: every Bim entry runs against exactly
-    // one model, and a slot published for a caller to remember is a slot a caller forgets. Further marks stay the
-    // caller's identifier-grade rows; each stamps post-start, so no mark reaches the sampling verdict.
-    // Exemption: a params span cannot cross a lambda, so materializing it is the one statement seam here.
     public static Fin<T> Traced<T>(
         SpanBand? band, BimPoint at, Op op, string model, Func<Fin<T>> body, params ReadOnlySpan<(string Slot, object? Value)> marks) {
         Seq<(string Slot, object? Value)> stamps = (BimInstrument.ModelSlot, (object?)model).Cons(toSeq(marks.ToArray()));
@@ -489,8 +384,6 @@ public static class BimTelemetry {
                 None: body);
     }
 
-    // Span attribution takes marks alone: the app root's baggage promotion already stamps rasm.tenant on every
-    // span, so folding the metric plane's Tagged here would double-stamp the partition.
     static Unit Stamped(Activity? span, Seq<(string Slot, object? Value)> marks) =>
         ignore(marks.Iter(mark => ignore(span?.SetTag(mark.Slot, mark.Value))));
 }
@@ -508,7 +401,7 @@ public static class BimTelemetry {
 - Boundary: corpus-gate admission — a speed or allocation claim on any Rasm.Bim page resolves to a `BimBenchReceipt` the estate BenchmarkDotNet corpus gate stamped: the branch bench project folds each receipt into the app-tier benchmark envelope (suite `rasm.bim`, case the claim key) and the AppHost `BenchmarkGate.Judge` fold owns pass-or-regress under the host-evidence and budget law; BenchmarkDotNet binds in the branch test and benchmark projects per the Test Stack manifest tier, never `Rasm.Bim.csproj`, so no benchmark type crosses into this package; a hand-rolled kernel is admitted only after its receipt defeats the library route under that gate.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
 using Rasm.Domain;
@@ -517,18 +410,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Folder claim roster: kernel BenchClaim rows, one per measured operation, per the kernel law that claim rows
-// live beside the lanes they gate. Every row is a corpus-REGRESSION claim — the measured lane is judged against
-// its own prior stamped receipt on the same corpus — so Regression folds the kernel row's two lane columns onto
-// ONE spelling at the no-regression 1.0 floor, and the spelling is nameof-DERIVED at the measured member so a
-// rename breaks this roster at compile time where a literal strands the gate against a lane it can no longer
-// bind. The Corpus column DECLARES the corpus roster — a corpus- slug the tests-estate benchmark manifest realizes
-// as its CorpusEntry.RelativePath row under the corpus BENCHMARK_CLAIM contract with the receipt stamping the
-// MEASURED CorpusEntry.Key at run, or a forge- grade the bench mints through CorpusGate.Mint with the receipt
-// stamping CorpusModel.Snapshot — so no fingerprint pins here, a divergent realization fails the corpus-gate
-// admission rather than this page, and the declaration is the authority the manifest transcribes. Every claim key
-// and every slug derive off the roster row the claim binds, so this class spells no slug literal at all.
+// --- [TYPES] ---------------------------------------------------------------------------
 public static class BimBenchClaims {
     private static readonly string Decode = $"{nameof(BimIo)}.{nameof(BimIo.ImportGeometry)}";
     private static readonly string DecodeIfc = $"{nameof(BimIo)}.{nameof(BimIo.ImportIfc)}";
@@ -555,17 +437,10 @@ public static class BimBenchClaims {
     private static BenchClaim Regression(string claim, string lane, string corpus) =>
         new(Op.Of(name: claim), lane, lane, 1.0, Some(corpus));
 
-    // Prefix IS the realization discriminant the tests manifest reads: corpus- rows discover a committed fixture named for the roster
-    // row's own key, forge- rows mint the Element grade in memory at bench setup. Each mint spells the claim key AND the corpus binding
-    // off one row, so a row rename lands as the manifest's missing-fixture refusal or a compile break — never a literal detached from
-    // the row it once named.
     private static string Slug(InterchangeFormat format) => $"corpus-{format.Key}";
 
     private static string Slug(GeoVectorSource source) => $"corpus-{source.Key}";
 
-    // The format row's codec elects the decode entrypoint — the GeometryGym row's carrier is the live DatabaseIfc, so it measures
-    // ImportIfc; every other import-capable row measures ImportGeometry. A row without the import capability is a roster literal
-    // defect and refuses at static construction, the same posture the Element grade roster takes on a failed profile literal.
     private static BenchClaim Import(InterchangeFormat format) =>
         format.Capabilities.Admits(InterchangeCapability.Import)
             ? Regression($"import-{format.Key}", format.Codec == InterchangeCodec.GeometryGym ? DecodeIfc : Decode, Slug(format))
@@ -573,16 +448,12 @@ public static class BimBenchClaims {
 
     private static BenchClaim Vector(GeoVectorSource source) => Regression($"geo-{source.Key}", VectorRead, Slug(source));
 
-    // The raster front sniffs bare bytes and takes no source row, so the GeoTIFF format row names the fixture alone.
     private static BenchClaim Raster(InterchangeFormat format) => Regression($"geo-{format.Key}", RasterRead, Slug(format));
 
     private static BenchClaim Query(CorpusGrade grade) => Regression($"query-{grade.Key}", Select, $"forge-{grade.Key}");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Distribution truth per claim per run: the verdict lives on the app-tier gate fold, never here; the corpus
-// fingerprint binds the claim to the exact measured input through the one kernel content hasher and is the
-// presence witness the kernel BenchLedger.Unproven proof pair reads.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BimBenchReceipt(
     BenchClaim Claim,
     UInt128 CorpusFingerprint,

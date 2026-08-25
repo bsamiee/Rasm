@@ -22,7 +22,7 @@
 - Growth: a display axis is one owner and one `StrokeDef` column; a standard line type is already one `LineType` row on the kernel ladder.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Rasm.Domain;
 using Rasm.Drawing;
@@ -33,9 +33,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Annotation;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The host publishes a segment run as SIGNED doubles — positive draws, negative skips — so the sign IS the role.
-// The row owns that projection, and every page reading or writing a run reads the column instead of a comparison.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class DashRole {
     public static readonly DashRole Dash = new(key: true, signed: static length => length);
@@ -112,8 +110,6 @@ public abstract partial record ShapeRow {
 
     internal Fin<Unit> Apply(RhinoDoc document, Linetype linetype, Op key) => Switch(
         (Document: document, Linetype: linetype, Op: key),
-        // The glyph lives only inside its handle's lease, so the offset admission and the host write share ONE
-        // borrow scope — the same custody every other public drafting payload in the namespace names.
         curveShape: static (context, row) => row.Glyph.Typed<Curve, Unit>(key: context.Op, project: glyph =>
             from offset in context.Op.Accept(row.Offset)
             from _ in context.Op.Confirm(success: context.Linetype.AddShape(shapeCurve: glyph, offset: row.Offset))
@@ -155,8 +151,6 @@ public sealed partial class TaperRow {
             () => linetype.SetTaper(startWidth: StartWidth, endWidth: EndWidth)))));
 }
 
-// The `.lin` grammar the host compiles: an alignment token, then a comma-separated signed run of dash and gap
-// lengths. The fields are read off the span, so admitting a pattern materializes no substring per field.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ObjectFactory<string>]
 [ValidationError]
@@ -183,7 +177,7 @@ public sealed partial class PatternText {
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class StrokeDef {
@@ -199,8 +193,6 @@ public sealed partial class StrokeDef {
     public PatternLock Lock { get; }
     public HashMap<string, string> Tags { get; }
 
-    // Every column but the run and the width is an admitted owner, so the clause roster is exactly the two facts
-    // the seam cannot type. C# forbids capturing a `ref` parameter, so the roster reads one local copy of them.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref ResourceName name, ref Seq<SegmentRow> segments, ref Seq<ShapeRow> shapes,
@@ -225,8 +217,6 @@ public sealed partial class StrokeDef {
 
     internal Seq<double> SignedRun => Segments.Map(static row => row.Signed);
 
-    // Applied to a DETACHED native — the fresh row the grip mints or the duplicate it revises. The pattern-lock
-    // toggle the segment write needs is the grip's own bracket, so this fold never saves and restores it.
     internal Fin<Unit> Apply(RhinoDoc document, Linetype linetype, Op key) =>
         from segments in key.Confirm(success: linetype.SetSegments(segments: SignedRun.AsIterable()))
         from cleared in key.Catch(() => Fin.Succ(value: Op.Side(linetype.RemoveAllShapes)))
@@ -249,10 +239,6 @@ public sealed partial class StrokeDef {
     internal static TagSurface Surface(Linetype linetype) => new(
         linetype.GetUserStrings, linetype.SetUserString, linetype.DeleteUserString, linetype.DeleteAllUserStrings);
 
-    // `Linetype` publishes `AddShape`/`RemoveAllShapes` with NO shape getter, and `GetTaperPoints` answers raw
-    // control points the host declares no width inverse for. Neither channel has a faithful detached form, so the
-    // read refuses a native carrying either rather than handing back an aggregate whose `Shapes` or `Taper` is a
-    // fabricated blank. Aggregate evidence for both is `StrokeSnapshot`, which promises no reconstructable roster.
     internal static Fin<StrokeDef> Read(Linetype linetype, Op key) => key.Catch(() =>
         from _ in guard(!linetype.HasShapes && Optional(linetype.GetTaperPoints()).Map(static rows => rows.Length).IfNone(0) is 0,
             key.Unsupported(valueType: typeof(Linetype), outputType: typeof(StrokeDef))).ToFin()
@@ -280,10 +266,7 @@ public sealed partial class StrokeDef {
         select definition);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The ISO 128-2 stroke: the line type publishes its elements as multiples of the line width `d`, `Rhythm` resolves
-// them to absolute drawn-and-gap pairs at the chosen ISO 128-24 rung, and every pair lands as two segment rows.
-// A continuous type carries no elements, so its stroke is one drawn run the length of the rung's own width.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StrokeStandard {
     public static Fin<StrokeDef> Def(
         ResourceName name, LineType type, LineWidth width, HashMap<string, string> tags = default, Op? key = null) {
@@ -332,7 +315,7 @@ public static class StrokeStandard {
 - Growth: a verb every component table shares lands on `TableOp`; a linetype-only verb is one case here.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ObjectLinetypeSource>]
 public sealed partial class LinetypeSource {
     public static readonly LinetypeSource ByLayer = new(key: ObjectLinetypeSource.LinetypeFromLayer);
@@ -352,8 +335,6 @@ public abstract partial record LinetypeOp {
     public sealed record Undelete(ResourceRef Target) : LinetypeOp;
     public sealed record LoadDefaults(DeletedRows Policy) : LinetypeOp;
 
-    // `GetSegment` returns nothing: it writes both `out` values and reports no verdict, so an out-of-range index
-    // leaves a zero length behind and the `SegmentRow` gate — not a discarded `bool` — is what refuses it.
     internal static Fin<SegmentRow> Segment(Linetype linetype, int index, Op key) =>
         key.Catch(() => {
             linetype.GetSegment(index: index, length: out double length, isSolid: out bool solid);
@@ -378,10 +359,6 @@ public abstract partial record LinetypeOp {
             ? row
             : null);
 
-    // `DuplicateLinetype` clears the name, the id, AND the locked bits and may answer null, so restoring the name
-    // alone silently unlocks a locked row on every amendment. The copy constructor is a whole native copy that
-    // carries all three, exactly as `new HatchPattern(other)` does on the hatch rail. `SetSegments` refuses on a
-    // locked pattern, so the lock clearing is the grip's bracket and its restore runs on every leg.
     internal static readonly TableGrip<Linetype, StrokeDef> Grip = new(
         Lens, DraftComponentKind.Linetype,
         Named: static def => def.Name,
@@ -431,8 +408,6 @@ public abstract partial record LinetypeOp {
                     slot: DraftSlot.Authored, componentKind: DraftComponentKind.Linetype, index: index, key: context.Op)
                 select authored)
             select receipt,
-        // `ResourceRef` keeps the source inside the document grant: the address resolves live here rather than a
-        // live `Linetype` crossing the op boundary as a public payload.
         authorReference: static (context, edit) =>
             from definition in edit.Source.Resolve(document: context.Document, lens: Lens, key: context.Op)
             from name in context.Op.AcceptValidated<ResourceName>(candidate: definition.Name)
@@ -475,9 +450,6 @@ public abstract partial record LinetypeOp {
             from receipt in DraftReceipt.Tally(slot: DraftSlot.Loaded, count: tally, key: context.Op)
             select receipt);
 
-    // The segment run's declared seam: the host DOES publish an in-place setter, so a replace is one write rather
-    // than a remove-then-append, it publishes no bulk purge, and the floor is ONE — a linetype with no segment is
-    // not a linetype, so `Clear` refuses from the same declaration that lets the hatch generator list empty.
     private static ListSurface<SegmentRow> Run(Linetype linetype) => new(
         Count: () => linetype.SegmentCount,
         Append: (row, key) =>
@@ -492,7 +464,7 @@ public abstract partial record LinetypeOp {
         Floor: 1);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Linetypes {
     public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<LinetypeOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
@@ -523,7 +495,7 @@ public static class Linetypes {
 - Growth: a read is one `LinetypeAsk` case with its `LinetypeAnswer` twin.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ShapeEvidence(
     double Spacing,
     double Gap,
@@ -558,7 +530,7 @@ public sealed record LinetypeTableState(
     ResourceName ByLayer,
     ResourceName ByParent) : IDetachedDocumentResult;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LinetypeAsk {
     private LinetypeAsk() { }

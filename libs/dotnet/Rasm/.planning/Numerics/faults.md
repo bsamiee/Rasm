@@ -19,7 +19,7 @@
 - Boundary: geometry failures remain here; structural, BIM, material, fabrication, and host failures keep their owning fault families.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -37,7 +37,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -59,10 +59,6 @@ public sealed partial class DevelopmentStage {
     public static readonly DevelopmentStage Pattern     = new("pattern");
 }
 
-// The parametric carrier a stage refused ON — the `NurbsForm` case set plus the three plan carriers the tier
-// raises against, seated here beside the stage axis for the same reason: no single Parametric page owns a
-// tier-wide vocabulary every one of them raises through. A `nameof` of a live type spells the same word while
-// renaming silently, so the roster row is the one diagnostic authority.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -75,9 +71,6 @@ public sealed partial class ParametricCarrier {
     public static readonly ParametricCarrier Geodesic = new("geodesic");
 }
 
-// Refusal reasons are ROSTERS, not prose: the tessellation kernel's every witness is one row here, so a
-// consumer switches on the reason, a diagnostic counts one, and a typo breaks the build instead of forking
-// one reason into two. Keys render into Message, while the generic wire still projects only fault code and recovery.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -109,10 +102,6 @@ public sealed partial class ArrangementWitness {
     public static readonly ArrangementWitness BooleanStatus        = new("boolean-status");
 }
 
-// Abandonment names the STAGE that withdrew, and both routes lower one vocabulary — the managed fold's four
-// stage rows and the native engine's cancelled evaluation — so the governance sink reads one roster whichever
-// lane ran. Done is each row's declared completed fraction; the native row carries none because the engine
-// measures its own progress.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -126,7 +115,7 @@ public sealed partial class AbandonWitness {
     public Option<double> Done { get; }
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GeometryFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Geometry;
@@ -140,50 +129,33 @@ public abstract partial record GeometryFault : Fault {
     [FaultCase(4)] public sealed partial record NameCollision(TopoName Name, EntityKind Kind) : GeometryFault;
     [FaultCase(5)] public sealed partial record HashMismatch(TopoName Name, EntityKind Kind) : GeometryFault;
 
-    // `Budget` is ABSENT where the arm ran no bounded pass.
     [FaultCase(6)] public sealed partial record UnrepairableMesh(HealStage Stage, Option<Dimension> Budget, int Remaining) : GeometryFault;
 
     [FaultCase(7)] public sealed partial record OverConstrained(int RedundantRows, double Residual) : GeometryFault;
     [FaultCase(8)] public sealed partial record SingularSystem(int Rank, int Parameters) : GeometryFault;
 
-    // Wavefront `Time` is the propagation PARAMETER — an offset distance in model units, never a clock reading —
-    // and a refusal raised before any event fired measured none, so the slot is optional rather than zeroed.
     [FaultCase(9)] public sealed partial record DegenerateOffset(int WavefrontVertex, Option<double> Time = default) : GeometryFault;
     [FaultCase(10)] public sealed partial record SkeletonStalled(int PendingEvents, Option<double> Time = default) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
     [FaultCase(11)] public sealed partial record CollapseStalled(int Iteration, double Residual) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
 
-    // Native carries the foreign engine's own multi-valued status beside the verdict, absent on every managed
-    // refusal — a caller separating a non-manifold operand from a self-intersecting one reads the number.
     [FaultCase(12)] public sealed partial record DegenerateArrangement(int CellCount, ArrangementWitness ManifoldWitness, Option<int> Native = default) : GeometryFault;
     [FaultCase(13)] public sealed partial record ConstraintUnrecoverable(int Constraint, int Budget) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
     [FaultCase(14)] public sealed partial record DegenerateTessellation(int Simplex, TessellationWitness Witness) : GeometryFault;
-    // `Rid` stays text alone because it is the HOST's own read (`RuntimeInformation.RuntimeIdentifier`) and the
-    // refusal exists precisely for a host outside the published asset set — a closed roster would make the
-    // reported case unrepresentable. The ENGINE is closed and rides its roster.
     [FaultCase(15)] public sealed partial record NativeAssetMissing(NativeEngine Engine, string Rid, long Ceiling) : GeometryFault;
 
-    // Junction is the endpoint slot the chain assembly could not place — the one fact the caller cannot
-    // re-derive from the op it passed, absent where the refusal names no endpoint.
     [FaultCase(16)] public sealed partial record IntersectionFault(PrimitiveKind A, PrimitiveKind B, Option<int> Junction = default) : GeometryFault;
     [FaultCase(17)] public sealed partial record SectionFault(int Layer, double Elevation, int OpenChains) : GeometryFault;
 
-    // `Inliers` is the measured consensus FRACTION, not a count — every producer passes an inlier ratio against
-    // the policy floor, so both slots ride the unit band and a fraction above one is unrepresentable.
     [FaultCase(18)] public sealed partial record FitFault(UnitInterval Inliers, UnitInterval Floor) : GeometryFault;
 
-    // `Chart` is ABSENT before island decomposition assigns one.
     [FaultCase(19)] public sealed partial record ParameterizationFault(Option<ChartId> Chart, double Distortion) : GeometryFault;
 
     [FaultCase(20)] public sealed partial record ProjectionFault(EdgeKind Kind, int Segment) : GeometryFault;
     [FaultCase(21)] public sealed partial record HatchFault(HatchPattern Pattern, int Region, string Witness) : GeometryFault;
 
     [FaultCase(22)] public sealed partial record DecimationFault(int FaceBudget, int Achieved) : GeometryFault;
-    // Achieved is absent where the fold stalled before measuring an edge length; the target is a positive
-    // model-space length and rides the band that forecloses zero.
     [FaultCase(23)] public sealed partial record RemeshStalled(PositiveMagnitude TargetLength, Option<double> Achieved, int Iterations) : GeometryFault { public override Retriability Retriability => Retriability.Transient; }
 
-    // Stage names WHICH encoding step refused; `Expected`/`Actual` carry the two magnitudes an arity, extent, or
-    // round-trip breach measured, absent on the stages that measure none.
     [FaultCase(24)] public sealed partial record EncodingFault(
         EncodingChannel Channel,
         ChannelDtype Dtype,
@@ -192,14 +164,7 @@ public abstract partial record GeometryFault : Fault {
         Option<double> Actual = default) : GeometryFault;
 
     [FaultCase(25)] public sealed partial record ParametricFault(ParametricStage Stage, ParametricCarrier Carrier, string Witness) : GeometryFault;
-    // `Panel`, never `Unit`: `Unit` is a LanguageExt TYPE in scope on this fence, and a member shadowing an
-    // in-scope type name is the naming hazard the roster law forecloses. `Witness` NAMES the refusal the way
-    // every sibling witness does, and `Measure` carries the magnitude that named refusal read — a bare unnamed
-    // double carried neither, since the producers span budgets, widths, extents, and counts.
-    // `Panel` is ABSENT on a whole-request refusal.
     [FaultCase(26)] public sealed partial record DevelopmentFault(DevelopmentStage Stage, Option<int> Panel, string Witness, Option<double> Measure = default) : GeometryFault;
-    // Direct cotangent assembly can complete arithmetically while violating the snapshot's declared quality
-    // regime; the semantic leaf carries the exact face and guarded ratio pair that proved the refusal.
     [FaultCase(27)] public sealed partial record CotangentQuality(int Face, PositiveMagnitude Ratio, PositiveMagnitude Ceiling) : GeometryFault;
 
     public sealed override string Message => Switch(

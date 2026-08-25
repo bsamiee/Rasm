@@ -22,7 +22,7 @@
 - Boundary: raw dimension text never crosses admission, and no column past it carries a unit in its name.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
 using CavalierContours.Polyline;
@@ -45,7 +45,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Posting;
 
-// --- [TYPES] ------------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public sealed record CutRaw(
     string Kerf,
     LeadStyle Lead,
@@ -67,9 +67,6 @@ public sealed record CompRaw(
     double ThermalCoefficientPerKelvin,
     string TemperatureDelta);
 
-// The one dimension-text arrow family this page reaches. The canonical scalar each axis answers in is the unit its
-// own `PhysicsQuantity` row names, so the axis and the quantity it rebuilds ride ONE row here and no slot can admit
-// a length and construct a pressure.
 public static class PostArrow {
     public static Validation<Error, Length> Length(string locus, string text) =>
         Admit(PhysicsQuantity.Length, locus, text, UnitsNet.Length.FromMillimeters);
@@ -91,7 +88,7 @@ public static class PostArrow {
         new QuantityArrow(axis, FabConcern.Posting, locus).Admit(text).Map(rebuild).ToValidation();
 }
 
-// --- [POLICIES] ---------------------------------------------------------------------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class CutPolicy {
     public Length Kerf { get; }
@@ -103,8 +100,6 @@ public sealed partial class CutPolicy {
     public Option<Pressure> Assist { get; }
     public Speed FeedCeiling { get; }
 
-    // The link feed is a SHARE of the cutting ceiling, so it rides the dimensionless ratio family rather than a
-    // bare double a caller could hand a percentage to.
     public Ratio LinkFeed { get; }
 
     public Speed LinkFeedRate => FeedCeiling * LinkFeed.DecimalFractions;
@@ -139,8 +134,6 @@ public sealed partial class CutPolicy {
 
 [ComplexValueObject]
 public sealed partial class PostFit {
-    // The admitted deviation gate rides the kernel `ToleranceLane.Deviation` band, so the shop's own override
-    // reaches this fit through `Context.For` exactly as it reaches every other deviation gate in the branch.
     public Tolerance Deviation { get; }
 
     public Length MinimumRun { get; }
@@ -151,8 +144,6 @@ public sealed partial class PostFit {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref Tolerance deviation,
         ref Length minimumRun, ref Length splitDistance, ref int probeFloor) {
-        // A biarc fit needs three interior samples before a tangent pair means anything, so the probe floor is the
-        // arity the fit itself demands rather than a tuning knob.
         if (!deviation.IsValid || deviation.Lane != ToleranceLane.Deviation
             || minimumRun <= Length.Zero || splitDistance <= Length.Zero || probeFloor < 3)
             validationError = new ValidationError("post-fit-policy");
@@ -173,22 +164,16 @@ public sealed partial class CompPolicy {
     public Length ToolDiameter { get; }
     public Length CutWidth { get; }
 
-    // The engaged edge length — the chip WIDTH the force model prices its per-edge load over. Radial width alone
-    // decides how much of the cutter is in material, never how much of the edge is, so both axes are declared.
     public Length AxialDepth { get; }
 
     public Length Stickout { get; }
     public int Teeth { get; }
     public Pressure Modulus { get; }
 
-    // Reciprocal kelvin. No admitted UnitsNet family owns the dimension and none is catalogued, so the axis stays a
-    // bare scalar with its unit stated here rather than reaching for an unverified quantity.
     public double ThermalCoefficientPerKelvin { get; }
 
     public TemperatureDelta TemperatureRise { get; }
 
-    // Cantilever stiffness in newtons per millimetre: the second moment of a round section over a cubed overhang,
-    // with the modulus and both lengths read in the units the quotient is stated in.
     public double StiffnessNewtonsPerMillimetre =>
         3.0 * Modulus.Megapascals * (Math.PI * Math.Pow(ToolDiameter.Millimeters, 4.0) / 64.0)
         / Math.Pow(Stickout.Millimeters, 3.0);
@@ -204,8 +189,6 @@ public sealed partial class CompPolicy {
         ref ValidationError? validationError, ref Length toolDiameter,
         ref Length cutWidth, ref Length axialDepth, ref Length stickout, ref int teeth, ref Pressure modulus,
         ref double thermalCoefficientPerKelvin, ref TemperatureDelta temperatureRise) {
-        // The radial width is bounded by the cutter it engages, so the intent this policy builds admits at the
-        // tool owner rather than refusing there on a bound this page already knows.
         if (toolDiameter <= Length.Zero || cutWidth <= Length.Zero || axialDepth <= Length.Zero
             || stickout <= Length.Zero || modulus <= Pressure.Zero
             || cutWidth > toolDiameter || teeth <= 0
@@ -226,7 +209,7 @@ public sealed partial class CompPolicy {
         .As().ToFin().Bind(static value => value);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CutConditioning(
     Option<CutPolicy> Cut,
     Option<PostFit> Fit,
@@ -236,8 +219,6 @@ public sealed record CutConditioning(
     CoolingLaw Cooling,
     Seq<ChainRow> Chains,
     HashMap<int, Loop> Profiles) {
-    // An absent cut policy falls back to the machine's own straight-span law, which is the ceiling every fed block
-    // rides where the job declares none.
     public Speed FeedCeiling => Cut.Map(static value => value.FeedCeiling)
         .IfNone(Speed.FromMillimetersPerMinutes(Dynamics.LinearFeed));
 
@@ -272,8 +253,6 @@ public sealed partial class PostPolicy {
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError, ref CutConditioning cut,
         ref ProgramTooling tooling, ref ProgramSetup setup, ref EmitPolicy emit) {
-        // Posting is the FINAL egress, so a measurement-only block limit here would post a program past the
-        // controller's own storage cap; `BlockLimit.Observe` belongs to the optimization measurement leg alone.
         if (emit.Limit is not BlockLimit.Enforce)
             validationError = new ValidationError("post-policy:block-limit");
     }
@@ -303,7 +282,7 @@ public sealed partial class PostPolicy {
 - Boundary: only a thermal-only controller spells beam-on as the torch word, and the declared modality set decides it, so no dialect identity is tested.
 
 ```csharp signature
-// --- [CONDITIONING] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [CONDITIONING] --------------------------------------------------------------------
 public static partial class Post {
     internal static Fin<CutProgram> Assemble(
         PostSource source,
@@ -325,9 +304,6 @@ public static partial class Post {
             specialized: static (state, value) => SpecializedProgram(value.Value, state.Dialect, state.Schedule, state.Input.Tags))
         select program;
 
-    // The envelope's rows ride the AST whole. A specialized lane's evidence — wire lag, bevel cross-tilt, link
-    // transition, inspection deviation, turning form — is exactly what a posted program must carry forward, so the
-    // directive keeps the admitted payload and `Dialect` renders one record per row.
     private static Fin<CutProgram> SpecializedProgram(
         SpecializedToolpathEnvelope payload,
         PostDialect dialect,
@@ -440,10 +416,6 @@ public static partial class Post {
             select offset,
         None: () => Fin.Succ(loop));
 
-    // Cantilever deflection is the load ONE cutting edge carries, so the compensation reads `TangentialPerEdge` off
-    // `Tooling/cuttingdata`'s single force evaluation rather than a second force body here — the same receipt a
-    // torque or removal-rate consumer reads its engaged column from. The spindle the intent prices at composes the
-    // one `SurfaceSpeed` law over the declared cutting diameter, so no rate on this page is derived twice.
     private static Fin<Length> Deflection(CompPolicy compensation, CuttingData cutting) {
         double spindle = SurfaceSpeed.Rpm(cutting.SurfaceSpeed, compensation.ToolDiameter.Millimeters);
         return CutIntent.Admit(
@@ -537,8 +509,6 @@ public static partial class Post {
             : Fit(run, fit, feed),
         None: () => Fin.Succ(Lines(run, feed)));
 
-    // Exemption: the biarc fit is a numeric kernel — the tangent pair, the deviation probe, and the admission
-    // verdict all read one constructed fit, and splitting them rebuilds it.
     private static Fin<Seq<GNode>> Fit(Seq<Point3d> run, PostFit policy, Speed feed) {
         Point3d first = run[0];
         Point3d last = run[run.Count - 1];
@@ -586,8 +556,6 @@ public static partial class Post {
         (GNode)new GNode.Word(GCommand.Feed,
             XY(point).Add(GParam.Number('F', feed.MillimetersPerMinutes, ProgramUnits.Metric)), None)).ToSeq();
 
-    // Exemption: the bulge-to-arc conversion is a numeric kernel — the provider resolves radius and centre from one
-    // vertex pair, and the emitted word reads both.
     private static GNode BulgeArc(Point3d first, Point3d last, double bulge, Speed feed) {
         PlineVertex<double> start = new(first.X, first.Y, bulge);
         PlineVertex<double> end = new(last.X, last.Y, 0.0);
@@ -612,8 +580,6 @@ public static partial class Post {
                 : Seq<GNode>()),
         None: () => Seq<GNode>());
 
-    // Only a thermal-only controller spells beam-on as the torch word; a controller carrying a contact modality
-    // spells it as the spindle word, so the declared modality set decides and no dialect identity is tested.
     private static GCommand BeamOn(PostDialect dialect) =>
         dialect.Modalities.Contains(ProcessModality.Thermal)
         && dialect.Modalities.ForAll(static modality => modality == ProcessModality.Thermal)
@@ -652,9 +618,6 @@ public static partial class Post {
         .Add(new GNode.Word(GCommand.LengthOffset,
             Arr(GParam.Number('H', change.ProgramTool, ProgramUnits.Metric), GParam.Number('Z', change.LengthOffset, ProgramUnits.Metric)), None));
 
-    // The ONE spindle law composed over the CUTTING diameter: `Process/physics#BUDGET_FOLD` owns `n = vc*1000/(pi*D)`
-    // and the measured cutting diameter is what the cut actually sees. A shank diameter posts a surface speed the
-    // edge never runs at, so a tool carrying no cutting measurement refuses rather than substituting the shank.
     private static Fin<Seq<GNode>> SpindleNodes(Option<CuttingData> cutting, ToolAssembly assembly) => cutting.Match(
         Some: data => assembly.Snapshot.Metric(ToolMeasure.CuttingDiameter)
             .OrElse(assembly.Snapshot.Metric(ToolMeasure.MaximumCuttingDiameter))
@@ -672,16 +635,12 @@ public static partial class Post {
         ? word.With('F', range.Map(value => Clamp(word.P('F').IfNone(0.0), value)).IfNone(word.P('F').IfNone(0.0)))
         : node;
 
-    // An absent bound is `None`, so the clamp reads what the range declares rather than an infinity standing in for
-    // a bound the equipment never published.
     private static double Clamp(double requested, ProcessRange range) {
         double selected = Math.Min(requested, range.Resolve(requested));
         double floored = range.Minimum.Map(minimum => Math.Max(minimum, selected)).IfNone(selected);
         return range.Maximum.Map(maximum => Math.Min(maximum, floored)).IfNone(floored);
     }
 
-    // Lookahead interprets the NODES it is handed: the prior form wrapped them in a keyed program, so every pass
-    // that ran it paid a whole-tree serialization for a key it discarded.
     internal static Fin<Seq<GNode>> Lookahead(Seq<GNode> nodes, MotionDynamics dynamics) =>
         Interpret(nodes).Map(trace => {
             ProgramEvent.Motion[] motions = trace.Events.Choose(static item => item is ProgramEvent.Motion motion
@@ -695,8 +654,6 @@ public static partial class Post {
             block: static (context, block) => block with {
                 Body = RewriteLookahead(block.Body.ToSeq(), context.Locus, context.Caps).ToArr(),
             },
-            // Absence of a cap is `None`, so a word no cap names keeps its programmed feed rather than reading an
-            // infinity a fold seeded.
             word: static (context, word) => context.Caps
                 .Filter(cap => cap.Locus.SequenceEqual(context.Locus))
                 .Map(static cap => cap.Feed)
@@ -716,8 +673,6 @@ public static partial class Post {
 
     private readonly record struct LookaheadCap(Seq<int> Locus, double Feed);
 
-    // Exemption: the lookahead kernel is a measured numeric pass over one motion array — the forward and reverse
-    // sweeps each read the caps the other wrote, so the arrays ARE the algorithm.
     private ref struct LookaheadKernel {
         private readonly ProgramEvent.Motion[] motions;
         private readonly MotionDynamics dynamics;
@@ -743,9 +698,6 @@ public static partial class Post {
                 vectors[index] = motion.To - motion.From;
                 distances[index] = vectors[index].Length;
                 cutting[index] = motion.Cutting && motion.Word.P('F').IsSome && distances[index] > 0.0;
-                // A span rides the ceiling its own SHAPE declares: the arc law bounds a circular span and the
-                // linear law a straight one, so the block the machine cannot hold at its programmed rate is capped
-                // by the limit that actually governs it.
                 ceilings[index] = motion.Arc.IsSome ? dynamics.ArcFeed : dynamics.LinearFeed;
                 caps[index] = cutting[index] ? motion.Word.P('F').IfNone(ceilings[index]) : ceilings[index];
             }
@@ -804,19 +756,11 @@ public static partial class Post {
             Math.Min(ceiling, policy.Dynamics.JunctionFeed(Vector3d.VectorAngle(incoming, outgoing))));
     }
 
-    // Every program opens on the drawing's keyed marks — part mark, heat number, shop tag — as one comment block
-    // ahead of the frame assignments, so an operator verifies the material in the machine against the sheet the
-    // program was posted from. Marks ride the dialect's verbatim comment channel and never an executable word, so a
-    // controller that ignores comments loses nothing and no dialect needs a marking spelling of its own. A run with
-    // no marks emits no block rather than an empty one.
     private static Seq<GNode> Prologue(SetupSchedule schedule, Map<string, Arr<ProfileMarking>> tags) =>
         Marks(tags) + schedule.Wcs.Map(assignment => (GNode)new GNode.CoordinateFrame(
             assignment,
             schedule.Setups[assignment.Setup].Mounting.Frame)).ToSeq();
 
-    // Rows sort by name so two posts of one drawing emit byte-identical headers and a program diff reads as a real
-    // change; a tag whose content carries several lines joins them under one row rather than fanning comment lines
-    // a controller's line-length rule then truncates independently.
     private static Seq<GNode> Marks(Map<string, Arr<ProfileMarking>> tags) =>
         toSeq(tags.Fold(Seq<string>(), static (rows, name, marks) => rows + marks.ToSeq()
             .Choose(static mark => mark.Content is MarkingContent.Tag tag ? Some(tag.Type.Text.Replace('\n', ' ')) : None)

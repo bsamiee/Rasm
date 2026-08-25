@@ -26,9 +26,7 @@ using Rasm.Persistence.Element;
 
 namespace Rasm.Persistence.Ingest;
 
-// --- [TYPES] ----------------------------------------------------------------------------
-// What a decode leg can reach settles per OPENED SOURCE, never per format row: two `.las` files on one row
-// differ in colour lanes, extended classes, and index presence, so this is a derived set rather than a column.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -38,9 +36,6 @@ public sealed partial class ScanCapability : ICapability<ScanCapability> {
     public static readonly ScanCapability SpatialIndex = new("spatial-index");
 }
 
-// Capture wires close here. `Sniff` settles the row from the file magics BEFORE any open: E57 stamps
-// `ASTM-E57` at byte 0, LAS/LAZ stamps `LASF`, and the offset-104 point-data-format byte's high bit is
-// LASzip compression — one prefix, no probe, no extension branch.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -62,11 +57,7 @@ public sealed partial class ScanFormat {
                 : None;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
-// Two blob arrows the composition root binds — `Land` onto `Store/blobstore#MULTIPART_TRANSFER`
-// `MultipartTransfer.Upload` under `ArtifactKind.Scan`, `Fetch` onto the same plane's read leg. The port
-// keeps provider selection at the root, so this codec opens no store connection and `Run` grows no
-// provider parameter; an absent object on the read arm is `None`, which IS the `WindowMiss` refusal.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ScanResidence(
     Func<ChunkManifest, ReadOnlySequence<byte>, IO<Unit>> Land,
     Func<ContentAddress, IO<Option<ReadOnlySequence<byte>>>> Fetch);
@@ -89,10 +80,6 @@ public sealed partial class ScanSpec {
     }
 }
 
-// Both codecs fold into ONE streaming currency: positions xyz-INTERLEAVED so one span carries the
-// batch, colours 16-bit because LAS decodes `ushort` RGB and the 8-bit E57 channels widen INTO the shared
-// lane rather than forking the currency, classes one byte because both wires cap the ASPRS class there.
-// Absent channels ride `None`, never a zero-filled lane a region fold would read as measured.
 public readonly record struct ScanBatch(
     int Count,
     ReadOnlyMemory<double> Positions,
@@ -115,7 +102,7 @@ public abstract partial record ScanYield {
     public sealed record Points(Seq<ScanBatch> Batches) : ScanYield;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ScanFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Scan;
@@ -137,10 +124,6 @@ public abstract partial record ScanFault : Fault {
         windowMiss:         static c => $"<scan-window-miss:{c.Scan}>");
 }
 
-// `LasCodec` reads through a C-API status funnel inside an `IEnumerable` yield loop — the ONE seam a rail
-// cannot cross, since no return there carries a `Validation` and a rail-shaped element forces every consumer
-// to unwrap a forged batch. This carrier stays typed, its sole producer is that status funnel, and `Capture`
-// unwraps it at exactly one place; every refusal this page AUTHORS elsewhere is a `Validation` value.
 public sealed class ScanRefusal(ScanFault fault) : Exception(fault.Message) { public ScanFault Fault { get; } = fault; }
 
 [SmartEnum<string>]
@@ -154,10 +137,9 @@ public sealed partial class ScanFactKind {
 
 public readonly record struct ScanFact(ScanFactKind Kind, string Format, long Points, int Chunks, int Regions, Instant At);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ScanSource {
-    // Registry-mounted census derives from the kind vocabulary; the `store.scan.` prefix declares once here.
     public static readonly Seq<StoreSlot> Slots =
         toSeq(ScanFactKind.Items).Map(static kind => StoreSlot.Create($"store.scan.{kind.Key}"));
 
@@ -168,9 +150,6 @@ public static class ScanSource {
             probe:  static (s, p) => Probed(p.Spec, p.Header, s.frame, s.sink),
             window: static (s, w) => Windowed(w.Spec, w.Scan, w.Cells, s.frame, s.sink));
 
-    // Manifest whole-artifact address IS the scan identity, so the key exists before the blob lands and
-    // no residence arrow has to hand one back — which is what makes the Bim reconstruct lineage and this
-    // page's `ContentAddress` the same value by construction rather than by convention.
     static IO<Validation<Error, ScanYield>> Landed(ScanSpec spec, ReadOnlySequence<byte> bytes, ProjectionContext frame, Func<ScanFact, IO<Unit>> sink) {
         ChunkManifest manifest = ContentChunker.Chunk(ChunkPolicy.Artifact, bytes);
         return from now in IO.lift(frame.Now)
@@ -183,10 +162,6 @@ public static class ScanSource {
                select held;
     }
 
-    // ONE pass: every decoded point extends the measured extent and folds its cell's count and vertical band,
-    // and each batch is dropped as the next arrives, so peak residency is one batch and the chunk manifest —
-    // never the cloud. An unmintable cell condemns the whole scan, so it ENDS the sweep on the rail; the fold
-    // carries the refusal rather than allocating a `Validation` per point, which the point budget forbids.
     static Validation<Error, (ScanHeader Header, Seq<ScanRegion> Regions)> Sweep(ScanSpec spec, ReadOnlySequence<byte> bytes, ContentAddress scan, Instant now) {
         (long Points, Option<string> Wkt, Option<Instant> Captured, Option<string> Sensor) meta = Meta(spec, bytes);
         HashMap<H3Cell, (long Count, double ZMin, double ZMax)> regions = HashMap<H3Cell, (long, double, double)>();
@@ -198,8 +173,6 @@ public static class ScanSource {
                 extent = extent.Extend(x, y, z);
                 Fin<H3Cell> minted = IdentityStore.Cell(new Envelope(x, x, y, y), spec.RegionResolution);
                 if (minted.IsFail) { return new ScanFault.RegionUnresolvable($"<cell:{x:R},{y:R}@{spec.RegionResolution}>"); }
-                // Guarding above already ended the sweep, so this fail arm returns the untouched accumulator
-                // and keeps the fold total — never a second unwrap and never a forged cell.
                 regions = minted.Match(
                     Succ: cell => regions.AddOrUpdate(cell,
                         Some: held => (held.Count + 1, Math.Min(held.ZMin, z), Math.Max(held.ZMax, z)),
@@ -212,9 +185,6 @@ public static class ScanSource {
             toSeq(regions).Map(row => new ScanRegion(scan, row.Key, row.Value.Count, row.Value.ZMin, row.Value.ZMax)));
     }
 
-    // Probe gates the handed prefix against the DECLARED format before any open — a sniffed row disagreeing
-    // with the spec is a codec refusal, never a silent re-route — then reads metadata alone off the origin,
-    // because the E57 metadata tree sits at a declared offset no prefix carries.
     static IO<Validation<Error, ScanYield>> Probed(ScanSpec spec, ReadOnlyMemory<byte> header, ProjectionContext frame, Func<ScanFact, IO<Unit>> sink) =>
         from now in IO.lift(frame.Now)
         from read in IO.lift(() => Sniffed(spec, header.Span).Bind(_ => Capture(() => {
@@ -227,9 +197,6 @@ public static class ScanSource {
         from _ in Emit(ScanFactKind.Probe, spec, read, sink, now)
         select read;
 
-    // Windows fold the CODEC's own spatial access rather than filtering a full decode: the cell set's own
-    // boundary union IS the push-down rectangle, and membership re-mints each surviving point's cell so a
-    // rectangle wider than the cells never widens the yield.
     static IO<Validation<Error, ScanYield>> Windowed(ScanSpec spec, ContentAddress scan, Seq<H3Cell> cells, ProjectionContext frame, Func<ScanFact, IO<Unit>> sink) =>
         from now in IO.lift(frame.Now)
         from fetched in spec.Blob.Fetch(scan)
@@ -247,10 +214,6 @@ public static class ScanSource {
             return bbox;
         });
 
-    // Ingest minted every resident point's cell or refused the scan whole, so this fail arm cannot be observed
-    // — it stays total rather than re-refusing what admission already proved. Membership SIZES the gather
-    // exactly, so fusing the two passes trades one index list for three growable buffers on a batch whose
-    // length is already known.
     static ScanBatch Selected(ScanBatch batch, int resolution, HashSet<H3Cell> cells) {
         ReadOnlySpan<double> xyz = batch.Positions.Span;
         List<int> kept = [];
@@ -289,8 +252,6 @@ public static class ScanSource {
             las: static p => LasCodec.Meta(p),
             laz: static p => LasCodec.Meta(p));
 
-    // `las` and `laz` route to ONE leg: `open_reader_stream` reports compression and the same forward loop
-    // decodes either, so the two rows differ in the wire they name and nowhere in the code they reach.
     static IEnumerable<ScanBatch> Batches(ScanSpec spec, ReadOnlySequence<byte> payload, Option<Envelope> window) =>
         spec.Format.Switch(
             (payload, window),
@@ -302,9 +263,6 @@ public static class ScanSource {
         path: File.ReadAllBytes,
         stream: static s => { using MemoryStream buffered = new(); s.CopyTo(buffered); return buffered.ToArray(); }));
 
-    // Both codecs SEEK — the E57 header reads its XML at a declared offset and the LAS reader rewinds past its
-    // public header — so a leg needs a seekable view. `AsStream` wraps a single-segment payload with no copy;
-    // a segmented payload flattens once, which is the price the seek demands.
     internal static Stream Seekable(ReadOnlySequence<byte> payload) =>
         (payload.IsSingleSegment ? payload.First : new ReadOnlyMemory<byte>(payload.ToArray())).AsStream();
 
@@ -324,14 +282,11 @@ public static class ScanSource {
                 : e);
 }
 
-// --- [BOUNDARIES] -----------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 
 static class E57Codec {
     const int ChunkPoints = 1 << 20;
 
-    // Every channel no durable row reads is EXCLUDED at the stream so the bit-unpacker skips it — the E57
-    // analogue of the LAS `decompress_selective` mask. `CartesianInvalidState` stays read because a point the
-    // spec marks non-meaningful must never reach a region count.
     static readonly ImmutableHashSet<PointPropertySemantics> Unread = ImmutableHashSet.Create(
         PointPropertySemantics.RowIndex, PointPropertySemantics.ColumnIndex,
         PointPropertySemantics.ReturnCount, PointPropertySemantics.ReturnIndex,
@@ -341,8 +296,6 @@ static class E57Codec {
         PointPropertySemantics.NormalX, PointPropertySemantics.NormalY, PointPropertySemantics.NormalZ,
         PointPropertySemantics.Reflectance, PointPropertySemantics.Amplitude);
 
-    // Aardvark hands `Data3D` nullable and an absent array means exactly zero setups, so it admits ONCE here
-    // and no leg below re-reads a nullable roster.
     static Seq<ASTM_E57.E57Data3D> Setups(ASTM_E57.E57Root root) =>
         Optional(root.Data3D).Match(Some: toSeq, None: Seq<ASTM_E57.E57Data3D>);
 
@@ -357,9 +310,6 @@ static class E57Codec {
             setups.Choose(static setup => Optional(setup.SensorModel)).Head);
     }
 
-    // One file is N scan setups; a windowed read that touches none of a setup's cartesian bounds never opens
-    // that setup's point section at all — the E57 analogue of the `.lax` push-down. `StreamPointsFull` has
-    // ALREADY mapped every position through the setup pose, so the yielded positions are file-level.
     public static IEnumerable<ScanBatch> Batches(ReadOnlySequence<byte> payload, Option<Envelope> window) {
         using Stream source = ScanSource.Seekable(payload);
         ASTM_E57.E57FileHeader header = ASTM_E57.E57FileHeader.Parse(source, payload.Length, verbose: false);
@@ -390,16 +340,12 @@ static class E57Codec {
             if (!meaningful[at]) { continue; }
             (xyz[cursor * 3], xyz[(cursor * 3) + 1], xyz[(cursor * 3) + 2]) = (positions[at].X, positions[at].Y, positions[at].Z);
             if (held is not null) { held[cursor] = (byte)classes[at]; }
-            // E57 colour channels are 8-bit and the shared lane is 16-bit, so the narrower wire widens INTO the
-            // currency rather than forking it.
             if (colors is not null) { (colors[cursor * 3], colors[(cursor * 3) + 1], colors[(cursor * 3) + 2]) = (red[at], green[at], blue[at]); }
             cursor++;
         }
         return new ScanBatch(count, xyz, Optional(held).Map(static lane => (ReadOnlyMemory<byte>)lane), Optional(colors).Map(static lane => (ReadOnlyMemory<ushort>)lane));
     }
 
-    // Zero-bit CONSTANT prototype children materialize as `int[]` while bit-unpacked ones materialize as
-    // `byte[]`, so the invalid-state lane normalizes ONCE per batch instead of boxing a `GetValue` per point.
     static bool[] Meaningful(ImmutableDictionary<PointPropertySemantics, Array> channels, int count) =>
         channels.TryGetValue(PointPropertySemantics.CartesianInvalidState, out Array? lane)
             ? lane switch {
@@ -418,8 +364,6 @@ static class LasCodec {
     const ushort CrsRecord = 2112;
     const byte ExtendedFormat = 6;
 
-    // Position, class, and colour are the only channels a durable row reads, so the arithmetic decoder skips
-    // every other channel — a cost reduction the uncompressed leg has no analogue for and pays nothing to set.
     const LASZIP_DECOMPRESS_SELECTIVE Read =
         LASZIP_DECOMPRESS_SELECTIVE.CHANNEL_RETURNS_XY | LASZIP_DECOMPRESS_SELECTIVE.Z
         | LASZIP_DECOMPRESS_SELECTIVE.CLASSIFICATION | LASZIP_DECOMPRESS_SELECTIVE.RGB;
@@ -433,9 +377,6 @@ static class LasCodec {
         } finally { _ = codec.close_reader(); }
     }
 
-    // `has_spatial_index` decides the read shape once: an indexed source drives `inside_rectangle` +
-    // `exploit_spatial_index` so only points inside the rectangle DECODE, and an unindexed one streams whole
-    // and filters at the cell test — the same yield either way, one of them paying for every point.
     public static IEnumerable<ScanBatch> Batches(ReadOnlySequence<byte> payload, Option<Envelope> window) {
         using Stream source = ScanSource.Seekable(payload);
         laszip codec = Opened(source);
@@ -458,8 +399,6 @@ static class LasCodec {
         } finally { _ = codec.close_reader(); }
     }
 
-    // ONE set settles at open and every step below reads it: three loose flags threaded as locals and
-    // parameters answered the same question a membership read answers, and a new lane is one row here.
     static CapabilitySet<ScanCapability> Reach(laszip codec, laszip_header header, Option<Envelope> window) =>
         CapabilitySet<ScanCapability>.Of([
             .. (Colored(header.point_data_format) ? Seq(ScanCapability.Color) : Seq<ScanCapability>()),
@@ -499,24 +438,16 @@ static class LasCodec {
     static laszip Opened(Stream source) {
         laszip codec = laszip.create();
         _ = Checked(codec, codec.decompress_selective(Read));
-        // `is_compressed` is READ and discarded: one forward loop decodes either state, so the report proves the
-        // single-engine law rather than selecting a branch.
         _ = Checked(codec, codec.open_reader_stream(source, out _, leaveOpen: true));
         return codec;
     }
 
-    // VLR record id 2112 carries the OGC WKT CRS and the reader surfaces the whole roster, so the lane reads the
-    // registered record rather than a re-minted CRS parser.
     static Option<string> Crs(laszip_header header) =>
         toSeq(header.vlrs).Find(static record => record.record_id == CrsRecord)
             .Map(static record => Encoding.UTF8.GetString(record.data).TrimEnd('\0'));
 
-    // Colour rides the odd point-data formats plus 2 and 8; every other format keeps the typed ABSENT lane
-    // rather than a black lane a colour-weighted consumer would read as measured.
     static bool Colored(byte format) => format is 2 or 3 or 5 or 7 or 8 or 10;
 
-    // Every C-API call returns an `int` status and a nonzero one carries its message on `get_error`, so the
-    // gate is one funnel and a status silently discarded is the deleted form.
     static int Checked(laszip codec, int status) => status is 0
         ? status
         : throw new ScanRefusal(new ScanFault.CodecReject(codec.get_error()));
@@ -551,9 +482,7 @@ static class LasCodec {
 - Boundary: rows are DERIVED and the blob is authoritative, so a row set rebuilt from the same bytes is byte-identical and a schema widening re-sweeps rather than rewriting in place. `ScanRegistration` is admitted, never solved — the kernel `Rasm/Processing/register#REGISTRATION` cloud-ICP owner computes it and the app hands the result here — and the E57 `Data3D` pose is NOT that transform: the decode already applied it. Region cells are the `Element/identity#ELEMENT_IDENTITY` `bigint` vocabulary, so a `ScanRegion` joins the element identity tier's cell column and the in-database `h3-pg` index directly. Capture bytes never enter a relational row; the object plane is their durable home.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
-// Seeded INVERTED so the first point sets all six faces through the same fold every later point takes —
-// a first-point special case is the branch this seed deletes.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ScanExtent(double MinX, double MinY, double MinZ, double MaxX, double MaxY, double MaxZ) {
     public static readonly ScanExtent Empty = new(
         double.PositiveInfinity, double.PositiveInfinity, double.PositiveInfinity,
@@ -574,12 +503,8 @@ public readonly record struct ScanHeader(
     Option<string> Sensor,
     Instant At);
 
-// 16 row-major doubles carrying the into-project-frame transform an upstream survey or ICP solve admitted.
-// This page never solves it, and the E57 `Data3D` pose is not it — the decode already consumed that one.
 public readonly record struct ScanRegistration(ContentAddress Scan, ReadOnlyMemory<double> Transform, string Frame, Instant At);
 
-// One row per OCCUPIED cell at the spec's resolution: the count and the vertical band a storey-selective
-// window reads without touching the blob.
 public readonly record struct ScanRegion(ContentAddress Scan, H3Cell Cell, long Points, double ZMin, double ZMax);
 ```
 

@@ -52,7 +52,6 @@ def mapping(shape: TopoDS_Shape, /) -> TopTools_IndexedMapOfShape:
 
 
 def _within(extent: int, ordinal: int, /) -> CadRail[int]:
-    # `uint32` on the wire closes the lower half already, so the upper bound is the whole question this owner asks.
     return Ok(ordinal) if ordinal < extent else Error(BREP_INPUT.at(f"edge.ordinal:{ordinal}/{extent}"))
 
 
@@ -68,8 +67,6 @@ def _ordinals(selection: EdgeSelection, extent: int, /) -> CadRail[Block[int]]:
 
 def selected(shape: TopoDS_Shape, selection: EdgeSelection, /) -> CadRail[Block[TopoDS_Edge]]:
     mapped = mapping(shape)
-    # Every ordinal in the admitted block is already inside the extent, so `FindKey` cannot raise and the downcast
-    # cannot meet a non-edge key: an edge-only map holds nothing else.
     return _ordinals(selection, mapped.Extent()).map(
         lambda kept: kept.map(lambda ordinal: TopoDS.Edge_s(mapped.FindKey(ordinal + 1)))
     )
@@ -104,7 +101,6 @@ class EdgeFeature(ShapeBuilder, Protocol):
 
 
 def _contours(builder: BRepFilletAPI_MakeFillet, /) -> str:
-    # `StripeStatus` is keyed on the contour, not the loop index, so the faulty contour is read twice by design.
     stripes = ",".join(
         f"{builder.FaultyContour(index)}:{int(builder.StripeStatus(builder.FaultyContour(index)))}"
         for index in range(1, builder.NbFaultyContours() + 1)
@@ -128,8 +124,6 @@ def _charged(builder: EdgeFeature, edges: Block[TopoDS_Edge], magnitude: float, 
 
 
 def _graded(diagnosed: Callable[[], str], fault: CadFault, /) -> CadFault:
-    # Row identity is the test: `BREP_KERNEL` is one frozen instance, so an unfinished builder is distinguished from
-    # a finished builder's invalid body without re-reading either probe.
     return BREP_INPUT.at(diagnosed()) if fault.row is BREP_KERNEL else fault
 
 
@@ -142,8 +136,6 @@ def featured(field: str, shape: TopoDS_Shape, selection: EdgeSelection, magnitud
 
 # --- [FEATURES] -------------------------------------------------------------------------
 
-# One row per wire field, each minting its builder and its diagnostic together. `brep/operation#ARMS` reaches these
-# keys by literal, so an unknown field is unspellable rather than a lookup this owner guards.
 _FEATURES: Final[frozendict[str, Callable[[TopoDS_Shape], Charged]]] = frozendict({"fillet": _fillet, "chamfer": _chamfer})
 ```
 

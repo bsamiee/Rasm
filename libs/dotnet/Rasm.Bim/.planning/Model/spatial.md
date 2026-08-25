@@ -20,15 +20,14 @@ Composition arrives settled. `Projection/relations#RELATION_ALGEBRA` lowered the
 - Boundary: `SpatialStructure` derives only from seam `Compose` edges and resolves only seam `NodeId`/`Classification` values. `SpatialClass` owns containment roles, `BimZoneKind` owns grouping roles, `Relationship.Void` remains outside the traversal axis, and independent structural failures accumulate as typed `BimFault` values before the view admits. Four shapes are each deleted: a per-element spatial record, a `SpatialContainer`/`AssemblyRel` relationship type beside the neutral `Compose` edges, a flat-row spatial source, and a consumer-local `Contain`/`Aggregate` up-chain — the `Object` node IS the spatial node, the seam edge IS the relationship, and this owner IS the walk.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using LanguageExt;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Observers;
 using QuikGraph.Algorithms.Search;
-using Rasm.Bim.Projection;   // Separations composes the Projection/relations#RELATION_ALGEBRA IfcRelKind.SpaceBoundary
-                             // wire-name row beside the seam-declared BoundaryRows.BoundaryLevel attr key.
+using Rasm.Bim.Projection;
 using Rasm.Element.Classification;
 using Rasm.Element.Graph;
 using Rasm.Element.Properties;
@@ -39,82 +38,50 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The traversal axis the ONE polymorphic Walk discriminates on — the axis selects the edge orientation +
-// ComposeKind a single QuikGraph composition reads; a [SmartEnum] for the compile-time-total Switch and the
-// stable wire token a query/persistence consumer routes on. PROVENANCE: these rows are Bim-DERIVED traversal
-// directions with no upstream schema counterpart, so the token is this owner's and no IFC release retires one —
-// NOT the IFC IfcRel* roster (the Bim projector's), NOT a Void axis (the seam Relationship.Void edge the query
-// ByVoided arm reads).
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SpatialAxis {
-    public static readonly SpatialAxis Ancestors   = new("ancestors");    // transitive up-chain, nearest first (Contain then Aggregate)
-    public static readonly SpatialAxis Descendants = new("descendants");  // transitive sub-containers + contained elements
-    public static readonly SpatialAxis Children    = new("children");     // direct sub-containers (Compose.Aggregate)
-    public static readonly SpatialAxis Contained   = new("contained");    // directly contained elements (Compose.Contain)
-    public static readonly SpatialAxis Referenced  = new("referenced");   // non-owning spatial references (Compose.Reference)
-    public static readonly SpatialAxis Container   = new("container");    // the single owning container (inverse Compose.Contain)
+    public static readonly SpatialAxis Ancestors   = new("ancestors");
+    public static readonly SpatialAxis Descendants = new("descendants");
+    public static readonly SpatialAxis Children    = new("children");
+    public static readonly SpatialAxis Contained   = new("contained");
+    public static readonly SpatialAxis Referenced  = new("referenced");
+    public static readonly SpatialAxis Container   = new("container");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The spatial-INTERPRETATION vocabulary: the IFC spatial-structure entity classes keyed on the seam
-// Classification code, each carrying the canonical nesting Rank, the root flag, and the CanContain rank law —
-// the spatial-view columns the generated Model/elements#IFC_CLASS region cannot carry (the emitter commits
-// Domain/Span/Eligibility/tokens; containment rank is view law, never vocabulary data). The generated IfcClass
-// roster is the ONE classification ingress (the spatial backbone rides IfcDomain.General), so this owner never
-// re-classifies — it interprets the stamped code. Disjoint from Model/zones#ZONE_GRAPH grouping (IfcSpatialZone
-// is the zones overlay's IsSpatial row, never a row here); the SOLE owner the Projection/semantic#GRAPH_LEGALITY
-// containment gate consumes (IsContainer) rather than a private spatial FrozenSet.
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class SpatialClass {
-    public static readonly SpatialClass Project      = new("IfcProject",        0);   // rank 0 IS the root: aggregates the site, never a containment target
+    public static readonly SpatialClass Project      = new("IfcProject",        0);
     public static readonly SpatialClass Site         = new("IfcSite",           1);
     public static readonly SpatialClass Building     = new("IfcBuilding",       2);
-    public static readonly SpatialClass Facility     = new("IfcFacility",       2);   // IFC4.3 facility base under the site (IfcBuilding peer); its instantiated subtypes follow
-    // The instantiated IFC4.3 IfcFacility subtypes a real infrastructure model carries AS the spatial container:
-    // the projector stamps the concrete entity name (IfcClass.Bridge/Road/Railway/MarineFacility), NOT the
-    // abstract IfcFacility, so the view needs the concrete row to fold an infra facility into the tree at all.
+    public static readonly SpatialClass Facility     = new("IfcFacility",       2);
     public static readonly SpatialClass Bridge       = new("IfcBridge",         2);
     public static readonly SpatialClass Road         = new("IfcRoad",           2);
     public static readonly SpatialClass Railway      = new("IfcRailway",        2);
     public static readonly SpatialClass Marine       = new("IfcMarineFacility", 2);
     public static readonly SpatialClass Storey       = new("IfcBuildingStorey", 3);
-    public static readonly SpatialClass FacilityPart = new("IfcFacilityPart",   3);   // IFC4.3 IfcBuildingStorey peer (schema-abstract in ADD2; the row still classifies RC-era files)
-    // The concrete IfcFacilityPart subtypes an IFC4.3 infra model stamps AS the storey-peer container — the projector
-    // stamps the LEAF entity name, so a missing part row silently drops every infra-part Compose.Contain edge from the tree.
+    public static readonly SpatialClass FacilityPart = new("IfcFacilityPart",   3);
     public static readonly SpatialClass BridgePart   = new("IfcBridgePart",     3);
     public static readonly SpatialClass RoadPart     = new("IfcRoadPart",       3);
     public static readonly SpatialClass RailwayPart  = new("IfcRailwayPart",    3);
     public static readonly SpatialClass MarinePart   = new("IfcMarinePart",     3);
     public static readonly SpatialClass Space        = new("IfcSpace",          4);
-    public static readonly SpatialClass External     = new("IfcExternalSpatialElement", 4);   // IFC4 outside-facility region — the exterior elements' legal containment/reference target the roster otherwise drops
+    public static readonly SpatialClass External     = new("IfcExternalSpatialElement", 4);
 
     public int Rank { get; }
 
-    // The role DERIVES from the rank — rank 0 is the decomposition root, every deeper rank a container an
-    // element is contained in; a stored role column would restate the rank and drift from it.
     public bool IsRoot => Rank == 0;
     public bool IsContainer => Rank > 0;
 
-    // Containment legality: a parent is no deeper than its child (monotone NON-decreasing rank) and never
-    // contains the root, so the IFC4.3 level skips (a Site directly over a Storey) AND same-rank nesting (a
-    // site within a site, a building complex, a storey mezzanine, a sub-space — all valid IfcRelAggregates)
-    // both pass, while an inverted nesting and a contained IfcProject are rejected — the rank-legality the
-    // Projection/semantic#GRAPH_LEGALITY gate composes per parent->child spatial edge.
     public bool CanContain(SpatialClass child) => Rank <= child.Rank && !child.IsRoot;
 
-    // The ONE Option-lift over the generated bool TryGet(string?, out SpatialClass?) — the raw seam stays
-    // beneath it, never a second resolver; the view, the legality gate, and Level all read this member.
     public static Option<SpatialClass> TryGet(string entityType) =>
         TryGet(entityType, out SpatialClass? row) && row is { } hit ? Some(hit) : None;
 }
 
-// The derived spatial-tree view over the seam ElementGraph: a transient fold (rebuilt at the view boundary, never a
-// stored domain field) narrowing the seam's memoized spatial scope, the resolved root, and the single-parent
-// containment index. The ancestor walk is NOT a field: it is the static up-chain law below, so a consumer holding
-// only the seam graph reaches the identical chain without admitting a view.
 public sealed class SpatialStructure {
     private readonly ElementGraph graph;
     private readonly BidirectionalGraph<NodeId, TypedEdge> tree;
@@ -128,11 +95,6 @@ public sealed class SpatialStructure {
         Map<NodeId, NodeId> containment, Map<NodeId, Seq<NodeId>> boundaries) =>
         (this.graph, this.tree, Root, this.containment, this.boundaries) = (graph, tree, root, containment, boundaries);
 
-    // Admission narrows the SEAM's memoized Contain-plus-Aggregate scope by the one fact the seam has no
-    // vocabulary for — the whole resolving to a SpatialClass — so a non-spatial aggregation (a curtain wall over
-    // its panels) stays out of the transitive closure, while the ordered Nest and the non-owning Reference never
-    // entered the filter at all. The containment and separator indexes fold in the same pass, so every later read
-    // is a lookup and no published surface re-scans the edge set per call.
     public static Validation<Error, SpatialStructure> Of(ElementGraph graph, Op key) {
         Seq<TypedEdge> spatial = toSeq(graph.View(EdgeFilter.Spatial, EdgeOrientation.Forward).Edges)
             .Filter(leg => ClassOf(graph, leg.Source).IsSome);
@@ -151,15 +113,10 @@ public sealed class SpatialStructure {
             1 => Success<Error, NodeId>(roots[0]),
             _ => Fail<Error, NodeId>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-root-cardinality", roots.Count.ToString(CultureInfo.InvariantCulture) }))),
         };
-        // The index folds AddOrUpdate: the tree admits PARALLEL edges by construction, so a duplicated
-        // Contain edge re-states one parent and a throwing Add would abort admission on a redundancy the
-        // ambiguity census — which counts DISTINCT sources — has already proved harmless.
         Validation<Error, Map<NodeId, NodeId>> parents = ambiguous.IsEmpty
             ? Success<Error, Map<NodeId, NodeId>>(spatial.Filter(static leg => Flavour(leg, ComposeKind.Contain))
                 .Fold(Map<NodeId, NodeId>(), static (map, leg) => map.AddOrUpdate(leg.Target, leg.Source)))
             : Fail<Error, Map<NodeId, NodeId>>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-parent-ambiguous", string.Join(',', ambiguous.Map(static id => id.Value)) })));
-        // The separator incidence index, folded in THIS pass: separator -> the distinct spaces bounded through it,
-        // read off the Generic("IfcRelSpaceBoundary") edges at the BoundaryRows.BoundaryLevel "2nd" discriminant.
         Map<NodeId, Seq<NodeId>> boundaries = toSeq(graph.Edges)
             .Choose(static e => e is Relationship.Generic g
                     && string.Equals(g.WireName, IfcRelKind.SpaceBoundary.Key, StringComparison.Ordinal)
@@ -176,9 +133,6 @@ public sealed class SpatialStructure {
         Validation<Error, Unit> hierarchy = inverted.IsEmpty
             ? Success<Error, Unit>(unit)
             : Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-rank-inverted", string.Join(',', inverted.Map(static edge => $"{edge.Parent.Value}>{edge.Child.Value}")) })));
-        // Connectivity hashes the reached closure before sweeping: the membership test runs once per tree vertex, so
-        // a Seq scan makes admission quadratic in the vertex count — the shape a million-node corpus pays for and a
-        // hundred-node fixture never shows.
         LanguageExt.HashSet<NodeId> reached = toHashSet(roots.Count == 1 ? Reachable(tree, roots[0]) : Seq<NodeId>());
         Validation<Error, Unit> rootParent = roots.Count == 1 && tree.InEdges(roots[0]).Any()
             ? Fail<Error, Unit>(new BimFault.Refused(key, BimScope.Model, BimReason.Rejected, string.Join(':', new object?[] { "spatial-root-has-parent", roots[0].Value })))
@@ -194,10 +148,6 @@ public sealed class SpatialStructure {
             .As();
     }
 
-    // The ONE polymorphic spatial walk: the generated STATE-THREADED total Switch (static lambdas, the (view,
-    // from) tuple as state — no per-call closure set), NEVER a per-direction method. Totality is PER-AXIS: the
-    // narrowed-tree arms guard vertex membership because OutEdges throws on an absent vertex, where the seam-view
-    // arms are total over every node the snapshot holds.
     public Seq<NodeId> Walk(NodeId from, SpatialAxis axis) => axis.Switch(
         state: (View: this, From: from),
         ancestors:   static s => Ancestry(s.View.graph, s.From),
@@ -208,34 +158,18 @@ public sealed class SpatialStructure {
                                      .Filter(static leg => Flavour(leg, ComposeKind.Reference)).Map(static leg => leg.Target),
         container:   static s => s.View.Container(s.From).ToSeq());
 
-    // Single OWNING containment parent and the whole element->container index a view-holding consumer joins by,
-    // read from the prebuilt Contain-only map; an aggregate host is not an owning container, so it enters the
-    // up-chain below and never here.
     public Option<NodeId> Container(NodeId element) => containment.Find(element);
     public Map<NodeId, NodeId> Containment => containment;
 
-    // The seam CEDED this walk (E-E9), so it lives HERE beside the precedence law consuming it and takes the same
-    // View(EdgeFilter, EdgeOrientation) row pair Persistence's topology view keys — one memoized container per
-    // snapshot, its ascending orientation already pointing child->parent. .Head settles a multi-parent snapshot,
-    // because Of's ambiguity census turns a genuinely forked parent into a refusal before any view admits.
     public static Option<NodeId> ContainerOf(ElementGraph graph, NodeId node) => Up(graph, node, ComposeKind.Contain);
 
-    // ONE up-chain law, published STATIC and view-free so the query SpatialReach.Ancestry row and the egress
-    // scoped-emit closure compose it off a bare seam graph — no admitted SpatialStructure, no validation rail, no
-    // second walk. Contain first, Aggregate second: an element crosses its non-spatial aggregate host (a
-    // curtain-wall panel through its wall) to reach the spatial ancestors, and the Contain parent wins when a
-    // graph carries both. This precedence is the branch's ONE spatial ancestry answer (Bim RULINGS [02]).
     public static Option<NodeId> ParentOf(ElementGraph graph, NodeId node) =>
         Up(graph, node, ComposeKind.Contain) | Up(graph, node, ComposeKind.Aggregate);
 
-    // Both up-chain flavours are ONE read differing by the ComposeKind the leg carries — the ascending view is
-    // total over every node the snapshot holds, so no vertex guard stands beside it.
     private static Option<NodeId> Up(ElementGraph graph, NodeId node, ComposeKind kind) =>
         toSeq(graph.View(EdgeFilter.Spatial, EdgeOrientation.Ascending).OutEdges(node))
             .Filter(leg => Flavour(leg, kind)).Map(static leg => leg.Target).Head;
 
-    // Nearest-first ancestor chain. The seen set bounds a corrupt cyclic snapshot into termination — the read is
-    // Op-free and never rails; Of owns the railed structural verdict.
     public static Seq<NodeId> Ancestry(ElementGraph graph, NodeId node) =>
         Chain(graph, node, HashSet(node));
 
@@ -249,8 +183,6 @@ public sealed class SpatialStructure {
             .Filter(pair => tree.ContainsVertex(pair.First) && tree.ContainsVertex(pair.Second))
             .Map(static pair => new SEquatableEdge<NodeId>(pair.First, pair.Second));
         TryFunc<SEquatableEdge<NodeId>, NodeId> ancestors = tree.OfflineLeastCommonAncestor(Root, queries);
-        // AddOrUpdate, because the caller's pair list is unfiltered input: a repeated pair resolves the SAME
-        // ancestor, so a throwing Add would fault a batch on a duplicate the result is indifferent to.
         return queries.Choose(query => ancestors(query, out NodeId ancestor)
                 ? Some((Pair: (query.Source, query.Target), Ancestor: ancestor))
                 : Option<((NodeId, NodeId) Pair, NodeId Ancestor)>.None)
@@ -259,11 +191,6 @@ public sealed class SpatialStructure {
 
     public Option<SpatialClass> Level(NodeId node) => ClassOf(graph, node);
 
-    // The space-SEPARATION adjacency — the topology the containment tree structurally cannot express: two
-    // 2nd-level space boundaries on ONE separating element join their spaces through it (the fire-separation,
-    // acoustic-rating, and thermal-envelope backbone). It pairs over the separator index Of already folded, so no
-    // caller pays a second whole-edge scan; the unordered pair is ordinal-stable, so a re-read yields identical
-    // rows, and a virtual boundary pairs through its boundary entity exactly as the schema records it.
     public Seq<(NodeId SpaceA, NodeId SpaceB, NodeId Separator)> Separations() =>
         toSeq(boundaries.AsIterable()).Bind(row =>
             from a in row.Value
@@ -271,23 +198,14 @@ public sealed class SpatialStructure {
             where string.CompareOrdinal(a.Value, b.Value) < 0
             select (SpaceA: a, SpaceB: b, Separator: row.Key));
 
-    // One direct out-edge read filtered by the flavour the leg carries: the children (Aggregate) and contained
-    // (Contain) axes collapse onto it — never sibling methods. The vertex guard keeps the read total, because the
-    // NARROWED tree holds only spatially-rooted vertices where the seam view holds every node.
     private Seq<NodeId> Adjacent(NodeId node, ComposeKind kind) =>
         tree.ContainsVertex(node)
             ? toSeq(tree.OutEdges(node)).Filter(leg => Flavour(leg, kind)).Map(static leg => leg.Target)
             : Seq<NodeId>();
 
-    // The ONE flavour read: TypedEdge carries its admitted Relationship, so the Compose sub-kind is read off the
-    // leg the seam view already built and a parallel tag column that could disagree with it has no spelling.
     private static bool Flavour(TypedEdge leg, ComposeKind kind) =>
         leg.Edge is Relationship.Compose { SubKind: var flavour } && flavour == kind;
 
-    // The transitive reachable closure through the package algorithm object under a SCOPED observer — O(reachable),
-    // never an all-vertex TryFunc path-probe sweep and never a raw DiscoverVertex += / -= pair over a mutable
-    // accumulator, whose detach is a statement that outlives the walk on any early exit. Discovery time orders the
-    // set, so the closure reads in visit order without a second accumulator recording it.
     private static Seq<NodeId> Reachable(BidirectionalGraph<NodeId, TypedEdge> graph, NodeId from) {
         BreadthFirstSearchAlgorithm<NodeId, TypedEdge> search = new(graph);
         VertexTimeStamperObserver<NodeId> discovered = new();
@@ -295,8 +213,6 @@ public sealed class SpatialStructure {
         return toSeq(discovered.DiscoverTimes.OrderBy(static row => row.Value).Select(static row => row.Key));
     }
 
-    // Resolve a node's seam Classification code to a SpatialClass — the one resolution the edge filter and Level
-    // share, so the spatial-container test is one owner, never an inline string compare against "IfcProject".
     private static Option<SpatialClass> ClassOf(ElementGraph graph, NodeId id) =>
         graph.Find<Node.Object>(id).Bind(static o => SpatialClass.TryGet(o.Classification.Code));
 }
@@ -313,10 +229,7 @@ public sealed class SpatialStructure {
 - Boundary: the reader emits SI SCALARS onto Import bags — the alignment curve, the segment start points, and the placement basis curve are geometry the inline prohibition keeps off bags and edges, content-keyed in `Representations` and resolved one-hop by `Rasm.Compute`; every row name resolves to a `PositioningRows` static, the bare IFC4.3 EXPRESS attribute names minting through the owner-blessed empty-prefix `PropertyCategory.Seam` and the two Bim-DERIVED names through `PropertyCategory.Bim`, so a call-site `PropertyName.Create` — which forks the bag key space against the query and `Rasm.AppUi` readers that key these rows by name — is the deleted form, and a name a non-referencing peer begins keying on is PROMOTED to a `Rasm.Element` owner static rather than re-declared here; the alignment↔element join is the rostered `Generic("IfcRelPositions")` edge, never a bag-row duplicate of graph topology; the synthesized bag is ingest-landed evidence the egress skips like its `PortAttributeSet`/`StructuralDefinitionSet` peers — the `IfcLinearPlacement` re-author is a NAMED bounded drop (a re-emitted infra model re-anchors placement from its content-keyed geometry, the station rows riding the fidelity receipt), and forcing a phantom placement entity from scalar rows is the deleted form; stationing INTERPRETATION stays this page's — the segment-geometry evaluation (station→cartesian) is the kernel/Compute lane's over the content-keyed curves.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
-// The positioning deep reader — the StructuralProjection.Attrs idiom over the IFC4.3 linear-referencing surface;
-// composed by the Projection/semantic#SEMANTIC_PROJECTOR SourceBag synthesis, the bag symbol declared beside its
-// peers on the projector.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Bim.Projection;
@@ -326,19 +239,9 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
 
-// --- [CONSTANTS] --------------------------------------------------------------------------
-// Positioning row vocabulary, PUBLIC because the Model/query#ELEMENT_SET ByProperty facets and the Rasm.AppUi
-// station reports key on these names — a reader composes the static, never a literal. The bare IFC4.3 EXPRESS
-// attribute names an alignment round-trip froze mint through PropertyCategory.Seam (the owner-blessed EMPTY prefix
-// that keeps a round-tripped name bare); SegmentKind and Station are Bim-DERIVED evidence with no EXPRESS
-// counterpart — the predefined token folded to a row, the station resolved off IfcCurveMeasureSelect — so they
-// mint under PropertyCategory.Bim and can never collide with a schema attribute in the seam's open key space.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class PositioningRows {
     public static readonly PropertyName SegmentKind = PropertyCategory.Bim.Row("SegmentKind");
-    // The IfcCurveMeasureSelect carries EITHER a length along the alignment OR a dimensionless curve parameter,
-    // and the two are different quantities: one row carrying both signs one dimension for two measures, so a
-    // station-band Range over a length bound would silently admit a parameter value at the same magnitude. Two
-    // rows, two dimensions — a consumer selects the one its bound is dimensioned for.
     public static readonly PropertyName Station = PropertyCategory.Bim.Row("Station");
     public static readonly PropertyName StationParameter = PropertyCategory.Bim.Row("StationParameter");
 
@@ -363,10 +266,8 @@ public static class PositioningRows {
     public static readonly PropertyName OffsetLongitudinal = PropertyCategory.Seam.Row("OffsetLongitudinal");
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PositioningProjection {
-    // One entity's positioning facts -> the typed attr rows the SourceBag Import bag carries. A non-positioning
-    // entity yields the empty map (no bag minted); a malformed magnitude faults typed through MeasureValue.OfSi.
     public static Fin<Map<PropertyName, PropertyValue>> Attrs(IfcObjectDefinition definition, UnitScheme scale, Op key) =>
         definition switch {
             IfcAlignmentSegment segment => segment.DesignParameters switch {
@@ -409,9 +310,6 @@ public static class PositioningProjection {
             _ => Fin.Succ(Map<PropertyName, PropertyValue>()),
         };
 
-    // The row fold: absent slots (a NaN GG default, an unset optional) drop before the rail so an unset radius
-    // never fabricates a zero row; a present-but-malformed magnitude faults typed through the slot's own rail.
-    // Each slot carries the owner-declared PropertyName itself, so no name is spelled between roster and bag.
     static Fin<Map<PropertyName, PropertyValue>> Rows(Op key, params ReadOnlySpan<(PropertyName Name, Option<Fin<PropertyValue>> Value)> slots) =>
         toSeq(Iterable<(PropertyName Name, Option<Fin<PropertyValue>> Value)>.FromSpan(slots))
             .Choose(static slot => slot.Value.Map(fin => fin.Map(value => (slot.Name, Value: value))))
@@ -419,9 +317,6 @@ public static class PositioningProjection {
             .Map(static rows => rows.Fold(Map<PropertyName, PropertyValue>(),
                 static (bag, row) => bag.AddOrUpdate(row.Name, row.Value)));
 
-    // Native->SI runs through the folder's ONE UnitScheme.Coerce entry keyed by the slot own `Dimension` — the axis the
-    // row signs picks the factor, so no site multiplies a bare scale field. The declared-unit argument is null:
-    // an alignment attribute is a plain EXPRESS measure carrying no per-value IfcUnit override.
     static Option<Fin<PropertyValue>> Length(double native, UnitScheme scale, Op key) =>
         double.IsFinite(native)
             ? Some(MeasureValue.OfSi(Dimension.LengthDim, scale.Coerce(native, QuantityType.Length, Dimension.LengthDim), key).Map(static m => (PropertyValue)new PropertyValue.Measure(m)))

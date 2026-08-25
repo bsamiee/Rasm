@@ -61,17 +61,10 @@ _LABEL_KEYS: Final[frozendict[Transform, tuple[str, ...]]] = frozendict({
     Transform.INFO_VARIATION: ("split_entropy", "merge_entropy"),
 })
 _LABEL_METRICS: Final[frozenset[Transform]] = frozenset(_LABEL_KEYS)
-# `Frame` is uint8 whole, so the SEED range derives off the carrier's dtype exactly as `_ranged` derives off the operand's
 _DISPLAY_RANGE: Final[int] = int(np.iinfo(np.uint8).max)
 
 
 def _ranged(operand: Frame, row: TransformArm, policy: TransformPolicy, /) -> frozendict[str, object]:
-    # The comparison range is the OPERAND's own dtype ceiling — `np.iinfo(...).max` for an integer carrier, the
-    # peak-to-peak spread for a float one — because a seeded literal ATTESTS a depth the operand alone states, and it
-    # silently misreports the moment the carrier moves. The `data_range` policy case is therefore the caller's OVERRIDE
-    # of that derivation rather than its source: a supplied policy wins whole, a default one derives.
-    # The ROW declares whether its member reads a range at all, so a Hausdorff or label-map row never gains a kwarg its
-    # provider refuses; the derivation fires only where the row admits the family AND the caller supplied no override.
     derived = float(np.iinfo(operand.dtype).max) if np.issubdtype(operand.dtype, np.integer) else float(np.ptp(operand))
     ranged = row.policy.tag == "data_range" and policy.tag == "default"
     return row.options(policy) | (frozendict({"data_range": derived}) if ranged else frozendict())
@@ -99,7 +92,7 @@ def _measure(tx: TransformInput) -> RasterFact:
             morph = frozendict({prop: float(np.asarray(table[prop]).mean()) for prop in _MORPHOMETRY}) if count else frozendict()
             hu = (
                 frozendict({key: float(np.asarray(table[key]).mean()) for key in table if key.startswith("moments_hu")}) if count else frozendict()
-            )  # the 7 rotation/scale-invariant Hu moments expand to moments_hu-0..6 columns (separator-robust prefix fold)
+            )
             return _save_array(image, frozendict({"regions": float(count)}) | morph | hu)
         case Transform.GLCM:
             glcm = getattr(feature, row.member)(util.img_as_ubyte(gray), **opts)
@@ -107,29 +100,24 @@ def _measure(tx: TransformInput) -> RasterFact:
         case Transform.BLOB | Transform.BLOB_DOG | Transform.BLOB_DOH:
             return _save_array(image, frozendict({"blobs": float(len(getattr(feature, row.member)(gray, **opts)))}))
         case Transform.LBP:
-            # every acceptor folds at least one NAMED number, because an empty band on a measurement row reads
-            # identically to a row that ran and measured nothing — and these two were the only rows publishing one.
-            # The pattern's own entropy and bin count are the texture facts the descriptor exists to carry.
             pattern = getattr(feature, row.member)(gray, **opts)
             return _save_array(pattern, frozendict({"lbp_entropy": float(measure.shannon_entropy(pattern)), "lbp_bins": float(pattern.max() + 1)}))
         case Transform.HOG:
-            # the DESCRIPTOR is the measurement and the render is only its picture, so the vector the fold discarded
-            # is exactly what the band was missing
             descriptor, render = getattr(feature, row.member)(image, channel_axis=_channels(image), visualize=True)
             return _save_array(render, frozendict({"descriptor_length": float(descriptor.size), "gradient_energy": float(descriptor.mean())}))
         case Transform.PEAKS:
             return _save_array(image, frozendict({"peaks": float(len(getattr(feature, row.member)(gray, **opts)))}))
         case Transform.FIT_CIRCLE | Transform.FIT_ELLIPSE | Transform.FIT_LINE:
             points = np.column_stack(np.nonzero(feature.canny(gray)))
-            if len(points) < int(opts["min_samples"]):  # an edge-starved frame cannot seat a model — the zero-fit fact, never a provider raise
+            if len(points) < int(opts["min_samples"]):
                 return _save_array(image, frozendict({"inliers": 0.0, "inlier_ratio": 0.0, "residual": float("inf")}))
             model, inliers = measure.ransac(points, getattr(measure, row.member), **opts)
             kept = int(inliers.sum()) if inliers is not None else 0
             residual = float(model.residuals(points[inliers]).mean()) if kept else float("inf")
             return _save_array(image, frozendict({"inliers": float(kept), "inlier_ratio": kept / max(len(points), 1), "residual": residual}))
-        case Transform.BLUR_EFFECT:  # no-reference sharpness from re-blur strength, no operand pair, so it rides _measure
+        case Transform.BLUR_EFFECT:
             return _save_array(image, frozendict({"blur": float(getattr(measure, row.member)(gray))}))
-        case Transform.HOUGH_LINE:  # DETECTION family (accumulator peaks) distinct from the RANSAC FIT family
+        case Transform.HOUGH_LINE:
             hspace, angles, dists = getattr(transform, row.member)(feature.canny(gray))
             _accum, peak_angles, _peak_dists = transform.hough_line_peaks(hspace, angles, dists)
             return _save_array(image, frozendict({"lines": float(len(peak_angles))}))
@@ -142,20 +130,20 @@ def _measure(tx: TransformInput) -> RasterFact:
                 getattr(transform, row.member)(feature.canny(gray), radii), radii, total_num_peaks=int(opts["peaks"])
             )
             return _save_array(image, frozendict({"circles": float(len(accums))}))
-        case Transform.STRUCTURE_TENSOR:  # the Arr+Acc trace coherence-energy field; the trace magnitude IS the result
+        case Transform.STRUCTURE_TENSOR:
             elems = getattr(feature, row.member)(gray, sigma=float(opts["sigma"]), order="rc")
             trace = elems[0] + elems[-1]
             return _save_array(trace, frozendict({"tensor_energy": float(np.mean(trace))}), law=row.field)
-        case Transform.SHAPE_INDEX:  # hessian-eigenvalue shape classification on the fixed [-1, 1] scale (NaN at flat regions -> 0)
+        case Transform.SHAPE_INDEX:
             index = np.nan_to_num(getattr(feature, row.member)(gray))
             return _save_array(index, frozendict({"shape_index": float(index.mean())}), law=row.field)
-        case Transform.DAISY:  # dense DAISY descriptor grid + its visualization render
+        case Transform.DAISY:
             descs, render = getattr(feature, row.member)(gray, visualize=True)
             return _save_array(render, frozendict({"descriptors": float(descs.shape[0] * descs.shape[1])}))
-        case Transform.BASIC_FEATURES:  # the multiscale intensity/edge/texture feature stack (channel count stamped, first channel rendered)
+        case Transform.BASIC_FEATURES:
             stack = getattr(feature, row.member)(image, channel_axis=_channels(image))
             return _save_array(stack[..., 0], frozendict({"features": float(stack.shape[-1])}))
-        case Transform.PROFILE_LINE:  # intensity profile along a row-declared src->dst segment — the section-cut/line-profile scan
+        case Transform.PROFILE_LINE:
             start = (max(0, min(int(opts["src_row"]), gray.shape[0] - 1)), max(0, min(int(opts["src_col"]), gray.shape[1] - 1)))
             end = (max(0, min(int(opts["dst_row"]), gray.shape[0] - 1)), max(0, min(int(opts["dst_col"]), gray.shape[1] - 1)))
             profile = np.asarray(
@@ -199,7 +187,7 @@ def _register(tx: TransformInput) -> RasterFact:
             detector.detect_and_extract(moving)
             matches = feature.match_descriptors(anchor, detector.descriptors, cross_check=True)
             return _save_array(image, frozendict({"keypoints": float(len(detector.keypoints)), "matches": float(len(matches))}))
-        case Transform.CENSURE_KEYPOINTS:  # CENSURE detects, BRIEF describes given those keypoints — the detect-then-describe pair distinct from ORB/SIFT's detect_and_extract
+        case Transform.CENSURE_KEYPOINTS:
             detector, extractor = getattr(feature, row.member)(**opts), feature.BRIEF()
             detector.detect(reference)
             extractor.extract(reference, detector.keypoints)
@@ -209,8 +197,6 @@ def _register(tx: TransformInput) -> RasterFact:
             matches = feature.match_descriptors(anchor, extractor.descriptors, cross_check=True)
             return _save_array(image, frozendict({"keypoints": float(len(detector.keypoints)), "matches": float(len(matches))}))
         case Transform.OPTICAL_FLOW | Transform.OPTICAL_FLOW_ILK:
-            # the per-pixel displacement magnitude is measured in PIXELS, so the absolute scale is the result and the
-            # display re-encode is a thumbnail of it — the row marks it quantitative and the octets ride the fact
             magnitude = np.linalg.norm(getattr(registration, row.member)(reference, moving, **opts), axis=0)
             return _save_array(magnitude, frozendict({"flow_mean": float(magnitude.mean())}), law=row.field)
         case _ as unreachable:
@@ -223,10 +209,6 @@ def _metrics(tx: TransformInput) -> RasterFact:
             pass
         case _ as unreachable:
             assert_never(unreachable)
-    # The reference crosses the SAME `Frame` admission the operand crossed at `graphic/raster/io#IO` `_transformed`, and
-    # only when the two disagree: a pair must share one dtype before any metric, and an already-matching reference is no
-    # longer re-coerced. A deeper reference lands on this display funnel's 8-bit carrier by that admission, never by a
-    # widened operand — measuring a lossy DEEP encode is `graphic/texture/plane#PLANE`'s fidelity leg, not this page's.
     row, decoded = MEASURE_TRANSFORMS[kind], skio.imread(BytesIO(encoded_reference))
     reference = decoded if decoded.dtype == image.dtype else util.img_as_ubyte(decoded)
     opts = _ranged(image, row, policy)
@@ -257,7 +239,6 @@ def _metrics(tx: TransformInput) -> RasterFact:
 
 
 MEASURE_TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
-    # --- _measure: one-image scalar/render/table/fit/detection facts
     Transform.CONTOURS: TransformArm("find_contours", _measure, TransformPolicy(contour=0.5)),
     Transform.ENTROPY: TransformArm("shannon_entropy", _measure),
     Transform.REGIONPROPS: TransformArm("regionprops_table", _measure),
@@ -283,7 +264,6 @@ MEASURE_TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
     Transform.HOUGH_LINE: TransformArm("hough_line", _measure),
     Transform.HOUGH_CIRCLE: TransformArm("hough_circle", _measure, TransformPolicy(circles=(10, 100, 10, 20))),
     Transform.HOUGH_LINE_PROB: TransformArm("probabilistic_hough_line", _measure, TransformPolicy(hough_line=(10, 50, 10))),
-    # the tensor trace and the shape index are FIELDS on their own scales, not renders — the row marks each quantitative
     Transform.STRUCTURE_TENSOR: TransformArm("structure_tensor", _measure, TransformPolicy(sigma=1.0), field=FieldLaw.QUANTITATIVE),
     Transform.SHAPE_INDEX: TransformArm("shape_index", _measure, field=FieldLaw.QUANTITATIVE),
     Transform.DAISY: TransformArm("daisy", _measure),
@@ -292,7 +272,6 @@ MEASURE_TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
     Transform.PROFILE_LINE: TransformArm(
         "profile_line", _measure, TransformPolicy(profile=(0, 0, 100, 100, 1))
     ),
-    # --- _register: reference-consuming registration facts
     Transform.OPTICAL_FLOW: TransformArm("optical_flow_tvl1", _register, needs=TransformNeeds.REFERENCE, field=FieldLaw.QUANTITATIVE),
     Transform.OPTICAL_FLOW_ILK: TransformArm("optical_flow_ilk", _register, needs=TransformNeeds.REFERENCE, field=FieldLaw.QUANTITATIVE),
     Transform.PHASE_CORRELATION: TransformArm(
@@ -303,9 +282,6 @@ MEASURE_TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
     Transform.CENSURE_KEYPOINTS: TransformArm(
         "CENSURE", _register, TransformPolicy(censure=(1, 7)), needs=TransformNeeds.REFERENCE
     ),
-    # --- _metrics: reference-consuming quality and label-map facts
-    # the `data_range` seed DECLARES the admitted override family at the funnel's own derived ceiling; `_ranged`
-    # supersedes it from the live operand on every default call, so no `255` literal states a depth anywhere
     Transform.SSIM: TransformArm("structural_similarity", _metrics, TransformPolicy(data_range=_DISPLAY_RANGE), needs=TransformNeeds.REFERENCE),
     Transform.PSNR: TransformArm("peak_signal_noise_ratio", _metrics, TransformPolicy(data_range=_DISPLAY_RANGE), needs=TransformNeeds.REFERENCE),
     Transform.MSE: TransformArm("mean_squared_error", _metrics, needs=TransformNeeds.REFERENCE),

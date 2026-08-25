@@ -44,13 +44,7 @@ from rasm.runtime.workers import Kernel, KernelTrait
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type OpTag = Literal["construct", "decompose", "adjacency", "boolean", "analysis", "attribute", "dual_graph"]
-# every static call returns a bare `topologic_core` handle (`Topology`/`Graph`/`Dictionary` C++
-# object), opaque with no Python stub, so handles thread the chain typed only as `object`.
 type Handle = object
-# every reducer answers an OPTION, because a reducer that measured nothing has no value to publish: the geodesic row
-# on a disconnected graph is the standing case, and the alternative — a fabricated zero — is the exact defect this
-# page's own receipt law forbids. Rows that always produce wrap `Some` at the table, so the fold below stays one
-# `choose` and no arm re-spells a presence test.
 type Reducer = Callable[[Handle, "TopologyPolicy"], Option[AnalyticValue]]
 
 
@@ -63,8 +57,6 @@ class SourceKind(StrEnum):
 
 
 class SubTopologyKind(StrEnum):
-    # closed `Topology.SubTopologies(subTopologyType=)` vocabulary — the generic hierarchy
-    # accessor; `Topology.Decompose` is the building-element role classifier, never bound here.
     VERTEX = "vertex"
     EDGE = "edge"
     WIRE = "wire"
@@ -100,40 +92,35 @@ class GraphAnalytic(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# dual-graph residual the graduation carrier gates: a degenerate graph (zero nodes) breaches.
 _GRAPH_CEILING: Final[Mapping[str, float]] = MappingProxyType({"empty_node_fraction": 0.0})
 
-# --- [BOUNDARIES] -------------------------------------------------------------------------
+# --- [BOUNDARIES] -----------------------------------------------------------------------
 
 
-# AGPL isolation: a license audit reads the LEXICAL import graph, so a module-scope binding — `lazy`
-# included, the soft keyword being module-scope by design — would mark every importer of this module
-# AGPL-coupled. Four cached seam functions confine that lexical coupling to the boundary, and `@cache`
-# pays the topologicpy load once per accepting lane instead of once per call.
 @cache
 def _topo() -> type:
-    from topologicpy.Topology import Topology  # ruff:ignore[import-outside-top-level] — AGPL isolation, see the gate above
+    from topologicpy.Topology import Topology
 
     return Topology
 
 
 @cache
 def _graph() -> type:
-    from topologicpy.Graph import Graph  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from topologicpy.Graph import Graph
 
     return Graph
 
 
 @cache
 def _cluster() -> type:
-    from topologicpy.Cluster import Cluster  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from topologicpy.Cluster import Cluster
 
     return Cluster
 
 
 @cache
 def _dictionary() -> type:
-    from topologicpy.Dictionary import Dictionary  # ruff:ignore[import-outside-top-level] — AGPL isolation
+    from topologicpy.Dictionary import Dictionary
 
     return Dictionary
 
@@ -143,43 +130,30 @@ def _dictionary() -> type:
 
 class TopologyPolicy(Struct, frozen=True, gc=False):
     analytics: frozenset[GraphAnalytic] = frozenset(GraphAnalytic)
-    centrality_top: int = 16  # leaderboard cap the betweenness/closeness/degree rows truncate to
-    # the geodesic walk's declared bound, the runtime's ONE walk carrier: `fixpoint` is the honest default for a
-    # traversal that terminates on the path's own end, and a caller declaring a hop budget gets a TYPED `unreached`
-    # refusal past it rather than a census truncated into a shorter geodesic than the graph actually holds.
+    centrality_top: int = 16
     geodesic: Depth = Depth(fixpoint=None)
 
 
 class TopologyCensus(Struct, frozen=True, gc=False):
-    # STRUCTURAL counts alone. An analytic scalar never lands here: a `components`/`betweenness_max`/`path_length`
-    # column defaults to zero for the very cases that skip its reducer — a one-node graph selecting only connectivity,
-    # a policy narrowing `analytics` — so the census would publish a measurement no reducer took. Analytic evidence
-    # rides the result's held board map and reaches the receipt facts only where its reducer actually ran.
     op: OpTag
     handles: int
     cells: int = 0
     faces: int = 0
     edges: int = 0
     vertices: int = 0
-    nodes: int = 0  # dual-graph node count; 0 for non-graph ops
+    nodes: int = 0
 
 
 class TopologyResult(Struct, frozen=True):
     op: OpTag
-    handles: tuple[str, ...]  # `Topology.Analyze` summaries — the one projection every arm threads; the dual-graph arm a compact node/edge descriptor
+    handles: tuple[str, ...]
     census: TopologyCensus
-    evidence: bytes = b""  # `msgspec.json.encode` dual-graph payload; b"" for non-graph ops
-    # the dual-graph arm's whole analytic board set, HELD rather than reduced to census scalars: `TopologyCensus`
-    # keeps the flat facts a receipt reads, while `frame` needs each board's own rows, so the reduction happens at
-    # each projection instead of once at construction where the leaderboards and partitions are lost.
+    evidence: bytes = b""
     analytics: Map[GraphAnalytic, AnalyticValue] = Map.empty()
     graduation_subject: GeometrySubject = GeometrySubject.TOPOLOGY_GRAPH
     degenerate: bool = False
 
     def contribute(self) -> tuple[Receipt, ...]:
-        # analytic facts DERIVE off the measured board map, the features sibling's projection: an analytic whose
-        # reducer never ran is ABSENT from the facts rather than reported as a zero, and a new `GraphAnalytic` row
-        # reaches this receipt with no edit here.
         phase: Phase = "admitted" if self.degenerate else "emitted"
         facts: dict[str, object] = {
             **structs.asdict(self.census),
@@ -190,23 +164,15 @@ class TopologyResult(Struct, frozen=True):
 
     @property
     def spec(self) -> bytes:
-        # the bytes that DEFINE this evidence: the serialized dual-graph document beside the op tag that produced it,
-        # so two ops over one source key distinctly and a re-run over identical input keys identically.
         return b"|".join((self.op.encode(), self.evidence))
 
     def graduates(self) -> GeometryHandoff:
-        # the producer derives its own key off its own spec — the graduation spine's `evidence_key` is the one TOTAL
-        # mint, so no caller hands this receipt an identity it never computed and no rail wraps an infallible fold.
         empty = 0.0 if self.census.nodes else 1.0
         return GeometryHandoff.of(
             self.graduation_subject, evidence_key(self.graduation_subject, self.spec), {"empty_node_fraction": empty}, _GRAPH_CEILING
         )
 
     def frame(self, analytic: GraphAnalytic) -> "RuntimeRail[EvidenceFrame]":
-        # analytic-board columnar egress through the graduation frame port, the features sibling's shape over the
-        # topologicpy board set: the substrate's `tabled` projection keys columns, this producing page keys the
-        # subject, and an unheld analytic frames the empty board rather than faulting. Same `spec`, same mint, so the
-        # frame and the handoff key one evidence identically.
         board = self.analytics.try_find(analytic).default_value(AnalyticValue.Leaderboard(())).tabled()
         return EvidenceFrame.of(self.graduation_subject, evidence_key(self.graduation_subject, self.spec), board)
 
@@ -259,35 +225,22 @@ def _lift(source: bytes, kind: SourceKind) -> Handle:
 
 
 def _ifc_cluster(source: bytes) -> Handle:
-    # SPF bytes -> in-memory `ifcopenshell.file` -> per-product topology list folded to one non-manifold
-    # `Cluster` handle: `ByIFCFile` takes the file OBJECT (not a path) and returns a list, so the
-    # `Cluster.ByTopologies` fold collapses it to one `Handle`, shape-uniform with the sibling rows.
     return _cluster().ByTopologies(*_topo().ByIFCFile(ifcopenshell.file.from_string(source.decode("utf-8"))))
 
 
 def _path(graph: Handle, policy: TopologyPolicy) -> Option[AnalyticValue]:
-    # `Topology.Vertices` is the polymorphic accessor over `Topology` OR `Graph` OR the `Wire` `ShortestPath` returns.
-    # A disconnected graph and a one-vertex graph have NO geodesic, and the retired `Scalar(0.0)` published a
-    # zero-hop path for both — a value no reader can tell from a real geodesic between two coincident vertices, and
-    # a row this page's own absence law says must leave the board rather than publish a measurement nothing took.
-    # Where a geodesic DOES exist the walk publishes the per-hop census it traversed rather than one fused scalar:
-    # the chain's own adjacency drives the shared `reached` fold from the source vertex, so the traversed count and
-    # the hop LENGTH both derive off one published evidence and the policy's `Depth` bounds the traversal.
     verts = _topo().Vertices(graph)
     span = _graph().ShortestPath(graph, verts[0], verts[-1]) if len(verts) > 1 else None
     return Option.of_obj(span).map(lambda held: _chain(len(_topo().Vertices(held)), policy.geodesic))
 
 
 def _chain(hops: int, bound: Depth) -> AnalyticValue:
-    # a geodesic IS a chain, so its adjacency is its own ordinal neighbourhood: the shared walk therefore computes
-    # the same per-hop census here it computes over any other graph, and the band holds ONE reachability fold rather
-    # than an ad-hoc index range beside it that no `Depth` bound and no exhaustion law would ever reach.
     return reached(lambda node: (peer for peer in (node - 1, node + 1) if 0 <= peer < hops), (0,), bound)
 
 
 _CONSTRUCT: Final[Mapping[SourceKind, Callable[[bytes], Handle]]] = MappingProxyType({
     SourceKind.BREP: lambda b: _topo().ByBREPString(b.decode()),
-    SourceKind.OCCT: lambda b: _topo().ByOCCTShape(b),  # OpenCASCADE handle intake: the row consumes the shape handle payload
+    SourceKind.OCCT: lambda b: _topo().ByOCCTShape(b),
     SourceKind.JSON: lambda b: _topo().ByJSONString(b.decode()),
     SourceKind.OBJ: lambda b: _topo().ByOBJPath(b.decode()),
     SourceKind.IFC: _ifc_cluster,
@@ -306,12 +259,6 @@ _ANALYSIS: Final[Mapping[AnalysisKind, Callable[[Handle], Handle]]] = MappingPro
     AnalysisKind.CONTAINS: lambda t: _topo().Contains(t, _topo().Centroid(t)),
 })
 
-# alias traps live here: connectivity is `len(ConnectedComponents(...))` — NEVER `Graph.Connectivity`, the documented
-# `DegreeCentrality` alias whose per-vertex list is a type error here; spanning is the TRUE `MinimumSpanningTree` — never
-# `Graph.Tree`, a BFS/DFS traversal tree; the wire evidence is the dict-returning `JSONData`, never `JSONString` pre-serialized.
-# Spanning rides the edge COUNT as a `Scalar`, the networkx sibling's own shape: `Graph.Edges` hands back opaque
-# `topologic_core` handles and `Topology.Vertices` hands back vertex handles, so a `Groups` partition of them would seat
-# handles in an int-declared partition the substrate's projections cannot table — this provider publishes no vertex index.
 GRAPH_ANALYTIC: Final[Mapping[GraphAnalytic, Reducer]] = MappingProxyType({
     GraphAnalytic.CONNECTIVITY: lambda g, _: Some(AnalyticValue.Scalar(float(len(_graph().ConnectedComponents(g))))),
     GraphAnalytic.BETWEENNESS: lambda g, p: Some(ranked(_graph().BetweennessCentrality(g), p.centrality_top)),
@@ -328,7 +275,6 @@ def _dispatch(op: TopologyOp) -> TopologyResult:
             handle = _lift(source, kind)
             return _result("construct", (_topo().Analyze(handle),), _census("construct", handle, handles=1))
         case TopologyOp(tag="decompose", decompose=(source, kind)):
-            # `None` on a bad kind folds to the degenerate empty result.
             parts = tuple(_topo().SubTopologies(_lift(source, SourceKind.BREP), subTopologyType=kind.value) or ())
             return _result("decompose", tuple(_topo().Analyze(p) for p in parts), _decompose_census("decompose", parts))
         case TopologyOp(tag="adjacency", adjacency=source):
@@ -347,13 +293,8 @@ def _dispatch(op: TopologyOp) -> TopologyResult:
             return _result("attribute", (_topo().Analyze(handle),), _census("attribute", handle, handles=1))
         case TopologyOp(tag="dual_graph", dual_graph=(source, policy)):
             graph = _graph().ByTopology(_lift(source, SourceKind.BREP))
-            # the folded board map is BOUND, not consumed inline: the census reads its scalars and the result carries
-            # the map whole, so `frame` projects each board's own rows instead of re-running the analytics to recover
-            # what the scalar reduction dropped.
             analytics = _graph_analytics(graph, policy)
             census = _graph_census(graph)
-            # wire summary is the compact census-keyed descriptor naming WHICH reducers ran; the whole serialized
-            # document rides `evidence` once, never a multi-KB JSON string duplicated across both fields.
             evidence = msgspec.json.encode(_graph().JSONData(graph))
             summary = f"graph nodes={census.nodes} measured={','.join(sorted(a.value for a in analytics))}"
             return _result("dual_graph", (summary,), census, evidence=evidence, analytics=analytics, degenerate=census.nodes == 0)
@@ -377,7 +318,6 @@ def _result(
 
 
 def _census(op: OpTag, handle: Handle, *, handles: int) -> TopologyCensus:
-    # a null boolean handle yields the zero census; `_decompose_census` owns the tuple arm — no runtime shape probe.
     if handle is None:
         return TopologyCensus(op=op, handles=handles)
     return TopologyCensus(
@@ -395,8 +335,6 @@ def _decompose_census(op: OpTag, parts: tuple[Handle, ...]) -> TopologyCensus:
 
 
 def _graph_analytics(graph: Handle, policy: TopologyPolicy) -> Map[GraphAnalytic, AnalyticValue]:
-    # a zero/one-node graph skips the path/centrality rows by data, not a branch, and a selected reducer that
-    # MEASURED nothing drops out through the same `choose` — one absence law, two sources, no arm publishing a zero.
     nodes = len(_topo().Vertices(graph))
     selected = Block.of_seq(a for a in GraphAnalytic if a in policy.analytics and (nodes > 1 or a is GraphAnalytic.CONNECTIVITY))
     measured = selected.choose(lambda row: GRAPH_ANALYTIC[row](graph, policy).map(lambda value: (row, value)))
@@ -404,17 +342,12 @@ def _graph_analytics(graph: Handle, policy: TopologyPolicy) -> Map[GraphAnalytic
 
 
 def _graph_census(graph: Handle) -> TopologyCensus:
-    # `Topology.Vertices` is the polymorphic accessor over a `Graph` handle too, so the node count reads structurally;
-    # every analytic scalar stays on the result's board map, never lifted into a census column that would default.
     return TopologyCensus(op="dual_graph", handles=1, nodes=len(_topo().Vertices(graph)))
 
 
 def run(
     op: TopologyOp | Sequence[TopologyOp], *, composition: ScopeKey = DEFAULT_SCOPE
 ) -> RuntimeRail[TopologyResult] | RuntimeRail[Block[TopologyResult]]:
-    # each op returns through its own GRAPH_TOPOLOGY weave — span, fence, and receipt harvest in one composition — and
-    # a batch folds the weave rails through traversed(ACCUMULATE); `i=item` binds the loop variable per closure. This
-    # entry holds no owner, so the composition key threads straight through rather than defaulting per weave call.
     match op:
         case Sequence() as batch:
             return traversed(
@@ -431,10 +364,6 @@ def run(
 
 
 async def bridged(op: TopologyOp, lane: LanePolicy, *, composition: ScopeKey = DEFAULT_SCOPE) -> RuntimeRail[TopologyResult]:
-    # HOSTILE: the OCCT-backed topologic core is GIL-hostile native state, so the crossing rides the warm process
-    # pool. The module-qualified `_dispatch` ships REFERENCE and resolves by name worker-side, the op riding as the
-    # crossing argument — `TopologyOp` payloads are bytes and a frozen policy, picklable whole — where a closure over
-    # it ships VALUE, paying a cloudpickle serialization of the body and its module globals on every hop for nothing.
     return await evidence_run(
         EvidenceScope.GRAPH_TOPOLOGY,
         f"bridged.{op.tag}",

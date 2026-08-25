@@ -24,7 +24,7 @@ One feature-flag, progressive-rollout, and experimentation owner for the runtime
 - Boundary: the registry is the only flag owner — a hand-rolled flag lookup, an ad-hoc percentage-rollout computation at a call site, and a string-keyed config read bypassing the provider are the deleted forms; `RolloutSegment` is the suite's ONE exposure-percentage owner and carries both of its projections, so `Sandbox/provisioning#ROLLOVER_DRAIN` plans a wave through `Cohort(nodes.Count)` off the band its `RollStrategy` row already holds — a `Width` column re-deriving a wave percentage beside the segment was the deleted twin, and a consumer computing `population * percent / 100` at its own site is the same defect wearing arithmetic; the flag rows bind through the existing eight-source `ConfigSource` chain and `OptionsAdmission` under one `Flags` section root so a targeting-rule edit is a config transition, not a parallel flag store beside the `ConfigurationManager`; the provider is config-backed and in-process — a remote flag SaaS would be one additional `FeatureProvider` row registered under a second domain later, never a replacement of this owner; the kill-switch is the flag row's `Disabled` column the `KILL_SWITCH_FOLD` flips, never a second switch beside the flag rows; a targeting attribute carrying classified subject data redacts through the `Wire/companion#CONTROL_SERVICE` `Redactor` over `DataClassification` before it enters the `EvaluationContext`, never a second classification taxonomy.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [ValueObject<string>(KeyMemberName = "Value")]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -33,14 +33,9 @@ public readonly partial struct FlagKey;
 [ValueObject<string>(KeyMemberName = "Value")]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct Variant {
-    // The arm an evaluation resolves when the provider names none — the same row `FlagVerdict.Inert` carries,
-    // so a no-variant answer and a no-rail answer read one spelling instead of two matching literals.
     public static readonly Variant Absent = Create("default");
 }
 
-// The evaluation-reason vocabulary: KEY is the OpenFeature constant the provider reports and `Wire` is the
-// generated protobuf enum value. The SDK publishes eight reasons and declares no `Stale` constant, so an
-// unrostered provider value admits as `Unknown` rather than as a literal this side invents.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -56,8 +51,6 @@ public sealed partial class FlagReason {
 
     public Rasm.Contracts.Feature.FlagReason Wire { get; }
 
-    // Provider text is FOREIGN and admits ONCE: a provider that invents a reason lands `Unknown` here rather
-    // than reaching a decoder with a token no wire union carries.
     public static FlagReason From(string? reported) =>
         TryGet(reported ?? string.Empty, out FlagReason? row) ? row! : Unknown;
 }
@@ -71,11 +64,6 @@ public readonly partial struct RolloutSegment {
 
     public bool Holds(int bucket) => bucket < (int)this;
 
-    // The band's POPULATION projection beside its bucket predicate: one exposure percentage answers both "is
-    // this subject inside the wave" and "how many of a fleet does the wave move", so a rollout consumer reads
-    // the segment it was handed and never re-derives a percentage at its own call site. Integer division
-    // rounds toward zero, so a nonzero band over a small fleet floors to ONE node — a wave that moves nobody
-    // never converges — while a zero band moves nobody by construction.
     public int Cohort(int population) =>
         (int)this is 0 || population <= 0 ? 0 : int.Max(1, population * (int)this / 100);
 }
@@ -91,7 +79,7 @@ public abstract partial record TargetingRule {
     public sealed record SegmentBand(RolloutSegment Upper, Variant Seats) : TargetingRule;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FlagDefinition(
     FlagKey Key,
     Seq<TargetingRule> Rules,
@@ -99,7 +87,7 @@ public sealed record FlagDefinition(
     Variant Default,
     bool Disabled);
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class FlagRegistry {
     readonly FrozenDictionary<FlagKey, FlagDefinition> byKey;
     public FlagRegistry(IEnumerable<FlagDefinition> flags) =>
@@ -109,17 +97,11 @@ public sealed class FlagRegistry {
     public Iterable<FlagDefinition> All => byKey.Values.AsIterable();
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FlagCompilation {
-    // The override enters the COMPILE, so the operator force reaches the provider's own disabled branch and
-    // the kill-switch fold has exactly one caller. Compiling the raw registry is the deleted form that left
-    // the fold unreachable and the switch inert at the only seat capable of honoring it.
     public static IO<Fin<InMemoryProvider>> Compile(FlagRegistry registry, OperatorOverride forcing) =>
         IO.lift(() => Forced(registry, forcing).Map(flags => new InMemoryProvider(flags)));
 
-    // A forced key naming no definition forces nothing while reading as armed, so the free text a config edit
-    // typed proves against the registry FIRST — the one consumer of the registry's single-flag lookup, and the
-    // reason that lookup exists beside the whole-set enumeration.
     static Fin<Dictionary<string, OpenFeature.Providers.Memory.Flag>> Forced(FlagRegistry registry, OperatorOverride forcing) =>
         forcing.Switch(
                 state: registry,
@@ -143,13 +125,6 @@ public static class FlagCompilation {
             contextEvaluator: ctx => (string)Bucketing.Assign(flag, ctx),
             disabled: flag.Disabled), map).Item2;
 
-    // Registration seats FOUR things at once and each is the only place its concern can live: the compiled
-    // provider under its domain, the cross-cutting SpineHook (the one surface every evaluation crosses,
-    // including a consumer reaching IFeatureClient directly, which Features.Evaluate structurally cannot see),
-    // the ambient EvaluationContext carrying the cross-cutting attributes so the tenant slug and host key are
-    // stated ONCE rather than re-set on every FlagSubject, and the provider event handlers that make the
-    // configuration-changed fan a real observation rather than a claimed one. It RETURNS the provider, because
-    // a reload with no handle is a re-fold with nowhere to land.
     public static IO<Fin<InMemoryProvider>> Register(FeaturesRuntime runtime, FlagRegistry registry, OperatorOverride forcing, string domain) =>
         Compile(registry, forcing).Bind(compiled => compiled.Match(
             Succ: provider => IO.liftAsync(async () => {
@@ -158,8 +133,6 @@ public static class FlagCompilation {
                     .Set("tenant", TenantContext.Current.Slug)
                     .Set("host", runtime.HostKey)
                     .Build());
-                // The handler delegate takes a NULLABLE payload, so every read passes through the domain
-                // argument the registration already holds rather than dereferencing what the SDK may not send.
                 Api.Instance.AddHandler(ProviderEventTypes.ProviderConfigurationChanged, payload =>
                     SpineLog.FlagsChanged(runtime.Logger, domain, string.Join(',', payload?.FlagsChanged ?? [])));
                 Api.Instance.AddHandler(ProviderEventTypes.ProviderReady, payload =>
@@ -171,8 +144,6 @@ public static class FlagCompilation {
             }),
             Fail: error => IO.pure(Fin.Fail<InMemoryProvider>(error))));
 
-    // The reload leg: one re-fold onto the SAME provider, so a targeting edit and a kill-switch flip are one
-    // transition and neither mints a second provider a consumer could resolve past the live one.
     public static IO<Fin<Unit>> Reload(InMemoryProvider provider, FlagRegistry registry, OperatorOverride forcing) =>
         IO.lift(() => Forced(registry, forcing)).Bind(flags => flags.Match(
             Succ: compiled => IO.liftAsync(async () => {
@@ -194,13 +165,8 @@ public static class FlagCompilation {
 - Boundary: bucketing is the only rollout-assignment owner — a `Random`-seeded rollout, a `DateTime`-derived bucket, and a `string.GetHashCode` segment are the deleted forms because none is cross-process-stable; the hash is the kernel `ContentHash`, the same `Of`-then-`Half` pair `Runtime/time#SCHEDULE_PORT`'s `ScheduleEntry.Seed` derives its fleet cron jitter from, so the suite spreads on ONE algorithm and this page composes it rather than carrying a second; the assignment is total over the rule fold and falls to the flag default on no match so an evaluation never throws for an unmatched subject; the bucket is computed once per evaluation inside the flag evaluator and never re-derived at the verdict seam.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Bucketing {
-    // ONE deterministic spread for the suite, composed rather than re-implemented: the kernel content-address
-    // writer FRAMES each field, so a subject ending in the old `:` separator can no longer forge another
-    // subject's bucket, and `Runtime/time#SCHEDULE_PORT`'s `ScheduleEntry.Seed` derives its cron jitter
-    // through this identical `Of`-then-`Half` pair. Hashing locally through `XxHash3` over an interpolated
-    // preimage was a second algorithm on the one axis this page declares single, as its own boundary said.
     public static int BucketOf(FlagKey key, string subject) =>
         (int)(ContentHash.Half(
             digest: ContentHash.Of(
@@ -240,17 +206,14 @@ public static class Bucketing {
 - Boundary: the verdict is the only cross-page features seam — a consumer reaching the `IFeatureClient` directly, a second verdict shape, and a re-derived bucket at a consumer are the deleted forms; the fault lift and exposure emit ride the registered `Hook`; the projection reads `FlagEvaluationDetails<Value>` and never the raw `FeatureProviderException`; consumers map `Variant` to their own row families and the features rail never owns consumer behavior; the generated protobuf message is built directly, while descriptor validation remains centralized at shared decode and gRPC boundaries rather than repeated in every projection.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FlagSubject(string Identity, TenantContext Tenant, HashMap<string, string> Attributes, CorrelationId Correlation);
 
 public readonly record struct FlagVerdict(FlagKey Key, Variant Variant, bool Enabled, FlagReason Reason) {
-    // The no-rail verdict: the composition binds it as the whole verdict function where no provider seated,
-    // and `Evaluate` re-keys it to the asked flag where the provider answered unready — one shape for both
-    // absences, so a consumer's routing arm reads `Enabled: false` and takes its policy default either way.
     public static readonly FlagVerdict Inert = new(FlagKey.Create("inert"), Variant.Absent, Enabled: false, FlagReason.Default);
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FeatureFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Feature;
@@ -268,21 +231,17 @@ public abstract partial record FeatureFault : Fault {
     public sealed partial record ContextInvalid : FeatureFault { public ContextInvalid(string detail) : base(detail) { } }
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Features {
     public static EvaluationContext Context(FlagSubject subject) =>
         subject.Attributes.Fold(
             EvaluationContext.Builder().SetTargetingKey(subject.Identity).Set("tenant", subject.Tenant.Slug),
             static (builder, attr) => builder.Set(attr.Key, attr.Value)).Build();
 
-    // An unready provider yields the ONE declared inert verdict rather than a variant no definition seated, so
-    // the no-rail path and the consumer's policy default meet at one value instead of a per-consumer fallback.
     public static IO<FlagVerdict> Evaluate(IFeatureClient client, FlagKey key, FlagSubject subject) =>
         IO.liftAsync(async () => await client.GetObjectDetailsAsync((string)key, new Value(), Context(subject)))
             .Map(detail => Projected(key, detail));
 
-    // The provider's reason text admits ONCE, here: every interior read is a roster row and no arm compares a
-    // raw constant, which is what keeps `Enabled` derivable from the row rather than from two string tests.
     static FlagVerdict Projected(FlagKey key, FlagEvaluationDetails<Value> detail) =>
         detail.ErrorType is ErrorType.ProviderNotReady
             ? FlagVerdict.Inert with { Key = key }
@@ -312,23 +271,13 @@ internal static class FeatureMap {
     };
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// The composition inputs the hook and the handlers read, so the hook holds no ambient state and a test seats
-// its own sink: the receipt fan, the event stride, the process host key the ambient context carries, and the
-// exposure-event name policy the tracking leg emits under.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record FeaturesRuntime(
     string HostKey,
     ILogger Logger,
     Func<Error, Unit> Fault,
     Func<FlagKey, EvaluationContext, TrackingEventDetails, Unit> Expose);
 
-// The ONE cross-cutting evaluation seam: registered once through Api.Instance.AddHooks, it fires on EVERY
-// evaluation — including a consumer reaching IFeatureClient directly, which no wrapper around Features.Evaluate
-// can cover — so the fault union and the exposure event have exactly one call site each and neither depends on
-// a caller remembering a wrapper. AfterAsync emits the experimentation exposure and lifts a non-None ErrorType
-// through the existing Classify onto the receipt fan; ErrorAsync catches the provider-thrown half the details
-// object never carries. The deleted form is Classify with no caller at all, leaving the whole FeatureFault
-// union — ProviderNotReady included — unreachable prose behind a rail nothing fed.
 public sealed class SpineHook(FeaturesRuntime runtime) : Hook {
     public override ValueTask AfterAsync<T>(
         HookContext<T> context, FlagEvaluationDetails<T> details,
@@ -362,7 +311,7 @@ public sealed class SpineHook(FeaturesRuntime runtime) : Hook {
 - Boundary: the kill-switch is the only forced-exposure owner — a boolean kill flag beside the flag rows, a config-authored `Disabled` row, a separate emergency-disable store, a runtime mutation of the variant map, and a forced-off targeting rule re-implementing the provider's own disabled gate are the deleted forms — the fold is the column's only writer; the override is the one `OperatorOverride` union the config page owns so the host has one operator-forcing vocabulary covering the degradation-level forcing and the flag forcing, never two; the fold flips one column and never deletes the flag's targeting so the kill-switch is reversible by one reload, and a forced-off flag still mints a `FlagVerdict` carrying `Reason.Disabled` so the consumers route to their safe defaults through the same seam, never a special-cased disable path.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class KillSwitchFold {
     public static FlagDefinition Fold(FlagDefinition flag, OperatorOverride @override) =>
         @override.ForcesOff((string)flag.Key) ? flag with { Disabled = true } : flag;

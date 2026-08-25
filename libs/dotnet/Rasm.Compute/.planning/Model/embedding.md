@@ -22,7 +22,6 @@ Every artifact content-keys through `Rasm.Domain.ContentHash.Of` over a length-f
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// Named sites select bounded contracts directly; no string-key roster survives beneath the shared violation.
 public static class EmbedRefusal {
     public static readonly ContractRefusal UnitRejected = new(ComputeArea.Model, ComputeContract.Valid);
     public static readonly ContractRefusal ByteLengthRejected = new(ComputeArea.Model, ComputeContract.Valid);
@@ -47,11 +46,6 @@ public static class EmbedRefusal {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VectorEncoding {
-    // Residence size, the encode, and the decode are ONE row's arithmetic. Two parallel dispatch tables over this
-    // same roster — a `Switch` per direction plus ten static bodies — meant a sixth encoding was a row plus two
-    // arms plus two method bodies, and it let an encode arm and its decode arm disagree about layout with nothing
-    // to break. A bit-packed row has no whole byte per component and a code-per-subspace row does not scale with
-    // dimension at all, so the two exceptions WERE the byte-length formula the ladder they replaced overrode.
     public static readonly VectorEncoding Float32 = new(
         "float32", hammingScored: false,
         static (dimension, _) => (long)dimension * sizeof(float),
@@ -76,10 +70,6 @@ public sealed partial class VectorEncoding {
         static (unit, policy, _) => Fin.Succ(VectorOps.EncodeBinary(unit, policy.SignThreshold)),
         static (components, dimension, _) => Fin.Succ(VectorOps.DecodeBinary(components, dimension)));
 
-    // Absence REFUSES rather than minting an empty run: a zero-length component array admits nowhere and
-    // content-keys to a value naming a vector nothing encoded, so the sentinel could only ever surface as a
-    // byte-length mismatch three call sites away from the codebook that was never supplied. Both directions read
-    // the SAME typed refusal, where the two arms once spelled one fact two different ways.
     public static readonly VectorEncoding ProductQuantized = new(
         "product-quantized", hammingScored: false,
         static (_, codebook) => codebook.Match(Some: static book => (long)book.Subspaces, None: static () => 0L),
@@ -92,8 +82,6 @@ public sealed partial class VectorEncoding {
 
     public bool HammingScored { get; }
 
-    // The codebook rides as `Option`, not a subspace count with a `1` fallback: a `1` meant both "one subspace"
-    // and "no codebook" at two call sites that each spelled the fallback differently.
     [UseDelegateFromConstructor]
     public partial long ByteLength(int dimension, Option<ProductCodebook> codebook);
 
@@ -108,9 +96,6 @@ public sealed partial class VectorEncoding {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VectorScore {
-    // Each row carries its complete pair operation. The six shells this replaces existed only as method-group
-    // arguments to these six constructors and differed by a reducer literal alone, so the metric family was one
-    // roster wearing six single-caller methods.
     public static readonly VectorScore Cosine = new("cosine", smallerIsNearer: false, coarse: false,
         static (query, candidate, codebook) => VectorOps.Dense(query, candidate, codebook,
             static (left, right) => VectorOps.Guarded(TensorPrimitives.CosineSimilarity(left, right))));
@@ -135,8 +120,6 @@ public sealed partial class VectorScore {
 
     public bool SmallerIsNearer { get; }
 
-    // The kernel bounded top-K reads an ExtremumDirection; the row's own nearness fact is the ONE authority it
-    // derives from, so no site ever negates a score to fake a direction.
     public ExtremumDirection Direction => SmallerIsNearer ? ExtremumDirection.Minimum : ExtremumDirection.Maximum;
     public bool Coarse { get; }
 
@@ -162,17 +145,10 @@ public sealed partial class VectorPolicy {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// One ranking beside the rows it could not score. `Dropped` keys each refusal by the candidate's own content key,
-// so a caller repairs a corpus page by address rather than re-scoring the set to find which row refused.
 public sealed record RankedCandidates(
     Seq<(EmbeddingVector Candidate, float Score)> Ranked,
     Seq<(UInt128 ContentKey, Error Fault)> Dropped);
 
-// `[Equatable(Explicit)]` admits ONE member: `ContentKey` already folds model key, encoding, dimension,
-// codebook identity, and canonical bytes, so key equality IS carrier equality by the content-address law.
-// `Components` (`ReadOnlyMemory<byte>`) is unreachable by the collection attributes and full-member equality
-// would make two carriers of one content key compare unequal on buffer identity — the deleted hand-written
-// five-member block said exactly this in twenty lines the generator now owns.
 [Equatable(Explicit = true)]
 public sealed partial class EmbeddingVector {
     private EmbeddingVector(VectorEncoding encoding, string modelKey, int dimension, Option<UInt128> codebookId, ReadOnlyMemory<byte> components, UInt128 contentKey) =>
@@ -182,22 +158,13 @@ public sealed partial class EmbeddingVector {
     public string ModelKey { get; }
     public int Dimension { get; }
 
-    // ABSENCE, never a zero: `UInt128.Zero` named both "no codebook" and a legal preimage value, so a carrier
-    // whose codebook happened to key to zero read as un-quantized at every identity gate that compared it.
     public Option<UInt128> CodebookId { get; }
     public ReadOnlyMemory<byte> Components { get; }
     [DefaultEquality]
     public UInt128 ContentKey { get; }
 
-    // The blob-lane address the Persistence vector index resolves a survivor by. Encoding rides it because two
-    // residences of one vector at two encodings are two artifacts under one content key.
     public string ArtifactKey => $"{ContentKey:x32}:{Encoding.Key}";
 
-    // The preimage folds through the KERNEL canonical writer: `String` frames each text field with its own byte
-    // count and `U128`/`Ordinal` write fixed widths, so the framing law lives at one owner rather than a second
-    // length-prefix loop here. Dimension stays in the preimage because `binary-hamming` `ceil(dimension / 8)` maps
-    // multiple dimensions to one byte length; `Optional` frames the codebook's PRESENCE ahead of its value, so an
-    // absent codebook and a zero-valued one can no longer key alike.
     public static UInt128 KeyOf(string modelKey, VectorEncoding encoding, int dimension, ReadOnlySpan<byte> components, Option<UInt128> codebookId) =>
         ContentHash.Of(
             (Model: modelKey, Encoding: encoding, Dimension: dimension, Components: components.ToArray(), Codebook: codebookId),
@@ -209,11 +176,6 @@ public sealed partial class EmbeddingVector {
                 .Ordinal(state.Components.Length)
                 .Raw(state.Components));
 
-    // The rehydration gate: `Query/retrieval#VECTOR_CODEBOOK` `Resolve` hands back a residence row and this proves
-    // it against the carrier law before any metric reads it. Every fact is INDEPENDENT and accumulates, so a
-    // residence that is both mis-sized and non-canonically padded names both rather than costing one round trip
-    // per defect. The key ECHO is what binds the residence to the carrier: the index addresses by content key, so
-    // a row whose bytes no longer produce the key it was stored under is a corrupt residence, not a near miss.
     public static Fin<EmbeddingVector> Admit(VectorEncoding encoding, string modelKey, int dimension, ReadOnlyMemory<byte> components, Option<ProductCodebook> codebook, UInt128 expectedKey) {
         byte[] owned = components.ToArray();
         Option<UInt128> retained = encoding == VectorEncoding.ProductQuantized ? codebook.Map(static book => book.Id) : None;
@@ -245,15 +207,10 @@ public sealed partial class EmbeddingVector {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class VectorOps {
-    // int8 symmetric scale is a protocol constant: an L2-normalized vector lies in [-1, 1], so 127 maps the range onto the sbyte grid and dividing by 127 recovers magnitude on decode.
     const float Int8Scale = 127f;
 
-    // ONE generic span reducer over both residence widths. Two delegates differing only in `T` made the dense and
-    // packed funnels declare separate shapes for one operation.
     internal delegate Fin<float> SpanScore<T>(ReadOnlySpan<T> left, ReadOnlySpan<T> right) where T : unmanaged;
 
-    // Unit admission and codebook layout are INDEPENDENT facts and accumulate: a caller handing an unnormalized
-    // vector against a mis-laid codebook learns both, where a ladder reported whichever it tested first.
     public static Fin<EmbeddingVector> Encode(ReadOnlyMemory<float> unit, VectorEncoding encoding, string modelKey, VectorPolicy policy, Option<ProductCodebook> codebook = default) =>
         (guard(
              !string.IsNullOrWhiteSpace(modelKey) && !unit.IsEmpty
@@ -285,12 +242,6 @@ public static class VectorOps {
         .Apply(static (_, _) => unit).As().ToFin()
         .Bind(_ => metric.Apply(query, candidate, codebook));
 
-    // Ranking proceeds over the SOUND set and reports what it dropped. A first-fault abort empties an otherwise
-    // complete result whenever one row in the page carries another model's key, a stale codebook id, or a width the
-    // metric cannot read — and hands the caller a fault where it needed a ranking beside a repair list. `top` still
-    // refuses, because a nonpositive or overflowing fanout is the caller's own arithmetic rather than a row's. The
-    // split is ONE pass keeping both halves: two `Choose` walks over one graded sequence read it twice, and the
-    // first walk's `.ToOption()` discarded the very error the second walk then re-derived.
     public static Fin<RankedCandidates> Rank(EmbeddingVector query, Seq<EmbeddingVector> candidates, VectorScore metric, int top, VectorPolicy policy, Option<ProductCodebook> codebook = default) {
         long selected = metric.Coarse ? (long)top * policy.RerankFanout : top;
         return guard(
@@ -305,12 +256,6 @@ public static class VectorOps {
             .Map(split => new RankedCandidates(Selected(split.Sound, (int)selected, metric.Direction), split.Dropped));
     }
 
-    // TWO-STAGE retrieval, one fold. `Query/retrieval#VECTOR_CODEBOOK` rules that the magnitude a 1-bit encoding
-    // discards is recovered from the STORED fine residence and never faked from the ±1 decode, so the coarse leg
-    // returns content KEYS, `VectorIndex.Resolve` reads the survivors' fine forms by those keys, and the fine
-    // metric re-ranks what the residence handed back. Both legs' refusals ride ONE `Dropped` roster keyed by
-    // content key, because a corpus page carrying one stale-codebook or corrupt-residence row is a repair list
-    // rather than an empty result.
     public static IO<Fin<RankedCandidates>> Retrieve(
         EmbeddingVector query, Seq<EmbeddingVector> coarse, VectorScore gate, VectorScore fine,
         int top, VectorPolicy policy, VectorIndex index, Option<ProductCodebook> codebook = default) =>
@@ -321,10 +266,6 @@ public static class VectorOps {
                         .Map(ranked => ranked with { Dropped = gated.Dropped + survivors.Dropped + ranked.Dropped }))),
             Fail: static fault => IO.pure(Fin.Fail<RankedCandidates>(fault)));
 
-    // The residence carries Persistence's own `VectorFine` shape, so its DECODER owns the scale and zero point.
-    // The int8 arm therefore proves those against this lane's protocol constant before admitting: a re-scaled
-    // residence decodes to a different vector under one content key, which the key echo would then reject with a
-    // message naming the key rather than the quantization that moved.
     static Fin<(Seq<EmbeddingVector> Sound, Seq<(UInt128 ContentKey, Error Fault)> Dropped)> Rehydrated(EmbeddingVector query, Seq<VectorRow> rows) =>
         Fin.Succ(rows.Fold(
             (Sound: Seq<EmbeddingVector>(), Dropped: Seq<(UInt128 ContentKey, Error Fault)>()),
@@ -345,8 +286,6 @@ public static class VectorOps {
 
     static Validation<Error, ReadOnlyMemory<float>> Pure(ReadOnlyMemory<float> unit) => Success<Error, ReadOnlyMemory<float>>(unit);
 
-    // Codebook LAYOUT proves at admission; codebook PRESENCE proves on the encoding row, which is the only arm
-    // that cannot proceed without it — two spellings of one law drift.
     static Validation<Error, ReadOnlyMemory<float>> Laid(ProductCodebook book, int dimension) =>
         guard(
             (long)book.Subspaces * book.SubspaceDim == dimension,
@@ -388,12 +327,6 @@ public static class VectorOps {
         return Guarded(TensorPrimitives.SumOfMagnitudes<float>(scratch.Span));
     }
 
-    // PQ readiness on the RAIL, so all three violations name themselves at once: a product-quantized operand needs
-    // its own codebook present, dimension-matched, and identity-matched before any reduction reads the
-    // reconstructed spans. The three `ComputeFault?` predicates chained by `??` this replaces reported one of
-    // three, and null-as-absence crossed three member boundaries to do it. `ProductCodebook.Of` is the sole
-    // factory, so layout positivity, centroid length, finite content, and the `Id` echo are admitted invariants —
-    // only the operand joins re-check, and a per-score O(centroids) re-hash never rides the rank loop.
     static Validation<Error, Unit> PqSound(EmbeddingVector query, EmbeddingVector candidate, Option<ProductCodebook> codebook) =>
         query.Encoding != VectorEncoding.ProductQuantized && candidate.Encoding != VectorEncoding.ProductQuantized
             ? Success<Error, Unit>(unit)
@@ -431,11 +364,6 @@ public static class VectorOps {
         return unit;
     }
 
-    // Canonical LITTLE-ENDIAN framing is ONE reinterpret plus, on a big-endian host, one bulk swap. The
-    // per-component `BinaryPrimitives` write loops this replaces paid a bounds check and a shift chain per element
-    // to produce the byte order the span already carries on every runtime this package ships to. The swap runs on
-    // the INTEGRAL width because `ReverseEndianness` owns no float overload — a reversed float has no meaning, a
-    // reversed `uint` does — and the reinterpret is free at both ends.
     internal static byte[] Framed(ReadOnlySpan<uint> words) {
         byte[] framed = new byte[words.Length * sizeof(uint)];
         Span<uint> destination = MemoryMarshal.Cast<byte, uint>(framed);
@@ -473,8 +401,6 @@ public static class VectorOps {
         return unit;
     }
 
-    // The COMPARE half lowers onto `TensorPrimitives.GreaterThan`; the PACK half stays a bit-twiddle because no
-    // primitive owns a sign-bit gather into a byte plane.
     internal static byte[] EncodeBinary(ReadOnlySpan<float> unit, float threshold) {
         using SpanOwner<float> thresholds = SpanOwner<float>.Allocate(unit.Length);
         thresholds.Span.Fill(threshold);
@@ -495,10 +421,6 @@ public static class VectorOps {
         return unit;
     }
 
-    // Nearest-centroid assignment is `IndexOfMin` over one distance scratch, never a hand argmin seeded at
-    // positive infinity: the seeded scan re-implemented a primitive that owns tie-breaking, and its tie rule has
-    // to agree BIT FOR BIT with the training-time partition at `Query/retrieval#VECTOR_CODEBOOK` or a vector on a
-    // centroid boundary encodes to one code here and trained under another.
     internal static byte[] EncodeProduct(ReadOnlySpan<float> unit, ProductCodebook codebook) {
         byte[] codes = new byte[codebook.Subspaces];
         using SpanOwner<float> distances = SpanOwner<float>.Allocate(codebook.CodesPerSubspace);
@@ -520,10 +442,6 @@ public static class VectorOps {
         return unit;
     }
 
-    // Bounded top-K is the kernel `Ranked` owner's (Rasm `Domain/stats#[04]-[ORDER_STATISTICS]`); this site keeps
-    // only its tie law: score ties resolve by content key — smaller key wins under EITHER direction — so the
-    // ranking is a pure function of the candidate SET, and the tie component conforms to the direction instead of
-    // negating the score (the trap the kernel seat exists to delete).
     static Seq<(EmbeddingVector Candidate, float Score)> Selected(Seq<(EmbeddingVector Candidate, float Score)> scored, int top, ExtremumDirection direction) =>
         Ranked.Top(scored, top,
             row => (row.Score, direction == ExtremumDirection.Minimum ? row.Candidate.ContentKey : UInt128.MaxValue - row.Candidate.ContentKey),

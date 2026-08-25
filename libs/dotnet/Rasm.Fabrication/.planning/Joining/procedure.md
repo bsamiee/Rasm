@@ -28,7 +28,7 @@ Qualification mismatch is a decision, never an admission failure: welder status,
 - Boundary: every qualification verdict — expired continuity, suspended status, out-of-range value — remains a domain decision; only missing, duplicate, dimensionally incompatible, or malformed evidence fails request admission.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -47,7 +47,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Joining;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class VariableFamily {
     public static readonly VariableFamily Validity = new("validity");
@@ -82,8 +82,6 @@ public readonly partial struct VariableKey {
     }
 }
 
-// Welder identity is the package's one personal datum on this plane. Every property carrying it declares the
-// classification, so redaction is structural rather than a habit each new carrier has to remember.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct WelderId {
     [BoundaryAdapter]
@@ -132,8 +130,6 @@ public sealed partial class VariableRequirement {
     public bool EvidenceRequired { get; }
 }
 
-// A test is DESTRUCTIVE or not; how many specimens a code demands is that code's own profile row, because two
-// editions of one code disagree on the count while agreeing on the nature of the test.
 [SmartEnum<string>]
 public sealed partial class TestKind {
     public static readonly TestKind Tensile = new("tensile", destructive: true);
@@ -162,7 +158,7 @@ public sealed partial class QualificationStatus {
     public bool Recoverable { get; }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ApplicabilityLaw {
     public ApplicabilityMode Mode { get; }
@@ -243,8 +239,6 @@ public abstract partial record QualificationValue {
         contextExcluded: static _ => true,
         evidenceOmitted: static _ => true);
 
-    // The scalar and the text the compliance row carries as its fault evidence. Every modality answers both, so the
-    // row shape holds no per-case column and a fault reads one pair regardless of which reading produced it.
     public (double Scalar, string Evidence) Witnessed => Switch(
         quantity: static value => ((double)value.Value.Value, value.Value.ToString(CultureInfo.InvariantCulture)),
         categorical: static value => (0.0, value.Value),
@@ -273,9 +267,6 @@ public abstract partial record QualificationRule {
 
     public QualificationRule Required => this is Optional optional ? optional.Present : this;
 
-    // THE pairing. One total dispatch over the rule family, each arm reading the value shape its own modality
-    // admits: a value the rule cannot describe answers None, which is exactly the modality mismatch admission
-    // already excluded, so no intermediate carrier exists between deciding and recording the verdict.
     public Option<bool> Verdict(QualificationValue demanded) => demanded is QualificationValue.ContextExcluded
             or QualificationValue.EvidenceOmitted
         ? Some(true)
@@ -317,12 +308,6 @@ public abstract partial record QualificationRule {
         optional: static value => value.Present is not Optional && value.Present.Valid);
 }
 
-// ONE compliance row. Verdict, variable identity, fault subject, scalar, and invariant evidence live on the single
-// declaration, and the demanded reading beside the admitted range is the whole payload — a per-modality case family
-// restated those six columns five times and grew a seventh case for welder standing that decomposes into two rows.
-// [Equatable] completes the receipt's structured diff: ProcedureReceipt compares Rows under [OrderedEquality],
-// and a generated element comparer projects per-member Inequalities paths (Rows[3].Passed) an opaque
-// synthesized element cannot.
 [Equatable]
 public sealed partial record ComplianceRow(
     int Joint,
@@ -346,8 +331,6 @@ public sealed partial record ComplianceRow(
             joint, source, Some(variable.Key), demanded, required, passed,
             new FaultSubject.Qualification(variable.Key.Value)));
 
-    // Welder standing is TWO ordinary rows against the same shape every variable answers to: the continuity window
-    // is a temporal range and the status admission a boolean one, so no case, no shadow column, no seventh arm.
     public static Seq<ComplianceRow> Standing(int joint, WelderQualification welder, Instant at) {
         QualificationRule window = new QualificationRule.ActiveInterval(welder.Continuity);
         QualificationRule admits = new QualificationRule.Boolean(true);
@@ -410,7 +393,6 @@ public sealed partial class QualificationProfile {
     public ProcessKind Process { get; }
     public Seq<EssentialVariable> Variables { get; }
 
-    // Specimen counts are CODE data: the row names the test and the count that edition demands of it.
     public Map<TestKind, int> RequiredProcedureTests { get; }
     public Map<TestKind, int> RequiredPersonnelTests { get; }
 
@@ -514,8 +496,6 @@ public sealed partial class Wps {
         Map<VariableKey, QualificationRule> rules) =>
         Validate(id, revision, validity, profile, pqr, rules, out Wps wps).Admitted(wps);
 
-    // Validity is the profile's own variable and rides the WPS interval, never a rule map row, so a rule-map census
-    // reads one scope predicate rather than a per-site family exclusion.
     internal static bool Scoped(EssentialVariable variable, QualificationSource source) =>
         variable.Family != VariableFamily.Validity && variable.Sources.Contains(source);
 }
@@ -598,7 +578,7 @@ public sealed partial class WelderRegistry {
 - Boundary: the plan states WHAT must be examined and WHO must release it; the performed examination, its result, and its attestation are `Documentation/report` evidence composing these rows downward.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class InspectionFamily {
     public static readonly InspectionFamily Visual = new(
@@ -617,13 +597,9 @@ public sealed partial class InspectionFamily {
     public bool Subsurface { get; }
     public bool ConsumesPart { get; }
 
-    // EN 1011-2 delay between the last deposit and examination of hardenable material. A family imposing none reads
-    // zero, which is a measured interval rather than the absent third state a boolean column would have to fake.
     public NodaTime.Duration HydrogenDelay { get; }
 }
 
-// The performed grain, seated beside the demand grain it discharges. A documentation-plane reconciliation reads the
-// correspondence off THIS row rather than declaring a second vocabulary at a higher stratum.
 [SmartEnum<string>]
 public sealed partial class NdtMethod {
     public static readonly NdtMethod Visual = new("visual", InspectionFamily.Visual, radiationControls: false);
@@ -648,8 +624,6 @@ public sealed partial class NdtMethod {
     public bool RadiationControls { get; }
 }
 
-// ONE sampling axis. The extent case declares the row it belongs to, so the population map's key and payload prove
-// each other and no second enum restates the family under parallel names.
 [SmartEnum<string>]
 public sealed partial class SamplingKind {
     public static readonly SamplingKind JointCount = new("joint-count");
@@ -658,10 +632,6 @@ public sealed partial class SamplingKind {
     public static readonly SamplingKind Volume = new("volume");
 }
 
-// What a hold point DEMANDS of the shop, as one membership column over the kernel capability floor. Two parallel
-// bool props stated a 2x2 product and grew a clause in the satisfaction law per axis; `Advance` is the trait that
-// stops work, the rest are what a release must furnish, and a fourth demand is one vocabulary row rather than a
-// third bool nothing existing reads. `Rank` stays the interface's DERIVED declaration order.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ComplianceTrait : ICapability<ComplianceTrait> {
@@ -693,11 +663,9 @@ public sealed partial class WitnessParty {
     public static readonly WitnessParty Regulator = new("regulator");
 }
 
-// The identity a hold point ALREADY has: the joint it gates, the family it examines, and the population it samples.
-// A composed string key would need an admission that can refuse a value these three discriminants make unforgeable.
 public readonly record struct HoldPointKey(int Joint, InspectionFamily Family, SamplingKind Sampling);
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record InspectionExtent(SamplingKind Kind) {
     public sealed record Joints(int Count) : InspectionExtent(SamplingKind.JointCount);
@@ -764,8 +732,6 @@ public readonly partial struct InspectionRule {
     public Option<string> StressCategory { get; }
     public InspectionFamily Family { get; }
 
-    // An absent method set admits every method of the family; a present one narrows the discharge to the listed
-    // rows, which is how a code that demands radiography specifically states it without minting a second family.
     public Option<Set<NdtMethod>> Methods { get; }
 
     public SamplingKind Sampling { get; }
@@ -824,8 +790,6 @@ public sealed record InspectionRequirement(
     InspectionExtent Sample,
     string Acceptance,
     InspectionBasis Basis) {
-    // THE grain seam. A performed examination discharges this demand when its family matches and the rule admits
-    // its method, so a documentation-plane reconciliation reads one predicate rather than a second correspondence.
     public bool Satisfies(NdtMethod performed) =>
         performed.Family == Family && Methods.ForAll(rows => rows.Contains(performed));
 
@@ -836,10 +800,6 @@ public sealed record HoldPoint(HoldPointKey Key, HoldKind Kind, WitnessParty Par
     public int Joint => Key.Joint;
 }
 
-// The release a traveler step consumes. `Discharged` is the evidence the releasing party actually furnished,
-// stated in the SAME column the hold point demands in, so a step reads satisfied evidence and never a rendered
-// instruction it would have to interpret. A release discharges `Advance` by existing, so the column carries only
-// what a party had to do beyond signing.
 public sealed record HoldRelease(
     HoldPointKey Point,
     WitnessParty By,
@@ -866,10 +826,6 @@ public sealed partial record InspectionTestPlan(Seq<InspectionRequirement> Requi
                      row.Requirement.Acceptance)).ToSeq()));
     }
 
-    // The ONE satisfaction law, published as the unreleased ROSTER rather than a bare verdict: a documentation-plane
-    // consumer needs both the gate and the count of holds still open, and deriving the second from a re-spelled
-    // predicate is what puts two readings of one law on two planes.
-    // A witness or surveillance point demands no `Advance`, so it records evidence without ever appearing here.
     public Seq<HoldPoint> Unreleased(Seq<HoldRelease> releases) => Holds
         .Filter(static hold => hold.Kind.Demands.Admits(ComplianceTrait.Advance))
         .Filter(hold => !Furnished(hold, releases).AdmitsAll(hold.Kind.Demands));
@@ -882,8 +838,6 @@ public sealed partial record InspectionTestPlan(Seq<InspectionRequirement> Requi
         .ToFin()
         .Map(static _ => unit);
 
-    // Absent releases and short ones answer through ONE comparison: a point whose demanded party never released
-    // furnished nothing, which reads exactly as an attended release short one attestation.
     private static CapabilitySet<ComplianceTrait> Furnished(HoldPoint hold, Seq<HoldRelease> releases) => releases
         .Find(release => release.Point == hold.Key && release.By == hold.Party)
         .Map(static release => release.Discharges)
@@ -907,8 +861,6 @@ public sealed partial class InspectionPolicy {
 
     public bool Covers(InspectionBasis basis) => Rules.Exists(rule => rule.Applies(basis));
 
-    // Overlapping rules collapse only when family, sampling, and acceptance semantics agree, and the widest
-    // coverage wins — a narrower duplicate of one demand never shrinks the sample the wider rule already claimed.
     public Seq<(InspectionRequirement Requirement, Option<HoldKind> Hold, Option<WitnessParty> Party)> Derive(
         int joint,
         InspectionBasis basis) =>
@@ -941,7 +893,7 @@ public sealed partial class InspectionPolicy {
 - Boundary: `Require` aggregates every mismatch for aborting consumers, while receipt-first consumers retain the domain decision and complete evidence.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WeldDemand {
     public int Joint { get; }
@@ -971,7 +923,6 @@ public sealed partial class WeldDemand {
         InspectionBasis inspection) =>
         Validate(joint, values, context, inspection, out WeldDemand demand).Admitted(demand);
 
-    // Modality and dimension bind to the profile, which the demand alone does not carry; ProcedureRequest owns that gate.
     public bool Corresponds(EssentialVariable variable) =>
         Values.Find(variable.Key).ForAll(value => value.Modality.Exists(modality => modality == variable.Modality)
             && (value is not QualificationValue.Quantity demanded
@@ -1000,8 +951,6 @@ public sealed partial class ProcedureRequest {
             validationError = new ValidationError("procedure-request:census");
     }
 
-    // Each structural clause is its OWN slot, so a request missing an assignment AND carrying an unmapped variable
-    // key reports both — the fifteen-predicate monolith reported one opaque refusal for either.
     public static Fin<ProcedureRequest> Admit(
         Seq<WeldDemand> demands,
         Wps wps,
@@ -1054,9 +1003,6 @@ public sealed partial record QualificationRecord(
     Option<QualificationStatus> Status,
     Seq<QualificationTest> Tests);
 
-// Whole, not a `Receipt<TEvidence>` payload: the assessment addresses nothing and produces nothing, so the spine's
-// required content key has no truthful value here, while the generated member comparer below is the entire reason a
-// revision audit can name `Rows[3].Passed` instead of reporting two receipts unequal.
 [Equatable]
 public sealed partial record ProcedureReceipt(
     WpsId WpsId,
@@ -1102,7 +1048,7 @@ public abstract partial record ProcedureDecision {
         new FabricationFault.WpsUnqualified(row.Fault, row.FaultScalar);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Procedure {
     public static Fin<ProcedureDecision> Assess(ProcedureRequest request) => AssessAll(request).Map(Decide);
 
@@ -1114,7 +1060,6 @@ public static class Procedure {
             .ToFin()
             .Map(rows => Receipt(request, rows.Bind(identity)));
 
-    // Welder standing is evidence, not admission: a suspended or lapsed welder yields an unqualified receipt.
     private static Fin<Seq<ComplianceRow>> AssessDemand(ProcedureRequest request, WeldDemand demand) =>
         from welderId in request.Assignments.Find(demand.Joint)
             .ToFin(new KernelFault.InvalidValue("procedure", $"weld-procedure:welder:{demand.Joint}"))

@@ -26,7 +26,7 @@ Every write addresses by ROW, never by name. `InstrumentSpec` is in scope at eve
 - Boundary: `InstrumentSpec` families partition by UCUM unit and never by domain case — the case key rides `Dimensions`, so a landed unit needs no roster edit (branch RULINGS `[03]`). Meter and instrument lifetime ride the minting factory, so no owner here retains a meter handle or disposes one, and a `new Meter(...)` construction is the rejected form everywhere.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Immutable;
 using System.Diagnostics.Metrics;
 using System.Numerics;
@@ -34,14 +34,11 @@ using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Buckets {
-    // The two UCUM anchors this roster and its consumers compare against: a count ladder is DIMENSIONLESS and its
-    // instrument's `{annotation}` is a label rather than a second dimension, and `Seconds` is the unit every
-    // duration ladder declares and every latency ceiling is proved in.
     public const string Dimensionless = "1";
     public const string Seconds = "s";
 
@@ -74,9 +71,6 @@ public sealed partial class Buckets {
     public static readonly Buckets ByteSizes = new("byte-sizes", "By", [10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000]);
     public static readonly Buckets PayloadBytes = new("payload-bytes", "By", [1_024, 16_384, 262_144, 4_194_304, 67_108_864, 536_870_912]);
 
-    // The boundaries' own UCUM unit. Bounds are bare numbers, so a ladder means nothing without it: a consumer
-    // comparing a measured ceiling against these values must know which quantity they measure, and `InstrumentSpec`
-    // admission proves this column against the declaring row's `Unit` so a seconds ladder cannot arm a byte row.
     public string Unit { get; }
 
     public ImmutableArray<double> Bounds { get; }
@@ -90,7 +84,6 @@ public sealed partial class Buckets {
         }
     }
 
-    // Boundaries are real values; the row saturates each into the instrument's own measurement type at the mint.
     public Histogram<T> Advised<T>(Meter meter, InstrumentSpec row) where T : struct, INumberBase<T> =>
         meter.CreateHistogram<T>(row.Name, row.Unit, row.Description, tags: null,
             advice: new InstrumentAdvice<T> { HistogramBucketBoundaries = [.. Bounds.Select(static bound => T.CreateSaturating(bound))] });
@@ -112,7 +105,6 @@ public sealed partial class InstrumentKind {
     public bool Pulled { get; }
 }
 
-// Listener callbacks hand tags as a span, which no `Action<>` arity admits, so the fold is its own delegate.
 internal delegate void ReadingFold(Instrument instrument, double measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags);
 
 [SmartEnum<string>]
@@ -142,9 +134,6 @@ public sealed partial class MeasureForm {
                 Some: advice => advice.Advised<T>(bind.Meter, bind.Row),
                 None: () => bind.Meter.CreateHistogram<T>(bind.Row.Name, bind.Row.Unit, bind.Row.Description)),
             reading: static bind => bind.Meter.CreateGauge<T>(bind.Row.Name, bind.Row.Unit, bind.Row.Description),
-            // Every pulled arm binds the `Func<IEnumerable<Measurement<T>>>` overload, so an unwritten cell publishes
-            // ZERO measurements and the row exports no data point; the scalar `Func<T>` overload has no spelling for
-            // that absence and reports a zero no producer measured.
             total: static bind => bind.Meter.CreateObservableCounter(
                 bind.Row.Name, bind.Cells.Reader<T>(bind.Row), bind.Row.Unit, bind.Row.Description),
             balance: static bind => bind.Meter.CreateObservableUpDownCounter(
@@ -155,7 +144,7 @@ public sealed partial class MeasureForm {
                 bind.Row.Name, bind.Cells.Reader<T>(bind.Row, bind.Row.Tag), bind.Row.Unit, bind.Row.Description));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class InstrumentSpec {
     public string Name { get; }
@@ -180,9 +169,6 @@ public sealed partial class InstrumentSpec {
             && !dimensions.Exists(string.IsNullOrWhiteSpace)
             && dimensions.Distinct().Count == dimensions.Count
             && (bounds.IsNone || kind.Equals(InstrumentKind.Distribution))
-            // The ladder MEASURES the row's own quantity: a seconds ladder advising a byte histogram publishes
-            // boundaries no sample can land between, and every downstream ceiling proof reads the bounds bare. A
-            // DIMENSIONLESS ladder arms any annotated count, because `{item}` labels a count and names no dimension.
             && bounds.Map(row =>
                 string.Equals(row.Unit, unit, StringComparison.Ordinal)
                 || (string.Equals(row.Unit, Buckets.Dimensionless, StringComparison.Ordinal) && unit.StartsWith('{')))
@@ -214,17 +200,15 @@ public sealed partial class InstrumentSpec {
 - Boundary: every write and registration member on `LevelCells` is assembly-internal, so `InstrumentSet` is the only reachable pulled entry from any consuming package and an ungated cell write has no spelling outside this assembly. Cells hold `double` at either key half, so the whole (kind × form) product carries its declared measurement type and a keyed real-valued level never truncates.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Numerics;
 
 namespace Rasm.Domain;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class TelemetryIdentity {
-    // One semconv coordinate for the branch: tracer, meter, and logger read this pin, so all three bump together
-    // and the python and typescript peers pin the identical schema.
     public const string SchemaUrl = "https://opentelemetry.io/schemas/1.43.0";
 
     public static Meter Metered(
@@ -242,14 +226,9 @@ public static class TelemetryIdentity {
         (new ActivitySource(scope.Key, version), Metered(factory, scope, version, tags));
 }
 
-// Identity is the VALUE, so two owners handing in one delegate still register twice and each retire drops exactly the
-// entry it added — the reference-keyed detach a row-keyed slot cannot express. The read hands back `double` because
-// the ROW decides storage: a `Delegate` column keyed by a runtime `Type` and cast back inside the collection loop is
-// the `object`/`Type` erasure pair `Domain/hooks` forbids the sibling mechanism.
 internal sealed record LevelProbe(KeyValuePair<string, object?>[] Tags, Func<double> Read);
 
 public sealed class LevelCells {
-    // Pulled reads carry no caller key — the meter calls back — so their refusals seat under the plane's own op.
     private static readonly Op PullOp = Op.Of(name: "instrument.pull");
     private readonly Atom<HashMap<(InstrumentSpec Row, Option<string> Key), double>> cells =
         Atom(HashMap<(InstrumentSpec Row, Option<string> Key), double>());
@@ -265,8 +244,6 @@ public sealed class LevelCells {
 
     public Option<Error> Raised(InstrumentSpec row) => raised.Value.Find(row);
 
-    // ONE pulled projection for both shapes — an absent tag reads the scalar sources, a present one the keyed
-    // family — because both answer the same question at the same cadence and both must be able to answer NOTHING.
     public Func<IEnumerable<Measurement<T>>> Reader<T>(InstrumentSpec row, Option<string> tag = default)
         where T : struct, INumberBase<T> =>
         () => tag.Match(
@@ -294,10 +271,6 @@ public sealed class LevelCells {
         probes.Value.Find(row).Map(live => live.Bind(probe => Held<T>(row, probe)).Strict())
             .IfNone(Seq<Measurement<T>>());
 
-    // Bound probes are caller code running inside the SDK collection loop, which folds every throwing observable
-    // callback of one cycle into one `AggregateException` and abandons the whole cycle, so the fence is what the
-    // pulled plane cannot be composed without. The cause SEATS rather than vanishing: a probe that cannot answer
-    // reads BROKEN, a row nobody wrote reads QUIET, and neither is a fabricated zero or a stale cell.
     private Seq<Measurement<T>> Held<T>(InstrumentSpec row, LevelProbe probe) where T : struct, INumberBase<T> =>
         PullOp.Catch(() => Fin.Succ(Seq(new Measurement<T>(T.CreateSaturating(probe.Read()), probe.Tags)))).Match(
             Succ: static held => held,
@@ -310,9 +283,7 @@ public sealed class LevelCells {
             None: static () => Seq<Measurement<T>>());
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// This mount pair carries the whole write plane's address: declaration and handle travel as ONE value, so no
-// consumer holds a key that resolves in one table and throws in another.
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Mounted(InstrumentSpec Row, Instrument Handle);
 ```
@@ -333,7 +304,7 @@ public readonly record struct Mounted(InstrumentSpec Row, Instrument Handle);
 - Boundary: `InstrumentKind.Pulled` is the enforced column, and `LevelCells`'s writes are assembly-internal, so an ungated level write cannot be composed from any consuming package.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
@@ -341,13 +312,11 @@ using System.Numerics;
 
 namespace Rasm.Domain;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
     private FrozenDictionary<InstrumentSpec, Mounted> Seats { get; } =
         Mounts.ToFrozenDictionary(static seat => seat.Row);
 
-    // Handle identity is the KEY COMPARISON here: `Instrument` carries no value equality, so a foreign instrument
-    // sharing a declared name misses this table by construction and no reference probe stands beside it.
     private FrozenDictionary<Instrument, InstrumentSpec> Declared { get; } =
         Mounts.ToFrozenDictionary(static seat => seat.Handle, static seat => seat.Row);
 
@@ -371,8 +340,6 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
                 Requirement: "one mount per declaration row across every contributed meter"));
     }
 
-    // FORM closes the measurement type at the outer fold and KIND closes the family at the inner one, so
-    // every one of the eight products spells exactly one instrument call and a caller picks neither axis.
     public Fin<Unit> Write(InstrumentSpec row, double measurement, in TagList tags = default) {
         if (!Seats.TryGetValue(row, out Mounted seat)) { return Fin.Fail<Unit>(Unmounted(row)); }
         return row.Form.Switch(
@@ -384,16 +351,12 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
     public Fin<Unit> Level(InstrumentSpec row, double value, Option<string> key = default) =>
         Pulled(row, key).Map(admitted => Cells.Level(admitted, key, value));
 
-    // Tag shape discriminates exactly as `Level`'s key does: an untagged probe answers a scalar pulled row or a
-    // family's unpartitioned reading, a tagged one answers a key of a `Levels` family.
     public Fin<IDisposable> Bind(InstrumentSpec row, Func<double> read, Op key, in TagList tags = default) {
         KeyValuePair<string, object?>[] stamped = [.. tags];
         return Pulled(row, toSeq(stamped).Map(static tag => tag.Key).Head)
             .Bind(admitted => Cells.Bind(admitted, read, stamped, key));
     }
 
-    // Rows absent from the mount read ENABLED, so the gate never absorbs the mount refusal `Write` owes — this is
-    // a cost skip over PROVEN-quiet rows, never a second admission.
     public bool Enabled(Seq<InstrumentSpec> rows) =>
         rows.Exists(row => !Seats.TryGetValue(row, out Mounted seat) || seat.Handle.Enabled);
 
@@ -402,16 +365,12 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
         foreach (KeyValuePair<string, object?> tag in tenant.Tags) { row.Add(tag.Key, tag.Value); }
         return row;
     }
-    // Tenant-free arity: a `Tenancy.None` composition (both host planes) has no tenant to stamp, so the facts
-    // ride alone rather than a fabricated tenant riding beside them.
     public static TagList Tags(params ReadOnlySpan<(string Slot, object? Value)> facts) {
         TagList row = default;
         foreach ((string slot, object? value) in facts) { row.Add(slot, value); }
         return row;
     }
 
-    // This converse of the keyed breach is NOT a breach: an absent key on a `Levels` family is that family's
-    // unpartitioned entry, the one composition the key widening exists to admit.
     private Fin<InstrumentSpec> Pulled(InstrumentSpec row, Option<string> key) =>
         !Seats.ContainsKey(row) ? Fin.Fail<InstrumentSpec>(Unmounted(row))
         : !row.Kind.Pulled ? Fin.Fail<InstrumentSpec>(new KernelFault.InvalidValue(
@@ -420,9 +379,6 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
             Label: row.Name, Requirement: "a keyed levels family"))
         : Fin.Succ(row);
 
-    // This cast is TOTAL: the form fixed `T` and the kind fixed the family, and the mint built exactly that pair —
-    // no "row bound at the other measurement type" verdict exists to return, because this fold makes that state
-    // unrepresentable, which is the NAMED LOSS the collapse pays for deleting the runtime type test.
     private static Fin<Unit> Pushed<T>(Mounted seat, T value, in TagList tags) where T : struct, INumberBase<T> =>
         seat.Row.Kind.Switch(
             state: (Seat: seat, Value: value, Tags: tags),
@@ -471,31 +427,22 @@ public sealed record InstrumentSet(Seq<Mounted> Mounts, LevelCells Cells) {
 - Boundary: the tally is a DIAGNOSTIC composition an operating profile arms and disposes, never a standing emission leg — it holds one accumulator per (row, tag set) for the life of the listener, bounded by a ceiling the arming composition supplies, and the arming seat stays a policy row at the app platform.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics.Metrics;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Tag identity is a DIGEST over the measurement's own tag set, never a joined rendering: a separator join collides
-// two tag sets the moment one value carries the separator, and "a character no tag can carry" had no producer over
-// `object?` renderings. `CanonicalWriter` length-frames each field, so the collision is unrepresentable rather than
-// merely unlikely, and the digest is in-process identity alone — no export, wire, or query reads it.
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct Series(InstrumentSpec Row, UInt128 Key);
 
-// One cell shape spans the whole (kind × form) product: `Stat` owns count, minimum, and maximum, while `Sum` and
-// `Last` are this plane's own — a running total and a most-recent reading are not moments and `Stat` spells neither.
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct ReadingCell(
     Seq<KeyValuePair<string, object?>> Tags, Stat<Scalar> Summary, double Sum, double Last) {
-    // Carriers admit FIRST: `Scalar.From` refuses a non-finite measurement on the rail, so a NaN never seats
-    // and never throws out of the tally fold.
     public static Fin<ReadingCell> Of(Seq<KeyValuePair<string, object?>> tags, double measurement, Op key) =>
         Scalar.From(measurement).Bind(sample => Stat<Scalar>.Of(values: Seq(sample), key: key))
             .Map(summary => new ReadingCell(Tags: tags, Summary: summary, Sum: measurement, Last: measurement));
 
-    // Polarity is the declared KIND row, never a bool: a pulled level replaces, a pushed count accumulates.
     public Fin<ReadingCell> Advance(double measurement, InstrumentKind kind, Op key) =>
         Scalar.From(measurement).Bind(sample => Stat<Scalar>.Update(prior: Summary, sample: sample, key: key))
             .Map(summary => this with {
@@ -507,19 +454,14 @@ public readonly record struct ReadingCell(
 
 public sealed record InstrumentReading(InstrumentSpec Row, Seq<ReadingCell> Cells, Option<Error> Refused);
 
-// ONE fold state: cells, the per-row series census, and the per-row refusal advance in a single CAS, so a read can
-// never show a cell the same measurement refused and the census never disagrees with the map it counts.
 internal readonly record struct TallyState(
     HashMap<Series, ReadingCell> Cells,
     HashMap<InstrumentSpec, int> Census,
     HashMap<InstrumentSpec, Error> Refused);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class InstrumentTally : IDisposable {
-    // Tally seats run inside the measurement callback, so refusals key on the tally's own op rather than a private helper name.
     private static readonly Op TallyOp = Op.Of(name: "instrument.tally");
-    // OTel's specification names this clipping marker: a series past the ceiling folds onto this key rather than
-    // minting a cell, so a clipped read states its clipping instead of dropping the measurement.
     public const string OverflowSlot = "otel.metric.overflow";
 
     private const int DefaultCeiling = 2048;
@@ -527,8 +469,6 @@ public sealed class InstrumentTally : IDisposable {
     private static readonly Seq<KeyValuePair<string, object?>> Overflow =
         Seq(new KeyValuePair<string, object?>(OverflowSlot, true));
 
-    // The clipping bucket keys on its OWN tag set, so the reserved-string series a slot name doubled as has no
-    // spelling: the overflow cell's key and the tags it reports are one value.
     private static readonly UInt128 OverflowKey = Keyed(tags: Overflow);
 
     private readonly Atom<TallyState> plane = Atom(new TallyState(
@@ -561,8 +501,6 @@ public sealed class InstrumentTally : IDisposable {
 
     public void Dispose() => listener.Dispose();
 
-    // `Sorted` publishes the ordinal ORDER this identity reads, so a tag reordering never mints a twin and no caller
-    // sorts beside the writer; each field crosses length-framed, so a value carrying any glyph shifts no field split.
     private static UInt128 Keyed(Seq<KeyValuePair<string, object?>> tags) =>
         ContentHash.Of(tags, static (rows, writer) => writer.Sorted(
             rows: rows,
@@ -570,9 +508,6 @@ public sealed class InstrumentTally : IDisposable {
             order: StringComparer.Ordinal,
             field: static (tag, framed) => framed.String(tag.Key).String(tag.Value?.ToString() ?? string.Empty)));
 
-    // Spans cannot cross the swap lambda, so the tag set materializes ONCE at the seam and the fold reads that
-    // captured value; polarity reads the DECLARED row rather than the runtime `IsObservable` probe, so the bool the
-    // prior form threaded through three signatures reconstructs at the leaf from the declaration itself.
     private void Fold(Instrument instrument, double measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags) {
         if (set.Published(instrument) is not { IsSome: true, Case: InstrumentSpec declared }) { return; }
         Seq<KeyValuePair<string, object?>> row = toSeq(tags.ToArray());
@@ -600,8 +535,6 @@ public sealed class InstrumentTally : IDisposable {
                 });
     }
 
-    // One grouping pass, then a lookup per row: filtering the whole cell map inside the row roster re-walks every
-    // tag set once per declaration and turns a wide keyed family into quadratic work.
     private Seq<InstrumentReading> Projected(TallyState held) {
         HashMap<InstrumentSpec, Seq<ReadingCell>> byRow = held.Cells.Fold(
             HashMap<InstrumentSpec, Seq<ReadingCell>>(),

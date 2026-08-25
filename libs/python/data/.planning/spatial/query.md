@@ -39,13 +39,8 @@ _TRACER: Final = scoped(trace.get_tracer, "rasm.data.spatial.query")
 
 type SpatialPredicate = Literal["ST_Intersects", "ST_Contains", "ST_Within", "ST_DWithin"]
 
-# `duckdb.Error` is the DB-API root and it roots at bare `Exception`, so the seam NAMES it: the engine, binder,
-# parser, conversion, and transaction refusals all descend from it and none reaches a builtin ancestor.
 _QUERY_RAISES: Final[Catch] = (duckdb.Error,)
 
-# this module's whole raise roster: the construction corner is caller-repairable and the engine leg is a pure
-# in-memory plan over registered Arrow tables, so both declare TERMINAL — a re-run over the same inputs refuses
-# identically and no store or driver sits under this seam to clear.
 QUERY_DISTANCE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.SPATIAL_QUERY, point="join", arm="config", defect="distance-mismatch", retriability=TERMINAL, slots=("predicate",)
 )
@@ -56,8 +51,6 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([QUERY_DISTANCE,
 
 
 def _ident(name: str) -> str:
-    # every interpolated table/view/relation name routes through sqlglot's dialect-correct
-    # identifier quoting before it reaches the SQL string; the VALUES stay bound parameters.
     return exp.Identifier(this=name, quoted=True).sql(dialect="duckdb")
 
 
@@ -77,16 +70,12 @@ class SpatialQuery:
 
     @staticmethod
     def Join(predicate: SpatialPredicate, left: str, right: str, distance: Option[float] = Nothing) -> "RuntimeRail[SpatialQuery]":
-        # the ONE distance corner, proved where the caller can still repair it: `ST_DWithin` is the only predicate
-        # whose SQL carries a placeholder, so presence and predicate must agree or no servable join exists — a
-        # distance on a geometry-only verb binds a parameter the statement has no slot for.
         if (predicate == "ST_DWithin") != distance.is_some():
             return Error(QUERY_DISTANCE.raised(predicate))
         return Ok(SpatialQuery(join=(predicate, left, right, distance)))
 
     @staticmethod
     def PointInPolygon(points: str, polygons: str) -> "SpatialQuery":
-        # total: the preset fixes both halves of the corner at the call, so no rail stands between it and its plan.
         return SpatialQuery(join=("ST_Contains", polygons, points, Nothing))
 
     @staticmethod
@@ -100,8 +89,6 @@ class SpatialQuery:
     def plan(self) -> QueryPlan:
         match self:
             case SpatialQuery(tag="join", join=(predicate, left, right, distance)):
-                # one discriminant spells both halves of the distance leg: the option's presence shapes the ON
-                # clause and its own lowering IS the parameter tuple, so text and binding cannot disagree.
                 on = f"{predicate}(l.geom, r.geom, ?)" if distance.is_some() else f"{predicate}(l.geom, r.geom)"
                 return QueryPlan(
                     sql=f"SELECT l.*, r.* FROM {_ident(left)} l JOIN {_ident(right)} r ON {on}",
@@ -151,7 +138,6 @@ class SpatialEngine(Struct, frozen=True):
             )
 
     def _dispatch(self, plan: QueryPlan) -> pa.Table:
-        # SPATIAL is the unconditional prelude — every `ST_` function lives in the spatial extension; the plan supplies supplements.
         with DuckDbSession(extensions=(DuckDbExtension.SPATIAL, *plan.extensions)).connect() as con:
             for name, table in self.inputs.items():
                 raw = f"{name}_raw"

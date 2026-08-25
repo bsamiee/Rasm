@@ -48,15 +48,9 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
     public Option<ScreenCatalogRow> Resolve(string key) =>
         Rows.TryGetValue(key, out ScreenCatalogRow? row) ? Some(row) : None;
 
-    // Admission reads two axis values, never a product name: the supplied profile answers whether a host
-    // surface exists at all and the resolved mount answers which shape the shell took inside it.
     public Seq<ScreenCatalogRow> For(ConsumptionProfile profile, SurfaceMount mount) =>
         toSeq(Rows.Values).Filter(row => row.Surface(profile, mount));
 
-    // Independent refusals accumulate: every duplicated key rides ONE DuplicateId and every headless-lane row
-    // refusing the offscreen mount rides ONE LaneUnreachable — CountBy folds per key in one pass where
-    // GroupBy materialized every group, and the proof matrix crosses exactly that lane with exactly that
-    // mount, so a row failing the pair contributes a proof no cell can execute while reading as covered.
     private static Fin<ScreenCatalog> Build(ConsumptionProfile profile, Seq<ScreenCatalogRow> rows) {
         Seq<string> duplicated = toSeq(rows.Map(static row => row.Key).AsEnumerable()
             .CountBy(identity, StringComparer.Ordinal)
@@ -79,10 +73,8 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
 ```
 
 ```csharp signature
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The bound-dependency carrier every row constructs through: the seams a screen needs travel as ONE value,
-// so a new surface is a row rather than a signature change at every existing one.
 public sealed record ScreenComposition(
     Func<string, string> Label,
     ScreenRuntime Runtime,
@@ -92,8 +84,6 @@ public sealed record ScreenComposition(
     ShortcutEditor Shortcuts,
     Func<SurfaceKey, TimelineSurface> Timeline,
     Func<SurfaceKey, PresenterStrip> Tour,
-    // The analysis and compare planes reach their screens as one surface-scoped arrow each, so the owner
-    // keeps its state and this record keeps the seating.
     Func<SurfaceKey, LayerStack> Layers,
     Func<SurfaceKey, ProbeReading> Probe,
     Func<SurfaceKey, (CompareLattice Lattice, CompareSync Sync)> Compare,
@@ -101,17 +91,12 @@ public sealed record ScreenComposition(
     ProductSeams Product,
     RunQueueSeams Queue);
 
-// Forward and inverse of the ONE ScreenState correspondence travel as one column: every override supplies
-// both arrows together, and the stateless default is one value rather than two.
 public sealed record StateLens(
     Func<ProductScreen, ScreenState> Snapshot,
     Func<ProductScreen, ScreenState, Unit> Restore) {
     public static readonly StateLens Stateless = new(static screen => screen.Blank(), static (_, _) => unit);
 }
 
-// A screen PROGRAM is the behaviour row a product surface fills. A per-surface model subclass carries one
-// distinguishing member and repeats every other one, so the family is ONE owner over its programs and a new
-// surface is a row rather than a class.
 public sealed record ScreenProgram(
     string Key,
     Func<ProductScreen, Seq<IDisposable>> Wire,
@@ -122,16 +107,10 @@ public sealed record ScreenProgram(
         new(key, static _ => Seq<IDisposable>(), body, StateLens.Stateless, static _ => static _ => true);
 }
 
-// The phantom-typed cell token: the TYPE travels with the key, so a program reads and writes its own slots
-// at their declared shapes and a mistyped read is a compile break rather than a silent fallback. The string
-// name survives as the materialize fold's ValueKey coordinate.
 public readonly record struct SlotKey<T>(string Name) {
     public static implicit operator string(SlotKey<T> key) => key.Name;
 }
 
-// The one program-driven model. A product surface's state IS its named slots, so ONE cell bag serves the
-// value channel the materialize fold binds, the property edge the intent stream re-projects on, and the
-// snapshot the state carrier persists.
 public sealed partial class ProductScreen : ReactiveObject, IActivatableViewModel, INotifyDataErrorInfo {
     private static readonly Op ScreenOp = Op.Of(name: "appui.screen");
     private readonly Subject<string> edits = new();
@@ -162,24 +141,18 @@ public sealed partial class ProductScreen : ReactiveObject, IActivatableViewMode
     public Unit Restore(ScreenState merged) => Program.State.Restore(this, merged);
     public Func<string, bool> Alive => Program.Alive(this);
 
-    // Every cell is a slot, so the fold's `Value` column resolves without the program registering twice and
-    // a key the program never wrote answers absent rather than binding a control to nothing.
     public HashMap<string, ValueSlot> Values =>
         cells.Value.Map((key, _) => new ValueSlot(() => ReadRaw(key), value => WriteRaw(key, value), Edited(key)));
 
     public Option<T> Read<T>(SlotKey<T> key) =>
         cells.Value.Find(key.Name).Bind(static held => held is T typed ? Some(typed) : Option<T>.None);
 
-    // Fail-soft ONLY against the untyped control leg: the platform write-back hands `object?`, so a slot
-    // holding a foreign shape answers the caller's own fallback rather than faulting the re-materialize.
     public T Read<T>(SlotKey<T> key, T fallback) => Read(key).IfNone(fallback);
 
     public Unit Write<T>(SlotKey<T> key, T value) => WriteRaw(key.Name, value);
 
     internal Option<object?> ReadRaw(string key) => cells.Value.Find(key);
 
-    // The property raise IS the re-projection edge `ScreenOps.Wire` throttles; the swap captures the retired
-    // value so an unchanged write raises nothing and a no-op edit never re-enters the throttle.
     internal Unit WriteRaw(string key, object? value) {
         Option<object?> retired = None;
         ignore(cells.Swap(held => {
@@ -199,9 +172,6 @@ public sealed partial class ProductScreen : ReactiveObject, IActivatableViewMode
         new(Row.Key, Surface, Seq<string>(), 0d, None, Set<string>(), None, Runtime.Clock.GetCurrentInstant());
 }
 
-// The product roster. Every key is a const because the same string is the route key, the dock id, the
-// automation name, the locale stem, and the proof name — one declaration, five readers. Five keys are HAND
-// literals because their screens are declared here; the rest derive from their owning surface's const.
 public static class ScreenRoster {
     public const string Settings = "settings";
     public const string Shortcuts = "shortcuts";
@@ -216,28 +186,17 @@ public static class ScreenRoster {
 
     public static Fin<ScreenCatalog> Product(ConsumptionProfile profile, ScreenComposition composition) =>
         ScreenCatalog.Freeze(profile,
-            // Settings and shortcuts seat on the modal-editor topology (`Shell/dialogs` `DialogIntent.Layer` on `OverlayShape.Editor`),
-            // so neither owns a root, a registration, or a teardown.
             Seat(Settings, ProofLane.Headless, Anywhere, composition, SettingsSurface.Program(composition)),
             Seat(Shortcuts, ProofLane.Headless, Anywhere, composition, ShortcutProgram(composition)),
-            // The timeline body is `Editing/history`'s own projection; this row carries the seating alone.
             Seat(History, ProofLane.Headless, Anywhere, composition,
                 ScreenProgram.Of(History, screen => screen.Composition.Timeline(screen.Surface).Body(screen.Composition.Window))),
             Seat(FirstRun, ProofLane.Headless, Anywhere, composition, ProductPrograms.FirstRun(composition)),
             Seat(Landing, ProofLane.Headless, Anywhere, composition, ProductPrograms.Landing(composition)),
-            // The report is INTERACTIVE: its body is a consent gate over real bundle bytes, and a headless
-            // cell rendering it would exercise a consent nobody gave against a redactor nobody ran.
             Seat(Report, ProofLane.Interactive, Windowed, composition, ProductPrograms.Report(composition)),
-            // Interactive for the same reason DiffSurface is: the body renders live presence over the co-edit transport.
             Seat(PresenterStrip.SessionKey, ProofLane.Interactive, Windowed, composition, PresenterStrip.Program(composition)),
             Seat(Queue, ProofLane.Headless, Anywhere, composition, RunQueueSurface.Program(composition)),
-            // The analysis plane's screens seat here because the catalog IS the route index, the dock roster,
-            // and the proof roster — a screen registered anywhere else is reachable by chord and unreachable
-            // by deep link.
             Seat(LayerStack, ProofLane.Headless, Anywhere, composition, AnalysisLayers.Program(composition)),
             Seat(CompareGrid, ProofLane.Headless, Anywhere, composition, CompareBoard.Program(composition)),
-            // The compare SESSION is interactive: its body renders two live document panes over the co-edit
-            // transport, and a headless cell would exercise a merge authority nothing had connected.
             Seat(CompareSession, ProofLane.Interactive, Windowed, composition, DiffSurface.Program(composition)));
 
     static ScreenCatalogRow Seat(
@@ -249,17 +208,12 @@ public static class ScreenRoster {
         new(key, composition.Label, proof, surface,
             (row, mounted) => new ProductScreen(row, mounted, composition, program));
 
-    // The offscreen mount admits unconditionally on every headless-lane row, because that mount IS the
-    // proof cell; `Freeze` seals the contradiction a refusing predicate declares.
     static bool Anywhere(ConsumptionProfile profile, SurfaceMount mount) =>
         mount is SurfaceMount.Offscreen || profile.Surface != HostSurface.None;
 
     static bool Windowed(ConsumptionProfile profile, SurfaceMount mount) =>
         profile.Surface == HostSurface.Windowed && mount is SurfaceMount.Standalone or SurfaceMount.Companion;
 
-    // The shortcut editor's body: deck-projected rows with each chord as a static chip raising the CAPTURE
-    // verb. The capture control itself is `Shell/commands`' own boundary capsule — the body names the verb
-    // and the editor owns the cell.
     static ScreenProgram ShortcutProgram(ScreenComposition composition) =>
         ScreenProgram.Of(Shortcuts, screen => new ControlIntent.Panel(
             Shortcuts,
@@ -291,8 +245,6 @@ public static class ScreenRoster {
 - Boundary: `ProductScreen` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, disposal registration, and the error-info edge raise carry language-owned statement forms — and `ScreenLifetimes` is the second named capsule because a per-control lifetime table is retained mutable host state keyed weakly on the control (the pool's `Release` must drop exactly the parked control's bindings before `Rebind` re-attaches while the whole table still dies with the screen; a flat composite answers only the second half, which is what let a recycled cell carry its predecessor's value binding). `ViewModelActivator` ref-counts through `Interlocked`, so activation fires only on the zero-to-one edge; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns. The drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`. `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals. The activation count fires inside the `WhenActivated` scope body and the suspension count on the one `Suspend(trigger)` verb every driver routes through, so each instrument has exactly one producer; each write spells the slot its own `InstrumentSpec` declared, so the declared `Dimensions` and the spelled tag key are one vocabulary.
 
 ```csharp signature
-// Count carries the surface plane's own column shape — the mounted instrument ROW beside the optional
-// (slot, value) dimension pair — so no activation body, disposal arm, or drain row touches a meter.
 public sealed record ScreenRuntime(
     MonotonicTimeline Line,
     IClock Clock,
@@ -322,8 +274,6 @@ public sealed partial class ProductScreen {
         return new CompositeDisposable(phased, sighted);
     }
 
-    // The trigger names the source on BOTH the fault fold and the suspension count; the count is the
-    // suspension REQUEST, because the activator's ref-count edge is not observable from Deactivate.
     public IO<Unit> Suspend(string trigger) =>
         this.Checkpoint()
             .Bind(_ => IO.lift(fun(() => Activator.Deactivate())))
@@ -334,7 +284,6 @@ public sealed partial class ProductScreen {
 
     internal Unit Commit(ScreenIncident failure) => ignore(Fault = Some(failure));
 
-    // Scope IS the zero-to-one edge: WhenActivated runs this body only when the ref count rises from zero.
     private IEnumerable<IDisposable> Scope() {
         Runtime.Line.Capture(ScreenOp).Match(
             Succ: stamp => ignore(mark = Some(stamp)),
@@ -346,8 +295,6 @@ public sealed partial class ProductScreen {
             ignore(Run("checkpoint", this.Checkpoint().Bind(_ => DisposedEvidence(wired.Count + 1))))));
     }
 
-    // The active span is MEASURED or absent: a failed capture or elapsed read faults the runner and emits no
-    // disposal evidence, because a zero no timeline measured would bill and render as a real span.
     private IO<Unit> DisposedEvidence(int disposables) =>
         IO.lift(() =>
                 from start in mark.ToFin(Fail: (Error)new ScreenFault.Rejected("dispose", "activation was never marked"))
@@ -358,14 +305,12 @@ public sealed partial class ProductScreen {
                 Succ: span => Runtime.Disposed(Row.Key, span, disposables),
                 Fail: IO.fail<Unit>));
 
-    // The screen operation is the sole thrown-exception capture edge; an existing failed `Fin` crosses whole.
     internal Unit Run(string source, IO<Unit> effect) =>
         ScreenOp.Catch(() => effect.Run()).Match(
             Succ: static _ => unit,
             Fail: failure => Commit(new ScreenIncident(Row.Key, failure, Runtime.Clock.GetCurrentInstant(), source)));
 }
 
-// The per-control lifetime table the materialize context's `Own` and `Release` columns read.
 public sealed class ScreenLifetimes : IDisposable {
     private readonly ConditionalWeakTable<Control, CompositeDisposable> owned = new();
 
@@ -401,7 +346,7 @@ public sealed class ScreenLifetimes : IDisposable {
 - Boundary: semantic screen refusals derive their sealed code from `[FaultCase]`; command and pipeline exceptions retain their original exception as `Error` cause. Per-control exception handling is the deleted pattern — `Fault` is the single screen failure surface, and the error dialog row and evidence stream consume it through composition-bound delegates. The `IScheduler` parameter arrives from the surface scheduler boundary and applies once per pipeline; `Calm` pins the operator order — distinct before throttle — so burst sources collapse before pacing.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 
 
@@ -437,7 +382,7 @@ public abstract partial record ScreenFault : Fault {
 
 public readonly record struct ScreenIncident(string ScreenId, Error Evidence, Instant At, string Source);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class ScreenOps {
     extension(ProductScreen screen) {
@@ -464,12 +409,8 @@ public static partial class ScreenOps {
 - Boundary: the lift is the single validation vocabulary — a second rule rail beside `Validation<Error,T>` is the rejected form, and domain factories keep emitting the typed rail untouched (the external view-model aggregator type-loads against nothing — RULINGS `[01]` — so the inbox `INotifyDataErrorInfo` contract is the one adorner channel). A slot is claimed exactly once through a GUARDED transition — a second claim answers `Refused` and seals `SlotClaimed` rather than shadowing the first — and a rule's registration is a subscription with a lifetime, so a mode shift disposes and re-registers. Text crosses as the WHOLE accumulated failure sequence, because rendering the head alone costs the operator a round trip per rule. The cross slot carries the empty property name the error-info contract reserves for entity-level errors, so a cross-field invariant reaches the platform's own entity adorner and `Gate` reads every row including it. `FieldErrors` and `GetErrors` are ONE read at two altitudes — the observable for a screen-composed adorner stream and the synchronous contract for the framework's binding plugin.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The rule target. The member expression IS the slot name, so a renamed property breaks its rule at compile
-// time; the CROSS slot carries the empty name the error-info contract reserves for entity-level errors. The
-// empty string is a MEANINGFUL value here, so a non-empty guard would refuse the contract's own coordinate —
-// which is why this stays a bare record struct rather than a validated value object.
 public readonly record struct AdmissionSlot(string Property) {
     public static readonly AdmissionSlot Cross = new(string.Empty);
 
@@ -481,20 +422,16 @@ public readonly record struct AdmissionSlot(string Property) {
             : Fin<AdmissionSlot>.Fail(new ScreenFault.Rejected(property.ToString(), "admission target is not a property member"));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Validity is the ABSENCE of text rather than a second column, so a row cannot claim valid while carrying a
-// message; the sequence is the whole accumulated failure set the applicative produced.
 public readonly record struct AdmissionRow(AdmissionSlot Slot, Seq<string> Text) {
     public bool Valid => Text.IsEmpty;
 }
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Seating, retirement, and the error-info edge write ONE atom, so the observable a gate reads and the
-// synchronous answer the framework's binding plugin reads are the same map at the same instant.
 public sealed partial class ProductScreen {
     private readonly Atom<HashMap<AdmissionSlot, AdmissionRow>> admitted = Atom(HashMap<AdmissionSlot, AdmissionRow>());
     private readonly Subject<HashMap<AdmissionSlot, AdmissionRow>> admissions = new();
@@ -506,16 +443,11 @@ public sealed partial class ProductScreen {
 
     public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
-    // The platform contract is string-typed, so the row's own text sequence IS what crosses; a name the map
-    // never seated answers empty rather than null, which keeps the adorner from painting an error state for
-    // a control carrying no rule at all.
     public IEnumerable GetErrors(string? propertyName) =>
         admitted.Value.Find(new AdmissionSlot(propertyName ?? string.Empty))
             .Map(static row => (IEnumerable)row.Text)
             .IfNone(Seq<string>());
 
-    // Claim is a GUARDED transition: contains-check and seat land in one step, so two concurrent claims for
-    // one slot resolve at the cell and the loser reads its refusal on the rail rather than shadowing.
     internal Fin<IDisposable> Claim(AdmissionSlot slot, IObservable<Seq<string>> text) =>
         Cell.Step(
             cell: admitted,
@@ -536,8 +468,6 @@ public sealed partial class ProductScreen {
 }
 
 public static partial class ScreenOps {
-    // The one projection from the typed rail onto slot text: a success crosses as the EMPTY sequence, so no
-    // reader tests a sentinel to learn whether the slot admits.
     public static IObservable<Seq<string>> Text<TValue>(IObservable<Validation<Error, TValue>> admissions) =>
         admissions.Select(static outcome => outcome.Match(
             Succ: static _ => Seq<string>(),
@@ -550,8 +480,6 @@ public static partial class ScreenOps {
         public Fin<IDisposable> AdmitCross<TValue>(IObservable<Validation<Error, TValue>> admissions) =>
             screen.Claim(AdmissionSlot.Cross, Text(admissions));
 
-        // Every row including the cross row, so a cross-field invariant gates the submit verb exactly as a
-        // field rule does.
         public IObservable<bool> Gate() =>
             screen.Admissions.Select(static rows => rows.Values.ForAll(static row => row.Valid)).DistinctUntilChanged();
 
@@ -574,8 +502,6 @@ public static partial class ScreenOps {
 - Boundary: persistence crosses only through `ScreenStatePolicy` delegates bound at composition to the Persistence snapshot vocabulary — no store type enters the fences, and both legs carry the SEALED BLOB so the port moves bytes under a partition key while the shape question stays whole at the seal. Rehydrate raises NO refusal: an oversize, unreadable, foreign-generation, or unadmitted parcel seeds the live snapshot and the screen opens on what it already is, which is the first-run answer reached without a second arm — so a screen-state refusal case has no producer and no spelling. Composition binds `Admit` as the seal's admission arrow, accumulating inside the delegate and landing as one `Error.Many` the seal reads as a refusal. Encoding is the half that answers a rail, and its refusal lands on the incident cell every other screen failure reaches. Surface identity is the `Shell/navigation` `SurfaceKey` VALUE and never text a screen composed; the restore ORDER is the navigation page's law and this carrier is third in it, after the dock graph materializes the surfaces and after float rectangles clamp; `Merge` keeps live rows authoritative for existence while persisted filter, scroll, expansion, and selection survive the `alive` prune; a second suspension driver beside the checkpoint law is the rejected form. Structural equality nothing compares is not declared: no consumer compares two snapshots, so a `[Equatable]` member algebra here would be decorative and is refused by name.
 
 ```csharp signature
-// Both legs carry the SEALED BLOB, so the port moves bytes under a partition key and the shape question stays
-// whole at the seal — a port handing back a decoded row would leave the generation compare with no seat.
 public sealed record ScreenStatePolicy(
     Func<string, SurfaceKey, IO<Option<string>>> Load,
     Func<ScreenState, Fin<ScreenState>> Admit,
@@ -588,13 +514,8 @@ public sealed record ScreenState(
     double Scroll,
     Option<string> Filter,
     Set<string> Expansion,
-    // The canvas transform a screen-hosted `PanZoomRow` canvas exports, held as the control's own opaque
-    // `ZoomBorderState` text rather than a matrix this record would keep in step with the package's algebra;
-    // a camera is PER-VIEWER, so it snapshots with the screen and never with the co-edited document.
     Option<string> Canvas,
     Instant At) {
-    // Screen state DISCARDS: every column it keeps — selection, scroll, filter, expansion, canvas — the live
-    // screen re-derives, so a refused parcel leaves nothing a person could recover that the screen lacks.
     public static readonly StateSeal Seal = StateSeal.Of("shell", "screen", generation: 2, StateResidue.Discard);
 
     public static ScreenState Merge(ScreenState persisted, ScreenState live, Func<string, bool> alive) =>
@@ -603,16 +524,12 @@ public sealed record ScreenState(
             Scroll = persisted.Scroll,
             Filter = persisted.Filter,
             Expansion = persisted.Expansion.Filter(alive),
-            // The canvas column restores WHOLE or not at all: a partially applied transform is a viewport
-            // nobody chose, and the control's own import refuses text it cannot parse.
             Canvas = persisted.Canvas,
         };
 }
 
 public static partial class ScreenOps {
     extension(ProductScreen screen) {
-        // Refused parcels seed the LIVE snapshot, so `Merge` folds the screen onto itself and the screen opens
-        // on what it already is — the same answer a first run gives, reached without a refusal arm.
         public IO<Unit> Rehydrate() =>
             screen.Runtime.State.Load(screen.Row.Key, screen.Surface)
                 .Map(found => found
@@ -624,8 +541,6 @@ public static partial class ScreenOps {
                     })
                     .IfNone(unit));
 
-        // Encoding is the ONE half that refuses, and it lands on the incident cell every other screen failure
-        // reaches rather than on a rail this call site has no reader for.
         public IO<Unit> Checkpoint() =>
             ScreenState.Seal.Write(screen.Snapshot()).Match(
                 Succ: blob => screen.Runtime.State.Persist(screen.Row.Key, screen.Surface, blob),
@@ -664,19 +579,14 @@ flowchart LR
 - Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — the per-screen compiled-XAML view class is the deleted body form, so `ControlFactory` is the only materialization path; `ScreenSeams` carries EXACTLY the columns the `Shell/controls` context table marks as deferred to a sibling owner or the host, and the screen supplies the remaining four itself — the value channel over its own named slots, the two ownership columns off `ScreenLifetimes`, and the interior receipt evidence sink — so a column added there lands here as one more pass-through; the value bridge resolves the intent's `ValueKey` against a NAMED slot and refuses an unregistered key on the `Fin` rail, while the control-to-screen leg distincts before writing because the seat leg has just written the same value; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges; control recycling rides the `RecycleScope` pool, and `Compose` hands root and pool back as ONE `ScreenBody` so the activation scope releases them together; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Read and write are the screen's OWN accessors, so a two-thumb range binds two slots through the same
-// column that binds a text field, and the change stream is the screen's own edge rather than a
-// property-path subscription built by reflection.
 public sealed record ValueSlot(Func<object?> Read, Func<object?, Unit> Write, IObservable<Unit> Changed);
 
 public sealed record ScreenBody(Control Root, RecycleScope Recycle);
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// The sibling-owner and host arrows a screen cannot construct, in the order the `Shell/controls`
-// context-column table declares them. Composition binds this record once per surface.
 public sealed record ScreenSeams(
     Func<string, Option<ICommand>> Command,
     Func<ControlSkin, Option<ControlTheme>> Skin,
@@ -692,20 +602,16 @@ public sealed record ScreenSeams(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class ScreenOps {
     extension(ProductScreen screen) {
-        // StartWith AFTER the throttle keeps the mount emission immediate while property bursts still
-        // collapse to one re-materialize.
         public IObservable<ControlIntent> Wire(IScheduler scheduler) =>
             screen.Changed.Select(static _ => unit)
                 .Throttle(screen.Runtime.Throttle.ToTimeSpan(), scheduler)
                 .StartWith(unit)
                 .Select(_ => screen.Body());
 
-        // The context is the seams PLUS the four columns no sibling owner can answer, so the fold is a seat
-        // rather than a translation.
         public MaterializeContext Context(ScreenSeams seams) =>
             new(seams.Command, seams.Skin, seams.Label, seams.Icon, seams.Options, seams.Window,
                 seams.Overview, seams.Layout, seams.Gesture,
@@ -716,9 +622,6 @@ public static partial class ScreenOps {
                 Evidence: seams.Evidence,
                 Line: screen.Runtime.Line);
 
-        // The seat leg replays at subscription so a materialized control opens carrying the screen's current
-        // value; the write-back leg distincts because the seat just wrote that same value — an undistincted
-        // pair oscillates on every edge and re-enters the throttle that drove the materialize.
         public Fin<IDisposable> Channel(string key, Control control, AvaloniaProperty slot) =>
             screen.Values.Find(key)
                 .ToFin(new ScreenFault.Rejected(key, "no value slot"))
@@ -726,9 +629,6 @@ public static partial class ScreenOps {
                     cell.Changed.StartWith(unit).Subscribe(_ => ignore(control.SetValue(slot, cell.Read()))),
                     control.GetObservable(slot).DistinctUntilChanged().Subscribe(value => ignore(cell.Write(value)))));
 
-        // Root and pool travel as ONE value, because the activation scope must release the pool with the
-        // root it filled: teardown drains the scope and disposes the drained roster, so the pool never
-        // outlives the tree it served. The scope's required rack cap is the mount composer's to supply.
         public Fin<ScreenBody> Compose(ControlIntent intent, MaterializeContext context, RecycleScope recycle) =>
             MaterializePool.Realize(intent, context, recycle).Map(root => new ScreenBody(root, recycle));
     }
@@ -747,12 +647,8 @@ public static partial class ScreenOps {
 - Boundary: this surface RENDERS and never writes — every mutation goes back through the registering owner's own swap capsule, so the outcome is the owners' own `ReloadOutcome` and a rejected write keeps prior values live. The registry is a projection of the schema engine and mints NO form machinery: sections are `FormSection` rows, fields `FormField` rows, planning `FormSurface.Plan`, bodies `FormSurface.Panel` — a settings-only control path or validation rail is unspellable here. The rail is DESKTOP CHROME rather than a body member: `Body` emits the sections alone, and the desktop capsule seats `FormChrome.Rail` beside them over the same scroll region. PROVENANCE is a scope, never an origin: the form's own `ValueOrigin` answers whether a value was authored; the scope answers WHICH writer set it — the fact a reset verb needs — and rides the row's own live read because a field's scope moves when an administrator lands a policy. SEARCH narrows on three axes because a substring can express none of the other two: the section term cuts before the field projection, the scope term after it (scope is a live read), and the modified term is the form filter's own facet. RESET routes through `FormSchema.Seat`, so a default the policy's own admission now refuses — a variant key the theme stopped shipping — refuses at reset exactly as at edit; a field whose defaults carry no value accumulates its own refusal rather than silently succeeding at nothing.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The writer that SET a value; provenance cannot be read off the value. `Resettable` is a genuine column —
-// it does not follow rank (Default false, User true, Workspace true, Machine false), because a machine
-// policy has no local write to undo. `Rank` orders the effective read: highest-ranked scope carrying a
-// value wins.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -771,12 +667,6 @@ public sealed partial class SettingScope {
     public string Badge => LocaleStrings.Key(nameof(SettingScope), Key);
 }
 
-// The scoped query grammar: bare terms match label and key through the form filter's own culture-aware
-// comparison; `section:` and `source:` narrow on axes a substring can never express; `modified` is the form
-// owner's own facet, carried AS the facet so this page holds no second modification test. ONE parse, so a
-// typed query and a chip click land on one value. The parse is TOTAL by design — a half-typed query is the
-// ordinary state of a live search box — so the railed `[ObjectFactory]` admission has nothing to refuse and
-// factory generation is declined by name.
 public readonly record struct SettingsQuery(string Terms, Option<string> Section, Option<SettingScope> Scope, FilterFacet Facet) {
     public const string SectionTerm = "section";
     public const string SourceTerm = "source";
@@ -786,8 +676,6 @@ public readonly record struct SettingsQuery(string Terms, Option<string> Section
 
     public FormFilter Filter => new(Terms, Facet);
 
-    // An unresolvable source term drops to None rather than refusing, because refusing a half-typed query
-    // would blank the surface between keystrokes.
     public static SettingsQuery Parse(string raw) =>
         toSeq(raw.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             .Fold(Open, static (query, token) => token.Split(':', 2) switch {
@@ -798,10 +686,8 @@ public readonly record struct SettingsQuery(string Terms, Option<string> Section
             });
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One persisted policy owner's registration. `Read` and `Scopes` are ARROWS because both move when an
-// administrator lands a policy or another process writes through the op-log cursor.
 public sealed record SettingsRow(
     string Section,
     string LabelKey,
@@ -812,8 +698,6 @@ public sealed record SettingsRow(
     Func<FormState, IO<ReloadOutcome>> Apply);
 
 public sealed record SettingsRegistry(Seq<SettingsRow> Rows) {
-    // Two rows on one section would render that section twice and race each other's swap capsule; the
-    // refusal names every offender in one pass.
     public static Fin<SettingsRegistry> Freeze(params ReadOnlySpan<SettingsRow> rows) {
         Seq<SettingsRow> seated = toSeq(rows.ToArray());
         Seq<string> duplicated = toSeq(seated.Map(static row => row.Section).AsEnumerable()
@@ -829,13 +713,11 @@ public sealed record SettingsRegistry(Seq<SettingsRow> Rows) {
         Rows.Find(row => StringComparer.Ordinal.Equals(row.Section, section));
 }
 
-// The projection one section renders: its row, its planned sections, and the live scope map, so the badge a
-// field wears and the reset verb it offers read one answer taken at one instant.
 public sealed record SettingsPlan(SettingsRow Row, Seq<SectionPlan> Sections, HashMap<string, SettingScope> Scopes);
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class SettingsSurface {
     public static readonly SlotKey<string> Search = new("settings.search");
@@ -843,16 +725,12 @@ public static class SettingsSurface {
     public const string ResetRowVerb = "settings.reset.row";
     public const string ResetSectionVerb = "settings.reset.section";
 
-    // Search paces on the runtime throttle, so the one place a pacing duration is decided is the motion
-    // timing row and this surface carries no debounce literal.
     public static IObservable<SettingsQuery> Queries(IObservable<string> typed, ScreenRuntime runtime, IScheduler scheduler) =>
         typed.DistinctUntilChanged()
             .Throttle(runtime.Throttle.ToTimeSpan(), scheduler)
             .Select(SettingsQuery.Parse)
             .StartWith(SettingsQuery.Open);
 
-    // Three cuts in declaration order, each on the axis it alone can answer; a section emptied by any cut
-    // drops whole, so search reads as a shorter surface rather than a page of empty headings.
     public static Seq<SettingsPlan> Plan(SettingsRegistry registry, SettingsQuery query, ResolvedLocale locale) =>
         registry.Rows
             .Filter(row => query.Section.Map(term => StringComparer.OrdinalIgnoreCase.Equals(row.Section, term)).IfNone(true))
@@ -870,10 +748,6 @@ public static class SettingsSurface {
                 .Filter(static section => !section.Fields.IsEmpty),
             None: () => plan.Sections);
 
-    // ONE reset fold, two argument sets: a row verb passes one key and a section verb the section's whole
-    // roster. Fields are INDEPENDENT edits on one state, so the fold seats every default it can and
-    // ACCUMULATES every refusal — a default the admission rejects and a field whose defaults carry no value
-    // both name themselves, and neither silently succeeds at nothing.
     public static Validation<Error, FormState> Reset(SettingsRow row, Seq<string> fields, ResolvedLocale locale) {
         (FormState State, Seq<Error> Errors) folded = fields.Fold(
             (State: row.Read(), Errors: Seq<Error>()),
@@ -887,16 +761,12 @@ public static class SettingsSurface {
             : Validation<Error, FormState>.Fail(folded.Errors);
     }
 
-    // Apply is the OWNER'S capsule and this surface only hands the candidate over.
     public static IO<ReloadOutcome> Commit(SettingsRow row, Validation<Error, FormState> candidate) =>
         candidate.Match(
             Succ: row.Apply,
             Fail: errors => IO.pure<ReloadOutcome>(new ReloadOutcome.Rejected(
                 row.Section, new ConfigError.BindRejected(row.Section, errors))));
 
-    // The body is the search field over the section panels and nothing else; the anchor rail is the form
-    // chrome capsule's scroll-spy, seated by the desktop capsule, so a head with no form mechanism receives
-    // the whole tree and scrolls it.
     public static ControlIntent Body(Seq<SettingsPlan> plan, ResolvedLocale locale) =>
         new ControlIntent.Panel(
             ScreenRoster.Settings,
@@ -911,9 +781,6 @@ public static class SettingsSurface {
             Multiline: false,
             IntentBinding.Of(PaintRole.Panel) with { ValueKey = Some(Search.Name), Trigger = Some(ControlTrigger.Change) });
 
-    // Search text is the one cell this surface owns; the query text survives a checkpoint because an
-    // operator who scrolled a filtered surface, docked it away, and came back to an unfiltered one has lost
-    // the narrowing they built.
     public static ScreenProgram Program(ScreenComposition composition) =>
         ScreenProgram.Of(ScreenRoster.Settings,
                 screen => Body(Plan(composition.Settings, SettingsQuery.Parse(screen.Read(Search, string.Empty)), composition.Locale), composition.Locale))
@@ -923,8 +790,6 @@ public static class SettingsSurface {
                     static (screen, merged) => screen.Write(Search, merged.Filter.IfNone(string.Empty))),
             };
 
-    // The rail reads the SAME plan the sections rendered from, so a section the search cut has no rail
-    // entry and the two can never disagree about what the surface contains.
     public static Control Rail(Seq<SettingsPlan> plan, ScrollViewer region, ResolvedLocale locale) =>
         FormChrome.Rail(plan.Bind(static seated => seated.Sections), region, locale);
 }
@@ -941,11 +806,8 @@ public static class SettingsSurface {
 - Boundary: first run is a FACT, never a preference — `LayoutLedger.Restore` answering an empty restore-fact sequence is the whole condition; the crash OFFER is the layout ledger's own verdict, so this surface reads a decision and never re-derives one from a marker file. Save-state honesty is a UNION minted once at the boundary: a recovery blob rides its own arm, so "recoverable without a blob" is unspellable and a recovered document reaches the operator as a verb on the row, never an automatic restore that would replace a saved document. Coach marks are PREDICATE-completed rather than counted — an operator who discovered the feature unaided never sees the mark — and the dismiss-forever verb writes a key into the dismissal set rather than deleting the row, so a profile reset restores the teaching sequence; anchors name catalog keys, and an unresolvable anchor drops the row rather than floating a bubble over nothing. The report is CONSENT-BEARING per member: an unconsented member never reaches the capture, and the capture is AppHost's `SupportCapture` fold — this surface assembles no archive, spells no manifest, and never reads a produced payload back.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Three independent boundary facts, ONE honest union: the recovery blob and the autosave stamp ride their
-// own arms, so a caption, its ink, and its verb derive from one value and an illegal composite — a recovery
-// claim with no blob, an autosave badge with no stamp — is unspellable.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SaveState {
     private SaveState() { }
@@ -960,8 +822,6 @@ public abstract partial record SaveState {
     public static SaveState Autosaved(Instant at) => new AutosavedCase(at);
     public static SaveState Recoverable(string blob) => new RecoverableCase(blob);
 
-    // Recovery outranks everything (a blob means a prior session ended without writing), then dirtiness,
-    // then the autosave stamp, which is reassurance rather than a call to act.
     public static SaveState Of(bool dirty, Option<Instant> autosaved, Option<string> recovery) =>
         recovery.Match(
             Some: Recoverable,
@@ -988,11 +848,8 @@ public abstract partial record SaveState {
     public string Badge => LocaleStrings.Key(nameof(SaveState), Kind);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The bound product facts. Each is an ARROW because every one of them moves — a restore fact set is decided
-// at boot, an MRU roster changes on every open, the crash offer clears the moment it is answered. `Mounted`
-// answers whether a chrome anchor resolves on THIS profile, bound at the root where the catalog exists.
 public sealed record ProductSeams(
     Func<Seq<RouteRestoreFact>> Restored,
     Func<Seq<SampleRow>> Samples,
@@ -1006,18 +863,12 @@ public sealed record ProductSeams(
 
 public sealed record SampleRow(string Key, string LabelKey, string BodyKey, string OpenIntent);
 
-// The MRU row: ONE state column minted at the boundary, so the chip a row wears and the verb it offers
-// read one value.
 public sealed record RecentRow(string DocKey, string LabelKey, Instant Opened, SaveState State);
 
-// The facts a completion predicate reads. One value rather than a delegate per row, so a coach roster is
-// data a proof lane can drive and every predicate reads the same snapshot at the same instant.
 public readonly record struct CoachFacts(Set<string> UsedIntents, Set<string> VisitedRoutes, int DocumentsOpened);
 
 public sealed record CoachRow(string Key, string Anchor, string BodyKey, Func<CoachFacts, bool> Completed, int Rank);
 
-// One consent row over one declared artifact. Classification and estimate are the CONTRIBUTOR'S own
-// columns, so what the operator consents to and what the capture stages are one row.
 public sealed record ReportMember(string Package, SupportArtifact Artifact, bool Consented) {
     public DataClassification Classification => Artifact.Classification;
 
@@ -1026,13 +877,11 @@ public sealed record ReportMember(string Package, SupportArtifact Artifact, bool
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class CoachMarks {
     public const string DismissVerb = "coach.dismiss";
 
-    // The teaching roster: anchors are catalog keys this page owns, and each completion predicate reads the
-    // fact that proves the feature was found unaided.
     public static readonly Seq<CoachRow> Rows = Seq(
         new CoachRow("coach.shortcuts", ScreenRoster.Shortcuts, "coach.shortcuts.body",
             static facts => facts.VisitedRoutes.Contains(ScreenRoster.Shortcuts), 0),
@@ -1041,14 +890,10 @@ public static class CoachMarks {
         new CoachRow("coach.open", ScreenRoster.Landing, "coach.open.body",
             static facts => facts.DocumentsOpened > 0, 2));
 
-    // Due rows are undiscovered AND mounted, ordered by rank so a surface never floats two bubbles
-    // competing for attention; a dismissal writes into the set rather than deleting the row.
     public static Seq<CoachRow> Due(Seq<CoachRow> rows, CoachFacts facts, Set<string> dismissed, Func<string, bool> mounted) =>
         toSeq(rows.Filter(row => !dismissed.Contains(row.Key) && !row.Completed(facts) && mounted(row.Anchor))
             .OrderBy(static row => row.Rank));
 
-    // A mark is a tooltip body attached to its anchor plus the one dismissal verb, so it materializes
-    // through the same hint column every gesture affordance uses and no bubble control is minted.
     public static ControlIntent Mark(CoachRow row, ResolvedLocale locale) =>
         new ControlIntent.Tooltip(
             row.Key,
@@ -1061,15 +906,10 @@ public static class FaultReport {
     public const string RestoreVerb = "report.restore";
     public const string DiscardVerb = "report.discard";
 
-    // Consent defaults to the classification's own posture rather than to true — an operational artifact is
-    // pre-consented and anything narrower is opt-in, because a consent dialog that pre-ticks sensitive
-    // payloads is not consent.
     public static Seq<ReportMember> Members(Seq<SupportContributorPort> contributors) =>
         contributors.Bind(port => port.Rows.Map(artifact =>
             new ReportMember(port.Package, artifact, artifact.Classification == DataClassification.Operational)));
 
-    // Only consented members reach the capture, and the capture is AppHost's own fold — redaction and
-    // capping stay where the bundle law already put them.
     public static IO<Fin<ReadOnlyMemory<byte>>> Submit(
         Seq<ReportMember> members, Func<Seq<SupportArtifact>, IO<Fin<ReadOnlyMemory<byte>>>> capture) =>
         members.Filter(static member => member.Consented) switch {
@@ -1078,8 +918,6 @@ public static class FaultReport {
             var consented => capture(consented.Map(static member => member.Artifact)),
         };
 
-    // The offer is the layout ledger's own verdict; the two verbs are the ledger's restore-or-decline
-    // branches rather than a third path that could leave the checkpoint half-applied.
     public static Option<ControlIntent> Offer(Option<LayoutCheckpoint> offered, ResolvedLocale locale) =>
         offered.Map(checkpoint => (ControlIntent)new ControlIntent.Banner(
             $"{ScreenRoster.Report}.offer",
@@ -1096,8 +934,6 @@ public static class FaultReport {
             IntentBinding.Of(PaintRole.Surface)));
 }
 
-// The three seated programs: each is a BODY over live seam reads, and the state carrier persists exactly
-// what an operator would miss — no program invents a cell to look symmetrical.
 public static class ProductPrograms {
     public const string OpenVerb = "product.open";
     public const string SaveVerb = "product.save";
@@ -1105,8 +941,6 @@ public static class ProductPrograms {
 
     public static readonly SlotKey<Seq<string>> Selection = new("landing.selection");
 
-    // First run is the EMPTY-RESTORE fact, so a profile whose checkpoint was pruned lands here exactly as a
-    // new profile does.
     public static ScreenProgram FirstRun(ScreenComposition composition) =>
         ScreenProgram.Of(ScreenRoster.FirstRun, screen => composition.Product.Restored().IsEmpty
             ? new ControlIntent.Panel(
@@ -1122,9 +956,6 @@ public static class ProductPrograms {
                 $"{ScreenRoster.FirstRun}.restored.headline", $"{ScreenRoster.FirstRun}.restored.body",
                 Action: None, IntentBinding.Of(PaintRole.Surface)));
 
-    // The landing: a windowed grid over the MRU rows with the due coach marks beside it — the state chip and
-    // the row's own verb read ONE projection, so a row can never wear a caption whose verb it does not
-    // offer. Selection is the one cell worth checkpointing.
     public static ScreenProgram Landing(ScreenComposition composition) =>
         ScreenProgram.Of(ScreenRoster.Landing, screen => new ControlIntent.Panel(
                 ScreenRoster.Landing,
@@ -1137,8 +968,6 @@ public static class ProductPrograms {
                 State = new StateLens(
                     static screen => screen.Blank() with { Selection = screen.Read(Selection, Seq<string>()) },
                     static (screen, merged) => screen.Write(Selection, merged.Selection)),
-                // Row existence IS knowable here, so a persisted selection naming a project the roster no
-                // longer carries prunes on restore rather than pointing the open verb at nothing.
                 Alive = screen => key => screen.Composition.Product.Recents().Exists(row => StringComparer.Ordinal.Equals(row.DocKey, key)),
             };
 
@@ -1161,16 +990,12 @@ public static class ProductPrograms {
                 TypographyRole.Numeric, IntentBinding.Of(PaintRole.TextMuted) with { ValueKey = Some($"{ScreenRoster.Landing}.cell.opened") }),
             Editor: None, new DataGridLength(1d, DataGridLengthUnitType.Star),
             SortKey: Some(nameof(RecentRow.Opened)), HorizontalAlignment.Right),
-        // The state chip and the verb are one column, because a row whose chip says recoverable and whose
-        // verb says save states two different things about one document.
         new ColumnRow($"{ScreenRoster.Landing}.column.state",
             new ControlIntent.Chip($"{ScreenRoster.Landing}.cell.state", $"{ScreenRoster.Landing}.cell.state",
                 ChipPosture.Static, IntentBinding.Of(PaintRole.TextMuted) with { ValueKey = Some($"{ScreenRoster.Landing}.cell.state") }),
             Editor: None, new DataGridLength(1d, DataGridLengthUnitType.Auto),
             SortKey: None, HorizontalAlignment.Left));
 
-    // The report pairs the ledger's crash verdict with the consent roster, so an operator answering the
-    // recovery question and an operator filing a problem report are on ONE surface reading one set of facts.
     public static ScreenProgram Report(ScreenComposition composition) =>
         ScreenProgram.Of(ScreenRoster.Report, screen => new ControlIntent.Panel(
             ScreenRoster.Report,
@@ -1199,7 +1024,7 @@ public static class ProductPrograms {
 - Boundary: `SurfaceKey` crosses on its three authoritative columns, never as the rendered `Value` string whose slash and instance suffix would need parsing. The wire retains the producer's signed 32-bit representation and validates the ordinal nonnegative, so no wider peer-only identity can arrive. The one generated-tree walk refuses duplicate control keys before collecting container layout references, so value binding, automation, and solved positions never address two controls through one identity. `ScreenMap` resolves layout programs from the container keys already present in the mapped root, so it cannot emit an unused program; every resolved `ConstraintProgram.Panel` must equal the key that requested it, so it cannot emit a mis-keyed program; repeated references collapse before resolution, so one layout surface crosses once. `WireAdmission.Admit` applies the generated nonblank-identity, nonnegative-instance, required-root, unique-layout, structured-variable, and numeric rules at the producer, and TypeScript applies the same descriptor rules before `Panel.surface` proves unique control identity plus reverse layout inclusion — every supplied layout is referenced and every reference supplied — before any solve. The current C# shell carries no runtime transport; a future ProtoJSON egress formats this admitted root through `WireJson.Formatter`. `@rasm\/contracts/rasm/contracts/ui/surface_pb` is the peer binding, with no merged-module alias or leaf wrapper.
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ScreenMap {
     public static Fin<AppUiSurfaceProgram> Emit(
         Op op,
@@ -1240,8 +1065,6 @@ public static class ScreenMap {
             .Bind(wire => WireAdmission.Admit(wire, WireBoundary.OutboundPayload, op));
     }
 
-    // The graph projection runs once per node and answers both products of that walk. A second pass to recover
-    // layout references could drift from the child projection when a generated arm grows.
     private static (Seq<ControlIntentWire> Controls, Seq<string> Layouts) Census(ControlIntentWire node) {
         (Seq<ControlIntentWire> Children, Option<string> Layout) graph = Graph(node);
         Seq<(Seq<ControlIntentWire> Controls, Seq<string> Layouts)> below = graph.Children.Map(Census);

@@ -34,9 +34,6 @@ import { OpenAiTool } from "@effect/ai-openai"
 import { Array, Context, Duration, Effect, FiberSet, Layer, Match, Option, PubSub, Queue, Record, Schema, type Scope, Sink, Stream } from "effect"
 import { Fault } from "@rasm/core"
 
-// Every refusal on this plane names the same two operands — the server it crossed and that server's own diagnostic —
-// because the triage keys on the SDK rejection and the arsenal renders the verdict. What the rows do not share is
-// the sentence, so each renders its own subject and the reason stays the whole discriminant a caller routes on.
 const _LEG = "server"
 const _Subject = Schema.Struct({ detail: Schema.String, server: Schema.NonEmptyString })
 
@@ -130,7 +127,6 @@ declare namespace Safety {
 
 const _hinted = (band: Option.Option<Safety.Band>): Safety.Hints =>
   Option.match(band, {
-    // the absent band and every absent field take the MCP defaults: destructive true, openWorld true — fail-closed falls out of admission
     onNone: (): Safety.Hints => ({ readOnly: false, destructive: true, idempotent: false, openWorld: true }),
     onSome: (hints): Safety.Hints => ({
       readOnly: hints.readOnlyHint === true,
@@ -238,13 +234,6 @@ declare namespace Arsenal {
   type Family = Row["family"]
 }
 
-// A finished provider-executed run lands on the ordinary stop band in every family here, and no family reports the
-// tool-call band for it, so neither fact is a cell — both are laws above. The RESIDUE is what diverges: the extra
-// finish band a family can produce around provider-executed work, which one row reaches through a suspended turn and
-// one through a tool fault the provider resolved into a finish reason rather than into a call. The gate's own finish
-// table owns what each band MEANS; this column only says which family can produce one at all. TRAP: the anthropic and
-// bedrock rows front the same upstream model, but only the anthropic row maps the suspend value — on bedrock it falls
-// through unmapped and reads as an unremarkable finish, so that cell is empty rather than copied from its sibling.
 const _residues = {
   openai: Option.none(),
   anthropic: Option.some("pause" as const),
@@ -324,17 +313,15 @@ const Host = { serve: _serve, confirm: _confirm, artifact: _artifactResource }
 - Growth: a new server is a dial spec value; a new SDK capability (tasks, sampling, roots) is one more member on the `Session` owner beside one handler in the dial scope.
 
 ```typescript signature
-const _UPDATES = 256 // the resource-update channel sheds oldest: a stalled watcher never backpressures the transport's read loop
+const _UPDATES = 256
 
 declare namespace Remote {
   type Spec = {
     readonly name: string
     readonly version: string
-    readonly budget: Fault.Budget.Kind // the row whose attempt deadline bounds one request and whose total deadline bounds the whole call
+    readonly budget: Fault.Budget.Kind
     readonly answer: Option.Option<(ask: typeof McpSchema.Elicit.payloadSchema.Type) => Effect.Effect<typeof McpSchema.ElicitResult.Type, ToolFault>>
     readonly transport:
-      // `ceiling` bounds one stdio frame: the SDK's read buffer holds an unterminated line whole, so the bound is what
-      // stops a runaway local server's stdout growing the client heap — a policy value per server, never the default
       | { readonly kind: "stdio"; readonly command: string; readonly args: ReadonlyArray<string>; readonly ceiling: number }
       | { readonly kind: "http"; readonly url: URL; readonly auth: Option.Option<OAuthClientProvider> }
   }
@@ -367,9 +354,9 @@ declare namespace Remote {
 }
 
 const _bounded = (spec: Remote.Spec, signal: AbortSignal): RequestOptions => ({
-  signal, // the fiber's own interrupt wiring: cancellation crosses the seam instead of abandoning an in-flight request
+  signal,
   timeout: Duration.toMillis(Fault.Budget.at(spec.budget).attempt),
-  resetTimeoutOnProgress: true, // a progress notification IS the heartbeat re-arming the per-attempt clock
+  resetTimeoutOnProgress: true,
   maxTotalTimeout: Duration.toMillis(Fault.Budget.at(spec.budget).total),
 })
 
@@ -381,7 +368,7 @@ const _lifted = (server: string, reason: ToolFault.Reason) => (cause: unknown): 
       new ToolFault({
         case: { reason: fault.code === ErrorCode.RequestTimeout ? "lapsed" : reason, server, detail: fault.message },
       })),
-    Match.orElse((residue) => new ToolFault({ case: { reason, server, detail: String(residue) } })), // instanceOf subtracts nothing, so the open residue earns orElse
+    Match.orElse((residue) => new ToolFault({ case: { reason, server, detail: String(residue) } })),
   )
 
 const _shaped = (server: string) => (fault: unknown): ToolFault =>
@@ -426,16 +413,15 @@ const _session = (spec: Remote.Spec, client: Client, updates: PubSub.PubSub<stri
           Effect.flatMap(admitted(McpSchema.ListResourceTemplatesResult)),
           Effect.map((result) => result.resourceTemplates),
         ),
-      }, { concurrency: 2 }), // two independent censuses: the product, never a bind chain that serializes them
+      }, { concurrency: 2 }),
     watch: (uri) =>
       Stream.unwrapScoped(
-        // the local subscription lands BEFORE the server-side one: an update arriving on the subscribe ack has a reader waiting
         PubSub.subscribe(updates).pipe(
           Effect.zipLeft(Effect.acquireRelease(
             dialed((signal) => client.subscribeResource({ uri }, _bounded(spec, signal))),
             () => Effect.ignore(dialed((signal) => client.unsubscribeResource({ uri }, _bounded(spec, signal)))),
           )),
-          Effect.map((feed) => Stream.filter(Stream.fromQueue(feed), (updated) => updated.startsWith(uri))), // an update may name a sub-resource of the subscribed URI
+          Effect.map((feed) => Stream.filter(Stream.fromQueue(feed), (updated) => updated.startsWith(uri))),
         ),
       ),
     read: (uri) =>
@@ -459,7 +445,7 @@ const _session = (spec: Remote.Spec, client: Client, updates: PubSub.PubSub<stri
 const _dial = (spec: Remote.Spec): Effect.Effect<Remote.Session, ToolFault, Scope.Scope> =>
   Effect.gen(function* () {
     const updates = yield* Effect.acquireRelease(PubSub.sliding<string>(_UPDATES), PubSub.shutdown)
-    const answered = yield* FiberSet.makeRuntimePromise<never>() // the one owned runner for the handler that must reply with a promise
+    const answered = yield* FiberSet.makeRuntimePromise<never>()
     const client = yield* Effect.acquireRelease(
       Effect.sync(() => new Client({ name: spec.name, version: spec.version })),
       (held) => Effect.promise(() => held.close()),
@@ -471,7 +457,7 @@ const _dial = (spec: Remote.Spec): Effect.Effect<Remote.Session, ToolFault, Scop
       onNone: () => Effect.void,
       onSome: (respond) =>
         Effect.sync(() => {
-          client.registerCapabilities({ elicitation: {} }) // declared BEFORE connect or the server never sees the lane
+          client.registerCapabilities({ elicitation: {} })
           client.setRequestHandler(ElicitRequestSchema, (ask) =>
             answered(
               Schema.decodeUnknown(McpSchema.Elicit.payloadSchema)(ask.params).pipe(
@@ -518,7 +504,7 @@ const _tool = <const Name extends string, Fields extends Schema.Struct.Fields, A
 
 const Remote = { dial: _dial, tool: _tool }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Arsenal, Host, Remote, Safety, ToolFault }
 ```

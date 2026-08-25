@@ -67,15 +67,11 @@ const _codecs = Record.map(
   (row) => _codec(row.key, row.bytes, row.wire),
 ) as unknown as _Codecs
 
-// Artifact identity is protocol-fixed rather than caller-selected. Keeping it outside `_kinds` makes it impossible
-// to spend SHA-256 where a semantic content/cache key is required while still reusing the one digest engine owner.
 const _artifactKey = _key("ArtifactSha256", 64)
 const _artifactCodec = _codec(_artifactKey, 32, "lower")
 
 const _text = new TextEncoder()
 
-// One mutable builder is the platform-forced incremental-hasher seam; only detached chunks leave it. The writer
-// owns widths and byte order, while a producer owns semantic field order through a fluent call chain.
 class CanonicalWriter {
   readonly #chunks: Array<Uint8Array> = []
 
@@ -147,7 +143,6 @@ const _hasher = <Kind extends Digest.Kind>(kind: Kind): Effect.Effect<IHasher> =
   Effect.promise(() => _rows[kind].make())
 
 const _walk = (hasher: IHasher, payload: Digest.Payload): string => {
-  // BOUNDARY ADAPTER: IHasher is statement-shaped mutable state; only its detached digest leaves this atomic walk.
   const armed = hasher.init()
   if (Predicate.isUint8Array(payload)) armed.update(payload)
   else for (const chunk of payload) armed.update(chunk)
@@ -222,7 +217,7 @@ declare namespace Digest {
   type Session<Kind extends Digest.Kind = Digest.Kind> = _Session<Kind>
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { ArtifactId, CanonicalWriter, Digest }
 ```

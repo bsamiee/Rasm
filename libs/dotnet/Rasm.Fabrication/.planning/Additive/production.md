@@ -26,7 +26,7 @@ Wire posture: HOST-LOCAL. `BuildJob` and `AdditiveBuild` enter once; `Receipt<Pl
 - Boundary: `ProcessKind`, `KinematicClass`, and `MachineInstance` belong to `Process/family` and `Kinematics/fleet`, and `ObjectiveSense` to the kernel `Rasm/Solving/solver#LM_FUNCTOR` direction vocabulary; this owner composes them and re-declares none.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Text;
 using Lib3MF;
@@ -35,14 +35,14 @@ using LanguageExt.Common;
 using LanguageExt.Traits;
 using NodaTime;
 using QuikGraph;
-using Rasm.Analysis;                            // Analyze, AnalysisQuery
-using Rasm.Domain;                              // ContentHash, Context, Deterministic, Op
-using Rasm.Element.Projection;                  // CanonicalWriter
-using Rasm.Fabrication.Kinematics;              // KinematicClass, MachineInstance, MachineInstanceKey
+using Rasm.Analysis;
+using Rasm.Domain;
+using Rasm.Element.Projection;
+using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Process;
-using Rasm.Fabrication.Verify;                  // Audit, AuditPolicy, AuditEvidence
-using Rasm.Meshing;                             // Chain, Kernels, MeshEdit, MeshSpace, SliceOp, SlicePolicy, SliceStack, Slicing
-using Rasm.Solving;                             // ObjectiveSense
+using Rasm.Fabrication.Verify;
+using Rasm.Meshing;
+using Rasm.Solving;
 using Rhino.Geometry;
 using Riok.Mapperly.Abstractions;
 using Thinktecture;
@@ -51,7 +51,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Additive;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class BuildHead {
     public static readonly BuildHead Extruder = new("extruder");
@@ -72,8 +72,6 @@ public sealed partial class BuildAtmosphere {
     public static readonly BuildAtmosphere Resin = new("resin");
 }
 
-// A track FORM decides which carrier a per-layer column rides, so admission proves the column's declared form
-// against the track case that arrived rather than sniffing the payload.
 [SmartEnum<string>]
 public sealed partial class TrackForm {
     public static readonly TrackForm Scalar = new("scalar");
@@ -81,8 +79,6 @@ public sealed partial class TrackForm {
     public static readonly TrackForm Contour = new("contour");
 }
 
-// The ONE per-layer column vocabulary. Unit is UCUM and rides the row, so a scalar track's numbers carry their
-// basis without a typed quantity entering a `CanonicalWriter` preimage.
 [SmartEnum<string>]
 public sealed partial class LayerChannel {
     public static readonly LayerChannel Exposure = new("exposure", unit: "s", form: TrackForm.Scalar);
@@ -98,8 +94,6 @@ public sealed partial class LayerChannel {
     public TrackForm Form { get; }
 }
 
-// A modality is its channel set plus whether a vector program is structurally required: exposure and extrusion
-// carry their whole per-layer program in the scan plan, so a channel column there would restate it.
 [SmartEnum<string>]
 public sealed partial class BuildProgramKind {
     public static readonly BuildProgramKind Extrusion = new("extrusion", Set<LayerChannel>(), vectors: true);
@@ -131,9 +125,6 @@ public sealed partial class OrientationAxis {
     public string Unit { get; }
 }
 
-// Carriages and atmospheres are SETS because one process runs on several: directed energy deposits from a gantry
-// and from an arm, and it runs inert or ambient depending on the alloy. Recoated and Supported are the axes every
-// downstream capability gate reads, so no consumer mirrors this table under a second name.
 [SmartEnum<string>]
 public sealed partial class AdditiveProcess {
     public static readonly AdditiveProcess FusedFilament = new("fff",
@@ -157,8 +148,6 @@ public sealed partial class AdditiveProcess {
         Set(KinematicClass.ArticulatedArm, KinematicClass.CartesianGantry),
         Set(BuildAtmosphere.Inert, BuildAtmosphere.Ambient), BuildProgramKind.Deposition,
         recoated: false, supported: true);
-    // Recoated and UNSUPPORTED: the surrounding powder cake carries the green part, so no sacrificial support is
-    // built and an unsupported-mass gate keyed to the support family alone never fires on this modality.
     public static readonly AdditiveProcess BinderJet = new("binder",
         ProcessKind.BinderJet, BuildHead.Binder, Set(KinematicClass.CartesianGantry),
         Set(BuildAtmosphere.Inert, BuildAtmosphere.Ambient), BuildProgramKind.Binder,
@@ -167,8 +156,6 @@ public sealed partial class AdditiveProcess {
         ProcessKind.MaterialJet, BuildHead.MaterialJet, Set(KinematicClass.CartesianGantry),
         Set(BuildAtmosphere.Ambient), BuildProgramKind.MaterialJet,
         recoated: false, supported: true);
-    // Neither axis: the uncut sheet surrounds every layer and decubes away, so lamination builds no support and
-    // conditions no spread layer.
     public static readonly AdditiveProcess SheetLamination = new("sheet-lamination",
         ProcessKind.SheetLamination, BuildHead.Laminator, Set(KinematicClass.CartesianGantry),
         Set(BuildAtmosphere.Ambient), BuildProgramKind.Lamination,
@@ -200,16 +187,15 @@ public sealed partial class AdditiveProcess {
 - Boundary: `MachineInstance` and its enabled-process census belong to `Kinematics/fleet`; the profile composes one instance and re-declares no fleet state.
 
 ```csharp signature
-// --- [CONSTANTS] ----------------------------------------------------------------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class Physical {
-    // The one finiteness fold every envelope validator on this page composes.
     public static bool Finite(params ReadOnlySpan<double> values) {
         foreach (double value in values) { if (!double.IsFinite(value)) return false; }
         return true;
     }
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct FeedstockLotKey {
     [BoundaryAdapter]
@@ -314,7 +300,6 @@ public sealed record ThermalEnvelope(Temperature Minimum, Temperature Maximum, T
 public sealed record RecoaterEnvelope(Length Clearance, Speed Traverse, Force MaximumLoad, Length ParticleCeiling);
 public sealed record CalibrationState(ContentKey Key, Instant CalibratedAt, Duration MaximumAge, Ratio PowerDrift);
 
-// A chamber holds a setpoint inside a regulator band; the band is the admitted fact and the setpoint alone is not.
 public sealed record AtmosphereEnvelope(Pressure Setpoint, Pressure Band) {
     public bool Holds(Pressure measured) =>
         Physical.Finite(Setpoint.Pascals, Band.Pascals, measured.Pascals)
@@ -413,29 +398,21 @@ public sealed partial class MachineProfile {
 - Boundary: `PartTransform` is the S0 placement atom and carries `Mirrored`; a mirrored placement is refused at the write seam rather than silently dropped, because a mirrored component inverts every normal the manifold proof just established.
 
 ```csharp signature
-// --- [CONSTANTS] ----------------------------------------------------------------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class AdditivePolicyRows {
-    // Composition fractions are summed over admitted ratios; the band is the accumulated rounding a normalized
-    // table carries, not a physical tolerance.
     public const double CompositionBand = 1e-9;
 
-    // Layer heights are compared against the machine's own resolution step, so the band is a fraction of ONE step
-    // rather than an absolute length that means different things on a 10 um and a 100 um machine.
     public const double ResolutionStepBand = 1e-6;
 
-    // The canonical quantization grid every preimage on this page writes under. Zero would make a preimage carry
-    // raw IEEE bits, so two runs differing below the machine's own resolution would mint two keys.
     public const double CanonicalGridMm = 1e-6;
 
-    // Package segment ceiling — the bounded grammar a metadata key admits through before it becomes a URI segment.
     public const int SegmentCeiling = 64;
 
-    // Decimal precision the 3MF writer admits; the format's own coordinate attribute is a double.
     public const int PrecisionFloor = 1;
     public const int PrecisionCeiling = 17;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BuildPart(
     Guid Identity,
     MeshSpace Model,
@@ -460,9 +437,6 @@ public abstract partial record BuildJob {
         plate: static job => job.Parts);
 }
 
-// This roster names every turn a packer may seat a footprint under. A boolean said only free-or-fixed and never reached the
-// quarter-turn plates a sheet packer actually runs, so the admitted SET is the axis and `Fixed` is the row whose
-// set holds the identity turn alone.
 [SmartEnum<string>]
 public sealed partial class RotationSet {
     public static readonly RotationSet Fixed = new("fixed", Set(Angle.Zero));
@@ -475,8 +449,6 @@ public sealed partial class RotationSet {
 
     public Set<Angle> Turns { get; }
 
-    // `Free` admits any bearing the packer reaches; every other row admits its own roster and nothing else, so a
-    // placement is proved against the axis rather than against a boolean that names no angle.
     public bool Admits(Angle bearing) =>
         this == Free ? double.IsFinite(bearing.Radians) : Turns.Exists(turn => turn.Equals(bearing));
 }
@@ -486,30 +458,22 @@ public sealed record PlatePolicy(
 
 public sealed record PlateDemand(Seq<(string Identity, Loop Footprint)> Parts, PlatePolicy Policy);
 
-// Packers publish their own evidence. Placement keys, plane, and stamp ride `Receipt<PlateLayoutEvidence>`, and the remnant
-// keys the layout produced ride the carrier's `Produced` column rather than a second key list here.
 public sealed record PlateLayoutEvidence(
     Seq<PartTransform> Placements, string Algorithm, string Heuristic,
     Ratio Utilization, Seq<string> Unplaced);
 
 public sealed record RobotBuildDemand(string Part, MeshSpace Model, SliceStack Stack, AdditiveProcess Process);
 
-// NAMED LOSS: a robot port can no longer hand back a SUCCESS carrying its own failures. WITNESS: the port already
-// answers `Fin<RobotEvidence>`, and the artifact gate refused every receipt whose error list was non-empty, so the
-// only state the deleted column could reach was one no consumer ever accepted. Warnings survive as advisory
-// evidence — they are written into the program preimage and never read as a refusal.
 public sealed record RobotEvidence(
     Seq<Arr<double>> Joints, Seq<Plane> Targets, Seq<string> Code,
     Duration Duration, Seq<RunWarning> Warnings);
 
-// --- [SERVICES] -----------------------------------------------------------------------------------------------------------------------------------
-// TWO ports, each a peer capability outside this page's stratum reach. Every remaining algorithm — orientation,
-// slicing composition, support, scan, footprint, bounds, feedstock demand, and scoring — is a member below.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record BuildPorts(
     Func<PlateDemand, Fin<Receipt<PlateLayoutEvidence>>> Pack,
     Func<RobotBuildDemand, Fin<RobotEvidence>> Robot);
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class OrientationWeights {
     public HashMap<OrientationAxis, Ratio> Table { get; }
@@ -532,15 +496,11 @@ public sealed partial class OrientationWeights {
         Validate(table, out OrientationWeights weights).Admitted(weights);
 }
 
-// Each per-layer scalar column is a declared LAW over the stack, so a modality's program has a producer on this
-// page and no caller supplies a column the read-back census then has to trust.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChannelLaw {
     private ChannelLaw() { }
 
     public sealed record Constant(double Value) : ChannelLaw;
-    // The bottom-layer regime every vat and binder process runs: the first N layers take a different value to
-    // anchor the part, and layer N+1 onward take the steady one.
     public sealed record LeadIn(double Value, double LeadInValue, int LeadInLayers) : ChannelLaw;
     public sealed record AreaScaled(double PerSquareMillimetre, double Floor) : ChannelLaw;
 
@@ -561,11 +521,6 @@ public abstract partial record ChannelLaw {
     private static Seq<int> Layers(SliceStack stack) => toSeq(Enumerable.Range(0, stack.LayerCount));
 }
 
-// ONE evaluation instant per build. `AuditPolicy.EvaluatedAt` is the authority because it is the instant every
-// audit-gated lane already stamps from and the only one reachable on the support and scan entries that carry no
-// build at all — NAMED LOSS: a build can no longer state an instant distinct from its own preflight's; WITNESS:
-// `Production.Plan` runs `Audit.Preflight` inside this fold against the same calibration window, so two instants
-// could only ever disagree by one of them being wrong.
 public sealed record AdditiveBuild(
     Guid Build,
     MachineProfile Machine,
@@ -597,7 +552,7 @@ public sealed record AdditiveBuild(
 - Boundary: support generation belongs to `Additive/support`, scan planning to `Additive/scanpath`, and layer-stack pre-flight to `Verify/audit`; this cluster composes all three and regenerates none.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct BuildOrientation(Transform ModelToBuild);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -606,8 +561,6 @@ public abstract partial record OrientationProgram {
 
     public sealed record Fixed(BuildOrientation Value) : OrientationProgram;
     public sealed record Seeded(Seq<BuildOrientation> Values) : OrientationProgram;
-    // The candidate set the GEOMETRY generates. `Cap` bounds it by keeping the directions carrying the most face
-    // area, so the budget selects by contribution rather than by an arbitrary prefix.
     public sealed record Normals(int Cap) : OrientationProgram;
 
     public Fin<Seq<BuildOrientation>> Generate(MeshSpace model) => Switch(
@@ -620,19 +573,11 @@ public abstract partial record OrientationProgram {
             ? Refusal("orientation:cap")
             : Fin.Succ(Candidates(mesh, value.Cap)));
 
-    // The objective is piecewise-constant in normal space: support, overhang, and recoater terms change only when
-    // a face crosses the build-direction threshold, so the directions at which the objective can change are the
-    // mesh's OWN face normals and their antipodes. Scoring that set answers the objective exactly. A polar/azimuth
-    // grid answered it by sampling, and sampled it wrongly — equal-count bands hold shrinking solid angle, so the
-    // grid concentrates candidates at the poles and every score it produced carried the parameterization's bias.
-    // Antipodes ride along because a face is an overhang under one of the two directions its plane admits.
     private static Seq<BuildOrientation> Candidates(MeshSpace model, int cap) =>
         model.Faces
             .Map(face => Facet(model, face))
             .Filter(static facet => facet.Area > 0.0)
             .Bind(static facet => Seq((facet.Normal, facet.Area), (-facet.Normal, facet.Area)))
-            // The kernel's own stateless coordinate key is the dedup and the tie-break: two facets agreeing to the
-            // model tolerance key alike, so the candidate set is order-independent and replays byte-stable.
             .GroupBy(static row => Deterministic.OrderKey(new Point3d(row.Item1)))
             .Map(static group => (Direction: group.Head().Item1, Area: group.Sum(static row => row.Item2)))
             .OrderByDescending(static row => row.Area)
@@ -664,14 +609,8 @@ public sealed record OrientationMeasurement(
     Loop Footprint,
     BoundingBox Bounds);
 
-// One row per axis: the physical measure in the unit the axis declares, and its normalization onto [0, 1]. The
-// measure is OPTIONAL because a modality can genuinely lack a producer for an axis — a binder-jet build runs no
-// exposure and therefore measures no scan energy — and reporting zero there would rank an unmeasured build as the
-// best one on that axis. Absence is the carrier; the weight table decides whether it matters.
 public readonly record struct AxisMeasure(OrientationAxis Axis, Option<double> Physical, Option<Ratio> Normalized);
 
-// The six facts a MACHINE gates rather than an objective scores. They are envelope demands, not objectives, so
-// they carry no weight, no sense, and no normalization.
 public sealed record EnvelopeDemand(
     Power PeakPower,
     Temperature ChamberTemperature,
@@ -683,11 +622,6 @@ public sealed record EnvelopeDemand(
 public sealed record OrientationEvidence(Seq<AxisMeasure> Rows, EnvelopeDemand Demand) {
     public Option<AxisMeasure> Row(OrientationAxis axis) => Rows.Find(row => row.Axis == axis);
 
-    // Normalization is PER AXIS and ACROSS the candidate set. Each axis measures in its own declared unit — support
-    // volume in mm3, height in mm, anisotropy dimensionless — so one span folded over every axis of one candidate
-    // crushes every small-unit axis to a share near zero and the weight table stops deciding anything; and a span
-    // taken inside one candidate makes each candidate its own basis, so two costs are not comparable at all. The
-    // widest magnitude ANY candidate reached on an axis is the one basis that answers both.
     public static HashMap<OrientationAxis, double> Spans(Seq<OrientationEvidence> candidates) =>
         candidates.Bind(static evidence => evidence.Rows).Fold(
             HashMap<OrientationAxis, double>(),
@@ -695,8 +629,6 @@ public sealed record OrientationEvidence(Seq<AxisMeasure> Rows, EnvelopeDemand D
                 Some: value => widest.AddOrUpdate(row.Axis, held => Math.Max(held, Math.Abs(value)), Math.Abs(value)),
                 None: () => widest));
 
-    // An axis no candidate measured carries no span, so its share stays absent rather than becoming a zero the
-    // weight fold would then average in.
     public OrientationEvidence Normalized(HashMap<OrientationAxis, double> spans) => this with {
         Rows = Rows.Map(row => row with {
             Normalized = row.Physical.Map(value => Ratio.FromDecimalFractions(
@@ -707,8 +639,6 @@ public sealed record OrientationEvidence(Seq<AxisMeasure> Rows, EnvelopeDemand D
         }),
     };
 
-    // Cost folds the MEASURED rows and re-normalizes by the weight mass they carry, so an absent axis neither
-    // contributes a fabricated zero nor silently deflates every candidate's cost by the same missing term.
     public double Cost(OrientationWeights weights) {
         Seq<(double Signed, double Weight)> measured = Rows.Choose(row =>
             row.Normalized.Map(value => (
@@ -718,10 +648,6 @@ public sealed record OrientationEvidence(Seq<AxisMeasure> Rows, EnvelopeDemand D
         return mass > 0.0 ? measured.Sum(static row => row.Signed) / mass : 0.0;
     }
 
-    // Axis coverage and envelope demand accumulate together, so one refusal names every violated invariant and a
-    // caller reading it learns which axis and which envelope failed rather than the first of them. An axis the
-    // weight table WEIGHTS must be measured: a shop asking for a thermal objective on a modality that runs no
-    // exposure has asked for something the build cannot answer, and that refuses rather than scoring as zero.
     public Fin<Unit> Admits(MachineProfile machine, OrientationWeights weights) => AdmissionSlots.Accumulate(
         toSeq(OrientationAxis.Items).Map(axis => AdmissionSlots.Gate(Row(axis).Exists(row => row.Physical.Match(
                 Some: value => row.Normalized.Exists(share => Physical.Finite(value, share.DecimalFractions)
@@ -742,15 +668,10 @@ public sealed record OrientationEvidence(Seq<AxisMeasure> Rows, EnvelopeDemand D
         .As()
         .ToFin();
 
-    // Every envelope gate binds this minter as a method group: the axis and the violated constraint ride the gate's
-    // two identity slots, so the locus composes on the failing arm alone.
     private static FabricationFault Refusal(string axis, string constraint) =>
         FabricationFault.Inadmissible(FabConcern.Additive, $"orientation:{axis}:{constraint}");
 }
 
-// Eight forwarding reads onto `Measured` were a second name for every column the measurement already publishes,
-// so a caller resolved `part.Stack` in two hops and a new measurement column cost a second declaration here.
-// Consumers read `Measured` directly — ONE hop, one owner, and the measurement's own growth reaches them free.
 public sealed record OrientedPart(OrientationMeasurement Measured, Mass RequiredFeedstock, OrientationEvidence Evidence);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -761,29 +682,20 @@ public abstract partial record OrientationVerdict {
     public sealed record Rejected(BuildOrientation Orientation, Error Error) : OrientationVerdict;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-// The objective this page charters, measured HERE. Every arm reads a column a settled sibling receipt already
-// publishes — the support receipt's material and trapped area, the scan receipt's energy and path, the audit
-// receipt's defect census, the bounds, the footprint — so no arm re-runs an owner and no caller supplies a measure
-// the page's own axis vocabulary defines. An axis with no producer under the running modality answers `None`.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Score {
     public static OrientationEvidence Of(OrientationMeasurement measured, MachineProfile machine) {
         Seq<(OrientationAxis Axis, Option<double> Physical)> physical = Seq(
             (OrientationAxis.Support, measured.Support.Map(static plan => plan.Receipt.Evidence.Material.CubicMillimeters)),
             (OrientationAxis.Height, Some(measured.Bounds.Diagonal.Z)),
             (OrientationAxis.Footprint, Some(Math.Abs(measured.Footprint.Area()))),
-            // Build-direction anisotropy is the stack's own aspect: a part built tall accumulates more interlayer
-            // bonds across its load path than the same part built flat, and the ratio is exact from the bounds.
             (OrientationAxis.Anisotropy, Aspect(measured.Bounds)),
             (OrientationAxis.Thermal, measured.Scan.Map(static plan => plan.Receipt.Evidence.Energy.Joules)),
-            // Residual stress rides the scan plan's own thermal spread; a modality with no exposure measures none.
             (OrientationAxis.Stress, measured.Scan.Bind(static plan => plan.Receipt.Evidence.Thermal.StandardDeviation)),
             (OrientationAxis.Recoater, machine.Recoater.Map(static envelope => envelope.Clearance.Millimeters)),
             (OrientationAxis.Trap, measured.Support.Map(static plan => plan.Receipt.Evidence.TrappedArea.SquareMillimeters)),
             (OrientationAxis.Escape, measured.Support.Map(static plan => plan.Receipt.Evidence.Removability.DecimalFractions)),
             (OrientationAxis.Time, measured.Scan.Map(static plan => plan.Receipt.Evidence.Path.Millimeters)));
-        // MEASUREMENT only. Shares stay absent here because a share needs the candidate SET to be comparable, and
-        // `OrientationEvidence.Normalized` fills them once every candidate of this part has measured.
         return new OrientationEvidence(
             physical.Map(static row => new AxisMeasure(row.Axis, row.Physical, Option<Ratio>.None)),
             new EnvelopeDemand(
@@ -815,7 +727,7 @@ public static class Score {
 - Boundary: the scan plan is `Additive/scanpath`'s and enters whole; this cluster reads its bytes and key and re-plans no vectors.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LayerTrack(LayerChannel Channel) {
     public sealed record Scalars(LayerChannel Column, Seq<double> Values) : LayerTrack(Column);
@@ -827,8 +739,6 @@ public abstract partial record LayerTrack(LayerChannel Channel) {
         keys: static track => track.Values.Count,
         contours: static track => track.Values.Count);
 
-    // The track case and the channel's DECLARED form must agree, so a scalar column arriving as contours refuses
-    // here rather than reaching a native writer that reads it as geometry.
     public bool Formed => Switch(
         scalars: static track => track.Channel.Form == TrackForm.Scalar,
         keys: static track => track.Channel.Form == TrackForm.Reference,
@@ -856,8 +766,6 @@ public abstract partial record BuildArtifact(BuildProgramKind ProgramKind, Conte
         ContentKey Content,
         ReadOnlyMemory<byte> Bytes) : BuildArtifact(BuildProgramKind.Deposition, Content, Bytes);
 
-    // The identity family a program mints under: a vector program is scan-vector egress, every other program is
-    // plan egress. Both read the DECLARED kind column, never an optional payload's presence.
     public EgressKind IdentityKind => ProgramKind.Vectors ? EgressKind.ScanVectors : EgressKind.Plan;
 }
 ```
@@ -884,9 +792,6 @@ public static class LayerProgram {
             .Bind(tracks => kind.Vectors && part.Measured.Scan.IsNone
                 ? Fin.Fail<Seq<LayerTrack>>(Refusal($"program:{kind.Key}:vectors"))
                 : Fin.Succ(tracks))
-            // Artifacts publish their PAYLOAD as well as their key, so this lane opens the retaining mint itself
-            // and carries the close's own refusal — which is exactly the rail the facade's `Keyed` close hides
-            // from a lane that needs the key alone. The writer's constructor is private; `Retaining` is the mint.
             .Bind(tracks => CanonicalWriter.Retaining(AdditivePolicyRows.CanonicalGridMm)
                 .Discriminant(kind)
                 .Ordinal(part.Measured.Stack.LayerCount)
@@ -903,9 +808,6 @@ public static class LayerProgram {
         channel.Form == TrackForm.Scalar
             ? Fin.Succ<LayerTrack>(new LayerTrack.Scalars(channel, law.Over(part.Measured.Stack)))
         : channel.Form == TrackForm.Reference
-            // A reference column keys the layer's own scalar law beside the part material, so a bond map and a
-            // tint mix are content-addressed rather than named by a caller-supplied path. This lane wants the KEY
-            // alone, so it rides the facade's own keyed close and never opens a writer of its own.
             ? law.Over(part.Measured.Stack)
                 .Traverse(value => FabricationCanon.Keyed(
                     EgressKind.Plan,
@@ -916,9 +818,6 @@ public static class LayerProgram {
                 .Map(keys => (LayerTrack)new LayerTrack.Keys(channel, keys))
             : Sheets(part, tolerance).Map(loops => (LayerTrack)new LayerTrack.Contours(channel, loops));
 
-    // A lamination sheet is the layer's own root contour, taken off the kernel forest so the sheet a laminator cuts
-    // is exactly the boundary the slice fold nested. A layer with no root contour has no sheet to cut, so the
-    // program refuses rather than emitting an empty ring the laminator would read as a full-plate cut.
     private static Fin<Seq<Loop>> Sheets(OrientedPart part, Context tolerance) =>
         toSeq(Enumerable.Range(0, part.Measured.Stack.LayerCount))
             .Traverse(layer => toSeq(part.Measured.Stack.RootsOf(layer))
@@ -935,8 +834,6 @@ public static class LayerProgram {
                 .Map(bytes => (BuildArtifact)new BuildArtifact.RobotProgram(
                     evidence, ContentKey.Of(EgressKind.Plan, bytes.Span), bytes)));
 
-    // ONE artifact law over every modality: the payload keys itself, every declared channel appears once with the
-    // stack's own layer count, and a robot program pairs joints with targets.
     public static Fin<BuildArtifact> Admit(BuildArtifact artifact, BuildProgramKind kind) =>
         (AdmissionSlots.Gate(artifact.ProgramKind == kind,
             FabConcern.Additive, "artifact:modality", FabricationFault.Inadmissible),
@@ -948,9 +845,6 @@ public static class LayerProgram {
                 && value.Tracks.Map(static track => track.Channel).Distinct().Count == value.Tracks.Count
                 && toSet(value.Tracks.Map(static track => track.Channel)) == value.Kind.Channels
                 && value.Tracks.ForAll(track => track.Formed && track.Count == value.Stack.LayerCount)
-                // A scan plan carries one layer per EXPOSED layer, not per stack layer: `Additive/scanpath` drops a
-                // layer whose every zone is empty, so an equality here refuses every part with a vector-free layer.
-                // The real invariant is that each scan layer addresses a distinct stack layer once.
                 && value.Scan.ForAll(scan => scan.Layers.Count <= value.Stack.LayerCount
                     && scan.Layers.Map(static row => row.Layer).Distinct().Count == scan.Layers.Count
                     && scan.Layers.ForAll(row => row.Layer >= 0 && row.Layer < value.Stack.LayerCount)),
@@ -976,7 +870,7 @@ public static class LayerProgram {
 - Boundary: a genuinely MIRRORED part composes the kernel re-wind and enters as its own admitted `BuildPart`, so every placement transform reaching the write is determinant-positive by construction and the writer re-authors no geometry.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ThreeMfMaterial(string Name, sColor Color, FeedstockBlend Genealogy);
 public sealed record ThreeMfComponent(int Part, Transform Transform);
 public sealed record ThreeMfBeamPolicy(
@@ -986,13 +880,8 @@ public sealed record ThreeMfBeamSet(Seq<uint> Beams, Seq<uint> Balls);
 public sealed record ThreeMfAttachment(string Uri, string Relation, ReadOnlyMemory<byte> Payload);
 public sealed record ThreeMfSliceLayer(Length TopZ, Seq<Loop> Contours);
 
-// One sampled sheet of an implicit field. The payload is the encoded image the format stores as its own
-// attachment, so the field is DATA the document carries rather than a callback the writer invokes.
 public sealed record ThreeMfFieldSheet(string Path, ReadOnlyMemory<byte> Image);
 
-// An implicit field crossing as the format's own field carrier: an image stack plus the sampling law that maps a
-// sample back onto the field's value range. `Function` retains the content key of the field the sheets sampled,
-// so the sampled resource stays traceable to the implicit owner that produced it.
 public sealed record ThreeMfField(
     ContentKey Function,
     int Columns,
@@ -1028,10 +917,7 @@ public abstract partial record ThreeMfResource {
     public sealed record Attachment(ThreeMfAttachment Value) : ThreeMfResource;
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Rows here name relations and nothing else. Each once named one of three sibling string columns through a delegate,
-// so a new relation cost a row, a column, and an arm; the policy now carries the whole correspondence as one
-// admitted total map and the row carries nothing but its own key.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class RelationSlot {
     public static readonly RelationSlot Genealogy = new("genealogy");
@@ -1039,10 +925,6 @@ public sealed partial class RelationSlot {
     public static readonly RelationSlot Volumetric = new("volumetric");
 }
 
-// Grades state a package's conformance posture rather than a flag: `Native` drives the writer's and reader's strict mode and
-// `WarningsRefuse` decides whether the reader's own complaints are a refusal or advisory evidence. A boolean
-// reached only the two ends of that pair and could not express the conformant middle a shop actually runs —
-// native strict on, reader warnings retained and reported rather than fatal.
 [SmartEnum<string>]
 public sealed partial class ThreeMfGrade {
     public static readonly ThreeMfGrade Strict = new("strict", native: true, warningsRefuse: true);
@@ -1055,8 +937,6 @@ public sealed partial class ThreeMfGrade {
     public bool Admits(Seq<string> readWarnings) => !WarningsRefuse || readWarnings.IsEmpty;
 }
 
-// The ONE package-path owner. A body naming a family and its segments cannot interpolate a directory, an
-// extension, or a relation, so a renamed family moves one row.
 [SmartEnum<string>]
 public sealed partial class AttachmentFamily {
     public static readonly AttachmentFamily Slices = new("slices", "/Slices", ".key", RelationSlot.Genealogy);
@@ -1071,18 +951,14 @@ public sealed partial class AttachmentFamily {
     public string Extension { get; }
     public RelationSlot Slot { get; }
 
-    // Segments arrive already admitted through the package-segment grammar, so the join is a fold and never a
-    // sanitizer; an unadmitted segment cannot reach this member.
     public string Uri(params ReadOnlySpan<string> segments) =>
         string.Concat(Directory, "/", string.Join('/', segments.ToArray()), Extension);
 
-    // `ThreeMfPolicy` admits its relation map total over `RelationSlot.Items`, so this is a settled lookup rather
-    // than an absence arm every attachment site would otherwise carry.
     public ThreeMfAttachment At(ThreeMfPolicy policy, ReadOnlyMemory<byte> payload, params ReadOnlySpan<string> segments) =>
         new(Uri(segments), policy.Relations[Slot], payload);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ThreeMfDocument(
     Guid Build,
     Seq<OrientedPart> Parts,
@@ -1095,8 +971,6 @@ public sealed partial class ThreeMfPolicy {
     public ThreeMfGrade Grade { get; }
     public HashMap<RelationSlot, string> Relations { get; }
 
-    // Relation totality admits ONCE, so `AttachmentFamily.At` and the native writer both read a settled row and
-    // neither carries an absence arm over a correspondence the boundary already proved.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -1115,9 +989,6 @@ public sealed partial class ThreeMfPolicy {
         Validate(decimalPrecision, grade, relations, out ThreeMfPolicy policy).Admitted(policy);
 }
 
-// Read and declared halves stay apart: the read half is what the native reader counted back, the declared half is
-// what the document said, and the gate compares them. Merging them into one flat record made a mismatch
-// unreportable, because the receipt could no longer say which side each number came from.
 public sealed record ReadCensus(int Resources, int Meshes, int BuildItems, int LevelSets, int Functions);
 
 public sealed record DeclaredCensus(
@@ -1147,9 +1018,9 @@ public sealed record ThreeMfArtifact(ContentKey Key, ReadOnlyMemory<byte> Bytes,
 - Auto: eight declared columns all read the WHOLE source, so each rides `[MapPropertyFromSource]` with its counting reader; target completeness proves on every column while source completeness is forfeit by construction.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]
-[MapperRequiredMapping(RequiredMappingStrategy.Target)] // RMG020 forfeit: a whole-source reader suppresses source-side completeness for every member of this mapping
+[MapperRequiredMapping(RequiredMappingStrategy.Target)]
 public static partial class ThreeMfCensusMap {
     [MapPropertyFromSource(nameof(DeclaredCensus.Components), Use = nameof(Components))]
     [MapPropertyFromSource(nameof(DeclaredCensus.Materials), Use = nameof(Materials))]
@@ -1193,8 +1064,6 @@ public static partial class ThreeMfCensusMap {
 public static class ThreeMf {
     private static readonly Op NativeWrite = Op.Of();
 
-    // Precision and relation totality are the POLICY's own admission, so what accumulates here is exactly what
-    // crosses policy and document — a duplicate attachment URI and an inadmissible sampled field.
     public static Fin<ThreeMfArtifact> Write(ThreeMfDocument document, ThreeMfPolicy policy) =>
         (AdmissionSlots.Gate(Uris(document).Distinct().Count == Uris(document).Count,
             FabConcern.Additive, "3mf:attachment-uri", FabricationFault.Inadmissible),
@@ -1205,8 +1074,6 @@ public static class ThreeMf {
         .ToFin()
         .Bind(_ => Native(document, policy));
 
-    // Volumetric joins the required set whenever the graph declares an implicit resource: without the relation the
-    // reader never opens those parts and the census reads a document short of what the writer emitted.
     private static Set<ThreeMfExtension> Extensions(ThreeMfDocument document) =>
         Set(ThreeMfExtension.Production)
         + When(document.Resources.Exists(static resource => resource is ThreeMfResource.BeamLattice), ThreeMfExtension.BeamLattice)
@@ -1300,15 +1167,10 @@ public static class ThreeMf {
             mesh: static (_, _) => unit,
             components: static (_, _) => unit,
             beamLattice: static (_, _) => unit,
-            // Layer program and geometry leave in ONE package: an MSLA hand-off keeps the build UUID, base
-            // materials, placed items, and metadata the mesh path already writes, where a bare vector file loses all four.
             sliceReference: static (state, value) => {
                 CSliceStack stack = state.Model.AddSliceStack(value.BottomZ.Millimeters);
                 value.Layers.Iter(layer => {
                     CSlice slice = stack.AddSlice(layer.TopZ.Millimeters);
-                    // One vertex table per slice, each polygon an index run into it. Closure stays the CONTOUR's
-                    // fact — an open loop emits an open run and the native's own not-closed refusal names it,
-                    // where a fabricated closing index silently publishes geometry no contour carried.
                     slice.SetVertices(layer.Contours
                         .Bind(static contour => contour.Vertices.Map(static point =>
                             new sPosition2D { Coordinates = [(float)point.X, (float)point.Y] }))
@@ -1321,8 +1183,6 @@ public static class ThreeMf {
                         return start + (uint)contour.Count;
                     });
                 });
-                // Resolution and stack are two members on the object, not one call: the mesh binds the stack
-                // HANDLE, never a resource id, and the full-versus-low resolution discriminant sets on its own.
                 state.Meshes[value.Part].SetSlicesMeshResolution(value.Resolution);
                 state.Meshes[value.Part].AssignSliceStack(stack);
                 return unit;
@@ -1380,16 +1240,12 @@ public static class ThreeMf {
         reader.SetStrictModeActive(policy.Grade.Native);
         toSeq(extensions).Iter(extension => reader.AddRelationToRead(extension.Namespace));
         reader.ReadFromBuffer(bytes);
-        // Read warnings are collected BEFORE the census gate, so a mismatch refuses carrying the reader's own
-        // explanation of what it dropped instead of discarding the one evidence that names the cause.
         Seq<string> readWarnings = Warned(reader.GetWarningCount(), reader.GetWarning);
         DeclaredCensus declared = ThreeMfCensusMap.Of(document);
         ReadCensus read = new(
             readBack.GetResources().Count(), readBack.GetMeshObjects().Count(), readBack.GetBuildItems().Count(),
             readBack.GetLevelSets().Count(), readBack.GetFunctions().Count());
         ReadCensus expected = Expected(document, declared);
-        // Grades decide what a reader complaint MEANS: under the strict grade a warning is a refusal, under
-        // every other grade it is retained evidence the census gate reports beside its own counts.
         return read == expected && policy.Grade.Admits(readWarnings)
             ? Fin.Succ(new ThreeMfArtifact(
                 ContentKey.Of(EgressKind.ThreeMf, bytes),
@@ -1406,8 +1262,6 @@ public static class ThreeMf {
                 $"{read.Functions}/{expected.Functions}:warnings={readWarnings.Count}"));
     }
 
-    // What the document DECLARED, expressed in the reader's own counting units — one place resolves the two
-    // census vocabularies, so the gate compares like with like.
     private static ReadCensus Expected(ThreeMfDocument document, DeclaredCensus declared) {
         int beamMeshes = declared.BeamSets > 0
             ? document.Resources.Count(static resource => resource is ThreeMfResource.BeamLattice)
@@ -1425,8 +1279,6 @@ public static class ThreeMf {
             Functions: functions);
     }
 
-    // A sampled field becomes an image stack and a function over it: the sheets are attachments the format
-    // stores, so nothing here reads a caller callback and everything the census counts was declared as data.
     private static CFunctionFromImage3D Field(CModel model, ThreeMfField field) {
         CImageStack stack = model.AddImageStack((uint)field.Columns, (uint)field.Rows, (uint)field.Sheets.Count);
         field.Sheets.Iter((sheet, index) =>
@@ -1439,8 +1291,6 @@ public static class ThreeMf {
         return function;
     }
 
-    // Writer and reader each declare their own `(index, out code) -> message` member on unrelated native types, so
-    // a delegate carrying the `out` is what lets ONE projection serve both; `Func` cannot express it.
     private delegate string WarningRead(uint index, out uint code);
 
     private static Seq<string> Warned(uint count, WarningRead read) =>
@@ -1449,9 +1299,6 @@ public static class ThreeMf {
             return FormattableString.Invariant($"{code}:{message}");
         });
 
-    // Fixed-size native array fields with a 4x3 COLUMN-major transposition: the generator's shape law does not
-    // reach a member that reorders its own fields, so both stay hand-written under a property-based round-trip
-    // check — encode then decode reproduces the source matrix for every admitted transform.
     private static (sPosition[] Vertices, sTriangle[] Triangles) MeshOf(MeshSpace model) => (
         model.Vertices.Map(Position).ToArray(),
         model.Faces.Map(static face => new sTriangle { Indices = [(uint)face.A, (uint)face.B, (uint)face.C] }).ToArray());
@@ -1468,11 +1315,6 @@ public static class ThreeMf {
     private static sPosition Position(Point3d point) =>
         new() { Coordinates = [(float)point.X, (float)point.Y, (float)point.Z] };
 
-    // Every component transform inherits the winding `IsManifoldAndOriented` just proved, and the two ways it can
-    // break that proof are different facts carrying their own reasons: a negative determinant mirrors the part and
-    // turns every normal inward, a zero or non-finite one collapses it. A genuinely mirrored part enters as its
-    // own `BuildPart` whose model is the kernel re-wind, so the placement reaching this seam is
-    // determinant-positive by construction and no writer re-authors geometry behind the read-back census.
     private static Option<string> PlacementRefusal(Transform transform) => transform.Determinant switch {
         double determinant when !Physical.Finite(determinant) || determinant == 0.0 => Some("placement:degenerate-transform"),
         < 0.0 => Some("placement:mirroring-transform"),
@@ -1514,7 +1356,7 @@ public static class ThreeMf {
 - Boundary: rectangular placement and articulated deposition remain the two peer ports; every other step is a member of this page.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record BuildEvidence(
     MachineInstanceKey Machine,
     AdditiveProcess Process,
@@ -1528,7 +1370,7 @@ public sealed record BuildEvidence(
 public sealed record BuildOutcome(
     AdditiveResult Process, ThreeMfArtifact Package, Receipt<BuildEvidence> Receipt);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Canonical {
     public static Fin<ReadOnlyMemory<byte>> Keys(Seq<ContentKey> keys) =>
         Written(writer => writer.Rows(keys, static (row, key) => key.CanonicalBytes(row)));
@@ -1559,17 +1401,10 @@ public static class Canonical {
 
     public static Guid Derived(Guid space, string name) => Guid.CreateVersion5(space, Encoding.UTF8.GetBytes(name));
 
-    // The grid is the declared quantization every preimage on this page writes under, so two runs differing below
-    // resolution mint one key. `Retaining` opens the mint that HOLDS a buffer — the writer publishes
-    // no constructor — and `ToBytes` answers on the rail, so a lane wanting bytes rather than a key carries that
-    // refusal instead of discarding it.
     private static Fin<ReadOnlyMemory<byte>> Written(Func<CanonicalWriter, CanonicalWriter> emit) =>
         emit(CanonicalWriter.Retaining(AdditivePolicyRows.CanonicalGridMm)).ToBytes(Op.Of(name: nameof(Written)));
 }
 
-// The plate footprint the packer receives. Every ROOT contour of every layer projects to the datum and unions, so
-// the footprint contains the part's whole plan extent — taking one layer's boundary would under-report a part
-// whose widest section sits above the base and let the packer seat two parts that collide in the chamber.
 public static class Outline {
     public static Fin<Loop> Of(SliceStack stack, Context tolerance) =>
         toSeq(Enumerable.Range(0, stack.LayerCount))
@@ -1588,7 +1423,6 @@ public static class Outline {
         Arr<double>(),
         tolerance);
 
-    // A boolean over two loops demands one shared plane, so every contour drops to the datum before the fold.
     private static Loop Flattened(Loop loop, double plane) => new(
         loop.Vertices.Map(point => new Point3d(point.X, point.Y, plane)),
         loop.Closed,
@@ -1603,13 +1437,7 @@ public static class Outline {
                 : Fin.Fail<Loop>(new KernelFault.InvalidValue("production", "production:footprint:union")));
 }
 
-// Required feedstock is the deposited VOLUME times the material's own density: the part's own sliced volume plus
-// whatever support the process builds. Both volumes come off settled receipts, so the demand is measured rather
-// than injected, and a modality building no support asks for none. Density is the blend's — every constituent
-// shares the part material by admission, so the head carries it.
 public static class Feedstock {
-    // The spec states density in kilograms per cubic METRE while every volume here is cubic millimetres, so the
-    // conversion is one declared factor rather than a bare divisor at the multiply.
     private const double CubicMillimetresPerCubicMetre = 1e9;
 
     public static Mass Required(OrientationMeasurement measured, FeedstockBlend blend) {
@@ -1622,8 +1450,6 @@ public static class Feedstock {
         return Mass.FromKilograms((part + support) * density / CubicMillimetresPerCubicMetre);
     }
 
-    // The layer's own deposited height is the rise to the NEXT elevation; the top layer takes the machine's
-    // resolution step, because nothing above it defines a rise.
     private static double Height(SliceStack stack, int layer) =>
         layer + 1 < stack.LayerCount
             ? stack.Elevations[layer + 1] - stack.Elevations[layer]
@@ -1640,8 +1466,6 @@ public static class Production {
             .Bind(artifact => LayerProgram.Admit(artifact, policy.Machine.Process.Program))).As()
         from document in Document(selected, programs, plate, policy)
         from package in ThreeMf.Write(document, policy.ThreeMf)
-        // The shop station identity is the S0 key, admitted at this boundary: the fleet registry still publishes
-        // its instance identity as text, so the receipt states the typed key rather than carrying the text forward.
         from station in MachineInstanceKey.Admit(policy.Machine.Machine.Id)
         select new BuildOutcome(
             new AdditiveResult(
@@ -1659,15 +1483,12 @@ public static class Production {
                     programs,
                     package.Evidence),
                 Concern = FabConcern.Additive,
-                // Packages ARE the build's artifact, so this key addresses the receipt and nothing mints a second.
                 Key = package.Key,
                 Consumed = Consumed(selected, plate, programs),
                 Produced = Seq(package.Key),
                 Stamped = policy.Audit.EvaluatedAt,
             });
 
-    // Every key this build stood on: each selected part's preflight, its support plan and scan plan where the
-    // modality built them, the remnant keys the packer produced, and every compiled program.
     private static Seq<ContentKey> Consumed(
         Seq<OrientedPart> selected, Option<Receipt<PlateLayoutEvidence>> plate, Seq<BuildArtifact> programs) =>
         selected.Bind(static part => Seq(part.Measured.Audit.Key)
@@ -1679,8 +1500,6 @@ public static class Production {
     private static Fin<Unit> Admitted(AdditiveBuild policy, BuildJob job) =>
         (AdmissionSlots.Gate(!job.Parts.IsEmpty
             && job.Parts.ForAll(static part => part.Identity != Guid.Empty)
-            // A metadata key becomes a package URI SEGMENT, so it admits through the bounded segment grammar
-            // here — a non-blank check passes a slash, a dot-dot, or a percent and forges a path.
             && job.Parts.ForAll(static part => part.Metadata.ForAll(static row => Segment(row.Key)))
             && job.Parts.ForAll(static part => part.TriangleMaterials.Count <= part.Model.Faces.Count)
             && job.Parts.ForAll(part => part.TriangleMaterials.ForAll(material => material < (uint)job.Parts.Count))
@@ -1702,8 +1521,6 @@ public static class Production {
         .As()
         .ToFin();
 
-    // Measurement is per candidate; normalization is per axis over the WHOLE candidate set, so admission runs after
-    // the spans settle and a candidate rejected on its own axis coverage still carries its own typed error.
     private static Fin<Seq<OrientationVerdict>> Oriented(BuildPart part, AdditiveBuild policy) =>
         from cover in policy.Orientations.Generate(part.Model)
         from _cap in AdmissionSlots.Gate(policy.OrientationCap > 0 && cover.Count <= policy.OrientationCap,
@@ -1726,10 +1543,6 @@ public static class Production {
                 .Map(_ => part with { Evidence = normalized }),
         };
 
-    // Every step composes a published owner: the kernel arena re-orients and the kernel slices, `Analyze` bounds,
-    // `Verify/audit` gates, `Additive/support` grows, `Additive/scanpath` plans, and this page measures. The
-    // oriented model rides the arena's own transform pass, which owns mirrored geometry estate-wide, so an
-    // orientation never places an admitted mesh under a reversing transform.
     private static Fin<OrientedPart> Evaluate(BuildPart part, BuildOrientation orientation, AdditiveBuild policy) =>
         from model in Kernels.Apply(MeshEdit.Of(part.Model), orientation.ModelToBuild).ToSpace(policy.Tolerance)
         from bounds in Analyze.Run<MeshSpace, BoundingBox>(AnalysisQuery.Bounds(), model).ToFin()
@@ -1744,8 +1557,6 @@ public static class Production {
             FabConcern.Additive, "production:layer-envelope", FabricationFault.Inadmissible).As().ToFin()
         from audit in Audit.Preflight(stack, policy.Audit)
         from _clean in AdmissionSlots.Gate(audit.Evidence.Clean, FabConcern.Additive, "production:audit", FabricationFault.Inadmissible).As().ToFin()
-        // Support grows only where the process BUILDS it: the capability axis decides, so a modality held by its
-        // own powder cake is never asked for a support plan and never reports one it did not make.
         from support in policy.Machine.Process.Supported
             ? Support.Grow(stack, policy.Supports).Map(Some)
             : Fin.Succ(Option<SupportPlan>.None)
@@ -1773,7 +1584,6 @@ public static class Production {
                 && Math.Abs(steps - Math.Round(steps)) <= AdditivePolicyRows.ResolutionStepBand;
         });
 
-    // The ONE package-segment grammar: lowercase alphanumeric with `-` and `_`, bounded length, never empty.
     private static bool Segment(string value) =>
         !string.IsNullOrEmpty(value) && value.Length <= AdditivePolicyRows.SegmentCeiling
         && value.All(static character => character is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-' or '_');
@@ -1804,9 +1614,6 @@ public static class Production {
                     && plate.Policy.StockIndex >= 0, FabConcern.Additive, "production:plate-policy", FabricationFault.Inadmissible).As().ToFin()
                 from layout in state.Ports.Pack(new PlateDemand(
                     state.Parts.Map(static part => (part.Measured.Part.IdentityText, part.Measured.Footprint)), plate.Policy))
-                // A mirrored placement inverts every normal the manifold proof established, so it refuses HERE
-                // rather than reaching the writer as a determinant the placement gate then has to explain; a turn
-                // outside the admitted set refuses beside it, which is the arm the free-or-fixed boolean never had.
                 from _complete in AdmissionSlots.Gate(layout.Evidence.Unplaced.IsEmpty
                     && layout.Evidence.Utilization >= plate.Policy.MinimumUtilization
                     && layout.Evidence.Placements.Count == state.Parts.Count
@@ -1818,8 +1625,6 @@ public static class Production {
                             FabConcern.Additive, "production:plate-placement", FabricationFault.Inadmissible).As().ToFin()
                 select Some(layout));
 
-    // The resource graph as a TABLE: each row is one family with its selector and its projection, so a new family
-    // is one row and no fold concatenates ten sequences in a body.
     private static Fin<ThreeMfDocument> Document(
         Seq<OrientedPart> parts, Seq<BuildArtifact> programs, Option<Receipt<PlateLayoutEvidence>> plate, AdditiveBuild policy) =>
         from lattices in parts
@@ -1840,8 +1645,6 @@ public static class Production {
                         new ThreeMfComponent(placement.PartId, Placed(placement)))))
                 + attachments);
 
-    // Attachment payloads are PREIMAGES, so every family that writes one threads the retaining close's own rail
-    // rather than materializing bytes a discarded refusal would have made silently empty.
     private static Fin<Seq<ThreeMfResource>> Attachments(
         Seq<OrientedPart> parts, Seq<BuildArtifact> programs, AdditiveBuild policy) =>
         (parts.Map((part, index) => Attach(AttachmentFamily.Slices, policy,
@@ -1874,15 +1677,11 @@ public static class Production {
             family.At(policy.ThreeMf, bytes, parts)));
     }
 
-    // The support beam set reads the ONE published topology. A missing endpoint means the owner published a graph
-    // and an index that disagree, which is a typed refusal rather than a dropped beam or a thrown indexer.
     private static Fin<ThreeMfResource.BeamLattice> Lattice(int part, SupportPlan support) =>
         toSeq(support.Topology.Graph.Edges)
             .Traverse(edge => Endpoints(support.Topology, edge))
             .As()
             .Map(beams => {
-                // `Nodes` publishes id-ordered, so the beam and ball tables key on the producer's own ordering
-                // rather than on a dictionary enumeration a local sort would only paper over.
                 Seq<SupportNode> nodes = support.Topology.Nodes;
                 return new ThreeMfResource.BeamLattice(
                     part,
@@ -1896,9 +1695,6 @@ public static class Production {
                         nodes.Choose(node => node.Role == role ? Some((uint)node.Id) : None))));
             });
 
-    // Source is the PARENT and Target the CHILD, matching the owner's own edge construction, so the beam runs up
-    // the tree and takes the child's role — a beam is named by the node it carries, not by what carries it.
-    // `Node` is the published total read, so an unresolvable ordinal answers a typed refusal on the rail.
     private static Fin<(sBeam Beam, TreeRole Role)> Endpoints(SupportTopology topology, SEquatableEdge<int> edge) =>
         (from parent in topology.Node(edge.Source)
          from child in topology.Node(edge.Target)

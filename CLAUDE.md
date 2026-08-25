@@ -99,7 +99,7 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS model the full domain on every owner — a missing axis is a defect, not thrift, and zero current consumers never lowers the bar.
 - ALWAYS land new functionality as if designed in from the start, never as tacked-on flat-code spam; extend the owner before minting a sibling.
 - ALWAYS state what every collapse loses — a plural form carrying a guarantee is lawful; erasing the guarantee is a downgrade wearing density.
-- ALWAYS consume every declared capability — a policy row, column, or receipt nothing reads is decorative density; add the arm or delete it.
+- ALWAYS consume every declared capability — a policy row or column nothing reads is decorative density; add the arm or delete it.
 
 [POLYMORPHISM] - fewer, stronger owners over many loose shapes; variants are cases inside one closed family, never sibling types:
 - ALWAYS fold one polymorphic entrypoint per concern, discriminating on input shape; forward and inverse of one correspondence share one owner.
@@ -124,7 +124,6 @@ Universal code law: binds every language, present or future; `docs/stacks/<langu
 - ALWAYS choose the outcome carrier once at admission, thread it unchanged, and collapse it only at the host, UI, or wire edge.
 - ALWAYS shape domain logic as expressions on the rail — dependence sequences, independence accumulates, and the carrier, never a flag, selects.
 - ALWAYS keep boundary mapping at the edge; internal code uses canonical names and shapes.
-- ALWAYS keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 
 [COMPOSITION]:
 - ALWAYS keep one live shape per estate surface — schemas, contracts, and storage keys spell no version segment; change replaces the shape whole.
@@ -173,7 +172,7 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 
 - `[TYPES]`: type aliases, inferred types, protocols/interfaces, enums, discriminated unions, generated algebraic owners, value-object declarations.
 - `[CONSTANTS]`: dependency-free immutable anchors, caps, suffixes, primitive policies, schedules, and static literals.
-- `[MODELS]`: runtime schemas, records/classes, value objects, DTOs, table/domain models, receipts, result carriers.
+- `[MODELS]`: runtime schemas, records/classes, value objects, DTOs, table/domain models, result carriers.
 - `[ERRORS]`: typed error rails, tagged failures, domain failure policies.
 - `[SERVICES]`: service contracts, dependency surfaces, application/service classes.
 - `[OPERATIONS]`: pure transforms, effect/result pipelines, algorithms, repository operations.

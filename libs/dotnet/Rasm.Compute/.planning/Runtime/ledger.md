@@ -52,7 +52,7 @@ public readonly partial record struct CostVector(
 - Boundary: no rate literal lives in the package — the generated factory is the only mint and the composition root supplies the rows. Pricing itself is NOT here: the `Runtime/receipts#TELEMETRY_PROJECTION` fold answers cost and instrument writes in one traversal of the fact union, so this owner holds the rates and that owner holds the arms. NAMED LOSS: a cost-only arm edit lands on the receipts page rather than beside the rate table; the gain is that a landed receipt case cannot meter without pricing or price without metering, where two 33-arm folds let it answer one and silently skip the other.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using static Rasm.Element.Projection.AdmissionSlots;
 
 [ComplexValueObject]
@@ -62,8 +62,6 @@ public sealed partial class CostPolicy {
     public double StagedByteRate { get; }
     public double RemoteNodeSecondRate { get; }
 
-    // Total by admission: every `Substrate` row is present exactly once, so the scan cannot miss and the terminal
-    // fall-through names the proof rather than a fabricated zero rate.
     [IgnoreMember]
     public double SecondRate(Substrate route) =>
         Rates.Find(row => row.Row == route).Map(static row => row.SecondRate).IfNone(0d);
@@ -83,7 +81,6 @@ public sealed partial class CostPolicy {
                 Succ: static _ => null,
                 Fail: static errors => new ValidationError(string.Join(" | ", new object?[] { $"<cost-policy-rejected:{Error.Many(errors)}>" })));
 
-    // The roster is the authority on BOTH halves, so each names its own offending rows.
     static Validation<Error, Unit> Missing(Seq<(Substrate Row, double SecondRate)> rates) =>
         toSeq(Substrate.Items).Filter(row => !rates.Exists(rate => rate.Row == row)) is { IsEmpty: false } absent
             ? Fail<Error, Unit>(Rejected("rate-missing", string.Join(',', absent.Map(static row => row.Key))))
@@ -114,8 +111,6 @@ public sealed partial class CostPolicy {
 
 ```csharp signature
 public sealed record ChargebackRow(TenantContext Tenant, Option<Substrate> Route, CostVector Vector, long Facts) {
-    // ONE spelling for an absent route, shared by the sort key and the content preimage — two spellings would sort
-    // one population and key another.
     public const string ProcessRoute = "process";
 
     public string RouteKey => Route.Map(static route => route.Key).IfNone(ProcessRoute);

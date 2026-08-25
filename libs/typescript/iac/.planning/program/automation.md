@@ -26,13 +26,7 @@ The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSe
 import type { DiagnosticEvent, OpType as EngineOpType, PolicyEvent } from "@pulumi/pulumi/automation"
 import { Array, Record, Schema } from "effect"
 
-// `reconcile` is this page's own read leg, so the ledger tuple mirrors no engine declaration — `UpdateKind`
-// names settled updates and carries `rename` and `import` rows this driver never drives.
 const _ops = ["up", "preview", "refresh", "destroy", "reconcile"] as const
-// Engine operation, severity, and enforcement vocabularies ship as TYPES alone — no const, no enum, nothing
-// at runtime — so these tuples are the only rosters a schema can spread, and `satisfies` binds each to the
-// declaration it mirrors: a member the engine dropped fails right here. `_Ops`, `_Severities`, and `_Levels`
-// bind the other direction, so a provider bump that WIDENS a union cannot pass this fence in silence.
 const _opTypes = [
   "same", "create", "update", "delete", "replace",
   "create-replacement", "delete-replaced", "read", "read-replacement",
@@ -49,8 +43,6 @@ const _Timing = Schema.Struct({ started: Schema.Int, settled: Schema.Int, elapse
 class RunReceipt extends Schema.Class<RunReceipt>("RunReceipt")({
   op: _Op,
   stack: Schema.NonEmptyString,
-  // `partialWith` rebuilds the record AST and drops a node annotation, so the closed-key posture seats on the
-  // outermost node rather than riding `Shape.Record`: an op type outside the engine roster is drift, never a summary row.
   summary: Schema.Record({ key: _OpType, value: Schema.Int }).pipe(Schema.partialWith({ exact: true }))
     .annotations({ parseOptions: { onExcessProperty: "error" } }),
   steps: Schema.Array(Schema.Struct({
@@ -95,8 +87,6 @@ declare namespace RunReceipt {
   type Violation = RunReceipt["violations"][number]
   type Level = (typeof _levels)[number]
   type Timing = typeof _Timing.Type
-  // each probe stops compiling the moment its engine declaration admits a member the tuple no longer
-  // covers, which is exactly the shape a provider bump widening one of these unions arrives in
   type _Ops<K extends OpType = EngineOpType> = K
   type _Severities<K extends Severity = DiagnosticEvent["severity"]> = K
   type _Levels<K extends Level = PolicyEvent["enforcementLevel"]> = K
@@ -118,19 +108,10 @@ import { CommandError, ConcurrentUpdateError, StackAlreadyExistsError, StackNotF
 import { Fault } from "@rasm/core"
 import { Duration, Match, Order, Schema, pipe } from "effect"
 
-// Three subjects, each elected from what the RAISE actually holds. Every engine-thrown reason carries the same
-// pair — the run's identity and the foreign message the thrown class named — so those rows vary their renderer and
-// nothing else. The two reasons no engine throws carve away: a withdrawn run has no message to carry, and an
-// outlived ceiling holds a MEASURED duration that a free string would flatten into text no reader can compare.
 const _Triaged = Schema.Struct({ stack: Schema.String, detail: Schema.String })
 const _Withdrawn = Schema.Struct({ stack: Schema.String })
 const _Overran = Schema.Struct({ stack: Schema.String, ceiling: Schema.DurationFromSelf })
 
-// One row per reason: the core kind the class getter projects, the leg naming which surface decided, that reason's
-// own subject, and the renderer reading it. Rank, retry, blame, and quarantine are the core Fault.Class row table's
-// — a literal here would fork them, and the severity order the old rank column spelled IS the core kind tuple's own
-// position. Legs partition by decider: `run` brackets the drive, `workspace` the stack identity and its
-// configuration, `engine` whatever the pulumi engine itself reported.
 const _family = Fault.Class.family(
   ["cancelled", "concurrent", "absent", "duplicate", "input", "command", "budget", "diagnostic", "alien"] as const,
   {
@@ -266,9 +247,6 @@ const _facts = (name: string) =>
 
 const _qualified = (project: string, name: string): string => fullyQualifiedStackName("organization", project, name)
 
-// Base, factor, jitter, quiet reset, and the elapsed window compile at the ledger; this plane contributes its
-// re-drive ceiling and nothing else. `bulk` is the row whose geometry a state lock needs — the lock clears when
-// the peer update settles, which runs minutes, not the sub-second band a tighter row buys.
 const _CONTENDED = Schedule.intersect(Fault.Budget.schedule("bulk"), Schedule.recurs(4))
 
 type _RunOpts = {
@@ -357,8 +335,6 @@ const _decoded = (op: RunReceipt.Op, name: string, fold: _Fold): Effect.Effect<R
 
 const _driven = (stack: Stack, name: string, op: RunReceipt.Op, options?: Automation.Options): Effect.Effect<RunReceipt, DeployFault> =>
   Effect.flatMap(_facts(name), (host) =>
-    // The ceiling resolves ONCE and is both what bounds the attempt and what the refusal carries, so the timeout and
-    // the evidence a reader compares can never name two different durations.
     ((qualified, ceiling) =>
       Stream.runFold(_streamed(stack, name, op, options), _SEED, _folded).pipe(
         Effect.flatMap((fold) => _decoded(op, qualified, fold)),
@@ -382,8 +358,6 @@ function _config(
   input?: string | readonly [key: string, value: ConfigValue] | { readonly refresh: true } | ConfigMap,
 ): Effect.Effect<ConfigMap | ConfigValue | void, DeployFault> {
   return Effect.tryPromise({
-    // BOUNDARY ADAPTER: the discrimination ladder over the engine's own promise surface; the terminal
-    // cast is the witnessed residue — a ConfigValue row is an object, so a true-valued refresh key is runtime-disjoint
     try: () =>
       input === undefined ? stack.getAllConfig()
         : Predicate.isString(input) ? stack.getConfig(input)
@@ -447,7 +421,7 @@ const Automation = {
         version: row.version,
         op: row.kind,
         result: row.result,
-        seconds: (row.endTime.getTime() - row.startTime.getTime()) / 1000, // engine Date pair at the boundary mirror; the series speaks seconds like the receipt band
+        seconds: (row.endTime.getTime() - row.startTime.getTime()) / 1000,
         changes: row.resourceChanges ?? {},
       })),
     ),
@@ -480,7 +454,7 @@ const Automation = {
       : Effect.fail(new DeployFault({ case: { reason: "input", stack: spec.name, detail: "<remote-requires-cloud-backend>" } })),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Automation, DeployFault, RunReceipt }
 ```

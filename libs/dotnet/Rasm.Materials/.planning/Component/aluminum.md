@@ -18,7 +18,7 @@ The page composes the parent `component#COMPONENT_OWNER` whole — `Component.Of
 - Boundary: the aluminum arm's columns and identity are `component#MATERIAL_GRADE`'s and its banded READ is this page's — `Strengths` selects the printed (form, thickness) cell and rails an uncovered pair typed rather than borrowing a neighbouring band, so no consumer re-walks the band list. Every numeric on this page is two-source-traced or typed-absent. The 6xxx HAZ pairs are single-sourced AND the simplified single-factor convention conflicts with the per-row EC9 pairs, so every 6xxx `Haz` cell is `None` and only the work-hardened 5083 O/H111 answers `Some(1.0, 1.0)`; the design modulus E = 70 GPa is single-sourced as a CODE value, so this page carries no E constant — the Properties catalogue substance rows own the modulus the member arm reads; the 6061-T6 sheet/plate band and the Table 3.2b Ramberg-Osgood exponent column are single-sourced and absent; standardized mullion-depth series and polyamide strut widths have no captured quantitative source, so pocket depth and isolator class are AUTHORED die facts on the roster, never standard claims. PROFILE REUSE is adjudicated closed: the parent `IShape`/`Channel`/`Tee`/`Angle`/`RectangleHollow`/`CircleHollow`/`ColdFormedC`/`Rectangle` arms cover the die space here, a free extruded silhouette rides `Outline` under its declared `SolidPolygon`/`OpenThin` topology, and the one unrepresentable die — a multi-chamber NON-rectangular hollow — is a voided-outline arm owned by `component#SECTION_PROFILE` growth, not minted here. IFC strings stay neutral; the Gate-0 roster proves `IfcMember` carries `MULLION` and `MEMBER` and NO transom token (the transom rides the `USERDEFINED` `ObjectType` discriminator IFC itself requires), and `IfcPlate`/`CURTAIN_PANEL` keeps the sheet row's triple disjoint from the glazing (`SHEET`) and panel (`NOTDEFINED`) family claims so the reverse `Claimant` read elects exactly one family. The capacity CURVE is not this page's: `AluminumSeed.Capacity` hands the member arm the banded (fo, fu) pair, the class letter, and the section receipt whole, and the §6.3.1 α/λ̄0 constants per class letter live on the `capacity#SECTION_CAPACITY` EN 1999 arm.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;
@@ -32,10 +32,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Component;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The EN 755-2 / EN 485 product-form axis every EN 1999-1-1 Table 3.2a/3.2b band keys on. The EN 755 parts are ROLES
-// of one standard family — -1 delivery, -2 the mechanical bands, -3..-9 the dimensional tolerances — so no per-part
-// row exists.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExtrusionForm {
@@ -47,12 +44,6 @@ public sealed partial class ExtrusionForm {
     public static readonly ExtrusionForm Plate   = new("plate");
 }
 
-// The EN 1999-1-1 §6.3.1 flexural-buckling CURVE as a row carrying its own Table 6.6 pair: the imperfection factor α
-// and the limit slenderness λ̄0 below which no reduction applies. Which class an alloy takes is the standard's own
-// generator — a standardized fo at or below 230 MPa classes B unless the temper is a precipitation-hardened T6, and
-// anything above classes A — so the LETTER rides the grade row and the two CONSTANTS ride here, read by the
-// capacity#SECTION_CAPACITY EN 1999 member arm and published whole through its BucklingRows seam pair. A letter
-// carrying no constants forced that arm to keep a copy of the table, which is the second answer this row deletes.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BucklingClass {
@@ -70,10 +61,6 @@ public sealed partial class ThermalBreakClass {
     public static readonly ThermalBreakClass ResinPoured    = new("resin-poured");
 }
 
-// Gate-0: IfcMember carries MULLION and MEMBER and NO transom token, so the transom rides the USERDEFINED
-// ObjectType discriminator IFC itself requires; the panel sheet is IfcPlate CURTAIN_PANEL, leaving IfcPlate/SHEET
-// and IfcPlate/NOTDEFINED to the glazing and panel families so the reverse Claimant read elects exactly one family
-// per triple.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ExtrusionRole {
@@ -82,33 +69,21 @@ public sealed partial class ExtrusionRole {
     public static readonly ExtrusionRole Structural = new("structural", ifc: IfcBinding.Of("IfcMember", "MEMBER"),       framing: false);
     public static readonly ExtrusionRole Panel      = new("panel",      ifc: IfcBinding.Of("IfcPlate", "CURTAIN_PANEL"), framing: false);
     public IfcBinding Ifc { get; }
-    public bool Framing { get; }   // a framing role stamps DetailSchema.MullionProfile; the panel role stamps PanelThickness
+    public bool Framing { get; }
 }
 
-// --- [CONSTANTS] ---------------------------------------------------------------------------
-// EN 1999-1-1 declares NO γM0: γM1 = 1.10 covers cross-section resistance whatever the class AND member
-// instability, γM2 = 1.25 the net-section/ultimate fracture rail. The capacity#SECTION_CAPACITY DesignBasis row
-// for EN 1999 mirrors this pair, so the invariant states at both owners and moves as one.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public static class AluminumPartialFactor {
-    public const double Instability = 1.10;   // γM1
-    public const double Fracture    = 1.25;   // γM2
+    public const double Instability = 1.10;
+    public const double Fracture    = 1.25;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// One EN 1999-1-1 Table 3.2a/3.2b band: the product forms the printed row groups, its thickness window
-// (exclusive-min, inclusive-max — the "3 < t ≤ 25" print), and the characteristic pair. Forms ride the band
-// because the standard prints one row per form GROUP (EP/ET/ER/B share a cell on most alloys and split on
-// 6082-T6), so a per-form copy would fork the printed row.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AlloyBand(Seq<ExtrusionForm> Forms, double MinMm, double MaxMm, double FoMpa, double FuMpa) {
     public bool Covers(ExtrusionForm form, double thicknessMm) =>
         Forms.Contains(form) && thicknessMm > MinMm && thicknessMm <= MaxMm;
 }
 
-// The HAZ reduction pair ρo,haz/ρu,haz — PRESENT only where two independent sources agree. The EC9 per-row 6xxx pairs
-// are single-sourced AND the simplified single-factor convention conflicts with them numerically (190 against the
-// per-row 185 on 6082-T6), so every 6xxx cell is typed-absent and a welded-zone check over a 6xxx die is unpriceable
-// rather than mis-priced; 5083 O/H111 answers 1.0/1.0 on both sources, a work-hardened O-temper having no
-// precipitation structure for a weld to dissolve.
 public readonly record struct HazRow(double RhoO, double RhoU);
 
 public partial record GradeProperties {
@@ -124,15 +99,12 @@ public sealed partial class MaterialGrade {
     public Option<GradeProperties.Aluminum> AluminumArm => Columns is GradeProperties.Aluminum arm ? Some(arm) : None;
 }
 
-// --- [TABLES] ------------------------------------------------------------------------------
-// ElementMm is the governing element thickness the Table 3.2 band selects on (the wall of a hollow, the flange of
-// an open section, the sheet's own thickness). Pocket depth and isolator class are die facts a shop states — the
-// STANDARD mullion-depth series has no captured quantitative source, so no row claims one.
+// --- [TABLES] --------------------------------------------------------------------------
 public readonly record struct DieRow(
     string Designation, ExtrusionRole Role, MaterialGrade Grade, ExtrusionForm Form, double ElementMm,
     ThermalBreakClass Break, Option<double> GlazingPocketMm, Func<Op, Fin<SectionProfile>> Build);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class AluminumDetail {
     public static Fin<PropertyBag> Of(DieRow die) =>
         from pocket in die.GlazingPocketMm.Match(
@@ -156,7 +128,7 @@ public static class AluminumDetail {
         ]);
 }
 
-// --- [POLICIES] ----------------------------------------------------------------------------
+// --- [POLICIES] ------------------------------------------------------------------------
 public static class AluminumSeed {
     static readonly MaterialId Render = MaterialId.Of("metal.aluminum");
 
@@ -180,8 +152,6 @@ public static class AluminumSeed {
             ThermalBreakClass.None, None,
             static key => SectionProfile.Rectangle.Of(widthMm: 1200.0, depthMm: 3.0, key)));
 
-    // The two-slot law's split case: an extrusion renders as the metal whatever alloy it is cut from, so the
-    // appearance slot takes the measured conductor while the substance slot takes the grade's own row.
     public static readonly SeedLaw<DieRow> Law = SeedLaw<DieRow>.Of(
         family: ComponentFamily.Aluminum,
         designation: static die => die.Designation,
@@ -194,9 +164,6 @@ public static class AluminumSeed {
         appearance: static _ => Render,
         ifc: static die => die.Role.Ifc);
 
-    // The die census, ACCUMULATING: a die naming a grade from another family, a die whose grade carries no aluminum
-    // payload, and a die whose governing element thickness falls outside its alloy's printed (form, thickness) window
-    // are THREE independent defects, so a malformed roster names all of them in one verdict.
     static Validation<Error, Unit> Coherence(DieRow die, Op key) =>
         (guard(die.Grade.Family == ComponentFamily.Aluminum,
              new ComponentFault.GradeFamilyMismatch(key, die.Grade, ComponentFamily.Aluminum)).ToValidation(),
@@ -207,17 +174,12 @@ public static class AluminumSeed {
              .IfNone(Validation<Error, Unit>.Success(unit)))
             .Apply(static (_, _, _) => unit).As();
 
-    // The railed designation-keyed die join — SeedJoin per the component#CATALOGUE law, so a malformed die
-    // designation lands typed on the ComponentFault rail instead of a TypeInitializationException from a throwing
-    // static ComponentId.Create the composition root cannot attribute.
     static readonly Lazy<Fin<FrozenDictionary<ComponentId, DieRow>>> Table =
         SeedJoin.Of(Roster, static die => die.Designation);
 
     public static Fin<DieRow> Resolve(Component component, Op key) =>
         SeedJoin.Resolve(Table, component.Designation, key);
 
-    // The jurisdiction is PROVEN rather than threaded: en1999 is the one basis whose aluminium bands exist, so a
-    // placement declaring any other refuses typed here instead of mis-pricing through a foreign kernel.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
         from solved in section.ToFin(new ComponentFault.SectionUnavailable(key, component.Designation))
         from based in guard(placement.Basis == DesignBasis.En1999,

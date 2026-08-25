@@ -31,7 +31,7 @@ Document spine component address `ResourceRef` resolves every Annotation table t
 - Growth: a component table joins with one lens row and one grip; a new table verb is one `TableOp` case beside one grip column every table already answers.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Specialized;
 using System.Globalization;
@@ -49,7 +49,7 @@ using PixelSpan = Rasm.Numerics.Dimension;
 
 namespace Rasm.Rhino.Annotation;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public static class DraftCrossing {
     internal static Fin<Seq<GeometryHandle>> Crossed<TGeometry>(Seq<TGeometry> products, Op op)
         where TGeometry : GeometryBase =>
@@ -60,10 +60,6 @@ public static class DraftCrossing {
             release: sources => Custody.Dispose(held: sources, key: op));
 }
 
-// `CommonObject` keeps the user-string surface `internal` and every tagged component re-publishes it, so no base
-// member and no interface spans the family. `TagSurface` is that missing seam: the OWNER binds its own four
-// members once at the call site, and the snapshot reader is an argument rather than a reflected delegate `Target`
-// — a static method group has a null `Target`, and a type-test roster silently strands a fourth tagged component.
 public readonly record struct TagSurface(
     Func<NameValueCollection> Read,
     Func<string, string, bool> Set,
@@ -84,9 +80,6 @@ public abstract partial record TagEdit {
             context.Op.Confirm(success: context.Owner.Set(edit.Tag.Key.Value, edit.Tag.Value)),
         delete: static (context, edit) => context.Op.Confirm(success: context.Owner.Drop(edit.Key.Value)),
         clear: static (context, _) => context.Op.Catch(context.Owner.Clear),
-        // Whole-bag replacement is a LANDED-THEN-ROLLBACK fold, not a suffix cleanup: the original bag is read
-        // before the clear, each admitted pair lands as one host write, and the first refusal replays the original
-        // through the same compensation algebra every other drafting rail uses.
         replace: static (context, edit) =>
             from admitted in toSeq(edit.Tags.AsIterable()).Traverse(pair =>
                 (from name in context.Op.AcceptText(value: pair.Key)
@@ -106,9 +99,6 @@ public abstract partial record TagEdit {
         select unit;
 }
 
-// The host list seam a `ListEdit` walks: the two writes every component list publishes, the in-place setter and the
-// bulk purge only some do, and the row FLOOR the table demands — a hatch generator list may empty, a linetype
-// segment run may not, and both facts are columns here instead of a guard re-spelled inside each page's edit arm.
 public readonly record struct ListSurface<TRow>(
     Func<int> Count,
     Func<TRow, Op, Fin<Unit>> Append,
@@ -128,8 +118,6 @@ public abstract partial record ListEdit<TRow> where TRow : class {
     internal Fin<Unit> Apply(ListSurface<TRow> surface, Op op) => Switch(
         (Surface: surface, Op: op),
         append: static (context, edit) => context.Surface.Append(edit.Row, context.Op),
-        // Host truth carried as a COLUMN: a list publishing no in-place setter spells a replace as a bounded
-        // remove-then-append, and the page that owns such a list states it once by leaving `Write` absent.
         replace: static (context, edit) =>
             from _ in Bounded(surface: context.Surface, index: edit.Index, key: context.Op)
             from __ in context.Surface.Write.Match(
@@ -172,9 +160,6 @@ public sealed record TableGrip<TComponent, TDef>(
     Option<Func<TComponent, Op, Fin<Func<Op, Fin<Unit>>>>> Scoped = default,
     Option<Func<DraftPath, HostInteraction, Op, Fin<Seq<TComponent>>>> Ingest = default,
     Option<Func<DraftPath, Seq<TComponent>, Op, Fin<Unit>>> Emit = default) where TComponent : class, IDisposable {
-    // `Modify` copies the duplicate's settings into the table row and leaves the native this rail's own, so success
-    // releases it exactly as both refusal legs do. `Scoped` enters before the revise and its exit runs on EVERY
-    // leg — a save-clear-restore written inside the revise skips its restore on the short-circuit.
     internal Fin<DraftReceipt> Revised(
         ResourceRef target, RhinoDoc document, DraftSlot slot, HostInteraction interaction, Op op,
         Func<TComponent, Op, Fin<Unit>> revise) =>
@@ -258,9 +243,6 @@ public abstract partial record TableOp<TComponent, TDef> where TComponent : clas
                 slot: DraftSlot.Current, componentKind: context.Grip.Kind,
                 index: ResourceIndex.Create(index), key: context.Op)
             select receipt,
-        // The read batch IS the payload the table takes, so nothing canonical precedes the preflight: a duplicate
-        // or already-seated name refuses BEFORE the first seat, draining the batch on its own refusal leg, and the
-        // survivors land through the shared compensation algebra whose release policy settles them either way.
         import: static (context, edit) =>
             from ingest in context.Grip.Ingest.ToFin(context.Op.Unsupported(
                 valueType: typeof(DraftPath), outputType: typeof(Seq<TComponent>)))
@@ -307,8 +289,6 @@ public static class TargetResolution {
     }
 }
 
-// A handle's native lives only inside its lease scope, so a spread nests one scope per member and hands the whole
-// borrowed run to one continuation — flattening the run out of the scopes publishes natives the leases already closed.
 public static class DraftBorrow {
     extension(GeometryHandle handle) {
         internal Fin<TResult> Typed<TNative, TResult>(Op key, Func<TNative, Fin<TResult>> project)
@@ -381,7 +361,7 @@ public sealed partial class LengthDisplayRow {
 - Growth: a catalog-proven host config pairing is one row minted through its payload adapter; a second drafting schema is one `FieldTable` instantiation; a standards clause is one `DraftStandard` edit row. Every patch, snapshot, and census gains each without another operation surface, and each lands beside the rest.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class StyleAxis {
     public static readonly StyleAxis Arrow = new(key: 0);
@@ -393,9 +373,6 @@ public sealed partial class StyleAxis {
     public static readonly StyleAxis Leader = new(key: 6);
 }
 
-// One admission memo per CLR enum family: `[Flags]`, the composite mask, and the membership probe resolve ONCE at
-// first touch of the family, and the family rides on the payload as a VALUE. A `Type` on the payload made every
-// admission re-run `IsDefined` and every reader re-test a runtime type where the question is membership.
 public sealed record EnumFamily {
     private EnumFamily(string name, bool combinable, ulong mask, Func<Enum, bool> defined) {
         Name = name;
@@ -449,8 +426,6 @@ public abstract partial record StyleValue {
         new Choice(value: value, family: EnumFamily.For<TEnum>());
 }
 
-// The row payload the mechanism mints. A page's own `[SmartEnum<int>]` seats one per row beside its key and axis,
-// because a `[SmartEnum]` is never generic — the MECHANISM generalizes, the vocabulary stays per schema.
 public readonly record struct FieldSeat<TOwner>(
     Func<StyleValue, bool> Accepts,
     Func<TOwner, Op, Fin<StyleValue>> Read,
@@ -539,8 +514,6 @@ public static class FieldTable<TOwner, THostEnum>
                 from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => set(owner, typed))))
                 select unit);
 
-    // The host enum a schema keys on admits back to its row ONCE, here: a host read answering a `Field` value
-    // resolves through the kernel's ordinal arm instead of an `(int)` cast beside every census.
     public static Fin<TRow> Row<TRow>(THostEnum field, Op key)
         where TRow : class, ISmartEnum<int, TRow, ValidationError> =>
         key.Row<THostEnum, TRow>(
@@ -657,17 +630,12 @@ public sealed partial class StyleField {
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Write(DimensionStyle style, StyleValue value, Op key);
 
-    // The axis roster every scoped census, override clear, and standards patch reads; the grouping resolves once
-    // at first touch rather than filtering ninety rows per request.
     public static Seq<StyleField> On(StyleAxis axis) => ByAxis.Value[axis];
 
     private static readonly Lazy<FrozenDictionary<StyleAxis, Seq<StyleField>>> ByAxis = new(static () =>
         toSeq(Items).GroupBy(static row => row.Axis)
             .ToFrozenDictionary(static group => group.Key, static group => toSeq(group).Strict()));
 
-    // The nine row constructors are this schema's INSTANTIATION of `FieldTable`: each binds the host `Field` as the
-    // vocabulary key, the axis as the row's column, and one adapter seat. The adapter bodies live once on the
-    // mechanism, so a second schema over a different host enum declares nine of these and nothing else.
     private static StyleField Real(DimensionStyle.Field field, StyleAxis axis, Func<DimensionStyle, double> get, Action<DimensionStyle, double> set) =>
         new(key: (int)field, axis: axis, seat: Fields.Real(get, set));
 
@@ -697,7 +665,7 @@ public sealed partial class StyleField {
         new(key: (int)field, axis: axis, seat: Fields.Glyph(get, set));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record StyleEdit {
     private StyleEdit(StyleField field, StyleValue value) {
         Field = field;
@@ -719,8 +687,6 @@ public sealed record StylePatch {
 
     public Seq<StyleEdit> Edits { get; }
 
-    // Arity absorption, not a sibling: a stack roster enters as a span and a computed run as a `Seq`, and both
-    // reach the one admission below.
     public static Fin<StylePatch> Of(params ReadOnlySpan<StyleEdit> edits) =>
         Of(run: LanguageExt.Iterable<StyleEdit>.FromSpan(edits).ToSeq());
 
@@ -731,16 +697,12 @@ public sealed record StylePatch {
                select new StylePatch(edits: admitted);
     }
 
-    // The axis SCOPE a clear or a census asks for: the sub-patch is a value, so an axis-scoped request never
-    // re-derives the grouping and an empty scope refuses at the same gate a hand-built empty patch does.
     public Fin<StylePatch> Within(StyleAxis axis) =>
         Of(run: Edits.Filter(edit => edit.Field.Axis == axis));
 
     internal Fin<Unit> Apply(DimensionStyle style, Op key) =>
         Edits.TraverseM(edit => edit.Field.Write(style: style, value: edit.Value, key: key)).As().Map(static _ => unit);
 
-    // `DimensionStyle` is the EFFECTIVE style — already carrying any prior override — so seeding the child from it
-    // compounds each successive `Restyle`; the construction base is `ParentDimensionStyle`, which re-derives clean.
     internal Fin<DimensionStyle> Overlay(AnnotationBase annotation, Op key) =>
         from parent in Optional(annotation.ParentDimensionStyle).ToFin(Fail: key.MissingContext())
         from child in key.Catch(() => Fin.Succ(value: parent.Duplicate(
@@ -754,10 +716,7 @@ public sealed record StylePatch {
         select child;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The drawing standard reaching the schema: every value below DERIVES from the kernel `Drawing/sheet` ladders for
-// the sheet extent, lettering form, and drawing scale the caller names, so the office's own house standard is a
-// `SheetSize`/`LetteringForm`/`DrawingScale` triple rather than ninety millimetre literals per style.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DraftStandard {
     public static Fin<StylePatch> Patch(SheetSize size, LetteringForm form, DrawingScale scale, Op? key = null) {
         Op op = key.OrDefault();
@@ -768,8 +727,6 @@ public static class DraftStandard {
                let arrow = Terminator.ClosedArrow.Size(width: group.Wide)
                let places = resolution.Switch(
                    places: static row => row.Count,
-                   // A fractional unit publishes a DENOMINATOR and the host schema counts decimal places, so the
-                   // denominator's binary rank is the places its readout resolves to.
                    fraction: static row => (int)Math.Log2(row.Denominator))
                from edits in Seq(
                    (Field: StyleField.TextHeight, Value: (StyleValue)new StyleValue.Real(metrics.Height.Height.Millimeters)),
@@ -812,15 +769,13 @@ public static class DraftStandard {
 - Growth: a style-only verb is one case with its arm; a verb every component table shares is one `TableOp` case; the spine, the receipt, and every consumer read both with zero new surface.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class StyleDef {
     public ResourceName Name { get; }
     public StylePatch Patch { get; }
     public Option<ResourceId> Parent { get; }
 
-    // Applied to a DETACHED style — the fresh native the grip mints or the duplicate it revises — so the three
-    // writes are the whole authorable aggregate and no arm re-spells one of them.
     internal Fin<Unit> Apply(DimensionStyle style, Op key) =>
         from _ in key.Catch(() => Fin.Succ(value: Op.Side(() => style.Name = Name.Value)))
         from __ in key.Catch(() => Fin.Succ(value: Op.Side(() =>
@@ -829,7 +784,7 @@ public sealed partial class StyleDef {
         select unit;
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StyleOp {
     private StyleOp() { }
@@ -846,8 +801,6 @@ public abstract partial record StyleOp {
         ByName: static (document, name) => document.DimStyles.FindName(name: name),
         ByIndex: static (document, index) => document.DimStyles.FindIndex(index: index));
 
-    // The style table publishes no file interchange and needs no host-state bracket, so both optional columns stay
-    // absent and a `TableOp.Import` against this grip refuses typed rather than answering an empty batch.
     internal static readonly TableGrip<DimensionStyle, StyleDef> Grip = new(
         Lens, DraftComponentKind.Style,
         Named: static def => def.Name,
@@ -922,9 +875,6 @@ public abstract partial record StyleOp {
                     })))));
 }
 
-// The per-ANNOTATION style verbs every annotation program embeds: an override overlay and its clear. The pair was
-// byte-identical on the dimension and text rails and the concern is one — an annotation's relation to its style —
-// so it seats at the schema's owner rather than twice beside two host geometry families.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AnnotationStyleOp {
     private AnnotationStyleOp() { }
@@ -938,7 +888,7 @@ public abstract partial record AnnotationStyleOp {
         unstyle: static (context, _) => context.Op.Confirm(success: context.Annotation.ClearPropertyOverrides()));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DraftMode {
     public static readonly DraftMode Recorded = new(key: 0, redraw: RedrawPolicy.Deferred, custody: UndoCustody.Recorded);
@@ -966,7 +916,7 @@ public sealed record DraftPlan<TOp> where TOp : class {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Styles {
     public static Fin<DraftReceipt> Commit(DocumentSession session, DraftPlan<StyleOp> plan) =>
         DraftSpine.Commit(session: session, plan: plan,
@@ -995,7 +945,7 @@ public static class Styles {
 - Growth: a read is one `StyleAsk` case with its `StyleAnswer` twin; the scope, the lease law, and the extent ceiling come free.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StyleAsk {
     private StyleAsk() { }
@@ -1042,7 +992,7 @@ public abstract partial record StyleAnswer : IDetachedDocumentResult {
     public sealed record Minted(ResourceName Name) : StyleAnswer;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class PreviewSurface {
     public static readonly PreviewSurface Opaque = new(usesTransparency: false);
@@ -1050,8 +1000,6 @@ public sealed partial class PreviewSurface {
     internal bool UsesTransparency { get; }
 }
 
-// The extent half is the kernel's: `AssetExtent` carries the declared raster ceiling, measures both scaled edges
-// against it, and proves the pixel product in `long`. This page adds only the host's transparency posture.
 [ComplexValueObject]
 public sealed partial class PreviewSpec {
     public AssetExtent Extent { get; }
@@ -1150,7 +1098,7 @@ public sealed record StyleSnapshot(
 - Growth: a new consequence class is one slot row with its body set or one body case with its kind row; every rail and every projection gains it for free.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class DraftComponentKind {
     public static readonly DraftComponentKind Style = new();
@@ -1186,9 +1134,6 @@ public abstract partial record DraftBody : IFactBody<DraftBodyKind> {
         record: static _ => DraftBodyKind.Record);
 }
 
-// This folder's whole contribution to the shared stream: a keyed slot vocabulary and a body union. The
-// accumulation, the gate, the undo projection, and the slot-keyed reader live once on `Document/facts.md`'s
-// `FactStream<TSlot, TBody>`, which this page closes as `DraftReceipt`.
 [SmartEnum<int>]
 public sealed partial class DraftSlot : IFactSlot<DraftBody, DraftBodyKind> {
     public static readonly DraftSlot Authored = new(key: 0, bodies: Rowed);
@@ -1226,7 +1171,7 @@ public sealed partial class DraftSlot : IFactSlot<DraftBody, DraftBodyKind> {
     private static CapabilitySet<DraftBodyKind> Stamped => CapabilitySet<DraftBodyKind>.Of(DraftBodyKind.Record);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public sealed partial class DraftCount {
@@ -1247,11 +1192,11 @@ public sealed partial class DraftPath {
     }
 }
 
-// --- [EXPORTS] ------------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using DraftFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody>;
 global using DraftReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Annotation.DraftSlot, Rasm.Rhino.Annotation.DraftBody>;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DraftFacts {
     extension(DraftReceipt) {
         public static Fin<DraftReceipt> Component(DraftSlot slot, DraftComponentKind componentKind, ResourceIndex index, Op key) =>

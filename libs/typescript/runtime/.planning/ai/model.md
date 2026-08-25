@@ -35,12 +35,6 @@ import { Fault } from "@rasm/core"
 import { Safety } from "./tool.ts"
 
 declare namespace Providers {
-  // Descriptor coordinates are TOTAL — every row answers all five, because a row short of them drops a coordinate its
-  // own callers then hardcode. These are the `providers` axis descriptors a `proc/config#ADMISSION_ROWS` `Profile`
-  // SELECTS; the closed axis selects the row and the cell explains it, so `tenancy` names the MECHANISM this row
-  // separates by and never re-mints the `none|single|multi` roster its owner already publishes. Cells beyond the five
-  // earn their column by DIVERGING: a value repeated by every row decides nothing, and a roster tally no consumer
-  // spends is never a cell at all — the tool rosters live on `tool.md`, where a caller names one.
   type Descriptor = {
     readonly fits: string
     readonly admit: "api-key" | "sigv4"
@@ -59,11 +53,6 @@ declare namespace Providers {
   }
 }
 
-// `tenancy` states the mechanism a row separates tenants by — every row here separates by CREDENTIAL, and its cell
-// names the principal that credential resolves to. `lifetime` splits on OWNERSHIP: a cached prefix expires under the
-// provider's own policy, which this package cannot read or influence, so the honest answer is that the row DOES NOT
-// DECIDE it and names who does. That absence is not a forfeit and never rides `degrade`, which carries only what a
-// row gives up against its siblings — a row with no breakpoint where siblings place one genuinely gives something up.
 const _providers = {
   openai: {
     model: OpenAiLanguageModel.model,
@@ -137,10 +126,6 @@ declare namespace Providers {
   type _Rows<T extends Record<Name, { readonly cells: Capability }> = typeof _providers> = T
 }
 
-// Breakpoints read the `cache` cell, and the augmentation SLOT KEY is the row key itself, so a stamp lands under the
-// provider's own namespace with no name table beside the row table. A marking row answers `Some` and a row caching
-// without a marker answers `None` rather than an empty record — `implicit` needs no marker and `client` exposes
-// caching only through a raw client this binding never dials, and both are absences a caller must not stamp.
 const _breakpoints = {
   cacheControl: (provider: Providers.Name, ttl: Providers.Ttl) =>
     Option.some({ [provider]: { cacheControl: { type: "ephemeral", ttl } } }),
@@ -152,16 +137,11 @@ const _breakpoints = {
   (provider: Providers.Name, ttl: Providers.Ttl) => Option.Option<Prompt.ProviderOptions>
 >
 
-// Seating a breakpoint REBUILDS the message array, because the package offers no other route: `setSystem`,
-// `prependSystem`, and `appendSystem` each take a body alone, and a message's `options` slot is reachable only
-// through `makeMessage`. The stamp lands on the TRAILING system message because the cached prefix has to end where
-// the stable instructions end — a breakpoint above later system content prices a prefix the next turn invalidates.
 const _stamped = (prompt: Prompt.Prompt, provider: Providers.Name, ttl: Providers.Ttl = "5m"): Prompt.Prompt =>
   Option.match(_breakpoints[_providers[provider].cells.cache](provider, ttl), {
     onNone: () => prompt,
     onSome: (options) =>
       Option.match(Array.findLastIndex(prompt.content, (message) => message.role === "system"), {
-        // a prompt carrying no system message has no stable prefix, so there is nothing a breakpoint could price
         onNone: () => prompt,
         onSome: (at) =>
           Prompt.fromMessages(Array.map(prompt.content, (message, index) =>
@@ -195,10 +175,6 @@ const Providers = {
 - Growth: a new tier is one table row; a per-tenant ladder is a table value selected by the caller's context.
 
 ```typescript signature
-// `AiError` carries no branch class brand, so `Fault.Class.of` probes it, finds no `class` property, and grades every
-// provider failure `defect` — the one class the lattice marks non-retryable. That verdict disarms BOTH rungs at once:
-// `while` refuses every failover and `Fault.Budget.schedule`'s default gate refuses every in-tier retry, so a rate
-// limit reads as terminal and the tier table never runs. Grading the union onto the lattice is what arms the ladder.
 const _statusRows = [
   { at: (status: number) => status === 408 || status === 429, class: "exhausted" },
   { at: (status: number) => status === 401 || status === 403, class: "denied" },
@@ -207,16 +183,13 @@ const _statusRows = [
   { at: (status: number) => status >= 500, class: "unavailable" },
 ] as const satisfies ReadonlyArray<{ readonly at: (status: number) => boolean; readonly class: Fault.Class.Kind }>
 
-// Status is the axis the TAG cannot carry: one `HttpResponseError` covers a rate limit, a revoked key, and a
-// malformed request, so a tag-level verdict either replays a 400 through every tier or strands a 429 on one attempt.
 const _status = (status: number): Fault.Class.Kind =>
   Option.match(Array.findFirst(_statusRows, (row) => row.at(status)), {
-    onNone: () => "invalid" as const, // every remaining 4xx is the caller's own request, and replaying it changes nothing
+    onNone: () => "invalid" as const,
     onSome: (row) => row.class,
   })
 
 const _graded = Match.type<AiError.AiError>().pipe(
-  // `Encode` and `InvalidUrl` are this process's own construction faults; `Transport` is the network and yields.
   Match.tag("HttpRequestError", (fault) => fault.reason === "Transport" ? "unavailable" as const : "invalid" as const),
   Match.tag("HttpResponseError", (fault) =>
     fault.reason === "StatusCode" ? _status(fault.response.status) : "malformed" as const),
@@ -227,24 +200,15 @@ const _graded = Match.type<AiError.AiError>().pipe(
 )
 
 const _classOf = (fault: unknown): Fault.Class.Kind =>
-  AiError.isAiError(fault) ? _graded(fault) : Fault.Class.of(fault) // a branch-branded fault still grades at its own owner
+  AiError.isAiError(fault) ? _graded(fault) : Fault.Class.of(fault)
 
-// the DERIVED projection, never a stored bit: the column is gone from the core row table and this member is the
-// whole survivor, so a gate wanting only a boolean keeps one and a reader wanting the band reads `recoveryOf`
 const _yields = (fault: unknown): boolean => Fault.Class.retryable(_classOf(fault))
 
-// Providers publish their own wait on the refusal itself, so the header reads off the error the ladder already holds.
 const _after = (fault: unknown): Option.Option<Duration.Duration> =>
   AiError.isAiError(fault) && fault._tag === "HttpResponseError"
     ? Option.map(Option.flatMap(Option.fromNullable(fault.response.headers["retry-after"]), Number.parse), Duration.seconds)
     : Option.none()
 
-// The provider's published wait has to REPLACE the compiled delay for the one attempt carrying it, which narrows the
-// combinator to `modifyDelay`: `addDelay` sums onto the compiled value instead, and a sum is the second curve the
-// branch retry ruling forbids. Neither combinator can see the fault — both receive the schedule's OUTPUT, and the
-// budget's output is its own `[delay, count]` pair — so `passthrough` re-points that output at the retry INPUT and
-// the refusal the ladder already holds becomes the value the delay reads. Only the carrying attempt is pinned; the
-// budget's own curve resumes untouched on the next one, never re-based off the provider's number.
 const _paced = (budget: Fault.Budget.Kind) =>
   Schedule.passthrough(Fault.Budget.schedule(budget, _yields)).pipe(
     Schedule.modifyDelay((fault, delay) => Option.getOrElse(_after(fault), () => delay)),
@@ -253,7 +217,6 @@ const _paced = (budget: Fault.Budget.Kind) =>
 const _step = (tier: Ladder.Tier) => ({
   provide: _providers[tier.provider].model(tier.model),
   attempts: tier.attempts,
-  // one grading gates the in-tier retry too, because the default gate reads a `class` property no `AiError` carries
   schedule: _paced(tier.budget),
   while: (fault: unknown) => Effect.succeed(_yields(fault)),
 })
@@ -278,7 +241,7 @@ declare namespace Ladder {
   type Table = readonly [Tier, ...Array<Tier>]
   type Plan = ReturnType<typeof _plan>
   type Needs = Plan extends ExecutionPlan.ExecutionPlan<infer Types> ? Types["requirements"] : never
-  type Bound<R> = Exclude<R, LanguageModel.LanguageModel> | Needs // the plan eliminates the model tag and publishes the provider clients it dragged in
+  type Bound<R> = Exclude<R, LanguageModel.LanguageModel> | Needs
 }
 
 function _tiered<A, E, R>(table: Ladder.Table, call: Effect.Effect<A, E, R>): Effect.Effect<A, E, Ladder.Bound<R>>
@@ -307,9 +270,6 @@ const Ladder = { drive: _tiered, yields: _yields, grade: _classOf, after: _after
 - Growth: a screen or sweep policy is a predicate row on the gate's policy table; a new modality inherits the fold by construction; a provider gaining a namespaced telemetry module is one annotation row.
 
 ```typescript signature
-// Every reason declares the evidence its OWN band can produce, so the two provider-stated bands close against the
-// exact finish words that reach them and a local screen carries the rule or span it matched. One free `evidence`
-// string carried all five and let a finish word, a regex span, and a tool name read as one column.
 const _LEG = "gate"
 
 const _refusals = Fault.Class.family(["screened", "swept", "provider", "stalled", "policy"] as const, {
@@ -327,13 +287,10 @@ const _refusals = Fault.Class.family(["screened", "swept", "provider", "stalled"
   }),
   provider: Fault.Class.row({
     class: "denied",
-    // the two finish words a provider refuses under, closed here: `content-filter` is its moderation verdict and
-    // `error` is a tool fault it resolved itself, and a turn under either never ran
     leg: _LEG,
     detail: Schema.Struct({ finish: Schema.Literal("content-filter", "error") }),
     render: ({ finish }) => `the provider refused this turn and finished ${finish}`,
   }),
-  // a paused turn is unfinished work, not a verdict: re-driving it is exactly what the provider is waiting for
   stalled: Fault.Class.row({
     class: "unavailable",
     leg: _LEG,
@@ -341,7 +298,7 @@ const _refusals = Fault.Class.family(["screened", "swept", "provider", "stalled"
     render: () => "the provider paused this turn mid-tool and it is unfinished, never settled",
   }),
   policy: Fault.Class.row({
-    class: "invalid", // a caller's own tool-choice misconfiguration is a quarantinable defect, never a moderation verdict
+    class: "invalid",
     leg: _LEG,
     detail: Schema.Struct({ choice: Schema.NonEmptyString }),
     render: ({ choice }) => `tool choice ${choice} names nothing this gate made visible`,
@@ -359,12 +316,6 @@ class GuardrailFault extends Schema.TaggedError<GuardrailFault>()("GuardrailFaul
   }
 }
 
-// The gate reads THREE bands off the eight-value finish roster where a lone `content-filter` literal read one, and
-// the two it missed are the ones that fabricate a clean answer. `error` is where a provider lands a tool fault it
-// resolved itself — a malformed, over-count, unexpected, or signature-missing call — so a turn that never ran would
-// settle as an empty reply. `pause` is a turn the provider paused mid-tool, and settling it as finished truncates
-// live work. TRAP: `pause` reaches this table from the Anthropic row alone; the identical wire value on the Bedrock
-// row is unmapped and arrives as `unknown`, which settles — a paused Bedrock turn is indistinguishable here.
 const _finishes = {
   "content-filter": Option.some({ reason: "provider", finish: "content-filter" } as const),
   error: Option.some({ reason: "provider", finish: "error" } as const),
@@ -376,8 +327,6 @@ const _finishes = {
   unknown: Option.none(),
 } as const satisfies Record<Response.FinishReason, Option.Option<Guardrail.Issue>>
 
-// The row carries the WHOLE issue, not a band beside a word the mint then re-pairs: the finish literal and the
-// reason it elects travel together, so a row electing a band its subject cannot spell breaks at the table.
 const _refused = (reason: Response.FinishReason): Option.Option<GuardrailFault> =>
   Option.map(_finishes[reason], (issue) => new GuardrailFault({ case: issue }))
 
@@ -385,7 +334,7 @@ const _free = {
   generateText: LanguageModel.generateText,
   generateObject: LanguageModel.generateObject,
   streamText: LanguageModel.streamText,
-} satisfies Guardrail.Carrier // the free trio proves it inhabits the chat's own generation shape; a divergence breaks here, not at a call site
+} satisfies Guardrail.Carrier
 
 declare namespace Guardrail {
   type Carrier = Pick<Chat.Service, "generateText" | "generateObject" | "streamText">
@@ -460,7 +409,6 @@ const _sweepStream = (policy: Guardrail.Policy) =>
           },
           onSome: (span) => Effect.fail(new GuardrailFault({ case: { reason: "swept", span } })),
         })
-        // the finish part is the one place a provider states its own verdict, and the roster reader owns all three bands
         : Option.match(part.type === "finish" ? _refused(part.reason) : Option.none<GuardrailFault>(), {
           onSome: Effect.fail,
           onNone: () =>
@@ -487,9 +435,6 @@ const _request = <Options extends object>(policy: Guardrail.Policy, options: Opt
     disableToolCallResolution: gate.disableToolCallResolution,
   } as const))
 
-// One sweep serves BOTH buffered modalities: the object receipt extends the text receipt with `value`, so the arm is
-// generic over the receipt rather than pinned to one, and the returned type keeps whatever the caller handed in. Two
-// copies of this fold is how the object arm drifted a refusal band behind the text arm.
 const _swept = (policy: Guardrail.Policy) =>
 <Settled extends { readonly finishReason: Response.FinishReason; readonly text: string }>(settled: Settled) =>
   Option.match(_refused(settled.finishReason), {
@@ -568,16 +513,13 @@ const _spend = (tier: Ladder.Tier, usage: Response.Usage): BigDecimal.BigDecimal
   ])
 
 const _finish = (content: ReadonlyArray<Response.AnyPart>): Option.Option<Response.FinishPart> =>
-  Array.findFirst(content, (part): part is Response.FinishPart => part.type === "finish") // the one finish read: exact cost and namespaced telemetry both consume it
+  Array.findFirst(content, (part): part is Response.FinishPart => part.type === "finish")
 
-// Settled-cost readers key on the COST cell, matching the telemetry fold beside them: an aggregator publishes a
-// figure under its own metadata slot while every metered row prices from `Usage`, so a boolean flag beside a direct
-// metadata read left the column decorative and a sixth row gaining a settled figure is one reader, never a branch.
 const _settled = {
   aggregate: (content: ReadonlyArray<Response.AnyPart>) =>
     _finish(content).pipe(
       Option.flatMapNullable((part) => part.metadata.openrouter?.usage?.cost),
-      Option.flatMap(BigDecimal.safeFromNumber), // the float-to-exact admission: an unrepresentable provider float refuses instead of drifting
+      Option.flatMap(BigDecimal.safeFromNumber),
     ),
   metered: () => Option.none<BigDecimal.BigDecimal>(),
 } as const satisfies Record<
@@ -645,14 +587,10 @@ const TokenBudget = Schema.Struct({
 declare namespace Tokens {
   type Pair = Schema.Schema.Type<typeof TokenBudget>
   type Passage = { readonly origin: string; readonly rank: number; readonly body: string }
-  // callers nominate a tokenizer CELL, so an unmetered row borrows a shape rather than a provider identity
   type Exact = Exclude<Providers.Capability["tokenizer"], "fallback">
   type ExactMeter = { readonly meter: Exact; readonly model: string }
 }
 
-// Meters key on the TOKENIZER cell, never the provider name — exactly two exact shapes ship (a bare service value and
-// a model-keyed factory) and every unmetered row borrows one of them, so five provider arms spelled three behaviours
-// and a sixth provider would have added a fourth arm answering a question the column already answers.
 const _exactMeters = {
   value: (_model: string) => Layer.succeed(Tokenizer.Tokenizer, AnthropicTokenizer.make),
   keyed: (model: string) => OpenAiTokenizer.layer({ model }),
@@ -661,7 +599,6 @@ const _exactMeters = {
 const _meters = {
   value: _exactMeters.value,
   keyed: _exactMeters.keyed,
-  // an unmetered row borrows the exact meter the caller nominates, so the borrowed shape reads off that meter's cell
   fallback: (_model: string, fallback: Tokens.ExactMeter) => _exactMeters[fallback.meter](fallback.model),
 } as const satisfies Record<
   Providers.Capability["tokenizer"],
@@ -684,13 +621,8 @@ const _weave = (system: string, passages: ReadonlyArray<Tokens.Passage>, pair: T
         const block = `[${passage.origin}] ${passage.body}`
         return Effect.map(meter.tokenize(block), (tokens) => ({ block, cost: tokens.length }))
       },
-      { concurrency: "unbounded" }, // every measurement is independent; the running total below is the only sequential half
+      { concurrency: "unbounded" },
     )
-    // Admission folds TEXT and seats it in ONE write. `appendSystem` re-prepends its merged message onto the array it
-    // was handed WITHOUT dropping the original, so N admitted passages leave N system messages each carrying a
-    // growing prefix of the same text — quadratic duplication the meter already priced once. `setSystem` is the lone
-    // combinator that removes the prior system message, and it is also why the charter cannot enter through
-    // `Prompt.make`, whose string arm mints a USER message and would file the agent's identity block as its speech.
     const admitted = Array.reduce(priced, { blocks: [system], spent: base.length }, (held, { block, cost }) =>
       held.spent + cost > pair.window - pair.reply
         ? held
@@ -707,7 +639,7 @@ const Tokens = {
   weave: _weave,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Guardrail, GuardrailFault, Ladder, Providers, Spend, Tokens }
 ```

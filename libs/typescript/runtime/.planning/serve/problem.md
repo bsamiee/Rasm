@@ -38,7 +38,6 @@ const _rows: { readonly [K in Fault.Class.Kind]: _Grade } = {
   invalid: { status: 422, title: "unprocessable input", grace: Option.none() },
   malformed: { status: 400, title: "malformed request", grace: Option.none() },
   denied: { status: 403, title: "access denied", grace: Option.none() },
-  // the 401 row spans every credential the door will not accept: absent, unverifiable, revoked, or lapsed
   expired: { status: 401, title: "credential not accepted", grace: Option.none() },
   exhausted: { status: 429, title: "quota exhausted", grace: Option.some(Duration.seconds(30)) },
   unavailable: { status: 503, title: "temporarily unavailable", grace: Option.some(Duration.seconds(10)) },
@@ -137,11 +136,6 @@ const _field = (fault: unknown, key: string): Option.Option<string> => {
   return Predicate.isString(held) ? Option.some(held) : Option.none()
 }
 
-// Wire faults arrive tagged `Remote` — the tag `core/interchange/codec#LANDING_WIRE` actually mints — publishing both
-// re-drive facts as members beside the typed `recovery` arm that owner decodes. The probe is one structural schema
-// rather than a predicate chain, because the arm it must reach is a union and a hand chain over one would re-derive
-// what a schema states. Probing a shape no owner mints admits nothing, and an admitting-nothing rung is invisible:
-// every upstream refusal falls past it to the residue arm and renders as this process's own defect.
 const _Remote = Schema.Struct({
   _tag: Schema.Literal("Remote"),
   retryable: Schema.Boolean,
@@ -155,15 +149,9 @@ const _Remote = Schema.Struct({
 
 const _isRemote: (fault: unknown) => fault is typeof _Remote.Type = Schema.is(_Remote)
 
-// `retryAfter` is the ONE recovery arm carrying a measured window, so an upstream hop's grace is the peer's own
-// number wherever it stated one and the row's default otherwise. The other two arms say only what a re-drive can
-// reach, which the two facts above already grade.
 const _hopGrace = (fault: typeof _Remote.Type): Option.Option<Duration.Duration> =>
   fault.recovery.kind === "retryAfter" ? Option.some(fault.recovery.delay) : Option.none()
 
-// A branch fault carries its reason on its own SUBJECT — a single-issue raise publishes `case`, an accumulating
-// census publishes the `dominant` issue it elected — so the probe reads both seats. A free top-level `reason` field
-// is the retired shape and a fault spelling neither exposes no reason, exactly as one carrying no reason did.
 const _Reasoned = Schema.Union(
   Schema.Struct({ case: Schema.Struct({ reason: Schema.String }) }),
   Schema.Struct({ dominant: Schema.Struct({ reason: Schema.String }) }),
@@ -189,8 +177,6 @@ const _classed = (fault: unknown): Problem => {
     status: grade.status,
     detail: _expose(kind) ? _text(fault) : grade.title,
     instance: Option.none(),
-    // the VALUE altitude's stated window under its own word: a quota verdict or gate refusal that measured one
-    // carries `after`, and the core owner reads it back rather than this door probing a spelling of its own
     retry: _retryAfter(grade.grace, Fault.Class.statedOf(fault)),
     extensions: _extensions(kind, fault),
   })
@@ -204,8 +190,6 @@ const _projected = (fault: typeof _Remote.Type): Problem => {
     status: grade.status,
     detail: grade.title,
     instance: Option.none(),
-    // the peer's own measured window outranks the row's default, so a `429` or `503` the upstream timed reaches our
-    // caller as the number that upstream actually named
     retry: _retryAfter(grade.grace, _hopGrace(fault)),
     extensions: {},
   })
@@ -274,9 +258,6 @@ class Problem extends Schema.Class<Problem>("Problem")({
       onNone: () => Problem.respond(Problem.fromCause(cause)),
       onSome: (fault) =>
         HttpServerRespondable.isRespondable(fault)
-          // `toResponse` is `orDie` over a `respond` the platform types `unknown`, so it converts a refusing
-          // projection into a DEFECT the seam's own cause fold never observes. Invoking the symbol keeps that
-          // refusal in the channel, and the ladder beneath answers as the floor.
           ? Effect.catchAllCause(fault[HttpServerRespondable.symbol](), () => Problem.respond(_of(fault)))
           : Problem.respond(_of(fault)),
     })
@@ -291,7 +272,7 @@ declare namespace Problem {
   type _Census<K extends (typeof _EXPOSED)[number] = keyof Extensions> = K
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Problem }
 ```

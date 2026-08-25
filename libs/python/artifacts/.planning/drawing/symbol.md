@@ -52,7 +52,6 @@ from rasm.artifacts.graphic.color.derive import Palette, hex_ramp
 from rasm.artifacts.graphic.layer import LayerNode, LayerPlan
 from rasm.artifacts.graphic.vector.region import RegionFault, RegionOp, RegionResult, RenderPolicy, applied
 
-# each proxy reifies on first render-arm use in the offloaded worker
 lazy import drawsvg
 lazy import ezdxf
 lazy import kiwisolver
@@ -65,18 +64,18 @@ type PointRun = tuple[Point, Point, *tuple[Point, ...]]
 type Positive = Annotated[float, Is[lambda value: math.isfinite(value) and value > 0.0]]
 type PositiveInt = Annotated[int, Is[lambda value: value > 0]]
 type Box = tuple[float, float, float, float]
-type Signature = tuple[object, ...]  # the translation/rotation-normalized block identity
+type Signature = tuple[object, ...]
 type SymbolTag = Literal[
     "section", "elevation", "detail", "grid", "matchline", "north", "scale_bar", "revision", "keyplan", "datum", "breakline", "idtag"
 ]
 
 
-class SymbolTarget(StrEnum):  # the dual-lowering egress — a new target is one `_ENGINES` row, never a subtype
-    SVG = "svg"  # drawsvg named-layer `<g>` groups the export/layered OCG owner binds
-    DXF = "dxf"  # ezdxf reusable-block document the CAD rail reads
+class SymbolTarget(StrEnum):
+    SVG = "svg"
+    DXF = "dxf"
 
 
-class TagShape(StrEnum):  # the identity-tag ring family — room/door/window/wall/equipment tags are rows over this vocabulary
+class TagShape(StrEnum):
     CIRCLE = "circle"
     HEXAGON = "hexagon"
     DIAMOND = "diamond"
@@ -85,18 +84,16 @@ class TagShape(StrEnum):  # the identity-tag ring family — room/door/window/wa
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-_MIN_GAP: Final[float] = 0.02  # minimum t-separation keeping a dense grid-bubble run monotone and non-overlapping
-_GRID_DIGITS: Final[int] = 1  # collinearity bucket precision for the grid-run partition
-_PRECISION: Final[int] = 3  # svgconfig coordinate places — the content-key determinism lever
-_GLYPH: Final[RenderPolicy] = RenderPolicy(dpi=300.0)  # sheet-cell PNG policy for RegionOp.Rasterize
-_CANON: Final[Encoder] = Encoder(order="deterministic")  # stable preimage encoding the bare `ContentIdentity.key` mint addresses
+_MIN_GAP: Final[float] = 0.02
+_GRID_DIGITS: Final[int] = 1
+_PRECISION: Final[int] = 3
+_GLYPH: Final[RenderPolicy] = RenderPolicy(dpi=300.0)
+_CANON: Final[Encoder] = Encoder(order="deterministic")
 
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: the glyph seam is a single fence and the member `RegionFault` case already carries
-# which refusal ran. TRANSIENT — a raster refusal is a defect a re-issue may clear.
 SYMBOL_GLYPH: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.SYMBOL, point="glyph", arm="boundary", defect="glyph-refused", retriability=TRANSIENT
 )
@@ -104,15 +101,12 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SYMBOL_GLY
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class SymbolStyle(Struct, frozen=True):
-    # ONE drawing-plane mark-style owner: fill/stroke index the hex_ramp ramp, layer/weight/text_height/terminator compose regime's ISO vocabulary.
     layer: LayerName
     fill: int = 0
     stroke: int = 0
-    weight: LineWeight = LineWeight.W025  # ISO 128 line-weight
-    text_height: TextHeight = TextHeight.H2_5  # ISO 3098 lettering height
-    terminator: Terminator = Terminator.FILLED_ARROW  # ISO 129-1 section-tail line end
-    # font-face identity BOTH lowerings resolve: `font=` on every SVG SegmentText run, an MTextEditor `\f` override on the
-    # DXF captions; "" selects each engine's ISO default, and DXF block ATTRIBs ride the doc's seeded ISO-3098 style.
+    weight: LineWeight = LineWeight.W025
+    text_height: TextHeight = TextHeight.H2_5
+    terminator: Terminator = Terminator.FILLED_ARROW
     face: str = ""
 
 
@@ -186,7 +180,6 @@ class SymbolKind:
 class Symbol(Struct, frozen=True):
     marks: tuple[SymbolKind, ...]
     palette: Palette
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
     target: SymbolTarget = SymbolTarget.SVG
 
@@ -195,7 +188,7 @@ class Symbol(Struct, frozen=True):
     def over(
         cls, marks: SymbolKind | Iterable[SymbolKind], palette: Palette, /, *, lane: LanePolicy, target: SymbolTarget = SymbolTarget.SVG
     ) -> Self:
-        match marks:  # modal-arity head: a lone mark the singleton, an iterable the multi-mark sheet
+        match marks:
             case SymbolKind():
                 return cls(marks=(marks,), palette=palette, target=target, lane=lane)
             case _:
@@ -206,16 +199,10 @@ class Symbol(Struct, frozen=True):
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT minted PRE-RUN through the bare mint; the palette enters as its resolved hex ramp — the one
-        # canonical projection both engines pen — and the lane is execution policy, outside the preimage.
         return ContentIdentity.key(f"drawing-symbol-{self.target}", _CANON.encode((self.marks, hex_ramp(self.palette), self.target)))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # offload rails the synchronous fold itself; the returned rail composes — never re-raised for a second boundary.
         settled = (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(lambda pair: pair[1])
-        # a marker set is production trail, so the durable fact is `OPERATIONAL` over the mark count, lowering, and
-        # measured span the receipt declares, its byte volume charging `STORAGE`. Recording suspends, so the seat is
-        # this awaitable fold — `layered()` and `glyph` read the same marks and record nothing beside it.
         match settled:
             case Result(tag="ok", ok=receipt):
                 return (await Journal.record(receipt.evidence())).map(lambda _landed: receipt)
@@ -223,29 +210,24 @@ class Symbol(Struct, frozen=True):
                 return Error(refused.error)
 
     async def layered(self) -> RuntimeRail[LayerPlan]:
-        # Engine rows as ONE LayerPlan tree — substrate the layered/sheet consumers compose as parents.
         return (await self.lane.offload(Kernel.of(_ENGINES[self.target], KernelTrait.RELEASING), self)).map(
             lambda pair: LayerPlan(schema=LayerSchema.ISO13567, roots=pair[0])
         )
 
     async def glyph(self, mark: SymbolKind, /) -> RuntimeRail[bytes]:
-        # Symbol->sheet seam: ONE mark rasterized to PNG for a sheet NorthArrow.glyph/KeyPlan.figure cell whose
-        # reportlab ImageReader reads a raster; the member `RegionFault` crosses WHOLE on `BoundaryFault.domain`, so its case and kwargs stay matchable.
         outcome = await self.lane.offload(Kernel.of(_raster, KernelTrait.RELEASING), mark, self.palette)
         return outcome.bind(lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SYMBOL_GLYPH.subject, fault))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 def _configured() -> None:
-    # process-global schemdraw render policy, idempotent per worker: the standalone svg backend, every SegmentText
-    # outlined to <path> by the bundled ziafont, coordinate places pinned for the content key.
     use("svg")
     svgconfig.text = "path"
     svgconfig.precision = _PRECISION
 
 
 def _style(mark: SymbolKind, /) -> SymbolStyle:
-    match mark:  # every case's style is its last payload slot; one total projection, never a per-tag getattr
+    match mark:
         case (
             SymbolKind(tag="section", section=(*_, style))
             | SymbolKind(tag="elevation", elevation=(*_, style))
@@ -266,7 +248,7 @@ def _style(mark: SymbolKind, /) -> SymbolStyle:
 
 
 def _center(mark: SymbolKind, /) -> Point:
-    match mark:  # each case's placement centre is its first payload slot; the polyline marks anchor at vertices[0]
+    match mark:
         case SymbolKind(tag="matchline", matchline=(vertices, *_)) | SymbolKind(tag="breakline", breakline=(vertices, *_)):
             return vertices[0]
         case (
@@ -287,7 +269,7 @@ def _center(mark: SymbolKind, /) -> Point:
 
 
 def _extent(mark: SymbolKind, /) -> float:
-    match mark:  # the mark's characteristic half-extent, the bbox reads
+    match mark:
         case (
             SymbolKind(tag="section", section=(_, radius, *_))
             | SymbolKind(tag="elevation", elevation=(_, radius, *_))
@@ -311,8 +293,6 @@ def _extent(mark: SymbolKind, /) -> float:
 
 
 def _signature(mark: SymbolKind, /) -> Signature:
-    # Translation/rotation-normalized geometry identity ONE block is authored for — labels ride ATTRIBs and
-    # rotation rides the insert, so neither joins the key; distinct geometry can never collide onto a stale block.
     match mark:
         case (
             SymbolKind(tag="section", section=(_, radius, *_))
@@ -338,7 +318,7 @@ def _signature(mark: SymbolKind, /) -> Signature:
 
 
 def _rotation(mark: SymbolKind, /) -> float:
-    match mark:  # rotation rides the INSERT, keeping the block canonical at 0 degrees
+    match mark:
         case SymbolKind(tag="north", north=(_, _, bearing, _)):
             return bearing
         case (
@@ -360,7 +340,7 @@ def _rotation(mark: SymbolKind, /) -> float:
 
 
 def _attribs(mark: SymbolKind, /) -> dict[str, str]:
-    match mark:  # per-placement ATTRIB values filled into the block's attdefs through Insert.add_auto_attribs
+    match mark:
         case SymbolKind(tag="section", section=(_, _, no, ref, *_)) | SymbolKind(tag="elevation", elevation=(_, _, no, ref, *_)):
             return {"NUMBER": no, "SHEET": ref}
         case SymbolKind(tag="detail", detail=(_, _, no, ref, *_)):
@@ -382,7 +362,6 @@ def _attribs(mark: SymbolKind, /) -> dict[str, str]:
 
 
 def _element(mark: SymbolKind, ramp: tuple[str, ...]) -> tuple["elements.ElementCompound", Point]:
-    # schemdraw compound geometry with NAMED terminal anchors a detail/annotate leader binds. TOTAL over the family.
     match mark:
         case SymbolKind(tag="section", section=(center, radius, detail_no, sheet_ref, bearing, style)):
             return _section_element(radius, detail_no, sheet_ref, bearing, style, ramp), center
@@ -413,12 +392,10 @@ def _element(mark: SymbolKind, ramp: tuple[str, ...]) -> tuple["elements.Element
 
 
 def _pen(style: SymbolStyle, ramp: tuple[str, ...], /) -> tuple[str, str, float, float]:
-    # Palette-and-ISO pen every builder splats: (stroke hex, fill hex, ISO-128 line weight, ISO-3098 mm)
     return ramp[style.stroke % len(ramp)], ramp[style.fill % len(ramp)], style.weight.mm, style.text_height.mm
 
 
 def _bisected_bubble(radius: float, upper: str, lower: str, style: SymbolStyle, ramp: tuple[str, ...]) -> "elements.ElementCompound":
-    # Shared section/detail bubble — the arms differ only in tail and named anchor, so the core is one builder.
     sym, (stroke, _fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     sym.segments.append(segments.SegmentCircle((0.0, 0.0), radius, color=stroke, lw=lw))
     sym.segments.append(segments.Segment([(-radius, 0.0), (radius, 0.0)], color=stroke, lw=lw))
@@ -437,7 +414,7 @@ def _section_element(
     normal = (-unit[1], unit[0])
     wing1 = (tip[0] - unit[0] * radius * 0.45 + normal[0] * radius * 0.18, tip[1] - unit[1] * radius * 0.45 + normal[1] * radius * 0.18)
     wing2 = (tip[0] - unit[0] * radius * 0.45 - normal[0] * radius * 0.18, tip[1] - unit[1] * radius * 0.45 - normal[1] * radius * 0.18)
-    match style.terminator:  # the ISO 129-1 end drawn as this backend's own geometry — the regime member IS the discriminant
+    match style.terminator:
         case Terminator.FILLED_ARROW:
             sym.segments.append(segments.SegmentPoly([tip, wing1, wing2], closed=True, color=stroke, fill=fill))
         case Terminator.OPEN_ARROW:
@@ -452,7 +429,7 @@ def _section_element(
             pass
         case _ as unreachable:
             assert_never(unreachable)
-    sym.anchors["cut"] = tip  # the named terminal a detail cross-reference binds
+    sym.anchors["cut"] = tip
     return sym
 
 
@@ -474,7 +451,7 @@ def _elevation_element(
 
 def _bubble_element(radius: float, detail_no: str, sheet_ref: str, style: SymbolStyle, ramp: tuple[str, ...]) -> "elements.ElementCompound":
     sym = _bisected_bubble(radius, detail_no, sheet_ref, style, ramp)
-    sym.anchors["leader"] = (radius, 0.0)  # the terminal a keynote/detail leader lands on
+    sym.anchors["leader"] = (radius, 0.0)
     return sym
 
 
@@ -482,7 +459,7 @@ def _grid_element(radius: float, label: str, style: SymbolStyle, ramp: tuple[str
     sym, (stroke, _fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     sym.segments.append(segments.SegmentCircle((0.0, 0.0), radius, color=stroke, lw=lw))
     sym.segments.append(segments.SegmentText((0.0, 0.0), label, align=("center", "center"), fontsize=size, font=style.face or None, color=stroke))
-    sym.anchors["attach"] = (0.0, -radius)  # the grid line meets the bubble here
+    sym.anchors["attach"] = (0.0, -radius)
     return sym
 
 
@@ -498,13 +475,12 @@ def _matchline_element(vertices: tuple[Point, ...], sheet_ref: str, style: Symbo
 
 
 def _north_element(radius: float, bearing: float, style: SymbolStyle, ramp: tuple[str, ...]) -> "elements.ElementCompound":
-    # both halves and the "N" all drawn geometry, never a dropped part.
     sym, (stroke, fill, _lw, size) = elements.ElementCompound(), _pen(style, ramp)
     rot, base = math.radians(bearing), radius * 0.42
     tip, tail = _rotate((0.0, radius), rot), _rotate((0.0, -radius * 0.25), rot)
     left, right = _rotate((-base, -radius * 0.55), rot), _rotate((base, -radius * 0.55), rot)
-    sym.segments.append(segments.SegmentPoly([tip, left, tail], closed=True, color=stroke, fill=fill))  # filled north half
-    sym.segments.append(segments.SegmentPoly([tip, right, tail], closed=True, color=stroke))  # hollow south half
+    sym.segments.append(segments.SegmentPoly([tip, left, tail], closed=True, color=stroke, fill=fill))
+    sym.segments.append(segments.SegmentPoly([tip, right, tail], closed=True, color=stroke))
     sym.segments.append(segments.SegmentText(_rotate((0.0, radius * 1.25), rot), "N", align=("center", "center"), fontsize=size, font=style.face or None, color=stroke))
     sym.anchors["north"] = tip
     return sym
@@ -513,7 +489,7 @@ def _north_element(radius: float, bearing: float, style: SymbolStyle, ramp: tupl
 def _scale_element(length: float, seg: int, units: str, ratio: str, style: SymbolStyle, ramp: tuple[str, ...]) -> "elements.ElementCompound":
     sym, (stroke, fill, lw, size) = elements.ElementCompound(), _pen(style, ramp)
     step, height = length / seg, size
-    for i in range(seg):  # Exemption: schemdraw appends Segment* to the mutable self.segments; the ruler assembles in place
+    for i in range(seg):
         sym.segments.append(
             segments.SegmentPoly(
                 [(i * step, 0.0), ((i + 1) * step, 0.0), ((i + 1) * step, height), (i * step, height)],
@@ -545,7 +521,7 @@ def _keyplan_element(
     sym.segments.append(
         segments.SegmentPoly([(0.0, 0.0), (extent[0], 0.0), (extent[0], extent[1]), (0.0, extent[1])], closed=True, color=stroke, lw=lw)
     )
-    for index, (x0, y0, x1, y1) in enumerate(parcels):  # Exemption: the parcel rectangles assemble onto the mutable self.segments
+    for index, (x0, y0, x1, y1) in enumerate(parcels):
         sym.segments.append(
             segments.SegmentPoly([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], closed=True, color=stroke, fill=fill if index == highlight else None)
         )
@@ -553,7 +529,6 @@ def _keyplan_element(
 
 
 def _datum_element(size_: float, level: str, style: SymbolStyle, ramp: tuple[str, ...]) -> "elements.ElementCompound":
-    # ISO spot-level marker.
     sym, (stroke, fill, lw, text) = elements.ElementCompound(), _pen(style, ramp)
     sym.segments.append(segments.SegmentPoly([(0.0, 0.0), (-size_ * 0.5, size_), (size_ * 0.5, size_)], closed=True, color=stroke, fill=fill))
     sym.segments.append(segments.SegmentText((size_ * 0.8, size_ * 0.6), level, align=("left", "center"), fontsize=text, font=style.face or None, color=stroke))
@@ -562,7 +537,6 @@ def _datum_element(size_: float, level: str, style: SymbolStyle, ramp: tuple[str
 
 
 def _breakline_element(vertices: tuple[Point, ...], style: SymbolStyle, ramp: tuple[str, ...]) -> "elements.ElementCompound":
-    # ISO 128 break line — a midpoint zigzag marking a truncated view.
     sym, (stroke, _fill, lw, _size) = elements.ElementCompound(), _pen(style, ramp)
     origin = vertices[0]
     rel = [(vx - origin[0], vy - origin[1]) for vx, vy in vertices]
@@ -575,7 +549,6 @@ def _breakline_element(vertices: tuple[Point, ...], style: SymbolStyle, ramp: tu
 def _idtag_element(
     size_: float, label: str, sublabel: str, shape: TagShape, style: SymbolStyle, ramp: tuple[str, ...]
 ) -> "elements.ElementCompound":
-    # Parameterized identity-tag generator — the ring is a TagShape row, the bisect appears only with a sublabel.
     sym, (stroke, _fill, lw, text) = elements.ElementCompound(), _pen(style, ramp)
     if shape is TagShape.CIRCLE:
         sym.segments.append(segments.SegmentCircle((0.0, 0.0), size_, color=stroke, lw=lw))
@@ -593,20 +566,18 @@ def _idtag_element(
     return sym
 
 
-def _rotate(point: Point, radians: float) -> Point:  # rotate about the compound origin; the mark places at its centre
+def _rotate(point: Point, radians: float) -> Point:
     return (point[0] * math.cos(radians) - point[1] * math.sin(radians), point[0] * math.sin(radians) + point[1] * math.cos(radians))
 
 
 def _svg_mark(mark: SymbolKind, ramp: tuple[str, ...]) -> bytes:
-    # ONE self-contained SVG mark under the _configured backend policy.
     element, center = _element(mark, ramp)
-    with Schematic(show=False) as sheet:  # Exemption: schemdraw Drawing is a context manager finalizing the layout on __exit__
+    with Schematic(show=False) as sheet:
         sheet += element.at(center)
     return sheet.get_imagedata("svg")
 
 
 def _raster(mark: SymbolKind, palette: Palette) -> Result[bytes, RegionFault]:
-    # Sheet-cell seam: render ONE mark to SVG then lower RegionOp.Rasterize through the region dispatch.
     _configured()
     return applied(RegionOp.Rasterize(_svg_mark(mark, hex_ramp(palette)), _GLYPH)).bind(_raster_result)
 
@@ -622,11 +593,9 @@ def _raster_result(result: RegionResult, /) -> Result[bytes, RegionFault]:
 
 
 def _grid_runs(indices: tuple[int, ...], anchors: tuple[Point, ...]) -> tuple[tuple[int, ...], ...]:
-    # partition axis-aligned bubbles into collinear runs — a shared-y and a shared-x band — so a two-axis grid
-    # solves each axis independently, not on one diagonal; each bubble joins the band with more peers.
     rows: dict[float, list[int]] = {}
     cols: dict[float, list[int]] = {}
-    for index, (x, y) in zip(indices, anchors, strict=True):  # Exemption: the two-key co-grouping accumulates into local band dicts
+    for index, (x, y) in zip(indices, anchors, strict=True):
         rows.setdefault(round(y, _GRID_DIGITS), []).append(index)
         cols.setdefault(round(x, _GRID_DIGITS), []).append(index)
     coordinate = dict(zip(indices, anchors, strict=True))
@@ -637,27 +606,24 @@ def _grid_runs(indices: tuple[int, ...], anchors: tuple[Point, ...]) -> tuple[tu
     for index, (x, y) in zip(indices, anchors, strict=True):
         if index in seen:
             continue
-        band = max((rows[round(y, _GRID_DIGITS)], cols[round(x, _GRID_DIGITS)]), key=len)  # the axis with more collinear peers
+        band = max((rows[round(y, _GRID_DIGITS)], cols[round(x, _GRID_DIGITS)]), key=len)
         runs.append(tuple(idx for idx in band if idx not in seen))
         seen.update(band)
     return tuple(band for band in runs if band)
 
 
 def _grid_solve(marks: tuple[SymbolKind, ...]) -> tuple[SymbolKind, ...]:
-    # each collinear run aligns through one kiwisolver.Solver: each position a `t` Variable, endpoints `required`,
-    # given positions `weak`, even gap `medium`, min-separation `strong` — outranking both aesthetic bands so spacing
-    # preference can never relax the clearance; `updateVariables()` writes each solved `value()` BACK into the re-keyed anchor.
     grid = tuple(index for index, mark in enumerate(marks) if mark.tag == "grid")
-    if len(grid) < 3:  # two endpoints fully determine a line; the solve refines three or more
+    if len(grid) < 3:
         return marks
     solved: dict[int, SymbolKind] = {}
     for line in _grid_runs(grid, tuple(marks[index].grid[0] for index in grid)):
-        if len(line) < 3:  # a lone / paired run is already determined by its ends
+        if len(line) < 3:
             continue
         start, stop = marks[line[0]].grid[0], marks[line[-1]].grid[0]
         span = math.dist(start, stop) or 1.0
         given = tuple(math.dist(start, marks[index].grid[0]) / span for index in line)
-        solver = kiwisolver.Solver()  # one independent solver per collinear run; Exemption: the stateful native sink
+        solver = kiwisolver.Solver()
         ts = tuple(kiwisolver.Variable(f"t{index}") for index in line)
         solver.addConstraint((ts[0] == 0.0) | kiwisolver.strength.required)
         solver.addConstraint((ts[-1] == 1.0) | kiwisolver.strength.required)
@@ -677,8 +643,6 @@ def _grid_solve(marks: tuple[SymbolKind, ...]) -> tuple[SymbolKind, ...]:
 
 # --- [BOUNDARIES] -----------------------------------------------------------------------
 def _placed(fragment: bytes, /) -> "drawsvg.Raw":
-    # re-anchor one schemdraw <svg> inside the layer canvas: x/y/width/height restated from its own tight viewBox —
-    # a nested <svg> without them scales to the outer viewport and loses its placement.
     root = fromstring(fragment)
     for key, value in zip(("x", "y", "width", "height"), (root.get("viewBox") or "0 0 1 1").split(), strict=True):
         root.set(key, value)
@@ -686,11 +650,10 @@ def _placed(fragment: bytes, /) -> "drawsvg.Raw":
 
 
 def _layer_svg(name: str, frags: list[bytes], box: Box) -> bytes:
-    # bucket one SymbolStyle.layer's marks into a named drawsvg.Group; the canvas sized to the real content bbox.
     xmin, ymin, xmax, ymax = box
     canvas = drawsvg.Drawing(max(xmax - xmin, 1.0), max(ymax - ymin, 1.0), origin=(xmin, ymin))
     group = drawsvg.Group(id=name)
-    for frag in frags:  # Exemption: drawsvg Group is the mutable child-list sink
+    for frag in frags:
         group.append(_placed(frag))
     canvas.append(group)
     return canvas.as_svg().encode()
@@ -713,25 +676,22 @@ def _bbox(marks: tuple[SymbolKind, ...]) -> Box:
 
 
 def _dxf_block(block: object, mark: SymbolKind) -> object:
-    # Canonical 0-degree block geometry authored ONCE per _signature at full SVG parity; a label is an add_attdef
-    # ATTRIB the placement fills. TOTAL over the family.
     match mark:
         case SymbolKind(tag="north", north=(_, radius, _bearing, _style)):
-            solid = block.add_hatch()  # Exemption: ezdxf Hatch is the native fill sink; boundary path + solid fill mutate in place
+            solid = block.add_hatch()
             solid.paths.add_polyline_path([(0.0, radius), (-radius * 0.42, -radius * 0.55), (0.0, -radius * 0.25)], is_closed=True)
             solid.set_solid_fill()
-            block.add_lwpolyline([(0.0, radius), (radius * 0.42, -radius * 0.55), (0.0, -radius * 0.25)], close=True)  # hollow south half
+            block.add_lwpolyline([(0.0, radius), (radius * 0.42, -radius * 0.55), (0.0, -radius * 0.25)], close=True)
             block.add_attdef("N", (0.0, radius * 1.2))
         case SymbolKind(tag="datum", datum=(_, size, _level, _style)):
-            solid = block.add_hatch()  # Exemption: the native Hatch fill sink mutates in place
+            solid = block.add_hatch()
             solid.paths.add_polyline_path([(0.0, 0.0), (-size * 0.5, size), (size * 0.5, size)], is_closed=True)
             solid.set_solid_fill()
             block.add_attdef("MARK", (size * 0.8, size * 0.6))
         case SymbolKind(tag="revision", revision=(_, size, _mark, _style)):
-            block.add_lwpolyline([(0.0, size), (-size * 0.87, -size * 0.5), (size * 0.87, -size * 0.5)], close=True)  # hollow triangle (SVG unfilled)
+            block.add_lwpolyline([(0.0, size), (-size * 0.87, -size * 0.5), (size * 0.87, -size * 0.5)], close=True)
             block.add_attdef("MARK", (0.0, -size * 0.05))
         case SymbolKind(tag="matchline", matchline=(vertices, _ref, _style)):
-            # heavy dashed match line — linetype parity with the SVG ls="--"; seed() has authored every ISO linetype
             block.add_lwpolyline(
                 [(vx - vertices[0][0], vy - vertices[0][1]) for vx, vy in vertices], dxfattribs={"linetype": LineType.DASHED.value}
             )
@@ -740,22 +700,22 @@ def _dxf_block(block: object, mark: SymbolKind) -> object:
             rel = [(vx - origin[0], vy - origin[1]) for vx, vy in vertices]
             mid = rel[len(rel) // 2]
             zig = [(mid[0] - 2.0, mid[1]), (mid[0] - 0.5, mid[1] + 3.0), (mid[0] + 0.5, mid[1] - 3.0), (mid[0] + 2.0, mid[1])]
-            block.add_lwpolyline([*rel[: len(rel) // 2], *zig, *rel[len(rel) // 2 :]])  # zigzag parity with the SVG break
+            block.add_lwpolyline([*rel[: len(rel) // 2], *zig, *rel[len(rel) // 2 :]])
         case SymbolKind(tag="scale_bar", scale_bar=(_, length, seg, _units, _ratio, _style)):
             step, height = length / seg, length * 0.05
-            for i in range(seg):  # Exemption: ezdxf BlockLayout is the GraphicsFactory sink; add_* mutate the block in place
+            for i in range(seg):
                 ring = [(i * step, 0.0), ((i + 1) * step, 0.0), ((i + 1) * step, height), (i * step, height)]
                 block.add_lwpolyline(ring, close=True)
-                if i % 2:  # alternating solid segment — fill parity with the SVG ruler
+                if i % 2:
                     band = block.add_hatch()
                     band.paths.add_polyline_path(ring, is_closed=True)
                     band.set_solid_fill()
         case SymbolKind(tag="keyplan", keyplan=(_, extent, parcels, highlight, _style)):
             block.add_lwpolyline([(0.0, 0.0), (extent[0], 0.0), (extent[0], extent[1]), (0.0, extent[1])], close=True)
-            for index, (x0, y0, x1, y1) in enumerate(parcels):  # Exemption: the parcel rectangles assemble onto the block in place
+            for index, (x0, y0, x1, y1) in enumerate(parcels):
                 ring = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
                 block.add_lwpolyline(ring, close=True)
-                if index == highlight:  # highlighted parcel solid — fill parity with the SVG figure
+                if index == highlight:
                     lot = block.add_hatch()
                     lot.paths.add_polyline_path(ring, is_closed=True)
                     lot.set_solid_fill()
@@ -764,8 +724,6 @@ def _dxf_block(block: object, mark: SymbolKind) -> object:
                 case TagShape.CIRCLE:
                     block.add_circle((0.0, 0.0), size)
                 case TagShape.ROUNDED:
-                    # SVG parity: the rounded ring carries the same size*0.25 corner radius `_idtag_element` draws —
-                    # lowered natively as lwpolyline bulge arcs (tan(π/8) per 90° corner), never the sharp square path.
                     r, bulge = size * 0.25, math.tan(math.pi / 8.0)
                     edge = size - r
                     block.add_lwpolyline(
@@ -786,11 +744,11 @@ def _dxf_block(block: object, mark: SymbolKind) -> object:
                 block.add_attdef("LABEL", (0.0, 0.0))
         case SymbolKind(tag="section", section=(_, radius, *_)) | SymbolKind(tag="detail", detail=(_, radius, *_)):
             block.add_circle((0.0, 0.0), radius)
-            block.add_line((-radius, 0.0), (radius, 0.0))  # the bisect the SVG bubble draws
+            block.add_line((-radius, 0.0), (radius, 0.0))
             block.add_attdef("NUMBER", (0.0, radius * 0.4))
             block.add_attdef("SHEET", (0.0, -radius * 0.4))
         case SymbolKind(tag="elevation", elevation=(_, radius, *_)):
-            block.add_circle((0.0, 0.0), radius)  # the pointer triangle is per-insert directional geometry (_dxf_extras)
+            block.add_circle((0.0, 0.0), radius)
             block.add_attdef("NUMBER", (0.0, radius * 0.4))
             block.add_attdef("SHEET", (0.0, -radius * 0.4))
         case SymbolKind(tag="grid", grid=(_, radius, *_)):
@@ -802,9 +760,7 @@ def _dxf_block(block: object, mark: SymbolKind) -> object:
 
 
 def _dxf_extras(msp: object, mark: SymbolKind, gfx: dict[str, object]) -> None:
-    # per-instance DIRECTIONAL geometry beside the shared block — a bearing-baked tail inside the block would either
-    # rotate the label text or fork one block per bearing; landing it per placement keeps both correct.
-    match mark:  # Exemption: ezdxf Modelspace is the GraphicsFactory sink; the directional entities land in place
+    match mark:
         case SymbolKind(tag="section", section=(center, radius, _n, _s, bearing, style)):
             tip = (center[0] + radius * 2.0 * math.cos(math.radians(bearing)), center[1] + radius * 2.0 * math.sin(math.radians(bearing)))
             msp.add_line(center, tip, dxfattribs=gfx)
@@ -812,7 +768,7 @@ def _dxf_extras(msp: object, mark: SymbolKind, gfx: dict[str, object]) -> None:
             normal = (-unit[1], unit[0])
             wing1 = (tip[0] - unit[0] * radius * 0.45 + normal[0] * radius * 0.18, tip[1] - unit[1] * radius * 0.45 + normal[1] * radius * 0.18)
             wing2 = (tip[0] - unit[0] * radius * 0.45 - normal[0] * radius * 0.18, tip[1] - unit[1] * radius * 0.45 - normal[1] * radius * 0.18)
-            match style.terminator:  # DXF parity with `_section_element`, drawn off the same regime member
+            match style.terminator:
                 case Terminator.FILLED_ARROW:
                     arrow = msp.add_hatch(dxfattribs=gfx)
                     arrow.paths.add_polyline_path([tip, wing1, wing2], is_closed=True)
@@ -838,7 +794,6 @@ def _dxf_extras(msp: object, mark: SymbolKind, gfx: dict[str, object]) -> None:
                 case _ as unreachable:
                     assert_never(unreachable)
         case SymbolKind(tag="elevation", elevation=(center, radius, _n, _s, angle, _estyle)):
-            # base flanks ride the perpendicular of the pointing direction, so the triangle stays non-degenerate at every angle
             unit = (math.cos(math.radians(angle)), math.sin(math.radians(angle)))
             normal = (-unit[1], unit[0])
             point = (center[0] + radius * 1.8 * unit[0], center[1] + radius * 1.8 * unit[1])
@@ -873,7 +828,6 @@ def _dxf_extras(msp: object, mark: SymbolKind, gfx: dict[str, object]) -> None:
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# unit ring vertices per TagShape; ROUNDED reuses the square ring under a SegmentPoly cornerradius (SVG) and a bulge-arc lwpolyline (DXF).
 _TAG_RING: Final[frozendict[TagShape, tuple[Point, ...]]] = frozendict({
     TagShape.HEXAGON: ((1.0, 0.0), (0.5, 0.87), (-0.5, 0.87), (-1.0, 0.0), (-0.5, -0.87), (0.5, -0.87)),
     TagShape.DIAMOND: ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)),
@@ -888,7 +842,7 @@ def _svg_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
     aligned = _grid_solve(symbol.marks)
     box = _bbox(aligned)
     groups: dict[LayerName, list[bytes]] = {}
-    for mark in aligned:  # Exemption: the named-layer tree buckets marks by SymbolStyle.layer through a mutable dict of fragment lists
+    for mark in aligned:
         groups.setdefault(_style(mark).layer, []).append(_svg_mark(mark, ramp))
     payloads = tuple(
         (layer, _layer_svg(layer.compose(), frags, box)) for layer, frags in sorted(groups.items(), key=lambda kv: kv[0].compose())
@@ -901,22 +855,19 @@ def _svg_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]
 
 
 def _dxf_engine(symbol: Symbol) -> tuple[tuple[LayerNode, ...], ArtifactReceipt]:
-    # ONE block per distinct _signature; N add_blockref placements fill ATTRIBs and land the directional extras.
     doc, std = ezdxf.new("R2018", setup=True), Standard.of()
-    ramp = hex_ramp(symbol.palette)  # SVG/DXF parity: both engines resolve the SAME palette
+    ramp = hex_ramp(symbol.palette)
     aligned = _grid_solve(symbol.marks)
     std.seed(doc, layers=tuple(dict.fromkeys(_style(mark).layer for mark in aligned)))
     msp = doc.modelspace()
     blocks: dict[Signature, str] = {}
-    for mark in aligned:  # Exemption: ezdxf Modelspace/BlockLayout is the GraphicsFactory sink; definitions accrue and references place in place
+    for mark in aligned:
         signature = _signature(mark)
-        if signature not in blocks:  # setdefault would evaluate doc.blocks.new eagerly and re-author a duplicate name
-            name = f"SYM_{mark.tag}_{len(blocks):03d}"  # deterministic authoring-order name — never a process-random hash
+        if signature not in blocks:
+            name = f"SYM_{mark.tag}_{len(blocks):03d}"
             _dxf_block(doc.blocks.new(name), mark)
             blocks[signature] = name
         style = _style(mark)
-        # Admitted palette stroke overrides the regime layer default as a true-color attribute, so a changed
-        # fill/stroke/text-height axis is semantically visible on BOTH targets, never a layer-default-only DXF.
         ink = int(ramp[style.stroke % len(ramp)].removeprefix("#"), 16)
         gfx = {**std.graphics(style.layer).asdict(), "true_color": ink}
         reference = msp.add_blockref(blocks[signature], _center(mark), dxfattribs={**gfx, "rotation": _rotation(mark)})

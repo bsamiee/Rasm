@@ -17,7 +17,7 @@ The absence law shapes the whole page: a seeded product's `SectionProfile` is it
 - Boundary: IFC pairs are roster-exact with the negatives recorded — `IfcSlab` carries {APPROACH_SLAB, BASESLAB, FLOOR, LANDING, PAVING, ROOF, SIDEWALK, TRACKSLAB, WEARING} and NO `HOLLOWCORE`, so the plank rides the `IfcBeam` `HOLLOWCORE[Ifc4]` leaf; the double tee rides `IfcBeam`/`T_BEAM`; the panel rides `IfcBuildingElementPart`/`PRECASTPANEL[Ifc4]` — a REAL predefined token, so the triple is disjoint from the masonry/cmu `USERDEFINED` + ObjectType claims on the same entity. The beam/column/stair roster rows deliberately carry NO `IfcBeam`/`BEAM` or `IfcColumn`/`COLUMN` binding today: those pairs are the CIP concrete family's claims, and a second family on one pair voids the `component#CATALOGUE` reverse-election for both — a precast beam ladder lands with its own discriminated leaf when its geometry two-sources. A kind whose leaf is absent cannot seed, which the coherence census states as its own conjunct rather than leaving to a downstream lift.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using LanguageExt;
@@ -31,37 +31,20 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Component;
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record PrecastInterior {
     private PrecastInterior() { }
 
-    // Cores is the interior void lattice as VoidCell rows in the profile's corner frame — TYPED-ABSENT today (no
-    // manufacturer core geometry two-sourced); when it fills, the profile route mints the true CellularRectangle net
-    // and the envelope law retires for that row with no type edit, the bag's SectionBasis marker following the
-    // ADMITTED profile rather than a second reading of the same column.
     public sealed record Cored(Option<Seq<VoidCell>> Cores) : PrecastInterior;
 
-    // FlangeMm and StemSpacingMm are PUBLISHED (Sweets/GPRM and Precast Specialties/GPRM load-table sheets agree);
-    // StemWidthMm — the stem's own breadth and taper — is TYPED-ABSENT, which is exactly what blocks a truthful
-    // BuiltUp net section.
     public sealed record Stemmed(double FlangeMm, double StemSpacingMm, Option<double> StemWidthMm) : PrecastInterior;
 
-    // The sandwich-panel STRUCTURAL CONVENTION — the two-sourced facts, which are qualitative: two concrete wythes
-    // over an insulation core, composite action via the wythe connectors, a non-composite panel carrying one thick
-    // structural wythe and a thinner architectural one. Every NUMERIC column is single-sourced and absent, so this
-    // arm pins the vocabulary a future dimensioned row instantiates.
     public sealed record Wythes(bool Composite) : PrecastInterior;
 
     public sealed record Solid : PrecastInterior;
 }
 
-// The product-kind axis. Ifc is Some for the kinds whose roster-exact leaf exists AND is unclaimed by a sibling
-// family; the beam/column/stair rows carry None because their natural leaves (IfcBeam/BEAM, IfcColumn/COLUMN,
-// IfcStairFlight/STRAIGHT) either belong to the CIP concrete family's claims or await a proven product ladder — a
-// kind with no leaf cannot seed, which is the same two-sourced-or-absent law the geometry columns obey. Admits is
-// the kind's OWN interior arm, a row column beside the leaf it pairs with, so a new kind declares its admissible
-// payload where it declares everything else about itself.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PrecastKind {
@@ -76,11 +59,7 @@ public sealed partial class PrecastKind {
     [UseDelegateFromConstructor] public partial bool Admits(PrecastInterior interior);
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The erection declaration: the three Element-declared precast stamps as OPTION columns a product declaration
-// supplies. The pack proves none, so every seeded row takes Undeclared and the bag carries only what is declared,
-// never a placeholder — but the declaration is a ROW COLUMN, so a vendor import or a project row fills it per
-// product rather than through a second seed entry point.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Erection(Option<string> LiftingInsert, Option<double> BearingLengthMm, Option<string> JointGrout) {
     public static readonly Erection Undeclared = new(None, None, None);
 
@@ -93,11 +72,6 @@ public readonly record struct Erection(Option<string> LiftingInsert, Option<doub
             + JointGrout.Map(static token => ComponentDetail.Token(DetailSchema.JointGrout, token)).ToSeq();
 }
 
-// SEED_ROW_LAW tier-3 currency: one precast product. Width and depth are PUBLISHED (two-sourced manufacturer
-// standards over the PCI 4-ft module); SpanLoad is the per-depth span-load ladder, TYPED-ABSENT with its owner
-// stated — the PCI Design Handbook and the producer's own load table publish it, and a family-level "up to ~15.2 m
-// at the deep end" claim is not a ladder. Source is per ROW because a future producer-declared build enters at a
-// different grade than the transcribed standard geometry.
 public readonly record struct PrecastRow(
     string Key, PrecastKind Kind, double WidthMm, double DepthMm, PrecastInterior Interior,
     Option<ImmutableArray<(double SpanM, double LoadKnM2)>> SpanLoad) {
@@ -117,15 +91,10 @@ public readonly record struct PrecastRow(
 - Boundary: the ENVELOPE LAW is this cluster's spine — a seeded plank or tee solves to its gross rectangle, so its section-map receipt (area, inertia, takeoff volume) states the SHIPPING ENVELOPE and the bag says so; the true net section is PCI/producer-owned data the `Cored.Cores`/`Stemmed.StemWidthMm` columns await. `PrecastSeed.Capacity` refuses typed on BOTH absent routes by name: the flexural/shear capacity of a prestressed plank is its producer's span-load ladder (`SpanLoad = None` today), and the first-principles route is a strand-designed `reinforcement#RC_SECTION` build that needs the net profile — so the refusal is the honest verdict and a fabricated envelope-based capacity is unrepresentable. `ComponentAuthority` publishes no PCI row, so the seed rows stand under `ComponentAuthority.Astm` with its own region column supplying the receipt and the true body stated here — the PCI authority row is `component#COMPONENT_OWNER` growth. Substance is `concrete.c50_60` on every row — the plant-cured strength band precast producers publish product data against is itself uncaptured, so the id is this estate's selection consistent with the row evidence, revisited when a producer sheet two-sources the design strength.
 
 ```csharp signature
-// --- [TABLES] ------------------------------------------------------------------------------
-// The five two-sourced US depth rungs × the 48-in module (6/8/10/12/16 in = 152/203/254/305/406 mm × 1219 mm), then
-// the 8-ft family (2438 mm nominal, stems 4 ft = 1219 mm o.c., 2-in = 50.8 mm flange, depths 14/16/18/24 in) and the
-// 10-ft family (3048 mm nominal, stems 5 ft = 1524 mm o.c., depths 24/26 in). The 14-in (single-source, Canadian
-// line), 15-in (no capture), European 1200-mm, and 12DT/15DT families are OFF the roster — a rung lands with two
-// captures; the composite-topping tee variants are erection-state facts, not products.
+// --- [TABLES] --------------------------------------------------------------------------
 public static class PrecastSeed {
     static readonly ComponentStandard Us =
-        new(ComponentAuthority.Astm.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Astm);   // a precast product has no mortar joint
+        new(ComponentAuthority.Astm.Region, StandardJointThicknessMm: 0.0, ComponentAuthority.Astm);
     static readonly MaterialId Substance = MaterialId.Of("concrete.c50_60");
     static readonly PropertyName SectionBasis    = PropertyCategory.Materials.Row("SectionBasis");
     static readonly PropertyName FlangeThickness = PropertyCategory.Materials.Row("FlangeThickness");
@@ -150,8 +119,6 @@ public static class PrecastSeed {
     public static Fin<PrecastRow> Resolve(Component component, Op key) =>
         SeedJoin.Resolve(Table, component.Designation, key);
 
-    // The seed POLICY value. Every kind that seeds carries its own IFC leaf, so the family default is the total
-    // function's tail alone — the coherence census forecloses the leafless kinds before the selector is read.
     public static readonly SeedLaw<PrecastRow> Law = SeedLaw<PrecastRow>.Of(
         family: ComponentFamily.Precast,
         designation: static r => r.Designation,
@@ -162,7 +129,6 @@ public static class PrecastSeed {
         standard: static _ => Us,
         detail: Some<Func<PrecastRow, SectionProfile, Op, Fin<PropertyBag>>>(Detail),
         ifc: static r => r.Kind.Ifc.IfNone(ComponentFamily.Precast.Ifc));
-    // leafless kind reports both instead of the first hiding the second.
     static Validation<Error, Unit> Coherence(PrecastRow r, Op key) =>
         (guard(r.Kind.Admits(r.Interior),
              new KernelFault.InvalidValue(nameof(r.Interior), "an interior admitted by the precast kind", Some(key))).ToValidation(),
@@ -177,9 +143,6 @@ public static class PrecastSeed {
             Some: cells => SectionProfile.CellularRectangle.Of(r.WidthMm, r.DepthMm, cells, key),
             None: () => SectionProfile.Rectangle.Of(r.WidthMm, r.DepthMm, key));
 
-    // The Product-lane bag: the basis marker off the admitted section, the row's evidence grade, the interior arm's
-    // own proven geometry rows, and the declared erection stamps. FlangeThickness/StemSpacing mint through the
-    // owner-blessed PropertyCategory.Materials producer scope — Element's DetailSchema declares no double-tee rows.
     static Fin<PropertyBag> Detail(PrecastRow r, SectionProfile profile, Op key) =>
         from interior in InteriorRows(r.Interior)
         from stamps in r.Erection.Rows(key)
@@ -189,9 +152,6 @@ public static class PrecastSeed {
             .. interior,
             .. stamps]);
 
-    // The interior arm's own product rows, total over the closed family: a cored plank's lattice is bag-free
-    // geometry the profile already carries, a stemmed tee measures its two proven columns, a wythe build states its
-    // composite action, and a solid form has no interior to name.
     static Fin<Seq<(PropertyName, PropertyValue)>> InteriorRows(PrecastInterior interior) => interior.Switch(
         cored: static _ => Fin.Succ(Seq<(PropertyName, PropertyValue)>()),
         stemmed: static stems =>
@@ -202,11 +162,6 @@ public static class PrecastSeed {
             PropertyCategory.Materials.Row("WytheAction"), wythes.Composite ? "composite" : "non-composite"))),
         solid: static _ => Fin.Succ(Seq<(PropertyName, PropertyValue)>()));
 
-    // The precast CAPACITY producer is an EXPLICIT TYPED REFUSAL naming BOTH absent owners: the product's own
-    // span-load ladder (SpanLoad — PCI Design Handbook / producer load table, typed-absent) and the first-principles
-    // strand-designed RcSectionBuilder route, which needs the net profile the interior columns await. An
-    // envelope-section capacity would price a solid rectangle a plank is not; refusing typed is the honest verdict,
-    // and either route landing retires this refusal for its rows with no consumer edit.
     public static Fin<SectionCapacity> Capacity(Component component, Option<ComputedSection> section, CapacityPlacement placement, Op key) =>
         new ComponentFault.CapacityUnavailable(key, component.Designation);
 }

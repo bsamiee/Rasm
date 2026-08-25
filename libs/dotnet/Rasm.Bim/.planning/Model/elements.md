@@ -19,7 +19,7 @@
 - Boundary: `AdmitPredefined` is the whole gate and NO whole-model preflight sits beside it — the retired `AuditTarget` folded these same two reads over every `"ifc"`-classified node against a CALLER-CHOSEN target schema, and every entry in this folder emits at `graph.Header.Schema` alone, so it previewed a gate no caller reaches. NAMED LOSS: the accumulated complete-violation set a schema-retarget deliverable decision reads ahead of the emit. WITNESS: `Admits` and `AdmitPredefined` hold the per-node authority, and a retarget entry folds them over `graph.ObjectNodes` in one `Traverse` on the accumulating rail the moment such an entry lands.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using GeometryGym.Ifc;
 using LanguageExt;
@@ -30,43 +30,27 @@ using Thinktecture;
 using static LanguageExt.Prelude;
 using GGRelease = GeometryGym.Ifc.ReleaseVersion;
 using Op = Rasm.Domain.Op;
-// The seam schema currency the Header carries, disambiguated from GeometryGym.Ifc.ReleaseVersion, which
-// rides the GGRelease alias on the release-map and IFC-text codec legs alone.
 using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;
 
 namespace Rasm.Bim.Model;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The IFC SCHEMA-domain partition the emitter's inheritance DAG resolves, folded to query-grade rows. The
-// element disciplines alone cannot legalize the reflected roster: General owns the kernel/spatial/actor/group
-// backbone, Controls the IfcDistributionControlElement line, Construction the IfcProcess/IfcResource branch;
-// a roster member no claim row reaches FAILS the emit. Designator is the NCS sheet letter each domain draws
-// on, composed from the kernel drafting owner rather than re-lettered here — the IFC schema domain is the
-// discriminant that survives, and it is COARSER than NCS in two places the rows name.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class IfcDomain {
     public static readonly IfcDomain Architecture   = new("Architecture",   DisciplineDesignator.Architectural);
     public static readonly IfcDomain Structural     = new("Structural",     DisciplineDesignator.Structural);
-    // IFC fuses HVAC and fire protection into one schema domain where NCS letters them M and F; the sheet
-    // designator takes the dominant M and a fire-protection sheet set re-letters at the sheet owner.
     public static readonly IfcDomain HvacFire       = new("HvacFire",       DisciplineDesignator.Mechanical);
     public static readonly IfcDomain Electrical     = new("Electrical",     DisciplineDesignator.Electrical);
     public static readonly IfcDomain Plumbing       = new("Plumbing",       DisciplineDesignator.Plumbing);
     public static readonly IfcDomain Infrastructure = new("Infrastructure", DisciplineDesignator.Civil);
     public static readonly IfcDomain Geotechnical   = new("Geotechnical",   DisciplineDesignator.Geotechnical);
     public static readonly IfcDomain General        = new("General",        DisciplineDesignator.General);
-    // Building controls draw the electrical sheet letter; IFC keeps them a schema domain of their own.
     public static readonly IfcDomain Controls       = new("Controls",       DisciplineDesignator.Electrical);
     public static readonly IfcDomain Construction   = new("Construction",   DisciplineDesignator.Contractor);
 
     public DisciplineDesignator Designator { get; }
 }
 
-// The authoring verdict every committed row carries, replacing the abstractness bool the egress gate and the
-// window check read separately. The gate is a ROW COLUMN, not a switch body: Authorable defers to the class
-// window, Vocabulary refuses in every release because an EXPRESS-abstract supertype is legal classification
-// vocabulary and an illegal egress class. A Draft row is unreachable — the emitter's published-membership
-// gate drops draft surface before a row commits.
 [SmartEnum<string>]
 public sealed partial class EgressEligibility {
     public static readonly EgressEligibility Authorable = new("authorable",
@@ -81,10 +65,6 @@ public sealed partial class EgressEligibility {
     public partial Fin<Unit> Gate(SchemaSpan window, ReleaseVersion schema, string cls, Op key);
 }
 
-// The predefined token admitted ONCE at the boundary: the interior reads cases, never the "" / NOTDEFINED /
-// USERDEFINED sentinel strings. Admit is the only mint, so the label obligation USERDEFINED carries is
-// discharged at admission — the projector authors IFC ObjectType from that label and there is no OBJECTTYPE
-// token, so a node carrying none is refused before any downstream arm can substitute a Name for it.
 [Union]
 public abstract partial record PredefinedToken {
     private PredefinedToken() { }
@@ -103,11 +83,7 @@ public abstract partial record PredefinedToken {
         };
 }
 
-// --- [TABLES] -----------------------------------------------------------------------------
-// ONE release table over the seam roster answers both reads the gates need. Rank IS the roster's DECLARATION
-// ORDER — the generated Items list is chronological at its owner — so rank and span are total over every row
-// by derivation and a new seam release ranks and spans itself. The per-class window is the SEAM-owned
-// SchemaSpan (Graph/element#NODE_MODEL): the row's window and the stamped node span are ONE type [H8].
+// --- [TABLES] --------------------------------------------------------------------------
 internal static class IfcSchema {
     private static readonly FrozenDictionary<ReleaseVersion, (int Rank, SchemaSpan Span)> Releases =
         ReleaseVersion.Items.Index().ToFrozenDictionary(
@@ -115,9 +91,6 @@ internal static class IfcSchema {
 
     internal static int Rank(ReleaseVersion value) => Releases[value].Rank;
 
-    // The open-window mint the generated region spells per row; a closed window renders its SchemaSpan pair
-    // directly. Naming the seam row at the call site retires the anchor-name/roster-key drift a per-release
-    // static field carried, so no render-time name map can exist.
     internal static SchemaSpan Of(ReleaseVersion introduced) => Releases[introduced].Span;
 
     extension(SchemaSpan span) {
@@ -126,10 +99,6 @@ internal static class IfcSchema {
     }
 }
 
-// The ONE GG-to-seam release map, read by the emitter AND the runtime ReleaseLower/ReleaseRaise/Sniff
-// lowerings, retiring both silent fallbacks. IFC4X4_DRAFT stays unmapped by law — the published-membership
-// gate drops draft surface before any lowering, so an unmapped release reaching Lower is a genuine fault: it
-// FAILS the emit and rails BimFault.Refused at runtime.
 internal static class ReleaseMap {
     public static readonly FrozenDictionary<GGRelease, ReleaseVersion> Lower = new Dictionary<GGRelease, ReleaseVersion> {
         [GGRelease.IFC2X] = ReleaseVersion.Ifc2X3, [GGRelease.IFC2x2] = ReleaseVersion.Ifc2X3, [GGRelease.IFC2x3] = ReleaseVersion.Ifc2X3,
@@ -140,50 +109,27 @@ internal static class ReleaseMap {
         [GGRelease.IFC4X3] = ReleaseVersion.Ifc4X3, [GGRelease.IFC4X3_ADD2] = ReleaseVersion.Ifc4X3Add2,
     }.ToFrozenDictionary();
 
-    // The preimage compare is UNDERSCORE-ERASED ordinal-ignore-case: the GG member spells IFC4X3_ADD2 where the
-    // seam key spells Ifc4X3Add2, so a bare name compare silently drops the Add2 raise and every Ifc4X3Add2
-    // egress target faults as unmapped; erasing "_" restores the exact preimage while the RC/A-suffixed members
-    // stay excluded. The seam Ifc5 therefore has NO GG image — an Ifc5 egress target is the typed fault.
     public static readonly FrozenDictionary<ReleaseVersion, GGRelease> Raise =
         Lower.Where(static pair => string.Equals(pair.Key.ToString().Replace("_", ""), pair.Value.Key, StringComparison.OrdinalIgnoreCase))
              .ToFrozenDictionary(static pair => pair.Value, static pair => pair.Key);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// The per-token availability row: IntroducedIn is the SEAM ReleaseVersion sourced dotted-pin-first from the
-// committed EXPRESS-diff index (the correction tier: on IfcWallTypeEnum GG annotates the 2x3-era
-// STANDARD/POLYGONAL/ELEMENTEDWALL as IFC4 and leaves the IFC4-added MOVABLE/PARAPET/PARTITIONING unannotated
-// — schema-divergent both ways), else the per-field GG [VersionAdded] lowered through ReleaseMap, else the
-// class floor. A token absent from every published enum never commits a row.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct PredefinedRow(string Token, ReleaseVersion IntroducedIn);
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class IfcClass {
-    // The classification SYSTEM key every seam Object node this taxonomy stamps carries — declared at the S0
-    // vocabulary owner because a bare "ifc" literal beside a `==` compares outside the OrdinalIgnoreCase key space
-    // the rows themselves declare, so "IFC" and "ifc" read as two systems. Semantics' ClassificationSystem row and
-    // every view-side system gate compose this one token.
     public const string System = "ifc";
 
-    // The region between these markers is COMMITTED GENERATOR OUTPUT, replaced whole by
-    // Model/emitter#REGENERATION on a GeometryGym pin bump or a new IFC release. ONE exemplar row stands as
-    // the line-shape contract; Model/emitter#TAXONOMY_EMITTER Render emits exactly this shape, so the marker
-    // pair plus this row reconstruct any member. A hand edit here dies at the next regeneration.
-    // <generated-rows>
     public static readonly IfcClass ActionRequest = new("IfcActionRequest", IfcDomain.General, IfcSchema.Of(ReleaseVersion.Ifc2X3), EgressEligibility.Authorable, Seq<PredefinedRow>());
-    // <end generated-rows>
 
     public IfcDomain Domain { get; }
     public SchemaSpan Span { get; }
     public EgressEligibility Eligibility { get; }
     public Seq<PredefinedRow> ValidPredefined { get; }
 
-    // Every row's seam classification value DERIVED once from the primary (System, Key) correspondence — the pair
-    // the projector stamps onto a Node.Object. Both tokens are roster constants no call site can blank, so the seam's
-    // ONE admission runs at roster init and a rail-free authoring helper reads the admitted value instead of
-    // re-running the door per element or bypassing it with a throwing Classification.Create.
     private static readonly Op Seat = Op.Of(name: nameof(IfcClass));
 
     private static readonly FrozenDictionary<IfcClass, Classification> EntityClasses =
@@ -191,23 +137,12 @@ public sealed partial class IfcClass {
 
     public Classification EntityClass => EntityClasses[this];
 
-    // The Option-lift over the generated bool/out try-pattern — the ONE lookup spelling every consumer folds;
-    // the generated TryGet(string?, out IfcClass?) stays the raw seam beneath it, never a second resolver.
     public static Option<IfcClass> TryGet(string entityType) =>
         TryGet(entityType, out IfcClass? row) && row is { } hit ? Some(hit) : None;
 
-    // The typed element-class-miss lifts BARE onto the Fin rail (band 2600 owns the generated Code; no .ToError()
-    // hop). A permissive ingress instead reads TryGet(entityType).IfNone(BuildingElementProxy).
     public static Fin<IfcClass> Resolve(string entityType, Op key) =>
         TryGet(Canonical(entityType)).ToFin(new BimFault.Refused(key, BimScope.Model, BimReason.Unmapped, string.Join(':', new object?[] { "element-class-miss", entityType })));
 
-    // IFC4 collapsed the retired *StandardCase/*ElementedCase implementation subtypes into the base class plus
-    // PredefinedType; ParserIfc.IdentifyIfcClass does NOT fold them, so a 2x3 IfcWallStandardCase the projector
-    // reads off p.GetType().Name resolves the IfcWall row here rather than aborting the import on the most
-    // common real entity. The subtypes still hold committed rows, and the fold decides WHO reads them: the
-    // permissive TryGet ingress resolves the subtype row itself and stamps its OWN SchemaSpan as the node's
-    // span (the source entity's true window [H8]), while every Resolve consumer reads the folded BASE row, so a
-    // deprecated 2x3 StandardCase re-emits as the surviving base class instead of authoring a retired form.
     private static readonly FrozenSet<string> CaseSuffixes =
         new[] { "StandardCase", "ElementedCase" }.ToFrozenSet(StringComparer.Ordinal);
 
@@ -216,14 +151,8 @@ public sealed partial class IfcClass {
             .Find(suffix => entityType.EndsWith(suffix, StringComparison.Ordinal))
             .Match(Some: suffix => entityType[..^suffix.Length], None: () => entityType);
 
-    // The ONE class-availability read both the egress author and any future retarget fold take: the row's
-    // eligibility column decides against the target Header schema, so abstractness and window refusals retain
-    // distinct detail evidence from one call site instead of two.
     public Fin<Unit> Admits(ReleaseVersion schema, Op key) => Eligibility.Gate(Span, schema, Key, key);
 
-    // The egress gate, PER-TOKEN [PREDEFINED_TOKEN_RULING][H8]: the class verdict gates the entity, the token
-    // admits ONCE into its typed case, then each set member gates on ITS OWN IntroducedIn rank — WAVEWALL on an
-    // IFC2x3 emit faults predefined-out-of-schema. An empty set constrains nothing.
     public Fin<string> AdmitPredefined(string token, string objectType, ReleaseVersion schema, Op key) =>
         Admits(schema, key)
             .Bind(_ => PredefinedToken.Admit(token, objectType, Key, key))
@@ -254,7 +183,7 @@ public sealed partial class IfcClass {
 - Boundary: the geometry reference is the content-keyed map [M2] and an inlined geometry blob, a stored `GeometryHandle`, or an IFC representation name on the seam node is the deleted form; the content key composes the kernel hasher over `CanonicalWriter` and a second hasher (or the strata-violating `Rasm.Compute` `InterchangeIdentity` consumed up-stratum) is the named defect [H7]; a separator-joined preimage is the retired form — a space inside a STEP string shifts the split, so the framing is the writer's, never a `string.Concat`; the representation STEP is keyed, NOT evaluated — an in-process BRep tessellation here is the named seam violation (geometry realization routes the `Exchange/tessellation#TESSELLATION_BRIDGE` companion rail); the type representation-map instancing shares one content key across occurrences and a per-occurrence re-key is the deleted form; the content-stable realized-geometry identity across distinct entities is the kernel `GeometryHash` at the GLB wire, a separate key this serialization key never duplicates.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Domain;
@@ -264,11 +193,8 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Model;
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class IfcRepresentation {
-    // ONE polymorphic entry over IfcObjectDefinition discriminates the occurrence product (its direct
-    // representations) from the type product (the IfcRepresentationMap instanced-geometry library) on the input
-    // case. The seam Object node references geometry by this content key only.
     public static RepresentationContentHash Keys(IfcObjectDefinition? definition) =>
         definition switch {
             IfcProduct product => Optional(product.Representation).Match(
@@ -283,9 +209,6 @@ public static class IfcRepresentation {
             _ => RepresentationContentHash.Empty,
         };
 
-    // Two LENGTH-FRAMED fields through the kernel writer, tag first, so a direct shape and a mapped library
-    // shape never collide and no separator can shift the split. ONE hasher: no second hasher, no up-stratum
-    // InterchangeIdentity, and the realized-geometry GeometryHash at the GLB wire stays separate.
     private static UInt128 RepKey(string tag, BaseClassIfc entity) =>
         ContentHash.Of((Tag: tag, Entity: entity), static (state, writer) =>
             writer.String(state.Tag).String(state.Entity.StringSTEP()));

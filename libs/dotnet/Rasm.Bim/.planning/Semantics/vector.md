@@ -20,7 +20,7 @@ Both codec columns ride the `Fin` rail, so a row's own decode refuses by name in
 - Boundary: the row's delegate columns route decode AND encode with no call-site branch, so a call-site if-ladder over formats is the deleted form; the managed shapefile/FlatGeobuf/GeoParquet/KML codecs are the pure-managed defaults and admitting GDAL for a format a managed codec reads is the rejected form; a `managed` column beside the delegate restated which delegate the row already binds and no fence ever read it, so the managed/OGR partition is stated at this boundary and carried by `Exchange/format#FORMAT_AXIS`; an attribute filter reaches only a row whose codec can push it down, because a filter silently dropped returns a superset the caller cannot detect.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO.Compression;
@@ -37,19 +37,17 @@ using NodaTime;
 using Rasm;
 using Rasm.Domain;
 using Rasm.Element.Geospatial;
-using Rasm.Element.Projection;                     // TextureWrap — the seam sampler-addressing roster the CityJSON wrap mode lands on
+using Rasm.Element.Projection;
 using SharpKml.Base;
 using SharpKml.Dom.GX;
 using SharpKml.Engine;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using KmlDom = SharpKml.Dom;   // aliased — SharpKml.Dom.Feature/Geometry/Point/Polygon would shadow the NTS vocabulary
+using KmlDom = SharpKml.Dom;
 
 namespace Rasm.Bim;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The OGR-SQL restriction as an ADMITTED value: a blank filter is not "no filter" to OGR, it is a parse error at the
-// layer, so absence rides the Option and presence is a non-blank body.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AttributeFilter {
@@ -64,10 +62,6 @@ public sealed partial class AttributeFilter {
             : Fin.Fail<AttributeFilter>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", "attribute-filter", restriction })));
 }
 
-// ONE push-down request every decode arm reads: the spatial clip a shapefile MbrFilter, a FlatGeobuf
-// Packed-Hilbert-R-tree, or an OGR SetSpatialFilterRect answers server-side, and the attribute restriction only an
-// OGR layer can. Carrying them together is what lets a managed arm REFUSE the half it cannot serve instead of
-// answering half the question.
 public sealed record GeoWindow(Option<Envelope> Clip, Option<AttributeFilter> Where) {
     public static readonly GeoWindow Whole = new(None, None);
 
@@ -95,14 +89,9 @@ public sealed partial class GeoVectorSource {
     public static readonly GeoVectorSource Kml        = new("kml",
         decode: static (bytes, window, key) => GeoKml.Read(bytes, window, key),
         encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoKml.Write(features, key)));
-    // KMZ shares the zip-discriminating GeoKml.Read (the kmz magic routes KmzFile.Open internally); its encode is a
-    // symmetric bare-KMZ zip of the SAME document build — format#FORMAT_AXIS Kmz capability columns are arm-backed here.
     public static readonly GeoVectorSource Kmz        = new("kmz",
         decode: static (bytes, window, key) => GeoKml.Read(bytes, window, key),
         encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoKml.WriteKmz(features, key)));
-    // Single-tile MVT byte codec anchored at the world tile (0,0,0) — MVT bytes carry only tile-local integer
-    // coordinates, so the bare-bytes row pins the one self-describing anchor; the multi-tile pyramid + TileJSON
-    // catalog stay Semantics/model#TILE_PYRAMID.
     public static readonly GeoVectorSource Mvt        = new("mvt",
         decode: static (bytes, window, key) => GeoTiles.Decode(bytes, 0, 0, 0, key).Map(static rows => rows.Map(static r => r.Feature)),
         encode: Some<Func<Seq<GeoFeature>, Option<ProjectedCrs>, Op, Fin<byte[]>>>(static (features, _, key) => GeoTiles.EncodeWorldTile(features, key)));
@@ -135,11 +124,7 @@ public sealed partial class GeoVectorSource {
 - Boundary: SharpKml carries its OWN geographic geometry (`Vector` is `(lat, lon[, alt])`, the INVERSE of an NTS `Coordinate(X=lon, Y=lat)`), so the bridge swaps ordinates in both directions and a cast is unrepresentable; KML is geographic by definition, so every decoded row tags the structurally-admitting EPSG:4326 source CRS and the styled emit reprojects first; the absent KML altitude admits as the NTS `Coordinate.NullOrdinate` the whole planar vocabulary already spells absence with, so the write-side finiteness test reads one convention rather than a local sentinel; `Write` and `WriteKmz` differ ONLY by the `KmzFile.Create` wrap over an IDENTICAL document, so the build is ONE owner and the two emitters carry the wrap alone — a `zipped` bool selecting two bodies is the deleted form; the ortho's case is the PRODUCER's choice because only the raster leg holds the affine whose two rotation terms decide it, and an axis-aligned box discards them, mislanding a rotated aerial by the rotation angle with no diagnostic; a strict OGC-KML reader ignores the `gx` extension, so an overlay written only as a quad drapes nowhere at all; the `Site` KMZ is a DELIVERY projection, never the cross-runtime peer wire.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// Absolute is the vertical-datum reading a surveyed terrain or a flood surface needs, RelativeToGround the offset a
-// canopy or a mast takes, ClampToGround the drape a landuse polygon wants — and extrusion is orthogonal to all three
-// (a mast extrudes to ground, a canopy does not), so the roster names the four postures that exist rather than
-// handing every raise a mode argument beside a loose bool.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class KmlElevation {
     public static readonly KmlElevation Draped = new("draped", AltitudeMode.ClampToGround, extrudes: false);
@@ -151,8 +136,6 @@ public sealed partial class KmlElevation {
 
     public bool Extrudes { get; }
 
-    // Tessellation follows the CLAMP: a clamped coordinate has no height to drape from and an absolute one must not
-    // be re-flattened onto terrain.
     public bool Tessellates => Mode == AltitudeMode.ClampToGround;
 }
 
@@ -163,13 +146,10 @@ public abstract partial record OrthoDrape {
     public sealed record Quad(byte[] Png, Coordinate LowerLeft, Coordinate LowerRight, Coordinate UpperRight, Coordinate UpperLeft) : OrthoDrape;
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class GeoKml {
     const string OrthoEntry = "files/ortho.png";
 
-    // KMZ discriminates on the zip magic; KmzFile.GetDefaultKmlFile resolves the doc.kml. Containers walk
-    // recursively, each Placemark lowering to one GeoFeature: geometry through the lat/lon-swapped bridge,
-    // name/id/description with the ExtendedData Data rows and SchemaData SimpleData rows onto the attribute bag.
     internal static Fin<Seq<GeoFeature>> Read(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         GeoVector.Planar(window, "kml", key, () => {
             using var stream = new MemoryStream(bytes.ToArray());
@@ -188,8 +168,6 @@ public static class GeoKml {
         _ => Seq<GeoFeature>(),
     };
 
-    // KML DOM -> NTS: Point/LineString/LinearRing/Polygon(+holes)/MultipleGeometry, each Vector swapped onto
-    // Coordinate(X=Longitude, Y=Latitude); an open KML ring closes before CreateLinearRing admits it.
     static Option<Geometry> Lower(KmlDom.Geometry? geometry) => geometry switch {
         KmlDom.Point p when p.Coordinate is { } v => Some((Geometry)GeoServices.Factory.CreatePoint(Coord(v))),
         KmlDom.LineString l => Some((Geometry)GeoServices.Factory.CreateLineString(l.Coordinates.AsIterable().Map(Coord).ToArray())),
@@ -204,8 +182,6 @@ public static class GeoKml {
         _ => None,
     };
 
-    // NTS spells an absent ordinate as Coordinate.NullOrdinate, so the KML absence lands on the vocabulary the whole
-    // planar stack already reads rather than a package-local sentinel the write path must re-learn.
     static Coordinate Coord(Vector v) => new(v.Longitude, v.Latitude, v.Altitude ?? Coordinate.NullOrdinate);
 
     static LinearRing Ring(KmlDom.LinearRing ring) {
@@ -214,8 +190,6 @@ public static class GeoKml {
             shell.Length >= 3 && !shell[0].Equals2D(shell[^1]) ? [.. shell, shell[0]] : shell);
     }
 
-    // Indexer sets, never Add: a KML Data row legitimately named "name"/"id" must overwrite, not throw. The four
-    // SharpKml nullable reads are ONE admission at ONE boundary, which is why they coalesce here and nowhere else.
     static IAttributesTable Attributes(KmlDom.Placemark mark) {
         var table = new AttributesTable { ["name"] = mark.Name ?? "", ["id"] = mark.Id ?? "" };
         if (mark.Description?.Text is { Length: > 0 } text) { table["description"] = text; }
@@ -226,8 +200,6 @@ public static class GeoKml {
         return table;
     }
 
-    // ONE document build both bare emitters wrap: the unstyled Placemark set with its ExtendedData. The styled
-    // ortho/tour presentation is Site's and is never re-spelled here.
     static KmlDom.Document Build(Seq<GeoFeature> features) {
         var document = new KmlDom.Document { Name = "features" };
         features.Iter(f => document.AddFeature(Mark(f, Option<string>.None, KmlElevation.Draped)));
@@ -249,9 +221,6 @@ public static class GeoKml {
             return output.ToArray();
         });
 
-    // Styles land ONCE as shared Document styles the placemarks reference by #id StyleUrl, the ortho drapes as a
-    // GroundOverlay with its image archived beside doc.kml, and the tour stops become a gx:Tour Playlist of FlyTo
-    // primitives framed by each stop's CalculateLookAt.
     public static Fin<byte[]> Site(
         Seq<GeoFeature> features,
         Func<GeoFeature, string> styleOf,
@@ -287,8 +256,6 @@ public static class GeoKml {
             Icon = new KmlDom.Icon { Href = new Uri(OrthoEntry, UriKind.Relative) },
             DrawOrder = -1,
         };
-        // Block-bodied arms bind the VOID Switch: the two assignments land different carrier types, so an
-        // expression-bodied pair would ask the generated func form to infer one result type from two.
         ortho.Switch(
             state: overlay,
             boxed: static (o, b) => {
@@ -317,9 +284,6 @@ public static class GeoKml {
         return mark;
     }
 
-    // NTS -> KML DOM: the inverse bridge (Coordinate(X,Y) -> Vector(lat: Y, lon: X)); a polygon carries its holes as
-    // InnerBoundary rings, a collection recurses through MultipleGeometry. The Point fallback anchors on the
-    // geometry's INTERIOR point, guaranteed on the shape, where a centroid can land off it entirely.
     static KmlDom.Geometry Raise(Geometry geometry, KmlElevation elevation) => geometry switch {
         Point p => new KmlDom.Point {
             Coordinate = Vector3(p.Coordinate), AltitudeMode = elevation.Mode, Extrude = elevation.Extrudes,
@@ -358,14 +322,9 @@ public static class GeoKml {
 
     static KmlDom.CoordinateCollection Vectors(Coordinate[] coordinates) => new(coordinates.Select(Vector3));
 
-    // Z rides the third Vector slot exactly where it is FINITE: the read path admits an absent KML altitude as the
-    // NTS null ordinate, so a 2D coordinate round-trips as two ordinates and a 3D one as three, where writing the
-    // null ordinate into the altitude slot would emit a coordinate no reader parses.
     static Vector Vector3(Coordinate c) =>
         double.IsFinite(c.Z) ? new Vector(c.Y, c.X, c.Z) : new Vector(c.Y, c.X);
 
-    // Each stop frames itself: CalculateLookAt derives the camera from the stop's own bounds, so the fly-through
-    // needs no hand-authored viewpoints; the 3-second dwell is the FlyTo Duration.
     static Tour TourOf(Seq<GeoFeature> route) {
         var playlist = new Playlist();
         route.Iter(stop => playlist.AddTourPrimitive(new FlyTo {
@@ -388,11 +347,7 @@ public static class GeoKml {
 - Boundary: the managed codec output IS the canonical `NetTopologySuite.Features.Feature`; the shapefile byte form is the zipped `.shp`/`.shx`/`.dbf`/`.prj` quartet BOTH directions — a `Stream.Null` dbf read that drops every attribute and a bare-`.shp` egress that strands the offset index and attribute table are the deleted fragment forms; a zip with no `.shp` REFUSES typed rather than throwing, and the absent `.dbf`/`.prj` degrade (geometry-only, no CRS) because those two are genuinely optional; a corrupt GeoJSON document that deserializes to null REFUSES rather than becoming an EMPTY SET, because a caller cannot tell an empty collection from a payload the parser rejected; the OGR↔NTS bridge is the ONE `Semantics/feature#GEO_BOUNDARY` `GeoWkb` owner and running planar boolean ops on the OGR side fragments the one topology owner; `CityJSON.*`/`OSGeo.*`/`FlatGeobuf.*`/`GISBlox.*`/`SharpKml.*` types never leak past this fold; the CityJSON quantization is lossless (integer indices into `Vertices`, recovered through `Transform`) and tessellating it in the codec is the deleted form — `ToFeatures` IS the codec's own NTS projection rail, where a convex hull over every vertex of a building solid is not a footprint but the plan projection of its convex envelope, strictly LARGER than the truth for any L-shaped, courtyard, or cantilevered massing; the `.fgb` header CARRIES its CRS and reading past it hands every feature a `None` frame, which the datum leg then treats as Unreferenced — so a `.fgb` in a projected national grid lands raw eastings on the WGS84 frame at H3, MVT, and KML time, silently, with the correcting fact free in the buffer the arm already holds; the CityJSON header is derived ONCE per document because three inline re-derivations of one metadata read drift the day the spec moves; the OGR universal egress writes its driver output to a real temp file through the `GeoGdal` bracket, because this GDAL SWIG build exposes only `VSIFWriteL(string, …)` and no `byte[]` `VSIFReadL`.
 
 ```csharp signature
-// --- [TABLES] -------------------------------------------------------------------------------
-// The OGR field roster: one row per FieldType carrying the read that preserves the field's own CLR type, so the
-// GeoFeature.Typed seam arm receives the truth OGR already decoded. GetFieldAsString over every field was the
-// discarded discriminant this table restores; OFTInteger additionally reads its FieldSubType, because OGR spells a
-// boolean column as an integer field with the OFSTBoolean subtype and nothing else distinguishes the two.
+// --- [TABLES] --------------------------------------------------------------------------
 public static class OgrField {
     static readonly Map<OSGeo.OGR.FieldType, Func<OSGeo.OGR.Feature, int, OSGeo.OGR.FieldDefn, object>> Rows = Map(
         (OSGeo.OGR.FieldType.OFTInteger,   static (f, i, defn) => defn.GetSubType() == OSGeo.OGR.FieldSubType.OFSTBoolean
@@ -406,17 +361,11 @@ public static class OgrField {
         (OSGeo.OGR.FieldType.OFTTime,      static (f, i, _) => Stamped(f, i).Clock),
         (OSGeo.OGR.FieldType.OFTDateTime,  static (f, i, _) => Stamped(f, i).Moment));
 
-    // An unrostered type keeps the string read, so an exotic OGR column never faults an import — the fallback is the
-    // ONE place text survives, not the default every column took.
     public static object Read(OSGeo.OGR.Feature feature, int index, OSGeo.OGR.FieldDefn defn) =>
         Rows.Find(defn.GetFieldType()).Match(
             Some: row => row(feature, index, defn),
             None: () => feature.GetFieldAsString(index));
 
-    // GetFieldAsDateTime hands back the parts plus a TZ flag whose values are OGR's own: 0 unknown, 1 local, and 100
-    // upward the UTC offset in quarter-hours off 100. Zone evidence therefore EXISTS or it does not, and the two
-    // land different TemporalValue arms — stamping an unknown-zone field UTC fabricates an Instant that re-bases
-    // every date by the reader's offset and type-checks either way.
     static (LocalDate Date, LocalTime Clock, object Moment) Stamped(OSGeo.OGR.Feature feature, int index) {
         feature.GetFieldAsDateTime(index, out int year, out int month, out int day,
             out int hour, out int minute, out float second, out int zone);
@@ -429,30 +378,20 @@ public static class OgrField {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GeoVector {
-    // ONE decode entry over the source table's delegate column — zero call-site branch; every arm already carries its
-    // own rail, so the entry adds the roster and nothing else.
     public static Fin<Seq<GeoFeature>> Read(GeoVectorSource source, ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         source.Decode(bytes, window, key);
 
-    // The ONE managed-codec admission: a managed codec has no attribute engine, so a Where it silently ignored would
-    // return a superset the caller believes was filtered, and the refusal names the source instead. The throwing
-    // codec body lands on the typed lane fault here rather than in seven arms.
     internal static Fin<Seq<GeoFeature>> Planar(GeoWindow window, string source, Op key, Func<Seq<GeoFeature>> decode) =>
         window.Where.IsSome
             ? Fin.Fail<Seq<GeoFeature>>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", source, "attribute-pushdown-unsupported" })))
             : key.Catch(decode);
 
-    // The client-side residual for the arms whose codec carries no spatial index.
     static Seq<GeoFeature> Clipped(Seq<GeoFeature> features, GeoWindow window) =>
         window.Clip.Match(None: () => features, Some: env => features.Filter(f => f.Bounds.Intersects(env)));
 
     // --- [FLATGEOBUF]
-    // The clip pushes DOWN through the Packed-Hilbert-R-tree bbox index so a continental .fgb decodes only the
-    // overlapping feature runs — the managed equivalent of Layer.SetSpatialFilterRect, never an Ogr.Open over
-    // /vsimem. Helpers.ReadHeader is the same header read Stream performs, so the CRS costs one read on a buffer
-    // the arm already holds.
     internal static Fin<Seq<GeoFeature>> FlatGeobuf(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         Planar(window, "flatgeobuf", key, () => {
             using var fgb = new MemoryStream(bytes.ToArray());
@@ -463,10 +402,6 @@ public static class GeoVector {
                 .Map(f => new GeoFeature(f.Geometry, f.Attributes, crs)).ToSeq();
         });
 
-    // The header's CRS lowers through the SAME three-state ProjectedCrs.Of the shapefile .prj and CityJSON
-    // referenceSystem arms compose — the EPSG authority name when the code is set, the inline WKT when it is, and
-    // the no-CRS None when the header declared neither (Of faults an all-blank product, so the blank case never
-    // enters admission). ONE admission owner, so the two nullable header reads coalesce exactly here.
     static Option<ProjectedCrs> HeaderCrs(global::FlatGeobuf.HeaderT header, Op key) =>
         Optional(header.Crs)
             .Bind(crs => crs.Code > 0
@@ -475,12 +410,6 @@ public static class GeoVector {
             .Bind(pair => ProjectedCrs.Of(pair.Item1, "", "", pair.Item2, key)
                 .Match(Succ: static c => Some(c), Fail: static _ => Option<ProjectedCrs>.None));
 
-    // Remote-.fgb range-read escalation: fetch is the consumer's byte-range read (HTTP Range / object-store seek).
-    // Helpers.ReadHeader consumes the 8-byte magic + 4-byte size prefix + headerSize blob off the range stream, so
-    // the index seats at 12 + headerSize (the codec's own Deserialize seeks exactly that); PackedRTree.StreamSearch
-    // walks ONLY the index nodes it needs (its ReadNode offsets are index-relative, re-based here), CalcSize seats
-    // the feature body, and each hit reads its 4-byte record length then fetches that record body alone —
-    // FromByteBuffer lowers the PREFIX-STRIPPED buffer against the canonical factory and the packed sequence layout.
     public static Fin<Seq<GeoFeature>> Stream(PackedRTree.ReadNode fetch, Envelope window, Op key) =>
         key.Catch(() => {
             using var head = fetch(0, HeaderProbeBytes);
@@ -510,13 +439,9 @@ public static class GeoVector {
         return new GeoFeature(feature.Geometry, feature.Attributes, crs);
     }
 
-    // One range read covers magic + the size-prefixed header for any real-world schema; ReadHeader stops at the
-    // header end regardless of the over-fetch.
     const ulong HeaderProbeBytes = 1UL << 16;
 
     // --- [GEOPARQUET]
-    // ReadColumns is the COLUMN push-down (the columnar analog of the FGB bbox ROW push-down), the geo column holds
-    // WKB the GeoWkb bridge crosses. GeoParquet carries no server-side bbox filter, so the clip filters client-side.
     internal static Fin<Seq<GeoFeature>> GeoParquet(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         Planar(window, "geoparquet", key, () => {
             string path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.parquet");
@@ -530,16 +455,12 @@ public static class GeoVector {
             } finally { File.Delete(path); }
         });
 
-    // The ONE GeoParquet metadata admission: the spec's own default geometry-column name applies when the file
-    // declares no metadata block or no primary column, and it is spelled once rather than at each read.
     static string PrimaryColumn(string path) =>
         Optional(GISBlox.IO.GeoParquet.GeoParquetReader.ReadGeoMetadata(path))
             .Bind(static meta => Optional(meta.Primary_column))
             .Filter(static column => column.Length > 0)
             .IfNone("geometry");
 
-    // DataColumn.DataType is the column's own CLR type, so the value crosses at that type onto the Typed seam arm;
-    // a null cell is the empty text the seam already spells for absence at this grain.
     static IAttributesTable RowAttributes(System.Data.DataTable table, System.Data.DataRow row, string primary) {
         var attributes = new AttributesTable();
         table.Columns.Cast<System.Data.DataColumn>().AsIterable()
@@ -549,8 +470,6 @@ public static class GeoVector {
     }
 
     // --- [GEOJSON]
-    // A null deserialization is a CORRUPT payload, and turning it into an empty FeatureCollection made a rejected
-    // document indistinguishable from a document with no features — the one outcome a site import cannot recover.
     internal static Fin<Seq<GeoFeature>> GeoJson(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         Planar(window, "geojson", key, () => JsonSerializer.Deserialize<FeatureCollection>(bytes.Span, GeoWire.Json))
             .Bind(collection => Optional(collection)
@@ -559,10 +478,6 @@ public static class GeoVector {
                 .Map(f => new GeoFeature(f.Geometry, f.Attributes, Option<ProjectedCrs>.None)).ToSeq(), window));
 
     // --- [SHAPEFILE]
-    // A shapefile is the .shp/.shx/.dbf/.prj QUARTET — one byte buffer carries it as the standard zip transport,
-    // discriminated on the zip magic exactly like the KMZ arm; a bare .shp buffer degrades to geometry-only. The
-    // .dbf stream feeds OpenRead so attributes survive, and the .prj WKT tags the seam SourceCrs so a projected
-    // shapefile datum-shifts at projection instead of silently landing raw ordinates on the model frame.
     internal static Fin<Seq<GeoFeature>> Shapefile(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         Quartet(bytes, key).Bind(parts => Planar(window, "shapefile", key, () => {
             var options = new ShapefileReaderOptions {
@@ -580,8 +495,6 @@ public static class GeoVector {
             return reader.AsIterable().Map(feature => new GeoFeature(feature.Geometry, feature.Attributes, crs)).ToSeq();
         }));
 
-    // Zip-quartet split: entries resolve by extension (any base name). A zip with no .shp is a corrupt container and
-    // REFUSES by name; the absent .dbf and .prj degrade because both are genuinely optional parts of the transport.
     static Fin<(byte[] Shp, Option<byte[]> Dbf, string Prj)> Quartet(ReadOnlyMemory<byte> bytes, Op key) =>
         bytes.Span is not [0x50, 0x4B, ..]
             ? Fin.Succ((bytes.ToArray(), Option<byte[]>.None, ""))
@@ -603,9 +516,6 @@ public static class GeoVector {
                     new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-format-lane", "vector", "shapefile", "zip-missing-shp" })))));
 
     // --- [CITYJSON]
-    // ToFeatures IS the codec's own NTS projection rail: it walks CityObjects, applies Transform per CoordinateZ,
-    // triangulates each Geometry into a MultiPolygon, and packs CityObject.Attributes into an AttributesTable. A null
-    // lod selects the codec's own highest-LoD pick; a caller narrowing to one LoD threads it through the source row.
     internal static Fin<Seq<GeoFeature>> CityJson(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         Planar(window, "cityjson", key, () => {
             var document = Document(bytes);
@@ -614,12 +524,6 @@ public static class GeoVector {
                 .Map(f => new GeoFeature(f.Geometry, f.Attributes, header.Crs)).ToSeq(), window);
         });
 
-    // The appearance entry over the SAME document the geometry arm decodes: CityJSON is the one non-glTF ingest whose
-    // spec carries a COMPLETE texture appearance beside the geometry — payload, wrap mode, per-surface UV indices,
-    // and a shared UV pool — and the source row's decode column carries features alone, so the roster reaches its
-    // Semantics/appearance#APPEARANCE_PROJECTION consumer through its own entry rather than through a document no
-    // caller holds. Reading a UV index array and a payload URL is neither a codec nor a resample, so the
-    // "CLASSIFIES and CARRIES, decodes none" ruling holds.
     public static Fin<Seq<SurfaceTexture>> CityJsonAppearance(ReadOnlyMemory<byte> bytes, Op key) =>
         key.Catch(() => CityJsonHeader.Of(Document(bytes), key).Textures)
             ;
@@ -628,10 +532,6 @@ public static class GeoVector {
         Newtonsoft.Json.JsonConvert.DeserializeObject<CityJSON.CityJsonDocument>(Encoding.UTF8.GetString(bytes.Span))!;
 
     // --- [OGR]
-    // Ogr.Open auto-detects the container, so the universal decode carries no driver token; the clip and the
-    // attribute restriction both push DOWN to the layer, and every geometry crosses the ONE GeoWkb bridge. The
-    // per-layer read is a generator fold rather than a Seq.Add accumulator, which was quadratic over a continental
-    // extract.
     internal static Fin<Seq<GeoFeature>> Universal(ReadOnlyMemory<byte> bytes, GeoWindow window, Op key) =>
         GeoGdal.Vector(bytes, data => key.Catch(() =>
             Enumerable.Range(0, data.GetLayerCount()).AsIterable()
@@ -662,9 +562,6 @@ public static class GeoVector {
     }
 
     // --- [EGRESS]
-    // Symmetric egress dispatches the SAME row's ENCODER column Read's decode rides. A row carrying NO encoder rails
-    // typed off the absence itself, so the roster states its own write capability and no exception ever crosses to
-    // say what a column already declares.
     public static Fin<byte[]> Write(GeoVectorSource source, Seq<GeoFeature> features, Option<ProjectedCrs> crs, Op key) =>
         source.Encoder.Match(
             None: () => Fin.Fail<byte[]>(new BimFault.Refused(key, BimScope.Semantics, BimReason.Codec, string.Join(':', new object?[] { "geo-vector-write-unsupported", source.Key }))),
@@ -681,9 +578,6 @@ public static class GeoVector {
             return output.ToArray();
         });
 
-    // Every attribute column is declared at the CLR type its values carry, resolved off the first row that answers
-    // the name: declaring every column typeof(string) erased the decode the ingest arms had just performed, so a
-    // columnar round-trip through this folder narrowed every integer, real, and date to text.
     internal static Fin<byte[]> WriteGeoParquet(Seq<GeoFeature> features, Op key) =>
         key.Catch(() => {
             const string geoColumn = "geometry";
@@ -709,9 +603,6 @@ public static class GeoVector {
             return output.ToArray();
         });
 
-    // Shapefile egress is the QUARTET zipped into ONE archive buffer (the transport the read arm discriminates):
-    // returning the bare .shp alone strands the .shx offset index and the .dbf attributes. .prj carries the seam CRS:
-    // the inline Wkt when a GIS-origin CRS defined it, else the authority Name.
     internal static Fin<byte[]> WriteShapefile(Seq<GeoFeature> features, Option<ProjectedCrs> crs, Op key) =>
         key.Catch(() => {
             using var shp = new MemoryStream();
@@ -740,9 +631,6 @@ public static class GeoVector {
             return JsonSerializer.SerializeToUtf8Bytes(collection, GeoWire.Json);
         });
 
-    // The OGR universal egress declares a FieldDefn per attribute at its OGR-side type and SETS every value, where
-    // writing GEOMETRY alone shipped attribute-less features through a driver family whose whole point is carrying
-    // them. The sink is a real temp file the managed read-back recovers, inside the ONE GeoGdal bracket.
     internal static Fin<byte[]> WriteUniversal(string ogrDriver, Seq<GeoFeature> features, Option<ProjectedCrs> crs, Op key) =>
         GeoGdal.Author(GdalSink.Temp, "", path => key.Catch(() => {
             var columns = features
@@ -774,9 +662,6 @@ public static class GeoVector {
         }),
         "ogr-write", key);
 
-    // The egress inverse of the OgrField roster: a CLR type resolves the OGR field type it declares, and an
-    // unresolved type falls to string exactly where the read fallback does, so a round-trip through this folder
-    // narrows nothing it did not already narrow on the way in.
     static OSGeo.OGR.FieldType OgrType(Option<object> sample) => sample.Match(
         Some: static value => value switch {
             bool or sbyte or byte or short or ushort or int => OSGeo.OGR.FieldType.OFTInteger,
@@ -789,8 +674,6 @@ public static class GeoVector {
         },
         None: static () => OSGeo.OGR.FieldType.OFTString);
 
-    // SetField's overload family is per-type on the SWIG surface and the date arm takes its parts plus a TZ flag,
-    // so the write mirrors the read's own zone discrimination: 100 is UTC, 0 is unknown.
     static void Set(OSGeo.OGR.Feature feature, int ordinal, object value) {
         switch (value) {
             case bool flag: feature.SetField(ordinal, flag ? 1 : 0); break;
@@ -808,20 +691,12 @@ public static class GeoVector {
 
     static OSGeo.OSR.SpatialReference SpatialRef(ProjectedCrs crs) {
         var srs = new OSGeo.OSR.SpatialReference("");
-        // SetFromUserInput is OSR's universal CRS parser (an EPSG/URN authority code OR an inline WKT); the seam
-        // three-state ProjectedCrs carries the inline Wkt when present, else the authority Name (no single-string
-        // .Value member exists on the [ComplexValueObject] — that spelling is the deleted phantom).
         srs.SetFromUserInput(crs.Wkt.Length > 0 ? crs.Wkt : crs.Name);
         srs.SetAxisMappingStrategy(OSGeo.OSR.AxisMappingStrategy.OAMS_TRADITIONAL_GIS_ORDER);
         return srs;
     }
 }
 
-// The ONE CityJSON metadata-and-appearance admission: the referenceSystem URN and the Appearance texture roster are
-// both header-grade facts, and three inline re-derivations of the same metadata read across the geometry and texture
-// arms drifted the day the spec moved. metadata.referenceSystem is an OGC URN (urn:ogc:def:crs:EPSG::25832) the seam
-// ProjectedCrs.Of admits on its Name carrier; a blank one yields the no-CRS None because Of faults an all-blank
-// product, so the blank case never enters admission.
 public sealed record CityJsonHeader(Option<ProjectedCrs> Crs, Seq<SurfaceTexture> Textures) {
     public static CityJsonHeader Of(CityJSON.CityJsonDocument document, Op key) =>
         new(Optional(document.Metadata)
@@ -831,12 +706,6 @@ public sealed record CityJsonHeader(Option<ProjectedCrs> Crs, Seq<SurfaceTexture
                     .Match(Succ: static c => Some(c), Fail: static _ => Option<ProjectedCrs>.None)),
             Textures(document));
 
-    // Appearance.Textures lowers each Texture onto the Semantics/appearance#APPEARANCE_PROJECTION SurfaceTexture
-    // roster BESIDE the summary: Image rides the URL payload case, and the theme ORDINAL is the coordinate set — a
-    // CityJSON geometry's Texture map is keyed by theme and each theme indexes its own run of VerticesTexture, so
-    // roster position and UV pool partition are one axis. CityJSON declares ONE WrapMode for both axes, so both
-    // read one row, and `mirror` now survives: seam TextureWrap carries MirroredRepeat where the retired boolean
-    // pair could only report it as plain repeat.
     static Seq<SurfaceTexture> Textures(CityJSON.CityJsonDocument document) =>
         Optional(document.Appearance).Map(static appearance => toSeq(appearance.Textures)
             .Map(static (texture, set) => Wrap(texture.WrapMode) switch {
@@ -851,9 +720,6 @@ public sealed record CityJsonHeader(Option<ProjectedCrs> Crs, Seq<SurfaceTexture
             .ToSeq())
             .IfNone(Seq<SurfaceTexture>());
 
-    // NAMED LOSS: CityJSON's `none` declares that the texture is not applied outside [0,1] at all, and the seam
-    // roster carries no border row, so it lands on the nearest sampler policy the vocabulary states — the edge
-    // texel clamps where CityJSON left the surface untextured.
     static TextureWrap Wrap(CityJSON.TextureWrapMode mode) => mode switch {
         CityJSON.TextureWrapMode.wrap => TextureWrap.Repeat,
         CityJSON.TextureWrapMode.mirror => TextureWrap.MirroredRepeat,

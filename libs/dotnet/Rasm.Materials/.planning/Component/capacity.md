@@ -20,7 +20,7 @@ THE SECTION-CAPACITY OWNER and THE ONE UTILISATION RAIL. One `SectionCapacity` `
 - Boundary: γM2 has ONE authority — the `DesignBasis` partial-factor column read through `ResistanceAction.Fracture` — so a family page divides joint and fracture resistances through this row and a local copy is the deleted form.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using LanguageExt;
@@ -32,23 +32,19 @@ using Rasm.Element.Composition;
 using Rasm.Element.Properties;
 using Thinktecture;
 using VividOrange.ForceMomentInteraction;
-using ForceMomentEngine = VividOrange.ForceMomentInteraction.InteractionDiagram;  // frees the bare name for the SectionCapacity owner
+using ForceMomentEngine = VividOrange.ForceMomentInteraction.InteractionDiagram;
 using VividOrange.Sections;
 using VividOrange.Materials.StandardMaterials.En;
 using VividOrange.Serialization;
 using VividOrange.Standards;
 using VividOrange.Standards.Eurocode;
 using UnitsNet;
-using Dimension = Rasm.Element.Properties.Dimension;  // the SI-dimension axis, disambiguated from the Rasm.Numerics discrete count
+using Dimension = Rasm.Element.Properties.Dimension;
 using static LanguageExt.Prelude;
 
-// The ONE flat Rasm.Materials.Component namespace binds every family owner this page lifts receipts from by bare
-// name (the codemap maps Component/Capacity.cs flat and dotnet_style_namespace_match_folder forces the folder path).
 namespace Rasm.Materials.Component;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// The Steps knob drives a Steps² strain-plane sweep, so the band trades hull fidelity for solve cost rather than
-// scattering a DiagramSettings ctor at the call site (.api/api-vividorange-interactiondiagram.md [03]-[ENTRYPOINTS]).
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DiagramResolution {
@@ -59,26 +55,13 @@ public sealed partial class DiagramResolution {
     public double ConcreteMaxAreaMm2 { get; }
     public int RebarDivisions { get; }
 
-    // The rebar mesh takes 0.8x the concrete max face area at the same 25 degree minimum-angle quality constraint,
-    // matching the engine's shipped 250/200 mm² default ratio.
     public DiagramSettings ToSettings() =>
         new(Area.FromSquareMillimeters(ConcreteMaxAreaMm2), Angle.FromDegrees(25.0),
             Area.FromSquareMillimeters(ConcreteMaxAreaMm2 * 0.8), Angle.FromDegrees(25.0), RebarDivisions, Steps);
 }
 
-// The two factors a resistance fold can take, assembled by the action and consumed by the format — never read as a
-// pair anywhere else, so no arm can apply one jurisdiction's factor under another's format. `SectionFactors` takes
-// its ALTITUDE WORD for the reason `SectionCapacity` takes one against the member-altitude `MemberCapacity`: this
-// pair is the SECTION-side (φ, γ) one `ResistanceAction` assembles, never the member-side
-// `Rasm.Compute/Analysis/capacity#DESIGN_CHECK` `ResistanceFactors`, that page's per-`DesignCode` four-action φ
-// column set. Both spellings stay live on their own sides of the seam, and one spelling across it would let a
-// member-check φ set reach a section fold that reads (φ, γ).
 public readonly record struct SectionFactors(double Phi, double Gamma);
 
-// The SAFETY-FORMAT axis, keys shared with Rasm.Compute/Analysis/capacity#DESIGN_CHECK: φ-format multiplies,
-// partial-factor divides, and an ALLOWABLE body publishes values already reduced — so its Resist arm is identity and
-// no Ω column is minted for a slot no admitted body prints. Reduce answers None on limit-state because SDPWS §4.1.4
-// defines its lateral reduction for the two US formats alone.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SafetyFormat {
@@ -96,10 +79,6 @@ public sealed partial class SafetyFormat {
     [UseDelegateFromConstructor] public partial Option<double> Reduce(LateralHazard hazard, double nominalKnPerM);
 }
 
-// The RESISTANCE CLASS a fold is pricing — a φ-format jurisdiction's per-action factors and a partial-factor
-// jurisdiction's γ set as ONE roster read twice. EN 1993 separates γM0 cross-section, γM1 stability, and γM2
-// fracture-and-joints; EN 1992 pairs γc with the reinforcement γs. A row mixing them prices a joint through the
-// cross-section factor: the wrong factor under a right-looking number.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ResistanceAction {
@@ -112,9 +91,6 @@ public sealed partial class ResistanceAction {
     [UseDelegateFromConstructor] public partial SectionFactors Factors(DesignBasis basis);
 }
 
-// SDPWS 2021 publishes a SINGLE nominal per configuration and expresses the wind-versus-seismic distinction as the
-// factor applied to it, so a second seeded nominal column would fork the table it transcribes. The reduction reads
-// BOTH axes, which is why the hazard rides the placement and the SELECTION rides SafetyFormat.Reduce.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LateralHazard {
@@ -123,16 +99,11 @@ public sealed partial class LateralHazard {
     public double AsdDivisor { get; }
     public double LrfdFactor { get; }
 
-    // An unserved (format, hazard) pair reports not-applicable instead of borrowing whichever factor sat in the
-    // other branch.
     public Fin<double> Design(double nominalKnPerM, SafetyFormat format, Op key) =>
         format.Reduce(this, nominalKnPerM)
             .ToFin(new ComponentFault.LateralFormatUnsupported(key, format, this));
 }
 
-// EN 1995-1-1 selects the AXIAL term by regime: §6.3.2 eq 6.23/6.24 takes it linear over the already k_c-reduced
-// N_Rd where buckling governs, §6.2.4 eq 6.19/6.20 squares it for the stocky member. The λ_rel = 0.3 break is the
-// code's own, so the row owns the threshold AND the term and no kernel re-spells either.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AxialRegime {
@@ -142,41 +113,23 @@ public sealed partial class AxialRegime {
     public static AxialRegime Of(double relativeSlenderness) => relativeSlenderness > 0.3 ? Buckling : Stocky;
 }
 
-// The three ALREADY-NORMALIZED ratios a kernel folds plus the two shape facts EC5 alone reads (§6.1.6(2) k_m and
-// the axial-term regime): the arms hand the basis a pure dimensionless triple, so a row owns the INTERACTION ALGEBRA
-// and never re-reads a capacity column. Of is the three-ratio form every other jurisdiction states, so the neutral
-// pair is spelled once rather than as two literals at four call sites.
 public readonly record struct InteractionOperands(double Axial, double Major, double Minor, double MinorWeight, AxialRegime Regime) {
     public static InteractionOperands Of(double axial, double major, double minor) =>
         new(axial, major, minor, MinorWeight: 1.0, AxialRegime.Buckling);
 }
 
-// The unreinforced-wall section facts a masonry resistance fold reads, hoisted off the capacity case so the two
-// jurisdictions' algebra lives beside the basis row that selects it and neither reaches into the capacity family.
-// FlexuralTensionMpa is the CHARACTERISTIC tension-fibre limit the lift resolved off the basis's own table (TMS 402
-// Table 9.1.9.2 fr, or EN 1996-1-1 Table 3.4 f_xk); ShearBondMpa the zero-compression bond both codes publish.
 public readonly record struct MasonrySection(
     double FmMpa, double NetAreaMm2, double SectionModulusXMm3, double SectionModulusYMm3,
     double SlendernessReduction, double FlexuralTensionMpa, double ShearBondMpa);
 
-// The reinforced-wall couple facts: f'm, the reinforced-cell steel area, the grouted net area, the out-of-plane
-// lever d, the per-unit bed length b, the slenderness reduction, and the bar yield — OPTIONAL because the yield
-// rides the ONE MaterialGrade row and a grade arm publishing none states absence rather than a fabricated stress.
 public readonly record struct MasonryCouple(
     double FmMpa, Option<double> FyMpa, double SteelAreaMm2, double NetAreaMm2,
     double EffectiveDepthMm, double BedLengthMm, double SlendernessReduction);
 
 public readonly record struct MasonryResistances(double Pn, double Mnx, double Mny, double Tension, double Vn);
 
-// Fm/Fy are the stress scalars the couple algebra multiplies; Phi/PhiV the resistance factors it applies AFTER,
-// unity on a partial-factor basis whose strengths arrived already divided so no factor lands twice.
 public readonly record struct ReinforcedStresses(double Fm, Option<double> Fy, double Phi, double PhiV);
 
-// The WHOLE per-jurisdiction masonry difference as two rows, so the folds carry no basis branch. TMS 402 §9.2/§9.3:
-// the 0.80 accidental-eccentricity coefficient over the 0.80 stress-block cap (a full-f'm fibre over-prices flexure
-// 25%), φ·fr = 0 making net tension govern outright, the §9.2.6.1 ceiling clamping the RESOLVED shear at the outlet,
-// and the reinforced §9.3 φ pair this row's own clause. EN 1996-1-1 §6.1/§6.2/§6.3/§6.6: flexure prices on f_xd
-// ALONE so bending and tension coincide, and §6.6 strengths arrive already divided so no factor lands twice.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MasonryAlgebra {
@@ -218,16 +171,10 @@ public sealed partial class MasonryAlgebra {
         new(basis.Resist(ResistanceAction.CrossSection, couple.FmMpa),
             couple.FyMpa.Map(fyk => basis.Resist(ResistanceAction.Reinforcement, fyk)), 1.0, 1.0);
 
-    // TMS 402 §9.2: the 0.80 multiplier on the slenderness-reduced axial resistance is the code's own accidental-
-    // eccentricity coefficient, NOT the stress-block cap that shares its value — two clauses reading one number, so
-    // folding them into one column would make an edit to either silently move the other.
     const double SlendernessCoefficient = 0.80;
 }
 
-// --- [POLICIES] ----------------------------------------------------------------------------
-// The JURISDICTION axis every SectionCapacity case binds in place of a hardcoded code. γM values are the codes' own
-// recommended sets (EN 1993 §6.1, EN 1992 §2.4.2.4, EN 1995 Table 2.3, EN 1994 §2.4.1.2, EN 1996 Table 2.3 at the
-// class-3 category-I value); a φ-format row carries unity γM and a partial-factor row unity φ, so one arm reads the same columns on either basis through Resist.
+// --- [POLICIES] ------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DesignBasis {
@@ -235,45 +182,23 @@ public sealed partial class DesignBasis {
     public static readonly DesignBasis AisiS100     = new("aisi-s100",  ComponentAuthority.Aisi, SafetyFormat.Lrfd,       1.00, 1.00, NoCitation,   Aisc);
     public static readonly DesignBasis En1992       = new("en1992",     ComponentAuthority.En,   SafetyFormat.LimitState, 1.50, 1.50, Ec2,          Linear, gammaS: 1.15);
     public static readonly DesignBasis En1993       = new("en1993",     ComponentAuthority.En,   SafetyFormat.LimitState, 1.00, 1.00, Ec3,          Linear, gammaM2: 1.25);
-    // EN 1993-1-4 STAINLESS declares its OWN set — γM0 = γM1 = 1.10, unlike the carbon-steel unity pair — so a
-    // stainless receipt lands the SAME SteelMember case under this row: the reduced ε and the 200 GPa design modulus
-    // stay the steel owner's jurisdiction columns, the γ set and the interaction algebra this row's.
     public static readonly DesignBasis En1993Stainless = new("en1993-1-4", ComponentAuthority.En, SafetyFormat.LimitState, 1.10, 1.10, Ec3Stainless, Linear, gammaM2: 1.25);
-    // EN 1993-1-9 FATIGUE: γMf is NOT a γM column — it keys on the (assessment method, consequence) pair a project
-    // declares, so it rides the FatigueAssessment row inside the law and this row's γ pair stays unity; γFf = 1.0.
     public static readonly DesignBasis En1993Fatigue = new("en1993-1-9", ComponentAuthority.En,   SafetyFormat.LimitState, 1.00, 1.00, Ec3Fatigue,   Linear);
-    // AISC 360 Appendix 3: the allowable-stress-range form carries the whole margin in the category constants.
     public static readonly DesignBasis AiscFatigue  = new("aisc-app3",  ComponentAuthority.Aisc, SafetyFormat.Lrfd,       1.00, 1.00, NoCitation,   Aisc);
     public static readonly DesignBasis En1994       = new("en1994",     ComponentAuthority.En,   SafetyFormat.LimitState, 1.00, 1.00, Ec4,          Linear, gammaS: 1.15);
     public static readonly DesignBasis En1995       = new("en1995",     ComponentAuthority.En,   SafetyFormat.LimitState, 1.25, 1.25, Ec5,          Timber);
     public static readonly DesignBasis En1996       = new("en1996",     ComponentAuthority.En,   SafetyFormat.LimitState, 2.00, 2.00, Ec6,          Linear, gammaS: 1.15, masonry: MasonryAlgebra.Factored);
-    // EN 1999-1-1 declares NO γM0 — γM1 = 1.10 covers cross-section resistance and member instability alike, so BOTH
-    // slots carry 1.10 and the invariant is mirrored at aluminum#ALUMINUM_FAMILY, stating at both owners and moving
-    // as one; γM2 = 1.25 rides the fracture rail.
     public static readonly DesignBasis En1999       = new("en1999",     ComponentAuthority.En,   SafetyFormat.LimitState, 1.10, 1.10, Ec9,          Linear, gammaM2: 1.25);
-    // EN 1992-4 ANCHORAGE divides the concrete failure modes by the γc family the En1992 row already cites;
-    // VividOrange.Standards ships NO En1992 Part 4, so the citation answers None honestly. Cast-in only today — a
-    // post-installed product's ETA-set installation factor has no proven cell.
     public static readonly DesignBasis En1992Anchors = new("en1992-4", ComponentAuthority.En,    SafetyFormat.LimitState, 1.50, 1.50, NoCitation,   Linear, gammaS: 1.15);
-    // TMS 402 strength design is a φ-format jurisdiction by this axis's own definition (strength design multiplies
-    // by φ — the Aci318 twin), so the format row reads lrfd and the γM pair stays unity; limit-state is the
-    // partial-factor family alone. Compute's DesignCode roster spells this cell limit-state; THIS cell is argued and the peer half re-proves against it.
     public static readonly DesignBasis Tms402       = new("tms402",     ComponentAuthority.Astm, SafetyFormat.Lrfd,       1.00, 1.00, NoCitation,   Linear,
         phiFlexure: 0.60, phiShear: 0.80, stressBlock: 0.80, shearCeilingMpa: Some(2.07), masonry: MasonryAlgebra.Strength);
-    public static readonly DesignBasis En16612      = new("en16612",    ComponentAuthority.En,   SafetyFormat.LimitState, 1.00, 1.00, NoCitation,   Linear);   // a European Norm outside the Eurocode set — no VividOrange body
-    // The joint row divides JOINT resistance by γM2 and leaves cross-section and stability at the recommended unity.
+    public static readonly DesignBasis En16612      = new("en16612",    ComponentAuthority.En,   SafetyFormat.LimitState, 1.00, 1.00, NoCitation,   Linear);
     public static readonly DesignBasis En1993Joints = new("en1993-1-8", ComponentAuthority.En,   SafetyFormat.LimitState, 1.00, 1.00, Ec3Joints,    Linear, gammaM2: 1.25);
     public static readonly DesignBasis AwsD11       = new("aws-d1-1",   ComponentAuthority.Aws,  SafetyFormat.Lrfd,       1.00, 1.00, NoCitation,   Linear);
     public static readonly DesignBasis AstmD1002    = new("astm-d1002", ComponentAuthority.Astm, SafetyFormat.Lrfd,       1.00, 1.00, NoCitation,   Linear);
-    public static readonly DesignBasis IccEs        = new("icc-es",     ComponentAuthority.IccEs, SafetyFormat.Asd,       1.00, 1.00, NoCitation,   Linear);   // the evaluation report itself is the issuing body
-    // SDPWS publishes nominal unit shears reduced by the §4.1.4 factor pair, so the row states the tables' NATIVE
-    // reading and the reduction reads the PROJECT's format off the placement's declared basis.
+    public static readonly DesignBasis IccEs        = new("icc-es",     ComponentAuthority.IccEs, SafetyFormat.Asd,       1.00, 1.00, NoCitation,   Linear);
     public static readonly DesignBasis Sdpws        = new("sdpws",      ComponentAuthority.Awc,  SafetyFormat.Asd,        1.00, 1.00, NoCitation,   Linear);
-    // STANDS as the [WIRE] counterpart of the consumer's `nds` key — deleting it strands that key against the
-    // two-roster law — while no Materials-side producer mints under it, the timber family being EN-bodied.
     public static readonly DesignBasis Nds          = new("nds",        ComponentAuthority.Awc,  SafetyFormat.Asd,        1.00, 1.00, NoCitation,   Timber);
-    // ACI 318 §21.2 φ = 0.90 flexure, φv = 0.75 shear, §22.2.2.4.1 stress block 0.85. STANDS as the `aci318` [WIRE]
-    // counterpart while its producer waits on a US-bodied RC arm — every non-EN concrete factory arm throws.
     public static readonly DesignBasis Aci318       = new("aci318",     ComponentAuthority.Astm, SafetyFormat.Lrfd,       1.00, 1.00, NoCitation,   Linear,
         phiFlexure: 0.90, phiShear: 0.75, stressBlock: 0.85);
 
@@ -286,29 +211,17 @@ public sealed partial class DesignBasis {
     public double PhiFlexure { get; }
     public double PhiShear { get; }
     public double StressBlock { get; }
-    // Present only where a code CAPS the resolved shear — absence is the honest state for every jurisdiction that
-    // publishes no cap, and a sentinel ceiling would clamp arms nothing clamps.
     public Option<double> ShearCeilingMpa { get; }
-    // Present on the two masonry jurisdictions alone; a masonry receipt under any other basis is unpriceable and the
-    // arm rails rather than borrowing an algebra the body never published.
     public Option<MasonryAlgebra> Masonry { get; }
 
-    // The ONE nominal-to-design fold: the format decides the operation and the action decides the factor, so no arm
-    // spells "×φ or ÷γM" and a jurisdiction added to either axis lands one row.
     public double Resist(ResistanceAction action, double nominal) => Format.Resist(nominal, action.Factors(this));
 
-    // The citation is a FUNCTION of the placement annex, never a frozen field: an EN row cites its own part under the
-    // project's annex, and a body shipping no VividOrange type answers None rather than a fabricated identity.
     [UseDelegateFromConstructor]
     public partial Option<IStandard> Standard(NationalAnnex annex);
 
-    // The per-basis COMBINED-ACTION kernel — the one place a jurisdiction's interaction algebra lives, so a steel arm
-    // folding AISC §H1.1 and the same arm folding EN 1993-1-1 §6.3.3 are ONE code path over two rows.
     [UseDelegateFromConstructor]
     public partial double Interact(InteractionOperands operands);
 
-    // Part 1-1 the general member rules, 1-4 the stainless supplement, 1-8 the joint rules, 1-9 fatigue — all four
-    // decompile-verified En1993Part members (.api/api-vividorange-standards.md).
     static Option<IStandard> Ec2(NationalAnnex a)          => Some<IStandard>(new En1992(En1992Part.Part1_1, a));
     static Option<IStandard> Ec3(NationalAnnex a)          => Some<IStandard>(new En1993(En1993Part.Part1_1, a));
     static Option<IStandard> Ec3Stainless(NationalAnnex a) => Some<IStandard>(new En1993(En1993Part.Part1_4, a));
@@ -320,25 +233,15 @@ public sealed partial class DesignBasis {
     static Option<IStandard> Ec9(NationalAnnex a)          => Some<IStandard>(new En1999(En1999Part.Part1_1, a));
     static Option<IStandard> NoCitation(NationalAnnex _)   => Option<IStandard>.None;
 
-    // AISC 360 §H1.1 / AISI S100 §C5: the two-branch form a max-of-independents under-predicts (p = m = 0.9 passes a
-    // max fold yet fails H1.1 at 1.7); biaxial bending is the PER-AXIS two-term sum, never a resultant against the major resistance alone.
     static double Aisc(InteractionOperands o) =>
         o.Axial >= 0.2 ? o.Axial + 8.0 / 9.0 * (o.Major + o.Minor) : o.Axial / 2.0 + o.Major + o.Minor;
 
-    // EN 1993-1-1 §6.3.3 eq 6.61/6.62, EN 1994-1-1 §6.7.3.6, EN 1992 §6.1, EN 1996 §6.1, TMS 402 §9.2/§9.3, EN 16612:
-    // the LINEAR unity sum, the kyy/kzz interaction factors an Annex-A/B evaluation refines riding at the 1.0
-    // conservative bound this estate states rather than a per-annex table it has not transcribed.
     static double Linear(InteractionOperands o) => o.Axial + o.Major + o.Minor;
 
-    // EN 1995-1-1 §6.3.2 eq 6.23/6.24 and §6.2.4 eq 6.19/6.20, MAX-swapped on the k_m weight so the redistribution credit lands on one bending axis at a time.
     static double Timber(InteractionOperands o) =>
         o.Regime.Term(o.Axial) + Math.Max(o.Major + o.MinorWeight * o.Minor, o.MinorWeight * o.Major + o.Minor);
 
     // --- [PARITY_CENSUS]
-    // The cross-roster parity claim DERIVED, never asserted: the strata forbid a reference either way, so each end
-    // proves its own half against the ONE declared shared set with the section-and-load-path carve as the stated
-    // complement. A key minted on one side alone fails this type initializer — the loud structural refusal a prose
-    // parity claim never gives (Materials RULINGS [02]).
     static readonly FrozenSet<string> SectionCarve = FrozenSet.ToFrozenSet(
         ["en16612", "en1993-1-8", "aws-d1-1", "astm-d1002", "icc-es", "en1992-4", "en1993-1-9", "aisc-app3"],
         StringComparer.Ordinal);
@@ -346,7 +249,6 @@ public sealed partial class DesignBasis {
         ["aisc360", "aisi-s100", "en1992", "en1993", "en1993-1-4", "en1994", "en1995", "en1996", "en1999",
          "tms402", "sdpws", "nds", "aci318"],
         StringComparer.Ordinal);
-    // Declared LAST so every row above has initialized when the census reads Items.
     static readonly Unit RosterParity = ProveRoster();
 
     static Unit ProveRoster() {
@@ -370,9 +272,7 @@ public sealed partial class DesignBasis {
 - Boundary: the per-detail assignment — WHICH constructional detail takes which rung, EN Tables 8.1–8.10 or the AISC descriptive rows — is the CALLER's declaration riding `CapacityPlacement.Detail`, exactly as a weld states its load angle. `SectionCapacity.Fatigue` carries the law whole as its payload, so the ladder never forks the capacity case set.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// The EN 1993-1-9 §3(7) γMf grid as ONE four-row axis over (assessment method × consequence of failure) — the pair a
-// PROJECT declares together, so no arm re-pairs the two halves.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FatigueAssessment {
@@ -383,9 +283,6 @@ public sealed partial class FatigueAssessment {
     public double GammaMf { get; }
 }
 
-// The standard's CLOSED fourteen-rung direct-stress ladder, ΔσC the printed category number at 2×10⁶ cycles and the
-// ONE stored column. ΔσD/ΔσL are the standard's own §7.1 generators — DERIVED, because the independently tabulated
-// integer columns reproduce cell-for-cell off these two lines and a stored copy could only agree or drift.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EnFatigueCategory {
@@ -404,13 +301,10 @@ public sealed partial class EnFatigueCategory {
     public static readonly EnFatigueCategory C40  = new("40",  refMpa: 40.0);
     public static readonly EnFatigueCategory C36  = new("36",  refMpa: 36.0);
     public double RefMpa { get; }
-    public double CaflMpa => Math.Pow(2.0 / 5.0, 1.0 / 3.0) * RefMpa;       // ΔσD, the constant-amplitude limit at 5×10⁶
-    public double CutoffMpa => Math.Pow(5.0 / 100.0, 1.0 / 5.0) * CaflMpa;  // ΔσL, the cut-off at 10⁸
+    public double CaflMpa => Math.Pow(2.0 / 5.0, 1.0 / 3.0) * RefMpa;
+    public double CutoffMpa => Math.Pow(5.0 / 100.0, 1.0 / 5.0) * CaflMpa;
 }
 
-// AISC 360 Appendix 3 Table A-3.1 — the TWO-SOURCED categories A–E′ alone under the uniform 0.333 exponent: Cf the
-// ksi-form constant (the SI evaluation carries the standard's own ×329 factor) and FTH the printed MPa threshold.
-// Categories F (its own 0.167-exponent equation) and G are single-sourced and typed-absent; F′ does not exist.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class AiscFatigueCategory {
@@ -440,8 +334,6 @@ public abstract partial record FatigueLaw {
         en: e => EnRange(e.Category, cycles) / e.Assessment.GammaMf,
         aisc: a => Math.Max(Math.Pow(a.Category.Cf * 329.0 / cycles, 1.0 / 3.0), a.Category.FthMpa));
 
-    // §7.1: m = 3 to the 5×10⁶ knee, m = 5 to the 10⁸ cut-off, ΔσL the constant-amplitude floor beyond — a range
-    // below ΔσL contributes no damage, so the floor is the honest terminal resistance, never a zero.
     static double EnRange(EnFatigueCategory category, double cycles) =>
         cycles <= 5e6 ? category.RefMpa * Math.Pow(2e6 / cycles, 1.0 / 3.0)
         : cycles <= 1e8 ? category.CaflMpa * Math.Pow(5e6 / cycles, 1.0 / 5.0)
@@ -459,19 +351,13 @@ public abstract partial record FatigueLaw {
 - Boundary: `FireState` is the fire modality's typed input contract and `CapacityReceipt.Fire` its ONE mint, so both fire cases are constructed rather than assembled at a call site. BOTH producers are LANDED at their owners: `steel#STEEL_FAMILY` `SteelSeed.Capacity` reads `CapacityPlacement.FireExposure` through the `SteelFire` §4.2.5.1 step and `SteelDesign.Fire` into `FireState.Steel`, and `timber#TIMBER_CAPACITY` `TimberSeed.Capacity` routes its `TimberDesign.Fire` reduced-section receipt into `FireState.Timber` — every fire receipt in the folder constructs through this mint and a `new CapacityReceipt.SteelFire`/`TimberFire` beside it is the deleted form.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// The CAST-IN anchor's concrete-side facts — the placement declaration the fastener row cannot carry. NO basis
-// column: en1992-4 is the one realized anchorage jurisdiction (the two-source-proven ACI arm lands with its anchor φ
-// roster, and the bed regains its Abrg column then), so the build pins the row by construction.
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct AnchorBed(
     double FckMpa,
     PositiveMagnitude HefMm,
     Option<double> EdgeMm,
     bool Cracked);
 
-// The DG1 base-plate declaration: plate B × N × t and its yield, the wide-flange column footprint the m/n cantilever
-// pair reads (the HSS/pipe variants are single-sourced and typed-absent), the bearing concrete, and the caller's
-// √(A2/A1) confinement ratio the arm clamps at the J8 ceiling of 2.
 public readonly record struct PlateBed(
     PositiveMagnitude WidthMm,
     PositiveMagnitude LengthMm,
@@ -482,16 +368,12 @@ public readonly record struct PlateBed(
     double FcMpa,
     double ConfinementRatio);
 
-// The DECLARED-input build request the ONE Resolve dispatches. Each arm carries EXACTLY the knobs its solver
-// consumes, so no call site passes a knob its modality never reads.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CapacityBuild {
     private CapacityBuild(ComponentId subject) => Subject = subject;
     public ComponentId Subject { get; }
     public sealed record Hull(ComponentId Subject, RcSection Section, DiagramResolution Resolution) : CapacityBuild(Subject);
     public sealed record Elastic(ComponentId Subject, RcSection Section) : CapacityBuild(Subject);
-    // The detail-category declaration: the LAW carries the ladder rung and (EN) its γMf assessment row, exactly as a
-    // weld states its load angle and a stud its group.
     public sealed record Detail(ComponentId Subject, FatigueLaw Law) : CapacityBuild(Subject);
     public sealed record Anchorage(ComponentId Subject, FastenerAssembly Assembly, ShearPlane Plane, AnchorBed Bed) : CapacityBuild(Subject);
     public sealed record Bearing(ComponentId Subject, PlateBed Plate) : CapacityBuild(Subject);
@@ -503,24 +385,14 @@ public abstract partial record CapacityBuild {
         anchorage: static _ => nameof(Anchorage),
         bearing: static _ => nameof(Bearing));
 
-    // The DECLARED-MODALITY producer: each declaration names a capacity the section itself cannot state, so this
-    // reader turns it into its build and every declared case is reachable from a Component and its placement. The
-    // modalities are ADDITIONAL surfaces — a member and its fatigue detail are two Check invocations — so the fold
-    // answers a Seq and an undeclared placement answers empty rather than a fabricated request.
     public static Seq<CapacityBuild> Declared(ComponentId subject, CapacityPlacement placement) =>
         placement.Detail.Map(law => (CapacityBuild)new Detail(subject, law)).ToSeq()
             + placement.Anchorage.Map(anchor => (CapacityBuild)new Anchorage(subject, anchor.Assembly, anchor.Plane, anchor.Bed)).ToSeq()
             + placement.Bearing.Map(plate => (CapacityBuild)new Bearing(subject, plate)).ToSeq();
 }
 
-// Three columns that only price together, so the placement carries ONE Option and a half-declared anchor is unrepresentable.
 public readonly record struct AnchorPlacement(FastenerAssembly Assembly, ShearPlane Plane, AnchorBed Bed);
 
-// The ACCIDENTAL fire design situation's INPUT CONTRACT — the typed handoff a family owner fills once its own fire
-// route resolves, so the two fire receipts have a declared producer instead of a construction each caller invents.
-// Neither arm derives fire physics: the steel arm carries the ambient receipt beside the EN 1993-1-2 Table 3.1
-// retention pair its owner computed, the timber arm the EN 1995-1-2 residual receipt already priced at
-// kmod = γM = 1.0. The DISCRIMINANT is the family, so a third fire-rated family is one case here and one Lift arm.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FireState {
     private FireState() { }
@@ -528,60 +400,32 @@ public abstract partial record FireState {
     public sealed record Timber(TimberCapacity Residual) : FireState;
 }
 
-// The sibling-receipt request the ONE Lift dispatches (FORM_CHOOSER row 1: a receipt family collapses onto a request
-// union + total Switch, never an overload roster). SUBJECT rides the BASE where a new case cannot forget it — it is
-// the only column separating two members of one family in one report.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CapacityReceipt {
     private CapacityReceipt(ComponentId subject) => Subject = subject;
     public ComponentId Subject { get; }
     public sealed record Steel(ComponentId Subject, DesignCapacity Capacity) : CapacityReceipt(Subject);
     public sealed record Timber(ComponentId Subject, TimberCapacity Capacity) : CapacityReceipt(Subject);
-    // Gauge and Rib ride the receipt because the report and the analytics dimension name WHICH deck, never a bare
-    // steel row — and the seam datum GaugeRow.AxialSectionCapacityKnPerMm finally has a check behind it.
     public sealed record DeckSheet(ComponentId Subject, GaugeRow Gauge, DeckProfileRow Rib, DesignCapacity Capacity) : CapacityReceipt(Subject);
-    // BOTH tension tables ride the receipt because they key on different axes — TMS 402 on span direction × grout
-    // form, EN 1996 on unit group — so neither collapses into the other and one direction source serves both.
     public sealed record Masonry(ComponentId Subject, GradeProperties.Cmu Strength, ComputedSection Section, PositiveMagnitude HeightMm, DesignBasis Basis, RuptureModulus Rupture, FlexuralStrengthEn Flexural, MortarSystem System, MortarType Mortar) : CapacityReceipt(Subject);
-    // The reinforced case reads the cmu lattice facts the unreinforced case never consumed, and the bar identity
-    // rides the ONE MaterialGrade row — the yield resolves off its Rebar arm, absent where a grade publishes none.
     public sealed record ReinforcedMasonry(ComponentId Subject, GradeProperties.Cmu Strength, ComputedSection Section, PositiveMagnitude HeightMm, DesignBasis Basis, CmuRow Unit, MaterialGrade Bar) : CapacityReceipt(Subject);
     public sealed record Glass(ComponentId Subject, GlassCapacity Capacity) : CapacityReceipt(Subject);
-    // The ACCIDENTAL situation as two lift cases over the SAME law: the EN 1993-1-2 Table 3.1 retention pair beside
-    // the ambient receipt, and the charred ResidualStack already priced at kmod = γM = 1.0. Neither arm derives fire
-    // physics — the family owner computes, this owner lifts, and Check folds it through the ambient interaction.
     public sealed record SteelFire(ComponentId Subject, DesignCapacity Ambient, double Ky, double Ke, double SteelTemperatureC) : CapacityReceipt(Subject);
     public sealed record TimberFire(ComponentId Subject, TimberCapacity Residual) : CapacityReceipt(Subject);
     public sealed record Weld(ComponentId Subject, JointRow.Weld Row, double LoadAngleDeg) : CapacityReceipt(Subject);
     public sealed record Adhesive(ComponentId Subject, JointRow.Adhesive Row) : CapacityReceipt(Subject);
-    // The stud group is a PLACEMENT fact and AISC Eq I8-1 reads it directly, so it rides the receipt rather than the
-    // row: one stud class welded into three deck conditions is three capacities.
     public sealed record Stud(ComponentId Subject, JointRow.Stud Row, StudGroup Group, int Count) : CapacityReceipt(Subject);
     public sealed record Connector(ComponentId Subject, ConnectorCapacity Capacity) : CapacityReceipt(Subject);
     public sealed record LateralPanel(ComponentId Subject, double DesignKnPerM, LateralHazard Hazard) : CapacityReceipt(Subject);
-    // The BEARING-type bolted connection. BoltCategory is NOT a case column — the assembly already holds it, and a
-    // second spelling is the redundant parallel lift parameter this owner bans.
     public sealed record Bolt(ComponentId Subject, FastenerAssembly Assembly, BearingDesign Bearing, ShearPlane Plane) : CapacityReceipt(Subject);
-    // The SLIP-CRITICAL (EN 1993-1-8 category B/C/E) state of the SAME assembly: the shear column is the §3.9 slip
-    // resistance rather than the shank shear, and a non-preloaded assembly answers None.
     public sealed record SlipCritical(ComponentId Subject, FastenerAssembly Assembly, FastenerInstallation Install) : CapacityReceipt(Subject);
-    // EC5 §8 dowel-type: Fastening.TimberDowelShearKn is the family owner's railed six-mode Johansen minimum, so its
-    // ALREADY-COMPUTED per-shear-plane design value arrives as a column and Lift stays total.
     public sealed record TimberDowel(ComponentId Subject, double PerPlaneShearKn, int Planes) : CapacityReceipt(Subject);
-    // The banded (fo, fu) pair the family registry proved at seed time under en1999, the one jurisdiction with
-    // landed aluminium bands, which AluminumSeed.Capacity refuses to leave.
     public sealed record Aluminum(ComponentId Subject, MaterialGrade Grade, ExtrusionForm Form, double FoMpa, double FuMpa, ComputedSection Section, DesignBasis Basis) : CapacityReceipt(Subject);
 
-    // The FIRE producer: the ONE site a fire state becomes a request, so the retention pair reaches the SteelFire
-    // case and the residual receipt the TimberFire case by construction rather than by a caller assembling columns.
-    // The critical temperature rides the receipt for the design report — the verdict prices strength through ky and
-    // stability through kE, and a report that cannot name the temperature cannot be checked against its fire rating.
     public static CapacityReceipt Fire(ComponentId subject, FireState state) => state.Switch(
         steel: s => (CapacityReceipt)new SteelFire(subject, s.Ambient, s.Retention.Ky, s.Retention.KE, s.Retention.CriticalTemperatureC),
         timber: t => new TimberFire(subject, t.Residual));
 
-    // Case identity IS the kind dimension every downstream reader keys on — signal roster tag and analytics column
-    // alike — so this total projection holds the one spelling and a further case breaks it at compile time.
     public string Kind => Switch(
         steel: static _ => nameof(Steel),
         timber: static _ => nameof(Timber),
@@ -602,10 +446,6 @@ public abstract partial record CapacityReceipt {
         aluminum: static _ => nameof(Aluminum));
 }
 
-// One canonical term per action: flexure owns every bending-governed verdict (a `bending` synonym is the deleted
-// form) and COMBINED every unity ratio that is definitionally an axial-plus-flexure INTERACTION, so a report never
-// reads `Axial` on a 1.7 ratio neither component attains. InPlaneShear serves a shear wall and a diaphragm alike and
-// Fatigue both ladders — each pair differs in the table that publishes it, never in the action.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GoverningAction {
@@ -620,8 +460,6 @@ public sealed partial class GoverningAction {
     public static readonly GoverningAction Fatigue       = new("fatigue");
 }
 
-// The band a demand column admits. A SIGNED action never licenses NaN/∞; the two fatigue columns are magnitudes and
-// a negative range or cycle count is not a direction, it is a malformed vector.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DemandBand {
@@ -630,9 +468,6 @@ public sealed partial class DemandBand {
     [UseDelegateFromConstructor] public partial bool Admits(double value);
 }
 
-// The refusal token and admitted band per column, in the DECLARATION order the factory hands its arguments in. A
-// new action column lands ONE row rather than a conjunct plus an interpolation slot, and the refusal names EVERY
-// offender where the prior && chain reported the whole vector on any single defect.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DemandColumn {
@@ -648,19 +483,13 @@ public sealed partial class DemandColumn {
     public static readonly DemandColumn CycleCount  = new("ncyc", DemandBand.NonNegative);
     public DemandBand Band { get; }
 
-    // Zipped against the roster by ordinal: declaration order IS the parameter order, stated here so the pairing is
-    // a read of this roster rather than an assumption a later row could break silently.
     public static Seq<string> Refusals(params ReadOnlySpan<double> values) =>
         toSeq(Items).Zip(Iterable<double>.FromSpan(values).ToSeq())
             .Filter(static pair => !pair.Item1.Band.Admits(pair.Item2))
             .Map(static pair => $"{pair.Item1.Key}={pair.Item2:R}");
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The applied action vector in SI engineering units (kN, kNm), SIGNED and ADMITTED ONCE so no per-case arm re-checks
-// a column. q is a per-LENGTH action and the fatigue pair per-cycle, so each is its own column: one column serving a
-// diaphragm's shear per metre and a column's shear would compare unlike quantities. The moment magnitude and the
-// shear resultant are DERIVED projections, never re-passed columns.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct Demand {
     public double AxialKn { get; }
@@ -674,8 +503,6 @@ public readonly partial struct Demand {
     public double StressRangeMpa { get; }
     public double CycleCount { get; }
 
-    // The generated CONSTRUCTION floor and the accumulating rail below read ONE roster, so an unadmitted Create is
-    // unrepresentable and the two entry points can never disagree about a band.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref double axialKn, ref double momentYKnm, ref double momentZKnm,
@@ -686,7 +513,6 @@ public readonly partial struct Demand {
         validationError = offending.IsEmpty ? null : new ValidationError($"Demand columns must be finite: {string.Join(':', offending)}.");
     }
 
-    // Every column proves INDEPENDENTLY and the verdict carries one fault per offender, so a three-bad-column vector reports three tokens in one refusal.
     public static Validation<Error, Demand> Admit(double axialKn, double momentYKnm, double momentZKnm, Op key,
         double shearYKn = 0.0, double shearZKn = 0.0, double torsionKnm = 0.0, double bearingKn = 0.0,
         double unitShearKnPerM = 0.0, double stressRangeMpa = 0.0, double cycleCount = 0.0) =>
@@ -708,10 +534,6 @@ public readonly partial struct Demand {
     public double ShearResultantKn => Math.Sqrt(ShearYKn * ShearYKn + ShearZKn * ShearZKn);
 }
 
-// The PLACEMENT facts a capacity needs and a catalogue row cannot carry. ONE currency threads
-// component#COMPONENT_OWNER ComponentFamily.Capacity, so a new placement input is one column here rather than a
-// per-family parameter tail, and basis and annex are selected TOGETHER so no arm reads a second annex. The four
-// Option columns are DECLARATIONS whose absence is the honest state, never a zero a producer must interpret.
 public readonly record struct CapacityPlacement(
     double EffectiveLengthMm,
     double UnbracedLengthMm,
@@ -732,13 +554,7 @@ public readonly record struct CapacityPlacement(
     StudGroup StudGroup,
     GlassBasis GlassBasis,
     double GlassEdgeFactor,
-    // The ACCIDENTAL fire design situation's exposure, absent for the ambient state — the prior 0-minutes sentinel
-    // spelled an absence no producer could tell from a declared zero. The placement carries no exposed-face count:
-    // the timber fire producer takes the fully-exposed conservative bound until an occurrence fact lands the
-    // ExposedFaces column here WITH its charring-fold reader in the same change.
     Option<PositiveMagnitude> FireExposure,
-    // The three DECLARED modalities: an S-N detail category, a cast-in anchorage, and a base-plate bed. Each names a
-    // capacity surface beside the family's own, so CapacityBuild.Declared reads them into their build requests.
     Option<FatigueLaw> Detail,
     Option<AnchorPlacement> Anchorage,
     Option<PlateBed> Bearing,
@@ -748,16 +564,9 @@ public readonly record struct CapacityPlacement(
     MortarType Mortar,
     MaterialGrade BarGrade);
 
-// The member-stability reduction as a DERIVED value object, PER BASIS: the formula IS the owner, so a transposed
-// branch is unrepresentable. The admitted height and the always-positive governing radius make BOTH derivations
-// TOTAL over h/r ∈ (0, ∞) with range (0, 1], so the throwing Create is the sanctioned re-admission of a value the
-// algebra already proves; every producer is the Lift arm holding the section AND its basis.
 [ValueObject<double>]
 public readonly partial struct MasonryReduction {
-    const double SlendernessBreak = 99.0;   // TMS 402: h/r ≤ 99 takes the parabolic bracket, above it the Euler-form ratio
-    // EN 1996-1-1 §5.5.1.1 e_init = h_ef/450 folded into §6.1.2.2(1) Φ = 1 − 2·e/t: for the solid rectangle whose
-    // r = t/√12 the EN reduction reads the SAME two inputs the TMS bracket does and needs no second placement column.
-    // A slenderness driving Φ to zero is the §5.5.1.4 h/t = 27 ceiling, expressed as a floor rather than a throw.
+    const double SlendernessBreak = 99.0;
     const double EnInitialEccentricity = 2.0 / (450.0 * 3.4641016151377544);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) =>
@@ -773,10 +582,6 @@ public readonly partial struct MasonryReduction {
                 : Create(Math.Pow(70.0 / ratio, 2.0));
 }
 
-// A connector report publishes its two lateral directions either as an INTERACTING pair — a resultant must fit
-// inside the combined envelope, so the ratios SUM — or as INDEPENDENT checks each verified on its own axis, where
-// the WORST governs. The report states which, so the rule is a row: one fold guessing a single envelope for both
-// conventions either over-rates an interacting connector or refuses an independent one.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LateralRule {
@@ -785,26 +590,20 @@ public sealed partial class LateralRule {
     [UseDelegateFromConstructor] public partial double Fold(double primary, double secondary);
 }
 
-// The SECOND lateral direction and the rule it is published under as ONE presence — a direction without its
-// interaction rule is a pair no fold can price, and a rule without a direction governs nothing.
 public readonly record struct LateralPair(double SecondKn, LateralRule Rule);
 
 [Union]
 public abstract partial record Utilisation {
     private Utilisation(GoverningAction governing) => Governing = governing;
     public GoverningAction Governing { get; }
-    // The strict ACCEPTANCE bit: only a bounded ratio at or under unity is a finished verdict.
     public bool Adequate => Switch(
         bounded: static verdict => verdict.Value <= 1.0,
         requiresMemberCheck: static _ => false,
         unbounded: static _ => false);
-    // The SECTION-altitude pass: a deferring verdict decided everything the section can and owes only the named
-    // member check, so a sizing query returns it WITH its deferral rather than rejecting it.
     public bool SectionPasses => Switch(
         bounded: static verdict => verdict.Value <= 1.0,
         requiresMemberCheck: static verdict => verdict.Value <= 1.0,
         unbounded: static _ => false);
-    // Every reader takes the verdict's own optional ratio, so no consumer re-enumerates which cases hold a Value.
     public Option<double> Ratio => Switch(
         bounded: static verdict => Some(verdict.Value),
         requiresMemberCheck: static verdict => Some(verdict.Value),
@@ -812,23 +611,19 @@ public abstract partial record Utilisation {
 
     public sealed record Bounded(double Value, GoverningAction Action) : Utilisation(Action);
     public sealed record RequiresMemberCheck(double Value, GoverningAction Action, MemberCheckRequirement Requirement) : Utilisation(Action);
-    // The capacity surface does not BOUND this demand — a ray piercing no hull face, or a demand against a
-    // declared-zero column. The fold REACHES it by a candidate publishing no ratio, never by a sentinel magnitude.
     public sealed record Unbounded(GoverningAction Action) : Utilisation(Action);
 }
 
-// The section-UNDECIDABLE deferrals: a check whose remaining input is member-level DETAILING the cross-section does
-// not carry, so the verdict passes with the named obligation attached instead of failing on a zero column.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MemberCheckRequirement {
-    public static readonly MemberCheckRequirement RcShearReinforcement          = new("rc-shear-reinforcement");            // EC2 §6.2.3(3) V_Rd,s needs the stirrup spacing
-    public static readonly MemberCheckRequirement SteelWarpingTorsion           = new("steel-warping-torsion");             // AISC §H3.3 open-shape warping torsion is not a single resistance
-    public static readonly MemberCheckRequirement CltInPlaneBending             = new("clt-in-plane-bending");              // the form declares no edgewise bending strength
-    public static readonly MemberCheckRequirement ReinforcedMasonryShearSpacing = new("reinforced-masonry-shear-spacing");  // TMS 402 §9.3.4.1.2 V_ns needs the bar spacing
-    public static readonly MemberCheckRequirement TimberBearingLength           = new("timber-bearing-length");             // EN 1995-1-1 §6.1.5 R_90,Rd needs the support bearing length
-    public static readonly MemberCheckRequirement AnchorForwardModes            = new("anchor-forward-modes");              // EN 1992-4 group areas/spacing, the shear edge mode, the ETA-owned pullout, a non-EN rod band
-    public static readonly MemberCheckRequirement AluminumMemberBuckling        = new("aluminum-member-buckling");          // EN 1999-1-1 §6.3.1/§6.3.2 χ needs the effective length
+    public static readonly MemberCheckRequirement RcShearReinforcement          = new("rc-shear-reinforcement");
+    public static readonly MemberCheckRequirement SteelWarpingTorsion           = new("steel-warping-torsion");
+    public static readonly MemberCheckRequirement CltInPlaneBending             = new("clt-in-plane-bending");
+    public static readonly MemberCheckRequirement ReinforcedMasonryShearSpacing = new("reinforced-masonry-shear-spacing");
+    public static readonly MemberCheckRequirement TimberBearingLength           = new("timber-bearing-length");
+    public static readonly MemberCheckRequirement AnchorForwardModes            = new("anchor-forward-modes");
+    public static readonly MemberCheckRequirement AluminumMemberBuckling        = new("aluminum-member-buckling");
 }
 ```
 
@@ -845,28 +640,19 @@ public sealed partial class MemberCheckRequirement {
 - Boundary: the verdict crosses to `Rasm.Compute/Analysis/capacity#DESIGN_CHECK` as portable scalar data keyed by section, never a `VividOrange` assembly type, and `DesignBasis.Key` is that crossing's JURISDICTION column. Checks stand REFUSED at this altitude as standing law, never faked as arms: SLS DEFLECTION needs the span, the load distribution, and the modulus — none a `SectionCapacity` carries; RC PUNCHING SHEAR is a slab-column JUNCTION check over a control perimeter no cross-section carries; and the SEISMIC system coefficients are DEMAND-side scalars the load derivation consumes before a `Demand` ever reaches `Check`.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SectionCapacity {
-    // The ONE base-constructor column: a verdict names its jurisdiction, so report, analytics, and forward member
-    // check read one row rather than a (body, code) pair a case had to spell twice.
     private SectionCapacity(DesignBasis basis) => Basis = basis;
     public DesignBasis Basis { get; }
     public ComponentAuthority Body => Basis.Body;
 
-    // EC2 §6.1 ultimate resistance over the rigid-plastic fibre integral, the hull held once from the eager solve.
-    // IDENTITY IS THE CONTENT KEY: the mesh is a FOREIGN interface whose only structural equality would be a
-    // fabricated float-wise vertex compare, so the cache pair IS what the generated comparer reads.
     [Equatable(Explicit = true)]
     public sealed partial record RcInteraction(
         [property: DefaultEquality] ComponentId Subject,
         [property: DefaultEquality] DiagramResolution Resolution,
         [property: IgnoreEquality] IForceMomentMesh Hull) : SectionCapacity(DesignBasis.En1992);
 
-    // Read off the ONE ConcreteSectionProperties carrier the RcSection receipt holds. EffectiveDepth is the ULS
-    // lever to the tension STEEL, distinct from the SLS extreme-fibre distance; Asw > 0 is the §6.2.2-vs-§6.2.3(3)
-    // discriminant. TWO inertia pairs, two limit states: GrossInertia the EC2 7.1 SLS fibre DIVISOR,
-    // ReinforcementInertia the Σ(As·d²) cracked-Icr readout a fibre stress is NEVER divided by.
     public sealed record RcElastic(
         double TotalReinforcementAreaMm2,
         double TensionSteelAreaMm2,
@@ -884,14 +670,10 @@ public abstract partial record SectionCapacity {
         double FckMpa,
         double FctmMpa) : SectionCapacity(DesignBasis.En1992) {
 
-        // The EC2 §6.2.3 web-crushing ceiling V_Rd,max at the policy cotθ = 2.5 — DERIVED off the record's own
-        // columns, the guarded floors matching the shear screen's own admission.
         public double VrdMaxKn =>
             Math.Max(WidthMm, 1.0) * 0.9 * Math.Max(EffectiveDepthMm, 1.0) * 0.6
                 * (1.0 - FckMpa / 250.0) * (FckMpa / 1.5) / (2.5 + 0.4) * 1e-3;
 
-        // The seam publication the Compute V_Rd,s truss arm reads. SI conversion happens at THIS one site and the
-        // triple publishes ONLY whole, so the reader's all-three-present gate is the producer's own absence.
         public Fin<Seq<(PropertyName Row, PropertyValue Value)>> ShearLinkRows(Op key) =>
             ShearLinkAreaMm2 > 0.0
                 ? FywdMpa.Match(
@@ -907,10 +689,6 @@ public abstract partial record SectionCapacity {
                 : Fin.Succ(Seq<(PropertyName, PropertyValue)>());
     }
 
-    // Lifted WHOLE and BASIS-TAGGED: φMn/φMny/φPn/φVn under aisc360, Mb,Rd/Mz,Rd/Nb,Rd/Vpl,Rd under en1993, one
-    // shape the Check fold reads through the basis's kernel. TorsionalKnm is 0 for an OPEN shape whose §H3.3 warping
-    // torsion is not a single resistance; Chi/ChiLt publish 1.0 on a φ-format receipt, AISC folding buckling INTO
-    // Fcr and Mn; StiffnessRetention is the kE,θ the fire lift carries, never an input to the strength interaction.
     public sealed record SteelMember(
         DesignBasis Basis,
         double FlexuralKnm,
@@ -922,10 +700,8 @@ public abstract partial record SectionCapacity {
         double Slenderness,
         double Chi,
         double ChiLt,
-        double StiffnessRetention) : SectionCapacity(Basis);   // aisc360 · aisi-s100 · en1993 · en1994, the fire state riding either EN row
+        double StiffnessRetention) : SectionCapacity(Basis);
 
-    // Lifted WHOLE. BendingMinorKnm is 0.0 only on a panel form declaring no edgewise strength, so an in-plane Mz
-    // demand governs loud; Km is the §6.1.6(2) weight the biaxial fold swaps and TorsionalKnm the §6.1.8 T_Rd.
     public sealed record TimberMember(
         double BendingKnm,
         double BendingMinorKnm,
@@ -937,10 +713,6 @@ public abstract partial record SectionCapacity {
         double Km,
         double Kmod) : SectionCapacity(DesignBasis.En1995);
 
-    // The ONE family whose design algebra lives HERE: no aluminium producer exists among admitted packages and the
-    // family owns only DATA. The lift computes the class-3 elastic floor, so a class-1/2 plastic credit stays
-    // unclaimed rather than unproven; Curve is the §6.3.1.2 class owning its OWN Table 6.6 pair, and no torsional
-    // modulus crosses the die receipt so a torsion demand folds against 0.
     public sealed record AluminumMember(
         DesignBasis Basis,
         double FlexuralKnm,
@@ -951,8 +723,6 @@ public abstract partial record SectionCapacity {
         double FoMpa,
         double FuMpa) : SectionCapacity(Basis) {
 
-        // The seam publication the Compute en1999 axial-compression cell reduces by (the ShearLinkRows precedent):
-        // the pair publishes WHOLE or not at all, matching the reader's both-present gate.
         public Seq<(PropertyName Row, PropertyValue Value)> BucklingRows() =>
             Curve.Map(static curve => Seq(
                     (StructuralRows.BucklingAlpha, (PropertyValue)new PropertyValue.Number(curve.Alpha)),
@@ -960,57 +730,36 @@ public abstract partial record SectionCapacity {
                 .IfNone(Seq<(PropertyName, PropertyValue)>());
     }
 
-    // The basis and the wall facts its algebra reads: f'm (the EN characteristic f_k under that basis, one column
-    // the basis names the symbol of), the grouted net section with BOTH moduli so a biaxially-bent pier folds each
-    // moment against ITS modulus, the slenderness reduction, and two PRE-FACTOR limits the arm reduces.
-    public sealed record MasonryUnreinforced(DesignBasis Basis, MasonrySection Wall) : SectionCapacity(Basis);   // TMS 402 §9.1/§9.2 · EN 1996-1-1 §6.1/§6.2/§6.3
+    public sealed record MasonryUnreinforced(DesignBasis Basis, MasonrySection Wall) : SectionCapacity(Basis);
 
-    // The REINFORCED case over the cmu lattice facts: the steel-couple flexural arm plus the reinforced axial the
-    // unreinforced case's no-steel-term admission law reserved for exactly this case.
-    public sealed record MasonryReinforced(DesignBasis Basis, MasonryCouple Couple) : SectionCapacity(Basis);   // TMS 402 §9.3 · EN 1996-1-1 §6.6
+    public sealed record MasonryReinforced(DesignBasis Basis, MasonryCouple Couple) : SectionCapacity(Basis);
 
-    // Lifted WHOLE. LoadShareFraction is the insulating-unit share the governing pane draws — a Demand states the
-    // pressure on the UNIT and the cavity partitions it by stiffness — carried rather than pre-multiplied so a
-    // design report reads both numbers.
     public sealed record GlassPane(
         double BendingKnmPerM,
         double ResistanceMpa,
         double EffectiveThicknessMm,
         double LoadShareFraction) : SectionCapacity(DesignBasis.En16612);
 
-    // ONE case for the weld, adhesive, stud-group, connector, bolt, and anchor receipts. Each resistance is OPTIONAL:
-    // absence means the producer publishes no band, while Some(0) is a published zero — a distinction no lift flattens.
-    // The basis is PER LIFT ARM: six publishing bodies over one capacity SHAPE, so no arm loses its citation.
     public sealed record Connection(
         DesignBasis Basis,
         Option<double> ShearKn,
         Option<double> TensionKn,
         Option<double> BearingKn,
         Option<LateralPair> Lateral = default,
-        Option<MemberCheckRequirement> Defer = default) : SectionCapacity(Basis);   // aws-d1-1 · astm-d1002 · aisc360 · icc-es · en1993-1-8 · en1995 · en1992-4
+        Option<MemberCheckRequirement> Defer = default) : SectionCapacity(Basis);
 
-    // The column is the FINISHED design unit shear — the §4.1.4 reduction ran once at the family producer where the
-    // rail and the placement's hazard both exist — so this arm applies nothing further.
     public sealed record LateralPanel(
         DesignBasis Basis,
         double DesignKnPerM,
-        LateralHazard Hazard) : SectionCapacity(Basis);   // sdpws
+        LateralHazard Hazard) : SectionCapacity(Basis);
 
-    // The law IS the capacity, so the case carries it whole and its basis derives from the ladder. Every static
-    // column is unresisted and governs loud: a static action against a cycle surface is a modelling error.
-    public sealed record Fatigue(FatigueLaw Law) : SectionCapacity(Law.Basis);   // en1993-1-9 · aisc-app3
+    public sealed record Fatigue(FatigueLaw Law) : SectionCapacity(Law.Basis);
 
-    // TWO precomputed axial capacities, both demand-linear in the download, so the verdict rides the standard fold.
-    // A moment-transferring or uplift base rides its anchor receipts and those columns govern loud here.
     public sealed record BasePlate(
         double BearingKn,
-        double PlateBendingKn) : SectionCapacity(DesignBasis.Aisc360);   // AISC DG1 / §J8, wide-flange cantilever method
+        double PlateBendingKn) : SectionCapacity(DesignBasis.Aisc360);
 
     // --- [OPERATIONS]
-    // ONE polymorphic Check over the closed family — never per-type and never per-code. Each arm divides demand by
-    // ITS OWN columns and hands the normalized triple to the case's basis kernel, so the jurisdiction's algebra lives
-    // on the row while the resistance reading stays with the family that owns it. Every arm is TOTAL over the
-    // member-action columns: an unresisted action folds against 0 and governs loud (the consumed-action discipline).
     public Utilisation Check(Demand demand) => Switch(
         rcInteraction: h => Cast(h.Hull, demand),
         rcElastic: e => RcElasticUtilisation(e, demand),
@@ -1025,10 +774,6 @@ public abstract partial record SectionCapacity {
         fatigue: f => FatigueUtilisation(f, demand),
         basePlate: p => BasePlateUtilisation(p, demand));
 
-    // One RC elastic arm, two limit states through the same Worst fold — never a second RC surface for shear. The
-    // §6.2.3(3) stirrup obligation rides only the two candidates that spacing finishes; torsion and bearing are
-    // UNRESISTED here, not deferred, no detailing completing a check the section publishes no resistance for.
-    // EXPRESSION_SPINE exemption: the intermediate candidate bindings feed one closed Worst fold.
     static Utilisation RcElasticUtilisation(RcElastic e, Demand demand) {
         (Option<double> cracking, GoverningAction axis) = Cracking(e, demand);
         Option<double> shear = GuardedRatio(demand.ShearResultantKn, ShearResistanceKn(e));
@@ -1040,22 +785,15 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
     }
 
-    // EC2 SLS cracking: the FULL σ = N/A ± My·cy/Iyy ± Mz·cz/Izz against fctm, never the major-axis-only slice. The
-    // axial term is SIGNED so compression DELAYS cracking; the levers are the GROSS half-depths, not the effective
-    // depth to the STEEL; the divisor is the GROSS inertia, because the Σ(As·d²) column inflates the fibre stress
-    // ~20× and falsely cracks every service state. FibreRatio, not GuardedRatio: a compressive state must lose.
     static (Option<double> Ratio, GoverningAction Governing) Cracking(RcElastic e, Demand demand) {
         double axialStress = demand.AxialKn * 1e3 / Math.Max(e.ConcreteAreaMm2, double.Epsilon);
         double bendingYStress = Math.Abs(demand.MomentYKnm) * 1e6 * (e.DepthMm * 0.5) / Math.Max(e.GrossInertiaYyMm4, double.Epsilon);
         double bendingZStress = Math.Abs(demand.MomentZKnm) * 1e6 * (e.WidthMm * 0.5) / Math.Max(e.GrossInertiaZzMm4, double.Epsilon);
         GoverningAction governing = Math.Max(bendingYStress, bendingZStress) >= Math.Abs(axialStress)
-            ? GoverningAction.Flexure : GoverningAction.Axial;   // biaxial-moment names only the hull ray
+            ? GoverningAction.Flexure : GoverningAction.Axial;
         return (FibreRatio(axialStress + bendingYStress + bendingZStress, e.FctmMpa), governing);
     }
 
-    // §6.2.2 V_Rd,c floored at v_min for a LINKLESS section; a LINKED one is decidable only at the §6.2.3(3)
-    // web-crushing ceiling, V_Rd,s needing the stirrup SPACING the RcSection lacks — so a linked pass DEFERS and a
-    // linked fail refutes outright, no spacing curing crushing.
     static double ShearResistanceKn(RcElastic e) {
         double d = Math.Max(e.EffectiveDepthMm, 1.0), bw = Math.Max(e.WidthMm, 1.0);
         double k = Math.Min(1.0 + Math.Sqrt(200.0 / d), 2.0);
@@ -1064,10 +802,6 @@ public abstract partial record SectionCapacity {
         return e.ShearLinkAreaMm2 > 0.0 ? e.VrdMaxKn : vrdc;
     }
 
-    // Combined axial-flexure through the receipt's OWN basis kernel, selected by the row and never by a branch here.
-    // Both bases read the PER-AXIS ratios — a moment resultant folded against the major resistance alone is the
-    // DELETED unconservative spelling, crediting a weak-axis moment the full major/minor ratio (3-10× on an I-shape).
-    // The three operands are each a candidate, so an operand the section cannot state propagates absence.
     static Utilisation SteelUtilisation(SteelMember s, Demand demand) {
         Option<double> combined =
             from axial in GuardedRatio(demand.AxialKn, s.CompressionKn)
@@ -1082,9 +816,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
     }
 
-    // The EN 1995 kernel folds the km-swapped MAX pair, the AxialRegime row selecting §6.3.2's linear term or
-    // §6.2.4's quadratic n². §6.1.5 bearing is section-UNDECIDABLE — R_90,Rd arrives PER MM and the length is support
-    // DETAILING — so a bearing demand attaches its obligation to the WHOLE verdict rather than dividing against a fabricated w×d area.
     static Utilisation TimberUtilisation(TimberMember t, Demand demand) {
         Option<double> combined =
             from axial in GuardedRatio(demand.AxialKn, t.CompressionKn)
@@ -1101,8 +832,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.TorsionKnm, t.TorsionalKnm), GoverningAction.Torsion, bearing));
     }
 
-    // §6.2 cross-section unity through the row's Linear kernel, the combined candidate carrying the §6.3 buckling
-    // deferral by NAME: χ over the effective length is the forward check's, so a slender die never passes silent.
     static Utilisation AluminumUtilisation(AluminumMember a, Demand demand) {
         Option<double> combined =
             from axial in GuardedRatio(demand.AxialKn, a.CompressionKn)
@@ -1116,8 +845,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
     }
 
-    // A zero range is trivially satisfied; a real range with no lawful count is the ABSENT candidate — no S-N law
-    // prices it, so the verdict is structural Unbounded rather than a fabricated finite resistance.
     static Utilisation FatigueUtilisation(Fatigue f, Demand demand) {
         Option<double> range = demand.StressRangeMpa <= double.Epsilon
             ? Some(0.0)
@@ -1133,7 +860,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
     }
 
-    // The DOWNLOAD against the two precomputed axial capacities, worst-folded so the report names WHICH governs.
     static Utilisation BasePlateUtilisation(BasePlate p, Demand demand) {
         double download = Math.Max(0.0, -demand.AxialKn);
         return Worst(
@@ -1145,15 +871,9 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, None));
     }
 
-    // ONE ratio structure over the basis's own algebra row: a net-TENSION axial governs outright on either code
-    // (TMS §9.2.5 neglects URM axial tensile strength; EN 1996 §6.1 admits none). A basis publishing NO masonry
-    // algebra prices nothing, so every candidate is absent and the verdict is structurally Unbounded rather than
-    // computed through a body the jurisdiction never wrote.
     static Utilisation MasonryUtilisation(MasonryUnreinforced m, Demand demand) {
         Option<MasonryResistances> resisted = m.Basis.Masonry.Map(algebra =>
             algebra.Unreinforced(m.Basis, m.Wall, Math.Max(0.0, -demand.AxialKn)));
-        // The axial branch is on the CAPACITY column, never on two ratio constructions: a net-tension demand meets
-        // the axial tensile resistance neither code grants URM, a compression demand the slenderness-reduced Pn.
         Option<double> combined =
             from r in resisted
             from axial in GuardedRatio(demand.AxialKn, demand.AxialKn > 0.0 ? 0.0 : r.Pn)
@@ -1171,10 +891,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
     }
 
-    // ONE steel-couple algebra both codes publish, the row supplying only the STRESS SCALARS: §9.3.4.1.1 / §6.6.2
-    // axial Pn over the stress block, §9.3.5 / §6.6.1 flexure Mn = As·fy·(d − a/2) with net tension on the steel
-    // alone, and the §9.3.4.1.2 shear screen at the M/(V·dv) = 1 bound — the ONE form both bases run, since EN
-    // §6.7.2 and TMS alike complete only with the bar spacing. Bar STATIONS are lattice facts, never section columns.
     static Utilisation MasonryReinforcedUtilisation(MasonryReinforced m, Demand demand) {
         Option<(double Pn, double Mn, double Phi, double PhiV)> couple =
             from algebra in m.Basis.Masonry
@@ -1197,16 +913,12 @@ public abstract partial record SectionCapacity {
         return Worst(
             (combined, GoverningAction.Combined, None),
             (GuardedRatio(demand.MomentZKnm, 0.0), GoverningAction.Flexure, None),
-            // Vnm alone is section-decidable: Vns needs the bar SPACING, so a shear-governed reinforced verdict
-            // DEFERS rather than reporting a resistance the section cannot complete.
             (couple.Bind(c => GuardedRatio(demand.ShearResultantKn, c.PhiV * vnm)), GoverningAction.Shear,
                 Some(MemberCheckRequirement.ReinforcedMasonryShearSpacing)),
             (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, None),
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
     }
 
-    // BOTH plate bending directions fold against the SAME isotropic per-metre resistance, their SUM the
-    // conservative bound: dividing the whole-unit moment by one pane's resistance over-rated every asymmetric build.
     static Utilisation GlassUtilisation(GlassPane g, Demand demand) =>
         Worst(
             (GuardedRatio((Math.Abs(demand.MomentYKnm) + Math.Abs(demand.MomentZKnm)) * g.LoadShareFraction, g.BendingKnmPerM),
@@ -1216,9 +928,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, None),
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
 
-    // Three resisted axes: the shear resultant, a POSITIVE axial (uplift) against the tension column, and the seat
-    // reaction against bearing. A compressive axial rides the member, and moments and torsion are unresisted at
-    // connection altitude. ONE guarded construction covers an absent tension band and a published zero alike.
     static Utilisation ConnectionUtilisation(Connection c, Demand demand) =>
         Worst(
             (LateralRatio(c, demand), GoverningAction.Shear, c.Defer),
@@ -1227,8 +936,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.MomentResultantKnm, 0.0), GoverningAction.Flexure, None),
             (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, None));
 
-    // A sheathed panel carries shear in its plane and nothing else — a moment or a bearing reaction stated against
-    // one is a modelling error the verdict must surface, never a column this case quietly ignores.
     static Utilisation LateralUtilisation(LateralPanel p, Demand demand) =>
         Worst(
             (GuardedRatio(demand.UnitShearKnPerM, p.DesignKnPerM), GoverningAction.InPlaneShear, None),
@@ -1238,8 +945,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.TorsionKnm, 0.0), GoverningAction.Torsion, None),
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
 
-    // A SINGLE published direction reads the demand resultant; a PAIR folds the per-axis ratios through the
-    // report's own rule, sequenced so either axis lacking its resistance leaves the candidate absent.
     static Option<double> LateralRatio(Connection c, Demand demand) =>
         c.Lateral.Match(
             Some: pair =>
@@ -1253,10 +958,6 @@ public abstract partial record SectionCapacity {
             ? Some(0.0)
             : capacity.Bind(held => GuardedRatio(demand, held));
 
-    // The ONE candidate-ratio constructor and the ONLY site deciding whether a candidate EXISTS: a zero demand is
-    // trivially satisfied (an unpriced column never governs an unloaded member), a real demand over a positive finite
-    // capacity divides, and a real demand against a capacity the case does not publish is ABSENT — the structural
-    // failure the fold reads as Unbounded. Both sides guard, because both can arrive unstatable.
     static Option<double> GuardedRatio(double demand, double capacity) =>
         (Math.Abs(demand) <= double.Epsilon, double.IsFinite(demand) && capacity > 0.0 && double.IsFinite(capacity)) switch {
             (true, _)      => Some(0.0),
@@ -1264,8 +965,6 @@ public abstract partial record SectionCapacity {
             (false, false) => None,
         };
 
-    // The SIGNED counterpart both fibre screens ride: compression RELIEVES the fibre and must lose the fold, where
-    // a magnitude reports a governance the state lacks; a limit the basis does not publish is the absent candidate.
     static Option<double> FibreRatio(double stress, double limit) =>
         (double.IsFinite(stress) && limit > 0.0, stress <= 0.0) switch {
             (true, _)      => Some(stress / limit),
@@ -1273,10 +972,6 @@ public abstract partial record SectionCapacity {
             (false, false) => None,
         };
 
-    // The unified governing-axis fold, so a check reports WHICH action governs; the span-params buffer stack-
-    // allocates per Check and the strict-greater fold keeps the earliest-maximal tie-break. ABSENCE DOMINATES BY
-    // STRUCTURE: a candidate with no ratio outranks every present one and the verdict is Unbounded by REACHING it,
-    // never by comparing a sentinel. A PRESENT candidate carries its DEFERRAL; an ABSENT one carries it no further.
     static Utilisation Worst(params ReadOnlySpan<(Option<double> Ratio, GoverningAction Action, Option<MemberCheckRequirement> Defer)> candidates) {
         (Option<double> Ratio, GoverningAction Action, Option<MemberCheckRequirement> Defer) won =
             Iterable<(Option<double> Ratio, GoverningAction Action, Option<MemberCheckRequirement> Defer)>.FromSpan(candidates[1..])
@@ -1294,9 +989,6 @@ public abstract partial record SectionCapacity {
     }
 
     // --- [BOUNDARIES]
-    // The ONE declared-build boundary: dispatch the request onto its solver, admit the eager solve ONCE, coerce the
-    // UnitsNet outputs to SI scalars at the edge, classifies documented refusals with their cause, and preserves every
-    // unknown VividOrange throw as its exact exceptional Error.
     public static Fin<SectionCapacity> Resolve(CapacityBuild build, Op key) =>
         build.Switch(
             hull: h => key.Catch(
@@ -1305,8 +997,6 @@ public abstract partial record SectionCapacity {
                         ? Some(new ComponentFault.CapacitySolve(key, cause))
                         : None)
                 .Map(mesh => (SectionCapacity)new RcInteraction(h.Subject, h.Resolution, mesh)),
-            // The two face queries are Option-typed AT the RcSection seam and prove INDEPENDENTLY, so a section
-            // missing both names both; the lazy gross-integral reads trap in one Op.Catch so no throw escapes.
             elastic: e =>
                 (e.Section.EffectiveDepthMm(SectionFace.Bottom).ToValidation((Error)new ComponentFault.EffectiveDepthUnavailable(key, e.Subject)),
                  e.Section.FaceSteelAreaMm2(SectionFace.Bottom).ToValidation((Error)new ComponentFault.TensionChordUnavailable(key, e.Subject)))
@@ -1315,18 +1005,18 @@ public abstract partial record SectionCapacity {
                         double fck = EnConcreteFactory.CreateLinearElastic(e.Section.Concrete.Grade).Strength.Megapascals;
                         return Fin.Succ<SectionCapacity>(new RcElastic(
                             e.Section.GrossSteelAreaMm2,
-                            chord.Steel,                                                     // tension steel As — the EC2 ρl input
-                            e.Section.ShearLinkAreaMm2,                                      // two-leg link area Asw (engine: 2·A_link)
+                            chord.Steel,
+                            e.Section.ShearLinkAreaMm2,
                             e.Section.LinkYieldMpa.Map(static fyk => DesignBasis.En1992.Resist(ResistanceAction.Reinforcement, fyk)),
                             e.Section.ConcreteAreaMm2,
                             e.Section.ReinforcementRatio,
-                            e.Section.Properties.MomentOfInertiaYy.MillimetersToTheFourth,   // GROSS uncracked — the SLS fibre divisor
+                            e.Section.Properties.MomentOfInertiaYy.MillimetersToTheFourth,
                             e.Section.Properties.MomentOfInertiaZz.MillimetersToTheFourth,
-                            e.Section.ReinforcementInertiaYyMm4,                             // Σ(As·d²) — the cracked-Icr readout
+                            e.Section.ReinforcementInertiaYyMm4,
                             e.Section.ReinforcementInertiaZzMm4,
                             chord.Depth,
-                            e.Section.ConcreteProfile.GrossRectangleMm.DepthMm.Value,        // gross h — the major-axis lever cy = h/2
-                            e.Section.ConcreteProfile.GrossRectangleMm.WidthMm.Value,        // gross b — the minor-axis lever cz = b/2
+                            e.Section.ConcreteProfile.GrossRectangleMm.DepthMm.Value,
+                            e.Section.ConcreteProfile.GrossRectangleMm.WidthMm.Value,
                             fck,
                             Fctm(fck)));
                     }, cause => EnGrade.GradeRefusal(key, cause))),
@@ -1334,9 +1024,6 @@ public abstract partial record SectionCapacity {
             anchorage: a => Anchoring(a, key),
             bearing: b => Fin.Succ(Baseplating(b.Plate)));
 
-    // ONE canonical name over the request union, the case the modality discriminant — never a per-family factory
-    // roster and never an overload set. Each case carries its family receipt WHOLE into the rail as kN·m/kN, every
-    // column read DIRECTLY off it, so no redundant parallel lift parameter exists.
     public static Fin<SectionCapacity> Lift(CapacityReceipt receipt, Op key) => receipt.Switch(
         steel: static r => Held(new SteelMember(
             r.Capacity.Basis,
@@ -1347,16 +1034,11 @@ public abstract partial record SectionCapacity {
             r.Capacity.BendingNmm * 1e-6, r.Capacity.BendingMinorNmm * 1e-6, r.Capacity.CompressionN * 1e-3,
             r.Capacity.ShearN * 1e-3, r.Capacity.BearingPerpNPerMm * 1e-3, r.Capacity.TorsionalNmm * 1e-6,
             r.Capacity.RelativeSlenderness, r.Capacity.Km, r.Capacity.Kmod)),
-        // The deck's AISI receipt lands the SAME case — one cold-formed verdict shape for a stud and a sheet; only
-        // the receipt KIND distinguishes them for the report and the analytics dimension.
         deckSheet: static r => Held(new SteelMember(
             r.Capacity.Basis,
             r.Capacity.FlexuralNmm * 1e-6, r.Capacity.FlexuralMinorNmm * 1e-6, r.Capacity.CompressionN * 1e-3,
             r.Capacity.ShearN * 1e-3, r.Capacity.TorsionalNmm * 1e-6, r.Capacity.Classification, r.Capacity.Slenderness,
             r.Capacity.Chi, r.Capacity.ChiLt, StiffnessRetention: 1.0)),
-        // The reduction MINTS here off the basis, the carried height, and the section's governing radius, so no
-        // caller re-derives either bracket; the tension limit and shear bond read the basis's OWN table — TMS Table
-        // 9.1.9.2 by mortar or EN Table 3.4/3.5 by unit group — under the ONE span direction the rupture row states.
         masonry: static r => Held(new MasonryUnreinforced(r.Basis, new MasonrySection(
             r.Strength.FmMpa, r.Section.AreaMm2.Value, r.Section.SxMm3.Value, r.Section.SyMm3.Value,
             MasonryReduction.Of(r.Basis, r.HeightMm, r.Section.GoverningRadiusMm).Value,
@@ -1367,54 +1049,33 @@ public abstract partial record SectionCapacity {
         reinforcedMasonry: static r => Held(new MasonryReinforced(r.Basis, new MasonryCouple(
             r.Strength.FmMpa,
             ReinforcingYieldMpa(r.Bar),
-            r.Unit.ReinforcedCells * Math.PI / 4.0 * r.Unit.RebarBarMm * r.Unit.RebarBarMm,   // As off the lattice facts
-            r.Section.AreaMm2.Value, r.Unit.WMm / 2.0, r.Unit.LMm,                            // d = W/2 mid-wall bars, b the bed length
+            r.Unit.ReinforcedCells * Math.PI / 4.0 * r.Unit.RebarBarMm * r.Unit.RebarBarMm,
+            r.Section.AreaMm2.Value, r.Unit.WMm / 2.0, r.Unit.LMm,
             MasonryReduction.Of(r.Basis, r.HeightMm, r.Section.GoverningRadiusMm).Value))),
         glass: static r => Held(new GlassPane(r.Capacity.StripBendingKnmPerM, r.Capacity.ResistanceMpa, r.Capacity.EffectiveThicknessMm, r.Capacity.LoadShareFraction)),
-        // ky,θ scales every STRENGTH column and kE,θ rides StiffnessRetention; classification/slenderness/χ carry
-        // unchanged and the AMBIENT basis stands, EN 1993-1-2 modifying the resistance and not the jurisdiction.
         steelFire: static r => Held(new SteelMember(
             r.Ambient.Basis,
             r.Ambient.FlexuralNmm * r.Ky * 1e-6, r.Ambient.FlexuralMinorNmm * r.Ky * 1e-6, r.Ambient.CompressionN * r.Ky * 1e-3,
             r.Ambient.ShearN * r.Ky * 1e-3, r.Ambient.TorsionalNmm * r.Ky * 1e-6, r.Ambient.Classification, r.Ambient.Slenderness,
             r.Ambient.Chi, r.Ambient.ChiLt, StiffnessRetention: r.Ke)),
-        // The EN 1995-1-2 residual section is already priced at kmod = γM = 1.0 by the timber owner, so the fire arm
-        // lifts it verbatim — the charring is geometry, never a factor applied here.
         timberFire: static r => Held(new TimberMember(
             r.Residual.BendingNmm * 1e-6, r.Residual.BendingMinorNmm * 1e-6, r.Residual.CompressionN * 1e-3,
             r.Residual.ShearN * 1e-3, r.Residual.BearingPerpNPerMm * 1e-3, r.Residual.TorsionalNmm * 1e-6,
             r.Residual.RelativeSlenderness, r.Residual.Km, r.Residual.Kmod)),
-        // AWS D1.1 publishes one shear band and no tension allowable, so the tension column is ABSENT rather than 0;
-        // an electrode publishing no shear area collapses onto the unprovided-0 column and governs loud.
         weld: static r => Held(new Connection(DesignBasis.AwsD11, r.Row.DirectionalShearKn(Angle.FromDegrees(r.LoadAngleDeg)), None, None)),
-        // The ASTM C1401 structural-bite tension is the adhesive row's OWN Option: a silicone SSG row publishes it,
-        // an epoxy/MMA/PU row does not, and that ABSENCE is distinct from zero resistance.
         adhesive: static r => Held(new Connection(DesignBasis.AstmD1002, Some(r.Row.DesignShearKn), r.Row.DesignTensionKn, None)),
         stud: static r => Held(new Connection(DesignBasis.Aisc360, Some(Math.Max(r.Count, 0) * r.Row.DesignShearKn(r.Group)), None, None)),
-        // Duration scaling ran at ConnectorRow.GovernedCapacity where each cell meets its OWN basis, so this lift
-        // re-scales nothing; an absent direction stays ABSENT, a report publishing no uplift differing from zero.
         connector: static r => Held(new Connection(DesignBasis.IccEs,
             r.Capacity.LateralF1Kn, r.Capacity.UpliftKn, r.Capacity.DownloadKn,
             r.Capacity.LateralF2Kn.Map(second => new LateralPair(second, r.Capacity.Rule)))),
-        // The panel family already applied the §4.1.4 reduction on its own rail, so the lift is a straight seat.
         lateralPanel: static r => Held(new LateralPanel(DesignBasis.Sdpws, r.DesignKnPerM, r.Hazard)),
-        // §3.6 bearing-type: the assembly's OWN plane-counted shear, head-factored tension, and ply bearing, read
-        // rather than re-derived. All three are EN-RAILED, so an untabulated grade refuses the lift with its exact
-        // typed error rather than becoming a zero or an absent column.
-        // All three projections take the JOINTS basis explicitly, because Fastening.JointFactor refuses a
-        // resistance-factor basis outright — passing one silently would publish a resistance no body computed.
         bolt: r =>
             from shear in r.Assembly.ShearResistanceKn(r.Plane, DesignBasis.En1993Joints, key)
             from tension in r.Assembly.TensionResistanceKn(DesignBasis.En1993Joints, key)
             from bearing in r.Assembly.BearingResistanceKn(r.Bearing, DesignBasis.En1993Joints, key)
             select (SectionCapacity)new Connection(DesignBasis.En1993Joints, Some(shear), Some(tension), Some(bearing)),
-        // §3.9 slip resistance: a non-preloaded assembly answers None, retained as an absent shear column so a
-        // slip-critical demand on a snug-tight joint governs loud rather than reading bearing by accident.
         slipCritical: static r => Held(new Connection(DesignBasis.En1993Joints, r.Assembly.SlipResistanceKn(r.Install), None, None)),
-        // EC5 §8: the family owner's railed six-mode Johansen minimum per shear plane, summed over the planes.
         timberDowel: static r => Held(new Connection(DesignBasis.En1995, Some(Math.Max(r.Planes, 0) * r.PerPlaneShearKn), None, None)),
-        // EN 1999: the banded (fo, fu) pair arrives PROVEN (the aluminum seed refused any die outside its printed
-        // window), and the resistances compute on the class-3 elastic floor under the row's γM1-covers-everything set through the ONE Resist fold.
         aluminum: static r => Held(new AluminumMember(
             r.Basis,
             r.Basis.Resist(ResistanceAction.Stability, r.Section.SxMm3.Value * r.FoMpa * 1e-6),
@@ -1426,21 +1087,14 @@ public abstract partial record SectionCapacity {
 
     static Fin<SectionCapacity> Held(SectionCapacity capacity) => Fin.Succ(capacity);
 
-    // The yield off the ONE MaterialGrade row: a non-Rebar arm, or a Rebar arm publishing no characteristic yield,
-    // states ABSENCE and the couple candidate governs loud like every other unpublished column on this rail.
     static Option<double> ReinforcingYieldMpa(MaterialGrade grade) =>
         grade.Columns is GradeProperties.Rebar rebar ? rebar.YieldMpa : None;
 
-    // The §6.3.1.2 buckling class off the grade's Aluminum arm — the class row owns its own Table 6.6 pair, so no
-    // constant is copied onto the receipt and an edit to the table moves both readers at once.
     static Option<BucklingClass> BucklingCurve(MaterialGrade grade) =>
         grade.Columns is GradeProperties.Aluminum alloy ? Some(alloy.Class) : None;
 
-    // The one site the EN 1992-4 single-anchor coefficients live. An EN-tabulated grade mins its steel mode beside
-    // the cone; an untabulated band refuses typed rather than becoming a zero. Group areas, the shear edge mode,
-    // the ETA pullout, and EN pryout at its unproven k8 ride the one deferral; the ACI set waits whole on its φ roster.
     static Fin<SectionCapacity> Anchoring(CapacityBuild.Anchorage a, Op key) {
-        double k1 = a.Bed.Cracked ? 8.9 : 12.7;                                     // EN 1992-4 cast-in headed kcr,N/kucr,N
+        double k1 = a.Bed.Cracked ? 8.9 : 12.7;
         double edge = a.Bed.EdgeMm.Map(ca => Math.Min(0.7 + 0.3 * ca / (1.5 * a.Bed.HefMm.Value), 1.0)).IfNone(1.0);
         double coneKn = DesignBasis.En1992Anchors.Resist(ResistanceAction.CrossSection,
             k1 * Math.Sqrt(a.Bed.FckMpa) * Math.Pow(a.Bed.HefMm.Value, 1.5) * edge * 1e-3);
@@ -1451,9 +1105,6 @@ public abstract partial record SectionCapacity {
                    Defer: Some(MemberCheckRequirement.AnchorForwardModes));
     }
 
-    // §J8 bearing at φ = 0.65 with √(A2/A1) clamped at 2, and the cantilever plate bending — t_min inverted at the
-    // plate's own thickness, l = max(m, n, n′) under the two-sourced λ = 1 bound, wide-flange only (the HSS/pipe m–n
-    // variants are typed-absent). EXPRESSION_SPINE exemption: the geometry scalars bind once, one BasePlate exits.
     static SectionCapacity Baseplating(PlateBed plate) {
         double b = plate.WidthMm.Value, n = plate.LengthMm.Value, t = plate.ThicknessMm.Value;
         double bearingKn = 0.65 * 0.85 * plate.FcMpa * b * n * Math.Clamp(plate.ConfinementRatio, 1.0, 2.0) * 1e-3;
@@ -1465,18 +1116,11 @@ public abstract partial record SectionCapacity {
         return new BasePlate(bearingKn, bendingKn);
     }
 
-    // The TMS 402 §9.2.6.1 running-bond shear constant (56 psi) lifted onto the ShearBondMpa column so the
-    // unreinforced shear arm reads one DATA source on either basis — the EN side fills it from Table 3.5.
     const double TmsRunningBondShearMpa = 0.386;
 
-    // EC2 mean flexural tensile strength: fctm = 0.30·fck^(2/3) for ≤C50, 2.12·ln(1+(fck+8)/10) above. The fck
-    // source is EnConcreteFactory.CreateLinearElastic(grade).Strength — verified the parsed characteristic cylinder
-    // strength, not the design fcd (.api/api-vividorange-materials.md).
     static double Fctm(double fckMpa) =>
         fckMpa <= 50.0 ? 0.30 * Math.Pow(fckMpa, 2.0 / 3.0) : 2.12 * Math.Log(1.0 + (fckMpa + 8.0) / 10.0);
 
-    // Through the ITaxonomySerializable marker IForceMomentMesh itself extends ($type-tagged wire, UnitsNet
-    // SI-scalar quantities); Thaw rehydrates via that tag WITHOUT re-running the Steps² sweep.
     internal static Fin<string> Freeze(RcInteraction capacity, Op key) =>
         key.Catch(() => Fin.Succ(capacity.Hull.ToJson()));
 
@@ -1490,10 +1134,6 @@ public abstract partial record SectionCapacity {
                 ? Fin.Fail<SectionCapacity>(new ComponentFault.CapacityDocumentEmpty(key, subject))
                 : Fin.Succ((SectionCapacity)new RcInteraction(subject, resolution, mesh)));
 
-    // The hull carries N-M-M resistance ONLY, so the ray verdict worst-folds with the shear/torsion/bearing demands
-    // against 0 and an unresisted action governs LOUD. A hull enclosing the demand direction answers the smallest
-    // positive pierce and the utilisation is its reciprocal; a hull the ray never pierces bounds nothing along it,
-    // and THAT is the absent candidate — reached by the pierce set being empty, never by a magnitude.
     static Utilisation Cast(IForceMomentMesh hull, Demand demand) {
         GoverningAction governing = demand.MomentResultantKnm > double.Epsilon
             ? GoverningAction.BiaxialMoment
@@ -1513,8 +1153,6 @@ public abstract partial record SectionCapacity {
             (GuardedRatio(demand.BearingKn, 0.0), GoverningAction.Bearing, None));
     }
 
-    // EXPRESSION_SPINE measured-kernel exemption: Möller-Trumbore ray-triangle scalar kernel — span-free numeric
-    // intermediates with early degenerate exits, the bounded kernel role the doctrine names for statement bodies.
     static Option<double> Pierce(IForceMomentTriFace face, double dN, double dMy, double dMz) {
         (double ax, double ay, double az) = Coord(face.A);
         (double e1x, double e1y, double e1z) = Sub(Coord(face.B), (ax, ay, az));
@@ -1544,11 +1182,7 @@ public abstract partial record SectionCapacity {
         (left.y * right.z - left.z * right.y, left.z * right.x - left.x * right.z, left.x * right.y - left.y * right.x);
 }
 
-// --- [BOUNDARIES] --------------------------------------------------------------------------
-// The content-keyed hull round trip as ONE fold, so the Freeze/Thaw pair has a call site rather than a claim. The
-// key pair IS the whole preimage — the section identity and the resolution are the only inputs the solve reads — so
-// a resolution change is a distinct row, never a stale hit; the artifact store is the ONLY Thaw ingress, the $type
-// wire being a deserialization-gadget surface no peer document may reach.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public readonly record struct HullCache(SectionCapacity Capacity, Option<string> Pending) {
     public static string Key(ComponentId subject, DiagramResolution resolution) => $"{subject.Value}:{resolution.Key}";
 
@@ -1573,13 +1207,9 @@ public readonly record struct HullCache(SectionCapacity Capacity, Option<string>
 - Boundary: NAMED LOSS on absorbing the fastener-grain scan — the retired `LeastShear` returned the winning EN 1993-1-8 resistance and ranked by thread major diameter; this fold returns the `Utilisation` verdict and ranks by real linear mass. WITNESS: the resistance is `demand / verdict.Ratio` off the returned verdict, and the mass rank orders a mixed-grade sweep correctly where diameter ordered it only within one substance.
 
 ```csharp signature
-// --- [MODELS] ------------------------------------------------------------------------------
-// The SOURCE decides all three columns, so the fold below is one body over every search space; Capacity is DEFERRED
-// because the scan prices candidates only until the lightest passer.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SectionCandidate<TSubject>(TSubject Subject, double MassPerMm, Func<Fin<SectionCapacity>> Capacity);
 
-// The joint state a bolt sizing scan holds FIXED while it sweeps the thread and grade rosters. Every column is a
-// joint DECLARATION no roster row carries, so the scan varies exactly the two axes the tables publish.
 public readonly record struct BoltJoint(
     ComponentId Subject,
     ThreadSeries Series,
@@ -1592,10 +1222,8 @@ public readonly record struct BoltJoint(
     BearingDesign Bearing,
     ShearPlane Plane);
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SectionSelection {
-    // Every stocked row the policy filter admits, priced through the ONE ComponentFamily.Capacity currency — so no
-    // caller hands in a capacity lambda the row already determines, nor prices a family through a foreign arm.
     public static Fin<Seq<SectionCandidate<Component>>> Stocked(
         FrozenDictionary<ComponentId, Component> rows,
         FrozenDictionary<ComponentId, ComputedSection> sections,
@@ -1609,10 +1237,6 @@ public static class SectionSelection {
                 Candidate(rows[pair.Key], pair.Value, density, placement, key)))
             .As();
 
-    // The GENERATIVE counterpart: component#SECTION_SOLVER Compose already prices an arbitrary positioned member set
-    // exactly, so a caller-supplied sweep — a plate-girder web-depth × flange-width lattice, a battened-column
-    // spacing sweep — folds through the SAME solve, Check, and acceptance as a catalogue row. The generator is
-    // INDEXED, so the sweep is a pure function of its ordinal: replayable, and cappable without a mutable cursor.
     public static Fin<Seq<SectionCandidate<Component>>> Fabricated(
         Func<int, Seq<(Component Row, SectionProfile Profile)>> sweep,
         int sweeps,
@@ -1625,8 +1249,6 @@ public static class SectionSelection {
                     .Map(density => Candidate(candidate.Row, section, density, placement, key))))
             .As();
 
-    // The (thread × grade) lattice under one declared joint, ranked by the shank's tensile stress area against its
-    // grade's density — the roster read off the ONE MaterialGrade owner, so a new grade is scannable on landing.
     public static Fin<Seq<SectionCandidate<(ThreadRow Thread, MaterialGrade Grade)>>> Threaded(
         BoltJoint joint,
         Func<MaterialId, Fin<double>> densityOf,
@@ -1646,8 +1268,6 @@ public static class SectionSelection {
                             new CapacityReceipt.Bolt(joint.Subject, assembly, joint.Bearing, joint.Plane), key)))))
             .As();
 
-    // The first MASS-ORDERED candidate passing at section altitude wins and carries its verdict verbatim. The scan
-    // is lazy, so it stops AT the win rather than walking the tail re-testing a decided state.
     public static Fin<(TSubject Subject, Utilisation Verdict)> Least<TSubject>(
         Fin<Seq<SectionCandidate<TSubject>>> candidates,
         Demand demand,

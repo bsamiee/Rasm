@@ -23,7 +23,7 @@
 - Packages: `api-rhinocommon-rendercontent.md` (`FieldDictionary.Add`/`AddTextured`/`AddFilename`/`Set`, `Field`, `BoolField`/`IntField`/`FloatField`/`DoubleField`/`Color4fField`/`Vector2dField`/`Vector3dField`/`Point2dField`/`Point3dField`/`Point4dField`/`StringField`/`DateTimeField`/`GuidField`/`TransformField`/`ByteArrayField`/`NullField`); `api-rhinocommon-display.md` (`Color4f`); `api-rhinocommon-geometry.md` (`Vector2d`, `Vector3d`, `Point2d`, `Point3d`, `Point4d`, `Transform`); kernel `Domain/rails` (`Op.Catch`, `Op.InvalidInput`, `Op.Unsupported`); LanguageExt.Core (`Fin`, `HashMap`, `Arr`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Display;
 using Rasm.Rhino.Document;
@@ -37,9 +37,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Each case owns one correspondence about itself: its payload type and the mint back into the case.
-// `ContentCarrier.Row` reads both off `TCase`, so a row cannot be keyed on one case while packing another.
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IContentPayload<TSelf, T> where TSelf : ContentValue, IContentPayload<TSelf, T> {
     static abstract TSelf Of(T value);
     T Value { get; }
@@ -148,8 +146,6 @@ public sealed partial class ContentCarrier {
         read: static field => field.Value,
         plain: static (f, n, v, p, s) => f.Add(n, v, p, s), write: static (f, n, v) => f.Set(n, v),
         textured: static (f, n, v, p, l, s) => f.AddTextured(n, v, p, l, s));
-    // Two rows sit outside that correspondence: `Bytes` CONVERTS between its case payload and the host array, and
-    // `Null` carries no payload at all — neither satisfies `IContentPayload`, so both spell their own columns.
     public static readonly ContentCarrier Bytes = new(
         key: typeof(ContentValue.Bytes), fieldType: typeof(ByteArrayField), payloadType: typeof(byte[]),
         box: static value => value is ContentValue.Bytes bytes ? bytes.Value.ToArray() : null,
@@ -185,9 +181,6 @@ public sealed partial class ContentCarrier {
     public Type FieldType { get; }
     public Type PayloadType { get; }
 
-    // Host hole as a VALUE: `FieldDictionary` publishes no `Set` overload reaching a `NullField`, so the null row has no
-    // write route at all. The pair names that hole once, `Write` refuses on it before any host call, and the roster stays
-    // total — an omitted case would read as an oversight rather than a host limit.
     internal Option<(Type From, Type To)> WriteHole { get; }
 
     [UseDelegateFromConstructor]
@@ -210,9 +203,6 @@ public sealed partial class ContentCarrier {
             Some: hole => Fin.Fail<Unit>(error: key.Unsupported(inputType: hole.From, outputType: hole.To)),
             None: () => Store(fields: fields, name: name, payload: payload, key: key));
 
-    // Generated `Type` keys name the UNION CASE type — the key `ContentValue.Carrier` already reads. Recovery
-    // arrives holding a host `Field` or a raw payload instead, so the two recovery axes are their own indexes folded once
-    // off `Items` behind a lazy cell rather than a per-payload scan of the roster.
     private static readonly Lazy<(HashMap<Type, ContentCarrier> ByField, HashMap<Type, ContentCarrier> ByPayload)> Index = new(
         static () => toSeq(Items).Fold(
             (ByField: HashMap<Type, ContentCarrier>(), ByPayload: HashMap<Type, ContentCarrier>()),
@@ -280,7 +270,7 @@ public sealed partial class ContentCarrier {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.BeginCreateDynamicFields`/`CreateDynamicField`/`EndCreateDynamicFields`, `FieldDictionary.Add`/`AddTextured`/`AddFilename`); kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op.AcceptText`, `Op.Need`, `Op.Confirm`, `Op.OrDefault`), `Domain/validation` (`Op.AcceptValidated<TVO>`, `FactoryValidation`); `Display/render.md` (`RenderFault`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[BoundaryAdapter]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldPresentation {
     private FieldPresentation() { }
@@ -289,7 +279,7 @@ public abstract partial record FieldPresentation {
     public sealed record Filename : FieldPresentation;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FieldSpec(
     string Name,
     ContentValue Value,
@@ -342,8 +332,6 @@ public sealed partial class DynamicFieldSpec {
     public Option<FieldRange> Bounds { get; }
     public int SectionId { get; }
 
-    // Six INDEPENDENT clauses accumulate through the shared generated-validation substrate, so one round trip names
-    // every violated constraint.
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -375,7 +363,7 @@ public sealed partial class DynamicFieldSpec {
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class DynamicFieldScope : IDisposable {
     private readonly RenderContent content;
 
@@ -387,15 +375,12 @@ internal sealed class DynamicFieldScope : IDisposable {
     public void Dispose() => content.EndCreateDynamicFields();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class DynamicFields {
     internal static Fin<Unit> Declare(RenderContent content, bool automatic, Seq<DynamicFieldSpec> rows, Op key) =>
         Lease<DynamicFieldScope>.Acquire(mint: () => new DynamicFieldScope(content: content, automatic: automatic), key: key)
             .Bind(scope => scope.Use(
                 body: _ => rows.TraverseM(row =>
-                    // One projection over the optional range fills both host slots; two pattern reads of one option
-                    // collide on the bound name in the enclosing scope, and an absent range is the host's own
-                    // unbounded pair.
                     from admitted in key.Need(row)
                     let bounds = admitted.Bounds
                         .Map(static range => (Min: (object?)range.Min.Boxed(), Max: (object?)range.Max.Boxed()))
@@ -427,7 +412,7 @@ public static class DynamicFields {
 - Packages: `api-rhinocommon-rendercontent.md` (`RenderContent.BindParameterToField` both arities, `GetParameter`/`SetParameter`, `GetChildSlotParameter`/`SetChildSlotParameter`, `GetExtraRequirementParameter`/`SetExtraRequirementParameter`, `ExtraRequirementsSetContexts`, `ChildSlotNames.PhysicallyBased.FromTextureType`, `ParameterNames.PhysicallyBased.BRDF`, `RenderMaterial.BasicMaterialParameterNames`, `RenderMaterial.TextureTypeFromSlot`, `Field.TextureAmountMin`/`TextureAmountMax`/`UseTextureOn`/`UseTextureAmount`/`IsHiddenInAutoUI`); `api-rhinocommon-objects.md` (`TextureType`); kernel `Domain/rails` (`Op.AcceptText`, `Op.Catch`, `Op.OrDefault`); LanguageExt.Core (`Fin`, `Option`, `Arr`, `TraverseM`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FieldBinding {
     private FieldBinding() { }
@@ -457,12 +442,6 @@ public abstract partial record FieldBinding {
             })));
 }
 
-// `ChildSlotNames.PhysicallyBased.FromTextureType` derives every child-slot name and all but one PBR parameter name, so this
-// owner keys on the host texture type and reads each name once rather than mirroring the derived roster. `BRDF` is that one
-// exception — `ParameterNames.PhysicallyBased.BRDF` answers the literal `pbr-brdf` and forwards to no child slot — so it
-// enters as the row keyed on the otherwise-unused `TextureType.None` carrying its literal, and `Slot` refuses it: a parameter
-// with no child slot cannot spell one, and seating it in the basic-material roster instead would file a PBR name under the
-// vocabulary the host declares for `RenderMaterial.BasicMaterialParameterNames`.
 [SmartEnum<TextureType>]
 public sealed partial class PbrChannel {
     public static readonly PbrChannel Brdf = new(
@@ -493,11 +472,8 @@ public sealed partial class PbrChannel {
 
     internal Option<string> Literal { get; }
 
-    // Parameter axis: a literal row answers its own name, every derived row forwards to its child-slot name.
     internal Fin<string> Name(Op key) => Literal.Match(Some: Fin.Succ, None: () => Slot(key: key));
 
-    // Child-slot axis. Host truth: the resolver answers an unmapped type with an empty string, so the sentinel
-    // projects at this one read site, and a literal row has no child slot to answer at all.
     internal Fin<string> Slot(Op key) => Literal.IsSome
         ? Fin.Fail<string>(error: key.Unsupported(inputType: typeof(PbrChannel), outputType: typeof(TextureType)))
         : SlotOf(textureType: Key, key: key);
@@ -597,7 +573,7 @@ public abstract partial record ParamScope {
                 sc: ctx.Context)))));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record FieldPortrait(
     string Name,
     ContentValue Value,

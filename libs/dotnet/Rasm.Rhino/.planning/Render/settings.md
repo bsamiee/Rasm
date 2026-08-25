@@ -22,7 +22,7 @@
 - Packages: `api-rhinocommon-rendersettings.md` (`RenderSettings`, `DocumentOrFreeFloatingBase`, `RhinoDoc.RenderSettings`); `api-rhinocommon-fileio.md` (`File3dm.Settings.RenderSettings`); kernel `Domain/rails` (`Op`, `Op.Catch`, `Op.Need`, `Lease<T>.Acquire`); `Document/session.md` (`DocumentSession.Demand`, `SessionNeed`, `RedrawPolicy`, `IDetachedDocumentResult`), `Document/commit.md` (`DocumentCommit.Sealed`), `Document/facts.md` (`FactStream.Stamped`); LanguageExt.Core (`Fin`); Thinktecture.Runtime.Extensions (`[Union]`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using NodaTime;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -37,7 +37,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Render;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SettingsSource : IDisposable {
     private SettingsSource() { }
@@ -139,7 +139,7 @@ public abstract partial record SettingsSource : IDisposable {
 - Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane`, `Skylight`, `Sun`, `Sun.Accuracies`, `Sun.SetPosition`, `Sun.SetDateTime`/`GetDateTime`, `Sun.Light`/`Vector`/`Hash`, `LinearWorkflow`, `Dithering`, `Dithering.Methods`, `SafeFrame`, `RenderChannels`, `RenderChannels.Modes`, `RenderSettings.EnvironmentUsage`/`EnvironmentPurpose`/`RenderingSources`, `RenderEnvironmentId`/`SetRenderEnvironmentId`/`RenderEnvironmentOverride`/`SetRenderEnvironmentOverride`, `BackgroundStyle`, `AntialiasLevel`); `api-rhinocommon-document.md` (`LengthUnit`); kernel `Domain/rails` (`Op.Row`, `Op.Catch`, `Op.Confirm`, `Op.Side`, `ValidityClaim`, `Lease<T>`), `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/context` (`ModelUnit`), `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`, `Size2i`); `Document/tables.md` (`ResourceId`), kernel `Domain/rails` (`Custody.Settled`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[ComplexValueObject]`, `[ValueObject]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SubOwners {
     private readonly Seq<IDisposable> held;
 
@@ -164,10 +164,6 @@ public sealed record SubOwners {
     internal SafeFrame Guides { get; }
     internal RenderChannels Channels { get; }
 
-    // The window's release belongs to the BRACKET, never to a borrow: `Within` opens the seven wrappers once, runs
-    // whatever sequence of borrows the body asks against that one instant, and retires the finalizer registrations
-    // on exit through the package's both-arms release fold — so a release refusal APPENDS to the body's fault where
-    // a `finally` replaced it, and a read-then-write body stays expressible over ONE coherent wrapper set.
     internal static Fin<TOut> Within<TOut>(RenderSettings settings, Func<SubOwners, Fin<TOut>> borrow, Op key) =>
         from active in key.Need(settings)
         from activeBorrow in key.Need(borrow)
@@ -176,20 +172,13 @@ public sealed record SubOwners {
             .Settled(held: Seq(owners), release: window => window.Release(key), key: key)
         select result;
 
-    // Host truth: every sub-owner read off a `RenderSettings` is a NON-OWNING wrapper — the private `Dispose(bool)`
-    // body is empty and the public `Dispose` only runs `GC.SuppressFinalize`, so this release retires seven
-    // finalizer registrations and frees no native. A genuinely free-floating sub-owner inverts that: disposing it
-    // suppresses the finalizer that is its ONLY `DeleteCpp` path, so such a value never enters this window.
     private Fin<Unit> Release(Op key) => Custody.Release(
         held: held,
         release: owner => key.Catch(() => Fin.Succ(value: Op.Side(owner.Dispose))),
         key: key);
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Each row carries BOTH directions of its own host switch, so `Of` is one `Where` over `Items` and `Apply` one
-// `Iter`: the read and the seat cannot drift, and a new switch is one row rather than a record field, an `Of`
-// argument, and an `Apply` statement. `Rasm.Rhino.Display`'s two-row local vocabulary of this name composes here.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GroundTrait : ICapability<GroundTrait> {
@@ -311,8 +300,6 @@ public sealed partial class RenderTrait : ICapability<RenderTrait> {
         toSeq(Items).Iter(row => row.Seats(settings: settings, held: traits.Admits(capability: row)));
 }
 
-// The host publishes ONE band shape twice — on, linked, and two scales for the action frame and again for the
-// title frame — so the quadruple is `GuideBand` once and the row names which host properties it reads and seats.
 [SmartEnum<int>]
 public sealed partial class GuideZone {
     public static readonly GuideZone Action = new(
@@ -365,11 +352,6 @@ public sealed partial class SunAccuracy {
         key.Row<global::Rhino.Render.Sun.Accuracies, SunAccuracy>(native, static value => (int)value);
 }
 
-// `DitherMethod` is the `Rasm.Rhino.Render` namespace's ONE dither vocabulary: the settings sub-owner and the
-// Display render window both bind these rows. Host truth: `Dithering.Method` is a TWO-state native variant wearing
-// a three-row enum — the getter answers `FloydSteinberg` for any non-zero and `SimpleNoise` otherwise and never
-// answers `None`, and the setter writes `1` for anything but `SimpleNoise` — so `None` is an admissible INPUT row
-// that does not round-trip, and `Dithering.Enabled` is the real off switch a consumer wanting no dithering writes.
 [SmartEnum<int>]
 public sealed partial class DitherMethod {
     public static readonly DitherMethod None = new(key: (int)Dithering.Methods.None);
@@ -405,8 +387,6 @@ public sealed partial class EnvironmentView {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SunPlacement {
     private SunPlacement() { }
-    // The host publishes an on switch beside a minutes column and reads the minutes as zero when the switch is
-    // off, so the pair is ONE optional column and no consumer re-derives the pairing.
     public sealed record Automatic(
         double Latitude, double Longitude, double TimeZone,
         Option<int> DaylightSaving, DateTime Moment) : SunPlacement;
@@ -423,9 +403,6 @@ public abstract partial record SunPlacement {
             ValidityClaim.Finite(value: placement.Azimuth),
             ValidityClaim.Ordered(lower: -90d, upper: placement.Altitude),
             ValidityClaim.Ordered(lower: placement.Altitude, upper: 90d)),
-        // `Vector3d.IsValid` gates finiteness ALONE and admits the zero vector, which the host then reads back as
-        // a due-south horizon sun — a plausible angle pair no consumer separates from a measured one. The kernel
-        // direction claim refuses that ray here; a denormal ray still unitizes and stays admitted.
         manualVector: static placement => ValidityClaim.Direction(value: placement.Value));
 
     private static ValidityClaim Coordinate(double latitude, double longitude) => ValidityClaim.All(
@@ -441,7 +418,7 @@ public sealed partial class GammaMode {
     public static readonly GammaMode On = new(true);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct GuideBand(CapabilitySet<GuideBandTrait> Traits, double XScale, double YScale) {
     internal ValidityClaim IsValid => ValidityClaim.All(
         ValidityClaim.Nonnegative(value: XScale),
@@ -551,8 +528,6 @@ public sealed partial class SunState : IDetachedDocumentResult {
             Validate(sun.Enabled, sun.Intensity, accuracy, sun.North, placement, out SunState? value), value)
         select state;
 
-    // `SetPosition` seats `Azimuth`, `Altitude`, and the derived `Vector` together; two property writes leave
-    // `Vector` stale between them, and the host reads that stale ray back for any consumer sampling mid-apply.
     internal Fin<Unit> Apply(global::Rhino.Render.Sun sun, Op key) {
         SunState self = this;
         return key.Catch(() => Fin.Succ(value: Op.Side(() => {
@@ -672,7 +647,7 @@ public sealed record SafeFrameState(
     }
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChannelState : IDetachedDocumentResult {
     private ChannelState() { }
@@ -758,8 +733,6 @@ public abstract partial record RenderSource {
         key.AcceptText(value: value).Map(text => (RenderSource)project(text));
 }
 
-// `ScaleBackgroundToFit` holds on BOTH cases, so it is a base column rather than a per-case field a construction
-// site could set on one arm and forget on the other.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RenderOutput {
     private RenderOutput(bool scaleBackgroundToFit) => ScaleBackgroundToFit = scaleBackgroundToFit;
@@ -840,7 +813,7 @@ public readonly partial struct AntialiasPolicy {
     internal static Fin<AntialiasPolicy> Of(AntialiasLevel value, Op key) => key.AcceptValidated<AntialiasPolicy>((int)value);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct EnvironmentBinding(Option<ResourceId> Content, bool Override);
 
 public sealed record EnvironmentBindingState {
@@ -876,8 +849,6 @@ public sealed record EnvironmentBindingState {
             .ToFin()
             .Map(static admitted => new EnvironmentBindingState(rows: admitted));
 
-    // The full usage-purpose product, read off the aggregate rather than the admitted rows: a purpose the standard
-    // read never carried is exactly what this projection exists to publish.
     internal static Fin<Seq<(EnvironmentRole Role, EnvironmentView View, Option<Guid> Content)>> Resolve(
         RenderSettings settings, Op key) =>
         key.Catch(() => Fin.Succ(toSeq(EnvironmentRole.Items).Bind(role => toSeq(EnvironmentView.Items).Map(view => (
@@ -967,7 +938,7 @@ public sealed record RenderConfig(
 - Packages: `api-rhinocommon-rendersettings.md` (`Sun.SunDirection`, `Sun.AltitudeFromValues`, `Sun.JulianDay`, `Sun.TwilightZone`, `Sun.ColorFromAltitude`, `Sun.Here`); kernel `Numerics/calculus` (`SolarSite`, `SolarPosition.At`, `SunPosition`, `SunPosition.OfDirection`), `Numerics/atoms` (`PerceptualColor.OfHost`), `Domain/rails` (`Op.Catch`, `Op.AcceptValidated`, `ValidityClaim`); NodaTime (`Instant`, `Instant.FromDateTimeUtc`); LanguageExt.Core (`Fin`, `Option`); Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum]`, `[ComplexValueObject]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SunProblem {
     private SunProblem() { }
@@ -1004,10 +975,6 @@ public abstract partial record SunProblem {
         ValidityClaim.Finite(value: hours));
 }
 
-// `Sun.Here(out double, out double)` reads the MACHINE's geolocation service — where the running computer is — not
-// the document, not the earth anchor, and not the astronomy model every other problem evaluates over supplied
-// coordinates. That is a host-facts capability rather than a solve input, so it enters only as the grant a caller
-// names, and an implicit machine read inside an otherwise-pure solve is the deleted form.
 [SmartEnum<string>]
 public sealed partial class SunCapability {
     public static readonly SunCapability MachineLocation = new("machine-location");
@@ -1035,11 +1002,7 @@ public abstract partial record SunDerivation {
     public sealed record Authored(SunPosition Angles) : SunDerivation;
 }
 
-// --- [MODELS] --------------------------------------------------------------------------------
-// Engine bounds sit BELOW the kernel site's own gate: `SolarSite` admits time zone `[-14, 14]` and elevation
-// `(-500, 10000]` because astronomy holds there, while an annual building run reads `[-12, 14]` hours and
-// `[-300, 8900)` metres. Admitting the wider pair and letting the consumer refuse moves the refusal past the only
-// point that still knows which document produced it.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class SolarFrame {
     public SolarSite Site { get; }
@@ -1076,9 +1039,6 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
                select new SceneSun(Derivation: derivation, Enabled: active.Enabled, IntensityScale: active.Intensity);
     }
 
-    // The almanac is the kernel's and it is TOTAL over an admitted site, so the sited arm reads it directly: the
-    // site and the frame admit, and the angle pair is one call. A peer holding the same almanac reproduces the pair
-    // from the frame alone, which is the whole reason the descriptor carries both.
     private static Fin<SunDerivation> Derive(SunState state, double elevationMetres, Op key) =>
         state.Placement.Switch(
             context: (State: state, Elevation: elevationMetres, Op: key),
@@ -1106,13 +1066,6 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
                     .Map(static angles => (SunDerivation)new SunDerivation.Authored(Angles: angles))
                     .ToFin(Fail: context.Op.InvalidInput()));
 
-    // `Sun.Vector` points sun-TOWARD-scene — the direction light travels — so the scene-toward-sun ray the survey
-    // frame speaks is its negation. `Sun.North` carries the document's compass north as a counter-clockwise angle
-    // off `+X`, `90` (the host default) seating north on `+Y` and making the world frame the survey frame outright,
-    // so the turn that derotates a document is the bearing's OFFSET from that default. Taking the offset rather
-    // than the bearing keeps the default exact — a rotation built on `cos(90°)` instead carries its round-off into
-    // every reading and lands a due-north sun a few ulps BELOW `360`, in the last compass bucket rather than the
-    // first. Absence answers a ray that cannot unitize, which the host collapses to a due-south horizon reading.
     private static Option<Vector3d> Surveyed(Vector3d hostVector, double northDegrees) {
         Vector3d ray = -hostVector;
         double turn = (northDegrees - 90.0) * Math.PI / 180.0;
@@ -1122,9 +1075,6 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
             : None;
     }
 
-    // `Sun.GetDateTime(DateTimeKind.Local)` hands back the host's WALL clock, so the instant the almanac reads
-    // subtracts the zone and whatever saving offset the document had armed; folding only the zone shifts every
-    // summer capture by its saving minutes and moves the solved altitude with it.
     private static Instant Utc(SunPlacement.Automatic placement) =>
         Instant.FromDateTimeUtc(DateTime.SpecifyKind(
             placement.Moment
@@ -1133,7 +1083,7 @@ public sealed record SceneSun(SunDerivation Derivation, bool Enabled, double Int
             DateTimeKind.Utc));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SunSolver {
     public static Fin<SunSolution> Solve(SunProblem problem, Op? key = null) {
         Op op = key.OrDefault();
@@ -1189,7 +1139,7 @@ public static class SunSolver {
 - Packages: `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `Fact`, `FactStream`, `UndoSerial`), kernel `Domain/rails` (`Custody.Settled`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`); LanguageExt.Core (`Fin`, `Seq`, `Traverse`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SettingsBodyKind : ICapability<SettingsBodyKind> {
@@ -1204,13 +1154,8 @@ public sealed partial class SettingsBodyKind : ICapability<SettingsBodyKind> {
     public static readonly SettingsBodyKind Record = new(key: "record");
 }
 
-// The ONE axis roster: the key orders the receipt, `Bodies` is the readable admission set the kinded contract
-// derives `Admits` from, and `Read` is the host sample. The undo row carries no read because the commit envelope
-// mints its body — absence is the type, so the whole-state fold needs no predicate beside it.
 [SmartEnum<int>]
 public sealed partial class SettingsSlot : IFactSlot<SettingsBody, SettingsBodyKind> {
-    // Read-before-use: the row initializers consume these sets, so static construction order decides declaration
-    // order here rather than the public-before-private one.
     private static readonly CapabilitySet<SettingsBodyKind> Framed = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Frame);
     private static readonly CapabilitySet<SettingsBodyKind> Grounded = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Ground);
     private static readonly CapabilitySet<SettingsBodyKind> Skied = CapabilitySet<SettingsBodyKind>.Of(SettingsBodyKind.Sky);
@@ -1258,8 +1203,6 @@ public sealed partial class SettingsSlot : IFactSlot<SettingsBody, SettingsBodyK
             Some: read => read(owners, key).Bind(body => SettingsReceipt.Of(slot: this, body: body, key: key)),
             None: () => Fin.Succ(value: SettingsReceipt.Empty));
 
-    // The whole-state read IS the roster fold: every sampling row contributes one fact, the undo row contributes
-    // none, and the stream's own monoid assembles the result.
     internal static Fin<SettingsReceipt> State(SubOwners owners, Op key) =>
         toSeq(Items)
             .Traverse(slot => slot.Sample(owners: owners, key: key).ToValidation())
@@ -1292,8 +1235,6 @@ public abstract partial record SettingsBody : IFactBody<SettingsBodyKind> {
         channels: SettingsBodyKind.Channels,
         record: SettingsBodyKind.Record);
 
-    // The write half of the roster: one total fold, one arm per payload, and the undo record REFUSING because a
-    // stamp is evidence rather than an edit — a silently succeeding arm would let a stamped receipt replay clean.
     internal Fin<Unit> Apply(SubOwners owners, Op op) =>
         Switch(
             context: (Owners: owners, Op: op),
@@ -1330,22 +1271,17 @@ public abstract partial record SettingsResult : IDetachedDocumentResult {
     public sealed record Changed(SettingsReceipt Receipt) : SettingsResult;
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------------
-// The page's receipt IS the spine's stream closed over this page's two vocabularies. These are `.cs` `global using`
-// rows in a namespace-scoped file of their own — a file-scoped namespace forecloses them — so no consumer spells
-// the instantiation and no page-local receipt type exists to drift from the owner.
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using SettingsFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Render.SettingsSlot, Rasm.Rhino.Render.SettingsBody>;
 global using SettingsReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Render.SettingsSlot, Rasm.Rhino.Render.SettingsBody>;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record RenderState(
     SettingsReceipt Facts,
     SunEvidence DaylightEvidence,
     WorkflowEvidence WorkflowEvidence,
     Seq<(EnvironmentRole Role, EnvironmentView View, Option<Guid> Content)> EnvironmentResolution)
     : IDisposable, IDetachedDocumentResult {
-    // `Sun` and `LinearWorkflow` each answer a FRESH wrapper per property read, so the state and its evidence read
-    // one borrowed instance apiece — two reads of one sub-owner are two unsynchronized samples of live host state.
     internal static Fin<RenderState> Of(SubOwners owners, Op key) =>
         from facts in SettingsSlot.State(owners: owners, key: key)
         from environments in EnvironmentBindingState.Resolve(settings: owners.Settings, key: key)
@@ -1366,13 +1302,9 @@ public sealed record RenderState(
     public void Dispose() => DaylightEvidence.Dispose();
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The mint surface rides an extension block over the closed instantiation, so every `SettingsReceipt.*` call site
-// reads as this page's while the accumulation and the gate stay on the one owner.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SettingsReceipts {
     extension(SettingsReceipt) {
-        // The body's own kind SELECTS its slot through the stream's gate, so a caller names the payload and the
-        // axis derives — the last site that could pair an axis with the wrong state.
         public static Fin<SettingsReceipt> Edit(SettingsBody body, Op? key = null) {
             Op op = key.OrDefault();
             return from active in op.Need(body)
@@ -1427,10 +1359,6 @@ public static class Settings {
                     Fail: restore => Fin.Fail<SettingsReceipt>(error: fault + restore))),
             key: op);
 
-    // `RenderState` IS the detached replayable carrier, so the source borrow yields it directly; a `Duplicate()`
-    // lease would mint a second native, re-read the same total state off it, and carry a live aggregate the
-    // detached marker cannot type. Two sub-owner windows total and no more: ONE read window over the source, ONE
-    // write window over the target whose prior read and whose apply are two borrows of the same seven wrappers.
     private static Fin<SettingsReceipt> Copy(SettingsSource source, SettingsSource target, Op op) =>
         from activeTarget in op.Need(target)
         from state in source.Use(
@@ -1467,7 +1395,7 @@ public static class Settings {
 - Packages: `api-rhinocommon-rendersettings.md` (`GroundPlane.Changed`, `Skylight.Changed`, `Sun.Changed`, `SafeFrame.Changed`, `RenderChannels.Changed`, `RenderPropertyChangedEvent.Document`/`Context`); kernel `Domain/hooks` (`Ring<T>`, `Transition`), `Domain/rails` (`Op`, `Op.Catch`, `Cell`); `Document/lifetime.md` (`Subscription.Attach`/`AttachAll`), `Document/session.md` (`DocKey`, `IDetachedDocumentResult`); `Numerics/atoms` (`Dimension`); LanguageExt.Core (`Fin`, `Seq`, `Option`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[UseDelegateFromConstructor]`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public readonly record struct AmbientFact(AmbientPulse Pulse, Option<DocKey> Key, int Context) : IDetachedDocumentResult;
 public sealed record AmbientFailure(AmbientFact Fact, Error Fault) : IDetachedDocumentResult;
 
@@ -1488,7 +1416,7 @@ public sealed partial class AmbientPulse {
     internal partial Fin<Subscription> Bind(EventHandler<RenderPropertyChangedEvent> handler);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class AmbientWatch : IDisposable {
     private readonly Atom<Option<Subscription>> subscription;
     private readonly Ring<AmbientFailure> failures;
@@ -1524,8 +1452,6 @@ public sealed class AmbientWatch : IDisposable {
                select new AmbientWatch(attached: attached, failures: failures);
     }
 
-    // `args.Context` is a plain integer property, so the fallback fact carries it directly; the projection and the
-    // sink are the two rails that can refuse, and each parks the fact it was holding before the fault leaves.
     private static Fin<Unit> Deliver(
         AmbientPulse pulse,
         RenderPropertyChangedEvent args,
@@ -1544,8 +1470,6 @@ public sealed class AmbientWatch : IDisposable {
             Some: document => DocKey.Of(document: document, key: op).Map(key => contextual with { Key = Some(key) }),
             None: () => Fin.Succ(value: contextual)));
 
-    // A declined park is the ring's own `Lost` count, so the delivery reports the ORIGINAL fault either way and no
-    // retention refusal masquerades as the reason the sink failed.
     private static Fin<Unit> Park(AmbientFact fact, Error fault, Ring<AmbientFailure> failures, Op op) =>
         op.Catch(() => Fin.Succ(value: ignore(failures.Park(item: new AmbientFailure(Fact: fact, Fault: fault)))))
             .Match(

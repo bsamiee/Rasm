@@ -27,7 +27,7 @@ One locale law serves every AppUi surface. `LocaleRow` is the culture axis — t
 - Boundary: a row whose satellite resx is absent resolves the neutral strings through the inbox `ResourceManager` fallback while its flow, calendar, collation, script tags, and break oracle still apply. The failure modes sit OUTSIDE resolution: invariant globalization makes the culture constructor throw onto the `FormatRejected` rail, a build whose culture assignment drops a `qps` tag emits no satellite for the walk to reach, and a case-sensitive file system needs the directory in the tag's normalized casing. Plural and select grammar lives in the full ICU pattern stored at the resx base key, and `PluralRoute` remains the closed validation vocabulary for cardinal and ordinal pattern inventories rather than a locale column.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -39,9 +39,6 @@ public sealed partial class PluralRoute {
     public string Keyword { get; }
 }
 
-// Sort posture a surface asks for. `NumericOrdering` makes `A2` precede `A10`, which is the only ordering a
-// sheet, level, or grid-line roster reads correctly; the platform refuses it for prefix and index queries, so
-// natural rows stay sort-and-group postures and a text index resolves `Linguistic`.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -59,15 +56,9 @@ public sealed partial class CollationPosture {
 
     public StringComparer Comparer(CultureInfo culture) => StringComparer.Create(culture, Options);
 
-    // Named `Weight`, never `Key`: the generated smart-enum key property already owns that name, so a sort-key
-    // member spelled `Key` collides at generation rather than at the call site.
     public SortKey Weight(CultureInfo culture, string value) => culture.CompareInfo.GetSortKey(value, Options);
 }
 
-// Proofing postures: `Accent` proves face coverage without moving geometry, `Expand` proves layout by padding
-// to the band ratio, and brackets make truncation visible at both ends — a clipped tail with no closing bracket
-// IS the overflow report. `Scored` is the coverage column: proofing rows carry no satellite by construction,
-// so scoring them would report the whole registry missing.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -82,9 +73,6 @@ public sealed partial class PseudoPosture {
     [UseDelegateFromConstructor]
     public partial string Proof(string source);
 
-    // Latin-1 and Latin Extended-A substitutes only: the accent must render in every shipped face, so a proofing
-    // pass reports layout overflow rather than a missing-glyph refusal it manufactured itself.
-    // EXPRESSION_SPINE exemption: `string.Create`'s SpanAction admits no fold.
     static string Accented(string source) =>
         string.Create(source.Length, source, static (span, text) => {
             for (int index = 0; index < text.Length; index++) {
@@ -95,10 +83,8 @@ public sealed partial class PseudoPosture {
     static string Padding(int length) => new('·', ExpansionBand.Extra(length));
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-// Expansion is LENGTH-BANDED because translation growth is: a three-character label doubles while a paragraph
-// grows by a tenth. `Tail` is the open remainder AS A VALUE, so the fold is total with no sentinel row.
 public static class ExpansionBand {
     public const double Tail = 1.30d;
 
@@ -115,21 +101,15 @@ public static class ExpansionBand {
         (int)double.Ceiling(length * (Steps.Find(band => length <= band.Ceiling).Map(static band => band.Ratio).IfNone(Tail) - 1d));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Per-script face election. The tail enters `SKFontManager.MatchCharacter` beside the capability, so the host
-// resolves the face the SCRIPT wants — Simplified over Traditional Han, Naskh over Kufic Arabic — while the
-// ranked family chain stays the typography owner's single authority.
 public readonly record struct ScriptTags(Script Script, Seq<string> Tags);
 ```
 
 ```csharp signature
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// Shipped break oracles, each classifying the rune that BEGINS the next line: a kinsoku no-start rune answers
-// `None` so the breaker never opens before it, and every other rune defers to the typography classifier.
 public static class LocaleBreaks {
-    // JIS X 4051 kinsoku line-start prohibitions — the UAX #14 CL/NS subset the ideographic oracle enforces.
     public static readonly FrozenSet<int> NoStart = new[] {
         0x3001, 0x3002, 0xFF0C, 0xFF0E, 0xFF1A, 0xFF1B, 0xFF1F, 0xFF01, 0x309D, 0x309E, 0x30FD, 0x30FE, 0x30FC,
         0x3005, 0x3009, 0x300B, 0x300D, 0x300F, 0x3011, 0x3015, 0xFF09, 0xFF3D, 0xFF5D, 0x3041, 0x3043, 0x3045,
@@ -193,8 +173,6 @@ public sealed partial class LocaleRow {
 
     public PseudoPosture Pseudo { get; }
 
-    // Tag order is LOAD-BEARING and ends at the row's own tag, so the host matcher tries the script's preferred
-    // language first and still resolves under a face registered for the culture alone.
     public Seq<string> Tags(Script script) =>
         Scripts.Find(row => row.Script == script).Map(row => row.Tags).IfNone(Seq<string>()) + Seq(Key);
 
@@ -217,11 +195,8 @@ public sealed partial class LocaleRow {
 - Boundary: `GetResourceSet(culture, createIfNotExists: true, tryParents: false)` returns the row's OWN satellite and answers null where none exists, so coverage distinguishes an untranslated locale from a locale missing individual keys — the fallback-bearing `GetString` cannot make that distinction and is therefore not the conformance read; the returned `ResourceSet` is the manager's own cached instance, so no reader disposes it. Base resx values carry the complete ICU message, so exact `=n` branches, offsets, nested `select`, escaping, cardinal plural, and ordinal plural remain engine-owned and a call-site grammar branch is the deleted form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Width axis: `Full` carries the empty suffix so the base key IS the full variant and no surface pays a suffix
-// for the common case, and `Rank` orders the walk so a request falls to the next WIDER form rather than to a
-// narrower one that truncates meaning the caller asked to keep.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -235,8 +210,6 @@ public sealed partial class MessageLength {
 
     public int Rank { get; }
 
-    // Accessor-backed and lazy: the roster fills after static init, and the ladder is frozen, so each row's
-    // widening walk computes once instead of re-sorting a frozen roster per resolution.
     public Seq<MessageLength> Widening => Ladders.Value[this];
 
     private static readonly Lazy<FrozenDictionary<MessageLength, Seq<MessageLength>>> Ladders = new(
@@ -246,10 +219,8 @@ public sealed partial class MessageLength {
         LazyThreadSafetyMode.ExecutionAndPublication);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One resolution request. Context disambiguates a homograph the source language collapses — the noun `Scale`
-// beside the verb `Scale` — and length names the width the surface can actually paint.
 public readonly record struct MessageVariant(Option<string> Context, MessageLength Length) {
     public static readonly MessageVariant Default = new(None, MessageLength.Full);
 
@@ -257,8 +228,6 @@ public readonly record struct MessageVariant(Option<string> Context, MessageLeng
 
     public static MessageVariant In(string context, MessageLength length) => new(Some(context), length);
 
-    // Context outranks length: a wrong word at the right width is a mistranslation while the right word at the
-    // wrong width is a layout defect the proofing posture already surfaces.
     public Seq<string> Keys(string key) =>
         Context.Match(
             Some: context => Length.Widening.Map(length => Suffixed($"{key}.{context}", length)) + Length.Widening.Map(length => Suffixed(key, length)),
@@ -269,8 +238,6 @@ public readonly record struct MessageVariant(Option<string> Context, MessageLeng
 }
 
 public readonly record struct MessagePattern(string Source, PluralRoute Route) {
-    // Route participates in admission: the stored ICU pattern must carry the requested route's keyword, so a
-    // cardinal request cannot silently format an ordinal grammar and vice versa.
     public Fin<MessagePattern> Admitted(string key) =>
         Source.Contains(Route.Keyword, StringComparison.Ordinal)
             ? Fin.Succ(this)
@@ -281,7 +248,7 @@ public sealed record CoverageReceipt(string Tag, int Expected, Seq<string> Missi
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class LocaleStrings {
     public const string BaseName = "Rasm.AppUi.Strings";
@@ -296,9 +263,6 @@ public static class LocaleStrings {
 
     public static string Find(string key, CultureInfo strings) => Table.GetString(key, strings) ?? Marker(key);
 
-    // Resolution asks the TABLE, not the row, because a variant present in the neutral set and absent from the
-    // satellite still resolves — the fallback chain is the mechanism, so a partially translated locale degrades
-    // key by key instead of dropping the whole variant family.
     public static string Resolve(string key, MessageVariant variant, LocaleRow row, CultureInfo strings) =>
         row.Pseudo.Proof(variant.Keys(key)
             .Choose(candidate => Optional(Table.GetString(candidate, strings)))
@@ -312,8 +276,6 @@ public static class LocaleStrings {
 }
 
 public static class LocaleConformance {
-    // ONE conformance surface for the proof lane: the mirroring law census and the per-row coverage receipts
-    // answer together, so a mechanism no subject names and an untranslated key fail the same check.
     public static Fin<Seq<CoverageReceipt>> Verify(IClock clock) {
         Seq<MirrorMechanism> orphaned = MirrorSubject.Orphaned();
         if (!orphaned.IsEmpty) {
@@ -331,12 +293,8 @@ public static class LocaleConformance {
             : Fin.Succ(Seq<string>())
         select new CoverageReceipt(row.Key, expected.Count, missing, at);
 
-    // Neutral set IS the expectation: every key the product authors lands there, so conformance needs no second
-    // roster and a newly added key scores with no registry edit.
     static Fin<Seq<string>> Expected() => Names(CultureInfo.InvariantCulture, parents: true);
 
-    // `tryParents: false` answers the row's OWN satellite and null where none exists, so an untranslated locale
-    // reads as an empty set rather than as the neutral set the fallback would have handed back.
     static Fin<Seq<string>> Shipped(LocaleRow row) => Names(CultureInfo.GetCultureInfo(row.Key), parents: false);
 
     static Seq<string> Missing(Seq<string> expected, Seq<string> shipped) {
@@ -366,7 +324,7 @@ public static class LocaleConformance {
 - Boundary: ambient process culture remains absent — `CultureInfo.CurrentCulture` has no reader on any AppUi surface, and every format edge takes the resolved culture explicitly; the zoned pattern is built against the INJECTED provider the runtime resolves its zone from, because a statically named provider would parse against a registry the runtime never resolved a zone from. The theme seam carries `Strings` rather than `Formats`: the theme locale selects the SHIPPED control-theme strings, not number and date rendering, so a product running English strings under German formats keeps English theme captions — and all three Semi theme styles resolve a Chinese locale for an unset value, so the seam is required at construction and re-applied on every swap. `Resolve`, `Plural`, and `Message` trap culture and formatter exceptions onto `Fin`, and `Quantity` routes through the measurement policy so a dimensioned value renders in its surface's elected unit at its declared precision — a bare scalar reaching a measured label has no spelling. Every registry-resolved settings literal derives through `LocaleStrings.Key`, so a call-site interpolation of a message key has no producer.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 
 
@@ -395,10 +353,8 @@ public abstract partial record LocaleFault : Fault {
 ```
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Propagation destinations as ROWS: the arm table admits against this roster, so a new destination is one row
-// here and an arm table missing it refuses at composition instead of silently skipping a boot path.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -410,7 +366,7 @@ public sealed partial class LocaleSeam {
     public int Rank { get; }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record LocalePolicy(string Tag, string Zone, Option<string> FormatTag, string Units, int Denominator) {
     public const string Section = nameof(LocalePolicy);
@@ -419,9 +375,6 @@ public sealed record LocalePolicy(string Tag, string Zone, Option<string> Format
         Tag: LocaleRow.En.Key, Zone: "Etc/UTC", FormatTag: None, Units: UnitPosture.Metric.Key, Denominator: 16);
 }
 
-// The admitted arm table over the seam roster. Every arm takes the WHOLE candidate and reads what it needs —
-// the theme arm reads `.Strings` itself, so no arm narrows the seam to a projection a second destination
-// cannot share.
 public sealed record LocaleSeams(HashMap<LocaleSeam, Func<ResolvedLocale, Fin<Unit>>> Arms) {
     public static Fin<LocaleSeams> Of(params ReadOnlySpan<(LocaleSeam Seam, Func<ResolvedLocale, Fin<Unit>> Apply)> arms) {
         HashMap<LocaleSeam, Func<ResolvedLocale, Fin<Unit>>> table =
@@ -496,13 +449,9 @@ public sealed record ResolvedLocale(
 
     // --- [SHAPING_EDGES]
 
-    // One seam the itemizer reads: the language tail steers `MatchCharacter` per script while the ranked family
-    // chain stays typography's, so a locale never forks the capability election.
     public FaceRequest Face(TextStyleRow style, FontChain chain, PalettePosture palette, Script script) =>
         FaceRequest.Of(style, chain, palette, Row.Tags(script));
 
-    // One seam the breaker reads: the row's oracle widens the declared class vocabulary per locale rather than a
-    // second line-break implementation living beside the typography owner's.
     public Seq<TextLine> Wrap(ShapedText text, string source, double width, TrimPolicy trim) =>
         LineBreaker.Wrap(text, source, width, trim, Row.Break);
 
@@ -518,9 +467,6 @@ public sealed record ResolvedLocale(
                 args.ToFrozenDictionary(static arg => arg.Name, static arg => arg.Value, StringComparer.Ordinal),
                 Formats)));
 
-    // The pattern takes the INJECTED provider, never a static one: a zoned pattern resolves its zone ids through
-    // whichever provider it was built against, so a static mint would disagree with `Zone` on exactly the ids
-    // the two registries spell differently.
     private static ResolvedLocale Compose(
         LocaleRow row, DateTimeZone zone, IDateTimeZoneProvider zones, CultureInfo formats, MeasurePolicy measures) {
         ZonedDateTimePattern timestamp = ZonedDateTimePattern.CreateWithInvariantCulture(TimestampText, zones).WithCulture(formats);
@@ -543,8 +489,6 @@ public sealed record ResolvedLocale(
     }
 }
 
-// One typed-value coercion hook: NodaTime arguments format through the resolved display patterns under the row's
-// calendar and IFormattable values through Formats, so ICU pattern arguments never open a second path.
 public sealed class LocaleValueFormatter(
     ZonedDateTimePattern timestamp,
     LocalDatePattern date,
@@ -571,12 +515,8 @@ public sealed class LocaleValueFormatter(
 ```
 
 ```csharp signature
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
-// The settings correspondence as ONE roster: forward projection (`Write`), admission (`Check`), and inverse
-// landing (`Land`) are columns of one row family, so the two halves of the policy⇄form correspondence cannot
-// drift and a new settings column is one row. Riok.Mapperly is REFUSED for this seam by shape: the form side is
-// a keyed value bag built by `Seat` folds, not a member-bearing target the generator can construct.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -611,8 +551,6 @@ public sealed partial class LocaleField {
             text, () => new LocaleFault.MeasureRejected($"denominator {text}")),
         land: static (draft, text) => draft with { Denominator = int.Parse(text, CultureInfo.InvariantCulture) });
 
-    // `Some` rows render a closed picker over the named key set; `None` rows render free text, because the zone
-    // and format vocabularies are the TZDB's and the platform's, neither of which this page may freeze.
     public Option<Seq<string>> Options { get; }
 
     [UseDelegateFromConstructor]
@@ -627,8 +565,6 @@ public sealed partial class LocaleField {
     public static FormState State(LocalePolicy policy) =>
         toSeq(Items).Fold(FormState.Empty, (state, field) => state.Seat(field.Key, Seeded(field.Write(policy))));
 
-    // Applicative over the whole roster: every column defect reports in ONE refusal, and `Land` runs only over
-    // admitted text, so the fold is total and no column silently resolves to its default.
     public static Validation<Error, LocalePolicy> Decode(FormState state) =>
         toSeq(Items).Traverse(field => field.Check(Text(state, field)).Map(text => (Field: field, Text: text))).As()
             .Map(static admitted => admitted.Fold(LocalePolicy.Default, static (draft, row) => row.Field.Land(draft, row.Text)));
@@ -645,8 +581,6 @@ public sealed partial class LocaleField {
                     IntentBinding.Of(PaintRole.Text)),
                 FieldEntry.Words, Validator()));
 
-    // The inline validator delegates to the row's own admission, so field-level feedback and the decode fold
-    // read one predicate.
     Func<FieldValue, Validation<Error, Unit>> Validator() =>
         value => value.Uniform
             .Map(static element => element.GetString() ?? string.Empty)
@@ -662,12 +596,11 @@ public sealed partial class LocaleField {
 
     static FieldValue Seeded(string text) => FieldValue.Of(JsonSerializer.SerializeToElement(text), ValueOrigin.Declared);
 
-    // Refusals construct on the failing arm alone; target-typed conditional lifts both arms onto the carrier.
     static Validation<Error, string> Admit(bool holds, string text, Func<LocaleFault> refuse) =>
         holds ? text : (Error)refuse();
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed class LocaleRuntime(Atom<ResolvedLocale> cell, IDateTimeZoneProvider zones, LocaleSeams seams) {
     public Atom<ResolvedLocale> Cell { get; } = cell;
@@ -689,17 +622,12 @@ public sealed class LocaleRuntime(Atom<ResolvedLocale> cell, IDateTimeZoneProvid
         from landed in Landed(Cell.Commit(Cell, _ => resolved))
         select landed;
 
-    // The commit verdict is READ, never discarded: a ceded or contended swap means the propagated candidate is
-    // not the live locale, which is a refusal the caller must see, not a success-shaped fall-through.
     static Fin<Unit> Landed(Transition<ResolvedLocale> settled) => settled.Switch(
         committed: static _ => Fin.Succ(unit),
         ceded: static _ => Fin.Fail<Unit>(new LocaleFault.PropagationRejected("locale swap ceded to a concurrent writer")),
         refused: static row => Fin.Fail<Unit>(row.Cause),
         contended: static row => Fin.Fail<Unit>(new LocaleFault.PropagationRejected($"locale swap contended after {row.Attempts} attempts")));
 
-    // The settings registration this policy owes the registry. `Apply` routes back through `Republish`, so a
-    // settings edit, a boot policy, and a cross-process op-log write reach one propagation fold and an
-    // unresolved column keeps the live locale standing as `ReloadOutcome.Rejected`.
     public Validation<Error, SettingsRow> Settings(
         Func<HashMap<string, SettingScope>> scopes, double pickerExtent) =>
         Schema(pickerExtent).Map(schema => new SettingsRow(
@@ -787,10 +715,8 @@ flowchart LR
 - Boundary: caption CAPTURE and band rendering belong to `Document/media` — the audio tap, the segmentation, the transcription engine, and the timed band live with the media owner, and this page owns only what language a caption is transcribed or translated INTO and how its text shapes and announces; media consumes `CaptionPolicy` and hands back transcript text, and a locale-side audio pipeline is the deleted form. `ShapedAnnotation` passes the row's `RunSpec` and its `TypographyRole` to typography, so annotation feature tags stay role-owned and one reconciled feature sequence reaches shaping.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Posture is EARNED: `Assertive` interrupts the reader mid-utterance, so it belongs to a fact that invalidates
-// what is being spoken, and `Silent` is the row that declares deliberate silence rather than an absent setting.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -802,8 +728,6 @@ public sealed partial class SpeechPosture {
     public AutomationLiveSetting Setting { get; }
 }
 
-// The caption language election as a closed union: `Translated` binds the English target the engine-side
-// translate task admits, so the illegal translate-to-arbitrary-target combination has no spelling.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CaptionRoute {
     private CaptionRoute() { }
@@ -815,23 +739,19 @@ public abstract partial record CaptionRoute {
         translated: static _ => LocaleRow.En);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct AnnouncementPhrase(string Key, SpeechPosture Posture, MessageVariant Variant) {
     public static AnnouncementPhrase Of(string key, SpeechPosture posture) => new(key, posture, MessageVariant.Default);
 
     public AutomationLiveSetting Setting => Posture.Setting;
 
-    // Spoken strings carry no width constraint, so the variant carries context alone; resolution stays the one
-    // walk so an announcement and its visible label cannot drift apart.
     public Fin<string> Say(ResolvedLocale locale, params (string Name, object? Value)[] args) =>
         args.Length is 0
             ? Fin.Succ(locale.Label(Key, Variant))
             : locale.Message(Key, args);
 }
 
-// Language contract the media owner reads: absent `Source` elects engine-side language detection; `Target` and
-// `Translate` are projections of the route, so the media reads survive on one value.
 public readonly record struct CaptionPolicy(Option<string> Source, CaptionRoute Route) {
     public static CaptionPolicy Transcribe(LocaleRow target, Option<string> source) =>
         new(source, new CaptionRoute.Transcribe(target));
@@ -846,9 +766,6 @@ public readonly record struct CaptionPolicy(Option<string> Source, CaptionRoute 
 }
 
 public readonly record struct ShapedAnnotation(string Text, RunSpec Spec, TypographyRole Role) {
-    // Feature tags stay role-owned: shaping traverses `Role.Features` through the one `FeatureAdmission` mint and
-    // HarfBuzz applies script-required forms from the `RunSpec` script itself, so a locale-local feature
-    // vocabulary never forks the typography policy axis.
     public static ShapedAnnotation Of(string text, LocaleRow row) => new(text, row.Shaping, TypographyRole.Caption);
 }
 ```
@@ -865,7 +782,7 @@ public readonly record struct ShapedAnnotation(string Text, RunSpec Spec, Typogr
 - Boundary: the mechanism is stated ONCE per axis. Layout flow writes the subject's projected direction onto the surface ROOT and the platform cascade carries it to every descendant, so a per-control flow write is the deleted form. Icon mirroring belongs entirely to `assets#ICON_AXIS`: `IconRow.Mirror` carries the kernel `Option<MirrorAxis>` and the MECHANISM derives at the materializer from the resolved source — this page contributes `LocaleRow.Flow` alone, and a locale-side directional-asset roster would duplicate the axis column and strand the glyph-plane derivation at a second owner. Chrome zone remap and dock side both ride `Side`, so left and right swap while top and bottom hold. Order reversal applies to the RANK sequence a projection already produces, never to the underlying rows, so persistence and telemetry keep one canonical order and the mirror lives at presentation.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -899,8 +816,6 @@ public sealed partial class MirrorSubject {
 
     public MirrorMechanism Mechanism { get; }
 
-    // ONE projection every mechanism derives from: a never-flipping subject pins left-to-right against every row,
-    // so its root re-asserts the direction its content means instead of inheriting the ambient cascade.
     public FlowDirection Flow(LocaleRow row) => Flips ? row.Flow : FlowDirection.LeftToRight;
 
     public bool Mirrors(LocaleRow row) => Flow(row) == FlowDirection.RightToLeft;
@@ -929,7 +844,7 @@ public sealed partial class MirrorSubject {
 - Boundary: `Render` takes `IQuantity` and refuses the wider `IFormattable`, because a bare `double` satisfies the wider face and makes a unit-blind label reachable by construction; a role whose family does not match the supplied quantity refuses on the rail rather than converting through an unrelated token. Tabular participation is DECLARED on the role and consumed by the type table — the digit-advance feature stays typography's. Temperature is affine, so its conversion crosses the package's own reprojection and never a scalar offset applied here. Angular rendering is degrees-minutes-seconds under the DMS grammar and decimal degrees under the decimal grammar, both from one `Angle` family. Elapsed spans are a MEASURED grammar owned by `ElapsedGrammar` over the resolved duration pattern — a `MeasureGrammar` row for them would be a second elapsed authority with no electing role, which is why none exists.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -942,9 +857,6 @@ public sealed partial class UnitPosture {
     public partial Enum Pick(MeasureRole role);
 }
 
-// Grammar rows CARRY their fold, so a declared grammar without an arm is unspellable and the policy dispatch
-// deletes. The fraction row reads the posture itself: a metric readout under a fraction role renders decimal,
-// because sixteenths of a millimetre are noise.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -962,8 +874,6 @@ public sealed partial class MeasureGrammar {
     public partial string Spell(IQuantity converted, MeasureRole role, MeasurePolicy policy, CultureInfo formats);
 }
 
-// The imperial readout's own rung ladder: the settings picker offers these rows, so an arbitrary integer no
-// dimension formatter can render has no entry path.
 [SmartEnum<int>]
 public sealed partial class FractionRung {
     public static readonly FractionRung Half = new(2);
@@ -974,8 +884,6 @@ public sealed partial class FractionRung {
     public static readonly FractionRung SixtyFourth = new(64);
 }
 
-// Each row states BOTH unit tokens outright. The imperial fraction rows are the architectural readouts a shop
-// drawing dimensions in; the imperial extent row stays decimal.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1004,9 +912,6 @@ public sealed partial class MeasureRole {
         grammar: MeasureGrammar.Decimal, decimals: 2, tabular: true);
     public static readonly MeasureRole Energy = new("energy", EnergyUnit.KilowattHour, EnergyUnit.BritishThermalUnit,
         grammar: MeasureGrammar.Decimal, decimals: 1, tabular: true);
-    // The analysis probe and legend readouts. Three of the four carry the SAME unit in both postures — a package
-    // fact, not a shortcut: `IrradianceUnit` and `IlluminanceUnit` ship no imperial member and
-    // `RelativeHumidityUnit` is `Percent` alone, so an imperial posture reading these roles reads SI.
     public static readonly MeasureRole Irradiance = new("irradiance", IrradianceUnit.WattPerSquareMeter, IrradianceUnit.WattPerSquareMeter,
         grammar: MeasureGrammar.Decimal, decimals: 1, tabular: true);
     public static readonly MeasureRole Illuminance = new("illuminance", IlluminanceUnit.Lux, IlluminanceUnit.Lux,
@@ -1028,13 +933,8 @@ public sealed partial class MeasureRole {
 
     public Enum Unit(UnitPosture posture) => posture.Pick(this);
 
-    // Typography role a tabular readout resolves; the feature set stays typography's and this row states only
-    // which readouts need constant digit advances.
     public TypographyRole Typography => Tabular ? TypographyRole.Numeric : TypographyRole.Body;
 
-    // A row's two tokens name ONE quantity family and the declaring enum type IS that family, so a pair drafted
-    // across two families refuses at the roster's first touch instead of at a readout under the posture its
-    // author never ran.
     static partial void ValidateConstructorArguments(
         ref string key, ref Enum metricUnit, ref Enum imperialUnit, ref MeasureGrammar grammar, ref int decimals, ref bool tabular) {
         if (metricUnit.GetType() != imperialUnit.GetType() || decimals < 0) {
@@ -1043,8 +943,6 @@ public sealed partial class MeasureRole {
     }
 }
 
-// Relative granularity ladder: each row reads its own count off ONE calendar-accurate period, so a month spans
-// its own calendar's month rather than an averaged count of days.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -1064,7 +962,6 @@ public sealed partial class RelativeUnit {
 
     public string Stem => LocaleStrings.Key(nameof(RelativeUnit), Key);
 
-    // Coarse-first walk, computed once over the frozen roster.
     public static Seq<RelativeUnit> Ladder => Ordered.Value;
 
     private static readonly Lazy<Seq<RelativeUnit>> Ordered = new(
@@ -1073,34 +970,25 @@ public sealed partial class RelativeUnit {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public readonly record struct MeasurePolicy(UnitPosture Posture, int Denominator) {
     public Enum Unit(MeasureRole role) => Posture.Pick(role);
 
-    // The bare abbreviation of a role's elected unit, so an axis title, a legend, and a column header name one
-    // owner. The erased `(Type, int, IFormatProvider)` overload takes the boxed unit enum whole — its own type
-    // and integral value ARE the cache key.
     public string Abbreviation(MeasureRole role, CultureInfo formats) {
         Enum unit = Unit(role);
         return UnitAbbreviationsCache.Default.GetDefaultAbbreviation(unit.GetType(), Convert.ToInt32(unit, formats), formats);
     }
 
-    // Election applies to the QUANTITY, so its own abbreviation travels with the value and every grammar fold
-    // renders a converted quantity rather than a scalar that lost its unit at the boundary.
     public Fin<string> Render(IQuantity value, MeasureRole role, CultureInfo formats) =>
         Converted(value, role).Map(converted => role.Grammar.Spell(converted, role, this, formats));
 
     Fin<IQuantity> Converted(IQuantity value, MeasureRole role) =>
         Op.Of(name: "appui.locale.convert-unit").Catch(() => Fin.Succ(value.ToUnit(Unit(role))));
 
-    // Significant digits derive from the magnitude so the declared decimals mean DECIMAL PLACES: a general
-    // format with a fixed digit count would drop the fractional part of a large value entirely.
     internal static string Plain(IQuantity converted, MeasureRole role, CultureInfo formats) =>
         converted.ToString($"G{role.Decimals + Digits(converted)}", formats);
 
-    // Feet, whole inches, and a reduced fraction of an inch: the package splits feet from inches off its own
-    // customary projection and the denominator rounds the remainder, so an authored inch string never appears.
     internal string Fractional(IQuantity converted, CultureInfo formats) {
         var split = UnitsNet.Length.From(converted.Value, (LengthUnit)converted.Unit).FeetInches;
         long feet = (long)split.Feet;
@@ -1114,9 +1002,6 @@ public readonly record struct MeasurePolicy(UnitPosture Posture, int Denominator
         return feet is 0L ? inches : $"{feet.ToString(formats)}' {inches}";
     }
 
-    // Degrees, arcminutes, arcseconds — the seconds carry the role's declared decimals. `IQuantity.Value` is a
-    // `QuantityValue` whose double conversion is EXPLICIT, so the scalar narrows ONCE at the head and every term
-    // reads the narrowed value.
     internal static string Sexagesimal(IQuantity converted, MeasureRole role, CultureInfo formats) {
         double signed = (double)converted.Value;
         double magnitude = double.Abs(signed);
@@ -1133,7 +1018,6 @@ public readonly record struct MeasurePolicy(UnitPosture Posture, int Denominator
         return (numerator / divisor, denominator / divisor);
     }
 
-    // No BCL `long` GCD exists (`BigInteger.GreatestCommonDivisor` boxes), so the recursion stays.
     static long Gcd(long left, long right) => right is 0L ? left : Gcd(right, left % right);
 
     static int Digits(IQuantity converted) =>
@@ -1144,8 +1028,6 @@ public readonly record struct MeasurePolicy(UnitPosture Posture, int Denominator
 }
 
 public static class ElapsedGrammar {
-    // Coarsest nonzero unit wins, because a reader asking how long ago wants one granularity and a composed
-    // phrase spanning three is a duration readout wearing a relative phrase's clothes.
     public static Fin<string> Relative(ResolvedLocale locale, Instant from, Instant to) {
         Period period = Period.Between(
             from.InZone(locale.Zone, locale.Calendar).LocalDateTime,
@@ -1158,8 +1040,6 @@ public static class ElapsedGrammar {
                 None: () => Phrase(locale, RelativeUnit.Second, 0L));
     }
 
-    // Duration is a MEASURED span rather than a calendar one, so it renders through the resolved elapsed pattern
-    // and never through the relative phrase table — a stopwatch reading and "three days ago" are two grammars.
     public static string Elapsed(ResolvedLocale locale, Duration span) => locale.Span(span);
 
     static Fin<string> Phrase(ResolvedLocale locale, RelativeUnit unit, long count) =>

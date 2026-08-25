@@ -60,8 +60,6 @@ declare namespace Grid {
     readonly columnResizing: columnResizingState
     readonly columnVisibility: ColumnVisibilityState
   }
-  // the effect `Record` namespace shadows the global utility type across this whole module, so every record shape
-  // here spells `Record.ReadonlyRecord` — a bare `Record<K, V>` resolves to a non-generic namespace and fails
   type Banded = Record.ReadonlyRecord<string, unknown>
   type Persisted = typeof _Persisted.Type
 }
@@ -79,8 +77,6 @@ const _SLICE: Grid.Slice = {
   columnOrder: [],
   columnPinning: { start: [], end: [] },
   columnSizing: {},
-  // the transient drag slice seeds at rest: `isResizingColumn` is `false | string`, so the no-drag value is the
-  // literal `false` and never a null, an empty string, or an absent column id a handler would then resolve
   columnResizing: {
     columnSizingStart: [],
     deltaOffset: null,
@@ -93,19 +89,13 @@ const _SLICE: Grid.Slice = {
 }
 
 const _Persisted = Schema.Struct({
-  // the table's slice types are MUTABLE arrays and records, so each row decodes mutable: a readonly parcel forces a
-  // defensive copy at every rehydrate, and that copy is exactly where a restored layout silently forks from the fold
   columnOrder: Schema.mutable(Schema.Array(Schema.String)),
   columnSizing: Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Number })),
   columnVisibility: Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Boolean })),
-  // pinning is logical, so a persisted layout replays under either writing direction and the sticky
-  // offset rides a CSS logical inset the reader's direction resolves
   columnPinning: Schema.Struct({
     start: Schema.optionalWith(Schema.mutable(Schema.Array(Schema.String)), { default: () => [] }),
     end: Schema.optionalWith(Schema.mutable(Schema.Array(Schema.String)), { default: () => [] }),
   }),
-  // corners, never a normalized min/max rectangle: the anchor stays put while the focus corner moves, so a replayed
-  // band resumes a shift-extend exactly where it stopped and an exclusion keeps its place in the operation order
   cellSelection: Schema.mutable(Schema.Array(Schema.Struct({
     anchorColumnId: Schema.String,
     anchorRowId: Schema.String,
@@ -117,8 +107,6 @@ const _Persisted = Schema.Struct({
 
 const _apply = <K extends keyof Grid.Slice>(key: K) =>
   (state: Grid.Slice, updater: Updater<Grid.Slice[K]>): Grid.Slice =>
-    // a generic computed key in an object literal widens to a string index and loses the slice's shape, so the
-    // package construction carries the single-key record the checker cannot type from the literal
     ({ ...state, ...Record.singleton(key, functionalUpdate(updater, state[key])) })
 
 const _edge = <K extends keyof Grid.Slice>(
@@ -129,8 +117,6 @@ const _edge = <K extends keyof Grid.Slice>(
   const read = (): Grid.Slice[K] => registry.get(fold)[key]
   return {
     get: read,
-    // the table hands either a bare value or its own updater, and `Updater` is the union of both, so one parameter
-    // satisfies both arms of the store atom's intersected setter without a second overload
     set: (next: Updater<Grid.Slice[K]>) => registry.update(fold, (state) => _apply(key)(state, next)),
     subscribe: (observer: Observer<Grid.Slice[K]> | ((value: Grid.Slice[K]) => void)): Subscription => ({
       unsubscribe: registry.subscribe(fold, () =>
@@ -157,12 +143,8 @@ import { createColumnHelper } from "@tanstack/react-table"
 import { Array, Match, Option, Order } from "effect"
 
 declare namespace Grid {
-  // declare the registry vocabulary here rather than reading it off the features object: that object holds the meta
-  // slots, so keying the roster off it closes a type cycle through ColumnMeta
   type SortKey = "alphanumeric" | "basic" | "datetime" | "rank" | "text"
   type FilterKey = "equals" | "inDateRange" | "inNumberRange" | "includesString"
-  // the closed presentation roster — a new presentation is one member here plus its renderer at the consuming
-  // surface, so a free-spelled render string never reaches a column ("token" is review's change-column arm)
   type Render = "instant" | "number" | "text" | "toggle" | "token"
   type Cell = {
     readonly render: Grid.Render
@@ -187,10 +169,6 @@ declare namespace Grid {
 
 const _helper = createColumnHelper<Grid.Features, Grid.Banded>()
 
-// each row carries the cell's BEHAVIOR, never a bare projection name — `render` keys the roster's presentation,
-// `align` and `measured` decide the column's layout and whether Format.number folds its SI magnitude, `editable`
-// states which kinds a TableMeta commit port may write, and `sort`/`filter` name registry keys the features object
-// registers by construction, so a comparator is never spelled at a column
 const _CELL = {
   bool: { render: "toggle", align: "center", measured: false, editable: true, sort: "basic", filter: "equals" },
   int: { render: "number", align: "end", measured: true, editable: true, sort: "alphanumeric", filter: "inNumberRange" },
@@ -214,8 +192,6 @@ const _named = (document: Feed.Document): Option.Option<string> =>
     Match.orElse(() => Option.none<string>()),
   )
 
-// `getRowId` resolves before any table instance exists, so the band names its own anchor column: the composing view
-// hands this straight to the option and row selection keys on the brand from the first render, never the row index
 const _keyed = (document: Feed.Document): Option.Option<(row: Grid.Banded) => string> =>
   Option.map(_named(document), (name) => (row: Grid.Banded) => String(row[name]))
 
@@ -229,8 +205,6 @@ const _banded = (document: Feed.Document): ReadonlyArray<ColumnDef<Grid.Features
           header: column.name,
           sortFn: _CELL[column.kind].sort,
           filterFn: _CELL[column.kind].filter,
-          // a category repeats down the band, so equal adjacent values merge into one anchored run; the run is
-          // recomputed from rendered rows alone, so sorting and filtering only change which rows are adjacent
           spanRows: column.role === "category",
           meta: {
             cell: _CELL[column.kind],
@@ -308,16 +282,11 @@ import {
 } from "@tanstack/react-table"
 import { Order, Predicate } from "effect"
 
-// the comparator sees NUMBERS and nothing else: a consumer orders its own vocabulary by making the rank its column's
-// value, so the registry never learns a domain word. `resolveDataValue` normalizes before the comparison, so a column
-// with no rank to give sorts last in ascending order instead of throwing the whole model into NaN comparisons
 const _rank = constructSortFn({
   sort: (left: number, right: number) => Order.number(left, right),
   resolveDataValue: (value) => (Predicate.isNumber(value) ? value : Number.MAX_SAFE_INTEGER),
 })
 
-// stitched once outside every component: the object is the type parameter each column helper, column
-// def, and table instance narrows through, so a remount can never hand the grid a different vocabulary
 const _FEATURES = tableFeatures({
   cellSelectionFeature,
   cellSpanningFeature,
@@ -353,7 +322,6 @@ const _FEATURES = tableFeatures({
     sum: aggregationFn_sum,
     unique: aggregationFn_unique,
   },
-  // satisfies closes the loop the cell roster opens: a key the roster names and this slot drops fails here
   filterFns: {
     equals: filterFn_equals,
     inDateRange: filterFn_inDateRange,
@@ -372,8 +340,6 @@ const _FEATURES = tableFeatures({
 })
 
 declare namespace Grid {
-  // the alias homes at its value: the roster and the type every helper, def, and instance narrows through are one
-  // declaration apart, so neither can be widened without the other
   type Features = typeof _FEATURES
 }
 ```
@@ -426,9 +392,6 @@ declare namespace Grid {
   }
 }
 
-// the feature answers four physical box sides, each computed from the DISPLAY INDEX of the neighbouring cell, so the
-// lowest index is inline-start under either writing direction; folding them here is what keeps a physical side out of
-// every ring, outline, and sticky inset the grid then paints
 const _EDGE = {
   top: "blockStart",
   right: "inlineEnd",
@@ -439,15 +402,11 @@ const _EDGE = {
 const _edges = (edges: CellSelectionEdges): ReadonlyArray<Grid.Edge> =>
   Array.filterMap(Record.toEntries(_EDGE), ([side, edge]) => (edges[side] ? Option.some(edge) : Option.none()))
 
-// the counts answer the LOGICAL grid — the derived row model plus the one header row, and the visible leaf columns —
-// so a reader hears what the current filter admits, never the pre-filter source and never the mounted window
 const _counts = <TData>(table: Table<Grid.Features, TData>): Grid.Counts => ({
   rows: table.getRowModel().rows.length + 1,
   columns: table.getVisibleLeafColumns().length,
 })
 
-// indexes are 1-based over the logical grid with the header row at 1, so a windowed row still announces its true
-// position; the caller passes the row's model index, not its position in the mounted span
 const _seat = <TData>(cell: Cell<Grid.Features, TData, unknown>, row: number, column: number): Grid.Seat => ({
   rowIndex: row + 2,
   colIndex: column + 1,
@@ -463,8 +422,6 @@ const _seat = <TData>(cell: Cell<Grid.Features, TData, unknown>, row: number, co
 const _perch = <TData>(header: Header<Grid.Features, TData, unknown>, column: number): Grid.Perch => ({
   colIndex: column + 1,
   colSpan: header.colSpan,
-  // a placeholder header in a merged chain reports rowSpan 0, which HTML reads as span-to-the-end of the header
-  // group, so `covered` carries the same skip signal the seat does and the placeholder never reaches the DOM
   rowSpan: header.rowSpan,
   covered: header.isPlaceholder,
   sort: Match.value(header.column.getIsSorted()).pipe(
@@ -489,8 +446,6 @@ const _marked = <TData>(table: Table<Grid.Features, TData>): Option.Option<strin
     (column) => column.id,
   )
 
-// the marked column's OWN accessor answers identity, which is what lets one data-free marker serve a band row and a
-// wire row at once; the decode is the gate, so a value the brand refuses keeps the row out of the selection
 const _anchor = <TData>(
   table: Table<Grid.Features, TData>,
   row: Row<Grid.Features, TData>,
@@ -529,13 +484,10 @@ declare namespace Grid {
   }
 }
 
-// the `use` prefix is load-bearing: the rules-of-hooks check reads the NAME, so a `_window` spelling would leave every
-// call site of this hook unchecked while it still holds the virtualizer's subscription
 const _useWindow = <TData>(shape: Grid.Window<TData>): ReactVirtualizer<HTMLElement, HTMLElement> =>
   useVirtualizer({
     count: shape.rows.length,
     getScrollElement: shape.scroll,
-    // an index the model no longer carries keys as itself, so a shrinking model re-keys nothing that survived it
     getItemKey: (index) =>
       Option.match(Array.get(shape.rows, index), { onNone: () => index, onSome: (row) => row.id }),
     estimateSize: shape.estimate,
@@ -550,7 +502,6 @@ const _reveal = <TData>(
   anchor: string,
 ): void =>
   Option.match(Array.findFirstIndex(rows, (row) => row.id === anchor), {
-    // an anchor the current filter drops reveals nothing, rather than scrolling to whatever now sits at its index
     onNone: Function.constVoid,
     onSome: (index) => virtual.scrollToIndex(index, { align: "center" }),
   })
@@ -593,7 +544,7 @@ const Grid: Grid.Shape = {
   reveal: _reveal,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Grid }
 ```

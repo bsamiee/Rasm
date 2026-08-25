@@ -19,7 +19,7 @@ Temporal identity is the kernel's too: every tick advances one `MonotonicTimelin
 - Boundary: invalidation requests a repaint and returns; paint itself happens on the host's draw pass — a target that blocks until pixels land inverts the host contract and is unrepresentable here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using AppKit;
 using CoreAnimation;
 using Foundation;
@@ -31,7 +31,7 @@ using Rasm.Rhino.Document;
 
 namespace Rasm.Rhino.Viewport;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RedrawTarget {
     private RedrawTarget() { }
@@ -70,10 +70,7 @@ public abstract partial record RedrawTarget {
 - Boundary: `Microsoft.macOS` members live only inside the platform-gated pacer; portable code holds `FrameClock` values and kernel beats, never an `NSScreen`, `CADisplayLink`, or `nint`.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The kernel posture's PRODUCER: five host accessibility reads fill the kernel concession set, and the pace is the
-// admitted band the clock was resolved against. A non-macOS host answers the empty set — the platform publishes no
-// accommodation surface, so absence here is a measured fact rather than a skipped probe.
+// --- [TYPES] ---------------------------------------------------------------------------
 internal static class ConcessionProbe {
     private static readonly Seq<(MotionConcession Row, Func<bool> Active)> Reads = Seq<(MotionConcession, Func<bool>)>(
         (MotionConcession.ReduceMotion, static () => NSWorkspace.SharedWorkspace.AccessibilityDisplayShouldReduceMotion),
@@ -101,9 +98,6 @@ public abstract partial record FrameClock {
     public sealed record TimerCase(PaceBand Pace) : FrameClock;
     public sealed record IdleCase : FrameClock;
 
-    // `ScreenReachable` walks the application's windows, so the row decision is an AppKit read: probe and selection
-    // cross the kernel dispatch together and land inside one funnel — the Blocking case is the SYNC arity, so the
-    // crossing composes in this `Fin` query with no task in sight.
     public static Fin<FrameClock> Resolve(Option<PaceBand> pace = default, Op? key = null) {
         Op op = key.OrDefault();
         PaceBand band = pace.IfNone(PaceBand.Portable);
@@ -119,9 +113,6 @@ public abstract partial record FrameClock {
         timerCase: static clock => clock.Pace,
         idleCase: static _ => PaceBand.Portable);
 
-    // The tick is a bare PULSE: the drive mints its own kernel beat per pulse, so no row stamps time. The timer row
-    // IS the kernel clock — cadence, drift, missed counting, and observer isolation are `UiClock`'s — and this fold
-    // only projects the lease onto the attachment shape the pacer and the idle row already answer.
     internal Fin<MotionAttachment> Start(Action onTick, Action<Error> onFault, MonotonicTimeline timeline, FaultCell faults, Op key) =>
         from _ in UiThread.Run(new UiDispatch<Unit>.Current(() => Fin.Succ(unit)), DispatchLane.Immediate, key)
         from attachment in Switch(
@@ -142,8 +133,6 @@ public abstract partial record FrameClock {
         select attachment;
 }
 
-// The timer row's lease projection and the idle row's host attach — pause and resume over custody the kernel clock
-// or the host event already owns. A release fault parks on the drive's cell through the finish fold, never `ignore`.
 internal sealed class Attachment(Func<Unit> pause, Func<Unit> resume, Action release) : MotionAttachment {
     internal static readonly Attachment Completed = new(static () => unit, static () => unit, static () => { });
 
@@ -165,18 +154,13 @@ internal sealed class Attachment(Func<Unit> pause, Func<Unit> resume, Action rel
     public void Dispose() => release();
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// One Microsoft.macOS crossing: display-link pacing behind the macos14.0 gate; the link is vended by a window-derived
-// NSScreen and validated before use; teardown marshals onto the main run loop as RemoveFromRunLoop then Invalidate
-// then Dispose, the exact inverse of attachment, and a screen-parameter change rebinds the link in place. The pacer
-// forwards a bare pulse: `TargetTimestamp` is a presentation PREDICTION, so it never crosses into a kernel value.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class MacPacer : NSObject, MotionAttachment {
     private static readonly Selector TickSelector = new("pacerTick:");
     private readonly Action onTick;
     private readonly Action<Error> onFault;
     private readonly PaceBand pace;
     private readonly Op key;
-    // The link is vended in `Arm`, after construction, because its callback target is the pacer itself.
     private CADisplayLink? link;
     private NSObject? screenObserver;
 
@@ -195,8 +179,6 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
             return unit;
         });
 
-    // `MainScreen` describes the application's main display, never the paced surface's, so the anchor walks real
-    // windows and refuses when none resolves.
     private static Option<NSScreen> Anchor() =>
         OperatingSystem.IsMacOSVersionAtLeast(14)
             ? Optional(NSApplication.SharedApplication.KeyWindow?.Screen)
@@ -233,9 +215,6 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
         return Fin.Succ(unit);
     }));
 
-    // The requested band scales ONTO the panel through the band's own ladder: `MaximumFramesPerSecond` is the
-    // ceiling reference and `MaximumRefreshInterval` the floor's reciprocal, so the clamp ladder the band owns runs
-    // once on the rail and no hand min/max chain survives here.
     private Fin<CADisplayLink> Configured(CADisplayLink link, NSScreen screen) =>
         from ceiling in key.AcceptValidated<PositiveMagnitude>(candidate: Math.Max(1.0, (double)screen.MaximumFramesPerSecond))
         from scaled in pace.ScaleTo(reference: ceiling, key: key)
@@ -256,15 +235,12 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
             }));
     }
 
-    // Teardown is the exact inverse of attachment: remove from the same loop and mode, invalidate, then dispose.
     private static void Detach(CADisplayLink held) {
         held.RemoveFromRunLoop(NSRunLoop.Main, NSRunLoopMode.Common);
         held.Invalidate();
         held.Dispose();
     }
 
-    // Release marshals: a drive is disposed from whatever lane owns it, and removing, invalidating, and freeing a
-    // link off-main tears down a registration the main run loop still holds.
     protected override void Dispose(bool disposing) {
         if (disposing) {
             _ = Guarded(UiThread.Run(new UiDispatch<Unit>.Blocking(() => key.Catch(() => {
@@ -293,9 +269,7 @@ internal sealed class MacPacer : NSObject, MotionAttachment {
 - Boundary: one drive owns one clock attachment; concurrent drives on one target coexist because invalidation coalesces at the host — the pump never de-duplicates redraws across drives.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The lifecycle as a CLOSED state: a tick, a fault, a disposal, and a completion each STEP the gate and read the
-// verdict, so a race is a `Ceded` read rather than a boolean pair under a lock.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record DriveGate {
     private DriveGate() { }
@@ -304,8 +278,7 @@ internal abstract partial record DriveGate {
     internal sealed record Released : DriveGate;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// RENAMED from `MotionDrive`: the kernel owns that name for the sampler, and one assembly resolves bare names.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class MotionLease : IDisposable {
     private readonly Atom<DriveGate> gate;
     private readonly MotionAttachment clock;
@@ -337,8 +310,6 @@ public sealed class MotionLease : IDisposable {
 
     public Fin<Unit> Resume(Op? key = null) => Live(key.OrDefault(), () => Fin.Succ(clock.Resume()));
 
-    // The kernel's OWN retarget: the script cell commits the re-aimed script and a kernel refusal (retargeting a
-    // tween or a glide) lands untouched — steering a coast means minting the spring, which is the caller's move.
     public Fin<Unit> Retarget(double goal, Op? key = null) {
         Op op = key.OrDefault();
         return Live(op, () =>
@@ -355,10 +326,8 @@ public sealed class MotionLease : IDisposable {
     public void Dispose() => _ = finish(Fin.Succ(value: unit));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MotionPump {
-    // The timeline is the session's ONE injected `MonotonicTimeline`; the script admits through the kernel's own
-    // gate; the posture probes fresh per drive so an accessibility flip lands on the next drive.
     public static Fin<MotionLease> Drive(
         DocumentSession session,
         MotionScript script,
@@ -381,8 +350,6 @@ public static class MotionPump {
                select drive;
     }
 
-    // The TERMINAL sample per case, read off the kernel case's own columns: the eased curve at its end, the spring
-    // at its settled target, the glide at its projected rest — applied once, invalidated once, completed.
     private static Fin<MotionLease> Collapsed(
         DocumentSession session, MotionScript script, MotionPosture posture, RedrawTarget landing,
         Func<MotionSample, Fin<Unit>> apply, Op key) =>
@@ -433,9 +400,6 @@ public static class MotionPump {
                    gate: gate, clock: attachment, script: plan, last: last,
                    completion: done.Task, finish: Finish, key: key);
 
-        // Terminal custody is ONE fold: the gate steps to Stopping (a losing step means another path finished),
-        // pause and release run all-attempted, and every cleanup fault APPENDS onto the primary before any waiter
-        // resumes — a cleanup refusal never rides a discard.
         Fin<Unit> Finish(Fin<Unit> primary) {
             if (Cell.Step(gate, static held => held is DriveGate.Running ? Some<DriveGate>(new DriveGate.Stopping()) : None, key.InvalidContext())
                 is not Transition<DriveGate>.Committed) {
@@ -461,9 +425,6 @@ public static class MotionPump {
                 Fail: first => Fin.Fail<Unit>(error: first + fault)));
     }
 
-    // The tick body: mint the beat, ONE kernel step, apply, invalidate — gauged on the paced lane so an over-budget
-    // frame reads as a breached span. The seed advances through the kernel's own guarded-step law: a moved tail
-    // DECLINES rather than recomputing, so a doubled host callback lands a typed refusal, not a duplicate ordinal.
     private static void Tick(
         DocumentSession session, Atom<MotionScript> plan, Atom<Option<MotionSample>> last, MotionPosture posture,
         RedrawTarget landing, Func<MotionSample, Fin<Unit>> apply, MonotonicTimeline timeline, Atom<BeatSeed> seed,

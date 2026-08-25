@@ -24,7 +24,7 @@ Controller syntax is posting-owned and lives in ROWS: `FamilyGrammar` carries on
 - Packages: `Thinktecture.Runtime.Extensions` generates `ChecksumRule`, `SequenceCounter`, `RecordFrame`, `BlockLimit`, and `EmitPolicy`; `Encoding.GetBytes` and `ContentKey.Of` seal egress.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -44,7 +44,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Posting;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ChecksumRule {
     public static readonly ChecksumRule Xor = new("xor", "*", 0, static record => Fold(record, 0u, static (state, value) => state ^ value));
@@ -60,8 +60,6 @@ public sealed partial class ChecksumRule {
     public string Render(string record, Encoding codec) =>
         $"{record}{Separator}{Digest(codec.GetBytes(record)).ToString(Width > 0 ? $"X{Width.ToString(CultureInfo.InvariantCulture)}" : "D", CultureInfo.InvariantCulture)}";
 
-    // Exemption: the digest walks the record's own span. Copying to an array and re-wrapping it as a sequence cost
-    // two allocations per numbered line for a fold that reads each byte exactly once.
     private static uint Fold(ReadOnlyMemory<byte> record, uint seed, Func<uint, byte, uint> step) {
         uint state = seed;
         ReadOnlySpan<byte> span = record.Span;
@@ -128,8 +126,6 @@ public sealed partial class EmitPolicy {
         ref bool finalTerminator,
         ref RecordFrame frame,
         ref BlockLimit limit) {
-        // A record separator is what makes a physical record countable, so an empty one collapses the whole program
-        // onto one line the block cap then measures as a single record.
         if (newLine.Length == 0)
             validationError = new ValidationError("dialect:emit-policy:newline");
     }
@@ -139,7 +135,7 @@ public sealed partial class EmitPolicy {
         Validate(codec, newLine, finalTerminator, frame, limit, out EmitPolicy policy).Admitted(policy);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PostImage(
     EgressKind Kind,
     Seq<string> Records,
@@ -159,20 +155,14 @@ public sealed record PostImage(
 - Boundary: these rows decide SPELLING alone — admissibility stays with `GCommand.Admits` and `PostDialect.Features`.
 
 ```csharp signature
-// --- [GRAMMAR_ROWS] -------------------------------------------------------------------------------------------------------------------------------
-// One row per grammar family: the renderer pair and whether the family admits a structured body. The prior form
-// was a `when`-ladder over the (node, family) product with a `_` discard, so a new family compiled clean and every
-// node it should have rendered fell silently to the unsupported arm.
+// --- [GRAMMAR_ROWS] --------------------------------------------------------------------
 public sealed record FamilyGrammar(
     Func<PostDialect, GNode.Word, Fin<GWord>> Word,
     Func<PostDialect, GNode.CannedCycle, Fin<GWord>> Cycle,
     bool Structured);
 
-// The control language's own parameter prefix. Four arms differing by ONE character are one column.
 public sealed record MacroSyntax(char Prefix);
 
-// The control language's own subprogram spelling: the call template, the definition head, and the definition tail.
-// `M98`/`M99`/`O`/`CALL LBL`/`LBL 0` were literals in four bodies; here each is one row column.
 public sealed record SubprogramSyntax(
     Func<PostDialect, int, int, Seq<string>> Call,
     Func<PostDialect, int, Seq<string>> Open,
@@ -210,13 +200,9 @@ public static partial class Dialect {
                 static post => Seq(Word(post, CommandKeys.SubprogramReturn))),
         }.ToFrozenDictionary();
 
-    // The ONE vendor-word read. A key with no override on the dialect row is a capability the controller never
-    // declared, so the caller rails rather than emitting a word invented at the call site.
     private static Fin<string> Spelling(PostDialect dialect, string commandKey, FaultSubject.ProgramNode subject) =>
         dialect.CodeOverride(commandKey).ToFin(new FabricationFault.DialectUnsupported(dialect, subject));
 
-    // The unconditional read for rows the seeded dialect estate always carries; a missing entry renders as the bare
-    // key, which is visibly wrong in the emitted record rather than silently absent from it.
     private static string Word(PostDialect dialect, string commandKey) =>
         dialect.CodeOverride(commandKey).IfNone(commandKey);
 
@@ -225,8 +211,6 @@ public static partial class Dialect {
 
     private static string Integer(int value) => value.ToString(CultureInfo.InvariantCulture);
 
-    // The ONE numeric rendering, and it reads the DIALECT's declared precision. A fixed three-decimal format was
-    // spelled twice and contradicted every four-decimal controller row.
     private static string Number(PostDialect dialect, double value) =>
         Math.Round(value, dialect.Decimals).ToString($"F{Integer(dialect.Decimals)}", CultureInfo.InvariantCulture)
             .TrimEnd('0').TrimEnd('.');
@@ -258,7 +242,7 @@ public static partial class Dialect {
 - Boundary: `Dialect` never reparses, reconditions motion, invents absent command parameters, or maintains a second block-count projection. Parsed `Sequence` and `Checksum` values never survive, because `RecordFrame` owns numbering and digest on re-emission.
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Dialect {
     public static Fin<PostImage> Emit(CutProgram program, EmitPolicy policy) =>
         from kind in OutputKind(program)
@@ -292,7 +276,6 @@ public static partial class Dialect {
         nc1: static nc1 => Seq<GNode>(nc1),
         directive: static directive => Seq<GNode>(directive));
 
-    // One complete definition owns each subprogram head; repeated calls share it, while conflicting bodies rail.
     private static Fin<Seq<GWord>> Distinct(PostDialect dialect, Seq<GWord> definitions) => definitions
         .FoldM<Fin, (Seq<GWord> Words, Map<string, GWord.Subprogram> Definitions)>(
             (Seq<GWord>(), Map<string, GWord.Subprogram>()),
@@ -352,8 +335,6 @@ public static partial class Dialect {
     private static string Sequence(PostDialect dialect) =>
         dialect.Family == PostFamily.Conversational ? string.Empty : "N";
 
-    // The GENERATED dispatch. Every node case has an arm and every arm reads its family's row, so a family with no
-    // renderer for a node fails on that row rather than through a discard that silently swallowed the node.
     private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Lower(PostDialect dialect, GNode node) =>
         node.Switch(
             state: dialect,
@@ -380,7 +361,6 @@ public static partial class Dialect {
             (Executable: Seq<GWord>(), Definitions: Seq<GWord>()),
             static (state, row) => (state.Executable.Concat(row.Executable), state.Definitions.Concat(row.Definitions))));
 
-    // Block-delete renders through the one correspondence, so a prefixed record is still exactly one counted record.
     private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Framed(
         BlockFrame frame, (Seq<GWord> Executable, Seq<GWord> Definitions) body) =>
         (frame.Optional
@@ -409,8 +389,6 @@ public static partial class Dialect {
             word.Mode,
             dialect.Retention));
 
-    // A conversational control without its own record grammar fails typed; emitting word-address records under a
-    // conversational family would post a program the control cannot read.
     private static Fin<GWord> Verb(PostDialect dialect, GNode.Word word) =>
         Admit(dialect, word).Bind(admitted => dialect.Macro == MacroGrammar.QParam
             ? Klartext(dialect, word, admitted)
@@ -434,8 +412,6 @@ public static partial class Dialect {
         _ => Address(dialect, word, admitted),
     };
 
-    // A press brake reads a numbered bend record, not a word-address block: each admitted address becomes one
-    // addressed field on one record, so the forming family posts real bend programs rather than refusing.
     private static Fin<GWord> BendRecord(PostDialect dialect, GNode.Word word) =>
         Admit(dialect, word).Map(admitted => (GWord)new GWord.Conversational(Seq(
             ($"{Word(dialect, word.Command.Key)} "
@@ -445,7 +421,6 @@ public static partial class Dialect {
     private static Fin<GWord> BendCycle(PostDialect dialect, GNode.CannedCycle cycle) =>
         BendRecord(dialect, new GNode.Word(cycle.Command, cycle.SingleBlockWords, cycle.Mode));
 
-    // An omitted center offset is zero by RS274 definition, so absence is the value; a present symbolic offset fails.
     private static Fin<double> Center(PostDialect dialect, GNode.Word word, Arr<GParam> words, char address) =>
         words.Find(parameter => parameter.Address == address).Match(
             Some: parameter => Native(parameter.Value)
@@ -476,7 +451,6 @@ public static partial class Dialect {
                 : Unsupported(dialect, node)).As()
             .Map<GWord>(static words => new GWord.Expanded(words));
 
-    // Control language, never controller identity: one `MacroGrammar` row is one vendor record grammar.
     private static Seq<string> CycleRecords(PostDialect dialect, GNode.CannedCycle cycle, Arr<GParam> words) {
         string code = Word(dialect, cycle.Command.Key);
         Seq<string> values = words.Map(parameter => Value(dialect, parameter.Value)).ToSeq();
@@ -516,8 +490,6 @@ public static partial class Dialect {
                     .Concat(body.Definitions)))
             : Unsupported(dialect, subprogram).Map(Executable);
 
-    // Every additive record resolves through the dialect's own override map, so a streaming controller spelling its
-    // layer mark or temperature word differently is one map entry rather than four literals in this body.
     private static Fin<GWord> AdditiveRecord(PostDialect dialect, GNode.AdditiveLayer layer) =>
         from mark in Spelling(dialect, CommandKeys.LayerMark, new FaultSubject.ProgramNode("additive-layer"))
         from extrude in Spelling(dialect, CommandKeys.ExtrudeMove, new FaultSubject.ProgramNode("additive-layer"))
@@ -538,8 +510,6 @@ public static partial class Dialect {
                 ? Fin.Succ(parameters)
                 : Fin.Fail<Arr<GParam>>(new FabricationFault.DialectUnsupported(dialect, word.Subject)));
 
-    // `GCommand.Admits` already discharges the row's declared feature and modality demand; only parameter-decided
-    // capability survives here.
     private static bool Capability(PostDialect dialect, GCommand command, Arr<GParam> parameters) {
         bool rotary = !parameters.Exists(static parameter => parameter.Address is 'A' or 'B' or 'C')
             || dialect.Features.Contains(DialectFeature.Rotary);
@@ -574,7 +544,7 @@ public static partial class Dialect {
 - Boundary: an annotation rides the family's own comment channel — parenthesised for word-address, semicolon for every other family — so a controller that ignores comments loses nothing.
 
 ```csharp signature
-// --- [DIRECTIVES] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [DIRECTIVES] ----------------------------------------------------------------------
 public static partial class Dialect {
     private static Fin<(Seq<GWord> Executable, Seq<GWord> Definitions)> Directive(
         PostDialect dialect, MotionDirective directive) => directive.Switch(
@@ -586,8 +556,6 @@ public static partial class Dialect {
                     GParam.Number('D', row.ResolvedRpm, ProgramUnits.Metric))
                 : Arr(GParam.Number('S', row.ResolvedRpm, ProgramUnits.Metric)),
             None)),
-        // The BASIS names the address and the dialect's own feature admits it; a controller carrying neither dwell
-        // feature receives the pause as an annotation rather than a word it would reject at the block.
         dwell: static (post, row) => DwellAddress(post, row.Basis).Match(
             Some: address => Lower(post, new GNode.Word(
                 GCommand.Dwell, Arr(GParam.Number(address, row.Amount, ProgramUnits.Metric)), None)),
@@ -606,8 +574,6 @@ public static partial class Dialect {
             None: () => Fin.Succ(Executable(Annotated(post, Seq(
                 $"SYNC {Integer(row.FromMove)}:{Integer(row.ToMove)} S{Number(post, row.Rpm)} "
                 + $"F{Number(post, row.Lead)} {row.Hand.Key}"))))),
-        // The orient angle the atom DECLARES is what the stop position means; the retract vector is the withdrawal
-        // that follows it, so both ride their own addresses rather than one being recovered from the other.
         orientedStop: static (post, row) => Lower(post, new GNode.Word(
             GCommand.SpindleOrient,
             Arr(
@@ -629,12 +595,9 @@ public static partial class Dialect {
         seconds: static (post, _) => post.Features.Contains(DialectFeature.TimeDwell) ? Some('P') : None,
         revolutions: static (post, _) => post.Features.Contains(DialectFeature.RevolutionDwell) ? Some('U') : None);
 
-    // The family's own comment channel. A word-address control parenthesises; every other family prefixes.
     private static GWord Annotated(PostDialect dialect, Seq<string> records) => new GWord.Text(records.Map(record =>
         dialect.Family == PostFamily.WordAddress ? $"({RasmRecord} {record})" : $";{RasmRecord} {record}"));
 
-    // The package's own annotation tag, so a controller log or a re-reading tool separates posted evidence from a
-    // draftsman's comment without parsing the record body.
     private const string RasmRecord = "RASM";
 
     private static string SpecializedRecord(PostDialect dialect, SpecializedToolpathRow row) => row.Switch(
@@ -681,7 +644,7 @@ public static partial class Dialect {
 - Boundary: a dialect declaring no dynamic-frame or rotary feature refuses the slot rather than degrading it to a base offset that means a different frame.
 
 ```csharp signature
-// --- [COORDINATES] --------------------------------------------------------------------------------------------------------------------------------
+// --- [COORDINATES] ---------------------------------------------------------------------
 public static partial class Dialect {
     private static Fin<Seq<GWord>> WcsFrame(PostDialect dialect, GNode.CoordinateFrame node) => node.Assignment.Slot.Switch(
         state: (Dialect: dialect, Frame: node.Frame),
@@ -711,15 +674,11 @@ public static partial class Dialect {
                 ModalGroup.Transform, Origin(state.Dialect, state.Frame), None, state.Dialect.Retention)))
             : Fin.Fail<Seq<GWord>>(new FabricationFault.DialectUnsupported(state.Dialect, WcsSubject)));
 
-    // The RS274 `G10` write levels: work offsets write at level two and extended offsets at level twenty, so the
-    // two ordinals are the protocol's own and never a tuning knob.
     private const int BaseLevel = 2;
     private const int ExtendedLevel = 20;
 
     private static readonly FaultSubject.ProgramNode WcsSubject = new("coordinate-frame");
 
-    // The rotary work-offset axis rides the slot's own ordinal against the roster's rotary block, so the address is
-    // the axis the frame names rather than a positional guess.
     private static char RotaryAddress(double axis) => axis <= 0.0 ? 'A' : axis == 1.0 ? 'B' : 'C';
 
     private static Fin<GWord> Base(PostDialect dialect, int ordinal) =>
@@ -746,8 +705,6 @@ public static partial class Dialect {
         GParam.Number('Y', Math.Round(frame.Origin.Y, dialect.Decimals), ProgramUnits.Metric),
         GParam.Number('Z', Math.Round(frame.Origin.Z, dialect.Decimals), ProgramUnits.Metric));
 
-    // The COMMAND row carries the base-or-extended discriminant, so the selection reads the value it already holds
-    // rather than a mode flag a caller could set against the command it passed.
     private static Fin<GWord> WcsWord(PostDialect dialect, Arr<GParam> words, GCommand command) =>
         words.Find(static parameter => parameter.Address == 'P')
             .Bind(static parameter => parameter.Value.Scalar)
@@ -772,9 +729,7 @@ public static partial class Dialect {
 - Boundary: NC1 records carry their own fixed numeric spelling — a DSTV descriptor is read by field position and a controller-declared decimal count has no meaning in it — so this cluster renders through its own declared format rather than `PostDialect.Decimals`.
 
 ```csharp signature
-// --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
-// The `ST` descriptor as a positional record of RENDERED fields, in DSTV emission order. Declaring the shape is
-// what lets one `[Mapper]` prove the projection complete.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record Nc1Header(
     string OrderIdentification,
     string DrawingIdentification,
@@ -808,8 +763,6 @@ public sealed record Nc1Header(
         PaintingSurfaceByMeter, Text1InfoOnPiece, Text2InfoOnPiece, Text3InfoOnPiece, Text4InfoOnPiece);
 }
 
-// The steel reader's INVERSE. `RequiredMappingStrategy.Target` makes every descriptor column a build obligation and
-// `EnabledConversions = None` refuses the silent `ToString` that would render a unit suffix into a positional field.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target, EnabledConversions = MappingConversionType.None)]
 [UseStaticMapper(typeof(DstvMap))]
 internal static partial class Nc1Map {
@@ -830,8 +783,6 @@ internal static partial class Nc1Map {
     [MapProperty(nameof(SteelHeader.PaintingSurfaceByMeter), nameof(Nc1Header.PaintingSurfaceByMeter), Use = nameof(Scalar))]
     public static partial Nc1Header Header(SteelHeader source);
 
-    // The outbound half of the codec pair whose inbound half `DstvMap` owns: both directions carry the descriptor's
-    // own three-decimal spelling, so a read followed by a write reproduces the source field.
     [UserMapping]
     internal static string Mm(UnitsNet.Length value) => Scalar(value.As(LengthUnit.Millimeter));
 
@@ -844,8 +795,6 @@ internal static partial class Nc1Map {
     [UserMapping]
     internal static string Count(int value) => value.ToString(CultureInfo.InvariantCulture);
 
-    // A DSTV field is read by POSITION, so its numeric spelling is the format's own and never a controller-declared
-    // decimal count.
     [UserMapping]
     internal static string Scalar(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 }
@@ -896,7 +845,7 @@ public static class Nc1Canonical {
 - Boundary: robot delivery rides the `CellDrive` upload channel, and a dialect gains no second delivery surface per transport.
 
 ```csharp signature
-// --- [DELIVERY] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [DELIVERY] ------------------------------------------------------------------------
 public sealed record ProgramDelivery(
     ContentKey Image,
     Option<ContentKey> Transferred,

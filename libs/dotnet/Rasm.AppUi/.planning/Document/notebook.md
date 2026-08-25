@@ -21,7 +21,7 @@ Reproducible computational documents ride the notebook rail. `NotebookCell` is t
 - Boundary: the capability pin is the reproducibility law and it is admitted at CONSTRUCTION — a blank capability, checksum, or substrate refuses at the factory, so `Option<CapabilityPin>` means exactly "this kind carries no pin" and the three-state space an emptiness probe used to guard at every use is gone; the pin composes the `Rasm.AppHost/Runtime/determinism#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` rather than a parallel notebook-local hash. Markdown cells route to the typography projection and chart/render cells to the chart and visual owners, so a notebook-local renderer is the deleted form; code cells edit through the `Editing/codepane#CODE_PANE` capsule, so the notebook mints no second editor. A code cell is DATA — a captured execution delegate riding a cell is the rejected form, because a persisted or exported notebook must reconstruct execution from the pin and source alone. `NotebookFault` keeps each refusal distinct through its direct generated union case.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -32,8 +32,6 @@ public sealed partial class PinAxis {
         static (recorded, live) => string.Equals(recorded.Checksum, live.Checksum, StringComparison.Ordinal));
     public static readonly PinAxis Substrate = new("substrate",
         static (recorded, live) => string.Equals(recorded.Substrate, live.Substrate, StringComparison.Ordinal));
-    // `Reproduces` answers `Fin<Unit>` carrying both fingerprint texts on refusal, so the environment row reads
-    // the kernel's own verdict rather than comparing digests this page would have to keep in step.
     public static readonly PinAxis Environment = new("environment",
         static (recorded, live) => Rasm.AppHost.Runtime.DeterminismKernel.Reproduces(recorded.Context, live.Context).IsSucc);
 
@@ -41,8 +39,6 @@ public sealed partial class PinAxis {
     public partial bool Holds(CapabilityPin recorded, CapabilityPin live);
 }
 
-// Admission at CONSTRUCTION: the unpinned state is unrepresentable, so `Option<CapabilityPin>` carries the one
-// legal absence and no consumer re-checks emptiness.
 [ComplexValueObject]
 public sealed partial class CapabilityPin {
     public string Capability { get; }
@@ -52,17 +48,12 @@ public sealed partial class CapabilityPin {
 
     public long Seed => unchecked((long)Context.Seed);
 
-    // ONE filter over the axis roster: the refusal names EVERY axis that moved, and `subject` is the caller's
-    // own name for what drifted — a cell id at evaluation, a lane at verification — so the fault reads as
-    // evidence without this owner knowing who asked.
     public Fin<Unit> Matches(CapabilityPin live, string subject) =>
         toSeq(PinAxis.Items).Filter(axis => !axis.Holds(this, live)) switch {
             { IsEmpty: true } => Fin.Succ(unit),
             var drifted => Fin.Fail<Unit>(NotebookFault.Drifted(subject, drifted.Strict())),
         };
 
-    // Three independent columns refuse together through the applicative, so a pin authored with two blanks
-    // reports two rather than costing two round trips.
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
         ref string capability,
@@ -109,10 +100,6 @@ public sealed partial class CellMetadata {
             : Validation<Error, Unit>.Success(unit);
 }
 
-// The kind vocabulary the union projects into. `Evaluates` is the run capability the chrome's verb narrowing
-// reads, so the locked kind strings the co-edit register writes, the insertion roster, and the verb column are
-// ONE declaration read three ways — a type-test ladder at the toolbar was a second enumeration of this family
-// that a new case could not break, which is exactly what the Growth claim below promises against.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -139,9 +126,6 @@ public abstract partial record CellOutput {
     public sealed record Error(LanguageExt.Common.Error Fault) : CellOutput;
     public sealed record Empty : CellOutput;
 
-    // The fault peek lives on the OWNER through the generated total dispatch, so the recompute's poison check
-    // and the chrome's failure reading ask one question and a new output case must decide whether it carries a
-    // fault at compile time.
     public Option<LanguageExt.Common.Error> Fault => Switch(
         receipt: static _ => Option<LanguageExt.Common.Error>.None,
         rows: static _ => Option<LanguageExt.Common.Error>.None,
@@ -152,10 +136,6 @@ public abstract partial record CellOutput {
         empty: static _ => Option<LanguageExt.Common.Error>.None);
 }
 
-// Universal columns are BASE positional data threaded through the case constructors — a computed base
-// projection sharing a case parameter name suppresses positional-property synthesis (CS8907 silently discards
-// the argument, a matching-type arm recurses, a mismatched type is CS8866), so Id/Inputs ride the base row and
-// the optional pin rides the distinctly named Pinned column.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NotebookCell(string Id, Seq<string> Inputs, Option<CapabilityPin> Pinned) {
     public sealed record Code(string Id, string Source, CapabilityPin Pin, Seq<string> Inputs) : NotebookCell(Id, Inputs, Some(Pin));
@@ -171,8 +151,6 @@ public abstract partial record NotebookCell(string Id, Seq<string> Inputs, Optio
         render: static _ => CellKind.Render, viewpoint: static _ => CellKind.Viewpoint,
         parameter: static _ => CellKind.Parameter, evidence: static _ => CellKind.Evidence);
 
-    // The pin gate runs ONCE, on the carrier that decides whether a pin exists at all — the per-arm ternary it
-    // replaces had to be repeated at every pinned kind, so a new pinned case could silently skip verification.
     public IO<CellOutput> Evaluate(NotebookRuntime runtime, HashMap<string, CellOutput> upstream) =>
         Pinned.Match(
             Some: pin => Verified(runtime, pin).Match(
@@ -180,8 +158,6 @@ public abstract partial record NotebookCell(string Id, Seq<string> Inputs, Optio
                 Fail: error => IO.fail<CellOutput>(error)),
             None: () => Ran(runtime, upstream));
 
-    // The live pin is the RUNTIME's read (the capability registry answers what is installed now); the drift
-    // comparison is the pin's own, so neither side re-derives the other's fact.
     Fin<Unit> Verified(NotebookRuntime runtime, CapabilityPin pin) =>
         runtime.LivePin(pin).Bind(live => pin.Matches(live, Id));
 
@@ -196,13 +172,8 @@ public abstract partial record NotebookCell(string Id, Seq<string> Inputs, Optio
         evidence: static (ctx, e) => ctx.Runtime.Timeline(e.Query, ctx.Upstream));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The cell roster and its index move as ONE value: `Cells` is document order, `At` the id-and-ordinal index
-// every fold reads. Both are get-only so no `with` can re-seat the order behind a stale index, and `Of`
-// REFUSES a duplicate id — the defect three independent `Find` scans answered by first hit, at O(n) each.
-// A document-level ordinal column reached no reader while the co-edit projection had no value to source it
-// from and stamped a literal zero into a reproducibility manifest; the ordinal is the roster's, not a column.
 public sealed record Notebook {
     private Notebook(string key, Seq<NotebookCell> cells, HashMap<string, (NotebookCell Cell, int Ordinal)> at, HashMap<string, CellMetadata> metadata) {
         Key = key;
@@ -226,7 +197,7 @@ public sealed record Notebook {
         At.Find(id).ToFin(new NotebookFault.MissingUpstream($"notebook/cell-absent:{id}"));
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NotebookFault : Fault {
@@ -236,7 +207,6 @@ public abstract partial record NotebookFault : Fault {
     public string Detail { get; }
     public override string Message => Detail;
 
-    // ONE drift mint, so the rendered axes and the typed column can never disagree.
     public static CapabilityDrift Drifted(string subject, Seq<PinAxis> axes) =>
         new($"{subject}: capability pin drifted on {string.Join(", ", axes.Map(static axis => axis.Key))}", axes);
 
@@ -248,11 +218,8 @@ public abstract partial record NotebookFault : Fault {
     public sealed partial record CycleDetected(string Detail) : NotebookFault(Detail);
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// Execute is the ONE code-cell dispatch: the Compute capability the pin names runs the source, so a persisted
-// or replayed notebook resolves execution from the pin registry. `Redrive` is the runtime's policy and not the
-// notebook's — the transient half rides the raised fault's own `Retriability`, so no case here classifies.
 public sealed record NotebookRuntime(
     Func<CapabilityPin, Fin<CapabilityPin>> LivePin,
     Func<CapabilityPin, string, HashMap<string, CellOutput>, IO<CellOutput>> Execute,
@@ -273,7 +240,7 @@ public sealed record NotebookRuntime(
 - Boundary: the AppHost `RecomputeGraph` is the ONE incremental-recompute owner — a second topo sort, dirty walk, or recompute scheduler here is the deleted form, and the port is decode-only: the notebook supplies node identities and reads the affected order, never re-implementing the algebra; `Editing/graph.md`'s dependency read projection consumes the SAME vocabulary. Progress is the fold's own publication and not a poll — the overlay's `Running` and `Queued` rows had no producer while the port answered an order and nothing published which cell was in flight, so both rows were unreachable and the frontier argument was a value no caller could supply. Timing rides the kernel `MonotonicTimeline`: a `ClockPolicy` on an app-platform signature is the `Rasm.AppHost/Runtime/time` named inversion, and `MonotonicTimeline.Gauged` is REFUSED at the per-cell crossing because it brackets a `Func<Fin<T>>` while this body is an `IO`, so the capture pair rides inside the effect instead. Re-drive admits the TRANSIENT half alone through the kernel `Redrive.Run`, so a Compute capability that refused transiently retries on the policy's own curve and a drifted pin, an absent upstream, and a declared-input cycle stay terminal without any case here classifying.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -285,20 +252,14 @@ public sealed partial class RunState {
     public static readonly RunState Failed = new("failed");
 }
 
-// The progress element the fold publishes per affected cell. `Started` carries the capture a live reading ticks
-// against and `Settled` the span the timeline derived, so the frontier and the elapsed reading have exactly one
-// producer and neither is a chrome-side subtraction against a wall clock.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellMark(string CellId, int Rank) {
     public sealed record Started(string CellId, int Rank, MonotonicStamp At) : CellMark(CellId, Rank);
     public sealed record Settled(string CellId, int Rank, TimeSpan Elapsed) : CellMark(CellId, Rank);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The document-local projection the notebook DOES retain: cell id to the graph's own content-addressed node.
-// Two producers, one consumer — a live document indexes through the composition-bound arrow, a replay indexes
-// off the manifest the export already recorded, so a verification and a live recompute address one graph.
 public sealed record CellNodeMap(HashMap<string, Rasm.AppHost.Runtime.ChainHash> Nodes) {
     public static Fin<CellNodeMap> Of(
         Notebook notebook,
@@ -313,8 +274,6 @@ public sealed record CellNodeMap(HashMap<string, Rasm.AppHost.Runtime.ChainHash>
         Nodes.Find(cellId).ToFin(new NotebookFault.MissingUpstream($"recompute/node-absent:{cellId}"));
 }
 
-// The progress fold: the in-flight cell with its capture, and the span every settled cell measured. A running
-// cell has no span yet and a settled one is never ticking, so the two columns can never both answer for one id.
 public readonly record struct RunFeed(Option<CellMark.Started> Running, HashMap<string, TimeSpan> Settled) {
     public static readonly RunFeed Idle = new(None, HashMap<string, TimeSpan>());
 
@@ -336,10 +295,6 @@ public readonly record struct RunFeed(Option<CellMark.Started> Running, HashMap<
 }
 
 public readonly record struct CellStateOverlay(HashMap<string, RunState> States) {
-    // Derived, never stored, and TOTAL over the vocabulary: the affected ORDER plus the in-flight cell decide
-    // every row. The three live arms are one ORDINAL comparison against the frontier rather than a nested
-    // ternary, so a reader cannot mis-read which side of the frontier a rank falls on; a settled pass carries
-    // no frontier and reads the same three terminal rows, so paused, running, and completed share one fold.
     public static CellStateOverlay Of(Seq<string> affected, HashMap<string, CellOutput> outputs, RunFeed feed) =>
         Frontier(affected, feed.Running.Map(static open => open.CellId)) switch {
             var frontier => new CellStateOverlay(toHashMap(affected.Map((id, rank) => (id, frontier.Match(
@@ -357,15 +312,13 @@ public readonly record struct CellStateOverlay(HashMap<string, RunState> States)
         Some: static value => value.Fault.IsSome ? RunState.Failed : RunState.Idle,
         None: static () => RunState.Stale);
 
-    // The in-flight cell's rank in the affected order; a running id the order never names has no frontier, so
-    // the overlay reads terminal rather than marking the whole tail queued behind a phantom cell.
     static Option<int> Frontier(Seq<string> affected, Option<string> running) =>
         running.Bind(id => affected.Map(static (candidate, rank) => (Candidate: candidate, Rank: rank))
             .Find(row => string.Equals(row.Candidate, id, StringComparison.Ordinal))
             .Map(static row => row.Rank));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed record NotebookRecompute(
     Func<CellNodeMap, Seq<Rasm.AppHost.Runtime.ChainHash>, IO<Fin<Seq<string>>>> AffectedOrder,
@@ -378,9 +331,6 @@ public sealed record NotebookRecompute(
             Succ: heads => AffectedOrder(nodes, heads.ToSeq()),
             Fail: error => IO.pure(Fin<Seq<string>>.Fail(error)));
 
-    // Lift shape follows the source carrier: a port already returning `IO<Fin<A>>` IS the transformer's own
-    // carrier and enters through the constructor `runFin` inverts — the one ingress spelling this corpus uses
-    // for that shape, so a reader never adjudicates the `liftIO` overload pair per site.
     public IO<Fin<HashMap<string, CellOutput>>> Recompute(
         Notebook notebook, CellNodeMap nodes, NotebookRuntime runtime, Seq<string> changed, HashMap<string, CellOutput> cache) =>
         (from affected in new FinT<IO, Seq<string>>(Order(nodes, changed))
@@ -393,10 +343,6 @@ public sealed record NotebookRecompute(
             FinT.Succ<IO, HashMap<string, CellOutput>>(cache),
             (rail, step) => rail.Bind(state => Advanced(notebook, runtime, state, step.Id, step.Rank)));
 
-    // One state-threaded step per affected cell, so the fold carries no Match ladder: a failed evaluation lands
-    // as CellOutput.Error and the thread CONTINUES — the failure renders in place; a cell with a poisoned input
-    // is skipped and stays stale on the overlay; only a structural fault leaves the rail. The cell resolves
-    // through the roster's index, so the fold costs one lookup per affected cell rather than a full scan.
     FinT<IO, HashMap<string, CellOutput>> Advanced(
         Notebook notebook, NotebookRuntime runtime, HashMap<string, CellOutput> state, string id, int rank) =>
         from row in FinT.lift<IO, (NotebookCell Cell, int Ordinal)>(notebook.Cell(id))
@@ -407,7 +353,6 @@ public sealed record NotebookRecompute(
                 .Map(output => state.AddOrUpdate(id, output)))
         select advanced;
 
-    // The measured crossing, published as the Started/Settled pair the overlay and the chrome read.
     IO<CellOutput> Marked(NotebookCell cell, int rank, NotebookRuntime runtime, HashMap<string, CellOutput> upstream) =>
         from start in IO.lift(() => Line.Capture(Advance))
         from _opened in Publish(start.Map(at => (CellMark)new CellMark.Started(cell.Id, rank, at)))
@@ -419,15 +364,8 @@ public sealed record NotebookRecompute(
             select (CellMark)new CellMark.Settled(cell.Id, rank, span))
         select output;
 
-    // A gauge that cannot capture publishes NOTHING: progress is evidence, so a missing mark leaves the row on
-    // its settled reading instead of inventing a duration, and a full progress channel drops the mark rather
-    // than blocking the fold that produced it.
     IO<Unit> Publish(Fin<CellMark> mark) => IO.lift(() => ignore(mark.Map(Marks.TryWrite)));
 
-    // Domain failure materializes AS the cell's own output, so a runtime refusal never leaves the rail and a
-    // downstream skip reads the Error value. The predicate is the DOMAIN half exactly: a cancellation caught
-    // here would render as a failed cell a user reads as broken work, and an exceptional error is a defect the
-    // rail must carry outward rather than cache as a result.
     static IO<CellOutput> Recovered(NotebookCell cell, NotebookRuntime runtime, HashMap<string, CellOutput> upstream) =>
         (Redrive.Run(runtime.Redrive, cell.Evaluate(runtime, upstream))
          | @catch<IO, CellOutput>(
@@ -454,23 +392,15 @@ public sealed record NotebookRecompute(
 - Boundary: co-editing rides the one `CollabDoc` owner and the one commit rail — the bespoke `NotebookCrdt`/`NotebookOp` algebra AND the parallel `notebook.cells` embedded-container register are DROPPED root-up, because a second register shape beside `IntentApply`'s is the split-brain the one-dispatch law forecloses. DURABLE truth is the typed edit-intent stream: a committed cell insert, edit, move, or delete IS its `EditIntent` row on the Persistence `Version/ledger`, character-granular text runs ride the gated `TextRun` case, and a Loro byte crossing durable truth is the deleted form. A lens verb that mutates a container without traversing `IntentLedger.Commit` is the rejected form — durable refusal must return before any live mutation. Verb-shaped lens methods are gone: five one-line forwarders differing only by the case they minted carried no decision the case name does not, and the entry now takes the case itself so a new intent needs no lens row. The register DECODE stays a composition-bound arrow rather than a `CellKind` column, because admitting a chart, render, or viewpoint cell needs the register's typed payload columns — `Viewpoint` crosses durably as `ViewpointWire` and not as itself — so a roster-side mint would need either a wide optional bag or a second wire the estate does not declare. Presence carets ride the document's ephemeral channel, never durable truth; determinism replay (`[05]-[REPLAY_BUNDLE]`) composes the AppHost determinism kernel and is never folded into document time-travel.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public sealed record NotebookCoedit(CollabDoc Document, IntentLedger Ledger) {
     public const string CoeditOrigin = "notebook";
 
-    // The lens holds the two composition-bound owners and admits nothing of its own, so the record's own
-    // constructor IS the mint — a `Fin` factory that cannot fail advertises a refusal no caller can hit.
 
-    // ONE verb entry: the intent arrives as a function of the document key, so the key is bound HERE and can
-    // never be spelled at a call site, while the case the caller mints is the verb. Durable-first, live apply
-    // through the same IntentApply dispatch replay uses, so lens and replay share one register.
     public IO<Fin<Unit>> Commit(Func<string, EditIntent> intent) =>
         Ledger.Commit(Document, intent(Document.Key), CoeditOrigin);
 
-    // Read-side projection over the canonical register IntentApply writes: the `CollabRoot.Cells` id list
-    // orders, each `CollabRoot.Meta` row decodes to its typed cell, and the roster mint indexes the result —
-    // so a register holding two rows under one id refuses here rather than shadowing one silently.
     public Fin<Notebook> Materialize(Func<string, Fin<(NotebookCell Cell, CellMetadata Metadata)>> decode) =>
         Document.Use<LoroMovableList, Seq<string>>(CollabAddress.Of(CollabRoot.Cells), cells =>
                 CollabDoc.Lift(() => toSeq(cells.ToVec()).Choose(static item => item is LoroValue.String id ? Some(id.Value) : None)))
@@ -493,14 +423,12 @@ public sealed record NotebookCoedit(CollabDoc Document, IntentLedger Ledger) {
 - Boundary: the bundle is self-contained — verification reads only its manifest and packed blobs, rejects an environment or input-census mismatch before evaluation, and compares output `ChainHash` values exactly. Content identity is the kernel `UInt128` carried as a VALUE: the recorded key and the re-derived key compare as numbers, so two format specifiers cannot drift apart while both read correct in isolation, and `ContentHash.Hex` renders only where a human or a log reads it. The pin gate the export used to run is GONE because the union already holds it — a pin-bearing case takes a non-optional `CapabilityPin` and the pin refuses blank columns at construction, so an unpinned pin-bearing cell is unrepresentable rather than rejected. The bundle crosses the Persistence blob lane as an opaque artifact whose encoding is the `Document/export` plane's; cell-node identity remains the AppHost recompute graph's content-addressed command-plus-upstream identity. Command-journal replay stays on `ProofEngine.Replay` and notebook replay on `NotebookRecompute`, both consuming one determinism context without sharing an execution engine. A cell no root's cone reaches is a DECLARED-INPUT CYCLE — the port's content-addressed node identity cannot represent one, so this set difference against the affected order is the only place the notebook's own input declaration can raise `CycleDetected`, and the check reads the ORDER rather than the outputs because a cell skipped for a poisoned input is stale, not unreachable.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct ReplayInput(string Key, UInt128 ContentKey, long Bytes);
 
 public readonly record struct ReplayOutput(string CellId, Rasm.AppHost.Runtime.ChainHash OutputHash, Seq<string> Inputs);
 
-// `Outputs` is record order and `At` the cell index both `NodeOf` and the mismatch filter read, minted together
-// by `Of` — the paired scan they replace was O(n^2) over the manifest for every dependency edge.
 public sealed record ReplayManifest {
     private ReplayManifest(
         string notebookKey,
@@ -540,8 +468,6 @@ public sealed record ReplayManifest {
             _ => Fin.Fail<ReplayManifest>(new KernelFault.InvalidValue("replay outputs", $"{notebookKey} contains duplicate output identities")),
         };
 
-    // The replay's node map is the manifest's own index, so a verification and a live recompute address the
-    // SAME graph nodes and no second identity source exists to drift.
     public CellNodeMap Nodes => new(toHashMap(Outputs.Map(static row => (row.CellId, row.OutputHash))));
 
     public Fin<Rasm.AppHost.Runtime.RecomputeNode> NodeOf(string cellId) =>
@@ -575,7 +501,7 @@ public sealed record ReplayBundle(ReplayManifest Manifest, Notebook Notebook, Ha
         select new ReplayBundle(manifest, notebook, blobs);
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class NotebookReplay {
     static readonly Op Check = Op.Of(name: "appui.notebook.replay");
@@ -589,10 +515,6 @@ public static class NotebookReplay {
     public static Fin<Unit> Observe(InstrumentSet set, string notebookKey, Seq<string> mismatched) =>
         set.Write(Mismatch, mismatched.Count, InstrumentSet.Tags((AppUiTelemetry.DocSlot, notebookKey)));
 
-    // Three gates in declaration order on one rail: the environment reproduces, the blob census matches exactly,
-    // then every root re-runs and each materialized hash compares against the recorded identity. The
-    // environment refusal is the kernel's own — `Reproduces` carries both fingerprint texts — so this page
-    // neither re-derives a digest nor re-renders the comparison.
     public static IO<Fin<Seq<string>>> Verify(
         ReplayBundle bundle,
         NotebookRecompute recompute,
@@ -611,9 +533,6 @@ public static class NotebookReplay {
          from _observed in FinT.lift<IO, Unit>(Observe(set, bundle.Manifest.NotebookKey, mismatched))
          select mismatched).runFin.As();
 
-    // Census equality is BOTH directions: every manifest input resolves to a byte-identical blob AND the blob
-    // count matches, so an extra packed blob is a divergence rather than silent surplus. The identity compare
-    // is a value compare on the kernel key, so no format specifier stands between the two readings.
     static Fin<Unit> VerifyInputs(ReplayBundle bundle) =>
         bundle.Manifest.Inputs.TraverseM(input => bundle.Blobs.Find(input.Key)
                 .ToFin(new NotebookFault.MissingUpstream($"replay/input-absent:{input.Key}"))
@@ -625,9 +544,6 @@ public static class NotebookReplay {
                 bundle.Blobs.Count == bundle.Manifest.Inputs.Count,
                 NotebookFault.Drifted("replay/input-census", Seq(PinAxis.Checksum))).ToFin());
 
-    // ONE port call over the whole root SET, so a shared closure re-runs once rather than once per root. The
-    // reachability check then names the cells no root's cone covers, which is the notebook's own declared-input
-    // cycle — the graph's content-addressed identity cannot carry one, so it can be raised nowhere else.
     static FinT<IO, HashMap<string, CellOutput>> Rerun(
         ReplayBundle bundle, NotebookRecompute recompute, NotebookRuntime runtime) =>
         from order in new FinT<IO, Seq<string>>(recompute.Order(
@@ -659,11 +575,8 @@ public static class NotebookReplay {
 - Boundary: the chrome is PRESENTATION over the settled cell graph, replay, and co-editing machinery — a chrome-local execution state, reorder, run scheduler, and outline model are the four deleted forms. Verbs are COMMAND KEYS the `Shell/commands` deck raises, so a toolbar button, a context menu, and a keyboard shortcut invoke one intent; the verb's boot-frozen intent is the command and the CELL is the payload, because the deck freezes before any cell exists and a per-cell command key is a row nothing can have registered, while the per-cell string survives as the control's own identity, which is what keeps two cells' toolbars from colliding at the factory. The affected-cell projection reads the notebook's ORDER, not the recompute graph's dependency closure: run-above means the cells above in document order, which is what a user pointing at a cell means, while the closure is what `RecomputeGraph` decides once the run starts — conflating them would make a run-above skip an independent cell the user can see sitting above. Drop indication is a POSITION between rows rather than a highlighted target row, because a drag that lands "on" a cell has no defined meaning in an ordered sequence, and the head-position encoding lives on the indicator that produces it rather than at every drag caller. Collapse is ONE posture row whose own fold decides the shown height — the stored bool beside a live ceiling could contradict the measurement, and the pinned-open and pinned-closed intents a bool cannot spell are now rows. The cell list windows through the ONE `Shell/virtualization#WINDOW_OWNER` fabric, so a thousand-cell notebook realizes exactly its viewport and a notebook-local virtualizer is that owner's explicitly rejected form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The per-cell action roster. Each row carries its command key and its affected-cell projection, so a toolbar
-// press, a context menu, and a shortcut compute the same cell set. Four rows share the SELF projection through
-// one named member rather than four verbatim delegate literals.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -682,17 +595,12 @@ public sealed partial class CellVerb {
 
     public ControlEmphasis Emphasis { get; }
 
-    // The projection reads DOCUMENT ORDER rather than the dependency closure: "above" is what the user can see
-    // above, and what the recompute then decides to re-run is the graph's own answer once the run starts.
     [UseDelegateFromConstructor]
     public partial Seq<string> Touches(Seq<NotebookCell> cells, int ordinal);
 
     static Seq<string> Self(Seq<NotebookCell> cells, int at) => Seq(cells[at].Id);
 }
 
-// Collapse is a POSTURE whose own row decides the shown height against the ceiling, so a pinned-open output
-// shows whole whatever it measures, a pinned-closed one shows its band, and only the auto row consults the
-// ceiling — a stored bool beside a live measurement could disagree with the height actually painted.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CollapsePosture {
@@ -704,11 +612,8 @@ public sealed partial class CollapsePosture {
     public partial double Shown(OutputCeiling ceiling, double measured);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The live execution reading. Elapsed is a MONOTONIC span off the recompute's own marks — ticking while the
-// cell runs, the measured span once it settles — and the fault is present only on a failure, so a state row
-// beside two nullable columns that can contradict it has no spelling here.
 public readonly record struct CellRun(RunState State, Option<TimeSpan> Elapsed, Option<LanguageExt.Common.Error> Fault) {
     public static CellRun Of(
         RunState state, string cellId, RunFeed feed, Option<CellOutput> output,
@@ -720,17 +625,10 @@ public readonly record struct CellRun(RunState State, Option<TimeSpan> Elapsed, 
             output.Bind(static value => value.Fault));
 }
 
-// One cell's presentation. `Shown` is the height the row paints and `Overflow` the excess it hides; neither
-// reconstructs the other without the measurement, and a fitting output carries a zero overflow and no
-// affordance at all.
 public readonly record struct CellChrome(
     string CellId, CellKind Kind, int Ordinal, CellRun Run, Seq<CellVerb> Verbs,
     CollapsePosture Collapse, double Shown, double Overflow);
 
-// The reorder feedback: a position BETWEEN rows, because dropping "on" a cell has no meaning in an ordered
-// sequence and the ambiguity lands as cells one slot off. `After` is None at the head, which is the one
-// insertion point no cell id can name — and the intent carries that absence WHOLE: `CellMove.After` is
-// `Option<ContainerKey>`, so the retired empty-string head sentinel has no spelling at any caller.
 public readonly record struct DropIndicator(Option<string> After, double Y) {
     public EditIntent Move(DocumentKey docKey, string cellId) =>
         new EditIntent.CellMove(docKey, ContainerKey.Create(cellId), After.Map(ContainerKey.Create));
@@ -740,26 +638,18 @@ public readonly record struct OutputCeiling(double MaxHeight, double CollapsedBa
     public static OutputCeiling Default { get; } = new(MaxHeight: 480d, CollapsedBand: 160d);
 }
 
-// The heading tree over every markdown cell, carrying the cell each anchor lives in so a click both scrolls the
-// list and reveals inside the cell.
 public readonly record struct OutlineNode(string CellId, MarkdownAnchor Anchor);
 
 public readonly record struct NotebookOutline(Seq<OutlineNode> Nodes) {
-    // Navigation rides the SETTLED prose request, so a notebook heading and a document heading reach their
-    // surfaces through one navigator and this page mints no second anchor grammar.
     public Option<SearchOpen> Open(string notebookKey, string cellId) =>
         Nodes.Find(node => node.CellId == cellId).Bind(node => node.Anchor.Open(notebookKey));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class NotebookChrome {
     internal static readonly Op Paint = Op.Of(name: "appui.notebook.chrome");
 
-    // One row per cell, every reading derived: state from the settled overlay, elapsed from the recompute's own
-    // marks, the fault from the output the evaluation already materialized, and the verb roster narrowed by the
-    // kind's own run capability. The capture is taken ONCE per fold, so every running reading on one pass ticks
-    // against the same instant rather than drifting row by row.
     public static Seq<CellChrome> Rows(
         Notebook notebook,
         CellStateOverlay overlay,
@@ -777,8 +667,6 @@ public static class NotebookChrome {
                 ceiling, line, now)),
         };
 
-    // The shown height is read ONCE and the overflow derives from it, so the painted band and the hidden
-    // remainder cannot be computed under two different postures.
     static CellChrome Row(
         NotebookCell cell, int ordinal, CellStateOverlay overlay, RunFeed feed, Option<CellOutput> output,
         CollapsePosture posture, double measured, OutputCeiling ceiling,
@@ -791,22 +679,13 @@ public static class NotebookChrome {
                 posture, shown, measured - shown),
         };
 
-    // A cell offers the verbs it can honour: only an EVALUATING kind runs, which the kind row itself declares,
-    // and every kind can be duplicated, deleted, or have a neighbour inserted — so a disabled run button never
-    // renders on a markdown cell and a new evaluating kind reaches this roster with no edit here.
     public static Seq<CellVerb> Verbs(NotebookCell cell) =>
         (cell.Kind.Evaluates ? Seq(CellVerb.Run, CellVerb.RunAbove, CellVerb.RunBelow) : Seq<CellVerb>())
         + Seq(CellVerb.Duplicate, CellVerb.Delete, CellVerb.InsertAbove, CellVerb.InsertBelow);
 
-    // The affected set resolves through the ROW's own projection against the ordinal the roster already indexed,
-    // so the toolbar, the menu, and the shortcut all ask the same question of the same authority at one lookup.
     public static Fin<Seq<string>> Affected(CellVerb verb, Notebook notebook, string cellId) =>
         notebook.Cell(cellId).Map(row => verb.Touches(notebook.Cells, row.Ordinal));
 
-    // The indicator is the GAP the pointer is nearest: each row contributes its own trailing edge, the head gap
-    // carries no predecessor, and the bounded selection keeps the single best — a full sort answered one
-    // minimum. The MEASURED extents are the whole input, because a gap is a geometry fact and the chrome rows
-    // carry no geometry, so a chrome roster beside them answered nothing this fold reads.
     public static Option<DropIndicator> Indicate(Seq<(string CellId, double Top, double Height)> extents, double pointerY) =>
         Ranked.Top(
             Seq(new DropIndicator(None, extents.Head.Map(static row => row.Top).IfNone(0d)))
@@ -816,13 +695,6 @@ public static class NotebookChrome {
             direction: ExtremumDirection.Minimum)
             .Head;
 
-    // The outline over every markdown cell, in document order, through the markdown owner's ANCHOR-ONLY
-    // projection — so a notebook heading and a prose heading are the same anchor value, one navigator serves
-    // both, and an outline costs no controls and no lifetimes. Reading it off a full render instead
-    // materialized a control tree and opened one live `CodeSession` per fence, per markdown cell, on a plane
-    // that recomputes its outline whenever a cell's source changes and has nowhere to release what it opened.
-    // The narrowing is a CHOOSE on the one prose-authoring case rather than a kind capability, because the
-    // anchor grammar reads markdown SOURCE and no other case carries any.
     public static NotebookOutline Outline(Notebook notebook) =>
         new(notebook.Cells
             .Choose(static cell => Optional(cell as NotebookCell.Markdown))
@@ -830,9 +702,6 @@ public static class NotebookChrome {
                 .Anchors(MarkdownProjection.Project(markdown.Source))
                 .Map(anchor => new OutlineNode(markdown.Id, anchor))));
 
-    // The insertion menu IS the kind vocabulary's own roster, so a new cell kind reaches the affordance with no
-    // edit here and an insertion can never offer a kind the union cannot construct — a caller-supplied kind
-    // list was that same roster enumerated a second time, and the second enumeration is what a new case misses.
     public static Seq<ControlIntent> Insertions(string anchorCellId) =>
         Seq<ControlIntent>(new ControlIntent.Segmented(
             $"notebook.insert.{anchorCellId}", SegmentPosture.Command,
@@ -840,11 +709,6 @@ public static class NotebookChrome {
                 new OptionRow(kind.Key, LocaleStrings.Key(nameof(CellKind), kind.Key), None, None)),
             IntentBinding.Of(PaintRole.Panel)));
 
-    // The toolbar as intent rows the one control factory materializes, so the chrome constructs no control and
-    // every verb reaches the deck through its own key. The control key is per-CELL because two cells render two
-    // toolbars and the factory keys on identity, while the COMMAND is the verb's own boot-frozen intent with
-    // the cell riding the payload — a chip that bound no command at all rendered a toolbar whose every button
-    // resolved nothing. The emphasis the row declares carries through to the binding.
     public static Seq<ControlIntent> Toolbar(CellChrome row) =>
         row.Verbs.Map(verb => (ControlIntent)new ControlIntent.Button(
             $"{verb.Intent}.{row.CellId}",

@@ -26,7 +26,7 @@
 - Boundary: `Quantified` and `Propertied` require a NON-EMPTY bag, not a bound one — an `Assign.PropertyDefinition` edge onto an empty bag is a binding, not evidence, and counting it reads the scaffolding as the content.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph.Algorithms;
@@ -42,30 +42,17 @@ using static Rasm.Domain.AdmissionSlots;
 
 namespace Rasm.Element.Projection;
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Share DERIVES — a stored ratio beside its two counts is the double-store defect, and the two audiences want
-// different halves: a report names "37 of 214 occurrences", a gate compares 0.173 against a floor.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CoverageRatio(int Population, int Covered) {
-    // The ONE vacuous-truth value: an empty population claims full share, and every absent-key read returns THIS
-    // rather than a bare 1.0 literal re-deciding vacuity per site.
     public static readonly CoverageRatio Vacuous = new(0, 0);
 
     public double Share => Population == 0 ? 1.0 : (double)Covered / Population;
 
-    // Fold steps one occurrence to one verdict. Population advances unconditionally, so a covered count can never
-    // drift past the population that produced it.
     public CoverageRatio Fold(bool covered) => new(Population + 1, Covered + (covered ? 1 : 0));
 }
 
-// TWO ratios, never one blended share: Assessed answers "has the analysis run" and Substantiated "could it run"
-// (the bound material carries this discipline's property set). A project missing thermal properties and a project
-// missing thermal RESULTS need different work, and a single number hides which one is in front of you.
 public readonly record struct DisciplineCoverage(CoverageRatio Assessed, CoverageRatio Substantiated);
 
-// CoverageAxis owns each STRUCTURAL coverage axis as one row: the per-element Covered predicate the census fold
-// reads and the Floor projection the gate and the shortfall projection read off the policy — the four ratios were
-// previously spelled FOUR times (census columns, threshold columns, Clears clauses, Shortfalls literals); every
-// site now folds Items, so a fifth axis is one row and zero fold edits.
 [SmartEnum<string>]
 public sealed partial class CoverageAxis {
     public static readonly CoverageAxis Classified = new("classified",
@@ -85,10 +72,6 @@ public sealed partial class CoverageAxis {
     [UseDelegateFromConstructor] public partial double Floor(AuditThresholds policy);
 }
 
-// Structural keys the closed CoverageAxis roster and ByDiscipline the closed Discipline roster — both TOTAL at
-// Empty (every row seeded at zero population), so a policy naming an untouched axis or discipline reads a vacuous
-// full share instead of an absent key. [Equatable]: the census is STORED on the Bim ModelHealth receipt, so its
-// equality must be structural, never the reference identity two HashMap carriers report.
 [Equatable]
 public sealed partial record CoverageCensus(
     [property: UnorderedEquality] HashMap<CoverageAxis, CoverageRatio> Structural,
@@ -104,13 +87,10 @@ public sealed partial record CoverageCensus(
 
     public CoverageRatio At(CoverageAxis axis) => Structural.Find(axis).IfNone(CoverageRatio.Vacuous);
 
-    // ONE occurrence, EVERY counter — each axis reads its own row predicate, so the fold body never re-spells one.
     public CoverageCensus Fold(Element element) =>
         this with {
             Structural = Structural.Map((axis, ratio) => ratio.Fold(axis.Covered(element))),
             ByDiscipline = ByDiscipline.Map((discipline, row) => new DisciplineCoverage(
-                // Consumable is the outcome capability, not a state roster: Computed and Stale both carry a
-                // readable result, Failed and Queued do not, so coverage reads the capability.
                 row.Assessed.Fold(element.Assessments.Exists(a => a.Discipline == discipline && a.Outcome.Capabilities.Admits(OutcomeCapability.Consumable))),
                 row.Substantiated.Fold(element.Materials.Exists(m => m.Material.Properties.Exists(p => p.Discipline == discipline))))),
         };
@@ -133,24 +113,15 @@ public sealed partial record CoverageCensus(
 - Boundary: an empty representation on an occurrence is a WARNING, and on a TYPE is not a finding at all — a Component's shape legitimately rides its occurrences, so grading the catalogue definition reports the modelling convention as a defect.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// SweepOrigin names WHERE a category's findings mint: Sweep rows own their fold as the Sweep column below, and the
-// one Population row's findings mint inside the occurrence pass (a bake refusal is evidence only that fold sees),
-// so the column states the exception instead of a reader inferring it from an empty delegate.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class SweepOrigin {
     public static readonly SweepOrigin Sweep = new("sweep");
     public static readonly SweepOrigin Population = new("population");
 }
 
-// AuditRun is the ONE state record every sweep takes — graph, key, the folded census, and the policy — so the
-// category roster folds as `Items.Bind(category => category.Sweep(run))` and a new integrity class is one row
-// carrying its own fold, never an eighth term in a hand concatenation.
 public readonly record struct AuditRun(ElementGraph Graph, Op Key, CoverageCensus Census, AuditThresholds Policy);
 
-// AuditCategory closes the sweep taxonomy. Grade is the DEFAULT severity every finding of the class carries, and
-// Sweep IS the class's fold — class, verdict, and detection travel together, so a sweep has no grade argument to
-// get wrong and the [04] entry has no roster to forget a term of.
 [SmartEnum<string>]
 public sealed partial class AuditCategory {
     public static readonly AuditCategory Orphan = new("orphan", grade: ConstraintSeverity.Blocking,
@@ -178,9 +149,7 @@ public sealed partial class AuditCategory {
     [UseDelegateFromConstructor] public partial Seq<AuditFinding> Sweep(AuditRun run);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// Semantic audit observations and railed refusals are distinct evidence shapes. A Bake/Verify failure retains the
-// exact Error; rendering its Message into the detail case would erase typed identity and exception cause custody.
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record AuditEvidence {
     private AuditEvidence() { }
@@ -188,9 +157,6 @@ public abstract partial record AuditEvidence {
     public sealed record Refusal(Error Cause) : AuditEvidence;
 }
 
-// Subject is OPTIONAL because the sweeps split by scope: a drifted node or an orphan names one id, while a
-// Compose cycle and a coverage shortfall are whole-graph properties no single node owns. A fabricated subject on
-// a graph-scoped finding would send a repair to an arbitrary participant.
 public readonly record struct AuditFinding(AuditCategory Category, ConstraintSeverity Severity, Option<NodeId> Subject, AuditEvidence Evidence) {
     public static AuditFinding Of(AuditCategory category, string detail, Option<NodeId> subject = default) =>
         new(category, category.Grade, subject, new AuditEvidence.Detail(detail));
@@ -198,8 +164,6 @@ public readonly record struct AuditFinding(AuditCategory Category, ConstraintSev
         new(category, category.Grade, subject, new AuditEvidence.Refusal(cause));
 }
 
-// AuditTally is the metric-plane bucket the Projection/observe#HOOK_RAIL Audited fact carries. It seats HERE beside
-// its taxonomy and grade, and the fact composes it — the audit owns the counts, the rail owns the event.
 public readonly record struct AuditTally(AuditCategory Category, ConstraintSeverity Severity, int Count);
 ```
 
@@ -217,22 +181,15 @@ public readonly record struct AuditTally(AuditCategory Category, ConstraintSever
 - Boundary: `Clears` reads the RECEIPT alone, which is what makes the receipt persistable beside the model; re-folding the graph to answer a question the receipt already carries is the deleted form.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
-// Every column is a SHARE floor on [0,1] or a count ceiling, so the gate is arithmetic over the receipt rather than
-// a policy language. Assessed is keyed per Discipline because a project commits to thermal coverage without
-// committing to acoustic coverage, and one blended floor cannot express that.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct AuditThresholds(
     double Classified, double MaterialBound, double Quantified, double Propertied,
     HashMap<Discipline, double> Assessed, int BlockingCeiling) {
 
-    // Structural is the default row, grading integrity alone: an undeclared project claims no coverage, so the gate
-    // passes a sound-but-sparse model and stops a broken one, never failing every early model by default.
     public static readonly AuditThresholds Structural =
         new(0.0, 0.0, 0.0, 0.0, HashMap<Discipline, double>(), 0);
 }
 
-// [Equatable]: the audit is STORED on the Bim ModelHealth receipt, so equality is structural and the finding run
-// ordered — a reference-compared receipt reads every re-load as a change.
 [Equatable]
 public sealed partial record ModelAudit {
     private ModelAudit(ContentAddress snapshot, CoverageCensus coverage, Seq<AuditFinding> findings, AuditThresholds thresholds) =>
@@ -243,8 +200,6 @@ public sealed partial record ModelAudit {
     [OrderedEquality] public Seq<AuditFinding> Findings { get; }
     public AuditThresholds Thresholds { get; }
 
-    // Blocking and Tallies derive from ONE pass over the finding run, memoized per instance — the observe rail
-    // fires one fact per audit and the gate reads Blocking beside it, so neither read re-walks the sequence.
     [IgnoreEquality] Lazy<(Seq<AuditFinding> Blocking, Seq<AuditTally> Tallies)>? ledger;
 
     (Seq<AuditFinding> Blocking, Seq<AuditTally> Tallies) Ledger => (ledger ??= new(() => {
@@ -253,8 +208,6 @@ public sealed partial record ModelAudit {
             static (state, finding) => (
                 finding.Severity.Blocks ? state.Blocking.Add(finding) : state.Blocking,
                 state.Buckets.AddOrUpdate((finding.Category, finding.Severity), static count => count + 1, 1)));
-        // The bucket walk re-enters through AsIterable: a two-parameter HashMap declares no fold of its own, so its
-        // carrier-generic Fold carries the VALUE alone and the key-bearing pair run is that projection.
         return (folded.Blocking, folded.Buckets.AsIterable()
             .Fold(Seq<AuditTally>(), static (rows, bucket) => rows.Add(new AuditTally(bucket.Key.Category, bucket.Key.Severity, bucket.Value))));
     })).Value;
@@ -263,10 +216,6 @@ public sealed partial record ModelAudit {
 
     public Seq<AuditTally> Tallies => Ledger.Tallies;
 
-    // Clears is the ONE delivery predicate, over the receipt alone — the structural floors fold the SAME axis
-    // roster the census and the shortfall projection read, so a fifth axis reaches all three with zero edits here.
-    // A discipline the policy names but the census never populated reads the vacuous share, so a floor on an
-    // untouched discipline passes rather than blocking a model never asked to carry it.
     public bool Clears =>
         Blocking.Count <= Thresholds.BlockingCeiling
         && toSeq(CoverageAxis.Items).ForAll(axis => Coverage.At(axis).Share >= axis.Floor(Thresholds))
@@ -275,14 +224,9 @@ public sealed partial record ModelAudit {
     double AssessedShare(Discipline discipline) =>
         Coverage.ByDiscipline.Find(discipline).Map(static row => row.Assessed).IfNone(CoverageRatio.Vacuous).Share;
 
-    // Of runs the whole grade: one occurrence pass, seven sweeps over the already-frozen structures, and the
-    // shortfall projection that lands the census in the SAME finding stream. Fin is the seam's uniform rail, never a
-    // failure channel — this fold has no fault to mint, and a model too broken to assemble still grades.
     public static Fin<ModelAudit> Of(ElementGraph graph, Op key, Option<AuditThresholds> thresholds = default) =>
         (Policy: thresholds.IfNone(AuditThresholds.Structural), Pass: Population(graph, key)) switch {
             var grade => new AuditRun(graph, key, grade.Pass.Census, grade.Policy) switch {
-                // ONE fold over the category roster — each row runs its OWN sweep, the population verdicts riding
-                // in front (their row's Origin names that fold), so an eighth class is a row, never a ninth term.
                 var run => Fin.Succ(new ModelAudit(
                     ContentAddress.OfGraph(graph),
                     run.Census,
@@ -292,29 +236,21 @@ public sealed partial record ModelAudit {
         };
 
     // --- [OCCURRENCE_PASS]
-    // ONE fold carries the census AND the bake verdicts: a Bake that rails is itself evidence (an absent root, a
-    // cyclic Compose ancestry), so collecting it in a second pass would re-walk the subgraph the first pass reached.
-    // Population gives a failed element NO counter — an element that cannot be read cannot be graded.
     static (CoverageCensus Census, Seq<AuditFinding> Verdicts) Population(ElementGraph graph, Op key) =>
         toSeq(graph.ObjectNodes)
             .Filter(static o => o.Kind == ObjectKind.Occurrence)
             .Fold((Census: CoverageCensus.Empty, Verdicts: Seq<AuditFinding>()), (state, occurrence) =>
                 graph.Bake(occurrence.Id, key).Match(
                     Succ: element => (state.Census.Fold(element), state.Verdicts),
-                    // Preserve the exact Error; presentation belongs outside the audit receipt.
                     Fail: error => (state.Census, state.Verdicts.Add(
                         AuditFinding.Of(AuditCategory.BakeRejected, error, Some(occurrence.Id))))));
 
     // --- [STRUCTURAL_SWEEPS]
-    // EdgesAt is the Members closure, so a node reachable ONLY as a buried attribute reference is NOT an orphan.
-    // Object nodes are exempt: an element root carrying no relationship yet is an authoring state, not a defect.
     internal static Seq<AuditFinding> Orphans(ElementGraph graph) =>
         toSeq(graph.Nodes.Values)
             .Filter(node => node is not Node.Object && graph.EdgesAt(node.Id).IsEmpty)
             .Map(static node => AuditFinding.Of(AuditCategory.Orphan, $"<orphan-node:{node.Id.Value}>", Some(node.Id)));
 
-    // Property bags alone: a QuantityBag holds MeasureValue rows that bury no NodeId, and every edge member is
-    // already guarded at admission and replay, so this is the one dangling class the graph admits.
     internal static Seq<AuditFinding> Dangling(ElementGraph graph) =>
         toSeq(graph.Nodes.Values)
             .Choose(static node => node is Node.PropertySet bag ? Some(bag) : None)
@@ -324,34 +260,23 @@ public sealed partial record ModelAudit {
                 .Map(target => AuditFinding.Of(
                     AuditCategory.DanglingReference, $"<dangling-reference:{bag.Id.Value}:{target.Value}>", Some(bag.Id))));
 
-    // ComposeCycles walks the graph's OWN keyed Composition view, so this sweep
-    // materializes nothing and spells no filtered-view generic beside the owner that declares it. Whole-graph where
-    // Bake's ancestry guard is per-root.
     internal static Seq<AuditFinding> ComposeCycles(ElementGraph graph) =>
         graph.View(EdgeFilter.Composition, EdgeOrientation.Forward).IsDirectedAcyclicGraph()
             ? Seq<AuditFinding>()
             : Seq(AuditFinding.Of(AuditCategory.ComposeCycle, "<compose-cycle>"));
 
-    // Occurrence-scoped: a Type's shape legitimately rides its occurrences, so grading a catalogue definition would
-    // report the modelling convention as a defect.
     internal static Seq<AuditFinding> Representations(ElementGraph graph) =>
         toSeq(graph.ObjectNodes)
             .Filter(static o => o.Kind == ObjectKind.Occurrence && o.Representations.ByIdentifier.IsEmpty)
             .Map(static o => AuditFinding.Of(
                 AuditCategory.EmptyRepresentation, $"<representations-empty:{o.Id.Value}>", Some(o.Id)));
 
-    // Interfaces censuses SOURCE-BOUND edges, never faults: the Interface key names blob geometry the producing end
-    // alone rehydrates, so a crossing that leaves that end is incomplete without the store travelling with it.
     internal static Seq<AuditFinding> Interfaces(ElementGraph graph) =>
         toSeq(graph.Edges)
             .Choose(static edge => edge is Relationship.Connect { Interface.IsSome: true } connect ? Some(connect) : None)
             .Map(static connect => AuditFinding.Of(
                 AuditCategory.SourceBoundInterface, $"<connect-interface:{connect.From.Value}:{connect.To.Value}>"));
 
-    // Assessments reads the outcome's OWN Reportable capability — Failed, Cancelled, Stale, and Superseded all
-    // carry it at the owner, so the sweep can never silently drop a state the roster grew (the Cancelled drop this
-    // filter previously had: same settled-not-consumable columns as Failed, absent from the hand roster, so a
-    // cancelled analysis on a delivered model graded CLEAN). The OUTCOME token rides the detail.
     internal static Seq<AuditFinding> Assessments(ElementGraph graph) =>
         toSeq(graph.Nodes.Values)
             .Choose(static node => node is Node.Assessment assessment ? Some(assessment) : None)
@@ -359,24 +284,17 @@ public sealed partial record ModelAudit {
             .Map(static a => AuditFinding.Of(
                 AuditCategory.AssessmentStale, $"<assessment-{a.Payload.Outcome.Key}:{a.Id.Value}>", Some(a.Id)));
 
-    // Drift folds Verify's accumulating Validation as the TAMPER census — that sweep is already complete because
-    // independent node checks accumulate, so this unpacks ManyErrors rather than re-verifying node by node.
     internal static Seq<AuditFinding> Drift(ElementGraph graph, Op key) =>
         ContentAddress.Verify(graph, key).Match(
             Succ: static _ => Seq<AuditFinding>(),
-            // Unpack is the branch's ONE ManyErrors flattener — never a local `is ManyErrors` twin per sweep.
             Fail: static error => Unpack(error)
                 .Map(static drift => AuditFinding.Of(AuditCategory.AddressDrift, drift)));
 
     // --- [COVERAGE_SHORTFALL]
-    // Shortfalls lands a missed floor as a Warning FINDING, so integrity and coverage ride ONE stream and a report
-    // needs no second shape. Clears stays the verdict; these rows name what it counted.
     internal static Seq<AuditFinding> Shortfalls(CoverageCensus census, AuditThresholds policy) =>
         toSeq(CoverageAxis.Items)
         .Filter(axis => census.At(axis).Share < axis.Floor(policy))
         .Map(axis => AuditFinding.Of(AuditCategory.CoverageShortfall, $"<coverage-shortfall:{axis.Key}>"))
-        // Per-discipline floors walk through AsIterable for the same reason the tally fold does — the key is
-        // load-bearing in the detail token, and a two-parameter HashMap's own fold carries the value alone.
         + policy.Assessed.AsIterable().Fold(Seq<AuditFinding>(), (rows, declared) =>
             census.ByDiscipline.Find(declared.Key).Map(static row => row.Assessed).IfNone(CoverageRatio.Vacuous).Share < declared.Value
                 ? rows.Add(AuditFinding.Of(AuditCategory.CoverageShortfall, $"<coverage-shortfall:assessed:{declared.Key.Key}>"))

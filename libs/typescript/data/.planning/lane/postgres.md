@@ -86,9 +86,6 @@ const _primitives = {
   },
 } as const
 
-// `_primitiveKeys` crosses the primitive NAMES as a value, so a consumer gating on them refuses an unknown name
-// against this owner's roster instead of transcribing the key set into a second table that drifts on the next
-// row; a type alone reaches no run-time check.
 const _primitiveKeys = Record.keys(_primitives)
 
 declare namespace Pg {
@@ -145,15 +142,8 @@ const _rows = {
   fuzzystrmatch: { extension: "fuzzystrmatch", floor: "0.0.0", capabilities: ["phonetic", "fuzzy"], layer: "core", flags: [] },
 } as const
 
-// Dependency rides the RELATION, never the roster's position: a row states what it requires and what it excludes in
-// one shape, so the capability plane's two fixed-point arms read one table and a mutual exclusion is a row rather than
-// prose no gate applies.
 const _demands = [{ relation: "requires", flag: "requiresCron", grant: "cron" }] as const
 
-// One adapter per capability a row grants: the contract keys a capability row by the extension a deployment
-// declares while the probe publishes GRANTS, so the pair IS that translation and a row granting two
-// capabilities proves its extension through either — an identity row would resolve against version evidence
-// and report every core-seeded grant missing.
 const _backend = Record.values(_rows).flatMap((row) =>
   row.capabilities.map((grant) => ({ canonical: row.extension, local: grant }))
 ) satisfies ReadonlyArray<Backend.Adapter>
@@ -198,16 +188,8 @@ import type { SqlClient, SqlError } from "@effect/sql"
 import { PgClient } from "@effect/sql-pg"
 import { Fault } from "@rasm/core"
 
-// Curve, jitter, reset, attempt bound, and elapsed ceiling are ALL the core budget row's, so this lane spells none of
-// them. Only the gate is local: a boot fault is `ConfigError` or `SqlError`, and the default class gate reads a
-// `class` property `SqlError` never carries, so the tag predicate rides explicitly and a malformed config fails on
-// its first attempt instead of burning the whole budget against a fault no retry can fix.
 const _BOOT = Fault.Budget.schedule("lease", Predicate.isTagged("SqlError"))
 
-// Discrete fields, never a DSN carrying its own database: the node client re-parses `connectionString` OVER the
-// config record it was handed, so a `database` field passed beside a `url` is overwritten every time — by the
-// DSN's database when it names one, by null when it does not. Discrete coordinates make the argument
-// authoritative by construction, and the deployment secret set already publishes exactly these fields.
 const _coordinate = (database: string): Config.Config.Wrap<PgClient.PgClientConfig> => ({
   host: Config.string("DATA_PG_HOST"),
   port: Config.integer("DATA_PG_PORT").pipe(Config.withDefault(5432)),
@@ -253,9 +235,6 @@ const _fromPool = (
 import { Array, DateTime, Effect, HashMap, Option, Record, Schema } from "effect"
 import { SqlSchema, type SqlClient, type Statement } from "@effect/sql"
 
-// `_PG_DIALECT` closes the two PostgreSQL engines sharing one EXPLAIN arm and one receipt spelling: PGLite
-// compiles neutral fragments through the same `PgClient` compiler, so its diagnosis names its own engine
-// instead of borrowing `pg`.
 const _PG_DIALECT = ["pg", "pglite"] as const
 
 const _PROFILE_ENGINES = [..._PG_DIALECT, "sqliteServer", "sqliteWasm", "libsql", "d1", "duckdbNode", "duckdbWasm", "clickhouse"] as const
@@ -274,18 +253,12 @@ class _Profile extends Schema.Class<_Profile>("Pg.Profile")({
   window: Schema.OptionFromNullOr(Schema.Struct({ opened: Schema.DateTimeUtc, closed: Schema.DateTimeUtc })),
 }) {}
 
-// Cumulative columns alone: a window receipt is one snapshot minus another, and the exec-time extremum columns
-// carry no cumulative sum a subtraction recovers. ONE roster drives the SELECT list, the reset guard, the reset
-// baseline, and every emitted counter, so widening the evidence is a single entry here.
 const _CUMULATIVE = [
   "calls", "total_exec_time", "total_plan_time", "plans", "rows",
   "shared_blks_hit", "shared_blks_read", "shared_blks_dirtied", "shared_blks_written",
   "temp_blks_read", "temp_blks_written", "wal_records", "wal_bytes",
 ] as const
 
-// Receipt vocabulary per column: `execMillis` and `rows` also seat the receipt's own wall and row fields, so the
-// window carries planning cost, dirtied and written blocks, and temp spill beside the read traffic — the spill
-// tally alone separates a plan that fit its work memory from one that did not.
 const _COUNTER = {
   calls: "calls",
   total_exec_time: "execMillis",
@@ -302,8 +275,6 @@ const _COUNTER = {
   wal_bytes: "walBytes",
 } as const satisfies Record<Pg.StatColumn, string>
 
-// BOUNDARY ADAPTER: key literals survive entry construction at this ONE declaration, so the roster above drives
-// both the schema field set and the reset baseline while every later read stays statically keyed.
 const _overColumns = <V>(value: V): { readonly [P in Pg.StatColumn]: V } =>
   Object.fromEntries(Array.map(_CUMULATIVE, (column) => [column, value] as const)) as {
     readonly [P in Pg.StatColumn]: V
@@ -318,8 +289,6 @@ const _StatRow = Schema.Struct({
   ..._overColumns(Schema.Number),
 })
 
-// Row identity is the view's own key, never `queryid` alone: one normalized query reports separately per role,
-// per database, and per nesting level, so a narrower key collapses distinct rows onto one prior state.
 const _statKey = (row: typeof _StatRow.Type): string => `${row.userid}:${row.dbid}:${row.queryid}:${row.toplevel}`
 
 const _ZEROES: { readonly [P in Pg.StatColumn]: number } = _overColumns(0)
@@ -333,9 +302,6 @@ declare namespace Pg {
   type _Counters<T extends Record<StatColumn, string> = typeof _COUNTER> = T
 }
 
-// Snapshots are UNFILTERED — the floor is a window-delta gate, never a snapshot gate: filtering the snapshot
-// drops below-floor rows from the prior map, so a query crossing the floor mid-window baselines to zero and
-// reports its whole cumulative history as one window's delta.
 const _statements = (sql: SqlClient.SqlClient) =>
   Effect.map(
     Effect.zip(
@@ -412,9 +378,6 @@ const _delta = (
     floor,
   )
 
-// Sealed option roster spliced as one literal: `BUFFERS` prices the block traffic the plan actually paid, `WAL`
-// its write amplification, `SETTINGS` the non-default planner knobs no default run reproduces, and `VERBOSE` the
-// output columns a projection pushdown dropped. Widening the evidence is one entry, never a second statement.
 const _EXPLAIN = ["ANALYZE", "BUFFERS", "VERBOSE", "SETTINGS", "WAL", "FORMAT JSON"] as const
 
 interface _PlanNodeEncoded {
@@ -439,8 +402,6 @@ interface _PlanNode {
   readonly Plans: Option.Option<ReadonlyArray<_PlanNode>>
 }
 
-// Buffer fields ride `Option` because they arrive only while `BUFFERS` is in the roster; absence is omission and
-// no arm forges a zero, matching how the receipt treats every unmeasured counter.
 const _Node: Schema.Schema<_PlanNode, _PlanNodeEncoded> = Schema.Struct({
   "Node Type": Schema.String,
   "Actual Total Time": Schema.Number,
@@ -455,9 +416,6 @@ const _Node: Schema.Schema<_PlanNode, _PlanNodeEncoded> = Schema.Struct({
 const _Report = Schema.Array(Schema.Struct({ Plan: _Node, "Execution Time": Schema.Number }))
 const _ExplainRow = Schema.Struct({ "QUERY PLAN": _Report })
 
-// Per-loop arithmetic is the plan's own contract: `Actual Total Time` and `Actual Rows` are averages over
-// `Actual Loops`, so a nested loop's inner node reports one iteration's cost. Multiplying restores the operator's
-// real share, and a fold reading the raw fields understates every join's inner side by the loop count.
 const _operators = (node: _PlanNode): ReadonlyArray<Pg.Profile["operators"][number]> => [
   {
     name: node["Node Type"],
@@ -472,8 +430,6 @@ const _nodes = (node: _PlanNode): ReadonlyArray<_PlanNode> => [
   ...Option.match(node.Plans, { onNone: () => [], onSome: Array.flatMap(_nodes) }),
 ]
 
-// Symmetric ratio: an over-estimate and an under-estimate are equally wrong, so one scalar ranks both directions
-// and the tree's worst node is the number that says whether statistics, rather than indexing, chose the shape.
 const _ratio = (node: _PlanNode): number => {
   const actual = Math.max(node["Actual Rows"] * node["Actual Loops"], 1)
   const planned = Math.max(node["Plan Rows"], 1)
@@ -525,7 +481,7 @@ const Pg = {
   fromPool: _fromPool,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Pg }
 ```

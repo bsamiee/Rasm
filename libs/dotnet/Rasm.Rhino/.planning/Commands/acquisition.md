@@ -24,10 +24,7 @@
 `RulePlan<TRule, TSlot>` is the folder's rule-roster spine (E-R30): five owners spelled `Seq<TRule>` + one-per-slot + `Traverse`-admit + apply independently — `AcceptPlan`, `PointPlan`, `ObjectPlan` here, `PickPolicy` on the selection page, `OptionSet` on the options page — and the spine owns the roster, the null screen, the slot-injectivity gate with its stated exemption, and the two folds; each family keeps only its typed wrapper and its own apply delegate. `ISlotted<TSlot>` types the slot identity: the erased `object SlotKey` compared through `object.Equals` deletes, and each family declares the closed slot vocabulary its knobs actually address.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-// No `using System.Drawing` and no `using Rhino.UI`: `System.Drawing.Point`/`Color`, `Rhino.UI.CursorStyle`, and
-// `Rhino.UI.LocalizeStringPair` spell in full at their few seams, so `Point`, `Color`, and the kernel colour owner
-// each resolve to exactly one type on this page.
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -47,9 +44,7 @@ using Riok.Mapperly.Abstractions;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// The typed one-per-slot contract every rule family composes: the slot vocabulary is the family's own closed
-// roster, so injectivity compares generated rows and the erased `object.Equals` identity probe is gone.
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface ISlotted<out TSlot> where TSlot : notnull {
     TSlot SlotKey { get; }
 }
@@ -67,9 +62,6 @@ public abstract partial record Acquired {
     public sealed record Paint(PerceptualColor Value) : Acquired;
     public sealed record Distance(double Value, ModelUnit Unit) : Acquired;
     public sealed record Angle(double Radians) : Acquired;
-    // ONE geometry case over the kernel form recovery: the lease is the RECEIPT CONSUMER's custody — the recovered
-    // form is an owned duplicate the consumer disposes, the same posture `PickCapture`'s retained geometry holds —
-    // and the seven per-shape wrappers delete with their unread static types.
     public sealed record Shape(Lease<GeometryBase> Form) : Acquired;
     public sealed record Xform(Transform Value) : Acquired;
     public sealed record FileName(string Value) : Acquired;
@@ -86,7 +78,7 @@ public abstract partial record AcquireTerminal {
     public sealed record Exit : AcquireTerminal;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PointEvidence(
     Option<uint> ViewSerial,
     Option<int> OsnapCode,
@@ -94,8 +86,6 @@ public sealed record PointEvidence(
     Seq<Point3d> SnapPoints,
     Seq<Point3d> ConstructionPoints);
 
-// RENAMED from `DragEvidence`: the kernel input page owns that name for the pointer-slop fact, and this record is
-// an eight-column host-buffer CENSUS — different fact, different owner, one assembly resolving bare names.
 public sealed record DragCensus(
     Seq<Guid> Objects,
     Seq<Guid> Grips,
@@ -116,10 +106,6 @@ public sealed partial record AcquiredReceipt(
     public Option<Acquired> Payload => Terminal is AcquireTerminal.Value value ? Some(value.Payload) : None;
 }
 
-// The folder's ONE rule-roster spine (E-R30). The roster, the null screen, the slot-injectivity gate, and the two
-// folds live here once; a family supplies its slot vocabulary, its admit body, and its apply body. `slotExempt`
-// names the one lawful injectivity carve — a rule kind that may repeat (a point getter takes several constraints)
-// — so the exemption is an argument a reader sees, never a filter each family re-derives.
 public sealed record RulePlan<TRule, TSlot>(Seq<TRule> Rules)
     where TRule : class, ISlotted<TSlot>
     where TSlot : notnull {
@@ -144,12 +130,8 @@ public sealed record RulePlan<TRule, TSlot>(Seq<TRule> Rules)
     public bool Holds(Func<TRule, bool> probe) => Rules.Exists(probe);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Slots {
-    // The kernel colour rail is the page's colour identity, BOTH directions: `Shade` admits the host byte quadruple
-    // and `Rgb` composes the kernel `ToDrawing` egress, whose gamut policy REFUSES an out-of-display colour. The
-    // prior hand `Color.FromArgb` over the clipping `ToRgb` byte leg silently wrote a colour the kernel refuses to
-    // certify — the refusal-bypass is the deleted form and every write seam now rides the rail.
     internal static Fin<PerceptualColor> Shade(System.Drawing.Color color, Op key) =>
         PerceptualColor.OfRgb(color.R, color.G, color.B, alpha: color.A, key: key);
 
@@ -163,9 +145,7 @@ public static class Slots {
 `AcceptSlot` is the acceptance family's closed slot vocabulary — one row per physical getter knob — and `AcceptGate` rows carry every parameterless native accept call beside its result terminal and its slot, so acceptance grows by one row, never a new case. `AcceptRule` closes the modalities as PRESENCE cases: `Number` enables numeric acceptance, `Zero` widens it to zero (and refuses without `Number` beside it), `Transparent` enables transparent commands — each case's presence IS the enablement, so the booleans that restated presence as payload delete, and an absent case leaves the host default standing rather than writing it. `WaitFor` carries NodaTime `Duration` — semantic time per the substrate law; the host milliseconds spell once at the apply seam. `Requiring` is the derivation seam: a prompt terminal's required row lands only into an unoccupied slot, so a caller's explicit posture survives admission and the derived row is a default, never an override.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// The acceptance knob space as a CLOSED vocabulary: injectivity compares these rows, so two rules addressing one
-// physical knob refuse typed and the reflection-type identity the erased contract compared is gone.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class AcceptSlot {
     public static readonly AcceptSlot Nothing = new(key: 0);
@@ -196,8 +176,6 @@ public sealed partial class AcceptGate {
     internal partial void Enable(GetBaseClass getter);
 }
 
-// PRESENCE is the enablement: an absent case writes nothing, so the host default stands unforged, and `Zero`
-// without `Number` refuses at the plan — the widened acceptance cannot outrun the acceptance it widens.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AcceptRule : ISlotted<AcceptSlot> {
     private AcceptRule() { }
@@ -269,9 +247,6 @@ public sealed partial class AcceptPlan {
         return missing.IsEmpty ? Fin.Succ(value: this) : Of(rules: Rules + missing, optionBudget: OptionBudget, key: key);
     }
 
-    // Acceptance reaches the native getter exactly ONCE, through this fold: the presence cases each write their
-    // own knob, `Number` reads whether `Zero` rides beside it, and a second configuration pass re-issuing
-    // `AcceptNumber`/`AcceptString`/`AcceptColor` after the plan has run is the deleted form.
     internal Fin<Unit> Apply(GetBaseClass getter, Op key) => Plan.Apply(
         target: getter,
         apply: (rule, target, op) => op.Catch(() => {
@@ -305,8 +280,7 @@ public sealed partial class AcceptPlan {
 The three pointer arms take `GetPointFact` (RENAMED from `PointerFact` — the kernel `Interaction/input` owns that name and `Display/interaction` carries `ViewportPointerFact`; this is the THIRD spelling and it names its getter frame, E-R31): world point, window point, viewport identity, and the held `CapabilitySet<PointerKey>`, projected at the callback edge so no `GetPointMouseEventArgs` reaches a caller sink. The two DRAW arms keep their host args because a draw sink's whole purpose is the live `DisplayPipeline` the arg carries.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// The ONE pick-off carrier the four constrained surfaces share: `Key` is the host bool, the row name is the fact.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<bool>]
 public sealed partial class PickOff {
     public static readonly PickOff Locked = new(key: false);
@@ -346,8 +320,6 @@ public abstract partial record PointConstraint {
             && row.WireDensity >= 0
             && row.FaceIndex >= -1,
         onMesh: static row => row.Value is { } value && value.IsValidWithLog(out _),
-        // The two cplane cases carry no geometry to admit — the host resolves the plane at `Apply` — so each
-        // states its own admission instead of riding a catch-all a new payload-bearing case would join silently.
         onConstructionPlane: static _ => true,
         onTargetPlane: static _ => true,
         onCPlaneIntersection: static row => row.Value.IsValid)));
@@ -379,8 +351,6 @@ public abstract partial record PointConstraint {
             held.Getter.ConstrainToVirtualCPlaneIntersection(rule.Value))));
 }
 
-// A capability vocabulary: the getter toggles are combinable membership, so `Gates` carries two SETS and the
-// nine per-gate `(row, bool)` rule instances collapse onto one rule a reader can print through `Wire`.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PointGate : ICapability<PointGate> {
@@ -412,7 +382,6 @@ public sealed partial class PointerShape {
     internal global::Rhino.UI.CursorStyle Native => (global::Rhino.UI.CursorStyle)Key;
 }
 
-// The bar pair `(Enabled, Ends)` spelled three reachable states as four corners; the row set is the three states.
 [SmartEnum<int>]
 public sealed partial class SnapBarSpan {
     public static readonly SnapBarSpan Off = new(key: 0, enabled: false, ends: false);
@@ -428,7 +397,6 @@ public sealed partial class SnapBarAxis {
     public static readonly SnapBarAxis Tangent = new(key: 0, slot: static () => PointSlot.TangentBar, set: static (getter, span) => getter.EnableCurveSnapTangentBar(span.Enabled, span.Ends));
     public static readonly SnapBarAxis Perpendicular = new(key: 1, slot: static () => PointSlot.PerpendicularBar, set: static (getter, span) => getter.EnableCurveSnapPerpBar(span.Enabled, span.Ends));
 
-    // A thunk because the slot roster and this roster initialize in file order.
     private readonly Func<PointSlot> slot;
     internal PointSlot Slot => slot();
 
@@ -436,7 +404,6 @@ public sealed partial class SnapBarAxis {
     internal partial void Set(GetPoint getter, SnapBarSpan span);
 }
 
-// `(Enabled, Reverse)` spelled three reachable states as four corners; `Off`/`Forward`/`Reverse` are the states.
 [SmartEnum<int>]
 public sealed partial class ArrowSense {
     public static readonly ArrowSense Off = new(key: 0, enabled: false, reverse: false);
@@ -447,7 +414,6 @@ public sealed partial class ArrowSense {
     internal bool Reverse { get; }
 }
 
-// The base point's two independent affordances: every corner is legal, so they ride a set, not two bools.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BaseTrait : ICapability<BaseTrait> {
@@ -455,8 +421,6 @@ public sealed partial class BaseTrait : ICapability<BaseTrait> {
     public static readonly BaseTrait DrawLine = new(key: "draw-line");
 }
 
-// The point-getter knob space as a closed vocabulary: the fixed rules key one row each, the two snap bars key
-// their axis rows, and `Constrained` is the stated injectivity EXEMPTION — a getter takes several constraints.
 [SmartEnum<int>]
 public sealed partial class PointSlot {
     public static readonly PointSlot Constrained = new(key: 0);
@@ -483,8 +447,6 @@ public abstract partial record PointRule : ISlotted<PointSlot> {
     public sealed record Radial(double Distance) : PointRule;
     public sealed record Cursor(PointerShape Value) : PointRule;
     public sealed record ElevatorMode(int Mode) : PointRule;
-    // ONE rule carries the whole gate write: two disjoint sets over the capability vocabulary, so the nine
-    // `(row, bool)` instances collapse and a reader prints what the getter was told through two `Wire` reads.
     public sealed record Gates(CapabilitySet<PointGate> Enabled, CapabilitySet<PointGate> Disabled) : PointRule;
     public sealed record SnapBar(SnapBarAxis Axis, SnapBarSpan Span) : PointRule;
     public sealed record DirectionArrow(ArrowSense Sense) : PointRule;
@@ -514,8 +476,6 @@ public abstract partial record PointRule : ISlotted<PointSlot> {
         radial: static (op, rule) => ValidityClaim.Finite(value: rule.Distance).Holds && rule.Distance >= 0.0
             ? Fin.Succ(unit)
             : Fin.Fail<Unit>(op.InvalidInput()),
-        // `PointerShape` is a sealed generated CLASS keyed on the host ordinal, not an enum — membership is the
-        // vocabulary's OWN roster probe; nothing else can construct one, and a null is the only value to refuse.
         cursor: static (op, rule) => guard(
             rule.Value is not null && PointerShape.Items.Contains(rule.Value),
             op.InvalidInput()).ToFin(),
@@ -561,9 +521,6 @@ public abstract partial record PointRule : ISlotted<PointSlot> {
         onMouseUp: static (_, _) => Fin.Succ(unit));
 }
 
-// The host publishes the pointer flag word as five independent bool reads and keeps its own `MK_*` masks private,
-// so the mask is unreachable and the set is rebuilt from the reads. The capability vocabulary restores it: the
-// fact carries ONE `CapabilitySet<PointerKey>`, a sink tests membership, and a new host flag is one row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PointerKey : ICapability<PointerKey> {
@@ -594,11 +551,7 @@ public abstract partial record PointFeedback {
         pose: row => guard(row.Sink is not null, key.InvalidInput()).ToFin());
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// RENAMED from `PointerFact` (E-R31): the kernel input page owns that name for the Eto pointer evidence and
-// `Display/interaction` carries `ViewportPointerFact`; this fact names its GETTER frame — world point, window
-// point, viewport identity — which neither sibling carries. `GetPointMouseEventArgs.Viewport` mints a NON-OWNING
-// `RhinoViewport` over the callback's native pointer, so `InputMap` reads its identity once and detaches the arg.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record GetPointFact(
     Point3d World,
     System.Drawing.Point Window,
@@ -616,8 +569,6 @@ public sealed record PointPlan {
     public Seq<PointRule> Rules => Plan.Rules;
     public static PointPlan Free { get; } = new(plan: new RulePlan<PointRule, PointSlot>(Rules: []), feedback: []);
 
-    // The spine owns the roster gates; `Constrained` is the stated injectivity exemption — a getter composes
-    // several constraints — and it is an ARGUMENT here rather than a filter re-derived at the check site.
     public static Fin<PointPlan> Of(Seq<PointFeedback> feedback, Op? key = null, params ReadOnlySpan<PointRule> rules) {
         Op op = key.OrDefault();
         return from admitted in RulePlan<PointRule, PointSlot>.Of(
@@ -644,10 +595,7 @@ The modal object asks take `Document`'s `ObjectKinds`, never a raw `ObjectType`.
 The gumball wire closes here: the point getter IS the consumer `Display/interaction`'s gumball surface names — a `PointFeedback.Pose` drive borrows `PickContext`/`GetPoint` from this page and `Gumballs.Configure` returns its evidence on this request rail, so the 251-line gumball surface has its producer and no detached gumball stream exists.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// The MEANING is the caller's election — literal, number, length, angle dialect — and cannot be recovered from
-// the text, so the roster stays delegate rows and the `[ObjectFactory<string>]` move is REFUTED here: that plane
-// binds ONE grammar per owner, and five grammars under one owner would re-mint the dialect knob as a wire prefix.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TextMeaning {
     public static readonly TextMeaning Literal = new(key: 0, parse: static (text, _, _) =>
@@ -660,9 +608,6 @@ public sealed partial class TextMeaning {
             ? Fin.Succ<Acquired>(new Acquired.Number(Value: value))
             : Fin.Fail<Acquired>(key.InvalidInput());
     }));
-    // Length text crosses through `UnitText` (session.md), the branch's ONE length-correspondence owner: it holds
-    // the dialect roster, the whole-string gate, the `LengthValue` disposal bracket, and the regime pairing this
-    // receipt detaches. Re-spelling that parse here forked the gate and re-derived the regime beside its owner.
     public static readonly TextMeaning Length = new(key: 2, parse: static (text, document, key) =>
         from regime in DocumentSpace.Model.Read(document: document, op: key)
         from encoded in UnitText.Length(text: text, key: key)
@@ -671,7 +616,6 @@ public sealed partial class TextMeaning {
             ? Fin.Succ<Acquired>(value: new Acquired.Distance(Value: value.Value, Unit: value.Unit))
             : Fin.Fail<Acquired>(error: key.InvalidResult())
         select measured);
-    // `AngleGrammar` (session.md) owns the degree/radian dialect and lands canonical radians at its own seam.
     public static readonly TextMeaning AngleDegrees = new(key: 3, parse: static (text, _, key) =>
         AngleGrammar.Degrees.Parse(text: text, op: key)
             .Map(static radians => (Acquired)new Acquired.Angle(Radians: radians)));
@@ -739,7 +683,6 @@ public abstract partial record PromptCase {
             .Map(static shade => (Acquired)new Acquired.Paint(Value: shade)));
 }
 
-// A capability vocabulary: the object-getter toggles are combinable membership like the point gates.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ObjectGate : ICapability<ObjectGate> {
@@ -829,8 +772,6 @@ public sealed partial class DragScope {
     public bool Grips { get; }
 }
 
-// RENAMED from `DragPlan` (E-R31): the kernel transfer page owns that name for the staged drag PAYLOAD; this
-// value selects DOCUMENT OBJECTS into the host's `TransformObjectList` — a different concern under its own name.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class DragSelection {
@@ -849,8 +790,6 @@ public sealed partial class DragSelection {
             : new ValidationError(string.Join(" | ", new object?[] { Op.Of(), nameof(DragSelection), "a prompt, a scope, and a selection admitting at least one object" }));
 }
 
-// Each row projects through the kernel form recovery, so the one `Shape` case carries an OWNED recovered form and
-// the seven per-shape wrapper cases are gone; the corners of a rectangle land as the closed polyline they bound.
 [SmartEnum<int>]
 public sealed partial class ShapeAsk {
     public static readonly ShapeAsk Segment = new(key: 0, run: static op =>
@@ -876,8 +815,6 @@ public sealed partial class ShapeAsk {
         (native, () => recover().Map(static form => (Acquired)new Acquired.Shape(Form: form)));
 }
 
-// `Rhino.Input.Custom.GetFileNameMode` — the host's own file-ask roster, sparse by construction (ordinals 4, 15,
-// and 16 carry no row), so the keyed wrap mirrors the live ordinals and an unlisted ordinal refuses at admission.
 [SmartEnum<GetFileNameMode>]
 public sealed partial class FileAsk {
     public static readonly FileAsk Open = new(key: GetFileNameMode.Open);
@@ -949,9 +886,6 @@ public abstract partial record ModalInput {
         && this is Point or OneObject or ManyObjects or Text or Toggle or Number or Count or Paint;
 }
 
-// The request columns an intent admits, folded ONCE: `SupportsOptions`, `SupportsPromptDefault`, and
-// `SupportsDrag` were three derived predicates two of which restated each other; one admission fold reads the
-// column and a new request column is one row plus one arm.
 [SmartEnum<int>]
 public sealed partial class RequestColumn {
     public static readonly RequestColumn Options = new(key: 0);
@@ -967,8 +901,6 @@ public abstract partial record AcquireIntent {
     public sealed record Transform(Func<RhinoViewport, Point3d, Transform> Calculate) : AcquireIntent;
     public sealed record Modal(ModalInput Input) : AcquireIntent;
 
-    // ONE column fold: a modal intent admits nothing, an object intent admits options and a prompt default, and
-    // the drag column rides only the two drives that consume a drag buffer.
     internal bool Admits(RequestColumn column) => Switch(
         state: column,
         interactive: static (_, _) => true,
@@ -1030,7 +962,6 @@ public abstract partial record InputDefault {
         textValue: row => key.AcceptText(row.Value).Map(static _ => unit),
         paintValue: row => key.Need(row.Value).Map(static _ => unit));
 
-    // The paint seed rides the kernel egress and can REFUSE, so the apply is a rail, not a side write.
     internal Fin<Unit> Apply(GetBaseClass getter, Op key) => Switch(
         state: (Getter: getter, Op: key),
         pointValue: static (held, value) => Fin.Succ(Op.Side(() => held.Getter.SetDefaultPoint(value.Value))),
@@ -1041,19 +972,15 @@ public abstract partial record InputDefault {
             .Map(color => Op.Side(() => held.Getter.SetDefaultColor(color))));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
-// A modal view ask hands back live host views and viewports whose lifetime is the getter call; identity, name,
-// and the owning view serial detach at that seam. A detail viewport has no parent view, hence the optional serial.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ViewportFact(Guid Id, string Name, Option<uint> ViewSerial);
 
-// The ONE host-args detachment seam ([05] `InputMap`): three generated projections with their derived columns
-// declared as rows, so the correspondence is reviewable at the mapper rather than spread over three hand bodies.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class InputMap {
     [MapProperty(nameof(GetPointMouseEventArgs.Point), nameof(GetPointFact.World))]
     [MapProperty(nameof(GetPointMouseEventArgs.WindowPoint), nameof(GetPointFact.Window))]
-    [MapperIgnoreSource(nameof(GetPointMouseEventArgs.Viewport))]   // identity read through `ViewportId` below
+    [MapperIgnoreSource(nameof(GetPointMouseEventArgs.Viewport))]
     internal static partial GetPointFact Fact(GetPointMouseEventArgs args);
 
     private static Guid ViewportId(GetPointMouseEventArgs args) => args.Viewport.Id;
@@ -1140,9 +1067,7 @@ public sealed record Acquire {
 - Law: the point getter is the gumball surface's producer — a `Pose` drive borrows `PickContext`/`GetPoint` from this page and `Gumballs.Configure` (`Display/interaction`) returns its evidence on this request rail, so no detached gumball stream exists.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Non-value terminals as ROWS: the seal ladder reads the table, a new host terminal is one row, and the refusal
-// for an unmapped result carries the row key typed rather than a hand-spelled detail string.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<GetResult>]
 internal sealed partial class TerminalRow {
     internal static readonly TerminalRow Cancel = new(key: GetResult.Cancel, seal: static () => new AcquireTerminal.Cancelled());
@@ -1155,12 +1080,12 @@ internal sealed partial class TerminalRow {
     internal partial AcquireTerminal Seal();
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed record GetterCycle(
     Seq<OptionChoice> Choices,
     Option<GetResult> Terminal);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Acquisition {
     public static Fin<AcquiredReceipt> Get(DocumentSession session, Acquire request, Op? key = null) {
         Op op = key.OrDefault();
@@ -1211,9 +1136,6 @@ public static class Acquisition {
         prepare: getter => plan.Plan.Apply(
             target: getter, apply: static (rule, target, k) => rule.Apply(target, k), key: op),
         receive: (getter, _) => op.Catch(() => Fin.Succ(getter.GetMultiple(plan.Minimum, plan.Maximum))),
-        // The object getter is the PRODUCER `Commands/selection` names: `CaptureOwned` answers the page's own
-        // `PickReceipt` — survivors, named casualties, and the participating-getter fact — and this payload is
-        // where that receipt reaches its reader.
         project: (getter, raw) => raw is GetResult.Object
             ? Picks.CaptureOwned(references: getter.Objects(), key: op)
                 .Map(static picked => (Acquired)new Acquired.Objects(Picked: picked))
@@ -1283,7 +1205,6 @@ public static class Acquisition {
                 held.Request.Prompt, held.Request.Accept.AcceptsNothing, ref value, modal.Lower, modal.Upper);
             return (native, () => Fin.Succ<Acquired>(new Acquired.Count(Value: value)));
         }),
-        // The seed rides the kernel egress and its gamut refusal SURFACES — no clipped byte write.
         paint: static (held, modal) => Slots.Rgb(shade: modal.Seed, key: held.Op).Bind(seed => ModalResult(held.Op, () => {
             System.Drawing.Color value = seed;
             Result native = RhinoGet.GetColor(
@@ -1291,8 +1212,6 @@ public static class Acquisition {
             return (native, () => Slots.Shade(color: value, key: held.Op)
                 .Map(static shade => (Acquired)new Acquired.Paint(Value: shade)));
         })),
-        // GetDistance resolves in the document's own regime, so the projection reads that regime through the same
-        // `DocumentSpace.Model` owner the text route reads — the modal route detaches the identical pairing.
         distance: static (held, modal) => ModalResult(held.Op, () => {
             Result native = RhinoGet.GetDistance(held.Request.Prompt, modal.Seed, out double value);
             return (native, () => DocumentSpace.Model.Read(document: held.Document, op: held.Op)
@@ -1307,7 +1226,6 @@ public static class Acquisition {
             Result native = RhinoGet.GetViewports(held.Request.Prompt, out RhinoViewport[] value);
             return (native, () => modal.Project(toSeq(value).Map(static row => InputMap.Fact(row)).Strict()));
         }),
-        // Title presence IS the route: a caption drives the native dialog, its absence the command-line ask.
         file: static (held, modal) => held.Op.Catch(() => {
             string value = modal.Title.Match(
                 Some: caption => RhinoGet.GetFileName(modal.Ask.Key, modal.DefaultName, caption, parent: null),
@@ -1335,9 +1253,6 @@ public static class Acquisition {
 }
 
 internal static class GetterDrive {
-    // The three-deep `using` tower — getter, drag buffer, option lease — is ONE ranked bracket ladder: concerns
-    // acquire in rank order, the body runs under all of them, and release runs in reverse through the one release
-    // algebra so a mid-ladder refusal frees exactly what it acquired ([PRECEDENCE_TABLE]).
     internal static Fin<AcquiredReceipt> Run<TGetter>(
         Acquire request,
         Func<TGetter> create,
@@ -1385,8 +1300,6 @@ internal static class GetterDrive {
                     key: op)),
         None: () => body(None));
 
-    // One bounded halting fold: `foldUntil` stops on the first non-option terminal or a spent budget, so no
-    // monadic index walk and no done-flag exists beside the fold's own halt predicate.
     private static Fin<AcquiredReceipt> Cycle<TGetter>(
         Acquire request,
         TGetter getter,
@@ -1411,9 +1324,6 @@ internal static class GetterDrive {
                         : project(getter, raw).Bind(payload => Sealed(
                             new AcquireTerminal.Value(Payload: payload), getter, cycle.Choices, lease, dragging, op))));
 
-    // The seal is the ONE read of the settled option state: the lease is still live inside the bracket, every
-    // carrier still holds its value, and the choices beside it are the touch HISTORY — a caller folding that
-    // history latest-wins to recover the final values re-derives what the snapshot answers directly.
     private static Fin<AcquiredReceipt> Sealed(
         AcquireTerminal terminal,
         GetBaseClass getter,
@@ -1439,13 +1349,11 @@ internal static class GetterDrive {
 `PointFeedbackLease` converts every callback into a non-throwing native handler; its first-fault seat is a kernel `Cell.Seat` over one atom, so the losing writer's verdict is READ, never re-derived, and cleanup faults aggregate through the one release algebra. `Subscription` (`Document/lifetime`) owns attachment rollback and complete detachment. `DragBuffer` owns the host transform list end to end: it runs the drag selection, binds a `GetTransform` or arms display feedback for a point drag, applies each `Pose` sample under a `Cell.Commit` tally, and projects its measured census before disposal.
 
 ```csharp signature
-// --- [BOUNDARIES] -------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 internal sealed class DragBuffer : IDisposable {
     private readonly TransformObjectList buffer;
     private readonly DragScope scope;
     private readonly Op op;
-    // The applied-pose tally rides the kernel cell: a total unconditional increment is a plain commit, and the
-    // census reads the atom rather than a `Volatile.Read` over a hand interlocked field.
     private readonly Atom<int> poses = Atom(0);
 
     private DragBuffer(TransformObjectList buffer, DragScope scope, Op op) {
@@ -1455,7 +1363,7 @@ internal sealed class DragBuffer : IDisposable {
     }
 
     internal static Fin<DragBuffer> Of(DragSelection plan, Op op) => op.Catch(() => {
-        using GetObject selection = new();                              // Exemption: host getter bracket, the selection never escapes
+        using GetObject selection = new();
         selection.SetCommandPrompt(plan.Prompt);
         return plan.Selection.Plan.Apply(
                 target: selection, apply: static (rule, target, k) => rule.Apply(target, k), key: op)
@@ -1467,8 +1375,6 @@ internal sealed class DragBuffer : IDisposable {
 
     private static Fin<DragBuffer> Minted(GetObject selection, DragScope scope, Op op) {
         TransformObjectList buffer = new();
-        // The failure arm releases the stranded mint through the one custody rail — never a tuple-projection
-        // dispose that binds release to the expression rather than the failure.
         return op.Confirm(buffer.AddObjects(selection, scope.Grips) > 0)
             .Map(_ => new DragBuffer(buffer, scope, op))
             .Rollback(release: () => op.Catch(() => { buffer.Dispose(); return Fin.Succ(unit); }), key: op);
@@ -1499,8 +1405,6 @@ internal sealed class PointFeedbackLease : IDisposable {
     private readonly GetPoint getter;
     private readonly Option<DragBuffer> dragging;
     private readonly Op op;
-    // First-fault-wins is a SEAT: `Cell.Seat` installs the first refusal and cedes every later one, so the
-    // interrupt fold reads its own verdict instead of a swap whose loser cannot tell it lost.
     private readonly Atom<Option<Error>> fault = Atom(Option<Error>.None);
     private readonly Atom<Option<Subscription>> observation = Atom(Option<Subscription>.None);
 
@@ -1557,8 +1461,6 @@ internal sealed class PointFeedbackLease : IDisposable {
         return Subscription.Attach(subscribe: attach, unsubscribe: remove, handler: handler);
     }
 
-    // The first refusal SEATS; the interrupt fault aggregates into it before seating, so the native loop stops
-    // once and the surfaced fault carries both the sink's refusal and any interrupt failure.
     private void Deliver(Func<Fin<Unit>> effect) {
         if (fault.Value.IsSome) return;
         _ = op.Catch(effect).Match(
@@ -1573,8 +1475,6 @@ internal sealed class PointFeedbackLease : IDisposable {
             });
     }
 
-    // Detach is a TAKE: the drained subscription closes once, and its cleanup refusals aggregate onto whatever
-    // fault is already seated through the one release algebra rather than a hand fold over the tail.
     public void Dispose() {
         Transition<Option<Subscription>> drained = Cell.Take(observation);
         if (drained is not Transition<Option<Subscription>>.Committed { State: var taken } || taken.IsNone) return;

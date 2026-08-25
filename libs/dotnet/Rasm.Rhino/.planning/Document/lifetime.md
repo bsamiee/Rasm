@@ -25,17 +25,14 @@ Everything here is host-light: `LifecycleGate`, `Subscription`, and `Reentrancy`
 - Boundary: the gate holds no resource of its own — `stop` and `settle` are the owner's, so the capsule is reusable across pointer leases, content streams, and watch custody without knowing any of them.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Threading;
 using System.Threading.Tasks;
 using Rasm.Domain;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// `Reopenable`, never `Retryable`: the branch retry vocabulary is `Retriability`/`Redrive`, and a close state
-// wearing that word reads as a retry capsule where none exists — this case names a close whose settle refused
-// and may be re-driven by a later `Begin`, nothing more.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record LeaseState {
     private LeaseState() { }
@@ -45,12 +42,9 @@ internal abstract partial record LeaseState {
     internal sealed record Closed : LeaseState;
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class LifecycleGate {
     private readonly Atom<LeaseState> state = Atom<LeaseState>(new LeaseState.Open(Claims: 0));
-    // A claim runs to completion on the thread that took it, so a close issued from a thread already inside a claim
-    // would wait on its own release forever. The claiming-thread set is the structural refusal for that re-entrancy,
-    // and it is what keeps a bounded blocking close safe on the host callback thread.
     private readonly Atom<Set<int>> claiming = Atom(Set<int>());
     private readonly TimeSpan settleWithin;
     private LifecycleGate(TimeSpan settleWithin) => this.settleWithin = settleWithin;
@@ -60,10 +54,6 @@ internal sealed class LifecycleGate {
     internal Fin<T> Within<T>(Func<Fin<T>> body, Func<Fin<T>> refused, Op key) =>
         TryClaim() ? Settle(Marked(body, key)) : key.Catch(refused);
 
-    // The drain is bounded but still BLOCKING, so it never rides the closing caller's thread: `Begin` arms the close,
-    // runs `stop` on the caller's own rail so a marshalled arm keeps its seam, and hands back the completion — a host
-    // UI-thread owner settles that completion off-thread, because blocking there stalls the very callbacks the drain
-    // waits to see released. `Close` is the blocking convenience a pool caller takes over the same one-owner close.
     internal Fin<Unit> Close(Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) =>
         Begin(stop, settle, key).Bind(completion => Await(completion, key)).Bind(static outcome => outcome);
 
@@ -119,9 +109,6 @@ internal sealed class LifecycleGate {
             reopenable: static _ => unit,
             closed: static _ => unit);
 
-    // The owning close alone drives the drain, and it drives it as a SCHEDULER continuation: `stop` runs inline on the
-    // caller's rail, then the bounded wait and the settle ride the pool. A gate whose claims are already zero completes
-    // its own quiesce signal here rather than branching, so both paths reach one conclusion member.
     private Task<Fin<Unit>> Drain(LeaseState.Closing row, Func<Fin<Unit>> stop, Func<Fin<Unit>> settle, Op key) {
         Fin<Unit> stopped = key.Catch(stop);
         _ = Op.SideWhen(row.Claims == 0, () => ignore(row.Quiesced.TrySetResult(unit)));
@@ -182,13 +169,13 @@ internal sealed class LifecycleGate {
 - Exemption: `Subscription` and its closure records ride a `Lock` — close claims its detacher roster, runs callbacks after release, and publishes retry custody with one settled result atomically, a sequence whose steps must each run after an earlier one refused; the platform-forced lifetime seam is contained here and no composer writes one.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Threading.Tasks;
 using Rasm.Domain;
 
 namespace Rasm.Rhino.Document;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class Subscription : IDisposable {
     private readonly Lock gate = new();
     private SubscriptionClosure closure;
@@ -214,8 +201,6 @@ public sealed class Subscription : IDisposable {
         return new(detach: Seq(detach));
     }
 
-    // A throwing attach rolls its own subscribe back before the fault leaves, and a failing inverse AGGREGATES
-    // into the primary rather than replacing or shadowing it.
     public static Fin<Subscription> Attach<THandler>(Action<THandler> subscribe, Action<THandler> unsubscribe, THandler handler)
         where THandler : Delegate {
         Op key = Op.Of(name: nameof(Subscription));
@@ -364,9 +349,6 @@ public abstract partial record SubscriptionRelease {
     };
 }
 
-// The guard answers a VERDICT the caller records: absence is a suppressed recursive delivery, presence the ran
-// outcome. The guard stays journal-free, so each composing owner posts its own suppression evidence rather than
-// every composer coupling to one journal shape.
 internal sealed class Reentrancy {
     private readonly AsyncLocal<int> depth = new();
 
@@ -401,23 +383,21 @@ internal sealed class Reentrancy {
 - Boundary: the pump owns the ONE idle hook per instance and nothing else — the work closures carry their own custody, and the pump never reads what a unit of work does.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rhino;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PumpLoss {
     public static readonly PumpLoss Overflow = new(key: 0);
     public static readonly PumpLoss Cancelled = new(key: 1);
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Generic over the TAG its losses name: the delivery owner instantiates the pump over its own origin vocabulary,
-// so the pump holds no journal, no receipt shape, and no event type of any composer's.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class IdlePump<TTag> : IDisposable {
     private readonly Atom<Seq<PumpWork>> pending = Atom(Seq<PumpWork>());
     private readonly Atom<bool> open = Atom(true);
@@ -441,8 +421,6 @@ internal sealed class IdlePump<TTag> : IDisposable {
             });
     }
 
-    // Admission is a GUARDED step: a full queue declines and the verdict rides the transition, so overflow is
-    // never inferred from a count read beside the swap; a closed pump records the loss as cancellation.
     internal Fin<Unit> Enqueue(TTag tag, Func<bool> alive, Func<Fin<Unit>> run) {
         if (!open.Value) {
             return Fin.Succ(Op.Side(() => lost(PumpLoss.Cancelled, tag)));
@@ -475,8 +453,6 @@ internal sealed class IdlePump<TTag> : IDisposable {
         if (works.IsEmpty) {
             return;
         }
-        // In-frame on the idle thread, gauged on the deferred lane: the crossing buys the budget evidence, and a
-        // headless refusal falls back to the bare run because a marshal refusal must not read as silent loss.
         Fin<Unit> crossed = UiThread.Run(
             new UiDispatch<Unit>.Blocking(() => Fin.Succ(RunAll(works))),
             DispatchLane.Deferred,
@@ -484,16 +460,12 @@ internal sealed class IdlePump<TTag> : IDisposable {
         _ = crossed.IfFail(_ => RunAll(works));
     }
 
-    // Take-and-clear: the drained roster is the `Committed` payload of ONE transition, so a unit enqueued during
-    // the drain waits for the next tick rather than racing the sweep; a non-committed take drains nothing.
     private Seq<PumpWork> Drained() => Cell.Take(pending) switch {
         Transition<Seq<PumpWork>>.Committed committed => committed.State,
         _ => Seq<PumpWork>(),
     };
 
     private Unit RunAll(Seq<PumpWork> works) => works.Fold(unit, (_, work) => work.Alive()
-        // The ran outcome is the WORK's own rail — the enqueuer's closure records its own faults — so the catch
-        // here shields the idle callback alone and discards a verdict the closure already journaled.
         ? ignore(key.Catch(work.Run))
         : Op.Side(() => lost(PumpLoss.Cancelled, work.Tag)));
 

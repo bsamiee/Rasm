@@ -16,7 +16,7 @@ Block state vocabulary (`Rasm.Rhino.Blocks`) owns one live address, one whole-st
 - Law: the deleted posture is a LENS ROW, never a hand roster walk beside the live lens — the same three address shapes resolve under both postures, so an operation choosing "live" or "deleted" passes a lens and re-spells nothing.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public static class Definitions {
     internal static readonly ResourceLens<InstanceDefinition> Lens = new(
         ById: static (document, id) => document.InstanceDefinitions.Find(instanceId: id, ignoreDeletedInstanceDefinitions: true),
@@ -24,8 +24,6 @@ public static class Definitions {
         ByIndex: static (document, index) => index >= 0 && index < document.InstanceDefinitions.Count
             && document.InstanceDefinitions[index] is { IsDeleted: false } row ? row : null);
 
-    // The revive path's posture: the SAME address shapes resolve against the deleted roster, so `Undelete` passes
-    // this lens instead of re-implementing by-id/name/index over a hand-filtered list.
     internal static readonly ResourceLens<InstanceDefinition> DeletedLens = new(
         ById: static (document, id) => Roster(document).Find(definition => definition.Id == id).ToNullable(),
         ByName: static (document, name) => Roster(document)
@@ -56,7 +54,7 @@ public static class Definitions {
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md` — `InstanceDefinition`, `GetReferences`, `UseCount`, `GetContainers`, `UsesLayer`/`UsesLinetype`/`UsesDefinition`), RhinoCommon document (`.api/api-rhinocommon-document.md` — tables the dependency probes bound against), kernel `Domain/identity` (`ContentHash.Of<TState>`, `CanonicalWriter`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Rhino.Document;
 using Rhino;
@@ -65,20 +63,16 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Blocks;
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ReferenceScope {
     public static readonly ReferenceScope Direct = new(key: 0, hostValue: 0);
     public static readonly ReferenceScope Nested = new(key: 1, hostValue: 1);
     public static readonly ReferenceScope Definition = new(key: 2, hostValue: 2);
 
-    // The host ordinal is the `GetReferences(int)` argument and nothing else, so it stays inside the folder that
-    // spells that call; a public column invites a caller to pass an integer the vocabulary already owns.
     internal int HostValue { get; }
 }
 
-// What a source axis DOES: reads an external source, embeds a copy, or both. The two derived bools this replaces
-// (`Reads`, `Embeds`) were each re-tested at call sites this set now answers by membership.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SourceFacet : ICapability<SourceFacet> {
@@ -86,9 +80,6 @@ public sealed partial class SourceFacet : ICapability<SourceFacet> {
     public static readonly SourceFacet Embeds = new(key: "embeds");
 }
 
-// What a linked source must HOLD for a regeneration to run: the document's update style grants `Styled`, a
-// readable archive grants `Readable`. The lifecycle rail's `LinkSubject.Conditions` derives the held set and
-// `RefreshRefusal` names the missing row, so the refusal and the condition share one vocabulary.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LinkCondition : ICapability<LinkCondition> {
@@ -96,9 +87,6 @@ public sealed partial class LinkCondition : ICapability<LinkCondition> {
     public static readonly LinkCondition Readable = new(key: "readable");
 }
 
-// Facets and requirements are SETS on the row, and `Regenerates` is ONE subset read: a mode that reads a source
-// requires both conditions, an embedded-and-linked mode requires only the style grant, and a static mode requires
-// nothing — the lifecycle ternary that re-derived this from two bools is the deleted form.
 [SmartEnum<int>]
 public sealed partial class SourceMode {
     public static readonly SourceMode Static = new(
@@ -114,8 +102,6 @@ public sealed partial class SourceMode {
         facets: CapabilitySet<SourceFacet>.Of(SourceFacet.Reads),
         requires: CapabilitySet<LinkCondition>.Of(LinkCondition.Styled, LinkCondition.Readable));
 
-    // Retired host ordinal: the source axis once carried a fourth case the host marks `[Obsolete("Always use Static")]`.
-    // Admission folds it onto `Static` so a legacy archive reads and no fence spells the obsolete member.
     private const int RetiredEmbeddedOrdinal = 1;
 
     public CapabilitySet<SourceFacet> Facets { get; }
@@ -141,8 +127,6 @@ public sealed partial class LayerScope {
         key.Row<int, LayerScope>((int)style);
 }
 
-// The archive-health axes as capability rows: `Stale` and `Broken` were two bool columns whose four corners the
-// six rows only ever inhabited three of; the set states each row's condition and the lifecycle rail reads it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ArchiveCondition : ICapability<ArchiveCondition> {
@@ -169,8 +153,6 @@ public sealed partial class SourceHealth {
 public abstract partial record LinkState {
     private LinkState() { }
     public sealed record Static : LinkState;
-    // The MODE rides the case: `AlsoEmbedded` was the mode's own `Embeds` facet stored as a second authority, so
-    // the column carries the row and every facet read derives from it.
     public sealed record Linked(
         DocumentPath Path,
         SourceMode Mode,
@@ -240,9 +222,6 @@ public abstract partial record BlockDependency {
         : Fin.Fail<BlockDependencyAnswer>(error: op.InvalidInput()));
 }
 
-// The probe answered ONE `int` carrying three unrelated meanings — `0` absent, `1` a present table dependency,
-// and the host's nesting DEPTH for a definition probe — so `> 0` read as "used" on two arms and as "used at least
-// one level deep" on the third, and no reader could tell a depth of one from a boolean true.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BlockDependencyAnswer : IDetachedDocumentResult {
     private BlockDependencyAnswer() { }
@@ -250,7 +229,7 @@ public abstract partial record BlockDependencyAnswer : IDetachedDocumentResult {
     public sealed record Nesting(int Levels) : BlockDependencyAnswer;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class BlockUsage {
     public int Total { get; }
@@ -298,8 +277,6 @@ public abstract partial record Placement {
         public PlacementKind Kind { get; }
     }
 
-    // Admission-once: the case ctors are internal, every column proves at the factory, and the four null guards
-    // the placement arms re-spelled per use delete by construction.
     public static Fin<Placement> Of(Transform motion, Op? key = null) =>
         Motioned(motion: motion, key.OrDefault()).Map(static admitted => (Placement)new Bare(motion: admitted));
 
@@ -329,10 +306,6 @@ public abstract partial record Placement {
         guard(motion.IsValid, op.InvalidInput()).ToFin().Map(_ => motion);
 }
 
-// `Scope` is the placement census's own question, and the snapshot could not answer it: `Placements` and `InUse`
-// derive from `GetReferences(scope)`, so a `Direct` read answering "not in use" and a `Definition` read answering
-// "in use" were the same shape with no column separating them. `Usage` stays the host's own scope-free tally, so
-// the pair reads as census-under-this-scope beside total-across-the-document.
 [Equatable]
 public sealed partial record BlockSnapshot(
     Guid Key,
@@ -434,12 +407,6 @@ public sealed partial record BlockSnapshot(
     private Fin<InstanceDefinition> Resolve(RhinoDoc document, Op key) =>
         ResourceRef.Of(id: Key).Bind(target => Definitions.Resolve(target: target, document: document, key: key));
 
-    // The preimage is STORED CONTENT alone, framed once through the kernel writer. `ArchiveFileStatus` and
-    // `IsTenuous` are live probes — folding them in made one unchanged definition hash differently on two
-    // consecutive reads — so both remain snapshot columns through `LinkState.Linked`, declared derived. Member
-    // rows frame ordinal + geometry CRC + attribute CRC, count-framed by `Rows`, so member order is identity and
-    // no live `Guid` or archive byte enters the preimage; the absent description and source frame as `Optional`
-    // rows, so an absent and an empty string key APART.
     private static Fin<UInt128> Identity(BlockIdentityState state, Op op) =>
         op.Catch(() => Fin.Succ(value: ContentHash.Of(
             state: state,
@@ -489,7 +456,7 @@ public sealed record BlockPlacement(Guid Id, Transform Motion, Point3d Insertion
 - Packages: RhinoCommon blocks (`.api/api-rhinocommon-blocks.md:98-100` — the three `CreatePreviewBitmap` overloads), kernel `Interaction/asset` (`AssetExtent`), kernel `Domain/validation` (`CapabilitySet`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -499,7 +466,7 @@ using Rhino.DocObjects;
 
 namespace Rasm.Rhino.Blocks;
 
-// --- [TYPES] -------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ConflictPolicy {
     public static readonly ConflictPolicy Fail = new(key: 0);
@@ -529,8 +496,6 @@ public sealed partial class ExplodeDepth {
 public abstract partial record ExplodePolicy {
     private ExplodePolicy() { }
     public sealed record All(ExplodeDepth Depth) : ExplodePolicy;
-    // `ResourceId` is the spine's non-empty guid owner, so the visible arm cannot carry the empty viewport the
-    // hand guard at the read site was refusing.
     public sealed record Visible(ExplodeDepth Depth, ResourceId Viewport) : ExplodePolicy;
 }
 
@@ -543,8 +508,6 @@ public sealed partial class PlacementKind {
 }
 
 // --- [PREVIEW]
-// Roster decompile-verified: `Rhino.DocObjects.DisplayMode` {Default, Wireframe, Shaded, RenderPreview} — all
-// four are legal preview display modes, so the whole roster carries rows.
 [SmartEnum<int>]
 public sealed partial class PreviewDisplay {
     public static readonly PreviewDisplay Default = new(key: (int)DisplayMode.Default);
@@ -571,20 +534,14 @@ public sealed partial class PreviewDecoration {
     public bool Draw { get; }
 }
 
-// --- [POLICIES] ----------------------------------------------------------------------------
-// The allocation policy this consumer states over the kernel extent: the max raster edge seeds the kernel
-// `MaxDimension` column and the pixel budget admits at the frame, so a preview request past either refuses
-// before any host bitmap allocates. One declared row — a second budget beside it is two ceilings for one buffer.
+// --- [POLICIES] ------------------------------------------------------------------------
 public sealed record PreviewBudget(Rasm.Numerics.Dimension MaxEdge, long MaxPixels) {
     public static PreviewBudget Default => Seed.Value;
     private static readonly Lazy<PreviewBudget> Seed = new(static () => new(
         MaxEdge: Rasm.Numerics.Dimension.Create(value: 4096), MaxPixels: 4096L * 4096L));
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// Projection, extent, and raster scale admit ONCE for every modality; the extent is the kernel owner and the
-// budget gate runs here, so the four `Enum.IsDefined` guards and the local width/height/pixel arithmetic the
-// prior extent carried all delete.
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 internal sealed partial class PreviewFrame {
     public DefinedView Projection { get; }
@@ -618,8 +575,6 @@ internal sealed partial class PreviewFrame {
     internal System.Drawing.Size ToSize() => new(width: Extent.PixelWidth, height: Extent.PixelHeight);
 }
 
-// The modality union: whole-definition, one-member, or axonometric — each case carries only its distinct
-// evidence, and the three per-modality factories the family carried collapse onto ONE `BlockPreview.Of`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PreviewTarget {
     private PreviewTarget() { }
@@ -633,8 +588,6 @@ public abstract partial record BlockPreview {
     private BlockPreview() { }
     private sealed record Framed(PreviewFrame Frame, PreviewTarget Target) : BlockPreview;
 
-    // ONE mint over the modality union: the discriminant is the target's own case, so the three per-modality
-    // factories delete and a fourth modality is one `PreviewTarget` case plus one render arm.
     public static Fin<BlockPreview> Of(PreviewFrame frame, PreviewTarget target, Op? key = null) {
         Op op = key.OrDefault();
         return (op.Need(frame).ToValidation(), op.Need(target).ToValidation())

@@ -21,9 +21,8 @@ Grammar-scoped code editing over AvaloniaEdit and TextMate: `EditorInk` is the o
 - Boundary: `TokenRawTheme` takes a VALUE theme because the tokenizer compiles its colour trie once — a re-materialization, not a dynamic consumer — and rides `Theme/tokens#CONTROL_THEMES` `Rematerialize.GrammarTheme`, whose rebuild re-emits the block and calls `SetTheme` on every mounted installation; inside a pane the rows bind styled properties through `ThemeRail.Bind`, so a variant flip re-tints with nothing rebuilt. `WhitespaceMark` restores a capability the retired single bool erased: spaces, tabs, and line-ends are three package knobs one flag drove as one. Indent guides ship in no AvaloniaEdit type — the row's own `Attach` mounts the owned renderer on `TextView.BackgroundRenderers` (`InsertLayer` throws for anything but `Above` against `KnownLayer.Background`, and an `Above` layer paints over the text).
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -36,9 +35,6 @@ public sealed partial class EditorAffordance : ICapability<EditorAffordance> {
     public static readonly EditorAffordance SpacesForTabs = new(key: "spaces-for-tabs");
 }
 
-// Three package knobs, one axis: the retired single `Whitespace` bool drove ShowSpaces, ShowTabs, and
-// ShowEndOfLine as one, erasing a capability this set restores.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -48,9 +44,6 @@ public sealed partial class WhitespaceMark : ICapability<WhitespaceMark> {
     public static readonly WhitespaceMark LineEnds = new(key: "line-ends");
 }
 
-// The ONE chrome correspondence: each row names the VS Code key its pixel is addressed by, the resolved role
-// that owns it, the bind that seats it on a live editor, and the enablement gate that decides whether it
-// seats at all — so the projected block, the pane bind set, and the options fold read one table.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -91,21 +84,15 @@ public sealed partial class EditorInk {
     public static readonly EditorInk Link = new("textLink.foreground", PaintRole.Link, rung: 0,
         attach: static (editor, key) => ThemeRail.Bind(editor.TextArea.TextView, TextView.LinkTextForegroundBrushProperty, key),
         lit: static options => options.Affordances.Admits(EditorAffordance.Hyperlinks));
-    // Every write forwards to the installed panel and is DROPPED before it mounts — `Open` orders the panel
-    // ahead of the ink set.
     public static readonly EditorInk Match = new("editor.findMatchHighlightBackground", PaintRole.Highlight, rung: 0,
         attach: static (editor, key) => ThemeRail.Bind(editor, TextEditor.SearchResultsBrushProperty, key),
         lit: static _ => true);
-    // The four fold-marker brushes are ATTACHED properties: one bind on the editor styles every marker in the
-    // margin beneath it.
     public static readonly EditorInk FoldMarker = new("editorGutter.foldingControlForeground", PaintRole.TextMuted, rung: 0,
         attach: static (editor, key) => ThemeRail.Bind(editor, FoldingMargin.FoldingMarkerBrushProperty, key),
         lit: static _ => true);
     public static readonly EditorInk FoldMarkerFill = new("editorGutter.background", PaintRole.Panel, rung: 0,
         attach: static (editor, key) => ThemeRail.Bind(editor, FoldingMargin.FoldingMarkerBackgroundBrushProperty, key),
         lit: static _ => true);
-    // The one row whose seat is an OWNED renderer rather than a styled property: the attach mounts it, so the
-    // row carries a real capability and the enablement gate is the same `Lit` column every sibling reads.
     public static readonly EditorInk IndentGuide = new("editorIndentGuide.background", PaintRole.Separator, rung: 0,
         attach: static (editor, _) => IndentGuides.Mount(editor.TextArea.TextView),
         lit: static options => options.Affordances.Admits(EditorAffordance.IndentGuides));
@@ -121,14 +108,9 @@ public sealed partial class EditorInk {
     [UseDelegateFromConstructor]
     public partial bool Lit(EditorOptionsRow options);
 
-    // The paint path: every LIT row seats itself through the one code-side dynamic read, so a theme swap
-    // re-tints the pane with nothing rebuilt and nothing holding a resolved value.
     public static IDisposable Bind(TextEditor editor, EditorOptionsRow options) =>
         new CompositeDisposable(toSeq(Items).Filter(row => row.Lit(options)).Map(row => row.Attach(editor, row.Token)));
 
-    // The projection path: the same rows as a gui-color block, so a headless tokenized surface with no styled
-    // properties reads exactly the pixels a pane paints; `Emit` runs against a RESOLVED theme because the
-    // tokenizer takes a value, not an observable.
     public static ICollection<KeyValuePair<string, object>> Emit(ResolvedTheme resolved) =>
         toSeq(Items)
             .Choose(row => resolved.Paint(row.Role, row.Rung)
@@ -143,9 +125,6 @@ public sealed partial class EditorInk {
                 (brush, width) => lift(new Pen(brush as IBrush, width is double stroke ? stroke : 1d))));
 }
 
-// The tokenizer takes a value theme, so the product's chrome crosses as a DECORATOR over the bundled one: the
-// grammar theme keeps its `tokenColors` and the product owns the `colors` block whole, making
-// `Theme.GetGuiColorDictionary()` total over the product's keys.
 public sealed class TokenRawTheme(IRawTheme inner, ResolvedTheme resolved) : IRawTheme {
     public string GetName() => inner.GetName();
 
@@ -158,10 +137,8 @@ public sealed class TokenRawTheme(IRawTheme inner, ResolvedTheme resolved) : IRa
     public ICollection<KeyValuePair<string, object>> GetGuiColors() => EditorInk.Emit(resolved);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Enablement, not paint: behaviour knobs write directly because they are not resolved values, and the copy
-// constructor forks a base instance per pane rather than sharing one.
 public sealed record EditorOptionsRow(
     CapabilitySet<EditorAffordance> Affordances,
     Seq<int> RulerColumns,
@@ -194,11 +171,8 @@ public sealed record EditorOptionsRow(
     };
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// AvaloniaEdit ships no indent-guide type: guides are an owned background visual whose ink re-resolves like
-// every other consumer, repainting its own layer on each push. The subscription seats from the CONSTRUCTOR
-// because its lambda writes the instance's own ink seat.
 public sealed class IndentGuides : IBackgroundRenderer, IDisposable {
     readonly IDisposable subscription;
 
@@ -212,8 +186,6 @@ public sealed class IndentGuides : IBackgroundRenderer, IDisposable {
 
     public KnownLayer Layer => KnownLayer.Background;
 
-    // The row's own mount: renderer added on the one lawful rail and removed with the returned scope, so the
-    // `EditorInk.IndentGuide` seat is a real capability and no pane special-cases the guides.
     public static IDisposable Mount(TextView view) {
         IndentGuides guides = new(view);
         view.BackgroundRenderers.Add(guides);
@@ -233,8 +205,6 @@ public sealed class IndentGuides : IBackgroundRenderer, IDisposable {
         Optional(builder.CreateGeometry()).Iter(geometry => drawingContext.DrawGeometry(brush, null, geometry));
     }
 
-    // One stop per indent level the line's leading whitespace reaches, measured in the view's own space so a
-    // proportional face and a tab-indented buffer both land on real columns.
     static Seq<double> Stops(TextView textView, VisualLine line, double step) =>
         toSeq(Enumerable.Range(1, (int)(Leading(textView, line.FirstDocumentLine) / step)))
             .Map(level => level * step - textView.ScrollOffset.X);
@@ -258,7 +228,7 @@ public sealed class IndentGuides : IBackgroundRenderer, IDisposable {
 - Boundary: `LanguageMap` is the `LanguageConfiguration → LanguagePlan` seam at the Mapperly nested-path rung — `[MapProperty]` nested paths carry the direct columns and per-TYPE `[UserMapping]` converters the `Option`/`Seq` lifts; the three members needing whole-source readers (`AutoPairs` merges two source rosters; `FoldMarkers` and `Indent` compile from nested optionals) ride `[MapPropertyFromSource]` with the RMG020 cost declared HERE: source-side completeness on this mapping proves only by the target roster, which `RequiredMappingStrategy.Target` enforces. The retired `Unindent` pattern column was projected and read by nothing — a knob deleted, its pattern re-admittable as one `IndentPlan` column when a consumer lands.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -268,10 +238,8 @@ public sealed partial class CodeGrammar {
     public static readonly CodeGrammar Json = new("source.json");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Compiled rule rows: the patterns compile once at projection, so an Enter keystroke matches against held
-// `Regex` values and the per-keystroke mint is unspellable.
 public sealed record EnterPlan(Regex Before, string Action, string Append);
 
 public sealed record IndentPlan(Regex Increase, Regex Decrease);
@@ -289,7 +257,6 @@ public sealed record LanguagePlan(
     public static readonly LanguagePlan Empty = new(
         None, None, Seq<(string, string)>(), Seq<AutoPair>(), Seq<(char, char)>(), None, None, Seq<EnterPlan>(), string.Empty);
 
-    // The comment toggle is the plan's own verb: one change block, so a multi-line toggle undoes as one step.
     public Unit Toggle(TextArea area) {
         LineComment.Iter(marker => {
             using IDisposable scope = area.Document.RunUpdate();
@@ -302,15 +269,11 @@ public sealed record LanguagePlan(
         return unit;
     }
 
-    // Fold regions from the plan's markers feed the SAME whole-set resync the frame projection uses, so a
-    // marker-folded pane and a frame-folded pane share one fold owner.
     public Seq<(int First, int Last)> MarkerRegions(TextDocument document) =>
         FoldMarkers.Match(
             Some: markers => Regions(document, markers.Start, markers.End),
             None: () => Seq<(int, int)>());
 
-    // The open marker CLOSES through the carrier's own optional final read: `Seq.Last` answers `Option`, so a
-    // close marker with nothing open leaves the fold state untouched.
     static Seq<(int First, int Last)> Regions(TextDocument document, Regex opens, Regex closes) =>
         toSeq(Enumerable.Range(1, document.LineCount)).Map(document.GetLineByNumber)
             .Fold((Open: Seq<int>(), Closed: Seq<(int First, int Last)>()), (state, line) =>
@@ -337,11 +300,8 @@ public sealed record LanguagePlan(
     }
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// The behaviour seam at the nested-path rung: direct columns generate, `Option`/`Seq` lifts ride per-TYPE
-// converters, and the three whole-source readers (two-roster merge, two compiled nested optionals) declare
-// their RMG020 cost here — target completeness is the enforced half on this foreign-AST direction.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target, EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class LanguageMap {
     [MapProperty("Comments.LineComment", nameof(LanguagePlan.LineComment))]
@@ -389,8 +349,6 @@ public static partial class LanguageMap {
     private static Regex Compiled(string pattern) => new(pattern, RegexOptions.Compiled);
 }
 
-// The ONE product locator: product scopes answer from its own rows, every bundled language from the composed
-// corpus, file-backed extensions through the corpus loaders.
 public sealed class RasmRegistry(RegistryOptions corpus, HashMap<string, IRawGrammar> owned) : IRegistryOptions {
     public IRawTheme GetTheme(string scopeName) => corpus.GetTheme(scopeName);
 
@@ -401,8 +359,6 @@ public sealed class RasmRegistry(RegistryOptions corpus, HashMap<string, IRawGra
     public IRawGrammar GetGrammar(string scopeName) =>
         owned.Find(scopeName).IfNone(() => corpus.GetGrammar(scopeName));
 
-    // Product rows, then language id, then extension — refusing by NAME rather than returning a scope no
-    // grammar answers, which a closed three-row enumeration could never do for any language but its own.
     public Fin<string> Scope(string languageOrExtension) =>
         CodeGrammar.TryGet(languageOrExtension, out CodeGrammar? product) && product is not null
             ? Fin.Succ(product.Key)
@@ -437,9 +393,6 @@ public sealed class RasmRegistry(RegistryOptions corpus, HashMap<string, IRawGra
     }
 }
 
-// The on-enter indentation binding: enter rules win where one matches because they carry an explicit action
-// and appended text the pattern pair cannot express; otherwise the compiled increase and decrease patterns
-// move one level.
 public sealed class PlanIndentation(LanguagePlan plan, TextEditorOptions options) : IIndentationStrategy {
     public void IndentLine(TextDocument document, DocumentLine line) =>
         Optional(line.PreviousLine).Iter(previous => document.Replace(
@@ -484,13 +437,10 @@ public sealed class PlanIndentation(LanguagePlan plan, TextEditorOptions options
 - Boundary: `Open` is the editor boundary capsule — one TextMate installation per editor, released with the session; mount order is the preconditions' own: scope admits before any owner exists, the options row enables the renderers the chrome colours, `SearchPanel.Install` precedes the ink set because its brush write drops otherwise, and the behavior plane binds last over a live document. Read-only panes (the evidence and conflict viewers) are the same capsule under a grant-less `Editable`. Markdown never renders here — the typography projection owns it and the code pane owns only fenced code.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The one per-lane mark lookup: the pane's conflict hunks, search results, diagnostic spans, and selection
-// reach the overview strip through this ONE column, and `Editing/conflict.md` `HunkMount.Lane` publishes it.
 public delegate Seq<TextSegment> LaneSource(OverviewLane lane);
 
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -500,14 +450,10 @@ public sealed partial class PaneAffordance : ICapability<PaneAffordance> {
     public static readonly PaneAffordance Folding = new(key: "folding");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public readonly record struct FoldRegion(int First, int Last, string Title, bool Closed);
 
-// Every owner one pane mounts, held as ONE custody composite: teardown is one LIFO disposal and no caller
-// tracks five handles whose lifetimes are identical by construction. The editor rides the session because the
-// overview producer needs the document extent, the scroll window, and the live mark segments — all live values
-// a snapshot copied at open would strand.
 public sealed record CodeSession(
     TextMate.Installation Grammar,
     Option<FoldingManager> Folding,
@@ -516,16 +462,10 @@ public sealed record CodeSession(
     TextEditor Editor,
     LaneSource Segments,
     IDisposable Custody) : IDisposable {
-    // Content space is the DOCUMENT: full height at the widest visual line, which the view already measures
-    // for its own scroll extent, so the strip and the scrollbar answer one geometry. Every extent member
-    // forwards to the templated `ScrollViewer` and answers zero before it applies, which is why the frame
-    // producer treats the layout pass as an edge rather than seeding once.
     public Rect Content() => new(0d, 0d, Editor.ExtentWidth, Editor.ExtentHeight);
 
     public Rect Viewport() => new(Editor.HorizontalOffset, Editor.VerticalOffset, Editor.ViewportWidth, Editor.ViewportHeight);
 
-    // Marks in CONTENT space: each segment's rectangles come from the view's geometry builder, which already
-    // carries the scroll offset, and a segment inside a collapsed fold contributes nothing.
     public Seq<Rect> Marks(OverviewLane lane) =>
         Segments(lane).Bind(segment => toSeq(BackgroundGeometryBuilder
             .GetRectsForSegment(Editor.TextArea.TextView, segment))
@@ -534,21 +474,16 @@ public sealed record CodeSession(
     public void Dispose() => Custody.Dispose();
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed record CodePane(
     CapabilitySet<PaneAffordance> Affordances,
     EditorOptionsRow Options,
     CompletionPolicy Completion) {
-    // The pane's overview SOURCE key, the strip's intent key, and its jump verb — DECLARED constants because
-    // the materialize resolves the verb against the boot-frozen deck and aborts the whole strip on a miss.
     public const string SourceKey = "inspector.code.overview";
     public const string StripKey = $"{SourceKey}.strip";
     public const string JumpVerb = $"{SourceKey}.jump";
 
-    // The frame producer: content space is the document, the axis Vertical because a document scrolls one way;
-    // re-emission rides the supplied edges BESIDE the editor's own layout pass, so no polling loop exists and
-    // no pane shows the frame it published before measuring.
     public IObservable<OverviewFrame> Frames(CodeSession session, IObservable<Unit> ticks) =>
         ticks.Merge(Laid(session.Editor))
             .StartWith(unit)
@@ -569,9 +504,6 @@ public sealed record CodePane(
             handler => editor.LayoutUpdated -= handler)
             .Select(static _ => unit);
 
-    // ONE acquire chain: handles land in slots as they are taken; a throw between acquisitions reaches the
-    // Rollback with exactly the taken prefix (null slots skip), and the success value OWNS the chain through
-    // the session's composite — the hand-ordered teardown and the partial-acquisition leak both delete.
     public Fin<CodeSession> Open(
         TextEditor editor, RasmRegistry registry, string language, ResolvedTheme resolved, LaneSource segments) =>
         registry.Scope(language).Bind(scope => {
@@ -608,8 +540,6 @@ public sealed record CodePane(
             return mounted.Rollback(behaviors, inks, foldingScope, searchScope, grammar);
         });
 
-    // A pair closes only where the plan admits it AND the caret is not inside a scope the pair excludes; one
-    // following-character read, one election.
     static Unit AutoClose(TextArea area, LanguagePlan plan, string? entered) {
         Option<char> following = area.Caret.Offset < area.Document.TextLength
             ? Some(area.Document.GetCharAt(area.Caret.Offset))
@@ -626,9 +556,6 @@ public sealed record CodePane(
     static LanguagePlan Planned(RasmRegistry registry, string language) =>
         registry.Configuration(language).Map(LanguageMap.ToPlan).IfNone(LanguagePlan.Empty);
 
-    // ONE resync per parse over regions the caller already computed — conflict hunk rows, options section
-    // rows, the plan's marker regions. Ascending order is the manager's precondition; the manager diffs
-    // against its live sections and keeps each survivor's fold state.
     public static Unit Fold(FoldingManager manager, TextDocument document, Seq<FoldRegion> regions, Option<int> firstError = default) {
         manager.UpdateFoldings(
             regions.Choose(region => Admitted(document, region))
@@ -638,8 +565,6 @@ public sealed record CodePane(
         return unit;
     }
 
-    // Folds open at the END of the header line so the header stays visible behind the marker; a reversed,
-    // single-line, or past-the-document span carries no foldable body and never reaches the manager.
     static Option<NewFolding> Admitted(TextDocument document, FoldRegion region) =>
         region is { First: >= 1 } && region.Last > region.First && region.Last <= document.LineCount
             ? Some(new NewFolding(document.GetLineByNumber(region.First).EndOffset, document.GetLineByNumber(region.Last).EndOffset) {
@@ -648,8 +573,6 @@ public sealed record CodePane(
             })
             : Option<NewFolding>.None;
 
-    // Trigger start is the insertion contract: the window anchors StartOffset..EndOffset and hands that
-    // segment to `Complete`, while `IsFiltering` narrows the mounted rows as the caret advances.
     public static CompletionWindow Assist(TextEditor editor, Seq<CompletionRow> rows, int triggerStart) {
         CompletionWindow window = new(editor.TextArea) {
             StartOffset = triggerStart,
@@ -661,8 +584,6 @@ public sealed record CodePane(
         return window;
     }
 
-    // Signature insight rides the SAME projection the list mounts; an empty row set refuses here rather than
-    // at the provider's first index read.
     public static Fin<OverloadInsightWindow> Overloads(TextEditor editor, Seq<CompletionRow> rows, int selected) {
         if (rows.IsEmpty) { return Fin.Fail<OverloadInsightWindow>(new EditFault.UnmatchedShape("overload insight over an empty signature set")); }
         OverloadInsightWindow window = new(editor.TextArea) { Provider = new OverloadRows(rows) { SelectedIndex = selected } };
@@ -682,7 +603,7 @@ public sealed record CodePane(
 - Boundary: `IOverloadProvider` carries five members and NO caret hook — the window wires Up and Down through its own `ChangeIndex` only while `Count > 1`, so re-selecting a signature as arguments land is the consumer assigning `SelectedIndex` off the same projection the list mounts; `OverloadRows` extends `PropertyModels.ComponentModel.ReactiveObject` (named in full because ReactiveUI publishes a same-named screen base) so `[DependsOnProperty]` raises the three derived members off the one index write; insertion runs only on the `ICompletionData.Complete` arm — a pane-side document mutation is the deleted form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
@@ -714,7 +635,7 @@ public sealed partial class CompletionKind {
             None: () => Replace(area, trigger, row));
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record CompletionPolicy(double Head, double Step) {
     public static readonly CompletionPolicy Default = new(Head: 50d, Step: 10d);
@@ -722,8 +643,6 @@ public sealed record CompletionPolicy(double Head, double Step) {
     public double Weight(CompletionKind kind) => Head - kind.Rank * Step;
 }
 
-// The ONE ICompletionData implementation: family and insertion resolve through the kind row, rank through the
-// policy, so a new family adds a row and a re-weighting edits a value.
 public sealed record CompletionRow(
     CompletionKind Kind,
     string Key,
@@ -736,8 +655,6 @@ public sealed record CompletionRow(
     public object Content => Key;
     public object Description => Detail;
 
-    // ICompletionData declares Image non-nullable while the completion template binds it as an optional
-    // visual — the ONE admitted null-forgiving site on the page: absence crosses as itself.
     IImage ICompletionData.Image => Glyph.ValueUnsafe()!;
 
     public void Complete(TextArea area, ISegment trigger, EventArgs request) => ignore(Kind.Insert(area, trigger, this));
@@ -752,7 +669,7 @@ public sealed record CompletionRow(
             .ThenBy(static row => row.Key, ComparerAccessors.StringOrdinalIgnoreCase.Comparer));
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public sealed class OverloadRows(Seq<CompletionRow> rows) : PropertyModels.ComponentModel.ReactiveObject, IOverloadProvider {
     private int selected;

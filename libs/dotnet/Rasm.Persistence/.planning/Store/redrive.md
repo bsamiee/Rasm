@@ -23,17 +23,10 @@ Rasm.Persistence bands every process-seam store boundary into one closed fault f
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
-// `RemoteStoreFault` derives from the KERNEL `Fault` floor, whose own base is
-// `Rasm.Domain.Fault` and NEVER the `LanguageExt.Common.Expected` whose `(string,int,Option)` ctor is the
-// deleted form.
 using Rasm.Domain;
 using Rasm.Persistence.Element;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// Closed operation vocabulary every leg slot names and every lifted fault carries, mirroring the
-// `Store/provisioning#SERVER_EXTENSIONS` `Lane` shape. `ColdRefuses` closes per-VERB reading of one provider
-// code: `InvalidObjectState` means an object IS archived under a fetch and means its thaw is already in flight under a
-// restore, so one code folds to `Frozen` on a refusing verb and to a benign in-flight state on `Restore`.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -50,7 +43,7 @@ public sealed partial class ObjectVerb {
     private ObjectVerb(string key, bool coldRefuses) : this(key) => ColdRefuses = coldRefuses;
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RemoteStoreFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.RemoteStore;
@@ -64,11 +57,6 @@ public abstract partial record RemoteStoreFault : Fault {
     public sealed partial record Aborted(ContentAddress Key, int Parts, Error Cause) : RemoteStoreFault(), ICausedFault {
         public override RetryShape Route => RetryShape.Restarted;
     }
-    // 408 joins 429 and the 5xx band as the closed transient set the branch's one transient definition already
-    // spells (`docs/stacks/csharp/domain/resilience#STANDARD_POSTURE`); status 0 is the no-response connection
-    // failure. The cause-bearing provider transport leaf derives the same posture from the same typed status.
-    // `RetryAfter` is the server's OWN stated window — `Some` only where the crossing transport published one — so a
-    // throttled posture exits the in-process curve to `Settle` and honors the window it was handed.
     [FaultCase(3)]
     public sealed partial record Transport(string Provider, ObjectVerb Verb, ContentAddress Key, int Status, string Code, Option<Duration> RetryAfter = default) : RemoteStoreFault() {
         public override Retriability Retriability => TransportPosture(Status, RetryAfter);
@@ -86,11 +74,6 @@ public abstract partial record RemoteStoreFault : Fault {
     public sealed partial record GrantExpired(ContentAddress Key) : RemoteStoreFault();
     [FaultCase(9)]
     public sealed partial record InvalidRange(ContentAddress Key, long Start, long End, long Length) : RemoteStoreFault();
-    // Cold-rung read refusal minted from the provider's OWN error code on the fetch rather than a `Head` before
-    // every read — S3 states `InvalidObjectState`, Azure `BlobArchived`, and both arrive as a status the
-    // generic arm would fold to `Denied`, hiding a rung the caller can act on behind an auth verdict it cannot.
-    // It carries no ETA because the refusal publishes none; `ThawState` states one from evidence. Its `Verb`
-    // column makes one provider code readable under two meanings.
     [FaultCase(10)]
     public sealed partial record Frozen(ContentAddress Key, string Provider, ObjectVerb Verb) : RemoteStoreFault() {
         public override RetryShape Route => RetryShape.Rescoped;
@@ -135,16 +118,8 @@ public abstract partial record RemoteStoreFault : Fault {
         providerFrozen:    static c => $"blob {c.Key.Value:x32} {c.Provider} {c.Verb.Key} frozen: {c.Cause.Message}");
 
     // --- [ADMISSION]
-    // Lift every SDK call once into this band at the leg boundary so the engine interior is total over rails (`docs/stacks/csharp/rails-and-effects#EXCEPTION_CAPTURE`). The
-    // VERB rides every crossing beside the provider and the key, so the one re-drivable case names the operation a
-    // re-drive would re-offer and the cold-rung arms carry the verb that decides whether their code is a
-    // refusal.
     public static Error Lift(string provider, ObjectVerb verb, ContentAddress key, Error error) => error switch {
         RemoteStoreFault fault => fault,
-        // `Frozen` arms read the provider's OWN error CODE ahead of its status, because both providers raise the
-        // frozen refusal at a status the generic arm folds elsewhere — S3 at a 403 the auth arm would
-        // claim, Azure at a 409 the transport arm would. This is the one place on the fold where the
-        // discriminant is not the status.
         { Exception.Case: AmazonS3Exception { ErrorCode: "InvalidObjectState" } } => new ProviderFrozen(key, provider, verb, error),
         { Exception.Case: AmazonS3Exception s3 } => s3.StatusCode switch {
             HttpStatusCode.PreconditionFailed => new ProviderConflict(key, "if-none-match", error),
@@ -185,11 +160,6 @@ public abstract partial record RemoteStoreFault : Fault {
         HttpStatusCode refused => new Transport("presigned", verb, key, (int)refused, refused.ToString(), Delay(response)),
     };
 
-    // TRAP: `Retry-After` carries EITHER delta-seconds OR an HTTP-date, and only the first yields a duration
-    // this boundary can state — an absolute date needs the injected frame instant no fault-admission fold
-    // holds, so the date form reads `None` and the policy curve draws instead of fabricating a window. The read
-    // goes through `TryGetValues` rather than a strongly-typed projection so a malformed value is an absent
-    // window and never a parse throw crossing back into the rail this fold exists to close.
     static Option<Duration> Delay(HttpResponseMessage response) =>
         response.Headers.TryGetValues("Retry-After", out IEnumerable<string>? stated)
             ? toSeq(stated).Head().Bind(static value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds) && seconds >= 0
@@ -215,10 +185,7 @@ public abstract partial record RemoteStoreFault : Fault {
 // --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 
-// --- [TYPES] -------------------------------------------------------------------------------
-// Wide-column plane operation identity, the peer of `ObjectVerb`: the `Query/cache#INDEX_RESIDENCY` residence
-// dials exactly four op shapes across the seam — the conditional claim, the paged index read, the row upsert, and the
-// index sweep — and each is ONE statement, which is the discriminant that admits a hop pipeline at all.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -240,7 +207,7 @@ public abstract partial record StoreHop {
         wideColumn: static w => $"wide-column.{w.Verb.Key}");
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record StoreVerdict {
     private StoreVerdict() { }
@@ -257,13 +224,13 @@ public abstract partial record StoreVerdict {
             terminal:  static _  => new Refused(error)));
 }
 
-// --- [SERVICES] ----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface StoreRedrivePort {
     IO<T> Carry<T>(StoreHop hop, string instance, IO<T> attempt);
     StoreVerdict Settle<T>(StoreHop hop, string instance, int attempt, Fin<T> outcome);
 }
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed record LocalRedrive(RedrivePolicy Policy) : StoreRedrivePort {
     public static readonly StoreRedrivePort Unbound = new LocalRedrive(RedrivePolicy.None);
     public IO<T> Carry<T>(StoreHop hop, string instance, IO<T> attempt) => Redrive.Run(policy: Policy, work: attempt);

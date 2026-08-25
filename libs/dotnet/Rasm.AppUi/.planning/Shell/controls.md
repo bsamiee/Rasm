@@ -26,7 +26,7 @@ Appearance is the page's ruling shape: the fold writes NO resolved paint, metric
 - Boundary: `ControlIntent` is the one control vocabulary in the package — a per-screen control-builder, a second control-generation framework, and a parallel binding, token, or automation path are the `[04]-[BOUNDARIES]` parallel-control-framework rejected forms; the command column is `Option<string>` carrying the `CommandRow` key the materialized control's `ICommand` resolves through `BehaviorRail.Intent`, never a `ReactiveCommand` instance on the intent, so the intent crosses the `ControlIntentWire` seam unchanged; container kinds carry their child-intent sequence so a whole screen is one nested intent tree, while `Menu`, `Breadcrumb`, and the option-bearing kinds carry their own structured ROW shapes, because a menu row's check posture, submenu, and gesture hint are fields no control intent owns; the `Grid`, `Tree`, `Select`, and `MultiSelect` kinds carry the `VirtualWindow` window spec the `Shell/virtualization` fabric owner consumes — the spec crosses the wire so a remote head windows the same viewport contract; the `Tree` kind materializes the `FlatNode` union the flatten emits, so a hierarchy and a GROUPED list ride one item template; the `Overview` kind is the one minimap primitive and names its frame producer by key rather than carrying geometry; value-carrying kinds carry a typed two-way binding path read at materialize, and `Range` carries the second path its upper thumb round-trips; the `Dock` and `Splitter` kinds defer their layout to the `Shell/solver` owner; `IconSlot` is a CONTROL-level shape and its per-row seats (`OptionRow`, `CrumbRow`, `MenuRow`) carry the ASSET and the size alone as a documented narrowing — the item template fixes the leading slot so `Placement` has no reader there, and a per-row `Pending` would need a per-row value key plus a per-row lifetime, a second binding path beside `MaterializeContext.Value`; placement, overflow, picker mode, and toggle vocabulary are the packages' own enums (`Ursa.Common` `Position`, `Ursa.Controls` `OverflowMode` and `UsePickerTypes`, Avalonia `HorizontalAlignment`, `Orientation`, `MenuItemToggleType`, `DataGridLength`), because re-spelling an admitted package's own axis is a rename shell; `OptionRow` and `CrumbRow` share a field-set by shape alone — the discriminant is the CONSUMER's binding triple (an option round-trips its `Value` through `SelectedValueBinding`, a crumb dispatches it through `CommandParameterBinding`), stated at both declarations, so the pair survives on a named payload-timing discriminant rather than folding into a row a crumb could group by accident.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Control;
@@ -48,10 +48,7 @@ public abstract partial record ControlFault : Fault {
     public sealed partial record PayloadRejected(string Detail)    : ControlFault(Detail);
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The control-theme rows this fold addresses. The Key IS the dictionary resource key, so a row is an ADDRESS
-// and never a second copy of the `Theme/tokens#CONTROL_THEMES` derivation and pseudo-class columns; a shipped
-// key addresses the vendor theme verbatim. An arm naming no row falls to the shipped type-keyed theme.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -72,16 +69,11 @@ public sealed partial class ControlSkin {
     public static readonly ControlSkin PaletteRow = new("palette-row");
     public static readonly ControlSkin EmptyStatePanel = new("empty-state-panel");
     public static readonly ControlSkin Tooltip = new("tooltip");
-    // No ButtonGroupItem row: Ursa binds ButtonGroupItemTheme onto every group item itself, so a skin
-    // address here would be a row no materialize arm reads.
     public static readonly ControlSkin AvatarCluster = new("avatar-cluster");
     public static readonly ControlSkin Banner = new("banner");
     public static readonly ControlSkin OverviewStrip = new("overview-strip");
 }
 
-// `Iconable` is a genuinely independent single bit and stays a bool by the kernel capability law's own carve:
-// the link row refuses an icon because its shipped theme owns a trailing link glyph. The host type the button
-// family constructs is the `ShapeOf` button arm's answer, derived from emphasis and icon together.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ControlEmphasis {
@@ -113,8 +105,6 @@ public sealed partial class ControlTrigger {
     public Rasm.Contracts.Ui.ControlTrigger Wire { get; }
 }
 
-// Posture rows carry host type AND value slot as columns, so the per-case slot ladder the old content-property
-// switch re-derived is a row read.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SelectPosture {
@@ -131,8 +121,6 @@ public sealed partial class SelectPosture {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MultiPosture {
-    // Bound multi-select picks from a closed option set and reads back as chips; free multi-select accepts
-    // arbitrary tokens, which is the one thing a bound picker cannot express.
     public static readonly MultiPosture Bound = new(
         "bound", Rasm.Contracts.Ui.MultiPosture.Bound, nameof(MultiComboBox), MultiComboBox.SelectedItemsProperty);
     public static readonly MultiPosture Free = new(
@@ -146,8 +134,6 @@ public sealed partial class MultiPosture {
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SegmentPosture {
-    // Select coerces to single selection and slides one indicator; Command gives every segment its own verb —
-    // the postures differ in what a segment MEANS, never in how it is painted.
     public static readonly SegmentPosture Select = new("select", Rasm.Contracts.Ui.SegmentPosture.Select, nameof(SelectionList));
     public static readonly SegmentPosture Command = new("command", Rasm.Contracts.Ui.SegmentPosture.Command, nameof(ButtonGroup));
 
@@ -155,8 +141,6 @@ public sealed partial class SegmentPosture {
     public string Control { get; }
 }
 
-// Each chip posture MINTS its own host and names its own value slot, so the string-keyed dispatch the old
-// construct arm ran over posture keys is a generated row read.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ChipPosture {
@@ -189,8 +173,6 @@ public sealed partial class ColorPosture {
     public string Control { get; }
 }
 
-// Severity carries its own DISMISSIBILITY, because non-dismissible is a posture of the severity and never a
-// caller's flag: a condition the operator cannot clear is exactly the condition a close button would lie about.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BannerSeverity {
@@ -208,8 +190,6 @@ public sealed partial class BannerSeverity {
     public bool Dismissible { get; }
 }
 
-// Placement is CHROME, not layout: this row says whether the strip bleeds to the page edge or insets inside a
-// section — the edge treatment the control theme selects on and nothing the parent panel can express.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BannerPlacement {
@@ -219,8 +199,6 @@ public sealed partial class BannerPlacement {
     public Rasm.Contracts.Ui.BannerPlacement Wire { get; }
 }
 
-// Bar and Ring are ONE control under two themes; Skeleton is a different fact — a shimmer standing in for
-// content that has not arrived — so it carries no fraction and no value slot at all.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ProgressForm {
@@ -236,9 +214,6 @@ public sealed partial class ProgressForm {
     public Option<AvaloniaProperty> Slot { get; }
 }
 
-// The temporal capability axis: Calendar admits blackout bounds, Upper admits a second value slot. Only the
-// four declared TemporalKind rows mint sets, so an upper slot without a calendar is unspellable.
-// Rank IS declaration order (kernel CapabilityRank law) — the attribute pins the roster against a reorder pass.
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -247,9 +222,6 @@ public sealed partial class TemporalTrait : ICapability<TemporalTrait> {
     public static readonly TemporalTrait Upper = new("upper");
 }
 
-// Each row constructs its own picker and names the value slot the two-way binding rides; the Span row alone
-// declares its upper slot, and the time row's empty trait set is why a bounded time entry refuses at
-// materialize instead of silently dropping its bounds.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TemporalKind {
@@ -268,8 +240,6 @@ public sealed partial class TemporalKind {
 
     public Rasm.Contracts.Ui.TemporalKind Wire { get; }
     public string Control { get; }
-    // The spinner and picker bases register their value property PER CLOSED GENERIC, so the slot is a row
-    // column rather than one shared field a type probe could recover.
     public AvaloniaProperty Slot { get; }
     public CapabilitySet<TemporalTrait> Traits { get; }
     public Option<AvaloniaProperty> UpperSlot { get; }
@@ -278,9 +248,6 @@ public sealed partial class TemporalKind {
     public partial Control Construct();
 }
 
-// Bounds cross in the WIDEST form each numeric family admits, so no field pays another family's ceiling: the
-// real arm keeps the full binary64 range and NaN, the unsigned arm keeps its top decade, and the precise arm
-// keeps decimal significance.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NumericRange {
     private NumericRange() { }
@@ -291,10 +258,6 @@ public abstract partial record NumericRange {
     public sealed record Precise(decimal Min, decimal Max, decimal Step) : NumericRange;
 }
 
-// The typed numeric family: one row per CLR type the spinner suite admits (`.api/api-ursa.md` roster), each
-// row constructing and re-dressing its own spinner through ONE generic-math narrowing owner — eleven types
-// cost eleven addresses, not eleven conversion bodies. Every spinner styles as the shared spinner key by its
-// own StyleKeyOverride.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NumericKind {
@@ -334,8 +297,6 @@ public sealed partial class NumericKind {
 
     public Rasm.Contracts.Ui.NumericKind Wire { get; }
     public string Control { get; }
-    // Per-closed-generic value property; the float and double rows additionally pass NaN through their own
-    // coercion override, so an unset scientific field stays unset instead of snapping to a bound.
     public AvaloniaProperty Value { get; }
 
     [UseDelegateFromConstructor]
@@ -372,8 +333,6 @@ public sealed partial class NumericKind {
             })
             : Fin<Unit>.Fail(new ControlFault.RecyclingViolation(typeof(TControl).Name));
 
-    // ONE narrowing owner for every kind and every range form: generic-math CHECKED conversion, so a bound the
-    // bound type cannot hold seals a typed payload refusal at materialize instead of wrapping silently.
     static Fin<(T Min, T Max, T Step)> Narrow<T>(NumericRange range) where T : INumberBase<T> =>
         Op.Of(name: "appui.control.narrow").Catch(() => Fin.Succ(range.Switch(
                 integral: static row => (T.CreateChecked(row.Min), T.CreateChecked(row.Max), T.CreateChecked(row.Step)),
@@ -384,10 +343,7 @@ public sealed partial class NumericKind {
 ```
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// The icon slot carries its own pending key, so in-control progress can only ever REPLACE a leading visual.
-// Size is a `MetricFamily.Icon` STEP, never a pixel count — the asset rail resolves the step against the live
-// density, text scale, and contrast projection.
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<uint>]
 public readonly partial struct IconStep {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref uint value) =>
@@ -396,12 +352,8 @@ public readonly partial struct IconStep {
 
 public sealed record IconSlot(AssetKey Asset, Position Placement, IconStep Size, Option<string> Pending);
 
-// One hint shape serving both uses: the standalone Tooltip case materializes it as a body, and the binding's
-// hint column attaches that same body to any control — exactly one construction site.
 public sealed record HintRow(string Body, Option<KeyGesture> Gesture);
 
-// No automation-name column: the announced name derives from Key through the one locale label resolver, so an
-// authored per-intent literal cannot drift from the id the same fold stamps.
 public sealed record IntentBinding(
     PaintRole Role,
     ControlEmphasis Emphasis,
@@ -414,17 +366,10 @@ public sealed record IntentBinding(
         new(role, emphasis ?? ControlEmphasis.Secondary, None, None, None, None, None);
 }
 
-// An OPTION row: its Value round-trips through the host's SelectedValueBinding — the payload-timing
-// discriminant that keeps this row beside CrumbRow (same field-set, command-dispatched consumer).
 public sealed record OptionRow(string Value, string LabelKey, Option<string> Group, Option<IconSlot> Icon);
 
-// The ONE resolved projection every package binding triple reads member paths off — a label key bound straight
-// into a segment would paint the key itself, and an icon slot has no image until the asset rail answers. The
-// option consumers pass None for the icon.
 public sealed record BoundView(string Label, string Value, Option<IImage> Icon);
 
-// Inline options are the option set itself; a bound source NAMES a screen-owned collection the window fabric
-// realizes. Both reach the fold as ONE `Shell/virtualization` `WindowLease<OptionRow>`.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OptionSource {
     private OptionSource() { }
@@ -433,9 +378,6 @@ public abstract partial record OptionSource {
     public sealed record Bound(string SourceKey) : OptionSource;
 }
 
-// A real column row: the header key resolves through the label resolver, the cell intent materializes through
-// this same fold, the extent is the grid's own length algebra, and the editor is the intent the EDITING
-// template materializes — its absence IS the read-only verdict.
 public sealed record ColumnRow(
     string HeaderKey,
     ControlIntent Cell,
@@ -457,13 +399,9 @@ public sealed partial class MenuPosture {
         "separator", Rasm.Contracts.Ui.MenuPosture.Separator, Option<MenuItemToggleType>.None);
 
     public Rasm.Contracts.Ui.MenuPosture Wire { get; }
-    // The separator row carries no toggle because it carries no item at all — the None IS the discriminant the
-    // fold reads to construct a rule instead of a menu item.
     public Option<MenuItemToggleType> Toggle { get; }
 }
 
-// A menu row is a ROW, never a child intent: check posture, submenu, gesture hint, and icon are fields no
-// control intent owns, and a submenu is this same row shape one level down.
 public sealed record MenuRow(
     string Key,
     string LabelKey,
@@ -476,8 +414,6 @@ public sealed record MenuRow(
 
 public sealed record ToolbarRow(ControlIntent Item, OverflowMode Overflow);
 
-// A CRUMB row: its Value dispatches through the host's CommandParameterBinding — the consumer discriminant
-// that keeps this row beside OptionRow.
 public sealed record CrumbRow(string Value, string LabelKey, Option<IconSlot> Icon, Option<string> Command);
 
 public sealed record AvatarRow(string LabelKey, Option<AssetKey> Portrait);
@@ -490,9 +426,6 @@ public readonly partial struct AvatarLimit {
             : new ValidationError("avatar visible limit must fit a positive Int32");
 }
 
-// The picker filter grammar is the package's own bracketed form, so the row is TYPED here and encoded at the
-// edge: a label carrying the grammar's reserved characters refuses at materialize rather than throwing inside
-// the picker launch on a user gesture.
 public sealed record FileFilterRow(string Label, Seq<string> Patterns) {
     static readonly FrozenSet<char> Reserved = new[] { '*', '.', ',', '[', ']' }.ToFrozenSet();
 
@@ -502,14 +435,6 @@ public sealed record FileFilterRow(string Label, Seq<string> Patterns) {
             : Fin.Succ($"[{Label},{string.Join(',', Patterns)}]");
 }
 
-// The ONE per-case answer set, four columns in one read: `Parked` names the type a recycled control must
-// already be (None = unpoolable), `Skin` the control-theme row (None = shipped type-keyed theme), `Slot` the
-// value property a ValueKey binds (None = no value channel), `Redress` the in-place re-dress a parked control
-// takes (present exactly on the Parked set). One total ShapeOf switch answers all four, so the re-dress
-// ladder, the content-property ladder, and the host-name method this page once kept as three more mirrors of
-// the same roster are unspellable. NAMED LOSS: the (intent, control) tuple pattern's compile-time control-type
-// check on each re-dress body — bought back by Rebind comparing the parked type name to `Parked` before any
-// Redress runs, and by each Redress body's own typed probe sealing RecyclingViolation.
 public sealed record ControlShape(
     Option<string> Parked,
     Option<ControlSkin> Skin,
@@ -518,7 +443,7 @@ public sealed record ControlShape(
 ```
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ControlIntent(string Key, IntentBinding Binding) {
     public sealed record Button(string Key, string LabelKey, IntentBinding Binding) : ControlIntent(Key, Binding);
@@ -554,11 +479,6 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
     public sealed record Dock(string Key, Seq<ControlIntent> Regions, string ConstraintProgram, IntentBinding Binding) : ControlIntent(Key, Binding);
     public sealed record Splitter(string Key, ControlIntent First, ControlIntent Second, Orientation Orientation, IntentBinding Binding) : ControlIntent(Key, Binding);
 
-    // Layout children alone, TOTAL over the family: a row shape (menu row, crumb, option, avatar member) never
-    // appears here, so a walk can never mistake a gesture hint for a mountable control, and a NEW CONTAINER
-    // case breaks this fold at compile time — the one failure mode a leaf-defaulting virtual member would turn
-    // into a silently unmaterialized child tree. The grid contributes its cell AND its editor, because an
-    // editing template a walk never reaches is exactly the template that ships unmaterialized.
     public Seq<ControlIntent> Children => Switch(
         grid: static c => c.Columns.Bind(static column => Seq(column.Cell) + column.Editor.ToSeq()),
         tree: static c => Seq(c.Item),
@@ -566,8 +486,6 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
         tab: static c => c.Pages.Map(static page => page.Body),
         accordion: static c => c.Sections.Map(static section => section.Body),
         emptyState: static c => c.Action.ToSeq(),
-        // A banner's verbs and its evidence are CHILD INTENTS, so their command keys resolve through the same
-        // deck every other button takes — a banner-local verb roster would be a second availability algebra.
         banner: static c => c.Actions + c.Evidence.ToSeq(),
         panel: static c => c.Children,
         dock: static c => c.Regions,
@@ -653,11 +571,7 @@ public abstract partial record ControlIntent(string Key, IntentBinding Binding) 
 |  [27]   | chord capture cell          | seated    | `Shell/commands#BINDING_EDITOR` `KeycapCell` mounts `KeyGestureInput`  |
 
 ```csharp signature
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The Icon column's int is a `MetricFamily.Icon` STEP. Composition binds it as one fold over the ranked asset
-// rail — `IconSurface.Resolve(runtime, new AssetRequest(key, step, scale, flow, new GlyphForm.Image()),
-// resolved)` — so the fold below asks for a glyph and never learns the resolve's scale, flow, cache, or
-// product form.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record MaterializeContext(
     Func<string, Option<ICommand>> Command,
     Func<ControlSkin, Option<ControlTheme>> Skin,
@@ -667,10 +581,6 @@ public sealed record MaterializeContext(
     Func<VirtualWindowSpec, Fin<WindowLease<RealizedItem<object>>>> Window,
     Func<string, Fin<IObservable<OverviewFrame>>> Overview,
     Func<string, Fin<Control>> Layout,
-    // The LIFTING arrow for a control that publishes a typed gesture value — a strip's content-space point, a
-    // disclosure's own node. A deck row materializes `ReactiveCommand<CommandPayload, DeckReceipt>`, whose
-    // execute throws on any parameter outside that payload type; the arrow lowers the value onto an existing
-    // payload case at the raising surface, so the verb stays a deck row and the payload union stays closed.
     Func<string, Fin<ICommand>> Gesture,
     Func<string, Control, AvaloniaProperty, Fin<IDisposable>> Value,
     Func<ControlTrigger, Control, ICommand, Fin<IDisposable>> Activate,
@@ -688,7 +598,7 @@ public sealed record ControlReceipt(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class ControlFactory {
     public static readonly InstrumentSpec Materialized = InstrumentSpec.Create(
         "rasm.appui.control.materialized", InstrumentKind.Count, MeasureForm.Whole, "{control}",
@@ -700,16 +610,12 @@ public static partial class ControlFactory {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, Materialized, Rejected);
 
-    // Composition binds this projection beside the context's Evidence column, so both counts derive from the
-    // one materialize fold outcome and no dispatch arm touches the meter.
     public static Fin<Unit> Observe(InstrumentSet set, Fin<ControlReceipt> outcome) =>
         outcome.Match(
             Succ: receipt => set.Write(Materialized, 1d,
                 InstrumentSet.Tags((AppUiTelemetry.IntentSlot, receipt.IntentKey))),
             Fail: _ => set.Write(Rejected, 1d));
 
-    // Every successful materialization seals its ControlReceipt through the context's evidence column — the
-    // one mint the screen evidence stream consumes; a rejected materialize carries its fault only.
     public static Fin<Control> Materialize(ControlIntent intent, MaterializeContext context) =>
         Visual(intent, context)
             .Bind(control => Bind(intent, control, context))
@@ -761,9 +667,6 @@ public static partial class ControlFactory {
         dock: static (ctx, c) => Mounted(ctx.Layout(c.ConstraintProgram), c.Regions, ctx),
         splitter: static (ctx, c) => Split(c, ctx));
 
-    // The button family: emphasis picks the control type, the icon slot upgrades a plain button to the
-    // icon-leading one, and the link row refuses an icon because its shipped theme already owns a trailing
-    // link glyph — two affordances on one surface read as two verbs.
     private static Fin<Control> Command(ControlIntent.Button intent, MaterializeContext context) =>
         (intent.Binding.Emphasis.Iconable, intent.Binding.Icon) switch {
             (false, { IsSome: true }) => Fin<Control>.Fail(new ControlFault.SlotUnavailable($"{intent.Key}:icon")),
@@ -772,16 +675,11 @@ public static partial class ControlFactory {
             _ => Fin<Control>.Succ(new Button { Content = context.Label(intent.LabelKey) }),
         };
 
-    // One icon read every arm shares, so a menu row, a crumb, and a button resolve their glyph through the
-    // same ranked asset rail and an absent slot costs no lookup at all.
     private static Fin<Option<IImage>> Glyph(Option<IconSlot> slot, MaterializeContext context) =>
         slot.Match(
             Some: icon => context.Icon(icon.Asset, icon.Size).Map(Some),
             None: () => Fin<Option<IImage>>.Succ(None));
 
-    // Temporal bounds land as BLACKOUT ranges because the picker family carries no minimum or maximum slot:
-    // everything outside the bounds is blacked out. The calendar-less rows refuse bounds here rather than
-    // dropping them into a control that could never honour them.
     private static Fin<Control> Temporal(ControlIntent.DateInput intent) =>
         (intent.Kind.Traits.Admits(TemporalTrait.Calendar), intent.From.IsSome || intent.Until.IsSome) switch {
             (false, true) => Fin<Control>.Fail(new ControlFault.PayloadRejected($"{intent.Key}:{intent.Kind.Key} bounds")),
@@ -806,18 +704,12 @@ public static partial class ControlFactory {
             Title = context.Label(intent.Key),
         });
 
-    // The bounded-choice pair survives materialization on the CLOSED posture: each item shows its label and
-    // carries its Value on Tag, and SelectedValueBinding resolves the two-way binding against that Tag. Group
-    // keys fold into non-selectable header items under the palette-row skin. The EDITABLE posture admits a
-    // value outside the set, so it takes resolved views, offers them as type-ahead, and round-trips text.
     private static Fin<Control> Choices(ControlIntent.Select intent, MaterializeContext context) =>
         context.Options(intent.Options, intent.Window).Map(lease => Owned(intent.Posture == SelectPosture.Closed
             ? new ComboBox { ItemsSource = Listed(lease.View, context), SelectedValueBinding = new Binding(nameof(Control.Tag)) }
             : new AutoCompleteBox { ItemsSource = Views(lease.View, context), ValueMemberBinding = new Binding(nameof(BoundView.Label)) },
             lease.Lifetime, context));
 
-    // The multi surface reads its selection back as chips, so grouping has no seat here and the flat resolved
-    // view is what the container generator needs.
     private static Fin<Control> Multi(ControlIntent.MultiSelect intent, MaterializeContext context) =>
         intent.Posture == MultiPosture.Free
             ? Fin<Control>.Succ(new TagInput { Watermark = context.Label(intent.Key) })
@@ -827,14 +719,11 @@ public static partial class ControlFactory {
                 Watermark = context.Label(intent.Key),
             }, lease.Lifetime, context));
 
-    // ONE ownership hop for every leased or bound lifetime a constructed control must carry.
     private static Control Owned(Control control, IDisposable lifetime, MaterializeContext context) {
         ignore(context.Own(control, lifetime));
         return control;
     }
 
-    // The grouped container projection: a group boundary emits a hit-test-transparent header under the
-    // palette-row skin, and every option carries its Value on Tag so the value binding round-trips.
     private static Seq<Control> Listed(ReadOnlyObservableCollection<OptionRow> rows, MaterializeContext context) =>
         toSeq(rows).Fold((Seen: Option<string>.None, Items: Seq<Control>()), (state, row) =>
             row.Group.Filter(group => state.Seen != Some(group)) is { IsSome: true, Case: string fresh }
@@ -853,11 +742,6 @@ public static partial class ControlFactory {
     private static Control Choice(OptionRow row, MaterializeContext context) =>
         new ComboBoxItem { Content = context.Label(row.LabelKey), Tag = row.Value };
 
-    // Exclusivity has ONE owner and it is the host's selection: each option is its own container carrying the
-    // resolved label and its Value on Tag, and SelectedValueBinding resolves against that Tag — so a radio, a
-    // drop-down, and a segmented rail all round-trip the option VALUE and never the container. The item theme
-    // is resolved and refused on, because a radio row that loses its container theme is a plain list row with
-    // no exclusive affordance — the appearance failure a running screen can never report.
     private static Fin<Control> Choose(ControlIntent.Radio intent, MaterializeContext context) =>
         context.Skin(ControlSkin.RadioItem).Match(
             Some: theme => Fin<Control>.Succ(new ListBox {
@@ -895,8 +779,6 @@ public static partial class ControlFactory {
             CommandParameterBinding = new Binding(nameof(BoundView.Value)),
         };
 
-    // A fraction's ABSENCE is the indeterminate verdict, so a progress surface never carries a second flag
-    // that could disagree with its value. The PENDING copy is `Theme/motion` `LatencyTier`'s, not this fold's.
     private static Fin<Control> Meter(ControlIntent.Progress intent) =>
         Fin<Control>.Succ(intent.Form == ProgressForm.Skeleton
             ? new Skeleton { IsActive = true, IsLoading = true }
@@ -908,9 +790,6 @@ public static partial class ControlFactory {
                 ShowProgressText = intent.Fraction.IsSome,
             });
 
-    // One case covers the single face and the cluster: the visible prefix renders as portraits, the remainder
-    // collapses into one overflow face carrying its own count. The cluster hosts inside a templated content
-    // control because a bare panel takes setters and no template.
     private static Fin<Control> Faces(ControlIntent.Avatar intent, MaterializeContext context) =>
         intent.Members.Take((int)intent.VisibleLimit.Value)
             .Traverse(member => Face(member, context))
@@ -928,12 +807,8 @@ public static partial class ControlFactory {
             Some: asset => context.Icon(asset, PortraitStep).Map(image => (Control)new Avatar { Source = image }),
             None: () => Fin<Control>.Succ(new Avatar { Content = context.Label(member.LabelKey) }));
 
-    // The top rung of the icon axis DERIVES from the family's own step count — a portrait sized by literal
-    // would hold its extent across a density election the surface around it followed.
     private static int PortraitStep => MetricFamily.Icon.Steps - 1;
 
-    // The breadcrumb projects its crumb rows through the package's own binding triple, so each entry styles
-    // and dispatches as an icon button and the trail mints no per-entry control of its own.
     private static Fin<Control> Trail(ControlIntent.Breadcrumb intent, MaterializeContext context) =>
         intent.Crumbs.Traverse(crumb => Glyph(crumb.Icon, context)
                 .Map(icon => new BoundView(context.Label(crumb.LabelKey), crumb.Value, icon)))
@@ -945,8 +820,6 @@ public static partial class ControlFactory {
                 CommandParameterBinding = new Binding(nameof(BoundView.Value)),
             });
 
-    // The hint body is ONE construction: the standalone tooltip case and the binding's hint column both land
-    // here, so a gesture affordance reads identically wherever it is attached.
     private static Control Hint(HintRow hint, MaterializeContext context) {
         StackPanel body = new() { Orientation = Orientation.Horizontal };
         body.Children.Add(new TextBlock { Text = context.Label(hint.Body), TextWrapping = TextWrapping.Wrap });
@@ -956,10 +829,6 @@ public static partial class ControlFactory {
         return host;
     }
 
-    // The persistent condition strip: a banner ends when its condition does, not on a clock, and its verbs and
-    // evidence recurse through this same fold so a retry button in a banner and one in a form are one control
-    // under one command rail. Severity lands on the shipped strip's own notification type, which drives the
-    // theme's severity pseudo-classes, so this fold writes no paint.
     private static Fin<Control> Notice(ControlIntent.Banner intent, MaterializeContext context) =>
         from actions in intent.Actions.Traverse(action => Materialize(action, context)).As()
         from evidence in intent.Evidence.Match(
@@ -987,8 +856,6 @@ public static partial class ControlFactory {
         return strip;
     }
 
-    // The empty state carries its own call to action as a child intent, so the recovery verb rides the same
-    // command rail every other button does.
     private static Fin<Control> Vacant(ControlIntent.EmptyState intent, MaterializeContext context) =>
         intent.Action.Match(
             Some: action => Materialize(action, context).Map(control => Stack(intent, context, Some(control))),
@@ -1010,8 +877,6 @@ public static partial class ControlFactory {
             return grid;
         });
 
-    // The sort answer is ONE Option read: an absent sort key disables sorting for that column alone, and the
-    // empty-string member path the package requires for "no sort" spells only inside that None arm.
     private static Fin<DataGridColumn> Column(ColumnRow row, MaterializeContext context) =>
         Fin<DataGridColumn>.Succ(new DataGridTemplateColumn {
             Header = context.Label(row.HeaderKey),
@@ -1025,16 +890,11 @@ public static partial class ControlFactory {
                 None: () => Cell(row.Cell, row.Align, context)),
         });
 
-    // Alignment lands on the materialized cell because the grid's column model carries no alignment slot.
     private static IDataTemplate Cell(ControlIntent intent, HorizontalAlignment align, MaterializeContext context) =>
         new FuncDataTemplate<object>((_, _) => Materialize(intent, context).Match(
             Succ: control => { control.HorizontalAlignment = align; return control; },
             Fail: _ => new TextBlock()), supportsRecycling: true);
 
-    // The tree is the flat realized window under one item template over the `Shell/virtualization` `FlatNode`
-    // union, so a hierarchy and a GROUPED list materialize through this one arm; expansion STATE arrives on
-    // the flattened node and writes back through the expansion command carrying its own node — a per-row
-    // two-way binding into a set is the deleted form, because a set is not a property any one row owns.
     private static Fin<Control> Branches(ControlIntent.Tree intent, MaterializeContext context) =>
         context.Gesture(intent.ExpansionCommand).Map(command => (Control)new ItemsControl {
             ItemTemplate = new FuncDataTemplate<FlatNode<object>>((node, _) => node.Switch(
@@ -1045,8 +905,6 @@ public static partial class ControlFactory {
                 supportsRecycling: true),
         });
 
-    // A band heading is a REAL row: its label resolves through the same locale resolver every caption takes
-    // and each aggregate cell renders its measure beside its value.
     private static Control Heading(GroupBand band, MaterializeContext context) {
         StackPanel head = new() { Orientation = Orientation.Horizontal };
         head.Children.Add(new TextBlock { Text = context.Label(band.LabelKey) });
@@ -1058,8 +916,6 @@ public static partial class ControlFactory {
         return host;
     }
 
-    // The disclosure publishes the realized NODE, which is a gesture value and never a payload, so it binds
-    // the flatten owner's own lifting arrow.
     private static Control Indented(Control control, ICommand expand) {
         ToggleButton disclosure = new() { Command = expand };
         disclosure.Bind(ToggleButton.IsCheckedProperty, new Binding(nameof(FlatNode<object>.Expanded)));
@@ -1076,28 +932,19 @@ public static partial class ControlFactory {
         return row;
     }
 
-    // The indent unit is the shipped fixed thickness step, ADDRESSED as a TokenKey row per the token-address
-    // law — the value-named-key law forbids re-seeding that scale from a density-selected metric.
     private static readonly TokenKey IndentUnit = TokenKey.Create("SemiThicknessBase");
 
-    // The strip takes its frames as a NAMED source exactly as a bound option set does, so a code pane's ruler,
-    // a graph minimap, a long-list strip, and a history timeline are one intent under four producers; the jump
-    // command is required because a strip that cannot move the surface it summarizes is a decoration.
     private static Fin<Control> Strip(ControlIntent.Overview intent, MaterializeContext context) =>
         from frames in context.Overview(intent.SourceKey)
         from jump in context.Gesture(intent.JumpCommand)
         select Streamed(intent, frames, jump, context);
 
-    // The frame stream rides the framework's own property binding rather than a hand-rolled subscription, so
-    // updates marshal on the framework's terms and the returned lifetime parks on the activation scope.
     private static Control Streamed(
         ControlIntent.Overview intent, IObservable<OverviewFrame> frames, ICommand jump, MaterializeContext context) {
         OverviewStrip strip = new() { Axis = intent.Axis, Jump = jump };
         return Owned(strip, strip.Bind(OverviewStrip.FrameProperty, frames), context);
     }
 
-    // Menu rows recurse as rows, so a separator constructs a rule, a check row carries its toggle type and its
-    // checked key, and a submenu is this same fold one level down.
     private static Fin<Seq<Control>> Rows(Seq<MenuRow> rows, MaterializeContext context) =>
         rows.Traverse(row => Row(row, context)).As();
 
@@ -1113,8 +960,6 @@ public static partial class ControlFactory {
         MenuItem item = new() {
             Header = context.Label(row.LabelKey),
             ToggleType = row.Posture.Toggle.IfNone(MenuItemToggleType.None),
-            // The host group slot is the one place a null is a legal spelling — the radio posture's group name
-            // is the row key and every other posture crosses the host's own "no group" null.
             GroupName = row.Posture == MenuPosture.Radio ? row.Key : null,
         };
         AutomationProperties.SetAutomationId(item, row.Key);
@@ -1126,8 +971,6 @@ public static partial class ControlFactory {
         return item;
     }
 
-    // The tool bar is the overflow-aware host: each item declares its own overflow mode and the package's
-    // popup well carries what does not fit, so a narrow window promotes items instead of clipping them.
     private static Fin<Control> Bar(ControlIntent.Toolbar intent, MaterializeContext context) =>
         intent.Rows.Traverse(row => Materialize(row.Item, context).Map(control => {
                 ToolBar.SetOverflowMode(control, row.Overflow);
@@ -1140,9 +983,6 @@ public static partial class ControlFactory {
                 return (Control)bar;
             });
 
-    // The solver child-identity admission: every solved child is stamped ChildKeyProperty from its OWN intent
-    // Key here, so LayoutSolver.SolvedRect always resolves a program-owner key and a keyless child is
-    // structurally unmountable.
     private static Fin<Control> Mounted(Fin<Control> layout, Seq<ControlIntent> children, MaterializeContext context) =>
         layout.Bind(host => host is Panel panel
             ? children
@@ -1157,15 +997,10 @@ public static partial class ControlFactory {
                 })
             : Fin<Control>.Fail(new ControlFault.TemplateMissing(nameof(LayoutSolver))));
 
-    // Container legs are ONE recursive traverse each — a child failure aborts the whole container on the Fin
-    // rail, so a half-materialized screen tree is unrepresentable.
     private static Fin<Seq<TabItem>> Pages(Seq<(string HeaderKey, ControlIntent Body)> pages, MaterializeContext context) =>
         pages.TraverseM(page => Materialize(page.Body, context)
             .Map(body => new TabItem { Header = context.Label(page.HeaderKey), Content = body })).As();
 
-    // Each section binds `Theme/motion` `MotionApplication.Span(content, width, opening)` for the measured
-    // open/close pair and `Release(content)` once the sweep settles — a section left holding its animated
-    // height would refuse to grow when its own content changed underneath it.
     private static Fin<Seq<Expander>> Sections(Seq<(string HeaderKey, ControlIntent Body)> sections, MaterializeContext context) =>
         sections.TraverseM(section => Materialize(section.Body, context)
             .Map(body => new Expander { Header = context.Label(section.HeaderKey), Content = body })).As();
@@ -1174,8 +1009,6 @@ public static partial class ControlFactory {
         (Materialize(intent.First, context), Materialize(intent.Second, context))
             .Apply((first, second) => Divided(first, second, intent.Orientation)).As();
 
-    // The splitter host: star tracks either side of an Auto splitter track, orientation selecting the axis —
-    // one Grid + GridSplitter, never a bespoke split control.
     private static Control Divided(Control first, Control second, Orientation orientation) {
         Grid grid = new();
         GridSplitter splitter = new() { ResizeDirection = orientation == Orientation.Horizontal ? GridResizeDirection.Columns : GridResizeDirection.Rows };
@@ -1191,8 +1024,6 @@ public static partial class ControlFactory {
         return grid;
     }
 
-    // The one bound-collection hop: the realized change-set binds ONCE into a ReadOnlyObservableCollection the
-    // grid consumes — ItemsSource never receives the raw stream.
     private static Control Windowed(Control control, WindowLease<RealizedItem<object>> lease, MaterializeContext context) {
         control.SetValue(ItemsControl.ItemsSourceProperty, lease.View);
         return Owned(control, lease.Lifetime, context);
@@ -1201,13 +1032,8 @@ public static partial class ControlFactory {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class ControlFactory {
-    // THE per-case answer set. One total generated Switch serves all four columns, so the re-dress ladder, the
-    // content-property ladder, and the host-name method this page once kept beside it are unspellable. `Parked`
-    // is None wherever the case's host type is NOT recoverable from the intent alone — the button family picks
-    // its host from emphasis and icon together, so a pool key over it would name a host the reuse never built,
-    // the same lie the `[PACKAGE_ADMISSION]` badge row is refused for.
     internal static ControlShape ShapeOf(ControlIntent intent) => intent.Switch(
         button: static c => new ControlShape(None, Some(c.Binding.Emphasis.Skin), None, None),
         label: static c => new ControlShape(Some(nameof(TextBlock)), None, None, Redressed<ControlIntent.Label>(Written)),
@@ -1215,16 +1041,12 @@ public static partial class ControlFactory {
         numberInput: static c => new ControlShape(Some(c.Kind.Control), None, Some(c.Kind.Value), Redressed<ControlIntent.NumberInput>(Spun)),
         dateInput: static c => new ControlShape(Some(c.Kind.Control), None, Some(c.Kind.Slot), Redressed<ControlIntent.DateInput>(Dated)),
         pathInput: static c => new ControlShape(Some(nameof(PathPicker)), None, Some((AvaloniaProperty)PathPicker.SelectedPathsTextProperty), Redressed<ControlIntent.PathInput>(Picked)),
-        // `ColorPicker : ColorView`, so the ONE colour slot serves both postures and the posture row needs no
-        // slot column of its own (`.api/api-avalonia-color.md`: styled properties inherited unchanged).
         colorInput: static c => new ControlShape(Some(c.Posture.Control), None, Some((AvaloniaProperty)ColorView.ColorProperty), Redressed<ControlIntent.ColorInput>(Tinted)),
         select: static c => new ControlShape(Some(c.Posture.Control), None, Some(c.Posture.Slot), Redressed<ControlIntent.Select>(Rechosen)),
         multiSelect: static c => new ControlShape(Some(c.Posture.Control), None, Some(c.Posture.Slot), Redressed<ControlIntent.MultiSelect>(Remulti)),
         slider: static c => new ControlShape(Some(nameof(Slider)), None, Some((AvaloniaProperty)RangeBase.ValueProperty), Redressed<ControlIntent.Slider>(Slid)),
         range: static c => new ControlShape(Some(nameof(RangeSlider)), None, Some((AvaloniaProperty)RangeSlider.LowerValueProperty), Redressed<ControlIntent.Range>(Spanned)),
         toggle: static c => new ControlShape(Some(nameof(ToggleSwitch)), None, Some((AvaloniaProperty)ToggleButton.IsCheckedProperty), Redressed<ControlIntent.Toggle>(Flipped)),
-        // The exclusive families carry their option set AS their containers, so a reuse would rebuild every
-        // item anyway — the pool key would buy a template the re-dress immediately discards.
         radio: static _ => new ControlShape(None, None, Some((AvaloniaProperty)SelectingItemsControl.SelectedValueProperty), None),
         segmented: static c => new ControlShape(None, None, c.Posture == SegmentPosture.Select ? Some((AvaloniaProperty)SelectingItemsControl.SelectedValueProperty) : None, None),
         chip: static c => new ControlShape(Some(c.Posture.Control), c.Posture.Skin, Some(c.Posture.Slot), Redressed<ControlIntent.Chip>(Tagged)),
@@ -1245,8 +1067,6 @@ public static partial class ControlFactory {
         dock: static _ => new ControlShape(None, None, None, None),
         splitter: static _ => new ControlShape(None, None, None, None));
 
-    // ONE lift for every re-dress body: the column is typed over the family, so the case probe and its
-    // RecyclingViolation seal spell once here instead of thirteen times inside the arms.
     private static Option<Func<ControlIntent, Control, MaterializeContext, Fin<Control>>> Redressed<TIntent>(
         Func<TIntent, Control, MaterializeContext, Fin<Control>> body) where TIntent : ControlIntent =>
         Some<Func<ControlIntent, Control, MaterializeContext, Fin<Control>>>((intent, control, context) =>
@@ -1254,10 +1074,6 @@ public static partial class ControlFactory {
                 ? body(typed, control, context)
                 : Fin<Control>.Fail(new ControlFault.RecyclingViolation(intent.Key)));
 
-    // The SECOND value channel, total over the family. It answers a slot pair no other member answers — the
-    // primary `Slot` column carries one property and a case with two thumbs carries two — so this is not a
-    // mirror of `ShapeOf`, and the leaf arms compress exactly as `Children` does. An upper KEY on a temporal
-    // row whose kind declares no upper slot refuses, rather than binding the lower slot twice.
     private static Option<(string Key, Option<AvaloniaProperty> Slot)> Second(ControlIntent intent) => intent.Switch(
         range: static c => Some((c.UpperKey, Some((AvaloniaProperty)RangeSlider.UpperValueProperty))),
         dateInput: static c => c.UpperKey.Map(key => (key, c.Kind.UpperSlot)),
@@ -1272,19 +1088,10 @@ public static partial class ControlFactory {
         tab: static _ => None, accordion: static _ => None, panel: static _ => None,
         dock: static _ => None, splitter: static _ => None);
 
-    // Style classes are the whole appearance write this fold performs: the semantic paint role every intent
-    // carries, plus the typographic role the ONE case that declares the field carries. The read is over a
-    // DECLARED member, not a per-case roster, so it mirrors nothing `ShapeOf` answers.
     private static Seq<string> Classed(ControlIntent intent) =>
         Seq(intent.Binding.Role.Key) + (intent is ControlIntent.Label row ? Seq(row.Role.Key) : Seq<string>());
 
     // --- [ADMISSION]
-    // The binding admission is APPLICATIVE, not a Bind chain: a control whose command is unbound AND whose skin
-    // is unresolved AND whose value key names a slot its case does not declare reports all three, because the
-    // author fixing one defect at a time re-runs the whole screen for each. Every leg RESOLVES and writes
-    // nothing; `Apply` performs the attach once on the success arm, so a refused materialize leaves no partly
-    // dressed control behind. Refused operator: the `Fin` monadic chain this page carried, which stops at the
-    // first defect.
     private static Fin<Control> Bind(ControlIntent intent, Control control, MaterializeContext context) {
         ControlShape shape = ShapeOf(intent);
         return (Verb(intent.Binding.Command, context),
@@ -1298,8 +1105,6 @@ public static partial class ControlFactory {
             .Match(Succ: static outcome => outcome, Fail: Fin<Control>.Fail);
     }
 
-    // A command key is resolved or it is a fault: the deck is boot-frozen, so an unknown key can only ever be
-    // an authoring defect, and a control bound to nothing is the one failure a running screen cannot report.
     private static Validation<Error, Option<ICommand>> Verb(Option<string> command, MaterializeContext context) =>
         command.Match(
             Some: key => context.Command(key).Match(
@@ -1307,8 +1112,6 @@ public static partial class ControlFactory {
                 None: () => Validation<Error, Option<ICommand>>.Fail(new ControlFault.UnboundIntent(key))),
             None: () => Validation<Error, Option<ICommand>>.Success(None));
 
-    // The single-column collapse of the same resolution, for the row consumers that admit one command at a
-    // time and have no second column to accumulate against.
     private static Fin<Option<ICommand>> Required(Option<string> command, MaterializeContext context) =>
         Verb(command, context).Match(Succ: Fin<Option<ICommand>>.Succ, Fail: Fin<Option<ICommand>>.Fail);
 
@@ -1319,9 +1122,6 @@ public static partial class ControlFactory {
                 None: () => Validation<Error, Option<ControlTheme>>.Fail(new ControlFault.SkinUnresolved(row.Key))),
             None: () => Validation<Error, Option<ControlTheme>>.Success(None));
 
-    // A value key is admitted against the case's OWN declared slot, so a two-way binding onto a case with no
-    // value channel refuses at materialize instead of binding a property the host never registered. The pair is
-    // one applicative read of the two options, so the "key without slot" corner is the only refusal shape.
     private static Validation<Error, Option<(string Key, AvaloniaProperty Slot)>> Slotted(ControlIntent intent, ControlShape shape) =>
         intent.Binding.ValueKey.Match(
             Some: key => shape.Slot.Match(
@@ -1345,11 +1145,6 @@ public static partial class ControlFactory {
                 Fail: Validation<Error, Option<IImage>>.Fail),
             None: () => Validation<Error, Option<IImage>>.Success(None));
 
-    // THE one attach fold. Identity derives from the intent key alone — the id verbatim, the announced name
-    // through the composition-bound locale resolver — so an authored automation literal has nowhere to live.
-    // The icon quartet is REGISTERED ONCE by the icon-leading button and its attached setters reach any content
-    // control (`.api/api-ursa.md` `[BUTTON_PROPERTIES]`), so one glyph write serves every host that admits one
-    // and a glyph on a host that admits none refuses rather than vanishing.
     private static Fin<Control> Apply(
         ControlIntent intent, Control control, Option<ICommand> command, Option<ControlTheme> theme,
         Option<(string Key, AvaloniaProperty Slot)> valued, Option<(string Key, AvaloniaProperty Slot)> second,
@@ -1385,15 +1180,11 @@ public static partial class ControlFactory {
             Some: pair => context.Value(pair.Key, control, pair.Slot).Map(lifetime => context.Own(control, lifetime)),
             None: () => Fin.Succ(unit));
 
-    // Pending drives the shipped loading slot and NOTHING else, so an in-flight verb keeps its own hit target.
     private static Fin<Unit> Pending(ControlIntent intent, Control control, MaterializeContext context) =>
         intent.Binding.Icon.Bind(static slot => slot.Pending).Match(
             Some: key => context.Value(key, control, IconButton.IsLoadingProperty).Map(lifetime => context.Own(control, lifetime)),
             None: () => Fin.Succ(unit));
 
-    // A resolved verb ALWAYS attaches and the trigger column narrows which gesture raises it, so a control that
-    // resolved a command it could never be invoked through is unrepresentable; the default trigger is the
-    // activation gesture, because a verb with no stated gesture is the plain one.
     private static Fin<Unit> Fired(ControlIntent intent, Control control, Option<ICommand> command, MaterializeContext context) =>
         command.Match(
             Some: resolved => context
@@ -1402,8 +1193,6 @@ public static partial class ControlFactory {
             None: () => Fin.Succ(unit));
 
     // --- [REDRESS]
-    // Each body re-dresses ONE parked host in place. Together with `ShapeOf`'s `Parked` column they are the
-    // whole recycling contract: a body exists exactly where a host type is recoverable from the intent.
     private static Fin<Control> Written(ControlIntent.Label intent, Control control, MaterializeContext context) {
         control.SetValue(TextBlock.TextProperty, context.Label(intent.TextKey));
         control.SetValue(TextBlock.TextWrappingProperty, intent.Role.Wraps ? TextWrapping.Wrap : TextWrapping.NoWrap);
@@ -1439,8 +1228,6 @@ public static partial class ControlFactory {
         return Fin<Control>.Succ(control);
     }
 
-    // The option-bearing re-dress re-LEASES: the parked host keeps its compiled template — the expensive half —
-    // while its items come from a fresh window, so the lease the reuse drops is the one the reset released.
     private static Fin<Control> Rechosen(ControlIntent.Select intent, Control control, MaterializeContext context) =>
         context.Options(intent.Options, intent.Window).Map(lease => {
             control.SetValue(ItemsControl.ItemsSourceProperty, intent.Posture == SelectPosture.Closed
@@ -1482,8 +1269,6 @@ public static partial class ControlFactory {
         return Fin<Control>.Succ(control);
     }
 
-    // Every chip posture hosts a content control, so the label re-dresses through the ONE content slot while
-    // the posture's own `Slot` column stays the VALUE channel the binding admission reads.
     private static Fin<Control> Tagged(ControlIntent.Chip intent, Control control, MaterializeContext context) {
         control.SetValue(ContentControl.ContentProperty, context.Label(intent.TextKey));
         return Fin<Control>.Succ(control);
@@ -1514,22 +1299,15 @@ public static partial class ControlFactory {
 - Boundary: `RecycleScope` is the one control pool in the package — the `Shell/virtualization` `VirtualWindow` fabric parks and draws through it for every windowed list, tree, grid, and canvas, so a per-surface control cache beside it is the `[04]-[BOUNDARIES]` per-surface-virtualizer rejected form; the pool holds CONTROLS and never intents, values, or leases, because a parked control's data is exactly what the reset drops; the reset releases through `MaterializeContext.Release` so the surface activation scope — the one owner of every bound lifetime — decides what dies, and the fold never disposes a lifetime it did not mint; `Interaction.GetBehaviors(parked).Clear()` is the one framework-forced statement, since the behaviour collection is attached state no property clear reaches; the style classes clear while pseudo-classes survive, which is why a stale variant class cannot ride a reuse into a new row and why a pointer-over state left mid-scroll resolves itself; the data context, tooltip, and theme return to UNSET rather than to null, so the host's own inheritance answers instead of a sentinel the boundary law forbids past it; a control whose rack is at its cap is refused BACK to its caller, which drops it on the activation scope — the pool never silently discards a control it accepted; the scope's `Drain` runs on the screen's own teardown and hands the roster back, so the drained controls die with the scope that built them and the pool never outlives the tree it served.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// The pool's whole state in ONE value, so every transition answers racks and count together and a count that
-// disagrees with its racks is unspellable. The rack is a `Seq` because parking and drawing are both head
-// operations and the reuse order is deliberately last-in-first-out — the most recently parked control is the
-// one whose measured extent and realized template are still warm.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record PoolState(HashMap<string, Seq<Control>> Racks, int Held) {
     public static readonly PoolState Empty = new(HashMap<string, Seq<Control>>(), 0);
 
     public Seq<Control> Rack(string host) => Racks.Find(host).IfNone(Seq<Control>());
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class RecycleScope {
-    // The ceiling is a MOUNT argument for the same reason the window spec's viewport extent is: the realized
-    // count a screen can produce is a measurement, and a preset here would either strand a long list re-building
-    // every row or retain a short one's whole history.
     public RecycleScope(Dimension rackCap) => Cap = rackCap;
 
     private readonly Atom<PoolState> cell = Atom(PoolState.Empty);
@@ -1540,9 +1318,6 @@ public sealed class RecycleScope {
 
     public int Held => State.Held;
 
-    // The ceiling reads the HELD FIELD, never a fold over the racks: the count a return has to compare against
-    // is written by the same swap that grows a rack, so the two can never disagree and a park costs no scan of
-    // a pool a long scroll has filled.
     public Transition<PoolState> Return(string host, Control parked) =>
         Cell.Step(
             cell,
@@ -1551,10 +1326,6 @@ public sealed class RecycleScope {
                 : Some(new PoolState(held.Racks.AddOrUpdate(host, rack => parked.Cons(rack), Seq(parked)), held.Held + 1)),
             new ControlFault.RecyclingViolation($"{host}:{Cap.Value}"));
 
-    // The drawn control rides BESIDE the transition exactly as the kernel's token-bearing seat does — a second
-    // read of the cell cannot reconstruct which control this caller took. The CAS body re-runs until it
-    // commits, so the last invocation's assignment is the answer, and a `Refused` verdict and an empty draw are
-    // the same fact: the rack held nothing.
     public Option<Control> Take(string host) {
         Option<Control> drawn = None;
         ignore(Cell.Step(
@@ -1570,8 +1341,6 @@ public sealed class RecycleScope {
         return drawn;
     }
 
-    // TAKE-AND-CLEAR: the drained roster is the answer, because the post-state is empty by construction and a
-    // caller disposing what it drained needs the controls, not the emptiness.
     public (Transition<PoolState> Transition, Seq<Control> Drained) Drain() {
         Seq<Control> drained = Seq<Control>();
         Transition<PoolState> transition = Cell.Step(
@@ -1585,10 +1354,8 @@ public sealed class RecycleScope {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class MaterializePool {
-    // The recycling-aware entry: the pool is consulted through the SAME shape answer the cold fold reads, so a
-    // case that cannot name its host never reaches the pool at all and no second poolability table exists.
     public static Fin<Control> Realize(ControlIntent intent, MaterializeContext context, RecycleScope scope) =>
         ControlFactory.ShapeOf(intent).Parked.Bind(scope.Take).Match(
             Some: parked => ControlFactory
@@ -1596,19 +1363,11 @@ public static class MaterializePool {
                 .Rollback(() => Fin.Succ(context.Release(parked))),
             None: () => ControlFactory.Materialize(intent, context));
 
-    // Parking is the inverse door and takes the SAME key, so a control can only ever return to the rack its own
-    // intent named; an unpoolable case refuses against the pool's LIVE state, so the caller reads one verdict
-    // shape whether the refusal came from the cap or from the shape.
     public static Transition<PoolState> Park(ControlIntent intent, Control control, RecycleScope scope) =>
         ControlFactory.ShapeOf(intent).Parked.Match(
             Some: host => scope.Return(host, control),
             None: () => new Transition<PoolState>.Refused(scope.State, new ControlFault.RecyclingViolation(intent.Key)));
 
-    // The one release. Everything a previous tenant bound dies with the surface scope that owns it; the
-    // behaviour collection is attached state no property clear reaches, which is the only framework-forced
-    // statement here; `Classes.Clear` keeps pseudo-classes, so a stale variant class cannot ride the reuse
-    // while a mid-scroll pointer-over resolves itself; the three inherited slots return to UNSET rather than
-    // to a null the boundary law forbids past the edge.
     private static Control Reset(Control parked, MaterializeContext context) {
         ignore(context.Release(parked));
         Interaction.GetBehaviors(parked).Clear();
@@ -1621,17 +1380,11 @@ public static class MaterializePool {
 }
 
 public static partial class ControlFactory {
-    // The re-entry. The parked type name is compared to the shape's OWN `Parked` answer before any re-dress
-    // body runs — the compile-time control-type check the collapsed re-dress ladder gave up, bought back as a
-    // sealed RecyclingViolation at exactly the one site a pool can lie.
     public static Fin<Control> Rebind(ControlIntent intent, Control parked, MaterializeContext context) =>
         Redress(intent, parked, context)
             .Bind(control => Bind(intent, control, context))
             .Map(control => Sealed(intent, control, context));
 
-    // The gate and the re-dress are ONE read of the shape: a body exists exactly where a `Parked` name does, so
-    // the two Options are matched together and a name that does not answer the live host type refuses before
-    // any property write lands on a control the caller still owns.
     private static Fin<Control> Redress(ControlIntent intent, Control parked, MaterializeContext context) {
         ControlShape shape = ShapeOf(intent);
         return (from host in shape.Parked.Filter(name => name == parked.GetType().Name)
@@ -1655,7 +1408,7 @@ public static partial class ControlFactory {
 ### [05.1]-[CONTROLMAP_ARMS_CS]
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static partial class ControlMap {
     public static ControlIntentWire Emit(ControlIntent intent) => intent.Switch(
         button: static row => ToWire(row),
@@ -1884,7 +1637,7 @@ public static partial class ControlMap {
 ### [05.2]-[CONTROLMAP_ROWS_CS]
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static partial class ControlMap {
     private static IntentBindingWire ToWire(IntentBinding row) {
         var wire = new IntentBindingWire {
@@ -2011,7 +1764,7 @@ public static partial class ControlMap {
 ### [05.3]-[CONTROLMAP_ENUMS_CS]
 
 ```csharp signature
-// --- [COMPOSITION] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 [Mapper(RequiredEnumMappingStrategy = RequiredMappingStrategy.Both)]
 public static partial class ControlMap {
     [MapperIgnoreTargetValue(Rasm.Contracts.Ui.IconPlacement.Unspecified)]

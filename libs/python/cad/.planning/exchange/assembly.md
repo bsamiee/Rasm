@@ -47,8 +47,6 @@ from rasm.cad.faults import CAF_ROOTS, CAF_TRANSFER, STEP_SCHEMA, CadRail
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# both CAF readers answer `ReadFile`, `Transfer`, and the three surviving `Set*Mode` channels, so the union is a
-# structural family the codec drives directly rather than a base class needing a narrowing cast per call.
 type CafReader = STEPCAFControl_Reader | IGESCAFControl_Reader
 
 
@@ -56,8 +54,6 @@ type CafReader = STEPCAFControl_Reader | IGESCAFControl_Reader
 
 
 class Assembly(Struct, frozen=True):
-    # one transfer yields two projections, neither derivable from the other: `document` keeps the label tree with
-    # colour, name, and layer for `RWGltf_CafWriter.Perform`, and `root` is the geometry mesh and metrology read.
     document: TDocStd_Document
     root: TopoDS_Shape
 
@@ -66,16 +62,12 @@ class Assembly(Struct, frozen=True):
 
 
 def _document() -> TDocStd_Document:
-    # `MDTV-XCAF` is the required storage format and the ctor rejects a bare `str` or an `AsciiString`; `InitDocument`
-    # scaffolds the label tree, so a `Transfer` onto an un-inited document seats nothing and reports success.
     document = TDocStd_Document(TCollection_ExtendedString("MDTV-XCAF"))
     XCAFApp_Application.GetApplication_s().InitDocument(document)
     return document
 
 
 def _channelled(reader: CafReader, /) -> CafReader:
-    # colour, name, and layer are exactly the channels `RWGltf_CafWriter.Perform` reads back off the document; GD&T
-    # and material transfer into labels no emission path this provider owns has any reader for.
     reader.SetColorMode(True)
     reader.SetNameMode(True)
     reader.SetLayerMode(True)
@@ -83,8 +75,6 @@ def _channelled(reader: CafReader, /) -> CafReader:
 
 
 def _reader(request: TessellateRequest, /) -> tuple[CafReader, ExchangeArrow[CafReader]]:
-    # each arm mints its reader AND its protocol arrow, so the STEP-only `Reader().StepModel()` hop closes over the
-    # concrete reader and the family never needs a cast; `Ok` is the identity arrow the protocol-less source takes.
     match request.source:
         case Oneof(field="step", value=SealedStep() as source):
             reader = STEPCAFControl_Reader()
@@ -100,7 +90,6 @@ def _reader(request: TessellateRequest, /) -> tuple[CafReader, ExchangeArrow[Caf
 
 
 def _transferred(reader: CafReader, /) -> CadRail[TDocStd_Document]:
-    # `Transfer` answers a bare bool, not an `IFSelect_ReturnStatus`, so this leg states its own predicate
     document = _document()
     return Ok(document) if reader.Transfer(document) else Error(CAF_TRANSFER.at("CafReader.Transfer"))
 
@@ -131,7 +120,6 @@ def admitted(request: TessellateRequest, path: Path, /) -> CadRail[Assembly]:
 
 
 def _added(builder: TopoDS_Builder, compound: TopoDS_Compound, label: TDF_Label, /) -> int:
-    # answers 1 for a root that seated geometry and 0 for a null label, so the caller's fold counts admitted roots
     shape = XCAFDoc_ShapeTool.GetShape_s(label)
     if shape.IsNull():
         return 0
@@ -140,8 +128,6 @@ def _added(builder: TopoDS_Builder, compound: TopoDS_Compound, label: TDF_Label,
 
 
 def _rooted(document: TDocStd_Document, /) -> CadRail[Assembly]:
-    # `TDF_LabelSequence` fills as an out-parameter and reads one-based, and `Block.fold` drives the walk eagerly
-    # because the builder mutation must run before the count is read; a lazy projection defers both.
     labels = TDF_LabelSequence()
     XCAFDoc_DocumentTool.ShapeTool_s(document.Main()).GetFreeShapes(labels)
     compound, builder = TopoDS_Compound(), TopoDS_Builder()

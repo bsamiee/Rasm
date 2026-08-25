@@ -21,7 +21,7 @@
 - Packages: RhinoCommon meshing (`.api/api-rhinocommon-meshing.md` — `SubD` construction `:255-266`, `SubD` edit `:273-282`, `SubD` topology `:307-314`, `SubD` config `:316-328`), kernel `Domain/rails` (`Op`, `Lease<T>.Acquire`/`Use`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`), `Modeling/curves.md` (`ModelClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
 using Rasm.Domain;
@@ -30,7 +30,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CreasePreset {
     public static readonly CreasePreset Smooth = new(key: 0, static () => SubDCreationOptions.Smooth);
@@ -145,7 +145,7 @@ public abstract partial record SubDCreationLaw : IValidityEvidence {
             key: key);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SubDCreationSpec : IValidityEvidence {
@@ -183,8 +183,6 @@ public readonly partial struct SubDCreationSpec : IValidityEvidence {
         MaximumConvexCornerEdgeCount, MaximumConvexCornerAngleRadians,
         MinimumConcaveCornerAngleRadians, MinimumConcaveCornerEdgeCount, VertexInterpolation);
 
-    // Concave threshold must EXCEED the convex one: equal angles leave the corner classifier a band of zero width,
-    // which the host reads as a corner test no vertex satisfies rather than as a refusal.
     private static bool Admits(
         SubDCreationOptions.InteriorCreaseOption interiorCrease,
         SubDCreationOptions.ConvexCornerOption convexCorner,
@@ -238,7 +236,6 @@ public readonly partial struct SubDBrepLaw : IValidityEvidence {
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SubDEdgeSelection : IValidityEvidence {
-    // Each axis bars exactly one corner, the EMPTY one, so containment-barring the empty set states the whole law.
     private static readonly CapabilityLaw<SubDEdgeScope> ScopeLaw =
         CapabilityLaw<SubDEdgeScope>.Forbidden(barred: Seq(CapabilitySet<SubDEdgeScope>.None));
     private static readonly CapabilityLaw<SubDEdgeCharacter> CharacterLaw =
@@ -295,7 +292,7 @@ public readonly partial struct SubDEdgeSelection : IValidityEvidence {
 - Packages: RhinoCommon meshing (`.api/api-rhinocommon-meshing.md` — `SubD` construction `:255-266` incl. `CreateFromMesh`/`CreateFromSurface`/`CreateFromLoft`/`CreateFromSweep`/`CreateQuadSphere`/`CreateGlobeSphere`/`CreateTriSphere`/`CreateIcosahedron`/`CreateFromCylinder`/`JoinSubDs`, `SubD` edit `:273-282` incl. `Subdivide`/`Offset`/`ToBrep`/`InterpolateSurfacePoints`/`MergeAllCoplanarFaces`/`PackFaces`/`Flip`/`TransformComponents`/`SetVertexSurfacePoint`/`UpdateAllTagsAndSectorCoefficients`/`UpdateSurfaceMeshCache`, `SubD` topology `:307-314` incl. `DuplicateEdgeCurves`/`SetVertexTags`/`SetEdgeTags`), `Modeling/lofting.md` (`SweepFrameLaw`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), kernel `Domain/rails` (`Op`, `Op.Confirm`, `Op.Catch`, `Lease<T>.Use`, `[GenerateUnionOps]` + generated `SelfOp`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SubDSlot {
     public static readonly SubDSlot Converted = new(key: 0);
@@ -335,7 +332,6 @@ public abstract partial record SubDEditVerb : IValidityEvidence {
             rows: edit.Faces, claim: static face => ValidityClaim.CountAtLeast(count: face, floor: 0)),
         interpolate: static edit => ModelClaim.Points(points: edit.SurfacePoints),
         setVertexPoint: static edit => ValidityClaim.Finite(value: edit.SurfacePoint),
-        // Zero distance names the identity shell, which the host answers as a duplicate carrying no wall.
         shell: static edit => ValidityClaim.All(ValidityClaim.Finite(value: edit.Distance), edit.Distance != 0.0),
         mergeCoplanar: static () => (ValidityClaim)true,
         pack: static () => (ValidityClaim)true,
@@ -364,8 +360,6 @@ public abstract partial record SubDEditVerb : IValidityEvidence {
                 from __ in SubdivideFaces.SelfOp.Confirm(success: ctx.Working.Subdivide(faceIndices: edit.Faces.AsIterable()))
                 from built in Refreshed(op: SubdivideFaces.SelfOp, working: ctx.Working)
                 select built,
-            // Whole-surface interpolation reads one target per SubD vertex, and only the live working copy knows that
-            // roster, so arity proves here rather than at admission where no geometry is in hand.
             interpolate: static (ctx, edit) =>
                 from _ in guard(edit.SurfacePoints.Count == ctx.Working.Vertices.Count,
                     Interpolate.SelfOp.InvalidInput(axis: nameof(edit.SurfacePoints)))
@@ -417,8 +411,6 @@ public abstract partial record SubDEditVerb : IValidityEvidence {
                     : Fin.Fail<Built<SubDSlot>>(
                         error: MoveComponents.SelfOp.InvalidResult(detail: "no addressed component moved"))));
 
-    // Tags and sector coefficients settle BEFORE the surface cache rebuilds: cache evaluation reads the tags, so
-    // reversing the order caches a surface the tag pass then invalidates.
     private static Fin<Built<SubDSlot>> Refreshed(Op op, SubD working) =>
         op.Catch(() => {
             uint retagged = working.UpdateAllTagsAndSectorCoefficients();
@@ -456,7 +448,6 @@ public abstract partial record SubDOp {
             fromSurface: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Source), ModelClaim.Handle(handle: row.Source)),
                 (nameof(row.Method), Enum.IsDefined(row.Method)), (nameof(row.Corners), row.Corners is not null)),
-            // Closed lofts need three profiles: the host wraps the section list, so two curves close onto themselves.
             fromLoft: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Shapes), ValidityClaim.All(
                     ModelClaim.Handles(handles: row.Shapes),
@@ -574,7 +565,6 @@ public abstract partial record SubDOp {
                         body: options => ModelGate.Single(ToBrep.SelfOp, SubDSlot.Brepped, () => subd.ToBrep(options: options)),
                         key: ToBrep.SelfOp)
                     select built),
-            // Admitted selections still legitimately match no edge, so the empty spread is granted rather than refused.
             edgeCurves: static (_, edit) => ModelGate.Borrow<SubD, Built<SubDSlot>>(
                 handle: edit.Target, key: EdgeCurves.SelfOp, body: subd => {
                     (bool boundary, bool interior, bool smooth, bool sharp, bool crease, bool clamp) = edit.Selection.Native;
@@ -586,7 +576,7 @@ public abstract partial record SubDOp {
                 }));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SubDs {
     public static Fin<Built<SubDSlot>> Build(ModelRuntime runtime, params ReadOnlySpan<SubDOp> operations) =>
         ModelGate.Entry(

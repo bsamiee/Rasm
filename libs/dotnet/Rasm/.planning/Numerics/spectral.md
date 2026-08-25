@@ -23,7 +23,7 @@
 - Boundary: filters weight eigenvalues alone — never a mesh, a basis matrix, or a vertex — so the one filter value drives `Meshing/dec` heat scaffolds, `Processing/segment` descriptors, and `Spatial/fields` spectral-distance cases from this floor.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
 using System.Runtime.CompilerServices;
@@ -35,7 +35,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SpectralAssemblyKind {
     public static readonly SpectralAssemblyKind Dec = new(key: 0);
@@ -55,7 +55,6 @@ public sealed partial class SpectralEnergyNormalization {
     public static readonly SpectralEnergyNormalization UnitL2 = new(key: 2, rescale: static values => Scaled(values: values, scale: TensorPrimitives.Norm<double>(values)));
     public static readonly SpectralEnergyNormalization ZScore = new(key: 3, rescale: static values => Centered(values: values));
 
-    // Absence is the degenerate-scale verdict — a zero norm or sigma — that the caller lifts onto its rail.
     [UseDelegateFromConstructor] internal partial Option<double[]> Rescale(double[] values);
 
     private static Option<double[]> Scaled(double[] values, double scale) {
@@ -64,7 +63,6 @@ public sealed partial class SpectralEnergyNormalization {
         TensorPrimitives.Divide<double>(values, scale, destination);
         return Some(destination);
     }
-    // Population sigma, matching `TensorPrimitives.StdDev` — a sample estimator disagrees with `Domain/stats`.
     private static Option<double[]> Centered(double[] values) {
         double sigma = TensorPrimitives.StdDev<double>(values);
         if (sigma <= EpsilonPolicy.SqrtEpsilon) { return Option<double[]>.None; }
@@ -83,10 +81,6 @@ public sealed partial class SpectralZeroModePolicy {
 
 [SmartEnum<int>]
 public sealed partial class SpectralDistanceKind {
-    // The Distance CARRIER splits inside the package and the row owns its adaptation: Cosine, Canberra, Hamming, and
-    // Jaccard are `double[]` surfaces, every other row is `Vector<T>` only, so a bare array handed to the eight
-    // names a member the assembly does not export. Both carriers ride the `Lifted` operand PRE-LIFTED, so an
-    // N-candidate ranking builds one dense vector per operand instead of one per comparison.
     public static readonly SpectralDistanceKind Euclidean = new(key: 0, compute: static (a, b) => MathNet.Numerics.Distance.Euclidean(a.Dense, b.Dense));
     public static readonly SpectralDistanceKind Manhattan = new(key: 1, compute: static (a, b) => MathNet.Numerics.Distance.Manhattan(a.Dense, b.Dense));
     public static readonly SpectralDistanceKind Cosine = new(key: 2, compute: static (a, b) => MathNet.Numerics.Distance.Cosine(a.Raw, b.Raw));
@@ -103,7 +97,6 @@ public sealed partial class SpectralDistanceKind {
     [UseDelegateFromConstructor] internal partial double Compute(Lifted a, Lifted b);
 }
 
-// One operand lifted ONCE into both carriers the Distance roster splits across.
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct Lifted(double[] Raw, MathNet.Numerics.LinearAlgebra.Vector<double> Dense) {
     internal static Lifted Of(double[] values) => new(Raw: values, Dense: MathNet.Numerics.LinearAlgebra.CreateVector.DenseOfArray(values));
@@ -111,10 +104,6 @@ internal readonly record struct Lifted(double[] Raw, MathNet.Numerics.LinearAlge
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SpectralFilter {
-    // ONE exponential case carries the whole exp(rate*lambda) family — heat, diffusion, and amplification were
-    // three cases apart by a literal and a sign, so a Heat-after-Diffusion chain answered None where it fuses
-    // exactly. The mints below are the canonical spellings; the discriminant rides the RATE, as the Biharmonic
-    // and CommuteTime power mints already do.
     public sealed record ExponentialCase(double Rate) : SpectralFilter;
     public sealed record WaveCase(PositiveMagnitude Energy, PositiveMagnitude Bandwidth) : SpectralFilter;
     public sealed record PowerCase(double Exponent) : SpectralFilter;
@@ -124,13 +113,11 @@ public abstract partial record SpectralFilter {
     public static SpectralFilter Heat(PositiveMagnitude time) => Exponential(rate: -time.Value);
     public static SpectralFilter Wave(PositiveMagnitude energy, PositiveMagnitude bandwidth) => new WaveCase(Energy: energy, Bandwidth: bandwidth);
     public static SpectralFilter Diffusion(PositiveMagnitude time) => Exponential(rate: -2.0 * time.Value);
-    // A zero exponent normalizes to the unit, so `Power(0)` and `Identity` are one value.
     public static SpectralFilter Power(double exponent) => exponent == 0.0 ? Identity : new PowerCase(Exponent: exponent);
     public static SpectralFilter Amplify(PositiveMagnitude rate) => Exponential(rate: rate.Value);
     public static SpectralFilter Biharmonic => Power(exponent: -2.0);
     public static SpectralFilter CommuteTime => Power(exponent: -1.0);
     public static SpectralFilter Identity => new IdentityCase();
-    // The power family composes by exponent addition, so a commute-time∘biharmonic chain fuses to Power(-3).
     public Option<SpectralFilter> Compose(SpectralFilter other) =>
         other is IdentityCase ? Some(this) : Switch(
             state: other,
@@ -138,7 +125,6 @@ public abstract partial record SpectralFilter {
             waveCase: static (_, _) => Option<SpectralFilter>.None,
             powerCase: static (o, c) => o is PowerCase b ? Some(Power(exponent: c.Exponent + b.Exponent)) : Option<SpectralFilter>.None,
             identityCase: static (o, _) => Some(o));
-    // Public because the Compute eigen-filter consumer composes the transfer weight directly across the assembly.
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public double Weight(double eigenvalue) => Switch(
         state: eigenvalue,
@@ -170,7 +156,7 @@ public abstract partial record SpectralFilter {
 - Boundary: `DiscreteCalculus` is the `Rasm.Compute` adjoint seam — Compute binds the operator columns and the validity fold, never `Transport`, so the probe column stays kernel-grain; `SignpostTransportReceipt` is declared by `Meshing/mesh`, the intrinsic-triangulation owner, and carried here only as probe evidence, so each DDG receipt has exactly one declaration site with this page owning the mesh-free members. DECLARATION and CONSTRUCTION are the split with `Meshing/dec`: no member here emits `D0`, `D1`, or a star, and `dec`'s assembly re-owns no algebra declared here.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
@@ -181,11 +167,8 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
-// Topology measures ride Option because the connection arm assembles from a frozen intrinsic mesh and runs no
-// topology pass — a zero default there would publish a measurement no producer took. A present Euler characteristic
-// IS its own validation, so the value and the "validated" flag are one slot, never a flag beside a forged zero.
 public readonly record struct SpectralAssemblyReceipt(
     int VertexCount, int EdgeCount, int FaceCount, int AdmittedFaceCount, int SkippedDegenerateFaces, int SkippedMissingEdges,
     bool FlippedIntrinsicLifted, int MatrixRows, int MatrixCols, int NonZeros,
@@ -193,8 +176,6 @@ public readonly record struct SpectralAssemblyReceipt(
     double BoundaryCompositionResidual, Option<int> Genus, int HarmonicDimension, SpectralAssemblyKind Kind,
     Option<int> BoundaryEdgeCount = default, int BoundaryComponentCount = 0, Option<int> NonManifoldEdgeCount = default,
     Option<int> EulerCharacteristic = default, int ComponentCount = 1, Option<int> PositiveMassCount = default,
-    // Residual and tolerance are ONE measurement: an arm that ran no symmetry check has neither, and the two
-    // zeroed defaults made `0 <= 0` pass VACUOUSLY for exactly that arm.
     Option<(double Residual, double Tolerance)> Symmetry = default, Option<int> FactorNonZeros = default,
     double BoundaryCompositionTolerance = 0.0) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(
@@ -202,20 +183,12 @@ public readonly record struct SpectralAssemblyReceipt(
         ValidityClaim.Nonnegative(value: BoundaryCompositionResidual),
         AdmittedFaceCount + SkippedDegenerateFaces + SkippedMissingEdges <= FaceCount,
         Symmetry.Map(static measured => measured.Residual >= 0.0 && measured.Residual <= measured.Tolerance).IfNone(noneValue: true),
-        // Tolerance 0 = witness-only (the minting assembly gated the residual itself); positive enforces.
         BoundaryCompositionTolerance <= 0.0 || BoundaryCompositionResidual <= BoundaryCompositionTolerance,
         FactorNonZeros.Map(static value => value > 0).IfNone(noneValue: true),
-        // The signpost lift re-anchors flipped intrinsic edge sources onto embedded chords, which only the
-        // connection assembly performs — a Dec receipt claiming one names a path its arm cannot walk.
         !FlippedIntrinsicLifted || Kind.Equals(SpectralAssemblyKind.EdgeConnection),
-        // Each boundary component closes an edge cycle, so components and boundary edges vanish together and
-        // three edges is the smallest cycle a triangulation admits.
         BoundaryEdgeCount.Map(count =>
             count >= 0 && count <= EdgeCount && (count == 0) == (BoundaryComponentCount == 0) && count >= 3 * BoundaryComponentCount).IfNone(noneValue: true),
         NonManifoldEdgeCount.Map(count => count >= 0 && count <= EdgeCount).IfNone(noneValue: true),
-        // A measured Euler characteristic closes V-E+F against the assembly's own counts — the cross-source
-        // agreement between the topology pass and the triplet sweep — presupposes a manifold complex, and with a
-        // genus closes the boundary-aware surface identity chi = 2 - 2g - b.
         EulerCharacteristic.Map(chi =>
             chi == VertexCount - EdgeCount + FaceCount
             && NonManifoldEdgeCount.IfNone(noneValue: 0) == 0
@@ -236,15 +209,11 @@ public readonly record struct HarmonicOneFormReceipt(
     double MinNullEigenvalue, double MaxNullEigenvalue, double MaxClosedResidual, double MaxCoClosedResidual,
     double Star1OrthonormalResidual, int PositiveStar1Count, EigenSolveReceipt<double, Arr<double>> Eigen,
     int BoundaryComponentCount = 0) : IValidityEvidence {
-    // Dimensionless rounding slack above the eigenvalue tolerance: the residual sums over the constraint rows, so a
-    // gate at the bare eigenvalue band refuses a decomposition the solver produced correctly.
     private const double ResidualSlack = 1.0e3;
     public bool IsValid {
         get {
             int expected = ExpectedDimension;
             int boundaryComponentCount = BoundaryComponentCount;
-            // Residual gate is operator-scale-relative: SvdTolerance and the sqrt-machineEps floor carry
-            // max(1, spectralRadius), never a bare absolute.
             double residualTolerance = Math.Max(val1: SvdTolerance, val2: EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1.0, val2: SpectralRadius)) * ResidualSlack;
             return ValidityClaim.All(
                 EdgeCount >= 0 && Rank >= 0 && Nullity >= 0 && BasisCount >= 0 && ConstraintRows >= 0,
@@ -294,8 +263,6 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
                 TensorPrimitives.IsFiniteAll<double>(star1)
                     && (star1.IsEmpty || TensorPrimitives.Min<double>(star1) >= -(EpsilonPolicy.SqrtEpsilon * Math.Max(1.0, star1Scale))),
                 TensorPrimitives.IsFiniteAll<double>(star2) && (star2.IsEmpty || TensorPrimitives.Min<double>(star2) > 0.0),
-                // `default(DiscreteCalculus)` nulls the probe union; the pattern rejects that ghost as invalid
-                // (BeatSeed's default-ghost law) where the Option column it replaced read the ghost as absent.
                 Transport is { } probe && ValidityClaim.Evidence(evidence: probe.Value()),
                 ValidityClaim.Evidence(evidence: Harmonic));
         }
@@ -304,8 +271,6 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
         DiscreteCalculus self = this;
         return AtomProjection.Rows<DiscreteCalculus, TOut>(self: self, key: key,
             ProjectionRow.Of<SpectralAssemblyReceipt>(() => Fin.Succ(self.Receipt)),
-            // Refusal replays the probe's OWN cause; only a never-run probe answers the projection's generic miss.
-            // (An Option column stood here and re-fabricated InvalidResult over a refusal whose cause Build held.)
             ProjectionRow.Of<SignpostTransportReceipt>(() => self.Transport.Switch(
                 measured: static row => Fin.Succ(row.Value),
                 refused: static row => Fin.Fail<SignpostTransportReceipt>(row.Cause),
@@ -319,8 +284,6 @@ public readonly record struct DiscreteCalculus(SparseMatrix D0, SparseMatrix D1,
 public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<double>> Eigenvectors) : IValidityEvidence {
     internal int VertexCount => Eigenvectors.IsEmpty ? 0 : Eigenvectors[index: 0].Count;
     internal double SpectralRadius => Eigenvalues.IsEmpty ? 0.0 : Math.Abs(value: TensorPrimitives.MaxMagnitude<double>(Eigenvalues.AsSpan()));
-    // THE one zero band, scale-relative to the spectral radius: eigen error grows with operator scale, so
-    // an absolute SqrtEpsilon band misclassifies every mode of an mm-unit spectrum as zero.
     internal double ZeroBand => EpsilonPolicy.SqrtEpsilon * Math.Max(val1: SpectralRadius, val2: EpsilonPolicy.ZeroTolerance);
     public bool IsValid {
         get {
@@ -352,7 +315,7 @@ public readonly record struct SpectralBasis(Arr<double> Eigenvalues, Arr<Arr<dou
 - Boundary: the kernel is mesh-free, seeing vertex COUNT as its only topology, so it serves tet, grid, and mesh bases identically, while mesh-side basis computation and caching (`SpectralBasisBundle`) are `Meshing/dec`'s.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -365,12 +328,10 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Numerics;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralDescriptorPolicy(SpectralScaleNormalization ScaleNormalization, SpectralEnergyNormalization EnergyNormalization, SpectralZeroModePolicy ZeroModePolicy, Option<Dimension> CropCount) : IValidityEvidence {
     public static SpectralDescriptorPolicy Raw => new(ScaleNormalization: SpectralScaleNormalization.Raw, EnergyNormalization: SpectralEnergyNormalization.Raw, ZeroModePolicy: SpectralZeroModePolicy.Keep, CropCount: None);
-    // The three columns are reference rows, so the default-ghost read comes FIRST — every later conjunct and
-    // every derived flag dereferences them.
     public bool IsValid => ValidityClaim.All(
         ScaleNormalization is not null && EnergyNormalization is not null && ZeroModePolicy is not null,
         CropCount.Map(static count => count.Value > 0).IfNone(noneValue: true));
@@ -389,8 +350,6 @@ public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidt
                 ValidityClaim.Positive(value: Bandwidth),
                 ZeroModeCount >= 0 && CroppedEigenpairCount >= NonZeroEigenpairCount && NonZeroEigenpairCount > 0,
                 ValidityClaim.Positive(value: RawWeightSum),
-                // The unit-sum band grows with the number of terms summed, because the rounding does: a fixed
-                // absolute passes a short spectrum and fails a long one that normalized just as correctly.
                 Math.Abs(value: NormalizedWeightSum - 1.0) <= EpsilonPolicy.SqrtEpsilon * Math.Max(val1: 1, val2: CroppedEigenpairCount),
                 FirstNonZeroScale.Map(static first => first > 0.0).IfNone(noneValue: true),
                 MinLogEigenvalue.Map(min => maxLogEigenvalue.Map(max => min <= max).IfNone(noneValue: true)).IfNone(noneValue: true));
@@ -399,9 +358,6 @@ public readonly record struct SpectralWaveReceipt(double Energy, double Bandwidt
 }
 
 [StructLayout(LayoutKind.Auto)]
-// Policy carries NO default: its three columns are [SmartEnum] REFERENCE rows, so a default-constructed receipt
-// reads null through them and `EnergyNormalized`/`ScaleNormalized` throw off the `Fin` rail. Every producer
-// constructs with a policy in hand.
 public readonly record struct SpectralDescriptorReceipt(SpectralFilter Filter, int VertexCount, int EigenpairCount, int SourceCount,
     SpectralDescriptorPolicy Policy, int ZeroModeCount = 0, int CroppedEigenpairCount = 0, Option<SpectralWaveReceipt> Wave = default) : IValidityEvidence {
     public bool Pairwise => SourceCount > 0;
@@ -441,7 +397,7 @@ public readonly record struct SpectralRank(int Index, double Distance, SpectralD
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct SpectralRanking(SpectralDescriptor Query, Seq<SpectralRank> Items, SpectralRankingPolicy Policy);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class SpectralKernel {
     internal static Fin<SpectralDescriptor> EvaluateFilteredDetailed(SpectralBasis basis, Option<Seq<int>> sources, SpectralFilter filter, SpectralDescriptorPolicy policy, Op key) {
         int n = basis.VertexCount;
@@ -453,8 +409,6 @@ internal static class SpectralKernel {
         if (!basis.Eigenvectors.ForAll(phi => phi.Count == n)) { return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult()); }
         double zeroBand = basis.ZeroBand;
         int zeroModeCount = basis.Eigenvalues.AsIterable().Count(lambda => lambda <= zeroBand);
-        // ABSENCE of a non-zero mode rides the carrier: a `0.0` default reads as a legitimate eigenvalue at
-        // every downstream site and leaves three hand guards standing in for the type.
         Option<double> firstNonZero = basis.Eigenvalues.Find(lambda => lambda > zeroBand);
         bool scaleNormalized = policy.ScaleNormalization.Equals(SpectralScaleNormalization.FirstNonZeroEigenvalue);
         if (scaleNormalized && firstNonZero.IsNone) { return Fin.Fail<SpectralDescriptor>(error: key.InvalidResult()); }
@@ -473,9 +427,6 @@ internal static class SpectralKernel {
                     Receipt: new SpectralDescriptorReceipt(Filter: filter, VertexCount: n, EigenpairCount: basis.Eigenvalues.Count, SourceCount: sourceSet.Length,
                         Policy: policy, ZeroModeCount: zeroModeCount, CroppedEigenpairCount: eigenIndices.Length, Wave: weighted.Wave))));
     }
-    // Loop order is ki -> s -> v so the source ordinate is loop-INVARIANT and read once per pair rather than
-    // once per vertex, and every per-vertex arm is a span operator: the declared statement-kernel exemption is
-    // about LINQ-fold allocation churn, which one scratch buffer answers, and licenses no per-element walk.
     private static Fin<double[]> Accumulated(SpectralBasis basis, int[] eigenIndices, double[] weights, int[] sourceSet, int vertexCount, Op key) {
         double[] result = new double[vertexCount];
         using MemoryOwner<double> scratch = MemoryOwner<double>.Allocate(size: vertexCount);
@@ -502,12 +453,9 @@ internal static class SpectralKernel {
         }
         return TensorPrimitives.IsFiniteAll<double>(result) ? Fin.Succ(result) : Fin.Fail<double[]>(error: key.InvalidResult());
     }
-    // Energy is the ONLY re-normalizable axis, so the parameter IS that axis: a four-axis policy bundle whose
-    // other three arms the member refused advertised a domain it never served.
     internal static Fin<SpectralDescriptor> NormalizeDescriptor(SpectralDescriptor descriptor, SpectralEnergyNormalization energy, Op key) =>
         from valid in guard(descriptor.IsValid, key.InvalidInput()).ToFin()
         from values in Rescaled(values: [.. descriptor.Values.AsIterable()], energy: energy, key: key)
-        // The receipt keeps its scale/zero-mode/crop provenance; only the energy column moves.
         let merged = descriptor.Receipt.Policy with { EnergyNormalization = energy }
         select new SpectralDescriptor(Values: new Arr<double>(values), Receipt: descriptor.Receipt with { Policy = merged });
     internal static Fin<SpectralRanking> RankDescriptors(SpectralDescriptor query, Seq<SpectralDescriptor> candidates, SpectralRankingPolicy policy, Op key) =>
@@ -521,14 +469,11 @@ internal static class SpectralKernel {
         descriptor.Receipt.ComparisonReady && descriptor.Receipt.Policy.Equals(policy)
             ? Fin.Succ(descriptor)
             : NormalizeDescriptor(descriptor: descriptor, energy: policy.EnergyNormalization, key: key);
-    // zeroBand arrives in the SAME units as the eigenvalue array (scaled by 1/firstNonZero when the policy scale-normalizes), so zero-mode classification is one law across raw and scaled spectra.
     private static Fin<(double[] Weights, Option<SpectralWaveReceipt> Wave)> WeightsOf(SpectralFilter filter, double[] eigenvalues, double firstNonZero, double zeroBand, int zeroModeCount, int croppedCount, Op key) =>
         filter is SpectralFilter.WaveCase wave
             ? WaveWeightsOf(wave: wave, eigenvalues: eigenvalues, firstNonZero: firstNonZero, zeroBand: zeroBand, zeroModeCount: zeroModeCount, croppedCount: croppedCount)
                 .Map(static held => (held.Weights, Wave: Some(held.Receipt)))
                 .ToFin(key.InvalidResult())
-            // ONE materialization: the spectrum was evaluated twice — once to gate finiteness, once to return —
-            // inside the member marked AggressiveInlining for the per-eigenpair-per-vertex hot loop.
             : (double[])[.. eigenvalues.Select(filter.Weight)] is var weights && TensorPrimitives.IsFiniteAll<double>(weights)
                 ? Fin.Succ<(double[], Option<SpectralWaveReceipt>)>((weights, Option<SpectralWaveReceipt>.None))
                 : Fin.Fail<(double[], Option<SpectralWaveReceipt>)>(key.InvalidResult());

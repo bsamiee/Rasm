@@ -26,20 +26,18 @@
 - Boundary: `Tolerance.Value` is a public bare `double`, so `context.Absolute.Value`, `context.Angle.Value`, and every host read of the shape compile unchanged across the branch — the compatibility is load-bearing and deliberate, not incidental. `Rasm.Element` owns the dimensioned rendering of a tolerance.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Numerics;
 using Rhino.Geometry.Intersect;
 using Thinktecture;
 
 namespace Rasm.Domain;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToleranceLane {
     // --- [ROOT]
-    // Root rows carry the three admitted context scalars every other row derives from, resolving off the STORED triad
-    // rather than through `For`, so the derivation graph has a floor and no lane can key itself.
     public static readonly ToleranceLane Distance = new(key: "distance", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane Relative = new(key: "relative", band: Band.Ratio, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Relative.Value);
     public static readonly ToleranceLane Angle = new(key: "angle", band: Band.Angle, dimension: UnitsNet.Angle.BaseDimensions, derive: static context => context.Angle.Value);
@@ -61,19 +59,11 @@ public sealed partial class ToleranceLane {
     public static readonly ToleranceLane Filter = new(key: "filter", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane PlaneDistance = new(key: "plane-distance", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane Mollification = new(key: "mollification", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value * context.Relative.Value);
-    // `Area` derives as a squared length rather than as an independently tuned magnitude.
-    // Squared and coefficient-diminished anchors cross the Length floor on coarse model units (metres: 1e-10), so both
-    // derives floor just above the open bound and a REAL gate arrives through `Context.Override` at the owner.
     public static readonly ToleranceLane Area = new(key: "area", band: Band.Length, dimension: UnitsNet.Area.BaseDimensions, derive: static context => Math.Max(context.Absolute.Value * context.Absolute.Value, EpsilonPolicy.SqrtEpsilon * 2.0));
     public static readonly ToleranceLane Length = new(key: "length", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane Project = new(key: "project", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
     public static readonly ToleranceLane Neglect = new(key: "neglect", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value * EpsilonPolicy.SubTolerance);
-    // Host-coefficient-scaled mesh crossing gate: the coefficient is RhinoCommon's own, so the lane composes it
-    // once and the derived `MeshIntersectionTolerance` member this page used to carry deletes with it.
     public static readonly ToleranceLane MeshIntersection = new(key: "mesh-intersection", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => Math.Max(context.Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient, EpsilonPolicy.SqrtEpsilon * 2.0));
-    // Materials- and Fabrication-sourced length gates. Each derives the MODEL gate here and takes its published
-    // figure — a spectral band budget, an irradiance floor, a shop assembly allowance, an ISO 286 grade width —
-    // as a context override at the owner that holds the standard.
     public static readonly ToleranceLane Spectral = new(key: "spectral", band: Band.Length, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Absolute.Value * context.Relative.Value);
     public static readonly ToleranceLane Irradiance = new(key: "irradiance", band: Band.Length, dimension: UnitsNet.Irradiance.BaseDimensions, derive: static context => context.Absolute.Value * context.Relative.Value);
     public static readonly ToleranceLane Build = new(key: "build", band: Band.Length, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Absolute.Value);
@@ -85,10 +75,6 @@ public sealed partial class ToleranceLane {
     public static readonly ToleranceLane Symmetry = new(key: "symmetry", band: Band.Angle, dimension: UnitsNet.Angle.BaseDimensions, derive: static context => context.Angle.Value);
     public static readonly ToleranceLane Collinear = new(key: "collinear", band: Band.Angle, dimension: UnitsNet.Angle.BaseDimensions, derive: static context => context.Angle.Value);
     public static readonly ToleranceLane Cocircular = new(key: "cocircular", band: Band.Angle, dimension: UnitsNet.Angle.BaseDimensions, derive: static context => context.Angle.Value);
-    // Grain-direction alignment gate (Fabrication nesting/remnant reads it in RADIANS — `GrainToleranceRadians` and
-    // its >= π any-orientation guard): an ANGLE lane through and through. Its U5/U6-censused mismatch — the Length
-    // band gating an Angle dimension off the Absolute DISTANCE anchor — handed every grain consumer a model-scaled
-    // length wearing radians; band, dimension, and derive now agree on the angle root like every row in this group.
     public static readonly ToleranceLane Grain = new(key: "grain", band: Band.Angle, dimension: UnitsNet.Angle.BaseDimensions, derive: static context => context.Angle.Value);
     public static readonly ToleranceLane Real = new(key: "real", band: Band.Angle, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Angle.Value);
 
@@ -96,19 +82,11 @@ public sealed partial class ToleranceLane {
     public static readonly ToleranceLane Fraction = new(key: "fraction", band: Band.Ratio, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Relative.Value);
     public static readonly ToleranceLane Drift = new(key: "drift", band: Band.Ratio, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Relative.Value);
     public static readonly ToleranceLane Hue = new(key: "hue", band: Band.Ratio, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Relative.Value);
-    // Scale uniformity of a similarity frame is a SECOND-ORDER residual, so the relative gate squares.
     public static readonly ToleranceLane ScaleUniformity = new(key: "scale-uniformity", band: Band.Ratio, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Relative.Value * context.Relative.Value);
     public static readonly ToleranceLane Coordinate = new(key: "coordinate", band: Band.Ratio, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Relative.Value);
-    // Magnitude-relative differencing step FRACTION (E-B11): a numeric probe — a central-difference Jacobian, a
-    // distortion stencil — multiplies its OWN magnitude floor by this value and hands the product to the stencil
-    // as its step. The anchor is the cube root of machine epsilon, the truncation/roundoff balance point for a
-    // first-derivative central difference; the fraction is numeric rather than model-scaled, so the anchor reads
-    // directly like the residual group and a project tunes it through `Context.Override` on this lane alone.
     public static readonly ToleranceLane Probe = new(key: "probe", band: Band.Ratio, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => EpsilonPolicy.CbrtEpsilon);
 
     // --- [RESIDUAL]
-    // Solver residuals floor on the NUMERIC anchor, never the model percent: an iterate asked to converge below
-    // `SqrtEpsilon` never terminates, and a project tuning its solver passes `Context.Override` on the lane.
     public static readonly ToleranceLane Convergence = new(key: "convergence", band: Band.Residual, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => EpsilonPolicy.SqrtEpsilon);
     public static readonly ToleranceLane Kkt = new(key: "kkt", band: Band.Residual, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => EpsilonPolicy.SqrtEpsilon);
     public static readonly ToleranceLane Step = new(key: "step", band: Band.Residual, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => EpsilonPolicy.SqrtEpsilon);
@@ -116,20 +94,11 @@ public sealed partial class ToleranceLane {
     public static readonly ToleranceLane Svd = new(key: "svd", band: Band.Residual, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => EpsilonPolicy.SqrtEpsilon);
     public static readonly ToleranceLane Krylov = new(key: "krylov", band: Band.Residual, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => EpsilonPolicy.SqrtEpsilon);
     public static readonly ToleranceLane Conservation = new(key: "conservation", band: Band.Residual, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static context => context.Relative.Value * context.Relative.Value);
-    // Frame/transform identity election (E-B11): is a derived rotation degenerately zero, a scale degenerately
-    // unity, an offset degenerately absent. The anchor is the DEGENERACY floor `ZeroTolerance` (2^-32), not the
-    // solver anchor: an identity residual is ulp noise off exact reads (a unit-factor product, an `Atan2` of
-    // declared direction cosines, ~1e-15), while the smallest genuine frame delta a survey grid declares sits
-    // orders above — and `Band.Residual`'s open `SeamUlp` floor refuses the bare 1e-12 a page literal would seed,
-    // so the anchor-lawful admissible derivation is the one that also carries VALID default evidence.
     public static readonly ToleranceLane Identity = new(key: "identity", band: Band.Residual, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => EpsilonPolicy.ZeroTolerance);
     public static readonly ToleranceLane Duplicate = new(key: "duplicate", band: Band.Residual, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Relative.Value);
     public static readonly ToleranceLane Joint = new(key: "joint", band: Band.Residual, dimension: UnitsNet.Length.BaseDimensions, derive: static context => context.Relative.Value);
 
     // --- [DEVICE]
-    // No model anchor reaches device space, so the host boundary seeds the real pitch through `Context.Override`.
-    // 0.0 sits below the closed `DeviceQuantum` floor, so an un-overridden device lane carries REFUSING evidence by
-    // construction — the band's own floor value would admit and hand back a pixel radius nobody chose.
     public static readonly ToleranceLane Guide = new(key: "guide", band: Band.Device, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => 0.0);
     public static readonly ToleranceLane Pixel = new(key: "pixel", band: Band.Device, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => 0.0);
     public static readonly ToleranceLane Hit = new(key: "hit", band: Band.Device, dimension: UnitsNet.BaseDimensions.Dimensionless, derive: static _ => 0.0);
@@ -141,13 +110,10 @@ public sealed partial class ToleranceLane {
     [UseDelegateFromConstructor] public partial double Derive(Context context);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct Tolerance(ToleranceLane Lane, double Value) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(Lane.Band.Admits(value: Value));
 
-    // Each lane's band IS the guard, so admission keeps one body for the whole vocabulary where the deleted triad
-    // spelled three. The refusal is `OutOfRange` — the one scalar-range fault — carrying the lane key as the label
-    // so a rejection names WHICH gate refused, which a per-type validation error could not.
     public static Fin<Tolerance> Of(ToleranceLane lane, double value, Op key) =>
         lane.Band.Admits(value: value)
             ? Fin.Succ(value: new Tolerance(Lane: lane, Value: value))
@@ -175,13 +141,13 @@ public readonly record struct Tolerance(ToleranceLane Lane, double Value) : IVal
 - Boundary: `Context` threads explicitly — a parameter on synchronous rails, inside `Env` on `Eff` pipelines (`rails.md` Op law), never a global default; `Analyze.From`/`Analyze.In` (`Analysis/query.md`) forward over the `Of` family, `Env` carrying the constructed `Context`. `Absolute`/`Relative`/`Angle` survive as stored accessors returning `Tolerance`, so every `.Value` read across the kernel and the host plane compiles unchanged while the three deleted value-object TYPES disappear from every signature.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Numerics;
 using Rhino;
 
 namespace Rasm.Domain;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ModelUnit {
     private ModelUnit(UnitSystem system, double metersPerUnit, Option<string> name) {
         System = system;
@@ -192,7 +158,6 @@ public sealed record ModelUnit {
     public UnitSystem System { get; }
     public double MetersPerUnit { get; }
     public Option<string> Name { get; }
-    // Model units federate the branch here: a model unit IS a length regime, and an override's lane dimension compares against this signature before any conversion runs.
     public UnitsNet.BaseDimensions Dimension => UnitsNet.Length.BaseDimensions;
 
     public static Fin<ModelUnit> Of(UnitSystem value, Op key) => value switch {
@@ -232,24 +197,15 @@ public sealed record ModelUnit {
         select admitted;
 
     // --- [UNIT_BRIDGE]
-    // `In` is the ONE foreign-unit ingress: UnitsNet answers how many METRES the value is and the admitted scale answers
-    // how many model units a metre is, so no Rhino-to-UnitsNet unit correspondence exists to drift out of step.
     internal Fin<double> In(double value, Enum unit, Op key) =>
         Convert(value: value, from: unit, to: UnitsNet.Units.LengthUnit.Meter, key: key)
             .Map(metres => metres / MetersPerUnit);
 
-    // `Convert` refuses an unregistered or non-finite pair TYPED instead of throwing; a consumer hand-multiplying a factor beside a quantity enum is the deleted form.
     [BoundaryAdapter]
     public static Fin<double> Convert(double value, Enum from, Enum to, Op? key = null) =>
         UnitsNet.UnitConverter.TryConvert(value, from, to, out double converted) && double.IsFinite(d: converted)
             ? Fin.Succ(value: converted)
             : Fin.Fail<double>(error: key.OrDefault().InvalidInput());
-    // `Converter<TQuantity>` holds the hot path: ONE registry probe resolves the (from, to) delegate and a per-sample projection calls it,
-    // so the dictionary lookup leaves the loop. The probe is the NON-THROWING twin — `GetConversionFunction` raises
-    // on an unregistered pair, and a raise funnelled back onto the rail is exception-style control flow where the
-    // registry already answers the same question as a verdict. The registry stores every conversion as the TYPELESS
-    // `ConversionFunction` (`IQuantity -> IQuantity`), so the projection re-narrows each result and the per-call
-    // cost is one boxed crossing — the delegate identity, not this row, owns that shape.
     [BoundaryAdapter]
     public static Fin<Func<TQuantity, TQuantity>> Converter<TQuantity>(Enum from, Enum to, Op? key = null) where TQuantity : UnitsNet.IQuantity =>
         UnitsNet.UnitConverter.Default.TryGetConversionFunction<TQuantity>(from, to, out UnitsNet.ConversionFunction? conversion)
@@ -279,14 +235,6 @@ public sealed record Context {
     public static Validation<Error, Context> Of(LengthUnit units) =>
         Default(unit: ModelUnit.Of(value: units, key: Key));
 
-    // THE total arm (E-M22): every input is kernel-owned and band-proved — the millimetre `ModelUnit`, the host
-    // default distance and angle, and `DefaultRelative` — so no CALLER value can refuse it and the admission has
-    // nothing left to report. Accessor-backed `Lazy` so the proof runs at first read against a filled roster and
-    // a refusal throws at type init, which is the branch's own enforcement idiom (`FaultBand.Code`, `Disjoint`,
-    // `generated identity admission`) rather than rail control flow. This is the ONE exemption from the `Validation`
-    // construction law and it exists so a consumer holding no scalars stops writing an argued unreachable throw:
-    // a caller supplying ANY value of its own takes `Of` and rails. The deleted `Context.Millimeters()` was a
-    // different shape — an arbitrary-argument factory wearing a unit name — and does not return.
     public static Context Canonical => Whole.Value;
     private static readonly Lazy<Context> Whole = new(
         static () => Of(units: UnitSystem.Millimeters).As().ThrowIfFail(),
@@ -308,15 +256,9 @@ public sealed record Context {
     public UnitSystem Units => Unit.System;
     public HashMap<ToleranceLane, Tolerance> Overrides { get; init; } = HashMap<ToleranceLane, Tolerance>.Empty;
 
-    // THE tolerance read. Overrides first, the lane's own derivation second — so a project that publishes a gate
-    // moves every consumer of that lane at once, and a consumer that names no lane cannot reach a tolerance at all.
-    // Default mints carry their band VERDICT on `IsValid` — `Of` is the refusing ingress, `For` the evidence-carrying
-    // read — so a derivation its own band refuses hands back refusing evidence rather than silent admission.
     public Tolerance For(ToleranceLane lane) =>
         Overrides.Find(key: lane).IfNone(() => new Tolerance(Lane: lane, Value: lane.Derive(context: this)));
 
-    // `Override` is the ingress: a dimensionless lane takes its value raw; a dimensioned lane converts into model units
-    // through the ONE units seam, gated on the lane's own signature against the model unit's.
     [BoundaryAdapter]
     public Fin<Context> Override(ToleranceLane lane, double value, Enum unit, Op? key = null) {
         Op op = key.OrDefault();
@@ -345,15 +287,8 @@ public sealed record Context {
             .Apply(static (a, r, n, u) => new Context(absolute: a, relative: r, angle: n, unit: u))
             .As();
 
-    // Rhino's factory `ModelRelativeTolerance` value. RhinoCommon publishes no member for it, and the sense is the
-    // MODEL PERCENT the branch ruling binds — `EpsilonPolicy.SqrtEpsilon` is the numeric anchor the residual lanes
-    // derive directly, and seating it here drove every `Absolute * Relative` lane below its own band's floor.
     private const double DefaultRelative = 0.01;
 
-    // `Default` rides the HOST distance default through the admitted unit scale, while the relative gate and the
-    // angle read their named owners directly — a bare per-module literal standing for either is unreplayable across
-    // operators. The unit-scale chain sequences on `Fin` because each step depends on the last; the crossing to
-    // `Validation` happens once, at the independent fan-in `Build` owns.
     private static Validation<Error, Context> Default(Fin<ModelUnit> unit) =>
         (from target in unit
          from millimeters in ModelUnit.Of(value: UnitSystem.Millimeters, key: Key)

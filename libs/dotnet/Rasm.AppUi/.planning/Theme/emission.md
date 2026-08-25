@@ -21,7 +21,7 @@ Rasm.AppUi turns the resolved token generation into the live application surface
 - Boundary: `Rematerialize` rows are DISPATCHED, never merely listed — the swap capsule takes one bound rebuild action PER ROW and its mount proof refuses a roster row nothing rebuilds, so a row that rebuilds nothing cannot sit indistinguishable beside one that does.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -33,11 +33,8 @@ public sealed partial class ThemeTrigger {
     public static readonly ThemeTrigger Policy = new("policy-reload");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// Trigger, variant, and density cross as ROWS: a receipt column flattened to a string is the one column a
-// consumer has to re-resolve against the vocabulary that minted it. No wall stamp — the envelope HLC is the
-// one evidence clock.
 public sealed record ThemeSwitchReceipt(
     ThemeVariantRow Variant,
     DensityRow Density,
@@ -53,7 +50,6 @@ public sealed record ThemePolicy(string Variant, string Density, Option<string> 
     public static readonly ThemePolicy Default = new(Variant: ThemeVariantRow.HostMatched.Key, Density: DensityRow.Default.Key, Accent: None);
 }
 
-// The objects a dictionary edit cannot reach, each named beside the reason the swap rebuilds it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -81,12 +77,9 @@ public sealed partial class Rematerialize {
 - Boundary: a posture partition re-emits the SURFACE family alone — every other key inherits from the parent variant, so a posture scope is one small override rather than a copied palette that drifts on the next re-seed.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ThemeEmission {
-    // ONE dictionary, partitioned by variant under ThemeDictionaries plus one partition per posture variant, so
-    // a variant flip re-resolves through Avalonia's own variant lookup with no dictionary swap and a scoped
-    // subtree re-maps its surface family by requesting its posture variant.
     public static Fin<ResourceDictionary> Emit(AppearanceSeed seed, DensityRow density, FontChain chain, PreferenceCell preferences) =>
         ThemeVariantRow.Emitted
             .Traverse(row => ThemeCatalog.Resolve(row, density, seed, chain, preferences).Map(resolved => (Row: row, Resolved: resolved)))
@@ -111,8 +104,6 @@ public static class ThemeEmission {
                 .Bind(resolved => Surfaces(resolved).Map(surfaces => (PostureVariant.Of(row, slot), (IThemeVariantProvider)surfaces))))
             .As();
 
-    // The posture becomes the CANVAS for its own partition, so a panel's own surface family reads the panel
-    // posture at rung zero and the well and raised rungs move with it.
     static AppearanceSeed Reposed(AppearanceSeed seed, PostureSlot slot) =>
         seed.Postures.Find(entry => entry.Slot == slot).Match(
             Some: entry => seed with { Postures = seed.Postures.Map(row => row with { Posture = row.Posture with { ToneShift = SignedUnit.Create(Math.Clamp(row.Posture.ToneShift.Value - entry.Posture.ToneShift.Value, -1d, 1d)) } }) },
@@ -137,8 +128,6 @@ public static class ThemeEmission {
 
     static readonly Seq<PaintRole> SurfaceRoles = Seq(PaintRole.Surface, PaintRole.Panel, PaintRole.Raised, PaintRole.Well, PaintRole.Overlay);
 
-    // The ONE guarded merge: every partition and every posture override folds here, so the duplicate-key
-    // collision neither authored roster can see is a typed refusal on every path.
     static Fin<ResourceDictionary> Merged(Seq<(object Key, object Value)> entries) =>
         entries.Fold(Fin.Succ(new ResourceDictionary()), static (state, entry) => state.Bind(dictionary =>
             dictionary.TryGetValue(entry.Key, out object? _)
@@ -178,8 +167,6 @@ public sealed class ThemeCell(
 
     public Atom<AppearanceSeed> Seed { get; } = seed;
 
-    // The composition-bound chain: one election at boot feeds every resolve, so the type ladder never probes
-    // the ambient host and a proof lane pins the chain exactly as it pins the variant and the density.
     public FontChain Chain { get; } = chain;
 
     public Func<ConsumptionProfile, SurfaceMount, Option<ThemeVariantRow>> SurfaceOverride { get; } = surfaceOverride;
@@ -188,8 +175,6 @@ public sealed class ThemeCell(
 
     public Func<ThemeSwitchReceipt, IO<Unit>> Sink { get; } = sink;
 
-    // Roster coverage is a MOUNT fact: a Rematerialize row with no bound rebuild is a carve-out the swap cannot
-    // honour, and it refuses while the composition is still editable.
     public static Fin<Unit> Covered(HashMap<Rematerialize, IO<Unit>> bound) =>
         toSeq(Rematerialize.Items).Filter(row => bound.Find(row).IsNone) switch {
             { IsEmpty: true } => Fin.Succ(unit),
@@ -200,7 +185,6 @@ public sealed class ThemeCell(
     IO<Unit> Rebuilt() =>
         toSeq(Rematerialize.Items).Fold(IO.pure(unit), (io, row) => io.Bind(_ => rebuild.Find(row).IfNone(IO.pure(unit))));
 
-    // Resolve on the CANDIDATE, commit both atoms only after the retained application succeeded.
     public IO<Fin<ThemeSwitchReceipt>> Swap(ThemeRequest request, PreferenceCell preferences, CorrelationId correlation) =>
         IO.lift(() => {
             AppearanceSeed candidate = request.Accent.Match(
@@ -223,10 +207,6 @@ public sealed class ThemeCell(
             Succ: receipt => Sink(receipt).Map(_ => Fin.Succ(receipt)),
             Fail: error => IO.pure(Fin.Fail<ThemeSwitchReceipt>(error))));
 
-    // The settings registration. `Apply` routes back through `Republish` — the SAME swap capsule a chord-driven
-    // change takes — so a settings edit and a hotkey land one resolve. The picker extent DERIVES from the
-    // resolved extent scale, so the one geometry the field needs reads the generation instead of threading a
-    // raw double through two frames.
     public Validation<Error, SettingsRow> Settings(
         Func<HashMap<string, SettingScope>> scopes,
         PreferenceCell preferences,
@@ -264,9 +244,6 @@ public sealed class ThemeCell(
                 VirtualWindowSpec.FixedRow(pickerExtent), IntentBinding.Of(PaintRole.Text)),
             FieldEntry.Choice, static _ => Validation<Error, Unit>.Success(unit));
 
-    // The committed resolve projected back onto its persisted shape: the surface reads the LIVE accent, so the
-    // Some is correct by construction here — absence in the persisted policy means "never overridden", a fact
-    // the round-trip re-admits identically when the live accent equals the default.
     ThemePolicy Held() => new(Current.Value.Variant.Key, Current.Value.Density.Key, Some($"#{Seed.Value.Accent.ToUInt32():X8}"));
 
     static FormState State(ThemePolicy policy) =>
@@ -295,15 +272,10 @@ public sealed class ThemeCell(
 
     public ResolvedTheme Preview(Func<Color, Color> simulate) => ThemeCatalog.Simulated(Current.Value, simulate);
 
-    // Any preference row can change the resolve, so the terminal edge takes the row and re-runs one swap rather
-    // than five subscriptions each owning a slice of the same resolve.
     public IDisposable Track(PreferenceCell preferences, CorrelationId correlation, Action<Fin<ThemeSwitchReceipt>> observe) =>
         preferences.Track(_ => observe(Ran(
             new ThemeRequest(ThemeVariantRow.HostMatched, Current.Value.Density, None, ThemeTrigger.Probe), preferences, correlation)));
 
-    // `IO.Run()` executes and THROWS — it is not the rail. `Ran` is the one synchronous crossing both
-    // callback-shaped consumers take: the preference edge and the options-monitor bridge each need a settled
-    // `Fin` inside a void-returning callback.
     Fin<ThemeSwitchReceipt> Ran(ThemeRequest request, PreferenceCell preferences, CorrelationId correlation) =>
         Op.Of(name: "appui.theme.swap").Catch(() => Swap(request, preferences, correlation).Run());
 
@@ -324,8 +296,6 @@ public sealed class ThemeCell(
     static Option<DensityRow> Density(string key) =>
         DensityRow.TryGet(key, out DensityRow? row) ? Optional(row) : None;
 
-    // Narrow first, order last, and re-enter the carrier: `OrderBy` answers `IOrderedEnumerable`, which carries
-    // no rail combinator at all.
     static Seq<TokenKey> Changed<T>(FrozenDictionary<TokenKey, T> previous, FrozenDictionary<TokenKey, T> next) =>
         toSeq(toSeq(previous.Keys.Concat(next.Keys).Distinct())
             .Filter(key => !previous.TryGetValue(key, out T? before) || !next.TryGetValue(key, out T? after) || !EqualityComparer<T>.Default.Equals(before, after))
@@ -353,8 +323,6 @@ public sealed class ThemeCell(
 
 ```csharp signature
 public static class ThemeRail {
-    // Candidates DERIVE from the generated ladder: every text-emphasis rung against every surface posture at
-    // the floor that rung was solved for, plus the accent pair the split accent role exists to guarantee.
     public static Seq<(TokenKey Foreground, TokenKey Background, ContrastFloor Class)> ContrastCandidates =>
         Seq(PaintRole.Text, PaintRole.TextMuted, PaintRole.TextFaint)
             .Bind(ink => Seq(PaintRole.Surface, PaintRole.Panel, PaintRole.Raised, PaintRole.Well, PaintRole.Overlay)
@@ -367,8 +335,6 @@ public static class ThemeRail {
             + Seq(PaintRole.ErrorText, PaintRole.Warning, PaintRole.Success, PaintRole.Info)
                 .Map(static ink => (ink.At(0), PaintRole.Surface.At(0), ContrastFloor.AaText));
 
-    // Every status ink pairs against every other status ink and against accent, because status separation is
-    // exactly the load-bearing distinction a deficiency erases; the gate simulates the row's full deficiency.
     public static Seq<(TokenKey A, TokenKey B, Cvd Lens)> CvdCandidates =>
         Seq(Cvd.Protanopia, Cvd.Deuteranopia, Cvd.Tritanopia).Bind(lens =>
             Pairs(Seq(PaintRole.Error, PaintRole.Warning, PaintRole.Success, PaintRole.Info, PaintRole.Accent))
@@ -385,8 +351,6 @@ public static class ThemeRail {
         Palettes = { [ThemeVariant.Light] = light.Palette, [ThemeVariant.Dark] = dark.Palette },
     };
 
-    // The skin chain as a RANKED roster: order is the row's rank column, and a skin whose package resolves
-    // zh-CN for an unset culture declares its locale posture as the mint delegate's argument.
     static readonly Seq<Func<CultureInfo, IStyle>> SkinChain = Seq<Func<CultureInfo, IStyle>>(
         static locale => new SemiTheme { Locale = locale },
         static _ => new Semi.Avalonia.DataGrid.DataGridSemiTheme(),
@@ -398,8 +362,6 @@ public static class ThemeRail {
     public static Seq<IStyle> Admit(FluentTheme floor, CultureInfo locale) =>
         ((IStyle)floor).Cons(SkinChain.Map(mint => mint(locale)));
 
-    // The mint proof runs BEFORE the first retained write, so a refused generation leaves no partial chain and
-    // the boot failure is a typed fact rather than a static-initializer throw.
     public static IO<Fin<Unit>> Mount(Application application, Seq<IStyle> chain, FluentTheme floor, ResourceDictionary emitted, ResolvedTheme resolved) =>
         IO.lift(() => SemiCorrespondence.SemiMints(resolved).Map(_ => {
             chain.Iter(application.Styles.Add);
@@ -409,9 +371,6 @@ public static class ThemeRail {
             return unit;
         }));
 
-    // The typed apply column the swap binds: the emit is the FALLIBLE step, so it runs before any retained
-    // write and a refused emission applies nothing — the bound emit re-produces the dictionary only when the
-    // seed or density moved, because a variant flip resolves inside ThemeDictionaries with no write at all.
     public static Func<ResolvedTheme, IO<Fin<Unit>>> ApplyTo(Application application, FluentTheme floor, Func<ResolvedTheme, Fin<ResourceDictionary>> emit) =>
         resolved => IO.lift(() => emit(resolved).Map(dictionary => {
             floor.DensityStyle = resolved.Density.Style;
@@ -420,8 +379,6 @@ public static class ThemeRail {
             return unit;
         }));
 
-    // The one code-side dynamic read. A control that must consume a token in code binds this observable rather
-    // than writing a resolved value, so a code-driven surface re-tints on the same edit a XAML binding does.
     public static IDisposable Bind<T>(Control target, StyledProperty<T> property, TokenKey key) =>
         target.Bind(property, target.GetResourceObservable(key.Value).Select(static value => value is T typed ? typed : default!));
 }
@@ -438,7 +395,7 @@ public static class ThemeRail {
 - Boundary: the banner's PLACEMENT is a pair of style classes the control fold stamps and never a pseudo-class, because the framework sets pseudo-classes and a placement the product chose cannot be one — the banner row's state roster therefore carries the four shipped severities alone; `BorderlessButton` carries `:disabled` alone, `SolidButton` drops the size arms, `OutlineButton` carries the five intent arms alone, and `HyperlinkButton` owns its own trailing link glyph — each fact is the `Shipped` basis payload of its row; the pseudo-class roster is DECLARED on the spec and mirrored by the metadata attribute the theme tooling reads, so a state a template styles against but the control never sets is a spec omission rather than a selector that silently never matches.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SkinBasis {
@@ -455,10 +412,8 @@ public sealed record ArmBinding(string Slot, TokenKey Key);
 
 public sealed record AuthoredArm(string Name, Seq<ArmBinding> Bindings);
 
-// --- [TABLES] ---------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
-// Every product control theme as ONE row: basis, pseudo-class roster, minted token keys, authored arms. The
-// EditState rows carry the form-field ink axis; the button-group row generates its grid from the role ladder.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -491,7 +446,6 @@ public sealed partial class SkinRow {
         Seq(":focus", ":error", ":mixed", ":disabled"), Seq(PaintRole.Well.At(0), PaintRole.Text.At(0), PaintRole.Error.At(0), PaintRole.Focus.At(0), MetricFamily.Stroke.At(1)), []);
     public static readonly SkinRow FormRow = new("form-row", new SkinBasis.Shipped("FormItem"),
         Seq(":horizontal", ":no-label"), Seq(PaintRole.TextMuted.At(0), MetricFamily.Space.At(3)), []);
-    // The two form-field rows carry the EditState ink axis: declared/overridden/pending and mixed/invalid marks.
     public static readonly SkinRow FieldMarks = new("field-marks", new SkinBasis.Capsule(),
         Seq(":declared", ":overridden", ":pending"), Seq(PaintRole.Text.At(0), PaintRole.Warning.At(0), PaintRole.Accent.At(0), PaintRole.Error.At(0)), []);
     public static readonly SkinRow FieldRefused = new("field-refused", new SkinBasis.Capsule(),
@@ -521,12 +475,8 @@ public sealed partial class SkinRow {
         Seq(":open"), Seq(PaintRole.Overlay.At(2), PaintRole.Text.At(0), TokenKey.Named("z", "tooltip"), MetricFamily.Radius.At(1)), []);
     public static readonly SkinRow DockChrome = new("dock-chrome", new SkinBasis.Overridden("DockSemiTheme"),
         Seq(":active", ":floating", ":pinned"), Seq(PaintRole.Workbench.At(0), PaintRole.Separator.At(0), PaintRole.Panel.At(1)), []);
-    // Generated: the ButtonGroup brush grid composes as variant × intent × state × slot off the role ladder, so
-    // its correspondence is GENERATED rather than authored as a hundred rows.
     public static readonly SkinRow ButtonGroupItem = new("button-group-item", new SkinBasis.Generated("variant-intent-state-slot"),
         Seq(":pointerover", ":pressed", ":disabled"), [], []);
-    // Replaced: the inspector category surface pins its own local values, and a style setter never wins against
-    // a local value — the derivation route would resolve cleanly and paint nothing.
     public static readonly SkinRow InspectorCategory = new("inspector-category", new SkinBasis.Replaced("Expander"),
         Seq(":expanded", ":nested", ":filtered"), Seq(PaintRole.Panel.At(0), PaintRole.Separator.At(0), PaintRole.TextMuted.At(0), MetricFamily.Space.At(2)), []);
     public static readonly SkinRow PaletteOverlay = new("palette-overlay", new SkinBasis.Capsule(),
@@ -557,9 +507,8 @@ public sealed partial class SkinRow {
     public Seq<AuthoredArm> Arms { get; }
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-// Part custody as a row, not a bool: a Required part refuses at template-apply, an Optional part reads absent.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PartCustody {
@@ -577,15 +526,11 @@ public sealed record AuthoredSpec(
     TokenKey Surface,
     TokenKey Radius);
 
-// The authoring capsule. Template parts, the pseudo-class protocol, the token-key emission, the automation
-// identity, and the theme-row registration are ONE declared shape.
 public abstract class AuthoredControl<TSelf> : TemplatedControl where TSelf : AuthoredControl<TSelf> {
     protected abstract AuthoredSpec Spec { get; }
 
     protected Atom<HashMap<string, Control>> Parts { get; } = Atom(HashMap<string, Control>());
 
-    // A missing REQUIRED part is a refusal, not a null field: the control raises its own theme fault at apply
-    // rather than throwing at the first read from a template three files away.
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e) {
         base.OnApplyTemplate(e);
         Parts.Swap(_ => Spec.Parts
@@ -599,16 +544,12 @@ public abstract class AuthoredControl<TSelf> : TemplatedControl where TSelf : Au
     protected Option<T> Part<T>(string name) where T : Control =>
         Parts.Value.Find(name).Bind(control => control is T typed ? Some(typed) : None);
 
-    // `PseudoClasses.Set` is the Avalonia state API; the roster the spec declares is what a template may
-    // legally style against.
     protected void State(string name, bool on) => PseudoClasses.Set($":{name}", on);
 
     protected override AutomationPeer OnCreateAutomationPeer() => new AuthoredPeer(this, Spec);
 
     protected abstract void Missing(ThemeFault fault);
 
-    // Automation identity derives from the SPEC key, so an authored control announces one name to the audit
-    // and to the screen reader.
     sealed class AuthoredPeer(Control owner, AuthoredSpec spec) : ControlAutomationPeer(owner) {
         protected override AutomationControlType GetAutomationControlTypeCore() => spec.Automation;
 

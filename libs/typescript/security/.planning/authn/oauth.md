@@ -38,10 +38,6 @@ import { CredentialRef, type SessionFault, Token, type TokenPair } from "./sessi
 
 const _kinds = ["google", "github", "microsoft", "apple", "generic"] as const
 
-// GitHub is plain OAuth 2.0 with no well-known document, so its endpoints are the vendor contract stated as data.
-// It publishes no `jwks_uri` (it mints no id_token), no `revocation_endpoint` (its grant teardown is a REST call
-// under Basic auth, not RFC 7009), no refresh grant for OAuth Apps, and no PKCE advertisement — so every capability
-// this row LACKS falls out of the same metadata read the discovered rows take, with no per-row flag to keep honest.
 const _GITHUB: ServerMetadata = {
   issuer: "https://github.com",
   authorization_endpoint: "https://github.com/login/oauth/authorize",
@@ -49,9 +45,6 @@ const _GITHUB: ServerMetadata = {
   grant_types_supported: ["authorization_code"],
 }
 
-// Two ways one `Configuration` comes to exist, and the roster states which each issuer takes. Discovery is the
-// admitted default because it reads what the issuer publishes; the literal is the vendor contract for an issuer
-// that publishes nothing, and it feeds the identical `serverMetadata()` read so the downstream fold never branches.
 type Issuer = Data.TaggedEnum<{
   Discovered: { readonly url: URL }
   Pinned: { readonly metadata: ServerMetadata }
@@ -59,10 +52,6 @@ type Issuer = Data.TaggedEnum<{
 
 const Issuer = Data.taggedEnum<Issuer>()
 
-// How the authorization request TRAVELS, decided once at bind off the issuer's own advertisement: `Plain` rides
-// query params, `Pushed` runs RFC 9126 PAR ahead of the redirect — tamper-proof, and mandatory where the issuer
-// requires it — and `Signed` seals the request in an RFC 9101 JAR object under a deployment-supplied key. A row
-// never spells its carriage; the bind reads it, so the leg cannot guess on a capability the issuer decides.
 type Carriage = Data.TaggedEnum<{
   Plain: {}
   Pushed: {}
@@ -71,9 +60,6 @@ type Carriage = Data.TaggedEnum<{
 
 const Carriage = Data.taggedEnum<Carriage>()
 
-// `Ceremony` names the legs over one `Configuration`, and every package member takes that handle first, so one
-// closure serves the whole roster — its per-provider form existed only to normalize five incompatible constructor
-// arities, and with those gone the shape it hid is uniform by construction rather than by five written adapters.
 type Ceremony = {
   readonly url: (parameters: Record<string, string>) => URL
   readonly push: (parameters: Record<string, string>) => Promise<URL>
@@ -84,10 +70,6 @@ type Ceremony = {
   readonly logout: (parameters: Record<string, string>) => URL
 }
 
-// `TokenEndpointResponse` names its fields but carries an untyped index band beside them, so `Grant` decodes the
-// body once at the leg seam: canonical names inside, provider wire outside. A malformed response refuses as one
-// typed fault instead of surfacing from whichever field a reader reached first — and it refuses OUTSIDE the retry,
-// where a deterministic parse failure cannot spend a transport budget.
 const Grant = Schema.Struct({
   accessToken: Schema.propertySignature(Schema.NonEmptyString).pipe(Schema.fromKey("access_token")),
   tokenType: Schema.propertySignature(Schema.Literal("bearer", "dpop")).pipe(Schema.fromKey("token_type")),
@@ -99,9 +81,6 @@ const Grant = Schema.Struct({
 type Grant = typeof Grant.Type
 
 type Oidc = { readonly issuer: string; readonly jwksUri: string; readonly algorithms: ReadonlyArray<KeyAlg.Kind> }
-// What a row's `Config` DECLARES: who this deployment is at the issuer, where the issuer is, how the token request
-// authenticates, and — where the deployment opts into signed request objects — the admitted JAR key beside its
-// scheme. Nothing readable lives here — reading is `_bind`'s job.
 type Admission = {
   readonly clientId: string
   readonly redirect: string
@@ -109,9 +88,6 @@ type Admission = {
   readonly auth: ClientAuth
   readonly jar: Option.Option<{ readonly alg: KeyAlg.Kind; readonly key: Redacted.Redacted<CryptoKey> }>
 }
-// Everything a bind RESOLVES rides here, so a discovered row and a pinned one answer one shape: PKCE support, the
-// request carriage, the OIDC descriptor, and the three lifecycle capabilities are facts about the issuer, read and
-// never asserted.
 type Bound = {
   readonly clientId: string
   readonly redirect: string
@@ -123,19 +99,12 @@ type Bound = {
   readonly hasRevoke: boolean
   readonly hasEndSession: boolean
 }
-// `admission` is a Config OF an effect: the credential bag resolves at the service boot line for every enabled kind,
-// while the effect inside runs at first ceremony — so only a genuinely runtime leg (discovery, key admission) stays
-// runtime. `parameters` is the vendor's own mandated authorization query, which is row data, never a ceremony arm.
 type ProviderRow = {
   readonly scopes: ReadonlyArray<string>
   readonly parameters: Record<string, string>
   readonly admission: Config.Config<Effect.Effect<Admission, OAuthFault, Crypto>>
 }
 
-// Seven legs partition the ceremony and each reason renders its OWN subject. The two rows whose refusals form a
-// CLOSED set say so: the callback gate asks four questions of the echoed state, and the lifecycle members each
-// name the one endpoint or grant the provider row never published. A free `detail` string spelled both as prose,
-// so "unknown state" and "ceremony expired" — a forged callback and a slow user — read alike to every consumer.
 const _states = ["absent", "unknown", "provider", "expired"] as const
 const _lifecycles = ["refresh-grant", "revocation-endpoint", "end-session-endpoint"] as const
 
@@ -223,17 +192,11 @@ const _published = (value: string | undefined, name: string): Effect.Effect<stri
     onSome: Effect.succeed,
   })
 
-// Multi-tenant endpoints publish a TEMPLATED issuer no token ever carries, so pinning that string as the verify
-// issuer refuses every id_token. Naming one directory is what a single-tenant deployment states; a genuinely
-// multi-tenant one owns per-tenant verification. Either way the template dies at bind, not at first sign-in.
 const _literal = (issuer: string): Effect.Effect<string, OAuthFault> =>
   issuer.includes("{")
     ? Effect.fail(new OAuthFault({ case: { reason: "provider", cause: `templated issuer ${issuer}` } }))
     : Effect.succeed(issuer)
 
-// Intersecting the issuer's advertisement with what this folder can verify yields the signing roster, so an
-// issuer offering only algorithms the `KeyAlg` table lacks refuses at bind rather than at its first id_token;
-// one publishing no `jwks_uri` is no OIDC row at all and resolves its subject through the caller's projection.
 const _oidcOf = (
   metadata: Readonly<ServerMetadata>,
   issuer: string,
@@ -262,10 +225,6 @@ const _ceremony = (config: Configuration): Ceremony => ({
   logout: (parameters) => buildEndSessionUrl(config, parameters),
 })
 
-// Carriage resolves as a bind fact like every other capability: a supplied JAR key elects `Signed` — refused where the
-// issuer advertises a request-object roster this key's scheme misses, admitted where the issuer is silent, since
-// an unpublished roster is unstated capability — and an issuer publishing a PAR endpoint elects `Pushed`, while one
-// REQUIRING PAR yet publishing no endpoint demands what it never named and dies at bind, not at the first redirect.
 const _carriage = (
   metadata: Readonly<ServerMetadata>,
   jar: Admission["jar"],
@@ -287,9 +246,6 @@ const _carriage = (
           : Effect.succeed(Carriage.Plain()),
   })
 
-// ONE fold from a declared `Admission` to a resolved `Bound`, and every row takes it. The deadline seats on the
-// `Configuration` itself, so the package's own `AbortSignal` cancels the socket where an outer fiber timeout would
-// leave it open, and one number bounds every leg the handle will ever run.
 const _bind = (admission: Admission, deadline: Duration.Duration): Effect.Effect<Bound, OAuthFault> =>
   Effect.gen(function* () {
     const config = yield* Effect.tryPromise({
@@ -313,8 +269,6 @@ const _bind = (admission: Admission, deadline: Duration.Duration): Effect.Effect
       redirect: admission.redirect,
       ceremony: _ceremony(config),
       oidc,
-      // `supportsPKCE` reads `code_challenge_methods_supported`, so the S256 decision is the issuer's own
-      // advertisement rather than a per-row boolean that silently outlives the day the issuer adopts it.
       pkce: metadata.supportsPKCE(),
       carriage,
       hasRefresh: Option.match(Option.fromNullable(metadata.grant_types_supported), {
@@ -326,10 +280,6 @@ const _bind = (admission: Admission, deadline: Duration.Duration): Effect.Effect
     }
   })
 
-// One host-side key admission serves Apple's client assertion and any row's JAR request-object key: the supplied
-// PKCS8 enters `Material.Source.Held` — the folder's one host trust boundary — and the platform's own verdict on
-// what the material IS gates it, so a public block admitted under a private env name refuses at bind rather than
-// signing nothing at its first use.
 const _heldKey = (
   pkcs8: Redacted.Redacted<string>,
   alg: KeyAlg.Kind,
@@ -357,9 +307,6 @@ const _heldKey = (
 
 const _rows = {
   google: {
-    // Google mints a refresh grant ONLY under `access_type=offline`, and only on the consent that creates it — a
-    // silent re-authorization returns an access token alone, so the rotation leg needs both parameters or
-    // `hasRefresh` reads true off the advertised grant roster while no refresh token ever arrives.
     scopes: ["openid", "email", "profile"], parameters: { access_type: "offline", prompt: "consent" },
     admission: _admitted(
       Config.all({ ..._cfg("GOOGLE"), secret: Config.redacted("OAUTH_GOOGLE_SECRET") }),
@@ -382,8 +329,6 @@ const _rows = {
       })),
   },
   microsoft: {
-    // Tenant carries NO default: the `common` path publishes a templated issuer `_literal` refuses, so every
-    // deployment states the directory it trusts rather than inheriting a value that verifies no token at all.
     scopes: ["openid", "email", "profile", "offline_access"], parameters: {},
     admission: _admitted(
       Config.all({
@@ -399,9 +344,6 @@ const _rows = {
       })),
   },
   apple: {
-    // Apple demands `response_mode=form_post` the moment the request carries a scope, so this row states that mode
-    // and the serve ceremony's POST callback channel lands the form-posted response — `name` and `email` ride the
-    // first authorization alone, which is why a caller persists them then rather than re-reading a later grant.
     scopes: ["name", "email"], parameters: { response_mode: "form_post" },
     admission: Config.map(
       Config.all({
@@ -413,12 +355,6 @@ const _rows = {
       }),
       ({ clientId, horizon, keyId, pkcs8, redirect, teamId }) =>
         Effect.gen(function* () {
-          // Apple's client secret is a SIGNED ASSERTION, not a shared string, so its key enters through
-          // `_heldKey` — the folder's one host-side admission — and no importer reaches this page. What the
-          // assertion builder mints then differs from Apple's contract in exactly one claim: `iss` is the TEAM
-          // where every other issuer takes the client, and `kid` is Apple's own key id rather than the handle's
-          // thumbprint — one hook rewrite over one signer this package already owns, never a hand-built JWT this
-          // page then rotates itself.
           const key = yield* _heldKey(pkcs8, "ES256", horizon)
           return {
             clientId, redirect,
@@ -434,12 +370,6 @@ const _rows = {
     ),
   },
   generic: {
-    // Self-hosted issuers publish their own everything: Keycloak, Authentik, and Okta each serve the code, token,
-    // and revocation legs off unrelated paths, so concatenating `/authorize` onto the issuer root works for none of
-    // them. Client authentication is the one fact discovery cannot supply — it is an argument TO the discovery
-    // call — so the scheme is the row's single knob and `client_secret_basic` is one literal away. JAR is the
-    // deployment opt-in beside it: supplying the key elects the Signed carriage at bind, ES256 being the JWS
-    // baseline every JAR-capable issuer advertises — a divergent scheme is one config row when a deployment needs it.
     scopes: ["openid", "email", "profile"], parameters: {},
     admission: Config.map(
       Config.all({
@@ -503,13 +433,9 @@ const _decoded = (response: TokenEndpointResponse): Effect.Effect<Grant, OAuthFa
     Effect.mapError((issue) => new OAuthFault({ case: { reason: "shape", cause: issue.message } })),
   )
 
-// Space-delimited by RFC 6749, and the row's requested set answers only where the issuer stated nothing: a provider
-// narrowing the grant states the narrowed value, and reading the request back re-grants exactly what it refused.
 const _scopes = (grant: Grant, requested: ReadonlyArray<string>): ReadonlyArray<string> =>
   Option.match(grant.scope, { onNone: () => requested, onSome: (granted) => granted.split(" ") })
 
-// Stripping the presented URL is how the token request derives its `redirect_uri`, so the ROW's registered
-// redirect carries origin and path and only the provider's response params ride in from the edge.
 const _landed = (redirect: string, response: URL): URL => {
   const landed = new URL(redirect)
   landed.search = response.search
@@ -523,10 +449,6 @@ const _challenged = (error: WWWAuthenticateChallengeError): string =>
       Option.getOrElse(Option.fromNullable(challenge.parameters.error), () => String(error.status)),
   })
 
-// Only a SEVERED socket is retryable: `fetch` rejects a network fault as a bare `TypeError` carrying no `code`,
-// and `Configuration.timeout` aborts as a `DOMException`. Every other throw is a verdict already reached — one
-// coded argument `TypeError`, one `ClientError`, and the protocol error the root barrel keeps unexported all
-// name a body or a call parsing identically on every attempt, so the default arm grades terminal, not transport.
 const _severed = (cause: unknown): boolean =>
   cause instanceof DOMException || (cause instanceof TypeError && !Predicate.hasProperty(cause, "code"))
 
@@ -556,10 +478,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
       Config.withDefault([]),
       Config.withDescription("enabled provider kinds; each named row's credential bag resolves at this boot line"),
     )
-    // Capturing the key-admission context HERE and providing it into every deferred bind keeps Apple's material
-    // on the folder's one host-key path while `authorize`/`callback` carry no requirement out to their callers.
     const custody = yield* Effect.context<Crypto>()
-    // every enabled bag resolves HERE, so a missing credential fails the root proof, not the first user's redirect
     const binds = new Map(Array.zip(
       enabled,
       Array.map(
@@ -569,14 +488,8 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
     ))
     const _leg = <A>(run: () => Promise<A>): Effect.Effect<A, OAuthFault> =>
       Effect.tryPromise({ try: run, catch: _faultOf }).pipe(
-        // `transport` is the family's one `unavailable` row, so the branch compile's own class gate re-drives
-        // exactly that arm — and brings the quiet-reset and elapsed ceiling a hand predicate drops. The deadline
-        // itself lives on the `Configuration`, where an abort cancels the socket instead of orphaning it.
         Effect.retry(Fault.Budget.schedule("pulse")),
       )
-    // Decode sits AFTER the retry, never inside it: a body the issuer already sent parses the same on every attempt,
-    // so folding it into the re-driven thunk spends an outage budget on a verdict that never moves and reports the
-    // provider's own malformed answer as this deployment's unavailability.
     const _granted = (run: () => Promise<TokenEndpointResponse>): Effect.Effect<Grant, OAuthFault> =>
       Effect.flatMap(_leg(run), _decoded)
     const _binding = yield* Effect.cachedFunction((kind: Provider.Kind) =>
@@ -610,10 +523,6 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
           redirect_uri: bound.redirect,
           state,
         }
-        // Stashing lands BEFORE the carriage runs: a pushed or signed request is a network leg, and the snapshot
-        // sealed first means the state a provider echoes back always names a consumable ceremony. The pushed URL
-        // carries only `client_id` and `request_uri`, so verifier, nonce, and scopes travel the back channel a
-        // user-agent cannot tamper with; the plain and signed arms carry the same one parameter set.
         return yield* Carriage.$match(bound.carriage, {
           Plain: () => Effect.try({ try: () => bound.ceremony.url(parameters), catch: _faultOf }),
           Pushed: () => _leg(() => bound.ceremony.push(parameters)),
@@ -691,8 +600,6 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
 ```typescript signature
 type Renewal = { readonly expiresAt: Option.Option<DateTime.Utc>; readonly scopes: ReadonlyArray<string> }
 
-// Each sign-out field rides only when the caller holds it — the stored id_token as the issuer's own
-// evidence of whose session ends, the registered post-logout return, and the state the return leg echoes.
 type Farewell = {
   readonly idToken: Option.Option<string>
   readonly redirect: Option.Option<string>
@@ -714,8 +621,6 @@ const _lifecycle = (
   leg: <A>(run: () => Promise<A>) => Effect.Effect<A, OAuthFault>,
   granted: (run: () => Promise<TokenEndpointResponse>) => Effect.Effect<Grant, OAuthFault>,
 ) => ({
-  // Issuer capability and held token are one question — is there a refresh grant to rotate — so they fold into ONE
-  // `Option` with one refusal arm, where two negated predicates spell the same answer twice.
   refresh: (grant: Grant): Effect.Effect<Renewal, OAuthFault> =>
     Option.match(bound.hasRefresh ? grant.refreshToken : Option.none<string>(), {
       onNone: () => Effect.fail(new OAuthFault({ case: { reason: "lifecycle", missing: "refresh-grant" } })),
@@ -725,10 +630,6 @@ const _lifecycle = (
     bound.hasRevoke
       ? leg(() => bound.ceremony.revoke(grant.accessToken))
       : Effect.fail(new OAuthFault({ case: { reason: "lifecycle", missing: "revocation-endpoint" } })),
-  // RP-initiated logout ends the ISSUER's session front-channel where `revoke` retires this app's grant at the
-  // token endpoint — two teardown legs, and an SSO sign-out running only revocation leaves the IdP session alive
-  // to silently re-authenticate the next redirect. The URL builds locally off the discovered endpoint, so the
-  // only fallible arm is an issuer that never published one.
   logout: (hint: Farewell): Effect.Effect<URL, OAuthFault> =>
     bound.hasEndSession
       ? Effect.try({
@@ -743,7 +644,7 @@ const _lifecycle = (
       : Effect.fail(new OAuthFault({ case: { reason: "lifecycle", missing: "end-session-endpoint" } })),
 })
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Departed, Grant, OAuth, OAuthFault, OAuthStateStore }
 export type { Farewell, Provider, Renewal }

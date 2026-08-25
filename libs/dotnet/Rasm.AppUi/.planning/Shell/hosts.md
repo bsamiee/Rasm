@@ -26,7 +26,7 @@ Host identity reaches this page only as `HostDescriptor` columns — `Surface`, 
 `isolation` reaches AppUi as one served value: the shell runs on the host's own UI thread, so the branch answers `in-proc` and `thread` through `SurfaceScheduler`, and `process`, `wasm`, and `remote` refuse on the `isolation` axis because a foreign address space owns no `Control` this page can mount.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union]
 public abstract partial record SurfaceMount {
     private SurfaceMount() { }
@@ -37,9 +37,6 @@ public abstract partial record SurfaceMount {
     public sealed record Offscreen : SurfaceMount;
 }
 
-// The gauge vocabulary the two measured legs are judged against. A bound is what a leg is JUDGED by, never a
-// timeout this page enforces — the host owns every deadline here — so a breached span is evidence a mount ran
-// long rather than a refusal, and the bound has one owner in its row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MountLane : IGaugeLane<MountLane> {
@@ -51,8 +48,6 @@ public sealed partial class MountLane : IGaugeLane<MountLane> {
     static IReadOnlyList<MountLane> IGaugeLane<MountLane>.Items => Items;
 }
 
-// The boot edge as three phases with the claim on the ROW: only the unstarted phase yields a successor, so the
-// guarded step declines by absence and the transition carries the seated phase back to the loser.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BootPhase {
@@ -64,7 +59,7 @@ public sealed partial class BootPhase {
     public partial Option<BootPhase> Claim();
 }
 
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SurfaceFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.UiSurface;
@@ -73,8 +68,6 @@ public abstract partial record SurfaceFault : Fault {
     public string Detail { get; }
     public override string Message => Detail;
 
-    // The generator hook `[ValidationError]` reaches on `RuntimeId`, so the text case has a
-    // producer rather than a conformance nothing mints.
 
     [FaultCase(0)]
     public sealed partial record HostAbsent(string Detail)        : SurfaceFault(Detail);
@@ -94,7 +87,7 @@ public abstract partial record SurfaceFault : Fault {
     }
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SurfaceSeam(
     Func<Guid, Func<EmbedCapsule, Fin<IDisposable>>> PanelMount,
     Func<EmbedCapsule, Fin<IDisposable>> ModalMount,
@@ -103,40 +96,22 @@ public sealed record SurfaceSeam(
     Func<bool> OnUiThread,
     Func<AppBuilder, Fin<Unit>> RunLoop,
     Func<double> Scale,
-    // The live working-area set, read on demand rather than waited for: a restore runs before any topology
-    // fact has fired, so a design reading displays off the fact stream alone would clamp its first layout
-    // against nothing at all.
     Func<Seq<PixelRect>> Displays,
     Func<Action<SurfaceFact>, IDisposable> HostFacts,
     Func<long, IO<Unit>> ReleaseRetainedView);
 
-// The composition-bound capability set every mount threads, exactly as ScreenRuntime carries the screen
-// plane's. `Line` is the kernel monotonic timeline both measured legs bracket on and `Clock` the semantic
-// instant the receipt stamps — no joint invariant binds the two, so each leg answers its own kernel owner.
-// `Gauged` is the span sink composition seals as dispatcher-lag evidence, and `Count` addresses the instrument
-// ROW rather than a name, its optional argument the (slot, value) dimension row that declaration declared.
 public sealed record SurfaceRuntime(
     MonotonicTimeline Line,
     IClock Clock,
     Func<GaugedSpan<MountLane>, Unit> Gauged,
     Func<InstrumentSpec, Option<(string Slot, string Value)>, Unit> Count);
 
-// The attach product both root legs and the embed capsule answer. Descriptor is a REQUIRED value because an
-// absent one refuses at the leg that read the handle, so the receipt never carries an empty-string sentinel.
 public sealed record SurfaceAttach(Option<long> Handle, string Descriptor, IDisposable Teardown) {
-    // One hop, one owner: the root seat and the embed capsule read a platform descriptor through this arm, so
-    // the `??`-to-empty spelling both of them carried has no second seat to reappear at.
     public static Fin<string> Named(IPlatformHandle handle) =>
         Optional(handle.HandleDescriptor)
             .ToFin(new SurfaceFault.HandleUnavailable(nameof(IPlatformHandle.HandleDescriptor)));
 }
 
-// The row CARRIES its seam rather than copying four of its columns: scale, displays, the UI-thread predicate,
-// and the fact registration have one authority, and the record that used to restate them was a forwarding
-// shell in record form. Reach is the MOUNT plane's capability set — total over the roster minus what this
-// mounting shape structurally cannot touch. It is a second gate beside DegradationLevel, never a copy of it:
-// the level is health-derived and DegradationLevel.Full retains Faculty.HostDocument on every healthy process,
-// so a level alone admits a host-document command against a standalone window that owns no document.
 public sealed record SurfaceRow(
     SurfaceSeam Seam,
     Func<AppBuilder, AppBuilder> Build,
@@ -153,18 +128,10 @@ public sealed record SurfaceRow(
 
 public sealed record SurfaceReceipt(SurfaceMount Mount, string HostKey, string Descriptor, Option<long> Handle, double Scale, Instant At, CorrelationId Correlation);
 
-// Both halves of the load-identity probe as ONE value: the present half is what composition seals as
-// EvidenceReceipt.NativeAssetIdentity and the absent half is what the mount counted, so no consumer unwraps an
-// Option out of a tuple to learn which half it is holding.
 public sealed record AssetCensus(Seq<NativeAssetFact> Present, Seq<string> Absent) {
     public static readonly AssetCensus Empty = new(Seq<NativeAssetFact>(), Seq<string>());
 }
 
-// Assets is the mount's load-identity census: a wrong-RID load is evidence on the mount rather than a draw
-// fault three frames later. Reach travels beside it because the command deck freezes against the mount that
-// produced it: the deck's availability fold reads this set, so the mount's own capability answer reaches the
-// gate that needs it. Displays travels for the same reason from the opposite direction: layout restore runs
-// before any topology fact has fired, so the clamp reads the live working areas off the session it restores into.
 public sealed record SurfaceSession(
     SurfaceReceipt Receipt,
     AssetCensus Assets,
@@ -177,23 +144,19 @@ public sealed record SurfaceSession(
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Surfaces {
     private static readonly Atom<BootPhase> Phase = Atom(BootPhase.Unstarted);
 
     private static readonly Op BootOp = Op.Of(name: "appui.surface.boot");
     private static readonly Op MountOp = Op.Of(name: "appui.surface.mount");
 
-    // The declined cause the boot claim carries, read back off the refused transition rather than re-minted.
     private static readonly Error InFlight = new SurfaceFault.MountRejected("<boot-in-flight>");
 
     public const long GpuResourceBudget = 268_435_456;
 
     private static readonly SkiaOptions SkiaBudget = new() { MaxGpuResourceSizeBytes = GpuResourceBudget, UseOpacitySaveLayer = true };
 
-    // Admission answers a TYPED refusal, not a bool: the fail arm used to re-derive on the caller's side the
-    // very evidence the predicate had just discarded, so the axis evidence is minted once at the one seat that
-    // knows which host refused which shape.
     private static Fin<Unit> Admits(ConsumptionProfile profile, SurfaceMount mount) =>
         profile.Surface.Switch(
             state: (Profile: profile, Mount: mount),
@@ -222,9 +185,6 @@ public static class Surfaces {
                 static b => b.UseSkia().With(SkiaBudget).UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false, FrameBufferFormat = PixelFormat.Rgba8888 }).UseReactiveUI(),
                 Setup, SurfaceMode.Headless));
 
-    // The boot edge is a claim-commit TRANSITION: the cell answers which verdict this contender got, so the
-    // committed arm alone runs the start while every other arm reads the seated phase instead of reconstructing
-    // it from an ordinal. A booted edge is a success, an in-flight one the declined cause the cell carries.
     public static Fin<Unit> Boot(
         ConsumptionProfile profile, SurfaceMount mount, SurfaceSeam seam, SurfaceRuntime runtime, Func<AppBuilder> entry) =>
         from row in Row(profile, mount, seam)
@@ -236,15 +196,11 @@ public static class Surfaces {
             contended: static (_, seat) => Fin.Fail<Unit>(new SurfaceFault.MountRejected($"<boot-contended:{seat.Attempts}>")))
         select started;
 
-    // A failed start steps the edge back to unstarted so boot stays retryable; only a completed Start commits it.
     private static Fin<Unit> Started(SurfaceRow row, SurfaceRuntime runtime, Func<AppBuilder> entry) =>
         Gauged(runtime, MountLane.Boot, BootOp, () => row.Start(row.Build(entry())))
             .Map(static done => Phased(BootPhase.Booted, done))
             .MapFail(static fault => Phased(BootPhase.Unstarted, fault));
 
-    // Native load identity runs INSIDE the mount transaction, before attach: the Boundary's "identity receipts
-    // run at mount" is producible only here, and an absence is a counted census ROW rather than a rail abort, so
-    // one missing architecture never hides the libraries that did load.
     public static Fin<SurfaceSession> Mount(
         ConsumptionProfile profile, SurfaceMount mount, SurfaceSeam seam, Control content, SurfaceRuntime runtime, CorrelationId correlation) =>
         from row in Row(profile, mount, seam)
@@ -265,33 +221,23 @@ public static class Surfaces {
             Counted(row, runtime),
             attached.Teardown);
 
-    // The mount plane's capability answer derives from the NARROWED host set at one seat: only the host document
-    // is mount-decided, so a windowed root and a capture root drop HostCapability.Document before this fold runs
-    // and a per-factory capability literal — which admits exactly one capability and silently denies five — is
-    // the deleted form.
     private static CapabilitySet<Faculty> Reaches(CapabilitySet<HostCapability> held) =>
         held.Admits(HostCapability.Document)
             ? CapabilitySet<Faculty>.All
             : CapabilitySet<Faculty>.All.Without(Faculty.HostDocument);
 
-    // An undeclared runtime identifier is a genuine host absence — no packaged natives exist for it — so it
-    // aborts the mount, while a declared RID whose library never loaded is one absent census row.
     private static Fin<AssetCensus> Identified(SurfaceRuntime runtime) =>
         NativeAssets.Current
             .Map(NativeAssets.Identity)
             .ToFin(new SurfaceFault.HostAbsent(RuntimeInformation.RuntimeIdentifier))
             .Map(census => Absences(runtime, census));
 
-    // The absent half counts HERE at the probe and the present half rides the session for composition to seal,
-    // so each instrument keeps exactly one producer.
     private static AssetCensus Absences(SurfaceRuntime runtime, AssetCensus census) {
         ignore(census.Absent.Fold(unit, (_, library) =>
             runtime.Count(NativeAssets.Absent, Some((AppUiTelemetry.LibrarySlot, library)))));
         return census;
     }
 
-    // Every measured leg brackets on the composition timeline and hands its span to the runtime's gauge sink, so
-    // boot and mount latency reach the evidence stream as ONE shape and neither leg mints a stopwatch.
     private static Fin<T> Gauged<T>(SurfaceRuntime runtime, MountLane lane, Op work, Func<Fin<T>> body) =>
         runtime.Line.Gauged(lane, work, body).Bind(measured => Measured(runtime, measured));
 
@@ -300,15 +246,11 @@ public static class Surfaces {
         return measured.Value;
     }
 
-    // The phase commit and the span write are EFFECTS the carried value passes through. A comma-operator pair
-    // smuggling a statement into an expression is how this page spelled sequencing fifteen times over.
     private static T Phased<T>(BootPhase next, T carried) {
         ignore(Cell.Commit(Phase, _ => next));
         return carried;
     }
 
-    // Every host fact counts once through one total fold on its way to the subscriber, so a second host event
-    // channel or a per-fact meter is unrepresentable.
     private static Func<Action<SurfaceFact>, IDisposable> Counted(SurfaceRow row, SurfaceRuntime runtime) =>
         observer => row.Facts(fact => {
             ignore(Observed(runtime, fact));
@@ -318,8 +260,6 @@ public static class Surfaces {
     private static Unit Observed(SurfaceRuntime runtime, SurfaceFact fact) =>
         Counts(fact).Fold(unit, (_, write) => runtime.Count(write.Row, write.Tag));
 
-    // The case kind tags Fact for per-signal volume and the scale arm elects a second row for the flip the
-    // DPI-variant selection reads — the elected rows are a Seq the fold drains, never a branch that writes.
     private static Seq<(InstrumentSpec Row, Option<(string Slot, string Value)> Tag)> Counts(SurfaceFact fact) =>
         fact is SurfaceFact.ScaleChanged
             ? Seq(Kinded(fact), (Scale, Option<(string Slot, string Value)>.None))
@@ -344,8 +284,6 @@ public static class Surfaces {
         Build: build,
         Start: start,
         Marshal: SurfaceScheduler.Post,
-        // The mode row owns both the chrome the root wears and the handle posture its seat leg answers, so the
-        // capture lane and the shipped shell differ by exactly the row they name.
         Attach: mode.Attach,
         Reach: Reaches(held.Without(HostCapability.Document)),
         Mode: mode);
@@ -355,11 +293,7 @@ public static class Surfaces {
     public static Fin<TControl> RejectRuntimeInflation<TControl>(string view) where TControl : Control =>
         Fin.Fail<TControl>(new SurfaceFault.MountRejected($"<runtime-xaml-rejected:{view}; AvaloniaRuntimeXamlLoader is debug-only>"));
 
-    // --- [COMPOSITION] ------------------------------------------------------------------
-    // Mount counts ride the evidence fan's surface arm; scale flips, host facts, and affinity refusals count
-    // direct through SurfaceRuntime.Count where the seam delegate holds the typed fact in hand. Fact declares the
-    // SourceSlot dimension the fact-kind tag lands on — a count claiming to be keyed by case with no declared
-    // dimension is a tag the governance view drops.
+    // --- [COMPOSITION] -----------------------------------------------------------------
     public static readonly InstrumentSpec Mounted = InstrumentSpec.Create(
         "rasm.appui.surface.mounted", InstrumentKind.Count, MeasureForm.Whole, "{mount}",
         "surface mounts by host case", Seq(AppUiTelemetry.HostSlot), None, None, None);
@@ -379,10 +313,7 @@ public static class Surfaces {
 ```
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// The Ursa caption surface as a capability VOCABULARY, each row carrying its own host write, so `Apply` never
-// grows an arm and a new gate is one row. Six loose booleans spelled sixty-four states over four legal rows and
-// admitted the corner Ursa cannot render — a caption button on a window with no caption strip.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CaptionCapability : ICapability<CaptionCapability> {
@@ -394,8 +325,6 @@ public sealed partial class CaptionCapability : ICapability<CaptionCapability> {
         static (window, admitted) => window.IsFullScreenButtonVisible = admitted);
     public static readonly CaptionCapability Close = new("close", rank: 3,
         static (window, admitted) => window.IsCloseButtonVisible = admitted);
-    // The resizer is the window EDGE rather than a caption button, which is why the title-bar derivation below
-    // reads the button subset alone: a capture root wants neither, a splash wants no caption and no drag-resize.
     public static readonly CaptionCapability Resizer = new("resizer", rank: 4,
         static (window, admitted) => window.IsManagedResizerVisible = admitted);
 
@@ -410,13 +339,6 @@ public sealed partial class CaptionCapability : ICapability<CaptionCapability> {
     static IReadOnlyList<CaptionCapability> ICapability<CaptionCapability>.Items => Items;
 }
 
-// One row per owned-window POSTURE. A standalone shell, a torn-out float, a splash, and a capture root differ by
-// the set on this table alone, so a per-host window subclass, a hand-drawn caption strip, and a local
-// caption-button enum are all unspellable. `TearOut` chromes a Dock `HostWindow` whose caption is that package's
-// own `HostWindowTitleBar` under the tool-chrome pair, and `Bare` serves both the Ursa `SplashWindow` that
-// publishes only its countdown and the capture root a render-hash lane photographs — for both, frame suppression
-// is the whole write, and the two rows the prior table spelled carried bit-identical columns, so the base type
-// was already their only discriminant.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -428,18 +350,8 @@ public sealed partial class WindowRow {
 
     public CapabilitySet<CaptionCapability> Caption { get; }
 
-    // DERIVED, never declared: on the Ursa surface a caption button lives inside the title bar and nowhere else,
-    // so holding at least one button IS the title-bar answer and the sixth boolean column that used to state it
-    // was a second authority free to contradict the five beside it.
     public bool TitleBar => Caption.Held.Overlaps(CaptionCapability.Buttons.Held);
 
-    // ONE column writer for every owned window, constrained at `Window` because that is where the three window
-    // families this package chromes actually meet: `ShellWindow` carries the Ursa caption surface, while
-    // `Ursa.Controls.SplashWindow` and `Dock.Avalonia.Controls.HostWindow` each derive `Window` DIRECTLY and
-    // carry none of the caption properties. Frame suppression is therefore the leg EVERY owned window takes —
-    // `WindowDecorations.None` means the platform draws neither caption nor border — while the caption fold runs
-    // on the Ursa leg alone. The type pattern IS the discriminant: a family column beside it would answer a
-    // question the window type already answers, and would answer it a second way the moment a row moved.
     public TWindow Apply<TWindow>(TWindow window) where TWindow : Window {
         window.WindowDecorations = WindowDecorations.None;
         if (window is UrsaWindow ursa) {
@@ -452,9 +364,6 @@ public sealed partial class WindowRow {
     public ShellWindow Build(Control content) => Apply(new ShellWindow { Content = content });
 }
 
-// The root policy row: chrome, seat leg, and clock admission answered together, because a root that wears the
-// bare row is the same root that carries no platform handle and the same root that runs on deterministic time.
-// Three columns keyed on one row is what deleted the boolean the scheduler used to read across the page.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SurfaceMode {
@@ -468,16 +377,11 @@ public sealed partial class SurfaceMode {
     [UseDelegateFromConstructor]
     public partial Fin<SurfaceAttach> Seat(ShellWindow window);
 
-    // Deterministic time is admitted by the ROW, never by a caller: an interactive mount handed a virtual
-    // provider drops it here rather than pacing the shipped shell off a test clock.
     [UseDelegateFromConstructor]
     public partial Option<TimeProvider> Clock(Option<TimeProvider> supplied);
 
     public Fin<SurfaceAttach> Attach(Control content) => Seat(Chrome.Build(content));
 
-    // Interactive roots FAULT on a missing platform handle or a handle answering no descriptor — a zero-handle
-    // success receipt and an empty-string descriptor are the two deleted sentinels — and the show disposable IS
-    // the rollback, so a refused read closes the window it opened through the same handle the session would own.
     private static Fin<SurfaceAttach> Handled(ShellWindow window) {
         IDisposable teardown = Shown(window);
         return Optional(window.TryGetPlatformHandle())
@@ -487,7 +391,6 @@ public sealed partial class SurfaceMode {
             .Rollback(teardown);
     }
 
-    // The capture root carries None by construction, so its receipt states absence rather than fabricating zero.
     private static Fin<SurfaceAttach> Detached(ShellWindow window) =>
         Fin.Succ(new SurfaceAttach(Option<long>.None, nameof(SurfaceMount.Offscreen), Shown(window)));
 
@@ -497,17 +400,9 @@ public sealed partial class SurfaceMode {
     }
 }
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
-// The one owned-window class. Deriving the reactive base is LAW, not preference: RoutedViewHost resolves a
-// screen through IViewFor<T> alone, which the non-reactive UrsaWindow does not carry, so a window off this
-// lineage renders an unresolvable router cell while type-checking clean.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class ShellWindow : ReactiveUrsaWindow<ShellRoot>;
 
-// Cold boot rides the package's own splash lifecycle: CreateNextWindow returns the composed shell window and the
-// framework owns the handoff, so a boot-time timer and a manual splash close are both unrepresentable. CountDown
-// is the MINIMUM display span, so a fast boot still reads as a boot rather than a flash. The composition root
-// that binds SurfaceSeam.RunLoop is the one site that mints it, because the splash is the desktop lifetime's own
-// main window and the mount transaction never owns a lifetime.
 public sealed class ShellSplash : SplashWindow {
     private readonly Func<Task<Window?>> next;
 
@@ -520,12 +415,6 @@ public sealed class ShellSplash : SplashWindow {
     protected override Task<Window?> CreateNextWindow() => next();
 }
 
-// The caption is a PROJECTION of the active route, subscribed once per window, so a float showing one screen and
-// the shell showing another read the same composition and a Title write at a navigation site is deleted. The
-// product-plus-active composition itself lives once at `Shell/navigation#SHELL_CHROME`, which is also where the
-// float host binds this per torn-out window. The parameter is `Window` because `Title` is declared there and the
-// float host is a Dock `HostWindow`: narrowing to `UrsaWindow` left every torn-out panel with no caption
-// projection at all, which is the one case the per-window subscription exists for.
 public static class WindowTitle {
     public static IDisposable Bind(Window window, string product, IObservable<Option<string>> active, IScheduler ui) =>
         active
@@ -556,9 +445,7 @@ Every row suppresses the platform frame; a caption cell writes only where the `[
 [HOST_ADAPTER_FACTS]: the foreign-view properties the seam columns bind against, every one host-side and none of them reachable from a dispatch arm — an embedded host view autoresizes no subview, so the seam's resize column is the only sizing writer; the embedded root's platform handle is an `IMacOSTopLevelPlatformHandle` carrying the `NSView` descriptor over an `Avalonia.Native.EmbeddableTopLevelImpl` platform implementation, and the root's own `RenderScaling` stays `1` under a foreign view, so `SurfaceSeam.Scale` is the only backing-scale source and a root-read scale is the deleted form; a canvas-class host view accepts the foreign subview while it is itself unshown and unwindowed, mounting without arming any host redraw path, so a mount is legal before the host surface is shown; a host view with no window carries no responder chain, so input delivery, first-responder assignment, and every window-anchored surface require a SHOWN host window — the seam's visibility fact is what states that, and a mount receipt alone never does; pointer delivery is intrinsic to the embedded view — the native view handles the shown host window's mouse events itself and forwards them through the raw input chain, so a press reaches the root as the tunnel-plus-bubble pointer pair hit-tested to the embedded content with positions mapped into root coordinates and no host cooperation beyond window membership; IME composition holds three host-side preconditions past the shown window — active application, key host window, first-responder embedded view — and then rides the embedded view's own `NSTextInputClient` conformance: the dead-key press raises only the key pair while the pre-edit string lands on the focused text control, the commit arrives as ONE composed text-input event through tunnel and bubble, and an in-process synthetic key event never composes — window-server events are the only composition carrier, so a synthetic-key test asserts raw-commit behavior, never IME; host focus never bridges into the embedded root on its own — the host assigns first responder to the embedded view and the composition focuses the managed control, two writes the seam owns.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
-// The embedded platform policy as a POSITIVE vocabulary: the package spells four of these as `Disable*` and one
-// as `ShowInDock`, so a mixed polarity crossed every reader until the complement landed at `Admit` alone.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class EmbedTrait : ICapability<EmbedTrait> {
@@ -573,12 +460,10 @@ public sealed partial class EmbedTrait : ICapability<EmbedTrait> {
     static IReadOnlyList<EmbedTrait> ICapability<EmbedTrait>.Items => Items;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record EmbedOptions(
     CapabilitySet<EmbedTrait> Traits,
     Option<Seq<AvaloniaNativeRenderingMode>> RenderingMode) {
-    // A plugin host owns its own app delegate, process name, menu bar, and Dock presence, so the embedded row
-    // forfeits every trait; `None` on the backend ordering means Avalonia's own default `[Metal, OpenGl, Software]`.
     public static readonly EmbedOptions Embedded = new(CapabilitySet<EmbedTrait>.None, None);
 
     public AppBuilder Admit(AppBuilder builder) =>
@@ -600,7 +485,7 @@ public sealed record EmbedOptions(
 
 public readonly record struct RetainedHandle(long Handle, string Descriptor, bool Retained);
 
-// --- [COMPOSITION] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class EmbedCapsule : EmbeddableControlRoot {
     private static readonly Op ReleaseOp = Op.Of(name: "appui.surface.embed.release");
     private static readonly Op StartOp = Op.Of(name: "appui.surface.embed.start");
@@ -610,12 +495,6 @@ public sealed class EmbedCapsule : EmbeddableControlRoot {
         Prepare();
     }
 
-    // The acquire CHAIN is the kernel's: every failure arm releases the handles already taken, LIFO, while the
-    // success arm TRANSFERS custody into the teardown the session owns from then on — which is exactly the split
-    // `Custody.Rollback` names, and exactly what the hand-written per-arm dispose closures kept re-deriving.
-    // The composed order IS the teardown contract, because the root emits no lifecycle edge on dispose: detach
-    // first so the host drops the view before the loop stops, release after detach so no host read outlives the
-    // pointer.
     public Fin<SurfaceAttach> Mounted(
         Func<EmbedCapsule, Fin<IDisposable>> mount, Func<long, IO<Unit>> releaseRetained) =>
         (from view in RetainedView()
@@ -636,10 +515,6 @@ public sealed class EmbedCapsule : EmbeddableControlRoot {
 
     public Fin<Unit> Start() => StartOp.Catch(StartRendering);
 
-    // The retained macOS view has exactly one lifetime owner: this disposable, minted beside the capture. The
-    // release funnels through the operation key because `IO.Run` answers a bare value and THROWS, and this body
-    // runs inside a composed teardown — a refusing AppKit release would abort every disposable queued behind it,
-    // leaving the render loop running and the root undisposed, the exact leak the ordered teardown forecloses.
     private static IDisposable Release(RetainedHandle view, Func<long, IO<Unit>> releaseRetained) =>
         view.Retained
             ? Disposable.Create(() => ignore(ReleaseOp.Catch(() => releaseRetained(view.Handle).Run())))
@@ -669,10 +544,7 @@ stateDiagram-v2
 - Boundary: `Affinity` is the single thread-affinity assertion and a per-call-site access check is the rejected form; the UI-thread predicate originates once at the seam's `OnUiThread` column and reaches the scheduler through `row.OnUiThread`, which is the seam's own column read through the row — one source, no parallel parameter — and that column answers true on exactly ONE thread per process, the host's own main thread, where `Dispatcher.UIThread.CheckAccess()` also answers true, while every other thread reads false and its `Post` lands back on that same thread, so the marshal column, the dispatcher, and the affinity assertion all read one boundary and a per-host thread regime is unrepresentable; so the access-assertion spelling stays a seam delegate and never a hardcoded dispatcher call inside a dispatch arm; a failed `Affinity` assertion folds its `SurfaceFault.ThreadAffinity` into the `Surfaces.Affinity` count through the one `AppUiTelemetry.Contribute` spine, so off-thread access is counted evidence on the timeline and a scheduler-local meter is the deleted form; embedded mounts marshal through the seam's host column, standalone and offscreen mounts post through the `AvaloniaScheduler` UI scheduler; the virtual `TimeProvider` a test composition supplies is admitted by the MODE row rather than by this projection, so an interactive mount handed one drops it and only the command-journal replay lane runs under deterministic time; `ObserveOn` rides `Ui` exactly once inside binding capsules, never at call sites.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
-// Count carries the runtime's own column shape verbatim — the instrument ROW beside the optional (slot, value)
-// dimension pair — because it IS SurfaceRuntime.Count threaded through. A narrowed Option<string> here could not
-// carry the slot the affinity write spells and would refuse the assignment at the projection below.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SurfaceScheduler(
     IScheduler Ui, Func<Action, IO<Unit>> Marshal, Func<bool> OnUiThread, Option<TimeProvider> VirtualTime,
     Func<InstrumentSpec, Option<(string Slot, string Value)>, Unit> Count) {
@@ -688,9 +560,6 @@ public sealed record SurfaceScheduler(
 
     public static UiSchedulerPort Port(UiSchedulerPort spine, SurfaceScheduler boundary) => spine with { Marshal = boundary.Marshal };
 
-    // The one thread-affinity assertion, and the one writer of its count: a refusal is counted evidence on the
-    // timeline before it leaves as a typed fault, so off-thread access is attributable per operation and a
-    // scheduler-local meter has nothing left to mint.
     public Fin<Unit> Affinity(string operation) =>
         OnUiThread() ? Fin.Succ(unit) : Fin.Fail<Unit>(Refused(operation));
 
@@ -711,13 +580,11 @@ public sealed record SurfaceScheduler(
 - Boundary: one shaping family rides every admitted row — each Skia asset row pairs its HarfBuzz row across the macOS-plus-headless-Linux RID matrix (osx universal, linux-x64/arm64, linux-musl-x64) so cross-architecture load identity is one row per RID and a missing-architecture load surfaces as an absent census row; the three Linux rows share one library roster because they differ by RID alone, so a package swap lands once instead of drifting three ways; the NuGet package that SHIPS each module has one authority in the manifest and the `- Packages:` bullet above, so the three package-name columns this row used to carry were a mirror no probe read; the macOS backend resolves Metal from the default `[Metal, OpenGl, Software]` ordering `EmbedOptions.RenderingMode` carries, never a per-row GPU literal; the fontconfig-dependent Linux Skia variant stays pinned and excluded at the AppUi admission, so NoDependencies is the only Linux Skia asset and the glibc and musl rows share it; the Win32 desktop and WebAssembly native pins are dropped from the macOS-only build so no Win32 row exists and a browser host descriptor carries `HostSurface.None`, refusing every mount rather than resolving assets; identity runs INSIDE `Surfaces.Mount` before the content attach, so a wrong-RID load surfaces as a receipt on the mount rather than a draw fault later, and a probe declared but never called is the deleted form; the census answers BOTH halves as one typed value rather than a rail, because a rail aborts on the FIRST missing library and makes the very absence the asset-absent instrument exists to count unrepresentable — the present half seals as `EvidenceReceipt.NativeAssetIdentity` (the fan arm writes asset-resolved) and the absent half counts at the probe, so each instrument has exactly one producer and a per-row meter is the deleted form; the row itself resolves from the LIVE `RuntimeInformation.RuntimeIdentifier` by prefix, which is why the RID is a validated value rather than a bare string — a blank literal prefixes every identifier in existence and would answer for architectures the row was never built for — and an undeclared identifier is a typed `SurfaceFault.HostAbsent` at mount rather than a composition literal asserting what the probe exists to prove.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [ValidationError]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RuntimeId {
-    // A blank RID prefixes EVERY runtime identifier, so an empty row would claim every host it was never built
-    // for; an upper-cased one matches nothing, because .NET renders the live identifier lower-case.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         validationError = string.IsNullOrWhiteSpace(value)
             || !string.Equals(value, value.ToLowerInvariant(), StringComparison.Ordinal)
@@ -725,12 +592,11 @@ public sealed partial class RuntimeId {
                 : null;
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record NativeAssetRow(RuntimeId Rid, Seq<string> Libraries);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class NativeAssets {
-    // The three Linux rows differ by RID alone; one shared roster is what keeps them from drifting apart.
     private static readonly Seq<string> LinuxLibraries = Seq("libSkiaSharp", "libHarfBuzzSharp");
 
     public static readonly Seq<NativeAssetRow> Rows = Seq(
@@ -739,14 +605,9 @@ public static class NativeAssets {
         new NativeAssetRow(RuntimeId.Create("linux-arm64"), LinuxLibraries),
         new NativeAssetRow(RuntimeId.Create("linux-musl-x64"), LinuxLibraries));
 
-    // The live runtime identifier picks the row: an architecture is a runtime FACT, so a composition literal
-    // would assert exactly what the probe below exists to prove.
     public static Option<NativeAssetRow> Current =>
         Rows.Find(static row => RuntimeInformation.RuntimeIdentifier.StartsWith(row.Rid.Value, StringComparison.Ordinal));
 
-    // A CENSUS, never a rail: one fold answers both halves, so a missing architecture is one absent row the mount
-    // counts and the libraries that did load still report their identity. A traversal here aborts on the first
-    // absence and makes that absent row unrepresentable.
     public static AssetCensus Identity(NativeAssetRow row) =>
         row.Libraries.Fold(AssetCensus.Empty, (held, library) => Probe(row, library).Match(
             Some: fact => held with { Present = held.Present.Add(fact) },
@@ -764,7 +625,7 @@ public static class NativeAssets {
                     row.Rid.Value)))
             .Head;
 
-    // --- [COMPOSITION] ------------------------------------------------------------------
+    // --- [COMPOSITION] -----------------------------------------------------------------
     public static readonly InstrumentSpec Resolved = InstrumentSpec.Create(
         "rasm.appui.nativeasset.resolved", InstrumentKind.Count, MeasureForm.Whole, "{asset}",
         "native assets resolved by library and RID", Seq(AppUiTelemetry.LibrarySlot, AppUiTelemetry.RidSlot), None, None, None);
@@ -786,7 +647,7 @@ public static class NativeAssets {
 - Boundary: facts enter only through the seam's `HostFacts` column — macOS rows feed `NSScreen` `BackingScaleFactor` flips and appearance changes host-side, an embedded mount feeds visibility and focus from panel events through the `SurfaceSeam.HostFacts` delegate column an app root binds to the host; each toggle fact carries a two-row POSTURE rather than a boolean, so the negative pole is named at the declaration instead of inferred at each reader — `AppearanceChanged(false)` read as "light" at one consumer and "not dark" at another, and the two answers differ the moment a host publishes a third appearance; visibility facts feed the activation rail and live-data suspend-resume, appearance facts feed the host-matched variant re-probe, scale facts feed DPI-variant selection, display facts feed the dock placement clamp — `Shell/navigation#DOCK_LAYOUTS` `WindowPlacement.Clamp` is the one consumer, folding every saved float rectangle against the live screen set BEFORE `InitLayout` on restore and again on every topology flip, so a restore after a monitor detach never lands off-screen and the promise this fact makes has a named reader rather than a claim no fold discharges; every fact folds one observation into the `Surfaces.Fact` count keyed by its case kind through the one `AppUiTelemetry.Contribute` spine, so host-signal volume is attributable per case and a second host event channel or a per-fact meter beside this union is the rejected form.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HostVisibility {
@@ -808,7 +669,7 @@ public sealed partial class HostAppearance {
     public static readonly HostAppearance Dark = new("dark");
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record SurfaceFact {
     private SurfaceFact() { }
@@ -817,13 +678,8 @@ public abstract partial record SurfaceFact {
     public sealed record FocusChanged(HostFocus State) : SurfaceFact;
     public sealed record AppearanceChanged(HostAppearance State) : SurfaceFact;
 
-    // The fact carries the WORKING AREAS, never a screen count: the one consumer clamps saved float rectangles
-    // against the live set, and a count answers that a monitor left while saying nothing about where the
-    // remaining desktop is — a restore reading it would clamp against geometry it never received.
     public sealed record DisplayChanged(Seq<PixelRect> Working) : SurfaceFact;
 
-    // The case kind every fact count tags with. The second projection this fold used to carry — a flag true on
-    // exactly one arm — was the pattern test its single reader already spells at the elect site.
     public string Kind => Switch(
         scaleChanged:      static _ => nameof(ScaleChanged),
         visibilityChanged: static _ => nameof(VisibilityChanged),

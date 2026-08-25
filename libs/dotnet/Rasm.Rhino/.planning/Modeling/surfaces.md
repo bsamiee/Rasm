@@ -24,7 +24,7 @@ Kernel `Rasm.Parametric` owns the bare names `Surfaces` and `SurfaceOp`, so this
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — the nurbs-surface build roster `:63-80` incl. `CreateNetworkSurface`, `CreateFromPoints`, `CreateThroughPoints`, `CreateFromCorners`, `CreateRuledSurface`, `CreateSubDFriendly`, `CreateRailRevolvedSurface`, `MakeCompatible`, `MatchToCurve`, `CreateCurveOnSurface`, `CreateCurveOnSurfacePoints`, `CreateFromPlane`, `CreateFromCone`/`Cylinder`/`Sphere`/`Torus`; the surface build roster `:82-103` incl. `CreateExtrusion`, `CreateExtrusionToPoint`, `CreatePeriodicSurface`, `CreateSoftEditSurface`, `CreateRollingBallFillet`, `CreateTweenSurfacesWithSampling`, `Fit`, `Rebuild`, `RebuildOneDirection`, `VariableOffset`, `RevSurface.Create`, `SumSurface.Create`, `PlaneSurface.CreateThroughBox`), kernel `Domain/rails` (`Op`, `ValidityClaim`, `IValidityEvidence`, `Fin`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Modeling/curves.md` (`PairPosture`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -34,7 +34,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class NetContinuity {
     public static readonly NetContinuity Loose = new(key: 0);
@@ -115,8 +115,6 @@ public abstract partial record NetworkLaw : IValidityEvidence {
                         return (Product: product, Error: error);
                     }))));
 
-    // Network fitting answers a product AND a code together, so a nonzero code names a surface the caller must not
-    // own: that half-built native releases through the rail's own rollback, aggregating a throwing dispose into the fault.
     private static Fin<(NurbsSurface Product, int Error)> Captured(
         Op key,
         Func<(NurbsSurface? Product, int Error)> build) =>
@@ -135,8 +133,6 @@ public abstract partial record GridFit : IValidityEvidence {
     public sealed record Control : GridFit;
     public sealed record Through(CapabilitySet<ParametricAxis> ClosedAxes) : GridFit;
 
-    // Empty sets read as the host's "closed in neither direction", so no corner is barred and the vocabulary itself
-    // forecloses every unrostered axis; only presence of the carrier remains to prove.
     public bool IsValid => Switch(
         control: static () => (ValidityClaim)true,
         through: static _ => (ValidityClaim)true);
@@ -252,13 +248,10 @@ public abstract partial record SumExtent : IValidityEvidence {
         byCurve: static extent => ModelClaim.Handle(handle: extent.Second));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SurfaceDegrees : IValidityEvidence {
-    // RhinoCommon clamps each degree to `Math.Min(degree, 11)` inside `CreateFromPoints` and `CreateThroughPoints`, so
-    // 11 is the host's own ceiling; admitting at it refuses what the host otherwise clamps silently, and the same
-    // bound covers `CreateFromPlane`, which clamps nothing.
     internal const int Ceiling = 11;
 
     public int U { get; }
@@ -292,8 +285,6 @@ public readonly partial struct SurfaceGrid : IValidityEvidence {
 
     public bool IsValid => Admits(Degrees, UPoints, VPoints);
 
-    // Widened before multiplying: two admitted counts near `int.MaxValue` overflow into a product that matches a short
-    // point spread, which would admit a grid the native then reads past.
     internal long Count => (long)UPoints * VPoints;
 
     private static bool Admits(SurfaceDegrees degrees, int uPoints, int vPoints) =>
@@ -336,8 +327,6 @@ public readonly partial struct SoftEditLaw : IValidityEvidence {
     public Vector3d Delta { get; }
     public double ULength { get; }
     public double VLength { get; }
-    // Solitary independent bits with no host projection column and no correlated partner stay named bools on the law
-    // that carries them, exactly as the sibling curve and mesh rails spell their own single grants.
     public bool FixEnds { get; }
 
     static partial void ValidateFactoryArguments(
@@ -365,8 +354,6 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
     public double UMinVMax { get; }
     public double UMaxVMin { get; }
     public double UMaxVMax { get; }
-    // Parameters and distances travel as ONE row spread: the host's interior overload refuses mismatched counts, and a
-    // paired row makes the mismatch unrepresentable instead of admitted and refused one layer later.
     public Seq<(Point2d Uv, double Distance)> Interior { get; }
 
     static partial void ValidateFactoryArguments(
@@ -409,7 +396,7 @@ public readonly partial struct VariableOffsetLaw : IValidityEvidence {
 - Packages: RhinoCommon surfacing (`.api/api-rhinocommon-surfacing.md` — nurbs-surface build `:63-80`, surface build `:82-103`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`, `PairPosture`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Domain/context` (`Context.Absolute`, `Context.Angle`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SurfaceSlot {
     public static readonly SurfaceSlot Networked = new(key: 0);
@@ -467,7 +454,6 @@ public abstract partial record FreeformOp {
             railRevolve: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Profile), ModelClaim.Handle(handle: row.Profile)),
                 (nameof(row.Rail), ModelClaim.Handle(handle: row.Rail)), (nameof(row.Axis), row.Axis.IsValid)),
-            // Point spreads must exactly fill the admitted grid; the grid itself proved its counts at construction.
             grid: static (op, row) => ModelClaim.Admits(row, op,
                 (nameof(row.Shape), row.Shape.IsValid), (nameof(row.Fit), row.Fit is { IsValid: true }),
                 (nameof(row.Points), ValidityClaim.All(
@@ -661,8 +647,6 @@ public abstract partial record FreeformOp {
                 ofLine: static (box, frame) => ModelGate.Single(BoundedPlane.SelfOp, SurfaceSlot.Bounded,
                     () => PlaneSurface.CreateThroughBox(
                         lineInPlane: frame.LineInPlane, vectorInPlane: frame.VectorInPlane, box: box))),
-            // Absent sweeps select the host's own full-revolution overload, so presence picks the arity and no
-            // sentinel angle pair stands in for "all the way round".
             revolve: static (_, edit) => edit.Profile.Switch(
                 state: edit,
                 ofCurve: static (row, profile) => ModelGate.Borrow<Curve, Built<SurfaceSlot>>(
@@ -705,7 +689,7 @@ public abstract partial record FreeformOp {
                             tolerance: model.Absolute.Value))));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostSurfaces {
     public static Fin<Built<SurfaceSlot>> Build(ModelRuntime runtime, params ReadOnlySpan<FreeformOp> operations) =>
         ModelGate.Entry(

@@ -28,7 +28,7 @@ Bead placement is a two-dimensional lattice, not a vertical stack: `FillProfile`
 - Boundary: `Rasm.Materials` supplies material, penetration, and qualification identities; callers resolve preparation geometry into the local `FillProfile`. Containment, area, and interpolation are defined only over the admitted station range, so a station outside it clamps to the terminal section rather than extrapolating a spline past its data.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using System.Runtime.InteropServices;
 using LanguageExt;
@@ -50,9 +50,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Joining;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// The code is an IDENTITY. Its numbers are shop data on `WeldRuleSet`, because two shops welding to one code hold
-// different heat targets and a scalar column here would make the code name lie about one of them.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class WeldCode {
     public static readonly WeldCode AwsD11 = new("aws-d1.1");
@@ -61,8 +59,6 @@ public sealed partial class WeldCode {
     public static readonly WeldCode Iso3834 = new("iso-3834");
 }
 
-// Role SEMANTICS only: whether the deposit closes the groove, whether the role may oscillate, whether it holds for
-// inspection. Every derate is a `WeldFactorTable` row.
 [SmartEnum<string>]
 public sealed partial class PassRole {
     public static readonly PassRole Tack = new("tack", deposits: true, oscillates: false, holds: false);
@@ -76,7 +72,6 @@ public sealed partial class PassRole {
     public static readonly PassRole Buildup = new("buildup", deposits: true, oscillates: true, holds: false);
     public static readonly PassRole Repair = new("repair", deposits: true, oscillates: true, holds: true);
 
-    // Butter and temper metal lands OUTSIDE the groove, so it never advances the fill ledger.
     public bool Deposits { get; }
     public bool OscillationAdmitted { get; }
     public bool HoldForInspection { get; }
@@ -141,8 +136,6 @@ public sealed partial class FlareKind {
     public static readonly FlareKind V = new("flare-v");
 }
 
-// The heat-flow derate axis. `JointPrep` is a union carrying preparation PAYLOAD, so it can key no table; this is the
-// discriminant it projects, and the single- and double-sided groove are two rows because the two conduct differently.
 [SmartEnum<string>]
 public sealed partial class PrepShape {
     public static readonly PrepShape SingleGroove = new("single-groove");
@@ -152,10 +145,6 @@ public sealed partial class PrepShape {
     public static readonly PrepShape Flare = new("flare");
 }
 
-// Catalogue identities are OPEN vocabularies the shop owns, so each is a keyed owner rather than a bare string a
-// consumer can transpose with its neighbour: a material-group identity and a transfer-mode identity are two types,
-// not two strings. The consumable identity is NOT declared here — `Process/atoms` `ConsumableKey` seats it at S0
-// because `Tooling/wear` budgets the same catalogue entry this page's procedures name, and S2 cannot compose S3.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct MaterialGroupKey {
     [BoundaryAdapter]
@@ -180,8 +169,6 @@ public readonly partial struct TransferModeKey {
     public static Fin<TransferModeKey> Admit(string value) => Admission.OfValue<TransferModeKey, string>(value);
 }
 
-// One identity covers every preparation catalogue reference — groove geometry, penetration class, fillet contour,
-// backing product — because each is the same fact under a different axis and the JointPrep case names the axis.
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 public readonly partial struct PreparationKey {
     [BoundaryAdapter]
@@ -206,7 +193,7 @@ public readonly partial struct DefectKey {
     public static Fin<DefectKey> Admit(string value) => Admission.OfValue<DefectKey, string>(value);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SectionStation {
@@ -251,9 +238,6 @@ public readonly partial struct DepositSpan {
 
 public readonly record struct FillSection(double AreaMm2, double WidthMm, double RootWidthMm, double HeightMm);
 
-// One linear spline per section column, built once per profile and HELD: section reads, the fill-height inverse, and
-// the exact span integral all read this view, so a fill fold pays one build rather than one interpolation walk per
-// query. The view derives from the admitted stations, so it is out of construction, equality, and every codec.
 public sealed record ProfileCurves(
     IInterpolation Area,
     IInterpolation Width,
@@ -319,8 +303,6 @@ public sealed partial class FillProfile {
             toeRadius.As(LengthUnit.Millimeter),
             out FillProfile profile).Admitted(profile);
 
-    // The linear spline integrates in closed form, so the demand is the exact area integral over each deposit span
-    // and no breakpoint interleave runs. Spans are disjoint by admission, so the sum double-counts nothing.
     public double VolumeMm3 => toSeq(Spans).Fold(0.0, (sum, span) => sum + Curves.Area.Integrate(span.StartMm, span.EndMm));
 
     public double EnvelopeWidthMm => Stations.Map(static row => row.WidthMm).Fold(0.0, Math.Max);
@@ -337,7 +319,6 @@ public sealed partial class FillProfile {
             Curves.Height.Interpolate(at));
     }
 
-    // Envelope section is the trapezoid root -> face; a square groove degenerates to the constant-width arm.
     public double WidthAtHeight(double heightMm) => EnvelopeRootWidthMm
         + ((EnvelopeWidthMm - EnvelopeRootWidthMm) * Math.Clamp(heightMm / EnvelopeHeightMm, 0.0, 1.0));
 
@@ -374,7 +355,6 @@ public abstract partial record RootProgram {
         backingAndBackgouge: static value => ValidityClaim.All(ValidityClaim.Positive(value.DepthMm), value.BeforeSide is 0 or 1),
         seal: static value => value.Side is 0 or 1);
 
-    // Side the deposit opens on; a double-sided groove flips to its complement once the first side reaches half fill.
     public int FirstSide => Switch(
         none: static _ => 0,
         backing: static _ => 0,
@@ -409,7 +389,6 @@ public abstract partial record JointPrep {
         cavity: static value => value.Kind.Key,
         flare: static value => value.Kind.Key);
 
-    // The derate axis, never the derate: the shop's `WeldFactorTable` holds the numbers a code revision re-rates.
     public PrepShape Shape => Switch(
         groove: static value => value.DoubleSided ? PrepShape.DoubleGroove : PrepShape.SingleGroove,
         fillet: static _ => PrepShape.Fillet,
@@ -438,8 +417,6 @@ public abstract partial record JointPrep {
         flare: static (_, value) => ValidityClaim.Positive(value.RadiusMm));
 }
 
-// The 26-slot admission collapses onto one ingress shape: a caller builds the record, admission reads it once, and
-// the argument order stops being the correctness surface a positional call site cannot verify.
 public sealed record WeldJointIngress(
     int Joint,
     Arr<Point3d> Seam,
@@ -530,8 +507,6 @@ public sealed partial class WeldJoint {
             validationError = new ValidationError("weld-joint:subject");
     }
 
-    // Every invariant reports: a seam whose normals are skew AND whose preheat is out of band names both, so a
-    // caller repairs one ingress rather than re-submitting per refused clause.
     public static Fin<WeldJoint> Admit(WeldJointIngress ingress) {
         double toleranceRad = ingress.NormalTolerance.As(AngleUnit.Radian);
         double thicknessMm = ingress.Thickness.As(LengthUnit.Millimeter);
@@ -618,7 +593,7 @@ public sealed partial class WeldJoint {
 - Boundary: `Joining/sequence` alone orders deposits and cooling, `Joining/procedure` alone assesses `WeldPlan.Demands`, kinematics alone turns segments into robot solutions, and Cam alone conditions execution motion. The arc program and the fit gate are `Joining/deposition` owners this fold DRIVES, so a run-in length or a fit tolerance is never re-derived here.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class TorchFrame {
     public int Joint { get; }
@@ -632,8 +607,6 @@ public sealed partial class TorchFrame {
     public double LateralOffsetMm { get; }
     public double StandoffMm { get; }
 
-    // The torch axis points INTO the work along the negative pose normal, and the seam contact is the pose origin
-    // dropped back down the standoff — so the orientation payload every emitted move carries is derived here once.
     public Vector3d ToolAxis => -Pose.ZAxis;
 
     public Point3d Contact => Pose.Origin - (StandoffMm * Pose.ZAxis);
@@ -678,7 +651,6 @@ public sealed partial class TorchFrame {
         Joint, side: 1, Waypoint, StationMm, new Plane(Pose.Origin, Pose.XAxis, -Pose.YAxis),
         WorkAngleDeg, TravelAngleDeg, Phase, LateralOffsetMm, StandoffMm);
 
-    // Station-parameterized frame blend for a resampled span boundary and for every sub-window a consumer re-cuts.
     public static TorchFrame Lerp(TorchFrame low, TorchFrame high, double stationMm) {
         double t = (stationMm - low.StationMm) / (high.StationMm - low.StationMm);
         return new TorchFrame(
@@ -698,9 +670,6 @@ public sealed partial class TorchFrame {
     }
 }
 
-// The station-indexed seam wire. A segment owns its interval, its own frames, and the ONE commanded move that burns
-// it; `Fit` names the circular geometry where the arc gate admitted one, so `Window` re-cuts an orbital deposit as an
-// arc and a linear one as a line without a consumer knowing which it holds.
 public sealed record DepositSegment(
     int Joint,
     int Side,
@@ -732,8 +701,6 @@ public sealed record DepositSegment(
             .IfNone(() => station <= StartStationMm ? From : To);
     }
 
-    // The ONE sub-interval geometry. The owner decides line versus arc, so a scheduler subdividing a deposit for a
-    // thermal band never straightens an orbital bead and never re-derives a sweep from chord endpoints.
     public Fin<Seq<Move>> Window(double from, double to, double feedMmMin) {
         TorchFrame start = FrameAt(from);
         TorchFrame end = FrameAt(to);
@@ -798,7 +765,6 @@ public readonly partial struct BeadEvidence {
         Validate(depositedVolumeMm3, beadAreaMm2, widthMm, heightMm, energyJ, fillerLengthMm, coverageFraction,
             arcTimeS, coolingTimeS, depositLengthMm, out BeadEvidence evidence).Admitted(evidence);
 
-    // EN 1011-2 t8/5: the thicker arm governs above the transition thickness, the sheet arm below it.
     public static double CoolingTime(
         double heatInputKjMm,
         double preheatC,
@@ -836,8 +802,6 @@ public sealed partial class WeldPass {
     public ArcProgram Arc { get; }
     public PassLineage Lineage { get; }
 
-    // Internal: the law routes every seam-position read through `Segments`, so a public flattening here is
-    // the index-join against `Path` that law forbids, offered to consumers under a convenient name.
     internal Seq<TorchFrame> Frames => Segments.Bind(static segment => segment.Frames).Distinct().ToSeq();
 
     [BoundaryAdapter]
@@ -926,8 +890,6 @@ public abstract partial record JointAction {
         preheat: static value => value.Joint,
         postWeldHeatTreat: static value => value.Joint);
 
-    // Opening actions precede the first deposit, gating actions stage against the side they gate, and closing
-    // actions follow the last — the schedule reads this column rather than re-deriving intent from the case.
     public JointStage Stage => Switch(
         prepareGroove: static _ => JointStage.Opening,
         installBacking: static _ => JointStage.Opening,
@@ -966,7 +928,7 @@ public sealed partial class JointStage {
 - Boundary: `FillProfile.VolumeMm3`, `Fits`, and `Pass` are numerical fold kernels; `Transport`, `Pose`, and `Weave` are Rhino mutation kernels. `Weld` never posts machine code.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class WeldRequest {
     public Seq<WeldJoint> Joints { get; }
@@ -989,8 +951,6 @@ public sealed partial class WeldRequest {
     public static Fin<WeldRequest> Admit(Seq<WeldJoint> joints, WeldPolicy policy, ProcessBudget.Joining budget) =>
         Validate(joints, policy, budget, out WeldRequest request).Admitted(request);
 
-    // Only fill-contributing roles close the groove; buttering and temper metal lands outside it, and every
-    // repair excavation re-opens demand, so the ledger balances contribution against required plus excavated.
     public Fin<Unit> Coverage(Seq<WeldPass> passes) => Joints
         .Map(joint => {
             Seq<WeldPass> own = passes.Filter(pass => pass.Joint == joint.Joint);
@@ -1033,7 +993,6 @@ public sealed partial class WeldPlan {
     public double MaxHeatInputKjMm { get; }
     public int Beads { get; }
 
-    // The lineage walk's own output, named: the deepest repair-of-repair chain the acyclic closure measured.
     public int LineageDepth { get; }
 
     public ContentKey Key { get; }
@@ -1082,7 +1041,7 @@ public sealed partial class WeldPlan {
             plan.MaxHeatInputKjMm, plan.Beads, plan.LineageDepth, plan.Key)));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Weld {
     public static Fin<WeldPlan> Plan(WeldRequest request) =>
         from rows in toSeq(request.Joints.OrderBy(static joint => joint.Joint))
@@ -1095,8 +1054,6 @@ public static class Weld {
         let demands = rows.Map(static row => row.Demand)
         from _coverage in request.Coverage(passes)
         from depth in LineageDepth(passes)
-        // The retaining mint and its refusal both belong to the S0 close, so a plan addresses under bytes a writer
-        // actually held; the quantum is the rule set's own absolute volume tolerance, the grid every column rounds to.
         from key in FabricationCanon.Keyed(
             EgressKind.WeldPlan,
             request.Policy.Rules.AbsoluteVolumeToleranceMm3,
@@ -1117,8 +1074,6 @@ public static class Weld {
     public static double HeatInput(double efficiency, double powerW, double arcTimeS, double weldLengthMm) =>
         efficiency * powerW * arcTimeS / (1000.0 * weldLengthMm);
 
-    // Content-addressed lineage over the emitted passes: a repair naming a parent that does not exist, or a chain
-    // that closes on itself, refuses HERE rather than at a downstream sort that would throw.
     private static Fin<int> LineageDepth(Seq<WeldPass> passes) {
         BidirectionalGraph<(int Joint, int Ordinal), STaggedEdge<(int Joint, int Ordinal), PassLineage>> lineage =
             new(allowParallelEdges: false);
@@ -1171,10 +1126,6 @@ public static class Weld {
             .As()
             .ToFin()
         from frames in Transport(joint, policy, budget.Standoff)
-        // The rule set DEMANDS a torch attitude and the transport hands the one the joint geometry allowed; a frame
-        // outside the declared band is blocked access, and the case naming the joint and the offending work angle
-        // exists precisely because a caller repairs a torch that cannot reach — the generic policy arm carries a
-        // locus string and loses both facts a repair needs.
         from _attitude in frames
             .Find(frame => Math.Abs(frame.WorkAngleDeg - policy.Rules.WorkAngleDeg) > policy.Rules.AttitudeToleranceDeg
                 || Math.Abs(frame.TravelAngleDeg - policy.Rules.TravelAngleDeg) > policy.Rules.AttitudeToleranceDeg)
@@ -1204,13 +1155,9 @@ public static class Weld {
         from demand in Demand(joint, policy, budget, passes, maximum)
         select (passes, Actions(joint, budget), demand, maximum);
 
-    // Every plan gate binds this minter as a method group: the joint ordinal and the axis token ride the gate's two
-    // identity slots, so the locus composes on the failing arm alone.
     private static FabricationFault Refusal(int joint, string locus) =>
         FabricationFault.Inadmissible(FabConcern.Joining, $"weld-plan:{locus}:{joint}");
 
-    // Fold cursor: fill metal closes the groove, deposit metal is every carrier, and the lattice indices place
-    // each bead within its layer. Threading it keeps the pass generator a pure state advance.
     private readonly record struct BeadCursor(
         double FillMm3,
         double DepositMm3,
@@ -1237,8 +1184,6 @@ public static class Weld {
             !ValidityClaim.Positive(rate).Holds || !ValidityClaim.Positive(pathLength).Holds
                 ? Fin.Fail<Seq<WeldPass>>(
                     new KernelFault.InvalidValue("weld", "weld-plan:capacity"))
-                // The fold STOPS at closure: once the ledger meets demand — or a pass refuses — the predicate falls
-                // and no further ordinal evaluates, so the pass ceiling bounds a REFUSAL rather than the ordinary path.
                 : toSeq(Range(0, policy.Rules.PassCap))
                     .FoldWhile(
                         Fin.Succ(new BeadCursor(0.0, 0.0, 0, 0, 1, Seq<WeldPass>())),
@@ -1282,12 +1227,8 @@ public static class Weld {
                    ? Math.Min(capacity, required - cursor.FillMm3)
                    : capacity
                let area = deposited / pathLength
-               // Bead geometry resolves against the layer's section width, so a wide groove takes several beads
-               // across one layer instead of a single full-width deposit stacked vertically.
                let fillHeight = profile.HeightAtFill(fraction)
                let layerWidth = profile.WidthAtHeight(fillHeight)
-               // A bead never runs narrower than its deposition source, so a fillet root of zero layer width still
-               // seats one bead instead of dividing height by a vanishing width.
                let width = Math.Max(law.Deposition.Width, Math.Min(layerWidth, Math.Max(law.Deposition.Width,
                    Math.Sqrt((area * role.Area) / policy.Beads.HeightFactor) * policy.Beads.WidthFactor)))
                let height = area / width
@@ -1305,12 +1246,9 @@ public static class Weld {
                    .Filter(pair => profile.Spans.Exists(span => span.Contains(pair.Item1.StationMm)
                        && span.Contains(pair.Item2.StationMm)))
                    .Fold(0.0, static (sum, pair) => sum + pair.Item1.Pose.Origin.DistanceTo(pair.Item2.Pose.Origin))
-               // Oscillated frames lengthen the commanded path, so the feed scales to hold seam progression.
                let commandedFeed = roleTravel * Math.Max(1.0, wovenLength / pathLength)
                from segments in Segments(joint, policy, profile, inSpan, side, commandedFeed)
                from path in Path(band.Arc, segments, commandedFeed)
-               // Arc time carries oscillation dwell and crater fill, so heat input and energy stop reading a bare
-               // travel-speed quotient that under-reports every dwelling weave.
                let arcTime = band.Arc.ArcTime(path) + band.Weave.DwellSeconds(pathLength)
                let heatInput = HeatInput(mode.Efficiency, powerW, arcTime, pathLength)
                let cooling = BeadEvidence.CoolingTime(
@@ -1340,11 +1278,6 @@ public static class Weld {
                };
     }
 
-    // Station-indexed segments are the seam wire. Each deposit span yields its own run of frames, the arc gate
-    // decides whether that run burns as one circular move or as a linear chain, and the segment records the
-    // interval it owns — so nothing downstream reconstructs seam position from a commanded move ordinal.
-    // An ABSENT `ArcFitPolicy` never reaches the fit at all: presence is what routes, so a caller that did not opt
-    // in pays no measurement and the gate holds no disabled-policy arm.
     private static Fin<Seq<DepositSegment>> Segments(
         WeldJoint joint,
         WeldPolicy policy,
@@ -1380,8 +1313,6 @@ public static class Weld {
             run.Last.Map(static frame => frame.StationMm).IfNone(0.0),
             run, cut, fit));
 
-    // A non-circular run stays one segment per consecutive frame pair: the finest station-indexed granularity a
-    // scheduler can subdivide without re-deriving geometry, and the linear chain the controller already commands.
     private static Fin<Seq<DepositSegment>> Chain(
         WeldJoint joint, int side, int span, Seq<TorchFrame> run, double feedMmMin) =>
         run.Zip(run.Tail)
@@ -1394,7 +1325,6 @@ public static class Weld {
             .Traverse(identity)
             .As();
 
-    // The commanded chain: approach, run-in, and backstep AHEAD of the burning segments, run-out behind them.
     private static Fin<Seq<Move>> Path(ArcProgram arc, Seq<DepositSegment> segments, double feedMmMin) =>
         from lead in arc.Lead(segments[0].From, feedMmMin)
         from trail in arc.Trail(segments[^1].To, feedMmMin)
@@ -1416,9 +1346,6 @@ public static class Weld {
             .Map(static rows => rows.Map(static (frame, index) => frame with { Waypoint = index }));
     }
 
-    // Span endpoints rarely coincide with seam vertices, so each boundary station gains an interpolated frame;
-    // without it a span bracketed by two distant vertices yields fewer than two run frames and no deposit path.
-    // The merge walks BOTH sorted station streams once — a per-station rescan and re-sort is the deleted form.
     private static Seq<TorchFrame> Resample(Seq<TorchFrame> rows, Seq<double> required) =>
         toSeq(required.Distinct().OrderBy(identity)).Fold(
             (Held: rows, Cursor: 0),
@@ -1526,9 +1453,6 @@ public static class Weld {
             .ToFin()
             .Bind(rows => WeldDemand.Admit(joint.Joint, rows.ToMap(), joint.QualificationContext, joint.Inspection));
 
-    // Every preimage column rides `FabricationCanon` over the one Element codec: `Rows` frames each collection,
-    // `Discriminant` frames each generated key, `Coords` frames each point and vector, `Maybe` frames each optional.
-    // The dwell fact enters ONCE, in seconds — the millisecond controller word is derived at egress and never keyed.
     private static CanonicalWriter Preimage(
         CanonicalWriter writer,
         Seq<WeldPass> passes,
@@ -1536,8 +1460,6 @@ public static class Weld {
         Seq<WeldDemand> demands,
         WeldPolicy policy) =>
         writer
-            // The governing code frames the digest: a WPS is qualified UNDER a standard, so two geometrically
-            // identical plans filed to different codes are different deliverables and must not address alike.
             .Discriminant(policy.Rules.Code)
             .Rows(passes, static (sink, pass) => sink
                 .Ordinal(pass.Joint).Discriminant(pass.Role).Discriminant(pass.Position)
@@ -1551,8 +1473,6 @@ public static class Weld {
             .Rows(actions, static (sink, action) => sink.Action(action))
             .Rows(demands, static (sink, demand) => sink.Demand(demand));
 
-    // The page's OWN column writers over the shared codec — one per page-owned shape, each an ordinary extension on
-    // the writer, so every preimage site chains and no site re-spells a column order.
     extension(CanonicalWriter sink) {
         internal CanonicalWriter Segment(DepositSegment segment) => sink
             .Ordinal(segment.Ordinal).Ordinal(segment.Span)
@@ -1635,8 +1555,6 @@ public static class Weld {
                     areal: static (inner, value) => inner.Ordinal(2).Double(value.Value.SquareMillimeters),
                     volumetric: static (inner, value) => inner.Ordinal(3).Double(value.Value.CubicMillimeters)));
 
-        // A quantity's family is its `QuantityInfo.Name` and its magnitude its base-unit reading, so the preimage
-        // never depends on the unit a caller constructed with and a unit RENAME cannot re-key a signed plan.
         internal CanonicalWriter Qualification(QualificationValue value) => value.Switch(
             state: sink,
             quantity: static (row, held) => row.Ordinal(0)

@@ -30,8 +30,6 @@ import { Array, DateTime, Effect, Layer, Schema } from "effect"
 
 const _bands = ["glb", "bvh", "frame", "draft", "media"] as const
 
-// one row per band: identity posture, reproducibility, and eviction order — every band decision reads off this table;
-// media is speculative prefetch (view/media#SOURCE_PLANE consumes it), so it evicts ahead of every rendered product
 const _BANDS = {
   glb: { keyed: true, remintable: true, rank: 2 },
   bvh: { keyed: false, remintable: true, rank: 1 },
@@ -51,7 +49,7 @@ class Leaf extends Schema.Class<Leaf>("Leaf")({
 class Entry extends Schema.Class<Entry>("Entry")({
   key: Digest.Key.content,
   band: Schema.Literal(..._bands),
-  state: Schema.Literal("pending", "resident"), // two-phase commit: a torn write leaves a reapable pending row
+  state: Schema.Literal("pending", "resident"),
   leaves: Schema.NonEmptyArray(Leaf),
   at: Schema.DateTimeUtc,
 }) {
@@ -67,22 +65,16 @@ class Ledger extends Schema.Class<Ledger>("Ledger")({
   entries: Schema.HashMap({ key: Digest.Key.content, value: Entry }),
 }) {}
 
-// _Index holds the enumerable roster as a value, because the store contract answers size and never a key listing
 const _Index = KeyValueStore.layerSchema(Ledger, "ui/CacheLedger")
 
-// _opfs names the six members OPFS answers, and the whole of what `make` demands: it synthesizes has/isEmpty/modify/
-// modifyUint8Array/forSchema from them, so the binding is a projection — never a FileSystem port built to reach a Layer
 declare const _opfs: (
   root: FileSystemDirectoryHandle,
 ) => Pick<KeyValueStore.KeyValueStore, "get" | "getUint8Array" | "set" | "remove" | "clear" | "size">
 
-// HOW the store is built is this module's, WHICH segment it occupies is the root's — the app's own prefix is the one
-// parameter, so the keyspace law above holds without a root literal landing here; `_Index` layers over what this yields
 const _store = (segment: string): Layer.Layer<KeyValueStore.KeyValueStore> =>
   Layer.effect(
     KeyValueStore.KeyValueStore,
     Effect.map(
-      // BOUNDARY ADAPTER: the origin-private directory is a promise-shaped native handle acquired ONCE per composition
       Effect.promise(() => globalThis.navigator.storage.getDirectory()),
       (root) => KeyValueStore.prefix(KeyValueStore.make(_opfs(root)), segment),
     ),
@@ -102,14 +94,9 @@ const _store = (segment: string): Layer.Layer<KeyValueStore.KeyValueStore> =>
 import { Fault } from "@rasm/core"
 import { Array, Effect, Schema } from "effect"
 
-// a store refusal reading or amending the index belongs to no band, so the ledger stands as its own scope beside the
-// band roster — naming a band there blames an asset that had nothing to do with the failure, and the two integrity
-// reasons cannot spell it at all: damage inside an entry always names the entry's own band
 const _Band = Schema.Literal(..._bands)
 const _Scope = Schema.Literal(..._bands, "ledger")
 
-// one row per reason: the core class the projection reads, the leg that partitions this page's census, and the
-// subject that reason alone renders from
 const _family = Fault.Class.family(
   ["key-mismatch", "leaf-torn", "quota-refused", "store-refused"] as const,
   {
@@ -156,8 +143,6 @@ class CacheFault extends Schema.TaggedError<CacheFault>()("CacheFault", {
   get class(): Fault.Class.Kind {
     return _family.classOf(this.case.reason)
   }
-  // DERIVED off the leg that already partitions the census: the integrity leg indicts the stored entry, the store leg
-  // indicts the host, and a stored per-row bit beside them would be a second answer to a question the leg settles
   get evict(): boolean {
     return _family.legOf(this.case.reason) === "integrity"
   }
@@ -168,9 +153,6 @@ class CacheFault extends Schema.TaggedError<CacheFault>()("CacheFault", {
 
 const _verified = (entry: Entry, leaves: Cache.Leaves): Effect.Effect<Cache.Leaves, CacheFault> =>
   Effect.gen(function* () {
-    // POSITION joins the roster to the bytes and the NAME is that position's evidence: the entry published this order
-    // at mint, so a slot answering a different name is a re-keyed construction rather than a lookup to fall back on,
-    // and the refusal carries that slot instead of the entry key alone
     const torn = (slot: number, leaf: Leaf) =>
       new CacheFault({ case: { reason: "leaf-torn", band: entry.band, key: entry.key, slot, leaf: leaf.name } })
     yield* Effect.forEach(
@@ -183,8 +165,6 @@ const _verified = (entry: Entry, leaves: Cache.Leaves): Effect.Effect<Cache.Leav
         ),
       { discard: true },
     )
-    // integrity holds for every leaf; a keyed band additionally proves the ADDRESS is the content's own digest, and
-    // the refusal names BOTH addresses because a mismatch is only readable as the pair
     const head = Array.headNonEmpty(entry.leaves)
     return yield* _BANDS[entry.band].keyed && head.digest !== entry.key
       ? Effect.fail(new CacheFault({ case: { reason: "key-mismatch", band: entry.band, key: entry.key, minted: head.digest } }))
@@ -207,22 +187,14 @@ import { HashMap, Option, Predicate } from "effect"
 
 declare namespace Cache {
   type Band = (typeof _bands)[number]
-  type Scope = typeof _Scope.Type // what a refusal blames: an asset band, or the index that belongs to none
-  // one leaf's bytes beside the name they answer to, in the SEQUENCE POSITION that is its address
+  type Scope = typeof _Scope.Type
   type Octets = { readonly name: string; readonly octets: Uint8Array<ArrayBuffer> }
-  // `Leaves` IS the ordered owning value: it publishes the roster once, beside the bytes it names, so every reader
-  // walks it by position and no consumer re-derives order from a container's enumeration. Non-empty by type, because
-  // a mint yielding no leaf is a caller defect no recovery arm could act on
   type Leaves = Array.NonEmptyReadonlyArray<Cache.Octets>
   type Bundle = { readonly key: Digest.Key<"content">; readonly band: Cache.Band; readonly leaves: Cache.Leaves }
   type Vault = KeyValueStore.KeyValueStore | KeyValueStore.SchemaStore<Ledger, never>
   type _Rows<T extends Record<Cache.Band, { readonly keyed: boolean; readonly remintable: boolean; readonly rank: number }> = typeof _BANDS> = T
 }
 
-// every platform refusal re-tags once at this seam, so no member below carries the store's own fault vocabulary; the
-// two store reasons split HERE because only one of them a sweep can answer — the origin refusing on quota rejects
-// with the platform's own `QuotaExceededError`, and the same write lands once pressure reclaims, while every other
-// refusal names a store that answers nothing
 const _quota = (cause: unknown): boolean =>
   Predicate.hasProperty(cause, "name") && cause.name === "QuotaExceededError"
 
@@ -235,8 +207,6 @@ const _refused = <A, R>(band: Cache.Scope, self: Effect.Effect<A, unknown, R>): 
 const _ledger: Effect.Effect<Ledger, CacheFault, Cache.Vault> = Effect.flatMap(_Index.tag, (index) =>
   Effect.map(_refused("ledger", index.get(_LEDGER)), Option.getOrElse(() => new Ledger({ entries: HashMap.empty() }))))
 
-// _amend seeds the row on the first commit and atomically read-modify-writes on every later one, because the store's
-// modify is not an upsert; amending through a get-then-set pair would let two concurrent commits clobber each other's row
 const _amend = (band: Cache.Band, step: (ledger: Ledger) => Ledger): Effect.Effect<void, CacheFault, Cache.Vault> =>
   Effect.flatMap(_Index.tag, (index) =>
     Effect.flatMap(_refused(band, index.modify(_LEDGER, step)), (amended) =>
@@ -245,8 +215,6 @@ const _amend = (band: Cache.Band, step: (ledger: Ledger) => Ledger): Effect.Effe
         onSome: () => Effect.void,
       })))
 
-// BOUNDARY ADAPTER: the store allocates every buffer it answers, so its bytes are non-shared by construction; the
-// port's non-shared generic is proven once here rather than re-guarded at every consumer handing .buffer to a decoder
 const _octets = (band: Cache.Band, address: string): Effect.Effect<Option.Option<Uint8Array<ArrayBuffer>>, CacheFault, Cache.Vault> =>
   Effect.flatMap(KeyValueStore.KeyValueStore, (store) =>
     Effect.map(_refused(band, store.getUint8Array(address)), (held) =>
@@ -255,10 +223,7 @@ const _octets = (band: Cache.Band, address: string): Effect.Effect<Option.Option
 const _committed = (entry: Entry, leaves: Cache.Leaves): Effect.Effect<void, CacheFault, Cache.Vault> =>
   Effect.gen(function* () {
     const store = yield* KeyValueStore.KeyValueStore
-    // _committed lands the pending row FIRST: a write torn here leaves a row the sweep can reap by address, never orphan bytes
     yield* _amend(entry.band, (held) => new Ledger({ entries: HashMap.set(held.entries, entry.key, entry) }))
-    // roster and bytes walk in ONE order — the entry's — so the address written and the leaf recorded are the same
-    // slot, and no name lookup stands between the two to disagree
     yield* Effect.forEach(
       entry.leaves,
       (leaf, at) =>
@@ -283,8 +248,6 @@ const _minted = <E, R>(
   Effect.gen(function* () {
     const leaves = yield* mint
     const at = yield* DateTime.now
-    // identity is minted HERE from the caller's own bytes, IN the caller's own order: a caller cannot record an extent
-    // or a digest it never computed, and the sequence it handed over IS the roster this entry publishes downstream
     const rows = yield* Effect.forEach(leaves, (held) =>
       Effect.map(Digest.mint("content", held.octets), (digest) =>
         new Leaf({ name: held.name, extent: held.octets.byteLength, digest })))
@@ -292,9 +255,6 @@ const _minted = <E, R>(
     return { key, band, leaves }
   })
 
-// _read walks the ENTRY's roster, so the sequence it yields carries the published order by construction and the
-// verify below never reconstructs one; a leaf the ledger promises and the store cannot answer IS the torn state,
-// re-spelled at the point of knowledge rather than carried on as an absence a later reader has to interpret
 const _read = (entry: Entry): Effect.Effect<Cache.Leaves, CacheFault, Cache.Vault> =>
   Effect.flatMap(
     Effect.forEach(entry.leaves, (leaf, at) =>
@@ -319,7 +279,6 @@ const _resident = <E, R>(
       Option.filter(HashMap.get(held.entries, key), (entry) => entry.state === "resident" && entry.band === band),
       {
         onNone: () => _minted(band, key, mint),
-        // a failed verification retires and re-mints: a corrupted band costs one mint and never reaches the caller
         onSome: (entry) =>
           Effect.catchIf(
             Effect.map(_read(entry), (leaves): Cache.Bundle => ({ key, band, leaves })),
@@ -345,8 +304,6 @@ import { Order } from "effect"
 declare namespace Cache {
   type Verdict = keyof typeof _PRESSURE
   type Budget = { readonly usage: number; readonly quota: number; readonly headroom: number; readonly verdict: Cache.Verdict }
-  // the sweep's own tally: what the pressure row asked for, what the victim fold actually took, and the keys it
-  // retired — the shortfall is the subtraction a caller can now perform, never a claim this owner asserts
   type Reclaim = {
     readonly target: number
     readonly freed: number
@@ -364,7 +321,6 @@ declare namespace Cache {
   }
 }
 
-// _PRESSURE states the fraction of measured usage a sweep reclaims; an opaque origin sweeps as if tight because it may evict everything
 const _PRESSURE = { ample: 0, tight: 0.25, critical: 0.6, opaque: 0.25 } as const
 
 const _victim: Order.Order<Entry> = Order.combine(
@@ -380,7 +336,6 @@ const _retire = (key: Digest.Key<"content">): Effect.Effect<void, CacheFault, Ca
     yield* Option.match(HashMap.get(held.entries, key), {
       onNone: () => Effect.void,
       onSome: (entry) =>
-        // leaves first: a row outliving its bytes is the torn state the gate exists to catch
         Effect.andThen(
           Effect.forEach(entry.leaves, (leaf) => _refused(entry.band, store.remove(entry.address(leaf.name))), { discard: true }),
           _refused(entry.band, index.set(_LEDGER, new Ledger({ entries: HashMap.remove(held.entries, key) }))),
@@ -393,13 +348,9 @@ const _target = (budget: Cache.Budget): number => budget.usage * _PRESSURE[budge
 const _sweep = (budget: Cache.Budget): Effect.Effect<Cache.Reclaim, CacheFault, Cache.Vault> =>
   Effect.flatMap(_ledger, (held) => {
     const target = _target(budget)
-    // ONE fold both chooses and measures, so the receipt below carries the sum this walk already took rather than a
-    // second walk over the victims it chose — a shortfall is the fold's own arithmetic, never a re-derived claim
     const taken = Array.reduce(
-      // a non-remintable band is filtered OUT before ordering, so no pressure level can reach an upload spill
       Array.sort(Array.filter(HashMap.values(held.entries), (entry) => _BANDS[entry.band].remintable), _victim),
       { freed: 0, victims: Array.empty<Entry>() },
-      // whole entries only: the fold overshoots its target rather than splitting one and stranding its ledger row
       (state, entry) =>
         state.freed >= target
           ? state
@@ -422,7 +373,7 @@ const Cache: Cache.Shape = {
   sweep: _sweep,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Cache, CacheFault }
 ```

@@ -71,16 +71,11 @@ declare namespace Seam {
     readonly connect: ReadonlyArray<string>
     readonly assets: Option.Option<string>
   }
-  // One priced subject per request: the holder the credential lift bound (the caller address when anonymous), the
-  // matched pattern, and the cost that pattern declared — so a row projects what the edge already holds in hand.
   type Subject = {
     readonly holder: string
     readonly route: string
     readonly weight: number
   }
-  // Four columns every rate posture in the branch shares, three of them projections a row's axis mints — `limit`
-  // reads the subject exactly as `key` and `cost` do, matching `work/queue#THROTTLE`'s row so a ceiling this estate
-  // fixes and a ceiling a peer states inhabit one grammar, and a row this estate bounds answers a constant.
   type Quota = {
     readonly scope: string
     readonly algorithm: "fixed-window" | "token-bucket"
@@ -91,8 +86,6 @@ declare namespace Seam {
   }
   type Policy = {
     readonly shield: Shield
-    // rows carry the ceilings a fleet tunes per environment; `weight` carries the per-pattern cost, and a pattern
-    // this record never names is unpriced — the exemption is an absence, never a second roster
     readonly quota: {
       readonly rows: ReadonlyArray<Quota>
       readonly weight: Readonly<Record<string, number>>
@@ -102,8 +95,6 @@ declare namespace Seam {
   }
 }
 
-// every directive whose sources are deployment facts reads them here; `wasm-unsafe-eval` is what CSP3 demands
-// for the decoder leaves the served asset tree instantiates
 const _directives = (shield: Seam.Shield): ReadonlyArray<readonly [string, ReadonlyArray<string>]> => [
   ["default-src", ["'self'"]],
   ["frame-ancestors", ["'none'"]],
@@ -122,7 +113,6 @@ const _shield = (shield: Seam.Shield): Record<string, string> => ({
   ),
 })
 
-// One spelling holds the collector, in the export policy: this projection is the only place the serving edge reads it
 const _shieldOf = (
   policy: Export.Policy,
   origins: { readonly connect: ReadonlyArray<string>; readonly assets: Option.Option<string> },
@@ -132,13 +122,8 @@ const _shieldOf = (
   assets: origins.assets,
 })
 
-// One partial application per policy: the directive join and the forwarded-trust selection resolve at composition,
-// so a served response stamps a frozen header record rather than re-joining six directive source lists per hop.
 const _guard = (policy: Seam.Policy) => {
   const stamped = _shield(policy.shield)
-  // Fronted deployments read their PUBLIC host and the caller address off the proxy's own hops — the values the
-  // multiplex predicates match and every audit key carries — while an unfronted origin refuses the same rewrite,
-  // because those headers stay caller-writable and a forged one selects its own virtual host.
   const forwarded = policy.fronted ? HttpMiddleware.xForwardedHeaders : identity
   return <E, R>(
     app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R | HttpServerRequest.HttpServerRequest>,
@@ -146,8 +131,6 @@ const _guard = (policy: Seam.Policy) => {
     forwarded(Effect.gen(function* () {
       const request = yield* HttpServerRequest.HttpServerRequest
       const now = yield* DateTime.now
-      // `try`, never `sync`: a host without a secure random source throws at the mint, and the seam's own net
-      // renders that refusal instead of a defect the `never` channel cannot state
       const id = yield* Effect.try(() => crypto.randomUUID())
       const fallback = yield* Current.Locale
       const mark: Current.Mark = {
@@ -156,14 +139,11 @@ const _guard = (policy: Seam.Policy) => {
         locale: Option.some(Current.negotiate(Option.fromNullable(request.headers["accept-language"]), fallback)),
       }
       return yield* Current.traced(app, request.headers).pipe(
-        // one fiber-ref bound for every mounted route, so an upload endpoint declares its shape and never its ceiling
         Multipart.withLimits(policy.uploads),
         Effect.catchAllCause(Problem.net),
         (guarded) => Current.provide(guarded, mark, fallback),
       )
     }).pipe(
-      // Mark minting sits ABOVE its own provision, so a refusal there renders stamp-less through the same net,
-      // and the shield stamps at the one edge both arms leave through
       Effect.catchAllCause(Problem.net),
       Effect.map(HttpServerResponse.setHeaders(stamped)),
     ))
@@ -171,9 +151,6 @@ const _guard = (policy: Seam.Policy) => {
 
 const _SAFE: ReadonlyArray<string> = ["GET", "HEAD", "OPTIONS"]
 
-// Cookie presentation is the one AMBIENT credential a browser replays on any origin's behalf, so it alone owes the
-// double-submit proof; a bearer or api-key header cannot be replayed cross-site and the gate costs it nothing. Both
-// reads come off ONE CookieSpec row, and the refusal re-spells onto the gate family through its own counting seam.
 const _doubled = (
   request: HttpServerRequest.HttpServerRequest,
   via: Principal.Shape["via"],
@@ -193,7 +170,6 @@ const _admission = (identity: Identity.App) =>
       Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest
         const admitted = yield* Gate.Authn.admit(identity, request.headers)
-        // Verified credentials first exist HERE, so this is the ONE place tenancy can bind
         return yield* Option.match(admitted, {
           onNone: () => Effect.provideService(app, Current.Admitted, Option.none()),
           onSome: (held) =>
@@ -209,11 +185,6 @@ const _admission = (identity: Identity.App) =>
     { global: true },
   )
 
-// Http instrumentation owns the record and reads `route` off it at response end to build the span attribute
-// AND the duration histogram's dimension; the write guards on `RPCType.HTTP` because that is the discriminant the
-// reader compares, and a stamp that throws folds here rather than widening every mounted route's error channel
-// ONE pattern projection, two readers: the RED plane's route dimension and the priced bucket must name the same
-// string, or a chart and a quota disagree about which route a caller actually hit
 type _Matched = Effect.Effect.Success<typeof HttpLayerRouter.RouteContext>
 
 const _pattern = (matched: _Matched): string =>
@@ -239,15 +210,10 @@ const _routed = <E, R>(
   options?: { readonly uninterruptible?: boolean },
 ) => HttpLayerRouter.add(method, path, (request) => Effect.zipRight(_stamp, handler(request)), options)
 
-// This api arm answers `addHttpApi`, which publishes no per-endpoint hook: an api-level middleware runs inside the
-// match where `RouteContext` carries the endpoint's own pattern
 class Routed extends HttpApiMiddleware.Tag<Routed>()("runtime/serve/Routed") {
   static readonly live: Layer.Layer<Routed> = Layer.succeed(Routed, _stamp)
 }
 
-// Both projections derive from the ONE axis a row fans on: `principal` prices a holder's whole traffic, `route`
-// prices that holder on the matched pattern, and every row costs the pattern's declared weight — the same generator
-// shape `work/queue#THROTTLE` mints its rows from, over the same four columns under the other posture.
 const _AXES = {
   principal: (subject: Seam.Subject): string => subject.holder,
   route: (subject: Seam.Subject): string => `${subject.holder}:${subject.route}`,
@@ -258,26 +224,14 @@ const _keyed = (axis: keyof typeof _AXES): Pick<Seam.Quota, "cost" | "key"> => (
   key: _AXES[axis],
 })
 
-// Shipped pair: an app root spreads these values into `policy.quota.rows`; the axis vocabulary closes here
-// against the two coordinates a request carries, while the ceilings stay policy because a fleet tunes them per
-// environment and a row is named so a deployment can drop one without re-deriving the other
 const _QUOTA = {
   principal: { scope: "edge-principal", algorithm: "token-bucket", window: Duration.minutes(1), limit: () => 600, ..._keyed("principal") },
   route: { scope: "edge-route", algorithm: "fixed-window", window: Duration.minutes(1), limit: () => 120, ..._keyed("route") },
 } as const satisfies Record<string, Seam.Quota>
 
-// What a caller carrying this pattern's declared weight actually gets per minute under one row: the row's own
-// ceiling divided by what the pattern costs, normalized off the row's window so a five-second row and a one-minute
-// row answer in one unit. This is the figure the webhook handshake grants, so the promise and the enforcement read
-// one arithmetic rather than a number an app typed beside the table.
 const _perMinute = (row: Seam.Quota, subject: Seam.Subject): number =>
   Math.max(1, Math.floor(row.limit(subject) / Math.max(1, row.cost(subject)) / Math.max(Duration.toMinutes(row.window), 1 / 60)))
 
-// This grant PROMISES what the edge enforces, so it derives from the rows enforcing it: an app free to
-// type a rate beside the quota table would advertise a ceiling the seam never keeps, and pacing against that
-// advertised figure is the only thing the specification's rate half exists for. The TIGHTEST row governs, because
-// that is the one a sender meets first, and a pattern the weight record never names spends nothing at all — `*` is
-// then the truthful grant rather than a cap guessed over an unpriced route.
 const _granted = (policy: Seam.Policy, route: string): string =>
   Option.match(Option.fromNullable(policy.quota.weight[route]), {
     onNone: () => "*",
@@ -288,24 +242,16 @@ const _granted = (policy: Seam.Policy, route: string): string =>
       }),
   })
 
-// `Fleet.RateLimiter` takes `key` verbatim and namespaces nothing, so the row's scope joins its projection HERE — the
-// identical join the work plane folds, which is what keeps one declared row on one bucket across both postures
 const _bucket = (row: Seam.Quota, subject: Seam.Subject): string => `${row.scope}:${row.key(subject)}`
 
 type _Admitted = Effect.Effect.Success<typeof Current.Admitted>
 
-// Credentials key their own bucket and everything else keys the caller address, so anonymous traffic still prices
-// rather than exempting exactly the callers the table exists to bound; the address is the POST-forwarding one, which
-// is why `fronted` decides more than dispatch — an unfronted origin trusting the hop hands out a bucket per request.
 const _holder = (request: HttpServerRequest.HttpServerRequest, admitted: _Admitted): string =>
   Option.match(admitted, {
     onNone: () => `addr:${Option.getOrElse(request.remoteAddress, () => "unknown")}`,
     onSome: (held) => `sub:${held.principal.subject}`,
   })
 
-// Rows nest outward-in — the last row reduced wraps first and therefore spends first, so a refusal at the coarser
-// bucket never spends the finer one's tokens. Every arm refuses through `Gate.fenced`'s one price, so the 429 and
-// its measured `retry-after` are the admission plane's spelling and this seam adds no second refusal.
 const _quota = (policy: Seam.Policy) =>
 <A, E, R>(self: Effect.Effect<A, E, R>): Effect.Effect<
   A,
@@ -315,7 +261,7 @@ const _quota = (policy: Seam.Policy) =>
   Effect.flatMap(HttpLayerRouter.RouteContext, (matched) =>
     pipe(_pattern(matched), (route) =>
       Option.match(Option.fromNullable(policy.quota.weight[route]), {
-        onNone: () => self, // an unpriced pattern spends nothing at all: the probe trio and the asset tree stay free
+        onNone: () => self,
         onSome: (weight) =>
           Effect.gen(function* () {
             const request = yield* HttpServerRequest.HttpServerRequest
@@ -332,8 +278,6 @@ const _quota = (policy: Seam.Policy) =>
           }),
       })))
 
-// `addHttpApi` publishes no per-endpoint hook, so pricing takes the same api-level seat route attribution does:
-// an api middleware runs INSIDE the match, where `RouteContext` carries the endpoint's own pattern
 class Priced extends HttpApiMiddleware.Tag<Priced>()("runtime/serve/Priced", { failure: GateFault }) {
   static readonly live = (policy: Seam.Policy): Layer.Layer<Priced> => Layer.succeed(Priced, _quota(policy)(Effect.void))
 }
@@ -378,8 +322,6 @@ const Seam = {
 - Packages: `@effect/platform`, `cloudevents` (`HTTP`, `CONSTANTS`), `effect`, `node:buffer`, `@rasm/core` (`Carrier`, `Event`, `Format`), `@rasm/data`, `@rasm/security`, and `../net/channel.ts` (`Avro` — the lane-owned Avro codec).
 
 ```typescript signature
-// The platform body collector reads this fiber-local ceiling while materializing `arrayBuffer`, so the bound applies
-// to actual bytes (including chunked delivery) and a missing or lying Content-Length can neither refuse nor bypass it.
 const _octets = (
   request: HttpServerRequest.HttpServerRequest,
   ceiling: FileSystem.SizeInput,
@@ -399,13 +341,8 @@ const _health: Layer.Layer<never, never, Life | HttpLayerRouter.HttpRouter> = La
   ),
 )
 
-// Rows FOLD over this empty seat rather than spreading into `Layer.mergeAll`, whose tuple parameter no runtime row
-// list can promise an arity for: a `Mount.of()` carrying nothing serves an app with nothing mounted.
 const _UNMOUNTED: Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Mount.Lift> = Layer.empty
 
-// Runtime capability owns the lift rather than any route, so this fold reads it ONCE at Layer construction and
-// hands it to every mounted row: a served route then carries a bare requirement channel, and a runtime row
-// binding no node pair refuses at assembly instead of inside a request.
 const _mounts: Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Mount.Lift> = Layer.unwrapEffect(
   Effect.gen(function* () {
     const rows = yield* Effect.serviceOption(Mount)
@@ -416,8 +353,6 @@ const _mounts: Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Mount.Lift
         Array.reduce(mounts, _UNMOUNTED, (held, mount) =>
           Layer.merge(
             held,
-            // Mounted apps raise the realtime family: `Problem.of` reads the class the fault already carries,
-            // so a foreign protocol's refusal answers at the same status every route on this page does
             _routed("*", `${mount.prefix}/*`, () => Effect.provide(Effect.mapError(mount.app, Problem.of), lift)),
           )),
     })
@@ -425,14 +360,11 @@ const _mounts: Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Mount.Lift
 )
 
 declare namespace Inbound {
-  // One admitted member carries the arriving message envelope, its grammar-proven addressed record, the whole
-  // roster read, every peer name this roster misses, and the CREATION-time context its extensions held.
   type Admitted = {
     readonly envelope: CloudEvent<unknown>
     readonly fact: Schema.Schema.Type<typeof Event.rasm.Fact>
     readonly roster: Event.Roster
     readonly dropped: Event.Read["dropped"]
-    // the extraction WHOLE — its parse census rides beside the context, and `Propagation.ingress` is what spends it
     readonly carrier: Carrier.Extraction
   }
   type Frame = Data.TaggedEnum<{
@@ -447,8 +379,6 @@ declare namespace Inbound {
     readonly mac: Option.Option<MacKey>
     readonly tolerance: Duration.Duration
     readonly classes: Array.NonEmptyReadonlyArray<Event.Class>
-    // Application policy opts this route into abuse protection: one admitted DNS expression roster gates both the
-    // validation grant and every delivery request.
     readonly origins: Array.NonEmptyReadonlyArray<typeof WebhookOrigin.Type>
     readonly trust: (
       principal: Principal.Shape,
@@ -466,7 +396,6 @@ class _Settlement extends Schema.Class<_Settlement>("Inbound.Settlement")({
   id: Schema.NonEmptyString,
   disposition: Schema.Literal("accepted", "duplicate"),
 }) {}
-// Abuse protection uses the specification's vocabulary; the origin roster, rate, and signature policy remain app data.
 const _WEBHOOK = {
   origin: "webhook-request-origin",
   callback: "webhook-request-callback",
@@ -478,8 +407,6 @@ const _WEBHOOK = {
 const _eventProblem = (detail: string): Problem => Problem.of({ class: "malformed", message: detail })
 const _eventRefused = (refusal: Event.Refusal): Problem => _eventProblem(refusal.message)
 
-// Platform `Headers` has already joined duplicates. The selected runtime row must expose the field-line arrays before
-// that lossy normalization; this fold then admits exactly one value per case-folded name.
 const _sanitized: Effect.Effect<Message["headers"], Problem, InboundHeaders | HttpServerRequest.HttpServerRequest> =
   Effect.flatMap(InboundHeaders, ({ distinct }) => distinct).pipe(
     Effect.mapError((fault) => _eventProblem(fault.message)),
@@ -511,9 +438,6 @@ const _delivery = (headers: Message["headers"], body: Uint8Array): Effect.Effect
     ? Effect.fail(_eventProblem("<webhook-payload-and-content-type-required>"))
     : Effect.void
 
-// Detection reads the frame and nothing else: exact parsed media identity carries the core owner's closed frame for
-// a structured or batch frame, while a binary frame declares itself with the binding's own specversion header and leaves
-// `content-type` to the DATA — so a frame naming neither refuses before a single body byte is parsed.
 const _framing = (headers: Message["headers"]): Effect.Effect<Inbound.Frame, Problem> => {
   const binary = Option.isSome(_header(headers, CONSTANTS.CE_HEADERS.SPEC_VERSION))
   const structured = Option.flatMap(_header(headers, CONSTANTS.HEADER_CONTENT_TYPE), Format.event.framed)
@@ -584,9 +508,6 @@ const _binaryDecoded = (
     Effect.map(Array.of),
   )
 
-// Detection decides routing once. Each structured format receives its exact codec, while binary mode remains the
-// official transport binding; no structured payload is fabricated into an HTTP message for a decoder that owns a
-// different format.
 const _decoded = (
   headers: Message["headers"],
   body: Uint8Array,
@@ -640,11 +561,6 @@ const _resolved = (
         : Effect.mapError(Event.clone(envelope, { data: receipt.bytes }, ["data_base64"]), _eventRefused)
     })
 
-// `data:journal/append#RELAY_ROWS` owns the authenticated inverse and this route is its consumer: the arriving
-// announcement's tenant claim must EQUAL the admitted webhook token's scope before the fact enters, so a peer
-// announcing another tenant's fact refuses HERE rather than at the projection it would otherwise reach. The extraction stays
-// whole: the tenancy proof decides the context alone, the parse census survives it, and `Propagation.ingress` spends
-// that census once at the settle seam.
 const _carried = (
   envelope: CloudEvent<unknown>,
   scope: Identity.Tenant,
@@ -655,8 +571,6 @@ const _carried = (
       onSome: (proved): Effect.Effect<Carrier.Extraction, Problem> => Effect.succeed({ context: proved, dropped }),
     }))
 
-// Admission has already crossed the strict envelope boundary; the Rasm profile now projects its addressed record
-// and generated extension roster without another transport-specific interpretation.
 const _admitted = (
   envelope: CloudEvent<unknown>,
   scope: Identity.Tenant,
@@ -716,8 +630,6 @@ const _settled = (
     })
   })
 
-// Every delivery request rides its claimed origin, so this read gates the POST as well as the handshake and a target
-// that answered one validation exchange never inherits a trust the next message failed to re-present.
 const _originDenied = (): Problem => Problem.of({ class: "denied", message: "<unallowed-webhook-origin>" })
 const _origin = (
   headers: Message["headers"],
@@ -740,8 +652,6 @@ const _inbound = (
   policy: Seam.Policy,
 ): Layer.Layer<never, never, Claim | Jwt | Verify | Dataref | _Idempotency | InboundHeaders | HttpLayerRouter.HttpRouter> =>
   Layer.merge(
-    // This handshake answers on the SAME path a delivery posts to. A handled but denied validation returns no grant
-    // headers; status is not consent, and 405 belongs only to targets that do not handle OPTIONS at all.
     _routed("OPTIONS", spec.route, () =>
       Effect.match(Effect.flatMap(_sanitized, (headers) =>
         _requestRate(headers)
@@ -778,8 +688,6 @@ const _inbound = (
             spec.trust,
             spec.classes,
           )
-          // Each member enters the one address bracket before settling under its OWN creation-time parent: a batch
-          // carries as many producer identities and traces as it has members, and every replay remains readable.
           const outcomes = yield* Effect.forEach(
             members,
             (admitted) => _settled(admitted, verified, spec.settle),
@@ -822,8 +730,6 @@ const Inbound = {
 const _csrfed: Effect.Effect<void, Problem, Cookie | HttpServerRequest.HttpServerRequest> = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest
   const cookie = yield* Cookie
-  // both reads come off ONE CookieSpec row: the cookie under `name`, the echo under `header` — the browser dial
-  // stamps that same `header`, so the pair cannot fork into the silent fail-closed mismatch a literal here mints
   yield* cookie.verify(
     Option.fromNullable(request.cookies[CookieSpec.csrf.name]),
     Option.fromNullable(request.headers[CookieSpec.csrf.header]),
@@ -910,15 +816,8 @@ const _cleared: Effect.Effect<
 
 const _AUTH = "/auth"
 
-// Apple with a requested scope lands its authorization response in the urlencoded BODY, not the query, so this
-// reads every field once into a record the URL search then carries. Reading the body once and rebuilding the URL
-// keeps the one `OAuth.callback` reading `state`, `code`, and `id_token` from the same place both channels present
-// them, and never a body the exchange leg then re-reads empty.
 const _FormPost = Schema.Record({ key: Schema.String, value: Schema.String })
 
-// One landing fold both callback channels share: the query arm and the form-post arm each build the response URL
-// their own way, then hand it to the ONE `OAuth.callback` that consumes the snapshot, exchanges, verifies, and
-// establishes — so the redirect, the framing, and the CSRF mint exist once rather than per channel.
 const _landOAuth = (provider: Parameters<OAuth["callback"]>[0], landed: URL) =>
   Effect.gen(function* () {
     const oauth = yield* OAuth
@@ -941,19 +840,12 @@ const _ceremony = () =>
       })),
     _routed("GET", `${_AUTH}/callback/:provider`, () =>
       Effect.gen(function* () {
-        // Hand the WHOLE authorization response across, never a pair of picked params: the ceremony validates
-        // an RFC 9207 `iss` wherever the issuer advertises one, reads the declined-consent `error`, and looks
-        // its single-use snapshot up by `state` — then rebases that search onto its own registered redirect, so
-        // no spoofable `Host` reaches the token request's `redirect_uri`.
         const landed = yield* Effect.orDie(HttpServerRequest.toURL(yield* HttpServerRequest.HttpServerRequest))
         const { provider } = yield* HttpLayerRouter.schemaPathParams(_Provider)
         return yield* _landOAuth(provider, landed)
       })),
     _routed("POST", `${_AUTH}/callback/:provider`, () =>
       Effect.gen(function* () {
-        // form_post is the oauth callback's second channel and stays CSRF-exempt exactly as the GET arm does — its
-        // single-use `state` round-trip is the anti-forgery evidence, so no double-submit precedes it. The body
-        // reads once; its fields become the URL search the same `_landOAuth` rebases onto the registered redirect.
         const request = yield* HttpServerRequest.HttpServerRequest
         const fields = yield* HttpServerRequest.schemaBodyUrlParams(_FormPost).pipe(Effect.mapError((fault) => Problem.of(fault)))
         const { provider } = yield* HttpLayerRouter.schemaPathParams(_Provider)
@@ -1030,8 +922,6 @@ const _ceremony = () =>
 - Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpPlatform`, `HttpServerRequest`, `HttpServerResponse`, `Etag`).
 
 ```typescript signature
-// transcribed from iac `program/source.md` `_CACHE_POSTURE`: the estate answers one Cache-Control on this
-// address whether an edge fronts the origin or not
 const _CACHE = {
   immutable: "public, max-age=31536000, immutable",
   entry: "no-cache",
@@ -1041,8 +931,6 @@ const _ADDRESSED = "assets/"
 const _FINGERPRINT = /-[0-9a-f]{8,}\.[a-z0-9]+$/
 const _WEAK = /^W\//
 
-// address before filename: `assets/<digest>/basis_transcoder.js` carries no fingerprint in its leaf, so a
-// filename-only predicate stamps no-cache on exactly the tree the edge stamps immutable
 const _cached = (relative: string): string =>
   relative.startsWith(_ADDRESSED) || _FINGERPRINT.test(relative) ? _CACHE.immutable : _CACHE.entry
 
@@ -1072,12 +960,8 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
     const target = resolved === anchor || resolved.startsWith(`${anchor}/`) ? resolved : path.resolve(anchor, options.entry)
     const held = yield* fs.exists(target).pipe(Effect.orElseSucceed(() => false))
     const chosen = held && clean !== "/" ? target : path.join(options.root, options.entry)
-    // This selector reads the path RELATIVE to the anchor, because `assets/` is an address, not a disk prefix
     const cache = _cached(path.relative(anchor, chosen))
     const generator = yield* Etag.Generator
-    // Stat runs first because a `304` answers without opening the file at all; `HttpServerResponse.file` then
-    // stamps its OWN `etag` from the platform's internal strong mint, and this `setHeaders` replaces it, so hit
-    // and body carry the one validator `_matched` compares
     const served = (file: string, policy: string) =>
       Effect.gen(function* () {
         const info = yield* fs.stat(file)
@@ -1111,19 +995,11 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
 
 ```typescript signature
 declare namespace Router {
-  // One value carries the whole served-RPC selection: which front-door path the group answers on, which of the two
-  // router-native transports carries it, and the fan-out ceiling. `protocol` is data because BOTH transports mount
-  // through this one member and the package defaults it to websockets, so a caller elects its transport rather than
-  // inheriting one; `concurrency` is stated because the package's own default is unbounded, and an unbounded RPC
-  // fan-out is the one ceiling no route Layer above this mount can re-impose.
   type RpcMount = {
     readonly path: `/${string}`
     readonly protocol: "http" | "websocket"
     readonly concurrency: number
   }
-  // one type covers every predicate the multiplex publishes, because each is already a `self => self` transform
-  // once its match and app are applied: `HttpMultiplex.hostRegex(/^api\./, app)` and
-  // `HttpMultiplex.headerExact("x-canary", "1", app)` inhabit it identically
   type HostRow<E, R> = (self: HttpMultiplex.HttpMultiplex<E, R>) => HttpMultiplex.HttpMultiplex<E, R>
 }
 
@@ -1142,14 +1018,7 @@ const _rail = (spec: Rail.Spec) =>
     }),
   )
 
-// Rows ARE the platform's own partially-applied predicates, so the whole vocabulary crosses verbatim — host axis
-// and header axis, each under exact, regex, prefix, and suffix matching — and this page mints no wrapper over any
-// of it. Rows apply in declaration order, the multiplex answers the FIRST match, and an unmatched request leaves
-// `RouteNotFound` for the seam's net to render `absent`, so a catch-all is a DECLARED last row rather than a
-// silent default some caller inherited.
 const _hosts = <E, R>(rows: Array.NonEmptyReadonlyArray<Router.HostRow<E, R>>) =>
-  // This catch-all mount lands the multiplex app in the served Layer set; `HttpLayerRouter.serve`
-  // and `toWebHandler` both take Layers, so a bare HttpApp value reaches no front door
   _routed("*", "/*", () => Array.reduce(rows, HttpMultiplex.make<E, R>([]), (held, row) => row(held)))
 
 const Router = {
@@ -1159,7 +1028,6 @@ const Router = {
   ) =>
     Layer.mergeAll(
       HttpLayerRouter.addHttpApi(api, { openapiPath: docs.openapiPath }),
-      // That roster owns the UI choice and its path; a constructor spelled here forks the docs decision in two
       Emit.docs({ api, path: docs.path, ui: docs.ui ?? "scalarRouter" }),
       Seam.Routed.live,
     ),
@@ -1173,7 +1041,7 @@ const Router = {
     RpcServer.layerHttpRouter({ group, path: mount.path, protocol: mount.protocol, concurrency: mount.concurrency }),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Ceremony, Inbound, Router, Seam }
 ```

@@ -21,7 +21,7 @@ This page is the lowering boundary: a `graph#MATERIAL_LIBRARY` `MaterialParamete
 - Law: the page's `[EXPRESSION_SPINE]` kernel exemptions are `SpectralUpsample` (`ToCurve`/`Acc` fill one fixed-length `double[]` buffer by index across the Smits ordered-combination branch), the `ToneMap` authored curve kernels (`AgxGrade`/`PbrNeutralGrade` — fixed-width channel math on the per-frame display path) beside the `ToneMap.Package` and `ToneMap.Encode` span forms (a `Span<T>` crosses no lambda, so neither the package seam nor the plane-row egress has an expression form), and the `SlabStack` mix-chain bindings (`CoatLobes`/`LowerBase`), the admitted boundary-numeric-kernel carve-out from the immutable-fold law; every admission, dispatch, and egress surface on the page is expression-bodied.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using LanguageExt;
 using MathNet.Numerics;
@@ -38,14 +38,9 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Materials.Appearance.Surface;
 
-// SpectralBand (the red/green/blue 610/550/465 nm band-centre vocabulary) is declared on bsdf#SHADING_FRAME and
-// composed here — the kernel thin-film lobe and this spectral curve read one band vocabulary, no second register.
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SpectralUpsample {
-    // Declaration order is load-bearing: the extents and both grids initialize BEFORE every Sampled basis reads
-    // them, and a reversed order seats a null node array inside the first interpolant. Both grids DERIVE from the
-    // extents, and INTERNAL because every ToCurve consumer reads its wavelengths off these anchors.
     internal const int SampleStart = 380, SampleStep = 5, SampleCount = 69;
     private const int ControlCount = 10;
 
@@ -55,10 +50,6 @@ public static class SpectralUpsample {
         Enumerable.Range(0, ControlCount)
             .Select(static k => SampleStart + (k * (SampleCount - 1.0) * SampleStep / (ControlCount - 1))).ToArray();
 
-    // Each basis reconstructs ONCE at type init and the accumulation runs in SAMPLE space, so the per-colour
-    // resample is gone rather than improved. PCHIP is the reconstruction this basis DEMANDS: monotone cubic
-    // overshoots nowhere, so a basis bounded in [0,1] cannot acquire a negative lobe at its sharp cyan and yellow
-    // edges — a negative reflectance is not a spectrum, and a natural spline manufactures exactly that there.
     private static readonly double[] White =   Sampled([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]);
     private static readonly double[] Cyan =    Sampled([0.97, 0.97, 0.97, 0.93, 0.12, 0.04, 0.0, 0.0, 0.05, 0.05]);
     private static readonly double[] Magenta = Sampled([0.99, 0.99, 0.84, 0.18, 0.03, 0.05, 0.40, 0.99, 0.99, 0.99]);
@@ -67,11 +58,6 @@ public static class SpectralUpsample {
     private static readonly double[] GreenB =  Sampled([0.0, 0.0, 0.03, 0.49, 1.0, 1.0, 0.46, 0.0, 0.0, 0.0]);
     private static readonly double[] BlueB =   Sampled([1.0, 1.0, 0.89, 0.46, 0.06, 0.0, 0.0, 0.0, 0.0, 0.05]);
 
-    // ToCurve is the SAMPLES the upsample produces and ToSpd their Unicolour projection — one kernel, two egresses.
-    // Wacton's Spd is a one-way XYZ intake republishing no grid, so a consumer needing the samples reads them here;
-    // sample `i` sits at SampleStart + i·SampleStep. The three-way branch ladder is the SMITS CONSTRUCTION ITSELF,
-    // not a dispatch — each arm names which primary is the minimum and so which two basis curves the residual
-    // decomposes onto, a partition of RGB space with no table form.
     public static Fin<ReadOnlyMemory<double>> ToCurve(RgbSpectrum rgb, Op key) {
         double[] r = new double[SampleCount];
         double red = rgb.R, green = rgb.G, blue = rgb.B;
@@ -95,9 +81,6 @@ public static class SpectralUpsample {
             var curve => SampleNm.Select(nm => Math.Clamp(curve.Interpolate(nm), 0.0, 1.0)).ToArray(),
         };
 
-    // The gamut pull-in is a kernel GamutPolicy ROW, so check and projection arrive paired — a raw GamutMap argument
-    // beside a hand-written check-then-map is the deleted form. The optional policy is the ONE default-posture site:
-    // a roster row has no constant form, so it resolves to Perceptual HERE at the admission door, never downstream.
     public static Fin<RgbSpectrum> SceneLinear(Unicolour colour, Op key, GamutPolicy? bound = null) =>
         (bound ?? GamutPolicy.Perceptual) switch {
             var policy => (policy.Contains(colour) ? colour : policy.Bound(colour)).RgbLinear.Triplet,
@@ -118,12 +101,7 @@ public static class SpectralUpsample {
 - Boundary: the tone curves are the documented Unicolour NOT_COVERED concern, and the ones TinyEXR's own span fold already lowers are COMPOSED rather than re-derived — `aces`, `reinhard`, and `filmic` name `ToneMapOperator.Aces`, `ReinhardExtended`, and `Hable`, so the estate authors only what no admitted package expresses and the catalogue's RAIL_LAW Reject against a hand-rolled tone-map fold is held structurally by the `ToneCurve` split rather than by a reviewer noticing; the `filmic` row IS Hable and names that curve rather than a Hejl-Burgess-Dawson body it would otherwise have to keep beside an equivalent the package ships. What stays AUTHORED is the pair the roster lacks — the Sobotka AgX display transform (the Blender-default view transform, realized as the Wrensch minimal fit: the 3×3 inset matrix into log2 space clamped to `[−12.47393, 4.026069]`, the 6th-order sigmoid polynomial, the 3×3 outset matrix, and the `2.2`-exponent linearization back to display-linear — AgX mixes channels through its matrices, which is WHY the row column is the triple `Grade(RgbSpectrum)` and not a scalar curve; the per-channel operators ride `Map`), the Khronos PBR Neutral commerce transform (toe offset by the min channel — `x − 6.25x²` under `0.08` — rational peak compression past the `0.76` shoulder toward `1 − d²/(peak + d − 0.76)`, then desaturation toward the compressed peak by `1 − 1/(0.15·(peak − newPeak) + 1)` so clipped highlights stay neutral while every value below the shoulder passes UNCHANGED — the base-color-preserving property that makes it the material-fidelity default; channel-coupled through min/max, so it rides the triple `Grade` column like AgX), and the plain exposure-then-clamp, which is a bound rather than a tone map and therefore authors no curve at all; exposure is applied as a multiplicative scale before either custody arm reads the shade (`scene · 2^exposure`); the OETF/transfer after tone-mapping is COMPOSED through Unicolour with the transfer AND the dynamic range as ONE `DisplayEncoding` row — the Rec2100 PQ/HLG transfers scale by `DynamicRange.WhiteLuminance`, so the range rides the named `RgbProfile` row rather than this page — the HDR rows resolve `DynamicRange.High` (203-nit reference white, 1000-nit max) and the SDR rows `DynamicRange.Standard` (100-nit) as the kernel row's explicit column, never the package default, which is `High` and would silently encode an undeclared SDR row at the 203-nit HDR scale — and the row's `Configuration` is the kernel's single instance per space, so a page-local mint (the deleted form) can no longer give one working space two identities and pay a chromatic adaptation per crossing; the `rec2020` row is the wide-gamut SDR target the `RgbProfile.Rec2020` row already carries (the BT.2020 primaries under the standard range, distinct from the PQ/HLG rows that pair the same primaries with the HDR transfers); `Encode` REBASES the display-linear triple from the `PortValue.SceneLinear` AP1 working space onto the target row's configuration through `ConvertToConfiguration` (XYZ-preserving) BEFORE reading the row's `.Rgb` transfer — an AP1-linear triple relabelled target-linear was the deleted form, the primary mismatch hue-shifting every P3/Rec2100 encode (the same cross-space grounding law `weathering#WEATHERING` and `finish#FINISH` enforce inbound); the tone-mapped display-referred output is the result the app-platform raster path (`Rasm.AppUi/Charts/custom#COLOR_SPACE`) consumes downstream, never a surface Materials reaches into. The IN-FOLDER split is BY CONCERN and neither owner is the other's twin: `DisplayEncoding` owns COLORIMETRIC egress — primary rebase, transfer, and reference white — for a scene-referred `RgbSpectrum` radiance, while `Raster/plane#PLANE_FORMAT` `PlaneTransfer` owns STORAGE encode/decode of an already-display-referred plane and asserts nothing about reference white; each `DisplayEncoding` row therefore NAMES its storage transfer as a column (`Srgb`/`DisplayP3`/`Rec2020 → PlaneTransfer.Srgb`, `Rec2100Pq → PlaneTransfer.Pq`, `Rec2100Hlg → PlaneTransfer.Hlg`) so an encode reads the pairing off the colorimetric row instead of a caller pairing the two by hand, and a plane carrying `pq` or `hlg` with no `DisplayEncoding` provenance is UNANCHORED — the 203-nit reference white those transfers scale by is this page's declaration, not the plane's. The ONE consumer path is likewise stated rather than left as convention: a scene-referred `Rgba32F` plane bound for an SDR container passes `ToneMap.Apply` then `ToneMap.Encode` BEFORE `Raster/plane#TEXTURE_PLANE` `Write` narrows it, and `Encode` lands `ShadeVec4` precisely so the corpus' one quantizer at `Write` is the only narrowing site — a bare `(double, double, double)` tuple bypassed it and made the tone-map an egress with no reachable consumer. A `PlaneQuantity.Light` plane written to an integer-depth `PlaneFormat` with no display binding set is the case that must REFUSE at the press seam rather than clip silently through the sRGB OETF. CHARTERED DUPLICATION (declared, not accidental): the `Rasm.AppUi/Render/capture` `ToneMap` (a SkiaSharp per-channel `float` `SKColorFilter` LUT on the raster-encode path, its `rec2020`/HDR targets the `ColorPolicy` rows) is a DISTINCT app-platform owner — one tone-map owner per runtime, the appearance-domain `ToneOperator`/`DisplayEncoding` here grounding path-traced `RgbSpectrum` radiance through Unicolour (the `rec2020` SDR row covering capture's `Rec2020` target inbound), the capture-time Skia curve there grounding chart/document raster export; the shared Narkowicz/Reinhard coefficients are two runtimes implementing one published curve at the wire, never drift, and neither owner references the other.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// ToneCurve is the CUSTODY of a curve, and the two cases are two genuinely different evidence shapes rather than one
-// wearing a flag: Lowered names an operator TinyEXR's own span fold already implements, and Authored carries a curve
-// the package does not express. The split is what makes the composition law checkable — a Lowered row cannot carry a
-// hand-rolled body and an Authored row cannot silently shadow a package operator, so the catalogue's RAIL_LAW
-// (a hand-rolled tone-map fold this surface already lowers is a Reject) is structural rather than a review note.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ToneCurve {
     private ToneCurve() { }
@@ -131,9 +109,6 @@ public abstract partial record ToneCurve {
     public sealed record Authored(Func<RgbSpectrum, RgbSpectrum> Grade) : ToneCurve;
 }
 
-// The curve column is the row's own custody. AgX and PBR Neutral stay AUTHORED because the package carries neither
-// and both mix channels through their own matrices, so the authored face is RgbSpectrum→RgbSpectrum; the exposure
-// row is a clamp, not a tone map. The `filmic` row IS Hable, so it names the curve it actually runs.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -148,10 +123,6 @@ public sealed partial class ToneOperator {
     public ToneCurve Curve { get; }
 }
 
-// Transfer, range, AND the storage row travel as ONE display-egress row — the Rec2100 PQ/HLG transfers scale by
-// DynamicRange.WhiteLuminance, so the range is a declared column and each Configuration mints once per row. Storage
-// is the Raster/plane#PLANE_FORMAT PlaneTransfer this colorimetric row lowers ONTO, declared here because the
-// reference white those curves scale by is this page's fact. Three SDR rows share PlaneTransfer.Srgb honestly.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -162,9 +133,6 @@ public sealed partial class DisplayEncoding {
     public static readonly DisplayEncoding Rec2100Pq  = new("rec2100-pq",  RgbProfile.Rec2100Pq,  PlaneTransfer.Pq);
     public static readonly DisplayEncoding Rec2100Hlg = new("rec2100-hlg", RgbProfile.Rec2100Hlg, PlaneTransfer.Hlg);
 
-    // The working space is the kernel row's, so the target and every perceptual value rebasing through it share ONE
-    // Configuration instance — a page-local mint gave the same primaries a second identity and cost a chromatic
-    // adaptation on each crossing, while the row's DynamicRange arrives already explicit.
     public RgbProfile Profile { get; }
     public Configuration Config => Profile.Configuration;
     public PlaneTransfer Storage { get; }
@@ -172,10 +140,8 @@ public sealed partial class DisplayEncoding {
         (Profile, Storage) = (profile, storage);
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToneMap {
-    // ONE dispatch over the curve's custody: a lowered row crosses the package's span fold over a three-lane stack
-    // window, an authored row runs the estate's curve. Exposure applies BEFORE either, so the scale is one multiply.
     public static RgbSpectrum Apply(ToneOperator op, RgbSpectrum sceneLinear, double exposure) =>
         sceneLinear.Scale(Math.Pow(2.0, exposure)) switch {
             var exposed => op.Curve.Switch(
@@ -184,8 +150,6 @@ public static class ToneMap {
                 authored: static (s, curve) => curve.Grade(s)),
         };
 
-    // Exemption: the package fold takes spans, so the three-lane window is a stack buffer the call writes through —
-    // a Span crosses no lambda and the shade has no expression form on this side of the seam.
     static RgbSpectrum Package(RgbSpectrum sceneLinear, ToneMapOperator op) {
         Span<float> lanes = [(float)sceneLinear.R, (float)sceneLinear.G, (float)sceneLinear.B];
         Span<float> graded = stackalloc float[3];
@@ -193,25 +157,17 @@ public static class ToneMap {
         return RgbSpectrum.Create(Math.Max(0.0, graded[0]), Math.Max(0.0, graded[1]), Math.Max(0.0, graded[2]));
     }
 
-    // Rebase AP1→target primaries (XYZ-preserving) BEFORE the transfer read — display-linear means TARGET-linear,
-    // and constructing the AP1 triple AS target.Config was the hue-shifting deleted form. The result lands on
-    // ShadeVec4, so the egress feeds plane#TEXTURE_PLANE Write, the single quantizer a bare tuple bypassed.
     public static ShadeVec4 Encode(RgbSpectrum displayLinear, DisplayEncoding target) =>
         new Unicolour(PortValue.SceneLinear, ColourSpace.RgbLinear, displayLinear.R, displayLinear.G, displayLinear.B)
             .ConvertToConfiguration(target.Config).Rgb.Triplet switch { var rgb => new ShadeVec4(rgb.First, rgb.Second, rgb.Third, 1.0) };
 
-    // Span arity serves a whole plane row in one pass, and the destination is the caller's because the press already
-    // owns the staging arena. A short destination is a caller defect the span slice raises, never a truncation.
     public static void Encode(ReadOnlySpan<ShadeVec4> displayLinear, DisplayEncoding target, Span<ShadeVec4> destination) {
-        for (int i = 0; i < displayLinear.Length; i++) {   // Exemption: the [EXPRESSION_SPINE] span-kernel carve — a Span crosses no lambda, so the fold has no expression form
+        for (int i = 0; i < displayLinear.Length; i++) {
             ShadeVec4 texel = displayLinear[i];
             destination[i] = Encode(RgbSpectrum.Create(Math.Max(0.0, texel.X), Math.Max(0.0, texel.Y), Math.Max(0.0, texel.Z)), target) with { W = texel.W };
         }
     }
 
-    // Sobotka AgX by the Wrensch minimal fit: inset 3×3 → log2 [−12.47393, 4.026069] normalize → 6th-order sigmoid →
-    // outset 3×3 → 2.2-exponent linearize (display-linear out; the transfer stays on Encode). log2(0) clamps to the
-    // floor and negatives clamp before the exponent, so the chain is total on any HDR radiance.
     internal static RgbSpectrum AgxGrade(RgbSpectrum s) {
         double r = 0.842479062253094 * s.R + 0.0784335999999992 * s.G + 0.0792237451477643 * s.B;
         double g = 0.0423282422610123 * s.R + 0.878468636469772 * s.G + 0.0791661274605434 * s.B;
@@ -230,8 +186,6 @@ public static class ToneMap {
         }
     }
 
-    // Khronos PBR Neutral: min-channel toe offset, rational shoulder past 0.76, desaturation toward the compressed
-    // peak — values below the shoulder pass UNCHANGED (the base-color-preserving law). Channel-coupled via min/max.
     internal static RgbSpectrum PbrNeutralGrade(RgbSpectrum s) {
         const double startCompression = 0.8 - 0.04, desaturation = 0.15;
         double x = Math.Min(s.R, Math.Min(s.G, s.B));
@@ -259,14 +213,7 @@ public static class ToneMap {
 - Boundary: the complex refractive index `(η, k)` per RGB band is the physically-correct conductor F0 carried as one `ComplexIor` `[ComplexValueObject]` band — the carrier's own `ComplexIor.Fresnel(cosI)` per-band read answers from it directly, so a metal's edge tint and grazing-angle hue shift emerge from the measured dispersion rather than an artist's base-color triple; the three-band `Eta`/`K` values transcribe a measured dataset at the RGB band centres `SpectralBand.Red`/`Green`/`Blue` carry (610/550/465 nm sampled against the published 630/532/465 nm anchors) and every row declares WHICH custody class that dataset came under through its `MeasuredSource` column — the SEED_ROW_LAW per-column provenance at this page's grain, `Elemental` for a primary optical-constants transcription and `Aggregated` for a CC0 public-domain database reading that redistributes unconditionally, so admissibility is read off the row rather than inferred from a table nothing annotates; the `graph#MATERIAL_LIBRARY` conductor rows carry a measured `BaseColor` for the diffuse-substitute preview path AND name a `ConductorMetal` so the `bsdf#LOBE_FAMILY` `Conductor` lobe grounds from the named row's `Ior`, the base color the perceptual seed and the `(η, k)` the shading truth; the smart-enum KEYS align to the `graph#MATERIAL_LIBRARY` register's `metal.<name>` name column — `"chrome"` (never `"chromium"`) so `Resolve("metal", "chrome")` grounds the register's `metal.chrome` row instead of silently falling to the interchange `Iron` default; a metal absent from the rows falls back to the `graph#MATERIAL_LIBRARY` base-color-as-F0 dielectric-Schlick approximation rather than faulting — the register's `metal.steel` alloy row has no published `(η, k)` dataset and shades through exactly that fallback — so the rows ground the eight named metals and a ninth admits without a rebuild; the conductor F0 round-trips in-gamut through the `bsdf#BSDF_GOLDEN` lossless-conductor furnace row (F≡1 reflects unit energy) so a measured metal conserves energy under the Kulla-Conty multi-scatter term; the `Curve` column is the per-wavelength EXTENSION of the same measurement, the three-band `Ior` staying the fast path every lobe reads and the curve the high-fidelity path a spectral integrator resolves per `SpectralBand` through `[02]-[SPECTRAL_UPSAMPLE]` — a row carrying a curve and a row carrying only its bands differ by a column, never by a second conductor family.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// The measured complex refractive index RIDES the metal row — three-band (η, k) transcribed from the Johnson-Christy
-// / refractiveindex.info datasets at the SpectralBand 610/550/465 nm centres. Keys match the graph#MATERIAL_LIBRARY
-// register name column ("chrome", never "chromium"), a drift silently downgrading the resolve to the Iron default.
-// MeasuredSource is the SEED_ROW_LAW provenance column at this grain: a transcribed optical constant is only as
-// reusable as its custody, so the class rides the row — Elemental a primary optical-constants transcription,
-// Aggregated a CC0 database reading admissible verbatim, Alloy one with NO published index whose row carries the
-// absence the dielectric fallback grounds.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MeasuredSource {
@@ -291,13 +238,8 @@ public sealed partial class ConductorMetal {
     public MeasuredSource Source { get; }
     public ComplexIor Ior { get; }
 
-    // Curve carries the per-wavelength measurement the three-band Ior samples, init-defaulted absent so every row
-    // binds unchanged and a transcribed spectrum is one column rather than a parallel spectral-conductor family.
-    // Absence is TYPED: a row with no published spectrum and one whose spectrum is flat are different facts.
     public Option<Spd> Curve { get; init; }
 
-    // The wire-boundary resolve interchange#MATERIAL_WIRE feeds with the split library id. A miss shades through the
-    // graph#MATERIAL_LIBRARY base-color-as-F0 dielectric fallback (metal.steel has no published (η, k) dataset).
     public static Option<ConductorMetal> Resolve(string family, string name) =>
         family == "metal" && TryGet(name, out ConductorMetal? metal) ? Optional(metal) : Option<ConductorMetal>.None;
 }
@@ -318,40 +260,25 @@ public sealed partial class ConductorMetal {
 - Boundary: `OpenPbrSurface.Of` is the ONE `MaterialParameters`→OpenPBR construction and `SlabStack.Lower` the ONE vector→slab lowering — a per-material slab builder or a second wire-side OpenPBR mint is the deleted form; the fuzz slab lowers to a `Sheen` lobe weighted by `fuzz_weight` and colored by the `fuzz_color` column `Of` mints as the authored `MaterialParameters.FuzzColor` under the Disney `SheenTint` base-hue bias (identity at tint 0, so an authored three-band tint — a `weathering#WEATHERING` `FuzzColorTo` terminal, an ingested `fuzz_color` plane's bound mean, or a library row that names one — reaches the slab and the wire at full precision where the prior white→base lerp collapsed it to one luminance scalar; a row leaving the column at its `PortValue.White` neutral takes that lerp as the DEGENERATE case of the same algebra rather than as a second path), the coat slab to its `thin_film_weight` MIX — the plain `Clearcoat` dielectric and the `bsdf#LOBE_FAMILY` `ThinFilm` interference lobe (film thickness/IOR from the coat's validated `ThinFilm` carrier, the coat IOR lifted into a real `ComplexIor` base — the Belcour-Barla spectral interference the `finish#FINISH` pearlescent topcoat drives) split by the film weight as two rows of the one weighted fold, the 0/1 ends collapsing to a single lobe, BOTH rows built on the coat's own `Aspect`-remapped alpha pair and rotation so the grain survives the mix; the film columns SOURCE from `MaterialParameters.Film` through `Of` (a hardcoded zero triple was the deleted form — it dead-ended this lowering and shipped permanent zeros on the `interchange#MATERIAL_WIRE` `thin_film` columns), the coat's `coat_color` reaching shading as the `Clearcoat` lobe's `Tint` — a coloured lacquer ABSORBS on the way through, so the tint rides the lobe's `Transmitted` throughput onto every layer beneath it and never into its own reflected specular, which stays achromatic as a dielectric interface must; the emission slab lowering to NO lobe and instead accumulating `Radiance · Luminance` under the pass tint on the collapse's own emission field, energy-additive and never occluding, which the integrator adds ONCE per shading point outside the BSDF estimator so it is never multiplied by a cosine or divided by a pdf — the `graph#MATERIAL_GRAPH` `BsdfOutput` sink's `Emission` port and the `SurfaceShade.EmissionLinear` column are the row-side terminal and this pair the slab-side one; and the base substrate lowering to the metalness → transmission → subsurface mixing chain — a `Conductor` lobe (grounded from the `ConductorMetal` the row names through `[04]-[CONDUCTOR_IOR]`) against the dielectric rows, the transmissive `Dielectric` against the opaque body (indexed at unity where the row is THIN-WALLED, because a shell's two interfaces sit one wall apart and the substrate's index would bend a ray through a volume the geometry does not enclose — the reflected specular keeps `SpecularIor`, so the flag splits the two arms and never re-indexes the substrate), the `Subsurface` diffusion against the glossy-diffuse pair (the reflect-only `Dielectric` specular at `SpecularIor` over the `Diffuse` floor), each fractional weight two rows of the one fold — the `Subsurface` lobe reading the validated three-band `SubsurfaceRadius` `[ComplexValueObject]` carrier's `Magnitude` for the Burley diffusion radius (the carrier declared on `graph#MATERIAL_LIBRARY` `MaterialParameters`, gating a negative or non-finite millimetre mean-free-path once at `Create` so no `Vector3d` scatter vector threads the slab signatures); `ToLayered` collapses the albedo-scaled slab weights into the `bsdf#LAYERED_COMPOSITION` `LayeredBsdf.Of` normalized lobe list so the integrator shades one `LayeredBsdf` and never re-derives the slab nesting per sample — the per-lobe albedo-scaling is computed once at lowering, the energy each outer slab leaves for the layer below (`1 − w · E(slab)` at the lobe's own alpha) baked into the lobe weight and the SPECTRAL tint it leaves carried on the row's own `Throughput` column, the two axes kept apart because a hue folded into a `UnitInterval` weight would be re-normalized away as though it were energy the stack redistributed; the OpenPBR z-up local-frame convention matches the `bsdf#SHADING_FRAME` `LocalVector<T>` basis so no slab re-derives `cosθ`; slab-weight admission is TOTAL — `Of` clamps the OpenPBR columns and the `Weight` helper collapses every `w · pass` into `[0,1]` before `UnitInterval.Create` through a comparison-ordered floor (`Math.Clamp` propagates NaN, so a non-finite consumer weight lands at zero rather than throwing), so no `Slab` weight throws the value-object guard mid-fold, and the one fault site is `ToLayered`→`LayeredBsdf.Of` railing `MaterialFault.Parameter` when every lobe weight filters to zero (a degenerate empty stack), never a propagated energy gain; the `weathering#WEATHERING` aging operator targets the slab columns directly once lowered (chalking raises `coat_roughness`, soiling raises `fuzz_weight`, patina greens the `Slab.Base` color and drops its `Metalness` toward zero — the conductor corrodes to a dielectric verdigris, never a metal-to-metal `ConductorMetal` swap the 8-member smart-enum cannot represent) through the `SurfaceDelta` carried on each `WeatheringEffect` policy row — whose `SurfaceColumn` roster DERIVES from this vector's own MEMBER SET — the positional constructor for order, its remaining public instance properties after it — so a column is targetable the moment it lands here, the roster covers exactly what `nameof(OpenPbrSurface.X)` binds, and neither page edits for the other.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// The closed slab family IS the slab discriminant — the four cases ARE the axis, so every fold dispatches on the
-// Switch arms. A parallel SlabKind [SmartEnum] with no independent row data is the rejected parallel-discriminant
-// form; the slab ORDER rides SlabStack.Lower's outermost-to-base sequence.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Slab {
     private Slab() { }
 
     public sealed record Fuzz(double Weight, RgbSpectrum Color, double Roughness) : Slab;
-    // Anisotropy and Rotation are the coat's OWN grain through the same Aspect owner the base uses: OpenPBR 1.1
-    // states coat_roughness_anisotropy as a first-class input, and a brushed lacquer over a brushed substrate must
-    // read one meaning of the column. Film is the graph#MATERIAL_LIBRARY validated carrier, never a loose pair.
     public sealed record Coat(
         double Weight, RgbSpectrum Color, double Roughness, double Anisotropy, double Rotation, double Ior, ThinFilm Film) : Slab;
     public sealed record Emission(RgbSpectrum Radiance, double Luminance) : Slab;
-    // Weight, DiffuseRoughness, SpecularWeight, and SpecularTint are the four OpenPBR base columns the lowering once
-    // dropped — base_weight dims the substrate, base_diffuse_roughness IS the Oren-Nayar term distinct from the
-    // SPECULAR roughness beside it, specular_weight dims the Fresnel lobe. Rotation is the azimuth in RADIANS.
     public sealed record Base(
         double Weight, double Metalness, Option<ConductorMetal> Conductor, RgbSpectrum BaseColor,
         double DiffuseRoughness, double SpecularWeight, RgbSpectrum SpecularTint,
         double Roughness, double SpecularIor, double Anisotropy, double Rotation,
         double Transmission, double TransmissionRoughness,
         double Subsurface, SubsurfaceRadius SubsurfaceRadius,
-        // ThinWalled carries the vector's geometry_thin_walled flag to the ONE arm that reads it. Thin shells hold no
-        // interior to refract through, so a transmissive lobe passes straight while SpecularIor governs the reflected
-        // specular; leaving it out of this slab shipped every leaf and lampshade as a refracting solid.
         bool ThinWalled) : Slab;
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// The OpenPBR Surface 1.1 parameter vector: the ONE MaterialParameters->OpenPBR correspondence (Of) every consumer
-// reads. SlabStack.Lower derives the slab family FROM this vector and interchange#MATERIAL_WIRE projects OpenPbr
-// FROM it, so the column mapping is declared once here and never re-minted at the wire (the DERIVED_LOGIC primary).
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct OpenPbrSurface(
     double BaseWeight, RgbSpectrum BaseColor, double BaseMetalness, double BaseDiffuseRoughness, double BaseSpecularTint,
     double SpecularWeight, RgbSpectrum SpecularColor, double SpecularRoughness, double SpecularIor,
@@ -365,18 +292,6 @@ public readonly record struct OpenPbrSurface(
     bool GeometryThinWalled,
     Option<ConductorMetal> Conductor) {
 
-    // Both COLOUR-plus-SCALAR tint pairs lower by ONE algebra, stated once: the vector's colour column is the
-    // authored OpenPBR tint and the Disney scalar biases it toward the base hue, so SpecularColor · lerp(White,
-    // BaseColor, BaseSpecularTint) and FuzzColor · lerp(White, BaseColor, SheenTint) are one expression over two
-    // groups. MaterialX 1.39 has NO base_specular_tint input, so the .mtlx egress ships the RESOLVED SpecularColor
-    // verbatim (a second bias applied the tint twice) while the wire keeps both columns because a consumer
-    // re-deriving the product from one cannot. Every colour column has a real MaterialParameters source, so the
-    // prior synthesized White and the SheenTint lerp that collapsed a three-band tint to one luminance scalar are
-    // the deleted forms. CoatIor synthesizes the OpenPBR coat_ior default 1.6 (1.5 was the Disney clearcoat default
-    // mislabelled). Both rotations stay the UNIT column the wire and .mtlx ports carry, Lower converting to radians
-    // once, and the coat's anisotropy rides beside its rotation so the pair reaches the lobe together or not at all.
-    // GeometryThinWalled is the ONE geometry-group member that IS a vector column, being a set-level boolean no
-    // texture port can carry; opacity, normal, and tangent stay on the node fold.
     public static OpenPbrSurface Of(MaterialParameters p, Option<ConductorMetal> conductor) =>
         new(BaseWeight: 1.0, AcescgRgb(p.BaseColor), p.Metalness, p.BaseDiffuseRoughness, Math.Clamp(p.SpecularTint, 0.0, 1.0),
             SpecularWeight: 1.0, Tinted(AcescgRgb(p.SpecularColor), AcescgRgb(p.BaseColor), p.SpecularTint),
@@ -392,8 +307,6 @@ public readonly record struct OpenPbrSurface(
             GeometryThinWalled: p.ThinWalled,
             conductor);
 
-    // Tinted IS that algebra for both groups — the authored colour attenuated by the Disney scalar's white→base bias,
-    // identity at tint 0 so an untinted row lowers its authored colour unchanged.
     internal static RgbSpectrum Tinted(RgbSpectrum authored, RgbSpectrum baseHue, double tint) =>
         authored.Mul(RgbSpectrum.White.Lerp(baseHue, Math.Clamp(tint, 0.0, 1.0)));
 
@@ -402,12 +315,8 @@ public readonly record struct OpenPbrSurface(
 }
 
 public sealed record SlabStack(Seq<Slab> Slabs) {
-    // The convenience entry the library/finish drive: lower the row to the canonical OpenPbrSurface vector, then to slabs.
     public static SlabStack Lower(MaterialParameters p, Option<ConductorMetal> conductor) => Lower(OpenPbrSurface.Of(p, conductor));
 
-    // The ONE OpenPBR construction: outermost-to-base slab order derived from the vector — fuzz over coat over
-    // emission over base. The coat re-mints the vector's thin_film columns into the validated carrier (the clamps
-    // keep Lower total on a consumer-built vector), so an iridescent topcoat rides the existing Coat slab.
     public static SlabStack Lower(OpenPbrSurface s) =>
         new(Seq<Slab>()
             .Add(new Slab.Fuzz(s.FuzzWeight, s.FuzzColor, s.FuzzRoughness))
@@ -420,10 +329,6 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
                 s.TransmissionWeight, s.TransmissionRoughness, s.SubsurfaceWeight, s.SubsurfaceRadius,
                 s.GeometryThinWalled)));
 
-    // Energy-preserving collapse to the bsdf#LAYERED_COMPOSITION fold, returning the TWO terminal quantities the
-    // integrator needs: each slab transmits 1-E(slab) of the ENERGY below it and its own spectral Transmitted TINT.
-    // The emission slab accumulates BESIDE the lobe list under the same pass tint, because self-emission is energy
-    // the surface ADDS and a lobe carrying it would be divided by a pdf and cosine that describe scattering.
     public Fin<(LayeredBsdf Bsdf, RgbSpectrum Emission)> ToLayered(Op key) =>
         Slabs.Fold((Lobes: Seq<LobeWeight>(), Emission: RgbSpectrum.Black), static (acc, slab) =>
             LowerSlab(slab, RemainingPass(acc.Lobes)) switch {
@@ -433,17 +338,11 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
                 .Map(bsdf => (Bsdf: bsdf, Emission: folded.Emission)),
         };
 
-    // What the placed outer slabs leave below, on TWO independent axes: each lobe attenuates energy by its OWN
-    // directional albedo at the lobe's alpha, so a rough coat occludes more than a smooth one; and each multiplies
-    // its Transmitted tint, so a coloured coat filters by hue without that hue entering the normalized weight.
     private static (double Energy, RgbSpectrum Tint) RemainingPass(Seq<LobeWeight> placed) =>
         placed.Fold((Energy: 1.0, Tint: RgbSpectrum.White), static (pass, lw) => (
             Math.Clamp(pass.Energy * (1.0 - lw.Weight.Value * MultiScatter.DirectionalAlbedo(LobeAlpha(lw.Lobe), 1.0)), 0.0, 1.0),
             pass.Tint.Mul(lw.Lobe.Transmitted)));
 
-    // The single-scatter alpha a lobe occludes at: the ROUGHER axis of the lobe's own GGX pair, diffuse and
-    // subsurface full-rough. All four glossy-reflect lobes carry that pair, so no arm reaches through a projection
-    // its neighbour lacks.
     private static double LobeAlpha(BsdfLobe lobe) => lobe.Switch(
         diffuse:    static _ => 1.0,
         conductor:  static c => Math.Max(c.AlphaX, c.AlphaY),
@@ -453,16 +352,9 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
         subsurface: static _ => 1.0,
         thinFilm:   static f => Math.Max(f.AlphaX, f.AlphaY));
 
-    // The ONE Disney aspect remap, read by the coat AND the substrate: alphaX tangent-aligned, alphaY
-    // bitangent-aligned, the EXACT inverse of the acquisition#ACQUISITION projection Anisotropy = (1 − min/max)/0.9,
-    // so a goniophotometer capture round-trips through the lowering it once died at. It floors at sqrt(0.1), never
-    // zero, so no divide guard exists; a second spelling at the coat would fork what one column means.
     internal static (double X, double Y) Aspect(double alpha, double anisotropy) =>
         Math.Sqrt(1.0 - (0.9 * Math.Clamp(anisotropy, 0.0, 1.0))) switch { var a => (alpha / a, alpha * a) };
 
-    // ONE switch owns both lowering products: the lobes a slab contributes and the radiance it ADDS. The emission
-    // slab contributes NO lobe and folds Radiance·Luminance under the pass tint, so emission is a fold accumulator
-    // rather than an eighth lobe the closed set does not carry.
     private static (Seq<LobeWeight> Lobes, RgbSpectrum Emission) LowerSlab(Slab slab, (double Energy, RgbSpectrum Tint) pass) => slab.Switch(
         state: pass,
         fuzz:     static (p, f) => (f.Weight > 0.0 ? Seq(new LobeWeight(new BsdfLobe.Sheen(f.Color, f.Roughness), Weight(f.Weight, p.Energy), p.Tint)) : Seq<LobeWeight>(), RgbSpectrum.Black),
@@ -470,9 +362,6 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
         emission: static (p, e) => (Seq<LobeWeight>(), e.Radiance.Scale(Math.Max(0.0, e.Luminance)).Mul(p.Tint)),
         @base:    static (p, b) => (LowerBase(b, p), RgbSpectrum.Black));
 
-    // OpenPBR thin_film_weight is a MIX weight (film coverage over the coat interface), never a >0 gate: a fractional
-    // film splits the coat between the plain Clearcoat dielectric and the Belcour-Barla ThinFilm lobe as two rows of
-    // the one fold, 0 and 1 collapsing to single-lobe ends. The coat's grain threads BOTH rows.
     private static Seq<LobeWeight> CoatLobes(Slab.Coat c, (double Energy, RgbSpectrum Tint) pass) {
         double fw = c.Film.Weight;
         (double ax, double ay) = Aspect(Microfacet<double>.AlphaOf(c.Roughness), c.Anisotropy);
@@ -484,12 +373,6 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
              : Seq(new LobeWeight(clear, Weight(c.Weight * (1.0 - fw), pass.Energy), pass.Tint), new LobeWeight(film, Weight(c.Weight * fw, pass.Energy), pass.Tint));
     }
 
-    // The OpenPBR base MIXING CHAIN as fold rows: metalness splits conductor vs dielectric; transmission_weight the
-    // dielectric into transmissive interface vs opaque body; subsurface_weight the body into Burley diffusion vs
-    // glossy-diffuse; glossy-diffuse the reflect-only dielectric specular over the diffuse floor, split by the
-    // F0-scaled multi-scatter albedo — the same 1−E law the outer slabs cascade. Every fractional weight is rows of
-    // the ONE fold with the 0/1 ends collapsing, so plastics keep their Fresnel specular where the winner-take-all
-    // >0 gates dropped SpecularIor/SpecularRoughness on every opaque dielectric.
     private static Seq<LobeWeight> LowerBase(Slab.Base b, (double Energy, RgbSpectrum Tint) pass) {
         double alpha = Microfacet<double>.AlphaOf(b.Roughness), transmissionAlpha = Microfacet<double>.AlphaOf(b.TransmissionRoughness);
         (double alphaX, double alphaY) = Aspect(alpha, b.Anisotropy);
@@ -498,21 +381,10 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
         double metalness = Math.Clamp(b.Metalness, 0.0, 1.0);
         double transmission = Math.Clamp(b.Transmission, 0.0, 1.0), subsurface = Math.Clamp(b.Subsurface, 0.0, 1.0);
         double f0 = Math.Pow((b.SpecularIor - 1.0) / (b.SpecularIor + 1.0), 2.0);
-        // specular_weight DIMS the Fresnel lobe rather than gating it: the share the specular takes from the diffuse
-        // floor scales by the column, so the energy it releases lands on the diffuse arm and the split stays a
-        // partition. A >0 gate made specular_weight a bake-only column no shade could read.
         double specularShare = Math.Clamp(f0 * MultiScatter.DirectionalAlbedo(alpha, 1.0) * Math.Clamp(b.SpecularWeight, 0.0, 1.0), 0.0, 1.0);
         double opaque = (1.0 - metalness) * (1.0 - transmission);
-        // base_weight scales every emitted row, so the whole substrate dims as one and the layering cascade above
-        // reads the dimmed energy rather than a substrate that ignored its own weight.
         Seq<LobeWeight> Row(BsdfLobe lobe, double w) => w > 0.0 ? Seq(new LobeWeight(lobe, Weight(weight * w, pass.Energy), pass.Tint)) : Seq<LobeWeight>();
-        // Thin shells transmit at unit index: both interfaces sit one wall apart, so a ray leaves parallel to how it
-        // entered and the substrate's index would bend it through geometry carrying no such volume. Reflection keeps
-        // b.SpecularIor, so the flag splits both arms rather than re-indexing the substrate.
         double transmissionIor = b.ThinWalled ? 1.0 : b.SpecularIor;
-        // The conductor arm is TYPED-ABSENT rather than defaulted: an unrostered alloy has no published (eta, k),
-        // and grounding it on a neighbour ships that neighbour's dispersion as measured. Absence routes to the
-        // DIELECTRIC grounding the base colour states — same lobe, same kernel, one arm of the same fold.
         ComplexIor conductorIor = b.Conductor.Match(Some: static metal => metal.Ior, None: () => DielectricF0(b.BaseColor));
         return Row(new BsdfLobe.Conductor(conductorIor, alphaX, alphaY, b.Rotation), metalness)
              + Row(new BsdfLobe.Dielectric(transmissionIor, transAlphaX, transAlphaY, b.Rotation, b.SpecularTint, b.BaseColor), (1.0 - metalness) * transmission)
@@ -521,19 +393,12 @@ public sealed record SlabStack(Seq<Slab> Slabs) {
              + Row(new BsdfLobe.Diffuse(b.BaseColor, b.DiffuseRoughness), opaque * (1.0 - subsurface) * (1.0 - specularShare));
     }
 
-    // DielectricF0 grounds an UNROSTERED conductor as the real dielectric whose normal-incidence Fresnel IS the
-    // authored base colour: inverting Schlick's F0 = ((eta − 1)/(eta + 1))² per band gives eta = (1 + √F0)/(1 − √F0)
-    // at k = 0, so the fallback rides the SAME lobe and kernel rather than a parallel arm the cascade special-cases.
-    // Each band clamps below unity because a reflectance of exactly one carries no finite index.
     internal static ComplexIor DielectricF0(RgbSpectrum baseColor) =>
         ComplexIor.Create(RgbSpectrum.Create(Eta(baseColor.R), Eta(baseColor.G), Eta(baseColor.B)), RgbSpectrum.Black);
 
     static double Eta(double reflectance) =>
         Math.Sqrt(Math.Clamp(reflectance, 0.0, 1.0 - 1e-6)) switch { var root => (1.0 + root) / (1.0 - root) };
 
-    // The one weight-admission helper: every slab weight collapses into [0,1] before UnitInterval.Create, so a
-    // consumer-built Slab never throws the ValueObject guard mid-fold. Comparison-ordered, not Math.Clamp, which
-    // propagates NaN — a non-finite weight collapses to zero instead.
     private static UnitInterval Weight(double w, double pass) =>
         UnitInterval.Create(w * pass is var scaled && scaled >= 0.0 ? Math.Min(scaled, 1.0) : 0.0);
 }

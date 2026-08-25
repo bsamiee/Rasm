@@ -20,7 +20,7 @@
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing*` `:149-158`, `Silhouette` `:178-188`), RhinoCommon document (`.api/api-rhinocommon-document.md` — `Rhino.DocObjects.ViewportInfo` seat and `Camera35mmLensLength`), kernel `Domain/rails` (`Op`, `Lease<T>.Acquire`, `ValidityClaim`, `IValidityEvidence`, `Fin`), `Rasm.Rhino.Viewport` (`CameraSnapshot`, `CameraPose`, `LensAngle`, `ProjectionKind`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), LanguageExt.Core, Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -36,7 +36,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProjectionFrame : IValidityEvidence {
     private ProjectionFrame() { }
@@ -107,8 +107,6 @@ public abstract partial record ProjectionFrame : IValidityEvidence {
                 && frame.SetFrustumNearFar(state.Subject),
             key: key);
 
-    // Acquire-configure-transfer without a sentinel: the lease owns the frame until the seat chain confirms, the
-    // rollback disposes it on any refusal or throw, and only a confirmed frame detaches to the caller's `using`.
     private static Fin<ViewportInfo> Seat<TState>(
         TState state, Func<TState, ViewportInfo, bool> configure, Op key) =>
         Lease<ViewportInfo>.Acquire(mint: static () => new ViewportInfo(), key: key)
@@ -117,11 +115,6 @@ public abstract partial record ProjectionFrame : IValidityEvidence {
                 .Map(_ => lease.Resource)
                 .Rollback(lease.Resource));
 
-    // `LensAngle` carries the FULL vertical view angle while `ViewportInfo.CameraAngle` holds its HALF — live-proven at
-    // 13.4957 deg = atan(12/50) for a 50mm lens, identical on `RhinoViewport.CameraAngle` — so the seat halves and a 1:1
-    // write silently doubles the field of view. The 35mm half-frame diagonal stays the host's own constant, never a
-    // transcribed literal: reading `Camera35mmLensLength` back off the seated frame yields the lens length Rhino itself
-    // computes, so a bundle that re-rates the frame size re-rates this page with it and no optics arithmetic lives here.
     private static double Lens(ViewportInfo frame, LensAngle angle) {
         _ = Op.Side(action: () => frame.CameraAngle = (double)angle / 2.0);
         return frame.Camera35mmLensLength;
@@ -142,7 +135,7 @@ public abstract partial record ProjectionFrame : IValidityEvidence {
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawingParameters` `:149-158` incl. `AddGeometryAndPlanes`, `SetViewport`, `AddClippingPlane`, and the five flag members; `SilhouetteType` `[Flags]` roster `:81`), kernel `Domain/rails` (`Op`, `Op.ToHostSlot`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`), kernel `Numerics/atoms` (`TransformSpec`, `Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DrawingFeature : ICapability<DrawingFeature> {
@@ -156,10 +149,6 @@ public sealed partial class DrawingFeature : ICapability<DrawingFeature> {
     internal partial Unit Write(HiddenLineDrawingParameters parameters, bool enabled);
 }
 
-// `SilhouetteType` is `[Flags]`: every row is a BIT and the empty set is `None`, so the mask fold is the whole
-// encoding and a defined-value probe over a composite mask — which answers false for every real request — is
-// unrepresentable here. Rank OVERRIDES the kernel's declaration-ordinal derivation because the bit IS the host's
-// declared order, and the roster skips bit values the host leaves unassigned.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SilhouetteKind : ICapability<SilhouetteKind> {
@@ -211,7 +200,7 @@ public abstract partial record SilhouetteFrame : IValidityEvidence {
         framed: static frame => (ValidityClaim)(frame.Value is { IsValid: true }));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ProjectionPacing : IValidityEvidence {
@@ -228,8 +217,6 @@ public readonly partial struct ProjectionPacing : IValidityEvidence {
             ? null
             : new ValidationError("Projection pacing requires a declared thread row.");
 
-    // Canonical unpaced row: a caller holding no `ProgressLease` reads this instead of minting a token source or
-    // an `IProgress` shim, which the shell page rules as the forked form.
     public static readonly ProjectionPacing Unpaced = Create(
         cancel: CancellationToken.None, progress: Option<IProgress<double>>.None, threads: DrawingThreads.Parallel);
 
@@ -240,8 +227,6 @@ public readonly partial struct ProjectionPacing : IValidityEvidence {
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct ProjectionSubject : IValidityEvidence {
     public GeometryHandle Geometry { get; }
-    // One independent host argument with no correlated partner and no projection column: a named bool is the whole
-    // fact and a two-row class over it would rename `true`.
     public bool Occluding { get; }
     public Option<TransformSpec> Placement { get; }
     public Seq<Plane> Clips { get; }
@@ -322,7 +307,7 @@ public readonly partial struct DrawingLaw : IValidityEvidence {
 - Packages: RhinoCommon geometry (`.api/api-rhinocommon-geometry.md` — `HiddenLineDrawing.Compute`/`Segments`/`Points`/`WorldToHiddenLine`/`BoundingBox`/`RejoinCompatibleVisible` `:149-158`, `HiddenLineDrawingSegment.Visibility` roster `:78`, `Silhouette.Compute`/`ComputeDraftCurve` `:178-188`), kernel `Domain/rails` (`Op`, `[GenerateUnionOps]` + generated `SelfOp`, `ValidityClaim`, `Fin`), kernel `Numerics/atoms` (`Placement.Build` — the kernel transform builder, NOT the `Blocks/model.md` `Placement` block-instance union), `Rasm.Rhino.Document` (`GeometryHandle`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`, `SourceAxis`), LanguageExt.Core (`TraverseM`, `Traverse`, `Choose`, `Strict`, `Zip`), Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ProjectionSlot {
     public static readonly ProjectionSlot Visible = new(key: 0, visibility: HiddenLineDrawingSegment.Visibility.Visible);
@@ -340,8 +325,6 @@ public sealed partial class ProjectionSlot {
     public static readonly ProjectionSlot Draft = new(key: 12, visibility: None);
     public static readonly ProjectionSlot Bounds = new(key: 13, visibility: None);
 
-    // Host taxonomy is a declared COLUMN, so the correspondence is data and classification is one index read; a
-    // host value no row claims lands on the named floor instead of a `_` arm a reader has to hunt for.
     internal Option<HiddenLineDrawingSegment.Visibility> Visibility { get; }
 
     internal static ProjectionSlot Classify(HiddenLineDrawingSegment.Visibility visibility) =>
@@ -443,8 +426,6 @@ public abstract partial record ProjectionOp {
                     select built);
             });
 
-    // Long form alone: an identity motion and an empty plane list are the host's own no-op arguments, so the
-    // four-way overload branch this member used to carry states nothing the arguments do not already say.
     private static Fin<Unit> Registered(
         HiddenLineDrawingParameters parameters, ProjectionSubject subject, GeometryBase native,
         int ordinal, Context model, Op op) =>
@@ -476,8 +457,6 @@ public abstract partial record ProjectionOp {
         });
     }
 
-    // Every native read forces inside the caller's `using` scope: a `Seq` projection is lazy, so an unforced map would
-    // dereference `HiddenLineDrawing` members after the engine is disposed and hand the consumer freed memory.
     private static BuildReceipt<ProjectionSlot> Harvested(
         Seq<HiddenLineDrawingSegment> segments,
         Seq<HiddenLineDrawingPoint> points,
@@ -528,8 +507,6 @@ public abstract partial record ProjectionOp {
             .As()
             .ToFin();
 
-    // Silhouettes whose 3D curve is null are projecting REGIONS, not captures, so one `Choose` builds the typed
-    // row every projection reads and the kind, component, and product streams stay index-aligned by construction.
     private static Fin<Built<ProjectionSlot>> Captured(
         ProjectionSlot slot, Op op, CancellationToken token, Func<Silhouette[]> run) =>
         op.Catch(() => ModelFact.Answered(channel: run()).Match(
@@ -552,7 +529,7 @@ public abstract partial record ProjectionOp {
             token: token);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Projections {
     public static Fin<Built<ProjectionSlot>> Build(ModelRuntime runtime, params ReadOnlySpan<ProjectionOp> operations) =>
         ModelGate.Entry(

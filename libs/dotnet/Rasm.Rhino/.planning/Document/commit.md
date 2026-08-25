@@ -17,14 +17,14 @@ The bracket's custody is a closed union, never a bool triple: a program either o
 - Law: the flush fires only after the prior redraw state is restored, so a suppressing policy still lands its terminal repaint; restore settles beside the primary through the one aggregation fold — a cleanup refusal never rides a discard.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
 using Thinktecture;
 
 namespace Rasm.Rhino.Document;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RedrawAxis : ICapability<RedrawAxis> {
@@ -35,8 +35,6 @@ public sealed partial class RedrawAxis : ICapability<RedrawAxis> {
     public static readonly RedrawAxis RepaintsLayers = new(key: "repaints-layers");
 }
 
-// The five postures a commit names; each row's traits are ONE set column the bracket reads, so the twenty-five
-// boolean cells the five-column roster carried collapse and a new trait is one vocabulary row.
 [SmartEnum<int>]
 public sealed partial class RedrawPolicy {
     public static readonly RedrawPolicy None = new(key: 0, traits: CapabilitySet<RedrawAxis>.Of());
@@ -49,7 +47,7 @@ public sealed partial class RedrawPolicy {
     public CapabilitySet<RedrawAxis> Traits { get; }
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 internal static class RedrawScope {
     internal static Fin<TOut> Within<TOut>(RhinoDoc document, RedrawPolicy redraw, Func<Fin<TOut>> body, Op key) =>
         from prior in key.Catch(() => Fin.Succ(value: document.Views.RedrawEnabled))
@@ -70,7 +68,6 @@ internal static class RedrawScope {
             () => document.Views.Redraw(deferred: redraw.Traits.Admits(capability: RedrawAxis.Defers)))))
         select value;
 
-    // A restore fault APPENDS to the primary rather than replacing or vanishing — the ruled cleanup posture.
     private static Fin<T> Append<T>(Fin<T> primary, Fin<Unit> side) => primary.BiBind(
         Succ: value => side.Map(_ => value),
         Fail: error => side.Match(
@@ -87,10 +84,7 @@ internal static class RedrawScope {
 - Law: `DocumentCommit.Compensated` owns the whole compensation algebra: land each element, roll back every landed key on the first refusal, and settle source custody through its release policy — every source releases once the fold's fate is decided, a release refusal after success rolls the landed keys back, and rollback then release faults append in that order onto the initiating fault. The identity release is the default modality riding the `Option` seat, so the release-free arity twin is deleted too; a suffix-only cleanup inside a rollback lambda or a `.Match` ladder re-spelling release beside the fold is the deleted form.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Three rows over one host bool: `Quiet`/`Interactive` are a caller's ELECTION, `Silent` is design-mandated
-// silence on a surface that offers no choice — a rollback leg reads `Silent` and no site carries a comment
-// asserting what the row now states.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class HostInteraction {
     public static readonly HostInteraction Quiet = new(key: 0, isQuiet: true);
@@ -100,10 +94,8 @@ public sealed partial class HostInteraction {
     public bool IsQuiet { get; }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class DocumentCommit {
-    // ONE sealed entry: redraw scope outside, bracket inside, stamp and projection INSIDE the bracket so their
-    // refusals roll the owned record back like any operation fault. Identity projection spells `Fin.Succ`.
     internal static Fin<TOut> Sealed<TReceipt, TOut>(
         RhinoDoc document,
         string name,
@@ -123,8 +115,6 @@ internal static class DocumentCommit {
             return undo.Seal(outcome: executed, key: op);
         }));
 
-    // Land, roll back on first refusal, settle custody — with rollback then release faults appending in that
-    // order onto the initiating fault. The identity release rides the `Option` seat as the default modality.
     internal static Fin<Seq<TKey>> Compensated<TSource, TKey>(
         Seq<TSource> source,
         Func<TSource, Fin<TKey>> land,
@@ -160,9 +150,7 @@ internal static class DocumentCommit {
 - Law: rollback is custody-total — an owned record undoes and clears redo, an enlisted record propagates the failure to the command boundary that owns the record, and an unrecorded or refused seat has nothing to roll; every rollback fault appends onto the primary.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// Derived ONCE at `Begin` from the host's own state — recording demand, command scope, active record — and read
-// as a case everywhere the five booleans were re-tested: the serial rides its case as an admitted `UndoSerial`.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record BracketCustody {
     private BracketCustody() { }
@@ -173,8 +161,6 @@ internal abstract partial record BracketCustody {
     internal sealed record RefusedCase : BracketCustody;
 }
 
-// Monotone: `Open` → `Closed` → `Sealed`. One ordered axis carries what two independent flags spelled, so a
-// re-entrant close and a double seal are phase reads rather than flag arithmetic.
 [SmartEnum<int>]
 internal sealed partial class BracketPhase {
     internal static readonly BracketPhase Open = new(key: 0);
@@ -182,7 +168,7 @@ internal sealed partial class BracketPhase {
     internal static readonly BracketPhase Sealed = new(key: 2);
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 internal ref struct UndoBracket {
     private readonly RhinoDoc document;
     private readonly BracketCustody custody;
@@ -196,9 +182,6 @@ internal ref struct UndoBracket {
 
     public bool Admitted => custody is not BracketCustody.RefusedCase;
 
-    // Custody derives from the host's own three facts: outside a command with no active record the bracket OWNS
-    // the record it opens; inside a command with an active record it ENLISTS; a recording program that can seat
-    // neither — an active non-command record — is REFUSED before any mutation runs.
     public static UndoBracket Begin(RhinoDoc document, string name, bool recordsUndo) {
         bool active = document.UndoRecordingIsActive;
         bool inCommand = global::Rhino.Commands.Command.InCommand();
@@ -216,8 +199,6 @@ internal ref struct UndoBracket {
         return new UndoBracket(document: document, custody: custody);
     }
 
-    // Stamps only through a custody that HOLDS a record — the union already proved the serial positive, so no
-    // `serial > 0u` guard survives — and an unrecorded program bypasses stamping entirely.
     public Func<TReceipt, Fin<TReceipt>> Stamper<TReceipt>(Func<TReceipt, uint, TReceipt> stamp, Op key) {
         BracketCustody seat = custody;
         return receipt => seat.Switch(
@@ -234,8 +215,6 @@ internal ref struct UndoBracket {
             select stamped;
     }
 
-    // The 2×2 fold reads the two rails it already holds — execution `Fin<TReceipt>` and bounded close
-    // `Fin<Option<Error>>` — where two private record families re-wrapped both for one tuple switch.
     public Fin<TReceipt> Seal<TReceipt>(Fin<TReceipt> outcome, Op key) {
         if (phase == BracketPhase.Sealed) {
             return Fin.Fail<TReceipt>(error: key.InvalidResult());
@@ -278,7 +257,6 @@ internal ref struct UndoBracket {
             .Map(_ => Some(first))
             .BindFail(second => Fin.Fail<Option<Error>>(error: first + second)));
 
-    // Only an OWNED record closes; the phase advances on success so a re-entrant close is a phase read.
     private Fin<Unit> Close(Op key) {
         if (phase != BracketPhase.Open) {
             return Fin.Succ(value: unit);
@@ -297,9 +275,6 @@ internal ref struct UndoBracket {
         return outcome;
     }
 
-    // Custody-total compensation the kernel `Custody.Rollback` delegate arm consumes — its faults append onto the
-    // primary at that owner: owned rolls back and clears redo, enlisted refuses with the boundary-propagation
-    // refusal the command boundary that owns the record must carry, unrecorded and refused have nothing to roll.
     private static Fin<Unit> Reversed(RhinoDoc document, BracketCustody custody, Op key) =>
         custody.Switch(
             state: (Document: document, Key: key),

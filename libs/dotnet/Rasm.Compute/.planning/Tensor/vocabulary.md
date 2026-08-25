@@ -17,10 +17,7 @@ Cpu-tensor vocabulary uses `Tensor<T>` as its only tensor owner, `TensorDtype` a
 - Boundary: `Tensor<T>`, `TensorSpan<T>`, `ReadOnlyTensorSpan<T>`, `TensorShape`, and `TensorDimensionSpan<T>` are the only tensor shapes — package-local tensor wrappers and a TensorService are the deleted forms; `Tensor.CreateFromArray`, `CreateFromMemory`, `CreateFromSequence`, and `CreateFromDiagonal` are phantom spellings — `Tensor.Create`, `CreateFromShape`, and `CreateFromShapeUninitialized` are the factory surface, and zero-copy admission rides `TensorSpan<T>` constructors over spans and `Tensor.Create` over rented `MemoryOwner<T>` arrays through `DangerousGetArray`; `TensorMarshal.CreateTensorSpan` is the write-polarity native bridge over ref-rooted foreign memory and `TensorMarshal.CreateReadOnlyTensorSpan` the read-polarity bridge admitting pooled-plane and model-output buffers whose lifetime the caller owns, with `TensorMarshal.GetReference` and `Tensor<T>.GetPinnableReference` as ref roots; one generic kernel serves each operation family. `Width` carries CLR byte width and `OrtElementBytes` the ONNX C-data stride, so `GetTensorSizeInBytes` converts through the dtype row, never `sizeof(T)`; `ElementCount` rejects negative, non-integral, and `int`-overflowing element counts before any destination slice, and answers `no-byte-stride` for the rows whose ORT stride is absent rather than zero. `Complex128` carries `System.Numerics.Complex`, while `complex64` has no BCL carrier and never admits to a span; native FP8, `Int4`/`UInt4`, and `Float4E2M1` types do not exist in managed `TensorElementType` and remain inadmissible. Quantized rows compose subtract-zero-point then multiply-scale dequantization and inverse round-add-`ConvertSaturating` quantization, broadcasting by per-tensor, per-axis, or blocked granularity. `QuantizationPolicy.Admit` receives the tensor shape, admits the axis extent it depends on, then accumulates the four independent structural gates through tuple `Apply` and exits once to `Fin`; a `Granularity` value carries whether a scale covers one axis element or a block of them, so one axial body serves both vector granularities; no kernel revalidates metadata. Chunked contiguous frames stage through `StreamGrant.ContiguousFrame`; the string row admits only at the model boundary through `OrtValue.CreateTensorWithEmptyStrings` then `CreateFromStringTensor`.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// Reach is the column `ModelBoundaryOnly` was: a boundary-only carrier converts at the inference admission seam
-// and never enters a span kernel, and `AdmitSpan` is the arm that enforces it. A bool stating a law nothing
-// refused on left the law to a filter half-read inside `Promote`.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -29,11 +26,6 @@ public sealed partial class Reach {
     public static readonly Reach ModelBoundary = new("model-boundary");
 }
 
-// `Width` is CLR BYTES and every derived width reads it: `StorageBits` is `Width * 8` on every row that carries
-// one, so the invariant a comment used to assert is now the only spelling — `bool` occupies one byte and states
-// eight bits, its one-bit packing belonging to the `Tensor/memory#ALLOCATION_AXIS` mask view. `NumericDomain`
-// carries the `(precision, exponent)` pair for the rows that HAVE one and answers `None` for the rows that do
-// not, so `Numeric` derives from it and no row states a zero for a measurement it never took.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -43,9 +35,6 @@ public sealed partial class TensorDtype {
     public static readonly TensorDtype Float16 = new("float16", element: Some(TensorElementType.Float16), typeof(Half), width: Some(2), ortBytes: Some(2), quantized: false, reach: Reach.Span, integral: false, signed: true, numericDomain: Some((11, 5)));
     public static readonly TensorDtype BFloat16 = new("bfloat16", element: Some(TensorElementType.BFloat16), typeof(Microsoft.ML.OnnxRuntime.BFloat16), width: Some(2), ortBytes: Some(2), quantized: false, reach: Reach.ModelBoundary, integral: false, signed: true, numericDomain: Some((8, 8)));
     public static readonly TensorDtype Complex128 = new("complex128", element: Some(TensorElementType.Complex128), typeof(System.Numerics.Complex), width: Some(16), ortBytes: Some(16), quantized: false, reach: Reach.Span, integral: false, signed: true, numericDomain: Some((53, 11)));
-    // The one carrier with NO `TensorElementType`: `System.Numerics.Quaternion` never crosses the ONNX boundary,
-    // so its element and its ORT stride are absent rather than zero, and the geometry rows that name it are
-    // reachable through the vocabulary instead of naming a carrier the roster could not admit.
     public static readonly TensorDtype Quaternion = new("quaternion", element: None, typeof(System.Numerics.Quaternion), width: Some(16), ortBytes: None, quantized: false, reach: Reach.Span, integral: false, signed: true, numericDomain: None);
     public static readonly TensorDtype Int8 = new("int8", element: Some(TensorElementType.Int8), typeof(sbyte), width: Some(1), ortBytes: Some(1), quantized: true, reach: Reach.Span, integral: true, signed: true, numericDomain: Some((7, 0)));
     public static readonly TensorDtype Int16 = new("int16", element: Some(TensorElementType.Int16), typeof(short), width: Some(2), ortBytes: Some(2), quantized: false, reach: Reach.Span, integral: true, signed: true, numericDomain: Some((15, 0)));
@@ -71,10 +60,6 @@ public sealed partial class TensorDtype {
     public bool Numeric => NumericDomain.IsSome;
     public int StorageBits => Width.Map(static bytes => bytes * 8).IfNone(0);
 
-    // The generic-math constraint classes this carrier satisfies, DERIVED from the row's own columns so a new
-    // row answers without an edit here. It is the run-time half of the admission the compile-time constraint
-    // enforces on every interior call: a request arriving from the model boundary carries a dtype chosen at run
-    // time, and the op row's own `Domains` is what admits or refuses that pairing.
     public OperandDomain Domain =>
         this == Quaternion ? OperandDomain.Quaternion
         : this == Complex128 ? OperandDomain.Complex | OperandDomain.Numeric
@@ -82,9 +67,6 @@ public sealed partial class TensorDtype {
         : Numeric ? OperandDomain.Real | OperandDomain.Numeric | OperandDomain.BinaryNumeric
         : OperandDomain.None;
 
-    // Zero-point range derives from the row's OWN signedness and storage width, so a quantized row landing at a
-    // wider integer domain answers without an edit here; an identity probe against a named row answers only the
-    // rows it names and silently mis-domains every later one.
     public Option<(long Min, long Max)> ZeroPointDomain =>
         !Quantized ? None
         : Signed ? Some((-(1L << (StorageBits - 1)), (1L << (StorageBits - 1)) - 1))
@@ -100,10 +82,7 @@ public sealed partial class TensorDtype {
                 : Fin.Succ(checked((int)(sizeInBytes / stride))));
 }
 
-// --- [MODELS] ------------------------------------------------------------------------------
-// A quantization scale is positive and finite BY CONSTRUCTION, so the two gates that re-proved it per call —
-// once for the scalar and once per vector element — are deleted and the invalid scale is unrepresentable past
-// the wire edge that mints it.
+// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>]
 public readonly partial struct PositiveScale {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
@@ -113,9 +92,6 @@ public readonly partial struct PositiveScale {
     }
 }
 
-// Per-axis and blocked differ by ONE fact — whether a scale covers one axis element or a block of them — so the
-// granularity is a value the shared cardinality law reads, never an `int?` whose null spelled a union case the
-// call site already carried.
 [Union]
 public abstract partial record Granularity {
     private Granularity() { }
@@ -123,14 +99,10 @@ public abstract partial record Granularity {
     public sealed record Blocks(int Size) : Granularity;
 }
 
-// ONNX affine quantization owns scalar, per-axis, and blocked granularities; dequant(x) = (x - zeroPoint) * scale.
 [Union]
 public abstract partial record QuantizationPolicy {
     private QuantizationPolicy() { }
     public sealed record PerTensor(PositiveScale Scale, int ZeroPoint) : QuantizationPolicy;
-    // Case records carry `[Equatable]` (never the `[Union]` root — Thinktecture owns root equality, and a root
-    // attribute draws TTRESG106 while leaving case members reference-compared): a quantization policy is a value
-    // that keys tensor and session caches, and `ImmutableArray` members otherwise compare by reference.
     [Equatable]
     public sealed partial record PerAxis(int Axis, [property: OrderedEquality] ImmutableArray<PositiveScale> Scales, [property: OrderedEquality] ImmutableArray<int> ZeroPoints) : QuantizationPolicy;
     [Equatable]
@@ -144,9 +116,6 @@ public abstract partial record QuantizationPolicy {
                 perAxis: a => Axial(row, domain, shape, a.Axis, new Granularity.Whole(), a.Scales, a.ZeroPoints).Map(_ => (QuantizationPolicy)a),
                 blocked: b => Axial(row, domain, shape, b.Axis, new Granularity.Blocks(b.BlockSize), b.Scales, b.ZeroPoints).Map(_ => (QuantizationPolicy)b)));
 
-    // ONE axial body for both vector granularities: the axis EXTENT admits first because every remaining gate
-    // reads it, then the four independent facts accumulate. The prior pair of bodies shared six of seven gates
-    // verbatim and let the shape gate pass on an axis it could not judge — a gate publishing an unmeasured pass.
     private static Fin<Unit> Axial(
         TensorDtype row,
         (long Min, long Max) domain,
@@ -187,42 +156,35 @@ public abstract partial record QuantizationPolicy {
         zeroPoints.Any(zero => zero < domain.Min || zero > domain.Max) ? TensorReason.QuantizationInvalid.Fault("quant-zero-point", row.Key) : unit;
 }
 
-// --- [ERRORS] ------------------------------------------------------------------------------
-// The tensor lane's direct leaf ([FaultCase] 29) carries the closed reason and instance witness every Tensor fold
-// raises. The reason is the grouping key; the witness remains diagnostic payload and never participates in identity.
+// --- [ERRORS] --------------------------------------------------------------------------
 public abstract partial record ComputeFault {
     [FaultCase(29)] public sealed partial record TensorRejected(TensorReason Reason, string Witness) : ComputeFault($"{Reason.Key}:{Witness}");
 }
 
-// The CLOSED refusal vocabulary the 2229 arm carries. Ninety-odd slug stems across the nine Tensor pages named
-// the same dozen structural causes in as many spellings, so a panel could not group them and a typo minted a
-// silent new bucket. These rows are the causes; the SITE and its payload ride the witness, so closing the
-// vocabulary costs no addressability — `<shape-mismatch:egress-undersized:float32:8!=4>` still names the exact
-// gate while the row is what a fold counts on.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class TensorReason {
-    // --- [SHAPE] — extents, ranks, and the congruences a kernel proves before it writes
+    // --- [SHAPE]
     public static readonly TensorReason ShapeMismatch       = new("shape-mismatch");
     public static readonly TensorReason AxisOutOfRange      = new("axis-out-of-range");
     public static readonly TensorReason EmptyOperand        = new("empty-operand");
     public static readonly TensorReason ExtentOverflow      = new("extent-overflow");
     public static readonly TensorReason PermutationInvalid  = new("permutation-invalid");
-    // --- [DTYPE] — element identity, storage width, and the quantization envelope
+    // --- [DTYPE]
     public static readonly TensorReason DtypeMismatch       = new("dtype-mismatch");
     public static readonly TensorReason ByteStrideAbsent    = new("byte-stride-absent");
     public static readonly TensorReason ByteSpanMisaligned  = new("byte-span-misaligned");
     public static readonly TensorReason QuantizationInvalid = new("quantization-invalid");
-    // --- [ROSTER] — a keyed lookup a closed roster could not answer
+    // --- [ROSTER]
     public static readonly TensorReason RowMissing          = new("row-missing");
     public static readonly TensorReason OperandDomainMiss   = new("operand-domain-miss");
     public static readonly TensorReason AxisUnderivable     = new("axis-underivable");
-    // --- [RESIDENCY] — native custody and device gates
+    // --- [RESIDENCY]
     public static readonly TensorReason ResidencyMismatch   = new("residency-mismatch");
     public static readonly TensorReason NativeRejected      = new("native-rejected");
-    // --- [STAGING] — pooled bytes, streams, and archive containers
+    // --- [STAGING]
     public static readonly TensorReason StagingOverBound    = new("staging-over-bound");
-    // --- [NUMERIC] — the measured gates every lane on this branch reads
+    // --- [NUMERIC]
     public static readonly TensorReason PolicyInvalid       = new("policy-invalid");
     public static readonly TensorReason NonFinite           = new("non-finite");
     public static readonly TensorReason WitnessFail         = new("witness-fail");
@@ -237,10 +199,8 @@ public sealed partial class TensorReason {
         Fin.Fail<A>(Fault(site, payload));
 }
 
-// --- [OPERATIONS] --------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class TensorVocabulary {
-    // Derived from the rows that HAVE an ONNX element; the quaternion carrier answers `None` and never enters
-    // the map, so the boundary index and the carrier roster stay one authority.
     private static readonly FrozenDictionary<TensorElementType, TensorDtype> ByElement =
         toSeq(TensorDtype.Items)
             .Choose(static row => row.Element.Map(element => (Element: element, Row: row)))
@@ -249,8 +209,6 @@ public static class TensorVocabulary {
     public static Fin<TensorDtype> Admit(TensorElementType element) =>
         ByElement.TryGetValue(element, out TensorDtype? row) ? Fin.Succ(row!) : TensorReason.DtypeMismatch.Fail<TensorDtype>("unmapped-element", element.ToString());
 
-    // The span arm REFUSES a boundary-only carrier: bfloat16 and the text row convert at the inference admission
-    // seam, so a kernel reaching one would run a carrier no `TensorPrimitives` constraint admits.
     public static Fin<TensorDtype> AdmitSpan(TensorElementType element) =>
         Admit(element).Bind(static row => row.Reach == Reach.Span
             ? Fin.Succ(row)
@@ -266,10 +224,6 @@ public static class TensorVocabulary {
                 ? Integral(left, right)
                 : Floating(left, right, Math.Max(pair.Left.Precision, pair.Right.Precision), Math.Max(pair.Left.Exponent, pair.Right.Exponent)));
 
-    // Range dominates beside precision: bfloat16 + float16 promotes to float32 because neither operand's exponent
-    // domain covers the other, never to the precision-minimal float16 whose range truncates. A demand no float row
-    // covers is EXHAUSTION and says so — the prior `?? Float64` published the widest row the estate happens to
-    // carry as a promotion nothing proved.
     private static Fin<TensorDtype> Floating(TensorDtype left, TensorDtype right, int precision, int exponent) =>
         toSeq(TensorDtype.Items)
             .Filter(static row => row.Numeric && !row.Integral && row != TensorDtype.Complex128 && row.Reach == Reach.Span)
@@ -277,9 +231,6 @@ public static class TensorVocabulary {
             .Find(row => row.NumericDomain.Map(domain => domain.Precision >= precision && domain.Exponent >= exponent).IfNone(false))
             .Match(Some: Fin.Succ, None: () => TensorReason.DtypeMismatch.Fail<TensorDtype>("promotion-exhausted", $"{left.Key}+{right.Key}", $"precision={precision}:exponent={exponent}"));
 
-    // A mixed-sign integral pair demanding one bit past the widest integral row lands on the NAMED floor: the
-    // deliberate lossy widening the Entry card argues, carrying both magnitudes at 53-bit precision rather than
-    // refusing a promotion every caller then works around.
     private static readonly TensorDtype MixedSignFloor = TensorDtype.Float64;
 
     private static Fin<TensorDtype> Integral(TensorDtype left, TensorDtype right) {
@@ -295,10 +246,6 @@ public static class TensorVocabulary {
     private static Fin<TensorDtype> NonNumeric(TensorDtype left, TensorDtype right) =>
         TensorReason.DtypeMismatch.Fail<TensorDtype>("non-numeric-promotion", $"{left.Key}+{right.Key}");
 
-    // Archive admission DERIVES from the row's own columns exactly as `Promote` does, so a new integral or float
-    // row admits with zero edit here — the twelve hand arms mirrored those columns and grew with every row.
-    // `IH5DataType` exposes no byte order, so a divergent-endian element refuses at the `Runtime/archive#HDF_ARCHIVE`
-    // read as `<hdf5-byte-order:…>`, never at this projection.
     public static Fin<TensorDtype> Admit(IH5DataType type) => type.Class switch {
         H5DataTypeClass.FloatingPoint => Derived(
             row => row.Numeric && !row.Integral && row != TensorDtype.Complex128 && row.Reach == Reach.Span && row.Width == Some(type.Size),
@@ -314,7 +261,6 @@ public static class TensorVocabulary {
         toSeq(TensorDtype.Items).Find(admits)
             .Match(Some: Fin.Succ, None: () => slug.Fail<TensorDtype>(size.ToString(CultureInfo.InvariantCulture)));
 
-    // The ONE boundary admission: element, optional quantization, and the shape the policy proves against.
     public static Fin<TensorDtype> Admit(TensorElementType element, Option<QuantizationPolicy> quantization, ReadOnlyMemory<long> shape) =>
         Admit(element).Bind(row => quantization.Match(
             Some: policy => policy.Admit(row, shape).Map(_ => row),
@@ -331,12 +277,7 @@ public static class TensorVocabulary {
 - Boundary: a row's key IS its `TensorPrimitives` member under `nameof` wherever `Lowering.Member` holds, so a renamed or retired host member is a build break rather than a silent table miss, and the Pascal-casing string transform consumers used to perform against a kebab key is deleted. `OperandDomain` is the generic-math admission column stated ONCE: seventeen predicate rows carry `Numeric` because the host binds them at `INumberBase<T>`, `IsPow2` alone carries `BinaryNumeric` because the host narrows it to `IBinaryNumber<T>`, and `System.Numerics.Complex` implements the former and not the latter — a kernel table narrowing the whole predicate family to `IBinaryNumber<T>` made the three complex-classification rows uninstantiable for the domain they exist to classify. `TensorArity` is what makes the dispatch kernel tables derivable from `Items`: a `[SmartEnum]` static field cannot hold an open-generic `UnaryKernel<T>`, so the kernel stays in its per-`T` table, but which table a row belongs to is a column rather than a hand-kept parallel roster. `ToleranceClass.Bound(length, mass)` owns absolute equivalence bounds, and `Vacuous` rejects cancellation-dominated evidence. `TensorOpKind.Oracle` is the proof-family selector the `Tensor/dispatch#EQUIVALENCE_INTEROP` `EquivalenceLaw` switches on — elementwise, rounding, transcendental, bitwise, population, predicate, and conversion kinds against the element-by-element scalar tail; reduction, statistics, and similarity against the reassociated (reversed) order; matrix against the lowered GEMM reference; structural and geometry against the operator-transpose identity over a mesh fixture. It is a ROW rather than a delegate column because the oracle bodies are dispatch-owned and a substrate roster holding a consumer's method group inverts the strata. `ToleranceClass.Verdict` is the multi-state fold `ProofVerdict` names and the ONLY reader of the envelope: an infinite bound certifies nothing, so every estimate row lands `unprovable-estimate`, and the boolean shell that re-derived which non-pass is a violation is deleted because the comment above the fold forbids exactly that re-derivation. `TensorVocabulary.Promote(left, right)` generates result dtype from numeric domain, signedness, and storage width rather than an ordered-pair roster, and a float demand no row covers is a typed exhaustion fault rather than a silent widening to the widest row the estate happens to carry. Quantized admission sequences the axis extent it depends on, then accumulates the four independent cardinality and domain facts through `Validation`; scale positivity is unrepresentable-if-invalid at `PositiveScale` rather than re-proved per call.
 
 ```csharp signature
-// --- [TYPES] -------------------------------------------------------------------------------
-// Equivalence is MULTI-state, never a boolean: a row whose envelope is infinite, a reduction whose evidence
-// cancelled away, and a family whose oracle never ran all fail to certify, and reporting any of them as a pass
-// publishes a proof nobody ran — while reporting the last as a VIOLATION accuses a kernel nobody measured.
-// `Certifies` is true on one row alone, so a consumer folds the column instead of re-deriving which non-pass is
-// a violation, and the three refusal rows keep their causes distinct at the receipt.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -354,12 +295,6 @@ public sealed partial class ProofVerdict {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ToleranceClass {
-    // Equivalence bound is the error ENVELOPE Bound(N, mass) over the reduction length N and the operand
-    // mass Σ|xᵢ|, never a flat relative scalar: a vectorized reduction reassociates so its bound scales N·ε·Σ|xᵢ|;
-    // a same-route fused/iterative op bands by a few ε·Σ|xᵢ| (ULP); a C-runtime transcendental is golden-vector
-    // banded and never bit-exact across platforms; an estimate row has no cross-machine bound. ε = ScaleB(1, -52)
-    // is the double machine epsilon. The envelope IS the single source of truth — a stored relative scalar beside
-    // it is the de-sync defect this owner forecloses.
     public static readonly ToleranceClass Exact = new("exact", static (_, _) => 0.0);
     public static readonly ToleranceClass UlpBanded = new("ulp-banded", static (_, mass) => Math.ScaleB(4.0, -52) * mass);
     public static readonly ToleranceClass AccumulationScaled = new("accumulation-scaled", static (length, mass) => length * Math.ScaleB(1.0, -52) * mass);
@@ -369,17 +304,10 @@ public sealed partial class ToleranceClass {
     [UseDelegateFromConstructor]
     public partial double Bound(int length, double mass);
 
-    // Cancellation ratio |Σxᵢ|/Σ|xᵢ| decides when even the scaled envelope is vacuous: a reduction whose
-    // catastrophic cancellation drives the ratio below the floor cannot certify equivalence, so the proof rail
-    // records the ratio class beside the bound rather than passing a meaningless tight bound — Exact alone is
-    // ratio-invariant because bit-equality holds regardless of cancellation.
     public const double CancellationFloor = 1e-8;
 
     public bool Vacuous(double cancellationRatio) => this != Exact && cancellationRatio < CancellationFloor;
 
-    // Boundedness derives from the row's OWN envelope at unit length and unit mass, never a second column that
-    // de-syncs from it: an estimate row answers +inf and bounds nothing, so `deviation <= Bound(...)` — true for
-    // every finite deviation under an infinite bound — would publish a pass no measurement supports.
     public bool Certifiable => double.IsFinite(Bound(1, 1.0));
 
     public ProofVerdict Verdict(double deviation, int length, double mass, double cancellationRatio) =>
@@ -390,13 +318,7 @@ public sealed partial class ToleranceClass {
         : ProofVerdict.Violated;
 }
 
-// --- [OP_FORMS] ----------------------------------------------------------------------------
-// Each roster below is ONE axis a key string used to carry as a name suffix. An axis whose value the ENTRYPOINT
-// already states — the fold-versus-index return shape, the whole-versus-segmented lane — carries no roster here,
-// because a second spelling of a discriminant the signature holds is a column nothing reads. A consumer asking for the `Any`
-// form of `IsNaN`, the magnitude form of `Max`, or the π-scaled form of `Sin` now reads a typed value off the
-// request instead of concatenating and re-parsing a kebab key, and a family that gains a variant gains one row
-// on its axis rather than a row per combination on the op table.
+// --- [OP_FORMS] ------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -447,8 +369,6 @@ public sealed partial class NumericBase {
     public static readonly NumericBase Decimal = new("decimal");
 }
 
-// `NearUnit` selects the `M1`/`P1` companions, whose extra precision exists ONLY near one — the axis the six
-// `ExpM1`/`LogP1` key strings spelled as a name suffix on top of the base axis.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -507,8 +427,6 @@ public sealed partial class ShiftFill {
     public static readonly ShiftFill Rotate = new("rotate");
 }
 
-// A left shift has no arithmetic fill, so the dispatch table refuses that corner by name rather than the key
-// roster carrying five names for one operation under two axes.
 public readonly record struct ShiftForm(ShiftDirection Direction, ShiftFill Fill);
 
 [SmartEnum<string>]
@@ -536,16 +454,11 @@ public sealed partial class OverflowPolicy {
     public static readonly OverflowPolicy Truncating = new("truncating");
 }
 
-// `None` is the GLOBAL pool: a global reduction is a window at the axis extent, not a second op family.
 public readonly record struct PoolWindow(Option<(int Window, int Stride)> Strided) {
     public static readonly PoolWindow Global = new(None);
 }
 
-// --- [OP_TABLE] ----------------------------------------------------------------------------
-// Arity is the STRUCTURAL axis every span entrypoint is named for, and seating it as a column is what makes the
-// dispatch kernel tables derivable from `Items` instead of hand-mirrored: a `[SmartEnum]` static field cannot
-// hold an open-generic `UnaryKernel<T>`, so the kernel itself stays in the per-`T` table, but WHICH table a row
-// belongs to stops being a second roster nobody keeps in step.
+// --- [OP_TABLE] ------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -568,11 +481,6 @@ public sealed partial class TensorArity {
     public static readonly TensorArity Inline = new("inline");
 }
 
-// The generic-math constraint class a row's kernel binds — the ADMISSION column, stated once here rather than
-// re-declared at each kernel table where a single over-narrow `where` clause made nine predicate rows
-// uninstantiable for the very element domain they classify. Verified on the installed surface: every
-// `TensorPrimitives` predicate binds `INumberBase<T>` except the `IsPow2` triad, which binds `IBinaryNumber<T>`,
-// and `System.Numerics.Complex` implements `INumberBase<Complex>` and NOT `IBinaryNumber<Complex>`.
 [Flags]
 public enum OperandDomain {
     None = 0,
@@ -584,11 +492,6 @@ public enum OperandDomain {
     Quaternion = 32,
 }
 
-// Where a row's kernel comes from. `Member` binds a `TensorPrimitives` method group, so the row key IS that
-// member under `nameof` and a renamed or retired member breaks the build instead of missing a lookup at run
-// time. `Composed` folds other rows (the activation quartet, the convolution). `Lowered` hands the operand to
-// the numeric lane. `Authored` is a hand kernel with no member on any admitted domain — the provenance the
-// prose used to state and no column held.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -599,10 +502,6 @@ public sealed partial class Lowering {
     public static readonly Lowering Authored = new("authored");
 }
 
-// The equivalence oracle FAMILY a kind certifies through. It is a vocabulary row rather than a delegate column
-// because the oracle bodies are dispatch-owned and a substrate roster holding a consumer's method group inverts
-// the strata; the consumer switches on this closed roster and its four arms break at compile time, where a
-// thirteen-row kind-to-kernel map was a third mirror of the same roster.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -634,13 +533,6 @@ public sealed partial class TensorOpKind {
     public ProofOracle Oracle { get; }
 }
 
-// One row per OPERATION, never per name variant: the aggregation mode, the extremum metric and NaN policy and
-// return shape, the segment lane, the argument scaling, the near-unit series, the logarithm base, the overflow
-// policy and conversion target, the shift direction and fill, the window extent, and the convolution rank are
-// all REQUEST values on the `[OP_FORMS]` axes above. Every one of them used to ride the key string as a suffix
-// a consumer re-derived by concatenation, which is why `.api/api-tensors.md` had to document a Pascal-casing
-// transform as the binding law. A member row's key is its `TensorPrimitives` member under `nameof`; an authored
-// or composed row's key is the PascalCase name of the operation it names, because no member backs it.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -655,9 +547,6 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily CopySign = new(nameof(TensorPrimitives.CopySign), TensorOpKind.Elementwise, ToleranceClass.Exact, TensorArity.Binary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily MultiplyAdd = new(nameof(TensorPrimitives.MultiplyAdd), TensorOpKind.Elementwise, ToleranceClass.UlpBanded, TensorArity.Ternary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily FusedMultiplyAdd = new(nameof(TensorPrimitives.FusedMultiplyAdd), TensorOpKind.Elementwise, ToleranceClass.UlpBanded, TensorArity.Ternary, OperandDomain.Real, Lowering.Member);
-    // The three estimate rows survive as ROWS, not as an `Estimated` form: their discriminant is the tolerance
-    // COLUMN, which the equivalence rail reads off the row to refuse a proof outright, and a tolerance that
-    // varied by request would make `EquivalenceProof.Bound` read a bound the family does not own.
     public static readonly TensorOpFamily MultiplyAddEstimate = new(nameof(TensorPrimitives.MultiplyAddEstimate), TensorOpKind.Elementwise, ToleranceClass.PlatformVariant, TensorArity.Ternary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily AddMultiply = new(nameof(TensorPrimitives.AddMultiply), TensorOpKind.Elementwise, ToleranceClass.UlpBanded, TensorArity.Ternary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily Lerp = new(nameof(TensorPrimitives.Lerp), TensorOpKind.Elementwise, ToleranceClass.UlpBanded, TensorArity.Ternary, OperandDomain.Real, Lowering.Member);
@@ -674,8 +563,6 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily QuaternionNormalize = new("QuaternionNormalize", TensorOpKind.Elementwise, ToleranceClass.UlpBanded, TensorArity.Unary, OperandDomain.Quaternion, Lowering.Authored);
     public static readonly TensorOpFamily ComplexAbs = new("ComplexAbs", TensorOpKind.Elementwise, ToleranceClass.CrossPlatformVariant, TensorArity.Magnitude, OperandDomain.Complex, Lowering.Authored);
     public static readonly TensorOpFamily Round = new(nameof(TensorPrimitives.Round), TensorOpKind.Rounding, ToleranceClass.Exact, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
-    // Floor, Ceiling, and Truncate are NOT `Round` under a midpoint mode: the mode decides ties alone, so
-    // `Round(2.7, ToNegativeInfinity)` is 3 where `Floor(2.7)` is 2. Four rows, one refused collapse.
     public static readonly TensorOpFamily Floor = new(nameof(TensorPrimitives.Floor), TensorOpKind.Rounding, ToleranceClass.Exact, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily Ceiling = new(nameof(TensorPrimitives.Ceiling), TensorOpKind.Rounding, ToleranceClass.Exact, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily Truncate = new(nameof(TensorPrimitives.Truncate), TensorOpKind.Rounding, ToleranceClass.Exact, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
@@ -689,9 +576,6 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily Acos = new(nameof(TensorPrimitives.Acos), TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily Atan = new(nameof(TensorPrimitives.Atan), TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily Atan2 = new(nameof(TensorPrimitives.Atan2), TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant, TensorArity.Binary, OperandDomain.Real, Lowering.Member);
-    // Hyperbolic rows stay ROWS: a π-scaled sine is one function under an argument convention, while a
-    // hyperbolic sine is a DIFFERENT function, and folding them would make one adjoint row (`Tanh` on the
-    // `Tensor/dispatch#EQUIVALENCE_INTEROP` derivative table) key on a form its tape step never records.
     public static readonly TensorOpFamily Sinh = new(nameof(TensorPrimitives.Sinh), TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily Cosh = new(nameof(TensorPrimitives.Cosh), TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily Tanh = new(nameof(TensorPrimitives.Tanh), TensorOpKind.Transcendental, ToleranceClass.CrossPlatformVariant, TensorArity.Unary, OperandDomain.Real, Lowering.Member);
@@ -720,8 +604,6 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily Max = new(nameof(TensorPrimitives.Max), TensorOpKind.Reduction, ToleranceClass.Exact, TensorArity.Fold, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily SumOf = new(nameof(TensorPrimitives.SumOfSquares), TensorOpKind.Reduction, ToleranceClass.AccumulationScaled, TensorArity.Fold, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily ProductOfPairs = new(nameof(TensorPrimitives.ProductOfSums), TensorOpKind.Reduction, ToleranceClass.AccumulationScaled, TensorArity.PairFold, OperandDomain.Real, Lowering.Member);
-    // The one genuinely new segmented reduction: the other four are the un-prefixed rows under
-    // segment entrypoint, but no un-segmented row counts elements.
     public static readonly TensorOpFamily Count = new("Count", TensorOpKind.Reduction, ToleranceClass.Exact, TensorArity.Segment, OperandDomain.Real, Lowering.Authored);
     public static readonly TensorOpFamily Average = new(nameof(TensorPrimitives.Average), TensorOpKind.Statistics, ToleranceClass.AccumulationScaled, TensorArity.Fold, OperandDomain.Real, Lowering.Member);
     public static readonly TensorOpFamily StdDev = new(nameof(TensorPrimitives.StdDev), TensorOpKind.Statistics, ToleranceClass.AccumulationScaled, TensorArity.Fold, OperandDomain.Real, Lowering.Member);
@@ -755,8 +637,6 @@ public sealed partial class TensorOpFamily {
     public static readonly TensorOpFamily IsComplexNumber = new(nameof(TensorPrimitives.IsComplexNumber), TensorOpKind.Predicate, ToleranceClass.Exact, TensorArity.Mask, OperandDomain.Numeric, Lowering.Member);
     public static readonly TensorOpFamily IsImaginaryNumber = new(nameof(TensorPrimitives.IsImaginaryNumber), TensorOpKind.Predicate, ToleranceClass.Exact, TensorArity.Mask, OperandDomain.Numeric, Lowering.Member);
     public static readonly TensorOpFamily IsRealNumber = new(nameof(TensorPrimitives.IsRealNumber), TensorOpKind.Predicate, ToleranceClass.Exact, TensorArity.Mask, OperandDomain.Numeric, Lowering.Member);
-    // The ONE predicate the host narrows to `IBinaryNumber<T>`; carrying that as its own domain is what lets the
-    // other seventeen rows widen to `INumberBase<T>` and reach the complex lane they were minted to classify.
     public static readonly TensorOpFamily IsPow2 = new(nameof(TensorPrimitives.IsPow2), TensorOpKind.Predicate, ToleranceClass.Exact, TensorArity.Mask, OperandDomain.BinaryNumeric, Lowering.Member);
     public static readonly TensorOpFamily MatMul = new("MatMul", TensorOpKind.Matrix, ToleranceClass.AccumulationScaled, TensorArity.Matrix, OperandDomain.Real, Lowering.Lowered);
     public static readonly TensorOpFamily Conv = new("Conv", TensorOpKind.Matrix, ToleranceClass.AccumulationScaled, TensorArity.Matrix, OperandDomain.Real, Lowering.Lowered);

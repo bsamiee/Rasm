@@ -48,103 +48,59 @@ if TYPE_CHECKING:
     from epdx.pydantic import EPD as IlcdEpd
     from openepd.model.common import Amount
     from openepd.model.epd import Epd
-    from openepd.model.standard import Standard as Compliance  # aliased: `Standard` is this page's contract roster
+    from openepd.model.standard import Standard as Compliance
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# Payload case a registry publishes — ONE spelling serves the union's tag, the policy column, and the
-# reader-reach key, so those three can never name different sets.
 type IngressTag = Literal["ilcd", "openepd"]
 
-# the CORPUS vocabularies, every generated enum minus its unspecified member — the roster order IS the corpus
-# declaration order, so the cell fold walks the enum and no tuple stands beside it as a second ordering authority.
 _CATEGORIES: Final[tuple[ImpactCategory, ...]] = tuple(member for member in ImpactCategory if member is not ImpactCategory.UNSPECIFIED)
 _STAGES: Final[tuple[Module, ...]] = tuple(member for member in Module if member is not Module.UNSPECIFIED)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Each reader's CAPABILITY BOUND as data, not prose: which contract indicators the foreign model can carry at
-# all. An indicator outside the bound is UNREACHABLE for that reader — a state key absence alone fuses with
-# "the source declared nothing" — and the receipt census reads these sets to report the two apart.
 EPDX_REACH: Final[frozenset[ImpactCategory]] = frozenset({
     ImpactCategory.GWP_TOTAL, ImpactCategory.ODP, ImpactCategory.AP,
     ImpactCategory.POCP, ImpactCategory.ADP_MINERALS, ImpactCategory.ADP_FOSSIL})
 
-# OpenEPD's `ImpactSet` answers the +A2 core roster WHOLE — every one of the thirteen contract indicators is a
-# declared attribute — so this reader's bound is the vocabulary entire and its census reports no unreachable
-# slot; a `frozenset` literal here would be a hand-kept mirror of the roster beside it.
 OPENEPD_REACH: Final[frozenset[ImpactCategory]] = frozenset(_CATEGORIES)
 
 READERS: Final[Map[IngressTag, frozenset[ImpactCategory]]] = Map.of_seq([("ilcd", EPDX_REACH), ("openepd", OPENEPD_REACH)])
 
 
 def _token(member: Enum) -> str:
-    # the contract token off the generated member NAME — `GWP_TOTAL` -> `gwp-total`, `A1_A3` -> `a1-a3`, `M2R1` ->
-    # `m2r1` — so every provider spelling below derives from the corpus enum and no string roster stands beside it.
     return member.name.lower().replace("_", "-")
 
 
-# Provider spelling DERIVES from the contract token over the reach set — a reachable indicator whose epdx
-# field name already matches costs nothing and only a DRIFT costs a row, so this is one derivation with three
-# divergences rather than a six-row mirror.
 EPDX_INDICATOR: Final[Map[ImpactCategory, str]] = Map.of_seq(
     (indicator, {"gwp-total": "gwp", "adp-minerals": "adpe", "adp-fossil": "adpf"}.get(_token(indicator), _token(indicator)))
     for indicator in _CATEGORIES
     if indicator in EPDX_REACH)
 
-# Module correspondence is TOTAL key identity with one divergence the derivation itself states: epdx spells
-# production modules unhyphenated, and every other contract token carries no hyphen to drop.
 EPDX_MODULE: Final[Map[Module, str]] = Map.of_seq((module, _token(module).replace("-", "")) for module in _STAGES)
 
-# epdx spells ONE unit member differently from the corpus — `TONES` for the corpus `T` — so the by-name election
-# carries that one divergence as a row and every other member elects on its own name.
 _EPDX_NAMES: Final[Map[str, str]] = Map.of_seq([("TONES", "T")])
 
-# Same derivation shape on the openepd rail: seven contract tokens ARE the `ImpactSet` wire alias verbatim and
-# six drift, so this is one derivation with six divergences rather than a thirteen-row mirror. The ALIAS is the
-# key, never the attribute name, because `get_scopeset_by_name` matches alias first and only then falls back.
 OPENEPD_INDICATOR: Final[Map[ImpactCategory, str]] = Map.of_seq(
     (indicator, {"gwp-total": "gwp", "ep-freshwater": "ep-fresh", "ep-terrestrial": "ep-terr",
                  "adp-minerals": "ADP-mineral", "adp-fossil": "ADP-fossil", "wdp": "WDP"}.get(_token(indicator), _token(indicator)))
     for indicator in _CATEGORIES)
 
-# `ScopeSet` spells its stages upper-case with ONE aggregate divergence, the contract's `a1-a3`. Split `A1`,
-# `A2`, and `A3` are their OWN fields that this fold never reads: summing them would mint an `a1-a3` cell no
-# producer declared, so a declaration publishing the three apart writes no key and the absence is coverage.
 OPENEPD_MODULE: Final[Map[Module, str]] = Map.of_seq(
     (module, "A1A2A3" if module is Module.A1_A3 else module.name) for module in _STAGES)
 
-# openepd carries no closed unit or standard vocabulary — `Amount.unit` and `Standard.short_name` are free
-# strings — so these two rails key on the contract TOKEN, which already spells the OpenEPD/EC3 form, where the
-# epdx rails key on member NAME. Both invert the corpus enum in one pass, so neither is a mirror.
 UNIT_TOKEN: Final[Map[str, DeclaredUnit]] = Map.of_seq((_token(unit), unit) for unit in DeclaredUnit if unit is not DeclaredUnit.UNSPECIFIED)
 STANDARD_TOKEN: Final[Map[str, Standard]] = Map.of_seq((_token(standard), standard) for standard in Standard if standard is not Standard.UNSPECIFIED)
 
-# The one doctype this ingress admits. openepd has NO subtype field anywhere in the distribution and `doctype`
-# is a plain `str` with a default and no validator, so the representativeness a product EPD names is read here
-# and guarded, never inferred from the payload's Python type.
 OPENEPD_DOCTYPE: Final[str] = "openEPD"
 
-# the generated record validates at ENCODE alone — `to_binary`/`to_json` raise `TypeError` on a wrong-typed slot,
-# `OverflowError` on an out-of-range scalar, `ValueError` on a malformed value — so the wire fence names all three.
 _ENCODE_RAISES: Final[Catch] = (TypeError, ValueError, OverflowError)
 
-# The ILCD parse leg. `impact/impact#IMPACT`'s `ilcd_document` already converts the unnameable PyO3 panic into a
-# `ValueError` — `pyo3_runtime` materializes only as the panic is raised, so no `catch` tuple can hold the class —
-# and `EPD(**...)` answers pydantic's `ValidationError`, itself a `ValueError` (`.api/epdx.md:45`). The converted
-# document decodes through the stdlib JSON reader, whose `JSONDecodeError` is a `ValueError` too, so one row covers
-# all three halves and a `TypeError` covers a payload of the wrong shape reaching the model.
 _ILCD_RAISES: Final[Catch] = (TypeError, ValueError)
 
-# The admission projection over an already-delivered chunk: no provider call remains, only the buffer coercion.
 _ADMIT_RAISES: Final[Catch] = (TypeError, ValueError)
 
-# This module's raise roster under its one `DataLeg` member. Near-identical refusals collapse onto PARAMETERIZED
-# rows: `_present`, `_rostered`, and `_dated` each hold ONE law across every contract slot they guard, so the slot
-# name rides `raised` as a coordinate rather than minting a row per column. Every contract refusal is TERMINAL —
-# a blank issuer, an unrostered unit, an absent date, and a cell-less record all refuse identically on a re-read —
-# and only the live fetch is TRANSIENT, a remote hop a re-issue may clear.
 DECLARATION_WIRE: Final[FaultRow[DataLeg]] = FaultRow(
     leg=DataLeg.DECLARATION, point="wire", arm="boundary", defect="canonical-encode", retriability=TERMINAL
 )
@@ -199,16 +155,10 @@ RAISES: Final[Block[FaultRow[DataLeg]]] = rostered(Block.of_seq([
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
-# Ingest keying row — registry curation binds one registry identity to one estate material identity;
-# caller data with provenance, never an inferred name match.
 class Keying(Struct, frozen=True):
     material_key: str
 
 
-# ONE row per contract `Registry` token: which payload case that registry publishes and the transport resource
-# its live leg reads. Two registries sharing a payload shape share the reader whole and differ in this row
-# alone, which is why a new registry mints no body; a registry with no live transport leg carries `Nothing` and
-# `fetched` refuses it by name rather than fabricating a path.
 @dataclass(frozen=True, slots=True, kw_only=True)
 class IngestPolicy:
     registry: Registry
@@ -229,13 +179,10 @@ class DeclarationReceipt(Struct, frozen=True, omit_defaults=True):
 @tagged_union(frozen=True)
 class DeclarationIngress:
     tag: IngressTag = tag()
-    ilcd: "str | bytes" = case()           # an Ökobaudat/soda4LCA ILCD+EPD document
-    openepd: "Epd" = case()                # a typed EC3 declaration
+    ilcd: "str | bytes" = case()
+    openepd: "Epd" = case()
 
 
-# ONE rail per contract slot, declared in the record's own key order — the field roster IS the census roster,
-# read off `dataclasses.fields`, so a new contract slot is one field here and the census covers it with no
-# second list to keep. Interior evidence only: this owner never encodes.
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Admitted:
     material_key: RuntimeRail[str]
@@ -248,24 +195,17 @@ class Admitted:
     issued: RuntimeRail[dt.date]
     valid_until: RuntimeRail[dt.date]
     cells: RuntimeRail[list[ImpactCell]]
-    # `source.uuid` is a contract slot carrying its own `minLength: 1`, and the registry-native identity is NOT
-    # the registration on every rail — ILCD's document id is both, EC3's is the open xPD UUID beside a separate
-    # programme document id — so it elects on its own rail here rather than being aliased off a neighbour.
     uuid: RuntimeRail[str]
 
     def record(self, registry: Registry, version: Option[str]) -> "RuntimeRail[DeclarationRecord]":
         return self._censused().bind(lambda _: self._transcribed(registry, version))
 
     def _censused(self) -> "RuntimeRail[Block[str]]":
-        # ACCUMULATE is the whole point: ONE malformed declaration names EVERY offending slot in one aggregate
-        # fault rather than the first column to trip, and the Ok arm carries the slot names as evidence.
         return traversed(
             Block.of_seq(fields(self)).map(lambda slot: getattr(self, slot.name).map(lambda _: slot.name)),
             by=Disposition.ACCUMULATE)
 
     def _transcribed(self, registry: Registry, version: Option[str]) -> "RuntimeRail[DeclarationRecord]":
-        # every rail below is already proven `Ok` by the census, so this fold cannot short-circuit — the census
-        # is the ONE refusal site and this is the typed transcription of the contract's key order, nothing more.
         @railed
         def built() -> Generator[Any, Any, DeclarationRecord]:
             material_key = yield from self.material_key
@@ -290,9 +230,6 @@ class Admitted:
 
 # --- [POLICIES] -------------------------------------------------------------------------
 
-# Registry roster the contract freezes, each token carrying its producer here: the two soda4LCA/ILCD
-# registries differ only in the token they stamp, and the two openepd registries differ only in whether a live
-# transport leg exists. A registry is a ROW; the deleted form is a per-registry normalize arm.
 POLICIES: Final[Map[Registry, IngestPolicy]] = Map.of_seq(
     (policy.registry, policy)
     for policy in (
@@ -306,19 +243,11 @@ POLICIES: Final[Map[Registry, IngestPolicy]] = Map.of_seq(
 
 
 def wire(record: DeclarationRecord) -> "RuntimeRail[tuple[bytes, ContentKey]]":
-    # consumer-edge crossing: the record's proto BINARY beside the content key the consumer dedupes on. The key folds
-    # the ProtoJSON projection — declaration-ordered, map-free, the one text every branch's runtime renders alike —
-    # and never the binary, which protobuf-py does not hold canonical across releases. Both renders validate at
-    # encode, so one fence names the three raises and a malformed record never reaches a consumer as bytes.
     return boundary(DECLARATION_WIRE, lambda: (record.to_binary(), record.to_json().encode()), catch=_ENCODE_RAISES).bind(
         lambda rendered: ContentIdentity.of("declaration", rendered[1]).map(lambda key: (rendered[0], key)))
 
 
 def receipt(record: DeclarationRecord) -> DeclarationReceipt:
-    # Coverage census in THREE states, because cell presence alone fuses two of them: cells the source DECLARED,
-    # slots inside the reader's bound the source left undeclared, and slots the reader's own model cannot carry.
-    # The reader is recovered from the registry's policy row, so the census reads the declared bound instead of
-    # re-deriving it from the very cells it measures.
     reach = READERS[POLICIES[record.source.registry].ingress]
     return DeclarationReceipt(
         registry=record.source.registry, uuid=record.source.uuid,
@@ -344,14 +273,9 @@ class MaterialDeclaration:
     async def fetched(
         transport: TransportResource, policy: IngestPolicy, uuid: str
     ) -> "RuntimeRail[DeclarationIngress]":
-        # Live legs read the registry's OWN resource row — the soda4LCA process resource for the ILCD
-        # registries — so no path literal sits in this body; bearer and retry ride the resource. A registry
-        # whose row is `Nothing` has no transport leg at all and refuses by name rather than guessing one.
         match policy.resource:
             case Option(tag="some", some=template):
                 acquired = await transport.acquire(template.format(uuid=uuid), Delivery.WHOLE)
-                # WHOLE answers the `Chunk` arm, so the projection is total; the fence PROVES that rather than
-                # asserting it, and a streamed answer surfaces as a typed refusal, never a truncated document.
                 return acquired.bind(
                     lambda chunk: boundary(DECLARATION_FETCH, lambda: DeclarationIngress(ilcd=bytes(chunk)), catch=_ADMIT_RAISES))
             case _:
@@ -361,8 +285,6 @@ class MaterialDeclaration:
     def _one(
         cls, payload: "DeclarationIngress", policy: IngestPolicy, keying: Keying
     ) -> "RuntimeRail[DeclarationRecord]":
-        # Payload SHAPE picks the reader and the POLICY names the registry. Their agreement is proved here,
-        # so a bundle payload can never be stamped with the Ökobaudat token by a caller pairing them wrongly.
         if payload.tag != policy.ingress:
             return Error(DECLARATION_MISMATCHED.raised(payload.tag, policy.registry.name))
         match payload:
@@ -375,12 +297,6 @@ class MaterialDeclaration:
 
 
 def _ilcd(document: "str | bytes", policy: IngestPolicy, keying: Keying) -> "RuntimeRail[DeclarationRecord]":
-    # `convert_ilcd` unwraps a Rust parse Result and a malformed document surfaces as `pyo3_runtime.PanicException`
-    # — rooted at `BaseException`, and its module materializes only as the panic is raised, so NO `catch` tuple can
-    # name the class and a fence alone never saw it. `impact/impact#IMPACT` holds the package's one qualname guard
-    # and this ingress COMPOSES it: a second copy of that probe is the fork, and the converted panic arrives as a
-    # `ValueError` the set below holds beside pydantic's own. Past this fence every contract slot elects on its
-    # own rail and nothing raises.
     import json as _json
 
     from epdx.pydantic import EPD
@@ -392,8 +308,6 @@ def _ilcd(document: "str | bytes", policy: IngestPolicy, keying: Keying) -> "Run
 
 
 def _ilcd_admitted(epd: "IlcdEpd", keying: Keying) -> Admitted:
-    # ILCD registration IS the document id, so provenance and the duplicate-check half read the SAME admitted
-    # value and cannot diverge; the openepd rail below is where the two identities genuinely part.
     return Admitted(
         material_key=_present("material_key", keying.material_key),
         product=_present("product", epd.name),
@@ -409,22 +323,11 @@ def _ilcd_admitted(epd: "IlcdEpd", keying: Keying) -> Admitted:
 
 
 def _openepd(declaration: "Epd", policy: IngestPolicy, keying: Keying) -> "RuntimeRail[DeclarationRecord]":
-    # Nothing parses here: the payload arrives as an already-validated Pydantic tree, so this rail has no
-    # boundary guard to mount — every slot is an OPTIONAL attribute read that elects or refuses on its own.
     return _openepd_admitted(declaration, keying).record(
         policy.registry, Option.of_obj(declaration.version).map(str))
 
 
 def _openepd_admitted(declaration: "Epd", keying: Keying) -> Admitted:
-    # Three contract slots have no like-for-like openepd member and each ELECTS on a stated ground rather than
-    # being forged: the contract's issuer is "the programme operator issuing the declaration", which is
-    # `program_operator` and never `manufacturer` (who makes the product) or `third_party_verifier` (who
-    # reviewed it); the registration is `program_operator_doc_id`, the programme's own document identifier,
-    # while `id` carries the EC3-native identity that keys provenance; and representativeness has no field at
-    # all, so `doctype` answers it under `_represented`. The cell fold is the ONE rail here that depends on a
-    # sibling and says so: which characterization set carries the core roster is the claimed EDITION's answer,
-    # so a declaration whose edition does not resolve has no lawful reading of its own numbers either and the
-    # two slots refuse together inside the one aggregate rather than one of them inventing a default edition.
     standard = _complied(declaration.compliance)
     return Admitted(
         material_key=_present("material_key", keying.material_key),
@@ -441,39 +344,22 @@ def _openepd_admitted(declaration: "Epd", keying: Keying) -> Admitted:
 
 
 def _present(slot: str, text: "str | None") -> "RuntimeRail[str]":
-    # Contract `minLength: 1` halves. An absent or blank string REFUSES rather than writing a blank:
-    # `issuer` is half the duplicate-check pair the C# decoder keys on, so a sourceless document — whose record
-    # frozen schema rejects anyway — has no lawful record here either.
     return Option.of_obj(text).filter(lambda value: value != "").to_result_with(lambda: DECLARATION_BLANK.raised(slot))
 
 
 def _rostered[E: Enum](slot: str, roster: type[E], member: "Enum | None") -> "RuntimeRail[E]":
-    # Foreign enum MEMBER NAMES are the roster key, so no mapping table past the one `_EPDX_NAMES` divergence
-    # exists on this page. epdx spells `Unit`/`Standard` upper and `SubType` in Pascal, so the election case-folds
-    # once and the KEY is still the member name. A member the corpus roster does not carry — epdx `UNKNOWN`, an
-    # absent optional, or a provider rename — REFUSES naming the slot and the member, never electing a neighbouring
-    # row, and the corpus's own unspecified member is unelectable because no provider spells it.
     return Option.of_obj(member).bind(
         lambda foreign: Option.of_obj(roster.__members__.get(_EPDX_NAMES.try_find(foreign.name.upper()).default_value(foreign.name.upper())))
     ).filter(lambda elected: elected.name != "UNSPECIFIED").to_result_with(lambda: DECLARATION_UNROSTERED.raised(slot, str(member)))
 
 
 def _united(declared: "Amount | None") -> "RuntimeRail[DeclaredUnit]":
-    # openepd carries the functional unit as an `Amount`, so the TOKEN ALONE IS NOT THE UNIT: a qty other than
-    # one means every cell is published per THAT many units, and admitting the token bare would silently
-    # rescale the whole matrix against a contract that admits a declaration "at THAT unit, never renormalized".
-    # A qty this fence cannot read as exactly one refuses with the amount named, as does a token off the roster.
     return Option.of_obj(declared).filter(lambda amount: amount.qty == 1.0).bind(
         lambda amount: UNIT_TOKEN.try_find(str(amount.unit))
     ).to_result_with(lambda: DECLARATION_AMOUNT.raised(str(declared)))
 
 
 def _complied(compliance: "list[Compliance]") -> "RuntimeRail[Standard]":
-    # openepd declares NO standard enum — `compliance` is a list whose `short_name`/`name` are free strings —
-    # so the revision resolves by folding each claimed spelling to alphanumerics and matching the roster's own
-    # token EXACTLY. An unobserved revision-bearing spelling refuses with every spelling it saw named, which is
-    # the verification route for the row that lands when a corpus proves the convention; a bare `EN 15804`
-    # folds to a token the roster does not carry, so A1 and A2 can never be confused for one another.
     return Block.of_seq(compliance).collect(
         lambda claimed: Block.of_seq((claimed.short_name, claimed.name))
     ).choose(lambda spelling: STANDARD_TOKEN.try_find(_folded(spelling))).try_head().to_result_with(
@@ -485,34 +371,19 @@ def _folded(spelling: "str | None") -> str:
 
 
 def _represented(doctype: str) -> "RuntimeRail[Subtype]":
-    # This ingress admits the PRODUCT doctype alone, whose representativeness class is product-specific. The
-    # industry-average and generic-estimate doctypes carry their own reach and their own ingress case when they
-    # land, and `Subtype.REPRESENTATIVE` is unreachable on the openepd rail entirely — so a payload carrying
-    # any other doctype refuses by name here rather than being stamped with a class it never claimed.
     return Ok(Subtype.SPECIFIC) if doctype == OPENEPD_DOCTYPE else Error(DECLARATION_DOCTYPE.raised(doctype))
 
 
 def _dated(slot: str, moment: "dt.datetime | None") -> "RuntimeRail[Date]":
-    # BOTH readers hand a `datetime` — epdx declares its two date fields required, openepd optional — so the
-    # projection onto the corpus `Date` cell is total and nothing parses. Rendering one to text first is the deleted
-    # form: `str(datetime)` emits the space-separated offset spelling `date.fromisoformat` rejects, refusing every
-    # well-formed declaration on both rails. Each date still rides its OWN rail, so a declaration missing both names
-    # both, and an absent expiry refuses here rather than downstream, where an expiry-gated law would read a hole.
     return Option.of_obj(moment).map(lambda instant: Date(year=instant.year, month=instant.month, day=instant.day)).to_result_with(
         lambda: DECLARATION_UNDATED.raised(slot))
 
 
 def _declared(cells: "list[ImpactCell]") -> "RuntimeRail[list[ImpactCell]]":
-    # Corpus `repeated.min_items = 1`: a declaration whose reachable indicators are every one undeclared
-    # carries no coverage at all, and a cell-less record is one no consumer can attribute.
     return Ok(cells) if cells else Error(DECLARATION_CELLLESS.raised())
 
 
 def _ilcd_cells(epd: "IlcdEpd") -> "list[ImpactCell]":
-    # ROSTER ORDER IS WIRE ORDER: the fold walks the corpus `ImpactCategory` and `Module` enums and the
-    # correspondence answers only the provider spelling, so no table reordering can move a cell. An indicator
-    # outside the reader's reach writes nothing — its absence is the DECLARED capability bound the receipt reports —
-    # and a `None` per-stage field writes no cell, so the surviving cell set IS the coverage census.
     return [
         ImpactCell(category=indicator, stage=module, value=value)
         for indicator in _CATEGORIES
@@ -524,17 +395,6 @@ def _ilcd_cells(epd: "IlcdEpd") -> "list[ImpactCell]":
 
 
 def _openepd_cells(declaration: "Epd", edition: Standard) -> "list[ImpactCell]":
-    # Same roster-ordered fold, one rung deeper: `Impacts` is METHOD-KEYED, so the characterization elects
-    # before any indicator is read and the whole matrix comes from ONE impact set — mixing two methods' sets
-    # would key EF and TRACI numbers under one cell map. WHICH method is the EDITION's answer and
-    # `impact/impact#IMPACT` `ImpactRegime` owns that preference order, so this fold reads the declaration's
-    # claimed edition off that row rather than minting a second order beside it; `Regime` and this page's
-    # `Standard` share member NAMES, so the correspondence is member identity and no mapping table exists. The
-    # import binds function-local because the regime column types on `LCIAMethod`, which the module-level
-    # parser-import ban keeps off a run touching no openepd payload. `get_scopeset_by_name` answers the alias
-    # and the per-indicator `ScopeSet` subclass pins the unit, so the value read needs no unit column of its
-    # own; an absent impacts, method, indicator, or stage writes no cell and reaches `_declared` short, never
-    # a zero.
     from rasm.data.impact.impact import REGIMES, Regime
 
     return [

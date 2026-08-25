@@ -26,16 +26,10 @@ The design space, its variables, its policy, and the `ParetoFront`/`KernelRun` c
 - Boundary: CP-SAT solves integer/boolean natively and discretizes continuous through `IntegerStep` under ONE declared coordinate system — coefficients, bounds, hints, and band edges scale through `DesignProblem.Scale` so the integer model preserves the physical `LinearModel` semantics — while MILP routes the integer part to SCIP and the continuous part through the linear backend with no discretization. CP-SAT parameter text formats as a WIRE format under the invariant culture; a comma-decimal locale renders a malformed deadline key the solver silently ignores.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One binding row's price: what the objective gains per unit of relaxation, and where the row actually sits.
-// This is the decision-grade half of a relaxation — "one more square metre of floor plate is worth X" — that a
-// solve computes and an argmin-only harvest discards.
 public sealed record ShadowPrice(string Row, double Dual, double Activity);
 
-// What the exact engines MEASURE about their own search, beside the assignment. Every field is a read off the
-// solver handle the harvest already holds: a literal iteration count is a fabricated constant, and a `Feasible`
-// return without its bound is indistinguishable from a proven optimum on the receipt.
 public sealed record ExactEvidence(
     string Engine,
     long Explored,
@@ -45,8 +39,6 @@ public sealed record ExactEvidence(
     Seq<ShadowPrice> Prices,
     Seq<(string Variable, double Reduced)> Reduced,
     Duration Wall) {
-    // Relative optimality gap; absent where either half is absent or the objective is zero, never a zero standing
-    // in for an unmeasured bound.
     public Option<double> Gap =>
         (Objective, Bound) switch {
             ({ IsSome: true, Case: double value }, { IsSome: true, Case: double bound })
@@ -56,56 +48,35 @@ public sealed record ExactEvidence(
         };
 }
 
-// --- [SERVICES] -------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-// Anytime completion for an exact solve. Every other Compute long-run advances by counted segments; an exact
-// search has no segment count but DOES have a converging bound, so the optimality gap is the one honest fraction the
-// estate can publish for it — and `SolutionCallback` carries both halves at every improving solution, which is why
-// one subclass owns the stream rather than a bound callback paired with a separate incumbent source. Every hook
-// invocation runs on the solver's own worker, so the cell's Atom-backed commit is the concurrency contract; a shrinking
-// gap only ever raises the fraction, which is exactly the monotonic guard `ProgressCell.Advance` already holds.
 public sealed class BoundStream(ProgressCell cell) : SolutionCallback {
     private readonly Atom<(double Incumbent, double Bound)> held = Atom((double.NaN, double.NaN));
 
     public override void OnSolutionCallback() => Publish(ObjectiveValue(), BestObjectiveBound());
 
-    // Between solutions the bound keeps improving; the last incumbent this stream saw completes the pair.
     public void Observe(double bound) => Publish(held.Value.Incumbent, bound);
 
     private void Publish(double incumbent, double bound) =>
         ignore(cell.Advance(ProgressPhase.Running, fraction: Gap(held.Swap(_ => (incumbent, bound)))));
 
-    // Relative gap folded to a completion fraction; an unpaired or degenerate pair advances the phase with no
-    // fraction rather than manufacturing one, so a run that never found a solution never reads as partly done.
     private static double Gap((double Incumbent, double Bound) pair) =>
         double.IsFinite(pair.Incumbent) && double.IsFinite(pair.Bound) && Math.Abs(pair.Incumbent) > 1e-12
             ? Math.Clamp(1.0 - (Math.Abs(pair.Incumbent - pair.Bound) / Math.Abs(pair.Incumbent)), 0.0, 1.0)
             : 0.0;
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-// The two OR-Tools lowerings and the harvest they share. Both re-enter `Optimizer.Probe` in PHYSICAL space, so a
-// solved assignment is scored by the same oracle every other row is scored by.
 public static class ExactLane {
-    // CP-SAT lowers through the package's OWN set algebra: every variable takes the `Domain` its case and its
-    // activation rule jointly admit, every row takes its band union, and every activation reifies as one literal
-    // — so the model's feasible set IS the set `DesignProblem.Resolve` leaves standing, and the assignment the
-    // harvest re-evaluates is one the oracle will not rewrite underneath it.
     internal static Fin<KernelRun> SolveCpSat(DesignProblem problem, OptimizerPolicy policy, SearchContext search, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
         problem.Exact.Match(
             Some: model => {
                 CpModel cp = new();
                 long q = DesignProblem.Scale(policy.IntegerStep);
-                // One solver variable per COORDINATE SLOT: a density field lowers as `Cells` variables under one
-                // admissible domain, so the exact model searches the same space the oracle evaluates.
                 IntVar[] vars = [.. Enumerable.Range(0, problem.Dimension).Select(slot =>
                     cp.NewIntVarFromDomain(problem.Admissible(slot, q), $"{problem.Variables[problem.VariableAt(slot)].VariableName}#{slot - problem.Offsets[problem.VariableAt(slot)]}"))];
                 Reify(cp, problem, vars, q);
-                // One assumption literal per row: an UNSATISFIABLE return then names the exact conflicting rows
-                // through `SufficientAssumptionsForInfeasibility`, matching the explanation law the sibling engine
-                // page already holds — an opaque status where the identical capability is one literal away is the
-                // rejected refusal.
                 HashMap<int, string> tracked = model.Rows.Fold(HashMap<int, string>(), (held, row) => {
                     BoolVar lit = cp.NewBoolVar(row.Name);
                     cp.AddLinearExpressionInDomain(LinearExpr.WeightedSum(vars, Scaled(problem, row.Coefficients, q)), Domain.FromFlatIntervals(row.Flattened(q)))
@@ -114,26 +85,15 @@ public static class ExactLane {
                     return held.Add(lit.GetIndex(), row.Name);
                 });
                 cp.Minimize(LinearExpr.WeightedSum(vars, Scaled(problem, model.Objective, q)));
-                // Incumbent fronts carry a known-good assignment in the SAME coordinate the vars carry; the two
-                // wrapping rows re-enter this kernel against a near-identical model, so discarding it pays a cold
-                // search per restart.
                 seed.Points.Head.Iter(best => {
                     for (int slot = 0; slot < vars.Length; slot++) {
                         cp.AddHint(vars[slot], Coded(problem.Variables[problem.VariableAt(slot)], best.Coordinates.ElementAtOrDefault(slot), q));
                     }
                 });
                 using CpSolver solver = new() {
-                    // `num_search_workers` rides the SAME proto-text channel the deadline already writes; without
-                    // it CP-SAT fans over every core and the one lane the AppHost seal exists to bound is the one
-                    // that saturates longest. The proto text is a WIRE format, so the deadline formats under the
-                    // invariant culture — a comma-decimal locale renders `30,0` and CP-SAT reads a malformed key.
                     StringParameters = string.Create(System.Globalization.CultureInfo.InvariantCulture,
                         $"max_time_in_seconds:{policy.SolveSeconds},num_search_workers:{policy.Parallelism}"),
                 };
-                // Cooperative stop, bracketed with the handle: the registration disposes before the solver does,
-                // so a latch firing into a released native search is structurally impossible. An exact solve runs
-                // longest of every kernel in the lane, and without this latch only its own deadline can end it
-                // — a cancelled request would hold a native SCIP or CP-SAT thread for the full policy budget.
                 using CancellationTokenRegistration latch = search.Scope.Source.Token.Register(solver.StopSearch);
                 using BoundStream? stream = search.Progress.Map(static cell => new BoundStream(cell)).ValueUnsafe();
                 if (stream is not null) { solver.SetBestBoundCallback(stream.Observe); }
@@ -156,17 +116,11 @@ public static class ExactLane {
             },
             None: () => Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource))));
 
-    // Conditional axes reify BOTH ways: the literal implies its source lies in the trigger set, its negation
-    // implies the source lies in the complement, and the negation pins the gated axis at the inactive value the
-    // resolve fold writes. One-way enforcement would leave the literal free to read false over a triggering
-    // source and re-open the disagreement.
     static void Reify(CpModel cp, DesignProblem problem, IntVar[] vars, long q) {
         for (int axis = 0; axis < problem.Activation.Count; axis++) {
             if (problem.Activation[axis].Trigger(q).Case is not Domain trigger
                 || problem.Activation[axis].Reads.Case is not int source) { continue; }
             BoolVar active = cp.NewBoolVar($"{problem.Variables[axis].VariableName}@active");
-            // Both the trigger read and the gated pin address the variable through its LEADING slot and its whole
-            // span respectively — the same split `DesignProblem.Resolve` applies, so the two lanes agree.
             cp.AddLinearExpressionInDomain(vars[problem.Offsets[source]], trigger).OnlyEnforceIf(active);
             cp.AddLinearExpressionInDomain(vars[problem.Offsets[source]], trigger.Complement()).OnlyEnforceIf(active.Not());
             for (int slot = problem.Offsets[axis]; slot < problem.Offsets[axis + 1]; slot++) {
@@ -175,8 +129,6 @@ public static class ExactLane {
         }
     }
 
-    // Infeasibility core: the response carries LITERAL indices, so the tracked map keys on `GetIndex()` and an
-    // index no row claims never fabricates a name.
     static string Core(CpSolver solver, HashMap<int, string> tracked) =>
         string.Join(',', toSeq(solver.SufficientAssumptionsForInfeasibility()).Choose(index => tracked.Find(index)));
 
@@ -188,16 +140,11 @@ public static class ExactLane {
         return scaled;
     }
 
-    // Physical coordinate back into the integer system the vars inhabit — the inverse of `DiscreteValue`, so a
-    // hint and a harvest never disagree about which coordinate system they are in.
     static long Coded(DesignVariable variable, double physical, long q) =>
         variable is DesignVariable.Continuous or DesignVariable.Symbolic
             ? (long)Math.Round(physical * q)
             : (long)Math.Round(variable.Clamp(physical));
 
-    // SCIP's constraint face is ONE interval, so a banded row is unrepresentable here and refuses rather than
-    // relaxing to its hull — the hull admits exactly the states the band set excludes, the substitution this exact
-    // lane exists to foreclose.
     internal static Fin<KernelRun> SolveMilp(DesignProblem problem, OptimizerPolicy policy, SearchContext search, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed) =>
         problem.Exact.Match(
             Some: model => Representable(problem, model).Match(
@@ -205,11 +152,6 @@ public static class ExactLane {
                 None: () => Scip(problem, policy, search, oracle, seed, model)),
             None: () => Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Required(ComputeSubject.Resource))));
 
-    // The LinearSolver face is ONE INTERVAL per row and ONE RANGE per variable, so three shapes the CP-SAT rail
-    // expresses natively are unrepresentable here and each REFUSES by name pointing at cp-sat — a banded row
-    // relaxed to its hull, a holed categorical roster relaxed to its span, and a conditional axis whose inactive
-    // value the model cannot union all admit exactly the states the design rules forbid, and the solver then
-    // returns an assignment the oracle rewrites underneath it.
     static Option<Error> Representable(DesignProblem problem, LinearModel model) =>
         model.Rows.Find(static row => !row.Contiguous) is { IsSome: true, Case: LinearRow banded }
             ? Some((Error)new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())))
@@ -224,9 +166,6 @@ public static class ExactLane {
     static Fin<KernelRun> Scip(DesignProblem problem, OptimizerPolicy policy, SearchContext search, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed, LinearModel model) {
         using Google.OrTools.LinearSolver.Solver? solver = Google.OrTools.LinearSolver.Solver.CreateSolver("SCIP");
         if (solver is null) { return Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Unsupported(ComputeCapability.MilpSolver))); }
-        // One solver variable per COORDINATE SLOT, matching the CP-SAT rail and the oracle's own point shape. The
-        // slot names are kept beside the handles: the reduced-cost evidence reads them, and re-deriving a name from
-        // the handle would bind a member the OR-Tools catalogue does not carry.
         string[] names = [.. Enumerable.Range(0, problem.Dimension).Select(slot =>
             $"{problem.Variables[problem.VariableAt(slot)].VariableName}#{slot - problem.Offsets[problem.VariableAt(slot)]}")];
         Google.OrTools.LinearSolver.Variable[] vars = [.. Enumerable.Range(0, problem.Dimension).Select(slot => {
@@ -241,9 +180,6 @@ public static class ExactLane {
                 var other => solver.MakeNumVar(0.0, 0.0, name),
             };
         })];
-        // Row handles are kept, not discarded: the dual price and activity a relaxation computes are read off
-        // exactly these handles after the solve, and a fold that drops them publishes the least informative half
-        // of the answer an AEC cost model is asked for.
         Seq<(string Name, Google.OrTools.LinearSolver.Constraint Handle)> rows = model.Rows.Map(row => {
             Google.OrTools.LinearSolver.Constraint constraint = solver.MakeConstraint(row.Lower, row.Upper, row.Name);
             for (int axis = 0; axis < vars.Length && axis < row.Coefficients.Length; axis++) {
@@ -259,8 +195,6 @@ public static class ExactLane {
         seed.Points.Head.Iter(best => solver.SetHint(
             new Google.OrTools.LinearSolver.MPVariableVector(vars),
             [.. problem.Clamp(best.Coordinates.AsSpan())]));
-        // LinearSolver carries no per-solution hook on its face, so the MILP row publishes its gap once on the
-        // receipt rather than streaming it; `InterruptSolve` is the same cooperative stop the CP-SAT row takes.
         using CancellationTokenRegistration latch = search.Scope.Source.Token.Register(() => ignore(solver.InterruptSolve()));
         return solver.Solve() is Google.OrTools.LinearSolver.Solver.ResultStatus.OPTIMAL or Google.OrTools.LinearSolver.Solver.ResultStatus.FEASIBLE
             ? Harvest(problem, policy, oracle, seed,
@@ -277,11 +211,6 @@ public static class ExactLane {
             : Fin.Fail<KernelRun>(new ComputeFault.Violation(ComputeArea.Solver, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())));
     }
 
-    // Exact rows report the search they RAN: `Generations` takes the explored count the engine measured, never the
-    // literal 1 that reads as one iteration on every receipt whatever the tree cost. The verdict reads the engine's
-    // own OPTIMALITY GAP, which is the one honest convergence measure an exact search publishes — a `Feasible`
-    // return whose bound never met its incumbent is `Exhausted` at the nodes it explored, and an evidence-free
-    // harvest claims nothing.
     static Fin<KernelRun> Harvest(DesignProblem problem, OptimizerPolicy policy, Func<DesignPoint, Fin<Seq<double>>> oracle, ParetoFront seed, ImmutableArray<double> coordinates, Option<ExactEvidence> evidence) =>
         Optimizer.Probe(problem, oracle, coordinates).Map(point => new KernelRun(
             seed.Insert(point),
@@ -309,11 +238,8 @@ public static class ExactLane {
 - Boundary: routing is a GRAPH program — nodes, arcs, and vehicles — so it lowers to the ConstraintSolver rail rather than to a coefficient matrix, and a routing problem forced through the `LinearModel` as a flattened assignment matrix is the rejected form. Cost is a typed `Func<int,int,long>` PER DIMENSION over caller node indices, and the manager owns the caller-index-to-solver-index mapping — a callback registered against raw solver indices reads a different graph than the one authored. Native handles enter through the declared `IDisposable` roots the OR-Tools circulation precedent already sets and release by `Dispose`. `RoutingResult` publishes its `ExactEvidence` beside the assignment so a routing solve is auditable on the same receipt slots the other two exact rails fill.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// One caller-indexed node. Demand and time window are OPTIONAL because a depot carries neither and a plain TSP node
-// carries neither — an absent window is genuinely unconstrained, never a `(0, long.MaxValue)` sentinel a dimension
-// would then enforce as a real bound.
 public readonly record struct RoutingNode(int Id, Option<long> Demand, Option<(long Open, long Close)> Window) {
     public bool Invalid => Id < 0 || Demand.Exists(static d => d < 0L) || Window.Exists(static w => w.Open > w.Close);
 }
@@ -322,8 +248,6 @@ public readonly record struct RoutingVehicle(long Capacity, int Start, int End) 
     public bool Invalid => Capacity < 0L || Start < 0 || End < 0;
 }
 
-// One accumulated quantity over a route — load, elapsed time, distance. `Slack` is the waiting a vehicle may absorb
-// at a node, which is what makes a time-window dimension solvable at all.
 public readonly record struct RoutingDimensionSpec(string Name, long Capacity, long Slack) {
     public bool Invalid => string.IsNullOrWhiteSpace(Name) || Capacity < 0L || Slack < 0L;
 }
@@ -332,9 +256,6 @@ public sealed record RoutingProblem(
     Seq<RoutingNode> Nodes,
     Seq<RoutingVehicle> Vehicles,
     Seq<RoutingDimensionSpec> Dimensions,
-    // Arc cost is the FIRST transit row; every further row is the accumulation its matching dimension spec bounds.
-    // A `Func<int,int,long>` over CALLER node indices keeps the authored graph and the solver's internal indexing
-    // separate, which is the whole reason the index manager exists.
     Seq<Func<int, int, long>> Transit) {
     public Fin<Unit> Validate() =>
         Nodes.Count < 2 || Vehicles.IsEmpty || Transit.IsEmpty
@@ -347,18 +268,11 @@ public sealed record RoutingProblem(
             : Fin.Succ(unit);
 }
 
-// Per-vehicle visit sequences in caller node indices, the total arc cost, and the nodes no vehicle served. Dropped
-// nodes are EVIDENCE: a disjunction-carrying model answers with an unserved roster, and reporting only the routes
-// hides exactly the demand the campaign could not meet.
 public sealed record RoutingResult(Seq<Seq<int>> Sequences, long TotalCost, Seq<int> Dropped, string Status);
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class RoutingSearch {
-    // The lowering spine, in the catalogued spellings alone: the manager maps caller nodes onto solver indices, the
-    // model registers one transit callback per cost row, the first row becomes the global arc cost, and each further
-    // row becomes its dimension. Every native root is bracketed by `using`, matching the OR-Tools disposal law the
-    // circulation runner already sets.
     public static Fin<KernelRun> Solve(DesignProblem problem, OptimizerPolicy policy, SearchContext search, ParetoFront seed) =>
         problem.Routing.Match(
             Some: model => policy.Routing.Invalid
@@ -371,8 +285,6 @@ public static class RoutingSearch {
             using RoutingIndexManager manager = new(model.Nodes.Count, model.Vehicles.Count,
                 [.. model.Vehicles.Map(static v => v.Start)], [.. model.Vehicles.Map(static v => v.End)]);
             using RoutingModel routing = new(manager);
-            // Callbacks take SOLVER indices and the authored costs take CALLER nodes, so every registration crosses
-            // the manager — a callback reading raw indices scores a different graph than the one written.
             int[] callbacks = [.. model.Transit.Map(cost => routing.RegisterTransitCallback(
                 (long from, long to) => cost(Node(manager, from), Node(manager, to))))];
             routing.SetArcCostEvaluatorOfAllVehicles(callbacks[0]);
@@ -381,9 +293,6 @@ public static class RoutingSearch {
             return Harvest(manager, routing, model, policy, search, seed);
         });
 
-    // Every routing read below is decompile-verified on the pinned assembly: the default-parameter proto factory,
-    // the dimension-level time-window bound (`SetCumulVarRange` — the range member lives on the DIMENSION, never the
-    // cumulative IntVar), the Start/IsEnd/NextVar walk read through `Assignment.Value`, and the terminal `GetStatus()`.
     static Fin<KernelRun> Harvest(RoutingIndexManager manager, RoutingModel routing, RoutingProblem model, OptimizerPolicy policy, SearchContext search, ParetoFront seed) {
         RoutingSearchParameters parameters = operations_research_constraint_solver.DefaultRoutingSearchParameters();
         parameters.FirstSolutionStrategy = policy.Routing.FirstSolution;
@@ -407,15 +316,10 @@ public static class RoutingSearch {
             }
             sequences = sequences.Add(stops);
         }
-        // The unserved roster is a SET DIFFERENCE over immutable sets, not two BCL hash sets in a domain fold; and
-        // it can only be non-empty once the model carries disjunctions, which is why the column names its own
-        // producer gap rather than reading as a measured zero.
         Set<int> served = toSet(sequences.Bind(static s => s));
         Set<int> depots = toSet(model.Vehicles.Bind(static v => Seq(v.Start, v.End)));
         Seq<int> dropped = toSeq(Range(0, model.Nodes.Count).Filter(node => !served.Contains(node) && !depots.Contains(node)));
         RoutingResult result = new(sequences, solution.ObjectiveValue(), dropped, status.ToString());
-        // The ConstraintSolver either returns an assignment or it does not — the null case already faulted above —
-        // so a returned assignment is a settled search at zero residual and no budget was left unspent.
         return Fin.Succ(new KernelRun(seed, Generations: 0, new Convergence.Converged(Residual: 0.0), policy.TrustRadius, Violation: default, Routing: Some(result)));
     }
 
@@ -430,10 +334,8 @@ public static class RoutingSearch {
 - Boundary: search behaviour is POLICY DATA, never call-site knobs — a caller that tunes the metaheuristic by passing enum values into the kernel forks the tuning across every call site and leaves the receipt unable to say which search ran. `RoutingPolicy` rides `OptimizerPolicy` the same way `LineSearch` and `AcquisitionFunction` do, and the chosen strategy names land on the routing evidence so a slow solve is diagnosable from its own receipt.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The search the routing row runs, as data. Both enum columns are the OR-Tools proto value types the catalogue
-// names, so a row selects a strategy rather than a call site constructing one.
 public sealed record RoutingPolicy(
     FirstSolutionStrategy.Types.Value FirstSolution,
     LocalSearchMetaheuristic.Types.Value Metaheuristic,

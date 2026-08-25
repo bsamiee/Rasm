@@ -341,8 +341,6 @@ declare namespace Replay {
   }>
 }
 
-// Every window refusal names the BAND it fell outside, never the coordinate alone: a read before the seal and a read
-// under the compaction floor are the same word only until an operator has to choose which bound to move.
 const _Band = Schema.Struct({
   floor: Schema.OptionFromSelf(AsOf),
   sealed: Schema.OptionFromSelf(AsOf),
@@ -351,12 +349,6 @@ const _edge = (bound: Option.Option<AsOf>): string =>
   Option.match(bound, { onNone: () => "-", onSome: (held) => String(held.ordinal) })
 const _band = (band: typeof _Band.Type): string => `${_edge(band.floor)}..${_edge(band.sealed)}`
 
-// One family grades the whole refusal surface and each reason renders its OWN subject, so a torn retained index and a
-// rejected order lens stop reading as one severity. Classes are elected per refusal: offered material the plan cannot
-// replay is `invalid`, key parts no cell grammar admits are `malformed`, a coordinate a later seal or frontier read
-// reopens is `conflicted`, history outside the sealed band is `absent`, and a reconstruction that yields two live rows
-// for one cell is the one `breached` arm. `leg` partitions the page's own surfaces — `admission` refuses what a caller
-// offered, `coordinate` refuses a stamp against the frontier, `window` refuses a band read, `trace` refuses the index.
 const _replayFamily = Fault.Class.family(
   ["spec", "cell", "identity", "group", "push", "seal", "read", "diff", "compact", "invariant"] as const,
   {
@@ -565,7 +557,6 @@ const _engine = <Row>(
   readonly drive: <A>(send: () => void, publish: (rows: ReadonlyArray<Row>) => Effect.Effect<A>) => Effect.Effect<A>
 }> =>
   Effect.map(Effect.makeSemaphore(1), (gate) => {
-    // BOUNDARY ADAPTER: the engine sink is a void callback and the drain is a statement seam; the pending buffer never escapes the closure
     const pending: Array<Row> = []
     wire((row) => pending.push(row))
     graph.finalize()
@@ -582,10 +573,6 @@ const _engine = <Row>(
     }
   })
 
-// One versioned trace owner beside the graph scaffold: the engine `Index` a d2ts sink fills IS the retained history,
-// so time travel, retention, the net-diff, and the per-key coordinate census are four reads over one structure and no
-// lane rolls a slice log beside it. A versioned lane declares its operators and its publish fold; the whole coordinate
-// surface arrives from here, which is why `versioned`, `joined`, `grouped`, and `topped` share one implementation of it.
 const _trace = <K, S>(cell: (key: K) => Fold.Cell): Replay.Trace<K, S> => {
   const held = new Diff.Index<Fold.Cell, readonly [K, S]>()
   const at = (asOf: AsOf): Diff.Version => Diff.v([...AsOf.time(asOf)])
@@ -601,7 +588,6 @@ const _trace = <K, S>(cell: (key: K) => Fold.Cell): Replay.Trace<K, S> => {
   return {
     cell,
     absorb: (version, rows) => {
-      // BOUNDARY ADAPTER: the engine sink is a void callback; the append rides the same synchronous drain the graph runs
       for (const [[key, state], count] of rows) held.addValue(key, version, [state, count])
     },
     compact: (upTo) => held.compact(new Diff.Antichain([at(upTo)])),
@@ -652,8 +638,6 @@ const _published = <K, S>(
     }),
   }))
 
-// `seal` is the only frontier writer and it writes what it SENT, so the watermark read is exact rather than parsed back
-// out of engine messages; `compact` rides the same permit because the trace and the drain share one JS thread.
 const _timed = <K, S>(
   trace: Replay.Trace<K, S>,
   drive: <A>(send: () => void, publish: (rows: ReadonlyArray<Fold.Change<K, S>>) => Effect.Effect<A>) => Effect.Effect<A>,
@@ -695,8 +679,6 @@ const _timed = <K, S>(
       || Option.exists(held.floor, (floor) => !AsOf.covers(upTo, floor))
       ? Effect.fail(new ReplayFault({ case: { reason: "read", upTo, floor: held.floor, sealed: held.sealed } }))
       : trace.read(upTo)),
-  // Filtering to the OFFENDING seal binds the frontier the refusal names, so the raise reads both coordinates rather
-  // than asserting a retreat it never held.
   seal: (frontier) =>
     Effect.flatMap(Ref.get(live), (held) =>
       Option.match(Option.filter(held.sealed, (sealed) => !AsOf.covers(frontier, sealed)), {
@@ -746,8 +728,6 @@ const _keyed = <Op, K, S>(graph: Mini.D2, plan: Fold.Plan<Op, K, S>) => {
   }
 }
 
-// The same keyed staging on the versioned engine, so a plan folds identically at both altitudes and only the operator
-// namespace differs — the reducer, the key projection, and the lift are one declaration read twice.
 const _versionedKeyed = <Op, K, S>(graph: Diff.D2, plan: Fold.Plan<Op, K, S>) => {
   const input = graph.newInput<Op>()
   const staged = Option.match(plan.identity, {
@@ -895,14 +875,11 @@ const _agg = <Op>(row: Replay.Agg<Op>): Replay.AggregateOperator<Op> =>
 const _operators = <Op, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
   aggs: Aggs,
 ): { readonly [Column in keyof Aggs]: Replay.AggregateOperator<Op> } => {
-  // BOUNDARY ADAPTER: Record.map preserves the key census at runtime but homogenizes it in types; the mapped-key result restores that census
   return Record.map(aggs, (row): Replay.AggregateOperator<Op> => _agg(row)) as unknown as {
     readonly [Column in keyof Aggs]: Replay.AggregateOperator<Op>
   }
 }
 
-// One `Either` partition serves both altitudes: the left plan's ops and the right plan's ops leave in two multisets and
-// the caller's write surface stays single whatever engine folds them.
 const _sided = <OpL, OpR>(
   delta: Fold.Delta<Replay.Input<OpL, OpR>>,
 ): readonly [ReadonlyArray<readonly [OpL, Fold.Multiplicity]>, ReadonlyArray<readonly [OpR, Fold.Multiplicity]>] =>
@@ -1012,7 +989,6 @@ function _joined<OpL, OpR, K, SL, SR>(
               (drained) => publish(drained, Option.none(), Option.some(at)),
             )))),
         state: Subscribable.map(live, (held) => held.table),
-        // both inputs advance together: a frontier that moved on one side alone would settle a half-correlated version
         ..._timed(trace, engine.drive, (frontier) => {
           lhs.input.sendFrontier(frontier)
           rhs.input.sendFrontier(frontier)
@@ -1066,7 +1042,6 @@ const _versionedAgg = <Op>(row: Replay.Agg<Op>): Replay.DiffAggregateOperator<Op
 const _versionedOperators = <Op, Aggs extends Readonly<Record<string, Replay.Agg<Op>>>>(
   aggs: Aggs,
 ): { readonly [Column in keyof Aggs]: Replay.DiffAggregateOperator<Op> } => {
-  // BOUNDARY ADAPTER: Record.map preserves the key census at runtime but homogenizes it in types; the mapped-key result restores that census
   return Record.map(aggs, (row): Replay.DiffAggregateOperator<Op> => _versionedAgg(row)) as unknown as {
     readonly [Column in keyof Aggs]: Replay.DiffAggregateOperator<Op>
   }
@@ -1074,9 +1049,6 @@ const _versionedOperators = <Op, Aggs extends Readonly<Record<string, Replay.Agg
 
 const _groupCell = (key: string): Fold.Cell => Fold.cell([key])
 
-// The refusal names the COLUMNS that carried `NaN` or an infinity, so an operator repairs the projection rather than
-// re-deriving which of a wide grouping row poisoned the cell; the fold stops at the first offending op because one
-// unadmitted key already voids the whole delta.
 const _unfinite = (row: Readonly<Record<string, boolean | number | string>>): ReadonlyArray<string> =>
   Array.filterMap(
     Record.toEntries(row),
@@ -1191,7 +1163,7 @@ const _topped = <Op, K, S>(
                 HashMap.modifyAt(acc, group, (slot) =>
                   pipe(
                     Option.getOrElse(slot, () => SortedMap.empty<string, readonly [K, S]>(Order.string)),
-                    (pane) => (count > 0 ? SortedMap.set(pane, index, row) : SortedMap.remove(pane, index)), // eviction is the operator's signed retraction: one fractional key leaves, the pane never re-slices
+                    (pane) => (count > 0 ? SortedMap.set(pane, index, row) : SortedMap.remove(pane, index)),
                     (pane) => (SortedMap.size(pane) === 0 ? Option.none() : Option.some(pane)),
                   )))),
         )),
@@ -1524,7 +1496,7 @@ const Window: Window.Shape = {
 
 const Fold: Fold.Shape = { ..._Fold, Fault: ReplayFault, AsOf, Replay, Window }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Fold }
 ```

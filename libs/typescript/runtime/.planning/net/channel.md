@@ -65,9 +65,6 @@ import { Carrier, Event, Fault, Format } from '@rasm/core';
 import type { MachinePrincipal } from '@rasm/security';
 import { Client, Machine } from './client.ts';
 
-// Three rows, one shape: each takes the schema seam and the frame VALUE and returns the fused duplex transform. The
-// two self-describing rows read nothing off the value; the proto row reads its descriptor, and the size-delimited
-// pair under the ingress ceiling is the core engine's own — this floor hand-rolls no length prefix.
 type _Frame = { readonly kind: 'msgpack' } | { readonly kind: 'ndjson' } | { readonly kind: 'proto'; readonly descriptor: DescMessage };
 const _frames = {
     msgpack: (seam: Duplex.Seam, _frame: _Frame) => MsgPack.duplexSchema(seam),
@@ -126,9 +123,6 @@ const Duplex = { framed: _framed } as const;
 - Packages: `@effect/experimental`, `@effect/platform`, `effect`, `./client.ts`, and `@rasm/core` (`Fault.Budget`).
 
 ```typescript signature
-// Only a GRADED response carries a status, so that column rides the `media` row alone: an `Option<number>` on the
-// shared carrier let a transport refusal declare a slot it could never fill, and every reader paid an arm for a case
-// that never arrived. The cursor rides both, because a reattach position is what either refusal resumes from.
 const _feedFamily = Fault.Class.family(['transport', 'media'] as const, {
     transport: Fault.Class.row({
         class: 'unavailable',
@@ -229,8 +223,8 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
         Effect.map(Ref.make<Feed.Cursor>(Option.none()), (cursor) =>
             Stream.unwrap(Effect.map(Ref.get(cursor), (held) => _pulled(session, _reattached(session, held), held))).pipe(
                 Stream.tap((event) => Ref.update(cursor, (held) => Option.orElse(Option.fromNullable(event.id), () => held))),
-                Stream.concat(Stream.drain(Stream.fromEffect(Effect.sleep(session.redial)))), // the clean-EOF floor paces the next dial
-                Stream.forever, // every ending re-dials: the cursor Ref outlives each response, so reattach rides last-event-id
+                Stream.concat(Stream.drain(Stream.fromEffect(Effect.sleep(session.redial)))),
+                Stream.forever,
                 Stream.retry(Fault.Budget.schedule('feed')),
             ),
         ),
@@ -267,10 +261,6 @@ const _session = (session: Feed.Session): Stream.Stream<Sse.Event, FeedFault, Ht
 - Packages: `mqtt` (`connectAsync`, `handleMessage`, `IClientOptions`, `endAsync`), `cloudevents`, `avsc` (`Type`, `schema` — the host-bound engine), `effect`, `node:buffer`, `@rasm\/contracts` (`CloudEventsAvro`), `@rasm/security` (`MachinePrincipal`), `./client.ts` (`Machine`), and `@rasm/core` (`Carrier`, `Event`, `Fault`, `Format`).
 
 ```typescript signature
-// `reason` bands the fault and the row's own subject proves it: four bands cover fourteen mint sites, so without the
-// operand that decided one, a refused grant, a server disconnect, and a binding rejection all read as one string.
-// `grant` is the row that earns a shaped subject — the refused FILTERS themselves, in an array the render joins —
-// because that is the fact a caller repairs from, and a joined string forced every reader to re-split it.
 const _MqttOrigin = Schema.Struct({ origin: Schema.String, detail: Schema.String });
 
 const _mqttFamily = Fault.Class.family(['dial', 'grant', 'event', 'publish'] as const, {
@@ -311,10 +301,6 @@ class MqttFault extends Schema.TaggedError<MqttFault>()('MqttFault', {
     }
 }
 
-// MQTT v5 decides delivery grade, no-local, retain-as-published, and retain-handling PER SUBSCRIPTION, so a topic is a
-// policy row and never a bare filter under one broker-wide grade. `local` is structural rather than cosmetic: one
-// client publishing and consuming one filter re-reads its own posts without it, and no broker-level knob says so per
-// topic. Bare filters still admit and take the broker row's grade, so the simple selector costs a caller nothing.
 class _MqttTopic extends Schema.Class<_MqttTopic>('Mqtt/Topic')({
     filter: Schema.NonEmptyString,
     qos: Schema.optionalWith(Schema.Literal(0, 1, 2), { as: 'Option' }),
@@ -323,28 +309,20 @@ class _MqttTopic extends Schema.Class<_MqttTopic>('Mqtt/Topic')({
     retained: Schema.optionalWith(Schema.Literal(0, 1, 2), { default: () => 0 }),
 }) {}
 
-// Posts carry the v5 axes the protocol decides per PUBLISH packet, exactly as `_MqttTopic` carries the per-subscription
-// four. Bare topic strings still admit and take the broker row's grade and retain, so the simple call costs nothing.
-// `dup` stays off this row: the client raises that flag on its OWN redelivery, and a caller setting it forges a replay.
 class _MqttPost extends Schema.Class<_MqttPost>('Mqtt/Post')({
     topic: Schema.NonEmptyString,
     qos: Schema.optionalWith(Schema.Literal(0, 1, 2), { as: 'Option' }),
     retain: Schema.optionalWith(Schema.Boolean, { as: 'Option' }),
-    expiry: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { as: 'Option' }), // seconds; the broker drops an undeliverable message at its own edge
+    expiry: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { as: 'Option' }),
     respond: Schema.optionalWith(Schema.NonEmptyString, { as: 'Option' }),
     correlate: Schema.optionalWith(Schema.Uint8ArrayFromSelf, { as: 'Option' }),
 }) {}
 
-// One consumption-descriptor row over this seam's own column set: selection, guarantee, recovery, and the residual
-// forfeit. Cells carry MQTT's own vocabulary, so a reader crossing to `pubsub#PORT_SHAPE` compares column against
-// column rather than prose against prose, and `serves` states the member roster instead of a capability discovered by
-// fault. Every coordinate below is v5's; a `V311` broker silently drops half of them, which the `degrade` cell owns.
 const _MQTT_ROW = {
     fits: '<constrained-sensor-gateway-or-edge-peer:long-lived-session,small-frames,carrier-frame,per-subscription-policy>',
     admit: 'publish',
     tenancy: '<topic-filter-scope>',
     present: '<at-handshake:the CONNECT packet rebuilds from client.options on every dial and carries the principal as username plus a BARE token password,so a rotation costs a re-dial;reconnect() replaces both packet stores,which is why no supervisor forks here and the composition root owns the swap>',
-    // `Mqtt.Post.expiry` makes this package the owner: without that cell the broker alone decided the bound.
     lifetime: { until: '<retained-until-a-publisher-overwrites;live-until-messageExpiryInterval-elapses>', owner: 'package' },
     serves: { consume: true, event: true, open: true, publish: true },
     deliver: '<qos-0|1|2-per-subscription-and-per-post,no-broker-dedup-at-any-grade;consume-gates-the-ack-on-the-handler-while-open-settles-on-arrival;retry-owner:the-client-session>',
@@ -356,8 +334,6 @@ const _MQTT_ROW = {
     degrade: '<no-partition-key,no-origin-coordinate;every-v5-field-drops-silently-under-V311-while-the-publish-still-succeeds;binary-event-publish-forfeits-the-hop-carrier-keys-the-binding-seals,while-structured-rows-preserve-them;batch-frames-refuse;teardown-flushes-in-flight-acknowledgements-under-a-deadline-and-abandons-the-offline-queue-whatever-the-window>',
 } as const satisfies Mqtt.Row;
 
-// Grades forfeit different things and this row states which — v5 carries no broker-side dedup at any grade, so QoS 1
-// duplicates on redelivery and only the QoS 2 four-packet handshake removes them at a latency the caller pays for.
 const _MQTT_GRADES = {
     0: { guarantee: 'at-most-once', degrade: '<no-ack,no-redelivery,loss-on-disconnect>' },
     1: { guarantee: 'at-least-once', degrade: '<duplicates-on-redelivery,no-broker-dedup>' },
@@ -373,12 +349,7 @@ class _MqttBroker extends Schema.Class<_MqttBroker>('Mqtt/Broker')({
     qos: Schema.optionalWith(Schema.Literal(0, 1, 2), { default: () => 1 as QoS }),
     retain: Schema.optionalWith(Schema.Boolean, { default: () => false }),
     keepalive: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 60 }),
-    // MQTT v5 `receiveMaximum`: the broker holds at most this many QoS>0 publications unacknowledged toward this
-    // client. Paired with the handler-gated ack below it is real backpressure; unset, the broker decides the arrival
-    // burst and the descriptor's `bound` cell names a number nobody set.
     inflight: Schema.optionalWith(Schema.Int.pipe(Schema.positive()), { default: () => 32 }),
-    // Withheld acknowledgements redeliver on SESSION RESUME and never inside the live connection, so a session that
-    // survives the drop is what turns a refused message back into a delivery instead of a silent loss.
     session: Schema.optionalWith(Schema.Duration, { default: () => Duration.hours(1) }),
 }) {}
 
@@ -405,9 +376,7 @@ declare namespace Mqtt {
         readonly refuse: string;
         readonly degrade: string;
     };
-    // One selector owns every subscription modality: a filter, a filter roster, or rows carrying their own v5 axes.
     type Selector = string | ReadonlyArray<string | Topic>;
-    // One target owns every publish modality on the same law: a bare topic, or a row carrying its own v5 post axes.
     type Target = string | Post;
     type Grade = (typeof _MQTT_GRADES)[QoS];
     type Terminal = keyof typeof _MQTT_TERMINALS;
@@ -461,13 +430,8 @@ const _mqttOctets = (message: MQTTMessage, origin: string): Effect.Effect<Uint8A
             ? Effect.succeed(new Uint8Array())
             : Effect.fail(new MqttFault({ case: { reason: 'publish', origin, detail: '<binding-body-is-not-octets>' } }));
 
-// The contracts package exports the publisher asset generated from the frozen fixture. This lane compiles that
-// exact value once; no schema transcription or second `Type` can drift beside the contract estate.
 const _avroType = Type.forSchema(CloudEventsAvro as schema.AvroSchema, { wrapUnions: 'never' });
 
-// Buffer crosses at this seam alone: egress passes the returned view straight because a Buffer IS a Uint8Array, and
-// ingress wraps because the reader indexes Buffer-only slice methods. Both engine members convert the codec's throw
-// onto the Either rail here, so no exception channel reaches the core composition.
 const _avroEngine = {
     read: (octets) =>
         Either.try({
@@ -606,10 +570,6 @@ const _avroLower = (envelope: CloudEvent<unknown>): Either.Either<typeof _AvroTr
         })),
     );
 
-// The exact publisher asset owns its unions. This projection realizes its recursive JSON record representation,
-// removes the SDK's derived `data_base64` member from the attribute map, normalizes absent SDK data onto the asset's
-// mandatory null arm, and crosses strict admission in both directions; non-JSON host objects and unsupported Avro
-// data geometry refuse here rather than collapsing to an empty record or reaching the engine as an exception.
 const _AvroLift: Schema.Schema<CloudEvent<unknown>, typeof _AvroTree.Encoded> = Schema.transformOrFail(
     _AvroTree,
     Event.schema,
@@ -635,7 +595,6 @@ const Avro = Format.event.avro.bind(_AvroEnvelope);
 const _eventFault = (origin: string, detail: string): MqttFault =>
     new MqttFault({ case: { reason: 'event', origin, detail } });
 
-// Avro's lane-owned codec lifts its official tree and strict SDK admission owns the envelope exactly once.
 const _avroDecoded = (
     frame: Mqtt.Frame,
     origin: string,
@@ -645,7 +604,6 @@ const _avroDecoded = (
         Effect.map(Array.of),
     );
 
-// Structured frames carry text and binary frames carry opaque data bytes, so the framing read selects the body.
 const _mqttMessage = (frame: Mqtt.Frame, structured: boolean): MQTTMessage =>
     MQTTMessageFactory(
         frame.media ?? CONSTANTS.MIME_OCTET_STREAM,
@@ -653,9 +611,6 @@ const _mqttMessage = (frame: Mqtt.Frame, structured: boolean): MQTTMessage =>
         structured ? _mqttUtf8.read.decode(frame.body) : Buffer.from(frame.body),
     );
 
-// Detection reads the FRAME: `Format.event.framed` recovers format and arity from exact parsed media identity,
-// and a binary frame declares `specversion` among the User Properties MQTT spreads UNPREFIXED — so the package's own
-// `isEvent`, which runs a full deserialize inside `try`/`catch`, never parses a frame the decode below parses again.
 const _mqttFraming = (
     frame: Mqtt.Frame,
     origin: string,
@@ -766,8 +721,6 @@ const _mqttProjected = (body: Mqtt.Body, broker: Mqtt.Broker): Effect.Effect<_Mq
         }),
     });
 
-// MQTT defines singular binding modes only. Structured Avro and Protobuf use their exact format codecs; JSON and
-// binary use the official MQTT binding, and every SDK result crosses strict admission before it leaves this seam.
 const _mqttAdmitted = (
     frame: Mqtt.Frame,
     envelope: CloudEvent<unknown>,
@@ -825,12 +778,6 @@ const _mqttEvent = (
             (events) => Effect.forEach(events, (event) => _mqttAdmitted(frame, event, broker, policy)),
         ));
 
-// This seam is the credential-projection family's fourth row and the only one whose token rides the CONNECT frame's
-// own `username`/`password` pair: MQTT v5 defines no bearer band, and a User Property carrying a token authenticates
-// a payload nobody checks while the session itself stays anonymous. `password` takes the BARE `MachinePrincipal.token`
-// because `credential` prefixes the HTTP scheme its issuer chose and no broker parses that; `username` takes the
-// `clientId`, the principal name the broker authorizes against. A source holding nothing for this origin dials
-// unauthenticated rather than presenting an empty pair, which every broker refuses.
 const _mqttCredential = (broker: Mqtt.Broker): Effect.Effect<Partial<IClientOptions>, MqttFault> =>
     Effect.map(
         Effect.mapError(
@@ -846,10 +793,6 @@ const _mqttCredential = (broker: Mqtt.Broker): Effect.Effect<Partial<IClientOpti
         }),
     );
 
-// Every coordinate here is a declared row, because each one has a client default that decides it silently otherwise:
-// `sessionExpiryInterval` beside `clean: false` is what makes a withheld acknowledgement redeliver at all,
-// `receiveMaximum` is the arrival window this client grants the broker, and the reconnect pair states the re-dial
-// cadence a caller would otherwise read off the package.
 const _mqttConnect = (broker: Mqtt.Broker): Effect.Effect<MqttClient, MqttFault> =>
     Effect.flatMap(_mqttCredential(broker), (credential) =>
         Effect.tryPromise({
@@ -857,8 +800,6 @@ const _mqttConnect = (broker: Mqtt.Broker): Effect.Effect<MqttClient, MqttFault>
                 connectAsync(broker.origin.href, {
                     protocolVersion: 5,
                     keepalive: broker.keepalive,
-                    // Clean sessions discard every unacknowledged QoS>0 message on disconnect, which turns the
-                    // withheld ack below from a redelivery into a loss; the expiry bounds how long the broker holds it.
                     clean: false,
                     properties: {
                         sessionExpiryInterval: Math.floor(Duration.toSeconds(broker.session)),
@@ -870,19 +811,13 @@ const _mqttConnect = (broker: Mqtt.Broker): Effect.Effect<MqttClient, MqttFault>
             catch: (cause) => new MqttFault({ case: { reason: 'dial', origin: broker.origin.href, cause: String(cause) } }),
         }));
 
-// Terminal rows carry what each event actually knows: only `error` holds a cause and only `disconnect` holds a v5
-// reason code, so one nullary handler across all four discards the sole evidence the seam ever receives.
 const _MQTT_TERMINALS = {
     close: { detail: () => '<broker-closed>' },
     error: { detail: (cause: unknown) => `<broker-error:${String(cause)}>` },
     disconnect: { detail: (packet: unknown) => `<broker-disconnect:${String((packet as IDisconnectPacket)?.reasonCode)}>` },
-    // Clients reconnect on their own after `offline`, so this row names a stream the seam ends while the socket
-    // beneath it keeps retrying — a caller reading a bare transport fault would re-dial a client already dialing.
     offline: { detail: () => '<broker-offline:client-retrying>' },
 } as const;
 
-// Twin of the subscription fold on the publish side: a bare topic takes the broker row's grade and retain, a row names
-// its own v5 post axes. Absent cells never emit their property, so a v5 default is the broker's rather than this fold's.
 const _mqttPublish = (
     broker: Mqtt.Broker,
     target: Mqtt.Target,
@@ -906,7 +841,6 @@ const _mqttPublish = (
     };
 };
 
-// One fold owns every subscription modality: a bare filter takes the broker row's grade, a row names its own v5 axes.
 const _mqttSubscription = (broker: Mqtt.Broker, topics: Mqtt.Selector): ISubscriptionMap =>
     Record.fromEntries(
         (typeof topics === 'string' ? [topics] : topics).map((entry) =>
@@ -920,12 +854,6 @@ const _mqttSubscription = (broker: Mqtt.Broker, topics: Mqtt.Selector): ISubscri
                   }] as const)),
     );
 
-// Teardown FLUSHES and then stops waiting, because the package's graceful arm has no deadline: `end(false)` parks on
-// `outgoingEmpty` until every unacknowledged QoS>0 publish is matched, and a broker that never answers parks it
-// forever. The graceful call runs first so in-flight publishes land; past the window the forced arm destroys the
-// socket, since a scope that cannot close is worse than a DISCONNECT the broker never reads. What the graceful arm
-// never drains is stated rather than assumed: the offline queue holding QoS-0 publishes and control packets is
-// abandoned whatever the deadline, so a caller needing those durable publishes at QoS 1 instead.
 const _MQTT_FLUSH = Duration.seconds(5);
 
 const _mqttEnded = (broker: Mqtt.Broker, client: MqttClient): Effect.Effect<void, MqttFault> =>
@@ -945,23 +873,11 @@ const _mqttEnded = (broker: Mqtt.Broker, client: MqttClient): Effect.Effect<void
         Effect.flatten,
     );
 
-// Delivery carries its own SETTLEMENT because `client.on('message')` does not: mqtt.js emits that event and then
-// calls `client.handleMessage(packet, done)`, and `done` is what releases the PUBACK at QoS 1 and the PUBCOMP at
-// QoS 2 — both grades routing through the same member. A listener therefore reads a frame the broker already
-// considers acknowledged, so a handler fault, a scope teardown, or a crash between the two loses that message
-// permanently while the row advertises at-least-once. Overriding `handleMessage` makes the acknowledgement the
-// handler's own verdict, and the default implementation is a no-op whose whole purpose is to be replaced.
 type _MqttDelivery = {
     readonly frame: Mqtt.Frame;
-    // Settling with a refusal WITHHOLDS the grade's acknowledgement, so the broker re-offers on session resume —
-    // never inside the live connection, which is why `clean: false` beside a session expiry is what makes it real.
     readonly settle: (refusal: Option.Option<MqttFault>) => Effect.Effect<void>;
 };
 
-// Emit mailboxes DECLARE their bound here: `Stream.asyncScoped` takes `Queue.bounded(16)` when handed nothing, and
-// an undeclared queue in front of the flow-control window is a second bound no descriptor cell can name. Suspending
-// composes with the handler-gated ack, where dropping or sliding discards a frame this seam already told the broker
-// to hold.
 const _MQTT_MAILBOX = { bufferSize: 64, strategy: 'suspend' } as const;
 
 const _mqttDelivered = (broker: Mqtt.Broker, topics: Mqtt.Selector): Stream.Stream<_MqttDelivery, MqttFault> =>
@@ -975,10 +891,6 @@ const _mqttDelivered = (broker: Mqtt.Broker, topics: Mqtt.Selector): Stream.Stre
                         catch: (cause) =>
                             new MqttFault({ case: { reason: 'dial', origin: broker.origin.href, cause: String(cause) } }),
                     });
-                    // Refused filters name THEMSELVES: a bare boolean leaves a caller re-subscribing every filter to
-                    // find which one the broker's ACL rejected, and a partial grant is the common shape, never the rare one.
-                    // Matching PROVES the roster non-empty, so the refusal's own array column cannot carry a vacuous
-                    // grant and no length test guards a shape the type already closes.
                     const refused = grants.filter((grant) => grant.qos === 128).map((grant) => grant.topic);
                     yield* Array.match(refused, {
                         onEmpty: () => Effect.void,
@@ -986,9 +898,6 @@ const _mqttDelivered = (broker: Mqtt.Broker, topics: Mqtt.Selector): Stream.Stre
                             Effect.fail(new MqttFault({ case: { reason: 'grant', origin: broker.origin.href, filters } })),
                     });
                     let terminated = false;
-                    // BOUNDARY ADAPTER: `handleMessage` is a client MEMBER the package documents as replaceable, and
-                    // its callback is the ONE seam gating both acknowledgements. Settling exactly once is structural:
-                    // a second call re-sends an acknowledgement the broker already matched to a packet id it freed.
                     client.handleMessage = (packet: IPublishPacket, done: (error?: Error) => void) => {
                         if (terminated) return done();
                         let settled = false;
@@ -1063,7 +972,6 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
     static readonly Post = _MqttPost;
     static readonly Topic = _MqttTopic;
     static readonly grades = _MQTT_GRADES;
-    // Callers read the descriptor instead of discovering a coordinate by fault, exactly as `Fanout.engine` publishes its rows.
     static readonly row = _MQTT_ROW;
     static readonly live = (broker: Mqtt.Broker): Layer.Layer<Mqtt, MqttFault> =>
         Layer.scoped(
@@ -1080,27 +988,18 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
                 (publisher) => ({
                     consume: (topics, handler) =>
                         Stream.runForEach(_mqttDelivered(broker, topics), ({ frame, settle }) =>
-                            // extraction is the core dialect read this floor may perform, and it crosses WHOLE: the
-                            // handler's own stratum continues the hop through the one ingress transformer, which is
-                            // what publishes the parse-drop census this floor measures but never reads
                             Effect.flatMap(
                                 Effect.either(pipe(Carrier.extract('mqtt', frame.band), (extracted) => handler(frame, {
                                     ...extracted,
                                     context: Carrier.withoutTenant(extracted.context),
                                 }))),
                                 Either.match({
-                                    // Settling FIRST is the whole point: the acknowledgement withholds before the
-                                    // refusal escapes, so the broker re-offers on resume instead of holding a receipt
-                                    // for work no handler completed.
                                     onLeft: (refusal) => Effect.zipRight(settle(Option.some(refusal)), Effect.fail(refusal)),
                                     onRight: () => settle(Option.none()),
                                 }),
                             ),
                         ),
                     event: (frame, policy) => _mqttEvent(frame, broker, policy),
-                    // Raw delivery settles on ARRIVAL and says so: a consumer folding this stream itself holds no
-                    // settlement handle, so the acknowledgement rides delivery exactly as an unsettled listener does,
-                    // and `serves` points a caller wanting handler-gated delivery at `consume`.
                     open: (topics) =>
                         Stream.mapEffect(_mqttDelivered(broker, topics), ({ frame, settle }) =>
                             Effect.as(settle(Option.none()), frame)),
@@ -1148,7 +1047,7 @@ class Mqtt extends Context.Tag('runtime/Mqtt')<
 ```
 
 ```typescript signature
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Avro, Duplex, Feed, FeedFault, Mqtt, MqttFault };
 ```

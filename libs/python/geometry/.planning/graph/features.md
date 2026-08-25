@@ -59,8 +59,6 @@ class FeatureKind(StrEnum):
 
 
 class MarkSpace(StrEnum):
-    # Projection-dispatch key: EDGE_ROW marks index the spec's EdgeSource array directly, VERTEX marks
-    # scatter incidence onto it, FACET marks build the facet-adjacency matrix, MARK_PROJECT folds.
     EDGE_ROW = "edge-row"
     VERTEX = "vertex"
     FACET = "facet"
@@ -104,7 +102,6 @@ class AnalyticOp(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Default menu; row mode_guard is the per-graph filter pruning directed-only rows on an undirected graph.
 _DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.COMPONENTS,
     AnalyticOp.STRONG_COMPONENTS,
@@ -112,7 +109,6 @@ _DEFAULT_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.PAGERANK,
     AnalyticOp.SPANNING_WEIGHT,
 })
-# centrality band whose flat fact IS the top head score, not the board cardinality — one membership test, no branch.
 _HEAD_OPS: Final[frozenset[AnalyticOp]] = frozenset({
     AnalyticOp.BETWEENNESS,
     AnalyticOp.DEGREE,
@@ -132,7 +128,7 @@ class FeaturePolicy(Struct, frozen=True, gc=False):
     mode: GraphMode = GraphMode.UNDIRECTED
     backend: GraphBackend = GraphBackend.DEFAULT
     centrality_top: int = 8
-    power_iter: int = 200  # eigenvector/pagerank power-iteration ceiling both reducers thread as max_iter
+    power_iter: int = 200
     ops: frozenset[AnalyticOp] = _DEFAULT_OPS
 
 
@@ -142,7 +138,6 @@ class FeatureRequest(Struct, frozen=True):
 
 
 class FeatureSpec(Struct, frozen=True, gc=False):
-    # one row per FeatureKind: detector, the (n, 2) edge array the EDGE_ROW/VERTEX projections lift (FACET ignores it), MarkSpace.
     detector: Detector
     edge_source: EdgeSource
     mark_space: MarkSpace
@@ -172,7 +167,6 @@ class Census(Struct, frozen=True):
 
 
 class CaseSpec(Struct, frozen=True):
-    # one row per FeatureKind: subject, Census-read empty-graph ledger, ceiling.
     subject: GeometrySubject
     ledger: Callable[[Census], dict[str, float]]
     ceiling: Mapping[str, float]
@@ -190,23 +184,14 @@ class FeatureResult(Struct, frozen=True):
 
     @property
     def spec(self) -> bytes:
-        # the bytes that DEFINE this evidence: the projected node-link document beside the detector kind that
-        # produced it, so two kinds over one mesh key distinctly and a re-run over identical input keys identically.
         return b"|".join((self.kind.value.encode(), self.node_link))
 
     def graduates(self) -> GeometryHandoff:
-        # the producer derives its own key off its own spec — the graduation spine's `evidence_key` is the one TOTAL
-        # mint, so no caller hands this receipt an identity it never computed and no rail wraps an infallible fold.
         return GeometryHandoff.of(
             self.graduation_subject, evidence_key(self.graduation_subject, self.spec), _FEATURE_CASE.ledger(self.census), _FEATURE_CASE.ceiling
         )
 
     def frame(self, op: AnalyticOp) -> "RuntimeRail[EvidenceFrame]":
-        # analytic-board columnar egress through the graduation frame port: the substrate's `tabled` projection keys
-        # columns, this producing page keys the subject — an unheld op frames the empty board, never a fault, while a
-        # ragged `tabled` projection rails at the port instead of raising past this producer. The frame projects the
-        # SAME evidence `graduates()` crosses, so it folds the same `spec` through the same mint rather than taking a
-        # second identity from its caller.
         board = self.census.values.try_find(op).default_value(AnalyticValue.Leaderboard(())).tabled()
         return EvidenceFrame.of(self.graduation_subject, evidence_key(self.graduation_subject, self.spec), board)
 
@@ -226,8 +211,6 @@ def _sharp_edges(mesh: trimesh.Trimesh, policy: FeaturePolicy) -> Marks:
 
 
 def _planar_facets(mesh: trimesh.Trimesh, policy: FeaturePolicy) -> Marks:
-    # `mesh.facets` is a ragged list of per-group face-index arrays; a group admits where its members' min dot against the
-    # unit-mean normal clears `coplanar_cos`, the `m :=` walrus binding the group mean once for normalize and reduction.
     units = np.asarray(mesh.face_normals) / np.clip(np.linalg.norm(np.asarray(mesh.face_normals), axis=1, keepdims=True), 1e-12, None)
     return np.asarray(
         [
@@ -245,13 +228,10 @@ def _curvature_vertices(mesh: trimesh.Trimesh, policy: FeaturePolicy) -> Marks:
 
 
 def _boundary_edges(mesh: trimesh.Trimesh, _: FeaturePolicy) -> Marks:
-    # `edges_face` is the (e, 2) per-edge face accessor aligned to `edges_unique`,
-    # `-1` filling an open side; a single incident face is the open-boundary discriminant. No expansion.
     incidence = (np.asarray(mesh.edges_face, dtype=np.int64) >= 0).sum(axis=1)
     return np.asarray(np.where(incidence == 1)[0], dtype=np.int64)
 
 
-# EdgeSource arms the EDGE_ROW/VERTEX projections lift; FACET binds `_no_edges` since it reads `face_adjacency`/`facets` directly.
 def _adjacency_rows(mesh: trimesh.Trimesh) -> EdgeArray:
     return np.asarray(mesh.face_adjacency, dtype=np.int64)
 
@@ -274,8 +254,6 @@ def _edge_row(mesh: trimesh.Trimesh, spec: FeatureSpec, marks: Marks, policy: Fe
 
 
 def _vertex_edge(mesh: trimesh.Trimesh, spec: FeatureSpec, marks: Marks, policy: FeaturePolicy) -> nx.Graph:
-    # A vertex-index mark selects the `edges_unique` rows incident to a marked vertex, not indexing edge
-    # rows by a vertex id: scatter the flag, then keep rows touching a flagged endpoint.
     edges = spec.edge_source(mesh)
     flags = np.zeros(len(mesh.vertices), dtype=bool)
     flags[marks] = True
@@ -322,7 +300,6 @@ def _component_count(generator: Iterable[object]) -> AnalyticValue:
     return AnalyticValue.Scalar(float(sum(1 for _ in generator)))
 
 
-# each reducer threads `backend=policy.backend.value` into its `@nx._dispatchable` algorithm and returns one typed `AnalyticValue`.
 ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
     AnalyticSpec(AnalyticOp.COMPONENTS, lambda g, p: _component_count(nx.connected_components(g, backend=p.backend.value)), lambda m: not m.directed),
     AnalyticSpec(
@@ -371,10 +348,6 @@ ANALYTICS: Final[tuple[AnalyticSpec, ...]] = (
     ),
 )
 
-# Every feature kind graduates one subject under one empty-graph ledger against one ceiling, so the graduation axes
-# carry no per-kind discriminant and the value IS the row — a `FeatureKind`-keyed table would store four copies of it
-# and oblige a fifth on the next detector. `CaseSpec` stays the shape because `graph/algebra` keys four genuinely
-# distinct rows on it; a feature kind earning its own subject or ceiling restores the table with discriminating rows.
 _FEATURE_CASE: Final[CaseSpec] = CaseSpec(
     GeometrySubject.NETWORK_GRAPH, lambda c: {"empty_graph_fraction": 0.0 if c.nodes else 1.0}, _EMPTY_CEILING
 )
@@ -410,9 +383,6 @@ def _assemble(graph: nx.Graph, marks: Marks, kind: FeatureKind, policy: FeatureP
 
 
 def _extracted(mesh: trimesh.Trimesh, request: FeatureRequest) -> FeatureResult:
-    # one pure extraction body both arms share, module-qualified so the bridged kernel ships REFERENCE and
-    # only the numpy-backed mesh and the frozen request pickle — never an owner closure whose lane drags
-    # loop-side runtime state across the process seam; the weave's harvest emits the result loop-side.
     graph, marks = _project(mesh, request.kind, request.policy)
     return _assemble(graph, marks, request.kind, request.policy, _analyse(graph, request.policy, ops=request.policy.ops))
 
@@ -423,15 +393,9 @@ def _extracted(mesh: trimesh.Trimesh, request: FeatureRequest) -> FeatureResult:
 class Features(Struct, frozen=True):
     mesh: trimesh.Trimesh
     lane: LanePolicy
-    # the owner CARRIES its composition beside its lane rather than each weave call re-reading a default: the app root
-    # binds one `ScopeKey` into `LanePolicy.of` and into this field, so every span, cost record, and charter series
-    # this owner emits partitions with the registered pulse points instead of silently unioning an embedded
-    # composition's evidence into the root's.
     composition: ScopeKey = DEFAULT_SCOPE
 
     def run(self, request: FeatureRequest | Sequence[FeatureRequest]) -> RuntimeRail[FeatureResult] | RuntimeRail[Block[FeatureResult]]:
-        # each request returns through its own GRAPH_FEATURES weave; a batch folds the weave rails through
-        # traversed(ACCUMULATE) — `i=item` binds the loop variable per closure.
         match request:
             case Sequence() as batch:
                 return traversed(
@@ -451,9 +415,6 @@ class Features(Struct, frozen=True):
                 assert_never(unreachable)
 
     async def bridged(self, request: FeatureRequest) -> RuntimeRail[FeatureResult]:
-        # HOSTILE: the trimesh detector band is native and the all-pairs/enumeration cores (betweenness/pagerank/
-        # simple_cycles) are CPU-bound; the module-qualified `_extracted` resolves by name on the warm process pool
-        # and its arguments carry the whole crossing payload, the weave's harvest emitting loop-side.
         return await evidence_run(
             EvidenceScope.GRAPH_FEATURES,
             f"bridged.{request.kind}",

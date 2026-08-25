@@ -22,10 +22,7 @@ That canonical content key is the single identity the lane composes by: `Symboli
 - Boundary: identity is the `ContentKey`, never the engine; the canonical projection is `Stringize()` over the `Simplify()`-normalized tree, so rendering the raw unnormalized tree is the rejected key source; the canonical-string fold binds `ComparerAccessors.StringOrdinal`, so a culture-sensitive compare on the identity path is deleted; minting through the kernel `ContentHash.Of` federation entry is the identity the Persistence cost-catalog/QTO consumers dedup by. Canonical STABILITY is engine-owned, so it is proved at composition rather than declared: `CanonicalProbe` is the gate, its pinned rows are fixture data the probe never mints, and a re-keying package bump surfaces there instead of as a cache that silently never hits again.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
-// Free-symbol NAME admitted once. Blank and whitespace-padded keys stop being spellable, so no binding fold,
-// transform arm, symbol-order gate, or fault message re-tests what construction settled; `Var` is the one hop
-// to the engine's own variable, so `MathS.Var` has no second call site.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -40,8 +37,6 @@ public readonly partial struct SymbolName {
     public Entity.Variable Var => MathS.Var(Value);
 }
 
-// Differentiation order is one-or-more and Taylor degree is zero-or-more — two floors, so two owners; a shared
-// `int` would need the floor re-tested at both call sites, which is exactly the guard pair these delete.
 [ValueObject<int>]
 public readonly partial struct Order {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) {
@@ -60,8 +55,6 @@ public readonly partial struct Degree {
     }
 }
 
-// Every finite scalar this lane admits — an expansion point, a numeric binding — rides one owner, so the
-// `double.IsFinite` test lands at construction instead of once per arm.
 [ValueObject<double>]
 public readonly partial struct Finite {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
@@ -71,8 +64,6 @@ public readonly partial struct Finite {
     }
 }
 
-// Rendering is an AXIS, not two properties: `Display`/`LaTeX` were two named reads of one projection, each
-// re-rendering the tree per read against a stored canonical the value already holds. A further target is one row.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -84,39 +75,26 @@ public sealed partial class Notation {
     public partial string Project(Entity entity);
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct SymbolicExpr {
-    // Inert<T> holds every pair of its member type equal at hash zero, so Equals/GetHashCode discriminate on
-    // ContentKey ALONE; [IgnoreMember] is rejected (it hides the member from the generated factory), and one
-    // generic accessor serves both inert members rather than a per-member comparer class.
     [MemberEqualityComparer<Inert<Entity>, Entity>]
     public Entity Entity { get; }
 
-    // Canonical text and key derive from ONE projection at construction. `Simplify()` rewrites the whole tree,
-    // so a property re-projecting on every read paid a full normalization per fault message, per coefficient
-    // harvest, and per solve decline; storing the pre-image beside the key it hashes retires all of them.
     [MemberEqualityComparer<Inert<string>, string>]
     public string Canonical { get; }
 
-    // Key derives from the entity here through the kernel ContentHash.Of federation entry, never the Create slot, never a per-call-site hasher.
     public UInt128 ContentKey { get; }
 
-    // `[ValidationError]` makes the generated `Validate` return the DOMAIN fault, so `Admit` lands
-    // it on `Fin` with no translation hop and the Thinktecture `ValidationError` never reaches the rail.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Entity entity, ref string canonical, ref UInt128 contentKey) {
         if (entity is null) {
             validationError = new ValidationError(string.Join(" | ", new object?[] { "<null-entity>" }));
             return;
         }
-        // Simplify() is the canonicalization pass; Stringize() renders the settled tree once.
         canonical = entity.Simplify().Stringize();
         contentKey = ContentHash.Of(Encoding.UTF8.GetBytes(canonical));
     }
 
-    // `Of` mints from a tree the CAS itself produced — never null by the engine's own contract — so it takes the
-    // throwing generated `Create`; a FOREIGN tree enters through `Admit`, whose generated `Validate` returns the
-    // typed refusal the rail already accepts.
     internal static SymbolicExpr Of(Entity entity) => Create(entity, string.Empty, default);
 
     internal static Fin<SymbolicExpr> Admit(Entity tree) =>
@@ -124,8 +102,6 @@ public readonly partial struct SymbolicExpr {
             ? Fin.Fail<SymbolicExpr>(refusal)
             : Fin.Succ(admitted);
 
-    // A `default` struct forges a null `Entity` — the ONE null this value admits, and the reason five folds each
-    // carried their own gate. Every consumer reads the tree through here, so the forgery is answered once.
     public Fin<Entity> Tree =>
         this.Entity is not null
             ? Fin.Succ(this.Entity)
@@ -139,8 +115,6 @@ public readonly partial struct SymbolicExpr {
             .Distinct()
             .OrderBy(static symbol => symbol.Value, ComparerAccessors.StringOrdinal.Comparer));
 
-    // Numeric evaluation IS substitution then projection: the bindings ride the same `Substitute` case `Apply`
-    // folds, so no second engine path, no second binding predicate, and no second kernel capture exist.
     public Fin<double> Evaluate(Map<SymbolName, Finite> bindings) =>
         SymbolicOps.Apply(this, new SymbolicOp.Substitute(bindings.Map(static value => SymbolicExpr.Of(value.Value))))
             .Bind(static substituted => NumberBox.Project(substituted.Entity.Evaled));
@@ -152,8 +126,7 @@ public readonly partial struct SymbolicExpr {
     }
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
-// Real subsumes Rational/Integer and carries ±∞ as Real specials; the Complex leaf and any unbound residue fault typed, never a NaN sentinel.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class NumberBox {
     public static Fin<double> Project(Entity evaled) =>
         evaled switch {
@@ -165,17 +138,8 @@ public static class NumberBox {
         };
 }
 
-// --- [BOUNDARIES] ------------------------------------------------------------------------
-// Canonical form is the ENGINE's property, not this page's: `Simplify()` owns commutative operand ordering, so a
-// package bump can re-order one product, re-key every `Symbolic/lowering#LOWERING_CACHE` slot, and stop the
-// Persistence cost-catalogue dedup — silently, with no compile signal and no failing read. The probe re-derives
-// each pinned expression's key at composition and faults naming the drifted source, so a re-key surfaces at boot
-// rather than as a permanently cold cache. The pinned rows are the fixture's own measured baseline, refreshed
-// deliberately when a bump is accepted; the probe mints none and asserts nothing about their values.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class CanonicalProbe {
-    // Accumulating, and each row keeps its OWN cause: an `IfFail(true)` fold reported a source that no longer
-    // PARSES and a source that re-KEYED as one undifferentiated drift list, which is the one distinction the
-    // operator refreshing the pins needs.
     public static Fin<Unit> Probe(FrozenDictionary<string, UInt128> pinned) =>
         toSeq(pinned.AsEnumerable())
             .Traverse(static row => SymbolicBuild.Build(new BuildSpec.Infix(row.Key)).Match(
@@ -201,7 +165,7 @@ public static class CanonicalProbe {
 - Boundary: `Build` is the single entry — a `Parse`/`FromEntity`/`FromInfix` factory trio modeling one concept is the collapsed defect, per-case convenience overloads re-spelling the union cases are the same defect one hop later, and the input shape selects the arm, never the call site; the union `Switch` is exhaustive at compile time, so a new `BuildSpec` case breaks loudly rather than falling through a runtime `_`; `Entity.TryParse` is the admitted parse surface and `MathS.FromString`/the implicit conversion are rejected in domain flow because they raise into the rail; the direct `ComputeFault` arms extend `ComputeFault`, so a standalone `SymbolicError`/`ParseError` union is the rejected parallel rail; the engine's ANTLR front-end owns the grammar, and this page admits no second parser.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BuildSpec {
     private BuildSpec() { }
@@ -210,23 +174,19 @@ public abstract partial record BuildSpec {
     public sealed record Structured(Entity Tree) : BuildSpec;
 }
 
-// --- [ERRORS] ----------------------------------------------------------------------------
-// Symbolic failures are direct leaves on the package family; no intermediate family or category mirror exists.
+// --- [ERRORS] --------------------------------------------------------------------------
 public abstract partial record ComputeFault {
     [FaultCase(12)] public sealed partial record ParseRejected(string Detail) : ComputeFault(Detail);
     [FaultCase(13)] public sealed partial record SymbolUndefined(string Detail) : ComputeFault(Detail);
     [FaultCase(14)] public sealed partial record NonDifferentiable(string Detail) : ComputeFault(Detail);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
-// ONE foreign-throw funnel preserves provider errors; explicit symbolic refusals arise inside each operation.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Captured {
     public static Fin<T> Of<T>(Func<Fin<T>> operation) => Op.Of(name: "symbolic.capture").Catch(operation);
 }
 
 public static class SymbolicBuild {
-    // ONE entrypoint; the union case IS the modality. Overloads mirroring the cases (a Build(string), a
-    // Build(Entity)) split the admission surface by call-site static type and are the deleted form.
     public static Fin<SymbolicExpr> Build(BuildSpec spec) =>
         Captured.Of(() => spec.Switch(
                 infix: static i => Entity.TryParse(i.Source, CultureInfo.InvariantCulture, out Entity parsed)
@@ -248,7 +208,7 @@ public static class SymbolicBuild {
 - Boundary: `Apply` is the one transform surface — a per-operation static-method ladder is the rejected form, a `Substitute`/`Approximate`/`Evaluate` trio over one substitution fold is the same defect one hop later, and `Coefficients`/`Solutions` stay off `Apply` because their results are vectors (a degenerate echo case inside `Apply` is the rejected shoehorn); the dense harvest sizes against the intent-declared payload bound, so a ceiling constant standing in for a caller's allocation policy is deleted; the engine surface is mined whole (order-parameterized `Differentiate`, both `Integrate` arities, directed `Limit`, typed-`Set` `Solve`, `MathS.Taylor`, `Simplify`/`Expand`/`Factorize`/`InnerSimplified`, `Substitute`, `TryGetPolynomial`, `Compile`, `Stringize`/`Latexise`), so a local finite-difference gradient, a string `eval`, or a hand-rolled root-finder beside `Solve` is the deleted lower-level form; `Solve` returns the typed `Entity.Set` and a first-element grab off an un-discriminated set is deleted because an `Interval`/`ConditionalSet` is not enumerable — `Solutions` is the one projection that discriminates; the symbol argument constructs through the admitted `SymbolName`, whose `Var` column is the ONE `MathS.Var` call site, and pi/e never enter `FreeSymbols` because `Vars` excludes them.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -262,10 +222,6 @@ public sealed partial class SymbolicForm {
     public partial Entity Normalize(Entity entity);
 }
 
-// `Approximate` was `Substitute` composed with `Simplify(SymbolicForm.Inner)` and `SymbolicExpr.Evaluate` was
-// `Substitute` composed with `NumberBox` — three spellings of one fold, two of them re-deriving the binding
-// predicate. The bindings carry `SymbolicExpr`, so a numeric binding lifts at the caller's edge and an exact
-// symbolic binding needs no second case.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SymbolicOp {
     private SymbolicOp() { }
@@ -279,12 +235,7 @@ public abstract partial record SymbolicOp {
     public sealed record Substitute(Map<SymbolName, SymbolicExpr> Bindings) : SymbolicOp;
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
-// The three symbolic arms are recovery-DISTINCT and the fold routes on that, never on one arm carrying every
-// refusal: `ParseRejected` is a caller value the lane declines to admit, `SymbolUndefined` an evaluation that met
-// an unbound or non-real leaf, `NonDifferentiable` an analytic residue or an engine decline. The band below
-// `FaultBand.Component` is exactly consumed (`Runtime/admission#DISPATCH_SPINE`), so a finer split is a kernel
-// span edit, never a local fourth arm.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SymbolicOps {
     public static Fin<SymbolicExpr> Apply(SymbolicExpr source, SymbolicOp op) =>
         source.Tree.Bind(_ => Captured.Of(() => op.Switch(
@@ -303,16 +254,10 @@ public static class SymbolicOps {
                 substitute: static (c, src) => Fin.Succ(SymbolicExpr.Of(
                     c.Bindings.Fold(src.Entity, static (acc, pair) => acc.Substitute(pair.Key.Var, pair.Value.Entity))))))));
 
-    // Harvesting is DENSE by max degree, so a sparse high-degree polynomial holds one slot per absent power —
-    // `x^1000000 + 1` is two terms and a million doubles. The bound is the INTENT-declared payload cap the
-    // admission spine already carries, so the decline lands on the allocation arm the package recovers on
-    // (`Tensor/memory#ALLOCATION_AXIS` grammar) rather than a lane literal wearing a symbol fault.
     public static Fin<Seq<double>> Coefficients(SymbolicExpr source, SymbolName symbol, long payloadBound) =>
         Captured.Of(() => Bind(source, symbol).Bind(variable =>
                 !MathS.Utils.TryGetPolynomial(source.Entity, variable, out Dictionary<EInteger, Entity>? terms)
                     ? Fin.Fail<Seq<double>>(new ComputeFault.ParseRejected($"<non-polynomial:{source.Canonical}>"))
-                // A true return with zero terms means nothing was HARVESTED; returning `[0.0]` published that as
-                // the zero polynomial, which an optimizer seed then fits.
                 : terms.Count == 0
                     ? Fin.Fail<Seq<double>>(new ComputeFault.ParseRejected($"<empty-harvest:{source.Canonical}>"))
                 : terms.Keys.Max(static power => power.ToInt32Checked()) + 1 is var width && (long)width * sizeof(double) > payloadBound
@@ -324,8 +269,6 @@ public static class SymbolicOps {
                         : Fin.Succ(0d))
                     .As()));
 
-    // Cut-parameter inversion: only a FiniteSet enumerates, and the decline NAMES the set kind, because an
-    // `Interval` solution and a `ConditionalSet` solution ask the caller for different things.
     public static Fin<Seq<SymbolicExpr>> Solutions(SymbolicExpr source, SymbolName symbol) =>
         Apply(source, new SymbolicOp.Solve(symbol)).Bind(static solved =>
             solved.Entity is Entity.Set.FiniteSet finite
@@ -333,13 +276,11 @@ public static class SymbolicOps {
                 : Fin.Fail<Seq<SymbolicExpr>>(new ComputeFault.SymbolUndefined(
                     $"<non-finite-solution:{solved.Entity.GetType().Name}:{solved.Canonical}>")));
 
-    // The value object forecloses a blank name, so membership is the one question left.
     static Fin<Entity.Variable> Bind(SymbolicExpr source, SymbolName symbol) =>
         source.FreeSymbols.Contains(symbol)
             ? Fin.Succ(symbol.Var)
             : Fin.Fail<Entity.Variable>(new ComputeFault.SymbolUndefined($"<absent-symbol:{symbol.Value}>"));
 
-    // Engine defers what it cannot solve as a Derivativef/Integralf/Limitf residue; a survivor is the typed 2214 decline, never a symbolic leftover downstream.
     static Fin<SymbolicExpr> Settle<TResidue>(Entity result) where TResidue : Entity =>
         result.Nodes.Any(static n => n is TResidue)
             ? Fin.Fail<SymbolicExpr>(new ComputeFault.NonDifferentiable($"<analytic-decline:{typeof(TResidue).Name}:{result.Stringize()}>"))

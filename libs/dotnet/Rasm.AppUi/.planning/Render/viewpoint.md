@@ -27,12 +27,7 @@
 - Boundary: `Viewpoint` is the one portable view-state owner for camera, optional section, visibility, colour, selection, and measurements. A posture PROJECTS and never queries — `Editing/inspector#INSPECTOR_SURFACE` `PostureSource.Read` is the ONE reader seat producing the resolved `(element, value)` pairs `DisplayPosture.Project` consumes and `PostureSource.Electable` the colour-by election roster over that same merged descriptor set, so this owner runs no property read and the same fold serves a live session, a captured viewpoint, and an animation keyframe; palettes are `Theme/tokens#TOKEN_CATALOG` `Colormap` rows under their declared class, so a posture-local colour table is the deleted form; legends are `Charts/grammar#LEGEND_VOCABULARY` `LegendSpec` declarations, so a posture's legend and a chart's legend are one owner with two producers. `ViewpointCodec` projects onto Bim's `BcfViewpoint` family and preserves source snapshot, line, bitmap, index, view-hint, and arbitrary clipping-plane columns during re-encode; the BCF camera is `Option`-valued under that owner's own `BcfCamera.Admit` gate, so a selection-only viewpoint decodes as typed absence and never a degenerate origin view. Arbitrary BCF plane sets do not counterfeit an axis-aligned `SectionBox`: decode carries `None` while the source record retains those planes. `[MapProperty]` rows carry every divergence the wire and the exchange keep — the exchange spells `Visibility`/`Hints` where the wire keeps `DefaultVisibility`/`VisibilityExceptions`/`ViewSetupHints`, and the seam is where that divergence is stated once. `ElementId` is a raw scene key on this channel and joins TWO identity regimes — the BCF `GlobalId` IFC attribute string and the Persistence version-compare fold whose `(ElementId, OverrideRole)` pairs `VersionGhost` takes — with no owner for the stringification between them; the escalation is stated, not papered over.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// What a frame can DO to one element, closed: not drawn, drawn plainly at some transparency, or drawn in the
-// row's own colour. The four-column product it replaces admitted `Visible:false` beside `Transparency:0.85` —
-// an isolate ghost no renderer answers and every consumer had to guard. `Visible`, `ColorArgb`, and
-// `Transparency` stay as DERIVATIONS, so the wire columns and the BCF exchange are untouched in both
-// directions while the illegal corners stop being spellable.
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record OverrideState {
     private OverrideState() { }
@@ -55,20 +50,12 @@ public abstract partial record OverrideState {
         ghosted: static row => row.Transparency,
         tinted: static row => row.Transparency);
 
-    // The wire and BCF INGRESS arm: three foreign columns land on the one state, so an inbound
-    // `visible:false` carrying a colour resolves to `Hidden` here rather than at each reader.
     public static OverrideState Of(bool visible, Option<uint> argb, double transparency) =>
         visible
             ? argb.Match(Some: colour => (OverrideState)new Tinted(colour, transparency), None: () => new Ghosted(transparency))
             : new Hidden();
 }
 
-// ONE tinted-row family, partitioned by `Family`. The version-diff classification and the analysis
-// participation vocabulary were two `[SmartEnum<string>]` rosters with identical `(TintArgb, Transparency)`
-// columns and an identical projection, differing only in their label namespace — the discriminant is the
-// column, and each row now carries the override state outright rather than the pair a caller re-assembled.
-// The obstacle row is distinctly inked because a context building accidentally left as a target is the single
-// most expensive analysis mistake, and it is invisible in a uniformly shaded model.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class OverrideRole {
@@ -89,8 +76,6 @@ public sealed partial class OverrideRole {
 
     public string LabelKey => $"posture.{Family}.{Key}";
 
-    // The family's own roster, which is what a legend and a filter member list both read — so a fifth diff
-    // class is one row above and neither the legend nor the filter moves.
     public static Seq<OverrideRole> In(string family) =>
         toSeq(Items).Filter(row => row.Family == family);
 
@@ -98,9 +83,6 @@ public sealed partial class OverrideRole {
         elements.Map(id => new VisibilityOverride(id, State));
 }
 
-// Isolate/hide/x-ray/highlight/reset, each row constructed with its override-set delegate over
-// (scene ids, selection), so the core viewer loop is five rows on the ONE vocabulary the viewpoint captures
-// and the animation visibility track steps.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class VisibilityAction {
@@ -110,12 +92,6 @@ public sealed partial class VisibilityAction {
         picked.Map(static id => new VisibilityOverride(id, new OverrideState.Hidden())));
     public static readonly VisibilityAction Xray = new("xray", static (scene, picked) =>
         scene.Filter(id => !picked.Contains(id)).Map(static id => new VisibilityOverride(id, new OverrideState.Ghosted(XrayGhost))));
-    // Highlight is the TRANSIENT hover row and Xray the USER VERB, and the two differ in exactly the way that
-    // matters: an x-ray is a posture a user issues and lives inside, so it ghosts hard and emits nothing for
-    // the picked set; a highlight tracks a pointer over rows the user is scanning, so it ghosts lightly enough
-    // that the surrounding model stays readable and it emits a row for EVERY element — the matched ones fully
-    // opaque — because a hover must restore what the previous hover ghosted without waiting for a reset.
-    // Folding hover onto the x-ray row is why a scan across a metric table read as a strobing model.
     public static readonly VisibilityAction Highlight = new("highlight", static (scene, picked) =>
         scene.Map(id => new VisibilityOverride(
             id, picked.Contains(id) ? OverrideState.Opaque : new OverrideState.Ghosted(HighlightGhost))));
@@ -128,7 +104,7 @@ public sealed partial class VisibilityAction {
     public partial Seq<VisibilityOverride> Fold(Seq<string> scene, LanguageExt.HashSet<string> picked);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CameraFrame(
     System.Numerics.Vector3 Eye,
     System.Numerics.Vector3 Target,
@@ -137,22 +113,11 @@ public readonly record struct CameraFrame(
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ViewCamera(CameraFrame Frame) {
     public sealed record Perspective(CameraFrame Frame, double FieldOfViewDeg) : ViewCamera(Frame);
-    // RetainedFieldDeg is the lens the projection toggle must hand BACK: an orthographic view minted from a
-    // 60-degree perspective carries that 60 so the inverse re-derives the distance that framed it. A constant
-    // on the toggle made every round trip land on one hardcoded field and silently rescaled the lens, which is
-    // the exact identity `RULINGS [02]:93` states. A lens that was never perspective carries the estate
-    // default, so the column is total without a second case.
     public sealed record Orthographic(CameraFrame Frame, double ViewHeight, double RetainedFieldDeg = DefaultFieldDeg) : ViewCamera(Frame);
-    // An XR eye frustum is asymmetric — four signed angles off the view axis in radians (left and down
-    // negative, the OpenXR Fovf convention), never one symmetric field-of-view scalar — so the immersive eye
-    // pass states its lens in the graph's own vocabulary rather than smuggling a Fovf through a symmetric case.
     public sealed record Asymmetric(CameraFrame Frame, double AngleLeft, double AngleRight, double AngleUp, double AngleDown) : ViewCamera(Frame);
 
     public const double DefaultFieldDeg = 45d;
 
-    // The one symmetric vertical envelope in degrees every symmetric consumer reads — the BCF exchange, the
-    // browser wire, and the projection toggle — so the asymmetric-to-symmetric collapse is spelled ONCE.
-    // AngleDown is signed negative, so the envelope is the difference.
     public double VerticalFieldDeg => Switch(
         perspective: static camera => camera.FieldOfViewDeg,
         orthographic: static camera => camera.RetainedFieldDeg,
@@ -181,9 +146,6 @@ public sealed record ViewMeasurement(
     UnitsNet.Length Total,
     Seq<UnitsNet.Angle> Angles);
 
-// The portable receipt. Every column has a silently-wrong render behind it rather than a crash, so admission
-// ACCUMULATES — a duplicate override, a duplicate measurement key, and an inverted section box all name
-// themselves at once instead of the caller repairing one defect per round trip.
 public sealed record Viewpoint(
     string Key,
     int Version,
@@ -193,9 +155,6 @@ public sealed record Viewpoint(
     Seq<string> Selection,
     Seq<ViewMeasurement> Measurements,
     Instant At) {
-    // `Version` is the PER-KEY successor its minter hands in, never a constant: `ViewRevisions.Next` advances
-    // it for a live capture and a decode carries the arrival's own. A capture positive by construction is what
-    // lets the depot compare two readings of one key.
     public static Fin<Viewpoint> Capture(
         string key,
         int revision,
@@ -225,10 +184,6 @@ public sealed record Viewpoint(
     public static Fin<Viewpoint> Decode(string blob) => ResidencyMap.ParseView(blob);
 }
 
-// The property domain decides the PALETTE CLASS and the legend arm together, because they are one fact. The
-// derivation PARSES ONCE: `Sequential` carries the parsed magnitudes beside its extent, because re-parsing
-// every raw value at every `Position` call made a ramp sample cost scale with the scene and read the same
-// string through two different parse configurations.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PropertyDomain {
     private PropertyDomain() { }
@@ -236,9 +191,6 @@ public abstract partial record PropertyDomain {
     public sealed record Categorical(Seq<string> Members) : PropertyDomain;
     public sealed record Sequential(double Low, double High, HashMap<string, double> Magnitudes) : PropertyDomain;
 
-    // A value set that parses wholly as finite numbers is sequential over its own measured extent; anything
-    // else is categorical over its distinct members in FIRST-SEEN order, because a category order a user
-    // recognizes beats one a collator invents.
     public static PropertyDomain Of(Seq<string> values) =>
         values.Choose(static value => Magnitude(value).Map(magnitude => (Text: value, Magnitude: magnitude))) switch {
             var parsed when !values.IsEmpty && parsed.Count == values.Count => new Sequential(
@@ -254,15 +206,10 @@ public abstract partial record PropertyDomain {
             ? Some(parsed)
             : None;
 
-    // The colormap class the domain admits: qualitative rows separate categories and sequential rows carry
-    // magnitude, so the palette election is the domain's own answer and never a session author's taste.
     public Colormap Palette => Switch(
         categorical: static _ => Colormap.Tableau,
         sequential: static _ => Colormap.Viridis);
 
-    // The legend declaration the domain projects, proved through the one legend admission so a posture legend
-    // and a chart legend cross the same ramp-stop and dock rules. A categorical domain places its members at
-    // their own ordinal positions because the categorized arm draws discrete swatches at declared values.
     public Fin<LegendSpec> Legend(string key, Option<MeasureRole> measure, int segments) => Switch(
         state: (Key: key, Measure: measure, Segments: segments),
         categorical: static (s, d) => LegendSpec.Admit(new LegendSpec(
@@ -272,11 +219,6 @@ public abstract partial record PropertyDomain {
             s.Key, new LegendDomain.Continuous(d.Low, d.High),
             LegendDock.BottomRight, Seq<LegendColumn>(), s.Measure, Math.Max(s.Segments, 2), Some(s.Key), None)));
 
-    // The unit interval a value samples the ramp at. A categorical member samples at its own ordinal share so
-    // the qualitative map's discrete stops land on distinct categories; a sequential value samples at its
-    // position in the measured extent, read off the parse the derivation already did. A degenerate extent
-    // samples the midpoint rather than dividing by zero and painting every element the ramp's first colour —
-    // the `double.Epsilon` here guards a DIVISOR, not a domain tolerance, so it stays a float-arithmetic test.
     public double Position(string value) => Switch(
         state: value,
         categorical: static (v, d) => d.Members.Count <= 1 ? 0d : Math.Max(d.Members.IndexOf(v), 0) / (double)(d.Members.Count - 1),
@@ -287,32 +229,18 @@ public abstract partial record PropertyDomain {
             : 0.5d);
 }
 
-// Three folds onto the ONE override channel, exactly as the interaction fold and the version-diff projection
-// already are. Each posture answers the same shape — the override rows the scene renders — so postures COMPOSE
-// through one merge rather than each carrying its own compositing rule.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DisplayPosture(string Key) {
-    // The property session: a property key, the values the scene answers for it, and the derived domain that
-    // elects both palette and legend. The session is startable from a SELECTED element's property, which is
-    // what makes "show me everything like this" one pick rather than a dialog.
     public sealed record ColorBy(string Key, string PropertyKey, PropertyDomain Domain, Option<MeasureRole> Measure, int Segments) : DisplayPosture(Key);
     public sealed record Participation(string Key) : DisplayPosture(Key);
-    // Precision wireframe renders every element ghosted with its edges inked, so the override rows carry the
-    // transparency and the render pass reads the posture for its edge emphasis.
     public sealed record Wireframe(string Key, double Ghost) : DisplayPosture(Key);
 
-    // The one projection every posture answers. The scene arrives as (element, value) pairs
-    // `Editing/inspector#INSPECTOR_SURFACE` `PostureSource.Read` resolved, so a posture is pure and the same
-    // fold serves a live session, a saved viewpoint, and an animation visibility keyframe.
     public Fin<Seq<VisibilityOverride>> Project(Seq<(string ElementId, string Value)> scene) => Switch(
         state: scene,
         colorBy: static (rows, posture) => rows
             .Map(row => posture.Domain.Palette.Sample(posture.Domain.Position(row.Value))
                 .Map(colour => new VisibilityOverride(row.ElementId, new OverrideState.Tinted(Argb(colour), 0d))))
             .Traverse(static row => row).As().Map(static rows => rows.ToSeq()),
-        // The value column IS the role key here, so a participation session and a colour-by session read the
-        // same pair shape and no second scene projection exists. A value naming no row in the participation
-        // family is a typed refusal rather than an element silently rendered as excluded.
         participation: static (rows, _) => rows
             .Map(static row => OverrideRole.TryGet(row.Value, out OverrideRole? role)
                 && role is { Family: OverrideRole.Participation }
@@ -322,10 +250,6 @@ public abstract partial record DisplayPosture(string Key) {
         wireframe: static (rows, posture) => Fin.Succ(
             rows.Map(row => new VisibilityOverride(row.ElementId, new OverrideState.Ghosted(posture.Ghost)))));
 
-    // The legend the posture publishes, so the board's legend algebra renders a posture's key exactly as it
-    // renders a chart's — one legend owner, two producers. The two roleless postures carry a categorized
-    // legend over their own row family, because a participation key and a wireframe are still things a viewer
-    // needs named.
     public Fin<LegendSpec> Legend => Switch(
         colorBy: static posture => posture.Domain.Legend(posture.Key, posture.Measure, posture.Segments),
         participation: static posture => OverrideRole.In(OverrideRole.Participation) switch {
@@ -336,41 +260,23 @@ public abstract partial record DisplayPosture(string Key) {
         },
         wireframe: static posture => LegendSpec.Admit(LegendSpec.Swatches with { Key = posture.Key, Dock = LegendDock.Hidden }));
 
-    // The colormap rail answers a kernel `Color`; the override channel carries packed ARGB because that is what
-    // the viewpoint receipt and the BCF colouring both cross as, so the pack happens ONCE here.
     private static uint Argb(Color colour) =>
         ((uint)colour.A << 24) | ((uint)colour.R << 16) | ((uint)colour.G << 8) | colour.B;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Version-compare ghosting on the same override channel. The `(ElementId, OverrideRole)` classification
-// arrives as VALUES off the Persistence version-compare fold (`ReplayWindow` / commit-DAG — AppUi runs no
-// ledger read) and the projection is the role family's own, so an A/B model comparison renders through the
-// channel a viewpoint already carries and a parallel ghost-overlay owner never exists.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class VersionGhost {
     public static Seq<VisibilityOverride> Project(Seq<(string ElementId, OverrideRole Class)> classified) =>
         classified.Map(static row => new VisibilityOverride(row.ElementId, row.Class.State));
 }
 
-// The HOVER highlight is this channel's pipeline end and it has three named consumers — the metric panel's row
-// hover (`Charts/telemetry#METRIC_PANEL`), the measure panel's row hover (`Render/measure#MEASURE_MODE`), and
-// the history plane's touched-element projection (`Editing/history`) — all publishing the element keys they
-// address and all folding through the ONE `VisibilityAction.Highlight` row, so what "highlighted" looks like is
-// one value three surfaces read rather than three transparencies that drift.
 public static class HighlightChannel {
     public static Seq<VisibilityOverride> Focus(Seq<string> scene, LanguageExt.HashSet<string> matched) =>
         VisibilityAction.Highlight.Fold(scene, matched);
 
-    // The empty hover: a pointer leaving every row publishes the CLEAR rather than an absent seq, because a
-    // consumer that stops publishing leaves the last hover's ghosts standing and the scene reads as if the
-    // pointer never left.
     public static Seq<VisibilityOverride> Clear(Seq<string> scene) =>
         VisibilityAction.Reset.Fold(scene, LanguageExt.HashSet<string>.Empty);
 
-    // Composition is LAST-WRITER-BY-ELEMENT over the posture beneath, and the merge keeps the posture's TINT
-    // where the hover row carries none — which is exactly what makes hovering a cost category readable against
-    // a colour-by session. Concatenating the two seqs instead publishes two rows per element and leaves the
-    // renderer to pick by arrival order, a highlight that works or does not depending on fold order.
     public static Seq<VisibilityOverride> Over(Seq<VisibilityOverride> posture, Seq<VisibilityOverride> highlight) =>
         toSeq(highlight.Fold(
             posture.Fold(HashMap<string, VisibilityOverride>(), static (map, row) => map.AddOrUpdate(row.ElementId, row)),
@@ -379,8 +285,6 @@ public static class HighlightChannel {
                 None: () => row))))
             .Map(static entry => entry.Value);
 
-    // The blend rule as ONE expression: a hover keeps its own visibility and transparency and INHERITS the
-    // posture's colour when it has none of its own, so a tinted element hovered at full opacity keeps its tint.
     private static OverrideState Blended(OverrideState held, OverrideState hover) =>
         (held.ColorArgb, hover) switch {
             (_, OverrideState.Tinted) or (_, OverrideState.Hidden) => hover,
@@ -389,15 +293,7 @@ public static class HighlightChannel {
         };
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
-// The generated half of the BCF seam: every member-wise correspondence between the AppUi camera cases and the
-// `Rasm.Bim` `BcfCamera` cases, plus the markup row projections. `Direction` is a WHOLE-SOURCE read
-// (target minus eye) and `AspectRatio` a constant the codec re-applies from the source viewpoint, so the two
-// non-member-wise columns are declared rows here rather than hand assignments in a fan body. The reader-free
-// completeness carve does not apply — `[MapPropertyFromSource]` suppresses RMG020 for every source member of
-// its mapping, so the source side is proved by the TARGET strategy and the explicit rows, not by an ignore
-// roster. `ExplicitCast` is cleared because LanguageExt carriers cross this seam and the default conversion set
-// binds `Option<T>`'s THROWING explicit cast ahead of any registered user mapping.
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 public static partial class ViewpointMap {
@@ -418,16 +314,11 @@ public static partial class ViewpointMap {
     [MapPropertyFromSource(nameof(ViewCamera.Perspective.Frame), Use = nameof(PerspectiveFrame))]
     public static partial ViewCamera.Perspective FromBcf(BcfCamera.Perspective camera);
 
-    // BCF's orthogonal camera carries no field of view, so the retained lens is the estate default — the value
-    // an orthographic view that was never a perspective one hands back on the first toggle.
     [MapPropertyFromSource(nameof(ViewCamera.Orthographic.Frame), Use = nameof(OrthogonalFrame))]
     [MapProperty(nameof(BcfCamera.Orthogonal.ViewToWorldScale), nameof(ViewCamera.Orthographic.ViewHeight))]
     [MapValue(nameof(ViewCamera.Orthographic.RetainedFieldDeg), ViewCamera.DefaultFieldDeg)]
     public static partial ViewCamera.Orthographic FromBcf(BcfCamera.Orthogonal camera);
 
-    // BCF stores an eye and a gaze DIRECTION; the receipt stores an eye and a TARGET. The correspondence is
-    // one addition each way, declared once here rather than at four construction sites. The reader takes the
-    // camera BASE, so both outbound arms reach the one arrow.
     private static System.Numerics.Vector3 Gaze(ViewCamera camera) => camera.Frame.Target - camera.Frame.Eye;
 
     private static CameraFrame PerspectiveFrame(BcfCamera.Perspective camera) =>
@@ -436,14 +327,11 @@ public static partial class ViewpointMap {
     private static CameraFrame OrthogonalFrame(BcfCamera.Orthogonal camera) =>
         new(camera.Position, camera.Position + camera.Direction, camera.Up);
 
-    // A measurement's segments are its consecutive vertex pairs; the per-pair converter is non-generic because
-    // a `Seq<T>` TARGET has no proven native construction on this generator.
     [UserMapping]
     public static Seq<BcfLine> ToBcf(ViewMeasurement measurement) =>
         measurement.Vertices.Zip(measurement.Vertices.Tail)
             .Map(static pair => new BcfLine(pair.Item1.Position, pair.Item2.Position));
 
-    // Six outward axis planes off the box, in the plane vocabulary's own min-then-max order per axis.
     [UserMapping]
     public static Seq<BcfClippingPlane> ToBcf(SectionBox box) => Seq(
         new BcfClippingPlane(new System.Numerics.Vector3((float)box.MinX, 0f, 0f), new System.Numerics.Vector3(-1f, 0f, 0f)),
@@ -454,9 +342,6 @@ public static partial class ViewpointMap {
         new BcfClippingPlane(new System.Numerics.Vector3(0f, 0f, (float)box.MaxZ), new System.Numerics.Vector3(0f, 0f, 1f)));
 }
 
-// The union dispatch and the preservation fold — the half a member-wise generator cannot own. Every arm
-// composes a GENERATED per-case mapper above; the totality is the union's own `Switch`, so a fourth camera case
-// breaks this fan at compile time. `Rasm.Bim` owns the openBIM contract and AppUi re-mints no BCF schema.
 public static class ViewpointCodec {
     public static BcfViewpoint ToBcf(string guid, Viewpoint view, Option<BcfViewpoint> source = default) =>
         (Camera: Lens(view.Camera, source),
@@ -483,16 +368,11 @@ public static class ViewpointCodec {
                     ClippingPlanes: view.Section.Match(ViewpointMap.ToBcf, static () => Seq<BcfClippingPlane>()))),
         };
 
-    // The exception set is whatever DISAGREES with the source's own default-visibility convention, so a
-    // re-encode preserves the convention the sending tool used rather than re-normalizing every viewpoint.
     private static Seq<string> Exceptions(Viewpoint view, Option<BcfViewpoint> source) =>
         source.Match(Some: static row => row.Visibility.Default, None: static () => false) switch {
             var convention => view.Overrides.Filter(o => o.Visible != convention).Map(static o => o.ElementId),
         };
 
-    // The aspect ratio is the SOURCE viewpoint's own column — the receipt carries no aspect because a viewport
-    // derives it from its target extent — so the mapper mints zero and the source's value re-lands here. A
-    // no-source encode legitimately carries zero, which the schema reads as unstated.
     private static BcfCamera Lens(ViewCamera camera, Option<BcfViewpoint> source) =>
         source.Bind(static row => row.Camera).Match(
             Some: static held => held.Switch(perspective: static p => p.AspectRatio, orthogonal: static o => o.AspectRatio),
@@ -501,14 +381,10 @@ public static class ViewpointCodec {
                 state: aspect,
                 perspective: static (ratio, lens) => (BcfCamera)(ViewpointMap.ToBcf(lens) with { AspectRatio = ratio }),
                 orthographic: static (ratio, lens) => ViewpointMap.ToBcf(lens) with { AspectRatio = ratio },
-                // BCF carries no asymmetric frustum, so an XR eye lens crosses as its symmetric vertical
-                // envelope — the exchange keeps the pose while the asymmetry stays a live-session fact.
                 asymmetric: static (ratio, lens) => new BcfCamera.Perspective(
                     lens.Frame.Eye, lens.Frame.Target - lens.Frame.Eye, lens.Frame.Up, lens.VerticalFieldDeg, ratio)),
         };
 
-    // A selection-only BCF viewpoint carries NO camera, which is legal BCF and typed absence at the Bim owner
-    // — so decode refuses by name rather than fabricating an origin view every receiving tool would render.
     public static Fin<Viewpoint> FromBcf(string key, int revision, BcfViewpoint bcf, Instant at) =>
         bcf.Camera.ToFin(new ViewportFault.ContextUnavailable($"viewpoint/bcf-camera:{bcf.Guid}"))
             .Map(camera => camera.Switch(
@@ -516,14 +392,9 @@ public static class ViewpointCodec {
                 orthogonal: static o => ViewpointMap.FromBcf(o)))
             .Bind(camera => Viewpoint.Capture(
                 key, revision, camera,
-                // Arbitrary inbound planes exceed the axis-aligned receipt, so the section decodes absent and
-                // the re-encode keeps the source's own plane set untouched.
                 Option<SectionBox>.None,
                 OverridesOf(bcf), bcf.SelectedGlobalIds, Seq<ViewMeasurement>(), at));
 
-    // Visibility exceptions seed the rows against the source's own convention and colouring overlays them, so a
-    // hidden-and-coloured element lands as ONE row. The colour is a hex string in the schema and a bad one is
-    // dropped rather than failing the whole viewpoint, because a malformed swatch loses a tint, not a view.
     private static Seq<VisibilityOverride> OverridesOf(BcfViewpoint bcf) =>
         toSeq(bcf.Coloring.Fold(
             bcf.Visibility.Exceptions.Fold(
@@ -566,9 +437,7 @@ public static class ViewpointCodec {
 - Boundary: the registry holds VALUES and drives no frame — `Recall` answers a timeline and a state pair, and the composing surface scrubs it through `Render/animation` `Scrub.To`, so this owner mints no clock, no playhead, and no second interpolation; the recall camera track is `Track.OfCamera` under `TrackInterp.Pose`, so a component-wise eye/target/up blend here is the deleted form; the cube renders through `RenderPass.Overlay` on the frame's own target and the HUD chips are `ChromeContent.Chip` rows on `ChromeSlot.Hud`, so no chrome surface is minted here; every `ViewChrome` key is a `Shell/commands#INTENT_TABLE` deck row by construction, because `ShellChrome.Materialize` refuses a row naming a key the deck does not carry — a declared key with no chip row and a chip row with no deck key are the two halves of the same defect; the section chip is a measured FACT rather than a verb, so it seats with its own owner at `Render/measure#SECTION_MANIPULATOR` and never on this verb roster; the section and override state a row carries are `[02]-[VIEWPOINT_CODEC]`'s vocabularies unchanged; a row is addressed by its KEY alone and the ring stores keys rather than cameras, so a renamed row keeps its history position and a deleted row's history entries drop with it.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The registry address AND its deep-link grammar as one owner: the prefix carries its own separator, so the
-// parse is a slice at a declared length rather than a length-plus-one arithmetic every reader re-derives.
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -585,9 +454,6 @@ public readonly partial struct ViewKey {
 
     public string Link => $"{LinkPrefix}{Value}";
 
-    // The one deep-link resolve, so a pasted link and a cube pick reach the same row through the same fold.
-    // The prefix CARRIES its separator, so the slice is `LinkPrefix.Length` and the length-plus-one arithmetic
-    // a separator-less prefix forced on every reader has no site.
     public static Option<ViewKey> Parse(string link) =>
         link.StartsWith(LinkPrefix, StringComparison.Ordinal) && TryCreate(link[LinkPrefix.Length..], out ViewKey key)
             ? Some(key)
@@ -602,9 +468,6 @@ public sealed partial class ViewOrigin {
     public static readonly ViewOrigin Capture = new("capture", pinned: true);
     public static readonly ViewOrigin Visited = new("visited", pinned: false);
 
-    // A pinned row survives the ring's eviction; a visited row is the ring's own and evicts with it. The column
-    // is what lets ONE row family carry both without a second collection: promoting a visited row to a bookmark
-    // is a provenance rewrite, not a move between owners.
     public bool Pinned { get; }
 }
 
@@ -615,8 +478,6 @@ public sealed partial class AxisLabel {
     public static readonly AxisLabel Y = new("y", static v => v.Y, static (v, s) => v with { Y = s });
     public static readonly AxisLabel Z = new("z", static v => v.Z, static (v, s) => v with { Z = s });
 
-    // The label key derives from the row, so a cube face caption and a coordinate readout column head are one
-    // string vocabulary and an axis renamed in one place cannot read differently in the other.
     public string LabelKey => $"view.axis.{Key}";
 
     [UseDelegateFromConstructor]
@@ -626,8 +487,6 @@ public sealed partial class AxisLabel {
     public partial System.Numerics.Vector3 Write(System.Numerics.Vector3 vector, float scalar);
 }
 
-// Traversal direction as a ROW carrying its own ring read and its cursor step, so `Walk` folds one arrow N
-// times instead of branching on the sign of a delta at three places.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StepDirection {
@@ -642,11 +501,7 @@ public sealed partial class StepDirection {
     public partial Option<ViewKey> Next(ViewRing ring);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The cube's pick targets are DERIVED, not authored: every signed triple in {-1,0,1}^3 except the origin is a
-// target, which is the six faces, twelve edges, and eight corners a modeller's view cube carries. A face is a
-// triple with one nonzero component, so `Axis` answers a label for faces alone and `None` for the edges and
-// corners that name no single axis.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct CubeTarget(int Sx, int Sy, int Sz) {
     public System.Numerics.Vector3 Direction =>
         System.Numerics.Vector3.Normalize(new System.Numerics.Vector3(Sx, Sy, Sz));
@@ -658,8 +513,6 @@ public readonly record struct CubeTarget(int Sx, int Sy, int Sz) {
             ? Some(Sx != 0 ? (AxisLabel.X, Sx > 0) : Sy != 0 ? (AxisLabel.Y, Sy > 0) : (AxisLabel.Z, Sz > 0))
             : Option<(AxisLabel, bool)>.None;
 
-    // The key is the signed triple in the axis vocabulary's own letters, so a cube pick, a registry standard
-    // row, and a deep link all spell one identifier and no target needs a name authored beside it.
     public ViewKey Key =>
         ViewKey.Create($"{Spelled(AxisLabel.X, Sx)}{Spelled(AxisLabel.Y, Sy)}{Spelled(AxisLabel.Z, Sz)}" switch {
             var spelled => spelled.Length is 0 ? "iso" : spelled,
@@ -669,10 +522,6 @@ public readonly record struct CubeTarget(int Sx, int Sy, int Sz) {
         sign switch { 0 => string.Empty, > 0 => $"+{axis.Key}", _ => $"-{axis.Key}" };
 }
 
-// The registry row. Camera, section, and visibility travel TOGETHER because a view that restored its camera and
-// left the model sectioned by a different study is not the view that was saved — the three are one reproducible
-// state, which is exactly what the viewpoint receipt already codecs. The recall motion is a row column so a
-// snap-to-front is instant and a review bookmark eases, both from the one motion vocabulary.
 public sealed record NamedView(
     ViewKey Key,
     string LabelKey,
@@ -685,15 +534,9 @@ public sealed record NamedView(
     public string Link => Key.Link;
 }
 
-// The traversal ring stores KEYS, never cameras: a renamed row keeps its position in history and a deleted
-// row's entries drop with it, where stored cameras would leave the ring holding views the registry can no
-// longer name. The cursor is what makes back and forward cursor moves rather than a second stack.
 public readonly record struct ViewRing(Seq<ViewKey> Keys, int Cursor, int Capacity) {
     public static ViewRing Of(int capacity) => new(Seq<ViewKey>(), -1, Math.Max(capacity, 1));
 
-    // A visit TRUNCATES the forward tail, exactly as every traversal history does: stepping back and then
-    // moving the camera means the branch that was ahead is no longer reachable, and keeping it would let
-    // forward walk into a history the user left.
     public ViewRing Visit(ViewKey key) =>
         Keys.Take(Cursor + 1).ToSeq().Add(key) switch {
             var walked => walked.Count > Capacity
@@ -708,35 +551,20 @@ public readonly record struct ViewRing(Seq<ViewKey> Keys, int Cursor, int Capaci
     public ViewRing Stepped(int delta) =>
         this with { Cursor = Math.Clamp(Cursor + delta, 0, Math.Max(Keys.Count - 1, 0)) };
 
-    // Eviction and deletion share one fold, so a dropped row cannot survive in the ring under either path.
     public ViewRing Without(ViewKey key) =>
         Keys.Filter(held => held != key) switch {
             var kept => new ViewRing(kept, Math.Clamp(Cursor, -1, kept.Count - 1), Capacity),
         };
 }
 
-// A recall is a TIMELINE plus the state the transition lands, never a camera the caller assigns: the camera
-// arrives through the one animation engine so a recall, a tour stop, and a walkthrough frame interpolate
-// identically, and the section and override state land at the transition's end because a cut volume that eased
-// in would render partial geometry for the whole flight.
 public sealed record ViewRecall(NamedView View, Timeline Motion, Option<SectionBox> Section, Seq<VisibilityOverride> Overrides);
 
-// The traversal receipt. `Taken` against `Asked` is the whole point: a three-step back walk that met the end of
-// history after one step SAYS SO, where the shape it replaces moved the cursor three and recalled one.
 public sealed record ViewStep(ViewRegistry Registry, ViewRecall Recall, StepDirection Direction, int Taken, int Asked) {
     public bool Whole => Taken == Asked;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// The cube is a PROJECTION, not a control: it derives its targets, hit-tests a normalized pick, and draws
-// through the frame's own overlay pass. A cube widget owning a camera would be a second camera authority
-// beside the registry the pick resolves into. The name is `ViewCube` because `Orientation` collides with the
-// Avalonia layout enum every chrome fence spells and with the kernel context row.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewCube {
-    // The cube occupies a fixed NDC corner square, so its hit test is a local-space ray against the unit box
-    // and never a scene pick. The picked target is the one whose direction the local ray most nearly opposes —
-    // a face wins over the edges beside it because its direction is the closest, and the tie a corner creates
-    // is broken by RANK so the smaller feature wins, which is what a user aiming at a corner means.
     public static readonly Seq<CubeTarget> Targets =
         toSeq(from sx in Seq(-1, 0, 1) from sy in Seq(-1, 0, 1) from sz in Seq(-1, 0, 1)
               where (sx, sy, sz) is not (0, 0, 0)
@@ -752,9 +580,6 @@ public static class ViewCube {
                 .Head.Map(static hit => hit.Target),
         };
 
-    // The pick ray is the cube's own local direction: the NDC offset within the cube square rotates by the
-    // camera basis, so aiming at the drawn face selects the axis the drawing showed and not the axis a
-    // world-space ray would have hit.
     private static System.Numerics.Vector3 Local(FrameView view, (double X, double Y) ndc) {
         ((double fx, double fy, double fz), (double rx, double ry, double rz), (double ux, double uy, double uz)) =
             OracleFrame.OfCamera(view.Camera.Frame);
@@ -767,9 +592,6 @@ public static class ViewCube {
 
     private const float CubeDepth = 1f;
 
-    // The standard rows the registry seeds with: every DERIVED target is a standard view, so the roster IS the
-    // derivation and adding a corner view is not an edit. A face row carries its axis label key and the edge
-    // and corner rows carry their own signed key, which is what a view cube's unlabeled corners are.
     public static Seq<NamedView> Standards(double radius, ViewCamera lens, Instant at) =>
         Targets.Map(target => new NamedView(
             Key: target.Key,
@@ -783,9 +605,6 @@ public static class ViewCube {
             Motion: MotionToken.Standard,
             At: at));
 
-    // A standard view keeps the LIVE lens and re-poses it: snapping to front on a perspective camera must not
-    // silently become orthographic, and the up vector picks the world axis least parallel to the new forward so
-    // a top view has a defined up instead of a degenerate cross product.
     private static ViewCamera Framed(ViewCamera lens, System.Numerics.Vector3 direction, double radius) =>
         new CameraFrame(lens.Frame.Target + (direction * (float)radius), lens.Frame.Target, UpFor(direction)) switch {
             var posed => lens.Switch(
@@ -795,19 +614,12 @@ public static class ViewCube {
                 asymmetric: static (frame, camera) => camera with { Frame = frame }),
         };
 
-    // Above this dot with world Z the forward axis is nearly the up axis, so the cross product that builds the
-    // camera basis degenerates and the view has no defined roll.
     private const float PolarLimit = 0.9f;
 
     private static System.Numerics.Vector3 UpFor(System.Numerics.Vector3 direction) =>
         MathF.Abs(direction.Z) > PolarLimit ? System.Numerics.Vector3.UnitY : System.Numerics.Vector3.UnitZ;
 }
 
-// The projection toggle preserves the FRAMED EXTENT, so a double toggle is the identity: a perspective lens at
-// distance d with vertical field f frames 2·d·tan(f/2) at the focus, which becomes the orthographic view
-// height; the inverse re-derives the distance that frames the same height AT THE FIELD THE ORTHOGRAPHIC CASE
-// RETAINED. A constant retained field made a 60-degree lens round-trip to 45 and quietly rescaled the view —
-// the extent survived and the lens did not, which is the half of the identity that reads as a zoom.
 public static class ProjectionToggle {
     public static ViewCamera Flip(ViewCamera camera) => camera.Switch(
         perspective: static p => (ViewCamera)new ViewCamera.Orthographic(
@@ -821,16 +633,10 @@ public static class ProjectionToggle {
                     * (float)(o.ViewHeight / (2d * Math.Tan(double.DegreesToRadians(o.RetainedFieldDeg) / 2d)))),
             },
             o.RetainedFieldDeg),
-        // An XR eye frustum is the runtime's, not the user's: a projection toggle on a stereo lens would spell
-        // a monocular camera for a device that renders two asymmetric ones, so the eye lens passes through
-        // unchanged and the toggle is a no-op the immersive chrome never offers.
         asymmetric: static a => a);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Emissions advance a viewpoint's `Version` per key, so the sequence is LIVE process state and this owner is a
-// sealed class rather than a record whose copy would share the cell by reference. `Next` starts a key at 1 and
-// advances an existing one, so a re-entered key restarts nothing and two readings of one key always order.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ViewRevisions {
     private readonly Atom<HashMap<string, int>> minted = Atom(HashMap<string, int>());
 
@@ -838,19 +644,12 @@ public sealed class ViewRevisions {
         minted.Swap(held => held.AddOrUpdate(key, static prior => prior + 1, 1)).Find(key).IfNone(1);
 }
 
-// The ONE named-view owner. Standard rows seed frozen, user rows and visited rows share the same map, and the
-// ring indexes into it — so a bookmark list, a back step, and a cube snap all resolve one row type through one
-// lookup, and promoting a visited row is a provenance rewrite in place.
 public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Ring, double OrbitRadius) {
     public static ViewRegistry Of(ViewCamera lens, double orbitRadius, int historyDepth, Instant at) =>
         new(toHashMap(ViewCube.Standards(orbitRadius, lens, at).Map(static row => (row.Key, row))),
             ViewRing.Of(historyDepth),
             orbitRadius);
 
-    // Recall mints the two-keyframe camera timeline the scrub drives. The row's own motion token eases the
-    // flight, the frame rate is the timeline's declared policy value, and the section and override state ride
-    // beside the timeline because they LAND at the end rather than interpolating — a cut volume easing in
-    // renders partial geometry for the whole transition and an isolation fading in renders the model twice.
     public Fin<ViewRecall> Recall(ViewKey key, ViewCamera from) =>
         Rows.Find(key).ToFin(new ViewportFault.ContextUnavailable($"view/unknown:{key.Value}")).Bind(row =>
             Track.OfCamera($"{row.Key.Value}/camera", Seq(
@@ -862,9 +661,6 @@ public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Rin
     private const string RecallPrefix = "view-recall/";
     private const double RecallFps = 60d;
 
-    // A settle appends a visited row keyed on the ring's own ordinal and advances the cursor, so the history
-    // rows are ordinary registry rows a user can rename into bookmarks. Eviction drops the row the ring drops,
-    // which is why the map and the ring retire together rather than the map growing without bound.
     public ViewRegistry Visit(ViewCamera camera, Option<SectionBox> section, Seq<VisibilityOverride> overrides, Instant at) =>
         ViewKey.Create($"{VisitedPrefix}{Ring.Keys.Count}") switch {
             var key => Ring.Visit(key) switch {
@@ -888,18 +684,12 @@ public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Rin
                     key, labelKey, ViewOrigin.Bookmark, camera, section, overrides, MotionToken.Emphasized, at)),
             });
 
-    // A standard row refuses deletion because the derivation mints it: deleting one would leave the cube with a
-    // pick target no registry row answers, which is the dangling target a roster-authored cube grows.
     public Fin<ViewRegistry> Delete(ViewKey key) =>
         Rows.Find(key).ToFin(new ViewportFault.ContextUnavailable($"view/unknown:{key.Value}")).Bind(row =>
             row.Origin == ViewOrigin.Standard
                 ? Fin.Fail<ViewRegistry>(new ViewportFault.ContextUnavailable($"view/standard-row:{key.Value}"))
                 : Fin.Succ(this with { Rows = Rows.Remove(key), Ring = Ring.Without(key) }));
 
-    // N SINGLE steps under one direction row: each step reads the ring's own neighbour and advances the cursor
-    // by one, so the row recalled and the cursor position are the same fact. The fold stops at the end of
-    // history and the receipt reports how many steps it actually took — a walk that asked for three and took
-    // one is a legitimate answer, not a silent clamp.
     public Fin<ViewStep> Walk(int delta, ViewCamera from) =>
         StepDirection.Of(delta) switch {
             var direction => toSeq(Enumerable.Range(0, Math.Abs(delta)))
@@ -915,35 +705,21 @@ public sealed record ViewRegistry(HashMap<ViewKey, NamedView> Rows, ViewRing Rin
             },
         };
 
-    // The bookmark roster a list surface renders: pinned rows in save order, so the visited entries stay in the
-    // traversal ring where they belong and never flood a user's own saved views.
     public Seq<NamedView> Bookmarks =>
         toSeq(toSeq(Rows.Values)
             .Filter(static row => row.Origin != ViewOrigin.Visited && row.Origin != ViewOrigin.Standard)
             .OrderBy(static row => row.At));
 }
 
-// --- [COMPOSITION] --------------------------------------------------------------------------
-// Viewport chrome is CHROME ROWS, not a viewport-local widget set: the cube chip, the projection toggle, the
-// bookmark list, and the traversal verbs are `Shell/navigation#SHELL_CHROME` rows on the HUD slot, so they take
-// the identical slot admission, materialization, and mirroring every other chrome row takes. The deck row and
-// the chip row are ONE roster here, because `ShellChrome.Materialize` refuses a row whose key the
-// `Shell/commands#INTENT_TABLE` deck does not carry — three declared keys with no chip row was exactly a deck
-// entry no surface could reach.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class ViewChrome {
     public const string OrientationKey = "view.orientation";
     public const string ProjectionKey = "view.projection";
     public const string BookmarksKey = "view.bookmarks";
     public const string BackKey = "view.back";
     public const string ForwardKey = "view.forward";
-    // The measurement mode's own key seats here rather than at the measure session, because every `view.*` verb
-    // the deck carries resolves through one declaration and a headset button naming a literal is how a renamed
-    // key silently stops reaching anything.
     public const string MeasureKey = "view.measure.mode";
 
-    // The chips seat by corner, which is a `ProportionalCanvas` placement value on the chrome row and never a
-    // viewport-local layout: the cube takes the top-trailing corner every modeller puts it in and the traversal
-    // verbs the top-leading corner a back button already lives in.
     private static readonly Seq<(string Key, CornerPosition Corner, int Rank)> Deck = Seq(
         (OrientationKey, CornerPosition.TopRight, 10),
         (ProjectionKey, CornerPosition.TopRight, 20),

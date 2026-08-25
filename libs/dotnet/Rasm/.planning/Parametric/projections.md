@@ -26,25 +26,22 @@ Every fallible read stays on the `Op`-keyed `Fin<T>` rail: Rhino-read material a
 - Boundary: the selector family is the ONE row vocabulary for parameter-addressed evaluation behind the intent rail — a per-output `CurveEvaluator`/`SurfaceAnalyzer` method family is the named defect collapsed here, and a row exists where evaluation carries ROW SEMANTICS (validity gating, magnitude admission, moving-vs-sweep frame choice, the curvature-bundle lease, the derivative fold); `Domain/evaluation` is the shared derivation floor both these rows and the `Parametric/locate` arms compose — an arm re-implementing row semantics beside the rail is the killed duplicate, while a `Parametric/locate` surface arm reading the floor directly (point/frame/normal, UV pre-normalized) is lawful composition; `SurfaceProjection.ShapeOperator` is the sole second-fundamental-form assembly, `TensorField.Curvature` composes its `Project` and a second `k·d⊗d` assembly is the named double-owner defect; rows sample the LIVE Rhino object under the caller's lease (`Parametric/locate` inside `Lease<Curve>`/`Lease<Surface>`, `VectorIntent.CurveCase` holding the reference) and never duplicate, cache, or outlive their geometry; `SurfaceCurvature` is disposable host memory, so every bundle read runs inside `Lease<SurfaceCurvature>.Owned(...).Use(...)` and an escaping bundle is the named leak defect; the `Domain/evaluation` lattice owns closest-point/normal/frame over ARBITRARY geometry while these selectors own only parameter-addressed evaluation on an already-typed `Curve`/`Surface`, so routing a closest-point through a selector is the altitude violation.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
-// CS0104 guard: Rhino.Geometry declares Matrix/Dimension homonyms under the globally imported usings.
 using Dimension = Rasm.Numerics.Dimension;
 using Matrix = Rasm.Numerics.Matrix;
 
 namespace Rasm.Parametric;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class CurveProjection {
     public static readonly CurveProjection Tangent = Vector(key: 0, admits: CapabilitySet<RawAdmission>.None, sample: static (curve, t) => curve.TangentAt(t: t));
     public static readonly CurveProjection Curvature = Vector(key: 1, admits: CapabilitySet<RawAdmission>.Of(RawAdmission.VectorMagnitude), sample: static (curve, t) => curve.CurvatureAt(t: t));
     public static readonly CurveProjection Frame = FrameRow(key: 2, perpendicular: false, project: static frame => frame);
     public static readonly CurveProjection PerpendicularFrame = FrameRow(key: 3, perpendicular: true, project: static frame => frame);
-    // Zero length admits only at the domain start: the dimensionless normalized station gates against the Fraction
-    // lane, never a model-space tolerance.
     public static readonly CurveProjection ArcLength = new(key: 4, admits: CapabilitySet<RawAdmission>.None,
         sample: static (curve, t, context, key) => curve.GetLength(fractionalTolerance: context.For(lane: ToleranceLane.Fraction).Value, subdomain: new Interval(curve.Domain.T0, t)) switch {
             double length when RhinoMath.IsValidDouble(x: length) && (length > 0.0 || curve.Domain.NormalizedParameterAt(t) <= context.For(lane: ToleranceLane.Fraction).Value) => Fin.Succ((object)length),
@@ -54,8 +51,6 @@ public sealed partial class CurveProjection {
     public static readonly CurveProjection FrameBinormal = FrameRow(key: 6, perpendicular: false, project: static frame => frame.ZAxis);
     public static readonly CurveProjection PerpendicularNormal = FrameRow(key: 7, perpendicular: true, project: static frame => frame.YAxis);
     public static readonly CurveProjection PerpendicularBinormal = FrameRow(key: 8, perpendicular: true, project: static frame => frame.ZAxis);
-    // At a kink the derivative is two-valued, so the side is a row column: three rows over one body, never a side
-    // argument widening every gate on the vocabulary.
     public static readonly CurveProjection Torsion = TorsionRow(key: 9, side: CurveEvaluationSide.Default);
     public static readonly CurveProjection TorsionBelow = TorsionRow(key: 10, side: CurveEvaluationSide.Below);
     public static readonly CurveProjection TorsionAbove = TorsionRow(key: 11, side: CurveEvaluationSide.Above);
@@ -75,9 +70,6 @@ public sealed partial class CurveProjection {
             Vector3d vector when vector.IsValid && (admits.Admits(RawAdmission.VectorMagnitude) || !vector.IsTiny()) => Fin.Succ((object)vector),
             _ => Fin.Fail<object>(op.InvalidResult()),
         });
-    // Frenet torsion tau = ((r'xr'')·r''')/|r'xr''|^2 over one third-order evaluation. DerivativeAt returns the POINT
-    // at index 0 and the k-th derivative at index k, so the list pattern discards the head and binds 1, 2, 3 as
-    // r', r'', r'''; a straight run (binormal under the zero floor) refuses rather than reporting a fabricated twist.
     private static CurveProjection TorsionRow(int key, CurveEvaluationSide side) =>
         new(key: key, admits: CapabilitySet<RawAdmission>.None, sample: (curve, t, _, op) => curve.DerivativeAt(t: t, derivativeCount: 3, side: side) switch {
             [_, var d1, var d2, var d3] when Vector3d.CrossProduct(a: d1, b: d2) is var binormal
@@ -107,8 +99,6 @@ public sealed partial class SurfaceProjection {
     public static readonly SurfaceProjection Jacobian = Derivatives(key: 10, project: static (_, _, d, _, key) => Matrix.Of(rows: Dimension.Create(value: 3), cols: Dimension.Create(value: 2), entries: [d.Du.X, d.Dv.X, d.Du.Y, d.Dv.Y, d.Du.Z, d.Dv.Z], key: key).Map(static value => (object)value));
     public static readonly SurfaceProjection Metric = Derivatives(key: 11, project: static (_, _, d, _, key) => SymmetricMatrix.Of(dim: Dimension.Create(value: 2), upper: [d.Du * d.Du, d.Du * d.Dv, d.Dv * d.Dv], key: key).Map(static value => (object)value));
     public static readonly SurfaceProjection AreaScale = Derivatives(key: 12, project: static (_, _, d, _, key) => key.AcceptValue(value: Vector3d.CrossProduct(a: d.Du, b: d.Dv).Length).Map(static value => (object)value));
-    // H·n as one composed read: the scalar row and the normal row already own both halves, so this row mints no
-    // second curvature bundle.
     public static readonly SurfaceProjection MeanCurvatureVector = new(key: 13, sample: static (surface, uv, _, key) =>
         WithCurvature(surface: surface, uv: uv, key: key, project: sc => ScalarMetric.Mean.Of(value: sc, key: key)
             .Bind(mean => Evaluation.NormalAt(surface: surface, uv: uv, key: key).Map(normal => (object)(normal * mean)))));
@@ -170,17 +160,12 @@ public sealed partial class SurfaceProjection {
         new(key: key, sample: (surface, uv, context, op) => SurfaceDerivatives(surface: surface, uv: uv, key: op).Bind(d => project(arg1: surface, arg2: uv, arg3: d, arg4: context, arg5: op)));
 }
 
-// The column is FALLIBLE, matching its curve and surface siblings: `VectorCone.HalfAngle` rides `Band.Angle`, so a
-// half-angle at or past a quarter turn is representable and an unbounded transcendental on a total column would
-// hand the rail +-1.6e16 or a NEGATIVE beam radius as a legitimate scalar.
 [SmartEnum<int>]
 public sealed partial class ConeProjection {
     public static readonly ConeProjection HalfAngle = new(key: 0, sample: static (cone, _) => Fin.Succ<object>(cone.HalfAngle));
     public static readonly ConeProjection SolidAngle = new(key: 1, sample: static (cone, _) => Fin.Succ<object>(cone.SolidAngle));
     public static readonly ConeProjection Axis = new(key: 2, sample: static (cone, _) => Fin.Succ<object>(cone.Axis));
     public static readonly ConeProjection Apex = new(key: 3, sample: static (cone, _) => Fin.Succ<object>(cone.Apex));
-    // Beam radius per unit axis distance (radius = distance · Spread); deletes the inline tan(halfAngle) hand-roll
-    // at a light or capture boundary. A cone at or beyond a quarter turn has no beam radius and REFUSES.
     public static readonly ConeProjection Spread = new(key: 4, sample: static (cone, key) =>
         cone.HalfAngle.Value < Math.PI / 2.0
             ? Fin.Succ<object>(Math.Tan(cone.HalfAngle.Value))
@@ -191,7 +176,7 @@ public sealed partial class ConeProjection {
             AtomProjection.Raw<TOut>(raw: raw, context: Option<Context>.None, key: key, owner: typeof(ConeProjection), admits: CapabilitySet<RawAdmission>.None));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SurfaceSpace {
     private SurfaceSpace(Surface native, Context tolerance) { Native = native; Tolerance = tolerance; }
@@ -219,14 +204,14 @@ public readonly record struct SurfaceSpace {
 - Boundary: `MotionInterpolation` starts where rotation requires a quaternion, vector arithmetic staying on the admitted direction algebra; a per-consumer slerp beside it is the killed duplicate.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
 
 namespace Rasm.Parametric;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class MotionInterpolation {
     public static readonly MotionInterpolation Linear = new(key: 0, combine: static (a, b, t) => Quaternion.Lerp(a: a, b: b, t: t));
@@ -277,16 +262,15 @@ public sealed partial class MotionInterpolation {
 - Boundary: the two settling reads partition by QUESTION — `Settle` answers how long a run must be BOUND before it starts, and `SettleBand.Settles` (`[06]`) answers when a stepped drive may STOP. That projection stays conservative because an early answer truncates a tail, while the band test reads the state it already holds; a consumer computing a duration from a band test, or stepping until a projected duration expires, has crossed the two.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
-// CS0104 guard: the globally imported LanguageExt binds `Duration` to its schedule-stream span.
 using Duration = NodaTime.Duration;
 
 namespace Rasm.Parametric;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class Easing {
     public static readonly Easing Linear = new(key: 0, curve: static t => t);
@@ -318,8 +302,6 @@ public sealed partial class Easing {
     public static readonly Easing BounceOut = Out(key: 26, family: Bounce);
     public static readonly Easing BounceInOut = InOut(key: 27, family: Bounce);
 
-    // The published CSS <easing-function> constants, each named ONCE: the back overshoot and the elastic
-    // amplitude/period are Robert Penner's own figures the spec cites, not tuning knobs of this roster.
     private const double BackOvershoot = 1.70158;
     private const double ElasticAmplitude = 1.0;
     private const double ElasticPeriod = 0.3;
@@ -342,9 +324,6 @@ public sealed partial class Easing {
         _ => -(amplitude * Math.Pow(x: 2.0, y: 10.0 * (t - 1.0)) * Math.Sin(a: ((t - 1.0) - (period / (2.0 * Math.PI) * Math.Asin(d: 1.0 / amplitude))) * (2.0 * Math.PI) / period)),
     };
     private static double Bounce(double t) => 1.0 - BounceTail(t: 1.0 - t);
-    // Penner's bounce partitions the tail at 1/2.75, 2/2.75, and 2.5/2.75; each arc is the SAME body
-    // 7.5625·(t − centre)² + lift, so the row carries the two literals that differ and the body is written once.
-    // The final row's unbounded edge closes the partition, so the walk is total.
     private static readonly (double Edge, double Centre, double Lift)[] BounceArcs = [
         (1.0 / 2.75, 0.0, 0.0),
         (2.0 / 2.75, 1.5 / 2.75, 0.75),
@@ -360,8 +339,6 @@ public sealed partial class Easing {
 
 [SmartEnum<int>]
 public sealed partial class CycleShape {
-    // Posture column defers: an eager expression reads the sibling generated roster while this one
-    // is still initializing.
     public static readonly CycleShape Repeat = new(key: 0, posture: static _ => CyclePosture.Forward);
     public static readonly CycleShape Yoyo = new(key: 1, posture: static iteration => (iteration % 2L) == 1L ? CyclePosture.Reversed : CyclePosture.Forward);
     [UseDelegateFromConstructor] public partial CyclePosture Posture(long iteration);
@@ -371,24 +348,16 @@ public sealed partial class CycleShape {
 public sealed partial class CyclePosture {
     public static readonly CyclePosture Forward = new(key: 0, continues: true, place: static local => local);
     public static readonly CyclePosture Reversed = new(key: 1, continues: true, place: static local => 1.0 - local);
-    // Completed runs already rest on the side their final iteration faced, so `Place` is identity here and the
-    // mirroring happened at the facing row.
     public static readonly CyclePosture Completed = new(key: 2, continues: false, place: static local => local);
     public bool Continues { get; }
     [UseDelegateFromConstructor] public partial double Place(double local);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Imported-token easing carrier: per-occurrence control points are payload, never vocabulary rows. CSS convention
-// P0 = (0,0), P3 = (1,1); the abscissa clamp keeps x(u) monotone, so the inversion is total.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct BezierEase(double X1, double Y1, double X2, double Y2, Dimension Probes) {
-    // The bisection fallback halves the bracket, so n probes reach 2⁻ⁿ — twelve land at 2.4e-4, four orders ABOVE
-    // SqrtEpsilon. The budget is a COLUMN, and a token whose control net needs a longer walk raises its own.
     public static readonly Dimension ProbeBudget = Dimension.Create(value: 64);
 
-    // The four coordinates are INDEPENDENT, so they accumulate: an imported design token with three bad control
-    // coordinates reports three defects, where the bind chain reported the first and hid the rest.
     public static Fin<BezierEase> Of(double x1, double y1, double x2, double y2, Op? key = null, Option<Dimension> probes = default) {
         Op op = key.OrDefault();
         return (op.Finite(value: x1).ToValidation(), op.Finite(value: y1).ToValidation(),
@@ -400,9 +369,6 @@ public readonly record struct BezierEase(double X1, double Y1, double X2, double
             .As().ToFin();
     }
 
-    // Newton on x(u) = t with a bisection bracket fallback: the clamped abscissae keep x' non-negative, so the
-    // bracket never inverts. Exhaustion is a TYPED refusal — the deleted body returned the last iterate as a bare
-    // double, leaving an unconverged inversion indistinguishable from a converged one at every consumer.
     public Fin<double> Evaluate(UnitInterval t, Op? key = null) {
         Op op = key.OrDefault();
         (double x1, double x2, double y1, double y2, double target) = (X1, X2, Y1, Y2, t.Value);
@@ -436,15 +402,12 @@ public readonly record struct CyclePhase(long Iteration, UnitInterval Local, Cyc
 public readonly record struct CyclePlan(Option<int> Count, CycleShape Shape) {
     public static Fin<CyclePlan> Of(Option<int> count, CycleShape shape, Op? key = null) {
         Op op = key.OrDefault();
-        // Shape presence and count admissibility are INDEPENDENT, so both refusals reach a caller at once.
         return (op.Need(value: shape).ToValidation(),
                 count.Match(
                     Some: value => guard(value >= 1, op.InvalidInput()).ToFin().Map(_ => Some(value)),
                     None: () => Fin.Succ(Option<int>.None)).ToValidation())
             .Apply(static (traversal, bounded) => new CyclePlan(Count: bounded, Shape: traversal)).As().ToFin();
     }
-    // Collapsed and completed runs rest at this pose: a bounded plan stops on the side its final iteration faces,
-    // an unbounded one at the far stop.
     public CyclePosture Terminal => Count.Match(Some: bounded => Shape.Posture(iteration: bounded - 1L), None: () => CyclePosture.Forward);
     public Fin<CyclePhase> Phase(Duration elapsed, Duration period, Op key) {
         CyclePlan plan = this;
@@ -480,14 +443,11 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
 
     public static Fin<SpringShape> Of(double angularFrequency, double dampingRatio, Op? key = null) {
         Op op = key.OrDefault();
-        // The two columns are INDEPENDENT, so a shape with both bad reports both.
         return (op.Positive(value: angularFrequency).ToValidation(),
                 op.Finite(value: dampingRatio).Bind(value => guard(value >= 0.0, op.InvalidInput()).ToFin().Map(_ => value)).ToValidation())
             .Apply(static (omega, zeta) => new SpringShape(AngularFrequency: omega, DampingRatio: zeta)).As().ToFin();
     }
 
-    // OfResponse admits the (response, damping-fraction) parameterization design tokens spell: response IS the
-    // perceptual settle period, so a token catalog admits its own vocabulary without re-deriving omega at a site.
     public static Fin<SpringShape> OfResponse(double response, double dampingFraction, Op? key = null) {
         Op op = key.OrDefault();
         return from period in op.Positive(value: response)
@@ -520,9 +480,6 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
                select step;
     }
 
-    // Every regime bounds |x(t) - target| by a DECAYING ENVELOPE and inverts that envelope in closed form, so the
-    // answer is conservative by construction and no iterative inversion enters the rail. An undamped shape has no
-    // decaying envelope at all, so zero damping refuses rather than answering an infinity a caller binds a run to.
     public Fin<Duration> Settle(SpringState origin, double target, SettleBand band, Op key) {
         (double omega, double zeta) = (AngularFrequency, DampingRatio);
         return from tolerance in key.Positive(value: band.Position)
@@ -538,13 +495,8 @@ public readonly record struct SpringShape(double AngularFrequency, double Dampin
 }
 
 
-// One envelope shape serves all three regimes: an amplitude decaying at a rate, inverted by one logarithm.
 internal readonly record struct DecayBound(double Amplitude, double Rate);
 
-// The damping regime is ONE closed family carrying two columns — the response and its decaying envelope — so the
-// critical window is stated ONCE and a reader takes a ROW. The deleted form spelled the same nested ternary ladder
-// in `Evaluate` and in `Settle`, so a fourth regime edited two bodies and a drift in the critical window silently
-// desynchronized the response from the envelope that bounds it.
 [SmartEnum<int>]
 public sealed partial class DampingRegime {
     public static readonly DampingRegime Critical = new(key: 0,
@@ -565,13 +517,10 @@ public sealed partial class DampingRegime {
         return new DecayBound(Amplitude: Math.Sqrt(d: (offset * offset) + (rotor * rotor)), Rate: zeta * omega);
     }
 
-    // Critical envelope (|a| + |b|t)·e^{-wt} carries a linear term no bare exponential inverts, so half the
-    // decay absorbs it through t·e^{-wt/2} <= 2/(e·w) and the remaining half stays the invertible rate.
     internal static DecayBound CriticalBound(double offset, double velocity, double omega) =>
         new(Amplitude: Math.Abs(value: offset) + (2.0 * Math.Abs(value: velocity + (omega * offset)) / (Math.E * omega)),
             Rate: omega / 2.0);
 
-    // Slow root outlives the fast one, so the pair bounds by their magnitudes decaying at the slow rate.
     internal static DecayBound OverdampedBound(double offset, double velocity, double omega, double zeta) {
         double root = omega * Math.Sqrt(d: (zeta * zeta) - 1.0);
         double slow = (-zeta * omega) + root;
@@ -612,16 +561,8 @@ public sealed partial class DampingRegime {
     }
 }
 
-// Inertial twin of the damped spring: motion released into FREE decay toward no target at all, where the spring
-// owns a driven approach to a known one. Retention is the fraction of velocity surviving one time unit, so the
-// continuous law is v(t) = v0·r^t and every read here is one closed form over its rate -ln r; the per-frame velocity
-// multiply a scroll surface spells is that same law sampled, and re-deriving it per consumer forks flick feel.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct DecayShape(double Retention) : IValidityEvidence {
-    // Retention is open at BOTH ends and no single Band row spells that, so the guard is the INTERSECTION of the
-    // two landed rows — `Ratio` opens the floor at the zero anchor, `Fractional` opens the ceiling below one — and
-    // `Of` reads the same member, so the factory cannot fork its bounds from the reader's the way three
-    // hand-written spellings of one bound did.
     internal static bool Admits(double retention) =>
         Band.Ratio.Admits(value: retention) && Band.Fractional.Admits(value: retention);
 
@@ -636,14 +577,10 @@ public readonly record struct DecayShape(double Retention) : IValidityEvidence {
                select new DecayShape(Retention: bounded);
     }
 
-    // Resting displacement is the whole integral of the decaying velocity, and the ONE input a release
-    // threshold reads: a distance test and a velocity test asked separately disagree exactly where the answer
-    // matters, on the slow drag that should carry and the fast one that should stop short.
     public Fin<double> Project(double velocity, Op key) =>
         from initial in key.Finite(value: velocity)
         select initial / Rate;
 
-    // Three INDEPENDENT columns accumulate: a release with a bad origin and a bad velocity reports both.
     public Fin<double> Advance(double origin, double velocity, Duration elapsed, Op key) {
         double rate = Rate;
         return (key.Finite(value: origin).ToValidation(),
@@ -652,8 +589,6 @@ public readonly record struct DecayShape(double Retention) : IValidityEvidence {
             .Apply((start, initial, time) => start + (initial * (1.0 - Math.Exp(d: -rate * time)) / rate)).As().ToFin();
     }
 
-    // Closed form overflows on admissible near-unity retention, so the horizon re-enters the finite gate before
-    // it leaves: an infinite tail is an unbounded run wearing a bound.
     public Fin<Duration> Settle(double velocity, PositiveMagnitude epsilon, Op key) =>
         from initial in key.Finite(value: velocity)
         let remaining = Math.Abs(value: initial) / Rate
@@ -679,14 +614,14 @@ public readonly record struct DecayShape(double Retention) : IValidityEvidence {
 - Boundary: `MonotonicTimeline` admits reference identity with the capturing timeline and provider before any `GetElapsedTime` call, and each beat sequence atomically admits only its current tail, so foreign timestamps and replayed predecessors never enter accepted timing evidence. `Stopwatch`, a raw `TimeProvider` mark/elapsed pair, and a host presentation timestamp below the app root are the deleted form; a display link's predicted present time stays at the boundary that reads it. A carrier fusing this timeline with a semantic NodaTime `IClock` is refused the same way — no joint invariant binds a wall instant to a monotonic mark (contrast `Domain/frame` `ReceiptSinkPort`, whose HLC binds wall and logical under a `SkewBound`), so a crossing needing both takes two parameters and each leg answers its own kernel owner.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
 
 namespace Rasm.Parametric;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 public interface IGaugeLane<TSelf> where TSelf : IGaugeLane<TSelf> {
     static abstract IReadOnlyList<TSelf> Items { get; }
     TimeSpan Bound { get; }
@@ -696,8 +631,6 @@ public interface IGaugeLane<TSelf> where TSelf : IGaugeLane<TSelf> {
 [Union<MonotonicStamp, MonotonicBeat>(T1Name = "Origin", T2Name = "Previous")]
 public readonly partial struct BeatSeed;
 
-// Tri-valued classifier as a CLOSED row set: a caller reads which stamp came first rather than re-deriving the
-// three cases from the sign of a bare int at every site.
 [SmartEnum<int>]
 public sealed partial class StampOrder {
     public static readonly StampOrder Before = new(key: -1);
@@ -707,7 +640,7 @@ public sealed partial class StampOrder {
     internal static StampOrder Of(int sign) => sign < 0 ? Before : sign > 0 ? After : Same;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct GaugedSpan<TLane>(TLane Lane, Op Work, TimeSpan Elapsed, TimeSpan Bound) : IValidityEvidence
     where TLane : notnull, IGaugeLane<TLane> {
@@ -773,11 +706,7 @@ public sealed class MonotonicBeat : IValidityEvidence {
         Delta >= TimeSpan.Zero && Delta <= Elapsed);
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The sequence tail and its ordinal move as ONE value, so the guarded transition is `Cell.Step` and the verdict is
-// a `Transition` a reader can discriminate. NAMED LOSS: the `object _gate` monitor and the `bool _exhausted` flag —
-// a refused advance and an exhausted ordinal space read alike through a swallowed `InvalidResult`, where the
-// declined step now carries the reason it declined under.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal readonly record struct BeatTail(MonotonicStamp Tail, long NextOrdinal);
 
 [BoundaryAdapter]
@@ -792,12 +721,8 @@ internal sealed class BeatSequence {
 
     internal bool BelongsTo(MonotonicStamp origin) => ReferenceEquals(objA: _origin, objB: origin);
 
-    // Periods are computed OUTSIDE the transition: a compare-and-swap body re-runs on every contended retry, so a
-    // count derived inside one counts attempts rather than commits.
     internal Fin<long> Advance(MonotonicStamp expected, MonotonicStamp current, TimeSpan delta, PositiveMagnitude cadence, Op key) {
         long periods = Math.Max(val1: 1L, val2: (long)Math.Floor(d: delta.TotalSeconds / cadence.Value));
-        // The claimed ordinal reads off the COMMITTED post-state, so a contended retry cannot hand two callers one
-        // ordinal the way a pre-read of the cell would.
         return Cell.Step(
                 cell: _cell,
                 step: held => ReferenceEquals(objA: held.Tail, objB: expected) && long.MaxValue - periods >= held.NextOrdinal
@@ -813,8 +738,6 @@ internal sealed class BeatSequence {
 [BoundaryAdapter]
 public sealed class MonotonicTimeline {
     private readonly TimeProvider _provider;
-    // The capture ordinal is the same guarded transition on a one-column cell, so the `lock` and the exhaustion
-    // flag delete here too and a saturated ordinal space refuses through the declined step.
     private readonly Atom<long> _captureOrdinal = Atom(0L);
 
     private MonotonicTimeline(TimeProvider provider) => _provider = provider;
@@ -851,7 +774,6 @@ public sealed class MonotonicTimeline {
                select elapsed;
     }
 
-    // The verdict is a ROW, never a sign a caller re-derives before/same/after from.
     public Fin<StampOrder> Order(MonotonicStamp left, MonotonicStamp right, Op? key = null) {
         Op op = key.OrDefault();
         return from first in Admit(stamp: left, key: op)
@@ -860,9 +782,6 @@ public sealed class MonotonicTimeline {
                select StampOrder.Of(sign: delta == TimeSpan.Zero ? first.CompareCapture(other: second) : TimeSpan.Zero.CompareTo(delta));
     }
 
-    // Spans are EVIDENCE of the crossing and land whether the body succeeded or refused — a refused body still
-    // took time, and a pulse publisher reads its span — so the body's own verdict rides INSIDE the pair; only a
-    // gauge failure (an unadmitted body or a broken capture) fails the outer rail.
     public Fin<(Fin<T> Value, GaugedSpan<TLane> Span)> Gauged<T, TLane>(TLane lane, Op work, Func<Fin<T>> body, Op? key = null)
         where TLane : notnull, IGaugeLane<TLane> {
         Op op = key.OrDefault();
@@ -914,8 +833,6 @@ public sealed class MonotonicTimeline {
 
     internal bool Owns(TimeProvider provider) => ReferenceEquals(objA: _provider, objB: provider);
 
-    // ONE non-negative span read. The deleted `Span` renamed `SpanTo` and added nothing, and the composite
-    // `Span(...).Bind(Nonnegative)` was written at three sites and by the public `Elapsed` besides.
     private static Fin<TimeSpan> Elapsed(MonotonicStamp start, MonotonicStamp end, Op key) =>
         start.SpanTo(end: end, key: key)
             .Bind(span => span >= TimeSpan.Zero ? Fin.Succ(span) : Fin.Fail<TimeSpan>(key.InvalidResult()));
@@ -942,16 +859,15 @@ public sealed class MonotonicTimeline {
 - Boundary: a host clock lease, its run-loop attach and detach, its workspace observation, its transaction fence, and its invalidation request stay at the boundary — none has kernel meaning. Sets of drives are `Seq.Traverse` over this one `Step` followed by a filter on the verdict, so a set-shaped entry point is the arity twin this owner refuses. Device density is a display fact, not a motion fact: a backing scale pinned to a motion sample makes every non-motion consumer read it through a drive, so it stays with the display owner that reads it. Delegated interpolation is not motion algebra — a compositor-run animation projects `SpringShape` onto its own animation object and owns attachment alone.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Thinktecture;
-// CS0104 guard: the globally imported LanguageExt binds `Duration` to its schedule-stream span.
 using Duration = NodaTime.Duration;
 
 namespace Rasm.Parametric;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MotionConcession : ICapability<MotionConcession> {
@@ -970,8 +886,6 @@ public abstract partial record MotionScript {
     public sealed record Sprung(SpringShape Shape, double From, double To, double Velocity, SettleBand Band) : MotionScript;
     public sealed record Glided(DecayShape Decay, double Origin, double Velocity, Duration Bound) : MotionScript;
 
-    // One case derives its column rather than authoring it: the tail is bound at mint, so an unbounded run
-    // can never reach `Step`. The other two cases are authored outright and mint through their constructors.
     public static Fin<MotionScript> Glide(DecayShape decay, double origin, double velocity, PositiveMagnitude epsilon, Op? key = null) {
         Op op = key.OrDefault();
         return from shape in guard(decay.IsValid, op.InvalidInput()).ToFin().Map(_ => decay)
@@ -990,9 +904,7 @@ public abstract partial record MotionSample {
     public sealed record Glided(double Value, MotionPosture Motion) : MotionSample;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// Cadence band both boundaries minted. `Portable` is a DECLARED row: no portable surface publishes a refresh
-// rate, which is why both boundaries hardcoded the same 30..60 triple.
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter]
 [ComplexValueObject]
 public sealed partial class PaceBand {
@@ -1000,7 +912,6 @@ public sealed partial class PaceBand {
     public double Minimum { get; }
     public double Maximum { get; }
     public double Preferred { get; }
-    // `Band.Positive` owns the range guard; ordering is the one fact no band row carries.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double minimum, ref double maximum, ref double preferred) =>
         validationError = Band.Positive.Guard(label: nameof(Minimum), value: ref minimum)
             ?? Band.Positive.Guard(label: nameof(Preferred), value: ref preferred)
@@ -1009,17 +920,10 @@ public sealed partial class PaceBand {
                 ? null
                 : new ValidationError(message: "PaceBand requires minimum <= preferred <= maximum."));
 
-    // Panel bounds a request from BOTH ends: a variable-refresh display advertises a ceiling it will not hold,
-    // and the slowest presentation is the other half of the clamp.
     public TimeSpan Fastest => TimeSpan.FromSeconds(value: 1.0 / Maximum);
     public TimeSpan Slowest => TimeSpan.FromSeconds(value: 1.0 / Minimum);
     public TimeSpan Period => TimeSpan.FromSeconds(value: 1.0 / Preferred);
 
-    // Ladders authored against a reference frame period re-base onto the live panel ONCE: on a 120 Hz display
-    // every rung tightens twofold and a breach fires at the frame the display actually missed. Both boundaries
-    // re-derived this factor; the band that owns the frequencies owns its rescale. The rescale rides the RAIL:
-    // a large reference underflows `Minimum * factor` beneath `Band.Positive`'s open floor, and `Create` throws
-    // on a refused `ValidateFactoryArguments` where `Validate` hands the refusal back as evidence.
     public Fin<PaceBand> ScaleTo(PositiveMagnitude reference, Op? key = null) {
         double factor = Period.TotalSeconds / reference.Value;
         return key.OrDefault().AcceptValidated<PaceBand>(
@@ -1028,8 +932,6 @@ public sealed partial class PaceBand {
     }
 }
 
-// Settling band rides as a VALUE rather than an inline epsilon expression. Position and velocity are dimensionally
-// distinct, so one epsilon cannot serve both.
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct SettleBand(double Position, double Velocity) : IValidityEvidence {
     public static SettleBand Perceptual { get; } = new(Position: EpsilonPolicy.SqrtEpsilon, Velocity: EpsilonPolicy.SqrtEpsilon);
@@ -1042,7 +944,7 @@ public readonly record struct SettleBand(double Position, double Velocity) : IVa
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct MotionPosture(CapabilitySet<MotionConcession> Concessions, PaceBand Pace);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class MotionDrive {
     public static Fin<MotionScript> Admit(MotionScript script, Op? key = null) {

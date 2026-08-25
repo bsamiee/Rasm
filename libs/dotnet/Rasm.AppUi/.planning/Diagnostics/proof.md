@@ -24,7 +24,7 @@ Rasm.AppUi proof derives capture, check, variant-density, benchmark, and replay 
 ```csharp signature
 
 
-// --- [ERRORS] -------------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProofFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Proof;
@@ -46,8 +46,6 @@ public abstract partial record ProofFault : Fault {
     public sealed partial record BaselineAbsent(string Pass) : ProofFault($"proof/frame-cost: {Pass} has no admitted baseline");
     [FaultCase(6)]
     public sealed partial record ReplayShape(int First, int Second) : ProofFault($"proof/replay: receipt counts diverged {First} != {Second}");
-    // Column-precise admission refusals: the accumulating gate mints ONE fault per offending column, so a row
-    // with two bad columns reports two typed refusals rather than one message interpolating the tuple.
     [FaultCase(7)]
     public sealed partial record BudgetInvalid(string ScreenId, string Column, string Value) : ProofFault($"proof/frame-budget: {ScreenId} refused {Column}={Value}");
     [FaultCase(8)]
@@ -56,12 +54,9 @@ public abstract partial record ProofFault : Fault {
     public sealed partial record RasterDiverged(string Cell, string Actual, string Baseline) : ProofFault($"proof/raster: {Cell} draw ops held while pixels moved {Actual} != {Baseline} — a rasterizer or driver change");
     [FaultCase(10)]
     public sealed partial record DrawDiverged(string Cell, string Actual, string Baseline) : ProofFault($"proof/draw: {Cell} draw ops moved {Actual} != {Baseline} — a content change");
-    // The WHOLE gap set rides typed — a truncated list in a message string loses every gap past the format cap.
     [FaultCase(11)]
     public sealed partial record DockCoverage(Seq<string> Gaps) : ProofFault($"proof/skew-dock: {Gaps.Count} controls resolve a control theme under some variants and not others");
 
-    // The ONE divergence-attribution election: ops held while pixels moved is a rasterizer change, ops moved is
-    // a content change, and an absent draw hash on either side leaves the break honestly unattributed.
     public static ProofFault Diverged(string cell, string actual, string baseline, Option<string> freshDraw, Option<string> heldDraw) =>
         freshDraw.Bind(fresh => heldDraw.Map(held => fresh == held)).Match(
             Some: same => same
@@ -70,9 +65,7 @@ public abstract partial record ProofFault : Fault {
             None: () => new HashDiverged(cell, actual, baseline));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// One capture-grab shape: a named delegate replaces the five-arity generic every lane, twin, and law entry
-// otherwise re-spells, so widening the grab is one edit here.
+// --- [MODELS] --------------------------------------------------------------------------
 public delegate IO<(SKImage Image, Option<SKPicture> Record)> FrameGrab(
     double scale,
     VisualCodec.ColorPolicy gamut,
@@ -86,9 +79,6 @@ public sealed record CaptureRow {
     public string Key { get; }
     public double Scale { get; }
     public VisualCodec.ColorPolicy Gamut { get; }
-    // Text is the one raster input a golden cannot leave to the host: subpixel coverage carries the panel's own
-    // RGB stripe order. Posture is a COLUMN because the paged-export lane pins its own linear-metric reading,
-    // and a golden proving screen text against page text proves neither.
     public RenderPosture Posture { get; }
     public int Ticks { get; }
     public FrameGrab Grab { get; }
@@ -107,20 +97,15 @@ public sealed record CaptureRow {
     public IO<(SKImage Image, Option<SKPicture> Record)> Shoot() => Grab(Scale, Gamut, Posture, () => ProofEngine.Advance(Ticks));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Captures {
     public const string Kind = "capture";
 
-    // The BRACKET releases the record on both exits: a release seated in the success `Map` never runs on the
-    // encode's failure arm, and the regression lanes shoot the same cell repeatedly under a property generator —
-    // one leaked picture becomes a leak per sample precisely on the runs that are already failing.
     public static IO<RenderReceipt> Shot(VisualRuntime runtime, CaptureRow row) =>
         row.Shoot().Bracket(
             frame => VisualCodec.Encode(runtime, frame.Image, VisualCodec.Png, Kind, $"captures/{row.Key}.png", frame.Record),
             frame => IO.lift(() => frame.Record.Iter(static record => record.Dispose())));
 
-    // RenderHashLane.Cell is the custom-twin key@variant-density lane identity, never the family Kind constant —
-    // same-family failures stay attributable to their exact cell.
     public static Fin<RenderReceipt> Regression(string cell, RenderReceipt actual, string baseline, Option<string> heldDraw) =>
         actual.FrameHash == baseline
             ? Fin.Succ(actual)
@@ -141,7 +126,7 @@ public static class Captures {
 - Law: `ScreenCatalogRow.Checks : CapabilitySet<ProofCheck>` is the applicability RELATION seated on the catalog row (`Shell/screens.md`), so which checks a screen admits reads off the roster a maintainer edits rather than off a predicate closure at every derivation call.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [NoReorder]
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -160,7 +145,7 @@ public sealed partial class ProofCheck : ICapability<ProofCheck> {
     public static readonly ProofCheck FrameCost = new("frame-cost");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record ProofSpec(
     string ScreenId,
     ProofCheck Check,
@@ -168,10 +153,6 @@ public sealed record ProofSpec(
     DensityRow Density,
     Func<IO<EvidenceReceipt>> Run);
 
-// One frame-benchmark cell per headless catalog row: samples, ticks, and the warm-up discard are lane data, so
-// a multi-frame or animation-settled benchmark pins its budget as columns and never wall time. Warm-up rides
-// the CASE key — a warmed and a cold protocol are two measurement contracts, so a lane adopting a warm-up
-// re-baselines its held claim rather than comparing across protocols.
 public sealed record BenchLane {
     private BenchLane(string screenId, int samples, int ticks, int warmup) =>
         (ScreenId, Samples, Ticks, Warmup) = (screenId, samples, ticks, warmup);
@@ -195,7 +176,7 @@ public sealed record BenchLane {
               : Validation<Error, Unit>.Fail((Error)new ProofFault.BudgetInvalid(screenId, column, value));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ProofEngine {
     public static Fin<Seq<BenchLane>> Bench(ScreenCatalog catalog, int samples, int ticks, int warmup) =>
         catalog.HeadlessLane.TraverseM(row => BenchLane.Of(row.Id, samples, ticks, warmup)).As();
@@ -203,8 +184,6 @@ public static class ProofEngine {
     internal static IO<Unit> Advance(int ticks) =>
         IO.lift(() => AvaloniaHeadlessPlatform.ForceRenderTimerTick(ticks));
 
-    // Each headless row crosses only the checks its OWN capability column admits — the relation lives on the
-    // catalog row, so no applicability predicate threads through the call.
     public static Seq<ProofSpec> Derive(
         ScreenCatalog catalog,
         Seq<(ThemeVariantRow Variant, DensityRow Density)> grid,
@@ -214,8 +193,6 @@ public static class ProofEngine {
                 toSeq(ProofCheck.Items).Filter(check => row.Checks.Admits(check)).Map(check =>
                     new ProofSpec(row.Id, check, cell.Variant, cell.Density, probe(row, check, cell.Variant, cell.Density)))));
 
-    // Session acquisition is the one producer of SessionUnavailable — a session that cannot start names itself
-    // instead of throwing untyped out of the dispatcher hop; the spec body's own RunAsync throw stays the ProofFault-coded rail liftAsync re-admits.
     public static IO<EvidenceReceipt> Dispatch(ProofSpec spec) =>
         (IO.lift(() => HeadlessUnitTestSession.GetOrStartForAssembly(typeof(ProofEngine).Assembly))
             | @catch<IO, HeadlessUnitTestSession>(static _ => true,
@@ -224,17 +201,12 @@ public static class ProofEngine {
             .Dispatch(() => spec.Run().RunAsync().AsTask(), CancellationToken.None)
             .ConfigureAwait(false)));
 
-    // The journal carries the RECORDED caller beside its key and payload: a replay that re-labelled every
-    // captured operator gesture as its own modality would hand the suite mediation a caller nothing did,
-    // and the AppHost event log would chain a provenance the original run never had.
     public static IO<Seq<DeckReceipt>> Replay(
         CommandDeck deck,
         Seq<(string Key, JsonElement Payload, CallerModality Caller)> journal,
         Func<IO<Unit>> restore) =>
         restore().Bind(_ => journal.TraverseM(entry => deck.Invoke(entry.Key, entry.Payload, entry.Caller)).As());
 
-    // The ONE index-divergence walk the replay lanes and the devloop cross-machine verify share: indices past
-    // the shorter side report as mismatches, so a dropped or extra tail never hides behind pairwise truncation.
     public static Seq<int> Divergent(Seq<string> first, Seq<string> second) =>
         toSeq(Enumerable.Range(0, Math.Max(first.Count, second.Count)))
             .Filter(index => index >= first.Count || index >= second.Count || first[index] != second[index])
@@ -255,9 +227,7 @@ public static class ProofEngine {
 - Boundary: `VerifyZip`/`VerifyDirectory` pin support-bundle roster and tree completeness, and the extracted `manifest.json` carries the AppHost `SupportManifest.Entry` `ContentKey` column, so content identity pins in the same golden pair rather than a re-hash of the zip.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------
-// The cell key spells every raster-deciding input the golden was taken under, so a break names the axis it
-// moved on and a Golden-posture screen cell and a Paged-posture export cell are two goldens rather than one file two lanes overwrite in turn.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct RenderHashLane(string Key, double Scale, VisualCodec.ColorPolicy Gamut, RenderPosture Posture, int Ticks) {
     public string Cell => $"{Key}@{Scale}x{Gamut.Key}~{Posture.Key}";
 
@@ -280,7 +250,6 @@ public static class ProofLaw {
     public static Gen<RenderHashLane> LaneGen(Seq<RenderHashLane> lanes) => Gen.OneOfConst([.. lanes]);
 
     // --- [LAW_ENTRIES]
-    // Both hygiene gates and the registry soundness read on one entry; WhenAll lets a second failure report beside the first instead of hiding behind it.
     public static async Task SuiteHygiene() {
         GoldenLanes.Sound().ThrowIfFail();
         await Task.WhenAll(
@@ -288,9 +257,6 @@ public static class ProofLaw {
             Task.Run(static () => DanglingSnapshots.Run()));
     }
 
-    // The golden pins BOTH hashes, so the snapshot itself records whether a later break moved pixels alone or
-    // moved draw ops; a recordless lane pins DrawHash as None and its golden stays honest about carrying no
-    // attribution. IO.RunAsync throws the typed Error — the runner's loud failure IS the ProofFault-coded throw.
     public static async Task FrameHashEquality(VisualRuntime runtime, RenderHashLane lane, FrameGrab grab) {
         RenderReceipt receipt = await lane.Row(grab)
             .Match(Succ: row => Captures.Shot(runtime, row), Fail: IO.fail<RenderReceipt>)
@@ -300,8 +266,6 @@ public static class ProofLaw {
             .UseTextForParameters(lane.Cell);
     }
 
-    // The seed is DECLARED, so a red property replays byte-for-byte; the @catch narrows to the proof band, so a
-    // bug outside it surfaces as itself rather than reading as a clean determinism failure.
     public static void DeterministicCapture(VisualRuntime runtime, Seq<RenderHashLane> lanes, FrameGrab grab, string seed) =>
         LaneGen(lanes).Sample(lane =>
             (lane.Row(grab).Match(
@@ -318,9 +282,6 @@ public static class ProofLaw {
         Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<EvidenceReceipt>>> probe) =>
         ProofEngine.Derive(catalog, grid, probe).TraverseM(ProofEngine.Dispatch).As();
 
-    // One composed IO: both replays, both virtual-time resets, and the shape gate ride the rail; the single
-    // terminal RunAsync throws the ProofFault.ReplayShape-coded Error on divergence. FakeTimeProvider's
-    // timestamps derive from its own clock, so the SetUtcNow reset covers the monotonic reads too.
     public static async Task ReplayDeterminism(
         CommandDeck deck,
         Seq<(string Key, JsonElement Payload, CallerModality Caller)> journal,
@@ -344,9 +305,6 @@ public static class ProofLaw {
             Task.Run(async () => await Verifier.VerifyDirectory(extractedRoot)));
 
     // --- [FOLDS]
-    // The mount precedes the collector, which binds the already-published Instrument<long> pulled off the
-    // mounted roster; an empty envelope set and a name mounted under another measurement type both refuse by
-    // name BEFORE the collector exists, because a vacuous sum and a long-typed read of a Real row both render as a passing zero.
     public static Fin<long> InstrumentFold(
         IMeterFactory factory, string version, CorrelationId root,
         LevelCells cells, Seq<TelemetryContributorPort> contributions,
@@ -364,15 +322,9 @@ public static class ProofLaw {
                                 .Map(_ => collector.GetMeasurementSnapshot().Sum(static measurement => measurement.Value)),
                             key: Op.Of(name: "proof.instrument")))));
 
-    // Slot conformance rides the SAME live application the accessibility sweep already stands up: Semi.Avalonia
-    // compiles its dictionaries into XamlClosure bodies, so IL enumeration yields one opaque blob and the roster
-    // is DERIVED per run off the live Application.Current.Styles chain — a scratch roster captured at authoring
-    // time is palette-only AND freezes a vocabulary the next bump moves while reading as a pass.
     public static Fin<Unit> SemiConformance(ResolvedTheme resolved, Seq<IStyle> chain) =>
         SemiCorrespondence.SemiCovered(resolved, SemiRoster.Walk(chain));
 
-    // Cost lane ACCUMULATES: every pass compares variance-aware against its baseline and the frame budget, and
-    // every regressed pass reports — a traverse that stopped at the first regression would hide the second.
     public static Fin<Seq<(string Pass, Duration Elapsed)>> FrameCost(
         FrameReceipt receipt, HashMap<string, Duration> baseline, FrameBudget budget, UnitInterval variance) =>
         receipt.Passes.Traverse(pass =>
@@ -383,8 +335,6 @@ public static class ProofLaw {
                 None: () => Validation<Error, (string, Duration)>.Fail((Error)new ProofFault.BaselineAbsent(pass.Pass))))
             .As().ToFin();
 
-    // Divergence magnitude on the shared advice axis: the fresh-versus-held median ratio lands on the first
-    // covering DivergenceRatio edge; a zero-length held median or non-regression folds to zero.
     public static double Divergence(BenchmarkReceipt fresh, BenchmarkReceipt held) =>
         held.Measured.Figures.Median.To() <= 0d ? 0d
             : (fresh.Measured.Figures.Median.To() / held.Measured.Figures.Median.To() - 1d) switch {
@@ -397,9 +347,6 @@ public static class ProofLaw {
     // --- [BENCH]
     public const string BenchSuite = "rasm.appui.frame";
 
-    // Warm-up frames run BEFORE the allocation bracket, so cold-JIT cost enters neither the spans nor the
-    // delta. The counted traverse COLLECTS a receipt per sample — Schedule.recurs drives repetition of one
-    // effect and discards its per-pass values, which is why the range fold stays.
     public static IO<BenchmarkReceipt> FrameBench(
         BenchLane lane,
         Func<IO<FrameReceipt>> frame,
@@ -415,15 +362,11 @@ public static class ProofLaw {
             .TraverseM(_ => ProofEngine.Advance(lane.Ticks).Bind(_ => frame()))
             .As()
         from after in IO.lift(() => GC.GetTotalAllocatedBytes(precise: true))
-        // One ascending nanosecond array feeds the sorted-array owner, so both order statistics read off the
-        // same sort; QuantileCustom under R1 (EmpiricalInvCDF) is the exact ceiling nearest-rank order statistic the branch ruling pins.
         from measured in IO.lift(() => BenchMeasurement.Of(
             spans: frames.Map(static receipt => receipt.Passes.Fold(Duration.Zero, static (total, pass) => total + pass.Elapsed)),
             allocatedBytes: after - before,
             operations: frames.Count,
             key: Op.Of()))
-        // Host identity is the spine's six intrinsic columns whole; the headless lane's own posture keys the
-        // CASE, so a stamp naming it here would split one host across two fingerprints.
         let fresh = measured.Map(figures => BenchmarkReceipt.Of(
             suite: BenchSuite,
             @case: lane.Case,
@@ -453,11 +396,9 @@ public static class ProofLaw {
 - Boundary: the validation package is DROPPED estate-wide rather than pinned back — the manifest and registry drop lands at the package owners and its row records the verdict and the resolution; the dock skin carries zero keys in its own theme dictionaries and inherits every light/dark decision from the base Semi dictionaries, so the standing obligation is VARIANT COHERENCE — the two Semi packages move to one variant vocabulary together while the dock skin may lag the dock CONTROL package freely (`Shell/navigation#DOCK_LAYOUTS` states the same obligation at the consuming boundary).
 
 ```csharp signature
-// --- [TABLES] -------------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 public sealed record GoldenLane(string Lane, string Pins, string Writer);
 
-// The roster is CONSTRUCTED data — writers derive from the entry names, so a renamed law entry breaks the row
-// at compile time; Sound proves lane uniqueness and non-blank writers where the suite-hygiene gate reads it.
 public static class GoldenLanes {
     public static readonly Seq<GoldenLane> Rows = Seq(
         new GoldenLane("render-hash", "frame hash, draw hash, colour space per capture cell", nameof(ProofLaw.FrameHashEquality)),
@@ -485,12 +426,9 @@ public sealed partial class SkewVerdict {
     public static readonly SkewVerdict Fails = new("fails");
 }
 
-// A guard row is DATA and its `Guard` column is the RE-PROOF: a witnessed verdict answers what held at the
-// version it was taken under, and only an entry that runs again answers what holds after the next bump. A
-// dropped package carries `None` — the resolution IS the removal.
 public sealed record SkewGuard(string Pair, string Mechanism, SkewVerdict Verdict, string Resolution, Option<string> Guard);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SkewGuards {
     public static readonly Seq<SkewGuard> Rows = Seq(
         new SkewGuard("validation rail over reactive major", "restore graph read, then bind-invoke", SkewVerdict.Fails,
@@ -500,9 +438,6 @@ public static class SkewGuards {
         new SkewGuard("framework Skia over pinned stack", "lease and invoke at render boundary", SkewVerdict.Binds,
             "re-proves on every bump of either side", Some(nameof(SkiaBoundary))));
 
-    // Coverage answers per (type, variant) cell: the skin defines no variant-local values of its own, so a key
-    // resolving under one variant and not the other is exactly the incoherence version proximity cannot see. A
-    // control needing no theme carries none in EITHER variant and drops out, so only asymmetric gaps report — and the WHOLE gap set rides the typed case.
     public static Fin<Unit> DockTheming(IResourceHost host, Seq<Type> controls, Seq<ThemeVariant> variants) =>
         controls
             .Map(control => (Control: control,
@@ -513,9 +448,6 @@ public static class SkewGuards {
             var gaps => Fin.Fail<Unit>(new ProofFault.DockCoverage(gaps.Strict())),
         };
 
-    // The declared graphics dependency is a FLOOR the loader satisfies with a higher major, so a green restore
-    // proves nothing and the only honest guard is the crossing itself. Each probe refuses BY NAME, so a failure
-    // says WHICH crossing broke; an absent feature IS the answer on a non-Skia backend.
     public static IO<Fin<Unit>> SkiaBoundary(ImmediateDrawingContext context) =>
         IO.lift(() => context.TryGetFeature<ISkiaSharpApiLeaseFeature>(out ISkiaSharpApiLeaseFeature? feature) && feature is not null
             ? Custody.Bracket(

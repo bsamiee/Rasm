@@ -28,15 +28,12 @@ Brokered dry-runs price tool calls before invocation, dispatch routes through th
 - Boundary: the MCP projection is a read-only view of the capability registry. Every advertised tool is a real registry descriptor adopted as an `AIFunction`, and every tool call routes directly through the command algebra. JSON-RPC framing, initialization, and method dispatch belong to the SDK; no ControlService dispatch RPC shadows that path.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class McpMethod {
     public static readonly McpMethod Initialize = new("initialize", cacheable: false);
-    // `server/discover` is the 2026-07-28 negotiation entry: a client learns the served surface WITHOUT the
-    // `initialize` handshake, which is the whole reason a stateless revision can answer a cold peer. Omitting the
-    // row left the roster reading closed while the SDK's `RequestMethods.ServerDiscover` served underneath it.
     public static readonly McpMethod ServerDiscover = new("server/discover", cacheable: true);
     public static readonly McpMethod ToolsList = new("tools/list", cacheable: true);
     public static readonly McpMethod ToolsCall = new("tools/call", cacheable: false);
@@ -45,36 +42,24 @@ public sealed partial class McpMethod {
     public static readonly McpMethod ResourcesRead = new("resources/read", cacheable: true);
     public static readonly McpMethod PromptsList = new("prompts/list", cacheable: true);
     public static readonly McpMethod PromptsGet = new("prompts/get", cacheable: false);
-    // One opt-in request replaces per-resource subscribe and unsubscribe, and the server answers with the subset
-    // it actually honours, so a client learns its real change feed instead of assuming one.
     public static readonly McpMethod SubscriptionsListen = new("subscriptions/listen", cacheable: false);
     public static readonly McpMethod Ping = new("ping", cacheable: false);
 
-    // Cacheability is not this page's choice — the SDK fixes it by implementing `ICacheableResult` on exactly
-    // this row set, so the column TRANSCRIBES that roster and the projection reads it rather than each handler
-    // deciding freshness for itself. A row the SDK later makes cacheable flips one cell.
     public bool Cacheable { get; }
 }
 
-// Effect and idempotency ride the row as COLUMNS and every SDK annotation derives from them: the invoker's
-// route-ceiling gate needs the class itself, which no boolean carries.
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record McpTool(
     string Name,
     string Title,
     JsonElement InputSchema,
     JsonElement OutputSchema,
     EffectClass Effect,
-    // Named `Repeat` rather than `Idempotency`: a column whose name equals its own type name resolves to the
-    // column inside the record, making every static row on the type unreachable from its own members.
     Idempotency Repeat,
     MeterVector EstimatedCost) {
     public McpAnnotations Hints => McpAnnotations.Of(Effect, Repeat);
 }
 
-// SDK tool hints project ONCE as a boundary value off exactly two facts, rather than
-// four `bool` members on the domain record each reader could re-derive differently. `Destructive` is the
-// complement of `ReadOnly` and never a fourth answer; `Approval` also decides the serving wrapper.
 public readonly record struct McpAnnotations(bool ReadOnly, bool Idempotent, bool Approval) {
     public bool Destructive => !ReadOnly;
 
@@ -83,9 +68,6 @@ public readonly record struct McpAnnotations(bool ReadOnly, bool Idempotent, boo
             Idempotent: Repeatable(repeat.Regime),
             Approval: effect == EffectClass.Irreversible);
 
-    // `idempotentHint` asks whether repeating a call with the same arguments adds no further effect, which the
-    // KEY REGIME answers directly: an intrinsically repeat-safe op and a caller-keyed one do, a host-minted
-    // once key and an absent key do not. A fifth regime breaks this arm rather than falling through it.
     static bool Repeatable(KeyRegime regime) => regime.Switch(
         intrinsic: static () => true,
         supplied: static () => true,
@@ -93,20 +75,12 @@ public readonly record struct McpAnnotations(bool ReadOnly, bool Idempotent, boo
         absent: static () => false);
 }
 
-// Freshness is ONE value over the whole cacheable row set rather than a per-method knob: every cacheable result
-// here derives from the same registry read under the same degradation level, so a per-row window would let two
-// peers disagree about one catalog. `Scope` answers whether a shared cache may hold the response — a tenancy
-// question, since the served surface is level-gated and the level is host-wide, not per-caller.
 public readonly record struct CatalogFreshness(Option<Duration> Window, CacheScope Scope) {
-    // Absence here is the SDK's immediately-stale reading spelled OUT, so a composition declining to publish a
-    // hint says so rather than reaching this state by omission.
     public static readonly CatalogFreshness Stale = new(None, CacheScope.Public);
 
     public Option<TimeSpan> Hint => Window.Map(static held => held.ToTimeSpan());
 }
 
-// Three list families carry the notifications the SDK fires, one per family a peer subscribed to. Changes cross
-// as the FAMILY rather than the method, because one registry read re-authors every list it feeds.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record McpCatalogChange {
     private McpCatalogChange() { }
@@ -124,37 +98,23 @@ public sealed record McpCatalog(
     Seq<McpTool> Tools,
     Seq<McpResource> Resources,
     Seq<McpPrompt> Prompts,
-    // Level rides the value this projection READ, beside the rows it produced. Freshness is a claim about a
-    // catalog's remaining truth, and truth here is level-scoped, so the level rides the value rather than being
-    // re-read at the serving edge — two reads straddling a degradation move would stamp a window onto rows the
-    // other level produced.
     DegradationLevel Level,
     CatalogFreshness Freshness) {
     public static readonly McpCatalog Empty = new([], [], [], DegradationLevel.Normal, CatalogFreshness.Stale);
 
-    // `ICacheableResult` fills for a cacheable method row and stays absent for every other, so
-    // one projection answers every serving handler and no handler re-decides freshness.
     public Option<TimeSpan> Hint(McpMethod method) => method.Cacheable ? Freshness.Hint : None;
 
     public CacheScope Scope => Freshness.Scope;
 
-    // Families whose rows differ between two projections — the notification set `Announce` fans. Comparing the
-    // PRODUCED rows rather than the level itself keeps a level move that changes nothing silent, so a peer's
-    // cache survives a degradation that never touched its catalog.
     public Seq<McpCatalogChange> Since(McpCatalog held) =>
         Moved(Tools, held.Tools, static () => new McpCatalogChange.Tools())
             .Append(Moved(Prompts, held.Prompts, static () => new McpCatalogChange.Prompts()))
             .Append(Moved(Resources, held.Resources, static () => new McpCatalogChange.Resources()));
 
-    // Structural `Seq` equality over records IS the comparison — the rows are values, so a re-projection landing
-    // an identical family compares equal and announces nothing. The change constructs on the moved arm alone.
     static Seq<McpCatalogChange> Moved<T>(Seq<T> now, Seq<T> held, Func<McpCatalogChange> change) =>
         now == held ? [] : [change()];
 }
 
-// Two columns because two consumers need different halves: the model and the SDK take `Function`, while the
-// receipt-asserting invoker and the prompt and resource mints take `Command`, so a wrapper cannot hide the
-// brokered identity from the assertion that exists to check it.
 public sealed record McpAdoptedTool(
     McpTool Descriptor,
     CommandAIFunction Command,
@@ -168,7 +128,7 @@ public sealed record McpAdoption(
     public IEnumerable<McpServerTool> ServerTools => Tools.Map(static adopted => adopted.ServerTool);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ToolProjection {
     public static McpTool Tool(CapabilityMatch descriptor, JsonElement outputSchema) =>
         new(
@@ -180,8 +140,6 @@ public static class ToolProjection {
             Repeat: descriptor.Idempotency,
             EstimatedCost: descriptor.Estimated);
 
-    // Level reads ONCE and rides the value: `Discover` filters on it and the projection stamps that same read,
-    // so no freshness window a peer receives describes rows a different level produced.
     public static McpCatalog Project(McpRuntime runtime) =>
         runtime.Level() is var level
         && runtime.Registry.Discover(new DiscoveryQuery.Permitting(level)) is var rows
@@ -196,19 +154,11 @@ public static class ToolProjection {
                     .Map(row => new McpPrompt(row.Descriptor, row.Arguments.Schema)))
             : McpCatalog.Empty;
 
-    // One re-projection seat: a level move re-reads the registry, announces only the families whose rows
-    // moved, and yields the catalog that replaces the held one. Announcing before yielding is the
-    // ordering that matters — a peer told to invalidate then re-listing reads the new catalog, while the
-    // reverse order serves a window over rows the notification has not yet invalidated.
     public static IO<McpCatalog> Refresh(McpRuntime runtime, McpCatalog held) =>
         from projected in IO.pure(Project(runtime))
         from _ in projected.Since(held).Traverse(runtime.Announce).As()
         select projected;
 
-    // All three primitives share ONE mint shape — `McpServerPrompt.Create` and `McpServerResource.Create` are
-    // exact `AIFunction` peers of `McpServerTool.Create` — so the tool leg folds FIRST into a descriptor-keyed
-    // index of brokered functions and the prompt and resource legs each look their own row up in it. Handing
-    // those two mints one delegate where the delegate takes two routes them around the broker entirely.
     public static McpAdoption Adopt(McpRuntime runtime, McpCatalog catalog) {
         var tools = catalog.Tools.Map(tool => Adopted(runtime, tool));
         var brokered = tools.ToFrozenDictionary(static row => row.Descriptor.Name, static row => row.Command, StringComparer.Ordinal);
@@ -222,8 +172,6 @@ public static class ToolProjection {
                 : Option<McpServerResource>.None));
     }
 
-    // Both the brokered function and its serving wrapper ride the adopted row, so an approval wrapper never
-    // hides the brokered identity from the invoker that must assert on it.
     static McpAdoptedTool Adopted(McpRuntime runtime, McpTool tool) {
         var command = new CommandAIFunction(runtime, tool);
         McpAnnotations hints = tool.Hints;
@@ -240,18 +188,14 @@ public static class ToolProjection {
                         ReadOnly = hints.ReadOnly,
                         Destructive = hints.Destructive,
                         Idempotent = hints.Idempotent,
-                        // `UseStructuredContent` is what carries the receipt across the protocol boundary;
-                        // unset, the receipt degrades to a text block under a schema nothing fills.
                         UseStructuredContent = true,
-                        // Left unset the SDK defaults `OutputSchema` to the return type's shape, which is
-                        // the invoker's and never the receipt's.
                         OutputSchema = tool.OutputSchema,
                         SerializerOptions = runtime.Wire,
                     }));
     }
 }
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class CommandAIFunction(McpRuntime runtime, McpTool tool) : AIFunction {
     public override string Name => tool.Name;
     public override string Description => tool.Title;
@@ -259,15 +203,6 @@ public sealed class CommandAIFunction(McpRuntime runtime, McpTool tool) : AIFunc
     public EffectClass Effect => tool.Effect;
     public override JsonElement JsonSchema { get; } = tool.InputSchema;
 
-    // Tenant identity is a per-invocation fact resolved on the caller's async flow, never an adoption-time
-    // capture; `Correlation` ADOPTS the ambient MRTR round, so every round of one logical call keys ONE
-    // identity and the ask, the transient consent, the charge, and the receipt each land once.
-    //
-    // The return is the `CommandReceipt` itself — the in-process invoker carries it verbatim onto the function
-    // result and the serving leg serializes it into `CallToolResult.StructuredContent` under the declared
-    // schema. The MRTR suspension crosses the IO rail as its own exception identity, so THIS edge unwraps and
-    // rethrows it raw: the SDK's input_required framing keys on the type, and a wrapped one serializes as a
-    // tool fault instead of a suspension.
     protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken) {
         try {
             return await McpDispatch.Call(runtime, tool.Name, ServerInitiated.Round.Match(
@@ -295,7 +230,7 @@ public sealed class CommandAIFunction(McpRuntime runtime, McpTool tool) : AIFunc
 - Boundary: the tool dispatch is the only MCP execution owner — it never executes an op itself, it routes through the command algebra, so the transaction, grant, and cost semantics are the command algebra's and the MCP layer is the protocol projection over the SDK; a `CommandReceipt` crosses the MCP SERVER boundary only as JSON on `CallToolResult.StructuredContent` under the tool's declared `OutputSchema`, reconstructed by the remote caller — the SDK's tool adapter converts any non-`AIContent` return by serializing it, so the CLR instance is gone at the protocol edge by construction and a receipt is a live value only on the in-process side of the seam, which is exactly why `Call` yields it and `Project` alone shapes what crosses; the dry-run preview is backed by the broker's simulate fold and projected through the input-required ask, so the preview and the charge share one pricing source and the ask never becomes a second admission decision; `McpServer.IsMrtrSupported` is the ONE availability read and it gates the suspension alone — a supported client suspends, an unsupported one falls to the broker refusal, and no arm blocks on a round trip the stateless transport cannot open; the suspension crosses the IO rail as the SDK's own `InputRequiredException` identity, unwrapped and rethrown raw at the one transport edge, because the SDK's input_required framing keys on the exception type and a wrapped error would serialize as a tool fault; the retry decodes off the SDK params exactly once, at the call-tool request filter — an interior member never touches an SDK params shape, and an unparseable `RequestState` runs as a first round rather than faulting the retry; cancellation maps the SDK's `notifications/cancelled` onto the `CancelScope` the call derived, so an agent cancel propagates through the same cancel spine a drain or deadline propagates through, never a parallel cancellation flag; the `isError` result and the JSON-RPC error are distinct — a tool that runs and reports a domain failure returns `isError: true` content while a tool that cannot run returns a JSON-RPC `McpFault`, so the agent distinguishes a failed execution from a refused dispatch; the `McpRuntime.Wire` `JsonSerializerOptions` is the single converter-owner handle threaded from the composition edge into the runtime record — the `PROTOCOL_EDGE`/`CONVERTER_OWNER` law admits it only as that one handle the dispatch reads when it projects a `CommandReceipt` onto a structured result, never a codec surface the interior transforms re-derive or a second serializer beside the generated Thinktecture and NodaTime converters.
 
 ```csharp signature
-// --- [ERRORS] ---------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record McpFault : Fault {
     private static readonly FaultBand FamilyBand = FaultBand.Mcp;
@@ -311,9 +246,6 @@ public abstract partial record McpFault : Fault {
     public sealed partial record CostRejected : McpFault { public CostRejected(string detail) : base(detail) { } }
     [FaultCase(3)]
     public sealed partial record Cancelled : McpFault { public Cancelled(string detail) : base(detail) { } }
-    // Five rows the catch-all erased, each a different remote answer: an execution fault is retriable, an
-    // uncompensated one leaves state UNCERTAIN and must never be retried blind, an incomplete macro is a
-    // client-side gap, a veto is a policy refusal, and a shed call asks to be asked again later.
     [FaultCase(4)]
     public sealed partial record ExecutionFailed : McpFault, ICausedFault {
         public ExecutionFailed(string detail, Error cause) : base(detail) => Cause = cause;
@@ -329,15 +261,13 @@ public abstract partial record McpFault : Fault {
     public sealed partial record Shed : McpFault { public Shed(string detail) : base(detail) { } }
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record CostPreview(
     string Tool,
     MeterVector Estimated,
     bool Covered,
     Option<string> ShortfallUnit);
 
-// This ask crosses as a form-mode `InputRequest` whose `RequestedSchema` spells exactly these two fields and
-// the retry's `InputResponse` decodes back through the wire options' `JsonTypeInfo` — one type, both ways.
 public sealed record CostApproval(bool Approved, string Approver);
 
 public sealed record ToolResult(
@@ -346,48 +276,26 @@ public sealed record ToolResult(
     bool IsError,
     CorrelationId Correlation);
 
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record McpRuntime(
     CapabilityRegistry Registry,
     CommandRuntime Command,
     GrantBroker Broker,
     Func<DegradationLevel> Level,
-    // The primitive mints for the non-tool halves of the declared method axis, each the AIFunction-shaped
-    // Create peer of McpServerTool.Create — so all three primitives adopt the ONE brokered CommandAIFunction
-    // and a prompt or resource can never route around the broker the tool leg goes through.
     Func<McpPrompt, CommandAIFunction, McpServerPrompt> MintPrompt,
     Func<McpResource, CommandAIFunction, McpServerResource> MintResource,
-    // The ingress-tenancy adoption the incoming message filter runs before any tool executes: it reads the
-    // carrier's own claims principal off MessageContext.User and resolves it under the MCP carrier's
-    // TenantAdoption trust row, so an adopting leg yields the wire tenant and a refusing leg the root row.
     Func<ClaimsPrincipal?, TenantContext> Adopt,
-    // The consent-elevation seat: the call-tool filter hands an approved retry answer here and the
-    // composition lands the transient Consent.Elevated its own ConsentOf resolver reads for the round's
-    // correlation — scoped, so the elevation dies with the round and never becomes a standing grant.
     Func<McpRound, CostApproval, IDisposable> Elevate,
-    // Freshness policy for every `McpMethod.Cacheable` row, supplied by the composition rather than pinned here:
-    // how long a peer may hold a catalog is a deployment fact, and an absent hint is the SDK's own
-    // immediately-stale reading, which costs every consumer a re-list per turn.
     CatalogFreshness Freshness,
-    // This arrow is what makes any TTL safe. `Permitting` gating means the served catalog is a function of the
-    // CURRENT degradation level, so the level moving re-authors what a peer already cached; the SDK's own
-    // contract is that a relevant notification invalidates a cached response regardless of remaining TTL, so the
-    // hint and this arrow ship together or neither ships. A composition binds it to the honoured subset the
-    // server answered on `subscriptions/listen`.
     Func<McpCatalogChange, IO<Unit>> Announce,
     ClockPolicy Clocks,
     ReceiptSinkPort Sink,
     JsonSerializerOptions Wire);
 
-// `State` is the host-minted opaque `RequestState` a retry echoes and it PACKS the first round's correlation,
-// so the ask, the transient consent, the charge, and the receipt each key ONE identity across every round.
 public sealed record McpRound(string State, CorrelationId Correlation, Option<CostApproval> Approval) {
     public static string Mint(CorrelationId correlation, JsonSerializerOptions wire) =>
         Base64Url.EncodeToString(JsonSerializer.SerializeToUtf8Bytes(correlation, wire));
 
-    // A retry round decodes off the SDK params exactly once, at the call-tool request filter: an unparseable
-    // state is a foreign or replayed token, so the call runs as a FIRST round rather than faulting the retry,
-    // and the CostAsk answer decodes here so no interior member touches an SDK params shape.
     public static Option<McpRound> Of(string? state, IDictionary<string, InputResponse>? answers, JsonSerializerOptions wire) =>
         Optional(state)
             .Bind(token => Base64Url.IsValid(token)
@@ -403,29 +311,16 @@ public sealed record McpRound(string State, CorrelationId Correlation, Option<Co
                     : None)));
 }
 
-// Under the elected stateless revision the server opens NO round trip of its own — a mid-call ask suspends the
-// tool call as an input_required result and the CLIENT retries the same `tools/call` with the answers plus the
-// echoed `RequestState`.
-// --- [BOUNDARIES] ------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public static class ServerInitiated {
     public const string CostAsk = "cost-approval";
 
-    // Both ambients are kernel `AmbientSlot` values reached from deep inside a tool body that threads no
-    // server handle, and each exists only inside the filter scope that opened it: the message filter for the
-    // live server, the call-tool filter for the retry round. Both are declared ONE-LEVEL because each filter
-    // wraps the whole downstream flow and nothing nests inside it, so a second `Enter` is a defect at the seam
-    // that nested rather than a value a reader must disambiguate. Unbound is `None` — a first round carries no
-    // round scope, and neither absence faults. NAMED LOSS: the retired hand scope's `Interlocked` double-
-    // dispose guard, unreachable under the slot's `using`-only contract.
     public static readonly AmbientSlot<McpServer> Live = AmbientSlot<McpServer>.One("mcp-session");
     public static readonly AmbientSlot<McpRound> Retry = AmbientSlot<McpRound>.One("mcp-round");
 
     public static Option<McpServer> Current => Live.Current;
     public static Option<McpRound> Round => Retry.Current;
 
-    // A FIRST round whose client speaks MRTR SUSPENDS — the tool fails with the SDK's own
-    // `InputRequiredException` carrying the form-mode ask and the minted `RequestState`, and the transport edge
-    // rethrows that identity raw. A client without the rail refuses on the typed rail instead of blocking.
     public static IO<Fin<CostApproval>> Confirm(McpRuntime runtime, CostPreview preview, CommandArguments arguments) =>
         Current.Filter(static server => server.IsMrtrSupported).Match(
             Some: _ => IO.fail<Fin<CostApproval>>(Capture(new InputRequiredException(
@@ -447,7 +342,7 @@ public static class ServerInitiated {
     static Error Capture(Exception raised) => Error.New(raised.Message, raised);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class McpDispatch {
     public static IO<CostPreview> Preview(McpRuntime runtime, string tool, CommandArguments arguments) =>
         runtime.Registry.Resolve(tool).Match(
@@ -456,9 +351,6 @@ public static class McpDispatch {
                 Fail: fault => new CostPreview(tool, descriptor.Cost.Estimate(arguments), Covered: false, Shortfall(fault)))),
             None: () => IO.pure(new CostPreview(tool, MeterVector.Zero, Covered: false, Some(nameof(McpFault.UnknownTool)))));
 
-    // The unknown-tool arm is the ALGEBRA's, so a second resolve-and-refuse here would fork the not-found path
-    // and mint a result no evidence stream sees. The pre-flight ask runs once per LOGICAL call: a retry round
-    // skips it whole, because the answer rode in with the round and the request filter already seated consent.
     public static IO<CommandReceipt> Call(McpRuntime runtime, string tool, CommandArguments arguments) =>
         arguments.Round.IsSome
             ? CommandAlgebra.Run(runtime.Command, tool, arguments)
@@ -467,9 +359,6 @@ public static class McpDispatch {
               from receipt in CommandAlgebra.Run(runtime.Command, tool, arguments)
               select receipt;
 
-    // THE one `CommandReceipt`-to-`ToolResult` fold every front door shares, and the transport EDGE where a
-    // receipt stops being a CLR value: `Agent/runtime` `CommandDispatch.Project` and the federated projection
-    // both delegate HERE, never a switch copy.
     public static ToolResult Project(string tool, CommandReceipt receipt) =>
         receipt.Txn.Switch(
             committed: c => new ToolResult(tool,
@@ -515,7 +404,7 @@ public static class McpDispatch {
 - Boundary: a progress frame is EPHEMERAL narration and the receipt is the durable truth — the terminal `CommandReceipt` commits in the `Wire/outbox#OUTBOX_FABRIC` transactional store as every receipt does, while no frame store, replay cursor, or resume token exists on either side of the wire, because the SDK's whole SSE event-store family is the obsolete back-compat rail the served-revision election deleted and a reconnecting agent recovers through the poll leg and the idempotent retry instead; `ProgressFrame` therefore carries no sequence column of its own, and the host conflates nothing with the per-request `progressToken` (typed `object`, string-or-long) the SDK correlates live notifications by; intermediate `Progress` and `Partial` frames belong to the EXECUTING producer — the host owns the frame vocabulary and the one fan, while the fraction and the chunk come from the fold that measured them, so a host-side fraction interpolated between the terminal frames is the fabricated measurement this split deletes and a fold reporting its own stage fractions crosses as raw `double` onto `ProgressFrame.Progress` at the `Report` seat; whether a producer may report at all is its own contract's admission column, read where the plugin emits and never re-derived at this dispatch; the streaming substrate is the SDK's progress-notification transport and its request-polling leg — a bespoke WebSocket, a gRPC server-stream, and a host-held frame buffer are the deleted forms; the session roster keys by the agent's `PeerCredential` from the accept seam, mirroring the `PeerRoster` lease-epoch law, so a vanished agent's session sweeps on the same crash-staleness window; cancellation and deadline never race silently — a deadline-expired stream emits a `Failed` frame carrying the `DeadlineReceipt` while a cancelled stream emits `Cancelled`, so the agent distinguishes timeout from cancel.
 
 ```csharp signature
-// --- [TYPES] -----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProgressFrame {
     private ProgressFrame() { }
@@ -527,9 +416,7 @@ public abstract partial record ProgressFrame {
     public sealed record Cancelled(string Reason) : ProgressFrame;
 }
 
-// A credential, a cancel spine, and a lease — the whole cell. A frame buffer or resume cursor beside it would
-// answer a reattach the elected revision routes to the poll leg and the idempotency key instead.
-// --- [SERVICES] --------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed record AgentSession(PeerCredential Agent, CancelScope Spine, Instant LeaseUntil) {
     public static AgentSession Open(PeerCredential agent, CancelScope parent, ClockPolicy clocks) =>
         new(agent, parent.Derive($"agent-{agent.Pid}", clocks.Time), clocks.Now + LeasePolicy.Maintenance.CrashStaleness);
@@ -537,7 +424,7 @@ public sealed record AgentSession(PeerCredential Agent, CancelScope Spine, Insta
     public string Key => Agent.Pid.ToString(CultureInfo.InvariantCulture);
 }
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class StreamProgress {
     public static IO<ToolResult> Stream(McpRuntime runtime, AgentSession session, string tool, CommandArguments arguments, IProgress<ProgressNotificationValue> reporter) =>
         from _start in Report(reporter, new ProgressFrame.Started(tool))
@@ -552,17 +439,12 @@ public static class StreamProgress {
             cancelled: x => IO.pure(new ToolResult(tool, [JsonValue.Create(x.Reason)!], IsError: true, arguments.Correlation)))
         select result;
 
-    // `Dispatched` answers a TERMINAL frame by construction, so an intermediate one arriving here is a
-    // producer publishing through the wrong seat. It refuses rather than framing an empty success the client
-    // would read as a completed call — which is exactly what the retired catch-all did for all three.
     static IO<T> Nonterminal<T>(ProgressFrame frame) =>
         IO.fail<T>(new KernelFault.InvalidResult(Op.Of(), Some($"<non-terminal-frame:{frame.GetType().Name}>")));
 
     public static IO<Unit> Report(IProgress<ProgressNotificationValue> reporter, ProgressFrame frame) =>
         IO.lift(() => { reporter.Report(ToNotification(frame)); return unit; });
 
-    // The call runs under a scope DERIVED from the session spine, so `notifications/cancelled` cancels this
-    // call alone — a bare ambient token cancels the whole agent.
     static IO<ProgressFrame> Dispatched(McpRuntime runtime, AgentSession session, string tool, CommandArguments arguments) =>
         IO.liftAsync(async () => {
             using var call = session.Spine.Derive(tool, runtime.Clocks.Time);
@@ -660,24 +542,15 @@ await builder.Build().RunAsync();
 var web = WebApplication.CreateBuilder(args);
 web.Services.AddSingleton(mcpRuntime);
 web.Services.AddMcpServer()
-    // The transport serves its stateless default per the folder's revision-election ruling: no `Stateless` pin,
-    // no `EventStreamStore`, no session state — the client's retry with the echoed `RequestState` is the whole
-    // resume story.
     .WithHttpTransport()
     .WithTools(adopted.ServerTools)
     .WithPrompts(adopted.Prompts)
     .WithResources(adopted.Resources)
-    // The ONE ingress seam an MCP message crosses before its tool runs, where the MCP carrier ADMITS tenancy
-    // per the folder's ingress ruling. Registration wraps the HANDLER, never the call, so the scope encloses
-    // the whole downstream flow — and the same filter seats the live server, because `MessageContext` carries
-    // both the principal and the server and the MRTR availability guard reads off that handle.
     .WithMessageFilters(filters => filters.AddIncomingFilter(next => async (context, ct) => {
         using var tenancy = Correlation.Stamp(mcpRuntime.Adopt(context.User));
         using IDisposable session = ServerInitiated.Live.Enter(context.Server).ThrowIfFail();
         await next(context, ct).ConfigureAwait(false);
     }))
-    // A retry's `RequestState` and `CostAsk` answer decode ONCE at this edge, the round scope stamps for the
-    // downstream flow, and an approved answer seats the transient consent for exactly this round's lifetime.
     .WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, ct) => {
         Option<McpRound> round = McpRound.Of(request.Params?.RequestState, request.Params?.InputResponses, mcpRuntime.Wire);
         using IDisposable? scope = round.Map(row => ServerInitiated.Retry.Enter(row).ThrowIfFail()).ValueUnsafe();

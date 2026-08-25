@@ -29,7 +29,7 @@ Eto runtime floor of the Grasshopper boundary is now the KERNEL `Rasm/Interactio
 - Growth: a measured per-lane pathology is one stretch row in the policy this producer seats; the entry never widens.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Numerics;
@@ -37,11 +37,7 @@ using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Eto;
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// `Lease<T>.Owned` carries a value alone, so this capsule IS the release arrow: it holds the handler
-// this timer cannot surrender back, plus the mint key its own marshal reuses, and `Dispose` stops,
-// detaches, and disposes inside one marshal. A refusal parks on the composition's cell — the telemetry
-// root's read — under this capsule's point id; the park's own accounting carries the verdict.
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed class TimerHold : IDisposable {
     private readonly Lazy<Unit> release;
 
@@ -60,9 +56,7 @@ public sealed class TimerHold : IDisposable {
             () => { timer.Dispose(); return Fin.Succ(unit); }), key);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// Platform half of the kernel clock: the kernel owns identity (beat, drift, misses, posture, custody);
-// this supplier owns the UITimer lease and nothing else.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class EtoTimer {
     private static readonly HookId Rail = HookId.Create(value: "rasm.grasshopper.eto.timer");
@@ -87,17 +81,12 @@ public static class EtoTimer {
                                : Fin.Succ(unit),
                            key: op);
                    }), DispatchLane.Interactive, op)
-               // `Owned` carries the capsule alone: the ONE idempotent UI-affine release is `TimerHold.Dispose`,
-               // marshalled on the same lane, and its refusal parks on the composition's FaultCell rather than vanishing.
                select (Lease<TimerHold>)new Lease<TimerHold>.Owned(
                    Value: new TimerHold(
                        timer: minted.Timer, handler: minted.Handler, faults: faults, point: Rail, key: op));
     }
 }
 
-// Measured frame-interval producer (E-G41): scale the kernel pace band to the display this process
-// runs on and seat it — the watchdog's budgets derive from the seated pace, so a 120 Hz display
-// stops reading as on-time at 60 Hz the moment the measurement lands.
 [BoundaryAdapter]
 public static class FrameTune {
     public static Fin<Unit> Feed(PositiveMagnitude interval, Option<MonotonicTimeline> clock = default, Op? key = null) {

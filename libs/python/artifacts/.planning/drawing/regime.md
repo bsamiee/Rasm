@@ -36,8 +36,8 @@ from rasm.artifacts.graphic.vector.pattern import HatchFill, PRESETS, SectionPat
 from rasm.artifacts.typography.font import FaceMetrics
 
 # --- [TYPES] ----------------------------------------------------------------------------
-type Lch = tuple[float, float, float]  # CIE LCh(ab) pen coordinates — derive resolves the target model from the value
-type Pattern = tuple[float, ...]  # ezdxf linetype row: total pattern length, then +dash / -gap / 0.0 dot (mm at 1:1)
+type Lch = tuple[float, float, float]
+type Pattern = tuple[float, ...]
 type NameFault = Literal["<malformed-name>", "<unknown-code>"]
 
 type Major = Annotated[str, Is[lambda s: 1 <= len(s) <= 4 and s.isascii() and s.isalnum() and s.isupper()]]
@@ -51,7 +51,7 @@ type Sequence99 = Annotated[int, Is[lambda n: 1 <= n <= 99]]
 type PaperRank = Annotated[int, Is[lambda n: 0 <= n <= 10]]
 
 
-class LineType(StrEnum):  # ISO 128-2:2020 Table 1 basic line types
+class LineType(StrEnum):
     CONTINUOUS = "CONTINUOUS"
     DASHED = "ISO_DASHED"
     DASHED_SPACED = "ISO_DASHED_SPACED"
@@ -73,7 +73,7 @@ class LineType(StrEnum):  # ISO 128-2:2020 Table 1 basic line types
         return _LINETYPE[self]
 
 
-class LineWeight(StrEnum):  # ISO 128-20 R10 line-width cascade (mm)
+class LineWeight(StrEnum):
     W013 = "0.13"
     W018 = "0.18"
     W025 = "0.25"
@@ -90,14 +90,12 @@ class LineWeight(StrEnum):  # ISO 128-20 R10 line-width cascade (mm)
 
     @property
     def group(self) -> "Option[tuple[LineWeight, LineWeight]]":
-        # ISO 128-20 two-width group (wide:narrow = 2:1): self wide, partner two R10 steps down;
-        # W013/W018 have no standards-valid partner, so the pair is Nothing, never a fabricated 1:1 clamp.
         order = tuple(LineWeight)
         rank = order.index(self)
         return Some((self, order[rank - 2])) if rank >= 2 else Nothing
 
 
-class HatchMaterial(StrEnum):  # ISO 128-50 section-hatch material indications
+class HatchMaterial(StrEnum):
     STEEL = "steel"
     ALUMINIUM = "aluminium"
     CONCRETE = "concrete"
@@ -113,7 +111,7 @@ class HatchMaterial(StrEnum):  # ISO 128-50 section-hatch material indications
     GLASS = "glass"
 
 
-class ScaleRatio(StrEnum):  # ISO 5455 recommended drawing scales
+class ScaleRatio(StrEnum):
     E50 = "50:1"
     E20 = "20:1"
     E10 = "10:1"
@@ -134,16 +132,16 @@ class ScaleRatio(StrEnum):  # ISO 5455 recommended drawing scales
     R10000 = "1:10000"
 
     @property
-    def ratio(self) -> str:  # the printed "1:100" string title block and dimension suffix draw
+    def ratio(self) -> str:
         return self.value
 
     @property
-    def factor(self) -> float:  # paper-over-model — derived from the ratio arithmetic, never a parallel table
+    def factor(self) -> float:
         paper, model = (float(p) for p in self.value.split(":"))
         return paper / model
 
 
-class Discipline(StrEnum):  # AIA CAD-Layer-Guidelines / ISO 13567 discipline designators
+class Discipline(StrEnum):
     ARCHITECTURAL = "A"
     CIVIL = "C"
     ELECTRICAL = "E"
@@ -164,7 +162,7 @@ class Discipline(StrEnum):  # AIA CAD-Layer-Guidelines / ISO 13567 discipline de
     CONTRACTOR = "Z"
 
 
-class Status(StrEnum):  # AIA / ISO 13567 layer-status field
+class Status(StrEnum):
     NEW = "N"
     EXISTING = "E"
     DEMOLISH = "D"
@@ -175,7 +173,7 @@ class Status(StrEnum):  # AIA / ISO 13567 layer-status field
     NOT_IN_CONTRACT = "X"
 
 
-class SheetType(StrEnum):  # NCS / UDS sheet-type designators — the 2nd char of a sheet id
+class SheetType(StrEnum):
     GENERAL = "0"
     PLAN = "1"
     ELEVATION = "2"
@@ -188,7 +186,7 @@ class SheetType(StrEnum):  # NCS / UDS sheet-type designators — the 2nd char o
     THREE_D = "9"
 
 
-class TextHeight(StrEnum):  # ISO 3098 nominal lettering height cascade (mm)
+class TextHeight(StrEnum):
     H2_5 = "2.5"
     H3_5 = "3.5"
     H5 = "5.0"
@@ -202,7 +200,7 @@ class TextHeight(StrEnum):  # ISO 3098 nominal lettering height cascade (mm)
         return float(self.value)
 
 
-class LetteringStyle(StrEnum):  # ISO 3098 lettering type — stroke and proportion ratios of the height h
+class LetteringStyle(StrEnum):
     TYPE_A = "A"
     TYPE_B = "B"
 
@@ -212,12 +210,12 @@ class LetteringPosture(StrEnum):
     INCLINED = "inclined"
 
 
-class Terminator(StrEnum):  # ISO 129-1 line-end family — proportion geometry is drawing/symbol's
+class Terminator(StrEnum):
     FILLED_ARROW = "filled_arrow"
     OPEN_ARROW = "open_arrow"
     OBLIQUE_STROKE = "oblique_stroke"
     DOT = "dot"
-    ORIGIN_INDICATION = "origin_indication"  # small open circle — the ordinate/chain origin mark
+    ORIGIN_INDICATION = "origin_indication"
     NONE = "none"
 
     @property
@@ -225,22 +223,18 @@ class Terminator(StrEnum):  # ISO 129-1 line-end family — proportion geometry 
         return _TERMINATOR[self]
 
 
-class LayerSchema(StrEnum):  # the published layer-name grammars the one LayerName owner projects
+class LayerSchema(StrEnum):
     AIA = "aia"
     ISO13567 = "iso13567"
     NCS = "ncs"
 
 
-class PaperSeries(StrEnum):  # ISO 216 trim series — sizes derive by halving, never a frozen size table
+class PaperSeries(StrEnum):
     A = "A"
     B = "B"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
-# The ONE drawing-plane ingress contract: a refinement or type violation refuses as `ValueError`, the member every
-# producer's own `_FAULTS` tuple already carries, so a malformed head argument rails at the calling seam instead of
-# throwing a beartype type into an interior that catches provider faults alone. Every drawing producer head composes
-# this conf; a second `BeartypeConf` anywhere below this floor forks the refusal class the boundary tuples admit.
 INGRESS: Final[BeartypeConf] = BeartypeConf(violation_type=ValueError)
 _AIA_NAME: Final[re.Pattern[str]] = re.compile(r"^(?P<d>[A-Z])-(?P<major>[A-Z0-9]{1,4})(?:-(?P<minor>[A-Z0-9]{1,4}))?-(?P<status>[A-Z])$")
 _NCS_NAME: Final[re.Pattern[str]] = re.compile(
@@ -257,28 +251,25 @@ _SHEET_ID: Final[re.Pattern[str]] = re.compile(r"^(?P<d>[A-Z])-(?P<t>[0-9])(?P<s
 
 # --- [MODELS] ---------------------------------------------------------------------------
 class LetteringRow(Struct, frozen=True):
-    # full ISO 3098 geometry, every ratio relative to nominal cap height h.
-    stroke: float  # d/h — line thickness (type A 1/14, type B 1/10)
-    width: float  # w/h — nominal character width
-    spacing: float  # a/h — minimum inter-character spacing
-    baseline: float  # b/h — minimum baseline spacing
-    word: float  # e/h — minimum word spacing
+    stroke: float
+    width: float
+    spacing: float
+    baseline: float
+    word: float
 
 
 class LetteringMetric(Struct, frozen=True):
-    # the resolved ISO 3098 drawn geometry at one nominal height — the one value the text producers read.
-    height: float  # nominal cap height (mm)
-    pen: float  # line thickness d = stroke·h
-    char_width: float  # nominal glyph advance w = width·h
-    pitch: float  # baseline spacing b = baseline·h
+    height: float
+    pen: float
+    char_width: float
+    pitch: float
     char_spacing: float
     word_spacing: float
     slant: float
-    point_size: float  # em point size whose drawn cap == h; == h when no FaceMetrics binds
+    point_size: float
 
 
 class DisciplineStyle(Struct, frozen=True):
-    # the discipline pen — LCh coordinates + ISO 128 line row.
     lch: Lch
     linetype: LineType
     lineweight: LineWeight
@@ -286,28 +277,23 @@ class DisciplineStyle(Struct, frozen=True):
 
 
 class TerminatorRow(Struct, frozen=True):
-    # the ONE ISO 129-1 line-end lowering every drawing consumer reads through `Terminator.lowering`: the arrow-block
-    # NAME the CAD vocabulary publishes for that end, beside the oblique-tick size the same end draws when a consumer
-    # carries a tick variable instead of a block. Both facts stand on every row and neither is a host resource — the
-    # choice between them belongs to the lowering consumer, and authoring the block itself is `drawing/standard`'s.
-    block: str  # ezdxf.ARROWS block name; "" is the closed-filled default arrowhead, which names no block
-    tick: float  # oblique-tick length (mm at 1:1); 0.0 where the end is an arrowhead rather than a stroke
+    block: str
+    tick: float
 
 
 class LayerName(Struct, frozen=True):
-    # the field superset; each schema projects its slice via compose() and admits back via parsed().
     discipline: Discipline
-    major: str  # AIA 4-char functional group / ISO 13567 element head
+    major: str
     discipline_modifier: str = ""
-    minor: str = ""  # AIA 4-char sub-group / ISO 13567 element tail
+    minor: str = ""
     minor_2: str = ""
-    iso_element: str = ""  # exact six-character ISO 13567 element payload when admitted from that schema
+    iso_element: str = ""
     status: Status = Status.NEW
-    agent: str = "--"  # ISO 13567 responsible-agent field (2 chars, "--" = unassigned)
-    presentation: str = "--"  # ISO 13567 presentation field (2 chars)
-    sector: str = ""  # ISO 13567 optional sector/zone field
-    phase: str = ""  # ISO 13567 optional phase field
-    projection: str = ""  # ISO 13567 optional projection/view field
+    agent: str = "--"
+    presentation: str = "--"
+    sector: str = ""
+    phase: str = ""
+    projection: str = ""
     scale: str = ""
     work_package: str = ""
     user: str = ""
@@ -352,8 +338,6 @@ class LayerName(Struct, frozen=True):
                     lambda: cls.of(Discipline(found["d"]), found["major"], found["minor"] or "", Status(found["status"]))
                 )().map_error(lambda _fault: "<unknown-code>")
             case LayerSchema.NCS:
-                # a second minor group without the first is broken STRUCTURE, classified here so `of`'s guard —
-                # reachable only through direct construction — never re-spells a structural miss as "<unknown-code>"
                 return Error("<malformed-name>") if (found := _NCS_NAME.fullmatch(text)) is None or (
                     found["minor_2"] and not found["minor"]
                 ) else catch(exception=ValueError)(
@@ -381,8 +365,6 @@ class LayerName(Struct, frozen=True):
                 parts = (self.discipline.value, self.major, *((self.minor,) if self.minor else ()), self.status.value)
                 return "-".join(parts)
             case LayerSchema.ISO13567:
-                # ISO 13567 element is EXACTLY six chars: major fills the 4-char head, minor the 2-char tail — a minor
-                # past two chars has no lossless six-char element, so the projection refuses instead of truncating it.
                 if len(self.minor) > 2:
                     raise ValueError("minor exceeds the two-character ISO 13567 element tail")
                 element = self.iso_element or f"{self.major:_<4}{self.minor:_<2}"
@@ -403,7 +385,6 @@ class LayerName(Struct, frozen=True):
 
 
 class SheetId(Struct, frozen=True):
-    # NCS sheet id — discipline + sheet-type + sequence ("A-201").
     discipline: Discipline
     sheet_type: SheetType
     sequence: int = 1
@@ -430,7 +411,6 @@ class SheetId(Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 @beartype(conf=INGRESS)
 def paper(series: PaperSeries, rank: PaperRank, /) -> tuple[float, float]:
-    # ISO 216 derivation: floor-halve the portrait seed rank times — (width, height) trim mm.
     w, h = _PAPER_SEED[series]
     for _ in range(rank):
         w, h = h // 2, w
@@ -440,7 +420,6 @@ def paper(series: PaperSeries, rank: PaperRank, /) -> tuple[float, float]:
 def lettering(
     style: LetteringStyle, height: TextHeight, metrics: Option[FaceMetrics] = Nothing, /, *, posture: LetteringPosture = LetteringPosture.UPRIGHT
 ) -> LetteringMetric:
-    # the ONE lettering fold: ISO 3098 ratios × nominal height, cap-corrected through the font-metrics VALUE.
     row, h = _LETTERING[style], height.mm
     point = metrics.map(lambda m: m.point_size(h)).default_value(h)
     return LetteringMetric(
@@ -485,7 +464,6 @@ _SLANT: Final[Map[LetteringPosture, float]] = Map.of_seq([
     (LetteringPosture.UPRIGHT, 0.0),
     (LetteringPosture.INCLINED, 15.0),
 ])
-# discipline pen rows — LCh value + ISO 128 line row; the DXF ACI pen is standard's lowering, not a second truth here.
 PENS: Final[Map[Discipline, DisciplineStyle]] = Map.of_seq([
     (Discipline.ARCHITECTURAL, DisciplineStyle((20.0, 0.0, 0.0), LineType.CONTINUOUS, LineWeight.W025)),
     (Discipline.CIVIL, DisciplineStyle((55.0, 60.0, 135.0), LineType.CONTINUOUS, LineWeight.W035)),
@@ -506,7 +484,6 @@ PENS: Final[Map[Discipline, DisciplineStyle]] = Map.of_seq([
     (Discipline.OTHER, DisciplineStyle((80.0, 0.0, 0.0), LineType.CONTINUOUS, LineWeight.W018)),
     (Discipline.CONTRACTOR, DisciplineStyle((40.0, 0.0, 0.0), LineType.DASHED, LineWeight.W018)),
 ])
-# ISO 13567 status -> screened-plot transparency (0.0 opaque .. 1.0 clear); None = fully opaque (GfxAttribs omits the attribute).
 STATUS_SCREEN: Final[Map[Status, float | None]] = Map.of_seq([
     (Status.NEW, None),
     (Status.EXISTING, 0.55),
@@ -517,9 +494,6 @@ STATUS_SCREEN: Final[Map[Status, float | None]] = Map.of_seq([
     (Status.RELOCATED, 0.5),
     (Status.NOT_IN_CONTRACT, 0.6),
 ])
-# ISO 129-1 line end -> its lowering row, read through `Terminator.lowering`. The oblique stroke carries BOTH a block
-# name and a tick size because the two spell one geometry through two host mechanisms: a tick variable draws the stroke
-# and supersedes any block, while a leader or annotation consumer holding no tick variable places the named block.
 _TERMINATOR: Final[Map[Terminator, TerminatorRow]] = Map.of_seq([
     (Terminator.FILLED_ARROW, TerminatorRow(block="", tick=0.0)),
     (Terminator.OPEN_ARROW, TerminatorRow(block="OPEN", tick=0.0)),
@@ -528,7 +502,6 @@ _TERMINATOR: Final[Map[Terminator, TerminatorRow]] = Map.of_seq([
     (Terminator.ORIGIN_INDICATION, TerminatorRow(block="ORIGIN", tick=0.0)),
     (Terminator.NONE, TerminatorRow(block="NONE", tick=0.0)),
 ])
-# ISO 128-50 material -> pattern-plane fill; poché/grade resolved.
 HATCH_BIND: Final[Map[HatchMaterial, HatchFill]] = Map.of_seq([
     (HatchMaterial.STEEL, HatchFill(solid="lch(20% 0 0)")),
     (HatchMaterial.ALUMINIUM, HatchFill(pattern=PRESETS[SectionPattern.CROSS_DIAGONAL])),

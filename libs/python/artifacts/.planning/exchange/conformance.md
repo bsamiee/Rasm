@@ -107,8 +107,6 @@ class PadesLevel(StrEnum):
 
     @staticmethod
     def classify(ltv: bool, archival_valid: bool, timestamp_valid: bool, /) -> "PadesLevel":
-        # ETSI EN 319 142-1 ladder: every level above B-B requires the trusted signature timestamp, so a
-        # populated DSS with an absent or untrusted timestamp never classifies past B-B.
         match (timestamp_valid, ltv, archival_valid):
             case (True, True, True):
                 return PadesLevel.B_LTA
@@ -167,15 +165,13 @@ class KeyUsage(StrEnum):
 
 
 class ExtKeyUsage(StrEnum):
-    DOCUMENT_SIGNING = "1.3.6.1.5.5.7.3.36"  # id-kp-documentSigning, the PAdES EKU asn1crypto has no name for; carried as OID
+    DOCUMENT_SIGNING = "1.3.6.1.5.5.7.3.36"
     CODE_SIGNING = "code_signing"
     EMAIL_PROTECTION = "email_protection"
     TIME_STAMPING = "time_stamping"
     OCSP_SIGNING = "ocsp_signing"
 
 
-# member values are the `asn1crypto` X.500 RDN attribute names `x509.Name.build` keys on, so the reserved
-# field's future-signer subject constraint is a typed `frozendict[DnField, str]`, never a bare-string DN bag.
 class DnField(StrEnum):
     COMMON_NAME = "common_name"
     COUNTRY = "country_name"
@@ -187,7 +183,6 @@ class DnField(StrEnum):
     EMAIL = "email_address"
 
 
-# member names align with `SigDSSPlacementPreference`, so `_DSS_PLACEMENT` derives each row by name.
 class DssPlacement(StrEnum):
     TOGETHER_WITH_SIGNATURE = "together_with_signature"
     SEPARATE_REVISION = "separate_revision"
@@ -195,8 +190,6 @@ class DssPlacement(StrEnum):
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
-# each row derives from the vocabulary member, never a hand-enumerated parallel map: `_MDP`/`_DSS_PLACEMENT`
-# by name, `_COMMITMENT` by value-to-`GenericCommitment`-name; `_DIFF` binds the two `diff_analysis` instances.
 _MDP: Final[Map[CertifyPerm, MDPPerm]] = Map.of_seq((perm, MDPPerm[perm.name]) for perm in CertifyPerm)
 _COMMITMENT: Final[Map[Commitment, GenericCommitment]] = Map.of_seq((c, GenericCommitment[c.value.upper()]) for c in Commitment)
 _DIFF: Final[Map[DiffMode, DiffPolicy]] = Map.of_seq([(DiffMode.DEFAULT, DEFAULT_DIFF_POLICY), (DiffMode.STRICT, NO_CHANGES_DIFF_POLICY)])
@@ -206,10 +199,6 @@ _TRANSIENT: Final[tuple[type[Exception], ...]] = (TimestampRequestError,)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 def _minted_prints(owner: Struct, files: tuple[str, ...], /) -> None:
-    # credential I/O binds at MINT — one sha256 over each credential file's bytes, landed on the frozen value once —
-    # so the sync `_key` identity read touches no filesystem and a rotated credential re-keys by re-admitting the
-    # spec against the new bytes; a credential fingerprint is a security identity, so the digest is cryptographic,
-    # never a speed hash a collision can forge.
     structs.force_setattr(owner, "fingerprints", tuple(hashlib.sha256(Path(file).read_bytes()).hexdigest() for file in files))
 
 
@@ -234,9 +223,6 @@ class Pkcs12Bundle(Struct, frozen=True):
         _minted_prints(self, (self.pfx_file, *self.ca_chain))
 
 
-# two-phase HSM/remote credential: `sign_digest` receives the DER-encoded CMS signed-attributes of THIS
-# document's prepared byte-range digest and returns the raw signature the non-exportable key mints; the
-# placeholder `signer(bytes_reserved)` sizes the reserved CMS region for the prepare pass.
 class ExternalSig(Struct, frozen=True):
     cert_file: str
     sign_digest: Callable[[bytes], bytes]
@@ -261,7 +247,6 @@ class SignerSource:
 
     @beartype(conf=FAULT_CONF)
     def cms(self) -> Signer:
-        # external arm yields the size-estimation PLACEHOLDER; `_deferred` drives its real lifecycle.
         match self:
             case SignerSource(tag="pem", pem=key):
                 return SimpleSigner.load(key.key_file, key.cert_file, ca_chain_files=list(key.ca_chain) or None, key_passphrase=key.passphrase)
@@ -298,9 +283,6 @@ class AuditSpec(Struct, frozen=True):
         )
 
 
-# field-appearance axis: the `invisible` case an `InvisSigSettings` flag set, the `visible` case a
-# `VisibleSeal` whose `qr_position` selects `TextStampStyle` (positioned seal) or `QRStampStyle` (QR encoding the
-# `%(url)s` link). `plan()` folds each case to one stamp style + settings kwarg + text params in ONE match.
 class VisibleSeal(Struct, frozen=True):
     stamp_text: str = "%(signer)s\n%(ts)s"
     text_params: frozendict[str, str] = frozendict()
@@ -309,9 +291,6 @@ class VisibleSeal(Struct, frozen=True):
     rotate_with_page: bool = True
     scale_with_page_zoom: bool = True
     print_signature: bool = True
-    # a `QRPosition` selects the scan-to-verify `QRStampStyle` whose rendered QR encodes the `%(url)s`
-    # `appearance_text_params` field (the machine-verifiable ISO-19650 sealed-delivery link); `None` keeps the
-    # plain `TextStampStyle` positioned seal — the value carries the modality, never a `qr: bool` knob.
     qr_position: QRPosition | None = None
 
     def style(self) -> BaseStampStyle:
@@ -356,9 +335,6 @@ class Appearance:
 _INVISIBLE: Final[Appearance] = Appearance(invisible=InvisSigSettings())
 
 
-# sign-time DSS/VRI write policy: `include_vri` toggles the per-signature VRI dictionary the
-# `add_validation_info` DSS write emits, `placement` selects where the DSS revision lands relative to the
-# signature and next timestamp — projected to one `DSSContentSettings`, never a bare bool pair.
 class DssPolicy(Struct, frozen=True):
     include_vri: bool = True
     placement: DssPlacement = DssPlacement.TOGETHER_WITH_NEXT_TS
@@ -370,9 +346,6 @@ class DssPolicy(Struct, frozen=True):
 _DSS: Final[DssPolicy] = DssPolicy()
 
 
-# field-provisioning modality `sign` discriminates on: `new` places a fresh field (`existing_fields_only=
-# False`), `reserved` FILLS the empty seed-value field a prior `reserve` created (`new_field_spec=None`,
-# `existing_fields_only=True`), completing the reserve->fill lifecycle; the field-creation fields ride `new` alone.
 class NewField(Struct, frozen=True):
     box: tuple[int, int, int, int] | None = None
     page: int = 0
@@ -442,9 +415,6 @@ class AugmentSpec(Struct, frozen=True):
         )
 
 
-# future-signer identity constraint the `reserve` arm binds into the field's seed-value `/Cert`: only a
-# cert matching the subject DN and the named key-usage bits may fill the field. The subject DN a typed
-# `frozendict[DnField, str]` fed to `x509.Name.build`, never a bare-string DN bag.
 class SignerConstraint(Struct, frozen=True):
     subject_dn: frozendict[DnField, str] = frozendict()
     required_key_usage: tuple[KeyUsage, ...] = ()
@@ -462,8 +432,6 @@ class SignerConstraint(Struct, frozen=True):
         )
 
 
-# one row per `SigCertConstraintFlags` mandatory bit keyed to the `SignerConstraint` axis whose presence
-# makes it binding; `reduce(or_, ...)` folds the populated bits exactly as `_SEED_FLAG` folds the seed flags.
 _CERT_FLAG: Final[Map[SigCertConstraintFlags, Callable[[SignerConstraint], bool]]] = Map.of_seq([
     (SigCertConstraintFlags.SUBJECT_DN, lambda c: bool(c.subject_dn)),
     (SigCertConstraintFlags.KEY_USAGE, lambda c: bool(c.required_key_usage or c.forbidden_key_usage)),
@@ -486,9 +454,6 @@ class ReserveSpec(Struct, frozen=True):
         return AuditSpec(source=self.source)
 
 
-# mandatory-flag set the reserved field demands of its future signer, one row per `SigSeedValFlags`
-# bit keyed to the `ReserveSpec` field whose presence makes that constraint binding; `reduce(or_)`
-# folds the populated bits, never a parallel flag argument the body re-derives.
 _SEED_FLAG: Final[Map[SigSeedValFlags, Callable[[ReserveSpec], bool]]] = Map.of_seq([
     (SigSeedValFlags.SUBFILTER, lambda spec: spec.pades_only),
     (SigSeedValFlags.DIGEST_METHOD, lambda spec: bool(spec.digest_methods)),
@@ -505,8 +470,8 @@ class _Tally(Struct, frozen=True, gc=False):
     docmdp_ok: bool = True
     seed_value_ok: bool = True
     timestamps_trusted: bool = True
-    coverage: SignatureCoverageLevel = SignatureCoverageLevel.ENTIRE_FILE  # min-identity: weakest-link folds down
-    modification: ModificationLevel = ModificationLevel.NONE  # max-identity: worst-case folds up
+    coverage: SignatureCoverageLevel = SignatureCoverageLevel.ENTIRE_FILE
+    modification: ModificationLevel = ModificationLevel.NONE
 
     @staticmethod
     def step(acc: "_Tally", status: PdfSignatureStatus, /) -> "_Tally":
@@ -589,11 +554,6 @@ class Conformance:
 
     @property
     def _key(self) -> ContentKey:
-        # key-over-INPUT minted PRE-RUN so `keyed` admission elides a duplicate; secret signer material and live
-        # contexts are non-identity (secret/environment), while the PUBLIC signer facet, the TSA endpoint (a
-        # different authority mints a different token), and every remaining spec member ride the arm's canon —
-        # two ops differing only in signer, seal, commitment, DSS policy, TSA endpoint, or reserved CMS size
-        # never dedup-elide — and the produced bytes re-key at `close`.
         return ContentIdentity.key(f"conformance.{self.tag}", msgpack.encode(self._canon()))
 
     def _canon(self) -> tuple[object, ...]:
@@ -659,10 +619,6 @@ class Conformance:
 
     @staticmethod
     def _signer_facet(signer: SignerSource, /) -> tuple[object, ...]:
-        # PUBLIC signer identity — the mint-time content fingerprints of the certificate/bundle and CA chain, never
-        # key bytes or passphrases (the pkcs12 digest is one-way over the sealed bundle, exposing nothing) — read off
-        # the frozen credential so the synchronous key mint performs zero file I/O; a relocated identical credential
-        # keeps its key, a rotated one re-keys at spec re-admission.
         match signer:
             case SignerSource(tag="pem", pem=key):
                 return ("pem", *key.fingerprints)
@@ -674,21 +630,10 @@ class Conformance:
                 assert_never(unreachable)
 
     async def close(self, lane: LanePolicy, /) -> RuntimeRail[tuple[ContentKey, bytes, ConformanceVerdict]]:
-        # pyhanko close and its RFC-3161/OCSP network seam cross the THREAD lane; the produced PDF keys
-        # by its own bytes so a signed close carries a fresh key and a pure audit keys the source unchanged.
         railed = await lane.offload(Kernel.of(self._run, KernelTrait.RELEASING))
         return railed.map(lambda pair: (ContentIdentity.key(f"conformance.{self.tag}", pair[0]), pair[0], pair[1]))
 
     async def _emit(self, lane: LanePolicy, /) -> RuntimeRail[ArtifactReceipt]:
-        # This close OWNS its outward figure, never leaving it to a caller: the minted `Verdict` publishes on the
-        # compute graduation hub at THIS fold and the emit carries the receipt onward untouched, so a barred residual
-        # — a structurally broken signature under the receipt-owned `verdict` ceiling — refuses the node instead of
-        # shipping an ungoverned compliance figure `delivery/transmittal#TRANSMITTAL` then reads as clean. The hub
-        # owns its own span, admission, and refusal fact, so this seam adds no second fence and no re-wrap. The
-        # durable fact lands PAST the bar: a `REGULATORY` audit whose diff is the whole `ConformanceVerdict` ledger —
-        # PAdES level, signer identity, coverage, timestamp and LTV state — is the signing evidence a dispute reads
-        # back years later, and recording a verdict the ceiling refused seats a broken signature in the one
-        # plane that never sheds. Recording suspends, so this is the seat and `contribute` stays synchronous.
         settled = (
             (await self.close(lane))
             .map(lambda kbv: ArtifactReceipt.Verdict(kbv[0], kbv[2]))
@@ -745,8 +690,6 @@ class Conformance:
             validation_context=spec.validation_context,
         )
         timestamper = HTTPTimeStamper(spec.tsa_url) if level.needs_timestamp and spec.tsa_url else None
-        # ONE `PdfSigner` drives both modalities: `new` places a fresh field, `reserved` FILLS the reserve-created
-        # seed-value field (`existing_fields_only=True`), the seal still riding `stamp_style`.
         match spec.placement:
             case FieldPlacement(tag="new", new=placed):
                 new_field: SigFieldSpec | None = SigFieldSpec(
@@ -778,10 +721,6 @@ class Conformance:
                 assert_never(unreachable)
 
     def _deferred(self, engine: PdfSigner, pdf: bytes, ext: ExternalSig, spec: SignSpec, existing_only: bool, plan: _SealPlan, /) -> bytes:
-        # two-phase non-exportable-key close: prepare the byte-range digest, sign the DER signed-attributes
-        # externally, then finalize through the TBS document so CMS injection AND the post-sign instruction tail —
-        # the DSS/VRI embed B-LT demands and the chained document timestamp B-LTA demands — both land; a bare
-        # `fill_with_cms` stops at CMS injection and returns an un-finalized PDF for every level above B-B.
         sink = BytesIO()
         prep, tbs, output = engine.digest_doc_for_signing(
             IncrementalPdfFileWriter(BytesIO(pdf)),
@@ -849,8 +788,6 @@ class Conformance:
 
     @staticmethod
     def _resilient[T](validate: Callable[[], T], /) -> Option[T]:
-        # a structurally broken /Sig or /DocTimeStamp is counted, never fatal: the substrate trap mints
-        # Result[T, SignatureValidationError] from the raise, narrowed to Nothing; an unlisted raise propagates.
         return catch(exception=SignatureValidationError)(validate)().to_option()
 
     def _validated(self, sig: EmbeddedPdfSignature, spec: AuditSpec, /) -> Option[PdfSignatureStatus]:
@@ -869,8 +806,6 @@ class Conformance:
 
     def _audited(self, pdf: bytes, spec: AuditSpec, /) -> ConformanceVerdict:
         reader = PdfFileReader(BytesIO(pdf))
-        # census the EMPTY /Sig fields (`filled_status=False`) the filled `embedded_signatures` fold cannot see,
-        # so the reserve->fill lifecycle is observable — `fields_awaiting` 1 after a reserve, 0 once filled.
         awaiting = Block.of_seq(enumerate_sig_fields(reader, filled_status=False))
         signatures, doc_timestamps = Block.of_seq(reader.embedded_signatures).partition(lambda s: str(s.sig_object_type) == SigKind.SIGNATURE)
         live = signatures.choose(lambda s: self._validated(s, spec))
@@ -925,7 +860,7 @@ class Conformance:
             pdfx_claim=pdfx_claim,
         )
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = (
     "Appearance",

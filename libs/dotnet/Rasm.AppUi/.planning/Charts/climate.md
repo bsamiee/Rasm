@@ -28,10 +28,8 @@ The POLAR SPLIT is settled law and this page is where it is spelled for the clim
   - The reshape a series reading needs is a COLUMN here rather than a caller argument: the carpet IS its calendar reshape, and leaving that declaration to the mount site would let a carpet be declared without the transform that makes it one.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Which owner draws a reading. The arm IS the verdict, so the canvas derives rather than sitting beside it as
-// a column a row could contradict, and the two narrowings are what the mount dispatches on.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClimateRender {
     private ClimateRender() { }
@@ -39,8 +37,6 @@ public abstract partial record ClimateRender {
     public sealed record Plane(CustomVisual Visual) : ClimateRender;
     public sealed record Series(ChartSeriesKind Kind) : ClimateRender;
 
-    // A plane row mounts as a cartesian board cell; a series row answers the canvas its own kind declares, so
-    // the polar counterexample reads its verdict off the shipped catalog rather than off a transcribed column.
     public ChartCanvas Canvas => Switch(
         plane: static _ => ChartCanvas.Cartesian,
         series: static row => row.Kind.Canvas);
@@ -54,9 +50,6 @@ public abstract partial record ClimateRender {
         series: static row => Fin.Succ(row.Kind));
 }
 
-// The eight readings. `Shape` is the reshape a series reading IS — a carpet without its calendar row is not a
-// carpet — and `Legend` the domain a series reading declares, both empty on the plane rows because a payload
-// legend derives from the payload the feed just built.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -79,8 +72,6 @@ public sealed partial class ClimateReading {
     public static readonly ClimateReading Comfort = new(
         CustomVisual.Comfort.Key, new ClimateRender.Plane(CustomVisual.Comfort),
         Seq<TransformRow>(), None, Cause("skewed-frame"));
-    // The calendar reshape writes the cell column as `X` and the cell row as the second magnitude, which IS the
-    // weighted coordinate a heat series reads — so the reshape rides the row that would be meaningless without it.
     public static readonly ClimateReading Carpet = new(
         "carpet", new ClimateRender.Series(ChartSeriesKind.Heat),
         Seq<TransformRow>(new TransformRow.Calendar(CalendarAxis.HourByDay, ChartReducer.Mean, Tau: 0d)),
@@ -96,8 +87,6 @@ public sealed partial class ClimateReading {
 
     public Option<LegendDomain> Legend { get; }
 
-    // The structural reason as a LOCALE STEM: the split is read by operators in their own language, and a
-    // transcribed English clause on a row is a caption no locale can reach.
     public string Cause { get; }
 
     public ChartCanvas Canvas => Render.Canvas;
@@ -123,11 +112,8 @@ public sealed partial class ClimateReading {
   - Angles are METEOROLOGICAL — degrees clockwise from north, the direction wind comes FROM — and the fold converts to the raster's own screen angle once at the wedge writer. Two conventions inside one fold is the defect that renders a rose rotated ninety degrees with nothing to point at.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The sixteen-point vocabulary, each row owning its own arc. Resolution is CONTAINMENT of a whole sector
-// rather than a round of its midpoint: rounding always answers a point, so a twelve-sector rose would be
-// captioned from a sixteen-point set and every caption would name a quarter the sector does not cover.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -155,8 +141,6 @@ public sealed partial class CompassPoint {
 
     public string Stem => LocaleStrings.Key(nameof(CompassPoint), Key);
 
-    // The north row STRADDLES the seam, so containment is a disjunction there and a conjunction everywhere
-    // else — the one place a bearing range is not an ordinary interval, stated on the owner that has it.
     public bool Holds(double bearingDeg) =>
         FromDeg <= ToDeg
             ? bearingDeg >= FromDeg && bearingDeg < ToDeg
@@ -167,47 +151,31 @@ public sealed partial class CompassPoint {
             var from => toSeq(Items).Find(point => point.Holds(from) && point.Holds(Nudged(from, toDeg - fromDeg))),
         };
 
-    // The sector's own inner edge rather than its upper bound: a sector ending exactly on an arc boundary is
-    // contained by the arc it filled, and testing the open end would push it into the next point.
     static double Nudged(double from, double sweep) =>
         Reduce.Floored(from + Math.Max(sweep - EpsilonPolicy.ZeroTolerance, 0d), CustomVisuals.FullTurn);
 }
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One magnitude bin inside one sector. `Share` is the fraction of the WHOLE observation set this bin holds in
-// this direction, so a sector's bands sum to that sector's own frequency and the radial extent of a rose is
-// directly readable as a frequency. Counts instead would make every rose's radius depend on how many hours the
-// record happened to cover.
 public readonly record struct RoseBand(double Lower, double Upper, double Share);
 
-// One compass sector: its own DECLARED angular extent, the caption the feed already resolved, and its ordered
-// bands. Angles are meteorological — degrees clockwise from north, the direction the wind comes FROM. The
-// caption is TEXT rather than a key because a label fold hands the shaper what it draws.
 public sealed record RoseSector(string Caption, double FromDeg, double ToDeg, Seq<RoseBand> Bands) {
     public double Total => Bands.Sum(static band => band.Share);
 
-    // The bin roster as bounds alone: the equality every sector is admitted against, so a legend and a band
-    // ordinal read one roster rather than each electing a sector to trust.
     public Seq<(double Lower, double Upper)> Edges => Bands.Map(static band => (band.Lower, band.Upper));
 }
 
-// What admission ANSWERS: the peak both readings scale by beside the one bin roster every sector was proved to
-// share. The ordinal space is a payload fact, so the wind reading inks against a count it was handed rather
-// than re-deriving one and correcting an off-by-one at the use site.
 public readonly record struct RoseScale(double Peak, Seq<RoseBand> Bins) {
     public double Ordinals => Math.Max(Bins.Count - 1, 1);
 }
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class CustomVisuals {
-    // The rose radius as a unit FRACTION of the extent's shorter side, inset so the compass captions have their
-    // band — a ratio the metric ladder has no rung for, exactly as `VisualMetrics.TerrainLift` is.
     internal const double RoseInset = 0.42d;
 
     internal const double RoseCaptionBand = 0.05d;
@@ -220,11 +188,6 @@ public static partial class CustomVisuals {
         Expect<VisualPayload.Rose>(payload, ClimateReading.RadiationRose.Key).Bind(rose =>
             AdmitRose(rose, ClimateReading.RadiationRose).Map(scale => Magnitudes(rose, scale, frame)));
 
-    // Bands accumulate OUTWARD at cumulative radii, so the ring an operator reads at any distance is the speed
-    // bin the legend's swatch names. Each band inks by its own ORDINAL over the admitted bin count rather than
-    // by its share, because the bin is the categorical fact and its share is already the geometry — inking by
-    // share paints two different bins one colour whenever their frequencies match, which is precisely the read
-    // a rose exists to distinguish. The running radius is a SCAN, so the cumulative sum states itself once.
     static Seq<VisualStroke> Stacked(VisualPayload.Rose rose, RoseScale scale, LayoutFrame frame) {
         float radius = (float)(Math.Min(frame.Info.Width, frame.Info.Height) * RoseInset);
         return rose.Sectors.Bind(sector =>
@@ -237,8 +200,6 @@ public static partial class CustomVisuals {
             }).Strict();
     }
 
-    // The unpinned fallback is the payload's OWN peak, so a rose with no declared comparison still renders —
-    // at a scale only it is readable against, which is the fact the pin exists to remove.
     static Seq<VisualStroke> Magnitudes(VisualPayload.Rose rose, RoseScale scale, LayoutFrame frame) {
         float radius = (float)(Math.Min(frame.Info.Width, frame.Info.Height) * RoseInset);
         double pinned = rose.Pinned.IfNone(scale.Peak);
@@ -248,12 +209,6 @@ public static partial class CustomVisuals {
             StrokePlane.Mark, StrokeStyle.Fill, new StrokeInk.Measured(sector.Total, pinned))).Strict();
     }
 
-    // The one annular wedge every angular fill on this page draws — both rose readings and every sky patch.
-    // Bearings convert to the raster's own screen angle ONCE here — Skia sweeps clockwise from the positive x
-    // axis, so north is minus ninety — and the caller's own extent is the sweep. A zero inner radius collapses
-    // the return arc onto the centre, which is what makes a sector wedge, a magnitude wedge, and a zenith cap
-    // one body rather than three. An `SKPath` builder is a foreign mutable native: the statement form is the
-    // platform's, and the expression spine holds around it.
     static void Wedge(SKPath path, SKImageInfo info, double fromDeg, double toDeg, float inner, float outer) {
         float cx = info.Width * 0.5f, cy = info.Height * 0.5f;
         float from = (float)(fromDeg - QuarterTurn), sweep = (float)(toDeg - fromDeg);
@@ -264,12 +219,6 @@ public static partial class CustomVisuals {
 
     internal const double QuarterTurn = 90d;
 
-    // The shared admission, ACCUMULATING. Each column refuses a rendering that would otherwise still draw — an
-    // inverted extent sweeps backwards, a negative share eats the band beneath it, a disagreeing bin roster
-    // keys a legend to geometry it does not describe, and a zero total scales every radius by nothing.
-    // The peak folds from a ZERO seed rather than reducing an unseeded run: an unseeded `Max` resolves
-    // ambiguously between the carrier's own foldable read and the enumerable one, and the seed is the additive
-    // identity a share set already sits above, so the fold is total over the empty sector.
     static Fin<RoseScale> AdmitRose(VisualPayload.Rose rose, ClimateReading reading) =>
         rose.Sectors.Head
             .ToFin((Error)new ChartFault.VisualEmpty($"{reading.Key}: no sectors"))
@@ -289,9 +238,6 @@ public static partial class CustomVisuals {
                     .As().ToFin(),
             });
 
-    // Compass captions at each sector's own midpoint, priority the sector's total so a dense rose keeps the
-    // prevailing directions legible and drops the quiet ones. Both readings bind this fold, because the caption
-    // is a property of the sector rather than of the reading.
     internal static Seq<LabelMark> RoseLabels(VisualPayload payload, LayoutFrame frame) =>
         Marks<VisualPayload.Rose>(payload, ClimateReading.WindRose.Key, rose => {
             float cx = frame.Info.Width * 0.5f, cy = frame.Info.Height * 0.5f;
@@ -328,16 +274,12 @@ public static partial class CustomVisuals {
   - Sun geometry arrives as VALUES from the kernel almanac through the feed — this page reads no site, no instant, and no ephemeris, so a sun path is a projection of what the almanac already answered.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// The three hemispherical maps, each carrying the radial fold that IS its identity. `[NOT]` a `GeoProjection`:
-// that owner maps lon-lat onto a raster for a map layer, while these map an azimuth-altitude pair on the
-// celestial hemisphere — no datum, no CRS, no ground coordinate.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DomeProjection {
-    // Radius as a unit fraction of the horizon circle, given the altitude in degrees.
     public static readonly DomeProjection Stereographic = new("stereographic",
         static altitude => Math.Tan((CustomVisuals.QuarterTurn - altitude) * Math.PI / 360d));
     public static readonly DomeProjection Equidistant = new("equidistant",
@@ -348,25 +290,14 @@ public sealed partial class DomeProjection {
     [UseDelegateFromConstructor]
     public partial double Radius(double altitudeDeg);
 
-    // The horizon circle as a fraction of the raster's shorter side, inset so the compass captions have their
-    // band exactly as the rose's do; the pole is the hemisphere's own altitude ceiling, stated here because
-    // this owner is what maps the hemisphere and every clamp, cap, and cartesian frame beside it reads one
-    // value rather than transcribing a quarter turn each time.
     internal const double DomeInset = 0.45d;
 
     internal const double Zenith = CustomVisuals.QuarterTurn;
 
-    // The radial half of the projection, published because a patch is an ANNULAR WEDGE rather than a four-point
-    // quad: the wedge writer needs the two radii and the two bearings, and a fold reconstructing a radius from
-    // a projected point would answer a chord where the diagram draws an arc.
     public float Radial(double altitudeDeg, SKImageInfo info) =>
         (float)(Math.Clamp(Radius(Math.Clamp(altitudeDeg, 0d, Zenith)), 0d, 1d)
             * Math.Min(info.Width, info.Height) * DomeInset);
 
-    // Azimuth is the survey convention the kernel almanac answers — degrees clockwise from north — and Skia
-    // sweeps clockwise from the positive x axis, so north is minus ninety. The conversion has ONE site here,
-    // exactly as the rose wedge's does, because two conventions inside one family rotate half the diagrams.
-    // The point form DERIVES from the radial one, so a projection row states its radial map once.
     public (float X, float Y) Project(double azimuthDeg, double altitudeDeg, SKImageInfo info) {
         float cx = info.Width * 0.5f, cy = info.Height * 0.5f;
         float radius = Radial(altitudeDeg, info);
@@ -375,11 +306,6 @@ public sealed partial class DomeProjection {
     }
 }
 
-// The two frames one traced body draws in. The dome arm defers to the payload's own projection row and the
-// cartesian arm spans azimuth across the width and altitude up the height, both linear over their FULL ranges
-// so the diagram carries its whole domain rather than the part the day happened to use. The frame is a row
-// rather than two fold bodies, because the arcs, the analemmas, and the hour dots are identical marks and only
-// the coordinate they land in changes.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -398,30 +324,21 @@ public sealed partial class SunFrame {
 ```
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// One sky cell, carrying its OWN angular extent rather than a centre and a solid angle: a patch is drawn as
-// the wedge its bounds describe, so a Tregenza subdivision and a Reinhart one are two rosters over one fold
-// and neither reconstructs the other's cell geometry from a scalar.
 public readonly record struct SkyPatch(double FromAz, double ToAz, double FromAlt, double ToAlt, double Value);
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class CustomVisuals {
     internal static Fin<Seq<VisualStroke>> SunPathDome(VisualPayload payload, LayoutFrame frame) =>
         Traced(payload, ClimateReading.SunPath, SunFrame.Dome, frame);
 
-    // The cartesian reading of the SAME payload. Azimuth spans the width and altitude the height, both linear,
-    // so the arcs that cross themselves on the dome read as separate traces here and the two diagrams answer
-    // two different questions about one sweep.
     internal static Fin<Seq<VisualStroke>> SunPathChart(VisualPayload payload, LayoutFrame frame) =>
         Traced(payload, ClimateReading.SunPathChart, SunFrame.Cartesian, frame);
 
-    // Arcs and analemmas are OPEN polylines: a fill of an unclosed path renders nothing. Hour dots name the CUE
-    // plane so the record walk's band ordering draws them OVER the arcs they sit on rather than under whichever
-    // band its ink ordinal happened to sort first, and they ink by altitude so noon reads dark.
     static Fin<Seq<VisualStroke>> Traced(
         VisualPayload payload, ClimateReading reading, SunFrame at, LayoutFrame frame) =>
         Expect<VisualPayload.SunPath>(payload, reading.Key).Bind(sun =>
@@ -440,13 +357,6 @@ public static partial class CustomVisuals {
             },
             StrokePlane.Cue, StrokeStyle.Fill, new StrokeInk.Measured(hour.Alt, peak)));
 
-    // The peak altitude both readings ink their hour points against. A payload whose runs and hours are all
-    // empty refuses as a SUNLESS site rather than as malformed data, because that is the polar-night reading
-    // and it is a fact about the latitude rather than a defect in the feed — the feed filters every sample to
-    // the horizon, so an empty altitude set means the sun never rose and a non-finite one means the almanac
-    // answered garbage, two causes a single message would fold into one unreadable verdict. The floor is the
-    // kernel degeneracy anchor rather than the additive epsilon, which is a representation limit and not a
-    // display scale.
     static Fin<double> AdmitPath(VisualPayload.SunPath sun, ClimateReading reading) =>
         sun.Arcs.IsEmpty && sun.Analemmas.IsEmpty && sun.Hours.IsEmpty
             ? Fin.Fail<double>(new ChartFault.VisualEmpty($"{reading.Key}: no arcs, analemmas, or hours"))
@@ -462,10 +372,6 @@ public static partial class CustomVisuals {
         (sun.Arcs + sun.Analemmas).Bind(static run => run.Points).Map(static node => node.Alt)
             .Append(sun.Hours.Map(static hour => hour.Alt));
 
-    // The higher-altitude bound is the INNER radius, because a dome projection shrinks with height — the one
-    // place a caller reading "from" and "to" in the obvious order draws every cell inside out. This gate is
-    // also the ONLY admission a face value crosses: the feed hands through whatever the layer's own averaging
-    // posture answered, so a second finiteness test there would report one defect twice.
     internal static Fin<Seq<VisualStroke>> SkyDome(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.SkyDome>(payload, ClimateReading.SkyDome.Key).Bind(dome =>
             dome.Patches.Map(static patch => patch.Value).Max(0d) switch {
@@ -485,10 +391,6 @@ public static partial class CustomVisuals {
                 },
             });
 
-    // Hour captions ride the sun-path readings alone — an arc has no room for a caption and an analemma crosses
-    // itself, so labelling either would place text over the thing it names. Priority is the altitude, so a
-    // dense diagram keeps the midday hours legible. ONE fold per FRAME, because a caption seated by the dome
-    // projection over marks the cartesian frame drew names an hour it does not sit on.
     internal static Seq<LabelMark> SunPathLabels(VisualPayload payload, LayoutFrame frame) =>
         HourMarks(payload, ClimateReading.SunPath, SunFrame.Dome, frame);
 
@@ -525,12 +427,8 @@ public static partial class CustomVisuals {
   - A caption seats at the ring's AREA centroid, never at its vertex mean. A vertex mean is the centroid of a polygon's CORNERS, so an unevenly sampled or concave acceptability region labels outside itself — the adaptive band, whose sloped edges carry most of its vertices, is exactly the shape that breaks. A ring whose signed area vanishes is collinear and has no area centroid, so it falls back to the vertex mean by construction rather than dividing by nothing.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The two-axis frame with its SKEW. A psychrometric chart shears its humidity axis along dry-bulb so the
-// constant-enthalpy lines run true; an adaptive-comfort chart declares zero skew and the same projection
-// answers a plain cartesian frame. Bounds are DECLARED rather than measured, because a comfort chart's axes
-// are its identity and re-fitting them to a mild week would render a different chart every month.
 public readonly record struct ComfortFrame(double MinX, double MaxX, double MinY, double MaxY, double Skew) {
     public Validation<Error, Unit> Admit() =>
         (Gate(MaxX > MinX, $"comfort: x extent {MinX}..{MaxX}"),
@@ -538,9 +436,6 @@ public readonly record struct ComfortFrame(double MinX, double MaxX, double MinY
          Gate(double.IsFinite(Skew), $"comfort: skew {Skew}"))
             .Apply(static (_, _, _) => unit).As();
 
-    // The one projection every comfort mark crosses. The shear rides the vertical axis as a function of the
-    // horizontal position, so a zone polygon, an RH curve, and an hour point all land in one frame and none
-    // can disagree about where a state sits.
     public (float X, float Y) Project(double x, double y, SKImageInfo info) {
         double u = Math.Clamp((x - MinX) / (MaxX - MinX), 0d, 1d);
         double v = Math.Clamp((y - MinY) / (MaxY - MinY), 0d, 1d);
@@ -551,18 +446,13 @@ public readonly record struct ComfortFrame(double MinX, double MaxX, double MinY
         holds ? unit : (Validation<Error, Unit>)(Error)new ChartFault.VisualDegenerate(detail);
 }
 
-// One acceptability region. `Rank` is the draw AND ink order together, so an eighty-percent band under a
-// ninety-percent one reads as the wider region it is rather than as whichever polygon the roster listed last.
-// The caption is resolved TEXT the feed elected, exactly as a rose sector's is.
 public sealed record ComfortZone(string Caption, Seq<(double X, double Y)> Polygon, int Rank);
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static partial class CustomVisuals {
-    // The frame's three columns and the cloud's finiteness refuse TOGETHER, so a caller handing an inverted
-    // extent and a garbage observation learns both rather than one per round trip.
     internal static Fin<Seq<VisualStroke>> Comfort(VisualPayload payload, LayoutFrame frame) =>
         Expect<VisualPayload.Comfort>(payload, ClimateReading.Comfort.Key).Bind(comfort =>
             (comfort.Frame.Admit(),
@@ -574,9 +464,6 @@ public static partial class CustomVisuals {
                 .Apply((_, _, _) => Marks(comfort, frame))
                 .As().ToFin());
 
-    // Both scales fold from their own identity seed rather than reducing an unseeded run behind an emptiness
-    // crutch: the seeded fold is total over the empty zone set and the empty point cloud, which is exactly the
-    // case a comfort chart with zones and no observations (or the reverse) presents.
     static Seq<VisualStroke> Marks(VisualPayload.Comfort comfort, LayoutFrame frame) {
         double ranks = Math.Max(comfort.Zones.Map(static zone => zone.Rank).Max(0), 1);
         double peak = Math.Max(comfort.Points.Map(static point => point.Weight).Max(0d), EpsilonPolicy.ZeroTolerance);
@@ -598,14 +485,8 @@ public static partial class CustomVisuals {
             .Strict();
     }
 
-    // A binned hour cloud draws one dot per BIN rather than per hour, so the dot is sized for the cell the feed
-    // aggregated into and an eight-thousand-hour year does not become eight thousand overlapping marks. The
-    // radius is a SHARE of the theme's node metric rather than a pixel literal, so a density flip moves it with
-    // every other mark on the plane.
     internal const float ObservationDotShare = 0.8f;
 
-    // Zone captions alone: a curve is labelled by the legend and an observation dot has no room. Priority is
-    // the rank, so a cramped chart keeps the widest acceptability band named.
     internal static Seq<LabelMark> ComfortLabels(VisualPayload payload, LayoutFrame frame) =>
         Marks<VisualPayload.Comfort>(payload, ClimateReading.Comfort.Key, comfort => comfort.Zones.Map(zone =>
             LabelMark.Of(
@@ -613,10 +494,6 @@ public static partial class CustomVisuals {
                 Centre(zone.Polygon.Map(node => comfort.Frame.Project(node.X, node.Y, frame.Info))),
                 LabelPlacement.Centre, zone.Rank)));
 
-    // The AREA centroid of a closed ring by the shoelace moments, in the raster space the ring was already
-    // projected into. A vertex mean is the centroid of the CORNERS and drifts toward whichever edge carries
-    // the most of them, which puts an adaptive band's caption outside the band it names. A ring whose signed
-    // area vanishes is collinear or empty and has no area centroid at all, so it answers the vertex mean.
     static SKPoint Centre(Seq<(float X, float Y)> ring) =>
         ring.Map((corner, index) => (A: corner, B: ring[(index + 1) % ring.Count]))
             .Fold((Twice: 0d, Mx: 0d, My: 0d, Vx: 0d, Vy: 0d, N: 0d), static (moment, edge) =>
@@ -659,16 +536,11 @@ public static partial class CustomVisuals {
   - The HORIZON COORDINATE is declared per reading against `Analysis/context#SCRUB_BINDING`: the rose, the carpet, the directional profile, and the comfort cloud are WEATHER-RECORD reads whose board window is `ContextChannel.Range(context.Record())`, so a projected-scenario diagram is captioned at the horizon its record was read at; the sun path is a SOLAR read that binds `context.Window()` and the context's own almanac, because an emissions pathway moves a weather record and never moves the sun. Binding one span for the whole family is how a 2050 comfort chart comes to carry a baseline caption.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-// The four values EVERY reading shares. Splitting them out is what keeps each source arm to the columns its
-// own readings consume, where one flat brief would hand a carpet a comfort frame it can never read.
 public sealed record ClimateBrief(
     AnalysisContext Context, ResolvedLocale Locale, Option<MeasureRole> Measure, ChartPolicy Policy);
 
-// The declared inputs, one arm per payload family. Every column here is a DECLARATION the operator or the
-// board made — a sector roster, a design-day set, a sealed layer — so the projection derives geometry from
-// nothing it was not handed.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClimateSource {
     private ClimateSource() { }
@@ -697,9 +569,6 @@ public abstract partial record ClimateSource {
     public sealed record Series(ChartStream Stream) : ClimateSource;
 }
 
-// What a mounted reading IS: a payload for the custom plane beside the legend it declares, or a whole chart
-// spec. `Tile` is the projection a composition root binds, so the split lands as a tile row rather than as a
-// branch each mount site writes.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ClimateMount {
     private ClimateMount() { }
@@ -715,22 +584,13 @@ public abstract partial record ClimateMount {
 ```
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class ClimateFeed {
-    // The ramp arity every continuous climate legend reads at, stated ONCE — the rose's magnitude reading and
-    // the carpet's heat bar are one number, and the bounds themselves are the data's own.
     const int RampSegments = 8;
 
-    // The analemma's sampling stride: enough to draw the figure-eight smoothly and few enough that it stays one
-    // readable curve rather than a band of overlapping marks. Advancing by WEEKS rather than by a fraction of a
-    // fixed day count is what keeps the last sample inside the year a leap year has.
     const int AnalemmaStrideDays = 7;
 
-    // The ONE projection. The source arm discriminates the payload family and each arm names the readings it
-    // admits, so a `sun-path` reading over a comfort source refuses at the mount instead of rendering a
-    // diagram nobody declared. Every arm lands through `Planed` or `Specced`, which prove the reading's own
-    // render arm before a product exists.
     public static Fin<ClimateMount> Mount(ClimateReading reading, ClimateBrief brief, ClimateSource source) =>
         source.Switch(
             state: (Reading: reading, Brief: brief),
@@ -756,10 +616,6 @@ public static class ClimateFeed {
     static Fin<ClimateMount> Planed(ClimateReading reading, VisualPayload payload, Option<LegendSpec> legend) =>
         reading.Render.Plane.Map(visual => (ClimateMount)new ClimateMount.Plane(visual, payload, legend));
 
-    // Hourly rows carry magnitude in the first slot and DIRECTION in the second — the settled weighted encoding
-    // — so a rose feed and a scatter layer read one datum shape. The sector roster and the edge roster are both
-    // DECLARED and both refuse together, because a caller handing one sector and two unordered edges should
-    // learn both rather than one per attempt.
     static Fin<VisualPayload.Rose> Rose(ClimateBrief brief, ClimateSource.Rose row) =>
         (Gate(row.Sectors.Count >= 2, $"rose: {row.Sectors.Count} declared sectors"),
          Gate(row.Sectors.ForAll(static span => double.IsFinite(span.From) && span.To > span.From),
@@ -776,11 +632,6 @@ public static class ClimateFeed {
                     LabelStem: row.LabelStem)),
             });
 
-    // ONE keyed pass over the record. Each observation resolves its sector and its band once and lands in a
-    // keyed tally, where a sector-by-edge scan re-tested every observation against every sector and every edge
-    // pair — sixteen sectors over eight bins put a million predicate evaluations behind one year of hours. An
-    // observation outside every declared sector or every declared bin contributes nothing rather than being
-    // folded into the nearest one, because a rose over a partial roster is a rose of what it declared.
     static Seq<RoseSector> Binned(Seq<ChartDatum> observed, ClimateSource.Rose row, ResolvedLocale locale) =>
         observed.Fold(HashMap<(int Sector, int Band), int>(), (tally, datum) =>
             (Sector: Sector(row.Sectors, Reduce.Floored(datum.Value.B, CustomVisuals.FullTurn)),
@@ -802,18 +653,11 @@ public static class ClimateFeed {
     static int Band(Seq<double> edges, double magnitude) =>
         edges.Zip(edges.Skip(1)).FindIndex(edge => magnitude >= edge.Item1 && magnitude < edge.Item2);
 
-    // A compass point names a sector only where ONE arc contains it whole; anything else prints its own
-    // bearing, because a twelve-sector rose captioned from a sixteen-point vocabulary names a quarter the
-    // sector does not cover and does it silently.
     static string Caption((double From, double To) span, ResolvedLocale locale) =>
         CompassPoint.Of(span.From, span.To).Match(
             Some: point => locale.Label(point.Stem),
             None: () => locale.Text(ChartAxisKind.Numeric.Format, (span.From + span.To) * 0.5d));
 
-    // The bin roster IS the legend's segment set — admission proved every sector carries it — so a re-binned
-    // feed re-keys the legend with no legend edit. A single-band rose is the magnitude reading, whose legend is
-    // the continuous ramp over the pinned maximum instead: the domain arm follows the data exactly as it does
-    // everywhere else on the legend algebra.
     static Fin<LegendSpec> RoseLegend(ClimateBrief brief, ClimateReading reading, VisualPayload.Rose rose) =>
         rose.Sectors.Head
             .ToFin((Error)new ChartFault.LegendRejected($"{reading.Key}: no sectors"))
@@ -826,11 +670,6 @@ public static class ClimateFeed {
                         rose.Pinned.IfNone(rose.Sectors.Map(static sector => sector.Total).Max(0d))),
                     RampSegments));
 
-    // The band's own bounds spell its swatch caption, so a bin reads as the INTERVAL it is rather than as an
-    // index the viewer must map back to a speed. Both bounds cross the legend owner's printed-value projection
-    // under the brief's own measure role, so a swatch, an axis tick, and a probe column carry one elected unit
-    // and one decimal separator — and an unrenderable quantity refuses the legend rather than printing a bound
-    // in whatever culture the fold happened to run under.
     static Fin<Seq<(string Label, double At)>> Bins(ClimateBrief brief, Seq<RoseBand> bands) =>
         bands.Traverse(band =>
                 from lower in LegendFold.Rendered(band.Lower, brief.Measure, brief.Locale)
@@ -838,9 +677,6 @@ public static class ClimateFeed {
                 select (Label: $"{lower}–{upper}", At: band.Lower))
             .As();
 
-    // The sun path: one arc per design day off the kernel almanac's own sampler, plus the analemma at ONE clock
-    // hour across the context's declared span. `AnalysisContext.Path` samples the ANCHOR day alone, so a
-    // design-day roster composes the almanac per day and the context supplies the site, the zone, and the span.
     static VisualPayload.SunPath Path(ClimateBrief brief, ClimateSource.Sun row) =>
         new(
             Arcs: row.DesignDays.Map(day => (
@@ -857,11 +693,6 @@ public static class ClimateFeed {
                     .Map(day => Sun(brief.Context, day, hour))
                     .Filter(static sun => sun.AboveHorizon)
                     .Map(static sun => (Az: sun.AzimuthDeg, Alt: sun.AltitudeDeg)))),
-            // Hour marks ride the FIRST design day, which is the arc a reader orients the clock against; the
-            // almanac answers once per hour and both angles read off that one position. The horizon filter is
-            // the SAME one both curve families cross: at a polar latitude an unfiltered hour mark carries a
-            // negative altitude the dome projection clamps onto the horizon circle, so a design day the sun
-            // never rose on rendered a full ring of hour dots and read as a day with sun at every hour.
             Hours: row.DesignDays.Head
                 .Map(day => row.Hours
                     .Map(hour => (Label: brief.Locale.Clock(new LocalTime(hour, 0)), Sun: Sun(brief.Context, day, hour)))
@@ -870,25 +701,16 @@ public static class ClimateFeed {
                 .IfNone(Seq<(string Label, double Az, double Alt)>()),
             Projection: row.Projection);
 
-    // The context's OWN declared span walked by weeks, so a ranged grain draws the analemma its months cover
-    // rather than a whole anchor year the operator never selected.
     static Seq<LocalDate> Weekly(AnalysisContext context) =>
         context.Dates() switch {
             var span => toSeq(Range(0, (Period.DaysBetween(span.From, span.To) / AnalemmaStrideDays) + 1))
                 .Map(week => span.From.PlusWeeks(week)),
         };
 
-    // The one almanac read this feed performs: a civil date and clock hour in the context's own zone, lifted
-    // through the lenient resolver so a DST gap or fold answers a position rather than refusing a whole curve.
     static SunPosition Sun(AnalysisContext context, LocalDate day, int hour) =>
         SolarPosition.At(context.Site,
             day.At(new LocalTime(hour, 0)).InZoneLeniently(context.Calendar.Zone).ToInstant());
 
-    // The dome diagram reads a SEALED dome layer, so the hemisphere in the scene and the diagram beside it are
-    // one result read twice. A layer of any other kind refuses by name rather than being projected into a
-    // hemisphere its samples do not describe. Face ordinals need no bound check here: `ResultPayload` keeps a
-    // private constructor exactly because three readers index its samples by a face ordinal, and its gate
-    // proves that bound ahead of every rail this plane declares.
     static Fin<VisualPayload.SkyDome> Dome(ClimateSource.Dome row) =>
         row.Layer.Kind != ResultKind.Dome
             ? Fin.Fail<VisualPayload.SkyDome>(new ChartFault.PayloadMismatch("sky-dome", row.Layer.Kind.Key))
@@ -897,10 +719,6 @@ public static class ClimateFeed {
                 Pinned: row.Pinned,
                 Projection: row.Projection));
 
-    // A dome layer's samples are already located on the hemisphere, so a patch spans the MINIMAL ARC its three
-    // bearings share and carries the value the LAYER'S OWN averaging posture answers — one read, no
-    // re-derivation. Pinning a posture here would repaint the diagram against a smoothing the scene hemisphere
-    // beside it is not using, which is exactly the divergence "one result read twice" exists to prevent.
     static SkyPatch Patch(ResultLayer layer, (int A, int B, int C) face) =>
         Seq(layer.Payload.Samples[face.A].At, layer.Payload.Samples[face.B].At, layer.Payload.Samples[face.C].At)
             .Map(static at => (Az: Azimuth(at), Alt: Altitude(at))) switch {
@@ -909,9 +727,6 @@ public static class ClimateFeed {
                     span.From,
                     span.From + span.Sweep,
                     corners.Map(static corner => corner.Alt).Min(DomeProjection.Zenith),
-                    // A cap spans every bearing, so its own upper bound is the zenith rather than the highest
-                    // corner: three bearings that enclose the pole meet there, and stopping at the corner
-                    // ceiling would leave the crown unpainted on every subdivision that carries one.
                     span.Sweep >= CustomVisuals.FullTurn
                         ? DomeProjection.Zenith
                         : corners.Map(static corner => corner.Alt).Max(0d),
@@ -919,16 +734,6 @@ public static class ClimateFeed {
             },
         };
 
-    // The minimal arc a bearing set shares: the WIDEST gap between consecutive sorted bearings is the arc the
-    // patch does not cover, so the span opens at the bearing after that gap and sweeps the rest of the turn.
-    // Three arms, because the widest gap answers three different facts. A gap of nothing means every bearing
-    // coincides — a face standing on one meridian, whose azimuthal extent is genuinely zero — and reading it as
-    // the remaining turn would paint the whole sky from a sliver, so it answers a zero sweep the payload gate
-    // then refuses by name. A remaining sweep past a half turn means the bearings enclose the zenith, where
-    // azimuth is undefined at all, so that face is a CAP spanning the whole turn rather than an arc no ordering
-    // of its corners can name. Everything else is the arc itself, which is what carries a face straddling
-    // north: its widest gap is the far side of the sky, so the span opens after it and crosses the seam rather
-    // than answering the complement a plain extreme read gives.
     static (double From, double Sweep) Arc(Seq<double> bearings) =>
         toSeq(bearings.OrderBy(identity)) switch {
             var sorted => sorted
@@ -944,19 +749,12 @@ public static class ClimateFeed {
             },
         };
 
-    // The survey convention the kernel almanac answers in, so a dome patch and a sun position share one frame.
-    // The kernel's own inverse is `SunPosition.OfDirection`, which takes the kernel's `Vector3d` carrier; a
-    // sealed result sample is located in the analysis plane's own single-precision `Vector3`, so the
-    // correspondence is spelled once here against that carrier rather than round-tripping every face corner
-    // through a widening the sample never had.
     static double Azimuth(Vector3 at) =>
         Reduce.Floored(Math.Atan2(at.X, at.Y) * 180d / Math.PI, CustomVisuals.FullTurn);
 
     static double Altitude(Vector3 at) =>
         Math.Atan2(at.Z, Math.Sqrt((at.X * at.X) + (at.Y * at.Y))) * 180d / Math.PI;
 
-    // The dome legend is the ramp over the pinned maximum or the layer's own measured peak, under the LAYER'S
-    // measure role rather than the brief's: a sky diagram prints the unit the sealed study reported.
     static Fin<LegendSpec> DomeLegend(
         ClimateBrief brief, ClimateReading reading, ClimateSource.Dome row, VisualPayload.SkyDome dome) =>
         Legend(brief with { Measure = row.Layer.Measure }, $"climate.{reading.Key}.{row.Layer.Key}",
@@ -965,9 +763,6 @@ public static class ClimateFeed {
                 dome.Pinned.IfNone(dome.Patches.Map(static patch => patch.Value).Max(0d))),
             RampSegments);
 
-    // The comfort payload: the declared frame, its zones and curves with their captions elected once, and the
-    // hour cloud BINNED so the chart draws one dot per cell rather than one per hour. Binning is the settled
-    // transform vocabulary, so the aggregation an operator sees is the one the chain declared.
     static Fin<VisualPayload.Comfort> Comfort(ClimateBrief brief, ClimateSource.Comfort row) =>
         row.Frame.Admit().As().ToFin().Map(_ => new VisualPayload.Comfort(
             Frame: row.Frame,
@@ -976,10 +771,6 @@ public static class ClimateFeed {
             Zones: row.Zones.Map(zone => new ComfortZone(brief.Locale.Label(zone.Stem), zone.Polygon, zone.Rank)),
             Curves: row.Curves.Map(curve => (Label: brief.Locale.Label(curve.Stem), curve.Points))));
 
-    // A series reading composes the reshape ITS OWN ROW declares over the stream it was handed, so a carpet
-    // cannot exist without its calendar row and a directional profile cannot exist without its aggregation.
-    // Both axes are VALUE axes: a calendar cell column is an ordinal and a bearing is a magnitude, neither an
-    // instant, so the spec's own time-axis default would render a carpet against a clock it never carried.
     static Fin<ClimateMount> Specced(ClimateReading reading, ClimateBrief brief, ClimateSource.Series row) =>
         reading.Render.Series.Bind(kind => $"climate.{reading.Key}.{row.Stream.Key}" switch {
             var key => reading.Legend
@@ -996,16 +787,11 @@ public static class ClimateFeed {
                 .Map(static spec => (ClimateMount)new ClimateMount.Series(spec)),
         });
 
-    // The ONE legend mint on this page: three positional eight-argument constructions were one shape at three
-    // sites, and a fourth would have drifted from the other three on the first column the declaration gains.
     static Fin<LegendSpec> Legend(
         ClimateBrief brief, string key, LegendDock dock, LegendDomain domain, int segments) =>
         LegendSpec.Admit(new LegendSpec(
             key, domain, dock, Seq<LegendColumn>(), brief.Measure, segments, Some(key), None));
 
-    // A row short of the WEIGHTED arity carries no second magnitude and contributes nothing, because a bearing
-    // or a humidity nobody recorded is not zero. Both cloud readings cross this one filter, and the arity is
-    // the encoding row's own rather than a literal two spelled at each site.
     static Seq<ChartDatum> Observed(Seq<ChartDatum> rows) =>
         rows.Filter(static datum => datum.Arity >= ChartEncoding.Weighted.Arity);
 

@@ -15,7 +15,7 @@
 - Growth: a new column is one append-only corpus field and one transcription member; a new seated union case also updates the owning parity census.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Diagnostics;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
@@ -34,9 +34,7 @@ using static Rasm.Element.Graph.SeamConverters;
 
 namespace Rasm.Element.Graph;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// One partial part of the ONE `[Mapper]` WireCodec family — the attribute, the parity census, the key codecs, and
-// the shared decode gates ride `Graph/wire#NODE_CODEC`; this part owns the assessment and observation evidence transcriptions.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class WireCodec {
  [UserMapping(Default = true)] internal static AssessmentWire ToWire(global::Rasm.Element.Assessment.AssessmentPayload payload) {
   AssessmentWire w = new() {
@@ -68,9 +66,6 @@ internal static partial class WireCodec {
   return w;
  }
 
- // Hand-owned like ToWire(GeoReference): the Interval flattens to a bounded column PAIR and the census map keys on a
- // generated row, neither a shape Mapperly bridges. Both window ends are bounded by seam admission, so the columns
- // are unconditional and no presence flag stands in for an unbounded side.
  [UserMapping] internal static ObservationWire ToWire(global::Rasm.Element.Assessment.ObservationSeries series) {
   ObservationWire w = new() {
    Sensor = series.Sensor.Value, Aspect = series.Aspect.Value,
@@ -100,8 +95,6 @@ internal static partial class WireCodec {
   return w;
  }
 
- // The one-hop min/max/mean scalars stay peer-informative; the kernel moment group crosses beside them so the
- // receipt round-trips whole through the generated statistics moment group.
  [UserMapping] internal static SeriesStatisticsWire ToWire(global::Rasm.Element.Assessment.SeriesStatistics statistics) {
   SeriesStatisticsWire w = new() { Span = statistics.Span.ToProtobufDuration() };
   w.Census.AddRange(statistics.Census.OrderBy(static pair => pair.Key.Key, StringComparer.Ordinal)
@@ -133,10 +126,6 @@ internal static partial class WireCodec {
    discipline, route, input, outcome, content, provenance, key, toSet(dependsOn))
   select payload;
 
- // The wire keeps its flat columns; the seam's ONE PayloadContent value derives at the boundary — a diagnostic is
- // the Failure case, results-or-artifact the gated Results mint, neither the Empty case — and Open's per-row
- // Coherent law then refuses a case its outcome forbids, so a hostile record carrying both a diagnostic and
- // results lands the Failure case its outcome must admit or refuses whole.
  static Fin<PayloadContent> ToContent(
   Map<PropertyName, PropertyValue> results, Option<global::Rasm.Element.Assessment.Diagnostic> diagnostic, Option<ArtifactContent> artifact, Op key) =>
   diagnostic.Match(
@@ -145,12 +134,6 @@ internal static partial class WireCodec {
     ? Fin.Succ(PayloadContent.Empty)
     : PayloadContent.Results(results, artifact, key));
 
- // ToObservation decodes the measured series: every token re-crosses its generated row gate, every required message
- // column and every flattened window rebuilds through the presence-and-order gate the BOUNDED NodaTime Interval both
- // seam ends require, and the whole run re-enters through Rehydrate — so the advancing-chunk, bracketing-window, and
- // census-coherence invariants re-prove against hostile input rather than riding the producer's word, and an unset
- // statistics or provenance message names itself on the rail instead of dereferencing inside the residual funnel.
- // Sample bytes stay in the object store; only content keys cross.
  static Fin<global::Rasm.Element.Assessment.ObservationSeries> ToObservation(ObservationWire w, Op key) =>
   from sensor in SensorId.Of(w.Sensor, key)
   from sampling in ToSampling(w.Sampling, key)
@@ -169,8 +152,6 @@ internal static partial class WireCodec {
    window, chunks, statistics, provenance, key)
   select series;
 
- // The loose (type, dimension, unit) triple re-admits as the ONE QuantitySignature — coherence proves at ITS gate,
- // so Rehydrate re-checks nothing; a blank wire unit is the seam's absence.
  static Fin<QuantitySignature> ToSignature(ObservationWire w, Op key) =>
   from dimension in Present(w.Dimension, "observation.dimension", key)
   from type in key.AcceptValidated<QuantityType>(dimension.QuantityType)
@@ -182,9 +163,6 @@ internal static partial class WireCodec {
    Opt(w.CanonicalUnit.Length > 0, w.CanonicalUnit), out QuantitySignature admitted), admitted)
   select signature;
 
- // Census keys re-cross the generated ObservationGrade gate, so an unknown grade rails rather than silently dropping
- // a bucket the completeness ratio then over-counts against; the summary message and its span column admit before
- // either read; the whole summary re-enters the OWNER's railed Of so an incoherent record refuses at its own mint.
  static Fin<global::Rasm.Element.Assessment.SeriesStatistics> ToStatistics(SeriesStatisticsWire? w, QuantitySignature quantity, Op key) =>
   from summary in Present(w, "observation.statistics", key)
   from span in Present(summary.Span, "observation.statistics.span", key)
@@ -197,10 +175,6 @@ internal static partial class WireCodec {
    span.ToNodaDuration(), figures, total, key)
   select statistics;
 
- // The moment group re-founds the kernel receipt WHOLE (presence on stat_mass gates it — an elder payload without
- // moments decodes a figure-less summary, never a fabricated one); the extreme scalars re-admit through
- // Scalar.From and the rebuilt receipt re-proves its OWN IsValid evidence — the decode distrust posture over a
- // foreign fold state.
  static Fin<Option<MeasureStat>> Figures(SeriesStatisticsWire w, QuantitySignature quantity, Op key) =>
   w.Moments is null
    ? Fin.Succ(Option<MeasureStat>.None)
@@ -214,28 +188,20 @@ internal static partial class WireCodec {
        low, high, mean.Si, w.Moments.M2, w.Moments.M3, w.Moments.M4, StatContext.None), key)
      select Some(new MeasureStat(quantity, stat));
 
- // The rebuilt receipt re-proves its OWN IsValid evidence — a foreign fold state never crosses on trust.
  static Fin<Stat<Scalar>> Rebuilt(Stat<Scalar> stat, Op key) =>
   stat.IsValid ? Fin.Succ(stat) : new KernelFault.InvalidValue("element-wire.statistics", "moments must satisfy the statistic invariant", Some(key));
 
- // Absence rides the caller's Optional traversal (the blank-string Unattributed sentinel died at the owner); a
- // PRESENT audit decodes whole.
  static Fin<global::Rasm.Element.Assessment.SensorProvenance> ToSensorProvenance(SensorProvenanceWire audit, Op key) =>
   from calibrated in Optional(audit.CalibratedAt).Traverse(date => key.Catch(() => date.ToLocalDate())).As()
   from tolerance in Optional(audit.Tolerance).Traverse(band => ToBand(band, key)).As()
   select new global::Rasm.Element.Assessment.SensorProvenance(audit.Manufacturer, audit.Model, audit.Serial, calibrated, tolerance);
 
- // Absence is total through the Option traversal; a present diagnostic's two INDEPENDENT token gates accumulate.
  static Fin<Option<global::Rasm.Element.Assessment.Diagnostic>> ToDiagnostic(DiagnosticWire? w, Op key) =>
   Optional(w).Traverse(d =>
    (ToSolvePhase(d.Phase, key), ToFailureKind(d.Kind, key))
     .Apply(static (phase, kind) => (phase, kind)).As()
     .Bind(t => global::Rasm.Element.Assessment.Diagnostic.Of(t.phase, t.kind, d.Message, key, Opt(d.HasCode, d.Code)))).As();
 
- // Message fields carry presence by nullness (proto3 message presence); the window is both-or-neither through the
- // shared gate, and the whole run re-enters the OWNER's railed Of so a blank author or negative attempt refuses on
- // the owning kernel or semantic refusal exactly as an in-process mint — the pre-initialised mutable correlation and the trusting
- // positional construction both died here.
  static Fin<global::Rasm.Element.Assessment.EvidenceRun> ToEvidenceRun(ProvenanceWire w, Op key) =>
   from _window in BothOrNeither(w.WindowStart is not null, w.WindowEnd is not null, "provenance-window", key)
   from correlation in Opt(w.HasCorrelation, w.Correlation).Traverse(bytes =>

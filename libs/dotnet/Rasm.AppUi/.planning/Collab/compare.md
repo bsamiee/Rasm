@@ -30,16 +30,12 @@ Two READ-ONLY rails over historical cuts of one collaborative document, sharing 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record CollabRevertReceipt(string Key, string FrontierDigest, int InverseOps, Instant At, CorrelationId Correlation);
 
-// The inverse decode as a TABLE keyed by the root each container sits under, so the dispatch is total over
-// the declared root vocabulary and a level whose root carries no leg refuses by name.
 public sealed record RevertPlan(Map<CollabRoot, Func<ContainerDiff, Fin<Seq<EditIntent>>>> Legs) {
     public Fin<Seq<EditIntent>> Invert(ContainerDiff change) =>
         Rooted(change).Bind(root => Legs.Find(root)
             .ToFin(new CollabFault.Gated($"revert: no inverse leg for root {root.Key}"))
             .Bind(leg => leg(change)));
 
-    // The FIRST hop of the diff's own path IS the root name, so the level a change sits under is read off
-    // the engine's answer rather than re-derived from a container id or a second lookup.
     static Fin<CollabRoot> Rooted(ContainerDiff change) =>
         change.Path is [{ Index: LoroIndex.Key head }, ..] && CollabRoot.TryGet(head.Key, out CollabRoot? root)
             ? Fin.Succ(root)
@@ -61,22 +57,15 @@ public sealed record CollabUndo(UndoManager Manager) : IDisposable {
     public Fin<Unit> Undo() => Stepped(Manager.CanUndo, Manager.Undo, "nothing-to-undo");
     public Fin<Unit> Redo() => Stepped(Manager.CanRedo, Manager.Redo, "nothing-to-redo");
 
-    // ONE gated step for both directions: the probe and the drive are the only difference, so they arrive as
-    // arguments and the availability gate composes on the rail instead of a conditional expression spelled
-    // once per direction.
     static Fin<Unit> Stepped(Func<bool> available, Func<bool> drive, string refusal) =>
         from _ in guard(available(), (Error)new CollabFault.Gated(refusal))
         from done in CollabDoc.Lift(() => ignore(drive()))
         select done;
 
-    // One undo unit per bracketed transaction. The close is UNCONDITIONAL disposal, so the kernel bracket
-    // runs it on both exits and appends a failed close to the edit's own cause.
     public Fin<Unit> Group(Func<Fin<Unit>> edits) =>
         CollabDoc.Lift(() => { Manager.GroupStart(); return unit; })
             .Bind(_ => Custody.Bracket(edits, new GroupScope(Manager)));
 
-    // The scope IS a disposable, so the custody algebra's own LIFO release owns the close and no delegate
-    // arm opens a second release regime beside it.
     private sealed record GroupScope(UndoManager Manager) : IDisposable {
         public void Dispose() => Manager.GroupEnd();
     }
@@ -87,16 +76,13 @@ public sealed record CollabUndo(UndoManager Manager) : IDisposable {
 public sealed record TimeTravel(
     CollabDoc Document,
     RevertPlan Plan,
-    Func<DiffBatch, Seq<ContainerDiff>> Changed, // composition-bound: the batch's own enumeration, the one binding detail this page does not re-spell
+    Func<DiffBatch, Seq<ContainerDiff>> Changed,
     IClock Clock,
     CorrelationId Correlation,
     Func<CollabRevertReceipt, IO<Unit>> Publish) {
 
     public const string RevertOrigin = "revert";
 
-    // Committed revert = inverse intents through the ONE commit rail: durable-first per row, live apply
-    // through the same IntentApply dispatch replay uses, so cold-load reproduces the reverted state and
-    // a raw engine RevertTo (Loro-byte inverse ops, invisible to the ledger) never runs on a shared doc.
     public IO<Fin<CollabRevertReceipt>> Revert(IntentLedger ledger, Frontiers cut) =>
         (from intents in Decoded(cut)
          from applied in intents.TraverseM(intent =>
@@ -105,10 +91,6 @@ public sealed record TimeTravel(
          from published in FinT.liftIO<IO, Unit>(Publish(receipt))
          select receipt).runFin.As();
 
-    // Diff names exactly what inverts, and BOTH handles ride the custody algebra: the frontier rolls back on
-    // the arm that fails between the two acquisitions, and the bracket releases both once the decode holds
-    // them. TraverseM inverts in path order and aborts on the first refused leg, so the committed count is
-    // the traversal's own length rather than a threaded counter.
     private FinT<IO, Seq<EditIntent>> Decoded(Frontiers cut) =>
         FinT.lift<IO, Seq<EditIntent>>(
             (from live in CollabDoc.Lift(Document.Doc.OplogFrontiers)
@@ -124,17 +106,11 @@ public sealed record TimeTravel(
 
     public Fin<DiffBatch> Changes(Frontiers from, Frontiers to) => CollabDoc.Lift(() => Document.Doc.Diff(from, to));
 
-    // The fork carries its OWN document identity: the key prefixes the Persistence content-key namespace,
-    // where two documents under one key are replicas that must converge — and two what-if branches off the
-    // same cut are exactly not that, so each fork mints a fresh ordinal beside the parent's key on the same
-    // v7 grammar the session epoch takes, and the key admits at its own owner rather than downstream.
     public Fin<CollabDoc> Fork(Frontiers cut) =>
         from key in Branched(Document.Key)
         from forked in CollabDoc.Lift(() => Document.Doc.ForkAt(cut))
         select CollabDoc.Of(forked, key);
 
-    // The generated admission is the only mint: `Validate` answers the domain fault directly, so the branch
-    // key crosses the same gate a caller-supplied one does and no derivation here bypasses the invariant.
     static Fin<DocumentKey> Branched(DocumentKey parent) =>
         DocumentKey.Validate($"{parent.Value}/fork/{Guid.CreateVersion7():N}", null, out DocumentKey? branch) is { } refused
             ? Fin.Fail<DocumentKey>(refused)
@@ -186,9 +162,6 @@ flowchart LR
 
 ```csharp signature
 // --- [TYPES] ---------------------------------------------------------------------------
-// Rank orders the election when a compare opens with no named baseline: a saved version is the most stable
-// anchor, a live remote the next, and a scenario the least, because a scenario's own membership can change
-// underneath the comparison while a frozen cut cannot.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -200,8 +173,6 @@ public sealed partial class BaselineProvider {
     public int Rank { get; }
 }
 
-// Side-by-side and inline are two SEAT GEOMETRIES over one hunk sequence, so the toggle is a row read and a
-// second differ, a second hunk model, or a second navigation path per layout is unspellable.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -211,20 +182,11 @@ public sealed partial class DiffLayout {
 
     public int Panes { get; }
 
-    // The side a layout renders is ROW DATA: the two-pane seat shows the changed side in its own pane while
-    // the one-pane seat interleaves both, which is precisely what `ConflictSide.Both` already means.
     public ConflictSide Take { get; }
 
-    // Per-pane side is the LAYOUT's answer, never a seat's derivation: the two-pane geometry seats the
-    // baseline first and the take second, and the one-pane geometry seats the take alone. Re-deriving it at
-    // each seat is what lets one seat render the take twice — a two-pane diff showing one version in both
-    // panes, which passes every shape check and shows a reviewer nothing.
     public ConflictSide Side(int pane) => Panes > 1 && pane == 0 ? ConflictSide.Base : Take;
 }
 
-// Collapse posture as a CASE carrying its own revealed extent. A region expands in place, so its posture is
-// what changes and the region never leaves the roster; a partial expansion is the middle case rather than a
-// second flag beside a boolean, and `Shown` is the one arm every pane read folds through.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RegionPosture {
     private RegionPosture() { }
@@ -236,8 +198,6 @@ public abstract partial record RegionPosture {
     public static readonly RegionPosture Collapsed = new Folded();
     public static readonly RegionPosture Open = new Whole();
 
-    // The lines this region contributes to its pane: a folded run contributes none, a peeked run its own
-    // revealed count clamped to the extent, and a whole run the extent itself.
     public int Shown(int extent) => Switch(
         state: extent,
         folded: static (_, _) => 0,
@@ -246,24 +206,16 @@ public abstract partial record RegionPosture {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-// The baseline carries its provider row and its display label, so the legend, the strip, and the deep link
-// all name the baseline the same way and no surface re-derives a caption from an identity.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CompareBaseline(BaselineProvider Provider, string Label) {
     public sealed record Version(string Label, Frontiers Cut) : CompareBaseline(BaselineProvider.SavedVersion, Label);
     public sealed record Remote(string Label, ulong Peer) : CompareBaseline(BaselineProvider.LiveRemote, Label);
     public sealed record Scenario(string Label, string VariableKey, string Member) : CompareBaseline(BaselineProvider.Scenario, Label);
 
-    // The ranked election through the kernel bounded selection: an unnamed baseline takes the lowest-ranked
-    // candidate that resolved, and the fold keeps exactly the one row it answers rather than ordering a
-    // whole roster to discard all but its head.
     public static Option<CompareBaseline> Elect(Seq<CompareBaseline> candidates) =>
         Ranked.Top(candidates, keep: 1, static row => row.Provider.Rank, ExtremumDirection.Minimum).Head;
 }
 
-// The legend IS the visibility set — a class absent from the set contributes no override, so toggling a
-// class off removes it from the render rather than repainting it transparent, and the legend and the ghost
-// cannot disagree about what is showing.
 public readonly record struct DiffLegend(Set<DiffClass> Visible) {
     public static readonly DiffLegend All = new(toSet(DiffClass.Items));
 
@@ -273,39 +225,21 @@ public readonly record struct DiffLegend(Set<DiffClass> Visible) {
     public bool Shows(DiffClass row) => Visible.Contains(row);
 }
 
-// The classified element as ONE row: what changed, how it changed, and what KIND of thing it is. The element
-// class rides the classifier's own answer because the diff class is already the legend — a list grouped on it
-// renders one group per legend swatch and tells a reviewer nothing the legend did not.
 public readonly record struct ChangeRow(string ElementId, DiffClass Class, string ElementClass);
 
 public readonly record struct ChangeGroup(string ElementClass, Seq<ChangeRow> Rows);
 
-// The collapsed run between two hunks: a SPAN plus its posture, never a dropped entry, because a collapsed
-// region expands in place and a list that filtered it away would have nothing to expand.
 public readonly record struct DiffRegion(int First, int Last, RegionPosture Posture) {
     public int Extent => Last - First + 1;
     public int Shown => Posture.Shown(Extent);
 }
 
-// One pane's WHOLE cut: the text a seat mounts, each hunk's line span inside that text, and the unchanged
-// runs it folds. Every read a seat takes is a column here, so the geometry deciding what a pane holds is the
-// geometry deciding where each hunk sits in it — the line numbering, the bands, the fold regions, and the
-// scroll target are one coordinate space by construction.
 public sealed record PaneCut(string Text, Seq<(int First, int Last)> Spans, Seq<DiffRegion> Regions) {
-    // Both expansions are ONE swap of the posture column, so the region keeps its span and its seat and only
-    // its posture moves — which is what lets a reveal and a partial peek share one command key.
     public PaneCut Posture(int region, RegionPosture posture) =>
         this with { Regions = Regions.Map((row, index) => index == region ? row with { Posture = posture } : row) };
 }
 
-// The three cuts ONE walk produces. The plan is LAYOUT-INDEPENDENT: a two-pane seat reads the baseline and
-// the current cut, a one-pane seat reads the interleave, and re-seating a surface under another geometry
-// re-reads these same cuts instead of re-walking — which is what keeps a layout re-seat from ever publishing
-// a pane the plan cannot answer.
 public sealed record DiffPlan(PaneCut Baseline, PaneCut Current, PaneCut Inline) {
-    // The compare is DEGENERATE, so the baseline occupies both the base and the local leg and both read one
-    // cut; `base` escapes because the generated arm takes the row's own name. This total switch is the ONE
-    // statement of the side-to-cut correspondence, so a fifth side breaks it rather than interleaving.
     public PaneCut For(ConflictSide side) => side.Switch(
         state: this,
         @base: static plan => plan.Baseline,
@@ -313,41 +247,22 @@ public sealed record DiffPlan(PaneCut Baseline, PaneCut Current, PaneCut Inline)
         remote: static plan => plan.Current,
         both: static plan => plan.Inline);
 
-    // A region indexes the same unchanged RUN in every cut — an unchanged run is identical text in both
-    // versions and the interleave keeps it once, so only its line numbers differ per cut. Every per-cut
-    // projection folds through HERE, so one posture swap opens that run wherever it renders and a second
-    // per-cut operation lands as one argument rather than three mirrored calls.
     public DiffPlan Each(Func<PaneCut, PaneCut> project) => new(project(Baseline), project(Current), project(Inline));
 }
 
-// The structured property-and-text diff contract. Every mechanism it names is already landed at
-// `Editing/inspector#CONFLICT_RESOLUTION`: `ThreeWay.Diff` is the region-closing differ under its own line
-// ceiling, `HunkSegment`/`HunkBands.Attach` are the in-editor bands and the gutter margin over one live
-// segment collection, and `ConflictSide` is the take axis — so the Document-side seat MOUNTS this value and
-// mints none of it.
 public sealed record DiffSurface(
     DiffLayout Layout,
     Seq<ThreeWayHunk> Hunks,
     DiffPlan Plan,
     int Cursor) {
-    // The compare SESSION's route key. The surface is a catalog row like every other screen, so a shared
-    // compare link and a dock panel reach one index; it seats INTERACTIVE because its panes render live
-    // document state over the co-edit transport and a headless cell would exercise a merge authority
-    // nothing had connected.
     public const string SessionKey = "compare.session";
 
     public const string LayoutIntent = "compare.layout";
     public const string NextIntent = "compare.hunk-next";
     public const string PreviousIntent = "compare.hunk-previous";
 
-    // ONE key for both expansions: the payload carries the extent, so a partial peek and a full reveal are
-    // one verb the deck already lifts rather than a second command row nothing raises.
     public const string RevealIntent = "compare.reveal";
 
-    // The seat's body: the layout toolbar over the pane geometry the layout row declares, so the screen the
-    // catalog routes carries the verbs it advertises rather than four intent keys nothing raises. A compare
-    // that closed no hunk is the ORDINARY outcome — two identical cuts — so it states that outcome instead
-    // of seating empty panes a reader has to interpret.
     public ControlIntent Body(VirtualWindowSpec window) =>
         new ControlIntent.Panel(
             SessionKey,
@@ -355,11 +270,6 @@ public sealed record DiffSurface(
             ConstraintProgram: SessionKey,
             IntentBinding.Of(PaintRole.Surface));
 
-    // Splitting a two-pane layout through the settled splitter case so the panes scroll under one solver
-    // rather than two independently sized regions. Each pane windows the SAME hunk sequence — a pane holding
-    // its own hunk copy is what lets two sides of a diff scroll to different regions of one change — and the
-    // cursor rides the region column the navigation verbs already move, so no pane holds a selection of its
-    // own.
     ControlIntent Seated(VirtualWindowSpec window) =>
         Panes(window) switch {
             [var single] => single,
@@ -369,8 +279,6 @@ public sealed record DiffSurface(
                 $"{SessionKey}.panes", panes, ConstraintProgram: SessionKey, IntentBinding.Of(PaintRole.Surface)),
         };
 
-    // Each pane carries its OWN key and its own side: two panes sharing one key collide at the control
-    // factory's own identity, and two panes sharing one side render the same version twice.
     Seq<ControlIntent> Panes(VirtualWindowSpec window) =>
         Range(0, Layout.Panes).AsIterable().ToSeq().Map(ordinal => (ControlIntent)new ControlIntent.Tree(
             PaneKey(ordinal),
@@ -381,9 +289,6 @@ public sealed record DiffSurface(
             window,
             IntentBinding.Of(PaintRole.Panel)));
 
-    // The navigation and layout keys as one toolbar, so the keyboard, the palette, and the strip drive one
-    // cursor and the layout toggle sits where the panes it re-seats are. The rows refuse overflow promotion:
-    // a diff walk whose next verb moved into a popup well is a walk a reviewer stops using.
     ControlIntent Transport() =>
         new ControlIntent.Toolbar(
             $"{SessionKey}.transport",
@@ -400,16 +305,9 @@ public sealed record DiffSurface(
         new ControlIntent.Button(key, $"{key}.label",
             IntentBinding.Of(PaintRole.Accent, ControlEmphasis.Quiet) with { Command = Some(key) });
 
-    // The screen's seating: the surface's own layout row decides how many panes the seat mounts, and the
-    // body is the pane fold this owner already builds — a screens-local compare body would be a second
-    // projection over one hunk set.
     public static ScreenProgram Program(ScreenComposition composition) =>
         ScreenProgram.Of(SessionKey, screen => composition.Diff(screen.Surface).Body(composition.Window));
 
-    // A compare is the DEGENERATE three-way: the baseline occupies both the base and the local leg, so no
-    // region can be two-sided, `Conflicted` is false throughout, and every hunk the differ closes is exactly
-    // one change. Running the two-way case through the three-way owner is what keeps the region law, the
-    // line ceiling, and the band chrome in one place instead of forking a compare-only differ beside them.
     public static Fin<DiffSurface> Of(
         string target, string baseline, string current, DiffLayout layout, int context, DiffPolicy policy) =>
         context >= 0
@@ -417,46 +315,25 @@ public sealed record DiffSurface(
                 .Map(hunks => new DiffSurface(layout, hunks, Planned(hunks, baseline, current, context), Cursor: 0))
             : Fin.Fail<DiffSurface>(new CollabFault.Gated($"compare/negative-context:{context}"));
 
-    // The three PANE-ADDRESSED reads. A pane holds its WHOLE cut, so the text it mounts, the span its bands
-    // measure, and the regions its fold resync folds are coordinates in ONE line space — the space the plan
-    // derived them in. A pane assembled from the changed runs alone puts the text in one space and every
-    // decoration in another, and each consequence is silent: segments drop past the document end, the overview
-    // lane publishes nothing, and the collapse regions fold nothing.
     public string Text(int pane) => Cut(pane).Text;
 
-    // The walk emits one span per hunk on every cut, so a span roster and the hunk roster are the same length
-    // by construction and a hunk ordinal any consumer holds addresses this cut — which is why the read is the
-    // positional one rather than an absence fold whose empty arm would silently drop a band.
     public (int First, int Last) Span(int pane, int hunk) => Cut(pane).Spans[hunk];
 
     public Seq<DiffRegion> Regions(int pane) => Cut(pane).Regions;
 
     public string PaneKey(int pane) => $"{SessionKey}.pane.{pane.ToString(CultureInfo.InvariantCulture)}";
 
-    // Navigation is MODULAR over the hunk count, so next past the last hunk returns to the first and a
-    // reviewer walking a long diff never dead-ends at an edge with no feedback — the reading a presentation
-    // transport explicitly refuses, which is why that one clamps and this one wraps.
     public DiffSurface Walk(int delta) =>
         Hunks.IsEmpty ? this : this with { Cursor = ((Cursor + delta) % Hunks.Count + Hunks.Count) % Hunks.Count };
 
-    // Both expansions swap the SAME posture column through the plan's one per-cut fold, so a region opens
-    // wherever it renders and the two verbs share one key and one body shape.
     public DiffSurface Reveal(int region) => Postured(region, RegionPosture.Open);
     public DiffSurface Peek(int region, int lines) => Postured(region, new RegionPosture.Peeked(lines));
 
     DiffSurface Postured(int region, RegionPosture posture) =>
         this with { Plan = Plan.Each(cut => cut.Posture(region, posture)) };
 
-    // The layout answers which side a pane holds and the plan answers what that side reads, so the ordinal a
-    // seat mounts by is the ordinal every read resolves through and no read parses a pane key back.
     PaneCut Cut(int pane) => Plan.For(Layout.Side(pane));
 
-    // ONE walk over the two cuts yields all three. The unchanged run before a hunk is IDENTICAL in both
-    // versions, and an exact LCS alignment cannot leave a region's two sides opening on the same line —
-    // matching that pair would extend the subsequence — so advancing both cursors while their lines agree
-    // lands exactly on each hunk's first line and the region's own runs give its extent. Nothing is searched
-    // and no caller supplies a geometry: the two cuts the compare names are the only authority for where a
-    // hunk sits, and the interleave is those same runs kept in reading order.
     static DiffPlan Planned(Seq<ThreeWayHunk> hunks, string baseline, string current, int context) =>
         Walked(hunks, Rows(baseline), Rows(current)) switch {
             var walk => new DiffPlan(
@@ -465,8 +342,6 @@ public sealed record DiffSurface(
                 Assembled(walk.Steps, walk.Tail, static step => step.Baseline + step.Current, context)),
         };
 
-    // The unchanged prefix a hunk closes, then each cut's own run for that hunk — so a side is a per-step
-    // selector over one partition rather than a second walk per pane.
     readonly record struct DiffStep(Seq<string> Stable, Seq<string> Baseline, Seq<string> Current);
 
     static (Seq<DiffStep> Steps, Seq<string> Tail) Walked(Seq<ThreeWayHunk> hunks, Seq<string> baseline, Seq<string> current) =>
@@ -474,8 +349,6 @@ public sealed record DiffSurface(
             Stepped(state.Before, state.After, hunk) switch {
                 var walked => (walked.Before, walked.After, state.Steps.Add(walked.Step)),
             }) switch {
-            // What remains after the last hunk is the trailing unchanged run, identical in both cuts, so one
-            // cursor answers it for every side.
             var done => (done.Steps, done.Before),
         };
 
@@ -496,9 +369,6 @@ public sealed record DiffSurface(
 
     static Seq<string> Rows(string text) => text.Length == 0 ? Seq<string>() : toSeq(text.Split('\n'));
 
-    // One projection per side over the shared partition: the cut's text, the per-hunk spans in that cut's own
-    // one-based line numbering, and the runs it folds. A hunk contributing no line to this side spans an empty
-    // range, so the pane paints no band where its version changed nothing rather than a band over its neighbour.
     static PaneCut Assembled(Seq<DiffStep> steps, Seq<string> tail, Func<DiffStep, Seq<string>> select, int context) =>
         steps.Fold(
             (Cursor: 1, Lines: Seq<string>(), Spans: Seq<(int First, int Last)>(), Regions: Seq<DiffRegion>()),
@@ -517,11 +387,6 @@ public sealed record DiffSurface(
                 walked.Regions + Folded(walked.Cursor, tail.Count, context)),
         };
 
-    // A run longer than twice the retained context collapses its middle; a shorter run stays whole, because
-    // hiding two lines to save two lines is churn a reader pays for and gains nothing from. The LEADING and
-    // TRAILING runs fold on the same rule as the interior ones — an unchanged preamble and an unchanged tail
-    // are exactly the runs a long document has most of, and a fold that reached only the gaps between hunks
-    // left both standing whole.
     static Seq<DiffRegion> Folded(int first, int length, int context) =>
         length > context * 2
             ? Seq(new DiffRegion(first + context, first + length - context - 1, RegionPosture.Collapsed))
@@ -529,11 +394,6 @@ public sealed record DiffSurface(
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// The change list's ONE property roster, exactly as the issue board declares its own: filtering, ordering,
-// and grouping all read it, so a compare that filters can sort and group by construction. The diff-class
-// domain is DECLARED off its own vocabulary, so a term naming a classification the axis never spelled refuses
-// at admission rather than silently matching nothing, and the element class stays free text because it is the
-// model's word for the thing rather than a roster this package closes.
 public static class ChangeSchema {
     public const string ElementProperty = "element";
     public const string ClassProperty = "class";
@@ -549,8 +409,6 @@ public static class ChangeSchema {
             Field(ElementClassProperty, FilterKind.Text, Seq<FilterValue>(),
                 static row => Seq<FilterValue>(new FilterValue.Text(row.ElementClass))))).Admit();
 
-    // The default grouping is DATA on the view, not a fold inside the list: a reviewer reads a change set by
-    // what changed rather than by how it changed, and a saved view naming its own grouping keeps it.
     public static ViewState Seed(ViewState view) =>
         view.Group.IsEmpty ? view with { Group = Seq(ElementClassProperty) } : view;
 
@@ -558,10 +416,8 @@ public static class ChangeSchema {
         new(new FilterProperty(key, $"compare.filter.{key}", kind, domain), read);
 }
 
-// Capability class, never a value-equal record: two Frontiers cuts are Rust-pointer wrappers whose identity
-// and release path are the session's, exactly as the document's are — the b0 native-lifetime law.
 public sealed class CompareSession : IDisposable {
-    private readonly Func<Seq<ChangeRow>> classify;   // composition-bound: the Persistence replay/commit-DAG fold, arriving as VALUES
+    private readonly Func<Seq<ChangeRow>> classify;
     private readonly Atom<Option<(Option<Frontiers> Owned, Frontiers Current)>> custody;
 
     private CompareSession(
@@ -569,8 +425,6 @@ public sealed class CompareSession : IDisposable {
         Func<Seq<ChangeRow>> classify, FilterSchema<ChangeRow> schema, Atom<DiffLegend> legend, Instant openedAt) {
         Document = document; Baseline = baseline; Current = current; Schema = schema; Legend = legend; OpenedAt = openedAt;
         this.classify = classify;
-        // Only the Version arm's cut is this session's to free: a remote peer and a scenario member are
-        // identities it never allocated, so the custody cell states exactly what it owns.
         custody = Atom(Some((
             Owned: baseline is CompareBaseline.Version { Cut: var cut } ? Some(cut) : Option<Frontiers>.None,
             Current: current)));
@@ -586,17 +440,12 @@ public sealed class CompareSession : IDisposable {
     public Atom<DiffLegend> Legend { get; }
     public Instant OpenedAt { get; }
 
-    // The roster admits at construction, so a session that opened can filter, order, and group — the refusal
-    // this rail carries is that admission and nothing else, which is why it is a rail at all.
     public static Fin<CompareSession> Between(
         CollabDoc doc, CompareBaseline baseline, Frontiers current,
         Func<Seq<ChangeRow>> classify, IClock clock) =>
         ChangeSchema.Of().Map(schema =>
             new CompareSession(doc, baseline, current, classify, schema, Atom(DiffLegend.All), clock.GetCurrentInstant()));
 
-    // Entry from ANY option: the option set answers the settled comparison offset, whose scenario case
-    // carries the variable and the member, so an option compare and a chart ghost address one vocabulary and
-    // the compare session never learns what an option is.
     public static Fin<CompareSession> FromOption(
         CollabDoc doc, OptionSet options, OptionKey member, Frontiers current,
         Func<Seq<ChangeRow>> classify, IClock clock) =>
@@ -604,16 +453,9 @@ public sealed class CompareSession : IDisposable {
             ? Between(doc, new CompareBaseline.Scenario(scenario.Member, scenario.VariableKey, scenario.Member), current, classify, clock)
             : Fin.Fail<CompareSession>(new CollabFault.Gated($"compare/non-scenario-offset:{offset}")));
 
-    // The ghost render is the ONE visibility channel: the classified rows filter through the legend and
-    // project onto override rows through the settled pair the ghost owner declares, so a class toggled off
-    // contributes nothing and no second overlay owner exists.
     public Seq<VisibilityOverride> Ghosts() =>
         VersionGhost.Project(Visible().Map(static row => (row.ElementId, row.Class)));
 
-    // The change list rides the one filter algebra and the one windowing fabric, and it crosses that algebra
-    // WHOLE: the view admits against this session's own roster, the comparer and the grouping projection both
-    // come off it, and the rows fold through them — so the board's chips, its saved views, and its deep link
-    // are the same values every other filtered surface carries, and a saved grouping is the grouping rendered.
     public Fin<Seq<ChangeGroup>> Changes(Predicate<FilterTerm> filter, ViewState view) =>
         from admitted in ChangeSchema.Seed(view).Admit(Schema)
         from predicate in Schema.Compile(filter)
@@ -626,17 +468,11 @@ public sealed class CompareSession : IDisposable {
             .Map(static group => new ChangeGroup(group.Key, toSeq(group)))
             .ToSeq();
 
-    // Both projections read the SAME legend-filtered set, so the ghost a viewport paints and the list a
-    // reviewer walks can never disagree about which elements the compare is showing.
     Seq<ChangeRow> Visible() => classify().Filter(row => Legend.Value.Shows(row.Class));
 
-    // The legend swap ANSWERS: a toggle that ceded its seat to a concurrent one and a toggle that landed are
-    // different facts, and a discarded verdict reports success to both writers.
     public Transition<DiffLegend> Toggle(DiffClass row) =>
         Cell.Commit(Legend, held => held.Toggle(row), Cell.SwapBudget);
 
-    // Both cuts release ONCE through one take-and-clear, so a second dispose reads the drained post-state and
-    // no latch flag carries a second answer beside the cell.
     public void Dispose() =>
         ignore(Cell.Take(custody).Current.Map(static held => {
             held.Owned.Iter(static cut => cut.Dispose());

@@ -39,7 +39,7 @@ Composition is downward: `Op`, `Fin`, `Cell`/`Transition`, `Lease<T>`, `Custody`
 - Boundary: `HostThread` owns Rhino command-thread affinity while the kernel `UiThread` owns Eto control-tree affinity — two marshals, two seams, one lane roster and one pace band between them.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.ComponentModel;
 using System.Globalization;
@@ -68,8 +68,6 @@ using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingColor = System.Drawing.Color;
 using DrawingPoint = System.Drawing.Point;
 using DrawingPointF = System.Drawing.PointF;
-// `Rhino.Runtime.Notifications` imports bare would collide with `Eto.Forms.Notification`; the three members this
-// boundary writes arrive aliased instead, and `Rhino.Runtime.RhinoAccounts.ProgressState` is the login key space.
 using HostNotice = Rhino.Runtime.Notifications.Notification;
 using HostNoticeButton = Rhino.Runtime.Notifications.ButtonType;
 using HostNoticeCenter = Rhino.Runtime.Notifications.NotificationCenter;
@@ -77,16 +75,14 @@ using LoginProgress = System.Progress<Rhino.Runtime.RhinoAccounts.RhinoAccoounts
 
 namespace Rasm.Rhino.HostUi;
 
-// --- [CONSTANTS] ----------------------------------------------------------------------------
-// The ONE cap every long-lived owner on this boundary rings under — each is host-activated, capsule-seated, or
-// process-static and no policy reaches its constructor, so a per-owner cap beside this one is the fork.
+// --- [CONSTANTS] -----------------------------------------------------------------------
 internal static class ShellFaults {
     internal static readonly Rasm.Numerics.Dimension Cap = Rasm.Numerics.Dimension.Create(value: 256);
     internal static Ring<Error> Ring() => new(cap: Cap);
     internal static FaultCell Cell() => new(cap: Cap, clock: TimeProvider.System);
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class CallbackObserver<T> {
     private readonly Ring<Error> faults = ShellFaults.Ring();
@@ -153,8 +149,6 @@ public readonly partial struct PostWaitLimit {
             : null;
 }
 
-// One live payload, one released case, one declaration: the meter's position pair, the named lease's `Unit`, and
-// the notice gate's `Unit` are three instantiations of one lifecycle rather than three boolean flags.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LeaseState<TLive> {
     private LeaseState() { }
@@ -185,10 +179,8 @@ internal abstract partial record PostedState {
     public sealed record Settled : PostedState;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostThread {
-    // `Demand` bounds its result on the detached marker, so the crossing's own rail rides a capsule THROUGH the
-    // demand — the `DetachedContext` precedent — and no slot is captured across the document callback.
     private sealed record Crossed<T>(Fin<T> Value) : IDetachedDocumentResult;
 
     public static Fin<T> Run<T>(HostWork<T> work, Op? key = null) {
@@ -225,8 +217,6 @@ public static class HostThread {
             return request.Body();
         });
 
-    // `InvokeAndWait` takes a `void` action, so the crossing's result lands in a cell and the seat verdict is the
-    // reader — a mutable nullable capture across a host callback is the shape this seam cannot spell.
     private static Fin<T> Marshalled<T>(Func<Fin<T>> body, Op op, DispatchLane lane) =>
         MarshalLatency.Measured(lane: lane, work: op, body: () => op.Catch(() => {
             Atom<Option<Fin<T>>> landed = Atom(Option<Fin<T>>.None);
@@ -249,9 +239,6 @@ public static class HostThread {
                         : Cell.Step(state, static held => Some(held), op.InvalidContext())),
                 args: []);
             if (completed.Task.Wait(request.Wait.ToValue())) { return completed.Task.Result; }
-            // Only a body that never started wins the expiry step; a DECLINED step proves the body was already
-            // running when the wait lapsed, so the post-state is the reader that recovers a late result the timeout
-            // would otherwise discard — a posted body that finished after its bound still answers.
             return Cell.Step(
                     cell: state,
                     step: static held => held is PostedState.Pending ? Some<PostedState>(new PostedState.Expired()) : None,
@@ -282,7 +269,7 @@ public static class HostThread {
             None: () => Fin.Fail<T>(error: new UiFault.HostRejected(Key: op, Detail: member)));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public static class MarshalLatency {
     public const string DurationInstrument = "rasm.rhino.hostui.marshal.duration";
     public const string QueuedCheckpoint = "rasm.rhino.marshal.queued";
@@ -293,12 +280,8 @@ public static class MarshalLatency {
     public const string LaneTag = "rasm.rhino.marshal.lane";
     public const string OutcomeTag = "rasm.rhino.marshal.outcome";
 
-    // The ONE process-global on this page: a MOUNT SEAT whose sole writer is `ShellMount.Marshal` at plug-in boot,
-    // first-mount-wins, the detacher returning it. An unmounted seat is the zero-cost pass-through.
     private static readonly Atom<Option<MarshalSeat>> Seat = Atom(Option<MarshalSeat>.None);
 
-    // The app root registers the eight names through `RegisterCheckpointNames`/`RegisterMeasureNames`/
-    // `RegisterTagNames` before mounting; every token resolves once, here.
     public static Fin<Lease<IDisposable>> Mount(
         PluginKey plugin,
         ILatencyContextProvider provider,
@@ -333,8 +316,6 @@ public static class MarshalLatency {
                        declined: op.InvalidContext()))));
     }
 
-    // Every gauged body times against the SEAT's timeline and the LANE's own bound; both settles ride the gauge's
-    // own rail, so no exit path skips the checkpoint pair, the two measures, or the three tags.
     internal static Fin<T> Measured<T>(DispatchLane lane, Op work, Func<Fin<T>> body) =>
         Seat.Value.Match(
             None: body,
@@ -383,7 +364,7 @@ public static class MarshalLatency {
 - Boundary: `PromptWatch.Observe` detaches callback-scoped option handles into immutable `PromptFact` rows before guarded delivery.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ToastSpec {
     public RhinoView View { get; }
@@ -428,7 +409,7 @@ public abstract partial record StatusOp {
     public sealed record Toast(ToastSpec Spec) : StatusOp;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record StatusReceipt(Seq<ToastOutcome> Toasts);
 
 [Equatable]
@@ -443,8 +424,6 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
         new(Operations: Iterable<StatusProgram>.FromSpan(programs)
             .Fold(Seq<StatusOp>(), static (all, next) => all + next.Operations));
 
-    // Panes are document space, so the program is too: the session resolves the live regime ONCE for the whole
-    // fold and every measured case reads that one value, rather than each arm re-reading a document it was handed.
     public Fin<StatusReceipt> Apply(DocumentSession session, Op? key = null) {
         ArgumentNullException.ThrowIfNull(session);
         Op op = key.OrDefault();
@@ -477,9 +456,6 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
                 Some: text => Admitted(text: text, op: held.Op)
                     .Map(message => (Op.Side(() => StatusBar.SetMessagePane(message: message)), held.Receipt).Item2),
                 None: () => Fin.Succ(value: (Op.Side(StatusBar.ClearMessagePane), held.Receipt).Item2)),
-            // Rhino renders this magnitude under the document's own unit label, so a value carried in another
-            // regime rescales before it is written — never relabels. Same-regime resolves to the identity
-            // factor the one scale owner returns, so no arm branches on whether a conversion is needed.
             distance: static (held, write) => write.Unit.ScaleTo(target: held.Regime, key: held.Op)
                 .Map(scale => (Op.Side(() => StatusBar.SetDistancePane(distance: write.Value * scale)), held.Receipt).Item2),
             number: static (held, write) => Fin.Succ(value: (Op.Side(() => StatusBar.SetNumberPane(number: write.Value)), held.Receipt).Item2),
@@ -488,8 +464,6 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
                 Toasts = held.Receipt.Toasts.Add(Shown(spec: write.Spec, op: held.Op)),
             }));
 
-    // Admission precedes localization: the host localizer receives an already-screened English value, so a blank
-    // authored string refuses at this boundary instead of resolving into a blank pane write.
     private static Fin<string> Admitted(HostText text, Op op) => op.AcceptText(value: text.English).Map(_ => text.Resolve());
 
     private static ToastOutcome Shown(ToastSpec spec, Op op) =>
@@ -504,7 +478,7 @@ public sealed record StatusProgram(Seq<StatusOp> Operations) {
         .Match<ToastOutcome>(Succ: static id => new ToastOutcome.Shown(Id: id), Fail: static fault => new ToastOutcome.Refused(Fault: fault));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class PromptWatch {
     public static Fin<Subscription> Observe(CallbackObserver<PromptFact> observer, Op? key = null) {
         ArgumentNullException.ThrowIfNull(observer);
@@ -546,17 +520,13 @@ public static class PromptWatch {
 - Boundary: `Progress.Use` demands `SessionNeed.Redraw`; release clears every owned projection, returns cleanup failure through the use rail, and retains failed attempts for explicit retry.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class ProgressFeature {
     public static readonly ProgressFeature EmbeddedLabel = new();
     public static readonly ProgressFeature Percentage = new();
     public static readonly ProgressFeature Presence = new();
     public static readonly ProgressFeature WaitCursor = new();
-    // Escape arms the host abort edge for the lease's scope: what a user presses to stop a meter that is running
-    // away is the same key the command loop already spells Cancel, and a metered fold with no abort edge is the
-    // affordance without its exit. Absent, the lease's token is CancellationToken.None and every paced consumer
-    // reads an uncancellable run — the honest default for a fold whose caller declared no abort.
     public static readonly ProgressFeature Escape = new();
 }
 
@@ -583,7 +553,7 @@ public abstract partial record MeterGrant {
         };
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ProgressPolicy {
     public int Lower { get; }
@@ -591,8 +561,6 @@ public sealed partial class ProgressPolicy {
     public HostText Label { get; }
     public FrozenSet<ProgressFeature> Features { get; }
 
-    // One refusal per column, each naming the column it refused on: the generated hook carries ONE error, so the
-    // chain is the shape that keeps a caller from guessing which of four inputs was rejected (`PaceBand` idiom).
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(
         ref ValidationError? validationError,
@@ -626,20 +594,13 @@ public sealed record ProgressReceipt(
     UnitInterval Fraction,
     Option<Error> PresenceFault);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ProgressLease : IDisposable {
-    // IProgress projections are the ONE adapter between the host meter and every paced kernel and host fold —
-    // `ModelRuntime`, `ProjectionPacing`, and the kernel `ArrangementPolicy` governance band all take
-    // `Option<IProgress<double>>` or `IProgress<int>`, so a lease hands its own `Advance` rail outward instead of
-    // each caller writing the same shim. `Report` returns void and the rail returns `Fin`, so a refused advance
-    // PARKS on the lease's ring — discarding it would hide a bounds refusal behind a meter that silently stops.
     private sealed record LeaseReporter(ProgressLease Lease) : IProgress<double>, IProgress<int> {
         public void Report(double value) => Lease.Park(Lease.Advance(new ProgressMove.Absolute(
             Position: Lease.policy.Lower + (int)Math.Round(
                 Math.Clamp(value: value, min: 0.0, max: 1.0) * (Lease.policy.Upper - Lease.policy.Lower)))));
 
-        // The tick rail clamps into the declared range exactly as the fraction rail clamps into 0..1 — a consumer
-        // pacing in its own domain range saturates at the meter's bounds instead of parking refusals forever.
         public void Report(int value) => Lease.Park(Lease.Advance(new ProgressMove.Absolute(
             Position: Math.Clamp(value: value, min: Lease.policy.Lower, max: Lease.policy.Upper))));
     }
@@ -671,14 +632,9 @@ public sealed class ProgressLease : IDisposable {
     public Seq<Error> Faults => faults.Parked;
     public long Shed => faults.Shed;
 
-    // One reporter instance serves both arities, so a consumer taking the fraction rail and one taking the tick
-    // rail drive the SAME meter state and no second adapter exists to drift against it.
     public IProgress<double> Fraction => reporter;
     public IProgress<int> Ticks => reporter;
 
-    // CancellationToken.None when the policy declared no Escape row — the host's own uncancellable spelling,
-    // never an Option<CancellationToken> stacking a second absence on a value that already models one
-    // (the `Modeling/projection#PACING` law, held here at the producing end).
     public CancellationToken Cancel => abort.Match(Some: static source => source.Token, None: static () => CancellationToken.None);
 
     public Fin<ProgressReceipt> Advance(ProgressMove move, Op? key = null) {
@@ -716,9 +672,6 @@ public sealed class ProgressLease : IDisposable {
             key: held);
     }
 
-    // Lock order is one direction everywhere on this lease: cross to the host thread FIRST, take `sync` SECOND.
-    // Holding `sync` across a blocking marshal inverts that order against `Advance` and deadlocks the pair — a caller
-    // waiting on the host thread while the host thread executes an `Advance` body waiting on the lock it already holds.
     public Fin<Unit> Release() => HostThread.Run(
         work: new HostWork<Unit>.Execute(Body: () => {
             lock (sync) {
@@ -740,9 +693,6 @@ public sealed class ProgressLease : IDisposable {
     private Unit Park<T>(Fin<T> outcome) =>
         outcome.Match(Succ: static _ => unit, Fail: failure => ignore(faults.Park(item: failure)));
 
-    // Already on the host thread and already under `sync`: the release fold runs its rows in order and drains every
-    // fault. The abort rows run on BOTH grants — a foreign meter still armed an escape subscription and a source of
-    // its own, and leaking a live native escape callback past its lease outlives the fold it was cancelling.
     private Fin<Unit> Cleanup() => HostThread.Release(
         releases: grant.Switch(
             this,
@@ -778,9 +728,6 @@ public sealed class ProgressLease : IDisposable {
                     : None));
         });
 
-    // A presence mount RESTORES what it overwrote, so a STANDING mount steers in place — `Prior` stays the first
-    // capture and the final release restores the true pre-mount state; only the first projection applies a mount,
-    // because two live pulse mounts would each restore the other's prior and pin the OS surface at a stale fraction.
     private Fin<Unit> Project(UnitInterval fraction, Op op) =>
         presence.Value.Match(
             Some: standing => standing.Resource.Steer(
@@ -817,7 +764,7 @@ public sealed class ProgressLease : IDisposable {
         PresenceFault: fault);
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Progress {
     public static Fin<T> Use<T>(
         DocumentSession session,
@@ -857,10 +804,6 @@ public static class Progress {
             key: op);
     }
 
-    // Escape edges arm as a per-lease CLOSURE, never a static method group: RhinoApp.EscapeKeyPressed dedups an
-    // already-present delegate, so two concurrent leases sharing one handler identity would arm ONE source and the
-    // second fold would never see its own abort. Arming is transactional — a subscription that lands with no
-    // source, or a source with no subscription, is an abort edge that fires into nothing or a token nothing raises.
     private static Fin<(Option<CancellationTokenSource> Abort, Option<Subscription> Escape)> Armed(ProgressPolicy policy, Op op) {
         if (!policy.Features.Contains(ProgressFeature.Escape)) { return Fin.Succ((Option<CancellationTokenSource>.None, Option<Subscription>.None)); }
         CancellationTokenSource source = new();
@@ -873,9 +816,6 @@ public static class Progress {
             .Rollback(source);
     }
 
-    // The ONE both-arms bracket on this boundary: `Custody.Settled` releases on success and failure alike and
-    // AGGREGATES the release refusal into the primary — the same fold the named-parameter lease and the notice
-    // lease compose, so no page re-spells `result`-then-`release`-then-`primary + cleanup`.
     private static Fin<T> Bracketed<T>(ProgressLease lease, bool wait, Func<ProgressLease, Fin<T>> body, Op op) =>
         op.Catch(() => {
             using WaitCursor? cursor = wait ? new WaitCursor() : null;
@@ -901,7 +841,7 @@ public static class Progress {
 - Boundary: every document-scoped operation is a `HostWork<T>.Session` value, and every returned owner detaches as `DocKey`.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record WindowScope {
     private WindowScope() { }
@@ -937,7 +877,7 @@ public sealed partial class WindowPolicy {
         Styler.Match(Some: dress => dress.Dress(arg1: window, arg2: key), None: static () => Fin.Succ(value: unit));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShellWindows {
     public static Fin<Window> Parent(WindowScope scope, Op? key = null) {
         ArgumentNullException.ThrowIfNull(scope);
@@ -965,8 +905,6 @@ public static class ShellWindows {
                 Document: session,
                 Needs: [SessionNeed.Redraw],
                 Body: document => {
-                    // The window is the CALLER's: its title, placement, and state are borrowed values, so the
-                    // rollback roster is minted before the first write and every arm of it runs on refusal.
                     (string Title, Eto.Drawing.Point Location, WindowState State) prior =
                         (window.Title, window.Location, window.WindowState);
                     Atom<Option<Subscription>> attached = Atom(Option<Subscription>.None);
@@ -1059,8 +997,6 @@ public static class ShellWindows {
 }
 
 public static class ShellTheme {
-    // Decompile-proven: `RunningInDarkMode` reads `AdvancedSettings.DarkMode` — a managed settings read, not
-    // thread-affine native UI state — so this read is safe off-thread and owes no `HostThread` crossing.
     public static ThemeVariant Current => HostUtils.RunningInDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
 
     public static Fin<Subscription> Observe(ThemeSeam seam, CallbackObserver<ThemeChange> observer, Op? key = null) {
@@ -1095,7 +1031,7 @@ public static class ShellTheme {
 - Boundary: process facts include runtime architecture and system references; assembly paths admit through `Op.AcceptText` before any resolver mutation.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class HostTrait : ICapability<HostTrait> {
@@ -1115,8 +1051,6 @@ public abstract partial record HostProbe {
     public sealed record Compute : HostProbe;
 }
 
-// The two columns are the two arms' own: a denial carries the reason it denied under and a grant carries the
-// signature that proves it, so the record cannot hold a denied entitlement with a signature and no reason.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record EntitlementFact {
     private EntitlementFact() { }
@@ -1128,7 +1062,7 @@ public abstract partial record EntitlementFact {
         : new Denied(Reason: Op.Text(reason));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class HostSnapshot {
     public string ProcessName { get; }
@@ -1144,8 +1078,6 @@ public sealed partial class HostSnapshot {
     public Seq<string> ReferenceAssemblies { get; }
     public Seq<string> SearchPaths { get; }
 
-    // Every corner is a machine that exists — a pre-release server build under Mono in dark mode — so nothing here
-    // is illegal and the law states the openness rather than leaving it inferred.
     public static CapabilityLaw<HostTrait> Law => CapabilityLaw<HostTrait>.Open;
 }
 
@@ -1160,9 +1092,6 @@ public sealed partial class ScriptEngineSnapshot {
     public int ContextId { get; }
 }
 
-// Renamed from `ComputeEndpoint`: the bare name collided with the `Rasm.Compute` dispatch owner's, and a
-// boundary declaration colliding with a canonical owner renames at the boundary (folder naming law — the
-// `Host` prefix, the `MeshKind`-over-`MeshType` precedent). The HOST members keep their own spellings.
 public sealed record HostEndpoint(string Path, Type Contract);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -1195,11 +1124,9 @@ public abstract partial record AssemblyIntake {
     public sealed record FromName(AssemblyName Name) : AssemblyIntake;
 }
 
-// The applied prefix is PERMANENT, so it is a column and never a case: `Fault.IsNone` is the completed answer and
-// a two-case receipt beside this record restated the fold's own intermediate.
 public sealed record AssemblyExtensionReceipt(PluginKey Plugin, int Applied, Option<Error> Fault);
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostFacts {
     public static Fin<HostFact> Probe(HostProbe probe, Op? key = null) {
         ArgumentNullException.ThrowIfNull(probe);
@@ -1236,8 +1163,6 @@ public static class HostFacts {
                         contextId: engine.ContextId)))))));
     }
 
-    // The typed probe whose RETURN TYPE is the answer: `ShellCapsule` binds it into `PackageIdentity`'s host slot
-    // directly, so no case test stands between a probe and the identity it fills.
     public static Fin<HostSnapshot> Process(Op key) =>
         key.Catch(() => {
             HostUtils.GetCurrentProcessInfo(processName: out string name, processVersion: out Version version);
@@ -1313,8 +1238,7 @@ public static class HostAssemblies {
 - Boundary: `PythonScript`, `PythonCompiledCode`, and `ComponentFunctionInfo` never cross a public signature except inside `ScriptUnit`, whose whole contract is that pairing.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// The unit carries its compiling engine: a code object executes only in the scope it compiled against.
+// --- [TYPES] ---------------------------------------------------------------------------
 public sealed record ScriptUnit(PythonCompiledCode Code, PythonScript Engine);
 
 public sealed record ScriptBinding(string Name, object Value);
@@ -1347,14 +1271,13 @@ public abstract partial record ScriptRun {
         compiled: static (_, row) => Fin.Succ<ScriptRun>(row));
 }
 
-// Keyed on the host's own `keepTree` argument: the ordinal and the native flag were two spellings of one axis.
 [SmartEnum<bool>]
 public sealed partial class NodeCallShape {
     public static readonly NodeCallShape Flatten = new(key: false);
     public static readonly NodeCallShape KeepTree = new(key: true);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record NodeReturn(Seq<object> Values, Seq<string> Warnings);
 
 public sealed record NodeFunction {
@@ -1402,7 +1325,7 @@ public sealed record NodeFunction {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class HostScripts {
     public static Fin<ScriptUnit> Compile(string script, Op? key = null) {
         Op op = key.OrDefault();
@@ -1422,8 +1345,6 @@ public static class HostScripts {
                        from name in op.AcceptText(value: row.Name)
                        select row with { Name = name })
                    .As()
-               // A compiled unit executes in the engine that compiled it; every other case mints one fresh engine
-               // and both the bindings and the dispatch read the same instance.
                from engine in admitted is ScriptRun.Compiled held ? Fin.Succ(value: held.Unit.Engine) : Engine(op: op)
                from outcome in HostThread.Run(
                    work: new HostWork<ScriptOutcome>.Execute(Body: () =>
@@ -1453,8 +1374,6 @@ public static class HostScripts {
                select outcome;
     }
 
-    // The host's three execute members answer one `bool`; the refusal names WHICH member answered false, so a
-    // consumer reads the modality that failed rather than one shared invalid-result message.
     private static Fin<ScriptOutcome> Ran(Func<bool> ran, string member, Op op) =>
         op.Catch(() => ran()
             ? Fin.Succ<ScriptOutcome>(value: new ScriptOutcome.Ran())
@@ -1496,7 +1415,7 @@ public static class NodeFunctions {
 - Boundary: `Rhino.Runtime.Skin` is host-constructed and never crosses a public signature; the adapter is the only derivation.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SkinPhase {
     private SkinPhase() { }
@@ -1512,13 +1431,13 @@ public abstract partial record SkinPhase {
     public sealed record HelpRequested : SkinPhase;
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SkinProgram(
     Option<DrawingBitmap> Icon, Option<string> Product, [property: IgnoreMember] Func<SkinPhase, Fin<Unit>> Phase) {
     public static readonly SkinProgram Inert = new(Icon: None, Product: None, Phase: static _ => Fin.Succ(value: unit));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public abstract class ShellSkin : Skin {
     private readonly SkinProgram program;
     private readonly Op op;
@@ -1561,7 +1480,7 @@ public abstract class ShellSkin : Skin {
         .IfFail(failure => ignore(faults.Park(item: failure))));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ShellHooks {
     public static Fin<IDisposable> Mount(PluginKey plugin, Op? key = null) =>
         MountRegistry.Mount(
@@ -1589,7 +1508,7 @@ public static class ShellHooks {
 - Boundary: `SecretKey` never leaves the protected callback and the live token interfaces never leave the lease.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<ProgressState>]
 public sealed partial class LoginPhase {
     public static readonly LoginPhase AwaitingLogin = new(key: ProgressState.AwaitingLogin);
@@ -1598,8 +1517,6 @@ public sealed partial class LoginPhase {
     public static readonly LoginPhase Other = new(key: ProgressState.Other);
 }
 
-// The client is the column every arm carries, so it rides the union's base positional slot and the three-arm
-// switch that read it back — one question the value already answered — has no spelling left.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TokenAsk(string ClientId) {
     public sealed record Acquire(string ClientId, string ClientSecret) : TokenAsk(ClientId);
@@ -1625,11 +1542,9 @@ public abstract partial record TokenAsk(string ClientId) {
             select (TokenAsk)new TryCached(ClientId: id, Scopes: scopes.Strict()));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LoginPulse(LoginPhase Phase, Option<string> Description);
 
-// Detached claim evidence — the live token interfaces never leave the lease, and the record carries the expiry
-// FACT rather than a verdict a clock already derived.
 public sealed record OpenIdEvidence(
     string Subject,
     string Issuer,
@@ -1642,9 +1557,7 @@ public sealed record OpenIdEvidence(
 
 public sealed record OauthEvidence(Option<Instant> Expires, Seq<string> Scopes);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The lease confines the live token pair: every dispatch runs INSIDE `ExecuteProtectedCodeAsync`, so `SecretKey`
-// never escapes the callback and no consumer touches the accounts namespace.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class TokenLease : IDisposable {
     private readonly Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> held;
     private readonly string clientId;
@@ -1675,8 +1588,6 @@ public sealed class TokenLease : IDisposable {
             Scopes: toSeq(pair.Oauth.Scope).Strict()),
         key: key);
 
-    // The LIVE token is the only value that can answer: a lease past expiry reads dead rather than handing a
-    // stale credential, and no detached copy of this verdict exists to disagree with it.
     public bool Live => held.Value.Map(static pair => !pair.Oauth.IsExpired).IfNone(false);
 
     public ValueTask<Fin<Unit>> Refresh(Op? key = null) {
@@ -1721,14 +1632,12 @@ public sealed class TokenLease : IDisposable {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Accounts {
     public static ValueTask<Fin<TokenLease>> Ask(
         TokenAsk ask, Option<Action<LoginPulse>> progress = default, Option<Env> env = default, Op? key = null) {
         ArgumentNullException.ThrowIfNull(ask);
         Op op = key.OrDefault();
-        // Admission is synchronous and settles BEFORE the crossing opens, so a refused request never enters the
-        // protected callback and the async arm carries an already-admitted value alone.
         return ask.Admit(op).Match(
             Succ: request => Dispatch(request: request, progress: progress, env: env, op: op),
             Fail: fault => ValueTask.FromResult(Fin.Fail<TokenLease>(error: fault)));
@@ -1741,8 +1650,6 @@ public static class Accounts {
             LoginProgress pulse = new(info => progress.Iter(tap => ignore(op.Catch(() => tap(new LoginPulse(
                 Phase: op.Row<ProgressState, LoginPhase>(info.State).IfFail(LoginPhase.Other),
                 Description: Op.Text(info.Description)))))));
-            // The protected callback answers `Task`, so the pair lands in a cell whose seat verdict is the reader —
-            // a mutable nullable captured across a host callback is the shape this seam cannot spell.
             Atom<Option<(IOpenIDConnectToken OpenId, IOAuth2Token Oauth)>> landed =
                 Atom(Option<(IOpenIDConnectToken, IOAuth2Token)>.None);
             await RhinoAccountsManager.ExecuteProtectedCodeAsync(protectedCode: async secret => {
@@ -1771,9 +1678,6 @@ public static class Accounts {
     }
 }
 
-// Registration binds an (endpointPath, Type) pair onto an append-only host roster — no delegate, no unregister,
-// no invocation surface in RhinoCommon (routing and activation live server-side in Rhino.Compute) — so the
-// register receipt carries no `Subscription`: process-lifetime custody, the `SnapshotParticipant` precedent.
 public static class HostEndpoints {
     public static Fin<HostEndpoint> Register(string path, Type contract, Op? key = null) {
         ArgumentNullException.ThrowIfNull(contract);
@@ -1805,7 +1709,7 @@ public static class HostEndpoints {
 - Boundary: geometry, viewport, and meshing rows cross as serialized values, and the three live-handle readers the host also publishes — `TryGetObjRefs`, `TryGetRhinoObjects`, and the native window-handle pair — carry document handles and raw pointers this boundary's detachment law forecloses; object identity crosses on the `IdSet` row instead. `NamedLease` owns every rehydrated common object until the synchronous host call ends.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record NamedValue {
     private NamedValue() { }
@@ -1830,7 +1734,6 @@ public abstract partial record NamedValue {
     public sealed record Camera(string Value) : NamedValue;
     public sealed record Meshing(string Value) : NamedValue;
 
-    // The roster owns the correspondence, so the case answers its row by lookup rather than by a second switch.
     internal Option<NamedKind> Kind => NamedKind.Rows.Value.Find(GetType());
 }
 
@@ -1914,8 +1817,6 @@ public sealed partial class NamedKind {
               from releases in Transfer(values: rehydrated, write: () => args.Set(key, rehydrated.AsEnumerable()), op: op)
               select releases
             : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: op.InvalidInput(axis: key))));
-    // The host publishes `TryGetViewport` and NO `Set` counterpart, so this row is read-only by ABSENCE — an
-    // always-failing write arm would have made the same fact a case every writer had to dispatch past.
     public static readonly NamedKind Camera = new(key: 18, payload: typeof(NamedValue.Camera),
         read: static (args, key) => Op.Probe<ViewportInfo>(() => (args.TryGetViewport(key, out ViewportInfo value), value))
             .Map<NamedValue>(value => new NamedValue.Camera(Value: value.ToJSON(new SerializationOptions()))),
@@ -1948,8 +1849,6 @@ public sealed partial class NamedKind {
             ? op.Catch(() => write(row)).Map(static _ => Seq<Func<Fin<Unit>>>())
             : Fin.Fail<Seq<Func<Fin<Unit>>>>(error: op.InvalidInput(axis: key));
 
-    // The fold holds its own PREFIX: every value already rehydrated is a native handle this seam owns, and a
-    // traverse abandoning them on the first refusal leaks exactly what the release roster exists to drain.
     private static Fin<Seq<T>> Rehydrate<T>(Seq<string> encoded, Func<string, T?> decode, Op op)
         where T : class, IDisposable {
         (Seq<T> Values, Option<Error> Fault) state = encoded.Fold(
@@ -2000,8 +1899,6 @@ public sealed partial class NamedSlot {
                     ? new ValidationError(message: $"{nameof(Presence)} is absent.")
                     : null;
 
-    // The schema is a KEYED carrier, so a duplicate key is unrepresentable and the distinct-count guard that
-    // caught it after the fact has nothing left to catch.
     internal static Fin<HashMap<string, NamedSlot>> Admit(Seq<NamedSlot> slots, Op op) =>
         slots.TraverseM(slot => op.Need(slot).Bind(row => op.AcceptValidated<NamedSlot>(
                 Validate(key: row.Key, kind: row.Kind, presence: row.Presence, obj: out NamedSlot? admitted),
@@ -2014,7 +1911,7 @@ public sealed partial class NamedSlot {
                     : Fin.Succ(value: schema.Add(row.Key, row)))));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 internal sealed class NamedLease {
     private readonly Seq<Func<Fin<Unit>>> releases;
     private readonly Atom<LeaseState<Unit>> state = Atom<LeaseState<Unit>>(new LeaseState<Unit>.Live(Held: unit));
@@ -2097,10 +1994,7 @@ public sealed record NamedBag {
             .Map(static rows => new NamedBag(rows: toHashMap(rows.Choose(static row => row))));
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Wire-name custody as a VALUE the capsule publishes: the claim is a fresh token, not the plugin id alone, so a
-// same-plugin double registration refuses typed instead of silently replacing the host handler — whose prior
-// `Subscription`'s detach would then remove the NEW registration.
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class NamedRegistry {
     private readonly Atom<HashMap<string, (PluginKey Plugin, Guid Claim)>> names =
         Atom(HashMap<string, (PluginKey Plugin, Guid Claim)>());
@@ -2126,7 +2020,7 @@ public sealed class NamedRegistry {
             None: () => held)));
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class NamedCallbacks {
     public static Fin<Subscription> Register(
         NamedRegistry registry,
@@ -2203,7 +2097,7 @@ public static class NamedCallbacks {
 - Boundary: no Eto type appears on this cluster — the host notification family is `Rhino.Runtime.Notifications` alone, and the kernel `Presence` gate owns OS notification-centre, tray, taskbar, and badge presence, which never alias with this in-host centre.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<HostNotice.Severity>]
 public sealed partial class NoticeSeverity {
     public static readonly NoticeSeverity Debug = new(key: HostNotice.Severity.Debug);
@@ -2227,8 +2121,6 @@ public abstract partial record NoticeFact {
     public sealed record ChangedCase(string Property, Option<MonotonicStamp> At) : NoticeFact;
 }
 
-// The neutral completion carrier: shell task terminals with their host-text labels — this word has ONE owner
-// in the corpus, so no arity or namespace disambiguation rides the name.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RunOutcome {
     private RunOutcome() { }
@@ -2254,7 +2146,7 @@ public abstract partial record RunOutcome {
         }.ToFrozenDictionary(StringComparer.Ordinal));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class NoticeSpec {
     public HostText Title { get; }
@@ -2267,8 +2159,6 @@ public sealed partial class NoticeSpec {
     public FrozenDictionary<string, string> Metadata { get; }
     public Seq<Assembly> Guards { get; }
 
-    // The RAIL entry every caller-selected severity reaches: the generated `Create` throws and the generated
-    // `Validate` answers one refusal, so admission rides the kernel lifter and no call site probes by hand.
     public static Fin<NoticeSpec> Of(
         HostText title,
         HostText message,
@@ -2326,9 +2216,7 @@ public sealed partial class NoticeSpec {
                                 : new ValidationError(message: $"{nameof(Guards)} carries an absent assembly.");
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// The gate outlives the constructor: the host callbacks close over IT, never over a half-built lease, so the
-// subscription set attaches BEFORE the lease value exists and an attach refusal folds onto the mint's own rail.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class NoticeGate(CallbackObserver<NoticeFact> observer, Op op) {
     private readonly CallbackObserver<NoticeFact> observer = observer;
     private readonly Op op = op;
@@ -2338,8 +2226,6 @@ internal sealed class NoticeGate(CallbackObserver<NoticeFact> observer, Op op) {
 
     internal Seq<Error> Faults => observer.Faults;
 
-    // The claim is the RELEASE decision: exactly one caller reads `true`, and every later release answers `false`
-    // and returns success rather than re-running a teardown the host already saw.
     internal bool Claimed() {
         lock (Sync) {
             if (state is not LeaseState<Unit>.Live) { return false; }
@@ -2401,7 +2287,6 @@ public sealed class NoticeLease : IDisposable {
     public Seq<Error> Faults => faults.Parked + gate.Faults;
     public long Shed => faults.Shed;
 
-    // `ShowModal` is the ONE host write the assembly guard does not check, so it alone crosses bare.
     public Fin<Unit> Present(Op? key = null) => Crossing(body: static held => Op.Side(held.ShowModal), key: key);
 
     public Fin<Unit> Withdraw(Op? key = null) => Crossing(
@@ -2450,7 +2335,7 @@ public sealed class NoticeLease : IDisposable {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Notices {
     public static Fin<T> Use<T>(
         NoticeSpec spec,
@@ -2470,7 +2355,6 @@ public static class Notices {
             key: op);
     }
 
-    // `None` is a run that has not settled — a mid-run receipt announces nothing rather than posting a false terminal.
     public static Fin<Option<T>> Announce<T>(
         Option<RunOutcome> outcome,
         HostText message,
@@ -2495,8 +2379,6 @@ public static class Notices {
             None: static () => Fin.Succ(value: Option<T>.None));
     }
 
-    // `ExecuteAssemblyProtectedCode` admits by the WRITING assembly, so a restricted roster gains this boundary
-    // before its first field write, while an empty roster stays empty because empty already means unrestricted.
     private static Fin<NoticeLease> Mint(
         NoticeSpec spec, CallbackObserver<NoticeFact> observer, MonotonicTimeline timeline, Op op) =>
         op.Catch(() => {
@@ -2514,8 +2396,6 @@ public static class Notices {
                 _ = spec.AlternateCaption.Iter(text => notice.AlternateButtonTitle = text.Resolve());
                 _ = toSeq(spec.Metadata.AsEnumerable()).Iter(row => Op.Side(() => notice[row.Key] = row.Value));
             });
-            // Membership is rendering: the centre `Add` publishes the notice, and a refused publish releases the
-            // lease that already holds the host callbacks.
             return NoticeLease.Of(notice: notice, observer: observer, timeline: timeline, op: op)
                 .Bind(lease => op.Catch(() => HostNoticeCenter.Notifications.Add(notice))
                     .Map(_ => lease)
@@ -2544,9 +2424,7 @@ public static class Notices {
 - Boundary: telemetry LIFETIME is the plugin `AssemblyLoadContext`'s own `Unloading` hook — `ForceFlush` then `Dispose` per the AppHost provider-lifetime law — and every Rasm meter in the plugin process reaches the capsule `IMeterFactory`, a process-static `Meter` staying the named defect. The app root also registers the eight `MarshalLatency` checkpoint, measure, and tag names before the `ShellMount.Marshal` row seats the ledger.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
-// A seat answers the retirements it owes — zero for a process-permanent host registration, one per claim for a
-// tokened one — so retirement is uniform across owners this page cannot name without inverting an import edge.
+// --- [TYPES] ---------------------------------------------------------------------------
 public delegate Fin<Seq<Func<Fin<Unit>>>> ShellSeat(Op key);
 
 public sealed record NamedRow(
@@ -2570,9 +2448,8 @@ public abstract partial record ShellMount {
     public sealed record Endpoints(Seq<HostEndpoint> Rows) : ShellMount;
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ShellCapsule : IDisposable {
-    // The fold's own accumulator: the retirements taken so far and the two values later mounts and consumers read.
     private sealed record Seating(Seq<Func<Fin<Unit>>> Retire, Option<ThemeSeam> Themes, Option<NamedRegistry> Names);
 
     private readonly Atom<LeaseState<Seq<Func<Fin<Unit>>>>> retire;
@@ -2604,8 +2481,6 @@ public sealed class ShellCapsule : IDisposable {
         params ReadOnlySpan<ShellMount> mounts) {
         Op op = key.OrDefault();
         FaultCell faults = ShellFaults.Cell();
-        // Declaration order IS mount order, and a refusal rolls back every seat already taken before it answers,
-        // so no caller ever holds a capsule whose roster is half seated.
         return Iterable<ShellMount>.FromSpan(mounts)
             .Fold(
                 Fin.Succ(value: new Seating(Retire: Seq<Func<Fin<Unit>>>(), Themes: None, Names: None)),
@@ -2616,10 +2491,6 @@ public sealed class ShellCapsule : IDisposable {
                 identity: identity, timeline: timeline, faults: faults, seated: seated, op: op)));
     }
 
-    // Retirement runs the exact inverse of mount order and every row runs even when an earlier one refuses; the
-    // whole refusal set answers as one `Error.Many` and also parks, so a discarded release has no spelling.
-    // The step's REFUSED post-state is the already-released answer and its COMMITTED pre-state is this caller's
-    // roster, so the drain reads the rows it won rather than re-reading a cell a concurrent release just cleared.
     public Fin<Unit> Release() {
         Seq<Func<Fin<Unit>>> drained = Seq<Func<Fin<Unit>>>();
         return Cell.Step(
@@ -2680,7 +2551,6 @@ public sealed class ShellCapsule : IDisposable {
                 .Map(rows => held.Seated with { Retire = held.Seated.Retire + rows }),
             engines: static (held, row) => row.Seat(held.Op)
                 .Map(rows => held.Seated with { Retire = held.Seated.Retire + rows }),
-            // The host publishes no removal for either roster, so both seats answer no retirement and say so.
             resolver: static (held, row) => HostAssemblies
                 .Extend(plugin: held.Identity.Plugin, sources: row.Sources, key: held.Op)
                 .Bind(receipt => receipt.Fault.Match(

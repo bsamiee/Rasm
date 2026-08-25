@@ -23,7 +23,7 @@ Per-layer contours arrive oriented from the composed fold — segments store `fr
 - Boundary: the slice owner composes `Intersection.Apply` — a slice-local plane sweep, crossing kernel, or chain walker re-founds geometry that has one owner; contour orientation is inherited from intersect's material-oriented accumulation, so a slice-side re-orientation pass repeats a decision the fold already made. Open sections are typed rows or `GeometryFault.SectionFault` under `SealPosture.Required`, never silent closure or drop. Nesting verdicts are exact parity signs — the bbox prune alone is float, a winding-number point-in-polygon with epsilon ray offsets is the deleted form — and a hand-rolled O(C²) immediate-parent scan re-does what `ComputeTransitiveReduction` owns. Wire storage is the frozen channel schema; a `Seq<Seq<Chain>>` nested-collection result beside it is a dual carriage, typed rows minting from the channels instead. Channel arrays materialize at freeze and the pool dies at assembly end, so no pooled lease crosses the seam. `Apply` is total over the `Fin` rail — a thrown exception on a degenerate plan or non-watertight layer is unrepresentable.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,9 +41,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Meshing;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// Posture OWNS the open-layer outcome, so the assembly fold carries no watertight branch: it hands the
-// layer's census to the row and threads whatever comes back.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class SealPosture {
     public static readonly SealPosture Required = new(static (layer, elevation, open) =>
@@ -54,8 +52,6 @@ public sealed partial class SealPosture {
     internal partial Fin<Unit> Admit(int layer, double elevation, int openRows);
 }
 
-// Nesting verdicts OWN their own consequence. Overlap is the CONTRADICTION — the anchor sits exactly on the
-// candidate boundary — so it is a row carrying a refusal, never an absent answer riding a null.
 [SmartEnum]
 internal sealed partial class Containment {
     public static readonly Containment Inside = new(static (graph, outer, inner, _) => {
@@ -68,12 +64,6 @@ internal sealed partial class Containment {
     [UseDelegateFromConstructor]
     internal partial Fin<Unit> Record(BidirectionalGraph<int, SEdge<int>> graph, int outer, int inner, Func<Error> contradiction);
 
-    // THE even-odd point-in-ring predicate, seated on the roster that owns its three-valued answer — the nesting
-    // fold here and `Meshing/offset`'s medial interior test read this ONE body, where each page carried a
-    // byte-identical straddle before. RAW crossing count leaves the sweep and the classification closes it, so
-    // no toggling flag carries the verdict: the Y-straddle reads `Predicate.Compare` signs (half-open at Zero,
-    // so a Zero endpoint counts with the non-negative side) and the crossing side the exact `Orient2D`. An
-    // anchor exactly ON an edge answers `Overlap` at once rather than tipping the parity either way.
     internal static Containment Of(Point3d probe, Polyline ring, Axis plane, Axis vAxis) {
         int crossings = 0;
         for (int i = 0; i < ring.Count - 1; i++) {
@@ -85,14 +75,13 @@ internal sealed partial class Containment {
             if (sBelow == tBelow) { continue; }
             Sign side = Predicate.Orient2D(new Implicit(s), new Implicit(t), new Implicit(probe), plane);
             if (side == Sign.Zero) { return Overlap; }
-            // upward edge (s below, t not): probe strictly left of s->t means the +U ray crosses
             if (sBelow ? side == Sign.Positive : side == Sign.Negative) { crossings++; }
         }
         return (crossings & 1) != 0 ? Inside : Outside;
     }
 }
 
-// --- [CONSTANTS] ------------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 public sealed record SlicePolicy(SealPosture Seal, Dimension MaxLayers, Dimension FrameBins, Dimension ParallelFloor, IntersectPolicy Intersect) {
     public static readonly SlicePolicy Canonical = new(
         Seal: SealPosture.Admitted, MaxLayers: Dimension.Create(value: 1 << 14),
@@ -100,7 +89,7 @@ public sealed record SlicePolicy(SealPosture Seal, Dimension MaxLayers, Dimensio
         Intersect: IntersectPolicy.Canonical);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi, double[] MaxSlope, double[] OverhangStarts, double[] OverhangCosines) {
     internal static Fin<SliceFrame> Of(MeshSpace mesh, Plane datum, SlicePolicy policy, Op key) {
         using MeshEdit soup = MeshEdit.Of(mesh);
@@ -111,8 +100,6 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
             double e = (soup.Position(v) - datum.Origin) * d;
             (lo, hi) = (double.Min(lo, e), double.Max(hi, e));
         }
-        // Divide-by-zero floors read `EpsilonPolicy.ZeroTolerance`: the denormal minimum admits every
-        // representable span, so a 1e-300 extent divided and handed every face into bin zero.
         double span = double.Max(hi - lo, EpsilonPolicy.ZeroTolerance);
         int bins = policy.FrameBins.Value;
         double[] slope = new double[bins];
@@ -126,13 +113,12 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
             double cos = n * d;
             (double fl, double fh) = (Math.Min(ea, Math.Min(eb, ec)), Math.Max(ea, Math.Max(eb, ec)));
             for (int k = Bin(fl); k <= Bin(fh); k++) { slope[k] = double.Max(slope[k], Math.Abs(cos)); }
-            if (cos < 0.0) { overhang.Add((fl, -cos)); }  // every downward face lands with its |n·d|; the plan's cosine filters at read
+            if (cos < 0.0) { overhang.Add((fl, -cos)); }
         }
         (double Start, double Cos)[] rows = [.. overhang.OrderBy(static row => row.Start)];
         return Axis.DominantOf(d, key).Map(vertical => new SliceFrame(datum, vertical, lo, hi, slope, [.. rows.Select(static row => row.Start)], [.. rows.Select(static row => row.Cos)]));
     }
 
-    // Steepest |n·d| over the elevation window [z, z+ahead] — the adaptive cusp bound's denominator.
     public double SteepestSlope(double z, double ahead) {
         double span = double.Max(Hi - Lo, EpsilonPolicy.ZeroTolerance);
         int a = int.Clamp((int)((z - Lo) / span * MaxSlope.Length), 0, MaxSlope.Length - 1);
@@ -142,7 +128,6 @@ public sealed record SliceFrame(Plane Datum, Axis Vertical, double Lo, double Hi
         return double.Max(peak, EpsilonPolicy.ZeroTolerance);
     }
 
-    // Interface band opens only around overhangs steeper than the plan's own cosine floor — the frame stores every downward row, the law selects.
     public bool NearInterface(double z, double band, double cosineFloor) {
         int at = Array.BinarySearch(OverhangStarts, z - band);
         for (int i = at >= 0 ? at : ~at; i < OverhangStarts.Length && OverhangStarts[i] <= z + band; i++) {
@@ -184,8 +169,6 @@ public abstract partial record LayerPlan {
     static Fin<Unit> Gate(bool holds, string witness) =>
         holds ? Fin.Succ(unit) : Fin.Fail<Unit>(new GeometryFault.DegenerateInput(Kind.Plane, None, witness));
 
-    // ONE integrator: first plane one step above the low extreme, march inside the extent, MaxLayers-gated
-    // against a runaway law — the exhausted budget lands TYPED, never a truncated success.
     static Fin<Arr<double>> March(SliceFrame frame, SlicePolicy policy, Func<double, double> height) {
         List<double> rows = [];
         for (double z = frame.Lo + height(frame.Lo); z < frame.Hi; z += height(z)) {
@@ -207,15 +190,7 @@ public abstract partial record LayerPlan {
 
 public sealed record SliceOp(MeshSpace Mesh, Plane Datum, LayerPlan Plan, SlicePolicy Policy);
 
-// CSR pointers: LayerPtr len L+1, ContourPtr over X/Y/Z — a closed ring stores NO duplicate terminal vertex,
-// so the projection re-closes it; Parent forest with -1 the root-or-open encoding. Columns publish as `Arr<T>`,
-// the indexed FROZEN carrier: a `double[]` a decoder holds is writable, so the wire's frozen claim was prose.
-// `Open` is one BOOL PER CONTOUR, the same per-contour shape every other column already carries — the sorted
-// ordinal roster it replaced cost a binary search per read and an assembly-time sort to keep the read honest.
 public sealed record SliceStack {
-    // Construction is INTERNAL behind `Of`, which re-proves the parent forest acyclic ONCE. That makes `Depth`
-    // total by construction: the walk below can neither cycle nor need a budget, where a publicly-constructed
-    // record over raw columns let any decoder forge a parent cycle that hung the projection forever.
     private SliceStack(Arr<double> elevations, Arr<int> layerPtr, Arr<int> contourPtr, Arr<double> x, Arr<double> y,
         Arr<double> z, Arr<int> parent, Arr<int> childPtr, Arr<int> children, Arr<bool> open) =>
         (Elevations, LayerPtr, ContourPtr, X, Y, Z, Parent, ChildPtr, Children, Open) =
@@ -232,8 +207,6 @@ public sealed record SliceStack {
     public Arr<int> Children { get; init; }
     public Arr<bool> Open { get; init; }
 
-    // THE one admission: the parent forest enters a `BidirectionalGraph` and `IsDirectedAcyclicGraph` decides,
-    // so the acyclicity `Nest` proves per layer becomes a property of the TYPE rather than of one code path.
     internal static Fin<SliceStack> Of(Arr<double> elevations, Arr<int> layerPtr, Arr<int> contourPtr, Arr<double> x,
         Arr<double> y, Arr<double> z, Arr<int> parent, Arr<int> childPtr, Arr<int> children, Arr<bool> open, Op key) {
         BidirectionalGraph<int, SEdge<int>> forest = new(allowParallelEdges: false);
@@ -267,16 +240,12 @@ public sealed record SliceStack {
         }
     }
 
-    // Total by construction: `Of` proved the parent forest acyclic, so the ascent terminates at a root and no
-    // budget, cycle guard, or exhaustion rail exists to carry a verdict the type already holds.
     public int Depth(int contour) {
         int depth = 0;
         for (int at = Parent[contour]; at >= 0; at = Parent[at]) { depth++; }
         return depth;
     }
 
-    // Contours ship outer-CCW / holes-CW, so the signed shoelace sums a layer's filled area in ONE fold with
-    // no parity walk; open chains carry no region and contribute to no metric here.
     public double AreaAt(int layer) {
         double area = 0.0;
         for (int c = LayerPtr[layer]; c < LayerPtr[layer + 1]; c++) {
@@ -301,9 +270,6 @@ public sealed record SliceStack {
         return length;
     }
 
-    // Area-weighted region centroid at the layer elevation; holes subtract through their negative signed area.
-    // Zero-area layers (all-open or degenerate) answer the MEASURED vertex mean over the layer's own points,
-    // never a fabricated origin.
     public Point3d CentroidAt(int layer) {
         (double mx, double my, double area) = (0.0, 0.0, 0.0);
         for (int c = LayerPtr[layer]; c < LayerPtr[layer + 1]; c++) {
@@ -325,7 +291,7 @@ public sealed record SliceStack {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Slicing {
     [BoundaryAdapter]
     public static Fin<SliceStack> Apply(SliceOp op, Op? key = null) {
@@ -371,10 +337,7 @@ public static class Slicing {
                     return (openRows.IsEmpty ? Fin.Succ(unit) : op.Policy.Seal.Admit(k, family[k], openRows.Count)).Bind(_ => {
                         int baseOrdinal = contourPtr.Count - 1;
                         foreach (Chain chain in closed.Concat(openRows)) {
-                            int extent = chain.Closed ? chain.Points.Count - 1 : chain.Points.Count;  // closed rings drop the duplicate terminal
-                            // ONE region per writer per chain: `GetSpan`/`Advance` exist to amortize the bounds
-                            // check and the grow probe, so opening a one-element region per scalar paid a rung-3
-                            // rental at rung-2 prices three times over on every vertex.
+                            int extent = chain.Closed ? chain.Points.Count - 1 : chain.Points.Count;
                             (Span<double> sx, Span<double> sy, Span<double> sz) =
                                 (x.GetSpan(sizeHint: extent), y.GetSpan(sizeHint: extent), z.GetSpan(sizeHint: extent));
                             for (int v = 0; v < extent; v++) {
@@ -382,7 +345,7 @@ public static class Slicing {
                             }
                             x.Advance(count: extent); y.Advance(count: extent); z.Advance(count: extent);
                             contourPtr.Add(contourPtr[^1] + extent);
-                            open.Add(!chain.Closed);   // append order: the closed block first, open rows after
+                            open.Add(!chain.Closed);
                             parent.Add(-1);
                         }
                         return Nest(frame, closed, baseOrdinal, parent, k, family[k], openRows.Count)
@@ -409,9 +372,6 @@ public static class Slicing {
     }
 
     // --- [NESTING]
-    // Even-odd containment over exact signs: the inner contour's lexicographic-extreme vertex casts a
-    // +U ray, an ancestor edge counting iff it strictly straddles the ray line (Compare on V, half-open
-    // at Zero) and the Orient2D side sign matches the edge's V direction. Bounding boxes prune, signs decide.
     static Fin<Unit> Nest(SliceFrame frame, Seq<Chain> closed, int baseOrdinal, List<int> parent, int layer, double elevation, int openCount) {
         int n = closed.Count;
         if (n <= 1) { return Fin.Succ(unit); }

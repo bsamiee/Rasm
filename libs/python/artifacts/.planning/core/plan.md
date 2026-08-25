@@ -45,13 +45,8 @@ lazy import rustworkx as rx
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# The in-memory intermediate a producing node stages for its children — opaque to the plan (the consuming pair
-# types it), alive for one drain, never a receipt and never durable state.
 type Product = object
 
-# Payload-agnostic egress port every producing plane threads: one produced FILE crosses as a `ProductFact`, the
-# awaitable app-root binding publishes through `ArtifactTransfer`, and its exact generated `ArtifactRef` returns on
-# the producer's own fault rail. This plan declares the port and binds none; no kind-specific transport rail exists.
 type ProductSink[F] = Callable[["ProductFact"], Awaitable[Result[ArtifactRef, F]]]
 
 
@@ -61,14 +56,6 @@ class KeyedThread(Struct, frozen=True):
 
 
 class Fed[P](Struct, frozen=True):
-    # PARENT-PRODUCT leg, parameterized by the product the producing and consuming pair AGREES on, so a node
-    # whose parent stages a deep plane and whose `build` expects a frame breaks at type-check rather than at the
-    # first drain. `build` receives the staged parent products IN `parents` ORDER when every parent staged one, or
-    # `None` when any is absent — an elided parent's thunk never ran, so absence is the warm-replay norm, and a fed
-    # node therefore always carries a SELF-SUFFICIENT arm that re-derives from its own spec. The returned work
-    # yields the receipt AND this node's own staged product (`None` = stages nothing); content keys, receipts, and
-    # elision stay the only truth — a product is a shared-intermediate ACCELERATION, never an input a key derives
-    # from. The LEDGER stays heterogeneous behind the one `Fed[Any]` boundary `ArtifactWork` already is.
     build: Callable[[tuple[P, ...] | None], Work[tuple[ArtifactReceipt, P | None]]]
 
 
@@ -106,20 +93,12 @@ class PlanFault:
 
 _SLACK_EPS: Final[float] = 1e-9
 
-# the one subject naming this fold on both evidence planes — the `planned` receipt line and the durable compute
-# charge — so a board joins the two without a second spelling standing between them.
 _SURFACE: Final[str] = "pipeline.plan"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class ProductFact(Struct, frozen=True):
-    # ONE produced FILE crossing a `ProductSink`, flat native scalars alone: any producing plane fills it, and no
-    # sink imports a producer's own carrier or learns its fault vocabulary. A producer NAMES its publication `root`,
-    # where a boolean environment-or-not split collapses two roots for one plane and answers nothing for the
-    # twenty-odd other kinds; naming it costs one spelling per plane and zero sink edits. `band` carries the
-    # receipt-band preimage the producer already built, so its own carrier survives as an internal value and
-    # projects this fact at the sink call. Publication returns the generated ArtifactRef; no sink mints a parallel key.
     key: ContentKey
     root: str
     file: str
@@ -136,12 +115,9 @@ class ArtifactWork(Struct, frozen=True):
     parents: tuple[ContentKey, ...] = ()
     admission: Admission = Admission(keyed=None)
     cost: float = 1.0
-    fed: Fed[Any] | None = None  # the parent-product leg; None = the closed thunk alone, and `work` stays the truth
+    fed: Fed[Any] | None = None
 
     def lowered(self, ledger: "ProductLedger | None" = None, /) -> Admit[ArtifactReceipt]:
-        # The lane sees a plain thunk either way: a fed node's Admit payload closes over the drain's ledger, takes
-        # its parents' products at CALL time (earlier fronts have drained by then), builds, and stages its own —
-        # the runtime lane owns the drive and never learns products exist.
         fn = self.work if self.fed is None or ledger is None else self._exchanged(self.fed, ledger)
         match self.admission:
             case Admission(tag="keyed"):
@@ -206,7 +182,6 @@ class Schedule(Struct, frozen=True):
 
 
 class PipelinePlan(Struct, frozen=True):
-    # `lane` threads from the pipeline that computed the plan — a capacity literal has no owner.
     fronts: tuple[Block[Admit[ArtifactReceipt]], ...]
     lane: LanePolicy
     requires: Map[ContentKey, tuple[ContentKey, ...]] = Map.empty()
@@ -325,11 +300,6 @@ class PipelinePlan(Struct, frozen=True):
 
 
 class ProductLedger:
-    # The ONE drain-scoped product exchange — deliberately mutable (a keyed hand-off between fronts IS state) and
-    # single-drain: minted per `_compute`, closed into the lowered thunks, dead with the plan. Consumer counts
-    # derive from the plan's own adjacency (fed children per parent), so a product with no fed reader drops at
-    # `stage` and every read product frees on its LAST `take` — a 16k pyramid never outlives its final consumer.
-    # Thunks run on the one event loop (kernels offload; the exchange does not), so the dict needs no lock.
     def __init__(self, consumers: Counter[ContentKey], /) -> None:
         self._consumers = Counter(consumers)
         self._staged: dict[ContentKey, Product] = {}
@@ -339,9 +309,6 @@ class ProductLedger:
             self._staged[key] = product
 
     def take(self, parents: tuple[ContentKey, ...], /) -> tuple[Product, ...] | None:
-        # ALL-OR-NONE: a fed build sees every parent product or None — a partial tuple would hand a fold half its
-        # operands and force per-leg absence arms into every consumer. Counts decrement only on a successful take,
-        # and a key at zero evicts; a partially-staged set stays staged for a sibling whose own take may complete.
         if any(parent not in self._staged for parent in parents):
             return None
         products = tuple(self._staged[parent] for parent in parents)
@@ -353,18 +320,12 @@ class ProductLedger:
 
 
 class ArtifactPipeline(Struct, frozen=True):
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     nodes: Block[ArtifactWork]
     lane: LanePolicy
     cache_seed: Map[ContentKey, ArtifactReceipt] = Map.empty()
     targets: frozenset[ContentKey] = frozenset()
 
     async def plan(self, /) -> RuntimeRail[PipelinePlan]:
-        # the durable charge seats at THIS async fold and never on `_emitted`: recording suspends on the journal's
-        # bounded intake, so the synchronous projection carries the `planned` line alone and the one awaitable fold
-        # owning the settled plan records. The rail BINDS into the verdict — an armed plane refusing a compute fact is
-        # an evidence failure this caller owns — while a composition that installed no journal folds to the lawful
-        # no-op at one map read and never learns which it ran under.
         settled = (await self.lane.offload(Kernel.of(self._compute, KernelTrait.RELEASING))).map(self._emitted)
         match settled:
             case Result(tag="ok", ok=resolved):
@@ -395,11 +356,6 @@ class ArtifactPipeline(Struct, frozen=True):
 
     @staticmethod
     def _metered(plan: PipelinePlan, /) -> MeterFact:
-        # plan SHAPE alone: the CPM makespan is the cost-weighted serial-latency bound this fold just settled, stated
-        # in the milliseconds the `COMPUTE` resource's own series declares — which is what fixes `ArtifactWork.cost`
-        # as a millisecond work-weight rather than a dimensionless rank. An elided node weighs zero, so a fully-warm
-        # replay charges nothing, and the EXECUTED drain's volume stays the runtime lane's `@drained` aspect: metering
-        # it here too bills one drive twice off two folds that disagree by exactly the elision.
         return MeterFact(resource=Resource.COMPUTE, quantity=round(plan.makespan), surface=_SURFACE)
 
     def _compute(self, /) -> PipelinePlan:
@@ -420,8 +376,6 @@ class ArtifactPipeline(Struct, frozen=True):
         schedule = Schedule() if cyclic else Schedule.of(graph, weights, elided)
         priorities = schedule.slack
         fed = frozenset(node.key for node in scoped if node.fed is not None)
-        # one ledger per drain: consumer counts are the fed children per parent, read off the same adjacency the
-        # graph loads, so eviction is a plan fact rather than a consumer guess
         ledger = ProductLedger(Counter(parent for node in scoped if node.fed is not None for parent in node.parents))
         fronts = (
             ()
@@ -463,7 +417,7 @@ class ArtifactPipeline(Struct, frozen=True):
         return cls(nodes=nodes, lane=lane, cache_seed=warm, targets=targets)
 
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = (
     "Admission",

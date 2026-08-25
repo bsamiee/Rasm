@@ -20,7 +20,7 @@ The unit regime is the seam `Rasm.Element/Properties/quantity#UNIT_SCHEME` `Unit
 - Boundary: `UnitScheme` is the ONE unit regime — this page DECLARES it from IFC and never re-implements coercion, so an eight-axis local record, a per-axis scale delegate, or a bare factor multiplied at a call site is the deleted form; the PER-MEASURE carrier override (`IfcPropertySingleValue.Unit`, `IfcPhysicalSimpleQuantity.Unit`) rides the seam `Coerce`'s `Option<UnitAxis>` declared tail (ingress-only — `Render`/`Invert` stay regime-scoped), so this page holds ZERO magnitude arithmetic and its one job is resolving the declaration (`IfcUnits.AxisOf`) the seam then applies; egress re-declaration (`Render`, `Declare` in the SI-to-declared direction) is the seam's and its IFC re-author is `Projection/egress#IFC_EGRESS`.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using GeometryGym.Ifc;
 using LanguageExt;
@@ -30,18 +30,11 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Projection;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// One declaration row read BOTH ways: the UnitsNet member IS the seam axis token the ingress stamps, and the
-// GeometryGym unit-assignment family is the declaration the Projection/egress#IFC_EGRESS re-author authors that
-// token back into — the ReleaseMap two-direction law applied to units. The egress index DERIVES off this column,
-// so the two directions cannot drift and a hand-kept token-to-family mirror on the egress leg is the deleted form.
+// --- [TYPES] ---------------------------------------------------------------------------
 internal readonly record struct LengthRegime(LengthUnit Metric, IfcUnitAssignment.Length Declared);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class IfcUnits {
-    // The IFC declaration -> its regime row. The KEY is the declaration (an IfcSIUnit prefix+name pair with
-    // IfcSIPrefix.NONE for an unprefixed unit, or an IfcConversionBasedUnit common-unit name) and derives from the
-    // GG enum members themselves, so a schema rename breaks the build rather than silently missing a row.
     internal static readonly FrozenDictionary<string, LengthRegime> DeclaredLengths = new Dictionary<string, LengthRegime>(StringComparer.Ordinal) {
         [$"{IfcSIPrefix.NONE}.{IfcSIUnitName.METRE}"] = new(LengthUnit.Meter, IfcUnitAssignment.Length.Metre),
         [$"{IfcSIPrefix.CENTI}.{IfcSIUnitName.METRE}"] = new(LengthUnit.Centimeter, IfcUnitAssignment.Length.Centimetre),
@@ -58,9 +51,6 @@ internal static class IfcUnits {
         (IfcUnitEnum.AMOUNTOFSUBSTANCEUNIT, DimensionAxis.Amount),
         (IfcUnitEnum.LUMINOUSINTENSITYUNIT, DimensionAxis.Luminous));
 
-    // The assignment-level ScaleSI read is the axis factor (GG resolves the whole declaration chain for it) while
-    // the OFFSET and the TOKEN come off the declaration itself, so the affine arm and the declared spelling land
-    // on the same row the factor did.
     public static UnitScheme SchemeOf(DatabaseIfc db) =>
         Optional(db.Context?.UnitsInContext).Match(
             None: () => UnitScheme.Si,
@@ -69,10 +59,6 @@ internal static class IfcUnits {
                     scheme.Declare(row.Seam, new UnitAxis(units.ScaleSI(row.Ifc), OffsetOf(units[row.Ifc]), TokenOf(units[row.Ifc]))))
                 .Declare(DimensionAxis.PlaneAngle, new UnitAxis(db.ScaleAngle(), 0.0, TokenOf(units[IfcUnitEnum.PLANEANGLEUNIT]))));
 
-    // The per-VALUE carrier override: both IfcUnit select branches publish SIFactor(), and the offset branch is
-    // the ONE non-multiplicative carrier the schema declares. A select carrying no convertible declaration
-    // (IfcMonetaryUnit) yields None and the model regime stands — the prior NaN sentinel read as a finite factor
-    // on any consumer that skipped the finite gate, and its catch-all swallowed every future IfcUnit subtype.
     public static Option<UnitAxis> AxisOf(IfcUnit? unit) => unit switch {
         IfcConversionBasedUnitWithOffset affine => Some(new UnitAxis(affine.SIFactor(), affine.ConversionOffset, TokenOf(affine))),
         IfcNamedUnit named                      => Some(new UnitAxis(named.SIFactor(), 0.0, TokenOf(named))),
@@ -82,7 +68,6 @@ internal static class IfcUnits {
 
     static double OffsetOf(IfcUnit? unit) => unit is IfcConversionBasedUnitWithOffset affine ? affine.ConversionOffset : 0.0;
 
-    // An unrostered declaration yields the empty token and lands the SI scheme, never a wrong unit.
     static string TokenOf(IfcUnit? unit) =>
         (unit switch {
             IfcSIUnit si                     => DeclaredLengths.TryGetValue($"{si.Prefix}.{si.Name}", out LengthRegime metric) ? Some(metric) : None,
@@ -104,7 +89,7 @@ internal static class IfcUnits {
 - Boundary: this narrowing is Bim's because an `IfcValue` or a dataType string crossing a seam signature is the deleted form — the seam carries only the typed `PropertyValue`/`MeasureValue` cases; the three-valued `IfcLogical` narrows to the seam `Logical`'s `Option<bool>` and coercing it to a two-valued Boolean is the deleted form; a typed table cell keeps its measure and logical identity through the SAME scalar narrowing the list arm takes, and the `ValueString` coercion that stripped every cell to Text is the deleted one-correspondence breach; a magnitude GG boxes as something no numeric conversion reaches is ABSENT and spells NaN so the seam's own finite gate refuses it on the rail, a 0.0 fallback being the forged measurement that admits, content-keys, and round-trips as a real reading; the two table columns declare SEPARATE units, so each cell coerces on its own column's override and one shared unit read rescales the defined column by the defining column's factor.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Numerics;
 using System.Text;
@@ -120,10 +105,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Bim.Projection;
 
-// --- [TYPES] ------------------------------------------------------------------------------
-// One row per IfcValue leaf whose value DOMAIN the seam keeps distinct. The row owns both its GG concrete and its
-// narrowing, so the delegate's cast is proved by the key that selected it; the IFC string family carries no row
-// because its subtype does not change the domain consumed below the seam.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class ScalarKind {
     public static readonly ScalarKind Logical = new(typeof(IfcLogical),
@@ -152,14 +134,11 @@ public sealed partial class ScalarKind {
     [UseDelegateFromConstructor]
     public partial PropertyValue Narrow(IfcValue value);
 
-    // The index DERIVES from the rows, so the correspondence has one authority and a new row needs no second edit.
     public static Option<ScalarKind> For(Type ifc) => ByType.Value.TryGetValue(ifc, out ScalarKind? row) ? Some(row) : None;
 
     static readonly Lazy<FrozenDictionary<Type, ScalarKind>> ByType =
         new(static () => Items.ToFrozenDictionary(static row => row.Ifc));
 
-    // GG splits the ISO 8601 duration across seven scalars; the fractional second carries into nanoseconds rather
-    // than truncating, because a truncated schedule offset re-exports as a different duration.
     static Period PeriodOf(IfcDuration span) =>
         Period.FromYears(span.Years) + Period.FromMonths(span.Months) + Period.FromDays(span.Days)
         + Period.FromHours(span.Hours) + Period.FromMinutes(span.Minutes)
@@ -167,15 +146,9 @@ public sealed partial class ScalarKind {
         + Period.FromNanoseconds((long)((span.Seconds - Math.Truncate(span.Seconds)) * NodaConstants.NanosecondsPerSecond));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class PropertyLowering {
-    // GG splits the schema's two value SELECTs into SIBLING bases — IfcMeasureValue and IfcDerivedMeasureValue BOTH
-    // derive IfcValue directly (decompile-verified), so every narrowing guard matches BOTH: a guard on
-    // IfcMeasureValue alone dead-codes every derived row (Force/Pressure/Density/ThermalTransmittance and the whole
-    // MEP set). INTERNAL, not private: the Projection/egress typed-measure mint derives its raise table from these
-    // keys, so ingress narrowing and egress raising read one table and can never drift.
     internal static readonly FrozenDictionary<string, Dimension> MeasureDimensions = new Dictionary<string, Dimension>(StringComparer.Ordinal) {
-        // IfcMeasureValue family — SI base + dimensionless tokens
         ["IfcLengthMeasure"] = Dimension.LengthDim, ["IfcPositiveLengthMeasure"] = Dimension.LengthDim,
         ["IfcNonNegativeLengthMeasure"] = Dimension.LengthDim,
         ["IfcAreaMeasure"] = Dimension.AreaDim, ["IfcVolumeMeasure"] = Dimension.VolumeDim,
@@ -187,31 +160,21 @@ internal static class PropertyLowering {
         ["IfcCountMeasure"] = Dimension.Dimensionless, ["IfcNumericMeasure"] = Dimension.Dimensionless,
         ["IfcRatioMeasure"] = Dimension.Dimensionless, ["IfcPositiveRatioMeasure"] = Dimension.Dimensionless,
         ["IfcNormalisedRatioMeasure"] = Dimension.Dimensionless,
-        // IfcDerivedMeasureValue family — structural. A planar force is force per unit AREA (N/m2) and a linear
-        // force force per unit LENGTH (N/m): the two are one exponent apart, and the shared vector that once
-        // spelled both mis-scaled every planar-force magnitude by the model's length factor.
         ["IfcForceMeasure"] = Dimension.ForceDim, ["IfcPressureMeasure"] = Dimension.PressureDim,
         ["IfcMassDensityMeasure"] = Dimension.DensityDim, ["IfcModulusOfElasticityMeasure"] = Dimension.PressureDim,
         ["IfcPlanarForceMeasure"] = Dimension.PressureDim, ["IfcLinearForceMeasure"] = Dimension.Create(0, 1, -2, 0, 0, 0, 0),
         ["IfcLinearStiffnessMeasure"] = Dimension.Create(0, 1, -2, 0, 0, 0, 0),
         ["IfcTorqueMeasure"] = Dimension.Create(2, 1, -2, 0, 0, 0, 0),
         ["IfcRotationalStiffnessMeasure"] = Dimension.Create(2, 1, -2, 0, 0, 0, 0),
-        // Warping stiffness is a warping moment per unit twist — force x length2, ONE length exponent above the
-        // rotational row above it; the sealed IfcBoundaryNodeConditionWarping read stamps its row under this type.
         ["IfcWarpingMomentMeasure"] = Dimension.Create(3, 1, -2, 0, 0, 0, 0),
         ["IfcMomentOfInertiaMeasure"] = Dimension.Create(4, 0, 0, 0, 0, 0, 0),
         ["IfcSectionModulusMeasure"] = Dimension.VolumeDim,
-        // The subgrade-reaction ladder is THREE distinct types one exponent apart — a face reaction N/m3, an edge
-        // reaction N/m2, a node reaction N/m — each the declared measure of a StiffnessSelect<T> arm the
-        // Model/structural#STRUCTURAL_PROJECTION restraint reader stamps from, so omitting the edge pair forced its
-        // magnitudes through a signature this table never signed.
         ["IfcModulusOfSubgradeReactionMeasure"] = Dimension.Create(-2, 1, -2, 0, 0, 0, 0),
         ["IfcModulusOfLinearSubgradeReactionMeasure"] = Dimension.PressureDim,
         ["IfcModulusOfRotationalSubgradeReactionMeasure"] = Dimension.ForceDim,
         ["IfcLinearMomentMeasure"] = Dimension.ForceDim,
         ["IfcMassPerLengthMeasure"] = Dimension.LinearDensityDim,
         ["IfcAreaDensityMeasure"] = Dimension.Create(-2, 1, 0, 0, 0, 0, 0),
-        // IfcDerivedMeasureValue family — thermal, energy, hygric, flow
         ["IfcThermalTransmittanceMeasure"] = Dimension.ThermalTransmittanceDim,
         ["IfcThermalAdmittanceMeasure"] = Dimension.ThermalTransmittanceDim,
         ["IfcThermalConductivityMeasure"] = Dimension.Create(1, 1, -3, 0, -1, 0, 0),
@@ -222,16 +185,12 @@ internal static class PropertyLowering {
         ["IfcEnergyMeasure"] = Dimension.Create(2, 1, -2, 0, 0, 0, 0),
         ["IfcVolumetricFlowRateMeasure"] = Dimension.Create(3, 0, -1, 0, 0, 0, 0),
         ["IfcMassFlowRateMeasure"] = Dimension.Create(0, 1, -1, 0, 0, 0, 0),
-        // The two hygric rows sign the schema's own derived-unit declarations, not the engineering conventions:
-        // vapor permeability kg/(s m Pa) reduces to T¹, and moisture diffusivity is declared m3/s (L³T⁻¹), NOT the
-        // diffusivity-conventional m2/s — the conventional vector mis-coerces by the model's length factor.
         ["IfcVaporPermeabilityMeasure"] = Dimension.Create(0, 0, 1, 0, 0, 0, 0),
         ["IfcMoistureDiffusivityMeasure"] = Dimension.Create(3, 0, -1, 0, 0, 0, 0),
         ["IfcIsothermalMoistureCapacityMeasure"] = Dimension.Create(3, -1, 0, 0, 0, 0, 0),
         ["IfcDynamicViscosityMeasure"] = Dimension.Create(-1, 1, -1, 0, 0, 0, 0),
         ["IfcKinematicViscosityMeasure"] = Dimension.Create(2, 0, -1, 0, 0, 0, 0),
         ["IfcMolecularWeightMeasure"] = Dimension.Create(0, 1, 0, 0, 0, -1, 0),
-        // IfcDerivedMeasureValue family — electrical, lighting, acoustic, motion
         ["IfcElectricVoltageMeasure"] = Dimension.Create(2, 1, -3, -1, 0, 0, 0),
         ["IfcFrequencyMeasure"] = Dimension.Create(0, 0, -1, 0, 0, 0, 0),
         ["IfcRotationalFrequencyMeasure"] = Dimension.Create(0, 0, -1, 0, 0, 0, 0),
@@ -244,23 +203,14 @@ internal static class PropertyLowering {
         ["IfcAccelerationMeasure"] = Dimension.Create(1, 0, -2, 0, 0, 0, 0),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
-    // SI carries no angle axis, so both rows sign Dimensionless and their coercion cannot come off the exponent
-    // vector — the seam elects the PlaneAngle axis on the QuantityType.Angle family alone, and count, numeric, and
-    // ratio sign the same vector while taking no angle factor, so this two-row set is the whole discriminant.
     static readonly FrozenSet<string> Angular =
         new[] { "IfcPlaneAngleMeasure", "IfcSolidAngleMeasure" }.ToFrozenSet(StringComparer.Ordinal);
 
     // --- [PROPERTY_NARROWING]
 
-    // The IfcProperty family -> the seam PropertyValue union. An IfcComplexProperty RECURSES, so a layered glazing,
-    // a multi-component rating, or a bSDD complex template is the seam Complex arm and never a flattened Text; only
-    // a non-IfcProperty residue falls to Text.
     public static WriterT<FidelityLog, Fin, PropertyValue> Lower(IfcProperty property, Map<string, NodeId> rooted, UnitScheme scheme, Op key) =>
         property switch {
             IfcPropertySingleValue sv => LowerValue(sv.NominalValue, scheme, sv.Unit, key),
-            // The SELECTED value LIST ([1:?]) and the optional allowed set both narrow through the same rail, so a
-            // measured or numeric member keeps its discriminant; IfcPropertyEnumeratedValue declares no per-value
-            // unit, so this arm alone takes the project regime.
             IfcPropertyEnumeratedValue ev =>
                 from selected in ev.EnumerationValues.AsIterable().ToSeq().Traverse(value => LowerValue(value, scheme, null, key)).As()
                 from sanctioned in Optional(ev.EnumerationReference).Match(
@@ -270,13 +220,8 @@ internal static class PropertyLowering {
             IfcPropertyReferenceValue rv =>
                 Optional(rv.PropertyReference as IfcRoot).Bind(root => rooted.Find(root.GlobalId)).Match(
                     Some: Fidelity.Clean,
-                    // A non-rooted IfcObjectReferenceSelect resource — a table, an address, a time series — is never
-                    // projected as a node, so its identity content-keys and its ENTITY does not round-trip; the
-                    // UsageName is always carried, so the cycle drops the resource alone.
                     None: () => Fidelity.Drop(FidelityDrop.ReferenceResource, ResourceAnchor(rv), ResourceId(rv)))
                     .Map(id => (PropertyValue)new PropertyValue.Reference(id, Stated(rv.UsageName))),
-            // The bounded arm cannot drop: every bound either narrows to a measure or is absent, so it stays a pure
-            // Fin query lifted once.
             IfcPropertyBoundedValue bv => Fidelity.Lift(
                 from lower in MeasureOpt(bv.LowerBoundValue, scheme, bv.Unit, key)
                 from upper in MeasureOpt(bv.UpperBoundValue, scheme, bv.Unit, key)
@@ -285,8 +230,6 @@ internal static class PropertyLowering {
             IfcPropertyListValue lv => lv.ListValues.AsIterable().ToSeq()
                 .Traverse(value => LowerValue(value, scheme, lv.Unit, key)).As()
                 .Map(static rows => (PropertyValue)new PropertyValue.List(rows)),
-            // The two table columns declare SEPARATE units (DefiningUnit / DefinedUnit), so each cell coerces on its
-            // own column's override.
             IfcPropertyTableValue tv => toSeq(tv.DefiningValues.Zip(tv.DefinedValues))
                 .Traverse(pair =>
                     from defining in LowerValue(pair.First, scheme, tv.DefiningUnit, key)
@@ -300,8 +243,6 @@ internal static class PropertyLowering {
             _ => Fidelity.Clean<PropertyValue>(new PropertyValue.Text(Stated(property.Name).IfNone(""))),
         };
 
-    // An IfcValue -> the seam scalar family: one row lookup over the leaves that carry their own value domain, then
-    // the measure lane, then the two counted identity narrows, then the shared string tail.
     static WriterT<FidelityLog, Fin, PropertyValue> LowerValue(IfcValue? value, UnitScheme scheme, IfcUnit? declared, Op key) =>
         Optional(value).Match(
             None: static () => Fidelity.Clean<PropertyValue>(new PropertyValue.Text("")),
@@ -320,8 +261,6 @@ internal static class PropertyLowering {
             _ => Fidelity.Clean<PropertyValue>(new PropertyValue.Text(value.ValueString)),
         };
 
-    // The ONE table read: the measure-family guard and the row lookup travel together, so a caller cannot resolve a
-    // dimension for a value the SELECT never admitted.
     static Option<Dimension> Signature(IfcValue? value) =>
         value is IfcMeasureValue or IfcDerivedMeasureValue && MeasureDimensions.TryGetValue(value.GetType().Name, out Dimension row)
             ? Some(row)
@@ -329,11 +268,6 @@ internal static class PropertyLowering {
 
     // --- [MEASURE_ADMISSION]
 
-    // The ONE native->SI entry, seam-whole: the regime coercion AND the per-VALUE carrier override (IFC declares a
-    // unit on the property or quantity itself, so a Pset row authored in kN inside a newton-declared model reads its
-    // own declaration) both ride the seam Coerce — Some(declared) overrides the regime whole-quantity, covering the
-    // IfcConversionBasedUnitWithOffset affine and the IfcDerivedUnit whole-quantity multiplier alike. Bim holds ZERO
-    // magnitude arithmetic: every factor, offset, and composition executes at the seam owner.
     internal static double Coerce(UnitScheme scheme, double native, string measureType, Dimension dimension, IfcUnit? declared) =>
         scheme.Coerce(native, Elect(measureType), dimension, IfcUnits.AxisOf(declared));
 
@@ -349,15 +283,8 @@ internal static class PropertyLowering {
             Some: row => MeasureOf(value!, row, scheme, declared, key).Map(Some),
             None: static () => Fin.Succ(Option<MeasureValue>.None));
 
-    // IFC4.3's real-valued tally, which the registry names no quantity for — the OPEN QuantityType.Create mint the
-    // seam sanctions, declared ONCE here so the ingress stamp and the Projection/egress raiser row read one spelling
-    // and an IfcQuantityNumber never re-emits as the integral IfcQuantityCount.
     internal static readonly QuantityType Number = QuantityType.Create("Number");
 
-    // The IfcQuantity* subtype -> its QTO quantity-type identity: the IFC-schema correspondence, and the ONLY fact
-    // the subtype decides. The GG roster is these SEVEN concretes. INTERNAL, not private: the Projection/raise
-    // mint table resolves each concrete's own ctor off these KEYS, so the ingress stamp and the egress raiser read
-    // one roster and a hand-kept raiser table cannot drift from it.
     internal static readonly FrozenDictionary<Type, QuantityType> QuantityTypes = new Dictionary<Type, QuantityType> {
         [typeof(IfcQuantityLength)] = QuantityType.Length, [typeof(IfcQuantityArea)] = QuantityType.Area,
         [typeof(IfcQuantityVolume)] = QuantityType.Volume, [typeof(IfcQuantityWeight)] = QuantityType.Mass,
@@ -365,10 +292,6 @@ internal static class PropertyLowering {
         [typeof(IfcQuantityNumber)] = Number,
     }.ToFrozenDictionary();
 
-    // An IfcPhysicalSimpleQuantity -> the seam MeasureValue [H2]: the magnitude and its dimension come off the
-    // base's OWN polymorphic IfcMeasureValue read resolved through the SAME table the property lane reads, so ONE
-    // construction and ONE Coerce serve both lanes and the seven per-subtype value-property spellings never fan
-    // into seven constructions. An unrostered simple quantity faults typed, never a fabricated zero.
     public static Fin<MeasureValue> Measure(IfcPhysicalSimpleQuantity quantity, UnitScheme scheme, Op key) =>
         QuantityTypes.TryGetValue(quantity.GetType(), out QuantityType? qto) && Signature(quantity.MeasureValue).Case is Dimension row
             ? MeasureValue.OfSi(qto, row,
@@ -377,9 +300,6 @@ internal static class PropertyLowering {
 
     // --- [BOUNDARY_ADMISSION]
 
-    // The ONE GG string admission: GeometryGym backs every optional string with an EMPTY-STRING default rather than
-    // a null, so blank IS absence and lifts to None here — carrying "" past this read would re-author a qualifier
-    // the source file never wrote, and coalescing it inside a domain body puts the same decision at every site.
     internal static Option<string> Stated(string? value) => string.IsNullOrEmpty(value) ? None : Some(value);
 
     static PropertyName RowName(IfcProperty property) => PropertyName.Create(Stated(property.Name).IfNone(""));
@@ -393,8 +313,6 @@ internal static class PropertyLowering {
                 ? $"ifcroot:{root.GlobalId}"
                 : $"{Stated(rv.PropertyReference?.GetType().Name).IfNone("")}:{Stated(rv.UsageName).IfNone("")}"))));
 
-    // The three-valued IfcLogical -> the seam Logical's Option<bool>: UNKNOWN is None, the third state a bool
-    // cannot model; the egress RaiseLogical reverses it.
     internal static Option<bool> LogicalOpt(IfcLogicalEnum logical) => logical switch {
         IfcLogicalEnum.TRUE  => Some(true),
         IfcLogicalEnum.FALSE => Some(false),
@@ -408,10 +326,6 @@ internal static class PropertyLowering {
         _                                    => Interpolation.NotDefined,
     };
 
-    // A magnitude GG boxes as something no numeric conversion reaches is ABSENT, and absence spells NaN so the seam
-    // OfSi finite gate refuses it on the rail this method already returns. The guard is unreachable for every
-    // rostered measure type — GG boxes each as a numeric — which is exactly why a silent 0.0 would never be caught
-    // by a run: the arm fires only when the package's own storage changes.
     static double AsDouble(object? value) =>
         value is IConvertible convertible ? Convert.ToDouble(convertible, System.Globalization.CultureInfo.InvariantCulture) : double.NaN;
 }

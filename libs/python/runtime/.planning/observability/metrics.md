@@ -43,8 +43,8 @@ from stamina.instrumentation import RetryDetails, RetryHook
 from rasm.runtime.faults import METRICS_INSTRUMENT, SCOPES, FaultTag, Scope, boundary, latched, scoped
 from rasm.runtime.receipts import DEFAULT_SCOPE, DRAIN_DISPOSITIONS, PROCESS_FAULTS, DrainOutcome, DrainReceipt, ScopeKey
 
-lazy from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor  # train rows reify on first install, never at import
-lazy from opentelemetry.instrumentation.dbapi import instrument_connection, wrap_connect  # generic PEP-249 seam, reified at the first dbapi wrap
+lazy from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
+lazy from opentelemetry.instrumentation.dbapi import instrument_connection, wrap_connect
 lazy from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 lazy from opentelemetry.instrumentation.jinja2 import Jinja2Instrumentor
 lazy from opentelemetry.instrumentation.psycopg import PsycopgInstrumentor
@@ -55,31 +55,16 @@ lazy from opentelemetry.instrumentation.threading import ThreadingInstrumentor
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type ProbeField = Literal["rss", "uss", "cpu", "threads", "fds"]
-# a row's WHOLE projection: the callback hands over one collection's readable surface and the row folds whichever half
-# it measures, so no caller re-wraps a row's observations to finish them and no row's attribute set is decided twice.
 type Project = Callable[["MetricSnapshot"], Iterable[Observation]]
 type ObservableCallback = Callable[[CallbackOptions], Iterable[Observation]]
-# occupancy read a bounded owner registers for its own lifetime — a bare integer the export cycle calls, never a
-# rail, because the observable-callback contract admits no failure channel. The callback FENCES every call rather
-# than trusting that signature: a probe is caller code holding a live bound, and one raise abandons the collection
-# for the whole instrument. Every registration names its own BAND, so this level partitions by bound rather than
-# summing unrelated limiters into one number.
 type Occupancy = Callable[[], int]
 type AttributeValue = str | bool | int | float | Sequence[str] | Sequence[bool] | Sequence[int] | Sequence[float]
 type Attributes = Mapping[str, AttributeValue]
-# `SyncInstrument` spans the four synchronous families; `opentelemetry.metrics` exports its gauge ABC under an
-# underscore spelling — `Gauge` resolves nowhere at module top level — so this union names `_Gauge` exactly as
-# `create_gauge` returns it.
 type SyncInstrument = Counter | UpDownCounter | Histogram | _Gauge
 type SyncMint = Callable[[Meter, "InstrumentSpec"], SyncInstrument]
-# observable mint binds the meter first: the three `create_observable_*` methods are instance members, so a
-# module-level row holds the meter-to-factory step and the enrollment fold supplies name, callbacks, and unit.
 type ObservableMint = Callable[[Meter], "ObservableFactory"]
 
 
-# `InstrumentKind` spans the closed OTel instrument space whole — four synchronous families and three observable
-# ones — so this table covers every shape a measure can take and a kind is selected, never invented. Naming
-# mirrors the meter factory minting each row, which keeps `SYNC_MINT` and the observable enrollment total.
 class InstrumentKind(StrEnum):
     COUNTER = "counter"
     UP_DOWN_COUNTER = "up_down_counter"
@@ -90,12 +75,6 @@ class InstrumentKind(StrEnum):
     OBSERVABLE_GAUGE = "observable_gauge"
 
 
-# `Dimension` closes the branch's whole metric-attribute vocabulary: every dimension a recording path stamps is
-# a member here and `InstrumentSpec.dimensions` rows against it, so view allow-list and write site read one spelling.
-# `KIND` is the one prefixed member and it rides the estate-identity carve beside `rasm.tenant`: every mapping-arm
-# record stamps it whatever domain the measure names, so it owns no segment and a `DOMAINS` row for it would seat a
-# capability subject nothing joins on. Semconv keys keep their spec spelling and the rest carry no prefix at all,
-# which is what keeps them outside the dotted grammar rather than inside it unrostered.
 class Dimension(StrEnum):
     METHOD = "rpc.method"
     OUTCOME = "outcome"
@@ -107,29 +86,20 @@ class Dimension(StrEnum):
     COMPOSITION = "composition"
 
 
-# structural create signature the three `create_observable_*` methods satisfy, so the
-# kind-keyed dispatch is typed rather than an erased `Callable[..., object]`.
 class ObservableFactory(Protocol):
     def __call__(self, name: str, *, callbacks: Sequence[ObservableCallback], unit: str) -> object: ...
 
 
-# `Counter.add`, `UpDownCounter.add`, `Histogram.record`, and `_Gauge.set` all spell one signature, so `_write`
-# returns a bound member the mapping arm calls without knowing which family it resolved.
 class SyncRecord(Protocol):
     def __call__(self, amount: float, attributes: Attributes | None = ..., context: "otel_context.Context | None" = ...) -> None: ...
 
 
-# structural port over the contrib instrumentor family; keeps the TRAIN rows typed with zero eager contrib import.
-# Both members are load-bearing: `instrument` patches and answers `None` on every path it can take, leaving the LATCH
-# as the one witness a row has that its patch landed.
 class Instrumentor(Protocol):
     def instrument(self, **kwargs: object) -> None: ...
     @property
     def is_instrumented_by_opentelemetry(self) -> bool: ...
 
 
-# INSTALLED enrolled the process instrument set; REENTRANT is a same-scope re-install; ADOPTED is a later
-# composition riding the standing enrollment with its own state slot and receipt.
 class MeterOutcome(StrEnum):
     INSTALLED = "installed"
     REENTRANT = "reentrant"
@@ -138,47 +108,23 @@ class MeterOutcome(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# request-duration bucket advisory (ms) — the explicit-shape fallback: inert under telemetry's base2-exponential wire
-# default, it supplies the boundaries a `ViewRow` carries once a deployment names this instrument in its re-arm roster.
 DURATION_BUCKETS_MS: Final[tuple[float, ...]] = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 5000.0)
 
-# Name anchors for rows a call site reads directly rather than through the `(domain, measure)` mapping arm — serve
-# duration, retry attempts, and lane drains. Each spells once: its `INSTRUMENTS` row and its reader both read this
-# constant, so a rename cannot leave one end behind.
 SERVE_DURATION: Final[str] = "rasm.serve.request.duration"
 RETRY_ATTEMPTS: Final[str] = "rasm.retry.attempts"
 LANE_DRAINED: Final[str] = "rasm.lane.drained"
 
-# process-sample window. The five `rasm.process.*` callbacks of one collection fire back to back, so the first
-# refreshes the reading and the rest read it: `cpu_percent(interval=None)` is a since-last-call delta, and sampling
-# per callback would hand four of the five a near-empty window. The value sits below every `SIGNAL_PROFILE`
-# export interval, so each cycle takes exactly one `oneshot` and no cycle exports a reading the prior one took.
 READING_TTL_S: Final[float] = 0.5
 
-# tenant dimension: the W3C Baggage entry the C#-parented context carries; absent entry = single-tenant, no attribute.
 TENANT_BAGGAGE: Final[str] = "rasm.tenant"
 
 
-# `OVERFLOW_KEY` spells the OTel specification's own overflow marker: a tenant value past the budget folds its
-# series onto this key instead of minting a new one, so a backend reads the clipped stream as SDK-limited.
 OVERFLOW_KEY: Final[str] = "otel.metric.overflow"
 
-# tenant-value ceiling this branch enforces, and the default the telemetry owner's `SignalProfile` row carries.
-# Allow-lists bound the KEY axis; only the tenant VALUE axis stays unbounded, and this SDK train ships no
-# per-view numeric limit, so the budget closes it at the one attribute fold every recording path shares.
 TENANT_BUDGET: Final[int] = 2048
 
-# every attribute key a view admits beyond the row's own dimensions: the tenant fold's canonical key, its
-# overflow marker, and the composition stamp a non-default scope carries. A key outside a row's admitted set
-# drops before the stream is identified, which is what makes the per-row allow-list the primary cardinality bound.
 CROSS_DIMENSIONS: Final[frozenset[str]] = frozenset({TENANT_BAGGAGE, OVERFLOW_KEY, Dimension.COMPOSITION})
 
-# branch domain roster: the `<domain>` segment of every segmented rasm. name this branch mints — instrument names,
-# metric dimensions, and the span and log attribute keys its producers stamp. A row names the capability SUBJECT a
-# query joins on rather than the package emitting it, so a second emitter under a standing subject adds no row and a
-# name whose subject no row holds admits its row first. `MEASURES` reads this map TOTALLY across the whole instrument
-# table, so an unrostered segment refuses at import rather than at a producer's first record. Peer branches
-# claiming a segment carry its subject spelling byte-identical, so the corpus mint compares one vocabulary.
 DOMAINS: Final[Map[str, str]] = Map.of_seq([
     ("artifact", "produced-artifact byte volume and compression economics"),
     ("band", "live occupancy of every bounded band the branch names"),
@@ -220,18 +166,12 @@ DOMAINS: Final[Map[str, str]] = Map.of_seq([
     ("virtual", "virtual-dataset source composition and branch selection"),
 ])
 
-# serve-rail FaultTag -> DrainOutcome projection: `deadline` lands `cancelled`, every other tag defaults `rejected` through the
-# `try_find` fold; the serve interceptor re-keys it onto the Connect status a fault mapped to and folds `completed` for a clean call.
 FAULT_OUTCOME: Final[Map[FaultTag, DrainOutcome]] = Map.of_seq([("deadline", "cancelled")])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class ProcessReading(Struct, frozen=True, gc=False):
-    # Platform-gated columns take the OPTIONAL slot: a platform binding no `uss` field and no `num_fds` member measured
-    # nothing on those axes, and their gauges publish no point for a cycle that read none. Filling `rss` for `uss`
-    # reports a working set the host never resolved and filling `0` for an unbound descriptor count reports a process
-    # holding no handles, each indistinguishable on a board from the real reading it stands in for.
     rss: int
     cpu: float
     threads: int
@@ -252,24 +192,11 @@ class ProcessReading(Struct, frozen=True, gc=False):
         return None
 
 
-# one collection's whole readable surface, taken once per callback and handed to the row that projects it. The two
-# halves carry DIFFERENT lifetimes, which is why neither is seated inside the other: a reading is a PROCESS fact — one
-# host process stands behind every composition — so it samples once and publishes one point, where a per-composition
-# reading republished one RSS under each stamp and doubled every sum a board takes across that dimension. Occupancy is
-# genuinely composition-partitioned, so it stays keyed and each band carries its own owner's stamp. No per-event count
-# lands here either — a delta ADDS at its call, where a snapshot held for the export thread reports the last event
-# forever. Splitting the two also retires the read-modify-merge the conflated row needed: the sample runs off the gate,
-# so a whole-row swap could drop a registration that landed meanwhile, and nothing now swaps a row at all.
 class MetricSnapshot(Struct, frozen=True, gc=False):
     reading: ProcessReading | None
     occupancy: Map[ScopeKey, Map[str, Block[Occupancy]]]
 
 
-# `kind` alone partitions the table — the synchronous rows against `SYNC_MINT`, the observable rows against
-# `OBSERVABLE_MINT` — so no row carries a second discriminant that could disagree with its own family. `advisory`
-# rides only histogram rows, `project` only observable ones, `mapped` marks a row `record`'s mapping arm reaches by
-# `(domain, measure)`, and `dimensions` declares the attribute keys the row's own write stamps. The domain segment is
-# NOT a field — it derives from `name`, so a row cannot declare one segment and spell another.
 class InstrumentSpec(Struct, frozen=True):
     name: str
     kind: InstrumentKind
@@ -285,16 +212,9 @@ class InstrumentSpec(Struct, frozen=True):
 
     @property
     def keys(self) -> frozenset[str]:
-        # `keys` projects this row's admitted attribute set — its declared dimensions, the kind discriminant every
-        # mapped row's write stamps, and the cross-cutting keys — so a mapped row never respells `Dimension.KIND`
-        # and each view allow-list derives from the same table the write reads.
         return frozenset(self.dimensions) | (frozenset({Dimension.KIND}) if self.mapped else frozenset()) | CROSS_DIMENSIONS
 
 
-# metric-stream shaping as DATA, never an SDK object: this owner holds the rows and the
-# `observability/telemetry#TELEMETRY` install projects each into a `View` at `MeterProvider` construction, which
-# keeps every SDK type above the composition root exactly as the branch's library-tier law requires. `boundaries`
-# present marks the deployment-re-armed explicit shape; absent keeps the exporter's base2-exponential wire default.
 class ViewRow(Struct, frozen=True):
     instrument: str
     keys: frozenset[str]
@@ -302,9 +222,6 @@ class ViewRow(Struct, frozen=True):
 
 
 class MeterReceipt(Struct, frozen=True):
-    # `outcomes` names the key space the drain counter's `outcome` dimension actually carries — the terminal
-    # partition, never the admitted total riding beside it — so a board reading this receipt sums the same
-    # series set the counter writes.
     outcome: MeterOutcome
     instruments: tuple[str, ...]
     outcomes: tuple[DrainOutcome, ...]
@@ -315,42 +232,21 @@ class MeterReceipt(Struct, frozen=True):
 
 
 def _composed(scope: ScopeKey) -> Attributes:
-    # non-default compositions self-identify on every series they touch; the default scope stays attribute-free
-    # exactly as the tenant law spells absence, so a single-composition process keeps today's series identity.
     return {} if scope == DEFAULT_SCOPE else {Dimension.COMPOSITION: scope}
 
 
 def _held(probe: Occupancy) -> tuple[int, ...]:
-    # Each probe is caller code the EXPORT thread calls, and the observable-callback contract carries no failure
-    # channel, so a raise leaves the SDK to abandon the collection and every sibling bound goes dark with it. A
-    # raising probe therefore degrades to its own absence — the same shape `ProcessReading.sample` takes for a
-    # vanished process — and its band still reports whatever the surviving owners hold.
     with suppress(Exception):
         return (probe(),)
     return ()
 
 
 def _banded(band: str, probes: Block[Occupancy], scope: ScopeKey) -> tuple[Observation, ...]:
-    # Bands with no surviving reading publish NOTHING. A zero-length fold seeds `0` instead, which reports an idle
-    # bound nobody holds: a retired owner and a live limiter sitting empty then read identically, and the operator
-    # loses exactly the distinction this series exists to draw. Absence is spellable here because the callback
-    # answers a measurement SEQUENCE, so an unmeasured band is a missing point rather than a fabricated one.
-    # `band` is never absent on a published point — it IS the cell this map keys, one reading minted per band — so
-    # this family never constructs the absent-key state the tenant and composition folds spell as the untagged
-    # whole; the drop above governs absent MEASUREMENT, never an absent key. The composition stamp folds in HERE
-    # because this is the one family whose state genuinely partitions by scope, and it obeys the same absence law the
-    # `_attributed` fold holds: a default-scope band stays attribute-free rather than carrying a placeholder value.
     live = tuple(reading for probe in probes for reading in _held(probe))
     return (Observation(sum(live), {Dimension.BAND: band, **_composed(scope)}),) if live else ()
 
 
 def _inflight(snapshot: "MetricSnapshot") -> Iterable[Observation]:
-    # Occupancy is a LEVEL the export cycle samples, PARTITIONED by band: each bounded owner registers its own
-    # borrowed-slot read through `occupied` under the band it bounds, and this fold sums the live probes per band AT
-    # COLLECTION, so the series reports concurrency now and an operator answers WHICH bound is full. One unlabeled
-    # block instead adds a lane limiter, a worker pool, and a durable intake into one number nothing decomposes.
-    # Feeding it a per-drain remainder republishes the last drain's abandoned count until the next drain, doubling
-    # under a level's name exactly what the drain counter's own `cancelled` column already carries.
     return [
         reading
         for scope, bands in snapshot.occupancy.items()
@@ -360,19 +256,12 @@ def _inflight(snapshot: "MetricSnapshot") -> Iterable[Observation]:
 
 
 def _gauge(field: ProbeField) -> Project:
-    # one point per cycle for one host process, and absence covers both ways a column goes unread: a failed sample
-    # leaves no reading at all, a platform binding no counter leaves that column `None`, and neither publishes —
-    # exactly the drop `_banded` takes, since a fabricated level reads identically to a measured one.
     return lambda snapshot: [
         Observation(value) for value in (getattr(snapshot.reading, field, None),) if value is not None
     ]
 
 
 def _write(instrument: SyncInstrument) -> SyncRecord:
-    # `_write` reads the write member off the instrument FAMILY, never a table column: both counters spell `add`,
-    # histograms `record`, synchronous gauges `set`. Resolving it from the value keeps the mapping arm total over
-    # every synchronous kind, so a counter or gauge row reaches it unchanged where a hardcoded `.record` would
-    # raise `AttributeError` on the first non-histogram measure a producer sends.
     match instrument:
         case Counter() | UpDownCounter():
             return instrument.add
@@ -384,11 +273,6 @@ def _write(instrument: SyncInstrument) -> SyncRecord:
             assert_never(unreachable)
 
 
-# Lifecycle splits the closed instrument space across two kind-keyed tables whose key sets partition
-# `InstrumentKind` exactly: a synchronous row is HELD and written to, an observable row is REGISTERED once and never
-# touched again. Membership in `SYNC_MINT` is therefore the one discriminant both enrollment folds read, so a row
-# cannot declare one family and land in the other's fold, and a kind whose row is absent refuses at the lookup
-# rather than silently minting the wrong family. Advisory boundaries ride the histogram row alone.
 SYNC_MINT: Final[Map[InstrumentKind, SyncMint]] = Map.of_seq([
     (InstrumentKind.COUNTER, lambda meter, spec: meter.create_counter(spec.name, unit=spec.unit)),
     (InstrumentKind.UP_DOWN_COUNTER, lambda meter, spec: meter.create_up_down_counter(spec.name, unit=spec.unit)),
@@ -406,57 +290,25 @@ OBSERVABLE_MINT: Final[Map[InstrumentKind, ObservableMint]] = Map.of_seq([
 ])
 
 
-# one table every derived surface reads: a row's `kind` decides whether it lands in the name-keyed synchronous carrier
-# or registers its `project` callback, `mapped` rows feed `record`'s mapping arm, and the name IS the carrier key —
-# a new measured signal is exactly ONE row here with no second declaration anywhere.
-# names spell rasm.<domain>.<measure> under a `DOMAINS` segment, UCUM units, and no pre-baked suffixes — the translation layer appends them.
-# Names never carry their own unit: `unit` already rides the row and the wire, so a `_bytes`, `_ms`, or `_total` tail
-# doubles that fact and strands it the moment the row's unit changes; `byte_volume` names the CONCEPT and `By` measures it.
-# stable-tier semconv names are the bind-safe default; an incubating name enters only as an alias row — the one seam absorbing an upstream rename.
-# Each producer's declared aggregation intent projects onto its row kind: SUM lands a monotonic `COUNTER`, LAST
-# lands the synchronous `GAUGE`, P95/MEAN/MAX all ride `HISTOGRAM` — whose data point already carries min, max,
-# sum, and count, so a max-intent measure needs no second family. Charter units transcribe verbatim; inventing
-# one here would put two spellings on one measure. The `<measure>` tail names the CONCEPT and stays byte-identical
-# across every domain measuring it, so a cross-domain board joins on the tail and a per-producer synonym splitting
-# one concept into two series has no owner.
 INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec(
         SERVE_DURATION, InstrumentKind.HISTOGRAM, "ms", advisory=DURATION_BUCKETS_MS,
         dimensions=(Dimension.METHOD, Dimension.OUTCOME),
     ),
     InstrumentSpec(RETRY_ATTEMPTS, InstrumentKind.COUNTER, "{attempt}", dimensions=(Dimension.TARGET, Dimension.CAUSE)),
-    # Resilience's other two edges, both keyed on the DEPENDENCY rather than on the class: a class-only key
-    # reports one dead cluster as the whole class degrading and hides a healthy peer inside the same series.
-    # Transitions alone land, so an arc that never trips exports nothing and a board reads the edges.
     InstrumentSpec("rasm.circuit.transitions", InstrumentKind.COUNTER, "{transition}", mapped=True, dimensions=(Dimension.TARGET, Dimension.OUTCOME)),
     InstrumentSpec("rasm.rate.wait", InstrumentKind.HISTOGRAM, "ms", mapped=True, advisory=DURATION_BUCKETS_MS, dimensions=(Dimension.TARGET,)),
-    # Broker crossings take three edges. `ingest_lag` is local arrival minus producer `recordedtime`, measured at the
-    # receiver while arrival remains interior — a distribution rather than a counter, because a queue's shape is what
-    # an operator reads and a mean over it hides the tail that actually breaks a subscription. `settled` and `shed`
-    # stay two monotonic series rather than one counter under an outcome fan: a matched duplicate is not an acceptance
-    # and a shed is neither, so folding the three into one total erases exactly the exactly-once evidence
-    # `Uniqueness` exists to carry. Both key on the binding beside the disposition, so a board attributes a shift
-    # to whichever protocol produced it without a second instrument per protocol.
     InstrumentSpec("rasm.broker.ingest_lag", InstrumentKind.HISTOGRAM, "ms", mapped=True, advisory=DURATION_BUCKETS_MS, dimensions=(Dimension.TARGET,)),
     InstrumentSpec("rasm.broker.settled", InstrumentKind.COUNTER, "{fact}", mapped=True, dimensions=(Dimension.TARGET, Dimension.OUTCOME)),
     InstrumentSpec("rasm.broker.shed", InstrumentKind.COUNTER, "{fact}", mapped=True, dimensions=(Dimension.TARGET, Dimension.CAUSE)),
     InstrumentSpec("rasm.artifact.byte_volume", InstrumentKind.HISTOGRAM, "By", mapped=True),
     InstrumentSpec("rasm.artifact.compression_ratio", InstrumentKind.HISTOGRAM, "1", mapped=True),
-    # Pyramid depth and texel volume are the produced-set facts a texture regression moves that byte volume alone
-    # cannot separate — a truncated ladder and a downscaled plane both read as fewer bytes on
-    # `rasm.artifact.byte_volume` — so each graduates to its own distribution. The producing leg stays a FAN rather
-    # than a second series: one set legitimately mixes the spawned encode floor with an in-process leg, and `tool`
-    # is the bounded key the manifest's own per-map column already carries, so a board attributes a shift to the
-    # leg that pressed it without doubling the instrument roster.
     InstrumentSpec("rasm.texture.mip_depth", InstrumentKind.HISTOGRAM, "{level}", mapped=True, dimensions=(Dimension.TOOL,)),
     InstrumentSpec("rasm.texture.texels", InstrumentKind.HISTOGRAM, "{texel}", mapped=True, dimensions=(Dimension.TOOL,)),
     InstrumentSpec("rasm.query.engine.duration", InstrumentKind.HISTOGRAM, "ms", mapped=True),
     InstrumentSpec("rasm.query.rows", InstrumentKind.HISTOGRAM, "{row}", mapped=True),
     InstrumentSpec("rasm.egress.byte_volume", InstrumentKind.HISTOGRAM, "By", mapped=True),
     InstrumentSpec("rasm.quality.breach_fraction", InstrumentKind.HISTOGRAM, "1", mapped=True),
-    # Breach FRACTION and breach COUNT answer different questions off different gates — a fraction grades a sampled
-    # frame's shape while this counter tallies the settled claims a covenant refused — so the contract claim trends
-    # its own monotonic series rather than folding onto a distribution it skews.
     InstrumentSpec("rasm.contract.breaches", InstrumentKind.COUNTER, "{breach}", mapped=True),
     InstrumentSpec("rasm.impact.score", InstrumentKind.HISTOGRAM, "kg", mapped=True),
     InstrumentSpec("rasm.graph.nodes", InstrumentKind.HISTOGRAM, "{node}", mapped=True),
@@ -464,11 +316,6 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.lake.commit.files_added", InstrumentKind.COUNTER, "{file}", mapped=True),
     InstrumentSpec("rasm.lake.commit.files_removed", InstrumentKind.COUNTER, "{file}", mapped=True),
     InstrumentSpec("rasm.materialize.rows", InstrumentKind.HISTOGRAM, "{row}", mapped=True),
-    # Data-plane throughput rows: every one is a per-operation DELTA a producer adds at its own call, so each takes a
-    # monotonic counter a cumulative reader integrates rather than a distribution over magnitudes nobody compares
-    # across sources. Each `<measure>` tail is byte-identical to its cross-domain twin — `byte_volume`
-    # beside artifact and egress, `rows` beside query and materialize, `points` shared by both point-bearing
-    # producers — so one board expression joins the tail across every domain producing it.
     InstrumentSpec("rasm.tensor.byte_volume", InstrumentKind.COUNTER, "By", mapped=True),
     InstrumentSpec("rasm.catalog.items", InstrumentKind.COUNTER, "{item}", mapped=True),
     InstrumentSpec("rasm.virtual.references", InstrumentKind.COUNTER, "{reference}", mapped=True),
@@ -485,12 +332,6 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.geometry.deviation.noncompliant", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.registration.fitness", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.section.closure", InstrumentKind.HISTOGRAM, "1", mapped=True),
-    # Three graduating subjects whose charter counterparts had no mounted row: an IDS/clash verdict's failing
-    # share, a form-finding solve's max-abs residual, and a comfort run's discomfort fraction. Each reads `1`
-    # because each is dimensionless by construction — a share, a fraction, and a residual whose two engines carry
-    # different physical dimensions (a DR force residual against a TNA crown scale), so naming either engine's unit
-    # would export the other's magnitude against a descriptor it does not satisfy. `noncompliant` spells identically
-    # to its deviation twin, one tail a board joins across both compliance planes.
     InstrumentSpec("rasm.geometry.compliance.noncompliant", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.form.residual", InstrumentKind.HISTOGRAM, "1", mapped=True),
     InstrumentSpec("rasm.geometry.energy.eui", InstrumentKind.GAUGE, "kW.h/m2", mapped=True),
@@ -501,10 +342,6 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.compute.graduation.residual_count", InstrumentKind.HISTOGRAM, "{residual}", mapped=True),
     InstrumentSpec("rasm.bench.duration", InstrumentKind.HISTOGRAM, "ms", mapped=True),
     InstrumentSpec("rasm.bench.throughput", InstrumentKind.HISTOGRAM, "1/s", mapped=True),
-    # Verdicts close the bench subject's graded half: a timing ladder shows a regression's SHAPE where this counter
-    # shows whether the bar the corpus set was crossed, and a subject whose grade lives only in a returned value
-    # leaves the board with nothing to trend and the alert plane with nothing to fire on. `outcome` carries the
-    # grade, so pass and fail stay one series a share expression divides rather than two counters to keep aligned.
     InstrumentSpec("rasm.bench.verdicts", InstrumentKind.COUNTER, "{verdict}", mapped=True, dimensions=(Dimension.OUTCOME,)),
     InstrumentSpec("rasm.cost.cpu_time", InstrumentKind.HISTOGRAM, "ms", mapped=True),
     InstrumentSpec("rasm.cost.memory_delta", InstrumentKind.HISTOGRAM, "By", mapped=True),
@@ -520,11 +357,6 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.journal.metered.volume", InstrumentKind.COUNTER, "By", mapped=True),
     InstrumentSpec("rasm.runtime.pulse.dropped", InstrumentKind.COUNTER, "{pulse}", mapped=True),
     InstrumentSpec("rasm.runtime.pulse.rejected", InstrumentKind.COUNTER, "{pulse}", mapped=True),
-    # the hook registry's two counted losses, keyed by point through the `kind` discriminant every mapped row stamps:
-    # `shed` is what a bounded replay window EVICTED under pressure and `lost` is a fact whose own sink refused it.
-    # Both are authorized drops the emitter's rail cannot carry, so an unrecorded one reads to an operator as no loss
-    # at all — the same law the pulse pair above answers. Counter rather than observable BY THE IMPORT RAIL: hooks
-    # imports metrics, so an export-cycle projection reading `Hooks.replayed`/`Hooks.faults` would invert the strata.
     InstrumentSpec("rasm.runtime.hook.shed", InstrumentKind.COUNTER, "{fact}", mapped=True),
     InstrumentSpec("rasm.runtime.hook.lost", InstrumentKind.COUNTER, "{fact}", mapped=True),
     InstrumentSpec(LANE_DRAINED, InstrumentKind.COUNTER, "{unit}", dimensions=(Dimension.OUTCOME,)),
@@ -536,23 +368,12 @@ INSTRUMENTS: Final[Block[InstrumentSpec]] = Block.of_seq([
     InstrumentSpec("rasm.process.fd.count", InstrumentKind.OBSERVABLE_GAUGE, "{fd}", _gauge("fds")),
 ])
 
-# (domain, measure) -> its census ROW, derived from the one table: the mapping arm's admission gate AND the whole
-# descriptor a producer's own composition gate proves its charter against — name beside unit beside instrument
-# family — so a producer resolves this map instead of re-deriving the same filter beside its charter. Keys pair the
-# derived segment with the name, so a producer naming a measure under a domain that does not own it misses the
-# total lookup exactly as an unknown measure does.
-# `DOMAINS[spec.domain]` is the segment proof and evaluates for EVERY row ahead of the `mapped` select, so the whole
-# table refuses at IMPORT under the ruling homing that guard; charter strings are non-empty by row constraint, which
-# is what lets the total read stand as the filter's own left operand.
 MEASURES: Final[Map[tuple[str, str], InstrumentSpec]] = Map.of_seq([
     ((spec.domain, spec.name), spec) for spec in INSTRUMENTS if DOMAINS[spec.domain] and spec.mapped
 ])
 
 
 def _carrier(meter: Meter) -> Map[str, SyncInstrument]:
-    # Synchronous census rows key by their own NAME, minted against one meter resolution and swapped as one immutable
-    # value (the atomic-reference idiom). Membership in `SYNC_MINT` partitions the table, so no row carries a second
-    # discriminant that could disagree with its kind, and no hand-listed carrier shape can lag the census.
     return Map.of_seq((spec.name, SYNC_MINT[spec.kind](meter, spec)) for spec in INSTRUMENTS if spec.kind in SYNC_MINT)
 
 
@@ -560,24 +381,11 @@ def _recorded(
     instruments: Map[str, SyncInstrument], domain: str, measure: str, amount: float, stamped: Attributes,
     context: "otel_context.Context",
 ) -> None:
-    # two total lookups, each refusing at the producer: `MEASURES` admits the `(domain, measure)` pair or raises — a
-    # measure recorded under a domain that does not own it never reaches an instrument — and the carrier resolves that
-    # row's own instrument, whose FAMILY supplies the write member. A row re-kinded from histogram to counter therefore
-    # moves every recording site with it, and no call site names a write verb.
-    # Each row's own `keys` projection bounds the write exactly as it bounds that row's `ViewRow`, so one declaration
-    # decides what a stream carries at BOTH ends: a mapping call stamping a discriminant one row declares and another
-    # does not lands it on the declaring row alone, where one attribute set fanned across every measure of the call
-    # exports keys whose views drop them a whole collection later.
     row = MEASURES[(domain, measure)]
     _write(instruments[row.name])(amount, {key: value for key, value in stamped.items() if key in row.keys}, context=context)
 
 
 def views(explicit: frozenset[str] = frozenset()) -> tuple[ViewRow, ...]:
-    # one row per instrument, name-exact, generated from the one table: the SDK mints a stream per MATCHING view,
-    # so a wildcard row beside a per-instrument row would double every series both match, and a per-row allow-list
-    # bounds each stream to the keys ITS write stamps rather than to the union every instrument could carry.
-    # `explicit` names the instruments a deployment re-arms onto their own bucket advisory — the override gate the
-    # wire's base2-exponential default otherwise holds; a name whose row carries no advisory keeps that default.
     return tuple(
         ViewRow(instrument=spec.name, keys=spec.keys, boundaries=spec.advisory if spec.name in explicit else None) for spec in INSTRUMENTS
     )
@@ -587,15 +395,6 @@ def views(explicit: frozenset[str] = frozenset()) -> tuple[ViewRow, ...]:
 
 
 class Metrics:
-    # two-tier custody: `_occupancy`/`_receipts` key per-composition registrations and evidence by ScopeKey, while
-    # `_instruments` and the observable enrollment are the process pipeline the `latched` `_enrolled` guards —
-    # instruments are SDK process singletons, so a doubled callback set stays structurally impossible while every
-    # composition owns its own occupancy entry. `_probe`/`_reading`/`_sampled_at` are the process tier beside them:
-    # ONE handle on the one process every composition runs inside, so the sample and the point it publishes are as
-    # singular as the instruments are. `_tenants`/`_budget` are the process-wide cardinality guard: admitted tenant
-    # values and their ceiling. Carrier and tenant set read WITHOUT the gate — atomic-reference reads are lock-free by
-    # definition, and gating them puts a process-wide acquisition on every measurement a free-threaded publisher
-    # takes. Gate custody covers map read-modify-write alone.
     _occupancy: ClassVar[Map[ScopeKey, Map[str, Block[Occupancy]]]] = Map.empty()
     _probe: ClassVar[psutil.Process] = psutil.Process()
     _reading: ClassVar[ProcessReading | None] = None
@@ -605,21 +404,12 @@ class Metrics:
     _process: ClassVar[MeterReceipt | None] = None
     _tenants: ClassVar[frozenset[str]] = frozenset()
     _budget: ClassVar[int] = TENANT_BUDGET
-    # observable rows this process already registered. The SDK retires no callback, so enrollment must be resumable
-    # rather than compensable: a row landing before a later row raises is recorded here and skipped on the retry,
-    # where a re-run would mount a second callback on the same instrument and double every point it publishes.
     _observed: ClassVar[frozenset[str]] = frozenset()
     _gate = RLock()
 
     @classmethod
     @latched(lambda: Metrics._process, lambda r: setattr(Metrics, "_process", r), lambda prior: replace(prior, outcome=MeterOutcome.ADOPTED))
     def _enrolled(cls) -> MeterReceipt:
-        # both folds read ONE discriminant — `SYNC_MINT` membership — so the enum partitions the two mint tables with
-        # nothing left over and a row can neither enroll twice nor fall through both. Nothing here takes the custody
-        # gate: `create_observable_*` reaches SDK machinery whose collection thread re-enters this owner's callback
-        # under that same gate, so registering beneath it inverts a lock order the export cycle takes the other way,
-        # and the carrier lands as one immutable swap a measurement reads lock-free anyway. `latched` publishes the
-        # receipt only after the whole fold returns, so a partial enrollment leaves no process custody behind it.
         meter = scoped(metrics.get_meter, SCOPES[Scope.METER])
 
         def enroll(_: None, spec: InstrumentSpec) -> None:
@@ -632,18 +422,11 @@ class Metrics:
 
     @classmethod
     def _stamped(cls, name: str) -> None:
-        # one row's registration recorded the instant it lands, so the resume boundary is per row rather than per fold.
         with cls._gate:
             cls._observed = cls._observed | {name}
 
     @classmethod
     def install(cls, scope: ScopeKey = DEFAULT_SCOPE, budget: int = TENANT_BUDGET) -> MeterReceipt:
-        # `budget` is the ceiling the telemetry owner's `SignalProfile.cardinality_budget` carries. Instruments are
-        # process singletons, so the first ENROLLING composition fixes the guard and a later one adopts the standing
-        # ceiling — its receipt records the effective value, never its request, exactly as `ADOPTED` reads elsewhere.
-        # `cls._gate` spans CUSTODY alone — claiming the ceiling and reading the scope's receipt, then publishing state
-        # and receipt — with meter construction and instrument enrollment outside it, so a measurement never queues
-        # behind SDK machinery and no lock order runs opposite the export cycle's.
         with cls._gate:
             standing = cls._receipts.try_find(scope)
             cls._budget = cls._budget if cls._process is not None else budget
@@ -659,21 +442,11 @@ class Metrics:
 
     @classmethod
     def _seeded(cls, scope: ScopeKey) -> Map[ScopeKey, Map[str, Block[Occupancy]]]:
-        # gate-held registry seed: a scope reaching any custody surface first owns its entry, so `install` and
-        # `occupied` arrive in either order and neither overwrites the other's registrations.
         return cls._occupancy if cls._occupancy.contains_key(scope) else cls._occupancy.add(scope, Map.empty())
 
     @classmethod
     @contextmanager
     def occupied(cls, probe: Occupancy, *, band: str, scope: ScopeKey = DEFAULT_SCOPE) -> Iterator[None]:
-        # Bounded owners register their own occupancy read for their lifetime under the band each bounds, and the
-        # `rasm.band.in_flight` callback sums every live probe of that band at collection — so a composition running
-        # many lanes reports one lane level, a worker pool reports its own, and a retired owner leaves no phantom
-        # contribution behind. `band` is REQUIRED because the series is meaningless without it: unlabeled probes make
-        # one number out of bounds that saturate independently, which is the reading an operator opens this series to
-        # get. Registration keys on the probe OBJECT, so two owners sharing one limiter still register twice and each
-        # retire drops exactly the entry it added, and the band leaves the MAP with its last owner rather than
-        # lingering as an empty block the collection fold would publish a zero for.
         def rebound(fold: Callable[[Block[Occupancy]], Block[Occupancy]]) -> None:
             with cls._gate:
                 held = cls._seeded(scope)
@@ -694,17 +467,11 @@ class Metrics:
 
     @classmethod
     def receipt(cls) -> Option[MeterReceipt]:
-        # process-custody read for the bundle capsule: Some only while an enrollment owns the instrument set.
         with cls._gate:
             return Option.of_optional(cls._process)
 
     @classmethod
     def observe(cls, drain: DrainReceipt[object], *, scope: ScopeKey = DEFAULT_SCOPE) -> None:
-        # a drain receipt is a per-drain DELTA, so its counts add onto the synchronous counter at the call and the
-        # wire's DELTA temporality reports each window's own movement. This fold walks the TERMINAL partition alone,
-        # `accepted` naming the admitted total those columns exactly partition. Occupancy is NOT this call's to report:
-        # a drain reports what finished, so the level a lane still holds rides the `occupied` probe the export cycle
-        # samples, and the units this receipt abandoned ride its own `cancelled` column rather than a second name.
         context = otel_context.get_current()
         base = cls._attributed({}, context, scope)
         drained = _write(cls._instruments[LANE_DRAINED])
@@ -726,18 +493,6 @@ class Metrics:
         cls, measure: float | Mapping[str, float], *, method: str = "", outcome: DrainOutcome = "completed", domain: str = "",
         kind: str = "", dimensions: Mapping[Dimension, str] = MappingProxyType({}), scope: ScopeKey = DEFAULT_SCOPE,
     ) -> None:
-        # one polymorphic recorder: a scalar is the request-duration row, a mapping records each named measure onto the
-        # row `(domain, name)` resolves. `domain` is the roster segment, never an attribute key — the segment already
-        # rides the metric name, so the discriminant tags under the one `Dimension.KIND` key at any cardinality. The
-        # write member comes from the resolved instrument's own family, so a counter, histogram, and gauge row all
-        # ride this one arm. `dimensions` carries whatever FURTHER discriminants the rows in this call declare, so a
-        # mapped row's own `dimensions` tuple is reachable from a producer and each row keeps exactly the keys it
-        # declares; stamping `kind` alone instead leaves every mapped-row dimension unwritable while its view
-        # allow-list still admits the key, which reads as a fan a board can group on and a producer cannot fill.
-        # `scope` is the composition the caller records under and reaches the series through the one attribute fold,
-        # so a producer holding an embedded scope partitions here exactly as a drain does. An omitted `kind` spells
-        # ABSENCE exactly as the tenant and composition laws do — no key at all rather than an empty-string value,
-        # which would identify a distinct series a board groups on and no producer can ever fill.
         instruments = cls._instruments
         context = otel_context.get_current()
         match measure:
@@ -746,14 +501,7 @@ class Metrics:
                 Block.of_seq(measures.items()).fold(
                     lambda _, kv: _recorded(instruments, domain, kv[0], kv[1], attributes, context), None
                 )
-            # Scalar admission names its own shapes and the tail closes the match, so a sixth measure shape earns
-            # its arm at the type checker rather than landing on the request-duration row — the write a bare
-            # catch-all performs, reporting a non-numeric payload as a served latency nothing raises on.
             case float() | int() as amount:
-                # `method` spells ABSENCE exactly as `kind` does above — no key at all rather than an empty-string
-                # value identifying a series a board groups on and no producer can ever fill. The scalar overload
-                # declares it required, so this fold closes the one route the implementation default leaves open
-                # and no arm of this entry can stamp a placeholder its sibling omits.
                 attributes = cls._attributed(
                     {**({Dimension.METHOD: method} if method else {}), Dimension.OUTCOME: outcome}, context, scope
                 )
@@ -772,16 +520,6 @@ class Metrics:
 
     @classmethod
     def _attributed(cls, base: Attributes, context: "otel_context.Context", scope: ScopeKey) -> dict[str, AttributeValue]:
-        # one attribute fold every recording path shares, and the branch's whole cardinality enforcement. Composition
-        # identity folds HERE rather than at each caller, so every series any entry writes carries the stamp its
-        # scope earns and no recording path can omit what a sibling stamps. The tenant entry joins under its canonical
-        # key so the TS Convention tenant views and the tenant board queries match Python series without relabeling.
-        # Per-row allow-lists bound the KEY axis; tenant VALUE is the one axis no view can close and this SDK train
-        # ships no numeric per-view limit, so the budget closes it here — a value past the ceiling folds onto
-        # `OVERFLOW_KEY`, the specification's own marker, instead of minting an unbounded series, and that marker
-        # rides `CROSS_DIMENSIONS` so the clipped stream survives the allow-list. The admitted-set read is lock-free
-        # off the immutable snapshot, so a steady-state tenant never takes the gate — the budget is a bound on
-        # DISTINCT values, not a serialization point every measurement queues behind.
         composed = {**base, **_composed(scope)}
         match baggage.get_baggage(TENANT_BAGGAGE, context):
             case str() as tenant if tenant in cls._tenants:
@@ -793,8 +531,6 @@ class Metrics:
 
     @classmethod
     def _admitted(cls, tenant: str) -> bool:
-        # Gated slow path a value takes exactly once: membership re-tests inside the gate, so two threads racing one
-        # new value spend a single budget slot and a refused value never enters the set it was measured against.
         with cls._gate:
             admitted = tenant in cls._tenants or len(cls._tenants) < cls._budget
             cls._tenants = cls._tenants | {tenant} if admitted else cls._tenants
@@ -802,15 +538,6 @@ class Metrics:
 
     @classmethod
     def _callback(cls, spec: InstrumentSpec) -> ObservableCallback:
-        # One snapshot, one call: each row owns its whole projection, so nothing here re-wraps a row's observations to
-        # finish them and no row's attribute set is decided at two sites. Process readings refresh HERE, under the
-        # collection window rather than at a producer call, so a composition that records nothing still exports live
-        # gauges and `READING_TTL_S` keeps one cycle's five process rows on one `oneshot` whatever the composition
-        # count. `ProcessReading.sample` is a syscall window — `memory_full_info` walks the kernel's own maps — so it
-        # runs OUTSIDE the gate every `occupied` registration and first-seen tenant queues behind: the gate reads the
-        # window and the occupancy roster, the sample runs unheld, and the reading publishes back. A failed sample
-        # still stamps the window and clears the reading, so a vanished process re-probes once per cycle rather than
-        # once per gauge and no gauge republishes a level the host has stopped answering for.
         def observed(_: CallbackOptions) -> Iterable[Observation]:
             now = perf_counter()
             with cls._gate:
@@ -833,10 +560,6 @@ class Metrics:
 - Boundary: the Connect server legs stay the serve page's `OpenTelemetryMiddleware` and `Admission` interceptor — its context authority forbids a second server-leg patch — and no sibling package activates an instrumentor. DBAPI spans complement the receipts data plane, never replace it: `QueryReceipt.profile` stays the data owner's truth, `capture_parameters` stays `False` as the export posture, and a driver carrying its own contrib instrumentor never routes through the generic seam.
 
 ```python signature
-# each row lands in exactly one column, so the three sum to `TRAIN` and the receipt is total over the roster. The
-# split is what an operator acts on: an ABSENT driver means this deployment ships none, a REFUSED one means the driver
-# resolved and its version fell outside the instrumentor's own requirement rows — install nothing against move a pin,
-# two moves one silence cannot tell apart.
 type TrainVerdict = Literal["activated", "refused", "absent"]
 
 TRAIN_VERDICTS: Final[tuple[TrainVerdict, ...]] = get_args(TrainVerdict.__value__)
@@ -848,20 +571,16 @@ class TrainReceipt(Struct, frozen=True):
     absent: tuple[str, ...] = ()
 
 
-# a driver with no dedicated contrib instrumentor rides the generic PEP-249 seam: the data-side consumer hands its own
-# admitted driver module in, so this folder patches nothing it does not admit and the wrap activates at composition only.
 class DbapiSeam(Struct, frozen=True):
-    name: str  # instrumenting scope the emitted spans carry
-    connect_module: ModuleType  # consumer-admitted driver module (duckdb, adbc_driver_manager.dbapi)
-    connect_method_name: str  # the module's connect callable name, "connect" on every PEP-249 driver
-    database_system: str  # db.system semconv token the spans carry
+    name: str
+    connect_module: ModuleType
+    connect_method_name: str
+    database_system: str
 
 
-# export posture fixed as data: statement parameters never captured outside an explicit redacted diagnostic opt-in.
 _DBAPI_POSTURE: Final[dict[str, bool]] = {"capture_parameters": False}
 
 
-# system.* + cpython.gc.* alone: the rasm.process.* gauges own the process family, so one fact keeps one owner.
 _SYSTEM_SLICE: Final[dict[str, list[str] | None]] = {
     key: None
     for key in (
@@ -885,11 +604,6 @@ _SYSTEM_SLICE: Final[dict[str, list[str] | None]] = {
     )
 }
 
-# each row names the driver it wraps beside the thunk minting its instrumentor, and `wraps` is the presence gate
-# `_verdict` reads FIRST. A contrib instrumentor imports its driver at ITS OWN module scope, so reifying a thunk whose
-# driver the environment never installed raises `ModuleNotFoundError` out of the composition root and takes the whole
-# train — every later row included — with it. `find_spec` answers presence without importing, so an absent driver
-# lands in its own receipt column and activates unchanged the moment that driver resolves.
 class TrainRow(Struct, frozen=True, gc=False):
     name: str
     wraps: str
@@ -908,12 +622,6 @@ TRAIN: Final[Block[TrainRow]] = Block.of_seq([
 
 
 def _verdict(row: TrainRow) -> TrainVerdict:
-    # gate, then mount, then PROVE — in that order and once per row. `find_spec` answers presence without importing,
-    # so an absent driver skips before its lazy instrumentor proxy reifies. `instrument()` then answers `None` on
-    # every path it takes — patched, already patched, and dependency-refused alike — so its return value witnesses
-    # nothing and the instrumentor's own latch is the proof. `raise_exception_on_conflict=True` converts the silent
-    # refusal into the typed raise this fence catches, so a drifted requirement row leaves that ONE row out of the
-    # receipt rather than publishing a patch the process never took, and the fence keeps the raise off every later row.
     if find_spec(row.wraps) is None:
         return "absent"
     instrumentor = row.mount()
@@ -926,8 +634,6 @@ class Instrumentation:
     _process: ClassVar[TrainReceipt | None] = None
     _gate = RLock()
 
-    # reentrant closure returns every column empty: a later composition activated, refused, and skipped nothing,
-    # because the process train already ran; its receipt reports its own work, never the standing roster's.
     @classmethod
     @latched(lambda: Instrumentation._process, lambda r: setattr(Instrumentation, "_process", r), lambda _prior: TrainReceipt())
     def _activated(cls) -> TrainReceipt:
@@ -951,7 +657,6 @@ class Instrumentation:
 
     @classmethod
     def receipt(cls) -> Option[TrainReceipt]:
-        # process-custody read for the bundle capsule: Some only after the train activated once.
         with cls._gate:
             return Option.of_optional(cls._process)
 
@@ -963,8 +668,6 @@ class Instrumentation:
     def dbapi[C](cls, seam: DbapiSeam, connection: C) -> C: ...
     @classmethod
     def dbapi[C](cls, seam: DbapiSeam, connection: C | None = None) -> C | None:
-        # one polymorphic wrap seam: absent connection patches the seam's connect callable forward, so every later
-        # connect returns a traced connection; a connection built before the patch retrofits through the returned proxy.
         with cls._gate:
             match connection:
                 case None:

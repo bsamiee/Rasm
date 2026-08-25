@@ -56,7 +56,7 @@ from rasm.artifacts.delivery.register import (
     Suitability,
 )
 from rasm.artifacts.exchange.conformance import Conformance, SignerSource
-from rasm.artifacts.exchange.conformance import SignSpec as PadesSpec  # collides with credential.SignSpec — aliased at the seam
+from rasm.artifacts.exchange.conformance import SignSpec as PadesSpec
 from rasm.artifacts.exchange.credential import (
     ActionDefinition,
     DigitalSource,
@@ -68,7 +68,7 @@ from rasm.artifacts.exchange.credential import (
     Provenance,
     SignerSpec,
 )
-from rasm.artifacts.exchange.credential import SignSpec as CoseSpec  # C2PA sign spec, aliased against PAdES
+from rasm.artifacts.exchange.credential import SignSpec as CoseSpec
 from rasm.artifacts.package.archive import Archive
 from rasm.artifacts.package.bundle import CodecProfile, ZipStreamKnobs
 from rasm.runtime.faults import TERMINAL, BoundaryFault, FaultRow, RuntimeRail, rostered
@@ -77,21 +77,21 @@ from rasm.runtime.journal import Actor, Journal, Party
 from rasm.runtime.lanes import LanePolicy
 from rasm.runtime.workers import Kernel, KernelTrait
 
-lazy import pymupdf  # Plan-set collation engine; cold native MuPDF, deferred
-lazy from lxml import etree, isoschematron  # Record XML builder and conformance oracle; cold, deferred to Manifest serialization
+lazy import pymupdf
+lazy from lxml import etree, isoschematron
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Purpose(StrEnum):  # ISO 19650 purpose-of-issue vocabulary; free-text purpose is unrepresentable
-    COORDINATION = "coordination"  # issued for spatial coordination (S1)
-    INFORMATION = "information"  # issued for information (S2)
-    REVIEW_COMMENT = "review-comment"  # issued for review and comment (S3)
-    REVIEW_AUTHORIZE = "review-authorize"  # issued for review and authorization (S4)
-    CONSTRUCTION = "construction"  # issued for construction (published, contractual)
-    TENDER = "tender"  # issued for tender/bid
-    APPROVAL = "approval"  # issued for statutory approval
-    AS_BUILT = "as-built"  # as-constructed record issue (published, contractual)
+class Purpose(StrEnum):
+    COORDINATION = "coordination"
+    INFORMATION = "information"
+    REVIEW_COMMENT = "review-comment"
+    REVIEW_AUTHORIZE = "review-authorize"
+    CONSTRUCTION = "construction"
+    TENDER = "tender"
+    APPROVAL = "approval"
+    AS_BUILT = "as-built"
 
 
 type TransmittalStage = Literal["assemble", "seal", "issue", "manifest"]
@@ -99,7 +99,7 @@ type ValidationState = Literal["unsigned", "valid", "invalid"]
 type RecordValidationState = Literal["unverified", "valid", "invalid"]
 
 
-class TransmittalPayload(TypedDict, closed=True):  # Raw client record header, admitted once
+class TransmittalPayload(TypedDict, closed=True):
     number: Required[ReadOnly[str]]
     issuing_party: Required[ReadOnly[str]]
     recipient: Required[ReadOnly[str]]
@@ -119,8 +119,7 @@ class TransmittalPayload(TypedDict, closed=True):  # Raw client record header, a
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 _PAYLOAD: Final = TypeAdapter(TransmittalPayload)
-_PURPOSES: Final[frozenset[str]] = frozenset(purpose.value for purpose in Purpose)  # derived membership set, never `_value2member_map_`
-# Contractual purposes demand the register owner's `CONTRACTUAL_AUDIT` bar.
+_PURPOSES: Final[frozenset[str]] = frozenset(purpose.value for purpose in Purpose)
 _CONTRACTUAL: Final[frozenset[Purpose]] = frozenset({Purpose.CONSTRUCTION, Purpose.AS_BUILT})
 _PURPOSE_AUDIT: Final[frozendict[Purpose, AuditPolicy]] = frozendict({
     purpose: CONTRACTUAL_AUDIT if purpose in _CONTRACTUAL else STANDARD_AUDIT for purpose in Purpose
@@ -128,7 +127,6 @@ _PURPOSE_AUDIT: Final[frozendict[Purpose, AuditPolicy]] = frozendict({
 _NS: Final[str] = "https://rasm.dev/schema/iso19650/transmittal"
 _SCHEMATRON_NS: Final[str] = "http://purl.oclc.org/dsdl/schematron"
 _SVRL_NS: Final[str] = "http://purl.oclc.org/dsdl/svrl"
-# Mandated record fields each produce one `sch:assert`; a dropped or blank field makes `record_state` invalid.
 _REQUIRED_RECORD: Final[tuple[str, ...]] = ("number", "revision", "issuedAt", "issuingParty", "recipient", "purpose", "projectReference")
 _REQUIRED_CLOSE: Final[frozendict[TransmittalStage, tuple[str, ...]]] = frozendict({
     "assemble": (),
@@ -136,18 +134,12 @@ _REQUIRED_CLOSE: Final[frozendict[TransmittalStage, tuple[str, ...]]] = frozendi
     "issue": ("issued_at", "project_id"),
     "manifest": ("issued_at", "project_id"),
 })
-_MSGPACK: Final = msgpack.Encoder()  # Canonical key preimage, length/count-framed by the codec
+_MSGPACK: Final = msgpack.Encoder()
 _P01: Final[RevisionCode] = RevisionCode(kind=RevisionKind.PRELIMINARY, revision=1)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's whole raise roster. Every row is TERMINAL: an issue refused on its legal header, its sheet set, its
-# register congruence, its quality verdict, its container profile, or its imposition route refuses identically on
-# every re-offer, and the repair is the caller's. The six close-gate rows stay SEPARATE because each names a
-# different repair — a field to fill, a sheet to add, a sheet to register, an audit to clear, a verdict to raise, a
-# verdict to obtain — and one parameterized row would hand an office a single defect token for six distinct actions.
-# The stage and the purpose ride as NAMED coordinates rather than forking each subject per stage.
 GATE_HEADER: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.TRANSMITTAL, point="gate.header", arm="config", defect="missing-fields", retriability=TERMINAL, slots=("stage", "fields")
 )
@@ -196,21 +188,19 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([
 
 @tagged_union(frozen=True)
 class RecordDefect:
-    # `RecordDefect` carries every offending value on one closed admission rail.
     tag: Literal["invalid_payload", "invalid_purpose", "invalid_revision", "aggregate"] = tag()
-    invalid_payload: tuple[str, ...] = case()  # Failing `_PAYLOAD` loc paths
-    invalid_purpose: str = case()  # Unrecognized purpose-of-issue token
+    invalid_payload: tuple[str, ...] = case()
+    invalid_purpose: str = case()
     invalid_revision: str = case()
     aggregate: tuple["RecordDefect", ...] = case()
 
 
 class SheetRef(Struct, frozen=True):
-    # `SheetRef.data` feeds collation and C2PA lineage; `key` is its `core/plan#PLAN` parent edge.
     key: ContentKey
     data: bytes
     reference: str
     title: str
-    discipline: str  # ISO 13567 / NCS discipline code
+    discipline: str
     suitability: Suitability
     revision: RevisionCode
     fmt: str = "application/pdf"
@@ -255,11 +245,11 @@ class SheetRef(Struct, frozen=True):
         )
 
 
-class TransmittalRecord(Struct, frozen=True):  # ISO 19650 transmittal/issue header, admitted once
-    number: str  # Transmittal number/reference
-    issuing_party: str  # Sender or issuing appointed party
-    recipient: str  # Receiving party
-    purpose: Purpose  # Purpose of issue
+class TransmittalRecord(Struct, frozen=True):
+    number: str
+    issuing_party: str
+    recipient: str
+    purpose: Purpose
     revision: RevisionCode = _P01
     issued_at: date | None = None
     project: str = ""
@@ -274,8 +264,7 @@ class TransmittalRecord(Struct, frozen=True):  # ISO 19650 transmittal/issue hea
 
     @staticmethod
     def of(**payload: Unpack[TransmittalPayload]) -> Result["TransmittalRecord", RecordDefect]:
-        # `_PAYLOAD` and the closed purpose/revision parses form the single boundary ingress.
-        try:  # Exemption: the pydantic TypeAdapter admission kernel — the one statement seam.
+        try:
             row = _PAYLOAD.validate_python(payload)
         except ValidationError as fault:
             return Error(RecordDefect(invalid_payload=tuple("/".join(map(str, entry["loc"])) for entry in fault.errors())))
@@ -334,14 +323,7 @@ class TransmittalRecord(Struct, frozen=True):  # ISO 19650 transmittal/issue hea
         )
 
 
-class Deliverable(Struct, frozen=True):  # Common payload every case reads
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
-    # `gate` arrives the same way: the composition root grades each constituent artifact at `delivery/gate#GATE` and
-    # reduces the per-artifact verdicts through `GateVerdict.combine`. It is a JUDGMENT whose per-kind policy axis
-    # no sheet key recovers — one `KindPolicy` row edit re-grades identical sheets — and it is output-affecting,
-    # read by the `_gated` refusal and the gate evidence alike. Its canonical projection therefore enters `_canon`,
-    # so a re-graded deliverable is a fresh key rather than a keyed-reuse hit replaying a close gated under the old
-    # policy; `lane` alone stays outside the preimage as pure execution capacity.
+class Deliverable(Struct, frozen=True):
     sheets: tuple[SheetRef, ...]
     register: Register
     record: TransmittalRecord
@@ -360,12 +342,10 @@ class Deliverable(Struct, frozen=True):  # Common payload every case reads
 
     @property
     def member_keys(self) -> tuple[ContentKey, ...]:
-        # Aggregate parents comprise each sheet key plus the issued register's public pre-run key.
         return (*(ref.key for ref in self.sheets), self.issued_register.key)
 
     @property
     def unregistered(self) -> tuple[str, ...]:
-        # Issue-index congruence: constituent sheets the register's revision-latest fold never lists.
         listed = frozenset(container.reference for container in self.issued_register.latest())
         return tuple(sheet.reference for sheet in self.sheets if sheet.reference not in listed)
 
@@ -378,7 +358,7 @@ class AssembleSpec(Struct, frozen=True):
 
 class SealSpec(Struct, frozen=True):
     profile: CodecProfile = CodecProfile(zip_stream=ZipStreamKnobs())
-    attachments: tuple[tuple[str, bytes], ...] = ()  # (name, bytes) — register XML / receipts / signed manifests sealed beside the plan-set
+    attachments: tuple[tuple[str, bytes], ...] = ()
 
     @property
     def sensitive(self) -> bool:
@@ -423,7 +403,6 @@ class SealSpec(Struct, frozen=True):
 
 
 class CoverCredential(Struct, frozen=True):
-    # `CoverCredential` keeps the optional signer, cover, format, and intent correlated; C2PA lineage rides the cover raster because C2PA cannot sign PDF.
     signer: SignerSpec
     asset: bytes
     fmt: str = "image/png"
@@ -431,9 +410,6 @@ class CoverCredential(Struct, frozen=True):
     title: str = "Transmittal"
 
     def facet(self, /) -> tuple[object, ...]:
-        # `cert_key` identity is fully content-recoverable; only the callback's opaque capability rides `id()` —
-        # a process-local foreign-identity axis, sound because the credential rides an `Issue` node whose `bare`
-        # admission excludes this facet from cross-process content dedup; durable identity carries only stable components.
         match self.signer:
             case SignerSpec(tag="cert_key", cert_key=signer):
                 identity = ("cert_key", signer.alg.value, xxhash.xxh3_128_digest(signer.sign_cert), signer.ta_url)
@@ -445,14 +421,10 @@ class CoverCredential(Struct, frozen=True):
 
 
 class IssueSpec(Struct, frozen=True):
-    pades: PadesSpec  # Hard legal PAdES-LTA sign policy
-    credential: Option[CoverCredential] = Nothing  # Optional soft C2PA leg; `Nothing` selects PAdES-only
+    pades: PadesSpec
+    credential: Option[CoverCredential] = Nothing
 
     def facet(self, /) -> tuple[object, ...]:
-        # Opaque capabilities — the external `sign_digest` callable, `validation_context`, and the foreign
-        # placement/appearance payloads — ride process-local `id()`, the foreign-identity memo axis; the `Issue`
-        # node always admits `bare`, so this facet never keys cross-process content dedup and only the
-        # content-recoverable components (files, chains, vocabulary values) carry identity that must be stable.
         match self.pades.signer:
             case SignerSource(tag="pem", pem=signer):
                 identity = ("pem", signer.key_file, signer.cert_file, signer.ca_chain)
@@ -485,7 +457,7 @@ class IssueSpec(Struct, frozen=True):
 
 
 class ManifestSpec(Struct, frozen=True):
-    container: Option[ContentKey] = Nothing  # Sealed-container key from a prior `Seal`
+    container: Option[ContentKey] = Nothing
 
 
 class TransmittalEvidence(Struct, frozen=True, gc=False):
@@ -504,39 +476,36 @@ class TransmittalEvidence(Struct, frozen=True, gc=False):
     distribution: str
     remarks: str
     copy_recipients: tuple[str, ...]
-    dominant_suitability: str  # Dominant register suitability projected to the receipt
+    dominant_suitability: str
     stage: TransmittalStage
     sheets: int
     latest_revision: str
-    register_complete: bool = True  # Purpose-keyed audit verdict folded once by `close`
-    unregistered: int = 0  # Constituent sheets the issued index never lists; a contractual purpose refuses on any
+    register_complete: bool = True
+    unregistered: int = 0
     validation_state: ValidationState = "unsigned"
-    container: str = ""  # Sealed container `ContentKey.hex`
+    container: str = ""
     container_members: int = 0
-    plan_set: str = ""  # Imposed or signed plan-set `ContentKey.hex`
-    scheme: str = ""  # Imposition scheme
-    press_sheets: int = 0  # Imposed press-sheet count
-    signatures: int = 0  # Bound signature count
+    plan_set: str = ""
+    scheme: str = ""
+    press_sheets: int = 0
+    signatures: int = 0
     pades_level: str = ""
     signer: str = ""
     signed_at: str = ""
     credential_state: str = ""
-    lineage: int = 0  # C2PA ingredient count and sheet-lineage depth
+    lineage: int = 0
     record_state: RecordValidationState = "unverified"
-    record_errors: int = 0  # Failed-assert count when `record_state` is `invalid`
-    # A shipped ADVISORY grade is exactly what a later dispute reads, so the folded verdict rides the value whole
-    # while these two scalars carry the fact stream. `""` is a transmittal no gate graded — distinct from `"pass"`.
+    record_errors: int = 0
     gate_grade: str = ""
-    gate_failures: int = 0  # Failing coordinates the shipped verdict still carries
-    verdict: Option[ConformanceVerdict] = Nothing  # Leaf forensic edge retained beyond the scalar receipt
-    gate: Option[GateVerdict] = Nothing  # Leaf quality edge retained beside the conformance one
+    gate_failures: int = 0
+    verdict: Option[ConformanceVerdict] = Nothing
+    gate: Option[GateVerdict] = Nothing
 
     @property
     def signed_valid(self) -> bool:
         return self.validation_state == "valid"
 
     def facts(self) -> dict[str, object]:
-        # Native metrics remain scalar; forensic `verdict` stays on the value.
         return {
             "transmittal_id": self.transmittal_id,
             "revision": self.revision,
@@ -579,14 +548,14 @@ class TransmittalEvidence(Struct, frozen=True, gc=False):
         }
 
 
-class RecordBytes(Struct, frozen=True, gc=False):  # C14N record bytes plus Schematron conformance
+class RecordBytes(Struct, frozen=True, gc=False):
     data: bytes
     valid: bool
     errors: int
 
 
 @tagged_union(frozen=True)
-class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults through `BoundaryFault`
+class Transmittal:
     tag: Literal["assemble", "seal", "issue", "manifest"] = tag()
     assemble: tuple[Deliverable, AssembleSpec] = case()
     seal: tuple[Deliverable, SealSpec] = case()
@@ -610,7 +579,6 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
         return cls(manifest=(deliverable, spec))
 
     async def close(self) -> RuntimeRail[tuple[ContentKey, TransmittalEvidence]]:
-        # Shared issue gating folds the purpose-keyed register audit once before rendering.
         deliverable = self._deliverable
         audit = deliverable.issued_register.audited(_PURPOSE_AUDIT[deliverable.record.purpose])
         refusal = _gated(self.tag, deliverable, audit)
@@ -631,7 +599,6 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
     async def _assembled(
         self, deliverable: Deliverable, spec: AssembleSpec, audit: RegisterEvidence, /
     ) -> RuntimeRail[tuple[ContentKey, TransmittalEvidence]]:
-        # Validated imposition binds collation once; `receipt.slot` and `planned()` carry its key and press facts.
         routed = (await _collated(deliverable)).bind(
             lambda source: ImposeOp.Impose(source, spec.scheme, spec.geometry, spec.marks).map_error(
                 lambda fault: ASSEMBLE_ROUTE.raised(fault)
@@ -681,7 +648,6 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
             case Result(tag="error") as err:
                 return err
             case Result(tag="ok", ok=plan_set):
-                # Independent sign rails ride `TaskHandle.return_value` inside one structured task group.
                 async with create_task_group() as signs:
                     pades: TaskHandle[RuntimeRail[ArtifactReceipt]] = signs.start_soon(_signed_pades, plan_set, spec.pades)
                     cose: Option[TaskHandle[RuntimeRail[ArtifactReceipt]]] = spec.credential.map(
@@ -694,7 +660,6 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
     async def _manifested(
         self, deliverable: Deliverable, spec: ManifestSpec, audit: RegisterEvidence, /
     ) -> RuntimeRail[tuple[ContentKey, TransmittalEvidence]]:
-        # Issued-register identity is `receipt.slot == node.key` through the uniform producer contract.
         indexed = await deliverable.issued_register.emit().work()
         match indexed:
             case Result(tag="error") as err:
@@ -718,7 +683,6 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
 
     @property
     def _key(self) -> ContentKey:
-        # PRE-RUN identity hashes the canonical input preimage, never produced record bytes.
         return ContentIdentity.key(f"transmittal-{self.tag}", _canon(self))
 
     @property
@@ -752,11 +716,9 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
 
     @property
     def _parents(self) -> tuple[ContentKey, ...]:
-        # Member keys are construction-time sheet/register DATA edges.
         return self._deliverable.member_keys
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # `ArtifactReceipt.Transmittal` keeps the PRE-RUN aggregate key as its slot; produced addresses ride evidence.
         record = self._deliverable.record
         settled = (await self.close()).map(
             lambda pair: (
@@ -773,20 +735,9 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
         )
         match settled:
             case Result(tag="ok", ok=(evidence, receipt)):
-                # ONE `Actor.USER` leg in this branch: an issue for construction is a NAMED party's act under an
-                # information-management protocol, never service work, so the issuing party is the actor and the
-                # receiving and copied parties are REAL data subjects — the portability index every other artifacts
-                # producer leaves empty, which is what makes an export or an erasure over a person reach this record
-                # by index rather than by crawling the stream. The durable fact seats BEFORE the notice because the
-                # announcement is soft and this evidence is the legal half of the close.
                 landed = await Journal.record(
                     receipt.evidence(actor=Party(kind=Actor.USER, key=record.issuing_party), subjects=(record.recipient, *record.copy_recipients))
                 )
-                # Terminal ANNOUNCEMENT: this fold holds the settled evidence, so the fact fires here and the wire
-                # projection subscribes to it at `delivery/notice#NOTICE`. Direction runs outward — this owner learns
-                # of no transport, a composition binding no emitter loses no fact, and an OBSERVE rail is
-                # fire-and-forget by modality contract. It fires off the SETTLED close whichever way the durable
-                # plane answered, since letting a plane fault silence the announcement inverts which of the two is soft.
                 Production.fired(ArtifactHook.TRANSMITTAL_ISSUED, _announced(record, evidence, receipt, self._deliverable.issued_register))
                 return landed.map(lambda _landed: receipt)
             case refused:
@@ -799,10 +750,6 @@ class Transmittal:  # Closed issue vocabulary; each owned/composed seam faults t
 def _announced(
     record: TransmittalRecord, evidence: TransmittalEvidence, receipt: ArtifactReceipt, register: Register, /
 ) -> TransmittalIssued:
-    # ANNOUNCED fact, projected whole from the settled close: every scalar an ingesting system routes on rides the
-    # payload, so no wire owner re-derives one. `key` renders the PRE-RUN aggregate — operation identity, since the
-    # reuse fabric elides two runs over identical inputs onto one — `register` names the issued index a consumer
-    # resolves each row from, and `occurred` stamps the close instant aware so the producer/receiver lag measures.
     return TransmittalIssued(
         key=receipt.slot.hex,
         register=register.key.hex,
@@ -811,8 +758,6 @@ def _announced(
         issuing_party=record.issuing_party,
         purpose=evidence.purpose,
         revision=evidence.revision,
-        # ONE monotone position per transmittal, taken from the code's own rank rather than a render a consumer
-        # string-compares: `C09` sorts before `C10` there, and a gap in this ordinal IS a missed revision.
         revision_ordinal=record.revision.ordinal,
         confidentiality=record.confidentiality,
         issued_at=evidence.issued_at,
@@ -829,9 +774,6 @@ def _announced(
 
 
 def _gated(stage: TransmittalStage, deliverable: Deliverable, audit: RegisterEvidence, /) -> Option[BoundaryFault]:
-    # Shared refusal fold: legal-header, sheet-set, index-congruence, contractual-audit, and QUALITY faults all
-    # accumulate through the associative `BoundaryFault.combine` so one refusal reports every gate the issue fails.
-    # The quality rows seat HERE rather than at a sibling entry — one admission fold owns what may not be issued.
     record = deliverable.record
     missing = tuple(field for field in _REQUIRED_CLOSE[stage] if not getattr(record, field))
     contractual = record.purpose in _CONTRACTUAL
@@ -842,29 +784,17 @@ def _gated(stage: TransmittalStage, deliverable: Deliverable, audit: RegisterEvi
         Some(GATE_AUDIT.raised(record.purpose.value, audit.severed.map(lambda fault: fault.tag).default_value("severed")))
         if contractual and audit.severed.is_some()
         else Nothing,
-        # An issue whose gate verdict its own per-kind policy refuses to ship never renders, and the refusal names
-        # every failing coordinate — a bare `gate:refuse` tells an office nothing it can act on.
         deliverable.gate.bind(_refused).map(lambda cause: GATE_QUALITY.raised(stage, cause)),
-        # Issuing for CONSTRUCTION with no quality verdict at all is the forged-zero failure at this boundary: an
-        # unmeasured issue would otherwise land on the legal record reading exactly like a measured clean one.
         Some(GATE_UNGATED.raised(record.purpose.value)) if contractual and deliverable.gate.is_none() else Nothing,
     )).choose(lambda fault: fault)
     return Nothing if held.is_empty() else Some(held.reduce(BoundaryFault.combine))
 
 
 def _refused(verdict: GateVerdict, /) -> Option[str]:
-    # `ships` is the POLICY floor, never a `grade is Grade.REFUSE` test: tightening or relaxing a kind is one
-    # `KindPolicy` row at the gate owner, and `Grade.ADVISORY` passes here because every seeded row admits it.
     return Nothing if verdict.ships else Some(f"gate:{verdict.grade.value}:{verdict.render()}")
 
 
 def _canon(op: Transmittal, /) -> bytes:
-    # Msgpack frames every field and collection; public policy, foreign-capability identity, and the folded gate
-    # verdict's canonical projection — grade, ships floor, rendered coordinates, `None` for an ungated deliverable —
-    # enter the preimage, so a changed verdict or a re-graded policy can never reuse a keyed close it did not gate.
-    # Private keys, passphrases, and passwords stay out, and their `Issue`/`Seal` nodes admit `bare` — which is
-    # also what licenses the `id()`-keyed opaque components in the `Issue` facets: a bare node never dedups by
-    # key across processes, so its preimage needs only within-process distinctness.
     deliverable = op._deliverable
     facet: tuple[object, ...]
     match op:
@@ -890,12 +820,10 @@ def _canon(op: Transmittal, /) -> bytes:
 
 
 def _collate(sheets: tuple[SheetRef, ...], record: TransmittalRecord, /) -> bytes:
-    # `CAPSULE_OWNER` permits one in-place MuPDF kernel whose nested handles close before deterministic serialization.
-    # Fixed record metadata plus `no_new_id=True` excludes wall-clock and random PDF identity.
     with pymupdf.open() as out:
         toc: list[list[object]] = []
         for sheet in sheets:
-            toc.append([1, sheet.title or sheet.discipline, out.page_count + 1])  # Bookmark targets this sheet's first page
+            toc.append([1, sheet.title or sheet.discipline, out.page_count + 1])
             with pymupdf.open(stream=sheet.data, filetype="pdf") as src:
                 out.insert_pdf(src)
         out.set_toc(toc)
@@ -911,14 +839,11 @@ def _collate(sheets: tuple[SheetRef, ...], record: TransmittalRecord, /) -> byte
 
 
 async def _collated(deliverable: Deliverable, /) -> RuntimeRail[bytes]:
-    # GIL-releasing MuPDF work crosses the instance lane once and preserves its returned rail.
     return await deliverable.lane.offload(Kernel.of(_collate, KernelTrait.HOSTILE), deliverable.sheets, deliverable.record)
 
 
 @cache
 def _record_schema() -> bytes:
-    # Immutable Schematron bytes derive one `sch:assert` per `_REQUIRED_RECORD` row.
-    # Each render compiles its own validator because provider diagnostic state is not thread-re-entrant.
     sch = lambda local: etree.QName(_SCHEMATRON_NS, local)
     schema = etree.Element(sch("schema"), nsmap={"sch": _SCHEMATRON_NS})
     etree.SubElement(schema, sch("ns"), prefix="t", uri=_NS)
@@ -929,8 +854,6 @@ def _record_schema() -> bytes:
 
 
 def _record_xml(deliverable: Deliverable, audit: RegisterEvidence, register_key: str, container_key: str, /) -> RecordBytes:
-    # `SubElement.text`/`set` escape every dynamic value before Schematron validation.
-    # `c14n2` serialization makes the validated legal record byte-reproducible.
     record = deliverable.record
     qname = lambda local: etree.QName(_NS, local)
     root = etree.Element(qname("Transmittal"), nsmap={None: _NS})
@@ -971,7 +894,7 @@ def _record_xml(deliverable: Deliverable, audit: RegisterEvidence, register_key:
         )
         for field, value in (("title", sheet.title), ("discipline", sheet.discipline), ("format", sheet.fmt)):
             etree.SubElement(node, qname(field)).text = value
-    schema = isoschematron.Schematron(etree.fromstring(_record_schema()), store_report=True)  # per-call: not thread-re-entrant on error_log
+    schema = isoschematron.Schematron(etree.fromstring(_record_schema()), store_report=True)
     valid = schema.validate(root)
     errors = int(schema.validation_report.xpath("count(//svrl:failed-assert)", namespaces={"svrl": _SVRL_NS}))
     return RecordBytes(etree.tostring(root, method="c14n2"), valid, errors)
@@ -982,8 +905,6 @@ async def _record(deliverable: Deliverable, audit: RegisterEvidence, register_ke
 
 
 def _lineage(cover: CoverCredential, sheets: tuple[SheetRef, ...], /) -> Manifest:
-    # Each sheet becomes a `componentOf` ingredient carrying its content key as the `xmp.did:`/`xmp.iid:`
-    # identity pair — the same spelling `Manifest.with_parents` mints for `parentOf` rows.
     ingredients = tuple(
         Ingredient.Stream(
             IngredientDefinition(
@@ -1007,19 +928,16 @@ def _lineage(cover: CoverCredential, sheets: tuple[SheetRef, ...], /) -> Manifes
 
 
 async def _signed_pades(plan_set: bytes, pades: PadesSpec, /) -> RuntimeRail[ArtifactReceipt]:
-    # PAdES remains the hard legal child; its producer owns TSA retry and offload.
     return await Conformance.Sign(plan_set, pades).emit().work()
 
 
 async def _signed_cose(cover: CoverCredential, sheets: tuple[SheetRef, ...], /) -> RuntimeRail[ArtifactReceipt]:
-    # C2PA remains the soft provenance child; its producer owns remote-manifest retry.
     return await Provenance.Sign(cover.asset, CoseSpec(manifest=_lineage(cover, sheets), fmt=cover.fmt, signer=cover.signer)).emit().work()
 
 
 def _folded_signs(
     deliverable: Deliverable, audit: RegisterEvidence, pades: RuntimeRail[ArtifactReceipt], cose: Option[RuntimeRail[ArtifactReceipt]], /
 ) -> RuntimeRail[tuple[ContentKey, TransmittalEvidence]]:
-    # PAdES failure aborts issue; optional C2PA absence, failure, and reported state remain distinguishable.
     match pades:
         case Result(tag="error") as err:
             return err
@@ -1049,8 +967,6 @@ def _credential(cose: Option[RuntimeRail[ArtifactReceipt]], /) -> tuple[str, boo
 def _assemble_evidence(
     deliverable: Deliverable, audit: RegisterEvidence, spec: AssembleSpec, receipt: ArtifactReceipt, plan: Option[ImposedPlan], /
 ) -> TransmittalEvidence:
-    # `planned()` is `Some` for the Impose op; a provider-owned fold (plan sheets None) reads the MEASURED imposed
-    # page count off the terminal receipt instead of publishing a fabricated zero press fact.
     measured = receipt.egress[2] if receipt.tag == "egress" else receipt.pdf[2]
     return structs.replace(
         _base_evidence(deliverable, audit, "assemble"),
@@ -1086,7 +1002,6 @@ def _issue_evidence(
     credential_present: bool,
     /,
 ) -> TransmittalEvidence:
-    # Credential presence controls lineage depth; PAdES alone controls legal validity.
     return structs.replace(
         _base_evidence(deliverable, audit, "issue"),
         plan_set=plan_set.hex,
@@ -1101,7 +1016,6 @@ def _issue_evidence(
 
 
 def _base_evidence(deliverable: Deliverable, audit: RegisterEvidence, stage: TransmittalStage, /) -> TransmittalEvidence:
-    # Every stage reuses the close prologue's single record/index audit fold.
     record = deliverable.record
     return TransmittalEvidence(
         transmittal_id=record.number,
@@ -1125,14 +1039,12 @@ def _base_evidence(deliverable: Deliverable, audit: RegisterEvidence, stage: Tra
         latest_revision=audit.latest_revision,
         register_complete=audit.complete,
         unregistered=len(deliverable.unregistered),
-        # An ungated issue reads `""`, never `"pass"` — absent, empty, and passing stay three distinct facts, and
-        # only a purpose the `_gated` fold calls contractual is refused for holding the first of them.
         gate_grade=deliverable.gate.map(lambda verdict: verdict.grade.value).default_value(""),
         gate_failures=deliverable.gate.map(lambda verdict: len(verdict.failing)).default_value(0),
         gate=deliverable.gate,
     )
 
-# --- [EXPORTS] ----------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = (
     "AssembleSpec",

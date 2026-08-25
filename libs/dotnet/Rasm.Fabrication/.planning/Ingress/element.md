@@ -21,7 +21,7 @@
 - Boundary: `ElementGraph` never crosses the receipt; `Relationship`, `PropertyValue`, `MaterialComposition`, `MaterialPropertySet`, and `MaterialUsage` remain their canonical generated owners; `NodeId` and provider types lower to strings or content keys only at fact egress; no connection line is synthesized, and a `Connect` row without a realizing element stays topology-only because `ComponentConnection` demands a realizing key; faults from `Rasm.Element` pass through unchanged and local ingress or egress conflicts mint `IngressTranslation`; canonical-property ordering and caller-buffer commit are the serialization-boundary statement kernels.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using System.Linq;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -39,14 +39,12 @@ using Rasm.Meshing;
 using Thinktecture;
 using UnitsNet;
 using static LanguageExt.Prelude;
-// `PropertyBag` and `QuantityBag` are `global using` aliases inside `Rasm.Element`, and a global using is
-// compilation-scoped — it never flows to a referencing assembly — so this one re-mints them over the same closure.
 using PropertyBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.PropertyValue>;
 using QuantityBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.MeasureValue>;
 
 namespace Rasm.Fabrication.Ingress;
 
-// --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ElementGeometry {
     private ElementGeometry() { }
@@ -56,12 +54,6 @@ public abstract partial record ElementGeometry {
     public sealed record Centreline(Edge3 Value) : ElementGeometry;
 }
 
-// `Rasm.Element`'s `Graph/element#NODE_MODEL` `RepresentationSlot` owns this slot roster — one identifier vocabulary
-// over one key space, composed rather than re-declared, so the graph lookup is `representations.At(part.Slot)` and no
-// arm re-spells an identifier string. `Admitted` is the ONE column Element cannot hold (it decides fabrication
-// carriers Element never sees), seated on the pair that carries both operands and dispatched through the roster's
-// generated total `Switch` — the four realized carrier arms admit by shape, every opaque arm refuses, and an Element
-// row mint breaks HERE at compile time instead of inheriting support.
 public sealed record ElementPart(RepresentationSlot Slot, ElementGeometry Value) {
     public bool Admitted => Slot.Switch(
         state: Value,
@@ -102,8 +94,6 @@ public sealed partial class ElementPayload {
     public static Fin<ElementPayload> Admit(Seq<ElementPart> parts) =>
         Validate(parts, out ElementPayload payload).Admitted(payload);
 
-    // Each clause names the slot invariant it decides, so a payload refusal is addressable at the locus rather than
-    // through one aggregate message a caller has to parse.
     private static ValidationError? Validation(Seq<ElementPart> parts) =>
         parts.IsEmpty ? Invalid("parts")
         : parts.Map(static part => part.Slot.Key).Distinct().Count != parts.Count ? Invalid("slot-repeat")
@@ -137,8 +127,6 @@ public sealed partial class ElementSource {
         Validate(graph, subjects, key, out ElementSource source).Admitted(source);
 }
 
-// The reading a column produced. Equivalence and rendering ride the generated total `Switch`, so a new reading kind
-// cannot slip past a tuple pattern that silently answers false for every pair it never enumerated.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FactValue {
     private FactValue() { }
@@ -147,8 +135,6 @@ public abstract partial record FactValue {
     public sealed record Text(string Value) : FactValue;
     public sealed record Typed(PropertyValue Value) : FactValue;
 
-    // Two readings of one path arrive through independent unit conversions, so numeric agreement is a tolerance test;
-    // exact bit equality would fault a graph whose quantities merely round differently.
     public bool Equivalent(FactValue other, double tolerance) => Switch(
         state: (Other: other, Tolerance: tolerance),
         number: static (probe, row) => probe.Other is Number peer && Math.Abs(row.Value - peer.Value) <= probe.Tolerance,
@@ -174,9 +160,6 @@ public sealed record ElementFact(PropertyName Path, FactValue Value) {
 public sealed partial class ElementFactSet {
     public Seq<ElementFact> Rows { get; }
 
-    // Both projections are DERIVED from the admitted rows and HELD, so a component admission reading quantities and
-    // properties folds the stream once. The fold is total: the rows arrive coalesced one per path, and a later
-    // reading of a path that survived the conflict census replaces rather than throwing.
     [IgnoreMember]
     private Map<PropertyName, double>? quantities;
 
@@ -274,10 +257,8 @@ public abstract partial record ElementProjection {
 - Boundary: this cluster reads member VALUES only — no admission, no conversion policy, no fault. Unit lifting stays at the `Rasm.Element` measure owner, which already publishes SI scalars.
 
 ```csharp signature
-// --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 // --- [FACT_COLUMNS]
-// The qualifier chain a column hangs under. One join composes the whole path and one mint seats it in the seam's own
-// key space, so no site interpolates a root and no site spells `PropertyName.Create`.
 public readonly record struct FactScope(string Prefix) {
     public static readonly FactScope Root = new(string.Empty);
 
@@ -289,9 +270,6 @@ public readonly record struct FactScope(string Prefix) {
         PropertyCategory.Fabrication.Row(Prefix.Length == 0 ? column : $"{Prefix}.{column}");
 }
 
-// `IFactColumn` is what lets the soundness census read a table's names without knowing its source type: `Seq<A>` is
-// `IEnumerable<A>` and `IEnumerable<out T>` is covariant, so a reflected table casts to `IEnumerable<IFactColumn>`
-// with no per-source dispatch and no second roster.
 public interface IFactColumn {
     string Name { get; }
 }
@@ -301,35 +279,16 @@ public sealed record FactColumn<TSource>(string Name, Func<TSource, Option<FactV
         Read(source).Map(value => new ElementFact(scope.Row(Name), value));
 }
 
-// The named carve. A member the mirror deliberately drops rides here at the table that drops it, so an unpublished
-// fact is a DECISION with a reason beside it rather than the silence that lost three of `PropertyEvidence`'s six.
-// A member the lowering publishes through a table of its own — a nested composite, a banded roster — carves here
-// and lands there; a member nothing reaches carves with the reason it is unreachable.
 [AttributeUsage(AttributeTargets.Field)]
 public sealed class UnpublishedAttribute(string reason, params string[] members) : Attribute {
     public string Reason { get; } = reason;
     public IReadOnlyList<string> Members { get; } = members;
 }
 
-// `Emit` is the ONE fan: a table meets a scope and a source and yields its rows. It is named apart from `Fold`
-// because `Seq<A>` publishes its own two-argument `Fold`, and an extension shadowed by an instance member is a
-// resolution accident waiting for the day a state type happens to bind.
 public static class FactColumns {
     public static Seq<ElementFact> Emit<TSource>(this Seq<FactColumn<TSource>> columns, FactScope scope, TSource source) =>
         columns.Choose(column => column.Of(scope, source));
 
-    // The mirror's own proof, run once at the table owner's first construction exactly as `generated identity admission`
-    // proves a fault roster. Every table is a HAND-KEPT MIRROR of a `Rasm.Element` type's member set with no
-    // compile break behind it, so a source owner gaining a member drops a fact in silence — `PropertyEvidence`
-    // published three of six that way, and nothing failed. The proof reflects the OWNER'S OWN FIELDS rather than a
-    // listed roster, so the census can never drift from the tables it proves: a table declared without a carve is
-    // proved the moment it exists. A member is covered when some column name on its table NAMES it as a dotted
-    // segment — the column paths already mirror the member path from the source root, which is what makes the
-    // match mechanical — and uncovered members throw here, naming every one, rather than at a consumer that never
-    // sees the row. NAMED LOSS: this proves NAMING, not reading; a column whose name says `Grade` while its
-    // delegate reads something else still passes, because a delegate body is not reflectable. The stronger form is
-    // a generated projection at the `Rasm.Element` owner, which is where the roster belongs the day that owner
-    // publishes one.
     public static Unit Sound(Type owner) =>
         toSeq(owner.GetFields(BindingFlags.Public | BindingFlags.Static))
             .Filter(static field => field.FieldType.IsGenericType
@@ -355,22 +314,11 @@ public static class FactColumns {
     }
 }
 
-// The declared tables. Every fabrication fact the ingress publishes resolves to a row here, so the roster is one
-// readable census of what a fabrication consumer can key on. The six row constructors sit on this owner rather than
-// beside `FactColumn`, so a table declaration reads as one unqualified expression.
 public static class ElementColumns {
-    // The mirror closes here: the census reads THIS type's own fields, so a table added without a carve is proved
-    // the moment it is declared and a `Rasm.Element` owner that grows a member breaks this initializer rather than
-    // dropping the fact into silence.
     static ElementColumns() => ignore(FactColumns.Sound(typeof(ElementColumns)));
 
-    // The row a caller-authored property bag names its material through, and the one symbolic fallback the lowering
-    // derives when a single material composition is unambiguous.
     public const string MaterialRow = "material";
 
-    // Every member the lowering publishes ELSEWHERE names its landing here; `Observations` names none, because no
-    // fabrication consumer reads a time series and nothing on this page ever did — the carve is what makes that a
-    // decision instead of an omission.
     [Unpublished("published by their own tables and folds",
         nameof(Element.Classifications), nameof(Element.Representations), nameof(Element.Materials),
         nameof(Element.Properties), nameof(Element.Quantities), nameof(Element.Parts),
@@ -393,9 +341,6 @@ public static class ElementColumns {
         Sym<Classification>("Code", static row => row.Code),
         Sym<Classification>("Edition", static row => row.Edition));
 
-    // The counters ride one composite source because the relation and connection censuses are derived beside the
-    // baked element rather than read off it. A composite CARRIER publishes no member of its own — its fields are
-    // the reach, and every fact it emits is named off what they hold — so the whole carrier carves.
     [Unpublished("composite carrier: its fields are the reach, never a fact",
         nameof(ComponentCensus.Baked), nameof(ComponentCensus.Topology), nameof(ComponentCensus.Connections))]
     public static readonly Seq<FactColumn<ComponentCensus>> Census = Seq(
@@ -430,13 +375,6 @@ public static class ElementColumns {
         Sym<MaterialConstituent>("Category", static row => row.Category),
         Num<MaterialConstituent>("Fraction", static row => row.Fraction));
 
-    // Six columns ride the evidence owner and this table published three, so a fabrication consumer could read
-    // WHERE a property came from and never whether anyone was accountable for it — `Grade` is the column
-    // `PropertyEvidence.Citable` and every audit sweep decide on, and the attestation and run rows are the accountable
-    // source itself. `Grade.Token` is the FROZEN wire spelling its owner publishes for exactly this purpose; the
-    // `[SmartEnum<int>]` key is a precedence RANK, so keying a fact path on it would publish an ordering as a name.
-    // `Reference` is `Option<string>` at its owner, so it takes the optional mint like every other absent-tolerant
-    // read on this page; the total mint it carried does not type-check against that carrier at all.
     public static readonly Seq<FactColumn<PropertyEvidence>> Evidence = Seq(
         Sym<PropertyEvidence>("Evidence.Source", static row => row.Source),
         SymOpt<PropertyEvidence>("Evidence.Reference", static row => row.Reference),
@@ -483,8 +421,6 @@ public static class ElementColumns {
         Opt<MaterialPropertySet.Acoustic>("FlowResistivityPaSPerM2", static row => row.FlowResistivityPaSPerM2),
         Opt<MaterialPropertySet.Acoustic>("LossFactor", static row => row.LossFactor));
 
-    // The band roster is the generated vocabulary's own, so a new third-octave band is a row at its owner and no
-    // column here names a frequency.
     public static readonly Seq<FactColumn<AcousticReading>> Band = Seq(
         Num<AcousticReading>("Absorption", static row => row.Set.At(row.Band)),
         Num<AcousticReading>("SoundReductionIndexDb", static row => row.Set.SriAt(row.Band)));
@@ -639,8 +575,6 @@ public static class ElementColumns {
         new(name, source => Some<FactValue>(new FactValue.Typed(read(source))));
 }
 
-// The composite sources a column table reads. Each is the exact tuple its own table needs, so a reader never reaches
-// past the row it was handed.
 public readonly record struct ComponentCensus(Element Baked, Seq<Relationship> Topology, Arr<ComponentConnection> Connections);
 
 public readonly record struct AcousticReading(MaterialPropertySet.Acoustic Set, AcousticBand Band);
@@ -662,10 +596,8 @@ public readonly record struct CurveSample(double Axis, double Value);
 - Boundary: writer disposal stays with the caller; a buffer failure rails through the retained locus rather than escaping the `Fin` return.
 
 ```csharp signature
-// --- [OPERATIONS] -----------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ElementImport {
-    // A unit separator cannot occur in a node id, a case key, or a sub-kind key, so the joined ordering key is
-    // injective over the columns it joins.
     private const char Field = '\u001F';
 
     public static Fin<ElementAdmission> Admit(ElementSource source) =>
@@ -713,8 +645,6 @@ public static class ElementImport {
         from receipt in ElementReceipt.Admit(component, topology, facts, properties, locus)
         select receipt;
 
-    // Combined representation key count-frames the roster and length-frames each slot key, so a one-part and a
-    // two-part payload can never collide and a slot rename cannot silently reuse an existing identity.
     private static Fin<UInt128> Resolve(Element baked, ElementPayload payload, double tolerance, Error fault) =>
         payload.Parts
             .Traverse(part => baked.Representations.At(part.Slot)
@@ -723,14 +653,9 @@ public static class ElementImport {
                 .ToValidation())
             .As()
             .ToFin()
-            // Order-only close: this key is an IDENTITY over the framed roster, never a buffer a caller reads
-            // back, so it takes the facade's digest mint. `new CanonicalWriter(...)` names no member — the codec
-            // publishes no public constructor, and its two mints answer two different closes.
             .Map(rows => FabricationCanon.Ordered(tolerance, writer => rows
                 .Fold(writer.Ordinal(rows.Count), static (target, row) => target.String(row.Slot).U128(row.Key))));
 
-    // The ONE ordering. Its key joins the discriminant, the endpoints, and the sub-kind — every column a consumer can
-    // distinguish two edges by — so the ordinal a fact path carries is stable across graph rebuilds.
     private static Seq<Relationship> Ordered(IEnumerable<Relationship> edges) =>
         toSeq(toSeq(edges).OrderBy(OrderKey, StringComparer.Ordinal));
 
@@ -745,8 +670,6 @@ public static class ElementImport {
     private static string Join(string discriminant, string first, string second, string qualifier) =>
         string.Join(Field, discriminant, first, second, qualifier);
 
-    // Realizing element makes a connection fabricable; bare adjacency remains receipt topology. `ComponentConnection`
-    // carries the interface blob key and leaves `At` absent, and both keys mint in the seam's own vocabulary.
     private static Arr<ComponentConnection> ConnectionsOf(Seq<Relationship> topology) =>
         topology.Choose(static relation => relation is Relationship.Connect connect
             ? connect.Realizing.Bind(realizing => connect.Interface.Map(key => new ComponentConnection(
@@ -792,8 +715,6 @@ public static class ElementImport {
             + MaterialFallback(baked)
             + topology.Map(RelationRows).Bind(identity);
 
-        // One grouping serves both the conflict census and the coalesced store, and each conflict carries its own
-        // path-derived locus so an accumulated batch names every offending path instead of repeating one error.
         Seq<(PropertyName Path, Seq<ElementFact> Rows)> grouped = toSeq(rows.GroupBy(static row => row.Path))
             .Map(static group => (Path: group.Key, Rows: toSeq(group)));
         Seq<Validation<Error, Unit>> conflicts = grouped
@@ -896,8 +817,6 @@ public static class ElementImport {
             + bag.Values.Pairs.Map(pair => new ElementFact(scope.Row(pair.Key.Value), new FactValue.Typed(pair.Value)));
     }
 
-    // The authored material row wins; an unambiguous single composition is the only fallback, so a multi-material
-    // element with no authored row publishes none rather than electing one arbitrarily.
     private static Seq<ElementFact> MaterialFallback(Element baked) {
         Seq<string> candidates = baked.Materials.Map(static row => row.Material.MaterialKey.Value).Distinct();
         Option<string> elected = baked.Properties
@@ -936,13 +855,9 @@ public static class ElementImport {
                 new CurveSample(pair.Item1, pair.Item2)))
             .Bind(identity)).IfNone(Seq<ElementFact>());
 
-    // The case discriminant is the one row every case family shares, so it lands beside the table rather than as a
-    // first column each table restates.
     private static Seq<ElementFact> Kind(FactScope scope, string discriminant) =>
         Seq<ElementFact>(new ElementFact(scope.Row("Kind"), new FactValue.Text(discriminant)));
 
-    // Exemption: the ordered bag walk IS the serialization boundary, and `CanonicalWriter` is mutable-fluent, so the
-    // statement kernel is the byte law rather than an imperative accumulation of a value.
     private static Fin<ReadOnlyMemory<byte>> CanonicalProperties(ElementGraph graph, Element baked, Op key) {
         CanonicalWriter writer = CanonicalWriter.Retaining(graph.Header.Tolerance);
         Seq<PropertyBag> bags = toSeq(baked.Properties.OrderBy(static bag => bag.SetName, StringComparer.Ordinal));
@@ -954,8 +869,6 @@ public static class ElementImport {
                 value.CanonicalBytes(writer);
             }
         }
-        // `ToBytes` is the RETAINING close and answers on the rail: a writer opened by construction and closed with
-        // a discarded refusal keyed its bytes off a buffer it never proved it held.
         return writer.ToBytes(key);
     }
 

@@ -50,16 +50,16 @@ lazy import av
 lazy import av.error
 lazy import pysubs2
 lazy import pysubs2.exceptions
-lazy import pysubs2.formats.substation  # parse_tags lives at formats.substation (verified 1.8.1), not the retired pysubs2.substation
-lazy from rasm.artifacts.media.container import _encode_video, _media_fault, _probe, _worker  # the plane's ONE worker aspect, generic over its payload
-lazy from rasm.artifacts.media.filtergraph import TextSpec, _render_text  # the RAQM-gated styled-text -> RGBA plane owner
+lazy import pysubs2.formats.substation
+lazy from rasm.artifacts.media.container import _encode_video, _media_fault, _probe, _worker
+lazy from rasm.artifacts.media.filtergraph import TextSpec, _render_text
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Styled = tuple[str, "pysubs2.SSAStyle"]  # (fragment text, computed style) from parse_tags
+type Styled = tuple[str, "pysubs2.SSAStyle"]
 type FaceKey = tuple[str, bool, bool]
 
 
@@ -78,7 +78,6 @@ type WhisperPayload = WhisperResult | list[WhisperSegment]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 
-# each member's `.value` is the exact `format_` string `SSAFile.to_string`/`from_string` consume.
 class SubtitleDialect(StrEnum):
     SRT = "srt"
     ASS = "ass"
@@ -98,25 +97,12 @@ class StyleConflict(StrEnum):
     REPLACE = "replace"
 
 
-# muxer -> subtitle codec whose raw-packet path the in-process muxer verifiably admits (matroska opens `ass` from the
-# extradata header alone; mp4 `mov_text` and webm `webvtt` refuse avcodec_open2 on a template-less stream, so those
-# containers route to BurnIn). A muxer absent here rails `unregistered` and the caller burns.
-#
-# This table takes NO import-time coverage witness, and the carve is by construction rather than by omission: its key
-# space is `av`'s own open muxer-name vocabulary, not a closed member set, and `_mux_subtitle` derives its key as
-# `frozenset(reader.format.name.split(",")) & _SOFT_SUB.keys()` — an INTERSECTION, so every `_SOFT_SUB[muxer]` lookup
-# is provably in-table and the empty intersection is the typed `unregistered` refusal. The page's other closed
-# vocabularies (`SubtitleDialect`, `RetimeShift`, `RestyleStep`, `StyleConflict`) are proven by total `match` with
-# `assert_never`, never by a parallel row a member could miss.
 _SOFT_SUB: frozendict[str, str] = frozendict({"matroska": "ass"})
 
 _ASS_EVENT_FORMAT = "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
-# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
-# worker death and a codec refusal are defects a re-issue may clear.
 SUBTITLE_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.SUBTITLE, point="fold", arm="boundary", defect="subtitle-fold", retriability=TRANSIENT
 )
@@ -128,16 +114,16 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([SUBTITLE_F
 @tagged_union(frozen=True)
 class RetimeShift:
     tag: Literal["constant", "rescale"] = tag()
-    constant: int = case()  # `SSAFile.shift(ms=...)` millisecond delta
-    rescale: tuple[float, float] = case()  # `SSAFile.transform_framerate(in_fps, out_fps)`
+    constant: int = case()
+    rescale: tuple[float, float] = case()
 
 
 @tagged_union(frozen=True)
 class RestyleStep:
     tag: Literal["rename", "import_", "clean"] = tag()
-    rename: tuple[str, str] = case()  # `SSAFile.rename_style(old, new)`
+    rename: tuple[str, str] = case()
     import_: tuple[str, SubtitleDialect, StyleConflict] = case()
-    clean: None = case()  # `SSAFile.remove_miscellaneous_events()`
+    clean: None = case()
 
 
 class BurnStyle(Struct, frozen=True):
@@ -151,10 +137,10 @@ class BurnStyle(Struct, frozen=True):
 @tagged_union(frozen=True)
 class SubtitleOp:
     tag: Literal["convert", "retime", "restyle", "mux", "burn_in", "whisper"] = tag()
-    convert: tuple[str, SubtitleDialect, SubtitleDialect] = case()  # (text, src, dst)
+    convert: tuple[str, SubtitleDialect, SubtitleDialect] = case()
     retime: tuple[str, SubtitleDialect, RetimeShift] = case()
     restyle: tuple[str, SubtitleDialect, tuple[RestyleStep, ...]] = case()
-    mux: tuple[str, bytes, SubtitleDialect] = case()  # (subtitle text, container bytes, dialect)
+    mux: tuple[str, bytes, SubtitleDialect] = case()
     burn_in: tuple[str, SubtitleDialect, Frames, MediaProfile, BurnStyle] = case()
     whisper: tuple[WhisperPayload, SubtitleDialect] = case()
 
@@ -180,12 +166,12 @@ class SubtitleOp:
 
 
 class SubtitleEvidence(Struct, frozen=True):
-    container: str  # dialect id (text arms) or muxer name (container arms)
-    codec: str  # "text" for a serialized track, the subtitle/video codec for a muxed or burned one
+    container: str
+    codec: str
     duration: float
     byte_count: int
-    count: int  # event count (text/mux) or frame count (burned)
-    facts: frozendict[str, float | str] = frozendict()  # {events, styles} -> ArtifactReceipt.Media band
+    count: int
+    facts: frozendict[str, float | str] = frozendict()
 
     @staticmethod
     def measure(container: str, codec: str, duration: float, blob: bytes, count: int, facts: frozendict[str, float | str], /) -> "SubtitleEvidence":
@@ -197,14 +183,11 @@ type SubtitleProduct = tuple[bytes, SubtitleEvidence]
 
 class Subtitle(Struct, frozen=True):
     op: SubtitleOp
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner;
-    # it seats above `parents` because msgspec refuses a required field after a defaulted one at class creation.
     lane: LanePolicy
-    parents: tuple[ContentKey, ...] = ()  # the upstream container/frame producer keys the planner wires
+    parents: tuple[ContentKey, ...] = ()
 
     @staticmethod
     def of(op: SubtitleOp, parents: tuple[ContentKey, ...] = (), /, *, lane: LanePolicy) -> "Subtitle":
-        # lane selection rides the public factory — execution policy configurable without direct construction, identity untouched.
         return Subtitle(op=op, parents=parents, lane=lane)
 
     @staticmethod
@@ -219,9 +202,6 @@ class Subtitle(Struct, frozen=True):
         return ContentIdentity.key(f"media.subtitle-{self.op.tag}", _canon(self.op))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
-        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
-        # to one string and left a consumer nothing to gate on.
         railed = await async_boundary(SUBTITLE_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(SUBTITLE_FOLD.subject, fault)))
@@ -231,7 +211,6 @@ class Subtitle(Struct, frozen=True):
         return (await self._dispatch()).map(self._keyed)
 
     def _keyed(self, product: SubtitleProduct, /) -> ArtifactReceipt:
-        # receipt.slot threads the PRE-RUN node key (the core/receipt elision law); the product address rides the band.
         blob, ev = product
         address = ContentIdentity.key(ev.container, blob)
         return ArtifactReceipt.Media(self._key, ev.container, ev.codec, ev.duration, ev.byte_count, ev.count, 0, ev.facts | {"address": address.hex})
@@ -262,8 +241,6 @@ class Subtitle(Struct, frozen=True):
 
 
 def _canon(op: SubtitleOp, /) -> tuple[bytes, ...]:
-    # burn_in carries rgb24 frame arrays and tuple-keyed faces the deterministic msgpack encoder refuses, so its
-    # preimage length-frames each field raw; every other case is msgpack-encodable whole.
     match op:
         case SubtitleOp(tag="burn_in", burn_in=(text, dialect, frames, profile, burn)):
             style = CANON.encode((tuple(sorted(burn.faces.items())), burn.fallback))
@@ -273,7 +250,6 @@ def _canon(op: SubtitleOp, /) -> tuple[bytes, ...]:
 
 
 def _subtitle_fault(op: str, exc: "pysubs2.exceptions.Pysubs2Error | KeyError | TypeError | ValueError | UnicodeError", /) -> MediaFault:
-    # unknown/ambiguous dialect -> unregistered; malformed source or bad framerate -> invalid.
     match exc:
         case (
             pysubs2.exceptions.FormatAutodetectionError()
@@ -350,7 +326,7 @@ def _retime(text: str, dialect: SubtitleDialect, shift: RetimeShift, /) -> Resul
 def _restyle(text: str, dialect: SubtitleDialect, ops: tuple[RestyleStep, ...], /) -> Result[SubtitleProduct, MediaFault]:
     try:
         subs = pysubs2.SSAFile.from_string(text, format_=dialect.value)
-        for step in ops:  # ordered fold over one parsed track; each step mutates the document in place
+        for step in ops:
             match step:
                 case RestyleStep(tag="rename", rename=(old, new)):
                     subs.rename_style(old, new)
@@ -378,7 +354,6 @@ def _active(subs: "pysubs2.SSAFile", index: int, rate: int, /) -> Iterator[tuple
 
 
 def _anchored(style: "pysubs2.SSAStyle", plane: tuple[int, int], frame: tuple[int, int], /) -> tuple[int, int]:
-    # ASS numpad alignment: column (a-1) % 3 (left/center/right), row (a-1) // 3 (bottom/middle/top), margins honored.
     a = int(style.alignment) - 1
     ph, pw = plane
     fh, fw = frame
@@ -388,9 +363,6 @@ def _anchored(style: "pysubs2.SSAStyle", plane: tuple[int, int], frame: tuple[in
 
 
 def _specced(fragment: str, style: "pysubs2.SSAStyle", burn: BurnStyle, /) -> "TextSpec":
-    # SSAStyle -> the filtergraph text plane spec; ASS alpha is transparency, so RGBA alpha inverts it. An
-    # admitted visual axis the plane grammar cannot express — opaque-box borders (`borderstyle == 3`) or a
-    # nonzero `shadow` — REFUSES typed here, never a silently different burn appearance.
     if int(style.borderstyle) == 3 or float(style.shadow) > 0.0:
         raise ValueError(f"<burn-style:unsupported:borderstyle={style.borderstyle},shadow={style.shadow}>")
     fill = (style.primarycolor.r, style.primarycolor.g, style.primarycolor.b, 255 - style.primarycolor.a)
@@ -400,16 +372,12 @@ def _specced(fragment: str, style: "pysubs2.SSAStyle", burn: BurnStyle, /) -> "T
 
 @lru_cache(maxsize=256)
 def _plane(spec: "TextSpec", /) -> "NDArray[np.uint8]":
-    # per-run raster memo: a static caption rasterizes ONCE across its frame span; the cached plane is read-only.
     tight = _render_text(spec, spec.size * max(len(spec.text), 1), spec.size * 2)
     live = np.argwhere(tight[..., 3] > 0)
     return tight if live.size == 0 else tight[: live[:, 0].max() + 1, : live[:, 1].max() + 1]
 
 
 def _line(runs: tuple[Styled, ...], burn: BurnStyle, /) -> tuple["NDArray[np.uint8]", "pysubs2.SSAStyle"]:
-    # positioning is a LINE property: runs vary fill/font/outline freely, but alignment and margins anchor the whole
-    # concatenated bitmap, so a run disagreeing on them would silently place from runs[0] — refused typed instead,
-    # the same admission law _specced applies to the visual axes the plane grammar cannot express.
     anchors = {(int(style.alignment), int(style.marginl), int(style.marginr), int(style.marginv)) for _, style in runs}
     if len(anchors) > 1:
         raise ValueError(f"<burn-style:mixed-anchor:{sorted(anchors)}>")
@@ -475,8 +443,6 @@ def _ass_packets(subs: "pysubs2.SSAFile", track: object, /) -> Iterator["av.Pack
 
 
 def _copied(reader: object, cloned: frozendict[int, object], /) -> Iterator["av.Packet"]:
-    # a packet survives with EITHER timestamp — a pts-only packet still muxes — and only the fully
-    # timestamp-less flush packet drops; the stream remaps before the yield.
     for packet in reader.demux(*(reader.streams[index] for index in cloned)):
         if packet.dts is not None or packet.pts is not None:
             packet.stream = cloned[packet.stream.index]
@@ -484,15 +450,12 @@ def _copied(reader: object, cloned: frozendict[int, object], /) -> Iterator["av.
 
 
 def _packet_time(packet: "av.Packet", /) -> Fraction:
-    # `dts` wins whenever present — zero included, which a truthiness fold misreads — then `pts`, then zero.
     stamp = packet.dts if packet.dts is not None else packet.pts if packet.pts is not None else 0
     return stamp * packet.time_base
 
 
 @_worker
 def _mux_subtitle(text: str, container: bytes, dialect: SubtitleDialect, /) -> Result[SubtitleProduct, MediaFault]:
-    # timed-packet passthrough: clone the source A/V streams, open an `ass` subtitle stream whose extradata is the
-    # SubStation header, and mux one packet per event — the track is viewer-selectable, never an opaque attachment.
     try:
         subs = pysubs2.SSAFile.from_string(text, format_=dialect.value)
         sink = io.BytesIO()

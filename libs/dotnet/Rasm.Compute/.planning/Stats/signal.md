@@ -32,11 +32,8 @@ The per-bin complex Hermitian dominant pair stays page-local under a convergence
 - Boundary: spectral features feed `Stats/estimator#ESTIMATOR_LANE`; `Coherence` conditions channel pairs and `Modal` extracts the measured modes — the FDD first-singular-value spectrum is an operational estimate whose peaks are honest only where excitation is broadband, so `ModalEstimate` carries the full singular spectrum beside its picked modes and a consumer re-judges a peak against its own floor; `MeasuredMode` crosses to `Solver/clash#CLASH_AND_TWIN` as the FE-updating measured end.
 
 ```csharp signature
-// --- [TYPES] ----------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-// Which symmetry point a family's ZERO-STRIPPED core reflects about: a whole-point core repeats its edge sample
-// under reflection, a half-point core mirrors between samples and needs an even signal length, and a family
-// with no exact symmetry admits neither.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -50,7 +47,6 @@ public sealed partial class ExtensionClass {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WaveletFamily {
-    // Daubechies/symlet/coiflet analysis scaling (low-pass) coefficients; the high-pass and synthesis pair derive by the QMF relation, one frozen table per family owning the bank.
     public static readonly WaveletFamily Haar  = new("haar",  [0.70710678118654752, 0.70710678118654752]);
     public static readonly WaveletFamily Db2   = new("db2",   [0.48296291314469025, 0.83651630373746899, 0.22414386804185735, -0.12940952255092145]);
     public static readonly WaveletFamily Db4   = new("db4",   [0.23037781330885523, 0.71484657055254153, 0.63088076792959036, -0.02798376941698385, -0.18703481171888114, 0.03084138183598697, 0.03288301166698295, -0.01059740178499728]);
@@ -61,27 +57,19 @@ public sealed partial class WaveletFamily {
 
     public ReadOnlyMemory<double> LowPass => scaling;
 
-    // QMF mirror: the analysis high-pass alternates sign over the reversed scaling coefficients.
     public double[] HighPass() {
         double[] g = new double[scaling.Length];
         for (int k = 0; k < g.Length; k++) { g[k] = ((k & 1) == 0 ? 1.0 : -1.0) * scaling[scaling.Length - 1 - k]; }
         return g;
     }
 
-    // DERIVED from the coefficients, never asserted on the row: a family cannot claim a symmetry its own table
-    // does not have. The compare is EXACT — coif2's core is symmetric to 3.1e-2 and reconstructs through a
-    // symmetric extension with an error of 1.7e0, so any tolerance here admits a bank that does not reconstruct.
     public bool LinearPhase => Mirrored(Core(scaling)) && Mirrored(Core(HighPass()));
 
-    // Parity reads the ZERO-STRIPPED core, never the declared length: the CDF 9/7 bank ships `dec_len` 10 with
-    // cores of 9 and 7, so a `Length & 1` test on the padded table classifies a whole-point bank as half-point
-    // and reflects it about the wrong sample.
     public ExtensionClass Extension =>
         !LinearPhase ? ExtensionClass.None
         : (Core(scaling).Length & 1) == 1 ? ExtensionClass.WholePoint
         : ExtensionClass.HalfPoint;
 
-    // Leading and trailing exact zeros are padding, not taps; the core is what carries the symmetry.
     private static ReadOnlySpan<double> Core(ReadOnlySpan<double> taps) {
         int lo = 0, hi = taps.Length - 1;
         while (lo <= hi && taps[lo] == 0.0) { lo++; }
@@ -89,7 +77,6 @@ public sealed partial class WaveletFamily {
         return lo > hi ? [] : taps[lo..(hi + 1)];
     }
 
-    // Symmetric OR antisymmetric — the high-pass of a linear-phase bank is the antisymmetric half of the pair.
     private static bool Mirrored(ReadOnlySpan<double> core) {
         bool symmetric = true, antisymmetric = true;
         for (int k = 0; k < core.Length; k++) {
@@ -100,16 +87,10 @@ public sealed partial class WaveletFamily {
     }
 }
 
-// One boundary law per row: how the cascade extends its input, and which families that extension reconstructs.
-// Admission is DERIVED from the family's own coefficients, so a new `WaveletFamily` row inherits its admissible
-// extension set with no roster edit here and no row can claim a mode its filters do not satisfy.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class WaveletExtension {
-    // Zero-padding corrupts exactly L−2 samples at each boundary — the taps that reach past the edge — so only
-    // the length-2 bank (Haar, which reaches nothing) reconstructs exactly. The interior is exact for every
-    // family, and that bound is the whole reason a longer bank refuses rather than silently degrading its edges.
     public static readonly WaveletExtension Zero = new("zero",
         extend: static (x, left, right) => {
             double[] z = new double[left + x.Length + right];
@@ -117,8 +98,6 @@ public sealed partial class WaveletExtension {
             return z;
         },
         admits: static family => family.LowPass.Length == 2);
-    // Circular extension reconstructs for EVERY bank and stays isometric for an orthogonal one, which is why it
-    // is the roster-wide default: the analysis operator is a unitary circulant and its adjoint is its inverse.
     public static readonly WaveletExtension Periodic = new("periodic",
         extend: static (x, left, right) => {
             double[] z = new double[left + x.Length + right];
@@ -126,9 +105,6 @@ public sealed partial class WaveletExtension {
             return z;
         },
         admits: static _ => true);
-    // Whole-point (WS) reflection for an odd core, half-point (HS) for an even one. Perfect reconstruction under
-    // reflection needs a LINEAR-PHASE bank, and the only linear-phase orthogonal bank is Haar — a biorthogonal
-    // family admits it, an orthogonal Daubechies/symlet/coiflet does not.
     public static readonly WaveletExtension Symmetric = new("symmetric",
         extend: static (x, left, right) => {
             double[] z = new double[left + x.Length + right];
@@ -152,10 +128,6 @@ public sealed partial class WaveletExtension {
             : Fin.Succ(unit);
 }
 
-// The admission axis is a ROW, not a boolean: `bool Windowed` could only separate the framed case from the other
-// two, so the per-bin and wavelet gates each re-tested the policy case they wanted and the STFT's overlap demand
-// hid inside the framed gate as a transform-identity comparison. Each row now owns the gate its evidence shape
-// owes, and `overlapped` composes `framed`'s gate plus the one condition an invertible frame grid adds.
 [SmartEnum<int>]
 public sealed partial class SignalShape {
     public static readonly SignalShape PerBin = new(key: 0, gate: static (row, policy, _) =>
@@ -172,9 +144,6 @@ public sealed partial class SignalShape {
             ? Fin.Succ(context)
             : Fin.Fail<SignalContext>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Count(context.Grid.Frame, context.Grid.Hop))))));
 
-    // Periodization halves the length at every level, so a sample count not divisible by 2^levels leaves a level
-    // with an odd-length parent whose circular extension is no longer its own inverse. The gate REFUSES there —
-    // duplicating a sample to reach the next power fabricates evidence the synthesis would then trim as real.
     public static readonly SignalShape Wavelet = new(key: 3, gate: static (row, policy, samples) =>
         policy is not SignalPolicy.Wavelet wavelet
             ? Fin.Fail<SignalContext>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(row.Key))))
@@ -186,8 +155,6 @@ public sealed partial class SignalShape {
 
     [UseDelegateFromConstructor] internal partial Fin<SignalContext> Gate(SpectralTransform row, SignalPolicy policy, int samples);
 
-    // The framed gate is shared BY COMPOSITION, so `overlapped` adds its own condition without transcribing the
-    // sample-rate, frame, hop, and capacity proofs beneath it.
     private static Fin<SignalContext> Frames(SpectralTransform row, SignalPolicy policy, int samples) =>
         policy is not SignalPolicy.Framed framed
             ? Fin.Fail<SignalContext>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Key(row.Key))))
@@ -204,8 +171,6 @@ public sealed partial class SignalShape {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SpectralTransform {
-    // Kernel IS the forward transform and Invert IS its inverse — rows whose forward destroys evidence bind a
-    // typed-fault inverse naming the destruction, so `Transform.Invert` stays total over every row.
     public static readonly SpectralTransform Fft         = new("fft",         SignalShape.PerBin,     Transform.PerBin,           Transform.InvertBins);
     public static readonly SpectralTransform Rfft        = new("rfft",        SignalShape.PerBin,     Transform.RealForward,      Transform.InvertPacked);
     public static readonly SpectralTransform Stft        = new("stft",        SignalShape.Overlapped, Transform.ShortTime,        Transform.InvertFrames);
@@ -215,20 +180,12 @@ public sealed partial class SpectralTransform {
 
     public SignalShape Shape { get; }
 
-    // The forward column takes the ADMITTED plane, never the raw wire memory: `Apply` screens length and
-    // finiteness and widens ONCE, so no kernel re-runs a vectorized finiteness pass or a second float-to-double
-    // conversion over evidence the entry already proved. Neither directional column names transport — the `dwt`
-    // bank convolves through `KernelLowering` under the `ShardDispatch.Local` a local bank spells at its own call,
-    // and the Fourier rows lower nothing, so a carrier no row reads never enters the signature.
     [UseDelegateFromConstructor] internal partial IO<Fin<SpectralOutput>> Run(double[] plane, SignalContext context, Instant at);
     [UseDelegateFromConstructor] public partial IO<Fin<ReadOnlyMemory<float>>> Invert(SpectralOutput output);
 
     internal Fin<SignalContext> Admit(SignalPolicy policy, int samples) => Shape.Gate(this, policy, samples);
 }
 
-// Dependence rows own BOTH arities of one measure: `Pairwise` scores two channels, `AllPairs` scores every pair in one
-// library call. Rank correlation is the monotone measure the linear one cannot express, so a sensor relation that
-// saturates or squares reads honestly on `spearman` where `pearson` reports a weak linear slope.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -240,8 +197,6 @@ public sealed partial class DependenceKind {
     [UseDelegateFromConstructor] internal partial Matrix<double> AllPairs(Seq<double[]> channels);
 }
 
-// Kernel rows differ only in taper, so one estimate call carries the row; bandwidth is a shared axis riding the
-// query rather than a per-row constant no caller can move.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -254,7 +209,7 @@ public sealed partial class DensityKernel {
     [UseDelegateFromConstructor] internal partial double Estimate(double at, double bandwidth, IList<double> samples);
 }
 
-// --- [MODELS] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SignalPolicy {
@@ -270,10 +225,6 @@ public abstract partial record SignalPolicy {
     public static readonly SignalPolicy CanonicalDwt   = new Wavelet(Levels: 4, WaveletFamily.Db4, WaveletExtension.Periodic);
 }
 
-// Frame geometry derived ONCE per admission and carried whole: the frame, hop, bin count, left inset, and frame
-// count were four independent derivations across the STFT, spectrogram, Welch, coherence, and modal legs, each
-// re-spelling `frame / 2 + 1` and its own count formula. `Centered` is the STFT grid whose first and last frames
-// hang off the signal by half a frame; `Interior` is the segment grid every averaged estimate walks.
 public readonly record struct FrameGrid(int Frame, int Hop, int Left, int Frames) {
     public int Bins => Frame / 2 + 1;
 
@@ -283,13 +234,10 @@ public readonly record struct FrameGrid(int Frame, int Hop, int Left, int Frames
     public static FrameGrid Interior(int frame, int hop, int samples) =>
         new(frame, hop, Left: 0, Frames: 1 + (samples - frame) / hop);
 
-    // The capacity proof runs on the CENTERED count because it is the larger of the two for one (frame, hop).
     internal static long Cells(int samples, int frame, int hop) =>
         (1L + (samples + frame / 2L - 1L) / hop) * (frame / 2L + 1L);
 }
 
-// Admitted evidence: the transform that admitted it, the taper, the frame geometry where the shape has one, the
-// cascade depth where it does not, and the recorded scaling every reciprocal leg reads back.
 internal sealed record SignalContext(
     SpectralTransform Transform, WindowTaper Window, FrameGrid Grid, int Levels,
     double SampleRate, FourierOptions Scaling, WaveletFamily Wavelet, WaveletExtension Extension) {
@@ -305,13 +253,9 @@ internal sealed record SignalContext(
 
     internal Fin<Arr<double>> Taper() => Window.Of(Dimension.Create(value: Grid.Frame), TaperFraming.FftFrame);
 
-    // The averaged estimates walk the INTERIOR grid over the same frame and hop the centered admission proved.
     internal FrameGrid Segments(int samples) => FrameGrid.Interior(Grid.Frame, Grid.Hop, samples);
 }
 
-// `Samples` and `Scaling` preserve packed-rfft length and reciprocal-transform normalization; `SampleRate` is
-// DERIVED from the bin spacing and the sample count, so the axis has one authority rather than a stored mirror.
-// `Phase` is an `Option`: the averaged periodogram destroys it, and an empty span is an absence wearing a length.
 public sealed record Spectrum(
     SpectralTransform Transform, ReadOnlyMemory<double> Magnitude, Option<ReadOnlyMemory<double>> Phase,
     int Length, int Samples, double BinHz, FourierOptions Scaling, Instant At) {
@@ -322,10 +266,6 @@ public sealed record Spectrum(
 public abstract partial record Spectrogram {
     private Spectrogram() { }
 
-    // `CoverFrom`/`CoverTo` is the half-open sample range the frame grid's accumulated window mass actually
-    // covers, measured by the FORWARD pass off the frame geometry alone — no transform cost. Synthesis
-    // normalizes and trims to it, so an edge whose window mass never reached the floor is excluded by recorded
-    // evidence rather than failing the whole inversion; the wavelet `Extents` trim rides the identical law.
     public sealed record Phasor(SpectralTransform Transform, FrameGrid Grid, int Samples, int CoverFrom, int CoverTo, double BinHz, WindowTaper Window, FourierOptions Scaling, ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase, Instant At) : Spectrogram;
     public sealed record Power(SpectralTransform Transform, FrameGrid Grid, double BinHz, ReadOnlyMemory<double> Values, Instant At) : Spectrogram;
 
@@ -334,30 +274,17 @@ public abstract partial record Spectrogram {
         power: static value => value.Transform);
 }
 
-// Extents records the approximation length consumed at each cascade level (head = original signal), because the
-// stride-2 floors are not recoverable from coefficient lengths alone and the synthesis bank trims against them.
-// `Extension` rides beside them for the same reason: the synthesis shift and the buffer the reconstruction
-// extends are the analysis extension's mirror, and a synthesis guessing the mode reconstructs a different signal.
 [Equatable]
 public sealed partial record WaveletDecomposition(
     WaveletFamily Family, WaveletExtension Extension, int Levels, ReadOnlyMemory<double> Approximation,
     Seq<ReadOnlyMemory<double>> Details, [property: OrderedEquality] ImmutableArray<int> Extents, Instant At);
 
-// The per-bin Hermitian cross-power matrix G(f) — ONE accumulation the two measured-mode reads fold. Coherence IS
-// this matrix at N=2 and modal decomposition is its dominant pair at N channels, so the two near-identical
-// segment loops with eight mutable accumulators between them are one fold with two projections. Storage is the
-// flat `[bin][row][column]` linearization the power iteration addresses directly. It is PUBLIC because it is the
-// correspondence both mints and both reads share: a caller holding one matrix reads coherence at a pair AND the
-// modal decomposition over the whole set without folding the segments twice.
 public sealed record CrossPower(int Channels, int Bins, int Segments, double BinHz, double[] Real, double[] Imaginary) {
     internal int Cell(int bin, int row, int column) => (bin * Channels + row) * Channels + column;
     internal double Auto(int bin, int channel) => Real[Cell(bin, channel, channel)];
 }
 
-// Two-channel Welch cross-spectral estimate: auto-spectra, the complex cross-spectrum as magnitude/phase, and the
-// magnitude-squared coherence γ² = |Sxy|²/(Sxx·Syy) — the measured-mode identification ingress.
 public sealed record CrossSpectrum(int Bins, double BinHz, ReadOnlyMemory<double> AutoX, ReadOnlyMemory<double> AutoY, ReadOnlyMemory<double> CrossMagnitude, ReadOnlyMemory<double> CrossPhase, ReadOnlyMemory<double> Coherence, Instant At) {
-    // H1 FRF estimate |Sxy|/Sxx with the cross phase — the transfer function modal extraction reads; derived per read, never stored beside its sources.
     public (ReadOnlyMemory<double> Magnitude, ReadOnlyMemory<double> Phase) Transfer() {
         double[] magnitude = new double[Bins];
         for (int k = 0; k < Bins; k++) { magnitude[k] = CrossMagnitude.Span[k] / Math.Max(1e-300, AutoX.Span[k]); }
@@ -365,14 +292,10 @@ public sealed record CrossSpectrum(int Bins, double BinHz, ReadOnlyMemory<double
     }
 }
 
-// One operational-deflection mode measured from ambient records: peak frequency, half-power damping where the peak
-// bandwidth resolves, and the dominant singular vector as per-channel magnitude/phase — the FE-updating ingress.
 public sealed record MeasuredMode(double FrequencyHz, Option<double> DampingRatio, ReadOnlyMemory<double> ShapeMagnitude, ReadOnlyMemory<double> ShapePhase, double Singular);
 
 public sealed record ModalEstimate(int Channels, int Bins, double BinHz, ReadOnlyMemory<double> SingularSpectrum, Seq<MeasuredMode> Modes, Instant At);
 
-// One request closes the amplitude-domain descriptions the frequency-domain surfaces cannot answer: how channels
-// co-vary, and what distribution one channel actually has where moments alone hide multimodality.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChannelQuery {
     private ChannelQuery() { }
@@ -383,8 +306,6 @@ public abstract partial record ChannelQuery {
     internal int Floor => Switch(dependence: static _ => 2, distribution: static _ => 1);
 }
 
-// Support, density, and CDF share one grid so a consumer plots or integrates them without re-deriving abscissae;
-// entropy and the interquartile range are the two scalar shape reads a moment pair cannot give.
 public sealed record ChannelDistribution(
     ReadOnlyMemory<double> Support,
     ReadOnlyMemory<double> Density,
@@ -410,34 +331,24 @@ public abstract partial record SpectralOutput {
     public sealed record Bands(WaveletDecomposition Decomposition) : SpectralOutput;
 }
 
-// The analysis and synthesis shifts DERIVE as one pair from the tap count, so the perfect-reconstruction law
-// `analysis + synthesis = L − 1` holds by construction. The deleted form carried the analysis offset as a bare
-// `1` and re-derived the synthesis shift at its own leg — exactly how an off-by-one survives a Haar round trip
-// and breaks on every longer bank.
 internal readonly record struct QmfShift(int Analysis, int Synthesis) {
     internal static QmfShift Of(int taps) => new(taps / 2 - 1, taps - 1 - (taps / 2 - 1));
 }
 
-// --- [OPERATIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Transform {
-    // One prologue admits and widens the samples, then composes the row's own `SignalShape` gate — so the kernel
-    // below receives proved, already-widened evidence and screens nothing.
     public static IO<Fin<SpectralOutput>> Apply(SpectralTransform transform, ReadOnlyMemory<float> signal, SignalPolicy policy, IClock clock) =>
         Admitted(Seq1(signal), floor: 1).Bind(planes => transform.Admit(policy, signal.Length).Map(context => (Plane: planes[0], Context: context))).Match(
             Succ: admitted => transform.Run(admitted.Plane, admitted.Context, clock.GetCurrentInstant()),
             Fail: static error => IO.pure(Fin.Fail<SpectralOutput>(error)));
 
-    // Inversion projects the owning row from forward evidence and dispatches its paired inverse or typed destruction fault.
     public static IO<Fin<ReadOnlyMemory<float>>> Invert(SpectralOutput output) =>
         output.Switch(
             bins: static b => b.Spectrum.Transform,
             frames: static f => f.Spectrogram.Transform,
             bands: static _ => SpectralTransform.Dwt).Invert(output);
 
-    // One amplitude-domain description entry over the SAME synchronous-channel admission the frequency-domain
-    // surfaces use; the query's own case selects the fold, so a dependence measure and a distribution estimate never
-    // grow sibling entrypoints.
     public static Fin<ChannelEvidence> Describe(Seq<ReadOnlyMemory<float>> channels, ChannelQuery query, IClock clock) =>
         Admitted(channels, query.Floor).Bind(rows => query.Switch(
             state: (Rows: rows, At: clock.GetCurrentInstant()),
@@ -447,9 +358,6 @@ public static class Transform {
                 : Fin.Succ<ChannelEvidence>(new ChannelEvidence.Distribution(
                     q.Kernel, s.Rows.Map(row => Distribution(row, q)), s.At))));
 
-    // ONE synchronous-channel admission for every multi-channel entry AND for the single-signal prologue: equal
-    // length, finite, at least the caller's own arity floor. The `Apply` prologue was a second transcription of
-    // the same two screens over one plane.
     private static Fin<Seq<double[]>> Admitted(Seq<ReadOnlyMemory<float>> channels, int floor) =>
         channels.Count < floor
             ? Fin.Fail<Seq<double[]>>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Count(channels.Count, floor))))
@@ -467,9 +375,6 @@ public static class Transform {
                 return widened;
             }));
 
-    // Bandwidth derives from the channel's own spread through Silverman's rule when the query names none, so the
-    // estimate reads a measured scale rather than a caller-asserted constant; the sorted copy serves the CDF and the
-    // quartile reads at once, since both members contract on ascending data.
     private static ChannelDistribution Distribution(double[] samples, ChannelQuery.Distribution query) {
         double[] sorted = [.. samples.Order()];
         double bandwidth = query.Bandwidth.IfNone(() =>
@@ -484,12 +389,8 @@ public static class Transform {
             SortedArrayStatistics.InterquartileRange(sorted));
     }
 
-    // --- [CROSS_POWER] -- one Welch cross-spectral fold; coherence and modal are two reads of it.
+    // --- [CROSS_POWER]
 
-    // Two-channel coherence is the N=2 read of the SAME matrix the modal decomposition folds: the auto-spectra sit
-    // on its diagonal, the complex cross term at the named pair, and γ² = |Sxy|²/(Sxx·Syy) divides them. The
-    // deleted second segment loop accumulated four flat arrays where this reads four cells — and it took a channel
-    // PAIR where the fold it duplicated already held every pair, which is why the read now names its two indices.
     public static Fin<CrossSpectrum> Coherence(CrossPower power, int left, int right, Instant at) {
         if (left == right || (uint)left >= (uint)power.Channels || (uint)right >= (uint)power.Channels) {
             return Fin.Fail<CrossSpectrum>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.None())));
@@ -510,10 +411,6 @@ public static class Transform {
     public static Fin<CrossSpectrum> Coherence(ReadOnlyMemory<float> x, ReadOnlyMemory<float> y, SignalPolicy policy, IClock clock) =>
         Power(Seq(x, y), policy, clock).Bind(power => Coherence(power, left: 0, right: 1, clock.GetCurrentInstant()));
 
-    // Frequency-domain decomposition over N synchronous ambient channels: a PSD matrix's SVD is its EVD, so the
-    // dominant singular pair per bin resolves by Hermitian power iteration; peaks of the first singular-value
-    // spectrum are the measured natural frequencies and the paired eigenvector the operational mode shape — the
-    // OMA route from records to as-built modes.
     public static Fin<ModalEstimate> Modal(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock) =>
         Power(channels, policy, clock).Bind(power => Modal(power, clock.GetCurrentInstant()));
 
@@ -522,10 +419,6 @@ public static class Transform {
         double[] s1 = new double[power.Bins];
         (double[] vre, double[] vim) = (new double[power.Bins * n], new double[power.Bins * n]);
         for (int k = 0; k < power.Bins; k++) { s1[k] = Dominant(power, k, vre.AsSpan(k * n, n), vim.AsSpan(k * n, n)) / power.Segments; }
-        // The peak floor is a ROBUST scale over the singular spectrum, so it reads the kernel exact median rather
-        // than a fourth hand order statistic beside the three the corpus already carries. NAMED LOSS: the deleted
-        // local median took the UPPER order statistic at even length where `QuantileRule.Interpolated` averages
-        // the middle pair, which moves a robustness floor by at most half the gap between two adjacent bins.
         return Distribution<Scalar>.Of(toSeq(s1.Select(static v => (Scalar)v)), Seq<double>(), Op.Of(name: nameof(Modal)))
             .Map(spectrum => {
                 double floor = ModalPeakFloor * spectrum.Median.To();
@@ -541,15 +434,8 @@ public static class Transform {
             });
     }
 
-    // --- [CORPUS] -- the interchange seam's consuming half.
+    // --- [CORPUS]
 
-    // The `Runtime/field#FIELD_RESULT_CODEC` `WaveformCorpus` arrives ALREADY framed — `[FrameCount, Frame,
-    // Channels]` row-major, the exact grid this fold walks — so a screening-scale SHM record accumulates its
-    // cross-power matrix WITHOUT ever materializing a contiguous per-channel plane, which is the whole reason the
-    // carrier declares frame and hop at its own read. This is the consuming half of a seam whose producer already
-    // stands: the corpus enters through `ImportWaveforms`, this lane folds it, and the lane stores nothing.
-    // NAMED LOSS versus the plane route: the corpus carries no `SignalPolicy`, so the taper arrives as a value
-    // here rather than off an admitted policy — the FFT-framing refusal is the kernel roster's own and unchanged.
     public static Fin<CrossPower> Power(WaveformCorpus corpus, WindowTaper window, Instant at) =>
         corpus.Channels < 2
             ? Fin.Fail<CrossPower>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Capacity(CapacityRequirement.Sufficient, new CapacityEvidence.Count(corpus.Channels, 2L))))
@@ -576,8 +462,6 @@ public static class Transform {
                 return power;
             });
 
-    // The shared ingress: synchronous admission, the `welch-psd` row's own framed gate, a two-segment floor
-    // (single-segment coherence is identically 1 — evidence-free), then ONE Hermitian accumulation.
     public static Fin<CrossPower> Power(Seq<ReadOnlyMemory<float>> channels, SignalPolicy policy, IClock clock) =>
         Admitted(channels, floor: 2).Bind(planes => SpectralTransform.WelchPsd.Admit(policy, channels[0].Length).Bind(context => {
             FrameGrid grid = context.Segments(channels[0].Length);
@@ -594,9 +478,6 @@ public static class Transform {
                 });
         }));
 
-    // Gij(k) += Xi(k)·conj(Xj(k)) — Hermitian by construction, and ONE accumulation cell both mints share: the
-    // plane route reaches it through the framed fold's reducer and the corpus route through its own frame walk,
-    // so the two ingresses differ in how a frame is RAISED and never in what a frame CONTRIBUTES.
     private static void Hermitian(CrossPower power, double[][] real, double[][] imaginary) {
         for (int k = 0; k < power.Bins; k++) {
             for (int i = 0; i < power.Channels; i++) {
@@ -609,11 +490,6 @@ public static class Transform {
         }
     }
 
-    // Hermitian power iteration WITH a convergence witness: iterate until the Rayleigh estimate settles
-    // (|λ − λ_prev| ≤ 1e-10·λ) under a hard cap, and a bin that never converges returns 0 so an unwitnessed pair
-    // can never become a picked peak — a fixed-count sweep treating clustered modes as settled evidence is the
-    // deleted form. Stays page-local because the Tensor/blas dense owner is real-typed and this pair is complex
-    // Hermitian.
     private const int PowerIterationCap = 512;
     private const double ModalPeakFloor = 8.0;
 
@@ -642,7 +518,6 @@ public static class Transform {
         return 0.0;
     }
 
-    // Half-power (−3 dB) bandwidth damping ζ ≈ Δf/(2·f_peak); None when the band never resolves inside the spectrum.
     private static Option<double> HalfPower(double[] s1, int peak, double binHz) {
         double half = s1[peak] / 2.0;
         int lo = peak, hi = peak;
@@ -653,14 +528,8 @@ public static class Transform {
             : None;
     }
 
-    // --- [FRAMED] -- one windowing-and-transform fold; the REDUCER is the value each leg supplies.
+    // --- [FRAMED]
 
-    // The frame grid, the taper application, the zero-fill past an edge, and the per-frame split-plane transform
-    // are ONE law four hand loops each re-spelled — the STFT rows, the Welch periodogram, and the cross-power
-    // matrix now differ ONLY in their reducer. The scratch pair allocates once per call and is reused across
-    // frames; it stays `double[]` because `Fourier.Forward` binds array arities, not spans, and it is passed to
-    // the reducer AFTER the transform so no leg re-reads a plane the fold already owns. Out-of-range samples read
-    // zero, which is the STFT's centered-edge law and unreachable on an interior grid — one load, two geometries.
     private static TState Framed<TState>(
         Seq<double[]> planes, FrameGrid grid, Arr<double> taper, FourierOptions scaling,
         TState seed, Func<TState, int, double[][], double[][], TState> reduce) {
@@ -684,24 +553,23 @@ public static class Transform {
         return state;
     }
 
-    // --- [SPECTRAL] -- forward kernels each SpectralTransform row binds.
+    // --- [SPECTRAL]
 
     internal static IO<Fin<SpectralOutput>> PerBin(double[] plane, SignalContext policy, Instant at) {
-        int n = plane.Length;                                                              // full complex transform yields n bins; the Hermitian half-spectrum is the rfft RealForward owner.
+        int n = plane.Length;
         double[] real = [.. plane];
         double[] imaginary = new double[n];
         double[] magnitude = new double[n];
         double[] phase = new double[n];
         Fourier.Forward(real, imaginary, policy.Scaling);
-        TensorPrimitives.Hypot(real, imaginary, magnitude);                                 // vectorized overflow-safe magnitude, never a per-element x.Magnitude loop.
+        TensorPrimitives.Hypot(real, imaginary, magnitude);
         TensorPrimitives.Atan2(imaginary, real, phase);
         return IO.pure(Fin.Succ<SpectralOutput>(new SpectralOutput.Bins(new Spectrum(
             policy.Transform, magnitude, Some<ReadOnlyMemory<double>>(phase), n, n, BinHz(n, policy.SampleRate), policy.Scaling, at))));
     }
 
-    // rfft over the packed N+2 half-spectrum: ForwardReal packs bins 0..N/2 as interleaved (re, im) pairs.
     internal static IO<Fin<SpectralOutput>> RealForward(double[] plane, SignalContext policy, Instant at) {
-        int n = plane.Length, bins = n / 2 + 1;                // ForwardReal packs N+2 (even N) / N+1 (odd N); no even-length truncation dropping the last sample.
+        int n = plane.Length, bins = n / 2 + 1;
         double[] data = new double[n + 2];
         plane.CopyTo(data.AsSpan(0, n));
         Fourier.ForwardReal(data, n, policy.Scaling);
@@ -732,10 +600,6 @@ public static class Transform {
                 BinHz(grid.Frame, policy.SampleRate), policy.Window, policy.Scaling, magnitude, phase, at));
         }));
 
-    // The overlap-add normalizer Σ w² over the frame grid is FRAME GEOMETRY, not signal content, so the forward
-    // pass measures its covered span for free and records it. Every sample outside that span carries partial
-    // window mass by construction — a centered grid can never cover its own first and last half-frame — so the
-    // extent is the honest reconstruction range and the coverage floor is a per-sample test, not a whole-signal one.
     private static (int From, int To) Coverage(Arr<double> taper, int samples, FrameGrid grid) {
         double[] weight = new double[samples];
         for (int f = 0; f < grid.Frames; f++) {
@@ -751,8 +615,6 @@ public static class Transform {
         return (from, to);
     }
 
-    // The squared-window mass below which a normalized sample amplifies its own quantization noise rather than
-    // reconstructing — one named policy value the forward measurement and the synthesis trim both read.
     private const double WindowMassFloor = 1e-24;
 
     internal static IO<Fin<SpectralOutput>> PowerSpectrogram(double[] plane, SignalContext policy, Instant at) =>
@@ -768,17 +630,14 @@ public static class Transform {
         return power;
     }
 
-    // Welch PSD: average the windowed periodograms |Xf|²/(fs·U) of the INTERIOR segments (U the window power
-    // normalizer); the averaged density is a Spectrum whose Magnitude is the one-sided PSD and whose Phase is
-    // absent — segment averaging destroys it, which is why the inverse is a typed fault and the column an Option.
     internal static IO<Fin<SpectralOutput>> Welch(double[] plane, SignalContext policy, Instant at) =>
         IO.pure(policy.Taper().Map(taper => {
             FrameGrid grid = policy.Segments(plane.Length);
-            double norm = 1.0 / (policy.SampleRate * TensorPrimitives.SumOfSquares<double>(taper.AsSpan()) * grid.Frames);   // U is the window power normalizer.
+            double norm = 1.0 / (policy.SampleRate * TensorPrimitives.SumOfSquares<double>(taper.AsSpan()) * grid.Frames);
             double[] psd = Framed(Seq1(plane), grid, taper, FourierOptions.NoScaling, new double[grid.Bins], (acc, _, real, imaginary) => {
                 for (int k = 0; k < acc.Length; k++) {
                     double mm = real[0][k] * real[0][k] + imaginary[0][k] * imaginary[0][k];
-                    acc[k] += (k == 0 || ((grid.Frame & 1) == 0 && k == acc.Length - 1) ? 1.0 : 2.0) * mm * norm;   // DC (and even-frame Nyquist) are unique; every other bin folds its conjugate twin.
+                    acc[k] += (k == 0 || ((grid.Frame & 1) == 0 && k == acc.Length - 1) ? 1.0 : 2.0) * mm * norm;
                 }
                 return acc;
             });
@@ -786,21 +645,14 @@ public static class Transform {
                 policy.Transform, psd, None, grid.Bins, grid.Frame, BinHz(grid.Frame, policy.SampleRate), FourierOptions.NoScaling, at));
         }));
 
-    // The cascade state: the running approximation, the details coarsest-first, and the parent extent per level.
     private readonly record struct CascadeState(double[] Approx, Seq<ReadOnlyMemory<double>> Details, Seq<int> Extents);
 
-    // DWT cascade over the stride-2 `Conv` lowering, halving the length per level — the same convolution lowering
-    // the wavelet synthesis rides, never a bespoke filter bank. The whole cascade threads `FinT<IO, _>`, so no
-    // level re-lifts its own `IO<Fin<_>>` through an explicit `Match(Succ:, Fail:)` block.
     internal static IO<Fin<SpectralOutput>> Wavelet(double[] plane, SignalContext policy, Instant at) =>
         Cascade(new CascadeState(plane, Seq<ReadOnlyMemory<double>>(), Seq<int>()), 0, policy)
             .Map(state => (SpectralOutput)new SpectralOutput.Bands(new WaveletDecomposition(
                 policy.Wavelet, policy.Extension, state.Details.Count, state.Approx, state.Details, [.. state.Extents], at)))
             .Run().As();
 
-    // Mallat cascade as an immutable rail-threaded fold (coarsest detail at the head, per-level parent extents
-    // recorded for the synthesis trim); the cascade stops when the approximation can no longer fill the QMF
-    // support, so realized `Levels` is whatever depth the signal admits.
     private static FinT<IO, CascadeState> Cascade(CascadeState state, int level, SignalContext policy) =>
         level >= policy.Levels || state.Approx.Length < policy.Wavelet.LowPass.Length
             ? FinT<IO, CascadeState>.Succ(state)
@@ -810,17 +662,11 @@ public static class Transform {
                   level + 1, policy)
               select next;
 
-    // One stride-2 `Conv` per QMF tap set: the approximation lowers through the factor lane against the reversed
-    // analysis filters (true convolution from cross-correlation), downsampled by 2.
     private static FinT<IO, (double[] Low, double[] High)> Convolve2(double[] x, SignalContext policy) =>
         from low in Downsample(x, policy.Wavelet.LowPass.ToArray(), policy.Extension)
         from high in Downsample(x, policy.Wavelet.HighPass(), policy.Extension)
         select (low, high);
 
-    // The boundary mode is PRE-EXTENSION, never a second convolution kernel: the signal extends by the row's own
-    // law at the analysis shift, the lowering convolves at pad 0, and the first ⌈N/2⌉ outputs are the band.
-    // Pushing the mode into the `ConvWindow` padding argument would need a padding vocabulary the lowering owner
-    // does not have, and one boundary law would then live in two places.
     private static FinT<IO, double[]> Downsample(double[] x, double[] filter, WaveletExtension extension) {
         int taps = filter.Length, band = (x.Length + 1) / 2;
         QmfShift shift = QmfShift.Of(taps);
@@ -835,10 +681,8 @@ public static class Transform {
             .Map(result => result.Map(outcome => outcome.Solution.ToColumnMajorArray()[..band])));
     }
 
-    // --- [INVERSE] -- row-owned inverse kernels; each consumes the forward carrier, never raw samples.
+    // --- [INVERSE]
 
-    // fft inverse: complex bins reconstruct from magnitude·e^{iφ} and ride Fourier.Inverse under the RECORDED
-    // scaling — Default/Asymmetric compose to identity, NoScaling divides the N the round trip carries.
     internal static IO<Fin<ReadOnlyMemory<float>>> InvertBins(SpectralOutput output) =>
         IO.pure(Carrier<SpectralOutput.Bins>(output).Bind(bins => Phased(bins.Spectrum).Map(planes => {
             int n = bins.Spectrum.Samples;
@@ -849,8 +693,6 @@ public static class Transform {
             return (ReadOnlyMemory<float>)samples;
         })));
 
-    // rfft inverse: the packed N+2 half-spectrum rebuilds from magnitude/phase and rides Fourier.InverseReal —
-    // Spectrum.Samples recovers the original length the bin count alone cannot (even/odd packing).
     internal static IO<Fin<ReadOnlyMemory<float>>> InvertPacked(SpectralOutput output) =>
         IO.pure(Carrier<SpectralOutput.Bins>(output).Bind(bins => Phased(bins.Spectrum).Map(planes => {
             int n = bins.Spectrum.Samples;
@@ -862,9 +704,6 @@ public static class Transform {
             return (ReadOnlyMemory<float>)samples;
         })));
 
-    // ONE magnitude/phase → (re, im) rebuild both reciprocal legs read: the pair differs in its transform and its
-    // buffer length, never in this polar-to-rectangular pass, and an absent phase is the typed refusal a Welch
-    // carrier earns rather than a silently zero-phase reconstruction.
     private static Fin<(double[] Real, double[] Imaginary)> Phased(Spectrum spectrum) =>
         spectrum.Phase.ToFin(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Required(ComputeSubject.Input))).Map(phase => {
             int width = Math.Max(spectrum.Samples, spectrum.Length);
@@ -915,23 +754,15 @@ public static class Transform {
                         }
                     }
                 }
-                // Synthesis trims to the extent the FORWARD pass recorded rather than re-deriving one or refusing
-                // over an edge it already measured — only an empty extent is a refusal, and that is a frame grid
-                // covering nothing at all, never a signal whose interior reconstructs exactly.
                 if (frames.CoverTo <= frames.CoverFrom) { return Fin.Fail<ReadOnlyMemory<float>>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Valid, new ContractEvidence.Count(frames.CoverFrom, frames.CoverTo)))); }
                 float[] samples = new float[frames.CoverTo - frames.CoverFrom];
                 for (int i = 0; i < samples.Length; i++) { samples[i] = (float)(sum[frames.CoverFrom + i] / weight[frames.CoverFrom + i]); }
                 return Fin.Succ<ReadOnlyMemory<float>>(samples);
             })));
 
-    // Rows whose forward destroyed the inverse evidence answer a typed fault naming the destruction — magnitude-only
-    // spectrograms and segment-averaged periodograms — never a fabricated reconstruction.
     internal static IO<Fin<ReadOnlyMemory<float>>> NonInvertible(SpectralOutput output) =>
         IO.pure(Fin.Fail<ReadOnlyMemory<float>>(new ComputeFault.Violation(ComputeArea.Stats, new ComputeViolation.Contract(ComputeContract.Supported, new ContractEvidence.None()))));
 
-    // Inverse DWT feeds analysis filters unreversed to cross-correlating `Conv`, yielding the time-reversed
-    // synthesis convolution. Each level zero-stuffs approximation/detail, extends under the RECORDED mode,
-    // convolves at stride one, sums, and trims to its recorded parent extent.
     internal static IO<Fin<ReadOnlyMemory<float>>> Synthesize(SpectralOutput output) =>
         Carrier<SpectralOutput.Bands>(output).Match(
             Succ: bands => toSeq(bands.Decomposition.Details.Zip(toSeq(bands.Decomposition.Extents.Reverse()), static (d, e) => (Detail: d, Extent: e)))
@@ -958,10 +789,6 @@ public static class Transform {
         return merged;
     }
 
-    // Zero-stuff by 2 then one stride-1 `Conv` — the transposed convolution spelled through the one lowering
-    // owner; the filter feeds UNREVERSED because cross-correlation with h equals convolution with its reversal.
-    // Both shifts arrive from `QmfShift`, so the perfect-reconstruction law is structural rather than a constant
-    // one leg carries and the other silently assumes.
     private static FinT<IO, double[]> Resample(double[] x, double[] filter, WaveletExtension extension, int extent) {
         int taps = filter.Length;
         QmfShift shift = QmfShift.Of(taps);
@@ -980,8 +807,6 @@ public static class Transform {
 
     // --- [HELPERS]
 
-    // ONE carrier narrowing for every inverse leg: the row already proved which case it emits, so the four
-    // transcribed `is not … { … }` blocks are one projection naming the case it wanted.
     private static Fin<TCase> Carrier<TCase>(SpectralOutput output) where TCase : SpectralOutput =>
         output is TCase held
             ? Fin.Succ(held)

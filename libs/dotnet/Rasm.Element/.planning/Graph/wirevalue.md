@@ -16,7 +16,7 @@
 - Growth: a new column is one append-only corpus field and one transcription member; a new union case also updates the `CrossingFamily` arm count so the parity census rejects a half-landed pair.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Numerics;
 using System.Diagnostics;
 using Google.Protobuf;
@@ -33,9 +33,7 @@ using static Rasm.Element.Graph.SeamConverters;
 
 namespace Rasm.Element.Graph;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// One partial part of the ONE `[Mapper]` WireCodec family — the attribute, the parity census, the key codecs, and
-// the shared decode gates ride `Graph/wire#NODE_CODEC`; this part owns the typed value, measure, bag, and evidence-envelope transcriptions.
+// --- [SERVICES] ------------------------------------------------------------------------
 internal static partial class WireCodec {
  internal static PropertySetWire ToWire(PropertyBag bag) {
   PropertySetWire wire = new() {
@@ -101,8 +99,6 @@ internal static partial class WireCodec {
   number: static v => new() { Number = v.Value },
   binary: static v => new() { Binary = ByteString.CopyFrom(v.Value.ToArray()) });
 
- // Build the tree raw off the closed ValueCase, then ONE PropertyValue.Of at the envelope — Of recurses the
- // composites itself, so the structural admission runs exactly once over the whole decoded value.
  internal static Fin<PropertyValue> ToValue(PropertyValueWire w, Op key) => RawValue(w, key).Bind(v => PropertyValue.Of(v, key));
 
  static Fin<PropertyValue> RawValue(PropertyValueWire w, Op key) => w.ValueCase switch {
@@ -131,9 +127,6 @@ internal static partial class WireCodec {
  _ => new KernelFault.InvalidValue("element-wire.property-value", "one value arm is required", Some(key)),
  };
 
- // BigInteger accepts an empty run and redundant sign-extension bytes, but the corpus contracts one minimal-width
- // two's-complement spelling. Re-encoding through the same BCL primitive the producer uses makes that spelling the
- // inverse's only admission without copying two's-complement arithmetic into a second implementation.
  static Fin<PropertyValue> ToInteger(ByteString bytes, Op key) {
   BigInteger value = new(bytes.Span, isUnsigned: false, isBigEndian: true);
   byte[] canonical = value.ToByteArray(isUnsigned: false, isBigEndian: true);
@@ -143,8 +136,6 @@ internal static partial class WireCodec {
     "element-wire.property-value.integer", "use minimal-width two's-complement big-endian bytes", Some(key)));
  }
 
- // Calendar leaves use the Google.Type adapters; Period stays the ISO roundtrip spelling because protobuf
- // Duration cannot represent calendar months or years.
  static Fin<TemporalValue> ToTemporal(TemporalWire w, Op key) => w.ValueCase switch {
   TemporalWire.ValueOneofCase.Date => key.Catch(() => Fin.Succ((TemporalValue)new TemporalValue.Date(w.Date.ToLocalDate()))),
   TemporalWire.ValueOneofCase.Moment => ToMoment(w.Moment, key).Map(static v => (TemporalValue)new TemporalValue.Moment(v)),
@@ -172,9 +163,6 @@ internal static partial class WireCodec {
    : Fin.Fail<NodaTime.LocalDateTime>(new KernelFault.InvalidValue(
     "element-wire.temporal.moment", "carry a local moment without an offset or time zone", Some(key)));
 
- // The evidence envelope re-admits through the OWNER's total Of — grade absent (an elder payload) reads Catalogue,
- // the roster's floor and the owner's own defaulted-struct state, never a guessed rank; a present rank re-crosses
- // the generated int-key gate the bag SourceRank column shares.
  static Fin<PropertyEvidence> ToEvidence(PropertyEvidenceWire? w, Op key) =>
   from row in Present(w, "property-set.evidence", key)
   from validUntil in ToDate(row.HasValidUntil, row.ValidUntil, key)
@@ -201,10 +189,6 @@ internal static partial class WireCodec {
    .Bind(pairs => Named(pairs, key))
     .Bind(values => ToGroups(w.Groups, key).Map(groups => new QuantityBag(w.SetName, values, axes.Mode, axes.Rank, groups))));
 
- // The group run re-admits TOTAL: the three columns are free grouping text under no seam gate, so absence is the
- // whole decision each Has* presence pair answers and no rail is owed. A prefix naming no value row is admitted —
- // an authored group whose members a partial crossing omitted is data, not a malformed payload. The dot-path keys
- // are bare ORDINAL strings on both sides, so the parser-deduped run lands whole through toMap.
  static Fin<Map<string, GroupIdentity>> ToGroups(IEnumerable<GroupWire> entries, Op key) =>
   UniqueMap(toSeq(entries).Map(static row => (Key: row.Prefix, Value: new GroupIdentity(
    Opt(row.Identity.HasDiscrimination, row.Identity.Discrimination),

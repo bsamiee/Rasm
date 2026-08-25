@@ -23,7 +23,7 @@ Rhino publishes snapshot NAMES and nothing else, so capture, restore, and delete
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `RhinoDoc.Snapshots`, `SnapshotTable.Names`, `SnapshotTable.Document`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-commands.md` — `RhinoApp.RunScript(uint documentSerialNumber, string script, bool echo)`); `Document/session` (`DocumentSession.Demand`, `SessionNeed`, `UndoCustody`, `IDetachedDocumentResult`); `Document/commit` (`RedrawPolicy`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`, `CapabilityLaw`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Globalization;
 using Generator.Equals;
 using Rasm.Domain;
@@ -33,12 +33,10 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [ValidationError]
 public readonly partial struct SnapshotName : IDisallowDefaultValue {
-    // The admitted name is embedded in a QUOTED script token, so a quote or a line break would close the token and
-    // let the remainder run as command text. The refusal is the whole escape policy.
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
         Op op = Op.Of();
         value = value?.Trim() ?? string.Empty;
@@ -56,8 +54,6 @@ public sealed partial class SnapshotPresence : ICapability<SnapshotPresence> {
     public static readonly SnapshotPresence Before = new(key: "before");
     public static readonly SnapshotPresence After = new(key: "after");
 
-    // The complement, not the roster: the only illegal corner is the verb that neither requires the name present
-    // nor leaves it present, which moves no roster at all.
     public static CapabilityLaw<SnapshotPresence> Law =>
         CapabilityLaw<SnapshotPresence>.Forbidden(Seq(CapabilitySet<SnapshotPresence>.None));
 }
@@ -88,7 +84,7 @@ public sealed partial class SnapshotVerb {
         string.Create(CultureInfo.InvariantCulture, $"_-Snapshot {token} _Name \"{name.Value}\" _Enter");
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record SnapshotOperation {
     private SnapshotOperation() { }
@@ -113,8 +109,6 @@ public abstract partial record SnapshotOperation {
         return op.AcceptValidated<SnapshotName>(candidate: name).Bind(admitted => Of(name: admitted, verb: verb, key: op));
     }
 
-    // The needs are the CASE's: a roster read grants read alone, and a scripted mutation APPENDS `Interrupt` to
-    // the one mutation derivation rather than replacing it.
     internal Seq<SessionNeed> Needs => Switch<Seq<SessionNeed>>(
         rosterCase:   static _ => Seq(SessionNeed.Read),
         mutationCase: static _ => SessionNeed
@@ -122,7 +116,7 @@ public abstract partial record SnapshotOperation {
             .Add(SessionNeed.Interrupt));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Equatable]
 public sealed partial record SnapshotRoster([property: OrderedEquality] Seq<SnapshotName> Names) {
     internal bool Holds(SnapshotName name) => Names.Contains(name);
@@ -144,7 +138,7 @@ public abstract partial record SnapshotAnswer : IDetachedDocumentResult {
     public sealed record MutationCase(SnapshotReceipt Receipt) : SnapshotAnswer;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Snapshots {
     public static Fin<SnapshotAnswer> Commit(DocumentSession session, SnapshotOperation operation, Op? key = null) {
         Op op = key.OrDefault();
@@ -166,8 +160,6 @@ public static class Snapshots {
                select answer;
     }
 
-    // A GUID sentinel captures the live state, the target is restored for the body, and both finalizers run on
-    // every outcome with their faults appending onto the primary in order.
     public static Fin<T> Within<T>(DocumentSession session, SnapshotName target, Func<Fin<T>> use, Op? key = null) {
         Op op = key.OrDefault();
         return from body in op.Need(value: use)
@@ -189,8 +181,6 @@ public static class Snapshots {
         from _answer in Commit(session: session, operation: operation, key: key)
         select unit;
 
-    // Every finalizer runs on every outcome; faults aggregate onto the primary in declaration order through the
-    // `Error` monoid, so a failed body and a failed cleanup both reach the caller.
     private static Fin<T> Settled<T>(Fin<T> body, Seq<Func<Fin<Unit>>> finalizers) =>
         finalizers.Fold(body, static (state, final) => state.Match(
             Succ: value => final().Map(_ => value),
@@ -255,7 +245,7 @@ public static class Snapshots {
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its seven static category members; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-geometry.md` — `Transform`, `BoundingBox`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-objects.md` — `RhinoObject`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); Thinktecture.Runtime.Extensions; LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
 using Rhino.DocObjects;
@@ -266,7 +256,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SnapshotCategory {
@@ -292,9 +282,7 @@ public readonly partial struct ParticipantName : IDisallowDefaultValue {
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
-// Three instance interfaces, no common base: the lane a participant supplies is FOREIGN code, and the marker the
-// retired base carried existed only to key a map that no longer exists.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IDocumentSnapshotLane {
     Fin<ArchiveMap> Save(RhinoDoc document);
     Fin<Unit> Restore(RhinoDoc document, ArchiveMap payload);
@@ -321,7 +309,7 @@ public interface IAnimationSnapshotLane {
     Fin<Unit> Stop(RhinoDoc document);
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record SnapshotObjectState(Transform Transform, ArchiveMap Payload);
 
 public sealed class ParticipantSpec {
@@ -412,7 +400,7 @@ public sealed class ParticipantSpec {
 - Packages: RhinoCommon (`libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-document-state.md` — `SnapShotsClient` and its twenty-four virtual members, `RegisterSnapShotClient`; `libs/dotnet/Rasm.Rhino/.api/api-rhinocommon-fileio.md` — `BinaryArchiveWriter`, `BinaryArchiveReader`, `SimpleArrayBinaryArchiveReader`, `TextLog`); kernel `Domain/rails` (`Op.Catch`, `Op.Settle`, `Op.AcceptValue`, `Transition`, `Cell.Claim`, `Cell.Step`); `Persistence/dictionary` (`ArchiveMap`), `Persistence/userdata` (`IArchiveCodec`); LanguageExt.Core (`Atom`, `HashMap`, `Fin`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rhino;
 using Rhino.DocObjects;
@@ -422,7 +410,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Persistence;
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed class SnapshotParticipant : SnapShotsClient {
     private static readonly Atom<HashMap<Guid, SnapshotCategory>> Registered = Atom(HashMap<Guid, SnapshotCategory>());
     private readonly ParticipantSpec spec;
@@ -489,8 +477,6 @@ public sealed class SnapshotParticipant : SnapShotsClient {
 
     public override bool SaveObject(RhinoDoc doc, RhinoObject rhObject, ref Transform transform, BinaryArchiveWriter archive) {
         Op op = Op.Of();
-        // CS1628: a `ref` parameter cannot be captured, so the incoming value copies to a local for the rail and
-        // the kernel receiver writes the slot back. The copy is the whole seam and it never varies.
         Transform incoming = transform;
         return Op.Settle(ref transform, Reported(op.Catch(() =>
             ObjectState(use: () => Objects(op).Bind(lane => lane.Save(doc, rhObject, incoming)), writer: archive, key: op))));
@@ -573,8 +559,6 @@ public sealed class SnapshotParticipant : SnapShotsClient {
         return Landed(op.Catch(() => Animation(op).Bind(lane => lane.Stop(doc))));
     }
 
-    // The host declares no return, and refusal leaves the slot at the box the host handed in — which is exactly
-    // the fallback the retired collapse passed beside the rail, so no second authority for it exists.
     public override void ExtendBoundingBoxForDocumentAnimation(
         RhinoDoc doc,
         BinaryArchiveReader start,
@@ -669,8 +653,6 @@ public sealed class SnapshotParticipant : SnapShotsClient {
             .As()
         select (current, snapshots);
 
-    // The ONE reporting funnel: the fault reaches `Report` exactly once and the rail passes through, so a caller
-    // settling a slot and a caller collapsing to `bool` share one reporting authority.
     private Fin<T> Reported<T>(Fin<T> outcome) =>
         outcome.BindFail(error => {
             spec.Report(error);

@@ -20,7 +20,7 @@
 - Packages: Thinktecture.Runtime.Extensions (`libs/dotnet/.api/api-thinktecture-runtime-extensions.md` — `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `[MemberEqualityComparer<TAccessor, TMember>]`, `[KeyMemberEqualityComparer<TAccessor, TKey>]`, `ComparerAccessors`); LanguageExt.Core (`api-languageext.md` — `Fin`, `Option`, `Seq`, `Map`, `Atom`, `Traverse`/`TraverseM`/`FoldM`); Generator.Equals (`api-generator-equals.md` — `[Equatable]`, `[OrderedEquality]`, `[IgnoreEquality]`); kernel `Domain/validation` (`ICapability`, `CapabilitySet`), `Domain/rails` (`Op`, `Op.Side`, `ValidityClaim`), `Numerics/atoms` (`PerceptualColor.OfArgb`); `Document/session` (`DraftFault`); RhinoCommon commands (`Rasm.Rhino/.api/api-rhinocommon-commands.md:155-202` — `AddOption*`, `AddOptionEnum*`, `GetSelectedEnumValue*`, `SetOptionVaries`, `IsValidOptionName`/`IsValidOptionValueName`, the `CommandLineOption` reads, `ToggleValues`, `ListOptions`); `Rhino.UI.LocalizeStringPair` (`api-rhino-ui.md`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Globalization;
@@ -35,9 +35,7 @@ using Rhino.Input.Custom;
 
 namespace Rasm.Rhino.Commands;
 
-// --- [TYPES] -----------------------------------------------------------------------------
-// A BEHAVIOUR row: each grammar carries the host oracle admitting its dialect, so the two name families that were
-// two byte-identical classes become one owner selecting between two host probes at construction.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class NameGrammar {
     public static readonly NameGrammar Option = new(admits: CommandLineOption.IsValidOptionName);
@@ -81,8 +79,6 @@ public sealed partial class OptionName {
     internal global::Rhino.UI.LocalizeStringPair Native => new(english: English, local: Local.IfNone(English));
 }
 
-// Each kind owns the localized display roster the host publishes for it, so evidence projection is a row read and
-// the eight-arm transcription that asked the same question once per case is gone.
 [SmartEnum<int>]
 public sealed partial class OptionKind {
     public static readonly OptionKind Simple = new(key: (int)CommandLineOptionType.Simple, display: static _ => Seq<string>());
@@ -138,8 +134,6 @@ public readonly partial struct NumericBand<T> where T : struct, INumber<T> {
         && Lower.ForAll(bound => value >= bound)
         && Upper.ForAll(bound => value <= bound);
 
-    // Inhabitance is the BAND's own question, so the four-corner selection lives here once and each host carrier
-    // family supplies only its three constructor arities — the two byte-identical tuple ladders are one fold.
     internal TNative Carrier<TNative>(
         T seed,
         Func<T, TNative> free,
@@ -152,9 +146,6 @@ public readonly partial struct NumericBand<T> where T : struct, INumber<T> {
         };
 }
 
-// The list roster admits ONCE — non-empty, no null member, no two members sharing a canonical name — so the pick
-// case carries a roster whose distinctness is unrepresentable to violate and the clauses that re-tested it on
-// every admission pass are gone.
 [ComplexValueObject]
 [ValidationError]
 public sealed partial class OptionChoices {
@@ -193,8 +184,6 @@ public abstract partial record OptionValue {
     public sealed record Pick(OptionChoices Values, int Current) : OptionValue;
     public sealed record EnumChoice(IEnumBinding Binding) : OptionValue;
 
-    // The legal trait corners are a per-case SET, so the row admission below is a subset test and a trait the host
-    // call for this modality never reads cannot be attached at all.
     internal CapabilitySet<OptionTrait> Admissible => Switch(
         verb: static _ => CapabilitySet<OptionTrait>.Of(OptionTrait.Hidden, OptionTrait.Varies),
         toggle: static _ => CapabilitySet<OptionTrait>.Of(OptionTrait.Varies),
@@ -228,23 +217,15 @@ public abstract partial record OptionValue {
             (row.Current is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Paint) }))),
             (row.Prompt.Exists(string.IsNullOrWhiteSpace),
                 () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Paint.Prompt) })))),
-        // The roster test moved INSIDE `OptionChoices`, so the surviving clause is the seat's own range.
         pick: static (op, row) => FactoryValidation.Violated(
             (row.Values is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Pick) }))),
             (row.Values is not null && (row.Current < 0 || row.Current >= row.Values.Count),
                 () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(Pick), row.Current, "a seat inside the roster" })))),
-        // The roster test, the seated value, and every operation moved INSIDE the binding, so admission here is
-        // presence alone — a binding cannot exist carrying a value its own roster refuses.
         enumChoice: static (op, row) => FactoryValidation.Violated(
             (row.Binding is null, () => new ValidationClause(string.Join(" | ", new object?[] { op, nameof(EnumChoice) })))));
 
     internal Fin<Unit> Admit(Op key) => FactoryValidation.Admit(Clauses(key));
 
-    // Three of eight modalities publish NOTHING readable on the selected `CommandLineOption` — a verb carries no
-    // value, a colour lives on its own `ref` carrier, and an enum's selection is read off the getter — so those
-    // arms answer `None` and the carrier thunk is the ONE read serving both them and every snapshot taken with no
-    // selection at all. That thunk stays RAILED because two of its producers can fail: an enum read-back must
-    // prove the host handed a value the binding's roster admits, and a colour read-back crosses the kernel gate.
     internal Fin<OptionValue> Read(Option<CommandLineOption> native, Func<Fin<OptionValue>> carrier, Op key) =>
         native.Bind(selected => Published(selected, key))
             .IfNone(() => key.Catch(carrier))
@@ -278,12 +259,6 @@ public abstract partial record OptionValue {
             .Map(static binding => (OptionValue)new EnumChoice(Binding: binding));
 }
 
-// The enum axis cannot be generic on `OptionValue` — the union is non-generic and one option set mixes enum types —
-// so the binding is EXISTENTIAL: `IEnumBinding` is the erased face the union carries and `TypedEnumBinding<TEnum>`
-// is its one implementation, keeping the roster, the seated value, the host bind, the read-back, and the token
-// decode typed INSIDE itself. The erased form published five `object`-typed delegate columns whose contract no
-// signature stated: a caller could hand `Admits` a foreign value, `Bind` a value of the wrong enum, or read back
-// whatever `Read` returned without ever testing it against the roster. Nothing crosses this face untyped now.
 public interface IEnumBinding {
     string Current { get; }
     Fin<int> Seat(GetBaseClass getter, OptionName name, Op key);
@@ -292,10 +267,6 @@ public interface IEnumBinding {
 }
 
 public sealed class TypedEnumBinding<TEnum> : IEnumBinding where TEnum : struct, Enum, IConvertible {
-    // ONE column carries the whole roster question: a caller-supplied selection restricts the option to a filtered
-    // host list, its absence takes the host's full enum list, and the membership roster derives from that same
-    // column. The former `(roster, restricted)` pair let the flag and the rows drift apart and made the choice of
-    // host member a boolean selecting between two bodies.
     private readonly Option<Seq<TEnum>> selection;
     private readonly (TEnum Value, string Name) current;
 
@@ -341,16 +312,11 @@ public sealed class TypedEnumBinding<TEnum> : IEnumBinding where TEnum : struct,
             ? Seated(value: parsed, key: key)
             : Fin.Fail<IEnumBinding>(error: key.InvalidInput());
 
-    // Every transition re-proves roster membership, so a host read-back outside a restricted selection list is a
-    // typed refusal rather than a value the option silently publishes.
     private Fin<IEnumBinding> Seated(TEnum value, Op key) =>
         from named in Named(value, key)
         from _ in guard(Roster.Exists(item => item.Equals(named.Value)), key.InvalidInput()).ToFin()
         select (IEnumBinding)new TypedEnumBinding<TEnum>(selection: selection, current: named);
 
-    // Naming is part of ADMISSION, not a read-time fallback: a member whose name does not round-trip refuses here,
-    // so `Current` publishes a name the roster proved instead of an empty string no reader can tell apart from a
-    // legitimately empty one.
     private static Fin<(TEnum Value, string Name)> Named(TEnum value, Op key) =>
         Enum.GetName(value) is string name
             && Enum.TryParse(name, ignoreCase: false, out TEnum roundTrip)
@@ -370,7 +336,7 @@ public sealed class TypedEnumBinding<TEnum> : IEnumBinding where TEnum : struct,
 - Law: the colour token is HEX TEXT and the kernel owner admits a packed ARGB word, so the six-digit branch fills opaque alpha and both lengths terminate in ONE `PerceptualColor.OfArgb` — no `System.Drawing.Color` is minted only to be re-read, which is the round trip a hand-rolled component fold used to sit inside.
 
 ```csharp signature
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public abstract partial record OptionValue {
     internal Fin<BoundOption> Bind(
         GetBaseClass getter,
@@ -437,8 +403,6 @@ public abstract partial record OptionValue {
                 Index: index,
                 Current: () => Fin.Succ<OptionValue>(value: row with { Current = native.CurrentValue })));
         }),
-        // `OptionColor` is the host's byte-quadruple carrier, so the kernel colour quantizes once on the way in
-        // through the `Slots` rail — which REFUSES an out-of-display colour — and re-admits once on the way out.
         paint: static (held, row) =>
             from color in Slots.Rgb(shade: row.Current, key: held.Op)
             from bound in held.Op.Catch(() => {
@@ -484,8 +448,6 @@ public abstract partial record OptionValue {
             held.Token, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) && row.Band.Contains(value)
             ? Fin.Succ<OptionValue>(row with { Current = value })
             : Fin.Fail<OptionValue>(held.Op.InvalidInput()),
-        // Empty-text admission is the ROW's trait, so the seeded value carries the token and `OptionSet.Seeded`
-        // re-admits the whole row — the emptiness clause runs at its owner, never twice with two answers.
         text: static (held, row) => Fin.Succ<OptionValue>(row with { Current = held.Token }),
         paint: static (held, row) => DecodeColor(token: held.Token, key: held.Op)
             .Map(value => (OptionValue)(row with { Current = value })),
@@ -525,7 +487,7 @@ public abstract partial record OptionValue {
 `Dispose` accumulates into `Faults` and returns. Acquisition consumes the lease under a `using` nested inside the getter's own, so a throwing cleanup unwinds past the acquisition result and replaces the in-flight answer with a release fault — the caller loses the value it obtained. `Release` remains the railed entry a caller reads when cleanup evidence matters.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record OptionRow(
     OptionName Name,
     OptionValue Value,
@@ -546,10 +508,6 @@ public sealed record OptionRow(
 
 public sealed record OptionMark(int NativeIndex, OptionKind Kind, string English, string Local);
 
-// ONE evidence record. The eight-case family restated the value the setting already carries and differed only in
-// the LOCALIZED display roster the host publishes at selection time — which `OptionKind` now owns per row, in host
-// order, so a toggle reads its off/on pair and a list its entries out of the same column. NAMED LOSS: the per-case
-// evidence TYPE; the modality is recoverable from `Mark.Kind` and the value from the choice's own setting.
 [Equatable]
 public sealed partial record OptionEvidence(
     OptionMark Mark,
@@ -613,9 +571,6 @@ public sealed partial record OptionSet {
                     Fail: cleanup => Fin.Fail<OptionLease>(error + cleanup)));
     }
 
-    // The decode leg lands back ON the vocabulary: a persisted assignment re-seats its own row and the answer is an
-    // `OptionSet` the getter can bind, so no caller holds a decoded pair with nowhere to put it — and the re-seated
-    // set re-admits whole, which is where the trait-coupled clauses a bare token cannot see are enforced.
     public Fin<OptionSet> Seeded(Seq<OptionAssignment> assignments, Op? key = null) {
         Op op = key.OrDefault(name: nameof(Seeded));
         return assignments
@@ -634,7 +589,7 @@ public sealed partial record OptionSet {
     }
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record LeaseState {
     private LeaseState() { }
@@ -643,11 +598,6 @@ internal abstract partial record LeaseState {
 }
 
 public sealed class OptionLease : IDisposable {
-    // ONE atom owns the whole capsule. The prior shape mixed three disciplines — an `Atom` for faults, bare
-    // mutable fields for the bound rows and the carrier roster, and an `Interlocked`/`Volatile` int for the
-    // released flag — so a release could observe a carrier roster mid-append and drop the newest carrier, which is
-    // the one leak the lease exists to foreclose. `Draining` is the transient column the winning swap carries out:
-    // `Swap` retries until its CAS lands, so exactly one caller sees a non-empty roster and every peer sees empty.
     private readonly Atom<LeaseBooks> books = Atom(value: LeaseBooks.Empty);
 
     private sealed record LeaseBooks(
@@ -691,7 +641,6 @@ public sealed class OptionLease : IDisposable {
                select choice;
     }
 
-    // The settled reading of EVERY bound option, in native index order, taken while the carriers are still live.
     internal Fin<Seq<OptionSetting>> Snapshot(Op key) => key.Catch(() =>
         from _ in AdmitLive(key)
         from settled in toSeq(books.Value.Bound.Values)

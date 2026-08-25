@@ -83,13 +83,8 @@ const Surface: {
 - Packages: `effect` (`Schema`, `Option`, `Duration`, `Metric`); `@rasm/core` (`Fault.Class`, `Convention`).
 
 ```typescript signature
-// Every refusal here is raised on one surface — the admission plane — so the family carries one leg and partitions
-// on its route alone.
 const _LEG = "admission"
 
-// One row per reason: the core kind alone decides policy. Retryability, blame, and the response code are the core row
-// table's and problem#STATUS_RECORD's — `malformed` is a bad presentation, `unauthorized` a credential this door will
-// not accept, and `forbidden` one it accepted but will not permit. Each row owns the coordinate its route can fill.
 const _gate = Fault.Class.family(["malformed", "unauthorized", "forbidden", "shed", "rate", "conflict"] as const, {
   malformed: Fault.Class.row({
     class: "malformed",
@@ -112,8 +107,6 @@ const _gate = Fault.Class.family(["malformed", "unauthorized", "forbidden", "she
   shed: Fault.Class.row({
     class: "unavailable",
     leg: _LEG,
-    // the two shed sources are structurally different pressure — a saturated door and an unreachable dependency the
-    // lift needed — and only the first has a grace this page can measure
     detail: Schema.Struct({ source: Schema.Literal("cap", "store") }),
     render: ({ source }) =>
       source === "cap" ? "the in-flight cap admits nothing right now" : "a credential store this lift needed answered nothing",
@@ -139,9 +132,6 @@ declare namespace GateFault {
 
 class GateFault extends Schema.TaggedError<GateFault>()("GateFault", {
   case: _gate.payload,
-  // the VALUE altitude's stated window, under the core owner's own word: `Fault.Class.statedOf` reads it back at the
-  // problem door and `Fault.Budget.schedule` takes it as its third argument, so a second spelling here would fork one
-  // window across three altitudes that already have three words for it
   after: Fault.Class.After,
 }) {
   get class(): Fault.Class.Kind {
@@ -154,7 +144,6 @@ class GateFault extends Schema.TaggedError<GateFault>()("GateFault", {
 
 const _refused = Convention.mount(Convention.metric.admitRefused)
 
-// the closed reason partition IS the axis fan, so the one fail seam carries the whole refusal series
 const _refuse = (fault: GateFault): Effect.Effect<never, GateFault> =>
   Effect.zipRight(
     Metric.increment(Metric.tagged(_refused, Convention.rasm.admitReason, fault.case.reason)),
@@ -179,9 +168,6 @@ const _byWeight: Order.Order<readonly [string, number]> = Order.mapInput(
   (pair: readonly [string, number]) => pair[1],
 )
 
-// RFC 9110 spells a parameter name case-insensitively and admits whitespace before it, so the weight reads off a
-// folded split: a literal `;q=` leaves `en-GB;Q=0.8` unsplit, fails the locale brand on the whole segment, and drops
-// that language out of the ranking altogether rather than ranking it low.
 const _WEIGHT = /;\s*q=/i
 
 const _negotiate = (header: Option.Option<string>, fallback: Shape.Refined.Locale): Shape.Refined.Locale =>
@@ -209,7 +195,6 @@ class _Locale extends Context.Reference<_Locale>()("runtime/serve/Current/Locale
   defaultValue: () => Schema.decodeUnknownSync(Shape.Refined.Locale)("en"),
 }) {}
 
-// One admitted credential lands here; `none` is an anonymous request, never a failure.
 class _Admitted extends Context.Reference<_Admitted>()("runtime/serve/Current/Admitted", {
   defaultValue: () => Option.none<Authn.Admitted>(),
 }) {}
@@ -278,7 +263,6 @@ const Current: {
 class _Principal extends Schema.Class<_Principal>("Principal")({
   subject: Schema.NonEmptyString,
   session: Schema.optionalWith(Session.fields.id, { as: "Option" }),
-  // the core owner's own field schema, so a tenant crossing this seam is unspellable as a bare string
   tenant: Schema.optionalWith(Identity.Tenant.fields.tenant, { as: "Option" }),
   scopes: Schema.Array(Schema.NonEmptyString),
   via: Schema.Literal("session", "apikey", "cookie"),
@@ -297,16 +281,12 @@ const _passed = Convention.mount(Convention.metric.admitPassed)
 
 const _BEARER = /^Bearer\s+(.+)$/i
 
-// One pair read off the request cookie header, under the security owner's own `CookieSpec` name: framing,
-// attributes, and prefix semantics stay that owner's and this seam only presents what the browser replayed
 const _paired = (raw: string, name: string): Option.Option<string> =>
   Option.map(
     Array.findFirst(raw.split("; "), (pair) => pair.startsWith(`${name}=`)),
     (pair) => pair.slice(name.length + 1),
   )
 
-// Presented forms are data: a scheme is a row carrying its own header read, so another scheme joins the lift,
-// its OpenAPI security-record entry, and the `via` vocabulary together or not at all
 const _schemes = {
   session: (headers: Headers.Headers) =>
     Option.map(
@@ -321,11 +301,6 @@ const _schemes = {
     ),
 } as const satisfies Record<_Principal["via"], (headers: Headers.Headers) => Option.Option<Redacted.Redacted<string>>>
 
-// `Effect.option` folds EVERY failure to an absent credential, so a claim store that is DOWN answers 401 and asks the
-// caller to present something else. The core lattice already separates the two: a caller-blamed class is evidence
-// ABOUT the presented credential, and anything else is this deployment's own dependency refusing to answer. Binding
-// `E` to the classed shape makes that partition structural: an `unknown` channel grades every unclassed port fault
-// `defect`, blaming this deployment for a credential the caller mis-presented, and states nothing in the type.
 const _lifted = <A, E extends { readonly class: Fault.Class.Kind }, R>(
   self: Effect.Effect<A, E, R>,
 ): Effect.Effect<Option.Option<A>, GateFault, R> =>
@@ -333,13 +308,10 @@ const _lifted = <A, E extends { readonly class: Fault.Class.Kind }, R>(
     onFailure: (fault) =>
       Fault.Class.blameOf(fault) === "caller"
         ? Effect.succeedNone
-        // no hint: the class default is the truthful window, and the problem ladder already prefers a measured one
         : _refuse(new GateFault({ case: { reason: "shed", source: "store" }, after: Option.none() })),
     onSuccess: Effect.succeedSome,
   })
 
-// Every access-token carriage crosses this one verification and entitlement projection. A protocol may select how the
-// token arrived; it may not grow a second verifier.
 const _verified = (
   identity: Identity.App,
   token: Redacted.Redacted<string>,
@@ -374,17 +346,12 @@ const _admit = (
     const bearer = _schemes.session(headers)
     const key = _schemes.apikey(headers)
     const cookied = _schemes.cookie(headers)
-    // Every arm reaches ONE entitlement door: a machine key folds its resolved record through the same
-    // `Claim.resolve` a token folds its claims through, so roles, tenancy, and the delegation ceiling reach a
-    // machine caller identically. Precedence descends from the explicit header to the ambient cookie, so a caller
-    // presenting both is admitted on the credential it chose to state.
     return yield* Option.match(bearer, {
       onSome: (token) => _verified(identity, token, "session"),
       onNone: () =>
         Option.match(key, {
           onSome: (presented) =>
             keys.resolve(presented).pipe(
-              // Record carries the presented delegation the ClaimSet folds, so both halves ride forward
               Effect.flatMap((record) => Effect.map(claim.resolve(record), (claims) => ({ claims, record }))),
               Effect.map(({ claims, record }): Authn.Admitted => ({
                 principal: new _Principal({
@@ -413,8 +380,6 @@ const _admit = (
     })),
   )
 
-// each arm PROJECTS the seam's single lift: a declared scheme the caller never presented costs nothing,
-// and no contract can make one request pay two verifications
 const _held = (via: _Principal["via"]): Effect.Effect<Authn.Admitted, GateFault> =>
   Effect.flatMap(_Admitted, (held) =>
     Option.match(Option.filter(held, (admitted) => admitted.principal.via === via), {
@@ -431,8 +396,6 @@ const _webhookRefused = (via: string): Effect.Effect<never, GateFault> =>
 const _webhookMalformed = (via: string): Effect.Effect<never, GateFault> =>
   _refuse(new GateFault({ case: { reason: "malformed", via }, after: Option.none() }))
 
-// RFC 6750 forbids presenting more than one bearer-token method. The webhook profile also requires both methods at
-// the target, so header projection and query verification stay two carriages over one token owner.
 const _webhook = (
   identity: Identity.App,
   headers: Headers.Headers,
@@ -502,8 +465,6 @@ class RpcAuthn extends RpcMiddleware.Tag<RpcAuthn>()("runtime/serve/RpcAuthn", {
         _admit(identity, headers).pipe(
           Effect.flatMap(Option.match({
             onNone: () => _refuse(new GateFault({ case: { reason: "unauthorized", via: "rpc" }, after: Option.none() })),
-            // one binding site on this arm too: the frame's downstream runs under the same tenancy the
-            // HTTP seam binds, so a procedure and an endpoint pin identical session coordinates
             onSome: (admitted) =>
               TenantScope.metered(TenantScope.bind(
                 admitted.scope,
@@ -513,8 +474,6 @@ class RpcAuthn extends RpcMiddleware.Tag<RpcAuthn>()("runtime/serve/RpcAuthn", {
           Effect.provide(held),
         )),
     )
-  // the client arm `requiredForClient` demands: the credential stamps onto the outbound frame's own headers,
-  // so `Emit.caller` cannot derive a peer that ships without one
   static readonly caller = (credential: Headers.Headers): Layer.Layer<RpcMiddleware.ForClient<RpcAuthn>> =>
     RpcMiddleware.layerClient(RpcAuthn, ({ request }) =>
       Effect.succeed({ ...request, headers: Headers.merge(request.headers, credential) }))
@@ -532,7 +491,6 @@ const _conflict = (detail: string): GateFault => new GateFault({ case: { reason:
 
 const _outcomes = Convention.mount(Convention.metric.idempotencyOutcome)
 
-// the bracket's own three-way fold IS the axis: fresh execute, same-digest replay, diverged refusal
 const _outcome = (kind: "fresh" | "replay" | "conflict"): Effect.Effect<void> =>
   Metric.increment(Metric.tagged(_outcomes, Convention.rasm.admitDisposition, kind))
 
@@ -662,7 +620,6 @@ const Gate = {
       (limiter) =>
         <A, E, R>(self: Effect.Effect<A, E, R>) =>
           limiter(Effect.void).pipe(
-            // the deadline bounds the token wait alone: the admitted work sequences after it and never races its own timeout
             Effect.timeoutFail({
               duration: pressure.grace,
               onTimeout: () => new GateFault({ case: { reason: "rate", window: "in-process" }, after: Option.some(pressure.grace) }),
@@ -683,7 +640,6 @@ const Gate = {
         algorithm: spend.algorithm,
         onExceeded: "fail",
       })(self).pipe(
-        // both experimental faults share the "RateLimiterError" tag; reason discriminates the arms
         Effect.catchTag("RateLimiterError", (fault) =>
           fault.reason === "Exceeded"
             ? _refuse(new GateFault({ case: { reason: "rate", window: spend.key }, after: Option.some(fault.retryAfter) }))
@@ -723,11 +679,6 @@ declare namespace Contribution {
   type Codec = keyof typeof _codecs
 }
 
-// Rows that are their OWN listener. The two router-native transports mount through the ONE front door instead, so
-// `serve/route#SERVE_FOLD`'s `Router.rpc` carries them under the package's own `layerHttpRouter` fusion — a row here
-// spelling the same mount a second way would fork which member binds handlers and which one states the fan-out
-// ceiling. The legacy `layerProtocolHttp`/`layerProtocolWebsocket` pair demands an `HttpRouter.Default` Tag no serve
-// Layer in this branch supplies, so it reaches no seat from either side.
 const _protocols = {
   socket: () => RpcServer.layerProtocolSocketServer,
   worker: () => RpcServer.layerProtocolWorkerRunner,
@@ -740,8 +691,6 @@ const _codecs = {
   ndjson: RpcSerialization.layerNdjson,
   ndjsonRpc: RpcSerialization.layerNdJsonRpc(),
   msgpack: RpcSerialization.layerMsgPack,
-  // parameterized forms ride the package's own layer members: a hand wrap over the bare constructor re-derives
-  // a published row and drifts the moment the constructor's option shape widens
   msgpackWith: RpcSerialization.layerMsgPackWith,
   ndjsonWith: RpcSerialization.layerNdjsonWith,
 } as const
@@ -799,8 +748,6 @@ const _artifact = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.A
 ): string => JSON.stringify(_stable(OpenApi.fromApi(api)), null, 2)
 
 declare namespace Emit {
-  // ONE tempering shape both derivations take: the generic form `layerProtocolHttp` declares also inhabits
-  // `HttpApiClient.make`'s narrower slot, so the branch's egress posture crosses to both peers as one value
   type Temper = <E, R>(client: HttpClient.HttpClient.With<E, R>) => HttpClient.HttpClient.With<E, R>
   type Origin = { readonly url: string }
   type Dial = keyof typeof _dials
@@ -811,8 +758,6 @@ declare namespace Emit {
   type NativeUi = { [K in Ui]: (typeof _uis)[K]["native"] extends true ? K : never }[Ui]
 }
 
-// renderer x mount x asset source, each row carrying whether it mounts route-natively — the `native` column
-// is what decides who serves the document, so no caller re-derives that pairing
 const _uis = {
   scalar: { native: false, layer: ({ path }: Emit.Docs) => HttpApiScalar.layer({ path }) },
   scalarCdn: { native: false, layer: ({ path }: Emit.Docs) => HttpApiScalar.layerCdn({ path }) },
@@ -824,7 +769,6 @@ const _uis = {
 
 const _docs = (options: Emit.Docs & { readonly ui?: Emit.Ui }): Emit.Mount =>
   pipe(_uis[options.ui ?? "scalar"], (row) =>
-    // a router row rides addHttpApi's own openapiPath; merging the middleware there would mount the document twice
     row.native ? row.layer(options) : Layer.mergeAll(HttpApiBuilder.middlewareOpenApi(), row.layer(options)))
 
 const _client = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.Any, E, R>(
@@ -832,30 +776,15 @@ const _client = <Id extends string, Groups extends HttpApiGroup.HttpApiGroup.Any
   options: { readonly baseUrl: string; readonly transform: Emit.Temper },
 ) => HttpApiClient.make(api, { baseUrl: options.baseUrl, transformClient: options.transform })
 
-// Socket peers reconnect FOREVER by design — a dropped duplex is a liveness event rather than a call failure — so
-// this row STATES the curve instead of inheriting the package's silent exponential: `retryTransientErrors` gates only
-// whether a failed open surfaces to the caller and never whether the loop runs, so an undeclared schedule is a
-// reconnect cadence no operator can read off this page. Jitter is the addition a fleet earns: an undithered curve
-// returns every peer of a restarted server in the same millisecond. Per-call retry is NOT this row's —
-// `core:interchange/invoke#DIAL_AXIS` owns every call curve, and one stacked there over this loop multiplies
-// attempts neither owner can see.
 const _RECONNECT: Schedule.Schedule<unknown, Socket.SocketError> = Schedule.exponential(Duration.millis(500), 1.5).pipe(
   Schedule.union(Schedule.spaced(Duration.seconds(5))),
   Schedule.jittered,
 )
 
-// ONE client protocol row over `Socket`: a websocket peer and a raw-socket-server peer differ by which `Socket`
-// Layer the root binds, never by a second constructor, so the raw arm takes that Layer and the websocket arm is
-// that same arm applied to the platform's own WebSocket pair.
 const _socketDial = (dial: Layer.Layer<Socket.Socket>) =>
   RpcClient.layerProtocolSocket({ retrySchedule: _RECONNECT }).pipe(Layer.provide(dial))
 
-// Client protocol rows answer the serve arms a peer can dial: `http` and `websocket` for the two front-door
-// transports, `socket` for the raw-socket listener over its own `Socket` Layer, `worker` for the runner. Every arm
-// but `worker` leaves `RpcSerialization` open so peer and server take one `Contribution.codecs` value at the same
-// root; `worker` frames its own and takes none.
 const _dials = {
-  // tempering seats on the http arm alone, because it is the arm carrying an `HttpClient` to temper
   http: (origin: Emit.Origin & { readonly transform?: Emit.Temper }) =>
     RpcClient.layerProtocolHttp({ url: origin.url, transformClient: origin.transform }),
   socket: _socketDial,
@@ -872,14 +801,10 @@ const _traced = <A, E, R>(call: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> 
     Effect.flatMap(Propagation.current, (context) =>
       Effect.map(
         Effect.optionFromOptional(Effect.currentSpan),
-        // one inject site: the span only seeds the platform frame — the carried context crosses on
-        // both branches, so an inherited parent survives a span-less caller
         (span) =>
           Carrier.inject(
             "connect",
             context,
-            // `toHeaders` names `Tracer.Span` alone, so a span-less caller seeds the dialect's own empty frame
-            // rather than an untyped literal the `connect` row would then have to admit
             Option.match(span, { onNone: () => Headers.empty, onSome: (live) => HttpTraceContext.toHeaders(live) }),
           ),
       )),
@@ -895,7 +820,7 @@ const Emit = {
   uis: Record.keys(_uis),
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Contribution, Current, Emit, Gate, GateFault, Principal, Surface }
 ```

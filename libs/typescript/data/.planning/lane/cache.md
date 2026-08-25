@@ -133,9 +133,6 @@ declare namespace CacheLane {
 import { Cache, Duration, Effect, type Equivalence, Layer, Metric, Ref, Request, Schedule, type Scope } from "effect"
 import { Convention } from "@rasm/core"
 
-// Second slot reads by modality exactly as the first does: a cadence beside an effect, a key equivalence beside a
-// function. Omitting the equivalence keeps the substrate default, which answers reference identity for anything
-// carrying no `Equal` instance.
 function _memo<B, E, R>(input: Effect.Effect<B, E, R>, ttl?: Duration.DurationInput): Effect.Effect<Effect.Effect<B, E, R>>
 function _memo<A, B, E, R>(
   input: (a: A) => Effect.Effect<B, E, R>,
@@ -153,17 +150,12 @@ function _memo(
 const _dedup = (options: { readonly capacity: number; readonly timeToLive: Duration.DurationInput }) =>
   Layer.setRequestCache(Request.makeCache(options))
 
-const _CENSUS = { cadence: Duration.seconds(30) } as const // sampling cadence for the read-side probe; hits and misses are cumulative, so a lookup between samples rides the next delta rather than vanishing
+const _CENSUS = { cadence: Duration.seconds(30) } as const
 
 const _entries = Convention.mount(Convention.metric.cacheEntries)
 const _hits = Convention.mount(Convention.metric.cacheHits)
 const _misses = Convention.mount(Convention.metric.cacheMisses)
 
-// `ConsumerCache.cacheStats` answers all three fields in ONE read, so the census instruments no lookup — but the read
-// mixes two wire forms. Hits and misses are running totals a monotonic sum advances by their DELTA against the prior
-// sample this probe holds; size is an instantaneous count the gauge sets. The seed is the substrate's own zero snapshot,
-// so the first tick publishes the cache's whole history rather than a step nobody can attribute. The probe forks on the
-// registering scope and dies with it.
 const _census = (name: string, cache: Cache.ConsumerCache<unknown, unknown, unknown>): Effect.Effect<void, never, Scope.Scope> =>
   Effect.forkScoped(
     Effect.flatMap(Ref.make(Cache.makeCacheStats({ hits: 0, misses: 0, size: 0 })), (sampled) =>
@@ -251,7 +243,7 @@ class OriginKey<Scheme extends string = string> extends Data.Class<{
   readonly username: string
 }> {}
 
-const _held = Convention.mount(Convention.metric.poolHeld) // `updown` form is what makes the release finalizer's decrement legal on the wire
+const _held = Convention.mount(Convention.metric.poolHeld)
 
 const _counted = (scheme: string) => Metric.tagged(_held, Convention.rasm.poolScheme, scheme)
 
@@ -266,10 +258,6 @@ const _origins = <Scheme extends string, A, E, R>(
     timeToLive: policy?.ttl ?? _ORIGIN_POOL.ttl,
   })
 
-// Occupancy lives HERE and not in the acquire above: a returned item stays alive and gets re-handed, so an
-// acquire-side bracket decrements only when the pool destroys the item — every idle connection would keep
-// counting as held. Bracketing the lease binds the finalizer to the CALLER's scope, so the level falls the
-// moment a transfer ends whether the item is recycled, evicted, or dropped.
 const _lease = <Scheme extends string, A, E>(
   pool: KeyedPool.KeyedPool<OriginKey<Scheme>, A, E>,
   key: OriginKey<Scheme>,
@@ -300,7 +288,7 @@ const CacheLane = {
   lease: _lease,
 } as const
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { CacheLane, OriginKey }
 ```

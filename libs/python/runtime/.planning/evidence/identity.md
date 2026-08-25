@@ -41,77 +41,30 @@ from rasm.runtime.faults import FAULT_CONF, IDENTITY_DERIVE, IDENTITY_FMT, SCOPE
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-# msgspec rejects any integer bound past int64 at codec/convert build, so only the `ge=0` floor rides `Meta`; the ceilings are the
-# digest algebra's — `xxh3_128_intdigest` yields <2**128 by construction, seeds are the 64-bit xxhash domain.
 type U128 = Annotated[int, Meta(ge=0)]
 type U64 = Annotated[int, Meta(ge=0)]
 type Tolerance = Annotated[float, Meta(gt=0.0)]
 type KeyView = Literal["value", "hex", "wire", "memory", "digest"]
 type KeyRender = ContentKey | str | bytes | int
-# THE ADMITTED PAYLOAD FAMILY, DECLARED — one union arm per `IdentitySource` case, so a composing package reads its
-# modality off this annotation instead of recovering it from `lift`'s arm order, and `lift` is total over exactly
-# this roster with nothing falling through:
-#   `Buffer`                 -> `whole`     one contiguous payload, `bytes(...)`-coerced once at the arm
-#   `Iterable[bytes]`        -> `stream`    BUFFER CHUNKS of one payload; the chunk boundary is an I/O artefact
-#   `tuple[ContentKey, ...]` -> `merkle`    N child keys over the little-endian u128 C#-parity spine
-#   `BareSource`             -> itself      the ALREADY-LIFTED source, and the ONE spelling of N SEMANTIC parts
-# an ALREADY-LIFTED source rides the same entry, which is what keeps the two multi-part modalities separable: a bare
-# iterable is buffer chunks of one payload and lifts to `stream`, while N SEMANTIC parts are a value the caller
-# constructs and hands in as `IdentitySource(parts=...)`. The discriminant stays recoverable from the value, and a
-# payload matching no arm — a MIXED tuple of keys and buffers above all — refuses at `lift` rather than keying.
-# The two entries state ONE roster and its one delta: `BareValue` is every admission already in bytes, and `Source`
-# widens it by exactly the fallible pair — a `Struct` that must encode, and the `canonical` case `BareSource` refines
-# away — so a new modality lands on the primary and the railed roster re-derives with no second union to re-spell.
 type BareValue = Buffer | Iterable[bytes] | tuple[ContentKey, ...] | BareSource
 type Source = BareValue | Struct | IdentitySource
-# the same grammar the railed and the contracted entry both read, refined at the hint the bare accessor carries: `key`
-# returns a `ContentKey` with no rail to refuse on, so its gate is the contract weave whose violation `FAULT_CONF`
-# raises as the canonical `BeartypeCallHintViolation` an enclosing fence classifies `api`; `of` gates on the rail.
 type KeyFmt = Annotated[str, Is[lambda text: KEY_FMT.fullmatch(text) is not None]]
-# the lifted sources the BARE accessor admits, refined exactly as `KeyFmt` is: `whole`, `stream`, `parts`, and
-# `merkle` all fold over bytes already in hand, so their derivation cannot raise, while `canonical` must ENCODE and
-# an encode raises with no rail here to carry it. The bare `IdentitySource` annotation admits every case, so the
-# encode-fallibility split would be a comment the type walks past — this refinement makes it structural, and the
-# violation lands as the same `BeartypeCallHintViolation` the `CLASSIFY` `api` row folds at the enclosing fence.
 type BareSource = Annotated[IdentitySource, Is[lambda lifted: lifted.tag != "canonical"]]
 
-# --- [CONSTANTS] --------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-# `fmt` is load-bearing identity INPUT — it enters the seed beside the policy spec — and it is also the rendered tail
-# of the `hex` view the C# `InterchangeIdentity.Key` peer joins on, so a misspelling forks the key namespace at both
-# ends at once and every downstream comparison then answers "changed" for a reason no reader can recover from the
-# key. One compiled grammar closes that: dot-separated lowercase segments over the same `[a-z0-9_-]` character class
-# the hook registry's `HOOK_ID` admits for a point id, gated once per derivation before any digest exists rather than
-# trusted per call site. The class is what makes the grammar TOTAL over the standing namespace — the estate's frozen
-# tags spell hyphens (`geometry-topology` is the C#-parity fixture's own, `texture-plane`/`texture-set` the frozen
-# plane and set namespaces) — while it still refuses every real hazard: an uppercase drift keying a second namespace,
-# whitespace, an empty or dangling segment, and above all a `:`, which would fork the `hex` render's own separator
-# and leave the C# join reading a truncated digest against a tail that is not the tag.
 KEY_FMT: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9_-]+(\.[a-z0-9_-]+)*$")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class ContentKey(Struct, frozen=True, order=True, gc=False):
-    # `order=True` is load-bearing: `expression.Map` is an ordered tree, so every `Map[ContentKey, ...]`
-    # (lane drain cache, plan tables, warm seeds) needs the field-order `<` this generates.
     value: U128
     fmt: str
-    # the measured extent of the preimage, ABSENCE-BEARING and required: every mint states one and only `decoded`
-    # answers `Nothing`, so no constructor can quietly default. `Option` is TOTALLY ordered here — `Nothing` sorts
-    # below every `Some` — so `order=True` stays total and a `Map[ContentKey, ...]` tree keeps its comparison even
-    # where a decoded key and its measured twin meet.
     byte_length: Option[int]
 
     @staticmethod
     def decoded(*, value: U128, fmt: str) -> "ContentKey":
-        # the REFUSAL door for a key rebuilt from a WIRE render. The estate publishes a content key as digest and tag
-        # alone, so a decode holds no extent and this arm is what stops one being invented: the retired
-        # `byte_length=0` filled a required measurement slot with a number no producer took — `docs/laws/scars.md`
-        # `[FORGED_ZERO]`, "converting a canon-only value mints a key or stamp no producer took" — and a consumer
-        # summing extents across a mixed roster then read the crossing as WEIGHTLESS rather than as unmeasured,
-        # which is a different fact and an unrecoverable one. Keyword-only, so a decode cannot be spelled positionally
-        # beside a measured mint and read alike at the call site.
         return ContentKey(value=value, fmt=fmt, byte_length=Nothing)
 
     @overload
@@ -127,13 +80,8 @@ class ContentKey(Struct, frozen=True, order=True, gc=False):
     def project(self, view: KeyView = "value", /) -> KeyRender:
         match view:
             case "hex":
-                # the wire lowering plus the tag tail — never a second `{value:032x}`: a claim that one arm is the
-                # sole lowering site is void the moment a sibling arm re-spells the width, so `hex` composes `wire`.
                 return f"{self.project('wire')}:{self.fmt}"
             case "wire":
-                # the bare 32-lowercase-hex wire spelling — the appearance-vocabulary fragment's `wireLower`
-                # pattern rejects the `hex` view's `:{fmt}` tail, and this arm is the ONE python lowering site,
-                # so a manifest producer never hand-formats `{value:032x}` inline and forks the address
                 return f"{self.value:032x}"
             case "memory":
                 return self.memory
@@ -154,14 +102,10 @@ class ContentKey(Struct, frozen=True, order=True, gc=False):
 
     @property
     def wire_bytes(self) -> bytes:
-        # Generated `bytes` columns use the kernel's ONE crossing projection, UInt128 big-endian. `memory` is the
-        # little-endian canonical-input projection and cannot substitute here without byte-swapping the digest.
         return self.value.to_bytes(16, "big")
 
 
 class CanonicalWriter:
-    # Exact seed-zero crossing writer. The accumulator receives each field directly, so a terminal raw model body
-    # is never duplicated merely to hash a semantic prefix beside it.
     __slots__ = ("_digest", "_byte_length")
 
     def __init__(self) -> None:
@@ -180,8 +124,6 @@ class CanonicalWriter:
         return self._emit(value.to_bytes(16, "little"))
 
     def double(self, value: float) -> Self:
-        # Match .NET `double.NaN`'s one quiet payload and collapse signed zero. Contract validation excludes every
-        # non-finite tessellation budget, but the writer itself stays total over the kernel grammar.
         if isnan(value):
             return self._emit((0xFFF8000000000000).to_bytes(8, "little"))
         return self._emit(pack("<d", 0.0 if value == 0.0 else value))
@@ -191,13 +133,11 @@ class CanonicalWriter:
         return self.ordinal(len(wire)).raw(wire)
 
     def bytes(self, value: bytes) -> Self:
-        # Variable-width octets frame exactly like UTF-8 text; `raw` remains reserved for fixed-width or already
-        # delimited material, so a semantic bytes member cannot collide by shifting a field boundary.
         return self.ordinal(len(value)).raw(value)
 
     def rows[T](self, values: tuple[T, ...], field: Callable[[T, Self], None], /) -> Self:
         self.ordinal(len(values))
-        for value in values:  # Exemption: the canonical writer is the incremental framing seam
+        for value in values:
             field(value, self)
         return self
 
@@ -206,8 +146,6 @@ class CanonicalWriter:
 
     @beartype(conf=FAULT_CONF)
     def key(self, fmt: KeyFmt) -> ContentKey:
-        # One close, one digest owner: the writer and `ContentIdentity` share `_closed`, so measurement, span
-        # evidence, and key projection cannot fork even though the writer streams instead of retaining its preimage.
         with _derive_span(fmt, "fields") as span:
             return _closed(span, fmt, self._digest.intdigest(), Some(self._byte_length))
 
@@ -225,11 +163,6 @@ CANONICAL_POLICY: Final[IdentityPolicy] = IdentityPolicy()
 
 @tagged_union(frozen=True)
 class IdentitySource:
-    # `stream` and `parts` are two multi-input modalities, never one: `stream` carries BUFFER CHUNKS of a single
-    # payload, where the chunk boundary is an I/O artefact and framing it would key one file differently per read
-    # size; `parts` carries N SEMANTIC fields whose boundary IS meaning, where concatenating them lets a byte moving
-    # across a boundary hold the key still. So the framing rides the modality that means it and the estate's
-    # `[PREIMAGE_FRAMING]` law lands at its one owner rather than as a lambda every producer re-spells.
     tag: Literal["whole", "stream", "parts", "merkle", "canonical"] = tag()
     whole: bytes = case()
     stream: tuple[bytes, ...] = case()
@@ -239,38 +172,23 @@ class IdentitySource:
 
     @staticmethod
     def lift(source: Source) -> "IdentitySource":
-        # TOTAL over the declared family AND over the tuple element regime alike: every tuple decides at the two arms
-        # below, so the `Iterable` arm can no longer swallow a heterogeneous one as a chunk stream — the mis-key that
-        # handed `fold` a tuple of tuples and raised a bare `TypeError` inside `digest.update`, outside every rail.
         match source:
             case IdentitySource() as lifted:
                 return lifted
             case tuple() as keys if keys and all(isinstance(key, ContentKey) for key in keys):
                 return IdentitySource(merkle=keys)
-            # `all` over no element holds, so the EMPTY tuple lands here and its seed-only fold is the deterministic
-            # degenerate key; `bytes(...)` coerces a buffer chunk once, so the fold receives the case's own declared
-            # `tuple[bytes, ...]` rather than whatever the producer's iterable happened to hold.
             case tuple() as chunks if all(isinstance(chunk, Buffer) for chunk in chunks):
                 return IdentitySource(stream=tuple(bytes(chunk) for chunk in chunks))
             case Struct() as payload:
                 return IdentitySource(canonical=payload)
-            # `Buffer` (PEP 688) claims every buffer-protocol payload as `whole` BEFORE the `Iterable` arm can mis-key an iterable
-            # buffer (`array`) as a chunk stream; `bytes(payload)` coerces once.
             case Buffer() as payload:
                 return IdentitySource(whole=bytes(payload))
-            # a ONE-SHOT iterable materializes once and re-enters at the tuple arms, so the element regime is read at
-            # ONE site and no guard exhausts a generator the fold would then receive empty. `tuple` is excluded here
-            # because a tuple already decided above — admitting it would recur forever on the un-admitted payload.
             case Iterable() as chunks if not isinstance(chunks, str | tuple):
                 return IdentitySource.lift(tuple(chunks))
             case _ as unreachable:
                 assert_never(unreachable)
 
     def fold(self, seed: U64) -> tuple[U128, Option[int]]:
-        # every arm over BYTES measures its own extent, so four of the five answer `Some`. The `merkle` spine is the
-        # one arm folding CHILD extents, and a parent whose children include a decoded key measured nothing itself:
-        # the fold binds through `Option` so one unmeasured child leaves the whole parent unmeasured, where a
-        # `sum_by` over a defaulted zero would publish the parent as lighter than its own contents.
         match self:
             case IdentitySource(tag="whole", whole=payload):
                 return xxhash.xxh3_128_intdigest(payload, seed=seed), Some(len(payload))
@@ -285,12 +203,10 @@ class IdentitySource:
                 return xxhash.xxh3_128_intdigest(spine, seed=seed), extent
             case IdentitySource(tag="stream", stream=chunks):
                 digest = xxhash.xxh3_128(seed=seed)
-                for chunk in chunks:  # Exemption: the incremental digest is xxhash's own streaming seam
+                for chunk in chunks:
                     digest.update(chunk)
                 return digest.intdigest(), Some(Block.of_seq(chunks).sum_by(len))
             case IdentitySource(tag="parts", parts=fields):
-                # `[PREIMAGE_FRAMING]` rides `_framed`, the module's ONE spelling of the width and byte order, so the
-                # key preimage here and the settings-seed preimage `ContentIdentity.seed` folds cannot drift apart.
                 return _framed(xxhash.xxh3_128(seed=seed), fields).intdigest(), Some(Block.of_seq(fields).sum_by(len))
             case _ as unreachable:
                 assert_never(unreachable)
@@ -306,14 +222,8 @@ _TRACER: Final[trace.Tracer] = scoped(trace.get_tracer, SCOPES[Scope.IDENTITY])
 
 
 def _framed[H: xxhash.xxh3_64 | xxhash.xxh3_128](digest: H, fields: tuple[bytes, ...]) -> H:
-    # `[PREIMAGE_FRAMING]` at its ONE owner: the COUNT frames the collection and every variable-width field carries
-    # its own little-endian u64 length ahead of its bytes, so no field boundary is spoofable by a value that happens
-    # to contain a delimiter and no re-partition of the same total bytes collides. The width and byte order are this
-    # routine's alone — a producer framing its own preimage forks both the instant one site spells
-    # `to_bytes(4, "big")`, and every fork is a silent collision. Both XXH3 widths expose the same `update` seam, so
-    # the 128-bit key preimage and the 64-bit settings-seed preimage frame through this one body rather than two.
     digest.update(len(fields).to_bytes(8, "little"))
-    for field in fields:  # Exemption: the incremental digest is xxhash's own streaming seam
+    for field in fields:
         digest.update(len(field).to_bytes(8, "little"))
         digest.update(field)
     return digest
@@ -321,7 +231,6 @@ def _framed[H: xxhash.xxh3_64 | xxhash.xxh3_128](digest: H, fields: tuple[bytes,
 
 @contextmanager
 def _derive_span(fmt: str, modality: str) -> Iterator[Span]:
-    # SOLE `content.derive` bracket both entries compose; attribute writes gate on `is_recording`.
     with _TRACER.start_as_current_span("content.derive") as span:
         if span.is_recording():
             span.set_attributes({"identity.fmt": fmt, "identity.modality": modality})
@@ -329,11 +238,7 @@ def _derive_span(fmt: str, modality: str) -> Iterator[Span]:
 
 
 def _closed(span: Span, fmt: str, value: U128, byte_length: Option[int]) -> ContentKey:
-    # SOLE close-annotate-status body: the key mints FIRST so the span attribute reads the owner's own `wire` view — a
-    # raw `U128` overflows the OTLP signed-int64 attribute bound, and an inline `{value:032x}` here would be the third
-    # site formatting a width the `project` arm claims to own alone. Then the clean-path OK; a fault never reaches
-    # here — the boundary wrapper records ERROR on the still-open span instead.
-    key = ContentKey(value=value, fmt=fmt, byte_length=byte_length)  # every mint MEASURED its preimage; only `decoded` answers Nothing
+    key = ContentKey(value=value, fmt=fmt, byte_length=byte_length)
     if span.is_recording():
         span.set_attribute("identity.key", key.project("wire"))
     span.set_status(Status(StatusCode.OK))
@@ -346,11 +251,6 @@ def _minted(span: Span, fmt: str, lifted: IdentitySource, seed: U64) -> ContentK
 
 
 def derived[T](fmt: str, source: IdentitySource, run: Callable[[Span], T]) -> RuntimeRail[T]:
-    # railed composition, gated FIRST: an unlawful `fmt` refuses before the span opens and before the seed derives, so
-    # a forked namespace costs no span, no digest, and no cache slot, and the refusal names the coordinate where a
-    # minted key would have named nothing. Past the gate `boundary` fences INSIDE the live span so a canonical-encode
-    # `EncodeError` records on it. Both refusals resolve a rostered `RAISES` anchor, so the caller's `fmt` rides as a
-    # NAMED coordinate on the gate's row rather than standing in as the fence subject a leg never declared.
     match Ok(fmt) if KEY_FMT.fullmatch(fmt) is not None else Error(IDENTITY_FMT.raised(fmt, KEY_FMT.pattern)):
         case Result(tag="error") as refused:
             return refused
@@ -362,10 +262,6 @@ def derived[T](fmt: str, source: IdentitySource, run: Callable[[Span], T]) -> Ru
 class ContentIdentity:
     @staticmethod
     def seed(fmt: str, policy: IdentityPolicy) -> U64:
-        # the settings seed frames its two fields under the SAME law the key preimage does. A separator join here
-        # made `KEY_FMT`'s exclusion of that byte load-bearing on a gate this entry never runs — `seed` takes a bare
-        # `fmt` and carries no rail — so a caller reaching it directly could slide the split and collide two settings
-        # onto one seed. Framed, the collision is unreachable whatever `fmt` spells and the entry needs no gate.
         return _framed(xxhash.xxh3_64(), (fmt.encode(), policy.spec)).intdigest()
 
     @overload
@@ -398,10 +294,6 @@ class ContentIdentity:
     @classmethod
     @beartype(conf=FAULT_CONF)
     def key(cls, fmt: KeyFmt, source: BareValue, policy: IdentityPolicy = CANONICAL_POLICY, *, seed: Option[U64] = Nothing) -> ContentKey:
-        # `key`'s signature excludes `Struct`, so `lift` cannot key `canonical` and the fold runs no fallible encode — same core, no rail.
-        # It carries no rail to refuse on either, so the grammar rides the REFINED hint instead: the shared `KEY_FMT`
-        # under `FAULT_CONF` raises the one canonical violation the `CLASSIFY` `api` row folds at whichever fence
-        # encloses the caller. One grammar, two seams keyed by the entry's own fallibility — never a second pattern.
         lifted = IdentitySource.lift(source)
         with _derive_span(fmt, lifted.tag) as span:
             return _minted(span, fmt, lifted, seed.default_with(lambda: cls.seed(fmt, policy)))

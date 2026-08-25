@@ -68,8 +68,6 @@ const _Modalities = Schema.NonEmptyArray(_Modality.schema).pipe(
 const _Depth = Schema.Int.pipe(Schema.positive(), Schema.brand("TapDepth"))
 const _PointRow = Schema.Struct({ name: _Name, modalities: _Modalities, depth: _Depth })
 
-// `_DEFAULT` is the bare-name form's own row: a name handed without a row is an observe point at the standing
-// width, and every other posture spells its columns
 const _DEFAULT = { depth: 32, modalities: ["observe"] } as const
 
 const _retained = (point: Tap.Rostered): number =>
@@ -163,7 +161,6 @@ declare namespace Tap {
     readonly modalities: Array.NonEmptyReadonlyArray<Modality>
     readonly depth: number
   }
-  // `Rostered` is the point's mechanism-facing half: the rail types against it alone, so every channel it mints is erased
   type Rostered = {
     readonly name: Name
     readonly modalities: Array.NonEmptyReadonlyArray<Modality>
@@ -198,9 +195,6 @@ const _point = <A, I>(source: Tap.Text | Tap.PointRow, fact: Schema.Schema<A, I>
     Either.mapLeft((issue) => new _Fault({ issues: [{ reason: "point", detail: String(issue) }] })),
   )
 
-// The word roster is a TYPE parameter, so a frequency mount carries the raiser's own published census through this
-// seat unerased: a bare `Words<N>` left the census argument typed at the constraint, and every word axis reaching the
-// instrument would have widened to the roster bound rather than staying the tuple its owner minted.
 const _emitter = <N extends Convention.MetricName, A, const W extends Convention.Roster>(
   point: Tap.Point<A>,
   metric: N,
@@ -256,7 +250,7 @@ const _isolated = <E>(point: Tap.Name, label: string) => (cause: Cause.Cause<E>)
 
 ```typescript signature
 declare namespace Tap {
-  type Policy = { readonly ledger: number } // the breach ring's own width: a rail decision no point depth carries
+  type Policy = { readonly ledger: number }
   type Census = { readonly admitted: number; readonly lost: number; readonly shed: number; readonly vetoed: number }
   type Seating = { readonly mounted: number; readonly refused: number; readonly released: number }
   type Ring<A> = {
@@ -265,11 +259,10 @@ declare namespace Tap {
     readonly replay: number
   }
   type Seat = {
-    // present exactly where the modality row's feedback column reads true, projected once at seating
     readonly arbiter: Option.Option<(fact: unknown) => Option.Option<Veto>>
     readonly label: string
     readonly modality: Modality
-    readonly point: Name // the seat carries its whole composition key, which is what release walks and uniqueness proves on
+    readonly point: Name
   }
   type Slot = Ring<unknown> & { readonly seats: Ref.Ref<HashMap.HashMap<string, Seat>> }
   type Resolved = { readonly label: string; readonly slot: Slot; readonly sub: Subscription<unknown, unknown> }
@@ -347,8 +340,6 @@ declare namespace Tap {
 const _Mount = Data.taggedEnum<Tap.Mount>()
 const _Verdict = Data.taggedEnum<Tap.Verdict>()
 
-// every plane tally is additive, so both ledgers derive from one per-column instance and fold whole rosters through
-// `combineAll` — a hand-written sum beside them would be a second, unproven combine
 const _Census: Monoid.Monoid<Tap.Census> = Monoid.fromSemigroup(
   Semigroup.struct({
     admitted: NumberInstances.SemigroupSum,
@@ -379,8 +370,6 @@ const _charged = <A>(ring: Tap.Ring<A>, cell: A): Effect.Effect<Tap.Census> =>
     Ref.updateAndGet(ring.census, (held) => ({
       ...held,
       admitted: held.admitted + (admitted ? 1 : 0),
-      // `replay` bounds the retained window: past that many admissions each further cell displaces one, and a ring
-      // declaring no window reports a structural zero rather than reading every admission as a loss
       lost: held.lost + (admitted && ring.replay > 0 && held.admitted >= ring.replay ? 1 : 0),
       shed: held.shed + (admitted ? 0 : 1),
     })))
@@ -389,7 +378,7 @@ const _arbitrated = (seats: HashMap.HashMap<string, Tap.Seat>, fact: unknown): O
   Array.reduce(
     Array.filterMap(HashMap.values(seats), (seat) => seat.arbiter),
     Option.none<Tap.Veto>(),
-    (held, gate) => Option.orElse(held, () => gate(fact)), // first refusal wins: a settled refusal never re-enters a later arbiter
+    (held, gate) => Option.orElse(held, () => gate(fact)),
   )
 
 const _arity = (seats: HashMap.HashMap<string, Tap.Seat>): number =>
@@ -412,7 +401,6 @@ const _rail = (
         ))
       return {
         app,
-        // `Tap.Ledger` retains its whole width, so an operator attaching after a fault storm reads the window rather than its tail
         ledger: yield* _ring<Tap.Breach>(policy.ledger, policy.ledger),
         seating: yield* Ref.make(_Seating.empty),
         slots: HashMap.fromIterable(slots),
@@ -436,7 +424,6 @@ const _admitted = (
       Effect.map(Ref.get(slot.seats), (seats) =>
         HashMap.has(seats, label)
           ? Either.left<_Issue>({ reason: "duplicate", point: sub.point.name, label })
-          // admission carries the resolved slot forward, so seating performs no second lookup and no unreachable arm exists
           : Either.right<Tap.Resolved>({ label, slot, sub })),
   })
 
@@ -455,14 +442,12 @@ const _seat = (
     }
     yield* handler._tag === "veto"
       ? Effect.void
-      // subscription drains the channel's own retained window before live facts, so replay costs no journal, and
-      // `FiberSet.clear` releases every modality alike because each delivery fiber's scope owns its unsubscribe
       : Effect.asVoid(FiberSet.run(
         fibers,
         Stream.runForEach(Stream.fromPubSub(row.slot.hub), (fact) =>
           Effect.catchAllCause(handler.handle(fact), (cause) =>
             Option.match(_isolated(point.name, row.label)(cause), {
-              onNone: () => Effect.void, // interruption-only cause: a cancelled delivery never reads as breach
+              onNone: () => Effect.void,
               onSome: (breach) => Effect.asVoid(_charged(rail.ledger, breach)),
             }))),
       ))
@@ -472,7 +457,7 @@ const _seat = (
 
 const _released = (rail: Tap.Rail, mounted: Omit<Tap.Mounted, "release">, fibers: FiberSet.FiberSet<void>): Effect.Effect<Tap.Released> =>
   Effect.gen(function* () {
-    const running = yield* FiberSet.size(fibers) // read before the clear: an emptied set reports zero and forges the count
+    const running = yield* FiberSet.size(fibers)
     yield* FiberSet.clear(fibers)
     yield* Effect.forEach(mounted.seats, (seat) =>
       Option.match(HashMap.get(rail.slots, seat.point), {
@@ -497,12 +482,12 @@ const _seated = (
 ): Effect.Effect<Tap.Mounted, never, Scope.Scope> =>
   Effect.acquireRelease(
     Effect.gen(function* () {
-      const fibers = yield* FiberSet.make<void>() // scope-bound: every delivery fiber dies with the mount, so a leaked subscriber is unspellable
+      const fibers = yield* FiberSet.make<void>()
       const handle = { app, seats: yield* Effect.forEach(rows, (row) => _seat(rail, fibers, row)) }
       yield* Ref.update(rail.seating, (held) => ({ ...held, mounted: held.mounted + 1 }))
       return { ...handle, release: _released(rail, handle, fibers) }
     }),
-    (mounted) => mounted.release, // release brackets the acquisition, never the outcome
+    (mounted) => mounted.release,
   )
 
 const _mount = <T extends Record<string, unknown>, E extends { readonly [K in keyof T]: unknown }>(
@@ -510,8 +495,6 @@ const _mount = <T extends Record<string, unknown>, E extends { readonly [K in ke
   registry: Tap.Registry<T, E>,
 ): Effect.Effect<Tap.Mount, never, Scope.Scope> =>
   Effect.gen(function* () {
-    // BOUNDARY ADAPTER: the mapped rows record erases to entry pairs once at the mount, and the rail's slots are the
-    // erased channels every registrar's own payload type re-narrows on
     const rows = Record.toEntries(registry.rows) as ReadonlyArray<readonly [string, Tap.Subscription<unknown, unknown>]>
     const held: ReadonlyArray<Either.Either<Tap.Resolved, _Issue>> = registry.app === rail.app
       ? yield* Effect.forEach(rows, ([label, sub]) => _admitted(rail, label, sub))
@@ -573,7 +556,7 @@ const Tap: Tap.Shape = {
   subscription: _subscription,
 }
 
-// --- [EXPORTS] --------------------------------------------------------------------------
+// --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Tap }
 ```

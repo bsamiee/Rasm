@@ -21,17 +21,16 @@ GH2's motion boundary composes host `Animated<T>` tweens, flex-frame sampling, a
 - Growth: a new host span or kind is one row keyed on its host ordinal; the kernel column absorbs the pairing.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Rasm.Parametric;
 using Thinktecture;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class SpanRow {
-    // Keys ARE the host ordinals, so a host re-tuning moves this table without a literal edit.
     public static readonly SpanRow Abrupt = new(key: (int)Duration.Abrupt, host: Duration.Abrupt);
     public static readonly SpanRow Brief = new(key: (int)Duration.Brief, host: Duration.Brief);
     public static readonly SpanRow Fast = new(key: (int)Duration.Fast, host: Duration.Fast);
@@ -79,7 +78,7 @@ public sealed partial class PaceRow {
 - Growth: a new carrier type is one kernel `Tween` member lifted through `Lerp.Of`; the binder never widens.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Grasshopper2.UI.Flex;
 using Rasm.Domain;
@@ -88,23 +87,19 @@ using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct FrameWindow(DateTime Start, DateTime End) : IValidityEvidence {
     public bool IsValid => End >= Start;
     public TimeSpan Cost => End - Start;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
-// ONE kernel-to-host interpolator adapter: the clamp admission folds here once, so no lifted member
-// re-guards the host's free double.
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class Lerp {
     public static Interpolate<T> Of<T>(Func<T, T, UnitInterval, T> kernel) =>
         (a, b, t) => kernel(a, b, Factor(value: t));
 
-    // Delegate cannot carry a rail, so the refusal PARKS on the composition cell and the visual holds the
-    // nearest endpoint — bounded, attributable degradation instead of a silent wrong pixel.
     public static Interpolate<Color> Perceptual(BlendPath path, FaultCell faults, Op key) =>
         (a, b, t) => {
             UnitInterval factor = Factor(value: t);
@@ -122,7 +117,6 @@ public static class Lerp {
     private static readonly HookId Rail = HookId.Create(value: "rasm.grasshopper.canvas.motion");
 }
 
-// Renamed from `Tween`: the kernel paint estate owns that name and the seating brings it into scope.
 [BoundaryAdapter]
 public static class Tweens {
     public static Animated<T> Hold<T>(T value, Interpolate<T> lerp) => Animated<T>.CreateFinished(value, lerp);
@@ -157,7 +151,7 @@ public static class FlexDrive {
 - Growth: a new semantic glyph is one row; a new figure lowering is one arm named against the host surface.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Grasshopper2.UI.Animation;
 using Rasm.Domain;
 using Rasm.Interaction;
@@ -165,9 +159,7 @@ using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// FIVE rows, one column: the four spin-less factories accept and ignore the angle exactly as the host does —
-// Stated cost of one roster over the whole factory family.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class NoticeGlyph {
     public static readonly NoticeGlyph Error = new(key: 0, mint: static (size, _) => AnimatedPath.CreateErrorPath(size));
@@ -187,11 +179,9 @@ public sealed partial class NoticeGlyph {
     }
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class GlyphPath {
-    // KERNEL figures, host lowering: absence is the pen-up gap, and a figure the host path cannot stroke refuses
-    // by name — the local primitive union that re-spelled a kernel subset is deleted.
     public static Fin<AnimatedPath> Custom(Seq<Option<PathSpec>> steps, Op? key = null) {
         Op op = key.OrDefault();
         return op.Catch(() => steps.Fold(Fin.Succ(new AnimatedPath()), (held, step) => held.Bind(path => step.Match(
@@ -206,7 +196,6 @@ public static class GlyphPath {
             None: () => Fin.Succ((Op.Side(path.AddGap), path).Item2)))));
     }
 
-    // Two nested Option folds dispatch the four host overloads; the segment admission accumulates its clauses.
     public static Fin<Unit> Trace(
         AnimatedPath path, Graphics graphics, Pen pen, double phase, Option<UnitInterval> end,
         PointF at, Option<(float Scale, VectorAngle Angle)> pose, Op? key = null);
@@ -224,7 +213,7 @@ public static class GlyphPath {
 - Growth: a new drive shape is one kernel `MotionScript` case; neither pacer gains a parallel sampling arm.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Grasshopper.Shell;
 using Rasm.Interaction;
@@ -233,10 +222,9 @@ using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 [BoundaryAdapter]
 public sealed class CanvasPacer : IDisposable {
-    // Script beside its HOST apply closure: the kernel samples, the host writes — the ruled apply arm.
     private readonly Atom<Seq<(MotionScript Script, Action<MotionSample> Apply)>> live;
     private readonly MotionPosture posture;
     private readonly FaultCell faults;
@@ -244,7 +232,6 @@ public sealed class CanvasPacer : IDisposable {
     private readonly Atom<bool> released = Atom(false);
     private readonly Op operation;
 
-    // Cadence is the kernel positive magnitude; the timeline is the session's ONE injected clock.
     public static Fin<Lease<CanvasPacer>> Mount(
         PositiveMagnitude cadence,
         Seq<(MotionScript Script, Action<MotionSample> Apply)> drives,
@@ -270,7 +257,6 @@ public sealed class CanvasPacer : IDisposable {
 
     public void Dispose() => _ = Release(key: operation);
 
-    // Doubled mount reads `Ceded`, disposes its surplus clock, and the refusal AGGREGATES the cleanup fault.
     private Fin<Lease<CanvasPacer>> Seat(Lease<UiClock> owned) =>
         Cell.Seat(cell: clock, mint: () => owned).Switch(
             state: operation,
@@ -281,10 +267,6 @@ public sealed class CanvasPacer : IDisposable {
             refused: static (_, row) => Fin.Fail<Lease<CanvasPacer>>(row.Cause),
             contended: static (op, _) => Fin.Fail<Lease<CanvasPacer>>(op.InvalidResult()));
 
-    // COMMIT-THEN-PARK: applies fire per row inside their own containment, a faulted row RETIRES from the
-    // roster, the survivor roster COMMITS and ONE repaint schedules BEFORE the beat rail reports — visuals that
-    // already moved are never stranded unpainted — and the collected faults then ride the beat rail, where the
-    // declared FaultPosture decides clock fate and the kernel clock parks the cause.
     private Fin<Unit> Advance(PulseBeat beat) {
         Seq<(MotionScript Script, Action<MotionSample> Apply)> active = live.Value;
         if (active.IsEmpty) { return Stop(); }
@@ -310,8 +292,6 @@ public sealed class CanvasPacer : IDisposable {
     private Fin<Unit> Stop() => clock.Value.ToFin(operation.InvalidResult())
         .Bind(owned => owned.Resource.Stop(key: operation));
 
-    // Weak on BOTH ends: the clock never roots its owner, and an abandoned pacer's orphan clock disposes on the
-    // next tick rather than beating forever.
     private static Fin<Unit> Tick(WeakReference<CanvasPacer> owner, PulseBeat beat, Op key) =>
         owner.TryGetTarget(out CanvasPacer? active)
             ? active.Advance(beat: beat)
@@ -332,7 +312,7 @@ public sealed class CanvasPacer : IDisposable {
 - Growth: a new judged axis is one row with one subject arm; a tuned bound is a row fraction change with every consumer untouched.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Interaction;
 using Rasm.Parametric;
@@ -340,9 +320,7 @@ using Thinktecture;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// Bounds DERIVE: each row is a FRAME FRACTION of the kernel band's period, so no millisecond literal
-// exists — its declared Bound reads `PaceBand.Portable`, a seated band re-bounds the ladder per judgment.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class BudgetRow : IGaugeLane<BudgetRow> {
     public static readonly BudgetRow PaintPass = new(key: "paint.pass", frames: 0.35);
@@ -358,8 +336,6 @@ public sealed partial class BudgetRow : IGaugeLane<BudgetRow> {
 
     public double Frames { get; }
 
-    // Bound derives from the kernel's DECLARED portable band — no local period constant, no millisecond
-    // literal; a display-true bound arrives per judgment through the seated `PaceBand` (Judge's `pace`).
     public TimeSpan Bound => PaceBand.Portable.Period * Frames;
 }
 
@@ -372,14 +348,9 @@ public abstract partial record BudgetSubject {
     public sealed record StepCase(BudgetRow Row, TimeSpan Cost) : BudgetSubject;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 [BoundaryAdapter]
 public static class BudgetGate {
-    // EVERY measured axis lands as a kernel gauged span — the pass verdict is the consumer's Breached filter.
-    // SEATED-band law: its own Period bounds every row (bound = Period × Frames) — no hand scale factor, no local
-    // reference constant; an absent pace reads the kernel Portable declared row. The paint arm re-gauges the
-    // receipt's elapsed under the FRAME-SHARE axis — the receipt's own DispatchLane span keeps its marshal
-    // verdict, consumed by the telemetry PaintCase stream; two bounds, two questions, both read.
     public static Fin<Seq<GaugedSpan<BudgetRow>>> Judge(
         BudgetSubject subject, Option<PaceBand> pace = default, Op? key = null) {
         Op op = key.OrDefault();

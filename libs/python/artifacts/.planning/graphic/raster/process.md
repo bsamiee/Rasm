@@ -39,8 +39,7 @@ lazy from skimage import color, exposure, feature, filters, graph, io as skio, m
 type Frame = NDArray[np.uint8]
 
 
-class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measured-row acceptor bodies live on graphic/raster/measure
-    # --- produced-raster scikit-image families
+class Transform(StrEnum):
     DENOISE_BILATERAL = "denoise-bilateral"
     DENOISE_NL_MEANS = "denoise-nl-means"
     DENOISE_TV = "denoise-tv"
@@ -48,12 +47,12 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     INPAINT = "inpaint"
     ROLLING_BALL = "rolling-ball"
     DECONVOLVE = "deconvolve"
-    WIENER = "wiener"  # restoration.wiener supervised deconvolution
-    UNSUPERVISED_WIENER = "unsupervised-wiener"  # restoration.unsupervised_wiener self-tuned Wiener-Hunt
-    UNWRAP_PHASE = "unwrap-phase"  # restoration.unwrap_phase 2D phase-unwrap
-    SEPARATE_STAINS = "separate-stains"  # color.separate_stains H&E/HDX unmixing (_color)
-    COMBINE_STAINS = "combine-stains"  # color.combine_stains inverse remix (_color)
-    CONVERT_COLORSPACE = "convert-colorspace"  # color.convert_colorspace over the row's fromspace/tospace string pair (_color)
+    WIENER = "wiener"
+    UNSUPERVISED_WIENER = "unsupervised-wiener"
+    UNWRAP_PHASE = "unwrap-phase"
+    SEPARATE_STAINS = "separate-stains"
+    COMBINE_STAINS = "combine-stains"
+    CONVERT_COLORSPACE = "convert-colorspace"
     YCBCR = "ycbcr"
     RGB2HSV = "rgb2hsv"
     RGB2LAB = "rgb2lab"
@@ -61,7 +60,7 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     CLAHE = "clahe"
     EQUALIZE = "equalize"
     RESCALE_INTENSITY = "rescale-intensity"
-    MATCH_HISTOGRAMS = "match-histograms"  # reference-consuming
+    MATCH_HISTOGRAMS = "match-histograms"
     GAMMA = "gamma"
     LOG = "log"
     SIGMOID = "sigmoid"
@@ -71,13 +70,13 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     WATERSHED = "watershed"
     CHAN_VESE = "chan-vese"
     MORPHOLOGICAL_CHAN_VESE = "morphological-chan-vese"
-    MORPHOLOGICAL_GEODESIC = "morphological-geodesic"  # over inverse_gaussian_gradient (_segment)
+    MORPHOLOGICAL_GEODESIC = "morphological-geodesic"
     FIND_BOUNDARIES = "find-boundaries"
     CLEAR_BORDER = "clear-border"
-    RAG_CUT_THRESHOLD = "rag-cut-threshold"  # graph.cut_threshold over the mean-color RAG (_graph)
+    RAG_CUT_THRESHOLD = "rag-cut-threshold"
     RAG_CUT_NORMALIZED = "rag-cut-normalized"
     RAG_MERGE = "rag-merge"
-    MIN_COST_PATH = "min-cost-path"  # graph.route_through_array over the luminance cost (_graph)
+    MIN_COST_PATH = "min-cost-path"
     UNSHARP = "unsharp"
     GAUSSIAN = "gaussian"
     MEDIAN = "median"
@@ -95,7 +94,7 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     SATO = "sato"
     HESSIAN = "hessian"
     MEIJERING = "meijering"
-    RANK_MEAN = "rank-mean"  # filters.rank.* footprint-local (_filter RANK)
+    RANK_MEAN = "rank-mean"
     RANK_MEDIAN = "rank-median"
     RANK_MAXIMUM = "rank-maximum"
     RANK_ENTROPY = "rank-entropy"
@@ -112,7 +111,7 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     THRESHOLD_MINIMUM = "threshold-minimum"
     THRESHOLD_NIBLACK = "threshold-niblack"
     THRESHOLD_SAUVOLA = "threshold-sauvola"
-    HYSTERESIS = "hysteresis"  # filters.apply_hysteresis_threshold two-level binarize (_threshold)
+    HYSTERESIS = "hysteresis"
     SKELETONIZE = "skeletonize"
     MEDIAL_AXIS = "medial-axis"
     THIN = "thin"
@@ -136,33 +135,31 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     ROTATE = "rotate"
     SWIRL = "swirl"
     WARP_POLAR = "warp-polar"
-    WARP = "warp"  # transform.warp over estimate_transform("projective") keystone dewarp (_geometric)
+    WARP = "warp"
     RADON = "radon"
     IRADON = "iradon"
-    # --- produced-raster pillow families (rows + acceptor bodies here; the plane's working engine)
-    CHOPS_MULTIPLY = "chops-multiply"  # ImageChops two-image channel algebra (_chops; reference-consuming)
+    CHOPS_MULTIPLY = "chops-multiply"
     CHOPS_SCREEN = "chops-screen"
     CHOPS_OVERLAY = "chops-overlay"
     CHOPS_SOFT_LIGHT = "chops-soft-light"
     CHOPS_HARD_LIGHT = "chops-hard-light"
     CHOPS_DIFFERENCE = "chops-difference"
-    CHOPS_ADD = "chops-add"  # scale/offset ride the row
+    CHOPS_ADD = "chops-add"
     CHOPS_SUBTRACT = "chops-subtract"
     CHOPS_ADD_MODULO = "chops-add-modulo"
     CHOPS_DARKER = "chops-darker"
     CHOPS_LIGHTER = "chops-lighter"
-    MATH_LINEAR = "math-linear"  # ImageMath.lambda_eval gain/bias affine (_math)
-    ENHANCE_COLOR = "enhance-color"  # ImageEnhance factor rows (_enhance)
+    MATH_LINEAR = "math-linear"
+    ENHANCE_COLOR = "enhance-color"
     ENHANCE_CONTRAST = "enhance-contrast"
     ENHANCE_BRIGHTNESS = "enhance-brightness"
     ENHANCE_SHARPNESS = "enhance-sharpness"
-    LUT_3D = "lut-3d"  # ImageFilter.Color3DLUT table application; the table rides reference (_grade)
-    SOURCE_LINEAR_GRADIENT = "source-linear-gradient"  # procedural L ramps and fields (_source)
+    LUT_3D = "lut-3d"
+    SOURCE_LINEAR_GRADIENT = "source-linear-gradient"
     SOURCE_RADIAL_GRADIENT = "source-radial-gradient"
     SOURCE_NOISE = "source-noise"
     SOURCE_MANDELBROT = "source-mandelbrot"
-    EFFECT_SPREAD = "effect-spread"  # random per-pixel displacement of the operand (_source)
-    # --- measured-score families (rows + acceptor bodies on graphic/raster/measure)
+    EFFECT_SPREAD = "effect-spread"
     CONTOURS = "contours"
     ENTROPY = "entropy"
     REGIONPROPS = "regionprops"
@@ -181,21 +178,21 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     FIT_CIRCLE = "fit-circle"
     FIT_ELLIPSE = "fit-ellipse"
     FIT_LINE = "fit-line"
-    HOUGH_LINE = "hough-line"  # the DETECTION family distinct from the RANSAC geometric FIT
+    HOUGH_LINE = "hough-line"
     HOUGH_CIRCLE = "hough-circle"
     HOUGH_LINE_PROB = "hough-line-prob"
     STRUCTURE_TENSOR = "structure-tensor"
     SHAPE_INDEX = "shape-index"
     DAISY = "daisy"
     BASIC_FEATURES = "basic-features"
-    BLUR_EFFECT = "blur-effect"  # the first NO-reference sharpness scalar
+    BLUR_EFFECT = "blur-effect"
     PROFILE_LINE = "profile-line"
     OPTICAL_FLOW = "optical-flow"
     OPTICAL_FLOW_ILK = "optical-flow-ilk"
     PHASE_CORRELATION = "phase-correlation"
     KEYPOINTS = "keypoints"
     SIFT_KEYPOINTS = "sift-keypoints"
-    CENSURE_KEYPOINTS = "censure-keypoints"  # CENSURE detect + BRIEF describe (reference-consuming)
+    CENSURE_KEYPOINTS = "censure-keypoints"
     SSIM = "ssim"
     PSNR = "psnr"
     MSE = "mse"
@@ -204,81 +201,68 @@ class Transform(StrEnum):  # the raster sub-axis vocabulary declared HERE; measu
     HAUSDORFF = "hausdorff"
     RAND_ERROR = "rand-error"
     INFO_VARIATION = "info-variation"
-    CONTINGENCY = "contingency"  # metrics.contingency_table label-overlap (reference-consuming)
+    CONTINGENCY = "contingency"
 
 
-class ConvertFormat(StrEnum):  # the canonical container key; each provider spelling rides its own `graphic/raster/io#IO` `CODEC` writer column
+class ConvertFormat(StrEnum):
     PNG = "PNG"
     JPEG = "JPEG"
     WEBP = "WEBP"
     AVIF = "AVIF"
-    HEIF = "HEIF"  # the HEVC-in-HEIF sibling of AVIF, libvips-only: pillow registers no HEIF saver at any build
-    JP2 = "JP2"  # JPEG 2000 at display depth over openjpeg; the 12- and 16-bit JP2 lanes are the texture plane's
+    HEIF = "HEIF"
+    JP2 = "JP2"
     GIF = "GIF"
     TIFF = "TIFF"
     BMP = "BMP"
-    JXL = "JXL"  # JPEG XL at 8-bit display depth; the deep-pixel JXL lanes are the texture plane's, never this uint8 funnel's
-    QOI = "QOI"  # the lossless byte-stream container: 8-bit RGB/RGBA by specification, so it admits no deeper lane at all
+    JXL = "JXL"
+    QOI = "QOI"
 
 
-class TransformNeeds(StrEnum):  # the operand-requirement axis a row states on itself; io's one gate arm reads it before dispatch
+class TransformNeeds(StrEnum):
     NONE = "none"
-    REFERENCE = "reference"  # the second operand: a chops overlay, a LUT table, a histogram/metric/registration reference
-    MASK = "mask"  # the inpaint mask
-    SOURCE = "source"  # a generated frame owns no decoded operand
+    REFERENCE = "reference"
+    MASK = "mask"
+    SOURCE = "source"
 
 
 class FieldLaw(StrEnum):
-    # WHAT an acceptor's array MEANS, and therefore whether the display PNG is the whole product. The discriminant is
-    # the referent, exactly as the bit-depth ruling states it — a render is display-referred and a measurement is not.
-    DISPLAY = "display"  # the render IS the product; the `[0, 1]` rescale to `img_as_ubyte` loses nothing
-    QUANTITATIVE = "quantitative"  # the ABSOLUTE scale is the result — a projection sinogram, a tensor trace, a shape
-    # index, a flow magnitude, a deconvolved intensity, an unwrapped phase — so the pre-rescale field rides beside the
-    # preview and the 8-bit PNG is a thumbnail OF it, never the value; one 8-bit ladder recovers none of those.
+    DISPLAY = "display"
+    QUANTITATIVE = "quantitative"
 
 
 class FilterChannel(StrEnum):
-    GRAY = "gray"  # luminance operand, no channel axis (gradient + ridge + canny + gabor)
-    CHANNELED = "channeled"  # raw operand with channel_axis injected (unsharp / gaussian / butterworth / difference-of-gaussians)
-    PLAIN = "plain"  # raw operand, no channel axis (median)
-    RANK = "rank"  # footprint-local rank filter on a uint8 operand (filters.rank.*)
+    GRAY = "gray"
+    CHANNELED = "channeled"
+    PLAIN = "plain"
+    RANK = "rank"
 
 
 class MorphKind(StrEnum):
-    BINARY_FOOTPRINT = "binary-footprint"  # binary op over a disk footprint: opening / closing / erosion / dilation
-    BINARY_PLAIN = "binary-plain"  # binary op, no footprint: skeletonize / medial_axis / thin / convex_hull_image
-    GRAY_FOOTPRINT = "gray-footprint"  # grayscale op over a disk footprint: white_tophat / black_tophat
-    RECONSTRUCT = "reconstruct"  # seed(eroded gray)-under-mask(gray) reconstruction by dilation
-    PRUNE = "prune"  # component removal by a size/area floor (kwargs on the row)
-    ATTRIBUTE = "attribute"  # max-tree attribute filter on gray: area_opening / diameter_opening
-    ISOTROPIC = "isotropic"  # distance-transform radius morphology, no footprint
-    FLOOD = "flood"  # seeded flood fill from a row-declared seed point
+    BINARY_FOOTPRINT = "binary-footprint"
+    BINARY_PLAIN = "binary-plain"
+    GRAY_FOOTPRINT = "gray-footprint"
+    RECONSTRUCT = "reconstruct"
+    PRUNE = "prune"
+    ATTRIBUTE = "attribute"
+    ISOTROPIC = "isotropic"
+    FLOOD = "flood"
 
 
 class FieldSpec(Struct, frozen=True, gc=False):
-    # the UNQUANTIZED measurement field beside the display PNG: contiguous octets plus the shape and dtype a consumer
-    # rebuilds the array from through `np.frombuffer(...).reshape(...)`. The carrier is OCTETS, never a widened `Frame`
-    # and never a texture type — the strata forbid `graphic/raster` naming one — so the deep consumer that owns both
-    # planes lifts these bytes into its own carrier at the boundary and no import crosses in either direction.
     data: bytes
     shape: tuple[int, ...]
     dtype: str
 
 
 class RasterFact(Struct, frozen=True, omit_defaults=True):
-    # plane's ONE fact shape; the score band is the exact frozendict[str, float | str] ArtifactReceipt.Preview.scores carries
     data: bytes
     width: int = 0
     height: int = 0
     score: frozendict[str, float | str] = frozendict()
-    field: FieldSpec | UnsetType = UNSET  # set by a QUANTITATIVE acceptor alone; `omit_defaults` round-trips its absence
+    field: FieldSpec | UnsetType = UNSET
 
 
 _SKIMAGE_SPACE: Final[frozendict[ColorModel, str]] = frozendict({
-    # The DOWNSTREAM lowering of the canonical `graphic/color/derive#DERIVE` vocabulary onto the space names
-    # `color.convert_colorspace` admits — the same shape every other consumer of that vocabulary takes, so no page-local
-    # colour enum forks the axis a third time. A model with no row is a space skimage's generic converter cannot reach,
-    # and `admitted` refuses the pair by table membership rather than letting `provider` KeyError inside a worker.
     ColorModel.SRGB: "RGB",
     ColorModel.HSV: "HSV",
     ColorModel.RGB_CIE: "RGB CIE",
@@ -349,8 +333,6 @@ class TransformPolicy:
     glcm: tuple[tuple[int, ...], tuple[float, ...], int, bool, bool] = case()
 
     def admitted(self, /) -> bool:
-        # every float-bearing payload proves finiteness before its range check — an infinity satisfies `>`/`>=`/`!=`
-        # and would cross into the provider; an int payload cannot carry one, so the int arms stay range-only.
         match self:
             case TransformPolicy(tag="default") | TransformPolicy(tag="none"):
                 return True
@@ -541,10 +523,10 @@ class TransformArm:
     member: str
     arm: Callable[[TransformInput], RasterFact]
     policy: TransformPolicy = TransformPolicy(none=None)
-    channel: FilterChannel = FilterChannel.GRAY  # read only by _filter; the per-member operand/channel-axis disposition
-    morph: MorphKind = MorphKind.BINARY_FOOTPRINT  # read only by _morphology; the per-member operand/footprint disposition
-    needs: TransformNeeds = TransformNeeds.NONE  # the operand requirement io's gate reads; the row, never a foreign roster
-    field: FieldLaw = FieldLaw.DISPLAY  # whether the acceptor's array is a render or a measurement; `_save_array` reads it
+    channel: FilterChannel = FilterChannel.GRAY
+    morph: MorphKind = MorphKind.BINARY_FOOTPRINT
+    needs: TransformNeeds = TransformNeeds.NONE
+    field: FieldLaw = FieldLaw.DISPLAY
 
     def accepts(self, override: TransformPolicy, /) -> bool:
         selected = self.policy if override.tag == "default" else override
@@ -563,10 +545,6 @@ def _luminance(frame: Frame, /) -> NDArray[np.floating]:
 
 
 def _fielded(array: NDArray[np.floating | np.integer | np.bool_], law: FieldLaw, /) -> FieldSpec | UnsetType:
-    # The pre-rescale capture: a QUANTITATIVE acceptor's absolute scale survives as contiguous octets beside the display
-    # PNG, so a sinogram, a tensor trace, a shape index, a phase field, a flow magnitude, and a deconvolved intensity
-    # each reach a deep consumer intact where the display re-encode flattens every one onto a 256-step ladder no later
-    # depth recovers. A DISPLAY row captures nothing, so the fact stays exactly the size the preview needs.
     match law:
         case FieldLaw.QUANTITATIVE:
             contiguous = np.ascontiguousarray(array)
@@ -708,8 +686,6 @@ def _restore(tx: TransformInput) -> RasterFact:
             assert_never(unreachable)
     match kind:
         case Transform.DECONVOLVE:
-            # `richardson_lucy` admits no `channel_axis` (catalog row [07]); the deconvolution family operates
-            # on the luminance plane exactly as its Wiener siblings — color-plane policy is the dispatch axis.
             image, iters = util.img_as_float(_luminance(frame)), int(opts["num_iter"])
             return _save_array(member(image, _psf(opts), num_iter=iters), frozendict({"iterations": float(iters)}), law=row.field)
         case Transform.WIENER:
@@ -722,7 +698,6 @@ def _restore(tx: TransformInput) -> RasterFact:
             unwrapped = member(_luminance(frame))
             return _save_array(unwrapped, frozendict({"range": float(np.ptp(unwrapped))}), law=row.field)
         case Transform.ROLLING_BALL:
-            # float operand: a uint8 subtraction wraps on any pixel darker than its background estimate
             image = util.img_as_float(frame)
             background = member(image, radius=int(opts["radius"]))
             return _save_array(image - background, frozendict({"background": float(background.mean())}))
@@ -739,12 +714,12 @@ def _color(tx: TransformInput) -> RasterFact:
     row = TRANSFORMS[kind]
     member = getattr(color, row.member)
     match kind:
-        case Transform.SEPARATE_STAINS:  # H&E/HDX stain unmixing over the fixed color-deconvolution matrix
+        case Transform.SEPARATE_STAINS:
             stains = member(image, color.hed_from_rgb, channel_axis=_channels(image))
             return _save_array(stains, frozendict({"stains": float(stains.shape[-1])}))
-        case Transform.COMBINE_STAINS:  # the inverse remix: stain planes back to RGB over the rgb_from_hed matrix
+        case Transform.COMBINE_STAINS:
             return _save_array(member(image, color.rgb_from_hed, channel_axis=_channels(image)), frozendict({"space": "rgb"}))
-        case Transform.CONVERT_COLORSPACE:  # the name-dispatched space pair rides the row's typed string kwargs
+        case Transform.CONVERT_COLORSPACE:
             opts = row.options(policy)
             return _save_array(member(image, str(opts["fromspace"]), str(opts["tospace"])), frozendict({"space": str(opts["tospace"])}))
         case Transform.YCBCR | Transform.RGB2HSV | Transform.RGB2LAB | Transform.LAB2RGB:
@@ -804,12 +779,10 @@ def _segment(tx: TransformInput) -> RasterFact:
 
 
 def _weight_mean_color(rag: object, src: int, dst: int, neighbor: int, /) -> dict[str, float]:
-    # skimage RAG merge idiom: edge weight is the mean-color L2 distance (the networkx edge-data dict the callback contract requires)
     return {"weight": float(np.linalg.norm(rag.nodes[dst]["mean color"] - rag.nodes[neighbor]["mean color"]))}
 
 
 def _merge_mean_color(rag: object, src: int, dst: int, /) -> None:
-    # skimage RAG merge idiom: fold src's color mass into dst before the edge drops (the callback mutates the provider RAG in place)
     rag.nodes[dst]["total color"] += rag.nodes[src]["total color"]
     rag.nodes[dst]["pixel count"] += rag.nodes[src]["pixel count"]
     rag.nodes[dst]["mean color"] = rag.nodes[dst]["total color"] / rag.nodes[dst]["pixel count"]
@@ -862,19 +835,19 @@ def _morphology(tx: TransformInput) -> RasterFact:
     match row.morph:
         case MorphKind.BINARY_FOOTPRINT:
             result = member(binary, morphology.disk(int(opts["radius"])))
-        case MorphKind.BINARY_PLAIN:  # skeletonize / medial_axis / thin / convex_hull_image — binary in, binary out, no footprint
+        case MorphKind.BINARY_PLAIN:
             result = member(binary)
         case MorphKind.GRAY_FOOTPRINT:
             result = member(gray, morphology.disk(int(opts["radius"])))
-        case MorphKind.RECONSTRUCT:  # opening-by-reconstruction: dilate an eroded seed under the gray mask
+        case MorphKind.RECONSTRUCT:
             result = member(morphology.erosion(gray, morphology.disk(int(opts["radius"]))), gray)
-        case MorphKind.PRUNE:  # remove_small_objects (min_size) / remove_small_holes (area_threshold) — the floor kwarg rides the row typed
+        case MorphKind.PRUNE:
             result = member(binary, **opts)
-        case MorphKind.ATTRIBUTE:  # area_opening / diameter_opening — max-tree attribute filter on the grayscale operand
+        case MorphKind.ATTRIBUTE:
             result = member(gray, **opts)
-        case MorphKind.ISOTROPIC:  # distance-transform radius morphology (no explicit footprint)
+        case MorphKind.ISOTROPIC:
             result = member(binary, int(opts["radius"]))
-        case MorphKind.FLOOD:  # seeded flood fill: fill the connected region at the row-declared seed point on a uint8 operand
+        case MorphKind.FLOOD:
             result = member(util.img_as_ubyte(gray), (int(opts["seed_row"]), int(opts["seed_col"])), 255)
         case _ as unreachable:
             assert_never(unreachable)
@@ -953,7 +926,7 @@ def _filter(tx: TransformInput) -> RasterFact:
             member, source, extra = getattr(filters, row.member), image, frozendict({"channel_axis": _channels(image)}) | opts
         case FilterChannel.PLAIN:
             member, source, extra = getattr(filters, row.member), image, opts
-        case FilterChannel.RANK:  # filters.rank.<member>(uint8, footprint=disk(radius)); radius rides the row into the footprint
+        case FilterChannel.RANK:
             member, source, extra = (
                 getattr(filters.rank, row.member),
                 util.img_as_ubyte(_luminance(image)),
@@ -973,8 +946,6 @@ TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
     Transform.DENOISE_WAVELET: TransformArm("denoise_wavelet", _denoise),
     Transform.INPAINT: TransformArm("inpaint_biharmonic", _restore, needs=TransformNeeds.MASK),
     Transform.ROLLING_BALL: TransformArm("rolling_ball", _restore, TransformPolicy(radius=50)),
-    # the deconvolution family and the phase unwrap each return an ABSOLUTE intensity or radian field, so the row marks
-    # the fact quantitative and the acceptor emits the pre-rescale octets beside the preview
     Transform.DECONVOLVE: TransformArm("richardson_lucy", _restore, TransformPolicy(deconvolution=(5, 10)), field=FieldLaw.QUANTITATIVE),
     Transform.WIENER: TransformArm("wiener", _restore, TransformPolicy(wiener=(5, 0.1)), field=FieldLaw.QUANTITATIVE),
     Transform.UNSUPERVISED_WIENER: TransformArm("unsupervised_wiener", _restore, TransformPolicy(psf=5), field=FieldLaw.QUANTITATIVE),
@@ -1068,8 +1039,6 @@ TRANSFORMS: Final[frozendict[Transform, TransformArm]] = frozendict({
         "warp", _geometric,
         TransformPolicy(projective=(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
     ),
-    # the projection pair's sinogram and reconstruction ARE the measurement — the angle-by-offset absolute scale is the
-    # result a tomographic consumer reads, and the display PNG is a thumbnail of it
     Transform.RADON: TransformArm("radon", _geometric, field=FieldLaw.QUANTITATIVE),
     Transform.IRADON: TransformArm("iradon", _geometric, field=FieldLaw.QUANTITATIVE),
     Transform.CHOPS_MULTIPLY: TransformArm("multiply", _chops, needs=TransformNeeds.REFERENCE),

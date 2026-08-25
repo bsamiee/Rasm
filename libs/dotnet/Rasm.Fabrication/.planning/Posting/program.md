@@ -22,7 +22,7 @@
 - Boundary: dialect byte spelling stays in `Dialect`; this cluster declares codes as ROW data and renders none.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Linq;
@@ -43,7 +43,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Posting;
 
-// --- [TYPES] ------------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ProgramUnits {
     public static readonly ProgramUnits Metric = new("metric", Length.FromMillimeters(1.0).Millimeters);
@@ -188,8 +188,6 @@ public sealed partial class GCommand {
     public static readonly GCommand Css = Aux("css", "G96", ModalGroup.Spindle, Set('S', 'D'));
     public static readonly GCommand CssCancel = StateRow("css-cancel", "G97", ModalGroup.Spindle);
     public static readonly GCommand Coolant = StateRow("coolant", "M8", ModalGroup.Coolant);
-    // Two rows, one wire code, DISJOINT modalities: the program's own modality resolves the pair, so a controller
-    // admitting both contact and thermal work still parses each token to exactly one row.
     public static readonly GCommand CoolantMist = new("coolant-mist", "M7", ModalGroup.Coolant, Empty, MotionRole.None,
         Set<DialectFeature>(), Set(ProcessModality.Subtractive, ProcessModality.Abrasive, ProcessModality.Erosion), None);
     public static readonly GCommand TorchOn = new("torch-on", "M07", ModalGroup.Spindle, Empty, MotionRole.None,
@@ -220,8 +218,6 @@ public sealed partial class GCommand {
     public static readonly GCommand ProgramEnd = StateRow("program-end", "M30", ModalGroup.Stop);
     public static readonly GCommand Stop = StateRow("stop", "M0", ModalGroup.Stop);
     public static readonly GCommand OptionalStop = StateRow("optional-stop", "M1", ModalGroup.Stop);
-    // One G4 row carries both dwell forms; `P` is the time address every dialect admits and `X`/`U` the revolution
-    // addresses `DialectFeature.RevolutionDwell` gates at emission.
     public static readonly GCommand Dwell = new("dwell", "G4", ModalGroup.NonModal,
         new CommandGrammar(Set<char>(), Set('P', 'X', 'U'), Set<char>(), WordValueLaw.Symbolic), MotionRole.None,
         Set(DialectFeature.TimeDwell), Set<ProcessModality>(), Some('P'));
@@ -253,14 +249,10 @@ public sealed partial class GCommand {
                 ? Fin.Succ(admitted)
                 : Fin.Fail<Arr<GParam>>(new FabricationFault.ProgramParse(line, Group)));
 
-    // Dialect admissibility is the row's own declared demand against the dialect's declared capability, so a new
-    // controller is one `PostDialect` row and a new command one `Requires` set, with no roster on either side.
     public bool Admits(PostDialect dialect) =>
         Requires.ForAll(dialect.Features.Contains)
         && (Modalities.IsEmpty || Modalities.Exists(dialect.Modalities.Contains));
 
-    // The program's OWN modality, never the controller's whole set: a row declaring no modality serves every
-    // program, and a row declaring one serves only the program running that modality.
     public bool Serves(ProcessModality modality) => Modalities.IsEmpty || Modalities.Contains(modality);
 
     private static GCommand MotionRow(string key, string code, MotionRole role, params ReadOnlySpan<DialectFeature> requires) =>
@@ -282,9 +274,6 @@ public sealed partial class GCommand {
         None);
 }
 
-// The ONE token identity and the ONE index over it. `WireCode` normalizes letter prefix and decimal tail so `M7`,
-// `M07`, and `M7.0` are one key; the index is built once from the roster, so resolution costs a lookup per token
-// where the prior scan cost the whole roster per token.
 public static class WireCode {
     private static readonly FrozenDictionary<string, Seq<GCommand>> Index = toSeq(GCommand.Items)
         .GroupBy(static command => Of(command.Code))
@@ -322,7 +311,7 @@ public static class WireCode {
 - Growth: a syntax construct is one `GNode` case, one `NodeKey` arm, and one `ModalState.Push` arm.
 
 ```csharp signature
-// --- [MODELS] -----------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GValue {
     private GValue() { }
@@ -353,7 +342,6 @@ public readonly record struct GParam(char Address, GValue Value) {
     public static GParam Number(char address, double value, ProgramUnits units) =>
         new(char.ToUpperInvariant(address), new GValue.Number(value, value.ToString("R", CultureInfo.InvariantCulture), units));
 
-    // Rounding is a rendering decision, so it lands in the source units the record emits, never in canonical millimetres.
     public GParam Round(int decimals) => Value is GValue.Number number
         ? this with { Value = number with {
             Canonical = number.SourceUnits.Canonical(Math.Round(number.SourceUnits.Native(number.Canonical), decimals)),
@@ -469,15 +457,9 @@ public abstract partial record GNode {
         GParam.Number('Z', point.Z, ProgramUnits.Metric));
 }
 
-// One structural digest per node over the ONE package facade. A node's key covers its own subtree, so an equality
-// test between two ASTs is a `UInt128` compare and a pattern census streams keys rather than re-serializing bodies.
-// The quantization grid is the DIALECT's own emitted precision, so two programs a controller cannot distinguish
-// key alike and a re-post of one drawing is byte-identical.
 public static class NodeKey {
     public static double Grid(PostDialect dialect) => Math.Pow(10.0, -dialect.Decimals);
 
-    // The ORDER-ONLY close: a node key is a digest nobody reads bytes back from, so the streaming writer answers it
-    // without materializing a buffer per node, where the retaining close would allocate one preimage per node.
     public static UInt128 Of(GNode node, double grid) =>
         FabricationCanon.Ordered(grid, writer => Write(writer, node));
 
@@ -525,8 +507,6 @@ public static class NodeKey {
             .Discriminant(value.Payload.Kind).Double(value.Payload.DurationSeconds)
             .Rows(value.Payload.Rows, WriteSpecialized));
 
-    // The specialized rows carry the evidence a posted program must preserve, so each row's own columns enter the
-    // preimage: two envelopes differing only in a wire lag or a bevel cross-tilt key apart.
     private static CanonicalWriter WriteSpecialized(CanonicalWriter writer, SpecializedToolpathRow row) => row.Switch(
         state: writer,
         wire: static (at, value) => at.String("wire").Ordinal(value.Pass).Double(value.Station).Double(value.Progress)
@@ -628,8 +608,6 @@ public abstract partial record GWord {
         text: static item => item.Value);
 }
 
-// The rendered records and the modal census that produced them. It carries no content key, evidence band, or stamp,
-// so it takes no `*Receipt` name — `Dialect` frames and counts exactly the `Lines` this value returns.
 public sealed record ProgramRender(Seq<string> Lines, Map<ModalGroup, string> Active) {
     public static readonly ProgramRender Empty = new(Seq<string>(), Map<ModalGroup, string>());
     public ProgramRender Add(string line) => line.Length == 0 ? this : this with { Lines = Lines.Add(line) };
@@ -645,8 +623,6 @@ public sealed record ProgramLocus(int Block, Seq<ProgramPathStep> Path) {
     public Seq<int> Source => Path.Map(static step => step.Node);
 }
 
-// `Locus` is the universal column the root owns; each case threads it as the plain argument and never re-declares
-// the base property's name.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProgramEvent(ProgramLocus Locus) {
 
@@ -699,8 +675,6 @@ public sealed record ModalState(
     FeedMode Mode,
     Map<ModalGroup, GCommand> Active,
     Seq<ProgramEvent> Events) {
-    // RS274 defaults arc-center offsets to incremental; the plane and arc-distance rows are modal state every
-    // consumer reads from the trace rather than re-deriving from the event stream.
     public static readonly ModalState Empty = new(ProgramUnits.Metric, DistanceMode.Absolute, DistanceMode.Incremental,
         GCommand.PlaneXy, Point3d.Origin, OriginAxes(), 0.0, FeedMode.UnitsPerMinute,
         Map<ModalGroup, GCommand>(), Seq<ProgramEvent>());
@@ -766,8 +740,6 @@ public sealed record ModalState(
     private static Fin<ModalState> PushWord(ModalState state, GNode.Word word, ProgramLocus locus) =>
         word.Command.Admit(locus.Block, word.Words).Bind(_ => Apply(state, word, locus));
 
-    // Exemption: the modal apply is the semantic boundary — units, distance, plane, feed, and axis targets settle
-    // together, and splitting them puts one block's state on two reads that can disagree.
     private static Fin<ModalState> Apply(ModalState state, GNode.Word word, ProgramLocus locus) {
         ProgramUnits units = word.Command == GCommand.Metric ? ProgramUnits.Metric
             : word.Command == GCommand.Inch ? ProgramUnits.Imperial : state.Units;
@@ -808,8 +780,6 @@ public sealed record ModalState(
     private static Map<char, double> OriginAxes() => GCommand.Axes.Fold(
         Map<char, double>(), static (axes, address) => axes.AddOrUpdate(address, 0.0));
 
-    // Arc center resolves once where plane and arc-distance rows are in hand; an event carrying only
-    // endpoints forces every consumer to re-derive it or publish a chord in the arc's place.
     private static Fin<Option<MotionArc>> ArcOf(
         Point3d start, Point3d target, GNode.Word word, GCommand plane, DistanceMode arcDistance, int block) {
         if (word.Command != GCommand.ArcCw && word.Command != GCommand.ArcCcw)
@@ -867,9 +837,6 @@ public sealed record ModalState(
     }
 }
 
-// A sealed class rather than a record: `Key` and `Keys` are DERIVED views held on first read, so they stay out of
-// equality by construction. A pass chain that minted seven intermediate programs paid seven whole-tree
-// serializations under the record form; here an unread intermediate costs nothing.
 public sealed class CutProgram {
     private static readonly Op Mint = Op.Of(name: nameof(CutProgram));
 
@@ -883,12 +850,8 @@ public sealed class CutProgram {
 
     public static CutProgram Of(Seq<GNode> nodes, PostDialect dialect) => new(nodes, dialect);
 
-    // The structural key stream every pattern census and equality test reads. One digest per top-level node, each
-    // covering its own subtree.
     public Seq<UInt128> Keys => keys ??= NodeKey.Stream(Nodes, NodeKey.Grid(Dialect));
 
-    // The RETAINING close, because a published artifact key is bytes the mint must hold; the held `Fin` carries the
-    // close's own refusal, so a second read cannot answer differently from the first.
     public Fin<ContentKey> Key => key ??= FabricationCanon.Keyed(
         EgressKind.CutProgram,
         NodeKey.Grid(Dialect),
@@ -909,13 +872,11 @@ public sealed class CutProgram {
 - Boundary: parsed `Sequence` and `Checksum` values never survive re-emission, because `RecordFrame` owns numbering and digest.
 
 ```csharp signature
-// --- [BOUNDARIES] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ProgramIngress {
     private ProgramIngress() { }
 
-    // The MODALITY is what resolves a wire code two command rows share; the dialect's whole modality set cannot,
-    // because a hybrid controller admits both rows and the resolution goes ambiguous.
     public sealed record Rs274(
         string Source,
         PostDialect Dialect,
@@ -925,7 +886,7 @@ public abstract partial record ProgramIngress {
     public sealed record Nc1(SteelSource Source, SteelContourPolicy Policy, PostDialect Dialect) : ProgramIngress;
 }
 
-// --- [PARSING] ----------------------------------------------------------------------------------------------------------------------------------------
+// --- [PARSING] -------------------------------------------------------------------------
 public static partial class Post {
     private static Fin<CutProgram> ParseRs274(ProgramIngress.Rs274 ingress) =>
         Lines(ingress.Source).FoldM<Fin, ParseState>(new ParseState(ModalState.Empty, Seq<GNode>()),
@@ -980,8 +941,6 @@ public static partial class Post {
         });
     }
 
-    // ONE linear pass: the open segment rides the fold state, so a token appends to it directly instead of
-    // re-walking the accumulated segment list to replace its tail.
     private static Fin<ParseState> ParseWords(
         int line, Seq<string> tokens, ProgramIngress.Rs274 ingress, ModalState modal, ProgramLocus locus) {
         (Seq<CommandSegment> Closed, Option<CommandSegment> Open, Seq<string> Leading) split = tokens.Fold(
@@ -1009,8 +968,6 @@ public static partial class Post {
                 None: () => Fin.Fail<ParseState>(new FabricationFault.ProgramParse(line, ModalGroup.NonModal)));
     }
 
-    // Dialect capability, then the PROGRAM's modality, then address shape — the modality filter is what separates
-    // two rows sharing one wire code, so it runs before the arity gate rather than after it.
     private static Fin<GCommand> Resolve(int line, CommandSegment segment, ProgramIngress.Rs274 ingress) {
         Seq<GCommand> candidates = WireCode.Candidates(segment.Command)
             .Concat(BaseWcs(segment.Command).Map(static _ => GCommand.Wcs).ToSeq())
@@ -1094,7 +1051,7 @@ public static partial class Post {
 - Boundary: `Eff<CutProgram>` carries source acquisition; reusable transforms retain `Fin<T>`; rendered records collapse only at `PostedProgram`; every parameter arrives admitted, so no entry guards a null.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class ProgramView {
     public static readonly ProgramView AllMotion = new("all-motion", None);
@@ -1105,8 +1062,6 @@ public sealed partial class ProgramView {
 
     public Option<MotionRole> Role { get; }
 
-    // The open run rides `Option`: a null cursor made "no run in progress" and "a run of no spans" the same value,
-    // and the fold has no failure mode, so the partition returns directly.
     public Seq<ToolpathPath> Paths(ProgramTrace trace) {
         (Seq<ToolpathPath> Paths, Option<ToolpathPath> Current) folded = trace.Events.Fold(
             (Paths: Seq<ToolpathPath>(), Current: Option<ToolpathPath>.None),
@@ -1115,7 +1070,6 @@ public sealed partial class ProgramView {
                     (state.Paths, Some(state.Current.Match(
                         Some: held => held with { Spans = held.Spans.Add(Span(motion)) },
                         None: () => new ToolpathPath(motion.From, Seq(Span(motion)))))),
-                // A coordinate change re-frames every following point, so it closes the run exactly as an excluded move does.
                 ProgramEvent.Motion or ProgramEvent.Coordinate =>
                     (state.Paths.Concat(state.Current.ToSeq()), Option<ToolpathPath>.None),
                 _ => state,
@@ -1129,7 +1083,7 @@ public sealed partial class ProgramView {
         None: () => new ToolpathSpan.Line(motion.To));
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class Post {
     public static Fin<FabricationResult.PostedProgram> Lower(
         PostSource source,
@@ -1157,8 +1111,6 @@ public static partial class Post {
         from encoded in paths.TraverseM(path => Encode.Apply(new PackOp.Toolpath(path, policy))).As()
         select encoded;
 
-    // Interpretation reads the NODES: a caller re-interpreting a rewritten tree pays no content key for a program
-    // it may never publish.
     public static Fin<ProgramTrace> Interpret(CutProgram program) => ProgramTrace.Admit(program.Nodes);
 
     public static Fin<ProgramTrace> Interpret(Seq<GNode> nodes) => ProgramTrace.Admit(nodes);

@@ -19,7 +19,7 @@
 - Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Morphs.BendSpaceMorph`/`FlowSpaceMorph`/`MaelstromSpaceMorph`/`SplopSpaceMorph`/`SporphSpaceMorph`/`StretchSpaceMorph`/`TaperSpaceMorph`/`TwistSpaceMorph`/`MeshCageMorph`, `MorphControl`, `SpaceMorph.IsMorphable`), kernel `Domain/rails` (`Op`, `Fin`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -31,7 +31,7 @@ using Rhino.Geometry;
 
 namespace Rasm.Rhino.Modeling;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class BendBehavior : ICapability<BendBehavior> {
@@ -224,7 +224,7 @@ public abstract partial record MorphKind : IValidityEvidence {
 - Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller` `:37` (`ExplodeOutput`, `ExplodeSpacing`, `AbsoluteTolerance`, `RelativeTolerance`, `AddFollowingGeometry`, `PerformUnroll`, `FollowingGeometryIndex`), `Squisher`, `SquishParameters`, `SquishFlatteningAlgorithm`, `SquishDeformation`), kernel `Domain/rails` (`Lease<T>.Acquire`/`Use`, `Op`, `ValidityClaim`, `IValidityEvidence`), kernel `Domain/validation` (`ICapability`, `CapabilitySet`), kernel `Domain/context` (`Context.Absolute`, `Context.Fractional`), `Modeling/curves.md` (`ModelClaim`), `Modeling/solids.md` (`ModelGate`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SquishBehavior : ICapability<SquishBehavior> {
@@ -242,14 +242,12 @@ public sealed partial class UnrollOutput {
     internal bool Native { get; }
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct UnrollFollowers : IValidityEvidence {
     public Seq<GeometryHandle> Curves { get; }
     public Seq<Point3d> Points { get; }
-    // `Unroller` mints its own label from a location and a text, so the dot carrier is a VALUE here and a live
-    // `TextDot` handle cannot be constructed into this row; `SquishFollowers` is the borrowed-handle sibling.
     public Seq<(Point3d Location, string Text)> Dots { get; }
 
     static partial void ValidateFactoryArguments(
@@ -276,7 +274,6 @@ public readonly partial struct UnrollFollowers : IValidityEvidence {
 [StructLayout(LayoutKind.Auto)]
 public readonly partial struct SquishFollowers : IValidityEvidence {
     public Seq<GeometryHandle> Curves { get; }
-    // `Squisher.SquishTextDot` reads a LIVE native, so the dot carrier is a borrowed handle here.
     public Seq<GeometryHandle> Dots { get; }
     public Seq<Point3d> Points { get; }
 
@@ -372,9 +369,6 @@ public readonly partial struct SquishLaw : IValidityEvidence {
         algorithm: Algorithm, mode: Mode, boundaryStretch: BoundaryStretch, boundaryCompress: BoundaryCompress,
         interiorStretch: InteriorStretch, interiorCompress: InteriorCompress, absoluteLimit: AbsoluteLimit, spring: Spring);
 
-    // Custody is a case: `Acquire` funnels the throwing host mint onto the rail, the configure body rolls the
-    // acquired native back on any throw, and the consuming arm's `Lease.Use` disposes with the cleanup fault
-    // aggregated into the primary — no nulled local ever stands for "ownership transferred".
     internal Fin<Lease<SquishParameters>> Rig(Op key) =>
         Lease<SquishParameters>.Acquire(mint: static () => SquishParameters.Default, key: key)
             .Bind(lease => key.Catch(() => {
@@ -428,7 +422,7 @@ public readonly partial struct SquishLaw : IValidityEvidence {
 - Packages: RhinoCommon deform (`.api/api-rhinocommon-deform.md` — `Unroller`, `Squisher` (`SquishSurface`, `SquishMesh`, `SquishCurve`, `SquishTextDot`, `SquishPoint`, `Get2dMesh`, `Get3dMesh`, `GetLengthConstrained2dLines`, `GetLengthConstrained3dLines`, `GetAreaConstrainedTrianglesIndices`, `Is2dPatternSquished`, `SquishBack2dMarks`), `MeshUnwrapper`, `MeshUnwrapMethod`), kernel `Domain/rails` (`Op.Probe`, `Op.Catch`, `Op.Confirm`, `Lease<T>.Use`, `[GenerateUnionOps]` + generated `SelfOp`), `Modeling/curves.md` (`ModelClaim`, `ModelFact`), `Modeling/solids.md` (`ModelGate`, `Built<TSlot>`, `BuildReceipt<TSlot>`, `BuildBody`), LanguageExt.Core (`TraverseM`, `Strict`, `Seq`), Thinktecture.Runtime.Extensions.
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class DeformSlot {
     public static readonly DeformSlot Morphed = new(key: 0);
@@ -526,8 +520,6 @@ public abstract partial record DeformOp {
                                             built: carried.IfNone(Seq<Curve>()), key: op, allowEmpty: true)
                                         .Rollback([.. flat])
                                         .Rollback([.. dots])
-                                    // `Seq.Map` projects lazily, so the label rows force BEFORE the dots are disposed;
-                                    // an unforced projection reads `Point`/`Text` off a released native handle.
                                     let rows = dots.Map(static dot => (dot.Point, dot.Text)).Strict()
                                     let _ = dots.Iter(static dot => dot.Dispose())
                                     select Built<DeformSlot>.Of(
@@ -626,8 +618,6 @@ public abstract partial record DeformOp {
             unwrap: static (_, edit) => {
                 Op op = Unwrap.SelfOp;
                 return ModelGate.BorrowMany<Mesh, Built<DeformSlot>>(handles: edit.Meshes, key: op, body: sources =>
-                    // Working copies are plain natives, not handles, so the prefix rolls back through the spine's own
-                    // accumulating fold rather than a hand `Match` that iterates `Dispose` on the fail arm.
                     from working in sources.FoldM<Fin, Seq<Mesh>>(Seq<Mesh>(), (held, source) =>
                         op.Catch(() => Optional(source.Duplicate() as Mesh).ToFin(Fail: op.InvalidResult()))
                             .Map(copy => held.Add(value: copy))
@@ -643,7 +633,7 @@ public abstract partial record DeformOp {
             });
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Deforms {
     public static Fin<Built<DeformSlot>> Build(ModelRuntime runtime, params ReadOnlySpan<DeformOp> operations) =>
         ModelGate.Entry(

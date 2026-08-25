@@ -23,7 +23,7 @@ Light objects belong to `Rasm.Rhino.Objects`. `LightKind` closes the world light
 - Packages: Thinktecture.Runtime.Extensions (`[SmartEnum<T>]`, `[Union]`, `[ComplexValueObject]`, `[ValidationError]`, `[UseDelegateFromConstructor]`, `KeyMemberEqualityComparer`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `Traverse`, `Choose`); RhinoCommon objects (`.api/api-rhinocommon-objects.md` — `Light`, `LightObject`, `LightStyle`, `Light.Attenuation`, `LightTable`); kernel `Numerics/atoms` (`PerceptualColor.OfHost`/`ToDrawing`/`ToRgb`, `UnitInterval`, `VectorCone`); kernel `Domain/validation` (`Op.Row`, `ICapability`, `CapabilitySet`); `Document/session.md` (`DraftFault`); `Document/tables.md` (`ResourceIndex`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Linq;
 using Rasm.Domain;
 using Rasm.Numerics;
@@ -35,10 +35,8 @@ using Wire = Rasm.Contracts.Scene;
 
 namespace Rasm.Rhino.Objects;
 
-// `Rasm.Numerics` is in scope for `PerceptualContext`, `UnitInterval`, and `VectorCone`, so every host colour on
-// this page spells `System.Drawing.Color` in full and no bare `Color` resolves against two candidates.
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LightModality : ICapability<LightModality> {
@@ -50,8 +48,6 @@ public sealed partial class LightModality : ICapability<LightModality> {
 
 [SmartEnum<int>]
 public sealed partial class LightKind {
-    // Read-before-use: the row initializers consume these sets, so static construction order decides the
-    // declaration order here, not the public-before-private one.
     private static readonly CapabilitySet<LightModality> Aimed = CapabilitySet<LightModality>.Of(LightModality.Aims);
     private static readonly CapabilitySet<LightModality> Placed = CapabilitySet<LightModality>.Of();
     private static readonly CapabilitySet<LightModality> Coned = CapabilitySet<LightModality>.Of(
@@ -66,8 +62,6 @@ public sealed partial class LightKind {
     public static readonly LightKind Linear = new(key: (int)LightStyle.WorldLinear, wire: Wire.LightKind.Linear, style: LightStyle.WorldLinear, grants: Stretched);
     public static readonly LightKind Rectangular = new(key: (int)LightStyle.WorldRectangular, wire: Wire.LightKind.Rectangular, style: LightStyle.WorldRectangular, grants: Panelled);
 
-    // The descriptor's `kind` column: a closed vocabulary crosses the wire as its own key text, so an unknown key
-    // is a decode refusal at the peer rather than a schema arm nobody declared.
     internal Wire.LightKind Wire { get; }
     internal LightStyle Style { get; }
     internal CapabilitySet<LightModality> Grants { get; }
@@ -76,8 +70,6 @@ public sealed partial class LightKind {
         key.Row<LightStyle, LightKind>(candidate: style, ordinal: static value => (int)value);
 }
 
-// The host attenuation roster with the coefficient vector its own name stands for, so the three write arms that
-// each named one static vector collapse to one `Seat(light, row.Vector)` and the read is one row lookup.
 [SmartEnum<int>]
 public sealed partial class LightFalloff {
     public static readonly LightFalloff Constant = new(
@@ -94,9 +86,6 @@ public sealed partial class LightFalloff {
         key.Row<Light.Attenuation, LightFalloff>(candidate: model, ordinal: static value => (int)value);
 }
 
-// An unrecognized host attenuation row is a REFUSAL, not a coefficient vector: reading the vector for an unknown
-// model publishes a law nobody wrote. The free vector is the ONE arm the roster cannot name, because the host
-// accepts an arbitrary triple through `SetAttenuation` and classifies it back onto a named row on the next read.
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LightAttenuation {
     private LightAttenuation() { }
@@ -136,7 +125,7 @@ public sealed partial class LightFrame {
         key.Row<CoordinateSystem, LightFrame>(candidate: system, ordinal: static value => (int)value);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SpotShape(VectorCone Cone, UnitInterval HotSpot) {
     internal Fin<SpotShape> Admit(Op op) =>
         from _ in Rasm.Domain.Admit.Cone(
@@ -148,11 +137,6 @@ public readonly record struct SpotShape(VectorCone Cone, UnitInterval HotSpot) {
         select new SpotShape(Cone: Cone, HotSpot: hotSpot);
 }
 
-// A spot light's cone answers on three distinguishable states, never one collapsed absence: the kind carries no
-// cone, the kind carries one and the document admits it, or the kind carries one the document degenerates. The
-// raw `SpotAngle`/`HotSpot` scalars survive on the stamp either way, so a consumer separates "no cone" from
-// "cone the model cannot admit" without re-reading the host. The mapper exhaustively seats the generated oneof;
-// no parallel text vocabulary stands beside the union.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ConeEvidence {
     private ConeEvidence() { }
@@ -255,9 +239,7 @@ public sealed record LightStamp(
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, `[SmartEnum<string>]`, `[ComplexValueObject]`, `[UseDelegateFromConstructor]`, `[ValidationError]`); LanguageExt.Core (`Fin`, `Option`, `Seq`, `TraverseM`); kernel `Domain/rails` (`Lease<T>.Acquire`, `Lease<T>.Use`); kernel `Numerics/atoms` (`PerceptualColor.ToDrawing`, `UnitInterval`); kernel `Domain/validation` (`CapabilitySet.Require`); RhinoCommon objects (`Light.Intensity`/`PowerWatts`/`PowerLumens`/`PowerCandela`, `SetAttenuation`).
 
 ```csharp signature
-// --- [TYPES] ------------------------------------------------------------------------------
-// One stored power with four host readings: the ROW owns which member a write seats and the wire key it
-// publishes, so the four near-identical admission arms and the four near-identical write arms both delete.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class RadianceUnit {
@@ -304,8 +286,6 @@ public abstract partial record LightSeed {
     public sealed record Linear(Point3d Location, Vector3d Length) : LightSeed;
     public sealed record Rectangular(Point3d Corner, Vector3d Length, Vector3d Width) : LightSeed;
 
-    // The seed answers its own kind, so the mint below reads ONE style rather than five call sites each naming a
-    // row the case already determines.
     internal LightKind Kind => Map(
         point: static _ => LightKind.Point,
         spot: static _ => LightKind.Spot,
@@ -335,8 +315,6 @@ public abstract partial record LightSeed {
                 from width in area.Width.ToFin(Fail: key.InvalidResult())
                 select (LightSeed)new Rectangular(Corner: corner, Length: area.Length, Width: width));
 
-    // The seat reads the SEED's own fields, which is why the delegate column seats here and not on `LightKind`:
-    // a kind row taking a seed would re-discriminate the union this fold already closes.
     private Unit Seat(Light working) =>
         Switch(
             context: working,
@@ -365,9 +343,6 @@ public abstract partial record LightSeed {
                 return unit;
             });
 
-    // The mint owns the native from its first statement: `Acquire` funnels a throwing host construction onto the
-    // rail and a throwing seat releases the fresh light before the fault leaves, so no path can strand a styled
-    // `Light` between construction and the caller's lease.
     internal Fin<Lease<Light>> Mint(Op op) {
         LightSeed seed = this;
         return Lease<Light>.Acquire(
@@ -392,8 +367,6 @@ public abstract partial record LightEdit {
     public sealed record Aim(Vector3d Direction) : LightEdit;
     public sealed record Attenuate(LightAttenuation Value) : LightEdit;
 
-    // What the edit DEMANDS of the kind, as a value the gate reads once. A width-bearing area edit demands
-    // `Breadth` beside `Extent`, which is the corner the two-guard ladder spelled by hand.
     internal CapabilitySet<LightModality> Requires => Switch<CapabilitySet<LightModality>>(
         rename: static _ => CapabilitySet<LightModality>.Of(),
         toggle: static _ => CapabilitySet<LightModality>.Of(),
@@ -429,8 +402,6 @@ public abstract partial record LightEdit {
             attenuate: static (key, edit) => key.Need(edit.Value)
                 .Bind(law => law.Admit(op: key)).Map(law => (LightEdit)new Attenuate(Value: law)));
 
-    // ONE gate for the whole family: the kind's grants either cover what the edit requires or the refusal names
-    // the shortfall through the vocabulary's own rank-ordered wire.
     internal Fin<Unit> Apply(Light working, LightKind kind, Op op) =>
         kind.Grants
             .Require(demanded: Requires, refuse: missing => op.InvalidInput(axis: missing.Wire))
@@ -459,7 +430,7 @@ public abstract partial record LightEdit {
             attenuate: static (context, edit) => context.Op.Catch(() => edit.Value.Apply(working: context.Working)));
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 public sealed record LightShade(
     PerceptualColor Diffuse,
     Option<PerceptualColor> Ambient = default,
@@ -470,8 +441,6 @@ public sealed record LightShade(
         from specular in Specular.Traverse(value => op.Need(value)).As()
         select new LightShade(Diffuse: diffuse, Ambient: ambient, Specular: specular);
 
-    // `ToDrawing` REFUSES a colour outside the display gamut, so the three seats sequence on the rail and a
-    // refused companion leaves the working duplicate untouched rather than half-painted.
     internal Fin<Unit> Seat(Light working, Op op) =>
         from diffuse in Diffuse.ToDrawing(key: op)
         from ambient in Ambient.Traverse(shade => shade.ToDrawing(key: op)).As()
@@ -510,7 +479,7 @@ public sealed record LightShade(
 - Packages: Google.Protobuf (`libs/dotnet/.api/api-protobuf.md` — `ByteString.CopyFrom(ReadOnlySpan<byte>)`, `RepeatedField<T>`, `MessageExtensions.ToByteArray`, `WellKnownTypes.Timestamp`); Rasm.Contracts (`libs/contracts/.api/dotnet.md` — generated scene, artifact, geometry, and spatial messages); NodaTime.Serialization.Protobuf (`libs/dotnet/.api/api-nodatime-protobuf.md` — `Instant.ToTimestamp`); NodaTime (`Instant`); kernel `Domain/identity` (`ArtifactContent`, `ContentHash.Of`, `ContentHash.Wire`); kernel `Domain/context` (`Context.Unit`, `ModelUnit.MetersPerUnit`); kernel `Numerics/atoms` (`PerceptualColor.ToRgb(RgbProfile, GamutPolicy, RgbTransfer)`, `RgbProfile.Srgb`, `RgbTransfer.Linear`, `UnitInterval`); `Document/facts.md` (`IFactSlot<TBody, TKind>`, `IFactBody<TKind>`, `FactStream`, `UndoSerial`); `Document/tables.md` (`ResourceId`, `ResourceIndex`); `Render/settings.md` (`SceneSun`, `SunDerivation`, `SolarFrame`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Google.Protobuf;
 using NodaTime;
 using NodaTime.Serialization.Protobuf;
@@ -519,7 +488,7 @@ using Geometry = Rasm.Contracts.Geometry;
 using Spatial = Rasm.Contracts.Spatial;
 using Wire = Rasm.Contracts.Scene;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(SwitchMapStateParameterName = "context", ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LightSelect {
     private LightSelect() { }
@@ -531,9 +500,6 @@ public abstract partial record LightSelect {
     internal Fin<Seq<(ResourceIndex Index, LightObject Native)>> Resolve(RhinoDoc document, Op key) =>
         Switch(
             context: (Document: document, Op: key),
-            // The table enumerates as `IEnumerable<LightObject>` and the host discourages index lookup in favour
-            // of ids, so the roster sweep reads the table directly and pairs each live row with the index its own
-            // id resolves — the index survives only because `Modify`, `Delete`, and `Undelete` address by slot.
             every: static (context, _) => context.Op.Catch(() => Fin.Succ(value:
                 context.Document.Lights.AsIterable().ToSeq()
                     .Filter(static native => !native.IsDeleted)
@@ -557,8 +523,6 @@ public abstract partial record LightSelect {
                     select row)
                 select rows);
 
-    // The host's own miss answer for this table is the negative index `ResourceIndex` refuses, so the address
-    // admission IS the bounds proof and the liveness predicate is the only argument left to vary.
     internal static Fin<(ResourceIndex Index, LightObject Native)> Indexed(
         RhinoDoc document,
         int index,
@@ -670,7 +634,7 @@ public abstract partial record LightOp {
         rows.Fold(LightReceipt.Empty, static (state, next) => state + next);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class LightBodyKind : ICapability<LightBodyKind> {
@@ -696,8 +660,6 @@ public sealed partial class LightSlot : IFactSlot<LightBody, LightBodyKind> {
     public CapabilitySet<LightBodyKind> Bodies { get; }
 }
 
-// Every address column takes its spine owner: an empty object id and a `-1` table index are precisely the values
-// a failed host member answers with, so a receipt publishing one is indistinguishable from a real consequence.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LightBody : IFactBody<LightBodyKind> {
     private LightBody() { }
@@ -715,9 +677,6 @@ public abstract partial record LightBody : IFactBody<LightBodyKind> {
 
 public sealed record LightRoster(Seq<LightStamp> Rows) : IDetachedDocumentResult;
 
-// LINEAR light in `[0, 1]` per component, read through the kernel's profile leg under the perceptual gamut so the
-// triple the wire declares is the triple it receives. Alpha has no slot here, so a non-opaque colour REFUSES —
-// dropping coverage silently is how a translucent authored diffuse ships as an opaque one nobody authored.
 public readonly record struct SceneSpectrum(double R, double G, double B) {
     internal static Fin<SceneSpectrum> Of(PerceptualColor colour, Op key) =>
         colour.ToRgb(profile: RgbProfile.Srgb, transfer: RgbTransfer.Linear) switch {
@@ -727,9 +686,6 @@ public readonly record struct SceneSpectrum(double R, double G, double B) {
         };
 }
 
-// Four readings over ONE stored power beside the column that carries authority. `Light` exposes no field naming
-// which quantity the modeller set, so picking one reading and dropping three loses the host evidence a consumer
-// needs to explain a converted figure, while shipping four unranked floats hands every peer the same guess.
 public readonly record struct PhotometricPower(
     bool RadiantFluxIsAuthority, double Watts, double Lumens, double Candela, double Scale) {
     internal static PhotometricPower Of(LightStamp stamp) =>
@@ -740,8 +696,6 @@ public readonly record struct PhotometricPower(
             Scale: stamp.Intensity);
 }
 
-// The web body is one artifact coordinate; dialect remains a closed generated vocabulary rather than an extension
-// string interpreted again at each reader.
 public readonly record struct PhotometricWebRef(ArtifactContent Artifact, Wire.WebDialect Dialect) {
     internal Fin<PhotometricWebRef> Admit(Op op) =>
         from artifact in op.Need(Artifact)
@@ -749,9 +703,6 @@ public readonly record struct PhotometricWebRef(ArtifactContent Artifact, Wire.W
         select this with { Artifact = artifact };
 }
 
-// The shading band by REFERENCE: the GLB body is the manifest's `keyed-artifact`/`glb` product (Bim's export
-// rail, Compute's keys) and the fidelity is the figure it tessellated AT, so a consumer grades rather than
-// guesses and this emitter never meshes.
 public readonly record struct SceneShading(
     ArtifactContent Artifact,
     ulong ElementCount,
@@ -768,16 +719,12 @@ public readonly record struct SceneShading(
         select this with { Artifact = artifact, Fidelity = fidelity.Clone() };
 }
 
-// --- [SERVICES] ---------------------------------------------------------------------------
-// Vocabulary this rail cannot mint: the authored photometric payload seats on the light's attached RENDER
-// MATERIAL child slot, which `Render/kinds.md` addresses and the object rail does not reach. A composition root
-// binds the reader; an unbound port refuses at the entry, because a capture that silently published an empty web
-// column would report every IES-bearing document as carrying none, and the consuming census counts exactly that.
+// --- [SERVICES] ------------------------------------------------------------------------
 public interface IPhotometricRegistry {
     Option<PhotometricWebRef> WebOf(Guid light);
 }
 
-// --- [BOUNDARIES] -------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 public sealed record ScenePhotometry(
     Guid Id,
     Option<string> Name,
@@ -834,8 +781,6 @@ public sealed record ScenePhotometry(
             Web: reference);
 }
 
-// One capture of one host scene. `SourceUnit` is the regime the metres derive FROM, so the factor and its
-// provenance are one read and no peer rescales; `Key` covers the framed preimage of every band below.
 public sealed record SceneCapture(
     UInt128 Key,
     string SourceUnit,
@@ -858,7 +803,7 @@ public sealed record SceneCapture(
         select unstamped with { Key = key };
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Lights {
     public static Fin<LightRoster> Ask(DocumentSession session, LightSelect scope, Op? key = null) {
         Op op = key.OrDefault();
@@ -897,9 +842,6 @@ public static class Lights {
                select receipt;
     }
 
-    // The whole-descriptor emit. The sun band arrives already projected from `Render/settings#SUN_ASTRONOMY` and
-    // the shading band from the artifact seam, so this window reads the light table and the unit regime ONCE and
-    // stacks all three; the bytes are the mapper's.
     public static Fin<(SceneCapture Capture, ReadOnlyMemory<byte> Bytes)> Capture(
         DocumentSession session,
         SceneSun sun,
@@ -933,10 +875,7 @@ public static class Lights {
     }
 }
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
-// ONE seam mapper: every member of every wire message transcribes from its own declared row, so a renamed column
-// breaks the build instead of silently reading garbage on a peer decoder. Target-side completeness is the proof —
-// a wire field nothing fills is a build error.
+// --- [COMPOSITION] ---------------------------------------------------------------------
 public static class SceneMap {
     internal static Fin<UInt128> ContentKey(SceneCapture capture, Op key) =>
         key.Catch(() => Fin.Succ(ContentHash.Of(Descriptor(capture: capture, includeKey: false).ToByteArray())));
@@ -1078,8 +1017,6 @@ public static class SceneMap {
             return unit;
         });
 
-    // `SunDerivation` DISPATCHES its oneof arm rather than transcribing members: a union arm selecting a oneof
-    // slot is dispatch, and `[MapDerivedType]` refuses a oneof envelope outright (RMG036).
     private static Wire.SceneSun Sun(SceneSun band) => new() {
         Enabled = band.Enabled,
         IntensityScale = band.IntensityScale,
@@ -1104,10 +1041,6 @@ public static class SceneMap {
         AzimuthDeg = angles.AzimuthDeg,
     };
 
-    // RFC-4122 byte order, stated ONCE at the boundary that emits it: the platform's default layout writes the
-    // first three fields little-endian, while the consuming peer reads `row.id.hex()` against the canonical text
-    // form. The two agree only on the trailing eight bytes, so a default `ToByteArray()` here renames every light
-    // in the descriptor and no decoder fails to notice.
     private static ByteString Identity(Guid value) {
         Span<byte> bytes = stackalloc byte[KeyWidth];
         _ = value.TryWriteBytes(destination: bytes, bigEndian: true, bytesWritten: out _);
@@ -1117,10 +1050,7 @@ public static class SceneMap {
     private const int KeyWidth = 16;
 }
 
-// --- [EXPORTS] -------------------------------------------------------------------------------
-// The rail's receipt IS the Document spine's stream closed over this page's two vocabularies; the aliases carry
-// the domain names call sites already read. These are `.cs` `global using` rows in the project manifest, so no
-// consumer spells the instantiation and no rail-local receipt type exists to drift from the owner.
+// --- [EXPORTS] -------------------------------------------------------------------------
 global using LightFact = Rasm.Rhino.Document.Fact<Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody>;
 global using LightReceipt = Rasm.Rhino.Document.FactStream<Rasm.Rhino.Objects.LightSlot, Rasm.Rhino.Objects.LightBody>;
 ```

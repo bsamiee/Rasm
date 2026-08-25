@@ -27,7 +27,7 @@ Wire posture: HOST-LOCAL. `CuttingData.Of`, `FeedBasis`, and `CuttingLoad` remai
 - Boundary: repeated class-operation matrices, a second coolant vocabulary beside `CoolantDelivery`, linear scans over a keyed exact table, string evidence labels, correction axes pinned at unity, and defensive null guards on cases a generated union already hands non-null are deleted forms.
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq;
 using System.Numerics.Tensors;
@@ -46,7 +46,7 @@ using static LanguageExt.Prelude;
 
 namespace Rasm.Fabrication.Tooling;
 
-// --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class IsoClass {
     public static readonly IsoClass P = new("P", "steel");
@@ -59,8 +59,6 @@ public sealed partial class IsoClass {
     public string Family { get; }
 }
 
-// The condition's own multiplier on the Kienzle specific force: a hardened structure resists the chip more than the
-// annealed one the seed was measured on, so the row states the ratio the correction fold reads.
 [SmartEnum<string>]
 public sealed partial class MaterialState {
     public static readonly MaterialState Annealed = new("annealed", forceFactor: 0.90);
@@ -97,7 +95,7 @@ public sealed partial class CutDirection {
     public static readonly CutDirection Bidirectional = new("bidirectional");
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct Hardness {
     public HardnessScale Scale { get; }
@@ -152,8 +150,6 @@ public sealed partial class MaterialCutSpec {
         ref double abrasionFactor) =>
         validationError = subgroup is < 1 or > 99
             || ultimateStrength <= Pressure.Zero || kc11 <= Pressure.Zero
-            // The Kienzle exponent is the chip-thinning slope: at zero the specific force is thickness-blind and at
-            // one it cancels the thickness term outright, so both ends leave the model with no chip to price.
             || !double.IsFinite(mc) || mc is <= 0.0 or >= 1.0
             || !ValidityClaim.Positive(thermalFactor).Holds || !ValidityClaim.Positive(abrasionFactor).Holds
             ? ToolKey.Validation("material-cut-spec") : null;
@@ -269,13 +265,9 @@ public readonly partial struct KienzleCorrection {
 
     public double Factor => ToolGeometry * Coating * Coolant * MaterialState * Thermal * Abrasiveness * Wear * Runout;
 
-    // Kienzle's rake correction is one percentage point of specific force per degree away from the reference rake,
-    // and the floor holds the factor above a tenth so an extreme rake cannot drive the force to zero.
     private const double RakePercentPerDegree = 0.01;
     private const double FactorFloor = 0.1;
 
-    // A perfectly evacuated cut sees the medium's full benefit and a dry one sees none: the evacuation column runs
-    // zero to one, so the two-minus form maps it onto a force multiplier without a second medium table.
     private const double EvacuationReference = 2.0;
 
     public static Fin<KienzleCorrection> Of(MaterialCutSpec material, Option<CorrectionInputs> inputs) =>
@@ -328,8 +320,6 @@ public abstract partial record CuttingEvidence {
     public sealed record Interpolated(CalibrationCurve Curve, Hardness Hardness) : CuttingEvidence;
     public sealed record Generated(MaterialCutSpec Material, OperationTrait Operation) : CuttingEvidence;
 
-    // A calibrated fit's domain IS its sample span, so the band derives from the receipt rather than being carried
-    // twice; an interpolated or generated row states no measured span at all and reads as unbounded.
     public Option<ScalarBand> Thickness => Switch(
         exact: static row => Some(row.Thickness),
         production: static row => Some(row.Thickness),
@@ -340,7 +330,6 @@ public abstract partial record CuttingEvidence {
         interpolated: static _ => None,
         generated: static _ => None);
 
-    // Each row states the evidence its own case demands; a payload the union already hands non-null needs no guard.
     public bool Grounded => Switch(
         exact: static row => Witness.Keyed(row.Source) && Witness.Keyed(row.Revision),
         production: static row => Witness.Keyed(row.Lot) && row.Samples > 0
@@ -401,8 +390,6 @@ public sealed partial class CalibrationCurve {
     [BoundaryAdapter]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref IsoClass @class,
         ref int subgroup, ref Seq<CalibrationPoint> points) =>
-        // A monotone cubic needs three strictly ascending knots on ONE scale; two knots is a line the caller could
-        // have stated, and a repeated abscissa leaves the interpolant undefined.
         validationError = subgroup is < 1 or > 99 || points.Count < LinearFit.MinimumSamples
             || points.Map(static point => point.Hardness.Scale).Distinct().Count != 1
             || points.Zip(points.Skip(1)).Exists(static pair => pair.Item1.Hardness.Value >= pair.Item2.Hardness.Value)
@@ -429,8 +416,6 @@ public sealed partial class CuttingTable {
     public HashMap<CuttingKey, CuttingRow> Exact { get; }
     public Seq<CalibrationCurve> Curves { get; }
 
-    // Three indexes DERIVED from the admitted rows and held on first read, so a resolution costs a lookup rather
-    // than the scan of the whole table this page's own boundary already forbade.
     [IgnoreMember]
     private FrozenDictionary<Material, MaterialCutSpec>? materials;
 
@@ -489,7 +474,7 @@ public sealed partial class CuttingTable {
 - Boundary: `Fin.Succ` query shells lifting pure values, unqualified dimensional request scalars, scalar-only force, engagement fraction standing in for the engagement arc, and silent extrapolation past the evidence domain are deleted forms.
 
 ```csharp signature
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public readonly partial struct CutIntent {
     public Length ChipThickness { get; }
@@ -501,13 +486,9 @@ public readonly partial struct CutIntent {
     public RotationalSpeed Spindle { get; }
     public Speed Feed { get; }
 
-    // The engagement ARC as a fraction of one turn: the radial depth fixes the contact angle, so a shallow radial
-    // pass reads the short arc it actually cuts rather than the depth ratio standing in for it.
     public Ratio Engagement => Ratio.FromDecimalFractions(Math.Acos(Math.Clamp(
         1.0 - 2.0 * RadialDepth.Millimeters / Diameter.Millimeters, -1.0, 1.0)) / Math.Tau);
 
-    // A cut in contact has at least one edge in the material, so the engaged count floors at one and a fractional
-    // engagement never prices the cut below a single edge.
     public double ActiveEdges => Math.Max(1.0, Teeth * Engagement.DecimalFractions);
 
     [BoundaryAdapter]
@@ -527,10 +508,6 @@ public readonly partial struct CutIntent {
             out CutIntent intent).Admitted(intent);
 }
 
-// The ONE force receipt. `TangentialPerEdge` is the load a single cutting edge carries — the column a deflection
-// or chatter consumer reads — and `Tangential` is that load times the engaged edge count, the column a torque,
-// power, or removal-rate consumer reads. Both come from ONE evaluation of ONE model, so the two can never state
-// different forces for the same cut.
 public sealed record CuttingLoad(
     Pressure SpecificForce,
     double ActiveEdges,
@@ -545,8 +522,6 @@ public sealed record CuttingLoad(
     Length ChipThickness,
     Ratio Engagement);
 
-// The resolved columns as ONE shape, so the exact-row path and the generated path land on one target and both
-// transcriptions generate rather than drifting a column apart.
 public sealed record CuttingDataIngress(
     Pressure Kc11,
     double Mc,
@@ -556,8 +531,6 @@ public sealed record CuttingDataIngress(
     double FeedForceRatio,
     double PassiveForceRatio);
 
-// The generated path's own shape. It names its interpolated coefficient `Kc` because that value came off a
-// hardness curve rather than a measured row, and the mapper states the correspondence once.
 public sealed record GeneratedCut(
     Pressure Kc,
     double Mc,
@@ -567,12 +540,10 @@ public sealed record GeneratedCut(
     double FeedForceRatio,
     double PassiveForceRatio);
 
-// Two construction paths, ONE target. `EnabledConversions = None` forces every quantity hop through an explicit
-// user mapping, so an implicit UnitsNet conversion can never silently reinterpret a pressure or a ratio.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
     EnabledConversions = MappingConversionType.None)]
 public static partial class CuttingDataMap {
-    [MapperIgnoreSource(nameof(CuttingRow.Key))] // the resolution key, never a resolved column
+    [MapperIgnoreSource(nameof(CuttingRow.Key))]
     public static partial CuttingDataIngress FromRow(CuttingRow row);
 
     [MapProperty(nameof(GeneratedCut.Kc), nameof(CuttingDataIngress.Kc11))]
@@ -607,8 +578,6 @@ public sealed partial class CuttingData {
 
     public Fin<Pressure> Kc(Length chipThickness) => Specific(chipThickness.Millimeters);
 
-    // The ONE force evaluation. Every consumer reads its column off this receipt: deflection and chatter take the
-    // per-edge load, torque and removal rate take the engaged one.
     public Fin<CuttingLoad> Evaluate(CutIntent intent) =>
         from _ in Admit(intent)
         from specific in Specific(intent.ChipThickness.Millimeters)
@@ -619,8 +588,6 @@ public sealed partial class CuttingData {
         let passive = tangential * PassiveForceRatio
         let resultant = Force.FromNewtons(Math.Sqrt(tangential.Newtons * tangential.Newtons
             + feed.Newtons * feed.Newtons + passive.Newtons * passive.Newtons))
-        // Torque is the tangential load at the cutting RADIUS and power is that torque at the spindle's own angular
-        // rate, so the quantity algebra carries both derivations and no scale literal stands between them.
         let torque = tangential * (intent.Diameter / 2.0)
         let power = Power.FromWatts(intent.Spindle.RadiansPerSecond * torque.NewtonMeters)
         let removal = intent.AxialDepth.Millimeters * intent.RadialDepth.Millimeters
@@ -692,8 +659,6 @@ public sealed partial class CuttingData {
             evidence, operation.FeedForceRatio, operation.PassiveForceRatio)))
         select generated;
 
-    // A grade whose ultimate strength runs high against its own Kienzle seed cuts faster than the seed's family
-    // baseline, so the speed band scales on that ratio and every other band rides the operation's own trait.
     private static Fin<CutRegime> Regime(MaterialCutSpec material, OperationTrait operation) =>
         from speed in Scale(operation.SurfaceSpeed,
             material.UltimateStrength.Megapascals / material.Kc11.Megapascals)
@@ -722,9 +687,7 @@ public sealed partial class CuttingData {
 - Boundary: two-point unqualified fits, a determination computed outside the fit space, and a second least-squares body anywhere in the package are deleted forms.
 
 ```csharp signature
-// --- [REGRESSION] ---------------------------------------------------------------------------------------------------------------------------------
-// The transform a regression runs in, with its own domain guard: a logarithmic fit is undefined at or below zero,
-// so the row that names the transform is the row that names what it admits.
+// --- [REGRESSION] ----------------------------------------------------------------------
 [SmartEnum<string>]
 public sealed partial class FitSpace {
     public static readonly FitSpace Linear = new("linear",
@@ -751,12 +714,8 @@ public sealed record Regression(
     int Samples);
 
 public static class LinearFit {
-    // Two points fit a line exactly and report no residual and no determination, so the floor is the first count
-    // at which a fit says anything the data did not already state.
     public const int MinimumSamples = 3;
 
-    // Exemption: the transform, prediction, and residual passes ARE the arithmetic, so the buffers are the kernel
-    // rather than mutable state a fold could carry.
     public static Fin<Regression> Apply(Seq<(double X, double Y)> samples, FitSpace space) {
         double[] x = samples.Map(static row => row.X).ToArray();
         double[] y = samples.Map(static row => row.Y).ToArray();
@@ -771,14 +730,8 @@ public static class LinearFit {
         double[] predicted = fx.Select(value => intercept + slope * value).ToArray();
         double[] residuals = new double[fy.Length];
         TensorPrimitives.Subtract<double>(fy, predicted, residuals);
-        // The determination scores the fit in the space the fit was PERFORMED in, so a log-log regression is judged
-        // against the log-space variance it actually minimized.
         double determination = GoodnessOfFit.RSquared(predicted, fy);
         double residual = Math.Sqrt(TensorPrimitives.SumOfSquares<double>(residuals) / residuals.Length);
-        // Every SAMPLE column reads the raw observations and every MODEL column the fit space, so a consumer never
-        // mixes the two on one receipt: domain, mean, dispersion, and the terminal pair are the caller's own units,
-        // while slope, intercept, residual, and determination belong to the transform the regression ran in. The
-        // terminal pair read `fx`/`fy` and so were logarithms beside a raw mean on the same log-log result.
         Regression fitted = new(slope, intercept, residual, determination,
             x.Min(), x.Max(), TensorPrimitives.Average<double>(y), TensorPrimitives.StdDev<double>(y),
             x[^1], y[^1], y.Length);
@@ -791,8 +744,6 @@ public static class LinearFit {
     }
 }
 
-// A power law IS the shared fit read in log-log space: the coefficient is the exponentiated intercept and the
-// exponent the negated slope, so this receipt adds those two readings and forwards the rest.
 public sealed record PowerLaw(double Coefficient, double Exponent, Regression Fit) {
     public double RootMeanSquareResidual => Fit.RootMeanSquareResidual;
     public double RSquared => Fit.RSquared;
@@ -831,8 +782,6 @@ public sealed partial class CalibrationRequest {
             || !ValidityClaim.Positive(maximumResidual).Holds
             || !double.IsFinite(minimumRSquared) || minimumRSquared is < 0.0 or > 1.0
             || samples.Exists(static row => row.ChipThickness <= Length.Zero || row.SpecificForce <= Pressure.Zero)
-            // A fit over a thickness span narrower than the caller's own floor extrapolates everywhere it is later
-            // read, so the span is admitted rather than discovered at the first out-of-domain evaluation.
             || samples.Max(static row => row.ChipThickness.Millimeters)
                 - samples.Min(static row => row.ChipThickness.Millimeters) < minimumThicknessSpan.Millimeters
             ? ToolKey.Validation("cutting-calibration-request") : null;
@@ -878,8 +827,6 @@ public static class CuttingCalibration {
         FabricationTap? tap = null) =>
         from fit in PowerLawFit.Apply(request.Samples.Map(static row =>
             (row.ChipThickness.Millimeters, row.SpecificForce.Megapascals)))
-        // The fit settles before the acceptance gate, so a model REFUSED for residual still publishes the residual
-        // that refused it — an instrument that only ever sees accepted fits reports a quality the shop never had.
         let _fact = (tap ?? FabricationTap.Silent).Fire(
             FabricationFact.CuttingFit.Of(nameof(CuttingCalibration), fit))
         from model in KienzleModel.Admit(
@@ -905,7 +852,7 @@ public static class CuttingCalibration {
 - Boundary: magic classification tolerances are the deleted form.
 
 ```csharp signature
-// --- [FORM_PROJECTION] ----------------------------------------------------------------------------------------------------------------------------
+// --- [FORM_PROJECTION] -----------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class CutterFormPolicy {
     public Angle TaperFloor { get; }
@@ -944,8 +891,6 @@ public static class CutterFormProjection {
             && Math.Abs(form.TaperAngle - required.TaperAngle) <= required.TaperAngle * band.DecimalFractions;
     }
 
-    // The usable cutting length is the SHORTEST of every measured bound, because a cut deeper than any one of them
-    // leaves the flutes; the stickout closes the set where no measurement bounds it.
     private static (double Diameter, double Radius, double Taper, double Flute) Geometry(ToolAssembly assembly) => (
         Diameter: assembly.Snapshot.Metric(ToolMeasure.CuttingDiameter)
             .OrElse(assembly.Snapshot.Metric(ToolMeasure.MaximumCuttingDiameter)).IfNone(0.0),
@@ -994,7 +939,7 @@ public static class CutterFormProjection {
 - Boundary: a single transition where a lobe crosses twice, margins relative to a regime ceiling rather than the requested depth, and chatter-blind speed selection are deleted forms.
 
 ```csharp signature
-// --- [CHATTER_STABILITY] --------------------------------------------------------------------------------------------------------------------------
+// --- [CHATTER_STABILITY] ---------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ModalEvidence {
     private ModalEvidence() { }
@@ -1003,8 +948,6 @@ public abstract partial record ModalEvidence {
     public sealed record Analytical(string Model, string Revision) : ModalEvidence;
     public sealed record Vendor(string Catalog, string Revision) : ModalEvidence;
 
-    // A single hammer strike measures noise as readily as a mode, so a tap test grounds on three averages and a
-    // coherence the measurement itself reports.
     public bool Grounded => Switch(
         tapTest: static row => row.Averages >= LinearFit.MinimumSamples && row.Coherence is > 0.0 and <= 1.0,
         operational: static row => row.Spindle > RotationalSpeed.Zero,
@@ -1025,8 +968,6 @@ public sealed partial class ModalMode {
         ref double dampingRatio, ref double stiffnessNewtonsPerMeter, ref double directionalFactor,
         ref ModalEvidence evidence) =>
         validationError = !ValidityClaim.Positive(naturalFrequencyHz).Holds || !ValidityClaim.Positive(stiffnessNewtonsPerMeter).Holds
-            // Zero damping makes the compliance singular at resonance and unit damping is critical, where no lobe
-            // structure exists at all.
             || !double.IsFinite(dampingRatio) || dampingRatio is <= 0.0 or >= 1.0
             || !ValidityClaim.Positive(directionalFactor).Holds || !evidence.Grounded? ToolKey.Validation("modal-mode") : null;
 
@@ -1067,8 +1008,6 @@ public sealed partial class StabilityPolicy {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int lobes,
         ref int samplesPerLobe, ref ScalarBand spindleSearch, ref ScalarBand frequencyRatioSearch,
         ref double rootAccuracy, ref int rootIterations, ref double marginalFraction) =>
-        // The negative-compliance branch begins strictly above resonance, so a ratio search starting at or below
-        // unity samples a region where no lobe exists.
         validationError = lobes <= 0 || samplesPerLobe < LinearFit.MinimumSamples
             || frequencyRatioSearch.Minimum <= 1.0
             || !ValidityClaim.Positive(rootAccuracy).Holds || rootIterations <= 0
@@ -1121,8 +1060,6 @@ public abstract partial record StabilityEvidence {
     public sealed record Marginal(double Margin) : StabilityEvidence;
     public sealed record Unstable(double Deficit) : StabilityEvidence;
 
-    // Admissibility is a COLUMN over the generated union, so a selection filters through the total switch rather
-    // than a runtime type test a fourth band would silently fall out of.
     public bool Admits => Switch(
         stable: static _ => true,
         marginal: static _ => false,
@@ -1137,14 +1074,10 @@ public sealed record StabilityBand(int Mode, int Lobe, ScalarBand SpindleRpm, Se
 public sealed record StabilityGap(int Mode, int Lobe, StabilityGapReason Reason,
     double FrequencyRatioMinimum, double FrequencyRatioMaximum);
 
-// The recommendation every posting and toolpath consumer reads: a spindle speed, the depth that speed admits, and
-// the fraction by which that depth exceeds what the caller asked for.
 public readonly record struct StablePoint(double SpindleRpm, double DepthMm, double MarginFraction);
 
 public sealed record StabilityLobes(Seq<StabilityBand> Bands, ModalResponse Modal,
     Seq<StabilityGap> Gaps, Pressure TangentialCoefficient, ScalarBand Search, Length TargetDepth) {
-    // The margin is relative to the REQUESTED depth, not the receipt's own target: a caller asking about a
-    // shallower pass reads the headroom that pass actually has rather than the headroom the solve was framed on.
     public Option<StablePoint> Recommend(double requestedDepthMm) {
         Length requested = Length.FromMillimeters(requestedDepthMm);
         return toSeq(Bands.Bind(static band => band.Points)
@@ -1248,8 +1181,6 @@ public static class ChatterStability {
         Pressure coefficient, StabilityRequest request) =>
         from depth in Depth(ratio, response, coefficient)
         let spindle = Spindle(ratio, lobe, response, request.Teeth)
-        // The typed length ratio IS the margin: a depth limit over the target depth, both quantities, so the scale
-        // between the producer's metres and the request's millimetres never reaches this expression.
         let margin = depth / request.TargetDepth
         where ValidityClaim.All(request.Policy.SpindleSearch.Contains(spindle), ValidityClaim.Positive(margin))
         select new StabilityPoint(ratio, RotationalSpeed.FromRevolutionsPerMinute(spindle), depth,
@@ -1270,9 +1201,6 @@ public static class ChatterStability {
                 : Validation<Error, StabilityTransition>.Fail(ToolKey.Tooling("stability:root")))
             .As().ToFin();
 
-    // The root function is the margin's distance from unity. A ratio on the positive-compliance branch admits no
-    // depth at all, so its margin is zero and its offset is exactly the negative unit — the same sign the unstable
-    // side of every real crossing carries.
     private static double Offset(double ratio, ModalMode response, Pressure coefficient, StabilityRequest request) =>
         Depth(ratio, response, coefficient).Map(depth => depth / request.TargetDepth - 1.0).IfNone(-1.0);
 
@@ -1282,11 +1210,6 @@ public static class ChatterStability {
         _ => new StabilityEvidence.Unstable(1.0 - margin),
     };
 
-    // The limiting axial depth in METRES, and the producer's own definition fixes that unit: the detuned numerator
-    // is dimensionless over a stiffness in newtons per metre, so the compliance is metres per newton; the
-    // coefficient in pascals is newtons per square metre; their product with the dimensionless directional factor
-    // is reciprocal metres, and the negated reciprocal is metres. A lobe exists only where the real part of the
-    // compliance is negative, so the positive branch carries no depth rather than a sentinel.
     private static Option<Length> Depth(double frequencyRatio, ModalMode response, Pressure coefficient) {
         double detune = 1.0 - frequencyRatio * frequencyRatio;
         double compliance = detune / (response.StiffnessNewtonsPerMeter
@@ -1297,14 +1220,11 @@ public static class ChatterStability {
             : None;
     }
 
-    // The lobe's spindle speed: the chatter frequency over the tooth-passing rate, offset by the lobe number and
-    // the phase the damped compliance carries at that ratio, with one turn spelled as `Math.Tau`.
     private static double Spindle(double frequencyRatio, int lobe, ModalMode response, int teeth) =>
         SecondsPerMinute * response.NaturalFrequencyHz * frequencyRatio
             / (teeth * (lobe + (Math.Tau - Math.Atan2(2.0 * response.DampingRatio * frequencyRatio,
                 1.0 - frequencyRatio * frequencyRatio)) / Math.Tau));
 
-    // The mode's natural frequency is per SECOND and a spindle speed is per minute.
     private const double SecondsPerMinute = 60.0;
 }
 ```

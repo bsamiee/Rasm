@@ -29,7 +29,7 @@
 - Packages: RhinoCommon `Rhino.Display` (`DisplayPipelineAttributes` and its nested vocabularies — `.api/api-rhinocommon-display.md`); LanguageExt.Core (`Fin`, `Seq`, `TraverseM`); Thinktecture.Runtime.Extensions (`[SmartEnum]`, `[Union]`, `[UseDelegateFromConstructor]`, `[ComplexValueObject]`); `Rasm.Domain` (`CapabilitySet`, `CapabilityLaw`, `ICapability`, `Op`).
 
 ```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+// --- [RUNTIME_PRELUDE] -----------------------------------------------------------------
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rasm.Rhino.Document;
@@ -42,10 +42,7 @@ using Thinktecture;
 
 namespace Rasm.Rhino.Display;
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The ONE typed carrier for a single-column host-vocabulary mirror: the roster IS the host enum's own member list,
-// so a hand roster cannot drift, a non-sequential family needs no ordinal cast, and a new host member is zero rows.
-// `Of` is the boundary admission for a host READ; `Row` is the total mint over a compile-time member.
+// --- [TYPES] ---------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct HostRow<TNative> where TNative : struct, Enum {
     private HostRow(TNative native) => Native = native;
@@ -59,8 +56,6 @@ public readonly record struct HostRow<TNative> where TNative : struct, Enum {
     public static HostRow<TNative> Row(TNative native) => new(native: native);
 }
 
-// Host truth: the four thickness-use families are DISTINCT nested enums with divergent rosters, and each writer takes only
-// its own, so one shared row carries a native column per family rather than one value cast across four signatures.
 [SmartEnum<int>]
 public sealed partial class WidthUse {
     public static readonly WidthUse Object = new(
@@ -77,7 +72,6 @@ public sealed partial class WidthUse {
         naked: DisplayPipelineAttributes.SurfaceNakedEdgeThicknessUse.Pixels,
         iso: DisplayPipelineAttributes.SurfaceIsoThicknessUse.PixelsUV,
         subD: DisplayPipelineAttributes.SubDThicknessUse.Pixels);
-    // The two rows above are the axes every family shares; this one carries the extra row one family alone admits.
     public static readonly WidthUse InheritEdge = new(
         key: 2,
         curve: DisplayPipelineAttributes.CurveThicknessUse.ObjectWidth,
@@ -93,10 +87,6 @@ public sealed partial class WidthUse {
     internal DisplayPipelineAttributes.SubDThicknessUse SubD { get; }
 }
 
-// Host truth: the two shine/transparency regimes are NOT interchangeable. The display-mode attribute editor runs shine to
-// `Material.MaxShine` and transparency as a 0..100 percentage; `DisplayMaterial` runs BOTH on the unit interval. One owner
-// names each regime with its own ceiling, so a shine admitted for the editor cannot pass a material bracket's admission
-// and a unit-interval transparency cannot pass the editor's — a bare `double` bound would let either cross unnoticed.
 [SmartEnum<int>]
 public sealed partial class ShineAxis {
     public static readonly ShineAxis Editor = new(key: 0, shineCeiling: Material.MaxShine, transparencyCeiling: 100.0);
@@ -152,10 +142,6 @@ public abstract partial record Fill {
         }));
 }
 
-// The per-face override product under its stated corner law: the host publishes no back-face colour-override slot, so
-// twelve of the sixteen face-axis corners are legal and `BackLaw` refuses the other four at ADMISSION — a write skipping
-// a slot the value claimed is the silent half this law replaces. The back seat is a plain `Option` column because only
-// two rows carry one, and an absent seat is the fact, not a missing arm.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FaceAxis : ICapability<FaceAxis> {
@@ -184,15 +170,12 @@ public sealed partial class FaceAxis : ICapability<FaceAxis> {
     [UseDelegateFromConstructor] internal partial void Front(DisplayPipelineAttributes target, bool held);
     [UseDelegateFromConstructor] internal partial bool FrontRead(DisplayPipelineAttributes source);
 
-    // Accessor-backed: the generated roster fills from its own static constructor, so an eager field folds empty.
     public static CapabilityLaw<FaceAxis> FrontLaw => CapabilityLaw<FaceAxis>.Open;
     public static CapabilityLaw<FaceAxis> BackLaw => backLaw.Value;
     private static readonly Lazy<CapabilityLaw<FaceAxis>> backLaw =
         new(static () => CapabilityLaw<FaceAxis>.Forbidden(Seq(CapabilitySet<FaceAxis>.Of(Color))));
 }
 
-// The two shadow flags beside the shadow band's numeric columns, so the band's flag state rides the same set algebra
-// every other flag on this page does.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ShadowAxis : ICapability<ShadowAxis> {
@@ -208,11 +191,6 @@ public sealed partial class ShadowAxis : ICapability<ShadowAxis> {
     [UseDelegateFromConstructor] internal partial bool Read(DisplayPipelineAttributes source);
 }
 
-// The page's WHOLE boolean estate as one vocabulary: sixty-five rows, one per host flag slot, each carrying its concern,
-// its writer, and its reader. A concern's flag state is a `CapabilitySet<DisplayAxis>`; the write fold seats every domain
-// row from the set and the read fold sweeps every domain row back, so the two halves cannot drift and a new host flag is
-// ONE row no case or dispatch arm edits. The concern column rides a thunk because `ConcernRow`'s own static constructor
-// has not run when this roster fills.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class DisplayAxis : ICapability<DisplayAxis> {
@@ -233,8 +211,6 @@ public sealed partial class DisplayAxis : ICapability<DisplayAxis> {
     public static readonly DisplayAxis Isocurves = new(key: "edges.isocurves", concern: static () => ConcernRow.Edges, write: static (a, held) => a.ShowIsoCurves = held, read: static a => a.ShowIsoCurves);
     public static readonly DisplayAxis TangentEdges = new(key: "edges.tangent-edges", concern: static () => ConcernRow.Edges, write: static (a, held) => a.ShowTangentEdges = held, read: static a => a.ShowTangentEdges);
     public static readonly DisplayAxis TangentSeams = new(key: "edges.tangent-seams", concern: static () => ConcernRow.Edges, write: static (a, held) => a.ShowTangentSeams = held, read: static a => a.ShowTangentSeams);
-    // The one flag whose host slot is a triple-argument setter: the case broadcasts one value, so the row does too, and
-    // the read answers the `u` slot the write named first.
     public static readonly DisplayAxis IsoPattern = new(key: "edges.iso-pattern", concern: static () => ConcernRow.Edges, write: static (a, held) => a.SetSurfaceIsoApplyPattern(held, held, held), read: static a => { a.GetSurfaceIsoApplyPattern(out bool u, out _, out _); return u; });
     // --- [LIGHTING]
     public static readonly DisplayAxis LightColor = new(key: "lighting.light-color", concern: static () => ConcernRow.Lighting, write: static (a, held) => a.UseLightColor = held, read: static a => a.UseLightColor);
@@ -305,9 +281,6 @@ public sealed partial class DisplayAxis : ICapability<DisplayAxis> {
     [UseDelegateFromConstructor] internal partial void Write(DisplayPipelineAttributes target, bool held);
     [UseDelegateFromConstructor] internal partial bool Read(DisplayPipelineAttributes source);
 
-    // The two halves of one correspondence, folded ONCE over the concern's own domain: `Seat` writes every domain row
-    // from the set — an absent member writes `false`, which is the set's whole claim — and `Sweep` measures every domain
-    // row back, so a written concern reads back as the set that wrote it.
     internal static Unit Seat(ConcernRow concern, CapabilitySet<DisplayAxis> held, DisplayPipelineAttributes target) =>
         concern.Domain.Fold(unit, (_, row) => Op.Side(() => row.Write(target, held.Admits(row))));
 
@@ -315,7 +288,7 @@ public sealed partial class DisplayAxis : ICapability<DisplayAxis> {
         CapabilitySet<DisplayAxis>.Of(concern.Domain.Filter(row => row.Read(source)).ToArray());
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [ComplexValueObject]
 public sealed partial class ShadowBand {
     public CapabilitySet<ShadowAxis> Axes { get; }
@@ -354,10 +327,7 @@ public sealed partial class ShadowBand {
                 : new ValidationError(message: "Shadow band carries a negative or non-finite quantity.");
 }
 
-// --- [TYPES] --------------------------------------------------------------------------------
-// The fused dispatch table: one row per concern, carrying the read half as its own column, keyed on the name every
-// `Op` derives from. `Items` order IS the write order and the read order, so the symmetry law is a roster fact and the
-// reflection names both halves once derived are gone.
+// --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ConcernRow {
@@ -380,8 +350,6 @@ public sealed partial class ConcernRow {
 
     [UseDelegateFromConstructor] internal partial Fin<Appearance> Read(DisplayPipelineAttributes source, Op key);
 
-    // The concern's own flag domain, derived off the axis roster once — a case admitting a foreign concern's axis
-    // refuses here, which is the bought-back half of the deleted per-axis columns.
     internal Seq<DisplayAxis> Domain => Domains.Value.Find(this).IfNone(Seq<DisplayAxis>());
     internal bool Admits(CapabilitySet<DisplayAxis> held) => toSeq(held.Held).ForAll(row => row.Concern == this);
 
@@ -410,8 +378,6 @@ public abstract partial record Appearance {
     public sealed record Hatch(float Strength, float Width) : Appearance;
     public sealed record Pipeline(CapabilitySet<DisplayAxis> Axes, ScopeUse Workflow, float PreGamma, float PostGamma, int RealtimePasses, HostRow<DisplayPipelineAttributes.BoundingBoxDisplayMode> Bounds, HostRow<DisplayPipelineAttributes.DynamicDisplayUse> Dynamic) : Appearance;
 
-    // Every case's row in the fused table — the total fold is what names each write `Op` and what proves the sixteen
-    // cases and sixteen rows agree case for row.
     internal ConcernRow Row => Switch(
         shading: static _ => ConcernRow.Shading,
         edges: static _ => ConcernRow.Edges,
@@ -482,14 +448,11 @@ public abstract partial record Appearance {
             && row.PostGamma > 0f
             && row.RealtimePasses > 0);
 
-    // Each concern writes under its own `Op` named by its ROW key, so a mid-arm host throw carries the concern's name.
     internal static Fin<Unit> Write(Seq<Appearance> concerns, DisplayPipelineAttributes target, Op key) =>
         concerns.TraverseM(concern => Op.Of(name: $"{key.Value}.{concern.Row.Key}")
             .Catch(() => Fin.Succ(concern.Write(target)))).As()
             .Map(static _ => unit);
 
-    // The read half folds the SAME row table in the SAME order the write dispatch walks, so a written mode reads back
-    // as the concern sequence that produced it and a caller can restore what a failed commit half-wrote.
     internal static Fin<Seq<Appearance>> Of(DisplayPipelineAttributes source, Op key) =>
         Optional(source).ToFin(key.InvalidInput())
             .Bind(live => toSeq(ConcernRow.Items).TraverseM(row => Op.Of(name: $"{key.Value}.{row.Key}")
@@ -498,7 +461,6 @@ public abstract partial record Appearance {
     private static Fin<PerceptualColor> Ink(System.Drawing.Color value, Op key) =>
         PerceptualColor.OfRgb(value.R, value.G, value.B, value.A, key);
 
-    // A host boolean gates each optional colour slot, so the absent case is the flag being clear, never a sentinel colour.
     private static Fin<Option<PerceptualColor>> Ink(bool used, System.Drawing.Color value, Op key) =>
         used ? Ink(value, key).Map(Some) : Fin.Succ(Option<PerceptualColor>.None);
 
@@ -557,8 +519,6 @@ public abstract partial record Appearance {
         (a.FrontMaterialShine, a.FrontMaterialTransparency, a.FrontDiffuse, a.BackMaterialDiffuseColor) =
             (row.Shine, row.Transparency, Quant.Sys(row.Diffuse), Quant.Sys(row.BackDiffuse));
         (a.BackMaterialShine, a.BackMaterialTransparency) = (row.BackShine, row.BackTransparency);
-        // The face fold writes the seats each axis row carries: three on the front face, two on the back — the third
-        // back seat does not exist and the admission law already refused any set that would have needed it.
         _ = toSeq(FaceAxis.Items).Fold(unit, (_, axis) => Op.Side(() => axis.Front(a, row.Front.Admits(axis))));
         _ = toSeq(FaceAxis.Items).Fold(unit, (_, axis) => ignore(axis.Back.Iter(seat => seat(a, row.Back.Admits(axis)))));
         return row.Fill.Switch(
@@ -576,7 +536,6 @@ public abstract partial record Appearance {
         _ = DisplayAxis.Seat(ConcernRow.Edges, row.Axes, a);
         (a.CurveThickness, a.SurfaceEdgeThickness, a.SurfaceNakedEdgeThickness, a.SurfaceIsoThickness) = (row.Width, row.Width, row.Width, row.Width);
         (a.CurveThicknessScale, a.SurfaceEdgeThicknessScale, a.SurfaceNakedEdgeThicknessScale, a.SurfaceIsoThicknessScale) = (row.Scale, row.Scale, row.Scale, row.Scale);
-        // Each usage writer takes its own nested vocabulary, so the shared row hands each its own native column.
         a.SetCurveThicknessUsage(row.WidthUse.Curve); a.SetSurfaceEdgeThicknessUsage(row.WidthUse.Surface);
         a.SetSurfaceNakedEdgeThicknessUsage(row.WidthUse.Naked); a.SetSurfaceIsoThicknessUsage(row.WidthUse.Iso);
         a.UseSingleCurveColor = row.SingleCurveColor.IsSome;
@@ -604,7 +563,6 @@ public abstract partial record Appearance {
         (a.ViewSpecificAttributes.ThinGridLineFrequency, a.ViewSpecificAttributes.ThickGridLineFrequency) = (row.ThinFrequency, row.ThickFrequency);
         (a.ViewSpecificAttributes.ThinGridLineColor, a.ViewSpecificAttributes.ThickGridLineColor) = (Quant.Sys(row.Thin), Quant.Sys(row.Thick));
         (a.ViewSpecificAttributes.WorldAxisColorX, a.ViewSpecificAttributes.WorldAxisColorY, a.ViewSpecificAttributes.WorldAxisColorZ) = (Quant.Sys(row.X), Quant.Sys(row.Y), Quant.Sys(row.Z));
-        // The top-level grid band sits on the attribute set itself, not the view-specific nest, so both write from one case.
         (a.GridTransparency, a.GridPlaneTransparency, a.GridPlaneVisibility) = (row.GridTransparency, row.PlaneTransparency, row.PlaneVisibility.Native);
         a.GridPlaneColor = Quant.Sys(row.PlaneColor);
         (a.AxesSizePercentage, a.WorldAxesIconColorUsage) = (row.AxesSizePercent, row.AxesColorUse.Native);
@@ -634,13 +592,8 @@ public abstract partial record Appearance {
             Diffuse: diffuse, BackDiffuse: backDiffuse, Fill: fill,
             BackShine: a.BackMaterialShine, BackTransparency: a.BackMaterialTransparency,
             Front: CapabilitySet<FaceAxis>.Of(toSeq(FaceAxis.Items).Filter(axis => axis.FrontRead(a)).ToArray()),
-            // The back face publishes no colour-override slot, so the sweep folds only the seats that exist and the
-            // absent axis reads as absent — the corner the law bars can never be measured into a set.
             Back: CapabilitySet<FaceAxis>.Of(toSeq(FaceAxis.Items).Filter(axis => axis.BackRead.Map(read => read(a)).IfNone(false)).ToArray()));
 
-    // The naked-edge column is the only one whose roster separates all three width rows, so the reverse lookup keys on it.
-    // The case broadcasts one width, scale, reduction, and colour across the four edge families, so the read answers the
-    // curve/edge slots the case names first and a round trip restores every slot the concern owns.
     internal static Fin<Appearance> ReadEdges(DisplayPipelineAttributes a, Op key) =>
         from widthUse in key.Row(WidthUse.Items, a.GetSurfaceNakedEdgeThicknessUsage(), static row => row.Naked)
         from edgeUse in HostRow<DisplayPipelineAttributes.SurfaceEdgeColorUse>.Of(a.SurfaceEdgeColorUsage, key)
@@ -694,8 +647,6 @@ public abstract partial record Appearance {
             PlaneVisibility: planeVisibility, PlaneColor: planeColor,
             AxesSizePercent: a.AxesSizePercentage, AxesColorUse: axesColorUse);
 
-    // Host truth: the SubD usage column carries only the two axes every family shares, so `InheritEdge` and `Object` write
-    // identical SubD state and the read answers `Object` — the round trip preserves the state, not a row the host never held.
     internal static Fin<Appearance> ReadSubD(DisplayPipelineAttributes a, Op key) =>
         from widthUse in key.Row(WidthUse.Items, a.SubDSmoothInteriorThicknessUsage, static row => row.SubD)
         from smooth in Ink(a.SubDSmoothInteriorEdgeColor, key)
@@ -789,14 +740,13 @@ public abstract partial record Appearance {
 - Packages: RhinoCommon `Rhino.Display.DisplayModeDescription` (`.api/api-rhinocommon-display.md`); Thinktecture.Runtime.Extensions; `Rasm.Domain` (`CapabilitySet`, `ICapability`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public readonly partial struct ModeId {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
         validationError = value == Guid.Empty ? new ValidationError(message: "Mode identity is empty.") : null;
 }
 
-// The identity thunk defers the host static read past this roster's own type initialization.
 [SmartEnum<int>]
 public sealed partial class ModeKind {
     public static readonly ModeKind Wireframe = new(0, static () => ModeId.Create(DisplayModeDescription.WireframeId));
@@ -816,8 +766,6 @@ public sealed partial class ModeKind {
     public partial ModeId Id();
 }
 
-// The descriptor's seven booleans as rows, each carrying its own writer and reader: the policy band and the summary
-// projection both fold THIS table, so the two can no longer disagree about which traits a descriptor has.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class ModeTrait : ICapability<ModeTrait> {
@@ -829,7 +777,6 @@ public sealed partial class ModeTrait : ICapability<ModeTrait> {
     public static readonly ModeTrait WireframePipeline = new(key: "wireframe-pipeline", write: static (m, held) => m.WireframePipelineRequired = held, read: static m => m.WireframePipelineRequired);
     public static readonly ModeTrait PipelineLocked = new(key: "pipeline-locked", write: static (m, held) => m.PipelineLocked = held, read: static m => m.PipelineLocked);
 
-    // The set is DERIVED by sweeping a live descriptor, so the law is Open and admission is the sweep.
     public static CapabilityLaw<ModeTrait> Law => CapabilityLaw<ModeTrait>.Open;
 
     [UseDelegateFromConstructor] internal partial void Write(DisplayModeDescription target, bool held);
@@ -882,7 +829,7 @@ public abstract partial record ModePlan {
 - Growth: a table verb is one request case, one dispatch arm, and one `ModeRequest` entry case in the same pass.
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 internal abstract partial record ModeOp {
     private ModeOp() { }
@@ -939,7 +886,7 @@ internal abstract partial record ModeOp {
 - Packages: RhinoCommon `Rhino.Display.VisualAnalysisMode` and `Rhino.DocObjects.RhinoObject` (`.api/api-rhinocommon-display.md`); Riok.Mapperly (`[Mapper]`, `[MapProperty]`, `[MapPropertyFromSource]`, `[UserMapping]`); LanguageExt.Core; `Rasm.Rhino.Document` (`DocumentSession`, `SessionNeed`, `DocumentCommit`, `HostInteraction`).
 
 ```csharp signature
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 [ValueObject<Guid>(ConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit)]
 public readonly partial struct AnalysisId {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Guid value) =>
@@ -973,8 +920,6 @@ public sealed partial class AnalysisState {
     internal static AnalysisState Of(bool enabled) => enabled ? Attached : Detached;
 }
 
-// The analysis-dialog visibility axis as a keyed row: the key IS the host bool, so the write reads `.Key` and a third
-// state cannot land silently.
 [SmartEnum<bool>]
 public sealed partial class PanelState {
     public static readonly PanelState Hidden = new(key: false);
@@ -998,8 +943,6 @@ public abstract partial record AnalysisEdit {
     public sealed record AdjustMeshes(AnalysisKind Kind) : AnalysisEdit;
     public sealed record UserInterface(AnalysisKind Kind, PanelState Panel) : AnalysisEdit;
     public sealed record Range(CurvatureRange Value) : AnalysisEdit;
-    // The conduit page's two overlay owners have their one consumer HERE: a false-colour law seats on the registered
-    // `AnalysisOverlay` singleton, and a retained capsule opens through the same request family.
     public sealed record Overlay(AnalysisLaw Law) : AnalysisEdit;
     public sealed record Retain(PanelState Visibility) : AnalysisEdit;
 
@@ -1032,8 +975,6 @@ public abstract partial record ModeRequest {
     public sealed record Import(string Path, HostInteraction Interaction) : ModeRequest;
     public sealed record Export(ModeId Mode, string Path) : ModeRequest;
 
-    // The rostered bind ingress: the built-in vocabulary is the request's own discriminant, so a caller names the row
-    // and no raw built-in `Guid` crosses a call site.
     public static ModeRequest Builtin(DocumentSession session, ViewportTarget target, ModeKind kind) =>
         new Bind(Session: session, Target: target, Mode: kind.Id());
 
@@ -1059,12 +1000,9 @@ public abstract partial record ModeRequest {
         export: static row => row.Mode.Value != Guid.Empty && !string.IsNullOrWhiteSpace(row.Path));
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------
-// The detached descriptor projection: identity, both names, and the whole trait band as ONE set.
+// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct ModeSummary(ModeId Id, string Name, string LocalName, CapabilitySet<ModeTrait> Traits);
 
-// The one generated correspondence off the live descriptor: renames are rows, the identity and the trait sweep are the
-// two declared user mappings, and a member the descriptor gains lands here as one attribute row.
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target,
         EnabledConversions = MappingConversionType.All & ~MappingConversionType.ExplicitCast)]
 internal static partial class ModeMap {
@@ -1098,7 +1036,7 @@ public abstract partial record ModeReceipt : IDetachedDocumentResult {
     public sealed record Retained(RetainedOverlay Lease) : ModeReceipt;
 }
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Modes {
     public static Fin<ModeReceipt> Configure(ModeRequest request, Op? key = null) {
         Op op = key.OrDefault();
@@ -1150,10 +1088,6 @@ public static class Modes {
         op.Apply(key).Bind(modes => key.Catch(() =>
             Fin.Succ<ModeReceipt>(new ModeReceipt.Resolved(modes.Map(ModeMap.Summary).Strict()))));
 
-    // The read half is what makes the write recoverable: the prior concern set and trait band are captured before the
-    // first write, so a failed appearance write, policy write, or persist replays them onto the live descriptor. A
-    // failed replay folds onto the primary fault rather than replacing it, and the caller's next commit starts from a
-    // descriptor it can read. One write path serves both plans; the derived plan's own minted copy is deleted above.
     private static Fin<ModeReceipt> Commit(DisplayModeDescription mode, Seq<ModePolicy> policies, Seq<Appearance> concerns, Op key) =>
         from prior in Appearance.Of(mode.DisplayAttributes, key)
         from band in key.Catch(() => Fin.Succ(ModeTrait.Sweep(mode)))
@@ -1197,17 +1131,12 @@ public static class Modes {
             _ => ctx.Op.Catch(() => Fin.Succ((row.Value.Apply(), (ModeReceipt)new ModeReceipt.AnalysisRange(row.Value)).Item2)),
             ctx.Op,
             [SessionNeed.Dialog]),
-        // `Register` hands back the HOST-OWNED singleton, so the mount resolves it and seats the law on the instance
-        // the frame callbacks already read — the conduit page owns the mode, this arm is its one consumer.
         overlay: static (ctx, row) => AnalysisMode.Register<AnalysisOverlay>(ctx.Op)
             .Bind(mode => ((AnalysisOverlay)mode).Bind(row.Law)
                 .Map(_ => (ModeReceipt)new ModeReceipt.OverlayBound(AnalysisId.Create(mode.Id)))),
         retain: static (ctx, row) => RetainedOverlay.Of(row.Visibility.Key, ctx.Op)
             .Map(lease => (ModeReceipt)new ModeReceipt.Retained(lease)));
 
-    // The land-and-roll-back fold is the SPINE's: `DocumentCommit.Compensated` lands each subject whose measured prior
-    // state differs from the request, rolls every landed subject back on the first refusal, and appends rollback faults
-    // onto the initiating fault — the hand compensation walk this page carried is the deleted form.
     private static Fin<ModeReceipt> Set(DocumentSession session, Seq<Guid> objects, AnalysisKind kind, AnalysisState state, Op key) =>
         session.Demand(
             document => Analysis(kind, key).Bind(mode => objects.TraverseM(id => key.Catch(() =>

@@ -48,11 +48,11 @@ from rasm.artifacts.media.container import CANON, MEDIA_RESIDUE, MediaFault, _la
 lazy import av
 lazy import av.error
 lazy import av.filter
-lazy import av.filter.loudnorm  # stats(loudnorm_args, stream) -> JSON bytes, the two-pass R128 measurement
+lazy import av.filter.loudnorm
 lazy from rasm.artifacts.media.audio import _decode_audio
-lazy from rasm.artifacts.media.container import _media_fault, _worker  # the plane's ONE worker aspect, generic over its payload
-lazy from rasm.artifacts.media.filtergraph import _drained, media_filters  # the one libavfilter drain kernel; av.filter.filters_available as the capability probe
-lazy from rasm.artifacts.graphic.raster.process import _save_array  # array -> PNG RasterFact; .data is the encoded bytes
+lazy from rasm.artifacts.media.container import _media_fault, _worker
+lazy from rasm.artifacts.media.filtergraph import _drained, media_filters
+lazy from rasm.artifacts.graphic.raster.process import _save_array
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -65,9 +65,6 @@ type AnalysisTag = Literal["waveform", "spectrogram", "loudness", "silence", "bl
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# an op routes NATIVE only when its `_NATIVE` row is NON-EMPTY and present in `media_filters()`. The empty row is the
-# substitute-only declaration: PyAV frames expose side_data but not the lavfi.* frame metadata silencedetect/blackdetect
-# write, so those two ops fold the numpy span algebra as their only arm.
 _NATIVE: frozendict[AnalysisTag, frozenset[str]] = frozendict({
     "waveform": frozenset({"showwavespic"}),
     "spectrogram": frozenset({"showspectrumpic"}),
@@ -82,10 +79,10 @@ _NATIVE: frozendict[AnalysisTag, frozenset[str]] = frozendict({
 _STFT_WINDOW: int = 1024
 _STFT_HOP: int = 256
 
-_MAX_EXTENT: int = 8192  # waveform/spectrogram render ceiling — a pic filter allocates width*height*4 up front
+_MAX_EXTENT: int = 8192
 _MAX_THUMBNAILS: int = 64
-_MAX_SPAN_SECONDS: float = 3600.0  # silence/black minimum-duration ceiling; a span past the hour cap is a mis-keyed knob
-_MAX_FLAG_FRAMES: int = 1_000_000  # per-frame flag decode budget — a source past it is hostile or mis-keyed, refused rather than truncated
+_MAX_SPAN_SECONDS: float = 3600.0
+_MAX_FLAG_FRAMES: int = 1_000_000
 
 
 class AnalysisArm(StrEnum):
@@ -113,9 +110,6 @@ class AudioMetric(StrEnum):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-# this page's ONE raise anchor: the fold is a single fence over the whole op union, so the op tag is request data the
-# `MediaFault` case already discriminates rather than a coordinate the subject re-spells per op. TRANSIENT — a
-# worker death and a codec refusal are defects a re-issue may clear.
 ANALYSIS_FOLD: Final[FaultRow[ArtifactsLeg]] = FaultRow(
     leg=ArtifactsLeg.ANALYSIS, point="fold", arm="boundary", defect="analysis-fold", retriability=TRANSIENT
 )
@@ -125,22 +119,22 @@ RAISES: Final[Block[FaultRow[ArtifactsLeg]]] = rostered(Block.of_seq([ANALYSIS_F
 
 
 class LoudnessTarget(Struct, frozen=True):
-    i: float = -24.0  # integrated-LUFS target the two-pass measurement gates against
-    tp: float = -2.0  # true-peak dBTP ceiling
-    lra: float = 7.0  # loudness range
+    i: float = -24.0
+    tp: float = -2.0
+    lra: float = 7.0
 
 
 @tagged_union(frozen=True)
 class AnalysisOp:
     tag: AnalysisTag = tag()
-    waveform: tuple[bytes, tuple[int, int]] = case()  # (container bytes, (width, height))
+    waveform: tuple[bytes, tuple[int, int]] = case()
     spectrogram: tuple[bytes, tuple[int, int]] = case()
     loudness: tuple[bytes, LoudnessTarget] = case()
-    silence: tuple[bytes, float, float] = case()  # (bytes, threshold_db, min_seconds)
-    black_detect: tuple[bytes, float, float] = case()  # (bytes, luma threshold 0..1, min_seconds)
-    scene_detect: tuple[bytes, float] = case()  # (bytes, scene threshold 0..1)
-    thumbnail: tuple[bytes, int] = case()  # (bytes, thumbnail count)
-    metrics: tuple[bytes, tuple[AudioMetric, ...]] = case()  # sorted dedup at the constructor keeps the identity bytes canonical
+    silence: tuple[bytes, float, float] = case()
+    black_detect: tuple[bytes, float, float] = case()
+    scene_detect: tuple[bytes, float] = case()
+    thumbnail: tuple[bytes, int] = case()
+    metrics: tuple[bytes, tuple[AudioMetric, ...]] = case()
 
     @staticmethod
     def Waveform(blob: bytes, size: tuple[int, int] = (960, 240), /) -> "AnalysisOp":
@@ -176,8 +170,8 @@ class AnalysisOp:
 
 
 class AnalysisEvidence(Struct, frozen=True):
-    container: str  # "png" (image) or "json" (measurement)
-    codec: str  # "analysis-native" | "analysis-substitute"
+    container: str
+    codec: str
     duration: float
     byte_count: int
     count: int
@@ -195,14 +189,11 @@ type AnalysisProduct = tuple[bytes, AnalysisEvidence]
 
 class Analysis(Struct, frozen=True):
     op: AnalysisOp
-    # `lane` arrives projected via LanePolicy.of(context) at the composition root — a capacity literal has no owner.
     lane: LanePolicy
-    parents: tuple[ContentKey, ...] = ()  # the upstream media producer keys the planner wires
+    parents: tuple[ContentKey, ...] = ()
 
     @staticmethod
     def of(op: AnalysisOp, parents: tuple[ContentKey, ...] = (), /, *, lane: LanePolicy) -> "Analysis":
-        # admission canonicalizes the identity payload — a directly-constructed metrics case with duplicate or
-        # unordered members lands on the same `_key` the sorted-dedup factory mints, one owner key per semantic request.
         match op:
             case AnalysisOp(tag="metrics", metrics=(blob, members)):
                 return Analysis(op=AnalysisOp(metrics=(blob, tuple(sorted(set(members))))), lane=lane, parents=parents)
@@ -217,9 +208,6 @@ class Analysis(Struct, frozen=True):
         return ContentIdentity.key(f"media.analysis-{self.op.tag}", CANON.encode(self.op))
 
     async def _emit(self) -> RuntimeRail[ArtifactReceipt]:
-        # the member `MediaFault` crosses WHOLE on `BoundaryFault.domain` (`Work[ArtifactReceipt]` forbids an inner
-        # Result), so its case and kwargs stay matchable; the retired `f"{tag}:{fault}"` collapse handed every case
-        # to one string and left a consumer nothing to gate on.
         railed = await async_boundary(ANALYSIS_FOLD, self._folded, catch=MEDIA_RESIDUE)
         return railed.bind(
             lambda res: res.map_error(lambda fault: BoundaryFault(domain=(ANALYSIS_FOLD.subject, fault)))
@@ -229,15 +217,11 @@ class Analysis(Struct, frozen=True):
         return (await self._dispatch()).map(self._keyed)
 
     def _keyed(self, product: AnalysisProduct, /) -> ArtifactReceipt:
-        # receipt.slot threads the PRE-RUN node key (the core/receipt elision law); the product address rides the band.
         blob, ev = product
         address = ContentIdentity.key(ev.container, blob)
         return ArtifactReceipt.Media(self._key, ev.container, ev.codec, ev.duration, ev.byte_count, ev.count, 0, ev.facts | {"address": address.hex})
 
     async def _dispatch(self, /) -> Result[AnalysisProduct, MediaFault]:
-        # worker derives its own AnalysisArm from media_filters() on the process side, so av stays worker-scope.
-        # analysis is a pure decode-and-measure over the source blob — no external write, so a worker-death
-        # replay is safe by declaration and idempotent=True is truth, not convention.
         outcome = await self.lane.offload(Kernel.of(_analyze, KernelTrait.HOSTILE, idempotent=True), self.op)
         return outcome.map_error(_lapsed).bind(lambda inner: inner)
 
@@ -250,12 +234,7 @@ def _source_seconds(reader: object, /) -> float:
 
 
 def _audio_image(reader: object, graph: object, /) -> "Option[NDArray[np.uint8]]":
-    # audio->image native arm: push each decoded AudioFrame into a showwavespic/showspectrumpic graph, flush, and
-    # drain the rendered image VideoFrame through the one `_drained` kernel — a page-local `graph.pull()` leaks the
-    # drain sentinel into `_analyze`'s FFmpegError capture as a codec fault. A pic filter emits its single image at
-    # flush (no metadata read, the frame IS the image), so the drained tail's last frame carries it and an empty
-    # drain is structural absence the caller rails, never a sentinel.
-    for frame in reader.decode(audio=0):  # Exemption: imperative graph drive over one owned filter handle
+    for frame in reader.decode(audio=0):
         graph.push(frame)
     graph.push(None)
     rendered = tuple(_drained(graph))
@@ -263,8 +242,6 @@ def _audio_image(reader: object, graph: object, /) -> "Option[NDArray[np.uint8]]
 
 
 def _mono(decoded: "tuple[tuple[Pcm, ...], int, str]", /) -> "NDArray[np.float64]":
-    # packed (1, samples*channels) blocks reshape to frames x channels off the decoded layout before the downmix,
-    # so interleaved stereo never reads as double-length mono and every mono.size-derived duration counts frames.
     blocks, _rate, layout = decoded
 
     def normalized(block: "Pcm", /) -> "NDArray[np.float64]":
@@ -273,7 +250,6 @@ def _mono(decoded: "tuple[tuple[Pcm, ...], int, str]", /) -> "NDArray[np.float64
         return raw.astype(np.float64) / scale
 
     channels = av.AudioLayout(layout).nb_channels
-    # blocks are non-empty by _decode_audio's admission — an empty decode rails invalid at the seam, never a synthetic sample here
     return np.concatenate([normalized(block).reshape(-1, channels).mean(axis=1) for block in blocks])
 
 
@@ -287,7 +263,6 @@ def _envelope(mono: "NDArray[np.float64]", window: int, /) -> tuple["NDArray[np.
 
 
 def _stft(mono: "NDArray[np.float64]", /) -> "NDArray[np.float64]":
-    # framed rfft over hanning-windowed hops -> log-magnitude grid; compute/analysis/signal#DSP is the richer scipy path.
     win = np.hanning(_STFT_WINDOW)
     hops = tuple(range(0, max(mono.size - _STFT_WINDOW, 0) + 1, _STFT_HOP))
     grid = np.stack([np.abs(np.fft.rfft(win * mono[h : h + _STFT_WINDOW])) for h in hops], axis=1) if hops else np.zeros((_STFT_WINDOW // 2 + 1, 1))
@@ -295,13 +270,11 @@ def _stft(mono: "NDArray[np.float64]", /) -> "NDArray[np.float64]":
 
 
 def _block_power(mono: "NDArray[np.float64]", rate: int, seconds: float, hop: float, /) -> "NDArray[np.float64]":
-    # mean-square power per gating block: sliding windows of `seconds` advanced by `hop`, strided view with no copy.
     width, step = max(int(seconds * rate), 1), max(int(hop * rate), 1)
     return np.array([float((mono * mono).mean())]) if mono.size < width else (sliding_window_view(mono, width)[::step] ** 2).mean(axis=-1)
 
 
 def _gated_loudness(mono: "NDArray[np.float64]", rate: int, /) -> tuple[float, float]:
-    # Absolute and relative block gates produce an explicitly unweighted fallback, never R128 evidence.
     lk = -0.691 + 10.0 * np.log10(_block_power(mono, rate, 0.4, 0.1) + 1e-12)
     absolute = lk > -70.0
     relative = (-0.691 + 10.0 * np.log10(np.power(10.0, (lk[absolute] + 0.691) / 10.0).mean() + 1e-12) - 10.0) if absolute.any() else -70.0
@@ -314,7 +287,6 @@ def _gated_loudness(mono: "NDArray[np.float64]", rate: int, /) -> tuple[float, f
 
 
 def _flag_spans(flags: "NDArray[np.bool_]", step: float, min_seconds: float, /) -> tuple[tuple[float, float], ...]:
-    # ONE run algebra silence and black-detect share: maximal True runs longer than min_seconds become spans.
     runs = ((run[0][0], run[-1][0] + 1) for flag, group in groupby(enumerate(flags.tolist()), key=itemgetter(1)) if flag and (run := list(group)))
     return tuple((lo * step, hi * step) for lo, hi in runs if (hi - lo) * step >= min_seconds)
 
@@ -325,7 +297,7 @@ def _scenes_native(reader: object, threshold: float, /) -> tuple[float, ...]:
     graph.link_nodes(src, graph.add("select", f"gt(scene,{threshold})"), graph.add("buffersink"))
     graph.configure()
     cuts: list[float] = []
-    for frame in reader.decode(video=0):  # Exemption: imperative graph drive over one owned filter handle
+    for frame in reader.decode(video=0):
         graph.push(frame)
         cuts.extend(float(cut.pts * cut.time_base) if cut.pts is not None else 0.0 for cut in _drained(graph))
     graph.push(None)
@@ -334,14 +306,13 @@ def _scenes_native(reader: object, threshold: float, /) -> tuple[float, ...]:
 
 
 def _frame_delta(prior: "NDArray[np.uint8]", current: "NDArray[np.uint8]", /) -> float:
-    # normalized mean absolute difference, the numpy scene floor; measure Transform.SSIM is the perceptual-grade seam.
     return float(np.abs(current.astype(np.int16) - prior.astype(np.int16)).mean() / 255.0)
 
 
 def _scenes_substitute(reader: object, threshold: float, /) -> tuple[float, ...]:
     prior: "NDArray[np.uint8] | None" = None
     cuts: list[float] = []
-    for frame in reader.decode(video=0):  # Exemption: sequential decode holds one prior frame; a fold would retain the stream
+    for frame in reader.decode(video=0):
         current = frame.to_ndarray(format="rgb24")
         if prior is not None and _frame_delta(prior, current) > threshold:
             cuts.append(float(frame.pts * frame.time_base) if frame.pts is not None else 0.0)
@@ -350,7 +321,6 @@ def _scenes_substitute(reader: object, threshold: float, /) -> tuple[float, ...]
 
 
 def _colormap(grid: "NDArray[np.float64]", /) -> "NDArray[np.uint8]":
-    # normalize a magnitude/level grid to 0..255 and lift to the rgba raster `_save_array` encodes.
     span = float(grid.max() - grid.min())
     norm = np.clip((grid - grid.min()) / (span + 1e-9), 0.0, 1.0)
     gray = (norm * 255.0).astype(np.uint8)
@@ -358,7 +328,6 @@ def _colormap(grid: "NDArray[np.float64]", /) -> "NDArray[np.uint8]":
 
 
 def _sheet(picked: tuple["NDArray[np.uint8]", ...], /) -> "NDArray[np.uint8]":
-    # numpy contact sheet: a near-square grid padded with black cells; graphic/raster io's Montage is the styled owner.
     columns = max(int(np.ceil(np.sqrt(len(picked)))), 1)
     rows = int(np.ceil(len(picked) / columns))
     padded = (*picked, *(np.zeros_like(picked[0]),) * (rows * columns - len(picked)))
@@ -375,7 +344,6 @@ def _wave_facts(mono: "NDArray[np.float64]", /) -> frozendict[str, float | str]:
 
 
 def _spectral_facts(mono: "NDArray[np.float64]", rate: int, /) -> frozendict[str, float | str]:
-    # a self-contained spectral-centroid read; compute/analysis/transform#TRANSFORM SpectralReadout.CENTROID is the deeper seam.
     grid = np.power(10.0, _stft(mono) / 20.0)
     freqs = np.fft.rfftfreq(_STFT_WINDOW, 1.0 / rate)
     centroid = float((freqs[:, np.newaxis] * grid).sum() / (grid.sum() + 1e-9))
@@ -385,15 +353,8 @@ def _spectral_facts(mono: "NDArray[np.float64]", rate: int, /) -> frozendict[str
 _SPECTRAL_FAMILY: frozenset[AudioMetric] = frozenset({
     AudioMetric.CENTROID_HZ, AudioMetric.ROLLOFF_HZ, AudioMetric.BANDWIDTH_HZ, AudioMetric.FLATNESS,
 })
-# the time family is the DERIVED complement, one primary correspondence and no hand-kept parallel roster: the two
-# families partition `AudioMetric` by construction, so `_metrics`'s dependency-aware evaluation can never leave a
-# member unevaluated and its `values[metric]` read stays total.
 _TIME_FAMILY: frozenset[AudioMetric] = frozenset(AudioMetric) - _SPECTRAL_FAMILY
 
-# one derived import-time witness over this page's table-plus-vocabulary pairs, the `scene/spec#SPEC` `_COVERED`
-# form: `AnalysisArm.of` indexes `_NATIVE` by op tag, so an unruled `AnalysisTag` is a runtime `KeyError` before
-# any route resolves, and the family pair proves the partition `_metrics` folds over. The EMPTY `_NATIVE` row is
-# the substitute-only declaration and is covered by presence, never by non-emptiness.
 _COVERED: tuple[tuple[frozenset[object], frozenset[object]], ...] = (
     (frozenset(_NATIVE), frozenset(get_args(AnalysisTag))),
     (_TIME_FAMILY | _SPECTRAL_FAMILY, frozenset(AudioMetric)),
@@ -430,9 +391,6 @@ def _spectral_family(mono: "NDArray[np.float64]", rate: int, /) -> frozendict[Au
 
 
 def _metrics(decoded: "tuple[tuple[Pcm, ...], int, str]", selected: tuple[AudioMetric, ...], /) -> AnalysisProduct:
-    # dependency-aware evaluation: the time family reads only the mono block and the spectral family alone pays the
-    # windowed FFT — each computed IFF the selection names one of its members, so a partial selection skips
-    # every unrelated statistic while the payload format stays byte-identical for the same selection.
     _blocks, rate, _layout = decoded
     mono = _mono(decoded)
     wanted = frozenset(selected)
@@ -445,8 +403,6 @@ def _metrics(decoded: "tuple[tuple[Pcm, ...], int, str]", selected: tuple[AudioM
 
 
 def _admitted(op: AnalysisOp, /) -> Result[AnalysisOp, MediaFault]:
-    # every knob proves BOTH edges — the declared ceilings above are the upper bounds — and every metrics
-    # member proves `AudioMetric` membership here, so `_metrics` dispatch is total and never raises `KeyError`.
     match op:
         case AnalysisOp(tag="waveform", waveform=(blob, (width, height))) | AnalysisOp(tag="spectrogram", spectrogram=(blob, (width, height))):
             valid = bool(blob) and 0 < width <= _MAX_EXTENT and 0 < height <= _MAX_EXTENT
@@ -461,8 +417,6 @@ def _admitted(op: AnalysisOp, /) -> Result[AnalysisOp, MediaFault]:
         case AnalysisOp(tag="thumbnail", thumbnail=(blob, count)):
             valid = bool(blob) and 0 < count <= _MAX_THUMBNAILS
         case AnalysisOp(tag="metrics", metrics=(blob, metrics)):
-            # canonical-tuple equality also rejects duplicates and unsorted members, so a directly-constructed
-            # op can never reach key derivation on a noncanonical identity payload the `of` factory would dedup.
             valid = bool(blob) and bool(metrics) and all(isinstance(metric, AudioMetric) for metric in metrics) and metrics == tuple(sorted(set(metrics)))
         case _ as unreachable:
             assert_never(unreachable)
@@ -471,7 +425,6 @@ def _admitted(op: AnalysisOp, /) -> Result[AnalysisOp, MediaFault]:
 
 @_worker
 def _analyze(op: AnalysisOp, /) -> Result[AnalysisProduct, MediaFault]:
-    # arm derivation runs HERE, on the process side, so the av registry probe never loads on the event loop.
     try:
         return _admitted(op).bind(lambda admitted: _analyzed(admitted, AnalysisArm.of(op.tag, media_filters())))
     except ImportError as exc:
@@ -481,8 +434,6 @@ def _analyze(op: AnalysisOp, /) -> Result[AnalysisProduct, MediaFault]:
 
 
 def _analyzed(op: AnalysisOp, arm: AnalysisArm, /) -> Result[AnalysisProduct, MediaFault]:
-    # one capability-routed body per op: the native arm runs the FFmpeg filter, the substitute the numpy floor; both
-    # fold into one AnalysisProduct keyed and carrying the measured band onto the shared Media case.
     match op:
         case AnalysisOp(tag="waveform", waveform=(blob, size)) | AnalysisOp(tag="spectrogram", spectrogram=(blob, size)):
             return _rendered(op.tag, blob, size, arm)
@@ -532,7 +483,6 @@ def _rendered_product(
     duration: float,
     /,
 ) -> AnalysisProduct:
-    # count is 1 — one rendered image; feeding a pixel dimension into the receipt frame-count slot is false evidence.
     _blocks, rate, _layout = decoded
     mono = _mono(decoded)
     facts = _spectral_facts(mono, rate) if kind == "spectrogram" else _wave_facts(mono)
@@ -607,10 +557,6 @@ def _black(blob: bytes, luma: float, min_seconds: float, /) -> Result[AnalysisPr
         if not reader.streams.video:
             return Error(MediaFault(invalid="black detection requires a video stream"))
         rate = float(reader.streams.video[0].average_rate or 24)
-        # `gray` is swscale's Rec. 601 luma plane — the Y the blackdetect filter gates on — where an equal-weight
-        # rgb24 mean over-lights saturated blues and under-lights greens against the luma threshold; np.fromiter
-        # streams one bool per decoded frame under the _MAX_FLAG_FRAMES budget, and _flag_spans stays the shared
-        # maximal-run algebra the silence arm folds through.
         flags = (frame.to_ndarray(format="gray").mean() / 255.0 < luma for frame in islice(reader.decode(video=0), _MAX_FLAG_FRAMES + 1))
         dark = np.fromiter(flags, dtype=np.bool_)
         if dark.size > _MAX_FLAG_FRAMES:
@@ -640,7 +586,7 @@ def _thumbnail(blob: bytes, count: int, arm: AnalysisArm, /) -> Result[AnalysisP
                 graph.link_nodes(src, graph.add("thumbnail", f"n={max(1, (video.frames or count) // count)}"), graph.add("buffersink"))
                 graph.configure()
                 picked: list["NDArray[np.uint8]"] = []
-                for frame in reader.decode(video=0):  # Exemption: imperative graph drive over one owned filter handle
+                for frame in reader.decode(video=0):
                     graph.push(frame)
                     picked.extend(pulled.to_ndarray(format="rgb24") for pulled in _drained(graph))
                 graph.push(None)
